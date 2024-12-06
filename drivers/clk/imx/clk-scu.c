@@ -596,7 +596,7 @@ static int __maybe_unused imx_clk_scu_suspend(struct device *dev)
 		clk->rate = clk_scu_recalc_rate(&clk->hw, 0);
 	else
 		clk->rate = clk_hw_get_rate(&clk->hw);
-	clk->is_enabled = clk_hw_is_enabled(&clk->hw);
+	clk->is_enabled = clk_hw_is_prepared(&clk->hw);
 
 	if (clk->parent)
 		dev_dbg(dev, "save parent %s idx %u\n", clk_hw_get_name(clk->parent),
@@ -669,6 +669,12 @@ static int imx_clk_scu_attach_pd(struct device *dev, u32 rsrc_id)
 	    rsrc_id == IMX_SC_R_A72)
 		return 0;
 
+	/*
+	 * Temp fix to avoid the uart clk attached pd power off uart_0
+	 */
+	if (rsrc_id == IMX_SC_R_UART_0 && xen_initial_domain())
+			return 0;
+
 	return of_genpd_add_device(&genpdspec, dev);
 }
 
@@ -677,9 +683,16 @@ static bool imx_clk_is_resource_owned(u32 rsrc)
 	/*
 	 * A-core resources are special. SCFW reports they are not "owned" by
 	 * current partition but linux can still adjust them for cpufreq.
+	 *
+	 * So force this to return false when running as a VM guest and always
+	 * true otherwise.
 	 */
-	if (rsrc == IMX_SC_R_A53 || rsrc == IMX_SC_R_A72 || rsrc == IMX_SC_R_A35)
+	if (rsrc == IMX_SC_R_A53 || rsrc == IMX_SC_R_A72 ||
+	    rsrc == IMX_SC_R_A35) {
+		if (xen_domain() && !xen_initial_domain())
+			return false;
 		return true;
+	}
 
 	return imx_sc_rm_is_resource_owned(ccm_ipc_handle, rsrc);
 }

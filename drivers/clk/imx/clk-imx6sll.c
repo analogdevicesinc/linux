@@ -350,6 +350,10 @@ static void __init imx6sll_clocks_init(struct device_node *ccm_node)
 	clk_set_parent(hws[IMX6SLL_CLK_PERIPH]->clk, hws[IMX6SLL_CLK_PERIPH_CLK2]->clk);
 	clk_set_parent(hws[IMX6SLL_CLK_PERIPH_PRE]->clk, hws[IMX6SLL_CLK_PLL2_BUS]->clk);
 	clk_set_parent(hws[IMX6SLL_CLK_PERIPH]->clk, hws[IMX6SLL_CLK_PERIPH_PRE]->clk);
+	/* Configure EPDC clocks */
+	clk_set_rate(hws[IMX6SLL_CLK_PLL3_PFD2]->clk, 320000000);
+	clk_set_parent(hws[IMX6SLL_CLK_EPDC_PRE_SEL]->clk,
+		hws[IMX6SLL_CLK_PLL3_PFD2]->clk);
 
 	clk_set_rate(hws[IMX6SLL_CLK_AHB]->clk, 132000000);
 }

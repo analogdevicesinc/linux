@@ -3,6 +3,7 @@
  * Copyright 2021 NXP.
  */
 
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/err.h>
 #include <linux/io.h>
@@ -33,6 +34,7 @@ static u32 share_count_sai2;
 static u32 share_count_sai3;
 static u32 share_count_mub;
 static u32 share_count_pdm;
+static u32 share_count_spdif;
 
 static const char * const a55_core_sels[] = {"a55_alt", "arm_pll"};
 static const char *parent_names[MAX_SEL][4] = {
@@ -235,17 +237,18 @@ static const struct imx93_clk_ccgr {
 	{ IMX93_CLK_ISI_GATE,		"isi",		"media_apb_root",	0x96c0, },
 	{ IMX93_CLK_NIC_MEDIA_GATE,	"nic_media",	"media_axi_root",	0x9700, },
 	{ IMX93_CLK_USB_CONTROLLER_GATE, "usb_controller", "hsio_root",		0x9a00, },
-	{ IMX93_CLK_USB_TEST_60M_GATE,	"usb_test_60m",	"hsio_usb_test_60m_root", 0x9a40, },
+	{ IMX93_CLK_USB_TEST_60M_GATE,	"usb_test_60m",	"hsio_usb_test_60m_root", 0x9a40, CLK_IGNORE_UNUSED },
 	{ IMX93_CLK_HSIO_TROUT_24M_GATE, "hsio_trout_24m", "osc_24m",		0x9a80, },
 	{ IMX93_CLK_PDM_GATE,		"pdm",		"pdm_root",		0x9ac0, 0, &share_count_pdm},
 	{ IMX93_CLK_PDM_IPG,		"pdm_ipg_clk",	"bus_aon_root",		0x9ac0, 0, &share_count_pdm},
 	{ IMX93_CLK_MQS1_GATE,		"mqs1",		"sai1_root",		0x9b00, },
 	{ IMX93_CLK_MQS2_GATE,		"mqs2",		"sai3_root",		0x9b40, },
 	{ IMX93_CLK_AUD_XCVR_GATE,	"aud_xcvr",	"audio_xcvr_root",	0x9b80, },
-	{ IMX93_CLK_SPDIF_GATE,		"spdif",	"spdif_root",		0x9c00, },
-	{ IMX93_CLK_HSIO_32K_GATE,	"hsio_32k",	"osc_32k",		0x9dc0, },
-	{ IMX93_CLK_ENET1_GATE,		"enet1",	"wakeup_axi_root",	0x9e00, },
-	{ IMX93_CLK_ENET_QOS_GATE,	"enet_qos",	"wakeup_axi_root",	0x9e40, },
+	{ IMX93_CLK_SPDIF_IPG,		"spdif_ipg_clk", "bus_wakeup_root",	0x9c00, 0, &share_count_spdif},
+	{ IMX93_CLK_SPDIF_GATE,		"spdif",	"spdif_root",		0x9c00, 0, &share_count_spdif},
+	{ IMX93_CLK_HSIO_32K_GATE,	"hsio_32k",	"osc_32k",		0x9dc0, CLK_IGNORE_UNUSED, },
+	{ IMX93_CLK_ENET1_GATE,		"enet1",	"wakeup_axi_root",	0x9e00, CLK_IGNORE_UNUSED, },
+	{ IMX93_CLK_ENET_QOS_GATE,	"enet_qos",	"wakeup_axi_root",	0x9e40, CLK_IGNORE_UNUSED, },
 	/* Critical because clk accessed during CPU idle */
 	{ IMX93_CLK_SYS_CNT_GATE,	"sys_cnt",	"osc_24m",		0x9e80, CLK_IS_CRITICAL},
 	{ IMX93_CLK_TSTMR1_GATE,	"tstmr1",	"bus_aon_root",		0x9ec0, },
@@ -256,6 +259,34 @@ static const struct imx93_clk_ccgr {
 
 static struct clk_hw_onecell_data *clk_hw_data;
 static struct clk_hw **clks;
+
+static int imx_clk_init_on(struct device_node *np,
+				  struct clk_hw * const clks[])
+{
+	u32 *array;
+	int i, ret, elems;
+
+	elems = of_property_count_u32_elems(np, "init-on-array");
+	if (elems < 0)
+		return elems;
+	array = kcalloc(elems, sizeof(elems), GFP_KERNEL);
+	if (!array)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, "init-on-array", array, elems);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < elems; i++) {
+		ret = clk_prepare_enable(clks[array[i]]->clk);
+		if (ret)
+			pr_err("clk_prepare_enable failed %d\n", array[i]);
+	}
+
+	kfree(array);
+
+	return 0;
+}
 
 static int imx93_clocks_probe(struct platform_device *pdev)
 {
@@ -342,6 +373,8 @@ static int imx93_clocks_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to register clks for i.MX93\n");
 		goto unregister_hws;
 	}
+
+	imx_clk_init_on(np, clks);
 
 	imx_register_uart_clocks();
 

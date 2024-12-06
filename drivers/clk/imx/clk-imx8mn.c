@@ -4,6 +4,7 @@
  */
 
 #include <dt-bindings/clock/imx8mn-clock.h>
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/err.h>
 #include <linux/io.h>
@@ -12,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <soc/imx/soc.h>
 
 #include "clk.h"
 
@@ -316,12 +318,42 @@ static const char * const clkout_sels[] = {"audio_pll1_out", "audio_pll2_out", "
 static struct clk_hw_onecell_data *clk_hw_data;
 static struct clk_hw **hws;
 
+static int imx_clk_init_on(struct device_node *np,
+				  struct clk_hw * const clks[])
+{
+	u32 *array;
+	int i, ret, elems;
+
+	elems = of_property_count_u32_elems(np, "init-on-array");
+	if (elems < 0)
+		return elems;
+	array = kcalloc(elems, sizeof(elems), GFP_KERNEL);
+	if (!array)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, "init-on-array", array, elems);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < elems; i++) {
+		ret = clk_prepare_enable(clks[array[i]]->clk);
+		if (ret)
+			pr_err("clk_prepare_enable failed %d\n", array[i]);
+	}
+
+	kfree(array);
+
+	return 0;
+}
+
 static int imx8mn_clocks_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	void __iomem *base;
 	int ret;
+
+	check_m4_enabled();
 
 	clk_hw_data = devm_kzalloc(dev, struct_size(clk_hw_data, hws,
 					  IMX8MN_CLK_END), GFP_KERNEL);
@@ -470,7 +502,7 @@ static int imx8mn_clocks_probe(struct platform_device *pdev)
 	hws[IMX8MN_CLK_DRAM_ALT] = imx8m_clk_hw_fw_managed_composite("dram_alt", imx8mn_dram_alt_sels, base + 0xa000);
 	hws[IMX8MN_CLK_DRAM_APB] = imx8m_clk_hw_fw_managed_composite_critical("dram_apb", imx8mn_dram_apb_sels, base + 0xa080);
 
-	hws[IMX8MN_CLK_DISP_PIXEL] = imx8m_clk_hw_composite_flags("disp_pixel", imx8mn_disp_pixel_sels, base + 0xa500, CLK_SET_RATE_PARENT);
+	hws[IMX8MN_CLK_DISP_PIXEL] = imx8m_clk_hw_composite_flags("disp_pixel", imx8mn_disp_pixel_sels, base + 0xa500, 0);
 	hws[IMX8MN_CLK_SAI2] = imx8m_clk_hw_composite("sai2", imx8mn_sai2_sels, base + 0xa600);
 	hws[IMX8MN_CLK_SAI3] = imx8m_clk_hw_composite("sai3", imx8mn_sai3_sels, base + 0xa680);
 	hws[IMX8MN_CLK_SAI5] = imx8m_clk_hw_composite("sai5", imx8mn_sai5_sels, base + 0xa780);
@@ -602,6 +634,10 @@ static int imx8mn_clocks_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to register hws for i.MX8MN\n");
 		goto unregister_hws;
 	}
+
+	imx_clk_init_on(np, hws);
+
+	clk_set_parent(hws[IMX8MN_CLK_AUDIO_AHB]->clk, hws[IMX8MN_SYS_PLL1_800M]->clk);
 
 	imx_register_uart_clocks();
 

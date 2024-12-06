@@ -4,7 +4,9 @@
  */
 
 #include <dt-bindings/clock/imx8mm-clock.h>
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/debugfs.h>
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -12,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <soc/imx/soc.h>
 
 #include "clk.h"
 
@@ -248,12 +251,6 @@ static const char *imx8mm_usdhc3_sels[] = {"osc_24m", "sys_pll1_400m", "sys_pll1
 static const char *imx8mm_csi1_core_sels[] = {"osc_24m", "sys_pll1_266m", "sys_pll2_250m", "sys_pll1_800m",
 					      "sys_pll2_1000m", "sys_pll3_out", "audio_pll2_out", "video_pll1_out", };
 
-static const char *imx8mm_csi1_phy_sels[] = {"osc_24m", "sys_pll2_333m", "sys_pll2_100m", "sys_pll1_800m",
-					     "sys_pll2_1000m", "clk_ext2", "audio_pll2_out", "video_pll1_out", };
-
-static const char *imx8mm_csi1_esc_sels[] = {"osc_24m", "sys_pll2_100m", "sys_pll1_80m", "sys_pll1_800m",
-					     "sys_pll2_1000m", "sys_pll3_out", "clk_ext3", "audio_pll2_out", };
-
 static const char *imx8mm_csi2_core_sels[] = {"osc_24m", "sys_pll1_266m", "sys_pll2_250m", "sys_pll1_800m",
 					      "sys_pll2_1000m", "sys_pll3_out", "audio_pll2_out", "video_pll1_out", };
 
@@ -296,12 +293,42 @@ static const char * const clkout_sels[] = {"audio_pll1_out", "audio_pll2_out", "
 static struct clk_hw_onecell_data *clk_hw_data;
 static struct clk_hw **hws;
 
+static int imx_clk_init_on(struct device_node *np,
+				  struct clk_hw * const clks[])
+{
+	u32 *array;
+	int i, ret, elems;
+
+	elems = of_property_count_u32_elems(np, "init-on-array");
+	if (elems < 0)
+		return elems;
+	array = kcalloc(elems, sizeof(elems), GFP_KERNEL);
+	if (!array)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, "init-on-array", array, elems);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < elems; i++) {
+		ret = clk_prepare_enable(clks[array[i]]->clk);
+		if (ret)
+			pr_err("clk_prepare_enable failed %d\n", array[i]);
+	}
+
+	kfree(array);
+
+	return 0;
+}
+
 static int imx8mm_clocks_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	void __iomem *base;
 	int ret;
+
+	check_m4_enabled();
 
 	clk_hw_data = kzalloc(struct_size(clk_hw_data, hws,
 					  IMX8MM_CLK_END), GFP_KERNEL);
@@ -468,7 +495,7 @@ static int imx8mm_clocks_probe(struct platform_device *pdev)
 	hws[IMX8MM_CLK_PCIE1_PHY] = imx8m_clk_hw_composite("pcie1_phy", imx8mm_pcie1_phy_sels, base + 0xa380);
 	hws[IMX8MM_CLK_PCIE1_AUX] = imx8m_clk_hw_composite("pcie1_aux", imx8mm_pcie1_aux_sels, base + 0xa400);
 	hws[IMX8MM_CLK_DC_PIXEL] = imx8m_clk_hw_composite("dc_pixel", imx8mm_dc_pixel_sels, base + 0xa480);
-	hws[IMX8MM_CLK_LCDIF_PIXEL] = imx8m_clk_hw_composite_flags("lcdif_pixel", imx8mm_lcdif_pixel_sels, base + 0xa500, CLK_SET_RATE_PARENT);
+	hws[IMX8MM_CLK_LCDIF_PIXEL] = imx8m_clk_hw_composite_flags("lcdif_pixel", imx8mm_lcdif_pixel_sels, base + 0xa500, 0);
 	hws[IMX8MM_CLK_SAI1] = imx8m_clk_hw_composite("sai1", imx8mm_sai1_sels, base + 0xa580);
 	hws[IMX8MM_CLK_SAI2] = imx8m_clk_hw_composite("sai2", imx8mm_sai2_sels, base + 0xa600);
 	hws[IMX8MM_CLK_SAI3] = imx8m_clk_hw_composite("sai3", imx8mm_sai3_sels, base + 0xa680);
@@ -511,8 +538,6 @@ static int imx8mm_clocks_probe(struct platform_device *pdev)
 	hws[IMX8MM_CLK_DSI_DBI] = imx8m_clk_hw_composite("dsi_dbi", imx8mm_dsi_dbi_sels, base + 0xbc00);
 	hws[IMX8MM_CLK_USDHC3] = imx8m_clk_hw_composite("usdhc3", imx8mm_usdhc3_sels, base + 0xbc80);
 	hws[IMX8MM_CLK_CSI1_CORE] = imx8m_clk_hw_composite("csi1_core", imx8mm_csi1_core_sels, base + 0xbd00);
-	hws[IMX8MM_CLK_CSI1_PHY_REF] = imx8m_clk_hw_composite("csi1_phy_ref", imx8mm_csi1_phy_sels, base + 0xbd80);
-	hws[IMX8MM_CLK_CSI1_ESC] = imx8m_clk_hw_composite("csi1_esc", imx8mm_csi1_esc_sels, base + 0xbe00);
 	hws[IMX8MM_CLK_CSI2_CORE] = imx8m_clk_hw_composite("csi2_core", imx8mm_csi2_core_sels, base + 0xbe80);
 	hws[IMX8MM_CLK_CSI2_PHY_REF] = imx8m_clk_hw_composite("csi2_phy_ref", imx8mm_csi2_phy_sels, base + 0xbf00);
 	hws[IMX8MM_CLK_CSI2_ESC] = imx8m_clk_hw_composite("csi2_esc", imx8mm_csi2_esc_sels, base + 0xbf80);
@@ -609,6 +634,10 @@ static int imx8mm_clocks_probe(struct platform_device *pdev)
 		goto unregister_hws;
 	}
 
+	imx_clk_init_on(np, hws);
+
+	clk_set_parent(hws[IMX8MM_CLK_CSI1_CORE]->clk, hws[IMX8MM_SYS_PLL2_1000M]->clk);
+
 	imx_register_uart_clocks();
 
 	return 0;
@@ -640,6 +669,83 @@ static struct platform_driver imx8mm_clk_driver = {
 module_platform_driver(imx8mm_clk_driver);
 module_param(mcore_booted, bool, S_IRUGO);
 MODULE_PARM_DESC(mcore_booted, "See Cortex-M core is booted or not");
+
+/*
+ * Debugfs interface for audio PLL K divider change dynamically.
+ * Monitor control for the Audio PLL K-Divider
+ */
+#ifdef CONFIG_DEBUG_FS
+
+#define KDIV_MASK	GENMASK(15, 0)
+#define MDIV_SHIFT	12
+#define MDIV_MASK	GENMASK(21, 12)
+#define PDIV_SHIFT	4
+#define PDIV_MASK	GENMASK(9, 4)
+#define SDIV_SHIFT	0
+#define SDIV_MASK	GENMASK(2, 0)
+
+static int pll_delta_k_set(void *data, u64 val)
+{
+	struct clk_hw *hw;
+	short int delta_k;
+
+	hw = data;
+	delta_k = (short int) (val & KDIV_MASK);
+
+	clk_set_delta_k(hw, val);
+
+	pr_debug("the delta k is %d\n", delta_k);
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(delta_k_fops, NULL, pll_delta_k_set, "%lld\n");
+
+static int pll_setting_show(struct seq_file *s, void *data)
+{
+	struct clk_hw *hw;
+	u32 pll_div_ctrl0, pll_div_ctrl1;
+	u32 mdiv, pdiv, sdiv, kdiv;
+
+	hw = s->private;;
+
+	clk_get_pll_setting(hw, &pll_div_ctrl0, &pll_div_ctrl1);
+	mdiv = (pll_div_ctrl0 & MDIV_MASK) >> MDIV_SHIFT;
+	pdiv = (pll_div_ctrl0 & PDIV_MASK) >> PDIV_SHIFT;
+	sdiv = (pll_div_ctrl0 & SDIV_MASK) >> SDIV_SHIFT;
+	kdiv = (pll_div_ctrl1 & KDIV_MASK);
+
+	seq_printf(s, "Mdiv: 0x%x; Pdiv: 0x%x; Sdiv: 0x%x; Kdiv: 0x%x\n",
+		mdiv, pdiv, sdiv, kdiv);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(pll_setting);
+
+#ifndef MODULE
+static int __init pll_debug_init(void)
+{
+	struct dentry *root, *audio_pll1, *audio_pll2;
+
+	if (of_machine_is_compatible("fsl,imx8mm") && hws) {
+		/* create a root dir for audio pll monitor */
+		root = debugfs_create_dir("audio_pll_monitor", NULL);
+		audio_pll1 = debugfs_create_dir("audio_pll1", root);
+		audio_pll2 = debugfs_create_dir("audio_pll2", root);
+
+		debugfs_create_file_unsafe("delta_k", 0444, audio_pll1,
+			hws[IMX8MM_AUDIO_PLL1], &delta_k_fops);
+		debugfs_create_file("pll_parameter", 0x444, audio_pll1,
+			hws[IMX8MM_AUDIO_PLL1], &pll_setting_fops);
+		debugfs_create_file_unsafe("delta_k", 0444, audio_pll2,
+			hws[IMX8MM_AUDIO_PLL2], &delta_k_fops);
+		debugfs_create_file("pll_parameter", 0x444, audio_pll2,
+			hws[IMX8MM_AUDIO_PLL2], &pll_setting_fops);
+	}
+
+	return 0;
+}
+late_initcall(pll_debug_init);
+#endif /* MODULE */
+#endif /* CONFIG_DEBUG_FS */
 
 MODULE_AUTHOR("Bai Ping <ping.bai@nxp.com>");
 MODULE_DESCRIPTION("NXP i.MX8MM clock driver");
