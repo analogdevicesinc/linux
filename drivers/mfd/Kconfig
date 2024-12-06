@@ -847,6 +847,14 @@ config MFD_MAX14577
 	  additional drivers must be enabled in order to use the functionality
 	  of the device.
 
+config MFD_MAX17135
+	tristate "Maxim MAX17135 EPD PMIC core"
+	depends on I2C
+
+	help
+	  This is the MAX17135 PMIC support. It includes
+	  core support for communication with the MAX17135 chip.
+
 config MFD_MAX77541
 	tristate "Analog Devices MAX77541/77540 PMIC Support"
 	depends on I2C=y
@@ -859,6 +867,14 @@ config MFD_MAX77541
 	  common support for accessing the device; additional drivers
 	  must be enabled in order to use the functionality of the device.
 	  There are regulators and adc.
+
+config MFD_FP9931
+	tristate "Fitipower FP9931 EPD PMIC Core"
+	depends on I2C && OF
+
+	help
+	  This is the FP9931 PMIC support. It includes
+	  core support for communication with the FP9931 chip.
 
 config MFD_MAX77620
 	bool "Maxim Semiconductor MAX77620 and MAX20024 PMIC Support"

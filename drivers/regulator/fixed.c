@@ -29,6 +29,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
 #include <linux/clk.h>
+#include <linux/pinctrl/consumer.h>
 
 /* Default time in millisecond to wait for emergency shutdown */
 #define FV_DEF_EMERG_SHUTDWN_TMO	10
@@ -381,12 +382,33 @@ static const struct of_device_id fixed_of_match[] = {
 MODULE_DEVICE_TABLE(of, fixed_of_match);
 #endif
 
+#ifdef CONFIG_PM_SLEEP
+static int reg_fixed_voltage_suspend(struct device *dev)
+{
+	pinctrl_pm_select_sleep_state(dev);
+
+	return 0;
+}
+static int reg_fixed_voltage_resume(struct device *dev)
+{
+	pinctrl_pm_select_default_state(dev);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops reg_fixed_voltage_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(reg_fixed_voltage_suspend,
+		reg_fixed_voltage_resume)
+};
+
 static struct platform_driver regulator_fixed_voltage_driver = {
 	.probe		= reg_fixed_voltage_probe,
 	.driver		= {
 		.name		= "reg-fixed-voltage",
 		.probe_type	= PROBE_PREFER_ASYNCHRONOUS,
 		.of_match_table = of_match_ptr(fixed_of_match),
+		.pm = &reg_fixed_voltage_pm_ops,
 	},
 };
 

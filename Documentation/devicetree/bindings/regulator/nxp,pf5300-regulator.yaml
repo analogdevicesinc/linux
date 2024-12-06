@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/regulator/nxp,pf5300-regulator.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP PF5300 Power Management Integrated Circuit regulators
+
+maintainers:
+  - Joy Zou <joy.zou@nxp.com>
+
+description: |
+  PF5300 is a PMIC designed for high performance consumer applications.
+  It features five high efficiency buck converters. It has built-in one
+  time programmable fuse bank for device configurations.
+  The definition for each of these nodes is defined using the standard
+  binding for regulators at
+  Documentation/devicetree/bindings/regulator/regulator.yaml.
+
+properties:
+  compatible:
+    enum:
+      - nxp,pf5300
+      - nxp,pf5301
+      - nxp,pf5302
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  regulators:
+    type: object
+    description: |
+      list of regulators provided by this controller
+
+    patternProperties:
+      "^SW1$":
+        type: object
+        $ref: regulator.yaml#
+        description:
+          Properties for single SW regulator.
+
+        properties:
+          nxp,dvs-run-voltage:
+            $ref: "/schemas/types.yaml#/definitions/uint32"
+            minimum: 500000
+            maximum: 1200000
+            description:
+              PMIC default "RUN" state voltage in uV. SW1 have such
+              dvs(dynamic voltage scaling) property.
+
+          nxp,dvs-standby-voltage:
+            $ref: "/schemas/types.yaml#/definitions/uint32"
+            minimum: 500000
+            maximum: 1200000
+            description:
+              PMIC default "STANDBY" state voltage in uV. SW1 have such
+              dvs(dynamic voltage scaling) property.
+
+        unevaluatedProperties: false
+
+    additionalProperties: false
+  i2c-crc-enable:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: If the PMIC OTP_I2C_CRC_EN is enable, you need to add this property.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - regulators
+
+additionalProperties: false
+
+examples:
+  - |
+
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        pmic@29 {
+            compatible = "nxp,pf5300";
+            reg = <0x29>;
+
+            regulators {
+                sw1: SW1 {
+                    regulator-name = "SW1";
+                    regulator-min-microvolt = <500000>;
+                    regulator-max-microvolt = <1200000>;
+                    regulator-boot-on;
+                    regulator-always-on;
+                    regulator-ramp-delay = <1000>;
+                };
+            };
+        };
+     };
