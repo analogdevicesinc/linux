@@ -241,6 +241,7 @@ static inline u32 *append_##cmd(u32 * const desc, u32 options) \
 APPEND_CMD_RET(jump, JUMP)
 APPEND_CMD_RET(move, MOVE)
 APPEND_CMD_RET(move_len, MOVE_LEN)
+APPEND_CMD_RET(moveb, MOVEB)
 
 static inline void set_jump_tgt_here(u32 * const desc, u32 *jump_cmd)
 {
@@ -501,6 +502,8 @@ do { \
  * @key_virt: virtual address where algorithm key resides
  * @key_inline: true - key can be inlined in the descriptor; false - key is
  *              referenced by the descriptor
+ * @key_real_len: size of the key to be loaded by the CAAM
+ * @key_cmd_opt: optional parameters for KEY command
  */
 struct alginfo {
 	u32 algtype;
@@ -509,6 +512,8 @@ struct alginfo {
 	dma_addr_t key_dma;
 	const void *key_virt;
 	bool key_inline;
+	u32 key_real_len;
+	u32 key_cmd_opt;
 };
 
 /**

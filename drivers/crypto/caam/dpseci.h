@@ -12,6 +12,8 @@
  */
 
 struct fsl_mc_io;
+struct opr_cfg;
+struct opr_qry;
 
 /**
  * General DPSECI macros
@@ -38,9 +40,21 @@ int dpseci_close(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token);
 #define DPSECI_OPT_HAS_CG		0x000020
 
 /**
+ * Enable the Order Restoration support
+ */
+#define DPSECI_OPT_HAS_OPR		0x000040
+
+/**
+ * Order Point Records are shared for the entire DPSECI
+ */
+#define DPSECI_OPT_OPR_SHARED		0x000080
+
+/**
  * struct dpseci_cfg - Structure representing DPSECI configuration
- * @options: Any combination of the following flags:
+ * @options: Any combination of the following options:
  *		DPSECI_OPT_HAS_CG
+ *		DPSECI_OPT_HAS_OPR
+ *		DPSECI_OPT_OPR_SHARED
  * @num_tx_queues: num of queues towards the SEC
  * @num_rx_queues: num of queues back from the SEC
  * @priorities: Priorities for the SEC hardware processing;
@@ -55,6 +69,12 @@ struct dpseci_cfg {
 	u8 priorities[DPSECI_MAX_QUEUE_NUM];
 };
 
+int dpseci_create(struct fsl_mc_io *mc_io, u16 dprc_token, u32 cmd_flags,
+		  const struct dpseci_cfg *cfg, u32 *obj_id);
+
+int dpseci_destroy(struct fsl_mc_io *mc_io, u16 dprc_token, u32 cmd_flags,
+		   u32 object_id);
+
 int dpseci_enable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token);
 
 int dpseci_disable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token);
@@ -64,13 +84,33 @@ int dpseci_reset(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token);
 int dpseci_is_enabled(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 		      int *en);
 
+int dpseci_get_irq_enable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  u8 irq_index, u8 *en);
+
+int dpseci_set_irq_enable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  u8 irq_index, u8 en);
+
+int dpseci_get_irq_mask(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 irq_index, u32 *mask);
+
+int dpseci_set_irq_mask(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 irq_index, u32 mask);
+
+int dpseci_get_irq_status(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  u8 irq_index, u32 *status);
+
+int dpseci_clear_irq_status(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			    u8 irq_index, u32 status);
+
 /**
  * struct dpseci_attr - Structure representing DPSECI attributes
  * @id: DPSECI object ID
  * @num_tx_queues: number of queues towards the SEC
  * @num_rx_queues: number of queues back from the SEC
- * @options: any combination of the following flags:
+ * @options: any combination of the following options:
  *		DPSECI_OPT_HAS_CG
+ *		DPSECI_OPT_HAS_OPR
+ *		DPSECI_OPT_OPR_SHARED
  */
 struct dpseci_attr {
 	int id;
@@ -250,8 +290,38 @@ struct dpseci_sec_attr {
 int dpseci_get_sec_attr(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 			struct dpseci_sec_attr *attr);
 
+/**
+ * struct dpseci_sec_counters - Structure representing global SEC counters and
+ *				not per dpseci counters
+ * @dequeued_requests:	Number of Requests Dequeued
+ * @ob_enc_requests:	Number of Outbound Encrypt Requests
+ * @ib_dec_requests:	Number of Inbound Decrypt Requests
+ * @ob_enc_bytes:	Number of Outbound Bytes Encrypted
+ * @ob_prot_bytes:	Number of Outbound Bytes Protected
+ * @ib_dec_bytes:	Number of Inbound Bytes Decrypted
+ * @ib_valid_bytes:	Number of Inbound Bytes Validated
+ */
+struct dpseci_sec_counters {
+	u64 dequeued_requests;
+	u64 ob_enc_requests;
+	u64 ib_dec_requests;
+	u64 ob_enc_bytes;
+	u64 ob_prot_bytes;
+	u64 ib_dec_bytes;
+	u64 ib_valid_bytes;
+};
+
+int dpseci_get_sec_counters(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			    struct dpseci_sec_counters *counters);
+
 int dpseci_get_api_version(struct fsl_mc_io *mc_io, u32 cmd_flags,
 			   u16 *major_ver, u16 *minor_ver);
+
+int dpseci_set_opr(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 index,
+		   u8 options, struct opr_cfg *cfg);
+
+int dpseci_get_opr(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 index,
+		   struct opr_cfg *cfg, struct opr_qry *qry);
 
 /**
  * enum dpseci_congestion_unit - DPSECI congestion units
