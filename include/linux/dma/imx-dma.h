@@ -83,6 +83,12 @@ static inline int imx_dma_is_general_purpose(struct dma_chan *chan)
  *                  and then jump to FIFO1 for next two words, and so on
  *                  after the last FIFO3 fetched, roll back to FIFO0.
  * @sw_done: Use software done. Needed for PDM (micfil)
+ * @sw_done_sel: software done selector, PDM need enable software done feature
+ *               in mcu_2_sai/sai_2_mcu script.
+ *               Bit31: sw_done eanbled or not
+ *               Bit15~Bit0: selector
+ *               For example: 0x80000000 means sw_done enabled for done0
+ *                            sector which is for PDM on i.mx8mm.
  *
  * Some i.MX Audio devices (SAI, micfil) have multiple successive FIFO
  * registers. For multichannel recording/playback the SAI/micfil have
@@ -98,6 +104,7 @@ struct sdma_peripheral_config {
 	int stride_fifos_dst;
 	int words_per_fifo;
 	bool sw_done;
+	unsigned int sw_done_sel;
 };
 
 #endif /* __LINUX_DMA_IMX_H */
