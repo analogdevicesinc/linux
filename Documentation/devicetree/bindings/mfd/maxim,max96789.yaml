@@ -32,6 +32,10 @@ properties:
   v12p0-supply:
     description: Regulator that provides 12V power supply.
 
+  reset-gpios:
+    description: GPIO used for powering the chip on/off.
+    maxItems: 1
+
   maxim,gmsl-links-types:
     description: |
       Specifies the link types for each of the 2 GMSL ports. The device supports GMSL links of type
