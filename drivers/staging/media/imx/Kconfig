@@ -64,6 +64,13 @@ config IMX8_ISI_M2M
 	depends on IMX8_ISI_HW
 	default y
 
+config GMSL_MAX9286
+	tristate "GMSL MAX8286"
+	depends on VIDEO_DEV && VIDEO_V4L2_SUBDEV_API
+	default y
+	help
+	  Enable support for video4linux camera sensor driver for GMSL MAX9286
+
 source "drivers/staging/media/imx/hdmirx/Kconfig"
 
 endmenu
