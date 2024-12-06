@@ -1017,10 +1017,19 @@ static irqreturn_t ipi_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_IMX_GPCV2
+extern void imx_gpcv2_raise_softirq(const struct cpumask *mask,
+		                                         unsigned int irq);
+#endif
+
 static void smp_cross_call(const struct cpumask *target, unsigned int ipinr)
 {
 	trace_ipi_raise(target, ipi_types[ipinr]);
 	__ipi_send_mask(ipi_desc[ipinr], target);
+
+#ifdef CONFIG_IMX_GPCV2
+	imx_gpcv2_raise_softirq(target, ipinr);
+#endif
 }
 
 static bool ipi_should_be_nmi(enum ipi_msg_type ipi)
