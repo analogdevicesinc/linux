@@ -25,7 +25,7 @@
 #include "remoteproc_elf_helpers.h"
 #include "remoteproc_internal.h"
 
-#define DSP_RPROC_CLK_MAX			5
+#define DSP_RPROC_CLK_MAX			(5 + 18)
 
 /*
  * Module parameters
@@ -1006,6 +1006,11 @@ static int imx_dsp_rproc_detect_mode(struct imx_dsp_rproc *priv)
 static const char *imx_dsp_clks_names[DSP_RPROC_CLK_MAX] = {
 	/* DSP clocks */
 	"core", "ocram", "debug", "ipg", "mu",
+
+	/* peripheral clocks */
+	"per_clk1", "per_clk2", "per_clk3", "per_clk4", "per_clk5", "per_clk6",
+	"per_clk7", "per_clk8", "per_clk9", "per_clk10", "per_clk11", "per_clk12",
+	"per_clk13", "per_clk14", "per_clk15", "per_clk16", "per_clk17", "per_clk18",
 };
 
 static int imx_dsp_rproc_clk_get(struct imx_dsp_rproc *priv)
