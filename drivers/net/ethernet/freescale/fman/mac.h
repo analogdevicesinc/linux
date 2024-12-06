@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-3-Clause OR GPL-2.0-or-later */
 /*
  * Copyright 2008 - 2015 Freescale Semiconductor Inc.
+ * Copyright 2020 Puresoftware Ltd.
  */
 
 #ifndef __MAC_H
@@ -29,6 +30,7 @@ struct mac_device {
 	struct phylink		*phylink;
 	struct phylink_config	phylink_config;
 	phy_interface_t		phy_if;
+	struct fwnode_handle	*fwnode_phy;
 
 	bool promisc;
 	bool allmulti;

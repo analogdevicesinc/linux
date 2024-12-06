@@ -1,0 +1,4 @@
+header-y += fm_ioctls.h
+header-y += fm_port_ioctls.h
+header-y += fm_pcd_ioctls.h
+header-y += fm_test_ioctls.h

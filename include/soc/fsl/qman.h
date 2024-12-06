@@ -242,7 +242,7 @@ static inline void qm_sg_entry_set_f(struct qm_sg_entry *sg, int len)
 
 static inline int qm_sg_entry_get_off(const struct qm_sg_entry *sg)
 {
-	return be32_to_cpu(sg->offset) & QM_SG_OFF_MASK;
+	return be16_to_cpu(sg->offset) & QM_SG_OFF_MASK;
 }
 
 /* "Frame Dequeue Response" */
@@ -904,11 +904,9 @@ const cpumask_t *qman_affine_cpus(void);
  * qman_affine_channel - return the channel ID of an portal
  * @cpu: the cpu whose affine portal is the subject of the query
  *
- * If @cpu is -1, the affine portal for the current CPU will be used. It is a
- * bug to call this function for any value of @cpu (other than -1) that is not a
- * member of the mask returned from qman_affine_cpus().
+ * Returns: channel ID.
  */
-u16 qman_affine_channel(int cpu);
+u16 qman_affine_channel(unsigned int cpu);
 
 /**
  * qman_get_affine_portal - return the portal pointer affine to cpu

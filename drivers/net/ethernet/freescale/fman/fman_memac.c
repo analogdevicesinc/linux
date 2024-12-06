@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause OR GPL-2.0-or-later
 /*
  * Copyright 2008 - 2015 Freescale Semiconductor Inc.
+ * Copyright 2020 Puresoftware Ltd.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -9,6 +10,7 @@
 #include "fman.h"
 #include "mac.h"
 
+#include <linux/acpi.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/pcs-lynx.h>
@@ -1000,35 +1002,35 @@ static struct fman_mac *memac_config(struct mac_device *mac_dev,
 	return memac;
 }
 
-static struct phylink_pcs *memac_pcs_create(struct device_node *mac_node,
+static struct phylink_pcs *memac_pcs_create(struct fwnode_handle *mac_fwnode,
 					    int index, struct phy *serdes)
 {
 	size_t num_phys = serdes ? 1 : 0;
-	struct device_node *node;
+	struct fwnode_handle *node;
 	struct phylink_pcs *pcs;
 
-	node = of_parse_phandle(mac_node, "pcsphy-handle", index);
+	node = fwnode_find_reference(mac_fwnode, "pcsphy-handle", index);
 	if (!node)
 		return ERR_PTR(-ENODEV);
 
-	pcs = lynx_pcs_create_fwnode(of_fwnode_handle(node), &serdes,
-				     num_phys);
-	of_node_put(node);
+	pcs = lynx_pcs_create_fwnode(node, &serdes, num_phys);
+	fwnode_handle_put(node);
 
 	return pcs;
 }
 
 static int memac_get_optional_pcs(struct mac_device *mac_dev,
-				  struct device_node *mac_node,
+				  struct fwnode_handle *mac_fwnode,
 				  struct phylink_pcs **pcsp, const char *name,
 				  struct phy *serdes)
 {
 	struct phylink_pcs *pcs;
 	int err;
 
-	err = of_property_match_string(mac_node, "pcs-handle-names", name);
+	err = fwnode_property_match_string(mac_fwnode, "pcs-handle-names",
+					   name);
 	if (err >= 0) {
-		pcs = memac_pcs_create(mac_node, err, serdes);
+		pcs = memac_pcs_create(mac_fwnode, err, serdes);
 		if (IS_ERR(pcs)) {
 			err = PTR_ERR(pcs);
 			return dev_err_probe(mac_dev->dev, err,
@@ -1044,13 +1046,13 @@ static int memac_get_optional_pcs(struct mac_device *mac_dev,
 }
 
 static int memac_get_default_pcs(struct mac_device *mac_dev,
-				 struct device_node *mac_node,
+				 struct fwnode_handle *mac_fwnode,
 				 struct phylink_pcs **pcsp, struct phy *serdes)
 {
 	struct phylink_pcs *pcs;
 	int err;
 
-	pcs = memac_pcs_create(mac_node, 0, serdes);
+	pcs = memac_pcs_create(mac_fwnode, 0, serdes);
 	if (IS_ERR(pcs)) {
 		err = PTR_ERR(pcs);
 		return dev_err_probe(mac_dev->dev, err, "missing default pcs\n");
@@ -1062,14 +1064,14 @@ static int memac_get_default_pcs(struct mac_device *mac_dev,
 }
 
 int memac_initialization(struct mac_device *mac_dev,
-			 struct device_node *mac_node,
 			 struct fman_mac_params *params)
 {
+	struct fwnode_handle	*mac_fwnode = dev_fwnode(mac_dev->dev);
 	int			 err;
 	struct fman_mac		*memac;
 	unsigned long		 capabilities;
 	unsigned long		*supported;
-	struct phy		*serdes;
+	struct phy		*serdes = NULL;
 
 	/* The internal connection to the serdes is XGMII, but this isn't
 	 * really correct for the phy mode (which is the external connection).
@@ -1097,30 +1099,34 @@ int memac_initialization(struct mac_device *mac_dev,
 	memac->memac_drv_param->max_frame_length = fman_get_max_frm();
 	memac->memac_drv_param->reset_on_init = true;
 
-	serdes = devm_of_phy_optional_get(mac_dev->dev, mac_node, NULL);
-	if (!serdes) {
-		dev_dbg(mac_dev->dev, "could not get (optional) serdes\n");
-	} else if (IS_ERR(serdes)) {
-		err = PTR_ERR(serdes);
-		goto _return_fm_mac_free;
+	if (is_of_node(mac_fwnode)) {
+		serdes = devm_of_phy_optional_get(mac_dev->dev,
+						  to_of_node(mac_fwnode),
+						  NULL);
+		if (!serdes) {
+			dev_dbg(mac_dev->dev, "could not get (optional) serdes\n");
+		} else if (IS_ERR(serdes)) {
+			err = PTR_ERR(serdes);
+			goto _return_fm_mac_free;
+		}
 	}
 
-	err = memac_get_optional_pcs(mac_dev, mac_node, &memac->xfi_pcs, "xfi",
+	err = memac_get_optional_pcs(mac_dev, mac_fwnode, &memac->xfi_pcs, "xfi",
 				     serdes);
 	if (err)
 		goto _return_fm_mac_free;
 
-	err = memac_get_optional_pcs(mac_dev, mac_node, &memac->qsgmii_pcs,
+	err = memac_get_optional_pcs(mac_dev, mac_fwnode, &memac->qsgmii_pcs,
 				     "qsgmii", serdes);
 	if (err)
 		goto _return_fm_mac_free;
 
-	err = memac_get_optional_pcs(mac_dev, mac_node, &memac->sgmii_pcs,
+	err = memac_get_optional_pcs(mac_dev, mac_fwnode, &memac->sgmii_pcs,
 				     "sgmii", serdes);
 	if (err)
 		goto _return_fm_mac_free;
 
-	err = memac_get_optional_pcs(mac_dev, mac_node, &memac->c73_pcs,
+	err = memac_get_optional_pcs(mac_dev, mac_fwnode, &memac->c73_pcs,
 				     "c73", serdes);
 	if (err)
 		goto _return_fm_mac_free;
@@ -1129,12 +1135,12 @@ int memac_initialization(struct mac_device *mac_dev,
 	 * phy is the first one in pcsphy-handle
 	 */
 	if (mac_dev->phy_if == PHY_INTERFACE_MODE_10GBASER && !memac->xfi_pcs) {
-		err = memac_get_default_pcs(mac_dev, mac_node, &memac->xfi_pcs,
-					    serdes);
+		err = memac_get_default_pcs(mac_dev, mac_fwnode,
+					    &memac->xfi_pcs, serdes);
 		if (err)
 			goto _return_fm_mac_free;
 	} else if (!memac->sgmii_pcs) {
-		err = memac_get_default_pcs(mac_dev, mac_node,
+		err = memac_get_default_pcs(mac_dev, mac_fwnode,
 					    &memac->sgmii_pcs, serdes);
 		if (err)
 			goto _return_fm_mac_free;
@@ -1204,7 +1210,7 @@ int memac_initialization(struct mac_device *mac_dev,
 	 * be careful and not enable this if we are using MII or RGMII, since
 	 * those configurations modes don't use in-band autonegotiation.
 	 */
-	if (!of_property_read_bool(mac_node, "managed") &&
+	if (!fwnode_property_read_bool(mac_fwnode, "managed") &&
 	    mac_dev->phy_if != PHY_INTERFACE_MODE_MII &&
 	    !phy_interface_mode_is_rgmii(mac_dev->phy_if))
 		mac_dev->phylink_config.default_an_inband = true;

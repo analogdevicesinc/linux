@@ -185,6 +185,8 @@ struct phylink_config {
 
 void phylink_limit_mac_speed(struct phylink_config *config, u32 max_speed);
 
+int phylink_interface_max_speed(phy_interface_t interface);
+
 /**
  * struct phylink_mac_ops - MAC operations structure.
  * @mac_get_caps: Get MAC capabilities for interface mode.

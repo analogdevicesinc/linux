@@ -1,0 +1,185 @@
+menuconfig FSL_SDK_DPAA_ETH
+	tristate "DPAA Ethernet"
+	depends on (FSL_SOC || ARM64 || ARM) && FSL_SDK_BMAN && FSL_SDK_QMAN && FSL_SDK_FMAN && !FSL_DPAA_ETH
+	select PHYLIB
+	help
+	  Data Path Acceleration Architecture Ethernet driver,
+	  supporting the Freescale QorIQ chips.
+	  Depends on Freescale Buffer Manager and Queue Manager
+	  driver and Frame Manager Driver.
+
+if FSL_SDK_DPAA_ETH
+
+config FSL_DPAA_HOOKS
+	bool "DPAA Ethernet driver hooks"
+
+config FSL_DPAA_CEETM
+	bool "DPAA CEETM QoS"
+	depends on NET_SCHED
+	default n
+	help
+	Enable QoS offloading support through the CEETM hardware block.
+
+config FSL_DPAA_CEETM_CCS_THRESHOLD_1G
+	hex "CEETM egress congestion threshold on 1G ports"
+	depends on FSL_DPAA_CEETM
+	range 0x1000 0x10000000
+	default "0x00005000"
+	help
+	  The size in bytes of the CEETM egress Class Congestion State threshold on 1G ports.
+	  The threshold needs to be configured keeping in mind the following factors:
+	       - A threshold too large will buffer frames for a long time in the TX queues,
+	       when a small shaping rate is configured. This will cause buffer pool depletion
+	       or out of memory errors. This in turn will cause frame loss on RX;
+	       - A threshold too small will cause unnecessary frame loss by entering
+	       congestion too often.
+
+config FSL_DPAA_CEETM_CCS_THRESHOLD_10G
+	hex "CEETM egress congestion threshold on 10G ports"
+	depends on FSL_DPAA_CEETM
+	range 0x1000 0x20000000
+	default "0x00032000"
+	help
+	  The size in bytes of the CEETM egress Class Congestion State threshold on 10G ports.
+	  See FSL_DPAA_CEETM_CCS_THRESHOLD_1G for details.
+
+config FSL_DPAA_OFFLINE_PORTS
+	bool "Offline Ports support"
+	depends on FSL_SDK_DPAA_ETH
+	default y
+	help
+	  The Offline Parsing / Host Command ports (short: OH ports, of Offline ports) provide
+	  most of the functionality of the regular, online ports, except they receive their
+	  frames from a core or an accelerator on the SoC, via QMan frame queues,
+	  rather than directly from the network.
+	  Offline ports are configured via PCD (Parse-Classify-Distribute) schemes, just like
+	  any online FMan port. They deliver the processed frames to frame queues, according
+	  to the applied PCD configurations.
+
+	  Choosing this feature will not impact the functionality and/or performance of the system,
+	  so it is safe to have it.
+
+config FSL_DPAA_ADVANCED_DRIVERS
+        bool "Advanced DPAA Ethernet drivers"
+        depends on FSL_SDK_DPAA_ETH
+        default y
+        help
+	  Besides the standard DPAA Ethernet driver the DPAA Proxy initialization driver
+	  is needed to support advanced scenarios. Select this to also build the advanced
+	  drivers.
+
+config FSL_DPAA_ETH_JUMBO_FRAME
+	bool "Optimize for jumbo frames"
+	default n
+	help
+	  Optimize the DPAA Ethernet driver throughput for large frames
+	  termination traffic (e.g. 4K and above).
+	  NOTE: This option can only be used if FSL_FM_MAX_FRAME_SIZE
+	  is set to 9600 bytes.
+	  Using this option in combination with small frames increases
+	  significantly the driver's memory footprint and may even deplete
+	  the system memory. Also, the skb truesize is altered and messages
+	  from the stack that warn against this are bypassed.
+
+config FSL_DPAA_TS
+	bool "Linux compliant timestamping"
+	depends on FSL_SDK_DPAA_ETH
+	default n
+	help
+	  Enable Linux API compliant timestamping support.
+
+config FSL_DPAA_1588
+        bool "IEEE 1588-compliant timestamping"
+        depends on FSL_SDK_DPAA_ETH
+        select FSL_DPAA_TS
+        default n
+        help
+         Enable IEEE1588 support code.
+
+config FSL_DPAA_ETH_MAX_BUF_COUNT
+	int "Maximum number of buffers in the private bpool"
+	depends on FSL_SDK_DPAA_ETH
+	range 64 2048
+	default "128"
+	help
+	  The maximum number of buffers to be by default allocated in the DPAA-Ethernet
+	  private port's buffer pool per CPU per user (ports that share the same pool).
+	  One needn't normally modify this, as it has probably been tuned for performance
+	  already. This cannot be lower than DPAA_ETH_REFILL_THRESHOLD.
+
+config FSL_DPAA_ETH_REFILL_THRESHOLD
+	int "Private bpool refill threshold"
+	depends on FSL_SDK_DPAA_ETH
+	range 32 FSL_DPAA_ETH_MAX_BUF_COUNT
+	default "80"
+	help
+	  The DPAA-Ethernet driver will start replenishing buffer pools whose count
+	  falls below this threshold per CPU. This must be related to DPAA_ETH_MAX_BUF_COUNT.
+	  One needn't normally modify this value unless one has very specific performance reasons.
+
+config FSL_DPAA_CS_THRESHOLD_1G
+	hex "Egress congestion threshold on 1G ports"
+	depends on FSL_SDK_DPAA_ETH
+	range 0x1000 0x10000000
+	default "0x06000000"
+	help
+	  The size in bytes of the egress Congestion State notification threshold on 1G ports.
+	  The 1G dTSECs can quite easily be flooded by cores doing Tx in a tight loop
+	  (e.g. by sending UDP datagrams at "while(1) speed"),
+	  and the larger the frame size, the more acute the problem.
+	  So we have to find a balance between these factors:
+	       - avoiding the device staying congested for a prolonged time (risking
+                 the netdev watchdog to fire - see also the tx_timeout module param);
+               - affecting performance of protocols such as TCP, which otherwise
+	         behave well under the congestion notification mechanism;
+	       - preventing the Tx cores from tightly-looping (as if the congestion
+	         threshold was too low to be effective);
+	       - running out of memory if the CS threshold is set too high.
+
+config FSL_DPAA_CS_THRESHOLD_10G
+	hex "Egress congestion threshold on 10G ports"
+	depends on FSL_SDK_DPAA_ETH
+	range 0x1000 0x20000000
+	default "0x10000000"
+	help
+	  The size in bytes of the egress Congestion State notification threshold on 10G ports.
+
+config FSL_DPAA_INGRESS_CS_THRESHOLD
+	hex "Ingress congestion threshold on FMan ports"
+	depends on FSL_SDK_DPAA_ETH
+	default "0x10000000"
+	help
+	  The size in bytes of the ingress tail-drop threshold on FMan ports.
+	  Traffic piling up above this value will be rejected by QMan and discarded by FMan.
+
+config FSL_DPAA_ETH_DEBUGFS
+	bool "DPAA Ethernet debugfs interface"
+	depends on DEBUG_FS && FSL_SDK_DPAA_ETH
+	default y
+	help
+	  This option compiles debugfs code for the DPAA Ethernet driver.
+
+config FSL_DPAA_ETH_DEBUG
+	bool "DPAA Ethernet Debug Support"
+	depends on FSL_SDK_DPAA_ETH
+	default n
+	help
+	  This option compiles debug code for the DPAA Ethernet driver.
+
+config FSL_DPAA_DBG_LOOP
+	bool "DPAA Ethernet Debug loopback"
+	depends on FSL_DPAA_ETH_DEBUGFS
+	default n
+	help
+	  This option allows to divert all received traffic on a certain interface A towards a
+	  selected interface B. This option is used to benchmark the HW + Ethernet driver in
+	  isolation from the Linux networking stack. The loops are controlled by debugfs entries,
+	  one for each interface. By default all loops are disabled (target value is -1). I.e. to
+	  change the loop setting for interface 4 and divert all received traffic to interface 5
+	  write Tx interface number in the receive interface debugfs file:
+		# cat /sys/kernel/debug/powerpc/fsl_dpa/eth4_loop
+			4->-1
+		# echo 5 > /sys/kernel/debug/powerpc/fsl_dpa/eth4_loop
+		# cat /sys/kernel/debug/powerpc/fsl_dpa/eth4_loop
+			4->5
+endif # FSL_SDK_DPAA_ETH

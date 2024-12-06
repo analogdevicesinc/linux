@@ -47,6 +47,9 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 
+#define DPAA_QMAN_DEV 0
+#define DPAA_BMAN_DEV 1
+
 /* For 2-element tables related to cache-inhibited and cache-enabled mappings */
 #define DPAA_PORTAL_CE 0
 #define DPAA_PORTAL_CI 1
@@ -102,7 +105,7 @@ static inline u8 dpaa_cyc_diff(u8 ringsize, u8 first, u8 last)
 
 /* Initialize the devices private memory region */
 int qbman_init_private_mem(struct device *dev, int idx, const char *compat,
-			   dma_addr_t *addr, size_t *size);
+			   dma_addr_t *addr, size_t *size, int dev_id);
 
 /* memremap() attributes for different platforms */
 #ifdef CONFIG_PPC

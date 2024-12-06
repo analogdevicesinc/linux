@@ -1,0 +1,117 @@
+menu "Frame Manager support"
+
+menuconfig FSL_SDK_FMAN
+	bool "Freescale Frame Manager (datapath) support - SDK driver"
+	depends on (FSL_SOC || ARM64 || ARM) && FSL_SDK_BMAN && FSL_SDK_QMAN && !FSL_FMAN
+	default y
+	help
+		If unsure, say Y.
+
+if FSL_SDK_FMAN
+
+config FSL_SDK_FMAN_TEST
+	bool "FMan test module"
+	default n
+	select FSL_DPAA_HOOKS
+	help
+		This option compiles test code for FMan.
+
+config FSL_SDK_FMAN_RTC_API
+	bool "FMan RTC (1588 timer) APIs"
+	default n
+	help
+		This option enables RTC (1588 timer) initialization and
+		APIs support. The ptp_qoriq driver is not available if
+		it is selected for RTC (1588 timer). Neither of them
+		were not able to be used together.
+
+config FSL_FM_MAX_FRAME_SIZE
+	int "Maximum L2 frame size"
+	range 64 9600
+	default "1522"
+	help
+		Configure this in relation to the maximum possible MTU of your
+		network configuration. In particular, one would need to
+		increase this value in order to use jumbo frames.
+		FSL_FM_MAX_FRAME_SIZE must accommodate the Ethernet FCS (4 bytes)
+		and one ETH+VLAN header (18 bytes), to a total of 22 bytes in
+		excess of the desired L3 MTU.
+
+		Note that having too large a FSL_FM_MAX_FRAME_SIZE (much larger
+		than the actual MTU) may lead to buffer exhaustion, especially
+		in the case of badly fragmented datagrams on the Rx path.
+		Conversely, having a FSL_FM_MAX_FRAME_SIZE smaller than the actual
+		MTU will lead to frames being dropped.
+
+		This can be overridden by specifying "fsl_fm_max_frm" in
+		the kernel bootargs:
+		 * in Hypervisor-based scenarios, by adding a "chosen" node
+		with the "bootargs" property specifying
+		"fsl_fm_max_frm=<YourValue>";
+		 * in non-Hypervisor-based scenarios, via u-boot's env, by
+		modifying the "bootargs" env variable.
+
+config FSL_FM_RX_EXTRA_HEADROOM
+	int "Add extra headroom at beginning of data buffers"
+	range 16 384
+	default "64"
+	help
+		Configure this to tell the Frame Manager to reserve some extra
+		space at the beginning of a data buffer on the receive path,
+		before Internal Context fields are copied. This is in addition
+		to the private data area already reserved for driver internal
+		use. The provided value must be a multiple of 16.
+
+		This setting can be overridden by specifying
+		"fsl_fm_rx_extra_headroom" in the kernel bootargs:
+		 * in Hypervisor-based scenarios, by adding a "chosen" node
+		with the "bootargs" property specifying
+		"fsl_fm_rx_extra_headroom=<YourValue>";
+		 * in non-Hypervisor-based scenarios, via u-boot's env, by
+		modifying the "bootargs" env variable.
+
+config FMAN_PFC
+	bool "FMan PFC support (EXPERIMENTAL)"
+	default n
+	help
+		This option enables PFC support on FMan v3 ports.
+		Data Center Bridging defines Classes of Service that are
+		flow-controlled using PFC pause frames.
+
+if FMAN_PFC
+config FMAN_PFC_COS_COUNT
+	int "Number of PFC Classes of Service"
+	depends on FMAN_PFC
+	range 1 4
+	default "3"
+	help
+		The number of Classes of Service controlled by PFC.
+
+config FMAN_PFC_QUANTA_0
+	int "The pause quanta for PFC CoS 0"
+	depends on FMAN_PFC
+	range 0 65535
+	default "65535"
+
+config FMAN_PFC_QUANTA_1
+	int "The pause quanta for PFC CoS 1"
+	depends on FMAN_PFC
+	range 0 65535
+	default "65535"
+
+config FMAN_PFC_QUANTA_2
+	int "The pause quanta for PFC CoS 2"
+	depends on FMAN_PFC
+	range 0 65535
+	default "65535"
+
+config FMAN_PFC_QUANTA_3
+	int "The pause quanta for PFC CoS 3"
+	depends on FMAN_PFC
+	range 0 65535
+	default "65535"
+endif
+
+endif # FSL_SDK_FMAN
+
+endmenu
