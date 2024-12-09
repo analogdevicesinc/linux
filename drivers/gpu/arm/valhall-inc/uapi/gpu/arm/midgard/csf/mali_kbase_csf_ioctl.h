@@ -125,10 +125,18 @@
  *   to kbase cap table.
  * 1.33:
  * - Increased KBASE_MEM_PROFILE_MAX_BUF_SIZE for more cctx memory classes.
+ * 1.34:
+ * - Added ioctl to query tiler heap size and peak size.
+ * 1.35:
+ * - Move CS_USER IO allocation from CS binding to CSG creation.
+ * 1.36:
+ * - Add reserved field to QUEUE_GROUP_CREATE ioctl for future use.
+ * - Previous version retained as KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_35
+ *   for backwards compatibility.
  */
 
 #define BASE_UK_VERSION_MAJOR 1
-#define BASE_UK_VERSION_MINOR 33
+#define BASE_UK_VERSION_MINOR 36
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between
@@ -349,7 +357,7 @@ union kbase_ioctl_cs_queue_group_create_1_18 {
 	_IOWR(KBASE_IOCTL_TYPE, 58, union kbase_ioctl_cs_queue_group_create_1_18)
 
 /**
- * union kbase_ioctl_cs_queue_group_create - Create a GPU command queue group
+ * union kbase_ioctl_cs_queue_group_create_1_35 - Create a GPU command queue group
  * @in:               Input parameters
  * @in.tiler_mask:    Mask of tiler endpoints the group is allowed to use.
  * @in.fragment_mask: Mask of fragment endpoints the group is allowed to use.
@@ -383,7 +391,7 @@ union kbase_ioctl_cs_queue_group_create_1_18 {
  * @out.padding:      Currently unused, must be zero
  * @out.group_uid:    UID of the queue group available to base.
  */
-union kbase_ioctl_cs_queue_group_create {
+union kbase_ioctl_cs_queue_group_create_1_35 {
 	struct {
 		__u64 tiler_mask;
 		__u64 fragment_mask;
@@ -409,8 +417,8 @@ union kbase_ioctl_cs_queue_group_create {
 	} out;
 };
 
-#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE \
-	_IOWR(KBASE_IOCTL_TYPE, 58, union kbase_ioctl_cs_queue_group_create)
+#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_35 \
+	_IOWR(KBASE_IOCTL_TYPE, 58, union kbase_ioctl_cs_queue_group_create_1_35)
 
 /**
  * struct kbase_ioctl_cs_queue_group_term - Terminate a GPU command queue group
@@ -687,6 +695,92 @@ struct kbase_ioctl_queue_group_clear_faults {
 
 #define KBASE_IOCTL_QUEUE_GROUP_CLEAR_FAULTS \
 	_IOW(KBASE_IOCTL_TYPE, 61, struct kbase_ioctl_queue_group_clear_faults)
+
+/**
+ * union kbase_ioctl_cs_tiler_heap_size - Query size information from a tiler heap.
+ *
+ * @in:               Input parameters.
+ * @in.heap_ptr:      GPU virtual address of the tiler heap context.
+ * @out:              Output parameters.
+ * @out.size:         Current size of the tiler heap.
+ * @out.peak_size:    Peak size of the tiler heap.
+ */
+union kbase_ioctl_cs_tiler_heap_size {
+	struct {
+		__u64 heap_ptr;
+	} in;
+	struct {
+		__u64 size;
+		__u64 peak_size;
+	} out;
+};
+#define KBASE_IOCTL_CS_TILER_HEAP_SIZE \
+	_IOWR(KBASE_IOCTL_TYPE, 62, union kbase_ioctl_cs_tiler_heap_size)
+
+/**
+ * union kbase_ioctl_cs_queue_group_create - Create a GPU command queue group
+ * @in:               Input parameters
+ * @in.tiler_mask:    Mask of tiler endpoints the group is allowed to use.
+ * @in.fragment_mask: Mask of fragment endpoints the group is allowed to use.
+ * @in.compute_mask:  Mask of compute endpoints the group is allowed to use.
+ * @in.cs_min:        Minimum number of CSs required.
+ * @in.priority:      Queue group's priority within a process.
+ * @in.tiler_max:     Maximum number of tiler endpoints the group is allowed
+ *                    to use.
+ * @in.fragment_max:  Maximum number of fragment endpoints the group is
+ *                    allowed to use.
+ * @in.compute_max:   Maximum number of compute endpoints the group is allowed
+ *                    to use.
+ * @in.csi_handlers:  Flags to signal that the application intends to use CSI
+ *                    exception handlers in some linear buffers to deal with
+ *                    the given exception types.
+ * @in.neural_max:    Maximum number of neural endpoints the group is
+ *                    allowed to use.
+ * @in.cs_fault_report_enable:  Flag to indicate reporting of CS_FAULTs
+ *                    to userspace.
+ * @in.dvs_buf: buffer for deferred vertex shader
+ * @in.neural_mask:   Mask of neural endpoints the group is allowed to use.
+ * @in.comp_pri_threshold: The number of compute endpoints required to be
+ *                         allocated to the GPU queue group before compute
+ *                         endpoints are prioritized for compute iterator.
+ * @in.comp_pri_ratio: The ratio of the cores after comp_pri_threshold
+ *                     has been reached which are prioritized for compute
+ *                     iterator tasks.
+ * @in.padding:       Currently unused, must be zero
+ * @out:              Output parameters
+ * @out.group_handle: Handle of a newly created queue group.
+ * @out.padding:      Currently unused, must be zero
+ * @out.group_uid:    UID of the queue group available to base.
+ */
+union kbase_ioctl_cs_queue_group_create {
+	struct {
+		__u64 tiler_mask;
+		__u64 fragment_mask;
+		__u64 compute_mask;
+		__u8 cs_min;
+		__u8 priority;
+		__u8 tiler_max;
+		__u8 fragment_max;
+		__u8 compute_max;
+		__u8 csi_handlers;
+		__u8 neural_max;
+		__u8 cs_fault_report_enable;
+		__u64 dvs_buf;
+		__u64 neural_mask;
+		__u8 comp_pri_threshold;
+		__u8 comp_pri_ratio;
+		__u8 padding[62];
+		__u64 reserved;
+	} in;
+	struct {
+		__u8 group_handle;
+		__u8 padding[3];
+		__u32 group_uid;
+	} out;
+};
+
+#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE \
+	_IOWR(KBASE_IOCTL_TYPE, 63, union kbase_ioctl_cs_queue_group_create)
 
 /***************
  * test ioctls *

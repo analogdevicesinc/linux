@@ -308,7 +308,13 @@ int kbase_device_misc_init(struct kbase_device *const kbdev)
 
 	/* There is no limit for Mali, so set to max. */
 	if (kbdev->dev->dma_parms)
+#if (KERNEL_VERSION(6, 12, 0) > LINUX_VERSION_CODE)
+		err = dma_set_max_seg_size(kbdev->dev, UINT_MAX);
+	if (err)
+		goto dma_set_mask_failed;
+#else
 		dma_set_max_seg_size(kbdev->dev, UINT_MAX);
+#endif
 
 	kbdev->nr_hw_address_spaces = (s8)kbdev->gpu_props.num_address_spaces;
 
@@ -330,11 +336,7 @@ int kbase_device_misc_init(struct kbase_device *const kbdev)
 
 	kbdev->pm.dvfs_period = DEFAULT_PM_DVFS_PERIOD;
 
-#if MALI_USE_CSF
 	kbdev->reset_timeout_ms = kbase_get_timeout_ms(kbdev, CSF_GPU_RESET_TIMEOUT);
-#else /* MALI_USE_CSF */
-	kbdev->reset_timeout_ms = JM_DEFAULT_RESET_TIMEOUT_MS;
-#endif /* !MALI_USE_CSF */
 
 	kbdev->mmu_mode = kbase_mmu_mode_get_aarch64();
 	mutex_init(&kbdev->kctx_list_lock);

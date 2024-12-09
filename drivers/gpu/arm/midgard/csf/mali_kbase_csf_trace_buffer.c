@@ -124,9 +124,63 @@ static const struct firmware_trace_buffer_data trace_buffer_data[] = {
 	{ KBASE_CSFFW_BENCHMARK_BUF_NAME, { 0 }, 2 },
 	{ KBASE_CSFFW_TIMELINE_BUF_NAME, { 0 }, KBASE_CSF_TL_BUFFER_NR_PAGES },
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
-	{ KBASE_CSFFW_GPU_METRICS_BUF_NAME, { 0 }, 8 },
+	{ KBASE_CSFFW_GPU_METRICS_BUF_NAME, { 0 }, 16 },
 #endif /* CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD */
 };
+
+/* CSF firmware trace log buffer size */
+static unsigned int csf_firmware_log_buf_size;
+
+/**
+ * set_csf_fw_log_buf_size() - sets csf_firmware_log_buf_size
+ * @val: Buffer pointer to read the value from
+ * @kp: pointer to the kernel_param
+ *
+ * Module param callback function to set csf_firmware_log_buf_size
+ *
+ * Return: 0 if success or the error code.
+ */
+static int set_csf_fw_log_buf_size(const char *val, const struct kernel_param *kp)
+{
+	int size_in_bytes;
+	/* Maximum size is 32MB */
+	const unsigned int max_size = 32 * 1024 * 1024;
+
+	if (kstrtoint(val, 10, &size_in_bytes))
+		return -EINVAL;
+
+	if (!size_in_bytes || size_in_bytes % PAGE_SIZE || size_in_bytes > max_size)
+		return -EINVAL;
+
+	csf_firmware_log_buf_size = size_in_bytes / PAGE_SIZE;
+
+	return 0;
+}
+
+/**
+ * get_csf_fw_log_buf_size() - returns csf_firmware_log_buf_size
+ * @buffer: Buffer pointer to which value is written
+ * @kp: pointer to the kernel_param
+ *
+ * Module param callback function to return the value of csf_firmware_log_buf_size
+ *
+ * Return: length written to the buffer if success or the error code.
+ */
+static int get_csf_fw_log_buf_size(char *buffer, const struct kernel_param *kp)
+{
+	return scnprintf(buffer, PAGE_SIZE, "%lu\n", (csf_firmware_log_buf_size * PAGE_SIZE));
+}
+
+static const struct kernel_param_ops csf_fw_log_buf_size_ops = {
+	.set = set_csf_fw_log_buf_size,
+	.get = get_csf_fw_log_buf_size,
+};
+
+module_param_cb(csf_firmware_log_buf_size, &csf_fw_log_buf_size_ops, NULL, 0444);
+__MODULE_PARM_TYPE(csf_firmware_log_buf_size, "uint");
+MODULE_PARM_DESC(
+	csf_firmware_log_buf_size,
+	"Buffer size in bytes. It should be page size aligned and less than or equal to 32MB.");
 
 int kbase_csf_firmware_trace_buffers_init(struct kbase_device *kbdev)
 {
@@ -283,6 +337,15 @@ int kbase_csf_firmware_parse_trace_buffer_entry(struct kbase_device *kbdev, cons
 			}
 			break;
 		}
+	}
+
+	/* CSF firmware log buffer size is configured with 4 pages by default. If the size
+	 * is passed as part of module parameters, configure the size with the respective value.
+	 */
+	if (!strcmp(KBASE_CSFFW_LOG_BUF_NAME, trace_buffer->name) && csf_firmware_log_buf_size) {
+		trace_buffer->num_pages = csf_firmware_log_buf_size;
+		dev_dbg(kbdev->dev, "'%s' Trace buffer size is %u pages", trace_buffer->name,
+			trace_buffer->num_pages);
 	}
 
 	if (i < ARRAY_SIZE(trace_buffer_data)) {

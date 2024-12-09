@@ -123,6 +123,21 @@ void kbase_pm_update_active(struct kbase_device *kbdev)
 		if (!pm->backend.invoke_poweroff_wait_wq_when_l2_off &&
 		    pm->backend.poweroff_wait_in_progress) {
 			KBASE_DEBUG_ASSERT(kbase_io_is_gpu_powered(kbdev));
+#if MALI_USE_CSF
+			if (likely(!pm->backend.waiting_for_mmu_fault_handling)) {
+				/* L2 has been powered off. Invoke the state machine to power
+				 * up the L2 cache and also effectively cancel the GPU power off
+				 * work item.
+				 */
+				pm->backend.poweroff_wait_in_progress = false;
+				pm->backend.l2_desired = true;
+				pm->backend.mcu_desired = true;
+				kbase_pm_update_state(kbdev);
+				spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+				wake_up(&kbdev->pm.backend.poweroff_wait);
+				return;
+			}
+#endif
 			pm->backend.poweron_required = true;
 			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 		} else {

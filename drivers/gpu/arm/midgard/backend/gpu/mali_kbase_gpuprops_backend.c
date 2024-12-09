@@ -60,8 +60,10 @@ int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprop
 			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_MAX_WORKGROUP_SIZE));
 #if MALI_USE_CSF
 #endif /* MALI_USE_CSF */
-	regdump->thread_max_barrier_size =
-		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_MAX_BARRIER_SIZE));
+	if (kbase_reg_is_valid(kbdev, GPU_CONTROL_ENUM(THREAD_MAX_BARRIER_SIZE)))
+		regdump->thread_max_barrier_size =
+			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_MAX_BARRIER_SIZE));
+
 	regdump->thread_features = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_FEATURES));
 
 	/* Feature Registers */
@@ -79,9 +81,9 @@ int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprop
 		regdump->base_present = kbase_reg_read64(kbdev, HOST_POWER_ENUM(BASE_PRESENT));
 		regdump->neural_present = kbase_reg_read64(kbdev, HOST_POWER_ENUM(NEURAL_PRESENT));
 	}
-#endif /* MALI_USE_CSF */
 
-	regdump->tiler_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(TILER_FEATURES));
+#endif /* MALI_USE_CSF */
+		regdump->tiler_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(TILER_FEATURES));
 	regdump->l2_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(L2_FEATURES));
 	regdump->mem_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(MEM_FEATURES));
 	regdump->mmu_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(MMU_FEATURES));

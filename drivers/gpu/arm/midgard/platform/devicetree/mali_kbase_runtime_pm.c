@@ -162,19 +162,14 @@ static void pm_callback_runtime_gpu_active(struct kbase_device *kbdev)
 	WARN_ON(kbdev->pm.runtime_active);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
-	if (pm_runtime_status_suspended(kbdev->dev)) {
-		error = pm_runtime_get_sync(kbdev->dev);
-		dev_dbg(kbdev->dev, "pm_runtime_get_sync returned %d", error);
-	} else {
-		/* Call the async version here, otherwise there could be
-		 * a deadlock if the runtime suspend operation is ongoing.
-		 * Caller would have taken the kbdev->pm.lock and/or the
-		 * scheduler lock, and the runtime suspend callback function
-		 * will also try to acquire the same lock(s).
-		 */
-		error = pm_runtime_get(kbdev->dev);
-		dev_dbg(kbdev->dev, "pm_runtime_get returned %d", error);
-	}
+	/* Call the async version here, otherwise there could be
+	 * a deadlock if the runtime suspend operation is ongoing.
+	 * Caller would have taken the kbdev->pm.lock and/or the
+	 * scheduler lock, and the runtime suspend callback function
+	 * will also try to acquire the same lock(s).
+	 */
+	error = pm_runtime_get(kbdev->dev);
+	dev_dbg(kbdev->dev, "pm_runtime_get returned %d", error);
 
 	kbdev->pm.runtime_active = true;
 }

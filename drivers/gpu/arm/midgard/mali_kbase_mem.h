@@ -338,7 +338,7 @@ enum kbase_user_buf_state {
  */
 struct kbase_mem_phy_alloc {
 	struct kref kref;
-	atomic_t gpu_mappings;
+	atomic64_t gpu_mappings;
 	atomic_t kernel_mappings;
 	size_t nents;
 	struct tagged_addr *pages;
@@ -539,7 +539,7 @@ static inline void kbase_mem_phy_alloc_gpu_mapped(struct kbase_mem_phy_alloc *al
 	KBASE_DEBUG_ASSERT(alloc);
 	/* we only track mappings of NATIVE buffers */
 	if (alloc->type == KBASE_MEM_TYPE_NATIVE)
-		atomic_inc(&alloc->gpu_mappings);
+		atomic64_inc(&alloc->gpu_mappings);
 }
 
 static inline void kbase_mem_phy_alloc_gpu_unmapped(struct kbase_mem_phy_alloc *alloc)
@@ -547,7 +547,7 @@ static inline void kbase_mem_phy_alloc_gpu_unmapped(struct kbase_mem_phy_alloc *
 	KBASE_DEBUG_ASSERT(alloc);
 	/* we only track mappings of NATIVE buffers */
 	if (alloc->type == KBASE_MEM_TYPE_NATIVE)
-		if (atomic_dec_return(&alloc->gpu_mappings) < 0) {
+		if (atomic64_dec_return(&alloc->gpu_mappings) < 0) {
 			pr_err("Mismatched %s:\n", __func__);
 			dump_stack();
 		}
@@ -915,7 +915,7 @@ static inline struct kbase_mem_phy_alloc *kbase_alloc_create(struct kbase_contex
 		alloc->properties |= KBASE_MEM_PHY_ALLOC_LARGE;
 
 	kref_init(&alloc->kref);
-	atomic_set(&alloc->gpu_mappings, 0);
+	atomic64_set(&alloc->gpu_mappings, 0);
 	atomic_set(&alloc->kernel_mappings, 0);
 	alloc->nents = 0;
 	if (type != KBASE_MEM_TYPE_ALIAS) {

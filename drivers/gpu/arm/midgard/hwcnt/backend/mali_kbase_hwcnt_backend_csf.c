@@ -33,7 +33,7 @@
 #include <linux/version_compat_defs.h>
 
 #ifndef BASE_MAX_NR_CLOCKS_REGULATORS
-#define BASE_MAX_NR_CLOCKS_REGULATORS 2
+#define BASE_MAX_NR_CLOCKS_REGULATORS 4
 #endif
 
 /* Used to check for a sample in which all counters in the block are disabled */
@@ -596,7 +596,7 @@ void kbasep_hwcnt_backend_csf_update_block_state(struct kbase_hwcnt_backend_csf 
 	/* Enabled states */
 	case KBASE_HWCNT_BACKEND_CSF_ENABLED:
 	case KBASE_HWCNT_BACKEND_CSF_TRANSITIONING_TO_DISABLED:
-		if (!is_shader_core_block && !is_neural_core_block)
+		if (!is_shader_core_block)
 			kbase_hwcnt_block_state_append(block_state, KBASE_HWCNT_STATE_ON);
 		else if (!exiting_protm) {
 			/* When not exiting protected mode, a zero enable mask on a shader core

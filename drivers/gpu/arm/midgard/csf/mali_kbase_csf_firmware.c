@@ -402,8 +402,6 @@ static void wait_for_firmware_boot(struct kbase_device *kbdev)
 
 static void enable_mcu(struct kbase_device *kbdev)
 {
-	KBASE_TLSTREAM_TL_KBASE_CSFFW_FW_ENABLING(kbdev, kbase_backend_get_cycle_cnt(kbdev));
-
 	/* Trigger the boot of MCU firmware, Use the AUTO mode as
 	 * otherwise on fast reset, to exit protected mode, MCU will
 	 * not reboot by itself to enter normal mode.
@@ -1287,10 +1285,10 @@ static int parse_cmd_stream_group_info(struct kbase_device *kbdev,
 	ginfo->protm_suspend_size = group_base[GROUP_PROTM_SUSPEND_SIZE / 4];
 	ginfo->stream_num = group_base[GROUP_STREAM_NUM / 4];
 
-	if (ginfo->stream_num < MIN_SUPPORTED_STREAMS_PER_GROUP ||
-	    ginfo->stream_num > MAX_SUPPORTED_STREAMS_PER_GROUP) {
+	if (ginfo->stream_num < BASEP_GPU_QUEUE_PER_QUEUE_GROUP_MIN ||
+	    ginfo->stream_num > BASEP_GPU_QUEUE_PER_QUEUE_GROUP_MAX) {
 		dev_err(kbdev->dev, "CSG with %u CSs out of range %u-%u", ginfo->stream_num,
-			MIN_SUPPORTED_STREAMS_PER_GROUP, MAX_SUPPORTED_STREAMS_PER_GROUP);
+			BASEP_GPU_QUEUE_PER_QUEUE_GROUP_MIN, BASEP_GPU_QUEUE_PER_QUEUE_GROUP_MAX);
 		return -EINVAL;
 	}
 
@@ -1369,9 +1367,11 @@ static int parse_capabilities(struct kbase_device *kbdev)
 
 	iface->group_num = shared_info[GLB_GROUP_NUM / 4];
 
-	if ((iface->group_num == 0) || (iface->group_num > MAX_SUPPORTED_CSGS)) {
-		dev_err(kbdev->dev, "Invalid number of CSGs (%u), MAX_SUPPORTED_CSGS = %u",
-			iface->group_num, MAX_SUPPORTED_CSGS);
+	if ((iface->group_num < BASEP_QUEUE_GROUP_MIN) ||
+	    (iface->group_num > BASEP_QUEUE_GROUP_MAX)) {
+		dev_err(kbdev->dev,
+			"Invalid number of CSGs (%u), BASEP_QUEUE_GROUP_MIN = %u, BASEP_QUEUE_GROUP_MAX = %u",
+			iface->group_num, BASEP_QUEUE_GROUP_MIN, BASEP_QUEUE_GROUP_MAX);
 		return -EINVAL;
 	}
 
@@ -2068,8 +2068,6 @@ static void kbase_csf_firmware_reload_worker(struct work_struct *work)
 
 	dev_info(kbdev->dev, "reloading firmware");
 
-	KBASE_TLSTREAM_TL_KBASE_CSFFW_FW_RELOADING(kbdev, kbase_backend_get_cycle_cnt(kbdev));
-
 	/* Reload just the data sections from firmware binary image */
 	err = reload_fw_image(kbdev);
 	if (err)
@@ -2128,6 +2126,7 @@ void kbase_csf_firmware_reload_completed(struct kbase_device *kbdev)
 		dev_err(kbdev->dev, "Version check failed in firmware reboot.");
 
 	KBASE_KTRACE_ADD(kbdev, CSF_FIRMWARE_REBOOT, NULL, 0u);
+
 	/* Tell MCU state machine to transit to next state */
 	kbdev->csf.firmware_reloaded = true;
 	kbase_pm_update_state(kbdev);
@@ -3060,8 +3059,6 @@ void kbase_csf_firmware_trigger_mcu_halt(struct kbase_device *kbdev)
 	if (kbase_csf_fw_io_open(fw_io, &fw_io_flags))
 		goto unlock;
 
-	KBASE_TLSTREAM_TL_KBASE_CSFFW_FW_REQUEST_HALT(kbdev, kbase_backend_get_cycle_cnt(kbdev));
-
 	if (kbdev->pm.backend.has_host_pwr_iface)
 		set_global_req_state_as_halt(fw_io);
 	else
@@ -3104,8 +3101,6 @@ void kbase_csf_firmware_trigger_mcu_sleep(struct kbase_device *kbdev)
 	kbase_csf_scheduler_spin_lock(kbdev, &flags);
 	if (kbase_csf_fw_io_open(fw_io, &fw_io_flags))
 		goto unlock;
-
-	KBASE_TLSTREAM_TL_KBASE_CSFFW_FW_REQUEST_SLEEP(kbdev, kbase_backend_get_cycle_cnt(kbdev));
 
 	if (kbdev->pm.backend.has_host_pwr_iface)
 		set_global_req_state_as_sleep(fw_io);
@@ -3471,6 +3466,7 @@ void kbase_csf_firmware_glb_idle_timer_update(struct kbase_device *kbdev)
 	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
 	unsigned long flags;
 	enum kbase_mcu_state mcu_state;
+	bool glb_request = true;
 
 	if (likely(atomic_read(&scheduler->non_idle_offslot_grps) ^
 		   atomic_read(&scheduler->gpu_idle_timer_enabled)))
@@ -3508,12 +3504,18 @@ void kbase_csf_firmware_glb_idle_timer_update(struct kbase_device *kbdev)
 	kbase_csf_scheduler_spin_lock(kbdev, &flags);
 	if (atomic_read(&scheduler->non_idle_offslot_grps)) {
 		if (atomic_read(&scheduler->gpu_idle_timer_enabled))
-			kbase_csf_firmware_disable_gpu_idle_timer(kbdev);
+			if (kbase_csf_firmware_disable_gpu_idle_timer(kbdev)) {
+				dev_err(kbdev->dev, "Failed to disable GPU idle timer.");
+				glb_request = false;
+			}
 	} else if (!atomic_read(&scheduler->gpu_idle_timer_enabled)) {
-		kbase_csf_firmware_enable_gpu_idle_timer(kbdev);
+		if (kbase_csf_firmware_enable_gpu_idle_timer(kbdev)) {
+			dev_err(kbdev->dev, "Failed to enable GPU idle timer.");
+			glb_request = false;
+		}
 	}
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
-	if (wait_for_global_request(fw_io, GLB_REQ_IDLE_DISABLE_MASK))
+	if (likely(glb_request) && wait_for_global_request(fw_io, GLB_REQ_IDLE_DISABLE_MASK))
 		dev_warn(kbdev->dev, "Failed to %s GLB_IDLE timer",
 			 atomic_read(&scheduler->non_idle_offslot_grps) ? "disable" : "enable");
 

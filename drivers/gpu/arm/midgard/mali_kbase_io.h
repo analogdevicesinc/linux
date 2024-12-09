@@ -34,13 +34,13 @@ struct kbase_io;
  *
  * @KBASE_IO_STATUS_GPU_SUSPENDED: The GPU is suspended.
  * @KBASE_IO_STATUS_GPU_OFF: The GPU is OFF.
- * @KBASE_IO_STATUS_GPU_LOST: The GPU is LOST.
+ * @KBASE_IO_STATUS_AW_REMOVED: The GPU access window has been removed.
  * @KBASE_IO_STATUS_NUM_BITS: Number of bits used to encode the status.
  */
 enum kbase_io_status_bits {
 	KBASE_IO_STATUS_GPU_SUSPENDED = 0,
 	KBASE_IO_STATUS_GPU_OFF,
-	KBASE_IO_STATUS_GPU_LOST,
+	KBASE_IO_STATUS_AW_REMOVED,
 	KBASE_IO_STATUS_NUM_BITS,
 };
 
@@ -96,13 +96,15 @@ bool kbase_io_test_status(struct kbase_device *kbdev, enum kbase_io_status_bits 
 bool kbase_io_is_gpu_powered(struct kbase_device *kbdev);
 
 /**
- * kbase_io_is_gpu_lost() - Check if the GPU is lost
+ * kbase_io_is_aw_removed() - Check if the GPU access window
+ *			      has been removed
  *
  * @kbdev: Pointer to kbase device structure.
  *
- * Return: TRUE if the gpu is lost or FALSE otherwise.
+ * Return: TRUE if the gpu access window has been removed,
+ *	   or FALSE otherwise.
  */
-bool kbase_io_is_gpu_lost(struct kbase_device *kbdev);
+bool kbase_io_is_aw_removed(struct kbase_device *kbdev);
 
 /**
  * kbase_io_has_gpu() - Check if GPU is available

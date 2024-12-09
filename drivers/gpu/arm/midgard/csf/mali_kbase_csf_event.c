@@ -95,7 +95,8 @@ static void sync_update_notify_gpu(struct kbase_context *kctx)
 	spin_lock_irqsave(&kctx->kbdev->hwaccess_lock, flags);
 	can_notify_gpu = kbase_io_is_gpu_powered(kctx->kbdev);
 #ifdef KBASE_PM_RUNTIME
-	if (kctx->kbdev->pm.backend.gpu_sleep_mode_active)
+	if (kctx->kbdev->pm.backend.db_mirror_interrupt_enabled ||
+	    kctx->kbdev->pm.backend.gpu_sleep_mode_active)
 		can_notify_gpu = false;
 #endif
 

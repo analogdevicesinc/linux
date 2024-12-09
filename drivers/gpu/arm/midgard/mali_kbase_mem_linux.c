@@ -1059,7 +1059,7 @@ static int kbase_mem_flags_change_native(struct kbase_context *kctx, base_mem_al
 		 * looking up all physical pages assigned to different GPU VAs
 		 * and all CPU mappings associated with those physical pages.
 		 */
-		if (atomic_read(&reg->gpu_alloc->gpu_mappings) > 1)
+		if (atomic64_read(&reg->gpu_alloc->gpu_mappings) > 1)
 			return -EINVAL;
 
 		if (atomic_read(&reg->cpu_alloc->kernel_mappings) > 0)
@@ -1332,7 +1332,6 @@ int kbase_mem_umm_map(struct kbase_context *kctx, struct kbase_va_region *reg)
 {
 	int err;
 	struct kbase_mem_phy_alloc *alloc;
-	unsigned long gwt_mask = ~0UL;
 
 	/* Calls to this function are inherently asynchronous, with respect to
 	 * MMU operations.
@@ -1359,16 +1358,11 @@ int kbase_mem_umm_map(struct kbase_context *kctx, struct kbase_va_region *reg)
 	if (err)
 		goto bad_map_attachment;
 
-#ifdef CONFIG_MALI_CINSTR_GWT
-	if (kctx->gwt_enabled)
-		gwt_mask = ~KBASE_REG_GPU_WR;
-#endif
-
 	err = kbase_mmu_insert_pages_skip_status_update(kctx->kbdev, &kctx->mmu, reg->start_pfn,
 							kbase_get_gpu_phy_pages(reg),
 							kbase_reg_current_backed_size(reg),
-							reg->flags & gwt_mask, kctx->as_nr,
-							alloc->group_id, mmu_sync_info, NULL);
+							reg->flags, kctx->as_nr, alloc->group_id,
+							mmu_sync_info, NULL);
 	if (err)
 		goto bad_insert;
 
@@ -2205,7 +2199,7 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 	 * Note that for Native allocs mapped at multiple GPU VAs, growth of
 	 * such allocs is not a supported use-case.
 	 */
-	if (atomic_read(&reg->gpu_alloc->gpu_mappings) > 1)
+	if (atomic64_read(&reg->gpu_alloc->gpu_mappings) > 1)
 		goto out_unlock;
 
 	if (atomic_read(&reg->cpu_alloc->kernel_mappings) > 0)
@@ -2594,8 +2588,7 @@ out:
 static void kbase_free_unused_jit_allocations(struct kbase_context *kctx)
 {
 	/* Free all cached/unused JIT allocations as their contents are not
-	 * really needed for the replay. The GPU writes to them would already
-	 * have been captured through the GWT mechanism.
+	 * really needed for the replay.
 	 * This considerably reduces the size of mmu-snapshot-file and it also
 	 * helps avoid segmentation fault issue during vector dumping of
 	 * complex contents when the unused JIT allocations are accessed to
@@ -3462,9 +3455,23 @@ static vm_fault_t kbase_csf_user_io_pages_vm_fault(struct vm_fault *vmf)
 							   doorbell_cpu_addr, doorbell_page_pfn,
 							   doorbell_pgprot);
 	} else {
-		/* Map the Input page */
 		input_cpu_addr = doorbell_cpu_addr + PAGE_SIZE;
-		input_page_pfn = PFN_DOWN(as_phys_addr_t(queue->phys[0]));
+		output_cpu_addr = input_cpu_addr + PAGE_SIZE;
+
+		if (mali_kbase_supports_csg_cs_user_page_allocation(queue->kctx->api_version)) {
+			if (!queue->group) {
+				ret = VM_FAULT_SIGBUS;
+				goto exit;
+			}
+
+			input_page_pfn = PFN_DOWN(as_phys_addr_t(queue->group->phys[0]));
+			output_page_pfn = PFN_DOWN(as_phys_addr_t(queue->group->phys[1]));
+		} else {
+			input_page_pfn = PFN_DOWN(as_phys_addr_t(queue->phys[0]));
+			output_page_pfn = PFN_DOWN(as_phys_addr_t(queue->phys[1]));
+		}
+
+		/* Map the Input page */
 		ret = mgm_dev->ops.mgm_vmf_insert_pfn_prot(mgm_dev, KBASE_MEM_GROUP_CSF_IO, vma,
 							   input_cpu_addr, input_page_pfn,
 							   input_page_pgprot);
@@ -3472,8 +3479,6 @@ static vm_fault_t kbase_csf_user_io_pages_vm_fault(struct vm_fault *vmf)
 			goto exit;
 
 		/* Map the Output page */
-		output_cpu_addr = input_cpu_addr + PAGE_SIZE;
-		output_page_pfn = PFN_DOWN(as_phys_addr_t(queue->phys[1]));
 		ret = mgm_dev->ops.mgm_vmf_insert_pfn_prot(mgm_dev, KBASE_MEM_GROUP_CSF_IO, vma,
 							   output_cpu_addr, output_page_pfn,
 							   output_page_pgprot);

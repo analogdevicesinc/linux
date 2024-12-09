@@ -35,14 +35,21 @@ Optional:
 
 - clocks : One or more pairs of phandle to clock and clock specifier
            for the Mali device. The order is important: the first clock
-           shall correspond to the "clk_mali" source, while the second clock
-           (that is optional) shall correspond to the "shadercores" source.
-- clock-names : Shall be set to: "clk_mali", "shadercores".
+           shall correspond to the "clk_mali" source. Other clocks are optional
+           and, if present, they shall correspond to domains like "shadercores",
+           which is available for all GPUs, or "coregroup" and "neuralengines"
+           which are available for newer GPUs. Also notice that the "neuralengines"
+           clock domain, if present, doesn't expect a corresponding regulator.
+- clock-names : Shall be set to values like: "clk_mali", "shadercores", "coregroup",
+                "neuralengines". Only the first one is mandatory. Most GPUs
+                support only the first two entries.
 - mali-supply : Phandle to the top level regulator for the Mali device.
                 Refer to
 Documentation/devicetree/bindings/regulator/regulator.txt for details.
 - shadercores-supply : Phandle to shader cores regulator for the Mali device.
                        This is optional.
+- coregroup-supply: Phandle to core group regulator for the Mali device.
+                    This is optional and only available on newer GPUs.
 - operating-points-v2 : Refer to Documentation/devicetree/bindings/power/mali-opp.txt
 for details.
 - quirks-gpu : Used to write to the JM_CONFIG or CSF_CONFIG register.

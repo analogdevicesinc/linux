@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -93,6 +93,8 @@ int kbase_csf_cpu_queue_dump_buffer(struct kbase_context *kctx, u64 buffer, size
 
 int kbasep_csf_cpu_queue_dump_print(struct kbase_context *kctx, struct kbasep_printer *kbpr)
 {
+	bool timed_out = false;
+
 	mutex_lock(&kctx->csf.lock);
 	if (atomic_read(&kctx->csf.cpu_queue.dump_req_status) != BASE_CSF_CPU_QUEUE_DUMP_COMPLETE) {
 		kbasep_print(kbpr, "Dump request already started! (try again)\n");
@@ -108,10 +110,14 @@ int kbasep_csf_cpu_queue_dump_print(struct kbase_context *kctx, struct kbasep_pr
 	kbasep_print(kbpr, "CPU Queues table (version:v" __stringify(
 				   MALI_CSF_CPU_QUEUE_DUMP_VERSION) "):\n");
 
-	wait_for_completion_timeout(&kctx->csf.cpu_queue.dump_cmp, msecs_to_jiffies(3000));
+	if (WARN_ON(!wait_for_completion_timeout(&kctx->csf.cpu_queue.dump_cmp,
+						 msecs_to_jiffies(3000)))) {
+		kbasep_print(kbpr, "Failed to wait for completion of dump request\n");
+		timed_out = true;
+	}
 
 	mutex_lock(&kctx->csf.lock);
-	if (kctx->csf.cpu_queue.buffer) {
+	if (!timed_out && kctx->csf.cpu_queue.buffer) {
 		WARN_ON(atomic_read(&kctx->csf.cpu_queue.dump_req_status) !=
 			BASE_CSF_CPU_QUEUE_DUMP_PENDING);
 
@@ -123,7 +129,7 @@ int kbasep_csf_cpu_queue_dump_print(struct kbase_context *kctx, struct kbasep_pr
 		kctx->csf.cpu_queue.buffer = NULL;
 		kctx->csf.cpu_queue.buffer_size = 0;
 	} else
-		kbasep_print(kbpr, "Dump error! (time out)\n");
+		kbasep_print(kbpr, "Dump error! (timed_out = %d)\n", timed_out);
 
 	atomic_set(&kctx->csf.cpu_queue.dump_req_status, BASE_CSF_CPU_QUEUE_DUMP_COMPLETE);
 

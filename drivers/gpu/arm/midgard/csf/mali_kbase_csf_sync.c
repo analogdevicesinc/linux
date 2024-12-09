@@ -801,7 +801,7 @@ static void kbasep_csf_dump_active_group_sync_state(struct kbase_context *kctx,
 	kbasep_print(kbpr, "GPU queues for group %u (slot %d) of ctx %d_%d\n", group->handle,
 		     group->csg_nr, kctx->tgid, kctx->id);
 
-	for (i = 0; i < MAX_SUPPORTED_STREAMS_PER_GROUP; i++)
+	for (i = 0; i < BASEP_GPU_QUEUE_PER_QUEUE_GROUP_MAX; i++)
 		kbasep_csf_dump_active_queue_sync_info(kbpr, group->bound_queues[i]);
 }
 

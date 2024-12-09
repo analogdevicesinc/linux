@@ -523,6 +523,14 @@ void kbase_csf_scheduler_enqueue_protm_event_work(struct kbase_queue_group *grou
 void kbase_csf_scheduler_enqueue_kcpuq_work(struct kbase_kcpu_command_queue *queue);
 
 /**
+ * kbase_csf_scheduler_enqueue_power_off_work() - Wake up kbase_csf_scheduler_kthread() to process
+ *                                                a pending power off work item.
+ *
+ * @kbdev: The KBase device
+ */
+void kbase_csf_scheduler_enqueue_power_off_work(struct kbase_device *kbdev);
+
+/**
  * kbase_csf_scheduler_wait_for_kthread_pending_work - Wait until a pending work has completed in
  *                                                     kbase_csf_scheduler_kthread().
  *
@@ -703,8 +711,6 @@ void kbase_csf_scheduler_force_wakeup(struct kbase_device *kbdev);
  */
 void kbase_csf_scheduler_force_sleep(struct kbase_device *kbdev);
 #endif
-
-bool is_gpu_level_suspend_supported(struct kbase_device *const kbdev);
 
 
 #endif /* _KBASE_CSF_SCHEDULER_H_ */

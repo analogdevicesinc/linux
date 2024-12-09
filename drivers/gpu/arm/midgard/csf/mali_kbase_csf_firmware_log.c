@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -220,6 +220,9 @@ static const struct file_operations kbasep_csf_firmware_log_debugfs_fops = {
 	.owner = THIS_MODULE,
 	.open = kbasep_csf_firmware_log_debugfs_open,
 	.read = kbasep_csf_firmware_log_debugfs_read,
+#if (KERNEL_VERSION(6, 12, 0) > LINUX_VERSION_CODE)
+	.llseek = no_llseek,
+#endif
 };
 
 DEFINE_DEBUGFS_ATTRIBUTE(kbase_csf_firmware_log_mode_fops, kbase_csf_firmware_log_mode_read,

@@ -361,7 +361,7 @@ void kbase_arbiter_pm_early_term(struct kbase_device *kbdev)
 	cancel_request_timer(kbdev);
 	mutex_lock(&arb_vm_state->vm_state_lock);
 	if (arb_vm_state->vm_state > KBASE_VM_STATE_STOPPED_GPU_REQUESTED) {
-		kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_GPU_LOST);
+		kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_AW_REMOVED);
 		kbase_arbif_gpu_stopped(kbdev, false);
 	}
 	mutex_unlock(&arb_vm_state->vm_state_lock);
@@ -447,10 +447,13 @@ void kbase_arbiter_pm_vm_stopped(struct kbase_device *kbdev)
 		break;
 	}
 
-	kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_GPU_LOST);
-	kbase_arbif_gpu_stopped(kbdev, request_gpu);
-	if (request_gpu)
-		start_request_timer(kbdev);
+	kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_AW_REMOVED);
+
+	{
+		kbase_arbif_gpu_stopped(kbdev, request_gpu);
+		if (request_gpu)
+			start_request_timer(kbdev);
+	}
 }
 
 void kbase_arbiter_set_max_config(struct kbase_device *kbdev, uint32_t max_l2_slices,
@@ -494,7 +497,7 @@ int kbase_arbiter_pm_gpu_assigned(struct kbase_device *kbdev)
 
 	/* First check the GPU_LOST state */
 	kbase_pm_lock(kbdev);
-	if (kbase_io_is_gpu_lost(kbdev)) {
+	if (kbase_io_is_aw_removed(kbdev)) {
 		kbase_pm_unlock(kbdev);
 		return 0;
 	}
@@ -566,7 +569,7 @@ static void kbase_arbiter_pm_vm_gpu_start(struct kbase_device *kbdev)
 		queue_work(arb_vm_state->vm_arb_wq, &arb_vm_state->vm_resume_work);
 		break;
 	case KBASE_VM_STATE_SUSPEND_WAIT_FOR_GRANT:
-		kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_GPU_LOST);
+		kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_AW_REMOVED);
 		kbase_arbif_gpu_stopped(kbdev, false);
 		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_SUSPENDED);
 		break;
@@ -957,7 +960,7 @@ int kbase_arbiter_pm_ctx_active_handle_suspend(struct kbase_device *kbdev,
 			 * active_count > 0, we no longer have GPU
 			 * access
 			 */
-			if (kbase_io_is_gpu_lost(kbdev))
+			if (kbase_io_is_aw_removed(kbdev))
 				res = 1;
 
 			switch (suspend_handler) {

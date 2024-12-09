@@ -87,6 +87,15 @@
  */
 #define BASEP_KCPU_CQS_MAX_NUM_OBJS ((size_t)32)
 
+/* Minimum number of queue group supported by the GPU */
+#define BASEP_QUEUE_GROUP_MIN 1
+/* Maximum number of queue group supported by the GPU */
+#define BASEP_QUEUE_GROUP_MAX 31
+/* Minimum number of GPU queues per queue groups supported by the driver */
+#define BASEP_GPU_QUEUE_PER_QUEUE_GROUP_MIN 8
+/* Maximum number of GPU queues per queue groups supported by the driver */
+#define BASEP_GPU_QUEUE_PER_QUEUE_GROUP_MAX 32
+
 /* CSF CSI EXCEPTION_HANDLER_FLAGS */
 #define BASE_CSF_TILER_OOM_EXCEPTION_FLAG (1u << 0)
 #define BASE_CSF_EXCEPTION_HANDLER_FLAGS_MASK (BASE_CSF_TILER_OOM_EXCEPTION_FLAG)

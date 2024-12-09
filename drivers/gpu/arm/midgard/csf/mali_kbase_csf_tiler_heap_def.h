@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -90,29 +90,30 @@ struct kbase_csf_tiler_heap_chunk {
 /**
  * struct kbase_csf_tiler_heap - A tiler heap managed by the kernel
  *
- * @kctx:            Pointer to the kbase context with which this heap is
- *                   associated.
- * @link:            Link to this heap in a list of tiler heaps belonging to
- *                   the @kbase_csf_tiler_heap_context.
- * @chunks_list:     Linked list of allocated chunks.
- * @gpu_va:          The GPU virtual address of the heap context structure that
- *                   was allocated for the firmware. This is also used to
- *                   uniquely identify the heap.
- * @heap_id:         Unique id representing the heap, assigned during heap
- *                   initialization.
- * @buf_desc_va:     Buffer descriptor GPU VA. Can be 0 for backward compatible
- *                   to earlier version base interfaces.
- * @buf_desc_reg:    Pointer to the VA region that covers the provided buffer
- *                   descriptor memory object pointed to by buf_desc_va.
- * @gpu_va_map:      Kernel VA mapping of the GPU VA region.
- * @buf_desc_map:    Kernel VA mapping of the buffer descriptor, read from
- *                   during the tiler heap shrinker. Sync operations may need
- *                   to be done before each read.
- * @chunk_size:      Size of each chunk, in bytes. Must be page-aligned.
- * @chunk_count:     The number of chunks currently allocated. Must not be
- *                   zero or greater than @max_chunks.
- * @max_chunks:      The maximum number of chunks that the heap should be
- *                   allowed to use. Must not be less than @chunk_count.
+ * @kctx:             Pointer to the kbase context with which this heap is
+ *                    associated.
+ * @link:             Link to this heap in a list of tiler heaps belonging to
+ *                    the @kbase_csf_tiler_heap_context.
+ * @chunks_list:      Linked list of allocated chunks.
+ * @gpu_va:           The GPU virtual address of the heap context structure that
+ *                    was allocated for the firmware. This is also used to
+ *                    uniquely identify the heap.
+ * @heap_id:          Unique id representing the heap, assigned during heap
+ *                    initialization.
+ * @buf_desc_va:      Buffer descriptor GPU VA. Can be 0 for backward compatible
+ *                    to earlier version base interfaces.
+ * @buf_desc_reg:     Pointer to the VA region that covers the provided buffer
+ *                    descriptor memory object pointed to by buf_desc_va.
+ * @gpu_va_map:       Kernel VA mapping of the GPU VA region.
+ * @buf_desc_map:     Kernel VA mapping of the buffer descriptor, read from
+ *                    during the tiler heap shrinker. Sync operations may need
+ *                    to be done before each read.
+ * @chunk_size:       Size of each chunk, in bytes. Must be page-aligned.
+ * @chunk_count:      The number of chunks currently allocated. Must not be
+ *                    zero or greater than @max_chunks.
+ * @peak_chunk_count: The maximum number of chunks ever allocated by this heap.
+ * @max_chunks:       The maximum number of chunks that the heap should be
+ *                    allowed to use. Must not be less than @chunk_count.
  * @target_in_flight: Number of render-passes that the driver should attempt
  *                    to keep in flight for which allocation of new chunks is
  *                    allowed. Must not be zero.
@@ -130,6 +131,7 @@ struct kbase_csf_tiler_heap {
 	struct kbase_vmap_struct gpu_va_map;
 	u32 chunk_size;
 	u32 chunk_count;
+	u32 peak_chunk_count;
 	u32 max_chunks;
 	u16 target_in_flight;
 	bool buf_desc_checked;

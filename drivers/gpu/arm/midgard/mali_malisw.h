@@ -26,6 +26,9 @@
 #ifndef _MALISW_H_
 #define _MALISW_H_
 
+#include <linux/version.h>
+
+#if (KERNEL_VERSION(6, 11, 0) > LINUX_VERSION_CODE)
 /**
  * MIN - Return the lesser of two values.
  * @x: value1
@@ -34,7 +37,6 @@
  * As a macro it may evaluate its arguments more than once.
  * Refer to MAX macro for more details
  */
-#ifndef MIN
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 /**

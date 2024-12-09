@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -319,6 +319,15 @@ int kbase_ipa_counter_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 			      model_data->num_shader_cores_cntrs, counter_coeffs_p, cnt_values_p,
 			      active_cycles, &coeffp[KBASE_IPA_BLOCK_TYPE_SHADER_CORES]);
 
+	if (ret)
+		return ret;
+
+	cnt_values_p += model_data->num_shader_cores_cntrs;
+	counter_coeffs_p += model_data->num_shader_cores_cntrs;
+	ret = calculate_coeff(model_data, model_data->neural_engines_cntrs_def,
+			      model_data->num_neural_engines_cntrs, counter_coeffs_p, cnt_values_p,
+			      active_cycles, &coeffp[KBASE_IPA_BLOCK_TYPE_NEURAL_ENGINES]);
+
 	return ret;
 }
 
@@ -341,7 +350,9 @@ int kbase_ipa_counter_common_model_init(struct kbase_ipa_model *model,
 					const struct kbase_ipa_counter *top_level_cntrs_def,
 					size_t num_top_level_cntrs,
 					const struct kbase_ipa_counter *shader_cores_cntrs_def,
-					size_t num_shader_cores_cntrs, s32 reference_voltage)
+					size_t num_shader_cores_cntrs,
+					const struct kbase_ipa_counter *neural_engines_cntrs_def,
+					size_t num_neural_engines_cntrs, s32 reference_voltage)
 {
 	struct kbase_ipa_counter_model_data *model_data;
 	s32 *counter_coeffs_p;
@@ -349,7 +360,7 @@ int kbase_ipa_counter_common_model_init(struct kbase_ipa_model *model,
 	size_t i;
 
 	if (!model || !top_level_cntrs_def || !shader_cores_cntrs_def || !num_top_level_cntrs ||
-	    !num_shader_cores_cntrs)
+	    !neural_engines_cntrs_def || !num_shader_cores_cntrs)
 		return -EINVAL;
 
 	model_data = kzalloc(sizeof(*model_data), GFP_KERNEL);
@@ -383,6 +394,19 @@ int kbase_ipa_counter_common_model_init(struct kbase_ipa_model *model,
 
 	for (i = 0; i < model_data->num_shader_cores_cntrs; ++i) {
 		const struct kbase_ipa_counter *counter = &model_data->shader_cores_cntrs_def[i];
+
+		*counter_coeffs_p = counter->coeff_default_value;
+
+		err = kbase_ipa_model_add_param_s32(model, counter->name, counter_coeffs_p, 1,
+						    false);
+		if (err)
+			goto exit;
+
+		counter_coeffs_p++;
+	}
+
+	for (i = 0; i < model_data->num_neural_engines_cntrs; ++i) {
+		const struct kbase_ipa_counter *counter = &model_data->neural_engines_cntrs_def[i];
 
 		*counter_coeffs_p = counter->coeff_default_value;
 

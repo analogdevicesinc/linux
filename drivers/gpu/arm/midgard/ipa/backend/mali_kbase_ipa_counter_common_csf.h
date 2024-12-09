@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -26,7 +26,7 @@
 #include "csf/ipa_control/mali_kbase_csf_ipa_control.h"
 
 /* Maximum number of HW counters used by the IPA counter model. */
-#define KBASE_IPA_MAX_COUNTER_DEF_NUM 24
+#define KBASE_IPA_MAX_COUNTER_DEF_NUM 40
 
 struct kbase_ipa_counter_model_data;
 
@@ -41,6 +41,9 @@ struct kbase_ipa_counter_model_data;
  * @shader_cores_cntrs_def: Array of description of HW counters used by the IPA
  *                       counter model for shader cores.
  * @num_shader_cores_cntrs: Number of elements in @shader_cores_cntrs_def array.
+ * @neural_engines_cntrs_def: Array of description of HW counters used by the IPA
+ *                       counter model for neural engines.
+ * @num_neural_engines_cntrs: Number of elements in @neural_engines_cntrs_def_array.
  * @counter_coeffs:      Buffer to store coefficient value used for HW counters
  * @counter_values:      Buffer to store the accumulated value of HW counters
  *                       retrieved from kbase_ipa_control.
@@ -67,6 +70,8 @@ struct kbase_ipa_counter_model_data {
 	size_t num_top_level_cntrs;
 	const struct kbase_ipa_counter *shader_cores_cntrs_def;
 	size_t num_shader_cores_cntrs;
+	const struct kbase_ipa_counter *neural_engines_cntrs_def;
+	size_t num_neural_engines_cntrs;
 	s32 counter_coeffs[KBASE_IPA_MAX_COUNTER_DEF_NUM];
 	u64 counter_values[KBASE_IPA_MAX_COUNTER_DEF_NUM];
 	u64 num_counters;
@@ -131,6 +136,11 @@ void kbase_ipa_counter_reset_data(struct kbase_ipa_model *model);
  *                       default value of the coefficient.
  * @num_shader_cores_cntrs: Number of elements in the array
  *                          @shader_cores_cntrs_def.
+ * @neural_engines_cntrs_def: Array corresponding to the HW counters used in the
+ *                       neural engines counter model, contains the counter index,
+ *                       default value of the coefficient.
+ * @num_neural_engines_cntrs: Number of elements in the array
+ *                          @neural_engines_cntrs_def.
  * @reference_voltage:   voltage, in mV, of the operating point used when
  *                       deriving the power model coefficients.
  *
@@ -145,7 +155,9 @@ int kbase_ipa_counter_common_model_init(struct kbase_ipa_model *model,
 					const struct kbase_ipa_counter *top_level_cntrs_def,
 					size_t num_top_level_cntrs,
 					const struct kbase_ipa_counter *shader_cores_cntrs_def,
-					size_t num_shader_cores_cntrs, s32 reference_voltage);
+					size_t num_shader_cores_cntrs,
+					const struct kbase_ipa_counter *neural_engines_cntrs_def,
+					size_t num_neural_engines_cntrs, s32 reference_voltage);
 /**
  * kbase_ipa_counter_common_model_term() - terminate ipa power model
  * @model: ipa power model to terminate

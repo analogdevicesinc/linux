@@ -20,12 +20,19 @@
  *
  */
 
+#include <linux/version.h>
 #include <linux/of_address.h>
 #include <mali_kbase.h>
 #include <mali_kbase_config.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
 
 #include "mali_kbase_config_platform.h"
+
+#ifndef IMX_GPU_BLK_CTRL
+#if KERNEL_VERSION(6, 12, 0) >= LINUX_VERSION_CODE
+#define IMX_GPU_BLK_CTRL 1
+#endif
+#endif
 
 static struct kbase_platform_config dummy_platform_config;
 

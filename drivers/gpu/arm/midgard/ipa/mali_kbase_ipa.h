@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2016-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2016-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -29,14 +29,16 @@ struct devfreq;
 /**
  * enum kbase_ipa_block_type - Type of block for which power estimation is done.
  *
- * @KBASE_IPA_BLOCK_TYPE_TOP_LEVEL:    Top-level block, that covers CSHW,
- *                                     MEMSYS, Tiler.
- * @KBASE_IPA_BLOCK_TYPE_SHADER_CORES: All Shader cores.
- * @KBASE_IPA_BLOCK_TYPE_NUM:          Number of blocks.
+ * @KBASE_IPA_BLOCK_TYPE_TOP_LEVEL:      Top-level block, that covers CSHW,
+ *                                       MEMSYS, Tiler.
+ * @KBASE_IPA_BLOCK_TYPE_SHADER_CORES:   All Shader cores.
+ * @KBASE_IPA_BLOCK_TYPE_NEURAL_ENGINES: All Neural Engines.
+ * @KBASE_IPA_BLOCK_TYPE_NUM:            Number of blocks.
  */
 enum kbase_ipa_block_type {
 	KBASE_IPA_BLOCK_TYPE_TOP_LEVEL,
 	KBASE_IPA_BLOCK_TYPE_SHADER_CORES,
+	KBASE_IPA_BLOCK_TYPE_NEURAL_ENGINES,
 	KBASE_IPA_BLOCK_TYPE_NUM
 };
 

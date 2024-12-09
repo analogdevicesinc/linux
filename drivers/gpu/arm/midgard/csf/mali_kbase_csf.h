@@ -40,9 +40,6 @@
  */
 #define KBASEP_USER_DB_NR_INVALID ((s8)-1)
 
-/* Number of pages used for GPU command queue's User input & output data */
-#define KBASEP_NUM_CS_USER_IO_PAGES (2)
-
 /* Indicates an invalid value for the scan out sequence number, used to
  * signify there is no group that has protected mode execution pending.
  */
@@ -142,35 +139,55 @@ void kbase_csf_queue_terminate(struct kbase_context *kctx,
 			       struct kbase_ioctl_cs_queue_terminate *term);
 
 /**
- * kbase_csf_free_command_stream_user_pages() - Free the resources allocated
- *				    for a queue at the time of bind.
+ * kbase_csf_free_command_stream_user_pages() - Free queue resources
+ *                                              from bind time.
  *
- * @kctx:	Address of the kbase context within which the queue was created.
- * @queue:	Pointer to the queue to be unlinked.
+ * @kctx: Address of the kbase context within which the queue was created.
+ * @queue: Pointer to the queue to be unlinked.
  *
- * This function will free the pair of physical pages allocated for a GPU
- * command queue, and also release the hardware doorbell page, that were mapped
- * into the process address space to enable direct submission of commands to
- * the hardware. Also releases the reference taken on the queue when the mapping
- * was created.
+ * This function releases the hardware doorbell page assigned to the queue
+ * and releases the reference taken on the queue.
  *
- * If an explicit or implicit unbind was missed by the userspace then the
- * mapping will persist. On process exit kernel itself will remove the mapping.
+ * When mali_kbase_supports_csg_cs_user_page_allocation() is false:
+ *  This function will free the pair of CS_USER IO physical pages allocated
+ *  for a GPU command queue, that were mapped into the process address space
+ *  to enable direct submission of commands to the hardware.
+ *
+ *  This function will be called only when the mapping is being removed and
+ *  so the resources for queue will not get freed up until the mapping is
+ *  removed even though userspace could have terminated the queue.
+ *  Kernel will ensure that the termination of Kbase context would only be
+ *  triggered after the mapping is removed.
+ *
+ *  If an explicit or implicit unbind was missed by the userspace then the
+ *  mapping will persist. On process exit kernel itself will remove the mapping.
+ *
+ * When mali_kbase_supports_csg_cs_user_page_allocation() is true:
+ *  No specific actions are required for CS_USER IO pages. CSG termination
+ *  will take care of it.
  */
 void kbase_csf_free_command_stream_user_pages(struct kbase_context *kctx,
 					      struct kbase_queue *queue);
 
 /**
- * kbase_csf_alloc_command_stream_user_pages - Allocate resources for a
- *                                             GPU command queue.
+ * kbase_csf_alloc_command_stream_user_pages() - Allocate queue resources
+ *                                               at bind time.
  *
- * @kctx:	Pointer to the kbase context within which the resources
- *		for the queue are being allocated.
- * @queue:	Pointer to the queue for which to allocate resources.
+ * @kctx: Pointer to the kbase context within which the resources
+ *        for the queue are being allocated.
+ * @queue: Pointer to the queue for which to allocate resources.
  *
- * This function allocates a pair of User mode input/output pages for a
- * GPU command queue and maps them in the shared interface segment of MCU
- * firmware address space. Also reserves a hardware doorbell page for the queue.
+ * This function reserves a hardware doorbell page for the queue and
+ * takes a reference on the queue.
+ *
+ * When mali_kbase_supports_csg_cs_user_page_allocation() is false:
+ *   The function allocates a pair of User mode input/output pages for a
+ *   GPU command queue and maps them in the shared interface segment of MCU
+ *   firmware address space.
+ *
+ * When mali_kbase_supports_csg_cs_user_page_allocation() is true:
+ *   A slot of size CS_USER_INPUT_BLOCK_SIZE is assigned to the queue in
+ *   the CS_USER IO page owned by the CSG.
  *
  * Return:	0 on success, or negative on failure.
  */

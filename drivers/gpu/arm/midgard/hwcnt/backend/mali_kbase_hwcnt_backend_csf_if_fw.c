@@ -286,7 +286,7 @@ static u64 kbasep_hwcnt_backend_csf_physical_mask_to_vid(u64 shader_present, u64
 	}
 	return virtual_core_mask;
 }
-#endif
+#endif /*!IS_ENABLED(CONFIG_MALI_NO_MALI)*/
 
 static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 	struct kbase_hwcnt_backend_csf_if_ctx *ctx,

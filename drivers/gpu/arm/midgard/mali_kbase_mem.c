@@ -82,6 +82,10 @@ static DEFINE_STATIC_KEY_FALSE(large_pages_static_key);
 
 #endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
+static bool kbase_disable_partial_page_allocation;
+module_param(kbase_disable_partial_page_allocation, bool, 0444);
+MODULE_PARM_DESC(kbase_disable_partial_page_allocation, "Disable partial page allocation.");
+
 /*
  * kbase_large_page_state - flag indicating kbase handling of large pages
  * @LARGE_PAGE_AUTO: large pages get selected if the GPU hardware supports them
@@ -346,14 +350,8 @@ int kbase_gpu_mmap(struct kbase_context *kctx, struct kbase_va_region *reg, u64 
 	size_t i = 0;
 	unsigned long attr;
 	unsigned long mask = ~KBASE_REG_MEMATTR_MASK;
-	unsigned long gwt_mask = ~0UL;
 	int group_id;
 	struct kbase_mem_phy_alloc *alloc;
-
-#ifdef CONFIG_MALI_CINSTR_GWT
-	if (kctx->gwt_enabled)
-		gwt_mask = ~KBASE_REG_GPU_WR;
-#endif
 
 	if ((kctx->kbdev->system_coherency == COHERENCY_ACE) && (reg->flags & KBASE_REG_SHARE_BOTH))
 		attr = KBASE_REG_MEMATTR_INDEX(KBASE_MEMATTR_INDEX_OUTER_WA);
@@ -380,9 +378,8 @@ int kbase_gpu_mmap(struct kbase_context *kctx, struct kbase_va_region *reg, u64 
 					kctx->kbdev, &kctx->mmu, reg->start_pfn + (i * stride),
 					alloc->imported.alias.aliased[i].alloc->pages +
 						alloc->imported.alias.aliased[i].offset,
-					alloc->imported.alias.aliased[i].length,
-					reg->flags & gwt_mask, kctx->as_nr, group_id, mmu_sync_info,
-					NULL);
+					alloc->imported.alias.aliased[i].length, reg->flags,
+					kctx->as_nr, group_id, mmu_sync_info, NULL);
 				if (err)
 					goto bad_aliased_insert;
 
@@ -393,8 +390,7 @@ int kbase_gpu_mmap(struct kbase_context *kctx, struct kbase_va_region *reg, u64 
 				err = kbase_mmu_insert_single_aliased_page(
 					kctx, reg->start_pfn + i * stride, kctx->aliasing_sink_page,
 					alloc->imported.alias.aliased[i].length,
-					(reg->flags & mask & gwt_mask) | attr, group_id,
-					mmu_sync_info);
+					(reg->flags & mask) | attr, group_id, mmu_sync_info);
 
 				if (err)
 					goto bad_aliased_insert;
@@ -431,13 +427,12 @@ int kbase_gpu_mmap(struct kbase_context *kctx, struct kbase_va_region *reg, u64 
 			err = kbase_mmu_insert_pages_skip_status_update(
 				kctx->kbdev, &kctx->mmu, reg->start_pfn,
 				kbase_get_gpu_phy_pages(reg), kbase_reg_current_backed_size(reg),
-				reg->flags & gwt_mask, kctx->as_nr, group_id, mmu_sync_info, reg);
+				reg->flags, kctx->as_nr, group_id, mmu_sync_info, reg);
 		} else {
 			err = kbase_mmu_insert_pages(kctx->kbdev, &kctx->mmu, reg->start_pfn,
 						     kbase_get_gpu_phy_pages(reg),
-						     kbase_reg_current_backed_size(reg),
-						     reg->flags & gwt_mask, kctx->as_nr, group_id,
-						     mmu_sync_info, reg);
+						     kbase_reg_current_backed_size(reg), reg->flags,
+						     kctx->as_nr, group_id, mmu_sync_info, reg);
 		}
 
 		if (err)
@@ -1290,7 +1285,6 @@ int kbase_alloc_phy_pages_helper(struct kbase_mem_phy_alloc *alloc, size_t nr_pa
 
 		if (nr_left) {
 			struct kbase_sub_alloc *sa, *temp_sa;
-
 			spin_lock(&kctx->mem_partials_lock);
 
 			list_for_each_entry_safe(sa, temp_sa, &kctx->mem_partials, link) {
@@ -1319,7 +1313,8 @@ int kbase_alloc_phy_pages_helper(struct kbase_mem_phy_alloc *alloc, size_t nr_pa
 		/* only if we actually have a chunk left <512. If more it indicates
 		 * that we couldn't allocate a 2MB above, so no point to retry here.
 		 */
-		if (nr_left > 0 && nr_left < NUM_PAGES_IN_2MB_LARGE_PAGE) {
+		if (nr_left > 0 && nr_left < NUM_PAGES_IN_2MB_LARGE_PAGE &&
+		    !kbase_disable_partial_page_allocation) {
 			/* create a new partial and suballocate the rest from it */
 			struct page *np = NULL;
 
@@ -1560,7 +1555,8 @@ struct tagged_addr *kbase_alloc_phy_pages_helper_locked(struct kbase_mem_phy_all
 		 * indicates that we couldn't allocate a 2MB above, so no point
 		 * to retry here.
 		 */
-		if (nr_left > 0 && nr_left < NUM_PAGES_IN_2MB_LARGE_PAGE) {
+		if (nr_left > 0 && nr_left < NUM_PAGES_IN_2MB_LARGE_PAGE &&
+		    !kbase_disable_partial_page_allocation) {
 			/* create a new partial and suballocate the rest from it
 			 */
 			struct page *np = NULL;
@@ -3863,7 +3859,6 @@ static int kbase_user_buf_map(struct kbase_context *kctx, struct kbase_va_region
 	struct page **pages;
 	struct tagged_addr *pa;
 	size_t i;
-	unsigned long gwt_mask = ~0UL;
 	int ret;
 	/* Calls to this function are inherently asynchronous, with respect to
 	 * MMU operations.
@@ -3884,15 +3879,10 @@ static int kbase_user_buf_map(struct kbase_context *kctx, struct kbase_va_region
 	for (i = 0; i < pinned_pages; i++)
 		pa[i] = as_tagged(page_to_phys(pages[i]));
 
-#ifdef CONFIG_MALI_CINSTR_GWT
-	if (kctx->gwt_enabled)
-		gwt_mask = ~KBASE_REG_GPU_WR;
-#endif
-
 	ret = kbase_mmu_insert_pages_skip_status_update(kctx->kbdev, &kctx->mmu, reg->start_pfn, pa,
 							kbase_reg_current_backed_size(reg),
-							reg->flags & gwt_mask, kctx->as_nr,
-							alloc->group_id, mmu_sync_info, NULL);
+							reg->flags, kctx->as_nr, alloc->group_id,
+							mmu_sync_info, NULL);
 
 	return ret;
 }

@@ -20,6 +20,7 @@
  *
  */
 
+#include <linux/version.h>
 #include <mali_kbase.h>
 #include <mali_kbase_defs.h>
 #include <device/mali_kbase_device.h>
@@ -30,6 +31,12 @@
 #include <linux/regulator/consumer.h>
 
 #include "mali_kbase_config_platform.h"
+
+#ifndef IMX_GPU_BLK_CTRL
+#if KERNEL_VERSION(6, 12, 0) >= LINUX_VERSION_CODE
+#define IMX_GPU_BLK_CTRL 1
+#endif
+#endif
 
 static void enable_gpu_power_control(struct kbase_device *kbdev)
 {
@@ -105,7 +112,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 
 #ifdef CONFIG_MALI_DEBUG
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-	WARN_ON(kbdev->pm.backend.gpu_powered);
+	WARN_ON(kbase_io_is_gpu_powered(kbdev));
 	if (likely(kbdev->csf.firmware_inited)) {
 		WARN_ON(!kbdev->pm.active_count);
 		WARN_ON(kbdev->pm.runtime_active);
@@ -128,7 +135,7 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 	unsigned long flags;
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-	WARN_ON(kbdev->pm.backend.gpu_powered);
+	WARN_ON(kbase_io_is_gpu_powered(kbdev));
 	if (likely(kbdev->csf.firmware_inited)) {
 		WARN_ON(kbase_csf_scheduler_get_nr_active_csgs(kbdev));
 		WARN_ON(kbdev->pm.backend.mcu_state != KBASE_MCU_OFF);

@@ -46,7 +46,7 @@
  * The access to it is serialized with scheduler lock, so at a time it would
  * get used either for "active_groups" or per context "groups".
  */
-static DECLARE_BITMAP(csg_slots_status_updated, MAX_SUPPORTED_CSGS);
+static DECLARE_BITMAP(csg_slots_status_updated, BASEP_QUEUE_GROUP_MAX);
 
 /* String header for dumping cs user I/O status information */
 #define KBASEP_CSF_CSG_DUMP_CS_HEADER_USER_IO \
@@ -581,7 +581,7 @@ static void kbasep_csf_csg_active_dump_group(struct kbasep_printer *kbpr,
 
 		kbasep_print(kbpr, "Bound queues:\n");
 
-		for (i = 0; i < MAX_SUPPORTED_STREAMS_PER_GROUP; i++)
+		for (i = 0; i < BASEP_GPU_QUEUE_PER_QUEUE_GROUP_MAX; i++)
 			kbasep_csf_csg_active_dump_queue(kbpr, group->bound_queues[i]);
 	}
 }
@@ -589,7 +589,7 @@ static void kbasep_csf_csg_active_dump_group(struct kbasep_printer *kbpr,
 void kbase_csf_csg_update_status(struct kbase_device *kbdev)
 {
 	u32 max_csg_slots = kbdev->csf.global_iface.group_num;
-	DECLARE_BITMAP(used_csgs, MAX_SUPPORTED_CSGS) = { 0 };
+	DECLARE_BITMAP(used_csgs, BASEP_QUEUE_GROUP_MAX) = { 0 };
 	u32 csg_nr;
 	unsigned long flags, fw_io_flags;
 
@@ -637,7 +637,7 @@ void kbase_csf_csg_update_status(struct kbase_device *kbdev)
 									     csg_nr, CSG_ACK),
 						 CSG_REQ_STATUS_UPDATE_MASK);
 
-	BUILD_BUG_ON(MAX_SUPPORTED_CSGS > (sizeof(used_csgs[0]) * BITS_PER_BYTE));
+	BUILD_BUG_ON(BASEP_QUEUE_GROUP_MAX > (sizeof(used_csgs[0]) * BITS_PER_BYTE));
 	kbase_csf_ring_csg_slots_doorbell(kbdev, used_csgs[0]);
 	kbase_csf_fw_io_close(&kbdev->csf.fw_io, fw_io_flags);
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);

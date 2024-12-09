@@ -69,16 +69,6 @@
 /* Offset of name inside a trace buffer entry in the firmware image */
 #define TRACE_BUFFER_ENTRY_NAME_OFFSET (0x1C)
 
-/* All implementations of the host interface with major version 0 must comply
- * with these restrictions:
- */
-/* GLB_GROUP_NUM: No more than 31 */
-#define MAX_SUPPORTED_CSGS 31
-/* GROUP_STREAM_NUM: At least 8 CSs per CSG, but no more than 32 */
-#define MIN_SUPPORTED_STREAMS_PER_GROUP 8
-/* MAX_SUPPORTED_STREAMS_PER_GROUP: Maximum CSs per csg. */
-#define MAX_SUPPORTED_STREAMS_PER_GROUP 32
-
 struct kbase_device;
 
 /**
@@ -420,6 +410,9 @@ static inline bool kbase_csf_firmware_mcu_halted(struct kbase_device *kbdev)
 #if IS_ENABLED(CONFIG_MALI_NO_MALI)
 	return true;
 #else
+	if (kbase_io_is_aw_removed(kbdev))
+		return true;
+
 	return (kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(MCU_STATUS)) == MCU_STATUS_VALUE_HALT);
 #endif /* CONFIG_MALI_NO_MALI */
 }

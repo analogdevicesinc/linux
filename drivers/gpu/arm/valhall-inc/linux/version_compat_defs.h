@@ -30,6 +30,7 @@
 #include <linux/math64.h>
 #include <linux/mm.h>
 #include <linux/moduleparam.h>
+#include <linux/of.h>
 #include <linux/lockdep.h>
 #include <linux/ptrace.h>
 #include <linux/compiler.h>
@@ -500,7 +501,6 @@ static inline unsigned long find_next_clump8(unsigned long *clump, const unsigne
 
 /* Define missing stubs from <linux/of.h> for the case when OF_DYNAMIC is disabled. */
 #if KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE
-#include <linux/of.h>
 #ifndef CONFIG_OF_DYNAMIC
 static inline void of_changeset_init(struct of_changeset *ocs)
 {
@@ -662,6 +662,102 @@ static unsigned long __maybe_unused regs_get_kernel_argument(struct pt_regs *reg
 {
 	return regs_get_register(regs, n);
 }
+#endif
+
+#if (KERNEL_VERSION(6, 6, 0) > LINUX_VERSION_CODE)
+#include <linux/device.h>
+#include <linux/slab.h>
+#include <linux/string.h>
+
+static inline struct property *__of_prop_dup(const struct property *prop, gfp_t allocflags)
+{
+	struct property *new;
+
+	new = kzalloc(sizeof(*new), allocflags);
+	if (!new)
+		return NULL;
+
+	/*
+	 * NOTE: There is no check for zero length value.
+	 * In case of a boolean property, this will allocate a value
+	 * of zero bytes. We do this to work around the use
+	 * of of_get_property() calls on boolean values.
+	 */
+	new->name = kstrdup(prop->name, allocflags);
+	new->value = kmemdup(prop->value, prop->length, allocflags);
+	new->length = prop->length;
+	if (!new->name || !new->value)
+		goto err_free;
+
+	/* mark the property as dynamic */
+	of_property_set_flag(new, OF_DYNAMIC);
+
+	return new;
+err_free:
+	kfree(new->name);
+	kfree(new->value);
+	kfree(new);
+	return NULL;
+}
+
+static inline void __of_prop_free(struct property *prop)
+{
+	kfree(prop->name);
+	kfree(prop->value);
+	kfree(prop);
+}
+
+static inline int of_changeset_add_prop_helper(struct of_changeset *ocs, struct device_node *np,
+					       const struct property *pp)
+{
+	struct property *new_pp;
+	int ret;
+
+	new_pp = __of_prop_dup(pp, GFP_KERNEL);
+	if (!new_pp)
+		return -ENOMEM;
+
+	ret = of_changeset_add_property(ocs, np, new_pp);
+	if (ret)
+		__of_prop_free(new_pp);
+
+	return ret;
+}
+
+static inline int of_changeset_add_prop_string_array(struct of_changeset *ocs,
+						     struct device_node *np, const char *prop_name,
+						     const char *const *str_array, size_t sz)
+{
+	struct property prop;
+	int i, ret;
+	char *vp;
+
+	prop.name = (char *)prop_name;
+
+	prop.length = 0;
+	for (i = 0; i < sz; i++)
+		prop.length += strlen(str_array[i]) + 1;
+
+	prop.value = kmalloc(prop.length, GFP_KERNEL);
+	if (!prop.value)
+		return -ENOMEM;
+
+	vp = prop.value;
+	for (i = 0; i < sz; i++)
+		vp += scnprintf(vp, (char *)prop.value + prop.length - vp, "%s", str_array[i]) + 1;
+
+	ret = of_changeset_add_prop_helper(ocs, np, &prop);
+	kfree(prop.value);
+
+	return ret;
+}
+#endif
+
+#ifndef DEVFREQ_GOV_SIMPLE_ONDEMAND
+#define DEVFREQ_GOV_SIMPLE_ONDEMAND "simple_ondemand"
+#endif
+#ifndef DEVFREQ_GOV_PASSIVE
+#define DEVFREQ_GOV_PASSIVE "passive"
 #endif
 
 #endif /* _VERSION_COMPAT_DEFS_H_ */

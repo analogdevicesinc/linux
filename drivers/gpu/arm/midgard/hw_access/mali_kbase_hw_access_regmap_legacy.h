@@ -29,8 +29,12 @@
 #endif
 
 /* Begin Register Offsets */
+
 /* GPU control registers */
+
 #define GPU_CONTROL_BASE 0x0000
+#define GPU_CONTROL_REG_PAGE_MASK 0xFFF
+
 #define GPU_CONTROL_REG(r) (GPU_CONTROL_BASE + (r))
 
 
@@ -73,7 +77,6 @@
 #define THREAD_MAX_BARRIER_SIZE 0x0A8 /* (RO) Maximum threads waiting at a barrier */
 #define THREAD_FEATURES 0x0AC /* (RO) Thread features */
 #define THREAD_TLS_ALLOC 0x310 /* (RO) Number of threads per core that TLS must be allocated for */
-
 
 #define TEXTURE_FEATURES_0 0x0B0 /* (RO) Support flags for indexed texture formats 0..31 */
 #define TEXTURE_FEATURES_1 0x0B4 /* (RO) Support flags for indexed texture formats 32..63 */
@@ -202,26 +205,13 @@
 #define MMU_IRQ_MASK 0x008 /* (RW) Interrupt mask register */
 #define MMU_IRQ_STATUS 0x00C /* (RO) Interrupt status register */
 
-#define MMU_AS0 0x400 /* Configuration registers for address space 0 */
-#define MMU_AS1 0x440 /* Configuration registers for address space 1 */
-#define MMU_AS2 0x480 /* Configuration registers for address space 2 */
-#define MMU_AS3 0x4C0 /* Configuration registers for address space 3 */
-#define MMU_AS4 0x500 /* Configuration registers for address space 4 */
-#define MMU_AS5 0x540 /* Configuration registers for address space 5 */
-#define MMU_AS6 0x580 /* Configuration registers for address space 6 */
-#define MMU_AS7 0x5C0 /* Configuration registers for address space 7 */
-#define MMU_AS8 0x600 /* Configuration registers for address space 8 */
-#define MMU_AS9 0x640 /* Configuration registers for address space 9 */
-#define MMU_AS10 0x680 /* Configuration registers for address space 10 */
-#define MMU_AS11 0x6C0 /* Configuration registers for address space 11 */
-#define MMU_AS12 0x700 /* Configuration registers for address space 12 */
-#define MMU_AS13 0x740 /* Configuration registers for address space 13 */
-#define MMU_AS14 0x780 /* Configuration registers for address space 14 */
-#define MMU_AS15 0x7C0 /* Configuration registers for address space 15 */
 
-#define MMU_STAGE1 0x2000
+#define MMU_STAGE1 MMU_CONTROL_BASE
 #define MMU_STAGE1_REG(r) (MMU_STAGE1 + (r))
-#define MMU_AS_REG(n, r) (MMU_AS0 + ((n) << 6) + (r))
+#define MMU_STAGE1_AS_OFFSET 0x400
+#define MMU_STAGE1_AS_SHIFT 6
+#define MMU_AS_REG(n, r) (MMU_STAGE1_AS_OFFSET + ((n) << MMU_STAGE1_AS_SHIFT) + (r))
+
 
 #define AS_TRANSTAB_LO 0x00 /* (RW) Translation Table Base Address for address space n, low word */
 #define AS_TRANSTAB_HI 0x04 /* (RW) Translation Table Base Address for address space n, high word */

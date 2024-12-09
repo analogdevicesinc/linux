@@ -845,171 +845,6 @@ static size_t reg_grow_calc_extra_pages(struct kbase_device *kbdev, struct kbase
 	return minimum_extra + multiple - remainder;
 }
 
-#ifdef CONFIG_MALI_CINSTR_GWT
-static void kbase_gpu_mmu_handle_write_faulting_as(struct kbase_device *kbdev,
-						   struct kbase_as *faulting_as, u64 start_pfn,
-						   size_t nr, u32 kctx_id, u64 dirty_pgds)
-{
-	/* Calls to this function are inherently synchronous, with respect to
-	 * MMU operations.
-	 */
-	const enum kbase_caller_mmu_sync_info mmu_sync_info = CALLER_MMU_SYNC;
-	struct kbase_mmu_hw_op_param op_param;
-	unsigned long irq_flags;
-	int ret = 0;
-
-	kbase_mmu_hw_clear_fault(kbdev, faulting_as, KBASE_MMU_FAULT_TYPE_PAGE);
-
-	/* flush L2 and unlock the VA (resumes the MMU) */
-	op_param.vpfn = start_pfn;
-	op_param.nr = nr;
-	op_param.op = KBASE_MMU_OP_FLUSH_PT;
-	op_param.kctx_id = kctx_id;
-	op_param.mmu_sync_info = mmu_sync_info;
-	spin_lock_irqsave(&kbdev->hwaccess_lock, irq_flags);
-	if (mmu_flush_cache_on_gpu_ctrl(kbdev)) {
-		op_param.flush_skip_levels = pgd_level_to_skip_flush(dirty_pgds);
-		ret = kbase_mmu_hw_do_flush_on_gpu_ctrl(kbdev, faulting_as, &op_param);
-	} else {
-		ret = kbase_mmu_hw_do_flush(kbdev, faulting_as, &op_param);
-	}
-	spin_unlock_irqrestore(&kbdev->hwaccess_lock, irq_flags);
-
-	if (ret)
-		dev_err(kbdev->dev,
-			"Flush for GPU page fault due to write access did not complete");
-
-	kbase_mmu_hw_enable_fault(kbdev, faulting_as, KBASE_MMU_FAULT_TYPE_PAGE);
-}
-
-static void set_gwt_element_page_addr_and_size(struct kbasep_gwt_list_element *element,
-					       u64 fault_page_addr, struct tagged_addr fault_phys)
-{
-	u64 fault_pfn = fault_page_addr >> PAGE_SHIFT;
-	unsigned int vindex = fault_pfn & (NUM_PAGES_IN_2MB_LARGE_PAGE - 1);
-
-	/* If the fault address lies within a 2MB page, then consider
-	 * the whole 2MB page for dumping to avoid incomplete dumps.
-	 */
-	if (is_huge(fault_phys) && (vindex == index_in_large_page(fault_phys))) {
-		element->page_addr = fault_page_addr & ~(SZ_2M - 1UL);
-		element->num_pages = NUM_PAGES_IN_2MB_LARGE_PAGE;
-	} else {
-		element->page_addr = fault_page_addr;
-		element->num_pages = 1;
-	}
-}
-
-static void kbase_gpu_mmu_handle_write_fault(struct kbase_context *kctx,
-					     struct kbase_as *faulting_as)
-{
-	struct kbasep_gwt_list_element *pos;
-	struct kbase_va_region *region;
-	struct kbase_device *kbdev;
-	struct tagged_addr *fault_phys_addr;
-	struct kbase_fault *fault;
-	u64 fault_pfn, pfn_offset;
-	unsigned int as_no;
-	u64 dirty_pgds = 0;
-
-	as_no = faulting_as->number;
-	kbdev = container_of(faulting_as, struct kbase_device, as[as_no]);
-	fault = &faulting_as->pf_data;
-	fault_pfn = fault->addr >> PAGE_SHIFT;
-
-	kbase_gpu_vm_lock(kctx);
-
-	/* Find region and check if it should be writable. */
-	region = kbase_region_tracker_find_region_enclosing_address(kctx, fault->addr);
-	if (kbase_is_region_invalid_or_free(region)) {
-		kbase_gpu_vm_unlock(kctx);
-		kbase_mmu_report_fault_and_kill(kctx, faulting_as,
-						"Memory is not mapped on the GPU",
-						&faulting_as->pf_data);
-		return;
-	}
-
-	if (!(region->flags & KBASE_REG_GPU_WR)) {
-		kbase_gpu_vm_unlock(kctx);
-		kbase_mmu_report_fault_and_kill(kctx, faulting_as,
-						"Region does not have write permissions",
-						&faulting_as->pf_data);
-		return;
-	}
-
-	if (unlikely(region->gpu_alloc->type == KBASE_MEM_TYPE_ALIAS)) {
-		kbase_gpu_vm_unlock(kctx);
-		kbase_mmu_report_fault_and_kill(
-			kctx, faulting_as, "Unexpected write permission fault on an alias region",
-			&faulting_as->pf_data);
-		return;
-	}
-
-	pfn_offset = fault_pfn - region->start_pfn;
-	fault_phys_addr = &kbase_get_gpu_phy_pages(region)[pfn_offset];
-
-	/* Capture addresses of faulting write location
-	 * for job dumping if write tracking is enabled.
-	 */
-	if (kctx->gwt_enabled) {
-		u64 fault_page_addr = fault->addr & PAGE_MASK;
-		bool found = false;
-		/* Check if this write was already handled. */
-		list_for_each_entry(pos, &kctx->gwt_current_list, link) {
-			if (fault_page_addr == pos->page_addr) {
-				found = true;
-				break;
-			}
-		}
-
-		if (!found) {
-			pos = kmalloc(sizeof(*pos), GFP_KERNEL);
-			if (pos) {
-				pos->region = region;
-				set_gwt_element_page_addr_and_size(pos, fault_page_addr,
-								   *fault_phys_addr);
-				list_add(&pos->link, &kctx->gwt_current_list);
-			} else {
-				dev_warn(kbdev->dev, "kmalloc failure");
-			}
-		}
-	}
-
-	/* Now make this faulting page writable to GPU. */
-	kbase_mmu_update_pages_no_flush(kbdev, &kctx->mmu, fault_pfn, fault_phys_addr, 1,
-					region->flags, region->gpu_alloc->group_id, &dirty_pgds);
-
-	kbase_gpu_mmu_handle_write_faulting_as(kbdev, faulting_as, fault_pfn, 1, kctx->id,
-					       dirty_pgds);
-
-	kbase_gpu_vm_unlock(kctx);
-}
-
-static void kbase_gpu_mmu_handle_permission_fault(struct kbase_context *kctx,
-						  struct kbase_as *faulting_as)
-{
-	struct kbase_fault *fault = &faulting_as->pf_data;
-
-	switch (AS_FAULTSTATUS_ACCESS_TYPE_GET(fault->status)) {
-	case AS_FAULTSTATUS_ACCESS_TYPE_ATOMIC:
-	case AS_FAULTSTATUS_ACCESS_TYPE_WRITE:
-		kbase_gpu_mmu_handle_write_fault(kctx, faulting_as);
-		break;
-	case AS_FAULTSTATUS_ACCESS_TYPE_EXECUTE:
-		kbase_mmu_report_fault_and_kill(kctx, faulting_as, "Execute Permission fault",
-						fault);
-		break;
-	case AS_FAULTSTATUS_ACCESS_TYPE_READ:
-		kbase_mmu_report_fault_and_kill(kctx, faulting_as, "Read Permission fault", fault);
-		break;
-	default:
-		kbase_mmu_report_fault_and_kill(kctx, faulting_as, "Unknown Permission fault",
-						fault);
-		break;
-	}
-}
-#endif
-
 /**
  * estimate_pool_space_required - Determine how much a pool should be grown by to support a future
  * allocation
@@ -1324,16 +1159,6 @@ void kbase_mmu_page_fault_worker(struct work_struct *data)
 	case AS_FAULTSTATUS_EXCEPTION_TYPE_PERMISSION_FAULT_2:
 		fallthrough;
 	case AS_FAULTSTATUS_EXCEPTION_TYPE_PERMISSION_FAULT_3:
-#ifdef CONFIG_MALI_CINSTR_GWT
-		/* If GWT was ever enabled then we need to handle
-		 * write fault pages even if the feature was disabled later.
-		 */
-		if (kctx->gwt_was_enabled) {
-			kbase_gpu_mmu_handle_permission_fault(kctx, faulting_as);
-			goto fault_done;
-		}
-#endif
-
 		kbase_mmu_report_fault_and_kill(kctx, faulting_as, "Permission failure", fault);
 		goto fault_done;
 
@@ -1625,10 +1450,12 @@ page_fault_retry:
 		}
 		KBASE_TLSTREAM_AUX_PAGEFAULT(kbdev, kctx->id, as_no, (u64)new_pages);
 
+		{
 			if (kbase_reg_is_valid(kbdev, MMU_AS_OFFSET(as_no, FAULTEXTRA)))
 				trace_mali_mmu_page_fault_extra_grow(region, fault, new_pages);
 			else
 				trace_mali_mmu_page_fault_grow(region, fault, new_pages);
+		}
 		/* AS transaction begin */
 
 		/* clear MMU interrupt - this needs to be done after updating
@@ -1667,23 +1494,6 @@ page_fault_retry:
 
 		/* reenable this in the mask */
 		kbase_mmu_hw_enable_fault(kbdev, faulting_as, KBASE_MMU_FAULT_TYPE_PAGE);
-
-#ifdef CONFIG_MALI_CINSTR_GWT
-		if (kctx->gwt_enabled) {
-			/* GWT also tracks growable regions. */
-			struct kbasep_gwt_list_element *pos;
-
-			pos = kmalloc(sizeof(*pos), GFP_KERNEL);
-			if (pos) {
-				pos->region = region;
-				pos->page_addr = (region->start_pfn + pfn_offset) << PAGE_SHIFT;
-				pos->num_pages = new_pages;
-				list_add(&pos->link, &kctx->gwt_current_list);
-			} else {
-				dev_warn(kbdev->dev, "kmalloc failure");
-			}
-		}
-#endif
 
 #if MALI_JIT_PRESSURE_LIMIT_BASE
 		if (pages_trimmed) {

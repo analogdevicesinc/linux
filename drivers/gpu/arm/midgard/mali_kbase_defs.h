@@ -136,7 +136,7 @@
  * This is dependent on support for of_property_read_u64_array() in the
  * kernel.
  */
-#define BASE_MAX_NR_CLOCKS_REGULATORS (2)
+#define BASE_MAX_NR_CLOCKS_REGULATORS (4)
 
 /* Forward declarations */
 struct kbase_context;
@@ -1023,9 +1023,6 @@ struct kbase_mem_migrate {
  *                          related state.
  * @serialize_jobs:         Currently used mode for serialization of jobs, both
  *                          intra & inter slots serialization is supported.
- * @backup_serialize_jobs:  Copy of the original value of @serialize_jobs taken
- *                          when GWT is enabled. Used to restore the original value
- *                          on disabling of GWT.
  * @js_ctx_scheduling_mode: Context scheduling mode currently being used by
  *                          Job Scheduler
  * @l2_size_override:       Used to set L2 cache size via device tree blob
@@ -1342,10 +1339,6 @@ struct kbase_device {
 
 	/* See KBASE_SERIALIZE_* for details */
 	u8 serialize_jobs;
-
-#ifdef CONFIG_MALI_CINSTR_GWT
-	u8 backup_serialize_jobs;
-#endif /* CONFIG_MALI_CINSTR_GWT */
 
 #endif /* MALI_USE_CSF */
 
@@ -1859,12 +1852,6 @@ struct kbase_sub_alloc {
  *                        kbase_context belongs to.
  * @kprcs_link:           List link for the list of kbase context maintained
  *                        under kbase_process.
- * @gwt_enabled:          Indicates if tracking of GPU writes is enabled, protected by
- *                        kbase_context.reg_lock.
- * @gwt_was_enabled:      Simple sticky bit flag to know if GWT was ever enabled.
- * @gwt_current_list:     A list of addresses for which GPU has generated write faults,
- *                        after the last snapshot of it was sent to userspace.
- * @gwt_snapshot_list:    Snapshot of the @gwt_current_list for sending to user space.
  * @priority:             Indicates the context priority. Used along with @atoms_count
  *                        for context scheduling, protected by hwaccess_lock.
  * @atoms_count:          Number of GPU atoms currently in use, per priority
@@ -2007,13 +1994,6 @@ struct kbase_context {
 	struct kbase_process *kprcs;
 	struct list_head kprcs_link;
 
-#ifdef CONFIG_MALI_CINSTR_GWT
-	bool gwt_enabled;
-	bool gwt_was_enabled;
-	struct list_head gwt_current_list;
-	struct list_head gwt_snapshot_list;
-#endif
-
 	base_context_create_flags create_flags;
 
 #if !MALI_USE_CSF
@@ -2039,27 +2019,6 @@ struct kbase_context {
 
 	char comm[TASK_COMM_LEN];
 };
-
-#ifdef CONFIG_MALI_CINSTR_GWT
-/**
- * struct kbasep_gwt_list_element - Structure used to collect GPU
- *                                  write faults.
- * @link:                           List head for adding write faults.
- * @region:                         Details of the region where we have the
- *                                  faulting page address.
- * @page_addr:                      Page address where GPU write fault occurred.
- * @num_pages:                      The number of pages modified.
- *
- * Using this structure all GPU write faults are stored in a list.
- */
-struct kbasep_gwt_list_element {
-	struct list_head link;
-	struct kbase_va_region *region;
-	u64 page_addr;
-	u64 num_pages;
-};
-
-#endif
 
 /**
  * struct kbase_ctx_ext_res_meta - Structure which binds an external resource

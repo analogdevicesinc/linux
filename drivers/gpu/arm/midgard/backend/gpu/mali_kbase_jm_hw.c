@@ -1115,7 +1115,7 @@ bool kbase_prepare_to_reset_gpu_locked(struct kbase_device *kbdev, unsigned int 
 {
 	unsigned int i;
 
-	if (kbase_io_is_gpu_lost(kbdev)) {
+	if (kbase_io_is_aw_removed(kbdev)) {
 		/* GPU access has been removed, reset will be done by
 		 * Arbiter instead
 		 */

@@ -1736,7 +1736,7 @@ kbasep_js_runpool_release_ctx_internal(struct kbase_device *kbdev, struct kbase_
 			kbasep_js_ctx_attr_ctx_release_atom(kbdev, kctx, katom_retained_state);
 
 	if (new_ref_count == 2 && kbase_ctx_flag(kctx, KCTX_PRIVILEGED) &&
-	    !kbase_io_is_gpu_lost(kbdev) && !kbase_pm_is_suspending(kbdev)) {
+	    !kbase_io_is_aw_removed(kbdev) && !kbase_pm_is_suspending(kbdev)) {
 		/* Context is kept scheduled into an address space even when
 		 * there are no jobs, in this case we have to handle the
 		 * situation where all jobs have been evicted from the GPU and
@@ -1752,8 +1752,9 @@ kbasep_js_runpool_release_ctx_internal(struct kbase_device *kbdev, struct kbase_
 	 * Note that there'll always be at least 1 reference to the context
 	 * which was previously acquired by kbasep_js_schedule_ctx().
 	 */
-	if (new_ref_count == 1 && (!kbasep_js_is_submit_allowed(js_devdata, kctx) ||
-				   kbase_io_is_gpu_lost(kbdev) || kbase_pm_is_suspending(kbdev))) {
+	if (new_ref_count == 1 &&
+	    (!kbasep_js_is_submit_allowed(js_devdata, kctx) || kbase_io_is_aw_removed(kbdev) ||
+	     kbase_pm_is_suspending(kbdev))) {
 		int num_slots = kbdev->gpu_props.num_job_slots;
 		unsigned int slot;
 
@@ -2059,7 +2060,7 @@ static bool kbasep_js_schedule_ctx(struct kbase_device *kbdev, struct kbase_cont
 	 * of it being called strictly after the suspend flag is set, and will
 	 * wait for this lock to drop)
 	 */
-	if (kbase_pm_is_suspending(kbdev) || kbase_io_is_gpu_lost(kbdev)) {
+	if (kbase_pm_is_suspending(kbdev) || kbase_io_is_aw_removed(kbdev)) {
 		/* Cause it to leave at some later point */
 		bool retained;
 		CSTD_UNUSED(retained);
@@ -2511,7 +2512,7 @@ struct kbase_jd_atom *kbase_js_pull(struct kbase_context *kctx, unsigned int js)
 		dev_dbg(kbdev->dev, "JS: No submit allowed for kctx %pK\n", (void *)kctx);
 		return NULL;
 	}
-	if (kbase_pm_is_suspending(kbdev) || kbase_io_is_gpu_lost(kbdev))
+	if (kbase_pm_is_suspending(kbdev) || kbase_io_is_aw_removed(kbdev))
 		return NULL;
 
 	katom = jsctx_rb_peek(kctx, js);

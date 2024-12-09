@@ -202,6 +202,7 @@ static int init_chunk(struct kbase_csf_tiler_heap *const heap,
 
 	list_add_tail(&chunk->link, &heap->chunks_list);
 	heap->chunk_count++;
+	heap->peak_chunk_count = MAX(heap->peak_chunk_count, heap->chunk_count);
 
 	return err;
 }
@@ -339,7 +340,7 @@ static struct kbase_csf_tiler_heap_chunk *alloc_new_chunk(struct kbase_context *
 		goto unroll_region;
 	}
 
-	if (WARN(atomic_read(&chunk->region->cpu_alloc->gpu_mappings) > 1,
+	if (WARN(atomic64_read(&chunk->region->cpu_alloc->gpu_mappings) > 1,
 		 "NO_USER_FREE chunks should not have been aliased")) {
 		goto unroll_region;
 	}
@@ -705,6 +706,8 @@ int kbase_csf_tiler_heap_init(struct kbase_context *const kctx, u32 const chunk_
 
 	heap->kctx = kctx;
 	heap->chunk_size = chunk_size;
+	heap->chunk_count = 0;
+	heap->peak_chunk_count = 0;
 	heap->max_chunks = max_chunks;
 	heap->target_in_flight = target_in_flight;
 	heap->buf_desc_checked = false;
@@ -1404,5 +1407,23 @@ int kbase_csf_tiler_heap_free_chunk(struct kbase_context *kctx, u64 gpu_heap_va,
 unlock:
 	mutex_unlock(&kctx->csf.tiler_heaps.lock);
 
+	return err;
+}
+
+int kbase_csf_tiler_heap_size(struct kbase_context *kctx, u64 gpu_heap_va, u64 *size,
+			      u64 *peak_size)
+{
+	struct kbase_csf_tiler_heap *heap = NULL;
+	int err = 0;
+
+	mutex_lock(&kctx->csf.tiler_heaps.lock);
+	heap = find_tiler_heap(kctx, gpu_heap_va);
+	if (likely(heap)) {
+		*size = (u64)heap->chunk_size * heap->chunk_count;
+		*peak_size = (u64)heap->chunk_size * heap->peak_chunk_count;
+	} else {
+		err = -EINVAL;
+	}
+	mutex_unlock(&kctx->csf.tiler_heaps.lock);
 	return err;
 }

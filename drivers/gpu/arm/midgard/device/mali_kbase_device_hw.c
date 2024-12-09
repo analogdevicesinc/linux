@@ -90,6 +90,9 @@ static int busy_wait_cache_operation(struct kbase_device *kbdev, u32 irq_bit)
 #endif /* MALI_USE_CSF */
 		}
 
+		if (kbase_io_is_aw_removed(kbdev))
+			return -ENODEV;
+
 		diff = ktime_to_ms(ktime_sub(ktime_get_raw(), wait_loop_start));
 	} while ((diff < wait_time_ms) && !completed);
 

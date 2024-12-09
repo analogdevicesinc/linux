@@ -476,6 +476,9 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 	u32 tmp;
 	u32 pf_bits = ((irq_stat >> pf_shift) & as_bit_mask);
 
+	if (kbase_io_is_aw_removed(kbdev))
+		return;
+
 	/* remember current mask */
 	spin_lock_irqsave(&kbdev->mmu_mask_change, flags);
 	new_mask = kbase_reg_read32(kbdev, MMU_CONTROL_ENUM(IRQ_MASK));

@@ -482,9 +482,10 @@ out:
 #endif /* CONFIG_MALI_REAL_HW */
 #endif /* CONFIG_MALI_DEBUG */
 
+
 int kbase_install_interrupts(struct kbase_device *kbdev)
 {
-	u32 i;
+	u32 irq_index;
 
 #if MALI_USE_CSF
 	if (kbdev->gpu_props.gpu_id.arch_id >= GPU_ID_ARCH_MAKE(14, 8, 0)) {
@@ -499,27 +500,29 @@ int kbase_install_interrupts(struct kbase_device *kbdev)
 		}
 	}
 #endif /* MALI_USE_CSF */
-	for (i = 0; i < kbdev->nr_irqs; i++) {
-		const int result = request_irq(kbdev->irqs[i].irq,
-					       kbase_get_interrupt_handler(kbdev, i),
-					       kbdev->irqs[i].flags | IRQF_SHARED,
-					       kbdev->irqs[i].name, kbase_tag(kbdev, i));
+	for (irq_index = 0; irq_index < kbdev->nr_irqs; irq_index++) {
+		const int result = request_irq(kbdev->irqs[irq_index].irq,
+					       kbase_get_interrupt_handler(kbdev, irq_index),
+					       kbdev->irqs[irq_index].flags | IRQF_SHARED,
+					       kbdev->irqs[irq_index].name,
+					       kbase_tag(kbdev, irq_index));
 		if (result) {
 			dev_err(kbdev->dev, "Can't request interrupt %u (index %u)\n",
-				kbdev->irqs[i].irq, i);
-			goto release;
+				kbdev->irqs[irq_index].irq, irq_index);
+			goto irq_release;
 		}
 	}
 
+
 	return 0;
 
-release:
+
+irq_release:
 	if (IS_ENABLED(CONFIG_SPARSE_IRQ))
 		dev_err(kbdev->dev,
 			"CONFIG_SPARSE_IRQ enabled - is the interrupt number correct for this config?\n");
-
-	while (i-- > 0)
-		free_irq(kbdev->irqs[i].irq, kbase_tag(kbdev, i));
+	while (irq_index-- > 0)
+		free_irq(kbdev->irqs[irq_index].irq, kbase_tag(kbdev, irq_index));
 
 	return -EINVAL;
 }

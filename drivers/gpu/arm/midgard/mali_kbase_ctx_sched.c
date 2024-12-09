@@ -128,14 +128,10 @@ int kbase_ctx_sched_retain_ctx(struct kbase_context *kctx)
 				if (prev_kctx) {
 					WARN_ON(atomic_read(&prev_kctx->refcount) != 0);
 					kbase_mmu_disable(prev_kctx);
-					KBASE_TLSTREAM_TL_KBASE_CTX_UNASSIGN_AS(kbdev,
-										prev_kctx->id);
 					prev_kctx->as_nr = KBASEP_AS_NR_INVALID;
 				}
 				kctx->as_nr = free_as;
 				kbdev->as_to_kctx[free_as] = kctx;
-				KBASE_TLSTREAM_TL_KBASE_CTX_ASSIGN_AS(kbdev, kctx->id,
-								      (u32)free_as);
 				kbase_mmu_update(kbdev, &kctx->mmu, kctx->as_nr);
 			}
 		} else {
@@ -189,7 +185,6 @@ void kbase_ctx_sched_release_ctx(struct kbase_context *kctx)
 		if (likely((kctx->as_nr >= 0) && (kctx->as_nr < BASE_MAX_NR_AS))) {
 			kbdev->as_free |= (1u << kctx->as_nr);
 			if (kbase_ctx_flag(kctx, KCTX_AS_DISABLED_ON_FAULT)) {
-				KBASE_TLSTREAM_TL_KBASE_CTX_UNASSIGN_AS(kbdev, kctx->id);
 				kbdev->as_to_kctx[kctx->as_nr] = NULL;
 				kctx->as_nr = KBASEP_AS_NR_INVALID;
 				kbase_ctx_flag_clear(kctx, KCTX_AS_DISABLED_ON_FAULT);
@@ -217,7 +212,6 @@ void kbase_ctx_sched_remove_ctx(struct kbase_context *kctx)
 		if (kbase_io_is_gpu_powered(kbdev))
 			kbase_mmu_disable(kctx);
 
-		KBASE_TLSTREAM_TL_KBASE_CTX_UNASSIGN_AS(kbdev, kctx->id);
 		kbdev->as_to_kctx[kctx->as_nr] = NULL;
 		kctx->as_nr = KBASEP_AS_NR_INVALID;
 	}
@@ -258,7 +252,6 @@ void kbase_ctx_sched_restore_all_as(struct kbase_device *kbdev)
 				 * AS before, clear it.
 				 */
 				if (kctx->as_nr != KBASEP_AS_NR_INVALID) {
-					KBASE_TLSTREAM_TL_KBASE_CTX_UNASSIGN_AS(kbdev, kctx->id);
 					kbdev->as_to_kctx[kctx->as_nr] = NULL;
 					kctx->as_nr = KBASEP_AS_NR_INVALID;
 				}

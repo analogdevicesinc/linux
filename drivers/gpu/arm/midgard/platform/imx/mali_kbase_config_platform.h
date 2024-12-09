@@ -20,9 +20,6 @@
  *
  */
 
-//TODO remove IMX_GPU_BLK_CTRL
-#include <linux/version.h>
-
 /**
  * POWER_MANAGEMENT_CALLBACKS - Power management configuration
  *
@@ -50,18 +47,13 @@ extern struct kbase_platform_funcs_conf platform_funcs;
  * The delay time (in milliseconds) to be used for autosuspend
  */
 #define AUTO_SUSPEND_DELAY (100)
-#ifndef IMX_GPU_BLK_CTRL
-#if KERNEL_VERSION(6, 12, 0) >= LINUX_VERSION_CODE
-#define IMX_GPU_BLK_CTRL 1
-#endif
-#endif
 
 struct imx_platform_ctx {
 	struct kbase_device *kbdev;
-#ifdef IMX_GPU_BLK_CTRL
+//#ifdef IMX_GPU_BLK_CTRL
 	void __iomem *reg_blk_ctrl;
 	int init_blk_ctrl;
-#endif
+//#endif
 	void __iomem *reg_tcm;
 	int dumpStarted;
 };

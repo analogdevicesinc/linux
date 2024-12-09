@@ -99,7 +99,7 @@ void kbase_pm_register_access_enable(struct kbase_device *kbdev)
 	if (callbacks)
 		callbacks->power_on_callback(kbdev);
 
-	if (WARN_ON(kbase_io_is_gpu_lost(kbdev)))
+	if (WARN_ON(kbase_io_is_aw_removed(kbdev)))
 		dev_err(kbdev->dev, "Attempting to power on while GPU lost\n");
 
 	kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_GPU_OFF);
@@ -133,7 +133,7 @@ int kbase_hwaccess_pm_init(struct kbase_device *kbdev)
 	INIT_WORK(&kbdev->pm.backend.gpu_poweroff_wait_work, kbase_pm_gpu_poweroff_wait_wq);
 
 	kbdev->pm.backend.ca_cores_enabled = ~0ull;
-	kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_GPU_LOST);
+	kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_AW_REMOVED);
 	init_waitqueue_head(&kbdev->pm.backend.gpu_in_desired_state_wait);
 
 #if !MALI_USE_CSF
@@ -198,7 +198,6 @@ int kbase_hwaccess_pm_init(struct kbase_device *kbdev)
 	    ((kbdev->gpu_props.gpu_id.arch_major == 11) &&
 	     (kbdev->gpu_props.gpu_id.arch_minor >= 8) && (kbdev->gpu_props.gpu_id.arch_rev >= 10)))
 		set_bit(KBASE_GPU_SUPPORTS_FW_SLEEP_ON_IDLE, &kbdev->pm.backend.gpu_sleep_allowed);
-
 #endif
 
 	if (IS_ENABLED(CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED))
@@ -275,7 +274,19 @@ static bool wait_cond_mmu_fault_handling_in_gpu_poweroff_wait_wq(struct kbase_de
 }
 #endif
 
-static void wait_for_mmu_fault_handling_in_gpu_poweroff_wait_wq(struct kbase_device *kbdev)
+/**
+ * wait_for_mmu_fault_handling_in_gpu_poweroff_wait() - Wait for pending MMU
+ *                                                      fault handler to finish.
+ *
+ * @kbdev: The KBase device
+ *
+ * This is a helper function to wait for existing MMU fault handler to
+ * complete. It should only be called by pm_handle_power_off(). This is needed
+ * to avoid a potential deadlock where pm_handle_power_off() cannot progress
+ * until the MMU fault handler completes, which cannot make progress because
+ * the PM lock is already taken.
+ */
+static void wait_for_mmu_fault_handling_in_gpu_poweroff_wait(struct kbase_device *kbdev)
 {
 #if MALI_USE_CSF
 	bool reset_triggered = false;
@@ -283,6 +294,7 @@ static void wait_for_mmu_fault_handling_in_gpu_poweroff_wait_wq(struct kbase_dev
 
 	lockdep_assert_held(&kbdev->pm.lock);
 
+	kbdev->pm.backend.waiting_for_mmu_fault_handling = true;
 	do {
 		const u64 timeout_us = kbase_get_timeout_ms(kbdev, CSF_PM_TIMEOUT) * USEC_PER_MSEC;
 		const unsigned long delay_us = 10;
@@ -305,6 +317,7 @@ static void wait_for_mmu_fault_handling_in_gpu_poweroff_wait_wq(struct kbase_dev
 			}
 		}
 	} while (ret);
+	kbdev->pm.backend.waiting_for_mmu_fault_handling = false;
 #else
 	kbase_pm_unlock(kbdev);
 	kbase_flush_mmu_wqs(kbdev);
@@ -350,18 +363,18 @@ static void pm_handle_power_off(struct kbase_device *kbdev)
 #endif
 
 	/* Disable interrupts and turn the clock off */
-	if (!kbase_pm_clock_off(kbdev)) {
+	if (unlikely(!kbase_pm_clock_off(kbdev))) {
 		/*
 		 * Page/bus faults are pending, must drop locks to
 		 * process.  Interrupts are disabled so no more faults
 		 * should be generated at this point.
 		 */
-		wait_for_mmu_fault_handling_in_gpu_poweroff_wait_wq(kbdev);
+		wait_for_mmu_fault_handling_in_gpu_poweroff_wait(kbdev);
 
 		/* poweron_required may have changed while pm lock
 		 * was released.
 		 */
-		if (kbase_io_is_gpu_lost(kbdev))
+		if (kbase_io_is_aw_removed(kbdev))
 			backend->poweron_required = false;
 
 		/* Turn off clock now that fault have been handled. We
@@ -377,10 +390,8 @@ static void pm_handle_power_off(struct kbase_device *kbdev)
 	}
 }
 
-static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data)
+void kbase_pm_handle_gpu_poweroff_wait_work(struct kbase_device *kbdev)
 {
-	struct kbase_device *kbdev =
-		container_of(data, struct kbase_device, pm.backend.gpu_poweroff_wait_work);
 	struct kbase_pm_device_data *pm = &kbdev->pm;
 	struct kbase_pm_backend_data *backend = &pm->backend;
 	unsigned long flags;
@@ -395,6 +406,13 @@ static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data)
 #endif
 
 	kbase_pm_lock(kbdev);
+#if MALI_USE_CSF
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	if (pm->backend.invoke_poweroff_wait_wq_when_l2_off ||
+	    !pm->backend.poweroff_wait_in_progress)
+		goto wakeup_exit;
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+#endif
 
 	pm_handle_power_off(kbdev);
 
@@ -412,11 +430,25 @@ static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data)
 		kbase_backend_slot_update(kbdev);
 #endif /* !MALI_USE_CSF */
 	}
+#if MALI_USE_CSF
+wakeup_exit:
+#endif
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
-
 	kbase_pm_unlock(kbdev);
-
 	wake_up(&kbdev->pm.backend.poweroff_wait);
+}
+
+/**
+ * kbase_pm_gpu_poweroff_wait_wq() - Handle GPU poweroff wait work items
+ *
+ * @data: The KBase device
+ */
+static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data)
+{
+	struct kbase_device *kbdev =
+		container_of(data, struct kbase_device, pm.backend.gpu_poweroff_wait_work);
+
+	kbase_pm_handle_gpu_poweroff_wait_work(kbdev);
 }
 
 static void kbase_pm_l2_clock_slow(struct kbase_device *kbdev)
@@ -937,7 +969,7 @@ void kbase_hwaccess_pm_resume(struct kbase_device *kbdev)
 	/* System resume callback has begun */
 	kbdev->pm.resuming = true;
 	kbdev->pm.suspending = false;
-	if (kbase_io_is_gpu_lost(kbdev)) {
+	if (kbase_io_is_aw_removed(kbdev)) {
 		dev_dbg(kbdev->dev, "%s: GPU lost in progress\n", __func__);
 		kbase_pm_unlock(kbdev);
 		return;
@@ -965,7 +997,7 @@ void kbase_pm_handle_gpu_lost(struct kbase_device *kbdev)
 
 #if MALI_USE_CSF
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-	if (kbase_io_is_gpu_powered(kbdev) && !kbase_io_is_gpu_lost(kbdev)) {
+	if (kbase_io_is_gpu_powered(kbdev) && !kbase_io_is_aw_removed(kbdev)) {
 		unsigned long flags_sched;
 
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
@@ -1014,7 +1046,7 @@ void kbase_pm_handle_gpu_lost(struct kbase_device *kbdev)
 	mutex_unlock(&arb_vm_state->vm_state_lock);
 	mutex_lock(&kbdev->pm.lock);
 	mutex_lock(&arb_vm_state->vm_state_lock);
-	if (kbase_io_is_gpu_powered(kbdev) && !kbase_io_is_gpu_lost(kbdev)) {
+	if (kbase_io_is_gpu_powered(kbdev) && !kbase_io_is_aw_removed(kbdev)) {
 		ktime_t end_timestamp = ktime_get_raw();
 
 		/* GPU is no longer mapped to VM.  So no interrupts will

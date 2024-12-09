@@ -490,43 +490,6 @@ union kbase_ioctl_mem_find_gpu_start_and_offset {
 #define KBASE_IOCTL_MEM_FIND_GPU_START_AND_OFFSET \
 	_IOWR(KBASE_IOCTL_TYPE, 31, union kbase_ioctl_mem_find_gpu_start_and_offset)
 
-#define KBASE_IOCTL_CINSTR_GWT_START _IO(KBASE_IOCTL_TYPE, 33)
-
-#define KBASE_IOCTL_CINSTR_GWT_STOP _IO(KBASE_IOCTL_TYPE, 34)
-
-/**
- * union kbase_ioctl_cinstr_gwt_dump - Used to collect all GPU write fault
- *                                     addresses.
- * @in: Input parameters
- * @in.addr_buffer: Address of buffer to hold addresses of gpu modified areas.
- * @in.size_buffer: Address of buffer to hold size of modified areas (in pages)
- * @in.len: Number of addresses the buffers can hold.
- * @in.padding: padding
- * @out: Output parameters
- * @out.no_of_addr_collected: Number of addresses collected into addr_buffer.
- * @out.more_data_available: Status indicating if more addresses are available.
- * @out.padding: padding
- *
- * This structure is used when performing a call to dump GPU write fault
- * addresses.
- */
-union kbase_ioctl_cinstr_gwt_dump {
-	struct {
-		__u64 addr_buffer;
-		__u64 size_buffer;
-		__u32 len;
-		__u32 padding;
-
-	} in;
-	struct {
-		__u32 no_of_addr_collected;
-		__u8 more_data_available;
-		__u8 padding[27];
-	} out;
-};
-
-#define KBASE_IOCTL_CINSTR_GWT_DUMP _IOWR(KBASE_IOCTL_TYPE, 35, union kbase_ioctl_cinstr_gwt_dump)
-
 /**
  * struct kbase_ioctl_mem_exec_init - Initialise the EXEC_VA memory zone
  *

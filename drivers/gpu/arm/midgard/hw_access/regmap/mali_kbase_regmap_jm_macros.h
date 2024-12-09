@@ -47,6 +47,7 @@
 #define MMU_AS_OFFSET(n, regname) ENUM_OFFSET(n, MMU_AS_ENUM(0, regname), MMU_AS_ENUM(1, regname))
 #define MMU_AS_BASE_OFFSET(n) MMU_AS_OFFSET(n, TRANSTAB)
 
+#define PTM_AW_ENUM(regname) PTM_AW__##regname
 #define PTM_AW_MESSAGE_ENUM(regname) PTM_AW_MESSAGE__##regname
 
 /* register value macros */

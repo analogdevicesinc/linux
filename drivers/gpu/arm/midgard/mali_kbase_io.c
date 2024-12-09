@@ -79,19 +79,19 @@ bool kbase_io_is_gpu_powered(struct kbase_device *kbdev)
 }
 KBASE_EXPORT_TEST_API(kbase_io_is_gpu_powered);
 
-bool kbase_io_is_gpu_lost(struct kbase_device *kbdev)
+bool kbase_io_is_aw_removed(struct kbase_device *kbdev)
 {
-	return (kbdev->arb.arb_if && test_bit(KBASE_IO_STATUS_GPU_LOST, kbdev->io->status));
+	return (kbdev->arb.arb_if && test_bit(KBASE_IO_STATUS_AW_REMOVED, kbdev->io->status));
 }
-KBASE_EXPORT_TEST_API(kbase_io_is_gpu_lost);
+KBASE_EXPORT_TEST_API(kbase_io_is_aw_removed);
 
 bool kbase_io_has_gpu(struct kbase_device *kbdev)
 {
-	if (!bitmap_empty(kbdev->io->status, KBASE_IO_STATUS_NUM_BITS))
+	if (kbase_io_test_status(kbdev, KBASE_IO_STATUS_AW_REMOVED))
 		return false;
 
 	if (kbase_io_is_gpu_removed(kbdev)) {
-		kbase_io_set_status(kbdev->io, KBASE_IO_STATUS_GPU_LOST);
+		kbase_io_set_status(kbdev->io, KBASE_IO_STATUS_AW_REMOVED);
 		return false;
 	}
 

@@ -320,7 +320,7 @@ void kbase_csf_fw_io_group_write64(struct kbase_csf_fw_io *fw_io, u32 group_id, 
  *
  * Return: Value of the word read from a CSG's input page.
  */
-u32 kbase_csf_fw_io_group_input64_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset);
+u64 kbase_csf_fw_io_group_input64_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset);
 
 /**
  * kbase_csf_fw_io_group_write64_mask() - Write part of a double-word in a CSG's input page.

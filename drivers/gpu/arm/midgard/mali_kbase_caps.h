@@ -51,6 +51,8 @@
  * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_20: BASE_MEM_UNUSED_BIT_20 is not allocatable
  * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_27: BASE_MEM_UNUSED_BIT_27 is not allocatable
  * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_29: BASE_MEM_UNUSED_BIT_29 is not allocatable
+ * @MALI_KBASE_CAP_CSG_CS_USER_PAGE_ALLOCATION: CS_USER IO allocation is done at CSG creation
+ *                                              instead of CS bind.
  * @MALI_KBASE_NUM_CAPS: Delimiter
  *
  * New enumerator must not be negative and smaller than @MALI_KBASE_NUM_CAPS.
@@ -73,6 +75,7 @@ enum mali_kbase_cap {
 	MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_5,
 	MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_7,
 	MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_29,
+	MALI_KBASE_CAP_CSG_CS_USER_PAGE_ALLOCATION,
 	MALI_KBASE_NUM_CAPS
 };
 
@@ -164,6 +167,11 @@ static inline bool mali_kbase_supports_reject_alloc_mem_unused_bit_27(unsigned l
 static inline bool mali_kbase_supports_reject_alloc_mem_unused_bit_29(unsigned long api_version)
 {
 	return mali_kbase_supports_cap(api_version, MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_29);
+}
+
+static inline bool mali_kbase_supports_csg_cs_user_page_allocation(unsigned long api_version)
+{
+	return mali_kbase_supports_cap(api_version, MALI_KBASE_CAP_CSG_CS_USER_PAGE_ALLOCATION);
 }
 
 #endif /* __KBASE_CAPS_H_ */

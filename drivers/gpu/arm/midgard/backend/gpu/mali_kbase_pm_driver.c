@@ -541,6 +541,12 @@ static u64 pwr_cmd_constructor(struct kbase_device *kbdev, enum kbase_pm_core_ty
 	case KBASE_PM_CORE_TILER:
 		pwr_cmd = PWR_COMMAND_DOMAIN_SET(pwr_cmd, PWR_COMMAND_DOMAIN_TILER);
 		break;
+	case KBASE_PM_CORE_BASE:
+		pwr_cmd = PWR_COMMAND_DOMAIN_SET(pwr_cmd, PWR_COMMAND_DOMAIN_BASE);
+		break;
+	case KBASE_PM_CORE_STACK:
+		pwr_cmd = PWR_COMMAND_DOMAIN_SET(pwr_cmd, PWR_COMMAND_DOMAIN_STACK);
+		break;
 	case KBASE_PM_CORE_SHADER:
 		pwr_cmd = PWR_COMMAND_DOMAIN_SET(pwr_cmd, PWR_COMMAND_DOMAIN_SHADER);
 		/* Enable RTU subdomain for the shader core */
@@ -764,6 +770,9 @@ u64 kbase_pm_get_ready_cores(struct kbase_device *kbdev, enum kbase_pm_core_type
 	result = kbase_pm_get_state(kbdev, core_type, ACTION_READY);
 
 	switch (core_type) {
+	case KBASE_PM_CORE_STACK:
+		KBASE_KTRACE_ADD(kbdev, PM_CORES_POWERED_STACK, NULL, result);
+		break;
 	case KBASE_PM_CORE_SHADER:
 		KBASE_KTRACE_ADD(kbdev, PM_CORES_POWERED, NULL, result);
 		break;
@@ -1035,7 +1044,7 @@ static void wait_mcu_as_inactive(struct kbase_device *kbdev)
 	err = kbase_reg_poll32_timeout(kbdev, MMU_AS_OFFSET(MCU_AS_NR, STATUS), val,
 				       !(val & AS_STATUS_AS_ACTIVE_INT_MASK), 10, timeout_us,
 				       false);
-	if (!WARN_ON_ONCE(err == -ETIMEDOUT))
+	if (!WARN_ON_ONCE(err))
 		return;
 
 	dev_err(kbdev->dev, "AS_ACTIVE_INT bit stuck for AS %d used by MCU FW", MCU_AS_NR);
@@ -1258,6 +1267,25 @@ static bool hctl_shader_cores_power_up_done(struct kbase_device *kbdev, u64 shad
 	return true;
 }
 
+/**
+ * hctl_cores_power_up_done - Check the cores are powered up.
+ *
+ * @kbdev:       Pointer to the device
+ * @cores_ready: Bitmask of cores that are ready.
+ * @cores_trans: Bitmask of cores that are transitioning.
+ * @cores_avail: Bitmask of cores that are allowed to be used.
+ *
+ * This function is called to check if the required number of cores have been
+ * powered up.
+ *
+ * Return: true if power up is complete for required cores, otherwise false.
+ */
+static bool hctl_cores_power_up_done(struct kbase_device *kbdev, u64 cores_ready, u64 cores_trans,
+				     u64 cores_avail)
+{
+	return (!cores_trans && (cores_ready == cores_avail));
+}
+
 /*
  * hctl_shader_cores_power_down_done - Check the shader cores are powered down
  *
@@ -1282,10 +1310,29 @@ static bool hctl_shader_cores_power_down_done(struct kbase_device *kbdev, u64 sh
 	 * Also need to wait for the (automatic) power down of shader core base domain.
 	 */
 	if (!hctl_neural_power_down_done(kbdev, shaders_ready) ||
-	    !hctl_base_power_down_done(kbdev, shaders_ready))
+	    (!corestack_driver_control && !hctl_base_power_down_done(kbdev, shaders_ready)))
 		return false;
 
 	return true;
+}
+
+/*
+ * hctl_cores_power_down_done - Check the cores are powered down
+ *
+ * @kbdev:       Pointer to the device
+ * @cores_ready: Bitmask of cores that are ready.
+ * @cores_trans: Bitmask of cores that are transitioning.
+ * @cores_avail: Bitmask of cores that are allowed to be used.
+ *
+ * This function is called to check if the required number of cores have been
+ * powered down.
+ *
+ * Return: true if power down is complete for required cores, otherwise false.
+ */
+static bool hctl_cores_power_down_done(struct kbase_device *kbdev, u64 cores_ready, u64 cores_trans,
+				       u64 cores_avail)
+{
+	return (!cores_trans && (cores_ready == cores_avail));
 }
 #endif /* MALI_USE_CSF */
 
@@ -1307,8 +1354,18 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 {
 	struct kbase_pm_backend_data *backend = &kbdev->pm.backend;
 	enum kbase_mcu_state prev_state;
+	u64 stacks_avail = 0;
+	u64 bases_avail = 0;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
+	if (corestack_driver_control) {
+		/* Always power on all the corestacks. Disabling certain
+		 * corestacks when their respective shaders are not in the
+		 * available bitmap is not currently supported.
+		 */
+		stacks_avail = kbase_pm_get_present_cores(kbdev, KBASE_PM_CORE_STACK);
+		bases_avail = kbase_pm_get_present_cores(kbdev, KBASE_PM_CORE_BASE);
+	}
 
 	/*
 	 * Initial load of firmware should have been done to
@@ -1322,7 +1379,18 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 	do {
 		u64 shaders_trans = kbase_pm_get_trans_cores(kbdev, KBASE_PM_CORE_SHADER);
 		u64 shaders_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_SHADER);
+		u64 stacks_trans = 0;
+		u64 stacks_ready = 0;
+		u64 bases_trans = 0;
+		u64 bases_ready = 0;
 
+		if (corestack_driver_control) {
+			stacks_trans = kbase_pm_get_trans_cores(kbdev, KBASE_PM_CORE_STACK);
+			stacks_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_STACK);
+
+			bases_trans = kbase_pm_get_trans_cores(kbdev, KBASE_PM_CORE_BASE);
+			bases_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_BASE);
+		}
 		/* This check mirrors the check inside kbase_pm_l2_update_state(). */
 		if (unlikely(!kbase_io_has_gpu(kbdev))) {
 			backend->hwcnt_desired = false;
@@ -1345,6 +1413,10 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 		 * between the register reads
 		 */
 		shaders_trans &= ~shaders_ready;
+		if (corestack_driver_control) {
+			stacks_trans &= ~stacks_ready;
+			bases_trans &= ~bases_ready;
+		}
 
 		prev_state = backend->mcu_state;
 
@@ -1353,8 +1425,6 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 			if (kbase_pm_is_mcu_desired(kbdev) &&
 			    !backend->policy_change_clamp_state_to_off &&
 			    backend->l2_state == KBASE_L2_ON) {
-				kbdev->csf.mcu_halted = false;
-
 				/* Ensure that FW would not go to sleep immediately after
 				 * resumption.
 				 */
@@ -1381,9 +1451,16 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 				backend->shaders_avail = backend->shaders_desired_mask;
 				backend->pm_shaders_core_mask = 0;
 				if (kbdev->csf.firmware_hctl_core_pwr) {
-					kbase_pm_invoke(kbdev, KBASE_PM_CORE_SHADER,
-							backend->shaders_avail, ACTION_PWRON);
-					backend->mcu_state = KBASE_MCU_HCTL_SHADERS_PEND_ON;
+					if (corestack_driver_control) {
+						kbase_pm_invoke(kbdev, KBASE_PM_CORE_STACK,
+								stacks_avail, ACTION_PWRON);
+						backend->mcu_state = KBASE_MCU_HCTL_STACK_PEND_ON;
+					} else {
+						kbase_pm_invoke(kbdev, KBASE_PM_CORE_SHADER,
+								backend->shaders_avail,
+								ACTION_PWRON);
+						backend->mcu_state = KBASE_MCU_HCTL_SHADERS_PEND_ON;
+					}
 				} else
 					backend->mcu_state = KBASE_MCU_ON_HWCNT_ENABLE;
 #if IS_ENABLED(CONFIG_MALI_CORESIGHT)
@@ -1398,6 +1475,30 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 				}
 #endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 			}
+			break;
+
+		case KBASE_MCU_HCTL_STACK_PEND_ON:
+			if (!hctl_cores_power_up_done(kbdev, stacks_ready, stacks_trans,
+						      stacks_avail))
+				break;
+
+			/* Cores now stable, notify MCU the stable mask */
+			kbase_csf_firmware_update_core_attr(kbdev, false, true, stacks_ready);
+
+			kbase_pm_invoke(kbdev, KBASE_PM_CORE_BASE, bases_avail, ACTION_PWRON);
+			backend->mcu_state = KBASE_MCU_HCTL_BASE_PEND_ON;
+			break;
+
+		case KBASE_MCU_HCTL_BASE_PEND_ON:
+			if (!hctl_cores_power_up_done(kbdev, bases_ready, bases_trans, bases_avail))
+				break;
+
+			/* Cores now stable, notify MCU the stable mask */
+			kbase_csf_firmware_update_core_attr(kbdev, false, true, bases_ready);
+
+			kbase_pm_invoke(kbdev, KBASE_PM_CORE_SHADER, backend->shaders_avail,
+					ACTION_PWRON);
+			backend->mcu_state = KBASE_MCU_HCTL_SHADERS_PEND_ON;
 			break;
 
 		case KBASE_MCU_HCTL_SHADERS_PEND_ON:
@@ -1478,11 +1579,16 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 				 */
 				backend->shaders_avail =
 					(backend->shaders_desired_mask | shaders_ready);
-
-				kbase_pm_invoke(kbdev, KBASE_PM_CORE_SHADER,
-						backend->shaders_avail & ~shaders_ready,
-						ACTION_PWRON);
-				backend->mcu_state = KBASE_MCU_HCTL_SHADERS_PEND_ON;
+				if (corestack_driver_control) {
+					kbase_pm_invoke(kbdev, KBASE_PM_CORE_STACK, stacks_avail,
+							ACTION_PWRON);
+					backend->mcu_state = KBASE_MCU_HCTL_STACK_PEND_ON;
+				} else {
+					kbase_pm_invoke(kbdev, KBASE_PM_CORE_SHADER,
+							backend->shaders_avail & ~shaders_ready,
+							ACTION_PWRON);
+					backend->mcu_state = KBASE_MCU_HCTL_SHADERS_PEND_ON;
+				}
 
 			} else if (~backend->shaders_desired_mask & shaders_ready) {
 				kbase_csf_firmware_update_core_attr(kbdev, false, true,
@@ -1618,6 +1724,26 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 				break;
 
 			backend->pm_shaders_core_mask = 0;
+			if (corestack_driver_control) {
+				kbase_pm_invoke(kbdev, KBASE_PM_CORE_BASE, bases_ready,
+						ACTION_PWROFF);
+				backend->mcu_state = KBASE_MCU_HCTL_BASE_PEND_OFF;
+			} else
+				backend->mcu_state = KBASE_MCU_POWER_DOWN;
+			break;
+
+		case KBASE_MCU_HCTL_BASE_PEND_OFF:
+			if (!hctl_cores_power_down_done(kbdev, bases_ready, bases_trans, 0))
+				break;
+
+			kbase_pm_invoke(kbdev, KBASE_PM_CORE_STACK, stacks_ready, ACTION_PWROFF);
+			backend->mcu_state = KBASE_MCU_HCTL_STACK_PEND_OFF;
+			break;
+
+		case KBASE_MCU_HCTL_STACK_PEND_OFF:
+			if (!hctl_cores_power_down_done(kbdev, stacks_ready, stacks_trans, 0))
+				break;
+
 			backend->mcu_state = KBASE_MCU_POWER_DOWN;
 			break;
 
@@ -1691,8 +1817,6 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 				 */
 				disable_gpu_idle_timer_no_db(kbdev);
 
-				KBASE_TLSTREAM_TL_KBASE_CSFFW_FW_REQUEST_WAKEUP(
-					kbdev, kbase_backend_get_cycle_cnt(kbdev));
 				/* Set the state to ACTIVE before waking up MCU */
 				if (kbdev->pm.backend.has_host_pwr_iface)
 					kbase_csf_firmware_set_glb_state_active(kbdev);
@@ -1728,6 +1852,8 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 				kbase_mcu_state_to_string(prev_state),
 				kbase_mcu_state_to_string(backend->mcu_state));
 			kbase_ktrace_log_mcu_state(kbdev, backend->mcu_state);
+			KBASE_TLSTREAM_TL_KBASE_DEVICE_MCU_STATE(kbdev, kbdev->id,
+								 backend->mcu_state);
 		}
 
 	} while (backend->mcu_state != prev_state);
@@ -1929,6 +2055,7 @@ static int delegate_pm_domain_control_to_fw(struct kbase_device *kbdev, u32 pm_d
 	}
 
 	dev_err(kbdev->dev, "Delegate command for pm domain %u failed", pm_domain);
+
 	if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_HWC_UNRECOVERABLE_ERROR))
 		kbase_reset_gpu(kbdev);
 	return -ETIMEDOUT;
@@ -1955,6 +2082,7 @@ static int retract_pm_domain_control_from_fw(struct kbase_device *kbdev, u32 pm_
 
 	dev_err(kbdev->dev, "Retract command for pm domain %u failed, error no: %d", pm_domain,
 		err);
+
 	if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_HWC_UNRECOVERABLE_ERROR))
 		kbase_reset_gpu(kbdev);
 	return -ETIMEDOUT;
@@ -1976,8 +2104,14 @@ static int retract_pm_domain_control_from_fw(struct kbase_device *kbdev, u32 pm_
  */
 static void delegate_pm_domains_control_to_fw(struct kbase_device *kbdev)
 {
-	const u64 pwr_status = kbase_reg_read64(kbdev, HOST_POWER_ENUM(PWR_STATUS));
-	bool ne_pwr_status_delegated =
+	u64 pwr_status;
+	bool ne_pwr_status_delegated;
+
+	if (kbase_io_is_aw_removed(kbdev))
+		return;
+
+	pwr_status = kbase_reg_read64(kbdev, HOST_POWER_ENUM(PWR_STATUS));
+	ne_pwr_status_delegated =
 		kbase_csf_dev_has_ne(kbdev) ? PWR_STATUS_DELEGATED_NEURAL_GET(pwr_status) : false;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
@@ -2013,10 +2147,16 @@ static void delegate_pm_domains_control_to_fw(struct kbase_device *kbdev)
  */
 static void retract_pm_domains_control_from_fw(struct kbase_device *kbdev)
 {
-	const u64 pwr_status = kbase_reg_read64(kbdev, HOST_POWER_ENUM(PWR_STATUS));
-	bool ne_pwr_status_not_delegated = kbase_csf_dev_has_ne(kbdev) ?
-							 (!PWR_STATUS_DELEGATED_NEURAL_GET(pwr_status)) :
-							 false;
+	u64 pwr_status;
+	bool ne_pwr_status_not_delegated;
+
+	if (kbase_io_is_aw_removed(kbdev))
+		return;
+
+	pwr_status = kbase_reg_read64(kbdev, HOST_POWER_ENUM(PWR_STATUS));
+	ne_pwr_status_not_delegated = kbase_csf_dev_has_ne(kbdev) ?
+						    (!PWR_STATUS_DELEGATED_NEURAL_GET(pwr_status)) :
+						    false;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
@@ -2036,7 +2176,8 @@ static void retract_pm_domains_control_from_fw(struct kbase_device *kbdev)
 		retract_pm_domain_control_from_fw(kbdev, PWR_COMMAND_DOMAIN_NEURAL);
 }
 
-u32 kbase_pm_get_domain_status(struct kbase_device *kbdev, u32 pm_domain, u32 endpoint)
+int kbase_pm_get_domain_status(struct kbase_device *kbdev, u32 pm_domain, u32 endpoint,
+			       u32 *domain_status)
 {
 	u64 val;
 	int err;
@@ -2058,10 +2199,12 @@ u32 kbase_pm_get_domain_status(struct kbase_device *kbdev, u32 pm_domain, u32 en
 		u32 reg_status = (u32)kbase_reg_read64(kbdev, HOST_POWER_ENUM(PWR_CMDARG));
 
 		dev_dbg(kbdev->dev, "Inpect pm domain status = %05x", reg_status);
-		return reg_status;
+		*domain_status = reg_status;
+		return 0;
 	}
+
 	dev_err(kbdev->dev, "Inspect command for pm domain %u failed", pm_domain);
-	return 0;
+	return err;
 }
 #endif /* MALI_USE_CSF */
 
@@ -2445,6 +2588,8 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 				kbase_l2_core_state_to_string(prev_state),
 				kbase_l2_core_state_to_string(backend->l2_state));
 			kbase_ktrace_log_l2_core_state(kbdev, backend->l2_state);
+			KBASE_TLSTREAM_TL_KBASE_DEVICE_L2_CORE_STATE(kbdev, kbdev->id,
+								     backend->l2_state);
 		}
 
 	} while (backend->l2_state != prev_state);
@@ -2452,8 +2597,12 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 	if (kbdev->pm.backend.invoke_poweroff_wait_wq_when_l2_off &&
 	    backend->l2_state == KBASE_L2_OFF) {
 		kbdev->pm.backend.invoke_poweroff_wait_wq_when_l2_off = false;
+#if MALI_USE_CSF
+		kbase_csf_scheduler_enqueue_power_off_work(kbdev);
+#else /* !MALI_USE_CSF */
 		queue_work(kbdev->pm.backend.gpu_poweroff_wait_wq,
 			   &kbdev->pm.backend.gpu_poweroff_wait_work);
+#endif /* MALI_USE_CSF */
 	}
 
 	return 0;
@@ -2668,7 +2817,7 @@ static int kbase_pm_shaders_update_state(struct kbase_device *kbdev)
 
 				if (kbdev->pm.backend.protected_transition_override ||
 				    (kbase_has_arbiter(kbdev) && (kbase_pm_is_suspending(kbdev) ||
-								  kbase_io_is_gpu_lost(kbdev))) ||
+								  kbase_io_is_aw_removed(kbdev))) ||
 				    !stt->configured_ticks || WARN_ON(stt->cancel_queued)) {
 					backend->shaders_state =
 						KBASE_SHADERS_WAIT_FINISHED_CORESTACK_ON;
@@ -2735,8 +2884,8 @@ static int kbase_pm_shaders_update_state(struct kbase_device *kbdev)
 						kbdev, KBASE_PM_POLICY_EVENT_TIMER_MISS);
 
 				backend->shaders_state = KBASE_SHADERS_WAIT_FINISHED_CORESTACK_ON;
-			} else if (kbase_has_arbiter(kbdev) &&
-				   (kbase_pm_is_suspending(kbdev) || kbase_io_is_gpu_lost(kbdev))) {
+			} else if (kbase_has_arbiter(kbdev) && (kbase_pm_is_suspending(kbdev) ||
+								kbase_io_is_aw_removed(kbdev))) {
 				backend->shaders_state = KBASE_SHADERS_WAIT_FINISHED_CORESTACK_ON;
 			}
 			break;
@@ -2847,10 +2996,13 @@ static int kbase_pm_shaders_update_state(struct kbase_device *kbdev)
 			break;
 		}
 
-		if (backend->shaders_state != prev_state)
+		if (backend->shaders_state != prev_state) {
 			dev_dbg(kbdev->dev, "Shader state transition: %s to %s\n",
 				kbase_shader_core_state_to_string(prev_state),
 				kbase_shader_core_state_to_string(backend->shaders_state));
+			KBASE_TLSTREAM_TL_KBASE_DEVICE_SHADER_CORE_STATE(kbdev, kbdev->id,
+									 backend->shaders_state);
+		}
 
 	} while (backend->shaders_state != prev_state);
 
@@ -3125,7 +3277,7 @@ void kbase_pm_reset_complete(struct kbase_device *kbdev)
 	struct kbase_pm_backend_data *backend = &kbdev->pm.backend;
 	unsigned long flags;
 
-	if (!kbase_io_is_gpu_lost(kbdev))
+	if (!kbase_io_is_aw_removed(kbdev))
 		WARN_ON(!kbase_reset_gpu_is_active(kbdev));
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
@@ -3172,6 +3324,8 @@ static void kbase_pm_timed_out(struct kbase_device *kbdev, const char *timeout_m
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 #endif
 	dev_err(kbdev->dev, "Current state :\n");
+	dev_err(kbdev->dev, "\tStack =%016llx\n",
+		kbase_reg_read64(kbdev, GPU_CONTROL_ENUM(STACK_READY)));
 	dev_err(kbdev->dev, "\tShader=%016llx\n",
 		kbase_reg_read64(kbdev, GPU_CONTROL_ENUM(SHADER_READY)));
 	dev_err(kbdev->dev, "\tTiler =%016llx\n",
@@ -3183,6 +3337,8 @@ static void kbase_pm_timed_out(struct kbase_device *kbdev, const char *timeout_m
 		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(MCU_STATUS)));
 #endif
 	dev_err(kbdev->dev, "Cores transitioning :\n");
+	dev_err(kbdev->dev, "\tStack =%016llx\n",
+		kbase_reg_read64(kbdev, GPU_CONTROL_ENUM(STACK_PWRTRANS)));
 	dev_err(kbdev->dev, "\tShader=%016llx\n",
 		kbase_reg_read64(kbdev, GPU_CONTROL_ENUM(SHADER_PWRTRANS)));
 	dev_err(kbdev->dev, "\tTiler =%016llx\n",
@@ -3190,9 +3346,10 @@ static void kbase_pm_timed_out(struct kbase_device *kbdev, const char *timeout_m
 	dev_err(kbdev->dev, "\tL2    =%016llx\n",
 		kbase_reg_read64(kbdev, GPU_CONTROL_ENUM(L2_PWRTRANS)));
 
-	dev_err(kbdev->dev, "Sending reset to GPU - all running jobs will be lost\n");
-	if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_HWC_UNRECOVERABLE_ERROR))
+	if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_HWC_UNRECOVERABLE_ERROR)) {
+		dev_err(kbdev->dev, "Sending reset to GPU - all running jobs will be lost\n");
 		kbase_reset_gpu(kbdev);
+	}
 }
 
 int kbase_pm_wait_for_l2_powered(struct kbase_device *kbdev)
@@ -3363,12 +3520,10 @@ static int pm_wait_for_poweroff_work_complete(struct kbase_device *kbdev, bool k
 	 * and so the wait time can't only be the function of GPU frequency.
 	 */
 	const unsigned int extra_wait_time_ms = 2000;
-	const long timeout =
-		kbase_has_arbiter(kbdev) ?
-			      MAX_SCHEDULE_TIMEOUT :
-			      kbase_csf_timeout_in_jiffies(
-						     kbase_get_timeout_ms(kbdev, CSF_PM_TIMEOUT) +
-						     extra_wait_time_ms);
+	const long timeout_extra_wait_time = kbase_csf_timeout_in_jiffies(
+		kbase_get_timeout_ms(kbdev, CSF_PM_TIMEOUT) + extra_wait_time_ms);
+	const long timeout = kbase_has_arbiter(kbdev) ? MAX_SCHEDULE_TIMEOUT :
+							      timeout_extra_wait_time;
 #else
 	const long timeout = kbase_has_arbiter(kbdev) ? MAX_SCHEDULE_TIMEOUT :
 							      (long)msecs_to_jiffies(PM_TIMEOUT_MS);
@@ -3551,7 +3706,7 @@ void kbase_pm_clock_on(struct kbase_device *kbdev, bool is_resume)
 #endif /* !MALI_USE_CSF */
 	lockdep_assert_held(&kbdev->pm.lock);
 
-	if (WARN_ON(kbase_io_is_gpu_lost(kbdev))) {
+	if (WARN_ON(kbase_io_is_aw_removed(kbdev))) {
 		dev_err(kbdev->dev, "%s: Cannot power up while GPU lost", __func__);
 		return;
 	}
@@ -3712,7 +3867,7 @@ bool kbase_pm_clock_off(struct kbase_device *kbdev)
 	}
 #endif
 
-	if (kbase_io_is_gpu_lost(kbdev)) {
+	if (kbase_io_is_aw_removed(kbdev)) {
 		/* Ensure we unblock any threads that are stuck waiting
 		 * for the GPU
 		 */

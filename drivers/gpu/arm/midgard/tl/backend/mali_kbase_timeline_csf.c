@@ -120,10 +120,6 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 		/* Also trace with the legacy AOM tracepoint for dumping */
 		__kbase_tlstream_tl_new_ctx(body, kctx, kctx->id, (u32)(kctx->tgid));
 
-		/* Trace the currently assigned address space */
-		if (kctx->as_nr != KBASEP_AS_NR_INVALID)
-			__kbase_tlstream_tl_kbase_ctx_assign_as(body, kctx->id, (u32)kctx->as_nr);
-
 		/* Trace all KCPU queues in the context into the body stream.
 		 * As we acquired the KCPU lock after resetting the body stream,
 		 * it's possible that some KCPU-related events for this context

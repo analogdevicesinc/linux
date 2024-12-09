@@ -271,4 +271,17 @@ void kbase_pm_driver_resume(struct kbase_device *kbdev, bool arb_gpu_start);
  */
 void kbase_pm_handle_gpu_lost(struct kbase_device *kbdev);
 
+/**
+ * kbase_pm_handle_gpu_poweroff_wait_work - Work item for
+ *                                          gpu_poweroff_wait_work.
+ *
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * This function synchronises the GPU power state with that of the PM state
+ * machine to either power on -or off- the GPU as required.
+ * It is normally executed as part of the gpu_poweroff_wait_work work item, but
+ * could also be called directly in kbase_csf_scheduler_kthread().
+ */
+void kbase_pm_handle_gpu_poweroff_wait_work(struct kbase_device *kbdev);
+
 #endif /* _KBASE_PM_H_ */

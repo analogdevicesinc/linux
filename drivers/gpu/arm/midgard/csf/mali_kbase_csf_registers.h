@@ -31,6 +31,8 @@
  * Begin register sets
  */
 
+#define CS_USER_INPUT_BLOCK_SIZE 0x10
+
 /* CS_KERNEL_INPUT_BLOCK base address */
 #define CS_KERNEL_INPUT_BLOCK_BASE 0x0000
 #define CS_KERNEL_INPUT_BLOCK_REG(r) (CS_KERNEL_INPUT_BLOCK_BASE + (r))
@@ -1239,6 +1241,7 @@
 #define CSG_DVS_BUF_BUFFER_POINTER_SET(reg_val, value)    \
 	(((reg_val) & ~CSG_DVS_BUF_BUFFER_POINTER_MASK) | \
 	 (((value) << CSG_DVS_BUF_BUFFER_POINTER_SHIFT) & CSG_DVS_BUF_BUFFER_POINTER_MASK))
+
 
 /* End of CSG_INPUT_BLOCK register set definitions */
 

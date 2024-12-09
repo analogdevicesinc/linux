@@ -21,10 +21,8 @@
 
 #include <mali_kbase.h>
 #include <mali_kbase_hwaccess_time.h>
-#if MALI_USE_CSF
 #include <linux/gcd.h>
 #include <csf/mali_kbase_csf_timeout.h>
-#endif
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <mali_kbase_config_defaults.h>
@@ -37,8 +35,6 @@ struct kbase_timeout_info {
 	char *selector_str;
 	u64 timeout_cycles;
 };
-
-#if MALI_USE_CSF
 
 #define GPU_TIMESTAMP_OFFSET_INVALID S64_MAX
 
@@ -76,22 +72,7 @@ static struct kbase_timeout_info timeout_info[KBASE_TIMEOUT_SELECTOR_COUNT] = {
 	[CSF_PWR_INSPECT_TIMEOUT] = { "CSF_PWR_INSPECT_TIMEOUT", CSF_PWR_INSPECT_TIMEOUT_CYCLES },
 	[CSF_GPU_SUSPEND_TIMEOUT] = { "CSF_GPU_SUSPEND_TIMEOUT", CSF_GPU_SUSPEND_TIMEOUT_CYCLES },
 };
-#else
-static struct kbase_timeout_info timeout_info[KBASE_TIMEOUT_SELECTOR_COUNT] = {
-	[MMU_AS_INACTIVE_WAIT_TIMEOUT] = { "MMU_AS_INACTIVE_WAIT_TIMEOUT",
-					   MMU_AS_INACTIVE_WAIT_TIMEOUT_CYCLES },
-	[JM_DEFAULT_JS_FREE_TIMEOUT] = { "JM_DEFAULT_JS_FREE_TIMEOUT",
-					 JM_DEFAULT_JS_FREE_TIMEOUT_CYCLES },
-	[KBASE_PRFCNT_ACTIVE_TIMEOUT] = { "KBASE_PRFCNT_ACTIVE_TIMEOUT",
-					  KBASE_PRFCNT_ACTIVE_TIMEOUT_CYCLES },
-	[KBASE_CLEAN_CACHE_TIMEOUT] = { "KBASE_CLEAN_CACHE_TIMEOUT",
-					KBASE_CLEAN_CACHE_TIMEOUT_CYCLES },
-	[KBASE_AS_INACTIVE_TIMEOUT] = { "KBASE_AS_INACTIVE_TIMEOUT",
-					KBASE_AS_INACTIVE_TIMEOUT_CYCLES },
-};
-#endif
 
-#if MALI_USE_CSF
 void kbase_backend_invalidate_gpu_timestamp_offset(struct kbase_device *kbdev)
 {
 	kbdev->backend_time.gpu_timestamp_offset = GPU_TIMESTAMP_OFFSET_INVALID;
@@ -121,13 +102,18 @@ static inline void kbase_backend_compute_gpu_ts_offset(struct kbase_device *kbde
 	if (kbdev->backend_time.gpu_timestamp_offset != GPU_TIMESTAMP_OFFSET_INVALID)
 		return;
 
-	kbase_reg_write64(kbdev, GPU_CONTROL_ENUM(TIMESTAMP_OFFSET), 0);
+	if (kbase_io_is_aw_removed(kbdev))
+		return;
 
-	gpu_ts_ticks = kbase_reg_read64_coherent(kbdev, GPU_CONTROL_ENUM(TIMESTAMP));
-	cpu_ts_ticks = ktime_get_raw_ns();
-	cpu_ts_ticks = div64_u64(cpu_ts_ticks * kbdev->backend_time.divisor,
-				 kbdev->backend_time.multiplier);
-	kbdev->backend_time.gpu_timestamp_offset = cpu_ts_ticks - gpu_ts_ticks;
+	else {
+		kbase_reg_write64(kbdev, GPU_CONTROL_ENUM(TIMESTAMP_OFFSET), 0);
+
+		gpu_ts_ticks = kbase_reg_read64_coherent(kbdev, GPU_CONTROL_ENUM(TIMESTAMP));
+		cpu_ts_ticks = ktime_get_raw_ns();
+		cpu_ts_ticks = div64_u64(cpu_ts_ticks * kbdev->backend_time.divisor,
+					 kbdev->backend_time.multiplier);
+		kbdev->backend_time.gpu_timestamp_offset = cpu_ts_ticks - gpu_ts_ticks;
+	}
 }
 
 void kbase_backend_update_gpu_timestamp_offset(struct kbase_device *kbdev)
@@ -144,13 +130,13 @@ void kbase_backend_update_gpu_timestamp_offset(struct kbase_device *kbdev)
 	kbase_reg_write64(kbdev, GPU_CONTROL_ENUM(TIMESTAMP_OFFSET),
 			  kbdev->backend_time.gpu_timestamp_offset);
 }
+
 #if MALI_UNIT_TEST
 u64 kbase_backend_read_gpu_timestamp_offset_reg(struct kbase_device *kbdev)
 {
 	return kbase_reg_read64_coherent(kbdev, GPU_CONTROL_ENUM(TIMESTAMP_OFFSET));
 }
 KBASE_EXPORT_TEST_API(kbase_backend_read_gpu_timestamp_offset_reg);
-#endif
 #endif
 
 void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev, u64 *cycle_counter,
@@ -173,52 +159,10 @@ void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev, u64 *cycle
 }
 KBASE_EXPORT_TEST_API(kbase_backend_get_gpu_time_norequest);
 
-#if !MALI_USE_CSF
-/**
- * timedwait_cycle_count_active() - Timed wait till CYCLE_COUNT_ACTIVE is active
- *
- * @kbdev: Kbase device
- *
- * Return: 0 if CYCLE_COUNT_ACTIVE is active within the timeout,
- *         otherwise a negative error code.
- */
-static int timedwait_cycle_count_active(struct kbase_device *kbdev)
-{
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
-	return 0;
-#else
-	const unsigned int timeout = 100;
-	const unsigned long remaining = jiffies + msecs_to_jiffies(timeout);
-
-	while (time_is_after_jiffies(remaining)) {
-		if (kbase_io_is_gpu_lost(kbdev))
-			return -ENODEV;
-
-		if ((kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_STATUS)) &
-		     GPU_STATUS_CYCLE_COUNT_ACTIVE))
-			return 0;
-	}
-
-	return -ETIMEDOUT;
-#endif
-}
-#endif
-
 void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter, u64 *system_time,
 				struct timespec64 *ts)
 {
-#if !MALI_USE_CSF
-	kbase_pm_request_gpu_cycle_counter(kbdev);
-	if (!kbase_io_is_gpu_lost(kbdev))
-		WARN_ONCE(kbdev->pm.backend.l2_state != KBASE_L2_ON, "L2 not powered up");
-
-	WARN_ONCE(timedwait_cycle_count_active(kbdev) == -ETIMEDOUT,
-		  "Timed out on CYCLE_COUNT_ACTIVE");
-#endif
 	kbase_backend_get_gpu_time_norequest(kbdev, cycle_counter, system_time, ts);
-#if !MALI_USE_CSF
-	kbase_pm_release_gpu_cycle_counter(kbdev);
-#endif
 }
 KBASE_EXPORT_TEST_API(kbase_backend_get_gpu_time);
 
@@ -249,14 +193,12 @@ void kbase_device_set_timeout_ms(struct kbase_device *kbdev, enum kbase_timeout_
 	}
 	selector_str = timeout_info[selector].selector_str;
 
-#if MALI_USE_CSF
 	if ((kbdev->gpu_props.impl_tech <= THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_SILICON) &&
 	    unlikely(timeout_ms >= MAX_TIMEOUT_MS)) {
 		dev_warn(kbdev->dev, "%s is capped from %dms to %dms\n",
 			 timeout_info[selector].selector_str, timeout_ms, MAX_TIMEOUT_MS);
 		timeout_ms = MAX_TIMEOUT_MS;
 	}
-#endif
 
 	kbdev->backend_time.device_scaled_timeouts[selector] = timeout_ms;
 	dev_dbg(kbdev->dev, "\t%-35s: %ums\n", selector_str, timeout_ms);
@@ -328,8 +270,8 @@ static int kbase_timeout_scaling_init(struct kbase_device *kbdev)
 	dev_dbg(kbdev->dev, "Scaling kbase timeouts:\n");
 	for (selector = 0; selector < KBASE_TIMEOUT_SELECTOR_COUNT; selector++) {
 		u32 cycle_multiplier = 1;
-		u64 nr_cycles = timeout_info[selector].timeout_cycles;
-#if MALI_USE_CSF
+		u64 nr_cycles;
+		nr_cycles = timeout_info[selector].timeout_cycles;
 		/* Special case: the scheduler progress timeout can be set manually,
 		 * and does not have a canonical length defined in the headers. Hence,
 		 * we query it once upon startup to get a baseline, and change it upon
@@ -346,7 +288,6 @@ static int kbase_timeout_scaling_init(struct kbase_device *kbdev)
 				nr_cycles = KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES_FPGA;
 			}
 		}
-#endif
 
 		/* Since we are in control of the iteration bounds for the selector,
 		 * we don't have to worry about bounds checking when setting the timeout.
@@ -372,7 +313,6 @@ u64 kbase_backend_get_cycle_cnt(struct kbase_device *kbdev)
 	return kbase_reg_read64_coherent(kbdev, GPU_CONTROL_ENUM(CYCLE_COUNT));
 }
 
-#if MALI_USE_CSF
 u64 __maybe_unused kbase_backend_time_convert_gpu_to_cpu(struct kbase_device *kbdev, u64 gpu_ts)
 {
 	if (WARN_ON(!kbdev))
@@ -381,7 +321,6 @@ u64 __maybe_unused kbase_backend_time_convert_gpu_to_cpu(struct kbase_device *kb
 	return div64_u64(gpu_ts * kbdev->backend_time.multiplier, kbdev->backend_time.divisor);
 }
 KBASE_EXPORT_TEST_API(kbase_backend_time_convert_gpu_to_cpu);
-#endif
 
 u64 kbase_arch_timer_get_cntfrq(struct kbase_device *kbdev)
 {
@@ -395,7 +334,6 @@ u64 kbase_arch_timer_get_cntfrq(struct kbase_device *kbdev)
 int kbase_backend_time_init(struct kbase_device *kbdev)
 {
 	int err = 0;
-#if MALI_USE_CSF
 	u64 freq;
 	u64 common_factor;
 
@@ -421,17 +359,14 @@ int kbase_backend_time_init(struct kbase_device *kbdev)
 
 	kbase_backend_invalidate_gpu_timestamp_offset(
 		kbdev); /* force computation of GPU Timestamp offset */
-#endif
 
 	if (kbase_timeout_scaling_init(kbdev)) {
 		dev_warn(kbdev->dev, "Could not initialize timeout scaling");
 		err = -EINVAL;
 	}
 
-#if MALI_USE_CSF
 disable_registers:
 	kbase_pm_register_access_disable(kbdev);
-#endif
 
 	return err;
 }

@@ -21,6 +21,7 @@
 
 #include <linux/protected_memory_allocator.h>
 #include <mali_kbase.h>
+#include <mali_kbase_caps.h>
 #include <mali_kbase_reg_track.h>
 #include "mali_kbase_csf.h"
 #include "mali_kbase_csf_mcu_shared_reg.h"
@@ -157,11 +158,11 @@ static bool notify_group_csg_reg_map_error(struct kbase_queue_group *group)
 	return group->csg_reg_bind_retries >= MCU_SHARED_REGS_BIND_ATTEMPT_LIMIT;
 }
 
-/* Replace the given phys at vpfn (reflecting a queue's userio_pages) mapping.
+/* Replace the given phys at vpfn (reflecting a userio_pages) mapping.
  * If phys is NULL, the internal dummy_phys is used, which effectively
- * restores back to the initialized state for the given queue's userio_pages
+ * restores back to the initialized state for the given userio_pages
  * (i.e. mapped to the default dummy page).
- * In case of CSF mmu update error on a queue, the dummy phy is used to restore
+ * In case of CSF mmu update error, the dummy phy is used to restore
  * back the default 'unbound' (i.e. mapped to dummy) condition.
  *
  * It's the caller's responsibility to ensure that the given vpfn is extracted
@@ -196,50 +197,159 @@ static int userio_pages_replace_phys(struct kbase_device *kbdev, u64 vpfn, struc
 	return err;
 }
 
+/**
+ * kbase_userio_pages_insert() - Insert CS_USER IO physical pages in the GPU MMU page table
+ *
+ * @kbdev: Pointer to the kbase device.
+ * @group: Pointer to the CSG for which to program the CSG register.
+ * @phys: Pointer to the CS_USER IO physical pages.
+ * @user_io_gpu_va: Output variable used to record the CS_USER IO VA
+ *                  used by the GPU.
+ * @index: Index of the CS for which to insert the CS_USER IO.
+ *         When MALI_KBASE_CAP_CSG_CS_USER_PAGE_ALLOCATION is set,
+ *         the value should be passed as 0.
+ *
+ * This function makes the CS_USER IO pages accessible to the GPU by inserting the
+ * pages in the GPU MMU page table.
+ *
+ * If the pages were already inserted (@user_io_gpu_va != 0) the function will
+ * early return.
+ *
+ * Return: 0 on success, error code and a CSG fault on failure.
+ */
+static int kbase_userio_pages_insert(struct kbase_device *kbdev, struct kbase_queue_group *group,
+				     struct tagged_addr *phys, u64 *user_io_gpu_va, u32 index)
+{
+	const u32 nr_susp_pages = PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
+	struct kbase_csg_shared_region *csg_reg;
+	u64 vpfn;
+	int err;
+
+	lockdep_assert_held(&kbdev->csf.scheduler.lock);
+
+	if (*user_io_gpu_va)
+		return 0;
+
+	csg_reg = get_group_bound_csg_reg(group);
+
+	if (WARN_ONCE(!csg_reg, "No bound csg_reg, or in wrong state"))
+		return -EIO;
+
+	vpfn = CSG_REG_USERIO_VPFN(csg_reg->reg, index, nr_susp_pages);
+
+	err = userio_pages_replace_phys(kbdev, vpfn, phys);
+
+	if (likely(!err)) {
+		/* Mark as successfully mapped */
+		*user_io_gpu_va = GET_VPFN_VA(vpfn);
+	} else {
+		/* Mark as not mapped on its phys[] */
+		*user_io_gpu_va = 0;
+
+		dev_dbg(kbdev->dev, "%s: Error in mapping userio pages for csg_%d_%d_%d", __func__,
+			group->kctx->tgid, group->kctx->id, group->handle);
+
+		/* notify the error for the bound group */
+		if (notify_group_csg_reg_map_error(group))
+			err = -EIO;
+	}
+
+	return err;
+}
+
+/**
+ * kbase_userio_pages_remove() - Remove CS_USER IO physical pages from the GPU MMU page table
+ *
+ * @kbdev: Pointer to the kbase device.
+ * @group: Pointer to the CSG for which to program the CSG register.
+ * @user_io_gpu_va: Output variable used to record the CS_USER IO VA
+ *                  used by the GPU.
+ *                  On success, the VA is set to 0, which indicates the
+ *                  pages are unmapped on GPU side.
+ * @index: Index of the CS for which to insert the CS_USER IO.
+ *         When MALI_KBASE_CAP_CSG_CS_USER_PAGE_ALLOCATION is set,
+ *         the value should be passed as 0.
+ *
+ * This function replaces the GPU mapping of CS_USER IO pages by dummy pages.
+ *
+ * Return: 0 on success, error code on failure.
+ */
+static int kbase_userio_pages_remove(struct kbase_device *kbdev, struct kbase_queue_group *group,
+				     u64 *user_io_gpu_va, u32 index)
+{
+	const u32 nr_susp_pages = PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
+	struct kbase_csg_shared_region *csg_reg;
+	u64 vpfn;
+	int err;
+
+	lockdep_assert_held(&kbdev->csf.scheduler.lock);
+
+	if (!*user_io_gpu_va)
+		return 0;
+
+	csg_reg = get_group_bound_csg_reg(group);
+	if (WARN_ONCE(!csg_reg, "No bound csg_reg, or in wrong state"))
+		return -EIO;
+
+	vpfn = CSG_REG_USERIO_VPFN(csg_reg->reg, index, nr_susp_pages);
+
+	err = userio_pages_replace_phys(kbdev, vpfn, NULL);
+
+	*user_io_gpu_va = 0;
+
+	return err;
+}
+
 /* Update a group's queues' mappings for a group with its runtime bound group region */
 static int csg_reg_update_on_csis(struct kbase_device *kbdev, struct kbase_queue_group *group,
 				  struct kbase_queue_group *prev_grp)
 {
-	struct kbase_csg_shared_region *csg_reg = get_group_bound_csg_reg(group);
-	const u32 nr_susp_pages = PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
 	const u32 nr_csis = kbdev->csf.global_iface.groups[0].stream_num;
-	struct tagged_addr *phy;
+	const bool csg_user_io_allocation =
+		mali_kbase_supports_csg_cs_user_page_allocation(group->kctx->api_version);
 	int err = 0, err1;
 	u32 i;
 
 	lockdep_assert_held(&kbdev->csf.scheduler.lock);
 
-	if (WARN_ONCE(!csg_reg, "Update_userio pages: group has no bound csg_reg"))
-		return -EINVAL;
+	if (csg_user_io_allocation) {
+		err = kbase_userio_pages_insert(kbdev, group, group->phys, &group->user_io_gpu_va,
+						0);
+
+		if (err)
+			return err;
+	}
 
 	for (i = 0; i < nr_csis; i++) {
-		struct kbase_queue *queue = group->bound_queues[i];
 		struct kbase_queue *prev_queue = prev_grp ? prev_grp->bound_queues[i] : NULL;
+		struct kbase_queue *queue = group->bound_queues[i];
 
-		/* Set the phy if the group's queue[i] needs mapping, otherwise NULL */
-		phy = (queue && queue->enabled && !queue->user_io_gpu_va) ? queue->phys : NULL;
+		if (queue && queue->enabled) {
+			if (csg_user_io_allocation) {
+				if (WARN(!group->user_io_gpu_va,
+					 "Missing CS user IO pages at group level"))
+					err = -EINVAL;
+				else
+					queue->user_io_gpu_va =
+						group->user_io_gpu_va +
+						queue->csi_index * CS_USER_INPUT_BLOCK_SIZE;
+			} else {
+				err1 = kbase_userio_pages_insert(kbdev, group, queue->phys,
+								 &queue->user_io_gpu_va, i);
 
-		/* Either phy is valid, or this update is for a transition change from
-		 * prev_group, and the prev_queue was mapped, so an update is required.
-		 */
-		if (phy || (prev_queue && prev_queue->user_io_gpu_va)) {
-			u64 vpfn = CSG_REG_USERIO_VPFN(csg_reg->reg, i, nr_susp_pages);
-
-			err1 = userio_pages_replace_phys(kbdev, vpfn, phy);
-
-			if (unlikely(err1)) {
-				dev_warn(kbdev->dev,
-					 "%s: Error in update queue-%d mapping for csg_%d_%d_%d",
-					 __func__, i, group->kctx->tgid, group->kctx->id,
-					 group->handle);
-				err = err1;
-			} else if (phy)
-				queue->user_io_gpu_va = GET_VPFN_VA(vpfn);
-
-			/* Mark prev_group's queue has lost its mapping */
-			if (prev_queue)
-				prev_queue->user_io_gpu_va = 0;
+				if (unlikely(err1)) {
+					dev_warn(
+						kbdev->dev,
+						"%s: Error in update queue-%d mapping for csg_%d_%d_%d",
+						__func__, i, group->kctx->tgid, group->kctx->id,
+						group->handle);
+					err = err1;
+				}
+			}
 		}
+
+		if (prev_queue)
+			prev_queue->user_io_gpu_va = 0;
 	}
 
 	return err;
@@ -383,6 +493,10 @@ void kbase_csf_mcu_shared_set_group_csg_reg_unused(struct kbase_device *kbdev,
 		      group->kctx->tgid, group->kctx->id, group->handle))
 		return;
 
+	if (mali_kbase_supports_csg_cs_user_page_allocation(group->kctx->api_version))
+		WARN_ONCE(kbase_userio_pages_remove(kbdev, group, &group->user_io_gpu_va, 0),
+			  "Unexpected restoring to dummy map update error");
+
 	/* By adding back the csg_reg to the unused list, it becomes available for another
 	 * group to break its existing binding and set up a new one.
 	 */
@@ -398,9 +512,7 @@ int kbase_csf_mcu_shared_add_queue(struct kbase_device *kbdev, struct kbase_queu
 {
 	struct kbase_queue_group *group = queue->group;
 	struct kbase_csg_shared_region *csg_reg;
-	const u32 nr_susp_pages = PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
-	u64 vpfn;
-	int err;
+	int err = 0;
 
 	lockdep_assert_held(&kbdev->csf.scheduler.lock);
 
@@ -412,22 +524,15 @@ int kbase_csf_mcu_shared_add_queue(struct kbase_device *kbdev, struct kbase_queu
 		      "No bound csg_reg, or in wrong state"))
 		return -EIO;
 
-	vpfn = CSG_REG_USERIO_VPFN(csg_reg->reg, (u32)queue->csi_index, nr_susp_pages);
-	err = userio_pages_replace_phys(kbdev, vpfn, queue->phys);
-	if (likely(!err)) {
-		/* Mark the queue has been successfully mapped */
-		queue->user_io_gpu_va = GET_VPFN_VA(vpfn);
-	} else {
-		/* Mark the queue has no mapping on its phys[] */
-		queue->user_io_gpu_va = 0;
-		dev_dbg(kbdev->dev,
-			"%s: Error in mapping userio pages for queue-%d of csg_%d_%d_%d", __func__,
-			queue->csi_index, group->kctx->tgid, group->kctx->id, group->handle);
-
-		/* notify the error for the bound group */
-		if (notify_group_csg_reg_map_error(group))
-			err = -EIO;
-	}
+	if (mali_kbase_supports_csg_cs_user_page_allocation(queue->kctx->api_version)) {
+		if (WARN(!group->user_io_gpu_va, "Missing CS user IO pages at group level"))
+			err = -EINVAL;
+		else
+			queue->user_io_gpu_va =
+				group->user_io_gpu_va + queue->csi_index * CS_USER_INPUT_BLOCK_SIZE;
+	} else
+		err = kbase_userio_pages_insert(kbdev, group, queue->phys, &queue->user_io_gpu_va,
+						(u32)queue->csi_index);
 
 	return err;
 }
@@ -435,27 +540,18 @@ int kbase_csf_mcu_shared_add_queue(struct kbase_device *kbdev, struct kbase_queu
 /* Unmap a given queue's userio pages, when the queue is deleted */
 void kbase_csf_mcu_shared_drop_stopped_queue(struct kbase_device *kbdev, struct kbase_queue *queue)
 {
-	struct kbase_queue_group *group;
-	struct kbase_csg_shared_region *csg_reg;
-	const u32 nr_susp_pages = PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
-	u64 vpfn;
-
 	lockdep_assert_held(&kbdev->csf.scheduler.lock);
 
 	/* The queue has no existing mapping, nothing to do */
 	if (!queue || !queue->user_io_gpu_va)
 		return;
 
-	group = queue->group;
-	if (WARN_ONCE(!group || !group->csg_reg, "Queue/Group has no bound region"))
-		return;
+	if (!mali_kbase_supports_csg_cs_user_page_allocation(queue->kctx->api_version)) {
+		WARN_ONCE(kbase_userio_pages_remove(kbdev, queue->group, &queue->user_io_gpu_va,
+						    (u32)queue->csi_index),
+			  "Unexpected restoring to dummy map update error");
+	}
 
-	csg_reg = get_group_bound_csg_reg(group);
-
-	vpfn = CSG_REG_USERIO_VPFN(csg_reg->reg, (u32)queue->csi_index, nr_susp_pages);
-
-	WARN_ONCE(userio_pages_replace_phys(kbdev, vpfn, NULL),
-		  "Unexpected restoring to dummy map update error");
 	queue->user_io_gpu_va = 0;
 }
 
@@ -526,6 +622,10 @@ void kbase_csf_mcu_shared_clear_evicted_group_csg_reg(struct kbase_device *kbdev
 	/* Nothing to do for clearing up if no bound csg_reg */
 	if (!csg_reg)
 		return;
+
+	if (mali_kbase_supports_csg_cs_user_page_allocation(group->kctx->api_version))
+		WARN_ONCE(kbase_userio_pages_remove(kbdev, group, &group->user_io_gpu_va, 0),
+			  "Unexpected restoring to dummy map update error");
 
 	reg = csg_reg->reg;
 	/* Restore mappings default dummy pages for any mapped pages */

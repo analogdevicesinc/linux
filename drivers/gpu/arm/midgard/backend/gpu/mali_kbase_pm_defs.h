@@ -377,13 +377,12 @@ union kbase_pm_policy_data {
  *                   progress that will eventually achieve this state (assuming
  *                   that the policy doesn't change its mind in the mean time).
  * @mcu_desired: True if the micro-control unit should be powered on by the MCU state
- *               machine. Updated as per the value of @mcu_poweron_required.
- * @mcu_poweron_required: Boolean flag updated mainly by the CSF Scheduler code,
- *                        before updating the PM active count, to indicate to the
- *                        PM code that micro-control unit needs to be powered up/down.
+ *               machine.
  * @policy_change_clamp_state_to_off: Signaling the backend is in PM policy
  *                change transition, needs the mcu/L2 to be brought back to the
  *                off state and remain in that state until the flag is cleared.
+ * @waiting_for_mmu_fault_handling: Flag set just before the wait for pending MMU faults
+ *                                  is done inside @gpu_poweroff_wait_wq.
  * @csf_pm_sched_flags: CSF Dynamic PM control flags in accordance to the
  *                current active PM policy. This field is updated whenever a
  *                new policy is activated.
@@ -532,8 +531,8 @@ struct kbase_pm_backend_data {
 	u64 shaders_desired_mask;
 #if MALI_USE_CSF
 	bool mcu_desired;
-	bool mcu_poweron_required;
 	bool policy_change_clamp_state_to_off;
+	bool waiting_for_mmu_fault_handling;
 	unsigned int csf_pm_sched_flags;
 	struct mutex policy_change_lock;
 	struct workqueue_struct *core_idle_wq;

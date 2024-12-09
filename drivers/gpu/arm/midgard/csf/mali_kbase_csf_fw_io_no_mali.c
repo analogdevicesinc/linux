@@ -293,7 +293,7 @@ void kbase_csf_fw_io_group_write64(struct kbase_csf_fw_io *fw_io, u32 group_id, 
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_group_write64);
 
-u32 kbase_csf_fw_io_group_input64_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset)
+u64 kbase_csf_fw_io_group_input64_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset)
 {
 	const struct kbase_device *const kbdev = fw_io->kbdev;
 	struct kbasep_csf_fw_io_group_pages *group_pages = &fw_io->pages.groups_pages[group_id];
