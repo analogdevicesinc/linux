@@ -788,11 +788,13 @@ static irqreturn_t imx7_csi_irq_handler(int irq, void *data)
 	}
 
 	if (status & BIT_ADDR_CH_ERR_INT) {
+		dev_warn(csi->dev, "Base address change Err.\n");
 		imx7_csi_hw_disable(csi);
 
 		imx7_csi_dma_reflash(csi);
 
 		imx7_csi_hw_enable(csi);
+		csi->frame_skip++;
 	}
 
 	if ((status & BIT_DMA_TSF_DONE_FB1) &&
