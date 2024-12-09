@@ -64,8 +64,6 @@
 #define SDHCI_CCLK_DC_POS                        (0U)
 
 /* PHY register field values */
-#define SDHCI_PHY_PAD_SN                         (0x8U)
-#define SDHCI_PHY_PAD_SP                         (0x8U)
 #define SDHCI_PHY_SLVDLY                         (0x2U)
 #define SDHCI_PHY_WAIT_CYCLE                     (0x0U)
 #define SDHCI_PHY_JUMPSTEP                       (0x20U)
@@ -88,6 +86,8 @@
 #define SDHCI_DEFAULT_CCLK_DC_LEGACY             (0x78U)
 #define SDHCI_DEFAULT_CCLK_DC_HS200              (0x0U)
 #define SDHCI_DEFAULT_CCLK_DC_HS400              (0x8U)
+#define SDHCI_DEFAULT_DRIVE_STRENGTH_OHM         (50)
+
 
 /* PHY powergood timeout value */
 #define SDHCI_PHY_TIMEOUT_100_MS                 (100U)
@@ -114,17 +114,25 @@
 #define SDHCI_PHY_OPS_SET_DELAY                        (3U)
 
 /* HS timing */
-#define MMC_TIMING_LEGACY       0
-#define MMC_TIMING_MMC_HS       1
-#define MMC_TIMING_MMC_DDR52    8
-#define MMC_TIMING_MMC_HS200    9
-#define MMC_TIMING_MMC_HS400    10
+#define MMC_TIMING_LEGACY                              (0)
+#define MMC_TIMING_MMC_HS                              (1)
+#define MMC_TIMING_MMC_DDR52                           (8)
+#define MMC_TIMING_MMC_HS200                           (9)
+#define MMC_TIMING_MMC_HS400                           (10)
+
+/* Driver strength */
+#define SDHCI_PHY_DRV_STRENGTH_33_OHM                  (14)
+#define SDHCI_PHY_DRV_STRENGTH_40_OHM                  (12)
+#define SDHCI_PHY_DRV_STRENGTH_50_OHM                  (8)
+#define SDHCI_PHY_DRV_STRENGTH_66_OHM                  (4)
+#define SDHCI_PHY_DRV_STRENGTH_100_OHM                 (0)
 
 struct adi_sdhci_phy {
 	void __iomem *base;
 	u32 dcode_legacy;
 	u32 dcode_hs200;
 	u32 dcode_hs400;
+	u32 drv_strength;
 };
 
 static void adi_sdhci_phy_writel(struct adi_sdhci_phy *adi_phy, u32 val, int reg)
@@ -296,8 +304,8 @@ static int adi_sdhci_phy_init(struct phy *phy)
 
 	/* sdhci PHY general configuration */
 	u32_val = adi_sdhci_phy_readl(adi_phy, SDHCI_PHY_CNFG_R_OFF);
-	u32_val |= ((SDHCI_PHY_PAD_SP << SDHCI_PAD_SP_POS) |
-		    (SDHCI_PHY_PAD_SN << SDHCI_PAD_SN_POS));
+	u32_val |= ((adi_phy->drv_strength << SDHCI_PAD_SP_POS) |
+		    (adi_phy->drv_strength << SDHCI_PAD_SN_POS));
 	adi_sdhci_phy_writel(adi_phy, u32_val, SDHCI_PHY_CNFG_R_OFF);
 
 	/* Command/response PAD settings */
@@ -405,7 +413,9 @@ static const struct phy_ops adi_sdhci_phy_ops = {
 
 static void adi_sdhci_phy_device_tree(struct platform_device *pdev, struct adi_sdhci_phy *adi_phy)
 {
+	struct device *dev = &pdev->dev;
 	struct device_node *np;
+	u32 drv_impedance;
 
 	adi_phy->dcode_legacy = SDHCI_DEFAULT_CCLK_DC_LEGACY;
 	adi_phy->dcode_hs200 = SDHCI_DEFAULT_CCLK_DC_HS200;
@@ -416,6 +426,28 @@ static void adi_sdhci_phy_device_tree(struct platform_device *pdev, struct adi_s
 		of_property_read_u32(np, "adi,dcode-legacy", &adi_phy->dcode_legacy);
 		of_property_read_u32(np, "adi,dcode-hs200", &adi_phy->dcode_hs200);
 		of_property_read_u32(np, "adi,dcode-hs400", &adi_phy->dcode_hs400);
+		of_property_read_u32(np, "adi,driver-strength-ohm", &drv_impedance);
+
+		switch (drv_impedance) {
+		case 33:
+			adi_phy->drv_strength = SDHCI_PHY_DRV_STRENGTH_33_OHM;
+			break;
+		case 40:
+			adi_phy->drv_strength = SDHCI_PHY_DRV_STRENGTH_40_OHM;
+			break;
+		case 50:
+			adi_phy->drv_strength = SDHCI_PHY_DRV_STRENGTH_50_OHM;
+			break;
+		case 66:
+			adi_phy->drv_strength = SDHCI_PHY_DRV_STRENGTH_66_OHM;
+			break;
+		case 100:
+			adi_phy->drv_strength = SDHCI_PHY_DRV_STRENGTH_100_OHM;
+			break;
+		default:
+			adi_phy->drv_strength = SDHCI_PHY_DRV_STRENGTH_50_OHM;
+			dev_err(dev, "Invalid driver impedance (%d). Using default (50 ohm)\n", drv_impedance);
+		}
 	}
 }
 
