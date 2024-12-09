@@ -1226,7 +1226,7 @@
 				assigned-clocks = <&clk IMX8MQ_CLK_CSI1_CORE>,
 				    <&clk IMX8MQ_CLK_CSI1_PHY_REF>,
 				    <&clk IMX8MQ_CLK_CSI1_ESC>;
-				assigned-clock-rates = <266000000>, <333000000>, <66000000>;
+				assigned-clock-rates = <133000000>, <100000000>, <66000000>;
 				assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_266M>,
 					<&clk IMX8MQ_SYS2_PLL_1000M>,
 					<&clk IMX8MQ_SYS1_PLL_800M>;
@@ -1276,7 +1276,7 @@
 				assigned-clocks = <&clk IMX8MQ_CLK_CSI2_CORE>,
 				    <&clk IMX8MQ_CLK_CSI2_PHY_REF>,
 				    <&clk IMX8MQ_CLK_CSI2_ESC>;
-				assigned-clock-rates = <266000000>, <333000000>, <66000000>;
+				assigned-clock-rates = <133000000>, <100000000>, <66000000>;
 				assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_266M>,
 					<&clk IMX8MQ_SYS2_PLL_1000M>,
 					<&clk IMX8MQ_SYS1_PLL_800M>;
