@@ -132,6 +132,8 @@ static int fsl_dcu_load(struct drm_device *dev, unsigned long flags)
 			dev_err(dev->dev, "failed to enable pixclk\n");
 			goto done_vblank;
 		}
+	}
+
 	scfg = syscon_regmap_lookup_by_compatible("fsl,ls1021a-scfg");
 	if (PTR_ERR(scfg) != -ENODEV) {
 		/*
