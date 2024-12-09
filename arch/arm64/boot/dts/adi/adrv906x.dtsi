@@ -460,6 +460,7 @@
 		adi,dcode-legacy = <0x78>;
 		adi,dcode-hs200 = <0x00>;
 		adi,dcode-hs400 = <0x08>;
+		adi,driver-strength-ohm = <40>;
 		status = "disabled";
 	};
 
