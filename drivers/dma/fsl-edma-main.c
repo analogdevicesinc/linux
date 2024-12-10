@@ -605,8 +605,6 @@ static int fsl_edma3_attach_pd(struct platform_device *pdev, struct fsl_edma_eng
 
 		fsl_chan->pd_dev = pd_chan;
 
-		pm_runtime_use_autosuspend(fsl_chan->pd_dev);
-		pm_runtime_set_autosuspend_delay(fsl_chan->pd_dev, 200);
 		pm_runtime_set_active(fsl_chan->pd_dev);
 		pm_runtime_put_sync_suspend(fsl_chan->pd_dev);
 	}
