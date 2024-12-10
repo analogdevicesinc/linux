@@ -420,7 +420,8 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	sigma_delta->active_slots = slot;
 	sigma_delta->current_slot = 0;
 
-	if (sigma_delta->active_slots > 1) {
+	if (iio_device_get_current_mode(indio_dev) != INDIO_BUFFER_HARDWARE &&
+	    sigma_delta->active_slots > 1) {
 		ret = ad_sigma_delta_append_status(sigma_delta, true);
 		if (ret)
 			return ret;
