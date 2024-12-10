@@ -62,6 +62,31 @@
 #define ADF4382_SOFT_RESET_N_OP			0x0
 #define ADF4382_SOFT_RESET_EN			0x1
 
+/* ADF4368 REG0011 Map*/
+#define ADF4368_CLKOUT_DIV_MSK			GENMASK(7, 6)
+
+/* ADF4368 REG004E Map */
+#define ADF4368_DCLK_DIV1_MSK			GENMASK(5, 4)
+
+/* ADF4368 REG0039 Map */
+#define ADF4368_SYNTH_MSB_MSK			GENMASK(6, 0)
+
+/* ADF4368 REG0038 Map */
+#define ADF4368_SYNTH_LSB_MSK			GENMASK(7, 0)
+
+/* ADF4368 REG003B Map */
+#define ADF4368_VCO_ALC_MSB_MSK			GENMASK(6, 0)
+
+/* ADF4368 REG003A Map */
+#define ADF4368_VCO_ALC_LSB_MSK			GENMASK(7, 0)
+
+/* ADF4368 REG0035 Map */
+#define ADF4368_DCLK_MODE_MSK			BIT(2)
+
+/* ADF4368 REG0058 Map */
+#define ADF4368_ADC_BUSY_MSK			BIT(2)
+#define ADF4368_FSM_BUSY_MSK			BIT(1)
+
 /* ADF4382 REG0001 Map */
 #define ADF4382_SINGLE_INSTR_MSK		BIT(7)
 #define ADF4382_MASTER_RB_CTRL_MSK		BIT(5)
@@ -412,6 +437,8 @@
 #define ADF4382_VCO_FREQ_MAX			22ULL * GIGA	/* 22GHz */
 #define ADF4382A_VCO_FREQ_MIN			11500ULL * MEGA	/* 11.5GHz */
 #define ADF4382A_VCO_FREQ_MAX			21ULL * GIGA	/* 21GHz */
+#define ADF4368_VCO_FREQ_MIN			6400ULL * MEGA	// 6.4GHz
+#define ADF4368_VCO_FREQ_MAX			12800ULL * MEGA // 12.8GHz
 #define ADF4382_PFD_FREQ_MAX			625ULL * MEGA	/* 625MHz */
 #define ADF4382_PFD_FREQ_FRAC_MAX		250ULL * MEGA	/* 250MHz */
 #define ADF4382_PFD_FREQ_MIN			5400ULL * KILO	/* 5.4MHz */
@@ -424,6 +451,7 @@
 #define ADF4382_OUT_PWR_MAX			15
 #define ADF4382_CLKOUT_DIV_REG_VAL_MAX		4
 #define ADF4382A_CLKOUT_DIV_REG_VAL_MAX		2
+#define ADF4368_CLKOUT_DIV_REG_VAL_MAX		4
 
 #define ADF4382_CP_I_DEFAULT			15
 #define ADF4382_OPOWER_DEFAULT			11
@@ -461,12 +489,19 @@ enum {
 
 // TODO:JONATHANC:
 //This should go away - see later.
+// ETODO: kept enum for now, to check later
 
 struct adf4382_chip_info {
 	const char		*name;
 	u64			vco_max;
 	u64			vco_min;
 	u8			clkout_div_reg_val_max;
+};
+
+enum adf4382_chip_id {
+	ADF4382,
+	ADF4382A,
+	ADF4368,
 };
 
 struct adf4382_state {
@@ -483,6 +518,7 @@ struct adf4382_state {
 	struct mutex		lock;
 	struct notifier_block	nb;
 	unsigned int		ref_freq_hz;
+	enum adf4382_chip_id	chip_id;
 	u8			cp_i;
 	u8			opwr_a;
 	u64			freq;
@@ -494,6 +530,10 @@ struct adf4382_state {
 	u16			bleed_word;
 	int			phase;
 	bool			cmos_3v3;
+	u16			synth_lock_timeout;
+	u16			vco_alc_timeout;
+	u16			vco_band_div;
+
 };
 
 #define to_adf4382_state(_hw) container_of(_hw, struct adf4382_state, clk_hw)
@@ -546,6 +586,13 @@ static const struct adf4382_chip_info adf4382a_chip_tbl = {
 	.vco_max = ADF4382A_VCO_FREQ_MAX,
 	.vco_min = ADF4382A_VCO_FREQ_MIN,
 	.clkout_div_reg_val_max = ADF4382A_CLKOUT_DIV_REG_VAL_MAX,
+};
+
+static const struct adf4368_chip_info adf4368_chip_tbl = {
+	.name = "adf4368",
+	.vco_max = ADF4368_VCO_FREQ_MAX,
+	.vco_min = ADF4368_VCO_FREQ_MIN,
+	.clkout_div_reg_val_max = ADF4368_CLKOUT_DIV_REG_VAL_MAX,
 };
 
 static const struct regmap_config adf4382_regmap_config = {
@@ -713,7 +760,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 			ldwin_pw = 1;
 	}
 
-	dev_dbg(&st->spi->dev,
+	dev_info(&st->spi->dev,
 		"VCO=%llu PFD=%llu RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
 		vco, pfd_freq_hz, 1 << clkout_div, n_int,
 		frac1_word, frac2_word, mod2_word);
@@ -766,67 +813,162 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	div1 = 8;
 	if (pfd_freq_hz <= ADF4382_DCLK_DIV1_0_MAX) {
 		dclk_div1 = 0;
-		div1 = 1;
+		div1 = 2;
 	} else if (pfd_freq_hz <= ADF4382_DCLK_DIV1_1_MAX) {
 		dclk_div1 = 1;
-		div1 = 2;
+		div1 = 4;
 	}
 
-	ret = regmap_update_bits(st->regmap, 0x24, ADF4382_DCLK_DIV1_MSK,
-				 FIELD_PREP(ADF4382_DCLK_DIV1_MSK, dclk_div1));
-	if (ret)
-		return ret;
+	//TODO: fix registers, not the same as ADF4368
+	if(st->chip_id == ADF4368) {
+		dev_info(&st->spi->dev, "ADF4368\n");
+		ret = regmap_update_bits(st->regmap, 0x4e, ADF4368_DCLK_DIV1_MSK,
+					 FIELD_PREP(ADF4368_DCLK_DIV1_MSK,
+					 	    dclk_div1));
+		if (ret)
+			return ret;
 
-	ret = regmap_set_bits(st->regmap, 0x31, ADF4382_DCLK_MODE_MSK);
-	if (ret)
-		return ret;
+		ret = regmap_update_bits(st->regmap, 0x35, ADF4368_DCLK_MODE_MSK,
+					 0xff);
+		if (ret)
+			return ret;
 
-	ret = regmap_set_bits(st->regmap, 0x31, ADF4382_CAL_CT_SEL_MSK);
-	if (ret)
-		return ret;
+		ret = regmap_write(st->regmap, 0x37, st->vco_band_div);
+		if (ret)
+			return ret;
 
-	ret = regmap_write(st->regmap, 0x38, ADF4382_VCO_CAL_VTUNE);
-	if (ret)
-		return ret;
+		ret = regmap_write(st->regmap, 0x38, FIELD_PREP(ADF4368_SYNTH_LSB_MSK,
+								st->synth_lock_timeout));
+		if (ret)
+			return ret;
 
-	ret = regmap_write(st->regmap, 0x3a, ADF4382_VCO_CAL_ALC);
-	if (ret)
-		return ret;
+		ret = regmap_update_bits(st->regmap, 0x39, ADF4368_SYNTH_MSB_MSK,
+					 FIELD_PREP(ADF4368_SYNTH_MSB_MSK,
+					 	    st->synth_lock_timeout >> 8));
+		if (ret)
+			return ret;
 
-	ret = regmap_write(st->regmap, 0x37, ADF4382_VCO_CAL_CNT);
-	if (ret)
-		return ret;
+		ret = regmap_write(st->regmap, 0x3A, FIELD_PREP(ADF4368_VCO_ALC_LSB_MSK,
+								st->vco_alc_timeout));
+		if (ret)
+			return ret;
 
-	var = DIV_ROUND_UP(div_u64(pfd_freq_hz, div1 * 400000) - 2, 4);
-	var = clamp_t(u8, var, 0U, 255U);
-	ret = regmap_write(st->regmap, 0x3e, var);
-	if (ret)
-		return ret;
+		ret = regmap_update_bits(st->regmap, 0x3B, ADF4368_VCO_ALC_MSB_MSK,
+					 FIELD_PREP(ADF4368_VCO_ALC_MSB_MSK,
+					 	    st->synth_lock_timeout >> 8));
+		if (ret)
+			return ret;
+		
+		var = DIV_ROUND_UP(div_u64(pfd_freq_hz, div1 * 400000) - 2, 4);
+		var = clamp_t(u8, var, 0U, 255U);
+		ret = regmap_write(st->regmap, 0x3e, var);
+		if (ret)
+			return ret;
 
-	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LD_COUNT_OPWR_MSK,
-				 10);
-	if (ret)
-		return ret;
+		ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LD_COUNT_OPWR_MSK,
+					 10);
+		if (ret)
+			return ret;
 
-	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LDWIN_PW_MSK,
-				 FIELD_PREP(ADF4382_LDWIN_PW_MSK, ldwin_pw));
-	if (ret)
-		return ret;
+		ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LDWIN_PW_MSK,
+					 FIELD_PREP(ADF4382_LDWIN_PW_MSK,
+					 	    ldwin_pw));
+		if (ret)
+			return ret;
 
-	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_CLKOUT_DIV_MSK,
-				 FIELD_PREP(ADF4382_CLKOUT_DIV_MSK, clkout_div));
-	if (ret)
-		return ret;
+		ret = regmap_update_bits(st->regmap, 0x11, ADF4368_CLKOUT_DIV_MSK,
+					 FIELD_PREP(ADF4368_CLKOUT_DIV_MSK,
+					 	    clkout_div));
+		if (ret)
+			return ret;
 
-	var = (n_int >> 8) & ADF4382_N_INT_MSB_MSK;
-	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
-	if (ret)
-		return ret;
+		var = (n_int >> 8) & ADF4382_N_INT_MSB_MSK;
+		ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK,
+					 var);
+		if (ret)
+			return ret;
 
-	ret  = regmap_write(st->regmap, 0x10,
-			    FIELD_PREP(ADF4382_N_INT_LSB_MSK, n_int));
-	if (ret)
-		return ret;
+		ret  = regmap_write(st->regmap, 0x10,
+				FIELD_PREP(ADF4382_N_INT_LSB_MSK, n_int));
+		if (ret)
+			return ret;
+
+		ret = regmap_read_poll_timeout(st->regmap, 0x58, read_val,
+				       !(read_val & (ADF4368_FSM_BUSY_MSK)), 200, 200 * 100);
+		if (ret)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, 0x2d, ADF4382_EN_DNCLK_MSK,
+					 0);
+		if (ret)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, 0x2d, ADF4382_EN_DRCLK_MSK,
+					 0);
+		if (ret)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, 0x31, ADF4382_EN_ADC_CLK_MSK,
+					 0);
+		if (ret)
+			return ret;
+	} else {
+		ret = regmap_update_bits(st->regmap, 0x24, ADF4382_DCLK_DIV1_MSK,
+					FIELD_PREP(ADF4382_DCLK_DIV1_MSK, dclk_div1));
+		if (ret)
+			return ret;
+
+		ret = regmap_set_bits(st->regmap, 0x31, ADF4382_DCLK_MODE_MSK);
+		if (ret)
+			return ret;
+
+		ret = regmap_set_bits(st->regmap, 0x31, ADF4382_CAL_CT_SEL_MSK);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, 0x38, ADF4382_VCO_CAL_VTUNE);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, 0x3a, ADF4382_VCO_CAL_ALC);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, 0x37, ADF4382_VCO_CAL_CNT);
+		if (ret)
+			return ret;
+
+		var = DIV_ROUND_UP(div_u64(pfd_freq_hz, div1 * 400000) - 2, 4);
+		var = clamp_t(u8, var, 0U, 255U);
+		ret = regmap_write(st->regmap, 0x3e, var);
+		if (ret)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LD_COUNT_OPWR_MSK,
+					10);
+		if (ret)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LDWIN_PW_MSK,
+					FIELD_PREP(ADF4382_LDWIN_PW_MSK, ldwin_pw));
+		if (ret)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, 0x11, ADF4382_CLKOUT_DIV_MSK,
+					FIELD_PREP(ADF4382_CLKOUT_DIV_MSK, clkout_div));
+		if (ret)
+			return ret;
+
+		var = (n_int >> 8) & ADF4382_N_INT_MSB_MSK;
+		ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
+		if (ret)
+			return ret;
+
+		ret  = regmap_write(st->regmap, 0x10,
+				FIELD_PREP(ADF4382_N_INT_LSB_MSK, n_int));
+		if (ret)
+			return ret;
+	}
 
 	mdelay(1);
 
@@ -1448,6 +1590,39 @@ static int adf4382_scratchpad_check(struct adf4382_state *st)
 	return 0;
 }
 
+static int adf4382_compute_timeout(struct adf4382_state *st, u64 freq)
+{
+	u64 pfd_freq_hz;
+	unsigned int f_div_rclk;
+	u8 dclk_div1;
+	u8 div1;
+	u8 dclk_mode = 1;
+	int ret;
+
+	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
+	if (ret)
+		return ret;
+
+
+	//TODO: COMPUTE DCLK_DIV1, DCLK_MODE, F_div_RCLK
+	dclk_div1 = 2;
+	div1 = 8;
+	if (pfd_freq_hz <= ADF4382_DCLK_DIV1_0_MAX) {
+		dclk_div1 = 0;
+		div1 = 2;
+	} else if (pfd_freq_hz <= ADF4382_DCLK_DIV1_1_MAX) {
+		dclk_div1 = 1;
+		div1 = 4;
+	}
+	f_div_rclk = (unsigned int) pfd_freq_hz / div1;
+
+	st->synth_lock_timeout = DIV_ROUND_UP(f_div_rclk, 50000);
+	st->vco_alc_timeout = DIV_ROUND_UP(f_div_rclk, 20000);
+	st->vco_band_div = DIV_ROUND_UP(f_div_rclk, 150000 * 16 * (1 << dclk_mode));
+
+	return 0;
+}
+
 static int adf4382_init(struct adf4382_state *st)
 {
 	int ret;
@@ -1505,6 +1680,12 @@ static int adf4382_init(struct adf4382_state *st)
 	ret = adf4382_set_out_power(st, 1, st->opwr_a);
 	if (ret)
 		return ret;
+
+	if(st->chip_id == ADF4368) {
+		ret = adf4382_compute_timeout(st, st->freq);
+		if (ret)
+			return ret;
+	}
 
 	return _adf4382_set_freq(st);
 }
@@ -1712,6 +1893,7 @@ static int adf4382_probe(struct spi_device *spi)
 static const struct spi_device_id adf4382_id[] = {
 	{ "adf4382",  (kernel_ulong_t)&adf4382_chip_tbl },
 	{ "adf4382a", (kernel_ulong_t)&adf4382a_chip_tbl },
+	{ "adf4368", (kernel_ulong_t)&adf4368_chip_tbl },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adf4382_id);
@@ -1719,6 +1901,7 @@ MODULE_DEVICE_TABLE(spi, adf4382_id);
 static const struct of_device_id adf4382_of_match[] = {
 	{ .compatible = "adi,adf4382",  .data = &adf4382_chip_tbl },
 	{ .compatible = "adi,adf4382a", .data = &adf4382a_chip_tbl },
+	{ .compatible = "adi,adf4368", .data = &adf4368_chip_tbl },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adf4382_of_match);
