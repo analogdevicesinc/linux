@@ -49,7 +49,6 @@ struct axiadc_state {
 	struct clk 			*clk;
 	struct gpio_desc		*gpio_decimation;
 	struct jesd204_dev 		*jdev;
-	size_t				regs_size;
 	void __iomem			*regs;
 	void __iomem			*slave_regs;
 	unsigned int			max_usr_channel;
@@ -234,9 +233,8 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	int ret;
 
-	/* Check that the register is in range and aligned */
-	if ((reg & DEBUGFS_DRA_PCORE_REG_MAGIC) &&
-	    ((reg & 0xffff) >= st->regs_size || (reg & 0x3)))
+	/* Check that the register is aligned */
+	if ((reg & DEBUGFS_DRA_PCORE_REG_MAGIC) && (reg & 0x3))
 		return -EINVAL;
 
 	mutex_lock(&conv->lock);
