@@ -859,9 +859,6 @@ static int fsl_edma_suspend_late(struct device *dev)
 		     !fsl_chan->srcid))
 			continue;
 
-		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD)
-			pm_runtime_get_sync(fsl_chan->pd_dev);
-
 		spin_lock_irqsave(&fsl_chan->vchan.lock, flags);
 		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_SPLIT_REG) {
 			fsl_edma->edma_save_regs[i].csr = edma_readl_chreg(fsl_chan, ch_csr);
@@ -881,9 +878,6 @@ static int fsl_edma_suspend_late(struct device *dev)
 			fsl_chan->pm_state = SUSPENDED;
 		}
 		spin_unlock_irqrestore(&fsl_chan->vchan.lock, flags);
-
-		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD)
-			pm_runtime_put_sync_suspend(fsl_chan->pd_dev);
 	}
 	return 0;
 }
@@ -908,9 +902,6 @@ static int fsl_edma_resume_early(struct device *dev)
 		     !fsl_chan->srcid))
 			continue;
 
-		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD)
-			pm_runtime_get_sync(fsl_chan->pd_dev);
-
 		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_SPLIT_REG) {
 			spin_lock_irqsave(&fsl_chan->vchan.lock, flags);
 			edma_writel_chreg(fsl_chan, fsl_edma->edma_save_regs[i].csr, ch_csr);
@@ -925,9 +916,6 @@ static int fsl_edma_resume_early(struct device *dev)
 			if (fsl_chan->srcid != 0)
 				fsl_edma_chan_mux(fsl_chan, fsl_chan->srcid, true);
 		}
-
-		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD)
-			pm_runtime_put_sync_suspend(fsl_chan->pd_dev);
 	}
 
 	if (!(fsl_edma->drvdata->flags & FSL_EDMA_DRV_SPLIT_REG))
