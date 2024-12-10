@@ -250,8 +250,6 @@ int fsl_edma_terminate_all(struct dma_chan *chan)
 	spin_unlock_irqrestore(&fsl_chan->vchan.lock, flags);
 	vchan_dma_desc_free_list(&fsl_chan->vchan, &head);
 
-	if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD)
-		pm_runtime_allow(fsl_chan->pd_dev);
 	return 0;
 }
 
@@ -796,15 +794,10 @@ void fsl_edma_xfer_desc(struct fsl_edma_chan *fsl_chan)
 	fsl_chan->status = DMA_IN_PROGRESS;
 }
 
-void fsl_edma_issue_work(struct work_struct *work)
+void fsl_edma_issue_pending(struct dma_chan *chan)
 {
-	struct fsl_edma_chan *fsl_chan = container_of(work,
-						       struct fsl_edma_chan,
-						       issue_worker);
+	struct fsl_edma_chan *fsl_chan = to_fsl_edma_chan(chan);
 	unsigned long flags;
-
-	if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD)
-		pm_runtime_forbid(fsl_chan->pd_dev);
 
 	spin_lock_irqsave(&fsl_chan->vchan.lock, flags);
 
@@ -818,13 +811,6 @@ void fsl_edma_issue_work(struct work_struct *work)
 		fsl_edma_xfer_desc(fsl_chan);
 
 	spin_unlock_irqrestore(&fsl_chan->vchan.lock, flags);
-}
-
-void fsl_edma_issue_pending(struct dma_chan *chan)
-{
-	struct fsl_edma_chan *fsl_chan = to_fsl_edma_chan(chan);
-
-	schedule_work(&fsl_chan->issue_worker);
 
 }
 
@@ -835,6 +821,9 @@ int fsl_edma_alloc_chan_resources(struct dma_chan *chan)
 
 	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_HAS_CHCLK)
 		clk_prepare_enable(fsl_chan->clk);
+
+	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_HAS_PD)
+		pm_runtime_get_sync(fsl_chan->pd_dev);
 
 	fsl_chan->tcd_pool = dma_pool_create("tcd_pool", chan->device->dev,
 				fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_TCD64 ?
@@ -847,6 +836,9 @@ int fsl_edma_alloc_chan_resources(struct dma_chan *chan)
 
 		if (ret) {
 			dma_pool_destroy(fsl_chan->tcd_pool);
+			if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_HAS_PD)
+				pm_runtime_put_sync_suspend(fsl_chan->pd_dev);
+
 			return ret;
 		}
 
@@ -857,6 +849,9 @@ int fsl_edma_alloc_chan_resources(struct dma_chan *chan)
 
 				if (ret) {
 					dma_pool_destroy(fsl_chan->tcd_pool);
+					if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_HAS_PD)
+						pm_runtime_put_sync_suspend(fsl_chan->pd_dev);
+
 					return ret;
 				}
 			}
@@ -895,6 +890,9 @@ void fsl_edma_free_chan_resources(struct dma_chan *chan)
 	fsl_chan->is_remote = false;
 	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_HAS_CHCLK)
 		clk_disable_unprepare(fsl_chan->clk);
+
+	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_HAS_PD)
+		pm_runtime_put_sync_suspend(fsl_chan->pd_dev);
 }
 
 void fsl_edma_cleanup_vchan(struct dma_device *dmadev)

@@ -749,8 +749,6 @@ static int fsl_edma_probe(struct platform_device *pdev)
 		fsl_edma_chan_mux(fsl_chan, 0, false);
 		if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_HAS_CHCLK)
 			clk_disable_unprepare(fsl_chan->clk);
-
-		INIT_WORK(&fsl_chan->issue_worker, fsl_edma_issue_work);
 	}
 
 	ret = fsl_edma->drvdata->setup_irq(pdev, fsl_edma);

@@ -164,7 +164,6 @@ struct fsl_edma_chan {
 	void __iomem			*tcd;
 	void __iomem			*mux_addr;
 	u32				real_count;
-	struct work_struct		issue_worker;
 	struct platform_device		*pdev;
 	struct device			*pd_dev;
 	u32				srcid;
