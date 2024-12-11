@@ -295,8 +295,10 @@ static void enetc_port_get_caps(struct enetc_si *si)
 	if (val & ENETC_PCAPR0_QBV)
 		si->hw_features |= ENETC_SI_F_QBV;
 
-	if (val & ENETC_PCAPR0_QBU)
+	if (val & ENETC_PCAPR0_QBU) {
 		si->hw_features |= ENETC_SI_F_QBU;
+		si->pmac_offset = ENETC_PMAC_OFFSET;
+	}
 
 	if (val & ENETC_PCAPR0_PSFP)
 		si->hw_features |= ENETC_SI_F_PSFP;

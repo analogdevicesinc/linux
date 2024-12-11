@@ -1349,8 +1349,10 @@ static void enetc4_get_psi_hw_features(struct enetc_si *si)
 		si->hw_features |= ENETC_SI_F_QBV;
 
 	val = enetc_port_rd(hw, ENETC4_PMCAPR);
-	if (PMCAPR_GET_FP(val) == PMCAPR_FP_SUPP)
+	if (PMCAPR_GET_FP(val) == PMCAPR_FP_SUPP) {
 		si->hw_features |= ENETC_SI_F_QBU;
+		si->pmac_offset = ENETC4_PMAC_OFFSET;
+	}
 
 	val = enetc_port_rd(hw, ENETC4_IPCAPR);
 	if (val & IPCAPR_ISID)
