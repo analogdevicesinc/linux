@@ -167,7 +167,7 @@ static bool exception_for_size(struct se_if_priv *priv,
 	/* List of API(s) that can be accepte variable length
 	 * response buffer.
 	 */
-	if (header->command == ELE_DEBUG_DUMP_REQ &&
+	if ((header->command == ELE_DEBUG_DUMP_REQ || header->command == V2X_DBG_DUMP_REQ) &&
 		header->ver == priv->if_defs->base_api_ver &&
 		header->size >= 0 &&
 		header->size <= ELE_DEBUG_DUMP_RSP_SZ)

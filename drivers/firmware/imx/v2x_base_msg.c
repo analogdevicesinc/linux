@@ -145,3 +145,98 @@ int v2x_pwr_state(struct se_if_priv *priv, u16 action)
 exit:
 	return ret;
 }
+
+int v2x_debug_dump(struct se_if_priv *priv)
+{
+	struct se_api_msg *tx_msg __free(kfree) = NULL;
+	struct se_api_msg *rx_msg __free(kfree) = NULL;
+	u8 fmt_str[256];
+	u8 dump_data[256];
+	int fmt_str_idx;
+	int ret = 0;
+	int w_ct;
+	bool keep_logging;
+
+	if (!priv) {
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	tx_msg = kzalloc(V2X_DBG_DUMP_MSG_SZ, GFP_KERNEL);
+	if (!tx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	rx_msg = kzalloc(V2X_DBG_DUMP_RSP_MSG_SZ, GFP_KERNEL);
+	if (!rx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	ret = se_fill_cmd_msg_hdr(priv,
+				  &tx_msg->header,
+				  V2X_DBG_DUMP_REQ,
+				  V2X_DBG_DUMP_MSG_SZ,
+				  true);
+	if (ret)
+		goto exit;
+
+	tx_msg->header.tag = V2X_DEBUG_MU_MSG_CMD_TAG;
+	tx_msg->header.ver = V2X_DEBUG_MU_MSG_VERS;
+	tx_msg->data[0] = 0x1;
+	do {
+		w_ct = 0;
+		fmt_str_idx = 0;
+		ret = ele_msg_send_rcv(priv->priv_dev_ctx,
+				tx_msg,
+				V2X_DBG_DUMP_MSG_SZ,
+				rx_msg,
+				V2X_DBG_DUMP_RSP_MSG_SZ);
+		if (ret < 0)
+			goto exit;
+
+		ret = se_val_rsp_hdr_n_status(priv,
+				rx_msg,
+				V2X_DBG_DUMP_REQ,
+				V2X_DBG_DUMP_RSP_MSG_SZ,
+				true);
+		if (!ret) {
+			for (w_ct = 0; w_ct < rx_msg->header.size; w_ct++) {
+				fmt_str[fmt_str_idx] = '%';
+				fmt_str_idx++;
+				fmt_str[fmt_str_idx] = '0';
+				fmt_str_idx++;
+				fmt_str[fmt_str_idx] = '8';
+				fmt_str_idx++;
+				fmt_str[fmt_str_idx] = 'x';
+				fmt_str_idx++;
+				fmt_str[fmt_str_idx] = ' ';
+				fmt_str_idx++;
+			}
+			keep_logging = (rx_msg->header.size < (V2X_DBG_DUMP_RSP_MSG_SZ >> 2)) ?
+					false : true;
+			snprintf(dump_data,
+				 (rx_msg->header.size + (rx_msg->header.size << 2)),
+				 fmt_str,
+				 rx_msg->data[1], rx_msg->data[2],
+				 rx_msg->data[3], rx_msg->data[4],
+				 rx_msg->data[5], rx_msg->data[6],
+				 rx_msg->data[7], rx_msg->data[8],
+				 rx_msg->data[9], rx_msg->data[10],
+				 rx_msg->data[11], rx_msg->data[12],
+				 rx_msg->data[13], rx_msg->data[14],
+				 rx_msg->data[15], rx_msg->data[16],
+				 rx_msg->data[17], rx_msg->data[18],
+				 rx_msg->data[19], rx_msg->data[20]);
+
+			dev_err(priv->dev, "%s", dump_data);
+		} else {
+			dev_err(priv->dev, "Dump_Debug_Buffer Error: %x.", ret);
+			break;
+		}
+	} while (keep_logging);
+
+exit:
+	return ret;
+}
