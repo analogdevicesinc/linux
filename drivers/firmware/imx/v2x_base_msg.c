@@ -59,7 +59,17 @@ int v2x_start_rng(struct se_if_priv *priv)
 				      V2X_START_RNG_REQ,
 				      V2X_START_RNG_RSP_MSG_SZ,
 				      true);
+	if (ret) {
+		/* Initialization in progress for:
+		 * P-TRNG at bit 0
+		 * S-TRNG at bit 1
+		 * Any of the bit is set, it in progress.
+		 */
+		if (rx_msg->data[1] & 0x3)
+			goto exit;
 
+		ret = -1;
+	}
 exit:
 	return ret;
 }
