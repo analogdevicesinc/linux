@@ -2,7 +2,7 @@
 /*
  * Copyright 2024 NXP
  *
- * Header file for the ELE Base API(s).
+ * Header file for the V2X Base API(s).
  */
 
 #ifndef V2X_BASE_MSG_H
