@@ -63,7 +63,7 @@ struct ele_dev_info {
 	(((u64)(((u32 *)(x))[(uid_word_sz) - 1]) << 32) | ((u32 *)(x))[0])
 
 #define ELE_DEBUG_DUMP_REQ		0x21
-#define ELE_DEBUG_DUMP_RSP_SZ		0x14
+#define ELE_DEBUG_DUMP_RSP_SZ		0x17
 
 #define ELE_PING_REQ			0x01
 #define ELE_PING_REQ_SZ			0x04
