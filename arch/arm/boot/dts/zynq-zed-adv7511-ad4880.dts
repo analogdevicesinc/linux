@@ -62,22 +62,22 @@
 		};
 	};
 
-	ad4080_a: ad4080_a@44A00000 {
+	ad4880_cha: ad4880_cha@44A00000 {
 		compatible = "adi,axi-adc-10.0.a";
 		reg = <0x44A00000 0x10000>;
 		dmas = <&rx_dma_a 0>;
 		dma-names = "rx";
 
-		spibus-connected = <&adc_a_ad4080>;
+		spibus-connected = <&adc_ad4880_cha>;
 	};
 
-	ad4080_b: ad4080_b@44A10000 {
+	ad4880_chb: ad4880_chb@44A10000 {
 		compatible = "adi,axi-adc-10.0.a";
 		reg = <0x44A10000 0x10000>;
 		dmas = <&rx_dma_b 0>;
 		dma-names = "rx";
 
-		spibus-connected = <&adc_b_ad4080>;
+		spibus-connected = <&adc_ad4880_chb>;
 	};
 
   	axi_spi: spi@44A70000 {
@@ -129,7 +129,7 @@
 };
 
 &fmc_spi {
-	adc_a_ad4080: adc_a_ad4080@0 {
+	adc_ad4880_cha: adc_ad4880_cha@0 {
 		compatible = "adi,ad4080";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
@@ -140,7 +140,7 @@
 };
 
 &axi_spi {
-	adc_b_ad4080: ad4080_b@0 {
+	adc_ad4880_chb: adc_ad4880_chb@0 {
 		compatible = "adi,ad4080";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
