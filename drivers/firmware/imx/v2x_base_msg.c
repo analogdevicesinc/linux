@@ -73,3 +73,75 @@ int v2x_start_rng(struct se_if_priv *priv)
 exit:
 	return ret;
 }
+
+/*
+ * v2x_pwr_state() - prepare and send the command to change
+ *                   the power state of V2X-FW
+ *
+ * returns:  0 on success.
+ */
+int v2x_pwr_state(struct se_if_priv *priv, u16 action)
+{
+	struct se_api_msg *tx_msg __free(kfree) = NULL;
+	struct se_api_msg *rx_msg __free(kfree) = NULL;
+	int ret = 0;
+
+	if (!priv) {
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	tx_msg = kzalloc(V2X_PWR_STATE_MSG_SZ, GFP_KERNEL);
+	if (!tx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	rx_msg = kzalloc(V2X_PWR_STATE_RSP_MSG_SZ, GFP_KERNEL);
+	if (!rx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	ret = se_fill_cmd_msg_hdr(priv,
+				  (struct se_msg_hdr *)&tx_msg->header,
+				  V2X_PWR_STATE,
+				  V2X_PWR_STATE_MSG_SZ,
+				  true);
+	if (ret)
+		goto exit;
+
+	tx_msg->data[0] = action;
+
+	ret = ele_msg_send_rcv(priv->priv_dev_ctx,
+			       tx_msg,
+			       V2X_PWR_STATE_MSG_SZ,
+			       rx_msg,
+			       V2X_PWR_STATE_RSP_MSG_SZ);
+	if (ret < 0)
+		goto exit;
+
+	ret = se_val_rsp_hdr_n_status(priv,
+				      rx_msg,
+				      V2X_PWR_STATE,
+				      V2X_PWR_STATE_RSP_MSG_SZ,
+				      true);
+	if (ret == -EPERM) {
+		switch (rx_msg->data[0]) {
+		case V2X_PERM_DENIED_FAIL_IND:
+			dev_err(priv->dev,
+				"TRNG is active or HSM/SHE session is remained open.");
+			break;
+		case V2X_INVAL_OPS_FAIL_IND:
+			dev_err(priv->dev,
+				"Invalid Action.");
+			break;
+		default:
+			dev_err(priv->dev,
+				"V2X Power Ops failed[0x%x].",
+				RES_STATUS(rx_msg->data[0]));
+		}
+	}
+exit:
+	return ret;
+}

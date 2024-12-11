@@ -16,5 +16,14 @@
 #define V2X_START_RNG_REQ_MSG_SZ	0x04
 #define V2X_START_RNG_RSP_MSG_SZ	0x0C
 
+#define V2X_PWR_STATE			0x04
+#define V2X_PWR_STATE_MSG_SZ		0x08
+#define V2X_PWR_STATE_RSP_MSG_SZ	0x08
+
+#define V2X_PWR_OFF_REQ			0x4
+#define V2X_PERM_DENIED_FAIL_IND	0xF329
+#define V2X_INVAL_OPS_FAIL_IND		0xC029
+
 int v2x_start_rng(struct se_if_priv *priv);
+int v2x_pwr_state(struct se_if_priv *priv, u16 action);
 #endif

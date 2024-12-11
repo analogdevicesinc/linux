@@ -15,4 +15,6 @@
 int v2x_early_init(struct se_if_priv *priv);
 int v2x_late_init(struct se_if_priv *priv);
 
+int v2x_suspend(struct se_if_priv *priv);
+int v2x_resume(struct se_if_priv *priv);
 #endif /*__V2X_COMMON_H__ */
