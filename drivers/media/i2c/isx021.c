@@ -23,6 +23,9 @@
 #define ISX021_WIDTH	1920
 #define ISX021_HEIGHT	1280
 
+#define ISX_24M_XCLK_FREQ		24000000
+#define ISX_25M_XCLK_FREQ		25000000
+
 #define PLUS_10(x)  ((x)+(x)/10)
 
 #define V4L2_CID_FSYNC		(V4L2_CID_USER_BASE | 0x1002)
@@ -31,11 +34,12 @@
 
 static const struct isx021_framerate {
 	u8 fps;
-	u16 reg;
+	u16 reg_24;
+	u16 reg_25;
 } isx021_framerates[] = {
-	{ .fps = 15, .reg = 1400 },
-	{ .fps = 20, .reg = 700 },
-	{ .fps = 30, .reg = 0 },
+	{ .fps = 15, .reg_24 = 1400, .reg_25 = 1520 },
+	{ .fps = 20, .reg_24 = 700, .reg_25 = 790 },
+	{ .fps = 30, .reg_24 = 0, .reg_25 = 60 },
 };
 
 static const char * const isx021_supply_names[] = {
@@ -59,6 +63,7 @@ static const char * const isx021_ctrl_distcor_options[] = {
 struct isx021 {
 	struct device *dev;
 	struct clk *clk;
+	u32 xclk_freq;
 	struct regulator_bulk_data supplies[ARRAY_SIZE(isx021_supply_names)];
 	struct gpio_desc *reset;
 	struct regmap *regmap;
@@ -806,7 +811,7 @@ static int isx021_setup(struct isx021 *sensor, struct v4l2_subdev_state *state)
 
 static int isx021_stream_on(struct isx021 *sensor)
 {
-	int i, ret = 0;
+	int i, reg, ret = 0;
 
 	if (sensor->trigger_mode){
 		ret = isx021_set_fsync_trigger_mode(sensor);
@@ -818,8 +823,10 @@ static int isx021_stream_on(struct isx021 *sensor)
 	for (i = 0; i < ARRAY_SIZE(isx021_framerates); i++)
 		if (isx021_framerates[i].fps == sensor->frame_interval.denominator)
 			break;
-	ret = isx021_write(sensor, 0x8a70, isx021_framerates[i].reg);
-	ret |= isx021_write(sensor, 0x8a71, isx021_framerates[i].reg >> 8);
+	reg = sensor->xclk_freq == ISX_24M_XCLK_FREQ ?
+		isx021_framerates[i].reg_24 : isx021_framerates[i].reg_25;
+	ret = isx021_write(sensor, 0x8a70, reg);
+	ret |= isx021_write(sensor, 0x8a71, reg >> 8);
 	if (ret)
 		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F register failed.\n", __func__);
 
@@ -1188,6 +1195,14 @@ static int isx021_probe(struct i2c_client *client)
 	if (IS_ERR(sensor->clk))
 		return dev_err_probe(sensor->dev, PTR_ERR(sensor->clk),
 				     "failed to get clock\n");
+
+	sensor->xclk_freq = clk_get_rate(sensor->clk);
+	if (sensor->xclk_freq != ISX_24M_XCLK_FREQ &&
+	    sensor->xclk_freq != ISX_25M_XCLK_FREQ) {
+		dev_err(sensor->dev, "xclk frequency not supported: %d Hz\n",
+			sensor->xclk_freq);
+		return -EINVAL;
+	}
 
 	sensor->regmap = devm_regmap_init_i2c(client, &isx021_regmap_config);
 	if (IS_ERR(sensor->regmap))
