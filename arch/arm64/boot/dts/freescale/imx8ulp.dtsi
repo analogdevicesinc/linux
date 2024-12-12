@@ -253,8 +253,9 @@
 			clocks = <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>,
 				 <&cgc2 IMX8ULP_CLK_LPAV_BUS_DIV>,
 				 <&cgc2 IMX8ULP_CLK_HIFI_DIVPLAT>,
-				 <&pcc5 IMX8ULP_CLK_MU3_B>;
-			clock-names = "core", "ipg", "ocram", "mu";
+				 <&pcc5 IMX8ULP_CLK_MU3_B>,
+				 <&pcc4 IMX8ULP_CLK_LPUART7>;
+			clock-names = "core", "ipg", "ocram", "mu", "per_clk1";
 			power-domains = <&scmi_devpd IMX8ULP_PD_HIFI4>;
 			firmware-name = "imx/dsp/hifi4.bin";
 			mbox-names = "tx", "rx", "rxdb";
