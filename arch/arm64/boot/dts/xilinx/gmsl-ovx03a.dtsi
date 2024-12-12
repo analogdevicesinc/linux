@@ -38,7 +38,7 @@ OVX03A_LABEL: ovx03a@OVX03A_HEX_REG {
 	#size-cells = <0>;
 	compatible = "ov,ox03a";
 	reg = <OVX03A_HEX_REG>;
-	clocks = <&ov_clk_12M>;
+	clocks = <&ov_clk_25M>;
 	clock-names = "xclk";
 	dvdd-supply = <&ov_1_5V>;
 	avdd-supply = <&ov_1_5V>;

@@ -41,7 +41,7 @@ ISX021_LABEL: isx021@ISX021_HEX_REG {
 	#size-cells = <0>;
 	compatible = "sony,isx021";
 	reg = <ISX021_HEX_REG>;
-	clocks = <&ov_clk_12M>;
+	clocks = <&ov_clk_25M>;
 	clock-names = "xclk";
 	dvdd-supply = <&ov_1_5V>;
 	pinctrl-0 = <&ISX021_RCLK_LABEL &ISX021_FSYNC_LABEL>;
