@@ -41,6 +41,7 @@ static const struct soc_device_attribute soc_info_matches[] = {
 	  .revision = "1.2",
 	  .data = &(struct seco_soc_info) {.soc_id = SOC_ID_OF_IMX8QM, .soc_rev = SOC_REV_C0,}
 	},
+	{ }
 };
 
 static int read_fuse(struct se_if_priv *priv, u32 id, u32 *value, u8 mul)

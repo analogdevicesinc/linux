@@ -497,7 +497,6 @@ void *imx_get_se_data_info(uint32_t soc_id, u32 idx)
 	case SOC_ID_OF_IMX8ULP:
 		info_list = &imx8ulp_info; break;
 	case SOC_ID_OF_IMX8DXL:
-		info_list = &imx8dxl_info; break;
 	case SOC_ID_OF_IMX8QXP:
 		info_list = &imx8dxl_info; break;
 	case SOC_ID_OF_IMX93:
@@ -1199,7 +1198,8 @@ static int se_ioctl_get_mu_info(struct se_if_device_ctx *dev_ctx,
 	if_info.se_if_id = 0;
 	if_info.interrupt_idx = 0;
 	if_info.tz = 0;
-	if (get_se_soc_id(priv) == SOC_ID_OF_IMX8DXL) {
+	if (get_se_soc_id(priv) == SOC_ID_OF_IMX8DXL ||
+		get_se_soc_id(priv) == SOC_ID_OF_IMX8QXP) {
 		if_info.se_if_id = info->se_if_id + 1;
 		if (priv->if_defs->se_if_type > SE_TYPE_ID_SHE)
 			if_info.se_if_id++;
@@ -2007,7 +2007,7 @@ static int se_suspend(struct device *dev)
 	struct se_fw_load_info *load_fw;
 	int ret = 0;
 
-	if (priv->if_defs->se_if_type >= SE_TYPE_ID_V2X_DBG) {
+	if (priv->if_defs->se_if_type == SE_TYPE_ID_V2X_DBG) {
 		dev_err(dev, "V2X-FW: Suspend/resume not supported.");
 		return -EPERM;
 	}
