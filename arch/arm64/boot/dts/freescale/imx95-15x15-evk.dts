@@ -477,6 +477,7 @@
 	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
 	pinctrl-3 = <&pinctrl_usdhc1>;
 	bus-width = <8>;
+	fsl,tuning-step = <1>;
 	non-removable;
 	no-sdio;
 	no-sd;
@@ -493,6 +494,7 @@
 	fsl,cd-gpio-wakeup-disable;
 	vmmc-supply = <&reg_usdhc2_vmmc>;
 	bus-width = <4>;
+	fsl,tuning-step = <1>;
 	status = "okay";
 };
 
