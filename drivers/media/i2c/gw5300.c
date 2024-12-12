@@ -27,6 +27,8 @@
 #include <linux/string.h>
 #include <linux/i2c.h>
 #include <linux/videodev2.h>
+#include <linux/kconfig.h>
+#include <linux/module.h>
 
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fwnode.h>
@@ -129,7 +131,7 @@ static int gw5300_send_and_recv_msg(struct gw5300 *priv, const u8 *wdata,
 	ret = i2c_transfer(client->adapter, msg, 2);
 	if (ret <= 0) {
 		dev_err(&client->dev,
-			"[%s] : i2c_transer send message failed. %d: slave addr = 0x%x\n",
+			"[%s] : i2c_transfer send message failed. %d: slave addr = 0x%x\n",
 			__func__, ret, msg[0].addr);
 	}
 
@@ -155,14 +157,14 @@ int gw5300_set_ae_integration_time_min(struct gw5300 *priv,
 				       0x00, 0x80, 0x05, 0x00, 0x21, 0x00, 0x01,
 				       0x00, 0x02, 0x00, 0x70, 0x03, 0x00 };
 
-	uint32_t min_line = min_integration_time / 1000 * MS_TO_LINE_UNIT;
+	uint32_t min_line = (min_integration_time * MS_TO_LINE_UNIT) / 1000;
 
 	cmd_integration_min[17] = min_line & 0xFF;
 	cmd_integration_min[18] = (min_line >> 8) & 0xFF;
 
 	cmd_integration_min[sizeof(cmd_integration_min) - 1] =
 		gw5300_calc_checksum(cmd_integration_min,
-				     sizeof(cmd_integration_min));
+				     sizeof(cmd_integration_min) - 1);
 
 	return gw5300_send_and_recv_msg(priv, cmd_integration_min,
 					sizeof(cmd_integration_min), buf,
@@ -179,7 +181,7 @@ int gw5300_set_ae_integration_time_max(struct gw5300 *priv,
 				       0x00, 0x01, 0x00, 0x04, 0x00, 0x70,
 				       0x03, 0x00, 0x00, 0x00 };
 
-	uint32_t max_line = max_integration_time / 1000 * MS_TO_LINE_UNIT;
+	uint32_t max_line = (max_integration_time * MS_TO_LINE_UNIT) / 1000;
 
 	cmd_integration_max[17] = max_line & 0xFF;
 	cmd_integration_max[18] = (max_line >> 8) & 0xFF;
@@ -187,7 +189,7 @@ int gw5300_set_ae_integration_time_max(struct gw5300 *priv,
 	cmd_integration_max[20] = (max_line >> 24) & 0xFF;
 	cmd_integration_max[sizeof(cmd_integration_max) - 1] =
 		gw5300_calc_checksum(cmd_integration_max,
-				     sizeof(cmd_integration_max));
+				     sizeof(cmd_integration_max) - 1);
 
 	return gw5300_send_and_recv_msg(priv, cmd_integration_max,
 					sizeof(cmd_integration_max), buf,
@@ -222,7 +224,7 @@ int gw5300_set_exposure(struct gw5300 *priv, u16 val)
 	integration_time[17] = val & 0xFF;
 	integration_time[18] = (val >> 8) & 0xFF;
 	integration_time[sizeof(integration_time) - 1] = gw5300_calc_checksum(
-		integration_time, sizeof(integration_time));
+		integration_time, sizeof(integration_time) - 1);
 
 	return gw5300_send_and_recv_msg(priv, integration_time,
 					sizeof(integration_time), read_buf,
@@ -321,12 +323,18 @@ static int gw5300_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	ret = __v4l2_ctrl_handler_setup(&priv->ctrls);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&priv->i2c_client->dev,
+			"%s : Failed to setup controls\n", __func__);
 		goto unlock;
+	}
 
 	ret = gw5300_set_mode(priv);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&priv->i2c_client->dev, "%s : Failed to set mode\n",
+			__func__);
 		goto unlock;
+	}
 
 	priv->streaming = true;
 
@@ -543,7 +551,7 @@ static const struct v4l2_ctrl_config gw5300_ctrl_fsync = {
 static const struct v4l2_ctrl_config gw5300_ctrl_lens_distors_correct = {
 	.ops = &gw5300_ctrl_ops,
 	.id = V4L2_CID_LDC,
-	.name = "Lens Distorsion Corection",
+	.name = "Lens Distorsion Correction",
 	.type = V4L2_CTRL_TYPE_BOOLEAN,
 	.min = 0,
 	.max = 1,
