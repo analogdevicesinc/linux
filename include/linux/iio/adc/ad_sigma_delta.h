@@ -176,6 +176,7 @@ static inline int ad_sigma_delta_postprocess_sample(struct ad_sigma_delta *sd,
 }
 
 void ad_sd_set_comm(struct ad_sigma_delta *sigma_delta, uint8_t comm);
+int ad_sd_assert_cs(struct ad_sigma_delta *sigma_delta);
 int ad_sd_write_reg(struct ad_sigma_delta *sigma_delta, unsigned int reg,
 	unsigned int size, unsigned int val);
 int ad_sd_read_reg(struct ad_sigma_delta *sigma_delta, unsigned int reg,

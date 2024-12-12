@@ -50,6 +50,30 @@ void ad_sd_set_comm(struct ad_sigma_delta *sigma_delta, uint8_t comm)
 EXPORT_SYMBOL_NS_GPL(ad_sd_set_comm, IIO_AD_SIGMA_DELTA);
 
 /**
+ * ad_sd_assert_cs() - Assert chip select line
+ *
+ * @sigma_delta: The sigma delta device
+ *
+ * Returns 0 on success, an error code otherwise.
+ **/
+int ad_sd_assert_cs(struct ad_sigma_delta *sigma_delta)
+{
+	struct spi_transfer t = {
+		.len = 0,
+		.cs_change = sigma_delta->keep_cs_asserted,
+	};
+	struct spi_message m;
+
+	spi_message_init(&m);
+	spi_message_add_tail(&t, &m);
+
+	if (sigma_delta->bus_locked)
+		return spi_sync_locked(sigma_delta->spi, &m);
+	return spi_sync(sigma_delta->spi, &m);
+}
+EXPORT_SYMBOL_NS_GPL(ad_sd_assert_cs, IIO_AD_SIGMA_DELTA);
+
+/**
  * ad_sd_write_reg() - Write a register
  *
  * @sigma_delta: The sigma delta device
