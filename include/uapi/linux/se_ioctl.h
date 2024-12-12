@@ -6,6 +6,11 @@
 #ifndef SE_IOCTL_H
 #define SE_IOCTL_H
 
+#ifdef __KERNEL__
+#include <linux/time64.h>
+#else
+#include <linux/time_types.h>
+#endif
 #include <linux/types.h>
 
 #define SE_TYPE_STR_DBG			"dbg"
@@ -71,8 +76,13 @@ struct se_ioctl_signed_message {
 };
 
 struct se_time_frame {
+#ifdef __KERNEL__
 	struct timespec64 t_start;
 	struct timespec64 t_end;
+#else
+	struct __kernel_timespec t_start;
+	struct __kernel_timespec t_end;
+#endif
 };
 
 /* IO Buffer Flags */
