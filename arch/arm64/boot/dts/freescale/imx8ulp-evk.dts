@@ -503,6 +503,7 @@
 	pinctrl-3 = <&pinctrl_usdhc0>;
 	non-removable;
 	bus-width = <8>;
+	fsl,tuning-step = <1>;
 	status = "okay";
 };
 
