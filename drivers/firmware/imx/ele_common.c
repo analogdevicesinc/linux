@@ -3,9 +3,12 @@
  * Copyright 2024 NXP
  */
 
+#include <uapi/linux/se_ioctl.h>
+
 #include "ele_base_msg.h"
 #include "ele_common.h"
 #include "se_msg_sqfl_ctrl.h"
+#include "v2x_base_msg.h"
 
 u32 se_add_msg_crc(u32 *msg, u32 msg_len)
 {
@@ -201,6 +204,12 @@ void se_if_rx_callback(struct mbox_client *mbox_cl, void *msg)
 	header = msg;
 	rx_msg_sz = header->size << 2;
 
+	if (priv->if_defs->se_if_type == SE_TYPE_ID_V2X_DBG &&
+			header->tag == V2X_DBG_MU_MSG_RSP_TAG) {
+		header->tag = priv->if_defs->rsp_tag;
+		header->ver = priv->if_defs->base_api_ver;
+	}
+
 	/* Incoming command: wake up the receiver if any. */
 	if (header->tag == priv->if_defs->cmd_tag) {
 		se_clbk_hdl = &priv->cmd_receiver_clbk_hdl;
@@ -276,7 +285,7 @@ int se_val_rsp_hdr_n_status(struct se_if_priv *priv,
 		return -EINVAL;
 	}
 
-	if (header->size != (sz >> 2)) {
+	if (header->size != (sz >> 2) && !exception_for_size(priv, header)) {
 		dev_err(priv->dev,
 			"MSG[0x%x] Hdr: Cmd size mismatch. (0x%x != 0x%x)",
 			msg_id, header->size, (sz >> 2));
