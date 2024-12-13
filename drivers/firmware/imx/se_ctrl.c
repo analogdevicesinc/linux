@@ -395,7 +395,7 @@ static const struct of_device_id se_match[] = {
 	{},
 };
 
-static char *get_se_if_name(u8 se_if_id)
+char *get_se_if_name(u8 se_if_id)
 {
 	switch (se_if_id) {
 	case SE_TYPE_ID_DBG: return SE_TYPE_STR_DBG;
@@ -490,10 +490,7 @@ void *imx_get_se_data_info(uint32_t soc_id, u32 idx)
 	const struct se_if_node_info_list *info_list;
 	struct se_if_priv *priv;
 
-	if (var_se_info.soc_id != soc_id)
-		return NULL;
-
-	switch (var_se_info.soc_id) {
+	switch (soc_id) {
 	case SOC_ID_OF_IMX8ULP:
 		info_list = &imx8ulp_info; break;
 	case SOC_ID_OF_IMX8DXL:

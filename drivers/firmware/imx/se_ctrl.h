@@ -156,6 +156,7 @@ struct se_if_priv {
 #define SE_DUMP_MU_RCV_BUFS	2
 #define SE_DUMP_KDEBUG_BUFS	3
 
+char *get_se_if_name(u8 se_if_id);
 uint32_t get_se_soc_id(struct se_if_priv *priv);
 int se_dump_to_logfl(struct se_if_device_ctx *dev_ctx,
 		     u8 caller_type, int buf_size,
