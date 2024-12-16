@@ -304,6 +304,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-ltc2672.dtbo \
 	rpi-ltc2688.dtbo \
 	rpi-ltc2991.dtbo \
+	rpi-ltc4162.dtbo \
 	rpi-ltc6952.dtbo \
 	rpi-max14830-i2c.dtbo \
 	rpi-max14830-spi.dtbo \
