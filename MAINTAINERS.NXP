@@ -213,10 +213,9 @@ F: drivers/net/can/
 
 capture/csi2-mixel
 M: G.n. Zhou <guoniu.zhou@nxp.com>
-F: Documentation/devicetree/bindings/media/imx8-mipi-csi.txt
-F: drivers/media/platform/imx8/mxc-mipi-csi2.h
-F: drivers/media/platform/imx8/mxc-mipi-csi2_yav.c
-F: drivers/staging/media/imx/imx8-mipi-csi2.c
+M: Alice Yuan <alice.yuan@nxp.com>
+F: Documentation/devicetree/bindings/media/nxp,imx8mq-mipi-csi2.yaml
+F: drivers/media/platform/nxp/imx8mq-mipi-csi2.c
 
 capture/csi2-samsung
 M: G.n. Zhou <guoniu.zhou@nxp.com>
