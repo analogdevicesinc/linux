@@ -381,23 +381,6 @@ static int mipi_csis_phy_init(struct csi_state *state)
 	return ret;
 }
 
-static int mipi_csis_phy_reset_mx8mm(struct csi_state *state)
-{
-	struct reset_control *phy_reset;
-
-	phy_reset = devm_reset_control_get_exclusive(state->dev, "csi,mipi_rst");
-	if (IS_ERR(phy_reset))
-		return PTR_ERR(phy_reset);
-
-	reset_control_assert(phy_reset);
-	usleep_range(10, 20);
-	reset_control_deassert(phy_reset);
-	usleep_range(10, 20);
-
-	return 0;
-
-}
-
 static int mipi_csis_phy_reset(struct csi_state *state)
 {
 	struct device_node *np = state->dev->of_node;
@@ -1289,9 +1272,6 @@ static const struct dev_pm_ops mipi_csis_pm_ops = {
 static const struct of_device_id mipi_csis_of_match[] = {
 	{	.compatible = "fsl,imx7d-mipi-csi",
 		.data = (void *)&mipi_csis_phy_reset,
-	},
-	{	.compatible = "fsl,imx8mm-mipi-csi",
-		.data = (void *)&mipi_csis_phy_reset_mx8mm,
 	},
 	{ /* sentinel */ },
 };
