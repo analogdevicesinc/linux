@@ -334,14 +334,9 @@ struct mipi_csis_gate_clk_ops {
 	int (*gclk_disable)(struct csi_state *state);
 };
 
-struct mipi_csis_phy_ops {
-	void (*phy_reset)(struct csi_state *state);
-};
-
 struct mipi_csis_pdata {
 	struct mipi_csis_rst_ops *rst_ops;
 	struct mipi_csis_gate_clk_ops *gclk_ops;
-	struct mipi_csis_phy_ops *phy_ops;
 	bool use_mix_gpr;
 };
 
@@ -935,16 +930,6 @@ static int disp_mix_clks_enable(struct csi_state *state, bool enable)
 	ret = enable ? pdata->gclk_ops->gclk_enable(state) :
 		       pdata->gclk_ops->gclk_disable(state);
 	return ret;
-}
-
-static void mipi_csis_phy_reset(struct csi_state *state)
-{
-	struct mipi_csis_pdata const *pdata = state->pdata;
-
-	if (!pdata->phy_ops || !pdata->phy_ops->phy_reset)
-		return;
-
-	pdata->phy_ops->phy_reset(state);
 }
 
 static void disp_mix_gasket_config(struct csi_state *state)
@@ -1580,133 +1565,6 @@ static int mipi_csis_subdev_init(struct v4l2_subdev *mipi_sd,
 }
 
 /*
- * IMX8MN platform data
- */
-static int mipi_csis_imx8mn_parse_resets(struct csi_state *state)
-{
-	int ret;
-	struct device *dev = state->dev;
-	struct device_node *np = dev->of_node;
-	struct device_node *parent, *child;
-	struct of_phandle_args args;
-	struct reset_control *rstc;
-	const char *compat;
-	uint32_t len, rstc_num = 0;
-
-	ret = of_parse_phandle_with_args(np, "resets", "#reset-cells",
-					 0, &args);
-	if (ret)
-		return ret == -ENOENT ? 0 : ret;
-
-	parent = args.np;
-	for_each_child_of_node(parent, child) {
-		compat = of_get_property(child, "compatible", NULL);
-		if (!compat)
-			continue;
-
-		rstc = of_reset_control_array_get(child, false, false, true);
-		if (IS_ERR(rstc))
-			continue;
-
-		len = strlen(compat);
-		if (!of_compat_cmp("csi,soft-resetn", compat, len)) {
-			state->soft_resetn = rstc;
-			rstc_num++;
-		} else if (!of_compat_cmp("csi,clk-enable", compat, len)) {
-			state->clk_enable = rstc;
-			rstc_num++;
-		} else if (!of_compat_cmp("csi,mipi-reset", compat, len)) {
-			state->mipi_reset = rstc;
-			rstc_num++;
-		} else {
-			dev_warn(dev, "invalid csis reset node: %s\n", compat);
-		}
-	}
-
-	if (!rstc_num) {
-		dev_err(dev, "no invalid reset control exists\n");
-		return -EINVAL;
-	}
-	of_node_put(parent);
-
-	return 0;
-}
-
-static int mipi_csis_imx8mn_resets_assert(struct csi_state *state)
-{
-	if (!state->soft_resetn)
-		return 0;
-
-	return reset_control_assert(state->soft_resetn);
-}
-
-static int mipi_csis_imx8mn_resets_deassert(struct csi_state *state)
-{
-	if (!state->soft_resetn)
-		return 0;
-
-	return reset_control_deassert(state->soft_resetn);
-}
-
-static struct mipi_csis_rst_ops imx8mn_rst_ops = {
-	.parse  = mipi_csis_imx8mn_parse_resets,
-	.assert = mipi_csis_imx8mn_resets_assert,
-	.deassert = mipi_csis_imx8mn_resets_deassert,
-};
-
-static int mipi_csis_imx8mn_gclk_get(struct csi_state *state)
-{
-	if (state->clk_enable)
-		return 0;
-
-	return mipi_csis_imx8mn_parse_resets(state);
-}
-
-static int mipi_csis_imx8mn_gclk_enable(struct csi_state *state)
-{
-	if (!state->clk_enable)
-		return 0;
-
-	return reset_control_assert(state->clk_enable);
-}
-
-static int mipi_csis_imx8mn_gclk_disable(struct csi_state *state)
-{
-	if (!state->clk_enable)
-		return 0;
-
-	return reset_control_deassert(state->clk_enable);
-}
-
-static struct mipi_csis_gate_clk_ops imx8mn_gclk_ops = {
-	.gclk_get = mipi_csis_imx8mn_gclk_get,
-	.gclk_enable  = mipi_csis_imx8mn_gclk_enable,
-	.gclk_disable = mipi_csis_imx8mn_gclk_disable,
-};
-
-static void mipi_csis_imx8mn_phy_reset(struct csi_state *state)
-{
-	struct reset_control *reset = state->mipi_reset;
-
-	reset_control_assert(reset);
-	usleep_range(10, 20);
-
-	reset_control_deassert(reset);
-	usleep_range(10, 20);
-}
-
-static struct mipi_csis_phy_ops imx8mn_phy_ops = {
-	.phy_reset = mipi_csis_imx8mn_phy_reset,
-};
-
-static struct mipi_csis_pdata mipi_csis_imx8mn_pdata = {
-	.rst_ops  = &imx8mn_rst_ops,
-	.gclk_ops = &imx8mn_gclk_ops,
-	.phy_ops  = &imx8mn_phy_ops,
-	.use_mix_gpr = false,
-};
-
-/*
  * IMX8MP platform data
  */
 static int mipi_csis_imx8mp_parse_resets(struct csi_state *state)
@@ -1862,12 +1720,18 @@ static void mipi_csis_imx8mp_phy_reset(struct csi_state *state)
 {
 	int ret = 0;
 	struct v4l2_subdev *sen_sd;
+	struct reset_control *reset = state->mipi_reset;
 
 	struct v4l2_subdev_mbus_code_enum code = {
 		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
 	};
 
-	mipi_csis_imx8mn_phy_reset(state);
+	reset_control_assert(reset);
+	usleep_range(10, 20);
+
+	reset_control_deassert(reset);
+	usleep_range(10, 20);
+
 	sen_sd = csis_get_remote_subdev(state, __func__);
 	if (!sen_sd)
 		goto csi_phy_initial_cfg;
@@ -1922,14 +1786,9 @@ write_regmap:
 	return;
 }
 
-static struct mipi_csis_phy_ops imx8mp_phy_ops = {
-	.phy_reset = mipi_csis_imx8mp_phy_reset,
-};
-
 static struct mipi_csis_pdata mipi_csis_imx8mp_pdata = {
 	.rst_ops  = &imx8mp_rst_ops,
 	.gclk_ops = &imx8mp_gclk_ops,
-	.phy_ops  = &imx8mp_phy_ops,
 	.use_mix_gpr = true,
 };
 
@@ -2020,7 +1879,7 @@ static int mipi_csis_probe(struct platform_device *pdev)
 
 	disp_mix_clks_enable(state, true);
 	disp_mix_sft_rstn(state, false);
-	mipi_csis_phy_reset(state);
+	mipi_csis_imx8mp_phy_reset(state);
 
 	disp_mix_clks_enable(state, false);
 	mipi_csis_clk_disable(state);
@@ -2111,7 +1970,7 @@ static int mipi_csis_runtime_resume(struct device *dev)
 
 	disp_mix_clks_enable(state, true);
 	disp_mix_sft_rstn(state, false);
-	mipi_csis_phy_reset(state);
+	mipi_csis_imx8mp_phy_reset(state);
 
 	return 0;
 }
@@ -2130,9 +1989,6 @@ static const struct dev_pm_ops mipi_csis_pm_ops = {
 };
 
 static const struct of_device_id mipi_csis_of_match[] = {
-	{	.compatible = "fsl,imx8mn-mipi-csi",
-		.data = (void *)&mipi_csis_imx8mn_pdata,
-	},
 	{	.compatible = "fsl,imx8mp-mipi-csi",
 		.data = (void *)&mipi_csis_imx8mp_pdata,
 	},
