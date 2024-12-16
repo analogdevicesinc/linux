@@ -744,6 +744,12 @@ static void nxp_fspi_dll_calibration(struct nxp_fspi *f)
 	udelay(4);
 }
 
+static void nxp_fspi_dll_override(struct nxp_fspi *f)
+{
+	fspi_writel(f, FSPI_DLLACR_OVRDEN, f->iobase + FSPI_DLLACR);
+	fspi_writel(f, FSPI_DLLACR_OVRDEN, f->iobase + FSPI_DLLBCR);
+}
+
 /*
  * In FlexSPI controller, flash access is based on value of FSPI_FLSHXXCR0
  * register and start base address of the target device.
@@ -839,6 +845,8 @@ static void nxp_fspi_select_mem(struct nxp_fspi *f, struct spi_device *spi,
 	 */
 	if (serial_root_clk_rate > 100000000)
 		nxp_fspi_dll_calibration(f);
+	else
+		nxp_fspi_dll_override(f);
 
 	f->selected = spi_get_chipselect(spi, 0);
 }
