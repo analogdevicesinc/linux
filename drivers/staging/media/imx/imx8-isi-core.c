@@ -113,77 +113,6 @@ static int disp_mix_clks_get(struct mxc_isi_dev *mxc_isi)
 	return pdata->gclk_ops->gclk_get(mxc_isi);
 }
 
-static int mxc_imx8_clk_get(struct mxc_isi_dev *mxc_isi)
-{
-	struct device *dev = &mxc_isi->pdev->dev;
-
-	mxc_isi->clk = devm_clk_get(dev, NULL);
-
-	if (IS_ERR(mxc_isi->clk)) {
-		dev_err(dev, "failed to get isi clk\n");
-		return PTR_ERR(mxc_isi->clk);
-	}
-
-	return 0;
-}
-
-static int mxc_imx8_clk_enable(struct mxc_isi_dev *mxc_isi)
-{
-	struct device *dev = &mxc_isi->pdev->dev;
-	int ret;
-
-	ret = clk_prepare_enable(mxc_isi->clk);
-	if (ret < 0) {
-		dev_err(dev, "%s, enable clk error\n", __func__);
-		return ret;
-	}
-
-	return 0;
-}
-
-static void mxc_imx8_clk_disable(struct mxc_isi_dev *mxc_isi)
-{
-	clk_disable_unprepare(mxc_isi->clk);
-}
-
-static struct mxc_isi_dev_ops mxc_imx8_clk_ops = {
-	.clk_get     = mxc_imx8_clk_get,
-	.clk_enable  = mxc_imx8_clk_enable,
-	.clk_disable = mxc_imx8_clk_disable,
-};
-
-static struct mxc_isi_chan_src mxc_imx8_chan_src = {
-	.src_dc0   = 0,
-	.src_dc1   = 1,
-	.src_mipi0 = 2,
-	.src_mipi1 = 3,
-	.src_hdmi  = 4,
-	.src_csi   = 4,
-	.src_mem   = 5,
-};
-
-/* For i.MX8QM/QXP B0 ISI IER version */
-static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v0 = {
-	.oflw_y_buf_en = { .offset = 16, .mask = 0x10000  },
-	.oflw_u_buf_en = { .offset = 19, .mask = 0x80000  },
-	.oflw_v_buf_en = { .offset = 22, .mask = 0x400000 },
-
-	.excs_oflw_y_buf_en = { .offset = 17, .mask = 0x20000  },
-	.excs_oflw_u_buf_en = { .offset = 20, .mask = 0x100000 },
-	.excs_oflw_v_buf_en = { .offset = 23, .mask = 0x800000 },
-
-	.panic_y_buf_en = {.offset = 18, .mask = 0x40000   },
-	.panic_u_buf_en = {.offset = 21, .mask = 0x200000  },
-	.panic_v_buf_en = {.offset = 24, .mask = 0x1000000 },
-};
-
-/* Panic will assert when the buffers are 50% full */
-static struct mxc_isi_set_thd mxc_imx8_isi_thd_v0 = {
-	.panic_set_thd_y = { .mask = 0x03, .offset = 0, .threshold = 0x2 },
-	.panic_set_thd_u = { .mask = 0x18, .offset = 3, .threshold = 0x2 },
-	.panic_set_thd_v = { .mask = 0xC0, .offset = 6, .threshold = 0x2 },
-};
-
 /* For i.MX8QXP C0 and i.MX8MN ISI IER version */
 static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v1 = {
 	.oflw_y_buf_en = { .offset = 19, .mask = 0x80000  },
@@ -213,14 +142,13 @@ static struct mxc_isi_set_thd mxc_imx8_isi_thd_v1 = {
 	.panic_set_thd_v = { .mask = 0xF0000, .offset = 16, .threshold = 0x7 },
 };
 
-static struct mxc_isi_plat_data mxc_imx8_data = {
-	.ops      = &mxc_imx8_clk_ops,
-	.chan_src = &mxc_imx8_chan_src,
-	.ier_reg  = &mxc_imx8_isi_ier_v0,
-	.set_thd  = &mxc_imx8_isi_thd_v0,
+static struct mxc_isi_chan_src mxc_imx8mp_chan_src = {
+	.src_mipi0 = 0,
+	.src_mipi1 = 1,
+	.src_mem = 2,
 };
 
-static int mxc_imx8mn_clk_get(struct mxc_isi_dev *mxc_isi)
+static int mxc_imx8mp_clk_get(struct mxc_isi_dev *mxc_isi)
 {
 	struct device *dev = &mxc_isi->pdev->dev;
 
@@ -251,7 +179,7 @@ static int mxc_imx8mn_clk_get(struct mxc_isi_dev *mxc_isi)
 	return 0;
 }
 
-static int mxc_imx8mn_clk_enable(struct mxc_isi_dev *mxc_isi)
+static int mxc_imx8mp_clk_enable(struct mxc_isi_dev *mxc_isi)
 {
 	struct device *dev = &mxc_isi->pdev->dev;
 	int ret;
@@ -283,7 +211,7 @@ static int mxc_imx8mn_clk_enable(struct mxc_isi_dev *mxc_isi)
 	return 0;
 }
 
-static void mxc_imx8mn_clk_disable(struct mxc_isi_dev *mxc_isi)
+static void mxc_imx8mp_clk_disable(struct mxc_isi_dev *mxc_isi)
 {
 	clk_disable_unprepare(mxc_isi->clk_root_disp_axi);
 	clk_disable_unprepare(mxc_isi->clk_root_disp_apb);
@@ -291,125 +219,10 @@ static void mxc_imx8mn_clk_disable(struct mxc_isi_dev *mxc_isi)
 	clk_disable_unprepare(mxc_isi->clk_disp_apb);
 }
 
-static struct mxc_isi_chan_src mxc_imx8mn_chan_src = {
-	.src_mipi0 = 0,
-	.src_mipi1 = 1,
-	/* For i.MX8MP */
-	.src_mem = 2,
-};
-
-static struct mxc_isi_dev_ops mxc_imx8mn_clk_ops = {
-	.clk_get     = mxc_imx8mn_clk_get,
-	.clk_enable  = mxc_imx8mn_clk_enable,
-	.clk_disable = mxc_imx8mn_clk_disable,
-};
-
-static int mxc_isi_imx8mn_parse_resets(struct mxc_isi_dev *mxc_isi)
-{
-	int ret;
-	struct device *dev = &mxc_isi->pdev->dev;
-	struct device_node *np = dev->of_node;
-	struct device_node *parent, *child;
-	struct of_phandle_args args;
-	struct reset_control *rstc;
-	const char *compat;
-	u32 len, rstc_num = 0;
-
-	ret = of_parse_phandle_with_args(np, "resets", "#reset-cells",
-					 0, &args);
-	if (ret)
-		return ret;
-
-	parent = args.np;
-	for_each_child_of_node(parent, child) {
-		compat = of_get_property(child, "compatible", NULL);
-		if (!compat)
-			continue;
-
-		rstc = of_reset_control_array_get(child, false, false, true);
-		if (IS_ERR(rstc))
-			continue;
-
-		len = strlen(compat);
-		if (!of_compat_cmp("isi,soft-resetn", compat, len)) {
-			mxc_isi->soft_resetn = rstc;
-			rstc_num++;
-		} else if (!of_compat_cmp("isi,clk-enable", compat, len)) {
-			mxc_isi->clk_enable = rstc;
-			rstc_num++;
-		} else {
-			dev_warn(dev, "invalid isi reset node: %s\n", compat);
-		}
-	}
-
-	if (!rstc_num) {
-		dev_err(dev, "no invalid reset control exists\n");
-		return -EINVAL;
-	}
-
-	of_node_put(parent);
-	return 0;
-}
-
-static int mxc_isi_imx8mn_resets_assert(struct mxc_isi_dev *mxc_isi)
-{
-	if (!mxc_isi->soft_resetn)
-		return -EINVAL;
-
-	return reset_control_assert(mxc_isi->soft_resetn);
-}
-
-static int mxc_isi_imx8mn_resets_deassert(struct mxc_isi_dev *mxc_isi)
-{
-	if (!mxc_isi->soft_resetn)
-		return -EINVAL;
-
-	return reset_control_deassert(mxc_isi->soft_resetn);
-}
-
-static struct mxc_isi_rst_ops mxc_imx8mn_isi_rst_ops = {
-	.parse  = mxc_isi_imx8mn_parse_resets,
-	.assert = mxc_isi_imx8mn_resets_assert,
-	.deassert = mxc_isi_imx8mn_resets_deassert,
-};
-
-static int mxc_isi_imx8mn_gclk_get(struct mxc_isi_dev *mxc_isi)
-{
-	if (mxc_isi->clk_enable)
-		return 0;
-
-	return mxc_isi_imx8mn_parse_resets(mxc_isi);
-}
-
-static int mxc_isi_imx8mn_gclk_enable(struct mxc_isi_dev *mxc_isi)
-{
-	if (!mxc_isi->clk_enable)
-		return -EINVAL;
-
-	return reset_control_assert(mxc_isi->clk_enable);
-}
-
-static int mxc_isi_imx8mn_gclk_disable(struct mxc_isi_dev *mxc_isi)
-{
-	if (!mxc_isi->clk_enable)
-		return -EINVAL;
-
-	return reset_control_deassert(mxc_isi->clk_enable);
-}
-
-static struct mxc_isi_gate_clk_ops mxc_imx8mn_isi_gclk_ops = {
-	.gclk_get = mxc_isi_imx8mn_gclk_get,
-	.gclk_enable  = mxc_isi_imx8mn_gclk_enable,
-	.gclk_disable = mxc_isi_imx8mn_gclk_disable,
-};
-
-static struct mxc_isi_plat_data mxc_imx8mn_data = {
-	.ops      = &mxc_imx8mn_clk_ops,
-	.chan_src = &mxc_imx8mn_chan_src,
-	.ier_reg  = &mxc_imx8_isi_ier_v1,
-	.set_thd  = &mxc_imx8_isi_thd_v1,
-	.rst_ops  = &mxc_imx8mn_isi_rst_ops,
-	.gclk_ops = &mxc_imx8mn_isi_gclk_ops,
+static struct mxc_isi_dev_ops mxc_imx8mp_clk_ops = {
+	.clk_get     = mxc_imx8mp_clk_get,
+	.clk_enable  = mxc_imx8mp_clk_enable,
+	.clk_disable = mxc_imx8mp_clk_disable,
 };
 
 static int mxc_isi_imx8mp_parse_resets(struct mxc_isi_dev *mxc_isi)
@@ -553,19 +366,12 @@ static struct mxc_isi_gate_clk_ops mxc_imx8mp_isi_gclk_ops = {
 };
 
 static struct mxc_isi_plat_data mxc_imx8mp_data = {
-	.ops      = &mxc_imx8mn_clk_ops,
-	.chan_src = &mxc_imx8mn_chan_src,
+	.ops      = &mxc_imx8mp_clk_ops,
+	.chan_src = &mxc_imx8mp_chan_src,
 	.ier_reg  = &mxc_imx8_isi_ier_v1,
 	.set_thd  = &mxc_imx8_isi_thd_v1,
 	.rst_ops  = &mxc_imx8mp_isi_rst_ops,
 	.gclk_ops = &mxc_imx8mp_isi_gclk_ops,
-};
-
-static struct mxc_isi_plat_data mxc_imx8ulp_data = {
-	.ops      = &mxc_imx8_clk_ops,
-	.chan_src = &mxc_imx8mn_chan_src,
-	.ier_reg  = &mxc_imx8_isi_ier_v2,
-	.set_thd  = &mxc_imx8_isi_thd_v1,
 };
 
 static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
@@ -787,11 +593,7 @@ static const struct dev_pm_ops mxc_isi_pm_ops = {
 };
 
 static const struct of_device_id mxc_isi_of_match[] = {
-	{.compatible = "fsl,imx8-isi", .data = &mxc_imx8_data },
-	{.compatible = "nxp,imx8mn-isi", .data = &mxc_imx8mn_data },
 	{.compatible = "nxp,imx8mp-isi", .data = &mxc_imx8mp_data },
-	{.compatible = "nxp,imx8ulp-isi", .data = &mxc_imx8ulp_data },
-	{.compatible = "nxp,imx93-isi", .data = &mxc_imx8ulp_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mxc_isi_of_match);
