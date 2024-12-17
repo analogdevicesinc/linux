@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dtsi file for AD9166-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+
+#define DAC_FREQUENCY 6400000000
+
+/ {
+	clocks {
+		adf4372_clkin: clock@0 {
+			compatible = "fixed-clock";
+			clock-frequency = <122880000>;
+			clock-output-names = "clkin";
+			#clock-cells = <0>;
+		};
+
+		// ADF4372/RF8x fRFOUT = VCO freq./RF divider = 6.4Gbps/1
+		adf4372_out_div1: clock@1 {
+			compatible = "fixed-factor-clock";
+
+			clock-div = <1>;
+			clock-mult = <1>;
+			clocks = <&adf4372_clk>;
+
+			#clock-cells = <0>;
+		};
+	};
+};
+
+#include <dt-bindings/iio/frequency/hmc7044.h>
+
+&fmc_spi {
+	adf4372_clk: adf4372@2 {
+		compatible = "adi,adf4372";
+		reg = <2>;
+
+		spi-max-frequency = <10000000>;
+
+		clocks = <&adf4372_clkin>;
+		clock-names = "clkin";
+		clock-scales = <1 1>;
+
+		// sau de redenumit la adf4372_rf8x
+		clock-output-names = "adf4355_pll";
+		#clock-cells = <0>;
+
+		adi,charge-pump-current = <900>;
+		adi,muxout-select = <1>; // digital lock detect
+		adi,output-a-power = <3>;
+		adi,output-b-power = <3>;
+		adi,charge-pump-negative-bleed-enable;
+		adi,reference-differential-input-enable;
+		adi,muxout-level-3v3-enable;
+		adi,power-up-frequency = /bits/ 64 <6400000000>;
+		adi,output-a-enable;
+		adi,output-b-enable;
+		adi,clock-shift = <1>;
+	};
+
+	hmc7044: hmc7044@0 {
+		compatible = "adi,hmc7044";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+
+		// frequencies for            CLKIN0     CLKIN1     CLKIN2      CLKIN3
+		adi,pll1-clkin-frequencies = <0                                 0>;
+		// clock priority (least->highest): CLKIN3, CLKIN0, CLKIN1, CLKIN2 =>
+		// => 11 00 01 10 = C6
+		// used when giving signal from SMA (in this case for CLKN2)
+		adi,pll1-ref-prio-ctrl = <C6>;
+		adi,pll1-loop-bandwidth = <200>;
+
+		adi,vcxo-frequency = <122880000>;
+
+		adi,pll2-output-frequency = <2949120000>;
+
+		adi,sysref-timer-divider = <1024>;
+		adi,pulse-generator-mode = <0>;
+
+		adi,clkin0-buffer-mode = <0x15>;
+		adi,oscin-buffer-mode = <0x15>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+
+		clock-output-names = "hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
+				     "hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
+				     "hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
+				     "hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
+				     "hmc7044_out12", "hmc7044_out13";
+
+		hmc7044_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "DAC_CLK";
+			adi,divider = <1>;
+			adi,driver-mode = <1>;
+		};
+		hmc7044_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "DAC_SYSREF";
+			adi,divider = <512>;
+			adi,driver-mode = <1>;
+		};
+		hmc7044_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "FPGA_CLK";
+			adi,divider = <8>;
+			adi,driver-mode = <2>;
+		};
+		hmc7044_c13: channel@13 {
+			reg = <13>;
+			adi,extended-name = "FPGA_SYSREF";
+			adi,divider = <512>;
+			adi,driver-mode = <2>;
+		};
+	};
+
+	dac0_ad9166: ad9166@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9166";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		clocks =  <&adf4372_clk 0>;
+		clock-names = "dac_clk";
+		spi-cpol;
+		spi-cpha;
+
+		adi,full-scale-current-mircoamp = <40000>;
+		dac_clk-clock-scales = <1 1>;
+		jesd204-device;
+		#jesd204-cells = <1>;
+		jesd204-top-device = <0>; /* This is the TOP device */
+		jesd204-link-ids = <0>;
+		jesd204-inputs = <&axi_ad9164_core 0 0>;
+
+		adi,jesd-subclass = <1>;
+		adi,dac-interpolation = <4>;
+		adi,channel-interpolation = <4>;
+		adi,clock-output-divider = <1>;
+		adi,syncoutb-signal-type-lvds-enable;
+		//adi,scrambling = <1>;
+		adi,sysref-mode = <2>; /* SYSREF_CONTINUOUS */
+
+		adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
+		adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
+		adi,converters-per-device = <2>;	/* JESD M */
+		adi,octets-per-frame = <4>;		/* JESD F */
+		adi,frames-per-multiframe = <32>;	/* JESD K */
+		adi,converter-resolution = <16>;	/* JESD N */
+		adi,bits-per-sample = <16>;		/* JESD NP' */
+		adi,control-bits-per-sample = <0>;	/* JESD CS */
+		adi,lanes-per-device = <1>;		/* JESD L */
+		adi,samples-per-converter-per-frame = <1>; /* JESD S */
+		adi,interpolation = <4>;
+	};
+};
