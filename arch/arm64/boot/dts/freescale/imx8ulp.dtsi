@@ -1098,8 +1098,9 @@
 			dphy: phy@2db00300 {
 				compatible = "fsl,imx8ulp-mipi-dphy";
 				reg = <0x2db00300 0x100>;
-				clocks = <&cgc2 IMX8ULP_CLK_DSI_PHY_REF>;
-				clock-names = "phy_ref";
+				clocks = <&cgc2 IMX8ULP_CLK_DSI_PHY_REF>,
+					 <&pcc5 IMX8ULP_CLK_DSI>;
+				clock-names = "phy_ref", "rx_esc";
 				#phy-cells = <0>;
 				status = "disabled";
 			};
