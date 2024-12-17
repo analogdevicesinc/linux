@@ -22,7 +22,6 @@
 				reg = <SEC_EMAC_MAC_0_BASE 0x14>, <SEC_EMAC_MAC_0_TX 0x70>, <SEC_EMAC_MAC_0_RX 0x9c>,
 					<SEC_EMAC_PCS_0_TSU 0x44>;
 				phy-handle = <&sec_adrv906x_phy0>;
-				phy-mode = "rmii";
 				ndma-handle = <&sec_ndma0>;
 				clocks = <&hsdigclk>;
 				clock-names = "hsdig_clk";
@@ -36,7 +35,6 @@
 				reg = <SEC_EMAC_MAC_1_BASE 0x14>, <SEC_EMAC_MAC_1_TX 0x70>, <SEC_EMAC_MAC_1_RX 0x9c>,
 					<SEC_EMAC_PCS_1_TSU 0x44>;
 				phy-handle = <&sec_adrv906x_phy1>;
-				phy-mode = "rmii";
 				ndma-handle = <&sec_ndma1>;
 				clocks = <&hsdigclk>;
 				clock-names = "hsdig_clk";

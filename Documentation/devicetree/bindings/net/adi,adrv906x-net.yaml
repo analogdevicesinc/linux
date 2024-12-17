@@ -259,7 +259,6 @@ examples:
           reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, 
                 <EMAC_MAC_0_RX 0x9c>, <EMAC_PCS_0_TSU 0x44>;
           phy-handle = <&adrv906x_phy0>;
-          phy-mode = "rmii";
           mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
                                                   by u-boot */
           ndma-handle = <&ndma0>;
@@ -275,7 +274,6 @@ examples:
           reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>,
                 <EMAC_MAC_1_RX 0x9c>, <EMAC_PCS_1_TSU 0x44>;
           phy-handle = <&adrv906x_phy1>;
-          phy-mode = "rmii";
           mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
                                                   by u-boot */
           ndma-handle = <&ndma1>;
