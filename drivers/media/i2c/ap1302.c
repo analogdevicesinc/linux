@@ -2326,7 +2326,6 @@ static int ap1302_sensor_init(struct ap1302_sensor *sensor, unsigned int index)
 	return 0;
 
 error:
-	put_device(sensor->dev);
 	return ret;
 }
 
@@ -2337,7 +2336,11 @@ static void ap1302_sensor_cleanup(struct ap1302_sensor *sensor)
 	if (sensor->num_supplies)
 		regulator_bulk_free(sensor->num_supplies, sensor->supplies);
 
-	put_device(sensor->dev);
+	if (device_is_registered(sensor->dev))
+		device_unregister(sensor->dev);
+	else
+		put_device(sensor->dev);
+
 	of_node_put(sensor->of_node);
 }
 
