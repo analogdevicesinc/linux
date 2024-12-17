@@ -84,6 +84,7 @@ static struct clk_hw *imx_ulp_clk_hw_composite(const char *name,
 	struct clk_gate *gate = NULL;
 	struct clk_mux *mux = NULL;
 	struct clk_hw *hw;
+	unsigned long flags = 0;
 	u32 val;
 
 	val = readl(reg);
@@ -102,6 +103,7 @@ static struct clk_hw *imx_ulp_clk_hw_composite(const char *name,
 		mux->mask = PCG_PCS_MASK;
 		if (has_swrst)
 			mux->lock = &imx_ccm_lock;
+		flags |= CLK_SET_PARENT_GATE | CLK_SET_RATE_NO_REPARENT;
 	}
 
 	if (rate_present) {
@@ -119,6 +121,7 @@ static struct clk_hw *imx_ulp_clk_hw_composite(const char *name,
 		fd->flags = CLK_FRAC_DIVIDER_ZERO_BASED;
 		if (has_swrst)
 			fd->lock = &imx_ccm_lock;
+		flags |= CLK_SET_RATE_GATE;
 	}
 
 	if (gate_present) {
@@ -150,8 +153,8 @@ static struct clk_hw *imx_ulp_clk_hw_composite(const char *name,
 	hw = clk_hw_register_composite(NULL, name, parent_names, num_parents,
 				       mux_hw, &clk_mux_ops, fd_hw,
 				       &clk_fractional_divider_ops, gate_hw,
-				       has_swrst ? &pcc_gate_ops : &clk_gate_ops, CLK_SET_RATE_GATE |
-				       CLK_SET_PARENT_GATE | CLK_SET_RATE_NO_REPARENT);
+				       has_swrst ? &pcc_gate_ops : &clk_gate_ops,
+				       flags);
 	if (IS_ERR(hw)) {
 		kfree(mux);
 		kfree(fd);
