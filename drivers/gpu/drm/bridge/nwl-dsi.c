@@ -886,10 +886,6 @@ static int nwl_dsi_disable(struct nwl_dsi *dsi)
 	/* Disabling the clock before the phy breaks enabling dsi again */
 	clk_disable_unprepare(dsi->tx_esc_clk);
 
-	/* Disable rx_esc clock as registers are not accessed any more. */
-	if (dsi->pdata->rx_clk_quirk)
-		clk_disable_unprepare(dsi->rx_esc_clk);
-
 	return 0;
 }
 
@@ -1110,12 +1106,6 @@ nwl_dsi_bridge_atomic_pre_enable(struct drm_bridge *bridge,
 	if (dsi->bypass_clk && clk_prepare_enable(dsi->bypass_clk) < 0)
 		goto runtime_put;
 	if (dsi->pixel_clk && clk_prepare_enable(dsi->pixel_clk) < 0)
-		goto runtime_put;
-	/*
-	 * Enable rx_esc clock for some platforms to access DSI host controller
-	 * and PHY registers.
-	 */
-	if (dsi->pdata->rx_clk_quirk && clk_prepare_enable(dsi->rx_esc_clk) < 0)
 		goto runtime_put;
 
 	/* Always use normal mode(full mode) for Type-4 display */
@@ -1383,8 +1373,12 @@ static int nwl_dsi_parse_dt(struct nwl_dsi *dsi)
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	dsi->regmap =
-		devm_regmap_init_mmio(dsi->dev, base, &nwl_dsi_regmap_config);
+	if (dsi->pdata->rx_clk_quirk)
+		dsi->regmap = devm_regmap_init_mmio_clk(dsi->dev, "rx_esc", base,
+							&nwl_dsi_regmap_config);
+	else
+		dsi->regmap = devm_regmap_init_mmio(dsi->dev, base,
+						    &nwl_dsi_regmap_config);
 	if (IS_ERR(dsi->regmap)) {
 		ret = PTR_ERR(dsi->regmap);
 		DRM_DEV_ERROR(dsi->dev, "Failed to create NWL DSI regmap: %d\n",
