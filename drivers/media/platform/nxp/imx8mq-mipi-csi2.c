@@ -832,13 +832,13 @@ static int imx8mq_mipi_csi_set_fmt(struct v4l2_subdev *sd,
 	if (!csi2_fmt)
 		csi2_fmt = &imx8mq_mipi_csi_formats[0];
 
-	fmt = v4l2_subdev_state_get_format(sd_state, sdformat->pad);
+	fmt = v4l2_subdev_state_get_format(sd_state, sdformat->pad, sdformat->stream);
 
+	if (!fmt)
+		return -EINVAL;
+
+	*fmt = sdformat->format;
 	fmt->code = csi2_fmt->code;
-	fmt->width = sdformat->format.width;
-	fmt->height = sdformat->format.height;
-
-	sdformat->format = *fmt;
 
 	/* Propagate the format from sink to source. */
 	fmt = v4l2_subdev_state_get_opposite_stream_format(sd_state, sdformat->pad,
