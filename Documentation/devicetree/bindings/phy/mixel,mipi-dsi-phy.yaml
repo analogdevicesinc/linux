@@ -81,6 +81,21 @@ allOf:
       required:
         - fsl,syscon
 
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx8ulp-mipi-dphy
+    then:
+      properties:
+        clocks:
+          minItems: 2
+          maxItems: 2
+        clock-names:
+          items:
+            - const: phy_ref
+            - const: rx_esc
+
 additionalProperties: false
 
 examples:
