@@ -53,7 +53,6 @@ struct se_fw_img_name {
 
 struct se_fw_load_info {
 	const struct se_fw_img_name *se_fw_img_nm;
-	struct mutex se_fw_load;
 	bool is_fw_loaded;
 	bool handle_susp_resm;
 	struct se_imem_buf imem;
@@ -625,7 +624,6 @@ static int se_load_firmware(struct se_if_priv *priv)
 	u8 *se_fw_buf;
 	int ret;
 
-	guard(mutex)(&load_fw->se_fw_load);
 	if (load_fw->is_fw_loaded)
 		return 0;
 
@@ -1968,11 +1966,6 @@ static int se_if_probe(struct platform_device *pdev)
 		load_fw->se_fw_img_nm = &info_list->se_fw_img_nm;
 
 		load_fw->is_fw_loaded = false;
-		mutex_init(&load_fw->se_fw_load);
-		ret = se_load_firmware(priv);
-		if (ret)
-			dev_warn(dev, "Failed to load firmware.");
-		ret = 0;
 	}
 
 	/* exposing variable se via sysfs to enable/disable logging */
