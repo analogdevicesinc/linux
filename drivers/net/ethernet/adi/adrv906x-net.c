@@ -170,18 +170,11 @@ static int adrv906x_eth_phylink_register(struct net_device *ndev, struct device_
 	struct device_node *phy_node;
 	struct phy_device *phy_dev;
 	phy_interface_t iface;
-	int ret;
 
 	phy_node = of_parse_phandle(port_np, "phy-handle", 0);
 	if (!phy_node) {
 		dev_err(dev, "dt: failed to retrieve phy phandle");
 		return -ENODEV;
-	}
-
-	ret = of_get_phy_mode(port_np, &iface);
-	if (ret) {
-		dev_err(dev, "dt: phy-mode property missing");
-		return -EINVAL;
 	}
 
 	phy_dev = of_phy_connect(ndev, phy_node, &adrv906x_eth_adjust_link, 0, iface);
