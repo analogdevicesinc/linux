@@ -132,3 +132,7 @@
 &sdma3 {
 	status = "disabled";
 };
+
+&easrc {
+	status = "disabled";
+};
