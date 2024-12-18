@@ -327,7 +327,6 @@ static int adrv906x_phy_config_init(struct phy_device *phydev)
 	phydev->autoneg = AUTONEG_DISABLE;
 	phydev->duplex = DUPLEX_FULL;
 	phydev->port = PORT_FIBRE;
-	phydev->speed = 25000;
 
 	return 0;
 }
@@ -336,6 +335,7 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 {
 	struct device *dev = &phydev->mdio.dev;
 	struct adrv906x_phy_priv *adrv906x_phy;
+	struct device_node *np = dev->of_node;
 	u32 mmd_mask = MDIO_DEVS_PCS;
 	int ret;
 
@@ -348,6 +348,15 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 		return -ENOMEM;
 
 	phydev->priv = adrv906x_phy;
+
+	if (of_property_read_u32(np, "speed", &phydev->speed)) {
+		phydev->speed = SPEED_25000;
+	} else {
+		if (phydev->speed != SPEED_10000 && phydev->speed != SPEED_25000) {
+			dev_warn(dev, "dt: phy unsupported speed: %d, defaulting to 25000", phydev->speed);
+			phydev->speed = SPEED_25000;
+		}
+	}
 
 	ret = adrv906x_serdes_open(phydev, &adrv906x_phy->serdes,
 				   adrv906x_phy_tx_path_enable, adrv906x_phy_rx_path_enable);
