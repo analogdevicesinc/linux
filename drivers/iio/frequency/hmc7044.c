@@ -1087,6 +1087,14 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 				return ret;
 		}
 
+		// set the 0x0064[1]=1 to increase the limit to 6000MHz
+		if (device_property_present(indio_dev->dev.parent, "adi,use-vco-divider")) {
+			ret = hmc7044_write(indio_dev, HMC7044_CLK_INPUT_CTRL,
+					HMC7044_DIV_2_INPUT_MODE);
+			if (ret)
+				return ret;
+		}
+
 		ret = hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
 			      (hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
 			      HMC7044_VCO_SEL(0) |
