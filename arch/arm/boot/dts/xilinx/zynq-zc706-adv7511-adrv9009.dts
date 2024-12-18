@@ -88,6 +88,7 @@
 		clock-names = "sampl_clk";
 		spibus-connected = <&trx0_adrv9009>;
 		adi,axi-pl-fifo-enable;
+		adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 		adi,axi-interpolation-core-available;
 		interpolation-gpios = <&gpio0 116 GPIO_ACTIVE_HIGH>;
 	};
@@ -219,6 +220,11 @@
 
 		adi,sys-clk-select = <XCVR_QPLL>;
 		adi,out-clk-select = <XCVR_REFCLK>;
+	};
+
+	axi_data_offload_tx: axi-data-offload-0@7c430000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x7c430000 0x10000>;
 	};
 };
 
