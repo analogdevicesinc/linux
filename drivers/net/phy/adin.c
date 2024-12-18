@@ -17,6 +17,7 @@
 
 #define PHY_ID_ADIN1200				0x0283bc20
 #define PHY_ID_ADIN1300				0x0283bc30
+#define PHY_ID_ADIN1320				0x0283bc60
 
 #define ADIN1300_MII_EXT_REG_PTR		0x0010
 #define ADIN1300_MII_EXT_REG_DATA		0x0011
@@ -132,6 +133,16 @@
 		FIELD_PREP(ADIN1300_GE_RMII_FIFO_DEPTH_MSK, x)
 #define   ADIN1300_GE_RMII_EN			BIT(0)
 
+#define ADIN1320_GE_SD_CFG_REG			0xff53
+#define ADIN1320_SD_SGMII_MAC_EN		BIT(1)
+#define ADIN1320_SD_SGMII_EN			BIT(0)
+
+#define ADIN1320_SD_SGMII_CTRL0_REG		0xfc22
+#define ADIN1320_SD_SGMII_AN_EN			BIT(12)
+#define ADIN1320_SD_SGMII_DPLX_MODE		BIT(8)
+
+#define ADIN1320_SD_STATUS_REG			0xfc01
+
 /* RMII fifo depth values */
 #define ADIN1300_RMII_4_BITS			0x0000
 #define ADIN1300_RMII_8_BITS			0x0001
@@ -208,6 +219,18 @@ static const struct adin_hw_stat adin_hw_stats[] = {
 	{ "false_carrier_events_count",		0x9414 },
 };
 
+static const struct adin_hw_stat adin1320_hw_stats[] = {
+	{ "total_frames_checked_count",		0x9410, 0x9411 }, /* hi + lo */
+	{ "length_error_frames_count",		0x9415 },
+	{ "alignment_error_frames_count",	0x9412 },
+	{ "symbol_error_count",			0x9414 },
+	{ "oversized_frames_count",		0x9417 },
+	{ "undersized_frames_count",		0x9416 },
+	{ "odd_preamble_packet_count",		0x9418 },
+	{ "dribble_bits_frames_count",		0x941A },
+	{ "false_carrier_events_count",		0x941B },
+};
+
 /**
  * struct adin_priv - ADIN PHY driver private data
  * @stats:		statistic counters for the PHY
@@ -249,6 +272,24 @@ static u32 adin_get_reg_value(struct phy_device *phydev,
 	}
 
 	return rc;
+}
+
+static int adin_config_sgmii_mode(struct phy_device *phydev)
+{
+	int reg;
+
+	if (phydev->phy_id != PHY_ID_ADIN1320)
+		return 0;
+
+	if (phydev->interface != PHY_INTERFACE_MODE_SGMII)
+		return phy_clear_bits_mmd(phydev, MDIO_MMD_VEND1,
+					  ADIN1320_GE_SD_CFG_REG,
+					  ADIN1320_SD_SGMII_EN);
+
+	reg = ADIN1320_SD_SGMII_EN | ADIN1320_SD_SGMII_MAC_EN;
+
+	return phy_set_bits_mmd(phydev, MDIO_MMD_VEND1,
+				ADIN1320_GE_SD_CFG_REG, reg);
 }
 
 static int adin_config_rgmii_mode(struct phy_device *phydev)
@@ -474,6 +515,10 @@ static int adin_config_init(struct phy_device *phydev)
 	int rc;
 
 	phydev->mdix_ctrl = ETH_TP_MDI_AUTO;
+
+	rc = adin_config_sgmii_mode(phydev);
+	if (rc < 0)
+		return rc;
 
 	rc = adin_config_rgmii_mode(phydev);
 	if (rc < 0)
@@ -710,7 +755,24 @@ static int adin_mdix_update(struct phy_device *phydev)
 
 static int adin_read_status(struct phy_device *phydev)
 {
+	bool fiber_mode_avail;
 	int ret;
+	u16 reg;
+
+	fiber_mode_avail = linkmode_test_bit(ETHTOOL_LINK_MODE_FIBRE_BIT,
+			      		     phydev->supported);
+
+	if (fiber_mode_avail && (phydev->interface != PHY_INTERFACE_MODE_SGMII)){
+		reg = phy_read_mmd(phydev, MDIO_MMD_VEND1, ADIN1320_SD_STATUS_REG);
+		reg = FIELD_GET(BMSR_LSTATUS, reg);
+		if (reg){
+			phydev->link = 1;
+			phydev->speed = SPEED_1000;
+			phydev->duplex = DUPLEX_FULL;
+
+			return 0;
+		}
+	}
 
 	ret = adin_mdix_update(phydev);
 	if (ret < 0)
@@ -746,11 +808,24 @@ static int adin_get_sset_count(struct phy_device *phydev)
 
 static void adin_get_strings(struct phy_device *phydev, u8 *data)
 {
+	const struct adin_hw_stat *stats;
 	int i;
+
+	switch (phydev->phy_id) {
+	case PHY_ID_ADIN1320:
+		stats = adin1320_hw_stats;
+		break;
+	case PHY_ID_ADIN1200:
+	case PHY_ID_ADIN1300:
+		stats = adin_hw_stats;
+		break;
+	default:
+		break;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(adin_hw_stats); i++) {
 		strscpy(&data[i * ETH_GSTRING_LEN],
-			adin_hw_stats[i].string, ETH_GSTRING_LEN);
+			stats[i].string, ETH_GSTRING_LEN);
 	}
 }
 
@@ -785,6 +860,17 @@ static u64 adin_get_stat(struct phy_device *phydev, int i)
 	struct adin_priv *priv = phydev->priv;
 	u32 val;
 	int ret;
+
+	switch (phydev->phy_id) {
+	case PHY_ID_ADIN1320:
+		stat = &adin1320_hw_stats[i];
+		break;
+	case PHY_ID_ADIN1200:
+	case PHY_ID_ADIN1300:
+		break;
+	default:
+		return (u64)(~0);
+	}
 
 	if (stat->reg1 > 0x1f) {
 		ret = adin_read_mmd_stat_regs(phydev, stat, &val);
@@ -833,6 +919,13 @@ static int adin_probe(struct phy_device *phydev)
 static int adin_cable_test_start(struct phy_device *phydev)
 {
 	int ret;
+	u16 reg;
+
+	/* The cable testing feature is only enabled on MDI */
+	reg = phy_read_mmd(phydev, MDIO_MMD_VEND1, ADIN1320_SD_STATUS_REG);
+	reg = FIELD_GET(BMSR_LSTATUS, reg);
+	if (reg)
+		return -EOPNOTSUPP;
 
 	ret = phy_clear_bits(phydev, ADIN1300_PHY_CTRL3, ADIN1300_LINKING_EN);
 	if (ret < 0)
@@ -985,6 +1078,30 @@ static struct phy_driver adin_driver[] = {
 		.cable_test_start	= adin_cable_test_start,
 		.cable_test_get_status	= adin_cable_test_get_status,
 	},
+	{
+		PHY_ID_MATCH_MODEL(PHY_ID_ADIN1320),
+		.name		= "ADIN1320",
+		.features	= PHY_GBIT_FIBRE_FEATURES,
+		.flags		= PHY_POLL_CABLE_TEST,
+		.probe		= adin_probe,
+		.config_init	= adin_config_init,
+		.soft_reset	= adin_soft_reset,
+		.config_aneg	= adin_config_aneg,
+		.read_status	= adin_read_status,
+		.get_tunable	= adin_get_tunable,
+		.set_tunable	= adin_set_tunable,
+		.config_intr	= adin_phy_config_intr,
+		.handle_interrupt = adin_phy_handle_interrupt,
+		.get_sset_count	= adin_get_sset_count,
+		.get_strings	= adin_get_strings,
+		.get_stats	= adin_get_stats,
+		.resume		= genphy_resume,
+		.suspend	= genphy_suspend,
+		.read_mmd	= adin_read_mmd,
+		.write_mmd	= adin_write_mmd,
+		.cable_test_start	= adin_cable_test_start,
+		.cable_test_get_status	= adin_cable_test_get_status,
+	},
 };
 
 module_phy_driver(adin_driver);
@@ -992,6 +1109,7 @@ module_phy_driver(adin_driver);
 static struct mdio_device_id __maybe_unused adin_tbl[] = {
 	{ PHY_ID_MATCH_MODEL(PHY_ID_ADIN1200) },
 	{ PHY_ID_MATCH_MODEL(PHY_ID_ADIN1300) },
+	{ PHY_ID_MATCH_MODEL(PHY_ID_ADIN1320) },
 	{ }
 };
 
