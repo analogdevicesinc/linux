@@ -35,10 +35,10 @@ properties:
         const: 1
       clock-names:
         items:
-        - const: hsdig_clk
+          - const: hsdig_clk
       clocks:
         items:
-        - description: Clock phandle for HSDIG clock
+          - description: Clock phandle for HSDIG clock
       macsec:
         description: Physical base address for MACsec instance
       interrupts:
@@ -60,31 +60,33 @@ properties:
                      If the property is defined with any value including 0
                      then it is not updated by U-Boot.
       adi,pcb-delay-tx-ns:
-        description: PCB delay for tx channel, which is part of static PHY delay.
-                     This is the integer portion in units of ns.
+        description: PCB delay for tx channel, which is part of static PHY
+                     delay. This is the integer portion in units of ns.
         default: 0
         minimum: 0
         maximum: 0xFFFF
 
       adi,pcb-delay-tx-frac-ns:
-        description: PCB delay for tx channel, which is part of static PHY delay.
-                     This is the fractional portion in units of 2^(-16)ns.
-                     for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
+        description: PCB delay for tx channel, which is part of static PHY
+                     delay. This is the fractional portion in units of
+                     2^(-16)ns. For example, 1.125ns is represented by 1ns
+                     and the frac-ns = 0x2000
         default: 0
         minimum: 0
         maximum: 0xFFFF
 
       adi,pcb-delay-rx-ns:
-        description: PCB delay for rx channel, which is part of static PHY delay.
-                     This is the integer portion in units of ns.
+        description: PCB delay for rx channel, which is part of static PHY
+                     delay. This is the integer portion in units of ns.
         default: 0
         minimum: 0
         maximum: 0xFFFF
 
       adi,pcb-delay-rx-frac-ns:
-        description: PCB delay for rx channel, which is part of static PHY delay.
-                     This is the fractional portion in units of 2^(-16)ns.
-                     for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
+        description: PCB delay for rx channel, which is part of static PHY
+                     delay. This is the fractional portion in units of
+                     2^(-16)ns. For example, 1.125ns is represented by 1ns
+                     and the frac-ns = 0x2000.
         default: 0
         minimum: 0
         maximum: 0xFFFF
@@ -154,12 +156,11 @@ properties:
     type: object
     properties:
       reg:
-        items:
-          description: Enable O-RAN IF to forward traffic to NDMA.
+        description: Enable O-RAN IF to forward traffic to NDMA.
       reg-names:
         items:
-          - const: OIF_0_TX_CTRL
           - const: OIF_0_RX_CTRL
+          - const: OIF_0_TX_CTRL
           - const: OIF_1_RX_CTRL
           - const: OIF_1_TX_CTRL
     additionalProperties: false
@@ -168,25 +169,29 @@ properties:
     type: object
     properties:
       reg:
+        description: Enable MDIO bus interface binding for PHY control.
+      regnames:
         items:
-          description: Enable MDIO bus interface binding for PHY control
-     regnames:
-	items:
-          - const EMAC_PCS_0_BASE
-          - const EMAC_PCS_1_BASE
+          - const: EMAC_PCS_0_BASE
+          - const: EMAC_PCS_1_BASE
     patternProperties:
       "^_phy@[0-9a-f]+$":
         type: object
         properties:
           reg:
             minimum: 0
-            maxumum: 31
-            description:
-              The ID number for the device
-        compatible:
-          const: ethernet-phy-ieee802.3-c45
-          description: PHY implements IEEE802.3 clause 45
-           
+            maximum: 31
+            description: The ID number for the PHY.
+          speed:
+            enum: [10000, 25000]
+            default: 25000
+            description: Default PHY speed in Mbits/sec.
+          compatible:
+            const: ethernet-phy-ieee802.3-c45
+            description: PHY implements IEEE802.3 clause 45.
+        additionalProperties: false
+    additionalProperties: false
+
   eth_recov_clk:
     type: object
     properties:
@@ -256,7 +261,7 @@ examples:
       ethernet-ports {
         port@0 {
           id = <0>;
-          reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, 
+          reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>,
                 <EMAC_MAC_0_RX 0x9c>, <EMAC_PCS_0_TSU 0x44>;
           phy-handle = <&adrv906x_phy0>;
           mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
@@ -268,7 +273,7 @@ examples:
           adi,pcb-delay-tx-frac-ns = <0>;
           adi,pcb-delay-rx-ns = <0>;
           adi,pcb-delay-rx-frac-ns = <0>;
-        }; 
+        };
         port@1 {
           id = <1>;
           reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>,
@@ -289,7 +294,6 @@ examples:
       oran_if {
         reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>,
               <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
-
       };
 
       mdio_if {
@@ -299,10 +303,12 @@ examples:
          adrv906x_phy0: ethernet-phy@0 {
            compatible = "ethernet-phy-ieee802.3-c45";
            reg = <0>;
+           speed = <10000>;
          };
          adrv906x_phy1: ethernet-phy@1 {
            compatible = "ethernet-phy-ieee802.3-c45";
            reg = <1>;
+           speed = <10000>;
          };
        };
 
