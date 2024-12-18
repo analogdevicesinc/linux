@@ -114,7 +114,8 @@
 			clocks = <&trx0_adrv9009 2>;
 			clock-names = "sampl_clk";
 			spibus-connected = <&trx0_adrv9009>;
-			//adi,axi-pl-fifo-enable;
+			adi,axi-pl-fifo-enable;
+			adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 			adi,axi-interpolation-core-available;
 			interpolation-gpios = <&gpio 140 GPIO_ACTIVE_HIGH>;
 		};
@@ -251,6 +252,11 @@
 		axi_sysid_0: axi-sysid-0@85000000 {
 			compatible = "adi,axi-sysid-1.00.a";
 			reg = <0x85000000 0x10000>;
+		};
+
+		axi_data_offload_tx: axi-data-offload-0@9c430000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x9c430000 0x10000>;
 		};
 	};
 };
