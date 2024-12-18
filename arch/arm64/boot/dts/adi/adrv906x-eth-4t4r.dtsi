@@ -56,10 +56,12 @@
 			adrv906x_phy0: ethernet-phy@0 {
 				compatible = "ethernet-phy-ieee802.3-c45";
 				reg = <0>;
+				speed = <25000>;
 			};
 			adrv906x_phy1: ethernet-phy@1 {
 				compatible = "ethernet-phy-ieee802.3-c45";
 				reg = <1>;
+				speed = <25000>;
 			};
 		};
 
