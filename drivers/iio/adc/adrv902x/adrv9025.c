@@ -860,6 +860,20 @@ static ssize_t adrv9025_phy_rx_read(struct iio_dev *indio_dev,
 			phy->deviceInitStruct.rx.rxChannelCfg[chan->channel].profile.rfBandwidth_kHz *
 			1000);
 		break;
+	case RX_QEC_STATUS:
+		rxchan = ADI_ADRV9025_RX1 << chan->channel;
+
+		adi_adrv9025_RxQecStatus_t rxQecStatus = { 0 };
+
+		if (chan->channel < 4)
+			ret = adi_adrv9025_TrackingCalRxQecStatusGet(phy->madDevice, rxchan, &rxQecStatus);
+		else
+			ret = adi_adrv9025_TrackingCalOrxQecStatusGet(phy->madDevice, rxchan, (adi_adrv9025_OrxQecStatus_t *)&rxQecStatus);
+		if (ret == 0)
+			ret = sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", rxQecStatus.errorCode, rxQecStatus.percentComplete,
+				      rxQecStatus.selfcheckIrrDb, rxQecStatus.iterCount, rxQecStatus.updateCount);
+
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -880,8 +894,11 @@ static ssize_t adrv9025_phy_tx_read(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan, char *buf)
 {
 	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	adi_adrv9025_TxQecStatus_t txQecStatus = { 0 };
+	adi_adrv9025_TxLolStatus_t txLolStatus = { 0 };
 	u64 tmask, mask;
 	int val, ret = 0;
+	u32 txchan = 0;
 
 	if (chan->channel > CHAN_TX4)
 		return -EINVAL;
@@ -903,6 +920,14 @@ static ssize_t adrv9025_phy_tx_read(struct iio_dev *indio_dev,
 			      .profile.rfBandwidth_kHz *
 		      1000;
 		break;
+	case TX_QEC_STATUS:
+		txchan = ADI_ADRV9025_TX1 << chan->channel;
+		ret = adi_adrv9025_TrackingCalTxQecStatusGet(phy->madDevice, txchan, &txQecStatus);
+		break;
+	case TX_LOL_STATUS:
+		txchan = ADI_ADRV9025_TX1 << chan->channel;
+		ret = adi_adrv9025_TrackingCalTxLolStatusGet(phy->madDevice, txchan, &txLolStatus);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -910,7 +935,23 @@ static ssize_t adrv9025_phy_tx_read(struct iio_dev *indio_dev,
 	mutex_unlock(&phy->lock);
 
 	if (ret == 0)
-		ret = sprintf(buf, "%d\n", val);
+		switch (private) {
+		case TX_QEC:
+		case TX_LOL:
+		case TX_RF_BANDWIDTH:
+			ret = sprintf(buf, "%d\n", val);
+			break;
+		case TX_QEC_STATUS:
+			ret = sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", txQecStatus.errorCode, txQecStatus.percentComplete,
+				      txQecStatus.correctionMetric, txQecStatus.iterCount, txQecStatus.updateCount);
+			break;
+		case TX_LOL_STATUS:
+			ret = sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", txLolStatus.errorCode, txLolStatus.percentComplete,
+				      txLolStatus.varianceMetric, txLolStatus.iterCount, txLolStatus.updateCount);
+			break;
+		default:
+			return adrv9025_dev_err(phy);
+		}
 	else
 		return adrv9025_dev_err(phy);
 
@@ -951,6 +992,26 @@ static ssize_t adrv9025_phy_tx_write(struct iio_dev *indio_dev,
 	case TX_LOL:
 		mask = ADI_ADRV9025_TRACK_TX1_LOL << chan->channel;
 
+		ret = adi_adrv9025_TxToOrxMappingSet(
+			phy->madDevice, ADI_ADRV9025_ORX1, ADI_ADRV9025_TX1);
+		if (ret)
+			ret = adrv9025_dev_err(phy);
+
+		ret = adi_adrv9025_TxToOrxMappingSet(
+			phy->madDevice, ADI_ADRV9025_ORX2, ADI_ADRV9025_TX2);
+		if (ret)
+			ret = adrv9025_dev_err(phy);
+
+		ret = adi_adrv9025_TxToOrxMappingSet(
+			phy->madDevice, ADI_ADRV9025_ORX3, ADI_ADRV9025_TX3);
+		if (ret)
+			ret = adrv9025_dev_err(phy);
+
+		ret = adi_adrv9025_TxToOrxMappingSet(
+			phy->madDevice, ADI_ADRV9025_ORX4, ADI_ADRV9025_TX4);
+		if (ret)
+			ret = adrv9025_dev_err(phy);
+
 		ret = adi_adrv9025_TrackingCalsEnableSet(
 			phy->madDevice, mask,
 			enable ? ADI_ADRV9025_TRACKING_CAL_ENABLE :
@@ -987,6 +1048,7 @@ static const struct iio_chan_spec_ext_info adrv9025_phy_rx_ext_info[] = {
 			      RX_HD2), /* 2nd Harmonic Distortion */
 	_ADRV9025_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_DIG_DC),
 	_ADRV9025_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
+	_ADRV9025_EXT_RX_INFO("quadrature_tracking_status", RX_QEC_STATUS),
 	{},
 };
 
@@ -998,6 +1060,7 @@ static const struct iio_chan_spec_ext_info adrv9025_phy_obs_rx_ext_info[] = {
 	_ADRV9025_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_ADRV9025_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
 	_ADRV9025_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_DIG_DC),
+	_ADRV9025_EXT_RX_INFO("quadrature_tracking_status", RX_QEC_STATUS),
 	{},
 };
 
@@ -1005,6 +1068,8 @@ static struct iio_chan_spec_ext_info adrv9025_phy_tx_ext_info[] = {
 	_ADRV9025_EXT_TX_INFO("quadrature_tracking_en", TX_QEC),
 	_ADRV9025_EXT_TX_INFO("lo_leakage_tracking_en", TX_LOL),
 	_ADRV9025_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
+	_ADRV9025_EXT_TX_INFO("quadrature_tracking_status", TX_QEC_STATUS),
+	_ADRV9025_EXT_TX_INFO("lo_leakage_tracking_status", TX_LOL_STATUS),
 	{},
 };
 static int adrv9025_gainindex_to_gain(struct adrv9025_rf_phy *phy, int channel,

@@ -44,12 +44,15 @@ enum adrv9025_rx_ext_info {
 	RX_HD2,
 	RX_DIG_DC,
 	RX_RF_BANDWIDTH,
+	RX_QEC_STATUS,
 };
 
 enum adrv9025_tx_ext_info {
 	TX_QEC,
 	TX_LOL,
 	TX_RF_BANDWIDTH,
+	TX_QEC_STATUS,
+	TX_LOL_STATUS,
 };
 
 enum adrv9025_iio_voltage_in {
