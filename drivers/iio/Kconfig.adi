@@ -163,6 +163,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADIS16240
 	imply AD7780
 	imply AD7816
+	imply AD7191
 	imply AD7192
 	imply AD7280
 	imply AD7292
