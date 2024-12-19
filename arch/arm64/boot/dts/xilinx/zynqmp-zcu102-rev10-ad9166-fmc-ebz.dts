@@ -40,35 +40,19 @@
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		out-gpios = <&gpio 99 0>, <&gpio 100 0>, <&gpio 101 0>, <&gpio 102 0>, <&gpio 103 0>;
+		out-gpios = <&gpio 103 0>; // HDL GPIO 25
 		label = "ad9166_control";
 		channel@0 {
 			reg = <0>;
-			label = "dac_ctrl_0";
-		};
-		channel@1 {
-			reg = <1>;
-			label = "dac_ctrl_1";
-		};
-		channel@2 {
-			reg = <2>;
-			label = "dac_ctrl_2";
-		};
-		channel@3 {
-			reg = <3>;
-			label = "dac_ctrl_3";
-		};
-		channel@4 {
-			reg = <4>;
-			label = "dac_ctrl_4";
+			label = "txen_gpio_25";
 		};
 	};
 
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
-		#address-cells = <0x1>;
-		#size-cells = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 		ranges = <0 0 0 0xffffffff>;
 
 		tx_dma: tx-dmac@9c420000 {
@@ -78,11 +62,24 @@
 			reg = <0x9c420000 0x10000>;
 			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <256>; // 32 * JESD_L * NUM_OF_LINKS
+					adi,destination-bus-type = <1>;
+				};
+			};
 		};
 
 		// transport layer
 		axi_ad9166_core: axi-ad9166-hpc@84a04000 {
-			compatible = "adi,axi-ad9162-1.0";
+			compatible = "adi,ad9166";
 			reg = <0x84a04000 0x10000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
@@ -92,6 +89,7 @@
 			jesd204-device;
 			#jesd204-cells = <2>;
 			jesd204-inputs = <&axi_ad9166_jesd 0 0>;
+			//adi,spi-3wire-enable;
 		};
 
 		// link layer
@@ -140,10 +138,10 @@
 	};
 };
 
-&spi0 {
-	status = "okay";
-};
-
-#define fmc_spi spi0
+// &spi0 {
+// 	status = "okay";
+// };
+// 
+// #define fmc_spi spi0
 
 #include "adi-ad9166-fmc-ebz.dtsi"
