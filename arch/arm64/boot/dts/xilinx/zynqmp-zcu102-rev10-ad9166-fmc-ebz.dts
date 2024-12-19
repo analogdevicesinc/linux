@@ -34,33 +34,21 @@
 	};
 };
 
+&axi_intc {
+	xlnx,kind-of-intr = <0xffffc5f0>;
+};
+
 / {
 
 	ad9166_control@0 {
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		out-gpios = <&gpio 99 0>, <&gpio 100 0>, <&gpio 101 0>, <&gpio 102 0>, <&gpio 103 0>;
+		out-gpios = <&gpio 103 0>;
 		label = "ad9166_control";
 		channel@0 {
 			reg = <0>;
-			label = "dac_ctrl_0";
-		};
-		channel@1 {
-			reg = <1>;
-			label = "dac_ctrl_1";
-		};
-		channel@2 {
-			reg = <2>;
-			label = "dac_ctrl_2";
-		};
-		channel@3 {
-			reg = <3>;
-			label = "dac_ctrl_3";
-		};
-		channel@4 {
-			reg = <4>;
-			label = "dac_ctrl_4";
+			label = "txen_gpio_25";
 		};
 	};
 
@@ -76,8 +64,22 @@
 			compatible = "adi,axi-dmac-1.00.a";
 			adi,cyclic;
 			reg = <0x9c420000 0x10000>;
+			interrupt-parent = <&axi_intc>;
 			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <256>; // 32 * JESD_L * NUM_OF_LINKS
+					adi,destination-bus-type = <1>;
+				};
+			};
 		};
 
 		// transport layer
