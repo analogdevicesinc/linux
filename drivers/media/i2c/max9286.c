@@ -201,11 +201,11 @@ struct max9286_priv {
 	unsigned int nsources;
 	unsigned int source_mask;
 	unsigned int route_mask;
+	unsigned int streams_mask;
 	unsigned int bound_sources;
 	unsigned int csi2_data_lanes;
 	struct max9286_source sources[MAX9286_NUM_GMSL];
 	struct v4l2_async_notifier notifier;
-	int enable_count;
 };
 
 static const struct v4l2_mbus_framefmt max9286_default_format = {
@@ -829,22 +829,66 @@ static struct v4l2_subdev *max9286_xlate_streams(struct max9286_priv *priv,
 	return remote_sd;
 }
 
-static int max9286_enable_streams(struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
-				   u32 src_pad, u64 streams_mask)
+static int max9286_enable_cams(struct max9286_priv *priv, struct v4l2_subdev_state *state,
+			       u32 src_pad, u64 streams_mask, bool enable)
 {
-	struct max9286_priv *priv = sd_to_max9286(sd);
 	struct device *dev = &priv->client->dev;
 	struct v4l2_subdev *remote_sd;
 	u32 remote_pad;
 	u64 sink_streams;
 	u64 sources_mask = streams_mask;
-	unsigned int i;
-	bool sync = false;
+	int ret;
+
+	/* Start all requested cameras. */
+	while (true) {
+		int pos = ffs(sources_mask) - 1;
+
+		if (pos == -1)
+			break;
+
+		remote_sd = max9286_xlate_streams(priv, state, src_pad, BIT(pos), pos,
+						  &sink_streams, &remote_pad);
+		if (IS_ERR(remote_sd)) {
+			ret = PTR_ERR(remote_sd);
+			goto err;
+		}
+
+		if (enable)
+			ret = v4l2_subdev_enable_streams(remote_sd, remote_pad, 0x1);
+		else
+			ret = v4l2_subdev_disable_streams(remote_sd, remote_pad, 0x1);
+		if (ret) {
+			dev_err(dev, "failed to %s streams 0x%llx on '%s':%u: %d\n",
+				(enable) ? "enable" : "disable",
+				sink_streams, remote_sd->name, remote_pad, ret);
+			goto err;
+		}
+
+		sources_mask &= ~BIT(pos);
+	}
+
+	return 0;
+
+err:
+	/* If enable failed, stop the already started cameras */
+	if (enable)
+		max9286_enable_cams(priv, state, src_pad, streams_mask ^ sources_mask, false);
+	return ret;
+}
+
+static int max9286_enable_streams(struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
+				  u32 src_pad, u64 streams_mask)
+{
+	struct max9286_priv *priv = sd_to_max9286(sd);
 	int ret = 0;
 
 	mutex_lock(&priv->lock);
 
-	if (!priv->enable_count) {
+	/*
+	 * Since all the linked cameras need to share the frame sync signal, start
+	 * all the cameras at once.
+	 */
+	if (!priv->streams_mask) {
 		const struct v4l2_mbus_framefmt *format;
 
 		/*
@@ -862,75 +906,58 @@ static int max9286_enable_streams(struct v4l2_subdev *sd, struct v4l2_subdev_sta
 		 * streaming to allow this synchronisation signal to be shared.
 		 */
 		max9286_i2c_mux_open(priv);
-	}
 
-	/* Start all requested cameras. */
-	while (true) {
-		int pos = ffs(sources_mask) - 1;
-
-		if (pos == -1)
-			break;
-
-		remote_sd = max9286_xlate_streams(priv, state, src_pad, BIT(pos), pos,
-						   &sink_streams, &remote_pad);
-		if (IS_ERR(remote_sd)) {
-			ret = PTR_ERR(remote_sd);
+		ret = max9286_enable_cams(priv, state, src_pad, priv->route_mask, true);
+		if (ret < 0)
 			goto unlock;
-		}
 
-		ret = v4l2_subdev_enable_streams(remote_sd, remote_pad, 0x1);
-		if (ret) {
-			dev_err(dev, "failed to enable streams 0x%llx on '%s':%u: %d\n",
-				sink_streams, remote_sd->name, remote_pad, ret);
+		ret = max9286_check_video_links(priv, priv->route_mask);
+		if (ret < 0)
 			goto unlock;
-		}
 
-		sources_mask &= ~BIT(pos);
-	}
+		if ((ret & MAX9286_VIDEO_DETECT_MASK) == MAX9286_VIDEO_DETECT_MASK) {
+			unsigned int i;
+			bool sync = false;
 
-	ret = max9286_check_video_links(priv, streams_mask);
-	if (ret < 0)
-		goto unlock;
-
-	if ((ret & MAX9286_VIDEO_DETECT_MASK) == MAX9286_VIDEO_DETECT_MASK) {
-		/*
-		 * Wait until frame synchronization is locked.
-		 *
-		 * Manual says frame sync locking should take ~6 VTS.
-		 * From practical experience at least 8 are required. Give
-		 * 12 complete frames time (~400ms at 30 fps) to achieve frame
-		 * locking before returning error.
-		 */
-		for (i = 0; i < 40; i++) {
-			if (max9286_read(priv, 0x31) & MAX9286_FSYNC_LOCKED) {
-				sync = true;
-				break;
+			/*
+			 * Wait until frame synchronization is locked.
+			 *
+			 * Manual says frame sync locking should take ~6 VTS.
+			 * From practical experience at least 8 are required. Give
+			 * 12 complete frames time (~400ms at 30 fps) to achieve frame
+			 * locking before returning error.
+			 */
+			for (i = 0; i < 40; i++) {
+				if (max9286_read(priv, 0x31) & MAX9286_FSYNC_LOCKED) {
+					sync = true;
+					break;
+				}
+				usleep_range(9000, 11000);
 			}
-			usleep_range(9000, 11000);
+
+			if (!sync) {
+				dev_err(&priv->client->dev,
+					"Failed to get frame synchronization\n");
+				ret = -EXDEV; /* Invalid cross-device link */
+				goto unlock;
+			}
 		}
 
-		if (!sync) {
-			dev_err(&priv->client->dev,
-				"Failed to get frame synchronization\n");
-			ret = -EXDEV; /* Invalid cross-device link */
-			goto unlock;
+		ret = 0;
+
+		if (!priv->streams_mask) {
+			/*
+			 * Configure the CSI-2 output to line interleaved mode (W x (N
+			 * x H), as opposed to the (N x W) x H mode that outputs the
+			 * images stitched side-by-side) and enable it.
+			 */
+			max9286_write(priv, 0x15, MAX9286_CSI_IMAGE_TYP | MAX9286_VCTYPE |
+				      MAX9286_CSIOUTEN | MAX9286_EN_CCBSYB_CLK_STR |
+				      MAX9286_EN_GPI_CCBSYB);
 		}
 	}
 
-	ret = 0;
-
-	if (!priv->enable_count) {
-		/*
-		 * Configure the CSI-2 output to line interleaved mode (W x (N
-		 * x H), as opposed to the (N x W) x H mode that outputs the
-		 * images stitched side-by-side) and enable it.
-		 */
-		max9286_write(priv, 0x15, MAX9286_CSI_IMAGE_TYP | MAX9286_VCTYPE |
-			      MAX9286_CSIOUTEN | MAX9286_EN_CCBSYB_CLK_STR |
-			      MAX9286_EN_GPI_CCBSYB);
-	}
-
-	priv->enable_count++;
+	priv->streams_mask |= streams_mask;
 
 unlock:
 	mutex_unlock(&priv->lock);
@@ -939,46 +966,25 @@ unlock:
 }
 
 static int max9286_disable_streams(struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
-				    u32 src_pad, u64 streams_mask)
+				   u32 src_pad, u64 streams_mask)
 {
 	struct max9286_priv *priv = container_of(sd, struct max9286_priv, sd);
-	struct device *dev = &priv->client->dev;
-	struct v4l2_subdev *remote_sd;
-	u64 sink_streams;
-	u64 sources_mask = streams_mask;
-	u32 remote_pad;
 	int ret;
 
 	mutex_lock(&priv->lock);
 
-	priv->enable_count--;
+	priv->streams_mask ^= streams_mask;
 
-	/* disable cameras*/
-	while (true) {
-		int pos = ffs(sources_mask) - 1;
+	/*
+	 * Since all the linked cameras are streaming, wait for all the calls to
+	 * disable_streams to arrive, then stop all the cameras at once.
+	 */
 
-		if (pos == -1)
-			break;
-
-		remote_sd = max9286_xlate_streams(priv, state, src_pad, BIT(pos), pos,
-						   &sink_streams, &remote_pad);
-		if (IS_ERR(remote_sd)) {
-			ret = PTR_ERR(remote_sd);
+	if (!priv->streams_mask) {
+		ret = max9286_enable_cams(priv, state, src_pad, priv->route_mask, false);
+		if (ret < 0)
 			goto unlock;
-		}
 
-		ret = v4l2_subdev_disable_streams(remote_sd, remote_pad, 0x1);
-		if (ret) {
-			dev_err(dev,
-				"failed to disable streams 0x%llx on '%s':%u: %d\n",
-				sink_streams, remote_sd->name, remote_pad, ret);
-			goto unlock;
-		}
-
-		sources_mask &= ~BIT(pos);
-	}
-
-	if (!priv->enable_count) {
 		max9286_write(priv, 0x15, MAX9286_VCTYPE |
 			      MAX9286_EN_CCBSYB_CLK_STR |
 			      MAX9286_EN_GPI_CCBSYB);
