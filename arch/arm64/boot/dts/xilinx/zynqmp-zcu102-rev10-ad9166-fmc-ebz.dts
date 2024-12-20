@@ -34,10 +34,6 @@
 	};
 };
 
-&axi_intc {
-	xlnx,kind-of-intr = <0xffffc5f0>;
-};
-
 / {
 
 	ad9166_control@0 {
@@ -64,7 +60,6 @@
 			compatible = "adi,axi-dmac-1.00.a";
 			adi,cyclic;
 			reg = <0x9c420000 0x10000>;
-			interrupt-parent = <&axi_intc>;
 			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 
@@ -142,10 +137,10 @@
 	};
 };
 
-&spi0 {
-	status = "okay";
-};
-
-#define fmc_spi spi0
+// &spi0 {
+// 	status = "okay";
+// };
+// 
+// #define fmc_spi spi0
 
 #include "adi-ad9166-fmc-ebz.dtsi"
