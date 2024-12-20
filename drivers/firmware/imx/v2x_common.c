@@ -125,7 +125,7 @@ int v2x_resume(struct se_if_priv *priv)
 		dev_warn(priv->dev, "Failed to fetch the v2x-fw-state via ELE.");
 
 	if (!is_v2x_fw_running(v2x_fw_state)) {
-		ret = ele_v2x_fw_authenticate(ele_priv, 0xcafecafe);
+		ret = ele_v2x_fw_authenticate(ele_priv, V2X_FW_IMG_DDR_ADDR);
 		if (ret) {
 			dev_err(priv->dev,
 				"failure: v2x fw loading [0x%x].", ret);
