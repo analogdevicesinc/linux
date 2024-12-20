@@ -44,7 +44,7 @@
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		out-gpios = <&gpio 103 0>;
+		out-gpios = <&gpio 103 0>; // HDL GPIO 25
 		label = "ad9166_control";
 		channel@0 {
 			reg = <0>;
@@ -55,8 +55,8 @@
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
-		#address-cells = <0x1>;
-		#size-cells = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 		ranges = <0 0 0 0xffffffff>;
 
 		tx_dma: tx-dmac@9c420000 {
