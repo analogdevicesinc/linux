@@ -10,6 +10,8 @@
 #include "se_msg_sqfl_ctrl.h"
 #include "v2x_base_msg.h"
 
+#define SE_RCV_MSG_TIMEOUT	120000
+
 u32 se_add_msg_crc(u32 *msg, u32 msg_len)
 {
 	u32 nb_words = msg_len / (u32)sizeof(u32);
@@ -47,7 +49,7 @@ int ele_msg_rcv(struct se_if_device_ctx *dev_ctx,
 			/* FW must send the message response to application in a finite
 			 * time.
 			 */
-			wait = msecs_to_jiffies(10000);
+			wait = msecs_to_jiffies(SE_RCV_MSG_TIMEOUT);
 			err = wait_for_completion_interruptible_timeout(&se_clbk_hdl->done, wait);
 		}
 		if (err == -ERESTARTSYS) {
