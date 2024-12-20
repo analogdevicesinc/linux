@@ -703,8 +703,8 @@ int se_dump_to_logfl(struct se_if_device_ctx *dev_ctx,
 	const u8 *devname = dev_ctx->devname;
 	int fmt_str_idx = strlen(fmt_str);
 	const u8 *caller_type_str;
-	u8 dump_ln[1024] = {'\0'};
-	u8 loc_buf[512] = {'\0'};
+	u8 dump_ln[512] = {'\0'};
+	u8 loc_buf[256] = {'\0'};
 	u8 file_name[128] = {'\0'};
 	struct timespec64 log_tm;
 	bool is_hex = true;
