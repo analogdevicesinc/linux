@@ -61,9 +61,9 @@
 
 #define gcvVERSION_PATCH        11
 
-#define gcvVERSION_BUILD     745085
+#define gcvVERSION_BUILD     1049711
 
-#define gcvVERSION_STRING    "6.4.11.p2.745085"
+#define gcvVERSION_STRING    "6.4.11.p3.1049711"
 
 #endif /* __gc_hal_version_h_ */
 
