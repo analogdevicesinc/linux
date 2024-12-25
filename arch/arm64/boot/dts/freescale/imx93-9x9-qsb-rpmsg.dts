@@ -67,7 +67,7 @@
 		audio-routing =
 			"IN1R", "MICBIAS",
 			"IN1L", "MICBIAS";
-		fsl,lpa-widgets =
+		ignore-suspend-widgets =
 			"HPOUTL", "HPOUTR", "Playback",
 			"Capture", "IN1L", "IN1R";
 		status = "okay";
