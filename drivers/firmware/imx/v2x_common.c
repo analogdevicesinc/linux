@@ -64,30 +64,26 @@ int v2x_late_init(struct se_if_priv *priv)
 {
 	int ret = 0;
 
-	if (!is_v2x_fw_running(v2x_fw_state) &&
-			priv->if_defs->se_if_type == SE_TYPE_ID_HSM) {
+	if (priv->if_defs->se_if_type == SE_TYPE_ID_HSM) {
 		ret = ele_init_fw(priv);
 		if (ret) {
 			dev_err(priv->dev, "ELE INIT FW failed.");
 			ret = -EPERM;
 			goto exit;
 		}
-		ret = ele_get_v2x_fw_state(priv, &v2x_fw_state);
-		if (ret) {
+		if (ele_get_v2x_fw_state(priv, &v2x_fw_state)) {
 			dev_warn(priv->dev, "Failed to fetch the v2x-fw-state via ELE.");
 			v2x_fw_state = V2X_FW_STATE_UNKNOWN;
 		}
-		if (!is_v2x_fw_running(v2x_fw_state)) {
-			ret = ele_v2x_fw_authenticate(priv, V2X_FW_IMG_DDR_ADDR);
-			if (ret) {
-				dev_err(priv->dev,
-					"failure: v2x fw loading.");
-			}
-			ret = ele_get_v2x_fw_state(priv, &v2x_fw_state);
-			if (ret)
-				dev_warn(priv->dev, "Failed to fetch the v2x-fw-state via ELE.");
+	}
+	if (!is_v2x_fw_running(v2x_fw_state)) {
+		if (ele_v2x_fw_authenticate(priv, V2X_FW_IMG_DDR_ADDR))
+			dev_warn(priv->dev, "failure: v2x fw loading.");
+
+		if (ele_get_v2x_fw_state(priv, &v2x_fw_state)) {
+			dev_warn(priv->dev, "Failed to fetch the v2x-fw-state via ELE.");
+			v2x_fw_state = V2X_FW_STATE_UNKNOWN;
 		}
-		ret = 0;
 	}
 exit:
 	return ret;
