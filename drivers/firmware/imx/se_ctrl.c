@@ -520,10 +520,16 @@ void *imx_get_se_data_info(uint32_t soc_id, u32 idx)
 }
 EXPORT_SYMBOL_GPL(imx_get_se_data_info);
 
+static struct se_fw_load_info *get_load_fw_instance(struct se_if_priv *priv)
+{
+	return &var_se_info.load_fw;
+}
+
 static int se_soc_info(struct se_if_priv *priv)
 {
 	const struct se_if_node_info_list *info_list
 			= device_get_match_data(priv->dev);
+	struct se_fw_load_info *load_fw = get_load_fw_instance(priv);
 	struct soc_device_attribute *attr;
 	struct ele_dev_info *s_info;
 	struct soc_device *sdev;
@@ -554,6 +560,7 @@ static int se_soc_info(struct se_if_priv *priv)
 			var_se_info.board_type = 0;
 			var_se_info.soc_id = info_list->soc_id;
 			var_se_info.soc_rev = s_info->d_info.soc_rev;
+			load_fw->imem.state = s_info->d_addn_info.imem_state;
 		}
 	} else {
 		dev_err(priv->dev, "Failed to fetch SoC revision.");
@@ -610,11 +617,6 @@ static int se_soc_info(struct se_if_priv *priv)
 	return 0;
 }
 
-static struct se_fw_load_info *get_load_fw_instance(struct se_if_priv *priv)
-{
-	return &var_se_info.load_fw;
-}
-
 static int se_load_firmware(struct se_if_priv *priv)
 {
 	struct se_fw_load_info *load_fw = get_load_fw_instance(priv);
@@ -628,21 +630,21 @@ static int se_load_firmware(struct se_if_priv *priv)
 		return 0;
 
 	se_img_file_to_load = load_fw->se_fw_img_nm->seco_fw_nm_in_rfs;
-	if (load_fw->se_fw_img_nm->prim_fw_nm_in_rfs) {
-		/* allocate buffer where SE store encrypted IMEM */
-		load_fw->imem.buf = dmam_alloc_coherent(priv->dev, ELE_IMEM_SIZE,
-							&load_fw->imem.phyaddr,
-							GFP_KERNEL);
-		if (!load_fw->imem.buf) {
-			dev_err(priv->dev,
-				"dmam-alloc-failed: To store encr-IMEM.\n");
-			ret = -ENOMEM;
-			goto exit;
-		}
-		if (load_fw->imem.state == ELE_IMEM_STATE_BAD)
-			se_img_file_to_load
-					= load_fw->se_fw_img_nm->prim_fw_nm_in_rfs;
+	/* allocate buffer where SE store encrypted IMEM */
+	load_fw->imem.buf = dmam_alloc_coherent(priv->dev, ELE_IMEM_SIZE,
+						&load_fw->imem.phyaddr,
+						GFP_KERNEL);
+	if (!load_fw->imem.buf) {
+		dev_err(priv->dev,
+			"dmam-alloc-failed: To store encr-IMEM.\n");
+		ret = -ENOMEM;
+		goto exit;
 	}
+	load_fw->handle_susp_resm = true;
+
+	if (load_fw->imem.state == ELE_IMEM_STATE_BAD &&
+			load_fw->se_fw_img_nm->prim_fw_nm_in_rfs)
+		se_img_file_to_load = load_fw->se_fw_img_nm->prim_fw_nm_in_rfs;
 
 	do {
 		ret = request_firmware(&fw, se_img_file_to_load, priv->dev);
@@ -2014,7 +2016,6 @@ static int se_suspend(struct device *dev)
 		ret = se_save_imem_state(priv, &load_fw->imem);
 		if (ret < 0)
 			goto exit;
-		load_fw->imem.size = ret;
 	}
 exit:
 	return ret;

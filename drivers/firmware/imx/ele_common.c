@@ -337,7 +337,8 @@ int se_save_imem_state(struct se_if_priv *priv, struct se_imem_buf *imem)
 			 "Exported %d bytes of encrypted IMEM\n",
 			 ret);
 
-	return ret;
+	imem->size = ret;
+	return ret > 0 ? 0 : -1;
 }
 
 int se_restore_imem_state(struct se_if_priv *priv, struct se_imem_buf *imem)
