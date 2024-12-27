@@ -1525,8 +1525,14 @@ fec_enet_uio_remove(struct platform_device *pdev)
 static int
 fec_enet_uio_probe(struct platform_device *pdev)
 {
-	const char *comp_str = of_get_property(pdev->dev.of_node, "compatible", NULL);
+	const char *comp_str;
 	int ret;
+
+	comp_str = of_get_property(pdev->dev.of_node, "compatible", NULL);
+	if (!comp_str) {
+		dev_err(&pdev->dev, "Ethernet compatible is missing.\n");
+		return -EINVAL;
+	}
 
 	/* This is for the ENET-QOS ethernet (i.MX8MP & i.MX93 supported)*/
 	if (!strcmp(comp_str, "fsl,imx-enet-qos")) {
