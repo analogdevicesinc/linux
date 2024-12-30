@@ -56,7 +56,6 @@
  * @base:	Base address of TTC instance
  */
 struct ttc_pwm_priv {
-	struct pwm_chip chip;
 	struct clk *clk;
 	unsigned long rate;
 	u32 max;
@@ -99,7 +98,7 @@ static inline void ttc_pwm_ch_writel(struct ttc_pwm_priv *priv,
 
 static inline struct ttc_pwm_priv *xilinx_pwm_chip_to_priv(struct pwm_chip *chip)
 {
-	return container_of(chip, struct ttc_pwm_priv, chip);
+	return pwmchip_get_drvdata(chip);
 }
 
 static void ttc_pwm_enable(struct ttc_pwm_priv *priv, struct pwm_device *pwm)
@@ -289,6 +288,7 @@ static int ttc_pwm_probe(struct platform_device *pdev)
 	struct device_node *np = dev->of_node;
 	u32 pwm_cells, timer_width;
 	struct ttc_pwm_priv *priv;
+	struct pwm_chip *chip;
 	int ret;
 
 	/*
@@ -303,9 +303,10 @@ static int ttc_pwm_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "could not read #pwm-cells\n");
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
+	chip = devm_pwmchip_alloc(dev, TTC_PWM_MAX_CH, sizeof(*priv));
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
+	priv = xilinx_pwm_chip_to_priv(chip);
 
 	priv->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(priv->base))
@@ -326,25 +327,24 @@ static int ttc_pwm_probe(struct platform_device *pdev)
 
 	clk_rate_exclusive_get(priv->clk);
 
-	priv->chip.dev = dev;
-	priv->chip.ops = &ttc_pwm_ops;
-	priv->chip.npwm = TTC_PWM_MAX_CH;
-	ret = pwmchip_add(&priv->chip);
+	chip->ops = &ttc_pwm_ops;
+	ret = pwmchip_add(chip);
 	if (ret) {
 		clk_rate_exclusive_put(priv->clk);
 		return dev_err_probe(dev, ret, "Could not register PWM chip\n");
 	}
 
-	platform_set_drvdata(pdev, priv);
+	platform_set_drvdata(pdev, chip);
 
 	return 0;
 }
 
 static void ttc_pwm_remove(struct platform_device *pdev)
 {
-	struct ttc_pwm_priv *priv = platform_get_drvdata(pdev);
+	struct pwm_chip *chip = platform_get_drvdata(pdev);
+	struct ttc_pwm_priv *priv = xilinx_pwm_chip_to_priv(chip);
 
-	pwmchip_remove(&priv->chip);
+	pwmchip_remove(chip);
 	clk_rate_exclusive_put(priv->clk);
 }
 
