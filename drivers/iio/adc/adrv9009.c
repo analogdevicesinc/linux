@@ -631,6 +631,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		ret = -EFAULT;
 		goto out;
 	}
+
 	/* Toggle RESETB pin on Talise device */
 	ret = TALISE_resetDevice(phy->talDevice);
 	if (ret != TALACT_NO_ACTION) {
@@ -784,7 +785,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out;
 	}
 
-	ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
+	ret = TALISE_waitInitCals(phy->talDevice, 80000, &errorFlag);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 		ret = -EFAULT;
@@ -801,7 +802,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			goto out;
 		}
 
-		ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
+		ret = TALISE_waitInitCals(phy->talDevice, 80000, &errorFlag);
 	}
 
 	if ((ret != TALACT_NO_ACTION) || errorFlag) {
@@ -821,7 +822,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		if (ret != TALACT_NO_ACTION)
 			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 
-		ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
+		ret = TALISE_waitInitCals(phy->talDevice, 80000, &errorFlag);
 		if ((ret != TALACT_NO_ACTION) || errorFlag) {
 			dev_err(&phy->spi->dev,
 				"%s:%d (ret %d): Init Cal errorFlag (0x%X)",
@@ -1519,7 +1520,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 			}
 
-			ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
+			ret = TALISE_waitInitCals(phy->talDevice, 80000, &errorFlag);
 			if (ret == TALACT_ERR_RERUN_INIT_CALS) {
 				/* Try once more */
 				ret = TALISE_runInitCals(phy->talDevice,
@@ -1527,7 +1528,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 				if (ret != TALACT_NO_ACTION)
 					dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 
-				ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
+				ret = TALISE_waitInitCals(phy->talDevice, 80000, &errorFlag);
 			}
 
 			if ((ret != TALACT_NO_ACTION) || errorFlag)
@@ -6174,7 +6175,7 @@ static int adrv9009_jesd204_setup_stage5(struct jesd204_dev *jdev,
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
-	ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
+	ret = TALISE_waitInitCals(phy->talDevice, 80000, &errorFlag);
 
 	if (ret == TALACT_ERR_RERUN_INIT_CALS) {
 		/* Try once more */
@@ -6186,7 +6187,7 @@ static int adrv9009_jesd204_setup_stage5(struct jesd204_dev *jdev,
 			return -EFAULT;
 		}
 
-		ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
+		ret = TALISE_waitInitCals(phy->talDevice, 80000, &errorFlag);
 	}
 
 	if ((ret != TALACT_NO_ACTION) || errorFlag) {
@@ -6219,7 +6220,7 @@ static int adrv9009_jesd204_setup_stage5(struct jesd204_dev *jdev,
 			dev_err(&phy->spi->dev,
 				"%s:%d (ret %d)", __func__, __LINE__, ret);
 
-		ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
+		ret = TALISE_waitInitCals(phy->talDevice, 80000, &errorFlag);
 		if ((ret != TALACT_NO_ACTION) || errorFlag) {
 			dev_err(&phy->spi->dev,
 				"%s:%d (ret %d): Init Cal errorFlag (0x%X)",
