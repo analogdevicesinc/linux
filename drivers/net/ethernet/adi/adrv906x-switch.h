@@ -108,5 +108,6 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 			  int (*isr_pre_func)(void *), int (*isr_post_func)(void *), void *isr_arg);
 int adrv906x_switch_init(struct adrv906x_eth_switch *es);
 void adrv906x_switch_set_mae_age_time(struct adrv906x_eth_switch *es, u8 data);
+void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es);
 
 #endif /* __ADRV906X_SWITCH_H__ */
