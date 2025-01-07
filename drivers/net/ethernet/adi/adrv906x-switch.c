@@ -252,7 +252,7 @@ static int adrv906x_switch_packet_trapping_set(struct adrv906x_eth_switch *es)
 	return 0;
 }
 
-static void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es)
+void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es)
 {
 	int ret;
 
