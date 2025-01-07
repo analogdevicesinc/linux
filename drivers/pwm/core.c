@@ -52,20 +52,31 @@ DEFINE_GUARD(pwmchip, struct pwm_chip *, pwmchip_lock(_T), pwmchip_unlock(_T))
 static void pwm_wf2state(const struct pwm_waveform *wf, struct pwm_state *state)
 {
 	if (wf->period_length_ns) {
-		if (wf->duty_length_ns + wf->duty_offset_ns < wf->period_length_ns)
+		if (wf->duty_length_ns + wf->duty_offset_ns < wf->period_length_ns) {
 			*state = (struct pwm_state){
 				.enabled = true,
 				.polarity = PWM_POLARITY_NORMAL,
 				.period = wf->period_length_ns,
 				.duty_cycle = wf->duty_length_ns,
+				.phase = wf->duty_offset_ns,
 			};
-		else
+		} else {
 			*state = (struct pwm_state){
 				.enabled = true,
 				.polarity = PWM_POLARITY_INVERSED,
 				.period = wf->period_length_ns,
 				.duty_cycle = wf->period_length_ns - wf->duty_length_ns,
+				.phase = wf->duty_offset_ns + wf->duty_length_ns,
 			};
+			/*
+			 * Ideally we'd do
+			 * 	.phase = (wf->duty_offset_ns + wf->duty_length_ns) % wf->period_length_ns,
+			 * here, but that involves a 64bit division and so isn't
+			 * allowed.
+			 */
+			while (state->phase >= wf->period_length_ns)
+				state->phase -= wf->period_length_ns;
+		}
 	} else {
 		*state = (struct pwm_state){
 			.enabled = false,
@@ -76,18 +87,26 @@ static void pwm_wf2state(const struct pwm_waveform *wf, struct pwm_state *state)
 static void pwm_state2wf(const struct pwm_state *state, struct pwm_waveform *wf)
 {
 	if (state->enabled) {
-		if (state->polarity == PWM_POLARITY_NORMAL)
+		if (state->polarity == PWM_POLARITY_NORMAL) {
 			*wf = (struct pwm_waveform){
 				.period_length_ns = state->period,
 				.duty_length_ns = state->duty_cycle,
-				.duty_offset_ns = 0,
+				.duty_offset_ns = state->phase,
 			};
-		else
+		} else {
 			*wf = (struct pwm_waveform){
 				.period_length_ns = state->period,
 				.duty_length_ns = state->period - state->duty_cycle,
-				.duty_offset_ns = state->duty_cycle,
+				.duty_offset_ns = state->duty_cycle + state->phase,
 			};
+			/*
+			 * Actually we want
+			 * 	.duty_offset_ns = (state->duty_cycle + state->phase) % wf->period_length_ns
+			 * but as this is a 64bit division do it manually.
+			 */
+			while (wf->duty_offset_ns >= wf->period_length_ns)
+				wf->duty_offset_ns -= wf->period_length_ns;
+		}
 	} else {
 		*wf = (struct pwm_waveform){
 			.period_length_ns = 0,
