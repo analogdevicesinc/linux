@@ -100,8 +100,8 @@ static const char adrv906x_gstrings_stats_names[][ETH_GSTRING_LEN] = {
 };
 
 static const char adrv906x_gstrings_selftest_names[][ETH_GSTRING_LEN] = {
-	"NDMA loopback:           ",
 	"Near-end loopback:       ",
+	"NDMA loopback:           ",
 	"Far-end loopback on/off: ",
 };
 
@@ -569,13 +569,18 @@ static int adrv906x_test_set_phy_loopback(struct net_device *ndev, bool enable)
 static int adrv906x_test_near_end_loopback_test(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	int dev_state = netif_running(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
 	struct adrv906x_mac *mac = &adrv906x_dev->mac;
+	struct phy_device *phydev = ndev->phydev;
 	struct adrv906x_packet_attrs attr = { };
+	int dev_state = netif_running(ndev);
 	int ret;
 
 	netdev_printk(KERN_DEBUG, ndev, "enter %s", __func__);
 
+	if (es->enabled)
+		adrv906x_switch_reset_soft(es);
 	adrv906x_mac_set_path(mac, true);
 
 	if (dev_state) {
@@ -584,6 +589,10 @@ static int adrv906x_test_near_end_loopback_test(struct net_device *ndev)
 		netif_carrier_off(ndev);
 	}
 	adrv906x_test_set_phy_loopback(ndev, true);
+
+	phy_resume(phydev);
+	if (es->enabled)
+		adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
 
 	attr.dst = ndev->dev_addr;
 	ret = adrv906x_test_near_end_loopback_run(ndev, &attr);
@@ -601,6 +610,13 @@ out:
 
 	msleep(2000);
 	adrv906x_mac_set_path(mac, false);
+
+	phy_suspend(phydev);
+	if (es->enabled) {
+		adrv906x_switch_port_enable(es, adrv906x_dev->port, false);
+		adrv906x_switch_reset_soft(es);
+	}
+
 	netdev_printk(KERN_DEBUG, ndev, "%s done", __func__);
 
 	return ret;
@@ -740,13 +756,13 @@ out:
 
 struct adrv906x_test adrv906x_ethtool_selftests[] = {
 	{
-		.name = "NDMA loopback",
-		.fn = adrv906x_ndma_loopback_test,
+		.name = "Near-end loopback",
+		.fn = adrv906x_test_near_end_loopback_test,
 		.etest_flag = ETH_TEST_FL_OFFLINE,
 	},
 	{
-		.name = "Near-end loopback",
-		.fn = adrv906x_test_near_end_loopback_test,
+		.name = "NDMA loopback",
+		.fn = adrv906x_ndma_loopback_test,
 		.etest_flag = ETH_TEST_FL_OFFLINE,
 	},
 	{
