@@ -94,7 +94,7 @@
 /* sequence starting with "1 0 1" to enable reg access */
 #define AD4630_REG_ACCESS		0x2000
 /* Sampling timing */
-#define AD4630_TQUIET_CNV_DELAY_PS	9800
+#define AD4630_TQUIET_CNV_DELAY_NS	10
 #define AD4630_MAX_RATE_1_LANE		1750000
 #define AD4630_MAX_RATE			2000000
 
@@ -407,7 +407,7 @@ static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned in
 	 * tsync + tquiet_con_delay being tsync the conversion signal period
 	 * and tquiet_con_delay 9.8ns. Hence set the PWM phase accordingly.
 	 */
-	fetch_state.phase = AD4630_TQUIET_CNV_DELAY_PS;
+	fetch_state.phase = AD4630_TQUIET_CNV_DELAY_NS;
 
 	return pwm_apply_state(st->fetch_trigger, &fetch_state);
 }
@@ -600,7 +600,7 @@ static int ad4630_update_sample_fetch_trigger(const struct ad4630_state *st, u32
 	pwm_get_state(st->conv_trigger, &conv_state);
 	pwm_get_state(st->fetch_trigger, &fetch_state);
 	fetch_state.period = conv_state.period * 1 << avg;
-	fetch_state.phase = AD4630_TQUIET_CNV_DELAY_PS;
+	fetch_state.phase = AD4630_TQUIET_CNV_DELAY_NS;
 
 	return pwm_apply_state(st->fetch_trigger, &fetch_state);
 }
