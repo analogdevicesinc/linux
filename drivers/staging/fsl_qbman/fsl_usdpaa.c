@@ -1956,6 +1956,15 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args, struct
 		strncpy(net_dev->name, args->if_name, IF_NAME_MAX_LEN);
 		dev->platform_data = net_dev;
 
+		/* FIXME: This is duplicated from memac_init_phy().
+		 * The internal connection to the serdes is XGMII, but this isn't
+		 * really correct for the phy mode (which is the external connection).
+		 * However, this is how all older device trees say that they want
+		 * 10GBASE-R (aka XFI), so just convert it for them.
+		 */
+		if (mac_dev->phy_if == PHY_INTERFACE_MODE_XGMII)
+			mac_dev->phy_if = PHY_INTERFACE_MODE_10GBASER;
+
 		pr_debug("%s: mac_dev %p cell_index %d\n",
 			 __func__, mac_dev, mac_dev->cell_index);
 		mac_dev->phy_dev = of_phy_connect(net_dev, mac_dev->phy_node,
