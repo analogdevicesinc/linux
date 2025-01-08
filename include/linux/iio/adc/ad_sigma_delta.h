@@ -107,6 +107,12 @@ struct ad_sigma_delta {
 	unsigned int		*slots;
 	uint8_t			*samples_buf;
 
+	bool		offload_enabled;
+	struct		spi_offload *offload;
+	struct		spi_offload_trigger *offload_trigger;
+	struct		spi_offload_trigger_info *trigger_info;
+	struct		spi_message offload_msg;
+
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.

@@ -11,13 +11,17 @@
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/spi/offload/consumer.h>
+#include <linux/spi/offload/provider.h>
 #include <linux/spi/spi.h>
 #include <linux/err.h>
 #include <linux/module.h>
+#include <linux/units.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/trigger.h>
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
@@ -506,12 +510,13 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	unsigned int channel;
 	uint8_t *samples_buf;
 	int ret;
+	enum ad_sigma_delta_mode mode = AD_SD_MODE_CONTINUOUS;
 
 	if (sigma_delta->num_slots == 1) {
 		channel = find_first_bit(indio_dev->active_scan_mask,
-					 indio_dev->masklength);
+				iio_get_masklength(indio_dev));
 		ret = ad_sigma_delta_set_channel(sigma_delta,
-						 indio_dev->channels[channel].address);
+				indio_dev->channels[channel].address);
 		if (ret)
 			return ret;
 		slot = 1;
@@ -531,23 +536,60 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	sigma_delta->active_slots = slot;
 	sigma_delta->current_slot = 0;
 
-	if (iio_device_get_current_mode(indio_dev) != INDIO_BUFFER_HARDWARE &&
-	    sigma_delta->active_slots > 1) {
-		ret = ad_sigma_delta_append_status(sigma_delta, true);
-		if (ret)
+	if (sigma_delta->offload_enabled) {
+		struct spi_transfer xfer = { 0 };
+		struct spi_offload_trigger_config config = {
+			.type = SPI_OFFLOAD_TRIGGER_DATA_READY,
+		};
+
+		//TODO: GR: len/bpw to be revised...
+		xfer.len = 1;
+		xfer.bits_per_word = 24;
+		xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+
+		spi_message_init_with_transfers(&sigma_delta->offload_msg, &xfer, 1);
+		sigma_delta->offload_msg.offload = sigma_delta->offload;
+
+		ret = spi_optimize_message(sigma_delta->spi, &sigma_delta->offload_msg);
+		if (ret) {
+			dev_err(&sigma_delta->spi->dev, "optimize message failed: %d", ret);
 			return ret;
+		}
+
+		/* TODO: GR: Delay offload trigger enablement
+		 * The HDL will start an offload sequence as soon as 3 clock cycles
+		 * have been spent with MISO at 0
+		 * Which means here the offload will happen too early (1us after setting the adc)
+		 * IMHO, we should setup a completion irq when miso goes down again and enable the offload after completion ? */
+		ret = spi_offload_trigger_enable(sigma_delta->offload, sigma_delta->offload_trigger,
+					 &config);
+		if (ret) {
+			dev_err(&sigma_delta->spi->dev, "trigger enable failed: %d", ret);
+			spi_unoptimize_message(&sigma_delta->offload_msg);
+			return ret;
+		}
+
+		mode = AD_SD_MODE_CONTINUOUS_READ;
+
+	} else {
+
+		if (sigma_delta->active_slots > 1) {
+			ret = ad_sigma_delta_append_status(sigma_delta, true);
+			if (ret)
+				return ret;
+		}
+
+		samples_buf_size = ALIGN(slot * indio_dev->channels[0].scan_type.storagebits, 8);
+		samples_buf_size += sizeof(int64_t);
+		samples_buf = devm_krealloc(&sigma_delta->spi->dev, sigma_delta->samples_buf,
+				samples_buf_size, GFP_KERNEL);
+		if (!samples_buf)
+			return -ENOMEM;
+
+		sigma_delta->samples_buf = samples_buf;
 	}
 
-	samples_buf_size = ALIGN(slot * indio_dev->channels[0].scan_type.storagebits, 8);
-	samples_buf_size += sizeof(int64_t);
-	samples_buf = devm_krealloc(&sigma_delta->spi->dev, sigma_delta->samples_buf,
-				    samples_buf_size, GFP_KERNEL);
-	if (!samples_buf)
-		return -ENOMEM;
-
-	sigma_delta->samples_buf = samples_buf;
-
-	spi_bus_lock(sigma_delta->spi->master);
+	spi_bus_lock(sigma_delta->spi->controller);
 	sigma_delta->bus_locked = true;
 	sigma_delta->keep_cs_asserted = true;
 
@@ -558,21 +600,28 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		goto err_unlock;
 
-	ret = ad_sigma_delta_set_mode(sigma_delta, AD_SD_MODE_CONTINUOUS);
+	ret = ad_sigma_delta_set_mode(sigma_delta, mode);
 	if (ret)
-		goto err_unlock;
+		goto err_reset;
 
-	/*
-	 * Differs from upstream because of the spi engine support and we want to enable
-	 * the irq only after setting AD_SD_MODE_CONTINUOUS (as in the upstream lib)
-	 */
-	if (iio_device_get_current_mode(indio_dev) != INDIO_BUFFER_HARDWARE)
+	if (!sigma_delta->offload_enabled)
 		ad_sd_enable_irq(sigma_delta);
 
 	return 0;
 
+err_reset:
+	/* Defensively reset the ADC in case we are stuck in the CONTINUOUS_READ mode
+	 * for some reason.
+	 * This shouldn't be the case as the only way to end up here is a failure to
+	 * set CONTINUOUS_READ mode */
+	if (sigma_delta->offload_enabled)
+		ad_sd_reset(sigma_delta);
+
 err_unlock:
-	spi_bus_unlock(sigma_delta->spi->master);
+	if (sigma_delta->offload_enabled)
+		spi_unoptimize_message(&sigma_delta->offload_msg);
+
+	spi_bus_unlock(sigma_delta->spi->controller);
 
 	return ret;
 }
@@ -581,8 +630,12 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 
-	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE) {
-		legacy_spi_engine_offload_enable(sigma_delta->spi, false);
+	if (sigma_delta->offload_enabled) {
+		spi_offload_trigger_disable(sigma_delta->offload, sigma_delta->offload_trigger);
+		spi_unoptimize_message(&sigma_delta->offload_msg);
+		/* In CONTINUOUS_READ mode, the adc requires eitheir a data register read or a reset to
+		 * go back to a working state */
+		ad_sd_reset(sigma_delta);
 	} else {
 		reinit_completion(&sigma_delta->completion);
 		wait_for_completion_timeout(&sigma_delta->completion, HZ);
@@ -594,7 +647,7 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 	ad_sigma_delta_set_mode(sigma_delta, AD_SD_MODE_IDLE);
 
 	if (sigma_delta->status_appended)
-		ad_sigma_delta_append_status(sigma_delta, false);
+	    ad_sigma_delta_append_status(sigma_delta, false);
 
 	ad_sigma_delta_disable_all(sigma_delta);
 	sigma_delta->bus_locked = false;
@@ -746,14 +799,97 @@ static irqreturn_t ad_sd_data_rdy_trig_poll(int irq, void *private)
  */
 int ad_sd_validate_trigger(struct iio_dev *indio_dev, struct iio_trigger *trig)
 {
-	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
+	struct ad_sigma_delta *sd = iio_device_get_drvdata(indio_dev);
 
-	if (sigma_delta->trig != trig)
+	if (sd->trig != trig) {
+		dev_err(&sd->spi->dev, "trig not valid!?");
 		return -EINVAL;
+	}
 
 	return 0;
 }
 EXPORT_SYMBOL_NS_GPL(ad_sd_validate_trigger, IIO_AD_SIGMA_DELTA);
+
+static bool ad_sd_offload_trigger_match(struct spi_offload_trigger *trigger,
+					 enum spi_offload_trigger_type type,
+					 u64 *args, u32 nargs)
+{
+	struct ad_sigma_delta *sd = spi_offload_trigger_get_priv(trigger);
+
+	if (type != SPI_OFFLOAD_TRIGGER_DATA_READY) {
+		dev_err(&sd->spi->dev, "wrong trig type!? %d", type);
+		return false;
+	}
+
+	dev_err(&sd->spi->dev, "match type %d", type);
+	return true;
+}
+
+static int ad_sd_offload_trigger_request(struct spi_offload_trigger *trigger,
+					  enum spi_offload_trigger_type type,
+					  u64 *args, u32 nargs)
+{
+	struct ad_sigma_delta *sd = spi_offload_trigger_get_priv(trigger);
+
+	dev_err(&sd->spi->dev, "request OK!? %d, %lld", nargs, args[0]);
+	return 0;
+}
+
+static int
+ad_sd_offload_trigger_validate(struct spi_offload_trigger *trigger,
+				struct spi_offload_trigger_config *config)
+{
+	struct ad_sigma_delta *sd = spi_offload_trigger_get_priv(trigger);
+	if (config->type != SPI_OFFLOAD_TRIGGER_DATA_READY) {
+		dev_err(&sd->spi->dev, "EINVAL validate!?");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static const struct spi_offload_trigger_ops ad_sd_offload_trigger_ops = {
+	.match = ad_sd_offload_trigger_match,
+	.request = ad_sd_offload_trigger_request,
+	.validate = ad_sd_offload_trigger_validate,
+};
+
+static const struct spi_offload_config ad_sd_spi_offload_config = {
+	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER |
+			    SPI_OFFLOAD_CAP_RX_STREAM_DMA,
+};
+
+static int ad_sd_probe_spi_offload(struct iio_dev *indio_dev,
+				    struct ad_sigma_delta *sd)
+{
+	struct device *dev = &sd->spi->dev;
+	struct spi_offload_trigger_info trigger_info = {
+		.fwnode = dev_fwnode(dev),
+		.ops = &ad_sd_offload_trigger_ops,
+		.priv = sd,
+	};
+	struct dma_chan *rx_dma;
+	int ret;
+
+	ret = devm_spi_offload_trigger_register(dev, &trigger_info);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "failed to register offload trigger\n");
+
+	sd->offload_trigger = devm_spi_offload_trigger_get(dev, sd->offload,
+		SPI_OFFLOAD_TRIGGER_DATA_READY);
+	if (IS_ERR(sd->offload_trigger))
+		return dev_err_probe(dev, PTR_ERR(sd->offload_trigger),
+				     "failed to get offload trigger\n");
+
+	rx_dma = devm_spi_offload_rx_stream_request_dma_chan(dev, sd->offload);
+	if (IS_ERR(rx_dma))
+		return dev_err_probe(dev, PTR_ERR(rx_dma),
+				     "failed to get offload RX DMA\n");
+
+	return devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev,
+		rx_dma, IIO_BUFFER_DIRECTION_IN);
+}
 
 static int devm_ad_sd_probe_trigger(struct device *dev, struct iio_dev *indio_dev)
 {
@@ -794,6 +930,20 @@ static int devm_ad_sd_probe_trigger(struct device *dev, struct iio_dev *indio_de
 
 	/* select default trigger */
 	indio_dev->trig = iio_trigger_get(sigma_delta->trig);
+
+	sigma_delta->offload = devm_spi_offload_get(dev, sigma_delta->spi, &ad_sd_spi_offload_config);
+	ret = PTR_ERR_OR_ZERO(sigma_delta->offload);
+	if (ret && ret != -ENODEV) {
+		dev_err(dev, "failed to get SPI offload\n");
+		return ret;
+	}
+
+	if (!ret) {
+		ret = ad_sd_probe_spi_offload(indio_dev, sigma_delta);
+		if (ret)
+			return ret;
+		sigma_delta->offload_enabled = true;
+	}
 
 	return 0;
 }
@@ -893,3 +1043,4 @@ EXPORT_SYMBOL_NS_GPL(ad_sd_init, IIO_AD_SIGMA_DELTA);
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("Analog Devices Sigma-Delta ADCs");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS("IIO_DMAENGINE_BUFFER");

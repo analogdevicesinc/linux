@@ -18,8 +18,10 @@ config AB8500_GPADC
 
 config AD_SIGMA_DELTA
 	tristate
+	select SPI_OFFLOAD
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
+	select IIO_BUFFER_DMAENGINE
 
 config AD4130
 	tristate "Analog Device AD4130 ADC Driver"
