@@ -12,6 +12,7 @@
  *
  * Location example('20218000.pinctrl' is the dev_name of this driver):
  * /sys/devices/platform/20218000.pinctrl/control/
+ * |-- pin
  * |-- config
  * |-- drive_strength
  * |-- mux_sel
@@ -20,12 +21,13 @@
  * `-- schmitt_trig_enable
  *
  *  Usage examples:
- *  1) To set the config:
- *      Command: echo 1=5 > ./config
- *      Set pin 1's config value to 5.
- *  2) To get the config:
- *      Command: echo 2 > ./config
- *      Get pin 2's config value(result will be showed on the console.)
+ *  1) Commands to set pin 5'  drive_strength to 7:
+ *      echo 5 > ./pin
+ *      echo 7 > ./drive_strength
+ *  2) Commands to get pin 5'  drive_strength:
+ *      echo 5 > ./pin (this can be omitted when following a set command)
+ *      cat ./drive_strength
+ *      Result will be showed on the console.
  */
 
 #include <dt-bindings/pinctrl/pinctrl-adi-adrv906x-io-pad.h>
@@ -63,6 +65,8 @@ struct adrv906x_pinconf_state {
 	struct pinctrl *p;
 	struct pinctrl_state *s;
 };
+
+static int pin;
 
 static int adrv906x_pinctrl_get_config_direct(const char *dev_name, unsigned pin, unsigned long *configs, size_t nconfigs)
 {
@@ -112,7 +116,7 @@ static int adrv906x_pinctrl_set_config_direct(const char *dev_name, unsigned pin
 
 static ssize_t adrv906x_pinctrl_common_store(struct device *dev, const char *buf, size_t count, store_type_t st)
 {
-	int result = 0, scan_count = 0, pin, config_val;
+	int result = 0, scan_count = 0, config_val;
 	struct adi_pin_mio conf = { 0 };
 
 	struct adrv906x_pinctrl_driver *adrv906x_pinctrl_drv = dev_get_drvdata(dev);
@@ -120,46 +124,15 @@ static ssize_t adrv906x_pinctrl_common_store(struct device *dev, const char *buf
 	if (!adrv906x_pinctrl_drv)
 		return -EIO;
 
-	scan_count = sscanf(buf, "%d=%d", &pin, &config_val);
-	if (scan_count == 1 || scan_count == 2) {
-		if (pin < 0 || pin >= ADI_ADRV906X_PIN_COUNT) {
-			pr_err("Pin number out of range.\n");
-			return -EIO;
-		}
-
+	scan_count = sscanf(buf, "%d", &config_val);
+	if (scan_count == 1) {
 		conf.input_pin = pin;
 		result = adrv906x_pinctrl_get_config_direct(dev_name(dev), pin, &conf.config, 1);
-		if (result == 0) {
-			switch (st) {
-			case CONFIG:
-				pr_info("config read back for pin %d is 0x%lx\n", conf.input_pin, conf.config);
-				break;
-			case DRIVE_STRENGTH:
-				pr_info("drive_strength read back for pin %d is 0x%lx\n", conf.input_pin, (unsigned long)(conf.config & ADI_CONFIG_DRIVE_STRENGTH_MASK));
-				break;
-			case SCHMITT_TRIG_ENABLE:
-				pr_info("schmitt_trig_enable read back for pin %d is 0x%x\n", conf.input_pin, (conf.config & ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK) ? 1 : 0);
-				break;
-			case PIN_PULL_ENABLEMENT:
-				pr_info("pin_pull_enablement read back for pin %d is 0x%x\n", conf.input_pin, (conf.config & ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK) ? 1 : 0);
-				break;
-			case PIN_PULL_UP_ENABLE:
-				pr_info("pin_pull_up_enable read back for pin %d is 0x%x\n", conf.input_pin, (conf.config & ADI_CONFIG_PULLUP_ENABLE_MASK) ? 1 : 0);
-				break;
-			case MUX_SEL:
-				pr_info("mux_sel read back for pin %d is 0x%lx\n", conf.input_pin, (unsigned long)(conf.mux_sel & ADI_CONFIG_MUX_SEL_MASK));
-				break;
-			}
-		} else {
+		if (result) {
 			pr_err("getting config failed\n");
 			return -EIO;
 		}
-	} else {
-		pr_err("invalid input\n");
-		return -EIO;
-	}
 
-	if (scan_count == 2) {
 		switch (st) {
 		case CONFIG:
 			conf.config = (unsigned long)config_val;
@@ -187,32 +160,27 @@ static ssize_t adrv906x_pinctrl_common_store(struct device *dev, const char *buf
 			conf.mux_sel = config_val & ADI_CONFIG_MUX_SEL_MASK;
 			break;
 		}
+
 		result = adrv906x_pinctrl_set_config_direct(dev_name(dev), pin, (unsigned long *)&conf, 1);
 		if (result == 0) {
 			switch (st) {
 			case CONFIG:
 				adrv906x_pinctrl_drv->config = config_val;
-				pr_info("set config val 0x%x for pin %d succeeded\n", adrv906x_pinctrl_drv->config, conf.input_pin);
 				break;
 			case DRIVE_STRENGTH:
 				adrv906x_pinctrl_drv->drive_strength = config_val & ADI_CONFIG_DRIVE_STRENGTH_MASK;
-				pr_info("set drive_strength val 0x%x for pin %d succeeded\n", adrv906x_pinctrl_drv->drive_strength, conf.input_pin);
 				break;
 			case SCHMITT_TRIG_ENABLE:
 				adrv906x_pinctrl_drv->schmitt_trig_enable = config_val & 0x1;
-				pr_info("set schmitt_trig_enable val 0x%x for pin %d succeeded\n", adrv906x_pinctrl_drv->schmitt_trig_enable, conf.input_pin);
 				break;
 			case PIN_PULL_ENABLEMENT:
 				adrv906x_pinctrl_drv->pin_pull_enablement = config_val & 0x1;
-				pr_info("set pin_pull_enablement val 0x%x for pin %d succeeded\n", adrv906x_pinctrl_drv->pin_pull_enablement, conf.input_pin);
 				break;
 			case PIN_PULL_UP_ENABLE:
 				adrv906x_pinctrl_drv->pin_pull_up_enable = config_val & 0x1;
-				pr_info("set pin_pull_up_enable val 0x%x for pin %d succeeded\n", adrv906x_pinctrl_drv->pin_pull_up_enable, conf.input_pin);
 				break;
 			case MUX_SEL:
 				adrv906x_pinctrl_drv->mux_sel = config_val & ADI_CONFIG_MUX_SEL_MASK;
-				pr_info("set mux_sel val 0x%x for pin %d succeeded\n", adrv906x_pinctrl_drv->mux_sel, conf.input_pin);
 				break;
 			}
 			return count;
@@ -221,18 +189,26 @@ static ssize_t adrv906x_pinctrl_common_store(struct device *dev, const char *buf
 			return -EIO;
 		}
 	} else {
-		return count;
+		pr_err("invalid input\n");
+		return -EINVAL;
 	}
 }
 
 static ssize_t adrv906x_pinctrl_drive_strength_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct adrv906x_pinctrl_driver *adrv906x_pinctrl_drv = dev_get_drvdata(dev);
+	struct adi_pin_mio conf = { 0 };
+	int result = 0;
 
 	if (!adrv906x_pinctrl_drv)
 		return -EIO;
 
-	return sprintf(buf, "0x%x\n", adrv906x_pinctrl_drv->drive_strength);
+	conf.input_pin = pin;
+	result = adrv906x_pinctrl_get_config_direct(dev_name(dev), pin, &conf.config, 1);
+	if (result == 0)
+		return snprintf(buf, sizeof(buf) - 1, "%d\n", (unsigned int)(conf.config & ADI_CONFIG_DRIVE_STRENGTH_MASK));
+	else
+		return -EIO;
 }
 
 static ssize_t adrv906x_pinctrl_drive_strength_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -240,9 +216,33 @@ static ssize_t adrv906x_pinctrl_drive_strength_store(struct device *dev, struct 
 	return adrv906x_pinctrl_common_store(dev, buf, count, DRIVE_STRENGTH);
 }
 
+static ssize_t adrv906x_pinctrl_pin_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, sizeof(buf) - 1, "%d\n", pin);
+}
+
+static ssize_t adrv906x_pinctrl_pin_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	int tmp_pin = 0, result = 0;
+
+	result = sscanf(buf, "%du", &tmp_pin);
+	if (result == 1) {
+		if (tmp_pin >= 0 && tmp_pin <= ADI_ADRV906X_PIN_COUNT) {
+			pin = tmp_pin;
+		} else {
+			pr_err("Failed in %s, setting for pin = %d is out of range!\n", __func__, tmp_pin);
+			return -EINVAL;
+		}
+		return count;
+	} else {
+		return -EIO;
+	}
+}
+
 #define ADRV906X_DEVICE_ATTR(_name) \
 	DEVICE_ATTR(_name, S_IRUGO | S_IWUSR, adrv906x_pinctrl_ ## _name ## _show, adrv906x_pinctrl_ ## _name ## _store)
 static ADRV906X_DEVICE_ATTR(drive_strength);
+static ADRV906X_DEVICE_ATTR(pin);
 
 #ifdef ADRV906X_PINCTRL_MORE_CONFIGS_OPT_IN
 static ADRV906X_DEVICE_ATTR(config);
@@ -258,7 +258,7 @@ static ssize_t adrv906x_pinctrl_config_show(struct device *dev, struct device_at
 	if (!adrv906x_pinctrl_drv)
 		return -EIO;
 
-	return sprintf(buf, "0x%x\n", adrv906x_pinctrl_drv->config);
+	return snprintf(buf, sizeof(buf) - 1, "0x%x\n", adrv906x_pinctrl_drv->config);
 }
 
 static ssize_t adrv906x_pinctrl_config_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -273,7 +273,7 @@ static ssize_t adrv906x_pinctrl_schmitt_trig_enable_show(struct device *dev, str
 	if (!adrv906x_pinctrl_drv)
 		return -EIO;
 
-	return sprintf(buf, "0x%x\n", adrv906x_pinctrl_drv->schmitt_trig_enable);
+	return snprintf(buf, sizeof(buf) - 1, "0x%x\n", adrv906x_pinctrl_drv->schmitt_trig_enable);
 }
 
 static ssize_t adrv906x_pinctrl_schmitt_trig_enable_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -288,7 +288,7 @@ static ssize_t adrv906x_pinctrl_pin_pull_enablement_show(struct device *dev, str
 	if (!adrv906x_pinctrl_drv)
 		return -EIO;
 
-	return sprintf(buf, "0x%x\n", adrv906x_pinctrl_drv->pin_pull_enablement);
+	return snprintf(buf, sizeof(buf) - 1, "0x%x\n", adrv906x_pinctrl_drv->pin_pull_enablement);
 }
 
 static ssize_t adrv906x_pinctrl_pin_pull_enablement_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -303,7 +303,7 @@ static ssize_t adrv906x_pinctrl_pin_pull_up_enable_show(struct device *dev, stru
 	if (!adrv906x_pinctrl_drv)
 		return -EIO;
 
-	return sprintf(buf, "0x%x\n", adrv906x_pinctrl_drv->pin_pull_up_enable);
+	return snprintf(buf, sizeof(buf) - 1, "0x%x\n", adrv906x_pinctrl_drv->pin_pull_up_enable);
 }
 
 static ssize_t adrv906x_pinctrl_pin_pull_up_enable_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -318,7 +318,7 @@ static ssize_t adrv906x_pinctrl_mux_sel_show(struct device *dev, struct device_a
 	if (!adrv906x_pinctrl_drv)
 		return -EIO;
 
-	return sprintf(buf, "0x%x\n", adrv906x_pinctrl_drv->mux_sel);
+	return snprintf(buf, sizeof(buf) - 1, "0x%x\n", adrv906x_pinctrl_drv->mux_sel);
 }
 
 static ssize_t adrv906x_pinctrl_mux_sel_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -329,6 +329,7 @@ static ssize_t adrv906x_pinctrl_mux_sel_store(struct device *dev, struct device_
 
 static struct attribute *adrv906x_pinctrl_attrs[] = {
 	&dev_attr_drive_strength.attr,
+	&dev_attr_pin.attr,
 #ifdef ADRV906X_PINCTRL_MORE_CONFIGS_OPT_IN
 	&dev_attr_config.attr,
 	&dev_attr_schmitt_trig_enable.attr,
@@ -403,6 +404,7 @@ static struct platform_driver adi_adrv906x_pinctrl_driver = {
 
 static int __init adi_adrv906x_pinctrl_init(void)
 {
+	pin = 0;
 	return platform_driver_register(&adi_adrv906x_pinctrl_driver);
 }
 arch_initcall(adi_adrv906x_pinctrl_init);
