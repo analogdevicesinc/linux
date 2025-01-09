@@ -564,7 +564,6 @@
 		assigned-clock-parents = <&clk IMX8MM_CLK_24M>;
 		assigned-clock-rates = <24000000>;
 		powerdown-gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
 		DOVDD-supply = <&buck5_reg>;
 		AVDD-supply = <&reg_1v8>;
 		DVDD-supply = <&reg_1v5>;
