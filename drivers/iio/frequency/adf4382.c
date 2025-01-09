@@ -469,23 +469,24 @@
 #endif
 // TODO:JONATHANC:
 // No to this.  Make the maths work either way as this just makes the code hard to
-// read.  We don't really care about 32bit much any more so just use the relevant 
+// read.  We don't really care about 32bit much any more so just use the relevant
 // handlers and 64 bit maths. It will slower on a 32bit system but we don't care.
 
-// If this is about the int size of val and val2, just assume 32 bit always and 
+// If this is about the int size of val and val2, just assume 32 bit always and
 // make sure what you use fits.
 
 enum {
 	ADF4382_FREQ,
 	ADF4382_EN_AUTO_ALIGN,
 };
+
 // TODO:JONATHANC:
 //This should go away - see later.
 
 struct adf4382_chip_info {
-	const char 		*name;
+	const char		*name;
 	u64			vco_max;
-	u64			vco_min;	
+	u64			vco_min;
 	u8			clkout_div_reg_val_max;
 };
 
@@ -498,7 +499,7 @@ struct adf4382_state {
 	struct clk_hw		clk_hw;
 	/* Protect against concurrent accesses to the device and data content */
 // TODO:JONATHANC:
-// Good to be more specific. I'm guessing there are read modify write sequences or 
+// Good to be more specific. I'm guessing there are read modify write sequences or
 // things that must be read sequentially that are not protected by the regmap locking.
 	struct mutex		lock;
 	struct notifier_block	nb;
@@ -553,7 +554,7 @@ static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x011, 0x00 }, { 0x010, 0x50 }
 // TODO:JONATHANC:
 // Where possible build these up from appropriate defines of the fields.
-// Will take more code, but give a ready way to see what default means and 
+// Will take more code, but give a ready way to see what default means and
 // compare with functions that change it.
 };
 
@@ -704,13 +705,13 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 		break;
 	}
 //TODO:JAVIER:
-//(At least) LLVM/Clang complains about vco for a good reason: you may use it 
-//without proper initialization if the for loop does not assign any value. 
+//(At least) LLVM/Clang complains about vco for a good reason: you may use it
+//without proper initialization if the for loop does not assign any value.
 //I guess you meant it to be initialized to zero in the declaration.
 
 	if (vco == 0) {
 // TODO:JONATHANC:
-// more conventional might be to check if the clk_out_dev > st->clk_out_div_reg_val_max; 
+// more conventional might be to check if the clk_out_dev > st->clk_out_div_reg_val_max;
 // Then no ned to init vco (which it seems you don't but should have).
 		dev_err(&st->spi->dev, "Output frequency is out of range.\n");
 		ret = -EINVAL;
@@ -941,7 +942,7 @@ static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 	u64 freq;
 	u64 pfd;
 // TODO:JONATHANC:
-// Combine same types on oneline - don't mix ones that set the value and ones 
+// Combine same types on oneline - don't mix ones that set the value and ones
 // that don't however.
 	u16 n;
 	int ret;
@@ -1002,7 +1003,7 @@ static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 
 	ret = regmap_read(st->regmap, 0x1c, &tmp);
 // TODO:JONATHANC:
-// Looks like a bulk read of 3 bytes then a get_unaligned_be24 or similar. 
+// Looks like a bulk read of 3 bytes then a get_unaligned_be24 or similar.
 // Be careful with dma safety of buffers when switching to bulkd read.
 	if  (ret)
 		return ret;
@@ -1054,7 +1055,7 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 
 	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK, 0xff);
 // TODO:JONATHANC:
-// regmap_set_bits? 
+// regmap_set_bits?
 	if (ret)
 		return ret;
 
@@ -1140,11 +1141,11 @@ static int adf4382_get_phase_adjust(struct adf4382_state *st, u32 *val)
 
 	phase_value = phase_reg_value * PERIOD_IN_DEG;
 // TODO:JONATHANC:
-// Clear the intermediates are not phase_value.  Can we figure a naming scheme out 
+// Clear the intermediates are not phase_value.  Can we figure a naming scheme out
 // that makes the intermediate steps more obvious.
 	phase_value = phase_value * st->freq;
 // TODO:JONATHANC:
-// Clear the intermediates are not phase_value.  Can we figure a naming scheme out 
+// Clear the intermediates are not phase_value.  Can we figure a naming scheme out
 // that makes the intermediate steps more obvious.
 	phase_value = div64_u64(phase_value, pfd_freq_hz);
 
@@ -1199,7 +1200,7 @@ static int adf4382_set_out_power(struct adf4382_state *st, int ch, int pwr)
 					  FIELD_PREP(ADF4382_CLK1_OPWR_MSK, pwr));
 	}
 // TODO:JONATHANC:
-// for cases like this where it is a choice between 0 and 1, I'd use an else even 
+// for cases like this where it is a choice between 0 and 1, I'd use an else even
 // though not necessary for correctness.
 	return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK2_OPWR_MSK,
 				  FIELD_PREP(ADF4382_CLK2_OPWR_MSK, pwr));
@@ -1318,8 +1319,9 @@ static ssize_t adf4382_read(struct iio_dev *indio_dev, uintptr_t private,
 		.private = _ident, \
 		.shared = _shared, \
 }
+
 // TODO:JONATHANC:
-// For two entries?  Macro is just making it harder to read so put the struct 
+// For two entries?  Macro is just making it harder to read so put the struct
 // initializer inline without the macro.
 
 static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
@@ -1343,9 +1345,9 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 			    int *val2,
 			    long mask)
 // TODO:JONATHANC:
-// Where they fit under 80 chars, good to combine parameters on fewer lines.  
+// Where they fit under 80 chars, good to combine parameters on fewer lines.
 // Check for other cases where this is easy to do.
-// It is fine to group things different, but here there is no obvious benefit in 
+// It is fine to group things different, but here there is no obvious benefit in
 // doing one per line.
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
@@ -1587,8 +1589,8 @@ static void adf4382_debugfs_init(struct iio_dev *indio_dev)
 	debugfs_create_file_unsafe("coarse_current", 0400, d,
 				   indio_dev, &adf4382_coarse_current_fops);
 // TODO:JONATHANC:
-// As below. I think you can let the compiler work it's magic as all the debugfs 
-// calls should have stubs and the compiler should be able to tell this code is 
+// As below. I think you can let the compiler work it's magic as all the debugfs
+// calls should have stubs and the compiler should be able to tell this code is
 // not used and remove it if so.
 }
 #else
@@ -1910,7 +1912,7 @@ static int adf4382_probe(struct spi_device *spi)
 		return PTR_ERR(regmap);
 
 	st = iio_priv(indio_dev);
-	
+
 	st->info = spi_get_device_match_data(spi);
 	if (!st->info)
 		return -ENODEV;
@@ -1922,15 +1924,15 @@ static int adf4382_probe(struct spi_device *spi)
 	st->spi = spi;
 	st->phase = 0;
 // TODO:JONATHANC:
-// st is allocated with kzalloc so no need to set a default to 0 unless it's a 
+// st is allocated with kzalloc so no need to set a default to 0 unless it's a
 // non obvious default.  Here I think it's fine.
 
 	mutex_init(&st->lock);
 // TODO:JONATHANC:
 // ret = devm_mutex_init(&st->lock)
 // if (ret)
-// 	return ret;
-// Only makes a difference when some debug features are turned on, but it's 
+//	return ret;
+// Only makes a difference when some debug features are turned on, but it's
 // cheap to do so preferred in new code.
 
 	ret = adf4382_parse_device(st);
@@ -1956,7 +1958,7 @@ static int adf4382_probe(struct spi_device *spi)
 
 	if (!st->clkout) {
 // TODO:JONATHANC:
-// If you have set clkout, does it actually make sense to register the iio device 
+// If you have set clkout, does it actually make sense to register the iio device
 // with no channels?  What is that bringing us?
 		indio_dev->channels = adf4382_channels;
 		indio_dev->num_channels = ARRAY_SIZE(adf4382_channels);
@@ -1968,8 +1970,8 @@ static int adf4382_probe(struct spi_device *spi)
 
 	if (IS_ENABLED(CONFIG_DEBUG_FS))
 // TODO:JONATHANC:
-// I think you can skip the ifdef magic above as the compiler should be able to 
-// remove those functions as unused.  Check builds with and without that 
+// I think you can skip the ifdef magic above as the compiler should be able to
+// remove those functions as unused.  Check builds with and without that
 // protection and see if the module size changes.
 		adf4382_debugfs_init(indio_dev);
 
@@ -1980,11 +1982,11 @@ static const struct spi_device_id adf4382_id[] = {
 	{ "adf4382",  (kernel_ulong_t)&adf4382_chip_tbl },
 	{ "adf4382a", (kernel_ulong_t)&adf4382a_chip_tbl },
 // TODO:JONATHANC:
-// Don't use an enum for these, use a point to a static const structure that 
+// Don't use an enum for these, use a point to a static const structure that
 // provides the chip specific information as data (rather than code as above).
 
-// That ends up both being a more sustainable solution and allows you to use the 
-// more robust data accessor spi_get_device_match_data() Note though that you 
+// That ends up both being a more sustainable solution and allows you to use the
+// more robust data accessor spi_get_device_match_data() Note though that you
 // should add the same data to the of_device_id table.
 	{ }
 // TODO:JONATHANC:
