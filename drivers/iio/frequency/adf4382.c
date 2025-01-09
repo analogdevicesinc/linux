@@ -482,16 +482,15 @@ enum {
 // TODO:JONATHANC:
 //This should go away - see later.
 
-enum {
-	ADF4382,
-	ADF4382A,
+struct adf4382_chip_info {
+	const char 		*name;
+	u64			vco_max;
+	u64			vco_min;	
+	u8			clkout_div_reg_val_max;
 };
-// TODO:JONATHANC:
-// As below, this sort of enum usually indicates that there is code to deal with 
-// the difference between variants, which instead should be done with data via 
-// appropriate static const struct picking.
 
 struct adf4382_state {
+	const struct adf4382_chip_info *info;
 	struct spi_device	*spi;
 	struct regmap		*regmap;
 	struct clk		*clkin;
@@ -515,8 +514,6 @@ struct adf4382_state {
 	u16			bleed_word;
 	int			phase;
 	bool			cmos_3v3;
-	u64			vco_max;
-	u64			vco_min;
 };
 
 #define to_adf4382_state(_hw) container_of(_hw, struct adf4382_state, clk_hw)
@@ -558,6 +555,20 @@ static const struct reg_sequence adf4382_reg_default[] = {
 // Where possible build these up from appropriate defines of the fields.
 // Will take more code, but give a ready way to see what default means and 
 // compare with functions that change it.
+};
+
+static const struct adf4382_chip_info adf4382_chip_tbl = {
+	.name = "adf4382",
+	.vco_max = ADF4382_VCO_FREQ_MAX,
+	.vco_min = ADF4382_VCO_FREQ_MIN,
+	.clkout_div_reg_val_max = ADF4382_CLKOUT_DIV_REG_VAL_MAX
+};
+
+static const struct adf4382_chip_info adf4382a_chip_tbl = {
+	.name = "adf4382a",
+	.vco_max = ADF4382A_VCO_FREQ_MAX,
+	.vco_min = ADF4382A_VCO_FREQ_MIN,
+	.clkout_div_reg_val_max = ADF4382A_CLKOUT_DIV_REG_VAL_MAX,
 };
 
 static const struct regmap_config adf4382_regmap_config = {
@@ -684,9 +695,9 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 		return ret;
 	}
 
-	for (clkout_div = 0; clkout_div <= st->clkout_div_reg_val_max; clkout_div++) {
+	for (clkout_div = 0; clkout_div <= st->info->clkout_div_reg_val_max; clkout_div++) {
 		tmp =  (1 << clkout_div) * st->freq;
-		if (tmp < st->vco_min || tmp > st->vco_max)
+		if (tmp < st->info->vco_min || tmp > st->info->vco_max)
 			continue;
 
 		vco = tmp;
@@ -1825,13 +1836,13 @@ static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
 	u8 div_rate;
 	u64 tmp;
 
-	for (div_rate = 0; div_rate <= st->clkout_div_reg_val_max; div_rate++) {
+	for (div_rate = 0; div_rate <= st->info->clkout_div_reg_val_max; div_rate++) {
 		tmp = (1 << div_rate) * freq;
-		if (tmp >= st->vco_min)
+		if (tmp >= st->info->vco_min)
 			break;
 	}
-	div_rate = clamp_t(u8, div_rate, 0U, st->clkout_div_reg_val_max);
-	freq = clamp_t(u64, tmp, st->vco_min, st->vco_max);
+	div_rate = clamp_t(u8, div_rate, 0U, st->info->clkout_div_reg_val_max);
+	freq = clamp_t(u64, tmp, st->info->vco_min, st->info->vco_max);
 	freq = div_u64(freq, 1 << div_rate);
 
 	rate = DIV_ROUND_CLOSEST_ULL(freq, ADF4382_CLK_SCALE);
@@ -1899,11 +1910,13 @@ static int adf4382_probe(struct spi_device *spi)
 		return PTR_ERR(regmap);
 
 	st = iio_priv(indio_dev);
+	
+	st->info = spi_get_device_match_data(spi);
+	if (!st->info)
+		return -ENODEV;
 
+	indio_dev->name = st->info->name;
 	indio_dev->info = &adf4382_info;
-	indio_dev->name = "adf4382";
-// TODO:JONATHANC:
-// Do that via chip_info as suggested below.
 
 	st->regmap = regmap;
 	st->spi = spi;
@@ -1911,18 +1924,6 @@ static int adf4382_probe(struct spi_device *spi)
 // TODO:JONATHANC:
 // st is allocated with kzalloc so no need to set a default to 0 unless it's a 
 // non obvious default.  Here I think it's fine.
-
-	st->vco_max = ADF4382_VCO_FREQ_MAX;
-	st->vco_min = ADF4382_VCO_FREQ_MIN;
-	st->clkout_div_reg_val_max = ADF4382_CLKOUT_DIV_REG_VAL_MAX;
-	if (spi_get_device_id(spi)->driver_data == ADF4382A) {
-// TODO:JONATHANC:
-// As below, use a structure not an enum.
-		indio_dev->name = "adf4382a";
-		st->vco_max = ADF4382A_VCO_FREQ_MAX;
-		st->vco_min = ADF4382A_VCO_FREQ_MIN;
-		st->clkout_div_reg_val_max = ADF4382A_CLKOUT_DIV_REG_VAL_MAX;
-	}
 
 	mutex_init(&st->lock);
 // TODO:JONATHANC:
@@ -1976,8 +1977,8 @@ static int adf4382_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id adf4382_id[] = {
-	{ "adf4382", ADF4382 },
-	{ "adf4382a", ADF4382A },
+	{ "adf4382",  (kernel_ulong_t)&adf4382_chip_tbl },
+	{ "adf4382a", (kernel_ulong_t)&adf4382a_chip_tbl },
 // TODO:JONATHANC:
 // Don't use an enum for these, use a point to a static const structure that 
 // provides the chip specific information as data (rather than code as above).
@@ -1985,21 +1986,16 @@ static const struct spi_device_id adf4382_id[] = {
 // That ends up both being a more sustainable solution and allows you to use the 
 // more robust data accessor spi_get_device_match_data() Note though that you 
 // should add the same data to the of_device_id table.
-	{},
+	{ }
 // TODO:JONATHANC:
 // As below.
 };
 MODULE_DEVICE_TABLE(spi, adf4382_id);
 
 static const struct of_device_id adf4382_of_match[] = {
-	{ .compatible = "adi,adf4382" },
-	{ .compatible = "adi,adf4382a" },
-// TODO:JONATHANC:
-// No comma on terminated entrees. Also I'm trying to standardize spacing on 
-// these in IIO to 
-// { }
-// It's an arbitrary choice, but that's the one I'm going for.
-	{},
+	{ .compatible = "adi,adf4382",  .data = &adf4382_chip_tbl },
+	{ .compatible = "adi,adf4382a", .data = &adf4382a_chip_tbl },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, adf4382_of_match);
 
