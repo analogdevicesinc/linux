@@ -1459,7 +1459,6 @@ static const struct iio_chan_spec adf4382_channels[] = {
 	},
 };
 
-#ifdef CONFIG_DEBUG_FS
 static int adf4382_show_del_cnt_raw(void *arg, u64 *val)
 {
 	struct iio_dev *indio_dev = arg;
@@ -1588,16 +1587,7 @@ static void adf4382_debugfs_init(struct iio_dev *indio_dev)
 
 	debugfs_create_file_unsafe("coarse_current", 0400, d,
 				   indio_dev, &adf4382_coarse_current_fops);
-// TODO:JONATHANC:
-// As below. I think you can let the compiler work it's magic as all the debugfs
-// calls should have stubs and the compiler should be able to tell this code is
-// not used and remove it if so.
 }
-#else
-static void adf4382_debugfs_init(struct iio_dev *indio_dev)
-{
-}
-#endif
 
 static int adf4382_parse_device(struct adf4382_state *st)
 {
@@ -1922,13 +1912,9 @@ static int adf4382_probe(struct spi_device *spi)
 
 	st->regmap = regmap;
 	st->spi = spi;
-	st->phase = 0;
-// TODO:JONATHANC:
-// st is allocated with kzalloc so no need to set a default to 0 unless it's a
-// non obvious default.  Here I think it's fine.
 
 	mutex_init(&st->lock);
-// TODO:JONATHANC:
+// FIXME:JONATHANC: not avilable in this version
 // ret = devm_mutex_init(&st->lock)
 // if (ret)
 //	return ret;
@@ -1957,7 +1943,7 @@ static int adf4382_probe(struct spi_device *spi)
 		return ret;
 
 	if (!st->clkout) {
-// TODO:JONATHANC:
+// HACK:JONATHANC:
 // If you have set clkout, does it actually make sense to register the iio device
 // with no channels?  What is that bringing us?
 		indio_dev->channels = adf4382_channels;
@@ -1969,10 +1955,6 @@ static int adf4382_probe(struct spi_device *spi)
 		return ret;
 
 	if (IS_ENABLED(CONFIG_DEBUG_FS))
-// TODO:JONATHANC:
-// I think you can skip the ifdef magic above as the compiler should be able to
-// remove those functions as unused.  Check builds with and without that
-// protection and see if the module size changes.
 		adf4382_debugfs_init(indio_dev);
 
 	return 0;
@@ -1981,16 +1963,7 @@ static int adf4382_probe(struct spi_device *spi)
 static const struct spi_device_id adf4382_id[] = {
 	{ "adf4382",  (kernel_ulong_t)&adf4382_chip_tbl },
 	{ "adf4382a", (kernel_ulong_t)&adf4382a_chip_tbl },
-// TODO:JONATHANC:
-// Don't use an enum for these, use a point to a static const structure that
-// provides the chip specific information as data (rather than code as above).
-
-// That ends up both being a more sustainable solution and allows you to use the
-// more robust data accessor spi_get_device_match_data() Note though that you
-// should add the same data to the of_device_id table.
 	{ }
-// TODO:JONATHANC:
-// As below.
 };
 MODULE_DEVICE_TABLE(spi, adf4382_id);
 
