@@ -1573,63 +1573,26 @@ static void adf4382_debugfs_init(struct iio_dev *indio_dev)
 
 static int adf4382_parse_device(struct adf4382_state *st)
 {
-	u32 tmp;
-	int ret;
-	int i;
+	u8 tmp;
 
-	ret = device_property_read_u64(&st->spi->dev, "adi,power-up-frequency",
-				       &st->freq);
-// TODO:JONATHANC:
-// Use
-// struct device *dev = &st->spi->dev;
-// to simplify all these calls a little.  Do similar in any other function that
-// does this lots of times.
-	if (ret)
-		st->freq = ADF4382_RFOUT_DEFAULT;
+	st->freq = ADF4382_RFOUT_DEFAULT;
+	device_property_read_u64(&st->spi->dev, "adi,power-up-frequency",
+				 &st->freq);
 
-	ret = device_property_read_u32(&st->spi->dev, "adi,bleed-word",
-				       &tmp);
-// TODO:JONATHANC:
-// If it's a u16, read a u16 then
-// st->bleed_word = 0;
-// device_property_read_u16(dev, "adi,bleed-word", &st->bleed_word);
-	if (ret)
-		st->bleed_word = 0;
-	else
-		st->bleed_word = (u16)tmp;
+	st->bleed_word = 0;
+	device_property_read_u16(&st->spi->dev, "adi,bleed-word",
+				 &st->bleed_word);
 
-	ret = device_property_read_u32(&st->spi->dev, "adi,charge-pump-microamp",
-				       &tmp);
-// TODO:JONATHANC:
-// Consider just using the default value that you can pass to find_closest.
-// Given you specify the list in the dt-binding I'd just not do a closest match.
-// Easier to match precisely and no binding should use anything else.
-	if (ret) {
-		st->cp_i = ADF4382_CP_I_DEFAULT;
-	} else {
-		i = find_closest(tmp, adf4382_ci_ua, ARRAY_SIZE(adf4382_ci_ua));
-		st->cp_i = (u8)i;
-	}
+	st->cp_i = ADF4382_CP_I_DEFAULT;
+	device_property_read_u8(&st->spi->dev, "adi,charge-pump-microamp",
+				&st->cp_i);
 
-	ret = device_property_read_u32(&st->spi->dev, "adi,output-power-value",
-				       &tmp);
-	if (ret)
-		st->opwr_a = ADF4382_OPOWER_DEFAULT;
-// TODO:JONATHANC:
-// I assume this won't change if you clamp it so simpler code is.
-// tmp = ADF4382_OPOWER_DEFAUT;
-// device_property_read_u32(dev, "adi,output-power-value", &tmp);
-// st->opwr_a = clamp_t(u8, tmp, 0, 15);
-// Or check it and fail if they picked and out of range value.
-	else
-		st->opwr_a = clamp_t(u8, tmp, 0, 15);
+	tmp = ADF4382_OPOWER_DEFAULT;
+	device_property_read_u8(&st->spi->dev, "adi,output-power-value", &tmp);
+	st->opwr_a = clamp_t(u8, tmp, 0, 15);
 
-	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
-				       &tmp);
-	if (ret || !tmp)
-		st->ref_div = ADF4382_REF_DIV_DEFAULT;
-	else
-		st->ref_div = (u8)tmp;
+	st->ref_div = ADF4382_REF_DIV_DEFAULT;
+	device_property_read_u8(&st->spi->dev, "adi,ref-divider", &st->ref_div);
 // TODO:JONATHANC:
 // read a u8 if you want an u8 and define the DT binding as such.
 // However, I raised that I'm not yet convinced this should be in that binding.
@@ -1679,7 +1642,7 @@ static int adf4382_init(struct adf4382_state *st)
 
 	ret = regmap_write(st->regmap, 0x00,
 			   FIELD_PREP(ADF4382_SDO_ACT_MSK, en) |
-// TODO:JONATHANC:
+// HACK:JONATHANC:
 // Field names should provide an indication of which register they are in.
 // Here, given they registers aren't named, perhaps
 // ADF4382_REG0000_SDO_ACT_MSK etc
@@ -1767,7 +1730,7 @@ static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 	ret = adf4382_get_freq(st, &freq);
 	if (ret)
 		dev_err(&st->spi->dev, "Failed to get frequency\n");
-	
+
 	return DIV_ROUND_CLOSEST_ULL(freq, ADF4382_CLK_SCALE);
 }
 
@@ -1784,7 +1747,7 @@ static void adf4382_clock_disable(struct clk_hw *hw)
 {
 	struct adf4382_state *st = to_adf4382_state(hw);
 
-	regmap_set_bits(st->regmap, 0x2B, 
+	regmap_set_bits(st->regmap, 0x2B,
 			ADF4382_PD_CLKOUT1_MSK |
 			ADF4382_PD_CLKOUT2_MSK);
 }
