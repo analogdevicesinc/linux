@@ -18,6 +18,7 @@
 #include <linux/clk/clkscale.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
+#include <linux/cleanup.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/module.h>
@@ -919,16 +920,8 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 
 static int adf4382_set_freq(struct adf4382_state *st)
 {
-	int ret;
-
-	mutex_lock(&st->lock);
-	ret = _adf4382_set_freq(st);
-	mutex_unlock(&st->lock);
-// TODO:JONATHANC:
-// guard(mutex)(&st->lock);
-// return _adf...
-
-	return ret;
+	guard(mutex)(&st->lock);
+	return _adf4382_set_freq(st);
 }
 
 static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
@@ -1737,17 +1730,10 @@ static int adf4382_freq_change(struct notifier_block *nb, unsigned long action,
 			       void *data)
 {
 	struct adf4382_state *st = container_of(nb, struct adf4382_state, nb);
-	int ret;
 
 	if (action == POST_RATE_CHANGE) {
-		mutex_lock(&st->lock);
-		ret = notifier_from_errno(adf4382_init(st));
-		mutex_unlock(&st->lock);
-// TODO:JONATHANC:
-// guard(mutex)(&st->lock);
-// return notifier_from_errno(adf4382_init(st));
-// and include cleanup.h
-		return ret;
+		guard(mutex)(&st->lock);
+		return notifier_from_errno(adf4382_init(st));
 	}
 
 	return NOTIFY_OK;
@@ -1776,15 +1762,13 @@ static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 {
 	struct adf4382_state *st = to_adf4382_state(hw);
 	u64 freq = 0;
-	unsigned long rate;
+	int ret;
 
-	adf4382_get_freq(st, &freq);
-	rate = DIV_ROUND_CLOSEST_ULL(freq, ADF4382_CLK_SCALE);
-// TODO:JONATHANC:
-// Check for errors.  If you get one perhaps print a message as not much else you
-// can do in this callback.
-// return DIV_ROUND...
-	return rate;
+	ret = adf4382_get_freq(st, &freq);
+	if (ret)
+		dev_err(&st->spi->dev, "Failed to get frequency\n");
+	
+	return DIV_ROUND_CLOSEST_ULL(freq, ADF4382_CLK_SCALE);
 }
 
 static int adf4382_clock_enable(struct clk_hw *hw)
