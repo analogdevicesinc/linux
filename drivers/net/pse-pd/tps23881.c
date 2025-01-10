@@ -147,14 +147,13 @@ static int tps23881_pi_is_enabled(struct pse_controller_dev *pcdev, int id)
 	return enabled;
 }
 
-static int tps23881_ethtool_get_status(struct pse_controller_dev *pcdev,
-				       unsigned long id,
-				       struct netlink_ext_ack *extack,
-				       struct pse_control_status *status)
+static int
+tps23881_pi_get_admin_state(struct pse_controller_dev *pcdev, int id,
+			    struct pse_admin_state *admin_state)
 {
 	struct tps23881_priv *priv = to_tps23881_priv(pcdev);
 	struct i2c_client *client = priv->client;
-	bool enabled, delivering;
+	bool enabled;
 	u8 chan;
 	int ret;
 
@@ -184,15 +183,11 @@ static int tps23881_ethtool_get_status(struct pse_controller_dev *pcdev,
 
 	/* Return delivering status only if both channel are on this state */
 	if (delivering)
-		status->c33_pw_status = ETHTOOL_C33_PSE_PW_D_STATUS_DELIVERING;
+		pw_status->c33_pw_status =
+			ETHTOOL_C33_PSE_PW_D_STATUS_DELIVERING;
 	else
-		status->c33_pw_status = ETHTOOL_C33_PSE_PW_D_STATUS_DISABLED;
-
-	/* Return enabled status only if both channel are on this state */
-	if (enabled)
-		status->c33_admin_state = ETHTOOL_C33_PSE_ADMIN_STATE_ENABLED;
-	else
-		status->c33_admin_state = ETHTOOL_C33_PSE_ADMIN_STATE_DISABLED;
+		pw_status->c33_pw_status =
+			ETHTOOL_C33_PSE_PW_D_STATUS_DISABLED;
 
 	return 0;
 }
@@ -627,7 +622,8 @@ static const struct pse_controller_ops tps23881_ops = {
 	.pi_enable = tps23881_pi_enable,
 	.pi_disable = tps23881_pi_disable,
 	.pi_is_enabled = tps23881_pi_is_enabled,
-	.ethtool_get_status = tps23881_ethtool_get_status,
+	.pi_get_admin_state = tps23881_pi_get_admin_state,
+	.pi_get_pw_status = tps23881_pi_get_pw_status,
 };
 
 static const char fw_parity_name[] = "ti/tps23881/tps23881-parity-14.bin";
