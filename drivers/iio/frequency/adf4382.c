@@ -762,9 +762,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 		frac1_word, frac2_word, mod2_word);
 
 	ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK,
-				 frac2_word != 0 ? 0xff : 0);
-// TODO:JONATHANC:
-// Use MOD_EN_MSK again, not 0xff.  Or use an if else with set_bits and clear_bits
+				 frac2_word != 0 ? ADF4382_VAR_MOD_EN_MSK : 0);
 	if (ret)
 		return ret;
 
@@ -854,11 +852,11 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(st->regmap, 0x31, ADF4382_DCLK_MODE_MSK, 0xff);
+	ret = regmap_set_bits(st->regmap, 0x31, ADF4382_DCLK_MODE_MSK);
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(st->regmap, 0x31, ADF4382_CAL_CT_SEL_MSK, 0xff);
+	ret = regmap_set_bits(st->regmap, 0x31, ADF4382_CAL_CT_SEL_MSK);
 	if (ret)
 		return ret;
 
@@ -1044,24 +1042,15 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	u64 phase_ci;
 	int ret;
 
-	ret = regmap_update_bits(st->regmap, 0x1E, ADF4382_EN_PHASE_RESYNC_MSK,
-				 0xff);
-// TODO:JONATHANC:
-// regmap_set_bits? Using 0xff when only one bit set is not easy to read.
-// Also breaks the scripting that is out there to detect when regmap_set_bits
-// should be used for simpler and clearer code.
+	ret = regmap_set_bits(st->regmap, 0x1E, ADF4382_EN_PHASE_RESYNC_MSK);
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK, 0xff);
-// TODO:JONATHANC:
-// regmap_set_bits?
+	ret = regmap_set_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK);
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(st->regmap, 0x32, ADF4382_DEL_MODE_MSK, 0x0);
-// TODO:JONATHANC:
-// regmap_clear_bits
+	ret = regmap_clear_bits(st->regmap, 0x32, ADF4382_DEL_MODE_MSK);
 	if (ret)
 		return ret;
 
@@ -1109,14 +1098,14 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 		return ret;
 
 	if (st->auto_align_en)
-		return regmap_update_bits(st->regmap, 0x32,
-					  ADF4382_EN_AUTO_ALIGN_MSK, 0xff);
+		return regmap_set_bits(st->regmap, 0x32,
+				       ADF4382_EN_AUTO_ALIGN_MSK);
 
-	ret = regmap_update_bits(st->regmap, 0x32, ADF4382_EN_AUTO_ALIGN_MSK, 0x0);
+	ret = regmap_clear_bits(st->regmap, 0x32, ADF4382_EN_AUTO_ALIGN_MSK);
 	if (ret)
 		return ret;
 
-	return regmap_update_bits(st->regmap, 0x34, ADF4382_PHASE_ADJ_MSK, 0xff);
+	return regmap_set_bits(st->regmap, 0x34, ADF4382_PHASE_ADJ_MSK);
 }
 
 static int adf4382_get_phase_adjust(struct adf4382_state *st, u32 *val)
@@ -1802,22 +1791,18 @@ static int adf4382_clock_enable(struct clk_hw *hw)
 {
 	struct adf4382_state *st = to_adf4382_state(hw);
 
-	return regmap_update_bits(st->regmap, 0x2B,
-				  ADF4382_PD_CLKOUT1_MSK | ADF4382_PD_CLKOUT2_MSK,
-				  0x00);
-// TODO:JONATHANC:
-// regmap_clear_bits
+	return regmap_clear_bits(st->regmap, 0x2B,
+				 ADF4382_PD_CLKOUT1_MSK |
+				 ADF4382_PD_CLKOUT2_MSK);
 }
 
 static void adf4382_clock_disable(struct clk_hw *hw)
 {
 	struct adf4382_state *st = to_adf4382_state(hw);
 
-	regmap_update_bits(st->regmap, 0x2B,
-			   ADF4382_PD_CLKOUT1_MSK | ADF4382_PD_CLKOUT2_MSK,
-			   0xff);
-// TODO:JONATHANC:
-// regmap_set_bits
+	regmap_set_bits(st->regmap, 0x2B, 
+			ADF4382_PD_CLKOUT1_MSK |
+			ADF4382_PD_CLKOUT2_MSK);
 }
 
 static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
@@ -1837,10 +1822,7 @@ static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
 	freq = clamp_t(u64, tmp, st->info->vco_min, st->info->vco_max);
 	freq = div_u64(freq, 1 << div_rate);
 
-	rate = DIV_ROUND_CLOSEST_ULL(freq, ADF4382_CLK_SCALE);
-	return rate;
-// TODO:JONATHANC:
-// return DIV_ROUND_CLOSEST_ULL();
+	return DIV_ROUND_CLOSEST_ULL(freq, ADF4382_CLK_SCALE);
 }
 
 static const struct clk_ops adf4382_clock_ops = {
