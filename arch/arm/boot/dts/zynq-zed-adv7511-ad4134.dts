@@ -142,5 +142,6 @@
 		refin-supply = <&refin>;
 
 		adi,spi-engine = <&ad4134_spi_engine>;
+		adi,adc-frame = "24-bit";
 	};
 };
