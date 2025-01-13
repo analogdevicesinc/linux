@@ -57,6 +57,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD7476
 	imply AD7606_IFACE_PARALLEL
 	imply AD7606_IFACE_SPI
+	imply AD7625
 	imply AD7766
 	imply AD7768
 	imply AD7768_1
