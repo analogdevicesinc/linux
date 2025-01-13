@@ -393,18 +393,11 @@
 /* ADF4382 REG0058 Map */
 #define ADF4382_PLL_LOCK_MSK			BIT(0)
 
-#define ADF4382_MOD2WORD_LSB_MSK		GENMASK(7, 0)
-#define ADF4382_MOD2WORD_MID_MSK		GENMASK(15, 8)
-#define ADF4382_MOD2WORD_MSB_MSK		GENMASK(23, 16)
-
-#define ADF4382_FRAC1WORD_LSB_MSK		GENMASK(7, 0)
-#define ADF4382_FRAC1WORD_MID_MSK		GENMASK(15, 8)
-#define ADF4382_FRAC1WORD_MSB_MSK		GENMASK(23, 16)
+#define ADF4382_N_INT_MSK			GENMASK(11, 0)
+#define ADF4382_MOD2WORD_MSK			GENMASK(23, 0)
 #define ADF4382_FRAC1WORD_MS_BIT_MSK		BIT(24)
-
-#define ADF4382_FRAC2WORD_LSB_MSK		GENMASK(7, 0)
-#define ADF4382_FRAC2WORD_MID_MSK		GENMASK(15, 8)
-#define ADF4382_FRAC2WORD_MSB_MSK		GENMASK(23, 16)
+#define ADF4382_FRAC1WORD_MSK			GENMASK(24, 0)
+#define ADF4382_FRAC2WORD_MSK			GENMASK(23, 0)
 
 #define ADF4382_DEL_CNT_LSB_MSK			GENMASK(7, 0)
 #define ADF4382_DEL_CNT_MSB_MSK			GENMASK(15, 8)
@@ -785,36 +778,9 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 				 FIELD_PREP(ADF4382_EN_BLEED_MSK, en_bleed));
 	if (ret)
 		return ret;
-// TODO:JONATHANC:
-// Use a bulk write and a put_unaligned_l/be24()
 
-	ret = regmap_write(st->regmap, 0x1A,
-			   FIELD_GET(ADF4382_MOD2WORD_LSB_MSK, mod2_word));
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, 0x1B,
-			   FIELD_GET(ADF4382_MOD2WORD_MID_MSK, mod2_word));
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, 0x1C,
-			   FIELD_GET(ADF4382_MOD2WORD_MSB_MSK, mod2_word));
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, 0x12,
-			   FIELD_GET(ADF4382_FRAC1WORD_LSB_MSK, frac1_word));
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, 0x13,
-			   FIELD_GET(ADF4382_FRAC1WORD_MID_MSK, frac1_word));
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, 0x14,
-			   FIELD_GET(ADF4382_FRAC1WORD_MSB_MSK, frac1_word));
+	put_unaligned_be24(mod2_word, &mod2_word);
+	ret = regmap_bulk_write(st->regmap, 0x1C, &mod2_word, 3);
 	if (ret)
 		return ret;
 
@@ -823,18 +789,13 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x17,
-			   FIELD_GET(ADF4382_FRAC2WORD_LSB_MSK, frac2_word));
+	put_unaligned_be24(frac1_word, &frac1_word);
+	ret = regmap_bulk_write(st->regmap, 0x14, &frac1_word, 3);
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x18,
-			   FIELD_GET(ADF4382_FRAC2WORD_MID_MSK, frac2_word));
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, 0x19,
-			   FIELD_GET(ADF4382_FRAC2WORD_MSB_MSK, frac2_word));
+	put_unaligned_be24(frac2_word, &frac2_word);
+	ret = regmap_bulk_write(st->regmap, 0x19, &frac2_word, 3);
 	if (ret)
 		return ret;
 
@@ -942,73 +903,33 @@ static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 	if (ret)
 		return ret;
 
-	ret = regmap_read(st->regmap, 0x11, &tmp);
-	if  (ret)
+	ret = regmap_bulk_read(st->regmap, 0x11, &tmp, 2);
+	if (ret)
 		return ret;
-
-	n = FIELD_PREP(ADF4382_N_INT_MSB_MSK, tmp);
-	n = n << 8;
-
-	ret = regmap_read(st->regmap, 0x10, &tmp);
-	if  (ret)
+	
+	tmp = get_unaligned_be16(&tmp);
+	n = FIELD_GET(ADF4382_N_INT_MSK, tmp);
+	
+	ret = regmap_bulk_read(st->regmap, 0x15, &tmp, 4);
+	if (ret)
 		return ret;
-	n |= FIELD_PREP(ADF4382_N_INT_LSB_MSK, tmp);
-// TODO:JONATHANC:
-// Looks like a bulk read and an endian. Check for all these and replace them
-// with that approach.
+	
+	tmp = get_unaligned_be32(&tmp);
+	frac1 = FIELD_GET(ADF4382_FRAC1WORD_MSK, tmp);
 
-	ret = regmap_read(st->regmap, 0x15, &tmp);
-	if  (ret)
+	ret = regmap_bulk_read(st->regmap, 0x19, &tmp, 3);
+	if (ret)
 		return ret;
-	frac1 |= FIELD_PREP(ADF4382_FRAC1WORD_MS_BIT_MSK, tmp);
+	
+	tmp = get_unaligned_be24(&tmp);
+	frac2 = FIELD_GET(ADF4382_FRAC2WORD_MSK, tmp);
 
-	ret = regmap_read(st->regmap, 0x14, &tmp);
-	if  (ret)
+	ret = regmap_bulk_read(st->regmap, 0x1c, &tmp, 3);
+	if (ret)
 		return ret;
-	frac1 |= FIELD_PREP(ADF4382_FRAC1WORD_MSB_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x13, &tmp);
-	if  (ret)
-		return ret;
-	frac1 |= FIELD_PREP(ADF4382_FRAC1WORD_MID_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x12, &tmp);
-	if  (ret)
-		return ret;
-	frac1 |= FIELD_PREP(ADF4382_FRAC1WORD_LSB_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x19, &tmp);
-	if  (ret)
-		return ret;
-	frac2 |= FIELD_PREP(ADF4382_FRAC2WORD_MSB_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x18, &tmp);
-	if  (ret)
-		return ret;
-	frac2 |= FIELD_PREP(ADF4382_FRAC2WORD_MID_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x17, &tmp);
-	if  (ret)
-		return ret;
-	frac2 |= FIELD_PREP(ADF4382_FRAC2WORD_LSB_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x1c, &tmp);
-// TODO:JONATHANC:
-// Looks like a bulk read of 3 bytes then a get_unaligned_be24 or similar.
-// Be careful with dma safety of buffers when switching to bulkd read.
-	if  (ret)
-		return ret;
-	mod2 |= FIELD_PREP(ADF4382_MOD2WORD_MSB_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x1b, &tmp);
-	if  (ret)
-		return ret;
-	mod2 |= FIELD_PREP(ADF4382_MOD2WORD_MID_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x1a, &tmp);
-	if  (ret)
-		return ret;
-	mod2 |= FIELD_PREP(ADF4382_MOD2WORD_LSB_MSK, tmp);
+	
+	tmp = get_unaligned_be24(&tmp);
+	mod2 = FIELD_GET(ADF4382_MOD2WORD_MSK, tmp);
 
 	if (mod2 == 0)
 		mod2 = 1;
@@ -1445,25 +1366,14 @@ static int adf4382_show_del_cnt_raw(void *arg, u64 *val)
 {
 	struct iio_dev *indio_dev = arg;
 	struct adf4382_state *st = iio_priv(indio_dev);
-	unsigned int tmp;
-	u16 del_cnt = 0;
+	u16 tmp;
 	int ret;
 
-	ret = regmap_read(st->regmap, 0x64, &tmp);
+	ret = regmap_bulk_read(st->regmap, 0x65, &tmp, 2);
 	if (ret)
 		return ret;
-	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_LSB_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x65, &tmp);
-	if (ret)
-		return ret;
-	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_MSB_MSK, tmp);
-// TODO:JONATHANC:
-// How about a bulk read, endian getter and then mask? Should end up shorter code
-// with same result and no odd PREP.
-// See if similar works in other cases.
-
-	*val = del_cnt;
+	
+	*val = get_unaligned_be16(&tmp);
 
 	return 0;
 }
@@ -1474,24 +1384,16 @@ static int adf4382_show_bleed_pol(void *arg, u64 *val)
 {
 	struct iio_dev *indio_dev = arg;
 	struct adf4382_state *st = iio_priv(indio_dev);
-	unsigned int tmp;
-	u16 del_cnt = 0;
-	u8 bleed_pol = 0;
+	u16 del_cnt;
+	u16 tmp;
 	int ret;
 
-	ret = regmap_read(st->regmap, 0x64, &tmp);
+	ret = regmap_bulk_read(st->regmap, 0x65, &tmp, 2);
 	if (ret)
 		return ret;
-	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_LSB_MSK, tmp);
+	del_cnt = get_unaligned_be16(&tmp);
 
-	ret = regmap_read(st->regmap, 0x65, &tmp);
-	if (ret)
-		return ret;
-	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_MSB_MSK, tmp);
-
-	bleed_pol = FIELD_GET(ADF4382_DEL_CNT_BLEED_POL_MSK, del_cnt);
-
-	*val = bleed_pol;
+	*val = FIELD_GET(ADF4382_DEL_CNT_BLEED_POL_MSK, del_cnt);
 
 	return 0;
 }
@@ -1502,24 +1404,16 @@ static int adf4382_show_fine_current(void *arg, u64 *val)
 {
 	struct iio_dev *indio_dev = arg;
 	struct adf4382_state *st = iio_priv(indio_dev);
-	u8 fine_current = 0;
-	unsigned int tmp;
-	u16 del_cnt = 0;
+	u16 del_cnt;
+	u16 tmp;
 	int ret;
 
-	ret = regmap_read(st->regmap, 0x64, &tmp);
+	ret = regmap_bulk_read(st->regmap, 0x65, &tmp, 2);
 	if (ret)
 		return ret;
-	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_LSB_MSK, tmp);
+	del_cnt = get_unaligned_be16(&tmp);
 
-	ret = regmap_read(st->regmap, 0x65, &tmp);
-	if (ret)
-		return ret;
-	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_MSB_MSK, tmp);
-
-	fine_current = FIELD_GET(ADF4382_DEL_CNT_FINE_MSK, del_cnt);
-
-	*val = fine_current;
+	*val = FIELD_GET(ADF4382_DEL_CNT_FINE_MSK, del_cnt);
 
 	return 0;
 }
@@ -1530,24 +1424,16 @@ static int adf4382_show_coarse_current(void *arg, u64 *val)
 {
 	struct iio_dev *indio_dev = arg;
 	struct adf4382_state *st = iio_priv(indio_dev);
-	u8 coarse_current = 0;
-	unsigned int tmp;
-	u16 del_cnt = 0;
+	u16 del_cnt;
+	u16 tmp;
 	int ret;
 
-	ret = regmap_read(st->regmap, 0x64, &tmp);
+	ret = regmap_bulk_read(st->regmap, 0x65, &tmp, 2);
 	if (ret)
 		return ret;
-	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_LSB_MSK, tmp);
+	del_cnt = get_unaligned_be16(&tmp);
 
-	ret = regmap_read(st->regmap, 0x65, &tmp);
-	if (ret)
-		return ret;
-	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_MSB_MSK, tmp);
-
-	coarse_current = FIELD_GET(ADF4382_DEL_CNT_COARSE_MSK, del_cnt);
-
-	*val = coarse_current;
+	*val = FIELD_GET(ADF4382_DEL_CNT_COARSE_MSK, del_cnt);
 
 	return 0;
 }
