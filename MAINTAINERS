@@ -2016,6 +2016,25 @@ F:	include/dt-bindings/reset/actions,*
 F:	include/linux/soc/actions/
 N:	owl
 
+ARM/ADI SoC Support
+M:	Arturs Artamonovs <arturs.artamonovs@analog.com>
+S:	Maintained
+F:	Documentation/devicetree/bindings/arm/analog/adi,sc5xx.yaml
+F:	Documentation/devicetree/bindings/clock/adi,sc5xx-clocks.yaml
+F:	Documentation/devicetree/bindings/gpio/adi,sc5xx-gpio.yaml
+F:	Documentation/devicetree/bindings/i2c/adi,sc5xx-i2c.yaml
+F:	Documentation/devicetree/bindings/pinctrl/adi,sc5xx-pinctrl.yaml
+F:	Documentation/devicetree/bindings/reset/adi,sc5xx-reset.yaml
+F:	Documentation/devicetree/bindings/serial/adi,sc5xx-uart.yaml
+F:	Documentation/devicetree/bindings/soc/adi/*
+F:	arch/arm64/boot/dts/adi/*
+F:	drivers/clk/adi/*
+F:	drivers/gpio/gpio-sc5xx.c
+F:	drivers/i2c/busses/i2c-adi-sc5xx.c
+F:	drivers/pinctrl/pinctrl-sc5xx.c
+F:	drivers/soc/adi/*
+F:	drivers/tty/serial/adi_uart.c
+
 ARM/AIROHA SOC SUPPORT
 M:	Matthias Brugger <matthias.bgg@gmail.com>
 M:	AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
