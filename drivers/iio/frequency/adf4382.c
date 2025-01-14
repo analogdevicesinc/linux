@@ -406,21 +406,21 @@
 #define ADF4382_DEL_CNT_COARSE_MSK		GENMASK(12, 9)
 #define ADF4382_DEL_CNT_BLEED_POL_MSK		BIT(15)
 
-#define ADF4382_REF_MIN				10000000ULL	// 10MHz
-#define ADF4382_REF_MAX				5000000000ULL	// 5GHz
-#define ADF4382_VCO_FREQ_MIN			11000000000ULL	// 11GHz
-#define ADF4382_VCO_FREQ_MAX			22000000000ULL	// 22GHz
-#define ADF4382A_VCO_FREQ_MIN			11500000000ULL	// 11.5GHz
-#define ADF4382A_VCO_FREQ_MAX			21000000000ULL	// 21GHz
-#define ADF4382_PFD_FREQ_MAX			625000000ULL	// 625MHz
-#define ADF4382_PFD_FREQ_FRAC_MAX		250000000ULL	// 250MHz
-#define ADF4382_PFD_FREQ_MIN			5400000ULL	// 5.4MHz
-#define ADF4382_MOD1WORD			0x2000000ULL	// 2^25
-#define ADF4382_MOD2WORD_MAX			0xFFFFFFU	// 2^24 - 1
-#define ADF4382_PHASE_RESYNC_MOD2WORD_MAX	0x1FFFFU	// 2^17 - 1
+#define ADF4382_REF_MIN				10ULL * MEGA	/* 10MHz */
+#define ADF4382_REF_MAX				5ULL * GIGA	/* 5GHz */
+#define ADF4382_VCO_FREQ_MIN			11ULL * GIGA	/* 11GHz */
+#define ADF4382_VCO_FREQ_MAX			22ULL * GIGA	/* 22GHz */
+#define ADF4382A_VCO_FREQ_MIN			11500ULL * MEGA	/* 11.5GHz */
+#define ADF4382A_VCO_FREQ_MAX			21ULL * GIGA	/* 21GHz */
+#define ADF4382_PFD_FREQ_MAX			625ULL * MEGA	/* 625MHz */
+#define ADF4382_PFD_FREQ_FRAC_MAX		250ULL * MEGA	/* 250MHz */
+#define ADF4382_PFD_FREQ_MIN			5400ULL * KILO	/* 5.4MHz */
+#define ADF4382_MOD1WORD			0x2000000ULL	/* 2^25 */
+#define ADF4382_MOD2WORD_MAX			0xFFFFFFU	/* 2^24 - 1 */
+#define ADF4382_PHASE_RESYNC_MOD2WORD_MAX	0x1FFFFU	/* 2^17 - 1 */
 #define ADF4382_CHANNEL_SPACING_MAX		78125U
-#define ADF4382_DCLK_DIV1_0_MAX			160000000ULL	// 160MHz
-#define ADF4382_DCLK_DIV1_1_MAX			320000000ULL	// 320MHz
+#define ADF4382_DCLK_DIV1_0_MAX			160ULL * MEGA	/* 160MHz */
+#define ADF4382_DCLK_DIV1_1_MAX			320ULL * MEGA	/* 320MHz */
 #define ADF4382_OUT_PWR_MAX			15
 #define ADF4382_CLKOUT_DIV_REG_VAL_MAX		4
 #define ADF4382A_CLKOUT_DIV_REG_VAL_MAX		2
@@ -428,12 +428,8 @@
 #define ADF4382_CP_I_DEFAULT			15
 #define ADF4382_OPOWER_DEFAULT			11
 #define ADF4382_REF_DIV_DEFAULT			1
-#define ADF4382_RFOUT_DEFAULT			2875000000ULL	// 2.875GHz
-// TODO:JONATHANC:
-//Maybe express as 2875ULL * MEGA
-//Same for other cases. No one likes counting zeros if we an avoid it!
-///* */ for comments.
-//If long lines, put them above the thing you are talking about.
+#define ADF4382_RFOUT_DEFAULT			2875ULL * MEGA	/* 2.875GHz */
+
 #define ADF4382_SCRATCHPAD_VAL			0xA5
 
 #define ADF4382_PHASE_BLEED_CNST_MUL		511
@@ -441,17 +437,6 @@
 #define ADF4382_VCO_CAL_CNT			202
 #define ADF4382_VCO_CAL_VTUNE			124
 #define ADF4382_VCO_CAL_ALC			250
-
-// TODO:JONATHANC:
-// These should be in units.h if they are useful.
-// Or calculate them from what is there. E.g.
-// replace NS_PER_MS with NANO / MILLI
-#define FS_PER_NS				MICRO
-#define NS_PER_MS				MICRO
-#define MS_PER_NS				MICRO
-#define NS_PER_FS				MICRO
-#define PS_PER_NS				1000
-#define UA_PER_A				1000000
 
 #define PERIOD_IN_DEG				360
 #define PERIOD_IN_DEG_MS			360000
@@ -719,7 +704,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 		int_mode = 1;
 		en_bleed = 0;
 
-		tmp = DIV_ROUND_UP_ULL(pfd_freq_hz, UA_PER_A);
+		tmp = DIV_ROUND_UP_ULL(pfd_freq_hz, MICRO);
 		tmp *= adf4382_ci_ua[st->cp_i];
 		tmp = DIV_ROUND_UP_ULL(st->bleed_word, tmp);
 		if (tmp <= 85)
@@ -948,12 +933,12 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 
 	// Determine the phase adjustment in degrees relative the output freq.
 	phase_deg_fs = phase_fs * st->freq;
-	phase_deg_ns = div_u64(phase_deg_fs, FS_PER_NS);
+	phase_deg_ns = div_u64(phase_deg_fs, (FEMTO / NANO));
 	phase_deg_ns = PERIOD_IN_DEG * phase_deg_ns;
 // TODO:JONATHANC:
 // That PERIOD_IN_DEG rather implies that some of these were not phase_deg.
 // I don't really understand the steps here. Maybe add a comment with the maths would help.
-	phase_deg_ms = div_u64(phase_deg_ns, NS_PER_MS);
+	phase_deg_ms = div_u64(phase_deg_ns, (NANO / MILLI));
 
 	if (phase_deg_ms > PERIOD_IN_DEG_MS) {
 		dev_err(&st->spi->dev, "Phase adjustment is out of range.\n");
@@ -1019,13 +1004,10 @@ static int adf4382_get_phase_adjust(struct adf4382_state *st, u32 *val)
 // Clear the intermediates are not phase_value.  Can we figure a naming scheme out
 // that makes the intermediate steps more obvious.
 	phase_value = phase_value * st->freq;
-// TODO:JONATHANC:
-// Clear the intermediates are not phase_value.  Can we figure a naming scheme out
-// that makes the intermediate steps more obvious.
 	phase_value = div64_u64(phase_value, pfd_freq_hz);
 
 	phase_value = phase_value * ADF4382_PHASE_BLEED_CNST_DIV;
-	phase_value = phase_value * MS_PER_NS;
+	phase_value = phase_value * (NANO / MILLI);
 // TODO:JONATHANC:
 // phase_value *= ADF4382_PHASE_BLEED_CNST_DIV * MS_PER_NS;
 	phase_value = div_u64(phase_value, ADF4382_PHASE_BLEED_CNST_MUL);
@@ -1034,7 +1016,7 @@ static int adf4382_get_phase_adjust(struct adf4382_state *st, u32 *val)
 // phase_value *= MILLI;
 	phase_value = div_u64(phase_value, adf4382_ci_ua[st->cp_i]);
 
-	phase_value = phase_value * NS_PER_FS;
+	phase_value = phase_value * (FEMTO / NANO);
 // TODO:JONATHANC:
 // *= here as well.
 	phase_value = div_u64(phase_value, PERIOD_IN_DEG);
