@@ -125,9 +125,10 @@ static int dcnano_kms_init(struct dcnano_dev *dcnano)
 	ret = drm_bridge_attach(&dcnano->encoder, bridge, NULL,
 				DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 	if (ret) {
-		drm_err(drm,
-			"failed to attach bridge to encoder on port%u ep%d: %d\n",
-			port_id, endpoint.id, ret);
+		if (ret != -EPROBE_DEFER)
+			drm_err(drm,
+				"failed to attach bridge to encoder on port%u ep%d: %d\n",
+				port_id, endpoint.id, ret);
 		goto err;
 	}
 
