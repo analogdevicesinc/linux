@@ -12,7 +12,7 @@
  * ADI_DAC_MODE: <08>
  * board_revision: <C>
  *
- * Copyright (C) 2024 Analog Devices Inc.
+ * Copyright (C) 2025 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
