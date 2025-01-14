@@ -461,7 +461,7 @@
 #else
 #define	ADF4382_CLK_SCALE			10ULL
 #endif
-// TODO:JONATHANC:
+// REVIEW:JONATHANC: this is about clk framework
 // No to this.  Make the maths work either way as this just makes the code hard to
 // read.  We don't really care about 32bit much any more so just use the relevant
 // handlers and 64 bit maths. It will slower on a 32bit system but we don't care.
@@ -515,11 +515,8 @@ struct adf4382_state {
 
 /* Charge pump current values expressed in uA */
 static const int adf4382_ci_ua[] = {
-	790, 990, 1190, 1380, 1590, 1980, 2390, 2790, 3180, 3970, 4770, 5570,
-	6330, 7910, 9510, 11100
-// TODO:JONATHANC:
-// Wrap after 8 values, it makes it easier to find a particular one.
-// Feel free to add some spaces to align the two rows.
+	790, 990, 1190, 1380, 1590, 1980, 2390, 2790, 
+	3180, 3970, 4770, 5570,	6330, 7910, 9510, 11100
 };
 
 static const struct reg_sequence adf4382_reg_default[] = {
@@ -546,7 +543,7 @@ static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x019, 0x00 }, { 0x018, 0x00 }, { 0x017, 0x00 }, { 0x016, 0x00 },
 	{ 0x015, 0x06 }, { 0x014, 0x00 }, { 0x013, 0x00 }, { 0x012, 0x00 },
 	{ 0x011, 0x00 }, { 0x010, 0x50 }
-// TODO:JONATHANC:
+// REVIEW:JONATHANC: This is tipically done like this
 // Where possible build these up from appropriate defines of the fields.
 // Will take more code, but give a ready way to see what default means and
 // compare with functions that change it.
@@ -665,24 +662,13 @@ static int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pf
 
 static int _adf4382_set_freq(struct adf4382_state *st)
 {
-	u32 frac2_word = 0;
-	u32 mod2_word = 0;
-	u64 pfd_freq_hz;
-	u32 frac1_word;
-	u8 clkout_div;
+	u8 clkout_div, dclk_div1, int_mode, en_bleed, ldwin_pw, div1, var;
+	u32 frac2_word = 0, frac1_word = 0, mod2_word = 0;
+	u8 clkout_div_max = st->info->clkout_div_reg_val_max;
+	u64 pfd_freq_hz, tmp, vco;
 	u32 read_val;
-	u8 dclk_div1;
-	u8 int_mode;
-	u8 en_bleed;
-	u8 ldwin_pw;
 	u16 n_int;
-	u8 div1;
-	u64 tmp;
-	u64 vco;
 	int ret;
-	u8 var;
-// TODO:JONATHANC:
-// As below, combine same types to shorten the code.
 
 	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
 	if (ret) {
@@ -690,7 +676,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 		return ret;
 	}
 
-	for (clkout_div = 0; clkout_div <= st->info->clkout_div_reg_val_max; clkout_div++) {
+	for (clkout_div = 0; clkout_div <= clkout_div_max + 1; clkout_div++) {
 		tmp =  (1 << clkout_div) * st->freq;
 		if (tmp < st->info->vco_min || tmp > st->info->vco_max)
 			continue;
@@ -698,18 +684,10 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 		vco = tmp;
 		break;
 	}
-//TODO:JAVIER:
-//(At least) LLVM/Clang complains about vco for a good reason: you may use it
-//without proper initialization if the for loop does not assign any value.
-//I guess you meant it to be initialized to zero in the declaration.
 
-	if (vco == 0) {
-// TODO:JONATHANC:
-// more conventional might be to check if the clk_out_dev > st->clk_out_div_reg_val_max;
-// Then no ned to init vco (which it seems you don't but should have).
+	if (clkout_div > clkout_div_max) {
 		dev_err(&st->spi->dev, "Output frequency is out of range.\n");
-		ret = -EINVAL;
-		return ret;
+		return -EINVAL;
 	}
 
 	ret = adf4382_pll_fract_n_compute(st, pfd_freq_hz, &n_int, &frac1_word,
@@ -1092,15 +1070,12 @@ static int adf4382_set_out_power(struct adf4382_state *st, int ch, int pwr)
 	if (pwr > ADF4382_OUT_PWR_MAX)
 		pwr = ADF4382_OUT_PWR_MAX;
 
-	if (!ch) {
+	if (!ch)
 		return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK1_OPWR_MSK,
 					  FIELD_PREP(ADF4382_CLK1_OPWR_MSK, pwr));
-	}
-// TODO:JONATHANC:
-// for cases like this where it is a choice between 0 and 1, I'd use an else even
-// though not necessary for correctness.
-	return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK2_OPWR_MSK,
-				  FIELD_PREP(ADF4382_CLK2_OPWR_MSK, pwr));
+	else
+		return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK2_OPWR_MSK,
+					   FIELD_PREP(ADF4382_CLK2_OPWR_MSK, pwr));
 
 };
 
@@ -1135,20 +1110,19 @@ static int adf4382_set_en_chan(struct adf4382_state *st, int ch, int en)
 
 static int adf4382_get_en_chan(struct adf4382_state *st, int ch, int *en)
 {
-	int enable;
+	int disable;
 
 	if (!ch)
-		enable = regmap_test_bits(st->regmap, 0x2B,
+		disable = regmap_test_bits(st->regmap, 0x2B,
 					  ADF4382_PD_CLKOUT1_MSK);
 	else
-		enable = regmap_test_bits(st->regmap, 0x2B,
+		disable = regmap_test_bits(st->regmap, 0x2B,
 					  ADF4382_PD_CLKOUT2_MSK);
-	if (enable < 0)
-		return enable;
+	if (disable < 0)
+		return disable;
 
-	*en = !enable;
-// TODO:JONATHANC:
-// That's certainly novel!  Rename enable to disable.
+	*en = !disable;
+
 	return 0;
 }
 
@@ -1457,7 +1431,7 @@ static int adf4382_parse_device(struct adf4382_state *st)
 
 	st->ref_div = ADF4382_REF_DIV_DEFAULT;
 	device_property_read_u8(&st->spi->dev, "adi,ref-divider", &st->ref_div);
-// TODO:JONATHANC:
+// REVIEW:JONATHANC:
 // read a u8 if you want an u8 and define the DT binding as such.
 // However, I raised that I'm not yet convinced this should be in that binding.
 
@@ -1506,7 +1480,7 @@ static int adf4382_init(struct adf4382_state *st)
 
 	ret = regmap_write(st->regmap, 0x00,
 			   FIELD_PREP(ADF4382_SDO_ACT_MSK, en) |
-// HACK:JONATHANC:
+// REVIEW:JONATHANC:
 // Field names should provide an indication of which register they are in.
 // Here, given they registers aren't named, perhaps
 // ADF4382_REG0000_SDO_ACT_MSK etc
@@ -1736,7 +1710,7 @@ static int adf4382_probe(struct spi_device *spi)
 		return ret;
 
 	if (!st->clkout) {
-// HACK:JONATHANC:
+// REVIEW:JONATHANC:
 // If you have set clkout, does it actually make sense to register the iio device
 // with no channels?  What is that bringing us?
 		indio_dev->channels = adf4382_channels;
