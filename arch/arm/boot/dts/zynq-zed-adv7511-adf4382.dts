@@ -22,12 +22,12 @@
 		compatible = "adi,adf4382";
 		reg = <0>;
 		spi-max-frequency = <1000000>;		
-		#clock-cells = <0>;
+		// #clock-cells = <0>;
 		clock-output-names = "adf4382_out_clk";
 		clocks = <&adf4382_clkin>;
 		clock-names = "ref_clk";
-		adi,charge-pump-microamp = <11100>;
-		adi,ref-divider = <1>;
+		adi,charge-pump-microamp = /bits/ 8 <15>;
+		adi,ref-divider = /bits/ 8 <1>;
 		adi,ref-doubler-enable;
 		adi,power-up-frequency = /bits/ 64 <5250000000>;
 		// adi,spi-3wire-enable;
