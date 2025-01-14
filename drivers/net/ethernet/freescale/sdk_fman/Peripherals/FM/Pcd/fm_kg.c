@@ -2194,11 +2194,11 @@ t_Error  FmPcdKgAllocSchemes(t_Handle h_FmPcd, uint8_t numOfSchemes, uint8_t gue
     if (j != numOfSchemes)
     {
         /* roll back */
-        for (j--; j; j--)
+        for (i = 0; i < j; i++)
         {
-            p_FmPcd->p_FmPcdKg->schemesMng[p_SchemesIds[j]].allocated = FALSE;
-            p_FmPcd->p_FmPcdKg->schemesMng[p_SchemesIds[j]].ownerId = 0;
-            p_SchemesIds[j] = 0;
+            p_FmPcd->p_FmPcdKg->schemesMng[p_SchemesIds[i]].allocated = FALSE;
+            p_FmPcd->p_FmPcdKg->schemesMng[p_SchemesIds[i]].ownerId = 0;
+            p_SchemesIds[i] = 0;
         }
 
         RETURN_ERROR(MAJOR, E_NOT_AVAILABLE, ("No schemes found"));
