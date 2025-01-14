@@ -500,7 +500,7 @@ struct adf4382_state {
 
 /* Charge pump current values expressed in uA */
 static const int adf4382_ci_ua[] = {
-	790, 990, 1190, 1380, 1590, 1980, 2390, 2790, 
+	790, 990, 1190, 1380, 1590, 1980, 2390, 2790,
 	3180, 3970, 4770, 5570,	6330, 7910, 9510, 11100
 };
 
@@ -528,7 +528,7 @@ static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x019, 0x00 }, { 0x018, 0x00 }, { 0x017, 0x00 }, { 0x016, 0x00 },
 	{ 0x015, 0x06 }, { 0x014, 0x00 }, { 0x013, 0x00 }, { 0x012, 0x00 },
 	{ 0x011, 0x00 }, { 0x010, 0x50 }
-// REVIEW:JONATHANC: This is tipically done like this
+// REVIEW:JONATHANC: This is typically done like this
 // Where possible build these up from appropriate defines of the fields.
 // Will take more code, but give a ready way to see what default means and
 // compare with functions that change it.
@@ -863,28 +863,28 @@ static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 	ret = regmap_bulk_read(st->regmap, 0x11, &tmp, 2);
 	if (ret)
 		return ret;
-	
+
 	tmp = get_unaligned_be16(&tmp);
 	n = FIELD_GET(ADF4382_N_INT_MSK, tmp);
-	
+
 	ret = regmap_bulk_read(st->regmap, 0x15, &tmp, 4);
 	if (ret)
 		return ret;
-	
+
 	tmp = get_unaligned_be32(&tmp);
 	frac1 = FIELD_GET(ADF4382_FRAC1WORD_MSK, tmp);
 
 	ret = regmap_bulk_read(st->regmap, 0x19, &tmp, 3);
 	if (ret)
 		return ret;
-	
+
 	tmp = get_unaligned_be24(&tmp);
 	frac2 = FIELD_GET(ADF4382_FRAC2WORD_MSK, tmp);
 
 	ret = regmap_bulk_read(st->regmap, 0x1c, &tmp, 3);
 	if (ret)
 		return ret;
-	
+
 	tmp = get_unaligned_be24(&tmp);
 	mod2 = FIELD_GET(ADF4382_MOD2WORD_MSK, tmp);
 
@@ -1096,10 +1096,10 @@ static int adf4382_get_en_chan(struct adf4382_state *st, int ch, int *en)
 
 	if (!ch)
 		disable = regmap_test_bits(st->regmap, 0x2B,
-					  ADF4382_PD_CLKOUT1_MSK);
+					   ADF4382_PD_CLKOUT1_MSK);
 	else
 		disable = regmap_test_bits(st->regmap, 0x2B,
-					  ADF4382_PD_CLKOUT2_MSK);
+					   ADF4382_PD_CLKOUT2_MSK);
 	if (disable < 0)
 		return disable;
 
@@ -1192,7 +1192,7 @@ static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
 	{ }
 };
 
-static int adf4382_read_raw(struct iio_dev *indio_dev, 
+static int adf4382_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int *val, int *val2, long mask)
 {
@@ -1306,7 +1306,7 @@ static int adf4382_show_del_cnt_raw(void *arg, u64 *val)
 	ret = regmap_bulk_read(st->regmap, 0x65, &tmp, 2);
 	if (ret)
 		return ret;
-	
+
 	*val = get_unaligned_be16(&tmp);
 
 	return 0;
