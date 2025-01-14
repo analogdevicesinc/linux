@@ -120,9 +120,9 @@
 	adc0_ad9694: ad9694@0 {
 		compatible = "adi,ad9694";
 
-		powerdown-gpios = <&gpio 116 0>;
-		fastdetect-a-gpios = <&gpio 113 0>;
-		fastdetect-b-gpios = <&gpio 114 0>;
+		powerdown-gpios = <&gpio 110 0>;
+		fastdetect-a-gpios = <&gpio 111 0>;
+		fastdetect-b-gpios = <&gpio 112 0>;
 
 		spi-cpol;
 		spi-cpha;
