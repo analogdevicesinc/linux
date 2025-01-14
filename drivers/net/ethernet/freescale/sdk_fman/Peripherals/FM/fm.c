@@ -275,11 +275,23 @@ static void    DmaErrEvent(t_Fm *p_Fm)
     {
         com_id = fman_get_dma_com_id(dma_rg);
         hardwarePortId = (uint8_t)(((com_id & DMA_TRANSFER_PORTID_MASK) >> DMA_TRANSFER_PORTID_SHIFT));
-        ASSERT_COND(IN_RANGE(1, hardwarePortId, 63));
+        if (!IN_RANGE(1, hardwarePortId, 63)) {
+            REPORT_ERROR(MAJOR, E_NOT_IN_RANGE,
+                         ("hardwarePortId %u is not in valid [1, 63] range!",
+                         hardwarePortId));
+            return;
+        }
+
         HW_PORT_ID_TO_SW_PORT_ID(relativePortId, hardwarePortId);
         tnum = (uint8_t)((com_id & DMA_TRANSFER_TNUM_MASK) >> DMA_TRANSFER_TNUM_SHIFT);
         liodn = (uint16_t)(com_id & DMA_TRANSFER_LIODN_MASK);
-        ASSERT_COND(p_Fm->p_FmStateStruct->portsTypes[hardwarePortId] != e_FM_PORT_TYPE_DUMMY);
+
+        if (p_Fm->p_FmStateStruct->portsTypes[hardwarePortId] == e_FM_PORT_TYPE_DUMMY) {
+            REPORT_ERROR(MAJOR, E_INVALID_STATE,
+                         ("hardwarePortId %d in state e_FM_PORT_TYPE_DUMMY",
+                         hardwarePortId));
+            return;
+        }
         p_Fm->f_BusError(p_Fm->h_App,
                          p_Fm->p_FmStateStruct->portsTypes[hardwarePortId],
                          relativePortId,
