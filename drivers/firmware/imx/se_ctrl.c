@@ -54,7 +54,7 @@ struct se_fw_img_name {
 struct se_fw_load_info {
 	const struct se_fw_img_name *se_fw_img_nm;
 	bool is_fw_loaded;
-	bool handle_susp_resm;
+	bool imem_mgmt;
 	struct se_imem_buf imem;
 };
 
@@ -94,7 +94,7 @@ static struct se_var_info var_se_info = {
 	.soc_rev = 0,
 	.load_fw = {
 		.is_fw_loaded = true,
-		.handle_susp_resm = false,
+		.imem_mgmt = false,
 	},
 };
 
@@ -630,18 +630,6 @@ static int se_load_firmware(struct se_if_priv *priv)
 		return 0;
 
 	se_img_file_to_load = load_fw->se_fw_img_nm->seco_fw_nm_in_rfs;
-	/* allocate buffer where SE store encrypted IMEM */
-	load_fw->imem.buf = dmam_alloc_coherent(priv->dev, ELE_IMEM_SIZE,
-						&load_fw->imem.phyaddr,
-						GFP_KERNEL);
-	if (!load_fw->imem.buf) {
-		dev_err(priv->dev,
-			"dmam-alloc-failed: To store encr-IMEM.\n");
-		ret = -ENOMEM;
-		goto exit;
-	}
-	load_fw->handle_susp_resm = true;
-
 	if (load_fw->imem.state == ELE_IMEM_STATE_BAD &&
 			load_fw->se_fw_img_nm->prim_fw_nm_in_rfs)
 		se_img_file_to_load = load_fw->se_fw_img_nm->prim_fw_nm_in_rfs;
@@ -1970,8 +1958,21 @@ static int se_if_probe(struct platform_device *pdev)
 			info_list->se_fw_img_nm.seco_fw_nm_in_rfs) {
 		load_fw = get_load_fw_instance(priv);
 		load_fw->se_fw_img_nm = &info_list->se_fw_img_nm;
-
 		load_fw->is_fw_loaded = false;
+
+		if (info_list->se_fw_img_nm.prim_fw_nm_in_rfs) {
+			/* allocate buffer where SE store encrypted IMEM */
+			load_fw->imem.buf = dmam_alloc_coherent(priv->dev, ELE_IMEM_SIZE,
+								&load_fw->imem.phyaddr,
+								GFP_KERNEL);
+			if (!load_fw->imem.buf) {
+				dev_err(priv->dev,
+					"dmam-alloc-failed: To store encr-IMEM.\n");
+				ret = -ENOMEM;
+				goto exit;
+			}
+			load_fw->imem_mgmt = true;
+		}
 	}
 
 	/* exposing variable se via sysfs to enable/disable logging */
@@ -2012,7 +2013,7 @@ static int se_suspend(struct device *dev)
 	}
 	load_fw = get_load_fw_instance(priv);
 
-	if (load_fw->handle_susp_resm) {
+	if (load_fw->imem_mgmt) {
 		ret = se_save_imem_state(priv, &load_fw->imem);
 		if (ret < 0)
 			goto exit;
@@ -2037,7 +2038,7 @@ static int se_resume(struct device *dev)
 
 	load_fw = get_load_fw_instance(priv);
 
-	if (load_fw->handle_susp_resm)
+	if (load_fw->imem_mgmt)
 		se_restore_imem_state(priv, &load_fw->imem);
 
 	return ret;
