@@ -887,15 +887,9 @@ static int adf4382_set_freq(struct adf4382_state *st)
 
 static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 {
+	u32 frac1 = 0, frac2 = 0, mod2 = 0;
 	unsigned int tmp;
-	u32 frac1 = 0;
-	u32 frac2 = 0;
-	u32 mod2 = 0;
-	u64 freq;
-	u64 pfd;
-// TODO:JONATHANC:
-// Combine same types on oneline - don't mix ones that set the value and ones
-// that don't however.
+	u64 freq, pfd;
 	u16 n;
 	int ret;
 
@@ -1242,16 +1236,9 @@ static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
 	{ }
 };
 
-static int adf4382_read_raw(struct iio_dev *indio_dev,
+static int adf4382_read_raw(struct iio_dev *indio_dev, 
 			    struct iio_chan_spec const *chan,
-			    int *val,
-			    int *val2,
-			    long mask)
-// TODO:JONATHANC:
-// Where they fit under 80 chars, good to combine parameters on fewer lines.
-// Check for other cases where this is easy to do.
-// It is fine to group things different, but here there is no obvious benefit in
-// doing one per line.
+			    int *val, int *val2, long mask)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
 	bool pol;
@@ -1290,9 +1277,7 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 
 static int adf4382_write_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
-			     int val,
-			     int val2,
-			     long mask)
+			     int val, int val2, long mask)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
 	int ret;
@@ -1305,12 +1290,7 @@ static int adf4382_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_PHASE:
 		st->phase = val;
 
-		if (val < 0)
-			ret = adf4382_set_phase_pol(st, true);
-		else
-			ret = adf4382_set_phase_pol(st, false);
-// TODO:JONATHANC:
-// ret = adf4382_set_phase_pol(st, val < 0);
+		ret = adf4382_set_phase_pol(st, val < 0);
 		if (ret)
 			return ret;
 
@@ -1320,10 +1300,8 @@ static int adf4382_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int adf4382_reg_access(struct iio_dev *indio_dev,
-			      unsigned int reg,
-			      unsigned int write_val,
-			      unsigned int *read_val)
+static int adf4382_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			      unsigned int write_val, unsigned int *read_val)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
 
