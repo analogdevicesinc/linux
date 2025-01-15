@@ -2095,7 +2095,8 @@ static int adrv9002_phy_read_raw_no_rf_chan(const struct adrv9002_rf_phy *phy,
 	case IIO_CHAN_INFO_PROCESSED:
 		switch (chan->type) {
 		case IIO_TEMP:
-			ret = api_call(phy, adi_adrv9001_Temperature_Get, &temp);
+			ret = api_call(phy, adi_adrv9001_Temperature_Get,
+				       ADI_ADRV9001_TEMPERATURE_READ_SPI, &temp);
 			if (ret)
 				return ret;
 
