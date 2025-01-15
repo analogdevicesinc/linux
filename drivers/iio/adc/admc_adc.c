@@ -65,7 +65,10 @@ enum ad7405_dec_rate {
 	DR_64 = 64,
 	DR_128 = 128,
 	DR_256 = 256,
-	DR_512 = 512
+	DR_512 = 512,
+	DR_1024 = 1024,
+	DR_2048 = 2048,
+	DR_4096 = 4096
 	};
 
 static const char * const ad7405_dec_rate_enum[] = {
@@ -74,6 +77,9 @@ static const char * const ad7405_dec_rate_enum[] = {
 	[DR_128] = "128",
 	[DR_256] = "256",
 	[DR_512] = "512",
+	[DR_1024] = "1024",
+	[DR_2048] = "2048",
+	[DR_4096] = "4096",
 };
 
 static int ad7405_set_dec_rate(struct iio_dev *indio_dev, const struct iio_chan_spec *chan, unsigned int dec_rate);
@@ -240,6 +246,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.name = "AD-MC-ADC",
 		//.max_rate = 625000UL,
 		.max_rate = 78100UL,
+		//.max_rate = 39100UL,
 		.num_channels = 1,
 		.channel = {
 			AIM_CHAN_NOCALIB(0, 0, 16, 'u'),
