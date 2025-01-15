@@ -89,7 +89,7 @@ int32_t adi_adrv9001_Rx_GainTable_Write(adi_adrv9001_Device_t *adrv9001,
  * \param[in] adrv9001               Context variable - Pointer to the ADRV9001 device data structure
  * \param[in]  channel               The Rx Channel from which to read the gain table
  * \param[in]  gainIndexOffset       The gain index from which gain table read back should start
- * \param[out] gainTableRows         Read back array for gain table row entries which will be updated with the read back values
+ * \param[in,out] gainTableRows      Read back array for gain table row entries which will be updated with the read back values; must be initialized
  * \param[in]  arraySize             The size of the gainTableRows array; the max number of gain table rows to read
  * \param[out] numGainIndicesRead    The actual no. of gain indices read. Pass NULL if this info is not needed
  *
