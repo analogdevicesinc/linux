@@ -26,8 +26,8 @@
 
 	// PL spi using AXI QUAD SPI module
 	axi_spi_fmc: spi@45300000 {
-		compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
-		reg = <0x45300000 0x1000>;
+		compatible = "xlnx,axi-quad-spi-1.00.a", "xlnx,xps-spi-2.00.a";
+		reg = <0x45300000 0x10000>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
@@ -39,7 +39,7 @@
 		fifo-size = <16>;
 		num-cs = <0x4>;
 		xlnx,num-ss-bits = <0x4>;
-		xlnx,spi-mode = <0>;
+		//xlnx,spi-mode = <0>;
 
 		status = "okay";
 
