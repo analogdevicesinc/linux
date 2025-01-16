@@ -79,7 +79,7 @@
 
 		// transport layer
 		axi_ad9166_core: axi-ad9166-hpc@84a04000 {
-			compatible = "adi,axi-ad9162-1.0";
+			compatible = "adi,ad9166";
 			reg = <0x84a04000 0x10000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
@@ -89,6 +89,7 @@
 			jesd204-device;
 			#jesd204-cells = <2>;
 			jesd204-inputs = <&axi_ad9166_jesd 0 0>;
+			//adi,spi-3wire-enable;
 		};
 
 		// link layer
