@@ -874,6 +874,8 @@ static int hmc7044_info(struct iio_dev *indio_dev)
 		return 0;
 	}
 
+	dev_info(&hmc->spi->dev, "\n ceva hmc7044: Dupa read_write_confirmed, nu merge\n");
+
 	if (hmc->device_id == HMC7044 && !hmc->clkin1_vcoin_en) {
 		ret = hmc7044_read(indio_dev,
 			HMC7044_REG_PLL1_STATUS, &pll1_stat);
@@ -923,6 +925,7 @@ static int hmc7044_info(struct iio_dev *indio_dev)
 
 static int hmc7044_setup(struct iio_dev *indio_dev)
 {
+	printk(KERN_DEBUG "\nceva hmc7044: Am intrat in hmc7044_setup\n");
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *chan;
 	bool high_vco_en;
@@ -2244,6 +2247,7 @@ static const struct jesd204_dev_data jesd204_hmc7044_init = {
 
 static int hmc7044_probe(struct spi_device *spi)
 {
+	printk(KERN_DEBUG "\n ceva hmc7044: Am intrat in probe\n");
 	struct iio_dev *indio_dev;
 	struct hmc7044 *hmc;
 	int ret;
@@ -2288,8 +2292,11 @@ static int hmc7044_probe(struct spi_device *spi)
 	else
 		indio_dev->name = spi_get_device_id(spi)->name;
 
-	if (hmc->device_id == HMC7044)
+	if (hmc->device_id == HMC7044) {
+		dev_info(&spi->dev, "\n ceva hmc7044: Inainte de apelarea hmc7044_setup\n");
 		ret = hmc7044_setup(indio_dev);
+		dev_info(&spi->dev, "\n ceva hmc7044: Dupa apelarea hmc7044_setup\n");
+	}
 	else
 		ret = hmc7043_setup(indio_dev);
 
