@@ -1045,6 +1045,7 @@ static int ad916x_standalone_probe(struct ad9162_state *st)
 
 static int ad9162_probe(struct spi_device *spi)
 {
+	printk(KERN_DEBUG "\n ceva: Intru in ad9162_probe\n");
 	struct cf_axi_converter *conv;
 	struct ad9162_state *st;
 	int ret;
@@ -1061,10 +1062,14 @@ static int ad9162_probe(struct spi_device *spi)
 	if (IS_ERR(conv->reset_gpio))
 		return PTR_ERR(conv->reset_gpio);
 
+	printk(KERN_DEBUG "\n ceva: Reset gpio\n");
+
 	conv->txen_gpio[0] = devm_gpiod_get_optional(&spi->dev, "txen",
 						     GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->txen_gpio[0]))
 		return PTR_ERR(conv->txen_gpio[0]);
+
+	printk(KERN_DEBUG "\n ceva: Txen gpio\n");
 
 	st->map = devm_regmap_init_spi(spi, &ad9162_regmap_config);
 	if (IS_ERR(st->map))
@@ -1072,6 +1077,8 @@ static int ad9162_probe(struct spi_device *spi)
 
 	conv->spi = spi;
 	conv->id = ID_AD9162;
+
+	printk(KERN_DEBUG "\n ceva: jesd204_dev_register\n");
 
 	st->jdev = devm_jesd204_dev_register(&spi->dev, &jesd204_ad9162_init);
 	if (IS_ERR(st->jdev))
@@ -1084,12 +1091,15 @@ static int ad9162_probe(struct spi_device *spi)
 		priv->st = st;
 	}
 
+	printk(KERN_DEBUG "\n ceva: Inainte de ad9162_get_clks\n");
+
 	ret = ad9162_get_clks(conv);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to get clocks, %d\n", ret);
 		goto out;
 	}
 
+	printk(KERN_DEBUG "\n ceva: Dupa ad9162_get_clks\n");
 	ret = devm_add_action_or_reset(&spi->dev, ad9162_clks_disable, conv);
 	if (ret)
 		return ret;
@@ -1106,17 +1116,21 @@ static int ad9162_probe(struct spi_device *spi)
 	st->dac_h.tx_en_pin_ctrl = NULL;
 	st->dac_h.reset_pin_ctrl = NULL;
 
+	printk(KERN_DEBUG "\n ceva: Inainte de ad9162_setup\n");
 	ret = ad9162_setup(st);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
 	}
+	printk(KERN_DEBUG "\n ceva: Dupa ad9162_setup\n");
 
+	printk(KERN_DEBUG "\n ceva: Inainte de ad9162_setup_jesd\n");
 	ret = ad916x_setup_jesd(st);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to setup JESD interface\n");
 		return ret;
 	}
+	printk(KERN_DEBUG "\n ceva: Dupa ad9162_setup_jesd\n");
 
 	mutex_init(&st->lock);
 
