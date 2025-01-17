@@ -136,8 +136,9 @@
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
 
-		pwms = <&ad4134_odr_generator 0 0>;
-		pwm-names = "odr_pwm";
+		pwms = <&ad4134_odr_generator 0 0
+				&ad4134_odr_generator 1 0>;
+		pwm-names = "trigger_pwm","odr_pwm";
 
 		avdd5-supply = <&avdd5>;
 		avdd1v8-supply = <&avdd1v8>;
