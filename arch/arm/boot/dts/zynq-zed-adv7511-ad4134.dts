@@ -48,10 +48,13 @@
 		regulator-always-on;
 	};
 
-	sys_clk: sys-clk {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <48000000>;
+	clocks {
+		cnv_ext_clk: ext-clk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <48000000>;
+			clock-output-names = "cnv_ext_clk";
+		};
 	};
 };
 
@@ -104,7 +107,7 @@
 		compatible = "adi,axi-pwmgen";
 		reg = <0x44b00000 0x10000>;
 		#pwm-cells = <2>;
-		clocks = <&clkc 15>;
+		clocks = <&cnv_ext_clk>;
 	};
 
 	spi_clk: axi_clkgen@44b10000 {
@@ -127,8 +130,8 @@
 
 		reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 
-		clocks = <&sys_clk>;
-		clock-names = "sys_clk";
+		clocks = <&cnv_ext_clk>;
+		clock-names = "cnv_ext_clk";
 
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
