@@ -415,7 +415,7 @@ static const struct mxc_isi_plat_data mxc_imx8qxp_data = {
 	.set_thd		= &mxc_imx8_isi_thd_v1,
 	.clks			= mxc_imx8qxp_clks,
 	.num_clks		= ARRAY_SIZE(mxc_imx8qxp_clks),
-	.buf_active_reverse	= false,
+	.buf_active_reverse	= true,
 	.has_36bit_dma		= false,
 };
 
