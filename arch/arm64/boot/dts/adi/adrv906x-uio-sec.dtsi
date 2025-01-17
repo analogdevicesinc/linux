@@ -838,5 +838,21 @@
         compatible = "generic-uio";
         interrupts = <GIC_SPI TX3_DFE_IRQ_8 IRQ_TYPE_EDGE_RISING>;
     };
+    uio-adrv906x-interrupt-rue-fm {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RUE_IRQ IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-oif-fm {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI OIF_IRQ IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-gpint-fm {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI GP_INTERRUPT_SYNC_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-dying-gasp-fm {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI DYINGGASPDETECTION_POWERCONTROL IRQ_TYPE_LEVEL_HIGH>;
+    };
 
 };
