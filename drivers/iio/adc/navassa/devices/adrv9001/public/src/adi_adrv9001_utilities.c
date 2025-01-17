@@ -13,8 +13,12 @@
 */
 
 #ifdef __KERNEL__
+#include <linux/cleanup.h>
+#include <linux/mutex.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+
+static DEFINE_MUTEX(image_lock);
 #else
 #include <stdio.h>
 #include <string.h>
@@ -63,6 +67,8 @@ int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, cons
      * Wframe-larger-than=1024
      */
      static uint8_t armBinaryImageBuffer[ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES];
+
+     guard(mutex)(&image_lock);
 #endif
 
     /* Check device pointer is not null */
@@ -111,6 +117,8 @@ int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, c
      * Wframe-larger-than=1024
      */
     static uint8_t streamBinaryImageBuffer[ADI_ADRV9001_STREAM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES];
+
+    guard(mutex)(&image_lock);
 #endif
 
     /* Check device pointer is not null */
