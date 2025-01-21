@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2025 Analog Devices Inc. */
+
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&fpga_axi {
+
+	ad-mc-adc@44a00000 {
+		compatible = "xlnx,axi-ad-mc-adc-1.00.a";
+		reg = <0x44a00000 0x10000>;
+		dmas = <&ad_mc_adc_dma 0>;
+		dma-names = "ad-mc-adc-dma";
+		clocks = <&axi_clk_gen 0>;
+	};
+
+	ad_mc_adc_dma: dma@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	axi_clk_gen: axi-clkgen@44a40000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a40000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "axi_clk_gen";
+
+		assigned-clocks = <&axi_clk_gen>;
+		assigned-clock-rates = <50000000>;
+	};
+};

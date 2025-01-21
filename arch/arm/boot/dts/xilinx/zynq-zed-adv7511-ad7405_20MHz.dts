@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2025 Analog Devices Inc. */
+
+/dts-v1/;
+
+#include "zynq-zed-adv7511-ad7405.dts"
+
+&fpga_axi {
+	axi_clk_gen: axi-clkgen@44a40000 {
+		assigned-clock-rates = <20000000>;
+	};
+};
