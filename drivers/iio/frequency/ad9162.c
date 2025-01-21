@@ -1045,7 +1045,7 @@ static int ad916x_standalone_probe(struct ad9162_state *st)
 
 static int ad9162_probe(struct spi_device *spi)
 {
-	printk(KERN_DEBUG "\n ceva: Intru in ad9162_probe\n");
+	pr_err("\n ceva: Intru in ad9162_probe\n");
 	struct cf_axi_converter *conv;
 	struct ad9162_state *st;
 	int ret;
