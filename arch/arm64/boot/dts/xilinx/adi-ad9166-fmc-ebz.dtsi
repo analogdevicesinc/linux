@@ -25,9 +25,9 @@
 	#size-cells = <1>;
 
 	// PL spi using AXI QUAD SPI module
-	axi_spi_fmc: spi@45300000 {
-		compatible = "xlnx,axi-quad-spi-1.00.a", "xlnx,xps-spi-2.00.a";
-		reg = <0x45300000 0x10000>;
+	axi_spi_fmc: spi@85300000 {
+		compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+		reg = <0x85300000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 

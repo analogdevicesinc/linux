@@ -89,7 +89,6 @@
 			jesd204-device;
 			#jesd204-cells = <2>;
 			jesd204-inputs = <&axi_ad9166_jesd 0 0>;
-			//adi,spi-3wire-enable;
 		};
 
 		// link layer
@@ -138,10 +137,10 @@
 	};
 };
 
-// &spi0 {
-// 	status = "okay";
-// };
-// 
+&spi0 {
+	status = "disabled";
+};
+
 // #define fmc_spi spi0
 
 #include "adi-ad9166-fmc-ebz.dtsi"
