@@ -35,17 +35,20 @@
 		interrupt-parent = <&gic>;
 		interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>; // ps-9 in HDL
 		
+		clock-names = "ext_spi_clk", "s_axi_aclk";
+		clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
+	
 		bits-per-word = <8>;
 		fifo-size = <16>;
 		num-cs = <0x4>;
 		xlnx,num-ss-bits = <0x4>;
-		//xlnx,spi-mode = <0>;
+		xlnx,spi-mode = <0x0>;
 
 		status = "okay";
 
 		dac0_ad9166: ad9166@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
+			//#address-cells = <1>;
+			//#size-cells = <0>;
 			compatible = "adi,ad9166";
 			reg = <0>;
 			spi-max-frequency = <1000000>;
