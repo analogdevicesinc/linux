@@ -195,8 +195,8 @@ static int neutron_firmw_request(struct neutron_device *ndev, struct neutron_buf
 	if (buf->firmware_p)
 		return ret;
 
-	/* request firmware */
-	ret = request_firmware(&buf->firmware_p, fw_name, dev);
+	/* request firmware without cache with flag FW_OPT_NOCACHE */
+	ret = request_firmware_into_buf(&buf->firmware_p, fw_name, dev, NULL, 0);
 	if (ret < 0) {
 		dev_err(dev, "request_firmware failed: %d\n", ret);
 		return ret;
