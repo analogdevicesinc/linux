@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  */
 
 #include <uapi/linux/se_ioctl.h>
@@ -10,7 +10,8 @@
 #include "se_msg_sqfl_ctrl.h"
 #include "v2x_base_msg.h"
 
-#define SE_RCV_MSG_TIMEOUT	120000
+#define SE_RCV_MSG_DEFAULT_TIMEOUT	180000
+extern uint32_t se_rcv_msg_timeout;
 
 u32 se_add_msg_crc(u32 *msg, u32 msg_len)
 {
@@ -32,6 +33,9 @@ int ele_msg_rcv(struct se_if_device_ctx *dev_ctx,
 	unsigned int wait;
 	int err;
 
+	if (!se_rcv_msg_timeout)
+		se_rcv_msg_timeout =  SE_RCV_MSG_DEFAULT_TIMEOUT;
+
 	do {
 		if (priv->cmd_receiver_clbk_hdl.dev_ctx == dev_ctx) {
 			/* For NVM-D that are slaves of SE-FW, are waiting indefinitly
@@ -49,7 +53,7 @@ int ele_msg_rcv(struct se_if_device_ctx *dev_ctx,
 			/* FW must send the message response to application in a finite
 			 * time.
 			 */
-			wait = msecs_to_jiffies(SE_RCV_MSG_TIMEOUT);
+			wait = msecs_to_jiffies(se_rcv_msg_timeout);
 			err = wait_for_completion_interruptible_timeout(&se_clbk_hdl->done, wait);
 		}
 		if (err == -ERESTARTSYS) {

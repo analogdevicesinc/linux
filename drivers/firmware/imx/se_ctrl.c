@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  */
 
 #include <linux/completion.h>
@@ -44,7 +44,8 @@
 #define IMX_SE_LOG_PATH "/var/lib/se_"
 
 static int se_log;
-static struct kobject *se_log_kobj;
+static struct kobject *se_kobj;
+uint32_t se_rcv_msg_timeout;
 
 struct se_fw_img_name {
 	const u8 *prim_fw_nm_in_rfs;
@@ -410,55 +411,96 @@ char *get_se_if_name(u8 se_if_id)
 }
 
 /*
- * Writing the sysfs entry se_log to enable/disable the logging
+ * Writing the sysfs entry for -
+ *
+ * se_log: to enable/disable the SE logging
  * echo 1 > /sys/kernel/se/se_log // enable logging
  * echo 0 > /sys/kernel/se/se_log // disable logging
+ *
+ * se_rcv_msg_timeout: to change the rcv_msg timeout value in jiffies for
+ *                     the operations that take more time.
+ * echo 180000 > /sys/kernel/se/se_rcv_msg_timeout
  */
-static ssize_t se_log_store(struct kobject *kobj,
+static ssize_t se_store(struct kobject *kobj,
 				   struct kobj_attribute *attr,
 				   const char *buf, size_t count)
 {
-	int ret;
+	int var, ret;
 
-	ret = kstrtoint(buf, 10, &se_log);
+	ret = kstrtoint(buf, 10, &var);
 	if (ret < 0) {
 		pr_err("Failed to convert to int\n");
 		return ret;
 	}
+
+	if (strcmp(attr->attr.name, "se_log") == 0)
+		se_log = var;
+	else
+		se_rcv_msg_timeout = var;
+
 	return count;
 }
 
 /*
- * Reading the sysfs entry to know logging is enabled/disabled
+ * Reading the sysfs entry for -
+ *
+ * se_log: to know SE logging is enabled/disabled
+ *
+ * se_rcv_msg_timeout: to read the current rcv_msg timeout value in jiffies
  */
-static ssize_t se_log_show(struct kobject *kobj,
+static ssize_t se_show(struct kobject *kobj,
 				  struct kobj_attribute *attr,
 				  char *buf)
 {
-	return sysfs_emit(buf, "%d\n", se_log);
+	int var = 0;
+
+	if (strcmp(attr->attr.name, "se_log") == 0)
+		var = se_log;
+	else
+		var = se_rcv_msg_timeout;
+
+	return sysfs_emit(buf, "%d\n", var);
 }
 
 struct kobj_attribute se_log_attr = __ATTR(se_log, 0664,
-					   se_log_show,
-					   se_log_store);
+					   se_show,
+					   se_store);
+
+struct kobj_attribute se_rcv_msg_timeout_attr = __ATTR(se_rcv_msg_timeout,
+						       0664, se_show,
+						       se_store);
 
 /* Exposing the variable se_log via sysfs to enable/disable logging */
 static int  se_sysfs_log(void)
 {
+	int ret = 0;
+
 	/* Create kobject "se" located under /sys/kernel */
-	se_log_kobj = kobject_create_and_add("se", kernel_kobj);
-	if (!se_log_kobj) {
+	se_kobj = kobject_create_and_add("se", kernel_kobj);
+	if (!se_kobj) {
 		pr_warn("kobject creation failed\n");
-		return -ENOMEM;
-	}
-	/* Create file for the se_log attribute */
-	if (sysfs_create_file(se_log_kobj, &se_log_attr.attr)) {
-		pr_err("Failed to create se file\n");
-		kobject_put(se_log_kobj);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto out;
 	}
 
-	return 0;
+	/* Create file for the se_log attribute */
+	if (sysfs_create_file(se_kobj, &se_log_attr.attr)) {
+		pr_err("Failed to create se file\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* Create file for the se_rcv_msg_timeout attribute */
+	if (sysfs_create_file(se_kobj, &se_rcv_msg_timeout_attr.attr)) {
+		pr_err("Failed to create se_rcv_msg_timeout file\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+out:
+	if (ret)
+		kobject_put(se_kobj);
+	return ret;
 }
 
 /*
@@ -1803,8 +1845,8 @@ static void se_if_probe_cleanup(void *plat_dev)
 	of_reserved_mem_device_release(dev);
 
 	/* Free Kobj created for logging */
-	if (se_log_kobj)
-		kobject_put(se_log_kobj);
+	if (se_kobj)
+		kobject_put(se_kobj);
 
 }
 
@@ -1975,11 +2017,11 @@ static int se_if_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* exposing variable se via sysfs to enable/disable logging */
-	if (!se_log_kobj) {
+	/* exposing variables se_log and se_rcv_msg_timeout via sysfs */
+	if (!se_kobj) {
 		ret = se_sysfs_log();
 		if (ret)
-			pr_warn("Warn: Creating sysfs entry for se_log: %d\n", ret);
+			pr_warn("Warn: Creating sysfs entry for se_log and  se_rcv_msg_timeout: %d\n", ret);
 	}
 
 	dev_info(dev, "i.MX secure-enclave: %s%d interface to firmware, configured.\n",
