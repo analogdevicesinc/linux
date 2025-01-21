@@ -11,6 +11,7 @@
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/log2.h>
 #include <linux/wait.h>
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
@@ -51,25 +52,25 @@
 #define ID_AD_MC_ADC   1
 
 enum ad7405_dec_rate {
-	DR_32 = 32,
-	DR_64 = 64,
-	DR_128 = 128,
-	DR_256 = 256,
-	DR_512 = 512,
-	DR_1024 = 1024,
-	DR_2048 = 2048,
-	DR_4096 = 4096
+	DR_32,
+	DR_64,
+	DR_128,
+	DR_256,
+	DR_512,
+	DR_1024,
+	DR_2048,
+	DR_4096
 	};
 
 static const char * const ad7405_dec_rate_enum[] = {
-	[DR_32]  = "32",
-	[DR_64]  = "64",
-	[DR_128] = "128",
-	[DR_256] = "256",
-	[DR_512] = "512",
-	[DR_1024] = "1024",
-	[DR_2048] = "2048",
-	[DR_4096] = "4096",
+	[DR_32]  = "DR_32",
+	[DR_64]  = "DR_64",
+	[DR_128] = "DR_128",
+	[DR_256] = "DR_256",
+	[DR_512] = "DR_512",
+	[DR_1024] = "DR_1024",
+	[DR_2048] = "DR_2048",
+	[DR_4096] = "DR_4096",
 };
 
 static int ad7405_set_dec_rate(struct iio_dev *indio_dev, const struct iio_chan_spec *chan, unsigned int dec_rate);
@@ -103,8 +104,7 @@ struct axiadc_state {
 	struct mutex			lock;
 	void __iomem			*regs;
 	unsigned int			pcore_version;
-	struct clk				*axi_clk_gen;
-	unsigned int			dec_rate;
+	struct clk                      *axi_clk_gen;
 };
 
 static inline void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned val)
@@ -121,9 +121,7 @@ static int ad7405_set_dec_rate(struct iio_dev *indio_dev,const struct iio_chan_s
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 
-	st->dec_rate = dec_rate;
-
-	axiadc_write(st, REG_CHAN_USR_CNTRL_2, dec_rate);
+	axiadc_write(st, REG_CHAN_USR_CNTRL_2, 1 << (dec_rate + 5));
 
 	return 0;
 }
@@ -133,9 +131,9 @@ static int ad7405_get_dec_rate(struct iio_dev *indio_dev, const struct iio_chan_
 	struct axiadc_state *st = iio_priv(indio_dev);
 	unsigned int readval;
 
-	readval = axiadc_read(st, REG_CHAN_USR_CNTRL_2);
+	readval = FIELD_GET(DEC_RATE_MASK, axiadc_read(st, REG_CHAN_USR_CNTRL_2));
 
-	return FIELD_GET(DEC_RATE_MASK, readval);
+	return ilog2(readval) - 5;
 }
 
 static int axiadc_reg_access(struct iio_dev *indio_dev,
