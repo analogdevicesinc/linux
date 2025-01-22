@@ -1,0 +1,28 @@
+ /* AD9163-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * JESD Custom Link Mode 8 Example: M1, L8, S4, F1,  NP'16, Interpolation: 16
+ *
+ * https://analogdevicesinc.github.io/hdl/projects/dac_fmc_ebz/index.html
+ *
+ * hdl_project: <dac_fmc_ebz/zcu102>
+ * ADI_DAC_DEVICE: <AD9163>
+ * ADI_LANE_RATE: <12.5>
+ * ADI_DAC_MODE: <08>
+ * command:
+ * board_revision:
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9163-fmc-ebz_m2_l8.dts"
+
+&fmc_spi {
+        dac0_ad9163: ad9163@1 {
+		adi,dac-interpolation = <8>;
+		adi,channel-interpolation = <8>;
+        adi,octets-per-frame = <2>;		/* JESD F */
+        adi,lanes-per-device = <2>;		/* JESD L */
+        adi,samples-per-converter-per-frame = <1>; /* JESD S */
+        adi,interpolation = <8>;
+        };
+ };
