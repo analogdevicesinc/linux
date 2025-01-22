@@ -38,11 +38,9 @@
 		clock-names = "ext_spi_clk", "s_axi_aclk";
 		clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
 	
-		bits-per-word = <8>;
-		fifo-size = <16>;
-		num-cs = <0x4>;
 		xlnx,num-ss-bits = <0x4>;
 		xlnx,spi-mode = <0x0>;
+		xlnx,num-transfer-bits = <16>;
 
 		status = "okay";
 
