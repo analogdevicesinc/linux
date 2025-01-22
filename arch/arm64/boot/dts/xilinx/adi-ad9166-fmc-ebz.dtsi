@@ -107,7 +107,7 @@
 			adi,pll2-output-frequency = <2500000000>;
 
 			// in the driver, it will write 0x0064[1]=1 to increase the limit to 6000MHz, from 3200MHz
-			adi,use-vco-divider;
+			//adi,use-vco-divider;
 			adi,sysref-timer-divider = <1024>;
 
 			adi,clkin0-buffer-mode = <0x15>;
