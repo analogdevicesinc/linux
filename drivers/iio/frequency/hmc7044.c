@@ -1042,11 +1042,13 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	hmc7044_read_write_check(indio_dev);
 
+	printk(KERN_DEBUG "\nceva hmc7044: dupa read write check\n");
 	/* Disable all channels */
 	for (i = 0; i < HMC7044_NUM_CHAN; i++) {
 		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(i), 0);
 		if (ret)
 			return ret;
+		printk(KERN_DEBUG "\nceva hmc7044: disable channel %d\n", i);
 	}
 
 	/* Load the configuration updates (provided by Analog Devices) */
