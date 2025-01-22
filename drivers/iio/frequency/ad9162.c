@@ -497,6 +497,7 @@ static const struct jesd204_dev_data jesd204_ad9162_init = {
 
 static int ad9162_setup(struct ad9162_state *st)
 {
+	pr_err("ceva: am intrat in ad9162_setup");
 	struct device *dev = &st->conv.spi->dev;
 	uint8_t revision[3] = {0, 0, 0};
 	ad916x_chip_id_t dac_chip_id;
@@ -507,17 +508,23 @@ static int ad9162_setup(struct ad9162_state *st)
 
 	/* Initialise DAC Module */
 	ret = ad916x_init(ad916x_h);
-	if (ret != 0)
+	if (ret != 0) {
+		pr_err("ceva: dupa initializare, eroare %d", ret);
 		return ret;
+	}
 
 	ret = ad916x_get_chip_id(ad916x_h, &dac_chip_id);
-	if (ret != 0)
+	if (ret != 0) {
+		pr_err("ceva: dupa get chip id, eroare %d", ret);
 		return ret;
+	}
 
 	ret = ad916x_get_revision(ad916x_h, &revision[0], &revision[1],
 				  &revision[2]);
-	if (ret != 0)
+	if (ret != 0) {
+		pr_err("ceva: dupa get revision, eroare %d", ret);
 		return ret;
+	}
 
 	dev_info(dev, "AD916x DAC Product ID: AD%x\n", dac_chip_id.prod_id);
 	dev_info(dev, "AD916x DAC Chip ID: %d\n", dac_chip_id.chip_type);
@@ -541,8 +548,10 @@ static int ad9162_setup(struct ad9162_state *st)
 					  &st->conv.clkscale[CLK_DAC]);
 
 	ret = ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
-	if (ret != 0)
+	if (ret != 0) {
+		pr_err("ceva: dupa dac set clk frequency, eroare %d", ret);
 		return ret;
+	}
 
 	/* check for dc test mode */
 	if (device_property_read_bool(dev, "adi,dc-test-en")) {
@@ -1110,6 +1119,9 @@ static int ad9162_probe(struct spi_device *spi)
 	st->dac_h.user_data = st->map;
 	st->dac_h.sdo = ((spi->mode & SPI_3WIRE) || spi3wire) ? SPI_SDIO :
 			SPI_SDO;
+
+	pr_err("ceva: rezultat spi: %d", ((spi->mode&SPI_3WIRE)|| spi3wire));
+
 	st->dac_h.dev_xfer = spi_xfer_dummy;
 	st->dac_h.delay_us = delay_us;
 	st->dac_h.event_handler = NULL;

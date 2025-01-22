@@ -26,18 +26,21 @@
 			reg = <0x85300000 0x1000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-
+	
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&gic>;
 			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>; // ps-9 in HDL
-
+			
 			clock-names = "ext_spi_clk", "s_axi_aclk";
 			clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
 
+			bits-per-word = <8>;
+			fifo-size = <16>;
+			num-cs = <0x4>;		
 			xlnx,num-ss-bits = <0x4>;
 			xlnx,spi-mode = <0x0>;
 			xlnx,num-transfer-bits = <16>;
-
+	
 			status = "okay";
 		};
 	};
@@ -45,7 +48,6 @@
 
 &axi_spi_fmc {
 	// PL spi using AXI QUAD SPI module
-
 	dac0_ad9166: ad9166@0 {
 		//#address-cells = <1>;
 		//#size-cells = <0>;
@@ -160,8 +162,6 @@
 		#clock-cells = <1>;
 
 		clock-output-names = "adf4372_rf8", "adf4372_rfaux8";
-
-		// adi,spi-3wire-enable; daca am probleme pe SPI
 		adi,muxout-select = <1>; // digital lock detect
 
 		// o fi RF8x?
@@ -178,7 +178,7 @@
 			adi,power-up-frequency = /bits/ 64 <5000000000>; // 5GHz
 		};
 	};
-
+	
 	amplifier@3 {
 		compatible = "adi,ad9166-amp";
 		reg = <3>;
