@@ -1113,8 +1113,12 @@ static int ad9162_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	if (device_property_read_bool(&spi->dev, "adi,spi-3wire-enable"))
+	printk(KERN_DEBUG "\n ceva: inainte de verificare 3wire\n");
+	if (device_property_read_bool(&spi->dev, "adi,spi-3wire-enable")) {
 		spi3wire = true;
+		printk(KERN_DEBUG "\n ceva ad9166: 3wire true\n");
+	}
+
 
 	st->dac_h.user_data = st->map;
 	st->dac_h.sdo = ((spi->mode & SPI_3WIRE) || spi3wire) ? SPI_SDIO :
