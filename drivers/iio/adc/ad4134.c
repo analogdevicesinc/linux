@@ -337,6 +337,21 @@ static int _ad4134_set_odr(struct ad4134_state *st, unsigned int odr)
 	 * tDIGCLK = 1s / fDIGCLK
 	 * tODR_HIGH_TIME = 3 * tDIGCLK
 	 * See datasheet page 10, Table 3. Data Interface Timing with Gated DCLK.
+	 *
+	 * fSYSCLK is obtained from cnv_ext_clk clock provided in device tree.
+	 * cnv_ext_clk is expected provide 100 MHz clock. Thus,
+	 * fSYSCLK = sys_clk_rate = 100 MHz
+	 * fDIGCLK = 50 MHz
+	 * tDIGCLK = 0,02 * 10^-6= 20 * 10^-9 s
+	 * tODR_HIGH_TIME = 60 * 10^-9 s = 60 ns
+	 *
+	 * With sys_clk_rate be set to 100 MHz,
+	 * state_odr.duty_cycle = (CONST * 10^12)/sys_clk_rate
+	 *                      = (CONST * 10^12)/10^8
+	 *                      = CONST * 10^4
+	 * and we need CONST * 10^4 > 60 ns minimum tODR_HIGH_TIME.
+	 * CONST is set to 13 so ODR signal stays high for 130 ns which is
+	 * enough meet the 60 ns minimum plus some latency.
 	 */
 	state_odr.duty_cycle = DIV_ROUND_CLOSEST_ULL(PICO * 13, st->sys_clk_rate);
 	state_odr.period = DIV_ROUND_CLOSEST_ULL(PICO, odr);
