@@ -97,7 +97,7 @@
 			compatible = "adi,ad4134-spi-engine";
 			reg = <0>;
 
-			spi-max-frequency = <48000000>;
+			spi-max-frequency = <50000000>;
 
 			spi-cpha;
 		};
@@ -126,7 +126,7 @@
 		compatible = "adi,ad4134";
 		reg = <0>;
 
-		spi-max-frequency = <1000000>;
+		spi-max-frequency = <10000000>;
 
 		reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 
