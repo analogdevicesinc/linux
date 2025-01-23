@@ -7,7 +7,6 @@
 #include "adrv906x-sysc.dtsi"
 #include "adrv906x-protium.dtsi"
 #include "adrv906x-eth-8t8r.dtsi"
-#include "adrv906x-eth-4t4r.dtsi"
 
 / {
 	model = "ADI ADRV906X Denali 8T8R Evaluation Kit";
@@ -48,8 +47,23 @@
 	status = "okay";
 };
 
+/* BRINGUP TODO: Remove when 50MHz SD is supported */
+&pinctrl_mmc1_sd {
+	adi,pins = <
+		SD_CLK_SEL_PIN          (ADI_CONFIG_NO_PULL                | ADI_CONFIG_DRIVE_STRENGTH_4)
+		SD_CMD_PIN              (ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_4)
+		SD_DATA0_PIN            (ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_1)
+		SD_DATA1_PIN            (ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_1)
+		SD_DATA2_PIN            (ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_1)
+		SD_DATA3_PIN            (ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_1)
+		SD_CARDDETECT_PIN       (ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_4)
+	>;
+};
+
 &mmc1 {
 	status = "okay";
+	/* BRINGUP TODO: Set this back to 50MHz */
+	max-frequency = <25000000>;
 };
 
 &mmc1_regulator {
