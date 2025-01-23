@@ -120,6 +120,7 @@
 #define AD4111_GPO01_DATA(x)	BIT((x) + 6)
 #define AD7173_GPO_DATA(x)	((x) < 2 ? AD7173_GPO12_DATA(x) : AD7173_GPO23_DATA(x))
 
+#define AD7173_INTERFACE_CONTREAD	BIT(7)
 #define AD7173_INTERFACE_DATA_STAT	BIT(6)
 #define AD7173_INTERFACE_DATA_STAT_EN(x) \
 	FIELD_PREP(AD7173_INTERFACE_DATA_STAT, x)
@@ -449,6 +450,9 @@ static int ad7173_gpio_init(struct ad7173_state *st)
 	else
 		gpio_regmap.reg_mask_xlate = ad7173_mask_xlate;
 
+	if (!dev)
+		return dev_err_probe(dev, EPROBE_DEFER, "dev is NULL\n");
+
 	st->gpio_regmap = devm_gpio_regmap_register(dev, &gpio_regmap);
 	ret = PTR_ERR_OR_ZERO(st->gpio_regmap);
 	if (ret)
@@ -598,11 +602,31 @@ static int ad7173_set_mode(struct ad_sigma_delta *sd,
 			   enum ad_sigma_delta_mode mode)
 {
 	struct ad7173_state *st = ad_sigma_delta_to_ad7173(sd);
+	unsigned int interface_mode = st->interface_mode;
+	enum ad_sigma_delta_mode real_mode = mode;
+	int ret;
+
+	if (mode == AD_SD_MODE_CONTINUOUS_READ)
+		real_mode = AD_SD_MODE_CONTINUOUS;
 
 	st->adc_mode &= ~AD7173_ADC_MODE_MODE_MASK;
-	st->adc_mode |= FIELD_PREP(AD7173_ADC_MODE_MODE_MASK, mode);
+	st->adc_mode |= FIELD_PREP(AD7173_ADC_MODE_MODE_MASK, real_mode);
 
-	return ad_sd_write_reg(&st->sd, AD7173_REG_ADC_MODE, 2, st->adc_mode);
+	ret = ad_sd_write_reg(&st->sd, AD7173_REG_ADC_MODE, 2, st->adc_mode);
+	/* Return early here for all "real modes",
+	 * the CONTINUOUS_READ mode is CONTINUOUS mode plus the CONTREAD bit in the
+	 * interface mode register */
+	if (ret || mode != AD_SD_MODE_CONTINUOUS_READ)
+		return ret;
+
+	interface_mode |= FIELD_PREP(AD7173_INTERFACE_CONTREAD, 1);
+	ret = ad_sd_write_reg(&st->sd, AD7173_REG_INTERFACE_MODE, 2, interface_mode);
+	if (ret)
+		return ret;
+
+	st->interface_mode = interface_mode;
+
+	return ret;
 }
 
 static int ad7173_append_status(struct ad_sigma_delta *sd, bool append)
