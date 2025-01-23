@@ -150,6 +150,15 @@ config INPUT_E3X0_BUTTON
 	  To compile this driver as a module, choose M here: the
 	  module will be called e3x0_button.
 
+config INPUT_MAX16150_PWRBUTTON
+	bool "MAX16150/MAX16169 Pushbutton driver"
+	depends on OF_GPIO
+	help
+	  This driver supports the MAX16150 and MAX16169 pushbutton
+	  controllers, which are low-power devices with a switch
+	  debouncer and built-in latch. Device bindings are specified
+	  in the device tree.
+
 config INPUT_PCSPKR
 	tristate "PC Speaker support"
 	depends on PCSPKR_PLATFORM
