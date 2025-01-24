@@ -1539,6 +1539,18 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 
 	debugfs_create_u32("dev_clkout_div", 0600, d, &phy->dev_clkout_div);
 
+	/* port switch */
+	if (phy->port_switch.enable && !phy->port_switch.manualRxPortSwitch) {
+		debugfs_create_u64("rx_port_a_min_carrier_hz", 0600, d,
+				   &phy->port_switch.minFreqPortA_Hz);
+		debugfs_create_u64("rx_port_a_max_carrier_hz", 0600, d,
+				   &phy->port_switch.maxFreqPortA_Hz);
+		debugfs_create_u64("rx_port_b_min_carrier_hz", 0600, d,
+				   &phy->port_switch.minFreqPortB_Hz);
+		debugfs_create_u64("rx_port_b_max_carrier_hz", 0600, d,
+				   &phy->port_switch.maxFreqPortB_Hz);
+	}
+
 	for (chan = 0; chan < phy->chip->n_tx; chan++) {
 		struct adrv9002_tx_chan *tx = &phy->tx_channels[chan];
 

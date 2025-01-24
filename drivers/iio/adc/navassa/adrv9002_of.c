@@ -9,6 +9,7 @@
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/spi/spi.h>
+#include <linux/string.h>
 
 #include "adrv9002.h"
 #include "adi_adrv9001_dpd_types.h"
@@ -1053,6 +1054,77 @@ out:
 	return ret;
 }
 
+static int adrv9002_parse_port_switch(struct adrv9002_rf_phy *phy, struct device_node *node)
+{
+	static const char *const port_switch_modes[] = {
+		"auto",
+		"manual",
+	};
+	const char *mode;
+	int ret;
+
+	ret = of_property_read_string(node, "adi,rx-port-switch", &mode);
+	if (ret)
+		/* not a mandatory property... Ignoring errors...*/
+		return 0;
+
+	ret = match_string(port_switch_modes, ARRAY_SIZE(port_switch_modes), mode);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Invalid port switch mode(%s)\n", mode);
+		return -EINVAL;
+	}
+
+	phy->port_switch.enable = true;
+	if (ret > 0) {
+		phy->port_switch.manualRxPortSwitch = true;
+		/*
+		 * In manual mode, we still need to provide the carrier auto limits otherwise
+		 * the API fails and they will also be used for calibration. Hence, let`s give
+		 * the carrier full range. It will make running calibration really slow but needed
+		 * so that we can use all the carriers. Solution is to use warmboot...
+		 */
+		phy->port_switch.minFreqPortA_Hz = ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ;
+		phy->port_switch.maxFreqPortA_Hz = ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ / 2;
+		phy->port_switch.minFreqPortB_Hz = ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ / 2 + 1;
+		phy->port_switch.maxFreqPortB_Hz = ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ;
+		return 0;
+	}
+
+	/*
+	 * Just making sure the properties are given... Validation of the values is already done
+	 * later by the API when configuring the device.
+	 */
+	ret = of_property_read_u64(node, "adi,min-carrier-port-a-hz",
+				   &phy->port_switch.minFreqPortA_Hz);
+	if (ret) {
+		dev_err(&phy->spi->dev, "adi,min-carrier-port-a-hz mandatory in automatic mode\n");
+		return ret;
+	}
+
+	ret = of_property_read_u64(node, "adi,max-carrier-port-a-hz",
+				   &phy->port_switch.maxFreqPortA_Hz);
+	if (ret) {
+		dev_err(&phy->spi->dev, "adi,max-carrier-port-a-hz mandatory in automatic mode\n");
+		return ret;
+	}
+
+	ret = of_property_read_u64(node, "adi,min-carrier-port-b-hz",
+				   &phy->port_switch.minFreqPortB_Hz);
+	if (ret) {
+		dev_err(&phy->spi->dev, "adi,min-carrier-port-b-hz mandatory in automatic mode\n");
+		return ret;
+	}
+
+	ret = of_property_read_u64(node, "adi,max-carrier-port-b-hz",
+				   &phy->port_switch.maxFreqPortB_Hz);
+	if (ret) {
+		dev_err(&phy->spi->dev, "adi,max-carrier-port-b-hz mandatory in automatic mode\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 				struct device_node *node,
 				const int channel)
@@ -1299,6 +1371,10 @@ int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 					   ADI_ADRV9001_DEVICECLOCKDIVISOR_2, 0,
 					   ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED,
 					   phy->dev_clkout_div, false);
+	if (ret)
+		return ret;
+
+	ret = adrv9002_parse_port_switch(phy, parent);
 	if (ret)
 		return ret;
 
