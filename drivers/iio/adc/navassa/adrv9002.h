@@ -186,6 +186,7 @@ struct adrv9002_rx_chan {
 	struct adi_adrv9001_RxGainControlPinCfg *pin_cfg;
 	struct clk *tdd_clk;
 	struct gpio_desc *orx_gpio;
+	enum adi_adrv9001_RxRfInputSel manual_port;
 	u8 orx_en;
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_RxSsiTestModeCfg ssi_test;
@@ -276,6 +277,7 @@ struct adrv9002_rf_phy {
 	struct adi_adrv9001_Init	*curr_profile;
 	struct adi_adrv9001_Init	profile;
 	struct adi_adrv9001_InitCals	init_cals;
+	struct adi_adrv9001_RxPortSwitchCfg port_switch;
 	bool				run_cals;
 	u32				n_clks;
 	u32				dev_clkout_div;
