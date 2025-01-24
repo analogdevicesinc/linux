@@ -110,7 +110,11 @@
 /* Frequency hopping */
 #define ADRV9002_FH_TABLE_COL_SZ	7
 
-#define ADRV9002_INIT_CALS_TIMEOUT_MS	(60 * MILLI)
+#define ADRV9002_INIT_CALS_TIMEOUT_MS	(120 * MILLI)
+
+#define ADRV9002_PORT_SWITCH_IN_RANGE(port, carrier)	( \
+	((carrier) >= (port)->minFreqPortB_Hz && (carrier) <= (port)->maxFreqPortB_Hz) || \
+	((carrier) >= (port)->minFreqPortA_Hz && (carrier) <= (port)->maxFreqPortA_Hz))
 
 /* IRQ Masks */
 #define ADRV9002_GP_MASK_RX_DP_RECEIVE_ERROR		0x08000000
@@ -704,6 +708,14 @@ static int adrv9002_phy_rerun_cals(struct adrv9002_rf_phy *phy,
 	return adrv9002_phy_rerun_cals_setup(phy, port_mask, true);
 }
 
+/*
+ * !\Note that this interface does not make much sense with RX port switch enabled. The reason
+ * is that when in auto mode, the calibrations will run for the range of configured carriers and
+ * we cannot configure any frequency outside of that range. And for manual mode, we will calibrate
+ * the full range of frequencies. Hence, in theory, re-running the calibrations should not bring
+ * any additional value and can take a lot of time... However, it also does not harm so that we are
+ * keeping the interface (for simplicity) but take care as it can really take a lot of time.
+ */
 static int adrv9002_init_cals_set(struct adrv9002_rf_phy *phy, const char *buf)
 {
 	struct adi_adrv9001_InitCals cals = {0};
@@ -891,6 +903,27 @@ static int adrv9002_phy_lo_set(struct adrv9002_rf_phy *phy, struct adrv9002_chan
 	ret = api_call(phy, adi_adrv9001_Radio_Carrier_Inspect, c->port, c->number, &lo_freq);
 	if (ret)
 		return ret;
+
+	if (c->port == ADI_RX && phy->port_switch.enable)  {
+		if (phy->port_switch.manualRxPortSwitch) {
+			/*
+			 * Respect manual port selection in case we have it. The reason for doing
+			 * this is that adi_adrv9001_Radio_Carrier_Inspect() always returns RXA.
+			 */
+			lo_freq.manualRxport = chan_to_rx(c)->manual_port;
+		} else if (!ADRV9002_PORT_SWITCH_IN_RANGE(&phy->port_switch, freq)) {
+			/*
+			 * !note the API would also refuse to configure an out of range frequency
+			 * but the error message is not really helpful...
+			 */
+			dev_err(&phy->spi->dev,
+				"RX%u Carrier(%llu) out of range for port switch: RXA[%llu %llu], RXB[%llu %llu]\n",
+				c->idx + 1, freq, phy->port_switch.minFreqPortA_Hz,
+				phy->port_switch.maxFreqPortA_Hz, phy->port_switch.minFreqPortB_Hz,
+				phy->port_switch.maxFreqPortB_Hz);
+			return -EINVAL;
+		}
+	}
 
 	ret = adrv9002_set_ext_lo(c, freq);
 	if (ret)
@@ -1316,6 +1349,55 @@ static int adrv9002_set_intf_gain(struct iio_dev *indio_dev,
 		return -ENODEV;
 
 	return api_call(phy, adi_adrv9001_Rx_InterfaceGain_Set, rx->channel.number, mode);
+}
+
+static int adrv9002_get_rx_port_select(struct iio_dev *indio_dev, const struct iio_chan_spec *chan)
+{
+	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+	unsigned int c = ADRV_ADDRESS_CHAN(chan->address);
+	struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
+
+	guard(mutex)(&phy->lock);
+	/*
+	 * In theory we would use adi_adrv9001_Radio_Carrier_Inspect() but it always returns
+	 * RXA.
+	 */
+	return rx->manual_port;
+}
+
+static int adrv9002_set_rx_port_select(struct iio_dev *indio_dev,
+				       const struct iio_chan_spec *chan, u32 mode)
+{
+	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+	unsigned int c = ADRV_ADDRESS_CHAN(chan->address);
+	struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
+	struct adi_adrv9001_Carrier carrier;
+	int ret;
+
+	guard(mutex)(&phy->lock);
+
+	ret = api_call(phy, adi_adrv9001_Radio_Carrier_Inspect, rx->channel.port,
+		       rx->channel.number, &carrier);
+	if (ret)
+		return ret;
+
+	if (mode)
+		carrier.manualRxport = ADI_ADRV9001_RX_B;
+	else
+		carrier.manualRxport = ADI_ADRV9001_RX_A;
+
+	ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
+	if (ret)
+		return ret;
+
+	ret = api_call(phy, adi_adrv9001_Radio_Carrier_Configure, rx->channel.port,
+		       rx->channel.number, &carrier);
+	if (ret)
+		return ret;
+
+	rx->manual_port = carrier.manualRxport;
+
+	return adrv9002_channel_to_state(phy, &rx->channel, rx->channel.cached_state, false);
 }
 
 static int adrv9002_get_port_en_mode(struct iio_dev *indio_dev,
@@ -1951,6 +2033,17 @@ static const struct iio_enum adrv9002_intf_gain_available = {
 	.set = adrv9002_set_intf_gain,
 };
 
+static const char *const adrv9002_rx_port_select[] = {
+	"rx_a", "rx_b"
+};
+
+static const struct iio_enum adrv9002_rx_port_select_available = {
+	.items = adrv9002_rx_port_select,
+	.num_items = ARRAY_SIZE(adrv9002_rx_port_select),
+	.get = adrv9002_get_rx_port_select,
+	.set = adrv9002_set_rx_port_select,
+};
+
 static const char *const adrv9002_port_en_mode[] = {
 	"spi", "pin"
 };
@@ -2022,6 +2115,43 @@ static const struct iio_chan_spec_ext_info adrv9002_phy_rx_ext_info[] = {
 static const struct iio_chan_spec_ext_info adrv9002_phy_orx_ext_info[] = {
 	_ADRV9002_EXT_RX_INFO("bbdc_rejection_en", RX_BBDC),
 	_ADRV9002_EXT_RX_INFO("quadrature_w_poly_tracking_en", ORX_QEC_W_POLY),
+	{ },
+};
+
+static const struct iio_chan_spec_ext_info adrv9002_phy_rx_mux_ext_info[] = {
+	/* Ideally we use IIO_CHAN_INFO_FREQUENCY, but there are
+	 * values > 2^32 in order to support the entire frequency range
+	 * in Hz. Using scale is a bit ugly.
+	 */
+	IIO_ENUM_AVAILABLE("ensm_mode", IIO_SEPARATE, &adrv9002_ensm_modes_available),
+	IIO_ENUM("ensm_mode", 0, &adrv9002_ensm_modes_available),
+	IIO_ENUM_AVAILABLE("gain_control_mode", IIO_SEPARATE, &adrv9002_agc_modes_available),
+	IIO_ENUM("gain_control_mode", 0, &adrv9002_agc_modes_available),
+	IIO_ENUM_AVAILABLE("digital_gain_control_mode", IIO_SEPARATE,
+			   &adrv9002_digital_gain_ctl_modes_available),
+	IIO_ENUM("digital_gain_control_mode", 0,
+		 &adrv9002_digital_gain_ctl_modes_available),
+	_ADRV9002_EXT_RX_INFO("interface_gain_available", RX_INTERFACE_GAIN_AVAIL),
+	IIO_ENUM("interface_gain", 0,
+		 &adrv9002_intf_gain_available),
+	IIO_ENUM_AVAILABLE("port_en_mode", IIO_SEPARATE, &adrv9002_port_en_modes_available),
+	IIO_ENUM("port_en_mode", 0, &adrv9002_port_en_modes_available),
+	IIO_ENUM("port_select", IIO_SEPARATE, &adrv9002_rx_port_select_available),
+	IIO_ENUM_AVAILABLE("port_select", IIO_SEPARATE, &adrv9002_rx_port_select_available),
+	_ADRV9002_EXT_RX_INFO("rssi", RX_RSSI),
+	_ADRV9002_EXT_RX_INFO("decimated_power", RX_DECIMATION_POWER),
+	_ADRV9002_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
+	_ADRV9002_EXT_RX_INFO("nco_frequency", RX_NCO_FREQUENCY),
+	_ADRV9002_EXT_RX_INFO("quadrature_fic_tracking_en", RX_QEC_FIC),
+	_ADRV9002_EXT_RX_INFO("quadrature_w_poly_tracking_en", RX_QEC_W_POLY),
+	_ADRV9002_EXT_RX_INFO("agc_tracking_en", RX_AGC),
+	_ADRV9002_EXT_RX_INFO("bbdc_rejection_tracking_en", RX_TRACK_BBDC),
+	_ADRV9002_EXT_RX_INFO("hd_tracking_en", RX_HD2),
+	_ADRV9002_EXT_RX_INFO("rssi_tracking_en", RX_RSSI_CAL),
+	_ADRV9002_EXT_RX_INFO("rfdc_tracking_en", RX_RFDC),
+	_ADRV9002_EXT_RX_INFO("dynamic_adc_switch_en", RX_ADC_SWITCH),
+	_ADRV9002_EXT_RX_INFO("bbdc_rejection_en", RX_BBDC),
+	_ADRV9002_EXT_RX_INFO("bbdc_loop_gain_raw", RX_BBDC_LOOP_GAIN),
 	{ },
 };
 
@@ -3135,6 +3265,12 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 		dev_dbg(&phy->spi->dev, "TX%d enabled\n", i + 1);
 		/* orx actually depends on whether or not TX is enabled and not RX */
 		rx->orx_en = test_bit(ADRV9002_ORX_BIT_START + i, &rx_mask);
+		if (rx->orx_en && phy->port_switch.enable) {
+			dev_err(&phy->spi->dev,
+				"ORx%d and RX%d Port Switch cannot be both enabled\n",
+				i + 1, i + 1);
+			return -EINVAL;
+		}
 		tx->channel.power = true;
 		tx->channel.enabled = true;
 		tx->channel.nco_freq = 0;
@@ -3267,21 +3403,50 @@ static int adrv9002_digital_init(const struct adrv9002_rf_phy *phy)
 
 static u64 adrv9002_get_init_carrier(const struct adrv9002_chan *c)
 {
+	const struct adrv9002_rf_phy *phy = chan_to_phy(c);
 	u64 lo_freq;
 
 	if (!c->ext_lo) {
+		/* If no external LO, keep the same values as before */
+		if (c->port == ADI_RX) {
+			/*
+			 * For RX, port switch needs to be taken into account. If in auto
+			 * mode, the carrier needs to be in the given range.
+			 */
+			if (c->carrier)
+				lo_freq = c->carrier;
+			else
+				lo_freq = 2400000000ULL;
+
+			if (!phy->port_switch.enable || phy->port_switch.manualRxPortSwitch)
+				return lo_freq;
+
+			if (ADRV9002_PORT_SWITCH_IN_RANGE(&phy->port_switch, lo_freq))
+				return lo_freq;
+
+			dev_dbg(&phy->spi->dev, "RX%u LO(%llu) not in allowed range, Using(%llu)\n",
+				c->number, lo_freq, phy->port_switch.maxFreqPortA_Hz);
+			/* just choose one valid value */
+			return phy->port_switch.maxFreqPortA_Hz;
+		}
+
 		if (c->carrier)
 			return c->carrier;
-
-		/* If no external LO, keep the same values as before */
-		if (c->port == ADI_RX)
-			return 2400000000ULL;
 
 		return 2450000000ULL;
 	}
 
-	lo_freq = clk_get_rate_scaled(c->ext_lo->clk, &c->ext_lo->scale);
-	return DIV_ROUND_CLOSEST_ULL(lo_freq, c->ext_lo->divider);
+	lo_freq = DIV_ROUND_CLOSEST_ULL(clk_get_rate_scaled(c->ext_lo->clk, &c->ext_lo->scale),
+					c->ext_lo->divider);
+	/* if we have an external LO which does not fit in the port switch ranges just error out */
+	if (!phy->port_switch.enable || phy->port_switch.manualRxPortSwitch ||
+	    ADRV9002_PORT_SWITCH_IN_RANGE(&phy->port_switch, lo_freq))
+		return lo_freq;
+
+	dev_err(&phy->spi->dev, "Port Switch enabled and RX%u LO(%llu) not in allowed range\n",
+		c->number, lo_freq);
+
+	return -EINVAL;
 }
 
 static int adrv9002_ext_lna_set(const struct adrv9002_rf_phy *phy,
@@ -3321,7 +3486,7 @@ static int adrv9002_init_dpd(const struct adrv9002_rf_phy *phy, const struct adr
  * All of these structures are taken from TES when exporting the default profile to C code. Consider
  * about having all of these configurable through devicetree.
  */
-static int adrv9002_radio_init(const struct adrv9002_rf_phy *phy)
+static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 {
 	int ret;
 	int chan;
@@ -3349,6 +3514,12 @@ static int adrv9002_radio_init(const struct adrv9002_rf_phy *phy)
 		       ADI_ADRV9001_PLL_AUX, &pll_loop_filter);
 	if (ret)
 		return ret;
+
+	if (phy->port_switch.enable) {
+		ret = api_call(phy, adi_adrv9001_Rx_PortSwitch_Configure, &phy->port_switch);
+		if (ret)
+			return ret;
+	}
 
 	for (chan = 0; chan < ARRAY_SIZE(phy->channels); chan++) {
 		struct adrv9002_chan *c = phy->channels[chan];
@@ -4579,7 +4750,7 @@ static int adrv9002_iio_channels_get(struct adrv9002_rf_phy *phy)
 	 * be added in between but that should be easy enough to maintain!
 	 */
 	unsigned int off = ADRV9002_CHANN_MAX + phy->chip->n_tx;
-	unsigned int tx;
+	unsigned int tx, rx;
 
 	phy->iio_chan = devm_kmemdup(&phy->spi->dev, phy->chip->channels,
 				     sizeof(*phy->chip->channels) * phy->chip->num_channels,
@@ -4596,6 +4767,14 @@ static int adrv9002_iio_channels_get(struct adrv9002_rf_phy *phy)
 		/* both muxes are available so we can select between TX's */
 		phy->iio_chan[off + tx].ext_info = adrv9002_phy_tx_mux_ext_info;
 	}
+
+	if (!phy->port_switch.manualRxPortSwitch)
+		return 0;
+
+	/* For RX's we need to account for the actual TX's plus 4 AUXDAC channels */
+	off += phy->chip->n_tx + 4;
+	for (rx = 0; rx < ARRAY_SIZE(phy->rx_channels); rx++)
+		phy->iio_chan[off + rx].ext_info = adrv9002_phy_rx_mux_ext_info;
 
 	return 0;
 }
