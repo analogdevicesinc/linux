@@ -110,6 +110,8 @@
 /* Frequency hopping */
 #define ADRV9002_FH_TABLE_COL_SZ	7
 
+#define ADRV9002_INIT_CALS_TIMEOUT_MS	(60 * MILLI)
+
 /* IRQ Masks */
 #define ADRV9002_GP_MASK_RX_DP_RECEIVE_ERROR		0x08000000
 #define ADRV9002_GP_MASK_TX_DP_TRANSMIT_ERROR		0x04000000
@@ -693,7 +695,8 @@ static int adrv9002_phy_rerun_cals(struct adrv9002_rf_phy *phy,
 	dev_dbg(&phy->spi->dev, "Re-run init cals: mask: %08X, %08X\n",
 		init_cals->chanInitCalMask[0], init_cals->chanInitCalMask[1]);
 
-	ret = api_call(phy, adi_adrv9001_cals_InitCals_Run, init_cals, 60000, &error);
+	ret = api_call(phy, adi_adrv9001_cals_InitCals_Run, init_cals,
+		       ADRV9002_INIT_CALS_TIMEOUT_MS, &error);
 	if (ret)
 		return ret;
 
@@ -2582,7 +2585,7 @@ static irqreturn_t adrv9002_irq_handler(int irq, void *p)
 		case ADI_ADRV9001_ACT_WARN_RERUN_TRCK_CAL:
 			dev_warn(&phy->spi->dev, "Re-running tracking calibrations\n");
 			api_call(phy, adi_adrv9001_cals_InitCals_Run,
-				 &phy->init_cals, 60000, &error);
+				 &phy->init_cals, ADRV9002_INIT_CALS_TIMEOUT_MS, &error);
 			break;
 		case ADI_COMMON_ACT_ERR_RESET_FULL:
 			dev_warn(&phy->spi->dev, "[%s]: Reset might be needed...\n",
@@ -2643,7 +2646,8 @@ static int adrv9002_init_cals_handle(struct adrv9002_rf_phy *phy)
 		return ret;
 
 run_cals:
-	return api_call(phy, adi_adrv9001_cals_InitCals_Run, &phy->init_cals, 60000, &errors);
+	return api_call(phy, adi_adrv9001_cals_InitCals_Run, &phy->init_cals,
+			ADRV9002_INIT_CALS_TIMEOUT_MS, &errors);
 }
 
 static int adrv9001_rx_path_config(struct adrv9002_rf_phy *phy,
