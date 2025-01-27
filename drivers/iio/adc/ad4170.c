@@ -2213,6 +2213,7 @@ static const struct of_device_id ad4170_of_match[] = {
 	{
 		.compatible = "adi,ad4170",
 		.compatible = "adi,ad4190",
+		.compatible = "adi,ad4195",
 	},
 	{ }
 };
