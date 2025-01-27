@@ -709,6 +709,7 @@ static int se_load_firmware(struct se_if_priv *priv)
 				  se_fw_phyaddr);
 
 		release_firmware(fw);
+		fw = NULL;
 
 		if (!ret && load_fw->imem.state == ELE_IMEM_STATE_BAD &&
 				se_img_file_to_load == load_fw->se_fw_img_nm->prim_fw_nm_in_rfs)
@@ -1113,7 +1114,7 @@ static int init_device_context(struct se_if_priv *priv, int ch_id,
 static int se_ioctl_cmd_snd_rcv_rsp_handler(struct se_if_device_ctx *dev_ctx,
 					    u64 arg)
 {
-	struct se_ioctl_cmd_snd_rcv_rsp_info cmd_snd_rcv_rsp_info;
+	struct se_ioctl_cmd_snd_rcv_rsp_info cmd_snd_rcv_rsp_info = {0};
 	struct se_if_priv *priv = dev_ctx->priv;
 	struct se_api_msg *tx_msg __free(kfree) = NULL;
 	struct se_api_msg *rx_msg __free(kfree) = NULL;
