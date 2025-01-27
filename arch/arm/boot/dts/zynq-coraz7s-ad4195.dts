@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4195-4
+ *
+ * hdl_project: <ad4170_asdz/coraz7s>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/ad4170_asdz
+ * board_revision: <A>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-coraz7s-ad4170.dts"
+
+&spi_engine {
+	status = "okay";
+
+	ad4195_4: ad4170@0 {
+		compatible = "adi,ad4195";
+	};
+};
+
