@@ -14,6 +14,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/list.h>
 #include <linux/log2.h>
 #include <linux/module.h>
@@ -51,9 +52,22 @@
 #define PCIE_RC_CFG_PRIV1_ROOT_CAP			0x4f8
 #define  PCIE_RC_CFG_PRIV1_ROOT_CAP_L1SS_MODE_MASK	0xf8
 
+#define PCIE_RC_TL_VDM_CTL0				0x0a20
+#define  PCIE_RC_TL_VDM_CTL0_VDM_ENABLED_MASK		0x10000
+#define  PCIE_RC_TL_VDM_CTL0_VDM_IGNORETAG_MASK		0x20000
+#define  PCIE_RC_TL_VDM_CTL0_VDM_IGNOREVNDRID_MASK	0x40000
+
+#define PCIE_RC_TL_VDM_CTL1				0x0a0c
+#define  PCIE_RC_TL_VDM_CTL1_VDM_VNDRID0_MASK		0x0000ffff
+#define  PCIE_RC_TL_VDM_CTL1_VDM_VNDRID1_MASK		0xffff0000
+
 #define PCIE_RC_DL_MDIO_ADDR				0x1100
 #define PCIE_RC_DL_MDIO_WR_DATA				0x1104
 #define PCIE_RC_DL_MDIO_RD_DATA				0x1108
+
+#define PCIE_RC_PL_PHY_CTL_15				0x184c
+#define  PCIE_RC_PL_PHY_CTL_15_DIS_PLL_PD_MASK		0x400000
+#define  PCIE_RC_PL_PHY_CTL_15_PM_CLK_PERIOD_MASK	0xff
 
 #define PCIE_MISC_MISC_CTRL				0x4008
 #define  PCIE_MISC_MISC_CTRL_PCIE_RCB_64B_MODE_MASK	0x80
@@ -75,19 +89,17 @@
 #define PCIE_MEM_WIN0_HI(win)	\
 		PCIE_MISC_CPU_2_PCIE_MEM_WIN0_HI + ((win) * 8)
 
-/*
- * NOTE: You may see the term "BAR" in a number of register names used by
- *   this driver.  The term is an artifact of when the HW core was an
- *   endpoint device (EP).  Now it is a root complex (RC) and anywhere a
- *   register has the term "BAR" it is related to an inbound window.
- */
-
-#define PCIE_BRCM_MAX_INBOUND_WINS			16
 #define PCIE_MISC_RC_BAR1_CONFIG_LO			0x402c
 #define  PCIE_MISC_RC_BAR1_CONFIG_LO_SIZE_MASK		0x1f
+#define PCIE_MISC_RC_BAR1_CONFIG_HI			0x4030
 
-#define PCIE_MISC_RC_BAR4_CONFIG_LO			0x40d4
+#define PCIE_MISC_RC_BAR2_CONFIG_LO			0x4034
+#define  PCIE_MISC_RC_BAR2_CONFIG_LO_SIZE_MASK		0x1f
+#define PCIE_MISC_RC_BAR2_CONFIG_HI			0x4038
 
+#define PCIE_MISC_RC_BAR3_CONFIG_LO			0x403c
+#define  PCIE_MISC_RC_BAR3_CONFIG_LO_SIZE_MASK		0x1f
+#define PCIE_MISC_RC_BAR3_CONFIG_HI			0x4040
 
 #define PCIE_MISC_MSI_BAR_CONFIG_LO			0x4044
 #define PCIE_MISC_MSI_BAR_CONFIG_HI			0x4048
@@ -96,12 +108,15 @@
 #define  PCIE_MISC_MSI_DATA_CONFIG_VAL_32		0xffe06540
 #define  PCIE_MISC_MSI_DATA_CONFIG_VAL_8		0xfff86540
 
+#define PCIE_MISC_RC_CONFIG_RETRY_TIMEOUT		0x405c
+
 #define PCIE_MISC_PCIE_CTRL				0x4064
 #define  PCIE_MISC_PCIE_CTRL_PCIE_L23_REQUEST_MASK	0x1
 #define PCIE_MISC_PCIE_CTRL_PCIE_PERSTB_MASK		0x4
 
 #define PCIE_MISC_PCIE_STATUS				0x4068
 #define  PCIE_MISC_PCIE_STATUS_PCIE_PORT_MASK		0x80
+#define  PCIE_MISC_PCIE_STATUS_PCIE_PORT_MASK_2712	0x40
 #define  PCIE_MISC_PCIE_STATUS_PCIE_DL_ACTIVE_MASK	0x20
 #define  PCIE_MISC_PCIE_STATUS_PCIE_PHYLINKUP_MASK	0x10
 #define  PCIE_MISC_PCIE_STATUS_PCIE_LINK_IN_L23_MASK	0x40
@@ -126,21 +141,80 @@
 #define PCIE_MEM_WIN0_LIMIT_HI(win)	\
 		PCIE_MISC_CPU_2_PCIE_MEM_WIN0_LIMIT_HI + ((win) * 8)
 
+#define PCIE_MISC_HARD_PCIE_HARD_DEBUG	pcie->reg_offsets[PCIE_HARD_DEBUG]
 #define  PCIE_MISC_HARD_PCIE_HARD_DEBUG_CLKREQ_DEBUG_ENABLE_MASK	0x2
 #define  PCIE_MISC_HARD_PCIE_HARD_DEBUG_L1SS_ENABLE_MASK		0x200000
+#define  PCIE_MISC_HARD_PCIE_HARD_DEBUG_PERST_ASSERT_MASK		0x8
 #define  PCIE_MISC_HARD_PCIE_HARD_DEBUG_SERDES_IDDQ_MASK		0x08000000
 #define  PCIE_BMIPS_MISC_HARD_PCIE_HARD_DEBUG_SERDES_IDDQ_MASK		0x00800000
+
 #define  PCIE_CLKREQ_MASK \
 	  (PCIE_MISC_HARD_PCIE_HARD_DEBUG_CLKREQ_DEBUG_ENABLE_MASK | \
 	   PCIE_MISC_HARD_PCIE_HARD_DEBUG_L1SS_ENABLE_MASK)
 
-#define PCIE_MISC_UBUS_BAR1_CONFIG_REMAP			0x40ac
-#define  PCIE_MISC_UBUS_BAR1_CONFIG_REMAP_ACCESS_EN_MASK	BIT(0)
-#define PCIE_MISC_UBUS_BAR4_CONFIG_REMAP			0x410c
+#define PCIE_MISC_CTRL_1					0x40A0
+#define  PCIE_MISC_CTRL_1_OUTBOUND_TC_MASK			0xf
+#define  PCIE_MISC_CTRL_1_OUTBOUND_NO_SNOOP_MASK		BIT(3)
+#define  PCIE_MISC_CTRL_1_OUTBOUND_RO_MASK			BIT(4)
+#define  PCIE_MISC_CTRL_1_EN_VDM_QOS_CONTROL_MASK		BIT(5)
 
+#define PCIE_MISC_UBUS_CTRL	0x40a4
+#define  PCIE_MISC_UBUS_CTRL_UBUS_PCIE_REPLY_ERR_DIS_MASK	BIT(13)
+#define  PCIE_MISC_UBUS_CTRL_UBUS_PCIE_REPLY_DECERR_DIS_MASK	BIT(19)
+
+#define PCIE_MISC_UBUS_TIMEOUT	0x40A8
+
+#define PCIE_MISC_UBUS_BAR1_CONFIG_REMAP	0x40ac
+#define  PCIE_MISC_UBUS_BAR1_CONFIG_REMAP_ACCESS_ENABLE_MASK	BIT(0)
+#define PCIE_MISC_UBUS_BAR1_CONFIG_REMAP_HI	0x40b0
+
+#define PCIE_MISC_UBUS_BAR2_CONFIG_REMAP	0x40b4
+#define  PCIE_MISC_UBUS_BAR2_CONFIG_REMAP_ACCESS_ENABLE_MASK	BIT(0)
+
+/* Additional RC BARs */
+#define  PCIE_MISC_RC_BAR_CONFIG_LO_SIZE_MASK		0x1f
+#define PCIE_MISC_RC_BAR4_CONFIG_LO			0x40d4
+#define PCIE_MISC_RC_BAR4_CONFIG_HI			0x40d8
+/* ... */
+#define PCIE_MISC_RC_BAR10_CONFIG_LO			0x4104
+#define PCIE_MISC_RC_BAR10_CONFIG_HI			0x4108
+
+#define PCIE_MISC_UBUS_BAR_CONFIG_REMAP_ENABLE		0x1
+#define PCIE_MISC_UBUS_BAR_CONFIG_REMAP_LO_MASK		0xfffff000
+#define PCIE_MISC_UBUS_BAR_CONFIG_REMAP_HI_MASK		0xff
+#define PCIE_MISC_UBUS_BAR4_CONFIG_REMAP_LO		0x410c
+#define PCIE_MISC_UBUS_BAR4_CONFIG_REMAP_HI		0x4110
+/* ... */
+#define PCIE_MISC_UBUS_BAR10_CONFIG_REMAP_LO		0x413c
+#define PCIE_MISC_UBUS_BAR10_CONFIG_REMAP_HI		0x4140
+
+/* AXI priority forwarding - automatic level-based */
+#define PCIE_MISC_TC_QUEUE_TO_QOS_MAP(x)		(0x4160 - (x) * 4)
+/* Defined in quarter-fullness */
+#define  QUEUE_THRESHOLD_34_TO_QOS_MAP_SHIFT		12
+#define  QUEUE_THRESHOLD_23_TO_QOS_MAP_SHIFT		8
+#define  QUEUE_THRESHOLD_12_TO_QOS_MAP_SHIFT		4
+#define  QUEUE_THRESHOLD_01_TO_QOS_MAP_SHIFT		0
+#define  QUEUE_THRESHOLD_MASK				0xf
+
+/* VDM messages indexing TCs to AXI priorities */
+/* Indexes 8-15 */
+#define PCIE_MISC_VDM_PRIORITY_TO_QOS_MAP_HI		0x4164
+/* Indexes 0-7 */
+#define PCIE_MISC_VDM_PRIORITY_TO_QOS_MAP_LO		0x4168
+#define  VDM_PRIORITY_TO_QOS_MAP_SHIFT(x)		(4 * (x))
+#define  VDM_PRIORITY_TO_QOS_MAP_MASK			0xf
+
+#define PCIE_MISC_AXI_INTF_CTRL 0x416C
+#define  AXI_REQFIFO_EN_QOS_PROPAGATION			BIT(7)
+#define  AXI_BRIDGE_LOW_LATENCY_MODE			BIT(6)
+#define  AXI_MASTER_MAX_OUTSTANDING_REQUESTS_MASK	0x3f
+
+#define PCIE_MISC_AXI_READ_ERROR_DATA	0x4170
+
+#define PCIE_INTR2_CPU_BASE		(pcie->reg_offsets[INTR2_CPU])
 #define PCIE_MSI_INTR2_BASE		0x4500
-
-/* Offsets from INTR2_CPU and MSI_INTR2 BASE offsets */
+/* Offsets from PCIE_INTR2_CPU_BASE and PCIE_MSI_INTR2_BASE */
 #define  MSI_INT_STATUS			0x0
 #define  MSI_INT_CLR			0x8
 #define  MSI_INT_MASK_SET		0x10
@@ -191,11 +265,9 @@
 #define SSC_STATUS_PLL_LOCK_MASK	0x800
 #define PCIE_BRCM_MAX_MEMC		3
 
-#define IDX_ADDR(pcie)			((pcie)->reg_offsets[EXT_CFG_INDEX])
-#define DATA_ADDR(pcie)			((pcie)->reg_offsets[EXT_CFG_DATA])
-#define PCIE_RGR1_SW_INIT_1(pcie)	((pcie)->reg_offsets[RGR1_SW_INIT_1])
-#define HARD_DEBUG(pcie)		((pcie)->reg_offsets[PCIE_HARD_DEBUG])
-#define INTR2_CPU_BASE(pcie)		((pcie)->reg_offsets[PCIE_INTR2_CPU_BASE])
+#define IDX_ADDR(pcie)			(pcie->reg_offsets[EXT_CFG_INDEX])
+#define DATA_ADDR(pcie)			(pcie->reg_offsets[EXT_CFG_DATA])
+#define PCIE_RGR1_SW_INIT_1(pcie)	(pcie->reg_offsets[RGR1_SW_INIT_1])
 
 /* Rescal registers */
 #define PCIE_DVT_PMU_PCIE_PHY_CTRL				0xc700
@@ -215,32 +287,30 @@ enum {
 	EXT_CFG_INDEX,
 	EXT_CFG_DATA,
 	PCIE_HARD_DEBUG,
-	PCIE_INTR2_CPU_BASE,
+	INTR2_CPU,
 };
 
-enum pcie_soc_base {
+enum {
+	RGR1_SW_INIT_1_INIT_MASK,
+	RGR1_SW_INIT_1_INIT_SHIFT,
+};
+
+enum pcie_type {
 	GENERIC,
-	BCM2711,
-	BCM4908,
-	BCM7278,
 	BCM7425,
 	BCM7435,
-	BCM7712,
-};
-
-struct inbound_win {
-	u64 size;
-	u64 pci_offset;
-	u64 cpu_addr;
+	BCM4908,
+	BCM7278,
+	BCM2711,
+	BCM2712,
 };
 
 struct pcie_cfg_data {
 	const int *offsets;
-	const enum pcie_soc_base soc_base;
-	const bool has_phy;
-	u8 num_inbound_wins;
-	int (*perst_set)(struct brcm_pcie *pcie, u32 val);
-	int (*bridge_sw_init_set)(struct brcm_pcie *pcie, u32 val);
+	const enum pcie_type type;
+	void (*perst_set)(struct brcm_pcie *pcie, u32 val);
+	void (*bridge_sw_init_set)(struct brcm_pcie *pcie, u32 val);
+	bool (*rc_mode)(struct brcm_pcie *pcie);
 };
 
 struct subdev_regulators {
@@ -257,7 +327,7 @@ struct brcm_msi {
 	struct mutex		lock; /* guards the alloc/free operations */
 	u64			target_addr;
 	int			irq;
-	DECLARE_BITMAP(used, BRCM_INT_PCI_MSI_NR);
+	DECLARE_BITMAP(used, 64);
 	bool			legacy;
 	/* Some chips have MSIs in bits [31..24] of a shared register. */
 	int			legacy_shift;
@@ -273,29 +343,30 @@ struct brcm_pcie {
 	struct clk		*clk;
 	struct device_node	*np;
 	bool			ssc;
+	bool			rcb_mps_mode;
 	int			gen;
 	u64			msi_target_addr;
 	struct brcm_msi		*msi;
 	const int		*reg_offsets;
-	enum pcie_soc_base	soc_base;
+	enum pcie_type		type;
 	struct reset_control	*rescal;
 	struct reset_control	*perst_reset;
 	struct reset_control	*bridge_reset;
-	struct reset_control	*swinit_reset;
 	int			num_memc;
 	u64			memc_size[PCIE_BRCM_MAX_MEMC];
 	u32			hw_rev;
-	int			(*perst_set)(struct brcm_pcie *pcie, u32 val);
-	int			(*bridge_sw_init_set)(struct brcm_pcie *pcie, u32 val);
+	u32			qos_map;
+	void			(*perst_set)(struct brcm_pcie *pcie, u32 val);
+	void			(*bridge_sw_init_set)(struct brcm_pcie *pcie, u32 val);
+	bool			(*rc_mode)(struct brcm_pcie *pcie);
 	struct subdev_regulators *sr;
 	bool			ep_wakeup_capable;
-	bool			has_phy;
-	u8			num_inbound_wins;
+	u32			tperst_clk_ms;
 };
 
 static inline bool is_bmips(const struct brcm_pcie *pcie)
 {
-	return pcie->soc_base == BCM7435 || pcie->soc_base == BCM7425;
+	return pcie->type == BCM7435 || pcie->type == BCM7425;
 }
 
 /*
@@ -309,8 +380,8 @@ static int brcm_pcie_encode_ibar_size(u64 size)
 	if (log2_in >= 12 && log2_in <= 15)
 		/* Covers 4KB to 32KB (inclusive) */
 		return (log2_in - 12) + 0x1c;
-	else if (log2_in >= 16 && log2_in <= 35)
-		/* Covers 64KB to 32GB, (inclusive) */
+	else if (log2_in >= 16 && log2_in <= 36)
+		/* Covers 64KB to 64GB, (inclusive) */
 		return log2_in - 15;
 	/* Something is awry so disable */
 	return 0;
@@ -399,6 +470,35 @@ static int brcm_pcie_set_ssc(struct brcm_pcie *pcie)
 	return ssc && pll ? 0 : -EIO;
 }
 
+static void brcm_pcie_munge_pll(struct brcm_pcie *pcie)
+{
+	//print "MDIO block 0x1600 written per Dannys instruction"
+	//tmp = pcie_mdio_write(phyad, &h16&, &h50b9&)
+	//tmp = pcie_mdio_write(phyad, &h17&, &hbd1a&)
+	//tmp = pcie_mdio_write(phyad, &h1b&, &h5030&)
+	//tmp = pcie_mdio_write(phyad, &h1e&, &h0007&)
+
+	u32 tmp;
+	int ret, i;
+	u8 regs[] =  { 0x16,   0x17,   0x18,   0x19,   0x1b,   0x1c,   0x1e };
+	u16 data[] = { 0x50b9, 0xbda1, 0x0094, 0x97b4, 0x5030, 0x5030, 0x0007 };
+
+	ret = brcm_pcie_mdio_write(pcie->base, MDIO_PORT0, SET_ADDR_OFFSET,
+				0x1600);
+	for (i = 0; i < ARRAY_SIZE(regs); i++) {
+		brcm_pcie_mdio_read(pcie->base, MDIO_PORT0, regs[i], &tmp);
+		dev_dbg(pcie->dev, "PCIE MDIO pre_refclk 0x%02x = 0x%04x\n",
+			regs[i], tmp);
+	}
+	for (i = 0; i < ARRAY_SIZE(regs); i++) {
+		brcm_pcie_mdio_write(pcie->base, MDIO_PORT0, regs[i], data[i]);
+		brcm_pcie_mdio_read(pcie->base, MDIO_PORT0, regs[i], &tmp);
+		dev_dbg(pcie->dev, "PCIE MDIO post_refclk 0x%02x = 0x%04x\n",
+			regs[i], tmp);
+	}
+	usleep_range(100, 200);
+}
+
 /* Limits operation to a specific generation (1, 2, or 3) */
 static void brcm_pcie_set_gen(struct brcm_pcie *pcie, int gen)
 {
@@ -413,7 +513,7 @@ static void brcm_pcie_set_gen(struct brcm_pcie *pcie, int gen)
 }
 
 static void brcm_pcie_set_outbound_win(struct brcm_pcie *pcie,
-				       u8 win, u64 cpu_addr,
+				       unsigned int win, u64 cpu_addr,
 				       u64 pcie_addr, u64 size)
 {
 	u32 cpu_addr_mb_high, limit_addr_mb_high;
@@ -456,6 +556,59 @@ static void brcm_pcie_set_outbound_win(struct brcm_pcie *pcie,
 	writel(tmp, pcie->base + PCIE_MEM_WIN0_LIMIT_HI(win));
 }
 
+static void brcm_pcie_set_tc_qos(struct brcm_pcie *pcie)
+{
+	int i;
+	u32 reg;
+
+	if (pcie->type != BCM2712)
+		return;
+
+	/* XXX: BCM2712C0 is broken, disable the forwarding search */
+	reg = readl(pcie->base + PCIE_MISC_AXI_INTF_CTRL);
+	reg &= ~AXI_REQFIFO_EN_QOS_PROPAGATION;
+	writel(reg, pcie->base + PCIE_MISC_AXI_INTF_CTRL);
+
+	/* Disable VDM reception by default - QoS map defaults to 0 */
+	reg = readl(pcie->base + PCIE_MISC_CTRL_1);
+	reg &= ~PCIE_MISC_CTRL_1_EN_VDM_QOS_CONTROL_MASK;
+	writel(reg, pcie->base + PCIE_MISC_CTRL_1);
+
+	if (!of_property_read_u32(pcie->np, "brcm,fifo-qos-map", &pcie->qos_map)) {
+		/*
+		 * Backpressure mode - bottom 4 nibbles are QoS for each
+		 * quartile of FIFO level. Each TC gets the same map, because
+		 * this mode is intended for nonrealtime EPs.
+		 */
+
+		pcie->qos_map &= 0x0000ffff;
+		for (i = 0; i < 8; i++)
+			writel(pcie->qos_map, pcie->base + PCIE_MISC_TC_QUEUE_TO_QOS_MAP(i));
+
+		return;
+	}
+
+	if (!of_property_read_u32(pcie->np, "brcm,vdm-qos-map", &pcie->qos_map)) {
+
+		reg = readl(pcie->base + PCIE_MISC_CTRL_1);
+		reg |= PCIE_MISC_CTRL_1_EN_VDM_QOS_CONTROL_MASK;
+		writel(reg, pcie->base + PCIE_MISC_CTRL_1);
+
+		/* No forwarding means no point separating panic priorities from normal */
+		writel(pcie->qos_map, pcie->base + PCIE_MISC_VDM_PRIORITY_TO_QOS_MAP_LO);
+		writel(pcie->qos_map, pcie->base + PCIE_MISC_VDM_PRIORITY_TO_QOS_MAP_HI);
+
+		/* Match Vendor ID of 0 */
+		writel(0, pcie->base + PCIE_RC_TL_VDM_CTL1);
+		/* Forward VDMs to priority interface - at least the rx counters work */
+		reg = readl(pcie->base + PCIE_RC_TL_VDM_CTL0);
+		reg |= PCIE_RC_TL_VDM_CTL0_VDM_ENABLED_MASK |
+			PCIE_RC_TL_VDM_CTL0_VDM_IGNORETAG_MASK |
+			PCIE_RC_TL_VDM_CTL0_VDM_IGNOREVNDRID_MASK;
+		writel(reg, pcie->base + PCIE_RC_TL_VDM_CTL0);
+	}
+}
+
 static struct irq_chip brcm_msi_irq_chip = {
 	.name            = "BRCM STB PCIe MSI",
 	.irq_ack         = irq_chip_ack_parent,
@@ -464,15 +617,15 @@ static struct irq_chip brcm_msi_irq_chip = {
 };
 
 static struct msi_domain_info brcm_msi_domain_info = {
-	.flags	= MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
-		  MSI_FLAG_NO_AFFINITY | MSI_FLAG_MULTI_PCI_MSI,
+	.flags	= (MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
+		   MSI_FLAG_MULTI_PCI_MSI | MSI_FLAG_PCI_MSIX),
 	.chip	= &brcm_msi_irq_chip,
 };
 
 static void brcm_pcie_msi_isr(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
-	unsigned long status;
+	unsigned long status, virq;
 	struct brcm_msi *msi;
 	struct device *dev;
 	u32 bit;
@@ -484,10 +637,22 @@ static void brcm_pcie_msi_isr(struct irq_desc *desc)
 	status = readl(msi->intr_base + MSI_INT_STATUS);
 	status >>= msi->legacy_shift;
 
-	for_each_set_bit(bit, &status, msi->nr) {
-		int ret;
-		ret = generic_handle_domain_irq(msi->inner_domain, bit);
-		if (ret)
+	for_each_set_bit(bit, &status, BRCM_INT_PCI_MSI_NR/*msi->nr*/) {
+		bool found = false;
+
+		virq = irq_find_mapping(msi->inner_domain, bit);
+		if (virq) {
+			found = true;
+			dev_dbg(dev, "MSI -> %ld\n", virq);
+			generic_handle_irq(virq);
+		}
+		virq = irq_find_mapping(msi->inner_domain, bit + 32);
+		if (virq) {
+			found = true;
+			dev_dbg(dev, "MSI -> %ld\n", virq);
+			generic_handle_irq(virq);
+		}
+		if (!found)
 			dev_dbg(dev, "unexpected MSI\n");
 	}
 
@@ -500,13 +665,19 @@ static void brcm_msi_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
 
 	msg->address_lo = lower_32_bits(msi->target_addr);
 	msg->address_hi = upper_32_bits(msi->target_addr);
-	msg->data = (0xffff & PCIE_MISC_MSI_DATA_CONFIG_VAL_32) | data->hwirq;
+	msg->data = (0xffff & PCIE_MISC_MSI_DATA_CONFIG_VAL_32) | (data->hwirq & 0x1f);
+}
+
+static int brcm_msi_set_affinity(struct irq_data *irq_data,
+				 const struct cpumask *mask, bool force)
+{
+	return -EINVAL;
 }
 
 static void brcm_msi_ack_irq(struct irq_data *data)
 {
 	struct brcm_msi *msi = irq_data_get_irq_chip_data(data);
-	const int shift_amt = data->hwirq + msi->legacy_shift;
+	const int shift_amt = (data->hwirq & 0x1f) + msi->legacy_shift;
 
 	writel(1 << shift_amt, msi->intr_base + MSI_INT_CLR);
 }
@@ -515,6 +686,7 @@ static void brcm_msi_ack_irq(struct irq_data *data)
 static struct irq_chip brcm_msi_bottom_irq_chip = {
 	.name			= "BRCM STB MSI",
 	.irq_compose_msi_msg	= brcm_msi_compose_msi_msg,
+	.irq_set_affinity	= brcm_msi_set_affinity,
 	.irq_ack                = brcm_msi_ack_irq,
 };
 
@@ -661,12 +833,12 @@ static int brcm_pcie_enable_msi(struct brcm_pcie *pcie)
 	BUILD_BUG_ON(BRCM_INT_PCI_MSI_LEGACY_NR > BRCM_INT_PCI_MSI_NR);
 
 	if (msi->legacy) {
-		msi->intr_base = msi->base + INTR2_CPU_BASE(pcie);
+		msi->intr_base = msi->base + PCIE_INTR2_CPU_BASE;
 		msi->nr = BRCM_INT_PCI_MSI_LEGACY_NR;
 		msi->legacy_shift = 24;
 	} else {
 		msi->intr_base = msi->base + PCIE_MSI_INTR2_BASE;
-		msi->nr = BRCM_INT_PCI_MSI_NR;
+		msi->nr = 64; //BRCM_INT_PCI_MSI_NR;
 		msi->legacy_shift = 0;
 	}
 
@@ -683,12 +855,20 @@ static int brcm_pcie_enable_msi(struct brcm_pcie *pcie)
 }
 
 /* The controller is capable of serving in both RC and EP roles */
-static bool brcm_pcie_rc_mode(struct brcm_pcie *pcie)
+static bool brcm_pcie_rc_mode_generic(struct brcm_pcie *pcie)
 {
 	void __iomem *base = pcie->base;
 	u32 val = readl(base + PCIE_MISC_PCIE_STATUS);
 
 	return !!FIELD_GET(PCIE_MISC_PCIE_STATUS_PCIE_PORT_MASK, val);
+}
+
+static bool brcm_pcie_rc_mode_2712(struct brcm_pcie *pcie)
+{
+	void __iomem *base = pcie->base;
+	u32 val = readl(base + PCIE_MISC_PCIE_STATUS);
+
+	return !!FIELD_GET(PCIE_MISC_PCIE_STATUS_PCIE_PORT_MASK_2712, val) | 1; //XXX
 }
 
 static bool brcm_pcie_link_up(struct brcm_pcie *pcie)
@@ -742,33 +922,17 @@ static void __iomem *brcm7425_pcie_map_bus(struct pci_bus *bus,
 	return base + DATA_ADDR(pcie);
 }
 
-static int brcm_pcie_bridge_sw_init_set_generic(struct brcm_pcie *pcie, u32 val)
+static void brcm_pcie_bridge_sw_init_set_generic(struct brcm_pcie *pcie, u32 val)
 {
-	u32 tmp, mask = RGR1_SW_INIT_1_INIT_GENERIC_MASK;
+	u32 tmp, mask =  RGR1_SW_INIT_1_INIT_GENERIC_MASK;
 	u32 shift = RGR1_SW_INIT_1_INIT_GENERIC_SHIFT;
-	int ret = 0;
-
-	if (pcie->bridge_reset) {
-		if (val)
-			ret = reset_control_assert(pcie->bridge_reset);
-		else
-			ret = reset_control_deassert(pcie->bridge_reset);
-
-		if (ret)
-			dev_err(pcie->dev, "failed to %s 'bridge' reset, err=%d\n",
-				val ? "assert" : "deassert", ret);
-
-		return ret;
-	}
 
 	tmp = readl(pcie->base + PCIE_RGR1_SW_INIT_1(pcie));
 	tmp = (tmp & ~mask) | ((val << shift) & mask);
 	writel(tmp, pcie->base + PCIE_RGR1_SW_INIT_1(pcie));
-
-	return ret;
 }
 
-static int brcm_pcie_bridge_sw_init_set_7278(struct brcm_pcie *pcie, u32 val)
+static void brcm_pcie_bridge_sw_init_set_7278(struct brcm_pcie *pcie, u32 val)
 {
 	u32 tmp, mask =  RGR1_SW_INIT_1_INIT_7278_MASK;
 	u32 shift = RGR1_SW_INIT_1_INIT_7278_SHIFT;
@@ -776,29 +940,32 @@ static int brcm_pcie_bridge_sw_init_set_7278(struct brcm_pcie *pcie, u32 val)
 	tmp = readl(pcie->base + PCIE_RGR1_SW_INIT_1(pcie));
 	tmp = (tmp & ~mask) | ((val << shift) & mask);
 	writel(tmp, pcie->base + PCIE_RGR1_SW_INIT_1(pcie));
-
-	return 0;
 }
 
-static int brcm_pcie_perst_set_4908(struct brcm_pcie *pcie, u32 val)
+static void brcm_pcie_bridge_sw_init_set_2712(struct brcm_pcie *pcie, u32 val)
 {
-	int ret;
-
-	if (WARN_ONCE(!pcie->perst_reset, "missing PERST# reset controller\n"))
-		return -EINVAL;
+	if (WARN_ONCE(!pcie->bridge_reset,
+		      "missing bridge reset controller\n"))
+		return;
 
 	if (val)
-		ret = reset_control_assert(pcie->perst_reset);
+		reset_control_assert(pcie->bridge_reset);
 	else
-		ret = reset_control_deassert(pcie->perst_reset);
-
-	if (ret)
-		dev_err(pcie->dev, "failed to %s 'perst' reset, err=%d\n",
-			val ? "assert" : "deassert", ret);
-	return ret;
+		reset_control_deassert(pcie->bridge_reset);
 }
 
-static int brcm_pcie_perst_set_7278(struct brcm_pcie *pcie, u32 val)
+static void brcm_pcie_perst_set_4908(struct brcm_pcie *pcie, u32 val)
+{
+	if (WARN_ONCE(!pcie->perst_reset, "missing PERST# reset controller\n"))
+		return;
+
+	if (val)
+		reset_control_assert(pcie->perst_reset);
+	else
+		reset_control_deassert(pcie->perst_reset);
+}
+
+static void brcm_pcie_perst_set_7278(struct brcm_pcie *pcie, u32 val)
 {
 	u32 tmp;
 
@@ -806,77 +973,46 @@ static int brcm_pcie_perst_set_7278(struct brcm_pcie *pcie, u32 val)
 	tmp = readl(pcie->base + PCIE_MISC_PCIE_CTRL);
 	u32p_replace_bits(&tmp, !val, PCIE_MISC_PCIE_CTRL_PCIE_PERSTB_MASK);
 	writel(tmp, pcie->base +  PCIE_MISC_PCIE_CTRL);
-
-	return 0;
 }
 
-static int brcm_pcie_perst_set_generic(struct brcm_pcie *pcie, u32 val)
+static void brcm_pcie_perst_set_2712(struct brcm_pcie *pcie, u32 val)
+{
+	u32 tmp;
+
+	/* Perst bit has moved and assert value is 0 */
+	tmp = readl(pcie->base + PCIE_MISC_PCIE_CTRL);
+	u32p_replace_bits(&tmp, !val, PCIE_MISC_PCIE_CTRL_PCIE_PERSTB_MASK);
+	writel(tmp, pcie->base +  PCIE_MISC_PCIE_CTRL);
+}
+
+static void brcm_pcie_perst_set_generic(struct brcm_pcie *pcie, u32 val)
 {
 	u32 tmp;
 
 	tmp = readl(pcie->base + PCIE_RGR1_SW_INIT_1(pcie));
 	u32p_replace_bits(&tmp, val, PCIE_RGR1_SW_INIT_1_PERST_MASK);
 	writel(tmp, pcie->base + PCIE_RGR1_SW_INIT_1(pcie));
-
-	return 0;
 }
 
-static void add_inbound_win(struct inbound_win *b, u8 *count, u64 size,
-			    u64 cpu_addr, u64 pci_offset)
-{
-	b->size = size;
-	b->cpu_addr = cpu_addr;
-	b->pci_offset = pci_offset;
-	(*count)++;
-}
-
-static int brcm_pcie_get_inbound_wins(struct brcm_pcie *pcie,
-				      struct inbound_win inbound_wins[])
+static int brcm_pcie_get_rc_bar2_size_and_offset(struct brcm_pcie *pcie,
+							u64 *rc_bar2_size,
+							u64 *rc_bar2_offset)
 {
 	struct pci_host_bridge *bridge = pci_host_bridge_from_priv(pcie);
-	u64 pci_offset, cpu_addr, size = 0, tot_size = 0;
 	struct resource_entry *entry;
 	struct device *dev = pcie->dev;
 	u64 lowest_pcie_addr = ~(u64)0;
 	int ret, i = 0;
-	u8 n = 0;
-
-	/*
-	 * The HW registers (and PCIe) use order-1 numbering for BARs.  As such,
-	 * we have inbound_wins[0] unused and BAR1 starts at inbound_wins[1].
-	 */
-	struct inbound_win *b_begin = &inbound_wins[1];
-	struct inbound_win *b = b_begin;
-
-	/*
-	 * STB chips beside 7712 disable the first inbound window default.
-	 * Rather being mapped to system memory it is mapped to the
-	 * internal registers of the SoC.  This feature is deprecated, has
-	 * security considerations, and is not implemented in our modern
-	 * SoCs.
-	 */
-	if (pcie->soc_base != BCM7712)
-		add_inbound_win(b++, &n, 0, 0, 0);
+	u64 size = 0;
 
 	resource_list_for_each_entry(entry, &bridge->dma_ranges) {
-		u64 pcie_start = entry->res->start - entry->offset;
-		u64 cpu_start = entry->res->start;
+		u64 pcie_beg = entry->res->start - entry->offset;
 
-		size = resource_size(entry->res);
-		tot_size += size;
-		if (pcie_start < lowest_pcie_addr)
-			lowest_pcie_addr = pcie_start;
-		/*
-		 * 7712 and newer chips may have many BARs, with each
-		 * offering a non-overlapping viewport to system memory.
-		 * That being said, each BARs size must still be a power of
-		 * two.
-		 */
-		if (pcie->soc_base == BCM7712)
-			add_inbound_win(b++, &n, size, cpu_start, pcie_start);
-
-		if (n > pcie->num_inbound_wins)
-			break;
+		size += entry->res->end - entry->res->start + 1;
+		if (pcie_beg < lowest_pcie_addr)
+			lowest_pcie_addr = pcie_beg;
+		if (pcie->type == BCM2711 || pcie->type == BCM2712)
+			break; // Only consider the first entry
 	}
 
 	if (lowest_pcie_addr == ~(u64)0) {
@@ -884,20 +1020,13 @@ static int brcm_pcie_get_inbound_wins(struct brcm_pcie *pcie,
 		return -EINVAL;
 	}
 
-	/*
-	 * 7712 and newer chips do not have an internal memory mapping system
-	 * that enables multiple memory controllers.  As such, it can return
-	 * now w/o doing special configuration.
-	 */
-	if (pcie->soc_base == BCM7712)
-		return n;
-
 	ret = of_property_read_variable_u64_array(pcie->np, "brcm,scb-sizes", pcie->memc_size, 1,
 						  PCIE_BRCM_MAX_MEMC);
+
 	if (ret <= 0) {
 		/* Make an educated guess */
 		pcie->num_memc = 1;
-		pcie->memc_size[0] = 1ULL << fls64(tot_size - 1);
+		pcie->memc_size[0] = 1ULL << fls64(size - 1);
 	} else {
 		pcie->num_memc = ret;
 	}
@@ -906,15 +1035,10 @@ static int brcm_pcie_get_inbound_wins(struct brcm_pcie *pcie,
 	for (i = 0, size = 0; i < pcie->num_memc; i++)
 		size += pcie->memc_size[i];
 
-	/* Our HW mandates that the window size must be a power of 2 */
-	size = 1ULL << fls64(size - 1);
-
-	/*
-	 * For STB chips, the BAR2 cpu_addr is hardwired to the start
-	 * of system memory, so we set it to 0.
-	 */
-	cpu_addr = 0;
-	pci_offset = lowest_pcie_addr;
+	/* System memory starts at this address in PCIe-space */
+	*rc_bar2_offset = lowest_pcie_addr;
+	/* The sum of all memc views must also be a power of 2 */
+	*rc_bar2_size = 1ULL << fls64(size - 1);
 
 	/*
 	 * We validate the inbound memory view even though we should trust
@@ -949,121 +1073,81 @@ static int brcm_pcie_get_inbound_wins(struct brcm_pcie *pcie,
 	 *   outbound memory @ 3GB). So instead it will  start at the 1x
 	 *   multiple of its size
 	 */
-	if (!size || (pci_offset & (size - 1)) ||
-	    (pci_offset < SZ_4G && pci_offset > SZ_2G)) {
-		dev_err(dev, "Invalid inbound_win2_offset/size: size 0x%llx, off 0x%llx\n",
-			size, pci_offset);
+	if (!*rc_bar2_size || (*rc_bar2_offset & (*rc_bar2_size - 1)) ||
+	    (*rc_bar2_offset < SZ_4G && *rc_bar2_offset > SZ_2G)) {
+		dev_err(dev, "Invalid rc_bar2_offset/size: size 0x%llx, off 0x%llx\n",
+			*rc_bar2_size, *rc_bar2_offset);
 		return -EINVAL;
 	}
 
-	/* Enable inbound window 2, the main inbound window for STB chips */
-	add_inbound_win(b++, &n, size, cpu_addr, pci_offset);
-
-	/*
-	 * Disable inbound window 3.  On some chips presents the same
-	 * window as #2 but the data appears in a settable endianness.
-	 */
-	add_inbound_win(b++, &n, 0, 0, 0);
-
-	return n;
+	return 0;
 }
 
-static u32 brcm_bar_reg_offset(int bar)
+static int brcm_pcie_get_rc_bar_n(struct brcm_pcie *pcie,
+				  int idx,
+				  u64 *rc_bar_cpu,
+				  u64 *rc_bar_size,
+				  u64 *rc_bar_pci)
 {
-	if (bar <= 3)
-		return PCIE_MISC_RC_BAR1_CONFIG_LO + 8 * (bar - 1);
-	else
-		return PCIE_MISC_RC_BAR4_CONFIG_LO + 8 * (bar - 4);
-}
+	struct pci_host_bridge *bridge = pci_host_bridge_from_priv(pcie);
+	struct resource_entry *entry;
+	int i = 0;
 
-static u32 brcm_ubus_reg_offset(int bar)
-{
-	if (bar <= 3)
-		return PCIE_MISC_UBUS_BAR1_CONFIG_REMAP + 8 * (bar - 1);
-	else
-		return PCIE_MISC_UBUS_BAR4_CONFIG_REMAP + 8 * (bar - 4);
-}
-
-static void set_inbound_win_registers(struct brcm_pcie *pcie,
-				      const struct inbound_win *inbound_wins,
-				      u8 num_inbound_wins)
-{
-	void __iomem *base = pcie->base;
-	int i;
-
-	for (i = 1; i <= num_inbound_wins; i++) {
-		u64 pci_offset = inbound_wins[i].pci_offset;
-		u64 cpu_addr = inbound_wins[i].cpu_addr;
-		u64 size = inbound_wins[i].size;
-		u32 reg_offset = brcm_bar_reg_offset(i);
-		u32 tmp = lower_32_bits(pci_offset);
-
-		u32p_replace_bits(&tmp, brcm_pcie_encode_ibar_size(size),
-				  PCIE_MISC_RC_BAR1_CONFIG_LO_SIZE_MASK);
-
-		/* Write low */
-		writel_relaxed(tmp, base + reg_offset);
-		/* Write high */
-		writel_relaxed(upper_32_bits(pci_offset), base + reg_offset + 4);
-
-		/*
-		 * Most STB chips:
-		 *     Do nothing.
-		 * 7712:
-		 *     All of their BARs need to be set.
-		 */
-		if (pcie->soc_base == BCM7712) {
-			/* BUS remap register settings */
-			reg_offset = brcm_ubus_reg_offset(i);
-			tmp = lower_32_bits(cpu_addr) & ~0xfff;
-			tmp |= PCIE_MISC_UBUS_BAR1_CONFIG_REMAP_ACCESS_EN_MASK;
-			writel_relaxed(tmp, base + reg_offset);
-			tmp = upper_32_bits(cpu_addr);
-			writel_relaxed(tmp, base + reg_offset + 4);
+	resource_list_for_each_entry(entry, &bridge->dma_ranges) {
+		if (i == idx) {
+			*rc_bar_cpu  = entry->res->start;
+			*rc_bar_size = entry->res->end - entry->res->start + 1;
+			*rc_bar_pci = entry->res->start - entry->offset;
+			return 0;
 		}
+
+		i++;
 	}
+
+	return -EINVAL;
 }
 
 static int brcm_pcie_setup(struct brcm_pcie *pcie)
 {
-	struct inbound_win inbound_wins[PCIE_BRCM_MAX_INBOUND_WINS];
+	u64 rc_bar2_offset, rc_bar2_size;
 	void __iomem *base = pcie->base;
 	struct pci_host_bridge *bridge;
 	struct resource_entry *entry;
 	u32 tmp, burst, aspm_support;
-	u8 num_out_wins = 0;
-	int num_inbound_wins = 0;
-	int memc, ret;
+	int num_out_wins = 0;
+	int ret, memc, count, i;
 
 	/* Reset the bridge */
-	ret = pcie->bridge_sw_init_set(pcie, 1);
-	if (ret)
-		return ret;
+	pcie->bridge_sw_init_set(pcie, 1);
 
 	/* Ensure that PERST# is asserted; some bootloaders may deassert it. */
-	if (pcie->soc_base == BCM2711) {
-		ret = pcie->perst_set(pcie, 1);
-		if (ret) {
-			pcie->bridge_sw_init_set(pcie, 0);
-			return ret;
-		}
-	}
+	if (pcie->type == BCM2711)
+		pcie->perst_set(pcie, 1);
 
 	usleep_range(100, 200);
 
 	/* Take the bridge out of reset */
-	ret = pcie->bridge_sw_init_set(pcie, 0);
-	if (ret)
-		return ret;
+	pcie->bridge_sw_init_set(pcie, 0);
 
-	tmp = readl(base + HARD_DEBUG(pcie));
+	tmp = readl(base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
 	if (is_bmips(pcie))
 		tmp &= ~PCIE_BMIPS_MISC_HARD_PCIE_HARD_DEBUG_SERDES_IDDQ_MASK;
 	else
 		tmp &= ~PCIE_MISC_HARD_PCIE_HARD_DEBUG_SERDES_IDDQ_MASK;
-	writel(tmp, base + HARD_DEBUG(pcie));
+	writel(tmp, base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
 	/* Wait for SerDes to be stable */
 	usleep_range(100, 200);
+
+	if (pcie->type == BCM2712) {
+		/* Allow a 54MHz (xosc) refclk source */
+		brcm_pcie_munge_pll(pcie);
+		/* Fix for L1SS errata */
+		tmp = readl(base + PCIE_RC_PL_PHY_CTL_15);
+		tmp &= ~PCIE_RC_PL_PHY_CTL_15_PM_CLK_PERIOD_MASK;
+		/* PM clock period is 18.52ns (round down) */
+		tmp |= 0x12;
+		writel(tmp, base + PCIE_RC_PL_PHY_CTL_15);
+	}
 
 	/*
 	 * SCB_MAX_BURST_SIZE is a two bit field.  For GENERIC chips it
@@ -1072,37 +1156,46 @@ static int brcm_pcie_setup(struct brcm_pcie *pcie)
 	 */
 	if (is_bmips(pcie))
 		burst = 0x1; /* 256 bytes */
-	else if (pcie->soc_base == BCM2711)
+	else if (pcie->type == BCM2711)
 		burst = 0x0; /* 128 bytes */
-	else if (pcie->soc_base == BCM7278)
+	else if (pcie->type == BCM2712)
+		burst = 0x1; /* 128 bytes */
+	else if (pcie->type == BCM7278)
 		burst = 0x3; /* 512 bytes */
 	else
 		burst = 0x2; /* 512 bytes */
 
 	/*
 	 * Set SCB_MAX_BURST_SIZE, CFG_READ_UR_MODE, SCB_ACCESS_EN,
-	 * RCB_MPS_MODE, RCB_64B_MODE
+	 * RCB_MPS_MODE
 	 */
 	tmp = readl(base + PCIE_MISC_MISC_CTRL);
 	u32p_replace_bits(&tmp, 1, PCIE_MISC_MISC_CTRL_SCB_ACCESS_EN_MASK);
 	u32p_replace_bits(&tmp, 1, PCIE_MISC_MISC_CTRL_CFG_READ_UR_MODE_MASK);
 	u32p_replace_bits(&tmp, burst, PCIE_MISC_MISC_CTRL_MAX_BURST_SIZE_MASK);
-	u32p_replace_bits(&tmp, 1, PCIE_MISC_MISC_CTRL_PCIE_RCB_MPS_MODE_MASK);
-	u32p_replace_bits(&tmp, 1, PCIE_MISC_MISC_CTRL_PCIE_RCB_64B_MODE_MASK);
+	if (pcie->rcb_mps_mode)
+		u32p_replace_bits(&tmp, 1, PCIE_MISC_MISC_CTRL_PCIE_RCB_MPS_MODE_MASK);
 	writel(tmp, base + PCIE_MISC_MISC_CTRL);
 
-	num_inbound_wins = brcm_pcie_get_inbound_wins(pcie, inbound_wins);
-	if (num_inbound_wins < 0)
-		return num_inbound_wins;
+	brcm_pcie_set_tc_qos(pcie);
 
-	set_inbound_win_registers(pcie, inbound_wins, num_inbound_wins);
+	ret = brcm_pcie_get_rc_bar2_size_and_offset(pcie, &rc_bar2_size,
+						    &rc_bar2_offset);
+	if (ret)
+		return ret;
 
-	if (!brcm_pcie_rc_mode(pcie)) {
-		dev_err(pcie->dev, "PCIe RC controller misconfigured as Endpoint\n");
-		return -EINVAL;
-	}
+	tmp = lower_32_bits(rc_bar2_offset);
+	u32p_replace_bits(&tmp, brcm_pcie_encode_ibar_size(rc_bar2_size),
+			  PCIE_MISC_RC_BAR2_CONFIG_LO_SIZE_MASK);
+	writel(tmp, base + PCIE_MISC_RC_BAR2_CONFIG_LO);
+	writel(upper_32_bits(rc_bar2_offset),
+	       base + PCIE_MISC_RC_BAR2_CONFIG_HI);
 
+	tmp = readl(base + PCIE_MISC_UBUS_BAR2_CONFIG_REMAP);
+	u32p_replace_bits(&tmp, 1, PCIE_MISC_UBUS_BAR2_CONFIG_REMAP_ACCESS_ENABLE_MASK);
+	writel(tmp, base + PCIE_MISC_UBUS_BAR2_CONFIG_REMAP);
 	tmp = readl(base + PCIE_MISC_MISC_CTRL);
+
 	for (memc = 0; memc < pcie->num_memc; memc++) {
 		u32 scb_size_val = ilog2(pcie->memc_size[memc]) - 15;
 
@@ -1113,7 +1206,31 @@ static int brcm_pcie_setup(struct brcm_pcie *pcie)
 		else if (memc == 2)
 			u32p_replace_bits(&tmp, scb_size_val, SCB_SIZE_MASK(2));
 	}
+
 	writel(tmp, base + PCIE_MISC_MISC_CTRL);
+
+	if (pcie->type == BCM2712) {
+		/* Suppress AXI error responses and return 1s for read failures */
+		tmp = readl(base + PCIE_MISC_UBUS_CTRL);
+		u32p_replace_bits(&tmp, 1, PCIE_MISC_UBUS_CTRL_UBUS_PCIE_REPLY_ERR_DIS_MASK);
+		u32p_replace_bits(&tmp, 1, PCIE_MISC_UBUS_CTRL_UBUS_PCIE_REPLY_DECERR_DIS_MASK);
+		writel(tmp, base + PCIE_MISC_UBUS_CTRL);
+		writel(0xffffffff, base + PCIE_MISC_AXI_READ_ERROR_DATA);
+
+		/*
+		 * Adjust timeouts. The UBUS timeout also affects CRS
+		 * completion retries, as the request will get terminated if
+		 * either timeout expires, so both have to be a large value
+		 * (in clocks of 750MHz).
+		 * Set UBUS timeout to 250ms, then set RC config retry timeout
+		 * to be ~240ms.
+		 *
+		 * Setting CRSVis=1 will stop the core from blocking on a CRS
+		 * response, but does require the device to be well-behaved...
+		 */
+		writel(0xB2D0000, base + PCIE_MISC_UBUS_TIMEOUT);
+		writel(0xABA0000, base + PCIE_MISC_RC_CONFIG_RETRY_TIMEOUT);
+	}
 
 	/*
 	 * We ideally want the MSI target address to be located in the 32bit
@@ -1122,12 +1239,25 @@ static int brcm_pcie_setup(struct brcm_pcie *pcie)
 	 * 4GB or when the inbound area is smaller than 4GB (taking into
 	 * account the rounding-up we're forced to perform).
 	 */
-	if (inbound_wins[2].pci_offset >= SZ_4G ||
-	    (inbound_wins[2].size + inbound_wins[2].pci_offset) < SZ_4G)
+	if (rc_bar2_offset >= SZ_4G || (rc_bar2_size + rc_bar2_offset) < SZ_4G)
 		pcie->msi_target_addr = BRCM_MSI_TARGET_ADDR_LT_4GB;
 	else
 		pcie->msi_target_addr = BRCM_MSI_TARGET_ADDR_GT_4GB;
 
+	if (!pcie->rc_mode(pcie)) {
+		dev_err(pcie->dev, "PCIe RC controller misconfigured as Endpoint\n");
+		return -EINVAL;
+	}
+
+	/* disable the PCIe->GISB memory window (RC_BAR1) */
+	tmp = readl(base + PCIE_MISC_RC_BAR1_CONFIG_LO);
+	tmp &= ~PCIE_MISC_RC_BAR1_CONFIG_LO_SIZE_MASK;
+	writel(tmp, base + PCIE_MISC_RC_BAR1_CONFIG_LO);
+
+	/* disable the PCIe->SCB memory window (RC_BAR3) */
+	tmp = readl(base + PCIE_MISC_RC_BAR3_CONFIG_LO);
+	tmp &= ~PCIE_MISC_RC_BAR3_CONFIG_LO_SIZE_MASK;
+	writel(tmp, base + PCIE_MISC_RC_BAR3_CONFIG_LO);
 
 	/* Don't advertise L0s capability if 'aspm-no-l0s' */
 	aspm_support = PCIE_LINK_STATE_L1;
@@ -1137,6 +1267,38 @@ static int brcm_pcie_setup(struct brcm_pcie *pcie)
 	u32p_replace_bits(&tmp, aspm_support,
 		PCIE_RC_CFG_PRIV1_LINK_CAPABILITY_ASPM_SUPPORT_MASK);
 	writel(tmp, base + PCIE_RC_CFG_PRIV1_LINK_CAPABILITY);
+
+	/* program additional inbound windows (RC_BAR4..RC_BAR10) */
+	count = (pcie->type == BCM2712) ? 7 : 0;
+	for (i = 0; i < count; i++) {
+		u64 bar_cpu, bar_size, bar_pci;
+
+		ret = brcm_pcie_get_rc_bar_n(pcie, 1 + i, &bar_cpu, &bar_size,
+					     &bar_pci);
+		if (ret)
+			break;
+
+		tmp = lower_32_bits(bar_pci);
+		u32p_replace_bits(&tmp, brcm_pcie_encode_ibar_size(bar_size),
+				  PCIE_MISC_RC_BAR_CONFIG_LO_SIZE_MASK);
+		writel(tmp, base + PCIE_MISC_RC_BAR4_CONFIG_LO + i * 8);
+		writel(upper_32_bits(bar_pci),
+		       base + PCIE_MISC_RC_BAR4_CONFIG_HI + i * 8);
+
+		tmp = upper_32_bits(bar_cpu) &
+			PCIE_MISC_UBUS_BAR_CONFIG_REMAP_HI_MASK;
+		writel(tmp,
+		       base + PCIE_MISC_UBUS_BAR4_CONFIG_REMAP_HI + i * 8);
+		tmp = lower_32_bits(bar_cpu) &
+			PCIE_MISC_UBUS_BAR_CONFIG_REMAP_LO_MASK;
+		writel(tmp | PCIE_MISC_UBUS_BAR_CONFIG_REMAP_ENABLE,
+		       base + PCIE_MISC_UBUS_BAR4_CONFIG_REMAP_LO + i * 8);
+	}
+
+	if (pcie->gen) {
+		dev_info(pcie->dev, "Forcing gen %d\n", pcie->gen);
+		brcm_pcie_set_gen(pcie, pcie->gen);
+	}
 
 	/*
 	 * For config space accesses on the RC, show the right class for
@@ -1178,7 +1340,7 @@ static int brcm_pcie_setup(struct brcm_pcie *pcie)
 		num_out_wins++;
 	}
 
-	/* PCIe->SCB endian mode for inbound window */
+	/* PCIe->SCB endian mode for BAR */
 	tmp = readl(base + PCIE_RC_CFG_VENDOR_VENDOR_SPECIFIC_REG1);
 	u32p_replace_bits(&tmp, PCIE_RC_CFG_VENDOR_SPCIFIC_REG1_LITTLE_ENDIAN,
 		PCIE_RC_CFG_VENDOR_VENDOR_SPECIFIC_REG1_ENDIAN_MODE_BAR2_MASK);
@@ -1198,8 +1360,7 @@ static void brcm_extend_rbus_timeout(struct brcm_pcie *pcie)
 	const unsigned int REG_OFFSET = PCIE_RGR1_SW_INIT_1(pcie) - 8;
 	u32 timeout_us = 4000000; /* 4 seconds, our setting for L1SS */
 
-	/* 7712 does not have this (RGR1) timer */
-	if (pcie->soc_base == BCM7712)
+	if (!PCIE_RGR1_SW_INIT_1(pcie))
 		return;
 
 	/* Each unit in timeout register is 1/216,000,000 seconds */
@@ -1220,7 +1381,7 @@ static void brcm_config_clkreq(struct brcm_pcie *pcie)
 	}
 
 	/* Start out assuming safe mode (both mode bits cleared) */
-	clkreq_cntl = readl(pcie->base + HARD_DEBUG(pcie));
+	clkreq_cntl = readl(pcie->base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
 	clkreq_cntl &= ~PCIE_CLKREQ_MASK;
 
 	if (strcmp(mode, "no-l1ss") == 0) {
@@ -1263,7 +1424,7 @@ static void brcm_config_clkreq(struct brcm_pcie *pcie)
 			dev_err(pcie->dev, err_msg);
 		mode = "safe";
 	}
-	writel(clkreq_cntl, pcie->base + HARD_DEBUG(pcie));
+	writel(clkreq_cntl, pcie->base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
 
 	dev_info(pcie->dev, "clkreq-mode set to %s\n", mode);
 }
@@ -1275,11 +1436,28 @@ static int brcm_pcie_start_link(struct brcm_pcie *pcie)
 	u16 nlw, cls, lnksta;
 	bool ssc_good = false;
 	int ret, i;
+	u32 tmp;
 
 	/* Unassert the fundamental reset */
-	ret = pcie->perst_set(pcie, 0);
-	if (ret)
-		return ret;
+	if (pcie->tperst_clk_ms) {
+		/*
+		 * Increase Tperst_clk time by forcing PERST# output low while
+		 * the internal reset is released, so the PLL generates stable
+		 * refclk output further in advance of PERST# deassertion.
+		 */
+		tmp = readl(base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
+		u32p_replace_bits(&tmp, 1, PCIE_MISC_HARD_PCIE_HARD_DEBUG_PERST_ASSERT_MASK);
+		writel(tmp, base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
+
+		pcie->perst_set(pcie, 0);
+		msleep(pcie->tperst_clk_ms);
+
+		tmp = readl(base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
+		u32p_replace_bits(&tmp, 0, PCIE_MISC_HARD_PCIE_HARD_DEBUG_PERST_ASSERT_MASK);
+		writel(tmp, base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
+	} else {
+		pcie->perst_set(pcie, 0);
+	}
 
 	/*
 	 * Wait for 100ms after PERST# deassertion; see PCIe CEM specification
@@ -1312,6 +1490,7 @@ static int brcm_pcie_start_link(struct brcm_pcie *pcie)
 		else
 			dev_err(dev, "failed attempt to enter ssc mode\n");
 	}
+
 
 	lnksta = readw(base + BRCM_PCIE_CAP_REGS + PCI_EXP_LNKSTA);
 	cls = FIELD_GET(PCI_EXP_LNKSTA_CLS, lnksta);
@@ -1427,6 +1606,7 @@ static void brcm_pcie_enter_l23(struct brcm_pcie *pcie)
 
 static int brcm_phy_cntl(struct brcm_pcie *pcie, const int start)
 {
+#if 0
 	static const u32 shifts[PCIE_DVT_PMU_PCIE_PHY_CTRL_DAST_NFLDS] = {
 		PCIE_DVT_PMU_PCIE_PHY_CTRL_DAST_PWRDN_SHIFT,
 		PCIE_DVT_PMU_PCIE_PHY_CTRL_DAST_RESET_SHIFT,
@@ -1459,29 +1639,30 @@ static int brcm_phy_cntl(struct brcm_pcie *pcie, const int start)
 		dev_err(pcie->dev, "failed to %s phy\n", (start ? "start" : "stop"));
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 static inline int brcm_phy_start(struct brcm_pcie *pcie)
 {
-	return pcie->has_phy ? brcm_phy_cntl(pcie, 1) : 0;
+	return pcie->rescal ? brcm_phy_cntl(pcie, 1) : 0;
 }
 
 static inline int brcm_phy_stop(struct brcm_pcie *pcie)
 {
-	return pcie->has_phy ? brcm_phy_cntl(pcie, 0) : 0;
+	return pcie->rescal ? brcm_phy_cntl(pcie, 0) : 0;
 }
 
-static int brcm_pcie_turn_off(struct brcm_pcie *pcie)
+static void brcm_pcie_turn_off(struct brcm_pcie *pcie)
 {
 	void __iomem *base = pcie->base;
-	int tmp, ret;
+	int tmp;
 
 	if (brcm_pcie_link_up(pcie))
 		brcm_pcie_enter_l23(pcie);
 	/* Assert fundamental reset */
-	ret = pcie->perst_set(pcie, 1);
-	if (ret)
-		return ret;
+	pcie->perst_set(pcie, 1);
 
 	/* Deassert request for L23 in case it was asserted */
 	tmp = readl(base + PCIE_MISC_PCIE_CTRL);
@@ -1489,14 +1670,18 @@ static int brcm_pcie_turn_off(struct brcm_pcie *pcie)
 	writel(tmp, base + PCIE_MISC_PCIE_CTRL);
 
 	/* Turn off SerDes */
-	tmp = readl(base + HARD_DEBUG(pcie));
+	tmp = readl(base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
 	u32p_replace_bits(&tmp, 1, PCIE_MISC_HARD_PCIE_HARD_DEBUG_SERDES_IDDQ_MASK);
-	writel(tmp, base + HARD_DEBUG(pcie));
+	writel(tmp, base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
 
+	/*
+	 * Shutting down this bridge on pcie1 means accesses to rescal block
+	 * will hang the chip if another RC wants to assert/deassert rescal.
+	 */
+	if (pcie->type == BCM2712)
+		return;
 	/* Shutdown PCIe bridge */
-	ret = pcie->bridge_sw_init_set(pcie, 1);
-
-	return ret;
+	pcie->bridge_sw_init_set(pcie, 1);
 }
 
 static int pci_dev_may_wakeup(struct pci_dev *dev, void *data)
@@ -1514,12 +1699,9 @@ static int brcm_pcie_suspend_noirq(struct device *dev)
 {
 	struct brcm_pcie *pcie = dev_get_drvdata(dev);
 	struct pci_host_bridge *bridge = pci_host_bridge_from_priv(pcie);
-	int ret, rret;
+	int ret;
 
-	ret = brcm_pcie_turn_off(pcie);
-	if (ret)
-		return ret;
-
+	brcm_pcie_turn_off(pcie);
 	/*
 	 * If brcm_phy_stop() returns an error, just dev_err(). If we
 	 * return the error it will cause the suspend to fail and this is a
@@ -1528,9 +1710,9 @@ static int brcm_pcie_suspend_noirq(struct device *dev)
 	if (brcm_phy_stop(pcie))
 		dev_err(dev, "Could not stop phy for suspend\n");
 
-	ret = reset_control_rearm(pcie->rescal);
+	ret = reset_control_assert(pcie->rescal);
 	if (ret) {
-		dev_err(dev, "Could not rearm rescal reset\n");
+		dev_err(dev, "Could not assert rescal reset\n");
 		return ret;
 	}
 
@@ -1548,10 +1730,7 @@ static int brcm_pcie_suspend_noirq(struct device *dev)
 						     pcie->sr->supplies);
 			if (ret) {
 				dev_err(dev, "Could not turn off regulators\n");
-				rret = reset_control_reset(pcie->rescal);
-				if (rret)
-					dev_err(dev, "failed to reset 'rascal' controller ret=%d\n",
-						rret);
+				reset_control_reset(pcie->rescal);
 				return ret;
 			}
 		}
@@ -1566,7 +1745,7 @@ static int brcm_pcie_resume_noirq(struct device *dev)
 	struct brcm_pcie *pcie = dev_get_drvdata(dev);
 	void __iomem *base;
 	u32 tmp;
-	int ret, rret;
+	int ret;
 
 	base = pcie->base;
 	ret = clk_prepare_enable(pcie->clk);
@@ -1585,9 +1764,9 @@ static int brcm_pcie_resume_noirq(struct device *dev)
 	pcie->bridge_sw_init_set(pcie, 0);
 
 	/* SERDES_IDDQ = 0 */
-	tmp = readl(base + HARD_DEBUG(pcie));
+	tmp = readl(base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
 	u32p_replace_bits(&tmp, 0, PCIE_MISC_HARD_PCIE_HARD_DEBUG_SERDES_IDDQ_MASK);
-	writel(tmp, base + HARD_DEBUG(pcie));
+	writel(tmp, base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
 
 	/* wait for serdes to be stable */
 	udelay(100);
@@ -1628,9 +1807,7 @@ err_regulator:
 	if (pcie->sr)
 		regulator_bulk_disable(pcie->sr->num_supplies, pcie->sr->supplies);
 err_reset:
-	rret = reset_control_rearm(pcie->rescal);
-	if (rret)
-		dev_err(pcie->dev, "failed to rearm 'rescal' reset, err=%d\n", rret);
+	reset_control_assert(pcie->rescal);
 err_disable_clk:
 	clk_disable_unprepare(pcie->clk);
 	return ret;
@@ -1642,8 +1819,8 @@ static void __brcm_pcie_remove(struct brcm_pcie *pcie)
 	brcm_pcie_turn_off(pcie);
 	if (brcm_phy_stop(pcie))
 		dev_err(pcie->dev, "Could not stop phy\n");
-	if (reset_control_rearm(pcie->rescal))
-		dev_err(pcie->dev, "Could not rearm rescal reset\n");
+	if (reset_control_assert(pcie->rescal))
+		dev_err(pcie->dev, "Could not assert rescal reset\n");
 	clk_disable_unprepare(pcie->clk);
 }
 
@@ -1658,111 +1835,101 @@ static void brcm_pcie_remove(struct platform_device *pdev)
 }
 
 static const int pcie_offsets[] = {
-	[RGR1_SW_INIT_1]	= 0x9210,
-	[EXT_CFG_INDEX]		= 0x9000,
-	[EXT_CFG_DATA]		= 0x9004,
-	[PCIE_HARD_DEBUG]	= 0x4204,
-	[PCIE_INTR2_CPU_BASE]	= 0x4300,
+	[RGR1_SW_INIT_1] = 0x9210,
+	[EXT_CFG_INDEX]  = 0x9000,
+	[EXT_CFG_DATA]   = 0x9004,
+	[PCIE_HARD_DEBUG] = 0x4204,
+	[INTR2_CPU]      = 0x4300,
 };
 
-static const int pcie_offsets_bcm7278[] = {
-	[RGR1_SW_INIT_1]	= 0xc010,
-	[EXT_CFG_INDEX]		= 0x9000,
-	[EXT_CFG_DATA]		= 0x9004,
-	[PCIE_HARD_DEBUG]	= 0x4204,
-	[PCIE_INTR2_CPU_BASE]	= 0x4300,
-};
-
-static const int pcie_offsets_bcm7425[] = {
-	[RGR1_SW_INIT_1]	= 0x8010,
-	[EXT_CFG_INDEX]		= 0x8300,
-	[EXT_CFG_DATA]		= 0x8304,
-	[PCIE_HARD_DEBUG]	= 0x4204,
-	[PCIE_INTR2_CPU_BASE]	= 0x4300,
-};
-
-static const int pcie_offsets_bcm7712[] = {
-	[EXT_CFG_INDEX]		= 0x9000,
-	[EXT_CFG_DATA]		= 0x9004,
-	[PCIE_HARD_DEBUG]	= 0x4304,
-	[PCIE_INTR2_CPU_BASE]	= 0x4400,
+static const int pcie_offsets_bmips_7425[] = {
+	[RGR1_SW_INIT_1] = 0x8010,
+	[EXT_CFG_INDEX]  = 0x8300,
+	[EXT_CFG_DATA]   = 0x8304,
+	[PCIE_HARD_DEBUG] = 0x4204,
+	[INTR2_CPU]      = 0x4300,
 };
 
 static const struct pcie_cfg_data generic_cfg = {
 	.offsets	= pcie_offsets,
-	.soc_base	= GENERIC,
+	.type		= GENERIC,
 	.perst_set	= brcm_pcie_perst_set_generic,
 	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_generic,
-	.num_inbound_wins = 3,
-};
-
-static const struct pcie_cfg_data bcm2711_cfg = {
-	.offsets	= pcie_offsets,
-	.soc_base	= BCM2711,
-	.perst_set	= brcm_pcie_perst_set_generic,
-	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_generic,
-	.num_inbound_wins = 3,
-};
-
-static const struct pcie_cfg_data bcm4908_cfg = {
-	.offsets	= pcie_offsets,
-	.soc_base	= BCM4908,
-	.perst_set	= brcm_pcie_perst_set_4908,
-	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_generic,
-	.num_inbound_wins = 3,
-};
-
-static const struct pcie_cfg_data bcm7278_cfg = {
-	.offsets	= pcie_offsets_bcm7278,
-	.soc_base	= BCM7278,
-	.perst_set	= brcm_pcie_perst_set_7278,
-	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_7278,
-	.num_inbound_wins = 3,
+	.rc_mode	= brcm_pcie_rc_mode_generic,
 };
 
 static const struct pcie_cfg_data bcm7425_cfg = {
-	.offsets	= pcie_offsets_bcm7425,
-	.soc_base	= BCM7425,
+	.offsets	= pcie_offsets_bmips_7425,
+	.type		= BCM7425,
 	.perst_set	= brcm_pcie_perst_set_generic,
 	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_generic,
-	.num_inbound_wins = 3,
+	.rc_mode	= brcm_pcie_rc_mode_generic,
 };
 
 static const struct pcie_cfg_data bcm7435_cfg = {
 	.offsets	= pcie_offsets,
-	.soc_base	= BCM7435,
+	.type		= BCM7435,
 	.perst_set	= brcm_pcie_perst_set_generic,
 	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_generic,
-	.num_inbound_wins = 3,
 };
 
-static const struct pcie_cfg_data bcm7216_cfg = {
-	.offsets	= pcie_offsets_bcm7278,
-	.soc_base	= BCM7278,
+static const struct pcie_cfg_data bcm4908_cfg = {
+	.offsets	= pcie_offsets,
+	.type		= BCM4908,
+	.perst_set	= brcm_pcie_perst_set_4908,
+	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_generic,
+	.rc_mode	= brcm_pcie_rc_mode_generic,
+};
+
+static const int pcie_offset_bcm7278[] = {
+	[RGR1_SW_INIT_1] = 0xc010,
+	[EXT_CFG_INDEX] = 0x9000,
+	[EXT_CFG_DATA] = 0x9004,
+	[PCIE_HARD_DEBUG] = 0x4204,
+	[INTR2_CPU]      = 0x4300,
+};
+
+static const struct pcie_cfg_data bcm7278_cfg = {
+	.offsets	= pcie_offset_bcm7278,
+	.type		= BCM7278,
 	.perst_set	= brcm_pcie_perst_set_7278,
 	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_7278,
-	.has_phy	= true,
-	.num_inbound_wins = 3,
+	.rc_mode	= brcm_pcie_rc_mode_generic,
 };
 
-static const struct pcie_cfg_data bcm7712_cfg = {
-	.offsets	= pcie_offsets_bcm7712,
-	.perst_set	= brcm_pcie_perst_set_7278,
+static const struct pcie_cfg_data bcm2711_cfg = {
+	.offsets	= pcie_offsets,
+	.type		= BCM2711,
+	.perst_set	= brcm_pcie_perst_set_generic,
 	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_generic,
-	.soc_base	= BCM7712,
-	.num_inbound_wins = 10,
+	.rc_mode	= brcm_pcie_rc_mode_generic,
+};
+
+static const int pcie_offsets_bcm2712[] = {
+	[EXT_CFG_INDEX] = 0x9000,
+	[EXT_CFG_DATA] = 0x9004,
+	[PCIE_HARD_DEBUG] = 0x4304,
+	[INTR2_CPU] = 0x4400,
+};
+
+static const struct pcie_cfg_data bcm2712_cfg = {
+	.offsets	= pcie_offsets_bcm2712,
+	.type		= BCM2712,
+	.perst_set	= brcm_pcie_perst_set_2712,
+	.bridge_sw_init_set = brcm_pcie_bridge_sw_init_set_2712,
+	.rc_mode	= brcm_pcie_rc_mode_2712,
 };
 
 static const struct of_device_id brcm_pcie_match[] = {
 	{ .compatible = "brcm,bcm2711-pcie", .data = &bcm2711_cfg },
+	{ .compatible = "brcm,bcm2712-pcie", .data = &bcm2712_cfg },
 	{ .compatible = "brcm,bcm4908-pcie", .data = &bcm4908_cfg },
 	{ .compatible = "brcm,bcm7211-pcie", .data = &generic_cfg },
-	{ .compatible = "brcm,bcm7216-pcie", .data = &bcm7216_cfg },
 	{ .compatible = "brcm,bcm7278-pcie", .data = &bcm7278_cfg },
-	{ .compatible = "brcm,bcm7425-pcie", .data = &bcm7425_cfg },
-	{ .compatible = "brcm,bcm7435-pcie", .data = &bcm7435_cfg },
+	{ .compatible = "brcm,bcm7216-pcie", .data = &bcm7278_cfg },
 	{ .compatible = "brcm,bcm7445-pcie", .data = &generic_cfg },
-	{ .compatible = "brcm,bcm7712-pcie", .data = &bcm7712_cfg },
+	{ .compatible = "brcm,bcm7435-pcie", .data = &bcm7435_cfg },
+	{ .compatible = "brcm,bcm7425-pcie", .data = &bcm7425_cfg },
 	{},
 };
 
@@ -1796,7 +1963,7 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 
 	data = of_device_get_match_data(&pdev->dev);
 	if (!data) {
-		pr_err("failed to look up compatible string\n");
+		dev_err(&pdev->dev, "failed to look up compatible string\n");
 		return -EINVAL;
 	}
 
@@ -1804,11 +1971,10 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	pcie->dev = &pdev->dev;
 	pcie->np = np;
 	pcie->reg_offsets = data->offsets;
-	pcie->soc_base = data->soc_base;
+	pcie->type = data->type;
 	pcie->perst_set = data->perst_set;
 	pcie->bridge_sw_init_set = data->bridge_sw_init_set;
-	pcie->has_phy = data->has_phy;
-	pcie->num_inbound_wins = data->num_inbound_wins;
+	pcie->rc_mode = data->rc_mode;
 
 	pcie->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(pcie->base))
@@ -1822,57 +1988,38 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	pcie->gen = (ret < 0) ? 0 : ret;
 
 	pcie->ssc = of_property_read_bool(np, "brcm,enable-ssc");
-
-	pcie->rescal = devm_reset_control_get_optional_shared(&pdev->dev, "rescal");
-	if (IS_ERR(pcie->rescal))
-		return PTR_ERR(pcie->rescal);
-
-	pcie->perst_reset = devm_reset_control_get_optional_exclusive(&pdev->dev, "perst");
-	if (IS_ERR(pcie->perst_reset))
-		return PTR_ERR(pcie->perst_reset);
-
-	pcie->bridge_reset = devm_reset_control_get_optional_exclusive(&pdev->dev, "bridge");
-	if (IS_ERR(pcie->bridge_reset))
-		return PTR_ERR(pcie->bridge_reset);
-
-	pcie->swinit_reset = devm_reset_control_get_optional_exclusive(&pdev->dev, "swinit");
-	if (IS_ERR(pcie->swinit_reset))
-		return PTR_ERR(pcie->swinit_reset);
+	pcie->rcb_mps_mode = of_property_read_bool(np, "brcm,enable-mps-rcb");
+	of_property_read_u32(np, "brcm,tperst-clk-ms", &pcie->tperst_clk_ms);
 
 	ret = clk_prepare_enable(pcie->clk);
-	if (ret)
-		return dev_err_probe(&pdev->dev, ret, "could not enable clock\n");
-
-	pcie->bridge_sw_init_set(pcie, 0);
-
-	if (pcie->swinit_reset) {
-		ret = reset_control_assert(pcie->swinit_reset);
-		if (ret) {
-			clk_disable_unprepare(pcie->clk);
-			return dev_err_probe(&pdev->dev, ret,
-					     "could not assert reset 'swinit'\n");
-		}
-
-		/* HW team recommends 1us for proper sync and propagation of reset */
-		udelay(1);
-
-		ret = reset_control_deassert(pcie->swinit_reset);
-		if (ret) {
-			clk_disable_unprepare(pcie->clk);
-			return dev_err_probe(&pdev->dev, ret,
-					     "could not de-assert reset 'swinit'\n");
-		}
-	}
-
-	ret = reset_control_reset(pcie->rescal);
 	if (ret) {
-		clk_disable_unprepare(pcie->clk);
-		return dev_err_probe(&pdev->dev, ret, "failed to deassert 'rescal'\n");
+		dev_err(&pdev->dev, "could not enable clock\n");
+		return ret;
 	}
+	pcie->rescal = devm_reset_control_get_optional_shared(&pdev->dev, "rescal");
+	if (IS_ERR(pcie->rescal)) {
+		clk_disable_unprepare(pcie->clk);
+		return PTR_ERR(pcie->rescal);
+	}
+	pcie->perst_reset = devm_reset_control_get_optional_exclusive(&pdev->dev, "perst");
+	if (IS_ERR(pcie->perst_reset)) {
+		clk_disable_unprepare(pcie->clk);
+		return PTR_ERR(pcie->perst_reset);
+	}
+	pcie->bridge_reset =
+		devm_reset_control_get_optional_exclusive(&pdev->dev, "bridge");
+	if (IS_ERR(pcie->bridge_reset)) {
+		clk_disable_unprepare(pcie->clk);
+		return PTR_ERR(pcie->bridge_reset);
+	}
+
+	ret = reset_control_deassert(pcie->rescal);
+	if (ret)
+		dev_err(&pdev->dev, "failed to deassert 'rescal'\n");
 
 	ret = brcm_phy_start(pcie);
 	if (ret) {
-		reset_control_rearm(pcie->rescal);
+		reset_control_assert(pcie->rescal);
 		clk_disable_unprepare(pcie->clk);
 		return ret;
 	}
@@ -1882,7 +2029,7 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 		goto fail;
 
 	pcie->hw_rev = readl(pcie->base + PCIE_MISC_REVISION);
-	if (pcie->soc_base == BCM4908 && pcie->hw_rev >= BRCM_PCIE_HW_REV_3_20) {
+	if (pcie->type == BCM4908 && pcie->hw_rev >= BRCM_PCIE_HW_REV_3_20) {
 		dev_err(pcie->dev, "hardware revision with unsupported PERST# setup\n");
 		ret = -ENODEV;
 		goto fail;
@@ -1895,9 +2042,36 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 			dev_err(pcie->dev, "probe of internal MSI failed");
 			goto fail;
 		}
+	} else if (pci_msi_enabled() && msi_np != pcie->np) {
+		/* Use RC_BAR1 for MIP access */
+		u64 msi_pci_addr;
+		u64 msi_phys_addr;
+
+		if (of_property_read_u64(msi_np, "brcm,msi-pci-addr", &msi_pci_addr)) {
+			dev_err(pcie->dev, "Unable to find MSI PCI address\n");
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		if (of_property_read_u64(msi_np, "reg", &msi_phys_addr)) {
+			dev_err(pcie->dev, "Unable to find MSI physical address\n");
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		writel(lower_32_bits(msi_pci_addr) | brcm_pcie_encode_ibar_size(0x1000),
+		       pcie->base + PCIE_MISC_RC_BAR1_CONFIG_LO);
+		writel(upper_32_bits(msi_pci_addr),
+		       pcie->base + PCIE_MISC_RC_BAR1_CONFIG_HI);
+
+		writel(lower_32_bits(msi_phys_addr) |
+		       PCIE_MISC_UBUS_BAR1_CONFIG_REMAP_ACCESS_ENABLE_MASK,
+		       pcie->base + PCIE_MISC_UBUS_BAR1_CONFIG_REMAP);
+		writel(upper_32_bits(msi_phys_addr),
+		       pcie->base + PCIE_MISC_UBUS_BAR1_CONFIG_REMAP_HI);
 	}
 
-	bridge->ops = pcie->soc_base == BCM7425 ? &brcm7425_pcie_ops : &brcm_pcie_ops;
+	bridge->ops = pcie->type == BCM7425 ? &brcm7425_pcie_ops : &brcm_pcie_ops;
 	bridge->sysdata = pcie;
 
 	platform_set_drvdata(pdev, pcie);
@@ -1915,7 +2089,6 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 
 fail:
 	__brcm_pcie_remove(pcie);
-
 	return ret;
 }
 
