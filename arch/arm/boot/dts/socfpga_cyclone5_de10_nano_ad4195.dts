@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices CN0540
+ * https://www.analog.com/en/design-center/reference-designs/circuits-from-the-lab/cn0540.html
+ * https://www.analog.com/en/products/ad4170.html
+ * https://wiki.analog.com/resources/tools-software/linux-build/generic/socfpga
+ *
+ * hdl_project: <cn0540/de10nano>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "socfpga_cyclone5_de10_nano_ad4170.dts"
+
+&spi_engine {
+	status = "okay";
+
+	ad4195_4: ad4170@0 {
+		compatible = "adi,ad4195";
+	};
+};
