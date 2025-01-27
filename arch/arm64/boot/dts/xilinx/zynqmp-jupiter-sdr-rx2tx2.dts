@@ -10,12 +10,7 @@
 
 /dts-v1/;
 
-#include "zynqmp-jupiter-sdr.dts"
-
-/delete-node/ &rx2_dma;
-/delete-node/ &tx2_dma;
-/delete-node/ &axi_adrv9002_core_rx2;
-/delete-node/ &axi_adrv9002_core_tx2;
+#include "zynqmp-jupiter-sdr.dtsi"
 
 &axi_adrv9002_core_tx1 {
 	compatible = "adi,axi-adrv9002-rx2tx2-1.0";
