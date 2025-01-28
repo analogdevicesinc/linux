@@ -10,8 +10,7 @@
 #include "se_msg_sqfl_ctrl.h"
 #include "v2x_base_msg.h"
 
-#define SE_RCV_MSG_DEFAULT_TIMEOUT	180000
-extern uint32_t se_rcv_msg_timeout;
+extern u32 se_rcv_msg_timeout;
 
 u32 se_add_msg_crc(u32 *msg, u32 msg_len)
 {
@@ -32,9 +31,6 @@ int ele_msg_rcv(struct se_if_device_ctx *dev_ctx,
 	bool wait_timeout_enabled = true;
 	unsigned int wait;
 	int err;
-
-	if (!se_rcv_msg_timeout)
-		se_rcv_msg_timeout =  SE_RCV_MSG_DEFAULT_TIMEOUT;
 
 	do {
 		if (priv->cmd_receiver_clbk_hdl.dev_ctx == dev_ctx) {

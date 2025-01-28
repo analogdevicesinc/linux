@@ -42,10 +42,12 @@
 #define MBOX_RXDB_NAME			"rxdb"
 
 #define IMX_SE_LOG_PATH "/var/lib/se_"
+#define SE_RCV_MSG_DEFAULT_TIMEOUT	5000
+#define SE_RCV_MSG_LONG_TIMEOUT		5000000
 
 static int se_log;
 static struct kobject *se_kobj;
-uint32_t se_rcv_msg_timeout;
+u32 se_rcv_msg_timeout = SE_RCV_MSG_DEFAULT_TIMEOUT;
 
 struct se_fw_img_name {
 	const u8 *prim_fw_nm_in_rfs;
@@ -1163,6 +1165,11 @@ static int se_ioctl_cmd_snd_rcv_rsp_handler(struct se_if_device_ctx *dev_ctx,
 			goto exit;
 		}
 	}
+
+	se_rcv_msg_timeout =
+		(se_rcv_msg_timeout == SE_RCV_MSG_DEFAULT_TIMEOUT) ? SE_RCV_MSG_LONG_TIMEOUT
+								   : se_rcv_msg_timeout;
+
 	err = ele_msg_send_rcv(dev_ctx,
 			       tx_msg,
 			       cmd_snd_rcv_rsp_info.tx_buf_sz,
@@ -1871,6 +1878,7 @@ static int se_if_probe(struct platform_device *pdev)
 			dev->of_node->name,
 			info_list->num_mu - 1);
 		ret = -EINVAL;
+
 		return ret;
 	}
 
@@ -2046,19 +2054,22 @@ static int se_suspend(struct device *dev)
 	struct se_fw_load_info *load_fw;
 	int ret = 0;
 
+	se_rcv_msg_timeout = SE_RCV_MSG_DEFAULT_TIMEOUT;
 	if (priv->if_defs->se_if_type == SE_TYPE_ID_V2X_DBG) {
 		ret = v2x_suspend(priv);
 		if (ret) {
 			dev_err(dev, "Failure V2X-FW suspend[0x%x].", ret);
-			return ret;
+			goto exit;
 		}
 	}
 	load_fw = get_load_fw_instance(priv);
 
 	if (load_fw->imem_mgmt) {
 		ret = se_save_imem_state(priv, &load_fw->imem);
-		if (ret < 0)
+		if (ret) {
+			dev_err(dev, "Failure saving IMEM state[0x%x]", ret);
 			goto exit;
+		}
 	}
 exit:
 	return ret;
@@ -2072,16 +2083,17 @@ static int se_resume(struct device *dev)
 
 	if (priv->if_defs->se_if_type == SE_TYPE_ID_V2X_DBG) {
 		ret = v2x_resume(priv);
-		if (ret) {
+		if (ret)
 			dev_err(dev, "Failure V2X-FW resume[0x%x].", ret);
-			return ret;
-		}
 	}
 
 	load_fw = get_load_fw_instance(priv);
 
-	if (load_fw->imem_mgmt)
-		se_restore_imem_state(priv, &load_fw->imem);
+	if (load_fw->imem_mgmt) {
+		ret = se_restore_imem_state(priv, &load_fw->imem);
+		if (ret)
+			dev_err(dev, "Failure restoring IMEM state[0x%x]", ret);
+	}
 
 	return ret;
 }
