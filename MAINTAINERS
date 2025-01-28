@@ -12588,6 +12588,13 @@ L:	linux-scsi@vger.kernel.org
 S:	Maintained
 F:	drivers/scsi/sym53c8xx_2/
 
+LT7170 HARDWARE MONITOR DRIVER
+M:	Cherrence Sarip <cherrence.sarip@analog.com>
+L:	linux-hwmon@vger.kernel.org
+S:	Supported
+F:	Documentation/hwmon/lt7170.rst
+F:	drivers/hwmon/pmbus/lt7170.c
+
 LTC1660 DAC DRIVER
 M:	Marcus Folkesson <marcus.folkesson@gmail.com>
 L:	linux-iio@vger.kernel.org
