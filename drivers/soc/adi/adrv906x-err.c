@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2025, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/io.h>
@@ -32,6 +32,9 @@ enum reset_cause_t {
 	WATCHDOG_RESET,
 	CACHE_ECC_ERROR,
 	DRAM_ECC_ERROR,
+	DRAM_INIT_ERROR,
+	MCS_FAIL,
+	MBIAS_CAL_FAIL,
 	OTHER_RESET_CAUSE,
 };
 
@@ -119,7 +122,7 @@ static int __init err_handler_init(void)
 
 	ret = sysfs_create_file(err_kobj, &reset_cause_attribute.attr);
 	if (ret) {
-		pr_err("Failed to create the reset_cause file in /sys/kernel/err \n");
+		pr_err("Failed to create the reset_cause file in /sys/kernel/err\n");
 		return ret;
 	}
 
