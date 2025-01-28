@@ -170,8 +170,9 @@ int main(int argc, char **argv)
 		if (libbpf_get_error(obj))
 			return 1;
 
-		prog = bpf_object__next_program(obj, NULL);
-		bpf_program__set_type(prog, BPF_PROG_TYPE_XDP);
+		bpf_object__for_each_program(pos, obj) {
+			bpf_program__set_type(pos, BPF_PROG_TYPE_XDP);
+		}
 
 		err = bpf_object__load(obj);
 		if (err) {
