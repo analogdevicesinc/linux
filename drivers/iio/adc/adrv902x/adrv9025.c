@@ -1345,13 +1345,69 @@ static const struct iio_info adrv9025_phy_info = {
 	.attrs = &adrv9025_phy_attribute_group,
 };
 
+static ssize_t adrv9025_rx_qec_status_read(struct adrv9025_rf_phy *phy,
+					   adi_adrv9025_RxChannels_e rxChannel,
+					   char *buf)
+{
+	adi_adrv9025_RxQecStatus_t rxQecStatus = { 0 };
+	int ret;
+
+	mutex_lock(&phy->lock);
+	if (rxChannel < ADI_ADRV9025_ORX1)
+		ret = adi_adrv9025_TrackingCalRxQecStatusGet(phy->madDevice, rxChannel, &rxQecStatus);
+	else
+		ret = adi_adrv9025_TrackingCalOrxQecStatusGet(phy->madDevice, rxChannel, (adi_adrv9025_OrxQecStatus_t *)&rxQecStatus);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	return sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", rxQecStatus.errorCode, rxQecStatus.percentComplete,
+		       rxQecStatus.selfcheckIrrDb, rxQecStatus.iterCount, rxQecStatus.updateCount);
+}
+
+static ssize_t adrv9025_tx_qec_status_read(struct adrv9025_rf_phy *phy,
+					   adi_adrv9025_TxChannels_e txChannel,
+					   char *buf)
+{
+	adi_adrv9025_TxQecStatus_t txQecStatus = { 0 };
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9025_TrackingCalTxQecStatusGet(phy->madDevice, txChannel, &txQecStatus);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	return sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", txQecStatus.errorCode, txQecStatus.percentComplete,
+		       txQecStatus.correctionMetric, txQecStatus.iterCount, txQecStatus.updateCount);
+}
+
+static ssize_t adrv9025_tx_lol_status_read(struct adrv9025_rf_phy *phy,
+					   adi_adrv9025_TxChannels_e txChannel,
+					   char *buf)
+{
+	adi_adrv9025_TxLolStatus_t txLolStatus = { 0 };
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9025_TrackingCalTxLolStatusGet(phy->madDevice, txChannel, &txLolStatus);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	return sprintf(buf, "err %d %% %d var %d iter cnt %d update cnt %d\n", txLolStatus.errorCode, txLolStatus.percentComplete,
+		       txLolStatus.varianceMetric, txLolStatus.iterCount, txLolStatus.updateCount);
+}
+
 static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 				     size_t count, loff_t *ppos)
 {
 	struct adrv9025_debugfs_entry *entry = file->private_data;
+	struct adrv9025_rf_phy *phy = entry->phy;
 	char buf[700];
 	u64 val = 0;
 	ssize_t len = 0;
+	u8 chan;
 	int ret;
 
 	if (entry->out_value) {
@@ -1375,10 +1431,46 @@ static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 			ret = -EINVAL;
 		}
 
-	} else if (entry->cmd)
-		val = entry->val;
-	else
+	} else if (entry->cmd) {
+		switch (entry->cmd) {
+		case DBGFS_RX0_QEC_STATUS:
+		case DBGFS_RX1_QEC_STATUS:
+		case DBGFS_RX2_QEC_STATUS:
+		case DBGFS_RX3_QEC_STATUS:
+		case DBGFS_RX4_QEC_STATUS:
+		case DBGFS_RX5_QEC_STATUS:
+			chan = ADI_ADRV9025_RX1 << (entry->cmd - DBGFS_RX0_QEC_STATUS);
+			ret = adrv9025_rx_qec_status_read(phy, chan, buf);
+			if (ret < 0)
+				return ret;
+			len = ret;
+			break;
+		case DBGFS_TX0_QEC_STATUS:
+		case DBGFS_TX1_QEC_STATUS:
+		case DBGFS_TX2_QEC_STATUS:
+		case DBGFS_TX3_QEC_STATUS:
+			chan = ADI_ADRV9025_TX1 << (entry->cmd - DBGFS_TX0_QEC_STATUS);
+			ret = adrv9025_tx_qec_status_read(phy, chan, buf);
+			if (ret < 0)
+				return ret;
+			len = ret;
+			break;
+		case DBGFS_TX0_LOL_STATUS:
+		case DBGFS_TX1_LOL_STATUS:
+		case DBGFS_TX2_LOL_STATUS:
+		case DBGFS_TX3_LOL_STATUS:
+			chan = ADI_ADRV9025_TX1 << (entry->cmd - DBGFS_TX0_LOL_STATUS);
+			ret = adrv9025_tx_lol_status_read(phy, chan, buf);
+			if (ret < 0)
+				return ret;
+			len = ret;
+			break;
+		default:
+			val = entry->val;
+		}
+	} else {
 		return -EFAULT;
+	}
 
 	if (!len)
 		len = snprintf(buf, sizeof(buf), "%llu\n", val);
@@ -1509,6 +1601,7 @@ static void adrv9025_add_debugfs_entry(struct adrv9025_rf_phy *phy,
 static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 {
 	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	umode_t mode = 0644;
 	struct dentry *d;
 	int i;
 
@@ -1520,12 +1613,29 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 	adrv9025_add_debugfs_entry(phy, "bist_framer_loopback",
 				   DBGFS_BIST_FRAMER_LOOPBACK);
 	adrv9025_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	adrv9025_add_debugfs_entry(phy, "rx0_qec_status", DBGFS_RX0_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "rx1_qec_status", DBGFS_RX1_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "rx2_qec_status", DBGFS_RX2_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "rx3_qec_status", DBGFS_RX3_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "rx4_qec_status", DBGFS_RX4_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "rx5_qec_status", DBGFS_RX5_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx0_qec_status", DBGFS_TX0_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx1_qec_status", DBGFS_TX1_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx2_qec_status", DBGFS_TX2_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx3_qec_status", DBGFS_TX3_QEC_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx0_lol_status", DBGFS_TX0_LOL_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx1_lol_status", DBGFS_TX1_LOL_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx2_lol_status", DBGFS_TX2_LOL_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx3_lol_status", DBGFS_TX3_LOL_STATUS);
 
-	for (i = 0; i < phy->adrv9025_debugfs_entry_index; i++)
-		d = debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
+	for (i = 0; i < phy->adrv9025_debugfs_entry_index; i++) {
+		if (phy->adrv9025_debugfs_entry_index > DBGFS_BIST_TONE)
+			mode = 0400;
+		d = debugfs_create_file(phy->debugfs_entry[i].propname, mode,
 					iio_get_debugfs_dentry(indio_dev),
 					&phy->debugfs_entry[i],
 					&adrv9025_debugfs_reg_fops);
+	}
 	return 0;
 }
 
