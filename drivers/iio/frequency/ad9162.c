@@ -158,6 +158,8 @@ static int ad916x_set_data_clk(struct ad9162_state *st, const u64 rate)
 {
 	int ret;
 
+	struct device *dev = &st->conv.spi->dev;
+	dev_info(dev,"Setting data clock");
 	ret = clk_set_rate_scaled(st->conv.clk[CLK_DAC], rate,
 				  &st->conv.clkscale[CLK_DAC]);
 	if (ret)
@@ -190,6 +192,7 @@ static int ad916x_jesd_link_status(struct ad9162_state *st)
 	if (lane_mask != stat_mask) {
 		ret = -EIO;
 		level = KERN_ERR;
+		printk("DIFERITE abbort");
 	}
 
 	dev_printk(level, dev, "code_grp_sync: %x\n",
@@ -201,6 +204,7 @@ static int ad916x_jesd_link_status(struct ad9162_state *st)
 	dev_printk(level, dev, "init_lane_sync_stat: %x\n",
 		link_status.init_lane_sync_stat);
 
+	dev_info(dev, "Link status check");
 	return ret;
 }
 
@@ -211,7 +215,8 @@ static int ad916x_jesd_pll_status(struct ad9162_state *st)
 	bool locked;
 	int ret;
 	char *level = KERN_INFO;
-
+	dev_info(dev, "Working on the PLL status");
+	
 	ret = ad916x_jesd_get_pll_status(&st->dac_h, &pll_lock_status);
 	if (ret != 0) {
 		dev_err(dev, "Get PLL status failed");
@@ -240,6 +245,7 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 	unsigned long lane_rate_kHz;
 	int ret;
 
+	dev_info(dev, "SETUP the JESD");
 	/* check nco only mode */
 	if (st->dc_test_mode) {
 		dev_dbg(dev,
@@ -276,9 +282,10 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 	JESD204_LNK_READ_SUBCLASS(dev, np, &st->jesd204_link,
 		&st->jesd_subclass, 0);
 
-	if (device_property_read_u32(dev, "adi,interpolation",
-				     &st->interpolation))
-		st->interpolation = 2;
+	device_property_read_u32(dev, "adi,interpolation", &st->interpolation);
+	//st->interpolation = 6;
+
+	dev_err(dev, "intepolation: %x (TEST_INTER)\n", st->interpolation);
 
 	if (of_property_read_u32(np, "adi,sysref-mode", &st->sysref_mode))
 		st->sysref_mode = SYSREF_CONT;
@@ -296,11 +303,13 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 	if (st->jdev)
 		return 0;
 
+	dev_info(dev, "AD916x did not return in FSM");
 	ret = ad916x_jesd_config_datapath(ad916x_h, st->jesd_param,
 				    st->interpolation, NULL);
 	if (ret != 0)
 		return ret;
 
+	dev_info(dev, "AD916x DATAPATH configured");
 	ret = ad916x_jesd_enable_datapath(ad916x_h,
 		GENMASK(st->jesd_param.jesd_L - 1, 0), 1, 1);
 	if (ret != 0)
@@ -308,6 +317,7 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 
 	msleep(100);
 
+	dev_info(dev, "AD916x Waiting for PLL. L is ok");
 	ret = ad916x_jesd_pll_status(st);
 	if (ret)
 		return ret;
@@ -357,9 +367,11 @@ static int ad9162_jesd204_link_init(struct jesd204_dev *jdev,
 	u64 rate;
 	int ret;
 
+	dev_info(dev, "Initi the JESD");
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
+	dev_info(dev, "Enabling jesd clocks");
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
@@ -395,6 +407,7 @@ static int ad9162_jesd204_clks_enable(struct jesd204_dev *jdev,
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
+	dev_info(dev, "probably jesd_config_Datapath fails");
 	if (reason == JESD204_STATE_OP_REASON_INIT) {
 		ret = ad916x_jesd_config_datapath(&st->dac_h, st->jesd_param,
 				st->interpolation, NULL);
@@ -402,6 +415,7 @@ static int ad9162_jesd204_clks_enable(struct jesd204_dev *jdev,
 			return ret;
 	}
 
+	dev_info(dev, "No, jesd_config_Datapath did not fail");
 	ret = ad916x_jesd_enable_datapath(&st->dac_h,
 		GENMASK(st->jesd_param.jesd_L - 1, 0),
 		reason == JESD204_STATE_OP_REASON_INIT, 1);
@@ -435,6 +449,7 @@ static int ad9162_jesd204_link_enable(struct jesd204_dev *jdev,
 	struct ad9162_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9162_state *st = priv->st;
 	int ret;
+	dev_info(dev, "Enabling JESD link");
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		 __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
@@ -458,6 +473,7 @@ static int ad9162_jesd204_link_running(struct jesd204_dev *jdev,
 	struct ad9162_state *st = priv->st;
 	int ret;
 
+	dev_info(dev, "Link is running");
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
@@ -540,10 +556,13 @@ static int ad9162_setup(struct ad9162_state *st)
 	dac_rate_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
 					  &st->conv.clkscale[CLK_DAC]);
 
+	printk(KERN_INFO "AD916x couldn't set dac freq\n");
 	ret = ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
 	if (ret != 0)
 		return ret;
+	printk(KERN_INFO "AD916x did set dac freq\n");
 
+	printk(KERN_INFO "AD916x checking for test mode\n");
 	/* check for dc test mode */
 	if (device_property_read_bool(dev, "adi,dc-test-en")) {
 		if ((dac_chip_id.prod_id & 0xFF) != AD9162_PROD_ID_LSB &&
@@ -553,8 +572,8 @@ static int ad9162_setup(struct ad9162_state *st)
 		}
 		st->dc_test_mode = true;
 	}
-
-	st->interpolation = 1;
+	printk(KERN_INFO "AD916x passed test mode\n");
+	//st->interpolation = 1;
 
 	dev_dbg(dev, "DAC CLK rate: %llu\n", dac_rate_Hz);
 
@@ -830,6 +849,8 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 	mutex_lock(&st->lock);
 	switch ((u32)private) {
 	case AD916x_NCO_FREQ:
+		printk("WENT IN CASE 0");
+
 		ret = kstrtoll(buf, 10, &freq_hz);
 		if (ret)
 			break;
@@ -845,6 +866,7 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 				     st->dc_test_mode);
 		break;
 	case AD916x_SAMPLING_FREQUENCY:
+		printk("WENT IN CASE 1");
 		ret = kstrtoull(buf, 10, &samp_freq_hz);
 		if (ret)
 			break;
@@ -853,6 +875,7 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 
 		break;
 	case AD916x_TEMP_CALIB:
+		printk("WENT IN CASE 2");
 		/* value in milli degrees */
 		ret = kstrtoint(buf, 10, &tref);
 		if (ret)
@@ -867,6 +890,7 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 		conv->temp_calib_code = code;
 		break;
 	case AD916x_FIR85_ENABLE:
+		printk("WENT IN CASE 3");
 		ret = kstrtobool(buf, &fir85_en);
 		if (ret)
 			break;
@@ -1138,6 +1162,7 @@ static int ad9162_probe(struct spi_device *spi)
 
 	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 out:
+	dev_info(&spi->dev, "Returned around FSM.\n");
 	return ret;
 }
 

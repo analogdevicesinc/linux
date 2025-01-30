@@ -189,16 +189,20 @@ ADI_API int ad916x_get_chip_id(ad916x_handle_t *h, ad916x_chip_id_t *chip_id)
 	if (chip_id == INVALID_POINTER) {
 		return API_ERROR_INVALID_PARAM;
 	}
+
 	err = ad916x_register_read(h, AD916x_REG_CHIP_TYPE, &tmp_reg);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
+	printk("chip type 0x%x\n", tmp_reg);
 	chip_id->chip_type = tmp_reg;
 
 	err = ad916x_register_read(h, AD916x_REG_PROD_ID_MSB, &tmp_reg);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
+	printk("chip prod msb 0x%x\n", tmp_reg);
+
 	chip_id->prod_id = tmp_reg;
 	chip_id->prod_id <<= 8;
 
@@ -206,12 +210,17 @@ ADI_API int ad916x_get_chip_id(ad916x_handle_t *h, ad916x_chip_id_t *chip_id)
 	if (err != API_ERROR_OK) {
 		return err;
 	}
+	printk("chip prod lsb 0x%x\n", tmp_reg);
+
 	chip_id->prod_id |= tmp_reg;
 
 	err = ad916x_register_read(h, AD916x_REG_CHIP_GRADE, &tmp_reg);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
+	printk("chip grade 0x%x\n", tmp_reg);
+
+
 	chip_id->prod_grade = (tmp_reg >> 4);
 	chip_id->dev_revision = (tmp_reg & 0x0F);
 
