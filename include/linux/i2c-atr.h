@@ -22,9 +22,11 @@ struct i2c_atr;
  * enum i2c_atr_flags - Flags for an I2C ATR driver
  *
  * @I2C_ATR_F_STATIC: ATR does not support dynamic mapping, use static mapping
+ * @I2C_ATR_F_PASSTHROUGH: Allow unmapped incoming addresses to pass through
  */
 enum i2c_atr_flags {
 	I2C_ATR_F_STATIC = BIT(0),
+	I2C_ATR_F_PASSTHROUGH = BIT(1),
 };
 
 /**
