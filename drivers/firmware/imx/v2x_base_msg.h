@@ -29,9 +29,11 @@
 #define V2X_DEBUG_MU_MSG_CMD_TAG	0x17
 #define V2X_DEBUG_MU_MSG_RSP_TAG	0xE1
 
+#define V2X_MAX_DBG_DMP_PKT		15
+#define V2X_NON_DUMP_BUFFER_SZ		2
 #define V2X_DBG_DUMP_REQ		0x02
 #define V2X_DBG_DUMP_MSG_SZ		0x08
-#define V2X_DBG_DUMP_RSP_MSG_SZ		0x5C
+#define V2X_DBG_DUMP_RSP_MSG_SZ		0x5c
 
 int v2x_start_rng(struct se_if_priv *priv);
 int v2x_pwr_state(struct se_if_priv *priv, u16 action);

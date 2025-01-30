@@ -9,6 +9,8 @@
 #include "ele_common.h"
 #include "v2x_base_msg.h"
 
+#define FW_DBG_DUMP_FIXED_STR		"\nS40X: "
+
 /*
  * v2x_start_rng() - prepare and send the command to start
  *                   initialization of the ELE RNG context
@@ -150,12 +152,14 @@ int v2x_debug_dump(struct se_if_priv *priv)
 {
 	struct se_api_msg *tx_msg __free(kfree) = NULL;
 	struct se_api_msg *rx_msg __free(kfree) = NULL;
+	bool keep_logging;
+	u8 dump_data[408];
 	u8 fmt_str[256];
-	u8 dump_data[256];
 	int fmt_str_idx;
+	int rcv_dbg_wd_ct;
+	int msg_ex_cnt;
 	int ret = 0;
 	int w_ct;
-	bool keep_logging;
 
 	if (!priv) {
 		ret = -EINVAL;
@@ -185,9 +189,11 @@ int v2x_debug_dump(struct se_if_priv *priv)
 	tx_msg->header.tag = V2X_DEBUG_MU_MSG_CMD_TAG;
 	tx_msg->header.ver = V2X_DEBUG_MU_MSG_VERS;
 	tx_msg->data[0] = 0x1;
+	msg_ex_cnt = 0;
 	do {
 		w_ct = 0;
 		fmt_str_idx = 0;
+
 		ret = ele_msg_send_rcv(priv->priv_dev_ctx,
 				tx_msg,
 				V2X_DBG_DUMP_MSG_SZ,
@@ -202,7 +208,14 @@ int v2x_debug_dump(struct se_if_priv *priv)
 				V2X_DBG_DUMP_RSP_MSG_SZ,
 				true);
 		if (!ret) {
-			for (w_ct = 0; w_ct < rx_msg->header.size; w_ct++) {
+			rcv_dbg_wd_ct = rx_msg->header.size - V2X_NON_DUMP_BUFFER_SZ;
+			memcpy(fmt_str, FW_DBG_DUMP_FIXED_STR, strlen(FW_DBG_DUMP_FIXED_STR));
+			fmt_str_idx += strlen(FW_DBG_DUMP_FIXED_STR);
+			for (w_ct = 0; w_ct < rcv_dbg_wd_ct; w_ct++) {
+				fmt_str[fmt_str_idx] = '0';
+				fmt_str_idx++;
+				fmt_str[fmt_str_idx] = 'x';
+				fmt_str_idx++;
 				fmt_str[fmt_str_idx] = '%';
 				fmt_str_idx++;
 				fmt_str[fmt_str_idx] = '0';
@@ -213,11 +226,39 @@ int v2x_debug_dump(struct se_if_priv *priv)
 				fmt_str_idx++;
 				fmt_str[fmt_str_idx] = ' ';
 				fmt_str_idx++;
+				if (w_ct % 2) {
+					//fmt_str[fmt_str_idx] = '\n';
+					//fmt_str_idx++;
+					memcpy(fmt_str + fmt_str_idx,
+					       FW_DBG_DUMP_FIXED_STR,
+					       strlen(FW_DBG_DUMP_FIXED_STR));
+					fmt_str_idx += strlen(FW_DBG_DUMP_FIXED_STR);
+				}
 			}
 			keep_logging = (rx_msg->header.size < (V2X_DBG_DUMP_RSP_MSG_SZ >> 2)) ?
 					false : true;
+			keep_logging = keep_logging ? (msg_ex_cnt > V2X_MAX_DBG_DMP_PKT ? false : true) : false;
+
+			/*
+			 * Number of spaces = rcv_dbg_wd_ct
+			 * DBG dump length in bytes = rcv_dbg_wd_ct * 4
+			 *
+			 * Since, one byte is represented as 2 character,
+			 * DBG Dump string-length = rcv_dbg_wd_ct * 8
+			 * Fixed string's string-length =
+			 * 			strlen(FW_DBG_DUMP_FIXED_STR) * rcv_dbg_wd_ct
+			 *
+			 * Total dump_data length = Number of spaces +
+			 *  			    DBG Dump string' string-length +
+			 *  			    Fixed string's string-length
+			 *
+			 * Total dump_data length = rcv_dbg_wd_ct + (rcv_dbg_wd_ct * 8) +
+			 *  			    strlen(FW_DBG_DUMP_FIXED_STR) * rcv_dbg_wd_ct
+			 */
+
 			snprintf(dump_data,
-				 (rx_msg->header.size + (rx_msg->header.size << 2)),
+				 ((rcv_dbg_wd_ct * 9) +
+				  (strlen(FW_DBG_DUMP_FIXED_STR) * rcv_dbg_wd_ct)),
 				 fmt_str,
 				 rx_msg->data[1], rx_msg->data[2],
 				 rx_msg->data[3], rx_msg->data[4],
@@ -228,13 +269,15 @@ int v2x_debug_dump(struct se_if_priv *priv)
 				 rx_msg->data[13], rx_msg->data[14],
 				 rx_msg->data[15], rx_msg->data[16],
 				 rx_msg->data[17], rx_msg->data[18],
-				 rx_msg->data[19], rx_msg->data[20]);
+				 rx_msg->data[19], rx_msg->data[20],
+				 rx_msg->data[21], rx_msg->data[22]);
 
 			dev_err(priv->dev, "%s", dump_data);
 		} else {
 			dev_err(priv->dev, "Dump_Debug_Buffer Error: %x.", ret);
 			break;
 		}
+		msg_ex_cnt++;
 	} while (keep_logging);
 
 exit:
