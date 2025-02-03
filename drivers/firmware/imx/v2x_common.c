@@ -127,12 +127,10 @@ int v2x_resume(struct se_if_priv *priv)
 				"failure: v2x fw loading [0x%x].", ret);
 			goto exit;
 		}
-	}
-
-	ret = v2x_pwr_state(priv, V2X_PWR_ON_REQ);
-	if (ret) {
-		dev_err(priv->dev, "Failed to Power on V2X-FW = 0x%x", ret);
-		goto exit;
+	} else {
+		ret = v2x_pwr_state(priv, V2X_PWR_ON_REQ);
+		if (ret)
+			dev_err(priv->dev, "Failed to Power on V2X-FW = 0x%x", ret);
 	}
 
 exit:
