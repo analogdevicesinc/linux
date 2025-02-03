@@ -145,19 +145,17 @@ static int check_interpolation_range(uint8_t interpolation, uint16_t prod_id )
 	uint8_t interpol_min;
 
 	switch(prod_id) {
-	case 0x9161:
-		interpol_min = 2;
-		break;
 	case 0x9163:
 		interpol_min = 6;
 		break;
+	case 0x9161:
 	case 0x9162:
 	default:
 		interpol_min = INTERPOLATION_MIN;
 	}
 
-	if ((interpolation == interpol_min) ||
-			(interpolation > INTERPOLATION_MAX)) {
+	if (interpolation < interpol_min ||
+			interpolation > INTERPOLATION_MAX) {
 		return API_ERROR_INVALID_PARAM;
 	}
 
