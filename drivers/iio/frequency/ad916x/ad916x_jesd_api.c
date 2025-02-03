@@ -156,7 +156,8 @@ static int check_interpolation_range(uint8_t interpolation, uint16_t prod_id )
 		interpol_min = INTERPOLATION_MIN;
 	}
 
-	if ((interpolation == interpol_min) ||
+	printk("Our interpolation %x <-> interpol_min %x", interpolation, interpol_min);
+	if ((interpolation < interpol_min) ||
 			(interpolation > INTERPOLATION_MAX)) {
 		return API_ERROR_INVALID_PARAM;
 	}
@@ -166,44 +167,55 @@ static int check_interpolation_range(uint8_t interpolation, uint16_t prod_id )
 
 static int check_jesd_params_range(jesd_param_t jesd_param)
 {
+	printk(KERN_INFO "AD916x API params: %d, %d, %d, %d\n", jesd_param.jesd_L, jesd_param.jesd_F, jesd_param.jesd_M, jesd_param.jesd_S);
 	/*Transport layer Parameter Ranges Table 22*/
 	if ((jesd_param.jesd_L < LANE_MIN) ||
 		(jesd_param.jesd_L > LANE_MAX) ||
 		(jesd_param.jesd_L == 5)) {
+		printk("xFail jesd_param.jesd_L = %x", jesd_param.jesd_L);
 		return API_ERROR_INVALID_PARAM;
 	}
 
 	if ((jesd_param.jesd_F != 1) && (jesd_param.jesd_F != 2)
 			                     && (jesd_param.jesd_F != 4)) {
+		printk("xFail jesd_param.jesd_F = %x", jesd_param.jesd_F);
 		return API_ERROR_INVALID_PARAM;
 	}
 
 	if (jesd_param.jesd_M != M_DEFAULT){
+		printk("xFail jesd_param.jesd_M = %x", jesd_param.jesd_M);
 		return API_ERROR_INVALID_PARAM;
 	}
 
 	if ((jesd_param.jesd_S < S_MIN) || (jesd_param.jesd_S > S_MAX)) {
+		printk("xFail jesd_param.jesd_S = %x", jesd_param.jesd_S);
 		return API_ERROR_INVALID_PARAM;
 	}
 
 	/*Check Device Parameters*/
-	if (jesd_param.jesd_CF != CF_DEFAULT) {
+	if (jesd_param.jesd_CF != CF_DEFAULT) 
+	{
+		printk("xFail jesd_param.jesd_CF = %x", jesd_param.jesd_CF);
 		return API_ERROR_INVALID_PARAM;
 	}
 
 	if (jesd_param.jesd_CS != CS_DEFAULT) {
+		printk("xFail jesd_param.jesd_CS = %x", jesd_param.jesd_CS);
 		return API_ERROR_INVALID_PARAM;
 	}
 
 	if ((jesd_param.jesd_F == 1) && (jesd_param.jesd_HD != 1)) {
+		printk("xFail jesd_param.jesd_F && jesd_param.jesd_HD");
 		return API_ERROR_INVALID_PARAM;
 	}
 
 	if ((jesd_param.jesd_F != 1) && (jesd_param.jesd_HD != HD_DEFAULT)) {
+		printk("xFail jesd_param.jesd_F && jesd_param.jesd_HD DEFAULT");
 		return API_ERROR_INVALID_PARAM;
 	}
 
 	if ((jesd_param.jesd_N != N_DEFAULT) || (jesd_param.jesd_NP != NP_DEFAULT)) {
+		printk("xFail jesd_param.jesd_N && jesd_param.jesd_NP");
 		return API_ERROR_INVALID_PARAM;
 	}
 
@@ -310,36 +322,43 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 	uint8_t cdr_serdes_cfg[4] = {0x0, 0x0, 0x0, 0x0};
 	ad916x_chip_id_t chip_id;
 
+	printk(KERN_INFO "AD916x API invalid pointer\n");
 	if (h == INVALID_POINTER) {
 		return API_ERROR_INVALID_HANDLE_PTR;
 	}
 
+	printk(KERN_INFO "AD916x API invalid chipid\n");
 	err = ad916x_get_chip_id(h, &chip_id);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
 	
+	printk(KERN_INFO "AD916x API invalid interpolation\n");
 	err = check_interpolation_range(interpolation, chip_id.prod_id);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid params\n");
 	err = check_jesd_params_range(jesd_param);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid frequency\n");
 	dac_clk_freq_mhz = DIV_U64(h->dac_freq_hz, 1000000);
 	if((dac_clk_freq_mhz < DAC_CLK_FREQ_MIN) ||
 			(dac_clk_freq_mhz > DAC_CLK_FREQ_MAX)) {
 		return API_ERROR_INVALID_PARAM;
 	}
 
+	printk(KERN_INFO "AD916x API invalid interpolation\n");
 	if (interpolation == 1) {
 		M = 1;
 	} else {
 		M = jesd_param.jesd_M;
 	}
+	printk(KERN_INFO "AD916x API invalid lane rate\n");
 	err = check_jesd_params_config(interpolation, jesd_param.jesd_L,
 					M, jesd_param.jesd_F, jesd_param.jesd_S, &interpol_mode);
 	if (err != API_ERROR_OK) {
@@ -375,6 +394,7 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 		}
 	}
 
+	printk(KERN_INFO "AD916x API invalid interpolation something\n");
 	/*Configure Lane and Interpolation Rate*/
 	tmp_reg = ((jesd_param.jesd_L << 4) |
 				((interpol_mode) & AD916x_FLD_INTPL_MODE));
@@ -383,6 +403,7 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid serdes and pll\n");
 	/*Look up and Configure CDR and Serdes PLL Settings for Lane Rate*/
 	get_cdr_serdes_cfg(tmp_lane_rate_mbps, &cdr_serdes_cfg[0]);
 
@@ -400,11 +421,14 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid serdes settings\n");
 	/*Apply SERDES PLL Settings*/
 	err = ad916x_register_read(h, AD916x_REG_REF_CLK_DIVIDER_LDO, &tmp_reg);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
+
+	printk(KERN_INFO "AD916x API invalid reference clock rate\n");
 	tmp_reg = (tmp_reg & ~AD916x_FLD_SERDES_PLL_DIV_FCTR) |
 				((cdr_serdes_cfg[3] << 0) & AD916x_FLD_SERDES_PLL_DIV_FCTR);
 	err = ad916x_register_write(h, AD916x_REG_REF_CLK_DIVIDER_LDO, tmp_reg);
@@ -1208,9 +1232,11 @@ ADI_API int ad916x_jesd_get_link_status(ad916x_handle_t *h,
 	int err;
 	uint8_t tmp_reg;
 
+	printk(KERN_INFO "AD916x API invalid pointer\n");
 	if (h == INVALID_POINTER ) {
 		return API_ERROR_INVALID_HANDLE_PTR;
 	}
+	printk(KERN_INFO "AD916x API invalid pointer 2\n");
 	if(link_status == INVALID_POINTER) {
 		return API_ERROR_INVALID_PARAM;
 	}
@@ -1239,6 +1265,7 @@ ADI_API int ad916x_jesd_get_link_status(ad916x_handle_t *h,
 	}
 	link_status->init_lane_sync_stat = tmp_reg;
 
+	printk(KERN_INFO "AD916x API reads and writes okay\n");
 	return API_ERROR_OK;
 }
 

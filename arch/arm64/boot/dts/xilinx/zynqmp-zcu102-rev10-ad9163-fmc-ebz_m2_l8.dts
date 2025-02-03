@@ -8,12 +8,11 @@
  *
  * hdl_project: <dac_fmc_ebz/zcu102>
  * ADI_DAC_DEVICE: <AD9163>
- * ADI_LANE_RATE: <12.5>
+ * ADI_LANE_RATE: <4.16>
  * ADI_DAC_MODE: <08>
- * command: make ADI_DAC_DEVICE=AD9163 ADI_LANE_RATE=12.5 ADI_DAC_MODE=08
  * board_revision: <E>
  *
- * Copyright (C) 2024 Analog Devices Inc.
+ * Copyright (C) 2025 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
@@ -40,32 +39,31 @@
 
 	ad9163_control@0 {
 		compatible = "adi,one-bit-adc-dac";
-	    #address-cells = <1>;
-	    #size-cells = <0>;
-		out-gpios = <&gpio 99 1>, <&gpio 100 0>, <&gpio 101 0>, <&gpio 102 0>, <&gpio 103 0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&gpio 99 0>, <&gpio 100 0>, <&gpio 101 0>, <&gpio 102 0>, <&gpio 103 0>;
 		label = "ad9163_control";
-	        channel@0 {
+		channel@0 {
 			reg = <0>;
 			label = "dac_ctrl_0";
-	        };
-	        channel@1 {
+		};
+		channel@1 {
 			reg = <1>;
 			label = "dac_ctrl_1";
-	        };
-			channel@2 {
+		};
+		channel@2 {
 			reg = <2>;
 			label = "dac_ctrl_2";
-			};
-			channel@3 {
+		};
+		channel@3 {
 			reg = <3>;
 			label = "dac_ctrl_3";
-			};
-			channel@4 {
+		};
+		channel@4 {
 			reg = <4>;
 			label = "dac_ctrl_4";
-			};
+		};
 	};
-
 
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
@@ -95,7 +93,6 @@
 			#jesd204-cells = <2>;
 			jesd204-inputs = <&axi_ad9163_jesd 0 0>;
 		};
-
 
 		axi_ad9163_jesd: axi-jesd204-tx@84a90000 {
 			compatible = "adi,axi-jesd204-tx-1.0";
@@ -132,7 +129,6 @@
 			/* jesd204-fsm support */
 			jesd204-device;
 			#jesd204-cells = <2>;
-//			jesd204-inputs = <&ad9508_clk 0 0>;
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {
