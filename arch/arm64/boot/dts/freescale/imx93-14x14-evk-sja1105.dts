@@ -13,13 +13,20 @@
 	};
 };
 
+&pcal6524 {
+	max7322-reset-hog {
+		gpio-hog;
+		gpios = <15 GPIO_ACTIVE_LOW>;
+		output-low;
+	};
+};
+
 &lpi2c2 {
 	max7322: gpio@68 {
 		compatible = "maxim,max7322";
 		reg = <0x68>;
 		gpio-controller;
 		#gpio-cells = <2>;
-		reset-gpios = <&pcal6524 15 GPIO_ACTIVE_LOW>;
 	};
 };
 
