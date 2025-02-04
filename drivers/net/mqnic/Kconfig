@@ -25,4 +25,11 @@ config CORUNDUM_MQNIC_PCI
 	  targeting FPGA boards or systems that use PCIe for host communication,
 	  select this option.
 
+config CORUNDUM_MQNIC_APP
+	tristate "MQNIC Application support"
+	select AUXILIARY_BUS
+	help
+	  Say yes here to build support for the Application Core of the
+	  Corundum network interface card.
+
 endif # CORUNDUM_MQNIC

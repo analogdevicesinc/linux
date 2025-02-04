@@ -5,6 +5,9 @@ ifneq ($(KERNELRELEASE),)
 
 # object files to build
 obj-$(CONFIG_CORUNDUM_MQNIC) += mqnic.o
+ifdef CONFIG_CORUNDUM_MQNIC_APP
+mqnic-y += mqnic_app_aux.o
+endif
 mqnic-y += mqnic_main.o
 mqnic-y += mqnic_devlink.o
 mqnic-y += mqnic_res.o
