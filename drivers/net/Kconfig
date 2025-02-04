@@ -529,6 +529,8 @@ source "drivers/net/mctp/Kconfig"
 
 source "drivers/net/mdio/Kconfig"
 
+source "drivers/net/mqnic/Kconfig"
+
 source "drivers/net/pcs/Kconfig"
 
 source "drivers/net/plip/Kconfig"

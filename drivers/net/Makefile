@@ -73,6 +73,7 @@ obj-$(CONFIG_WLAN) += wireless/
 obj-$(CONFIG_IEEE802154) += ieee802154/
 obj-$(CONFIG_WWAN) += wwan/
 obj-$(CONFIG_MCTP) += mctp/
+obj-$(CONFIG_CORUNDUM_MQNIC) += mqnic/
 
 obj-$(CONFIG_VMXNET3) += vmxnet3/
 obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
