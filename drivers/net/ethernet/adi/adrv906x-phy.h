@@ -10,7 +10,6 @@
 #include <linux/types.h>
 #include <linux/bitfield.h>
 
-#define ADRV906X_MAX_PHYS                       2
 #define ADRV906X_PHY_ID                         0x00000000
 #define ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN        BIT(0)
 #define ADRV906X_PHY_FLAGS_LOOPBACK_TEST        BIT(1)

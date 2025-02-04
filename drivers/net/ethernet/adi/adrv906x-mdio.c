@@ -20,12 +20,9 @@ static int adrv906x_pseudo_mdio_write(struct mii_bus *bus, int mii_id, int regnu
 	struct adrv906x_mdio_priv *priv = bus->priv;
 	u32 offset;
 
-	if (mii_id >= MAX_NETDEV_NUM)
-		return -EADDRNOTAVAIL;
-
 	offset = 4 * (regnum & 0xFFFF);
 
-	iowrite32(val, priv->pcs_base[mii_id] + offset);
+	iowrite32(val, priv->pcs_base[mii_id % MAX_NETDEV_NUM] + offset);
 
 	return 0;
 }
@@ -36,12 +33,9 @@ static int adrv906x_pseudo_mdio_read(struct mii_bus *bus, int mii_id, int regnum
 	u32 offset;
 	int ret;
 
-	if (mii_id >= MAX_NETDEV_NUM)
-		return -EADDRNOTAVAIL;
-
 	offset = 4 * (regnum & 0xFFFF);
 
-	ret = ioread32(priv->pcs_base[mii_id] + offset) & 0xFFFF;
+	ret = ioread32(priv->pcs_base[mii_id % MAX_NETDEV_NUM] + offset) & 0xFFFF;
 
 	return ret;
 }
@@ -73,8 +67,8 @@ int adrv906x_mdio_probe(struct platform_device *pdev, struct net_device *ndev,
 			return PTR_ERR(priv->pcs_base[idx]);
 	}
 
-	bus->name = "adrv906x-pseudo-mdio";
 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d", pdev->name, pdev->id);
+	bus->name = "adrv906x-pseudo-mdio";
 	bus->read = adrv906x_pseudo_mdio_read,
 	bus->write = adrv906x_pseudo_mdio_write,
 	bus->parent = priv->dev;
