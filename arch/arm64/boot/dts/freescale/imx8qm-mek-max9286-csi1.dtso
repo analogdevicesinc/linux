@@ -20,10 +20,8 @@
 		reg = <0x6a>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi1>;
-		enable-gpios = <&lsio_gpio1 27 GPIO_ACTIVE_HIGH>;
-
-		gpio-controller;
-		#gpio-cells = <2>;
+		enable-gpios = <&lsio_gpio1 30 GPIO_ACTIVE_HIGH>;
+		maxim,gpio-poc = <0 GPIO_ACTIVE_LOW>;
 
 		maxim,i2c-remote-bus-hz = <339000>;
 		maxim,reverse-channel-microvolt = <100000>;
@@ -165,7 +163,7 @@
 
 			mipi_csi1_in: endpoint {
 				remote-endpoint = <&max9286_csi1_out>;
-				data-lanes = <1 2>;
+				data-lanes = <1 2 3 4>;
 			};
 		};
 

@@ -21,12 +21,11 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi0>;
 		enable-gpios = <&lsio_gpio3 7 GPIO_ACTIVE_HIGH>;
-
-		gpio-controller;
-		#gpio-cells = <2>;
+		maxim,gpio-poc = <0 GPIO_ACTIVE_LOW>;
 
 		maxim,i2c-remote-bus-hz = <339000>;
-		maxim,reverse-channel-microvolt = <170000>;
+		maxim,reverse-channel-microvolt = <100000>;
+		status = "okay";
 
 		ports {
 			#address-cells = <1>;
@@ -165,7 +164,7 @@
 
 			mipi_csi0_in: endpoint {
 				remote-endpoint = <&max9286_csi0_out>;
-				data-lanes = <1 2>;
+				data-lanes = <1 2 3 4>;
 			};
 		};
 
