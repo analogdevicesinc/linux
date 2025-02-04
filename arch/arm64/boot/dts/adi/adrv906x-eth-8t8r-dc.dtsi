@@ -15,18 +15,18 @@
 
 	eth_switch {
 		reg = <SEC_EMAC_SW_BASE 0x30 SEC_EMAC_SW_MAE_BASE 0x30>;
-		// TODO Add interrupt from C2C
-		//interrupt-names = "switch_error_0", "switch_error_1";
-		//interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
-		switch_port0:switch-port@0 {
+		// TODO put in correct interrupt from C2C when it is available
+		interrupt-names = "switch_error_0", "switch_error_1";
+		interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
+		switch_port3:switch-port@3 {
 			id = <0>;
 			reg = <SEC_EMAC_SW_PORT_0_BASE 0x400>;
 		};
-		switch_port1:switch-port@1 {
+		switch_port4:switch-port@4 {
 			id = <1>;
 			reg = <SEC_EMAC_SW_PORT_1_BASE 0x400>;
 		};
-		switch_port2:switch-port@2 {
+		switch_port5:switch-port@5 {
 			id = <2>;
 			reg = <SEC_EMAC_SW_PORT_2_BASE 0x400>;
 		};

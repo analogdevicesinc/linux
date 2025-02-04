@@ -16,7 +16,7 @@
 #define SERDES_GENL_NAME         "adrv906x"
 #define SERDES_GENL_VERSION      1
 #define SERDES_GENL_MC_GRP_NAME  "adrv906x_mcgrp"
-#define SERDES_MAX_LANES         2
+#define SERDES_MAX_LANES         4
 #define SERDES_LANE_MSK          GENMASK(15, 0)
 #define SERDES_SPEED_MSK         GENMASK(31, 16)
 #define SERDES_TIMEOUT_SECOND    1000
