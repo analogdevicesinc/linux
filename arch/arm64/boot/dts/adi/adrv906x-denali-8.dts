@@ -6,7 +6,8 @@
 #include "adrv906x-dual-tile.dtsi"
 #include "adrv906x-sysc.dtsi"
 #include "adrv906x-protium.dtsi"
-#include "adrv906x-eth-8t8r.dtsi"
+#include "adrv906x-eth-4t4r-dc.dtsi"
+#include "adrv906x-eth-8t8r-dc.dtsi"
 
 / {
 	model = "ADI ADRV906X Denali 8T8R Evaluation Kit";
