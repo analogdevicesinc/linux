@@ -830,6 +830,14 @@ config FSL_MX25_ADC
 	  Generic Conversion Queue driver used for general purpose ADC in the
 	  MX25. This driver supports single measurements using the MX25 ADC.
 
+config HMCAD15XX
+	tristate "Analog Devices HMCAD15XX ADC"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices HMCAD15XX High Speed
+	  Multi-Mode 8-Bit 1 GSPS A/D Converter. Provides direct access via sysfs.
+
 config HI8435
 	tristate "Holt Integrated Circuits HI-8435 threshold detector"
 	select IIO_TRIGGERED_EVENT

@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD7768
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7768
+ *
+ * hdl_project: <ad7768evb/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	clocks {
+		hmcad15xx_xtal: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <1000000000>;
+		};
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@44a30000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x44A30000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+	axi_adc_hmcad15xx: cf_axi_adc@44A00000 {
+		compatible = "adi,axi-adc-10.0.a";
+		reg = <0x44A00000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&hmcad15xx>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	hmcad15xx: adc@0 {
+		compatible = "adi,hmcad15xx";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+		pd-gpios    = <&gpio0 86 GPIO_ACTIVE_HIGH>;
+
+		clocks = <&hmcad15xx_xtal>;
+		clock-names = "clk";
+	};
+};

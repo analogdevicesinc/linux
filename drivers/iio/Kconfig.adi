@@ -92,6 +92,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD8366
 	imply ADA4250
 	imply HMC425
+	imply HMCAD15XX
 	imply AD5270
 	imply AD5360
 	imply AD5380
@@ -208,4 +209,3 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD8460
 	imply MAX77541_ADC
 	imply ADF4030
-
