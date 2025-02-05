@@ -131,7 +131,7 @@
 	 * to board, so four different entries are needed.
 	 */
 	temp-sensor@4c {
-		status = "disabled";
+		status = "okay";
 		compatible = "maxim,max6581";
 		reg = <0x4c>;
 		smbus-timeout-disable;
@@ -141,7 +141,7 @@
 		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
 	};
 	temp-sensor@4d {
-		status = "disabled";
+		status = "okay";
 		compatible = "maxim,max6581";
 		reg = <0x4d>;
 		smbus-timeout-disable;
@@ -151,7 +151,7 @@
 		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
 	};
 	temp-sensor@4e {
-		status = "disabled";
+		status = "okay";
 		compatible = "maxim,max6581";
 		reg = <0x4e>;
 		smbus-timeout-disable;
@@ -161,7 +161,7 @@
 		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
 	};
 	temp-sensor@4f {
-		status = "disabled";
+		status = "okay";
 		compatible = "maxim,max6581";
 		reg = <0x4f>;
 		smbus-timeout-disable;
@@ -172,20 +172,20 @@
 	};
 
 	board-eeprom@57 {
-		status = "disabled";
+		status = "okay";
 		compatible = "atmel,24c32";
 		reg = <0x57>;
 	};
 
 	rtc@68 {
-		status = "disabled";
+		status = "okay";
 		compatible = "dallas,ds1339";
 		reg = <0x68>;
 	};
 };
 
 &dac0 {
-	status = "disabled";
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm13>;
 };
