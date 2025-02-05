@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2025, Analog Devices Incorporated, All Rights Reserved
  */
 
 #ifndef __ADI_ADRV906X_DEF_H__
@@ -102,6 +102,7 @@
 #define SEC_SERDES_1_RX_BASE    0x2F390800
 #define SEC_SERDES_1_TX_BASE    0x2F392800
 #define SEC_SERDES_4_PACK_BASE  0x2F398000
+#define SEC_VIRTUAL_PL011_1_1_BASE      0x24067000
 #define SERDES_0_RX_BASE        0x2B390000
 #define SERDES_0_TX_BASE        0x2B392000
 #define SERDES_1_RX_BASE        0x2B390800
@@ -214,6 +215,7 @@
 #define SEC_SERDES_1_RX_BASE_UADDR      2F390800
 #define SEC_SERDES_1_TX_BASE_UADDR      2F392800
 #define SEC_SERDES_4_PACK_BASE_UADDR    2F398000
+#define SEC_VIRTUAL_PL011_1_1_BASE_UADDR        24067000
 #define SERDES_0_RX_BASE_UADDR  2B390000
 #define SERDES_0_TX_BASE_UADDR  2B392000
 #define SERDES_1_RX_BASE_UADDR  2B390800
@@ -232,7 +234,6 @@
 
 #define EMAC_1G_DIV_CTRL    0x201c0050
 #define EMAC_1G_CLK_CTRL    0x20190000
-#define EMAC_1G_CTRL    0x201c0050
 #define NDMA_RST_CTRL    0x201c0000
 #define NDMA_0_INTR_CTRL    0x201c0060
 #define NDMA_1_INTR_CTRL    0x201c0064

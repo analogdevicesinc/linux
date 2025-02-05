@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2025, Analog Devices Incorporated, All Rights Reserved
  */
 
 #ifndef __ADI_ADRV906X_STATUS_REG_H__

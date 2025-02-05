@@ -754,10 +754,10 @@
     };
 
    /* RegMap UIO Device: sec-telem_buff */
-    uio-adrv906x-regmap-sec-telem_buff@1C240000 {
+    uio-adrv906x-regmap-sec-telem_buff@1c240000 {
         compatible = "generic-uio";
         reg = <
-            0x1C240000 0x18000 /* Secondary Telem Buff Region*/
+            0x1c240000 0x18000 /* Secondary Telem Buff Region*/
         >;
     };
 
