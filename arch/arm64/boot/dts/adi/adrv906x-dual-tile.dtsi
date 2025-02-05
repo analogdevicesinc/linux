@@ -6,6 +6,20 @@
 #include "adrv906x.dtsi"
 
 / {
+	aliases {	
+		/* Virtual UART: A55 to M4  on secondary */
+		serial7 = &sec_v_uart1_1;
+	};
+	
+	sec_v_uart1_1: v_uart@SEC_VIRTUAL_PL011_1_1_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <SEC_VIRTUAL_PL011_1_1_BASE 0x1000>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_243 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+		status = "okay";
+	};
+
 	pinctrl_secondary: pinctrl@SEC_PINCTRL_BASE_UADDR {
 			reg = <SEC_PINCTRL_BASE 0x1000>;
 			compatible = "adi,adrv906x-pinctrl";
