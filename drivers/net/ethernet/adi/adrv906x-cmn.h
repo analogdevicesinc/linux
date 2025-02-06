@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2024-2025, Analog Devices Incorporated, All Rights Reserved
  */
 
 #ifndef __ADRV906X_CMN_H__
@@ -18,8 +18,8 @@ void adrv906x_eth_cmn_mode_cfg(struct adrv906x_eth_dev *adrv906x_dev);
 void adrv906x_eth_cmn_init(void __iomem *regs, bool switch_enabled, bool macsec_enabled);
 void adrv906x_cmn_pcs_link_drop_cnt_clear(struct adrv906x_eth_if *adrv906x_eth);
 ssize_t adrv906x_cmn_pcs_link_drop_cnt_get(struct adrv906x_eth_if *adrv906x_eth, char *buf);
-ssize_t adrv906x_cmn_cdr_div_out_enable_set(struct device *dev, const char *buf, size_t cnt);
-ssize_t adrv906x_cmn_cdr_div_out_enable_get(struct device *dev, char *buf);
+ssize_t adrv906x_cmn_recovered_clock_output_set(struct device *dev, const char *buf, size_t cnt);
+ssize_t adrv906x_cmn_recovered_clock_output_get(struct device *dev, char *buf);
 void adrv906x_cmn_set_mac_loopback(struct adrv906x_eth_dev *adrv906x_dev, bool enable);
 void adrv906x_cmn_set_phy_loopback(struct adrv906x_eth_dev *adrv906x_dev, bool enable);
 
