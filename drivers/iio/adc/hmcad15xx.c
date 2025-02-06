@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * AD7768 Analog to digital converters driver
+ * HMCAD15XX Analog to digital converters driver
  *
- * Copyright 2018 Analog Devices Inc.
+ * Copyright 2025 Analog Devices Inc.
  */
 
 #include <linux/clk.h>
@@ -25,7 +25,7 @@
 
 #include "cf_axi_adc.h"
 
-/* AD7768 registers definition */
+/* HMCAD15XX registers definition */
 #define HMCAD15XX_RST                0x00
 #define HMCAD15XX_PD                 0x0F
 #define HMCAD15XX_EN_RAMP            0x25
@@ -46,6 +46,7 @@
 #define HMCAD15XX_OPERATION_MODE_PRECISION_MSK		BIT(3)
 #define HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK		GENMASK(2, 0)
 #define HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK		GENMASK(9, 8)
+#define HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(x)     ((x & 0x3) << 8)
 
 /*HMCAD15XX_INP_SEL*/
 
@@ -54,10 +55,18 @@
 #define HMCAD15XX_INP_SEL_ADC3_MSK 		   GENMASK(4, 1)
 #define HMCAD15XX_INP_SEL_ADC4_MSK 		   GENMASK(12, 9)
 
+#define HMCAD15XX_INP_2_4_SEL(x)		(((1<<x) & 0xf) << 9)
+#define HMCAD15XX_INP_1_3_SEL(x)		(((1<<x) & 0xf) << 1)
+
+/*HMCAD15XX_BTC_MODE*/
+#define HMCAD15XX_BTC_MODE_MSK BIT(2)
+
+#define HMCAD15XX_BTC_SEL(x)		((x & 0x1) << 2)
+
 /*HMCAD15XX_PD*/
 #define HMCAD15XX_PD_MSK                    BIT(9)
 
-#define HMCAD15XX__OUTPUT_MODE_OFFSET_BINARY	0x00
+#define HMCAD15XX_OUTPUT_MODE_TWOS_COMPLEMENT	0x01
 
 
 struct hmcad15xx_state {
@@ -65,7 +74,7 @@ struct hmcad15xx_state {
 	struct clk *clk;
 	struct mutex lock;
 	unsigned int sampling_freq;
-	unsigned long		regs_hw[44];
+	unsigned long		regs_hw[86];
 	const struct axiadc_chip_info *chip_info;
 	__be32 d32;
 };
@@ -91,15 +100,19 @@ static struct hmcad15xx_state *hmcad15xx_get_data(struct iio_dev *indio_dev)
 static int hmcad15xx_spi_reg_read(struct hmcad15xx_state *st, unsigned int addr,
 			       unsigned int *val)
 {
-	return st->regs_hw[addr];
+
+	*val = st->regs_hw[addr];
+	dev_info(&st->spi->dev,"Adress %x : value:%x , saved value: %x ",addr,&val,st->regs_hw[addr]);
+	return 0;
 }
 
 static int hmcad15xx_spi_reg_write(struct hmcad15xx_state *st,
 				unsigned int addr,
 				unsigned int val)
 {
-	st->d32 = cpu_to_be32(((addr & 0xFF) << 16) | ((val & 0xFFFF) << 4));
+	st->d32 = cpu_to_be32(((addr & 0xFF) << 24) | ((val & 0xFFFF) << 8));
     st->regs_hw[addr] = val;
+	dev_info(&st->spi->dev,"Adress %x : value:%x , saved value: %x ",addr,val,st->regs_hw[addr]);
 	return spi_write(st->spi, &st->d32, sizeof(st->d32));
 }
 
@@ -254,6 +267,20 @@ static const struct axiadc_chip_info hmcad15xx_conv_chip_info = {
 
 static const unsigned long hmcad15xx_available_scan_masks[]  = { 0xFF, 0x00 };
 
+static int hmcad15xx_post_setup(struct iio_dev *indio_dev)
+{
+	struct axiadc_state *axiadc_st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct hmcad15xx_state *st = conv->phy;
+
+	axiadc_write(axiadc_st, ADI_REG_CNTRL_3, 0x000);
+
+	return 0;
+}
+
+
+
+
 static int hmcad15xx_register_axi_adc(struct hmcad15xx_state *st)
 {
 	struct axiadc_converter	*conv;
@@ -264,10 +291,11 @@ static int hmcad15xx_register_axi_adc(struct hmcad15xx_state *st)
 
 	conv->spi = st->spi;
 	conv->chip_info = st->chip_info;
-	conv->adc_output_mode = HMCAD15XX__OUTPUT_MODE_OFFSET_BINARY;
+	conv->adc_output_mode = HMCAD15XX_OUTPUT_MODE_TWOS_COMPLEMENT;
 	conv->reg_access = &hmcad15xx_reg_access;
 	conv->write_raw = &hmcad15xx_write_raw;
 	conv->read_raw = &hmcad15xx_read_raw;
+	conv->post_setup = &hmcad15xx_post_setup;
 	conv->attrs = &hmcad15xx_group;
 	conv->phy = st;
 	/* Without this, the axi_adc won't find the converter data */
@@ -290,6 +318,8 @@ static int hmcad15xx_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 
+	memset(st->regs_hw, 0x00, sizeof(st->regs_hw));
+
 	st->chip_info = spi_get_device_match_data(spi);
 	if (!st->chip_info)
 		return -ENODEV;
@@ -301,34 +331,33 @@ static int hmcad15xx_probe(struct spi_device *spi)
 
 	st->spi = spi;
 
+    gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset",
+				     GPIOD_OUT_HIGH);
 
-    	gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset",
-					     GPIOD_OUT_HIGH);
 	if (IS_ERR(gpio_reset))
 		return PTR_ERR(gpio_reset);
 
 	if (gpio_reset) {
+		gpiod_set_value_cansleep(gpio_reset, 1);
 		fsleep(2);
 		gpiod_set_value_cansleep(gpio_reset, 0);
-		fsleep(1660);
+		fsleep(100);
 	}
-
     gpio_pd = devm_gpiod_get_optional(&spi->dev, "pd",
     				     GPIOD_OUT_HIGH);
     if (IS_ERR(gpio_pd))
     	return PTR_ERR(gpio_pd);
-
-
-
-
-
 
 	 ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_LVDS_OUTPUT_MODE,
 	 			                 HMCAD15XX_OUTPUT_MODE_RESOLUTION_MSK,
 	 			                 0X0);
 	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
 			                 HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK,
-			                 0x0001);
+			                 0x1);
+	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
+		                 HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK,
+		                 HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(1));
+
  	if (gpio_pd) {
  		fsleep(2);
  		gpiod_set_value_cansleep(gpio_pd, 0);
@@ -337,21 +366,25 @@ static int hmcad15xx_probe(struct spi_device *spi)
 
 	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC1_ADC2,
 			                HMCAD15XX_INP_SEL_ADC1_MSK,
-			                0x01);
+			                HMCAD15XX_INP_1_3_SEL(3));
 	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC1_ADC2,
 		                 	HMCAD15XX_INP_SEL_ADC2_MSK,
-		                 	0x01);
+		                 	HMCAD15XX_INP_2_4_SEL(3));
 	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC3_ADC4,
-			                 HMCAD15XX_INP_SEL_ADC3_MSK,
-			                 0x0001);
+			                 HMCAD15XX_INP_SEL_ADC1_MSK,
+			                 HMCAD15XX_INP_1_3_SEL(3));
 	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC3_ADC4,
-		                 	HMCAD15XX_INP_SEL_ADC4_MSK,
-		                 	0x0001);
+		                 	HMCAD15XX_INP_SEL_ADC2_MSK,
+		                 	HMCAD15XX_INP_2_4_SEL(3));
+
+	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_BTC_MODE,
+	                 	HMCAD15XX_INP_SEL_ADC2_MSK,
+	                 	HMCAD15XX_BTC_SEL(1));
 
 	mutex_init(&st->lock);
 
 
-		ret = hmcad15xx_register_axi_adc(st);
+	ret = hmcad15xx_register_axi_adc(st);
 
 	return ret;
 }
