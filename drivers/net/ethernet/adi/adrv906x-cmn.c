@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2024-2025, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/module.h>
@@ -261,11 +261,10 @@ ssize_t adrv906x_cmn_pcs_link_drop_cnt_get(struct adrv906x_eth_if *adrv906x_eth,
 	return offset;
 }
 
-ssize_t adrv906x_cmn_cdr_div_out_enable_get(struct device *dev, char *buf)
+ssize_t adrv906x_cmn_recovered_clock_output_get(struct device *dev, char *buf)
 {
 	struct adrv906x_eth_dev *adrv906x_dev;
-	int result, cdr_selected;
-	u8 cdr_div_out_enable;
+	int enabled, selected, result;
 	void __iomem *regs;
 	unsigned int val;
 
@@ -273,17 +272,17 @@ ssize_t adrv906x_cmn_cdr_div_out_enable_get(struct device *dev, char *buf)
 	regs = adrv906x_dev->parent->emac_cmn_regs;
 	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
 
-	cdr_div_out_enable = (adrv906x_dev->port == 0) ?
-			     FIELD_GET(EMAC_CMN_CDR_DIV_PORT0_EN, val) :
-			     FIELD_GET(EMAC_CMN_CDR_DIV_PORT1_EN, val);
-	cdr_selected = (FIELD_GET(EMAC_CMN_CDR_SEL, val) == adrv906x_dev->port) ? 1 : 0;
-	result = sprintf(buf, "%s CDR enabled: %i\n%s CDR selected: %i\n", kobject_name(&dev->kobj),
-			 cdr_div_out_enable, kobject_name(&dev->kobj), cdr_selected);
+	enabled = (adrv906x_dev->port == 0) ?
+		  FIELD_GET(EMAC_CMN_CDR_DIV_PORT0_EN, val) :
+		  FIELD_GET(EMAC_CMN_CDR_DIV_PORT1_EN, val);
+	selected = (FIELD_GET(EMAC_CMN_CDR_SEL, val) == adrv906x_dev->port) ? 1 : 0;
+	result = sprintf(buf, "Selected as recovered_clk source: %s\n",
+			 selected && enabled ? "Yes" : "No");
 
 	return result;
 }
 
-ssize_t adrv906x_cmn_cdr_div_out_enable_set(struct device *dev, const char *buf, size_t cnt)
+ssize_t adrv906x_cmn_recovered_clock_output_set(struct device *dev, const char *buf, size_t cnt)
 {
 	struct adrv906x_eth_dev *adrv906x_dev;
 	void __iomem *regs;
@@ -295,11 +294,11 @@ ssize_t adrv906x_cmn_cdr_div_out_enable_set(struct device *dev, const char *buf,
 
 	err = kstrtoint(buf, 10, &enable);
 	if (err) {
-		dev_err(dev, "adrv906x_cmn_cdr_div_out_enable: Invalid input");
+		dev_err(dev, "recovered_clock_output: invalid input");
 		return err;
 	}
 	if (enable < 0 || enable > 1) {
-		dev_err(dev, "adrv906x_cmn_cdr_div_out_enable: input out of range");
+		dev_err(dev, "recovered_clock_output: input out of range");
 		return -EINVAL;
 	}
 

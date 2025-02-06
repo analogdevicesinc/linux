@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2024-2025, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/module.h>
@@ -107,20 +107,22 @@ static struct attribute *adrv906x_eth_debug_attrs[] = {
 
 ATTRIBUTE_GROUPS(adrv906x_eth_debug);
 
-static ssize_t adrv906x_eth_cdr_div_out_enable_show(struct device *dev,
-						    struct device_attribute *attr, char *buf)
+static ssize_t adrv906x_eth_recovered_clock_output_get(struct device *dev,
+						       struct device_attribute *attr, char *buf)
 {
-	return adrv906x_cmn_cdr_div_out_enable_get(dev, buf);
+	return adrv906x_cmn_recovered_clock_output_get(dev, buf);
 }
 
-static ssize_t adrv906x_eth_cdr_div_out_enable_store(struct device *dev,
-						     struct device_attribute *attr,
-						     const char *buf, size_t cnt)
+static ssize_t adrv906x_eth_recovered_clock_output_set(struct device *dev,
+						       struct device_attribute *attr,
+						       const char *buf, size_t cnt)
 {
-	return adrv906x_cmn_cdr_div_out_enable_set(dev, buf, cnt);
+	return adrv906x_cmn_recovered_clock_output_set(dev, buf, cnt);
 }
 
-static DEVICE_ATTR_RW(adrv906x_eth_cdr_div_out_enable);
+static DEVICE_ATTR(recovered_clock_output, 0644,
+		   adrv906x_eth_recovered_clock_output_get,
+		   adrv906x_eth_recovered_clock_output_set);
 
 static void adrv906x_eth_adjust_link(struct net_device *ndev)
 {
@@ -856,7 +858,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 		ndev->needed_headroom += NDMA_TX_HDR_SOF_SIZE;
 
 		ret = device_create_file(&adrv906x_dev->ndev->dev,
-					 &dev_attr_adrv906x_eth_cdr_div_out_enable);
+					 &dev_attr_recovered_clock_output);
 		dev_set_drvdata(&adrv906x_dev->ndev->dev, adrv906x_dev);
 		if (ret)
 			goto error_delete_cdr_div_out_enable_sysfs;
@@ -954,7 +956,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 
 error_delete_cdr_div_out_enable_sysfs:
 	device_remove_file(&eth_if->adrv906x_dev[i]->ndev->dev,
-			   &dev_attr_adrv906x_eth_cdr_div_out_enable);
+			   &dev_attr_recovered_clock_output);
 	dev_set_drvdata(&eth_if->adrv906x_dev[i]->ndev->dev, NULL);
 error_delete_groups:
 	sysfs_remove_groups(&pdev->dev.kobj, adrv906x_eth_debug_groups);
@@ -980,7 +982,7 @@ static int adrv906x_eth_remove(struct platform_device *pdev)
 		if (eth_if->adrv906x_dev[i]) {
 			ndev = eth_if->adrv906x_dev[i]->ndev;
 			device_remove_file(&eth_if->adrv906x_dev[i]->ndev->dev,
-					   &dev_attr_adrv906x_eth_cdr_div_out_enable);
+					   &dev_attr_recovered_clock_output);
 			dev_set_drvdata(&eth_if->adrv906x_dev[i]->ndev->dev, NULL);
 			phy_disconnect(ndev->phydev);
 			unregister_netdev(ndev);
