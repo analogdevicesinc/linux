@@ -424,6 +424,7 @@ static int ad9162_jesd204_clks_enable(struct jesd204_dev *jdev,
 		return ret;
 	}
 
+	dev_info(dev, "No, jesd_enalbe_Datapath did not fail");
 	if (reason == JESD204_STATE_OP_REASON_INIT) {
 		msleep(100);
 
@@ -460,7 +461,7 @@ static int ad9162_jesd204_link_enable(struct jesd204_dev *jdev,
 		dev_err(dev, "Failed to enabled JESD204 link (%d)\n", ret);
 		return -EIO;
 	}
-
+	dev_info(dev, "Enable the JESD link");
 	return JESD204_STATE_CHANGE_DONE;
 }
 
