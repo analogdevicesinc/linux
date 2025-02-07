@@ -187,8 +187,8 @@ struct iio_event_spec {
  */
 struct iio_scan_type {
 	char	sign;
-	u8	realbits;
-	u8	storagebits;
+	u16	realbits;
+	u16	storagebits;
 	u8	shift;
 	u8	repeat;
 	enum iio_endian endianness;
