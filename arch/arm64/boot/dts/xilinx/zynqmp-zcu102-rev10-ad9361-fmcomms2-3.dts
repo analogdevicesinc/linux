@@ -60,6 +60,75 @@
 			clocks = <&zynqmp_clk 71>;
 		};
 
+//--------------------- Things for testing SHA3 HDL IP { -----------------------
+		// ramp_dma address: 0x9C460000
+		ramp_dma: ramp-dma@9C460000  {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9C460000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			//adi,channels {
+			//	#size-cells = <0>;
+			//	#address-cells = <1>;
+
+			//	dma-channel@0 {
+			//		reg = <0>;
+			//		adi,source-bus-width = <64>;
+			//		//adi,source-bus-type = <0>;
+			//		adi,source-bus-type = <2>;
+			//		adi,destination-bus-width = <64>;
+			//		adi,destination-bus-type = <0>;
+			//	};
+			//};
+		};
+
+		// sha3_dma address: 0x9C440000
+		sha3_dma: sha3-dma@9C440000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9C440000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			//adi,channels {
+			//	#size-cells = <0>;
+			//	#address-cells = <1>;
+
+			//	dma-channel@0 {
+			//		reg = <0>;
+			//		adi,source-bus-width = <512>;
+			//		//adi,source-bus-type = <0>;
+			//		adi,source-bus-type = <1>;
+			//		adi,destination-bus-width = <64>;
+			//		//adi,destination-bus-type = <2>;
+			//		adi,destination-bus-type = <0>;
+			//	};
+			//};
+		};
+
+		sha3_reader: sha3-reader@64a00000 {
+			compatible = "xlnx,axi-ad-mc-adc-1.00.a";
+			//Address from axi-adc IP ZedBoard use cases
+			//reg = <0x64a00000 0x10000>; //TODO axi-ad-mc-adc IP there?
+			dmas = <&sha3_dma 0>;
+			dma-names = "ad-mc-adc-dma";
+			//spibus-connected = <&adc0_ad9361>;
+		};
+
+		ramp_reader: ramp-reader@65a00000 {
+			compatible = "xlnx,axi-ad-mc-adc-1.00.a";
+			//Address from axi-adc IP ZedBoard use cases
+			//reg = <0x65a00000 0x10000>; //TODO axi-ad-mc-adc IP there?
+			dmas = <&ramp_dma 0>;
+			dma-names = "ad-mc-adc-dma";
+			//spibus-connected = <&adc0_ad9361>;
+		};
+//--------------------- } Things for testing SHA3 HDL IP -----------------------
+
 		cf_ad9361_adc_core_0: cf-ad9361-lpc@99020000 {
 			compatible = "adi,axi-ad9361-6.00.a";
 			reg = <0x99020000 0x6000>;
