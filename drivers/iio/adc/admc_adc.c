@@ -88,35 +88,37 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 			     unsigned reg, unsigned writeval,
 			     unsigned *readval)
 {
-	struct axiadc_state *st = iio_priv(indio_dev);
+        struct axiadc_state *st = iio_priv(indio_dev);
 
-	mutex_lock(&st->lock);
-	if (readval == NULL)
-		axiadc_write(st, reg & 0xFFFF, writeval);
-	else
-		*readval = axiadc_read(st, reg & 0xFFFF);
-	mutex_unlock(&st->lock);
+        //mutex_lock(&st->lock);
+        //if (readval == NULL)
+        //	axiadc_write(st, reg & 0xFFFF, writeval);
+        //else
+        //	*readval = axiadc_read(st, reg & 0xFFFF);
+        //mutex_unlock(&st->lock);
+        dev_info(indio_dev->dev.parent, "%s\n", __func__);
+        // static int iio_buffer_mmap(struct file *filep, struct vm_area_struct *vma) ??
 
-	return 0;
+        return 0;
 }
 
 static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 		const unsigned long *scan_mask)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	unsigned i, ctrl;
+	//unsigned i, ctrl;
 
-	for (i = 0; i < indio_dev->masklength; i++) {
-		ctrl = axiadc_read(st, ADI_REG_CHAN_CNTRL(i));
+	//for (i = 0; i < indio_dev->masklength; i++) {
+	//	ctrl = axiadc_read(st, ADI_REG_CHAN_CNTRL(i));
 
-		if (test_bit(i, scan_mask))
-			ctrl |= ADI_ENABLE;
-		else
-			ctrl &= ~ADI_ENABLE;
+	//	if (test_bit(i, scan_mask))
+	//		ctrl |= ADI_ENABLE;
+	//	else
+	//		ctrl &= ~ADI_ENABLE;
 
-		axiadc_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
-	}
-
+	//	axiadc_write(st, ADI_REG_CHAN_CNTRL(i), ctrl);
+	//}
+	dev_info(indio_dev->dev.parent, "%s\n", __func__);
 	return 0;
 }
 
