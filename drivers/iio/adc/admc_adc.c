@@ -55,6 +55,8 @@
 #define ADI_ENABLE			(1 << 0)
 
 #define ID_AD_MC_ADC   1
+#define ID_AD_MC_ADC_RAMP 1
+#define ID_AD_MC_ADC_SHA3 2
 
 struct axiadc_chip_info {
 	char				*name;
@@ -131,20 +133,26 @@ static const struct iio_info axiadc_info = {
 	  .scan_type = {				\
 		.sign = _sign,				\
 		.realbits = _bits,			\
-		.storagebits = 16,			\
+		.storagebits = _bits,			\
 		.shift = 0,				\
 	  },						\
 	}
 
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
-	[ID_AD_MC_ADC] = {
-		.name = "AD-MC-ADC",
+	[ID_AD_MC_ADC_RAMP] = {
+		.name = "AD-MC-ADC-RAMP",
 		.max_rate = 1000000UL,
-		.num_channels = 3,
+		.num_channels = 1,
 		.channel = {
-			AIM_CHAN_NOCALIB(0, 0, 16, 'u'),
-			AIM_CHAN_NOCALIB(1, 1, 16, 'u'),
-			AIM_CHAN_NOCALIB(2, 2, 16, 'u'),
+			AIM_CHAN_NOCALIB(0, 0, 64, 'u'),
+		},
+	},
+	[ID_AD_MC_ADC_SHA3] = {
+		.name = "AD-MC-ADC-SHA3",
+		.max_rate = 1000000UL,
+		.num_channels = 1,
+		.channel = {
+			AIM_CHAN_NOCALIB(0, 0, 512, 'u'),
 		},
 	},
 };
@@ -163,20 +171,26 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	st = iio_priv(indio_dev);
 
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	st->regs = devm_ioremap_resource(&pdev->dev, mem);
-	if (IS_ERR(st->regs))
-		return PTR_ERR(st->regs);
+	//mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	//st->regs = devm_ioremap_resource(&pdev->dev, mem);
+	//if (IS_ERR(st->regs))
+	//	return PTR_ERR(st->regs);
 
-	chip_info = &axiadc_chip_info_tbl[ID_AD_MC_ADC];
+	if (strcmp(pdev->dev.of_node->name, "sha3-reader") == 0) {
+		dev_info(&pdev->dev, "sha3-reader");
+		chip_info = &axiadc_chip_info_tbl[ID_AD_MC_ADC_SHA3];
+	} else {
+		dev_info(&pdev->dev, "ramp-reader");
+		chip_info = &axiadc_chip_info_tbl[ID_AD_MC_ADC_RAMP];
+	}
 
 	platform_set_drvdata(pdev, indio_dev);
 
 	/* Reset all HDL Cores */
-	axiadc_write(st, ADI_REG_RSTN, 0);
-	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
+	//axiadc_write(st, ADI_REG_RSTN, 0);
+	//axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
 
-	st->pcore_version = axiadc_read(st, ADI_AXI_REG_VERSION);
+	//st->pcore_version = axiadc_read(st, ADI_AXI_REG_VERSION);
 
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = pdev->dev.of_node->name;
@@ -198,10 +212,12 @@ static int axiadc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	dev_info(&pdev->dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p, probed ADC %s as %s\n",
-		 st->pcore_version,
-		 (unsigned long long)mem->start, st->regs, chip_info->name,
-		 axiadc_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER");
+	//dev_info(&pdev->dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p, probed ADC %s as %s\n",
+	//	 st->pcore_version,
+	//	 (unsigned long long)mem->start, st->regs, chip_info->name,
+	//	 axiadc_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER");
+
+	dev_info(&pdev->dev, "ADI AIM probed ADC %s\n", chip_info->name);
 
 	return 0;
 }
