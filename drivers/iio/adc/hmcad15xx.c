@@ -300,6 +300,7 @@ static int  hmcad15xx_set_input_select(struct iio_dev *dev,
 {
 	struct hmcad15xx_state *st = hmcad15xx_get_data(dev);
 	int ret;
+
 	switch (chan->channel){
 		case 0:
 			ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC1_ADC2,
@@ -326,6 +327,7 @@ static int  hmcad15xx_set_input_select(struct iio_dev *dev,
 			return -EINVAL;
 
 	}
+
 	return ret;
 }
 
@@ -335,6 +337,8 @@ static int hmcad15xx_get_input_select(struct iio_dev *dev,
 	struct hmcad15xx_state *st = hmcad15xx_get_data(dev);
 	unsigned int regval;
 	int ret;
+
+
 
 	switch (chan->channel){
 	case 0:
@@ -358,23 +362,8 @@ static int hmcad15xx_get_input_select(struct iio_dev *dev,
 	default:
 		return -EINVAL;
 }
-
-
-
-
-
-
-
-
-
+return 0;
 }
-
-
-
-
-
-
-
 
 static const char * const  hmcad15xx_clk_div_iio_enum[] = {
 	[CLK_DIV_1] = "CLK_DIV_1",
@@ -445,7 +434,7 @@ static int hmcad15xx_read_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = DIV_ROUND_CLOSEST(clk_get_rate(st->clk), (hmcad15xx_clk_div_value[st->clk_div]*hmcad15xx_operation_mode_value[st->op_mode]));
+		*val = DIV_ROUND_CLOSEST(clk_get_rate(st->clk), (hmcad15xx_clk_div_value[st->clk_div]));
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
