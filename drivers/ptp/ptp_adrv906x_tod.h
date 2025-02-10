@@ -97,8 +97,11 @@ struct adrv906x_tod_counter {
 struct adrv906x_tod {
 	struct device *dev;
 	void __iomem *regs;
+	void __iomem *sec_regs;
 	u16 ver_major;
 	u16 ver_minor;
+	u16 sec_ver_major;
+	u16 sec_ver_minor;
 	u8 irq;
 	u8 tod_counter_src;
 	u8 external_pps;
@@ -120,5 +123,23 @@ struct adrv906x_tod {
 int adrv906x_tod_probe(struct platform_device *pdev);
 int adrv906x_tod_remove(struct platform_device *pdev);
 int adrv906x_tod_register_pll(struct ptp_clock_info *pll_caps);
+
+/*
+ * These macros should be used to read and write registers. If the register should be written to
+ * both tiles, ADRV906X_REG_WRITE_DUAL should be used.
+ */
+#define ADRV906X_REG_WRITE(tod, offset, value) \
+	iowrite32(value, (tod)->regs + (offset))
+#define ADRV906X_REG_WRITE_DUAL(tod, offset, value) \
+	do { \
+		iowrite32((value), (tod)->regs + (offset)); \
+		if ((tod)->sec_regs) { \
+			iowrite32((value), (tod)->sec_regs + (offset)); \
+		} \
+	} while (0)
+#define ADRV906X_REG_READ(tod, offset) \
+	ioread32((tod)->regs + (offset))
+#define ADRV906X_REG_READ_SEC(tod, offset) \
+	ioread32((tod)->sec_regs + (offset))
 
 #endif /* __PTP_ADRV906X_H */
