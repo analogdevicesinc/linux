@@ -347,3 +347,6 @@
 	>;
 };
 
+&ptpclk {
+	reg = <EMAC_TOD_BASE 0xff SEC_EMAC_TOD_BASE 0xff>;
+};

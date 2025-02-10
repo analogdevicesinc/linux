@@ -210,4 +210,9 @@
 	};
 };
 
+&ptpclk {
+	/* This enables both 1PPS outputs for debug purposes only. */
+	pinctrl0 = <&pinctrl_one_pps &pinctrl_secondary_one_pps>;
+};
+
 #include "adrv906x-pinctrl-secondary.dtsi"

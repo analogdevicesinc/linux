@@ -164,7 +164,7 @@ static int adrv906x_tod_cfg_lc_clk(struct adrv906x_tod_counter *counter)
 					    adrv906x_lc_clk_cfg[lp].ns_per_clk) |
 				 FIELD_PREP(ADRV906X_TOD_CFG_INCR_CNT_CTRL_MASK,
 					    adrv906x_lc_clk_cfg[lp].cnt_ctrl);
-			iowrite32(wr_val, tod->regs + ADRV906X_TOD_CFG_INCR);
+			ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_INCR, wr_val);
 			err = 0;
 			break;
 		}
@@ -219,12 +219,12 @@ static int adrv906x_tod_hw_gc_get_cnt(struct adrv906x_tod_counter *counter, u64 
 	u32 gc_rd = 1;
 
 	/* Write the OP_GC:RD_GC_MASK to latch the GC counter register */
-	iowrite32(gc_rd, tod->regs + ADRV906X_TOD_CFG_OP_GC);
-	iowrite32(0, tod->regs + ADRV906X_TOD_CFG_OP_GC);
+	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_CFG_OP_GC, gc_rd);
+	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_CFG_OP_GC, 0);
 
 	/* Read back the Golden Counter */
-	gc_reg_cnt[0] = ioread32(tod->regs + ADRV906X_TOD_STAT_GC_0);
-	gc_reg_cnt[1] = ioread32(tod->regs + ADRV906X_TOD_STAT_GC_1);
+	gc_reg_cnt[0] = ADRV906X_REG_READ(tod, ADRV906X_TOD_STAT_GC_0);
+	gc_reg_cnt[1] = ADRV906X_REG_READ(tod, ADRV906X_TOD_STAT_GC_1);
 
 	gc_cnt = gc_reg_cnt[0] | ((u64)(gc_reg_cnt[1] & 0xFFFF) << 32);
 	*p_cnt = gc_cnt;
@@ -241,8 +241,8 @@ static int adrv906x_tod_hw_gc_set_cnt(struct adrv906x_tod_counter *counter, u64 
 	gc_reg_cnt[1] = (cnt >> 32) & 0xFFFF;
 
 	/* Write the GC value */
-	iowrite32(gc_reg_cnt[0], tod->regs + ADRV906X_TOD_CFG_OP_GC_VAL_0);
-	iowrite32(gc_reg_cnt[1], tod->regs + ADRV906X_TOD_CFG_OP_GC_VAL_1);
+	ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_OP_GC_VAL_0, gc_reg_cnt[0]);
+	ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_OP_GC_VAL_1, gc_reg_cnt[1]);
 
 	return 0;
 }
@@ -265,12 +265,12 @@ static void adrv906x_tod_hw_op_trig(struct adrv906x_tod_counter *counter, u8 op_
 
 	mask = adrv906x_tod_op_to_mask(op_flag, is_pps, tod_idx);
 
-	val = ioread32(tod->regs + ADRV906X_TOD_CFG_TOD_OP);
+	val = ADRV906X_REG_READ(tod, ADRV906X_TOD_CFG_TOD_OP);
 	if (set_flag)
 		val |= mask;
 	else
 		val &= ~mask;
-	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_TOD_OP);
+	ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_TOD_OP, val);
 }
 
 static void adrv906x_tod_hw_op_trig_set(struct adrv906x_tod_counter *counter, u8 op_flag)
@@ -294,7 +294,7 @@ static int adrv906x_tod_hw_op_poll_reg(struct adrv906x_tod_counter *counter, u32
 
 	while (!done && (delay_cnt != 0)) {
 		ndelay(p_delay->ns);
-		val = ioread32(counter->parent->regs + regaddr);
+		val = ADRV906X_REG_READ(counter->parent, regaddr);
 
 		if (!done_high)
 			val = ~val;
@@ -323,9 +323,9 @@ static int adrv906x_tod_hw_op_poll(struct adrv906x_tod_counter *counter, u8 op_f
 	return adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_STAT_TOD_OP, mask, p_delay, true);
 }
 
-static int adrv906x_tod_compensate_tstamp(struct adrv906x_tod_counter *counter,
-					  struct adrv906x_tod_tstamp *tstamp,
-					  const struct adrv906x_tod_trig_delay *trig_delay)
+static void adrv906x_tod_compensate_tstamp(struct adrv906x_tod_counter *counter,
+					   struct adrv906x_tod_tstamp *tstamp,
+					   const struct adrv906x_tod_trig_delay *trig_delay)
 {
 	struct adrv906x_tod *tod = counter->parent;
 	struct adrv906x_tod_tstamp old_tstamp;
@@ -363,8 +363,6 @@ static int adrv906x_tod_compensate_tstamp(struct adrv906x_tod_counter *counter,
 	} else {
 		tstamp->seconds = old_tstamp.seconds;
 	}
-
-	return 0;
 }
 
 static void adrv906x_tod_hw_settstamp_to_reg(struct adrv906x_tod_counter *counter,
@@ -384,9 +382,9 @@ static void adrv906x_tod_hw_settstamp_to_reg(struct adrv906x_tod_counter *counte
 	reg_tstamp[2] |= FIELD_PREP(ADRV906X_TOD_CFG_TV_SEC_1_SEC_MASK,
 				    (tstamp->seconds & 0xFFFFFFFF0000) >> 16);
 
-	iowrite32(reg_tstamp[0], tod->regs + ADRV906X_TOD_CFG_TV_NSEC);
-	iowrite32(reg_tstamp[1], tod->regs + ADRV906X_TOD_CFG_TV_SEC_0);
-	iowrite32(reg_tstamp[2], tod->regs + ADRV906X_TOD_CFG_TV_SEC_1);
+	ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_TV_NSEC, reg_tstamp[0]);
+	ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_TV_SEC_0, reg_tstamp[1]);
+	ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_TV_SEC_1, reg_tstamp[2]);
 }
 
 static int adrv906x_tod_hw_gettstamp_from_reg(struct adrv906x_tod_counter *counter,
@@ -399,14 +397,14 @@ static int adrv906x_tod_hw_gettstamp_from_reg(struct adrv906x_tod_counter *count
 
 	tod_idx = counter->id;
 
-	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
+	val = ADRV906X_REG_READ(tod, ADRV906X_TOD_CFG_IO_CTRL);
 	val &= ~ADRV906X_TOD_CFG_IO_CTRL_TOD_STAT_SEL_MASK;
 	val |= ADRV906X_TOD_CFG_IO_CTRL_TOD_STAT_SEL(BIT(tod_idx));
-	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
+	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_CFG_IO_CTRL, val);
 
-	reg_tstamp[0] = ioread32(tod->regs + ADRV906X_TOD_STAT_TV_NSEC);
-	reg_tstamp[1] = ioread32(tod->regs + ADRV906X_TOD_STAT_TV_SEC_0);
-	reg_tstamp[2] = ioread32(tod->regs + ADRV906X_TOD_STAT_TV_SEC_1);
+	reg_tstamp[0] = ADRV906X_REG_READ(tod, ADRV906X_TOD_STAT_TV_NSEC);
+	reg_tstamp[1] = ADRV906X_REG_READ(tod, ADRV906X_TOD_STAT_TV_SEC_0);
+	reg_tstamp[2] = ADRV906X_REG_READ(tod, ADRV906X_TOD_STAT_TV_SEC_1);
 
 	tstamp->frac_nanoseconds = reg_tstamp[0] & 0xFFFF;
 	tstamp->nanoseconds = ((reg_tstamp[0] >> 16) & 0xFFFF) | ((reg_tstamp[1] & 0xFFFF) << 16);
@@ -580,7 +578,7 @@ static int adrv906x_tod_hw_cdc_output_enable(struct adrv906x_tod_counter *counte
 		val |= BIT(tod_idx);
 
 	for (i = 0; i < ADRV906X_HW_TOD_CDC_DOMAIN_CNT; i++)
-		iowrite32(val, tod->regs + ADRV906X_TOD_CFG_TSU_TOD + i * 0x4);
+		ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_TSU_TOD + i * 0x4, val);
 
 	return 0;
 }
@@ -601,7 +599,7 @@ static int adrv906x_tod_hw_extts_enable(struct adrv906x_tod_counter *counter, u8
 	adrv906x_tod_get_trigger_delay(counter, &trig_delay);
 	adrv906x_tod_hw_set_trigger_delay(counter);
 
-	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
+	val = ADRV906X_REG_READ(tod, ADRV906X_TOD_CFG_IO_SOURCE);
 	val &= ~ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_MASK;
 	val |= ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK;
 
@@ -609,7 +607,7 @@ static int adrv906x_tod_hw_extts_enable(struct adrv906x_tod_counter *counter, u8
 		val |= ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_SEL(BIT(tod_idx));
 	else
 		val &= ~ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_SEL(BIT(tod_idx));
-	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
+	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_CFG_IO_SOURCE, val);
 
 	ret = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_CFG_IO_SOURCE,
 					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay,
@@ -627,14 +625,14 @@ static int adrv906x_tod_pps_irq_enable(struct adrv906x_tod_counter *counter, u8 
 	if (!counter->en)
 		return -ENODEV;
 
-	val = ioread32(tod->regs + ADRV906X_TOD_IRQ_MASK);
+	val = ADRV906X_REG_READ(tod, ADRV906X_TOD_IRQ_MASK);
 
 	if (enable)
 		val &= ~BIT(tod_idx);
 	else
 		val |= BIT(tod_idx);
 
-	iowrite32(val, tod->regs + ADRV906X_TOD_IRQ_MASK);
+	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_IRQ_MASK, val);
 
 	return 0;
 }
@@ -643,9 +641,9 @@ static void adrv906x_tod_hw_pps_irq_external_enable(struct adrv906x_tod *tod)
 {
 	u32 val = 0;
 
-	val = ioread32(tod->regs + ADRV906X_TOD_IRQ_MASK);
+	val = ADRV906X_REG_READ(tod, ADRV906X_TOD_IRQ_MASK);
 	val &= ~ADRV906X_TOD_IRQ_MASK_EXTERNAL_PPS;
-	iowrite32(val, tod->regs + ADRV906X_TOD_IRQ_MASK);
+	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_IRQ_MASK, val);
 }
 
 static void adrv906x_tod_hw_pps_irq_disable_all(struct adrv906x_tod *tod)
@@ -655,7 +653,7 @@ static void adrv906x_tod_hw_pps_irq_disable_all(struct adrv906x_tod *tod)
 		  ADRV906X_TOD_IRQ_MASK_INTERNAL_1 |
 		  ADRV906X_TOD_IRQ_MASK_INTERNAL_GNSS;
 
-	iowrite32(val, tod->regs + ADRV906X_TOD_IRQ_MASK);
+	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_IRQ_MASK, val);
 }
 
 static int adrv906x_tod_hw_pps_enable(struct adrv906x_tod_counter *counter, u8 enable)
@@ -668,7 +666,7 @@ static int adrv906x_tod_hw_pps_enable(struct adrv906x_tod_counter *counter, u8 e
 	adrv906x_tod_get_trigger_delay(counter, &trig_delay);
 	adrv906x_tod_hw_set_trigger_delay(counter);
 
-	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
+	val = ADRV906X_REG_READ(tod, ADRV906X_TOD_CFG_IO_SOURCE);
 	val &= ~ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK;
 	val |= ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK;
 
@@ -681,7 +679,7 @@ static int adrv906x_tod_hw_pps_enable(struct adrv906x_tod_counter *counter, u8 e
 			val |= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(counter->id));
 		}
 	}
-	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
+	ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_IO_SOURCE, val);
 
 	ret = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_CFG_IO_SOURCE,
 					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay,
@@ -709,8 +707,8 @@ static irqreturn_t adrv906x_tod_pps_isr(int irq, void *dev_id)
 	u32 irq_val;
 	u8 i;
 
-	irq_val = ioread32(tod->regs + ADRV906X_TOD_IRQ_STATUS);
-	iowrite32(irq_val, tod->regs + ADRV906X_TOD_IRQ_EVENT);
+	irq_val = ADRV906X_REG_READ(tod, ADRV906X_TOD_IRQ_STATUS);
+	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_IRQ_EVENT, irq_val);
 
 	for (i = 0; i < ADRV906X_HW_TOD_COUNTER_CNT; i++) {
 		if (irq_val & BIT(i) || (tod->external_pps &&
@@ -738,18 +736,18 @@ static void adrv906x_tod_hw_cfg_ppsx(struct adrv906x_tod_counter *counter,
 	struct adrv906x_tod *tod = counter->parent;
 	u32 stop, val;
 
-	val = ioread32(tod->regs + ADRV906X_TOD_CFG_TEST_OUT_SRC);
+	val = ADRV906X_REG_READ(tod, ADRV906X_TOD_CFG_TEST_OUT_SRC);
 	val &= ~ADRV906X_TOD_CFG_TEST_OUT_SRC_PPSX_SRC_MASK;
 
 	if (!(rq->period.sec == 0 && rq->period.nsec == 0)) {
-		iowrite32(rq->start.nsec, tod->regs + ADRV906X_TOD_CFG_PPSX_START);
+		ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_PPSX_START, rq->start.nsec);
 		stop = (rq->start.nsec + tod->ppsx_pulse_width_ns) & 0xFFFFFFFF;
-		iowrite32(stop, tod->regs + ADRV906X_TOD_CFG_PPSX_STOP);
+		ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_PPSX_STOP, stop);
 
 		val |= ADRV906X_TOD_CFG_TEST_OUT_SRC_PPSX_SRC(BIT(counter->id));
 	}
 
-	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_TEST_OUT_SRC);
+	ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_TEST_OUT_SRC, val);
 }
 
 static int adrv906x_tod_perout_enable(struct adrv906x_tod_counter *counter,
@@ -770,8 +768,8 @@ static int adrv906x_tod_cfg_cdc_delay_set(struct adrv906x_tod_counter *counter)
 	u32 i;
 
 	for (i = 0; i < ADRV906X_HW_TOD_CDC_DOMAIN_CNT; i++)
-		iowrite32(tod->cdc.delay_cnt[i],
-			  tod->regs + ADRV906X_TOD_CFG_CDC_DELAY + i * sizeof(u32));
+		ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_CDC_DELAY + i * sizeof(u32),
+					tod->cdc.delay_cnt[i]);
 
 	/* According to the user manual, all CFG_CDC_DELAY:CDC register fields
 	 * shall have the same value. So we just pick the first one.
@@ -791,9 +789,9 @@ static int adrv906x_tod_module_init(struct adrv906x_tod_counter *counter)
 	ret = adrv906x_tod_cfg_lc_clk(counter);
 	/* Enable the ToD counter */
 	if (!ret) {
-		val = ioread32(tod->regs + ADRV906X_TOD_CFG_INCR);
+		val = ADRV906X_REG_READ(tod, ADRV906X_TOD_CFG_INCR);
 		val |= ADRV906X_TOD_CFG_INCR_CFG_TOD_CNT_EN_MASK;
-		iowrite32(val, tod->regs + ADRV906X_TOD_CFG_INCR);
+		ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_INCR, val);
 	}
 
 	return ret;
@@ -1096,18 +1094,33 @@ EXPORT_SYMBOL(adrv906x_tod_register_pll);
 void adrv906x_tod_hw_disable_all(struct adrv906x_tod *tod)
 {
 	/* Disable debug outputs */
-	iowrite32(0, tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
+	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_CFG_IO_CTRL, 0);
 	/* Disable all IRQs */
 	adrv906x_tod_hw_pps_irq_disable_all(tod);
 }
 
-static void adrv906x_tod_get_version(struct adrv906x_tod *tod)
+static int adrv906x_tod_get_version(struct adrv906x_tod *tod)
 {
 	u32 val;
 
-	val = ioread32(tod->regs + ADRV906X_TOD_VERSION);
+	val = ADRV906X_REG_READ(tod, ADRV906X_TOD_VERSION);
 	tod->ver_major = FIELD_GET(ADRV906X_TOD_VERSION_MAJOR, val);
 	tod->ver_minor = FIELD_GET(ADRV906X_TOD_VERSION_MINOR, val);
+
+	if (tod->sec_regs) {
+		val = ADRV906X_REG_READ_SEC(tod, ADRV906X_TOD_VERSION);
+		tod->sec_ver_major = FIELD_GET(ADRV906X_TOD_VERSION_MAJOR, val);
+		tod->sec_ver_minor = FIELD_GET(ADRV906X_TOD_VERSION_MINOR, val);
+
+		if (tod->ver_major != tod->sec_ver_major || tod->ver_minor != tod->sec_ver_minor) {
+			dev_err(tod->dev, "tod versions don't match: %d.%d != %d.%d",
+				tod->ver_major, tod->ver_minor,
+				tod->sec_ver_major, tod->sec_ver_minor);
+			return 1;
+		}
+	}
+
+	return 0;
 }
 
 int adrv906x_tod_probe(struct platform_device *pdev)
@@ -1140,10 +1153,19 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 		ret = PTR_ERR(regs);
 		return ret;
 	}
-
 	adrv906x_tod->regs = regs;
 
-	adrv906x_tod_get_version(adrv906x_tod);
+	regs = devm_platform_ioremap_resource(pdev, 1);
+	if (IS_ERR(regs)) {
+		adrv906x_tod->sec_regs = NULL;
+	} else {
+		dev_info(dev, "operating in dual-tile mode");
+		adrv906x_tod->sec_regs = regs;
+	}
+
+	ret = adrv906x_tod_get_version(adrv906x_tod);
+	if (ret)
+		goto err_out;
 	dev_info(dev, "tod version %d.%d", adrv906x_tod->ver_major, adrv906x_tod->ver_minor);
 
 	lc_clk = devm_clk_get(dev, "lc_clk");
