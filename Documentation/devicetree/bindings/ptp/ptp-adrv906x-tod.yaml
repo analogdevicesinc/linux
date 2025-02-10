@@ -17,10 +17,12 @@ properties:
     const: 1
 
   "#size-cells":
-    const: 0
+    const: 1
 
   reg:
-    maxItems: 1
+    maxItems: 4
+    description: Base address and size of the register set for the device.
+                 The second pair is optional and is used for two-chip instances.
 
   clock-names:
     items:
@@ -86,8 +88,8 @@ properties:
     patternProperties:
       "tod-counter@[0-2]+$":
         type: object
-        description: ADRV906x ToD counter(s). Each ToD node declares a counter that can be 
-          synchronized to an external source, and will be represented by a /dev/ptpX 
+        description: ADRV906x ToD counter(s). Each ToD node declares a counter that can be
+          synchronized to an external source, and will be represented by a /dev/ptpX
           and /dev/ppsX.
         properties:
           reg:
@@ -128,7 +130,7 @@ examples:
       compatible = "adi,adi-tod";
       #address-cells = <1>;
       #size-cells = <1>;
-      reg = <EMAC_TOD_BASE 0xff>;
+      reg = <EMAC_TOD_BASE 0xff SEC_EMAC_TOD_BASE 0xff>;
       interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "pps";
       clocks = <&sysclk>, <&sysclk>;
