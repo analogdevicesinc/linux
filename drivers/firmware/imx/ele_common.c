@@ -318,7 +318,19 @@ int se_val_rsp_hdr_n_status(struct se_if_priv *priv,
 
 int se_save_imem_state(struct se_if_priv *priv, struct se_imem_buf *imem)
 {
+	struct ele_dev_info s_info = {0};
 	int ret;
+
+	/* get info from ELE */
+	ret = ele_get_info(priv, &s_info);
+	if (ret) {
+		dev_err(priv->dev, "Failed to get info from ELE.\n");
+		return ret;
+	}
+
+	/* Do not save the IMEM buffer, if the current IMEM state is BAD. */
+	if (s_info.d_addn_info.imem_state == ELE_IMEM_STATE_BAD)
+		return ret;
 
 	/* EXPORT command will save encrypted IMEM to given address,
 	 * so later in resume, IMEM can be restored from the given
@@ -330,14 +342,16 @@ int se_save_imem_state(struct se_if_priv *priv, struct se_imem_buf *imem)
 			       imem->phyaddr,
 			       ELE_IMEM_SIZE,
 			       ELE_IMEM_EXPORT);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(priv->dev, "Failed to export IMEM\n");
-	else
+		imem->size = 0;
+	} else {
 		dev_info(priv->dev,
 			 "Exported %d bytes of encrypted IMEM\n",
 			 ret);
+		imem->size = ret;
+	}
 
-	imem->size = ret;
 	return ret > 0 ? 0 : -1;
 }
 
@@ -354,8 +368,10 @@ int se_restore_imem_state(struct se_if_priv *priv, struct se_imem_buf *imem)
 	}
 	imem->state = s_info.d_addn_info.imem_state;
 
-	/* Get IMEM state, if 0xFE then import IMEM */
-	if (s_info.d_addn_info.imem_state == ELE_IMEM_STATE_BAD) {
+	/* Get IMEM state, if 0xFE and saved/exported IMEM buffer size is non-zero,
+	 * then import IMEM
+	 */
+	if (s_info.d_addn_info.imem_state == ELE_IMEM_STATE_BAD && imem->size) {
 		/* IMPORT command will restore IMEM from the given
 		 * address, here size is the actual size returned by ELE
 		 * during the export operation
