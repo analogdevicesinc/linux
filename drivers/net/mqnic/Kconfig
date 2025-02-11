@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: BSD-2-Clause-Views
+# Copyright (c) 2019-2023 The Regents of the University of California
+
+menuconfig CORUNDUM_MQNIC
+	tristate "Corundum MQNIC support"
+	help
+	  Corundum is an open-source, FPGA-based Network Interface Card (NIC)
+	  and platform designed for high-performance networking and in-network
+	  compute applications.
+
+	  Say yes here to build support for Corundum network interface card.
+
+if CORUNDUM_MQNIC
+
+config CORUNDUM_MQNIC_APP
+	tristate "MQNIC Application support"
+	select AUXILIARY_BUS
+	help
+	  Say yes here to build support for the Application Core of the
+	  Corundum network interface card.
+
+endif # CORUNDUM_MQNIC
+
