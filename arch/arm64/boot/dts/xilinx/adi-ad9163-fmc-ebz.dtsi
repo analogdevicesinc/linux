@@ -88,7 +88,7 @@
 			adi,extended-name = "REF_CLK";
 			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_00)>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <4>;
+			adi,channel-divider = <6>;
 		};
 
 		ad9508_0_c2:channel@2 {
@@ -96,7 +96,7 @@
 			adi,extended-name = "SYSREF2";
 			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_00)>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <64>;
+			adi,channel-divider = <96>;
 		};
 
 		ad9508_0_c3:channel@3 {
@@ -104,7 +104,7 @@
 			adi,extended-name = "SYSREF";
 			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_00)>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <64>;
+			adi,channel-divider = <96>;
 		};
 	};
 
@@ -138,14 +138,14 @@
 		adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 		adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 		adi,converters-per-device = <2>;	/* JESD M */
-		adi,octets-per-frame = <2>;		/* JESD F */
+		adi,octets-per-frame = <1>;		/* JESD F */
 		adi,frames-per-multiframe = <32>;	/* JESD K */
 		adi,converter-resolution = <16>;	/* JESD N */
 		adi,bits-per-sample = <16>;		/* JESD NP' */
 		adi,control-bits-per-sample = <0>;	/* JESD CS */
-		adi,lanes-per-device = <2>;		/* JESD L */
-		adi,samples-per-converter-per-frame = <1>; /* JESD S */
-		adi,interpolation = <8>;
+		adi,lanes-per-device = <8>;		/* JESD L */
+		adi,samples-per-converter-per-frame = <2>; /* JESD S */
+		adi,interpolation = <6>;
         jesd204-ignore-errors;
 	};
 };
