@@ -62,8 +62,11 @@ struct ele_dev_info {
 #define GET_SERIAL_NUM_FROM_UID(x, uid_word_sz) \
 	(((u64)(((u32 *)(x))[(uid_word_sz) - 1]) << 32) | ((u32 *)(x))[0])
 
+#define ELE_MAX_DBG_DMP_PKT		30
+#define ELE_NON_DUMP_BUFFER_SZ		2
 #define ELE_DEBUG_DUMP_REQ		0x21
-#define ELE_DEBUG_DUMP_RSP_SZ		0x17
+#define ELE_DEBUG_DUMP_REQ_SZ		0x4
+#define ELE_DEBUG_DUMP_RSP_SZ		0x5c
 
 #define ELE_PING_REQ			0x01
 #define ELE_PING_REQ_SZ			0x04
@@ -127,5 +130,5 @@ int read_common_fuse(struct se_if_priv *priv,
 		     uint16_t fuse_id, u32 *value);
 int ele_get_v2x_fw_state(struct se_if_priv *priv, uint32_t *state);
 int ele_v2x_fw_authenticate(struct se_if_priv *priv, phys_addr_t addr);
-
+int ele_debug_dump(struct se_if_priv *priv);
 #endif

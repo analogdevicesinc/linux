@@ -227,8 +227,6 @@ int v2x_debug_dump(struct se_if_priv *priv)
 				fmt_str[fmt_str_idx] = ' ';
 				fmt_str_idx++;
 				if (w_ct % 2) {
-					//fmt_str[fmt_str_idx] = '\n';
-					//fmt_str_idx++;
 					memcpy(fmt_str + fmt_str_idx,
 					       FW_DBG_DUMP_FIXED_STR,
 					       strlen(FW_DBG_DUMP_FIXED_STR));
