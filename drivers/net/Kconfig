@@ -147,6 +147,10 @@ config NET_FC
 	  adaptor below. You also should have said Y to "SCSI support" and
 	  "SCSI generic support".
 
+config MQNIC
+	default y
+	bool "MQNIC network interface card"
+
 config IFB
 	tristate "Intermediate Functional Block support"
 	depends on NET_ACT_MIRRED || NFT_FWD_NETDEV

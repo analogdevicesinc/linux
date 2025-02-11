@@ -56,30 +56,6 @@
 		clock-frequency  = <10000000>;
 		clock-output-names = "Ref-A";
 	};
-
-	leds {
-		compatible = "gpio-leds";
-		led0 {
-			label = "led0:green";
-			gpios = <&gpio 86 0>;
-		};
-
-		led1 {
-			label = "led1:green";
-			gpios = <&gpio 87 0>;
-		};
-
-		led2 {
-			label = "led2:green";
-			gpios = <&gpio 88 0>;
-		};
-
-		led3 {
-			label = "led3:green";
-			gpios = <&gpio 89 0>;
-		};
-	};
-
 	gpio_keys {
 		compatible = "gpio-keys";
 		#address-cells = <1>;
@@ -292,13 +268,35 @@
  * I2C1
  */
 
-&i2c1 {
-	status = "okay";
-	clock-frequency = <400000>;
-	pinctrl-names = "gpio";
-	pinctrl-0 = <&pinctrl_i2c1_gpio>;
-	scl-gpios = <&gpio 32 GPIO_ACTIVE_HIGH>;
-	sda-gpios = <&gpio 33 GPIO_ACTIVE_HIGH>;
+&fpga_axi {
+
+	mqnic0: ethernet@a0000000 {
+		compatible = "corundum,mqnic";
+		reg = <0x0 0xa0000000 0x1000000>,
+		      <0x0 0xa8000000 0x1000000>;
+		reg-names = "csr", "app";
+		interrupt-parent = <&gic>;
+		interrupts = <0 93 1>;
+		assigned-clocks = <&zynqmp_clk 71>; // PL0_REF
+		assigned-clock-rates = <100000000>;
+		resets = <&zynqmp_reset 116>; // ZYNQMP_RESET_PS_PL0
+		reset-names = "reset";
+	};
+	axi_i2c: i2c@83000000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
+			interrupt-names = "iic2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 94 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x0 0x83000000 0x1000>;
+		};
+};
+
+
+&axi_i2c {
 
 	i2c-mux@70 { /* u19 */
 		compatible = "nxp,pca9548"; /* TCA9548 */
@@ -343,9 +341,9 @@
 				#clock-cells = <2>;
 
 				assigned-clocks = <&ad9545_clock AD9545_CLK_NCO AD9545_NCO0>,
-						  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL0>,
-						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q0A>;
-				assigned-clock-rates = <10000>, <1413120000>, <30720000>;
+						  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL1>,
+						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1B>;
+				assigned-clock-rates = <10000>, <1562500000>, <156250000>;
 				assigned-clock-phases = <0>, <0>, <0>, <180>;
 
 				aux-nco-clk@AD9545_NCO0 {
@@ -370,8 +368,8 @@
 					adi,phase-lock-drain-rate = <20>;
 				};
 
-				ad9545_apll0: pll-clk@AD9545_PLL0 {
-					reg = <AD9545_PLL0>;
+				ad9545_apll1: pll-clk@AD9545_PLL1 {
+					reg = <AD9545_PLL1>;
 
 					#address-cells = <1>;
 					#size-cells = <0>;
@@ -391,8 +389,8 @@
 					};
 				};
 
-				output-clk@AD9545_Q0A {
-					reg = <AD9545_Q0A>;
+				output-clk@AD9545_Q1B {
+					reg = <AD9545_Q1B>;
 					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
 					adi,current-source-microamp = <15000>;
 				};
