@@ -25,8 +25,9 @@ properties:
       - ltc2387-16-x4
       - ltc2387-18
       - ltc2387-18-x4
-      - adaq2387-16
-      - adaq2387-18
+      - adaq23875
+      - adaq23876
+      - adaq23878
 
   clocks:
     maxItems: 1
