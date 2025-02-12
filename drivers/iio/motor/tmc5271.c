@@ -9,6 +9,11 @@
 #include <linux/delay.h>
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
+#include <linux/gpio.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 
 #define TMC5271_NAME	"tmc5271"
 
@@ -474,6 +479,7 @@ struct tmc5271_priv {
 	bool			enable;
 	s32			velocity;
 	u32			acceleration;
+	bool		irq_flag;
 };
 
 static int tmc5271_reg_read(struct spi_device *spi,
@@ -552,17 +558,16 @@ static int tmc5271_reg_write_mask(struct spi_device *spi,
 	return ret;
 }
 
-static int tmc5271_en_driver(struct iio_dev *indio_dev, bool en)
+static irqreturn_t tmc5271_interrupt(int irq, void *dev_id)
 {
+	struct iio_dev *indio_dev = dev_id;
 	struct tmc5271_priv *priv = iio_priv(indio_dev);
 
-	if (en)
-		return tmc5271_reg_write_mask(priv->spi, TMC5271_REG_GCONF,
-			TMC5271_DRV_ENN_MASK, TMC5271_DRV_ENN_SHIFT, 0);
-	else
-		return tmc5271_reg_write_mask(priv->spi, TMC5271_REG_GCONF,
-			TMC5271_DRV_ENN_MASK, TMC5271_DRV_ENN_SHIFT, 1);
-}
+	priv->irq_flag = true;
+
+	return IRQ_HANDLED;
+
+};
 
 static int tmc5271_rotate(struct iio_dev *indio_dev, s32 velocity)
 {
@@ -574,6 +579,86 @@ static int tmc5271_rotate(struct iio_dev *indio_dev, s32 velocity)
 	ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_RAMPMODE,
 		TMC5271_RAMPMODE_MASK, TMC5271_RAMPMODE_SHIFT,
 		(velocity >= 0) ? TMC5271_MODE_VELPOS : TMC5271_MODE_VELNEG);
+
+	return ret;
+}
+
+static int tmc5271_en_driver(struct iio_dev *indio_dev, bool en)
+{
+	struct tmc5271_priv *priv = iio_priv(indio_dev);
+	int ret;
+	priv->irq_flag = false;
+
+	if (en) {
+		gpiod_set_value_cansleep(priv->gpio_sleep, 0);
+		mdelay(1);
+
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_GCONF,
+					      TMC5271_QSC_STS_ENA_MASK,
+					      TMC5271_QSC_STS_ENA_SHIFT, 0);
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_IOIN,
+					      TMC5271_ADC_EN_MASK,
+					      TMC5271_ADC_EN_SHIFT, 1);
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_ENCMODE,
+					      TMC5271_QSC_ENC_EN_MASK,
+					      TMC5271_QSC_ENC_EN_SHIFT, 1);
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_PWMCONF,
+					      TMC5271_FREEWHEEL_MASK,
+					      TMC5271_FREEWHEEL_SHIFT, 0);
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_GCONF,
+					      TMC5271_DRV_ENN_MASK,
+					      TMC5271_DRV_ENN_SHIFT, 0);
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_CHOPCONF,
+					      TMC5271_TOFF_MASK,
+					      TMC5271_TOFF_SHIFT, 3);
+		ret |= tmc5271_reg_write(priv->spi, TMC5271_REG_AMAX,
+					 priv->acceleration);
+
+		return ret |= tmc5271_rotate(indio_dev, priv->velocity);
+
+	} else {
+		enable_irq(priv->spi->irq);
+
+		gpiod_set_value_cansleep(priv->gpio_sleep, 1);
+		mdelay(1);
+
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_GCONF,
+					      TMC5271_DRV_ENN_MASK,
+					      TMC5271_DRV_ENN_SHIFT, 1);
+
+		if (priv->irq_flag) {
+			int event_pos_reached;
+			ret |= tmc5271_reg_read(priv->spi,
+						TMC5271_REG_RAMP_STAT,
+						&event_pos_reached);
+			event_pos_reached =
+				event_pos_reached &
+				TMC5271_EVENT_POS_REACHED_MASK >>
+					TMC5271_EVENT_POS_REACHED_SHIFT;
+
+			if (event_pos_reached) {
+				ret |= tmc5271_reg_write_mask(
+					priv->spi, TMC5271_REG_RAMP_STAT,
+					TMC5271_EVENT_POS_REACHED_MASK,
+					TMC5271_EVENT_POS_REACHED_SHIFT, 1);
+			}
+		}
+
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_GCONF,
+					      TMC5271_QSC_STS_ENA_MASK,
+					      TMC5271_QSC_STS_ENA_SHIFT, 1);
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_IOIN,
+					      TMC5271_ADC_EN_MASK,
+					      TMC5271_ADC_EN_SHIFT, 0);
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_ENCMODE,
+					      TMC5271_QSC_ENC_EN_MASK,
+					      TMC5271_QSC_ENC_EN_SHIFT, 1);
+		ret |= tmc5271_reg_write_mask(priv->spi, TMC5271_REG_PWMCONF,
+					      TMC5271_FREEWHEEL_MASK,
+					      TMC5271_FREEWHEEL_SHIFT, 1);
+
+		disable_irq(priv->spi->irq);
+	}
 
 	return ret;
 }
@@ -692,17 +777,17 @@ static int tmc5271_probe(struct spi_device *spi)
 
 	priv = iio_priv(indio_dev);
 
-	priv->gpio_sleep = devm_gpiod_get_optional(&spi->dev, "sleep",
-		GPIOD_OUT_LOW);
-	if (IS_ERR(priv->gpio_sleep))
-		return PTR_ERR(priv->gpio_sleep);
-
-	if (priv->gpio_sleep) {
-		gpiod_set_value_cansleep(priv->gpio_sleep, 1);
-		mdelay(1);
-		gpiod_set_value_cansleep(priv->gpio_sleep, 0);
-		mdelay(1);
-	}
+	 priv->gpio_sleep = devm_gpiod_get_optional(&spi->dev, "sleep",
+	 	GPIOD_OUT_LOW);
+	 if (IS_ERR(priv->gpio_sleep))
+	 	return PTR_ERR(priv->gpio_sleep);
+ 
+	 if (priv->gpio_sleep) {
+	 	gpiod_set_value_cansleep(priv->gpio_sleep, 1);
+	 	mdelay(1);
+	 	gpiod_set_value_cansleep(priv->gpio_sleep, 0);
+	 	mdelay(1);
+	 }
 
 	priv->spi = spi;
 	priv->enable = true;
@@ -717,6 +802,13 @@ static int tmc5271_probe(struct spi_device *spi)
 	indio_dev->channels = tmc5271_channels;
 	indio_dev->num_channels = ARRAY_SIZE(tmc5271_channels);
 	indio_dev->info = &tmc5271_info;
+
+	ret = request_irq(priv->spi->irq,
+			  &tmc5271_interrupt,
+			  IRQF_TRIGGER_FALLING, 
+			  "qsc_rdy", indio_dev);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
