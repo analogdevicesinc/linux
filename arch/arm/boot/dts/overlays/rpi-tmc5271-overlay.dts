@@ -8,6 +8,7 @@
 /plugin/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 &spidev0 {
 	status = "disabled";
@@ -27,5 +28,8 @@
 		spi-cpol;
 		spi-cpha;
 		sleep-gpios = <&gpio 25 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&gpio>;
+		interrupts = <24 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "qsc_rdy";
 	};
 };
