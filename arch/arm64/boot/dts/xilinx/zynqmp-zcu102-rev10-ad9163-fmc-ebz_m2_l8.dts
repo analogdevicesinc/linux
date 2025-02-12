@@ -1,0 +1,146 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9163-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * JESD Link Mode 8 Example: M2, L8, S2, F1,  NP'16, Interpolation: 6
+ *
+ * https://analogdevicesinc.github.io/hdl/projects/dac_fmc_ebz/index.html
+ *
+ * hdl_project: <dac_fmc_ebz/zcu102>
+ * ADI_DAC_DEVICE: <AD9163>
+ * ADI_LANE_RATE: <4.16>
+ * ADI_DAC_MODE: <08>
+ * board_revision: <E>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+	};
+};
+
+/ {
+	ad9163_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&gpio 99 0>, <&gpio 100 0>, <&gpio 101 0>, <&gpio 102 0>, <&gpio 103 0>;
+		label = "ad9163_control";
+		channel@0 {
+			reg = <0>;
+			label = "dac_ctrl_0";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "dac_ctrl_1";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "dac_ctrl_2";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "dac_ctrl_3";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "dac_ctrl_4";
+		};
+	};
+
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		tx_dma: tx-dmac@9c420000 {
+			#dma-cells = <1>;
+			compatible = "adi,axi-dmac-1.00.a";
+			adi,cyclic;
+			reg = <0x9c420000 0x10000>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		axi_ad9163_core: axi-ad9163-hpc@84a04000 {
+			compatible = "adi,axi-ad9162-1.0";
+			reg = <0x84a04000 0x10000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			spibus-connected = <&dac0_ad9163>;
+			adi,axi-pl-fifo-enable;
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9163_jesd 0 0>;
+		};
+
+		axi_ad9163_jesd: axi-jesd204-tx@84a90000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0x84a90000 0x4000>;
+
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&axi_ad9163_adxcvr 1>, <&axi_ad9163_adxcvr 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_dac_lane_clk";
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9163_adxcvr 0 0>;
+		};
+
+		axi_ad9163_adxcvr: axi-adxcvr-tx@84a60000 {
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84a60000 0x1000>;
+
+			clocks = <&ad9508_clk 0>;
+			clock-names = "conv";
+
+			adi,sys-clk-select = <XCVR_QPLL1>;
+			adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+			adi,use-lpm-enable;
+
+			#clock-cells = <1>;
+			clock-output-names = "dac_gt_clk", "tx_out_clk";
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-ad9163-fmc-ebz.dtsi"
