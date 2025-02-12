@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9163-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * JESD Custom Link Mode 2 Example: M2, L2, S4, F2,  NP'16, Interpolation: 8
+ * This Mode 2, works only with an external clock source. Remove J61 and
+ * connect an external clock source of 120 MHz, with 14.0 dBm amplitude.
+ *
+ * https://analogdevicesinc.github.io/hdl/projects/dac_fmc_ebz/index.html
+ *
+ * hdl_project: <dac_fmc_ebz/zcu102>
+ * ADI_DAC_DEVICE: <AD9163>
+ * ADI_LANE_RATE: <12.5>
+ * ADI_DAC_MODE: <08>
+ * board_revision: E
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9163-fmc-ebz_m2_l8.dts"
+
+&fmc_spi {
+    ad9508_clk: ad9508@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9508";
+		reg = <0>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&ad9508_clkin>;
+
+		spi-max-frequency = <10000000>;
+		clock-output-names = "ad9508-1_out0", "ad9508-1_out1", "ad9508-1_out2", "ad9508-1_out3";
+		jesd204-device;
+		adi,write-mode-only;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		ad9508_0_c0:channel@0 {
+			reg = <0>;
+			adi,extended-name = "REF_CLK";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_00)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <4>;
+		};
+
+		ad9508_0_c2:channel@2 {
+			reg = <2>;
+			adi,extended-name = "SYSREF2";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_00)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <64>;
+		};
+
+		ad9508_0_c3:channel@3 {
+			reg = <3>;
+			adi,extended-name = "SYSREF";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_00)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <64>;
+		};
+	};
+
+	dac0_ad9163: ad9163@1 {
+		adi,octets-per-frame = <2>;		/* JESD F */
+		adi,lanes-per-device = <2>;		/* JESD L */
+		adi,samples-per-converter-per-frame = <1>; /* JESD S */
+		adi,interpolation = <8>;
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		axi_ad9163_adxcvr: axi-adxcvr-tx@84a60000 {
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
+		};
+	};
+};
