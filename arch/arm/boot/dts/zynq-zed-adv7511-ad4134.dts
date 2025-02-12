@@ -116,6 +116,7 @@
 		#clock-cells = <0>;
 		clocks = <&clkc 15>, <&clkc 15>;
 		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "spi_clk";
 	};
 };
 
