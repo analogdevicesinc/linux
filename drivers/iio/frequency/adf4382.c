@@ -64,6 +64,7 @@
 
 /* ADF4368 REG0011 Map*/
 #define ADF4368_CLKOUT_DIV_MSK			GENMASK(7, 6)
+#define ADF4368_INT_MODE_MSK			BIT(5)
 
 /* ADF4368 REG004E Map */
 #define ADF4368_DCLK_DIV1_MSK			GENMASK(5, 4)
@@ -82,6 +83,9 @@
 
 /* ADF4368 REG0035 Map */
 #define ADF4368_DCLK_MODE_MSK			BIT(2)
+
+/* ADF4368 REG0031 Map */
+#define ADF4368_EN_ADC_CLK_MSK			BIT(3)
 
 /* ADF4368 REG0058 Map */
 #define ADF4368_ADC_BUSY_MSK			BIT(2)
@@ -451,7 +455,7 @@
 #define ADF4382_OUT_PWR_MAX			15
 #define ADF4382_CLKOUT_DIV_REG_VAL_MAX		4
 #define ADF4382A_CLKOUT_DIV_REG_VAL_MAX		2
-#define ADF4368_CLKOUT_DIV_REG_VAL_MAX		4
+#define ADF4368_CLKOUT_DIV_REG_VAL_MAX		3
 
 #define ADF4382_CP_I_DEFAULT			15
 #define ADF4382_OPOWER_DEFAULT			11
@@ -468,6 +472,16 @@
 
 #define PERIOD_IN_DEG				360
 #define PERIOD_IN_DEG_MS			360000
+
+#define ADF4368_PHASE_BLEED_CNST		2044000
+#define ADF4368_BLEED_N_INT_TH			35
+#define ADF4368_COARSE_BLEED_CNST		202 /* 202ua */ 
+#define ADF4368_FINE_BLEED_CNST1		250 /* 250 ua */
+#define ADF4368_FINE_BLEED_CNST2		512 /* 250 ua */
+#define ADF4368_FINE_BLEED_CNST3		567 /* 567 na */
+
+#define ADF4368_FRAC_N_INT_MIN			19
+#define ADF4368_INT_N_INT_MIN			4
 
 #ifdef CONFIG_64BIT
 #define ADF4382_CLK_SCALE			1
@@ -518,7 +532,6 @@ struct adf4382_state {
 	struct mutex		lock;
 	struct notifier_block	nb;
 	unsigned int		ref_freq_hz;
-	enum adf4382_chip_id	chip_id;
 	u8			cp_i;
 	u8			opwr_a;
 	u64			freq;
@@ -526,7 +539,6 @@ struct adf4382_state {
 	bool			ref_doubler_en;
 	bool			auto_align_en;
 	u8			ref_div;
-	u8			clkout_div_reg_val_max;
 	u16			bleed_word;
 	int			phase;
 	bool			cmos_3v3;
@@ -574,6 +586,78 @@ static const struct reg_sequence adf4382_reg_default[] = {
 // compare with functions that change it.
 };
 
+static const struct reg_sequence adf4368_reg_defaults[] = {
+
+	{ 0x054, 0x00 },
+	{ 0x053, 0x25 },
+	{ 0x052, 0x00 },
+	{ 0x051, 0x00 },
+	{ 0x050, 0x00 },
+	{ 0x04f, 0x00 },
+	{ 0x04e, 0x10 },
+	{ 0x04d, 0x00 },
+	{ 0x04c, 0x2B },
+	{ 0x04b, 0x5D },
+	{ 0x04a, 0x00 },
+	{ 0x048, 0x00 },
+	{ 0x047, 0x00 },
+	{ 0x046, 0x00 },
+	{ 0x045, 0x08 },
+	{ 0x044, 0x18 },
+	{ 0x043, 0x09 },
+	{ 0x042, 0x09 },
+	{ 0x041, 0x00 },
+	{ 0x040, 0x00 },
+	{ 0x03f, 0x83 },
+	{ 0x03e, 0x26 },
+	{ 0x03d, 0xC0 },
+	{ 0x03c, 0x00 },
+	{ 0x03b, 0x8C },
+	{ 0x03a, 0x00 },
+	{ 0x039, 0xB0 },
+	{ 0x038, 0x00 },
+	{ 0x037, 0x3E },
+	{ 0x036, 0xD6 },
+	{ 0x035, 0x04 },
+	{ 0x034, 0x99 },
+	{ 0x033, 0x32 },
+	{ 0x032, 0xD3 },
+	{ 0x031, 0x69 },
+	{ 0x030, 0x1B },
+	{ 0x02f, 0xA7 },
+	{ 0x02e, 0x00 },
+	{ 0x02d, 0xF1 },
+	{ 0x02c, 0x4C },
+	{ 0x02b, 0x03 },
+	{ 0x02a, 0x10 },
+	{ 0x029, 0xDD },
+	{ 0x028, 0x20 },
+	{ 0x027, 0x28 },
+	{ 0x026, 0x80 },
+	{ 0x025, 0x00 },
+	{ 0x024, 0x00 },
+	{ 0x023, 0x80 },
+	{ 0x022, 0x00 },
+	{ 0x021, 0x09 },
+	{ 0x020, 0xC1 },
+	{ 0x01f, 0x1E },
+	{ 0x01e, 0x28 },
+	{ 0x01d, 0xDD },
+	{ 0x01c, 0xFF },
+	{ 0x01b, 0xFF },
+	{ 0x01a, 0xFF },
+	{ 0x019, 0x55 },
+	{ 0x018, 0x55 },
+	{ 0x017, 0x55 },
+	{ 0x016, 0x00 },
+	{ 0x015, 0x00 },
+	{ 0x014, 0x43 },
+	{ 0x013, 0x55 },
+	{ 0x012, 0x55 },
+	{ 0x011, 0x00 },
+	{ 0x010, 0x2B },
+};
+
 static const struct adf4382_chip_info adf4382_chip_tbl = {
 	.name = "adf4382",
 	.vco_max = ADF4382_VCO_FREQ_MAX,
@@ -588,7 +672,7 @@ static const struct adf4382_chip_info adf4382a_chip_tbl = {
 	.clkout_div_reg_val_max = ADF4382A_CLKOUT_DIV_REG_VAL_MAX,
 };
 
-static const struct adf4368_chip_info adf4368_chip_tbl = {
+static const struct adf4382_chip_info adf4368_chip_tbl = {
 	.name = "adf4368",
 	.vco_max = ADF4368_VCO_FREQ_MAX,
 	.vco_min = ADF4368_VCO_FREQ_MIN,
@@ -692,6 +776,311 @@ static int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pf
 	return 0;
 }
 
+static int adf4382_optimize_bleed_word(struct adf4382_state *st, u16  n_int)
+{
+	u32 coarse_bleed, fine_bleed;
+	u64 pfd_freq;
+	u64 t_bleed, bleed_i;
+	bool bleed_pol;
+	u64 rem;
+	u8 val;
+	int ret;
+
+	ret = adf4382_pfd_compute(st, &pfd_freq);
+	if (pfd_freq >= 120000000UL) {
+		/* 4.2GHz > RFout */
+		if (st->freq > 4200000000UL) {
+			t_bleed = 390;
+			bleed_pol = false;
+		}
+		/* 4.2GHz < RFout < 3GHz */
+		else if (st->freq > 3000000000UL) {
+			t_bleed = 900;
+			bleed_pol = false;
+		}
+		/* 3GHz < RFout < 1.8GHz */
+		else if (st->freq > 1800000000UL) {
+			t_bleed = 1200;
+			bleed_pol = false;
+		}
+		/* st->freq < 1.8 GHz */
+		else {
+			t_bleed = 1400;
+			bleed_pol = false;
+		}
+	} else {
+
+		if (st->freq > 4200000000UL) {
+			t_bleed = 390;
+			bleed_pol = false;
+		}
+		/* 4.2GHz < RFout < 3GHz */
+		else if (st->freq > 3000000000UL) {
+			t_bleed = n_int < ADF4368_BLEED_N_INT_TH ?
+				  900 : 1200;
+			bleed_pol = n_int < ADF4368_BLEED_N_INT_TH ?
+				    false : true;
+		}
+		/* 3GHz < RFout < 1.8GHz */
+		else if (st->freq > 1800000000UL) {
+			t_bleed = 1200;
+			bleed_pol = n_int < ADF4368_BLEED_N_INT_TH ?
+				    true : false;
+		}
+		/* 1.8GHz < RFout < 1.2GHz */
+		else if (st->freq > 1200000000UL) {
+			t_bleed = 1400;
+			bleed_pol = n_int < ADF4368_BLEED_N_INT_TH ?
+				    true : false;
+		}
+		/* st->freq < 1.2 GHz */
+		else {
+			t_bleed = n_int < ADF4368_BLEED_N_INT_TH ?
+				  2000 : 1400;
+			bleed_pol = n_int < ADF4368_BLEED_N_INT_TH ?
+				    true : false;
+		}
+
+	}
+
+	// Calculating bleed current
+	bleed_i = t_bleed * adf4382_ci_ua[st->cp_i];
+	bleed_i = DIV_ROUND_UP_ULL(bleed_i, PSEC_PER_SEC);
+	coarse_bleed = div64_u64_rem(bleed_i, ADF4368_COARSE_BLEED_CNST, &rem);
+
+	fine_bleed = rem * ADF4368_FINE_BLEED_CNST2;
+	fine_bleed = DIV_ROUND_UP(fine_bleed, ADF4368_FINE_BLEED_CNST1);
+
+	st->bleed_word = (coarse_bleed << 9) | fine_bleed;
+
+	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_BLEED_POL_MSK,
+				 FIELD_PREP(ADF4382_BLEED_POL_MSK, bleed_pol));
+	if (ret)
+		return ret;
+	
+	val = st->bleed_word & ADF4382_BLEED_I_LSB_MSK;
+	ret = regmap_write(st->regmap, 0x1D, val);
+	if (ret)
+		return ret;
+	
+	val = (st->bleed_word >> 8) & ADF4382_BLEED_I_MSB_MSK;
+	return regmap_write(st->regmap, 0x1E, val);
+}
+
+static int adf4368_set_freq(struct adf4382_state *st)
+{
+	//implement same as no-os to check if PLL locks like this
+	u8 clkout_div, dclk_div1, int_mode, en_bleed, ldwin_pw, div1, var;
+	u32 frac2_word = 0, frac1_word = 0, mod2_word = 0;
+	u8 clkout_div_max = st->info->clkout_div_reg_val_max;
+	u64 pfd_freq_hz, tmp, vco;
+	u32 read_val;
+	u16 n_int;
+	u64 rem = 0, res = 0;
+	int ret;
+	
+	ret = regmap_update_bits(st->regmap, 0x20,
+				 ADF4382_EN_RDBLR_MSK | ADF4382_R_DIV_MSK,
+				 FIELD_PREP(ADF4382_EN_RDBLR_MSK,
+				       	    st->ref_doubler_en) |
+			   	 FIELD_PREP(ADF4382_R_DIV_MSK, st->ref_div));
+	if (ret)
+		return ret;
+	
+	for(clkout_div = 0; clkout_div <= clkout_div_max; clkout_div++) {
+		tmp = (1 << clkout_div) * st->freq;
+		if (tmp < st->info->vco_min || tmp > st->info->vco_max)
+			continue;
+		vco = tmp;
+		break;
+	}
+
+	if(!vco) {
+		dev_err(&st->spi->dev, "Output frequency is out of range.\n");
+		return -EINVAL;
+	}
+
+	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
+	if (ret) {
+		dev_err(&st->spi->dev, "PFD frequency is out of range.\n");
+		return ret;
+	}
+
+	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_CP_I_MSK,
+				 FIELD_PREP(ADF4382_CP_I_MSK, st->cp_i));
+	if (ret)
+		return ret;
+	
+	/* Calculate n_int */
+	n_int = div64_u64_rem(st->freq, pfd_freq_hz, &rem);
+
+	/* Calculate frac1_word */
+	if (rem) {
+		res = rem * ADF4382_MOD1WORD;
+		frac1_word = (u32) div64_u64_rem(res, pfd_freq_hz, &rem);
+
+		/* Calculate frac2_word and mod2_word */
+		if (rem > 0) {
+			ret = adf4382_frac2_compute(st, rem, pfd_freq_hz, &frac2_word,
+						    &mod2_word);
+			if (ret)
+				return ret;
+		}
+	}
+
+	if (frac1_word || frac2_word) {
+		if (n_int < ADF4368_FRAC_N_INT_MIN) {
+			dev_info(&st->spi->dev, "err frac n int min\n");
+			return -EINVAL;
+		}
+		
+		int_mode = 0;
+		en_bleed = 1;
+
+		if(pfd_freq_hz <= (40 * HZ_PER_MHZ))
+			ldwin_pw = 7;
+		else if(pfd_freq_hz <= (50 * HZ_PER_MHZ))
+			ldwin_pw = 6;
+		else if(pfd_freq_hz <= (100 * HZ_PER_MHZ))
+			ldwin_pw = 5;
+		else if(pfd_freq_hz <= (200 * HZ_PER_MHZ))
+			ldwin_pw = 4;
+		else if(pfd_freq_hz <= (250 * HZ_PER_MHZ)) {
+			if(st->freq >= (5000U * HZ_PER_MHZ) &&
+			   st->freq < (6400U * HZ_PER_MHZ))
+				ldwin_pw = 3;
+			else
+				ldwin_pw = 2;
+		}
+		ret = adf4382_optimize_bleed_word(st, n_int);
+		if (ret)
+			return ret;
+		
+	}
+	else {
+		if (n_int < ADF4368_INT_N_INT_MIN)
+			return -EINVAL;
+		int_mode = 1;
+		en_bleed = 0;
+		st->bleed_word = 0;
+		ldwin_pw = 0;
+	}
+
+	dev_info(&st->spi->dev, "FOR ADF4368 FUNC VCO=%llu PFD=%llu RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
+		 vco, pfd_freq_hz, 1 << clkout_div, n_int, frac1_word, frac2_word, mod2_word);
+	
+	if (frac2_word) {
+		ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK,
+					 ADF4382_VAR_MOD_EN_MSK);
+		if (ret)
+			return ret;
+	}
+	else {
+		ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK, 0);
+		if (ret)
+			return ret;
+	}
+
+	ret = regmap_update_bits(st->regmap, 0x11, ADF4368_INT_MODE_MSK,
+				 FIELD_PREP(ADF4368_INT_MODE_MSK, int_mode));
+	if (ret)
+		return ret;
+	
+	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK,
+				 FIELD_PREP(ADF4382_EN_BLEED_MSK, en_bleed));
+	if (ret)
+		return ret;
+	
+	put_unaligned_be24(mod2_word, &mod2_word);
+	ret = regmap_bulk_write(st->regmap, 0x1C, &mod2_word, 3);
+	if (ret)
+		return ret;
+	
+	put_unaligned_be24(frac2_word, &frac2_word);
+	ret = regmap_bulk_write(st->regmap, 0x19, &frac2_word, 3);
+	if (ret)
+		return ret;
+	
+	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_MSB,
+				FIELD_GET(ADF4382_FRAC1WORD_MS_BIT_MSK, frac1_word));
+	if (ret)
+		return ret;
+
+	put_unaligned_be24(frac1_word, &frac1_word);
+	ret = regmap_bulk_write(st->regmap, 0x14, &frac1_word, 3);
+	if (ret)
+		return ret;
+	
+
+	dclk_div1 = 2;
+	div1 = 8;
+	if (pfd_freq_hz <= ADF4382_DCLK_DIV1_0_MAX) {
+		dclk_div1 = 0;
+		div1 = 1;
+	} else if (pfd_freq_hz <= ADF4382_DCLK_DIV1_1_MAX) {
+		dclk_div1 = 1;
+		div1 = 2;
+	}
+
+	ret = regmap_update_bits(st->regmap, 0x4E, ADF4368_DCLK_DIV1_MSK,
+				 FIELD_PREP(ADF4368_DCLK_DIV1_MSK, dclk_div1));
+	if (ret)
+		return ret;
+	
+	ret = regmap_update_bits(st->regmap, 0x35, ADF4368_DCLK_MODE_MSK, 0xFF);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x35, ADF4368_EN_ADC_CLK_MSK, 0xFF);
+	if (ret)
+		return ret;
+	
+	/* Calculate ADC CLK DIV */
+	tmp = DIV_ROUND_UP(div_u64(pfd_freq_hz, div1 * 400000) - 2, 4);
+	tmp = clamp_t(u64, tmp, 0U, 255U);
+	ret = regmap_write(st->regmap, 0x3E, FIELD_PREP(ADF4382_ADC_CLK_DIV_MSK, tmp));
+	if (ret)
+		return ret;
+	
+	ret = regmap_update_bits(st->regmap, 0x2C, ADF4382_LD_COUNT_OPWR_MSK,
+				 FIELD_PREP(ADF4382_LD_COUNT_OPWR_MSK, st->opwr_a));
+	if (ret)
+		return ret;
+	
+	ret =  regmap_update_bits(st->regmap, 0x2C, ADF4382_LDWIN_PW_MSK,
+				  FIELD_PREP(ADF4382_LDWIN_PW_MSK, ldwin_pw));
+	if (ret)
+		return ret;
+	
+	ret = regmap_update_bits(st->regmap, 0x11, ADF4368_CLKOUT_DIV_MSK,
+				 FIELD_PREP(ADF4368_CLKOUT_DIV_MSK, clkout_div));
+	if(ret)
+		return ret;
+
+	var = (n_int >> 8) & ADF4382_N_INT_MSB_MSK;
+	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
+	if(ret)
+		return ret;
+	
+	var = n_int & ADF4382_N_INT_LSB_MSK;
+	ret = regmap_update_bits(st->regmap, 0x10, ADF4382_N_INT_LSB_MSK, var);
+	if (ret)
+		return ret;
+	
+	mdelay(10);
+
+	ret = regmap_read(st->regmap, 0x58, &read_val);
+	if (ret)
+		return ret;
+
+	if (!FIELD_GET(ADF4382_PLL_LOCK_MSK, read_val)) {
+		dev_err(&st->spi->dev, "PLL is not locked.\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int _adf4382_set_freq(struct adf4382_state *st)
 {
 	u8 clkout_div, dclk_div1, int_mode, en_bleed, ldwin_pw, div1, var;
@@ -701,6 +1090,9 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	u32 read_val;
 	u16 n_int;
 	int ret;
+
+	if (strcmp(st->info->name, "adf4368") == 0)
+		return adf4368_set_freq(st);
 
 	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
 	if (ret) {
@@ -747,6 +1139,9 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 				ldwin_pw = 2;
 			}
 		}
+		ret = adf4382_optimize_bleed_word(st, n_int);
+		if (ret)
+			return ret;
 	} else {
 		int_mode = 1;
 		en_bleed = 0;
@@ -754,10 +1149,16 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 		tmp = DIV_ROUND_UP_ULL(pfd_freq_hz, MICRO);
 		tmp *= adf4382_ci_ua[st->cp_i];
 		tmp = DIV_ROUND_UP_ULL(st->bleed_word, tmp);
-		if (tmp <= 85)
+		if(strcmp(st->info->name, "adf4368") == 0) {
 			ldwin_pw = 0;
-		else
-			ldwin_pw = 1;
+			st->bleed_word = 0;
+		}
+		else {
+			if (tmp <= 85)
+				ldwin_pw = 0;
+			else
+				ldwin_pw = 1;
+		}
 	}
 
 	dev_info(&st->spi->dev,
@@ -770,58 +1171,26 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
-				 FIELD_PREP(ADF4382_INT_MODE_MSK, int_mode));
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, 0x1D,
-			   FIELD_GET(ADF4382_BLEED_I_LSB_MSK, st->bleed_word));
-	if (ret)
-		return ret;
-
-	var = (st->bleed_word >> 8) & ADF4382_BLEED_I_MSB_MSK;
-	ret = regmap_update_bits(st->regmap, 0x1E, ADF4382_BLEED_I_MSB_MSK, var);
-	if (ret)
-		return ret;
-	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK,
-				 FIELD_PREP(ADF4382_EN_BLEED_MSK, en_bleed));
-	if (ret)
-		return ret;
-
-	put_unaligned_be24(mod2_word, &mod2_word);
-	ret = regmap_bulk_write(st->regmap, 0x1C, &mod2_word, 3);
-	if (ret)
-		return ret;
-
-	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_MSB,
-				 FIELD_GET(ADF4382_FRAC1WORD_MS_BIT_MSK, frac1_word));
-	if (ret)
-		return ret;
-
-	put_unaligned_be24(frac1_word, &frac1_word);
-	ret = regmap_bulk_write(st->regmap, 0x14, &frac1_word, 3);
-	if (ret)
-		return ret;
-
-	put_unaligned_be24(frac2_word, &frac2_word);
-	ret = regmap_bulk_write(st->regmap, 0x19, &frac2_word, 3);
-	if (ret)
-		return ret;
-
 	dclk_div1 = 2;
 	div1 = 8;
 	if (pfd_freq_hz <= ADF4382_DCLK_DIV1_0_MAX) {
 		dclk_div1 = 0;
-		div1 = 2;
+		div1 = 1;
 	} else if (pfd_freq_hz <= ADF4382_DCLK_DIV1_1_MAX) {
 		dclk_div1 = 1;
-		div1 = 4;
+		div1 = 2;
 	}
 
-	//TODO: fix registers, not the same as ADF4368
-	if(st->chip_id == ADF4368) {
+	if(strcmp(st->info->name, "adf4368") == 0) {
 		dev_info(&st->spi->dev, "ADF4368\n");
+		ret = regmap_update_bits(st->regmap, 0x11, ADF4368_INT_MODE_MSK,
+					FIELD_PREP(ADF4368_INT_MODE_MSK, int_mode));
+		if (ret)
+			return ret;
+		ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK,
+					FIELD_PREP(ADF4382_EN_BLEED_MSK, en_bleed));
+		if (ret)
+			return ret;
 		ret = regmap_update_bits(st->regmap, 0x4e, ADF4368_DCLK_DIV1_MSK,
 					 FIELD_PREP(ADF4368_DCLK_DIV1_MSK,
 					 	    dclk_div1));
@@ -830,6 +1199,40 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 
 		ret = regmap_update_bits(st->regmap, 0x35, ADF4368_DCLK_MODE_MSK,
 					 0xff);
+		if (ret)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, 0x31, ADF4368_EN_ADC_CLK_MSK,
+					 0xff);
+		if (ret)
+			return ret;
+		ret = regmap_write(st->regmap, 0x1D,
+				FIELD_GET(ADF4382_BLEED_I_LSB_MSK, st->bleed_word));
+		if (ret)
+			return ret;
+
+		var = (st->bleed_word >> 8) & ADF4382_BLEED_I_MSB_MSK;
+		ret = regmap_update_bits(st->regmap, 0x1E, ADF4382_BLEED_I_MSB_MSK, var);
+		if (ret)
+			return ret;
+
+		put_unaligned_be24(mod2_word, &mod2_word);
+		ret = regmap_bulk_write(st->regmap, 0x1C, &mod2_word, 3);
+		if (ret)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_MSB,
+					FIELD_GET(ADF4382_FRAC1WORD_MS_BIT_MSK, frac1_word));
+		if (ret)
+			return ret;
+
+		put_unaligned_be24(frac1_word, &frac1_word);
+		ret = regmap_bulk_write(st->regmap, 0x14, &frac1_word, 3);
+		if (ret)
+			return ret;
+
+		put_unaligned_be24(frac2_word, &frac2_word);
+		ret = regmap_bulk_write(st->regmap, 0x19, &frac2_word, 3);
 		if (ret)
 			return ret;
 
@@ -913,6 +1316,10 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 		if (ret)
 			return ret;
 	} else {
+		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
+					FIELD_PREP(ADF4382_INT_MODE_MSK, int_mode));
+		if (ret)
+			return ret;
 		ret = regmap_update_bits(st->regmap, 0x24, ADF4382_DCLK_DIV1_MSK,
 					FIELD_PREP(ADF4382_DCLK_DIV1_MSK, dclk_div1));
 		if (ret)
@@ -970,7 +1377,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 			return ret;
 	}
 
-	mdelay(1);
+	mdelay(9);
 
 	ret = regmap_read(st->regmap, 0x58, &read_val);
 	if (ret)
@@ -1666,8 +2073,12 @@ static int adf4382_init(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_multi_reg_write(st->regmap, adf4382_reg_default,
-				     ARRAY_SIZE(adf4382_reg_default));
+	if (strcmp(st->info->name, "adf4368") == 0)
+		ret = regmap_multi_reg_write(st->regmap, adf4368_reg_defaults,
+				     	     ARRAY_SIZE(adf4368_reg_defaults));
+	else
+		ret = regmap_multi_reg_write(st->regmap, adf4382_reg_default,
+					     ARRAY_SIZE(adf4382_reg_default));
 	if (ret)
 		return ret;
 
@@ -1681,8 +2092,8 @@ static int adf4382_init(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	if(st->chip_id == ADF4368) {
-		ret = adf4382_compute_timeout(st, st->freq);
+	if(strcmp(st->info->name, "adf4368") == 0) {
+		ret = adf4382_compute_timeout(st, st->freq);		
 		if (ret)
 			return ret;
 	}

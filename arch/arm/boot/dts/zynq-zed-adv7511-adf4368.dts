@@ -7,10 +7,10 @@
 
 / {
 	clocks {
-		adf4382_clkin: clock@0 {
+		adf4368_clkin: clock@0 {
 		     #clock-cells = <0>;
 		     compatible = "fixed-clock";
-		     clock-frequency = <125000000>; // 125MHz
+		     clock-frequency = <122880000>; // 122.88MHz
 		};
 	};
 };
@@ -18,13 +18,13 @@
 
 &spi0 {
 	status = "okay";
-	adf4382@0 {
-		compatible = "adi,adf482";
+	adf4368@0 {
+		compatible = "adi,adf4368";
 		reg = <0>;
 		spi-max-frequency = <1000000>;		
 		//#clock-cells = <0>;
-		clock-output-names = "adf4382_out_clk";
-		clocks = <&adf4382_clkin>;
+		clock-output-names = "adf4368_out_clk";
+		clocks = <&adf4368_clkin>;
 		clock-names = "ref_clk";
 		adi,charge-pump-microamp = /bits/ 8 <15>;
 		adi,ref-divider = /bits/ 8 <1>;
