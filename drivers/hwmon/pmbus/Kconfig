@@ -200,6 +200,15 @@ config SENSORS_LM25066_REGULATOR
 	  If you say yes here you get regulator support for National
 	  Semiconductor LM25066, LM5064, and LM5066.
 
+config SENSORS_LT7170
+	tristate "Analog Devices LT7170, LT7170-1, LT7171, LT7171-1"
+	help
+	  If you say yes here you get hardware monitoring support for Analog
+	  Devices LT7170, LT7170-1, LT7171 and LT7171-1.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called lt7170.
+
 config SENSORS_LT7182S
 	tristate "Analog Devices LT7182S"
 	help
