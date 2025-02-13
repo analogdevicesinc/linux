@@ -17,6 +17,7 @@
 		stdout-path = &uart0;
 	};
 
+	/* These UIO devices are for debugging purposes - remove for production */
 	uio-ethernet-debug@EMAC_CMN_BASE_UADDR {
 		compatible = "generic-uio";
 		reg = <EMAC_CMN_BASE 0x000B0000>;
