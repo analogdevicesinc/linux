@@ -17,7 +17,7 @@
 		bootargs = "console=ttyAMA0,115200n8 earlycon=pl011,0x20060000 rootwait uio_pdrv_genirq.of_id=generic-uio panic=-1 reboot=w";
 		stdout-path = &uart0;
 	};
-	
+
 	leds: gpio-leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
@@ -64,6 +64,27 @@
 			default-state = "off";
 			linux,default-trigger = "2f300000.adrv906x_net--1:03:link";
 		};
+	};
+
+	/* These UIO devices are for debugging purposes - remove for production */
+	uio-ethernet-debug@EMAC_CMN_BASE_UADDR {
+		compatible = "generic-uio";
+		reg = <EMAC_CMN_BASE 0x000B0000>;
+	};
+
+	uio-ethernet-debug-sec@SEC_EMAC_CMN_BASE_UADDR {
+		compatible = "generic-uio";
+		reg = <SEC_EMAC_CMN_BASE 0x000B0000>;
+	};
+
+	uio-ethernet-debug-tod@EMAC_TOD_BASE {
+		compatible = "generic-uio";
+		reg = <EMAC_TOD_BASE 0xff>;
+	};
+
+	uio-ethernet-debug-tod-sec@SEC_EMAC_TOD_BASE {
+		compatible = "generic-uio";
+		reg = <SEC_EMAC_TOD_BASE 0xff>;
 	};
 };
 
@@ -316,7 +337,7 @@
 	GPIO_DEBUG_7_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 
 	/* Pins 42-44,46,51: CPU trace
-	 * Enable if needed. 
+	 * Enable if needed.
 	 * Conflicts with board pushbutton above (pin 51).
 	 * Conflicts with SPI_MASTER0_SELB1 above (pin 42).
 	 *
