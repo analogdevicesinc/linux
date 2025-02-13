@@ -208,4 +208,4 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD8460
 	imply MAX77541_ADC
 	imply ADF4030
-
+	imply AD3530R
