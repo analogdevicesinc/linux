@@ -20,7 +20,7 @@
 #include <linux/property.h>
 #include <linux/pwm.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi-engine.h>
+#include <linux/spi/legacy-spi-engine.h>
 #include <linux/regulator/consumer.h>
 
 #include <linux/iio/buffer.h>
@@ -695,11 +695,11 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 		return ret;
 
 	spi_bus_lock(adc->spi->master);
-	ret = spi_engine_offload_load_msg(adc->spi, &msg);
+	ret = legacy_spi_engine_offload_load_msg(adc->spi, &msg);
 	if (ret)
 		return ret;
 
-	spi_engine_offload_enable(adc->spi, true);
+	legacy_spi_engine_offload_enable(adc->spi, true);
 
 	return 0;
 }
@@ -709,7 +709,7 @@ static int ad_pulsar_buffer_postdisable(struct iio_dev *indio_dev)
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
 	int ret;
 
-	spi_engine_offload_enable(adc->spi, false);
+	legacy_spi_engine_offload_enable(adc->spi, false);
 	spi_bus_unlock(adc->spi->master);
 
 	ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, AD7682_DISABLE_SEQ);
