@@ -6,6 +6,7 @@
  * Copyright 2024 BayLibre, SAS
  */
 
+#include <linux/align.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
@@ -14,11 +15,11 @@
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/property.h>
-#include <linux/pwm.h>
 #include <linux/regulator/consumer.h>
-#include <linux/spi/spi-engine-ex.h>
+#include <linux/spi/offload/consumer.h>
 #include <linux/spi/spi.h>
 #include <linux/string_helpers.h>
+#include <linux/units.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -26,13 +27,11 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 
-/*
- * Older SPI Engine HDL versions have a bug where the offload is level triggered
- * instead of edge triggered, so we use a small duty cycle to allow sampling
- * at lower rates without spurious triggers.
- */
-#define AD7944_PWM_TRIGGER_DUTY_CYCLE_NS	20
-#define AD7944_DEFAULT_SAMPLE_FREQ_HZ		10000 /* arbitrary */
+/* ADI tree: remove this after kernel v6.13 */
+#ifndef aligned_s64
+#define aligned_s64 s64 __attribute__((aligned(8)))
+#endif
+
 #define AD7944_INTERNAL_REF_MV		4096
 
 struct ad7944_timing_spec {
@@ -40,10 +39,6 @@ struct ad7944_timing_spec {
 	unsigned int conv_ns;
 	/* TURBO mode max conversion time (t_{CONV}). */
 	unsigned int turbo_conv_ns;
-	/* Normal mode data read during conversion time (t_{DATA}). */
-	unsigned int data_ns;
-	/* TURBO mode data read during conversion time (t_{DATA}). */
-	unsigned int turbo_data_ns;
 };
 
 enum ad7944_spi_mode {
@@ -67,8 +62,13 @@ struct ad7944_adc {
 	enum ad7944_spi_mode spi_mode;
 	struct spi_transfer xfers[3];
 	struct spi_message msg;
-	struct spi_transfer turbo_xfers[3];
-	struct spi_message turbo_msg;
+	struct spi_transfer offload_xfers[2];
+	struct spi_message offload_msg;
+	struct spi_offload *offload;
+	struct spi_offload_trigger *offload_trigger;
+	unsigned long offload_trigger_hz;
+	int sample_freq_range[3];
+	void *chain_mode_buf;
 	/* Chip-specific timing specifications. */
 	const struct ad7944_timing_spec *timing_spec;
 	/* GPIO connected to CNV pin. */
@@ -79,8 +79,6 @@ struct ad7944_adc {
 	bool always_turbo;
 	/* Reference voltage (millivolts). */
 	unsigned int ref_mv;
-	/* SPI offload trigger. */
-	struct pwm_device *pwm;
 
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
@@ -91,49 +89,49 @@ struct ad7944_adc {
 			u16 u16;
 			u32 u32;
 		} raw;
-		u64 timestamp __aligned(8);
+		aligned_s64 timestamp;
 	 } sample __aligned(IIO_DMA_MINALIGN);
 };
 
-/* minimum CNV high time */
-#define T_CNVH_NS	10
-/* CS low to data valid time */
-#define T_EN_NS		5
 /* quite time before CNV rising edge */
-#define T_QUIET_NS	20
+#define AD7944_T_QUIET_NS	20
+/* minimum CNV high time to trigger conversion */
+#define AD7944_T_CNVH_NS	10
 
 static const struct ad7944_timing_spec ad7944_timing_spec = {
 	.conv_ns = 420,
 	.turbo_conv_ns = 320,
-	.data_ns = 290,
-	.turbo_data_ns = 190,
 };
 
 static const struct ad7944_timing_spec ad7986_timing_spec = {
 	.conv_ns = 500,
 	.turbo_conv_ns = 400,
-	.data_ns = 300,
-	.turbo_data_ns = 200,
 };
 
 struct ad7944_chip_info {
 	const char *name;
 	const struct ad7944_timing_spec *timing_spec;
+	u32 max_sample_rate_hz;
 	const struct iio_chan_spec channels[2];
 	const struct iio_chan_spec offload_channels[1];
 };
+
+/* get number of bytes for SPI xfer */
+#define AD7944_SPI_BYTES(scan_type) ((scan_type).realbits > 16 ? 4 : 2)
 
 /*
  * AD7944_DEFINE_CHIP_INFO - Define a chip info structure for a specific chip
  * @_name: The name of the chip
  * @_ts: The timing specification for the chip
+ * @_max: The maximum sample rate in Hz
  * @_bits: The number of bits in the conversion result
  * @_diff: Whether the chip is true differential or not
  */
-#define AD7944_DEFINE_CHIP_INFO(_name, _ts, _bits, _diff)		\
+#define AD7944_DEFINE_CHIP_INFO(_name, _ts, _max, _bits, _diff)		\
 static const struct ad7944_chip_info _name##_chip_info = {		\
 	.name = #_name,							\
 	.timing_spec = &_ts##_timing_spec,				\
+	.max_sample_rate_hz = _max,					\
 	.channels = {							\
 		{							\
 			.type = IIO_VOLTAGE,				\
@@ -166,20 +164,28 @@ static const struct ad7944_chip_info _name##_chip_info = {		\
 			.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)	\
 					| BIT(IIO_CHAN_INFO_SCALE)	\
 					| BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+			.info_mask_separate_available =			\
+				BIT(IIO_CHAN_INFO_SAMP_FREQ),		\
 		},							\
 	},								\
 }
 
-/* pseudo-differential with ground sense */
-AD7944_DEFINE_CHIP_INFO(ad7944, ad7944, 14, 0);
-AD7944_DEFINE_CHIP_INFO(ad7985, ad7944, 16, 0);
-/* fully differential */
-AD7944_DEFINE_CHIP_INFO(ad7986, ad7986, 18, 1);
+/*
+ * Notes on the offload channels:
+ * - There is no soft timestamp since everything is done in hardware.
+ * - There is a sampling frequency attribute added. This controls the SPI
+ *   offload trigger.
+ * - The storagebits value depends on the SPI offload provider. Currently there
+ *   is only one supported provider, namely the ADI PULSAR ADC HDL project,
+ *   which always uses 32-bit words for data values, even for <= 16-bit ADCs.
+ *   So the value is just hardcoded to 32 for now.
+ */
 
-static void ad7944_unoptimize_msg(void *msg)
-{
-	spi_unoptimize_message(msg);
-}
+/* pseudo-differential with ground sense */
+AD7944_DEFINE_CHIP_INFO(ad7944, ad7944, 2.5 * MEGA, 14, 0);
+AD7944_DEFINE_CHIP_INFO(ad7985, ad7944, 2.5 * MEGA, 16, 0);
+/* fully differential */
+AD7944_DEFINE_CHIP_INFO(ad7986, ad7986, 2 * MEGA, 18, 1);
 
 static int ad7944_3wire_cs_mode_init_msg(struct device *dev, struct ad7944_adc *adc,
 					 const struct iio_chan_spec *chan)
@@ -187,7 +193,6 @@ static int ad7944_3wire_cs_mode_init_msg(struct device *dev, struct ad7944_adc *
 	unsigned int t_conv_ns = adc->always_turbo ? adc->timing_spec->turbo_conv_ns
 						   : adc->timing_spec->conv_ns;
 	struct spi_transfer *xfers = adc->xfers;
-	int ret;
 
 	/*
 	 * NB: can get better performance from some SPI controllers if we use
@@ -198,7 +203,7 @@ static int ad7944_3wire_cs_mode_init_msg(struct device *dev, struct ad7944_adc *
 	 * CS is tied to CNV and we need a low to high transition to start the
 	 * conversion, so place CNV low for t_QUIET to prepare for this.
 	 */
-	xfers[0].delay.value = T_QUIET_NS;
+	xfers[0].delay.value = AD7944_T_QUIET_NS;
 	xfers[0].delay.unit = SPI_DELAY_UNIT_NSECS;
 
 	/*
@@ -208,71 +213,16 @@ static int ad7944_3wire_cs_mode_init_msg(struct device *dev, struct ad7944_adc *
 	xfers[1].cs_off = 1;
 	xfers[1].delay.value = t_conv_ns;
 	xfers[1].delay.unit = SPI_DELAY_UNIT_NSECS;
-	xfers[0].bits_per_word = chan->scan_type.realbits;
+	xfers[1].bits_per_word = chan->scan_type.realbits;
 
 	/* Then we can read the data during the acquisition phase */
 	xfers[2].rx_buf = &adc->sample.raw;
-	xfers[2].len = chan->scan_type.realbits > 16 ? 4 : 2;
+	xfers[2].len = AD7944_SPI_BYTES(chan->scan_type);
 	xfers[2].bits_per_word = chan->scan_type.realbits;
 
 	spi_message_init_with_transfers(&adc->msg, xfers, 3);
 
-	ret = spi_optimize_message(adc->spi, &adc->msg);
-	if (ret)
-		return ret;
-
-	return devm_add_action_or_reset(dev, ad7944_unoptimize_msg, &adc->msg);
-}
-
-static int ad7944_3wire_cs_mode_init_turbo_msg(struct device *dev,
-					       struct ad7944_adc *adc,
-					       const struct iio_chan_spec *chan)
-{
-	struct spi_transfer *xfers = adc->turbo_xfers;
-	int ret;
-
-	/*
-	 * This sequence of xfers performs a read during conversion in 3-wire CS
-	 * mode with timings for when TURBO mode is enabled. Using this msg will
-	 * only work with SPI offloads since the timing needs to be precise to
-	 * actually be able to read during the conversion time.
-	 */
-
-	/* change CNV to high to trigger conversion */
-	xfers[0].cs_off = 1;
-	xfers[0].bits_per_word = chan->scan_type.realbits;
-	xfers[0].delay.value = T_CNVH_NS;
-	xfers[0].delay.unit = SPI_DELAY_UNIT_NSECS;
-
-	/* read sample data from previous conversion */
-	xfers[1].rx_buf = &adc->sample.raw;
-	xfers[1].len = chan->scan_type.realbits > 16 ? 4 : 2;
-	xfers[1].bits_per_word = chan->scan_type.realbits;
-	/*
-	 * CNV has to be high at end of conversion to avoid triggering the busy
-	 * signal on the SDO line.
-	 */
-	xfers[1].cs_change = 1;
-	/* t[CONV] - t[CNVH] - t[EN] - t[DATA] */
-	xfers[1].cs_change_delay.value = adc->timing_spec->turbo_conv_ns -
-					 T_CNVH_NS - T_EN_NS -
-					 adc->timing_spec->turbo_data_ns;
-	xfers[1].cs_change_delay.unit = SPI_DELAY_UNIT_NSECS;
-
-	/*
-	 * Since this is the last xfer, this changes CNV to low and keeps it
-	 * there until the next xfer.
-	 */
-	xfers[2].cs_change = 1;
-	xfers[2].bits_per_word = chan->scan_type.realbits;
-
-	spi_message_init_with_transfers(&adc->turbo_msg, xfers, 3);
-
-	ret = spi_optimize_message(adc->spi, &adc->turbo_msg);
-	if (ret)
-		return ret;
-
-	return devm_add_action_or_reset(dev, ad7944_unoptimize_msg, &adc->turbo_msg);
+	return devm_spi_optimize_message(dev, adc->spi, &adc->msg);
 }
 
 static int ad7944_4wire_mode_init_msg(struct device *dev, struct ad7944_adc *adc,
@@ -281,7 +231,6 @@ static int ad7944_4wire_mode_init_msg(struct device *dev, struct ad7944_adc *adc
 	unsigned int t_conv_ns = adc->always_turbo ? adc->timing_spec->turbo_conv_ns
 						   : adc->timing_spec->conv_ns;
 	struct spi_transfer *xfers = adc->xfers;
-	int ret;
 
 	/*
 	 * NB: can get better performance from some SPI controllers if we use
@@ -297,52 +246,110 @@ static int ad7944_4wire_mode_init_msg(struct device *dev, struct ad7944_adc *adc
 	xfers[0].delay.unit = SPI_DELAY_UNIT_NSECS;
 
 	xfers[1].rx_buf = &adc->sample.raw;
-	xfers[1].len = chan->scan_type.realbits > 16 ? 4 : 2;
+	xfers[1].len = AD7944_SPI_BYTES(chan->scan_type);
 	xfers[1].bits_per_word = chan->scan_type.realbits;
 
-	spi_message_init_with_transfers(&adc->msg, xfers, 3);
+	spi_message_init_with_transfers(&adc->msg, xfers, 2);
 
-	ret = spi_optimize_message(adc->spi, &adc->msg);
-	if (ret)
-		return ret;
-
-	return devm_add_action_or_reset(dev, ad7944_unoptimize_msg, &adc->msg);
+	return devm_spi_optimize_message(dev, adc->spi, &adc->msg);
 }
 
-/*
- * ad7944_3wire_cs_mode_conversion - Perform a 3-wire CS mode conversion and
- *                                   acquisition
- * @adc: The ADC device structure
- * @chan: The channel specification
- * Return: 0 on success, a negative error code on failure
- *
- * This performs a conversion and reads data when the chip is wired in 3-wire
- * mode with the CNV line on the ADC tied to the CS line on the SPI controller.
- *
- * Upon successful return adc->sample.raw will contain the conversion result.
- */
-static int ad7944_3wire_cs_mode_conversion(struct ad7944_adc *adc,
-					   const struct iio_chan_spec *chan)
+static int ad7944_chain_mode_init_msg(struct device *dev, struct ad7944_adc *adc,
+				      const struct iio_chan_spec *chan,
+				      u32 n_chain_dev)
 {
-	return spi_sync(adc->spi, &adc->msg);
+	struct spi_transfer *xfers = adc->xfers;
+
+	/*
+	 * NB: SCLK has to be low before we toggle CS to avoid triggering the
+	 * busy indication.
+	 */
+	if (adc->spi->mode & SPI_CPOL)
+		return dev_err_probe(dev, -EINVAL,
+				     "chain mode requires ~SPI_CPOL\n");
+
+	/*
+	 * We only support CNV connected to CS in chain mode and we need CNV
+	 * to be high during the transfer to trigger the conversion.
+	 */
+	if (!(adc->spi->mode & SPI_CS_HIGH))
+		return dev_err_probe(dev, -EINVAL,
+				     "chain mode requires SPI_CS_HIGH\n");
+
+	/* CNV has to be high for full conversion time before reading data. */
+	xfers[0].delay.value = adc->timing_spec->conv_ns;
+	xfers[0].delay.unit = SPI_DELAY_UNIT_NSECS;
+
+	xfers[1].rx_buf = adc->chain_mode_buf;
+	xfers[1].len = AD7944_SPI_BYTES(chan->scan_type) * n_chain_dev;
+	xfers[1].bits_per_word = chan->scan_type.realbits;
+
+	spi_message_init_with_transfers(&adc->msg, xfers, 2);
+
+	return devm_spi_optimize_message(dev, adc->spi, &adc->msg);
 }
 
 /*
- * ad7944_4wire_mode_conversion - Perform a 4-wire mode conversion and acquisition
+ * Unlike ad7944_3wire_cs_mode_init_msg(), this creates a message that reads
+ * during the conversion phase instead of the acquisition phase when reading
+ * a sample from the ADC. This is needed to be able to read at the maximum
+ * sample rate. It requires the SPI controller to have offload support and a
+ * high enough SCLK rate to read the sample during the conversion phase.
+ */
+static int ad7944_3wire_cs_mode_init_offload_msg(struct device *dev,
+						 struct ad7944_adc *adc,
+						 const struct iio_chan_spec *chan)
+{
+	struct spi_transfer *xfers = adc->offload_xfers;
+	int ret;
+
+	/*
+	 * CS is tied to CNV and we need a low to high transition to start the
+	 * conversion, so place CNV low for t_QUIET to prepare for this.
+	 */
+	xfers[0].delay.value = AD7944_T_QUIET_NS;
+	xfers[0].delay.unit = SPI_DELAY_UNIT_NSECS;
+	/* CNV has to be high for a minimum time to trigger conversion. */
+	xfers[0].cs_change = 1;
+	xfers[0].cs_change_delay.value = AD7944_T_CNVH_NS;
+	xfers[0].cs_change_delay.unit = SPI_DELAY_UNIT_NSECS;
+
+	/* Then we can read the previous sample during the conversion phase */
+	xfers[1].offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+	xfers[1].len = AD7944_SPI_BYTES(chan->scan_type);
+	xfers[1].bits_per_word = chan->scan_type.realbits;
+
+	spi_message_init_with_transfers(&adc->offload_msg, xfers,
+					ARRAY_SIZE(adc->offload_xfers));
+
+	adc->offload_msg.offload = adc->offload;
+
+	ret = devm_spi_optimize_message(dev, adc->spi, &adc->offload_msg);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to prepare offload msg\n");
+
+	return 0;
+}
+
+/**
+ * ad7944_convert_and_acquire - Perform a single conversion and acquisition
  * @adc: The ADC device structure
- * @chan: The channel specification
  * Return: 0 on success, a negative error code on failure
  *
- * Upon successful return adc->sample.raw will contain the conversion result.
+ * Perform a conversion and acquisition of a single sample using the
+ * pre-optimized adc->msg.
+ *
+ * Upon successful return adc->sample.raw will contain the conversion result
+ * (or adc->chain_mode_buf if the device is using chain mode).
  */
-static int ad7944_4wire_mode_conversion(struct ad7944_adc *adc,
-					const struct iio_chan_spec *chan)
+static int ad7944_convert_and_acquire(struct ad7944_adc *adc)
 {
 	int ret;
 
 	/*
 	 * In 4-wire mode, the CNV line is held high for the entire conversion
-	 * and acquisition process.
+	 * and acquisition process. In other modes adc->cnv is NULL and is
+	 * ignored (CS is wired to CNV in those cases).
 	 */
 	gpiod_set_value_cansleep(adc->cnv, 1);
 	ret = spi_sync(adc->spi, &adc->msg);
@@ -357,32 +364,43 @@ static int ad7944_single_conversion(struct ad7944_adc *adc,
 {
 	int ret;
 
-	switch (adc->spi_mode) {
-	case AD7944_SPI_MODE_DEFAULT:
-		ret = ad7944_4wire_mode_conversion(adc, chan);
-		if (ret)
-			return ret;
+	ret = ad7944_convert_and_acquire(adc);
+	if (ret)
+		return ret;
 
-		break;
-	case AD7944_SPI_MODE_SINGLE:
-		ret = ad7944_3wire_cs_mode_conversion(adc, chan);
-		if (ret)
-			return ret;
-
-		break;
-	default:
-		return -EOPNOTSUPP;
+	if (adc->spi_mode == AD7944_SPI_MODE_CHAIN) {
+		if (chan->scan_type.realbits > 16)
+			*val = ((u32 *)adc->chain_mode_buf)[chan->scan_index];
+		else
+			*val = ((u16 *)adc->chain_mode_buf)[chan->scan_index];
+	} else {
+		if (chan->scan_type.realbits > 16)
+			*val = adc->sample.raw.u32;
+		else
+			*val = adc->sample.raw.u16;
 	}
-
-	if (chan->scan_type.realbits > 16)
-		*val = adc->sample.raw.u32;
-	else
-		*val = adc->sample.raw.u16;
 
 	if (chan->scan_type.sign == 's')
 		*val = sign_extend32(*val, chan->scan_type.realbits - 1);
 
 	return IIO_VAL_INT;
+}
+
+static int ad7944_read_avail(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     const int **vals, int *type, int *length,
+			     long mask)
+{
+	struct ad7944_adc *adc = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*vals = adc->sample_freq_range;
+		*type = IIO_VAL_INT;
+		return IIO_AVAIL_RANGE;
+	default:
+		return -EINVAL;
+	}
 }
 
 static int ad7944_read_raw(struct iio_dev *indio_dev,
@@ -417,17 +435,32 @@ static int ad7944_read_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 
-	case IIO_CHAN_INFO_SAMP_FREQ: {
-		/* TODO: get actual hw period */
-		u64 period_ns = pwm_get_period(adc->pwm);
-
-		*val = DIV_ROUND_UP_ULL(NSEC_PER_SEC, period_ns);
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = adc->offload_trigger_hz;
 		return IIO_VAL_INT;
-	}
 
 	default:
 		return -EINVAL;
 	}
+}
+
+static int ad7944_set_sample_freq(struct ad7944_adc *adc, int val)
+{
+	struct spi_offload_trigger_config config = {
+		.type = SPI_OFFLOAD_TRIGGER_PERIODIC,
+		.periodic = {
+			.frequency_hz = val,
+		},
+	};
+	int ret;
+
+	ret = spi_offload_trigger_validate(adc->offload_trigger, &config);
+	if (ret)
+		return ret;
+
+	adc->offload_trigger_hz = config.periodic.frequency_hz;
+
+	return 0;
 }
 
 static int ad7944_write_raw(struct iio_dev *indio_dev,
@@ -437,19 +470,11 @@ static int ad7944_write_raw(struct iio_dev *indio_dev,
 	struct ad7944_adc *adc = iio_priv(indio_dev);
 
 	switch (info) {
-	case IIO_CHAN_INFO_SAMP_FREQ: {
-		struct pwm_state state;
-
-		if (val < 0)
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (val < 1 || val > adc->sample_freq_range[2])
 			return -EINVAL;
 
-		pwm_init_state(adc->pwm, &state);
-		state.period = DIV_ROUND_UP(NSEC_PER_SEC, val);
-		state.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS;
-		state.enabled = true;
-
-		return pwm_apply_state(adc->pwm, &state);
-	}
+		return ad7944_set_sample_freq(adc, val);
 	default:
 		return -EINVAL;
 	}
@@ -457,9 +482,9 @@ static int ad7944_write_raw(struct iio_dev *indio_dev,
 
 static int ad7944_write_raw_get_fmt(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan,
-				    long info)
+				    long mask)
 {
-	switch (info) {
+	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return IIO_VAL_INT;
 	default:
@@ -468,59 +493,46 @@ static int ad7944_write_raw_get_fmt(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info ad7944_iio_info = {
+	.read_avail = &ad7944_read_avail,
 	.read_raw = &ad7944_read_raw,
 	.write_raw = &ad7944_write_raw,
 	.write_raw_get_fmt = &ad7944_write_raw_get_fmt,
 };
 
-static int ad7944_offload_ex_buffer_preenable(struct iio_dev *indio_dev)
+static int ad7944_offload_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad7944_adc *adc = iio_priv(indio_dev);
+	struct spi_offload_trigger_config config = {
+		.type = SPI_OFFLOAD_TRIGGER_PERIODIC,
+		.periodic = {
+			.frequency_hz = adc->offload_trigger_hz,
+		},
+	};
+	int ret;
 
-	switch (adc->spi_mode) {
-	case AD7944_SPI_MODE_DEFAULT:
-		return spi_engine_ex_offload_load_msg(adc->spi, &adc->msg);
-	case AD7944_SPI_MODE_SINGLE:
-		/* REVISIT: could do non-turbo for lower sample rates */
-		gpiod_set_value_cansleep(adc->turbo, 1);
-		return spi_engine_ex_offload_load_msg(adc->spi, &adc->turbo_msg);
-	default:
-		return -EOPNOTSUPP;
-	}
+	gpiod_set_value_cansleep(adc->turbo, 1);
+
+	ret = spi_offload_trigger_enable(adc->offload, adc->offload_trigger,
+					 &config);
+	if (ret)
+		gpiod_set_value_cansleep(adc->turbo, 0);
+
+	return ret;
 }
 
-static int ad7944_offload_ex_buffer_postenable(struct iio_dev *indio_dev)
+static int ad7944_offload_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad7944_adc *adc = iio_priv(indio_dev);
 
-	spi_engine_ex_offload_enable(adc->spi, true);
-
-	return 0;
-}
-
-static int ad7944_offload_ex_buffer_predisable(struct iio_dev *indio_dev)
-{
-	struct ad7944_adc *adc = iio_priv(indio_dev);
-
-	spi_engine_ex_offload_enable(adc->spi, false);
-
-	return 0;
-}
-
-static int ad7944_offload_ex_buffer_postdisable(struct iio_dev *indio_dev)
-{
-	struct ad7944_adc *adc = iio_priv(indio_dev);
-
+	spi_offload_trigger_disable(adc->offload, adc->offload_trigger);
 	gpiod_set_value_cansleep(adc->turbo, 0);
 
 	return 0;
 }
 
-static const struct iio_buffer_setup_ops ad7944_offload_ex_buffer_setup_ops = {
-	.preenable = &ad7944_offload_ex_buffer_preenable,
-	.postenable = &ad7944_offload_ex_buffer_postenable,
-	.predisable = &ad7944_offload_ex_buffer_predisable,
-	.postdisable = &ad7944_offload_ex_buffer_postdisable,
+static const struct iio_buffer_setup_ops ad7944_offload_buffer_setup_ops = {
+	.postenable = &ad7944_offload_buffer_postenable,
+	.predisable = &ad7944_offload_buffer_predisable,
 };
 
 static irqreturn_t ad7944_trigger_handler(int irq, void *p)
@@ -530,26 +542,16 @@ static irqreturn_t ad7944_trigger_handler(int irq, void *p)
 	struct ad7944_adc *adc = iio_priv(indio_dev);
 	int ret;
 
-	switch (adc->spi_mode) {
-	case AD7944_SPI_MODE_DEFAULT:
-		ret = ad7944_4wire_mode_conversion(adc, &indio_dev->channels[0]);
-		if (ret)
-			goto out;
-
-		break;
-	case AD7944_SPI_MODE_SINGLE:
-		ret = ad7944_3wire_cs_mode_conversion(adc, &indio_dev->channels[0]);
-		if (ret)
-			goto out;
-
-		break;
-	default:
-		/* not supported */
+	ret = ad7944_convert_and_acquire(adc);
+	if (ret)
 		goto out;
-	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &adc->sample.raw,
-					   pf->timestamp);
+	if (adc->spi_mode == AD7944_SPI_MODE_CHAIN)
+		iio_push_to_buffers_with_timestamp(indio_dev, adc->chain_mode_buf,
+						   pf->timestamp);
+	else
+		iio_push_to_buffers_with_timestamp(indio_dev, &adc->sample.raw,
+						   pf->timestamp);
 
 out:
 	iio_trigger_notify_done(indio_dev->trig);
@@ -557,14 +559,97 @@ out:
 	return IRQ_HANDLED;
 }
 
+/**
+ * ad7944_chain_mode_alloc - allocate and initialize channel specs and buffers
+ *                           for daisy-chained devices
+ * @dev: The device for devm_ functions
+ * @chan_template: The channel template for the devices (array of 2 channels
+ *                 voltage and timestamp)
+ * @n_chain_dev: The number of devices in the chain
+ * @chain_chan: Pointer to receive the allocated channel specs
+ * @chain_mode_buf: Pointer to receive the allocated rx buffer
+ * @chain_scan_masks: Pointer to receive the allocated scan masks
+ * Return: 0 on success, a negative error code on failure
+ */
+static int ad7944_chain_mode_alloc(struct device *dev,
+				   const struct iio_chan_spec *chan_template,
+				   u32 n_chain_dev,
+				   struct iio_chan_spec **chain_chan,
+				   void **chain_mode_buf,
+				   unsigned long **chain_scan_masks)
+{
+	struct iio_chan_spec *chan;
+	size_t chain_mode_buf_size;
+	unsigned long *scan_masks;
+	void *buf;
+	int i;
+
+	/* 1 channel for each device in chain plus 1 for soft timestamp */
+
+	chan = devm_kcalloc(dev, n_chain_dev + 1, sizeof(*chan), GFP_KERNEL);
+	if (!chan)
+		return -ENOMEM;
+
+	for (i = 0; i < n_chain_dev; i++) {
+		chan[i] = chan_template[0];
+
+		if (chan_template[0].differential) {
+			chan[i].channel = 2 * i;
+			chan[i].channel2 = 2 * i + 1;
+		} else {
+			chan[i].channel = i;
+		}
+
+		chan[i].scan_index = i;
+	}
+
+	/* soft timestamp */
+	chan[i] = chan_template[1];
+	chan[i].scan_index = i;
+
+	*chain_chan = chan;
+
+	/* 1 word for each voltage channel + aligned u64 for timestamp */
+
+	chain_mode_buf_size = ALIGN(n_chain_dev *
+		AD7944_SPI_BYTES(chan[0].scan_type), sizeof(u64)) + sizeof(u64);
+	buf = devm_kzalloc(dev, chain_mode_buf_size, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	*chain_mode_buf = buf;
+
+	/*
+	 * Have to limit n_chain_dev due to current implementation of
+	 * available_scan_masks.
+	 */
+	if (n_chain_dev > BITS_PER_LONG)
+		return dev_err_probe(dev, -EINVAL,
+				     "chain is limited to 32 devices\n");
+
+	scan_masks = devm_kcalloc(dev, 2, sizeof(*scan_masks), GFP_KERNEL);
+	if (!scan_masks)
+		return -ENOMEM;
+
+	/*
+	 * Scan mask is needed since we always have to read all devices in the
+	 * chain in one SPI transfer.
+	 */
+	scan_masks[0] = GENMASK(n_chain_dev - 1, 0);
+
+	*chain_scan_masks = scan_masks;
+
+	return 0;
+}
+
 static const char * const ad7944_power_supplies[] = {
 	"avdd",	"dvdd",	"bvdd", "vio"
 };
 
-static void ad7944_ref_disable(void *ref)
-{
-	regulator_disable(ref);
-}
+static const struct spi_offload_config ad7944_offload_config = {
+	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER |
+			    SPI_OFFLOAD_CAP_RX_STREAM_DMA,
+};
 
 static int ad7944_probe(struct spi_device *spi)
 {
@@ -572,10 +657,11 @@ static int ad7944_probe(struct spi_device *spi)
 	struct device *dev = &spi->dev;
 	struct iio_dev *indio_dev;
 	struct ad7944_adc *adc;
-	bool have_refin = false;
-	struct regulator *ref;
-	const char *str_val;
-	int ret;
+	bool have_refin;
+	struct iio_chan_spec *chain_chan;
+	unsigned long *chain_scan_masks;
+	u32 n_chain_dev;
+	int ret, ref_mv;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*adc));
 	if (!indio_dev)
@@ -590,17 +676,21 @@ static int ad7944_probe(struct spi_device *spi)
 
 	adc->timing_spec = chip_info->timing_spec;
 
-	if (device_property_read_string(dev, "adi,spi-mode", &str_val) == 0) {
-		ret = sysfs_match_string(ad7944_spi_modes, str_val);
-		if (ret < 0)
-			return dev_err_probe(dev, -EINVAL,
-					     "unsupported adi,spi-mode\n");
+	adc->sample_freq_range[0] = 1; /* min */
+	adc->sample_freq_range[1] = 1; /* step */
+	adc->sample_freq_range[2] = chip_info->max_sample_rate_hz; /* max */
 
-		adc->spi_mode = ret;
-	} else {
-		/* absence of adi,spi-mode property means default mode */
+	ret = device_property_match_property_string(dev, "adi,spi-mode",
+						    ad7944_spi_modes,
+						    ARRAY_SIZE(ad7944_spi_modes));
+	/* absence of adi,spi-mode property means default mode */
+	if (ret == -EINVAL)
 		adc->spi_mode = AD7944_SPI_MODE_DEFAULT;
-	}
+	else if (ret < 0)
+		return dev_err_probe(dev, ret,
+				     "getting adi,spi-mode property failed\n");
+	else
+		adc->spi_mode = ret;
 
 	/*
 	 * Some chips use unusual word sizes, so check now instead of waiting
@@ -626,47 +716,23 @@ static int ad7944_probe(struct spi_device *spi)
 	 * - external reference: REF is connected, REFIN is not connected
 	 */
 
-	ref = devm_regulator_get_optional(dev, "ref");
-	if (IS_ERR(ref)) {
-		if (PTR_ERR(ref) != -ENODEV)
-			return dev_err_probe(dev, PTR_ERR(ref),
-					     "failed to get REF supply\n");
+	ret = devm_regulator_get_enable_read_voltage(dev, "ref");
+	if (ret < 0 && ret != -ENODEV)
+		return dev_err_probe(dev, ret, "failed to get REF voltage\n");
 
-		ref = NULL;
-	}
+	ref_mv = ret == -ENODEV ? 0 : ret / 1000;
 
 	ret = devm_regulator_get_enable_optional(dev, "refin");
-	if (ret == 0)
-		have_refin = true;
-	else if (ret != -ENODEV)
-		return dev_err_probe(dev, ret,
-				     "failed to get and enable REFIN supply\n");
+	if (ret < 0 && ret != -ENODEV)
+		return dev_err_probe(dev, ret, "failed to get REFIN voltage\n");
 
-	if (have_refin && ref)
+	have_refin = ret != -ENODEV;
+
+	if (have_refin && ref_mv)
 		return dev_err_probe(dev, -EINVAL,
 				     "cannot have both refin and ref supplies\n");
 
-	if (ref) {
-		ret = regulator_enable(ref);
-		if (ret)
-			return dev_err_probe(dev, ret,
-					     "failed to enable REF supply\n");
-
-		ret = devm_add_action_or_reset(dev, ad7944_ref_disable, ref);
-		if (ret)
-			return ret;
-
-		ret = regulator_get_voltage(ref);
-		if (ret < 0)
-			return dev_err_probe(dev, ret,
-					     "failed to get REF voltage\n");
-
-		/* external reference */
-		adc->ref_mv = ret / 1000;
-	} else {
-		/* internal reference */
-		adc->ref_mv = AD7944_INTERNAL_REF_MV;
-	}
+	adc->ref_mv = ref_mv ?: AD7944_INTERNAL_REF_MV;
 
 	adc->cnv = devm_gpiod_get_optional(dev, "cnv", GPIOD_OUT_LOW);
 	if (IS_ERR(adc->cnv))
@@ -706,51 +772,98 @@ static int ad7944_probe(struct spi_device *spi)
 		if (ret)
 			return ret;
 
-		ret = ad7944_3wire_cs_mode_init_turbo_msg(dev, adc, &chip_info->channels[0]);
+		break;
+	case AD7944_SPI_MODE_CHAIN:
+		ret = device_property_read_u32(dev, "#daisy-chained-devices",
+					       &n_chain_dev);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					"failed to get #daisy-chained-devices\n");
+
+		ret = ad7944_chain_mode_alloc(dev, chip_info->channels,
+					      n_chain_dev, &chain_chan,
+					      &adc->chain_mode_buf,
+					      &chain_scan_masks);
+		if (ret)
+			return ret;
+
+		ret = ad7944_chain_mode_init_msg(dev, adc, &chain_chan[0],
+						 n_chain_dev);
 		if (ret)
 			return ret;
 
 		break;
-	case AD7944_SPI_MODE_CHAIN:
-		return dev_err_probe(dev, -EINVAL, "chain mode is not implemented\n");
 	}
 
 	indio_dev->name = chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ad7944_iio_info;
 
-	if (spi_engine_ex_offload_supported(spi)) {
-		struct pwm_state state = {
-			.period = NSEC_PER_SEC / AD7944_DEFAULT_SAMPLE_FREQ_HZ,
-			.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS,
-			.enabled = true,
-		};
+	adc->offload = devm_spi_offload_get(dev, spi, &ad7944_offload_config);
+	ret = PTR_ERR_OR_ZERO(adc->offload);
+	if (ret && ret != -ENODEV)
+		return dev_err_probe(dev, ret, "failed to get offload\n");
 
-		indio_dev->channels = chip_info->offload_channels;
-		indio_dev->num_channels = ARRAY_SIZE(chip_info->offload_channels);
-		indio_dev->setup_ops = &ad7944_offload_ex_buffer_setup_ops;
-
-		adc->pwm = devm_pwm_get(dev, NULL);
-		if (IS_ERR(adc->pwm))
-			return dev_err_probe(dev, PTR_ERR(adc->pwm),
-					     "failed to get PWM\n");
-
-		ret = pwm_apply_state(adc->pwm, &state);
-		if (ret)
-			return dev_err_probe(dev, ret,
-					     "failed to apply PWM state\n");
-
-		ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx");
-		if (ret)
-			return ret;
-	} else {
-		indio_dev->channels = chip_info->channels;
-		indio_dev->num_channels = ARRAY_SIZE(chip_info->channels);
+	/* Fall back to low speed usage when no SPI offload available. */
+	if (ret == -ENODEV) {
+		if (adc->spi_mode == AD7944_SPI_MODE_CHAIN) {
+			indio_dev->available_scan_masks = chain_scan_masks;
+			indio_dev->channels = chain_chan;
+			indio_dev->num_channels = n_chain_dev + 1;
+		} else {
+			indio_dev->channels = chip_info->channels;
+			indio_dev->num_channels = ARRAY_SIZE(chip_info->channels);
+		}
 
 		ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
 						      iio_pollfunc_store_time,
 						      ad7944_trigger_handler,
 						      NULL);
+		if (ret)
+			return ret;
+	} else {
+		struct dma_chan *rx_dma;
+
+		if (adc->spi_mode != AD7944_SPI_MODE_SINGLE)
+			return dev_err_probe(dev, -EINVAL,
+				"offload only supported in single mode\n");
+
+		indio_dev->setup_ops = &ad7944_offload_buffer_setup_ops;
+		indio_dev->channels = chip_info->offload_channels;
+		indio_dev->num_channels = ARRAY_SIZE(chip_info->offload_channels);
+
+		adc->offload_trigger = devm_spi_offload_trigger_get(dev,
+			adc->offload, SPI_OFFLOAD_TRIGGER_PERIODIC);
+		if (IS_ERR(adc->offload_trigger))
+			return dev_err_probe(dev, PTR_ERR(adc->offload_trigger),
+					     "failed to get offload trigger\n");
+
+		ret = ad7944_set_sample_freq(adc, 2 * MEGA);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "failed to init sample rate\n");
+
+		rx_dma = devm_spi_offload_rx_stream_request_dma_chan(dev,
+								     adc->offload);
+		if (IS_ERR(rx_dma))
+			return dev_err_probe(dev, PTR_ERR(rx_dma),
+					     "failed to get offload RX DMA\n");
+
+		/*
+		 * REVISIT: ideally, we would confirm that the offload RX DMA
+		 * buffer layout is the same as what is hard-coded in
+		 * offload_channels. Right now, the only supported offload
+		 * is the pulsar_adc project which always uses 32-bit word
+		 * size for data values, regardless of the SPI bits per word.
+		 */
+
+		ret = devm_iio_dmaengine_buffer_setup_with_handle(dev,
+			indio_dev, rx_dma, IIO_BUFFER_DIRECTION_IN);
+		if (ret)
+			return ret;
+
+		ret = ad7944_3wire_cs_mode_init_offload_msg(dev, adc,
+			&chip_info->offload_channels[0]);
 		if (ret)
 			return ret;
 	}
@@ -788,3 +901,4 @@ module_spi_driver(ad7944_driver);
 MODULE_AUTHOR("David Lechner <dlechner@baylibre.com>");
 MODULE_DESCRIPTION("Analog Devices AD7944 PulSAR ADC family driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS("IIO_DMAENGINE_BUFFER");

@@ -15,7 +15,7 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi-engine.h>
+#include <linux/spi/legacy-spi-engine.h>
 #include <linux/units.h>
 
 #include <linux/iio/buffer.h>
@@ -230,11 +230,11 @@ static int ad4134_buffer_postenable(struct iio_dev *indio_dev)
 	struct ad4134_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = spi_engine_offload_load_msg(st->spi_engine, &st->buf_read_msg);
+	ret = legacy_spi_engine_offload_load_msg(st->spi_engine, &st->buf_read_msg);
 	if (ret)
 		return ret;
 
-	spi_engine_offload_enable(st->spi_engine, true);
+	legacy_spi_engine_offload_enable(st->spi_engine, true);
 
 	return 0;
 }
@@ -243,7 +243,7 @@ static int ad4134_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4134_state *st = iio_priv(indio_dev);
 
-	spi_engine_offload_enable(st->spi_engine, false);
+	legacy_spi_engine_offload_enable(st->spi_engine, false);
 
 	return 0;
 }

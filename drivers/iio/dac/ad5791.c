@@ -523,8 +523,7 @@ static int ad5791_offload_setup(struct iio_dev *indio_dev)
 
 	return devm_iio_dmaengine_buffer_setup_ext(&st->spi->dev,
 					       indio_dev, "tx",
-					       IIO_BUFFER_DIRECTION_OUT,
-					       NULL, NULL);
+					       IIO_BUFFER_DIRECTION_OUT);
 }
 
 static const struct iio_info ad5791_info = {

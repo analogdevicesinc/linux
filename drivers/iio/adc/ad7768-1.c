@@ -20,7 +20,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi-engine.h>
+#include <linux/spi/legacy-spi-engine.h>
 
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dma.h>
@@ -769,10 +769,10 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 		xfer.tx_buf = tx_data;
 		xfer.rx_buf = rx_data;
 		spi_message_init_with_transfers(&msg, &xfer, 1);
-		ret = spi_engine_offload_load_msg(st->spi, &msg);
+		ret = legacy_spi_engine_offload_load_msg(st->spi, &msg);
 		if (ret < 0)
 			return ret;
-		spi_engine_offload_enable(st->spi, true);
+		legacy_spi_engine_offload_enable(st->spi, true);
 	}
 
 	return ret;
@@ -784,7 +784,7 @@ static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 	unsigned int regval;
 
 	if (st->spi_is_dma_mapped) {
-		spi_engine_offload_enable(st->spi, false);
+		legacy_spi_engine_offload_enable(st->spi, false);
 		spi_bus_unlock(st->spi->master);
 	}
 
@@ -910,7 +910,7 @@ static int ad7768_probe(struct spi_device *spi)
 		return PTR_ERR(st->mclk);
 
 	st->mclk_freq = clk_get_rate(st->mclk);
-	st->spi_is_dma_mapped = spi_engine_offload_supported(spi);
+	st->spi_is_dma_mapped = legacy_spi_engine_offload_supported(spi);
 	st->irq = spi->irq;
 
 	mutex_init(&st->lock);
