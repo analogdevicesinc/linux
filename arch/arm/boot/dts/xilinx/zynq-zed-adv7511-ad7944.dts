@@ -21,8 +21,6 @@
 	eval_u3: eval-board-u3-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "EVAL +2.5V supply (U3)";
-		regulator-min-microvolt = <2500000>;
-		regulator-max-microvolt = <2500000>;
 		regulator-always-on;
 	};
 
@@ -37,16 +35,12 @@
 	eval_u10: eval-board-u10-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "EVAL +5V supply (U10)";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
 
 	eval_u12: eval-board-u12-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "EVAL +2.5V supply (U12)";
-		regulator-min-microvolt = <2500000>;
-		regulator-max-microvolt = <2500000>;
 		regulator-always-on;
 	};
 };
