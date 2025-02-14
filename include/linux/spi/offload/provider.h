@@ -10,7 +10,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 
-MODULE_IMPORT_NS("SPI_OFFLOAD");
+MODULE_IMPORT_NS(SPI_OFFLOAD);
 
 struct device;
 
