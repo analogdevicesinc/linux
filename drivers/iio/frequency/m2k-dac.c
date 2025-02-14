@@ -722,7 +722,7 @@ static int m2k_dac_alloc_channel(struct platform_device *pdev,
 
 	ret = devm_iio_dmaengine_buffer_setup_ext(indio_dev->dev.parent, indio_dev,
 						  m2k_dac_ch_dma_names[num],
-						  IIO_BUFFER_DIRECTION_OUT, NULL, NULL);
+						  IIO_BUFFER_DIRECTION_OUT);
 	if (ret)
 		return ret;
 

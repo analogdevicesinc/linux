@@ -99,7 +99,7 @@ static const struct iio_dma_buffer_ops dds_buffer_dma_buffer_ops = {
 
 int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 {
-	return devm_iio_dmaengine_buffer_setup_ext(indio_dev->dev.parent,
+	return devm_iio_dmaengine_buffer_setup_with_ops(indio_dev->dev.parent,
 						   indio_dev, "tx",
 						   IIO_BUFFER_DIRECTION_OUT,
 						   &dds_buffer_dma_buffer_ops, indio_dev);
