@@ -1,69 +1,125 @@
 # SPDX-License-Identifier: (GPL-1.0-only OR BSD-2-Clause)
 #!/bin/bash -e
 
-timestamp=$(date +%Y_%m_%d-%H_%M)
-GIT_SHA=$(git rev-parse --short HEAD)
-GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${GIT_SHA} | sed -e "s/ \|\:/-/g")
+TIMESTAMP=$(date +%Y_%m_%d-%H_%M)
+# For PRs, Azure makes a merge commit (HEAD) because of the shallow copy option
+# (which we want). So, GIT_SHA in this case is the actual correct commit inside
+# the PR, and MERGE_COMMIT is the commit made by Azure (which we extract the date
+# from)
+echo "$SYSTEM_PULLREQUEST_TARGETBRANCH"
+if [[ "$SYSTEM_PULLREQUEST_SOURCECOMMITID" != "" ]]; then
+    GIT_SHA=$SYSTEM_PULLREQUEST_SOURCECOMMITID
+else
+    GIT_SHA=$BUILD_SOURCEVERSION
+fi
+MERGE_COMMIT_SHA=$(git rev-parse --short HEAD)
+GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${MERGE_COMMIT_SHA} | sed -e "s/ \|\:/-/g")
+SERVER_PATH="test_upload/linux/"
+if [ "$SYSTEM_PULLREQUEST_TARGETBRANCH" != "" ]; then
+    BRANCH_NAME="$SYSTEM_PULLREQUEST_TARGETBRANCH"
+    SERVER_PATH+="PRs/"
+else
+    BRANCH_NAME="$(echo $BUILD_SOURCEBRANCH | awk -F'/' '{print $NF}')"
+fi
 
-#prepare the structure of the folder containing artifacts
+set_artifactory_path() {
+    if [ "$SYSTEM_PULLREQUEST_TARGETBRANCH" != "" ]; then
+        SERVER_PATH+="$BRANCH_NAME/pr_$SYSTEM_PULLREQUEST_PULLREQUESTNUMBER"
+    else
+        if [ "$BRANCH_NAME" == "main" ]; then
+            SERVER_PATH+="main"
+        else
+            SERVER_PATH+="releases/$BRANCH_NAME"
+        fi
+    fi
+}
+
+create_extlinux() {
+    local platform=$1
+
+    touch extlinux.conf
+    if [ "${platform}" == "arria10" ]; then
+        dtb_name="socfpga_arria10_socdk_sdmmc.dtb"
+    else
+        dtb_name="socfpga.dtb"
+    fi
+
+    echo "LABEL Linux Default"                > extlinux.conf
+    echo "    KERNEL ../zImage"              >> extlinux.conf
+    echo "    FDT ../${dtb_name}"            >> extlinux.conf
+    echo "    APPEND root=/dev/mmcblk0p2 rw rootwait earlyprintk console=ttyS0,115200n8" >> extlinux.conf
+}
+
+# Prepare the structure of the folder containing artifacts
 artifacts_structure() {
-	cd ${SOURCE_DIRECTORY}
-	mkdir ${timestamp}
+    cd ${SOURCE_DIRECTORY}
 
-	echo "git_branch=${BUILD_SOURCEBRANCHNAME}" >> ${timestamp}/rpi_git_properties.txt
-	echo "git_sha=${GIT_SHA}" >> ${timestamp}/rpi_git_properties.txt
-	echo "git_sha_date=${GIT_SHA_DATE}" >> ${timestamp}/rpi_git_properties.txt
+    # Create folder to be uploaded
+    mkdir ${TIMESTAMP}
 
-	typeBCM=( "bcm2709" "bcm2711" "bcmrpi" )
-	typeKERNEL=( "kernel7" "kernel7l" "kernel" )
-	for index in "${!typeBCM[@]}"; do
-		cd adi_"${typeBCM[$index]}"_defconfig
-		mkdir overlays modules
-		mv ./*.dtbo ./overlays
-		tar -xf rpi_modules.tar.gz -C modules
-		rm rpi_modules.tar.gz
-		mv ./zImage ./"${typeKERNEL[$index]}".img
-		cd ../
-		cp -r ./adi_"${typeBCM[$index]}"_defconfig/* ./${timestamp}
-	done
-	tar -C ${SOURCE_DIRECTORY}/${timestamp}/modules -czvf ${SOURCE_DIRECTORY}/${timestamp}/rpi_modules.tar.gz .
-	rm -r ${SOURCE_DIRECTORY}/${timestamp}/modules
+    # Generate properties file
+    echo "git_branch=${BUILD_SOURCEBRANCHNAME}" >> ${TIMESTAMP}/git_properties.txt
+    echo "git_sha=${GIT_SHA}" >> ${TIMESTAMP}/git_properties.txt
+    echo "git_sha_date=${GIT_SHA_DATE}" >> ${TIMESTAMP}/git_properties.txt
+
+    declare -A typeARCH
+    typeARCH=( ["arm"]="arria10 cyclone5 zynq"
+               ["arm64"]="versal zynqmp"
+               ["microblaze"]="kc705 kcu105 vc707 vcu118 vcu128" )
+
+    declare -A image_to_copy
+    image_to_copy=( ["arria10"]="socfpga_adi_defconfig/zImage"
+                    ["cyclone5"]="socfpga_adi_defconfig/zImage"
+                    ["zynq"]="zynq_xcomm_adv7511_defconfig/uImage"
+                    ["versal"]="adi_versal_defconfig/Image"
+                    ["zynqmp"]="adi_zynqmp_defconfig/Image" )
+
+    for arch in "${!typeARCH[@]}"; do
+        mkdir ${TIMESTAMP}/${arch}
+        for platform in ${typeARCH[$arch]}; do
+            # First copy kernels and make extlinux files.
+            if [ "${arch}" != "microblaze" ]; then
+                image_location="${TIMESTAMP}/${arch}/${platform}"
+                mkdir ${image_location}
+                if [ "${platform}" == "arria10" ] || [ "${platform}" == "cyclone5" ]; then
+                    create_extlinux ${platform}
+                    cp ./extlinux.conf ${image_location}
+                fi
+                echo "IMAGE: ${image_to_copy[${platform}]}!"
+                cp ${image_to_copy[${platform}]} ${image_location}
+            fi
+        done
+
+        if [ "${arch}" == "microblaze" ]; then
+            dtbs_to_copy=$(ls -d -1 Microblaze/*)
+        else
+            dtbs_to_copy=$(ls -d -1 DTBs/* | grep "${platform}")
+        fi
+
+        # Copy DTBs to the correct location
+        for dtb in ${dtbs_to_copy}; do
+            cp ${dtb} "${TIMESTAMP}/${arch}"
+        done
+    done
 }
 
-#upload artifacts to Artifactory
-artifacts_artifactory() {
-	artifacts_structure
-	cd ${SOURCE_DIRECTORY}
-	python ../ci/travis/upload_to_artifactory.py --base_path="${ARTIFACTORY_PATH}" \
-		--server_path="linux_rpi/${BUILD_SOURCEBRANCHNAME}" --local_path="${timestamp}" \
-		--token="${ARTIFACTORY_TOKEN}" --log_file="upload_to_artifactory.log"
-}
+#### Start
+artifacts_structure
+set_artifactory_path
+python3 ../ci/travis/upload_to_artifactory.py \
+        --base_path="${ARTIFACTORY_PATH}" \
+        --server_path="${SERVER_PATH}" \
+        --local_path="${TIMESTAMP}" \
+        --props_level="2" \
+        --properties="git_sha=${GIT_SHA};commit_date=${TIMESTAMP}" \
+        --token="${ARTIFACTORY_TOKEN}" \
+        --log_file="upload_to_artifactory.log"
 
-#archive artifacts and upload to SWDownloads
-artifacts_swdownloads() {
-	artifacts_structure
-	cd ${SOURCE_DIRECTORY}/${timestamp} || exit 1
-	chmod 600 ${KEY_FILE}
-	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
-	md5_modules=($(md5sum rpi_modules.tar.gz| cut -d ' ' -f 1))
-
-	rm rpi_modules.tar.gz rpi_git_properties.txt
-	tar -C ${PWD} -czvf rpi_latest_boot.tar.gz *
-	md5_boot=($(md5sum rpi_latest_boot.tar.gz| cut -d ' ' -f 1))
-	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-	    -i ${KEY_FILE} -r rpi_latest_boot.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
-
-	echo "git_branch=${BUILD_SOURCEBRANCHNAME}" >> rpi_archives_properties.txt
-	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_modules.tar.gz" >> rpi_archives_properties.txt
-	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_latest_boot.tar.gz" >> rpi_archives_properties.txt
-	echo "checksum_modules=${md5_modules}" >> rpi_archives_properties.txt
-	echo "checksum_boot_files=${md5_boot}" >> rpi_archives_properties.txt
-	echo "git_sha=${GIT_SHA}" >> rpi_archives_properties.txt
-	echo "git_sha_date=${GIT_SHA_DATE}" >> rpi_archives_properties.txt
-
-	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-                -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
-}
-
-artifacts_${1}
+# Set these Azure env vars to be used later in the pipeline
+echo "##vso[task.setvariable variable=TIMESTAMP;isOutput=true]${TIMESTAMP}"
+echo "##vso[task.setvariable variable=BRANCH;isOutput=true]${BRANCH_NAME}"
+if [ "$SYSTEM_PULLREQUEST_PULLREQUESTNUMBER" != "" ]; then
+    echo "##vso[task.setvariable variable=PR_ID;isOutput=true]$SYSTEM_PULLREQUEST_PULLREQUESTNUMBER"
+else
+    echo "##vso[task.setvariable variable=PR_ID;isOutput=true]commit"
+fi
