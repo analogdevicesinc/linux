@@ -301,16 +301,16 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 	return 0;
 }
 
-bool spi_engine_offload_supported(struct spi_device *spi)
+bool legacy_spi_engine_offload_supported(struct spi_device *spi)
 {
-	if (strcmp(spi->controller->dev.parent->driver->name, "spi-engine") != 0)
+	if (strcmp(spi->controller->dev.parent->driver->name, "legacy-spi-engine") != 0)
 		return false;
 
 	return true;
 }
-EXPORT_SYMBOL_GPL(spi_engine_offload_supported);
+EXPORT_SYMBOL_GPL(legacy_spi_engine_offload_supported);
 
-void spi_engine_offload_enable(struct spi_device *spi, bool enable)
+void legacy_spi_engine_offload_enable(struct spi_device *spi, bool enable)
 {
 	struct spi_controller *host = spi->controller;
 	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
@@ -323,9 +323,9 @@ void spi_engine_offload_enable(struct spi_device *spi, bool enable)
 		reg &= ~SPI_ENGINE_OFFLOAD_CTRL_ENABLE;
 	writel(reg, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CTRL(0));
 }
-EXPORT_SYMBOL_GPL(spi_engine_offload_enable);
+EXPORT_SYMBOL_GPL(legacy_spi_engine_offload_enable);
 
-int spi_engine_offload_load_msg(struct spi_device *spi,
+int legacy_spi_engine_offload_load_msg(struct spi_device *spi,
 	struct spi_message *msg)
 {
 	struct spi_controller *host = spi->controller;
@@ -374,7 +374,7 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(spi_engine_offload_load_msg);
+EXPORT_SYMBOL_GPL(legacy_spi_engine_offload_load_msg);
 
 static void spi_engine_xfer_next(struct spi_engine *spi_engine,
 	struct spi_transfer **_xfer)
@@ -787,7 +787,7 @@ static struct platform_driver spi_engine_driver = {
 	.probe = spi_engine_probe,
 	.remove = spi_engine_remove,
 	.driver = {
-		.name = "spi-engine",
+		.name = "legacy-spi-engine",
 		.of_match_table = spi_engine_match_table,
 	},
 };
