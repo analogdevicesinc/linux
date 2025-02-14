@@ -778,7 +778,7 @@ static int spi_engine_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id spi_engine_match_table[] = {
-	{ .compatible = "adi,axi-spi-engine-1.00.a" },
+	{ .compatible = "adi,legacy-axi-spi-engine-1.00.a" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, spi_engine_match_table);

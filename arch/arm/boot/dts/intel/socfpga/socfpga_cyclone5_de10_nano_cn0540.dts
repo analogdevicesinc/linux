@@ -98,7 +98,7 @@
 	};
 
 	spi@30000 {
-		compatible = "adi,axi-spi-engine-1.00.a";
+		compatible = "adi,legacy-axi-spi-engine-1.00.a";
 		reg = <0x00030000 0x00010000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
