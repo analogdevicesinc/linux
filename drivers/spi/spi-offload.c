@@ -14,7 +14,7 @@
  * processor core to offload the work.
  */
 
-#define DEFAULT_SYMBOL_NAMESPACE "SPI_OFFLOAD"
+#define DEFAULT_SYMBOL_NAMESPACE SPI_OFFLOAD
 
 #include <linux/cleanup.h>
 #include <linux/device.h>
