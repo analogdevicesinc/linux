@@ -27,6 +27,11 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 
+/* ADI tree: remove this after kernel v6.13 */
+#ifndef aligned_s64
+#define aligned_s64 s64 __attribute__((aligned(8)))
+#endif
+
 #define AD7944_INTERNAL_REF_MV		4096
 
 struct ad7944_timing_spec {
