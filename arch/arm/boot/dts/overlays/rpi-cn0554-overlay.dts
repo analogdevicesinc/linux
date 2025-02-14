@@ -84,41 +84,57 @@
 		channel@0 {
 			reg = <0>;
 			diff-channels = <0 1>;
+			adi,buffered-positive;
+			adi,buffered-negative;
 		};
 
 		channel@1 {
 			reg = <1>;
 			diff-channels = <2 3>;
+			adi,buffered-positive;
+			adi,buffered-negative;
 		};
 
 		channel@2 {
 			reg = <2>;
 			diff-channels = <4 5>;
+			adi,buffered-positive;
+			adi,buffered-negative;
 		};
 
 		channel@3 {
 			reg = <3>;
 			diff-channels = <6 7>;
+			adi,buffered-positive;
+			adi,buffered-negative;
 		};
 
 		channel@4 {
 			reg = <4>;
 			diff-channels = <8 9>;
+			adi,buffered-positive;
+			adi,buffered-negative;
 		};
 
 		channel@5 {
 			reg = <5>;
 			diff-channels = <10 11>;
+			adi,buffered-positive;
+			adi,buffered-negative;
 		};
 
 		channel@6 {
 			reg = <6>;
 			diff-channels = <12 13>;
+			adi,buffered-positive;
+			adi,buffered-negative;
 		};
 
 		channel@7 {
 			reg = <7>;
 			diff-channels = <14 15>;
+			adi,buffered-positive;
+			adi,buffered-negative;
 		};
 	};
 
