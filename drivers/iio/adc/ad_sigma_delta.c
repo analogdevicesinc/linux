@@ -23,7 +23,7 @@
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/adc/ad_sigma_delta.h>
 
-#include <linux/spi/spi-engine.h>
+#include <linux/spi/legacy-spi-engine.h>
 
 #include <asm/unaligned.h>
 
@@ -491,8 +491,8 @@ static void ad_sd_prepare_and_enable_spi_engine_msg(struct ad_sigma_delta *sigma
 	}
 	spi_message_add_tail(&t[1], &m);
 
-	spi_engine_offload_load_msg(sigma_delta->spi, &m);
-	spi_engine_offload_enable(sigma_delta->spi, true);
+	legacy_spi_engine_offload_load_msg(sigma_delta->spi, &m);
+	legacy_spi_engine_offload_enable(sigma_delta->spi, true);
 }
 
 static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
@@ -578,7 +578,7 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 
 	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE) {
-		spi_engine_offload_enable(sigma_delta->spi, false);
+		legacy_spi_engine_offload_enable(sigma_delta->spi, false);
 	} else {
 		reinit_completion(&sigma_delta->completion);
 		wait_for_completion_timeout(&sigma_delta->completion, HZ);
@@ -804,7 +804,7 @@ int devm_ad_sd_setup_buffer_and_trigger(struct device *dev, struct iio_dev *indi
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 	int ret;
 
-	if (spi_engine_offload_supported(sigma_delta->spi))
+	if (legacy_spi_engine_offload_supported(sigma_delta->spi))
 		indio_dev->modes |= INDIO_BUFFER_HARDWARE;
 
 	sigma_delta->slots = devm_kcalloc(dev, sigma_delta->num_slots,
