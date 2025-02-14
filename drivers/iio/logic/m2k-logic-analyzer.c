@@ -1120,7 +1120,7 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_tx->setup_ops = &m2k_la_tx_setup_ops;
 
 	ret = devm_iio_dmaengine_buffer_setup_ext(&pdev->dev, indio_dev_tx, "tx",
-						  IIO_BUFFER_DIRECTION_OUT, NULL, NULL);
+						  IIO_BUFFER_DIRECTION_OUT);
 	if (ret)
 		return ret;
 
