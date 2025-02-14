@@ -43,6 +43,12 @@
 		regulator-name = "EVAL +2.5V supply (U12)";
 		regulator-always-on;
 	};
+
+	trigger_pwm: adc-pwm-trigger {
+		compatible = "pwm-trigger";
+		#trigger-source-cells = <0>;
+		pwms = <&adc_trigger 0 10000 0>;
+	};
 };
 
 &fpga_axi {
@@ -69,18 +75,25 @@
 		clock-names = "clkin1", "s_axi_aclk";
 		clock-output-names = "spi_clk";
 
-		/* needs to be high enough to allow >= 91.5MHz SCLK for turbo */
+		/*
+		 * Set to 2x max SCLK. Also need to consider SPI Engine extra
+		 * cycles for instructions.
+		 */
 		assigned-clocks = <&spi_clk>;
-		assigned-clock-rates = <185000000>;
+		assigned-clock-rates = <200000000>;
 	};
 
 	axi_spi_engine_0: spi@44a00000 {
-		compatible = "adi-ex,axi-spi-engine-1.00.a";
+		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>, <&spi_clk>;
 		clock-names = "s_axi_aclk", "spi_clk";
+
+		dmas = <&rx_dma 0>;
+		dma-names = "offload0-rx";
+		trigger-sources = <&trigger_pwm>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -96,12 +109,6 @@
 			bvdd-supply = <&eval_u10>;
 			ref-supply = <&eval_u5>;
 			turbo-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
-
-			/* out of tree extensions */
-			dmas = <&rx_dma 0>;
-			dma-names = "rx";
-			pwms = <&adc_trigger 0 0>;
-			pwm-names = "cnv";
 		};
 	};
 };
