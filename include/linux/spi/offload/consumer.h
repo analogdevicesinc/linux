@@ -11,7 +11,7 @@
 #include <linux/spi/offload/types.h>
 #include <linux/types.h>
 
-MODULE_IMPORT_NS("SPI_OFFLOAD");
+MODULE_IMPORT_NS(SPI_OFFLOAD);
 
 struct device;
 struct spi_device;
