@@ -98,6 +98,7 @@ enum iio_backend_filter_type {
  * @ext_info_set: Extended info setter.
  * @ext_info_get: Extended info getter.
  * @oversampling_ratio_set: Set Oversampling ratio.
+ * @data_size_set: Data size.
  * @read_raw: Read a channel attribute from a backend device
  * @debugfs_print_chan_status: Print channel status into a buffer.
  * @debugfs_reg_access: Read or write register value of backend.
@@ -145,6 +146,7 @@ struct iio_backend_ops {
 			    const struct iio_chan_spec *chan, char *buf);
 	int (*oversampling_ratio_set)(struct iio_backend *back,
 				      unsigned int chan, unsigned int ratio);
+	int (*data_size_set)(struct iio_backend *back, unsigned int size);
 	int (*read_raw)(struct iio_backend *back,
 			struct iio_chan_spec const *chan, int *val, int *val2,
 			long mask);
@@ -216,6 +218,7 @@ ssize_t iio_backend_ext_info_get(struct iio_dev *indio_dev, uintptr_t private,
 int iio_backend_oversampling_ratio_set(struct iio_backend *back,
 				       unsigned int chan,
 				       unsigned int ratio);
+int iio_backend_data_size_set(struct iio_backend *back, unsigned int size);
 int iio_backend_read_raw(struct iio_backend *back,
 			 struct iio_chan_spec const *chan, int *val, int *val2,
 			 long mask);
