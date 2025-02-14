@@ -288,7 +288,7 @@ static int devm_mw_stream_configure_buffer(struct iio_dev *indio_dev, enum iio_b
 	int ret;
 
 	ret = devm_iio_dmaengine_buffer_setup_ext(indio_dev->dev.parent, indio_dev,
-						  mwchan->dmaname, direction, NULL, NULL);
+						  mwchan->dmaname, direction);
 	if (ret) {
 		if (ret == -EPROBE_DEFER)
 			dev_info(&indio_dev->dev, "Deferring probe for DMA engine driver load\n");
