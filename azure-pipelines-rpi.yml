@@ -103,7 +103,7 @@ stages:
         displayName: 'Download rsa key'
         inputs:
           secureFile: 'id_rsa'
-      - bash: ./ci/travis/prepare_artifacts.sh swdownloads
+      - bash: ./ci/travis/prepare_artifacts_rpi.sh swdownloads
         env:
           DEST_SERVER: $(SERVER_ADDRESS)
         displayName: "Push to SWDownloads"
@@ -121,7 +121,7 @@ stages:
       - task: DownloadPipelineArtifact@2
         inputs:
           path: $(Build.SourcesDirectory)/bin
-      - bash: ./ci/travis/prepare_artifacts.sh artifactory
+      - bash: ./ci/travis/prepare_artifacts_rpi.sh artifactory
         env:
           ARTIFACTORY_PATH: $(PATH)
           ARTIFACTORY_TOKEN: $(TOKEN)
