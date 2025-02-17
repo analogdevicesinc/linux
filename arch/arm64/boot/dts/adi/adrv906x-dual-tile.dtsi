@@ -9,6 +9,15 @@
 	aliases {	
 		/* Virtual UART: A55 to M4  on secondary */
 		serial7 = &sec_v_uart1_1;
+		i2c8 = &sec_i2c0;
+		i2c9 = &sec_i2c1;
+		i2c10 = &sec_i2c2; 
+		i2c11 = &sec_i2c3;
+		i2c12 = &sec_i2c4;
+		i2c13 = &sec_i2c5;
+		i2c14 = &sec_i2c6;
+		i2c15 = &sec_i2c7;
+
 	};
 	
 	sec_v_uart1_1: v_uart@SEC_VIRTUAL_PL011_1_1_BASE_UADDR {
@@ -74,6 +83,130 @@
 						  "tx_status_dma_done", "tx_status_dma_error",
 						  "rx_dma_done", "rx_dma_error";
 		interrupt-ctrl = <&sec_ndma1_interrupt_ctrl>;
+	};
+
+	sec_i2c0: twi@SEC_I2C_0_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_0_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_94 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c0>;
+		status = "disabled";
+	};
+
+	sec_i2c1: twi@SEC_I2C_1_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_1_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_95 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c1>;
+		status = "disabled";
+	};
+
+	sec_i2c2: twi@SEC_I2C_2_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_2_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_96 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c2>;
+		status = "disabled";
+	};
+
+	sec_i2c3: twi@SEC_I2C_3_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_3_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_97 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c3>;
+		status = "disabled";
+	};
+
+	sec_i2c4: twi@SEC_I2C_4_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_4_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_98 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c4>;
+		status = "disabled";
+	};
+
+	sec_i2c5: twi@SEC_I2C_5_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_5_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_99 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c5>;
+		status = "disabled";
+	};
+
+	sec_i2c6: twi@SEC_I2C_6_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_6_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_100 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c6>;
+		status = "disabled";
+	};
+
+	sec_i2c7: twi@SEC_I2C_7_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_7_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_101 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c7>;
+		status = "disabled";
+	};
+
+	sec_dac0: dac@SEC_PWM_BASE_UADDR {
+		compatible = "adi,pwm-dac";
+		reg = <SEC_PWM_BASE 0x100>;
+		clocks = <&hsdigclk>;
+		adi,iovdd-microvolt = <1800000>;
+		adi,gpio-max-frequency = <122880000>;
+		status = "disabled";
+	};
+
+	sec_gpio0: gpio@SEC_GPIO_NS_BASE_UADDR {
+		compatible = "adi,adrv906x-gpio";
+		reg = <SEC_GPIO_NS_BASE 0x1000>;
+		pintmux = <SEC_PINTMUX_BASE>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <ADI_ADRV906X_PIN_COUNT>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
 	};
 };
 
