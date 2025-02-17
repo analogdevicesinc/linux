@@ -726,7 +726,6 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (!st->sys_clk_rate)
 		return dev_err_probe(dev, -EINVAL, "Failed to get SYS clock rate\n");
 
-	st->sys_clk_rate = clk_round_rate(clk, 100000000);
 	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(st->regulators),
 				      st->regulators);
 	if (ret)
