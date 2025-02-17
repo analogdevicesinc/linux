@@ -368,7 +368,7 @@ static int _ad4134_set_odr(struct ad4134_state *st, unsigned int odr)
 	state_trigger.duty_cycle = ref_clk_period_ps;
 	state_trigger.period = DIV_ROUND_CLOSEST_ULL(PICO, odr);
 	state_trigger.time_unit = PWM_UNIT_PSEC;
-	state_trigger.phase = state_odr.duty_cycle - DIV_ROUND_CLOSEST_ULL(PICO * 10,
+	state_trigger.phase = state_odr.duty_cycle - DIV_ROUND_CLOSEST_ULL(PICO * 12,
 									   st->sys_clk_rate);
 	ret = pwm_apply_state(st->trigger_pwm, &state_trigger);
 	if (ret)
