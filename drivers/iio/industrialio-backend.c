@@ -796,6 +796,54 @@ int iio_backend_data_transfer_addr(struct iio_backend *back, u32 address)
 }
 EXPORT_SYMBOL_NS_GPL(iio_backend_data_transfer_addr, "IIO_BACKEND");
 
+/**
+ * iio_backend_set_num_lanes - Set number of active lanes.
+ * @back: Backend device
+ * @address: Number of active lanes
+ *
+ * Some devices support multiple lanes configurations, so, they need to inform
+ * the backend about the number of active lanes.
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_set_num_lanes(struct iio_backend *back, unsigned int num_lanes)
+{
+	return iio_backend_op_call(back, set_num_lanes, num_lanes);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_set_num_lanes, "IIO_BACKEND");
+
+/**
+ * iio_backend_crc_enable - Enable the CRC generation.
+ * @back: Backend device
+ *
+ * Enable the CRC generation.
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_crc_enable(struct iio_backend *back)
+{
+	return iio_backend_op_call(back, crc_enable);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_crc_enable, "IIO_BACKEND");
+
+/**
+ * iio_backend_crc_disable - Disable the CRC generation.
+ * @back: Backend device
+ * @address: Number of active lanes
+ *
+ * Disable the CRC generation. 
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_crc_disable(struct iio_backend *back)
+{
+	return iio_backend_op_call(back, crc_disable);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_crc_disable, "IIO_BACKEND");
+
 static struct iio_backend *__devm_iio_backend_fwnode_get(struct device *dev, const char *name,
 							 struct fwnode_handle *fwnode)
 {
