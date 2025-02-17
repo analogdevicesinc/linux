@@ -3653,6 +3653,7 @@ adi_ad9081_jesd_rx_phy_prbs_test(adi_ad9081_device_t *device,
 	int32_t err;
 	uint32_t i;
 	uint8_t tmp_reg;
+	uint8_t link_en;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
 
@@ -3674,6 +3675,25 @@ adi_ad9081_jesd_rx_phy_prbs_test(adi_ad9081_device_t *device,
 		return API_CMS_ERROR_INVALID_PARAM;
 	}
 
+	err = adi_ad9081_hal_bf_get(
+		device, REG_GENERAL_JRX_CTRL_ADDR, BF_LINK_EN_INFO,
+		&link_en, 1);
+	AD9081_ERROR_RETURN(err);
+
+	if (!link_en) {
+		err = adi_ad9081_hal_log_write(
+			device, ADI_CMS_LOG_ERR,
+			"jesd_rx_phy_prbs_test(): link not enabled\n");
+		AD9081_ERROR_RETURN(err);
+
+		return API_CMS_ERROR_ERROR;
+	}
+
+	err = adi_ad9081_hal_bf_set(
+		device, REG_GENERAL_JRX_CTRL_ADDR, BF_LINK_EN_INFO,
+		0); /* LINK_EN use 2bits for link0 & link1 */
+	AD9081_ERROR_RETURN(err);
+
 	/* select phy prbs test source and mode */
 	err = adi_ad9081_hal_bf_set(
 		device, REG_JRX_TEST_2_ADDR, BF_JRX_PRBS_SOURCE_INFO,
@@ -3684,11 +3704,23 @@ adi_ad9081_jesd_rx_phy_prbs_test(adi_ad9081_device_t *device,
 				    tmp_reg); /* not paged */
 	AD9081_ERROR_RETURN(err);
 
+	err = adi_ad9081_hal_bf_set(
+		device, REG_GENERAL_JRX_CTRL_ADDR, BF_LINK_EN_INFO,
+		link_en); /* LINK_EN use 2bits for link0 & link1 */
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_hal_delay_us(device, 1);
+	AD9081_ERROR_RETURN(err);
+
 	/* clear prbs error count */
 	err = adi_ad9081_hal_bf_set(device, REG_JRX_TEST_0_ADDR,
 				    BF_JRX_PRBS_LANE_CLEAR_ERRORS_INFO,
 				    1); /* not paged */
 	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_hal_delay_us(device, 500000); /* 500 ms */
+	AD9081_ERROR_RETURN(err);
+
 	err = adi_ad9081_hal_bf_set(device, REG_JRX_TEST_0_ADDR,
 				    BF_JRX_PRBS_LANE_CLEAR_ERRORS_INFO,
 				    0); /* not paged */

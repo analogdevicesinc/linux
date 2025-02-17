@@ -3078,6 +3078,9 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 	return 0;
 }
 
+
+
+
 static void ad9081_work_func(struct work_struct *work)
 {
 	u8 status;
@@ -3612,10 +3615,14 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 			val2 = 1; /* 1 second */
 
 		if (val == 0)
-			adi_ad9081_jesd_rx_phy_prbs_test_disable_set(&phy->ad9081);
+			ret = adi_ad9081_jesd_rx_phy_prbs_test_disable_set(&phy->ad9081);
 		else
-			adi_ad9081_jesd_rx_phy_prbs_test(&phy->ad9081,
+			ret = adi_ad9081_jesd_rx_phy_prbs_test(&phy->ad9081,
 				ad9081_val_to_prbs(val), val2);
+
+		if (ret)
+			return ret;
+
 		entry->val = val;
 
 		return count;
