@@ -17,7 +17,54 @@
 		bootargs = "console=ttyAMA0,115200n8 earlycon=pl011,0x20060000 rootwait uio_pdrv_genirq.of_id=generic-uio panic=-1 reboot=w";
 		stdout-path = &uart0;
 	};
+	
+	leds: gpio-leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_phy_leds>;
+		ds1 {
+			gpios = <&gpio0 ADI_ADRV906X_PIN_74 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+		ds3 {
+			gpios = <&gpio0 ADI_ADRV906X_PIN_75 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+		ethernet-phy0-ds5 {
+			gpios = <&gpio0 ADI_ADRV906X_PIN_76 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "2b300000.adrv906x_net--1:00:link";
+		};
+		ethernet-phy1-ds7 {
+			gpios = <&gpio0 ADI_ADRV906X_PIN_77 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "2b300000.adrv906x_net--1:01:link";
+		};
+	};
 
+	sec_leds: gpio-secondary-leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_leds>;
+		ds2 {
+			gpios = <&sec_gpio0 ADI_ADRV906X_PIN_74 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+		ds4 {
+			gpios = <&sec_gpio0 ADI_ADRV906X_PIN_75 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+		ethernet-phy2-ds6 {
+			gpios = <&sec_gpio0 ADI_ADRV906X_PIN_76 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "2f300000.adrv906x_net--1:02:link";
+		};
+		ethernet-phy3-ds8 {
+			gpios = <&sec_gpio0 ADI_ADRV906X_PIN_77 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "2f300000.adrv906x_net--1:03:link";
+		};
+	};
 };
 
 /* Remove CTSIN and RTSOUT. CTSIN conflicts with GPIO 51 below */
@@ -185,10 +232,24 @@
 	};
 };
 
+&sec_i2c1 {
+	status = "disabled";
+};
+
+&sec_i2c5 {
+	status = "disabled";
+};
+
 &dac0 {
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm13>;
+};
+
+&sec_dac0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_secondary_pwm13>;
 };
 
 &pinctrl_secondary_eth_recov_clk {
@@ -199,6 +260,17 @@
 
 &pinctrl_phy_leds {
 	adi,pins = <
+	A55_GPIO_NS_74_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_75_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_76_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_77_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	>;
+};
+
+&pinctrl_secondary_leds {
+	adi,pins = <
+	A55_GPIO_NS_74_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_75_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	A55_GPIO_NS_76_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	A55_GPIO_NS_77_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	>;
@@ -243,12 +315,8 @@
 	GPIO_DEBUG_6_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	GPIO_DEBUG_7_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 
-	/* Pins 74-77: Board LEDs */
-	A55_GPIO_NS_74_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
-	A55_GPIO_NS_75_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
-
 	/* Pins 42-44,46,51: CPU trace
-	 * Enable if needed.
+	 * Enable if needed. 
 	 * Conflicts with board pushbutton above (pin 51).
 	 * Conflicts with SPI_MASTER0_SELB1 above (pin 42).
 	 *
