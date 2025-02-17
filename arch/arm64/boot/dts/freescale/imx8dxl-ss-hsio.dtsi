@@ -25,11 +25,11 @@
 		      <0x5f140000 0x10000>,
 		      <0x5f160000 0x10000>;
 		reg-names = "reg", "phy", "ctrl", "misc";
-		clocks = <&phyx1_lpcg IMX_LPCG_CLK_0>,
-			 <&phyx1_lpcg IMX_LPCG_CLK_4>,
-			 <&phyx1_crr1_lpcg IMX_LPCG_CLK_4>,
-			 <&pcieb_crr3_lpcg IMX_LPCG_CLK_4>,
-			 <&misc_crr5_lpcg IMX_LPCG_CLK_4>;
+		clocks = <&phyx1_lpcg 0>,
+			 <&phyx1_lpcg 1>,
+			 <&phyx1_crr1_lpcg 0>,
+			 <&pcieb_crr3_lpcg 0>,
+			 <&misc_crr5_lpcg 0>;
 		clock-names = "pclk0", "apb_pclk0", "phy0_crr", "ctl0_crr",
 			      "misc_crr";
 		power-domains = <&pd IMX_SC_R_SERDES_1>;
@@ -39,7 +39,6 @@
 };
 
 &pcieb {
-	compatible = "fsl,imx8dxl-pcie", "fsl,imx8qxp-pcie", "snps,dw-pcie";
 	interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
 				 <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
 	interrupt-names = "msi", "dma";
