@@ -223,13 +223,13 @@ int __adis_update_bits_base(struct adis *adis, unsigned int reg, const u32 mask,
 	int ret;
 	u32 __val;
 
-	ret = __adis_read_reg(adis, reg, &__val, size);
+	ret = adis->ops->read(adis, reg, &__val, size);
 	if (ret)
 		return ret;
 
 	__val = (__val & ~mask) | (val & mask);
 
-	return __adis_write_reg(adis, reg, __val, size);
+	return adis->ops->write(adis, reg, __val, size);
 }
 EXPORT_SYMBOL_NS_GPL(__adis_update_bits_base, IIO_ADISLIB);
 
@@ -468,7 +468,7 @@ int adis_single_conversion(struct iio_dev *indio_dev,
 
 	mutex_lock(&adis->state_lock);
 
-	ret = __adis_read_reg(adis, chan->address, &uval,
+	ret = adis->ops->read(adis, chan->address, &uval,
 			      chan->scan_type.storagebits / 8);
 	if (ret)
 		goto err_unlock;
@@ -490,6 +490,11 @@ err_unlock:
 	return ret;
 }
 EXPORT_SYMBOL_NS_GPL(adis_single_conversion, IIO_ADISLIB);
+
+static const struct adis_ops adis_default_ops = {
+	.read = __adis_read_reg,
+	.write = __adis_write_reg,
+};
 
 /**
  * adis_init() - Initialize adis device structure
@@ -520,6 +525,11 @@ int adis_init(struct adis *adis, struct iio_dev *indio_dev,
 
 	adis->spi = spi;
 	adis->data = data;
+	if (!adis->ops->write && !adis->ops->read)
+		adis->ops = &adis_default_ops;
+	else if (!adis->ops->write || !adis->ops->read)
+		return -EINVAL;
+
 	iio_device_set_drvdata(indio_dev, adis);
 
 	if (data->has_paging) {
