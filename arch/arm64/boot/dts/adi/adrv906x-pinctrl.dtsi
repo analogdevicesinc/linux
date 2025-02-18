@@ -11,6 +11,9 @@
 	pinctrl-0 = <&pinctrl_hog>;
 
 	pinctrl_eth_recov_clk: eth-recov-clk-grp {
+		adi,pins = <
+		ETHERNET_RECOVERED_CLK_PIN (ADI_CONFIG_NO_PULL | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
 	};
 
 	pinctrl_phy_leds: phy-leds-grp {
