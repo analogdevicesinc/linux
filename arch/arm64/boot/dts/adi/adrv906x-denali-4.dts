@@ -163,7 +163,7 @@
 		smbus-timeout-disable;
 		extended-range-enable;
 		resistance-cancellation;
-		alert-mask = <0x7f>; 		/* Ignore all alerts */
+		alert-mask = <0x7f>;		/* Ignore all alerts */
 		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
 	};
 	temp-sensor@4d {
@@ -209,12 +209,6 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm13>;
-};
-
-&pinctrl_eth_recov_clk {
-	adi,pins = <
-	ETHERNET_RECOVERED_CLK_PIN (ADI_CONFIG_NO_PULL | ADI_CONFIG_DRIVE_STRENGTH_4)
-	>;
 };
 
 &pinctrl_phy_leds {
