@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/adi,max42500.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX42500 Industrial Power System Monitor
+
+maintainers:
+  - Kent Libetario <Kent.Libetario@analog.com>
+
+description: |
+  Analog Devices MAX42500 Industrial Power System Monitor Family
+  https://www.analog.com/media/en/technical-documentation/data-sheets/max42500.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,max42500
+  reg:
+    maxItems: 1
+
+  gpios:
+    maximum: 2
+
+required:
+  - compatible
+  - reg
+  - gpios
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    i2c {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      hwmon@28 {
+        compatible = "adi,max42500";
+        reg = <0x28>;
+        gpios = <&gpio 0 0>, <&gpio 1 0>;
+      };
+    };
