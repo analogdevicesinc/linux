@@ -206,7 +206,7 @@
 		smbus-timeout-disable;
 		extended-range-enable;
 		resistance-cancellation;
-		alert-mask = <0x7f>; 		/* Ignore all alerts */
+		alert-mask = <0x7f>;		/* Ignore all alerts */
 		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
 	};
 	temp-sensor@4d {

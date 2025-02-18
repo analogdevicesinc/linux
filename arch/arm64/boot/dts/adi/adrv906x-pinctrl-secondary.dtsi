@@ -11,6 +11,9 @@
 	pinctrl-0 = <&pinctrl_secondary_hog>;
 
 	pinctrl_secondary_eth_recov_clk: secondary-eth-recov-clk-grp {
+		adi,pins = <
+		ETHERNET_RECOVERED_CLK_PIN (ADI_CONFIG_NO_PULL | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
 	};
 
 	pinctrl_secondary_leds: secondary-leds-grp {
@@ -78,6 +81,12 @@
 	pinctrl_secondary_pwm13: sec_pwm13-grp {
 		adi,pins = <
 		PWM_13_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_one_pps: secondary-one-pps-grp {
+		adi,pins = <
+		ONE_PPS_CLK_OUTPUT_SE_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 		>;
 	};
 };

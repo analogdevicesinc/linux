@@ -12,15 +12,15 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_eth_recov_clk>;
+		pinctrl-0 = <&pinctrl_secondary_eth_recov_clk>;
 
 		ethernet-ports {
 			#address-cells = <1>;
 			#size-cells = <1>;
 			port@0 {
 				id = <0>;
-				reg = <SEC_EMAC_MAC_0_BASE 0x14>, <SEC_EMAC_MAC_0_TX 0x70>, <SEC_EMAC_MAC_0_RX 0x9c>,
-					<SEC_EMAC_PCS_0_TSU 0x44>;
+				reg = <SEC_EMAC_MAC_0_BASE 0x14>, <SEC_EMAC_MAC_0_TX 0x70>,
+					  <SEC_EMAC_MAC_0_RX 0x9c>, <SEC_EMAC_PCS_0_TSU 0x44>;
 				phy-handle = <&sec_adrv906x_phy0>;
 				ndma-handle = <&sec_ndma0>;
 				clocks = <&hsdigclk>;
@@ -32,8 +32,8 @@
 			};
 			port@1 {
 				id = <1>;
-				reg = <SEC_EMAC_MAC_1_BASE 0x14>, <SEC_EMAC_MAC_1_TX 0x70>, <SEC_EMAC_MAC_1_RX 0x9c>,
-					<SEC_EMAC_PCS_1_TSU 0x44>;
+				reg = <SEC_EMAC_MAC_1_BASE 0x14>, <SEC_EMAC_MAC_1_TX 0x70>,
+					  <SEC_EMAC_MAC_1_RX 0x9c>, <SEC_EMAC_PCS_1_TSU 0x44>;
 				phy-handle = <&sec_adrv906x_phy1>;
 				ndma-handle = <&sec_ndma1>;
 				clocks = <&hsdigclk>;
@@ -46,7 +46,8 @@
 		};
 
 		oran_if {
-			reg = <SEC_OIF_0_RX_CTRL 0x4>, <SEC_OIF_0_TX_CTRL 0x4>, <SEC_OIF_1_RX_CTRL 0x4>, <SEC_OIF_1_TX_CTRL 0x4>;
+			reg = <SEC_OIF_0_RX_CTRL 0x4>, <SEC_OIF_0_TX_CTRL 0x4>,
+				  <SEC_OIF_1_RX_CTRL 0x4>, <SEC_OIF_1_TX_CTRL 0x4>;
 		};
 
 		mdio_if {
@@ -65,7 +66,7 @@
 			};
 		};
 
-		eth_recov_clk {					
+		eth_recov_clk {
 			reg = <SEC_EMAC_RECOVERED_CLK_CTRL 0x4>;
 		};
 	};
