@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4052
+ *
+ * hdl_project: <ad4052_ardz/coraz7s>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+
+/dts-v1/;
+#include "zynq-coraz7s.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&fpga_axi {
+	axi_iic: i2c@41600000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		reg = <0x41600000 0x10000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		clock-names = "s_axi_aclk";
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		eeprom1: eeprom@52 {
+			compatible = "atmel,24c32";
+			reg = <0x52>;
+		};
+
+	};
+
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	spi_clk: axi-clkgen@44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "spi_clk";
+	};
+
+	adc_trigger: pwm@44b00000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x44b00000 0x1000>;
+		label = "ad4052_cnv";
+		#pwm-cells = <2>;
+		clocks = <&spi_clk>;
+	};
+
+	axi_spi_engine: spi@44a00000 {
+		compatible = "adi-ex,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1FF>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ad4052: ad4052@0 {
+			compatible = "adi,ad4052";
+			reg = <0>;
+			spi-max-frequency = <62500000>;
+			clocks = <&spi_clk>;
+			clock-names = "ref_clk";
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			pwm-names = "cnv";
+			pwms = <&adc_trigger 0 0>;
+			cnv-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+			gp1-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+			gp0-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
+		};
+	};
+};
