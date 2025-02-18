@@ -3,62 +3,45 @@
  * Analog Devices AD4696
  *
  * hdl_project: <ad469x_fmc/zed>
+ * https://analogdevicesinc.github.io/hdl/projects/ad469x_evb/
+ * https://www.analog.com/en/resources/evaluation-hardware-and-software/evaluation-boards-kits/eval-ad4696.html
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad4695
  *
- * Copyright (C) 2024 Analog Devices Inc.
+ * Copyright (C) 2025 Analog Devices Inc.
  */
 /dts-v1/;
 
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/iio/adi,ad4695.h>
+#include <dt-bindings/iio/adc/adi,ad4695.h>
 
 #include "zynq-zed.dtsi"
 #include "zynq-zed-adv7511.dtsi"
 
 / {
-	refin: regulator-refin {
+	eval_u3: regulator-eval-u3 {
 		compatible = "regulator-fixed";
-		regulator-name = "refin";
+		regulator-name = "ADR4550 5.0V REFERENCE (U3)";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
 
-	avdd: regulator-avdd {
+	eval_u5: regulator-eval-u5 {
 		compatible = "regulator-fixed";
-		regulator-name = "avdd";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
+		regulator-name = "12V/5V,-3.3V/-2.5V DUAL-LDO (U5)";
 		regulator-always-on;
 	};
 
-	ldo_in: regulator-ldo-in {
+	eval_u6: regulator-eval-u6 {
 		compatible = "regulator-fixed";
-		regulator-name = "ldo-in";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
+		regulator-name = "5V/1.8V LDO (U6)";
 		regulator-always-on;
 	};
 
-	vio: regulator-vio {
+	eval_a8: regulator-eval-a8 {
 		compatible = "regulator-fixed";
-		regulator-name = "vio";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		regulator-always-on;
-	};
-
-	com: regulator-com {
-		compatible = "regulator-fixed";
-		regulator-name = "com";
-		regulator-min-microvolt = <2500000>;
-		regulator-max-microvolt = <2500000>;
-		regulator-always-on;
-	};
-
-	in3: regulator-in3 {
-		compatible = "regulator-fixed";
-		regulator-name = "in3";
+		regulator-name = "VREF/2 DIVIDER CIRCUIT (A8)";
 		regulator-min-microvolt = <2500000>;
 		regulator-max-microvolt = <2500000>;
 		regulator-always-on;
@@ -75,9 +58,9 @@
 	};
 
 	adc_trigger: pwm@44b00000 {
-		compatible = "adi,axi-pwmgen";
+		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x1000>;
-		#pwm-cells = <2>;
+		#pwm-cells = <3>;
 		clocks = <&spi_clk>;
 	};
 
@@ -91,13 +74,17 @@
 	};
 
 	axi_spi_engine: spi@44a00000 {
-		compatible = "adi-ex,axi-spi-engine-1.00.a";
-		reg = <0x44a00000 0x1FF>;
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>, <&spi_clk>;
 		clock-names = "s_axi_aclk", "spi_clk";
-		num-cs = <1>;
+
+		dmas = <&rx_dma 0>;
+		dma-names = "offload0-rx";
+		trigger-sources = <&ad4696 AD4695_TRIGGER_EVENT_BUSY
+					   AD4695_TRIGGER_PIN_GP0>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -105,16 +92,26 @@
 		ad4696: adc@0 {
 			compatible = "adi,ad4696";
 			reg = <0>;
+
 			spi-cpol;
 			spi-cpha;
-			spi-max-frequency = <5000000>;
-			avdd-supply = <&avdd>;
-			ldo-in-supply = <&ldo_in>;
-			vio-supply = <&vio>;
-			refin-supply = <&refin>;
-			com-supply = <&com>;
-			in3-supply = <&in3>;
+			spi-max-frequency = <80000000>;
+
+			avdd-supply = <&eval_u5>;
+			/* JP7 in default position A. */
+			ldo-in-supply = <&eval_u5>;
+			/* JP8 in default position A. */
+			vio-supply = <&eval_u6>;
+			/* JP11 in default position B. */
+			ref-supply = <&eval_u3>;
+			/* Uncomment this line if JP6 is changed from default. */
+			// com-supply = <&eval_a8>;
+
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+			cnv-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+			pwms = <&adc_trigger 0 10000 0>;
+
+			#trigger-source-cells = <2>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -128,13 +125,6 @@
 			channel@1 {
 				reg = <1>;
 				common-mode-channel = <AD4695_COMMON_MODE_COM>;
-				bipolar;
-			};
-
-			/* Pseudo-differential channel between IN2 and IN3. */
-			channel@2 {
-				reg = <2>;
-				common-mode-channel = <3>;
 				bipolar;
 			};
 		};
