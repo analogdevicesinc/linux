@@ -78,12 +78,102 @@
 		>;
 	};
 
+	pinctrl_secondary_pwm0: sec_pwm0-grp {
+		adi,pins = <
+		PWM_0_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm1: sec_pwm1-grp {
+		adi,pins = <
+		PWM_1_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm2: sec_pwm2-grp {
+		adi,pins = <
+		PWM_2_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm3: sec_pwm3-grp {
+		adi,pins = <
+		PWM_3_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm4: sec_pwm4-grp {
+		adi,pins = <
+		PWM_4_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm5: sec_pwm5-grp {
+		adi,pins = <
+		PWM_5_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm6: sec_pwm6-grp {
+		adi,pins = <
+		PWM_6_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm7: sec_pwm7-grp {
+		adi,pins = <
+		PWM_7_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm8: sec_pwm8-grp {
+		adi,pins = <
+		PWM_8_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm9: sec_pwm9-grp {
+		adi,pins = <
+		PWM_9_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm10: sec_pwm10-grp {
+		adi,pins = <
+		PWM_10_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm11: sec_pwm11-grp {
+		adi,pins = <
+		PWM_11_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm12: sec_pwm12-grp {
+		adi,pins = <
+		PWM_12_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
 	pinctrl_secondary_pwm13: sec_pwm13-grp {
 		adi,pins = <
 		PWM_13_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 		>;
 	};
 
+	pinctrl_secondary_pwm14: sec_pwm14-grp {
+		adi,pins = <
+		PWM_14_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+
+	pinctrl_secondary_pwm15: sec_pwm15-grp {
+		adi,pins = <
+		PWM_15_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
+	
 	pinctrl_secondary_one_pps: secondary-one-pps-grp {
 		adi,pins = <
 		ONE_PPS_CLK_OUTPUT_SE_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
