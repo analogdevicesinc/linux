@@ -112,7 +112,7 @@ static const char * const ad7134_filter_enum[] = {
 	.scan_type = {								\
 		.sign = 's',							\
 		.realbits = (_realbits),					\
-		.storagebits = (_storebits),					\
+		.storagebits = 32,						\
 		.shift = ((_storebits) - (_realbits))				\
 	},									\
 	.ext_info = _ext_info,							\
