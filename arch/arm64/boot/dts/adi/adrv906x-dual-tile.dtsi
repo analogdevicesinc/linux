@@ -9,6 +9,8 @@
 	aliases {
 		/* Virtual UART: A55 to M4  on secondary */
 		serial7 = &sec_v_uart1_1;
+
+		/* I2C buses */
 		i2c8 = &sec_i2c0;
 		i2c9 = &sec_i2c1;
 		i2c10 = &sec_i2c2;
