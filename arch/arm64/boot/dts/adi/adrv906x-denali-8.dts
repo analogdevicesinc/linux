@@ -86,6 +86,18 @@
 		compatible = "generic-uio";
 		reg = <SEC_EMAC_TOD_BASE 0xff>;
 	};
+
+	uio-ndma@NDMA_0_RX_BASE_UADDR {
+		compatible = "generic-uio";
+		reg = <NDMA_0_RX_BASE 0x9C0 NDMA_0_TX_BASE 0x14
+			   NDMA_1_RX_BASE 0x9C0 NDMA_1_TX_BASE 0x14>;
+	};
+
+	uio-ndma-sec@SEC_NDMA_0_RX_BASE_UADDR {
+		compatible = "generic-uio";
+		reg = <SEC_NDMA_0_RX_BASE 0x9C0 SEC_NDMA_0_TX_BASE 0x14
+			   SEC_NDMA_1_RX_BASE 0x9C0 SEC_NDMA_1_TX_BASE 0x14>;
+	};
 };
 
 /* Remove CTSIN and RTSOUT. CTSIN conflicts with GPIO 51 below */
@@ -161,12 +173,7 @@
 
 &emac0 {
 	status = "okay";
-	/* Default to RGMII. For RMII uncomment the next lines:
-	phy-mode = "rmii";
-	pinctrl-0 = <&pinctrl_emac0_rmii>; */
-
 	phy-handle = <&phy0>;
-
 	mdio0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -352,6 +359,15 @@
 
 &pinctrl_secondary_hog {
 	adi,pins = <
+	/* Pins 7-13: RFFE signals */
+	RFFE_0_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_1_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_2_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_3_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_4_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_5_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_6_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
 	/* Pins 22-23: Stream processor fault handling */
 	A55_GPIO_NS_22_PIN	(ADI_CONFIG_ENABLE_PULLDOWN | ADI_CONFIG_DRIVE_STRENGTH_4)
 	A55_GPIO_NS_23_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
