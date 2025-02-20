@@ -934,6 +934,11 @@ int gpiochip_add_data_with_key(struct gpio_chip *gc, void *data,
 	    (gc->set_multiple && gc->set_multiple_rv))
 		return -EINVAL;
 
+	/* Only allow one set() and one set_multiple(). */
+	if ((gc->set && gc->set_rv) ||
+	    (gc->set_multiple && gc->set_multiple_rv))
+		return -EINVAL;
+
 	/*
 	 * First: allocate and populate the internal stat container, and
 	 * set up the struct device.
