@@ -108,6 +108,8 @@ struct iio_backend_ops {
 			       enum iio_backend_data_source data);
 	int (*set_sample_rate)(struct iio_backend *back, unsigned int chan,
 			       u64 sample_rate_hz);
+	int (*set_dec_rate)(struct iio_backend *back, unsigned int chan,
+			    unsigned int dec_rate);
 	int (*test_pattern_set)(struct iio_backend *back,
 				unsigned int chan,
 				enum iio_backend_test_pattern pattern);
@@ -164,6 +166,8 @@ int iio_backend_data_source_set(struct iio_backend *back, unsigned int chan,
 				enum iio_backend_data_source data);
 int iio_backend_set_sampling_freq(struct iio_backend *back, unsigned int chan,
 				  u64 sample_rate_hz);
+int iio_backend_set_decimation_rate(struct iio_backend *back, unsigned int chan,
+				    unsigned int dec_rate);
 int iio_backend_test_pattern_set(struct iio_backend *back,
 				 unsigned int chan,
 				 enum iio_backend_test_pattern pattern);

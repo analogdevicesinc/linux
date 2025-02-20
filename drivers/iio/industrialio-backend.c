@@ -395,6 +395,22 @@ int iio_backend_set_sampling_freq(struct iio_backend *back, unsigned int chan,
 EXPORT_SYMBOL_NS_GPL(iio_backend_set_sampling_freq, "IIO_BACKEND");
 
 /**
+ * iio_backend_set_decimation_rate - Set channel decimation rate
+ * @back: Backend device
+ * @chan: Channel number
+ * @dec_rate: Decimation rate
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_set_decimation_rate(struct iio_backend *back, unsigned int chan,
+				    unsigned int dec_rate)
+{
+	return iio_backend_op_call(back, set_dec_rate, chan, dec_rate);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_set_decimation_rate, "IIO_BACKEND");
+
+/**
  * iio_backend_test_pattern_set - Configure a test pattern
  * @back: Backend device
  * @chan: Channel number
