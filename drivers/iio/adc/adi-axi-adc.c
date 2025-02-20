@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
+#include <linux/rational.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 
@@ -33,6 +34,9 @@
  *   https://wiki.analog.com/resources/fpga/docs/axi_adc_ip#register_map
  */
 
+/* Base controls */
+#define AXI_ADC_CONFIG_REG			0x0c
+#define   AXI_ADC_CONFIG_USERPORTS_DISABLE	BIT(6)
 /* ADC controls */
 
 #define ADI_AXI_REG_RSTN			0x0040
@@ -69,6 +73,10 @@
 
 #define ADI_AXI_ADC_REG_CHAN_CTRL_3(c)		(0x0418 + (c) * 0x40)
 #define   ADI_AXI_ADC_CHAN_PN_SEL_MASK		GENMASK(19, 16)
+
+#define ADI_AXI_ADC_REG_CHAN_USR_CTRL_2(c)	(0x0424 + (c) * 0x40)
+#define   ADI_AXI_ADC_CHAN_USR_DEC_M_MASK	GENMASK(31, 16)
+#define   ADI_AXI_ADC_CHAN_USR_DEC_N_MASK	GENMASK(15, 0)
 
 /* IO Delays */
 #define ADI_AXI_ADC_REG_DELAY(l)		(0x0800 + (l) * 0x4)
@@ -444,6 +452,35 @@ static int axi_adc_create_platform_device(struct adi_axi_adc_state *st,
 	return 0;
 }
 
+static int axi_adc_set_dec_rate(struct iio_backend *back, unsigned int chan,
+				unsigned int dec_rate)
+{
+	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
+	unsigned int reg_config, regval;
+	unsigned long m, n;
+	int ret;
+
+	if (!dec_rate)
+		return -EINVAL;
+
+	guard(mutex)(&st->lock);
+
+	ret = regmap_read(st->regmap, AXI_ADC_CONFIG_REG, &reg_config);
+	if (ret)
+		return ret;
+
+	/* dec_rate is not applicable if USEPORTS is disabled */
+	if (reg_config & AXI_ADC_CONFIG_USERPORTS_DISABLE)
+		return 0;
+
+	rational_best_approximation(dec_rate, 1, U16_MAX, U16_MAX, &m, &n);
+	regval = FIELD_PREP(ADI_AXI_ADC_CHAN_USR_DEC_M_MASK, m);
+	regval |= FIELD_PREP(ADI_AXI_ADC_CHAN_USR_DEC_N_MASK, n);
+
+	return regmap_write(st->regmap, ADI_AXI_ADC_REG_CHAN_USR_CTRL_2(chan),
+			    regval);
+}
+
 static const struct iio_backend_ops adi_axi_adc_ops = {
 	.enable = axi_adc_enable,
 	.disable = axi_adc_disable,
@@ -456,6 +493,7 @@ static const struct iio_backend_ops adi_axi_adc_ops = {
 	.iodelay_set = axi_adc_iodelays_set,
 	.test_pattern_set = axi_adc_test_pattern_set,
 	.chan_status = axi_adc_chan_status,
+	.set_dec_rate = axi_adc_set_dec_rate,
 	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_adc_reg_access),
 	.debugfs_print_chan_status = iio_backend_debugfs_ptr(axi_adc_debugfs_print_chan_status),
 };
