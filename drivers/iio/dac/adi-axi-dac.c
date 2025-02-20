@@ -162,14 +162,13 @@ static struct iio_buffer *axi_dac_request_buffer(struct iio_backend *back,
 		dma_name = "tx";
 
 	return iio_dmaengine_buffer_setup_ext(st->dev, indio_dev, dma_name,
-					      IIO_BUFFER_DIRECTION_OUT, NULL,
-					      NULL);
+					      IIO_BUFFER_DIRECTION_OUT);
 }
 
 static void axi_dac_free_buffer(struct iio_backend *back,
 				struct iio_buffer *buffer)
 {
-	iio_dmaengine_buffer_free(buffer);
+	iio_dmaengine_buffer_teardown(buffer);
 }
 
 enum {
