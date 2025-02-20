@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2025 Analog Devices Inc. */
+
+/dts-v1/;
+
+#include "zynq-zed.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+        fpga_axi@0 {
+                compatible = "simple-bus";
+                #address-cells = <0x1>;
+                #size-cells = <0x1>;
+                ranges;
+
+                iio_backend: axi_adc@44a00000 {
+                        compatible = "adi,axi-adc-10.0.a";
+                        reg = <0x44a00000 0x10000>;
+                        dmas = <&ad_mc_adc_dma 0>;
+                        dma-names = "rx";
+                        clocks = <&axi_clk_gen>;
+                };
+
+                ad_mc_adc_dma: dma@44a30000 {
+                        compatible = "adi,axi-dmac-1.00.a";
+                        reg = <0x44a30000 0x1000>;
+                        #dma-cells = <1>;
+                        interrupt-parent = <&intc>;
+                        interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+                        clocks = <&clkc 15>;
+                };
+
+                axi_clk_gen: axi-clkgen@44a40000 {
+                        compatible = "adi,axi-clkgen-2.00.a";
+                        reg = <0x44a40000 0x10000>;
+                        #clock-cells = <0>;
+                        clocks = <&clkc 15>, <&clkc 15>;
+                        clock-names = "s_axi_aclk", "clkin1";
+                        clock-output-names = "axi_clk_gen";
+
+                        assigned-clocks = <&axi_clk_gen>;
+                        assigned-clock-rates = <20000000>;
+                };
+        };
+
+        ad7405 {
+                compatible = "adi,ad7405";
+                clocks = <&axi_clk_gen>;
+                io-backends = <&iio_backend>;
+        };
+};
