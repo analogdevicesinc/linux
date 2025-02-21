@@ -1,0 +1,78 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+=============
+AD4052 driver
+=============
+
+ADC driver for Analog Devices Inc. AD4052 and similar devices. The module name
+is ``ad4052``.
+
+Supported devices
+=================
+
+The following chips are supported by this driver:
+
+* `AD4050 <https://www.analog.com/AD4050>`_
+* `AD4052 <https://www.analog.com/AD4052>`_
+* `AD4056 <https://www.analog.com/AD4056>`_
+* `AD4058 <https://www.analog.com/AD4058>`_
+
+Wiring modes
+============
+
+The ADC uses SPI 4-wire mode, and contain two programmable GPIOs and a CNV pin.
+
+The CNV pin is exposed as the ``cnv-gpios`` and triggers an ADC conversion. GP1
+is ADC conversion ready signal.
+
+Omit ``cnv-gpios`` and tie CNV and CS together to use the rising edge of the CS
+as the CNV signal.
+
+The two programmable GPIOS are optional and have a role assigned if present in
+the devicetree ``interrupt-names`` property:
+
+- GP1: Is assigned the role of Data Ready signal.
+
+Device attributes
+=================
+
+The ADC contains only one channel with following attributes:
+
+.. list-table:: Channel attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``in_voltage_calibscale``
+     - Sets the gain scaling factor that the hardware applies to the sample,
+       to compensate for system gain error.
+   * - ``in_voltage_oversampling_ratio``
+     - Sets device's burst averaging mode to over sample using the
+       internal sample rate. Value 1 disable the burst averaging mode.
+   * - ``in_voltage_oversampling_ratio_available``
+     - List of available oversampling values.
+   * - ``in_voltage_raw``
+     - Returns the raw ADC voltage value.
+   * - ``in_voltage_scale``
+     - Returns the channel scale in reference to the reference voltage
+       ``ref-supply`` or ``vdd-supply`` if the former not present.
+   * - ``in_voltage_sampling_frequency``
+     - Sets the internal sample rate (fosc) used in burst averaging mode.
+       The scan duration is ``(n_avg - 1) / fosc + tconv``, where
+       ``n_avg`` is the oversampling ratio and ``tconv`` is the ADC
+       conversion time.
+   * - ``in_voltage_sampling_frequency_available``
+     - Lists the available sampling frequencies. If the oversampling
+       ratio is 1, the frequency is ``1/tconv``.
+
+Interrupts
+==========
+
+The ``interrupt-names`` ``gp1`` entry sets the role of Data Ready signal. If it
+is not, the driver will not wait for the data ready assertion, and will result
+in reading a sample before it's ready, particularly in oversampling mode.
+
+Low-power mode
+==============
+
+The device enters low-power mode on idle to save power.
