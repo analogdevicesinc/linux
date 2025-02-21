@@ -84,6 +84,16 @@
 			clocks = <&clk_bus_0>;
 		};
 
+		axi_data_offload_tx: axi-data-offload-0@7c460000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x7c460000 0x10000>;
+		};
+
+		axi_data_offload_rx: axi-data-offload-1@7c450000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x7c450000 0x10000>;
+		};
+
 		axi_ad9081_core_rx: axi-ad9081-rx-3@44a10000 {
 			compatible = "adi,axi-ad9081-rx-1.0";
 			reg = <0x44a10000 0x8000>;
@@ -107,6 +117,7 @@
 
 			plddrbypass-gpios = <&axi_gpio 61 0>;
 			adi,axi-pl-fifo-enable;
+			adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 
 			jesd204-device;
 			#jesd204-cells = <2>;
