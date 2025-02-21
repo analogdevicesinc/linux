@@ -317,7 +317,6 @@
 		clocks = <&cgc2 IMX8ULP_CLK_DSI_PHY_REF>;
 		clock-names = "xclk";
 		powerdown-gpios = <&pca6416_1 8 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&pca6416_1 7 GPIO_ACTIVE_LOW>;
 		status = "okay";
 
 		port {
