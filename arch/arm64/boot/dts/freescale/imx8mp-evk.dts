@@ -573,7 +573,6 @@
 		assigned-clock-parents = <&clk IMX8MP_CLK_24M>;
 		assigned-clock-rates = <24000000>;
 		powerdown-gpios = <&gpio2 11 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
 		status = "okay";
 
 		port {
