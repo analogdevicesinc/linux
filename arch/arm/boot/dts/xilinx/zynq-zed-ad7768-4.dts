@@ -84,8 +84,27 @@
 		reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 		clocks = <&ad7768_mclk>;
 		clock-names = "mclk";
-		adi,data-lines = <4>;
+		adi,data-lines-number = <4>;
 
 		io-backends = <&iio_backend>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@0 {
+			reg = <0>;
+		};
+
+		channel@1 {
+			reg = <1>;
+		};
+
+		channel@2 {
+			reg = <2>;
+		};
+
+		channel@3 {
+			reg = <3>;
+		};
 	};
 };

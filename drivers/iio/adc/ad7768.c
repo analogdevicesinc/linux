@@ -8,15 +8,12 @@
 #include <linux/delay.h>
 #include <linux/iio/backend.h>
 #include <linux/iio/iio.h>
-#include <linux/pwm.h>
-#include <linux/regmap.h>
-#include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
-#include <linux/units.h>
 #include <linux/clk.h>
 #include <linux/gpio/driver.h>
 
 /* AD7768 registers definition */
+#define AD7768_CH_STANDBY			0x00
 #define AD7768_CH_MODE				0x01
 #define AD7768_POWER_MODE			0x04
 #define AD7768_DATA_CONTROL			0x06
@@ -112,6 +109,8 @@ struct ad7768_state {
 	struct ad7768_avail_freq avail_freq[AD7768_NUM_POWER_MODES];
 	__be16 d16;
 	struct iio_backend *back;
+
+	unsigned int num_en_channels;
 };
 
 enum ad7768_device_ids {
@@ -394,47 +393,16 @@ static int ad7768_update_scan_mode(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
-};
-
-#define AD7768_CHAN(index)						\
-	{								\
-		.type = IIO_VOLTAGE,					\
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
-		.address = index,					\
-		.indexed = 1,						\
-		.channel = index,					\
-		.scan_index = index,					\
-		.ext_info = ad7768_ext_info,				\
-		.scan_type = {						\
-			.sign = 's',					\
-			.realbits = 24,					\
-			.storagebits = 32,				\
-		},							\
-	}
-
 static const struct ad7768_chip_info ad7768_chip_info = {
 	.id = ID_AD7768,
 	.name = "ad7768",
 	.num_channels = 8,
-	.channel[0] = AD7768_CHAN(0),
-	.channel[1] = AD7768_CHAN(1),
-	.channel[2] = AD7768_CHAN(2),
-	.channel[3] = AD7768_CHAN(3),
-	.channel[4] = AD7768_CHAN(4),
-	.channel[5] = AD7768_CHAN(5),
-	.channel[6] = AD7768_CHAN(6),
-	.channel[7] = AD7768_CHAN(7),
 };
 
 static const struct ad7768_chip_info ad7768_4_chip_info = {
 	.id = ID_AD7768_4,
 	.name = "ad7768-4",
 	.num_channels = 4,
-	.channel[0] = AD7768_CHAN(0),
-	.channel[1] = AD7768_CHAN(1),
-	.channel[2] = AD7768_CHAN(2),
-	.channel[3] = AD7768_CHAN(3),
 };
 
 static const struct iio_info ad7768_info = {
@@ -443,39 +411,6 @@ static const struct iio_info ad7768_info = {
 	.write_raw = ad7768_write_raw,
 	.update_scan_mode = ad7768_update_scan_mode,
 };
-
-static int ad7768_datalines_from_dt(struct ad7768_state *st)
-{
-	const unsigned int *available_datalines;
-	unsigned int i, len;
-	int ret;
-
-	st->datalines = 1;
-	ret = device_property_read_u32(&st->spi->dev, "adi,data-lines",
-				       &st->datalines);
-	if (ret < 0)
-		return (ret != -EINVAL) ? ret : 0;
-
-	switch (st->chip_info->id) {
-	case ID_AD7768:
-		available_datalines = ad7768_available_datalines;
-		len = ARRAY_SIZE(ad7768_available_datalines);
-		break;
-	case ID_AD7768_4:
-		available_datalines = ad7768_4_available_datalines;
-		len = ARRAY_SIZE(ad7768_4_available_datalines);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	for (i = 0; i < len; i++) {
-		if (available_datalines[i] == st->datalines)
-			return 0;
-	}
-
-	return -EINVAL;
-}
 
 static void ad7768_set_available_sampl_freq(struct ad7768_state *st)
 {
@@ -610,6 +545,94 @@ static int ad7768_gpio_setup(struct ad7768_state *st)
 	return devm_gpiochip_add_data(&st->spi->dev, &st->gpiochip, st);
 }
 
+static const struct iio_chan_spec ad7768_channel_template = {
+	.type = IIO_VOLTAGE,
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.indexed = 1,
+	.scan_type = {
+		.sign = 's',
+		.realbits = 24,
+		.storagebits = 32,
+	},
+};
+
+static int ad7768_parse_config(struct iio_dev *indio_dev,
+			       struct device *dev)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	const unsigned int *available_datalines;
+	struct iio_chan_spec *chan;
+	unsigned int channel;
+	unsigned int i, len;
+	int chan_idx = 0;
+	int ret;
+
+	st->num_en_channels = device_get_child_node_count(dev);
+
+	if (st->num_en_channels > st->chip_info->num_channels)
+		return dev_err_probe(dev, -EINVAL, "Too many channels defined\n");
+
+	chan = devm_kcalloc(indio_dev->dev.parent, st->num_en_channels,
+			    sizeof(*chan), GFP_KERNEL);
+	if (!chan)
+		return -ENOMEM;
+
+	indio_dev->channels = chan;
+	indio_dev->num_channels = st->num_en_channels;
+
+	ret = ad7768_spi_reg_write(st, AD7768_CH_STANDBY, 0xFF);
+	if (ret < 0)
+		return ret;
+
+	device_for_each_child_node_scoped(dev, child) {
+		ret = fwnode_property_read_u32(child, "reg", &channel);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "Failed to parse reg property of %pfwP\n", child);
+
+		ret = ad7768_spi_write_mask(st,
+					    AD7768_CH_STANDBY,
+					    BIT(channel),
+					    0);
+		if (ret < 0)
+			return ret;
+
+		chan[chan_idx] = ad7768_channel_template;
+		chan[chan_idx].address = chan_idx;
+		chan[chan_idx].channel = channel;
+		chan[chan_idx].scan_index = chan_idx;
+		chan_idx++;
+	}
+
+	st->datalines = 1;
+	ret = device_property_read_u32(&st->spi->dev, "adi,data-lines-number",
+				       &st->datalines);
+	if (ret) {
+		dev_err(&st->spi->dev, "Missing \"data-lines-number\" property\n");
+		return ret;
+	}
+
+	switch (st->chip_info->id) {
+	case ID_AD7768:
+		available_datalines = ad7768_available_datalines;
+		len = ARRAY_SIZE(ad7768_available_datalines);
+		break;
+	case ID_AD7768_4:
+		available_datalines = ad7768_4_available_datalines;
+		len = ARRAY_SIZE(ad7768_4_available_datalines);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	for (i = 0; i < len; i++) {
+		if (available_datalines[i] == st->datalines)
+			return 0;
+	}
+
+	return -EINVAL;
+}
+
 static int ad7768_probe(struct spi_device *spi)
 {
 	struct gpio_desc *gpio_reset;
@@ -646,7 +669,7 @@ static int ad7768_probe(struct spi_device *spi)
 		fsleep(1660);
 	}
 
-	ret = ad7768_datalines_from_dt(st);
+	ret = ad7768_parse_config(indio_dev, &spi->dev);
 	if (ret < 0)
 		return ret;
 
@@ -656,9 +679,9 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	ret =  ad7768_spi_write_mask(st, AD7768_INTERFACE_CFG,
-				     AD7768_INTERFACE_CFG_CRC_SELECT_MSK,
-				     AD7768_INTERFACE_CFG_CRC_SELECT);
+	ret = ad7768_spi_write_mask(st, AD7768_INTERFACE_CFG,
+				    AD7768_INTERFACE_CFG_CRC_SELECT_MSK,
+				    AD7768_INTERFACE_CFG_CRC_SELECT);
 	if (ret < 0)
 		return ret;
 
@@ -667,8 +690,6 @@ static int ad7768_probe(struct spi_device *spi)
 		return ret;
 
 	indio_dev->name = st->chip_info->name;
-	indio_dev->channels = st->chip_info->channel;
-	indio_dev->num_channels = st->chip_info->num_channels;
 	indio_dev->info = &ad7768_info;
 
 	st->back = devm_iio_backend_get(&spi->dev, NULL);
