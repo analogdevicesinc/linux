@@ -1214,7 +1214,7 @@ static int imx219_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 
 	fd->entry[1].pixelcode = ed_code;
 	fd->entry[1].stream = IMX219_STREAM_EDATA;
-	fd->entry[1].bus.csi2.vc = imx219->vc_id;
+	fd->entry[1].bus.csi2.vc = 0;
 	fd->entry[1].bus.csi2.dt = MIPI_CSI2_DT_EMBEDDED_8B;
 
 	return 0;
