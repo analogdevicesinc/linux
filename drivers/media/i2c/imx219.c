@@ -38,6 +38,8 @@
 #define IMX219_MODE_STANDBY		0x00
 #define IMX219_MODE_STREAMING		0x01
 
+#define IMX219_REG_CSI_CH_ID		CCI_REG8(0x0110)
+
 #define IMX219_REG_CSI_LANE_MODE	CCI_REG8(0x0114)
 #define IMX219_CSI_2_LANE_MODE		0x01
 #define IMX219_CSI_4_LANE_MODE		0x03
@@ -373,6 +375,9 @@ struct imx219 {
 
 	/* Two or Four lanes */
 	u8 lanes;
+
+	/* Virtual channel ID */
+	u8 vc_id;
 };
 
 static inline struct imx219 *to_imx219(struct v4l2_subdev *_sd)
@@ -754,6 +759,19 @@ static int imx219_configure_lanes(struct imx219 *imx219)
 				  imx219->lanes == 2 ? ARRAY_SIZE(imx219_2lane_regs) :
 				  ARRAY_SIZE(imx219_4lane_regs), NULL);
 };
+
+static int imx219_configure_vc(struct imx219 *imx219, u8 vc_id)
+{
+	int ret;
+
+	ret = cci_write(imx219->regmap, IMX219_REG_CSI_CH_ID, vc_id, NULL);
+	if (ret)
+		return ret;
+
+	imx219->vc_id = vc_id;
+
+	return 0;
+}
 
 static int imx219_start_streaming(struct imx219 *imx219,
 				  struct v4l2_subdev_state *state)
@@ -1189,6 +1207,7 @@ static int imx219_init_state(struct v4l2_subdev *sd,
 static int imx219_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 				 struct v4l2_mbus_frame_desc *fd)
 {
+	struct imx219 *imx219 = to_imx219(sd);
 	struct v4l2_subdev_state *state;
 	u32 ed_code;
 	u32 code;
@@ -1208,16 +1227,33 @@ static int imx219_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 
 	fd->entry[0].pixelcode = code;
 	fd->entry[0].stream = 0;
-	fd->entry[0].bus.csi2.vc = 0;
+	fd->entry[0].bus.csi2.vc = imx219->vc_id;
 	fd->entry[0].bus.csi2.dt = imx219_get_format_bpp(code) == 8
 				 ? MIPI_CSI2_DT_RAW8 : MIPI_CSI2_DT_RAW10;
 
 	fd->entry[1].pixelcode = ed_code;
 	fd->entry[1].stream = IMX219_STREAM_EDATA;
-	fd->entry[1].bus.csi2.vc = 0;
+	fd->entry[1].bus.csi2.vc = imx219->vc_id;
 	fd->entry[1].bus.csi2.dt = MIPI_CSI2_DT_EMBEDDED_8B;
 
 	return 0;
+}
+
+static int imx219_set_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				 struct v4l2_mbus_frame_desc *fd)
+{
+	struct imx219 *imx219 = to_imx219(sd);
+	u8 vc_id;
+
+	if (fd->num_entries != 2)
+		return -EINVAL;
+
+	if (fd->entry[0].bus.csi2.vc != fd->entry[1].bus.csi2.vc)
+		return -EINVAL;
+
+	vc_id = fd->entry[0].bus.csi2.vc;
+
+	return imx219_configure_vc(imx219, vc_id);
 }
 
 static int imx219_enable_streams(struct v4l2_subdev *sd,
@@ -1247,6 +1283,7 @@ static const struct v4l2_subdev_pad_ops imx219_pad_ops = {
 	.get_selection = imx219_get_selection,
 	.enum_frame_size = imx219_enum_frame_size,
 	.get_frame_desc = imx219_get_frame_desc,
+	.set_frame_desc = imx219_set_frame_desc,
 	.enable_streams = imx219_enable_streams,
 	.disable_streams = imx219_disable_streams,
 };
