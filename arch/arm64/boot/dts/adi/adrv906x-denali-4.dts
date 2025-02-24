@@ -37,13 +37,21 @@
 	leds: gpio-leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_phy_leds>;
-		ethernet-phy0 {
+		pinctrl-0 = <&pinctrl_leds>;
+		ds1 {
+			gpios = <&gpio0 ADI_ADRV906X_PIN_74 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+		ds3 {
+			gpios = <&gpio0 ADI_ADRV906X_PIN_75 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+		ethernet-phy0-ds5 {
 			gpios = <&gpio0 ADI_ADRV906X_PIN_76 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 			linux,default-trigger = "2b300000.adrv906x_net--1:00:link";
 		};
-		ethernet-phy1 {
+		ethernet-phy1-ds7 {
 			gpios = <&gpio0 ADI_ADRV906X_PIN_77 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 			linux,default-trigger = "2b300000.adrv906x_net--1:01:link";
@@ -211,8 +219,10 @@
 	pinctrl-0 = <&pinctrl_pwm13>;
 };
 
-&pinctrl_phy_leds {
+&pinctrl_leds {
 	adi,pins = <
+	A55_GPIO_NS_74_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_75_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	A55_GPIO_NS_76_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	A55_GPIO_NS_77_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	>;
@@ -256,10 +266,6 @@
 	GPIO_DEBUG_5_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	GPIO_DEBUG_6_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	GPIO_DEBUG_7_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
-
-	/* Pins 74-77: Board LEDs */
-	A55_GPIO_NS_74_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
-	A55_GPIO_NS_75_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 
 	/* Pins 42-44,46,51: CPU trace
 	 * Enable if needed.

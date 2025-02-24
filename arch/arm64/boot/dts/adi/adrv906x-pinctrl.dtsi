@@ -16,7 +16,7 @@
 		>;
 	};
 
-	pinctrl_phy_leds: phy-leds-grp {
+	pinctrl_leds: leds-grp {
 	};
 
 	pinctrl_hog: hog-grp {
