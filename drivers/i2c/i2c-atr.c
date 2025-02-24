@@ -337,11 +337,15 @@ err_release_alias:
 static struct i2c_atr_alias_pair *
 i2c_atr_get_mapping_by_addr(struct i2c_atr_chan *chan, u16 addr)
 {
+	struct i2c_atr *atr = chan->atr;
 	struct i2c_atr_alias_pair *c2a;
 
 	c2a = i2c_atr_find_mapping_by_addr(chan, addr);
 	if (c2a)
 		return c2a;
+
+	if (atr->flags & I2C_ATR_F_STATIC)
+		return NULL;
 
 	c2a = i2c_atr_create_mapping_by_addr(chan, addr);
 	if (c2a)
@@ -541,7 +545,7 @@ static int i2c_atr_attach_addr(struct i2c_adapter *adapter,
 	mutex_lock(&chan->alias_pairs_lock);
 
 	c2a = i2c_atr_create_mapping_by_addr(chan, addr);
-	if (!c2a)
+	if (!c2a && !(atr->flags & I2C_ATR_F_STATIC))
 		c2a = i2c_atr_replace_mapping_by_addr(chan, addr);
 
 	if (!c2a) {
