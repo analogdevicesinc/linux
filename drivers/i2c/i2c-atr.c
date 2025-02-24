@@ -538,8 +538,6 @@ static void i2c_atr_detach_addr(struct i2c_adapter *adapter,
 		return;
 	}
 
-	mutex_unlock(&chan->alias_pairs_lock);
-
 	i2c_atr_release_alias(chan->alias_pool, c2a->alias);
 
 	dev_dbg(atr->dev,
@@ -547,6 +545,8 @@ static void i2c_atr_detach_addr(struct i2c_adapter *adapter,
 		chan->chan_id, c2a->alias, addr);
 
 	i2c_atr_destroy_c2a(&c2a);
+
+	mutex_unlock(&chan->alias_pairs_lock);
 }
 
 static int i2c_atr_bus_notifier_call(struct notifier_block *nb,
