@@ -34,10 +34,14 @@
 		regulator-always-on;
 	};
 
+	trigger_pwm: adc-trigger-pwm {
+		compatible = "pwm-trigger";
+		#trigger-source-cells = <0>;
+		pwms = <&dac_trigger 0 10000 0>;
+	};
 };
 
 &fpga_axi {
-
 	dac_trigger: pwm@0x00050000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x00050000 0x1000>;
@@ -74,34 +78,30 @@
 	};
 
 	spi@0x00040000 {
-		compatible = "adi-ex,axi-spi-engine-1.00.a";
+		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x00040000 0x00010000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&sys_clk>, <&spi_clk 0>;
 		clock-names = "s_axi_aclk", "spi_clk";
+
+		dmas = <&tx_dma 0>;
+		dma-names = "offload0-tx";
+		trigger-sources = <&trigger_pwm>;
+
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
-		ad57xx_1: dac@0 {
+		dac@0 {
 			compatible = "adi,ad5791";
-			spi-cpha;
 			reg = <0>;
+			spi-cpha;
 			spi-max-frequency = <35000000>;
 			vss-supply = <&dac_vss>;
 			vdd-supply = <&dac_vdd>;
 			reset-gpios = <&gpio_bd 16 GPIO_ACTIVE_LOW>;
 			clear-gpios = <&gpio_bd 17 GPIO_ACTIVE_LOW>;
 			ldac-gpios = <&gpio_bd 18 GPIO_ACTIVE_LOW>;
-
-			clocks = <&spi_clk 0>;
-			clock-names = "ref_clk";
-
-			dmas = <&tx_dma 0>;
-			dma-names = "tx";
-			pwms = <&dac_trigger 0 1000 0>;
-			pwm-names = "cnv";
-
 		};
 	};
 };
