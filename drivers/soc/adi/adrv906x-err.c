@@ -14,7 +14,7 @@
  *
  * U-boot: /arch/arm/mach-adrv906x/adrv906x_status_reg.c
  * TF-A: /plat/adi/adrv/adrv906x/adrv906x_status_reg.c
- * OP-TEE os: /core/drivers/adi/adrv906x/adi_adrv906x_status_reg.c
+ * OP-TEE os: /core/drivers/adi/adrv906x/adrv906x_status_reg.c
  */
 #define RESET_CAUSE_NS_OFFSET              0
 
@@ -24,10 +24,11 @@
  *
  * U-boot: /arch/arm/mach-adrv906x/include/plat_status_reg.h
  * TF-A: /plat/adi/adrv/common/include/plat_status_reg.h
- * OP-TEE os: /core/include/drivers/adi/adrv906x/adi_adrv906x_status_reg.h
+ * OP-TEE os: /core/drivers/adi/adrv906x/adrv906x_status_reg.c
  */
 enum reset_cause_t {
-	RESET_VALUE,
+	COLD_BOOT,
+	WARM_RESET,
 	IMG_VERIFY_FAIL,
 	WATCHDOG_RESET,
 	CACHE_ECC_ERROR,
