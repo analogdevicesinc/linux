@@ -207,7 +207,7 @@ EXPORT_SYMBOL_GPL(iio_device_id);
  *
  * Returns: True, if the buffer is enabled.
  */
-bool iio_buffer_enabled(struct iio_dev *indio_dev)
+bool iio_buffer_enabled(const struct iio_dev *indio_dev)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 
