@@ -1206,8 +1206,8 @@ static int cfe_start_streaming(struct vb2_queue *vq, unsigned int count)
 	cfg_reg_write(cfe, MIPICFG_INTE,
 		      MIPICFG_INT_CSI_DMA | MIPICFG_INT_PISP_FE);
 
-	ret = v4l2_subdev_call(cfe->source_sd, pad, get_mbus_config, 0,
-			       &mbus_config);
+	ret = v4l2_subdev_call(cfe->source_sd, pad, get_mbus_config,
+			       cfe->source_pad, &mbus_config);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		cfe_err(cfe, "g_mbus_config failed\n");
 		goto err_clear_inte;
