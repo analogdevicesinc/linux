@@ -180,6 +180,10 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	else
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 2);
 
+	pr_err("ceva: clk_en_time = %lu", clk_en_time);
+	pr_err("ceva: resolution = %d", ltc->device_info->resolution);
+	pr_err("ceva: NSEC_PER_SEC = %lu", NSEC_PER_SEC);
+
 	clk_en_state = (struct pwm_state) {
 		.period = cnv_state.period,
 		.duty_cycle = ref_clk_period_ns * clk_en_time,
@@ -187,7 +191,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 		.enabled = true,
 	};
 
-	pr_err("ceva: clk gate period = %lu, duty = %lu, phase = %d", clk_en_state.period, clk_en_state.duty_cycle, clk_en_state.phase);
+	pr_err("ceva: clk gate period = %lu, duty = %lu, phase = %d firstclkns = %lu", clk_en_state.period, clk_en_state.duty_cycle, clk_en_state.phase, LTC2387_T_FIRSTCLK_NS);
 
 	ret = pwm_apply_state(ltc->clk_en, &clk_en_state);
 	if (ret < 0) {
