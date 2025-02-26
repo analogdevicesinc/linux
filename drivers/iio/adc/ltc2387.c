@@ -299,10 +299,13 @@ static const struct of_device_id ltc2387_of_match[] = {
 		.compatible = "ltc2387-18-x4",
 		.data = &ltc2387_infos[ID_LTC2387_18_X4]
 	}, {
-		.compatible = "adaq2387-16",
+		.compatible = "adaq23875",
 		.data = &ltc2387_infos[ID_LTC2387_16]
 	}, {
-		.compatible = "adaq2387-18",
+		.compatible = "adaq23876",
+		.data = &ltc2387_infos[ID_LTC2387_16]
+	}, {
+		.compatible = "adaq23878",
 		.data = &ltc2387_infos[ID_LTC2387_18]
 	},
 	{}
