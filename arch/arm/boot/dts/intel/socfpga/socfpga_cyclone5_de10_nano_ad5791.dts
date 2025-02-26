@@ -41,14 +41,14 @@
 };
 
 &fpga_axi {
-	dac_trigger: pwm@0x00050000 {
+	dac_trigger: pwm@50000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x00050000 0x1000>;
 		#pwm-cells = <3>;
 		clocks = <&spi_clk 0>;
 	};
 
-	tx_dma: tx-dma@0x00030000 {
+	tx_dma: tx-dma@30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x00030000 0x00000800>;
 		#dma-cells = <1>;
@@ -57,7 +57,7 @@
 		clocks = <&spi_clk 0>;
 	};
 
-	spi_clk: clock-controller@0x00060000 {
+	spi_clk: clock-controller@60000 {
 		compatible = "altr,c5-fpll";
 		reg = <0x00060000 0x00000100>;
 		#clock-cells = <0x1>;
@@ -76,7 +76,7 @@
 		};
 	};
 
-	spi@0x00040000 {
+	spi@40000 {
 		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x00040000 0x00010000>;
 		interrupt-parent = <&intc>;
