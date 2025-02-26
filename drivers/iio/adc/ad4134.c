@@ -935,7 +935,12 @@ static int ad4134_probe(struct spi_device *spi)
 	 */
 	st->buf_read_xfer.rx_buf = (void *)-1;
 	st->buf_read_xfer.len = 1;
-	st->buf_read_xfer.bits_per_word = indio_dev->channels->scan_type.storagebits;
+	/*
+	 * TODO implement multiple scan_type structs so storagebits and
+	 * bits_per_word can be set differently for DMA and non-DMA able cases?
+	 */
+	st->buf_read_xfer.bits_per_word = indio_dev->channels->scan_type.realbits +
+					  indio_dev->channels->scan_type.shift;
 	spi_message_init_with_transfers(&st->buf_read_msg,
 					&st->buf_read_xfer, 1);
 
