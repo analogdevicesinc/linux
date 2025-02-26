@@ -146,8 +146,6 @@ struct ltc2387_dev {
 	struct pwm_device *clk_en;
 	struct regulator *vref;
 	struct pwm_device *cnv;
-	struct pwm_waveform clk_gate_wf;
-	struct pwm_waveform cnv_wf;
 	struct clk *ref_clk;
 
 	unsigned int vref_mv;
@@ -157,58 +155,24 @@ struct ltc2387_dev {
 static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 {
 	unsigned long long ref_clk_period_ns;
-	struct pwm_waveform clk_gate_wf = { }, cnv_wf = { };
+	struct pwm_state clk_en_state, cnv_state;
 	int ret, clk_en_time;
-	u32 rem;
 
 	ref_clk_period_ns = DIV_ROUND_UP(NSEC_PER_SEC, ltc->ref_clk_rate);
-
-	cnv_wf.duty_length_ns = ref_clk_period_ns;
-
-	/*
-	 * The goal here is that the PWM is configured with a minimal period not
-	 * less than 1 / freq (with freq measured in Hz).
-	 *
-	 * When a period P (measured in ns) is passed to pwm_apply_state(), the
-	 * actually implemented period is:
-	 *
-	 *      round_down(P * R / NSEC_PER_SEC) / R
-	 *
-	 * (measured in s) with R = ltc->ref_clk_rate. So we have:
-	 *
-	 *        round_down(P * R / NSEC_PER_SEC) / R ≥ 1 / freq
-	 *      ⟺ round_down(P * R / NSEC_PER_SEC) ≥ R / freq
-	 *
-	 * With the LHS being integer this is equivalent to:
-	 *
-	 *        round_down(P * R / NSEC_PER_SEC) ≥ round_up(R / freq)
-	 *      ⟺ P * R / NSEC_PER_SEC ≥ round_up(R / freq)
-	 *      ⟺ P ≥ round_up(R / freq) * NSEC_PER_SEC / R
-	 */
-
-	unsigned long long a, b, c;
-	a = (u64)((DIV_ROUND_UP(ltc->ref_clk_rate, freq)) * NSEC_PER_SEC);
-	b = ltc->ref_clk_rate;
-	c = a%b;
-	cnv_wf.period_length_ns = do_div(a, b);
-	pr_err("ceva: a = %lu, b = %lu, c = %lu", a, b, c);
-
-
-	pr_err("ceva: cnv period length ns = %lu, a = %lu, b = %lu, c = %lu", cnv_wf.period_length_ns, a, b, c);
+	pr_err("ceva: ref clk period ns = %lu", ref_clk_period_ns);
 	pr_err("ceva: ltc->ref_clk_rate = %lu", ltc->ref_clk_rate);
-	pr_err("ceva: freq = %d", freq);
-	pr_err("ceva: NSEC_PER_SEC = %d", NSEC_PER_SEC);
-	//pr_err("ceva: rem = %lu", rem);
-	if (c) {
-		cnv_wf.period_length_ns += 1;
-		pr_err("ceva: (rem) cnv period length ns dupa +1 = %lu", cnv_wf.period_length_ns);
-	}
+	pr_err("ceva: freq = %lu", freq);
 
-	ret = pwm_set_waveform_might_sleep(ltc->cnv, &cnv_wf, false);
-	if (ret < 0) {
-		pr_err("ceva: pwm sleeps cnv");
+	cnv_state = (struct pwm_state) {
+		.period = DIV_ROUND_UP(NSEC_PER_SEC, freq),
+		.duty_cycle = ref_clk_period_ns,
+		.enabled = true,
+	};
+	pr_err("ceva: cnv period = %lu, duty = %lu", cnv_state.period, cnv_state.duty_cycle);
+
+	ret = pwm_apply_state(ltc->cnv, &cnv_state);
+	if (ret < 0)
 		return ret;
-	}
 
 	/* Gate the active period of the clock (see page 10-13 for both LTC's) */
 	if (ltc->lane_mode == TWO_LANES)
@@ -216,22 +180,23 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	else
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 2);
 
-	clk_gate_wf.period_length_ns = cnv_wf.period_length_ns;
-	clk_gate_wf.duty_length_ns = ref_clk_period_ns * clk_en_time;
-	clk_gate_wf.duty_offset_ns = LTC2387_T_FIRSTCLK_NS;
+	clk_en_state = (struct pwm_state) {
+		.period = cnv_state.period,
+		.duty_cycle = ref_clk_period_ns * clk_en_time,
+		.phase = LTC2387_T_FIRSTCLK_NS,
+		.enabled = true,
+	};
 
-	pr_err("ceva: clk gate period length = %lu", clk_gate_wf.period_length_ns);
-	pr_err("ceva: clk gate duty length = %lu", clk_gate_wf.duty_length_ns);
-	pr_err("ceva: clk gate duty offset ns = %lu", clk_gate_wf.duty_offset_ns);
+	pr_err("ceva: clk gate period = %lu, duty = %lu, phase = %d", clk_en_state.period, clk_en_state.duty_cycle, clk_en_state.phase);
 
-	ret = pwm_set_waveform_might_sleep(ltc->clk_en, &clk_gate_wf, false);
+	ret = pwm_apply_state(ltc->clk_en, &clk_en_state);
 	if (ret < 0) {
-		pr_err("ceva: pwm sleeps clk gate, ret = %d", ret);
+		pr_err("ceva: nu merge pwm apply state: %d", ret);
 		return ret;
 	}
 
 	ltc->sampling_freq = freq;
-	pr_err("ceva: freq %d", freq);
+	pr_err("ceva; sampling freq: %lu", ltc->sampling_freq);
 
 	return 0;
 }
@@ -413,8 +378,9 @@ static int ltc2387_probe(struct platform_device *pdev)
 	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->info = &ltc2387_info;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
-	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
-					      indio_dev, "rx");
+	ret = devm_iio_dmaengine_buffer_setup_ext(indio_dev->dev.parent,
+					      indio_dev, "rx",
+					      IIO_BUFFER_DIRECTION_IN);
 	if (ret)
 		return ret;
 
