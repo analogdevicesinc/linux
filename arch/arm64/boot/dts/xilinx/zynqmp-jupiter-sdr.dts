@@ -17,6 +17,7 @@
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x84A40000 0x10000>;
 		#dma-cells = <1>;
+		dma-coherent;
 		interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&zynqmp_clk 71>;
 	};
@@ -25,6 +26,7 @@
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x84A60000 0x10000>;
 		#dma-cells = <1>;
+		dma-coherent;
 		interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&zynqmp_clk 71>;
 	};

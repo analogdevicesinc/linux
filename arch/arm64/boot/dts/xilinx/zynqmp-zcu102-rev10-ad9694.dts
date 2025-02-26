@@ -63,6 +63,7 @@
 
 		rx_dma: rx-dmac@9c400000 {
 			#dma-cells = <1>;
+			dma-coherent;
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c400000 0x1000>;
 			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
