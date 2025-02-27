@@ -23,6 +23,7 @@
 #include <linux/pwm.h>
 #include <linux/regulator/consumer.h>
 #include <linux/mod_devicetable.h>
+#include <linux/math64.h>
 
 #define LTC2387_VREF		4096
 #define LTC2387_T_CNVH		8
@@ -185,14 +186,29 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	 *      ⟺ P ≥ round_up(R / freq) * NSEC_PER_SEC / R
 	 */
 
-	cnv_wf.period_length_ns = div_u64_rem((u64)DIV_ROUND_UP(ltc->ref_clk_rate, freq) * NSEC_PER_SEC,
-					      ltc->ref_clk_rate, &rem);
-	if (rem)
+	unsigned long long a, b, c;
+	a = (u64)((DIV_ROUND_UP(ltc->ref_clk_rate, freq)) * NSEC_PER_SEC);
+	b = ltc->ref_clk_rate;
+	c = a%b;
+	cnv_wf.period_length_ns = do_div(a, b);
+	pr_err("ceva: a = %lu, b = %lu, c = %lu", a, b, c);
+
+
+	pr_err("ceva: cnv period length ns = %lu, a = %lu, b = %lu, c = %lu", cnv_wf.period_length_ns, a, b, c);
+	pr_err("ceva: ltc->ref_clk_rate = %lu", ltc->ref_clk_rate);
+	pr_err("ceva: freq = %d", freq);
+	pr_err("ceva: NSEC_PER_SEC = %d", NSEC_PER_SEC);
+	//pr_err("ceva: rem = %lu", rem);
+	if (c) {
 		cnv_wf.period_length_ns += 1;
+		pr_err("ceva: (rem) cnv period length ns dupa +1 = %lu", cnv_wf.period_length_ns);
+	}
 
 	ret = pwm_set_waveform_might_sleep(ltc->cnv, &cnv_wf, false);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("ceva: pwm sleeps cnv");
 		return ret;
+	}
 
 	/* Gate the active period of the clock (see page 10-13 for both LTC's) */
 	if (ltc->lane_mode == TWO_LANES)
@@ -204,11 +220,18 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	clk_gate_wf.duty_length_ns = ref_clk_period_ns * clk_en_time;
 	clk_gate_wf.duty_offset_ns = LTC2387_T_FIRSTCLK_NS;
 
+	pr_err("ceva: clk gate period length = %lu", clk_gate_wf.period_length_ns);
+	pr_err("ceva: clk gate duty length = %lu", clk_gate_wf.duty_length_ns);
+	pr_err("ceva: clk gate duty offset ns = %lu", clk_gate_wf.duty_offset_ns);
+
 	ret = pwm_set_waveform_might_sleep(ltc->clk_en, &clk_gate_wf, false);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("ceva: pwm sleeps clk gate, ret = %d", ret);
 		return ret;
+	}
 
 	ltc->sampling_freq = freq;
+	pr_err("ceva: freq %d", freq);
 
 	return 0;
 }
