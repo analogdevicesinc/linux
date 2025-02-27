@@ -65,7 +65,7 @@
 	};
 
 	ltc2387@0{
-		compatible = "ltc2387-18";
+		compatible = "adaq23878";
 		clocks = <&ext_clk>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
