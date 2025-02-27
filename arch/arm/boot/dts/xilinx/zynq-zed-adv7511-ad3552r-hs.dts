@@ -108,18 +108,12 @@
 
 			channel@0 {
 				reg = <0>;
-				adi,output-range-microvolt = <(-10000000) (10000000)>;
+				adi,output-range-microvolt = <0 5000000>;
 			};
 
 			channel@1 {
 				reg = <1>;
-				custom-output-range-config {
-					adi,gain-offset = <5>;
-					adi,gain-scaling-p = <1>;
-					adi,gain-scaling-n = <2>;
-					adi,rfb-ohms = <1>;
-				};
-				/* Must read (x1): Vzs 1.22 Vfs 3.15 */
+				adi,output-range-microvolt = <0 5000000>;
 			};
 		};
 	};
