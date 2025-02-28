@@ -90,6 +90,12 @@ properties:
     description:
       Connection to the remote GMSL endpoint.
 
+  imi,no-poc:
+    type: boolean
+    description:
+      Use this to instruct the rdacm20 module that there is no actual
+      PoC (Power over Coax) configured on the de-serializer.
+
 required:
   - compatible
   - reg
