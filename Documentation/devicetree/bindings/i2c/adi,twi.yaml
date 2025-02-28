@@ -52,12 +52,17 @@ additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/gpio/gpio.h>
+    #define I2C_0_BASE          0x20760000
+    #define I2C_IRQ_S2F_PIPED_0 149
+
     i2c0: twi@I2C_0_BASE_UADDR {
         #address-cells = <1>;
         #size-cells = <0>;
         compatible = "adi,twi";
         reg = <I2C_0_BASE 0xFF>;
-        interrupts = <GIC_SPI I2C_IRQ_S2F_0 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_0 IRQ_TYPE_LEVEL_HIGH>;
         clock-khz = <100>;
         clocks = <&sysclk>;
         status = "disabled";

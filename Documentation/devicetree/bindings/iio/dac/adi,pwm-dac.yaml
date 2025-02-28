@@ -43,6 +43,7 @@ required:
 
 examples:
   - |
+    #define PWM_BASE  0x20727000
     dac@PWM_BASE_UADDR {
         compatible = "adi,pwm-dac";
         reg = <PWM_BASE 0x100>;
