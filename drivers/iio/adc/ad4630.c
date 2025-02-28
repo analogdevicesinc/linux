@@ -30,7 +30,7 @@
 #include <linux/regmap.h>
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi-engine-ex.h>
+#include <linux/spi/offload/consumer.h>
 #include <linux/util_macros.h>
 #include <linux/units.h>
 #include <linux/types.h>
@@ -199,9 +199,7 @@ struct ad4630_state {
 	const struct ad4630_chip_info *chip;
 	struct regulator_bulk_data regulators[3];
 	struct pwm_device *conv_trigger;
-	struct pwm_device *fetch_trigger;
 	struct pwm_waveform conv_wf;
-	struct pwm_waveform fetch_wf;
 	struct gpio_descs *pga_gpios;
 	struct spi_device *spi;
 	struct regmap *regmap;
@@ -216,9 +214,10 @@ struct ad4630_state {
 	/* offload sampling spi message */
 	struct spi_transfer offload_xfer;
 	struct spi_message offload_msg;
-
+	struct spi_offload *offload;
+	struct spi_offload_trigger *offload_trigger;
+	struct spi_offload_trigger_config offload_trigger_config;
 	bool test_pattern_en;
-	bool use_spi_trigger;
 	u8 bits_per_word;
 	u8 pattern_bits_per_word;
 
@@ -414,7 +413,10 @@ static int ad4630_read_avail(struct iio_dev *indio_dev,
 
 static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq)
 {
-	struct pwm_waveform conv_wf = { }, fetch_wf = { .duty_length_ns = 10 };
+	struct spi_offload_trigger_config *config = &st->offload_trigger_config;
+	struct pwm_waveform conv_wf = { };
+	u64 offload_period_ns;
+	u64 offload_offset_ns;
 	u32 mode;
 	int ret;
 	u64 target = AD4630_TCNV_HIGH_NS;
@@ -436,10 +438,7 @@ static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq
 		target += 10;
 	} while (conv_wf.duty_length_ns < 10);
 
-	if (!st->fetch_trigger)
-		goto out;
-
-	fetch_wf.period_length_ns = conv_wf.period_length_ns;
+	offload_period_ns = conv_wf.period_length_ns;
 
 	ret = regmap_read(st->regmap, AD4630_REG_MODES, &mode);
 	if (ret)
@@ -451,8 +450,11 @@ static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq
 		if (ret)
 			return ret;
 
-		fetch_wf.period_length_ns <<= FIELD_GET(AD4630_AVG_AVG_VAL, avg);
+		offload_period_ns <<= FIELD_GET(AD4630_AVG_AVG_VAL, avg);
 	}
+
+	config->periodic.frequency_hz =  DIV_ROUND_UP_ULL(NSEC_PER_SEC,
+			offload_period_ns);
 
 	/*
 	 * The hardware does the capture on zone 2 (when spi trigger PWM
@@ -463,19 +465,16 @@ static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq
 	 * The PWM waveform API only supports nanosecond resolution right now,
 	 * so round this setting to the closest available value.
 	 */
-	target = AD4630_TQUIET_CNV_DELAY_NS;
-
+	offload_offset_ns = AD4630_TQUIET_CNV_DELAY_NS;
 	do {
-		fetch_wf.duty_offset_ns = target;
-		ret = pwm_round_waveform_might_sleep(st->fetch_trigger, &fetch_wf);
+		config->periodic.offset_ns = offload_offset_ns;
+		ret = spi_offload_trigger_validate(st->offload_trigger, config);
 		if (ret)
 			return ret;
-		target += 10;
-	} while (fetch_wf.duty_offset_ns < AD4630_TQUIET_CNV_DELAY_NS);
+		offload_offset_ns += 10;
 
-	st->fetch_wf = fetch_wf;
+	} while (config->periodic.offset_ns < AD4630_TQUIET_CNV_DELAY_NS);
 
-out:
 	st->conv_wf = conv_wf;
 
 	return 0;
@@ -710,30 +709,25 @@ static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
 	if (ret)
 		goto out_error;
 
+	st->offload_msg.offload = st->offload;
 	ret = spi_optimize_message(st->spi, &st->offload_msg);
 	if (ret < 0)
 		goto out_reset_mode;
 
 	spi_bus_lock(st->spi->master);
-	spi_engine_ex_offload_load_msg(st->spi, &st->offload_msg);
-	spi_engine_ex_offload_enable(st->spi, true);
 
 	ret = pwm_set_waveform_might_sleep(st->conv_trigger, &st->conv_wf, false);
 	if (ret)
-		goto out_offload_disable;
+		goto out_unlock;
 
-	if (!st->fetch_trigger)
-		return 0;
-
-	ret = pwm_set_waveform_might_sleep(st->fetch_trigger, &st->fetch_wf, false);
+	ret = spi_offload_trigger_enable(st->offload, st->offload_trigger,
+		&st->offload_trigger_config);
 	if (ret)
-		goto out_disable_pwm;
-
+		goto out_pwm_disable;
 	return 0;
-out_disable_pwm:
+out_pwm_disable:
 	pwm_disable(st->conv_trigger);
-out_offload_disable:
-	spi_engine_ex_offload_enable(st->spi, false);
+out_unlock:
 	spi_bus_unlock(st->spi->master);
 	spi_unoptimize_message(&st->offload_msg);
 out_reset_mode:
@@ -753,10 +747,9 @@ static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
 	u32 dummy;
 	int ret;
 
-	pwm_disable(st->fetch_trigger);
 	pwm_disable(st->conv_trigger);
 
-	spi_engine_ex_offload_enable(st->spi, false);
+	spi_offload_trigger_disable(st->offload, st->offload_trigger);
 	spi_bus_unlock(st->spi->master);
 
 	spi_unoptimize_message(&st->offload_msg);
@@ -1074,11 +1067,6 @@ static const struct ad4630_chip_info ad4630_chip_info[] = {
 	}
 };
 
-static void ad4630_clk_disable(void *data)
-{
-	clk_disable_unprepare(data);
-}
-
 static void ad4630_regulator_disable(void *data)
 {
 	regulator_disable(data);
@@ -1199,24 +1187,6 @@ static int ad4630_pwm_get(struct ad4630_state *st)
 	 */
 	pwm_disable(st->conv_trigger);
 
-	/*
-	 * the trigger is optional... We can have the device BUSY pin
-	 * acting as trigger.
-	 */
-	if (!st->use_spi_trigger)
-		goto out_sampling_freq;
-
-	st->fetch_trigger = devm_pwm_get(dev, "spi_trigger");
-	if (IS_ERR(st->fetch_trigger))
-		return dev_err_probe(dev, PTR_ERR(st->fetch_trigger),
-				     "Failed to get spi engine pwm\n");
-	/*
-	 * Preemptively disable the PWM, since we only want to enable it with
-	 * the buffer
-	 */
-	pwm_disable(st->fetch_trigger);
-
-out_sampling_freq:
 	return __ad4630_set_sampling_freq(st, st->max_rate);
 }
 
@@ -1226,12 +1196,7 @@ static void ad4630_prepare_spi_sampling_msg(struct ad4630_state *st,
 {
 	const struct ad4630_out_mode *out_mode = &st->chip->modes[st->out_data];
 	int data_width = out_mode->data_width;
-	/*
-	 * Receive buffer needs to be non-zero for the SPI engine controller
-	 * to mark the transfer as a read.
-	 */
 	st->offload_xfer.speed_hz = AD4630_SPI_SAMPLING_SPEED;
-	st->offload_xfer.rx_buf = (void *)-1;
 
 	/*
 	 * In host mode, for a 16-bit data-word, the device adds an additional
@@ -1258,7 +1223,7 @@ static void ad4630_prepare_spi_sampling_msg(struct ad4630_state *st,
 
 	st->offload_xfer.bits_per_word = st->bits_per_word;
 	st->offload_xfer.len = roundup_pow_of_two(BITS_TO_BYTES(st->bits_per_word));
-
+	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
 }
 
@@ -1312,8 +1277,6 @@ static int ad4630_config(struct ad4630_state *st)
 
 		reg_modes |= FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, st->out_data);
 	}
-
-	st->use_spi_trigger = device_property_read_bool(dev, "adi,spi-trigger");
 
 	if (st->vio < 1400000) {
 		/*
@@ -1478,11 +1441,16 @@ static void ad4630_debugs_init(struct iio_dev *indio_dev)
 				   indio_dev, &ad4630_test_pattern_en_fops);
 }
 
+static const struct spi_offload_config ad4630_offload_config = {
+	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER |
+		SPI_OFFLOAD_CAP_RX_STREAM_DMA,
+};
+
 static int ad4630_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
 	struct iio_dev *indio_dev;
-	struct clk *trigger_clock;
+	struct dma_chan *rx_dma;
 	struct ad4630_state *st;
 	int ret;
 
@@ -1499,25 +1467,24 @@ static int ad4630_probe(struct spi_device *spi)
 		return dev_err_probe(dev, -ENODEV,
 				     "Could not find chip info data\n");
 
+	st->offload = devm_spi_offload_get(&spi->dev, spi, &ad4630_offload_config);
+	if (IS_ERR(st->offload))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->offload), "failed to get offload\n");
+
+	/* ad4630 could use the busy signal as trigger, this scenario was not yet tested */
+	st->offload_trigger = devm_spi_offload_trigger_get(dev,
+			st->offload, SPI_OFFLOAD_TRIGGER_PERIODIC);
+	if (IS_ERR(st->offload_trigger))
+		return dev_err_probe(dev, PTR_ERR(st->offload_trigger),
+					"failed to get offload trigger\n");
+
+	st->offload_trigger_config.type = SPI_OFFLOAD_TRIGGER_PERIODIC;
+
 	st->regmap = devm_regmap_init(&spi->dev, &ad4630_regmap_bus, st,
 				      &ad4630_regmap_config);
 	if (IS_ERR(st->regmap))
 		dev_err_probe(&spi->dev,  PTR_ERR(st->regmap),
 			      "Failed to initialize regmap\n");
-
-	trigger_clock = devm_clk_get(dev, "trigger_clock");
-	if (IS_ERR(trigger_clock))
-		return dev_err_probe(dev, PTR_ERR(trigger_clock),
-				     "Failed to get trigger clk\n");
-
-	ret = clk_prepare_enable(trigger_clock);
-	if (ret)
-		return dev_err_probe(dev, ret,
-				     "failed to enable trigger clk\n");
-
-	ret = devm_add_action_or_reset(dev, ad4630_clk_disable, trigger_clock);
-	if (ret)
-		return ret;
 
 	ret = ad4630_regulators_get(st);
 	if (ret)
@@ -1565,7 +1532,13 @@ static int ad4630_probe(struct spi_device *spi)
 	indio_dev->available_scan_masks = st->chip->available_masks;
 	indio_dev->setup_ops = &ad4630_buffer_setup_ops;
 
-	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx");
+	rx_dma = devm_spi_offload_rx_stream_request_dma_chan(dev, st->offload);
+	if (IS_ERR(rx_dma))
+		return dev_err_probe(dev, PTR_ERR(rx_dma),
+			"failed to get offload RX DMA\n");
+
+	ret = devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev,
+		rx_dma, IIO_BUFFER_DIRECTION_IN);
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to get DMA buffer\n");
