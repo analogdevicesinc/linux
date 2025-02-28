@@ -319,6 +319,7 @@ struct rdacm20_device {
 	struct media_pad		pad;
 	struct v4l2_ctrl_handler	ctrls;
 	u32				addrs[2];
+	bool				no_poc;
 };
 
 static inline struct rdacm20_device *sd_to_rdacm20(struct v4l2_subdev *sd)
@@ -514,6 +515,35 @@ static int rdacm20_initialize(struct rdacm20_device *dev)
 	if (ret)
 		return ret;
 
+	ret = max9271_verify_id(&dev->serializer);
+	if (ret < 0) {
+		/*
+		 * If the deserializer has no PoC configured, this means we have no way to
+		 * properly reset. In this case, we just look for the serializer on the
+		 * configured address and, if found, just exit this routine since we do not
+		 * want to reset the sensor.
+		 */
+		if (dev->no_poc) {
+			/*
+			 * Since we failed identifying the serializer on default address, try
+			 * looking for it on the programmed address.
+			 */
+			dev->serializer.client->addr = dev->addrs[0];
+			ret = max9271_verify_id(&dev->serializer);
+			if (!ret) {
+				dev->sensor->addr = dev->addrs[1];
+				dev_info(dev->dev, "Identified already initialized RDACM20 camera module");
+				return 0;
+			}
+		}
+		return ret;
+	}
+
+	ret = max9271_set_address(&dev->serializer, dev->addrs[0]);
+	if (ret < 0)
+		return ret;
+	dev->serializer.client->addr = dev->addrs[0];
+
 	/*
 	 * Hold OV10635 in reset during max9271 configuration. The reset signal
 	 * has to be asserted for at least 200 microseconds.
@@ -530,15 +560,6 @@ static int rdacm20_initialize(struct rdacm20_device *dev)
 	ret = max9271_configure_gmsl_link(&dev->serializer);
 	if (ret)
 		return ret;
-
-	ret = max9271_verify_id(&dev->serializer);
-	if (ret < 0)
-		return ret;
-
-	ret = max9271_set_address(&dev->serializer, dev->addrs[0]);
-	if (ret < 0)
-		return ret;
-	dev->serializer.client->addr = dev->addrs[0];
 
 	/*
 	 * Release ov10635 from reset and initialize it. The image sensor
@@ -630,6 +651,8 @@ static int rdacm20_probe(struct i2c_client *client)
 		ret = PTR_ERR(dev->sensor);
 		goto error;
 	}
+
+	dev->no_poc = of_property_read_bool(client->dev.of_node, "imi,no-poc");
 
 	/* Initialize the hardware. */
 	ret = rdacm20_initialize(dev);
