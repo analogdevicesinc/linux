@@ -19,6 +19,12 @@ struct fwnode_handle;
 struct i2c_atr;
 
 /**
+ * enum i2c_atr_flags - Flags for an I2C ATR driver
+ */
+enum i2c_atr_flags {
+};
+
+/**
  * struct i2c_atr_ops - Callbacks from ATR to the device driver.
  * @attach_addr: Notify the driver of a new device connected on a child
  *               bus, with the alias assigned to it. The driver must
@@ -65,6 +71,7 @@ struct i2c_atr_adap_desc {
  * @dev:          The device acting as an ATR
  * @ops:          Driver-specific callbacks
  * @max_adapters: Maximum number of child adapters
+ * @flags:        Flags for ATR
  *
  * The new ATR helper is connected to the parent adapter but has no child
  * adapters. Call i2c_atr_add_adapter() to add some.
@@ -74,7 +81,8 @@ struct i2c_atr_adap_desc {
  * Return: pointer to the new ATR helper object, or ERR_PTR
  */
 struct i2c_atr *i2c_atr_new(struct i2c_adapter *parent, struct device *dev,
-			    const struct i2c_atr_ops *ops, int max_adapters);
+			    const struct i2c_atr_ops *ops, int max_adapters,
+			    u32 flags);
 
 /**
  * i2c_atr_delete - Delete an I2C ATR helper.
