@@ -85,6 +85,7 @@
 				camera@51 {
 					compatible = "imi,rdacm20";
 					reg = <0x51>, <0x61>;
+					imi,no-poc;
 
 					port {
 						rdacm20_csi0_out0: endpoint {
@@ -102,6 +103,7 @@
 				camera@52 {
 					compatible = "imi,rdacm20";
 					reg = <0x52>, <0x62>;
+					imi,no-poc;
 
 					port {
 						rdacm20_csi0_out1: endpoint {
@@ -119,6 +121,7 @@
 				camera@53 {
 					compatible = "imi,rdacm20";
 					reg = <0x53>, <0x63>;
+					imi,no-poc;
 
 					port {
 						rdacm20_csi0_out2: endpoint {
@@ -136,6 +139,7 @@
 				camera@54 {
 					compatible = "imi,rdacm20";
 					reg = <0x54>, <0x64>;
+					imi,no-poc;
 
 					port {
 						rdacm20_csi0_out3: endpoint {
