@@ -35,9 +35,17 @@ properties:
                  name registered. Must fulfill netdev naming standards.
 additionalProperties: false
 
-Examples:
-
+examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/gpio/gpio.h>
+
+    #define EMAC_1G_CLK_CTRL        0x20190000
+    #define EMAC_1G_DIV_CTRL        0x201c0050
+    #define EMAC_1G_BASE            0x20720000
+    #define EMAC_1G_SBD_INTR_PIPED  298
+    #define ADI_ADRV906X_PIN_88     (88U)
+
     // Common base:
     emac0: ethernet@EMAC_1G_BASE_UADDR {
       status = "okay";
@@ -55,45 +63,29 @@ Examples:
       pinctrl-0 = <&pinctrl_emac0_rgmii>;
       mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
                                               by u-boot */
-      '#address-cells = <1>;'
-      '#size-cells = <1>;'
+      #address-cells = <1>;
+      #size-cells = <1>;
       clock_divider {
         reg = <EMAC_1G_DIV_CTRL 0x04>;
         ctrl_reg = <EMAC_1G_CLK_CTRL 0x08>;
       };
     };
 
-    // Customization for RGMII auto-negotiation:
+    /* Customization for RGMII auto-negotiation:
     &emac0 {
       phy-handle = <&phy0>;
       mdio0 {
-        '#address-cells = <1>;'
-        '#size-cells = <0>;'
+        #address-cells = <1>;
+        #size-cells = <0>;
         compatible = "snps,dwmac-mdio";
         phy0: ethernet-phy@0 {
           reg = <15>;
         };
       };
     };
+    */
 
-    // Customization for RMII auto-negotiation:
-    &emac0 {
-      phy-mode = "rmii";
-      pinctrl-0 = <&pinctrl_emac0_rmii>;
-      max-speed = <100>;
-
-      phy-handle = <&phy0>;
-      mdio0 {
-        '#address-cells = <1>;'
-        '#size-cells = <0>;'
-        compatible = "snps,dwmac-mdio";
-        phy0: ethernet-phy@0 {
-          reg = <15>;
-        };
-      };
-    };
-
-    // Customization for RMII fixed-link speed:
+    /* Customization for RMII fixed-link speed:
     &emac0 {
       phy-mode = "rmii";
       pinctrl-0 = <&pinctrl_emac0_rmii>;
@@ -104,3 +96,4 @@ Examples:
         full-duplex;
       };
     };
+    */

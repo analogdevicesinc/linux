@@ -79,6 +79,9 @@ unevaluatedProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/gpio/gpio.h>
+
     spi@f9068000 {
       #address-cells = <1>;
       #size-cells = <0>;

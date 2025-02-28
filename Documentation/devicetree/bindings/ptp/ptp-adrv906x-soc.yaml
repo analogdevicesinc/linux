@@ -70,10 +70,10 @@ properties:
     patternProperties:
       "tod-counter@[0-2]+$":
         type: object
-        description: 
-          ADRV906x ToD counter(s). Each ToD node declares a counter that can be 
-          synchronized to an external source, and will be represented by a /dev/ptpX 
-          and /dev/ppsX.
+        description:
+          ADRV906x ToD counter(s). Each ToD node declares a counter that can be
+          synchronized to an external source, and will be represented by a
+          /dev/ptpX and /dev/ppsX.
         properties:
           reg:
             description: The index of the ToD counter.
@@ -117,6 +117,11 @@ additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/gpio/gpio.h>
+    #define EMAC_TOD_BASE   0x2B380000
+    #define TOD_IRQ 201
+
     ptpclk: ptpclk {
       compatible = "adi,adrv906x-ptp";
       reg = <EMAC_TOD_BASE 0xff>;
@@ -127,8 +132,8 @@ examples:
       adi,max-adj = <50>;
 
       adrv906x-tod {
-        'adi,default-tod-counter = <0>;'
-        'adi,cdc-delay-value = <0 0 0 0>;'
+        adi,default-tod-counter = <0>;
+        adi,cdc-delay-value = <0 0 0 0>;
         tod-counter@0 {
           reg = <0>;
           adi,pps-mode;

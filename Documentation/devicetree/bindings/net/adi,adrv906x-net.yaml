@@ -255,11 +255,54 @@ unevaluatedProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/gpio/gpio.h>
+
+    #define EMAC_CMN_BASE           0x2B300000
+    #define EMAC_MAC_0_BASE         0x2B330000
+    #define EMAC_MAC_0_RX           0x2B331300
+    #define EMAC_MAC_0_TX           0x2B330300
+    #define EMAC_MAC_1_BASE         0x2B340000
+    #define EMAC_MAC_1_RX           0x2B341300
+    #define EMAC_MAC_1_TX           0x2B340300
+    #define EMAC_PCS_0_BASE         0x2B310000
+    #define EMAC_PCS_0_TSU          0x2B310400
+    #define EMAC_PCS_1_BASE         0x2B320000
+    #define EMAC_PCS_1_TSU          0x2B320400
+    #define EMAC_SW_BASE            0x2B350100
+    #define EMAC_SW_MAE_BASE        0x2B350300
+    #define EMAC_SW_PORT_0_BASE     0x2B350600
+    #define EMAC_SW_PORT_1_BASE     0x2B350D00
+    #define EMAC_SW_PORT_2_BASE     0x2B351400
+    #define OIF_0_RX_CTRL           0x2b103040
+    #define OIF_0_TX_CTRL           0x2b10903c
+    #define OIF_1_RX_CTRL           0x2b104340
+    #define OIF_1_TX_CTRL           0x2b10b83c
+    #define EMAC_RECOVERED_CLK_CTRL 0x20102d00
+    #define NDMA_0_RX_BASE          0x20214000
+    #define NDMA_0_RX_DMA           0x20260000
+    #define NDMA_0_TX_BASE          0x20216000
+    #define NDMA_0_TX_DMA           0x20261000
+    #define NDMA_0_TX_STATUS_DMA    0x20264000
+
+    #define NDMA_DMA_ERR_INTR_GATED_0         210
+    #define NDMA_DMA_ERR_INTR_GATED_1         211
+    #define NDMA_DMA_DONE_INTR_GATED_0        214
+    #define NDMA_DMA_DONE_INTR_GATED_1        215
+    #define NDMA_STATUS_DMA_ERR_INTR_GATED_0  218
+    #define NDMA_STATUS_DMA_ERR_INTR_GATED_1  219
+    #define DEBUG_DDE_ERR_INTR_0              220
+    #define DEBUG_DDE_ERR_INTR_1              221
+    #define NDMA_STATUS_DMA_DONE_INTR_GATED_0 222
+    #define NDMA_STATUS_DMA_DONE_INTR_GATED_1 223
+    #define ETH_IRQ_PCS_RX_ERROR_0            787
+    #define ETH_IRQ_PCS_RX_ERROR_1            788
+
     adrv906x_net0: adrv906x_net@EMAC_CMN_BASE_UADDR {
       compatible = "adi,adrv906x-net";
       reg = <EMAC_CMN_BASE 0x3004>;
-      '#address-cells = <1>;'
-      '#size-cells = <1>;'
+      #address-cells = <1>;
+      #size-cells = <1>;
 
       ethernet-ports {
         port@0 {
@@ -301,8 +344,8 @@ examples:
 
       mdio_if {
         reg = <EMAC_PCS_0_BASE 0x350>, <EMAC_PCS_1_BASE 0x350>;
-        '#address-cells = <1>;'
-        '#size-cells = <0>;'
+        #address-cells = <1>;
+        #size-cells = <0>;
          adrv906x_phy0: ethernet-phy@0 {
            compatible = "ethernet-phy-ieee802.3-c45";
            reg = <0>;
@@ -339,20 +382,20 @@ examples:
       };
     };
 
-    ndma0: ndma0@NDMA_0_TX_UADDR {
+    ndma0: ndma0@NDMA_0_TX_BASE_UADDR {
       id = <0>;
-      reg = <NIC_DMA_0_TX 0x100>,
-            <NIC_DMA_0_BASE 0x80>,
-            <NIC_DMA_0_BASE 0x80>,
-            <NIC_DMA_0_RX 0x1000>,
-            <NIC_DMA_0_BASE 0x80>;
+      reg = <NDMA_0_TX_BASE 0x100>,
+            <NDMA_0_TX_DMA 0x80>,
+            <NDMA_0_TX_STATUS_DMA 0x80>,
+            <NDMA_0_RX_BASE 0x1000>,
+            <NDMA_0_RX_DMA 0x80>;
       reset-ctrl = <&ndma_rst>;
-      interrupts = <GIC_SPI MS_DDE_DONE_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
-                   <GIC_SPI MS_DDE_ERR_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
-                   <GIC_SPI MS_STAT_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
-                   <GIC_SPI MS_STAT_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
-                   <GIC_SPI MS_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
-                   <GIC_SPI MS_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>;
+      interrupts = <GIC_SPI NDMA_DMA_DONE_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_DMA_ERR_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_STATUS_DMA_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_STATUS_DMA_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_DMA_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_DMA_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>;
       interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
                         "tx_status_dma_done", "tx_status_dma_error",
                         "rx_dma_done", "rx_dma_error";

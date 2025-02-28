@@ -46,6 +46,8 @@ required:
 
 examples:
   - |
+    #define TRU_BASE  0x20052000
+
      tru0: tru@TRU_BASE_UADDR {
        compatible = "adi,tru";
        reg = <TRU_BASE 0x800>;
