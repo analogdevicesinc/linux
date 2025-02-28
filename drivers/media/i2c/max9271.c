@@ -295,15 +295,26 @@ EXPORT_SYMBOL_GPL(max9271_disable_gpios);
 int max9271_verify_id(struct max9271_device *dev)
 {
 	int ret;
+	int retry = 10;
 
+again:
 	ret = max9271_read(dev, 0x1e);
 	if (ret < 0) {
+		if (retry--) {
+			mdelay(20);
+			goto again;
+		}
 		dev_err(&dev->client->dev, "MAX9271 ID read failed (%d)\n",
 			ret);
 		return ret;
 	}
 
 	if (ret != MAX9271_ID) {
+		if (ret == 0xff && retry--) {
+			mdelay(10);
+			goto again;
+		}
+
 		dev_err(&dev->client->dev, "MAX9271 ID mismatch (0x%02x)\n",
 			ret);
 		return -ENXIO;
