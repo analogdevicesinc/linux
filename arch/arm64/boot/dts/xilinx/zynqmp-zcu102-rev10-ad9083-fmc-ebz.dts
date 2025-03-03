@@ -53,7 +53,7 @@
 			jesd204-inputs = <&axi_ad9083_rx_jesd 0 0>;
 		};
 
-		axi_ad9083_rx_jesd: axi-jesd204-rx@0x84AA0000 {
+		axi_ad9083_rx_jesd: axi-jesd204-rx@84AA0000 {
 			compatible = "adi,axi-jesd204-rx-1.0";
 			reg = <0x84AA0000 0x1000>;
 
