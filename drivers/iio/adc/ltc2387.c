@@ -204,6 +204,10 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	clk_gate_wf.duty_length_ns = ref_clk_period_ns * clk_en_time;
 	clk_gate_wf.duty_offset_ns = LTC2387_T_FIRSTCLK_NS;
 
+	if (clk_gate_wf.duty_offset_ns > clk_gate_wf.period_length_ns)
+		div64_u64_rem(clk_gate_wf.duty_offset_ns, clk_gate_wf.period_length_ns,
+				&clk_gate_wf.duty_offset_ns);
+
 	ret = pwm_set_waveform_might_sleep(ltc->clk_en, &clk_gate_wf, false);
 	if (ret < 0)
 		return ret;
