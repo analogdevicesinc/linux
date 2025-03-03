@@ -20,6 +20,7 @@ extern
 
 #include <linux/kernel.h>
 #include <linux/firmware.h>
+#include <linux/ctype.h>
 #include <linux/fs.h>
 
 #define DIV_INT64(a, b) div_s64((a), (b))
