@@ -26,7 +26,7 @@
 
 &fpga_axi {
 
-	adc_trigger: pwm@0x44b00000 {
+	adc_trigger: pwm@44b00000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x1000>;
 		label = "adc_conversion_trigger";
@@ -76,7 +76,7 @@
 		clocks = <&clkc 16>;
 	};
 
-	spi_clk: axi-clkgen@0x44a70000 {
+	spi_clk: axi-clkgen@44a70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a70000 0x10000>;
 		#clock-cells = <0>;
