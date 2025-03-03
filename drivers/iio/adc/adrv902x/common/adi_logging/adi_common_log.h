@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
 * \file adi_common_log.h
 * \brief Contains ADI Hardware Abstraction layer function prototypes and type definitions for adi_common_log.c
@@ -15,7 +14,7 @@
 #ifndef _ADI_COMMON_LOG_H_
 #define _ADI_COMMON_LOG_H_
 
-#include <linux/kernel.h>
+#include "adi_common_user.h"
 #include "adi_common_log_types.h"
 #include "adi_common_macros.h"
 #include "adi_common_error.h"
