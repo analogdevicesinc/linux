@@ -1,6 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
- * Copyright 2015 - 2019 Analog Devices Inc.
+ * Copyright 2015 - 2020 Analog Devices Inc.
  * Released under the ADRV9025 API license, for more information.
  * see the "LICENSE.pdf" file in this zip file.
  */
@@ -21,11 +20,25 @@ extern
 
 #include <linux/kernel.h>
 #include <linux/firmware.h>
-#include <linux/slab.h>
-#include <linux/spi/spi.h>
-#include <linux/gpio/consumer.h>
 #include <linux/fs.h>
-#endif
+
+#define DIV_INT64(a, b) div_s64((a), (b))
+#define ADI_ADRV9025_RM_FLOATS 1
+
+#else /* __KERNEL__ */
+
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <inttypes.h>
+#include <memory.h>
+#include <stdarg.h>
+
+#define DIV_INT64(a, b) ((int64_t)(a) / (int32_t)(b))
+
+#endif /* __KERNEL__ */
 
 #define SPI_CHIP_SELECT_0                            0
 #define SPI_CHIP_SELECT_1                            1
@@ -119,14 +132,17 @@ typedef enum adi_hal_Boards
     ADI_BOARD_9010STSHAL,     /*!< 9010 STS board */
     ADI_BOARD_9025CE01,      /*!< 9025 CE 01 board */
     ADI_BOARD_9025EE01,      /*!< 9025 EE 01 board */
-    ADI_BOARD_9026CE01,      /*!< 9025 CE 01 board */
+    ADI_BOARD_9026CE01,      /*!< 9026 CE 01 board */
+    ADI_BOARD_9024CE01,      /*!< 9024 CE 01 board */
+    ADI_BOARD_9029CE01,      /*!< 9029 CE 01 board */
+    ADI_BOARD_9020CE01,      /*!< 9020 CE 01 board */
     ADI_BOARD_9025STSHAL,     /*!< 9025 STS board */
 
     /* for range checking */
     ADI_BOARD_9010_MIN = ADI_BOARD_9010CE01,
     ADI_BOARD_9010_MAX = ADI_BOARD_9010STSHAL,
     ADI_BOARD_9025_MIN = ADI_BOARD_9025CE01,
-    ADI_BOARD_9025_MAX = ADI_BOARD_9025STSHAL,
+    ADI_BOARD_9025_MAX = ADI_BOARD_9025STSHAL
 } adi_hal_Boards_e;
 
 /**
@@ -136,7 +152,7 @@ typedef enum adi_hal_dev_initialization
 {
     ADI_DEV_CFG_CREATED     =  0x00000001,
     ADI_PLATFORM_CREATED    =  0x00000002, /*!< 9010 CE board rev 1D */
-    ADI_BOARD_CREATED       =  0x00000004, /*!< 9010 EE board rev 1C */
+    ADI_BOARD_CREATED       =  0x00000004  /*!< 9010 EE board rev 1C */
 } adi_hal_dev_initialization_e;
 
 /**
@@ -162,7 +178,7 @@ typedef enum adi_hal_BbicInterfaces
 {
     ADI_HAL_BBIC_CORE       = 0x01, /* Core FPGA registers, including HwReset pins */
     ADI_HAL_BBIC_RAM        = 0x02, /* Ram registers */
-    ADI_HAL_BBIC_SPI        = 0x04, /* Advanced SPI configuration registers */
+    ADI_HAL_BBIC_SPI        = 0x04  /* Advanced SPI configuration registers */
 } adi_hal_BbicInterfaces_e;
 
 /**
@@ -274,7 +290,6 @@ typedef struct adi_hal_Cfg
 #endif
 
 } adi_hal_Cfg_t;
-
 
 #ifdef __KERNEL__
 typedef struct linux_hal_fileio

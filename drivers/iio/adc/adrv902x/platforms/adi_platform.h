@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
 * \file adi_platform.h
 * \brief Contains ADI Transceiver Hardware Abstraction functions interface
@@ -8,7 +7,7 @@
 
 /**
 * \Page Disclaimer Legal Disclaimer
-* Copyright 2015 - 2019 Analog Devices Inc.
+* Copyright 2015 - 2020 Analog Devices Inc.
 * Released under the ADRV9025 API license, for more information.
 * see the "LICENSE.pdf" file in this zip file.
 */
@@ -28,6 +27,8 @@
 #endif
 
 #include "adi_platform_types.h"
+
+
 
 #ifdef __cplusplus
 extern "C" {
