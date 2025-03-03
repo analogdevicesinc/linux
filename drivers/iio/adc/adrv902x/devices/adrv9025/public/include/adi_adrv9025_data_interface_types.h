@@ -1,9 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
 * \file adi_adrv9025_data_interface_types.h
 * \brief Contains ADRV9025 API data interface types
 *
-* ADRV9025 API Version: 6.4.0.14
+* ADRV9025 API Version: 7.0.0.14
 */
 
 /**
@@ -19,7 +18,7 @@
 extern "C" {
 #endif
 
-#include <linux/kernel.h>
+#include "adi_common_user.h"
 
 #define ADI_ADRV9025_NUM_LANES 4
 #define ADI_ADRV9025_FRMR_NUM_OF_CONVERTERS 24

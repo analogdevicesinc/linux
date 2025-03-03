@@ -1,9 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
  * \file adi_adrv9025_version.h
  * \brief Contains the version number for the ADRV9025 API
  *
- * ADRV9025 API version: 6.4.0.14
+ * ADRV9025 API version: 7.0.0.14
  */
 
  /**
@@ -19,8 +18,8 @@
 extern "C" {
 #endif
 
-#define ADI_ADRV9025_CURRENT_MAJOR_VERSION 6
-#define ADI_ADRV9025_CURRENT_MINOR_VERSION 4
+#define ADI_ADRV9025_CURRENT_MAJOR_VERSION 7
+#define ADI_ADRV9025_CURRENT_MINOR_VERSION 0
 #define ADI_ADRV9025_CURRENT_MAINTENANCE_VERSION 0
 #define ADI_ADRV9025_CURRENT_BUILD_VERSION 14
 
