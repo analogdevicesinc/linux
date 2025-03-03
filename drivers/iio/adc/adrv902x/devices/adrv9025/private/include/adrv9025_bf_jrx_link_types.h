@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
  * \file adrv9025_bf_jrx_link_types.h Automatically generated file with generator ver 0.0.1.0.
  *

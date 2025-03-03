@@ -1,9 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef ADRV9025_BF_HAL_H_
 #define ADRV9025_BF_HAL_H_
-
-#include <linux/kernel.h>
-#include <linux/stddef.h>
 
 #include "adi_adrv9025.h"
 #include "adi_common_hal.h"

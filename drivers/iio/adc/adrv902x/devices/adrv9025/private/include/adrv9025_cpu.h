@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
 * Copyright 2015 - 2020 Analog Devices Inc.
 * Released under the ADRV9025 API license, for more information
@@ -7,7 +6,6 @@
 # ifndef _ADRV_9025_CPU_H_
 #define _ADRV_9025_CPU_H_
 
-#include <linux/kernel.h>
 #include "adi_adrv9025_types.h"
 #include "adi_adrv9025_cpu_types.h"
 #include "../../private/include/adrv9025_cpu_macros.h"

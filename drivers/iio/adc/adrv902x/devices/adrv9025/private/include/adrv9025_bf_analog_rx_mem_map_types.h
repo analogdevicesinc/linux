@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
  * \file adrv9025_bf_analog_rx_mem_map_types.h Automatically generated file with generator ver 0.0.1.0.
  *

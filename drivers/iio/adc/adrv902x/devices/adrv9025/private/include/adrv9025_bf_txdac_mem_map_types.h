@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /**
  * \file adrv9025_bf_txdac_mem_map_types.h Automatically generated file with generator ver 0.0.1.0.
  *
@@ -398,3 +397,4 @@ typedef enum adrv9025_BfTxdacMemMapTxdacWalkPeriod
 #endif // __ADRV9025_BF_TXDAC_MEM_MAP_TYPES_H__
 
 /*  EOF: adrv9025_bf_txdac_mem_map_types.h */
+
