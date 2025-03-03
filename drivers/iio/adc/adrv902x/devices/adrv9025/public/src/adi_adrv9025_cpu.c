@@ -1,10 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
 /**
 * \file adi_adrv9025_cpu.c
 * \brief Contains Adrv9025's processor features related function
 * implementation declared in adi_adrv9025.h
 *
-* ADRV9025 API Version: 6.4.0.14
+* ADRV9025 API Version: 7.0.0.14
 */
 
 /**
@@ -420,7 +419,7 @@ int32_t adi_adrv9025_CpuChecksumTableGet(
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
 
-
+    
 
     /* get the particular processor's address map */
     cpuAddr = adrv9025_CpuAddrGet(&device->devStateInfo.cpu,
@@ -448,7 +447,7 @@ int32_t adi_adrv9025_CpuChecksumTableGet(
     ADI_ERROR_RETURN(device->common.error.newAction);
     checkAddr = ((((uint32_t)checkData[3]) << 24) | (((uint32_t)checkData[2]) << 16) | (((uint32_t)checkData[1]) << 8) | ((uint32_t)checkData[0]));
 
-
+    
 
     waitInterval_us = (waitInterval_us > timeout_us) ? timeout_us : waitInterval_us;
     numEventChecks  = (waitInterval_us == 0) ? 1 : (timeout_us / waitInterval_us);
@@ -465,14 +464,14 @@ int32_t adi_adrv9025_CpuChecksumTableGet(
         buildTimeChecksum  = ((((uint32_t)checkData[3]) << 24) | (((uint32_t)checkData[2]) << 16) | (((uint32_t)checkData[1]) << 8) | ((uint32_t)checkData[0]));
         calculatedChecksum = ((((uint32_t)checkData[7]) << 24) | (((uint32_t)checkData[6]) << 16) | (((uint32_t)checkData[5]) << 8) | ((uint32_t)checkData[4]));
 
-
+        
 
         if ((calculatedChecksum == 0) && (eventCheck < numEventChecks))
         {
             /* wait */
             halError = adrv9025_hal_Wait_us(&device->common,
                                               timeout_us);
-
+            
             ADI_ERROR_REPORT(&device->common,
                              ADI_COMMON_ERRSRC_ADI_HAL,
                              halError,
@@ -487,7 +486,7 @@ int32_t adi_adrv9025_CpuChecksumTableGet(
         }
     }
 
-
+    
 
     /* CPU completed calculating checksum */
     if ((calculatedChecksum > 0) && (buildTimeChecksum > 0))
@@ -496,7 +495,7 @@ int32_t adi_adrv9025_CpuChecksumTableGet(
         checksum->fwCheckSums.buildChecksum = buildTimeChecksum;
         checksum->fwCheckSums.runChecksum   = calculatedChecksum;
 
-
+        
 
         /* performing checksum check, skip if checksum was not calculated (CPU DEBUG_MODE)*/
         if ((cpuDebugLoaded == 0) && (buildTimeChecksum != calculatedChecksum))
@@ -518,7 +517,7 @@ int32_t adi_adrv9025_CpuChecksumTableGet(
             calculatedChecksum = ((((uint32_t)checkData[i + 7]) << 24) | (((uint32_t)checkData[i + 6]) << 16) | (((uint32_t)checkData[i + 5]) << 8) | ((uint32_t
             )checkData[i + 4]));
 
-
+            
             checksum->streamsCheckSum[j].buildChecksum = buildTimeChecksum;
             checksum->streamsCheckSum[j].runChecksum   = calculatedChecksum;
 
@@ -546,7 +545,7 @@ int32_t adi_adrv9025_CpuChecksumTableGet(
         calculatedChecksum = ((((uint32_t)checkData[i + 7]) << 24) | (((uint32_t)checkData[i + 6]) << 16) | (((uint32_t)checkData[i + 5]) << 8) | ((uint32_t)
             checkData[i + 4]));
 
-
+        
         checksum->deviceProfileCheckSum.buildChecksum = buildTimeChecksum;
         checksum->deviceProfileCheckSum.runChecksum   = calculatedChecksum;
 
@@ -570,7 +569,7 @@ int32_t adi_adrv9025_CpuChecksumTableGet(
         calculatedChecksum = ((((uint32_t)checkData[i + 7]) << 24) | (((uint32_t)checkData[i + 6]) << 16) | (((uint32_t)checkData[i + 5]) << 8) | ((uint32_t)
             checkData[i + 4]));
 
-
+        
         checksum->adcProfilefwCheckSum.buildChecksum = buildTimeChecksum;
         checksum->adcProfilefwCheckSum.runChecksum   = calculatedChecksum;
 
@@ -651,7 +650,7 @@ int32_t adi_adrv9025_CpuCmdStatusGet(adi_adrv9025_Device_t  *device,
 #else
         ADRV9025_SPIREADBYTE("", cpuAddr->cmdStatusAddr + i, &bytes[i]);
 #endif
-
+        
 
         /* assigning each pending bit from every opcode to a weighted position in statusWord */
         status = (bytes[i] & CPU_PENDING_HI) >> STATUS_WORD_SHIFT_HI;
@@ -760,7 +759,7 @@ int32_t adi_adrv9025_CpuConfigWrite(
                                                    ADI_ADRV9025_WRITECPUCFG_TIMEOUT_US,
                                                    ADI_ADRV9025_WRITECPUCFG_INTERVAL_US);
 
-
+    
 
     if ((cmdStatusByte & CPU_ERR_MASK) > 0)
     {
@@ -1044,7 +1043,7 @@ int32_t adi_adrv9025_CpuCmdStatusWait(
                          "Failed to get CPU command status");
         ADI_ERROR_RETURN(device->common.error.newAction);
 
-
+        
         /* If error code is non zero in [3:1], - return error */
         if ((*cmdStatusByte & CPU_ERR_MASK) > 0)
         {
@@ -1097,7 +1096,7 @@ int32_t adi_adrv9025_CpuCmdStatusWait(
         {
             if (exceptionValue == 0xFFFFFFFF)
             {
-	        exceptionValue = ADI_COMMON_ERR_CPU_EXCEPTION;
+    	        exceptionValue = ADI_COMMON_ERR_CPU_EXCEPTION;
             }
 
             /* Return the ARM Exception in Err code */
@@ -1251,7 +1250,7 @@ int32_t adi_adrv9025_CpuCmdWrite(
                          "Invalid Get for adi_adrv9025_CpuMailboxBusyGet()");
         ADI_ERROR_RETURN(device->common.error.newAction);
 
-
+        
         if (cpuCommandBusy == ADI_TRUE)
         {
             halError = adrv9025_hal_Wait_us(&device->common,
@@ -1465,7 +1464,7 @@ int32_t adi_adrv9025_CpuConfigRead(
                                                    ADI_ADRV9025_READCPUCFG_TIMEOUT_US,
                                                    ADI_ADRV9025_READCPUCFG_INTERVAL_US);
 
-
+    
 
     if ((cmdStatusByte & CPU_ERR_MASK) > 0)
     {
@@ -1548,7 +1547,7 @@ int32_t adi_adrv9025_CpuFwVersionGet(
 
     fullVersion = (((uint32_t)ver[0]) | (((uint32_t)ver[1]) << 8) | (((uint32_t)ver[2]) << 16) | (((uint32_t)ver[3]) << 24));
 
-
+    
     if (ver[5] & CPU_FW_BUILD_USES_FOUR_DIGIT_VERSION)
     {
         fwVersion->majorVer = (uint8_t)(fullVersion >> 28) & 0x0F;
@@ -1835,11 +1834,11 @@ int32_t adi_adrv9025_CpuExceptionGet(
 
     if (cpuType == ADI_ADRV9025_CPU_TYPE_C)
     {
-        armExceptionAddr = 0x20028210;
+        armExceptionAddr = ADRV9025_CPU_C_ADDR_EXCEPTION_FLAG;
     }
     else if (cpuType == ADI_ADRV9025_CPU_TYPE_D)
     {
-        armExceptionAddr = 0x20000000;
+        armExceptionAddr = ADRV9025_CPU_D_ADDR_EXCEPTION_FLAG;
     }
     else
     {
