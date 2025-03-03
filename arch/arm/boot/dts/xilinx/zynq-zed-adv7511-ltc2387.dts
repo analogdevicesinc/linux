@@ -34,7 +34,7 @@
 		clocks = <&clkc 15>;
 	};
 
-	ref_clk: clk@0x44a70000 {
+	ref_clk: clk@44a70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a70000 0x10000>;
 		#clock-cells = <0>;
@@ -43,7 +43,7 @@
 		clock-output-names = "ref_clk";
 	};
 
-	axi_pwm_gen: pwm@0x44a60000 {
+	axi_pwm_gen: pwm@44a60000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44a60000 0x1000>;
 		label = "ltc2387_if";
