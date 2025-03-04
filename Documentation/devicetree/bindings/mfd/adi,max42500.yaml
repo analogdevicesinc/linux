@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/adi,max42500.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX42500 Industrial Power System Monitor
+
+maintainers:
+  - Kent Libetario <Kent.Libetario@analog.com>
+
+description: |
+  Analog Devices MAX42500 Industrial Power System Monitor Family
+  https://www.analog.com/media/en/technical-documentation/data-sheets/max42500.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,max42500
+  reg:
+    maxItems: 1
+
+  poweroff-gpios:
+    description:
+      This property sets the GPIO as output. Then used to control the power and
+      mode state of the device. This can be enabled optionally to control the
+      state of comparators in the voltage monitoring and/or trigger timestamp
+      recording in the flexible power sequence recording functions. Check the
+      state transition conditions in datasheet for more information.
+    maxItems: 1
+
+  sleepoff-gpios:
+    description:
+      This property sets the GPIO as output. Then used to control the power and
+      mode state of the device. This can be enabled and masked optionally to
+      control the state of comparators in the voltage monitoring and/or trigger
+      timestamp recording in the flexible power sequence recording functions.
+      Check the state transition conditions in datasheet for more information.
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        hwmon@28 {
+            compatible = "adi,max42500";
+            reg = <0x28>;
+        };
+    };
