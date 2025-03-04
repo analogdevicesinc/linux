@@ -96,6 +96,8 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply REGULATOR_MAX77857
 	imply REGULATOR_MAX77541
 	imply MFD_MAX77541
+	imply MAX42500_WDT
+	imply MFD_MAX42500
 
 source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"
