@@ -35,15 +35,14 @@ SRCS = 	devices/adrv9025/private/src/adrv9025_bf_analog_orx_mem_map.c \
 	devices/adrv9025/public/src/adi_adrv9025_rx.c \
 	devices/adrv9025/public/src/adi_adrv9025_tx.c \
 	devices/adrv9025/public/src/adi_adrv9025_utilities.c \
+	devices/adrv9025/private/src/adrv9025_dfe.c \
+	devices/adrv9025/public/src/adi_adrv9025_dfe.c \
 	common/adi_logging/adi_common_log.c \
 	common/adi_error/adi_common_error.c  \
 	common/adi_hal/adi_common_hal.c \
 	platforms/linux_platform.c \
 	adrv9025.c \
 	adrv9025_conv.c
-
-# Avoid FP operations and data sytpes - Remove DPD *_dfe.c files
-#SRCS := $(filter-out /devices/adrv9025/private/src/adrv9025_dfe.c /devices/adrv9025/public/src/adi_adrv9025_dfe.c, $(SRCS))
 
 ccflags-y += -I$(srctree)/$(src)/devices/adrv9025/private/include/ \
 	-I$(srctree)/$(src)/devices/adrv9025/public/include/  \
