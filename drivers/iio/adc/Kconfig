@@ -1425,6 +1425,13 @@ config SC27XX_ADC
 	  This driver can also be built as a module. If so, the module
 	  will be called sc27xx_adc.
 
+config SHA3_READER
+	tristate "Analog Devices SHA3 driver"
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices:
+	  SHA3 device drivers.
+
 config SPEAR_ADC
 	tristate "ST SPEAr ADC"
 	depends on PLAT_SPEAR || COMPILE_TEST
