@@ -2,6 +2,8 @@ ltc2978
 
 Required properties:
 - compatible: should contain one of:
+  * "lltc,lt7170"
+  * "lltc,lt7171"
   * "lltc,ltc2972"
   * "lltc,ltc2974"
   * "lltc,ltc2975"
@@ -36,6 +38,7 @@ Optional properties:
   standard binding for regulators; see regulator.txt.
 
 Valid names of regulators depend on number of supplies supported per device:
+  * lt7170, ltc7171 : vout0
   * ltc2972 vout0 - vout1
   * ltc2974, ltc2975 : vout0 - vout3
   * ltc2977, ltc2979, ltc2980, ltm2987 : vout0 - vout7
