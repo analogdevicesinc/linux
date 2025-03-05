@@ -43,7 +43,7 @@
       "streamGpInput15": 19
     },
     "lo1PllFreq_Hz": 3500000000,
-    "lo2PllFreq_Hz": 3550000000,
+    "lo2PllFreq_Hz": 3500000000,
     "auxPllFreq_Hz": 0
   },
   "initCals": {

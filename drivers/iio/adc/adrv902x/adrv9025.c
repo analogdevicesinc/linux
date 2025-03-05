@@ -1096,7 +1096,20 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 		if (chan->output)
 			*val = clk_get_rate(phy->clks[TX_SAMPL_CLK]);
 		else
-			*val = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+			switch (chan->channel) {
+			case CHAN_RX1:
+			case CHAN_RX2:
+			case CHAN_RX3:
+			case CHAN_RX4:
+				*val = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+				break;
+			case CHAN_OBS_RX1:
+			case CHAN_OBS_RX2:
+			case CHAN_OBS_RX3:
+			case CHAN_OBS_RX4:
+				*val = clk_get_rate(phy->clks[OBS_SAMPL_CLK]);
+				break;
+			}
 
 		ret = IIO_VAL_INT;
 		break;
@@ -1724,8 +1737,18 @@ static int adrv9025_clk_register(struct adrv9025_rf_phy *phy, const char *name,
 
 	switch (source) {
 	case RX_SAMPL_CLK:
+			adrv9025_RxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
+							ADI_ADRV9025_FRAMER_0,
+							&rate);
 		init.ops = &bb_clk_ops;
-		clk_priv->rate = phy->rx_iqRate_kHz;
+		clk_priv->rate = rate;
+		break;
+	case OBS_SAMPL_CLK:
+			adrv9025_RxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
+							ADI_ADRV9025_FRAMER_1,
+							&rate);
+		init.ops = &bb_clk_ops;
+		clk_priv->rate = rate;
 		break;
 	case TX_SAMPL_CLK:
 			adrv9025_TxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
@@ -1886,6 +1909,7 @@ static int adrv9025_jesd204_link_init(struct jesd204_dev *jdev,
 		ret = adrv9025_RxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
 							ADI_ADRV9025_FRAMER_1,
 							&rate);
+		phy->orx_iqRate_kHz = rate;
 		break;
 	case FRAMER2_LINK_RX:
 		framer = &phy->deviceInitStruct.dataInterface.framer[2];
@@ -1918,6 +1942,7 @@ static int adrv9025_jesd204_link_init(struct jesd204_dev *jdev,
 		lnk->jesd_version = framer->enableJesd204C ? JESD204_VERSION_C : JESD204_VERSION_B;
 		lnk->subclass = JESD204_SUBCLASS_1;
 		lnk->is_transmit = false;
+
 	} else if (deframer) {
 		lnk->num_converters = deframer->jesd204M;
 		lnk->num_lanes = hweight8(deframer->deserializerLanesEnabled);
@@ -1947,7 +1972,6 @@ int adrv9025_jesd204_link_setup(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__,
 		jesd204_state_op_reason_str(reason));
-
 
 	if (reason == JESD204_STATE_OP_REASON_UNINIT) {
 		phy->is_initialized = 0;
@@ -2130,7 +2154,6 @@ static int adrv9025_jesd204_clks_enable(struct jesd204_dev *jdev,
 				return adrv9025_dev_err(phy);
 
 		}
-
 		ret = adi_adrv9025_FramerSysrefCtrlSet(phy->madDevice,
 			priv->link[lnk->link_id].source_id, 0);
 		if (ret)
@@ -2324,6 +2347,7 @@ static int adrv9025_jesd204_post_running_stage(struct jesd204_dev *jdev,
 		return adrv9025_dev_err(phy);
 
 	clk_set_rate(phy->clks[RX_SAMPL_CLK], phy->rx_iqRate_kHz * 1000);
+	clk_set_rate(phy->clks[OBS_SAMPL_CLK], phy->orx_iqRate_kHz * 1000);
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], phy->tx_iqRate_kHz * 1000);
 
 	ret = adi_adrv9025_AgcCfgSet(phy->madDevice, phy->agcConfig, 1);
@@ -2789,6 +2813,10 @@ static int adrv9025_probe(struct spi_device *spi)
 	adrv9025_clk_register(phy, "-rx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
 			      RX_SAMPL_CLK);
+
+	adrv9025_clk_register(phy, "-obs_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
+			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+				  OBS_SAMPL_CLK);
 
 	adrv9025_clk_register(phy, "-tx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
