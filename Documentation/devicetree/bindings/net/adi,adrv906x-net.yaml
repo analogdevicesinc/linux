@@ -183,8 +183,8 @@ properties:
         properties:
           reg:
             minimum: 0
-            maximum: 31
-            description: The ID number for the PHY.
+            maximum: 3
+            description: The ID number for the PHY, globally unique.
           speed:
             enum: [10000, 25000]
             default: 25000
