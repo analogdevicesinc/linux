@@ -1096,7 +1096,20 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 		if (chan->output)
 			*val = clk_get_rate(phy->clks[TX_SAMPL_CLK]);
 		else
-			*val = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+			switch (chan->channel) {
+			case CHAN_RX1:
+			case CHAN_RX2:
+			case CHAN_RX3:
+			case CHAN_RX4:
+				*val = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+				break;
+			case CHAN_OBS_RX1:
+			case CHAN_OBS_RX2:
+			case CHAN_OBS_RX3:
+			case CHAN_OBS_RX4:
+				*val = clk_get_rate(phy->clks[OBS_SAMPL_CLK]);
+				break;
+			}
 
 		ret = IIO_VAL_INT;
 		break;
@@ -1727,6 +1740,10 @@ static int adrv9025_clk_register(struct adrv9025_rf_phy *phy, const char *name,
 		init.ops = &bb_clk_ops;
 		clk_priv->rate = phy->rx_iqRate_kHz;
 		break;
+	case OBS_SAMPL_CLK:
+		init.ops = &bb_clk_ops;
+		clk_priv->rate = phy->rx_iqRate_kHz;
+		break;
 	case TX_SAMPL_CLK:
 			adrv9025_TxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
 							ADI_ADRV9025_DEFRAMER_0,
@@ -2324,6 +2341,7 @@ static int adrv9025_jesd204_post_running_stage(struct jesd204_dev *jdev,
 		return adrv9025_dev_err(phy);
 
 	clk_set_rate(phy->clks[RX_SAMPL_CLK], phy->rx_iqRate_kHz * 1000);
+	clk_set_rate(phy->clks[OBS_SAMPL_CLK], phy->rx_iqRate_kHz * 1000);
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], phy->tx_iqRate_kHz * 1000);
 
 	ret = adi_adrv9025_AgcCfgSet(phy->madDevice, phy->agcConfig, 1);
@@ -2789,6 +2807,10 @@ static int adrv9025_probe(struct spi_device *spi)
 	adrv9025_clk_register(phy, "-rx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
 			      RX_SAMPL_CLK);
+
+	adrv9025_clk_register(phy, "-obs_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
+			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+				  OBS_SAMPL_CLK);
 
 	adrv9025_clk_register(phy, "-tx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
