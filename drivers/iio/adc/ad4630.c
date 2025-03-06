@@ -78,6 +78,7 @@
 #define AD4630_DATA_RATE_MODE_MSK	BIT(3)
 #define AD4630_OUT_DATA_MODE_MSK	GENMASK(2, 0)
 /* AVG */
+#define AD4630_REG_AVG_MASK_AVG_SYNC	BIT(7)
 #define AD4630_AVG_AVG_VAL		GENMASK(4, 0)
 /* OFFSET */
 #define AD4630_REG_CHAN_OFFSET(ch)	(AD4630_REG_OFFSET_X0_2 + 3 * (ch))
@@ -159,6 +160,11 @@ enum {
  */
 static const int ad4630_gains[4] = {
 	330, 560, 2220, 6670
+};
+
+static const int ad4630_average_modes[] = {
+	1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384,
+	32768, 65536
 };
 
 /*
@@ -313,6 +319,27 @@ out_error:
 	return ret;
 }
 
+static int ad4630_get_avg_frame_len(struct iio_dev *dev, unsigned int *avg_len)
+{
+	struct ad4630_state *st = iio_priv(dev);
+	unsigned int  val;
+	int ret;
+
+	ret = iio_device_claim_direct_mode(dev);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(st->regmap, AD4630_REG_AVG, &val);
+	if (ret)
+		goto out;
+
+	*avg_len = 1 << FIELD_GET(AD4630_AVG_AVG_VAL, val);
+out:
+	iio_device_release_direct_mode(dev);
+
+	return 0;
+}
+
 static int ad4630_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan, int *val,
 			   int *val2, long info)
@@ -348,6 +375,14 @@ static int ad4630_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
+		ret = ad4630_get_avg_frame_len(indio_dev, &temp);
+		if (ret)
+			return ret;
+
+		*val = temp;
+
+		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
@@ -365,6 +400,11 @@ static int ad4630_read_avail(struct iio_dev *indio_dev,
 		*vals = (int *)st->scale_tbl;
 		*length = ARRAY_SIZE(ad4630_gains) * 2;
 		*type = IIO_VAL_INT_PLUS_NANO;
+		return IIO_AVAIL_LIST;
+	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
+		*vals = ad4630_average_modes;
+		*type = IIO_VAL_INT;
+		*length = ARRAY_SIZE(ad4630_average_modes);
 		return IIO_AVAIL_LIST;
 	default:
 		return -EINVAL;
@@ -588,30 +628,6 @@ static int ad4630_write_raw_get_fmt(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
-static int ad4630_write_raw(struct iio_dev *indio_dev,
-			    struct iio_chan_spec const *chan, int val,
-			    int val2, long info)
-{
-	struct ad4630_state *st = iio_priv(indio_dev);
-	int gain_idx;
-
-	switch (info) {
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		return ad4630_set_sampling_freq(indio_dev, val);
-	case IIO_CHAN_INFO_SCALE:
-		gain_idx = ad4630_calc_pga_gain(val, val2, st->vref,
-						chan->scan_type.realbits);
-		return ad4630_set_pga_gain(indio_dev, gain_idx);
-	case IIO_CHAN_INFO_CALIBSCALE:
-		return ad4630_set_chan_gain(indio_dev, chan->channel, val,
-					    val2);
-	case IIO_CHAN_INFO_CALIBBIAS:
-		return ad4630_set_chan_offset(indio_dev, chan->channel, val);
-	default:
-		return -EINVAL;
-	}
-}
-
 static int ad4630_update_sample_fetch_trigger(struct ad4630_state *st, u32 avg)
 {
 	struct pwm_waveform fetch_wf = st->fetch_wf;
@@ -632,44 +648,57 @@ static int ad4630_update_sample_fetch_trigger(struct ad4630_state *st, u32 avg)
 }
 
 static int ad4630_set_avg_frame_len(struct iio_dev *dev,
-				    const struct iio_chan_spec *chan,
-				    unsigned int avg_len)
+				    unsigned int avg_val)
 {
 	struct ad4630_state *st = iio_priv(dev);
+	unsigned int avg_log2 = ilog2(avg_val);
+	unsigned int last_avg_idx = ARRAY_SIZE(ad4630_average_modes) - 1;
 	int ret;
+
+	if (avg_val < 0 || avg_val > ad4630_average_modes[last_avg_idx])
+		return -EINVAL;
 
 	ret = iio_device_claim_direct_mode(dev);
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, AD4630_REG_AVG, avg_len + 1);
+	ret = regmap_write(st->regmap, AD4630_REG_AVG,
+		AD4630_REG_AVG_MASK_AVG_SYNC |
+		FIELD_PREP(AD4630_AVG_AVG_VAL, avg_log2));
 	if (ret)
 		goto out_error;
 
-	ret = ad4630_update_sample_fetch_trigger(st, avg_len + 1);
+	ret = ad4630_update_sample_fetch_trigger(st, avg_log2);
 out_error:
 	iio_device_release_direct_mode(dev);
 
 	return ret;
 }
 
-static int ad4630_get_avg_frame_len(struct iio_dev *dev,
-				    const struct iio_chan_spec *chan)
+static int ad4630_write_raw(struct iio_dev *indio_dev,
+			    struct iio_chan_spec const *chan, int val,
+			    int val2, long info)
 {
-	struct ad4630_state *st = iio_priv(dev);
-	unsigned int avg_len;
-	int ret;
+	struct ad4630_state *st = iio_priv(indio_dev);
+	int gain_idx;
 
-	ret = iio_device_claim_direct_mode(dev);
-	if (ret)
-		return ret;
-
-	ret = regmap_read(st->regmap, AD4630_REG_AVG, &avg_len);
-	iio_device_release_direct_mode(dev);
-	if (ret)
-		return ret;
-
-	return avg_len - 1;
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad4630_set_sampling_freq(indio_dev, val);
+	case IIO_CHAN_INFO_SCALE:
+		gain_idx = ad4630_calc_pga_gain(val, val2, st->vref,
+						chan->scan_type.realbits);
+		return ad4630_set_pga_gain(indio_dev, gain_idx);
+	case IIO_CHAN_INFO_CALIBSCALE:
+		return ad4630_set_chan_gain(indio_dev, chan->channel, val,
+					    val2);
+	case IIO_CHAN_INFO_CALIBBIAS:
+		return ad4630_set_chan_offset(indio_dev, chan->channel, val);
+	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
+		return ad4630_set_avg_frame_len(indio_dev, val);
+	default:
+		return -EINVAL;
+	}
 }
 
 static int ad4630_spi_transfer_update(struct ad4630_state *st)
@@ -789,37 +818,20 @@ static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
 	return ret;
 }
 
-static const char *const ad4630_average_modes[] = {
-	"2", "4", "8", "16", "32", "64", "128", "256", "512", "1024",
-	"2048", "4096", "8192", "16384", "32768", "65536"
-};
-
-static const struct iio_enum ad4630_avg_frame_len_enum = {
-	.items = ad4630_average_modes,
-	.num_items = ARRAY_SIZE(ad4630_average_modes),
-	.set = ad4630_set_avg_frame_len,
-	.get = ad4630_get_avg_frame_len,
-};
-
-static const struct iio_chan_spec_ext_info ad4630_ext_info[] = {
-	IIO_ENUM("sample_averaging", IIO_SHARED_BY_TYPE,
-		 &ad4630_avg_frame_len_enum),
-	IIO_ENUM_AVAILABLE("sample_averaging", IIO_SHARED_BY_TYPE,
-			   &ad4630_avg_frame_len_enum),
-	{}
-};
-
-#define AD4630_CHAN(_idx, _msk_avail, _storage, _real, _shift, _info) {	\
+#define AD4630_CHAN(_idx, _msk_avail, _storage, _real, _shift, _msk_type) {	\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
 			BIT(IIO_CHAN_INFO_CALIBBIAS),			\
 	.info_mask_separate_available = _msk_avail,			\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
-	.info_mask_shared_by_type =  BIT(IIO_CHAN_INFO_SCALE),		\
+	.info_mask_shared_by_all_available =				\
+				BIT(IIO_CHAN_INFO_SAMP_FREQ),		\
+	.info_mask_shared_by_type = _msk_type |				\
+				BIT(IIO_CHAN_INFO_SCALE),		\
+	.info_mask_shared_by_type_available = _msk_type,		\
 	.type = IIO_VOLTAGE,						\
 	.indexed = 1,							\
 	.channel = _idx,						\
 	.scan_index = _idx,						\
-	.ext_info = _info,						\
 	.scan_type = {							\
 		.sign = 's',						\
 		.storagebits = _storage,				\
@@ -839,26 +851,26 @@ static const struct iio_chan_spec_ext_info ad4630_ext_info[] = {
 static const struct ad4630_out_mode ad4030_24_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 0, NULL),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 16, 8, NULL),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 8, NULL),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 32,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
 			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 30, 2,
-				    ad4630_ext_info),
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
 	}
@@ -867,24 +879,24 @@ static const struct ad4630_out_mode ad4030_24_modes[] = {
 static const struct ad4630_out_mode ad4630_16_modes[] = {
 	[AD4630_16_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 0, NULL),
-			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 0, NULL),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 0, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 16,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8, NULL),
-			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 8, NULL),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
 			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 30, 2,
-				    ad4630_ext_info),
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 30, 2,
-				    ad4630_ext_info),
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
 	}
@@ -893,31 +905,31 @@ static const struct ad4630_out_mode ad4630_16_modes[] = {
 static const struct ad4630_out_mode ad4630_24_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 0, NULL),
-			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 24, 0, NULL),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 0, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 24, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8, NULL),
-			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 8, NULL),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 8, NULL),
-			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 24, 8, NULL),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 24, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 32,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
 			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 30, 2,
-				    ad4630_ext_info),
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 30, 2,
-				    ad4630_ext_info),
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
 	}
@@ -926,19 +938,20 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 static const struct ad4630_out_mode adaq4216_modes[] = {
 	[AD4630_16_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 0, NULL),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 16,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, NULL),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2, ad4630_ext_info),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2,
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
 	}
@@ -947,19 +960,20 @@ static const struct ad4630_out_mode adaq4216_modes[] = {
 static const struct ad4630_out_mode adaq4220_modes[] = {
 	[AD4630_16_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 20, 0, NULL),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 20, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 20,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, NULL),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2, ad4630_ext_info),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2,
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
 	}
@@ -968,25 +982,26 @@ static const struct ad4630_out_mode adaq4220_modes[] = {
 static const struct ad4630_out_mode adaq4224_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 24, 0, NULL),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 24, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, NULL),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 24, 8, NULL),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 24, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 32,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2, ad4630_ext_info),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2,
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
 	}
