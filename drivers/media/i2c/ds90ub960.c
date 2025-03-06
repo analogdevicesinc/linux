@@ -27,6 +27,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/fwnode.h>
@@ -467,7 +468,12 @@ struct ub960_rxport {
 			} manual;
 		};
 	} eq;
+
 	u32 bc_gpio;
+
+	/* lock for aliased_addrs and associated registers */
+	struct mutex aliased_addrs_lock;
+
 	u16 aliased_addrs[UB960_MAX_PORT_ALIASES];
 };
 
@@ -1039,6 +1045,8 @@ static int ub960_atr_attach_client(struct i2c_atr *atr, u32 chan_id,
 	struct device *dev = &priv->client->dev;
 	unsigned int reg_idx;
 
+	guard(mutex)(&rxport->aliased_addrs_lock);
+
 	for (reg_idx = 0; reg_idx < ARRAY_SIZE(rxport->aliased_addrs); reg_idx++) {
 		if (!rxport->aliased_addrs[reg_idx])
 			break;
@@ -1069,6 +1077,8 @@ static void ub960_atr_detach_client(struct i2c_atr *atr, u32 chan_id,
 	struct ub960_rxport *rxport = priv->rxports[chan_id];
 	struct device *dev = &priv->client->dev;
 	unsigned int reg_idx;
+
+	guard(mutex)(&rxport->aliased_addrs_lock);
 
 	for (reg_idx = 0; reg_idx < ARRAY_SIZE(rxport->aliased_addrs); reg_idx++) {
 		if (rxport->aliased_addrs[reg_idx] == client->addr)
@@ -3334,6 +3344,8 @@ static void ub960_rxport_free_ports(struct ub960_data *priv)
 		fwnode_handle_put(rxport->source.ep_fwnode);
 		fwnode_handle_put(rxport->ser.fwnode);
 
+		mutex_destroy(&rxport->aliased_addrs_lock);
+
 		kfree(rxport);
 		priv->rxports[nport] = NULL;
 	}
@@ -3562,6 +3574,8 @@ static int ub960_parse_dt_rxport(struct ub960_data *priv, unsigned int nport,
 	ret = ub960_parse_dt_rxport_ep_properties(priv, ep_fwnode, rxport);
 	if (ret)
 		goto err_put_remote_fwnode;
+
+	mutex_init(&rxport->aliased_addrs_lock);
 
 	return 0;
 
