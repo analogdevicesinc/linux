@@ -1589,11 +1589,17 @@ static void adrv906x_ndma_process_tx_status(struct adrv906x_ndma_chan *ndma_ch,
 	int ret;
 
 	ret = adrv906x_ndma_parse_tx_status_header(ndma_ch, status, &ts);
+	/* ndma channel must be re-enabled after error occurrence */
 	if (ret)
-		/* ndma channel must be re-enabled after error occurrence */
 		adrv906x_ndma_chan_enable(ndma_ch);
 
 	skb = ndma_ch->tx_buffs[ndma_ch->tx_tail];
+	/* If skb is null, the following action has already been
+	 * executed by adrv906x_ndma_tx_timeout(), so simply return
+	 */
+	if (!skb)
+		return;
+
 	port = FIELD_GET(NDMA_TX_HDR_SOF_PORT_ID, skb->data[0]);
 	addr = tx_ring[ndma_ch->tx_tail].start;
 	size = tx_ring[ndma_ch->tx_tail].xcnt * tx_ring[ndma_ch->tx_tail].xmod;
