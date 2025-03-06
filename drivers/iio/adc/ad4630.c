@@ -217,6 +217,7 @@ struct ad4630_state {
 	struct spi_transfer offload_xfer;
 	struct spi_message offload_msg;
 
+	bool test_pattern_en;
 	bool use_spi_trigger;
 	u8 bits_per_word;
 	u8 pattern_bits_per_word;
@@ -414,6 +415,7 @@ static int ad4630_read_avail(struct iio_dev *indio_dev,
 static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq)
 {
 	struct pwm_waveform conv_wf = { }, fetch_wf = { .duty_length_ns = 10 };
+	u32 mode;
 	int ret;
 	u64 target = AD4630_TCNV_HIGH_NS;
 
@@ -435,11 +437,14 @@ static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq
 	} while (conv_wf.duty_length_ns < 10);
 
 	if (!st->fetch_trigger)
-		return 0;
+		goto out;
 
 	fetch_wf.period_length_ns = conv_wf.period_length_ns;
 
-	if (st->out_data == AD4630_30_AVERAGED_DIFF) {
+	ret = regmap_read(st->regmap, AD4630_REG_MODES, &mode);
+	if (ret)
+		return ret;
+	if (FIELD_GET(AD4630_OUT_DATA_MODE_MSK, mode) == AD4630_30_AVERAGED_DIFF) {
 		u32 avg;
 
 		ret = regmap_read(st->regmap, AD4630_REG_AVG, &avg);
@@ -468,8 +473,10 @@ static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq
 		target += 10;
 	} while (fetch_wf.duty_offset_ns < AD4630_TQUIET_CNV_DELAY_NS);
 
-	st->conv_wf = conv_wf;
 	st->fetch_wf = fetch_wf;
+
+out:
+	st->conv_wf = conv_wf;
 
 	return 0;
 }
@@ -628,32 +635,13 @@ static int ad4630_write_raw_get_fmt(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
-static int ad4630_update_sample_fetch_trigger(struct ad4630_state *st, u32 avg)
-{
-	struct pwm_waveform fetch_wf = st->fetch_wf;
-	int ret;
-
-	if (!st->fetch_trigger)
-		return 0;
-
-	fetch_wf.period_length_ns = st->conv_wf.period_length_ns << avg;
-
-	ret = pwm_round_waveform_might_sleep(st->fetch_trigger, &fetch_wf);
-	if (ret)
-		return ret;
-
-	st->fetch_wf = fetch_wf;
-
-	return 0;
-}
-
 static int ad4630_set_avg_frame_len(struct iio_dev *dev,
 				    unsigned int avg_val)
 {
 	struct ad4630_state *st = iio_priv(dev);
 	unsigned int avg_log2 = ilog2(avg_val);
 	unsigned int last_avg_idx = ARRAY_SIZE(ad4630_average_modes) - 1;
-	int ret;
+	int ret, freq;
 
 	if (avg_val < 0 || avg_val > ad4630_average_modes[last_avg_idx])
 		return -EINVAL;
@@ -668,7 +656,9 @@ static int ad4630_set_avg_frame_len(struct iio_dev *dev,
 	if (ret)
 		goto out_error;
 
-	ret = ad4630_update_sample_fetch_trigger(st, avg_log2);
+	/*re-evaluate fetch trigger*/
+	ad4630_get_sampling_freq(st, &freq);
+	ret = __ad4630_set_sampling_freq(st, freq);
 out_error:
 	iio_device_release_direct_mode(dev);
 
@@ -701,45 +691,6 @@ static int ad4630_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int ad4630_spi_transfer_update(struct ad4630_state *st)
-{
-	u8 bits_per_w;
-	u32 mode;
-	int ret;
-
-	ret = regmap_read(st->regmap, AD4630_REG_MODES, &mode);
-	if (ret)
-		return ret;
-
-	if (FIELD_GET(AD4630_OUT_DATA_MODE_MSK, mode) == AD4630_32_PATTERN) {
-		bits_per_w = st->pattern_bits_per_word;
-		/*
-		 * If the previous mode is averaging, we need to update the
-		 * fetch PWM signal as there's no averaging in the test pattern
-		 * mode and the user might have already configured some
-		 * averaging.
-		 */
-		if (st->out_data == AD4630_30_AVERAGED_DIFF)
-			ad4630_update_sample_fetch_trigger(st, 0);
-	} else {
-		bits_per_w = st->bits_per_word;
-		/* Restore the fetch PWM signal */
-		if (st->out_data == AD4630_30_AVERAGED_DIFF) {
-			u32 avg;
-
-			ret = regmap_read(st->regmap, AD4630_REG_AVG, &avg);
-			if (ret)
-				return ret;
-
-			ad4630_update_sample_fetch_trigger(st, avg);
-		}
-	}
-
-	st->offload_xfer.bits_per_word = bits_per_w;
-
-	return 0;
-}
-
 static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct ad4630_state *st = iio_priv(indio_dev);
@@ -750,10 +701,10 @@ static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	/* we might need to update the spi transfer if in test pattern mode */
-	ret = ad4630_spi_transfer_update(st);
-	if (ret)
-		goto out_error;
+	if (st->test_pattern_en)
+		st->offload_xfer.bits_per_word  = st->pattern_bits_per_word;
+	else
+		st->offload_xfer.bits_per_word  = st->bits_per_word;
 
 	ret = regmap_write(st->regmap, AD4630_REG_EXIT_CFG_MODE, BIT(0));
 	if (ret)
@@ -1462,7 +1413,7 @@ static int ad4630_set_test_pattern_en(void *arg, u64 val)
 	struct iio_dev *indio_dev = arg;
 	struct ad4630_state *st = iio_priv(indio_dev);
 	u32 mode;
-	int ret;
+	int ret, freq;
 
 	ret = iio_device_claim_direct_mode(indio_dev);
 	if (ret)
@@ -1475,7 +1426,19 @@ static int ad4630_set_test_pattern_en(void *arg, u64 val)
 
 	ret = regmap_update_bits(st->regmap, AD4630_REG_MODES,
 				 AD4630_OUT_DATA_MODE_MSK, mode);
+	if (ret)
+		goto out;
 
+	/*
+	 * in average mode the fetch trigger might not follow cnv and needs
+	 * to be re-evaluated when switching on/off test mode since there is
+	 * no avereging in test mode.
+	 */
+	if (st->out_data == AD4630_30_AVERAGED_DIFF) {
+		ad4630_get_sampling_freq(st, &freq);
+		ret = __ad4630_set_sampling_freq(st, freq);
+	}
+out:
 	iio_device_release_direct_mode(indio_dev);
 
 	return ret;
