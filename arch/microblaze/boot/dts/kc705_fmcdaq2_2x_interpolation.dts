@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCDAQ2-EBZ
+ * Link: https://wiki.analog.com/resources/eval/user-guides/ad-fmcdaq2-ebz
+ *
+ * hdl_project: <daq2/kc705>
+ * board_revision: <Rev.C or later>
+ *
+ * Copyright 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "kc705_fmcdaq2.dts"
+
+&ad9523_0_c1 {
+	adi,channel-divider = <2>;
+};
+
+&dac0_ad9144 {
+	adi,pll-enable;
+	adi,pll-frequency = <2000000000>;
+
+	adi,interpolation = <2>;
+};
