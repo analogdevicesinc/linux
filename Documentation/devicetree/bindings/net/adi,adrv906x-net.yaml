@@ -110,6 +110,9 @@ properties:
                 registers
               - The physical base address and size of the TSU control
                 registers
+          if-name:
+            description: Optional field that can be used for changing interface
+                         name registered. Must fulfill netdev naming standards.
         additionalProperties: false
     additionalProperties: false
 

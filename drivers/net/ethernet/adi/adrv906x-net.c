@@ -747,17 +747,36 @@ adrv906x_get_eth_child_node(struct device_node *ether_np, int id)
 	return NULL;
 }
 
-static int adrv906x_eth_dev_reg(struct platform_device *pdev,
+static int adrv906x_eth_dev_reg(struct platform_device *pdev, struct device_node *port_np,
 				struct adrv906x_eth_dev **adrv906x_dev)
 {
 	struct net_device *ndev;
 	struct adrv906x_eth_dev *priv;
 	struct device *dev = &pdev->dev;
 	int ret;
+	const char *if_name;
+	struct net *net;
 
 	ndev = devm_alloc_etherdev_mqs(dev, sizeof(struct adrv906x_eth_dev), 1, 1);
 	ndev->netdev_ops = &adrv906x_eth_ops;
 	ndev->ethtool_ops = &adrv906x_ethtool_ops;
+	net = dev_net(ndev);
+
+	/* Try interface name from DT */
+	ret = of_property_read_string(port_np, "if-name", &if_name);
+	if (!ret) {
+		if (dev_valid_name(if_name)) {
+			if (__dev_get_by_name(net, if_name)) {
+				dev_err(dev, "interface name: %s is already used, using default", if_name);
+			} else {
+				dev_info(dev, "using %s interface name from device tree", if_name);
+				snprintf(ndev->name, IFNAMSIZ, if_name);
+			}
+		} else {
+			dev_err(dev, "interface name: %s is not valid, using default", if_name);
+		}
+	}
+
 	SET_NETDEV_DEV(ndev, &pdev->dev);
 	priv = netdev_priv(ndev);
 	priv->dev = dev;
@@ -837,7 +856,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 		if (!port_np)
 			continue;
 
-		ret = adrv906x_eth_dev_reg(pdev, &adrv906x_dev);
+		ret = adrv906x_eth_dev_reg(pdev, port_np, &adrv906x_dev);
 		if (ret)
 			goto error;
 
