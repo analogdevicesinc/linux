@@ -166,3 +166,8 @@ int adrv906x_tsu_setup(struct platform_device *pdev, struct adrv906x_tsu *tsu,
 
 	return 0;
 }
+
+void adrv906x_tsu_compensate_tx_tstamp(struct adrv906x_tsu *tsu, struct timespec64 *ts)
+{
+    timespec64_add_ns(ts, tsu->phy_delay_tx >> 16);
+}

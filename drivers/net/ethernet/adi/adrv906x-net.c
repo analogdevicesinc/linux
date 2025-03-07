@@ -223,6 +223,7 @@ static void adrv906x_eth_tx_callback(struct sk_buff *skb, unsigned int port_id,
 		netif_wake_queue(ndev);
 	spin_unlock_irqrestore(&adrv906x_dev->lock, flags);
 
+	adrv906x_tsu_compensate_tx_tstamp(&adrv906x_dev->tsu, &ts);
 	__add_tx_hw_tstamp(skb, ts);
 	dev_kfree_skb(skb);
 }

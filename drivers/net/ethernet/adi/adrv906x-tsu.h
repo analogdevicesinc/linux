@@ -40,10 +40,10 @@ extern int adrv906x_tod_cfg_cdc_delay;
 struct adrv906x_tsu {
 	void __iomem *base;
 	unsigned long hsdig_clk_rate;
-	u32 pcb_delay_tx;
-	u32 pcb_delay_rx;
-	u32 phy_delay_tx;
-	u32 phy_delay_rx;
+	u32 pcb_delay_tx;       /* Upper 16 is ns and lower 16 is fractional ns */
+	u32 pcb_delay_rx;       /* Upper 16 is ns and lower 16 is fractional ns */
+	u32 phy_delay_tx;       /* Upper 16 is ns and lower 16 is fractional ns */
+	u32 phy_delay_rx;       /* Upper 16 is ns and lower 16 is fractional ns */
 };
 
 void adrv906x_tsu_set_speed(struct adrv906x_tsu *tsu, int speed);
@@ -54,5 +54,6 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 				      u32 buf_delay_tx, u32 buf_delay_rx);
 void adrv906x_tsu_set_phy_delay(struct adrv906x_tsu *tsu);
 void adrv906x_tsu_set_ptp_timestamping_mode(void __iomem *base);
+void adrv906x_tsu_compensate_tx_tstamp(struct adrv906x_tsu *tsu, struct timespec64 *ts);
 
 #endif /* __ADRV906X_TSU_H__ */
