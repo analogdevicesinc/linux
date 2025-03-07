@@ -1,0 +1,337 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9002
+ *
+ * hdl_project: <adrv9001/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 { /* HPC0 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* HPC0_IIC */
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+		i2c@1 { /* HPC1 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			/* HPC1_IIC */
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+/ {
+	fpga_axi  {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx1_dma: dma@84A30000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A30000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 111 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		rx2_dma: dma@84A40000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A40000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		tx1_dma: dma@84A50000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A50000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		tx2_dma: dma@84A60000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A60000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		axi_adrv9002_core_rx1: axi-adrv9002-rx-lpc@84A00000 {
+			compatible = "adi,axi-adrv9002-rx-1.0";
+			reg = <0x84A00000 0x6000>;
+			clocks = <&adc0_adrv9002 0>;
+			dmas = <&rx1_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_adrv9002>;
+		};
+
+		axi_adrv9002_core_tx1: axi-adrv9002-tx-lpc@84A0A000 {
+			compatible = "adi,axi-adrv9002-tx-1.0";
+			reg = <0x84A0A000 0x2000>;
+			clocks = <&adc0_adrv9002 1>;
+			clock-names = "sampl_clk";
+			dmas = <&tx1_dma 0>;
+			dma-names = "tx";
+			adi,axi-dds-default-scale = <0x800>;
+			adi,axi-dds-default-frequency = <2000000>;
+		};
+
+		axi_adrv9002_core_tdd1: axi-adrv9002-core-tdd1-lpc@84A0C800 {
+			compatible = "adi,axi-tdd-1.00";
+			reg = <0x84A0C800 0x400>;
+			clocks = <&zynqmp_clk 71>, <&adc0_adrv9002 2>;
+			clock-names = "s_axi_aclk", "intf_clk";
+			label = "axi-core-tdd-1";
+		};
+
+		axi_adrv9002_core_rx2: axi-adrv9002-rx2-lpc@84A09000 {
+			compatible = "adi,axi-adrv9002-rx2-1.0";
+			reg = <0x84A09000 0x1000>;
+			clocks = <&adc0_adrv9002 3>;
+			clock-names = "sampl_clk";
+			dmas = <&rx2_dma 0>;
+			dma-names = "rx";
+		};
+
+		axi_adrv9002_core_tx2: axi-adrv9002-tx2-lpc@84A0C000 {
+			compatible = "adi,axi-adrv9002-tx-1.0";
+			reg = <0x84A0C000 0x2000>;
+			clocks = <&adc0_adrv9002 4>;
+			clock-names = "sampl_clk";
+			dmas = <&tx2_dma 0>;
+			dma-names = "tx";
+			adi,axi-dds-default-scale = <0x800>;
+			adi,axi-dds-default-frequency = <2000000>;
+		};
+
+		axi_adrv9002_core_tdd2: axi-adrv9002-core-tdd2-lpc@84A0CC00 {
+			compatible = "adi,axi-tdd-1.00";
+			reg = <0x84A0CC00 0x400>;
+			clocks = <&zynqmp_clk 71>, <&adc0_adrv9002 5>;
+			clock-names = "s_axi_aclk", "intf_clk";
+			label = "axi-core-tdd-2";
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+
+
+
+
+
+		rx1_dma_2nd: dma@84A80000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A80000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		rx2_dma_2nd: dma@84A90000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A90000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		tx1_dma_2nd: dma@84AA0000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84AA0000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		tx2_dma_2nd: dma@84AB000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84AB0000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		axi_adrv9002_core_rx1_2nd: axi-adrv9002-rx-lpc-2nd@84A70000 {
+			compatible = "adi,axi-adrv9002-rx-1.0";
+			reg = <0x84A70000 0x6000>;
+			clocks = <&adc1_adrv9002 0>;
+			dmas = <&rx1_dma_2nd 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc1_adrv9002>;
+		};
+
+		axi_adrv9002_core_tx1_2nd: axi-adrv9002-tx-lpc-2nd@84A7A000 {
+			compatible = "adi,axi-adrv9002-tx-1.0";
+			reg = <0x84A7A000 0x2000>;
+			clocks = <&adc1_adrv9002 1>;
+			clock-names = "sampl_clk";
+			dmas = <&tx1_dma_2nd 0>;
+			dma-names = "tx";
+			adi,axi-dds-default-scale = <0x800>;
+			adi,axi-dds-default-frequency = <2000000>;
+		};
+
+		axi_adrv9002_core_tdd1_2nd: axi-adrv9002-core-tdd1-lpc-2nd@84A7C800 {
+			compatible = "adi,axi-tdd-1.00";
+			reg = <0x84A7C800 0x400>;
+			clocks = <&zynqmp_clk 71>, <&adc1_adrv9002 2>;
+			clock-names = "s_axi_aclk", "intf_clk";
+			label = "axi-core-tdd-1";
+		};
+
+		axi_adrv9002_core_rx2_2nd: axi-adrv9002-rx2-lpc-2nd@84A79000 {
+			compatible = "adi,axi-adrv9002-rx2-1.0";
+			reg = <0x84A79000 0x1000>;
+			clocks = <&adc1_adrv9002 3>;
+			clock-names = "sampl_clk";
+			dmas = <&rx2_dma_2nd 0>;
+			dma-names = "rx";
+		};
+
+		axi_adrv9002_core_tx2_2nd: axi-adrv9002-tx2-lpc-2nd@84A7C000 {
+			compatible = "adi,axi-adrv9002-tx-1.0";
+			reg = <0x84A7C000 0x2000>;
+			clocks = <&adc1_adrv9002 4>;
+			clock-names = "sampl_clk";
+			dmas = <&tx2_dma_2nd 0>;
+			dma-names = "tx";
+			adi,axi-dds-default-scale = <0x800>;
+			adi,axi-dds-default-frequency = <2000000>;
+		};
+
+		axi_adrv9002_core_tdd2_2nd: axi-adrv9002-core-tdd2-lpc-2nd@84A7CC00 {
+			compatible = "adi,axi-tdd-1.00";
+			reg = <0x84A7CC00 0x400>;
+			clocks = <&zynqmp_clk 71>, <&adc1_adrv9002 5>;
+			clock-names = "s_axi_aclk", "intf_clk";
+			label = "axi-core-tdd-2";
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-adrv9002.dtsi"
+
+&adc0_adrv9002 {
+	reset-gpios = <&gpio 124 GPIO_ACTIVE_LOW>;
+};
+
+&spi1 {
+	status = "okay";
+
+	adc1_adrv9002: adrv9002-phy-2nd@0 {
+		compatible = "adi,adrv9002";
+		reg = <0>;
+
+//		H34 not connected on FMC1
+//		interrupt-parent = <&gpio>;
+//		interrupts = <122 IRQ_TYPE_EDGE_RISING>;
+
+		spi-max-frequency = <20000000>;
+
+		reset-gpios = <&gpio 149 GPIO_ACTIVE_LOW>;
+
+		/* Clocks */
+		clocks = <&adrv9002_clkin>;
+		clock-names = "adrv9002_ext_refclk";
+		clock-output-names = "rx1_sampl_clk", "tx1_sampl_clk", "tdd1_intf_clk",
+				"rx2_sampl_clk", "tx2_sampl_clk", "tdd2_intf_clk";
+		#clock-cells = <1>;
+
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			rx@0 {
+				reg = <0>;
+				adi,port = <0>;
+				orx-gpios = <&gpio 135 GPIO_ACTIVE_HIGH>; /* dgpio0 */
+				enable-gpios = <&gpio 151 GPIO_ACTIVE_HIGH>;
+			};
+
+			rx@1 {
+				reg = <1>;
+				adi,port = <0>;
+				orx-gpios = <&gpio 136 GPIO_ACTIVE_HIGH>; /* dgpio1 */
+				enable-gpios = <&gpio 152 GPIO_ACTIVE_HIGH>;
+			};
+
+			tx@0 {
+				reg = <0>;
+				adi,port = <1>;
+				adi,dpd;
+				enable-gpios = <&gpio 153 GPIO_ACTIVE_HIGH>;
+			};
+
+			tx@1 {
+				reg = <1>;
+				adi,port = <1>;
+				adi,dpd;
+				enable-gpios = <&gpio 154 GPIO_ACTIVE_HIGH>;
+			};
+
+		};
+
+		adi,gpios {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpio@0 {
+				reg = <ADRV9002_DGPIO_0>;
+				adi,signal = <ADRV9002_GPIO_SIGNAL_ORX_ENABLE_1>;
+			};
+
+			gpio@1 {
+				reg = <ADRV9002_DGPIO_1>;
+				adi,signal = <ADRV9002_GPIO_SIGNAL_ORX_ENABLE_2>;
+			};
+		};
+
+		/* Frequency hopping properties */
+		adi,frequency-hopping {
+			adi,fh-mode = <ADRV9002_FH_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP>;
+			adi-fh-rx-zero-if-en;
+
+			/* Depends on @adi,fh-mode being set to dual hop */
+			adi,fh-hop-signal-2 {
+				adi,fh-hop-rx-ports = <ADRV9002_RX_2>;
+				adi,fh-hop-tx-ports = <ADRV9002_TX_2>;
+			};
+		};
+	};
+};
