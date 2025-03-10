@@ -335,7 +335,11 @@ build_dt_binding_check() {
 	fi
 
 	# install dt_binding_check dependencies
-	[ "${LOCAL_BUILD}" == "y" ] || pip3 install dtschema
+	apt_install pipx
+	[ "${LOCAL_BUILD}" == "y" ] || {
+		pipx install dtschema
+		PATH=$PATH:$HOME/.local/bin/
+	}
 
 	__update_git_ref "${ref_branch}" "${ref_branch}"
 
