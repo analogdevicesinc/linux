@@ -56,12 +56,12 @@ properties:
     patternProperties:
       '^port@[0-3]$':
         $ref: /schemas/graph.yaml#/properties/port
-        description: GMSL Input port
+        description: GMSL Input ports 0-3
 
       '^port@[4-7]$':
         $ref: /schemas/graph.yaml#/$defs/port-base
         unevaluatedProperties: false
-        description: CSI-2 Output port
+        description: CSI-2 Output port 0-3
 
         properties:
           endpoint:
