@@ -130,16 +130,14 @@ required:
 additionalProperties:
   anyOf:
     - type: object
-      allOf:
-        - $ref: /schemas/media/i2c/maxim,max96717-pinctrl.yaml#
+      $ref: /schemas/media/i2c/maxim,max96717-pinctrl.yaml#
 
       unevaluatedProperties: false
 
     - type: object
       additionalProperties:
         type: object
-        allOf:
-          - $ref: /schemas/media/i2c/maxim,max96717-pinctrl.yaml#
+        $ref: /schemas/media/i2c/maxim,max96717-pinctrl.yaml#
 
         unevaluatedProperties: false
 
