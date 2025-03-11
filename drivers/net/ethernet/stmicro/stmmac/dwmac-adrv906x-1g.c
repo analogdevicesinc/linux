@@ -9,6 +9,7 @@
 #include <linux/of_mdio.h>
 #include <linux/phy.h>
 #include <linux/platform_device.h>
+#include <linux/errno.h>
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
@@ -226,9 +227,10 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 	struct adrv906x_priv_data *adrv_priv;
 	struct device *dev = &pdev->dev;
 	struct device_node *clk_div_np;
-	struct net_device *ndev;
-	struct sockaddr sock_addr;
 	void __iomem *clk_ctrl_base;
+	struct sockaddr sock_addr;
+	struct net_device *ndev;
+	const char *if_name;
 	u32 addr, len;
 	bool term_en;
 	int ret;
@@ -314,6 +316,25 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 
 	ndev = platform_get_drvdata(pdev);
 	adrv_priv->stm_priv = netdev_priv(ndev);
+
+	/* Change interface name from DT property */
+	ret = of_property_read_string(pdev->dev.of_node, "if-name", &if_name);
+	dev_info(dev, "TRY using %s interface name from device tree", if_name);
+	if (!ret) {
+		rtnl_lock();
+		ret = dev_change_name(ndev, if_name);
+		rtnl_unlock();
+		switch (-ret) {
+		case EINVAL:
+			dev_err(dev, "interface name: %s is not valid, not switching from default", if_name);
+			break;
+		case EEXIST:
+			dev_err(dev, "interface name: %s is already used, not switching from default", if_name);
+			break;
+		default:
+			break;
+		}
+	}
 
 	return 0;
 
