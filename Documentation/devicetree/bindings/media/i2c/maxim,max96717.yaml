@@ -18,9 +18,9 @@ description:
   progress. The MAX96717 can connect to one remotely located deserializer using
   industry-standard coax or STP interconnects. The device cans operate in pixel
   or tunnel mode. In pixel mode the MAX96717 can select the MIPI datatype, while
-  the tunnel mode forward all the MIPI data received by the serializer.
-  The MAX96717 supports Reference Over Reverse (channel), to generate a clock
-  output for the sensor from the GMSL reverse channel.
+  the tunnel mode forward all the MIPI data received by the serializer. The
+  MAX96717 supports Reference Over Reverse (channel), to generate a clock output
+  for the sensor from the GMSL reverse channel.
 
   The GMSL2 serial link operates at a fixed rate of 3Gbps or 6Gbps in the
   forward direction and 187.5Mbps in the reverse direction.
