@@ -143,8 +143,6 @@ patternProperties:
       drive-open-drain: true
       drive-push-pull: true
       bias-disable: true
-      bias-pull-up: true
-      bias-pull-down: true
       output-disable: true
       output-enable: true
       output-low: true
@@ -159,6 +157,20 @@ patternProperties:
           2 - Slow
           3 - Slowest
         maximum: 3
+
+      bias-pull-up:
+        oneOf:
+          - type: boolean
+            description: Enable regular 40kOhm pull-up
+          - enum: [ 40000, 1000000 ]
+            description: Enable either the 40kOhm or the 1MOhm pull-up
+
+      bias-pull-down:
+        oneOf:
+          - type: boolean
+            description: Enable regular 40kOhm pull-down
+          - enum: [ 40000, 1000000 ]
+            description: Enable either the 40kOhm or the 1MOhm pull-down
 
       maxim,jitter-compensation:
         type: boolean
