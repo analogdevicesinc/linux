@@ -10,7 +10,7 @@ title: Maxim MAX9296A GMSL2 to CSI-2 Deserializer
 maintainers:
   - Cosmin Tanislav <cosmin.tanislav@analog.com>
 
-description:
+description: >
   The MAX9296A deserializer converts single or dual serial inputs to
   MIPI CSI-2 outputs. The GMSL2 links operate at a fixed rate of 3Gbps
   or 6Gbps in the forward direction and 187.5Mbps in the reverse
@@ -22,6 +22,7 @@ description:
   on each input.
 
   MAX96716A supports both tunnel and pixel mode.
+
   MAX96792A supports both tunnel and pixel mode, and has two GMSL3 links.
 
 properties:
