@@ -88,7 +88,7 @@ properties:
       '^port@[0-1]$':
         $ref: /schemas/graph.yaml#/properties/port
         unevaluatedProperties: false
-        description: GMSL Input
+        description: GMSL Input ports 0-1
         properties:
           endpoint:
             $ref: /schemas/media/video-interfaces.yaml#
@@ -98,7 +98,7 @@ properties:
       '^port@[2-3]$':
         $ref: /schemas/graph.yaml#/$defs/port-base
         unevaluatedProperties: false
-        description: CSI-2 Output port
+        description: CSI-2 Output ports 0-1
         properties:
           endpoint:
             $ref: /schemas/media/video-interfaces.yaml#
