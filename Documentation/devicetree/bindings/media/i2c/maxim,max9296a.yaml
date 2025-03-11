@@ -88,13 +88,7 @@ properties:
     patternProperties:
       '^port@[0-1]$':
         $ref: /schemas/graph.yaml#/properties/port
-        unevaluatedProperties: false
         description: GMSL Input ports 0-1
-        properties:
-          endpoint:
-            $ref: /schemas/media/video-interfaces.yaml#
-            unevaluatedProperties: false
-            description: Endpoint for GMSL2-Link port.
 
       '^port@[2-3]$':
         $ref: /schemas/graph.yaml#/$defs/port-base
