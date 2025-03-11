@@ -45,7 +45,7 @@ properties:
 
   maxim,gmsl-tx-id:
     $ref: /schemas/types.yaml#/definitions/uint32
-    description: |
+    description:
       Identifier used while transmitting value to GMSL link.
       Default value matches the pin number.
     minimum: 0
@@ -53,7 +53,7 @@ properties:
 
   maxim,gmsl-rx-id:
     $ref: /schemas/types.yaml#/definitions/uint32
-    description: |
+    description:
       Identifier used while receiving value from GMSL link.
       Default value matches the pin number.
     minimum: 0
