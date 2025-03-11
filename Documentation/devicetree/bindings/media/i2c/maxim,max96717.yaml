@@ -34,8 +34,9 @@ description: >
 properties:
   compatible:
     oneOf:
-      - const: maxim,max9295a
-      - const: maxim,max96717f
+      - enum:
+          - maxim,max9295a
+          - maxim,max96717f
       - items:
           - enum:
               - maxim,max96717
