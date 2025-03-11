@@ -211,6 +211,10 @@ patternProperties:
         minimum: 0
         maximum: 3
 
+    required:
+      - pins
+      - function
+
 allOf:
   - $ref: /schemas/i2c/i2c-atr.yaml#
 
