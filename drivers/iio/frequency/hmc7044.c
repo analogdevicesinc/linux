@@ -938,7 +938,7 @@ static int hmc7044_info(struct iio_dev *indio_dev)
 
 static int hmc7044_setup(struct iio_dev *indio_dev)
 {
-	printk(KERN_DEBUG "\nceva hmc7044: Am intrat in hmc7044_setup\n");
+	pr_err("\nceva hmc7044: Am intrat in hmc7044_setup\n");
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *chan;
 	bool high_vco_en;
@@ -1055,13 +1055,13 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	hmc7044_read_write_check(indio_dev);
 
-	printk(KERN_DEBUG "\nceva hmc7044: dupa read write check\n");
+	pr_err("\nceva hmc7044: dupa read write check\n");
 	/* Disable all channels */
 	for (i = 0; i < HMC7044_NUM_CHAN; i++) {
 		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(i), 0);
 		if (ret)
 			return ret;
-		printk(KERN_DEBUG "\nceva hmc7044: disable channel %d\n", i);
+		pr_err("\nceva hmc7044: disable channel %d\n", i);
 	}
 
 	/* Load the configuration updates (provided by Analog Devices) */
@@ -2315,7 +2315,7 @@ static const struct jesd204_dev_data jesd204_hmc7044_init = {
 
 static int hmc7044_probe(struct spi_device *spi)
 {
-	printk(KERN_DEBUG "\n ceva hmc7044: Am intrat in probe\n");
+	pr_err("\n ceva hmc7044: Am intrat in probe\n");
 	struct iio_dev *indio_dev;
 	struct hmc7044 *hmc;
 	int ret;
