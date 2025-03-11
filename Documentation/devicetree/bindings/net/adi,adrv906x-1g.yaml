@@ -30,6 +30,9 @@ properties:
                  from OTP or NVMEM.
                  If the property is defined with any value including 0
                  then it is not updated by U-Boot.
+  if-name:
+    description: Optional field that can be used for changing interface
+                 name registered. Must fulfill netdev naming standards.
 additionalProperties: false
 
 Examples:
