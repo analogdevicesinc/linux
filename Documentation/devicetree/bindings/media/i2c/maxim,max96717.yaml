@@ -11,7 +11,7 @@ maintainers:
   - Julien Massot <julien.massot@collabora.com>
   - Cosmin Tanislav <cosmin.tanislav@analog.com>
 
-description:
+description: >
   The MAX96717 serializer converts MIPI CSI-2 D-PHY formatted input into GMSL2
   serial outputs. The device allows the GMSL2 link to simultaneously transmit
   bidirectional control-channel data while forward video transmissions are in
@@ -26,7 +26,9 @@ description:
   forward direction and 187.5Mbps in the reverse direction.
 
   MAX96717F only supports a fixed rate of 3Gbps in the forward direction.
+
   MAX9295A only supports pixel mode.
+
   MAX96793 also supports GMSL3 mode.
 
 properties:
