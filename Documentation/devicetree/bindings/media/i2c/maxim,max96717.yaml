@@ -127,19 +127,67 @@ required:
   - reg
   - ports
 
-additionalProperties:
-  anyOf:
-    - type: object
-      $ref: /schemas/media/i2c/maxim,max96717-pinctrl.yaml#
+patternProperties:
+  '-pins$':
+    type: object
+    additionalProperties: false
+    allOf:
+      - $ref: /schemas/pinctrl/pincfg-node.yaml#
+      - $ref: /schemas/pinctrl/pinmux-node.yaml#
 
-      unevaluatedProperties: false
+    properties:
+      function: true
+      pins: true
+      drive-open-drain: true
+      drive-push-pull: true
+      bias-disable: true
+      bias-pull-up: true
+      bias-pull-down: true
+      output-disable: true
+      output-enable: true
+      output-low: true
+      output-high: true
+      slew-rate: true
+      input-enable: true
 
-    - type: object
-      additionalProperties:
-        type: object
-        $ref: /schemas/media/i2c/maxim,max96717-pinctrl.yaml#
+      maxim,jitter-compensation:
+        type: boolean
+        description: Enables jitter compensation.
 
-        unevaluatedProperties: false
+      maxim,gmsl-tx:
+        type: boolean
+        description: Enable transmitting pin value to GMSL link.
+
+      maxim,gmsl-rx:
+        type: boolean
+        description: Enable receiving pin value from GMSL link.
+
+      maxim,gmsl-tx-id:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description:
+          Identifier used while transmitting value to GMSL link.
+          Default value matches the pin number.
+        minimum: 0
+        maximum: 31
+
+      maxim,gmsl-rx-id:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description:
+          Identifier used while receiving value from GMSL link.
+          Default value matches the pin number.
+        minimum: 0
+        maximum: 31
+
+      maxim,rclkout-clock:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: |
+          Clock value.
+          0 - XTAL / 1 = 25MHz
+          1 - XTAL / 2 = 12.5MHz
+          2 - XTAL / 4 = 6.25MHz
+          3 - Reference PLL output
+        minimum: 0
+        maximum: 3
 
 allOf:
   - $ref: /schemas/i2c/i2c-atr.yaml#
