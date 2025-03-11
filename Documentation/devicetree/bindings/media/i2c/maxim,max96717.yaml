@@ -113,7 +113,7 @@ properties:
         const: 0
 
     patternProperties:
-      '^i2c@0':
+      '^i2c@[01]$':
         $ref: /schemas/i2c/i2c-controller.yaml#
         unevaluatedProperties: false
         properties:
