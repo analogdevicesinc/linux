@@ -149,8 +149,16 @@ patternProperties:
       output-enable: true
       output-low: true
       output-high: true
-      slew-rate: true
       input-enable: true
+
+      slew-rate:
+        description: |
+          Slew rate.
+          0 - Fastest
+          1 - Fast
+          2 - Slow
+          3 - Slowest
+        maximum: 3
 
       maxim,jitter-compensation:
         type: boolean
