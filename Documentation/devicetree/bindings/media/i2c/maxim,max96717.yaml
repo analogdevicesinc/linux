@@ -136,7 +136,9 @@ patternProperties:
       - $ref: /schemas/pinctrl/pinmux-node.yaml#
 
     properties:
-      function: true
+      function:
+        enum: [gpio, rclkout]
+
       pins: true
       drive-open-drain: true
       drive-push-pull: true
