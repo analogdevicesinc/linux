@@ -14,13 +14,18 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 				      bool rs_fec_enabled, u32 bit_slip,
 				      u32 buf_delay_tx, u32 buf_delay_rx)
 {
-	u32 rx_pcs, rx_pcs_pipeline, rx_pcs_decode, rx_pcs_gearbox, rx_rs_fec;
-	u32 tx_pcs, tx_pcs_pipeline, tx_pcs_decode, tx_pcs_gearbox, tx_rs_fec;
+	u32 rx_pcs, rx_pcs_pipeline, rx_pcs_decode, rx_pcs_gearbox, rx_rs_fec, rx_des_delay;
+	u32 tx_pcs, tx_pcs_pipeline, tx_pcs_encode, tx_pcs_gearbox, tx_rs_fec, tx_ser_delay;
 	u32 t_div66, t_div64;
 	u32 tod_cdc_delay;
 
 	t_div66 = (speed == SPEED_25000) ? T_DIV66_25G : T_DIV66_10G;
 	t_div64 = (speed == SPEED_25000) ? T_DIV64_25G : T_DIV64_10G;
+
+	tx_ser_delay = (speed == SPEED_25000) ?
+		       ADRV906X_SER_DELAY_TX_25G : ADRV906X_SER_DELAY_TX_10G;
+	rx_des_delay = (speed == SPEED_25000) ?
+		       ADRV906X_DES_DELAY_RX_25G : ADRV906X_DES_DELAY_RX_10G;
 
 	/* ToD_cdc_delay = 1.5 * 1 / hsdig_clk + (cdc_delay + 3.0) * T_div66 */
 
@@ -46,10 +51,10 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 
 	rx_pcs = rx_pcs_pipeline + rx_pcs_decode + rx_pcs_gearbox + rx_rs_fec;
 
-	/* Rx_static_phy_delay = Rx_pcs - ToD_cdc_delay - PCB_delay */
+	/* Rx_static_phy_delay = Rx_pcs - ToD_cdc_delay + PCB_delay + DESER_delay */
 
-	if (rx_pcs > tod_cdc_delay + tsu->pcb_delay_rx)
-		tsu->phy_delay_rx = rx_pcs - tod_cdc_delay - tsu->pcb_delay_rx;
+	if (rx_pcs > tod_cdc_delay + tsu->pcb_delay_rx + rx_des_delay)
+		tsu->phy_delay_rx = rx_pcs - tod_cdc_delay + tsu->pcb_delay_rx + rx_des_delay;
 	else
 		tsu->phy_delay_rx = 0;
 
@@ -65,15 +70,15 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 	 */
 
 	tx_pcs_pipeline = 2 * t_div66 + t_div64;
-	tx_pcs_decode = 4 * t_div66;
+	tx_pcs_encode = 4 * t_div66;
 	tx_pcs_gearbox = buf_delay_tx * t_div66;
 	tx_rs_fec = rs_fec_enabled ? 17 * t_div66 : 0;
 
-	tx_pcs = tx_pcs_pipeline + tx_pcs_decode + tx_pcs_gearbox + tx_rs_fec;
+	tx_pcs = tx_pcs_pipeline + tx_pcs_encode + tx_pcs_gearbox + tx_rs_fec;
 
-	/* Tx_static_phy_delay = Tx_pcs + ToD_cdc_delay + PCB_delay */
+	/* Tx_static_phy_delay = Tx_pcs + ToD_cdc_delay + PCB_delay + SER_delay */
 
-	tsu->phy_delay_tx = tx_pcs + tod_cdc_delay + tsu->pcb_delay_tx;
+	tsu->phy_delay_tx = tx_pcs + tod_cdc_delay + tsu->pcb_delay_tx + tx_ser_delay;
 }
 
 void adrv906x_tsu_set_phy_delay(struct adrv906x_tsu *tsu)
@@ -169,5 +174,5 @@ int adrv906x_tsu_setup(struct platform_device *pdev, struct adrv906x_tsu *tsu,
 
 void adrv906x_tsu_compensate_tx_tstamp(struct adrv906x_tsu *tsu, struct timespec64 *ts)
 {
-    timespec64_add_ns(ts, tsu->phy_delay_tx >> 16);
+	timespec64_add_ns(ts, tsu->phy_delay_tx >> 16);
 }
