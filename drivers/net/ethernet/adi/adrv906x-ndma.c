@@ -403,7 +403,6 @@ static void adrv906x_dma_tx_start(struct adrv906x_ndma_chan *ndma_ch)
 {
 	dma_addr_t desc_addr;
 
-	mod_timer(&ndma_ch->tx_timer, jiffies + TIMEOUT_100_MS);
 	desc_addr = ndma_ch->tx_ring_dma + sizeof(struct dma_desc) * ndma_ch->tx_tail;
 	iowrite32(0, ndma_ch->tx_dma_base + DMA_CFG);
 	iowrite32(desc_addr, ndma_ch->tx_dma_base + DMA_NEXT_DESC);
@@ -901,49 +900,6 @@ static void adrv906x_dma_tx_prep_desc_list(struct adrv906x_ndma_chan *ndma_ch)
 	tx_ring[desc_indx].cfg &= ~DMAFLOW_LIST;
 }
 
-static void adrv906x_ndma_tx_timeout(struct timer_list *t)
-{
-	struct adrv906x_ndma_chan *ndma_ch = from_timer(ndma_ch, t, tx_timer);
-	union adrv906x_ndma_chan_stats *stats = &ndma_ch->stats;
-	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
-	struct dma_desc *tx_ring = ndma_ch->tx_ring;
-	struct device *dev = ndma_dev->dev;
-	struct timespec64 ts = { 0, 0 };
-	unsigned long flags;
-	struct sk_buff *skb;
-	dma_addr_t addr;
-	unsigned int size;
-	unsigned char port;
-
-	if (!ndma_ch->tx_frames_pending)
-		return;
-
-	dev_warn(dev, "transmit timed out: tx status not received");
-
-	spin_lock_irqsave(&ndma_ch->lock, flags);
-
-	skb = ndma_ch->tx_buffs[ndma_ch->tx_tail];
-	port = FIELD_GET(NDMA_TX_HDR_SOF_PORT_ID, skb->data[0]);
-	addr = tx_ring[ndma_ch->tx_tail].start;
-	size = tx_ring[ndma_ch->tx_tail].xcnt * tx_ring[ndma_ch->tx_tail].xmod;
-	dma_unmap_single(dev, addr, size, DMA_TO_DEVICE);
-	ndma_ch->tx_buffs[ndma_ch->tx_tail] = NULL;
-	ndma_ch->tx_tail = (ndma_ch->tx_tail + 1) % NDMA_RING_SIZE;
-	ndma_ch->status_cb_fn(skb, port, ts, ndma_ch->status_cb_param);
-	ndma_ch->tx_frames_pending--;
-
-	if (ndma_ch->tx_frames_pending) {
-		mod_timer(&ndma_ch->tx_timer, jiffies + TIMEOUT_100_MS);
-	} else if (ndma_ch->tx_frames_waiting) {
-		adrv906x_dma_tx_prep_desc_list(ndma_ch);
-		adrv906x_dma_tx_start(ndma_ch);
-	}
-
-	stats->tx.pending_work_units = ndma_ch->tx_frames_pending;
-
-	spin_unlock_irqrestore(&ndma_ch->lock, flags);
-}
-
 static int adrv906x_ndma_device_init(struct adrv906x_ndma_dev *ndma_dev, struct device_node *np)
 {
 	struct device *dev = ndma_dev->dev;
@@ -1004,7 +960,6 @@ static int adrv906x_ndma_device_init(struct adrv906x_ndma_dev *ndma_dev, struct 
 	spin_lock_init(&rx_chan->lock);
 
 	INIT_DELAYED_WORK(&ndma_dev->update_stats, adrv906x_ndma_get_frame_drop_stats);
-	timer_setup(&tx_chan->tx_timer, adrv906x_ndma_tx_timeout, 0);
 
 	return ret;
 }
@@ -1269,8 +1224,6 @@ static void adrv906x_ndma_stop(struct kref *ref)
 	unsigned long flags;
 	unsigned int size, num_frames;
 	unsigned char port;
-
-	del_timer_sync(&tx_chan->tx_timer);
 
 	spin_lock_irqsave(&ndma_dev->lock, flags);
 	adrv906x_ndma_disable_all_irqs(ndma_dev);
@@ -1594,12 +1547,6 @@ static void adrv906x_ndma_process_tx_status(struct adrv906x_ndma_chan *ndma_ch,
 		adrv906x_ndma_chan_enable(ndma_ch);
 
 	skb = ndma_ch->tx_buffs[ndma_ch->tx_tail];
-	/* If skb is null, the following action has already been
-	 * executed by adrv906x_ndma_tx_timeout(), so simply return
-	 */
-	if (!skb)
-		return;
-
 	port = FIELD_GET(NDMA_TX_HDR_SOF_PORT_ID, skb->data[0]);
 	addr = tx_ring[ndma_ch->tx_tail].start;
 	size = tx_ring[ndma_ch->tx_tail].xcnt * tx_ring[ndma_ch->tx_tail].xmod;
@@ -1610,13 +1557,9 @@ static void adrv906x_ndma_process_tx_status(struct adrv906x_ndma_chan *ndma_ch,
 	ndma_ch->status_cb_fn(skb, port, ts, ndma_ch->status_cb_param);
 	ndma_ch->tx_frames_pending--;
 
-	if (!ndma_ch->tx_frames_pending) {
-		del_timer(&ndma_ch->tx_timer);
-
-		if (ndma_ch->tx_frames_waiting) {
-			adrv906x_dma_tx_prep_desc_list(ndma_ch);
-			adrv906x_dma_tx_start(ndma_ch);
-		}
+	if (!ndma_ch->tx_frames_pending && ndma_ch->tx_frames_waiting) {
+		adrv906x_dma_tx_prep_desc_list(ndma_ch);
+		adrv906x_dma_tx_start(ndma_ch);
 	}
 
 	stats->tx.pending_work_units = ndma_ch->tx_frames_pending;
