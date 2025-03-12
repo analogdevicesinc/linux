@@ -35,6 +35,12 @@
 #define T_DIV64_10G                                      406720         /* 0x634c0 */
 #define T_DIV64_25G                                      162688         /* 0x27b80 */
 
+/* SerDes delays */
+#define ADRV906X_DES_DELAY_RX_10G                        0x000363D7     /* 3.39 ns */
+#define ADRV906X_DES_DELAY_RX_25G                        0x0002C9FA     /* 2.79 ns */
+#define ADRV906X_SER_DELAY_TX_10G                        0x000C051F     /* 12.02 ns */
+#define ADRV906X_SER_DELAY_TX_25G                        0x000975A3     /* 9.46 ns */
+
 extern int adrv906x_tod_cfg_cdc_delay;
 
 struct adrv906x_tsu {
