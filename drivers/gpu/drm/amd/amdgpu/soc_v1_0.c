@@ -330,6 +330,8 @@ static int soc_v1_0_common_early_init(struct amdgpu_ip_block *ip_block)
 		return -EINVAL;
 	}
 
+	adev->nbio.funcs->init_registers(adev);
+
 	return 0;
 }
 
