@@ -101,3 +101,20 @@
 &adrv906x_phy1 {
 	sfp = <&sfp_port1>;
 };
+
+&adrv906x_net0 {
+	ethernet-ports {
+		port@0 {
+			adi,pcb-delay-tx-ns = <1>;
+			adi,pcb-delay-tx-frac-ns = <0>;
+			adi,pcb-delay-rx-ns = <1>;
+			adi,pcb-delay-rx-frac-ns = <0>;
+		};
+		port@1 {
+			adi,pcb-delay-tx-ns = <1>;
+			adi,pcb-delay-tx-frac-ns = <0>;
+			adi,pcb-delay-rx-ns = <1>;
+			adi,pcb-delay-rx-frac-ns = <0>;
+		};
+	};
+};
