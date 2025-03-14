@@ -94,8 +94,9 @@
 			spi-cpol;
 			spi-max-frequency = <80000000>;
 
-			interrupts = <86 IRQ_TYPE_EDGE_FALLING>;
-			interrupt-parent = <&gpio0>;
+			/* Not currently used by the driver. */
+			// interrupts = <86 IRQ_TYPE_EDGE_FALLING>;
+			// interrupt-parent = <&gpio0>;
 
 			vcc-supply = <&eval_u2>;
 			vlogic-supply = <&eval_u6>;
