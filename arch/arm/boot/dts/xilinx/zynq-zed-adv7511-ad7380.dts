@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Analog Devices AD7380
+ * https://www.analog.com/media/en/technical-documentation/data-sheets/AD7380-7381.pdf
+ * https://www.analog.com/media/en/technical-documentation/user-guides/eval-ad7380fmcz-7381fmcz-ug-1304.pdf
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad738x
  * https://wiki.analog.com/resources/eval/user-guides/ad738x
+ * http://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/index.html
  *
  * hdl_project: <ad738x_fmc/zed>
  * board_revision: <>
