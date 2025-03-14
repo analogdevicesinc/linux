@@ -538,6 +538,17 @@ config REGULATOR_LTC3676
 	  This enables support for the LTC3676
 	  8-output regulators controlled via I2C.
 
+config REGULATOR_LTC7871
+	tristate "LTC7871 six-phase buck-boost voltage regulator driver with SPI"
+	depends on SPI && OF
+	help
+	  This driver controls an Analog Devices LTC7871 high performance
+	  bidirectional buck or boost switching regulator controller
+	  that operates in either buck or boost mode on demand.
+
+	  Say M here if you want to include support for the regulator as a
+	  module.
+
 config REGULATOR_MAX14577
 	tristate "Maxim 14577/77836 regulator"
 	depends on MFD_MAX14577
