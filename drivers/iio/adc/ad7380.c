@@ -1598,7 +1598,7 @@ static int ad7380_write_event_config(struct iio_dev *indio_dev,
 				     const struct iio_chan_spec *chan,
 				     enum iio_event_type type,
 				     enum iio_event_direction dir,
-				     bool state)
+				     int state)
 {
 	struct ad7380_state *st = iio_priv(indio_dev);
 	int ret;
