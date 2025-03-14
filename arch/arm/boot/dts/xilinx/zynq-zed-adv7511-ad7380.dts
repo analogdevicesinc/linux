@@ -46,11 +46,6 @@
 	 * clkc 16 = peripheral fclk1 (fpga clock 1)
 	 */
 
-	axi-sysid-0@45000000 {
-		compatible = "adi,axi-sysid-1.00.a";
-		reg = <0x45000000 0x10000>;
-	};
-
 	adc_trigger: pwm@44b00000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x1000>;
