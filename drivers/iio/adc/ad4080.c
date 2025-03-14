@@ -424,7 +424,7 @@ mutex_unlock:
 	return ret ? ret : len;
 }
 
-static ssize_t ad4080_get_filter_mode(struct iio_dev *dev,
+static int ad4080_get_filter_mode(struct iio_dev *dev,
 				      const struct iio_chan_spec *chan)
 {
 	struct ad4080_state *st = ad4080_get_data(dev);
@@ -475,7 +475,7 @@ static int ad4080_set_filter_mode(struct iio_dev *dev,
 	return ret;
 }
 
-static ssize_t ad4080_get_dec_rate(struct iio_dev *dev,
+static int ad4080_get_dec_rate(struct iio_dev *dev,
 				   const struct iio_chan_spec *chan)
 {
 	struct ad4080_state *st = ad4080_get_data(dev);

@@ -85,7 +85,7 @@
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		out-gpios = <&gpio0 115 0>;
+		out-gpios = <&gpio 115 0>;
 		channel@0 {
 			reg = <0>;
 			label = "SYNC_N";
@@ -127,7 +127,7 @@
 		adi,phase-detector-polarity-positive-enable;
 		adi,charge-pump-current = <5000>;
 		adi,output-power = <1>;
-		lock_detect-gpios = <&gpio0 113 0>;
+		lock_detect-gpios = <&gpio 113 0>;
 	};
 
 	clk0_ad9508: ad9508@0 {
@@ -143,7 +143,7 @@
 
 		spi-max-frequency = <10000000>;
 		clock-output-names = "ad9508-1_out0", "ad9508-1_out1", "ad9508-1_out2", "ad9508-1_out3";
-		sync-gpios = <&gpio0 117 0>;
+		sync-gpios = <&gpio 117 0>;
 
 		ad9508_0_c0:channel@0 {
 			reg = <0>;
