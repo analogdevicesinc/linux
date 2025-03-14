@@ -257,6 +257,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-ad7124-8-all-diff.dtbo \
 	rpi-ad7173.dtbo \
 	rpi-ad7190.dtbo \
+	rpi-ad7191.dtbo \
 	rpi-ad7293.dtbo \
 	rpi-ad738x.dtbo \
 	rpi-ad7746.dtbo \
