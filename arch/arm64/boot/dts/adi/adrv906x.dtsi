@@ -203,6 +203,16 @@
 			status = "disabled";
 		};
 
+		xcorr0_res: xcorr-reserved@0 {
+			compatible = "adi,sram-access";
+			reg = <0x21400000 0x00200000>; /* 2 MB */
+		};
+
+		xcorr1_res: xcorr-reserved@1 {
+			compatible = "adi,sram-access";
+			reg = <0x21600000 0x00001000>; /* 4KB */
+		};
+
 		/* Secondary regions */
 		sram2_res: sram-reserved@2 {
 			compatible = "adi,sram-access";
@@ -237,6 +247,18 @@
 	ddr0_mmap: ddr-mmap@0 {
 		compatible = "adi,sram-mmap";
 		memory-region = <&ddr0_res>;
+		status = "okay";
+	};
+
+	xcorr0_mmap: xcorr-mmap@0 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&xcorr0_res>;
+		status = "okay";
+	};
+
+	xcorr1_mmap: xcorr-mmap@1 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&xcorr1_res>;
 		status = "okay";
 	};
 
