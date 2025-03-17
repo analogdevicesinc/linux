@@ -277,6 +277,7 @@
 	ltc2945@6a {
 		compatible = "adi,ltc2945";
 		reg = <0x6a>;
+		shunt-resistor-micro-ohms = <20000>;
 	};
 
 	eeprom_i2c: eeprom@50 {
