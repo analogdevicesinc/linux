@@ -5254,7 +5254,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal, int arg)
 {
 	struct ad9361_rf_phy_state *st = phy->state;
-	int ret;
+	int ret, ret2;
 
 	dev_dbg(&phy->spi->dev, "%s: CAL %u ARG %d", __func__, cal, arg);
 
@@ -5278,11 +5278,11 @@ static int ad9361_do_calib_run(struct ad9361_rf_phy *phy, u32 cal, int arg)
 		break;
 	}
 
-	ret = ad9361_tracking_control(phy, st->bbdc_track_en,
+	ret2 = ad9361_tracking_control(phy, st->bbdc_track_en,
 			st->rfdc_track_en, st->quad_track_en);
 	ad9361_ensm_restore_prev_state(phy);
 
-	return ret;
+	return ret ? ret : ret2;
 }
 
 static int ad9361_update_rf_bandwidth(struct ad9361_rf_phy *phy,
