@@ -780,8 +780,8 @@ spi10_cs_pins: &spi10_cs_gpio1 {};
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		port@4 {
-			reg = <4>;
+		port@1 {
+			reg = <1>;
 
 			max_des_phy_0_out: endpoint {
 				clock-lanes = <0>;

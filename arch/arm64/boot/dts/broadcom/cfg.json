@@ -1,10 +1,6 @@
 [
     {
-        "name": "max96724",
-        "vpoc_cfg": {
-            "name": "max20087",
-            "wait_for_teensy_reset_ms": 3000
-        },
+        "name": "max96714",
         "links": [
             {
                 "name": "max96717",
@@ -14,33 +10,6 @@
                     }
                 ],
                 "pool_addrs": ["0x50", "0x51"]
-            },
-            {
-                "name": "max96717",
-                "cameras": [
-                    {
-                        "name": "imx219"
-                    }
-                ],
-                "pool_addrs": ["0x52", "0x53"]
-            },
-            {
-                "name": "max96717",
-                "cameras": [
-                    {
-                        "name": "imx219"
-                    }
-                ],
-                "pool_addrs": ["0x54", "0x55"]
-            },
-            {
-                "name": "max96717",
-                "cameras": [
-                    {
-                        "name": "imx219"
-                    }
-                ],
-                "pool_addrs": ["0x56", "0x57"]
             }
         ]
     }
