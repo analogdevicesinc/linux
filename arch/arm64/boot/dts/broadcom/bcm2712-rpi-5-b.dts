@@ -783,7 +783,7 @@ spi10_cs_pins: &spi10_cs_gpio1 {};
 		port@4 {
 			reg = <4>;
 
-			max_des_phy_1_out: endpoint {
+			max_des_phy_0_out: endpoint {
 				clock-lanes = <0>;
 				data-lanes = <1 2 3 4>;
 				link-frequencies = /bits/ 64 <750000000>;
@@ -799,7 +799,7 @@ spi10_cs_pins: &spi10_cs_gpio1 {};
 
 	port {
 		csi_ep: endpoint {
-			remote-endpoint = <&max_des_phy_1_out>;
+			remote-endpoint = <&max_des_phy_0_out>;
 			clock-lanes = <0>;
 			data-lanes = <1 2 3 4>;
 			clock-noncontinuous;
