@@ -39,8 +39,6 @@
 {% endif %}
 
 &{{des_label}} {
-	i2c-alias-pool = <{{pool_addrs}}>;
-
 	{{des_i2c_adapter_label}}: i2c-mux {
 		#address-cells = <1>;
 		#size-cells = <0>;
