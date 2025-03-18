@@ -1906,7 +1906,7 @@ static int max_des_update_pocs(struct max_des_priv *priv, bool enable)
 		if (!link->enabled)
 			continue;
 
-		if (!priv->pocs)
+		if (!priv->pocs[index])
 			continue;
 
 		if (enable)
