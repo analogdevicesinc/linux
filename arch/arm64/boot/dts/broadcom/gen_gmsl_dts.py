@@ -24,7 +24,12 @@ def add_filter(env, fn):
 def read_template(dir: str, name: str, vars: vars_type) -> str:
     template_name = f'{name}.dtsi.in'
 
-    env = Environment(loader=FileSystemLoader(dir))
+    env = Environment(
+        loader=FileSystemLoader(dir),
+        keep_trailing_newline=True,
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
     add_filter(env, hex_remove_0x)
     add_filter(env, str_quote)
     template = env.get_template(template_name)

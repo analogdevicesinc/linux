@@ -5,6 +5,7 @@
 
 		compatible = "maxim,max96724";
 		reg = <0x27>;
+
 		port0-poc-supply = <&max_des_0_vpoc_0>;
 		port1-poc-supply = <&max_des_0_vpoc_1>;
 		port2-poc-supply = <&max_des_0_vpoc_2>;

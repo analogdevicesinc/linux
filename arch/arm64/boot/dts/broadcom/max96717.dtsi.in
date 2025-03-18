@@ -1,18 +1,16 @@
-{%- set default_address = '0x40' -%}
-{%- set address = ser_cfg.address | d(default_address) %}
-{%- set default_compatible = 'maxim,max96717' -%}
-{%- set compatible = ser_cfg.compatible | d(default_compatible) | str_quote -%}
-{%- set pool_addrs = ser_cfg.pool_addrs | d(['0x50', '0x51']) | join(' ') -%}
-
-{%- set ser_label = des_label ~ '_ser_' ~ ser_idx -%}
-{%- set ser_out_label = ser_label ~ '_out' -%}
-{%- set ser_out_remote_label = des_in_label_x(ser_idx) -%}
-{%- set i2c_label = des_i2c_label_x(ser_idx) -%}
-{%- macro ser_in_label_x(x) -%}
+{% set default_address = '0x40' %}
+{% set address = ser_cfg.address | d(default_address) %}
+{% set default_compatible = 'maxim,max96717' %}
+{% set compatible = ser_cfg.compatible | d(default_compatible) | str_quote %}
+{% set pool_addrs = ser_cfg.pool_addrs | d(['0x50', '0x51']) | join(' ') %}
+{% set ser_label = des_label ~ '_ser_' ~ ser_idx %}
+{% set ser_out_label = ser_label ~ '_out' %}
+{% set ser_out_remote_label = des_in_label_x(ser_idx) %}
+{% set i2c_label = des_i2c_label_x(ser_idx) %}
+{% macro ser_in_label_x(x) -%}
 	{{ ser_label ~ '_in_' ~ x }}
 {%- endmacro %}
-
-{%- macro ser_i2c_label() -%}
+{% macro ser_i2c_label() -%}
 	{{ ser_label ~ '_i2c_' ~ 0 }}
 {%- endmacro %}
 
@@ -71,8 +69,7 @@
 		};
 	};
 };
-
-{%- for cam_cfg in ser_cfg.cameras -%}
-	{%- set cam_idx = loop.index0 -%}
-	{%- include '%s.dtsi.in' % cam_cfg.name -%}
-{%- endfor -%}
+{% for cam_cfg in ser_cfg.cameras %}
+	{% set cam_idx = loop.index0 %}
+	{% include '%s.dtsi.in' % cam_cfg.name %}
+{% endfor %}

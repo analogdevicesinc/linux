@@ -1,9 +1,8 @@
-{%- set reset_pin = cam_cfg.reset_pin | d(0) -%}
-
-{%- set cam_label = ser_label ~ "_cam_" ~ cam_idx -%}
-{%- set vcm_label = ser_label ~ "_vcm_" ~ cam_idx -%}
-{%- set cam_out_label = cam_label ~ "_out" -%}
-{%- set cam_out_remote_label = ser_in_label_x(cam_idx) %}
+{% set reset_pin = cam_cfg.reset_pin | d(0) %}
+{% set cam_label = ser_label ~ "_cam_" ~ cam_idx %}
+{% set vcm_label = ser_label ~ "_vcm_" ~ cam_idx %}
+{% set cam_out_label = cam_label ~ "_out" %}
+{% set cam_out_remote_label = ser_in_label_x(cam_idx) %}
 
 #define i2c_csi_dsi0 {{ser_i2c_label()}}
 #define cam_node {{cam_label}}
