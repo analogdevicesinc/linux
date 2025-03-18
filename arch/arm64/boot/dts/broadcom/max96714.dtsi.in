@@ -1,0 +1,42 @@
+{% set default_address = '0x4c' %}
+{% set address = des_cfg.address | d(default_address) %}
+{% set default_compatible = 'maxim,max96714' %}
+{% set compatible = des_cfg.compatible | d(default_compatible) | str_quote %}
+{% set des_label = 'max_des_' ~ des_idx %}
+{% macro des_in_label_x(x) -%}
+	{{ des_label ~ '_in_' ~ x }}
+{%- endmacro %}
+{% macro des_i2c_label_x(x) -%}
+{%- if x != 0 -%}
+	{{raise_exception('Invalid serializer index')}}
+{%- endif -%}
+	{{ des_label ~ '_i2c_' ~ x }}
+{%- endmacro %}
+{% macro des_i2c_x(ch_idx) -%}
+&{{des_label}} {
+	{{des_i2c_label_x(ch_idx)}}: i2c-gate {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+{%- endmacro %}
+&i2c_bus {
+	{{des_label}}: gmsl-deserializer@{{address | hex_remove_0x}} {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = {{compatible}};
+		reg = <{{address}}>;
+	};
+};
+
+&{{des_label}} {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+{% for ser_cfg in des_cfg.links %}
+	{% set ser_idx = loop.index0 %}
+	{% include '%s.dtsi.in' % ser_cfg.name %}
+{% endfor %}

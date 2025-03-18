@@ -18,8 +18,14 @@ def hex_remove_0x(value):
 def str_quote(value):
     return f'"{value}"'
 
+def raise_exception(value):
+    raise ValueError(value)
+
 def add_filter(env, fn):
     env.filters[fn.__name__] = fn
+
+def add_global(env, fn):
+    env.globals[fn.__name__] = fn
 
 def read_template(dir: str, name: str, vars: vars_type) -> str:
     template_name = f'{name}.dtsi.in'
@@ -32,6 +38,7 @@ def read_template(dir: str, name: str, vars: vars_type) -> str:
     )
     add_filter(env, hex_remove_0x)
     add_filter(env, str_quote)
+    add_global(env, raise_exception)
     template = env.get_template(template_name)
 
     return template.render(**vars)
