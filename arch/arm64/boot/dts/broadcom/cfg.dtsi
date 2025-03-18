@@ -21,15 +21,12 @@
 			max_des_0_vpoc_0: OUT1 {
 				regulator-name = "VPOC0";
 			};
-
 			max_des_0_vpoc_1: OUT2 {
 				regulator-name = "VPOC1";
 			};
-
 			max_des_0_vpoc_2: OUT3 {
 				regulator-name = "VPOC2";
 			};
-
 			max_des_0_vpoc_3: OUT4 {
 				regulator-name = "VPOC3";
 				/*
@@ -43,8 +40,6 @@
 				 */
 				regulator-enable-ramp-delay = <3000000>;
 			};
-
-
 		};
 	};
 };

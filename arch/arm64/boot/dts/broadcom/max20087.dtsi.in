@@ -23,8 +23,8 @@
 				regulator-enable-ramp-delay = <{{vpoc_cfg.wait_for_teensy_reset_ms * 1000}}>;
 {%- endif %}
 			};
-{% endfor %}
-{% endif %}
+{%- endfor -%}
+{%- endif %}
 		};
 	};
 };
