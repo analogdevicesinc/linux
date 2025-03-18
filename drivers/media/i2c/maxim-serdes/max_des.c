@@ -1901,18 +1901,17 @@ static int max_des_update_pocs(struct max_des_priv *priv, bool enable)
 
 	for (i = 0; i < des->ops->num_links; i++) {
 		struct max_des_link *link = &des->links[i];
-		unsigned int index = link->index;
 
 		if (!link->enabled)
 			continue;
 
-		if (!priv->pocs[index])
+		if (!priv->pocs[i])
 			continue;
 
 		if (enable)
-			ret = regulator_enable(priv->pocs[index]);
+			ret = regulator_enable(priv->pocs[i]);
 		else
-			ret = regulator_disable(priv->pocs[index]);
+			ret = regulator_disable(priv->pocs[i]);
 
 		if (ret) {
 			dev_err(priv->dev,
