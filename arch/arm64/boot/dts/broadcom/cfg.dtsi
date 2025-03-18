@@ -117,7 +117,9 @@
 			};
 		};
 	};
-};&max_des_0_ser_0 {
+};
+
+&max_des_0_ser_0 {
 	i2c-atr {
 		max_des_0_ser_0_i2c_0: i2c@0 {
 			#address-cells = <1>;
@@ -220,7 +222,9 @@
 			};
 		};
 	};
-};&max_des_0_ser_1 {
+};
+
+&max_des_0_ser_1 {
 	i2c-atr {
 		max_des_0_ser_1_i2c_0: i2c@0 {
 			#address-cells = <1>;
@@ -323,7 +327,9 @@
 			};
 		};
 	};
-};&max_des_0_ser_2 {
+};
+
+&max_des_0_ser_2 {
 	i2c-atr {
 		max_des_0_ser_2_i2c_0: i2c@0 {
 			#address-cells = <1>;
@@ -426,7 +432,9 @@
 			};
 		};
 	};
-};&max_des_0_ser_3 {
+};
+
+&max_des_0_ser_3 {
 	i2c-atr {
 		max_des_0_ser_3_i2c_0: i2c@0 {
 			#address-cells = <1>;

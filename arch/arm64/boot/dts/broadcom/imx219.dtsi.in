@@ -4,7 +4,7 @@
 {%- set vcm_label = ser_label ~ "_vcm_" ~ cam_idx -%}
 {%- set cam_out_label = cam_label ~ "_out" -%}
 {%- set cam_out_remote_label = ser_in_label_x(cam_idx) -%}
-{%- set i2c_label = ser_i2c_label_x(cam_idx) -%}
+{%- set i2c_label = ser_i2c_label_x(cam_idx) %}
 
 &{{ser_label}} {
 	i2c-atr {
