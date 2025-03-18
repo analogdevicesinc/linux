@@ -84,6 +84,12 @@
 	i2c-atr {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		max_des_0_ser_0_i2c_0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
 	};
 
 	ports {
@@ -108,16 +114,6 @@
 			max_des_0_in_0: endpoint {
 				remote-endpoint = <&max_des_0_ser_0_out>;
 			};
-		};
-	};
-};
-
-&max_des_0_ser_0 {
-	i2c-atr {
-		max_des_0_ser_0_i2c_0: i2c@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x0>;
 		};
 	};
 };
@@ -189,6 +185,12 @@
 	i2c-atr {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		max_des_0_ser_1_i2c_0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
 	};
 
 	ports {
@@ -213,16 +215,6 @@
 			max_des_0_in_1: endpoint {
 				remote-endpoint = <&max_des_0_ser_1_out>;
 			};
-		};
-	};
-};
-
-&max_des_0_ser_1 {
-	i2c-atr {
-		max_des_0_ser_1_i2c_0: i2c@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x0>;
 		};
 	};
 };
@@ -294,6 +286,12 @@
 	i2c-atr {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		max_des_0_ser_2_i2c_0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
 	};
 
 	ports {
@@ -318,16 +316,6 @@
 			max_des_0_in_2: endpoint {
 				remote-endpoint = <&max_des_0_ser_2_out>;
 			};
-		};
-	};
-};
-
-&max_des_0_ser_2 {
-	i2c-atr {
-		max_des_0_ser_2_i2c_0: i2c@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x0>;
 		};
 	};
 };
@@ -399,6 +387,12 @@
 	i2c-atr {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		max_des_0_ser_3_i2c_0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
 	};
 
 	ports {
@@ -423,16 +417,6 @@
 			max_des_0_in_3: endpoint {
 				remote-endpoint = <&max_des_0_ser_3_out>;
 			};
-		};
-	};
-};
-
-&max_des_0_ser_3 {
-	i2c-atr {
-		max_des_0_ser_3_i2c_0: i2c@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x0>;
 		};
 	};
 };

@@ -11,17 +11,12 @@
 {%- macro ser_in_label_x(x) -%}
 	{{ ser_label ~ '_in_' ~ x }}
 {%- endmacro %}
-{%- macro ser_i2c_label_x(x) -%}
-	{{ ser_label ~ '_i2c_' ~ x }}
+
+{%- macro ser_i2c_label() -%}
+	{{ ser_label ~ '_i2c_' ~ 0 }}
 {%- endmacro %}
 
-&{{des_i2c_adapter_label}} {
-	{{i2c_label}}: i2c@{{ser_idx}} {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x{{ser_idx}}>;
-	};
-};
+{{des_i2c_x(ser_idx)}}
 
 &{{i2c_label}} {
 	{{ser_label}}: gmsl-serializer@{{address | hex_remove_0x}} {
@@ -43,6 +38,12 @@
 	i2c-atr {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		{{ser_i2c_label()}}: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
 	};
 
 	ports {

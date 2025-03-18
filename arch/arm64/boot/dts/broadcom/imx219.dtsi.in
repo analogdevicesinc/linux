@@ -3,20 +3,9 @@
 {%- set cam_label = ser_label ~ "_cam_" ~ cam_idx -%}
 {%- set vcm_label = ser_label ~ "_vcm_" ~ cam_idx -%}
 {%- set cam_out_label = cam_label ~ "_out" -%}
-{%- set cam_out_remote_label = ser_in_label_x(cam_idx) -%}
-{%- set i2c_label = ser_i2c_label_x(cam_idx) %}
+{%- set cam_out_remote_label = ser_in_label_x(cam_idx) %}
 
-&{{ser_label}} {
-	i2c-atr {
-		{{i2c_label}}: i2c@{{cam_idx}} {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x{{cam_idx}}>;
-		};
-	};
-};
-
-#define i2c_csi_dsi0 {{i2c_label}}
+#define i2c_csi_dsi0 {{ser_i2c_label()}}
 #define cam_node {{cam_label}}
 #define cam_endpoint {{cam_out_label}}
 #define vcm {{vcm_label}}
