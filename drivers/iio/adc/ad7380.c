@@ -78,6 +78,9 @@
 
 #define AD7380_CONFIG2_SDO2		GENMASK(9, 8)
 #define AD7380_CONFIG2_SDO		BIT(8)
+#define   AD7380_CONFIG2_SDO_2_WIRE		0
+#define   AD7380_CONFIG2_SDO_1_WIRE		1
+#define   AD7380_CONFIG2_SDO_4_WIRE		2
 #define AD7380_CONFIG2_RESET		GENMASK(7, 0)
 
 #define AD7380_CONFIG2_RESET_SOFT	0x3C
@@ -867,6 +870,7 @@ struct ad7380_state {
 	struct spi_offload *offload;
 	struct spi_offload_trigger *offload_trigger;
 	unsigned long offload_trigger_hz;
+	u32 num_sdi;
 
 	int sample_freq_range[3];
 	/*
@@ -1165,7 +1169,8 @@ static int ad7380_init_offload_msg(struct ad7380_state *st,
 
 	xfer->bits_per_word = scan_type->realbits;
 	xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
-	xfer->len = AD7380_SPI_BYTES(scan_type) * st->chip_info->num_simult_channels;
+	xfer->len = AD7380_SPI_BYTES(scan_type) *
+		st->chip_info->num_simult_channels / st->num_sdi;
 
 	spi_message_init_with_transfers(&st->offload_msg, xfer, 1);
 	st->offload_msg.offload = st->offload;
@@ -1189,15 +1194,45 @@ static int ad7380_offload_buffer_postenable(struct iio_dev *indio_dev)
 			.frequency_hz = st->offload_trigger_hz,
 		},
 	};
+	u32 sdo;
 	int ret;
 
 	ret = ad7380_init_offload_msg(st, indio_dev);
 	if (ret)
 		return ret;
 
+	switch (st->num_sdi) {
+	case 2:
+		sdo = AD7380_CONFIG2_SDO_2_WIRE;
+		break;
+	case 4:
+		sdo = AD7380_CONFIG2_SDO_4_WIRE;
+		break;
+	default:
+		sdo = AD7380_CONFIG2_SDO_1_WIRE;
+		break;
+	}
+
+	ret = regmap_update_bits(st->regmap, AD7380_REG_ADDR_CONFIG2,
+				 AD7380_CONFIG2_SDO2,
+				 FIELD_PREP(AD7380_CONFIG2_SDO2, sdo));
+	if (ret)
+		goto err_unoptimize;
+
 	ret = spi_offload_trigger_enable(st->offload, st->offload_trigger, &config);
 	if (ret)
-		spi_unoptimize_message(&st->offload_msg);
+		goto err_restore_sdo;
+
+	return 0;
+
+err_restore_sdo:
+	regmap_update_bits(st->regmap, AD7380_REG_ADDR_CONFIG2,
+			   AD7380_CONFIG2_SDO2,
+			   FIELD_PREP(AD7380_CONFIG2_SDO2,
+				      AD7380_CONFIG2_SDO_1_WIRE));
+
+err_unoptimize:
+	spi_unoptimize_message(&st->offload_msg);
 
 	return ret;
 }
@@ -1209,6 +1244,11 @@ static int ad7380_offload_buffer_predisable(struct iio_dev *indio_dev)
 
 	spi_offload_trigger_disable(st->offload, st->offload_trigger);
 	spi_unoptimize_message(&st->offload_msg);
+
+	regmap_update_bits(st->regmap, AD7380_REG_ADDR_CONFIG2,
+			   AD7380_CONFIG2_SDO2,
+			   FIELD_PREP(AD7380_CONFIG2_SDO2,
+				      AD7380_CONFIG2_SDO_1_WIRE));
 
 	if (st->seq) {
 		ret = regmap_update_bits(st->regmap,
@@ -1771,9 +1811,9 @@ static int ad7380_init(struct ad7380_state *st, bool external_ref_en)
 
 	/* SPI 1-wire mode */
 	return regmap_update_bits(st->regmap, AD7380_REG_ADDR_CONFIG2,
-				  AD7380_CONFIG2_SDO,
-				  FIELD_PREP(AD7380_CONFIG2_SDO,
-					     AD7380_NUM_SDO_LINES));
+				  AD7380_CONFIG2_SDO2,
+				  FIELD_PREP(AD7380_CONFIG2_SDO2,
+					     AD7380_CONFIG2_SDO_1_WIRE));
 }
 
 static int ad7380_probe_spi_offload(struct iio_dev *indio_dev,
@@ -2011,6 +2051,14 @@ static int ad7380_probe(struct spi_device *spi)
 		ret = ad7380_probe_spi_offload(indio_dev, st);
 		if (ret)
 			return ret;
+
+		/* ADI tree extension to handle HDL with multiple SDI lines. */
+		ret = device_property_read_u32(dev, "adi,num-sdi", &st->num_sdi);
+		if (ret == -EINVAL)
+			st->num_sdi = 1; /* default */
+		else if (ret)
+			return dev_err_probe(dev, ret,
+					     "Failed to read adi,num-sdi property\n");
 	}
 
 	ret = ad7380_init(st, external_ref_en);
