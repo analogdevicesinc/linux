@@ -15,16 +15,12 @@
 #define MAX9296A_REG0				0x0
 
 #define MAX9296A_REG1				0x1
-#define MAX9296A_REG1_DIS_REM_CC_A		BIT(4)
 #define MAX9296A_REG1_RX_RATE_A			GENMASK(1, 0)
 #define MAX9296A_REG1_RX_RATE_6Gbps		0b10
 #define MAX9296A_REG1_RX_RATE_12Gbps		0b11
 
 #define MAX9296A_REG2				0x2
 #define MAX9296A_REG2_VID_EN(p)			BIT((p) + 4)
-
-#define MAX9296A_REG3				0x3
-#define MAX9296A_REG3_DIS_REM_CC_B		BIT(2)
 
 #define MAX9296A_REG4				0x4
 #define MAX9296A_REG4_GMSL3_X(x)		BIT((x) + 6)
@@ -868,32 +864,6 @@ static int max9296a_select_links(struct max_des *des, unsigned int mask)
 	return 0;
 }
 
-static int max96716_select_links(struct max_des *des, unsigned int mask)
-{
-	struct max9296a_priv *priv = des_to_priv(des);
-	unsigned int i;
-	int ret;
-
-	for (i = 0; i < des->ops->num_links; i++) {
-		bool dis = !(mask & BIT(i));
-		unsigned int reg, reg_mask;
-
-		if (i == 0) {
-			reg = MAX9296A_REG1;
-			reg_mask = MAX9296A_REG1_DIS_REM_CC_A;
-		} else {
-			reg = MAX9296A_REG3;
-			reg_mask = MAX9296A_REG3_DIS_REM_CC_B;
-		}
-
-		ret = regmap_assign_bits(priv->regmap, reg, reg_mask, dis);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
 static int max96792a_select_link_version(struct max_des *des,
 					 struct max_des_link *link,
 					 enum max_gmsl_version version)
@@ -1079,7 +1049,8 @@ static const struct max9296a_chip_info max96716a_info = {
 	.set_pipe_enable = max96714_set_pipe_enable,
 	.set_pipe_phy = max96716_set_pipe_phy,
 	.set_pipe_tunnel_enable = max96714_set_pipe_tunnel_enable,
-	.select_links = max96716_select_links,
+	.select_links = max9296a_select_links,
+	.select_resets_link = true,
 	.phys_configs = {
 		.num_configs = ARRAY_SIZE(max9296a_phys_configs),
 		.configs = max9296a_phys_configs,
