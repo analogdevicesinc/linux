@@ -1,6 +1,6 @@
 [
     {
-        "name": "max96714",
+        "name": "max96716a",
         "links": [
             {
                 "name": "max96717",
@@ -10,6 +10,15 @@
                     }
                 ],
                 "pool_addrs": ["0x50", "0x51"]
+            },
+            {
+                "name": "max96717",
+                "cameras": [
+                    {
+                        "name": "imx219"
+                    }
+                ],
+                "pool_addrs": ["0x52", "0x53"]
             }
         ]
     }

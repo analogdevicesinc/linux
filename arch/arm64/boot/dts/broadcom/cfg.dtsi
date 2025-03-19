@@ -3,22 +3,30 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		compatible = "maxim,max96714";
+		compatible = "maxim,max96716a";
 		reg = <0x4c>;
 	};
 };
 
 &max_des_0 {
+	i2c-alias-pool = <0x40 0x41>;
+
+	max_des_0_i2c_adapter: i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
 };
 
-&max_des_0 {
-	max_des_0_i2c_0: i2c-gate {
+&max_des_0_i2c_adapter {
+	max_des_0_i2c_0: i2c@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
+		reg = <0x0>;
 	};
 };
 
@@ -109,6 +117,107 @@
 };
 
 &max_des_0_ser_0_in_0 {
+	clock-lanes = <0>;
+	data-lanes = <1 2>;
+	clock-noncontinuous;
+	link-frequencies = /bits/ 64 <456000000>;
+};
+
+&max_des_0_i2c_adapter {
+	max_des_0_i2c_1: i2c@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x1>;
+	};
+};
+
+&max_des_0_i2c_1 {
+	max_des_0_ser_1: gmsl-serializer@40 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#gpio-cells = <2>;
+
+		compatible = "maxim,max96717";
+		reg = <0x40>;
+
+		gpio-controller;
+		gpio-ranges = <&max_des_0_ser_1 0 0 11>;
+	};
+};
+
+&max_des_0_ser_1 {
+	i2c-alias-pool = <0x52 0x53>;
+
+	i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		max_des_0_ser_1_i2c_0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+
+			max_des_0_ser_1_out: endpoint {
+				remote-endpoint = <&max_des_0_in_1>;
+			};
+		};
+	};
+};
+
+&max_des_0 {
+	ports {
+		port@1 {
+			reg = <0x1>;
+
+			max_des_0_in_1: endpoint {
+				remote-endpoint = <&max_des_0_ser_1_out>;
+			};
+		};
+	};
+};
+
+#define i2c_csi_dsi0 max_des_0_ser_1_i2c_0
+#define cam_node max_des_0_ser_1_cam_0
+#define cam_endpoint max_des_0_ser_1_cam_0_out
+#define vcm max_des_0_ser_1_vcm_0
+#include "rpi5-csi0-imx219.dtsi"
+#undef vcm
+#undef cam_node
+#undef cam_endpoint
+#undef i2c_csi_dsi0
+
+&max_des_0_ser_1_cam_0 {
+	status = "okay";
+
+	reset-gpios = <&max_des_0_ser_1 0 GPIO_ACTIVE_HIGH>;
+};
+
+&max_des_0_ser_1_cam_0_out {
+	remote-endpoint = <&max_des_0_ser_1_in_0>;
+};
+
+&max_des_0_ser_1 {
+	ports {
+		port@0 {
+			reg = <0>;
+
+			max_des_0_ser_1_in_0: endpoint {
+				remote-endpoint = <&max_des_0_ser_1_cam_0_out>;
+			};
+		};
+	};
+};
+
+&max_des_0_ser_1_in_0 {
 	clock-lanes = <0>;
 	data-lanes = <1 2>;
 	clock-noncontinuous;
