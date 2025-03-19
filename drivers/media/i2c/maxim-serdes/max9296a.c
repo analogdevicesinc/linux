@@ -102,7 +102,7 @@
 #define MAX9296A_MIPI_TX4_DESKEW_PER_2K		FIELD_PREP(GENMASK(2, 0), 0b001)
 #define MAX9296A_MIPI_TX4_DESKEW_PER_AUTO	BIT(7)
 
-#define MAX9296A_MIPI_TX10(x)			(0x40a + 0x40 * (x))
+#define MAX9296A_MIPI_TX10(x)			(0x40a + (x) * 0x40)
 #define MAX9296A_MIPI_TX10_CSI2_LANE_CNT	GENMASK(7, 6)
 #define MAX9296A_MIPI_TX10_CSI2_CPHY_EN		BIT(5)
 
@@ -126,21 +126,21 @@
 #define MAX9296A_MIPI_TX51_ALT_MEM_MAP_10	BIT(2)
 #define MAX9296A_MIPI_TX51_ALT2_MEM_MAP_8	BIT(4)
 
-#define MAX9296A_MIPI_TX52(x)			(0x434 + 0x40 * (x))
+#define MAX9296A_MIPI_TX52(x)			(0x434 +  (x) * 0x40)
 #define MAX9296A_MIPI_TX52_TUN_DEST		BIT(1)
 #define MAX9296A_MIPI_TX52_TUN_EN		BIT(0)
 
 #define MAX9296A_GMSL1_EN			0xf00
 #define MAX9296A_GMSL1_EN_LINK_EN		GENMASK(1, 0)
 
-#define MAX9296A_RLMS3E(x)			(0x143e + 0x100 * (x))
-#define MAX9296A_RLMS3F(x)			(0x143f + 0x100 * (x))
-#define MAX9296A_RLMS49(x)			(0x1449 + 0x100 * (x))
-#define MAX9296A_RLMS7E(x)			(0x147e + 0x100 * (x))
-#define MAX9296A_RLMS7F(x)			(0x147f + 0x100 * (x))
-#define MAX9296A_RLMSA3(x)			(0x14a3 + 0x100 * (x))
-#define MAX9296A_RLMSA5(x)			(0x14a5 + 0x100 * (x))
-#define MAX9296A_RLMSD8(x)			(0x14d8 + 0x100 * (x))
+#define MAX9296A_RLMS3E(x)			(0x143e + (x) * 0x100)
+#define MAX9296A_RLMS3F(x)			(0x143f + (x) * 0x100)
+#define MAX9296A_RLMS49(x)			(0x1449 + (x) * 0x100)
+#define MAX9296A_RLMS7E(x)			(0x147e + (x) * 0x100)
+#define MAX9296A_RLMS7F(x)			(0x147f + (x) * 0x100)
+#define MAX9296A_RLMSA3(x)			(0x14a3 + (x) * 0x100)
+#define MAX9296A_RLMSA5(x)			(0x14a5 + (x) * 0x100)
+#define MAX9296A_RLMSD8(x)			(0x14d8 + (x) * 0x100)
 
 #define MAX9296A_DPLL_0(x)			(0x1c00 + ((x) == 0 ? 1 : 2) * 0x100)
 #define MAX9296A_DPLL_0_CONFIG_SOFT_RST_N	BIT(0)
