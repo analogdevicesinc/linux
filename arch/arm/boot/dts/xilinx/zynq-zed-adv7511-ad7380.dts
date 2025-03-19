@@ -104,6 +104,12 @@
 			spi-cpol;
 			spi-max-frequency = <80000000>;
 
+			/*
+			 * ADI tree extension (not mainline). Set this based on
+			 * HDL NUM_OF_SDI compile argument. Can omit if =1.
+			 */
+			adi,num-sdi = <2>;
+
 			/* Not currently used by the driver. */
 			// interrupts = <86 IRQ_TYPE_EDGE_FALLING>;
 			// interrupt-parent = <&gpio0>;
