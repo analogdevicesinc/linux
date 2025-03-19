@@ -15,6 +15,7 @@
 #include "pmbus.h"
 
 enum chips {
+	adpm12160,
 	max34440,
 	max34441,
 	max34446,
@@ -68,7 +69,7 @@ static int max34440_read_word_data(struct i2c_client *client, int page,
 
 	switch (reg) {
 	case PMBUS_IOUT_OC_FAULT_LIMIT:
-		if (data->id == max34451_na6)
+		if (data->id == max34451_na6 || data->id == adpm12160)
 			ret = pmbus_read_word_data(client, page, phase,
 						   PMBUS_IOUT_OC_FAULT_LIMIT);
 		else
@@ -76,7 +77,7 @@ static int max34440_read_word_data(struct i2c_client *client, int page,
 						   MAX34440_IOUT_OC_FAULT_LIMIT);
 		break;
 	case PMBUS_IOUT_OC_WARN_LIMIT:
-		if (data->id == max34451_na6)
+		if (data->id == max34451_na6 || data->id == adpm12160)
 			ret = pmbus_read_word_data(client, page, phase,
 						   PMBUS_IOUT_OC_WARN_LIMIT);
 		else
@@ -93,7 +94,7 @@ static int max34440_read_word_data(struct i2c_client *client, int page,
 		break;
 	case PMBUS_VIRT_READ_IOUT_AVG:
 		if (data->id != max34446 && data->id != max34451 &&
-		    data->id != max34451_na6)
+		    data->id != max34451_na6 && data->id != adpm12160))
 			return -ENXIO;
 		ret = pmbus_read_word_data(client, page, phase,
 					   MAX34446_MFR_IOUT_AVG);
@@ -151,7 +152,7 @@ static int max34440_write_word_data(struct i2c_client *client, int page,
 
 	switch (reg) {
 	case PMBUS_IOUT_OC_FAULT_LIMIT:
-		if (data->id == max34451_na6)
+		if (data->id == max34451_na6 || data->id == adpm12160)
 			ret = pmbus_write_word_data(client, page, PMBUS_IOUT_OC_FAULT_LIMIT,
 						    word);
 		else
@@ -159,7 +160,7 @@ static int max34440_write_word_data(struct i2c_client *client, int page,
 						    word);
 		break;
 	case PMBUS_IOUT_OC_WARN_LIMIT:
-		if (data->id == max34451_na6)
+		if (data->id == max34451_na6 || data->id == adpm12160)
 			ret = pmbus_write_word_data(client, page, PMBUS_IOUT_OC_WARN_LIMIT,
 						    word);
 		else
@@ -186,7 +187,7 @@ static int max34440_write_word_data(struct i2c_client *client, int page,
 		ret = pmbus_write_word_data(client, page,
 					    MAX34440_MFR_IOUT_PEAK, 0);
 		if (!ret && (data->id == max34446 || data->id == max34451 ||
-			     data->id == max34451_na6))
+			     data->id == max34451_na6 || data->id == adpm12160))
 			ret = pmbus_write_word_data(client, page,
 					MAX34446_MFR_IOUT_AVG, 0);
 
@@ -321,6 +322,41 @@ static int max34451_set_supported_funcs(struct i2c_client *client,
 	.write_word_data = max34440_write_word_data,
 
 static struct pmbus_driver_info max34440_info[] = {
+	[adpm12160] = {
+		.pages = 19,
+		.format[PSC_VOLTAGE_IN] = direct,
+		.format[PSC_VOLTAGE_OUT] = direct,
+		.format[PSC_CURRENT_IN] = direct,
+		.format[PSC_CURRENT_OUT] = direct,
+		.format[PSC_TEMPERATURE] = direct,
+		.m[PSC_VOLTAGE_IN] = 1,
+		.b[PSC_VOLTAGE_IN] = 0,
+		.R[PSC_VOLTAGE_IN] = 0,
+		.m[PSC_VOLTAGE_OUT] = 1,
+		.b[PSC_VOLTAGE_OUT] = 0,
+		.R[PSC_VOLTAGE_OUT] = 0,
+		.m[PSC_CURRENT_IN] = 1,
+		.b[PSC_CURRENT_IN] = 0,
+		.R[PSC_CURRENT_IN] = 2,
+		.m[PSC_CURRENT_OUT] = 1,
+		.b[PSC_CURRENT_OUT] = 0,
+		.R[PSC_CURRENT_OUT] = 2,
+		.m[PSC_TEMPERATURE] = 1,
+		.b[PSC_TEMPERATURE] = 0,
+		.R[PSC_TEMPERATURE] = 2,
+		/* absent func below [18] are not for monitoring */
+		.func[2] = PMBUS_HAVE_VOUT | PMBUS_HAVE_STATUS_VOUT,
+		.func[4] = PMBUS_HAVE_IOUT | PMBUS_HAVE_STATUS_IOUT,
+		.func[5] = PMBUS_HAVE_IOUT | PMBUS_HAVE_STATUS_IOUT,
+		.func[6] = PMBUS_HAVE_IOUT | PMBUS_HAVE_STATUS_IOUT,
+		.func[7] = PMBUS_HAVE_IOUT | PMBUS_HAVE_STATUS_IOUT,
+		.func[8] = PMBUS_HAVE_IOUT | PMBUS_HAVE_STATUS_IOUT,
+		.func[9] = PMBUS_HAVE_VIN | PMBUS_HAVE_STATUS_INPUT,
+		.func[10] = PMBUS_HAVE_IIN | PMBUS_HAVE_STATUS_INPUT,
+		.func[18] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.read_word_data = max34440_read_word_data,
+		.write_word_data = max34440_write_word_data,
+	},
 	[max34440] = {
 		.pages = 14,
 		.format[PSC_VOLTAGE_IN] = direct,
@@ -538,6 +574,7 @@ static int max34440_probe(struct i2c_client *client)
 }
 
 static const struct i2c_device_id max34440_id[] = {
+	{"adpm12160", adpm12160},
 	{"max34440", max34440},
 	{"max34441", max34441},
 	{"max34446", max34446},
