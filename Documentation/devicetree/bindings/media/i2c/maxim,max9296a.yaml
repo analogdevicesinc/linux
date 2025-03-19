@@ -45,19 +45,6 @@ properties:
   port1-poc-supply:
     description: Regulator providing Power over Coax for GMSL port 1
 
-  i2c-mux:
-    $ref: /schemas/i2c/i2c-mux.yaml#
-    unevaluatedProperties: false
-    patternProperties:
-      '^i2c@[0-1]$':
-        $ref: /schemas/i2c/i2c-controller.yaml#
-        unevaluatedProperties: false
-        properties:
-          reg:
-            items:
-              minimum: 0
-              maximum: 1
-
   i2c-alias-pool:
     maxItems: 2
 
@@ -129,27 +116,6 @@ additionalProperties: false
 
 allOf:
   - $ref: /schemas/i2c/i2c-atr.yaml#
-
-  - if:
-      properties:
-        compatible:
-          contains:
-            enum:
-              - maxim,max9296a
-              - maxim,max96792a
-    then:
-      not:
-        required: [i2c-mux]
-
-  - if:
-      properties:
-        compatible:
-          contains:
-            enum:
-              - maxim,max96716a
-    then:
-      not:
-        required: [i2c-atr]
 
 dependentRequired:
   i2c-atr: [i2c-alias-pool]
