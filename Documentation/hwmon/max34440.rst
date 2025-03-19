@@ -35,7 +35,7 @@ Supported chips:
 
     PMBus 16-Channel V/I Monitor and 12-Channel Sequencer/Marginer
 
-    Prefixes: 'max34451'
+    Prefixes: 'max34451', 'max34451_na6'
 
     Addresses scanned: -
 
@@ -92,6 +92,10 @@ enabled if currX_crit is set to 0; current measurement is enabled if the
 attribute is set to a positive value. Power measurement is only enabled if
 channel 1 (3) is configured for voltage measurement, and channel 2 (4) is
 configured for current measurement.
+
+For MAX34451, version MAX34451ETNA6+ and later are denoted with prefix
+'max34451_na6'. The previous versions contains some errors on the PMBUS
+addresses and these are fixed on the later versions.
 
 
 Platform data support
