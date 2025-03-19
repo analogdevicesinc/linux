@@ -876,17 +876,17 @@ static int max96716_select_links(struct max_des *des, unsigned int mask)
 
 	for (i = 0; i < des->ops->num_links; i++) {
 		bool dis = !(mask & BIT(i));
-		unsigned int reg, mask;
+		unsigned int reg, reg_mask;
 
 		if (i == 0) {
 			reg = MAX9296A_REG1;
-			mask = MAX9296A_REG1_DIS_REM_CC_A;
+			reg_mask = MAX9296A_REG1_DIS_REM_CC_A;
 		} else {
 			reg = MAX9296A_REG3;
-			mask = MAX9296A_REG3_DIS_REM_CC_B;
+			reg_mask = MAX9296A_REG3_DIS_REM_CC_B;
 		}
 
-		ret = regmap_assign_bits(priv->regmap, reg, mask, dis);
+		ret = regmap_assign_bits(priv->regmap, reg, reg_mask, dis);
 		if (ret)
 			return ret;
 	}
