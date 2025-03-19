@@ -1,0 +1,45 @@
+on:
+  workflow_call:
+    inputs:
+      remote_name:
+        required: true
+        type: string
+      fetch_url:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+
+jobs:
+  checks:
+    runs-on: [self-hosted, v1]
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@v1
+
+    - name: update-mirror
+      run: |
+        git remote add ${{ inputs.remote_name }} ${{ inputs.fetch_url }} 2>/dev/null || \
+          git remote set-url ${{ inputs.remote_name }} ${{ inputs.fetch_url }}
+        target_branch=mirror/${{ inputs.remote_name }}/${{ inputs.branch }}
+        git fetch ${{ inputs.remote_name }} ${{ inputs.branch }}:$target_branch -f
+        git checkout $target_branch
+        declare -a arr=(
+          ".github"
+          "ci"
+          ".actrc"
+          "arch/arm/configs/adi_ci_defconfig"
+          "arch/arm64/configs/adi_ci_defconfig"
+          "arch/x86/configs/adi_ci_defconfig"
+        )
+        for i in "${arr[@]}"
+        do
+          git checkout origin/main -- "$i"
+        done
+        git commit -m "ci: Patch workflows" -m "CI generated commit" -s
+
+    - name: push-mirror
+      if: ${{ !env.ACT }}
+      run: |
+          git push origin $target_branch:$target_branch -f

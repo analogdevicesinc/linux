@@ -1,0 +1,25 @@
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  jic23-iio-master:
+    uses: ./.github/workflows/sync-mirror.yml
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      remote_name: "jic23/iio"
+      fetch_url: "https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git"
+      branch: "master"
+
+  jic23-iio-testing:
+    uses: ./.github/workflows/sync-mirror.yml
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      remote_name: "jic23/iio"
+      fetch_url: "https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git"
+      branch: "testing"
+

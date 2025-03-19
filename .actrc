@@ -1,0 +1,4 @@
+--artifact-server-path $PWD/.artifacts
+--container-options "--mount=type=bind,source=.,destination=/mnt/repo,ro=true"
+-P self-hosted=adi/linux:latest
+--pull=false
