@@ -1,0 +1,49 @@
+{% set default_address = '0x4c' %}
+{% set address = des_cfg.address | d(default_address) %}
+{% set default_compatible = 'maxim,max96716a' %}
+{% set compatible = des_cfg.compatible | d(default_compatible) | str_quote %}
+{% set pool_addrs = des_cfg.pool_addrs | d(['0x40', '0x41']) | join(' ') %}
+{% set des_label = 'max_des_' ~ des_idx %}
+{% macro des_in_label_x(x) -%}
+	{{ des_label ~ '_in_' ~ x }}
+{%- endmacro %}
+{% macro des_i2c_label_x(x) -%}
+	{{ des_label ~ '_i2c_' ~ x }}
+{%- endmacro %}
+{% set des_i2c_adapter_label = des_label ~ '_i2c_adapter' %}
+{% macro des_i2c_x(ch_idx) -%}
+&{{des_i2c_adapter_label}} {
+	{{des_i2c_label_x(ch_idx)}}: i2c@{{ch_idx}} {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x{{ch_idx}}>;
+	};
+};
+{%- endmacro %}
+&i2c_bus {
+	{{des_label}}: gmsl-deserializer@{{address | hex_remove_0x}} {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = {{compatible}};
+		reg = <{{address}}>;
+	};
+};
+
+&{{des_label}} {
+	i2c-alias-pool = <{{pool_addrs}}>;
+
+	{{des_i2c_adapter_label}}: i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+{% for ser_cfg in des_cfg.links %}
+	{% set ser_idx = loop.index0 %}
+	{% include '%s.dtsi.in' % ser_cfg.name %}
+{% endfor %}
