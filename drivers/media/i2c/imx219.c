@@ -1047,7 +1047,7 @@ static int imx219_set_pad_format(struct v4l2_subdev *sd,
 	 */
 	ed_format = v4l2_subdev_state_get_format(state, IMX219_PAD_EDATA);
 	ed_format->code = imx219_get_format_edata(format->code);
-	ed_format->width = format->width;
+	ed_format->width = fmt->format.width;
 	ed_format->height = IMX219_EMBEDDED_DATA_HEIGHT;
 	ed_format->field = V4L2_FIELD_NONE;
 
