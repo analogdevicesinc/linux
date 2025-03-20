@@ -128,7 +128,7 @@
 		};
 	};
 
-	axi_data_offload_rx: axi-data-offload-1@7c450000 {
+	axi_data_offload_rx: axi_data_offload_rx@7c450000 {
 		compatible = "adi,axi-data-offload-1.0.a";
 		reg = <0x7c450000 0x10000>;
 		adi,oneshot;
@@ -189,3 +189,10 @@
 
 
 #include "adi-ad9213-ad4080-evb.dtsi"
+
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+};
