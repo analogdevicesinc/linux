@@ -730,7 +730,7 @@ static int adrv906x_tod_hw_extts_enable(struct adrv906x_tod_counter *counter, u8
 		val |= ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_SEL(BIT(tod_idx));
 	else
 		val &= ~ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_SEL(BIT(tod_idx));
-	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_CFG_IO_SOURCE, val);
+	ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_IO_SOURCE, val);
 
 	ret = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_CFG_IO_SOURCE,
 					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay,
