@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "zynq-zed.dts"
+
+/{
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+	};
+};
+
+&usb0 {
+	dr_mode = "otg";
+};
