@@ -795,25 +795,25 @@ static int ad4630_buffer_predisable(struct iio_dev *indio_dev)
 static const struct ad4630_out_mode ad4030_24_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 0, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 16, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 32,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 30, 2,
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 30, 2,
 				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
