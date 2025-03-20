@@ -690,7 +690,7 @@ static int ad4630_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
+static int ad4630_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4630_state *st = iio_priv(indio_dev);
 	int ret, read_ret;
@@ -741,7 +741,7 @@ out_error:
 	return ret;
 }
 
-static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
+static int ad4630_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4630_state *st = iio_priv(indio_dev);
 	u32 dummy;
@@ -1300,8 +1300,8 @@ static int ad4630_config(struct ad4630_state *st)
 }
 
 static const struct iio_buffer_setup_ops ad4630_buffer_setup_ops = {
-	.preenable = &ad4630_buffer_preenable,
-	.postdisable = &ad4630_buffer_postdisable,
+	.postenable = &ad4630_buffer_postenable,
+	.predisable = &ad4630_buffer_predisable,
 };
 
 static const struct iio_info ad4630_info = {
