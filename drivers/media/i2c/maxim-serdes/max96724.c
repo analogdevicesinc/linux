@@ -17,7 +17,7 @@
 #define MAX96724_REG0				0x0
 
 #define MAX96724_REG3				0x3
-#define MAX96724_REG3_DIS_REM_CC_0(x)		(BIT(0) << (2 * (x)))
+#define MAX96724_REG3_DIS_REM_CC(x)		(GENMASK(1, 0) << (2 * (x)))
 
 #define MAX96724_REG6				0x6
 #define MAX96724_REG6_LINK_EN			GENMASK(3, 0)
@@ -777,7 +777,7 @@ static int max96724_select_links(struct max_des *des, unsigned int mask)
 		if ((mask & BIT(i)))
 			continue;
 
-		val |= MAX96724_REG3_DIS_REM_CC_0(i);
+		val |= MAX96724_REG3_DIS_REM_CC(i);
 	}
 
 	return regmap_write(priv->regmap, MAX96724_REG3, val);
