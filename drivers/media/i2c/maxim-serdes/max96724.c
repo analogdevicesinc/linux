@@ -22,6 +22,9 @@
 #define MAX96724_REG6				0x6
 #define MAX96724_REG6_LINK_EN			GENMASK(3, 0)
 
+#define MAX96724_REG7				0x7
+#define MAX96724_REG7_CC_CROSSOVER_SEL		GENMASK(7, 4)
+
 #define MAX96724_PWR1				0x13
 #define MAX96724_PWR1_RESET_ALL			BIT(6)
 
@@ -393,6 +396,12 @@ static int max96724_init(struct max_des *des)
 	ret = regmap_update_bits(priv->regmap, MAX96724_MIPI_PHY0,
 				 MAX96724_MIPI_PHY0_PHY_CONFIG,
 				 max96724_phys_configs_reg_val[des->phys_config]);
+	if (ret)
+		return ret;
+
+	/* Enable I2C ports crossover. */
+	ret = regmap_set_bits(priv->regmap, MAX96724_REG7,
+			      MAX96724_REG7_CC_CROSSOVER_SEL);
 	if (ret)
 		return ret;
 
