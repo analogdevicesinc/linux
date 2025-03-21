@@ -139,6 +139,21 @@ Contact:	linux-iio@vger.kernel.org
 Description:
 		Hardware dependent values supported by the oversampling filter.
 
+What:		/sys/bus/iio/devices/iio:deviceX/oversampling_frequency
+KernelVersion:	6.15
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Some devices have internal clocks for the ADC oversampling.
+		Sets the resulting sampling frequency to trigger a conversion
+		used by the oversampling filter.
+
+What:		/sys/bus/iio/devices/iio:deviceX/oversampling_frequency_available
+KernelVersion:	6.15
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Hardware dependent values supported by the oversampling
+		frequency.
+
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_raw
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_supply_raw
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_i_raw
