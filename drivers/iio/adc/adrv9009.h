@@ -25,6 +25,7 @@
 #include "talise/talise_user.h"
 #include "talise/talise_gpio.h"
 
+#include <linux/clk/clkscale.h>
 #include <linux/jesd204/jesd204.h>
 #include <linux/mutex.h>
 
@@ -138,6 +139,7 @@ enum adrv9009_clocks {
 	RX_SAMPL_CLK,
 	OBS_SAMPL_CLK,
 	TX_SAMPL_CLK,
+	TRX_LO_CLK,
 	NUM_ADRV9009_CLKS,
 };
 
@@ -215,6 +217,7 @@ struct adrv9009_rf_phy {
 	struct clk 		*clk_ext_lo_tx;
 	struct clk 		*clks[NUM_ADRV9009_CLKS];
 	struct adrv9009_clock	clk_priv[NUM_ADRV9009_CLKS];
+	struct clock_scale	trx_lo_clkscale;
 	struct clk_onecell_data	clk_data;
 	struct adrv9009_debugfs_entry debugfs_entry[344];
 	struct bin_attribute 	bin;
