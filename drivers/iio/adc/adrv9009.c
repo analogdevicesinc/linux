@@ -34,6 +34,7 @@
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
+#include <linux/clk/clkscale.h>
 
 #include <linux/jesd204/jesd204.h>
 
@@ -507,6 +508,19 @@ static const char * const adrv9009_ilas_mismatch_table[] = {
 	"checksum"
 };
 
+static int adrv9009_set_pll_frequency(struct adrv9009_rf_phy *phy, taliseRfPllName_t pllName, uint64_t rfPllLoFrequency_Hz)
+{
+	int ret = TALACT_NO_ACTION;
+
+	ret = TALISE_setRfPllFrequency(phy->talDevice, pllName, rfPllLoFrequency_Hz);
+	if (pllName == TAL_RF_PLL && ret == TALACT_NO_ACTION) {
+		phy->clk_priv[TRX_LO_CLK].rate = to_ccf_scaled((unsigned long long)rfPllLoFrequency_Hz, &phy->trx_lo_clkscale);
+		ret = clk_set_rate(phy->clk_priv[TRX_LO_CLK].hw.clk, phy->clk_priv[TRX_LO_CLK].rate);
+    }
+
+	return ret;
+}
+
 static int adrv9009_gt_fw_load(struct adrv9009_rf_phy *phy);
 
 static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
@@ -751,7 +765,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out;
 	}
 
-	ret = TALISE_setRfPllFrequency(phy->talDevice, TAL_RF_PLL,
+	ret = adrv9009_set_pll_frequency(phy, TAL_RF_PLL,
 				       phy->trx_lo_frequency);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
@@ -1929,7 +1943,7 @@ static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
 			phy->current_loopBandwidth_kHz[chan->channel] = loop_bw;
 		}
 
-		ret = TALISE_setRfPllFrequency(phy->talDevice, TAL_RF_PLL + chan->channel,
+		ret = adrv9009_set_pll_frequency(phy, TAL_RF_PLL + chan->channel,
 					       readin);
 		if (ret != TALACT_NO_ACTION) {
 			adrv9009_set_radio_state(phy, RADIO_RESTORE_STATE);
@@ -5445,6 +5459,13 @@ static const struct clk_ops bb_clk_ops = {
 	.recalc_rate = adrv9009_bb_recalc_rate,
 };
 
+static struct clk_hw *adrv9009_pll_of_clk_get(struct of_phandle_args *clkspec, void *data)
+{
+	struct adrv9009_rf_phy *phy = data;
+
+	return &phy->clk_priv[TRX_LO_CLK].hw;
+}
+
 static int adrv9009_clk_register(struct adrv9009_rf_phy *phy,
 				 const char *name, const char *parent_name,
 				 const char *parent_name2, unsigned long flags,
@@ -5455,6 +5476,7 @@ static int adrv9009_clk_register(struct adrv9009_rf_phy *phy,
 	struct clk *clk;
 	char c_name[ADRV9009_MAX_CLK_NAME + 1], p_name[2][ADRV9009_MAX_CLK_NAME + 1];
 	const char *_parent_name[2];
+	int ret;
 
 	/* struct adrv9009_clock assignments */
 	clk_priv->source = source;
@@ -5470,27 +5492,43 @@ static int adrv9009_clk_register(struct adrv9009_rf_phy *phy,
 	init.parent_names = &_parent_name[0];
 	init.num_parents = _parent_name[1] ? 2 : _parent_name[0] ? 1 : 0;
 
+	init.ops = &bb_clk_ops;
+
 	switch (source) {
 	case RX_SAMPL_CLK:
-		init.ops = &bb_clk_ops;
 		clk_priv->rate = phy->talInit.rx.rxProfile.rxOutputRate_kHz;
+		clk_priv->rate *= 1000;
+		clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
+		phy->clks[source] = clk;
 		break;
 	case OBS_SAMPL_CLK:
-		init.ops = &bb_clk_ops;
 		clk_priv->rate = phy->talInit.obsRx.orxProfile.orxOutputRate_kHz;
+		clk_priv->rate *= 1000;
+		clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
+		phy->clks[source] = clk;
 		break;
 	case TX_SAMPL_CLK:
-		init.ops = &bb_clk_ops;
 		clk_priv->rate = phy->talInit.tx.txProfile.txInputRate_kHz;
+		clk_priv->rate *= 1000;
+		clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
+		phy->clks[source] = clk;
+		break;
+	case TRX_LO_CLK:
+		ret = devm_clk_hw_register(&phy->spi->dev, &clk_priv->hw);
+		if (ret) {
+			dev_err(&phy->spi->dev, "Failed to add PLL clock provider on devm_clk_hw_register\n");
+			return ret;
+		}
+		ret = devm_of_clk_add_hw_provider(&phy->spi->dev, adrv9009_pll_of_clk_get, phy);
+		if (ret) {
+			dev_err(&phy->spi->dev, "Failed to add PLL clock provider on devm_of_clk_add_hw_provider\n");
+			return ret;
+		}
+		phy->clks[source] = clk_priv->hw.clk;
 		break;
 	default:
 		return -EINVAL;
 	}
-
-	clk_priv->rate *= 1000;
-
-	clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
-	phy->clks[source] = clk;
 
 	return 0;
 }
@@ -6065,7 +6103,7 @@ static int adrv9009_jesd204_setup_stage2(struct jesd204_dev *jdev,
 		return -EFAULT;
 	}
 
-	ret = TALISE_setRfPllFrequency(phy->talDevice, TAL_RF_PLL,
+	ret = adrv9009_set_pll_frequency(phy, TAL_RF_PLL,
 				       phy->trx_lo_frequency);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev,
@@ -6570,6 +6608,10 @@ static int adrv9009_probe(struct spi_device *spi)
 	phy->jdev = jdev;
 	mutex_init(&phy->lock);
 
+	ret = of_clk_get_scale(spi->dev.of_node, "trx-lo", &phy->trx_lo_clkscale);
+	if (ret)
+		return -ret;
+
 	ret = adrv9009_phy_parse_dt(indio_dev, &spi->dev);
 	if (ret < 0)
 		return -ret;
@@ -6744,6 +6786,10 @@ static int adrv9009_probe(struct spi_device *spi)
 				CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
 				TX_SAMPL_CLK);
 	}
+
+	adrv9009_clk_register(phy, "-trx_lo_clk", NULL, NULL,
+				CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED | CLK_RECALC_NEW_RATES,
+				TRX_LO_CLK);
 
 	phy->clk_data.clks = phy->clks;
 	phy->clk_data.clk_num = NUM_ADRV9009_CLKS;
