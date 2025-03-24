@@ -14,10 +14,10 @@
 #include <linux/hwmon.h>
 #include <linux/spi/spi.h>
 #include <linux/module.h>
-#include <linux/of_device.h>
+#include <linux/of.h>
 #include <linux/regmap.h>
 
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #define LTC4296_REG_GFLTEV			0x02
 #define LTC4296_REG_GFLTMSK			0x03
