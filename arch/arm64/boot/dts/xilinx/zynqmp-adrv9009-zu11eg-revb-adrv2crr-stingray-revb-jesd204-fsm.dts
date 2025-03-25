@@ -17,9 +17,6 @@
 #include <dt-bindings/iio/frequency/hmc7044.h>
 #include <dt-bindings/iio/adc/adi,adrv9009.h>
 
-#define TDD_ENABLED 1
-#define STINGRAY 1
-
 &trx0_adrv9009 {
 	jesd204-device;
 	#jesd204-cells = <2>;
@@ -60,7 +57,7 @@
 	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-inputs =
-    <&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,
+		<&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,
 		<&axi_adrv9009_rx_os_jesd 0 FRAMER_LINK_ORX>,
 		<&axi_adrv9009_core_tx 0 DEFRAMER_LINK_TX>;
 
@@ -93,6 +90,8 @@
 	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-inputs = <&axi_adrv9009_tx_jesd 0 DEFRAMER_LINK_TX>;
+	adi,axi-data-offload-connected = <&axi_data_offload_tx>;
+	adi,axi-pl-fifo-enable;
 };
 
 &axi_adrv9009_rx_jesd {
@@ -176,77 +175,6 @@
 	adi,hmc-two-level-tree-sync-en;
 };
 
-&fpga_axi {
-	axi_data_offload_tx: axi-data-offload-0@9c460000 {
-		compatible = "adi,axi-data-offload-1.0.a";
-		reg = <0x0 0x9c460000 0x10000>;
-	};
-
-	axi_data_offload_rx: axi-data-offload-1@9c450000 {
-		compatible = "adi,axi-data-offload-1.0.a";
-		reg = <0x0 0x9c450000 0x10000>;
-	};
-};
-
-&axi_adrv9009_core_tx {
-	adi,axi-data-offload-connected = <&axi_data_offload_tx>;
-	adi,axi-pl-fifo-enable;
-};
-
-#ifdef TDD_ENABLED
-
-&axi_data_offload_tx {
-	adi,oneshot;
-	adi,sync-config = <1>;
-};
-
-&axi_data_offload_rx {
-	adi,oneshot;
-	adi,sync-config = <1>;
-};
-
-&fpga_axi {
-	axi_tdd_0: axi-tdd-0@9c460000 {
-		compatible = "adi,axi-tdd";
-		reg = <0x0 0x9c460000 0x10000>;
-		clocks = <&zynqmp_clk PL0_REF>, <&hmc7044 6>;
-		clock-names = "s_axi_aclk", "intf_clk";
-	};
-
-	iio_axi_tdd_0: iio-axi-tdd-0@0 {
-		compatible = "adi,iio-fake-platform-device";
-		adi,faked-dev = <&axi_tdd_0>;
-		adi,attribute-names =
-			"version", "core_id", "scratch", "magic",
-			"sync_soft", "sync_external", "sync_internal", "sync_reset",
-			"enable", "startup_delay_raw", "startup_delay_ms",
-			"burst_count", "frame_length_raw", "frame_length_ms",
-			"state", "internal_sync_period_raw", "internal_sync_period_ms",
-			"out_channel0_enable", "out_channel0_polarity",
-			"out_channel0_on_raw", "out_channel0_on_ms",
-			"out_channel0_off_raw", "out_channel0_off_ms",
-			"out_channel1_enable", "out_channel1_polarity",
-			"out_channel1_on_raw", "out_channel1_on_ms",
-			"out_channel1_off_raw", "out_channel1_off_ms",
-			"out_channel2_enable", "out_channel2_polarity",
-			"out_channel2_on_raw", "out_channel2_on_ms",
-			"out_channel2_off_raw", "out_channel2_off_ms",
-			"out_channel3_enable", "out_channel3_polarity",
-			"out_channel3_on_raw", "out_channel3_on_ms",
-			"out_channel3_off_raw", "out_channel3_off_ms",
-			"out_channel4_enable", "out_channel4_polarity",
-			"out_channel4_on_raw", "out_channel4_on_ms",
-			"out_channel4_off_raw", "out_channel4_off_ms",
-			"out_channel5_enable", "out_channel5_polarity",
-			"out_channel5_on_raw", "out_channel5_on_ms",
-			"out_channel5_off_raw", "out_channel5_off_ms";
-		label = "axi-core-tdd";
-	};
-};
-#endif
-
-#ifdef STINGRAY
-
 / {
 	clocks {
 		adf4371_clkin: clock@0 {
@@ -267,43 +195,43 @@
 
 	stingray_control@0 {
 		compatible = "adi,one-bit-adc-dac";
-	  #address-cells = <1>;
-	  #size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 
 		out-gpios = <&axi_fmc_gpio 30 0>, <&axi_fmc_gpio 29 0>,
 								<&axi_fmc_gpio 28 0>, <&axi_fmc_gpio 27 0>,
 								<&axi_fmc_gpio 26 0>, <&axi_fmc_gpio 25 0>;
 		label = "stingray_control";
 
-	  channel@0 {
+		channel@0 {
 			reg = <0>;
 			label = "PA_ON";
-	  };
+		};
 
-	  channel@1 {
+		channel@1 {
 			reg = <1>;
 			label = "TR";
-	  };
+		};
 
-	  channel@2 {
+		channel@2 {
 			reg = <2>;
 			label = "TX_LOAD";
-	  };
+		};
 
-	  channel@3 {
+		channel@3 {
 			reg = <3>;
 			label = "RX_LOAD";
-	  };
+		};
 
-	  channel@4 {
+		channel@4 {
 			reg = <4>;
 			label = "5V_CTRL";
-	  };
+		};
 
-	  channel@5 {
+		channel@5 {
 			reg = <5>;
 			label = "PWR_UP_DOWN";
-	  };
+		};
 	};
 
 	xud_control@1 {
@@ -385,6 +313,57 @@
 };
 
 &fpga_axi {
+	axi_tdd_0: axi-tdd-0@9c470000 {
+		compatible = "adi,axi-tdd";
+		reg = <0x0 0x9c470000 0x1000>;
+		clocks = <&zynqmp_clk PL0_REF>, <&hmc7044 6>;
+		clock-names = "s_axi_aclk", "intf_clk";
+	};
+
+	iio_axi_tdd_0: iio-axi-tdd-0@0 {
+		compatible = "adi,iio-fake-platform-device";
+		adi,faked-dev = <&axi_tdd_0>;
+		adi,attribute-names =
+			"version", "core_id", "scratch", "magic",
+			"sync_soft", "sync_external", "sync_internal", "sync_reset",
+			"enable", "startup_delay_raw", "startup_delay_ms",
+			"burst_count", "frame_length_raw", "frame_length_ms",
+			"state", "internal_sync_period_raw", "internal_sync_period_ms",
+			"out_channel0_enable", "out_channel0_polarity",
+			"out_channel0_on_raw", "out_channel0_on_ms",
+			"out_channel0_off_raw", "out_channel0_off_ms",
+			"out_channel1_enable", "out_channel1_polarity",
+			"out_channel1_on_raw", "out_channel1_on_ms",
+			"out_channel1_off_raw", "out_channel1_off_ms",
+			"out_channel2_enable", "out_channel2_polarity",
+			"out_channel2_on_raw", "out_channel2_on_ms",
+			"out_channel2_off_raw", "out_channel2_off_ms",
+			"out_channel3_enable", "out_channel3_polarity",
+			"out_channel3_on_raw", "out_channel3_on_ms",
+			"out_channel3_off_raw", "out_channel3_off_ms",
+			"out_channel4_enable", "out_channel4_polarity",
+			"out_channel4_on_raw", "out_channel4_on_ms",
+			"out_channel4_off_raw", "out_channel4_off_ms",
+			"out_channel5_enable", "out_channel5_polarity",
+			"out_channel5_on_raw", "out_channel5_on_ms",
+			"out_channel5_off_raw", "out_channel5_off_ms";
+		label = "axi-core-tdd";
+	};
+
+	axi_data_offload_tx: axi-data-offload-0@9c460000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x0 0x9c460000 0x10000>;
+		adi,oneshot;
+		adi,sync-config = <1>;
+	};
+
+	axi_data_offload_rx: axi-data-offload-1@9c450000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x0 0x9c450000 0x10000>;
+		adi,oneshot;
+		adi,sync-config = <1>;
+	};
+
 	axi_spi_pmod: spi@85200000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -395,9 +374,132 @@
 		interrupt-parent = <&gic>;
 		interrupts = <0 111 IRQ_TYPE_EDGE_RISING>;
 		num-cs = <0x8>;
-		reg = <0x0 0x85200000 0x10000>;
+		reg = <0x0 0x85200000 0x1000>;
 		xlnx,num-ss-bits = <0x8>;
 		xlnx,spi-mode = <0>;
+
+		adar1000_csb_1@1 {
+			compatible = "adi,adar1000";
+			reg = <1>;
+			spi-max-frequency = <12500000>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			adar1000_csb_1_1@0 {
+				reg = <0>;
+				label = "adar1000_csb_1_1";
+			};
+
+			adar1000_csb_1_2@1 {
+				reg = <1>;
+				label = "adar1000_csb_1_2";
+			};
+
+			adar1000_csb_1_3@2 {
+				reg = <2>;
+				label = "adar1000_csb_1_3";
+			};
+
+			adar1000_csb_1_4@3 {
+				reg = <3>;
+				label = "adar1000_csb_1_4";
+			};
+		};
+
+		adar1000_csb_2@2 {
+			compatible = "adi,adar1000";
+			reg = <2>;
+			spi-max-frequency = <12500000>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			adar1000_csb_2_1@0 {
+				reg = <0>;
+				label = "adar1000_csb_2_1";
+			};
+
+			adar1000_csb_2_2@1 {
+				reg = <1>;
+				label = "adar1000_csb_2_2";
+			};
+
+			adar1000_csb_2_3@2 {
+				reg = <2>;
+				label = "adar1000_csb_2_3";
+			};
+
+			adar1000_csb_2_4@3 {
+				reg = <3>;
+				label = "adar1000_csb_2_4";
+			};
+		};
+
+		adar1000_csb_3@3 {
+			compatible = "adi,adar1000";
+			reg = <3>;
+			spi-max-frequency = <12500000>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			adar1000_csb_3_1@0 {
+				reg = <0>;
+				label = "adar1000_csb_3_1";
+			};
+
+			adar1000_csb_3_2@1 {
+				reg = <1>;
+				label = "adar1000_csb_3_2";
+			};
+
+			adar1000_csb_3_3@2 {
+				reg = <2>;
+				label = "adar1000_csb_3_3";
+			};
+
+			adar1000_csb_3_4@3 {
+				reg = <3>;
+				label = "adar1000_csb_3_4";
+			};
+		};
+
+		adar1000_csb_4@4 {
+			compatible = "adi,adar1000";
+			reg = <4>;
+			spi-max-frequency = <12500000>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			adar1000_csb_4_1@0 {
+				reg = <0>;
+				label = "adar1000_csb_4_1";
+			};
+
+			adar1000_csb_4_2@1 {
+				reg = <1>;
+				label = "adar1000_csb_4_2";
+			};
+
+			adar1000_csb_4_3@2 {
+				reg = <2>;
+				label = "adar1000_csb_4_3";
+			};
+
+			adar1000_csb_4_4@3 {
+				reg = <3>;
+				label = "adar1000_csb_4_4";
+			};
+		};
+
+		ltc2314@5 {
+			compatible = "adi,ltc2314-14";
+			reg = <5>;
+			spi-max-frequency = <12500000>;
+			vcc-supply = <&vcc_ltc2314>;
+		};
 	};
 
 	axi_spi_fmc: spi@85300000 {
@@ -410,16 +512,29 @@
 		interrupt-parent = <&gic>;
 		interrupts = <0 93 IRQ_TYPE_EDGE_RISING>;
 		num-cs = <0x8>;
-		reg = <0x0 0x85300000 0x10000>;
+		reg = <0x0 0x85300000 0x1000>;
 		xlnx,num-ss-bits = <0x8>;
 		xlnx,spi-mode = <0>;
+
+		adf4371_clk0: adf4371-0@6 {
+			compatible = "adi,adf4371";
+			reg = <6>;
+
+			#address-cells = <1>;
+			#clock-cells = <1>;
+			#size-cells = <0>;
+
+			spi-max-frequency = <6250000>;
+			clocks = <&adf4371_clkin>;
+			clock-names = "clkin";
+			clock-output-names = "pll0-clk-rf8", "pll0-clk-rfaux8",
+				"pll0-clk-rf16", "pll0-clk-rf32";
+		};
 	};
 
 	axi_fmc_gpio: axi_fmc_gpio@86000000 {
 		#gpio-cells = <2>;
 		#interrupt-cells = <2>;
-		clock-names = "s_axi_aclk";
-		clocks = <&zynqmp_clk 71>;
 		compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
 		gpio-controller;
 		interrupt-controller;
@@ -451,168 +566,22 @@
 		interrupt-parent = <&gic>;
 		interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x0 0x85100000 0x1000>;
+
+		ltc2992@6a {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,ltc2992";
+			reg = <0x6A>;
+
+			channel@0 {
+				reg = <0x0>;
+				shunt-resistor-micro-ohms = <8000>;
+			};
+
+			channel@1 {
+				reg = <0x1>;
+				shunt-resistor-micro-ohms = <3500>;
+			};
+		};
 	};
 };
-
-&axi_i2c_pmod {
-	ltc2992@6a {
-  	#address-cells = <1>;
-  	#size-cells = <0>;
-  	compatible = "adi,ltc2992";
-  	reg = <0x6A>;
-
-  	channel@0 {
-      reg = <0x0>;
-      shunt-resistor-micro-ohms = <8000>;
-    };
-
-		channel@1 {
-      reg = <0x1>;
-      shunt-resistor-micro-ohms = <3500>;
-    };
-	};
-};
-
-&axi_spi_pmod {
-	adar1000_csb_1@1 {
-		compatible = "adi,adar1000";
-		reg = <1>;
-		spi-max-frequency = <12500000>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		adar1000_csb_1_1@0 {
-			reg = <0>;
-			label = "adar1000_csb_1_1";
-		};
-
-		adar1000_csb_1_2@1 {
-			reg = <1>;
-			label = "adar1000_csb_1_2";
-		};
-
-		adar1000_csb_1_3@2 {
-			reg = <2>;
-			label = "adar1000_csb_1_3";
-		};
-
-		adar1000_csb_1_4@3 {
-			reg = <3>;
-			label = "adar1000_csb_1_4";
-		};
-	};
-
-	adar1000_csb_2@2 {
-		compatible = "adi,adar1000";
-		reg = <2>;
-		spi-max-frequency = <12500000>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		adar1000_csb_2_1@0 {
-			reg = <0>;
-			label = "adar1000_csb_2_1";
-		};
-
-		adar1000_csb_2_2@1 {
-			reg = <1>;
-			label = "adar1000_csb_2_2";
-		};
-
-		adar1000_csb_2_3@2 {
-			reg = <2>;
-			label = "adar1000_csb_2_3";
-		};
-
-		adar1000_csb_2_4@3 {
-			reg = <3>;
-			label = "adar1000_csb_2_4";
-		};
-	};
-
-	adar1000_csb_3@3 {
-		compatible = "adi,adar1000";
-		reg = <3>;
-		spi-max-frequency = <12500000>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		adar1000_csb_3_1@0 {
-			reg = <0>;
-			label = "adar1000_csb_3_1";
-		};
-
-		adar1000_csb_3_2@1 {
-			reg = <1>;
-			label = "adar1000_csb_3_2";
-		};
-
-		adar1000_csb_3_3@2 {
-			reg = <2>;
-			label = "adar1000_csb_3_3";
-		};
-
-		adar1000_csb_3_4@3 {
-			reg = <3>;
-			label = "adar1000_csb_3_4";
-		};
-	};
-
-	adar1000_csb_4@4 {
-		compatible = "adi,adar1000";
-		reg = <4>;
-		spi-max-frequency = <12500000>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		adar1000_csb_4_1@0 {
-			reg = <0>;
-			label = "adar1000_csb_4_1";
-		};
-
-		adar1000_csb_4_2@1 {
-			reg = <1>;
-			label = "adar1000_csb_4_2";
-		};
-
-		adar1000_csb_4_3@2 {
-			reg = <2>;
-			label = "adar1000_csb_4_3";
-		};
-
-		adar1000_csb_4_4@3 {
-			reg = <3>;
-			label = "adar1000_csb_4_4";
-		};
-	};
-
-	ltc2314@5 {
-		compatible = "adi,ltc2314-14";
-		reg = <5>;
-		spi-max-frequency = <12500000>;
-		vcc-supply = <&vcc_ltc2314>;
-	};
-};
-
-&axi_spi_fmc {
-	adf4371_clk0: adf4371-0@6 {
-		compatible = "adi,adf4371";
-		reg = <6>;
-
-		#address-cells = <1>;
-		#clock-cells = <1>;
-		#size-cells = <0>;
-
-		spi-max-frequency = <6250000>;
-		clocks = <&adf4371_clkin>;
-		clock-names = "clkin";
-		clock-output-names = "pll0-clk-rf8", "pll0-clk-rfaux8",
-			"pll0-clk-rf16", "pll0-clk-rf32";
-	};
-};
-
-#endif
