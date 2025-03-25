@@ -35,7 +35,13 @@ properties:
     description: I2C device address
     maxItems: 1
 
-  enable-gpios: true
+  enable-gpios:
+    maxItems: 1
+    deprecated: true
+
+  powerdown-gpios:
+    maxItems: 1
+    description: Specifier for the GPIO connected to the PWDNB pin.
 
   i2c-alias-pool:
     maxItems: 4
@@ -128,7 +134,7 @@ examples:
             gmsl0: gmsl-deserializer@49 {
                     compatible = "maxim,max96712";
                     reg = <0x49>;
-                    enable-gpios = <&pca9654_a 0 GPIO_ACTIVE_HIGH>;
+                    powerdown-gpios = <&pca9654_a 0 GPIO_ACTIVE_LOW>;
 
                     ports {
                             #address-cells = <1>;
