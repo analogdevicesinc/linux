@@ -40,7 +40,7 @@
 		#dma-cells = <1>;
 		#clock-cells = <0>;
 		interrupt-parent = <&axi_intc>;
-		interrupts = <12 2>;
+		interrupts = <13 2>;
 		clocks = <&clk_bus_0>;
 	};
 
@@ -50,8 +50,26 @@
 		#dma-cells = <1>;
 		#clock-cells = <0>;
 		interrupt-parent = <&axi_intc>;
-		interrupts = <13 2>;
+		interrupts = <12 2>;
 		clocks = <&clk_bus_0>;
+	};
+
+	axi_rx_clkgen: axi-clkgen@43c10000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x43c10000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clk0_ad9528 3>, <&clk_bus_0>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "axi_rx_clkgen";
+	};
+
+	axi_tx_clkgen: axi-clkgen@43c00000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x43c00000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clk0_ad9528 3>, <&clk_bus_0>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "axi_tx_clkgen";
 	};
 
 	axi_adrv9025_core_rx: axi-adrv9025-rx-hpc@44a00000 {
@@ -83,9 +101,9 @@
 		reg = <0x44aa0000 0x1000>;
 
 		interrupt-parent = <&axi_intc>;
-		interrupts = <14 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&clk_bus_0>, <&clk0_ad9528 3>, <&axi_adrv9025_adxcvr_rx 0>;
+		clocks = <&clk_bus_0>, <&axi_rx_clkgen>, <&axi_adrv9025_adxcvr_rx 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
@@ -101,8 +119,8 @@
 		reg = <0x44a90000 0x1000>;
 
 		interrupt-parent = <&axi_intc>;
-		interrupts = <15 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk_bus_0>, <&clk0_ad9528 3>, <&axi_adrv9025_adxcvr_tx 0>;
+		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk_bus_0>, <&axi_tx_clkgen>, <&axi_adrv9025_adxcvr_tx 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
@@ -133,6 +151,7 @@
 		#jesd204-cells = <2>;
 		jesd204-inputs =  <&clk0_ad9528 0 FRAMER0_LINK_RX>;
 	};
+
 	axi_adrv9025_adxcvr_tx: axi-adxcvr-tx@44a80000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -280,6 +299,8 @@
 
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 		#clock-cells = <1>;
+
+		jesd204-ignore-errors;
 
 		jesd204-device;
 		#jesd204-cells = <2>;
