@@ -198,9 +198,9 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios = <&axi_fmc_gpio 30 0>, <&axi_fmc_gpio 29 0>,
-								<&axi_fmc_gpio 28 0>, <&axi_fmc_gpio 27 0>,
-								<&axi_fmc_gpio 26 0>, <&axi_fmc_gpio 25 0>;
+		out-gpios = <&axi_fmc_gpio 30 0>, <&axi_fmc_gpio 31 0>,
+								<&axi_fmc_gpio 29 0>, <&axi_fmc_gpio 28 0>,
+								<&axi_fmc_gpio 27 0>, <&axi_fmc_gpio 26 0>;
 		label = "stingray_control";
 
 		channel@0 {
@@ -239,9 +239,9 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios = <&axi_fmc_gpio 17 0>, <&axi_fmc_gpio 18 0>,
-								<&axi_fmc_gpio 19 0>, <&axi_fmc_gpio 20 0>,
-								<&axi_fmc_gpio 21 0>, <&axi_fmc_gpio 22 0>;
+		out-gpios = <&axi_fmc_gpio 16 0>, <&axi_fmc_gpio 17 0>,
+								<&axi_fmc_gpio 18 0>, <&axi_fmc_gpio 19 0>,
+								<&axi_fmc_gpio 20 0>, <&axi_fmc_gpio 21 0>;
 		label = "xud_control";
 
 		channel@0 {
@@ -275,41 +275,41 @@
 		};
 	};
 
-	imu_control@2 {
-		compatible = "adi,one-bit-adc-dac";
-		#address-cells = <1>;
-		#size-cells = <0>;
+	// imu_control@2 {
+	// 	compatible = "adi,one-bit-adc-dac";
+	// 	#address-cells = <1>;
+	// 	#size-cells = <0>;
 
-		out-gpios = <&axi_fmc_gpio 23 0>, <&axi_fmc_gpio 24 0>,
-								<&axi_fmc_gpio 25 0>, <&axi_fmc_gpio 15 0>,
-								<&axi_fmc_gpio 14 0>;
-		label = "imu_control";
+	// 	out-gpios = <&axi_fmc_gpio 23 0>, <&axi_fmc_gpio 24 0>,
+	// 							<&axi_fmc_gpio 25 0>, <&axi_fmc_gpio 15 0>,
+	// 							<&axi_fmc_gpio 14 0>;
+	// 	label = "imu_control";
 
-		channel@0 {
-			reg = <0>;
-			label = "GPIO0";
-		};
+	// 	channel@0 {
+	// 		reg = <0>;
+	// 		label = "GPIO0";
+	// 	};
 
-		channel@1 {
-			reg = <1>;
-			label = "GPIO1";
-		};
+	// 	channel@1 {
+	// 		reg = <1>;
+	// 		label = "GPIO1";
+	// 	};
 
-		channel@2 {
-			reg = <2>;
-			label = "GPIO2";
-		};
+	// 	channel@2 {
+	// 		reg = <2>;
+	// 		label = "GPIO2";
+	// 	};
 
-		channel@3 {
-			reg = <3>;
-			label = "GPIO3";
-		};
+	// 	channel@3 {
+	// 		reg = <3>;
+	// 		label = "GPIO3";
+	// 	};
 
-		channel@4 {
-			reg = <4>;
-			label = "RST";
-		};
-	};
+	// 	channel@4 {
+	// 		reg = <4>;
+	// 		label = "RST";
+	// 	};
+	// };
 };
 
 &fpga_axi {
