@@ -10,6 +10,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/net/pse-pd/adi,ltc4296.h>
 
 / {
 	compatible = "brcm,bcm2711";
@@ -77,16 +78,18 @@
 		ports {
 			port@2 {
 				reg = <0x2>;
+				adi,port-type = <LTC4296_PORT_SCCP_CLASS_14>;
 				adi,sccpo-gpio = <&gpio 23 GPIO_ACTIVE_HIGH>;
 				adi,sccpi-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>;
-				adi,hs-resistor = <250>;
+				adi,hs-resistor = <270>;
 			};
 
 			port@3 {
 				reg = <0x3>;
+				adi,port-type = <LTC4296_PORT_SCCP_CLASS_14>;
 				adi,sccpo-gpio = <&gpio 18 GPIO_ACTIVE_HIGH>;
 				adi,sccpi-gpio = <&gpio 17 GPIO_ACTIVE_HIGH>;
-				adi,hs-resistor = <250>;
+				adi,hs-resistor = <270>;
 			};
 		};
 	};

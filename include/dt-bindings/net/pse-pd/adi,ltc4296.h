@@ -1,0 +1,13 @@
+#ifndef _DT_BINDINGS_ADI_AD4296_H
+#define _DT_BINDINGS_ADI_AD4296_H
+
+#define LTC4296_PORT_DISABLED           0x0
+#define LTC4296_PORT_APL                0x1
+#define LTC4296_PORT_SCCP_CLASS_10      0x2
+#define LTC4296_PORT_SCCP_CLASS_11      0x3
+#define LTC4296_PORT_SCCP_CLASS_12      0x4
+#define LTC4296_PORT_SCCP_CLASS_13      0x5
+#define LTC4296_PORT_SCCP_CLASS_14      0x6
+#define LTC4296_PORT_SCCP_CLASS_15      0x7
+
+#endif
