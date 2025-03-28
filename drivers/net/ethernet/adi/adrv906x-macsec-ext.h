@@ -18,12 +18,12 @@ struct adrv906x_macsec_priv {
 	struct cco_macsec_priv priv;
 	void *base;
 	int irq;
-	bool enabled;
 };
 
 struct adrv906x_macsec_priv *adrv906x_macsec_get(struct net_device *netdev);
 void adrv906x_macsec_commonport_status_update(struct net_device *netdev);
 int adrv906x_macsec_probe(struct platform_device *pdev, struct net_device *netdev,
-			  struct device_node *np);
+			  struct device_node *np, struct adrv906x_macsec_priv *macsec);
+void adrv906x_macsec_remove(struct net_device *netdev);
 
 #endif /* __ADRV906X_MACSEC_EXT_H__ */

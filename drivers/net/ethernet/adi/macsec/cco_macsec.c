@@ -9,7 +9,6 @@
 static u32  default_txsc_pn_thr = 0xff000000;   module_param(default_txsc_pn_thr, uint, 0644);
 static u32  debug_max_framesize = 0;            module_param(debug_max_framesize, uint, 0644);
 static bool debug_xpn = false;                  module_param(debug_xpn, bool, 0644);
-static bool debug_sw_macsec = false;            module_param(debug_sw_macsec, bool, 0644);
 
 // Find the SecY index from the provided ctx->secy pointer and netdev_priv(ctx->netdev) secy_array.
 static bool get_secy(struct macsec_context *ctx, u32 *secy_index)
@@ -211,9 +210,6 @@ static int cco_macsec_add_secy(struct macsec_context *ctx)
 	if (!get_free_secy(ctx, &secy_index))
 		return -ENOSPC;
 
-	if (ctx->prepare)
-		return 0;
-
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	secy_cnt = count_secy(ctx->netdev);
@@ -269,9 +265,6 @@ static int cco_macsec_upd_secy(struct macsec_context *ctx)
 		return -EINVAL;
 	if (!secy->netdev)
 		return EINVAL;
-
-	if (ctx->prepare)
-		return 0;
 
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
@@ -400,9 +393,6 @@ static int cco_macsec_del_secy(struct macsec_context *ctx)
 	if (!find_secy(ctx, &secy_index))
 		return -EINVAL;
 
-	if (ctx->prepare)
-		return 0;
-
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	write_secy_txsc(ctx->netdev, secy, secy_index, 1, 0, 0, 0);
@@ -466,9 +456,6 @@ static int cco_macsec_add_rxsc(struct macsec_context *ctx)
 	if (!get_free_rxsc(ctx, secy_index, &peer_index))
 		return -ENOSPC;
 
-	if (ctx->prepare)
-		return 0;
-
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	memset(&macsec_priv->rxsc_stats[secy_index][peer_index], 0, sizeof(macsec_priv->rxsc_stats[secy_index][peer_index]));
@@ -499,9 +486,6 @@ static int cco_macsec_upd_rxsc(struct macsec_context *ctx)
 	if (!find_rxsc(macsec_priv, rx_sc, secy_index, &peer_index))
 		return -EINVAL;
 
-	if (ctx->prepare)
-		return 0;
-
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	// update the Rx-SC registers:
@@ -527,9 +511,6 @@ static int cco_macsec_del_rxsc(struct macsec_context *ctx)
 	// get the peer_index:
 	if (!find_rxsc(macsec_priv, rx_sc, secy_index, &peer_index))
 		return -EINVAL;
-
-	if (ctx->prepare)
-		return 0;
 
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
@@ -570,9 +551,6 @@ static int cco_macsec_add_rxsa(struct macsec_context *ctx)
 	if (key_index < 0)
 		// not found and no room for a new
 		return -ENOSPC;
-
-	if (ctx->prepare)
-		return 0;
 
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
@@ -718,9 +696,6 @@ static int cco_macsec_upd_rxsa(struct macsec_context *ctx)
 	if (key_index < 0)
 		return -EINVAL;
 
-	if (ctx->prepare)
-		return 0;
-
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	isEnabled = (macsec_priv->sa_enabled[secy_index][peer_index] >> ctx->sa.assoc_num) & 1;
@@ -827,9 +802,6 @@ static int cco_macsec_del_rxsa(struct macsec_context *ctx)
 	if (key_index < 0)
 		return -EINVAL;
 
-	if (ctx->prepare)
-		return 0;
-
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	enable_mask = macsec_priv->sa_enabled[secy_index][peer_index] & 0x0f;
@@ -869,9 +841,6 @@ static int cco_macsec_add_txsa(struct macsec_context *ctx)
 	if (key_index < 0)
 		// not found and no room for a new
 		return -ENOSPC;
-
-	if (ctx->prepare)
-		return 0;
 
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
@@ -1006,9 +975,6 @@ static int cco_macsec_upd_txsa(struct macsec_context *ctx)
 	if (key_index < 0)
 		return -EINVAL;
 
-	if (ctx->prepare)
-		return 0;
-
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	isEnabled = (macsec_priv->sa_enabled[secy_index][0] >> (ctx->sa.assoc_num + 4)) & 1;
@@ -1105,9 +1071,6 @@ static int cco_macsec_del_txsa(struct macsec_context *ctx)
 	if (key_index < 0)
 		return -EINVAL;
 
-	if (ctx->prepare)
-		return 0;
-
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	enable_mask = macsec_priv->sa_enabled[secy_index][0] & 0xf0;
@@ -1130,9 +1093,6 @@ static int cco_macsec_get_dev_stats(struct macsec_context *ctx)
 	// get the SecY:
 	if (!find_secy(ctx, &secy_index))
 		return -EINVAL;
-
-	if (ctx->prepare)
-		return 0;
 
 	// trigger a read of per SecY stats:
 	cco_macsec_reg_wr(ctx->netdev, STATISTICS_BASE_ADDR + STATISTICS_STATS_CTRL_BASE_ADDR,
@@ -1196,9 +1156,6 @@ static int cco_macsec_get_tx_sc_stats(struct macsec_context *ctx)
 	if (!find_secy(ctx, &secy_index))
 		return -EINVAL;
 
-	if (ctx->prepare)
-		return 0;
-
 	// trigger a read of Tx-SC stats:
 	cco_macsec_reg_wr(ctx->netdev, STATISTICS_BASE_ADDR + STATISTICS_STATS_CTRL_BASE_ADDR,
 			  STATISTICS_STATS_CTRL_TX_STATS_RD_TRIGGER_MASK         |
@@ -1222,9 +1179,6 @@ static int cco_macsec_get_tx_sa_stats(struct macsec_context *ctx)
 	// get the SecY:
 	if (!find_secy(ctx, &secy_index))
 		return -EINVAL;
-
-	if (ctx->prepare)
-		return 0;
 
 	// no per-SA stats:
 	memset(ctx->stats.tx_sa_stats, 0, sizeof(*ctx->stats.tx_sa_stats));
@@ -1256,9 +1210,6 @@ static int cco_macsec_get_rx_sc_stats(struct macsec_context *ctx)
 	// get the peer_index:
 	if (!find_rxsc(macsec_priv, rx_sc, secy_index, &peer_index))
 		return -EINVAL;
-
-	if (ctx->prepare)
-		return 0;
 
 	// trigger a read of Rx-SC stats:
 	cco_macsec_reg_wr(ctx->netdev, STATISTICS_BASE_ADDR + STATISTICS_STATS_CTRL_BASE_ADDR,
@@ -1296,9 +1247,6 @@ static int cco_macsec_get_rx_sa_stats(struct macsec_context *ctx)
 	if (!find_rxsc(macsec_priv, rx_sc, secy_index, &peer_index))
 		return -EINVAL;
 
-	if (ctx->prepare)
-		return 0;
-
 	// no per-SA stats:
 	memset(ctx->stats.rx_sa_stats, 0, sizeof(*ctx->stats.rx_sa_stats));
 
@@ -1330,9 +1278,6 @@ static int cco_macsec_dev_open(struct macsec_context *ctx)
 
 	if (!get_secy(ctx, &secy_index))
 		return -EINVAL;
-
-	if (ctx->prepare)
-		return 0;
 
 	if (macsec_priv->secy_stopped[secy_index]) {
 		// 1. Update the SecY and Tx SC configuration:
@@ -1444,9 +1389,6 @@ static int cco_macsec_dev_stop(struct macsec_context *ctx)
 
 	if (!get_secy(ctx, &secy_index))
 		return -EINVAL;
-
-	if (ctx->prepare)
-		return 0;
 
 	// netdev_info(ctx->netdev, "%s\n", __func__);
 
@@ -1745,7 +1687,7 @@ static int cco_macsec_get_secy_ext(struct sk_buff *skb, struct netlink_callback 
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_IFINDEX])
@@ -1897,7 +1839,7 @@ static int cco_macsec_get_rx_traffic_rule(struct sk_buff *skb, struct netlink_ca
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_INDEX])
@@ -2030,7 +1972,7 @@ static int cco_macsec_get_tx_traffic_rule(struct sk_buff *skb, struct netlink_ca
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_INDEX])
@@ -2164,7 +2106,7 @@ static int cco_macsec_get_port_stats(struct sk_buff *skb, struct netlink_callbac
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_IFINDEX])
@@ -2284,7 +2226,7 @@ static int cco_macsec_get_uport_stats(struct sk_buff *skb, struct netlink_callba
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_IFINDEX])
@@ -2404,7 +2346,7 @@ static int cco_macsec_get_ext_port_stats(struct sk_buff *skb, struct netlink_cal
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_IFINDEX])
@@ -2523,7 +2465,7 @@ static int cco_macsec_get_txsc_ext(struct sk_buff *skb, struct netlink_callback 
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_IFINDEX])
@@ -2592,7 +2534,7 @@ static int cco_macsec_get_rxsc_ext(struct sk_buff *skb, struct netlink_callback 
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_IFINDEX])
@@ -2670,7 +2612,7 @@ static int cco_macsec_get_txsa_ext(struct sk_buff *skb, struct netlink_callback 
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_IFINDEX])
@@ -2744,7 +2686,7 @@ static int cco_macsec_get_rxsa_ext(struct sk_buff *skb, struct netlink_callback 
 	genl_info = genl_dumpit_info(cb);
 	if (!genl_info)
 		return -EINVAL;
-	attrs = genl_info->attrs;
+	attrs = genl_info->info.attrs;
 	if (!attrs)
 		return -EINVAL;
 	if (!attrs[CCO_MACSEC_ATTR_IFINDEX])
@@ -2882,8 +2824,9 @@ int cco_macsec_init(struct net_device *dev)
 		return -1;
 	}
 
+	/* This function might be called twice. Just ignore that error. */
 	err = genl_register_family(&cco_macsec_fam);
-	if (err) {
+	if (err && err != -EEXIST) {
 		netdev_info(dev, "%s genl_register_family() failed, err=%i\n", __func__, err);
 		return err;
 	}
@@ -2910,11 +2853,7 @@ int cco_macsec_init(struct net_device *dev)
 			  (4 << TRAFFIC_MAP_TT_CTRL_FIELD_SELECT_WR_SHIFT) | // 4=EtherType
 			  (0 << TRAFFIC_MAP_TT_CTRL_INDEX_SHIFT));
 
-	if (debug_sw_macsec)
-		return 0;
-
-	dev->features |= NETIF_F_HW_MACSEC;
-	dev->macsec_ops = &cco_macsec_ops;
+	macsec_priv->macsec_ops = &cco_macsec_ops;
 
 	return 0;
 }

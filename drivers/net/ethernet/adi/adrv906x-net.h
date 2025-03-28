@@ -41,7 +41,7 @@ struct adrv906x_eth_dev {
 	struct adrv906x_oran_if oif;
 	struct adrv906x_tsu tsu;
 #if IS_ENABLED(CONFIG_MACSEC)
-	struct adrv906x_macsec_priv macsec;
+	struct adrv906x_macsec_priv *macsec;
 #endif // IS_ENABLED(CONFIG_MACSEC)
 	int port;
 	int link;

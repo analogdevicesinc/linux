@@ -85,6 +85,22 @@
 		interrupt-ctrl = <&sec_ndma1_interrupt_ctrl>;
 	};
 
+	sec_macsec0: macsec@SEC_EMAC_MACSEC_0_BASE_UADDR {
+		id = <0>;
+		reg = <SEC_EMAC_MACSEC_0_BASE 0xa00>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_102 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ts_event";
+		status = "disabled";
+	};
+
+	sec_macsec1: macsec@SEC_EMAC_MACSEC_1_BASE_UADDR {
+		id = <1>;
+		reg = <SEC_EMAC_MACSEC_1_BASE 0xa00>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_103 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ts_event";
+		status = "disabled";
+	};
+
 	sec_i2c0: twi@SEC_I2C_0_BASE_UADDR {
 		#address-cells = <1>;
 		#size-cells = <0>;

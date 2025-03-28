@@ -70,6 +70,18 @@ void adrv906x_switch_set_mae_age_time(struct adrv906x_eth_switch *es, u8 data)
 	iowrite32(val, es->reg_match_action + SWITCH_MAS_CFG_MAE);
 }
 
+static void adrv906x_switch_mae_vlan_dom_sep_enable(struct adrv906x_eth_switch *es)
+{
+	u32 val;
+
+	val = ioread32(es->reg_match_action + SWITCH_MAS_CFG_MAE);
+	if (es->vlan_enabled)
+		val |= CFG_MAE_VLAN_DOM_SEP_EN_MASK;
+	else
+		val &= ~CFG_MAE_VLAN_DOM_SEP_EN_MASK;
+	iowrite32(val, es->reg_match_action + SWITCH_MAS_CFG_MAE);
+}
+
 static void adrv906x_switch_dsa_tx_enable(struct adrv906x_eth_switch *es, bool enabled)
 {
 	int i, val;
@@ -229,6 +241,21 @@ static int adrv906x_switch_pvid_set(struct adrv906x_eth_switch *es, u16 pvid)
 	es->pvid = pvid;
 
 	return 0;
+}
+
+static void adrv906x_switch_vlan_enable(struct adrv906x_eth_switch *es)
+{
+	int portid;
+	u32 val;
+
+	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
+		val = ioread32(es->switch_port[portid].reg + SWITCH_PORT_CFG_VLAN);
+		if (es->vlan_enabled)
+			val |= SWITCH_PORT_VLAN_EN_MASK;
+		else
+			val &= ~SWITCH_PORT_VLAN_EN_MASK;
+		iowrite32(val, es->switch_port[portid].reg + SWITCH_PORT_CFG_VLAN);
+	}
 }
 
 static void adrv906x_switch_pcp_regen_set(struct adrv906x_eth_switch *es, u32 pcpmap)
@@ -468,7 +495,8 @@ void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es)
 void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es)
 {
 	if (es->attr_group.attrs)
-		sysfs_remove_group(&es->pdev->dev.kobj, &es->attr_group);
+		if (es->vlan_enabled)
+			sysfs_remove_group(&es->pdev->dev.kobj, &es->attr_group);
 }
 
 static irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
@@ -701,6 +729,14 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 	if (of_property_read_u16(eth_switch_np, "pvid", &es->pvid))
 		es->pvid = SWITCH_PVID;
 
+	if (of_property_read_bool(eth_switch_np, "vlan_enabled")) {
+		es->vlan_enabled = true;
+		dev_info(dev, "VLAN is enabled");
+	} else {
+		es->vlan_enabled = false;
+		dev_info(dev, "VLAN is disabled");
+	}
+
 	es->enabled = true;
 
 	return 0;
@@ -732,12 +768,15 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 
 	adrv906x_switch_set_mae_age_time(es, AGE_TIME_5MIN_25G);
 	ret = adrv906x_switch_pvid_set(es, es->pvid);
+	adrv906x_switch_mae_vlan_dom_sep_enable(es);
+	ret = adrv906x_switch_pvid_set(es, SWITCH_PVID);
 	if (ret)
 		return ret;
 	ret = adrv906x_switch_packet_trapping_set(es);
 	if (ret)
 		return ret;
 
+	adrv906x_switch_vlan_enable(es);
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
 		ret = adrv906x_switch_port_enable(es, portid, portid == SWITCH_CPU_PORT);
 		if (ret)
@@ -754,7 +793,8 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	__SWITCH_ATTR_RW(port_vlan_ctrl);
 	adrv906x_switch_attrs[0] = &es->port_vlan_ctrl_attr.attr;
 	es->attr_group.attrs = adrv906x_switch_attrs;
-	ret = sysfs_create_group(&es->pdev->dev.kobj, &es->attr_group);
+	if (es->vlan_enabled)
+		ret = sysfs_create_group(&es->pdev->dev.kobj, &es->attr_group);
 
 	INIT_DELAYED_WORK(&es->update_stats, adrv906x_switch_update_hw_stats);
 	mod_delayed_work(system_long_wq, &es->update_stats, msecs_to_jiffies(1000));

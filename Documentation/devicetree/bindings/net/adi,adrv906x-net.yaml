@@ -231,6 +231,8 @@ properties:
         description: (u16) A list of up to '4' VLANs applied to all
                      switch ports.
         maxItems: 4
+      vlan_enabled: (optional)
+        description: (bool) Enable VLAN support, VLAN is disabled without this field 
       trap-ptp-forwardable:
         description: Enable optional trapping of PTP forwardable packets.
         type: boolean
@@ -379,6 +381,7 @@ examples:
                      <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
         pvid = /bits/ 16 <1>;
         vids = /bits/ 16 <2 3 4 5>;
+        vlan_enabled;
         switch_port0:switch-port@0 {
           id = <0>;
           reg = <EMAC_SW_PORT_0_BASE 0x400>;

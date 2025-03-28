@@ -15,6 +15,12 @@
 #include <linux/of_irq.h>
 #include "adrv906x-macsec-ext.h"
 
+#define ADRV906X_MAX_TX_KEYS            4
+#define ADRV906X_MAX_TX_CHANNELS        1
+#define ADRV906X_MAX_RX_KEYS            32
+#define ADRV906X_MAX_RX_CHANNELS        8
+#define ADRV906X_NO_OF_KEY_ENTRIES_RX   255
+
 struct cco_macsec_priv *cco_macsec_get_priv(struct net_device *netdev)
 {
 	struct adrv906x_macsec_priv *macsec = adrv906x_macsec_get(netdev);
@@ -22,7 +28,7 @@ struct cco_macsec_priv *cco_macsec_get_priv(struct net_device *netdev)
 	return &macsec->priv;
 }
 
-void *cco_macsec_get_base(struct net_device *netdev)
+static void *cco_macsec_get_base(struct net_device *netdev)
 {
 	struct adrv906x_macsec_priv *macsec = adrv906x_macsec_get(netdev);
 
@@ -31,64 +37,16 @@ void *cco_macsec_get_base(struct net_device *netdev)
 
 void cco_macsec_reg_wr(struct net_device *netdev, unsigned long addr, u32 value)
 {
-//	void __iomem *reg_ptr = (void __iomem *)cco_macsec_get_base(netdev);
-//	printk("adi- write reg %s(0x%lx, 0x%08x) reg_ptr=0x%lx\n",
-	//	__func__, addr, value, reg_ptr);
-//	iowrite32(value, reg_ptr + addr);
+	void __iomem *reg_ptr = (void __iomem *)cco_macsec_get_base(netdev);
+
+	iowrite32(value, reg_ptr + addr);
 }
 
 u32  cco_macsec_reg_rd(struct net_device *netdev, unsigned long addr)
 {
-	u32 val = 0;
+	void __iomem *reg_ptr = (void __iomem *)cco_macsec_get_base(netdev);
 
-//	void __iomem *reg_ptr = (void __iomem *)cco_macsec_get_base(netdev);
-//	val = ioread32(reg_ptr + addr );
-//	printk("adi- read reg %s(0x%lx), return 0x%08x (reg_ptr=0x%lx)\n",
-	//	__func__, addr, val, reg_ptr);
-
-	// simulate values for some of the register reads here:
-	switch (addr) {
-	case (MACSEC_CORE_BASE_ADDR + MACSEC_CORE_IP_ID_BASE_ADDR):
-		val = CCO_MACSEC_IP_ID;
-		break;
-	case (MACSEC_CORE_BASE_ADDR + MACSEC_CORE_IP_VERSION_BASE_ADDR):
-		val = (CCO_MACSEC_MAJOR_VER << MACSEC_CORE_IP_VERSION_MAJOR_SHIFT);
-		break;
-	case (MACSEC_CORE_BASE_ADDR + MACSEC_CORE_IP_CAPABILITIES_1_BASE_ADDR):
-		val = ((4 << MACSEC_CORE_IP_CAPABILITIES_1_NO_OF_PEERS_SHIFT) |
-		       (16 << MACSEC_CORE_IP_CAPABILITIES_1_NO_OF_CS_ENTRIES_RX_SHIFT) |
-		       (16 << MACSEC_CORE_IP_CAPABILITIES_1_NO_OF_CS_ENTRIES_TX_SHIFT) |
-		       (4 << MACSEC_CORE_IP_CAPABILITIES_1_NO_OF_SECYS_SHIFT));
-		break;
-	case (MACSEC_CORE_BASE_ADDR + MACSEC_CORE_IP_CAPABILITIES_2_BASE_ADDR):
-		val = ((CCO_CS_AES_GCM_128
-			<< MACSEC_CORE_IP_CAPABILITIES_2_AVAILABLE_CIPHERSUITES_SHIFT) |
-		       (1 << MACSEC_CORE_IP_CAPABILITIES_2_VLAN_IN_CLEAR_SHIFT) |
-		       (8 << MACSEC_CORE_IP_CAPABILITIES_2_NO_TT_ENTRIES_RX_SHIFT) |
-		       (8 << MACSEC_CORE_IP_CAPABILITIES_2_NO_TT_ENTRIES_TX_SHIFT));
-		break;
-	case (MACSEC_CORE_BASE_ADDR + MACSEC_CORE_IP_CS_CAPABILITY_BASE_ADDR):
-		val = (16 << MACSEC_CORE_IP_CS_CAPABILITY_ICVLENGTH_SHIFT);
-		break;
-	case (SECY_CONFIG_BASE_ADDR + SECY_CONFIG_TX_CONFIG_BASE_ADDR):
-		val = ((8 << SECY_CONFIG_TX_CONFIG_MAXTRANSMITKEYS_SHIFT) |
-		       (8 << SECY_CONFIG_TX_CONFIG_MAXTRANSMITCHANNELS_SHIFT));
-		break;
-	case (SECY_CONFIG_BASE_ADDR + SECY_CONFIG_RX_CONFIG_BASE_ADDR):
-		val = ((8 << SECY_CONFIG_RX_CONFIG_MAXRECEIVEKEYS_SHIFT) |
-		       (8 << SECY_CONFIG_RX_CONFIG_MAXRECEIVECHANNELS_SHIFT));
-		break;
-	default:
-		break;
-	}
-	return val;
-}
-
-void cco_macsec_commonport_status_get(struct net_device *netdev, u8 *operational, u8 *enabled)
-{
-	// just always return up
-	*operational = 1;
-	*enabled = 1;
+	return ioread32(reg_ptr + addr);
 }
 
 void cco_macsec_max_framesize_get(struct net_device *netdev, u32 *max_framesize)
@@ -96,41 +54,42 @@ void cco_macsec_max_framesize_get(struct net_device *netdev, u32 *max_framesize)
 	*max_framesize = netdev->mtu + 14 + 8; // DMAC, SMAC, EthType, 2 VLAN tags
 }
 
-irqreturn_t adi_macsec_isr(int irq, void *dev_id)
-{
-	return IRQ_HANDLED;
-}
-
+/*
+ * static irqreturn_t adi_macsec_isr(int irq, void *dev_id)
+ * {
+ * 	return IRQ_HANDLED;
+ * }
+ */
 void adrv906x_macsec_commonport_status_update(struct net_device *netdev)
 {
 	cco_macsec_commonport_status_update(netdev, 1, 1);
 }
 
 int adrv906x_macsec_probe(struct platform_device *pdev, struct net_device *netdev,
-			  struct device_node *np)
+			  struct device_node *np, struct adrv906x_macsec_priv *macsec)
 {
-	struct adrv906x_macsec_priv *macsec = adrv906x_macsec_get(netdev);
 	struct device *dev = &pdev->dev;
+	struct cco_macsec_capabilities *p;
 	u32 reg, len;
 	int ret;
 
 	macsec->dev = dev;
 
-	if (of_property_read_u32_index(np, "macsec", 0, &reg))
-		goto error;
-	if (of_property_read_u32_index(np, "macsec", 1, &len))
-		goto error;
+	if (of_property_read_u32_index(np, "reg", 0, &reg))
+		return -EINVAL;
+	if (of_property_read_u32_index(np, "reg", 1, &len))
+		return -EINVAL;
 
 	macsec->base = devm_ioremap(dev, reg, len);
 	if (!macsec->base) {
 		dev_err(dev, "ioremap macsec membase failed!");
-		goto error;
+		return -ENOMEM;
 	}
 
 	macsec->irq = of_irq_get_byname(np, "ts_event");
 	if (macsec->irq <= 0) {
 		dev_err(dev, "cannot obtain macsec ts_event irq");
-		goto error;
+		return -EINVAL;
 	}
 
 	dev_info(dev, "macsec irq %d", macsec->irq);
@@ -143,17 +102,46 @@ int adrv906x_macsec_probe(struct platform_device *pdev, struct net_device *netde
  *	}
  */
 
-	macsec->enabled = 1;
-
 	ret = cco_macsec_init(netdev);
-	if (ret)
+	if (ret) {
 		dev_err(dev, "failed to initialize macsec hw offload driver");
+		return ret;
+	}
 
-	return ret;
+	/* Both SecY tx_config and rx_config registers can only be accessed when
+	 * the macsec_bypass_mode is cleared in digital_control_0 register.
+	 * Accessing SecY rx_config register also requires Ethernet RX recovered
+	 * clock is available. Thus, cco_macsec_init() cannot get the correct
+	 * values from these two registers. The following hack fix the values.
+	 */
+	p = &macsec->priv.capabilities;
+	p->maxTxKeys = ADRV906X_MAX_TX_KEYS;
+	p->maxTxChannels = ADRV906X_MAX_TX_CHANNELS;
+	p->maxRxKeys = ADRV906X_MAX_RX_KEYS;
+	p->maxRxChannels = ADRV906X_MAX_RX_CHANNELS;
+	netdev_info(netdev, "%s: maxTxKeys=%u maxTxChannels=%u maxRxKeys=%u maxRxChannels=%u (corrected)\n",
+		    __func__, p->maxTxKeys, p->maxTxChannels, p->maxRxKeys, p->maxRxChannels);
 
-error:
-	macsec->enabled = 0;
+	/* MACsec IP in ADRV906x is configured with 256 keys in ingress.
+	 * But both the ip_capabilities_1 register bitfield and Comcores'
+	 * MACsec driver can only support up to 255 keys. The following hack
+	 * fixes this issue.
+	 */
+	p->no_of_key_entries_rx = ADRV906X_NO_OF_KEY_ENTRIES_RX;
+	netdev_info(netdev, "%s: no_of_key_entries_rx=%u (corrected)\n",
+		    __func__, p->no_of_key_entries_rx);
+
 	return 0;
+}
+
+void adrv906x_macsec_remove(struct net_device *netdev)
+{
+	struct adrv906x_macsec_priv *macsec = adrv906x_macsec_get(netdev);
+
+	if (macsec) {
+		cco_macsec_exit(netdev);
+		macsec = NULL;
+	}
 }
 
 MODULE_LICENSE("GPL");

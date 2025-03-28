@@ -23,6 +23,7 @@
 					<EMAC_PCS_0_TSU 0x44>;
 				phy-handle = <&adrv906x_phy0>;
 				ndma-handle = <&ndma0>;
+				macsec-handle = <&macsec0>;
 				clocks = <&hsdigclk>;
 				clock-names = "hsdig_clk";
 				adi,pcb-delay-tx-ns = <0>;
@@ -36,6 +37,7 @@
 					<EMAC_PCS_1_TSU 0x44>;
 				phy-handle = <&adrv906x_phy1>;
 				ndma-handle = <&ndma1>;
+				macsec-handle = <&macsec1>;
 				clocks = <&hsdigclk>;
 				clock-names = "hsdig_clk";
 				adi,pcb-delay-tx-ns = <0>;
@@ -70,3 +72,12 @@
 		};
 	};
 };
+
+&macsec0 {
+	status = "okay";
+};
+
+&macsec1 {
+	status = "okay";
+};
+

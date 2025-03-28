@@ -23,6 +23,7 @@
 #define   SWITCH_PORT_CFG_PORT_EN                       BIT(0)
 #define SWITCH_PORT_CFG_VLAN                            0x0008
 #define   SWITCH_PORT_PVID_MASK                         GENMASK(11, 0)
+#define   SWITCH_PORT_VLAN_EN_MASK                      BIT(12)
 #define SWITCH_PORT_CFG_QINQ                            0x000c
 #define   SWITCH_PORT_CFG_DSA_TX_EN                     BIT(17)
 #define   SWITCH_PORT_CFG_DSA_RX_EN                     BIT(16)
@@ -86,6 +87,7 @@
 #define   CFG_MAE_AGE_TIME_MASK                         GENMASK(11, 4)
 #define   AGE_TIME_5MIN_25G                             0x19
 #define   AGE_TIME_5MIN_10G                             0x0A
+#define   CFG_MAE_VLAN_DOM_SEP_EN_MASK                  BIT(0)
 
 #define SWITCH_SOFT_RESET                               0x0020
 #define   SWITCH_ALL_EX_MAE                             BIT(0)
@@ -159,6 +161,7 @@ struct switch_port_stats {
 struct adrv906x_eth_switch {
 	struct platform_device *pdev;
 	bool enabled;
+	bool vlan_enabled;
 	unsigned int pcp_ipv_mapping;
 	unsigned int pcp_regen_val;
 	struct switch_port switch_port[SWITCH_MAX_PORT_NUM];

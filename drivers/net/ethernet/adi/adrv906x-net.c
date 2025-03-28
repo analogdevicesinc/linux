@@ -51,7 +51,7 @@ struct adrv906x_macsec_priv *adrv906x_macsec_get(struct net_device *netdev)
 #if IS_ENABLED(CONFIG_MACSEC)
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(netdev);
 
-	return &adrv906x_dev->macsec;
+	return adrv906x_dev->macsec;
 #else
 	return NULL;
 #endif // IS_ENABLED(CONFIG_MACSEC)
@@ -585,7 +585,7 @@ static int adrv906x_eth_open(struct net_device *ndev)
 			   false);
 
 #if IS_ENABLED(CONFIG_MACSEC)
-	if (adrv906x_dev->macsec.enabled)
+	if (adrv906x_dev->macsec)
 		adrv906x_macsec_commonport_status_update(ndev);
 #endif // IS_ENABLED(CONFIG_MACSEC)
 
@@ -665,7 +665,7 @@ static int adrv906x_vlan_rx_add_vid(struct net_device *ndev, __be16 proto, u16 v
 	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
 	int ret;
 
-	if (eth_if->ethswitch.enabled) {
+	if (eth_if->ethswitch.enabled && eth_if->ethswitch.vlan_enabled) {
 		ret = adrv906x_switch_vlan_add(es, adrv906x_dev->port, vid);
 		if (ret)
 			return ret;
@@ -685,7 +685,7 @@ static int adrv906x_vlan_rx_kill_vid(struct net_device *ndev, __be16 proto, u16 
 	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
 	int ret;
 
-	if (eth_if->ethswitch.enabled) {
+	if (eth_if->ethswitch.enabled && eth_if->ethswitch.vlan_enabled) {
 		ret = adrv906x_switch_vlan_del(es, adrv906x_dev->port, vid);
 		if (ret)
 			return ret;
@@ -836,6 +836,13 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	struct device_node *eth_ports_np, *port_np, *oran_if_np, *eth_recov_clk_np, *ndma_np,
 			   *mdio_np;
 	struct adrv906x_ndma_dev *ndma_devs[MAX_NETDEV_NUM] = { NULL };
+
+#if IS_ENABLED(CONFIG_MACSEC)
+	struct adrv906x_macsec_priv *macsec[MAX_NETDEV_NUM] = { NULL };
+	struct device_node *macsec_np;
+	unsigned int macsec_num;
+#endif
+	bool macsec_enabled = false;
 	unsigned int ndma_num;
 	int ret, i;
 
@@ -923,7 +930,47 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 			goto error_delete_cdr_div_out_enable_sysfs;
 
 #if IS_ENABLED(CONFIG_MACSEC)
-		adrv906x_macsec_probe(pdev, ndev, port_np);
+		adrv906x_dev->macsec = NULL;
+
+		macsec_np = of_parse_phandle(port_np, "macsec-handle", 0);
+		if (!macsec_np) {
+			dev_info(dev, "dt: no macsec handle found");
+			goto no_macsec;
+		}
+
+		if (!of_device_is_available(macsec_np)) {
+			dev_info(dev, "dt: macsec node is unavailable");
+			goto no_macsec;
+		}
+
+		if (of_property_read_u32(macsec_np, "id", &macsec_num)) {
+			dev_err(dev, "dt: failed to retrieve macsec device id from device tree");
+			return -ENODEV;
+		}
+
+		if (!macsec[macsec_num]) {
+			macsec[macsec_num] = devm_kzalloc(dev, sizeof(struct adrv906x_macsec_priv),
+							  GFP_KERNEL);
+			if (!macsec[macsec_num])
+				return -ENOMEM;
+
+			adrv906x_dev->macsec = macsec[macsec_num];
+			ret = adrv906x_macsec_probe(pdev, ndev, macsec_np,
+						    macsec[macsec_num]);
+			if (ret) {
+				dev_err(dev, "failed to probe macsec device");
+				adrv906x_dev->macsec = NULL;
+				goto error_unregister_netdev;
+			}
+		} else {
+			adrv906x_dev->macsec = macsec[macsec_num];
+		}
+
+		ndev->features |= NETIF_F_HW_MACSEC;
+		ndev->macsec_ops = macsec[macsec_num]->priv.macsec_ops;
+
+		dev_info(dev, "%s: connected to macsec%d", ndev->name, macsec_num);
+no_macsec:
 #endif // IS_ENABLED(CONFIG_MACSEC)
 
 		/* read ndma dt */
@@ -987,19 +1034,21 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	if (ret)
 		dev_warn(dev, "failed to probe switch - falling back to non-switch mode");
 
-	if (eth_if->ethswitch.enabled)
+	if (eth_if->ethswitch.enabled && eth_if->ethswitch.vlan_enabled)
 		for (i = 0; i < MAX_NETDEV_NUM; i++)
 			eth_if->adrv906x_dev[i]->ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 
-	mutex_lock(&eth_if->mtx);
 #if IS_ENABLED(CONFIG_MACSEC)
-	adrv906x_eth_cmn_init(eth_if->emac_cmn_regs, eth_if->ethswitch.enabled,
-			      adrv906x_dev->macsec.enabled);
-#else
-	adrv906x_eth_cmn_init(eth_if->emac_cmn_regs, eth_if->ethswitch.enabled, false);
+	for (i = 0; i < MAX_NETDEV_NUM; i++)
+		if (eth_if->adrv906x_dev[i] &&
+		    eth_if->adrv906x_dev[i]->macsec) {
+			macsec_enabled = true;
+			break;
+		}
 #endif
+	mutex_lock(&eth_if->mtx);
+	adrv906x_eth_cmn_init(eth_if->emac_cmn_regs, eth_if->ethswitch.enabled, macsec_enabled);
 	mutex_unlock(&eth_if->mtx);
-
 	if (eth_if->ethswitch.enabled) {
 		ret = adrv906x_switch_init(&eth_if->ethswitch);
 		if (ret)
@@ -1053,6 +1102,9 @@ static void adrv906x_eth_remove(struct platform_device *pdev)
 			dev_set_drvdata(&eth_if->adrv906x_dev[i]->ndev->dev, NULL);
 			phy_disconnect(ndev->phydev);
 			unregister_netdev(ndev);
+#if IS_ENABLED(CONFIG_MACSEC)
+			adrv906x_macsec_remove(ndev);
+#endif // IS_ENABLED(CONFIG_MACSEC)
 			adrv906x_mac_cleanup(&eth_if->adrv906x_dev[i]->mac);
 		}
 	}

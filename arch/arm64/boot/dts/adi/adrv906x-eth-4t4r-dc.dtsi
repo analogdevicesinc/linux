@@ -9,6 +9,7 @@
 	ethernet-ports {
 		port@0 {
 			ndma-handle = <&ndma1>;
+			macsec-handle = <&macsec1>;
 		};
 	};
 
@@ -18,6 +19,7 @@
 		interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
 		pvid = /bits/ 16 <1>;
 		vids = /bits/ 16 <2 3 4 5>;
+		vlan_enabled;
 		switch_port0:switch-port@0 {
 			id = <0>;
 			reg = <EMAC_SW_PORT_0_BASE 0x400>;
@@ -31,4 +33,13 @@
 			reg = <EMAC_SW_PORT_2_BASE 0x400>;
 		};
 	};
+};
+
+/* macsec0 is not used in this use case */
+&macsec0 {
+	status = "disabled";
+};
+
+&macsec1 {
+	status = "okay";
 };

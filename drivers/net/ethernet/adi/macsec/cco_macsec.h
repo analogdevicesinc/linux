@@ -37,6 +37,8 @@ struct cco_macsec_priv {
 	// MACsec capabilities
 	struct cco_macsec_capabilities capabilities;
 
+	const struct macsec_ops *macsec_ops;
+
 	// MACsec key ID table
 	u8 key_id_table[CCO_MACSEC_KEYS][MACSEC_KEYID_LEN];
 

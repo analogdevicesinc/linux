@@ -814,6 +814,22 @@
 		interrupt-ctrl = <&ndma1_interrupt_ctrl>;
 	};
 
+	macsec0: macsec@EMAC_MACSEC_0_BASE_UADDR {
+		id = <0>;
+		reg = <EMAC_MACSEC_0_BASE 0xa00>;
+		interrupts = <GIC_SPI MACSEC_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ts_event";
+		status = "disabled";
+	};
+
+	macsec1: macsec@EMAC_MACSEC_1_BASE_UADDR {
+		id = <1>;
+		reg = <EMAC_MACSEC_1_BASE 0xa00>;
+		interrupts = <GIC_SPI MACSEC_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ts_event";
+		status = "disabled";
+	};
+
 	ptpclk: ptpclk {
 		compatible = "adi,adrv906x-tod";
 		#address-cells = <1>;
