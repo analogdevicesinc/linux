@@ -1365,7 +1365,7 @@ static int imx477_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/* Initialize try_fmt for the embedded metadata pad */
 	try_fmt_meta->width = IMX477_EMBEDDED_LINE_WIDTH;
 	try_fmt_meta->height = IMX477_NUM_EMBEDDED_LINES;
-	try_fmt_meta->code = MEDIA_BUS_FMT_SENSOR_DATA;
+	try_fmt_meta->code = MEDIA_BUS_FMT_CCS_EMBEDDED;
 	try_fmt_meta->field = V4L2_FIELD_NONE;
 
 	/* Initialize try_crop */
@@ -1519,7 +1519,7 @@ static int imx477_enum_mbus_code(struct v4l2_subdev *sd,
 		if (code->index > 0)
 			return -EINVAL;
 
-		code->code = MEDIA_BUS_FMT_SENSOR_DATA;
+		code->code = MEDIA_BUS_FMT_CCS_EMBEDDED;
 	}
 
 	return 0;
@@ -1551,7 +1551,7 @@ static int imx477_enum_frame_size(struct v4l2_subdev *sd,
 		fse->min_height = mode_list[fse->index].height;
 		fse->max_height = fse->min_height;
 	} else {
-		if (fse->code != MEDIA_BUS_FMT_SENSOR_DATA || fse->index > 0)
+		if (fse->code != MEDIA_BUS_FMT_CCS_EMBEDDED || fse->index > 0)
 			return -EINVAL;
 
 		fse->min_width = IMX477_EMBEDDED_LINE_WIDTH;
@@ -1587,7 +1587,7 @@ static void imx477_update_metadata_pad_format(struct v4l2_subdev_format *fmt)
 {
 	fmt->format.width = IMX477_EMBEDDED_LINE_WIDTH;
 	fmt->format.height = IMX477_NUM_EMBEDDED_LINES;
-	fmt->format.code = MEDIA_BUS_FMT_SENSOR_DATA;
+	fmt->format.code = MEDIA_BUS_FMT_CCS_EMBEDDED;
 	fmt->format.field = V4L2_FIELD_NONE;
 }
 
@@ -1609,7 +1609,7 @@ static int imx477_get_pad_format(struct v4l2_subdev *sd,
 		/* update the code which could change due to vflip or hflip: */
 		try_fmt->code = fmt->pad == IMAGE_PAD ?
 				imx477_get_format_code(imx477, try_fmt->code) :
-				MEDIA_BUS_FMT_SENSOR_DATA;
+				MEDIA_BUS_FMT_CCS_EMBEDDED;
 		fmt->format = *try_fmt;
 	} else {
 		if (fmt->pad == IMAGE_PAD) {

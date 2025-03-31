@@ -109,7 +109,7 @@ const struct v4l2_mbus_framefmt cfe_default_format = {
 const struct v4l2_mbus_framefmt cfe_default_meta_format = {
 	.width = DEFAULT_EMBEDDED_SIZE,
 	.height = 1,
-	.code = MEDIA_BUS_FMT_SENSOR_DATA,
+	.code = MEDIA_BUS_FMT_CCS_EMBEDDED,
 	.field = V4L2_FIELD_NONE,
 };
 
@@ -1706,7 +1706,7 @@ static int cfe_video_link_validate(struct cfe_node *node,
 
 		remote_size = DIV_ROUND_UP(remote_fmt->width * remote_fmt->height * fmt->depth, 8);
 
-		if (remote_fmt->code != MEDIA_BUS_FMT_SENSOR_DATA) {
+		if (remote_fmt->code != MEDIA_BUS_FMT_CCS_EMBEDDED) {
 			cfe_err("Bad metadata mbus format\n");
 			return -EINVAL;
 		}

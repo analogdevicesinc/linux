@@ -1571,7 +1571,7 @@ static int arducam_64mp_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/* Initialize try_fmt for the embedded metadata pad */
 	try_fmt_meta->width = ARDUCAM_64MP_EMBEDDED_LINE_WIDTH;
 	try_fmt_meta->height = ARDUCAM_64MP_NUM_EMBEDDED_LINES;
-	try_fmt_meta->code = MEDIA_BUS_FMT_SENSOR_DATA;
+	try_fmt_meta->code = MEDIA_BUS_FMT_CCS_EMBEDDED;
 	try_fmt_meta->field = V4L2_FIELD_NONE;
 
 	/* Initialize try_crop */
@@ -1743,7 +1743,7 @@ static int arducam_64mp_enum_mbus_code(struct v4l2_subdev *sd,
 		if (code->index > 0)
 			return -EINVAL;
 
-		code->code = MEDIA_BUS_FMT_SENSOR_DATA;
+		code->code = MEDIA_BUS_FMT_CCS_EMBEDDED;
 	}
 
 	return 0;
@@ -1770,7 +1770,7 @@ static int arducam_64mp_enum_frame_size(struct v4l2_subdev *sd,
 		fse->min_height = supported_modes[fse->index].height;
 		fse->max_height = fse->min_height;
 	} else {
-		if (fse->code != MEDIA_BUS_FMT_SENSOR_DATA || fse->index > 0)
+		if (fse->code != MEDIA_BUS_FMT_CCS_EMBEDDED || fse->index > 0)
 			return -EINVAL;
 
 		fse->min_width = ARDUCAM_64MP_EMBEDDED_LINE_WIDTH;
@@ -1808,7 +1808,7 @@ arducam_64mp_update_metadata_pad_format(struct v4l2_subdev_format *fmt)
 {
 	fmt->format.width = ARDUCAM_64MP_EMBEDDED_LINE_WIDTH;
 	fmt->format.height = ARDUCAM_64MP_NUM_EMBEDDED_LINES;
-	fmt->format.code = MEDIA_BUS_FMT_SENSOR_DATA;
+	fmt->format.code = MEDIA_BUS_FMT_CCS_EMBEDDED;
 	fmt->format.field = V4L2_FIELD_NONE;
 }
 
@@ -1830,7 +1830,7 @@ static int arducam_64mp_get_pad_format(struct v4l2_subdev *sd,
 		/* update the code which could change due to vflip or hflip: */
 		try_fmt->code = fmt->pad == IMAGE_PAD ?
 				arducam_64mp_get_format_code(arducam_64mp) :
-				MEDIA_BUS_FMT_SENSOR_DATA;
+				MEDIA_BUS_FMT_CCS_EMBEDDED;
 		fmt->format = *try_fmt;
 	} else {
 		if (fmt->pad == IMAGE_PAD) {

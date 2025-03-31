@@ -296,7 +296,7 @@ static const struct cfe_fmt formats[] = {
 	/* Embedded data format */
 	{
 		.fourcc = V4L2_META_FMT_SENSOR_DATA,
-		.code = MEDIA_BUS_FMT_SENSOR_DATA,
+		.code = MEDIA_BUS_FMT_CCS_EMBEDDED,
 		.depth = 8,
 		.csi_dt = MIPI_CSI2_DT_EMBEDDED_8B,
 		.flags = CFE_FORMAT_FLAG_META_CAP,
