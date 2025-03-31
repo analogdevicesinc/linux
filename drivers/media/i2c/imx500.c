@@ -2029,7 +2029,7 @@ static int imx500_enum_mbus_code(struct v4l2_subdev *sd,
 		if (code->index > 0)
 			return -EINVAL;
 
-		code->code = MEDIA_BUS_FMT_SENSOR_DATA;
+		code->code = MEDIA_BUS_FMT_CCS_EMBEDDED;
 	}
 
 	return 0;
@@ -2059,7 +2059,7 @@ static int imx500_enum_frame_size(struct v4l2_subdev *sd,
 		fse->min_height = mode_list[fse->index].height;
 		fse->max_height = fse->min_height;
 	} else {
-		if (fse->code != MEDIA_BUS_FMT_SENSOR_DATA || fse->index > 0)
+		if (fse->code != MEDIA_BUS_FMT_CCS_EMBEDDED || fse->index > 0)
 			return -EINVAL;
 
 		fse->min_width = IMX500_MAX_EMBEDDED_SIZE +
@@ -2096,7 +2096,7 @@ static void imx500_update_metadata_pad_format(const struct imx500 *imx500,
 		IMX500_MAX_EMBEDDED_SIZE +
 		imx500->num_inference_lines * IMX500_INFERENCE_LINE_WIDTH;
 	fmt->format.height = 1;
-	fmt->format.code = MEDIA_BUS_FMT_SENSOR_DATA;
+	fmt->format.code = MEDIA_BUS_FMT_CCS_EMBEDDED;
 	fmt->format.field = V4L2_FIELD_NONE;
 }
 
@@ -2117,7 +2117,7 @@ static int imx500_get_pad_format(struct v4l2_subdev *sd,
 		/* update the code which could change due to vflip or hflip */
 		try_fmt->code = fmt->pad == IMAGE_PAD ?
 					imx500_get_format_code(imx500) :
-					MEDIA_BUS_FMT_SENSOR_DATA;
+					MEDIA_BUS_FMT_CCS_EMBEDDED;
 		fmt->format = *try_fmt;
 	} else {
 		if (fmt->pad == IMAGE_PAD) {
