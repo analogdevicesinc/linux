@@ -1456,7 +1456,7 @@ static int ltc4296_sccp_res_pd(struct ltc4296_port_data *port, u16 *res_data,
 
 static bool ltc4296_is_pd_compatible(u32 pse_class, u32 pd_class)
 {
-	if (ltc4296_class_compatibility[pse_class][pse_class])
+	if (ltc4296_class_compatibility[pse_class][pd_class])
 		return true;
 
 	return false;
@@ -1515,54 +1515,70 @@ static int ltc4296_do_sccp(struct ltc4296_state *st, uint32_t port)
 		if (ret)
 			goto err;
 
-		if (valid_adc_read){
-			ret = ltc4296_port_prebias(st, port, LTC_CFG_SCCP_MODE);
-			if (ret)
-				goto err;
+		if (ret)
+			goto err;
 
-			ret = ltc4296_port_en_and_classification(st, port);
-			if (ret)
-				goto err;
+		if (!valid_adc_read){
+			pr_err("Invalid Vin read for port %d expecting (%d - %d), has %d\n", port,
+			       ltc4296_spoe_vol_range_mv[pse_power_class][LTC4296_VMIN],
+			       ltc4296_spoe_vol_range_mv[pse_power_class][LTC4296_VMAX], adc_val);
 
-			fsleep(4000);
+			ret = -EINVAL;
+			goto err;
+		}
 
-			ret = ltc4296_read_port_status(st, port, &raw_port_status);
-			if (ret)
-				goto err;
+		ret = ltc4296_port_prebias(st, port, LTC_CFG_SCCP_MODE);
+		if (ret)
+			goto err;
 
-			if ((raw_port_status & LTC4296_PSE_STATUS_MSK) == LTC_PSE_STATUS_SEARCHING){
-				ret = ltc4296_sccp_res_pd(&st->port_data[port], &pd_resp_data, 0xCC, 0xAA);
-				if (ret == ADI_LTC_SCCP_PD_PRESENT){
-					pd_power_class = FIELD_GET(GENMASK(11, 0), pd_resp_data) - 1;
-					class_compatible = ltc4296_is_pd_compatible(pse_power_class, pd_power_class);
+		ret = ltc4296_port_en_and_classification(st, port);
+		if (ret)
+			goto err;
 
-					if (!class_compatible)
-						goto err;
-	
-					ret = ltc4296_set_port_mfvs(st, port);
-					if (ret)
-						goto err;
+		fsleep(4000);
 
-					ret = ltc4296_set_port_pwr(st, port);
-					if (ret)
-						goto err;
+		ret = ltc4296_read_port_status(st, port, &raw_port_status);
+		if (ret)
+			goto err;
 
-					fsleep(5000);
+		if ((raw_port_status & LTC4296_PSE_STATUS_MSK) == LTC_PSE_STATUS_SEARCHING){
+			ret = ltc4296_sccp_res_pd(&st->port_data[port], &pd_resp_data, 0xCC, 0xAA);
+			if (ret == ADI_LTC_SCCP_PD_PRESENT){
+				pd_power_class = FIELD_GET(GENMASK(11, 0), pd_resp_data) - 1;
+				class_compatible = ltc4296_is_pd_compatible(pse_power_class, pd_power_class);
 
-					ret = ltc4296_port_pwr_available(st, port);
-					if (ret)
-						goto err;
+				pr_info("PD power class %d PSE power class %d\n", pd_power_class, pse_power_class);
 
-					ret = ltc4296_set_gadc_vout(st, port);
-					if (ret)
-						goto err;
+				if (!class_compatible){
+					pr_err("Incompatible power class: PSE has %d, PD has %d\n",
+					       pse_power_class, pd_power_class);
 
-					printk("SCCP complete on port %d\n", port);
-				} else {
-					ret = ltc4296_port_disable(st, port);
-					if (ret)
-						return ret;
+					goto err;
 				}
+
+				ret = ltc4296_set_port_mfvs(st, port);
+				if (ret)
+					goto err;
+
+				ret = ltc4296_set_port_pwr(st, port);
+				if (ret)
+					goto err;
+
+				fsleep(5000);
+
+				ret = ltc4296_port_pwr_available(st, port);
+				if (ret)
+					goto err;
+
+				ret = ltc4296_set_gadc_vout(st, port);
+				if (ret)
+					goto err;
+
+				printk("SCCP complete on port %d\n", port);
+			} else {
+				ret = ltc4296_port_disable(st, port);
+				if (ret)
+					return ret;
 			}
 		}
 	}
@@ -1867,7 +1883,8 @@ static int ltc4296_probe(struct spi_device *spi)
 						"SCCP port %d missing SCCPI or SCCPO GPIO\n", i);
 			ret = ltc4296_do_sccp(st, i);
 			if (ret)
-				return ret;
+				dev_warn(&spi->dev, "Error doing SCCP on port %d (%d)\n", i, ret);
+
 			break;
 		default:
 			return dev_err_probe(&spi->dev, ret, "Invalid port type\n");
