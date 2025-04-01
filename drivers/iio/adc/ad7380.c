@@ -123,6 +123,7 @@ struct ad7380_chip_info {
 	unsigned int num_supplies;
 	bool external_ref_only;
 	bool internal_ref_only;
+	unsigned int internal_ref_mv;
 	const char * const *vcm_supplies;
 	unsigned int num_vcm_supplies;
 	const unsigned long *available_scan_masks;
@@ -612,6 +613,7 @@ static const struct ad7380_chip_info ad7380_chip_info = {
 	.num_simult_channels = 2,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.available_scan_masks = ad7380_2_channel_scan_masks,
 	.timing_specs = &ad7380_timing,
 	.max_conversion_rate_hz = 4 * MEGA,
@@ -625,6 +627,7 @@ static const struct ad7380_chip_info ad7381_chip_info = {
 	.num_simult_channels = 2,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.available_scan_masks = ad7380_2_channel_scan_masks,
 	.timing_specs = &ad7380_timing,
 	.max_conversion_rate_hz = 4 * MEGA,
@@ -640,6 +643,7 @@ static const struct ad7380_chip_info ad7383_chip_info = {
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
 	.vcm_supplies = ad7380_2_channel_vcm_supplies,
 	.num_vcm_supplies = ARRAY_SIZE(ad7380_2_channel_vcm_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.available_scan_masks = ad7380_2_channel_scan_masks,
 	.timing_specs = &ad7380_timing,
 	.max_conversion_rate_hz = 4 * MEGA,
@@ -655,6 +659,7 @@ static const struct ad7380_chip_info ad7384_chip_info = {
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
 	.vcm_supplies = ad7380_2_channel_vcm_supplies,
 	.num_vcm_supplies = ARRAY_SIZE(ad7380_2_channel_vcm_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.available_scan_masks = ad7380_2_channel_scan_masks,
 	.timing_specs = &ad7380_timing,
 	.max_conversion_rate_hz = 4 * MEGA,
@@ -668,6 +673,7 @@ static const struct ad7380_chip_info ad7386_chip_info = {
 	.num_simult_channels = 2,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.has_mux = true,
 	.available_scan_masks = ad7380_2x2_channel_scan_masks,
 	.timing_specs = &ad7380_timing,
@@ -682,6 +688,7 @@ static const struct ad7380_chip_info ad7387_chip_info = {
 	.num_simult_channels = 2,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.has_mux = true,
 	.available_scan_masks = ad7380_2x2_channel_scan_masks,
 	.timing_specs = &ad7380_timing,
@@ -696,6 +703,7 @@ static const struct ad7380_chip_info ad7388_chip_info = {
 	.num_simult_channels = 2,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.has_mux = true,
 	.available_scan_masks = ad7380_2x2_channel_scan_masks,
 	.timing_specs = &ad7380_timing,
@@ -724,6 +732,7 @@ static const struct ad7380_chip_info ad7381_4_chip_info = {
 	.num_simult_channels = 4,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.available_scan_masks = ad7380_4_channel_scan_masks,
 	.timing_specs = &ad7380_4_timing,
 	.max_conversion_rate_hz = 4 * MEGA,
@@ -737,6 +746,7 @@ static const struct ad7380_chip_info ad7383_4_chip_info = {
 	.num_simult_channels = 4,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.vcm_supplies = ad7380_4_channel_vcm_supplies,
 	.num_vcm_supplies = ARRAY_SIZE(ad7380_4_channel_vcm_supplies),
 	.available_scan_masks = ad7380_4_channel_scan_masks,
@@ -752,6 +762,7 @@ static const struct ad7380_chip_info ad7384_4_chip_info = {
 	.num_simult_channels = 4,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.vcm_supplies = ad7380_4_channel_vcm_supplies,
 	.num_vcm_supplies = ARRAY_SIZE(ad7380_4_channel_vcm_supplies),
 	.available_scan_masks = ad7380_4_channel_scan_masks,
@@ -767,6 +778,7 @@ static const struct ad7380_chip_info ad7386_4_chip_info = {
 	.num_simult_channels = 4,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.has_mux = true,
 	.available_scan_masks = ad7380_2x4_channel_scan_masks,
 	.timing_specs = &ad7380_4_timing,
@@ -781,6 +793,7 @@ static const struct ad7380_chip_info ad7387_4_chip_info = {
 	.num_simult_channels = 4,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.has_mux = true,
 	.available_scan_masks = ad7380_2x4_channel_scan_masks,
 	.timing_specs = &ad7380_4_timing,
@@ -795,6 +808,7 @@ static const struct ad7380_chip_info ad7388_4_chip_info = {
 	.num_simult_channels = 4,
 	.supplies = ad7380_supplies,
 	.num_supplies = ARRAY_SIZE(ad7380_supplies),
+	.internal_ref_mv = AD7380_INTERNAL_REF_MV,
 	.has_mux = true,
 	.available_scan_masks = ad7380_2x4_channel_scan_masks,
 	.timing_specs = &ad7380_4_timing,
@@ -810,6 +824,7 @@ static const struct ad7380_chip_info adaq4370_4_chip_info = {
 	.supplies = adaq4380_supplies,
 	.num_supplies = ARRAY_SIZE(adaq4380_supplies),
 	.internal_ref_only = true,
+	.internal_ref_mv = ADAQ4380_INTERNAL_REF_MV,
 	.has_hardware_gain = true,
 	.available_scan_masks = ad7380_4_channel_scan_masks,
 	.timing_specs = &ad7380_4_timing,
@@ -825,6 +840,7 @@ static const struct ad7380_chip_info adaq4380_4_chip_info = {
 	.supplies = adaq4380_supplies,
 	.num_supplies = ARRAY_SIZE(adaq4380_supplies),
 	.internal_ref_only = true,
+	.internal_ref_mv = ADAQ4380_INTERNAL_REF_MV,
 	.has_hardware_gain = true,
 	.available_scan_masks = ad7380_4_channel_scan_masks,
 	.timing_specs = &ad7380_4_timing,
@@ -840,6 +856,7 @@ static const struct ad7380_chip_info adaq4381_4_chip_info = {
 	.supplies = adaq4380_supplies,
 	.num_supplies = ARRAY_SIZE(adaq4380_supplies),
 	.internal_ref_only = true,
+	.internal_ref_mv = ADAQ4380_INTERNAL_REF_MV,
 	.has_hardware_gain = true,
 	.available_scan_masks = ad7380_4_channel_scan_masks,
 	.timing_specs = &ad7380_4_timing,
@@ -1910,7 +1927,7 @@ static int ad7380_probe(struct spi_device *spi)
 		 * in bulk_get_enable().
 		 */
 
-		st->vref_mv = ADAQ4380_INTERNAL_REF_MV;
+		st->vref_mv = st->chip_info->internal_ref_mv;
 
 		/* these chips don't have a register bit for this */
 		external_ref_en = false;
@@ -1935,7 +1952,8 @@ static int ad7380_probe(struct spi_device *spi)
 					     "Failed to get refio regulator\n");
 
 		external_ref_en = ret != -ENODEV;
-		st->vref_mv = external_ref_en ? ret / 1000 : AD7380_INTERNAL_REF_MV;
+		st->vref_mv = external_ref_en ? ret / 1000
+					      : st->chip_info->internal_ref_mv;
 	}
 
 	if (st->chip_info->num_vcm_supplies > ARRAY_SIZE(st->vcm_mv))
