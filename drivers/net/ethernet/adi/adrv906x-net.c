@@ -964,7 +964,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	}
 
 	eth_if->tx_max_frames_pending =
-		eth_if->ethswitch.enabled ? NDMA_RING_SIZE / 2 : NDMA_RING_SIZE;
+		eth_if->ethswitch.enabled ? NDMA_TX_RING_SIZE / 2 : NDMA_TX_RING_SIZE;
 
 	platform_set_drvdata(pdev, eth_if);
 
