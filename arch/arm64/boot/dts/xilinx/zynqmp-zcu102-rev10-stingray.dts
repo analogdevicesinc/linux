@@ -370,9 +370,16 @@
 	};
 };
 
-&axi_data_offload_tx {
-	/delete-property/ adi,oneshot;
-};
+
+ &axi_data_offload_tx {
+ 	adi,bypass;
+	adi,oneshot-disable;
+ };
+
+ &axi_data_offload_rx {
+ 	adi,bypass;
+	adi,oneshot-disable;
+ };
 
 &iio_axi_tdd_0 {
 	adi,attribute-names =
