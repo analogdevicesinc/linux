@@ -8,6 +8,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/bitfield.h>
+#include <net/rtnetlink.h>
 #include "adrv906x-mac.h"
 
 void adrv906x_mac_promiscuous_mode_en(struct adrv906x_mac *mac)
@@ -80,7 +81,6 @@ void adrv906x_mac_set_path(struct adrv906x_mac *mac, bool enable)
 		adrv906x_mac_rx_path_dis(mac);
 	}
 }
-
 
 void adrv906x_mac_set_multicast_filter(struct adrv906x_mac *mac, u64 mac_addr, int filter_id)
 {
@@ -155,7 +155,7 @@ static void adrv906x_mac_update_hw_stats(struct work_struct *work)
 	struct adrv906x_mac *mac = container_of(work, struct adrv906x_mac, update_stats.work);
 	unsigned int val;
 
-	mutex_lock(&mac->mac_hw_stats_lock);
+	rtnl_lock();
 	val = ioread32(mac->xmac + MAC_GENERAL_CONTROL);
 	val |= TX_STATS_SNAPSHOT_BIT | RX_STATS_SNAPSHOT_BIT;
 	iowrite32(val, mac->xmac + MAC_GENERAL_CONTROL);
@@ -182,14 +182,13 @@ static void adrv906x_mac_update_hw_stats(struct work_struct *work)
 	mac->hw_stats_rx.rs_framing_error += val;
 	adrv906x_mac_update_general_stats(mac->emac_rx,
 					  &mac->hw_stats_rx.general_stats);
-	mutex_unlock(&mac->mac_hw_stats_lock);
+	rtnl_unlock();
 
 	mod_delayed_work(system_long_wq, &mac->update_stats, msecs_to_jiffies(1000));
 }
 
 void adrv906x_mac_cleanup(struct adrv906x_mac *mac)
 {
-	mutex_destroy(&mac->mac_hw_stats_lock);
 	cancel_delayed_work(&mac->update_stats);
 }
 
@@ -205,7 +204,6 @@ int adrv906x_mac_init(struct adrv906x_mac *mac, unsigned int size)
 	adrv906x_mac_tx_path_dis(mac);
 	adrv906x_mac_rx_path_dis(mac);
 
-	mutex_init(&mac->mac_hw_stats_lock);
 	INIT_DELAYED_WORK(&mac->update_stats, adrv906x_mac_update_hw_stats);
 	mod_delayed_work(system_long_wq, &mac->update_stats, msecs_to_jiffies(1000));
 
