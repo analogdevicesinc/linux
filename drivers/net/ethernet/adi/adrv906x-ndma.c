@@ -14,6 +14,7 @@
 #include <linux/of_platform.h>
 #include <linux/spinlock.h>
 #include <linux/bitfield.h>
+#include <net/rtnetlink.h>
 #include "adrv906x-ndma.h"
 
 #define NDMA_TX_STAT_AND_CTRL                      0x000
@@ -863,10 +864,7 @@ void adrv906x_ndma_update_frame_drop_stats(struct adrv906x_ndma_dev *ndma_dev)
 {
 	struct adrv906x_ndma_chan *rx_chan = &ndma_dev->rx_chan;
 	union adrv906x_ndma_chan_stats *stats = &rx_chan->stats;
-	unsigned long flags;
 	u32 count;
-
-	spin_lock_irqsave(&rx_chan->lock, flags);
 
 	count = ioread32(rx_chan->ctrl_base + NDMA_RX_FRAME_DROPPED_COUNT_SPLANE);
 	if (count < (u32)stats->rx.frame_dropped_splane_errors)
@@ -882,8 +880,6 @@ void adrv906x_ndma_update_frame_drop_stats(struct adrv906x_ndma_dev *ndma_dev)
 
 	stats->rx.frame_dropped_errors = stats->rx.frame_dropped_splane_errors
 					 + stats->rx.frame_dropped_mplane_errors;
-
-	spin_unlock_irqrestore(&rx_chan->lock, flags);
 }
 
 static void adrv906x_ndma_get_frame_drop_stats(struct work_struct *work)
@@ -891,7 +887,9 @@ static void adrv906x_ndma_get_frame_drop_stats(struct work_struct *work)
 	struct adrv906x_ndma_dev *ndma_dev =
 		container_of(work, struct adrv906x_ndma_dev, update_stats.work);
 
+	rtnl_lock();
 	adrv906x_ndma_update_frame_drop_stats(ndma_dev);
+	rtnl_unlock();
 
 	mod_delayed_work(system_long_wq, &ndma_dev->update_stats, msecs_to_jiffies(1000 * 60));
 }
