@@ -19,8 +19,8 @@
 //     * Rx I/Q Rate: 60.41 MSPS (Decimation of 6x8)
 //     * DAC JESD204B: Mode 0, L=1, M=8, N=N'=12
 //     * ADC JESD204B: Mode 1, L=1, M=8, N=N'=12
-//     * DAC-Side JESD204B Lane Rate: 5.98Gbps
-//     * ADC-Side JESD204B Lane Rate: 11.96Gbps
+//     * DAC-Side JESD204B Lane Rate: 11.96Gbps
+//     * ADC-Side JESD204B Lane Rate: 5.98Gbps
 
 // HDL Synthesis Parameters:
 // JESD_MODE=64B66B
