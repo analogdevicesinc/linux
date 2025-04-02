@@ -47,11 +47,13 @@
 
 #define NDMA_RX_FRAME_LEN_MSB              (NDMA_RX_HDR_STATUS_SIZE - 1)
 #define NDMA_RX_FRAME_LEN_LSB              (NDMA_RX_HDR_STATUS_SIZE - 2)
-#define NDMA_RX_WU_BUF_SIZE                ALIGN(1536 + NDMA_RX_HDR_DATA_SIZE + NET_IP_ALIGN, 8)
+#define NDMA_RX_WU_BUF_SIZE                ALIGN(1536 + NDMA_RX_HDR_DATA_SIZE + NET_IP_ALIGN, 32)
 #define NDMA_RX_PKT_BUF_SIZE               (NDMA_RX_WU_BUF_SIZE - NDMA_RX_HDR_DATA_SIZE)
 
-#define NDMA_NAPI_POLL_WEIGHT              64
-#define NDMA_RING_SIZE                     128
+#define NDMA_TX_RING_SIZE                  64
+#define NDMA_TX_NAPI_POLL_WEIGHT           (NDMA_TX_RING_SIZE / 2)
+#define NDMA_RX_RING_SIZE                  128
+#define NDMA_RX_NAPI_POLL_WEIGHT           (NDMA_RX_RING_SIZE / 2)
 
 /* default timestamp timeout delay */
 #define NDMA_TS_TX_DELAY 0x9975
@@ -120,7 +122,7 @@ struct adrv906x_ndma_chan {
 
 	/* TX DMA channel related fields */
 	void __iomem *tx_dma_base;
-	void *tx_buffs[NDMA_RING_SIZE];
+	void *tx_buffs[NDMA_TX_RING_SIZE];
 	char tx_loopback_wu[NDMA_TX_HDR_LOOPBACK_SIZE];
 	struct dma_desc tx_loopback_desc;
 	dma_addr_t tx_loopback_addr;
@@ -137,7 +139,7 @@ struct adrv906x_ndma_chan {
 	/* RX DMA channel related fields */
 	void __iomem *rx_dma_base;
 	struct list_head rx_data_wu_list;
-	void *rx_buffs[NDMA_RING_SIZE];
+	void *rx_buffs[NDMA_RX_RING_SIZE];
 	int rx_dma_done_irq;
 	int rx_dma_error_irq;
 	struct dma_desc *rx_ring;
