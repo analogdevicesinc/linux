@@ -2514,7 +2514,7 @@ static struct platform_device *pci_pwrctrl_create_device(struct pci_bus *bus, in
 	struct platform_device *pdev;
 	struct device_node *np;
 
-	if (!IS_ENABLED(CONFIG_PCI_PWRCTL))
+	if (!IS_ENABLED(CONFIG_PCI_PWRCTRL))
 		return NULL;
 
 	np = of_pci_find_child_device(dev_of_node(&bus->dev), devfn);
