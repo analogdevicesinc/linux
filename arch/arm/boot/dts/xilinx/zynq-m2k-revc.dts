@@ -6,10 +6,10 @@
  * https://wiki.analog.com/university/tools/adalm2000/devs/intro
  * https://wiki.analog.com/university/tools/m2k/users/quick_start
  *
- * hdl_project: <m2k/standalone>
+ * hdl_project: <m2k>
  * board_revision: <C>
  *
- * Copyright (C) 2018-2019 Analog Devices Inc.
+ * Copyright (C) 2018-2019, 2025 Analog Devices Inc.
  */
 /*
  * 	Summary of RevB -> RevC hardware changes which require firmware changes:
