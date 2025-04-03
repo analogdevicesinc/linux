@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0
-// -----------------------------------------------------------------------------
-// Comcores ApS (R) all rights reserved.
-//
-// *****************************************************************************
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (c) 2023-2025, Analog Devices Incorporated, All Rights Reserved
+ */
+ 
 #ifndef _CCO_MACSEC_H_
 #define _CCO_MACSEC_H_
 
