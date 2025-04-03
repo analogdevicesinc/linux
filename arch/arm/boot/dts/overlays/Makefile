@@ -326,6 +326,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-max14830-i2c.dtbo \
 	rpi-max14830-spi.dtbo \
 	rpi-max31335.dtbo \
+	rpi-cn0591-apl.dtbo \
 	rpi-cn0591-class12.dtbo \
 	rpi-cn0591-class14.dtbo \
 	rpi-poe.dtbo \
