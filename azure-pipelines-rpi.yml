@@ -1,17 +1,9 @@
 trigger:
-- rpi-4.19.y
-- rpi-5.4.y
-- rpi-5.10.y
-- rpi-5.15.y
 - rpi-6.1.y
 - rpi-6.6.y
 - staging-rpi/*
 
 pr:
-- rpi-4.19.y
-- rpi-5.4.y
-- rpi-5.10.y
-- rpi-5.15.y
 - rpi-6.1.y
 - rpi-6.6.y
 
@@ -89,8 +81,8 @@ stages:
   - job: Push_to_SWDownloads
     condition: and(
        succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.15.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'))
+       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
        )
     pool:
       vmImage: 'ubuntu-latest'
@@ -110,8 +102,8 @@ stages:
   - job: Push_to_Artifactory
     condition: and(
        succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.15.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'))
+       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
        )
     pool:
       name: Default
