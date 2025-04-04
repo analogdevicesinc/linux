@@ -13,15 +13,15 @@ description:
   Analog Devices MAX31335 I2C RTC ±2ppm Automotive Real-Time Clock with
   Integrated MEMS Resonator.
 
-allOf:
-  - $ref: rtc.yaml#
-
 properties:
   compatible:
-    const: adi,max31335
+    enum:
+      - adi,max31331
+      - adi,max31335
 
   reg:
-    maxItems: 1
+    items:
+      - enum: [0x68, 0x69]
 
   interrupts:
     maxItems: 1
@@ -50,6 +50,26 @@ required:
 
 unevaluatedProperties: false
 
+allOf:
+  - $ref: rtc.yaml#
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adi,max31335
+    then:
+      properties:
+        reg:
+          items:
+            - const: 0x69
+    else:
+      properties:
+        reg:
+          items:
+            - const: 0x68
+
 examples:
   - |
     #include <dt-bindings/interrupt-controller/irq.h>
@@ -59,7 +79,7 @@ examples:
 
         rtc@68 {
             compatible = "adi,max31335";
-            reg = <0x68>;
+            reg = <0x69>;
             pinctrl-0 = <&rtc_nint_pins>;
             interrupts-extended = <&gpio1 16 IRQ_TYPE_LEVEL_HIGH>;
             aux-voltage-chargeable = <1>;
