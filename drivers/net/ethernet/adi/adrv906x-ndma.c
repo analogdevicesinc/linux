@@ -1757,7 +1757,7 @@ static int adrv906x_ndma_rx_data_and_status_poll(struct napi_struct *napi, int b
 	if (ndma_ch->rx_free == 0) {
 		adrv906x_ndma_refill_rx(ndma_ch, budget);
 		adrv906x_dma_rx_start(ndma_ch);
-	} else {
+	} else if (ndma_ch->rx_free < NDMA_RX_RING_SIZE) {
 		/* Suspend DMA transfer */
 		iowrite32(SUSPEND_TRANSFER, ndma_ch->rx_dma_base + DMA_BWLCNT);
 
