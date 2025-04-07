@@ -4,7 +4,7 @@
 #include "zynq-zed.dts"
 
 /{
-	fpga_axi: fpga-axi@0 {
+	fpga_axi: fpga-axi {
 		compatible = "simple-bus";
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
