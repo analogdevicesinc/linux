@@ -1003,6 +1003,9 @@ static void adrv906x_eth_remove(struct platform_device *pdev)
 		if (es->enabled)
 			break;
 	}
+
+	if (es->enabled)
+		adrv906x_switch_cleanup(es);
 }
 
 static struct platform_driver adrv906x_eth_drv = {

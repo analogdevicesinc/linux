@@ -16,6 +16,7 @@
 #include <linux/of_irq.h>
 #include <linux/delay.h>
 #include <linux/bitfield.h>
+#include <net/rtnetlink.h>
 #include "adrv906x-switch.h"
 
 static int adrv906x_switch_wait_for_mae_ready(struct adrv906x_eth_switch *es)
@@ -284,6 +285,91 @@ static irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void adrv906x_switch_update_hw_stats(struct work_struct *work)
+{
+	struct adrv906x_eth_switch *es = container_of(work, struct adrv906x_eth_switch,
+						      update_stats.work);
+	unsigned int val;
+	int i;
+
+	rtnl_lock();
+
+	for (i = 0; i < SWITCH_MAX_PORT_NUM; i++) {
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STATS_CTRL);
+		val |= SWITCH_PORT_SNAPSHOT_EN;
+		iowrite32(val, es->switch_port[i].reg + SWITCH_PORT_STATS_CTRL);
+
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_PKT_FLTR_RX);
+		es->port_stats[i].pkt_fltr_rx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BYTES_FLTR_RX);
+		es->port_stats[i].bytes_fltr_rx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_PKT_BUF_OVFL);
+		es->port_stats[i].pkt_buf_ovfl += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BYTES_BUF_OVFL);
+		es->port_stats[i].bytes_buf_ovfl += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_PKT_ERR);
+		es->port_stats[i].pkt_err += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BYTES_ERR);
+		es->port_stats[i].bytes_err += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_DROP_PKT_TX);
+		es->port_stats[i].drop_pkt_tx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_PKT_VOQ_NQN_IPV0);
+		es->port_stats[i].ipv0_pkt_voq_nqn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_PKT_VOQ_NQN_IPV1);
+		es->port_stats[i].ipv1_pkt_voq_nqn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BYTES_VOQ_NQN_IPV0);
+		es->port_stats[i].ipv0_bytes_voq_nqn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BYTES_VOQ_NQN_IPV1);
+		es->port_stats[i].ipv1_bytes_voq_nqn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_PKT_VOQ_DQN_IPV0);
+		es->port_stats[i].ipv0_pkt_voq_dqn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_PKT_VOQ_DQN_IPV1);
+		es->port_stats[i].ipv1_pkt_voq_dqn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BYTES_VOQ_DQN_IPV0);
+		es->port_stats[i].ipv0_bytes_voq_dqn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BYTES_VOQ_DQN_IPV1);
+		es->port_stats[i].ipv1_bytes_voq_dqn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_PKT_VOQ_DROPN_IPV0);
+		es->port_stats[i].ipv0_pkt_voq_dropn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_PKT_VOQ_DROPN_IPV1);
+		es->port_stats[i].ipv1_pkt_voq_dropn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BYTES_VOQ_DROPN_IPV0);
+		es->port_stats[i].ipv0_bytes_voq_dropn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BYTES_VOQ_DROPN_IPV1);
+		es->port_stats[i].ipv1_bytes_voq_dropn += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_UCAST_PKT_RX);
+		es->port_stats[i].ucast_pkt_rx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_UCAST_BYTES_RX);
+		es->port_stats[i].ucast_bytes_rx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_UCAST_PKT_TX);
+		es->port_stats[i].ucast_pkt_tx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_UCAST_BYTES_TX);
+		es->port_stats[i].ucast_bytes_tx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_MCAST_PKT_RX);
+		es->port_stats[i].mcast_pkt_rx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_MCAST_BYTES_RX);
+		es->port_stats[i].mcast_bytes_rx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_MCAST_PKT_TX);
+		es->port_stats[i].mcast_pkt_tx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_MCAST_BYTES_TX);
+		es->port_stats[i].mcast_bytes_tx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BCAST_PKT_RX);
+		es->port_stats[i].bcast_pkt_rx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BCAST_BYTES_RX);
+		es->port_stats[i].bcast_bytes_rx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BCAST_PKT_TX);
+		es->port_stats[i].bcast_pkt_tx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_BCAST_BYTES_TX);
+		es->port_stats[i].bcast_bytes_tx += val;
+		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_STAT_CRD_BUFFER_DROP);
+		es->port_stats[i].crd_buffer_drop += val;
+	}
+
+	rtnl_unlock();
+
+	mod_delayed_work(system_long_wq, &es->update_stats, msecs_to_jiffies(1000));
+}
+
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled)
 {
 	u32 val;
@@ -401,6 +487,11 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 	return 0;
 }
 
+void adrv906x_switch_cleanup(struct adrv906x_eth_switch *es)
+{
+	cancel_delayed_work(&es->update_stats);
+}
+
 int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 {
 	int ret;
@@ -421,6 +512,8 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 		return ret;
 	adrv906x_switch_port_enable(es, SWITCH_CPU_PORT, true);
 
+	INIT_DELAYED_WORK(&es->update_stats, adrv906x_switch_update_hw_stats);
+	mod_delayed_work(system_long_wq, &es->update_stats, msecs_to_jiffies(1000));
 	return 0;
 }
 

@@ -14,7 +14,7 @@
 
 #define SWITCH_MAX_PORT_NUM                             3
 #define SWITCH_CPU_PORT                                 2
-
+#define SWITCH_PORT_STATS_NUM                           32
 #define SWITCH_MAE_TIMEOUT                              50      /* read count */
 
 #define SWITCH_PORT_CFG_PORT                            0x0004
@@ -31,7 +31,40 @@
 #define SWITCH_PORT_PCP2IPV                             0x008c
 #define SWITCH_MAC_LEARN_EN                             2
 #define SWITCH_MAC_FWD_EN                               1
-
+#define SWITCH_PORT_STATS_CTRL                          0x0200
+#define   SWITCH_PORT_SNAPSHOT_EN                       BIT(0)
+#define SWITCH_PORT_STAT_PKT_FLTR_RX                    0x0204
+#define SWITCH_PORT_STAT_BYTES_FLTR_RX                  0x0208
+#define SWITCH_PORT_STAT_PKT_BUF_OVFL                   0x020C
+#define SWITCH_PORT_STAT_BYTES_BUF_OVFL                 0x0210
+#define SWITCH_PORT_STAT_PKT_ERR                        0x0214
+#define SWITCH_PORT_STAT_BYTES_ERR                      0x0218
+#define SWITCH_PORT_STAT_DROP_PKT_TX                    0x021C
+#define SWITCH_PORT_STAT_PKT_VOQ_NQN_IPV0               0x0220
+#define SWITCH_PORT_STAT_PKT_VOQ_NQN_IPV1               0x0224
+#define SWITCH_PORT_STAT_BYTES_VOQ_NQN_IPV0             0x0240
+#define SWITCH_PORT_STAT_BYTES_VOQ_NQN_IPV1             0x0244
+#define SWITCH_PORT_STAT_PKT_VOQ_DQN_IPV0               0x0260
+#define SWITCH_PORT_STAT_PKT_VOQ_DQN_IPV1               0x0264
+#define SWITCH_PORT_STAT_BYTES_VOQ_DQN_IPV0             0x0280
+#define SWITCH_PORT_STAT_BYTES_VOQ_DQN_IPV1             0x0284
+#define SWITCH_PORT_STAT_PKT_VOQ_DROPN_IPV0             0x02A0
+#define SWITCH_PORT_STAT_PKT_VOQ_DROPN_IPV1             0x02A4
+#define SWITCH_PORT_STAT_BYTES_VOQ_DROPN_IPV0           0x02C0
+#define SWITCH_PORT_STAT_BYTES_VOQ_DROPN_IPV1           0x02C4
+#define SWITCH_PORT_STAT_UCAST_PKT_RX                   0x02E0
+#define SWITCH_PORT_STAT_UCAST_BYTES_RX                 0x02E4
+#define SWITCH_PORT_STAT_UCAST_PKT_TX                   0x02E8
+#define SWITCH_PORT_STAT_UCAST_BYTES_TX                 0x02EC
+#define SWITCH_PORT_STAT_MCAST_PKT_RX                   0x02F0
+#define SWITCH_PORT_STAT_MCAST_BYTES_RX                 0x02F4
+#define SWITCH_PORT_STAT_MCAST_PKT_TX                   0x02F8
+#define SWITCH_PORT_STAT_MCAST_BYTES_TX                 0x02FC
+#define SWITCH_PORT_STAT_BCAST_PKT_RX                   0x0300
+#define SWITCH_PORT_STAT_BCAST_BYTES_RX                 0x0304
+#define SWITCH_PORT_STAT_BCAST_PKT_TX                   0x0308
+#define SWITCH_PORT_STAT_BCAST_BYTES_TX                 0x030C
+#define SWITCH_PORT_STAT_CRD_BUFFER_DROP                0x0310
 #define SWITCH_MAS_OP_CTRL                              0x0000
 #define   SWITCH_MAS_OP_CTRL_TRIGGER                    BIT(8)
 #define   SWITCH_MAS_OP_CTRL_OPCODE_MASK                GENMASK(7, 4)
@@ -87,6 +120,41 @@ struct switch_isr_args {
 	void *arg;
 };
 
+struct switch_port_stats {
+	u64 pkt_fltr_rx;
+	u64 bytes_fltr_rx;
+	u64 pkt_buf_ovfl;
+	u64 bytes_buf_ovfl;
+	u64 pkt_err;
+	u64 bytes_err;
+	u64 drop_pkt_tx;
+	u64 ipv0_pkt_voq_nqn;
+	u64 ipv1_pkt_voq_nqn;
+	u64 ipv0_bytes_voq_nqn;
+	u64 ipv1_bytes_voq_nqn;
+	u64 ipv0_pkt_voq_dqn;
+	u64 ipv1_pkt_voq_dqn;
+	u64 ipv0_bytes_voq_dqn;
+	u64 ipv1_bytes_voq_dqn;
+	u64 ipv0_pkt_voq_dropn;
+	u64 ipv1_pkt_voq_dropn;
+	u64 ipv0_bytes_voq_dropn;
+	u64 ipv1_bytes_voq_dropn;
+	u64 ucast_pkt_rx;
+	u64 ucast_bytes_rx;
+	u64 ucast_pkt_tx;
+	u64 ucast_bytes_tx;
+	u64 mcast_pkt_rx;
+	u64 mcast_bytes_rx;
+	u64 mcast_pkt_tx;
+	u64 mcast_bytes_tx;
+	u64 bcast_pkt_rx;
+	u64 bcast_bytes_rx;
+	u64 bcast_pkt_tx;
+	u64 bcast_bytes_tx;
+	u64 crd_buffer_drop;
+};
+
 struct adrv906x_eth_switch {
 	struct platform_device *pdev;
 	bool enabled;
@@ -99,6 +167,8 @@ struct adrv906x_eth_switch {
 	int err_irqs[2];
 	struct switch_isr_args isr_pre_args;
 	struct switch_isr_args isr_post_args;
+	struct switch_port_stats port_stats[SWITCH_MAX_PORT_NUM];
+	struct delayed_work update_stats;
 };
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
@@ -109,5 +179,6 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 int adrv906x_switch_init(struct adrv906x_eth_switch *es);
 void adrv906x_switch_set_mae_age_time(struct adrv906x_eth_switch *es, u8 data);
 void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es);
+void adrv906x_switch_cleanup(struct adrv906x_eth_switch *es);
 
 #endif /* __ADRV906X_SWITCH_H__ */
