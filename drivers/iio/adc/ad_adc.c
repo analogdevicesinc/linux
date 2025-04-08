@@ -629,6 +629,8 @@ static const struct of_device_id adc_of_match[] = {
 				.data = &obs_rx_chip_info },
 	{ .compatible = "adi,axi-adrv9002-rx2-1.0",
 				.data = &adrv9002_rx_chip_info },
+	{ .compatible = "adi,axi-adrv9003-rx2-1.0",
+				.data = &adrv9002_rx_chip_info },
 	{ .compatible = "adi,axi-adc-tpl-so-10.0.a",
 		.data = &obs_rx_chip_info },
 	{ /* end of list */ },
@@ -640,7 +642,8 @@ static void adc_fill_channel_data(struct iio_dev *indio_dev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 	unsigned int usr_ctrl, jesd_np;
 	int i;
-
+	{ .compatible = "adi,axi-adrv9002-rx2-1.0",
+		.data = &adrv9002_rx_chip_info },
 	st->max_usr_channel = ADI_USR_CHANMAX(axiadc_read(st, ADI_REG_USR_CNTRL_1));
 
 	/*

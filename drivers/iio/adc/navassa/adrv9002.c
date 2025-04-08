@@ -4,6 +4,7 @@
  *
  * Copyright 2019 Analog Devices Inc.
  */
+#include "linux/stddef.h"
 #include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
@@ -5103,7 +5104,9 @@ static const struct adrv9002_chip_info adrv9002_info = {
 	.lvds_cals = "Navassa_LVDS_init_cals.bin",
 	.name = "adrv9002-phy",
 	.id = ID_ADRV9002,
+	.n_rx = ADRV9002_CHANN_MAX,
 	.n_tx = ADRV9002_CHANN_MAX,
+	.has_dpd = true,
 };
 
 static const struct adrv9002_chip_info adrv9002_info_rx2tx2 = {
@@ -5115,8 +5118,10 @@ static const struct adrv9002_chip_info adrv9002_info_rx2tx2 = {
 	.lvds_cals = "Navassa_LVDS_init_cals.bin",
 	.name = "adrv9002-phy",
 	.id = ID_ADRV9002_RX2TX2,
+	.n_rx = ADRV9002_CHANN_MAX,
 	.n_tx = ADRV9002_CHANN_MAX,
 	.rx2tx2 = true,
+	.has_dpd = true,
 };
 
 static const struct adrv9002_chip_info adrv9003_info = {
@@ -5128,9 +5133,11 @@ static const struct adrv9002_chip_info adrv9003_info = {
 	.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
 	.name = "adrv9003-phy",
 	.id = ID_ADRV9003,
+	.n_rx = ADRV9002_CHANN_MAX,
 	.n_tx = 1,
 };
 
+/* need a fix for adrv9003 since it does not support DPD */
 static const struct adrv9002_chip_info adrv9003_info_rx2tx2 = {
 	.channels = adrv9003_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
@@ -5139,7 +5146,69 @@ static const struct adrv9002_chip_info adrv9003_info_rx2tx2 = {
 	.cmos_cals = "Navassa_CMOS_init_cals_adrv9003.bin",
 	.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
 	.name = "adrv9003-phy",
+	.id = ID_ADRV9003_RX2TX2,
+	.n_rx = ADRV9002_CHANN_MAX,
 	.n_tx = 1,
+	.rx2tx2 = true,
+};
+
+static const struct adrv9002_chip_info adrv9004_info = {
+	.channels = adrv9002_phy_chan,
+	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
+	.cmos_profile = "Navassa_CMOS_profile_adrv9004.json",
+	.lvd_profile = "Navassa_LVDS_profile_adrv9004.json",
+	.name = "adrv9004-phy",
+	.id = ID_ADRV9004,
+	.n_rx = ADRV9002_CHANN_MAX,
+	.n_tx = ADRV9002_CHANN_MAX,
+};
+
+static const struct adrv9002_chip_info adrv9004_info_rx2tx2 = {
+	.channels = adrv9002_phy_chan,
+	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
+	.cmos_profile = "Navassa_CMOS_profile_adrv9004.json",
+	.lvd_profile = "Navassa_LVDS_profile_adrv9004.json",
+	.name = "adrv9004-phy",
+	.id = ID_ADRV9004_RX2TX2,
+	.n_rx = ADRV9002_CHANN_MAX,
+	.n_tx = ADRV9002_CHANN_MAX,
+	.rx2tx2 = true,
+};
+
+static const struct adrv9002_chip_info adrv9005_info = {
+	.channels = adrv9005_phy_chan,
+	.num_channels = ARRAY_SIZE(adrv9005_phy_chan),
+	.cmos_profile = "Navassa_CMOS_profile_adrv9005.json",
+	.lvd_profile = "Navassa_LVDS_profile_adrv9005.json",
+	.name = "adrv9005-phy",
+	.id = ID_ADRV9005,
+	.n_rx = 1,
+	.n_tx = 1,
+	.no_tx_cals = true,
+};
+
+static const struct adrv9002_chip_info adrv9006_info = {
+	.channels = adrv9002_phy_chan,
+	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
+	.cmos_profile = "Navassa_CMOS_profile_adrv9006.json",
+	.lvd_profile = "Navassa_LVDS_profile_adrv9006.json",
+	.name = "adrv9006-phy",
+	.id = ID_ADRV9006,
+	.n_rx = ADRV9002_CHANN_MAX,
+	.n_tx = ADRV9002_CHANN_MAX,
+	.low_pow_adc = true,
+	.no_ext_lo = true,
+};
+
+static const struct adrv9002_chip_info adrv9006_info_rx2tx2 = {
+	.channels = adrv9002_phy_chan,
+	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
+	.cmos_profile = "Navassa_CMOS_profile_adrv9006.json",
+	.lvd_profile = "Navassa_LVDS_profile_adrv9006.json",
+	.name = "adrv9006-phy",
+	.id = ID_ADRV9006_RX2TX2,
+	.n_rx = ADRV9002_CHANN_MAX,
+	.n_tx = ADRV9002_CHANN_MAX,
 	.rx2tx2 = true,
 };
 
@@ -5148,6 +5217,11 @@ static const struct of_device_id adrv9002_of_match[] = {
 	{.compatible = "adi,adrv9002-rx2tx2", .data = &adrv9002_info_rx2tx2},
 	{.compatible = "adi,adrv9003", .data = &adrv9003_info},
 	{.compatible = "adi,adrv9003-rx2tx2", .data = &adrv9003_info_rx2tx2},
+	{.compatible = "adi,adrv9004", .data = &adrv9004_info},
+	{.compatible = "adi,adrv9004-rx2tx2", .data = &adrv9004_info_rx2tx2},
+	{.compatible = "adi,adrv9005", .data = &adrv9005_info},
+	{.compatible = "adi,adrv9006", .data = &adrv9006_info},
+	{.compatible = "adi,adrv9006-rx2tx2", .data = &adrv9006_info_rx2tx2},
 	{}
 };
 MODULE_DEVICE_TABLE(of, adrv9002_of_match);
@@ -5157,6 +5231,11 @@ static const struct spi_device_id adrv9002_ids[] = {
 	{"adrv9002-rx2tx2", (kernel_ulong_t)&adrv9002_info_rx2tx2},
 	{"adrv9003", (kernel_ulong_t)&adrv9003_info},
 	{"adrv9003-rx2tx2", (kernel_ulong_t)&adrv9003_info_rx2tx2},
+	{"adrv9004", (kernel_ulong_t)&adrv9004_info},
+	{"adrv9004-rx2tx2", (kernel_ulong_t)&adrv9004_info_rx2tx2},
+	{"adrv9005", (kernel_ulong_t)&adrv9005_info},
+	{"adrv9006", (kernel_ulong_t)&adrv9006_info},
+	{"adrv9006-rx2tx2", (kernel_ulong_t)&adrv9006_info_rx2tx2},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, adrv9002_ids);

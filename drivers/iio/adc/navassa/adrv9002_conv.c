@@ -106,9 +106,14 @@ adrv9002_get_axi_info(enum ad9002_device_id id)
 	switch (id) {
 	case ID_ADRV9002:
 	case ID_ADRV9003:
+	case ID_ADRV9004:
+	case ID_ADRV9005:
+	case ID_ADRV9006:
 		return &axiadc_chip_info_adrv9002;
 	case ID_ADRV9002_RX2TX2:
 	case ID_ADRV9003_RX2TX2:
+	case ID_ADRV9004_RX2TX2:
+	case ID_ADRV9006_RX2TX2:
 		return &axiadc_chip_info_adrv9002_rx2tx2;
 	default:
 		return NULL;
