@@ -62,7 +62,7 @@ enum {
 #define	adrv9002_log_enable(common)
 #endif
 
-enum ad900x_device_id {
+enum ad9002_device_id {
 	ID_ADRV9002,
 	ID_ADRV9002_RX2TX2,
 	ID_ADRV9003,
@@ -228,6 +228,7 @@ struct adrv9002_chip_info {
 	const char *cmos_cals;
 	const char *lvds_cals;
 	const char *name;
+	enum ad9002_device_id id;
 	u32 num_channels;
 	u32 n_tx;
 	bool rx2tx2;

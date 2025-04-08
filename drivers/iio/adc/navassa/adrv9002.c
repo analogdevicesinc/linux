@@ -5004,53 +5004,6 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
-static const struct adrv9002_chip_info adrv9002_info[] = {
-	[ID_ADRV9002] = {
-		.channels = adrv9002_phy_chan,
-		.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
-		.cmos_profile = "Navassa_CMOS_profile.json",
-		.lvd_profile = "Navassa_LVDS_profile.json",
-		.cmos_cals = "Navassa_CMOS_init_cals.bin",
-		.lvds_cals = "Navassa_LVDS_init_cals.bin",
-		.name = "adrv9002-phy",
-		.n_tx = ADRV9002_CHANN_MAX,
-		.has_dpd = true,
-	},
-	[ID_ADRV9002_RX2TX2] = {
-		.channels = adrv9002_phy_chan,
-		.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
-		.cmos_profile = "Navassa_CMOS_profile.json",
-		.lvd_profile = "Navassa_LVDS_profile.json",
-		.cmos_cals = "Navassa_CMOS_init_cals.bin",
-		.lvds_cals = "Navassa_LVDS_init_cals.bin",
-		.name = "adrv9002-phy",
-		.n_tx = ADRV9002_CHANN_MAX,
-		.rx2tx2 = true,
-		.has_dpd = true,
-	},
-	[ID_ADRV9003] = {
-		.channels = adrv9003_phy_chan,
-		.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
-		.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
-		.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
-		.cmos_cals = "Navassa_CMOS_init_cals_adrv9003.bin",
-		.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
-		.name = "adrv9003-phy",
-		.n_tx = 1,
-	},
-	[ID_ADRV9003_RX2TX2] = {
-		.channels = adrv9003_phy_chan,
-		.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
-		.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
-		.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
-		.cmos_cals = "Navassa_CMOS_init_cals_adrv9003.bin",
-		.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
-		.name = "adrv9003-phy",
-		.n_tx = 1,
-		.rx2tx2 = true,
-	},
-};
-
 static int adrv9002_get_external_los(struct adrv9002_rf_phy *phy)
 {
 	static const char *const ext_los[] = { "ext_lo1", "ext_lo2" };
@@ -5141,20 +5094,72 @@ static int adrv9002_probe(struct spi_device *spi)
 	return adrv9002_register_axi_converter(phy);
 }
 
+static const struct adrv9002_chip_info adrv9002_info = {
+	.channels = adrv9002_phy_chan,
+	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
+	.cmos_profile = "Navassa_CMOS_profile.json",
+	.lvd_profile = "Navassa_LVDS_profile.json",
+	.cmos_cals = "Navassa_CMOS_init_cals.bin",
+	.lvds_cals = "Navassa_LVDS_init_cals.bin",
+	.name = "adrv9002-phy",
+	.id = ID_ADRV9002,
+	.n_tx = ADRV9002_CHANN_MAX,
+	.has_dpd = true
+};
+
+static const struct adrv9002_chip_info adrv9002_info_rx2tx2 = {
+	.channels = adrv9002_phy_chan,
+	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
+	.cmos_profile = "Navassa_CMOS_profile.json",
+	.lvd_profile = "Navassa_LVDS_profile.json",
+	.cmos_cals = "Navassa_CMOS_init_cals.bin",
+	.lvds_cals = "Navassa_LVDS_init_cals.bin",
+	.name = "adrv9002-phy",
+	.id = ID_ADRV9002_RX2TX2,
+	.n_tx = ADRV9002_CHANN_MAX,
+	.rx2tx2 = true,
+	.has_dpd = true,
+};
+
+static const struct adrv9002_chip_info adrv9003_info = {
+	.channels = adrv9003_phy_chan,
+	.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
+	.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
+	.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
+	.cmos_cals = "Navassa_CMOS_init_cals_adrv9003.bin",
+	.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
+	.name = "adrv9003-phy",
+	.id = ID_ADRV9003,
+	.n_tx = 1,
+};
+
+static const struct adrv9002_chip_info adrv9003_info_rx2tx2 = {
+	.channels = adrv9003_phy_chan,
+	.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
+	.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
+	.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
+	.cmos_cals = "Navassa_CMOS_init_cals_adrv9003.bin",
+	.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
+	.name = "adrv9003-phy",
+	.id = ID_ADRV9003_RX2TX2,
+	.n_tx = 1,
+	.rx2tx2 = true,
+};
+
 static const struct of_device_id adrv9002_of_match[] = {
-	{.compatible = "adi,adrv9002", .data = &adrv9002_info[ID_ADRV9002]},
-	{.compatible = "adi,adrv9002-rx2tx2", .data = &adrv9002_info[ID_ADRV9002_RX2TX2]},
-	{.compatible = "adi,adrv9003", .data = &adrv9002_info[ID_ADRV9003]},
-	{.compatible = "adi,adrv9003-rx2tx2", .data = &adrv9002_info[ID_ADRV9003_RX2TX2]},
+	{.compatible = "adi,adrv9002", .data = &adrv9002_info},
+	{.compatible = "adi,adrv9002-rx2tx2", .data = &adrv9002_info_rx2tx2},
+	{.compatible = "adi,adrv9003", .data = &adrv9003_info},
+	{.compatible = "adi,adrv9003-rx2tx2", .data = &adrv9003_info_rx2tx2},
 	{}
 };
 MODULE_DEVICE_TABLE(of, adrv9002_of_match);
 
 static const struct spi_device_id adrv9002_ids[] = {
-	{"adrv9002", (kernel_ulong_t)&adrv9002_info[ID_ADRV9002]},
-	{"adrv9002-rx2tx2", (kernel_ulong_t)&adrv9002_info[ID_ADRV9002_RX2TX2]},
-	{"adrv9003", (kernel_ulong_t)&adrv9002_info[ID_ADRV9003]},
-	{"adrv9003-rx2tx2", (kernel_ulong_t)&adrv9002_info[ID_ADRV9003_RX2TX2]},
+	{"adrv9002", (kernel_ulong_t)&adrv9002_info},
+	{"adrv9002-rx2tx2", (kernel_ulong_t)&adrv9002_info_rx2tx2},
+	{"adrv9003", (kernel_ulong_t)&adrv9003_info},
+	{"adrv9003-rx2tx2", (kernel_ulong_t)&adrv9003_info_rx2tx2},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, adrv9002_ids);
