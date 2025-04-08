@@ -874,39 +874,52 @@ static int hmc7044_info(struct iio_dev *indio_dev)
 		return 0;
 	}
 
-	dev_info(&hmc->spi->dev, "\n ceva hmc7044: Dupa read_write_confirmed, nu merge\n");
+	pr_err("\n %s: %d: ceva hmc7044: Dupa read_write_confirmed, nu merge\n", __func__, __LINE__);
 
 	if (hmc->device_id == HMC7044 && !hmc->clkin1_vcoin_en) {
 		ret = hmc7044_read(indio_dev,
 			HMC7044_REG_PLL1_STATUS, &pll1_stat);
-		if (ret < 0)
+		pr_err("\n %s: %d: ceva hmc7044: device_id=%d \n", __func__, __LINE__, hmc->device_id);
+		if (ret < 0) {
+			pr_err("\n %s: %d: ceva hmc7044: hmc7044 read reg pll1 status pll1_stat=%d\n", __func__, __LINE__, pll1_stat);
 			return ret;
+		}
 
 		if (HMC7044_PLL1_FSM_STATE(pll1_stat) != 2) { /* Lock */
+			pr_err("\n %s: %d: ceva hmc7044: pll1 fsm state lock \n", __func__, __LINE__);
 			msleep(DIV_ROUND_UP(5000, hmc->pll1_loop_bw));
 			ret = hmc7044_read(indio_dev,
 				HMC7044_REG_PLL1_STATUS, &pll1_stat);
-			if (ret < 0)
+			if (ret < 0) {
+				pr_err("\n %s: %d: ceva hmc7044: pll1 fsm state error \n", __func__, __LINE__);
 				return ret;
+			}
 		}
 
 		ret = hmc7044_read(indio_dev,
 			HMC7044_REG_ALARM_READBACK, &alarm_stat);
-		if (ret < 0)
+		if (ret < 0) {
+			pr_err("\n %s: %d: ceva hmc7044: reg alarm readback \n", __func__, __LINE__);
 			return ret;
+		}
 
 		active = HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat);
 	} else {
 		active = 1;
+		pr_err("\n %s: %d: ceva hmc7044: active=1 \n", __func__, __LINE__);
 	}
 
 	if (hmc->device_id == HMC7043)
 		active = 0;
 
-	if (hmc->clkin_freq_ccf[active])
+	if (hmc->clkin_freq_ccf[active]) {
 		clkin_freq = hmc->clkin_freq_ccf[active];
-	else
+		pr_err("\n %s: %d: ceva hmc7044: clkin_freq=%d \n", __func__, __LINE__, clkin_freq);
+	}
+	else {
 		clkin_freq = hmc->clkin_freq[active];
+		pr_err("\n %s: %d: ceva hmc7044: clkin_freq=%d \n", __func__, __LINE__, clkin_freq);
+	}
 
 	if (hmc->device_id == HMC7044 && !hmc->clkin1_vcoin_en)
 		dev_info(&hmc->spi->dev,
@@ -925,7 +938,7 @@ static int hmc7044_info(struct iio_dev *indio_dev)
 
 static int hmc7044_setup(struct iio_dev *indio_dev)
 {
-	pr_err("\nceva hmc7044: Am intrat in hmc7044_setup\n");
+	pr_err("\n %s: %d: ceva hmc7044: Am intrat in hmc7044_setup\n", __func__, __LINE__);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *chan;
 	bool high_vco_en;
@@ -1042,46 +1055,61 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	hmc7044_read_write_check(indio_dev);
 
-	pr_err("\nceva hmc7044: dupa read write check\n");
+	pr_err("\n %s: %d: ceva hmc7044: dupa read write check\n", __func__, __LINE__);
+	pr_err("\n %s: %d: ceva hmc7044: HMC7044_NUM_CHAN=%d\n", __func__, __LINE__, HMC7044_NUM_CHAN);
 	/* Disable all channels */
 	for (i = 0; i < HMC7044_NUM_CHAN; i++) {
 		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(i), 0);
 		if (ret)
 			return ret;
-		pr_err("\nceva hmc7044: disable channel %d\n", i);
+		pr_err("\n %s: %d: ceva hmc7044: disable channel %d\n", __func__, __LINE__, i);
 	}
 
 	/* Load the configuration updates (provided by Analog Devices) */
 	ret = hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_LOW_PW, 0x4d);
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: dupa hmc7044_write HMC7044_REG_CLK_OUT_DRV_LOW_PW \n", __func__, __LINE__);
 		return ret;
+	}
 	ret = hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_HIGH_PW, 0xdf);
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: dupa hmc7044_write HMC7044_REG_CLK_OUT_DRV_HIGH_PW\n", __func__, __LINE__);
 		return ret;
+	}
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL1_DELAY, 0x06);
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: dupa hmc7044_write HMC7044_REG_PLL1_DELAY\n", __func__, __LINE__);
 		return ret;
+	}
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL1_HOLDOVER, 0x06);
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: dupa hmc7044_write HMC7044_REG_PLL1_HOLDOVER\n", __func__, __LINE__);
 		return ret;
+	}
 	ret = hmc7044_write(indio_dev, HMC7044_REG_VTUNE_PRESET, 0x04);
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: dupa hmc7044_write HMC7044_REG_VTUNE_PRESET\n", __func__, __LINE__);
 		return ret;
+	}
 
+	pr_err("\n %s: %d: ceva hmc7044: dupa hmc7044 writes in multi registri\n", __func__, __LINE__);
 
 	ret = hmc7044_write(indio_dev, HMC7044_REG_GLOB_MODE,
 		      HMC7044_SYNC_PIN_MODE(hmc->sync_pin_mode) |
 		      (hmc->clkin0_rfsync_en ? HMC7044_RFSYNC_EN : 0) |
 		      (hmc->clkin1_vcoin_en ? HMC7044_VCOIN_MODE_EN : 0) |
 		      HMC7044_REF_PATH_EN(ref_en));
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: dupa hmc7044_write multe\n", __func__, __LINE__);
 		return ret;
+	}
 
 	/* Program PLL2 */
 
 	/* Select the VCO range */
 
 	if (hmc->clkin1_vcoin_en) {
+		pr_err("\n %s: %d: ceva hmc7044: in clkin1_vcoin_en\n", __func__, __LINE__);
 		hmc->pll2_freq = hmc->clkin_freq_ccf[1] ?
 			hmc->clkin_freq_ccf[1] : hmc->clkin_freq[1];
 
@@ -1111,6 +1139,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		if (ret)
 			return ret;
 	} else {
+		pr_err("\n %s: %d: ceva hmc7044: in clkin1_vcoin_en cand nu e enabled\n", __func__, __LINE__);
 		ret = hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
 			      (hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
 				HMC7044_VCO_SEL(high_vco_en ?
@@ -1118,8 +1147,10 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 				HMC7044_VCO_LOW) |
 				HMC7044_SYSREF_TIMER_EN | HMC7044_PLL2_EN |
 				HMC7044_PLL1_EN);
-		if (ret)
+		if (ret) {
+			pr_err("\n %s: %d: ceva hmc7044: in clkin1_vcoin_en cand nu e enabled si a failuit\n", __func__, __LINE__);
 			return ret;
+		}
 	}
 
 	if (hmc->pll2_cap_bank_sel != ~0) {
@@ -1154,12 +1185,14 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 	/* Program PLL1 */
-
+	pr_err("\n %s: %d: ceva hmc7044: programare pll1\n", __func__, __LINE__);
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL1_CP_CTRL,
 		HMC7044_PLL1_CP_CURRENT(hmc->pll1_cp_current /
 			HMC7044_CP_CURRENT_STEP - 1));
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: programare pll1 failuit \n", __func__, __LINE__);
 		return ret;
+	}
 	/* Set the lock detect timer threshold */
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL1_LOCK_DETECT,
 		      HMC7044_LOCK_DETECT_TIMER(pll1_lock_detect));
@@ -1264,6 +1297,8 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
 			continue;
 
+		pr_err("\n %s: %d: ceva hmc7044: chan %d \n", __func__, __LINE__, chan->num);
+
 		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(chan->num),
 			      HMC7044_DIV_LSB(chan->divider));
 		if (ret)
@@ -1316,26 +1351,36 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	/* Do a restart to reset the system and initiate calibration */
 	ret = hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
 		HMC7044_RESTART_DIV_FSM, 10000);
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: failed calibration \n", __func__, __LINE__);
 		return ret;
+	}
 
 	ret = hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
 		HMC7044_RESEED_REQ, 1000);
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: failed toggle bit \n", __func__, __LINE__);
 		return ret;
+	}
 
 	ret = hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
 		      (hmc->high_performance_mode_clock_dist_en ?
 		      HMC7044_HIGH_PERF_DISTRIB_PATH : 0));
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: failed write \n", __func__, __LINE__);
 		return ret;
+	}
 
 	if (!hmc->clkin1_vcoin_en) {
 		u32 pll1_stat;
 
 		ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
-		if (ret < 0)
+		if (ret < 0) {
+			pr_err("\n %s: %d: ceva hmc7044: failed read \n", __func__, __LINE__);
 			return ret;
+		}
+
+		pr_err("\n %s: %d: ceva hmc7044: hmc7044 read ok \n", __func__, __LINE__);
 
 		c = HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat);
 	} else {
@@ -1350,16 +1395,21 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 		ret = hmc7044_clk_register(indio_dev, chan->num, i,
 					   __clk_get_name(hmc->clk_input[c]));
-		if (ret)
+		if (ret) {
+			pr_err("\n %s: %d: ceva hmc7044: failed clk register \n", __func__, __LINE__);
 			return ret;
+		}
 	}
 
 	hmc->clk_data.clks = hmc->clks;
 	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
+	pr_err("\n %s: %d: ceva hmc7044: hmc->clk_data.clk_num=%d \n", __func__, __LINE__, hmc->clk_data.clk_num);
 
 	ret = hmc7044_info(indio_dev);
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: hmc info failed \n", __func__, __LINE__);
 		return ret;
+	}
 
 	return of_clk_add_provider(hmc->spi->dev.of_node,
 				   of_clk_src_onecell_get,
@@ -2249,7 +2299,7 @@ static const struct jesd204_dev_data jesd204_hmc7044_init = {
 
 static int hmc7044_probe(struct spi_device *spi)
 {
-	pr_err("\n ceva hmc7044: Am intrat in probe\n");
+	pr_err("\n %s: %d: ceva hmc7044: Am intrat in probe\n", __func__, __LINE__);
 	struct iio_dev *indio_dev;
 	struct hmc7044 *hmc;
 	int ret;
@@ -2295,24 +2345,29 @@ static int hmc7044_probe(struct spi_device *spi)
 		indio_dev->name = spi_get_device_id(spi)->name;
 
 	if (hmc->device_id == HMC7044) {
-		dev_info(&spi->dev, "\n ceva hmc7044: Inainte de apelarea hmc7044_setup\n");
+		pr_err("\n %s: %d: ceva hmc7044: Inainte de apelarea hmc7044_setup\n", __func__, __LINE__);
 		ret = hmc7044_setup(indio_dev);
-		dev_info(&spi->dev, "\n ceva hmc7044: Dupa apelarea hmc7044_setup\n");
+		pr_err("\n %s: %d: ceva hmc7044: Dupa apelarea hmc7044_setup\n", __func__, __LINE__);
 	}
-	else
+	else {
 		ret = hmc7043_setup(indio_dev);
+		pr_err("\n %s: %d: ceva hmc7044: zice de hmc7043 \n", __func__, __LINE__);
+	}
 
 	if (ret)
 		return ret;
 
 	ret = devm_iio_device_register(&spi->dev, indio_dev);
-	if (ret)
+	if (ret) {
+		pr_err("\n %s: %d: ceva hmc7044: Dupa devm iio device register, eroare \n", __func__, __LINE__);
 		return ret;
+	}
 
 	if (iio_get_debugfs_dentry(indio_dev) && (hmc->device_id == HMC7044)) {
 		debugfs_create_devm_seqfile(&spi->dev, "status",
 					    iio_get_debugfs_dentry(indio_dev),
 					    hmc7044_status_show);
+		pr_err("\n %s: %d: ceva hmc7044: dupa debugfs \n", __func__, __LINE__);
 	}
 
 	return devm_jesd204_fsm_start(&spi->dev, hmc->jdev, JESD204_LINKS_ALL);
