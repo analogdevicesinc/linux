@@ -1635,7 +1635,7 @@ static int hmc7044_parse_dt(struct device *dev,
 		of_property_read_u32(np, "adi,oscin-buffer-mode",
 				     &hmc->in_buf_mode[4]);
 
-		hmc->pll1_ref_prio_ctrl = 0xE4;
+		//hmc->pll1_ref_prio_ctrl = 0xE4;
 		of_property_read_u32(np, "adi,pll1-ref-prio-ctrl",
 				     &hmc->pll1_ref_prio_ctrl);
 
