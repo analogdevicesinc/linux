@@ -958,7 +958,7 @@ static const struct clk_ops adf4371_clock_ops = {
 
 static int adf4371_setup(struct adf4371_state *st)
 {
-	printk(KERN_DEBUG "\nceva adf4372: am intrat in setup\n");
+	pr_err("\n %s: %d: ceva adf4372: am intrat in setup\n", __func__, __LINE__);
 	unsigned int synth_timeout = 2, timeout = 1, vco_alc_timeout = 1;
 	unsigned int vco_band_div, tmp, val;
 	unsigned long int mask;
@@ -1189,6 +1189,10 @@ static int adf4371_clk_register(struct iio_dev *indio_dev,
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
 	init.flags = CLK_GET_RATE_NOCACHE;
+	pr_err("\n %s: %d: ceva adf4372: channel=%d \n", __func__, __LINE__, channel);
+	pr_err("\n %s: %d: ceva adf4372: name=%s \n", __func__, __LINE__, init.name);
+	pr_err("\n %s: %d: ceva adf4372: parent name=%s \n", __func__, __LINE__, init.parent_names);
+	pr_err("\n %s: %d: ceva adf4372: num_parents=%d \n", __func__, __LINE__, init.num_parents);
 
 	st->outputs[channel].hw.init = &init;
 	st->outputs[channel].indio_dev = indio_dev;
@@ -1214,10 +1218,12 @@ static int adf4371_clks_register(struct iio_dev *indio_dev)
 	if (!st->clk_data.clks)
 		return -ENOMEM;
 
+	pr_err("\n %s: %d: ceva adf4372: num_channels%d\n", __func__, __LINE__, st->chip_info->num_channels);
+
 	for (i = 0; i < st->chip_info->num_channels; i++) {
 		ret = adf4371_clk_register(indio_dev, i,
 					   __clk_get_name(st->clkin));
-		printk(KERN_DEBUG "\nceva adf4372: clk register %d\n", i);
+		pr_err("\n %s: %d: ceva adf4372: clk register %d, name=%s\n", __func__, __LINE__, i, __clk_get_name(st->clkin));
 		if (ret < 0) {
 			dev_err(&st->spi->dev,
 				"Clock provider register failed\n");
@@ -1238,7 +1244,7 @@ static int adf4371_clks_register(struct iio_dev *indio_dev)
 
 static int adf4371_probe(struct spi_device *spi)
 {
-	printk(KERN_DEBUG "\nceva adf4372: intrat in probe\n");
+	pr_err("\n %s: %d: ceva adf4372: intrat in probe\n", __func__, __LINE__);
 	const struct spi_device_id *id = spi_get_device_id(spi);
 	struct iio_dev *indio_dev;
 	struct adf4371_state *st;
@@ -1251,7 +1257,7 @@ static int adf4371_probe(struct spi_device *spi)
 			PTR_ERR(regmap));
 		return PTR_ERR(regmap);
 	}
-	printk(KERN_DEBUG "\nceva adf4372: dupa regmap init spi\n");
+	pr_err("\n %s: %d: ceva adf4372: dupa regmap init spi\n", __func__, __LINE__);
 
 	/*
 	 * The device comes out of reset with a few power consuming blocks turned on
@@ -1267,11 +1273,11 @@ static int adf4371_probe(struct spi_device *spi)
 		return 0;
 	}
 
-	printk(KERN_DEBUG "\nceva adf4372: inainte de dev iio device alloc\n");
+	pr_err("\n %s: %d: ceva adf4372: inainte de dev iio device alloc\n", __func__, __LINE__);
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
-	printk(KERN_DEBUG "\nceva adf4372: dupa dev iio device alloc\n");
+	pr_err("\n %s: %d: ceva adf4372: dupa dev iio device alloc\n", __func__, __LINE__);
 
 	st = iio_priv(indio_dev);
 	spi_set_drvdata(spi, indio_dev);
@@ -1284,38 +1290,38 @@ static int adf4371_probe(struct spi_device *spi)
 		indio_dev->name = spi->dev.of_node->name;
 	else
 		indio_dev->name = id->name;
-	printk(KERN_DEBUG "\nceva adf4372: device name %s\n", indio_dev->name);
+	pr_err("\n %s: %d: ceva adf4372: device name %s\n", __func__, __LINE__, indio_dev->name);
 
 	indio_dev->info = &adf4371_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = st->chip_info->num_channels + 1; /* Include IIO_TEMP */
 
-	printk(KERN_DEBUG "\nceva adf4372: num_channels = %d \n", indio_dev->num_channels);
+	pr_err("\n %s: %d: ceva adf4372: num_channels = %d \n", __func__, __LINE__, indio_dev->num_channels);
 	st->clkin = devm_clk_get_enabled(&spi->dev, "clkin");
 	if (IS_ERR(st->clkin))
 		return PTR_ERR(st->clkin);
 
 	st->clkin_freq = clk_get_rate(st->clkin);
 
-	printk(KERN_DEBUG "\nceva adf4372: inainte de parse dts\n");
+	pr_err("\n %s: %d: ceva adf4372: inainte de parse dts\n", __func__, __LINE__);
 	ret = adf4371_parse_dt(st);
 	if (ret < 0)
 		return ret;
 
-	printk(KERN_DEBUG "\nceva adf4372: inainte de setup\n");
+	pr_err("\n %s: %d: ceva adf4372: inainte de setup\n", __func__, __LINE__);
 	ret = adf4371_setup(st);
 	if (ret < 0) {
 		dev_err(&spi->dev, "ADF4371 setup failed\n");
 		return ret;
 	}
-	printk(KERN_DEBUG "\nceva adf4372: dupa setup\n");
+	pr_err("\n %s: %d: ceva adf4372: dupa setup\n", __func__, __LINE__);
 
 	ret = adf4371_clks_register(indio_dev);
 	if (ret < 0)
 		return ret;
 
-	printk(KERN_DEBUG "\nceva adf4372: dupa clks register\n");
+	pr_err("\n %s: %d: ceva adf4372: dupa clks register\n", __func__, __LINE__);
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
