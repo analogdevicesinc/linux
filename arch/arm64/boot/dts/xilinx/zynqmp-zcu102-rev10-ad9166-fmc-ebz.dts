@@ -11,7 +11,7 @@
  * ADI_LANE_RATE: <12.5>
  * board_revision: <H>
  *
- * Copyright (C) 2024 Analog Devices Inc.
+ * Copyright (C) 2024-2025 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"

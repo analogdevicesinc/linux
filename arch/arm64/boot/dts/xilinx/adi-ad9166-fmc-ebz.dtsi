@@ -2,7 +2,7 @@
 /*
  * dtsi file for AD9166-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
  *
- * Copyright (C) 2024 Analog Devices Inc.
+ * Copyright (C) 2024-2025 Analog Devices Inc.
  */
 
 / {
