@@ -106,7 +106,7 @@ struct adi_pinctrl_soc_info {
 };
 
 int adi_pinctrl_probe(struct platform_device *pdev, const struct adi_pinctrl_soc_info *info);
-int adi_pinconf_get_smc(struct pinctrl_dev *pctldev, unsigned int pin_id, unsigned long *config);
+int adi_pinconf_get_smc(struct pinctrl_dev *pctldev, unsigned int pin_id, unsigned long *configs);
 int adi_pinconf_set_smc(struct pinctrl_dev *pctldev, unsigned int pin_id, unsigned long *configs, unsigned int num_configs);
 
 #endif /* __DRIVERS_PINCTRL_ADI_H */
