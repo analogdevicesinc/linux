@@ -36,7 +36,7 @@
 #define ADI_GET_BITFIELD_1_PIN_CONFIGURED_BIT_POSITION (63U)
 
 int adi_pinconf_get_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
-			unsigned long *config)
+			unsigned long *configs)
 {
 	struct arm_smccc_res res;
 	struct adi_pinctrl *ipctl;
@@ -45,8 +45,9 @@ int adi_pinconf_get_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 	unsigned int pin_pull_enablement;
 	unsigned int pin_pull_up_enable;
 	const struct adi_pin_reg *pin_reg;
+	struct adi_pin_mio *adi_pin = (struct adi_pin_mio *)configs;
 
-	if (!pctldev || !config)
+	if (!pctldev || !configs)
 		return -EINVAL;
 
 	ipctl = pinctrl_dev_get_drvdata(pctldev);
@@ -96,20 +97,21 @@ int adi_pinconf_get_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 	 *  Here we output the received mux settings {3-bit field} , drivestrength
 	 */
 	if ((res.a2 & BIT(ADI_GET_BITFIELD_1_PIN_CONFIGURED_BIT_POSITION)) == 0) {
-		*config = 0U;
+		adi_pin->config = 0U;
 	} else {
 		drive_strength = res.a3 & ADI_CONFIG_DRIVE_STRENGTH_MASK;
 		schmitt_trig_enable = res.a3 & ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK;
 		pin_pull_enablement = res.a3 & ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK;
 		pin_pull_up_enable = res.a3 & ADI_CONFIG_PULLUP_ENABLE_MASK;
+		adi_pin->mux_sel = res.a2 & ADI_CONFIG_MUX_SEL_MASK;
 
-		*config = drive_strength;
+		adi_pin->config = drive_strength;
 		if (schmitt_trig_enable)
-			*config |= BIT(ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK_BIT_POSITION);
+			adi_pin->config |= BIT(ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK_BIT_POSITION);
 		if (pin_pull_enablement)
-			*config |= BIT(ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK_BIT_POSITION);
+			adi_pin->config |= BIT(ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK_BIT_POSITION);
 		if (pin_pull_up_enable)
-			*config |= BIT(ADI_CONFIG_PULLUP_ENABLE_MASK_BIT_POSITION);
+			adi_pin->config |= BIT(ADI_CONFIG_PULLUP_ENABLE_MASK_BIT_POSITION);
 	}
 
 	return 0;

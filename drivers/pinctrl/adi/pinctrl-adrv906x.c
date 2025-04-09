@@ -127,7 +127,7 @@ static ssize_t adrv906x_pinctrl_common_store(struct device *dev, const char *buf
 	scan_count = sscanf(buf, "%d", &config_val);
 	if (scan_count == 1) {
 		conf.input_pin = pin;
-		result = adrv906x_pinctrl_get_config_direct(dev_name(dev), pin, &conf.config, 1);
+		result = adrv906x_pinctrl_get_config_direct(dev_name(dev), pin, (unsigned long *)&conf, 1);
 		if (result) {
 			pr_err("getting config failed\n");
 			return -EIO;
@@ -204,7 +204,7 @@ static ssize_t adrv906x_pinctrl_drive_strength_show(struct device *dev, struct d
 		return -EIO;
 
 	conf.input_pin = pin;
-	result = adrv906x_pinctrl_get_config_direct(dev_name(dev), pin, &conf.config, 1);
+	result = adrv906x_pinctrl_get_config_direct(dev_name(dev), pin, (unsigned long *)&conf, 1);
 	if (result == 0)
 		return snprintf(buf, sizeof(buf) - 1, "%d\n", (unsigned int)(conf.config & ADI_CONFIG_DRIVE_STRENGTH_MASK));
 	else
