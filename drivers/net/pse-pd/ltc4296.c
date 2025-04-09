@@ -101,6 +101,16 @@
 /* LTC4296_REG_GADCCFG */
 #define LTC4296_GADC_SAMPLE_MODE_MSK		GENMASK(6, 5)
 #define LTC4296_GADC_SEL_MSK			GENMASK(4, 0)
+#define LTC4296_GADC_SAMPLE_MODE_DISABLED	0x0
+#define LTC4296_GADC_SAMPLE_MODE_SINGLE		0x1
+#define LTC4296_GADC_SAMPLE_MODE_CONT_LG	0x2
+#define LTC4296_GADC_SAMPLE_MODE_CONT_HG	0x3
+#define LTC4296_GADC_SEL_GND			0x0
+#define LTC4296_GADC_SEL_VIN			0x1
+#define LTC4296_GADC_SEL_TEMP			0x2
+#define LTC4296_GADC_SEL_OUT_VOLTAGE(port)	(0x4 + (port) * 2)
+#define LTC4296_GADC_SEL_RETURN_VOLTAGE(port)	(LTC4296_GADC_SEL_OUT_VOLTAGE(port) + 1)
+#define LTC4296_GADC_SEL_VREF			0x10
 
 /* LTC4296_REG_GADCDAT */
 #define LTC4296_GADC_MISSED_MSK			BIT(13)
@@ -361,7 +371,11 @@ struct ltc4296_state {
 	struct ltc4296_port_data port_data[LTC4296_MAX_PORTS];
 	struct pse_controller_dev pse_dev;
 	struct task_struct *pd_polling;
+	struct device *hwmon_dev;
+	struct gpio_desc *wakeup;
 	u8 data[5];
+
+	struct mutex lock;
 };
 
 static u8 get_CRC(u8* buf)
@@ -401,16 +415,16 @@ void write_bit(struct ltc4296_port_data *port, u8 bit)
 	gpiod_set_value(port->sccpo, 1);
 
 	if (bit){
-		udelay(300);
+		fsleep(300);
 		gpiod_set_value(port->sccpo, 0);
-		udelay(2150);//T_WRITESLOT-T_REC-T_W1L = 2.15
+		fsleep(2150);//T_WRITESLOT-T_REC-T_W1L = 2.15
 	} else {
-		udelay(2450); // TW0L + 0.45 = 2.45
+		fsleep(2450); // TW0L + 0.45 = 2.45
 		gpiod_set_value(port->sccpo, 0);
 	}
 
 	/*Recovery time after every bit transmit */
-	udelay(320);//0.32
+	fsleep(320);//0.32
 
 	return;
 }
@@ -432,17 +446,17 @@ u8 read_bit(struct ltc4296_port_data *port)
 	u8 bit;
 
 	gpiod_set_value(port->sccpo, 1);
-	udelay(300); //T_W1L =0.3
+	fsleep(300); //T_W1L =0.3
 
 	gpiod_set_value(port->sccpo, 0);
 
-	udelay(700); //T_MSR-T_W1L = 1.225-0.3 = 700
+	fsleep(700); //T_MSR-T_W1L = 1.225-0.3 = 700
 
-	bit = gpiod_get_value(port->sccpi);;
+	bit = gpiod_get_value(port->sccpi);
 
-	udelay(2000); //T_READSLOT-T_MSR = 3-1 =2
+	fsleep(2000); //T_READSLOT-T_MSR = 3-1 =2
 
-	udelay(320); //T_REC
+	fsleep(320); //T_REC
 	return bit;
 }
 
@@ -465,7 +479,7 @@ void receive_response(struct ltc4296_port_data *port, u8* buf)
 		}
 		sccp_buf[bytes_rxd] = rx_byte;
 		bytes_rxd++;
-		udelay(5000);
+		fsleep(5000);
 	}
 
 	buf[0] = sccp_buf[0];
@@ -493,7 +507,7 @@ enum adi_ltc_result sccp_reset_pulse(struct ltc4296_port_data *port)
 	gpiod_set_value(port->sccpo, 1);
 
 	/* check to make sure line is actually getting pulled down (protect pull down fet) */
-	udelay(3000);
+	fsleep(3000);
 
 	sccpi_val = gpiod_get_value(port->sccpi);
 
@@ -506,11 +520,11 @@ enum adi_ltc_result sccp_reset_pulse(struct ltc4296_port_data *port)
 		return ADI_LTC_SCCP_PD_LINE_NOT_LOW;
 	}
 
-	udelay(T_RSTL_NOM - 3000);
+	fsleep(T_RSTL_NOM - 3000);
 
 	gpiod_set_value(port->sccpo, 0);
 
-	udelay(T_MSP);
+	fsleep(T_MSP);
 
 	/* look for presence pulse */
 	sccpi_val = gpiod_get_value(port->sccpi);
@@ -535,11 +549,11 @@ enum adi_ltc_result sccp_read_write_pd(struct ltc4296_port_data *port, u8 addr, 
 	else if(ret == ADI_LTC_SCCP_PD_LINE_NOT_HIGH)
 		return ADI_LTC_SCCP_PD_LINE_NOT_HIGH;
 
-	udelay(5000);
+	fsleep(5000);
 	transmit_byte(port, addr);
-	udelay(5000);
+	fsleep(5000);
 	transmit_byte(port, cmd);
-	udelay(5000);
+	fsleep(5000);
 	receive_response(port, buf);
 
 	/* Check if the received data from PD is valid */
@@ -710,6 +724,38 @@ static int ltc4296_read_gadc(struct ltc4296_state *st, u32 *port_voltage_mv)
 	/* A new ADC value is available */
 	*port_voltage_mv = (((val16 & LTC4296_GADC_MSK) - LTC4296_ADC_OFFSET) *
 			    LTC4296_VGAIN);
+
+	return 0;
+}
+
+static int ltc4296_read_gadc_raw(struct ltc4296_state *st, u16 *val)
+{
+	int ret;
+
+	if (!st || !val)
+		return -EINVAL;
+
+	ret = ltc4296_spi_read(st, LTC4296_REG_GADCDAT, val);
+	if (ret)
+		return ret;
+
+	*val = FIELD_GET(LTC4296_GADC_MSK, *val);
+
+	return 0;
+}
+
+static int ltc4296_set_gadc_mode(struct ltc4296_state *st,
+				 u32 channel, u32 mode)
+{
+	int ret;
+
+	ret = ltc4296_spi_write(st, LTC4296_REG_GADCCFG,
+			 FIELD_PREP(LTC4296_GADC_SAMPLE_MODE_MSK, mode) |
+			 FIELD_PREP(LTC4296_GADC_SEL_MSK, channel));
+	if (ret)
+		return ret;
+
+	fsleep(4500);
 
 	return 0;
 }
@@ -923,32 +969,27 @@ static int ltc4296_is_port_pwr_stable(struct ltc4296_state *st,
 }
 
 static int ltc4296_read_port_adc(struct ltc4296_state *st, enum ltc4296_port port_no,
-				 int *port_i_out_ma)
+				 u16 *port_voltage_mv)
 {
 	int ret;
 	u8 port_addr = 0;
-	u16 val16;
 
-	if (!st || !port_i_out_ma)
+	if (!st || !port_voltage_mv)
 		return -EINVAL;
 
 	ret = ltc4296_get_port_addr(port_no, LTC_PORT_ADCDAT, &port_addr);
 	if (ret)
 		return ret;
 
-	ret = ltc4296_spi_read(st, port_addr, &val16);
-	if (ret)
-		return ret;
+	return ltc4296_spi_read(st, port_addr, port_voltage_mv);
 
-	if ((val16 & LTC4296_NEW_MSK) == LTC4296_NEW_MSK){
-		/* A new ADC value is available */
-		*port_i_out_ma = (((val16 & 0x0FFF) - 2048) * 1000 /
-				  (10 * st->port_data[port_no].hs_sense_resistor));
-	} else {
-		return ADI_LTC_INVALID_ADC_PORT_CURRENT;
-	}
-
-	return 0;
+	// if ((val16 & LTC4296_NEW_MSK) == LTC4296_NEW_MSK){
+	// 	/* A new ADC value is available */
+	// 	// *port_i_out_ma = (((val16 & 0x0FFF) - 2048) * 1000 /
+	// 	// 		  (10 * st->port_data[port_no].hs_sense_resistor));
+	// } else {
+	// 	return ADI_LTC_INVALID_ADC_PORT_CURRENT;
+	// }
 }
 
 static int ltc4296_port_prebias(struct ltc4296_state *st, enum ltc4296_port port_no,
@@ -1337,10 +1378,16 @@ static umode_t ltc4296_is_visible(const void *data, enum hwmon_sensor_types type
 				  u32 attr, int channel)
 {
 	switch (type) {
+	case hwmon_temp:
+		switch (attr) {
+		case hwmon_temp_input:
+			return 0444;
+		default:
+			return 0;
+		}
 	case hwmon_in:
 		switch (attr) {
 		case hwmon_in_input:
-		case hwmon_in_label:
 			return 0444;
 		case hwmon_in_enable:
 			return 0200;
@@ -1350,7 +1397,6 @@ static umode_t ltc4296_is_visible(const void *data, enum hwmon_sensor_types type
 	case hwmon_curr:
 		switch (attr) {
 		case hwmon_curr_input:
-		case hwmon_curr_label:
 			return 0444;
 		default:
 			return 0;
@@ -1397,27 +1443,46 @@ static int ltc4296_read(struct device *dev, enum hwmon_sensor_types type,
 			u32 attr, int channel, long *val)
 {
 	struct ltc4296_state *st = dev_get_drvdata(dev);
-	int ret, data;
+	u16 adc_val;
+	int ret;
 
 	switch (type) {
+	case hwmon_temp:
+		switch (attr){
+		case hwmon_temp_input:
+			guard(mutex)(&st->lock);
+
+			ret = ltc4296_set_gadc_mode(st, LTC4296_GADC_SEL_TEMP,
+							LTC4296_GADC_SAMPLE_MODE_CONT_LG);
+			if (ret)
+				return ret;
+
+			ret = ltc4296_read_gadc_raw(st, &adc_val);
+			if (ret)
+				return ret;
+
+			*val = (adc_val - 2048) / 4 - 273;
+
+			break;
+		}
+
+		break;
 	case hwmon_in:
 		switch (attr) {
 		case hwmon_in_input:
-			ret = ltc4296_port_prebias(st, channel, LTC_CFG_APL_MODE);
+			guard(mutex)(&st->lock);
+
+			ret = ltc4296_set_gadc_mode(st, LTC4296_GADC_SEL_OUT_VOLTAGE(channel),
+						    LTC4296_GADC_SAMPLE_MODE_CONT_LG);
 			if (ret)
 				return ret;
 
-			ret = ltc4296_force_port_pwr(st, channel);
+			ret = ltc4296_read_gadc_raw(st, &adc_val);
 			if (ret)
 				return ret;
 
-			ret = ltc4296_set_gadc_vout(st, channel);
-			if (ret)
-				return ret;
+			*val = (adc_val - LTC4296_ADC_OFFSET) * LTC4296_VGAIN;
 
-			fsleep(10000);
-
-			ret = ltc4296_read_gadc(st, &data);
 			break;
 		default:
 			return -EOPNOTSUPP;
@@ -1426,7 +1491,11 @@ static int ltc4296_read(struct device *dev, enum hwmon_sensor_types type,
 	case hwmon_curr:
 		switch (attr) {
 		case hwmon_curr_input:
-			ret = ltc4296_read_port_adc(st, channel, &data);
+			guard(mutex)(&st->lock);
+
+			ret = ltc4296_read_port_adc(st, channel, &adc_val);
+
+			*val = ((u32)((adc_val & 0x0FFF) - 2048) * 35200) / 1000;
 			break;
 		default:
 			return -EOPNOTSUPP;
@@ -1435,8 +1504,6 @@ static int ltc4296_read(struct device *dev, enum hwmon_sensor_types type,
 	default:
 		return -EOPNOTSUPP;
 	}
-
-	*val = data;
 
 	return ret;
 }
@@ -1475,6 +1542,10 @@ static int ltc4296_do_sccp(struct ltc4296_state *st, uint32_t port)
 	u32 port_status;
 	u32 adc_val;
 	int ret;
+
+	ret = ltc4296_is_port_deliver_pwr(st, port, &port_status);
+	if (ret)
+		goto err;
 
 	ret = ltc4296_is_port_disabled(st, port, &port_status);
 	if (ret)
@@ -1628,6 +1699,8 @@ static const struct hwmon_channel_info *ltc4296_info[] = {
 			   HWMON_C_INPUT | HWMON_C_LABEL,
 			   HWMON_C_INPUT | HWMON_C_LABEL,
 			   HWMON_C_INPUT | HWMON_C_LABEL),
+	HWMON_CHANNEL_INFO(temp,
+			HWMON_T_INPUT | HWMON_T_LABEL),
 	NULL
 };
 
@@ -1689,6 +1762,28 @@ static int ltc4296_parse_port_cfg(struct device *dev, struct ltc4296_state *st)
 						 &st->port_data[reg].port_type);
 		}
 	}
+
+	return 0;
+}
+
+static int ltc4296_get_port_status(struct ltc4296_state *st, enum ltc4296_port port_no,
+				   u16 *port_status)
+{
+	int ret;
+	u8 reg_addr = 0;
+
+	if (!st || !port_status)
+		return -EINVAL;
+
+	ret = ltc4296_get_port_addr(port_no, LTC_PORT_STATUS, &reg_addr);
+	if (ret)
+		return ret;
+
+	ret = ltc4296_spi_read(st, reg_addr, port_status);
+	if (ret)
+		return ret;
+
+	*port_status = FIELD_GET(LTC4296_PSE_STATUS_MSK, *port_status);
 
 	return 0;
 }
@@ -1809,12 +1904,32 @@ static void ltc4296_disable_ports(void *data)
 		ltc4296_port_dis(st, i);
 }
 
+static int ltc4296_read_global_events(struct ltc4296_state *st)
+{
+	int ret;
+	u16 reg_val;
+
+	reg_val = gpiod_get_value(st->wakeup);
+
+	printk("Wakeup GPIO value: %d\n", reg_val);
+
+	return 0;
+}
+ 
 static int ltc4296_pd_polling_thread(void *data)
 {
 	struct ltc4296_state *st = data;
+	// u16 port_status;
 	int ret;
 
 	while(likely(!kthread_should_stop())){
+		// ltc4296_read_global_events(st);
+
+		// for (int i = 0; i < LTC4296_MAX_PORTS; i++){
+		// 	ltc4296_get_port_status(st, i, &port_status);
+		// 	printk("Port %d status: %d\n", i, port_status);
+		// }
+
 		for (int i = 0; i < LTC4296_MAX_PORTS; i++) {
 			switch(st->port_data[i].port_type){
 			case LTC4296_PORT_SCCP_CLASS_10:
@@ -1823,7 +1938,9 @@ static int ltc4296_pd_polling_thread(void *data)
 			case LTC4296_PORT_SCCP_CLASS_13:
 			case LTC4296_PORT_SCCP_CLASS_14:
 			case LTC4296_PORT_SCCP_CLASS_15:
+				mutex_lock(&st->lock);
 				ret = ltc4296_do_sccp(st, i);
+				mutex_unlock(&st->lock);
 				if (ret){
 					printk(KERN_WARNING "Error doing SCCP on port %d\n", i);
 					continue;
@@ -1866,6 +1983,10 @@ static int ltc4296_probe(struct spi_device *spi)
 		return ret;
 	}
 
+	ret = devm_mutex_init(&st->spi->dev, &st->lock);
+	if (ret)
+		return dev_err_probe(&spi->dev, ret, "Failed to init mutex\n");
+
 	ret = devm_add_action_or_reset(&spi->dev, ltc4296_disable_ports, st);
 	if (ret)
 		return dev_err_probe(&spi->dev, ret, "Failed to add disable ports action\n");
@@ -1879,6 +2000,12 @@ static int ltc4296_probe(struct spi_device *spi)
 	ret = devm_pse_controller_register(&spi->dev, &st->pse_dev);
 	if (ret)
 		return dev_err_probe(&spi->dev, ret, "Failed to register PSE controller\n");
+
+	// st->wakeup = devm_gpiod_get_optional(&st->spi->dev,
+	// 				     "wakeup", GPIOD_IN);
+	// if (IS_ERR(st->wakeup))
+	// 	return dev_err_probe(&spi->dev, PTR_ERR(st->wakeup),
+	// 			     "Failed to get wakeup GPIO\n");
 
 	for (int i = 0; i < LTC4296_MAX_PORTS; i++) {
 		switch (st->port_data[i].port_type) {
@@ -1904,7 +2031,9 @@ static int ltc4296_probe(struct spi_device *spi)
 			if (!st->port_data[i].sccpi || !st->port_data[i].sccpo)
 				return dev_err_probe(&spi->dev, -EINVAL,
 						"SCCP port %d missing SCCPI or SCCPO GPIO\n", i);
+			mutex_lock(&st->lock);
 			ret = ltc4296_do_sccp(st, i);
+			mutex_unlock(&st->lock);
 			if (ret)
 				dev_warn(&spi->dev, "Error doing SCCP on port %d (%d)\n", i, ret);
 
@@ -1920,13 +2049,17 @@ static int ltc4296_probe(struct spi_device *spi)
 
 	sched_set_fifo(st->pd_polling);
 
+	st->hwmon_dev = devm_hwmon_device_register_with_info(&spi->dev, spi->dev.driver->name,
+							 st, &ltc4296_chip_info,
+							 NULL);
+	if (IS_ERR(st->hwmon_dev))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->hwmon_dev),
+				"Failed to register hwmon device\n");
+
 	printk("------------------------------------------------------\n");
 
 	return 0;
 
-	// hwmon_dev = devm_hwmon_device_register_with_info(&spi->dev, spi->dev.driver->name,
-	// 						 st, &ltc4296_chip_info,
-	// 						 NULL);
 
 	// return PTR_ERR_OR_ZERO(hwmon_dev);
 }

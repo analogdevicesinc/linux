@@ -75,6 +75,8 @@
 
 		spi-max-frequency = <500000>;
 
+		wakeup-gpio = <&gpio 7 GPIO_ACTIVE_HIGH>;
+
 		ports {
 			port@2 {
 				reg = <0x2>;
