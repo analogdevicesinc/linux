@@ -306,7 +306,10 @@ extern int modules_disabled; /* for sysctl */
 /* Get/put a kernel symbol (calls must be symmetric) */
 void *__symbol_get(const char *symbol);
 void *__symbol_get_gpl(const char *symbol);
-#define symbol_get(x) ((typeof(&x))(__symbol_get(__stringify(x))))
+#define symbol_get(x)	({ \
+	static const char __notrim[] \
+		__used __section(".no_trim_symbol") = __stringify(x); \
+	(typeof(&x))(__symbol_get(__stringify(x))); })
 
 /* modules using other modules: kdb wants to see this. */
 struct module_use {
@@ -367,7 +370,6 @@ enum mod_mem_type {
 
 struct module_memory {
 	void *base;
-	void *rw_copy;
 	bool is_rox;
 	unsigned int size;
 
@@ -663,7 +665,7 @@ static inline bool within_module(unsigned long addr, const struct module *mod)
 	return within_module_init(addr, mod) || within_module_core(addr, mod);
 }
 
-/* Search for module by name: must be in a RCU-sched critical section. */
+/* Search for module by name: must be in a RCU critical section. */
 struct module *find_module(const char *name);
 
 extern void __noreturn __module_put_and_kthread_exit(struct module *mod,
@@ -769,15 +771,7 @@ static inline bool is_livepatch_module(struct module *mod)
 
 void set_module_sig_enforced(void);
 
-void *__module_writable_address(struct module *mod, void *loc);
-
-static inline void *module_writable_address(struct module *mod, void *loc)
-{
-	if (!IS_ENABLED(CONFIG_ARCH_HAS_EXECMEM_ROX) || !mod ||
-	    mod->state != MODULE_STATE_UNFORMED)
-		return loc;
-	return __module_writable_address(mod, loc);
-}
+void module_for_each_mod(int(*func)(struct module *mod, void *data), void *data);
 
 #else /* !CONFIG_MODULES... */
 
@@ -887,9 +881,8 @@ static inline bool module_is_coming(struct module *mod)
 	return false;
 }
 
-static inline void *module_writable_address(struct module *mod, void *loc)
+static inline void module_for_each_mod(int(*func)(struct module *mod, void *data), void *data)
 {
-	return loc;
 }
 #endif /* CONFIG_MODULES */
 
