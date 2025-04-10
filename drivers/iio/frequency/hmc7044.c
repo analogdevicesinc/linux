@@ -2105,7 +2105,7 @@ static int hmc7044_jesd204_clks_sync3(struct jesd204_dev *jdev,
 		if (ret < 0)
 			return ret;
 
-		if (!HMC7044_CLK_OUT_PH_STATUS(val))
+		if (hmc->device_id != HMC7043 && !HMC7044_CLK_OUT_PH_STATUS(val))
 			dev_warn(dev,
 				"%s: SYSREF of the HMC7044 is not valid; that is, its phase output is not stable (0x%X)\n",
 				__func__, val & 0xFF);
