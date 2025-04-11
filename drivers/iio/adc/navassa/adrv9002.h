@@ -67,6 +67,11 @@ enum ad9002_device_id {
 	ID_ADRV9002_RX2TX2,
 	ID_ADRV9003,
 	ID_ADRV9003_RX2TX2,
+	ID_ADRV9004,
+	ID_ADRV9004_RX2TX2,
+	ID_ADRV9005,
+	ID_ADRV9006,
+	ID_ADRV9006_RX2TX2,
 };
 
 enum adrv9002_clocks {
@@ -231,8 +236,12 @@ struct adrv9002_chip_info {
 	enum ad9002_device_id id;
 	u32 num_channels;
 	u32 n_tx;
+	u32 n_rx;
 	bool rx2tx2;
 	bool has_dpd;
+	bool tx_cals_tdd_only;
+	bool no_ext_lo;
+	bool low_pow_adc;
 };
 
 struct adrv9002_ext_lo {
