@@ -550,6 +550,9 @@ static int jesd204_dev_create_con_io_attrs(struct device *parent,
 
 	for (i = 0; i < ARRAY_SIZE(jesd204_con_attrs); i++, conattr_idx++) {
 		attr = &(conattrs[conattr_idx].attr);
+
+		sysfs_attr_init(attr);
+
 		if (i2 > -1)
 			attr->name = devm_kasprintf(parent, GFP_KERNEL,
 						    "out%d_%d_%s", i1, i2,
@@ -646,6 +649,7 @@ static struct device_attribute *jesd204_dev_create_lnk_attrs(
 		for (i2 = 0; i2 < num_lnk_attrs; i2++) {
 			jattr = &jesd204_lnk_attrs[i2];
 			attr = &(lnkattrs[lnkattr_idx].attr);
+			sysfs_attr_init(attr);
 			attr->mode = 0644;
 			attr->name = devm_kasprintf(parent, GFP_KERNEL,
 						    "link%d_%s", i1,
