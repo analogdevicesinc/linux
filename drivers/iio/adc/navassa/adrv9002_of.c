@@ -1152,6 +1152,11 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	int ret;
 	u32 min_gain, max_gain;
 
+	if (channel >= phy->chip->n_rx) {
+		dev_err(&phy->spi->dev, "RX%d not supported for this device\n", channel + 1);
+		return -EINVAL;
+	}
+
 	ret = adrv9002_parse_rx_agc_dt(phy, node, rx);
 	if (ret)
 		return ret;
