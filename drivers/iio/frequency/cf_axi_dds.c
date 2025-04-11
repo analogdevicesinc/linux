@@ -1578,43 +1578,50 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9936 = {
 	.num_buf_channels = 0,
 };
 
-static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9002_rx2tx2 = {
-	.name = "ADRV9002",
-	.channel = {
-		CF_AXI_DDS_CHAN_BUF(0),
-		CF_AXI_DDS_CHAN_BUF(1),
-		CF_AXI_DDS_CHAN_BUF(2),
-		CF_AXI_DDS_CHAN_BUF(3),
-		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
-		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
-		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
-		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
-		CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
-		CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
-		CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
-		CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
-	},
-	.num_channels = 12,
-	.num_dds_channels = 8,
-	.num_buf_channels = 4,
-	.scan_masks = adrv9002_rx2tx2_available_scan_masks,
-};
+#define CF_AXI_DDS_ADRV9002_RX2TX2_INFO(_name, _NAME)					\
+	static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_##_name##_rx2tx2 = {	\
+		.name = #_NAME,								\
+		.channel = {								\
+			CF_AXI_DDS_CHAN_BUF(0),						\
+			CF_AXI_DDS_CHAN_BUF(1),						\
+			CF_AXI_DDS_CHAN_BUF(2),						\
+			CF_AXI_DDS_CHAN_BUF(3),						\
+			CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),				\
+			CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),				\
+			CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),				\
+			CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),				\
+			CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),				\
+			CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),				\
+			CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),				\
+			CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),				\
+		},									\
+		.num_channels = 12,							\
+		.num_dds_channels = 8,							\
+		.num_buf_channels = 4,							\
+		.scan_masks = adrv9002_rx2tx2_available_scan_masks,			\
+}
 
-static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9002 = {
-	.name = "ADRV9002",
-	.channel = {
-		CF_AXI_DDS_CHAN_BUF(0),
-		CF_AXI_DDS_CHAN_BUF(1),
-		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
-		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
-		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
-		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
-	},
-	.num_channels = 6,
-	.num_dds_channels = 4,
-	.num_buf_channels = 2,
-	.scan_masks = adrv9002_available_scan_masks,
-};
+CF_AXI_DDS_ADRV9002_RX2TX2_INFO(adrv9002, ADRV9002);
+
+#define CF_AXI_DDS_ADRV9002_INFO(_name, _NAME)					\
+	static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_##_name = {	\
+		.name = #_NAME,							\
+		.channel = {							\
+			CF_AXI_DDS_CHAN_BUF(0),					\
+			CF_AXI_DDS_CHAN_BUF(1),					\
+			CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),			\
+			CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),			\
+			CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),			\
+			CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),			\
+		},								\
+		.num_channels = 6,						\
+		.num_dds_channels = 4,						\
+		.num_buf_channels = 2,						\
+		.scan_masks = adrv9002_available_scan_masks,			\
+}
+
+CF_AXI_DDS_ADRV9002_INFO(adrv9002, ADRV9002);
+CF_AXI_DDS_ADRV9002_INFO(adrv9003, ADRV9003);
 
 static const struct iio_info cf_axi_dds_info = {
 	.read_raw = &cf_axi_dds_read_raw,
@@ -2114,6 +2121,13 @@ static const struct axidds_core_info adrv9002_rx2tx2_9_01_b_info = {
 	.chip_info = &cf_axi_dds_chip_info_adrv9002_rx2tx2,
 };
 
+static const struct axidds_core_info adrv9003_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9003,
+};
+
 static const struct axidds_core_info adrv9025_1_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
 	.name = "ADRV9025",
@@ -2174,6 +2188,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	    .compatible = "adi,axi-adrv9002-rx2tx2-1.0",
 	    .data = &adrv9002_rx2tx2_9_01_b_info
 	},{
+	    .compatible = "adi,axi-adrv9003-tx-1.0",
+	    .data = &adrv9003_9_01_b_info
+	}, {
 	    .compatible = "adi,axi-adrv9025-tx-1.0",
 	    .data = &adrv9025_1_00_a_info,
 	},
