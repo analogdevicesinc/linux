@@ -536,6 +536,21 @@ static int ad9081_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return 0;
 }
 
+
+static int ad9081_reg_access_locked(struct iio_dev *indio_dev, unsigned int reg,
+				    unsigned int writeval, unsigned int *readval)
+
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	int ret;
+
+	mutex_lock(&conv->lock);
+	ret = ad9081_reg_access(indio_dev, reg, writeval, readval);
+	mutex_unlock(&conv->lock);
+
+	return ret;
+}
+
 #define AD9081_MAX_CLK_NAME 79
 
 static char *ad9081_clk_set_dev_name(struct ad9081_phy *phy, char *dest,
@@ -2500,10 +2515,12 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 		}
 		break;
 	case IIO_CHAN_INFO_PROCESSED:
+		mutex_lock(&conv->lock);
 		adi_ad9081_hal_reg_get(&phy->ad9081, 0x2108, &msb);
 		adi_ad9081_hal_reg_get(&phy->ad9081, 0x2107, &lsb);
 
 		*val = ((s16)(msb << 8 | lsb) * 1000) / 128;
+		mutex_unlock(&conv->lock);
 		return IIO_VAL_INT;
 	}
 	return -EINVAL;
@@ -2550,10 +2567,12 @@ static int ad9081_write_raw(struct iio_dev *indio_dev,
 				&fddc_mask, &cddc_num, &cddc_mask);
 
 			if (cddc_mask) {
+				mutex_lock(&conv->lock);
 				ret = adi_ad9081_dac_tx_enable_set(&phy->ad9081,
 								   cddc_mask, !!val);
 				if (!ret)
 					phy->dac_cache.enable[fddc_num] = !!val;
+				mutex_unlock(&conv->lock);
 			}
 		} else {
 			/* FIXME: NO API? */
@@ -4580,7 +4599,7 @@ static const struct iio_info ad9081_iio_info = {
 	.read_raw = &ad9081_read_raw,
 	.write_raw = &ad9081_write_raw,
 	.read_label = &ad9081_read_label,
-	.debugfs_reg_access = &ad9081_reg_access,
+	.debugfs_reg_access = &ad9081_reg_access_locked,
 	.attrs = &ad9081_phy_attribute_group,
 };
 
