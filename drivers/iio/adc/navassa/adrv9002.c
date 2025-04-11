@@ -4915,7 +4915,6 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return ret;
 
-	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = phy->chip->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &adrv9002_phy_info;
