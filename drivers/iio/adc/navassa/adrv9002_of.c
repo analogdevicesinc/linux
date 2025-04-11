@@ -5,6 +5,7 @@
  * Copyright 2022 Analog Devices Inc.
  */
 #include <linux/device.h>
+#include <linux/errno.h>
 #include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
@@ -615,6 +616,20 @@ static int adrv9002_parse_dpd(const struct adrv9002_rf_phy *phy,
 
 	if (!of_property_read_bool(node, "adi,dpd"))
 		return 0;
+
+	/*
+	 * Ignore DPD if the chip does not support it. The only reason this is not returning
+	 * an error is for backward compatibility with older device tree files for adrv9003 which
+	 * might wrongly enable DPD. And some users might have just copy pasted those DTs but
+	 * don't really care or use DPD and so, it would be cumbersome to start failing to probe all
+	 * of the sudden. Therefore, just warn about this and ignore it (and let user remove the
+	 * property).
+	 */
+	if (!phy->chip->has_dpd) {
+		dev_warn(&phy->spi->dev, "DPD not supported on this device (%s)! Ignoring....\n",
+			 phy->chip->name);
+		return 0;
+	}
 
 	tx->dpd_init = devm_kzalloc(&phy->spi->dev, sizeof(*tx->dpd_init), GFP_KERNEL);
 	if (!tx->dpd_init)

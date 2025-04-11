@@ -231,6 +231,7 @@ struct adrv9002_chip_info {
 	u32 num_channels;
 	u32 n_tx;
 	bool rx2tx2;
+	bool has_dpd;
 };
 
 struct adrv9002_ext_lo {
