@@ -89,6 +89,8 @@ static const unsigned long adrv9002_rx2tx2_available_scan_masks[] = {
 
 AXI_ADRV9002_RX2TX2_INFO(adrv9002, ADRV9002);
 AXI_ADRV9002_RX2TX2_INFO(adrv9003, ADRV9003);
+AXI_ADRV9002_RX2TX2_INFO(adrv9004, ADRV9004);
+AXI_ADRV9002_RX2TX2_INFO(adrv9006, ADRV9006);
 
 static const unsigned long adrv9002_available_scan_masks[] = {
 	0x01, 0x02, 0x03, 0x00
@@ -107,6 +109,9 @@ static const unsigned long adrv9002_available_scan_masks[] = {
 
 AXI_ADRV9002_INFO(adrv9002, ADRV9002);
 AXI_ADRV9002_INFO(adrv9003, ADRV9003);
+AXI_ADRV9002_INFO(adrv9004, ADRV9004);
+AXI_ADRV9002_INFO(adrv9005, ADRV9005);
+AXI_ADRV9002_INFO(adrv9006, ADRV9006);
 
 static const struct axiadc_chip_info *
 adrv9002_get_axi_info(enum ad9002_device_id id)
@@ -116,10 +121,20 @@ adrv9002_get_axi_info(enum ad9002_device_id id)
 		return &axiadc_chip_info_adrv9002;
 	case ID_ADRV9003:
 		return &axiadc_chip_info_adrv9003;
+	case ID_ADRV9004:
+		return &axiadc_chip_info_adrv9004;
+	case ID_ADRV9005:
+		return &axiadc_chip_info_adrv9005;
+	case ID_ADRV9006:
+		return &axiadc_chip_info_adrv9006;
 	case ID_ADRV9002_RX2TX2:
 		return &axiadc_chip_info_adrv9002_rx2tx2;
 	case ID_ADRV9003_RX2TX2:
 		return &axiadc_chip_info_adrv9003_rx2tx2;
+	case ID_ADRV9004_RX2TX2:
+		return &axiadc_chip_info_adrv9004_rx2tx2;
+	case ID_ADRV9006_RX2TX2:
+		return &axiadc_chip_info_adrv9006_rx2tx2;
 	default:
 		return NULL;
 	}

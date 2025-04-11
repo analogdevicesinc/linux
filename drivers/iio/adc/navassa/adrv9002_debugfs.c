@@ -1612,7 +1612,7 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		debugfs_create_file(attr, 0600, d, &tx->channel, &adrv9002_mcs_delays_fops);
 	}
 
-	for (chan = 0; chan < ARRAY_SIZE(phy->rx_channels); chan++) {
+	for (chan = 0; chan < phy->chip->n_rx; chan++) {
 		struct adrv9002_rx_chan *rx = &phy->rx_channels[chan];
 
 		sprintf(attr, "rx%d_adc_type", chan);
