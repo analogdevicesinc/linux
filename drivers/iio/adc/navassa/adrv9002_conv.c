@@ -74,42 +74,52 @@ static const unsigned long adrv9002_rx2tx2_available_scan_masks[] = {
 	0x00
 };
 
+#define AXI_ADRV9002_RX2TX2_INFO(_name, _NAME)						\
+	static const struct axiadc_chip_info axiadc_chip_info_##_name##_rx2tx2 = {	\
+		.name = #_NAME,								\
+		.max_rate = 245760000,							\
+		.max_testmode = 0,							\
+		.num_channels = 4,							\
+		.scan_masks = adrv9002_rx2tx2_available_scan_masks,			\
+		.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),			\
+		.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),			\
+		.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),			\
+		.channel[3] = AIM_CHAN(1, IIO_MOD_Q, 3, 16, 'S'),			\
+}
+
+AXI_ADRV9002_RX2TX2_INFO(adrv9002, ADRV9002);
+AXI_ADRV9002_RX2TX2_INFO(adrv9003, ADRV9003);
+
 static const unsigned long adrv9002_available_scan_masks[] = {
 	0x01, 0x02, 0x03, 0x00
 };
 
-static const struct axiadc_chip_info axiadc_chip_info_adrv9002 = {
-	.name = "ADRV9002",
-	.max_rate = 245760000,
-	.max_testmode = 0,
-	.num_channels = 2,
-	.scan_masks = adrv9002_available_scan_masks,
-	.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
-	.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
-};
+#define AXI_ADRV9002_INFO(_name, _NAME)						\
+	static const struct axiadc_chip_info axiadc_chip_info_##_name = {	\
+		.name = #_NAME,							\
+		.max_rate = 245760000,						\
+		.max_testmode = 0,						\
+		.num_channels = 2,						\
+		.scan_masks = adrv9002_available_scan_masks,			\
+		.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),		\
+		.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),		\
+}
 
-static const struct axiadc_chip_info axiadc_chip_info_adrv9002_rx2tx2 = {
-	.name = "ADRV9002",
-	.max_rate = 245760000,
-	.max_testmode = 0,
-	.num_channels = 4,
-	.scan_masks = adrv9002_rx2tx2_available_scan_masks,
-	.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
-	.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
-	.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
-	.channel[3] = AIM_CHAN(1, IIO_MOD_Q, 3, 16, 'S'),
-};
+AXI_ADRV9002_INFO(adrv9002, ADRV9002);
+AXI_ADRV9002_INFO(adrv9003, ADRV9003);
 
 static const struct axiadc_chip_info *
 adrv9002_get_axi_info(enum ad9002_device_id id)
 {
 	switch (id) {
 	case ID_ADRV9002:
-	case ID_ADRV9003:
 		return &axiadc_chip_info_adrv9002;
+	case ID_ADRV9003:
+		return &axiadc_chip_info_adrv9003;
 	case ID_ADRV9002_RX2TX2:
-	case ID_ADRV9003_RX2TX2:
 		return &axiadc_chip_info_adrv9002_rx2tx2;
+	case ID_ADRV9003_RX2TX2:
+		return &axiadc_chip_info_adrv9003_rx2tx2;
 	default:
 		return NULL;
 	}
@@ -233,7 +243,6 @@ static int adrv9002_post_setup(struct iio_dev *indio_dev)
 	int i, ret;
 
 	num_chan = conv->chip_info->num_channels;
-
 	conv->indio_dev = indio_dev;
 
 	if (!phy->rx2tx2) {
@@ -611,6 +620,7 @@ int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 	conv->chip_info = adrv9002_get_axi_info(phy->chip->id);
 	if (!conv->chip_info)
 		return -ENODEV;
+
 	conv->write_raw = adrv9002_write_raw;
 	conv->read_raw = adrv9002_read_raw;
 	conv->post_setup = adrv9002_post_setup;
