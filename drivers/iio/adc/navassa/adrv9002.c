@@ -5014,6 +5014,7 @@ static const struct adrv9002_chip_info adrv9002_info[] = {
 		.lvds_cals = "Navassa_LVDS_init_cals.bin",
 		.name = "adrv9002-phy",
 		.n_tx = ADRV9002_CHANN_MAX,
+		.has_dpd = true,
 	},
 	[ID_ADRV9002_RX2TX2] = {
 		.channels = adrv9002_phy_chan,
@@ -5025,6 +5026,7 @@ static const struct adrv9002_chip_info adrv9002_info[] = {
 		.name = "adrv9002-phy",
 		.n_tx = ADRV9002_CHANN_MAX,
 		.rx2tx2 = true,
+		.has_dpd = true,
 	},
 	[ID_ADRV9003] = {
 		.channels = adrv9003_phy_chan,
