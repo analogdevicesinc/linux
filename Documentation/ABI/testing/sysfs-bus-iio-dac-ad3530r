@@ -1,0 +1,68 @@
+What:		/sys/bus/iio/devices/iio:deviceX/muxout_select
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Selects which of the multiplexer's input signals will be
+		monitored on the MUX_OUT pin.
+		* powered_down - MUX_OUT pin is powered down. An 80kΩ impedance
+				 can be seen at the MUX_OUT pin.
+		* vout0 - Voltage representation of VOUT0.
+		* iout0_source - Voltage representation of IOUT0 (source mode).
+		* iout0_sink - Voltage representation of IOUT0 (sink mode).
+		* vout1 - Voltage representation of VOUT1.
+		* iout1_source - Voltage representation of IOUT1 (source mode).
+		* iout1_sink - Voltage representation of IOUT1 (sink mode).
+		* vout2 - Voltage representation of VOUT2.
+		* iout2_source - Voltage representation of IOUT2 (source mode).
+		* iout2_sink - Voltage representation of IOUT2 (sink mode).
+		* vout3 - Voltage representation of VOUT3
+		* iout3_source - Voltage representation of IOUT3 (source mode).
+		* iout3_sink - Voltage representation of IOUT3 (sink mode).
+		* vout4 - Voltage representation of VOUT4.
+		* iout4_source - Voltage representation of IOUT4 (source mode).
+		* iout4_sink - Voltage representation of IOUT4 (sink mode).
+		* vout5 - Voltage representation of VOUT5.
+		* iout5_source - Voltage representation of IOUT5 (source mode).
+		* iout5_sink - Voltage representation of IOUT5 (sink mode).
+		* vout6 - Voltage representation of VOUT6.
+		* iout6_source - Voltage representation of IOUT6 (source mode).
+		* iout6_sink - Voltage representation of IOUT6 (sink mode).
+		* vout7 - Voltage representation of VOUT7.
+		* iout7_source - Voltage representation of IOUT7 (source mode).
+		* iout7_sink - Voltage representation of IOUT7 (sink mode).
+		* die_temp - Voltage representation of internal die temperature.
+		* agnd - MUX_OUT pin internally tied to AGND.
+
+What:		/sys/bus/iio/devices/iio:deviceX/muxout_select_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		muxout_select attribute:
+		* powered_down
+		* vout0
+		* iout0_source
+		* iout0_sink
+		* vout1
+		* iout1_source
+		* iout1_sink
+		* vout2
+		* iout2_source
+		* iout2_sink
+		* vout3
+		* iout3_source
+		* iout3_sink
+		* vout4
+		* iout4_source
+		* iout4_sink
+		* vout5
+		* iout5_source
+		* iout5_sink
+		* vout6
+		* iout6_source
+		* iout6_sink
+		* vout7
+		* iout7_source
+		* iout7_sink
+		* die_temp
+		* agnd
