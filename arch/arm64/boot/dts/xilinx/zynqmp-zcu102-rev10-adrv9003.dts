@@ -24,6 +24,10 @@
 		rx@1 {
 			/delete-property/ orx-gpios;
 		};
+
+		tx@0 {
+			/delete-property/ adi,dpd;
+		};
 	};
 
 	adi,gpios {
