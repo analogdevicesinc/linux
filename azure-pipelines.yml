@@ -91,6 +91,35 @@ stages:
       - script: ./ci/travis/run-build.sh
         displayName: 'Check Is New ADI Driver & Dual Licensed'
 
+    - job: microblaze_build_test
+      variables:
+        BUILD_TYPE: microblaze
+        DTS_FILES: "arch/microblaze/boot/dts/*.dts"
+      steps:
+        - checkout: self
+          fetchDepth: 1
+          clean: true
+        - task: DownloadPipelineArtifact@2
+          inputs:
+            buildType: 'specific'
+            project: 'OpenSource'
+            definition: 56  # The ID of the buildroot pipeline to download microblaze rootfs
+            buildVersionToDownload: 'latest'
+            artifactName: 'mb_rootfs'
+            targetPath: '$(Agent.BuildDirectory)/s'
+        - script: ./ci/travis/run-build.sh
+          env:
+            DOWNLOAD_URL: $(DOWNLOAD_URL)
+          displayName: 'Microblaze Build Test'
+        - task: CopyFiles@2
+          inputs:
+            sourceFolder: '$(Agent.BuildDirectory)/s/arch/microblaze/boot'
+            contents: '?(*.strip)'
+            targetFolder: '$(Build.ArtifactStagingDirectory)'
+        - task: PublishPipelineArtifact@1
+          inputs:
+            targetPath: '$(Build.ArtifactStagingDirectory)'
+            artifactName: 'Microblaze'
 
     - job: dtb_build_test
       variables:
