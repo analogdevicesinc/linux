@@ -1602,6 +1602,8 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9936 = {
 }
 
 CF_AXI_DDS_ADRV9002_RX2TX2_INFO(adrv9002, ADRV9002);
+CF_AXI_DDS_ADRV9002_RX2TX2_INFO(adrv9004, ADRV9004);
+CF_AXI_DDS_ADRV9002_RX2TX2_INFO(adrv9006, ADRV9006);
 
 #define CF_AXI_DDS_ADRV9002_INFO(_name, _NAME)					\
 	static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_##_name = {	\
@@ -1622,6 +1624,9 @@ CF_AXI_DDS_ADRV9002_RX2TX2_INFO(adrv9002, ADRV9002);
 
 CF_AXI_DDS_ADRV9002_INFO(adrv9002, ADRV9002);
 CF_AXI_DDS_ADRV9002_INFO(adrv9003, ADRV9003);
+CF_AXI_DDS_ADRV9002_INFO(adrv9004, ADRV9004);
+CF_AXI_DDS_ADRV9002_INFO(adrv9005, ADRV9005);
+CF_AXI_DDS_ADRV9002_INFO(adrv9006, ADRV9006);
 
 static const struct iio_info cf_axi_dds_info = {
 	.read_raw = &cf_axi_dds_read_raw,
@@ -2128,6 +2133,41 @@ static const struct axidds_core_info adrv9003_9_01_b_info = {
 	.chip_info = &cf_axi_dds_chip_info_adrv9003,
 };
 
+static const struct axidds_core_info adrv9004_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9004,
+};
+
+static const struct axidds_core_info adrv9004_rx2tx2_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9004_rx2tx2,
+};
+
+static const struct axidds_core_info adrv9005_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9005
+};
+
+static const struct axidds_core_info adrv9006_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9006,
+};
+
+static const struct axidds_core_info adrv9006_rx2tx2_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9006_rx2tx2,
+};
+
 static const struct axidds_core_info adrv9025_1_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
 	.name = "ADRV9025",
@@ -2190,6 +2230,21 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	},{
 	    .compatible = "adi,axi-adrv9003-tx-1.0",
 	    .data = &adrv9003_9_01_b_info
+	}, {
+	    .compatible = "adi,axi-adrv9004-tx-1.0",
+	    .data = &adrv9004_9_01_b_info
+	}, {
+	    .compatible = "adi,axi-adrv9004-rx2tx2-1.0",
+	    .data = &adrv9004_rx2tx2_9_01_b_info
+	}, {
+	    .compatible = "adi,axi-adrv9005-tx-1.0",
+	    .data = &adrv9005_9_01_b_info
+	}, {
+	    .compatible = "adi,axi-adrv9006-tx-1.0",
+	    .data = &adrv9006_9_01_b_info
+	}, {
+	    .compatible = "adi,axi-adrv9006-rx2tx2-1.0",
+	    .data = &adrv9006_rx2tx2_9_01_b_info
 	}, {
 	    .compatible = "adi,axi-adrv9025-tx-1.0",
 	    .data = &adrv9025_1_00_a_info,
