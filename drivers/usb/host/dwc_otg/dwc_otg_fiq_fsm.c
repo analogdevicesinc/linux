@@ -64,7 +64,7 @@ void notrace _fiq_print(enum fiq_debug_level dbg_lvl, volatile struct fiq_state 
 
 	if((dbg_lvl & dbg_lvl_req) || dbg_lvl == FIQDBG_ERR)
 	{
-		snprintf(text, 9, " %4d:%1u  ", hfnum.b.frnum/8, hfnum.b.frnum & 7);
+		snprintf(text, 9, " %4d:%1u ", hfnum.b.frnum/8, hfnum.b.frnum & 7);
 		va_start(args, fmt);
 		vsnprintf(text+8, 9, fmt, args);
 		va_end(args);
