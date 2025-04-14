@@ -388,6 +388,61 @@ build_dt_binding_check() {
 	return $err
 }
 
+build_microblaze() {
+	local exceptions_file="ci/travis/dtb_build_test_exceptions"
+	local err=0
+
+	# Setup standalone compiler
+	wget -q --show-progress "${DOWNLOAD_URL}/microblaze_compiler/microblazeel-xilinx-elf.tar.gz"
+	mkdir -p /opt/microblazeel-xilinx-elf
+	tar -xvzf microblazeel-xilinx-elf.tar.gz -C /opt/microblazeel-xilinx-elf
+	export PATH=$PATH:/opt/microblazeel-xilinx-elf/bin
+	sudo apt install u-boot-tools
+	microblazeel-xilinx-elf-gcc --version
+
+	for file in $DTS_FILES; do
+		if __exceptions_file "$exceptions_file" "$file"; then
+			continue
+		fi
+
+		if ! grep -q "hdl_project:" $file ; then
+			__echo_red "'$file' doesn't contain an 'hdl_project:' tag"
+			hdl_project_tag_err=1
+		fi
+	done
+
+	if [ "$hdl_project_tag_err" = "1" ] ; then
+		echo
+		echo
+		__echo_green "Some DTs have been found that do not contain an 'hdl_project:' tag"
+		__echo_green "   Either:"
+		__echo_green "     1. Create a 'hdl_project' tag for it"
+		__echo_green "     OR"
+		__echo_green "     1. add it in file '$exceptions_file'"
+	fi
+
+	export CROSS_COMPILE=/opt/microblazeel-xilinx-elf/bin/microblazeel-xilinx-elf-
+	ARCH=microblaze make adi_mb_defconfig
+	for file in $DTS_FILES; do
+		if __exceptions_file "$exceptions_file" "$file"; then
+			continue
+		fi
+
+		dtb_file="simpleImage."
+		dtb_file+=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\.dts\\g')
+
+		echo "######### Building: $dtb_file"
+		ARCH=microblaze make ${dtb_file} -j$NUM_JOBS || err=1
+	done
+
+	if [ "$err" = "0" ] ; then
+		__echo_green "Microblaze build tests passed"
+		return 0
+	fi
+
+	return $err
+}
+
 build_dtb_build_test() {
 	local exceptions_file="ci/travis/dtb_build_test_exceptions"
 	local err=0
