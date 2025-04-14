@@ -238,6 +238,40 @@
         >;
     };
 
+    /* RegMap UIO Device: interrupt_aggregator_core */
+    uio-adrv906x-regmap-interrupt_aggregator_core@20200000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20200000 0x74 /* INST_PROC_DFE_PERIP_INTR_AGGREGATOR*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-interrupt_aggregator_core */
+    uio-adrv906x-regmap-sec-interrupt_aggregator_core@24200000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24200000 0x74 /* INST_SEC_PROC_DFE_PERIP_INTR_AGGREGATOR*/
+        >;
+    };
+
+    /* RegMap UIO Device: interrupt_transmuter_core */
+    uio-adrv906x-regmap-interrupt_transmuter_core@20201000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20201000 0x1c4 /* INST_PROC_DFE_PERIP_INTERRUPT_TRANSMUTER*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-interrupt_transmuter_core */
+    uio-adrv906x-regmap-sec-interrupt_transmuter_core@24201000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24201000 0x1c4 /* INST_SEC_PROC_DFE_PERIP_INTERRUPT_TRANSMUTER*/
+        >;
+    };
+
     /* RegMap UIO Device: kfa */
     uio-adrv906x-regmap-kfa@18609000 {
         compatible = "generic-uio";
@@ -1566,127 +1600,127 @@
     uio-adrv906x-c2c-interrupt-610 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_192 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_192 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-681 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_263 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_263 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-682 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_264 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_264 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-683 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_265 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_265 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-684 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_266 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_266 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-685 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_267 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_267 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-686 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_268 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_268 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-687 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_269 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_269 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-688 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_270 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_270 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-720 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_281 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_281 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-721 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_282 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_282 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-722 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_283 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_283 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-723 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_284 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_284 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-724 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_285 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_285 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-725 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_286 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_286 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-726 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_287 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_287 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-727 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_288 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_288 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-561 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_143 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_143 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-562 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_144 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_144 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-570 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_152 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_152 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-571 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_153 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_153 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-670 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_252 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_252 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-671 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_253 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_253 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-679 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_261 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_261 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-c2c-interrupt-680 {
         compatible = "generic-uio";
         status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_262 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_262 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-rue-fm {
         compatible = "generic-uio";
