@@ -446,7 +446,8 @@ build_microblaze() {
 build_dtb_build_test() {
 	local exceptions_file="ci/travis/dtb_build_test_exceptions"
 	local err=0
-	local last_arch
+	local defconfig
+	local last_defconfig
 
 	for file in $DTS_FILES; do
 		arch=$(echo $file |  cut -d'/' -f2)
@@ -485,9 +486,30 @@ build_dtb_build_test() {
 
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
 		arch=$(echo $file |  cut -d'/' -f2)
-		if [ "$last_arch" != "$arch" ] ; then
-			ARCH=$arch make defconfig
-			last_arch=$arch
+
+		case "$(echo ${file} | grep -Eo 'zynq|zynqmp|socfpga|versal' || echo '')" in
+			zynq)
+				defconfig="zynq_xcomm_adv7511_defconfig"
+				;;
+			zynqmp)
+				defconfig="adi_zynqmp_defconfig"
+				;;
+			socfpga)
+				defconfig="socfpga_adi_defconfig"
+				;;
+			versal)
+				defconfig="adi_versal_defconfig"
+				;;
+			*)
+				echo "Default defconfig will be used."
+				defconfig="defconfig"
+				;;
+		esac
+
+		# Check if new defconfig nneds to be built
+		if [ "$last_defconfig" != "$defconfig" ] ; then
+			ARCH=$arch make ${defconfig}
+			last_defconfig=$defconfig
 		fi
 		# XXX: hack for nios2, which doesn't have `arch/nios2/boot/dts/Makefile`
 		# but even an empty one is fine
