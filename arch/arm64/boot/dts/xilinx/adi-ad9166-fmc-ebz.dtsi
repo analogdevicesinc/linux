@@ -39,7 +39,8 @@
 			num-cs = <0x4>;		
 			xlnx,num-ss-bits = <0x4>;
 			xlnx,spi-mode = <0x0>;
-			xlnx,num-transfer-bits = <16>;
+			// xlnx,num-transfer-bits = <16>;
+			xlnx,num-transfer-bits = <8>;
 	
 			status = "okay";
 		};
