@@ -5,6 +5,8 @@
  * Copyright (C) 2024-2025 Analog Devices Inc.
  */
 
+#include <dt-bindings/interrupt-controller/irq.h>
+
 / {
 	clocks {
 		local_osc: clock@0 {
@@ -21,9 +23,15 @@
 
 / {
 	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
 		axi_spi_fmc: spi@85300000 {
 			compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
-			reg = <0x85300000 0x1000>;
+			reg = <0x85300000 0x10000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 	
@@ -39,7 +47,8 @@
 			num-cs = <0x4>;		
 			xlnx,num-ss-bits = <0x4>;
 			xlnx,spi-mode = <0x0>;
-			xlnx,num-transfer-bits = <16>;
+			// xlnx,num-transfer-bits = <16>;
+			//xlnx,num-transfer-bits = <8>;
 	
 			status = "okay";
 		};
@@ -54,7 +63,7 @@
 		compatible = "adi,ad9166";
 		reg = <0>;
 		spi-max-frequency = <1000000>;
-		clocks =  <&adf4372_clk 0>;
+		clocks =  <&adf4372_clk 1>;
 		clock-names = "dac_clk";
 		spi-cpol;
 		spi-cpha;
@@ -164,7 +173,7 @@
 		#clock-cells = <1>;
 		adi,spi-3wire-enable;
 
-		clock-output-names = "adf4372_rf8", "adf4372_rfaux8";
+		clock-output-names = "adf4372_rf8", "adf4372_rfaux8", "ad9166_rf16";
 		adi,muxout-select = <1>; // digital lock detect
 
 		// o fi RF8x?
