@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2711";
+};
+
+&spi0 {
+	status = "okay";
+
+	generic_iio@0 {
+		compatible = "generic-iio";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+	};
+};

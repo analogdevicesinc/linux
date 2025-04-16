@@ -762,6 +762,12 @@ config FSL_MX25_ADC
 	  Generic Conversion Queue driver used for general purpose ADC in the
 	  MX25. This driver supports single measurements using the MX25 ADC.
 
+config GENERIC_IIO
+	tristate "Analog Devices Generic IIO driver"
+	depends on SPI
+	help
+	  Say yes here to enable support for Analog Devices Generic IIO driver.
+
 config HI8435
 	tristate "Holt Integrated Circuits HI-8435 threshold detector"
 	select IIO_TRIGGERED_EVENT
