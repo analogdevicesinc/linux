@@ -89,6 +89,8 @@ var SQ_WAVE_EXCP_FLAG_PRIV_HOST_TRAP_SHIFT	= 7
 var SQ_WAVE_EXCP_FLAG_PRIV_WAVE_START_MASK	= 0x100
 var SQ_WAVE_EXCP_FLAG_PRIV_WAVE_START_SHIFT	= 8
 var SQ_WAVE_EXCP_FLAG_PRIV_WAVE_END_MASK	= 0x200
+var SQ_WAVE_EXCP_FLAG_PRIV_PERF_SNAPSHOT_SHIFT	= 10
+var SQ_WAVE_EXCP_FLAG_PRIV_PERF_SNAPSHOT_MASK	= 0x400
 var SQ_WAVE_EXCP_FLAG_PRIV_TRAP_AFTER_INST_MASK	= 0x800
 var SQ_WAVE_TRAP_CTRL_ADDR_WATCH_MASK		= 0x80
 var SQ_WAVE_TRAP_CTRL_TRAP_AFTER_INST_MASK	= 0x200
@@ -136,6 +138,10 @@ var SQ_WAVE_MODE_DST_SRC0_SRC1_VGPR_MSB_SHIFT	= 12
 var SQ_WAVE_MODE_DST_SRC0_SRC1_VGPR_MSB_SIZE	= 6
 #endif
 
+var TTMP11_STOCHASTIC_TRAP_ENABLED_SHIFT   	= 25
+var TTMP11_STOCHASTIC_TRAP_ENABLED_MASK    	= (1 << TTMP11_STOCHASTIC_TRAP_ENABLED_SHIFT)
+var TTMP11_HOST_TRAP_ENABLED_SHIFT		= 24
+var TTMP11_HOST_TRAP_ENABLED_MASK		= (1 << TTMP11_HOST_TRAP_ENABLED_SHIFT)
 var TTMP11_DEBUG_TRAP_ENABLED_SHIFT		= 23
 var TTMP11_DEBUG_TRAP_ENABLED_MASK		= 0x800000
 var TTMP11_FIRST_REPLAY_SHIFT			= 22
@@ -145,11 +151,8 @@ var TTMP11_REPLAY_W64H_MASK			= 0x200000
 var TTMP11_FXPTR_SHIFT				= 14
 var TTMP11_FXPTR_MASK				= 0x1FC000
 
-var TTMP11_HOST_TRAP_ENABLED_SHIFT		= 24
-var TTMP11_HOST_TRAP_ENABLED_MASK		= (1 << TTMP11_HOST_TRAP_ENABLED_SHIFT)
-
 var TTMP11_FEATURES_ENABLED_FLAGS_SHIFT		= TTMP11_DEBUG_TRAP_ENABLED_SHIFT
-var TTMP11_FEATURES_ENABLED_FLAGS_MASK		= TTMP11_DEBUG_TRAP_ENABLED_MASK | TTMP11_HOST_TRAP_ENABLED_MASK
+var TTMP11_FEATURES_ENABLED_FLAGS_MASK		= TTMP11_DEBUG_TRAP_ENABLED_MASK | TTMP11_HOST_TRAP_ENABLED_MASK | TTMP11_STOCHASTIC_TRAP_ENABLED_MASK
 
 // SQ_SEL_X/Y/Z/W, BUF_NUM_FORMAT_FLOAT, (0 for MUBUF stride[17:14]
 // when ADD_TID_ENABLE and BUF_DATA_FORMAT_32 for MTBUF), ADD_TID_ENABLE
@@ -285,25 +288,27 @@ L_NOT_HOST_TRAP_WA:
 	// in one go.
 #endif
 
-	// Ignore Host Trap if SAVECTX is also present.
+	// Ignore HOSTTRAP/PERF_SNAPSHOT if SAVECTX is also present
 	// Usually s_trap has a higher priority than context_save, HAVE_HT_TRAP_ID_WA
 	// will reverse these priority's order when s_trap, host_trap and context save
 	// are raised at the same time. We will end-up ignoring the s_trap (because of
 	// the ambiguity with the host trap), ignoring the host trap (to be sure high
 	// frequency sampling cannot prevent CWSR) and directly doing the context save.
-	// The s_trap will be re-executed after context  save/restore.
-	s_bitcmp0_b32   s_save_excp_flag_priv, SQ_WAVE_EXCP_FLAG_PRIV_SAVE_CONTEXT_SHIFT
-	s_cbranch_scc1  L_NO_SAVE_AND_HT
-	s_bitset0_b32   s_save_excp_flag_priv, SQ_WAVE_EXCP_FLAG_PRIV_HOST_TRAP_SHIFT
+	// The s_trap will be re-executed after context save/restore.
+	s_bitcmp1_b32   s_save_excp_flag_priv, SQ_WAVE_EXCP_FLAG_PRIV_SAVE_CONTEXT_SHIFT
+	s_cbranch_scc0  L_NO_SAVE_AND_HT_ST
+	s_andn2_b32     s_save_excp_flag_priv, s_save_excp_flag_priv, \
+			SQ_WAVE_EXCP_FLAG_PRIV_HOST_TRAP_MASK | SQ_WAVE_EXCP_FLAG_PRIV_PERF_SNAPSHOT_MASK
 	s_setreg_imm32_b32 hwreg(HW_REG_WAVE_EXCP_FLAG_PRIV, SQ_WAVE_EXCP_FLAG_PRIV_HOST_TRAP_SHIFT, 1), 0
+	s_setreg_imm32_b32 hwreg(HW_REG_WAVE_EXCP_FLAG_PRIV, SQ_WAVE_EXCP_FLAG_PRIV_PERF_SNAPSHOT_SHIFT, 1), 0
 
-L_NO_SAVE_AND_HT:
+L_NO_SAVE_AND_HT_ST:
 	s_and_b32       ttmp2, s_save_state_priv, SQ_WAVE_STATE_PRIV_HALT_MASK
 	s_cbranch_scc0	L_NOT_HALTED
 
-L_HALTED:
-	// Host trap may occur while wave is halted.
-	s_bitcmp1_b32	s_save_excp_flag_priv, SQ_WAVE_EXCP_FLAG_PRIV_HOST_TRAP_SHIFT
+	// Host trap / stochastic may occur while wave is halted.
+	s_and_b32	ttmp2, s_save_excp_flag_priv, SQ_WAVE_EXCP_FLAG_PRIV_HOST_TRAP_MASK |\
+					SQ_WAVE_EXCP_FLAG_PRIV_PERF_SNAPSHOT_MASK
 	s_cbranch_scc1	L_FETCH_2ND_TRAP
 
 L_CHECK_SAVE:
@@ -387,9 +392,10 @@ L_NO_SIGN_EXTEND_TMA:
 	s_andn2_b32     ttmp11, ttmp11, TTMP11_FEATURES_ENABLED_FLAGS_MASK
 	s_or_b32        ttmp11, ttmp11, ttmp2
 
-	// If not a host trap, then driver cannot mask this
-	s_bitcmp1_b32   ttmp3, SQ_WAVE_EXCP_FLAG_PRIV_HOST_TRAP_SHIFT
-	s_cbranch_scc0  L_NO_EXCEPTION_MASKING
+	// If not a host / stochastic trap , then driver cannot mask this
+	s_and_b32	ttmp2, ttmp3, SQ_WAVE_EXCP_FLAG_PRIV_HOST_TRAP_MASK |\
+					SQ_WAVE_EXCP_FLAG_PRIV_PERF_SNAPSHOT_MASK
+	s_cbranch_scc0	L_NO_EXCEPTION_MASKING
 
 	s_bitcmp1_b32 s_save_state_priv, SQ_WAVE_STATUS_HALT_SHIFT
 	s_cbranch_scc1 L_MASK_HOST_TRAP
@@ -400,11 +406,24 @@ L_NO_SIGN_EXTEND_TMA:
 	// We got here because of either a non-maskable exception or a maskable
 	// one (HT).  The driver said the maskable HT should not be masked, so
 	// we can directly carry on to the 2nd level trap handler.
-	s_cbranch_scc1  L_NO_EXCEPTION_MASKING
+	s_cbranch_scc1  L_CHECK_STOC
 
 L_MASK_HOST_TRAP:
 	// The driver asked to mask the HT, be sure to do so.
 	s_setreg_imm32_b32 hwreg(HW_REG_WAVE_EXCP_FLAG_PRIV, SQ_WAVE_EXCP_FLAG_PRIV_HOST_TRAP_SHIFT, 1), 0x0
+
+L_CHECK_STOC:
+	s_bitcmp1_b32 s_save_state_priv, SQ_WAVE_STATUS_HALT_SHIFT
+	s_cbranch_scc1 L_MASKED_STOC
+
+	// If stochastic sampling trap was requested, should it be masked by the driver?
+	s_bitcmp1_b32    ttmp11, TTMP11_STOCHASTIC_TRAP_ENABLED_SHIFT
+	// If driver said stochastic traps are OK, allow the 2nd-level handler to take stochastic trap
+	s_cbranch_scc1   L_NO_EXCEPTION_MASKING
+
+L_MASKED_STOC:
+	// Otherwise, zero out TRAPSTS.stochastic_perf_snapshot bit, so possible 2nd level does not handle it
+	s_setreg_imm32_b32 hwreg(HW_REG_WAVE_EXCP_FLAG_PRIV, SQ_WAVE_EXCP_FLAG_PRIV_PERF_SNAPSHOT_SHIFT, 1), 0x0
 
 L_NO_EXCEPTION_MASKING:
 	s_load_dwordx2	[ttmp2, ttmp3], [ttmp14, ttmp15], 0x0 scope:SCOPE_SYS	// second-level TBA
