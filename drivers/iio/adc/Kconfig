@@ -1057,6 +1057,17 @@ config MAX1363
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called max1363.
+	  
+config MAX40080
+	tristate "Analog Devices MAX40080 driver"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Say yes here to build support for max40080 current sense
+	  amplifier with 16-bits ADC interface.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called max40080.
 
 config MAX9611
 	tristate "Maxim max9611/max9612 ADC driver"
