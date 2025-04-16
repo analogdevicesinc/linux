@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9004
+ *
+ * hdl_project: <adrv9001/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-adrv9002.dts"
+
+&axi_adrv9002_core_rx1 {
+	compatible = "adi,axi-adrv9004-rx-1.0";
+	label = "axi-adrv9004-rx";
+};
+
+&axi_adrv9002_core_tx1 {
+	compatible = "adi,axi-adrv9004-tx-1.0";
+	label = "axi-adrv9004-tx";
+};
+
+&axi_adrv9002_core_rx2 {
+	compatible = "adi,axi-adrv9004-rx2-1.0";
+	label = "axi-adrv9004-rx2";
+};
+
+&axi_adrv9002_core_tx2 {
+	compatible = "adi,axi-adrv9004-tx-1.0";
+	label = "axi-adrv9004-tx2";
+};
+
+&adc0_adrv9002 {
+	compatible = "adi,adrv9004";
+
+	adi,channels {
+		tx@0 {
+			/delete-property/ adi,dpd;
+		};
+
+		tx@1 {
+			/delete-property/ adi,dpd;
+		};
+	};
+};

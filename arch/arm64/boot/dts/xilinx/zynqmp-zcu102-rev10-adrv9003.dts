@@ -14,6 +14,21 @@
 /delete-node/ &axi_adrv9002_core_tx2;
 /delete-node/ &axi_adrv9002_core_tdd2;
 
+&axi_adrv9002_core_rx1 {
+	compatible = "adi,axi-adrv9003-rx-1.0";
+	label = "axi-adrv9003-rx";
+};
+
+&axi_adrv9002_core_rx2 {
+	compatible = "adi,axi-adrv9003-rx2-1.0";
+	label = "axi-adrv9003-rx2";
+};
+
+&axi_adrv9002_core_tx1 {
+	compatible = "adi,axi-adrv9003-tx-1.0";
+	label = "axi-adrv9003-tx";
+};
+
 &adc0_adrv9002 {
 	compatible = "adi,adrv9003";
 
@@ -23,6 +38,10 @@
 		/delete-node/ tx@1;
 		rx@1 {
 			/delete-property/ orx-gpios;
+		};
+
+		tx@0 {
+			/delete-property/ adi,dpd;
 		};
 	};
 
