@@ -1,0 +1,95 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+=============
+AD4052 driver
+=============
+
+ADC driver for Analog Devices Inc. AD4052 and similar devices.
+The module name is ``ad4052``.
+
+Supported devices
+=================
+
+The following chips are supported by this driver:
+
+* `AD4050 <https://www.analog.com/AD4050>`_
+* `AD4052 <https://www.analog.com/AD4052>`_
+* `AD4056 <https://www.analog.com/AD4056>`_
+* `AD4058 <https://www.analog.com/AD4058>`_
+
+Wiring modes
+============
+
+The ADC uses SPI 4-wire mode, and contain two programmable GPIOs and
+a CNV pin.
+
+The CNV pin is exposed as the ``cnv-gpios`` and triggers a ADC conversion.
+GP1 is ADC conversion ready signal and GP0 Threshold event interrupt, both
+exposed as interrupts.
+
+Omit ``cnv-gpios`` and tie CNV and CS together to use the rising edge
+of the CS as the CNV signal.
+
+Device attributes
+=================
+
+The ADC contain only one channels, and the following attributes:
+
+.. list-table:: Driver attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``in_voltage0_raw``
+     - Raw ADC voltage value
+   * - ``in_voltage0_oversampling_ratio``
+     - Enable the device's burst averaging mode to over sample using
+       the internal sample rate.
+   * - ``in_voltage0_oversampling_ratio_available``
+     - List of available oversampling values. Value 0 disable the burst
+       averaging mode.
+   * - ``conversion_frequency``
+     - Device internal sample rate used in the burst averaging mode.
+   * - ``conversion_frequency_available``
+     - List of available sample rates.
+
+Threshold events
+================
+
+The ADC supports a monitoring mode to raise threshold events.
+The driver supports a single interrupt for both rising and falling
+readings.
+
+The feature is enabled/disabled by setting ``thresh_either_en``.
+During monitor mode, the device continuously operates in autonomous mode until
+put back in configuration mode, due to this, the device returns busy until the
+feature is disabled.
+
+Low-power mode
+==============
+
+The device enters low-power mode on idle to save power.
+Enabling an event puts the device out of the low-power since the ADC
+autonomously samples to assert the event condition.
+
+SPI offload support
+===================
+
+To be able to achieve the maximum sample rate, the driver can be used with the
+`AXI SPI Engine`_ to provide SPI offload support.
+
+.. _AXI SPI Engine: http://analogdevicesinc.github.io/hdl/projects/ad4052_ardz/index.html
+
+When SPI offload is being used, additional attributes are present:
+
+.. list-table:: Additional attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``in_voltage0_sampling_frequency``
+     - Set the sampling frequency.
+   * - ``in_voltage0_sampling_frequency_available``
+     - Get the sampling frequency range.
+
+The scan type is different when the buffer with offload support is enabled.
