@@ -262,6 +262,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-dc1962c.dtbo \
 	rpi-digiampplus.dtbo \
 	rpi-ft5406.dtbo \
+	rpi-generic-iio.dtbo \
 	rpi-lm75.dtbo \
 	rpi-ltc2497.dtbo \
 	rpi-ltc2664.dtbo \
