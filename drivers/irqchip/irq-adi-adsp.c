@@ -285,13 +285,12 @@ static int adsp_pint_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int adsp_pint_remove(struct platform_device *pdev)
+static void adsp_pint_remove(struct platform_device *pdev)
 {
 	struct adsp_pint *pint = platform_get_drvdata(pdev);
 
 	irq_set_chained_handler_and_data(pint->irq, NULL, NULL);
 	irq_domain_remove(pint->domain);
-	return 0;
 }
 
 static const struct of_device_id adsp_pint_of_match[] = {
