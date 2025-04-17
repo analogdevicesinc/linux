@@ -922,14 +922,12 @@ out_error:
 	return rc;
 }
 
-static int i2c_adi_twi_remove(struct platform_device *pdev)
+static void i2c_adi_twi_remove(struct platform_device *pdev)
 {
 	struct adi_twi_iface *iface = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(iface->sclk);
 	i2c_del_adapter(&(iface->adap));
-
-	return 0;
 }
 
 static struct platform_driver i2c_adi_twi_driver = {
