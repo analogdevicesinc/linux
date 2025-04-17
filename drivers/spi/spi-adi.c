@@ -844,7 +844,7 @@ err_free_tx_dma:
 	return ret;
 }
 
-static int adi_spi_remove(struct platform_device *pdev)
+static void adi_spi_remove(struct platform_device *pdev)
 {
 	struct spi_controller *controller = platform_get_drvdata(pdev);
 	struct adi_spi_controller *drv_data = spi_controller_get_devdata(controller);
@@ -853,7 +853,6 @@ static int adi_spi_remove(struct platform_device *pdev)
 	clk_disable_unprepare(drv_data->sclk);
 	dma_release_channel(controller->dma_tx);
 	dma_release_channel(controller->dma_rx);
-	return 0;
 }
 
 static int __maybe_unused adi_spi_suspend(struct device *dev)
