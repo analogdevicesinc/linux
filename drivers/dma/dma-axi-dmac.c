@@ -133,6 +133,8 @@ struct axi_dmac_desc {
 	struct virt_dma_desc vdesc;
 	struct axi_dmac_chan *chan;
 
+	struct work_struct sched_work;
+
 	bool cyclic;
 	bool have_partial_xfer;
 
@@ -530,6 +532,26 @@ static void axi_dmac_issue_pending(struct dma_chan *c)
 	spin_unlock_irqrestore(&chan->vchan.lock, flags);
 }
 
+static void axi_dmac_free_desc(struct axi_dmac_desc *desc)
+{
+	struct axi_dmac *dmac = chan_to_axi_dmac(desc->chan);
+	struct device *dev = dmac->dma_dev.dev;
+	struct axi_dmac_hw_desc *hw = desc->sg[0].hw;
+	dma_addr_t hw_phys = desc->sg[0].hw_phys;
+
+	dma_free_coherent(dev, PAGE_ALIGN(desc->num_sgs * sizeof(*hw)),
+			  hw, hw_phys);
+	kfree(desc);
+}
+
+static void axi_dmac_free_desc_schedule_work(struct work_struct *work)
+{
+	struct axi_dmac_desc *desc = container_of(work,
+						  struct axi_dmac_desc,
+						  sched_work);
+	axi_dmac_free_desc(desc);
+}
+
 static struct axi_dmac_desc *
 axi_dmac_alloc_desc(struct axi_dmac_chan *chan, unsigned int num_sgs)
 {
@@ -567,19 +589,12 @@ axi_dmac_alloc_desc(struct axi_dmac_chan *chan, unsigned int num_sgs)
 	/* The last hardware descriptor will trigger an interrupt */
 	desc->sg[num_sgs - 1].hw->flags = AXI_DMAC_HW_FLAG_LAST | AXI_DMAC_HW_FLAG_IRQ;
 
+	/* Initialize a workqueue to schedule work to be performed outside of
+	 * interrupt context, which allows other operations to be run in a
+	 * process context, making it safe to execute.*/
+	INIT_WORK(&desc->sched_work, axi_dmac_free_desc_schedule_work);
+
 	return desc;
-}
-
-static void axi_dmac_free_desc(struct axi_dmac_desc *desc)
-{
-	struct axi_dmac *dmac = chan_to_axi_dmac(desc->chan);
-	struct device *dev = dmac->dma_dev.dev;
-	struct axi_dmac_hw_desc *hw = desc->sg[0].hw;
-	dma_addr_t hw_phys = desc->sg[0].hw_phys;
-
-	dma_free_coherent(dev, PAGE_ALIGN(desc->num_sgs * sizeof(*hw)),
-			  hw, hw_phys);
-	kfree(desc);
 }
 
 static struct axi_dmac_sg *axi_dmac_fill_linear_sg(struct axi_dmac_chan *chan,
@@ -840,7 +855,10 @@ static void axi_dmac_free_chan_resources(struct dma_chan *c)
 
 static void axi_dmac_desc_free(struct virt_dma_desc *vdesc)
 {
-	axi_dmac_free_desc(to_axi_dmac_desc(vdesc));
+	struct axi_dmac_desc *desc = to_axi_dmac_desc(vdesc);
+
+	/* vunmap() must be performed outside of interrupt context */
+	schedule_work(&desc->sched_work);
 }
 
 static bool axi_dmac_regmap_rdwr(struct device *dev, unsigned int reg)
