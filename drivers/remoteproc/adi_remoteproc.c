@@ -1003,7 +1003,7 @@ free_adi_rcu:
 	return ret;
 }
 
-static int adi_remoteproc_remove(struct platform_device *pdev)
+static void adi_remoteproc_remove(struct platform_device *pdev)
 {
 	struct adi_rproc_data *rproc_data = platform_get_drvdata(pdev);
 
@@ -1012,8 +1012,6 @@ static int adi_remoteproc_remove(struct platform_device *pdev)
 	put_adi_rcu(rproc_data->rcu);
 	rproc_del(rproc_data->rproc);
 	rproc_free(rproc_data->rproc);
-
-	return 0;
 }
 
 static const struct of_device_id adi_rproc_of_match[] = {
