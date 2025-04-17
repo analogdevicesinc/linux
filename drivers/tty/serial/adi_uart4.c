@@ -1271,7 +1271,7 @@ out_error_unmap:
 	return ret;
 }
 
-static int adi_uart4_serial_remove(struct platform_device *pdev)
+static void adi_uart4_serial_remove(struct platform_device *pdev)
 {
 	struct adi_uart4_serial_port *uart = platform_get_drvdata(pdev);
 
@@ -1281,13 +1281,11 @@ static int adi_uart4_serial_remove(struct platform_device *pdev)
 		adi_uart4_serial_ports[uart->port.line] = NULL;
 		kfree(uart);
 		if(IS_ERR(uart->tx_dma_channel))
-			return 0;
+			return;
 
 		dma_release_channel(uart->tx_dma_channel);
 		dma_release_channel(uart->rx_dma_channel);
 	}
-
-	return 0;
 }
 
 static const struct of_device_id adi_uart_dt_match[] = {
