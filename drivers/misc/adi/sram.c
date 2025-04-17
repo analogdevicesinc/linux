@@ -181,10 +181,9 @@ free_proc:
 	return ret;
 }
 
-static int adi_sram_remove(struct platform_device *pdev)
+static void adi_sram_remove(struct platform_device *pdev)
 {
 	remove_proc_entry("sraminfo", NULL);
-	return 0;
 }
 
 static struct platform_driver adi_sram_driver = {

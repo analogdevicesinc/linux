@@ -61,7 +61,7 @@ struct adi_sram_mmap {
 };
 
 
-bool sram_dirty_folio(struct address_space *mapping, struct folio *folio) {
+static bool sram_dirty_folio(struct address_space *mapping, struct folio *folio) {
 	/* do nothing but avoid using __set_page_dirty_buffers which would
 	 * actually mark the page as dirty and cause a warning later */
 	return false;
@@ -188,12 +188,10 @@ static int adi_sram_mmap_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int adi_sram_mmap_remove(struct platform_device *pdev)
+static void adi_sram_mmap_remove(struct platform_device *pdev)
 {
 	struct adi_sram_mmap *sram = dev_get_drvdata(&pdev->dev);
 	misc_deregister(&sram->miscdev);
-
-	return 0;
 }
 
 static struct platform_driver adi_sram_mmap_driver = {
