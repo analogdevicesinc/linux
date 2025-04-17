@@ -1236,7 +1236,7 @@ static int adi_dma_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int adi_dma_remove(struct platform_device *pdev)
+static void adi_dma_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
@@ -1244,7 +1244,6 @@ static int adi_dma_remove(struct platform_device *pdev)
 	// everything else allocated with devm, we don't have to free anything
 
 	of_dma_controller_free(np);
-	return 0;
 }
 
 static struct platform_driver dma_driver = {
