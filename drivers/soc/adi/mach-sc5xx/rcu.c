@@ -310,13 +310,12 @@ static int adi_rcu_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int adi_rcu_remove(struct platform_device *pdev)
+static void adi_rcu_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct adi_rcu *adi_rcu = dev_get_drvdata(dev);
 
 	unregister_restart_handler(&adi_rcu->reboot_notifier);
-	return 0;
 }
 
 static const struct of_device_id adi_rcu_match[] = {

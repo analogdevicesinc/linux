@@ -250,15 +250,13 @@ static int adi_sec_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int adi_sec_remove(struct platform_device *pdev)
+static void adi_sec_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct adi_sec *adi_sec;
 
 	adi_sec = dev_get_drvdata(dev);
 	put_adi_rcu(adi_sec->rcu);
-
-	return 0;
 }
 
 static const struct of_device_id adi_sec_match[] = {

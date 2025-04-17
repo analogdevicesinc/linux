@@ -256,14 +256,12 @@ cleanup:
 	return ret;
 }
 
-static int sc5xx_dai_remove(struct platform_device *pdev)
+static void sc5xx_dai_remove(struct platform_device *pdev)
 {
 	struct sport_device *sport = platform_get_drvdata(pdev);
 
 	sport_delete(sport);
 	clk_disable_unprepare(sport->clk);
-
-	return 0;
 }
 
 static struct platform_driver sc5xx_i2s_dai_driver = {

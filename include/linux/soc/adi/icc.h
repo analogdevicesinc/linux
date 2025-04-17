@@ -119,7 +119,7 @@ int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev);
 int adi_tru_trigger(struct adi_tru *tru, u32 master);
 int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave);
 extern int adi_tru_probe(struct platform_device *pdev);
-extern int adi_tru_remove(struct platform_device *pdev);
+extern void adi_tru_remove(struct platform_device *pdev);
 extern int adi_tru_set_trigger(struct adi_tru *tru,
 			       struct device_node *master,
 			       struct device_node *slave);

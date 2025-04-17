@@ -101,9 +101,9 @@ int adi_pads_probe(struct platform_device *pdev)
 	return system_config_probe(pdev, &adi_pads_config);
 }
 
-int adi_pads_remove(struct platform_device *pdev)
+void adi_pads_remove(struct platform_device *pdev)
 {
-	return system_config_remove(pdev);
+	system_config_remove(pdev);
 }
 
 static const struct of_device_id pads_dt_ids[] = {

@@ -283,9 +283,9 @@ int adi_tru_probe(struct platform_device *pdev)
 	return 0;
 }
 
-int adi_tru_remove(struct platform_device *pdev)
+void adi_tru_remove(struct platform_device *pdev)
 {
-	return 0;
+	return;
 }
 
 static const struct of_device_id adi_tru_dt_ids[] = {
