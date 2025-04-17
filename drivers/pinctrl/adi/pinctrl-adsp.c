@@ -212,13 +212,11 @@ static int adsp_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 	unsigned int *num_maps)
 {
 	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
-	struct property *prop;
 	const char *group;
 	unsigned long *configs;
 	unsigned int num_configs, num_pins;
 	unsigned int reserve = 0;
 	uint32_t pinmux;
-	const __be32 *p;
 	int ret;
 
 	num_pins = of_property_count_u32_elems(np, "pinmux");
@@ -241,7 +239,7 @@ static int adsp_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 	if (ret)
 		goto exit;
 
-	of_property_for_each_u32(np, "pinmux", prop, p, pinmux) {
+	of_property_for_each_u32(np, "pinmux", pinmux) {
 		u32 pin = ADSP_PINMUX_PIN(pinmux);
 		u32 func = ADSP_PINMUX_FUNC(pinmux);
 
