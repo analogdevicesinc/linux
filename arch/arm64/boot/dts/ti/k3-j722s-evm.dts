@@ -843,8 +843,11 @@
 		      <J722S_SERDES1_LANE0_PCIE0_LANE0>;
 };
 
-&serdes0 {
+&serdes_wiz0 {
 	status = "okay";
+};
+
+&serdes0 {
 	serdes0_usb_link: phy@0 {
 		reg = <0>;
 		cdns,num-lanes = <1>;
@@ -854,8 +857,11 @@
 	};
 };
 
-&serdes1 {
+&serdes_wiz1 {
 	status = "okay";
+};
+
+&serdes1 {
 	serdes1_pcie_link: phy@0 {
 		reg = <0>;
 		cdns,num-lanes = <1>;
