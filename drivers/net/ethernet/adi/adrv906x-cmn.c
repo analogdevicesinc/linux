@@ -11,6 +11,7 @@
 #include <linux/etherdevice.h>
 #include <linux/string.h>
 #include <linux/bitfield.h>
+#include <linux/ethtool.h>
 #include "adrv906x-net.h"
 #include "adrv906x-cmn.h"
 

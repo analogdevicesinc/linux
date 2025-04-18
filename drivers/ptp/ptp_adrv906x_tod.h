@@ -121,7 +121,7 @@ struct adrv906x_tod {
 };
 
 int adrv906x_tod_probe(struct platform_device *pdev);
-int adrv906x_tod_remove(struct platform_device *pdev);
+void adrv906x_tod_remove(struct platform_device *pdev);
 int adrv906x_tod_register_pll(struct ptp_clock_info *pll_caps);
 
 /*

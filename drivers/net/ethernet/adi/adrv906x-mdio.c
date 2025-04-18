@@ -8,6 +8,7 @@
 #include <linux/of_mdio.h>
 #include <linux/platform_device.h>
 #include <linux/netdevice.h>
+#include "adrv906x-mdio.h"
 #include "adrv906x-net.h"
 
 struct adrv906x_mdio_priv {
