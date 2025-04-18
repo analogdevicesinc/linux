@@ -20,20 +20,43 @@ struct i2c_atr;
 
 /**
  * struct i2c_atr_ops - Callbacks from ATR to the device driver.
- * @attach_client: Notify the driver of a new device connected on a child
- *                 bus, with the alias assigned to it. The driver must
- *                 configure the hardware to use the alias.
- * @detach_client: Notify the driver of a device getting disconnected. The
- *                 driver must configure the hardware to stop using the
- *                 alias.
+ * @attach_addr: Notify the driver of a new device connected on a child
+ *               bus, with the alias assigned to it. The driver must
+ *               configure the hardware to use the alias.
+ * @detach_addr: Notify the driver of a device getting disconnected. The
+ *               driver must configure the hardware to stop using the
+ *               alias.
  *
  * All these functions return 0 on success, a negative error code otherwise.
  */
 struct i2c_atr_ops {
-	int (*attach_client)(struct i2c_atr *atr, u32 chan_id,
-			     const struct i2c_client *client, u16 alias);
-	void (*detach_client)(struct i2c_atr *atr, u32 chan_id,
-			      const struct i2c_client *client);
+	int (*attach_addr)(struct i2c_atr *atr, u32 chan_id,
+			   u16 addr, u16 alias);
+	void (*detach_addr)(struct i2c_atr *atr, u32 chan_id,
+			    u16 addr);
+};
+
+/**
+ * struct i2c_atr_adap_desc - An ATR downstream bus descriptor
+ * @chan_id:        Index of the new adapter (0 .. max_adapters-1).  This value is
+ *                  passed to the callbacks in `struct i2c_atr_ops`.
+ * @parent:         The device used as the parent of the new i2c adapter, or NULL
+ *                  to use the i2c-atr device as the parent.
+ * @bus_handle:     The fwnode handle that points to the adapter's i2c
+ *                  peripherals, or NULL.
+ * @num_aliases:    The number of aliases in this adapter's private alias pool. Set
+ *                  to zero if this adapter uses the ATR's global alias pool.
+ * @aliases:        An optional array of private aliases used by the adapter
+ *                  instead of the ATR's global pool of aliases. Must contain
+ *                  exactly num_aliases entries if num_aliases > 0, is ignored
+ *                  otherwise.
+ */
+struct i2c_atr_adap_desc {
+	u32 chan_id;
+	struct device *parent;
+	struct fwnode_handle *bus_handle;
+	size_t num_aliases;
+	u16 *aliases;
 };
 
 /**
@@ -65,12 +88,7 @@ void i2c_atr_delete(struct i2c_atr *atr);
 /**
  * i2c_atr_add_adapter - Create a child ("downstream") I2C bus.
  * @atr:        The I2C ATR
- * @chan_id:    Index of the new adapter (0 .. max_adapters-1).  This value is
- *              passed to the callbacks in `struct i2c_atr_ops`.
- * @adapter_parent: The device used as the parent of the new i2c adapter, or NULL
- *                  to use the i2c-atr device as the parent.
- * @bus_handle: The fwnode handle that points to the adapter's i2c
- *              peripherals, or NULL.
+ * @desc:       An ATR adapter descriptor
  *
  * After calling this function a new i2c bus will appear. Adding and removing
  * devices on the downstream bus will result in calls to the
@@ -85,9 +103,7 @@ void i2c_atr_delete(struct i2c_atr *atr);
  *
  * Return: 0 on success, a negative error code otherwise.
  */
-int i2c_atr_add_adapter(struct i2c_atr *atr, u32 chan_id,
-			struct device *adapter_parent,
-			struct fwnode_handle *bus_handle);
+int i2c_atr_add_adapter(struct i2c_atr *atr, struct i2c_atr_adap_desc *desc);
 
 /**
  * i2c_atr_del_adapter - Remove a child ("downstream") I2C bus added by
