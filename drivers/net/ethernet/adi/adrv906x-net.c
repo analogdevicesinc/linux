@@ -278,8 +278,8 @@ static void __skb_pvid_pop(struct net_device *ndev, struct sk_buff *skb)
 	}
 }
 
-void adrv906x_eth_rx_callback(struct sk_buff *skb, unsigned int port_id,
-			      struct timespec64 ts, void *cb_param)
+static void adrv906x_eth_rx_callback(struct sk_buff *skb, unsigned int port_id,
+				     struct timespec64 ts, void *cb_param)
 {
 	struct net_device *ndev = (struct net_device *)cb_param;
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
@@ -309,26 +309,16 @@ static void adrv906x_eth_multicast_list(struct net_device *ndev)
 		adrv906x_mac_promiscuous_mode_dis(mac);
 }
 
-static inline void __eth_hw_addr_gen(struct net_device *dev, const u8 *base_addr,
-				     unsigned int id)
-{
-	u64 u = ether_addr_to_u64(base_addr);
-	u8 addr[ETH_ALEN];
-
-	u += id;
-	u64_to_ether_addr(u, addr);
-	memcpy(dev->dev_addr, addr, ETH_ALEN);
-}
-
 static int __set_mac_address(struct adrv906x_eth_dev *adrv906x_dev, struct device_node *port_np)
 {
 	struct device *dev = adrv906x_dev->dev;
 	struct net_device *ndev = adrv906x_dev->ndev;
 	int port = adrv906x_dev->port;
-	const unsigned char *tmpaddr;
+	u8 tmpaddr[ETH_ALEN];
 	struct sockaddr addr;
+	int ret;
 
-	memset(addr.sa_data, 0, sizeof(addr.sa_data));
+	memset(addr.sa_data, 0, sizeof(addr.sa_data_min));
 
 	/* try to get mac address in following order:
 	 *
@@ -343,8 +333,8 @@ static int __set_mac_address(struct adrv906x_eth_dev *adrv906x_dev, struct devic
 	 */
 	if (!is_valid_ether_addr(addr.sa_data)) {
 		if (port_np) {
-			tmpaddr = of_get_mac_address(port_np);
-			if (!IS_ERR(tmpaddr))
+			ret = of_get_mac_address(port_np, tmpaddr);
+			if (!ret)
 				ether_addr_copy(addr.sa_data, tmpaddr);
 		}
 	}
@@ -986,7 +976,7 @@ error:
 	return ret;
 }
 
-static int adrv906x_eth_remove(struct platform_device *pdev)
+static void adrv906x_eth_remove(struct platform_device *pdev)
 {
 	struct adrv906x_eth_if *eth_if = platform_get_drvdata(pdev);
 	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
@@ -1013,8 +1003,6 @@ static int adrv906x_eth_remove(struct platform_device *pdev)
 		if (es->enabled)
 			break;
 	}
-
-	return 0;
 }
 
 static struct platform_driver adrv906x_eth_drv = {

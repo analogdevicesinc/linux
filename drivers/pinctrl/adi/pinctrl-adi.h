@@ -6,11 +6,6 @@
 #ifndef __DRIVERS_PINCTRL_ADI_H
 #define __DRIVERS_PINCTRL_ADI_H
 
-#include <stdbool.h>
-
-#include <linux/pinctrl/pinconf-generic.h>
-#include <linux/pinctrl/pinmux.h>
-
 #define ADI_PINCTRL_PIN(pin) PINCTRL_PIN(pin, #pin)
 
 /*

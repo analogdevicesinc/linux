@@ -6,6 +6,10 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/arm-smccc.h>
+#include <linux/types.h>
+#include <linux/pinctrl/pinconf-generic.h>
+#include <linux/pinctrl/pinmux.h>
+#include <linux/pinctrl/pinctrl.h>
 
 #include "pinctrl-adi.h"
 

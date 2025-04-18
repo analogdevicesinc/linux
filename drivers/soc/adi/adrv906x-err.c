@@ -7,6 +7,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/reboot.h>
+#include <linux/panic_notifier.h>
 
 #include "adrv906x-status-reg.h"
 

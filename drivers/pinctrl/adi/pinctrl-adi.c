@@ -11,12 +11,15 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/slab.h>
 #include <linux/regmap.h>
+#include <linux/seq_file.h>
+#include <linux/device.h>
 
 #include "../core.h"
 #include "../pinconf.h"
@@ -32,7 +35,7 @@ static inline const struct group_desc *adi_pinctrl_find_group_by_name(
 
 	for (i = 0; i < pctldev->num_groups; i++) {
 		grp = pinctrl_generic_get_group(pctldev, i);
-		if (grp && !strcmp(grp->name, name))
+		if (grp && !strcmp(grp->grp.name, name))
 			break;
 	}
 
@@ -64,7 +67,7 @@ static int adi_dt_node_to_map(struct pinctrl_dev *pctldev,
 	if (!grp)
 		return -EINVAL;
 
-	for (i = 0; i < grp->num_pins; i++) {
+	for (i = 0; i < grp->grp.npins; i++) {
 		pin = &((struct adi_pin *)(grp->data))[i];
 		map_num++;
 	}
@@ -89,7 +92,7 @@ static int adi_dt_node_to_map(struct pinctrl_dev *pctldev,
 
 	/* create config map */
 	new_map++;
-	for (i = 0; i < grp->num_pins; i++) {
+	for (i = 0; i < grp->grp.npins; i++) {
 		pin = &((struct adi_pin *)(grp->data))[i];
 
 		new_map[i].type = PIN_MAP_TYPE_CONFIGS_PIN;
@@ -137,7 +140,7 @@ static int adi_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
 	if (!func)
 		return -EINVAL;
 
-	npins = grp->num_pins;
+	npins = grp->grp.npins;
 	return 0;
 }
 
@@ -239,7 +242,7 @@ static void adi_pinconf_group_dbg_show(struct pinctrl_dev *pctldev,
 	if (!grp)
 		return;
 
-	for (i = 0; i < grp->num_pins; i++) {
+	for (i = 0; i < grp->grp.npins; i++) {
 		struct adi_pin *pin = &((struct adi_pin *)(grp->data))[i];
 
 		name = pin_get_name(pctldev, pin->pin);
@@ -274,12 +277,13 @@ static int adi_pinctrl_parse_groups(struct device_node *np,
 {
 	const struct adi_pinctrl_soc_info *info = ipctl->info;
 	struct adi_pin *pin;
+	unsigned int *pins;
 	int size, pin_size;
 	const __be32 *list;
 	int i;
 
 	pin_size = ADI_PIN_SIZE;
-	grp->name = np->name;
+	grp->grp.name = np->name;
 
 	/*
 	 * the binding format is adi,pins = <PIN_FUNC_ID CONFIG ...>,
@@ -293,24 +297,25 @@ static int adi_pinctrl_parse_groups(struct device_node *np,
 	if (!size || size % pin_size)
 		return -EINVAL;
 
-	grp->num_pins = size / pin_size;
+	grp->grp.npins = size / pin_size;
 	grp->data = devm_kcalloc(ipctl->dev,
-				 grp->num_pins, sizeof(struct adi_pin),
+				 grp->grp.npins, sizeof(struct adi_pin),
 				 GFP_KERNEL);
-	grp->pins = devm_kcalloc(ipctl->dev,
-				 grp->num_pins, sizeof(unsigned int),
-				 GFP_KERNEL);
+	pins = devm_kcalloc(ipctl->dev,
+			    grp->grp.npins, sizeof(unsigned int),
+			    GFP_KERNEL);
+	grp->grp.pins = pins;
 
-	if (!grp->pins || !grp->data)
+	if (!grp->grp.pins || !grp->data)
 		return -ENOMEM;
 
-	for (i = 0; i < grp->num_pins; i++) {
+	for (i = 0; i < grp->grp.npins; i++) {
 		pin = &((struct adi_pin *)(grp->data))[i];
 		if (info->adi_pinctrl_parse_pin)
-			info->adi_pinctrl_parse_pin(ipctl, &grp->pins[i],
+			info->adi_pinctrl_parse_pin(ipctl, &pins[i],
 						    pin, &list);
 		else
-			adi_pinctrl_parse_pin(ipctl, &grp->pins[i],
+			adi_pinctrl_parse_pin(ipctl, &pins[i],
 					      pin, &list, np);
 	}
 
@@ -325,24 +330,27 @@ static int adi_pinctrl_parse_functions(struct device_node *np,
 	struct device_node *child;
 	struct function_desc *func;
 	struct group_desc *grp;
+	const char **group_names;
 	u32 i = 0;
 
 	func = pinmux_generic_get_function(pctl, index);
 	if (!func)
 		return -EINVAL;
 
-	func->name = np->name;
-	func->num_group_names = of_get_child_count(np);
-	if (func->num_group_names == 0)
+	func->func.name = np->name;
+	func->func.ngroups = of_get_child_count(np);
+	if (func->func.ngroups == 0)
 		return -EINVAL;
 
-	func->group_names = devm_kcalloc(ipctl->dev, func->num_group_names,
-					 sizeof(char *), GFP_KERNEL);
-	if (!func->group_names)
+	group_names = devm_kcalloc(ipctl->dev, func->func.ngroups,
+				   sizeof(char *), GFP_KERNEL);
+	if (!group_names)
 		return -ENOMEM;
 
+	func->func.groups = group_names;
+
 	for_each_child_of_node(np, child) {
-		func->group_names[i] = child->name;
+		group_names[i] = child->name;
 		grp = devm_kzalloc(ipctl->dev, sizeof(struct group_desc),
 				   GFP_KERNEL);
 		if (!grp) {

@@ -8,6 +8,7 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/ethtool.h>
 #include "adrv906x-tsu.h"
 
 void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,

@@ -332,7 +332,6 @@ static struct ptp_clock_info adrv906x_pll_caps = {
 	.name		= "adrv906x soc ptp",
 	.max_adj	= 5000,
 	.adjfine	= &adrv906x_phc_adjfine,
-	.adjfreq	= NULL,
 };
 
 int adrv906x_phc_pll_probe(struct adrv906x_phc_pll *pll_phc)

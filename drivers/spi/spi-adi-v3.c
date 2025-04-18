@@ -235,18 +235,18 @@
 
 #define MAX_SPI_TRANSFER_SIZE         ((64 * 1024) - 4096)      /* Arbitrary value lower than 64K (DDE transfer limit) */
 
-struct adi_spi_master;
+struct adi_spi_controller;
 
 struct adi_spi_transfer_ops {
-	void (*write)(struct adi_spi_master *drv, struct spi_transfer *xfer);
-	void (*read)(struct adi_spi_master *drv, struct spi_transfer *xfer);
-	void (*duplex)(struct adi_spi_master *drv, struct spi_transfer *xfer);
+	void (*write)(struct adi_spi_controller *drv, struct spi_transfer *xfer);
+	void (*read)(struct adi_spi_controller *drv, struct spi_transfer *xfer);
+	void (*duplex)(struct adi_spi_controller *drv, struct spi_transfer *xfer);
 };
 
-/* runtime info for spi master */
-struct adi_spi_master {
+/* runtime info for spi controller */
+struct adi_spi_controller {
 	/* SPI framework hookup */
-	struct spi_master *master;
+	struct spi_controller *ctlr;
 	struct device *dev;
 
 	/* Regs base of SPI controller */
@@ -271,7 +271,7 @@ struct adi_spi_device {
 	u32 control;
 };
 
-static void adi_spi_disable(struct adi_spi_master *drv_data)
+static void adi_spi_disable(struct adi_spi_controller *drv_data)
 {
 	u32 ctl;
 
@@ -280,10 +280,10 @@ static void adi_spi_disable(struct adi_spi_master *drv_data)
 	iowrite32(ctl, drv_data->regs + ADI_SPI_CTL);
 }
 
-static void adi_spi_dma_terminate(struct adi_spi_master *drv_data)
+static void adi_spi_dma_terminate(struct adi_spi_controller *drv_data)
 {
-	dmaengine_terminate_sync(drv_data->master->dma_tx);
-	dmaengine_terminate_sync(drv_data->master->dma_rx);
+	dmaengine_terminate_sync(drv_data->ctlr->dma_tx);
+	dmaengine_terminate_sync(drv_data->ctlr->dma_rx);
 }
 
 /* Caculate the SPI_CLOCK register value based on input HZ */
@@ -297,7 +297,7 @@ static u32 hz_to_spi_clock(u32 sclk, u32 speed_hz)
 	return spi_clock;
 }
 
-static void adi_spi_u8_write(struct adi_spi_master *drv,
+static void adi_spi_u8_write(struct adi_spi_controller *drv,
 			     struct spi_transfer *xfer)
 {
 	size_t i;
@@ -310,7 +310,7 @@ static void adi_spi_u8_write(struct adi_spi_master *drv,
 	}
 }
 
-static void adi_spi_u16_write(struct adi_spi_master *drv,
+static void adi_spi_u16_write(struct adi_spi_controller *drv,
 			      struct spi_transfer *xfer)
 {
 	size_t i;
@@ -323,7 +323,7 @@ static void adi_spi_u16_write(struct adi_spi_master *drv,
 	}
 }
 
-static void adi_spi_u32_write(struct adi_spi_master *drv,
+static void adi_spi_u32_write(struct adi_spi_controller *drv,
 			      struct spi_transfer *xfer)
 {
 	size_t i;
@@ -336,7 +336,7 @@ static void adi_spi_u32_write(struct adi_spi_master *drv,
 	}
 }
 
-static void adi_spi_u8_read(struct adi_spi_master *drv,
+static void adi_spi_u8_read(struct adi_spi_controller *drv,
 			    struct spi_transfer *xfer)
 {
 	size_t i;
@@ -348,7 +348,7 @@ static void adi_spi_u8_read(struct adi_spi_master *drv,
 	}
 }
 
-static void adi_spi_u16_read(struct adi_spi_master *drv,
+static void adi_spi_u16_read(struct adi_spi_controller *drv,
 			     struct spi_transfer *xfer)
 {
 	size_t i;
@@ -360,7 +360,7 @@ static void adi_spi_u16_read(struct adi_spi_master *drv,
 	}
 }
 
-static void adi_spi_u32_read(struct adi_spi_master *drv,
+static void adi_spi_u32_read(struct adi_spi_controller *drv,
 			     struct spi_transfer *xfer)
 {
 	size_t i;
@@ -372,7 +372,7 @@ static void adi_spi_u32_read(struct adi_spi_master *drv,
 	}
 }
 
-static void adi_spi_u8_duplex(struct adi_spi_master *drv,
+static void adi_spi_u8_duplex(struct adi_spi_controller *drv,
 			      struct spi_transfer *xfer)
 {
 	size_t i;
@@ -385,7 +385,7 @@ static void adi_spi_u8_duplex(struct adi_spi_master *drv,
 	}
 }
 
-static void adi_spi_u16_duplex(struct adi_spi_master *drv,
+static void adi_spi_u16_duplex(struct adi_spi_controller *drv,
 			       struct spi_transfer *xfer)
 {
 	size_t i;
@@ -398,7 +398,7 @@ static void adi_spi_u16_duplex(struct adi_spi_master *drv,
 	}
 }
 
-static void adi_spi_u32_duplex(struct adi_spi_master *drv,
+static void adi_spi_u32_duplex(struct adi_spi_controller *drv,
 			       struct spi_transfer *xfer)
 {
 	size_t i;
@@ -429,10 +429,10 @@ static const struct adi_spi_transfer_ops adi_spi_transfer_ops_u32 = {
 	.duplex = adi_spi_u32_duplex,
 };
 
-static int adi_spi_pio_xfer(struct spi_master *master, struct spi_device *spi,
+static int adi_spi_pio_xfer(struct spi_controller *ctlr, struct spi_device *spi,
 			    struct spi_transfer *xfer)
 {
-	struct adi_spi_master *drv = spi_master_get_devdata(master);
+	struct adi_spi_controller *drv = spi_controller_get_devdata(ctlr);
 
 	if (!xfer->rx_buf) {
 		iowrite32(SPI_RXCTL_REN, drv->regs + ADI_SPI_RXCTL);
@@ -458,18 +458,18 @@ static int adi_spi_pio_xfer(struct spi_master *master, struct spi_device *spi,
  */
 static void adi_spi_rx_dma_isr(void *data)
 {
-	struct adi_spi_master *drv_data = data;
+	struct adi_spi_controller *drv_data = data;
 
 	struct dma_tx_state state;
 	enum dma_status status;
 
-	status = dmaengine_tx_status(drv_data->master->dma_rx, drv_data->rx_cookie, &state);
+	status = dmaengine_tx_status(drv_data->ctlr->dma_rx, drv_data->rx_cookie, &state);
 	if (status == DMA_ERROR)
-		dev_err(&drv_data->master->dev, "spi rx dma error\n");
+		dev_err(&drv_data->ctlr->dev, "spi rx dma error\n");
 
 	iowrite32(0, drv_data->regs + ADI_SPI_TXCTL);
 	iowrite32(0, drv_data->regs + ADI_SPI_RXCTL);
-	spi_finalize_current_transfer(drv_data->master);
+	spi_finalize_current_transfer(drv_data->ctlr);
 }
 
 /*
@@ -477,34 +477,34 @@ static void adi_spi_rx_dma_isr(void *data)
  */
 static void adi_spi_tx_dma_isr(void *data)
 {
-	struct adi_spi_master *drv = data;
+	struct adi_spi_controller *drv = data;
 	struct dma_tx_state state;
 	enum dma_status status;
 
-	status = dmaengine_tx_status(drv->master->dma_tx, drv->tx_cookie, &state);
+	status = dmaengine_tx_status(drv->ctlr->dma_tx, drv->tx_cookie, &state);
 	if (status == DMA_ERROR)
-		dev_err(&drv->master->dev, "spi tx dma error\n");
+		dev_err(&drv->ctlr->dev, "spi tx dma error\n");
 
 	iowrite32(0, drv->regs + ADI_SPI_TXCTL);
 
 	if (drv->cur_transfer->rx_buf) {
 		iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI | SPI_RXCTL_RDR_NE,
 			  drv->regs + ADI_SPI_RXCTL);
-		dma_async_issue_pending(drv->master->dma_rx);
+		dma_async_issue_pending(drv->ctlr->dma_rx);
 	} else {
-		spi_finalize_current_transfer(drv->master);
+		spi_finalize_current_transfer(drv->ctlr);
 	}
 }
 
-static int adi_spi_dma_xfer(struct spi_master *master, struct spi_device *spi,
+static int adi_spi_dma_xfer(struct spi_controller *ctlr, struct spi_device *spi,
 			    struct spi_transfer *xfer)
 {
-	struct adi_spi_master *drv = spi_master_get_devdata(master);
+	struct adi_spi_controller *drv = spi_controller_get_devdata(ctlr);
 	struct dma_async_tx_descriptor *tx_desc;
 	struct dma_async_tx_descriptor *rx_desc;
 
 	if (xfer->tx_buf) {
-		tx_desc = dmaengine_prep_slave_sg(master->dma_tx, xfer->tx_sg.sgl,
+		tx_desc = dmaengine_prep_slave_sg(ctlr->dma_tx, xfer->tx_sg.sgl,
 						  xfer->tx_sg.nents, DMA_MEM_TO_DEV, 0);
 		if (!tx_desc) {
 			dev_err(drv->dev, "Unable to allocate TX DMA descriptor\n");
@@ -519,11 +519,11 @@ static int adi_spi_dma_xfer(struct spi_master *master, struct spi_device *spi,
 
 		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI | SPI_TXCTL_TDR_NF,
 			  drv->regs + ADI_SPI_TXCTL);
-		dma_async_issue_pending(master->dma_tx);
+		dma_async_issue_pending(ctlr->dma_tx);
 	}
 
 	if (xfer->rx_buf) {
-		rx_desc = dmaengine_prep_slave_sg(master->dma_rx, xfer->rx_sg.sgl,
+		rx_desc = dmaengine_prep_slave_sg(ctlr->dma_rx, xfer->rx_sg.sgl,
 						  xfer->rx_sg.nents, DMA_DEV_TO_MEM, 0);
 		if (!rx_desc) {
 			dev_err(drv->dev, "Unable to allocate RX DMA descriptor\n");
@@ -535,7 +535,7 @@ static int adi_spi_dma_xfer(struct spi_master *master, struct spi_device *spi,
 		drv->rx_cookie = dmaengine_submit(rx_desc);
 		iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI | SPI_RXCTL_RDR_NE,
 			  drv->regs + ADI_SPI_RXCTL);
-		dma_async_issue_pending(master->dma_rx);
+		dma_async_issue_pending(ctlr->dma_rx);
 	}
 
 	return 1;
@@ -545,7 +545,7 @@ error:
 	return -ENOENT;
 }
 
-static bool adi_spi_can_dma(struct spi_master *master, struct spi_device *spi,
+static bool adi_spi_can_dma(struct spi_controller *ctlr, struct spi_device *spi,
 			    struct spi_transfer *xfer)
 {
 	struct adi_spi_device *chip = spi_get_ctldata(spi);
@@ -555,10 +555,10 @@ static bool adi_spi_can_dma(struct spi_master *master, struct spi_device *spi,
 	return false;
 }
 
-static int adi_spi_transfer_one(struct spi_master *master, struct spi_device *spi,
+static int adi_spi_transfer_one(struct spi_controller *ctlr, struct spi_device *spi,
 				struct spi_transfer *xfer)
 {
-	struct adi_spi_master *drv = spi_master_get_devdata(master);
+	struct adi_spi_controller *drv = spi_controller_get_devdata(ctlr);
 	u32 cr;
 
 	drv->cur_transfer = xfer;
@@ -572,18 +572,18 @@ static int adi_spi_transfer_one(struct spi_master *master, struct spi_device *sp
 
 	iowrite32(cr, drv->regs + ADI_SPI_CTL);
 
-	if (adi_spi_can_dma(master, spi, xfer))
-		return adi_spi_dma_xfer(master, spi, xfer);
-	return adi_spi_pio_xfer(master, spi, xfer);
+	if (adi_spi_can_dma(ctlr, spi, xfer))
+		return adi_spi_dma_xfer(ctlr, spi, xfer);
+	return adi_spi_pio_xfer(ctlr, spi, xfer);
 }
 
 /*
  * Settings like clock speed and bits per word are assumed to be the same for all
  * transfers in a message. tx_nbits and rx_nbits can change, however
  */
-static int adi_spi_prepare_message(struct spi_master *master, struct spi_message *msg)
+static int adi_spi_prepare_message(struct spi_controller *ctlr, struct spi_message *msg)
 {
-	struct adi_spi_master *drv = spi_master_get_devdata(master);
+	struct adi_spi_controller *drv = spi_controller_get_devdata(ctlr);
 	struct adi_spi_device *chip = spi_get_ctldata(msg->spi);
 	struct dma_slave_config dma_config = { 0 };
 	struct spi_transfer *xfer;
@@ -609,7 +609,7 @@ static int adi_spi_prepare_message(struct spi_master *master, struct spi_message
 		drv->ops = &adi_spi_transfer_ops_u32;
 		break;
 	default:
-		dev_err(&master->dev, "invalid word size in incoming message\n");
+		dev_err(&ctlr->dev, "invalid word size in incoming message\n");
 		return -EINVAL;
 	}
 
@@ -618,20 +618,20 @@ static int adi_spi_prepare_message(struct spi_master *master, struct spi_message
 	cr &= ~SPI_CTL_SOSI;
 	iowrite32(cr, drv->regs + ADI_SPI_CTL);
 
-	if (adi_spi_can_dma(master, msg->spi, xfer)) {
+	if (adi_spi_can_dma(ctlr, msg->spi, xfer)) {
 		dma_config.direction = DMA_MEM_TO_DEV;
 		dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		dma_config.src_maxburst = words;
 		dma_config.dst_maxburst = words;
-		ret = dmaengine_slave_config(master->dma_tx, &dma_config);
+		ret = dmaengine_slave_config(ctlr->dma_tx, &dma_config);
 		if (ret) {
 			dev_err(drv->dev, "tx dma slave config failed: %d\n", ret);
 			return ret;
 		}
 
 		dma_config.direction = DMA_DEV_TO_MEM;
-		ret = dmaengine_slave_config(master->dma_rx, &dma_config);
+		ret = dmaengine_slave_config(ctlr->dma_rx, &dma_config);
 		if (ret) {
 			dev_err(drv->dev, "rx dma slave config failed: %d\n", ret);
 			return ret;
@@ -641,9 +641,9 @@ static int adi_spi_prepare_message(struct spi_master *master, struct spi_message
 	return 0;
 }
 
-static int adi_spi_unprepare_message(struct spi_master *master, struct spi_message *msg)
+static int adi_spi_unprepare_message(struct spi_controller *ctlr, struct spi_message *msg)
 {
-	struct adi_spi_master *drv = spi_master_get_devdata(master);
+	struct adi_spi_controller *drv = spi_controller_get_devdata(ctlr);
 
 	adi_spi_disable(drv);
 	return 0;
@@ -651,16 +651,16 @@ static int adi_spi_unprepare_message(struct spi_master *master, struct spi_messa
 
 static void adi_spi_set_cs(struct spi_device *spi, bool enable)
 {
-	struct adi_spi_master *drv = spi_controller_get_devdata(spi->master);
+	struct adi_spi_controller *drv = spi_controller_get_devdata(spi->controller);
 	u32 ssel;
 
 	ssel = ioread32(drv->regs + ADI_SPI_SLVSEL);
-	ssel |= SPI_SSE(spi->chip_select);
+	ssel |= SPI_SSE(spi_get_chipselect(spi, 0));
 
 	if (enable)
-		ssel |= SPI_SSEL(spi->chip_select);     /* CS deassert */
+		ssel |= SPI_SSEL(spi_get_chipselect(spi, 0));           /* CS deassert */
 	else
-		ssel &= ~SPI_SSEL(spi->chip_select);    /* CS assert */
+		ssel &= ~SPI_SSEL(spi_get_chipselect(spi, 0));          /* CS assert */
 
 	/* Required double write to get result on SLVSEL port */
 	iowrite32(ssel, drv->regs + ADI_SPI_SLVSEL);
@@ -717,7 +717,7 @@ static void adi_spi_cleanup(struct spi_device *spi)
 
 static irqreturn_t spi_irq_err(int irq, void *dev_id)
 {
-	struct adi_spi_master *drv_data = dev_id;
+	struct adi_spi_controller *drv_data = dev_id;
 	u32 status;
 
 	status = ioread32(drv_data->regs + ADI_SPI_STAT);
@@ -764,8 +764,8 @@ static const struct spi_controller_mem_ops adi_qspi_mem_ops = {
 static int adi_spi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct spi_master *master;
-	struct adi_spi_master *drv_data;
+	struct spi_controller *ctlr;
+	struct adi_spi_controller *drv_data;
 	struct resource *mem, *res;
 	struct clk *sclk;
 	int ret;
@@ -776,34 +776,34 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return PTR_ERR(sclk);
 	}
 
-	master = devm_spi_alloc_master(dev, sizeof(*drv_data));
-	if (!master) {
-		dev_err(dev, "can not alloc spi_master\n");
+	ctlr = devm_spi_alloc_master(dev, sizeof(*drv_data));
+	if (!ctlr) {
+		dev_err(dev, "can not alloc spi_controller\n");
 		return -ENOMEM;
 	}
-	platform_set_drvdata(pdev, master);
+	platform_set_drvdata(pdev, ctlr);
 
 	/* the mode bits supported by this driver */
-	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LSB_FIRST |
-			    SPI_TX_DUAL | SPI_TX_QUAD |
-			    SPI_RX_DUAL | SPI_RX_QUAD;
+	ctlr->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LSB_FIRST |
+			  SPI_TX_DUAL | SPI_TX_QUAD |
+			  SPI_RX_DUAL | SPI_RX_QUAD;
 
-	master->dev.of_node = dev->of_node;
-	master->bus_num = -1;
-	master->num_chipselect = SPI_MAX_SS;
-	master->use_gpio_descriptors = true;
-	master->cleanup = adi_spi_cleanup;
-	master->setup = adi_spi_setup;
-	master->set_cs = adi_spi_set_cs;
-	master->prepare_message = adi_spi_prepare_message;
-	master->unprepare_message = adi_spi_unprepare_message;
-	master->transfer_one = adi_spi_transfer_one;
-	master->bits_per_word_mask = BIT(32 - 1) | BIT(16 - 1) | BIT(8 - 1);
-	master->max_native_cs = SPI_MAX_SS;
-	master->mem_ops = &adi_qspi_mem_ops;
+	ctlr->dev.of_node = dev->of_node;
+	ctlr->bus_num = -1;
+	ctlr->num_chipselect = SPI_MAX_SS;
+	ctlr->use_gpio_descriptors = true;
+	ctlr->cleanup = adi_spi_cleanup;
+	ctlr->setup = adi_spi_setup;
+	ctlr->set_cs = adi_spi_set_cs;
+	ctlr->prepare_message = adi_spi_prepare_message;
+	ctlr->unprepare_message = adi_spi_unprepare_message;
+	ctlr->transfer_one = adi_spi_transfer_one;
+	ctlr->bits_per_word_mask = BIT(32 - 1) | BIT(16 - 1) | BIT(8 - 1);
+	ctlr->max_native_cs = SPI_MAX_SS;
+	ctlr->mem_ops = &adi_qspi_mem_ops;
 
-	drv_data = spi_master_get_devdata(master);
-	drv_data->master = master;
+	drv_data = spi_controller_get_devdata(ctlr);
+	drv_data->ctlr = ctlr;
 	drv_data->sclk = sclk;
 	drv_data->sclk_rate = clk_get_rate(sclk);
 	drv_data->dev = dev;
@@ -832,22 +832,22 @@ static int adi_spi_probe(struct platform_device *pdev)
 	iowrite32(0x0, drv_data->regs + ADI_SPI_DLY);
 	iowrite32(SPI_IMSK_SET_ROM, drv_data->regs + ADI_SPI_IMSK_SET);
 
-	master->dma_tx = dma_request_chan(dev, "tx");
-	if (IS_ERR(master->dma_tx)) {
+	ctlr->dma_tx = dma_request_chan(dev, "tx");
+	if (IS_ERR(ctlr->dma_tx)) {
 		dev_warn(dev, "DMA TX channel not available, SPI unable to use DMA\n");
-		master->dma_tx = NULL;
+		ctlr->dma_tx = NULL;
 	} else {
-		master->dma_rx = dma_request_chan(dev, "rx");
-		if (IS_ERR(master->dma_rx)) {
+		ctlr->dma_rx = dma_request_chan(dev, "rx");
+		if (IS_ERR(ctlr->dma_rx)) {
 			dev_warn(dev, "DMA RX channel not available, SPI unable to use DMA\n");
-			dma_release_channel(master->dma_tx);
-			master->dma_tx = NULL;
-			master->dma_rx = NULL;
+			dma_release_channel(ctlr->dma_tx);
+			ctlr->dma_tx = NULL;
+			ctlr->dma_rx = NULL;
 		}
 	}
 
-	if (master->dma_rx && master->dma_tx)
-		master->can_dma = adi_spi_can_dma;
+	if (ctlr->dma_rx && ctlr->dma_tx)
+		ctlr->can_dma = adi_spi_can_dma;
 
 	ret = clk_prepare_enable(drv_data->sclk);
 	if (ret) {
@@ -855,55 +855,53 @@ static int adi_spi_probe(struct platform_device *pdev)
 		goto err_free_dma;
 	}
 
-	ret = devm_spi_register_master(dev, master);
+	ret = devm_spi_register_controller(dev, ctlr);
 	if (ret) {
-		dev_err(dev, "can not  register spi master\n");
+		dev_err(dev, "cannot register spi controller\n");
 		goto err_free_dma;
 	}
 
 	dev_info(dev, "registered ADI SPI controller %s\n",
-		 dev_name(&master->dev));
+		 dev_name(&ctlr->dev));
 	return ret;
 
 err_free_dma:
-	if (master->dma_tx) {
-		dma_release_channel(master->dma_rx);
-		dma_release_channel(master->dma_tx);
-		master->dma_tx = NULL;
-		master->dma_rx = NULL;
+	if (ctlr->dma_tx) {
+		dma_release_channel(ctlr->dma_rx);
+		dma_release_channel(ctlr->dma_tx);
+		ctlr->dma_tx = NULL;
+		ctlr->dma_rx = NULL;
 	}
 
 	return ret;
 }
 
-static int adi_spi_remove(struct platform_device *pdev)
+static void adi_spi_remove(struct platform_device *pdev)
 {
-	struct spi_master *master = platform_get_drvdata(pdev);
-	struct adi_spi_master *drv_data = spi_master_get_devdata(master);
+	struct spi_controller *ctlr = platform_get_drvdata(pdev);
+	struct adi_spi_controller *drv_data = spi_controller_get_devdata(ctlr);
 
 	adi_spi_disable(drv_data);
 	clk_disable_unprepare(drv_data->sclk);
 
-	if (master->dma_tx)
-		dma_release_channel(master->dma_tx);
-	if (master->dma_rx)
-		dma_release_channel(master->dma_rx);
-
-	return 0;
+	if (ctlr->dma_tx)
+		dma_release_channel(ctlr->dma_tx);
+	if (ctlr->dma_rx)
+		dma_release_channel(ctlr->dma_rx);
 }
 
 static int __maybe_unused adi_spi_suspend(struct device *dev)
 {
-	struct spi_master *master = dev_get_drvdata(dev);
+	struct spi_controller *ctlr = dev_get_drvdata(dev);
 
-	return spi_master_suspend(master);
+	return spi_controller_suspend(ctlr);
 }
 
 static int __maybe_unused adi_spi_resume(struct device *dev)
 {
-	struct spi_master *master = dev_get_drvdata(dev);
+	struct spi_controller *ctlr = dev_get_drvdata(dev);
 
-	return spi_master_resume(master);
+	return spi_controller_resume(ctlr);
 }
 
 static const struct dev_pm_ops adi_spi_pm_ops = {

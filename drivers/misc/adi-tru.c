@@ -491,7 +491,7 @@ static int adi_tru_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int adi_tru_remove(struct platform_device *pdev)
+static void adi_tru_remove(struct platform_device *pdev)
 {
 	struct adi_tru *tru = platform_get_drvdata(pdev);
 
@@ -502,8 +502,6 @@ static int adi_tru_remove(struct platform_device *pdev)
 	mutex_lock(&tru_list_lock);
 	list_del(&tru->node);
 	mutex_unlock(&tru_list_lock);
-
-	return 0;
 }
 
 static const struct of_device_id adi_tru_match_table[] = {

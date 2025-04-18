@@ -37,7 +37,9 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/platform_device.h>
 #include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/pinconf.h>
 #include "pinctrl-adi.h"
 #include "pinctrl-adrv906x-init-tbl.h"
 #include "../core.h"
@@ -386,10 +388,9 @@ static int adi_adrv906x_pinctrl_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int adi_adrv906x_pinctrl_remove(struct platform_device *pdev)
+static void adi_adrv906x_pinctrl_remove(struct platform_device *pdev)
 {
 	sysfs_remove_groups(&pdev->dev.kobj, (const struct attribute_group **)adrv906x_pinctrl_groups);
-	return 0;
 }
 
 static struct platform_driver adi_adrv906x_pinctrl_driver = {

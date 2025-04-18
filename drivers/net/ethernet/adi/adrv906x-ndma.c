@@ -525,7 +525,7 @@ static void adrv906x_ndma_set_frame_size(struct adrv906x_ndma_dev *ndma_dev)
 	iowrite32(val, tx_chan->ctrl_base + NDMA_TX_FRAME_SIZE);
 }
 
-void adrv906x_ndma_set_tx_timeout_value(struct adrv906x_ndma_dev *ndma_dev, u32 val)
+static void adrv906x_ndma_set_tx_timeout_value(struct adrv906x_ndma_dev *ndma_dev, u32 val)
 {
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
 
@@ -1047,7 +1047,7 @@ static void adrv906x_ndma_reset(struct adrv906x_ndma_dev *ndma_dev)
 	spin_unlock_irqrestore(&tx_chan->lock, flags);
 }
 
-int adrv906x_ndma_alloc_rings(struct adrv906x_ndma_dev *ndma_dev)
+static int adrv906x_ndma_alloc_rings(struct adrv906x_ndma_dev *ndma_dev)
 {
 	struct adrv906x_ndma_chan *rx_chan = &ndma_dev->rx_chan;
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
@@ -1114,7 +1114,7 @@ int adrv906x_ndma_alloc_rings(struct adrv906x_ndma_dev *ndma_dev)
 	return 0;
 }
 
-void adrv906x_ndma_config_loopback(struct adrv906x_ndma_dev *ndma_dev, bool enable)
+static void adrv906x_ndma_config_loopback(struct adrv906x_ndma_dev *ndma_dev, bool enable)
 {
 	struct adrv906x_ndma_chan *rx_chan = &ndma_dev->rx_chan;
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
@@ -1828,10 +1828,10 @@ int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 
 	INIT_LIST_HEAD(&rx_chan->rx_data_wu_list);
 
-	netif_napi_add(ndev, &rx_chan->napi,
-		       adrv906x_ndma_rx_data_and_status_poll, NDMA_RX_NAPI_POLL_WEIGHT);
-	netif_napi_add(ndev, &tx_chan->napi,
-		       adrv906x_ndma_tx_status_poll, NDMA_TX_NAPI_POLL_WEIGHT);
+	netif_napi_add_weight(ndev, &rx_chan->napi,
+			      adrv906x_ndma_rx_data_and_status_poll, NDMA_RX_NAPI_POLL_WEIGHT);
+	netif_napi_add_weight(ndev, &tx_chan->napi,
+			      adrv906x_ndma_tx_status_poll, NDMA_TX_NAPI_POLL_WEIGHT);
 
 	return 0;
 }

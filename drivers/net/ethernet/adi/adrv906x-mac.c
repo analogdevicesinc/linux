@@ -31,7 +31,7 @@ void adrv906x_mac_promiscuous_mode_dis(struct adrv906x_mac *mac)
 	iowrite32(val, emac_rx + MAC_RX_CTRL);
 }
 
-void adrv906x_mac_tx_path_en(struct adrv906x_mac *mac)
+static void adrv906x_mac_tx_path_en(struct adrv906x_mac *mac)
 {
 	void __iomem *emac_tx = mac->emac_tx;
 	unsigned int val;
@@ -41,7 +41,7 @@ void adrv906x_mac_tx_path_en(struct adrv906x_mac *mac)
 	iowrite32(val, emac_tx + MAC_TX_CTRL);
 }
 
-void adrv906x_mac_tx_path_dis(struct adrv906x_mac *mac)
+static void adrv906x_mac_tx_path_dis(struct adrv906x_mac *mac)
 {
 	void __iomem *emac_tx = mac->emac_tx;
 	unsigned int val;
