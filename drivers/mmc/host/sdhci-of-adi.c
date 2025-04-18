@@ -17,6 +17,7 @@
 #include <linux/sizes.h>
 
 #include "sdhci-pltfm.h"
+#include "sdhci.h"
 
 /* Vendor register offsets */
 #define SDHCI_VENDOR1_MSHC_CTRL_R_OFF                  (0x508U)
@@ -388,48 +389,6 @@ static void adi_sdhci_hw_reset(struct sdhci_host *host)
 	}
 }
 
-/* This function is a pure copy-paste from sdhci.c file.
- * TODO: You can remove it when upgrading to a more recent kernel version
- *       (the function was made public on December 7th, 2023).
- */
-static int __sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
-{
-	int i;
-
-	/*
-	 * Issue opcode repeatedly till Execute Tuning is set to 0 or the number
-	 * of loops reaches tuning loop count.
-	 */
-	for (i = 0; i < host->tuning_loop_count; i++) {
-		u16 ctrl;
-
-		sdhci_send_tuning(host, opcode);
-
-		if (!host->tuning_done) {
-			pr_debug("%s: Tuning timeout, falling back to fixed sampling clock\n",
-				 mmc_hostname(host->mmc));
-			sdhci_abort_tuning(host, opcode);
-			return -ETIMEDOUT;
-		}
-
-		/* Spec does not require a delay between tuning cycles */
-		if (host->tuning_delay > 0)
-			mdelay(host->tuning_delay);
-
-		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-		if (!(ctrl & SDHCI_CTRL_EXEC_TUNING)) {
-			if (ctrl & SDHCI_CTRL_TUNED_CLK)
-				return 0; /* Success! */
-			break;
-		}
-	}
-
-	pr_info("%s: Tuning failed, falling back to fixed sampling clock\n",
-		mmc_hostname(host->mmc));
-	sdhci_reset_tuning(host);
-	return -EAGAIN;
-}
-
 /* This hook is used to inject a workaround for an issue that has nothing to do
  * with tuning, but it is the only place to do it.
  * This code is a copy-paste from sdhci_execute_tuning (sdhci.c file), except
@@ -724,7 +683,7 @@ free_pltfm:
 	return err;
 }
 
-static int dwcmshc_remove(struct platform_device *pdev)
+static void dwcmshc_remove(struct platform_device *pdev)
 {
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -736,8 +695,6 @@ static int dwcmshc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(priv->bus_clk);
 
 	sdhci_pltfm_free(pdev);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

@@ -231,7 +231,7 @@ static int adi_pwm_dac_probe(struct platform_device *pdev)
 	return iio_device_register(indio_dev);
 }
 
-static int adi_pwm_dac_remove(struct platform_device *pdev)
+static void adi_pwm_dac_remove(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 	struct adi_pwm_dac *dac = iio_priv(indio_dev);
@@ -240,8 +240,6 @@ static int adi_pwm_dac_remove(struct platform_device *pdev)
 
 	/* Disable all channels */
 	writel(0, dac->base + PWM_CONTROL_REG);
-
-	return 0;
 }
 
 static const struct of_device_id adi_pwm_dac_of_match[] = {

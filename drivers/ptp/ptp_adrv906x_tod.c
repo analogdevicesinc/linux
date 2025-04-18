@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/io.h>
+#include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
@@ -1194,11 +1195,6 @@ static int adrv906x_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
 	return adrv906x_tod_adjtime(counter, delta);
 }
 
-static int adrv906x_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
-{
-	return -EOPNOTSUPP;
-}
-
 static int adrv906x_phc_gettimex(struct ptp_clock_info *ptp,
 				 struct timespec64 *ts,
 				 struct ptp_system_timestamp *sts)
@@ -1214,7 +1210,6 @@ static struct ptp_clock_info adrv906x_tod_caps = {
 	.n_ext_ts	= 1,
 	.pps		= 1,
 	.adjfine	= NULL,
-	.adjfreq	= &adrv906x_phc_adjfreq,
 	.adjtime	= &adrv906x_phc_adjtime,
 	.gettimex64	= &adrv906x_phc_gettimex,
 	.getcrosststamp = NULL,
@@ -1295,7 +1290,6 @@ int adrv906x_tod_register_pll(struct ptp_clock_info *pll_caps)
 
 	for (i = 0; i < ADRV906X_HW_TOD_COUNTER_CNT; i++) {
 		adrv906x_tod->counter[i].caps.adjfine = pll_caps->adjfine;
-		adrv906x_tod->counter[i].caps.adjfreq = pll_caps->adjfreq;
 		memcpy(adrv906x_tod->counter[i].caps.name, pll_caps->name,
 		       sizeof(adrv906x_tod->counter[i].caps.name));
 	}
@@ -1308,7 +1302,7 @@ EXPORT_SYMBOL(adrv906x_tod_register_pll);
  * @brief Disable all counter outputs
  * @param tod Context struct
  */
-void adrv906x_tod_hw_disable_all(struct adrv906x_tod *tod)
+static void adrv906x_tod_hw_disable_all(struct adrv906x_tod *tod)
 {
 	/* Disable debug outputs */
 	ADRV906X_REG_WRITE(tod, ADRV906X_TOD_CFG_IO_CTRL, 0);
@@ -1529,13 +1523,13 @@ EXPORT_SYMBOL(adrv906x_tod_probe);
  * @param pdev Context struct
  * @return See kernel log for error descriptions
  */
-int adrv906x_tod_remove(struct platform_device *pdev)
+void adrv906x_tod_remove(struct platform_device *pdev)
 {
 	struct adrv906x_tod_counter *counter;
 	int i;
 
 	if (!adrv906x_tod)
-		return -ENODEV;
+		return;
 
 	adrv906x_tod_hw_disable_all(adrv906x_tod);
 
@@ -1553,8 +1547,6 @@ int adrv906x_tod_remove(struct platform_device *pdev)
 		cancel_delayed_work_sync(&adrv906x_tod->pps_work);
 
 	mutex_destroy(&adrv906x_tod->reg_lock);
-
-	return 0;
 }
 EXPORT_SYMBOL(adrv906x_tod_remove);
 

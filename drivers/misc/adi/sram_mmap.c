@@ -62,17 +62,6 @@ struct adi_sram_mmap {
 	struct reserved_mem *rmem;
 };
 
-int sram_set_page_dirty(struct page *page)
-{
-	/* do nothing but avoid using __set_page_dirty_buffers which would
-	 * actually mark the page as dirty and cause a warning later */
-	return 0;
-}
-
-struct address_space_operations sram_aops = {
-	.set_page_dirty = sram_set_page_dirty,
-};
-
 /**
  * For now ignore pgoff supplied by the user and start mapping at
  * the start of SRAM
@@ -97,7 +86,7 @@ static int sram_mmap(struct file *fp, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	fp->f_mapping->a_ops = &sram_aops;
+	fp->f_mapping->a_ops = &ram_aops;
 	vma->vm_page_prot = __pgprot_modify(vma->vm_page_prot, PTE_ATTRINDX_MASK,
 					    PTE_ATTRINDX(MT_NORMAL) | PTE_PXN | PTE_UXN);
 	vma->vm_private_data = sram;
@@ -187,13 +176,11 @@ static int adi_sram_mmap_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int adi_sram_mmap_remove(struct platform_device *pdev)
+static void adi_sram_mmap_remove(struct platform_device *pdev)
 {
 	struct adi_sram_mmap *sram = dev_get_drvdata(&pdev->dev);
 
 	misc_deregister(&sram->miscdev);
-
-	return 0;
 }
 
 static struct platform_driver adi_sram_mmap_driver = {

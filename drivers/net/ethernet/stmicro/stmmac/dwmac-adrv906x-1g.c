@@ -182,25 +182,9 @@ static int adrv906x_dwmac_set_clk_dividers(void *priv, unsigned int speed, bool 
 	return 0;
 }
 
-static void adrv906x_dwmac_fix_mac_speed(void *priv, unsigned int speed)
+static void adrv906x_dwmac_fix_mac_speed(void *priv, unsigned int speed, unsigned int mode)
 {
 	adrv906x_dwmac_set_clk_dividers(priv, speed, false);
-}
-
-void adrv906x_dwmac_link_update_info(struct net_device *ndev)
-{
-	struct stmmac_priv *stm_priv = netdev_priv(ndev);
-	struct phy_device *phydev = ndev->phydev;
-
-	if (!phydev->link) {
-		stm_priv->speed = 0;
-		netdev_info(ndev, "%s: link down", ndev->name);
-		return;
-	}
-
-	netdev_info(ndev, "%s: link up, speed %u Mb/s, %s duplex",
-		    ndev->name, phydev->speed,
-		    phydev->duplex ? "full" : "half");
 }
 
 static void adrv906x_clk_buffer_enable(void __iomem *clk_ctrl_base, bool term_en)
@@ -244,7 +228,7 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 		return ret;
 
 	if (pdev->dev.of_node) {
-		plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
+		plat_dat = devm_stmmac_probe_config_dt(pdev, stmmac_res.mac);
 		if (IS_ERR(plat_dat)) {
 			dev_err(&pdev->dev, "dt configuration failed");
 			return PTR_ERR(plat_dat);
@@ -264,9 +248,9 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 	}
 
 	if (macaddr) {
-		memset(sock_addr.sa_data, 0, sizeof(sock_addr.sa_data));
+		memset(sock_addr.sa_data, 0, sizeof(sock_addr.sa_data_min));
 		mac_pton(macaddr, sock_addr.sa_data);
-		stmmac_res.mac = sock_addr.sa_data;
+		ether_addr_copy(stmmac_res.mac, sock_addr.sa_data);
 	}
 
 	clk_div_np = of_get_child_by_name(pdev->dev.of_node, "clock_divider");
@@ -297,7 +281,7 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 	if (plat_dat->init) {
 		ret = plat_dat->init(pdev, plat_dat->bsp_priv);
 		if (ret)
-			goto err_remove_config_dt;
+			return ret;
 	}
 
 
@@ -308,7 +292,7 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 	 */
 	ret = adrv906x_dwmac_set_clk_dividers(adrv_priv, SPEED_100, true);
 	if (ret)
-		goto err_remove_config_dt;
+		return ret;
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
@@ -320,30 +304,14 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 	/* Change interface name from DT property */
 	ret = of_property_read_string(pdev->dev.of_node, "if-name", &if_name);
 	dev_info(dev, "TRY using %s interface name from device tree", if_name);
-	if (!ret) {
-		rtnl_lock();
-		ret = dev_change_name(ndev, if_name);
-		rtnl_unlock();
-		switch (-ret) {
-		case EINVAL:
-			dev_err(dev, "interface name: %s is not valid, not switching from default", if_name);
-			break;
-		case EEXIST:
-			dev_err(dev, "interface name: %s is already used, not switching from default", if_name);
-			break;
-		default:
-			break;
-		}
-	}
+	if (!ret)
+		strscpy(ndev->name, if_name, sizeof(ndev->name));
 
 	return 0;
 
 err_exit:
 	if (plat_dat->exit)
 		plat_dat->exit(pdev, plat_dat->bsp_priv);
-err_remove_config_dt:
-	if (pdev->dev.of_node)
-		stmmac_remove_config_dt(pdev, plat_dat);
 
 	devm_kfree(dev, adrv_priv);
 	return ret;

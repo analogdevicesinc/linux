@@ -121,8 +121,8 @@ struct payload_hdr {
 } __packed;
 
 struct adrv906x_packet_attrs {
-	unsigned char *src;
-	unsigned char *dst;
+	const unsigned char *src;
+	const unsigned char *dst;
 	u32 ip_src;
 	u32 ip_dst;
 	int sport;
@@ -154,8 +154,8 @@ struct adrv906x_test_priv {
 
 static u8 adrv906x_packet_next_id;
 
-int adrv906x_ethtool_set_link_ksettings(struct net_device *ndev,
-					const struct ethtool_link_ksettings *cmd)
+static int adrv906x_ethtool_set_link_ksettings(struct net_device *ndev,
+					       const struct ethtool_link_ksettings *cmd)
 {
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(advertising);
 	u8 autoneg = cmd->base.autoneg;
@@ -199,7 +199,7 @@ int adrv906x_ethtool_set_link_ksettings(struct net_device *ndev,
 	return 0;
 }
 
-int adrv906x_ethtool_get_ts_info(struct net_device *ndev, struct ethtool_ts_info *info)
+static int adrv906x_ethtool_get_ts_info(struct net_device *ndev, struct kernel_ethtool_ts_info *info)
 {
 	info->so_timestamping =
 		SOF_TIMESTAMPING_TX_SOFTWARE |
@@ -231,7 +231,7 @@ int adrv906x_ethtool_get_ts_info(struct net_device *ndev, struct ethtool_ts_info
 	return 0;
 }
 
-int adrv906x_ethtool_get_sset_count(struct net_device *ndev, int sset)
+static int adrv906x_ethtool_get_sset_count(struct net_device *ndev, int sset)
 {
 	if (sset == ETH_SS_STATS)
 		return ADRV906X_NUM_STATS;
@@ -242,7 +242,7 @@ int adrv906x_ethtool_get_sset_count(struct net_device *ndev, int sset)
 	return -EOPNOTSUPP;
 }
 
-void adrv906x_ethtool_get_strings(struct net_device *ndev, u32 sset, u8 *buf)
+static void adrv906x_ethtool_get_strings(struct net_device *ndev, u32 sset, u8 *buf)
 {
 	if (sset == ETH_SS_STATS)
 		memcpy(buf, &adrv906x_gstrings_stats_names,
@@ -253,8 +253,8 @@ void adrv906x_ethtool_get_strings(struct net_device *ndev, u32 sset, u8 *buf)
 		       sizeof(adrv906x_gstrings_selftest_names));
 }
 
-void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_stats *stats,
-				u64 *data)
+static void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_stats *stats,
+				       u64 *data)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	union adrv906x_ndma_chan_stats *ndma_rx_stats = &adrv906x_dev->ndma_dev->rx_chan.stats;
@@ -444,8 +444,8 @@ static int adrv906x_test_loopback_validate(struct sk_buff *skb, struct net_devic
 					   struct packet_type *pt, struct net_device *orig_ndev)
 {
 	struct adrv906x_test_priv *tpriv = pt->af_packet_priv;
-	unsigned char *src = tpriv->packet->src;
-	unsigned char *dst = tpriv->packet->dst;
+	const unsigned char *src = tpriv->packet->src;
+	const unsigned char *dst = tpriv->packet->dst;
 
 	struct payload_hdr *phdr;
 	struct ethhdr *ehdr;
@@ -772,7 +772,7 @@ struct adrv906x_test adrv906x_ethtool_selftests[] = {
 	},
 };
 
-void adrv906x_ethtool_selftest_run(struct net_device *ndev, struct ethtool_test *etest, u64 *buf)
+static void adrv906x_ethtool_selftest_run(struct net_device *ndev, struct ethtool_test *etest, u64 *buf)
 {
 	unsigned char etest_flags = etest->flags;
 	int i, ret;

@@ -6,7 +6,7 @@
 #ifndef __DRIVERS_GPIO_ADI_SMC_H
 #define __DRIVERS_GPIO_ADI_SMC_H
 
-#include <stdbool.h>
+#include <linux/types.h>
 
 bool adi_adrv906x_pintmux_map(unsigned int gpio, bool polarity, unsigned int *irq, uintptr_t base_addr);
 bool adi_adrv906x_pintmux_unmap(unsigned int gpio, uintptr_t base_addr);

@@ -459,13 +459,14 @@ static int adi_twi_master_xfer_atomic(struct i2c_adapter *adap,
 	return adi_twi_do_master_xfer(adap, msgs, num, true);
 }
 
+#if 0
 /*
  * One I2C SMBus transfer
  */
-int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
-			  unsigned short flags, char read_write,
-			  u8 command, int size, union i2c_smbus_data *data,
-			  bool polling)
+static int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
+				 unsigned short flags, char read_write,
+				 u8 command, int size, union i2c_smbus_data *data,
+				 bool polling)
 {
 	struct adi_twi_iface *iface = adap->algo_data;
 	int rc = 0;
@@ -701,6 +702,7 @@ int adi_twi_smbus_xfer_atomic(struct i2c_adapter *adap, u16 addr,
 	return adi_twi_do_smbus_xfer(adap, addr, flags,
 				     read_write, command, size, data, true);
 }
+#endif
 
 /*
  * Return what the adapter supports
@@ -894,14 +896,12 @@ out_error:
 	return rc;
 }
 
-static int i2c_adi_twi_remove(struct platform_device *pdev)
+static void i2c_adi_twi_remove(struct platform_device *pdev)
 {
 	struct adi_twi_iface *iface = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(iface->sclk);
 	i2c_del_adapter(&(iface->adap));
-
-	return 0;
 }
 
 static struct platform_driver i2c_adi_twi_driver = {

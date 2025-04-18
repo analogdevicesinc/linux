@@ -296,15 +296,12 @@ static int adi_adrv906x_gpio_child_to_parent_hwirq(struct gpio_chip *gc,
  * @parent_hwirq: parent IRQ number
  * @parent_type:  IRQ type (such as IRQ_TYPE_*)
  */
-static void *adi_adrv906x_gpio_populate_parent_alloc_arg(struct gpio_chip *chip,
-							 unsigned int parent_hwirq,
-							 unsigned int parent_type)
+static int adi_adrv906x_gpio_populate_parent_alloc_arg(struct gpio_chip *chip,
+						       union gpio_irq_fwspec *gfwspec,
+						       unsigned int parent_hwirq,
+						       unsigned int parent_type)
 {
-	struct irq_fwspec *fwspec;
-
-	fwspec = kmalloc(sizeof(*fwspec), GFP_KERNEL);
-	if (!fwspec)
-		return NULL;
+	struct irq_fwspec *fwspec = &gfwspec->fwspec;
 
 	fwspec->fwnode = chip->irq.parent_domain->fwnode;
 	fwspec->param_count = 3;
@@ -312,7 +309,7 @@ static void *adi_adrv906x_gpio_populate_parent_alloc_arg(struct gpio_chip *chip,
 	fwspec->param[1] = parent_hwirq;
 	fwspec->param[2] = parent_type;
 
-	return fwspec;
+	return 0;
 }
 
 /**

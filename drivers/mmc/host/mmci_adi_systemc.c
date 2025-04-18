@@ -674,7 +674,8 @@ static u32 ux500v2_get_dctrl_cfg(struct mmci_host *host)
 	return MCI_DPSM_ENABLE | (host->data->blksz << 16);
 }
 
-static bool ux500_busy_complete(struct mmci_host *host, u32 status, u32 err_msk)
+static bool ux500_busy_complete(struct mmci_host *host, struct mmc_command *cmd,
+				u32 status, u32 err_msk)
 {
 	void __iomem *base = host->base;
 
@@ -1409,7 +1410,7 @@ mmci_cmd_irq(struct mmci_host *host, struct mmc_command *cmd,
 
 	/* Handle busy detection on DAT0 if the variant supports it. */
 	if (busy_resp && host->variant->busy_detect)
-		if (!host->ops->busy_complete(host, status, err_msk))
+		if (!host->ops->busy_complete(host, cmd, status, err_msk))
 			return;
 
 	host->cmd = NULL;
@@ -1768,10 +1769,6 @@ static void mmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	u32 pwr = 0;
 	unsigned long flags;
 	int ret;
-
-	if (host->plat->ios_handler &&
-		host->plat->ios_handler(mmc_dev(mmc), ios))
-			dev_err(mmc_dev(mmc), "platform ios_handler failed\n");
 
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
