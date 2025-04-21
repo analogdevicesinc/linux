@@ -5291,8 +5291,8 @@ void igc_down(struct igc_adapter *adapter)
 		}
 	}
 
-	del_timer_sync(&adapter->watchdog_timer);
-	del_timer_sync(&adapter->phy_info_timer);
+	timer_delete_sync(&adapter->watchdog_timer);
+	timer_delete_sync(&adapter->phy_info_timer);
 
 	/* record the stats before reset*/
 	spin_lock(&adapter->stats64_lock);
@@ -7231,6 +7231,7 @@ static int igc_probe(struct pci_dev *pdev,
 
 err_register:
 	igc_release_hw_control(adapter);
+	igc_ptp_stop(adapter);
 err_eeprom:
 	if (!igc_check_reset_block(hw))
 		igc_reset_phy(hw);
@@ -7272,8 +7273,8 @@ static void igc_remove(struct pci_dev *pdev)
 
 	set_bit(__IGC_DOWN, &adapter->state);
 
-	del_timer_sync(&adapter->watchdog_timer);
-	del_timer_sync(&adapter->phy_info_timer);
+	timer_delete_sync(&adapter->watchdog_timer);
+	timer_delete_sync(&adapter->phy_info_timer);
 
 	cancel_work_sync(&adapter->reset_task);
 	cancel_work_sync(&adapter->watchdog_task);
