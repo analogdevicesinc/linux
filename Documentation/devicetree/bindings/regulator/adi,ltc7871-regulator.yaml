@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright (c) 2025 Analog Devices, Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/regulator/adi,ltc7871-regulator.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices LTC7871 Buck-Boost Voltage Regulator
+maintainers:
+  - Celine Joy Capua <celinejoy.capua@analog.com>
+
+description:
+  The LTC7871 is a high performance bidirectional buck or boost switching
+  regulator controller that operates in either buck or boost mode on demand.
+  It regulates in buck mode from VHIGH-to-VLOW and boost mode from
+  VLOW-to-VHIGH depending on a control signal, making it ideal for 48V/12V
+  automotive dual battery systems
+properties:
+  compatible:
+    enum:
+      - adi,ltc7871
+      - adi,ltc7872
+
+  reg:
+    maxItems: 1
+
+  adi,enable-chip-ctrl-wp:
+    description: If present, this indicates the use of regulator's
+      internal write protection.
+    type: boolean
+
+  adi,ra-external-ohms:
+    description: External Resistor used to compute the value of
+      programmable VLOW in buck mode.
+    default: 10000
+
+  adi,rb-external-ohms:
+    description: External Resistor used to compute the value of
+      programmable VLOW in buck mode.
+    default: 107000
+
+  adi,rc-external-ohms:
+    description: External Resistor used to compute the value of
+      programmable VHIGH in boost mode.
+    default: 12700
+
+  adi,rd-external-ohms:
+    description: External Resistor used to compute the value of
+      programmable VHIGH in boost mode.
+    default: 499000
+
+  adi,idac-setcur-microamp:
+    description: Adjusts the IDAC_SETCUR to program SETCUR
+      pin's sourcing current.
+    minimum: -63
+    maximum: 64
+    default: 0
+
+  adi,freq-spread-percentage:
+    description: Sets the range of modulation with respect to the
+      switching frequency.
+    enum: [+-12%, +-15%, +-10%, +-8%]
+    default: +-12%
+
+  adi,switching-freq-divider:
+    description: The factor at which the switching frequency is
+      divided to get the modulation frequency.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [512, 1024, 2048, 4096, 256, 128, 64]
+    default: 512
+
+required:
+  - compatible
+  - reg
+
+allOf:
+  - $ref: regulator.yaml#
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
+      regulator@0 {
+        compatible = "adi,ltc7871";
+        reg = <0>;
+        adi,ra-external-ohm = <10000>;
+        adi,rb-external-ohm = <107000>;
+        adi,rc-external-ohm = <12700>;
+        adi,rd-external-ohm = <499000>;
+        adi,idac-setcur-microamp = <0>;
+        adi,freq-spread-percentage = "+-12%";
+        adi,switching-freq-divider = <512>;
+      };
+    };
