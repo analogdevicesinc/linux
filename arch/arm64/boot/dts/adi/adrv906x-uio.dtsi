@@ -255,23 +255,6 @@
         >;
     };
 
-    /* RegMap UIO Device: interrupt_transmuter_core */
-    uio-adrv906x-regmap-interrupt_transmuter_core@20201000 {
-        compatible = "generic-uio";
-        reg = <
-            0x20201000 0x1c4 /* INST_PROC_DFE_PERIP_INTERRUPT_TRANSMUTER*/
-        >;
-    };
-
-    /* RegMap UIO Device: sec-interrupt_transmuter_core */
-    uio-adrv906x-regmap-sec-interrupt_transmuter_core@24201000 {
-        compatible = "generic-uio";
-        status = "disabled";
-        reg = <
-            0x24201000 0x1c4 /* INST_SEC_PROC_DFE_PERIP_INTERRUPT_TRANSMUTER*/
-        >;
-    };
-
     /* RegMap UIO Device: kfa */
     uio-adrv906x-regmap-kfa@18609000 {
         compatible = "generic-uio";
