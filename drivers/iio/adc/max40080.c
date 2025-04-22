@@ -113,13 +113,81 @@
 
 struct max40080_state {
 	struct i2c_client *client;
-	struct regmap *regmap;
 };
 
-static const struct regmap_config max40080_regmap_config = {
-	.reg_bits = 8,
-	.val_bits = 8,
-};
+static int max40080_write_byte(const struct i2c_client *client, u8 reg, u8 val)
+{
+	union i2c_smbus_data data;
+	int ret;
+
+	data.byte = val;
+	ret = i2c_smbus_xfer(client->adapter, client->addr,
+			     client->flags | I2C_CLIENT_PEC,
+			     I2C_SMBUS_WRITE, reg,
+			     I2C_SMBUS_BYTE_DATA, &data);
+	if (ret) {
+		dev_err(&client->dev, "Failed to read reg 0x%02X, ERROR %d", reg, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int max40080_write_word(const struct i2c_client *client, u8 reg, u16 val)
+{
+	union i2c_smbus_data data;
+	int ret;
+
+	data.word = val;
+	ret = i2c_smbus_xfer(client->adapter, client->addr,
+			     client->flags | I2C_CLIENT_PEC,
+			     I2C_SMBUS_WRITE, reg,
+			     I2C_SMBUS_WORD_DATA, &data);
+	if (ret) {
+		dev_err(&client->dev, "Failed to read reg 0x%02X, ERROR %d", reg, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int max40080_read_byte(const struct i2c_client *client, u8 reg, u8 *val)
+{
+	union i2c_smbus_data data;
+	int ret;
+
+	ret = i2c_smbus_xfer(client->adapter, client->addr,
+			     client->flags | I2C_CLIENT_PEC,
+			     I2C_SMBUS_READ, reg,
+			     I2C_SMBUS_BYTE_DATA, &data);
+	if (ret) {
+		dev_err(&client->dev, "Failed to read reg 0x%02X, ERROR %d", reg, ret);
+		return ret;
+	}
+
+	*val = data.byte;
+
+	return 0;
+}
+
+static int max40080_read_word(const struct i2c_client *client, u8 reg, u16 *val)
+{
+	union i2c_smbus_data data;
+	int ret;
+
+	ret = i2c_smbus_xfer(client->adapter, client->addr,
+			     client->flags | I2C_CLIENT_PEC,
+			     I2C_SMBUS_READ, reg,
+			     I2C_SMBUS_WORD_DATA, &data);
+	if (ret) {
+		dev_err(&client->dev, "Failed to read reg 0x%02X, ERROR %d", reg, ret);
+		return ret;
+	}
+
+	*val = data.word;
+
+	return 0;
+}
 
 static int max40080_read_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
@@ -147,9 +215,9 @@ static int max40080_reg_access(struct iio_dev *indio_dev,
 	struct max40080_state *st = iio_priv(indio_dev);
 
 	if (read_val)
-		return regmap_bulk_read(st->regmap, reg, read_val, 2);
+		return max40080_read_word(st->client, reg, (u16 *)read_val);
 
-	return regmap_bulk_write(st->regmap, reg, &write_val, 2);
+	return max40080_write_word(st->client, reg, write_val);
 }
 
 static const struct iio_info max40080_info = {
@@ -184,7 +252,7 @@ static int max40080_init(struct max40080_state *st)
 	tmp = FIELD_PREP(MAX40080_MODE_MSK, MAX40080_ACTIVE_MODE) |
 	      FIELD_PREP(MAX40080_I2C_TO_MSK, 0) |
 	      FIELD_PREP(MAX40080_ALERT_MSK, 0) |
-	      FIELD_PREP(MAX40080_PEC_EN_MSK, 0) |
+	      FIELD_PREP(MAX40080_PEC_EN_MSK, 1) |
 	      FIELD_PREP(MAX40080_RANGE_MSK, 0) |
 	      FIELD_PREP(MAX40080_HS_MSK, 0) |
 	      FIELD_PREP(MAX40080_ADC_RATE_MSK, MAX40080_SR_15_KSPS) |
@@ -192,7 +260,7 @@ static int max40080_init(struct max40080_state *st)
 
 	dev_info(&st->client->dev, "reg 0x%X val 0x%X \n", MAX40080_REG_CFG, tmp);
 
-	ret = regmap_bulk_write(st->regmap, MAX40080_REG_CFG, &tmp, 2);
+	ret = max40080_write_word(st->client, MAX40080_REG_CFG, tmp);
 	if (ret)
 		return ret;
 
@@ -210,7 +278,7 @@ static int max40080_probe(struct i2c_client *client,
 	struct regmap *regmap;
 	int ret;
 
-	dev_info(dev, "Probing\n");
+	dev_info(dev, "Probing, manual\n");
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(struct iio_dev));
 	if (!indio_dev)
@@ -218,13 +286,8 @@ static int max40080_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, indio_dev);
 	
-	regmap = devm_regmap_init_i2c(client, &max40080_regmap_config);
-	if (IS_ERR(regmap))
-	    return PTR_ERR(regmap);
-	
 	st = iio_priv(indio_dev);
 	st->client = client;
-	st->regmap = regmap;
 
 	indio_dev->name = "max40080";
 	indio_dev->info = &max40080_info;
