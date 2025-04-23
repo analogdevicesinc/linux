@@ -172,6 +172,13 @@
 		      <0x04100000 0x00400000>; /* Secondary L4 */
 	};
 
+	/* XCORR memory */
+	xcorr_memory {
+		device_type = "memory";
+		reg = <0x21400000 0x00200000>, /* 2 MB */
+		      <0x21600000 0x00001000>; /* 4KB */
+	};
+
 	/* Reserved memory regions
 	 * 1) U-boot will enable secondary regions only for the special use-case.
 	 *    They are intentionally left disabled by default.
