@@ -20,46 +20,21 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/genalloc.h>
+#include <linux/pagemap.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
 
 #define SRAM_MMAP_DRV_NAME              "sram_mmap"
-
-#define MAX_SRAM_REGIONS 8
-
-struct sram_region_info {
-	struct reserved_mem *rmem;
-	struct device *dev;
-};
-
-static struct sram_region_info sram_regions[MAX_SRAM_REGIONS];
-static int next_region = 0;
-
-static struct reserved_mem *find_sram_mem(struct device *dev, int *id)
-{
-	int i;
-
-	if (!dev) {
-		pr_err("NULL device to find_sram_mem\n");
-		return NULL;
-	}
-
-	for (i = 0; i < MAX_SRAM_REGIONS; ++i) {
-		if (sram_regions[i].dev == dev) {
-			*id = i;
-			return sram_regions[i].rmem;
-		}
-	}
-
-	dev_err(dev, "Unable to find SRAM reservation!\n");
-	return NULL;
-}
 
 struct adi_sram_mmap {
 	struct miscdevice miscdev;
 	struct device *dev;
 	struct page *start;
 	struct reserved_mem *rmem;
+};
+
+struct address_space_operations sram_aops = {
+	.dirty_folio	= noop_dirty_folio,
 };
 
 /**
@@ -86,7 +61,7 @@ static int sram_mmap(struct file *fp, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	fp->f_mapping->a_ops = &ram_aops;
+	fp->f_mapping->a_ops = &sram_aops;
 	vma->vm_page_prot = __pgprot_modify(vma->vm_page_prot, PTE_ATTRINDX_MASK,
 					    PTE_ATTRINDX(MT_NORMAL) | PTE_PXN | PTE_UXN);
 	vma->vm_private_data = sram;
@@ -125,12 +100,12 @@ MODULE_DEVICE_TABLE(of, adi_sram_mmap_of_match);
 
 static int adi_sram_mmap_probe(struct platform_device *pdev)
 {
-	int ret = 0;
 	struct adi_sram_mmap *sram;
+	struct reserved_mem *rmem;
+	struct device_node *np;
 	struct device *dev;
 	struct page *page;
-	struct reserved_mem *mem;
-	int pages, i, id;
+	int ret, pages, i;
 
 	dev = &pdev->dev;
 
@@ -140,14 +115,18 @@ static int adi_sram_mmap_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	mem = find_sram_mem(dev, &id);
-	if (!mem) {
+	np = of_parse_phandle(dev->of_node, "memory-region", 0);
+	if (!np)
+		return -EINVAL;
+
+	rmem = of_reserved_mem_lookup(np);
+	if (!rmem) {
 		dev_err(dev, "SRAM MMAP requires adi,sram-access reserved memory, please check your device tree\n");
 		return -ENOENT;
 	}
 
-	page = pfn_to_page(PFN_DOWN(mem->base));
-	pages = mem->size / PAGE_SIZE;
+	page = pfn_to_page(PFN_DOWN(rmem->base));
+	pages = rmem->size / PAGE_SIZE;
 
 	// Grab reference to page so they're never freed back into the allocator
 	for (i = 0; i < pages; ++i)
@@ -161,11 +140,11 @@ static int adi_sram_mmap_probe(struct platform_device *pdev)
 
 	sram->dev = dev;
 	sram->start = page;
-	sram->rmem = mem;
+	sram->rmem = rmem;
 	dev_set_drvdata(&pdev->dev, sram);
 
 	sram->miscdev.minor = MISC_DYNAMIC_MINOR;
-	sram->miscdev.name = kasprintf(GFP_KERNEL, "%s%d", SRAM_MMAP_DRV_NAME, id);
+	sram->miscdev.name = kasprintf(GFP_KERNEL, "%s.%s", SRAM_MMAP_DRV_NAME, rmem->name);
 	sram->miscdev.fops = &sram_fops;
 	sram->miscdev.parent = dev;
 
@@ -194,17 +173,11 @@ static struct platform_driver adi_sram_mmap_driver = {
 
 static int rmem_sram_init(struct reserved_mem *rmem, struct device *dev)
 {
-	struct sram_region_info *info = rmem->priv;
-
-	info->dev = dev;
 	return 0;
 }
 
 static void rmem_sram_release(struct reserved_mem *rmem, struct device *dev)
 {
-	struct sram_region_info *info = rmem->priv;
-
-	info->dev = NULL;
 }
 
 static const struct reserved_mem_ops rmem_sram_ops = {
@@ -214,11 +187,6 @@ static const struct reserved_mem_ops rmem_sram_ops = {
 
 static int __init rmem_sram_setup(struct reserved_mem *rmem)
 {
-	if (next_region >= MAX_SRAM_REGIONS) {
-		pr_err("Cannot allocate more SRAM regions--increase MAX_SRAM_REGIONS\n");
-		return -EINVAL;
-	}
-
 	if (rmem->base & (PAGE_SIZE - 1)) {
 		pr_err("sram region starting at 0x%px is not page aligned!\n", (void *)rmem->base);
 		return -EINVAL;
@@ -231,9 +199,6 @@ static int __init rmem_sram_setup(struct reserved_mem *rmem)
 	}
 
 	rmem->ops = &rmem_sram_ops;
-	rmem->priv = &sram_regions[next_region];
-	sram_regions[next_region].rmem = rmem;
-	next_region += 1;
 
 	pr_info("Reserved memory: SRAM at %pa, size %ld KiB\n",
 		&rmem->base, (unsigned long)(rmem->size / SZ_1K));
