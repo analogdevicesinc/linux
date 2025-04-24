@@ -334,13 +334,13 @@ static int adf4030_chan_dir_set(const struct adf4030_state *st,
 
 	/* EN_DRIVE */
 	if (chan->num > 7)
-		regmap_update_bits(st->regmap, ADF4030_REG(0x13),
-				   BIT(chan->num - 8),
-				   chan->channel_output_en ? BIT(chan->num - 8) : 0);
+		ret = regmap_update_bits(st->regmap, ADF4030_REG(0x13),
+					 BIT(chan->num - 8),
+					 chan->channel_output_en ? BIT(chan->num - 8) : 0);
 	else
-		regmap_update_bits(st->regmap, ADF4030_REG(0x12),
-				   BIT(chan->num),
-				   chan->channel_output_en ? BIT(chan->num) : 0);
+		ret = regmap_update_bits(st->regmap, ADF4030_REG(0x12),
+					 BIT(chan->num),
+					 chan->channel_output_en ? BIT(chan->num) : 0);
 	if (ret)
 		return ret;
 
