@@ -201,7 +201,7 @@ static int max40080_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_RAW:
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		return IIO_VAL_FRACTIONAL_LOG2;
+		return IIO_VAL_FRACTIONAL;
 	default:
 		return -EINVAL;
 	}
@@ -214,10 +214,13 @@ static int max40080_reg_access(struct iio_dev *indio_dev,
 {
 	struct max40080_state *st = iio_priv(indio_dev);
 
-	if (read_val)
-		return max40080_read_word(st->client, reg, (u16 *)read_val);
+	if (read_val) {
+		*read_val = i2c_smbus_read_word_data(st->client, reg);
+		if (*read_val < 0)
+			return *read_val;
+	}
 
-	return max40080_write_word(st->client, reg, write_val);
+	return i2c_smbus_write_word_data(st->client, reg, write_val);
 }
 
 static const struct iio_info max40080_info = {
@@ -258,9 +261,7 @@ static int max40080_init(struct max40080_state *st)
 	      FIELD_PREP(MAX40080_ADC_RATE_MSK, MAX40080_SR_15_KSPS) |
 	      FIELD_PREP(MAX40080_FILTER_MSK, MAX40080_FTR_NO_AVG);
 
-	dev_info(&st->client->dev, "reg 0x%X val 0x%X \n", MAX40080_REG_CFG, tmp);
-
-	ret = max40080_write_word(st->client, MAX40080_REG_CFG, tmp);
+	ret = i2c_smbus_write_word_data(st->client, MAX40080_REG_CFG, tmp);
 	if (ret)
 		return ret;
 
@@ -275,10 +276,10 @@ static int max40080_probe(struct i2c_client *client,
 	struct device *dev = &client->dev;
 	struct iio_dev *indio_dev;
 	struct max40080_state *st;
-	struct regmap *regmap;
 	int ret;
 
-	dev_info(dev, "Probing, manual\n");
+	dev_info(dev, "Probing\n");
+	client->flags |= I2C_CLIENT_PEC;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(struct iio_dev));
 	if (!indio_dev)
