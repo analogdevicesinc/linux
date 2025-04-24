@@ -249,6 +249,11 @@ static int adrv906x_switch_packet_trapping_set(struct adrv906x_eth_switch *es)
 	ret = adrv906x_switch_add_fdb_entry(es, ESMC_MAC_ADDR, SWITCH_CPU_PORT);
 	if (ret)
 		return ret;
+	if (es->trap_ptp_fwd_en) {
+		ret = adrv906x_switch_add_fdb_entry(es, PTP_FWD_ADDR, SWITCH_CPU_PORT);
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }
@@ -452,6 +457,8 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 		dev_err(dev, "ioremap switch mas failed");
 		return -ENOMEM;
 	}
+
+	es->trap_ptp_fwd_en = of_property_read_bool(eth_switch_np, "trap-ptp-forwardable");
 
 	/* probe the switch ports */
 	for_each_child_of_node(eth_switch_np, switch_port_np) {
