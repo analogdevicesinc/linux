@@ -252,6 +252,8 @@ struct adi_spi_controller {
 	/* Regs base of SPI controller */
 	void __iomem *regs;
 
+	int irq;
+
 	/* Current message transfer state info */
 	struct spi_transfer *cur_transfer;
 	const struct adi_spi_transfer_ops *ops;
@@ -766,7 +768,7 @@ static int adi_spi_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct spi_controller *ctlr;
 	struct adi_spi_controller *drv_data;
-	struct resource *mem, *res;
+	struct resource *mem;
 	struct clk *sclk;
 	int ret;
 
@@ -815,12 +817,12 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return PTR_ERR(drv_data->regs);
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
-		dev_err(dev, "can not get spi error irq\n");
-		return -ENXIO;
+	drv_data->irq = platform_get_irq(pdev, 0);
+	if (drv_data->irq <= 0) {
+		ret = drv_data->irq ? drv_data->irq : -ENXIO;
+		return ret;
 	}
-	ret = devm_request_irq(dev, res->start, spi_irq_err,
+	ret = devm_request_irq(dev, drv_data->irq, spi_irq_err,
 			       0, "SPI ERROR", drv_data);
 	if (ret) {
 		dev_err(dev, "can not request spi error irq\n");
