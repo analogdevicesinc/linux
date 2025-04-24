@@ -29,8 +29,6 @@
 #define   SWITCH_PORT_TRAP_PTP_EN                       BIT(24)
 #define   SWITCH_PORT_TRAP_DSTPORT_MASK                 GENMASK(23, 16)
 #define SWITCH_PORT_PCP2IPV                             0x008c
-#define SWITCH_MAC_LEARN_EN                             2
-#define SWITCH_MAC_FWD_EN                               1
 #define SWITCH_PORT_STATS_CTRL                          0x0200
 #define   SWITCH_PORT_SNAPSHOT_EN                       BIT(0)
 #define SWITCH_PORT_STAT_PKT_FLTR_RX                    0x0204
@@ -96,6 +94,7 @@
 
 #define EAPOL_MAC_ADDR                                  0x0180c2000003
 #define ESMC_MAC_ADDR                                   0x0180c2000002
+#define PTP_FWD_ADDR                                    0x011b19000000
 
 struct switch_port {
 	unsigned int config_mask;
@@ -169,6 +168,7 @@ struct adrv906x_eth_switch {
 	struct switch_isr_args isr_post_args;
 	struct switch_port_stats port_stats[SWITCH_MAX_PORT_NUM];
 	struct delayed_work update_stats;
+	bool trap_ptp_fwd_en;
 };
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
