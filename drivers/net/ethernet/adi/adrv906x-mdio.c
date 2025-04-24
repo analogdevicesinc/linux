@@ -41,6 +41,18 @@ static int adrv906x_pseudo_mdio_read(struct mii_bus *bus, int mii_id, int regnum
 	return ret;
 }
 
+static int adrv906x_pseudo_mdio_write_c45(struct mii_bus *bus, int addr,
+					  int devnum, int regnum, u16 val)
+{
+	return adrv906x_pseudo_mdio_write(bus, addr, regnum, val);
+}
+
+static int adrv906x_pseudo_mdio_read_c45(struct mii_bus *bus, int addr,
+					 int devnum, int regnum)
+{
+	return adrv906x_pseudo_mdio_read(bus, addr, regnum);
+}
+
 int adrv906x_mdio_probe(struct platform_device *pdev, struct net_device *ndev,
 			struct device_node *mdio_np)
 {
@@ -72,6 +84,8 @@ int adrv906x_mdio_probe(struct platform_device *pdev, struct net_device *ndev,
 	bus->name = "adrv906x-pseudo-mdio";
 	bus->read = adrv906x_pseudo_mdio_read,
 	bus->write = adrv906x_pseudo_mdio_write,
+	bus->read_c45 = adrv906x_pseudo_mdio_read_c45,
+	bus->write_c45 = adrv906x_pseudo_mdio_write_c45,
 	bus->parent = priv->dev;
 
 	ret = of_mdiobus_register(bus, mdio_np);
