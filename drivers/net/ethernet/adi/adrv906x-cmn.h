@@ -10,8 +10,12 @@
 #include <linux/etherdevice.h>
 #include "adrv906x-net.h"
 
-void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *ndev);
-void adrv906x_eth_cmn_serdes_reset_4pack(struct net_device *ndev);
+void adrv906x_eth_cmn_pll_reset(struct net_device *ndev);
+void adrv906x_eth_cmn_ser_tx_sync_trigger(struct net_device *ndev);
+void adrv906x_eth_cmn_ser_pwr_down(struct net_device *ndev);
+void adrv906x_eth_cmn_ser_pwr_up_and_reset(struct net_device *ndev);
+void adrv906x_eth_cmn_deser_pwr_down(struct net_device *ndev);
+void adrv906x_eth_cmn_deser_pwr_up_and_reset(struct net_device *ndev);
 int adrv906x_eth_cmn_rst_reg(void __iomem *regs);
 void adrv906x_eth_cmn_recovered_clk_config(struct adrv906x_eth_dev *adrv906x_dev);
 void adrv906x_eth_cmn_mode_cfg(struct adrv906x_eth_dev *adrv906x_dev);

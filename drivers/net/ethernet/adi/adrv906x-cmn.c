@@ -64,31 +64,11 @@
 #define   EMAC_CMN_TXSER_SYNC_OVERRIDE_VAL_0 BIT(28)
 #define   EMAC_CMN_TXSER_SYNC_OVERRIDE_VAL_1 BIT(29)
 #define EMAC_CMN_PLL_CTRL                    0x0050
+#define   EMAC_CMN_PLL_MEM_MAP_RESET_N       BIT(0)
 #define EMAC_CMN_GPIO_SELECT                 0x0060
 #define EMAC_CMN_EMAC_SPARE                  0x3000
 
-void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *ndev)
-{
-	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
-	void __iomem *regs = eth_if->emac_cmn_regs;
-	unsigned int val, trig;
-
-	trig = (adrv906x_dev->port == 0) ?
-	       EMAC_CMN_TXSER_SYNC_TRIGGER_0 : EMAC_CMN_TXSER_SYNC_TRIGGER_1;
-
-	mutex_lock(&eth_if->mtx);
-	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
-	val |= trig;
-	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
-	usleep_range(1, 10);
-	val &= ~trig;
-	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
-	mutex_unlock(&eth_if->mtx);
-}
-EXPORT_SYMBOL(adrv906x_eth_cmn_serdes_tx_sync_trigger);
-
-void adrv906x_eth_cmn_serdes_reset_4pack(struct net_device *ndev)
+void adrv906x_eth_cmn_pll_reset(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
@@ -96,15 +76,137 @@ void adrv906x_eth_cmn_serdes_reset_4pack(struct net_device *ndev)
 	unsigned int val;
 
 	mutex_lock(&eth_if->mtx);
-	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
-	val &= ~EMAC_CMN_SERDES_REG_RESET_N;
-	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
-	usleep_range(1, 10);
-	val |= EMAC_CMN_SERDES_REG_RESET_N;
-	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+
+	val = ioread32(regs + EMAC_CMN_PLL_CTRL);
+	val &= ~EMAC_CMN_PLL_MEM_MAP_RESET_N;
+	iowrite32(val, regs + EMAC_CMN_PLL_CTRL);
+	usleep_range(50, 60);
+	val |= EMAC_CMN_PLL_MEM_MAP_RESET_N;
+	iowrite32(val, regs + EMAC_CMN_PLL_CTRL);
+
 	mutex_unlock(&eth_if->mtx);
 }
-EXPORT_SYMBOL(adrv906x_eth_cmn_serdes_reset_4pack);
+EXPORT_SYMBOL(adrv906x_eth_cmn_pll_reset);
+
+void adrv906x_eth_cmn_ser_tx_sync_trigger(struct net_device *ndev)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	void __iomem *regs = eth_if->emac_cmn_regs;
+	unsigned int val, bit_mask;
+
+	mutex_lock(&eth_if->mtx);
+
+	bit_mask = (adrv906x_dev->port == 0) ?
+		   EMAC_CMN_TXSER_SYNC_TRIGGER_0 : EMAC_CMN_TXSER_SYNC_TRIGGER_1;
+	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
+	val |= bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+	val &= ~bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+
+	mutex_unlock(&eth_if->mtx);
+}
+EXPORT_SYMBOL(adrv906x_eth_cmn_ser_tx_sync_trigger);
+
+void adrv906x_eth_cmn_ser_pwr_down(struct net_device *ndev)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	void __iomem *regs = eth_if->emac_cmn_regs;
+	unsigned int val, bit_mask;
+
+	mutex_lock(&eth_if->mtx);
+
+	bit_mask = (adrv906x_dev->port == 0) ?
+		   EMAC_CMN_TXSER_FORCE_LANE_PD_0 : EMAC_CMN_TXSER_FORCE_LANE_PD_1;
+	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
+	val |= bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(10, 20);
+
+	mutex_unlock(&eth_if->mtx);
+}
+EXPORT_SYMBOL(adrv906x_eth_cmn_ser_pwr_down);
+
+void adrv906x_eth_cmn_ser_pwr_up_and_reset(struct net_device *ndev)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	void __iomem *regs = eth_if->emac_cmn_regs;
+	unsigned int val, bit_mask;
+
+	mutex_lock(&eth_if->mtx);
+
+	bit_mask = (adrv906x_dev->port == 0) ?
+		   EMAC_CMN_TXSER_FORCE_LANE_PD_0 : EMAC_CMN_TXSER_FORCE_LANE_PD_1;
+	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
+	val &= ~bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+
+	bit_mask = (adrv906x_dev->port == 0) ?
+		   EMAC_CMN_TXSER_DIG_RESET_N_0 : EMAC_CMN_TXSER_DIG_RESET_N_1;
+	val &= ~bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+	val |= bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+
+	mutex_unlock(&eth_if->mtx);
+}
+EXPORT_SYMBOL(adrv906x_eth_cmn_ser_pwr_up_and_reset);
+
+void adrv906x_eth_cmn_deser_pwr_down(struct net_device *ndev)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	void __iomem *regs = eth_if->emac_cmn_regs;
+	unsigned int val, bit_mask;
+
+	mutex_lock(&eth_if->mtx);
+
+	bit_mask = (adrv906x_dev->port == 0) ?
+		   EMAC_CMN_RXDES_FORCE_LANE_PD_0 : EMAC_CMN_RXDES_FORCE_LANE_PD_1;
+	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
+	val |= bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(10, 20);
+
+	mutex_unlock(&eth_if->mtx);
+}
+EXPORT_SYMBOL(adrv906x_eth_cmn_deser_pwr_down);
+
+void adrv906x_eth_cmn_deser_pwr_up_and_reset(struct net_device *ndev)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	void __iomem *regs = eth_if->emac_cmn_regs;
+	unsigned int val, bit_mask;
+
+	mutex_lock(&eth_if->mtx);
+
+	bit_mask = (adrv906x_dev->port == 0) ?
+		   EMAC_CMN_RXDES_FORCE_LANE_PD_0 : EMAC_CMN_RXDES_FORCE_LANE_PD_1;
+	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
+	val &= ~bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+
+	bit_mask = (adrv906x_dev->port == 0) ?
+		   EMAC_CMN_RXDES_DIG_RESET_N_0 : EMAC_CMN_RXDES_DIG_RESET_N_1;
+	val &= ~bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+	val |= bit_mask;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+
+	mutex_unlock(&eth_if->mtx);
+}
+EXPORT_SYMBOL(adrv906x_eth_cmn_deser_pwr_up_and_reset);
 
 int adrv906x_eth_cmn_rst_reg(void __iomem *regs)
 {
