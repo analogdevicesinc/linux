@@ -225,6 +225,10 @@ properties:
       interrupt-names:
         items:
           - const: switch_error_X
+      trap-ptp-forwardable:
+        description: Enable optional trapping of PTP forwardable packets.
+        type: boolean
+      
     patternProperties:
       "^switch-port@[0-2]+$":
         type: object
