@@ -12,21 +12,11 @@
 
 typedef void (*adrv906x_serdes_cb)(struct phy_device *phydev, bool enable);
 
-struct adrv906x_serdes {
-	struct phy_device *phydev;
-	struct delayed_work retry_send;
-	adrv906x_serdes_cb tx_path_en;
-	adrv906x_serdes_cb rx_path_en;
-	int state;
-	int lane;
-	int speed;
-};
-
-int adrv906x_serdes_open(struct phy_device *phydev, struct adrv906x_serdes *serdes,
+int adrv906x_serdes_open(struct phy_device *phydev,
 			 adrv906x_serdes_cb tx_cb, adrv906x_serdes_cb rx_cb);
 int adrv906x_serdes_close(struct phy_device *phydev);
-int adrv906x_serdes_cal_start(struct phy_device *phydev);
-int adrv906x_serdes_cal_stop(struct phy_device *phydev);
+int adrv906x_serdes_lnk_up_req(struct phy_device *phydev);
+int adrv906x_serdes_lnk_down_req(struct phy_device *phydev);
 int adrv906x_serdes_genl_register_family(void);
 int adrv906x_serdes_genl_unregister_family(void);
 
