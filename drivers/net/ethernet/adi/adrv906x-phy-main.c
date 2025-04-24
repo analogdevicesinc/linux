@@ -14,10 +14,6 @@
 #include "adrv906x-net.h"
 #include "adrv906x-tsu.h"
 
-struct adrv906x_phy_priv {
-	struct adrv906x_serdes serdes;
-};
-
 struct adrv906x_phy_hw_stat {
 	const char *string;
 	u8 reg;
@@ -130,7 +126,7 @@ static int adrv906x_phy_suspend(struct phy_device *phydev)
 {
 	adrv906x_phy_rx_path_enable(phydev, false);
 	adrv906x_phy_tx_path_enable(phydev, false);
-	adrv906x_serdes_cal_stop(phydev);
+	adrv906x_serdes_lnk_down_req(phydev);
 
 	return 0;
 }
@@ -307,7 +303,7 @@ static int adrv906x_phy_config_aneg(struct phy_device *phydev)
 	if (ret)
 		return ret;
 
-	ret = adrv906x_serdes_cal_start(phydev);
+	ret = adrv906x_serdes_lnk_up_req(phydev);
 	if (ret)
 		return ret;
 
@@ -351,7 +347,6 @@ static const struct sfp_upstream_ops adrv906x_sfp_ops = {
 static int adrv906x_phy_probe(struct phy_device *phydev)
 {
 	struct device *dev = &phydev->mdio.dev;
-	struct adrv906x_phy_priv *adrv906x_phy;
 	struct device_node *np = dev->of_node;
 	u32 mmd_mask = MDIO_DEVS_PCS;
 	int ret;
@@ -360,13 +355,7 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 	    (phydev->c45_ids.devices_in_package & mmd_mask) != mmd_mask)
 		return -ENODEV;
 
-	adrv906x_phy = devm_kzalloc(dev, sizeof(*adrv906x_phy), GFP_KERNEL);
-	if (!adrv906x_phy)
-		return -ENOMEM;
-
-	phydev->priv = adrv906x_phy;
-
-	if (of_property_read_u32(np, "speed", &phydev->speed)) {
+	if (of_property_read_u32(np, "speed", &phydev->speed) < 0) {
 		phydev->speed = SPEED_25000;
 	} else {
 		if (phydev->speed != SPEED_10000 && phydev->speed != SPEED_25000) {
@@ -375,8 +364,7 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 		}
 	}
 
-	ret = adrv906x_serdes_open(phydev, &adrv906x_phy->serdes,
-				   adrv906x_phy_tx_path_enable, adrv906x_phy_rx_path_enable);
+	ret = adrv906x_serdes_open(phydev, adrv906x_phy_tx_path_enable, adrv906x_phy_rx_path_enable);
 	if (ret)
 		return ret;
 
