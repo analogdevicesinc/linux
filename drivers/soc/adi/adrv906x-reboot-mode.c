@@ -46,7 +46,7 @@ static int __init reboot_mode_handler_init(void)
 {
 	int ret = 0;
 
-	reboot_mode_kobj = kobject_create_and_add("reboot", kernel_kobj);
+	reboot_mode_kobj = kobject_create_and_add("adrv-reboot", kernel_kobj);
 
 	if (!reboot_mode_kobj)
 		return -ENOMEM;
