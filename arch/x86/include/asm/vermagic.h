@@ -5,8 +5,6 @@
 
 #ifdef CONFIG_X86_64
 /* X86_64 does not define MODULE_PROC_FAMILY */
-#elif defined CONFIG_M586
-#define MODULE_PROC_FAMILY "586 "
 #elif defined CONFIG_M586TSC
 #define MODULE_PROC_FAMILY "586TSC "
 #elif defined CONFIG_M586MMX

@@ -43,14 +43,6 @@ choice
 	  See each option's help text for additional details. If you don't know
 	  what to do, choose "Pentium-Pro".
 
-config M586
-	bool "586/K5/5x86/6x86/6x86MX"
-	depends on X86_32
-	help
-	  Select this for an 586 or 686 series processor such as the AMD K5,
-	  the Cyrix 5x86, 6x86 and 6x86MX.  This choice does not
-	  assume the RDTSC (Read Time Stamp Counter) instruction.
-
 config M586TSC
 	bool "Pentium-Classic"
 	depends on X86_32
@@ -250,7 +242,7 @@ config X86_L1_CACHE_SHIFT
 	default "7" if MPENTIUM4
 	default "6" if MK7 || MPENTIUMM || MATOM || MVIAC7 || X86_GENERIC || X86_64
 	default "4" if MGEODEGX1
-	default "5" if MCRUSOE || MEFFICEON || MCYRIXIII || MK6 || MPENTIUMIII || MPENTIUMII || M686 || M586MMX || M586TSC || M586 || MVIAC3_2 || MGEODE_LX
+	default "5" if MCRUSOE || MEFFICEON || MCYRIXIII || MK6 || MPENTIUMIII || MPENTIUMII || M686 || M586MMX || M586TSC || MVIAC3_2 || MGEODE_LX
 
 config X86_F00F_BUG
 	def_bool y
