@@ -24,12 +24,16 @@ properties:
   adi,faked-dev:
     $ref: /schemas/types.yaml#/definitions/phandle
     description:
-      A reference (phandle) to a the actual device to which the fake device links attribues from.
+      A reference (phandle) to the actual device to where the fake device links its attributes.
 
   adi,attribute-names:
     $ref: /schemas/types.yaml#/definitions/string-array
     description:
       List of device sysfs attribute strings.
+
+  label:
+    description:
+      Names the iio fake device.
 
 required:
   - compatible
@@ -49,11 +53,11 @@ examples:
       label = "axi-jesd204-rx";
     };
 
-    axi-jesd204-rx@1 {
+    axi-jesd204-tx@1 {
       compatible = "adi,iio-fake-platform-device";
       adi,faked-dev = <&axi_ad9081_tx_jesd>;
       adi,attribute-names = "status", "encoder";
-      label = "axi-jesd204-rx";
+      label = "axi-jesd204-tx";
     };
 
     axi-adxcvr-rx@2 {
