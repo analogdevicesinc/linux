@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/units.h>
 
 #include <linux/iio/iio.h>
 
@@ -111,80 +112,83 @@
 #define MAX40080_FTR_64_AVG		0x04
 #define MAX40080_FTR_128_AVG		0x05	
 
+#define MAX40080_STORE_I_ONLY		0x00
+#define MAX40080_STORE_V_ONLY		0x01
+#define MAX40080_STORE_I_V		0x02
+
+#define MAX40080_ADC_RES		4095
+#define MAX40080_INTER_VREF_MV		1250
+#define MAX40080_V_BUFF_GAIN		30
+#define MAX40080_CSA_50MV_GAIN		25
+#define MAX40080_CSA_10MV_GAIN		125
+
 struct max40080_state {
 	struct i2c_client *client;
 };
 
-static int max40080_write_byte(const struct i2c_client *client, u8 reg, u8 val)
+static int max40080_get_current(struct max40080_state *st, int *val)
 {
-	union i2c_smbus_data data;
-	int ret;
+	u16 _current;
+	u8 valid;
+	int tmp;
 
-	data.byte = val;
-	ret = i2c_smbus_xfer(client->adapter, client->addr,
-			     client->flags | I2C_CLIENT_PEC,
-			     I2C_SMBUS_WRITE, reg,
-			     I2C_SMBUS_BYTE_DATA, &data);
-	if (ret) {
-		dev_err(&client->dev, "Failed to read reg 0x%02X, ERROR %d", reg, ret);
-		return ret;
+	tmp = i2c_smbus_read_word_data(st->client, MAX40080_REG_I);
+	if (tmp < 0)
+		return tmp;
+
+	dev_info(&st->client->dev, "current reg val = 0x%X \n", tmp);
+
+	valid = FIELD_GET(MAX40080_I_VALID_MSK, tmp);
+	if (!valid) {
+		dev_err(&st->client->dev, "Invalid current data\n");
+		return -EINVAL;
 	}
+
+	_current = FIELD_GET(MAX40080_I_MAG_MSK, tmp);
+	if (FIELD_GET(MAX40080_I_SIGN_MSK, tmp))
+		*val = _current * -1;
+	else
+		*val = _current;
+	
+	return 0;
+}
+
+static int max40080_get_voltage(struct max40080_state *st, int *val)
+{
+	u8 valid;
+	int tmp;
+
+	tmp = i2c_smbus_read_word_data(st->client, MAX40080_REG_V);
+	if (tmp < 0)
+		return tmp;
+
+	dev_info(&st->client->dev, "voltage reg val = 0x%X \n", tmp);
+
+	valid = FIELD_GET(MAX40080_V_VALID_MSK, tmp);
+	if (!valid) {
+		dev_err(&st->client->dev, "Invalid voltage data\n");
+		return -EINVAL;
+	}
+
+	*val = FIELD_GET(MAX40080_V_MAG_MSK, tmp);
 
 	return 0;
 }
 
-static int max40080_write_word(const struct i2c_client *client, u8 reg, u16 val)
+static int max40080_get_csa_gain(struct max40080_state *st, u8 *val)
 {
-	union i2c_smbus_data data;
-	int ret;
+	u8 range;
+	u16 tmp;
 
-	data.word = val;
-	ret = i2c_smbus_xfer(client->adapter, client->addr,
-			     client->flags | I2C_CLIENT_PEC,
-			     I2C_SMBUS_WRITE, reg,
-			     I2C_SMBUS_WORD_DATA, &data);
-	if (ret) {
-		dev_err(&client->dev, "Failed to read reg 0x%02X, ERROR %d", reg, ret);
-		return ret;
-	}
+	tmp = i2c_smbus_read_word_data(st->client, MAX40080_REG_CFG);
+	if (tmp < 0)
+		return tmp;
 
-	return 0;
-}
-
-static int max40080_read_byte(const struct i2c_client *client, u8 reg, u8 *val)
-{
-	union i2c_smbus_data data;
-	int ret;
-
-	ret = i2c_smbus_xfer(client->adapter, client->addr,
-			     client->flags | I2C_CLIENT_PEC,
-			     I2C_SMBUS_READ, reg,
-			     I2C_SMBUS_BYTE_DATA, &data);
-	if (ret) {
-		dev_err(&client->dev, "Failed to read reg 0x%02X, ERROR %d", reg, ret);
-		return ret;
-	}
-
-	*val = data.byte;
-
-	return 0;
-}
-
-static int max40080_read_word(const struct i2c_client *client, u8 reg, u16 *val)
-{
-	union i2c_smbus_data data;
-	int ret;
-
-	ret = i2c_smbus_xfer(client->adapter, client->addr,
-			     client->flags | I2C_CLIENT_PEC,
-			     I2C_SMBUS_READ, reg,
-			     I2C_SMBUS_WORD_DATA, &data);
-	if (ret) {
-		dev_err(&client->dev, "Failed to read reg 0x%02X, ERROR %d", reg, ret);
-		return ret;
-	}
-
-	*val = data.word;
+	range = FIELD_GET(MAX40080_RANGE_MSK, tmp);
+	if (range)
+		*val = MAX40080_CSA_10MV_GAIN;
+	else
+		*val = MAX40080_CSA_50MV_GAIN;
 
 	return 0;
 }
@@ -196,11 +200,35 @@ static int max40080_read_raw(struct iio_dev *indio_dev,
 			     long mask)
 {
 	struct max40080_state *st = iio_priv(indio_dev);
+	u8 gain;
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
+		if (chan->type == IIO_CURRENT) {
+			ret = max40080_get_current(st, val);
+			if (ret)
+				return ret;
+		} else if (chan->type == IIO_VOLTAGE) {
+			ret = max40080_get_voltage(st, val);
+			if (ret)
+				return ret;
+		}
+
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
+		if (chan->type == IIO_CURRENT) {
+			ret = max40080_get_csa_gain(st, &gain);
+			if (ret)
+				return ret;
+			
+			*val = MAX40080_INTER_VREF_MV * gain;
+			*val2 = MAX40080_ADC_RES * MILLI;
+		}
+		else if (chan->type == IIO_VOLTAGE) {
+			*val = MAX40080_INTER_VREF_MV * MAX40080_V_BUFF_GAIN;
+			*val2 = MAX40080_ADC_RES * MILLI;
+		}
 		return IIO_VAL_FRACTIONAL;
 	default:
 		return -EINVAL;
@@ -218,6 +246,7 @@ static int max40080_reg_access(struct iio_dev *indio_dev,
 		*read_val = i2c_smbus_read_word_data(st->client, reg);
 		if (*read_val < 0)
 			return *read_val;
+		return 0;
 	}
 
 	return i2c_smbus_write_word_data(st->client, reg, write_val);
@@ -233,7 +262,7 @@ static const struct iio_chan_spec max40080_channels[] = {
 		.type = IIO_CURRENT,
 		.indexed = 1,
 		.channel = 0,
-		.output = 0,
+		.output = 1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 				      BIT(IIO_CHAN_INFO_SCALE),
 	},
@@ -241,7 +270,7 @@ static const struct iio_chan_spec max40080_channels[] = {
 		.type = IIO_VOLTAGE,
 		.indexed = 1,
 		.channel = 1,
-		.output = 0,
+		.output = 1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 				      BIT(IIO_CHAN_INFO_SCALE),
 	},
@@ -253,7 +282,7 @@ static int max40080_init(struct max40080_state *st)
 	int ret;
 
 	tmp = FIELD_PREP(MAX40080_MODE_MSK, MAX40080_ACTIVE_MODE) |
-	      FIELD_PREP(MAX40080_I2C_TO_MSK, 0) |
+	      FIELD_PREP(MAX40080_I2C_TO_MSK, 1) |
 	      FIELD_PREP(MAX40080_ALERT_MSK, 0) |
 	      FIELD_PREP(MAX40080_PEC_EN_MSK, 1) |
 	      FIELD_PREP(MAX40080_RANGE_MSK, 0) |
@@ -265,10 +294,16 @@ static int max40080_init(struct max40080_state *st)
 	if (ret)
 		return ret;
 
+	tmp = FIELD_PREP(MAX40080_STORE_IV_MSK, MAX40080_STORE_I_V) |
+	      FIELD_PREP(MAX40080_OVERFLOW_WARN_MSK, 0X34) |
+	      FIELD_PREP(MAX40080_ROLL_OVER_MSK, 1);
+
+	ret = i2c_smbus_write_word_data(st->client, MAX40080_REG_FIFO_CFG, tmp);
+	if (ret)
+		return ret;
+
 	return 0;
 }
-
-
 
 static int max40080_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
