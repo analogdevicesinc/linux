@@ -264,7 +264,7 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 
 	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);	
 
-	for (i = 0; i <= (st->num_lanes); i++) {
+	for (i = (st->num_lanes); i > -1; i--) {
 		axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK , (1 << i));
 		val_enable = axiadc_read(axi_adc_st, ADA4355_ENABLE_ERROR_MASK);
 		printk("ada4355 enable error [%d] = %d\n", i, val_enable);
