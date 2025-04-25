@@ -1710,10 +1710,9 @@ static int adrv906x_ndma_rx_data_and_status_poll(struct napi_struct *napi, int b
 	union adrv906x_ndma_chan_stats *stats = &ndma_ch->stats;
 	int count = 0;
 	struct sk_buff *skb;
-	dma_addr_t addr, addr_cur, addr_next;
+	dma_addr_t addr, addr_cur;
 	unsigned int state;
 	unsigned long flags;
-	int idx_next;
 
 	spin_lock_irqsave(&ndma_ch->lock, flags);
 	while (count < budget) {
@@ -1747,30 +1746,12 @@ static int adrv906x_ndma_rx_data_and_status_poll(struct napi_struct *napi, int b
 		count++;
 	}
 
-	/* If there are no free buffers, the DMA will be idle. In this case, we need to
-	 * allocate and apply a new descriptor list. Otherwise, we stop the DMA transfer,
-	 * verify if the end of the descriptor list hasn't been reached, and if it hasn't,
-	 * extend the current list with the new descriptor before resuming the DMA transfer.
+	/* If there are no free buffers, the DMA will be idle, we need to
+	 * allocate and apply a new descriptor list.
 	 */
 	if (ndma_ch->rx_free == 0) {
 		adrv906x_ndma_refill_rx(ndma_ch, budget);
 		adrv906x_dma_rx_start(ndma_ch);
-	} else if (ndma_ch->rx_free < NDMA_RX_RING_SIZE) {
-		/* Suspend DMA transfer */
-		iowrite32(SUSPEND_TRANSFER, ndma_ch->rx_dma_base + DMA_BWLCNT);
-
-		/* Read the next descriptor pointer from DMA register */
-		addr_next = ioread32(ndma_ch->rx_dma_base + DMA_NEXT_DESC);
-		idx_next = (addr_next - ndma_ch->rx_ring_dma) / sizeof(struct dma_desc);
-
-		/* If the last descriptor in the list is not loaded into the
-		 * DMA registers, add new descriptors to the end of the list
-		 */
-		if (ndma_ch->rx_ring[idx_next].cfg & DMAFLOW_LIST)
-			adrv906x_ndma_refill_rx(ndma_ch, budget);
-
-		/* Resume DMA transfer */
-		iowrite32(FULL_BANDWIDTH, ndma_ch->rx_dma_base + DMA_BWLCNT);
 	}
 
 	spin_unlock_irqrestore(&ndma_ch->lock, flags);
