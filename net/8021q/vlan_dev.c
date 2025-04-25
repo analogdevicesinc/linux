@@ -576,13 +576,6 @@ static int vlan_dev_init(struct net_device *dev)
 	if (dev->features & NETIF_F_VLAN_FEATURES)
 		netdev_warn(real_dev, "VLAN features are set incorrectly.  Q-in-Q configurations may not work correctly.\n");
 
-#if IS_ENABLED(CONFIG_MACSEC)
-	if (real_dev->features & NETIF_F_HW_MACSEC) {
-		dev->features |= NETIF_F_HW_MACSEC;
-		dev->macsec_ops = real_dev->macsec_ops;
-	}
-#endif
-
 	dev->vlan_features = real_dev->vlan_features &
 			     ~(NETIF_F_FCOE_CRC | NETIF_F_FSO);
 	dev->hw_enc_features = vlan_tnl_features(real_dev);
@@ -665,12 +658,6 @@ static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
 		lower_features |= NETIF_F_HW_CSUM;
 	features = netdev_intersect_features(features, lower_features);
 	features |= old_features & (NETIF_F_SOFT_FEATURES | NETIF_F_GSO_SOFTWARE);
-#if IS_ENABLED(CONFIG_MACSEC)
-	if (real_dev->features & NETIF_F_HW_MACSEC) {
-		features |= NETIF_F_HW_MACSEC;
-		dev->macsec_ops = real_dev->macsec_ops;
-	}
-#endif
 
 	return features;
 }
