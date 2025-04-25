@@ -2412,8 +2412,7 @@ MODULE_PARM_DESC(trace_ltssm, "Capture and dump link states during link training
 
 static int brcm_pcie_probe(struct platform_device *pdev)
 {
-	struct device_node *msi_np __free(device_node) = NULL;
-	struct device_node *np = pdev->dev.of_node;
+	struct device_node *np = pdev->dev.of_node, *msi_np;
 	struct pci_host_bridge *bridge;
 	const struct pcie_cfg_data *data;
 	struct brcm_pcie *pcie;
