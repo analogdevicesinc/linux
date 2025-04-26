@@ -1855,6 +1855,8 @@ static int vchiq_probe(struct platform_device *pdev)
 
 	vchiq_debugfs_init(&mgmt->state);
 
+	vcsm_cma = vchiq_device_register(&pdev->dev, "vcsm-cma");
+	bcm2835_codec = vchiq_device_register(&pdev->dev, "bcm2835-codec");
 	bcm2835_audio = vchiq_device_register(&pdev->dev, "bcm2835-audio");
 	bcm2835_camera = vchiq_device_register(&pdev->dev, "bcm2835-camera");
 	bcm2835_isp = vchiq_device_register(&pdev->dev, "bcm2835-isp");
