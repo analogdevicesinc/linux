@@ -459,7 +459,6 @@ static int adi_twi_master_xfer_atomic(struct i2c_adapter *adap,
 	return adi_twi_do_master_xfer(adap, msgs, num, true);
 }
 
-#if 0
 /*
  * One I2C SMBus transfer
  */
@@ -687,22 +686,21 @@ static int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 /*
  * Generic I2C SMBus transfer entrypoint
  */
-int adi_twi_smbus_xfer(struct i2c_adapter *adap, u16 addr,
-		       unsigned short flags, char read_write,
-		       u8 command, int size, union i2c_smbus_data *data)
+static int adi_twi_smbus_xfer(struct i2c_adapter *adap, u16 addr,
+			      unsigned short flags, char read_write,
+			      u8 command, int size, union i2c_smbus_data *data)
 {
 	return adi_twi_do_smbus_xfer(adap, addr, flags,
 				     read_write, command, size, data, false);
 }
 
-int adi_twi_smbus_xfer_atomic(struct i2c_adapter *adap, u16 addr,
-			      unsigned short flags, char read_write,
-			      u8 command, int size, union i2c_smbus_data *data)
+static int adi_twi_smbus_xfer_atomic(struct i2c_adapter *adap, u16 addr,
+				     unsigned short flags, char read_write,
+				     u8 command, int size, union i2c_smbus_data *data)
 {
 	return adi_twi_do_smbus_xfer(adap, addr, flags,
 				     read_write, command, size, data, true);
 }
-#endif
 
 /*
  * Return what the adapter supports
@@ -718,14 +716,8 @@ static u32 adi_twi_functionality(struct i2c_adapter *adap)
 static const struct i2c_algorithm adi_twi_algorithm = {
 	.master_xfer		= adi_twi_master_xfer,
 	.master_xfer_atomic	= adi_twi_master_xfer_atomic,
-	/*
-	 * Use emulated SMBus protocol as a workaround
-	 * for communication issue with rtc-ds1307, see:
-	 * https://jira.analog.com/browse/TPGSWE-14585
-	 * https://jira.analog.com/browse/TPGSWE-15115
-	 */
-	//.smbus_xfer		= adi_twi_smbus_xfer,
-	//.smbus_xfer_atomic	= adi_twi_smbus_xfer_atomic,
+	.smbus_xfer		= adi_twi_smbus_xfer,
+	.smbus_xfer_atomic	= adi_twi_smbus_xfer_atomic,
 	.functionality		= adi_twi_functionality,
 };
 
