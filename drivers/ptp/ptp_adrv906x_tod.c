@@ -641,11 +641,10 @@ static int adrv906x_tod_hw_adjust_time(struct adrv906x_tod_counter *counter, s64
 	op_mask = FIELD_PREP(ADRV906X_TOD_CFG_TOD_OP_RD_TOD_MASK, BIT(counter->id));
 	err = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_STAT_TOD_OP, op_mask, &trig_delay,
 					  true);
+	adrv906x_tod_hw_gettstamp_from_reg(counter, &ts0);
 	adrv906x_tod_hw_op_trig(counter, HW_TOD_TRIG_OP_RD, false, false);
 	if (err)
 		return err;
-
-	adrv906x_tod_hw_gettstamp_from_reg(counter, &ts0);
 
 	/*
 	 * We leverage the 'delta' variable to do the adjustment calculation before
