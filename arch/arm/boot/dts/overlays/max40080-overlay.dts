@@ -11,8 +11,23 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	max40080: max40080@22 {
+	max40080_0: max40080@20 {
+		compatible = "adi,max40080";
+		reg = <0x20>;
+	};
+
+	max40080_1: max40080@21 {
+		compatible = "adi,max40080";
+		reg = <0x21>;
+	};
+
+	max40080_2: max40080@22 {
 		compatible = "adi,max40080";
 		reg = <0x22>;
+	};
+
+	max40080_3: max40080@23 {
+		compatible = "adi,max40080";
+		reg = <0x23>;
 	};
 };
