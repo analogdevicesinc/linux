@@ -2314,6 +2314,22 @@ static int ad9081_setup_rx(struct spi_device *spi)
 		phy->adc_dcm[1] = dcm;
 	}
 
+	switch (phy->chip_id.prod_id) {
+	case CHIPID_AD9081:
+		if (phy->chip_id.prod_grade != 0xB) /* check for AD9081-4D4AB */
+			break;
+		fallthrough;
+	case CHIPID_AD9988:
+		fallthrough;
+	case CHIPID_AD9986:
+		if (phy->adc_dcm[0] == 1 || phy->adc_dcm[1] == 1) {
+			dev_err(&phy->spi->dev,
+				"Decimation of 1x1 are not supported by the AD9081-4D4AB, AD9986, and AD9988");
+			return -EINVAL;
+		}
+		break;
+	}
+
 	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz, phy->adc_dcm[0]);
 	clk_set_rate_scaled(phy->clks[RX_SAMPL_CLK], sample_rate,
 		&phy->clkscale[RX_SAMPL_CLK]);
@@ -3937,6 +3953,28 @@ static int ad9081_parse_jesd_link_dt(struct ad9081_phy *phy,
 	}
 
 	if (jtx) { /* JTX - for RX ADC path */
+		tmp = 0;
+		ret = of_property_read_u32(np, "adi,link-mode-s-sel", &tmp);
+
+		switch (phy->chip_id.prod_id) {
+		case CHIPID_AD9081:
+			if (phy->chip_id.prod_grade != 0xB) /* check for AD9081-4D4AB */
+				break;
+
+			fallthrough;
+		case CHIPID_AD9988:
+			fallthrough;
+		case CHIPID_AD9986:
+			if (ret) {
+				dev_err(&phy->spi->dev,
+					"Missing device tree property: adi,link-mode-s-sel");
+				return -EINVAL;
+			}
+			break;
+		}
+
+		link->jesd_param.jesd_mode_s_sel = tmp;
+
 		ret = ad9081_get_jesd_converter_selection(
 			phy, np, "adi,converter-select", link);
 
