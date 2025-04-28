@@ -76,6 +76,8 @@
 
 #include "ad525x_dpot.h"
 
+#include <linux/iio/iio.h>
+
 /*
  * Client data (each client gets its own)
  */
@@ -679,19 +681,72 @@ static inline void ad_dpot_remove_files(struct device *dev,
 	}
 }
 
+static int ad_dpot_reg_access(struct iio_dev *indio_dev,
+	unsigned reg, unsigned writeval,
+	unsigned *readval)
+{
+	struct dpot_data *dpot = iio_priv(indio_dev);
+
+	if (readval)
+		*readval = dpot_read(dpot, reg);
+	else
+		dpot_write(dpot, reg, writeval);
+
+	return 0;
+}
+
+static int ad_dpot_read_raw(struct iio_dev *indio_dev,
+			    struct iio_chan_spec const *chan,
+			    int *val, int *val2, long mask)
+{
+	struct dpot_data *dpot = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_RAW:
+		*val = dpot_read(dpot, DPOT_ADDR_RDAC | chan->address);
+		return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ad_dpot_write_raw(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     int val, int val2, long mask)
+{
+	struct dpot_data *dpot = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_RAW:
+		dpot_write(dpot, DPOT_ADDR_RDAC | chan->address, val);
+		return 0;
+
+	default:
+		return -EINVAL;
+	}
+}
+
+static const struct iio_info ad_dpot_info = {
+	.read_raw = ad_dpot_read_raw,
+	.write_raw = ad_dpot_write_raw,
+	.debugfs_reg_access = &ad_dpot_reg_access,
+};
+
 int ad_dpot_probe(struct device *dev,
 		struct ad_dpot_bus_data *bdata, unsigned long devid,
 			    const char *name)
 {
-
+	struct iio_chan_spec *iio_channels;
+	struct iio_dev *indio_dev;
 	struct dpot_data *data;
 	int i, err = 0;
 
-	data = kzalloc(sizeof(struct dpot_data), GFP_KERNEL);
-	if (!data) {
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*data));
+	if (!indio_dev) {
 		err = -ENOMEM;
 		goto exit;
 	}
+	data = iio_priv(indio_dev);
 
 	dev_set_drvdata(dev, data);
 	mutex_init(&data->update_lock);
@@ -705,6 +760,13 @@ int ad_dpot_probe(struct device *dev,
 	data->uid = DPOT_UID(devid);
 	data->wipers = DPOT_WIPERS(devid);
 
+	indio_dev->name = name;
+	indio_dev->info = &ad_dpot_info;
+	indio_dev->num_channels = hweight8(data->wipers);
+	iio_channels = devm_kcalloc(dev, indio_dev->num_channels,
+		sizeof(struct iio_chan_spec), GFP_KERNEL);
+	indio_dev->channels = iio_channels;
+
 	for (i = DPOT_RDAC0; i < MAX_RDACS; i++)
 		if (data->wipers & (1 << i)) {
 			err = ad_dpot_add_files(dev, data->feat, i);
@@ -713,6 +775,13 @@ int ad_dpot_probe(struct device *dev,
 			/* power-up midscale */
 			if (data->feat & F_RDACS_WONLY)
 				data->rdac_cache[i] = data->max_pos / 2;
+			iio_channels[i].indexed = 1;
+			iio_channels[i].address = i;
+			iio_channels[i].channel = i;
+			iio_channels[i].scan_index = i;
+			iio_channels[i].type = IIO_RESISTANCE;
+			iio_channels[i].output = 1;
+			iio_channels[i].info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
 		}
 
 	if (data->feat & F_CMD_INC)
@@ -726,7 +795,7 @@ int ad_dpot_probe(struct device *dev,
 	dev_info(dev, "%s %d-Position Digital Potentiometer registered\n",
 		 name, data->max_pos);
 
-	return 0;
+	return devm_iio_device_register(dev, indio_dev);
 
 exit_remove_files:
 	for (i = DPOT_RDAC0; i < MAX_RDACS; i++)
