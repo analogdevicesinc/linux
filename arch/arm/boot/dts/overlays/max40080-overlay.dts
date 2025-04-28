@@ -13,6 +13,6 @@
 
 	max40080: max40080@22 {
 		compatible = "adi,max40080";
-		reg = <0x22>;
+		reg = <0x20>;
 	};
 };
