@@ -11,3 +11,14 @@
 &ad485x {
 	compatible = "adi,ad4851";
 };
+
+
+&spi1 {
+	status = "okay";
+
+	ad5292: ad5292@0{
+		compatible = "adi,ad5292";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+	};
+};
