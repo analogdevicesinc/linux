@@ -9,8 +9,8 @@
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/regmap.h>
 #include <linux/units.h>
+#include <linux/util_macros.h>
 
 #include <linux/iio/iio.h>
 
@@ -126,6 +126,28 @@ struct max40080_state {
 	struct i2c_client *client;
 };
 
+static int max40080_i_gain_avail[] = {MAX40080_CSA_50MV_GAIN, MAX40080_CSA_10MV_GAIN};
+
+static int max40080_update_bits(struct max40080_state *st, u8 reg,
+				u16 mask, u16 val)
+{
+	int ret;
+	u16 tmp;
+
+	tmp = i2c_smbus_read_word_data(st->client, reg);
+	if (tmp < 0)
+		return tmp;
+
+	tmp &= ~mask;
+	tmp |= val & mask;
+
+	ret = i2c_smbus_write_word_data(st->client, reg, tmp);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 /*
  * In Store_IV=10 mode (Current and Voltage), each FIFO entry is 32 bits:
  *   D31      = Data Valid
@@ -186,12 +208,20 @@ static int max40080_get_csa_gain(struct max40080_state *st, u8 *val)
 		return tmp;
 
 	range = FIELD_GET(MAX40080_RANGE_MSK, tmp);
-	if (range)
-		*val = MAX40080_CSA_10MV_GAIN;
-	else
-		*val = MAX40080_CSA_50MV_GAIN;
+	*val = max40080_i_gain_avail[range];
 
 	return 0;
+}
+
+static int max40080_set_csa_gain(struct max40080_state *st, u8 gain)
+{
+	u8 closest_gain;
+
+	closest_gain = find_closest(gain, max40080_i_gain_avail,
+				    ARRAY_SIZE(max40080_i_gain_avail));
+
+	return max40080_update_bits(st, MAX40080_REG_CFG, MAX40080_RANGE_MSK,
+				    FIELD_PREP(MAX40080_RANGE_MSK, closest_gain));
 }
 
 static int max40080_read_raw(struct iio_dev *indio_dev,
@@ -223,14 +253,67 @@ static int max40080_read_raw(struct iio_dev *indio_dev,
 			if (ret)
 				return ret;
 
-			*val = MAX40080_INTER_VREF_MV * gain;
-			*val2 = MAX40080_ADC_RES * MILLI;
+			*val = MAX40080_INTER_VREF_MV;
+			*val2 = MAX40080_ADC_RES * gain * MILLI;
 		}
 		else if (chan->type == IIO_VOLTAGE) {
 			*val = MAX40080_INTER_VREF_MV * MAX40080_V_BUFF_GAIN;
 			*val2 = MAX40080_ADC_RES * MILLI;
 		}
 		return IIO_VAL_FRACTIONAL;
+	case IIO_CHAN_INFO_HARDWAREGAIN:
+		if (chan->type == IIO_CURRENT) {
+			ret = max40080_get_csa_gain(st, &gain);
+			if (ret)
+				return ret;
+
+			*val = gain;
+		} else if (chan->type == IIO_VOLTAGE) {
+			*val = MAX40080_V_BUFF_GAIN;
+		}
+		return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int max40080_write_raw(struct iio_dev *indio_dev,
+			      struct iio_chan_spec const *chan,
+			      int val, int val2, long mask)
+{
+	struct max40080_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (iio_buffer_enabled(indio_dev))
+		return -EBUSY;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_HARDWAREGAIN:
+		if (chan->type == IIO_CURRENT) {
+			ret = max40080_set_csa_gain(st, val);
+			if (ret)
+				return ret;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int max40080_read_avail(struct iio_dev *indio_dev,
+			       struct iio_chan_spec const *chan,
+			       const int **vals, int *type, int *length,
+			       long info)
+{
+	switch (info) {
+	case IIO_CHAN_INFO_HARDWAREGAIN:
+		*vals = max40080_i_gain_avail;
+		*length = sizeof(max40080_i_gain_avail) / sizeof(int);
+		*type = IIO_VAL_INT;
+
+		return IIO_AVAIL_RANGE;
 	default:
 		return -EINVAL;
 	}
@@ -257,6 +340,8 @@ static int max40080_reg_access(struct iio_dev *indio_dev,
 
 static const struct iio_info max40080_info = {
 	.read_raw = max40080_read_raw,
+	.write_raw = max40080_write_raw,
+	.read_avail = max40080_read_avail,
 	.debugfs_reg_access = &max40080_reg_access,
 };
 
@@ -266,14 +351,17 @@ static const struct iio_chan_spec max40080_channels[] = {
 		.indexed = 1,
 		.channel = 0,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
+				      BIT(IIO_CHAN_INFO_SCALE) |
+				      BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	},
 	{
 		.type = IIO_VOLTAGE,
 		.indexed = 1,
-		.channel = 1,
+		.channel = 0,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
+				      BIT(IIO_CHAN_INFO_SCALE) |
+				      BIT(IIO_CHAN_INFO_HARDWAREGAIN),
 	},
 };
 
@@ -314,7 +402,6 @@ static int max40080_probe(struct i2c_client *client,
 	struct max40080_state *st;
 	int ret;
 
-	dev_info(dev, "Probing\n");
 	client->flags |= I2C_CLIENT_PEC;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(struct max40080_state));
