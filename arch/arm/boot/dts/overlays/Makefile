@@ -72,6 +72,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	fsm-demo.dtbo \
 	gc9a01.dtbo \
 	ghost-amp.dtbo \
+	gmsl.dtbo \
 	goodix.dtbo \
 	googlevoicehat-soundcard.dtbo \
 	gpio-charger.dtbo \
