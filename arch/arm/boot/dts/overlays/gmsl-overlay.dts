@@ -1,0 +1,173 @@
+/dts-v1/;
+/plugin/;
+
+&i2c_csi_dsi0 {
+	status = "okay";
+	max_des_0: gmsl-deserializer@4c {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "maxim,max96716a";
+		reg = <0x4c>;
+
+	};
+};
+
+
+&max_des_0 {
+	i2c-alias-pool = <0x40 0x41 0x42 0x43>;
+
+	max_des_0_i2c_adapter: i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+&max_des_0 {
+	ports {
+		port@2 {
+			reg = <2>;
+
+			max_des_0_phy_0_out: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <750000000>;
+			};
+		};
+	};
+};
+
+&csi0 {
+	status = "okay";
+	brcm,media-controller;
+
+	port {
+		csi0_ep: endpoint {
+			remote-endpoint = <&max_des_0_phy_0_out>;
+			clock-lanes = <0>;
+			data-lanes = <1 2 3 4>;
+			link-frequencies = /bits/ 64 <750000000>;
+			clock-noncontinuous;
+		};
+	};
+};
+
+&max_des_0_phy_0_out {
+	remote-endpoint = <&csi0_ep>;
+};
+
+&max_des_0_i2c_adapter {
+	max_des_0_i2c_0: i2c@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x0>;
+	};
+};
+
+&max_des_0_i2c_0 {
+	max_des_0_ser_0: gmsl-serializer@40 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#gpio-cells = <2>;
+
+		compatible = "maxim,max96717";
+		reg = <0x40>;
+
+		gpio-controller;
+		gpio-ranges = <&max_des_0_ser_0 0 0 11>;
+	};
+};
+
+&max_des_0_ser_0 {
+	i2c-alias-pool = <0x50 0x51>;
+
+	i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		max_des_0_ser_0_i2c_0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+
+			max_des_0_ser_0_out: endpoint {
+				remote-endpoint = <&max_des_0_in_0>;
+			};
+		};
+	};
+};
+
+&max_des_0 {
+	ports {
+		port@0 {
+			reg = <0x0>;
+
+			max_des_0_in_0: endpoint {
+				remote-endpoint = <&max_des_0_ser_0_out>;
+			};
+		};
+	};
+};
+
+&{/} {
+	max_des_0_ser_0_cam_0_xclk: max_des_0_ser_0_cam_0_xclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&max_des_0_ser_0_i2c_0 {
+	max_des_0_ser_0_cam_0: imx219@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+
+		reset-gpios = <&max_des_0_ser_0 0 0>;
+
+		clocks = <&max_des_0_ser_0_cam_0_xclk>;
+		clock-names = "xclk";
+
+		rotation = <180>;
+		orientation = <2>;
+
+		port {
+			max_des_0_ser_0_cam_0_out: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <456000000>;
+				remote-endpoint = <&max_des_0_ser_0_in_0>;
+			};
+		};
+	};
+};
+
+&max_des_0_ser_0 {
+	ports {
+		port@0 {
+			reg = <0>;
+
+			max_des_0_ser_0_in_0: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <456000000>;
+				remote-endpoint = <&max_des_0_ser_0_cam_0_out>;
+			};
+		};
+	};
+};

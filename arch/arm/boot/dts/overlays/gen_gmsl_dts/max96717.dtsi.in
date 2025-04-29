@@ -1,0 +1,3 @@
+{% set default_address = '0x40' %}
+{% set default_compatible = 'maxim,max96717' %}
+{% include 'ser.dtsi.in' %}
