@@ -73,8 +73,11 @@
 #define IQS5XX_CSTM_LEN		(IQS5XX_PMAP_END + 1 - IQS5XX_CSTM)
 #define IQS5XX_PMAP_LEN		(IQS5XX_PMAP_END + 1 - IQS5XX_CHKSM)
 
-#define IQS5XX_REC_HDR_LEN	4
-#define IQS5XX_REC_LEN_MAX	255
+/* Length of firmware header in hexadecimal characters */
+#define IQS5XX_REC_HDR_LEN_HEX	(1 /* start */ + 2 /* size */ + \
+				 4 /* addr */ + 2 /* type */)
+#define IQS5XX_REC_HDR_SIZE	4 /* size + addr (2 bytes) + type, in bytes*/
+#define IQS5XX_REC_DATA_SIZE	255 /* maximum size of the data portion */
 #define IQS5XX_REC_TYPE_DATA	0x00
 #define IQS5XX_REC_TYPE_EOF	0x01
 
@@ -96,14 +99,6 @@ struct iqs5xx_dev_id_info {
 	u8 major_ver;
 	u8 minor_ver;
 	u8 bl_status;
-} __packed;
-
-struct iqs5xx_ihex_rec {
-	char start;
-	char len[2];
-	char addr[4];
-	char type[2];
-	char data[2];
 } __packed;
 
 struct iqs5xx_touch_data {
@@ -697,14 +692,13 @@ static irqreturn_t iqs5xx_irq(int irq, void *data)
 static int iqs5xx_fw_file_parse(struct i2c_client *client,
 				const char *fw_file, u8 *pmap)
 {
-	struct iqs5xx_ihex_rec *rec;
 	size_t pos = 0;
 	int error, i;
 	u16 rec_num = 1;
 	u16 rec_addr;
 	u8 rec_len, rec_type, rec_chksm, chksm;
-	u8 rec_hdr[IQS5XX_REC_HDR_LEN];
-	u8 rec_data[IQS5XX_REC_LEN_MAX];
+	u8 rec_hdr[IQS5XX_REC_HDR_SIZE];
+	u8 rec_data[IQS5XX_REC_DATA_SIZE];
 
 	/*
 	 * Firmware exported from the vendor's configuration tool deviates from
@@ -724,50 +718,55 @@ static int iqs5xx_fw_file_parse(struct i2c_client *client,
 	}
 
 	do {
-		if (pos + sizeof(*rec) > fw->size) {
+		if (pos + IQS5XX_REC_HDR_LEN_HEX > fw->size) {
 			dev_err(&client->dev, "Insufficient firmware size\n");
 			return -EINVAL;
 		}
-		rec = (struct iqs5xx_ihex_rec *)(fw->data + pos);
-		pos += sizeof(*rec);
 
-		if (rec->start != ':') {
+		if (fw->data[pos] != ':') {
 			dev_err(&client->dev, "Invalid start at record %u\n",
 				rec_num);
 			return -EINVAL;
 		}
 
-		error = hex2bin(rec_hdr, rec->len, sizeof(rec_hdr));
+		/* Convert all 3 fields (length, address, and type) in one go */
+		error = hex2bin(rec_hdr, &fw->data[pos + 1], sizeof(rec_hdr));
 		if (error) {
 			dev_err(&client->dev, "Invalid header at record %u\n",
 				rec_num);
 			return error;
 		}
+		pos += IQS5XX_REC_HDR_LEN_HEX;
 
 		rec_len = *rec_hdr;
 		rec_addr = get_unaligned_be16(rec_hdr + sizeof(rec_len));
 		rec_type = *(rec_hdr + sizeof(rec_len) + sizeof(rec_addr));
 
-		if (pos + rec_len * 2 > fw->size) {
+		/*
+		 * Check if we have enough data for the data portion of the
+		 * record, as well as the checksum byte. Everything is doubled
+		 * because data is in ASCII HEX and not binary format.
+		 */
+		if (pos + (rec_len + sizeof(rec_chksm)) * 2 > fw->size) {
 			dev_err(&client->dev, "Insufficient firmware size\n");
 			return -EINVAL;
 		}
-		pos += (rec_len * 2);
 
-		error = hex2bin(rec_data, rec->data, rec_len);
+		error = hex2bin(rec_data, &fw->data[pos], rec_len);
 		if (error) {
 			dev_err(&client->dev, "Invalid data at record %u\n",
 				rec_num);
 			return error;
 		}
+		pos += rec_len * 2;
 
-		error = hex2bin(&rec_chksm,
-				rec->data + rec_len * 2, sizeof(rec_chksm));
+		error = hex2bin(&rec_chksm, &fw->data[pos], sizeof(rec_chksm));
 		if (error) {
 			dev_err(&client->dev, "Invalid checksum at record %u\n",
 				rec_num);
 			return error;
 		}
+		pos += 2;
 
 		chksm = 0;
 		for (i = 0; i < sizeof(rec_hdr); i++)
