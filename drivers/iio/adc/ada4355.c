@@ -78,9 +78,6 @@
 // Output Mode
 #define ADA4355_TWOSCOMP                    BIT(0)
 
-#define ADI_REG_ADC_CONFIG_CTRL		    0x008C
-#define ADI_FRAME                           (1 << 0)
-
 // HDL address: 0x32 DWORD                  BYTE
 #define ADA4355_ENABLE_ERROR_MASK	    0x00C8
 
@@ -235,43 +232,74 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *axi_adc_st = iio_priv(indio_dev);
 	struct ada4355_state *st = ada4355_get_data(indio_dev);
-	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);;
-	//struct ada4355_dev *adc = conv->phy;
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	u8 pn_status[3][32];
 	int opt_delay, c, s;
 	int ret;
 	unsigned int reg_cntrl;
-	//unsigned int lane_num = 2;
 	unsigned int i;
 	unsigned int j;
 	unsigned int delay;
-	//unsigned int frame_delay;
 	unsigned int val;
-	unsigned int val_enable;
 
-    // Set the numbers of lanes
+	// Set the numbers of lanes
 	reg_cntrl = axiadc_read(axi_adc_st, ADI_REG_CNTRL);
 	reg_cntrl |= ADI_NUM_LANES(st->num_lanes);
 	axiadc_write(axi_adc_st, ADI_REG_CNTRL, reg_cntrl);
 
 
-    // enable the sync
+	// enable the sync
 	reg_cntrl = axiadc_read(axi_adc_st, ADI_REG_CNTRL);
 	reg_cntrl |= ADI_NUM_LANES(st->num_lanes);
 	reg_cntrl |= ADI_SYNC;
 	axiadc_write(axi_adc_st, ADI_REG_CNTRL, reg_cntrl);
 	reg_cntrl = axiadc_read(axi_adc_st, ADI_REG_CNTRL);
 
-	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);	
+	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);
 
-	for (i = (st->num_lanes); i > -1; i--) {
+	// frame calibration
+	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK , (1 << 2));
+	for (delay = 0; delay < 32; delay++) {
+		val = axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0));
+		axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), val);
+		axiadc_write(axi_adc_st, 0x808, delay);
+		mdelay(1);
+		if (axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) & ADI_PN_ERR)
+			pn_status[0][delay] = 1;
+		else
+			pn_status[0][delay] = 0;
+	}
+
+	dev_info(&conv->spi->dev, "digital interface frame tuning:\n");
+
+	pr_cont("  ");
+	for (i = 0; i < 31; i++)
+		pr_cont("%02d:", i);
+	pr_cont("31\n");
+
+	pr_info("%x:", 0);
+	for (j = 0; j < 32; j++) {
+		if (pn_status[0][j])
+			pr_cont(" # ");
+		else
+			pr_cont(" o ");
+	}
+	pr_cont("\n");
+
+	c = find_opt(&pn_status[0][0], 32, &s);
+	opt_delay = s + c / 2;
+	axiadc_write(axi_adc_st, 0x808, opt_delay);
+	dev_info(&conv->spi->dev, "frame lane : selected delay: %d\n", opt_delay);
+
+	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK , 0);
+
+	// data calibration ****************************************************************
+
+	for (i = 0; i < (st->num_lanes); i++) {
 		axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK , (1 << i));
-		val_enable = axiadc_read(axi_adc_st, ADA4355_ENABLE_ERROR_MASK);
-		printk("ada4355 enable error [%d] = %d\n", i, val_enable);
 
 		for (delay = 0; delay < 32; delay++) {
 			val = axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0));
-			printk("ada4355 val lane [%d] = %d\n", i, val);
 			axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), val);
 			axiadc_write(axi_adc_st, 0x800 + (i * 4), delay);
 			mdelay(1);
@@ -280,44 +308,41 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 			else
 				pn_status[i][delay] = 0;
 		}
+		axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK , 0);
 	}
 
-	dev_info(&conv->spi->dev, "digital interface tuning:\n");
+	dev_info(&conv->spi->dev, "digital interface lanes tuning:\n");
 
 	pr_cont("  ");
 	for (i = 0; i < 31; i++)
 		pr_cont("%02d:", i);
 	pr_cont("31\n");
 
-	for (i = 0; i <= (st->num_lanes); i++) {
+	for (i = 0; i < (st->num_lanes); i++) {
 		pr_info("%x:", i);
 		for (j = 0; j < 32; j++) {
 			if (pn_status[i][j])
-			    pr_cont(" # ");
+				pr_cont(" # ");
 			else
 				pr_cont(" o ");
 		}
 		pr_cont("\n");
 	}
 
-	for (i = 0; i <= (st->num_lanes); i++) {
+	for (i = 0; i < (st->num_lanes); i++) {
 		c = find_opt(&pn_status[i][0], 32, &s);
-		printk("ada4355 s = %d , c = %d\n", s, c);
 		opt_delay = s + c / 2;
-		printk("ada4355 Opt delay = %d\n", opt_delay);
 		axiadc_write(axi_adc_st, 0x800 + (i * 4), opt_delay);
 		dev_info(&conv->spi->dev, "lane %d: selected delay: %d\n",
 			i, opt_delay);
-	}	
+	}
 
 	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), 0);
 
-	printk("ada4355: Before input signals\n");
 	ret = regmap_write(st->regmap, ADA4355_REG_TEST_MODE, ADA4355_INPUT_SIGNALS);
 	if (ret)
 		return ret;
-	printk("ada4355: After input signals\n");
-	
+
 	return 0;
 }
 
@@ -326,7 +351,7 @@ static int ada4355_setup(struct ada4355_state *st)
     	unsigned int reg, id;
     	int ret;
 
-	struct gpio_desc	*gpio_1p8vd_en;
+	struct gpio_desc *gpio_1p8vd_en;
 
     	ret = regmap_write(st->regmap,  ADA4355_REG_POWER_MODES , ADA4355_DIGITAL_RESET);
     	if (ret)
@@ -381,41 +406,46 @@ static int ada4355_setup(struct ada4355_state *st)
 	if (ret)
 		return ret;
 
-	printk("ada4355 User input");	
-   	 // Set User input mode
-    	ret = regmap_write(st->regmap, ADA4355_REG_TEST_MODE, ADA4355_USER_INPUT);
+	// Set User input mode
+	ret = regmap_write(st->regmap, ADA4355_REG_TEST_MODE, ADA4355_USER_INPUT);
 	if (ret)
-	    return ret;
-	printk("ada4355 PATT1_MSB");
+		return ret;
+
 	// Write test_pattern = 0xFFFC;
     	ret = regmap_write(st->regmap, ADA4355_REG_USER_PATT1_MSB, 0xFF);
     	if (ret)
-	    return ret;	
-	printk("ada4355 PATT1_LSB");	
+		return ret;
     	ret = regmap_write(st->regmap, ADA4355_REG_USER_PATT1_LSB, 0xFC);
     	if (ret)
-	    return ret;		
+		return ret;
+
+	ret = regmap_write(st->regmap, ADA4355_REG_USER_PATT2_MSB, 0xFF);
+	if(ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, ADA4355_REG_USER_PATT2_LSB, 0xFC);
+	if(ret)
+		return ret;
 
 	ret = regmap_read(st->regmap, ADA4355_REG_TEST_MODE, &reg);
 	if (ret)
 			return ret;
-	printk("ada4355: REG_TEST_MODE: %x\n", reg);		
 
-    	ret = regmap_write(st->regmap, ADA4355_REG_OUTPUT_MODE, ADA4355_TWOSCOMP);
+	ret = regmap_write(st->regmap, ADA4355_REG_OUTPUT_MODE, ADA4355_TWOSCOMP);
 
-    	ret = regmap_read(st->regmap, ADA4355_REG_OUTPUT_MODE, &reg);
+	ret = regmap_read(st->regmap, ADA4355_REG_OUTPUT_MODE, &reg);
 	if (ret)
 		return ret;
 
-    	ret = regmap_write(st->regmap, ADA4355_REG_RESOLUTION_SAMPLE_RATE, ADA4355_125_RATE);
+	ret = regmap_write(st->regmap, ADA4355_REG_RESOLUTION_SAMPLE_RATE, ADA4355_125_RATE);
 		return ret;
 
-    	gpio_1p8vd_en = devm_gpiod_get_optional(&st->spi->dev, "gpio-1p8vd-en", GPIOD_OUT_LOW);
+	gpio_1p8vd_en = devm_gpiod_get_optional(&st->spi->dev, "gpio-1p8vd-en", GPIOD_OUT_LOW);
 		if (IS_ERR(gpio_1p8vd_en))
 			return dev_err_probe(&st->spi->dev, PTR_ERR(gpio_1p8vd_en),
 					     "Failed to find gpio_1p8vd_en \n");
 
-    	gpiod_set_value_cansleep(gpio_1p8vd_en, 1);
+	gpiod_set_value_cansleep(gpio_1p8vd_en, 1);
 }
 
 static int ada4355_properties_parse(struct ada4355_state *st)
@@ -428,11 +458,7 @@ static int ada4355_properties_parse(struct ada4355_state *st)
 	if (IS_ERR(st->clk))
 		return PTR_ERR(st->clk);
 
-	dev_err(&st->spi->dev, "adc_clk: %x\n", st->clk);
-
 	ret = of_property_read_u32(spi->dev.of_node, "num_lanes", &val);
-
-	dev_err(&st->spi->dev, "num_lanes_var: %x\n", val);
 	if (!ret)
 		st->num_lanes = val;
 	else
@@ -448,7 +474,6 @@ static int ada4355_probe(struct spi_device *spi)
     struct axiadc_converter *conv;
     struct ada4355_state *st;
     int ret;
-    //int reg;
 
     indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
     if (!indio_dev)
