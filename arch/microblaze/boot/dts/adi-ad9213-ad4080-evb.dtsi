@@ -127,7 +127,6 @@
                 adi,high-performance-mode-disable;
 				adi,startup-mode-dynamic-enable;
 				adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_50_OHM>;
-
 			};
 			hmc7044_c12: channel@12 {
 				reg = <12>;
