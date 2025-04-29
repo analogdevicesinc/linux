@@ -24,8 +24,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios = <&axi_gpio 56 GPIO_ACTIVE_HIGH>,
-					<&axi_gpio 55 GPIO_ACTIVE_HIGH>,
+		out-gpios = <&axi_gpio 55 GPIO_ACTIVE_HIGH>,
 				    <&axi_gpio 54 GPIO_ACTIVE_HIGH>,
 				    <&axi_gpio 53 GPIO_ACTIVE_HIGH>,
 				    <&axi_gpio 51 GPIO_ACTIVE_HIGH>,
@@ -36,42 +35,38 @@
 				    <&axi_gpio 46 GPIO_ACTIVE_HIGH>;
 		channel@0 {
 			reg = <0>;
-			label = "sync_capture_ctrl";
+			label = "ltc2664_tgp";
 		};
 		channel@1 {
 			reg = <1>;
-			label = "ltc2664_tgp";
+			label = "ltc2664_clr";
 		};
 		channel@2 {
 			reg = <2>;
-			label = "ltc2664_clr";
+			label = "ltc2664_ldac";
 		};
 		channel@3 {
 			reg = <3>;
-			label = "ltc2664_ldac";
+			label = "ada4945_disable";
 		};
 		channel@4 {
 			reg = <4>;
-			label = "ada4945_disable";
+			label = "adg5419_ctrl";
 		};
 		channel@5 {
 			reg = <5>;
-			label = "adg5419_ctrl";
+			label = "adrf5203_ctrl2";
 		};
 		channel@6 {
 			reg = <6>;
-			label = "adrf5203_ctrl2";
+			label = "adrf5203_ctrl1";
 		};
 		channel@7 {
 			reg = <7>;
-			label = "adrf5203_ctrl1";
+			label = "adrf5203_ctrl0";
 		};
 		channel@8 {
 			reg = <8>;
-			label = "adrf5203_ctrl0";
-		};
-		channel@9 {
-			reg = <9>;
 			label = "hmc7044_sync_req";
 		};
 	};
