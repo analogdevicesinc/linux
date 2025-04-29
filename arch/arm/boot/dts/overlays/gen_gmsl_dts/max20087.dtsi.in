@@ -1,0 +1,29 @@
+&{{des_cfg.i2c_bus}} {
+	regulator@28 {
+		compatible = "maxim,max20087";
+		reg = <0x28>;
+
+		regulators {
+{% if vpoc_cfg %}
+{% for ser_cfg in des_cfg.links %}
+{% set ser_idx = loop.index0 %}
+			{{des_vpoc_label_x(ser_idx)}}: OUT{{ser_idx + 1}} {
+				regulator-name = "VPOC{{ser_idx}}";
+{% if vpoc_cfg.wait_for_teensy_reset_ms and loop.last %}
+				/*
+				 * Serializer evaluation kits have a Teensy microcontroller
+				 * that takes a few seconds to boot and which does a reset of
+				 * the serializer chip afterwards. If the VPOCs are initially
+				 * turned off, then turning them on will cause the Teensy to
+				 * start booting. Add a delay after the last VPOC to make sure
+				 * that the Teensy did its reset before starting programming
+				 * the serializers.
+				 */
+				regulator-enable-ramp-delay = <{{vpoc_cfg.wait_for_teensy_reset_ms * 1000}}>;
+{% endif %}
+			};
+{% endfor %}
+{% endif %}
+		};
+	};
+};

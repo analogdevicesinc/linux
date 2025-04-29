@@ -1,0 +1,31 @@
+[
+    {
+        "name": "max96724",
+        "i2c_bus": "i2c_csi_dsi0",
+        "platform_cfg": {
+            "name": "rpi-5-b",
+            "csi_idx": 0,
+            "phy_idx": 0
+        },
+        "phys": [
+            {
+                "phy_idx": 0,
+                "num_lanes": 4,
+                "link_frequencies": [750000000],
+                "clock_lanes": [0],
+                "data_lanes": [1, 2, 3, 4]
+            }
+        ],
+        "links": [
+            {
+                "name": "max96717",
+                "cameras": [
+                    {
+                        "name": "imx219"
+                    }
+                ],
+                "pool_addrs": ["0x50", "0x51"]
+            }
+        ]
+    }
+]
