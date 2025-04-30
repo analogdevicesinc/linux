@@ -122,7 +122,7 @@
 			hmc7044_c2: channel@2 {
 				reg = <2>;
 				adi,extended-name = "AD4080_CNV_COPY";
-				adi,divider = <128>;
+				adi,divider = <512>;
 				adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
                 adi,high-performance-mode-disable;
 				adi,startup-mode-dynamic-enable;
@@ -133,7 +133,7 @@
 				adi,extended-name = "AD4080_CLK";
 				adi,divider = <8>;
 				adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
-                                adi,high-performance-mode-disable;
+                adi,high-performance-mode-disable;
 			};
 		};
 
