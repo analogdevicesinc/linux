@@ -2975,6 +2975,21 @@ int phy_get_tx_amplitude_gain(struct phy_device *phydev, struct device *dev,
 }
 EXPORT_SYMBOL_GPL(phy_get_tx_amplitude_gain);
 
+/**
+ * phy_get_mac_termination - stores MAC termination in @val
+ * @phydev: phy_device struct
+ * @dev: pointer to the devices device struct
+ * @val: MAC termination
+ *
+ * Returns: 0 on success, < 0 on failure
+ */
+int phy_get_mac_termination(struct phy_device *phydev, struct device *dev,
+			    u32 *val)
+{
+	return phy_get_u32_property(dev, "mac-termination-ohms", val);
+}
+EXPORT_SYMBOL_GPL(phy_get_mac_termination);
+
 static int phy_led_set_brightness(struct led_classdev *led_cdev,
 				  enum led_brightness value)
 {
@@ -3234,18 +3249,6 @@ struct phy_device *fwnode_phy_find_device(struct fwnode_handle *phy_fwnode)
 	return NULL;
 }
 EXPORT_SYMBOL(fwnode_phy_find_device);
-
-/**
- * device_phy_find_device - For the given device, get the phy_device
- * @dev: Pointer to the given device
- *
- * Refer return conditions of fwnode_phy_find_device().
- */
-struct phy_device *device_phy_find_device(struct device *dev)
-{
-	return fwnode_phy_find_device(dev_fwnode(dev));
-}
-EXPORT_SYMBOL_GPL(device_phy_find_device);
 
 /**
  * fwnode_get_phy_node - Get the phy_node using the named reference.

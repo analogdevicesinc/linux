@@ -1757,7 +1757,6 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
 int fwnode_get_phy_id(struct fwnode_handle *fwnode, u32 *phy_id);
 struct mdio_device *fwnode_mdio_find_device(struct fwnode_handle *fwnode);
 struct phy_device *fwnode_phy_find_device(struct fwnode_handle *phy_fwnode);
-struct phy_device *device_phy_find_device(struct device *dev);
 struct fwnode_handle *fwnode_get_phy_node(const struct fwnode_handle *fwnode);
 struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
 int phy_device_register(struct phy_device *phy);
@@ -1775,11 +1774,6 @@ struct mdio_device *fwnode_mdio_find_device(struct fwnode_handle *fwnode)
 
 static inline
 struct phy_device *fwnode_phy_find_device(struct fwnode_handle *phy_fwnode)
-{
-	return NULL;
-}
-
-static inline struct phy_device *device_phy_find_device(struct device *dev)
 {
 	return NULL;
 }
@@ -2045,6 +2039,9 @@ s32 phy_get_internal_delay(struct phy_device *phydev, struct device *dev,
 int phy_get_tx_amplitude_gain(struct phy_device *phydev, struct device *dev,
 			      enum ethtool_link_mode_bit_indices linkmode,
 			      u32 *val);
+
+int phy_get_mac_termination(struct phy_device *phydev, struct device *dev,
+			    u32 *val);
 
 void phy_resolve_pause(unsigned long *local_adv, unsigned long *partner_adv,
 		       bool *tx_pause, bool *rx_pause);
