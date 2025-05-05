@@ -5091,9 +5091,7 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->indio_dev = indio_dev;
 	phy->spi = spi;
 
-	phy->chip = of_device_get_match_data(&spi->dev);
-	if (!phy->chip)
-		phy->chip = (const struct adrv9002_chip_info *)spi_get_device_id(spi)->driver_data;
+	phy->chip = spi_get_device_match_data(spi);
 	if (!phy->chip)
 		return -EINVAL;
 
