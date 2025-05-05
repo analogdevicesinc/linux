@@ -52,16 +52,18 @@ struct backing_file {
 	};
 };
 
-static inline struct backing_file *backing_file(struct file *f)
-{
-	return container_of(f, struct backing_file, file);
-}
+#define backing_file(f) container_of(f, struct backing_file, file)
 
 struct path *backing_file_user_path(struct file *f)
 {
 	return &backing_file(f)->user_path;
 }
-EXPORT_SYMBOL_GPL(backing_file_user_path);
+
+const struct path *backing_file_user_path_c(const struct file *f)
+{
+	return &backing_file(f)->user_path;
+}
+EXPORT_SYMBOL_GPL(backing_file_user_path_c);
 
 static inline void file_free(struct file *f)
 {
