@@ -93,3 +93,250 @@
 	 */
 	clock-frequency = <100000000>;
 };
+
+// https://github.com/analogdevicesinc/linux/blob/main/arch/arm/boot/dts/intel/socfpga/socfpga_cyclone5_de10_nano_hps.dtsi
+
+/ {
+	sys_clk: sys_clk {
+		#clock-cells = <0x0>;
+		compatible = "fixed-clock";
+		clock-frequency = <50000000>;
+		clock-output-names = "sys_clk";
+	};
+
+	ref_clk: ref_clk {
+		#clock-cells = <0x0>;
+		compatible = "fixed-clock";
+		clock-frequency = <50000000>;
+		clock-output-names = "reference_clock";
+	};
+
+	// REVISIT: Technically, this is a child clock of the h2f_user0_clock
+	sys_dma_clk: sys_dma_clk {
+		#clock-cells = <0x0>;
+		compatible = "fixed-clock";
+		clock-frequency = <80000000>;
+		clock-output-names = "sys_dma_clk";
+	};
+
+	ltc2308_vref: voltage-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+};
+
+&fpga {
+	gpio_bd: gpio_bd@10080 {
+		compatible = "altr,pio-18.1", "altr,pio-1.0";
+		reg = <0x00010080 0x10>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 40 IRQ_TYPE_LEVEL_HIGH>;
+		altr,interrupt-type = <IRQ_TYPE_LEVEL_HIGH>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+	};
+
+	gpio_in: gpio_in@10100 {
+		compatible = "altr,pio-18.1", "altr,pio-1.0";
+		reg = <0x00010100 0x10>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 42 IRQ_TYPE_LEVEL_HIGH>;
+		altr,interrupt-type = <IRQ_TYPE_LEVEL_HIGH>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+	};
+
+	axi_sysid_0: axi-sysid-0@18000 {
+		compatible = "adi,axi-sysid-1.00.a";
+		reg = <0x00018000 0x8000>;
+	};
+
+	hdmi_tx_dma: dma@80000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x00080000 0x800>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 47 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		clocks = <&sys_clk>;
+	};
+
+	axi_hdmi@90000 {
+		compatible = "adi,axi-hdmi-tx-1.00.a";
+		reg = <0x00090000 0x10000>;
+		dmas = <&hdmi_tx_dma 0>;
+		dma-names = "video";
+		clocks = <&pixel_clock 0>;
+		adi,is-rgb;
+
+		port {
+			axi_hdmi_out: endpoint {
+				remote-endpoint = <&adv7513_in>;
+			};
+		};
+	};
+
+	pixel_clock: fpll@100000 {
+		#clock-cells = <0x1>;
+		compatible = "altr,c5-fpll";
+		reg = <0x00100000 0x100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&ref_clk>;
+		assigned-clocks = <&pixel_clock 0>, <&pixel_clock 1>;
+		assigned-clock-rates = <148500000>, <100000000>;
+		clock-output-names = "c5_out0", "c5_out1", "c5_out2",
+				     "c5_out3", "c5_out4", "c5_out5",
+				     "c5_out6", "c5_out7", "c5_out8";
+		adi,fractional-carry-bit = <32>;
+
+		fpll_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "PIXEL_CLOCK";
+		};
+
+		fpll_c1: channel@1 {
+			reg = <1>;
+			adi,extended-name = "DMA_CLOCK";
+		};
+	};
+
+	gpio_out: gpio_out@109000 {
+		compatible = "altr,pio-1.0";
+		reg = <0x109000 0x10>;
+		#gpio-cells = <2>;
+		gpio-controller;
+	};
+
+	spi@10a000 {
+		compatible = "altr,spi-18.1", "altr,spi-1.0";
+		reg = <0x10a000 0x20>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 43 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ltc2308: adc@0 {
+			compatible = "adi,ltc2308";
+			reg = <0>;
+			spi-max-frequency = <40000000>;
+			vref-supply = <&ltc2308_vref>;
+			cnv-gpios = <&gpio_out 9 GPIO_ACTIVE_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel@0 {
+				reg = <0>;
+			};
+			channel@1 {
+				reg = <1>;
+			};
+			channel@2 {
+				reg = <2>;
+			};
+			channel@3 {
+				reg = <3>;
+			};
+			channel@4 {
+				reg = <4>;
+			};
+			channel@5 {
+				reg = <5>;
+			};
+			channel@6 {
+				reg = <6>;
+			};
+			channel@7 {
+				reg = <7>;
+			};
+		};
+	};
+};
+
+&i2c0 {
+	adv7513@39 {
+		compatible = "adi,adv7513";
+		reg = <0x39>, <0x3f>;
+		reg-names = "primary", "edid";
+
+		adi,input-depth = <8>;
+		adi,input-colorspace = "rgb";
+		adi,input-clock = "1x";
+		adi,clock-delay = <0>;
+
+		#sound-dai-cells = <0>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				adv7513_in: endpoint {
+					remote-endpoint = <&axi_hdmi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+			};
+		};
+	};
+};
+
+// https://analogdevicesinc.github.io/hdl/projects/ad411x_ad717x/index.html
+
+&fpga {
+	rx_dma: dma@20000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x20000 0x800>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 44 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sys_clk>;
+	};
+
+	spi@30000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x30000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sys_clk>, <&sys_dma_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+
+		dmas = <&rx_dma 0>;
+		dma-names = "offload0-rx";
+		trigger-sources = <&adc_trigger>;
+
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		adc@0 {
+			compatible = "adi,ad4111";
+			reg = <0>;
+			
+			spi-max-frequency = <20000000>;
+
+			// avdd-supply = <&vcc_3v3>;
+			// iovdd-supply = <&vcc_3v3>;
+			// vref-supply = <&vcc_3v3>;
+
+			interrupts = <18 IRQ_TYPE_EDGE_FALLING>;
+			interrupt-names = "rdy";
+			interrupt-parent = <&gpio_in>;
+			rdy-gpios = <&gpio_in 18 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	adc_trigger: trigger@40000 {
+		compatible = "adi,util-sigma-delta-spi";
+		reg = <0x40000 0x100>;
+		clocks = <&sys_dma_clk>;
+		#trigger-source-cells = <0>;
+	};
+};
