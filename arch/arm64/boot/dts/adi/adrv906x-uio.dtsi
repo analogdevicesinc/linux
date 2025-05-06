@@ -1710,13 +1710,28 @@
         compatible = "generic-uio";
         interrupts = <GIC_SPI RUE_IRQ IRQ_TYPE_LEVEL_HIGH>;
     };
+    uio-adrv906x-c2c-interrupt-rue-fm {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_45 IRQ_TYPE_LEVEL_HIGH>;
+    };
     uio-adrv906x-interrupt-oif-fm {
         compatible = "generic-uio";
         interrupts = <GIC_SPI OIF_IRQ IRQ_TYPE_LEVEL_HIGH>;
     };
+    uio-adrv906x-c2c-interrupt-oif-fm {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_46 IRQ_TYPE_LEVEL_HIGH>;
+    };
     uio-adrv906x-interrupt-gpint-fm {
         compatible = "generic-uio";
         interrupts = <GIC_SPI GP_INTERRUPT_SYNC_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-gpint-fm {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_197 IRQ_TYPE_LEVEL_HIGH>;
     };
     uio-adrv906x-interrupt-dying-gasp-fm {
         compatible = "generic-uio";
