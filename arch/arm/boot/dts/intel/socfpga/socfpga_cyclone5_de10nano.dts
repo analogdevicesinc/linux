@@ -293,6 +293,13 @@
 
 
 / {
+	eval_y1: eval-y1-clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0x0>;
+		clock-frequency = <16000000>;
+		clock-output-names = "EVAL 16MEGHZ (Y1)";
+	};
+
 	eval_u2: eval-u2-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "EVAL ADUM6411BRSZ (U2)";
@@ -341,6 +348,9 @@
 			reg = <0>;
 			
 			spi-max-frequency = <20000000>;
+
+			clocks = <&eval_y1>;
+			clock-names = "xtal";
 
 			// S1 default position - SINGLE
 			avdd-supply = <&eval_u2>;
