@@ -138,7 +138,7 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 		if (eth_if->ethswitch.enabled)
 			adrv906x_switch_port_enable(es, adrv906x_dev->port, false);
 
-		netdev_info(ndev, "%s: link down", ndev->name);
+		netdev_info(ndev, "link down");
 		return;
 	}
 
