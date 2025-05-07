@@ -397,13 +397,6 @@
 		output-high;
 		line-name = "usb-reset";
 	};
-
-	fan_ctl {
-		gpio-hog;
-		gpios = <145 GPIO_ACTIVE_HIGH>;
-		output-low;
-		line-name = "fan-ctl";
-	};
 };
 
 &spi0 {
