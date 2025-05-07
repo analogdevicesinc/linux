@@ -291,6 +291,26 @@
 
 // https://analogdevicesinc.github.io/hdl/projects/ad411x_ad717x/index.html
 
+
+/ {
+	eval_u2: eval-u2-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL ADUM6411BRSZ (U2)";
+		// LK24 jumper default position REMOVED
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	eval_u6: eval-u6-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL ADR4525BRZ (U6)";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
+};
+
 &fpga {
 	rx_dma: dma@20000 {
 		compatible = "adi,axi-dmac-1.00.a";
@@ -322,14 +342,92 @@
 			
 			spi-max-frequency = <20000000>;
 
-			// avdd-supply = <&vcc_3v3>;
-			// iovdd-supply = <&vcc_3v3>;
-			// vref-supply = <&vcc_3v3>;
+			// S1 default position - SINGLE
+			avdd-supply = <&eval_u2>;
+			// LK24 jumper default position A
+			iovdd-supply = <&eval_u2>;
+			// LK13 jumper default position B
+			vref-supply = <&eval_u6>;
 
 			interrupts = <18 IRQ_TYPE_EDGE_FALLING>;
 			interrupt-names = "rdy";
 			interrupt-parent = <&gpio_in>;
 			rdy-gpios = <&gpio_in 18 GPIO_ACTIVE_LOW>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			channel@0 {
+				reg = <0>;
+				single-channel = <0>; // VIN0
+				common-mode-channel = <16>; //VINCOM
+			};
+
+			channel@1 {
+				reg = <1>;
+				single-channel = <1>; // VIN1
+				common-mode-channel = <16>; //VINCOM
+			};
+
+			channel@2 {
+				reg = <2>;
+				single-channel = <2>; // VIN2
+				common-mode-channel = <16>; //VINCOM
+			};
+
+			channel@3 {
+				reg = <3>;
+				single-channel = <3>; // VIN3
+				common-mode-channel = <16>; //VINCOM
+			};
+
+			channel@4 {
+				reg = <4>;
+				single-channel = <4>; // VIN4
+				common-mode-channel = <16>; //VINCOM
+			};
+
+			channel@5 {
+				reg = <5>;
+				single-channel = <5>; // VIN5
+				common-mode-channel = <16>; //VINCOM
+			};
+
+			channel@6 {
+				reg = <6>;
+				single-channel = <6>; // VIN6
+				common-mode-channel = <16>; //VINCOM
+			};
+
+			channel@7 {
+				reg = <7>;
+				single-channel = <7>; // VIN7
+				common-mode-channel = <16>; //VINCOM
+			};
+
+			channel@8 {
+				reg = <8>;
+				single-channel = <0>; // IIN0
+				adi,current-channel;
+			};
+
+			channel@9 {
+				reg = <9>;
+				single-channel = <1>; // IIN1
+				adi,current-channel;
+			};
+
+			channel@10 {
+				reg = <10>;
+				single-channel = <2>; // IIN2
+				adi,current-channel;
+			};
+
+			channel@11 {
+				reg = <11>;
+				single-channel = <3>; // IIN3
+				adi,current-channel;
+			};
 		};
 	};
 
