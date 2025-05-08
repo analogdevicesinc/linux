@@ -1,19 +1,19 @@
 [
     {
-        "name": "max96712",
-        "i2c_bus": "i2c_csi_dsi0",
+        "name": "max96724",
+        "i2c_bus": "i2c_csi_dsi",
         "platform_cfg": {
-            "name": "rpi-5-b",
-            "csi_idx": 0,
-            "phy_idx": 0
+            "name": "rpi-4-b",
+            "csi_idx": 1,
+            "phy_idx": 2
         },
         "phys": [
             {
-                "phy_idx": 0,
-                "num_lanes": 4,
+                "phy_idx": 2,
+                "num_lanes": 2,
                 "link_frequencies": [750000000],
                 "clock_lanes": [0],
-                "data_lanes": [1, 2, 3, 4]
+                "data_lanes": [1, 2]
             }
         ],
         "links": [
