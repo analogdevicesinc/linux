@@ -1399,12 +1399,27 @@ static const struct of_device_id ad485x_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, ad9467_of_match);
 
+static const struct spi_device_id ad4851_spi_id[] = {
+	{ "ad4858", (kernel_ulong_t)&adc_chip_info[ID_AD4858] },
+	{ "ad4857", (kernel_ulong_t)&adc_chip_info[ID_AD4857] },
+	{ "ad4856", (kernel_ulong_t)&adc_chip_info[ID_AD4856] },
+	{ "ad4855", (kernel_ulong_t)&adc_chip_info[ID_AD4855] },
+	{ "ad4854", (kernel_ulong_t)&adc_chip_info[ID_AD4854] },
+	{ "ad4853", (kernel_ulong_t)&adc_chip_info[ID_AD4853] },
+	{ "ad4852", (kernel_ulong_t)&adc_chip_info[ID_AD4852] },
+	{ "ad4851", (kernel_ulong_t)&adc_chip_info[ID_AD4851] },
+	{ "ad4858i", (kernel_ulong_t)&adc_chip_info[ID_AD4858I] },
+	{ }
+};
+MODULE_DEVICE_TABLE(spi, ad4851_spi_id);
+
 static struct spi_driver ad485x_driver = {
 	.probe = ad485x_probe,
 	.driver = {
 		.name   = "ad485x",
 		.of_match_table = ad485x_of_match,
 	},
+	.id_table = ad4851_spi_id,
 };
 module_spi_driver(ad485x_driver);
 
