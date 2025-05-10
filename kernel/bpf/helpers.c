@@ -23,6 +23,7 @@
 #include <linux/btf_ids.h>
 #include <linux/bpf_mem_alloc.h>
 #include <linux/kasan.h>
+#include <linux/bpf_verifier.h>
 
 #include "../../lib/kstrtox.h"
 
@@ -1912,6 +1913,12 @@ const struct bpf_func_proto bpf_probe_read_user_str_proto __weak;
 const struct bpf_func_proto bpf_probe_read_kernel_proto __weak;
 const struct bpf_func_proto bpf_probe_read_kernel_str_proto __weak;
 const struct bpf_func_proto bpf_task_pt_regs_proto __weak;
+const struct bpf_func_proto bpf_perf_event_read_proto __weak;
+const struct bpf_func_proto bpf_send_signal_proto __weak;
+const struct bpf_func_proto bpf_send_signal_thread_proto __weak;
+const struct bpf_func_proto bpf_get_task_stack_sleepable_proto __weak;
+const struct bpf_func_proto bpf_get_task_stack_proto __weak;
+const struct bpf_func_proto bpf_get_branch_snapshot_proto __weak;
 
 const struct bpf_func_proto *
 bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
@@ -1965,6 +1972,8 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_get_current_pid_tgid_proto;
 	case BPF_FUNC_get_ns_current_pid_tgid:
 		return &bpf_get_ns_current_pid_tgid_proto;
+	case BPF_FUNC_get_current_uid_gid:
+		return &bpf_get_current_uid_gid_proto;
 	default:
 		break;
 	}
@@ -2022,7 +2031,21 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_get_current_cgroup_id_proto;
 	case BPF_FUNC_get_current_ancestor_cgroup_id:
 		return &bpf_get_current_ancestor_cgroup_id_proto;
+	case BPF_FUNC_current_task_under_cgroup:
+		return &bpf_current_task_under_cgroup_proto;
 #endif
+#ifdef CONFIG_CGROUP_NET_CLASSID
+	case BPF_FUNC_get_cgroup_classid:
+		return &bpf_get_cgroup_classid_curr_proto;
+#endif
+	case BPF_FUNC_task_storage_get:
+		if (bpf_prog_check_recur(prog))
+			return &bpf_task_storage_get_recur_proto;
+		return &bpf_task_storage_get_proto;
+	case BPF_FUNC_task_storage_delete:
+		if (bpf_prog_check_recur(prog))
+			return &bpf_task_storage_delete_recur_proto;
+		return &bpf_task_storage_delete_proto;
 	default:
 		break;
 	}
@@ -2037,6 +2060,8 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_get_current_task_proto;
 	case BPF_FUNC_get_current_task_btf:
 		return &bpf_get_current_task_btf_proto;
+	case BPF_FUNC_get_current_comm:
+		return &bpf_get_current_comm_proto;
 	case BPF_FUNC_probe_read_user:
 		return &bpf_probe_read_user_proto;
 	case BPF_FUNC_probe_read_kernel:
@@ -2047,6 +2072,10 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 	case BPF_FUNC_probe_read_kernel_str:
 		return security_locked_down(LOCKDOWN_BPF_READ_KERNEL) < 0 ?
 		       NULL : &bpf_probe_read_kernel_str_proto;
+	case BPF_FUNC_copy_from_user:
+		return &bpf_copy_from_user_proto;
+	case BPF_FUNC_copy_from_user_task:
+		return &bpf_copy_from_user_task_proto;
 	case BPF_FUNC_snprintf_btf:
 		return &bpf_snprintf_btf_proto;
 	case BPF_FUNC_snprintf:
@@ -2057,6 +2086,19 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return bpf_get_trace_vprintk_proto();
 	case BPF_FUNC_perf_event_read_value:
 		return bpf_get_perf_event_read_value_proto();
+	case BPF_FUNC_perf_event_read:
+		return &bpf_perf_event_read_proto;
+	case BPF_FUNC_send_signal:
+		return &bpf_send_signal_proto;
+	case BPF_FUNC_send_signal_thread:
+		return &bpf_send_signal_thread_proto;
+	case BPF_FUNC_get_task_stack:
+		return prog->sleepable ? &bpf_get_task_stack_sleepable_proto
+				       : &bpf_get_task_stack_proto;
+	case BPF_FUNC_get_branch_snapshot:
+		return &bpf_get_branch_snapshot_proto;
+	case BPF_FUNC_find_vma:
+		return &bpf_find_vma_proto;
 	default:
 		return NULL;
 	}
@@ -2293,6 +2335,26 @@ __bpf_kfunc struct bpf_list_node *bpf_list_pop_back(struct bpf_list_head *head)
 	return __bpf_list_del(head, true);
 }
 
+__bpf_kfunc struct bpf_list_node *bpf_list_front(struct bpf_list_head *head)
+{
+	struct list_head *h = (struct list_head *)head;
+
+	if (list_empty(h) || unlikely(!h->next))
+		return NULL;
+
+	return (struct bpf_list_node *)h->next;
+}
+
+__bpf_kfunc struct bpf_list_node *bpf_list_back(struct bpf_list_head *head)
+{
+	struct list_head *h = (struct list_head *)head;
+
+	if (list_empty(h) || unlikely(!h->next))
+		return NULL;
+
+	return (struct bpf_list_node *)h->prev;
+}
+
 __bpf_kfunc struct bpf_rb_node *bpf_rbtree_remove(struct bpf_rb_root *root,
 						  struct bpf_rb_node *node)
 {
@@ -2364,6 +2426,33 @@ __bpf_kfunc struct bpf_rb_node *bpf_rbtree_first(struct bpf_rb_root *root)
 	struct rb_root_cached *r = (struct rb_root_cached *)root;
 
 	return (struct bpf_rb_node *)rb_first_cached(r);
+}
+
+__bpf_kfunc struct bpf_rb_node *bpf_rbtree_root(struct bpf_rb_root *root)
+{
+	struct rb_root_cached *r = (struct rb_root_cached *)root;
+
+	return (struct bpf_rb_node *)r->rb_root.rb_node;
+}
+
+__bpf_kfunc struct bpf_rb_node *bpf_rbtree_left(struct bpf_rb_root *root, struct bpf_rb_node *node)
+{
+	struct bpf_rb_node_kern *node_internal = (struct bpf_rb_node_kern *)node;
+
+	if (READ_ONCE(node_internal->owner) != root)
+		return NULL;
+
+	return (struct bpf_rb_node *)node_internal->rb_node.rb_left;
+}
+
+__bpf_kfunc struct bpf_rb_node *bpf_rbtree_right(struct bpf_rb_root *root, struct bpf_rb_node *node)
+{
+	struct bpf_rb_node_kern *node_internal = (struct bpf_rb_node_kern *)node;
+
+	if (READ_ONCE(node_internal->owner) != root)
+		return NULL;
+
+	return (struct bpf_rb_node *)node_internal->rb_node.rb_right;
 }
 
 /**
@@ -3209,11 +3298,16 @@ BTF_ID_FLAGS(func, bpf_list_push_front_impl)
 BTF_ID_FLAGS(func, bpf_list_push_back_impl)
 BTF_ID_FLAGS(func, bpf_list_pop_front, KF_ACQUIRE | KF_RET_NULL)
 BTF_ID_FLAGS(func, bpf_list_pop_back, KF_ACQUIRE | KF_RET_NULL)
+BTF_ID_FLAGS(func, bpf_list_front, KF_RET_NULL)
+BTF_ID_FLAGS(func, bpf_list_back, KF_RET_NULL)
 BTF_ID_FLAGS(func, bpf_task_acquire, KF_ACQUIRE | KF_RCU | KF_RET_NULL)
 BTF_ID_FLAGS(func, bpf_task_release, KF_RELEASE)
 BTF_ID_FLAGS(func, bpf_rbtree_remove, KF_ACQUIRE | KF_RET_NULL)
 BTF_ID_FLAGS(func, bpf_rbtree_add_impl)
 BTF_ID_FLAGS(func, bpf_rbtree_first, KF_RET_NULL)
+BTF_ID_FLAGS(func, bpf_rbtree_root, KF_RET_NULL)
+BTF_ID_FLAGS(func, bpf_rbtree_left, KF_RET_NULL)
+BTF_ID_FLAGS(func, bpf_rbtree_right, KF_RET_NULL)
 
 #ifdef CONFIG_CGROUPS
 BTF_ID_FLAGS(func, bpf_cgroup_acquire, KF_ACQUIRE | KF_RCU | KF_RET_NULL)

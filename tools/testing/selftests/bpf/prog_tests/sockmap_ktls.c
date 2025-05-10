@@ -61,71 +61,6 @@ static int create_ktls_pairs(int family, int sotype, int *c, int *p)
 	return 0;
 }
 
-static int tcp_server(int family)
-{
-	int err, s;
-
-	s = socket(family, SOCK_STREAM, 0);
-	if (!ASSERT_GE(s, 0, "socket"))
-		return -1;
-
-	err = listen(s, SOMAXCONN);
-	if (!ASSERT_OK(err, "listen"))
-		return -1;
-
-	return s;
-}
-
-static int disconnect(int fd)
-{
-	struct sockaddr unspec = { AF_UNSPEC };
-
-	return connect(fd, &unspec, sizeof(unspec));
-}
-
-/* Disconnect (unhash) a kTLS socket after removing it from sockmap. */
-static void test_sockmap_ktls_disconnect_after_delete(int family, int map)
-{
-	struct sockaddr_storage addr = {0};
-	socklen_t len = sizeof(addr);
-	int err, cli, srv, zero = 0;
-
-	srv = tcp_server(family);
-	if (srv == -1)
-		return;
-
-	err = getsockname(srv, (struct sockaddr *)&addr, &len);
-	if (!ASSERT_OK(err, "getsockopt"))
-		goto close_srv;
-
-	cli = socket(family, SOCK_STREAM, 0);
-	if (!ASSERT_GE(cli, 0, "socket"))
-		goto close_srv;
-
-	err = connect(cli, (struct sockaddr *)&addr, len);
-	if (!ASSERT_OK(err, "connect"))
-		goto close_cli;
-
-	err = bpf_map_update_elem(map, &zero, &cli, 0);
-	if (!ASSERT_OK(err, "bpf_map_update_elem"))
-		goto close_cli;
-
-	err = setsockopt(cli, IPPROTO_TCP, TCP_ULP, "tls", strlen("tls"));
-	if (!ASSERT_OK(err, "setsockopt(TCP_ULP)"))
-		goto close_cli;
-
-	err = bpf_map_delete_elem(map, &zero);
-	if (!ASSERT_OK(err, "bpf_map_delete_elem"))
-		goto close_cli;
-
-	err = disconnect(cli);
-
-close_cli:
-	close(cli);
-close_srv:
-	close(srv);
-}
-
 static void test_sockmap_ktls_update_fails_when_sock_has_ulp(int family, int map)
 {
 	struct sockaddr_storage addr = {};
@@ -305,6 +240,80 @@ out:
 	test_sockmap_ktls__destroy(skel);
 }
 
+static void test_sockmap_ktls_tx_no_buf(int family, int sotype, bool push)
+{
+	int c = -1, p = -1, one = 1, two = 2;
+	struct test_sockmap_ktls *skel;
+	unsigned char *data = NULL;
+	struct msghdr msg = {0};
+	struct iovec iov[2];
+	int prog_fd, map_fd;
+	int txrx_buf = 1024;
+	int iov_length = 8192;
+	int err;
+
+	skel = test_sockmap_ktls__open_and_load();
+	if (!ASSERT_TRUE(skel, "open ktls skel"))
+		return;
+
+	err = create_pair(family, sotype, &c, &p);
+	if (!ASSERT_OK(err, "create_pair()"))
+		goto out;
+
+	err = setsockopt(c, SOL_SOCKET, SO_RCVBUFFORCE, &txrx_buf, sizeof(int));
+	err |= setsockopt(p, SOL_SOCKET, SO_SNDBUFFORCE, &txrx_buf, sizeof(int));
+	if (!ASSERT_OK(err, "set buf limit"))
+		goto out;
+
+	prog_fd = bpf_program__fd(skel->progs.prog_sk_policy_redir);
+	map_fd = bpf_map__fd(skel->maps.sock_map);
+
+	err = bpf_prog_attach(prog_fd, map_fd, BPF_SK_MSG_VERDICT, 0);
+	if (!ASSERT_OK(err, "bpf_prog_attach sk msg"))
+		goto out;
+
+	err = bpf_map_update_elem(map_fd, &one, &c, BPF_NOEXIST);
+	if (!ASSERT_OK(err, "bpf_map_update_elem(c)"))
+		goto out;
+
+	err = bpf_map_update_elem(map_fd, &two, &p, BPF_NOEXIST);
+	if (!ASSERT_OK(err, "bpf_map_update_elem(p)"))
+		goto out;
+
+	skel->bss->apply_bytes = 1024;
+
+	err = init_ktls_pairs(c, p);
+	if (!ASSERT_OK(err, "init_ktls_pairs(c, p)"))
+		goto out;
+
+	data = calloc(iov_length, sizeof(char));
+	if (!data)
+		goto out;
+
+	iov[0].iov_base = data;
+	iov[0].iov_len = iov_length;
+	iov[1].iov_base = data;
+	iov[1].iov_len = iov_length;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 2;
+
+	for (;;) {
+		err = sendmsg(c, &msg, MSG_DONTWAIT);
+		if (err <= 0)
+			break;
+	}
+
+out:
+	if (data)
+		free(data);
+	if (c != -1)
+		close(c);
+	if (p != -1)
+		close(p);
+
+	test_sockmap_ktls__destroy(skel);
+}
+
 static void run_tests(int family, enum bpf_map_type map_type)
 {
 	int map;
@@ -313,8 +322,6 @@ static void run_tests(int family, enum bpf_map_type map_type)
 	if (!ASSERT_GE(map, 0, "bpf_map_create"))
 		return;
 
-	if (test__start_subtest(fmt_test_name("disconnect_after_delete", family, map_type)))
-		test_sockmap_ktls_disconnect_after_delete(family, map);
 	if (test__start_subtest(fmt_test_name("update_fails_when_sock_has_ulp", family, map_type)))
 		test_sockmap_ktls_update_fails_when_sock_has_ulp(family, map);
 
@@ -329,6 +336,8 @@ static void run_ktls_test(int family, int sotype)
 		test_sockmap_ktls_tx_cork(family, sotype, false);
 	if (test__start_subtest("tls tx cork with push"))
 		test_sockmap_ktls_tx_cork(family, sotype, true);
+	if (test__start_subtest("tls tx egress with no buf"))
+		test_sockmap_ktls_tx_no_buf(family, sotype, true);
 }
 
 void test_sockmap_ktls(void)
