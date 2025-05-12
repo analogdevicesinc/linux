@@ -1,0 +1,67 @@
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+  pull_request:
+    paths:
+      - 'docs/**'
+
+jobs:
+  build-doc:
+    runs-on: [self-hosted, v1]
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@v1
+
+    - name: Install pip packages
+      run: |
+        python3.11 -m venv ~/venv
+        source ~/venv/bin/activate
+        pip3.11 install -r docs/requirements.txt --upgrade
+
+    - name: Build doc
+      working-directory: docs
+      run: |
+        source ~/venv/bin/activate
+        make html SPHINXOPTS='-W --keep-going'
+
+    - name: Store the generated doc
+      uses: actions/upload-artifact@v4
+      with:
+        name: html
+        path: docs/_build/html
+
+  deploy-doc:
+    runs-on: [self-hosted, v1]
+    needs: build-doc
+    if: ${{ (github.ref == 'refs/heads/main') }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: 'gh-pages'
+
+    - name: Empty gh-pages
+      run: |
+        git rm -r . --quiet || true
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: html
+
+    - name: Patch doc build
+      run: |
+        rm -r _sources
+        touch .nojekyll
+
+    - name: Commit gh-pages
+      run: |
+        git add . >> /dev/null
+        git commit -m "deploy: ${GITHUB_SHA}" --allow-empty
+
+    - name: Push to gh-pages
+      run: |
+        git push origin gh-pages:gh-pages
+
