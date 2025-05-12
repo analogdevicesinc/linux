@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config VIDEO_MAXIM_SERDES
+	tristate "Maxim GMSL2 Serializer and Deserializer support"
+	depends on VIDEO_DEV
+	select I2C_ATR
+	select I2C_MUX
+	select MEDIA_CONTROLLER
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	help
+	  This driver supports the Maxim GMSL2 common Serializer and Deserializer
+	  framework.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max_serdes.
+
+config VIDEO_MAX96717
+	tristate "Maxim MAX96717 GMSL2 Serializer support"
+	depends on OF && COMMON_CLK
+	select VIDEO_MAXIM_SERDES
+	select GENERIC_PINCONF
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GPIOLIB
+	help
+	  This driver supports the Maxim MAX96717 GMSL2 Serializer,
+	  which receives video on a MIPI CSI-2 interface and outputs it
+	  on a GMSL2 link.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max96717.
+
+config VIDEO_MAX96724
+	tristate "Maxim MAX96724 Quad GMSL2 Deserializer support"
+	select VIDEO_MAXIM_SERDES
+	help
+	  This driver supports the Maxim MAX96724 Quad GMSL2 Deserializer,
+	  which converts from four GMSL2/1 to 1, 2 or 4 MIPI D-PHY or
+	  C-PHY outputs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max96724.
+
+config VIDEO_MAX9296A
+	tristate "Maxim MAX9296A Dual GMSL2 Deserializer support"
+	select VIDEO_MAXIM_SERDES
+	help
+	  This driver supports the Maxim MAX9296A Dual GMSL2 Deserializer,
+	  which converts from two GMSL2/1 to 1 or 2 MIPI D-PHY outputs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max9296a.
