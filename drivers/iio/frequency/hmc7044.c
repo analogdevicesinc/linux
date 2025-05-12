@@ -129,6 +129,11 @@
 #define HMC7044_REG_OSCOUT_DRIVER_0	0x003A
 #define HMC7044_REG_OSCOUT_DRIVER_1	0x003B
 
+/* OSCOUTx */
+#define HMC7044_OSCOUT_DIVIDER(x)	(((x) & 0x03) << 1)
+#define HMC7044_OSCOUT_DRIVER_MODE(x)	(((x) & 0x03) << 4)
+#define HMC7044_OSCOUT_IMPEDANCE(x)	(((x) & 0x03) << 1)
+
 /* GPIO/SDATA Control */
 #define HMC7044_REG_GPI_CTRL(x)		(0x0046 + (x))
 #define HMC7044_REG_GPI_SEL(x)		((x) & 0xf)
@@ -301,6 +306,14 @@ struct hmc7044 {
 	bool				clkin1_vcoin_en;
 	bool				high_performance_mode_clock_dist_en;
 	bool				rf_reseeder_en;
+	bool				oscout_path_en;
+	bool				oscout0_driver_en;
+	bool				oscout1_driver_en;
+	u32				oscout_divider_ratio;
+	u32				oscout0_driver_mode;
+	u32				oscout1_driver_mode;
+	u32				oscout0_driver_impedance;
+	u32				oscout1_driver_impedance;
 	unsigned int			sync_pin_mode;
 	unsigned int			pulse_gen_mode;
 	unsigned int			in_buf_mode[5];
@@ -1344,6 +1357,32 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc->clk_data.clks = hmc->clks;
 	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
 
+	if (hmc->oscout_path_en) {
+		ret = hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_PATH,
+				    HMC7044_OSCOUT_DIVIDER(hmc->oscout_divider_ratio) |
+				    hmc->oscout_path_en);
+		if (ret)
+			return ret;
+	}
+
+	if (hmc->oscout0_driver_en) {
+		hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_DRIVER_0,
+			      HMC7044_OSCOUT_DRIVER_MODE(hmc->oscout1_driver_mode) |
+			      HMC7044_OSCOUT_IMPEDANCE(hmc->oscout1_driver_impedance) |
+			      hmc->oscout1_driver_en);
+		if (ret)
+			return ret;
+	}
+
+	if (hmc->oscout1_driver_en) {
+		hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_DRIVER_1,
+			      HMC7044_OSCOUT_DRIVER_MODE(hmc->oscout1_driver_mode) |
+			      HMC7044_OSCOUT_IMPEDANCE(hmc->oscout1_driver_impedance) |
+			      hmc->oscout1_driver_en);
+		if (ret)
+			return ret;
+	}
+
 	ret = hmc7044_info(indio_dev);
 	if (ret)
 		return ret;
@@ -1664,6 +1703,33 @@ static int hmc7044_parse_dt(struct device *dev,
 
 	hmc->rf_reseeder_en =
 		!of_property_read_bool(np, "adi,rf-reseeder-disable");
+
+	hmc->oscout_path_en =
+		of_property_read_bool(np, "adi,oscillator-output-path-enable");
+
+	hmc->oscout_divider_ratio = HMC7044_DIVIDER_RATIO_1;
+	of_property_read_u32(np, "adi,oscillator-output-divider-ratio",
+			     &hmc->oscout_divider_ratio);
+
+	hmc->oscout0_driver_en = of_property_read_bool(np, "adi,oscillator-output0-driver-enable");
+
+	hmc->oscout0_driver_mode = HMC7044_DRIVER_MODE_CML;
+	of_property_read_u32(np, "adi,oscillator-output0-driver-mode",
+			     &hmc->oscout0_driver_mode);
+
+	hmc->oscout0_driver_impedance = HMC7044_DRIVER_IMPEDANCE_DISABLE;
+	of_property_read_u32(np, "adi,oscillator-output0-driver-impedance",
+			     &hmc->oscout0_driver_impedance);
+
+	hmc->oscout1_driver_en = of_property_read_bool(np, "adi,oscillator-output1-driver-enable");
+
+	hmc->oscout1_driver_mode = HMC7044_DRIVER_MODE_CML;
+	of_property_read_u32(np, "adi,oscillator-output1-driver-mode",
+			     &hmc->oscout1_driver_mode);
+
+	hmc->oscout1_driver_impedance = HMC7044_DRIVER_IMPEDANCE_DISABLE;
+	of_property_read_u32(np, "adi,oscillator-output1-driver-impedance",
+			     &hmc->oscout1_driver_impedance);
 
 	hmc->sysref_timer_div = 256;
 	of_property_read_u32(np, "adi,sysref-timer-divider",
