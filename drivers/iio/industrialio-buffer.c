@@ -1909,15 +1909,20 @@ static struct dma_buf_attachment *
 iio_buffer_find_attachment(struct iio_dev_buffer_pair *ib,
 			   struct dma_buf *dmabuf, bool nonblock)
 {
-	struct device *dev = ib->indio_dev->dev.parent;
+	struct device *dma_dev;
 	struct iio_buffer *buffer = ib->buffer;
 	struct dma_buf_attachment *attach = NULL;
 	struct iio_dmabuf_priv *priv;
 
+	if (buffer->access->get_dma_dev)
+		dma_dev = buffer->access->get_dma_dev(buffer);
+	else
+		dma_dev = ib->indio_dev->dev.parent;
+
 	guard(mutex)(&buffer->dmabufs_mutex);
 
 	list_for_each_entry(priv, &buffer->dmabufs, entry) {
-		if (priv->attach->dev == dev
+		if (priv->attach->dev == dma_dev
 		    && priv->attach->dmabuf == dmabuf) {
 			attach = priv->attach;
 			break;
@@ -1937,6 +1942,7 @@ static int iio_buffer_attach_dmabuf(struct iio_dev_buffer_pair *ib,
 	struct iio_buffer *buffer = ib->buffer;
 	struct dma_buf_attachment *attach;
 	struct iio_dmabuf_priv *priv, *each;
+	struct device *dma_dev;
 	struct dma_buf *dmabuf;
 	int err, fd;
 
@@ -1961,7 +1967,12 @@ static int iio_buffer_attach_dmabuf(struct iio_dev_buffer_pair *ib,
 		goto err_free_priv;
 	}
 
-	attach = dma_buf_attach(dmabuf, indio_dev->dev.parent);
+	if (!buffer->access->get_dma_dev)
+		dma_dev = indio_dev->dev.parent;
+	else
+		dma_dev = buffer->access->get_dma_dev(buffer);
+
+	attach = dma_buf_attach(dmabuf, dma_dev);
 	if (IS_ERR(attach)) {
 		err = PTR_ERR(attach);
 		goto err_dmabuf_put;
@@ -2001,7 +2012,7 @@ static int iio_buffer_attach_dmabuf(struct iio_dev_buffer_pair *ib,
 	 * combo. If we do, refuse to attach.
 	 */
 	list_for_each_entry(each, &buffer->dmabufs, entry) {
-		if (each->attach->dev == indio_dev->dev.parent
+		if (each->attach->dev == dma_dev
 		    && each->attach->dmabuf == dmabuf) {
 			/*
 			 * We unlocked the reservation object, so going through
@@ -2041,6 +2052,7 @@ static int iio_buffer_detach_dmabuf(struct iio_dev_buffer_pair *ib,
 	struct iio_buffer *buffer = ib->buffer;
 	struct iio_dev *indio_dev = ib->indio_dev;
 	struct iio_dmabuf_priv *priv;
+	struct device *dma_dev;
 	struct dma_buf *dmabuf;
 	int dmabuf_fd, ret = -EPERM;
 
@@ -2051,10 +2063,15 @@ static int iio_buffer_detach_dmabuf(struct iio_dev_buffer_pair *ib,
 	if (IS_ERR(dmabuf))
 		return PTR_ERR(dmabuf);
 
+	if (!buffer->access->get_dma_dev)
+		dma_dev = indio_dev->dev.parent;
+	else
+		dma_dev = buffer->access->get_dma_dev(buffer);
+
 	guard(mutex)(&buffer->dmabufs_mutex);
 
 	list_for_each_entry(priv, &buffer->dmabufs, entry) {
-		if (priv->attach->dev == indio_dev->dev.parent
+		if (priv->attach->dev == dma_dev
 		    && priv->attach->dmabuf == dmabuf) {
 			list_del(&priv->entry);
 
