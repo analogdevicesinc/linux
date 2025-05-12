@@ -348,6 +348,7 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 	struct dma_slave_config *cfg = &adi_chan->config;
 	u32 mburst, pburst;
 	u32 lconf = 0;
+	dma_addr_t tmp_dma_addr; 
 
 	if (DMA_DEV_TO_MEM == direction) {
 		pburst = cfg->src_maxburst * cfg->src_addr_width;
@@ -364,11 +365,13 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 	if (mburst > 32)
 		mburst = 32;
 
+	tmp_dma_addr = mem;
 	// Find the max bursts that divide the transfer length and align correctly
-	while (len % pburst || mem % pburst)
+	while (len % pburst || do_div(tmp_dma_addr, pburst))
 		pburst = pburst / 2;
 
-	while (len % mburst || mem % mburst)
+	tmp_dma_addr = mem;
+	while (len % mburst || do_div(tmp_dma_addr, mburst))
 		mburst = mburst / 2;
 
 	switch (mburst) {
