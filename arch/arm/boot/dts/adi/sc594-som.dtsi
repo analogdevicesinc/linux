@@ -75,7 +75,7 @@
 		};
 */
 
-		sharc0: core1-rproc@0x28240000 {
+		sharc0: core1-rproc@28240000 {
 			compatible = "adi,remoteproc";
 			reg = <0x28240000 0x160000>,
 					<0x20000000 0x200000>;
@@ -93,7 +93,7 @@
 			status = "okay";
 		};
 
-		sharc1: core2-rproc@0x28a40000 {
+		sharc1: core2-rproc@28a40000 {
 			compatible = "adi,remoteproc";
 			reg = <0x28a40000 0x160000>,
 					<0x20000000 0x200000>;
@@ -268,7 +268,7 @@
 &i2c2 {
 	status = "okay";
 
-	ssw0: gpio@0x21 {
+	ssw0: gpio@21 {
 		compatible = "microchip,mcp23017";
 		gpio-controller;
 		#gpio-cells = <2>;
