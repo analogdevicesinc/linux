@@ -229,6 +229,7 @@ static const struct iio_buffer_access_funcs iio_dmaengine_buffer_ops = {
 
 	.lock_queue = iio_dma_buffer_lock_queue,
 	.unlock_queue = iio_dma_buffer_unlock_queue,
+	.get_dma_dev = iio_dma_buffer_get_dma_dev,
 #endif
 	.modes = INDIO_BUFFER_HARDWARE,
 	.flags = INDIO_BUFFER_FLAG_FIXED_WATERMARK,
