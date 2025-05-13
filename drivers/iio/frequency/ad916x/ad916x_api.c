@@ -86,6 +86,8 @@ static int spi_configure(ad916x_handle_t *h)
 
 static int dac_init_sequence(ad916x_handle_t *h)
 {
+	pr_err("\n %s %d: ceva ad9166: am intrat in dac_init_sequence", __func__, __LINE__);
+
 	int err;
 	uint8_t tmp_reg = 0x0;
 	ad916x_chip_id_t chip_id;
@@ -140,25 +142,31 @@ ADI_API int ad916x_init(ad916x_handle_t *h)
 {
 	int err;
 	if (h == INVALID_POINTER) {
+		pr_err("\n %s %d: ceva ad9166: invalid pointer", __func__, __LINE__);
 		return API_ERROR_INVALID_HANDLE_PTR;
 	}
 	if (h->dev_xfer == INVALID_POINTER) {
+		pr_err("\n %s %d: ceva ad9166: invalid pointer2", __func__, __LINE__);
 		return API_ERROR_INVALID_XFER_PTR;
 	}
 	if (h->delay_us == INVALID_POINTER) {
+		pr_err("\n %s %d: ceva ad9166: invalid pointer3", __func__, __LINE__);
 		return API_ERROR_INVALID_XFER_PTR;
 	}
 	if (h->sdo >= SPI_CONFIG_MAX) {
+		pr_err("\n %s %d: ceva ad9166: spi config max", __func__, __LINE__);
 		return API_ERROR_SPI_SDO;
 	}
 	if (h->hw_open != INVALID_POINTER) {
 		err = h->hw_open(h->user_data);
 		if (err != 0) {
+			pr_err("\n %s %d: ceva ad9166: hw open error", __func__, __LINE__);
 			return API_ERROR_HW_OPEN;
 		}
 	}
 	err = spi_configure(h);
 	if (err != API_ERROR_OK) {
+		pr_err("\n %s %d: ceva ad9166: api error", __func__, __LINE__);
 		return err;
 	}
 	return dac_init_sequence(h);
@@ -304,7 +312,7 @@ ADI_API int ad916x_transmit_enable_pin(ad916x_handle_t *h,
 		tmp_reg &= ~(0x0F);
 		tmp_reg |= AD916x_FLD_TX_EN_ZERO_DATA_DAC;
 		break;
-	case ZERO_DATA_IN_PATH:	
+	case ZERO_DATA_IN_PATH:
 		tmp_reg &= ~(0x0F);
 		tmp_reg |= AD916x_FLD_TX_EN_ZERO_DATA_PATH;
 		break;
