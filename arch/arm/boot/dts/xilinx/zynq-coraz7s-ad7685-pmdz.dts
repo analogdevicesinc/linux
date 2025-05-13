@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD7685
+ * https://www.analog.com/en/products/ad7685.html
+ *
+ * hdl_project: <pulsar_adc/coraz7s>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
+ * board_revision: <A>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-coraz7s-pulsar.dtsi"
+
+&pulsar_adc {
+	compatible = "adi,ad7685";
+};
