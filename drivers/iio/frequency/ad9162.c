@@ -497,7 +497,7 @@ static const struct jesd204_dev_data jesd204_ad9162_init = {
 
 static int ad9162_setup(struct ad9162_state *st)
 {
-	pr_err("ceva: am intrat in ad9162_setup");
+	pr_err("\n %s %d: ceva ad9166: am intrat in ad9162_setup", __func__, __LINE__);
 	struct device *dev = &st->conv.spi->dev;
 	uint8_t revision[3] = {0, 0, 0};
 	ad916x_chip_id_t dac_chip_id;
@@ -509,20 +509,20 @@ static int ad9162_setup(struct ad9162_state *st)
 	/* Initialise DAC Module */
 	ret = ad916x_init(ad916x_h);
 	if (ret != 0) {
-		pr_err("ceva: dupa initializare, eroare %d", ret);
+		pr_err("\n %s %d: ceva ad9166: dupa initializare, eroare %d", __func__, __LINE__, ret);
 		return ret;
 	}
 
 	ret = ad916x_get_chip_id(ad916x_h, &dac_chip_id);
 	if (ret != 0) {
-		pr_err("ceva: dupa get chip id, eroare %d", ret);
+		pr_err("\n %s %d: ceva ad9166: dupa get chip id, eroare %d", __func__, __LINE__, ret);
 		return ret;
 	}
 
 	ret = ad916x_get_revision(ad916x_h, &revision[0], &revision[1],
 				  &revision[2]);
 	if (ret != 0) {
-		pr_err("ceva: dupa get revision, eroare %d", ret);
+		pr_err("\n %s %d: ceva ad9166: dupa get revision, eroare %d", __func__, __LINE__, ret);
 		return ret;
 	}
 
@@ -549,7 +549,7 @@ static int ad9162_setup(struct ad9162_state *st)
 
 	ret = ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
 	if (ret != 0) {
-		pr_err("ceva: dupa dac set clk frequency, eroare %d", ret);
+		pr_err("\n %s %d: ceva ad9166: dupa dac set clk frequency, eroare %d", __func__, __LINE__, ret);
 		return ret;
 	}
 
@@ -1054,7 +1054,7 @@ static int ad916x_standalone_probe(struct ad9162_state *st)
 
 static int ad9162_probe(struct spi_device *spi)
 {
-	pr_err("\n ceva: Intru in ad9162_probe\n");
+	pr_err("\n %s %d: ceva ad9166: Intru in ad9162_probe\n", __func__, __LINE__);
 	struct cf_axi_converter *conv;
 	struct ad9162_state *st;
 	int ret;
@@ -1071,14 +1071,10 @@ static int ad9162_probe(struct spi_device *spi)
 	if (IS_ERR(conv->reset_gpio))
 		return PTR_ERR(conv->reset_gpio);
 
-	printk(KERN_DEBUG "\n ceva: Reset gpio\n");
-
 	conv->txen_gpio[0] = devm_gpiod_get_optional(&spi->dev, "txen",
 						     GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->txen_gpio[0]))
 		return PTR_ERR(conv->txen_gpio[0]);
-
-	printk(KERN_DEBUG "\n ceva: Txen gpio\n");
 
 	st->map = devm_regmap_init_spi(spi, &ad9162_regmap_config);
 	if (IS_ERR(st->map))
@@ -1086,8 +1082,6 @@ static int ad9162_probe(struct spi_device *spi)
 
 	conv->spi = spi;
 	conv->id = ID_AD9162;
-
-	printk(KERN_DEBUG "\n ceva: jesd204_dev_register\n");
 
 	st->jdev = devm_jesd204_dev_register(&spi->dev, &jesd204_ad9162_init);
 	if (IS_ERR(st->jdev))
@@ -1100,31 +1094,24 @@ static int ad9162_probe(struct spi_device *spi)
 		priv->st = st;
 	}
 
-	printk(KERN_DEBUG "\n ceva: Inainte de ad9162_get_clks\n");
-
 	ret = ad9162_get_clks(conv);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to get clocks, %d\n", ret);
 		goto out;
 	}
 
-	printk(KERN_DEBUG "\n ceva: Dupa ad9162_get_clks\n");
 	ret = devm_add_action_or_reset(&spi->dev, ad9162_clks_disable, conv);
 	if (ret)
 		return ret;
 
-	printk(KERN_DEBUG "\n ceva: inainte de verificare 3wire\n");
-	if (device_property_read_bool(&spi->dev, "adi,spi-3wire-enable")) {
+	if (device_property_read_bool(&spi->dev, "adi,spi-3wire-enable"))
 		spi3wire = true;
-		printk(KERN_DEBUG "\n ceva ad9166: 3wire true\n");
-	}
-
 
 	st->dac_h.user_data = st->map;
 	st->dac_h.sdo = ((spi->mode & SPI_3WIRE) || spi3wire) ? SPI_SDIO :
 			SPI_SDO;
 
-	pr_err("ceva: rezultat spi: %d", ((spi->mode&SPI_3WIRE)|| spi3wire));
+	pr_err("\n %s %d: ceva ad9166: rezultat spi: %d", __func__, __LINE__, ((spi->mode&SPI_3WIRE)|| spi3wire));
 
 	st->dac_h.dev_xfer = spi_xfer_dummy;
 	st->dac_h.delay_us = delay_us;
@@ -1132,21 +1119,20 @@ static int ad9162_probe(struct spi_device *spi)
 	st->dac_h.tx_en_pin_ctrl = NULL;
 	st->dac_h.reset_pin_ctrl = NULL;
 
-	printk(KERN_DEBUG "\n ceva: Inainte de ad9162_setup\n");
+	pr_err("\n %s %d: ceva ad9166: Inainte de ad9162_setup\n", __func__, __LINE__);
 	ret = ad9162_setup(st);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
 	}
-	printk(KERN_DEBUG "\n ceva: Dupa ad9162_setup\n");
+	pr_err("\n %s %d: ceva ad9166: Dupa ad9162_setup\n", __func__, __LINE__);
 
-	printk(KERN_DEBUG "\n ceva: Inainte de ad9162_setup_jesd\n");
 	ret = ad916x_setup_jesd(st);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to setup JESD interface\n");
 		return ret;
 	}
-	printk(KERN_DEBUG "\n ceva: Dupa ad9162_setup_jesd\n");
+	pr_err("\n %s %d: ceva ad9166: Dupa ad9162_setup_jesd\n", __func__, __LINE__);
 
 	mutex_init(&st->lock);
 
