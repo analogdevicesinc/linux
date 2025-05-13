@@ -197,7 +197,7 @@
             0x24050000 0x50 /* INST_SEC_PROC_DFE_PERIP_CAPBUFDDE*/
             0x24271000 0x50 /* INST_SEC_PROC_DFE_PERIP_DEBUG_DDE_CAP0*/
             0x24272000 0x50 /* INST_SEC_PROC_DFE_PERIP_DEBUG_DDE_CAP1*/
-            0x24280000 0x50 /* INST_SEC_PROC_DFE_PERIP_ANTENNA_CAL_DDE*/
+            0x242a0000 0x50 /* INST_SEC_PROC_DFE_PERIP_PIMC_DDE*/
         >;
     };
 
@@ -212,10 +212,11 @@
     };
 
     /* RegMap UIO Device: sec-dfe_perip3 */
-    uio-adrv906x-regmap-sec-dfe_perip3@24052000 {
+    uio-adrv906x-regmap-sec-dfe_perip3@24280000 {
         compatible = "generic-uio";
         status = "disabled";
         reg = <
+            0x24280000 0x50 /* INST_SEC_PROC_DFE_PERIP_ANTENNA_CAL_DDE*/
             0x24052000 0x7f8 /* INST_SEC_PROC_DFE_PERIP_TRU*/
             0x24218000 0x8dc /* INST_SEC_PROC_DFE_PERIP_GPIO_PINMUX_PAD*/
         >;
