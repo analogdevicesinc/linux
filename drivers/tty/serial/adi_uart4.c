@@ -1103,13 +1103,9 @@ static struct uart_driver adi_uart4_serial_reg = {
 	.driver_name		= DRIVER_NAME,
 	.dev_name		= "ttySC",
 	.major			= TTY_MAJOR,
-#ifdef CONFIG_ARCH_SC59X_64
 	// Other serial drivers are using 64 --
 	// Can probably disable in the future and set this back to 64
 	.minor			= 74,
-#else
-	.minor			= 64,
-#endif
 	.nr			= ADI_UART_NR_PORTS,
 	.cons			= ADI_SERIAL_UART4_CONSOLE,
 };
