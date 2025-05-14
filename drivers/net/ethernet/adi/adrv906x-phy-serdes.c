@@ -815,7 +815,6 @@ static int __sd_app_pwr_down_rdy_recv(struct sk_buff *skb, struct genl_info *inf
 	phydev = serdes->phydev;
 	netdev = phydev->attached_dev;
 
-	__sd_pwr_down(&serdes->fsm);
 	adrv906x_phy_fsm_trigger_transition(&serdes->fsm, SD_EVT_PWR_DOWN_DONE);
 
 	return 0;
@@ -894,6 +893,7 @@ static void __sd_lnk_down_notif(void *param)
 	else if (serdes->dev_id % 2 == 1)
 		event = PLL_EVT_LNK1_DOWN;
 
+	__sd_pwr_down(&serdes->fsm);
 	pll = adrv906x_pll_instance_get(serdes->dev_id / 2);
 	adrv906x_phy_fsm_trigger_transition(&pll->fsm, event);
 }
