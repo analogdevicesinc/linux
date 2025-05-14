@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+
+#ifndef _DT_BINDINGS_ADI_ADE9078_H
+#define _DT_BINDINGS_ADI_ADE9078_H
+
+#define WF_RESAMPLED_DATA	0x0
+#define WF_FIXED_DATA_RATE	0x1
+
+#define WFB_FULL_MODE		0x0
+#define WFB_EN_TRIG_MODE	0x1
+#define WFB_CENTER_EN_TRIG_MODE	0x2
+#define WFB_STREAMING_MODE	0x3
+
+#define WFB_SRC_SINC4		0x0
+#define WFB_SRC_SINC4_IIR_LPF	0x2
+#define WFB_SRC_DSP		0x3
+
+#define WFB_IN_DISABLE		0x0
+#define WFB_IN_EN		0x1
+
+#endif /* _DT_BINDINGS_ADI_ADE9078_H */

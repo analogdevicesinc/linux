@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adi,ade9078.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2711";
+};
+
+&spi0 {
+	status = "okay";
+
+	ade9039@0 {
+		compatible = "adi,ade9039";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		reset-gpios = <&gpio 4 GPIO_ACTIVE_LOW>;
+		interrupts = <2 IRQ_TYPE_EDGE_FALLING>, <3 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "irq0", "irq1";
+		interrupt-parent = <&gpio>;
+
+		adi,wf-cap-sel = <WF_FIXED_DATA_RATE>;
+		adi,wf-mode = <WFB_STREAMING_MODE>;
+		adi,wf-src = <WFB_SRC_DSP>;
+		adi,wf-in-en = <WFB_IN_DISABLE>;
+
+		phase@0 {
+			reg = <0>;
+		};
+		phase@1 {
+			reg = <2>;
+		};
+		phase@2 {
+			reg = <4>;
+		};
+	};
+};
