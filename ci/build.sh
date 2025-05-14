@@ -669,32 +669,33 @@ touch_files () {
 }
 
 auto_set_kconfig() {
-	# Simplest Kconfig setter, just look into the Makefile at the current path
 	local files=$(git diff --name-only $base_sha..$head_sha)
-	local has_c=0
-	local found=0
+	declare -a symbols=()
 
 	echo "get_kconfig on range $base_sha..$head_sha"
 
 	while read file; do
 		case "$file" in
 		*.c)
-			has_c=1
-			echo -e "\e[1m$file\e[0m"
 			path=$(dirname $file)
 			blob=$(echo $(basename $file) | sed 's/c$/o/')
 			if [[ -f "$path/Makefile" ]]; then
 				conf=$(cat "$path/Makefile" | grep $blob | head -n 1 | sed -n 's/obj-\$(\(.*\))\+\(.*\)/\1/p')
 				if [[ ! -z "$conf" ]]; then
-					echo $conf=y
-					found=1
-					scripts/config -e $conf
+					symbols+=("${conf#CONFIG_}")
 				fi
 			fi
 			;;
 		esac
 	done <<< "$files"
 
+	echo "Symbols of touched files:"
+	echo "${symbols[@]}"
+	all_symbols=$(python3.11 ci/symbols_depend.py "${symbols[@]}" 2>&1)
+	printf "Resolved symbols:\n$all_symbols\n"
+	for sym in $all_symbols; do
+		scripts/config -e $sym
+	done
 	make yes2modconfig
 
 	# Some drivers have known issues as modules
