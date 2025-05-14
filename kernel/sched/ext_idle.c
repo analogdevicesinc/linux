@@ -733,6 +733,7 @@ static void update_builtin_idle(int cpu, bool idle)
  */
 void __scx_update_idle(struct rq *rq, bool idle, bool do_notify)
 {
+	struct scx_sched *sch = scx_root;
 	int cpu = cpu_of(rq);
 
 	lockdep_assert_rq_held(rq);
@@ -744,9 +745,8 @@ void __scx_update_idle(struct rq *rq, bool idle, bool do_notify)
 	 * Idle transitions are indicated by do_notify being set to true,
 	 * managed by put_prev_task_idle()/set_next_task_idle().
 	 */
-	if (SCX_HAS_OP(scx_root, update_idle) &&
-	    do_notify && !scx_rq_bypassing(rq))
-		SCX_CALL_OP(SCX_KF_REST, update_idle, rq, cpu_of(rq), idle);
+	if (SCX_HAS_OP(sch, update_idle) && do_notify && !scx_rq_bypassing(rq))
+		SCX_CALL_OP(sch, SCX_KF_REST, update_idle, rq, cpu_of(rq), idle);
 
 	/*
 	 * Update the idle masks:
@@ -820,7 +820,7 @@ void scx_idle_disable(void)
 static int validate_node(int node)
 {
 	if (!static_branch_likely(&scx_builtin_idle_per_node)) {
-		scx_error("per-node idle tracking is disabled");
+		scx_kf_error("per-node idle tracking is disabled");
 		return -EOPNOTSUPP;
 	}
 
@@ -830,13 +830,13 @@ static int validate_node(int node)
 
 	/* Make sure node is in a valid range */
 	if (node < 0 || node >= nr_node_ids) {
-		scx_error("invalid node %d", node);
+		scx_kf_error("invalid node %d", node);
 		return -EINVAL;
 	}
 
 	/* Make sure the node is part of the set of possible nodes */
 	if (!node_possible(node)) {
-		scx_error("unavailable node %d", node);
+		scx_kf_error("unavailable node %d", node);
 		return -EINVAL;
 	}
 
@@ -850,7 +850,7 @@ static bool check_builtin_idle_enabled(void)
 	if (static_branch_likely(&scx_builtin_idle_enabled))
 		return true;
 
-	scx_error("built-in idle tracking is disabled");
+	scx_kf_error("built-in idle tracking is disabled");
 	return false;
 }
 
@@ -862,7 +862,7 @@ static bool check_builtin_idle_enabled(void)
 __bpf_kfunc int scx_bpf_cpu_node(s32 cpu)
 {
 #ifdef CONFIG_NUMA
-	if (!ops_cpu_valid(cpu, NULL))
+	if (!kf_cpu_valid(cpu, NULL))
 		return NUMA_NO_NODE;
 
 	return cpu_to_node(cpu);
@@ -891,7 +891,7 @@ __bpf_kfunc s32 scx_bpf_select_cpu_dfl(struct task_struct *p, s32 prev_cpu,
 #ifdef CONFIG_SMP
 	s32 cpu;
 #endif
-	if (!ops_cpu_valid(prev_cpu, NULL))
+	if (!kf_cpu_valid(prev_cpu, NULL))
 		goto prev_cpu;
 
 	if (!check_builtin_idle_enabled())
@@ -937,7 +937,7 @@ __bpf_kfunc s32 scx_bpf_select_cpu_and(struct task_struct *p, s32 prev_cpu, u64 
 {
 	s32 cpu;
 
-	if (!ops_cpu_valid(prev_cpu, NULL))
+	if (!kf_cpu_valid(prev_cpu, NULL))
 		return -EINVAL;
 
 	if (!check_builtin_idle_enabled())
@@ -999,7 +999,7 @@ __bpf_kfunc const struct cpumask *scx_bpf_get_idle_cpumask_node(int node)
 __bpf_kfunc const struct cpumask *scx_bpf_get_idle_cpumask(void)
 {
 	if (static_branch_unlikely(&scx_builtin_idle_per_node)) {
-		scx_error("SCX_OPS_BUILTIN_IDLE_PER_NODE enabled");
+		scx_kf_error("SCX_OPS_BUILTIN_IDLE_PER_NODE enabled");
 		return cpu_none_mask;
 	}
 
@@ -1050,7 +1050,7 @@ __bpf_kfunc const struct cpumask *scx_bpf_get_idle_smtmask_node(int node)
 __bpf_kfunc const struct cpumask *scx_bpf_get_idle_smtmask(void)
 {
 	if (static_branch_unlikely(&scx_builtin_idle_per_node)) {
-		scx_error("SCX_OPS_BUILTIN_IDLE_PER_NODE enabled");
+		scx_kf_error("SCX_OPS_BUILTIN_IDLE_PER_NODE enabled");
 		return cpu_none_mask;
 	}
 
@@ -1097,7 +1097,7 @@ __bpf_kfunc bool scx_bpf_test_and_clear_cpu_idle(s32 cpu)
 	if (!check_builtin_idle_enabled())
 		return false;
 
-	if (ops_cpu_valid(cpu, NULL))
+	if (kf_cpu_valid(cpu, NULL))
 		return scx_idle_test_and_clear_cpu(cpu);
 	else
 		return false;
@@ -1158,7 +1158,7 @@ __bpf_kfunc s32 scx_bpf_pick_idle_cpu(const struct cpumask *cpus_allowed,
 				      u64 flags)
 {
 	if (static_branch_maybe(CONFIG_NUMA, &scx_builtin_idle_per_node)) {
-		scx_error("per-node idle tracking is enabled");
+		scx_kf_error("per-node idle tracking is enabled");
 		return -EBUSY;
 	}
 
@@ -1235,7 +1235,7 @@ __bpf_kfunc s32 scx_bpf_pick_any_cpu(const struct cpumask *cpus_allowed,
 	s32 cpu;
 
 	if (static_branch_maybe(CONFIG_NUMA, &scx_builtin_idle_per_node)) {
-		scx_error("per-node idle tracking is enabled");
+		scx_kf_error("per-node idle tracking is enabled");
 		return -EBUSY;
 	}
 
