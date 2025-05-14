@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4022
+ * https://www.analog.com/en/products/ad4022.html
+ *
+ * hdl_project: <pulsar_adc/zed>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-zed-adv7511-ad4000.dtsi"
+
+&ad4000_adc {
+	compatible = "adi,ad4022";
+};
