@@ -132,35 +132,29 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 	struct adrv906x_mac *mac = &adrv906x_dev->mac;
 	struct adrv906x_tsu *tsu = &adrv906x_dev->tsu;
 	struct phy_device *phydev = ndev->phydev;
+	u32 val;
 
-	if (!phydev->link) {
-		adrv906x_dev->link_speed = 0;
+	if (adrv906x_dev->link == phydev->link)
+		return;
+
+	adrv906x_dev->link = phydev->link;
+
+	if (phydev->link) {
+		adrv906x_tsu_set_speed(tsu, phydev->speed);
+		adrv906x_eth_cmn_mode_cfg(adrv906x_dev);
+		adrv906x_eth_cmn_recovered_clk_config(adrv906x_dev);
+		adrv906x_mac_set_path(mac, true);
+
+		if (eth_if->ethswitch.enabled) {
+			val = phydev->speed == SPEED_10000 ? AGE_TIME_5MIN_10G : AGE_TIME_5MIN_25G;
+			adrv906x_switch_set_mae_age_time(es, val);
+			adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
+		}
+	} else {
 		if (eth_if->ethswitch.enabled)
 			adrv906x_switch_port_enable(es, adrv906x_dev->port, false);
-
-		netdev_info(ndev, "link down");
-		return;
 	}
 
-	if (adrv906x_dev->link_speed == phydev->speed &&
-	    adrv906x_dev->link_duplex == phydev->duplex)
-		return;
-
-	adrv906x_dev->link_speed = phydev->speed;
-	adrv906x_dev->link_duplex = phydev->duplex;
-
-	if (eth_if->ethswitch.enabled) {
-		adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
-		if (phydev->speed == SPEED_10000)
-			adrv906x_switch_set_mae_age_time(es, AGE_TIME_5MIN_10G);
-		else
-			adrv906x_switch_set_mae_age_time(es, AGE_TIME_5MIN_25G);
-	}
-
-	adrv906x_tsu_set_speed(tsu, phydev->speed);
-	adrv906x_eth_cmn_mode_cfg(adrv906x_dev);
-	adrv906x_eth_cmn_recovered_clk_config(adrv906x_dev);
-	adrv906x_mac_set_path(mac, true);
 	phy_print_status(phydev);
 }
 
