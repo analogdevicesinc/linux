@@ -46,7 +46,7 @@
 			clock-output-names = "ad9208_clk";
 		};
 
-		rx_dma: rx-dmac@9c420000 {
+		rx_dma: dma-controller@9c420000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c420000 0x10000>;
 			#dma-cells = <1>;

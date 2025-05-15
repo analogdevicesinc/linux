@@ -8,7 +8,7 @@
 #include <dt-bindings/jesd204/adxcvr.h>
 
 &fpga_axi {
-	rx_dma0: rx-dmac@7c400000 {
+	rx_dma0: dma-controller@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c400000 0x1000>;
 		#dma-cells = <1>;

@@ -88,7 +88,7 @@
 };
 
 &fpga_axi {
-	axi_dmac_0: rx-dma@20000 {
+	axi_dmac_0: dma-controller@20000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x00020000 0x00000800>;
 		interrupt-parent = <&intc>;

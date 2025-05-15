@@ -38,7 +38,7 @@
 				#size-cells = <0x0>;
 			};
 
-			dac_dma: dmac@40000 {
+			dac_dma: dma-controller@40000 {
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x40000 0x4000>;
 				#dma-cells = <1>;
