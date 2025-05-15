@@ -301,7 +301,7 @@
 			};
 		};
 
-		rx_dma: rx-dmac@1004c000 {
+		rx_dma: dma-controller@1004c000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x1004c000 0x4000>;
 			#dma-cells = <1>;
@@ -310,7 +310,7 @@
 			clocks = <&dma_clk>;
 		};
 
-		tx_dma: tx-dmac@1002c000 {
+		tx_dma: dma-controller@1002c000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x1002c000 0x4000>;
 			#dma-cells = <1>;

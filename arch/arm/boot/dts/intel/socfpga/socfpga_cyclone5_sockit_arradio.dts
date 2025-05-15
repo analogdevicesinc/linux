@@ -151,7 +151,7 @@
 					clock-names = "sampl_clk";
 				};
 
-				tx_dma: dma@4000 {
+				tx_dma: dma-controller@4000 {
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00004000 0x00004000>;
 					interrupt-parent = <&intc>;
@@ -160,7 +160,7 @@
 					clocks = <&dma_clk>;
 				};
 
-				rx_dma: dma@0 {
+				rx_dma: dma-controller@0 {
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00000000 0x00004000>;
 					interrupt-parent = <&intc>;

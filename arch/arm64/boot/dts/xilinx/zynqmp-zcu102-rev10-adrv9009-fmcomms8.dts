@@ -201,7 +201,7 @@
 			adi,control-bits-per-sample = <2>;
 		};
 
-		rx_dma: dma@9d420000 {
+		rx_dma: dma-controller@9d420000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9d420000 0x10000>;
 			#dma-cells = <1>;
@@ -211,7 +211,7 @@
 			clocks = <&zynqmp_clk 73>;
 		};
 
-		rx_obs_dma: dma@9d440000 {
+		rx_obs_dma: dma-controller@9d440000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9d440000 0x10000>;
 			#dma-cells = <1>;
@@ -221,7 +221,7 @@
 			clocks = <&zynqmp_clk 73>;
 		};
 
-		tx_dma: dma@9d400000  {
+		tx_dma: dma-controller@9d400000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9d400000 0x10000>;
 			#dma-cells = <1>;

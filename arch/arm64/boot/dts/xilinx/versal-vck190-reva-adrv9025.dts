@@ -95,7 +95,7 @@
 			xlnx,tri-default-2 = <0xFFFFFFFF>;
 		};
 
-		rx_dma: dma@bc400000 {
+		rx_dma: dma-controller@bc400000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0xbc400000 0x10000>;
 			#dma-cells = <1>;
@@ -115,7 +115,7 @@
 			};
 		};
 
-		tx_dma: dma@bc420000  {
+		tx_dma: dma-controller@bc420000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0xbc420000 0x10000>;
 			#dma-cells = <1>;

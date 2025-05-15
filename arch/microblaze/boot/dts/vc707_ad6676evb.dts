@@ -45,7 +45,7 @@
 		dma-names = "rx";
 		spibus-connected = <&adc0_ad6676>;
 	};
-	axi_ad6676_dma: axi_dmac@7c420000 {
+	axi_ad6676_dma: dma-controller@7c420000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		interrupt-parent = <&axi_intc>;
 		interrupts = <13 2>;

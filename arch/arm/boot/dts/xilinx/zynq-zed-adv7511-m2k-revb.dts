@@ -151,7 +151,7 @@
 		};
 	};
 
-	rx_dma0: dma@7c440000 {
+	rx_dma0: dma-controller@7c440000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c440000 0x1000>;
 		#dma-cells = <1>;
@@ -159,7 +159,7 @@
 		clocks = <&clkc 15>;
 	};
 /*
-	rx_dma1: dma@7c440000 {
+	rx_dma1: dma-controller@7c440000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c460000 0x1000>;
 		#dma-cells = <1>;
@@ -172,7 +172,7 @@
 		};
 	};
 */
-	tx_dma: dma@7c480000 {
+	tx_dma: dma-controller@7c480000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c480000 0x1000>;
 		#dma-cells = <1>;
@@ -209,7 +209,7 @@
 		#clock-cells = <0>;
 	};
 
-	logic_analyzer_rx_dma: dma@7c400000 {
+	logic_analyzer_rx_dma: dma-controller@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c400000 0x1000>;
 
@@ -218,7 +218,7 @@
 		clocks = <&clkc 15>;
 	};
 
-	logic_analyzer_tx_dma: dma@7c420000 {
+	logic_analyzer_tx_dma: dma-controller@7c420000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c420000 0x1000>;
 

@@ -13,7 +13,7 @@
 #include "zynqmp-jupiter-sdr.dtsi"
 
 &fpga_axi {
-	rx2_dma: dma@84A40000 {
+	rx2_dma: dma-controller@84A40000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x84A40000 0x10000>;
 		#dma-cells = <1>;
@@ -22,7 +22,7 @@
 		clocks = <&zynqmp_clk 71>;
 	};
 
-	tx2_dma: dma@84A6000 {
+	tx2_dma: dma-controller@84A6000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x84A60000 0x10000>;
 		#dma-cells = <1>;

@@ -70,7 +70,7 @@
 				#size-cells = <0x0>;
 			};
 
-			rx_dma: rx-dmac@4c000 {
+			rx_dma: dma-controller@4c000 {
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x4c000 0x4000>;
 				#dma-cells = <1>;
@@ -79,7 +79,7 @@
 				clocks = <&dma_clk>;
 			};
 
-			tx_dma: tx-dmac@2c000 {
+			tx_dma: dma-controller@2c000 {
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x2c000 0x4000>;
 				#dma-cells = <1>;

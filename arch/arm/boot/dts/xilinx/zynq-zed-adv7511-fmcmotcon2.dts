@@ -66,7 +66,7 @@
 		dmas = <&ad_mc_speed_dma 0>;
 		dma-names = "ad-mc-speed-dma";
 	};
-	ad_mc_speed_dma: dma@40510000 {
+	ad_mc_speed_dma: dma-controller@40510000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x40510000 0x1000>;
 		#dma-cells = <1>;
@@ -80,7 +80,7 @@
 		dmas = <&ad_mc_adc_dma 0>;
 		dma-names = "ad-mc-adc-dma";
 	};
-	ad_mc_adc_dma: dma@40520000 {
+	ad_mc_adc_dma: dma-controller@40520000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x40520000 0x1000>;
 		#dma-cells = <1>;
@@ -99,7 +99,7 @@
 		dmas = <&ad_mc_speed_dma_m2 0>;
 		dma-names = "ad-mc-speed-dma";
 	};
-	ad_mc_speed_dma_m2: dma@40540000 {
+	ad_mc_speed_dma_m2: dma-controller@40540000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x40540000 0x1000>;
 		#dma-cells = <1>;
@@ -113,7 +113,7 @@
 		dmas = <&ad_mc_adc_dma_m2 0>;
 		dma-names = "ad-mc-adc-dma";
 	};
-	ad_mc_adc_dma_m2: dma@40550000 {
+	ad_mc_adc_dma_m2: dma-controller@40550000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x40550000 0x1000>;
 		#dma-cells = <1>;
