@@ -106,7 +106,7 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	} else {
 		desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
 			block->phys_addr, block->block.bytes_used, dma_dir,
-			DMA_PREP_INTERRUPT);
+			DMA_PREP_INTERRUPT | DMA_PREP_LOAD_EOT);
 		if (!desc)
 			return -ENOMEM;
 
@@ -123,6 +123,8 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 		dma_dir = DMA_MEM_TO_DEV;
 
 	if (block->sg_table) {
+		unsigned long flags;
+
 		sgl = block->sg_table->sgl;
 		nents = sg_nents_for_len(sgl, block->bytes_used);
 		if (nents < 0)
@@ -147,9 +149,14 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 			sgl = sg_next(sgl);
 		}
 
+		if (block->cyclic)
+			flags = DMA_PREP_REPEAT;
+		else
+			flags = DMA_PREP_INTERRUPT | DMA_PREP_LOAD_EOT;
+
 		desc = dmaengine_prep_peripheral_dma_vec(dmaengine_buffer->chan,
 							 vecs, nents, dma_dir,
-							 DMA_PREP_INTERRUPT);
+							 flags);
 		kfree(vecs);
 	} else {
 		if (queue->buffer.direction == IIO_BUFFER_DIRECTION_IN)
@@ -158,11 +165,18 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 		if (!block->bytes_used || block->bytes_used > max_size)
 			return -EINVAL;
 
-		desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
-						   block->phys_addr,
-						   block->bytes_used,
-						   dma_dir,
-						   DMA_PREP_INTERRUPT);
+		if (block->cyclic)
+			desc = dmaengine_prep_dma_cyclic(dmaengine_buffer->chan,
+							 block->phys_addr,
+							 block->bytes_used,
+							 block->bytes_used,
+							 dma_dir, 0);
+		else
+			desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
+							   block->phys_addr,
+							   block->bytes_used,
+							   dma_dir,
+							   DMA_PREP_INTERRUPT | DMA_PREP_LOAD_EOT);
 	}
 	if (!desc)
 		return -ENOMEM;
