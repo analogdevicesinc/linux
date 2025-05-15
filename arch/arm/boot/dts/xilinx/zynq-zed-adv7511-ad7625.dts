@@ -67,7 +67,7 @@
 		clocks = <&clkc 15>;
 	};
 
-	ref_clk: clock@44a80000 {
+	ref_clk: clock-controller@44a80000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a80000 0x10000>;
 		#clock-cells = <0>;

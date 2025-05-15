@@ -79,7 +79,7 @@
 		#dma-cells = <1>;
 		clocks = <&clk_bus_0>;
 	};
-	axi_rx_clkgen: axi-clkgen@43c10000  {
+	axi_rx_clkgen: clock-controller@43c10000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x43c10000 0x10000>;
 		#clock-cells = <0>;
@@ -87,7 +87,7 @@
 		clock-names = "clkin1", "s_axi_aclk";
 		clock-output-names = "axi_rx_clkgen";
 	};
-	axi_rx_os_clkgen: axi-clkgen@43c20000  {
+	axi_rx_os_clkgen: clock-controller@43c20000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x43c20000 0x10000>;
 		#clock-cells = <0>;
@@ -95,7 +95,7 @@
 		clock-names = "clkin1", "s_axi_aclk";
 		clock-output-names = "axi_rx_os_clkgen";
 	};
-	axi_tx_clkgen: axi-clkgen@43c00000  {
+	axi_tx_clkgen: clock-controller@43c00000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x43c00000 0x10000>;
 		#clock-cells = <0>;
