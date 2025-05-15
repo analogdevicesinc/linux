@@ -16,6 +16,8 @@ jobs:
   checks:
     uses: ./.github/workflows/checks.yml
     secrets: inherit
+    with:
+      ref_branch: "mirror/next/linux-next/master"
   build_gcc_x86_64:
     uses: ./.github/workflows/build.yml
     needs: [checks]
