@@ -44,10 +44,9 @@ struct adrv906x_eth_dev {
 	struct adrv906x_macsec_priv macsec;
 #endif // IS_ENABLED(CONFIG_MACSEC)
 	int port;
+	int link;
 	struct adrv906x_eth_if *parent;
 	struct rtnl_link_stats64 rtnl_stats;
-	int link_speed;
-	int link_duplex;
 	int tx_frames_pending;
 	spinlock_t lock; /* protects struct access */
 };

@@ -140,7 +140,7 @@ static void adrv906x_phy_link_change_notify(struct phy_device *phydev)
 	bool rs_fec_enabled = false;
 	int i, val;
 
-	if (!phydev->link)
+	if (!phydev->link || phydev->state != PHY_RUNNING)
 		return;
 
 	if (adrv906x_tod_cfg_cdc_delay < 0) {

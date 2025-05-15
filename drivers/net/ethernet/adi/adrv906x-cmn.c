@@ -9,6 +9,7 @@
 #include <linux/init.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
+#include <linux/phy.h>
 #include <linux/string.h>
 #include <linux/bitfield.h>
 #include <linux/ethtool.h>
@@ -228,10 +229,12 @@ void adrv906x_eth_cmn_recovered_clk_config(struct adrv906x_eth_dev *adrv906x_dev
 {
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	void __iomem *regs = eth_if->emac_cmn_regs;
+	struct net_device *ndev = adrv906x_dev->ndev;
+	struct phy_device *phydev = ndev->phydev;
 	u32 val;
 
 	mutex_lock(&eth_if->mtx);
-	val = (adrv906x_dev->link_speed == SPEED_25000) ? eth_if->recovered_clk_div_25g - 1 :
+	val = (phydev->speed == SPEED_25000) ? eth_if->recovered_clk_div_25g - 1 :
 	      eth_if->recovered_clk_div_10g - 1;
 	val = FIELD_PREP(EMAC_CMN_RECOVERED_CLK_DIV_0, val);
 	val |= FIELD_PREP(EMAC_CMN_RECOVERED_CLK_DIV_1, val);
@@ -243,12 +246,14 @@ void adrv906x_eth_cmn_mode_cfg(struct adrv906x_eth_dev *adrv906x_dev)
 {
 	void __iomem *regs = adrv906x_dev->parent->emac_cmn_regs;
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	struct net_device *ndev = adrv906x_dev->ndev;
+	struct phy_device *phydev = ndev->phydev;
 	u32 val;
 
 	mutex_lock(&eth_if->mtx);
 	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
 
-	if (adrv906x_dev->link_speed == SPEED_10000)
+	if (phydev->speed == SPEED_10000)
 		val |= EMAC_CMN_TX_BIT_REPEAT_RATIO;
 	else
 		val &= ~EMAC_CMN_TX_BIT_REPEAT_RATIO;
