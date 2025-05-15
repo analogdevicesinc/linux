@@ -81,7 +81,7 @@
 		clock-output-names = "spi_clk";
 	};
 
-	axi_pwm_gen: axi-pwm-gen@44b00000 {
+	axi_pwm_gen: pwm@44b00000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x1000>;
 		label = "ad463x_cnv";
