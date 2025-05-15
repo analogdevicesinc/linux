@@ -27,7 +27,7 @@
 };
 
 / {
-	fpga_axi  {
+	fpga_axi {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
 		#address-cells = <0x1>;
