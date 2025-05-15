@@ -16,7 +16,7 @@
 #include "zynq-zed-adv7511.dtsi"
 
 &fpga_axi {
-	rx_dma: rx-dmac@44a30000 {
+	rx_dma: dma-controller@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44A30000 0x1000>;
 		#dma-cells = <1>;

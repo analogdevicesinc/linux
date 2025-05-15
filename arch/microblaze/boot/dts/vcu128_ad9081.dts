@@ -32,7 +32,7 @@
 };
 
 &amba_pl {
-	rx_dma: dma@7c420000 {
+	rx_dma: dma-controller@7c420000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c420000 0x10000>;
 		#dma-cells = <1>;
@@ -42,7 +42,7 @@
 		clocks = <&clk_bus_0>;
 	};
 
-	tx_dma: dma@7c430000  {
+	tx_dma: dma-controller@7c430000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c430000 0x10000>;
 		#dma-cells = <1>;

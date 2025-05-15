@@ -126,7 +126,7 @@
 					<0x00040000 0x00000001 0x00140000 0x00001000>,
 					<0x00009000 0x00000001 0x00109000 0x00000010>;
 
-				rx_dma: dma@0 {
+				rx_dma: dma-controller@0 {
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00000000 0x00004000>;
 					interrupt-parent = <&intc>;

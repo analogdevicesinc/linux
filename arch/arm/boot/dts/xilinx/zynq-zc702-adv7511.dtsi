@@ -81,7 +81,7 @@
 
 		};
 
-		hdmi_dma: dma@43000000 {
+		hdmi_dma: dma-controller@43000000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x43000000 0x1000>;
 			#dma-cells = <1>;
