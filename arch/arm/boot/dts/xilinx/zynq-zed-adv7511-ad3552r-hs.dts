@@ -50,7 +50,7 @@
 };
 
 &fpga_axi {
-	ref_clk: clk@44B00000 {
+	ref_clk: clock-controller@44B00000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44B00000 0x10000>;
 		#clock-cells = <0>;

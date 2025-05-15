@@ -128,7 +128,7 @@
 			clocks = <&clkc 16>;
 		};
 
-		axi_hdmi_clkgen: axi-clkgen@79000000 {
+		axi_hdmi_clkgen: clock-controller@79000000 {
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;

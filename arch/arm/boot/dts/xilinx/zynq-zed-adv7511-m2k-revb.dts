@@ -200,7 +200,7 @@
 		adi,axi-dds-default-frequency = <1000000>;
 	};
 
-	logic_analyzer_clkgen: clock@7000000 {
+	logic_analyzer_clkgen: clock-controller@7000000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x70000000 0x10000>;
 		clocks = <&clkc 16>, <&clkc 15>;

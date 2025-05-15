@@ -68,7 +68,7 @@
 		adi,frames-per-multiframe = <32>;
 	};
 
-	axi_rx_clkgen: axi-clkgen@43c10000  {
+	axi_rx_clkgen: clock-controller@43c10000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x43c10000 0x10000>;
 		#clock-cells = <0>;
