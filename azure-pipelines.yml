@@ -216,6 +216,7 @@ stages:
       condition: or(
           and(
             startsWith(variables['Build.SourceBranch'], 'refs/pull/'),
+            ne(variables['SYSTEM.PULLREQUEST.ISFORK'], 'true'),
             or(
               eq(variables['System.PullRequest.TargetBranch'], 'main'),
               eq(variables['System.PullRequest.TargetBranch'], 'next_stable'),
