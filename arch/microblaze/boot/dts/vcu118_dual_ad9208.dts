@@ -25,9 +25,9 @@
 
 &amba_pl {
 	rx_dma: rx-dmac@7c420000 {
-		#dma-cells = <1>;
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c420000 0x1000>;
+		#dma-cells = <1>;
 		interrupt-parent = <&axi_intc>;
 		interrupts = <12 2>;
 		clocks = <&clk_bus_0>;

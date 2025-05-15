@@ -36,9 +36,9 @@
 	};
 
 	rx_dma: dma@44a30000 {
-		#dma-cells = <1>;
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x10000>;
+		#dma-cells = <1>;
 		interrupt-parent = <&axi_intc>;
 		interrupts = <12 2>;
 		clocks = <&clk_bus_0>;
