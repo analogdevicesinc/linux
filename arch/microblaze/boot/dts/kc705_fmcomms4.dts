@@ -27,17 +27,17 @@
 
 &amba_pl {
 	rx_dma: dma@7c400000 {
-		#dma-cells = <1>;
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c400000 0x10000>;
+		#dma-cells = <1>;
 		interrupt-parent = <&axi_intc>;
 		interrupts = <12 2>;
 		clocks = <&clk_bus_0>;
 	};
 	tx_dma: dma@7c420000 {
-		#dma-cells = <1>;
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
 		interrupt-parent = <&axi_intc>;
 		interrupts = <13 2>;
 		clocks = <&clk_bus_0>;
