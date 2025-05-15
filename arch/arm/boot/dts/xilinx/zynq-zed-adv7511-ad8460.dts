@@ -81,7 +81,7 @@
 
 &fpga_axi {
 
-	tx_dma: tx_dmac@44000000 {
+	tx_dma: dma-controller@44000000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44000000 0x1000>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;

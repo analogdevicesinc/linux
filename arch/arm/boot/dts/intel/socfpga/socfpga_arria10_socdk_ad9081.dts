@@ -116,7 +116,7 @@
 				clock-output-names = "jesd204_tx_link_clock";
 			};
 
-			tx_dma: tx-dmac@DC000 {
+			tx_dma: dma-controller@DC000 {
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x000DC000 0x00004000>;
 				interrupt-parent = <&intc>;
@@ -172,7 +172,7 @@
 				clock-output-names = "jesd204_rx_link_clock";
 			};
 
-			rx_dma: rx-dmac@D8000 {
+			rx_dma: dma-controller@D8000 {
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x000D8000 0x00004000>;
 				interrupt-parent = <&intc>;

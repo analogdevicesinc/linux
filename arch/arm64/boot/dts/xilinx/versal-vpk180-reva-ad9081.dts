@@ -95,7 +95,7 @@
 			xlnx,tri-default-2 = <0xFFFFFFFF>;
 		};
 
-		rx_dma: dma@bc420000 {
+		rx_dma: dma-controller@bc420000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0xbc420000 0x10000>;
 			#dma-cells = <1>;
@@ -104,7 +104,7 @@
 			clocks = <&versal_clk PMC_PL1_REF>;
 		};
 
-		tx_dma: dma@bc430000  {
+		tx_dma: dma-controller@bc430000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0xbc430000 0x10000>;
 			#dma-cells = <1>;

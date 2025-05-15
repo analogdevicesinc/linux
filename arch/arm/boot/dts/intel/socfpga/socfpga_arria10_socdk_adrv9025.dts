@@ -312,7 +312,7 @@
 				spibus-connected = <&trx0_adrv9025>;
 			};
 
-			tx_dma: tx-dmac@32000 {
+			tx_dma: dma-controller@32000 {
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x00032000 0x00004000>;
 				interrupt-parent = <&intc>;
@@ -321,7 +321,7 @@
 				clocks = <&dma_clk>;
 			};
 
-			rx_dma: rx-dmac@4c000 {
+			rx_dma: dma-controller@4c000 {
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x0004c000 0x00004000>;
 				interrupt-parent = <&intc>;

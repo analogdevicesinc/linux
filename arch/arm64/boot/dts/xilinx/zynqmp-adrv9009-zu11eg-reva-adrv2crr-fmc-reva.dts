@@ -556,7 +556,7 @@
 };
 
 &fpga_axi {
-	i2s_tx_dma: dma@81001000  {
+	i2s_tx_dma: dma-controller@81001000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x0 0x81001000 0x1000>;
 		#dma-cells = <1>;
@@ -565,7 +565,7 @@
 		clocks = <&zynqmp_clk 73>;
 	};
 
-	i2s_rx_dma: dma@81000000  {
+	i2s_rx_dma: dma-controller@81000000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x0 0x81000000 0x1000>;
 		#dma-cells = <1>;
