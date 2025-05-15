@@ -8,7 +8,7 @@
 
 #define IN_OUT_BUFF_SZ 3
 
-ADI_API int ad916x_register_write(ad916x_handle_t *h, 
+ADI_API int ad916x_register_write(ad916x_handle_t *h,
 								const uint16_t address, const uint8_t data)
 {
 	if (h == INVALID_POINTER) {
@@ -18,19 +18,22 @@ ADI_API int ad916x_register_write(ad916x_handle_t *h,
 	return regmap_write(h->user_data, address, data);
 }
 
-ADI_API int ad916x_register_read(ad916x_handle_t *h, 
+ADI_API int ad916x_register_read(ad916x_handle_t *h,
 								const uint16_t address, uint8_t *data)
 {
 	unsigned int val;
 	int ret;
 
 	if (h == INVALID_POINTER) {
+		pr_err("\n %s %d: ceva ad9166: ad916x_reg.c invalid pointer\n", __func__, __LINE__);
 		return API_ERROR_INVALID_HANDLE_PTR;
 	}
 
 	ret = regmap_read(h->user_data, address, &val);
+	pr_err("\n %s %d: ceva ad9166: ad916x_reg.c ret=%d\n", __func__, __LINE__, ret);
 
 	*data = val;
+	pr_err("\n %s %d: ceva ad9166: ad916x_reg.c val=%d\n", __func__, __LINE__, val);
 
 	return ret;
 }
