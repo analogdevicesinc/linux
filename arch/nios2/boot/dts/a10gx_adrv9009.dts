@@ -757,7 +757,7 @@
 			clock-output-names = "jesd204_rx_os_lane_clock";
 		};
 
-		tx_dma: tx-dmac@10032000 {
+		tx_dma: dma-controller@10032000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x10032000 0x00004000>;
 			interrupt-parent = <&sys_cpu>;
@@ -767,7 +767,7 @@
 			clock-names = "dma_clkin";
 		};
 
-		rx_dma: rx-dmac@1004c000 {
+		rx_dma: dma-controller@1004c000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x1004c000 0x00004000>;
 			interrupt-parent = <&sys_cpu>;
@@ -777,7 +777,7 @@
 			clock-names = "dma_clkin";
 		};
 
-		rx_os_dma: rx-obs-dmac@1005c000  {
+		rx_os_dma: dma-controller@1005c000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x1005c000 0x00004000>;
 			interrupt-parent = <&sys_cpu>;

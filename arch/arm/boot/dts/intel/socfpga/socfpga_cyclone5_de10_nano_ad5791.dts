@@ -48,7 +48,7 @@
 		clocks = <&spi_clk 0>;
 	};
 
-	tx_dma: tx-dma@30000 {
+	tx_dma: dma-controller@30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x00030000 0x00000800>;
 		#dma-cells = <1>;

@@ -131,7 +131,7 @@
 			clocks = <&axi_ad9094_adxcvr 1>;
 		};
 
-		rx_dma: rx-dmac@9c400000 {
+		rx_dma: dma-controller@9c400000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c400000 0x10000>;
 			#dma-cells = <1>;

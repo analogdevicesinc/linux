@@ -66,7 +66,7 @@
 		jesd204-inputs = <&axi_adrv9009_tx_jesd 0 DEFRAMER_LINK_TX>;
 	};
 
-	rx_dma: rx-dmac@7c400000 {
+	rx_dma: dma-controller@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		interrupt-parent = <&axi_intc>;
 		interrupts = <12 2>;
@@ -75,7 +75,7 @@
 		clocks = <&clk_bus_0>;
 	};
 
-	rx_obs_dma: rx-obs-dmac@7c440000  {
+	rx_obs_dma: dma-controller@7c440000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		interrupt-parent = <&axi_intc>;
 		interrupts = <14 2>;
@@ -84,7 +84,7 @@
 		clocks = <&clk_bus_0>;
 	};
 
-	tx_dma: tx-dmac@7c420000 {
+	tx_dma: dma-controller@7c420000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		interrupt-parent = <&axi_intc>;
 		interrupts = <13 2>;
