@@ -94,7 +94,7 @@
 		clocks = <&clkc 15>;
 	};
 
-	spi_clk: axi_clkgen@44b10000 {
+	spi_clk: clock-controller@44b10000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44b10000 0x10000>;
 		#clock-cells = <0>;

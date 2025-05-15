@@ -175,7 +175,7 @@
 			adi,frames-per-multiframe = <32>;
 		};
 
-		axi_tx_clkgen: axi-clkgen@83c00000  {
+		axi_tx_clkgen: clock-controller@83c00000 {
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x83c00000 0x10000>;
 			#clock-cells = <0>;
@@ -184,7 +184,7 @@
 			clock-output-names = "axi_tx_clkgen";
 		};
 
-		axi_rx_clkgen: axi-clkgen@83c10000  {
+		axi_rx_clkgen: clock-controller@83c10000 {
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x83c10000 0x10000>;
 			#clock-cells = <0>;
@@ -193,7 +193,7 @@
 			clock-output-names = "axi_rx_clkgen";
 		};
 
-		axi_rx_os_clkgen: axi-clkgen@83c20000  {
+		axi_rx_os_clkgen: clock-controller@83c20000 {
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x83c20000 0x10000>;
 			#clock-cells = <0>;
