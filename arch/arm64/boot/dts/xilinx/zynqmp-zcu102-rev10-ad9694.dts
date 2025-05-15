@@ -62,10 +62,10 @@
 		ranges = <0 0 0 0xffffffff>;
 
 		rx_dma: rx-dmac@9c400000 {
-			#dma-cells = <1>;
-			dma-coherent;
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c400000 0x1000>;
+			#dma-cells = <1>;
+			dma-coherent;
 			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 		};

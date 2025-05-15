@@ -72,11 +72,11 @@
 		ranges = <0 0 0 0xffffffff>;
 
 		tx_dma: tx-dmac@9c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c420000 0x10000>;
 			#dma-cells = <1>;
 			dma-coherent;
-			compatible = "adi,axi-dmac-1.00.a";
 			adi,cyclic;
-			reg = <0x9c420000 0x10000>;
 			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 		};
