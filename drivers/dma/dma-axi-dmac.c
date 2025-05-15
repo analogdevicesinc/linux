@@ -229,29 +229,42 @@ static bool axi_dmac_check_addr(struct axi_dmac_chan *chan, dma_addr_t addr)
 	return true;
 }
 
-static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
+static struct axi_dmac_desc *axi_dmac_get_next_desc(struct axi_dmac *dmac,
+						    struct axi_dmac_chan *chan)
 {
-	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	struct virt_dma_desc *vdesc;
 	struct axi_dmac_desc *desc;
-	struct axi_dmac_sg *sg;
-	unsigned int flags = 0;
 	unsigned int val;
 
 	val = axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER);
 	if (val) /* Queue is full, wait for the next SOT IRQ */
+		return NULL;
+
+	if (chan->next_desc)
+		return chan->next_desc;
+
+	vdesc = vchan_next_desc(&chan->vchan);
+	if (!vdesc)
+		return NULL;
+
+	list_move_tail(&vdesc->node, &chan->active_descs);
+	desc = to_axi_dmac_desc(vdesc);
+	chan->next_desc = desc;
+
+	return desc;
+}
+
+static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
+{
+	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
+	struct axi_dmac_desc *desc;
+	struct axi_dmac_sg *sg;
+	unsigned int flags = 0;
+
+	desc = axi_dmac_get_next_desc(dmac, chan);
+	if (!desc)
 		return;
 
-	desc = chan->next_desc;
-
-	if (!desc) {
-		vdesc = vchan_next_desc(&chan->vchan);
-		if (!vdesc)
-			return;
-		list_move_tail(&vdesc->node, &chan->active_descs);
-		desc = to_axi_dmac_desc(vdesc);
-		chan->next_desc = desc;
-	}
 	sg = &desc->sg[desc->num_submitted];
 
 	/* Already queued in cyclic mode. Wait for it to finish */
