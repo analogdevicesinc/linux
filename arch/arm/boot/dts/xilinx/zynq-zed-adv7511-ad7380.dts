@@ -79,7 +79,7 @@
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 17>;
+		clocks = <&clkc 15>;
 	};
 
 	axi_spi_engine_0: spi@44a00000 {
