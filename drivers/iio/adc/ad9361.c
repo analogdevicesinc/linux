@@ -8281,6 +8281,10 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		clk_set_rate(phy->clks[TX_SAMPL_CLK], 1);
 		clk_set_parent(phy->clks[RX_RFPLL], phy->clk_ext_lo_rx);
 		clk_set_parent(phy->clks[TX_RFPLL], phy->clk_ext_lo_tx);
+
+		if (test_bit(0, &phy->state->flags))
+			wait_for_completion(&phy->complete);
+
 		ad9361_reset(phy);
 		ad9361_clks_resync(phy);
 		ad9361_clks_disable(phy);
