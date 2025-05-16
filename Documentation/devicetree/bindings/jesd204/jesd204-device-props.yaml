@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/jesd204/jesd204-device-props.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: JESD204 Device Node properties.
+
+maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com>
+
+description: |
+  Bindings for JESD204 framework devices and topologies.
+
+properties:
+  jesd204-device:
+    type: boolean
+    description: Indicates this node is a JESD204 device.
+
+  jesd204-top-device:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Marks this node as a JESD204 top-level device and provides a topology ID.
+
+  jesd204-link-ids:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 1
+    maxItems: 32
+    description: Array of link IDs for the top-level JESD204 device.
+
+  jesd204-ignore-errors:
+    type: boolean
+    description: Ignore errors for all links in this device.
+
+  jesd204-sysref-provider:
+    type: boolean
+    description: Marks this device as a SYSREF provider for the topology.
+
+  jesd204-secondary-sysref-provider:
+    type: boolean
+    description: Marks this device as a secondary SYSREF provider for the topology.
+
+  jesd204-stop-states:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 1
+    maxItems: 32
+    description: Array of FSM state IDs where the device should stop.
+
+  jesd204-inputs:
+    description: |
+      List of phandles with arguments describing input connections to other JESD204 devices.
+      Each entry must have at least 2 arguments: topology ID and link ID.
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+
+  "#jesd204-cells":
+    description: Number of cells in each jesd204-inputs phandle.
+    const: 2
+
+  jesd204-device-id:
+    description: JESD204 device ID (DID)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-bank-id:
+    description: JESD204 bank ID (BID)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-lanes-per-device:
+    description: Number of lanes per device (L)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-converters-per-device:
+    description: Number of converters per device (M)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-octets-per-frame:
+    description: Number of octets per frame (F)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-frames-per-multiframe:
+    description: Number of frames per multiframe (K)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-num-multiblocks-in-emb:
+    description: Number of multiblocks in extended multiblock (E)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-bits-per-sample:
+    description: Number of bits per sample (N') or (NP)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-converter-resolution:
+    description: Converter resolution in bits (N)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-scrambling:
+    description: Enable or disable scrambling (SCR)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-encoding:
+    description: JESD204 encoding type
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-high-density:
+    description: High-density mode (HD)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-version:
+    description: JESD204 version (JESDV)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-subclass:
+    description: JESD204 subclass (SC)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-control-words-per-frame-clk:
+    description: Number of control words per frame clock (CF)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-control-bits-per-sample:
+    description: Number of control bits per sample (CS)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-samples-per-converter-per-frame:
+    description: Number of samples per converter per frame (S)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-dac-adj-resolution-steps:
+    description: DAC adjustment resolution steps (ADJCNT)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-dac-adj-direction:
+    description: DAC adjustment direction (ADJDIR)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jesd204-dac-phase-adjust:
+    description: DAC phase adjustment (PHADJ)
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+required:
+  - jesd204-device
+
+additionalProperties: true
+
+examples:
+  - |
+    jesd204_top {
+      compatible = "vendor,jesd204-top";
+      jesd204-device;
+      jesd204-top-device = <0>;
+      jesd204-link-ids = <0 1>;
+      jesd204-ignore-errors;
+      jesd204-sysref-provider;
+    };
+
+    jesd204_dev {
+      compatible = "vendor,jesd204-dev";
+      jesd204-device;
+      jesd204-inputs = <&jesd204_top 0 1>;
+      #jesd204-cells = <2>;
+    };
+...
