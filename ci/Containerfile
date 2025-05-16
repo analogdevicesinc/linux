@@ -35,17 +35,17 @@ ADD ${entrypoint_sh} .
 RUN chmod +rx github-api.sh
 RUN chmod +rx entrypoint.sh
 
+RUN git config --add --system user.name "CSE CI" ; \
+    git config --add --system user.email "cse-ci-notifications@analog.com" ; \
+    git config --add --system init.defaultBranch  "__runner_init_branch" ; \
+    git config --add --system advice.mergeConflict false ; \
+    git config --add --system advice.detachedHead false ; \
+    git config --add --system safe.directory '*'
+
 USER runner
 WORKDIR /home/runner
 RUN curl -o .bashrc -L ${bashrc} ; \
     chmod +x .bashrc
-
-RUN git config --global user.name "CSE CI" ; \
-    git config --global user.email "cse-ci-notifications@analog.com" ; \
-    git config --global init.defaultBranch  "__runner_init_branch" ; \
-    git config --global advice.mergeConflict false ; \
-    git config --global advice.detachedHead false ; \
-    git config --global --add safe.directory '*'
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
