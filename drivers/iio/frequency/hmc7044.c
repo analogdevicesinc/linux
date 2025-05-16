@@ -1387,6 +1387,9 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
+	hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_PATH, 0x1);
+	hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_DRIVER_1, 0x33);
+
 	return of_clk_add_provider(hmc->spi->dev.of_node,
 				   of_clk_src_onecell_get,
 				   &hmc->clk_data);
