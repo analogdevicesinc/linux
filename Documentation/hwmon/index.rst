@@ -129,6 +129,7 @@ Hardware Monitoring Kernel Drivers
    ltc4245
    ltc4260
    ltc4261
+   ltp8800
    max127
    max15301
    max16064
