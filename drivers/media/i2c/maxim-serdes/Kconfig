@@ -31,6 +31,22 @@ config VIDEO_MAX96717
 	  To compile this driver as a module, choose M here: the
 	  module will be called max96717.
 
+config VIDEO_MAX96719A
+	tristate "Maxim MAX96719A GMSL3 Serializer support"
+	depends on OF && COMMON_CLK
+	select VIDEO_MAXIM_SERDES
+	select GENERIC_PINCONF
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GPIOLIB
+	help
+	  This driver supports the Maxim MAX96719A GMSL3 Serializer,
+	  which receives video on a MIPI CSI-2 interface and outputs it
+	  on a GMSL3 link.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max96719a.
+
 config VIDEO_MAX96724
 	tristate "Maxim MAX96724 Quad GMSL2 Deserializer support"
 	select VIDEO_MAXIM_SERDES
@@ -51,3 +67,13 @@ config VIDEO_MAX9296A
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called max9296a.
+
+config VIDEO_MAX96726A
+	tristate "Maxim MAX9296A Quad GMSL3 Deserializer support"
+	select VIDEO_MAXIM_SERDES
+	help
+	  This driver supports the Maxim MAX9296A Dual GMSL3 Deserializer,
+	  which converts from four GMSL3/2 to 1 or 2 MIPI D-PHY outputs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max96726a.
