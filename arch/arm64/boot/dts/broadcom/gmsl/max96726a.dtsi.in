@@ -1,0 +1,5 @@
+{% set default_address = '0x20' %}
+{% set default_compatible = 'maxim,max96726a' %}
+{% set use_atr = True %}
+{% set num_links = 4 %}
+{% include 'des.dtsi.in' %}
