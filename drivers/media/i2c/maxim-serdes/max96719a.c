@@ -690,6 +690,7 @@ static const struct max_phys_config max96719a_phys_configs[] = {
 };
 
 static const struct max_ser_ops max96719a_ops = {
+	.modes = BIT(MAX_GMSL_TUNNEL_MODE),
 	.num_i2c_xlates = 7,
 	.num_pipes = 1,
 	.num_phys = 1,
