@@ -14,9 +14,6 @@
 
 #define MAX96726A_REG0				0x0
 
-#define MAX96726A_REG4				0x4
-#define MAX96726A_REG4_VID_EN(p)		BIT(p)
-
 #define MAX96726A_REG7				0x7
 #define MAX96726A_REG7_LINK_EN			GENMASK(3, 0)
 #define MAX96726A_REG7_GMSL3_X(x)		BIT((x) + 4)
@@ -32,6 +29,15 @@
 
 #define MAX96726A_CTRL1				0x1e
 #define MAX96726A_CTRL1_RESET_ONESHOT		GENMASK(3, 0)
+
+#define MAX96726A_VIDEO_PIPE_SEL(p)		(0xf0 + (p) / 2)
+#define MAX96726A_VIDEO_PIPE_SEL_STREAM(p)	(GENMASK(1, 0) << (4 * ((p) % 2)))
+
+#define MAX96726A_VIDEO_PIPE_EN			0xf4
+#define MAX96726A_VIDEO_PIPE_EN_MASK(p)		BIT(p)
+
+#define MAX96726A_STREAM_SEL_ALL		0xf5
+#define MAX96726A_STREAM_SEL_ALL_MASK		BIT(0)
 
 #define MAX96726A_VPRBS_FLAGS(p)		(0x110 + (p) * 0x1c)
 #define MAX96726A_VPRBS_FLAGS_VIDEO_LOCK	BIT(0)
@@ -198,6 +204,20 @@ static int max96726a_log_phy_status(struct max_des *des,
 	return 0;
 }
 
+static int max96726a_init(struct max_des *des)
+{
+	struct max96726a_priv *priv = des_to_priv(des);
+	int ret;
+
+	/* Enable stream autoselect. */
+	ret = regmap_set_bits(priv->regmap, MAX96726A_STREAM_SEL_ALL,
+			      MAX96726A_STREAM_SEL_ALL_MASK);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static int max96726a_init_phy(struct max_des *des, struct max_des_phy *phy)
 {
 	struct max96726a_priv *priv = des_to_priv(des);
@@ -326,6 +346,18 @@ static int max96726a_set_pipe_enable(struct max_des *des, struct max_des_pipe *p
 				  MAX96726A_VIDEO_PIPE_EN_MASK(pipe->index), enable);
 }
 
+static int max96726a_set_pipe_stream_id(struct max_des *des, struct max_des_pipe *pipe,
+				        unsigned int stream_id)
+{
+	struct max96726a_priv *priv = des_to_priv(des);
+	unsigned int index = pipe->index;
+
+	return regmap_update_bits(priv->regmap, MAX96726A_VIDEO_PIPE_SEL(index),
+				  MAX96726A_VIDEO_PIPE_SEL_STREAM(index),
+				  field_prep(MAX96726A_VIDEO_PIPE_SEL_STREAM(index),
+					     stream_id));
+}
+
 static int max96726a_set_pipe_phy(struct max_des *des,
 				  struct max_des_pipe *pipe,
 				  struct max_des_phy *phy)
@@ -412,9 +444,11 @@ static const struct max_des_ops max96726a_ops = {
 	.reg_write = max96726a_reg_write,
 	.log_pipe_status = max9626a_log_pipe_status,
 	.log_phy_status = max96726a_log_phy_status,
+	.init = max96726a_init,
 	.init_phy = max96726a_init_phy,
 	.set_phy_active = max96726a_set_phy_active,
 	.set_pipe_enable = max96726a_set_pipe_enable,
+	.set_pipe_stream_id = max96726a_set_pipe_stream_id,
 	.set_pipe_phy = max96726a_set_pipe_phy,
 	.set_pipe_vc_remap = max96726a_set_pipe_vc_remap,
 	.set_pipe_vc_remaps_enable = max96726a_set_pipe_vc_remaps_enable,
