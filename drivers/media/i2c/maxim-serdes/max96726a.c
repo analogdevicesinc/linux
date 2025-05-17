@@ -47,6 +47,8 @@
 
 #define MAX96726A_VC_REMAP_MODES(p)		(0x426 + (p) * 0x18)
 #define MAX96726A_OVERRIDE_VC_SRC_DST_MODE	BIT(5)
+#define MAX96726A_OVERRIDE_VC_PIPE_ID_MODE	BIT(6)
+#define MAX96726A_OVERRIDE_VC_LINK_ID_MODE	BIT(7)
 
 #define MAX96726A_VC_REMAP_0_SRC(p, x)		(0x427 + (p) * 0x18 + (x) * 0x2)
 #define MAX96726A_VC_REMAP_0_SRC_MASK		GENMASK(4, 0)
@@ -333,8 +335,11 @@ static int max96726a_set_pipe_vc_remaps_enable(struct max_des *des,
 {
 	struct max96726a_priv *priv = des_to_priv(des);
 
-	return regmap_assign_bits(priv->regmap, MAX96726A_VC_REMAP_MODES(pipe->index),
-				  MAX96726A_OVERRIDE_VC_SRC_DST_MODE, !!mask);
+	return regmap_update_bits(priv->regmap, MAX96726A_VC_REMAP_MODES(pipe->index),
+				  MAX96726A_OVERRIDE_VC_SRC_DST_MODE |
+				  MAX96726A_OVERRIDE_VC_PIPE_ID_MODE |
+				  MAX96726A_OVERRIDE_VC_LINK_ID_MODE,
+				  FIELD_PREP(MAX96726A_OVERRIDE_VC_SRC_DST_MODE, !!mask));
 }
 
 static int max96726a_set_pipe_enable(struct max_des *des, struct max_des_pipe *pipe,
