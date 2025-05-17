@@ -365,7 +365,7 @@ static int max96726a_set_pipe_phy(struct max_des *des,
 	struct max96726a_priv *priv = des_to_priv(des);
 	unsigned int phy_id = phy->index == 0 ? 1 : 2;
 
-	return regmap_assign_bits(priv->regmap, MAX96726A_CONFIG_0(pipe->index),
+	return regmap_update_bits(priv->regmap, MAX96726A_CONFIG_0(pipe->index),
 				  MAX96726A_CONFIG_0_CON_DEST,
 				  FIELD_PREP(MAX96726A_CONFIG_0_CON_DEST, phy_id));
 }
