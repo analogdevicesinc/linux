@@ -1963,7 +1963,14 @@ int max_ser_reset(struct i2c_adapter *adapter, u8 addr)
 
 	val |= MAX_SER_CTRL0_RESET_ALL;
 
-	return max_ser_write_reg(adapter, addr, MAX_SER_CTRL0, val);
+	ret = max_ser_write_reg(adapter, addr, MAX_SER_CTRL0, val);
+	if (ret) {
+		pr_err("%s: write reg failed: %d\n", __func__, ret);
+		/* HACK: I2C loses arbitration after serializer reset */
+		return 0;
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(max_ser_reset);
 
