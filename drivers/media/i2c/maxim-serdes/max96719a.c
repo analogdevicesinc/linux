@@ -21,6 +21,9 @@
 #define MAX96719A_RCLKOUT_CTRL			0x14
 #define MAX96719A_RCLKOUT_CTRL_RCLKOUT_EN	BIT(5)
 
+#define MAX96719A_WAKE_CTRL			0x101
+#define MAX96719A_WAKE_CTRL_WAKE_EN		BIT(2)
+
 #define MAX96719A_MIPI_RX13			0xa018
 #define MAX96719A_MIPI_RX14			0xa019
 #define MAX96719A_CSI_RX_TUN_PKT_CNT		0xa126
@@ -64,6 +67,9 @@
 
 #define MAX96719A_DST_ADDR_0(x)			(0x351b + (x) * 0x2)
 #define MAX96719A_DST_ADDR_0_DST_ADDR		GENMASK(7, 1)
+
+#define MAX96719A_PDM_TX_CTRL			0x3704
+#define MAX96719A_PDM_TX_CTRL_PDM_EN		BIT(0)
 
 #define MAX96719A_MIPI_RX0			0xa005
 #define MAX96719A_MIPI_RX0_LANE_COUNT		GENMASK(6, 5)
@@ -440,6 +446,22 @@ static int max96719a_mux_get_groups(struct pinctrl_dev *pctldev,
 static int max96719a_mux_set(struct pinctrl_dev *pctldev, unsigned int selector,
 			     unsigned int group)
 {
+	struct max96719a_priv *priv = pinctrl_dev_get_drvdata(pctldev);
+
+	switch (selector) {
+	case max96719a_func_gpio:
+		switch (group) {
+		case 0:
+			return regmap_clear_bits(priv->regmap, MAX96719A_WAKE_CTRL,
+						 MAX96719A_WAKE_CTRL_WAKE_EN);
+		case 2:
+		case 3:
+			return regmap_clear_bits(priv->regmap, MAX96719A_PDM_TX_CTRL,
+						 MAX96719A_PDM_TX_CTRL_PDM_EN);
+		}
+		break;
+	}
+
 	return 0;
 }
 
