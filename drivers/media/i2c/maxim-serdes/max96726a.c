@@ -96,12 +96,17 @@ static const struct regmap_config max96726a_i2c_regmap = {
 
 struct max96726a_priv {
 	struct max_des des;
+	const struct max96726a_chip_info *info;
 
 	struct device *dev;
 	struct i2c_client *client;
 	struct regmap *regmap;
 
 	struct gpio_desc *gpiod_pwdn;
+};
+
+struct max96726a_chip_info {
+	unsigned int versions;
 };
 
 #define des_to_priv(_des) \
@@ -467,11 +472,22 @@ static int max96726a_probe(struct i2c_client *client)
 	struct regmap_config i2c_regmap = max96726a_i2c_regmap;
 	struct device *dev = &client->dev;
 	struct max96726a_priv *priv;
+	struct max_des_ops *ops;
 	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
+
+	ops = devm_kzalloc(dev, sizeof(*ops), GFP_KERNEL);
+	if (!ops)
+		return -ENOMEM;
+
+	priv->info = device_get_match_data(dev);
+	if (!priv->info) {
+		dev_err(dev, "Failed to get match data\n");
+		return -ENODEV;
+	}
 
 	priv->dev = dev;
 	priv->client = client;
@@ -495,7 +511,10 @@ static int max96726a_probe(struct i2c_client *client)
 		usleep_range(4000, 5000);
 	}
 
-	priv->des.ops = &max96726a_ops;
+	*ops = max96726a_ops;
+
+	ops->versions = priv->info->versions;
+	priv->des.ops = ops;
 
 	ret = max96726a_reset(priv);
 	if (ret)
@@ -513,8 +532,20 @@ static void max96726a_remove(struct i2c_client *client)
 	gpiod_set_value_cansleep(priv->gpiod_pwdn, 1);
 }
 
+static const struct max96726a_chip_info max96726a_info = {
+	.versions = BIT(MAX_GMSL_2_3Gbps) |
+		    BIT(MAX_GMSL_2_6Gbps) |
+		    BIT(MAX_GMSL_3),
+};
+
+static const struct max96726a_chip_info max96726b_info = {
+	.versions = BIT(MAX_GMSL_2_3Gbps) |
+		    BIT(MAX_GMSL_2_6Gbps),
+};
+
 static const struct of_device_id max96726a_of_table[] = {
-	{ .compatible = "maxim,max96726a" },
+	{ .compatible = "maxim,max96726a", .data = &max96726a_info },
+	{ .compatible = "maxim,max96726b", .data = &max96726b_info },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, max96726a_of_table);
