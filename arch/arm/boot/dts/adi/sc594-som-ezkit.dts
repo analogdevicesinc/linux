@@ -1,0 +1,233 @@
+/*
+ * Device tree for ADI sc594-som-ezkit board
+ *
+ * Copyright 2014 - 2020 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2 or later.
+ *
+ */
+
+/dts-v1/;
+
+#include "sc594-som.dtsi"
+
+/ {
+	model = "ADI sc594-som-ezkit";
+	compatible = "adi,sc594-som-ezkit", "adi,sc59x";
+
+	scb {
+		sound {
+			compatible = "adi,sc5xx-asoc-card";
+			adi,cpu-dai = <&i2s4>;
+			adi,codec = <&adau1962>, <&adau1979>;
+		};
+	};
+};
+
+&i2c2 {
+	ssw1: gpio@22 {
+		compatible = "microchip,mcp23017";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x22>;
+
+		eeprom {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_HIGH>;
+			output-low;
+			line-name = "eeprom-en";
+		};
+
+		pushbutton {
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_HIGH>;
+			output-low; /*output-high;*/
+			line-name = "pushbutton-en";
+		};
+
+		microsd {
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "microsd-spi";
+		};
+
+		adau-reset {
+			gpio-hog;
+			gpios = <5 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "adau1962-reset";
+		};
+
+		adau1962 {
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "adau1962-en";
+		};
+
+		adau1979 {
+			gpio-hog;
+			gpios = <7 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "adau1979-en";
+		};
+
+		octal {
+			gpio-hog;
+			gpios = <8 GPIO_ACTIVE_HIGH>;
+			output-low;
+			line-name = "octal-spi-cs-en";
+		};
+
+		spdif-dig {
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-digital-en";
+		};
+
+		spdif-opt {
+			gpio-hog;
+			gpios = <10 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-optical-en";
+		};
+
+		audio-jack {
+			gpio-hog;
+			gpios = <11 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "audio-jack-sel";
+		};
+
+		mlb {
+			gpio-hog;
+			gpios = <12 0x0>;
+			output-high;
+			line-name = "~mlb-en";
+		};
+
+		eth1 {
+			gpio-hog;
+			gpios = <13 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "eth1-en";
+		};
+
+		eth1-reset {
+			gpio-hog;
+			gpios = <14 GPIO_ACTIVE_LOW>;
+/* USB0 lines are shared with Eth1 so  Eth PHY must be held in reset
+   when using the USB */
+			output-high;
+			line-name = "eth1-reset";
+		};
+
+		gige-reset {
+			gpio-hog;
+			gpios = <15 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "gige-reset";
+		};
+
+	};
+
+	adau1979: adau1979@11 {
+		compatible = "adi,adau1977";
+		reg = <0x11>;
+	};
+
+	adau1962: adau1962@4 {
+		compatible = "adi,adau1962";
+		reg = <0x4>;
+	};
+
+};
+
+&can0 {
+	pinctrl-names = "default";
+	/*pinctrl-0 = <&can0_default>;*/
+	phy-name = "tja1055";
+	phy-gpios = <&gpb 8 0>,		/* en PB8 */
+		    <&gpb 2 0x1>;	/* stb PB2, GPIO_ACTIVE_LOW */
+	status = "disabled";
+};
+
+&can1 {
+	pinctrl-names = "default";
+	/*pinctrl-0 = <&can1_default>;*/
+	phy-name = "tja1145";
+	phy-spibus = /bits/ 16 <0>;
+	phy-spiclk = <1000000>;
+	phy-spics = /bits/ 16 <44>;	/* GPIO_PC12 */
+	status = "disabled";
+};
+
+&emac0 {
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 200 500>;
+	phy-handle = <&dp83867>;
+	phy-mode = "rgmii-id";
+	pinctrl-names = "default";
+	pinctrl-0 = <&eth0_default>;
+	status = "okay";
+
+	mdio0 {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dp83867: ethernet-phy@0 {
+			reg = <0>;
+			ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
+			ti,dp83867-rxctrl-strap-quirk;
+		};
+	};
+};
+
+&emac1 {
+	phy-handle = <&dp83848>;
+	phy-mode = "rmii";
+	pinctrl-names = "default";
+	pinctrl-0 = <&eth1_default>;
+	status = "disabled";
+
+	mdio1 {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dp83848: ethernet-phy@1 {
+			reg = <1>;
+		};
+	};
+};
+
+&i2s4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sru_dai1>;
+	status = "okay";
+};
+
+&sru_ctrl_dai1 {
+	status = "okay";
+
+	sru_dai1: sru_dai1_mux {
+		route {
+			sru-routing =
+				<DAI1_LOW_F          DAI1_PBEN05_I>,  /* set DAI1_PIN0B to input */
+				<DAI1_PB05_O_ABCDE   SPT4_ACLK_I>,    /* route DAI1_PIN0B to SPT4_ACLK */
+				<DAI1_LOW_F          DAI1_PBEN04_I>,  /* set DAI1_PIN04 to input */
+				<DAI1_PB04_O_ABCDE   SPT4_AFS_I>,     /* route DAI1_PIN04 to SPT4_AFS */
+				<DAI1_HIGH_F         DAI1_PBEN01_I>,  /* set DAI1_PIN01 to output */
+				<SPT4_AD0_O_BD       DAI1_PB01_I>,    /* route SPT4_AD0 to DAI1_PIN01 */
+				<DAI1_LOW_F          DAI1_PBEN12_I>,  /* set DAI1_PIN12 to input */
+				<DAI1_PB12_O_ABCDE   SPT4_BCLK_I>,    /* route DAI1_PIN12 to SPT4_BCLK */
+				<DAI1_LOW_F          DAI1_PBEN20_I>,  /* set DAI1_PIN20 to input */
+				<DAI1_PB20_O_ABCDE   SPT4_BFS_I>,     /* route DAI1_PIN20 to SPT4_BFS */
+				<DAI1_LOW_F          DAI1_PBEN06_I>,  /* set DAI1_PIN06 to input */
+				<DAI1_PB06_O_ABCDE   SPT4_BD0_I>;     /* route DAI1_PIN06 to SPT4_BD0 */
+		};
+	};
+};
