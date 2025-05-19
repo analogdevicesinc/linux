@@ -257,7 +257,9 @@ check_cppcheck () {
 		*.c)
 			# --force checks all configurations, overrides cppcheck default 12 limit.
 			echo -e "\e[1m$file\e[0m"
-			mail=$(cppcheck --check-level=exhaustive -Iinclude --force $file 2>&1)
+			mail=$(cppcheck --check-level=exhaustive -Iinclude --force $file 2>&1 || (
+				echo "::error file=$file,line=0::cppcheck: Exited with code '$?'" ; true)
+			)
 			found=0
 			msg=
 
@@ -430,8 +432,6 @@ compile_kernel_sparse() {
 }
 
 compile_kernel_smatch() {
-	local mail=
-
 	local err=0
 	local checks=
 	local regex='^([[:alnum:]/._-]+):([[:digit:]]+) (.*) ([[:alpha:]]+): (.*)$'
@@ -540,7 +540,10 @@ compile_gcc_fanalyzer () {
 
 			echo -e "\e[1m$file\e[0m"
 			compile_cmd="$compile_cmd -fanalyzer"
-			mail=$($compile_cmd 2>&1)
+			mail=$($compile_cmd 2>&1 || (
+				echo "::error file=$file,line=0::gcc_fanalayzer: Exited with code '$?'" ; true)
+			)
+			echo $exit_code
 			found=0
 			msg=
 
@@ -582,6 +585,7 @@ compile_gcc_fanalyzer () {
 			if [[ "$found" == "1" ]]; then
 				echo $msg
 			fi
+
 			;;
 		esac
 
