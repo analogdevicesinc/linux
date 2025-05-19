@@ -1111,10 +1111,6 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 		return dev_err_probe(dev, -EIO,
 				     "Failed SPI write/read verify test REG_0x0A=0x%X\n", regval);
 
-	ret = regmap_read(st->regmap, ADF4030_REG(0xBB), &regval);
-	if (ret)
-		return ret;
-
 	/* Set default registers */
 	ret = regmap_multi_reg_write(st->regmap, adf4030_reg_default,
 				     ARRAY_SIZE(adf4030_reg_default));
