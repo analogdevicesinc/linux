@@ -65,7 +65,7 @@ stages:
     - task: CopyFiles@2
       inputs:
         sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts'
-        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/?(*.dtb)'
+        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/broadcom/?(*.dtb)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: PublishPipelineArtifact@1
       inputs:
