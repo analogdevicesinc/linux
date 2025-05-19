@@ -18,6 +18,8 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
+Ups, I forgot to delete this line
+
 /* AD5413 registers definition */
 #define AD5413_NOP                         0x00
 #define AD5413_DAC_INPUT                   0x01
