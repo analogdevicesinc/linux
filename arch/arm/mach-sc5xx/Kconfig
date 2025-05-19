@@ -40,3 +40,10 @@ config ARCH_SC58X
 		SoCs, like the SC589. It does not include the 64-bit Cortex-A55-based
 		SoCs (see ARCH_SC58X_64 for those).
 
+config	MACH_SC589_MINI
+	bool "ADI sc589-mini board"
+	depends on ARCH_SC58X
+	select MIGHT_HAVE_PCI
+	help
+		Say 'Y' here if you want your kernel to run on the ADI
+		SC589-MINI board.
