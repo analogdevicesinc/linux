@@ -346,21 +346,76 @@ compile_devicetree() {
 }
 
 compile_kernel() {
+	local tmp_log_file=.ci_compile_kernel_log
 	local err=0
+	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
+	local fail=0
+	local warn=0
+	local msg=
+
+	# At this step, we only problem match if it exits with an error code
+	# because we don't want duplicated errors/warnings on sparse,
+	# neither warnings unrelated to the patch, but if the kernel
+	# does not even compile, the checkers don't run and the reason
+	# is at this step.
 
 	echo "compile kernel"
 
-	# At this step, we don't problem match
-	# because we don't want duplicated errors/warnings on sparse,
-	# neither warnings unrelated to the patch
+	echo > $tmp_log_file
+	yes n 2>/dev/null | \
+		make -j$(nproc) 2>&1 | \
+		(while IFS= read -r row; do
+		echo $row
+		if [[ "$row" =~ $regex ]]; then
+			if [[ "$found" == "1" ]]; then
+				echo $msg >> $tmp_log_file
+				msg=
+			fi
 
-	yes n  2>/dev/null | make -j$(nproc) C=1 ; err=$?
+			found=0
+			IFS=':' read -r -a list <<< "$row"
+
+			file=$(echo ${list[0]} | xargs)
+			line=${list[1]}
+			col=${list[2]}
+			type=$(echo ${list[3]} | xargs)
+			msg_=${list[4]}
+
+			if [[ "$type" == "warning" ]]; then
+				warn=1
+			elif [[ "$type" == "error" ]]; then
+				fail=1
+			fi
+
+			if [[ ! "$type" == "note" ]]; then
+				found=1
+				msg="::$type file=$file,line=$line,col=$col::$msg_"
+			fi
+
+		else
+			if [[ $found == "1" ]]; then
+				msg=${msg}%0A${row}
+			fi
+		fi
+	done) ; err=${PIPESTATUS[1]}
 
 	if [[ $err -ne 0 ]]; then
+		while read -r  line; do
+			echo $line
+		done <$tmp_log_file
+		fail=1
+	fi
+	rm $tmp_log_file
+
+	if [[ "$fail" == "1" ]]; then
 		set_step_fail "kernel"
 	fi
 
-        python3.11 scripts/clang-tools/gen_compile_commands.py
+	if [[ "$warn" == "1" ]]; then
+		set_step_warn "kernel"
+	fi
+
+	python3.11 scripts/clang-tools/gen_compile_commands.py
 
 	return $err
 }
