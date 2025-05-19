@@ -5,6 +5,7 @@
  * Copyright 2019 Analog Devices Inc.
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -12,7 +13,6 @@
 #include <linux/of_device.h>
 #include <linux/io.h>
 #include <linux/nvmem-provider.h>
-#include <linux/fpga/adi-axi-common.h>
 
 #define AXI_SYSID_WORD_SIZE	 	sizeof(u32)
 #define AXI_SYSID_REG_ROM_ADDR_WIDTH	0x40

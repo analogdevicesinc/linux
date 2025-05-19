@@ -11,10 +11,10 @@
 #ifndef AXI_ADXCVR_H_
 #define AXI_ADXCVR_H_
 
+#include <linux/adi-axi-common.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/mutex.h>
-#include <linux/fpga/adi-axi-common.h>
 #include <linux/jesd204/jesd204.h>
 
 #include "xilinx_transceiver.h"

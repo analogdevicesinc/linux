@@ -16,6 +16,7 @@
  * AXI ADC and decouple it from this driver.
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
@@ -40,8 +41,6 @@
 #include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
-
-#include <linux/fpga/adi-axi-common.h>
 
 /* ADC Common */
 #define ADI_REG_RSTN			0x0040

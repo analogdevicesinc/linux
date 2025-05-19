@@ -4,8 +4,8 @@
  *
  * Copyright 2016 Analog Devices Inc.
  */
+#include <linux/adi-axi-common.h>
 #include <linux/clk.h>
-#include <linux/fpga/adi-axi-common.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/interrupt.h>

@@ -9,9 +9,9 @@
 #ifndef ADI_AXI_DDS_H_
 #define ADI_AXI_DDS_H_
 
+#include <linux/adi-axi-common.h>
 #include <linux/spi/spi.h>
 #include <linux/clk/clkscale.h>
-#include <linux/fpga/adi-axi-common.h>
 
 #define ADI_REG_CONFIG			0x000C
 #define ADI_IQCORRECTION_DISABLE	(1 << 0)
