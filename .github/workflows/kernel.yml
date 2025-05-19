@@ -34,6 +34,7 @@ jobs:
       LLVM: "19"
       ARCH: "x86"
       DEFCONFIG: "adi_ci_defconfig"
+      CHECKS: true
   build_gcc_aarch64:
     uses: ./.github/workflows/build.yml
     needs: [checks]
