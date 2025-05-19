@@ -8,7 +8,6 @@
  */
 
 #include <linux/device.h>
-#include <linux/fpga/adi-axi-common.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 
