@@ -7,6 +7,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -26,7 +27,6 @@
 #include <media/v4l2-ioctl.h>
 #include <media/i2c/adv7604.h>
 
-#include <linux/fpga/adi-axi-common.h>
 
 #define AXI_HDMI_RX_REG_ENABLE		0x040
 #define AXI_HDMI_RX_REG_CONFIG		0x044
