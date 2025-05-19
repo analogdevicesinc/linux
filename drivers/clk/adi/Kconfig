@@ -1,4 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
+config COMMON_CLK_ADI_SC58X
+	bool "ADI SC589 clock driver"
+	depends on ARCH_SC5XX || COMPILE_TEST
+	help
+	  This enables the ADI SC589 clock driver. The driver provides
+	  support for the clock controller on the ADI SC589 SoC.
+	  If you are using the ADI SC589 SoC, say Y here.
+	  If unsure, say N.
+
 config COMMON_CLK_ADI_SC594
 	bool "ADI SC594 clock driver"
 	depends on ARCH_SC5XX || COMPILE_TEST
