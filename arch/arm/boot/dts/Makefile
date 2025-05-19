@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 subdir-y += actions
+subdir-y += adi
 subdir-y += airoha
 subdir-y += allwinner
 subdir-y += alphascale
