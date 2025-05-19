@@ -531,7 +531,8 @@ compile_gcc_fanalyzer () {
 			abs_file=$(realpath .)/$file
 			compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
 				      .command" compile_commands.json |
-				      sed 's/^"//;s/"$//;s/\\"/"/g')
+				      sed 's/^"//;s/"$//g' |
+				      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
 			if [[ -z "$compile_cmd" ]]; then
 				echo "::error file=$file,line=0::gcc_fanalayzer: Failed to get compile command from compile_commands.json"
 				fail=1
@@ -539,7 +540,7 @@ compile_gcc_fanalyzer () {
 			fi
 
 			echo -e "\e[1m$file\e[0m"
-			compile_cmd="$compile_cmd -fanalyzer"
+			compile_cmd=$(printf "$compile_cmd -fanalyzer")
 			mail=$($compile_cmd 2>&1 || (
 				echo "::error file=$file,line=0::gcc_fanalayzer: Exited with code '$?'" ; true)
 			)
