@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/iio/adi,ad5592r.h>
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	__overrides__ {
+		cs_pin = <&ad5592r>,"reg:0";
+		lm75_addr = <&lm75>,"reg:0";
+		ad5593r_addr = <&ad5593r>, "reg:0";
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spi0 {
+	#size-cells = <0>;
+	#address-cells = <1>;
+	status = "okay";
+
+	ad5592r: ad5592r@0 {
+		compatible = "adi,ad5592r";
+		reg = <0>;
+		label = "my_ad5592r";
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+
+		channel@0 {
+			reg = <0>;
+			adi,mode = <CH_MODE_DAC>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,mode = <CH_MODE_ADC>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+
+		channel@4 {
+			reg = <4>;
+			adi,mode = <CH_MODE_UNUSED>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+
+		channel@5 {
+			reg = <5>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+
+		channel@6 {
+			reg = <6>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+
+		channel@7 {
+			reg = <7>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+	};
+};
+
+&i2c1 {
+	#size-cells = <0>;
+	#address-cells = <1>;
+	status = "okay";
+	clock-frequency = <400000>;
+
+	ad5593r: ad5593r@10 {
+		compatible = "adi,ad5593r";
+		reg = <0x10>;
+		label = "my_ad5593r";
+
+		channel@0 {
+			reg = <0>;
+			adi,mode = <CH_MODE_DAC>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,mode = <CH_MODE_ADC>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+
+		channel@4 {
+			reg = <4>;
+			adi,mode = <CH_MODE_UNUSED>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+
+		channel@5 {
+			reg = <5>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+
+		channel@6 {
+			reg = <6>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+
+		channel@7 {
+			reg = <7>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+		};
+	};
+};
+
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	lm75: lm75@48 {
+		compatible = "lm75";
+		reg = <0x48>;
+		label = "my_lm75";
+	};
+};
