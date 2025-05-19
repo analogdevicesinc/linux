@@ -47,9 +47,14 @@ jobs:
           echo "CID=llvm_${{ inputs.LLVM }}" >> $GITHUB_ENV
         fi
         if [[ "${{ inputs.CHECKS }}" == "true" ]]; then
-          echo "CHECKS_SPARCE=true" >> $GITHUB_ENV
-          echo "CHECKS_GCC_FANALYZER=true" >> $GITHUB_ENV
-          echo "CHECKS_SMATCH=true" >> $GITHUB_ENV
+          if [[ ! -z "${{ inputs.CXX }}" ]]; then
+            echo "CHECKS_SPARCE=true" >> $GITHUB_ENV
+            echo "CHECKS_GCC_FANALYZER=true" >> $GITHUB_ENV
+            echo "CHECKS_SMATCH=true" >> $GITHUB_ENV
+          fi
+          if [[ ! -z "${{ inputs.LLVM }}" ]]; then
+            echo "CHECKS_CLANG_ANALYZER=true" >> $GITHUB_ENV
+          fi
         fi
         echo "CROSS_COMPILE=${{ inputs.CROSS_COMPILE }}" >> $GITHUB_ENV
         echo "ARCH=${{ inputs.ARCH }}" >> $GITHUB_ENV
@@ -96,6 +101,12 @@ jobs:
       run: |
         source ci/build.sh
         compile_gcc_fanalyzer
+
+    - name: Clang analyzer
+      if: ${{ env.CHECKS_CLANG_ANALYZER == 'true' }}
+      run: |
+        source ci/build.sh
+        compile_clang_analyzer
 
     - name: Smatch
       if: ${{ env.CHECKS_SMATCH == 'true' }}
