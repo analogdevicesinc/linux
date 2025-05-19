@@ -599,6 +599,102 @@ compile_gcc_fanalyzer () {
 	return
 }
 
+compile_clang_analyzer () {
+	local files=$(git diff --name-only $base_sha..$head_sha)
+	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
+	local mail=
+	local fail=0
+	local warn=0
+
+	echo "recompile with clang analyzer flag on range $base_sha..$head_sha"
+
+	if [[ ! -f "compile_commands.json" ]]; then
+		echo "::error ::clang_analyzer: compile_commands.json does not exist! Was scripts/clang-tools/gen_compile_commands.py called?"
+		set_step_fail "clang_analyzer_no_compile_commands"
+		return 0
+	fi
+
+	while read file; do
+		case "$file" in
+		*.c)
+			abs_file=$(realpath .)/$file
+			compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
+				      .command" compile_commands.json |
+				      sed 's/^"//;s/"$//g' |
+				      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
+			if [[ -z "$compile_cmd" ]]; then
+				echo "::error file=$file,line=0::clang_analyzer: Failed to get compile command from compile_commands.json"
+				fail=1
+				continue
+			fi
+
+			echo -e "\e[1m$file\e[0m"
+			compile_cmd=$(printf "$compile_cmd --analyze -Xanalyzer -analyzer-output=text")
+			mail=$($compile_cmd 2>&1 || (
+				echo "::error file=$file,line=0::clang_analyzer: Exited with code '$?'" ; true)
+			)
+			echo $exit_code
+			found=0
+			msg=
+
+			while read -r row
+			do
+				if [[ "$row" =~ $regex ]]; then
+					if [[ "$found" == "1" ]]; then
+						echo $msg
+						msg=
+					fi
+
+					found=0
+					IFS=':' read -r -a list <<< "$row"
+
+					file=$(echo ${list[0]} | xargs)
+					line=${list[1]}
+					col=${list[2]}
+					type=$(echo ${list[3]} | xargs)
+					msg_=${list[4]}
+
+					if [[ "$type" == "note" ]]; then
+						echo $row
+					else
+						if [[ "$type" == "error" ]]; then
+							fail=1
+						else
+							warn=1
+						fi
+						found=1
+						msg="::$type file=$file,line=$line,col=$col::clang_analyzer: $msg_"
+					fi
+
+				else
+					if [[ $found == "1" ]]; then
+						msg=${msg}%0A${row}
+					else
+						echo $row
+					fi
+				fi
+
+			done <<< "$mail"
+
+			if [[ "$found" == "1" ]]; then
+				echo $msg
+			fi
+
+			;;
+		esac
+
+	done <<< "$files"
+
+	if [[ "$warn" == "1" ]]; then
+		set_step_warn "clang_analyzer"
+	fi
+	if [[ "$fail" == "1" ]]; then
+		set_step_fail "clang_analyzer"
+	fi
+
+	return
+}
+
 assert_compiled () {
 	local files=$(git diff --name-only $base_sha..$head_sha)
 	local fail=0
