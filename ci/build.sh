@@ -422,9 +422,7 @@ compile_kernel() {
 
 compile_kernel_sparse() {
 	local err=0
-	local checks=
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
-	local mail=
 	local fail=0
 	local warn=0
 
@@ -488,9 +486,7 @@ compile_kernel_sparse() {
 
 compile_kernel_smatch() {
 	local err=0
-	local checks=
 	local regex='^([[:alnum:]/._-]+):([[:digit:]]+) (.*) ([[:alpha:]]+): (.*)$'
-	local mail=
 	local fail=0
 	local warn=0
 
@@ -599,7 +595,6 @@ compile_gcc_fanalyzer () {
 			mail=$($compile_cmd 2>&1 || (
 				echo "::error file=$file,line=0::gcc_fanalayzer: Exited with code '$?'" ; true)
 			)
-			echo $exit_code
 			found=0
 			msg=
 
@@ -688,7 +683,6 @@ compile_clang_analyzer () {
 			mail=$($compile_cmd 2>&1 || (
 				echo "::error file=$file,line=0::clang_analyzer: Exited with code '$?'" ; true)
 			)
-			echo $exit_code
 			found=0
 			msg=
 
