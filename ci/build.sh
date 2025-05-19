@@ -420,9 +420,7 @@ compile_kernel() {
 
 compile_kernel_sparse() {
 	local err=0
-	local checks=
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
-	local mail=
 	local fail=0
 	local warn=0
 
@@ -486,9 +484,7 @@ compile_kernel_sparse() {
 
 compile_kernel_smatch() {
 	local err=0
-	local checks=
 	local regex='^([[:alnum:]/._-]+):([[:digit:]]+) (.*) ([[:alpha:]]+): (.*)$'
-	local mail=
 	local fail=0
 	local warn=0
 
