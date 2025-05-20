@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (C) 2024 Analog Devices Inc. */
 
+/*
+ * This file contains the common zedboard FPGA devices defined in:
+ * https://github.com/analogdevicesinc/hdl/tree/main/projects/common/zed
+ */
+
 / {
 	fpga_axi: fpga-axi@0 {
 		compatible = "simple-bus";
