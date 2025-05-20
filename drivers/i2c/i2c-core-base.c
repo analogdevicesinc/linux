@@ -520,7 +520,7 @@ static int i2c_device_probe(struct device *dev)
 				client->flags |= I2C_CLIENT_WAKE;
 		}
 		if (irq == -EPROBE_DEFER) {
-			status = irq;
+			status = dev_err_probe(dev, irq, "can't get irq\n");
 			goto put_sync_adapter;
 		}
 
@@ -548,7 +548,7 @@ static int i2c_device_probe(struct device *dev)
 
 		wakeirq = fwnode_irq_get_byname(fwnode, "wakeup");
 		if (wakeirq == -EPROBE_DEFER) {
-			status = wakeirq;
+			status = dev_err_probe(dev, wakeirq, "can't get wakeirq\n");
 			goto put_sync_adapter;
 		}
 
@@ -961,7 +961,7 @@ static void i2c_unlock_addr(struct i2c_adapter *adap, unsigned short addr,
 struct i2c_client *
 i2c_new_client_device(struct i2c_adapter *adap, struct i2c_board_info const *info)
 {
-	struct fwnode_handle *fwnode;
+	struct fwnode_handle *fwnode = info->fwnode;
 	struct i2c_client *client;
 	bool need_put = false;
 	int status;
@@ -1005,7 +1005,6 @@ i2c_new_client_device(struct i2c_adapter *adap, struct i2c_board_info const *inf
 
 	device_enable_async_suspend(&client->dev);
 
-	fwnode = info->fwnode ?: of_fwnode_handle(info->of_node);
 	device_set_node(&client->dev, fwnode_handle_get(fwnode));
 
 	if (info->swnode) {
