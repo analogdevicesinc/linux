@@ -6,6 +6,8 @@
  * https://github.com/analogdevicesinc/hdl/tree/main/projects/common/zed
  */
 
+#include <dt-bindings/gpio/gpio.h>
+
 / {
 	fpga_axi: fpga-axi@0 {
 		compatible = "simple-bus";
@@ -239,4 +241,8 @@
 			gpios = <&gpio0 80 0>;
 		};
 	};
+};
+
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 85 GPIO_ACTIVE_HIGH>;
 };

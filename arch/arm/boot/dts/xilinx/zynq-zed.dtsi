@@ -30,10 +30,6 @@
 	};
 };
 
-&usb0 {
-	xlnx,phy-reset-gpio = <&gpio0 85 0>;
-};
-
 &qspi {
 	status = "okay";
 	is-dual = <0>;
