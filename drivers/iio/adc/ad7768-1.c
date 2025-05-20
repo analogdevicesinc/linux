@@ -21,12 +21,15 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/sysfs.h>
+#include <linux/spi/offload/consumer.h>
+#include <linux/spi/offload/provider.h>
 #include <linux/spi/spi.h>
 #include <asm/unaligned.h>
 #include <linux/units.h>
 #include <linux/util_macros.h>
 
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/trigger.h>
@@ -159,6 +162,8 @@ enum ad7768_filter_regval {
 enum ad7768_scan_type {
 	AD7768_SCAN_TYPE_NORMAL,
 	AD7768_SCAN_TYPE_HIGH_SPEED,
+	AD7768_SCAN_TYPE_OFFLOAD_NORMAL,
+	AD7768_SCAN_TYPE_OFFLOAD_HIGH_SPEED,
 };
 
 enum {
@@ -265,6 +270,18 @@ static const struct iio_scan_type ad7768_scan_type[] = {
 		.storagebits = 16,
 		.endianness = IIO_BE,
 	},
+	[AD7768_SCAN_TYPE_OFFLOAD_NORMAL] = {
+		.sign = 's',
+		.realbits = 24,
+		.storagebits = 32,
+		.endianness = IIO_CPU,
+	},
+	[AD7768_SCAN_TYPE_OFFLOAD_HIGH_SPEED] = {
+		.sign = 's',
+		.realbits = 16,
+		.storagebits = 32,
+		.endianness = IIO_CPU,
+	},
 };
 
 struct ad7768_chip_info {
@@ -283,6 +300,11 @@ struct ad7768_chip_info {
 struct ad7768_state {
 	const struct ad7768_chip_info *chip;
 	struct spi_device *spi;
+	struct spi_offload *offload;
+	struct spi_offload_trigger *offload_trigger;
+	struct spi_transfer offload_xfer;
+	struct spi_message offload_msg;
+	bool offload_en;
 	struct regmap *regmap;
 	struct regmap *regmap24;
 	int vref_uv;
@@ -1122,6 +1144,10 @@ static int ad7768_get_current_scan_type(const struct iio_dev *indio_dev,
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
+	if (st->offload_en)
+		return st->oversampling_ratio == 8 ?
+			AD7768_SCAN_TYPE_OFFLOAD_HIGH_SPEED : AD7768_SCAN_TYPE_OFFLOAD_NORMAL;
+
 	return st->oversampling_ratio == 8 ?
 	       AD7768_SCAN_TYPE_HIGH_SPEED : AD7768_SCAN_TYPE_NORMAL;
 }
@@ -1303,7 +1329,8 @@ static irqreturn_t ad7768_interrupt(int irq, void *dev_id)
 	struct iio_dev *indio_dev = dev_id;
 	struct ad7768_state *st = iio_priv(indio_dev);
 
-	if (iio_buffer_enabled(indio_dev))
+	/* TODO: WHY? */
+	if (iio_buffer_enabled(indio_dev) && !st->offload_en)
 		iio_trigger_poll(st->trig);
 	else
 		complete(&st->completion);
@@ -1338,6 +1365,78 @@ static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 static const struct iio_buffer_setup_ops ad7768_buffer_ops = {
 	.postenable = &ad7768_buffer_postenable,
 	.predisable = &ad7768_buffer_predisable,
+};
+
+static int ad7768_offload_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	struct spi_offload_trigger_config config = {
+		.type = SPI_OFFLOAD_TRIGGER_DATA_READY,
+	};
+	const struct iio_scan_type *scan_type;
+	int ret;
+
+	scan_type = iio_get_current_scan_type(indio_dev, &indio_dev->channels[0]);
+	if (IS_ERR(scan_type))
+		return PTR_ERR(scan_type);
+
+	st->offload_xfer.len = roundup_pow_of_two(BITS_TO_BYTES(scan_type->realbits));
+	st->offload_xfer.bits_per_word = scan_type->realbits;
+	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+
+	// TODO: Should this be here?
+	ret = spi_offload_trigger_validate(st->offload_trigger, &config);
+	if (ret)
+		return ret;
+
+	/*
+	* Write a 1 to the LSB of the INTERFACE_FORMAT register to enter
+	* continuous read mode. Subsequent data reads do not require an
+	* initial 8-bit write to query the ADC_DATA register.
+	*/
+	ret =  regmap_write(st->regmap, AD7768_REG_INTERFACE_FORMAT, 0x01);
+	if (ret)
+		return ret;
+
+	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+	st->offload_msg.offload = st->offload;
+
+	ret = spi_optimize_message(st->spi, &st->offload_msg);
+	if (ret) {
+		dev_err(&st->spi->dev, "failed to prepare offload, err: %d\n", ret);
+		return ret;
+	}
+
+	ret = spi_offload_trigger_enable(st->offload,
+					 st->offload_trigger,
+					 &config);
+	if (ret){
+		spi_unoptimize_message(&st->offload_msg);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int ad7768_offload_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	unsigned int unused;
+
+	spi_offload_trigger_disable(st->offload, st->offload_trigger);
+	spi_unoptimize_message(&st->offload_msg);
+
+	/*
+	 * To exit continuous read mode, perform a single read of the ADC_DATA
+	 * reg (0x2C), which allows further configuration of the device.
+	 */
+	regmap_read(st->regmap24, AD7768_REG24_ADC_DATA, &unused);
+	return regmap_read(st->regmap24, AD7768_REG24_ADC_DATA, &unused);
+}
+
+static const struct iio_buffer_setup_ops ad7768_offload_buffer_ops = {
+	.postenable = ad7768_offload_buffer_postenable,
+	.predisable = ad7768_offload_buffer_predisable,
 };
 
 static const struct iio_trigger_ops ad7768_trigger_ops = {
@@ -1537,6 +1636,48 @@ static int ad7768_register_regulators(struct device *dev, struct ad7768_state *s
 	return 0;
 }
 
+static bool ad7768_offload_trigger_match(struct spi_offload_trigger *trigger,
+					 enum spi_offload_trigger_type type,
+					 u64 *args, u32 nargs)
+{
+	if (type != SPI_OFFLOAD_TRIGGER_DATA_READY)
+		return false;
+
+	/* Requires 1 arg to indicate the trigger ouput signal */
+	if (nargs != 1 || args[0] != AD7768_TRIGGER_SOURCE_DRDY)
+		return false;
+
+	return true;
+}
+
+static int ad7768_offload_trigger_request(struct spi_offload_trigger *trigger,
+					  enum spi_offload_trigger_type type,
+					  u64 *args, u32 nargs)
+{
+	/* Should already be validated by match, but just in case. */
+	if (nargs != 1)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int
+ad7768_offload_trigger_validate(struct spi_offload_trigger *trigger,
+				struct spi_offload_trigger_config *config)
+{
+	struct ad7768_state *st = spi_offload_trigger_get_priv(trigger);
+
+	/* Guarantee continuous conversion mode is enabled. */
+	return ad7768_set_mode(st, AD7768_CONTINUOUS);
+}
+
+/*  */
+static const struct spi_offload_trigger_ops ad7768_offload_trigger_ops = {
+	.match = ad7768_offload_trigger_match,
+	.request = ad7768_offload_trigger_request,
+	.validate = ad7768_offload_trigger_validate,
+};
+
 static const unsigned long ad7768_channel_masks[] = {
 	BIT(0),
 	0,
@@ -1584,6 +1725,51 @@ static const struct ad7768_chip_info adaq7769_chip_info = {
 	.has_variable_aaf = true
 };
 
+static const struct spi_offload_config ad7768_spi_offload_config = {
+	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER |
+			    SPI_OFFLOAD_CAP_RX_STREAM_DMA,
+};
+
+static int ad7768_spi_offload_probe(struct iio_dev *indio_dev,
+				    struct ad7768_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	struct spi_offload_trigger_info trigger_info = {
+		.fwnode = dev_fwnode(dev),
+		.ops = &ad7768_offload_trigger_ops,
+		.priv = st,
+	};
+	struct dma_chan *rx_dma;
+	int ret;
+
+	ret = devm_spi_offload_trigger_register(dev, &trigger_info);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "failed to register offload trigger\n");
+
+	st->offload_trigger = devm_spi_offload_trigger_get(dev, st->offload,
+		SPI_OFFLOAD_TRIGGER_DATA_READY);
+	if (IS_ERR(st->offload_trigger))
+		return dev_err_probe(dev, PTR_ERR(st->offload_trigger),
+				     "failed to get offload trigger\n");
+
+	rx_dma = devm_spi_offload_rx_stream_request_dma_chan(dev, st->offload);
+	if (IS_ERR(rx_dma))
+		return dev_err_probe(dev, PTR_ERR(rx_dma),
+				     "failed to get offload RX DMA\n");
+
+	ret = devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev,
+		rx_dma, IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return dev_err_probe(dev, PTR_ERR(rx_dma),
+				     "failed to setup offload RX DMA\n");
+
+	indio_dev->setup_ops = &ad7768_offload_buffer_ops;
+	st->offload_en = true;
+
+	return 0;
+}
+
 static int ad7768_probe(struct spi_device *spi)
 {
 	struct ad7768_state *st;
@@ -1591,6 +1777,7 @@ static int ad7768_probe(struct spi_device *spi)
 	u32 val;
 	int ret;
 
+	
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
@@ -1703,9 +1890,21 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = ad7768_triggered_buffer_alloc(indio_dev);
-	if (ret)
-		return ret;
+	st->offload = devm_spi_offload_get(&spi->dev, spi, &ad7768_spi_offload_config);
+	ret = PTR_ERR_OR_ZERO(st->offload);
+	if (ret && ret != -ENODEV)
+		return dev_err_probe(&spi->dev, ret, "failed to get SPI offload\n");
+	
+	/* If no SPI offload, fall back to low speed usage. */
+	if (ret == -ENODEV) {
+		ret = ad7768_triggered_buffer_alloc(indio_dev);
+		if (ret)
+			return ret;
+	} else {
+		ret = ad7768_spi_offload_probe(indio_dev, st);
+		if (ret)
+			return ret;
+	}
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
