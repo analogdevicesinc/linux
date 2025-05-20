@@ -26,7 +26,7 @@
 			#size-cells = <0>;
 			#address-cells = <1>;
 
-			adv7511: adv7511@39 {
+			adv7511: hdmi@39 {
 				compatible = "adi,adv7511";
 				reg = <0x39>, <0x3f>;
 				reg-names = "primary", "edid";
@@ -57,7 +57,7 @@
 				};
 			};
 
-			adau1761: adau1761@3b {
+			adau1761: audio-codec@3b {
 				compatible = "adi,adau1761";
 				reg = <0x3b>;
 
@@ -102,7 +102,7 @@
 			clock-names = "clkin1", "s_axi_aclk";
 		};
 
-		axi_hdmi@70e00000 {
+		lcd-controller@70e00000 {
 			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			dmas = <&hdmi_dma 0>;
@@ -116,7 +116,7 @@
 			};
 		};
 
-		axi_spdif_tx_0: axi-spdif-tx@75c00000 {
+		axi_spdif_tx_0: spdif@75c00000 {
 			compatible = "adi,axi-spdif-tx-1.00.a";
 			reg = <0x75c00000 0x1000>;
 			dmas = <&dmac_s 0>;
@@ -127,7 +127,7 @@
 			#sound-dai-cells = <0>;
 		};
 
-		axi_i2s_0: axi-i2s@77600000 {
+		axi_i2s_0: i2s@77600000 {
 			compatible = "adi,axi-i2s-1.00.a";
 			reg = <0x77600000 0x1000>;
 			dmas = <&dmac_s 1 &dmac_s 2>;
@@ -138,7 +138,7 @@
 			#sound-dai-cells = <0>;
 		};
 
-		axi_sysid_0: axi-sysid-0@45000000 {
+		axi_sysid_0: sysid@45000000 {
 			compatible = "adi,axi-sysid-1.00.a";
 			reg = <0x45000000 0x10000>;
 		};
