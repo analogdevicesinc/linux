@@ -62,6 +62,8 @@ ad9208_drv-y := ad9208.o \
 
 obj-$(CONFIG_AD9208) += ad9208_drv.o
 
+obj-$(CONFIG_AD9213) += ad9213.o
+
 ad9081_drv-y := ad9081.o \
 	ad9081/adi_ad9081_adc.o \
 	ad9081/adi_ad9081_device.o \
@@ -108,6 +110,7 @@ obj-$(CONFIG_ADRV9025) += adrv902x/
 
 obj-$(CONFIG_ADRV9001) += navassa/
 
+obj-$(CONFIG_AD4080) += ad4080.o
 obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_AD9680) += ad9680.o
 obj-$(CONFIG_ADMC) += admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o
