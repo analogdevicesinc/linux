@@ -241,6 +241,88 @@
 			gpios = <&gpio0 80 0>;
 		};
 	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		button-center {
+			label = "BTNC";
+			linux,code = <BTN_SELECT>;
+			gpios = <&gpio0 54 GPIO_ACTIVE_HIGH>;
+		};
+
+		button-down {
+			label = "BTND";
+			linux,code = <BTN_DPAD_DOWN>;
+			gpios = <&gpio0 55 GPIO_ACTIVE_HIGH>;
+		};
+
+		button-left {
+			label = "BTNL";
+			linux,code = <BTN_DPAD_LEFT>;
+			gpios = <&gpio0 56 GPIO_ACTIVE_HIGH>;
+		};
+
+		button-right {
+			label = "BTNR";
+			linux,code = <BTN_DPAD_RIGHT>;
+			gpios = <&gpio0 57 GPIO_ACTIVE_HIGH>;
+		};
+
+		button-up {
+			label = "BTNU";
+			linux,code = <BTN_DPAD_UP>;
+			gpios = <&gpio0 58 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-0 {
+			label = "SW0";
+			linux,code = <BTN_0>;
+			gpios = <&gpio0 65 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-1 {
+			label = "SW1";
+			linux,code = <BTN_1>;
+			gpios = <&gpio0 66 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-2 {
+			label = "SW2";
+			linux,code = <BTN_2>;
+			gpios = <&gpio0 67 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-3 {
+			label = "SW3";
+			linux,code = <BTN_3>;
+			gpios = <&gpio0 68 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-4 {
+			label = "SW4";
+			linux,code = <BTN_4>;
+			gpios = <&gpio0 69 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-5 {
+			label = "SW5";
+			linux,code = <BTN_5>;
+			gpios = <&gpio0 70 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-6 {
+			label = "SW6";
+			linux,code = <BTN_6>;
+			gpios = <&gpio0 71 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-7 {
+			label = "SW7";
+			linux,code = <BTN_7>;
+			gpios = <&gpio0 72 GPIO_ACTIVE_HIGH>;
+		};
+	};
 };
 
 &usb0 {
