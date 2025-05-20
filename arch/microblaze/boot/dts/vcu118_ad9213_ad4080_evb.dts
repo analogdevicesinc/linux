@@ -1,0 +1,187 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9213 ANALOG-TO-DIGITAL CONVERTER
+ *
+ * hdl_project: <ad9213_evb/vcu118>
+ * board_revision: <>
+ *
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+/dts-v1/;
+
+#include "vcu118.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
+
+#define fmc_i2c fmcp_hspc_iic
+#define fmc_spi axi_spi
+
+/ {
+	model = "Analog Devices AD9213-ad4080-EVB @Xilinx/vcu118";
+
+	one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&axi_gpio 55 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 54 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 53 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 51 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 50 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 49 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 48 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 47 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 46 GPIO_ACTIVE_HIGH>;
+		channel@0 {
+			reg = <0>;
+			label = "ltc2664_tgp";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "ltc2664_clr";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "ltc2664_ldac";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "ada4945_disable";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "adg5419_ctrl";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "adrf5203_ctrl2";
+		};
+		channel@6 {
+			reg = <6>;
+			label = "adrf5203_ctrl1";
+		};
+		channel@7 {
+			reg = <7>;
+			label = "adrf5203_ctrl0";
+		};
+		channel@8 {
+			reg = <8>;
+			label = "hmc7044_sync_req";
+		};
+	};
+};
+
+&axi_intc {
+	xlnx,kind-of-intr = <0xffffc5f0>;
+};
+
+&amba_pl {
+	ad9213_rx_dma: ad9213-dmac@44B00000 {
+		#dma-cells = <1>;
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44B00000 0x1000>;
+		#clock-cells = <0>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <8 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <512>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <512>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ad4080_rx_dma: ad4080-dmac@44A30000 {
+		#dma-cells = <1>;
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44A30000 0x1000>;
+		#clock-cells = <0>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <7 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ad4080: ad4080@44A00000 {
+		compatible = "adi,axi-adc-10.0.a";
+		reg = <0x44A00000 0x10000>;
+		dmas = <&ad4080_rx_dma 0>;
+		dma-names = "rx";
+
+		spibus-connected = <&adc_ad4080>;
+	};
+
+
+	axi_ad9213_jesd_rx: axi-jesd204-rx@44a90000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		interrupt-parent = <&axi_intc>;
+		interrupts = <6 2>;
+		reg = <0x44a90000 0x4000>;
+		clocks = <&clk_bus_0>, <&hmc7044 11>, <&axi_ad9213_adxcvr 1>, <&axi_ad9213_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
+		#clock-cells = <0>;
+		clock-output-names = "jesd_rx_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9213_adxcvr 0 0>;
+	};
+
+	axi_ad9213_adxcvr: axi-adxcvr-rx@44a60000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x10000>;
+		clocks = <&hmc7044 7>;
+		clock-names = "conv";
+
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>; /* not used */
+		adi,use-lpm-enable;
+
+		#clock-cells = <1>;
+		clock-output-names = "rx_gt_clk", "rx_out_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&hmc7044 0 0>;
+	};
+
+	rx_ad9213_tpl_core_tpl: axi-adrv9213-rx-hpc@44a10000 {
+		compatible = "xlnx,axi-ad-mc-adc-1.00.a";
+		reg = <0x44a10000 0x2000>;
+		dmas = <&ad9213_rx_dma 0>;
+		dma-names = "ad-mc-adc-dma";
+	};
+};
+
+
+#include "adi-ad9213-ad4080-evb.dtsi"
+
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+};
