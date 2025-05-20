@@ -109,6 +109,9 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 			DMA_PREP_INTERRUPT);
 		if (!desc)
 			return -ENOMEM;
+
+		desc->callback_result = iio_dmaengine_buffer_block_done;
+		desc->callback_param = block;
 	}
 #else
 	max_size = min(block->size, dmaengine_buffer->max_size);
@@ -158,10 +161,10 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	}
 	if (!desc)
 		return -ENOMEM;
-#endif
+
 	desc->callback_result = iio_dmaengine_buffer_block_done;
 	desc->callback_param = block;
-
+#endif
 	cookie = dmaengine_submit(desc);
 	if (dma_submit_error(cookie))
 		return dma_submit_error(cookie);
