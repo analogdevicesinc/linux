@@ -54,7 +54,7 @@ stages:
       displayName: 'Copy modules'
     - task: CopyFiles@2
       inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays'
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/'
         contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays/?(*.dtbo)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: CopyFiles@2
@@ -64,8 +64,8 @@ stages:
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: CopyFiles@2
       inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts'
-        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/?(*.dtb)'
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/broadcom/'
+        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/broadcom/?(*.dtb)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: PublishPipelineArtifact@1
       inputs:
@@ -100,11 +100,11 @@ stages:
           DEST_SERVER: $(SERVER_ADDRESS)
         displayName: "Push to SWDownloads"
   - job: Push_to_Artifactory
-    condition: and(
-       succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
-       )
+    # condition: and(
+    #    succeeded(),
+    #    or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
+    #       eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
+    #    )
     pool:
       name: Default
       demands:
