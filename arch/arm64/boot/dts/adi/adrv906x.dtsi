@@ -175,8 +175,8 @@
 	/* XCORR memory */
 	xcorr_memory {
 		device_type = "memory";
-		reg = <0x21400000 0x00200000>, /* 2 MB */
-		      <0x21600000 0x00001000>; /* 4KB */
+		reg = <0x38800000 0x00201000>, /* Primary */
+		      <0x3c800000 0x00201000>; /* Secondary */
 	};
 
 	/* Reserved memory regions
@@ -197,39 +197,48 @@
 		sram0_res: sram-reserved@0 {
 			compatible = "adi,sram-access";
 			reg = <0x00100000 0x00010000>; /* 64 KB */
+			no-map;
 		};
 
 		sram1_res: sram-reserved@1 {
 			compatible = "adi,sram-access";
 			reg = <0x00110000 0x003F0000>; /* 4 MB - 64 KB */
+			no-map;
 		};
 
 		ddr0_res: ddr-reserved@0 {
 			compatible = "adi,sram-access";
 			reg = <0x00000000 0x11000000>; /* 272 MB */
+			no-map;
 			status = "disabled";
 		};
 
 		xcorr0_res: xcorr-reserved@0 {
 			compatible = "adi,sram-access";
-			reg = <0x21400000 0x00200000>; /* 2 MB */
-		};
-
-		xcorr1_res: xcorr-reserved@1 {
-			compatible = "adi,sram-access";
-			reg = <0x21600000 0x00001000>; /* 4KB */
+			reg = <0x38800000 0x00201000>; /* 2 MB + 4 KB */
+			no-map;
 		};
 
 		/* Secondary regions */
+
 		sram2_res: sram-reserved@2 {
 			compatible = "adi,sram-access";
 			reg = <0x04100000 0x00400000>; /* 4 MB */
+			no-map;
 			status = "disabled";
 		};
 
 		ddr1_res: ddr-reserved@1 {
 			compatible = "adi,sram-access";
 			reg = <0x00000000 0x00000000>; /* Entire DDR */
+			no-map;
+			status = "disabled";
+		};
+
+		xcorr1_res: xcorr-reserved@1 {
+			compatible = "adi,sram-access";
+			reg = <0x3c800000 0x00201000>; /* 2 MB + 4 KB */
+			no-map;
 			status = "disabled";
 		};
 	};
@@ -263,12 +272,6 @@
 		status = "okay";
 	};
 
-	xcorr1_mmap: xcorr-mmap@1 {
-		compatible = "adi,sram-mmap";
-		memory-region = <&xcorr1_res>;
-		status = "okay";
-	};
-
 	sram2_mmap: sram-mmap@2 {
 		compatible = "adi,sram-mmap";
 		memory-region = <&sram2_res>;
@@ -278,6 +281,12 @@
 	ddr1_mmap: ddr-mmap@1 {
 		compatible = "adi,sram-mmap";
 		memory-region = <&ddr1_res>;
+		status = "disabled";
+	};
+
+	xcorr1_mmap: xcorr-mmap@1 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&xcorr1_res>;
 		status = "disabled";
 	};
 
