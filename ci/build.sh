@@ -196,7 +196,6 @@ check_coccicheck() {
 					    --include include/linux/compiler-version.h \
 					    --include include/linux/kconfig.h $file || true)
 
-				found=0
 				msg=
 
 				while read -r row
@@ -464,6 +463,10 @@ compile_kernel() {
 		fi
 	done) ; err=${PIPESTATUS[1]}
 
+	if [[ $found == "1" ]]; then
+		echo $msg >> $tmp_log_file
+	fi
+
 	if [[ $err -ne 0 ]]; then
 		while read -r  line; do
 			echo $line
@@ -534,6 +537,10 @@ compile_kernel_sparse() {
 			fi
 		fi
 	done) ; err=${PIPESTATUS[1]}
+
+	if [[ $found == "1" ]]; then
+		echo $msg
+	fi
 
 	if [[ $err -ne 0 ]]; then
 		fail=1
