@@ -14,7 +14,7 @@ check_checkpatch() {
 		git --no-pager show --format="%h %s" "$commit" --name-only
 		# Skip empty commits, assume cover letter
 		# and those only touching non-upstream directories .github ci and docs
-		local files=$(git diff --name-only $commit~..$commit | grep -v ^ci | grep -v ^.github | grep -v ^docs)
+		local files=$(git diff --name-only $commit~..$commit | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
 		if [[ -z "$files" ]]; then
 			echo "empty, skipped"
 			continue
@@ -322,13 +322,16 @@ check_cppcheck () {
 }
 
 compile_devicetree() {
+	local tmp_log_file=.ci_compile_devicetree_log
 	local err=0
 	local dtb_file=
 	local dts_files=""
+	local regex0='^([[:alnum:]/._-]+)(:([0-9]+)\.([0-9]+)-([0-9]+)\.([0-9]+))?: (Warning|Error) (.*)$'
+	local regex1='^Error: ([[:alnum:]/._-]+)(:([0-9]+)\.([0-9]+)-([0-9]+))? (.+)$'
 
 	echo "compile devicetree on range $base_sha..$head_sha"
 
-	local dtsi_files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dtsi$)
+	local dtsi_files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dtsi$ || true)
 	if [[ ! -z "$dtsi_files" ]]; then
 		echo "collecting dts files that include dtsi"
 		while read file; do
@@ -342,22 +345,72 @@ compile_devicetree() {
 			done
 		done <<< "$dtsi_files"
 	fi
+	if [[ ! -z "$dts_files" ]]; then
+		dts_files=${dts_files::-1}
+	fi
 
-	dts_files+=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dts$)
+	dts_files+=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
 	if [[ -z "$dts_files" ]]; then
 		echo "no dts on range, skipped"
 		return $err
 	fi
 
 	echo "compiling devicetrees"
+	echo > $tmp_log_file
 	while read file; do
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
-		echo "$dtb_file"
-		make $dtb_file || err=1
+		make -i $dtb_file 2>&1 | \
+		(while IFS= read -r row; do
+			echo $row
+			if [[ "$row" =~ $regex0 ]]; then
+				file=$(echo ${BASH_REMATCH[1]} | xargs)
+				type=$(echo ${BASH_REMATCH[7]} | xargs  | tr '[:upper:]' '[:lower:]')
+				msg_=${BASH_REMATCH[8]}
+
+				if [[ -z "${BASH_REMATCH[2]}" ]]; then
+					msg="::$type file=$file,line=0::$msg_"
+				else
+					line="${BASH_REMATCH[3]}"
+					col="${BASH_REMATCH[4]}"
+					end_line="${BASH_REMATCH[5]}"
+					end_col="${BASH_REMATCH[6]}"
+					echo "::$type file=$file,line=$line,col=$col,endLine=$end_line,endColumn=$end_col::$msg_" >> $tmp_log_file
+				fi
+
+				if [[ "$type" == "warning" ]]; then
+					warn=1
+				elif [[ "$type" == "error" ]]; then
+					fail=1
+				fi
+			elif [[ "$row" =~ $regex1 ]]; then
+				file=$(echo ${BASH_REMATCH[1]} | xargs)
+				msg_="${BASH_REMATCH[6]}"
+
+				if [[ -z "${BASH_REMATCH[2]}" ]]; then
+					echo "::error file=$file,line=0::$msg_"
+				else
+					line="${BASH_REMATCH[3]}"
+					col="${BASH_REMATCH[4]}"
+					end_col="${BASH_REMATCH[5]}"
+					echo "::error file=$file,line=$line,col=$col,endColumn=$end_col::$msg_" >> $tmp_log_file
+				fi
+			fi
+		done) ; err=${PIPESTATUS[1]}
+
+		if [[ $err -ne 0 ]]; then
+			fail=1
+		fi
 	done <<< "$dts_files"
 
-	if [[ $err -ne 0 ]]; then
+	uniq $tmp_log_file
+	rm $tmp_log_file
+
+	if [[ "$fail" == "1" ]]; then
 		set_step_fail "compile_devicetree"
+	fi
+
+	if [[ "$warn" == "1" ]]; then
+		set_step_warn "compile_devicetree"
 	fi
 
 	return $err
