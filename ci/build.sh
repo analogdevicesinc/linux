@@ -323,20 +323,38 @@ check_cppcheck () {
 
 compile_devicetree() {
 	local err=0
+	local dtb_file=
+	local dts_files=""
 
 	echo "compile devicetree on range $base_sha..$head_sha"
 
-	local files=$(git diff --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dts$)
-	if [[ -z "$files" ]]; then
+	local dtsi_files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dtsi$)
+	if [[ ! -z "$dtsi_files" ]]; then
+		echo "collecting dts files that include dtsi"
+		while read file; do
+			echo $file
+			basename=$(basename $file)
+			dirname=$(dirname $file)
+			for file_ in $dirname/*.dts; do
+				if cat $file_ | grep -q "#include \"$(basename $file)\""; then
+					dts_files="$file_"$'\n'"$dts_files"
+				fi
+			done
+		done <<< "$dtsi_files"
+	fi
+
+	dts_files+=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dts$)
+	if [[ -z "$dts_files" ]]; then
 		echo "no dts on range, skipped"
 		return $err
 	fi
 
+	echo "compiling devicetrees"
 	while read file; do
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
 		echo "$dtb_file"
 		make $dtb_file || err=1
-	done <<< "$files"
+	done <<< "$dts_files"
 
 	if [[ $err -ne 0 ]]; then
 		set_step_fail "compile_devicetree"
