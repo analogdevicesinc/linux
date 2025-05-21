@@ -127,8 +127,6 @@
 			adi,clock-mode = <0>;
 			adi,out-data-mode = <0>;
 			adi,spi-trigger;
-			clocks = <&cnv_ext_clk>;
-			clock-names = "trigger_clock";
 			pwm-names = "cnv";
 			pwms = <&axi_pwm_gen 1 1000000 0>;
 		};
