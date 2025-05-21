@@ -59,6 +59,20 @@ jobs:
         echo "target_branch=$target_branch" >> "$GITHUB_ENV"
 
     - name: push-mirror
+      env:
+          WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET}}
+      if: ${{ env.WORKFLOW_SECRET != '' }}
+      run: |
+        url_=$(git remote get-url origin)
+        url="https://x-access-token:${{ secrets.WORKFLOW_SECRET }}@github.com/${{ github.repository }}.git"
+        git remote set-url origin "$url"
+        git push origin $target_branch:$target_branch -f || true
+        git remote set-url origin "$url_"
+
+    - name: push-mirror
+      env:
+          WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET}}
+      if: ${{ env.WORKFLOW_SECRET == '' }}
       run: |
         git push origin $target_branch:$target_branch -f
 
