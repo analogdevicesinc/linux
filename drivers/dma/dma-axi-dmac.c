@@ -136,6 +136,7 @@ struct axi_dmac_desc {
 	struct axi_dmac_chan *chan;
 
 	bool cyclic;
+	bool cyclic_eot;
 	bool have_partial_xfer;
 
 	unsigned int num_submitted;
@@ -229,15 +230,25 @@ static bool axi_dmac_check_addr(struct axi_dmac_chan *chan, dma_addr_t addr)
 	return true;
 }
 
+static struct axi_dmac_desc *axi_dmac_active_desc(struct axi_dmac_chan *chan)
+{
+	return list_first_entry_or_null(&chan->active_descs,
+					struct axi_dmac_desc, vdesc.node);
+}
+
 static struct axi_dmac_desc *axi_dmac_get_next_desc(struct axi_dmac *dmac,
 						    struct axi_dmac_chan *chan)
 {
+	struct axi_dmac_desc *active = axi_dmac_active_desc(chan);
 	struct virt_dma_desc *vdesc;
 	struct axi_dmac_desc *desc;
 	unsigned int val;
 
-	val = axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER);
-	if (val) /* Queue is full, wait for the next SOT IRQ */
+	/*
+	 * Just play safe and ignore any SOF if we have an active cyclic transfer
+	 * flagged to end. We'll start it as soon as the current cyclic on ends.
+	 */
+	if (active && active->cyclic_eot)
 		return NULL;
 
 	if (chan->next_desc)
@@ -247,11 +258,41 @@ static struct axi_dmac_desc *axi_dmac_get_next_desc(struct axi_dmac *dmac,
 	if (!vdesc)
 		return NULL;
 
+	if (active && active->cyclic && !(vdesc->tx.flags & DMA_PREP_LOAD_EOT)) {
+		struct device *dev = chan_to_axi_dmac(chan)->dma_dev.dev;
+
+		dev_warn(dev, "Discarding non EOT transfer after cyclic\n");
+		list_del(&vdesc->node);
+		return NULL;
+	}
+
 	list_move_tail(&vdesc->node, &chan->active_descs);
 	desc = to_axi_dmac_desc(vdesc);
 	chan->next_desc = desc;
 
-	return desc;
+	if (!active || !active->cyclic)
+		return desc;
+
+	active->cyclic_eot = true;
+
+	if (chan->hw_sg) {
+		unsigned long flags = AXI_DMAC_HW_FLAG_IRQ | AXI_DMAC_HW_FLAG_LAST;
+		/*
+		 * Let's then stop the current cyclic transfer by making sure we
+		 * get an EOT interrupt and to open the cyclic loop by marking
+		 * the last segment.
+		 */
+		active->sg[active->num_sgs - 1].hw->flags = flags;
+		return NULL;
+	}
+
+	pr_warn("Cancel legacy HW cyclic\n");
+	/* Clear the cyclic bit if there's no SG hw */
+	val = axi_dmac_read(dmac, AXI_DMAC_REG_FLAGS);
+	val &= ~AXI_DMAC_FLAG_CYCLIC;
+	axi_dmac_write(dmac, AXI_DMAC_REG_FLAGS, val);
+
+	return NULL;
 }
 
 static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
@@ -259,10 +300,14 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	struct axi_dmac_desc *desc;
 	struct axi_dmac_sg *sg;
-	unsigned int flags = 0;
+	unsigned int flags = 0, val;
 
 	desc = axi_dmac_get_next_desc(dmac, chan);
 	if (!desc)
+		return;
+
+	val = axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER);
+	if (val) /* Queue is full, wait for the next SOT IRQ */
 		return;
 
 	sg = &desc->sg[desc->num_submitted];
@@ -306,10 +351,12 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	 * call, enable hw cyclic mode to avoid unnecessary interrupts.
 	 */
 	if (chan->hw_cyclic && desc->cyclic && !desc->vdesc.tx.callback) {
-		if (chan->hw_sg)
+		if (chan->hw_sg) {
 			desc->sg[desc->num_sgs - 1].hw->flags &= ~AXI_DMAC_HW_FLAG_IRQ;
-		else if (desc->num_sgs == 1)
+		} else if (desc->num_sgs == 1) {
+			chan->next_desc = NULL;
 			flags |= AXI_DMAC_FLAG_CYCLIC;
+		}
 	}
 
 	if (chan->hw_partial_xfer)
@@ -325,12 +372,6 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	}
 	axi_dmac_write(dmac, AXI_DMAC_REG_FLAGS, flags);
 	axi_dmac_write(dmac, AXI_DMAC_REG_START_TRANSFER, 1);
-}
-
-static struct axi_dmac_desc *axi_dmac_active_desc(struct axi_dmac_chan *chan)
-{
-	return list_first_entry_or_null(&chan->active_descs,
-		struct axi_dmac_desc, vdesc.node);
 }
 
 static inline unsigned int axi_dmac_total_sg_bytes(struct axi_dmac_chan *chan,
@@ -416,11 +457,30 @@ static void axi_dmac_compute_residue(struct axi_dmac_chan *chan,
 static bool axi_dmac_handle_cyclic_eot(struct axi_dmac_chan *chan,
 				       struct axi_dmac_desc *active)
 {
+	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	struct device *dev = chan_to_axi_dmac(chan)->dma_dev.dev;
 	struct virt_dma_desc *vdesc;
 
 	/* wrap around */
 	active->num_completed = 0;
+
+	if (active->cyclic_eot) {
+		u32 ctrl = axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER);
+
+		dev_info(dev, "HW cyclic transfer cancelled at sof (%u)\n", ctrl);
+		list_del(&active->vdesc.node);
+		vchan_cookie_complete(&active->vdesc);
+
+		//axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, 0);
+		//if (chan->hw_sg)
+		//	ctrl |= AXI_DMAC_CTRL_ENABLE_SG;
+		//axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, ctrl);
+		/*
+		 * We know we have something to schedule, so start the next
+		 * transfer now the cyclic one is done.
+		 */
+		return true;
+	}
 
 	vdesc = vchan_next_desc(&chan->vchan);
 	if (!vdesc)
@@ -443,9 +503,14 @@ static bool axi_dmac_handle_cyclic_eot(struct axi_dmac_chan *chan,
 static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 	unsigned int completed_transfers)
 {
+	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	struct axi_dmac_desc *active;
 	struct axi_dmac_sg *sg;
 	bool start_next = false;
+
+	if (axi_dmac_src_is_mem(chan))
+		pr_info("EOT for TX channel (%d)\n",
+			axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER));
 
 	active = axi_dmac_active_desc(chan);
 	if (!active)
@@ -458,6 +523,7 @@ static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 	if (chan->hw_sg) {
 		if (active->cyclic) {
 			vchan_cyclic_callback(&active->vdesc);
+			start_next = axi_dmac_handle_cyclic_eot(chan, active);
 		} else {
 			list_del(&active->vdesc.node);
 			vchan_cookie_complete(&active->vdesc);
@@ -568,6 +634,8 @@ static void axi_dmac_issue_pending(struct dma_chan *c)
 	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, ctrl);
 
 	spin_lock_irqsave(&chan->vchan.lock, flags);
+	if (axi_dmac_src_is_mem(chan))
+		pr_info("Issue pending transfer from memory\n");
 	if (vchan_issue_pending(&chan->vchan))
 		axi_dmac_start_transfer(chan);
 	spin_unlock_irqrestore(&chan->vchan.lock, flags);

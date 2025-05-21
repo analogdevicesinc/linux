@@ -100,7 +100,7 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
 		desc = dmaengine_prep_dma_cyclic(dmaengine_buffer->chan,
 			block->phys_addr, block->block.bytes_used,
-			block->block.bytes_used, dma_dir, 0);
+			block->block.bytes_used, dma_dir, DMA_PREP_LOAD_EOT);
 		if (!desc)
 			return -ENOMEM;
 	} else {
@@ -152,11 +152,11 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 		if (block->cyclic)
 			flags = DMA_PREP_REPEAT;
 		else
-			flags = DMA_PREP_INTERRUPT | DMA_PREP_LOAD_EOT;
+			flags = DMA_PREP_INTERRUPT;
 
 		desc = dmaengine_prep_peripheral_dma_vec(dmaengine_buffer->chan,
 							 vecs, nents, dma_dir,
-							 flags);
+							 flags | DMA_PREP_LOAD_EOT);
 		kfree(vecs);
 	} else {
 		if (queue->buffer.direction == IIO_BUFFER_DIRECTION_IN)
