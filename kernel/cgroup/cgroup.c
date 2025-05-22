@@ -95,6 +95,9 @@ EXPORT_SYMBOL_GPL(cgroup_mutex);
 EXPORT_SYMBOL_GPL(css_set_lock);
 #endif
 
+struct blocking_notifier_head cgroup_lifetime_notifier =
+	BLOCKING_NOTIFIER_INIT(cgroup_lifetime_notifier);
+
 DEFINE_SPINLOCK(trace_cgroup_path_lock);
 char trace_cgroup_path[TRACE_CGROUP_PATH_LEN];
 static bool cgroup_debug __read_mostly;
@@ -1339,6 +1342,7 @@ static void cgroup_destroy_root(struct cgroup_root *root)
 {
 	struct cgroup *cgrp = &root->cgrp;
 	struct cgrp_cset_link *link, *tmp_link;
+	int ret;
 
 	trace_cgroup_destroy_root(root);
 
@@ -1346,6 +1350,10 @@ static void cgroup_destroy_root(struct cgroup_root *root)
 
 	BUG_ON(atomic_read(&root->nr_cgrps));
 	BUG_ON(!list_empty(&cgrp->self.children));
+
+	ret = blocking_notifier_call_chain(&cgroup_lifetime_notifier,
+					   CGROUP_LIFETIME_OFFLINE, cgrp);
+	WARN_ON_ONCE(notifier_to_errno(ret));
 
 	/* Rebind all subsystems back to the default hierarchy */
 	WARN_ON(rebind_subsystems(&cgrp_dfl_root, root->subsys_mask));
@@ -2149,10 +2157,9 @@ int cgroup_setup_root(struct cgroup_root *root, u16 ss_mask)
 	if (ret)
 		goto exit_stats;
 
-	if (root == &cgrp_dfl_root) {
-		ret = cgroup_bpf_inherit(root_cgrp);
-		WARN_ON_ONCE(ret);
-	}
+	ret = blocking_notifier_call_chain(&cgroup_lifetime_notifier,
+					   CGROUP_LIFETIME_ONLINE, root_cgrp);
+	WARN_ON_ONCE(notifier_to_errno(ret));
 
 	trace_cgroup_setup_root(root);
 
@@ -5703,7 +5710,7 @@ static struct cgroup *cgroup_create(struct cgroup *parent, const char *name,
 	struct cgroup_root *root = parent->root;
 	struct cgroup *cgrp, *tcgrp;
 	struct kernfs_node *kn;
-	int level = parent->level + 1;
+	int i, level = parent->level + 1;
 	int ret;
 
 	/* allocate the cgroup and its ID, 0 is reserved for the root */
@@ -5743,11 +5750,8 @@ static struct cgroup *cgroup_create(struct cgroup *parent, const char *name,
 	if (ret)
 		goto out_stat_exit;
 
-	if (cgrp->root == &cgrp_dfl_root) {
-		ret = cgroup_bpf_inherit(cgrp);
-		if (ret)
-			goto out_psi_free;
-	}
+	for (tcgrp = cgrp; tcgrp; tcgrp = cgroup_parent(tcgrp))
+		cgrp->ancestors[tcgrp->level] = tcgrp;
 
 	/*
 	 * New cgroup inherits effective freeze counter, and
@@ -5765,24 +5769,6 @@ static struct cgroup *cgroup_create(struct cgroup *parent, const char *name,
 		set_bit(CGRP_FROZEN, &cgrp->flags);
 	}
 
-	spin_lock_irq(&css_set_lock);
-	for (tcgrp = cgrp; tcgrp; tcgrp = cgroup_parent(tcgrp)) {
-		cgrp->ancestors[tcgrp->level] = tcgrp;
-
-		if (tcgrp != cgrp) {
-			tcgrp->nr_descendants++;
-
-			/*
-			 * If the new cgroup is frozen, all ancestor cgroups
-			 * get a new frozen descendant, but their state can't
-			 * change because of this.
-			 */
-			if (cgrp->freezer.e_freeze)
-				tcgrp->freezer.nr_frozen_descendants++;
-		}
-	}
-	spin_unlock_irq(&css_set_lock);
-
 	if (notify_on_release(parent))
 		set_bit(CGRP_NOTIFY_ON_RELEASE, &cgrp->flags);
 
@@ -5791,7 +5777,29 @@ static struct cgroup *cgroup_create(struct cgroup *parent, const char *name,
 
 	cgrp->self.serial_nr = css_serial_nr_next++;
 
+	ret = blocking_notifier_call_chain_robust(&cgroup_lifetime_notifier,
+						  CGROUP_LIFETIME_ONLINE,
+						  CGROUP_LIFETIME_OFFLINE, cgrp);
+	ret = notifier_to_errno(ret);
+	if (ret)
+		goto out_psi_free;
+
 	/* allocation complete, commit to creation */
+	spin_lock_irq(&css_set_lock);
+	for (i = 0; i < level; i++) {
+		tcgrp = cgrp->ancestors[i];
+		tcgrp->nr_descendants++;
+
+		/*
+		 * If the new cgroup is frozen, all ancestor cgroups get a new
+		 * frozen descendant, but their state can't change because of
+		 * this.
+		 */
+		if (cgrp->freezer.e_freeze)
+			tcgrp->freezer.nr_frozen_descendants++;
+	}
+	spin_unlock_irq(&css_set_lock);
+
 	list_add_tail_rcu(&cgrp->self.sibling, &cgroup_parent(cgrp)->self.children);
 	atomic_inc(&root->nr_cgrps);
 	cgroup_get_live(parent);
@@ -6009,7 +6017,7 @@ static int cgroup_destroy_locked(struct cgroup *cgrp)
 	struct cgroup *tcgrp, *parent = cgroup_parent(cgrp);
 	struct cgroup_subsys_state *css;
 	struct cgrp_cset_link *link;
-	int ssid;
+	int ssid, ret;
 
 	lockdep_assert_held(&cgroup_mutex);
 
@@ -6067,8 +6075,9 @@ static int cgroup_destroy_locked(struct cgroup *cgrp)
 
 	cgroup1_check_for_release(parent);
 
-	if (cgrp->root == &cgrp_dfl_root)
-		cgroup_bpf_offline(cgrp);
+	ret = blocking_notifier_call_chain(&cgroup_lifetime_notifier,
+					   CGROUP_LIFETIME_OFFLINE, cgrp);
+	WARN_ON_ONCE(notifier_to_errno(ret));
 
 	/* put the base reference */
 	percpu_ref_kill(&cgrp->self.refcnt);
@@ -6223,6 +6232,8 @@ int __init cgroup_init(void)
 	 */
 	hash_add(css_set_table, &init_css_set.hlist,
 		 css_set_hash(init_css_set.subsys));
+
+	cgroup_bpf_lifetime_notifier_init();
 
 	BUG_ON(cgroup_setup_root(&cgrp_dfl_root, 0));
 
