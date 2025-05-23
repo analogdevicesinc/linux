@@ -3,7 +3,7 @@
 # Makefile for the Linux Kernel SOC specific device drivers.
 #
 
-obj-y	+= adi/ adi/mach-sc5xx/ adi/mach-sc59x/
+obj-y				+= adi/
 obj-y				+= apple/
 obj-y				+= aspeed/
 obj-$(CONFIG_ARCH_AT91)		+= atmel/
