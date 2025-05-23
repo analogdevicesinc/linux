@@ -658,43 +658,42 @@ static int adrv906x_ndma_refill_rx(struct adrv906x_ndma_chan *ndma_ch, int budge
 	struct device *dev = ndma_dev->dev;
 	dma_addr_t addr, offset;
 	struct sk_buff *skb;
-	int prev, done = 0;
+	int end_desc_idx, done = 0;
 
-	/* Overwrite previously set end of the descriptor list */
-	prev = (ndma_ch->rx_head + NDMA_RX_RING_SIZE - 1) % NDMA_RX_RING_SIZE;
-	ndma_ch->rx_ring[prev].cfg |= DMAFLOW_LIST;
+	/* Get the index of the end descriptor in the list */
+	end_desc_idx = (ndma_ch->rx_head + NDMA_RX_RING_SIZE - 1) % NDMA_RX_RING_SIZE;
 
 	while (ndma_ch->rx_free < NDMA_RX_RING_SIZE) {
 		skb = napi_alloc_skb(&ndma_ch->napi, NDMA_RX_WU_BUF_SIZE);
 		if (!skb)
 			break;
 
-		ndma_ch->rx_buffs[ndma_ch->rx_head] = skb;
+		/* Adjust the buffer alignment to 32 bytes */
+		offset = (32 - ((dma_addr_t)skb->data & 0x1F)) & 0x1F;
+		skb_reserve(skb, offset);
 		/* Mark an empty buffer by setting the first byte of the WU header to 0 */
 		skb->data[0] = 0;
+
 		addr = dma_map_single(dev, skb->data, NDMA_RX_WU_BUF_SIZE,
 				      DMA_FROM_DEVICE);
-		if (unlikely(dma_mapping_error(dev, addr))) {
+		if (unlikely(dma_mapping_error(dev, addr) || (addr & 0x1F))) {
 			napi_consume_skb(skb, budget);
 			break;
 		}
 
-		/* Adjust the buffer alignment to 32 bytes */
-		offset = (32 - ((dma_addr_t)skb->data & 0x1F)) & 0x1F;
-		skb_reserve(skb, offset);
-		addr += offset;
-
+		ndma_ch->rx_buffs[ndma_ch->rx_head] = skb;
 		ndma_ch->rx_ring[ndma_ch->rx_head].start = addr;
-		ndma_ch->rx_ring[ndma_ch->rx_head].cfg |= DMAEN;
-		ndma_ch->rx_free++;
-
-		if (ndma_ch->rx_free < NDMA_RX_RING_SIZE)
-			ndma_ch->rx_ring[ndma_ch->rx_head].cfg |= DMAFLOW_LIST;
-		else
-			ndma_ch->rx_ring[ndma_ch->rx_head].cfg &= ~DMAFLOW_LIST;
-
+		ndma_ch->rx_ring[ndma_ch->rx_head].cfg |= DMAEN | DMAFLOW_LIST;
 		ndma_ch->rx_head = (ndma_ch->rx_head + 1) % NDMA_RX_RING_SIZE;
+		ndma_ch->rx_free++;
 		done++;
+	}
+
+	if (done) {
+		/* Clear previously set end of the descriptor list */
+		ndma_ch->rx_ring[end_desc_idx].cfg |= DMAFLOW_LIST;
+		/* Set new end of the descriptor list */
+		ndma_ch->rx_ring[(end_desc_idx + done) % NDMA_RX_RING_SIZE].cfg &= ~DMAFLOW_LIST;
 	}
 
 	return done;
@@ -1708,37 +1707,38 @@ static int adrv906x_ndma_rx_data_and_status_poll(struct napi_struct *napi, int b
 	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
 	struct device *dev = ndma_dev->dev;
 	union adrv906x_ndma_chan_stats *stats = &ndma_ch->stats;
-	int count = 0;
+	int count = 0, cur_desc_idx, next_desc_idx;
+	dma_addr_t buf_addr, cur_addr, next_desc_addr;
 	struct sk_buff *skb;
-	dma_addr_t addr, addr_cur;
 	unsigned int state;
 	unsigned long flags;
 
 	spin_lock_irqsave(&ndma_ch->lock, flags);
+
+	/* Clear DMA IRQ status */
+	iowrite32(DMA_DONE, ndma_ch->rx_dma_base + DMA_STAT);
+
 	while (count < budget) {
 		if (!ndma_ch->rx_buffs[ndma_ch->rx_tail])
 			break;
 
 		skb = (struct sk_buff *)ndma_ch->rx_buffs[ndma_ch->rx_tail];
-		addr = ndma_ch->rx_ring[ndma_ch->rx_tail].start;
+		buf_addr = ndma_ch->rx_ring[ndma_ch->rx_tail].start;
 
-		dma_sync_single_for_cpu(dev, addr, NDMA_RX_WU_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(dev, buf_addr, NDMA_RX_HDR_DATA_SIZE, DMA_FROM_DEVICE);
 
 		if (skb->data[0] == 0)
 			break; /* WU not copied */
 
-		/* Clear DMA IRQ status */
-		iowrite32(DMA_DONE, ndma_ch->rx_dma_base + DMA_STAT);
-
-		addr_cur = ioread32(ndma_ch->rx_dma_base + DMA_ADDR_CUR);
+		cur_addr = ioread32(ndma_ch->rx_dma_base + DMA_ADDR_CUR);
 		state = ioread32(ndma_ch->rx_dma_base + DMA_STAT);
-		if (addr_cur >= addr &&
-		    addr_cur < addr + NDMA_RX_WU_BUF_SIZE &&
+		if (cur_addr >= buf_addr &&
+		    cur_addr < buf_addr + NDMA_RX_WU_BUF_SIZE &&
 		    (DMA_RUN_MASK & state) != DMA_RUN_IDLE)
-			break; /* WU copy in proggress */
+			break; /* WU copy in progress */
 
 		ndma_ch->rx_buffs[ndma_ch->rx_tail] = NULL;
-		dma_unmap_single(dev, addr, NDMA_RX_WU_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_unmap_single(dev, buf_addr, NDMA_RX_WU_BUF_SIZE, DMA_FROM_DEVICE);
 		adrv906x_ndma_process_rx_work_unit(ndma_ch, skb, budget);
 
 		ndma_ch->rx_tail = (ndma_ch->rx_tail + 1) % NDMA_RX_RING_SIZE;
@@ -1746,12 +1746,35 @@ static int adrv906x_ndma_rx_data_and_status_poll(struct napi_struct *napi, int b
 		count++;
 	}
 
-	/* If there are no free buffers, the DMA will be idle, we need to
-	 * allocate and apply a new descriptor list.
+	/* If there are no free buffers, the DMA will be idle. In this case, we need to
+	 * allocate and apply a new descriptor list. Otherwise, we stop the DMA transfer,
+	 * verify if the end of the descriptor list hasn't been reached, and if it hasn't,
+	 * extend the current list with the new descriptor before resuming the DMA transfer.
 	 */
 	if (ndma_ch->rx_free == 0) {
 		adrv906x_ndma_refill_rx(ndma_ch, budget);
 		adrv906x_dma_rx_start(ndma_ch);
+	} else if (count) {
+		/* Suspend the next DMA transfer - note: this doesn't stop fetching new
+		 * descriptors after finishing the current transfer, so we need to check the
+		 * status of both the current and next descriptors.
+		 */
+		iowrite32(SUSPEND_TRANSFER, ndma_ch->rx_dma_base + DMA_BWLCNT);
+
+		/* Get the index of the current and next descriptors */
+		next_desc_addr = ioread32(ndma_ch->rx_dma_base + DMA_NEXT_DESC);
+		next_desc_idx = (next_desc_addr - ndma_ch->rx_ring_dma) / sizeof(struct dma_desc);
+		cur_desc_idx = (next_desc_idx + NDMA_RX_RING_SIZE - 1) % NDMA_RX_RING_SIZE;
+
+		/* If neither current nor next descriptors are the end of the list,
+		 * append new descriptors to the end.
+		 */
+		if ((ndma_ch->rx_ring[cur_desc_idx].cfg & DMAFLOW_LIST) &&
+		    (ndma_ch->rx_ring[next_desc_idx].cfg & DMAFLOW_LIST))
+			adrv906x_ndma_refill_rx(ndma_ch, budget);
+
+		/* Resume DMA transfer */
+		iowrite32(FULL_BANDWIDTH, ndma_ch->rx_dma_base + DMA_BWLCNT);
 	}
 
 	spin_unlock_irqrestore(&ndma_ch->lock, flags);
