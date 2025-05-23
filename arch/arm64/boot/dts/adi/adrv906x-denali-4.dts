@@ -147,13 +147,13 @@
 	status = "okay";
 
 	spidev_clkic@0 {
-		compatible = "linux,spidev";
+		compatible = "microchip,zl30732";
 		spi-max-frequency = <12500000>;
 		reg = <0>;
 	};
 
 	spidev_rffe@1 {
-		compatible = "linux,spidev";
+		compatible = "adi,adrv906x-rffe-header";
 		spi-max-frequency = <10000000>;
 		reg = <1>;
 	};
