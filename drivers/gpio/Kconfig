@@ -161,6 +161,7 @@ config GPIO_ADI_ADSP_PORT
 	bool "ADI ADSP PORT GPIO driver"
 	depends on OF_GPIO
 	select GPIO_GENERIC
+	select ADI_ADSP_IRQ
 	help
 	  Say Y to enable the ADSP PORT-based GPIO driver for Analog Devices
 	  ADSP chips.
