@@ -216,6 +216,30 @@ static int ublk_ctrl_get_features(struct ublk_dev *dev,
 	return __ublk_ctrl_cmd(dev, &data);
 }
 
+static int ublk_ctrl_update_size(struct ublk_dev *dev,
+		__u64 nr_sects)
+{
+	struct ublk_ctrl_cmd_data data = {
+		.cmd_op	= UBLK_U_CMD_UPDATE_SIZE,
+		.flags	= CTRL_CMD_HAS_DATA,
+	};
+
+	data.data[0] = nr_sects;
+	return __ublk_ctrl_cmd(dev, &data);
+}
+
+static int ublk_ctrl_quiesce_dev(struct ublk_dev *dev,
+				 unsigned int timeout_ms)
+{
+	struct ublk_ctrl_cmd_data data = {
+		.cmd_op	= UBLK_U_CMD_QUIESCE_DEV,
+		.flags	= CTRL_CMD_HAS_DATA,
+	};
+
+	data.data[0] = timeout_ms;
+	return __ublk_ctrl_cmd(dev, &data);
+}
+
 static const char *ublk_dev_state_desc(struct ublk_dev *dev)
 {
 	switch (dev->dev_info.state) {
@@ -1041,6 +1065,9 @@ static int __cmd_dev_add(const struct dev_ctx *ctx)
 	info->nr_hw_queues = nr_queues;
 	info->queue_depth = depth;
 	info->flags = ctx->flags;
+	if ((features & UBLK_F_QUIESCE) &&
+			(info->flags & UBLK_F_USER_RECOVERY))
+		info->flags |= UBLK_F_QUIESCE;
 	dev->tgt.ops = ops;
 	dev->tgt.sq_depth = depth;
 	dev->tgt.cq_depth = depth;
@@ -1236,7 +1263,9 @@ static int cmd_dev_get_features(void)
 		[const_ilog2(UBLK_F_USER_COPY)] = "USER_COPY",
 		[const_ilog2(UBLK_F_ZONED)] = "ZONED",
 		[const_ilog2(UBLK_F_USER_RECOVERY_FAIL_IO)] = "RECOVERY_FAIL_IO",
+		[const_ilog2(UBLK_F_UPDATE_SIZE)] = "UPDATE_SIZE",
 		[const_ilog2(UBLK_F_AUTO_BUF_REG)] = "AUTO_BUF_REG",
+		[const_ilog2(UBLK_F_QUIESCE)] = "QUIESCE",
 	};
 	struct ublk_dev *dev;
 	__u64 features = 0;
@@ -1267,6 +1296,59 @@ static int cmd_dev_get_features(void)
 		}
 	}
 
+	return ret;
+}
+
+static int cmd_dev_update_size(struct dev_ctx *ctx)
+{
+	struct ublk_dev *dev = ublk_ctrl_init();
+	struct ublk_params p;
+	int ret = -EINVAL;
+
+	if (!dev)
+		return -ENODEV;
+
+	if (ctx->dev_id < 0) {
+		fprintf(stderr, "device id isn't provided\n");
+		goto out;
+	}
+
+	dev->dev_info.dev_id = ctx->dev_id;
+	ret = ublk_ctrl_get_params(dev, &p);
+	if (ret < 0) {
+		ublk_err("failed to get params %d %s\n", ret, strerror(-ret));
+		goto out;
+	}
+
+	if (ctx->size & ((1 << p.basic.logical_bs_shift) - 1)) {
+		ublk_err("size isn't aligned with logical block size\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = ublk_ctrl_update_size(dev, ctx->size >> 9);
+out:
+	ublk_ctrl_deinit(dev);
+	return ret;
+}
+
+static int cmd_dev_quiesce(struct dev_ctx *ctx)
+{
+	struct ublk_dev *dev = ublk_ctrl_init();
+	int ret = -EINVAL;
+
+	if (!dev)
+		return -ENODEV;
+
+	if (ctx->dev_id < 0) {
+		fprintf(stderr, "device id isn't provided for quiesce\n");
+		goto out;
+	}
+	dev->dev_info.dev_id = ctx->dev_id;
+	ret = ublk_ctrl_quiesce_dev(dev, 10000);
+
+out:
+	ublk_ctrl_deinit(dev);
 	return ret;
 }
 
@@ -1312,6 +1394,8 @@ static int cmd_dev_help(char *exe)
 	printf("%s list [-n dev_id] -a \n", exe);
 	printf("\t -a list all devices, -n list specified device, default -a \n\n");
 	printf("%s features\n", exe);
+	printf("%s update_size -n dev_id -s|--size size_in_bytes \n", exe);
+	printf("%s quiesce -n dev_id\n", exe);
 	return 0;
 }
 
@@ -1333,6 +1417,7 @@ int main(int argc, char *argv[])
 		{ "get_data",		1,	NULL, 'g'},
 		{ "auto_zc",		0,	NULL,  0 },
 		{ "auto_zc_fallback", 	0,	NULL,  0 },
+		{ "size",		1,	NULL, 's'},
 		{ 0, 0, 0, 0 }
 	};
 	const struct ublk_tgt_ops *ops = NULL;
@@ -1354,7 +1439,7 @@ int main(int argc, char *argv[])
 
 	opterr = 0;
 	optind = 2;
-	while ((opt = getopt_long(argc, argv, "t:n:d:q:r:e:i:gaz",
+	while ((opt = getopt_long(argc, argv, "t:n:d:q:r:e:i:s:gaz",
 				  longopts, &option_idx)) != -1) {
 		switch (opt) {
 		case 'a':
@@ -1393,6 +1478,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'g':
 			ctx.flags |= UBLK_F_NEED_GET_DATA;
+			break;
+		case 's':
+			ctx.size = strtoull(optarg, NULL, 10);
 			break;
 		case 0:
 			if (!strcmp(longopts[option_idx].name, "debug_mask"))
@@ -1470,6 +1558,10 @@ int main(int argc, char *argv[])
 		ret = cmd_dev_help(argv[0]);
 	else if (!strcmp(cmd, "features"))
 		ret = cmd_dev_get_features();
+	else if (!strcmp(cmd, "update_size"))
+		ret = cmd_dev_update_size(&ctx);
+	else if (!strcmp(cmd, "quiesce"))
+		ret = cmd_dev_quiesce(&ctx);
 	else
 		cmd_dev_help(argv[0]);
 
