@@ -564,4 +564,13 @@ config VF610_DAC
 	  This driver can also be built as a module. If so, the module will
 	  be called vf610_dac.
 
+config AD5413
+	tristate "Analog Devices AD5413 DAC driver"
+	depends on SPI_MASTER
+	help
+	  Say yes here to build support for Analog Devices AD5413 single channel
+	  Digital to Analog Converter.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad5758.
 endmenu
