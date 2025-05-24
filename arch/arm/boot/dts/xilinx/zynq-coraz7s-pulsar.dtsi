@@ -9,6 +9,7 @@
  * Copyright (C) 2025 Analog Devices Inc.
  */
 #include "zynq-coraz7s.dtsi"
+#include "zynq-coraz7s-axi-sysid.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
