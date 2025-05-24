@@ -3318,7 +3318,9 @@ int bpf_uprobe_multi_link_attach(const union bpf_attr *attr, struct bpf_prog *pr
 	}
 
 	if (pid) {
+		rcu_read_lock();
 		task = get_pid_task(find_vpid(pid), PIDTYPE_TGID);
+		rcu_read_unlock();
 		if (!task) {
 			err = -ESRCH;
 			goto error_path_put;
@@ -3553,8 +3555,12 @@ static __always_inline int copy_user_data_sleepable(void *dst, const void *unsaf
 {
 	int ret;
 
-	if (!tsk) /* Read from the current task */
-		return copy_from_user(dst, (const void __user *)unsafe_src, size);
+	if (!tsk) { /* Read from the current task */
+		ret = copy_from_user(dst, (const void __user *)unsafe_src, size);
+		if (ret)
+			return -EFAULT;
+		return 0;
+	}
 
 	ret = access_process_vm(tsk, (unsigned long)unsafe_src, dst, size, 0);
 	if (ret != size)
