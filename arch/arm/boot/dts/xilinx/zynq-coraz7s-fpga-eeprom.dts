@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * hdl_project: <common/coraz7s>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+/dts-v1/;
+#include "zynq-coraz7s.dtsi"
+#include "zynq-coraz7s-iic.dtsi"
+#include "zynq-coraz7s-axi-sysid.dtsi"
+
+&axi_i2c_0 {
+	eeprom1: eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+};
