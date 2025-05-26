@@ -8,6 +8,9 @@ from os import path, getcwd
 from glob import glob
 import re
 
+debug = False
+
+symbols_ = set()
 deps_ = set()
 map_ = {}
 max_recursion = 200
@@ -59,6 +62,9 @@ def track_if_blocks(symbol, target_kconfig):
     target_abs = path.abspath(target_kconfig)
 
     for kconfig in get_all_parent_kconfigs(path.dirname(target_kconfig)):
+        if debug:
+            print(f"{target_kconfig}: Tracking if blocks at '{kconfig}'",
+                  file=stderr)
         with open(kconfig, 'r') as f:
             lines = f.readlines()
 
@@ -85,6 +91,8 @@ def track_if_blocks(symbol, target_kconfig):
 
 
 def find_symbol_block(symbol, kconfig_path):
+    if debug:
+        print(f"{kconfig_path}: Looking for symbol '{symbol}'", file=stderr)
     with open(kconfig_path) as f:
         lines = f.readlines()
 
@@ -105,10 +113,11 @@ def filter_symbols(symbols):
     """
     Remove architecture symbols.
     """
-    archs = ['ARM', 'ARM64', 'M68K', 'RISCV', 'SUPERH', 'X86', 'X86_32', 'XTENSA']
+    archs = ['ARM', 'ARM64', 'M68K', 'RISCV', 'SUPERH', 'X86', 'X86_32',
+             'XTENSA']
     return {sym
             for sym in symbols
-            if not sym.startswith('ARCH_') and not sym in archs
+            if not sym.startswith('ARCH_') and sym not in archs
             and not sym.startswith('CPU_')}
 
 
@@ -161,19 +170,116 @@ def resolve_tree(symbol, path):
                 deps_.add(s)
 
 
+def get_makefile_symbol_and_obj(mk, obj):
+    """
+    Get Kconfig symbol and obj, example:
+
+        driver-y += devices/driver/public/src/driver_extra.o
+        driver-objs += some_obj.o
+        driver-$(CONFIG_OF) += driver_of.o
+        obj-$(CONFIG_DRIVER) += driver.o
+
+    Resolution:
+
+        driver_of.o -> ("CONFIG_OF", "driver")
+        driver_extra.o -> (None, "driver")
+        driver.o -> ("CONFIG_DRIVER", None)
+
+    """
+    if debug:
+        print(f"{mk}: Looking for '{obj}'", file=stderr)
+
+    with open(mk, "r") as file:
+        lines = file.readlines()
+    file_ = []
+    buffer = ""
+    for line in lines:
+        buffer += line.rstrip('\n')
+        if line.endswith('\\\n'):
+            continue
+        file_.append(buffer)
+        buffer = ""
+
+    for line in file_:
+        if obj not in line:
+            continue
+
+        # obj-$(CONFIG_SYMBOL)
+        match = re.search(r'obj-\$\(([^)]+)\)\s*[+:]?=', line)
+        if match:
+            return (match.group(1), None)
+
+        # driver-$(CONFIG_SYMBOL)
+        match = re.search(r'([\w\d_]+)-\$\(([^)]+)\)\s*[+:]?=', line)
+        if match:
+            return (match.group(2), match.group(1))
+
+        # driver-y
+        match = re.search(r'([\w\d_]+)-(y|objs)\s*[+:]?=', line)
+        if match:
+            return (None, match.group(1))
+
+    return (None, None)
+
+
+def _get_symbols_from_mk(mk, obj):
+    """
+    Exhaust Makefile until no object and no symbol.
+    If returns False, the parent method will proceed to search on ../Makefile,
+    if True, the obj was fully resolved into symbols
+    """
+    global symbols_
+
+    symbol, obj = get_makefile_symbol_and_obj(mk, obj)
+    if not symbol and not obj:
+        return False
+    if symbol:
+        if not symbol.startswith("CONFIG_"):
+            print(f"Symbol '{symbol}' does not start with 'CONFIG_' at 'mk'",
+                  file=stderr)
+        symbols_.add(symbol[7:])
+        if not obj:
+            return True
+
+    return _get_symbols_from_mk(mk, f"{obj}.o")
+
+
+def get_symbols_from_o(files):
+    """
+    Resolve the base symbols for .o targets.
+    """
+    for f in files:
+        found = False
+        base = path.basename(f)
+        ldir = path.dirname(f)
+        rdir = ""
+        while ldir != "":
+            mk = path.join(ldir, "Makefile")
+            if path.isfile(mk):
+                if _get_symbols_from_mk(mk, path.join(rdir, base)):
+                    found = True
+                    break
+
+            rdir = path.join(path.basename(ldir), rdir)
+            ldir = path.dirname(ldir)
+        if not found:
+            print(f"Failed to find Makefile targeting {f}", file=stderr)
+
+
 def main():
     """
-    Resolve dependencies of a symbol.
+    Resolve dependencies of a symbol based on the .o target.
     usage:
 
-        all_symbols=$(ci/symbols_depend.py [SYMBOL...] 2> /dev/tty)
+        symbols=$(ci/symbols_depend.py [O_FILES])
 
     """
     argv.pop(0)
-    symbols = set(argv)
-
+    get_symbols_from_o(set(argv))
+    print("Symbols of touched files:", file=stderr)
+    print(symbols_, file=stderr)
     generate_map()
-    for s in symbols:
+    for s in symbols_:
         if s not in deps_:
             kconfig = get_top_level_kconfig(s)
             if kconfig and max_recursion:
@@ -182,7 +288,10 @@ def main():
 
     if not max_recursion:
         print("Max allowed recursion call reached", file=stderr)
-    print(' '.join(filter_symbols(deps_)))
+    symbols__ = filter_symbols(deps_)
+    print("Resolved symbols:", file=stderr)
+    print(symbols__, file=stderr)
+    print(' '.join(symbols__))
 
 
 main()
