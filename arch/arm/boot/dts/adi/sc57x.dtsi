@@ -1,0 +1,861 @@
+/*
+ * Device tree header for ADI sc57x processor
+ *
+ * Copyright 2014 - 2018 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2 or later.
+ *
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/clock/adi-sc5xx-clock.h>
+
+/ {
+	model = "ADI sc57x";
+	compatible = "adi,sc57x";
+	interrupt-parent = <&gic>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen { };
+
+	aliases {
+		serial0 = &uart0;
+		timer0 = &gptimer0;
+		timer1 = &gptimer1;
+		timer2 = &gptimer2;
+		timer3 = &gptimer3;
+		timer4 = &gptimer4;
+		timer5 = &gptimer5;
+		timer6 = &gptimer6;
+		timer7 = &gptimer7;
+		spi0   = &spi0;
+		spi1   = &spi1;
+		spi2   = &spi2;
+		can0 = &can0;
+		can1 = &can1;
+		ethernet0 = &emac0;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2s0 = &i2s0;
+		mmc0 = &mmc0;
+		sru0 = &sru_ctrl_dai0;
+		sru1 = &sru_ctrl_dai1;
+	};
+
+	cpus {
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a5";
+			reg = <0x0>;
+			clocks = <&clk ADSP_SC57X_CLK_ARM>;
+		};
+	};
+
+	pmu {
+		compatible = "arm,cortex-a5-pmu";
+		interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	gic: interrupt-controller@310B2000 {
+		compatible = "arm,cortex-a5-gic", "arm,cortex-a9-gic";
+		#interrupt-cells = <3>;
+		#address-cells = <0>;
+		interrupt-controller;
+		reg = <0x310B2000 0x1000>,
+		      <0x310B4000 0x100>;
+	};
+
+	L2: cache-controller@10000000 {
+		compatible = "arm,pl310-cache";
+		reg = <0x10000000 0x1000>;
+		cache-level = <2>;
+	};
+
+	sram0: sram-icc@20000000 {
+		compatible = "mmio-sram";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x20010000 0x1000>;
+		ranges = <0 0x20010000 0x1000>; /* 64 KiB */
+	};
+
+	sram1: sram-reserved@20004000 {
+		compatible = "mmio-sram";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x20040000 0x40000>;
+		ranges = <0 0x20040000 0x40000>; /* 256 KiB */
+	};
+
+	sys_clkin0: sys-clkin0@1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+		clock-output-names = "sys_clkin0";
+	};
+
+	sys_clkin1: sys-clkin1@2 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+		clock-output-names = "sys_clkin1";
+	};
+
+	clk: clocks@0x3108d000 {
+		compatible = "adi,sc57x-clocks";
+		reg = <0x3108d000 0x1000>,
+			<0x3108e000 0x1000>,
+			<0x3108f000 0x1000>;
+		#clock-cells = <1>;
+		clocks = <&sys_clkin0>, <&sys_clkin1>;
+		clock-names = "sys_clkin0", "sys_clkin1";
+		status = "okay";
+	};
+
+	gptimers: gptimers@0x31018000 {
+		compatible = "adi,sc5xx-gptimers";
+		reg = <0x31018000 0x200>;
+		clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+		status = "okay";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gptimer0: gptimer@0 {
+			reg = <0>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+			adi,offset = <0x60>;
+			adi,is-clocksource;
+			adi,reset-timer;
+		};
+
+		gptimer1: gptimer@1 {
+			reg = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+			adi,offset = <0x80>;
+			adi,is-clockevent;
+			adi,reset-timer;
+		};
+
+		gptimer2: gptimer@2 {
+			reg = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+			adi,offset = <0xa0>;
+		};
+
+		gptimer3: gptimer@3 {
+			reg = <3>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+			adi,offset = <0xc0>;
+		};
+
+		gptimer4: gptimer@4 {
+			reg = <4>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+			adi,offset = <0xe0>;
+		};
+
+		gptimer5: gptimer@5 {
+			reg = <5>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
+			adi,offset = <0x100>;
+		};
+
+		gptimer6: gptimer@6 {
+			reg = <6>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
+			adi,offset = <0x120>;
+		};
+
+		gptimer7: gptimer@7 {
+			reg = <7>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
+			adi,offset = <0x140>;
+		};
+	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		rsc_tbl0: rsc_tbl0@20000000 {
+			reg = <0x20000000 0x400>; /*1KiB*/
+			no-map;
+		};
+
+		rsc_tbl1: rsc_tbl0@20000400 {
+			reg = <0x20000400 0x400>; /*1KiB*/
+			no-map;
+		};
+
+		sram_B1_unused@20000800 {
+			reg = <0x20000800 0x1F800>; /* <128 KiB*/
+			no-map;
+		};
+	};
+
+	scb {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		pads_system_config: adi-control@31004400 {
+			compatible = "adi,pads-system-config";
+			reg = <0x31004400 0x100>;
+			status = "okay";
+		};
+
+		sram-controller@31080000 {
+			compatible = "adi,sram-controller";
+			reg = <0x31080000 0x100>;
+			adi,sram = <&sram0>, <&sram1>;
+			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+			status = "okay";
+		};
+
+		sram_mmap: sram-mmap@0 { /* mmap from sram1 pool*/
+			compatible = "adi,sram-mmap";
+			adi,sram = <&sram1>;
+			status = "disabled";
+		};
+
+		gptimer_counter: gptimer-counters@0 {
+			compatible = "adi,gptimer-counter";
+			status = "okay";
+		};
+
+		rcu: rcu@0x3108B000 {
+			compatible = "adi,reset-controller";
+			reg = <0x3108C000 0x1000>;
+			adi,sharc-min = <1>;
+			adi,sharc-max = <2>;
+			adi,enable-reboot;
+			status = "okay";
+		};
+
+		sec: sec@0x31089000 {
+			compatible = "adi,system-event-controller";
+			reg = <0x31089000 0x1000>;
+			adi,rcu = <&rcu>;
+			adi,sharc-cores = <2>;
+			status = "okay";
+		};
+
+		tru: tru@0x3108a000 {
+			compatible = "adi,trigger-routing-unit";
+			reg = <0x3108a000 0x1000>;
+			adi,max-master-id = <126>;
+			adi,max-slave-id = <123>;
+			status = "okay";
+		};
+
+		uart0: uart@0x31003000 {
+			compatible = "adi,uart4";
+			reg = <0x31003000 0x40>;
+			dmas = <&dma_cluster2 20>, <&dma_cluster2 21>;
+			dma-names = "tx", "rx";
+			interrupt-parent = <&gic>;
+			interrupt-names = "tx", "rx", "status";
+			interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			status = "disabled";
+		};
+
+		uart1: uart@0x31003400 {
+			compatible = "adi,uart4";
+			reg = <0x31003400 0x40>;
+			dmas = <&dma_cluster2 34>, <&dma_cluster2 35>;
+			dma-names = "tx", "rx";
+			interrupt-parent = <&gic>;
+			interrupt-names = "tx", "rx", "status";
+			interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			status = "disabled";
+		};
+
+		uart2: uart@0x31003800 {
+			compatible = "adi,uart4";
+			reg = <0x31003800 0x40>;
+			dmas = <&dma_cluster2 37>, <&dma_cluster2 38>;
+			dma-names = "tx", "rx";
+			interrupt-parent = <&gic>;
+			interrupt-names = "tx", "rx", "status";
+			interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			status = "disabled";
+		};
+
+		i2c0: twi@0x31001400 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,twi";
+			reg = <0x31001400 0xFF>;
+			interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>;
+			clock-khz = <100>;
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			status = "disabled";
+		};
+
+		i2c1: twi@0x31001500 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,twi";
+			reg = <0x31001500 0xFF>;
+			interrupts = <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
+			clock-khz = <100>;
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			status = "disabled";
+		};
+
+		i2c2: twi@0x31001600 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,twi";
+			reg = <0x31001600 0xFF>;
+			interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
+			clock-khz = <100>;
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			status = "disabled";
+		};
+
+		i2s0: i2s@0 {
+			compatible = "adi,sc5xx-i2s-dai";
+			reg = <0x31002000 0x80>, <0x31002080 0x80>;
+			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
+					   <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;/* SPORT0 */
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
+			dmas = <&sport_cluster0 0>, <&sport_cluster0 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+		};
+
+		watchdog@0x31008000 {
+			compatible = "adi,watchdog";
+			reg = <0x31008000 0x10>;
+			timeout-sec = <30>;
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "adi-watchdog";
+		};
+
+		emac0: ethernet@0x3100C000 {
+			compatible = "adi,dwmac", "snps,dwmac-3.710", "snps,dwmac";
+			reg = <0x3100C000 0x2000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq";
+			snps,mixed-burst;
+			snps,pbl = <8>;
+			snps,force_sf_dma_mode;
+			snps,perfect-filter-entries = <32>;
+			clocks = <&clk ADSP_SC57X_CLK_GIGE>;
+			clock-names = "stmmaceth";
+			adi,system-config = <&pads_system_config>;
+			status = "disabled";
+		};
+
+		spi0: spi@0x3102E000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,spi3";
+			reg = <0x3102E000 0xFF>;
+			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&spi_cluster 22>, <&spi_cluster 23>;
+			dma-names = "tx", "rx";
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK1>;
+			clock-names = "spi";
+			status = "disabled";
+		};
+
+		spi1: spi@0x3102F000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,spi3";
+			reg = <0x3102F000 0xFF>;
+			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&spi_cluster 24>, <&spi_cluster 25>;
+			dma-names = "tx", "rx";
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK1>;
+			clock-names = "spi";
+			status = "disabled";
+		};
+
+		spi2: spi@0x31044000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,spi3";
+			reg = <0x31044000 0xFF>;
+			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&spi_cluster2 26>, <&spi_cluster2 27>;
+			dma-names = "tx", "rx";
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK1>;
+			clock-names = "spi";
+			status = "disabled";
+		};
+
+		crc0: crc@0x310A5000 {
+			compatible = "adi,hmac-crc";
+			reg = <0x310A5000 0xFF>;
+			interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>;
+			dma_channel = <8>;
+			crypto_crc_poly = <0x5c5c5c5c>;
+			status = "disabled";
+		};
+
+		crc1: crc@0x310A6000 {
+			compatible = "adi,hmac-crc";
+			reg = <0x310A6000 0xFF>;
+			interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
+			dma_channel = <18>;
+			crypto_crc_poly = <0x5c5c5c5c>;
+			status = "disabled";
+		};
+
+		can0: can@0x31000200 {
+			compatible = "adi,can";
+			reg = <0x31000200 0x5FF>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		can1: can@0x31000a00 {
+			compatible = "adi,can";
+			reg = <0x31000a00 0x5FF>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		pinctrl0: pinctrl@0x31004400 {
+			compatible = "adi,adsp-pinctrl";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x31004400 0x400>;
+			adi,port-sizes = <16 16 16 16 16 12>;
+			adi,no-drive-strength;
+			/*
+			 * @todo fix pinctrl driver:
+			 * PUE/PDE is supported but the register locations are different
+			 */
+			adi,no-pull-up-down;
+		};
+
+		sru_ctrl_dai0: sru-ctrl-dai0@0x310C9000 {
+			compatible = "adi,adsp-sru-ctrl";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x310C9000 0x224>;
+			adi,system-config = <&pads_system_config>;
+			status = "disabled";
+		};
+
+		sru_ctrl_dai1: sru-ctrl-dai1@0x310CB000 {
+			compatible = "adi,adsp-sru-ctrl";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x310CB000 0x224>;
+			adi,system-config = <&pads_system_config>;
+			status = "disabled";
+		};
+
+		mmc0: mmc@0x31010000 {
+			compatible = "snps,dw-mshc";
+			reg = <0x31010000 0xFFF>;
+			interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			fifo-depth = <1024>;
+			clocks = <&clk ADSP_SC57X_CLK_SDIO>,
+					<&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "ciu", "biu";
+			status = "disabled";
+		};
+
+		lp0: linkport@0 {
+			compatible = "linkport0";
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+			clock-div = <2>;
+			status = "disabled";
+		};
+
+		lp1: linkport@1 {
+			compatible = "linkport1";
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+			clock-div = <2>;
+			status = "disabled";
+		};
+
+		pint0: pint@0x31005000 {
+			compatible = "adi,adsp-pint";
+			reg = <0x31005000 0xFF>;
+			interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pint1: pint@0x31005100 {
+			compatible = "adi,adsp-pint";
+			reg = <0x31005100 0xFF>;
+			interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pint2: pint@0x31005200 {
+			compatible = "adi,adsp-pint";
+			reg = <0x31005200 0xFF>;
+			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pint3: pint@0x31005300 {
+			compatible = "adi,adsp-pint";
+			reg = <0x31005300 0xFF>;
+			interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pint4: pint@0x31005400 {
+			compatible = "adi,adsp-pint";
+			reg = <0x31005400 0xFF>;
+			interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		gpa: gport@0x31004000 {
+			compatible = "adi,adsp-port-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x31004000 0x7F>;
+			gpio-ranges = <&pinctrl0 0 0 16>;
+			adi,pint = <&pint0 1>;
+			adi,gpio-base = <0>;
+		};
+
+		gpb: gport@0x31004080 {
+			compatible = "adi,adsp-port-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x31004080 0x7F>;
+			gpio-ranges = <&pinctrl0 0 16 16>;
+			adi,pint = <&pint0 0>;
+			adi,gpio-base = <16>;
+		};
+
+		gpc: gport@0x31004100 {
+			compatible = "adi,adsp-port-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x31004100 0x7F>;
+			gpio-ranges = <&pinctrl0 0 32 16>;
+			adi,pint = <&pint2 1>;
+			adi,gpio-base = <32>;
+		};
+
+		gpd: gport@0x31004180 {
+			compatible = "adi,adsp-port-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x31004180 0x7F>;
+			gpio-ranges = <&pinctrl0 0 48 16>;
+			adi,pint = <&pint2 0>;
+			adi,gpio-base = <48>;
+		};
+
+		gpe: gport@0x31004200 {
+			compatible = "adi,adsp-port-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x31004200 0x7F>;
+			gpio-ranges = <&pinctrl0 0 64 16>;
+			adi,pint = <&pint4 1>;
+			adi,gpio-base = <64>;
+		};
+
+		gpf: gport@0x31004280 {
+			compatible = "adi,adsp-port-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x31004280 0x7F>;
+			gpio-ranges = <&pinctrl0 0 80 12>;
+			adi,pint = <&pint4 0>;
+			adi,gpio-base = <80>;
+		};
+
+		usb0_phy: usb-phy@310c1390 {
+			compatible = "usb-nop-xceiv";
+			reg = <0x310c1390 0x10>;
+			reg-names = "phy";
+			#phy-cells = <0>;
+			status = "disabled";
+		};
+
+		usb0: usb@310c1000 {
+			compatible = "adi,musb";
+			reg = <0x310c1000 0x390>;
+			reg-names = "mc";
+			interrupts = <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "mc", "dma";
+			spu_securep_id = <109>;
+
+			mentor,multipoint = <1>;
+			mentor,num-eps = <16>;
+			mentor,ram-bits = <12>;
+			mentor,power = <500>;
+			phys = <&usb0_phy>;
+			status = "disabled";
+		};
+
+		sport_cluster0: dma@0x31022000 {
+			compatible = "adi,dma-controller";
+			reg = <0x31022000 0x400>;
+			status = "okay";
+			#dma-cells = <1>;
+
+			sport0_a: channel@0 {
+				adi,id = <0>;
+				interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0>;
+			};
+
+			sport0_b: channel@1 {
+				adi,id = <1>;
+				interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x80>;
+			};
+
+			sport1_a: channel@2 {
+				adi,id = <2>;
+				interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x100>;
+			};
+
+			sport1_b: channel@3 {
+				adi,id = <3>;
+				interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x180>;
+			};
+
+			sport2_a: channel@4 {
+				adi,id = <4>;
+				interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x200>;
+			};
+
+			sport2_b: channel@5 {
+				adi,id = <5>;
+				interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x280>;
+			};
+
+			sport3_a: channel@6 {
+				adi,id = <6>;
+				interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x300>;
+			};
+
+			sport3_b: channel@7 {
+				adi,id = <7>;
+				interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x380>;
+			};
+
+		};
+
+		spi_cluster: dma@0x3102B000 {
+			compatible = "adi,dma-controller";
+			reg = <0x3102B000 0x1000>;
+			status = "okay";
+			#dma-cells = <1>;
+
+			spi0_tx: channel@22 {
+				adi,id = <22>;
+				interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0>;
+			};
+
+			spi0_rx: channel@23 {
+				adi,id = <23>;
+				interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x80>;
+			};
+
+			spi1_tx: channel@24 {
+				adi,id = <24>;
+				interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x100>;
+			};
+
+			spi1_rx: channel@25 {
+				adi,id = <25>;
+				interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x180>;
+			};
+		};
+
+		spi_cluster2: dma@0x31046000 {
+			compatible = "adi,dma-controller";
+			reg = <0x31046000 0x1000>;
+			status = "okay";
+			#dma-cells = <1>;
+
+			spi2_tx: channel@26 {
+				adi,id = <26>;
+				interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x200>;
+			};
+
+			spi2_rx: channel@27 {
+				adi,id = <27>;
+				interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x280>;
+			};
+		};
+
+		dma_cluster2: dma@0x31026000 {
+			compatible = "adi,dma-controller";
+			reg = <0x31026000 0x1000>;
+			status = "okay";
+			#dma-cells = <1>;
+
+			uart0_tx: channel@20 {
+				adi,id = <20>;
+				interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x80>;
+			};
+
+			uart0_rx: channel@21 {
+				adi,id = <21>;
+				interrupts = <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0>;
+			};
+
+			uart1_tx: channel@34 {
+				adi,id = <34>;
+				interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x180>;
+			};
+
+			uart1_rx: channel@35 {
+				adi,id = <35>;
+				interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x100>;
+			};
+
+			uart2_tx: channel@37 {
+				adi,id = <37>;
+				interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x280>;
+			};
+
+			uart2_rx: channel@38 {
+				adi,id = <38>;
+				interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x200>;
+			};
+		};
+
+		mdma: dma@0x3109b000 {
+			compatible = "adi,mdma-controller";
+			reg = <0x3109b000 0x1000>;
+			status = "okay";
+
+			mdma3: channel@43 {
+				adi,id = <43>;
+				// The destination interrupts are used for primary complete detection
+				interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error", "complete2", "error2";
+				adi,src-offset = <0>;
+				adi,dest-offset = <0x80>;
+			};
+		};
+
+		trng: rng@0x310D0000 {
+			compatible = "adi,sc5xx-trng";
+			reg = <0x310D0000 0x74>, <0x310D8000 0x14>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "pkic0_irq";
+			startup-cycles = <0xff>;
+			minref-cycles = <0x21>;
+			maxref-cycles = <0x22>;
+			alarm-thresh  = <0xff>;
+			shdn-thresh = <0x04>;
+			poll-data = <0>; /* Use IRQ for data */
+			status = "okay";
+		};
+
+	};
+};
