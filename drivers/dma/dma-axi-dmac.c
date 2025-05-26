@@ -282,6 +282,7 @@ static struct axi_dmac_desc *axi_dmac_get_next_desc(struct axi_dmac *dmac,
 		 * get an EOT interrupt and to open the cyclic loop by marking
 		 * the last segment.
 		 */
+		pr_warn("Cancel HW SG cyclic\n");
 		active->sg[active->num_sgs - 1].hw->flags = flags;
 		return NULL;
 	}
@@ -465,16 +466,14 @@ static bool axi_dmac_handle_cyclic_eot(struct axi_dmac_chan *chan,
 	active->num_completed = 0;
 
 	if (active->cyclic_eot) {
-		u32 ctrl = axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER);
-
-		dev_info(dev, "HW cyclic transfer cancelled at sof (%u)\n", ctrl);
+		dev_info(dev, "HW cyclic transfer cancelled at sof\n");
 		list_del(&active->vdesc.node);
 		vchan_cookie_complete(&active->vdesc);
 
-		//axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, 0);
-		//if (chan->hw_sg)
-		//	ctrl |= AXI_DMAC_CTRL_ENABLE_SG;
-		//axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, ctrl);
+		//if (!chan->hw_sg) {
+		//	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, 0);
+		//	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
+		//}
 		/*
 		 * We know we have something to schedule, so start the next
 		 * transfer now the cyclic one is done.
@@ -503,14 +502,9 @@ static bool axi_dmac_handle_cyclic_eot(struct axi_dmac_chan *chan,
 static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 	unsigned int completed_transfers)
 {
-	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	struct axi_dmac_desc *active;
 	struct axi_dmac_sg *sg;
 	bool start_next = false;
-
-	if (axi_dmac_src_is_mem(chan))
-		pr_info("EOT for TX channel (%d)\n",
-			axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER));
 
 	active = axi_dmac_active_desc(chan);
 	if (!active)
