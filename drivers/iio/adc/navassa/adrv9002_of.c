@@ -956,7 +956,7 @@ static const struct {
 	case 4:							\
 		*(u32 *)((void *)(agc) + __off) = (val);	\
 		break;						\
-	};							\
+	}							\
 }
 
 static void adrv9002_set_agc_defaults(struct adi_adrv9001_GainControlCfg *agc)
@@ -1367,7 +1367,7 @@ static int adrv9002_parse_channels_dt(struct adrv9002_rf_phy *phy, const struct 
 			dev_err(dev, "Unknown port: %d\n", port);
 			ret = -EINVAL;
 			break;
-		};
+		}
 
 		if (ret)
 			goto of_error_put;
