@@ -898,30 +898,20 @@ touch_files () {
 
 auto_set_kconfig() {
 	local files=$(git diff --name-only $base_sha..$head_sha)
-	declare -a symbols=()
+	declare -a o_files
 
 	echo "get_kconfig on range $base_sha..$head_sha"
 
 	while read file; do
 		case "$file" in
 		*.c)
-			path=$(dirname $file)
-			blob=$(echo $(basename $file) | sed 's/c$/o/')
-			if [[ -f "$path/Makefile" ]]; then
-				conf=$(cat "$path/Makefile" | grep $blob | head -n 1 | sed -n 's/obj-\$(\(.*\))\+\(.*\)/\1/p')
-				if [[ ! -z "$conf" ]]; then
-					symbols+=("${conf#CONFIG_}")
-				fi
-			fi
+			o_files+=("$(echo $file | sed 's/c$/o/')")
 			;;
 		esac
 	done <<< "$files"
 
-	echo "Symbols of touched files:"
-	echo "${symbols[@]}"
-	all_symbols=$(python3.11 ci/symbols_depend.py "${symbols[@]}" 2>&1)
-	printf "Resolved symbols:\n$all_symbols\n"
-	for sym in $all_symbols; do
+	symbols=$(python3.11 ci/symbols_depend.py "${o_files[@]}")
+	for sym in $symbols; do
 		scripts/config -e $sym
 	done
 	make yes2modconfig
