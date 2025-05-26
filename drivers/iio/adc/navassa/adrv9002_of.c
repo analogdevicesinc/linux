@@ -644,6 +644,8 @@ static int adrv9002_parse_dpd(const struct adrv9002_rf_phy *phy,
 	tx->dpd_init->amplifierType = ADI_ADRV9001_DPDAMPLIFIER_DEFAULT;
 	tx->dpd_init->model = ADI_ADRV9001_DPDMODEL_4;
 
+	tx->ext_path_calib = of_property_read_bool(node, "adi,external-path-delay-calibrate");
+
 	dpd = of_parse_phandle(node, "adi,dpd-config", 0);
 	if (!dpd) {
 		/* set default parameters */
@@ -664,8 +666,6 @@ static int adrv9002_parse_dpd(const struct adrv9002_rf_phy *phy,
 		tx->dpd->immediateLutSwitching = true;
 		return 0;
 	}
-
-	tx->ext_path_calib = of_property_read_bool(dpd, "adi,external-path-delay-calibrate");
 
 	ret = adrv9002_parse_dpd_pre_calib(phy, dpd, tx);
 	if (ret)
