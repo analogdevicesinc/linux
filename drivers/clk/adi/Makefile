@@ -11,3 +11,7 @@ obj-$(CONFIG_COMMON_CLK_ADI_SC594)  += clk-adi-sc594.o
 #SC58X
 obj-$(CONFIG_COMMON_CLK_ADI_SC58X)  += clk-adi-pll.o
 obj-$(CONFIG_COMMON_CLK_ADI_SC58X)  += clk-adi-sc58x.o
+
+#SC57X
+obj-$(CONFIG_COMMON_CLK_ADI_SC57X)  += clk-adi-pll.o
+obj-$(CONFIG_COMMON_CLK_ADI_SC57X)  += clk-adi-sc58x.o
