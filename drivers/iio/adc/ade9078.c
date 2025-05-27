@@ -55,6 +55,14 @@
 #define	ADE9078_REG_MASK1		0x406
 #define	ADE9078_REG_EVENT_MASK		0x407
 #define	ADE9078_REG_VLEVEL		0x40F
+#define	ADE9078_REG_DIP_LVL		0x410
+#define	ADE9078_REG_DIPA		0x411
+#define	ADE9078_REG_DIPB		0x412
+#define	ADE9078_REG_DIPC		0x413
+#define	ADE9078_REG_SWELL_LVL		0x414
+#define	ADE9078_REG_SWELLA		0x415
+#define	ADE9078_REG_SWELLB		0x416
+#define	ADE9078_REG_SWELLC		0x417
 #define	ADE9078_REG_RUN			0x480
 #define ADE9078_REG_CONFIG1		0x481
 #define	ADE9078_REG_ACCMODE		0x492
@@ -185,6 +193,12 @@
 #define ADE9078_ST1_ZXIC_BIT		BIT(15)
 #define ADE9078_ST1_RSTDONE_BIT		BIT(16)
 #define ADE9078_ST1_SEQERR_BIT    	BIT(18)
+#define ADE9078_ST1_SWELLA_BIT    	BIT(20)
+#define ADE9078_ST1_SWELLB_BIT    	BIT(21)
+#define ADE9078_ST1_SWELLC_BIT    	BIT(22)
+#define ADE9078_ST1_DIPA_BIT    	BIT(23)
+#define ADE9078_ST1_DIPB_BIT    	BIT(24)
+#define ADE9078_ST1_DIPC_BIT    	BIT(25)
 #define ADE9078_ST1_ERROR0_BIT		BIT(28)
 #define ADE9078_ST1_ERROR1_BIT		BIT(29)
 #define ADE9078_ST1_ERROR2_BIT		BIT(30)
@@ -195,7 +209,7 @@
 	 ADE9078_ST1_ERROR2 | \
 	 ADE9078_ST1_ERROR3)
 #define ADE9078_ST1_CROSSING_FIRST	6
-#define ADE9078_ST1_CROSSING_DEPTH	16
+#define ADE9078_ST1_CROSSING_DEPTH	25
 
 #define ADE9078_WFB_TRG_ZXIA_BIT	BIT(3)
 #define ADE9078_WFB_TRG_ZXIB_BIT	BIT(4)
@@ -247,7 +261,7 @@
 #define ADE9078_PHASE_C_POS_BIT		BIT(6)
 
 #define ADE9078_MAX_PHASE_NR		3
-#define AD9078_CHANNELS_PER_PHASE	9
+#define AD9078_CHANNELS_PER_PHASE	11
 
 #define ADE9078_ADDR_ADJUST(addr, chan)					\
 	(((chan) << 4) | (addr))
@@ -301,6 +315,16 @@ static const struct iio_event_spec ade9078_events[] = {
 		.mask_separate = BIT(IIO_EV_INFO_ENABLE) |
 				 BIT(IIO_EV_INFO_VALUE),
 	},
+	{
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_RISING, // For swell
+		.mask_separate = BIT(IIO_EV_INFO_ENABLE) | BIT(IIO_EV_INFO_VALUE),
+    	},
+	{
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_FALLING, // For dip
+		.mask_separate = BIT(IIO_EV_INFO_ENABLE) | BIT(IIO_EV_INFO_VALUE),
+	},
 };
 
 static ssize_t ade9078_read_zxtout(struct iio_dev *indio_dev,
@@ -334,7 +358,7 @@ static ssize_t ade9078_write_zxtout(struct iio_dev *indio_dev,
 	return ret ? ret : len;
 	}
 
-static const struct iio_chan_spec_ext_info ade9078_ext_info[] = {
+static const struct iio_chan_spec_ext_info ade9078_voltage_ext_info[] = {
     {
         .name = "zxtout",
         .read = ade9078_read_zxtout,
@@ -357,8 +381,8 @@ static const struct iio_chan_spec_ext_info ade9078_ext_info[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
-	.event_spec = ade9078_events,					\
-	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
+	.event_spec = &ade9078_events[0],				\
+	.num_event_specs = 1,						\
 	.scan_index = num,						\
 	.indexed = 1,							\
 	.scan_type = {							\
@@ -380,7 +404,7 @@ static const struct iio_chan_spec_ext_info ade9078_ext_info[] = {
 			      BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 	.event_spec = ade9078_events,					\
-	.ext_info = ade9078_ext_info,					\
+	.ext_info = ade9078_voltage_ext_info,				\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
 	.scan_index = num + 1,						\
 	.indexed = 1,							\
@@ -476,6 +500,26 @@ static const struct iio_chan_spec_ext_info ade9078_ext_info[] = {
 	.scan_index = -1						\
 }
 
+#define ADE9078_SWELL_CHANNEL(num, name) {				\
+	.type = IIO_VOLTAGE,						\
+	.channel = num,							\
+	.address = (ADE9078_REG_SWELLA + (num / 2)),				\
+	.extend_name = name "_swell",					\
+	.indexed = 1,							\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),			\
+	.scan_index = -1						\
+}
+
+#define ADE9078_DIP_CHANNEL(num, name) {				\
+	.type = IIO_VOLTAGE,						\
+	.channel = num,							\
+	.address = (ADE9078_REG_DIPA + (num / 2)),				\
+	.extend_name = name "_dip",					\
+	.indexed = 1,							\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),			\
+	.scan_index = -1						\
+}
+
 /* IIO channels of the ade9078 for each phase individually */
 static const struct iio_chan_spec ade9078_a_channels[] = {
 	ADE9078_CURRENT_CHANNEL(ADE9078_PHASE_A_NR, "A"),
@@ -487,6 +531,8 @@ static const struct iio_chan_spec ade9078_a_channels[] = {
 	ADE9078_POWER_APPARENT_CHANNEL(ADE9078_PHASE_A_NR, "A"),
 	ADE9078_POWER_FUND_REACTIV_CHANNEL(ADE9078_PHASE_A_NR, "A"),
 	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_A_NR, "A"),
+	ADE9078_SWELL_CHANNEL(ADE9078_PHASE_A_NR, "A"),
+	ADE9078_DIP_CHANNEL(ADE9078_PHASE_A_NR, "A"),
 };
 
 static const struct iio_chan_spec ade9078_b_channels[] = {
@@ -499,6 +545,8 @@ static const struct iio_chan_spec ade9078_b_channels[] = {
 	ADE9078_POWER_APPARENT_CHANNEL(ADE9078_PHASE_B_NR, "B"),
 	ADE9078_POWER_FUND_REACTIV_CHANNEL(ADE9078_PHASE_B_NR, "B"),
 	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_B_NR, "B"),
+	ADE9078_SWELL_CHANNEL(ADE9078_PHASE_B_NR, "B"),
+	ADE9078_DIP_CHANNEL(ADE9078_PHASE_B_NR, "B"),
 };
 
 static const struct iio_chan_spec ade9078_c_channels[] = {
@@ -511,6 +559,8 @@ static const struct iio_chan_spec ade9078_c_channels[] = {
 	ADE9078_POWER_APPARENT_CHANNEL(ADE9078_PHASE_C_NR, "C"),
 	ADE9078_POWER_FUND_REACTIV_CHANNEL(ADE9078_PHASE_C_NR, "C"),
 	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_C_NR, "C"),
+	ADE9078_SWELL_CHANNEL(ADE9078_PHASE_C_NR, "C"),
+	ADE9078_DIP_CHANNEL(ADE9078_PHASE_C_NR, "C"),
 };
 
 static const struct reg_sequence ade9078_reg_sequence[] = {
@@ -984,14 +1034,14 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	if ((status & ADE9078_ST1_SEQERR_BIT) && (interrupts & ADE9078_ST1_SEQERR_BIT)) {
-		       iio_push_event(indio_dev,
-		       IIO_UNMOD_EVENT_CODE(chan->type,
-					    0,
-					    IIO_EV_TYPE_THRESH,
-					    IIO_EV_DIR_EITHER),
-		       timestamp);
-	}
+	// if ((status & ADE9078_ST1_SEQERR_BIT) && (interrupts & ADE9078_ST1_SEQERR_BIT)) {
+	// 	       iio_push_event(indio_dev,
+	// 	       IIO_UNMOD_EVENT_CODE(chan->type,
+	// 				    0,
+	// 				    IIO_EV_TYPE_THRESH,
+	// 				    IIO_EV_DIR_EITHER),
+	// 	       timestamp);
+	// }
 
 	for_each_set_bit_from(bit, (unsigned long *)&interrupts,
 			      ADE9078_ST1_CROSSING_DEPTH){
@@ -1027,6 +1077,62 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
+			break;
+		case ADE9078_ST1_SWELLA_BIT:
+			iio_push_event(indio_dev,
+					IIO_UNMOD_EVENT_CODE(chan->type,
+							ADE9078_PHASE_A_NR,
+							IIO_EV_TYPE_THRESH,
+							IIO_EV_DIR_RISING),
+					timestamp);
+			break;
+		case ADE9078_ST1_SWELLB_BIT:
+			iio_push_event(indio_dev,
+					IIO_UNMOD_EVENT_CODE(chan->type,
+							ADE9078_PHASE_B_NR,
+							IIO_EV_TYPE_THRESH,
+							IIO_EV_DIR_RISING),
+					timestamp);
+			break;
+		case ADE9078_ST1_SWELLC_BIT:
+			iio_push_event(indio_dev,
+					IIO_UNMOD_EVENT_CODE(chan->type,
+							ADE9078_PHASE_C_NR,
+							IIO_EV_TYPE_THRESH,
+							IIO_EV_DIR_RISING),
+					timestamp);
+			break;
+		case ADE9078_ST1_DIPA_BIT:
+			iio_push_event(indio_dev,
+					IIO_UNMOD_EVENT_CODE(chan->type,
+							ADE9078_PHASE_A_NR,
+							IIO_EV_TYPE_THRESH,
+							IIO_EV_DIR_FALLING),
+					timestamp);
+			break;
+		case ADE9078_ST1_DIPB_BIT:
+			iio_push_event(indio_dev,
+					IIO_UNMOD_EVENT_CODE(chan->type,
+							ADE9078_PHASE_B_NR,
+							IIO_EV_TYPE_THRESH,
+							IIO_EV_DIR_FALLING),
+					timestamp);
+			break;
+		case ADE9078_ST1_DIPC_BIT:
+			iio_push_event(indio_dev,
+					IIO_UNMOD_EVENT_CODE(chan->type,
+							ADE9078_PHASE_C_NR,
+							IIO_EV_TYPE_THRESH,
+							IIO_EV_DIR_FALLING),
+					timestamp);
+			break;
+		case ADE9078_ST1_SEQERR_BIT:
+			iio_push_event(indio_dev,
+					IIO_UNMOD_EVENT_CODE(chan->type,
+							0,
+							IIO_EV_TYPE_THRESH,
+							IIO_EV_DIR_EITHER),
+					timestamp);
 			break;
 		default:
 			return IRQ_HANDLED;
@@ -1245,15 +1351,14 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 		u32 wfb_trg;
 	};
 
-	if (chan->type == IIO_COUNT &&
-   	    type == IIO_EV_TYPE_THRESH &&
-   	    dir == IIO_EV_DIR_EITHER) {
-		ret = regmap_update_bits(st->regmap, ADE9078_REG_MASK1,
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS1, GENMASK(31, 0));
+	if (ret)
+		return ret;
+
+	if (chan->type == IIO_COUNT)
+		return regmap_update_bits(st->regmap, ADE9078_REG_MASK1,
                         		 ADE9078_ST1_SEQERR_BIT,
                         		 state ? ADE9078_ST1_SEQERR_BIT : 0);
-		if (ret)
-			return ret;
-	}
 
 	struct irq_wfb_trig trig_arr[6] = {
 		{.irq = ADE9078_ST1_ZXVA_BIT | ADE9078_ST1_ZXTOVA_BIT,
@@ -1276,17 +1381,39 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 		},
 	};
 
-	if (state) {
-		interrupts |= trig_arr[chan->channel + chan->type].irq;
-		st->wfb_trg |= trig_arr[chan->channel + chan->type].wfb_trg;
-	} else {
-		interrupts &= ~trig_arr[chan->channel + chan->type].irq;
-		st->wfb_trg &= ~trig_arr[chan->channel + chan->type].wfb_trg;
+	if (dir == IIO_EV_DIR_EITHER) {
+		if (state) {
+			interrupts |= trig_arr[chan->channel + chan->type].irq;
+			st->wfb_trg |= trig_arr[chan->channel + chan->type].wfb_trg;
+		} else {
+			interrupts &= ~trig_arr[chan->channel + chan->type].irq;
+			st->wfb_trg &= ~trig_arr[chan->channel + chan->type].wfb_trg;
+		}
+	} else if (dir == IIO_EV_DIR_RISING) {
+		switch (chan->channel){
+		case ADE9078_PHASE_A_NR: 
+			interrupts = ADE9078_ST1_SWELLA_BIT;
+			break;
+		case ADE9078_PHASE_B_NR: 
+			interrupts = ADE9078_ST1_SWELLB_BIT;
+			break;
+		case ADE9078_PHASE_C_NR: 
+			interrupts = ADE9078_ST1_SWELLC_BIT;
+			break;
+		}
+	} else if (dir == IIO_EV_DIR_FALLING) {
+		switch (chan->channel){
+		case ADE9078_PHASE_A_NR: 
+			interrupts = ADE9078_ST1_DIPA_BIT;
+			break;
+		case ADE9078_PHASE_B_NR: 
+			interrupts = ADE9078_ST1_DIPB_BIT;
+			break;
+		case ADE9078_PHASE_C_NR: 
+			interrupts = ADE9078_ST1_DIPC_BIT;
+			break;
+		}
 	}
-
-	ret = regmap_write(st->regmap, ADE9078_REG_STATUS1, GENMASK(31, 0));
-	if (ret)
-		return ret;
 
 	return regmap_update_bits(st->regmap, ADE9078_REG_MASK1, interrupts,
 				  interrupts);
@@ -1341,15 +1468,33 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 	switch (number) {
 	case ADE9078_PHASE_A_NR:
 		if (chan->type == IIO_VOLTAGE) {
-			if (status & ADE9078_ST1_ZXVA_BIT) {
-				*val = 1;
-				handled_irq |= ADE9078_ST1_ZXVA_BIT;
-			} else if (status & ADE9078_ST1_ZXTOVA_BIT) {
-				*val = -1;
-				handled_irq |= ADE9078_ST1_ZXTOVA_BIT;
+			if (dir == IIO_EV_DIR_EITHER) {
+				if (status & ADE9078_ST1_ZXVA_BIT) {
+					*val = 1;
+					handled_irq |= ADE9078_ST1_ZXVA_BIT;
+				} else if (status & ADE9078_ST1_ZXTOVA_BIT) {
+					*val = -1;
+					handled_irq |= ADE9078_ST1_ZXTOVA_BIT;
+				}
+				if (!(interrupts & ADE9078_ST1_ZXTOVA_BIT))
+					*val = 0;
 			}
-			if (!(interrupts & ADE9078_ST1_ZXTOVA_BIT))
-				*val = 0;
+			if (dir == IIO_EV_DIR_RISING) {
+				if (status & ADE9078_ST1_SWELLA_BIT) {
+					*val = 1;
+					handled_irq |= ADE9078_ST1_SWELLA_BIT;
+				}
+				if (!(interrupts & ADE9078_ST1_SWELLA_BIT))
+					*val = 0;
+			}
+			if (dir == IIO_EV_DIR_FALLING) {
+				if (status & ADE9078_ST1_DIPA_BIT) {
+					*val = 1;
+					handled_irq |= ADE9078_ST1_DIPA_BIT;
+				}
+				if (!(interrupts & ADE9078_ST1_DIPA_BIT))
+					*val = 0;
+			}
 		} else if (chan->type == IIO_CURRENT) {
 			if (status & ADE9078_ST1_ZXIA_BIT) {
 				*val = 1;
@@ -1364,15 +1509,33 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 		break;
 	case ADE9078_PHASE_B_NR:
 		if (chan->type == IIO_VOLTAGE) {
-			if (status & ADE9078_ST1_ZXVB_BIT) {
-				*val = 1;
-				handled_irq |= ADE9078_ST1_ZXVB_BIT;
-			} else if (status & ADE9078_ST1_ZXTOVB_BIT) {
-				*val = -1;
-				handled_irq |= ADE9078_ST1_ZXTOVB_BIT;
+			if (dir == IIO_EV_DIR_EITHER) {
+				if (status & ADE9078_ST1_ZXVB_BIT) {
+					*val = 1;
+					handled_irq |= ADE9078_ST1_ZXVB_BIT;
+				} else if (status & ADE9078_ST1_ZXTOVB_BIT) {
+					*val = -1;
+					handled_irq |= ADE9078_ST1_ZXTOVB_BIT;
+				}
+				if (!(interrupts & ADE9078_ST1_ZXTOVB_BIT))
+					*val = 0;
 			}
-			if (!(interrupts & ADE9078_ST1_ZXTOVB_BIT))
-				*val = 0;
+			if (dir == IIO_EV_DIR_RISING) {
+				if (status & ADE9078_ST1_SWELLB_BIT) {
+					*val = 1;
+					handled_irq |= ADE9078_ST1_SWELLB_BIT;
+				}
+				if (!(interrupts & ADE9078_ST1_SWELLB_BIT))
+					*val = 0;
+			}
+			if (dir == IIO_EV_DIR_FALLING) {
+				if (status & ADE9078_ST1_DIPB_BIT) {
+					*val = 1;
+					handled_irq |= ADE9078_ST1_DIPB_BIT;
+				}
+				if (!(interrupts & ADE9078_ST1_DIPB_BIT))
+					*val = 0;
+			}
 		} else if (chan->type == IIO_CURRENT) {
 			if (status & ADE9078_ST1_ZXIB_BIT) {
 				*val = 1;
@@ -1382,15 +1545,33 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 		break;
 	case ADE9078_PHASE_C_NR:
 		if (chan->type == IIO_VOLTAGE) {
-			if (status & ADE9078_ST1_ZXVC_BIT) {
-				*val = 1;
-				handled_irq |= ADE9078_ST1_ZXVC_BIT;
-			} else if (status & ADE9078_ST1_ZXTOVC_BIT) {
-				*val = -1;
-				handled_irq |= ADE9078_ST1_ZXTOVC_BIT;
+			if (dir == IIO_EV_DIR_EITHER) {
+				if (status & ADE9078_ST1_ZXVC_BIT) {
+					*val = 1;
+					handled_irq |= ADE9078_ST1_ZXVC_BIT;
+				} else if (status & ADE9078_ST1_ZXTOVC_BIT) {
+					*val = -1;
+					handled_irq |= ADE9078_ST1_ZXTOVC_BIT;
+				}
+				if (!(interrupts & ADE9078_ST1_ZXTOVC_BIT))
+					*val = 0;
 			}
-			if (!(interrupts & ADE9078_ST1_ZXTOVC_BIT))
-				*val = 0;
+			if (dir == IIO_EV_DIR_RISING) {
+				if (status & ADE9078_ST1_SWELLC_BIT) {
+					*val = 1;
+					handled_irq |= ADE9078_ST1_SWELLC_BIT;
+				}
+				if (!(interrupts & ADE9078_ST1_SWELLC_BIT))
+					*val = 0;
+			}
+			if (dir == IIO_EV_DIR_FALLING) {
+				if (status & ADE9078_ST1_DIPC_BIT) {
+					*val = 1;
+					handled_irq |= ADE9078_ST1_DIPC_BIT;
+				}
+				if (!(interrupts & ADE9078_ST1_DIPC_BIT))
+					*val = 0;
+			}
 		} else if (chan->type == IIO_CURRENT) {
 			if (status & ADE9078_ST1_ZXIC_BIT) {
 				*val = 1;
@@ -1690,8 +1871,8 @@ static int ade9078_setup_iio_channels(struct iio_dev *indio_dev)
 		.channel = 0,
 		.address = ADE9078_REG_STATUS1,
 		.extend_name = "seqerr",
-		.event_spec = ade9078_events,
-		.num_event_specs = ARRAY_SIZE(ade9078_events),
+		.event_spec = &ade9078_events[0],
+		.num_event_specs = 1,
 		.scan_index = -1, // not used in buffer
 	};
 	indio_dev->num_channels++;
