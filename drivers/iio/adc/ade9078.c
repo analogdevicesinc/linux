@@ -59,6 +59,7 @@
 #define ADE9078_REG_CONFIG1		0x481
 #define	ADE9078_REG_ACCMODE		0x492
 #define	ADE9078_REG_CONFIG3		0x493
+#define ADE9078_REG_ZXTOUT		0x498
 #define	ADE9078_REG_ZX_LP_SEL		0x49A
 #define	ADE9078_REG_WFB_CFG		0x4A0
 #define	ADE9078_REG_WFB_PG_IRQEN	0x4A1
@@ -111,6 +112,7 @@
  * ACCMODE=0x0x9x for 3Wire delta when phase B is used as reference
  */
 #define ADE9078_ACCMODE			0x0000
+#define ADE9078_ACCMODE_60HZ		0x0100
 
 /*Line period and zero crossing obtained from VA */
 #define ADE9078_ZX_LP_SEL		0x0000
@@ -182,6 +184,7 @@
 #define ADE9078_ST1_ZXIB_BIT		BIT(14)
 #define ADE9078_ST1_ZXIC_BIT		BIT(15)
 #define ADE9078_ST1_RSTDONE_BIT		BIT(16)
+#define ADE9078_ST1_SEQERR_BIT    	BIT(18)
 #define ADE9078_ST1_ERROR0_BIT		BIT(28)
 #define ADE9078_ST1_ERROR1_BIT		BIT(29)
 #define ADE9078_ST1_ERROR2_BIT		BIT(30)
@@ -300,6 +303,48 @@ static const struct iio_event_spec ade9078_events[] = {
 	},
 };
 
+static ssize_t ade9078_read_zxtout(struct iio_dev *indio_dev,
+				uintptr_t private,
+				const struct iio_chan_spec *chan, char *buf)
+{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	unsigned int regval;
+	int ret;
+
+	ret = regmap_read(st->regmap, ADE9078_REG_ZXTOUT, &regval);
+
+	return ret ? ret : sprintf(buf, "%d\n", regval);
+}
+
+static ssize_t ade9078_write_zxtout(struct iio_dev *indio_dev,
+				uintptr_t private,
+				const struct iio_chan_spec *chan,
+				const char *buf, size_t len)
+	{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	u32 val;
+	int ret;
+
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, ADE9078_REG_ZXTOUT, val);
+
+	return ret ? ret : len;
+	}
+
+static const struct iio_chan_spec_ext_info ade9078_ext_info[] = {
+    {
+        .name = "zxtout",
+        .read = ade9078_read_zxtout,
+        .write = ade9078_write_zxtout,
+        .shared = IIO_SHARED_BY_ALL,
+    },
+    { }
+};
+
+
 //TODO extend_name defines new ABI.  Needs documentation in
 //Documentation/ABI/testing/sysfs-bus-iio-*
 //and a very strong reason why it makes sense to do it this way rather than
@@ -333,7 +378,9 @@ static const struct iio_event_spec ade9078_events[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 	.event_spec = ade9078_events,					\
+	.ext_info = ade9078_ext_info,					\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
 	.scan_index = num + 1,						\
 	.indexed = 1,							\
@@ -937,6 +984,15 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
+	if ((status & ADE9078_ST1_SEQERR_BIT) && (interrupts & ADE9078_ST1_SEQERR_BIT)) {
+		       iio_push_event(indio_dev,
+		       IIO_UNMOD_EVENT_CODE(chan->type,
+					    0,
+					    IIO_EV_TYPE_THRESH,
+					    IIO_EV_DIR_EITHER),
+		       timestamp);
+	}
+
 	for_each_set_bit_from(bit, (unsigned long *)&interrupts,
 			      ADE9078_ST1_CROSSING_DEPTH){
 		tmp = status & BIT(bit);
@@ -995,10 +1051,17 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
+	unsigned int reg;
 	int measured;
 	int ret;
 
 	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		ret = regmap_read(st->regmap, ADE9078_REG_ACCMODE, &reg);
+		if (ret)
+			return ret;
+		*val = (reg & BIT(8)) ? 60 : 50;
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
 		ret = iio_device_claim_direct_mode(indio_dev);
 		if (ret)
@@ -1069,6 +1132,11 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 	u32 tmp;
 
 	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (val != 50 && val != 60)
+			return -EINVAL;
+		return regmap_write(st->regmap, ADE9078_REG_ACCMODE,
+				    (val == 60) ? ADE9078_ACCMODE_60HZ : ADE9078_ACCMODE);
 	case IIO_CHAN_INFO_OFFSET:
 		switch (chan->type) {
 		case IIO_CURRENT:
@@ -1176,6 +1244,17 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 		u32 irq;
 		u32 wfb_trg;
 	};
+
+	if (chan->type == IIO_COUNT &&
+   	    type == IIO_EV_TYPE_THRESH &&
+   	    dir == IIO_EV_DIR_EITHER) {
+		ret = regmap_update_bits(st->regmap, ADE9078_REG_MASK1,
+                        		 ADE9078_ST1_SEQERR_BIT,
+                        		 state ? ADE9078_ST1_SEQERR_BIT : 0);
+		if (ret)
+			return ret;
+	}
+
 	struct irq_wfb_trig trig_arr[6] = {
 		{.irq = ADE9078_ST1_ZXVA_BIT | ADE9078_ST1_ZXTOVA_BIT,
 		 .wfb_trg = ADE9078_WFB_TRG_ZXVA_BIT
@@ -1276,6 +1355,11 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 				*val = 1;
 				handled_irq |= ADE9078_ST1_ZXIA_BIT;
 			}
+		} else if (chan->type == IIO_COUNT) {
+			*val = (status & ADE9078_ST1_SEQERR_BIT) ? 1 : 0;
+			handled_irq |= ADE9078_ST1_SEQERR_BIT;
+			if (!(interrupts & ADE9078_ST1_SEQERR_BIT))
+				*val = 0;
 		}
 		break;
 	case ADE9078_PHASE_B_NR:
@@ -1561,15 +1645,17 @@ static int ade9078_setup_iio_channels(struct iio_dev *indio_dev)
 	int ret;
 
 	chan = devm_kcalloc(dev,
-			    ADE9078_MAX_PHASE_NR *
-			    ARRAY_SIZE(ade9078_a_channels),
-			    sizeof(*ade9078_a_channels), GFP_KERNEL);
+			    (ADE9078_MAX_PHASE_NR *
+			     ARRAY_SIZE(ade9078_a_channels)) + 1,
+			    sizeof(*chan), GFP_KERNEL);
 	if (!chan) {
 		dev_err(dev, "Unable to allocate ADE9078 channels");
 		return -ENOMEM;
 	}
 	indio_dev->num_channels = 0;
 	indio_dev->channels = chan;
+
+	struct iio_chan_spec *chan_ptr = chan;	
 
 	fwnode_for_each_available_child_node(dev_fwnode(dev), phase_node) {
 		ret = fwnode_property_read_u32(phase_node, "reg", &phase_nr);
@@ -1580,24 +1666,35 @@ static int ade9078_setup_iio_channels(struct iio_dev *indio_dev)
 
 		switch (phase_nr) {
 		case ADE9078_PHASE_A_NR:
-			memcpy(chan, ade9078_a_channels,
+			memcpy(chan_ptr, ade9078_a_channels,
 			       sizeof(ade9078_a_channels));
 			break;
 		case ADE9078_PHASE_B_NR:
-			memcpy(chan, ade9078_b_channels,
+			memcpy(chan_ptr, ade9078_b_channels,
 			       sizeof(ade9078_b_channels));
 			break;
 		case ADE9078_PHASE_C_NR:
-			memcpy(chan, ade9078_c_channels,
+			memcpy(chan_ptr, ade9078_c_channels,
 			       sizeof(ade9078_c_channels));
 			break;
 		default:
 			return -EINVAL;
 		}
 
-		chan += AD9078_CHANNELS_PER_PHASE;
+		chan_ptr += AD9078_CHANNELS_PER_PHASE;
 		indio_dev->num_channels += AD9078_CHANNELS_PER_PHASE;
 	}
+
+	chan[indio_dev->num_channels] = (struct iio_chan_spec) {
+		.type = IIO_COUNT,
+		.channel = 0,
+		.address = ADE9078_REG_STATUS1,
+		.extend_name = "seqerr",
+		.event_spec = ade9078_events,
+		.num_event_specs = ARRAY_SIZE(ade9078_events),
+		.scan_index = -1, // not used in buffer
+	};
+	indio_dev->num_channels++;
 
 	return 0;
 }
