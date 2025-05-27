@@ -22,6 +22,8 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
+#include <linux/jesd204/jesd204.h>
+
 /* Registers address macro */
 #define ADF4371_REG(x)			(x)
 
@@ -275,6 +277,7 @@ struct adf4371_state {
 	 * writes.
 	 */
 	struct mutex lock;
+	struct jesd204_dev *jdev;
 	const struct adf4371_chip_info *chip_info;
 	const char *adf4371_clk_names[4];
 	unsigned long clkin_freq;
@@ -295,6 +298,10 @@ struct adf4371_state {
 	bool differential_ref_clk;
 	bool rf8aux_vco_en;
 	u8 buf[10] __aligned(IIO_DMA_MINALIGN);
+};
+
+struct adf4371_jesd204_priv {
+	struct adf4371_state *adf_st;
 };
 
 static unsigned long long adf4371_pll_fract_n_get_rate(struct adf4371_state *st,
@@ -1234,10 +1241,34 @@ static int adf4371_clks_register(struct iio_dev *indio_dev)
 					adf4371_clk_del_provider, st);
 }
 
+static int adf4371_jesd204_link_init(struct jesd204_dev *jdev,
+				     enum jesd204_state_op_reason reason,
+				     struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
+		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data adf4371_jesd204_data = {
+	.state_ops = {
+		[JESD204_OP_LINK_INIT] = {
+			.per_link = adf4371_jesd204_link_init,
+		},
+	},
+
+	.sizeof_priv = sizeof(struct adf4371_jesd204_priv),
+};
+
 static int adf4371_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
+	struct adf4371_jesd204_priv *priv;
 	struct iio_dev *indio_dev;
+	struct jesd204_dev *jdev;
 	struct adf4371_state *st;
 	struct regmap *regmap;
 	int ret;
@@ -1284,6 +1315,12 @@ static int adf4371_probe(struct spi_device *spi)
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = st->chip_info->num_channels + 1; /* Include IIO_TEMP */
 
+	st->clkin = devm_clk_get(&spi->dev, "clkin");
+	if (IS_ERR(st->clkin)) {
+		dev_err(&spi->dev, "failed to get clkin\n");
+		return PTR_ERR(st->clkin);
+	}
+
 	st->clkin = devm_clk_get_enabled(&spi->dev, "clkin");
 	if (IS_ERR(st->clkin))
 		return PTR_ERR(st->clkin);
@@ -1293,6 +1330,11 @@ static int adf4371_probe(struct spi_device *spi)
 	ret = adf4371_parse_dt(st);
 	if (ret < 0)
 		return ret;
+
+	jdev = devm_jesd204_dev_register(&spi->dev, &adf4371_jesd204_data);
+	if (IS_ERR(jdev))
+		return dev_err_probe(&spi->dev, PTR_ERR(jdev),
+				     "failed to register JESD204 device\n");
 
 	ret = adf4371_setup(st);
 	if (ret < 0) {
@@ -1304,7 +1346,17 @@ static int adf4371_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	if (jdev) {
+		st->jdev = jdev;
+		priv = jesd204_dev_priv(jdev);
+		priv->adf_st = st;
+	}
+
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
+	if (ret < 0)
+		return ret;
+
+	return devm_jesd204_fsm_start(&spi->dev, st->jdev, JESD204_LINKS_ALL);
 }
 
 static const struct spi_device_id adf4371_id_table[] = {
