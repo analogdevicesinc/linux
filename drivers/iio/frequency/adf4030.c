@@ -47,13 +47,20 @@
 #define ADF4030_AVGEXP_MSK	GENMASK(3, 0)
 #define ADF4030_TDC_ARM_M_MSK	BIT(7)
 
+/* REG 0x17 */
+#define ADF4030_NDEL_ADJ_MSK	BIT(7)
+#define ADF4030_STOP_FSM_MSK	BIT(6)
+#define ADF4030_ADEL_MSK	GENMASK(5, 0)
+
 /* REG 0x35 */
 #define ADF4030_ALIGN_THOLD_MSK	GENMASK(5, 0)
+#define ADF4030_BSYNC_CAL_ON_1_0_MSK	GENMASK(7, 6)
 
 /* REG 0x37 */
 #define ADF4030_EN_ITER_MSK		BIT(0)
 #define ADF4030_EN_CYCS_RED_MSK		BIT(1)
 #define ADF4030_EN_SERIAL_ALIGN_MSK	BIT(2)
+#define ADF4030_EN_BKGND_ALGN_MSK	BIT(3)
 #define ADF4030_ALIGN_CYCLES_MSK	GENMASK(7, 5)
 
 /* REG 0x3C */
@@ -202,6 +209,8 @@ struct adf4030_state {
 	unsigned int num_channels;
 	bool adc_enabled;
 	bool spi_3wire_en;
+	bool bsync_autoalign_en;
+	u32 bsync_autoalign_mask;
 
 	u8 vals[3] __aligned(IIO_DMA_MINALIGN);
 };
@@ -624,6 +633,73 @@ static int adf4030_core_die_temp_get(struct adf4030_state *st, int *die_temp)
 	return 0;
 }
 
+static int adf4030_set_background_serial_alignment(struct adf4030_state *st, bool enable, u32 channel_flags)
+{
+	u32 tmp;
+	int ret;
+
+	if (!channel_flags) {
+		dev_err(&st->spi->dev, "No channels selected for background alignment\n");
+		return -EINVAL;
+	}
+
+
+	ret = regmap_read(st->regmap, ADF4030_REG(0x37), &tmp);
+	if (ret)
+		return ret;
+
+	/* If enabled : Disable Background alignment */
+	if (tmp & ADF4030_EN_BKGND_ALGN_MSK) {
+		ret = regmap_update_bits(st->regmap, ADF4030_REG(0x17), ADF4030_STOP_FSM_MSK, 0xFF);
+		if (ret)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, ADF4030_REG(0x37), ADF4030_EN_BKGND_ALGN_MSK, 0x0);
+		if (ret)
+			return ret;
+
+		st->bsync_autoalign_en = false;
+
+		ret = regmap_update_bits(st->regmap, ADF4030_REG(0x17), ADF4030_STOP_FSM_MSK, 0x0);
+		if (ret)
+			return ret;
+
+	}
+
+	if (!enable)
+		return 0;
+
+	ret = adf4030_core_die_temp_get(st, &tmp); /* Enable ADC, ignore temp */
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, ADF4030_REG(0x11),
+				 ADF4030_MANUAL_MODE_MSK | ADF4030_EN_ALIGN_MSK,
+				 FIELD_PREP(ADF4030_MANUAL_MODE_MSK, 0) |
+				 FIELD_PREP(ADF4030_EN_ALIGN_MSK, 1));
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, ADF4030_REG(0x35), ADF4030_BSYNC_CAL_ON_1_0_MSK,
+				 FIELD_PREP(ADF4030_BSYNC_CAL_ON_1_0_MSK, channel_flags & 0x3));
+	if (ret)
+		return ret;
+
+	/* Write ADF4030_BSYNC_CAL_ON_9_2 */
+	ret = regmap_write(st->regmap, ADF4030_REG(0x36), (channel_flags >> 2));
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, ADF4030_REG(0x37),
+				 ADF4030_EN_SERIAL_ALIGN_MSK | ADF4030_EN_BKGND_ALGN_MSK, 0xFF);
+	if (ret)
+		return ret;
+
+	st->bsync_autoalign_en = true;
+
+	return regmap_write(st->regmap, ADF4030_REG(0x10), 0xFF);
+}
+
 enum {
 	BSYNC_OUT_EN,
 	BSYNC_REF_CHAN,
@@ -632,6 +708,7 @@ enum {
 	BSYNC_ALIGN_THRESH_EN,
 	BSYNC_ALIGN_ITER,
 	BSYNC_DUTY_CYCLE,
+	BSYNC_ALIGN_BG_EN,
 };
 
 static ssize_t adf4030_ext_info_read(struct iio_dev *indio_dev,
@@ -665,6 +742,8 @@ static ssize_t adf4030_ext_info_read(struct iio_dev *indio_dev,
 
 		rem = do_div(tdc_result, MICRO);
 		return sysfs_emit(buf, "%u.%06u\n", (u32)tdc_result, rem);
+	case BSYNC_ALIGN_BG_EN:
+		return sysfs_emit(buf, "%u\n", st->bsync_autoalign_en);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -729,6 +808,15 @@ static ssize_t adf4030_ext_info_write(struct iio_dev *indio_dev,
 
 		st->bsync_autoalign_iter = readin;
 		return len;
+	case BSYNC_ALIGN_BG_EN:
+		if (readin < 0 || readin > 1)
+			return -EINVAL;
+		ret = adf4030_set_background_serial_alignment(st, readin, st->bsync_autoalign_mask);
+		if (ret)
+			return ret;
+
+		st->bsync_autoalign_ref_chan = readin;
+		return len;
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -776,6 +864,13 @@ static struct iio_chan_spec_ext_info adf4030_ext_info[] = {
 		.write = adf4030_ext_info_write,
 		.shared = IIO_SEPARATE,
 		.private = BSYNC_DUTY_CYCLE,
+	},
+	{
+		.name = "background_serial_alignment_en",
+		.read = adf4030_ext_info_read,
+		.write = adf4030_ext_info_write,
+		.shared = IIO_SHARED_BY_TYPE,
+		.private = BSYNC_ALIGN_BG_EN,
 	},
 	{},
 };
@@ -1450,7 +1545,7 @@ static int adf4030_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct adf4030_state *st;
-	int ret;
+	int ret, i;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
@@ -1481,6 +1576,10 @@ static int adf4030_probe(struct spi_device *spi)
 
 	if (st->refin)
 		st->ref_freq = clk_get_rate(st->refin);
+
+	for (i = 0; i < st->num_channels; i++)
+		if (st->channels[i].align_on_sync_en)
+			st->bsync_autoalign_mask |= BIT(st->channels[i].num);
 
 	indio_dev->name = "adf4030";
 	indio_dev->info = &adf4030_iio_info;
