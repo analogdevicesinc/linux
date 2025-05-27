@@ -505,7 +505,7 @@ compile_kernel_sparse() {
 	echo "compile kernel with sparce (C=1)"
 
 	yes n 2>/dev/null | \
-		make -j$(nproc) C=1 $EXTRA_FLAGS | \
+		make -j$(nproc) C=1 $EXTRA_FLAGS 2>&1 | \
 		(while IFS= read -r row; do
 		if [[ "$row" =~ $regex ]]; then
 			if [[ "$found" == "1" ]]; then
@@ -532,7 +532,7 @@ compile_kernel_sparse() {
 				echo $row
 			else
 				found=1
-				msg="::$type file=$file,line=$line,col=$col::$msg_"
+				msg="::$type file=$file,line=$line,col=$col::sparse: $msg_"
 			fi
 
 		else
