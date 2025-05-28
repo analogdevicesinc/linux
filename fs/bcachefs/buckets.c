@@ -270,6 +270,9 @@ int bch2_check_fix_ptrs(struct btree_trans *trans,
 	struct printbuf buf = PRINTBUF;
 	int ret = 0;
 
+	/* We don't yet do btree key updates correctly for when we're RW */
+	BUG_ON(test_bit(BCH_FS_rw, &c->flags));
+
 	bkey_for_each_ptr_decode(k.k, ptrs_c, p, entry_c) {
 		ret = bch2_check_fix_ptr(trans, k, p, entry_c, &do_update);
 		if (ret)
@@ -277,12 +280,6 @@ int bch2_check_fix_ptrs(struct btree_trans *trans,
 	}
 
 	if (do_update) {
-		if (flags & BTREE_TRIGGER_is_root) {
-			bch_err(c, "cannot update btree roots yet");
-			ret = -EINVAL;
-			goto err;
-		}
-
 		struct bkey_i *new = bch2_bkey_make_mut_noupdate(trans, k);
 		ret = PTR_ERR_OR_ZERO(new);
 		if (ret)
@@ -370,19 +367,41 @@ found:
 			bch_info(c, "new key %s", buf.buf);
 		}
 
-		struct btree_iter iter;
-		bch2_trans_node_iter_init(trans, &iter, btree, new->k.p, 0, level,
-					  BTREE_ITER_intent|BTREE_ITER_all_snapshots);
-		ret =   bch2_btree_iter_traverse(trans, &iter) ?:
-			bch2_trans_update(trans, &iter, new,
-					  BTREE_UPDATE_internal_snapshot_node|
-					  BTREE_TRIGGER_norun);
-		bch2_trans_iter_exit(trans, &iter);
-		if (ret)
-			goto err;
+		if (!(flags & BTREE_TRIGGER_is_root)) {
+			struct btree_iter iter;
+			bch2_trans_node_iter_init(trans, &iter, btree, new->k.p, 0, level,
+						  BTREE_ITER_intent|BTREE_ITER_all_snapshots);
+			ret =   bch2_btree_iter_traverse(trans, &iter) ?:
+				bch2_trans_update(trans, &iter, new,
+						  BTREE_UPDATE_internal_snapshot_node|
+						  BTREE_TRIGGER_norun);
+			bch2_trans_iter_exit(trans, &iter);
+			if (ret)
+				goto err;
 
-		if (level)
-			bch2_btree_node_update_key_early(trans, btree, level - 1, k, new);
+			if (level)
+				bch2_btree_node_update_key_early(trans, btree, level - 1, k, new);
+		} else {
+			struct jset_entry *e = bch2_trans_jset_entry_alloc(trans,
+					       jset_u64s(new->k.u64s));
+			ret = PTR_ERR_OR_ZERO(e);
+			if (ret)
+				goto err;
+
+			journal_entry_set(e,
+					  BCH_JSET_ENTRY_btree_root,
+					  btree, level - 1,
+					  new, new->k.u64s);
+
+			/*
+			 * no locking, we're single threaded and not rw yet, see
+			 * the big assertino above that we repeat here:
+			 */
+			BUG_ON(test_bit(BCH_FS_rw, &c->flags));
+
+			struct btree *b = bch2_btree_id_root(c, btree)->b;
+			bkey_copy(&b->key, new);
+		}
 	}
 err:
 	printbuf_exit(&buf);
@@ -406,7 +425,15 @@ static int bucket_ref_update_err(struct btree_trans *trans, struct printbuf *buf
 	if (insert) {
 		bch2_trans_updates_to_text(buf, trans);
 		__bch2_inconsistent_error(c, buf);
-		ret = -BCH_ERR_bucket_ref_update;
+		/*
+		 * If we're in recovery, run_explicit_recovery_pass might give
+		 * us an error code for rewinding recovery
+		 */
+		if (!ret)
+			ret = -BCH_ERR_bucket_ref_update;
+	} else {
+		/* Always ignore overwrite errors, so that deletion works */
+		ret = 0;
 	}
 
 	if (print || insert)
@@ -732,8 +759,7 @@ err:
 static int __trigger_extent(struct btree_trans *trans,
 			    enum btree_id btree_id, unsigned level,
 			    struct bkey_s_c k,
-			    enum btree_iter_update_trigger_flags flags,
-			    s64 *replicas_sectors)
+			    enum btree_iter_update_trigger_flags flags)
 {
 	bool gc = flags & BTREE_TRIGGER_gc;
 	struct bkey_ptrs_c ptrs = bch2_bkey_ptrs_c(k);
@@ -743,6 +769,8 @@ static int __trigger_extent(struct btree_trans *trans,
 		? BCH_DATA_btree
 		: BCH_DATA_user;
 	int ret = 0;
+
+	s64 replicas_sectors = 0;
 
 	struct disk_accounting_pos acc_replicas_key;
 	memset(&acc_replicas_key, 0, sizeof(acc_replicas_key));
@@ -770,7 +798,7 @@ static int __trigger_extent(struct btree_trans *trans,
 			if (ret)
 				return ret;
 		} else if (!p.has_ec) {
-			*replicas_sectors       += disk_sectors;
+			replicas_sectors       += disk_sectors;
 			replicas_entry_add_dev(&acc_replicas_key.replicas, p.ptr.dev);
 		} else {
 			ret = bch2_trigger_stripe_ptr(trans, k, p, data_type, disk_sectors, flags);
@@ -808,13 +836,13 @@ static int __trigger_extent(struct btree_trans *trans,
 	}
 
 	if (acc_replicas_key.replicas.nr_devs) {
-		ret = bch2_disk_accounting_mod(trans, &acc_replicas_key, replicas_sectors, 1, gc);
+		ret = bch2_disk_accounting_mod(trans, &acc_replicas_key, &replicas_sectors, 1, gc);
 		if (ret)
 			return ret;
 	}
 
 	if (acc_replicas_key.replicas.nr_devs && !level && k.k->p.snapshot) {
-		ret = bch2_disk_accounting_mod2_nr(trans, gc, replicas_sectors, 1, snapshot, k.k->p.snapshot);
+		ret = bch2_disk_accounting_mod2_nr(trans, gc, &replicas_sectors, 1, snapshot, k.k->p.snapshot);
 		if (ret)
 			return ret;
 	}
@@ -830,7 +858,7 @@ static int __trigger_extent(struct btree_trans *trans,
 	}
 
 	if (level) {
-		ret = bch2_disk_accounting_mod2_nr(trans, gc, replicas_sectors, 1, btree, btree_id);
+		ret = bch2_disk_accounting_mod2_nr(trans, gc, &replicas_sectors, 1, btree, btree_id);
 		if (ret)
 			return ret;
 	} else {
@@ -839,7 +867,7 @@ static int __trigger_extent(struct btree_trans *trans,
 		s64 v[3] = {
 			insert ? 1 : -1,
 			insert ? k.k->size : -((s64) k.k->size),
-			*replicas_sectors,
+			replicas_sectors,
 		};
 		ret = bch2_disk_accounting_mod2(trans, gc, v, inum, k.k->p.inode);
 		if (ret)
@@ -871,20 +899,16 @@ int bch2_trigger_extent(struct btree_trans *trans,
 		return 0;
 
 	if (flags & (BTREE_TRIGGER_transactional|BTREE_TRIGGER_gc)) {
-		s64 old_replicas_sectors = 0, new_replicas_sectors = 0;
-
 		if (old.k->type) {
 			int ret = __trigger_extent(trans, btree, level, old,
-						   flags & ~BTREE_TRIGGER_insert,
-						   &old_replicas_sectors);
+						   flags & ~BTREE_TRIGGER_insert);
 			if (ret)
 				return ret;
 		}
 
 		if (new.k->type) {
 			int ret = __trigger_extent(trans, btree, level, new.s_c,
-						   flags & ~BTREE_TRIGGER_overwrite,
-						   &new_replicas_sectors);
+						   flags & ~BTREE_TRIGGER_overwrite);
 			if (ret)
 				return ret;
 		}
@@ -971,15 +995,16 @@ static int __bch2_trans_mark_metadata_bucket(struct btree_trans *trans,
 			   bch2_data_type_str(type),
 			   bch2_data_type_str(type));
 
-		bool print = bch2_count_fsck_err(c, bucket_metadata_type_mismatch, &buf);
+		bch2_count_fsck_err(c, bucket_metadata_type_mismatch, &buf);
 
-		bch2_run_explicit_recovery_pass(c, &buf,
+		ret = bch2_run_explicit_recovery_pass(c, &buf,
 					BCH_RECOVERY_PASS_check_allocations, 0);
 
-		if (print)
-			bch2_print_str(c, KERN_ERR, buf.buf);
+		/* Always print, this is always fatal */
+		bch2_print_str(c, KERN_ERR, buf.buf);
 		printbuf_exit(&buf);
-		ret = -BCH_ERR_metadata_bucket_inconsistency;
+		if (!ret)
+			ret = -BCH_ERR_metadata_bucket_inconsistency;
 		goto err;
 	}
 

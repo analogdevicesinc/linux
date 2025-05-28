@@ -9,6 +9,7 @@ void bch2_journal_pos_from_member_info_resume(struct bch_fs *);
 
 struct journal_ptr {
 	bool		csum_good;
+	struct bch_csum	csum;
 	u8		dev;
 	u32		bucket;
 	u32		bucket_offset;
@@ -66,9 +67,6 @@ int bch2_journal_entry_validate(struct bch_fs *, struct jset *,
 				struct bkey_validate_context);
 void bch2_journal_entry_to_text(struct printbuf *, struct bch_fs *,
 				struct jset_entry *);
-
-void bch2_journal_ptrs_to_text(struct printbuf *, struct bch_fs *,
-			       struct journal_replay *);
 
 int bch2_journal_read(struct bch_fs *, u64 *, u64 *, u64 *);
 
