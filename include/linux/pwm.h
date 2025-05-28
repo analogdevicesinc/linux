@@ -30,7 +30,6 @@ enum pwm_polarity {
  * struct pwm_args - board-dependent PWM arguments
  * @period: reference period
  * @polarity: reference polarity
- * @phase: reference phase
  *
  * This structure describes board-dependent arguments attached to a PWM
  * device. These arguments are usually retrieved from the PWM lookup table or
@@ -42,7 +41,6 @@ enum pwm_polarity {
  */
 struct pwm_args {
 	u64 period;
-	unsigned int phase;
 	enum pwm_polarity polarity;
 };
 
@@ -91,7 +89,7 @@ struct pwm_waveform {
 struct pwm_state {
 	u64 period;
 	u64 duty_cycle;
-	unsigned int phase;
+	u64 phase;
 	enum pwm_polarity polarity;
 	bool enabled;
 	bool usage_power;
@@ -159,21 +157,6 @@ static inline u64 pwm_get_duty_cycle(const struct pwm_device *pwm)
 	pwm_get_state(pwm, &state);
 
 	return state.duty_cycle;
-}
-
-static inline void pwm_set_phase(struct pwm_device *pwm, unsigned int phase)
-{
-	if (pwm)
-		pwm->state.phase = phase;
-}
-
-static inline unsigned int pwm_get_phase(const struct pwm_device *pwm)
-{
-	struct pwm_state state;
-
-	pwm_get_state(pwm, &state);
-
-	return state.phase;
 }
 
 static inline enum pwm_polarity pwm_get_polarity(const struct pwm_device *pwm)
@@ -632,10 +615,17 @@ static inline void pwm_apply_args(struct pwm_device *pwm)
 	state.enabled = false;
 	state.polarity = pwm->args.polarity;
 	state.period = pwm->args.period;
-	state.phase = pwm->args.phase;
+	state.phase = 0;
 	state.usage_power = false;
 
 	pwm_apply_might_sleep(pwm, &state);
+}
+
+/* only for backwards-compatibility, new code should not use this */
+static inline int pwm_apply_state(struct pwm_device *pwm,
+				  const struct pwm_state *state)
+{
+	return pwm_apply_might_sleep(pwm, state);
 }
 
 struct pwm_lookup {

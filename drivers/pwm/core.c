@@ -608,7 +608,7 @@ static int __pwm_apply(struct pwm_device *pwm, const struct pwm_state *state)
 	    state->duty_cycle == pwm->state.duty_cycle &&
 	    state->polarity == pwm->state.polarity &&
 	    state->enabled == pwm->state.enabled &&
-	    state->usage_power == pwm->state.usage_power)
+	    state->usage_power == pwm->state.usage_power &&
 	    state->phase == pwm->state.phase)
 		return 0;
 
