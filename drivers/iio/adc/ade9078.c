@@ -344,7 +344,7 @@ static ssize_t ade9078_write_zxtout(struct iio_dev *indio_dev,
 				uintptr_t private,
 				const struct iio_chan_spec *chan,
 				const char *buf, size_t len)
-	{
+{
 	struct ade9078_state *st = iio_priv(indio_dev);
 	u32 val;
 	int ret;
@@ -356,7 +356,70 @@ static ssize_t ade9078_write_zxtout(struct iio_dev *indio_dev,
 	ret = regmap_write(st->regmap, ADE9078_REG_ZXTOUT, val);
 
 	return ret ? ret : len;
-	}
+}
+
+static ssize_t ade9078_read_swell_lvl(struct iio_dev *indio_dev,
+				uintptr_t private,
+				const struct iio_chan_spec *chan, char *buf)
+{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	unsigned int regval;
+	int ret;
+
+	ret = regmap_read(st->regmap, ADE9078_REG_SWELL_LVL, &regval);
+
+	return ret ? ret : sprintf(buf, "%d\n", regval);
+}
+
+static ssize_t ade9078_write_swell_lvl(struct iio_dev *indio_dev,
+				uintptr_t private,
+				const struct iio_chan_spec *chan,
+				const char *buf, size_t len)
+{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	u32 val;
+	int ret;
+
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, ADE9078_REG_SWELL_LVL, val);
+
+	return ret ? ret : len;
+}
+
+static ssize_t ade9078_read_dip_lvl(struct iio_dev *indio_dev,
+				uintptr_t private,
+				const struct iio_chan_spec *chan, char *buf)
+{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	unsigned int regval;
+	int ret;
+
+	ret = regmap_read(st->regmap, ADE9078_REG_DIP_LVL, &regval);
+
+	return ret ? ret : sprintf(buf, "%d\n", regval);
+}
+
+static ssize_t ade9078_write_dip_lvl(struct iio_dev *indio_dev,
+				uintptr_t private,
+				const struct iio_chan_spec *chan,
+				const char *buf, size_t len)
+{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	u32 val;
+	int ret;
+
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, ADE9078_REG_DIP_LVL, val);
+
+	return ret ? ret : len;
+}
+
 
 static const struct iio_chan_spec_ext_info ade9078_voltage_ext_info[] = {
     {
@@ -364,6 +427,26 @@ static const struct iio_chan_spec_ext_info ade9078_voltage_ext_info[] = {
         .read = ade9078_read_zxtout,
         .write = ade9078_write_zxtout,
         .shared = IIO_SHARED_BY_ALL,
+    },
+    { }
+};
+
+static const struct iio_chan_spec_ext_info ade9078_swell_lvl_ext_info[] = {
+    {
+        .name = "swell_lvl",
+        .read = ade9078_read_swell_lvl,
+        .write = ade9078_write_swell_lvl,
+        .shared = IIO_SHARED_BY_TYPE,
+    },
+    { }
+};
+
+static const struct iio_chan_spec_ext_info ade9078_dip_lvl_ext_info[] = {
+    {
+        .name = "dip_lvl",
+        .read = ade9078_read_dip_lvl,
+        .write = ade9078_write_dip_lvl,
+        .shared = IIO_SHARED_BY_TYPE,
     },
     { }
 };
@@ -505,6 +588,7 @@ static const struct iio_chan_spec_ext_info ade9078_voltage_ext_info[] = {
 	.channel = num,							\
 	.address = (ADE9078_REG_SWELLA + (num / 2)),				\
 	.extend_name = name "_swell",					\
+	.ext_info = ade9078_swell_lvl_ext_info,				\
 	.indexed = 1,							\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),			\
 	.scan_index = -1						\
@@ -515,6 +599,7 @@ static const struct iio_chan_spec_ext_info ade9078_voltage_ext_info[] = {
 	.channel = num,							\
 	.address = (ADE9078_REG_DIPA + (num / 2)),				\
 	.extend_name = name "_dip",					\
+	.ext_info = ade9078_dip_lvl_ext_info,				\
 	.indexed = 1,							\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),			\
 	.scan_index = -1						\
