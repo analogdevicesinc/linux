@@ -49,6 +49,15 @@
 #define	ADE9078_REG_CIRMS		0x24C
 #define	ADE9078_REG_CVRMS		0x24D
 #define	ADE9078_REG_AWATT_ACC		0x2E5
+#define ADE9078_REG_AWATTHR_LO		0x2E6
+#define ADE9078_REG_AVAHR_LO		0x2FA
+#define ADE9078_REG_AFVARHR_LO		0x30E
+#define ADE9078_REG_BWATTHR_LO		0x322
+#define ADE9078_REG_BVAHR_LO		0x336
+#define ADE9078_REG_BFVARHR_LO		0x34A
+#define ADE9078_REG_CWATTHR_LO		0x35E
+#define ADE9078_REG_CVAHR_LO		0x372
+#define ADE9078_REG_CFVARHR_LO		0x386
 #define	ADE9078_REG_STATUS0		0x402
 #define	ADE9078_REG_STATUS1		0x403
 #define	ADE9078_REG_MASK0		0x405
@@ -63,6 +72,9 @@
 #define	ADE9078_REG_SWELLA		0x415
 #define	ADE9078_REG_SWELLB		0x416
 #define	ADE9078_REG_SWELLC		0x417
+#define ADE9078_REG_APERIOD		0x418
+#define ADE9078_REG_BPERIOD		0x419
+#define ADE9078_REG_CPERIOD		0x41A
 #define	ADE9078_REG_RUN			0x480
 #define ADE9078_REG_CONFIG1		0x481
 #define	ADE9078_REG_ACCMODE		0x492
@@ -261,7 +273,7 @@
 #define ADE9078_PHASE_C_POS_BIT		BIT(6)
 
 #define ADE9078_MAX_PHASE_NR		3
-#define AD9078_CHANNELS_PER_PHASE	11
+#define AD9078_CHANNELS_PER_PHASE	15
 
 #define ADE9078_ADDR_ADJUST(addr, chan)					\
 	(((chan) << 4) | (addr))
@@ -583,6 +595,46 @@ static const struct iio_chan_spec_ext_info ade9078_dip_lvl_ext_info[] = {
 	.scan_index = -1						\
 }
 
+ #define ADE9078_ENERGY_ACTIVE_CHANNEL(num, name, addr) {     \
+	.type = IIO_ENERGY,                                          \
+	.channel = num,                                              \
+    .address = addr,                                             \
+    .extend_name = name "_active",                            \
+	.indexed = 1,                                                \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),          \
+	.scan_index = -1                                             \
+}
+
+#define ADE9078_ENERGY_APPARENT_CHANNEL(num, name, addr) {     \
+	.type = IIO_ENERGY,                                          \
+	.channel = num,                                              \
+	.address = addr,                                             \
+	.extend_name = name "_apparent",                            \
+	.indexed = 1,                                                \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),          \
+	.scan_index = -1                                             \
+}
+
+#define ADE9078_ENERGY_REACTIVE_CHANNEL(num, name, addr) {     \
+	.type = IIO_ENERGY,                                          \
+	.channel = num,                                              \
+	.address = addr,                                             \
+	.extend_name = name "_reactive",                            \
+	.indexed = 1,                                                \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),          \
+	.scan_index = -1                                             \
+}
+
+#define ADE9078_FREQ_CHANNEL(num, name, addr) {			\
+	.type = IIO_VOLTAGE,						\
+	.channel = num,							\
+	.extend_name = name "_freq",					\
+	.address = addr,						\
+	.indexed = 1,							\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
+	.scan_index = -1						\
+}
+
 #define ADE9078_SWELL_CHANNEL(num, name) {				\
 	.type = IIO_VOLTAGE,						\
 	.channel = num,							\
@@ -618,6 +670,10 @@ static const struct iio_chan_spec ade9078_a_channels[] = {
 	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_A_NR, "A"),
 	ADE9078_SWELL_CHANNEL(ADE9078_PHASE_A_NR, "A"),
 	ADE9078_DIP_CHANNEL(ADE9078_PHASE_A_NR, "A"),
+	ADE9078_ENERGY_ACTIVE_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_AWATTHR_LO),
+	ADE9078_ENERGY_APPARENT_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_AVAHR_LO),
+	ADE9078_ENERGY_REACTIVE_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_AFVARHR_LO),
+	ADE9078_FREQ_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_APERIOD),
 };
 
 static const struct iio_chan_spec ade9078_b_channels[] = {
@@ -632,6 +688,10 @@ static const struct iio_chan_spec ade9078_b_channels[] = {
 	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_B_NR, "B"),
 	ADE9078_SWELL_CHANNEL(ADE9078_PHASE_B_NR, "B"),
 	ADE9078_DIP_CHANNEL(ADE9078_PHASE_B_NR, "B"),
+	ADE9078_ENERGY_ACTIVE_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BWATTHR_LO),
+	ADE9078_ENERGY_APPARENT_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BVAHR_LO),
+	ADE9078_ENERGY_REACTIVE_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BFVARHR_LO),
+	ADE9078_FREQ_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BPERIOD),
 };
 
 static const struct iio_chan_spec ade9078_c_channels[] = {
@@ -646,6 +706,10 @@ static const struct iio_chan_spec ade9078_c_channels[] = {
 	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_C_NR, "C"),
 	ADE9078_SWELL_CHANNEL(ADE9078_PHASE_C_NR, "C"),
 	ADE9078_DIP_CHANNEL(ADE9078_PHASE_C_NR, "C"),
+	ADE9078_ENERGY_ACTIVE_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CWATTHR_LO),
+	ADE9078_ENERGY_APPARENT_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CVAHR_LO),
+	ADE9078_ENERGY_REACTIVE_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CFVARHR_LO),
+	ADE9078_FREQ_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CPERIOD),
 };
 
 static const struct reg_sequence ade9078_reg_sequence[] = {
@@ -1254,17 +1318,45 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 		*val = (reg & BIT(8)) ? 60 : 50;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
+     		dev_info(&st->spi->dev, "read_raw: type=%d, extend_name=%s\n", chan->type,
+       			 chan->extend_name ? chan->extend_name : "NULL");     
+        	// Check for frequency channel hack (using VOLTAGE type and "_freq" suffix)
+        	if (chan->type == IIO_VOLTAGE && chan->extend_name &&
+			strstr(chan->extend_name, "_freq")) {
+			int period;
+			ret = regmap_read(st->regmap, chan->address, &period);
+			if (ret)
+				return ret;
+			*val = 4000 * 65536;  // Numerator
+			*val2 = period + 1;   // Denominator
+            		return IIO_VAL_FRACTIONAL;
+        	}
+		// Check for ENERGY channel (mapped to _raw attribute)
+		if (chan->type == IIO_ENERGY) {
+			s64 val64;
+			u32 data[2];
+			u16 lo_reg = chan->address;
+			ret = regmap_bulk_read(st->regmap, lo_reg, data, 2);
+			if (ret)
+				return ret;
+		
+			val64 = ((u64)data[1] << 32) | data[0];
+			*(s64 *)val = val64;
+			return IIO_VAL_INT;
+		}
+	
+		// Default: claim and read simple 32-bit register     
 		ret = iio_device_claim_direct_mode(indio_dev);
 		if (ret)
-			return ret;
-
+		return ret;
+	
 		ret = regmap_read(st->regmap, chan->address, &measured);
 		if (ret)
-			return ret;
-
+		return ret;
+	
 		iio_device_release_direct_mode(indio_dev);
 		*val = measured;
-
+	
 		return IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_SCALE:
