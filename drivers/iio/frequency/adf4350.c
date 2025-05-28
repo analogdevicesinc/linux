@@ -405,7 +405,7 @@ static int adf4350_clk_prepare(struct clk_hw *hw)
 
 	st->regs[ADF4350_REG2] &= ~ADF4350_REG2_POWER_DOWN_EN;
 
-	return adf4350_sync_config(st, true);
+	return adf4350_sync_config(st);
 }
 
 static void adf4350_clk_unprepare(struct clk_hw *hw)
@@ -414,7 +414,7 @@ static void adf4350_clk_unprepare(struct clk_hw *hw)
 
 	st->regs[ADF4350_REG2] |= ADF4350_REG2_POWER_DOWN_EN;
 
-	adf4350_sync_config(st, true);
+	adf4350_sync_config(st);
 }
 
 static int adf4350_clk_is_enabled(struct clk_hw *hw)
