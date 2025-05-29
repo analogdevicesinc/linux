@@ -30,6 +30,7 @@
 #include <linux/of_dma.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>

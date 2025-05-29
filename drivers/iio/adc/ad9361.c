@@ -24,7 +24,7 @@
 #include <linux/of_gpio.h>
 #include <linux/gpio/consumer.h>
 
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -856,7 +856,7 @@ static int ad9361_spi_writem(struct spi_device *spi,
 	return 0;
 }
 
-u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
+static u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
 {
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 	case ID_AD9363A:
@@ -866,7 +866,7 @@ u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
 	}
 }
 
-int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, bool is_tx, u64 freq)
+static int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, bool is_tx, u64 freq)
 {
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:
@@ -6545,7 +6545,7 @@ static char *ad9361_clk_set_dev_name(struct ad9361_rf_phy *phy,
 		return NULL;
 
 	if (*name == '-')
-		len = strlcpy(dest, dev_name(&phy->spi->dev),
+		len = strscpy(dest, dev_name(&phy->spi->dev),
 			      AD9361_MAX_CLK_NAME);
 	else
 		*dest = '\0';
@@ -6879,7 +6879,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 			ret = -EINVAL;
 		break;
 	case AD9361_FIR_TRX_ENABLE:
-		ret = strtobool(buf, &res);
+		ret = kstrtobool(buf, &res);
 		if (ret < 0)
 			break;
 
@@ -6897,7 +6897,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 
 		break;
 	case AD9361_FIR_RX_ENABLE:
-		ret = strtobool(buf, &res);
+		ret = kstrtobool(buf, &res);
 		if (ret < 0)
 			break;
 
@@ -6913,7 +6913,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 
 		break;
 	case AD9361_FIR_TX_ENABLE:
-		ret = strtobool(buf, &res);
+		ret = kstrtobool(buf, &res);
 		if (ret < 0)
 			break;
 
@@ -6998,21 +6998,21 @@ static ssize_t ad9361_phy_store(struct device *dev,
 			ret = -EINVAL;
 		break;
 	case AD9361_BBDC_OFFS_ENABLE:
-		ret = strtobool(buf, &st->bbdc_track_en);
+		ret = kstrtobool(buf, &st->bbdc_track_en);
 		if (ret < 0)
 			break;
 		ret = ad9361_tracking_control(phy, st->bbdc_track_en,
 				st->rfdc_track_en, st->quad_track_en);
 		break;
 	case AD9361_RFDC_OFFS_ENABLE:
-		ret = strtobool(buf, &st->rfdc_track_en);
+		ret = kstrtobool(buf, &st->rfdc_track_en);
 		if (ret < 0)
 			break;
 		ret = ad9361_tracking_control(phy, st->bbdc_track_en,
 				st->rfdc_track_en, st->quad_track_en);
 		break;
 	case AD9361_QUAD_ENABLE:
-		ret = strtobool(buf, &st->quad_track_en);
+		ret = kstrtobool(buf, &st->quad_track_en);
 		if (ret < 0)
 			break;
 		ret = ad9361_tracking_control(phy, st->bbdc_track_en,
@@ -7432,7 +7432,7 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 			break;
 		case LOEXT_EXTERNAL:
 		case LOEXT_PD:
-			ret = strtobool(buf, &res);
+			ret = kstrtobool(buf, &res);
 			if (ret < 0)
 				return ret;
 			break;

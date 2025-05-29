@@ -1286,9 +1286,9 @@ static int adv7511_probe(struct i2c_client *i2c)
 	if (ret)
 		goto uninit_regulators;
 
-	if (adv7511->type == ADV7533) {
-		ret = match_string(adv7533_supply_names, adv7511->num_supplies,
-									"v1p2");
+	if (adv7511->info->type == ADV7533) {
+		ret = match_string(adv7533_supply_names, adv7511->info->num_supplies,
+				   "v1p2");
 		reg_v1p2 = adv7511->supplies[ret].consumer;
 		reg_v1p2_uV = regulator_get_voltage(reg_v1p2);
 

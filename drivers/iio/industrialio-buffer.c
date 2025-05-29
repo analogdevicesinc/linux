@@ -35,6 +35,8 @@
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer_impl.h>
 
+#include <linux/iio/consumer.h>
+
 #define DMABUF_ENQUEUE_TIMEOUT_MS 5000
 
 MODULE_IMPORT_NS(DMA_BUF);
@@ -1800,6 +1802,7 @@ void iio_buffer_free_blocks(struct iio_buffer *buffer)
 	if (buffer->access->free_blocks)
 		buffer->access->free_blocks(buffer);
 }
+EXPORT_SYMBOL_GPL(iio_buffer_free_blocks);
 
 static int iio_buffer_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {

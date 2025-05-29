@@ -386,13 +386,11 @@ static int ulpi_phy_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ulpi_phy_remove(struct platform_device *pdev)
+static void ulpi_phy_remove(struct platform_device *pdev)
 {
 	struct ulpi_phy *uphy = platform_get_drvdata(pdev);
 
 	usb_remove_phy(uphy->usb_phy);
-
-	return 0;
 }
 
 static const struct of_device_id ulpi_phy_table[] = {

@@ -763,7 +763,7 @@ static ssize_t m2k_la_write_powerdown(struct iio_dev *indio_dev,
 	bool powerdown;
 	int ret;
 
-	ret = strtobool(buf, &powerdown);
+	ret = kstrtobool(buf, &powerdown);
 	if (ret)
 		return ret;
 
@@ -1119,8 +1119,8 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_tx->num_channels = ARRAY_SIZE(m2k_la_tx_chan_spec);
 	indio_dev_tx->setup_ops = &m2k_la_tx_setup_ops;
 
-	ret = devm_iio_dmaengine_buffer_setup(&pdev->dev, indio_dev_tx, "tx",
-					      IIO_BUFFER_DIRECTION_OUT);
+	ret = devm_iio_dmaengine_buffer_setup_ext(&pdev->dev, indio_dev_tx, "tx",
+						  IIO_BUFFER_DIRECTION_OUT);
 	if (ret)
 		return ret;
 
@@ -1137,8 +1137,7 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_rx->channels = m2k_la_rx_chan_spec,
 	indio_dev_rx->num_channels = ARRAY_SIZE(m2k_la_rx_chan_spec);
 
-	ret = devm_iio_dmaengine_buffer_setup(&pdev->dev, indio_dev_rx, "rx",
-					      IIO_BUFFER_DIRECTION_IN);
+	ret = devm_iio_dmaengine_buffer_setup(&pdev->dev, indio_dev_rx, "rx");
 	if (ret)
 		return ret;
 
@@ -1164,3 +1163,4 @@ module_platform_driver(m2k_la_driver);
 MODULE_AUTHOR("");
 MODULE_DESCRIPTION("");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);

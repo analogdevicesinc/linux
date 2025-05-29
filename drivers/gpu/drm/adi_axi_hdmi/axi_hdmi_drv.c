@@ -21,7 +21,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_drv.h>
-#include <drm/drm_fbdev_generic.h>
+#include <drm/drm_fbdev_ttm.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
@@ -37,7 +37,6 @@
 
 static struct drm_mode_config_funcs axi_hdmi_mode_config_funcs = {
 	.fb_create = drm_gem_fb_create,
-	.output_poll_changed = drm_fb_helper_output_poll_changed,
 	.atomic_check = drm_atomic_helper_check,
 	.atomic_commit = drm_atomic_helper_commit,
 };
@@ -93,7 +92,7 @@ static int axi_hdmi_init(struct drm_driver *ddrv, struct device *dev)
 	if (ret)
 		goto err_crtc;
 
-	drm_fbdev_generic_setup(ddev, 32);
+	drm_fbdev_ttm_setup(ddev, 32);
 
 	return 0;
 err_crtc:
@@ -121,7 +120,6 @@ static const struct file_operations axi_hdmi_driver_fops = {
 static struct drm_driver axi_hdmi_driver = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
 	.unload			= axi_hdmi_unload,
-	.lastclose		= drm_fb_helper_lastclose,
 	.gem_prime_import	= drm_gem_prime_import,
 	.gem_prime_import_sg_table = drm_gem_dma_prime_import_sg_table,
 	.dumb_create		= drm_gem_dma_dumb_create,
@@ -143,7 +141,6 @@ MODULE_DEVICE_TABLE(of, adv7511_encoder_of_match);
 
 static int axi_hdmi_platform_probe(struct platform_device *pdev)
 {
-	const struct of_device_id *id;
 	struct device_node *np = pdev->dev.of_node;
 	struct axi_hdmi_private *private;
 	struct device_node *slave_node, *ep_node;
@@ -187,8 +184,6 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 
 	private->is_rgb = of_property_read_bool(np, "adi,is-rgb");
 
-	id = of_match_node(adv7511_encoder_of_match, np);
-
 	private->encoder_slave = of_find_i2c_device_by_node(slave_node);
 	of_node_put(slave_node);
 
@@ -204,7 +199,7 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 	return axi_hdmi_init(&axi_hdmi_driver, &pdev->dev);
 }
 
-static int axi_hdmi_platform_remove(struct platform_device *pdev)
+static void axi_hdmi_platform_remove(struct platform_device *pdev)
 {
 	struct axi_hdmi_private *private = platform_get_drvdata(pdev);
 
@@ -212,7 +207,6 @@ static int axi_hdmi_platform_remove(struct platform_device *pdev)
 
 	drm_put_dev(private->drm_dev);
 	dma_release_channel(private->dma);
-	return 0;
 }
 
 static struct platform_driver adv7511_encoder_driver = {

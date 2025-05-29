@@ -14,7 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/spi/spi.h>
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #define FMC_CPLD	0x00 /* chip_select 0 */
 #define FMC_AD9517	0x84 /* chip_select 1 */
@@ -50,10 +50,10 @@ static inline unsigned cs_to_cpld (unsigned chip_select, unsigned id)
 	return cs_lut[chip_select][id];
 }
 
-static int spi_ad9250_transfer_one(struct spi_master *master,
+static int spi_ad9250_transfer_one(struct spi_controller *master,
 	struct spi_message *msg)
 {
-	struct spi_ad9250 *spi_ad9250 = spi_master_get_devdata(master);
+	struct spi_ad9250 *spi_ad9250 = spi_controller_get_devdata(master);
 	struct spi_device *spi = msg->spi;
 	int status = 0, i = 1;
 
@@ -98,28 +98,17 @@ static int spi_ad9250_setup(struct spi_device *spi)
 	return 0;
 }
 
-static void spi_ad9250_work(struct work_struct *work)
-{
-	struct spi_ad9250 *spi_ad9250 =
-		container_of(work,struct spi_ad9250, work);
-	struct spi_master *master = spi_get_drvdata(spi_ad9250->spi);
-
-	int ret = spi_register_master(master);
-	if (ret < 0)
-		spi_master_put(master);
-}
-
 static int spi_ad9250_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
 	struct spi_ad9250 *spi_ad9250;
-	struct spi_master *master;
+	struct spi_controller *master;
 
-	master = spi_alloc_master(&spi->dev, sizeof(*spi_ad9250));
+	master = devm_spi_alloc_host(&spi->dev, sizeof(*spi_ad9250));
 	if (!master)
 		return -ENOMEM;
 
-	spi_ad9250 = spi_master_get_devdata(master);
+	spi_ad9250 = spi_controller_get_devdata(master);
 	spi_ad9250->id = dev_id->driver_data;
 	spi_ad9250->spi = spi;
 	master->num_chipselect = FMC_NUM_SLAVES;
@@ -127,22 +116,8 @@ static int spi_ad9250_probe(struct spi_device *spi)
 	master->setup = spi_ad9250_setup;
 	master->transfer_one_message = spi_ad9250_transfer_one;
 	master->dev.of_node = spi->dev.of_node;
-	spi_set_drvdata(spi, master);
 
-	/* spi_add_lock in spi_add_device() prevents registering
-	 * the master in place so defer this to an work queue
-	 */
-	INIT_WORK(&spi_ad9250->work, spi_ad9250_work);
-	schedule_work(&spi_ad9250->work);
-
-	return 0;
-}
-
-static void spi_ad9250_remove(struct spi_device *spi)
-{
-	struct spi_master *master = spi_get_drvdata(spi);
-
-	spi_unregister_master(master);
+	return devm_spi_register_controller(&spi->dev, master);
 }
 
 static const struct spi_device_id spi_ad9250_ids[] = {
@@ -160,7 +135,6 @@ static struct spi_driver spi_ad9250_driver = {
 	},
 	.id_table	= spi_ad9250_ids,
 	.probe		= spi_ad9250_probe,
-	.remove		= spi_ad9250_remove,
 };
 module_spi_driver(spi_ad9250_driver);
 

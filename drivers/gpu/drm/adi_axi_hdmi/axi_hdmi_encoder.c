@@ -61,28 +61,6 @@
 #define AXI_HDMI_SOURCE_SEL_NORMAL		0x1
 #define AXI_HDMI_SOURCE_SEL_NONE		0x0
 
-static const struct debugfs_reg32 axi_hdmi_encoder_debugfs_regs[] = {
-	{ "Reset", AXI_HDMI_REG_RESET },
-	{ "Control", AXI_HDMI_REG_CTRL },
-	{ "Source select", AXI_HDMI_REG_SOURCE_SEL },
-	{ "Colorpattern", AXI_HDMI_REG_COLORPATTERN },
-	{ "Status", AXI_HDMI_REG_STATUS },
-	{ "VDMA status", AXI_HDMI_REG_VDMA_STATUS },
-	{ "TPM status", AXI_HDMI_REG_TPM_STATUS },
-	{ "HTiming1", AXI_HDMI_REG_HTIMING1 },
-	{ "HTiming2", AXI_HDMI_REG_HTIMING2 },
-	{ "HTiming3", AXI_HDMI_REG_HTIMING3 },
-	{ "VTiming1", AXI_HDMI_REG_VTIMING1 },
-	{ "VTiming2", AXI_HDMI_REG_VTIMING2 },
-	{ "VTiming3", AXI_HDMI_REG_VTIMING3 },
-};
-
-static const uint16_t adv7511_csc_ycbcr_to_rgb[] = {
-	0x0734, 0x04ad, 0x0000, 0x1c1b,
-	0x1ddc, 0x04ad, 0x1f24, 0x0135,
-	0x0000, 0x04ad, 0x087c, 0x1b77,
-};
-
 struct axi_hdmi_encoder {
 	struct drm_encoder_slave encoder;
 	struct drm_connector connector;
@@ -210,6 +188,22 @@ static const struct file_operations axi_hdmi_mode_fops = {
 	.open = simple_open,
 	.read = axi_hdmi_read_mode,
 	.write = axi_hdmi_set_mode,
+};
+
+static const struct debugfs_reg32 axi_hdmi_encoder_debugfs_regs[] = {
+	{ "Reset", AXI_HDMI_REG_RESET },
+	{ "Control", AXI_HDMI_REG_CTRL },
+	{ "Source select", AXI_HDMI_REG_SOURCE_SEL },
+	{ "Colorpattern", AXI_HDMI_REG_COLORPATTERN },
+	{ "Status", AXI_HDMI_REG_STATUS },
+	{ "VDMA status", AXI_HDMI_REG_VDMA_STATUS },
+	{ "TPM status", AXI_HDMI_REG_TPM_STATUS },
+	{ "HTiming1", AXI_HDMI_REG_HTIMING1 },
+	{ "HTiming2", AXI_HDMI_REG_HTIMING2 },
+	{ "HTiming3", AXI_HDMI_REG_HTIMING3 },
+	{ "VTiming1", AXI_HDMI_REG_VTIMING1 },
+	{ "VTiming2", AXI_HDMI_REG_VTIMING2 },
+	{ "VTiming3", AXI_HDMI_REG_VTIMING3 },
 };
 
 static void axi_hdmi_debugfs_init(struct axi_hdmi_encoder *encoder)

@@ -998,7 +998,7 @@ static int ci_hdrc_create_ulpi_phy(struct device *dev, struct ci_hdrc *ci)
 	reset_gpio = of_get_named_gpio(dev->parent->of_node, "xlnx,phy-reset-gpio", 0);
 	if (gpio_is_valid(reset_gpio)) {
 		ret = devm_gpio_request_one(dev, reset_gpio,
-				GPIOF_INIT_LOW, "ulpi resetb");
+				GPIOF_OUT_INIT_LOW, "ulpi resetb");
 		if (ret) {
 			dev_err(dev, "Failed to request ULPI reset gpio: %d\n", ret);
 			return ret;

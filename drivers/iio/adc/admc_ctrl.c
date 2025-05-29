@@ -67,7 +67,7 @@ static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
 	return ioread32(st->regs + reg);
 }
 
-static const char mc_ctrl_sensors[3][8] = {"hall", "bemf", "resolver"};
+static const char mc_ctrl_sensors[3][9] = {"hall", "bemf", "resolver"};
 
 static int mc_ctrl_reg_access(struct iio_dev *indio_dev,
 	unsigned reg, unsigned writeval, unsigned *readval)
@@ -217,7 +217,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
 	case MC_RUN:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -226,7 +226,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_RESET_OVR_CURR:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -235,7 +235,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_BREAK:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -244,7 +244,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_DIRECTION:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -253,7 +253,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_DELTA:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -276,7 +276,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_MATLAB:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -285,7 +285,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_CALIB_ADC:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -472,7 +472,6 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct axiadc_state *st;
 	struct resource *mem;
-	int ret;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 	if (indio_dev == NULL)
@@ -498,18 +497,7 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 
 	mutex_init(&st->lock);
 
-	ret = iio_device_register(indio_dev);
-
-	return ret;
-}
-
-static int mc_ctrl_remove(struct platform_device *pdev)
-{
-	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
-
-	iio_device_unregister(indio_dev);
-
-	return 0;
+	return devm_iio_device_register(&pdev->dev, indio_dev);
 }
 
 static const struct of_device_id mc_ctrl_of_match[] = {
@@ -525,7 +513,6 @@ static struct platform_driver mc_ctrl_driver = {
 		.of_match_table = mc_ctrl_of_match,
 	},
 	.probe	  = mc_ctrl_probe,
-	.remove	 = mc_ctrl_remove,
 };
 
 module_platform_driver(mc_ctrl_driver);

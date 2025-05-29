@@ -436,6 +436,7 @@ out_unlock:
 	sigma_delta->keep_cs_asserted = false;
 	sigma_delta->bus_locked = false;
 	spi_bus_unlock(sigma_delta->spi->controller);
+out_release:
 	iio_device_release_direct_mode(indio_dev);
 
 	if (ret)

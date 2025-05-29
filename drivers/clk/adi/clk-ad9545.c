@@ -21,6 +21,8 @@
 
 #include <dt-bindings/clock/ad9545.h>
 
+#include "clk-ad9545.h"
+
 #define AD9545_CONFIG_0			0x0000
 #define AD9545_PRODUCT_ID_LOW		0x0004
 #define AD9545_PRODUCT_ID_HIGH		0x0005

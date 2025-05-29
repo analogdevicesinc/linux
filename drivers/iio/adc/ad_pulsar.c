@@ -5,7 +5,6 @@
  * Copyright 2022 Analog Devices Inc.
  */
 
-#include <asm/unaligned.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -22,6 +21,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/legacy-spi-engine.h>
 #include <linux/regulator/consumer.h>
+#include <linux/unaligned.h>
 
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dma.h>
@@ -694,7 +694,7 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	spi_bus_lock(adc->spi->master);
+	spi_bus_lock(adc->spi->controller);
 	ret = legacy_spi_engine_offload_load_msg(adc->spi, &msg);
 	if (ret)
 		return ret;
@@ -710,7 +710,7 @@ static int ad_pulsar_buffer_postdisable(struct iio_dev *indio_dev)
 	int ret;
 
 	legacy_spi_engine_offload_enable(adc->spi, false);
-	spi_bus_unlock(adc->spi->master);
+	spi_bus_unlock(adc->spi->controller);
 
 	ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, AD7682_DISABLE_SEQ);
 	if (ret)
@@ -931,8 +931,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	indio_dev->setup_ops = &ad_pulsar_buffer_ops;
 
 	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
-					      indio_dev, "rx",
-					      IIO_BUFFER_DIRECTION_IN);
+					      indio_dev, "rx");
 	if (ret)
 		return ret;
 

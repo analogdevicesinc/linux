@@ -339,7 +339,7 @@ static int adi_ad9081_adc_nco_sync(adi_ad9081_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
-int adi_ad9081_device_gpio_set_highz(adi_ad9081_device_t *device, u8 gpio_index)
+static int adi_ad9081_device_gpio_set_highz(adi_ad9081_device_t *device, u8 gpio_index)
 {
 	int err;
 
@@ -381,8 +381,7 @@ static int ad9081_nco_sync(struct ad9081_phy *phy, bool master)
 					     phy->nco_sync_ms_extra_lmfc_num);
 }
 
-int32_t ad9081_jesd_tx_link_dig_reset(adi_ad9081_device_t *device,
-				      uint8_t reset)
+static int32_t ad9081_jesd_tx_link_dig_reset(adi_ad9081_device_t *device, uint8_t reset)
 {
 	int32_t err;
 
@@ -408,8 +407,8 @@ ad9081_link_sel(struct ad9081_jesd_link *link)
 	return ad9081_link_is_dual(link) ? AD9081_LINK_ALL : AD9081_LINK_0;
 }
 
-int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
-			 va_list argp)
+static int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
+				va_list argp)
 {
 	struct axiadc_converter *conv = user_data;
 	char logMessage[160];
@@ -557,7 +556,7 @@ static char *ad9081_clk_set_dev_name(struct ad9081_phy *phy, char *dest,
 		return NULL;
 
 	if (*name == '-')
-		len = strlcpy(dest, dev_name(&phy->spi->dev),
+		len = strscpy(dest, dev_name(&phy->spi->dev),
 			      AD9081_MAX_CLK_NAME);
 	else
 		*dest = '\0';
@@ -898,7 +897,7 @@ static const struct iio_enum ad9081_testmode_enum = {
 	.get = ad9081_testmode_read,
 };
 
-int ad9081_iio_val_to_str(char *buf, u32 max, int val)
+static int ad9081_iio_val_to_str(char *buf, u32 max, int val)
 {
 	int vals[2];
 
@@ -908,7 +907,7 @@ int ad9081_iio_val_to_str(char *buf, u32 max, int val)
 	return iio_format_value(buf, IIO_VAL_FRACTIONAL, 2, vals);
 }
 
-int ad9081_iio_str_to_val(const char *str, int min, int max, int *val)
+static int ad9081_iio_str_to_val(const char *str, int min, int max, int *val)
 {
 	int ret, integer, fract;
 
@@ -1437,7 +1436,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			phy->dac_cache.chan_gain[fddc_num] = readin_32;
 		break;
 	case CDDC_6DB_GAIN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -1449,7 +1448,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		ret = 0;
 		break;
 	case FDDC_6DB_GAIN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 		ret = adi_ad9081_adc_ddc_fine_gain_set(
@@ -1460,7 +1459,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		ret = 0;
 		break;
 	case DAC_MAIN_TEST_TONE_EN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -1470,7 +1469,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			phy->dac_cache.main_test_tone_en[fddc_num] = enable;
 		break;
 	case DAC_CHAN_TEST_TONE_EN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -1570,7 +1569,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			ret = -EOPNOTSUPP;
 			break;
 		}
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -1942,8 +1941,8 @@ static const char *const ad9081_jtx_qbf_states[] = {
 	"ILA_BP", "DATA"
 };
 
-int ad9081_jesd_tx_link_status_print(struct ad9081_phy *phy,
-				     struct jesd204_link *lnk, int retry)
+static int ad9081_jesd_tx_link_status_print(struct ad9081_phy *phy,
+					    struct jesd204_link *lnk, int retry)
 {
 	int ret, l;
 	u16 stat;
@@ -2720,7 +2719,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 			break;
 		}
 
-		ret = strtobool(buf, &bres);
+		ret = kstrtobool(buf, &bres);
 		if (ret < 0) {
 			ret = -EINVAL;
 			break;
@@ -2756,7 +2755,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 			break;
 		}
 
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -2774,7 +2773,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 
 		break;
 	case AD9081_POWER_DOWN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 		ret = ad9081_set_power_state(phy, !enable);
@@ -4818,8 +4817,7 @@ static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
-int ad9081_jesd204_uninit(struct jesd204_dev *jdev,
-			    enum jesd204_state_op_reason reason)
+static int ad9081_jesd204_uninit(struct jesd204_dev *jdev, enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 

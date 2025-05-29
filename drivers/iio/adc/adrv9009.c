@@ -26,7 +26,7 @@
 #include <linux/of_gpio.h>
 #include <linux/gpio/consumer.h>
 
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -1511,7 +1511,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 			return -EBUSY;
 		}
 
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -1574,7 +1574,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 			break;
 		}
 
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -1595,7 +1595,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 			return -EBUSY;
 		}
 
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 		ret = TALISE_setRadioCtlPinMode(phy->talDevice,
@@ -1958,7 +1958,7 @@ static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
 		adrv9009_set_radio_state(phy, RADIO_RESTORE_STATE);
 		break;
 	case FHM_ENABLE:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -2165,7 +2165,7 @@ static ssize_t adrv9009_phy_rx_write(struct iio_dev *indio_dev,
 	if (!phy->is_initialized)
 		return -EBUSY;
 
-	ret = strtobool(buf, &enable);
+	ret = kstrtobool(buf, &enable);
 	if (ret)
 		return ret;
 
@@ -2627,7 +2627,7 @@ static ssize_t adrv9009_phy_tx_write(struct iio_dev *indio_dev,
 	if (chan->channel > CHAN_TX2)
 		return -EINVAL;
 
-	ret = strtobool(buf, &enable);
+	ret = kstrtobool(buf, &enable);
 	if (ret)
 		return ret;
 
@@ -5420,7 +5420,7 @@ static char *adrv9009_clk_set_dev_name(struct adrv9009_rf_phy *phy,
 		return NULL;
 
 	if (*name == '-')
-		len = strlcpy(dest, dev_name(&phy->spi->dev),
+		len = strscpy(dest, dev_name(&phy->spi->dev),
 			      ADRV9009_MAX_CLK_NAME);
 	else
 		*dest = '\0';
@@ -5577,8 +5577,8 @@ struct adrv9009_jesd204_priv {
 	struct adrv9009_jesd204_link link[3];
 };
 
-int adrv9009_jesd204_link_pre_setup(struct jesd204_dev *jdev,
-		enum jesd204_state_op_reason reason)
+static int adrv9009_jesd204_link_pre_setup(struct jesd204_dev *jdev,
+					   enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct adrv9009_jesd204_priv *priv = jesd204_dev_priv(jdev);
@@ -5885,8 +5885,8 @@ static int adrv9009_jesd204_link_running(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
-int adrv9009_jesd204_link_setup(struct jesd204_dev *jdev,
-				enum jesd204_state_op_reason reason)
+static int adrv9009_jesd204_link_setup(struct jesd204_dev *jdev,
+				       enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct adrv9009_jesd204_priv *priv = jesd204_dev_priv(jdev);

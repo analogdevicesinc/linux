@@ -340,7 +340,7 @@ addi9036_get_pad_format(struct addi9036 *addi9036,
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&addi9036->sd, sd_state, pad);
+		return v4l2_subdev_state_get_format(sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &addi9036->fmt;
 	default:
@@ -373,7 +373,7 @@ addi9036_get_pad_crop(struct addi9036 *addi9036,
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_crop(&addi9036->sd, sd_state, pad);
+		return v4l2_subdev_state_get_crop(sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &addi9036->crop;
 	default:
@@ -451,8 +451,8 @@ static int addi9036_set_format(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int addi9036_entity_init_cfg(struct v4l2_subdev *subdev,
-				    struct v4l2_subdev_state *sd_state)
+static int addi9036_entity_init_state(struct v4l2_subdev *subdev,
+				      struct v4l2_subdev_state *sd_state)
 {
 	struct v4l2_subdev_format fmt = { 0 };
 
@@ -501,12 +501,15 @@ static const struct v4l2_subdev_video_ops addi9036_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops addi9036_subdev_pad_ops = {
-	.init_cfg		= addi9036_entity_init_cfg,
 	.enum_mbus_code		= addi9036_enum_mbus_code,
 	.enum_frame_size	= addi9036_enum_frame_size,
 	.get_fmt		= addi9036_get_format,
 	.set_fmt		= addi9036_set_format,
 	.get_selection		= addi9036_get_selection,
+};
+
+static const struct v4l2_subdev_internal_ops addi9036_internal_ops = {
+	.init_state = addi9036_entity_init_state,
 };
 
 static const struct v4l2_subdev_ops addi9036_subdev_ops = {
@@ -602,6 +605,7 @@ static int addi9036_probe(struct i2c_client *client)
 	addi9036->pad.flags = MEDIA_PAD_FL_SOURCE;
 	addi9036->sd.dev = &client->dev;
 	addi9036->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
+	addi9036->sd.internal_ops = &addi9036_internal_ops;
 
 	ret = media_entity_pads_init(&addi9036->sd.entity, 1, &addi9036->pad);
 
@@ -624,7 +628,7 @@ static int addi9036_probe(struct i2c_client *client)
 		goto free_entity;
 	}
 
-	addi9036_entity_init_cfg(&addi9036->sd, NULL);
+	addi9036_entity_init_state(&addi9036->sd, NULL);
 
 	ret = v4l2_async_register_subdev(&addi9036->sd);
 	if (ret < 0)

@@ -24,7 +24,7 @@
 #include <linux/of_gpio.h>
 #include <linux/gpio/consumer.h>
 
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -1185,7 +1185,7 @@ static ssize_t ad9371_phy_store(struct device *dev,
 		ret = ad9371_set_radio_state(phy, val);
 		break;
 	case AD9371_INIT_CAL:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -1210,7 +1210,7 @@ static ssize_t ad9371_phy_store(struct device *dev,
 		}
 		break;
 	case AD9371_LARGE_LO_STEP_CAL:
-		ret = strtobool(buf, &phy->large_freq_step_cal_en);
+		ret = kstrtobool(buf, &phy->large_freq_step_cal_en);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1625,7 +1625,7 @@ static ssize_t ad9371_phy_rx_write(struct iio_dev *indio_dev,
 
 		break;
 	case RX_QEC:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 
 		switch (chan->channel) {
 		case CHAN_RX1:
@@ -2007,7 +2007,7 @@ static ssize_t ad9371_phy_tx_write(struct iio_dev *indio_dev,
 	case TX_DPD:
 	case TX_CLGC:
 	case TX_VSWR:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -2026,7 +2026,7 @@ static ssize_t ad9371_phy_tx_write(struct iio_dev *indio_dev,
 
 		break;
 	case TX_DPD_ACT_EN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -4211,7 +4211,7 @@ static char *ad9371_clk_set_dev_name(struct ad9371_rf_phy *phy,
 		return NULL;
 
 	if (*name == '-')
-		len = strlcpy(dest, dev_name(&phy->spi->dev),
+		len = strscpy(dest, dev_name(&phy->spi->dev),
 			      AD9371_MAX_CLK_NAME);
 	else
 		*dest = '\0';
@@ -4375,8 +4375,7 @@ static void ad9371_info(struct ad9371_rf_phy *phy)
 		 phy->jdev ? " via jesd204-fsm" : "");
 }
 
-int ad9371_jesd204_link_pre_setup(struct jesd204_dev *jdev,
-				  enum jesd204_state_op_reason reason)
+static int ad9371_jesd204_link_pre_setup(struct jesd204_dev *jdev, enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct ad9371_jesd204_priv *priv = jesd204_dev_priv(jdev);

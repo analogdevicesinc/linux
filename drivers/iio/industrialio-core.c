@@ -1799,8 +1799,10 @@ static int iio_chrdev_release(struct inode *inode, struct file *filp)
 
 	kfree(ib);
 	clear_bit(IIO_BUSY_BIT_POS, &iio_dev_opaque->flags);
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	if (indio_dev->buffer)
 		iio_buffer_free_blocks(indio_dev->buffer);
+#endif
 	iio_device_put(indio_dev);
 
 	return 0;

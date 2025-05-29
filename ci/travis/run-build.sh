@@ -40,6 +40,8 @@ KCFLAGS="-Werror"
 # FIXME: remove the line below once Talise & Mykonos APIs
 #	 dont't use 1024 bytes on stack
 KCFLAGS="$KCFLAGS -Wno-error=frame-larger-than="
+KCFLAGS="$KCFLAGS -Wno-error=missing-prototypes"
+KCFLAGS="$KCFLAGS -Wno-error=old-style-declaration"
 export KCFLAGS
 
 # FIXME: remove this function once kernel gets upgrade and
@@ -60,6 +62,9 @@ adjust_kcflags_against_gcc() {
 	if [ "$($GCC -dumpversion | cut -d. -f1)" -ge "10" ]; then
 		KCFLAGS="$KCFLAGS -Wno-error=maybe-uninitialized -Wno-error=restrict"
 		KCFLAGS="$KCFLAGS -Wno-error=zero-length-bounds"
+	fi
+	if [ "$($GCC -dumpversion | cut -d. -f1)" -ge "15" ]; then
+		KCFLAGS="$KCFLAGS -Wno-error=unterminated-string-initialization"
 	fi
 	export KCFLAGS
 }
@@ -260,7 +265,7 @@ build_default() {
 		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging-rpi ]]; then
 		echo "Rpi build"
     		make -j$NUM_JOBS zImage modules dtbs
-		make INSTALL_MOD_PATH="${PWD}/modules" modules_install
+		[[ "$LOCAL_BUILD" != "y" ]] && make INSTALL_MOD_PATH="${PWD}/modules" modules_install
 	else
     		echo "Normal build"
     		make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000

@@ -163,13 +163,11 @@ static int __set_clk_rates(struct device_node *node, bool clk_supplier)
 static int __set_clk_nshot(struct device_node *node, bool clk_supplier)
 {
 	struct of_phandle_args clkspec;
-	struct property	*prop;
-	const __be32 *cur;
 	int rc, index = 0;
 	struct clk *clk;
 	u32 nshot;
 
-	of_property_for_each_u32(node, "assigned-clock-nshot", prop, cur, nshot) {
+	of_property_for_each_u32(node, "assigned-clock-nshot", nshot) {
 		if (nshot) {
 			rc = of_parse_phandle_with_args(node, "assigned-clocks",
 							"#clock-cells",	index, &clkspec);

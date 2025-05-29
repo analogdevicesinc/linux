@@ -890,23 +890,6 @@ static const struct iio_chan_spec adis16485_channels[] = {
 	ADIS16480_DELTVEL_CHANNEL_NO_SCAN(Z),
 };
 
-static const struct iio_chan_spec adis16545_channels[] = {
-	ADIS16480_GYRO_CHANNEL(X),
-	ADIS16480_GYRO_CHANNEL(Y),
-	ADIS16480_GYRO_CHANNEL(Z),
-	ADIS16480_ACCEL_CHANNEL(X),
-	ADIS16480_ACCEL_CHANNEL(Y),
-	ADIS16480_ACCEL_CHANNEL(Z),
-	ADIS16480_TEMP_CHANNEL(),
-	ADIS16480_DELTANG_CHANNEL(X),
-	ADIS16480_DELTANG_CHANNEL(Y),
-	ADIS16480_DELTANG_CHANNEL(Z),
-	ADIS16480_DELTVEL_CHANNEL(X),
-	ADIS16480_DELTVEL_CHANNEL(Y),
-	ADIS16480_DELTVEL_CHANNEL(Z),
-	IIO_CHAN_SOFT_TIMESTAMP(17),
-};
-
 static const struct iio_chan_spec adis16495_channels[] = {
 	ADIS16480_GYRO_CHANNEL(X),
 	ADIS16480_GYRO_CHANNEL(Y),
@@ -1474,9 +1457,6 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 			 */
 			st->data[i++] = 0;
 			break;
-		case ADIS16480_SCAN_DELTANG_X ... ADIS16480_SCAN_DELTVEL_Z:
-			buff_offset = ADIS16480_SCAN_DELTANG_X;
-			fallthrough;
 		/*
 		 * \TODO: Purpose a way to support sys_flags upstream. In our tree, we just add
 		 * a new IIO_FLAGS types to accommodate this. However, this might be just too

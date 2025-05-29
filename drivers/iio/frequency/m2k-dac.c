@@ -321,7 +321,7 @@ static ssize_t m2k_dac_write_dma_sync(struct device *dev,
 	bool val;
 	int ret;
 
-	ret = strtobool(buf, &val);
+	ret = kstrtobool(buf, &val);
 	if (ret < 0)
 		return ret;
 
@@ -353,7 +353,7 @@ static ssize_t m2k_dac_write_dma_sync_start(struct device *dev,
 	bool val;
 	int ret;
 
-	ret = strtobool(buf, &val);
+	ret = kstrtobool(buf, &val);
 	if (ret < 0)
 		return ret;
 
@@ -720,9 +720,9 @@ static int m2k_dac_alloc_channel(struct platform_device *pdev,
 	indio_dev->channels = &m2k_dac_channel_info;
 	indio_dev->num_channels = 1;
 
-	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent, indio_dev,
-					      m2k_dac_ch_dma_names[num],
-					      IIO_BUFFER_DIRECTION_OUT);
+	ret = devm_iio_dmaengine_buffer_setup_ext(indio_dev->dev.parent, indio_dev,
+						  m2k_dac_ch_dma_names[num],
+						  IIO_BUFFER_DIRECTION_OUT);
 	if (ret)
 		return ret;
 
@@ -861,3 +861,5 @@ module_platform_driver(m2k_dac_driver);
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("Analog Devices M2K DAC driver");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);
+

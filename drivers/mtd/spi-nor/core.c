@@ -424,17 +424,16 @@ int spi_nor_read_id(struct spi_nor *nor, u8 naddr, u8 ndummy, u8 *id,
 		    enum spi_nor_protocol proto)
 {
 	int ret;
-#define SPI_NOR_MAX_EDID_LEN    20
 
 	if (nor->spimem) {
 		struct spi_mem_op op =
-			SPI_NOR_READID_OP(naddr, ndummy, id, SPI_NOR_MAX_EDID_LEN);
+			SPI_NOR_READID_OP(naddr, ndummy, id, SPI_NOR_MAX_ID_LEN);
 
 		spi_nor_spimem_setup_op(nor, &op, proto);
 		ret = spi_mem_exec_op(nor->spimem, &op);
 	} else {
 		ret = nor->controller_ops->read_reg(nor, SPINOR_OP_RDID, id,
-						    SPI_NOR_MAX_EDID_LEN);
+						    SPI_NOR_MAX_ID_LEN);
 	}
 	return ret;
 }
@@ -1996,12 +1995,6 @@ static const struct flash_info *spi_nor_match_id(struct spi_nor *nor,
 			if (part->id &&
 			    !memcmp(part->id->bytes, id, part->id->len)) {
 				nor->manufacturer = manufacturers[i];
-				/* ST and MICRON seem to use the same manufacturer ID */
-				if (id[0] == CFI_MFR_MICRON || id[0] == CFI_MFR_ST)
-					dev_info(nor->dev, "SPI-NOR-UniqueID %*phN\n",
-						 SPI_NOR_MAX_EDID_LEN - part->id_len,
-						 &id[part->id_len]);
-
 				return part;
 			}
 		}
@@ -2894,14 +2887,6 @@ static void spi_nor_sfdp_init_params_deprecated(struct spi_nor *nor)
  */
 static void spi_nor_init_params_deprecated(struct spi_nor *nor)
 {
-	bool is_zynq_qspi = false;
-#ifdef CONFIG_OF
-	struct device_node *np = spi_nor_get_flash_node(nor);
-	struct device_node *np_spi;
-	np_spi = of_get_next_parent(np);
-	is_zynq_qspi = of_property_match_string(np_spi, "compatible", "xlnx,zynq-qspi-1.0") >= 0;
-#endif
-
 	spi_nor_no_sfdp_init_params(nor);
 
 	spi_nor_manufacturer_init_params(nor);
@@ -2909,7 +2894,7 @@ static void spi_nor_init_params_deprecated(struct spi_nor *nor)
 	if (nor->info->no_sfdp_flags & (SPI_NOR_DUAL_READ |
 					SPI_NOR_QUAD_READ |
 					SPI_NOR_OCTAL_READ |
-					SPI_NOR_OCTAL_DTR_READ) && !is_zynq_qspi)
+					SPI_NOR_OCTAL_DTR_READ))
 		spi_nor_sfdp_init_params_deprecated(nor);
 }
 
