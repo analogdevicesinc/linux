@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for LTC4162 Battery Charger
+ *
+ * Copyright 2024 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	charger: battery-charger@68 {
+		compatible = "lltc,ltc4162-l";
+		reg = <0x68>;
+		lltc,rsnsb-micro-ohms = <10000>;
+		lltc,rsnsi-micro-ohms = <16000>;
+		lltc,cell-count = <2>;
+	};
+};

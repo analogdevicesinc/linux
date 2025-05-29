@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2711";
+};
+
+&{/} {
+	ad74115_avdd: fixed-regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <24000000>;
+		regulator-max-microvolt = <24000000>;
+		regulator-boot-on;
+	};
+};
+
+&spi0 {
+	cs-gpios = <&gpio 17 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	ad74115h@0 {
+		compatible = "adi,ad74115h";
+		reg = <0>;
+
+		spi-max-frequency = <12000000>;
+		spi-cpol;
+
+		reset-gpios = <&gpio 27 GPIO_ACTIVE_LOW>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "adc_rdy";
+
+		avdd-supply = <&ad74115_avdd>;
+
+		adi,ch-func = <1>;
+		adi,conv2-mux = <2>;
+		adi,conv2-range-microvolt = <(-12000000) 12000000>;
+
+		adi,gpio0-mode = <1>;
+		adi,gpio1-mode = <1>;
+		adi,gpio2-mode = <1>;
+		adi,gpio3-mode = <1>;
+
+		adi,dac-bipolar;
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};

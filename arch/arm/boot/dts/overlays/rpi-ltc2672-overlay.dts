@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the 5 channel LTC2672 DAC
+ *
+ * Copyright 2024 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+};
+
+&{/} {
+	vcc: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+
+	v_neg: fixedregulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "v-neg-supply";
+		regulator-min-microvolt = <0>;
+		regulator-max-microvolt = <0>;
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ltc2672: ltc2672@0 {
+		compatible = "adi,ltc2672";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vcc-supply = <&vcc>;
+		iovcc-supply = <&vcc>;
+		v-neg-supply = <&v_neg>;
+
+		channel@0 {
+			reg = <0>;
+			output-range-microamp = <0 300000000>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,toggle-mode;
+			output-range-microamp = <0 200000000>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			output-range-microamp = <0 300000000>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			output-range-microamp = <0 300000000>;
+		};
+
+		channel@4 {
+			reg = <4>;
+			output-range-microamp = <0 300000000>;
+		};
+	};
+};

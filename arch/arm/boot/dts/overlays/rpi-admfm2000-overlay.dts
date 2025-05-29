@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the ADMFM2000 Dual Microwave Down Converter
+ *
+ * Copyright 2024 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+};
+
+&{/} {
+	vcc: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+
+	admfm2000 {
+		compatible = "adi,admfm2000";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vcc-supply = <&vcc>;
+
+		channel@0 {
+			reg = <0>;
+			switch-gpios = <&gpio 1 GPIO_ACTIVE_LOW>,
+				       <&gpio 2 GPIO_ACTIVE_HIGH>;
+
+			attenuation-gpios = <&gpio 17 GPIO_ACTIVE_LOW>,
+					    <&gpio 22 GPIO_ACTIVE_LOW>,
+					    <&gpio 23 GPIO_ACTIVE_LOW>,
+					    <&gpio 24 GPIO_ACTIVE_LOW>,
+					    <&gpio 25 GPIO_ACTIVE_LOW>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,mixer-mode;
+			switch-gpios = <&gpio 3 GPIO_ACTIVE_LOW>,
+				       <&gpio 4 GPIO_ACTIVE_HIGH>;
+
+			attenuation-gpios = <&gpio 0 GPIO_ACTIVE_LOW>,
+					    <&gpio 5 GPIO_ACTIVE_LOW>,
+					    <&gpio 6 GPIO_ACTIVE_LOW>,
+					    <&gpio 16 GPIO_ACTIVE_LOW>,
+					    <&gpio 26 GPIO_ACTIVE_LOW>;
+		};
+	};
+};

@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2711";
+
+	fragment@0 {
+		target-path = "/clocks";
+
+		__overlay__ {
+			max14830_xtal: max14830_xtal {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <3686400>;
+			};
+		};
+
+	};
+
+	fragment@1 {
+		target = <&i2c1>;
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "okay";
+
+			max14830@6c {
+				compatible = "maxim,max14830";
+				reg = <0x6c>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				interrupts = <27 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-parent = <&gpio>;
+
+				clocks = <&max14830_xtal>;
+				clock-names = "xtal";
+			};
+		};
+	};
+};

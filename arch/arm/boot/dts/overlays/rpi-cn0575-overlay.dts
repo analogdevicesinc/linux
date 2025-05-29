@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/* Overlay for EVAL-CN0575-RPIZ Rev. A
+ *
+ * Copyright 2022 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ethernet@0 {
+		compatible = "adi,adin1110";
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+		mac-address = [ CA 2F B7 10 23 63 ];
+
+		phy@0 {
+			compatible = "ethernet-phy-id0283.bc91";
+			reg = <0x0>;
+		};
+	};
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	adt75@48 {
+		reg = <0x48>;
+		compatible = "adi,adt75";
+	};
+};
+
+&gpio {
+	gpio_overrides: gpio_overrides {
+		pin-13-reset-high {
+			pins = "gpio27";
+			function = "gpio_out";
+			bias-pull-up;
+			output-high;
+			export;
+		};
+	};
+};
+
+&{/} {
+	#include <dt-bindings/gpio/gpio.h>
+
+	one-bit-adc-dac {
+		compatible = "adi,one-bit-adc-dac";
+		label = "gpios";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		in-gpios = <&gpio 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		out-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+
+		channel@0 {
+			reg = <0>;
+			label = "EXT_BTN";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "EXT_LED";
+		};
+	};
+};

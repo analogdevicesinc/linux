@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2711";
+};
+
+&spi0 {
+	status = "okay";
+
+	cs-gpios = <&gpio 8 GPIO_ACTIVE_LOW>;
+
+	ad7091r8@0 {
+		compatible = "adi,ad7091r8";
+		reg = <0x0>;
+		spi-max-frequency = <1000000>;
+		adi,conversion-start-gpios = <&gpio 25 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&gpio 27 GPIO_ACTIVE_LOW>;
+		interrupts = <22 IRQ_TYPE_EDGE_RISING>;
+		interrupt-parent = <&gpio>;
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};

@@ -1,0 +1,104 @@
+/*
+ * Generic Device Tree overlay for the AD2S1210 resolver to digital converter
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			ad2s1210_clock: ad2s1210-clk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <8192000>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target = <&gpio>;
+		__overlay__ {
+			ad2s1210_resolution_pins: ad2s1210_resolution_pins {
+				brcm,pins = <23 22>;
+				brcm,function = <1>; /* out */
+			};
+			ad2s1210_sample_pins: ad2s1210_sample_pins {
+				brcm,pins = <18>;
+				brcm,function = <1>; /* out */
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&gpio>;
+
+		__overlay__ {
+			ad2s1210_mode_pins: ad2s1210_mode_pins {
+				brcm,pins = <25 24>;
+				brcm,function = <1>; /* out */
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&spi0>;
+		__overlay__ {
+			/* needed to avoid dtc warning */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad2s1210: ad2s1210@0 {
+				compatible = "adi,ad2s1210";
+				reg = <0>;
+				pinctrl-names = "default";
+				spi-max-frequency = <20000000>;
+				spi-cpha;
+				clocks = <&ad2s1210_clock>;
+				sample-gpios = <&gpio 18 GPIO_ACTIVE_LOW>;
+				resolution-gpios = <&gpio 23 0>, <&gpio 22 0>;
+				assigned-resolution-bits = <16>;
+			};
+		};
+	};
+
+	fragment@5 {
+		target = <&ad2s1210>;
+		__overlay__ {
+			pinctrl-0 = <&ad2s1210_resolution_pins>,
+				    <&ad2s1210_mode_pins>,
+				    <&ad2s1210_sample_pins>;
+			mode-gpios = <&gpio 25 0>, <&gpio 24 0>;
+		};
+	};
+
+	fragment@6 {
+		target = <&ad2s1210>;
+		__dormant__ {
+			pinctrl-0 = <&ad2s1210_resolution_pins>,
+				    <&ad2s1210_sample_pins>;
+			adi,fixed-mode = "config";
+		};
+	};
+
+	__overrides__ {
+		cs = <&ad2s1210>,"reg:0";
+		speed = <&ad2s1210>,"spi-max-frequency:0";
+		resolution = <&ad2s1210>,"assigned-resolution-bits:0";
+		fixed-mode = <0>,"-3-5+6";
+	};
+};

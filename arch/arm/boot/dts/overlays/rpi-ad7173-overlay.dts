@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2711";
+};
+
+&{/} {
+	/**
+	 * This defines the fixed 5V voltage available from the rpi board.
+	 * If connected to the AVDD input of the ADC and referenced in the
+	 * avdd-supply property of the ADC node, it can be used as a channel
+	 * reference.
+	 *
+	 * Neither this node, nor the avdd-supply property are required.
+	 */
+	rpi_5V_supply: power-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "power";
+		regulator-always-on;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	adc@0 {
+		compatible = "adi,ad7173-8";
+		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "rdy";
+		interrupt-parent = <&gpio>;
+		spi-max-frequency = <1000000>;
+
+		/**
+		 * The presence of this property allows channels to use
+		 * adi,reference-select = <avdd>;
+		 *
+		 * Similarly, the presence of the properties vref-supply,
+		 * vref2-supply allow different channel references to be used
+		 * than the internal 2.5V reference.
+		 */
+		avdd-supply = <&rpi_5V_supply>;
+
+		channel@0 {
+			reg = <0>;
+			bipolar;
+			diff-channels = <0 1>;
+			adi,reference-select = "avdd";
+		};
+		/**
+		 * This channel is a single-ended channel, and assumes that
+		 * the AIN3 is connected to a fixed voltage.
+		 */
+		channel@1 {
+			reg = <1>;
+			bipolar;
+			single-channel = <2>;
+			common-mode-channel = <3>;
+		};
+		channel@2 {
+			reg = <2>;
+			diff-channels = <4 5>;
+			adi,bipolar;
+		};
+		channel@3 {
+			reg = <3>;
+			diff-channels = <6 7>;
+			adi,bipolar;
+		};
+		channel@4 {
+			reg = <4>;
+			diff-channels = <8 9>;
+			adi,bipolar;
+		};
+		channel@5 {
+			reg = <5>;
+			diff-channels = <10 11>;
+			adi,bipolar;
+		};
+		channel@6 {
+			reg = <6>;
+			diff-channels = <12 13>;
+			adi,bipolar;
+		};
+		channel@7 {
+			reg = <7>;
+			diff-channels = <14 15>;
+			adi,bipolar;
+		};
+		/**
+		 * The following example channel definition is valid only for
+		 * ad4111/2 and defines a current channel using inputs IN0+/IN0-
+		channel@x {
+			reg = <x>;
+			single-channel = <0>;
+			adi,current-channel;
+		};
+		*/
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
