@@ -1325,6 +1325,7 @@ static inline void get_page(struct page *page)
 	struct folio *folio = page_folio(page);
 	if (WARN_ON_ONCE(folio_test_slab(folio)))
 		return;
+	WARN_ON_ONCE(folio_test_large_kmalloc(folio));
 	folio_get(folio);
 }
 
