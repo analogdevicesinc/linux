@@ -415,6 +415,7 @@ static int vf_get_ggtt_info(struct xe_gt *gt)
 	xe_gt_sriov_dbg_verbose(gt, "GGTT %#llx-%#llx = %lluK\n",
 				start, start + size - 1, size / SZ_1K);
 
+	config->ggtt_shift = start - (s64)config->ggtt_base;
 	config->ggtt_base = start;
 	config->ggtt_size = size;
 
@@ -560,35 +561,61 @@ u64 xe_gt_sriov_vf_lmem(struct xe_gt *gt)
 	return gt->sriov.vf.self_config.lmem_size;
 }
 
-static struct xe_ggtt_node *
-vf_balloon_ggtt_node(struct xe_ggtt *ggtt, u64 start, u64 end)
+/**
+ * xe_gt_sriov_vf_ggtt_shift - Return shift in GGTT range due to VF migration
+ * @gt: the &xe_gt struct instance
+ *
+ * This function is for VF use only.
+ *
+ * Return: The shift value; could be negative
+ */
+s64 xe_gt_sriov_vf_ggtt_shift(struct xe_gt *gt)
 {
-	struct xe_ggtt_node *node;
-	int err;
+	struct xe_gt_sriov_vf_selfconfig *config = &gt->sriov.vf.self_config;
 
-	node = xe_ggtt_node_init(ggtt);
-	if (IS_ERR(node))
-		return node;
+	xe_gt_assert(gt, IS_SRIOV_VF(gt_to_xe(gt)));
+	xe_gt_assert(gt, !xe_gt_is_media_type(gt));
 
-	err = xe_ggtt_node_insert_balloon(node, start, end);
-	if (err) {
-		xe_ggtt_node_fini(node);
-		return ERR_PTR(err);
-	}
-
-	return node;
+	return config->ggtt_shift;
 }
 
-static int vf_balloon_ggtt(struct xe_gt *gt)
+static int vf_init_ggtt_balloons(struct xe_gt *gt)
+{
+	struct xe_tile *tile = gt_to_tile(gt);
+	struct xe_ggtt *ggtt = tile->mem.ggtt;
+
+	xe_gt_assert(gt, IS_SRIOV_VF(gt_to_xe(gt)));
+	xe_gt_assert(gt, !xe_gt_is_media_type(gt));
+
+	tile->sriov.vf.ggtt_balloon[0] = xe_ggtt_node_init(ggtt);
+	if (IS_ERR(tile->sriov.vf.ggtt_balloon[0]))
+		return PTR_ERR(tile->sriov.vf.ggtt_balloon[0]);
+
+	tile->sriov.vf.ggtt_balloon[1] = xe_ggtt_node_init(ggtt);
+	if (IS_ERR(tile->sriov.vf.ggtt_balloon[1])) {
+		xe_ggtt_node_fini(tile->sriov.vf.ggtt_balloon[0]);
+		return PTR_ERR(tile->sriov.vf.ggtt_balloon[1]);
+	}
+
+	return 0;
+}
+
+/**
+ * xe_gt_sriov_vf_balloon_ggtt_locked - Insert balloon nodes to limit used GGTT address range.
+ * @gt: the &xe_gt struct instance
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_gt_sriov_vf_balloon_ggtt_locked(struct xe_gt *gt)
 {
 	struct xe_gt_sriov_vf_selfconfig *config = &gt->sriov.vf.self_config;
 	struct xe_tile *tile = gt_to_tile(gt);
-	struct xe_ggtt *ggtt = tile->mem.ggtt;
 	struct xe_device *xe = gt_to_xe(gt);
 	u64 start, end;
+	int err;
 
 	xe_gt_assert(gt, IS_SRIOV_VF(xe));
 	xe_gt_assert(gt, !xe_gt_is_media_type(gt));
+	lockdep_assert_held(&tile->mem.ggtt->lock);
 
 	if (!config->ggtt_size)
 		return -ENODATA;
@@ -611,31 +638,77 @@ static int vf_balloon_ggtt(struct xe_gt *gt)
 	start = xe_wopcm_size(xe);
 	end = config->ggtt_base;
 	if (end != start) {
-		tile->sriov.vf.ggtt_balloon[0] = vf_balloon_ggtt_node(ggtt, start, end);
-		if (IS_ERR(tile->sriov.vf.ggtt_balloon[0]))
-			return PTR_ERR(tile->sriov.vf.ggtt_balloon[0]);
+		err = xe_ggtt_node_insert_balloon_locked(tile->sriov.vf.ggtt_balloon[0],
+							 start, end);
+		if (err)
+			return err;
 	}
 
 	start = config->ggtt_base + config->ggtt_size;
 	end = GUC_GGTT_TOP;
 	if (end != start) {
-		tile->sriov.vf.ggtt_balloon[1] = vf_balloon_ggtt_node(ggtt, start, end);
-		if (IS_ERR(tile->sriov.vf.ggtt_balloon[1])) {
-			xe_ggtt_node_remove_balloon(tile->sriov.vf.ggtt_balloon[0]);
-			return PTR_ERR(tile->sriov.vf.ggtt_balloon[1]);
+		err = xe_ggtt_node_insert_balloon_locked(tile->sriov.vf.ggtt_balloon[1],
+							 start, end);
+		if (err) {
+			xe_ggtt_node_remove_balloon_locked(tile->sriov.vf.ggtt_balloon[0]);
+			return err;
 		}
 	}
 
 	return 0;
 }
 
-static void deballoon_ggtt(struct drm_device *drm, void *arg)
+static int vf_balloon_ggtt(struct xe_gt *gt)
 {
-	struct xe_tile *tile = arg;
+	struct xe_ggtt *ggtt = gt_to_tile(gt)->mem.ggtt;
+	int err;
+
+	mutex_lock(&ggtt->lock);
+	err = xe_gt_sriov_vf_balloon_ggtt_locked(gt);
+	mutex_unlock(&ggtt->lock);
+
+	return err;
+}
+
+/**
+ * xe_gt_sriov_vf_deballoon_ggtt_locked - Remove balloon nodes.
+ * @gt: the &xe_gt struct instance
+ */
+void xe_gt_sriov_vf_deballoon_ggtt_locked(struct xe_gt *gt)
+{
+	struct xe_tile *tile = gt_to_tile(gt);
 
 	xe_tile_assert(tile, IS_SRIOV_VF(tile_to_xe(tile)));
-	xe_ggtt_node_remove_balloon(tile->sriov.vf.ggtt_balloon[1]);
-	xe_ggtt_node_remove_balloon(tile->sriov.vf.ggtt_balloon[0]);
+	xe_ggtt_node_remove_balloon_locked(tile->sriov.vf.ggtt_balloon[1]);
+	xe_ggtt_node_remove_balloon_locked(tile->sriov.vf.ggtt_balloon[0]);
+}
+
+static void vf_deballoon_ggtt(struct xe_gt *gt)
+{
+	struct xe_tile *tile = gt_to_tile(gt);
+
+	mutex_lock(&tile->mem.ggtt->lock);
+	xe_gt_sriov_vf_deballoon_ggtt_locked(gt);
+	mutex_unlock(&tile->mem.ggtt->lock);
+}
+
+static void vf_fini_ggtt_balloons(struct xe_gt *gt)
+{
+	struct xe_tile *tile = gt_to_tile(gt);
+
+	xe_gt_assert(gt, IS_SRIOV_VF(gt_to_xe(gt)));
+	xe_gt_assert(gt, !xe_gt_is_media_type(gt));
+
+	xe_ggtt_node_fini(tile->sriov.vf.ggtt_balloon[1]);
+	xe_ggtt_node_fini(tile->sriov.vf.ggtt_balloon[0]);
+}
+
+static void cleanup_ggtt(struct drm_device *drm, void *arg)
+{
+	struct xe_gt *gt = arg;
+
+	vf_deballoon_ggtt(gt);
+	vf_fini_ggtt_balloons(gt);
 }
 
 /**
@@ -655,11 +728,17 @@ int xe_gt_sriov_vf_prepare_ggtt(struct xe_gt *gt)
 	if (xe_gt_is_media_type(gt))
 		return 0;
 
-	err = vf_balloon_ggtt(gt);
+	err = vf_init_ggtt_balloons(gt);
 	if (err)
 		return err;
 
-	return drmm_add_action_or_reset(&xe->drm, deballoon_ggtt, tile);
+	err = vf_balloon_ggtt(gt);
+	if (err) {
+		vf_fini_ggtt_balloons(gt);
+		return err;
+	}
+
+	return drmm_add_action_or_reset(&xe->drm, cleanup_ggtt, gt);
 }
 
 static int relay_action_handshake(struct xe_gt *gt, u32 *major, u32 *minor)
@@ -755,6 +834,89 @@ int xe_gt_sriov_vf_connect(struct xe_gt *gt)
 failed:
 	xe_gt_sriov_err(gt, "Failed to get version info (%pe)\n", ERR_PTR(err));
 	return err;
+}
+
+/**
+ * DOC: GGTT nodes shifting during VF post-migration recovery
+ *
+ * The first fixup applied to the VF KMD structures as part of post-migration
+ * recovery is shifting nodes within &xe_ggtt instance. The nodes are moved
+ * from range previously assigned to this VF, into newly provisioned area.
+ * The changes include balloons, which are resized accordingly.
+ *
+ * The balloon nodes are there to eliminate unavailable ranges from use: one
+ * reserves the GGTT area below the range for current VF, and another one
+ * reserves area above.
+ *
+ * Below is a GGTT layout of example VF, with a certain address range assigned to
+ * said VF, and inaccessible areas above and below:
+ *
+ *  0                                                                        4GiB
+ *  |<--------------------------- Total GGTT size ----------------------------->|
+ *      WOPCM                                                         GUC_TOP
+ *      |<-------------- Area mappable by xe_ggtt instance ---------------->|
+ *
+ *  +---+---------------------------------+----------+----------------------+---+
+ *  |\\\|/////////////////////////////////|  VF mem  |//////////////////////|\\\|
+ *  +---+---------------------------------+----------+----------------------+---+
+ *
+ * Hardware enforced access rules before migration:
+ *
+ *  |<------- inaccessible for VF ------->|<VF owned>|<-- inaccessible for VF ->|
+ *
+ * GGTT nodes used for tracking allocations:
+ *
+ *      |<---------- balloon ------------>|<- nodes->|<----- balloon ------>|
+ *
+ * After the migration, GGTT area assigned to the VF might have shifted, either
+ * to lower or to higher address. But we expect the total size and extra areas to
+ * be identical, as migration can only happen between matching platforms.
+ * Below is an example of GGTT layout of the VF after migration. Content of the
+ * GGTT for VF has been moved to a new area, and we receive its address from GuC:
+ *
+ *  +---+----------------------+----------+---------------------------------+---+
+ *  |\\\|//////////////////////|  VF mem  |/////////////////////////////////|\\\|
+ *  +---+----------------------+----------+---------------------------------+---+
+ *
+ * Hardware enforced access rules after migration:
+ *
+ *  |<- inaccessible for VF -->|<VF owned>|<------- inaccessible for VF ------->|
+ *
+ * So the VF has a new slice of GGTT assigned, and during migration process, the
+ * memory content was copied to that new area. But the &xe_ggtt nodes are still
+ * tracking allocations using the old addresses. The nodes within VF owned area
+ * have to be shifted, and balloon nodes need to be resized to properly mask out
+ * areas not owned by the VF.
+ *
+ * Fixed &xe_ggtt nodes used for tracking allocations:
+ *
+ *     |<------ balloon ------>|<- nodes->|<----------- balloon ----------->|
+ *
+ * Due to use of GPU profiles, we do not expect the old and new GGTT ares to
+ * overlap; but our node shifting will fix addresses properly regardless.
+ */
+
+/**
+ * xe_gt_sriov_vf_fixup_ggtt_nodes - Shift GGTT allocations to match assigned range.
+ * @gt: the &xe_gt struct instance
+ * @shift: the shift value
+ *
+ * Since Global GTT is not virtualized, each VF has an assigned range
+ * within the global space. This range might have changed during migration,
+ * which requires all memory addresses pointing to GGTT to be shifted.
+ */
+void xe_gt_sriov_vf_fixup_ggtt_nodes(struct xe_gt *gt, s64 shift)
+{
+	struct xe_tile *tile = gt_to_tile(gt);
+	struct xe_ggtt *ggtt = tile->mem.ggtt;
+
+	xe_gt_assert(gt, !xe_gt_is_media_type(gt));
+
+	mutex_lock(&ggtt->lock);
+	xe_gt_sriov_vf_deballoon_ggtt_locked(gt);
+	xe_ggtt_shift_nodes_locked(ggtt, shift);
+	xe_gt_sriov_vf_balloon_ggtt_locked(gt);
+	mutex_unlock(&ggtt->lock);
 }
 
 /**
@@ -1042,6 +1204,8 @@ void xe_gt_sriov_vf_print_config(struct xe_gt *gt, struct drm_printer *p)
 
 	string_get_size(config->ggtt_size, 1, STRING_UNITS_2, buf, sizeof(buf));
 	drm_printf(p, "GGTT size:\t%llu (%s)\n", config->ggtt_size, buf);
+
+	drm_printf(p, "GGTT shift on last restore:\t%lld\n", config->ggtt_shift);
 
 	if (IS_DGFX(xe) && !xe_gt_is_media_type(gt)) {
 		string_get_size(config->lmem_size, 1, STRING_UNITS_2, buf, sizeof(buf));
