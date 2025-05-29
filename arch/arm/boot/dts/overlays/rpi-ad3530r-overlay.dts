@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the AD3530R DAC
+ *
+ * Copyright 2025 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+};
+
+&{/} {
+	vdd: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+
+	iovdd: fixedregulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "iovdd-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ad3530r: ad3530r@0 {
+		compatible = "adi,ad3530r";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vdd-supply = <&vdd>;
+		iovdd-supply = <&iovdd>;
+	};
+};

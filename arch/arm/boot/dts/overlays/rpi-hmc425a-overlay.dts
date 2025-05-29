@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2711";
+};
+
+&{/} {
+	#include <dt-bindings/gpio/gpio.h>
+
+	rpi_5V_supply: fixed-reg@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+	};
+
+	gpio_hmc425a: hmc425a {
+		compatible = "adi,hmc425a";
+		ctrl-gpios = <&gpio 25 GPIO_ACTIVE_HIGH>,
+			<&gpio 24 GPIO_ACTIVE_HIGH>,
+			<&gpio 23 GPIO_ACTIVE_HIGH>,
+			<&gpio 22 GPIO_ACTIVE_HIGH>,
+			<&gpio 27 GPIO_ACTIVE_HIGH>,
+			<&gpio 17 GPIO_ACTIVE_HIGH>;
+		vcc-supply = <&rpi_5V_supply>;
+	};
+};

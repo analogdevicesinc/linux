@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: (GPL-2.0+)
+/* Overlay for LTC2991
+ *
+ * Copyright 2023 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "bcrm, bcm2711";
+
+	vcc: regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ltc2991@48 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "adi,ltc2991";
+		reg = <0x48>;
+		vcc-supply = <&vcc>;
+
+		channel@2 {
+			reg = <0x2>;
+			shunt-resistor-micro-ohms = <100000>;
+		};
+
+		channel@3 {
+			reg = <0x3>;
+			adi,temperature-enable;
+		};
+	};
+};

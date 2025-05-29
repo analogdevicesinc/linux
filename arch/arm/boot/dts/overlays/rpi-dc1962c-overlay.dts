@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm, bcm2835";
+
+	fragment@0 {
+		target = <&i2c_arm>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			reg0: ltc3880@30 {
+				compatible = "lltc,ltc3880";
+				reg = <0x30>;
+				regulators {
+					vout0 {
+						regulator-name = "VOUT 0";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout1 {
+						regulator-name = "VOUT 1";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&i2c_arm>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			reg1: ltc2974@32 {
+				compatible = "lltc,ltc2974";
+				reg = <0x32>;
+				regulators {
+					vout0 {
+						regulator-name = "VOUT 2";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout1 {
+						regulator-name = "VOUT 3";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout2 {
+						regulator-name = "VOUT 4";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout3 {
+						regulator-name = "VOUT 5";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c_arm>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			reg2: ltc2977@33 {
+				compatible = "lltc,ltc2977";
+				reg = <0x33>;
+				regulators {
+					vout0 {
+						regulator-name = "VOUT 6";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout1 {
+						regulator-name = "VOUT 7";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout2 {
+						regulator-name = "VOUT 8";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout3 {
+						regulator-name = "VOUT 9";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout4 {
+						regulator-name = "VOUT 10";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout5 {
+						regulator-name = "VOUT 11";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout6 {
+						regulator-name = "VOUT 12";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+					vout7 {
+						regulator-name = "VOUT 13";
+						regulator-boot-on;
+						regulator-always-on;
+					};
+				};
+			};
+		};
+	};
+};

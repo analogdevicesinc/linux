@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spidev0>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target = <&gpio>;
+		__overlay__ {
+			adxl355_pins: adxl355_pins {
+				brcm,pins = <19>; // interrupt, Default to PMD-RPI-INTZ P1
+				brcm,function = <0>; // in
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			status = "okay";
+			#size-cells = <0>;
+
+			adxl355: adxl355@0 {
+				compatible = "adi,adxl355";
+				reg = <0>; //CS0 default
+				pinctrl-names = "default";
+				pinctrl-0 = <&adxl355_pins>;
+				spi-max-frequency = <1000000>;
+				interrupt-parent = <&gpio>;
+				interrupts = <19 IRQ_TYPE_EDGE_RISING>; //Default to PMD-RPI-INTZ P1
+				interrupt-names = "DRDY";
+			};
+		};
+	};
+
+	__overrides__ {
+			cs_pin	= <&adxl355>,"reg:0";
+			irq_gpio = <&adxl355>,"interrupts:0", <&adxl355_pins>,"brcm,pins:0";
+	};
+};
