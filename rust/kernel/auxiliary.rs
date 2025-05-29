@@ -236,7 +236,7 @@ impl Device {
     extern "C" fn release(dev: *mut bindings::device) {
         // SAFETY: By the type invariant `self.0.as_raw` is a pointer to the `struct device`
         // embedded in `struct auxiliary_device`.
-        let adev = unsafe { container_of!(dev, bindings::auxiliary_device, dev) }.cast_mut();
+        let adev = unsafe { container_of!(dev, bindings::auxiliary_device, dev) };
 
         // SAFETY: `adev` points to the memory that has been allocated in `Registration::new`, via
         // `KBox::new(Opaque::<bindings::auxiliary_device>::zeroed(), GFP_KERNEL)`.

@@ -270,7 +270,7 @@ impl<T: DriverObject> Object<T> {
 
     extern "C" fn free_callback(obj: *mut bindings::drm_gem_object) {
         // SAFETY: All of our objects are of type `Object<T>`.
-        let this = unsafe { crate::container_of!(obj, Self, obj) }.cast_mut();
+        let this = unsafe { crate::container_of!(obj, Self, obj) };
 
         // SAFETY: The C code only ever calls this callback with a valid pointer to a `struct
         // drm_gem_object`.
