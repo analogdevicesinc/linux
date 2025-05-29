@@ -47,7 +47,7 @@ properties:
     const: 2
 
   cache-sets:
-    const: 1024
+    enum: [1024, 2048]
 
   cache-size:
     enum: [131072, 262144, 524288, 1048576, 2097152]
