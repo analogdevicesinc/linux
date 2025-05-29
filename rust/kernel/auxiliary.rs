@@ -73,7 +73,9 @@ impl<T: Driver + 'static> Adapter<T> {
                 // Let the `struct auxiliary_device` own a reference of the driver's private data.
                 // SAFETY: By the type invariant `adev.as_raw` returns a valid pointer to a
                 // `struct auxiliary_device`.
-                unsafe { bindings::auxiliary_set_drvdata(adev.as_raw(), data.into_foreign()) };
+                unsafe {
+                    bindings::auxiliary_set_drvdata(adev.as_raw(), data.into_foreign().cast())
+                };
             }
             Err(err) => return Error::to_errno(err),
         }
@@ -89,7 +91,7 @@ impl<T: Driver + 'static> Adapter<T> {
         // SAFETY: `remove_callback` is only ever called after a successful call to
         // `probe_callback`, hence it's guaranteed that `ptr` points to a valid and initialized
         // `KBox<T>` pointer created through `KBox::into_foreign`.
-        drop(unsafe { KBox::<T>::from_foreign(ptr) });
+        drop(unsafe { KBox::<T>::from_foreign(ptr.cast()) });
     }
 }
 
