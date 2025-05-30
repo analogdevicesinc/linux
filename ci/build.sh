@@ -929,6 +929,63 @@ auto_set_kconfig() {
 	return 0
 }
 
+set_arch () {
+	local version_gcc=14
+	local version_llvm=19
+	local arch_gcc=("gcc_arm" "gcc_aarch64" "gcc_x86")
+	local arch_llvm=("llvm_x86")
+	local arch=( "${arch_llvm[@]}" "${arch_gcc[@]}")
+	local fail=false
+	arch_="\<${1}\>"
+	if [[ -z "$1" ]]; then
+		printf "missing architecture"
+		fail=true
+	elif [[ "${arch[@]}" =~ $arch_ ]]; then
+		unset CXX
+		unset LLVM
+		unset ARCH
+		unset CROSS_COMPILE
+
+		if [[ "${arch_gcc[@]}" =~ $arch_ ]]; then
+			export CXX=gcc-$version_gcc
+			case $1 in
+				gcc_arm)
+					export CROSS_COMPILE=arm-suse-linux-gnueabi-
+					export ARCH=arm
+					;;
+				gcc_aarch64)
+					export CROSS_COMPILE=aarch64-suse-linux-
+					export ARCH=arm64
+					;;
+				gcc_x86)
+					export ARCH=x86
+					;;
+			esac
+			which ${CROSS_COMPILE}${CXX} 1>/dev/null
+		elif [[ "${arch_llvm[@]}" =~ $arch_ ]]; then
+			export LLVM=-$version_llvm
+			case $1 in
+				llvm_x86)
+					export ARCH=x86
+					;;
+			esac
+			which ${CROSS_COMPILE}clang${LLVM} 1>/dev/null
+		fi
+	else
+		printf "unknown architecture '$1'"
+		fail=true
+	fi
+
+	if [[ "$fail" == "true" ]]; then
+		printf ", usage:\n"
+		echo "  set_arch <arch>"
+		echo "available architectures: "
+		echo "  ${arch[@]}"
+	else
+		printenv | grep -i '^LLVM=\|^CXX=\|^ARCH=\|^CROSS_COMPILE='
+	fi
+}
+
 set_step_warn () {
 	echo ; echo "step_warn_$1=true" >> "$GITHUB_ENV"
 }
