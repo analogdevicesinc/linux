@@ -300,7 +300,7 @@ static ssize_t adxcvr_prbs_counter_reset_store(struct device *dev,
 	bool reset;
 	int ret;
 
-	ret = strtobool(buf, &reset);
+	ret = kstrtobool(buf, &reset);
 	if (ret)
 		return ret;
 
@@ -353,7 +353,7 @@ static ssize_t adxcvr_prbs_error_inject_store(struct device *dev,
 	bool inject;
 	int ret;
 
-	ret = strtobool(buf, &inject);
+	ret = kstrtobool(buf, &inject);
 	if (ret)
 		return ret;
 
