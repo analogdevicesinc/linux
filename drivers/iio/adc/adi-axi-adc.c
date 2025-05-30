@@ -86,9 +86,12 @@
 
 #define ADI_AXI_REG_CONFIG_WR			0x0080
 #define ADI_AXI_REG_CONFIG_RD			0x0084
+#define   AD7606_RD_WR_READ_BIT			BIT(15)
+#define   AD7606_RD_WR_ADDRESS_MASK		GENMASK(14, 8)
+#define   AD7606_RD_WR_VALUE_MASK		GENMASK(7, 0)
 #define ADI_AXI_REG_CONFIG_CTRL			0x008c
-#define   ADI_AXI_REG_CONFIG_CTRL_READ		0x03
-#define   ADI_AXI_REG_CONFIG_CTRL_WRITE		0x01
+#define   AD7606_CONFIG_CTRL_READ		BIT(1)
+#define   AD7606_CONFIG_CTRL_ENABLE		BIT(0)
 
 #define ADI_AXI_ADC_MAX_IO_NUM_LANES		15
 
@@ -96,10 +99,6 @@
 	(ADI_AXI_REG_CHAN_CTRL_FMT_SIGNEXT |	\
 	 ADI_AXI_REG_CHAN_CTRL_FMT_EN |		\
 	 ADI_AXI_REG_CHAN_CTRL_ENABLE)
-
-#define ADI_AXI_REG_READ_BIT			0x8000
-#define ADI_AXI_REG_ADDRESS_MASK		0xff00
-#define ADI_AXI_REG_VALUE_MASK			0x00ff
 
 struct axi_adc_info {
 	unsigned int version;
@@ -414,13 +413,13 @@ static struct iio_buffer *axi_adc_request_buffer(struct iio_backend *back,
 	return iio_dmaengine_buffer_setup(st->dev, indio_dev, dma_name);
 }
 
-static int axi_adc_raw_write(struct iio_backend *back, u32 val)
+static int ad7606_raw_write(struct iio_backend *back, u32 val)
 {
 	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
 
 	regmap_write(st->regmap, ADI_AXI_REG_CONFIG_WR, val);
 	regmap_write(st->regmap, ADI_AXI_REG_CONFIG_CTRL,
-		     ADI_AXI_REG_CONFIG_CTRL_WRITE);
+		     AD7606_CONFIG_CTRL_ENABLE);
 	fsleep(100);
 	regmap_write(st->regmap, ADI_AXI_REG_CONFIG_CTRL, 0x00);
 	fsleep(100);
@@ -428,12 +427,12 @@ static int axi_adc_raw_write(struct iio_backend *back, u32 val)
 	return 0;
 }
 
-static int axi_adc_raw_read(struct iio_backend *back, u32 *val)
+static int ad7606_raw_read(struct iio_backend *back, u32 *val)
 {
 	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
 
 	regmap_write(st->regmap, ADI_AXI_REG_CONFIG_CTRL,
-		     ADI_AXI_REG_CONFIG_CTRL_READ);
+		     AD7606_CONFIG_CTRL_READ | AD7606_CONFIG_CTRL_ENABLE);
 	fsleep(100);
 	regmap_read(st->regmap, ADI_AXI_REG_CONFIG_RD, val);
 	regmap_write(st->regmap, ADI_AXI_REG_CONFIG_CTRL, 0x00);
@@ -445,23 +444,21 @@ static int axi_adc_raw_read(struct iio_backend *back, u32 *val)
 static int ad7606_bus_reg_read(struct iio_backend *back, u32 reg, u32 *val)
 {
 	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
-	int addr;
+	u32 addr, reg_val;
 
 	guard(mutex)(&st->lock);
 
-	/*
-	 * The address is written on the highest weight byte, and the MSB set
-	 * at 1 indicates a read operation.
-	 */
-	addr = FIELD_PREP(ADI_AXI_REG_ADDRESS_MASK, reg) | ADI_AXI_REG_READ_BIT;
-	axi_adc_raw_write(back, addr);
-	axi_adc_raw_read(back, val);
+	/* Sending read request places the ADC in register mode. */
+	addr = FIELD_PREP(AD7606_RD_WR_ADDRESS_MASK, reg) | AD7606_RD_WR_READ_BIT;
+	ad7606_raw_write(back, addr);
 
-	/* Register value is 8 bits. Remove address bits. */
-	*val &= ADI_AXI_REG_VALUE_MASK;
+	/* Then we can fetch the data from the previous request. */
+	ad7606_raw_read(back, &reg_val);
+
+	*val = FIELD_GET(AD7606_RD_WR_VALUE_MASK, reg_val);
 
 	/* Write 0x0 on the bus to get back to ADC mode */
-	axi_adc_raw_write(back, 0);
+	ad7606_raw_write(back, 0);
 
 	return 0;
 }
@@ -469,19 +466,19 @@ static int ad7606_bus_reg_read(struct iio_backend *back, u32 reg, u32 *val)
 static int ad7606_bus_reg_write(struct iio_backend *back, u32 reg, u32 val)
 {
 	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
-	u32 buf;
 
 	guard(mutex)(&st->lock);
 
-	/* Write any register to switch to register mode */
-	axi_adc_raw_write(back, 0xaf00);
+	/* Send read request for arbitrary register to enter register mode. */
+	ad7606_raw_write(back, FIELD_PREP(AD7606_RD_WR_ADDRESS_MASK, reg) |
+				AD7606_RD_WR_READ_BIT);
 
-	buf = FIELD_PREP(ADI_AXI_REG_ADDRESS_MASK, reg) |
-	      FIELD_PREP(ADI_AXI_REG_VALUE_MASK, val);
-	axi_adc_raw_write(back, buf);
+	/* Then write the actual data. */
+	ad7606_raw_write(back, FIELD_PREP(AD7606_RD_WR_ADDRESS_MASK, reg) |
+				FIELD_PREP(AD7606_RD_WR_VALUE_MASK, val));
 
-	/* Write 0x0 on the bus to get back to ADC mode */
-	axi_adc_raw_write(back, 0);
+	/* Write address 0x00 on the bus to get back to ADC mode. */
+	ad7606_raw_write(back, 0);
 
 	return 0;
 }
