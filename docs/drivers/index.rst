@@ -3,6 +3,7 @@ Drivers
 
 .. toctree::
    :maxdepth: 1
+   :glob:
 
-   adc/index
+   */index
 
