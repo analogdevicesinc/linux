@@ -217,7 +217,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
 	case MC_RUN:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -226,7 +226,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_RESET_OVR_CURR:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -235,7 +235,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_BREAK:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -244,7 +244,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_DIRECTION:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -253,7 +253,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_DELTA:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -276,7 +276,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_MATLAB:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -285,7 +285,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_CALIB_ADC:
-		ret = strtobool(buf, &setting);
+		ret = kstrtobool(buf, &setting);
 		if (ret < 0)
 			break;
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
