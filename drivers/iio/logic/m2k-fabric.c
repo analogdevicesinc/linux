@@ -268,7 +268,7 @@ static ssize_t m2k_fabric_user_supply_write(struct iio_dev *indio_dev,
 	bool state;
 	int ret;
 
-	ret = strtobool(buf, &state);
+	ret = kstrtobool(buf, &state);
 	if (ret)
 		return ret;
 
@@ -313,7 +313,7 @@ static ssize_t m2k_fabric_powerdown_write(struct iio_dev *indio_dev,
 	bool state;
 	int ret;
 
-	ret = strtobool(buf, &state);
+	ret = kstrtobool(buf, &state);
 	if (ret)
 		return ret;
 
