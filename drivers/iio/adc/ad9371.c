@@ -1185,7 +1185,7 @@ static ssize_t ad9371_phy_store(struct device *dev,
 		ret = ad9371_set_radio_state(phy, val);
 		break;
 	case AD9371_INIT_CAL:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -1210,7 +1210,7 @@ static ssize_t ad9371_phy_store(struct device *dev,
 		}
 		break;
 	case AD9371_LARGE_LO_STEP_CAL:
-		ret = strtobool(buf, &phy->large_freq_step_cal_en);
+		ret = kstrtobool(buf, &phy->large_freq_step_cal_en);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1625,7 +1625,7 @@ static ssize_t ad9371_phy_rx_write(struct iio_dev *indio_dev,
 
 		break;
 	case RX_QEC:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 
 		switch (chan->channel) {
 		case CHAN_RX1:
@@ -2007,7 +2007,7 @@ static ssize_t ad9371_phy_tx_write(struct iio_dev *indio_dev,
 	case TX_DPD:
 	case TX_CLGC:
 	case TX_VSWR:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -2026,7 +2026,7 @@ static ssize_t ad9371_phy_tx_write(struct iio_dev *indio_dev,
 
 		break;
 	case TX_DPD_ACT_EN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
