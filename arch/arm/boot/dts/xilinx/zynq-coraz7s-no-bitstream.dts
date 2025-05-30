@@ -7,12 +7,3 @@
 
 /dts-v1/;
 #include "zynq-coraz7s.dtsi"
-#include "zynq-coraz7s-iic.dtsi"
-#include "zynq-coraz7s-axi-sysid.dtsi"
-
-&axi_i2c_0 {
-	eeprom1: eeprom@50 {
-		compatible = "at24,24c02";
-		reg = <0x50>;
-	};
-};
