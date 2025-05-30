@@ -321,7 +321,7 @@ static ssize_t m2k_dac_write_dma_sync(struct device *dev,
 	bool val;
 	int ret;
 
-	ret = strtobool(buf, &val);
+	ret = kstrtobool(buf, &val);
 	if (ret < 0)
 		return ret;
 
@@ -353,7 +353,7 @@ static ssize_t m2k_dac_write_dma_sync_start(struct device *dev,
 	bool val;
 	int ret;
 
-	ret = strtobool(buf, &val);
+	ret = kstrtobool(buf, &val);
 	if (ret < 0)
 		return ret;
 
