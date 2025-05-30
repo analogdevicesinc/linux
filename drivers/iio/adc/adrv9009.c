@@ -1511,7 +1511,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 			return -EBUSY;
 		}
 
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -1574,7 +1574,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 			break;
 		}
 
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -1595,7 +1595,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 			return -EBUSY;
 		}
 
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 		ret = TALISE_setRadioCtlPinMode(phy->talDevice,
@@ -1958,7 +1958,7 @@ static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
 		adrv9009_set_radio_state(phy, RADIO_RESTORE_STATE);
 		break;
 	case FHM_ENABLE:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -2165,7 +2165,7 @@ static ssize_t adrv9009_phy_rx_write(struct iio_dev *indio_dev,
 	if (!phy->is_initialized)
 		return -EBUSY;
 
-	ret = strtobool(buf, &enable);
+	ret = kstrtobool(buf, &enable);
 	if (ret)
 		return ret;
 
@@ -2627,7 +2627,7 @@ static ssize_t adrv9009_phy_tx_write(struct iio_dev *indio_dev,
 	if (chan->channel > CHAN_TX2)
 		return -EINVAL;
 
-	ret = strtobool(buf, &enable);
+	ret = kstrtobool(buf, &enable);
 	if (ret)
 		return ret;
 

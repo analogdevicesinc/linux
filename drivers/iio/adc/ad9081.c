@@ -1437,7 +1437,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			phy->dac_cache.chan_gain[fddc_num] = readin_32;
 		break;
 	case CDDC_6DB_GAIN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -1449,7 +1449,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		ret = 0;
 		break;
 	case FDDC_6DB_GAIN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 		ret = adi_ad9081_adc_ddc_fine_gain_set(
@@ -1460,7 +1460,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		ret = 0;
 		break;
 	case DAC_MAIN_TEST_TONE_EN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -1470,7 +1470,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			phy->dac_cache.main_test_tone_en[fddc_num] = enable;
 		break;
 	case DAC_CHAN_TEST_TONE_EN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -1570,7 +1570,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			ret = -EOPNOTSUPP;
 			break;
 		}
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
 
@@ -2720,7 +2720,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 			break;
 		}
 
-		ret = strtobool(buf, &bres);
+		ret = kstrtobool(buf, &bres);
 		if (ret < 0) {
 			ret = -EINVAL;
 			break;
@@ -2756,7 +2756,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 			break;
 		}
 
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -2774,7 +2774,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 
 		break;
 	case AD9081_POWER_DOWN:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 		ret = ad9081_set_power_state(phy, !enable);

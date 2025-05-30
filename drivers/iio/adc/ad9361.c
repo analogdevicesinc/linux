@@ -6879,7 +6879,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 			ret = -EINVAL;
 		break;
 	case AD9361_FIR_TRX_ENABLE:
-		ret = strtobool(buf, &res);
+		ret = kstrtobool(buf, &res);
 		if (ret < 0)
 			break;
 
@@ -6897,7 +6897,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 
 		break;
 	case AD9361_FIR_RX_ENABLE:
-		ret = strtobool(buf, &res);
+		ret = kstrtobool(buf, &res);
 		if (ret < 0)
 			break;
 
@@ -6913,7 +6913,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 
 		break;
 	case AD9361_FIR_TX_ENABLE:
-		ret = strtobool(buf, &res);
+		ret = kstrtobool(buf, &res);
 		if (ret < 0)
 			break;
 
@@ -6998,21 +6998,21 @@ static ssize_t ad9361_phy_store(struct device *dev,
 			ret = -EINVAL;
 		break;
 	case AD9361_BBDC_OFFS_ENABLE:
-		ret = strtobool(buf, &st->bbdc_track_en);
+		ret = kstrtobool(buf, &st->bbdc_track_en);
 		if (ret < 0)
 			break;
 		ret = ad9361_tracking_control(phy, st->bbdc_track_en,
 				st->rfdc_track_en, st->quad_track_en);
 		break;
 	case AD9361_RFDC_OFFS_ENABLE:
-		ret = strtobool(buf, &st->rfdc_track_en);
+		ret = kstrtobool(buf, &st->rfdc_track_en);
 		if (ret < 0)
 			break;
 		ret = ad9361_tracking_control(phy, st->bbdc_track_en,
 				st->rfdc_track_en, st->quad_track_en);
 		break;
 	case AD9361_QUAD_ENABLE:
-		ret = strtobool(buf, &st->quad_track_en);
+		ret = kstrtobool(buf, &st->quad_track_en);
 		if (ret < 0)
 			break;
 		ret = ad9361_tracking_control(phy, st->bbdc_track_en,
@@ -7432,7 +7432,7 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 			break;
 		case LOEXT_EXTERNAL:
 		case LOEXT_PD:
-			ret = strtobool(buf, &res);
+			ret = kstrtobool(buf, &res);
 			if (ret < 0)
 				return ret;
 			break;

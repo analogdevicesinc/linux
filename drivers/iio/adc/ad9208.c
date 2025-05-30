@@ -533,7 +533,7 @@ static ssize_t ad9208_ext_info_write(struct iio_dev *indio_dev,
 	bool enable;
 	int ret;
 
-	ret = strtobool(buf, &enable);
+	ret = kstrtobool(buf, &enable);
 	if (ret)
 		return ret;
 

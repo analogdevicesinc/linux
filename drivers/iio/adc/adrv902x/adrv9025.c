@@ -327,7 +327,7 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 
 	switch ((u32)this_attr->address & 0xFF) {
 	case ADRV9025_INIT_CAL:
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -375,7 +375,7 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 			break;
 		}
 
-		ret = strtobool(buf, &enable);
+		ret = kstrtobool(buf, &enable);
 		if (ret)
 			break;
 
@@ -752,7 +752,7 @@ static ssize_t adrv9025_phy_rx_write(struct iio_dev *indio_dev,
 	u64 mask;
 	u16 mask16;
 
-	ret = strtobool(buf, &enable);
+	ret = kstrtobool(buf, &enable);
 	if (ret)
 		return ret;
 
@@ -930,7 +930,7 @@ static ssize_t adrv9025_phy_tx_write(struct iio_dev *indio_dev,
 	if (chan->channel > CHAN_TX4)
 		return -EINVAL;
 
-	ret = strtobool(buf, &enable);
+	ret = kstrtobool(buf, &enable);
 	if (ret)
 		return ret;
 
