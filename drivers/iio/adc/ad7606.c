@@ -371,7 +371,7 @@ static int ad7606_chan_calib_gain_setup(struct iio_dev *indio_dev)
 	int ret;
 
 	device_for_each_child_node_scoped(dev, child) {
-		u32 reg, r_gain;
+		u32 reg;
 
 		ret = fwnode_property_read_u32(child, "reg", &reg);
 		if (ret)
@@ -379,18 +379,17 @@ static int ad7606_chan_calib_gain_setup(struct iio_dev *indio_dev)
 
 		/* Chan reg is a 1-based index. */
 		if (reg < 1 || reg > num_channels)
-			return ret;
-
-		r_gain = 0;
-		ret = fwnode_property_read_u32(child, "adi,rfilter-ohms",
-					       &r_gain);
-		if (r_gain > AD7606_CALIB_GAIN_MAX)
 			return -EINVAL;
 
-		ret = st->bops->reg_write(st, AD7606_CALIB_GAIN(reg - 1),
-			DIV_ROUND_CLOSEST(r_gain, AD7606_CALIB_GAIN_STEP));
+		ret = fwnode_property_read_u32(child, "adi,rfilter-ohms",
+					       &st->r_filter_ohm[reg - 1]);
+		if (ret == -EINVAL)
+			continue;
 		if (ret)
 			return ret;
+
+		if (st->r_filter_ohm[reg - 1] > AD7606_CALIB_GAIN_MAX)
+			return -EINVAL;
 	}
 
 	return 0;
@@ -1486,7 +1485,7 @@ static int ad7606_probe_channels(struct iio_dev *indio_dev)
 		channels[i] = (struct iio_chan_spec)IIO_CHAN_SOFT_TIMESTAMP(i);
 
 	/* Setting up gain calibration for all channels. */
-	if (st->sw_mode_en && st->chip_info->calib_offset_avail) {
+	if (st->sw_mode_en && st->chip_info->calib_gain_setup_cb) {
 		ret = st->chip_info->calib_gain_setup_cb(indio_dev);
 		if (ret)
 			return ret;
@@ -1507,7 +1506,7 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 		 const struct ad7606_bus_ops *bops)
 {
 	struct ad7606_state *st;
-	int ret;
+	int ret, i;
 	struct iio_dev *indio_dev;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
@@ -1676,6 +1675,16 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 	if (st->sw_mode_en || st->offload_en) {
 		indio_dev->info = &ad7606_info_sw_mode;
 		st->chip_info->sw_setup_cb(indio_dev);
+	}
+
+	if (st->sw_mode_en && st->chip_info->calib_gain_setup_cb) {
+		for (i = 0; i < st->chip_info->num_adc_channels; i++) {
+			ret = st->bops->reg_write(st, AD7606_CALIB_GAIN(i),
+				DIV_ROUND_CLOSEST(st->r_filter_ohm[i],
+						  AD7606_CALIB_GAIN_STEP));
+			if (ret)
+				return ret;
+		}
 	}
 
 	return devm_iio_device_register(dev, indio_dev);

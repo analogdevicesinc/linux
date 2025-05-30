@@ -134,6 +134,7 @@ struct ad7606_chan_scale {
  * @data:		buffer for reading data from the device
  * @offload_en:		SPI offload enabled
  * @bus_data:		bus-specific variables
+ * @r_filter_ohm:	Per-channel R_FILTER value in ohms for gain calibration
  * @d16:		be16 buffer for reading data from the device
  */
 struct ad7606_state {
@@ -163,6 +164,7 @@ struct ad7606_state {
 
 	bool				offload_en;
 	void				*bus_data;
+	u32				r_filter_ohm[AD760X_MAX_CHANNELS];
 
 	/*
 	 * DMA (thus cache coherency maintenance) may require the
