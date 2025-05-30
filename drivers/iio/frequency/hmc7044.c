@@ -533,7 +533,7 @@ static ssize_t hmc7044_store(struct device *dev,
 	int ret;
 	u32 val, write_val;
 
-	ret = strtobool(buf, &state);
+	ret = kstrtobool(buf, &state);
 	if (ret < 0)
 		return ret;
 
