@@ -24,6 +24,12 @@ needs_extensions = {
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 source_suffix = '.rst'
 
+# -- External docs configuration ----------------------------------------------
+
+interref_repos = [
+    'documentation',
+]
+
 # -- Options for HTML output --------------------------------------------------
 
 html_theme = 'harmonic'
