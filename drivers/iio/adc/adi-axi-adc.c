@@ -457,6 +457,9 @@ static int ad7606_bus_reg_read(struct iio_backend *back, u32 reg, u32 *val)
 	axi_adc_raw_write(back, addr);
 	axi_adc_raw_read(back, val);
 
+	/* Register value is 8 bits. Remove address bits. */
+	*val &= ADI_AXI_REG_VALUE_MASK;
+
 	/* Write 0x0 on the bus to get back to ADC mode */
 	axi_adc_raw_write(back, 0);
 
