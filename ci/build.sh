@@ -14,7 +14,7 @@ check_checkpatch() {
 		git --no-pager show --format="%h %s" "$commit" --name-only
 		# Skip empty commits, assume cover letter
 		# and those only touching non-upstream directories .github ci and docs
-		local files=$(git diff --diff-filter=ACM --name-only $commit~..$commit | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
+		local files=$(git diff --diff-filter=ACMR --name-only $commit~..$commit | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
 		if [[ -z "$files" ]]; then
 			echo "empty, skipped"
 			continue
@@ -330,7 +330,7 @@ compile_devicetree() {
 
 	echo "compile devicetree on range $base_sha..$head_sha"
 
-	local dtsi_files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dtsi$ || true)
+	local dtsi_files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dtsi$ || true)
 	if [[ ! -z "$dtsi_files" ]]; then
 		echo "collecting dts files that include dtsi"
 		while read file; do
@@ -348,7 +348,7 @@ compile_devicetree() {
 		dts_files=${dts_files::-1}
 	fi
 
-	dts_files+=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
+	dts_files+=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
 	if [[ -z "$dts_files" ]]; then
 		echo "no dts on range, skipped"
 		return $err
@@ -641,7 +641,7 @@ compile_kernel_smatch() {
 }
 
 compile_gcc_fanalyzer () {
-	local files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local fail=0
@@ -728,7 +728,7 @@ compile_gcc_fanalyzer () {
 }
 
 compile_clang_analyzer () {
-	local files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local fail=0
@@ -823,7 +823,7 @@ compile_clang_analyzer () {
 }
 
 assert_compiled () {
-	local files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
 	local fail=0
 
 	echo "assert sources were compiled on range $base_sha..$head_sha"
@@ -862,7 +862,7 @@ apply_prerun() {
 	# e.g. manipulate the source code depending on run conditons or target.
 	local coccis=$(ls ci/prerun/*.cocci 2>/dev/null)
 	local bashes=$(ls ci/prerun/*.sh 2>/dev/null)
-	local files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
 
 	echo "apply_prerun on range $base_sha..$head_sha"
 
@@ -891,13 +891,13 @@ apply_prerun() {
 }
 
 touch_files () {
-	local files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
 
 	touch $files
 }
 
 auto_set_kconfig() {
-	local files=$(git diff --diff-filter=ACM --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
 	declare -a o_files
 
 	echo "get_kconfig on range $base_sha..$head_sha"
