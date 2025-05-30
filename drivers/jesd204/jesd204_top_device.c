@@ -251,7 +251,7 @@ static ssize_t jesd204_fsm_ctrl_store(struct device *dev,
 	if (!tdev->jdev)
 		return -EOPNOTSUPP;
 
-	ret = strtobool(buf, &enable);
+	ret = kstrtobool(buf, &enable);
 	if (ret)
 		return ret;
 
@@ -281,7 +281,7 @@ static ssize_t jesd204_fsm_resume_store(struct device *dev,
 	if (!tdev->jdev)
 		return -EOPNOTSUPP;
 
-	ret = strtobool(buf, &enable);
+	ret = kstrtobool(buf, &enable);
 	if (ret)
 		return ret;
 
