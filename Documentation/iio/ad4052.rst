@@ -23,7 +23,8 @@ Wiring modes
 The ADC uses SPI 4-wire mode, and contain two programmable GPIOs and a CNV pin.
 
 The CNV pin is exposed as the ``cnv-gpios`` and triggers an ADC conversion. GP1
-is ADC conversion ready signal exposed as a interrupt.
+is ADC conversion ready signal and GP0 Threshold event interrupt, both exposed
+as interrupts.
 
 Omit ``cnv-gpios`` and tie CNV and CS together to use the rising edge of the CS
 as the CNV signal.
@@ -31,6 +32,7 @@ as the CNV signal.
 The two programmable GPIOS are optional and have a role assigned if present in
 the devicetree ``interrupt-names`` property:
 
+- GP0: Is assigned the role of Threshold Either signal.
 - GP1: Is assigned the role of Data Ready signal.
 
 Device attributes
@@ -68,14 +70,22 @@ The ADC contains only one channel with following attributes:
 Interrupts
 ==========
 
-The ``interrupt-names`` ``gp1`` sets the role of Data Ready signal. If it is
-not, the driver will not wait for the data ready assertion, and will result in
-reading a sample before it's ready, particularly in oversampling mode.
+The ``interrupt-names`` ``gp0`` entry sets the role of Threshold signal, and
+entry ``gp1`` sets the role of Data Ready signal. If it is not, the driver will
+not wait for the data ready assertion, and will result in reading a sample
+before it's ready, particularly in oversampling mode.
+
+A second element in the ``interrupt-names`` property sets which GPIO has the
+role of the threshold event. If not provided, the IIO events attributes are
+still present, but no IIO Event will ever be triggered. This allows to use the
+GPIO output to trigger other resource.
 
 Low-power mode
 ==============
 
-The device enters low-power mode on idle to save power.
+The device enters low-power mode on idle to save power. Enabling an event puts
+the device out of the low-power since the ADC autonomously samples to assert
+the event condition.
 
 SPI offload support
 ===================
@@ -85,3 +95,36 @@ To be able to achieve the maximum sample rate, the driver can be used with the
 
 .. _AXI SPI Engine: http://analogdevicesinc.github.io/hdl/projects/ad4052_ardz/index.html
 
+Threshold events
+================
+
+The ADC supports a monitoring mode to raise threshold events. The driver
+supports a single interrupt for both rising and falling readings.
+
+The feature is enabled/disabled by setting ``thresh_either_en``. During monitor
+mode, the device continuously operates in autonomous mode until put back in
+configuration mode, due to this, the device returns busy until the feature is
+disabled.
+
+The following event attributes are available:
+
+.. list-table:: Event attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``sampling_frequency``
+     - Frequency used in the monitoring mode, sets the device internal sample
+       rate when the mode is activated.
+   * - ``sampling_frequency_available``
+     - List of available sample rates.
+   * - ``thresh_either_en``
+     - Enable monitoring mode.
+   * - ``thresh_falling_hysteresis``
+     - Set the hysteresis value for the minimum threshold.
+   * - ``thresh_falling_value``
+     - Set the minimum threshold value.
+   * - ``thresh_rising_hysteresis``
+     - Set the hysteresis value for the maximum threshold.
+   * - ``thresh_rising_value``
+     - Set the maximum threshold value.
