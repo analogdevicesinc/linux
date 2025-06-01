@@ -74,10 +74,17 @@ data ready signal. If not present, defaults as ``gp0``. If not set in the
 assertion, and will result in reading a sample before it's ready, particularly
 in oversampling mode.
 
+A second element in the ``interrupt-names`` property sets which GPIO has the
+role of the threshold event. If not provided, the IIO events attributes are
+still present, but no IIO Event will ever be triggered. This allows to use the
+GPIO output to trigger other resource.
+
 Low-power mode
 ==============
 
-The device enters low-power mode on idle to save power.
+The device enters low-power mode on idle to save power. Enabling an event puts
+the device out of the low-power since the ADC autonomously samples to assert
+the event condition.
 
 SPI offload support
 ===================
@@ -96,3 +103,37 @@ When SPI offload is being used, additional attributes are present:
      - Description
    * - ``in_voltage_sampling_frequency``
      - Set the sampling frequency.
+
+Threshold events
+================
+
+The ADC supports a monitoring mode to raise threshold events. The driver
+supports a single interrupt for both rising and falling readings.
+
+The feature is enabled/disabled by setting ``thresh_either_en``. During monitor
+mode, the device continuously operates in autonomous mode until put back in
+configuration mode, due to this, the device returns busy until the feature is
+disabled.
+
+The following event attributes are available:
+
+.. list-table:: Event attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``sampling_frequency``
+     - Frequency used in the monitoring mode, sets the device internal sample
+       rate when the mode is activated.
+   * - ``sampling_frequency_available``
+     - List of available sample rates.
+   * - ``thresh_either_en``
+     - Enable monitoring mode.
+   * - ``thresh_falling_hysteresis``
+     - Set the hysteresis value for the minimum threshold.
+   * - ``thresh_falling_value``
+     - Set the minimum threshold value.
+   * - ``thresh_rising_hysteresis``
+     - Set the hysteresis value for the maximum threshold.
+   * - ``thresh_rising_value``
+     - Set the maximum threshold value.
