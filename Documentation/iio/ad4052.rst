@@ -23,7 +23,7 @@ Wiring modes
 The ADC uses SPI 4-wire mode, and contain two programmable GPIOs and a CNV pin.
 
 The CNV pin is exposed as the ``cnv-gpios`` and triggers an ADC conversion. GP1
-is ADC conversion ready signal.
+is ADC conversion ready signal exposed as a interrupt.
 
 Omit ``cnv-gpios`` and tie CNV and CS together to use the rising edge of the CS
 as the CNV signal.
@@ -68,11 +68,20 @@ The ADC contains only one channel with following attributes:
 Interrupts
 ==========
 
-The ``interrupt-names`` ``gp1`` entry sets the role of Data Ready signal. If it
-is not, the driver will not wait for the data ready assertion, and will result
-in reading a sample before it's ready, particularly in oversampling mode.
+The ``interrupt-names`` ``gp1`` sets the role of Data Ready signal. If it is
+not, the driver will not wait for the data ready assertion, and will result in
+reading a sample before it's ready, particularly in oversampling mode.
 
 Low-power mode
 ==============
 
 The device enters low-power mode on idle to save power.
+
+SPI offload support
+===================
+
+To be able to achieve the maximum sample rate, the driver can be used with the
+`AXI SPI Engine`_ to provide SPI offload support.
+
+.. _AXI SPI Engine: http://analogdevicesinc.github.io/hdl/projects/ad4052_ardz/index.html
+
