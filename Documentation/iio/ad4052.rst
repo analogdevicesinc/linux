@@ -49,6 +49,8 @@ The ADC contains only one channel with following attributes:
    * - ``in_voltage_oversampling_ratio_available``
      - List of available oversampling values. Value 1 disable the burst
        averaging mode.
+   * - ``in_voltage_sampling_frequency``
+     - Set the sampling frequency, only present if SPI Offload is being used.
 
 Also contain the following device attributes:
 
@@ -66,11 +68,31 @@ Also contain the following device attributes:
 Interrupts
 ==========
 
-The interrupt named ``gp0`` is used as the data ready signal. If not set, the
-driver will not wait for the data ready assertion, and will result in reading a
-sample before it's ready, particularly in oversampling mode.
+The cell of trigger-sources of the parent node sets which GPIO has the role of
+data ready signal. If not present, defaults as ``gp0``. If not set in the
+``interrupt-names`` property, the driver will not wait for the data ready
+assertion, and will result in reading a sample before it's ready, particularly
+in oversampling mode.
 
 Low-power mode
 ==============
 
 The device enters low-power mode on idle to save power.
+
+SPI offload support
+===================
+
+To be able to achieve the maximum sample rate, the driver can be used with the
+`AXI SPI Engine`_ to provide SPI offload support.
+
+.. _AXI SPI Engine: http://analogdevicesinc.github.io/hdl/projects/ad4052_ardz/index.html
+
+When SPI offload is being used, additional attributes are present:
+
+.. list-table:: Additional attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``in_voltage_sampling_frequency``
+     - Set the sampling frequency.
