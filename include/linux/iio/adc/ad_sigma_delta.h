@@ -15,6 +15,7 @@ enum ad_sigma_delta_mode {
 	AD_SD_MODE_SINGLE = 1,
 	AD_SD_MODE_IDLE = 2,
 	AD_SD_MODE_POWERDOWN = 3,
+	AD_SD_MODE_CONTINUOUS_READ = 99,
 };
 
 /**

@@ -872,20 +872,36 @@ static int ad_sd_probe_spi_offload(struct iio_dev *indio_dev,
 	int ret;
 
 	ret = devm_spi_offload_trigger_register(dev, &trigger_info);
-	if (ret)
+	if (ret) {
+
+dev_err (dev,"devm_spi_offload_trigger_register");
+
 		return dev_err_probe(dev, ret,
 				     "failed to register offload trigger\n");
+}
+
 
 	sd->offload_trigger = devm_spi_offload_trigger_get(dev, sd->offload,
 		SPI_OFFLOAD_TRIGGER_DATA_READY);
-	if (IS_ERR(sd->offload_trigger))
+	if (IS_ERR(sd->offload_trigger)) {
+
+dev_err (dev,"devm_spi_offload_trigger_get");
+
 		return dev_err_probe(dev, PTR_ERR(sd->offload_trigger),
 				     "failed to get offload trigger\n");
+}
+
 
 	rx_dma = devm_spi_offload_rx_stream_request_dma_chan(dev, sd->offload);
 	if (IS_ERR(rx_dma))
+	{
+
+dev_err (dev,"devm_spi_offload_rx_stream_request_dma_chan");
+
 		return dev_err_probe(dev, PTR_ERR(rx_dma),
 				     "failed to get offload RX DMA\n");
+}
+
 
 	return devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev,
 		rx_dma, IIO_BUFFER_DIRECTION_IN);
@@ -919,14 +935,18 @@ static int devm_ad_sd_probe_trigger(struct device *dev, struct iio_dev *indio_de
 			       sigma_delta->info->irq_flags | IRQF_NO_AUTOEN,
 			       indio_dev->name,
 			       sigma_delta);
-	if (ret)
+	if (ret) {
+  	dev_err(dev, "failed to request ir\n");
 		return ret;
-
+  }
+  
 	iio_trigger_set_drvdata(sigma_delta->trig, sigma_delta);
 
 	ret = devm_iio_trigger_register(dev, sigma_delta->trig);
-	if (ret)
+	if (ret){
+  	dev_err(dev, "failed to register trigger\n");
 		return ret;
+  }
 
 	/* select default trigger */
 	indio_dev->trig = iio_trigger_get(sigma_delta->trig);
@@ -940,8 +960,10 @@ static int devm_ad_sd_probe_trigger(struct device *dev, struct iio_dev *indio_de
 
 	if (!ret) {
 		ret = ad_sd_probe_spi_offload(indio_dev, sigma_delta);
-		if (ret)
+		if (ret) {
+  		dev_err(dev, "failed to probe SPI offload\n");
 			return ret;
+	  }
 		sigma_delta->offload_enabled = true;
 	}
 
