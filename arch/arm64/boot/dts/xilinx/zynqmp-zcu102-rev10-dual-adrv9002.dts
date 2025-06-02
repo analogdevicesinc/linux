@@ -142,15 +142,12 @@
 		};
 
 
-
-
-
 		rx1_dma_2nd: dma@84A80000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x84A80000 0x10000>;
 			#dma-cells = <1>;
 			dma-coherent;
-			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 		};
 
@@ -159,7 +156,7 @@
 			reg = <0x84A90000 0x10000>;
 			#dma-cells = <1>;
 			dma-coherent;
-			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 		};
 
@@ -168,7 +165,7 @@
 			reg = <0x84AA0000 0x10000>;
 			#dma-cells = <1>;
 			dma-coherent;
-			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 		};
 
@@ -177,7 +174,7 @@
 			reg = <0x84AB0000 0x10000>;
 			#dma-cells = <1>;
 			dma-coherent;
-			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <0 104 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 		};
 
@@ -255,6 +252,7 @@
 	status = "okay";
 
 	adc1_adrv9002: adrv9002-phy-2nd@0 {
+		label = "adrv9002-phy-2";
 		compatible = "adi,adrv9002";
 		reg = <0>;
 
