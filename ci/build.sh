@@ -123,6 +123,7 @@ check_dt_binding_check() {
 		case "$file" in
 		*.yaml)
 			local relative_yaml=${file#Documentation/devicetree/bindings/}
+			local file_ex=$(realpath ${file%.yaml}.example.dtb)
 
 			if [[ "$relative_yaml" = "$file" ]]; then
 				echo "$file not a devicetree binding, skip check..."
@@ -148,8 +149,8 @@ check_dt_binding_check() {
 
 				echo "$error_txt"
 
-				# file name appears in output if it contains errors
-				if echo "$error_txt" | grep -qF "$file"; then
+				# file name or reapath of example appears in output if it contains errors
+				if echo "$error_txt" | grep -qF -e "$file" -e "$file_ex"; then
 					fail=1
 					echo "::error file=$file,line=0::dt_binding_check contain errors"
 				fi
