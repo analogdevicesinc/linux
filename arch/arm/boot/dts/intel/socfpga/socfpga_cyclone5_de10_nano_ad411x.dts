@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
+/*
+ * Analog Devices CN0540
+ * https://www.analog.com/en/design-center/reference-designs/circuits-from-the-lab/cn0540.html
+ * https://www.analog.com/en/products/ad7768-1.html
+ * https://wiki.analog.com/resources/tools-software/linux-build/generic/socfpga
+ *
+ * hdl_project: <cn0540/de10nano>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "socfpga_cyclone5_de10_nano_hps.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+	eval_u2: eval-u2-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL ADUM6411BRSZ (U2)";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	eval_u6: eval-u6-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL ADR4525BRZ (U6)";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
+		
+	eval_y1: eval-y1-clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0x0>;
+		clock-frequency = <16000000>;
+		clock-output-names = "EVAL 16MEGHZ (Y1)";
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <100000>;
+	ltc2606: ltc2606@10 {
+		compatible = "adi,ltc2606";
+		reg = <0x10>;
+		vref-supply = <&vref>;
+	};
+};
+
+&fpga_axi {
+	gpio_bd: gpio_bd@10080 {
+		compatible = "altr,pio-18.1", "altr,pio-1.0";
+		reg = <0x00010080 0x10>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 40 IRQ_TYPE_LEVEL_HIGH>;
+		altr,interrupt-type = <IRQ_TYPE_LEVEL_HIGH>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+	};
+
+	gpio_in: gpio_in@10100 {
+		compatible = "altr,pio-18.1", "altr,pio-1.0";
+		reg = <0x00010100 0x10>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 42 IRQ_TYPE_LEVEL_HIGH>;
+		altr,interrupt-type = <IRQ_TYPE_EDGE_FALLING>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+	};
+
+  axi_dmac_0: rx-dma@20000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x00020000 0x00000800>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 44 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		clocks = <&h2f_user0_clk>;
+	};
+
+	spi@30000 {
+    compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x00030000 0x00010000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sys_clk &h2f_user0_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
+		dmas = <&axi_dmac_0 0>;
+		dma-names = "offload0-rx";
+		trigger-sources = <&adc_trigger>;
+
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ad411x_1: adc@0 {
+			compatible = "ad4111";
+			reg = <0>;
+
+  		#address-cells = <1>;
+  		#size-cells = <0>;
+
+   		interrupts = <2 IRQ_TYPE_EDGE_FALLING>;
+  		interrupt-names = "rdy";
+  		interrupt-parent = <&gpio_in>;
+      rdy-gpios = <&gpio_in 2 GPIO_ACTIVE_LOW>;
+
+  		spi-max-frequency = <20000000>;
+			spi-cpol;
+			spi-cpha;
+
+			avdd-supply = <&eval_u2>;
+			iovdd-supply = <&eval_u2>;
+			vref-supply = <&eval_u6>;
+      vref2-supply = <&eval_u6>; //???? - needs fix
+      
+      clocks = <&eval_y1>;
+			clock-names = "xtal";
+      
+  		channel@0 {
+	  		reg = <0>;
+	  		single-channel = <0>;
+	  		common-mode-channel = <16>;
+	  	};
+
+	  	/**
+	  	 * This channel is a single-ended channel, and assumes that
+	  	 * the AIN3 is connected to a fixed voltage.
+	  	 */
+	  	channel@1 {
+	  		reg = <1>;
+	  		single-channel = <1>;
+	  		common-mode-channel = <16>;
+	  	};
+
+	  	channel@2 {
+	  		reg = <2>;
+	  		single-channel = <2>;
+	  		common-mode-channel = <16>;
+	  	};
+
+	  	channel@3 {
+	  		reg = <3>;
+	  		single-channel = <3>;
+	  		common-mode-channel = <16>;
+  		};
+
+  		channel@4 {
+  			reg = <4>;
+	  		single-channel = <4>;
+	  		common-mode-channel = <16>;
+	  	};
+
+  		channel@5 {
+  			reg = <5>;
+	  		single-channel = <5>;
+	  		common-mode-channel = <16>;
+  		};
+
+  		channel@6 {
+  			reg = <6>;
+	  		single-channel = <6>;
+	  		common-mode-channel = <16>;
+  		};
+
+  		channel@7 {
+  			reg = <7>;
+	  		single-channel = <7>;
+	  		common-mode-channel = <16>;
+  		};
+
+			channel@8 {
+				reg = <8>;
+				single-channel = <0>; // IIN0
+				adi,current-channel;
+			};
+
+			channel@9 {
+				reg = <9>;
+				single-channel = <1>; // IIN1
+				adi,current-channel;
+			};
+
+			channel@10 {
+				reg = <10>;
+				single-channel = <2>; // IIN2
+				adi,current-channel;
+			};
+
+			channel@11 {
+				reg = <11>;
+				single-channel = <3>; // IIN3
+				adi,current-channel;
+			};
+		};
+	};
+
+	adc_trigger: trigger@40000 {
+		compatible = "adi,util-sigma-delta-spi";
+		reg = <0x40000 0x100>;
+		clocks = <&h2f_user0_clk>;
+		#trigger-source-cells = <0>;
+	};
+};
