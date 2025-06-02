@@ -334,19 +334,19 @@
       }
     ],
     "linkSharingCfg": {
-      "linkSharingEnabled": 0,
-      "linkSharingM": 0,
-      "linkSharingS": 0,
+      "linkSharingEnabled": 1,
+      "linkSharingM": 8,
+      "linkSharingS": 1,
       "linkSharingNp": 16,
       "linkSharingAdcCrossbar": {
-        "conv0": 127,
-        "conv1": 127,
-        "conv2": 127,
-        "conv3": 127,
-        "conv4": 127,
-        "conv5": 127,
-        "conv6": 127,
-        "conv7": 127,
+        "conv0": 17,
+        "conv1": 16,
+        "conv2": 19,
+        "conv3": 18,
+        "conv4": 0,
+        "conv5": 0,
+        "conv6": 0,
+        "conv7": 0,
         "conv8": 127,
         "conv9": 127,
         "conv10": 127,
@@ -385,8 +385,8 @@
     "orx34LoSelect": 1
   },
   "gpInterrupts": {
-    "gpIntMaskPin0": 18446744073709551615,
-    "gpIntMaskPin1": 18446744073709551615
+    "gpIntMaskPin0": 0,
+    "gpIntMaskPin1": 0
   },
   "rx": {
     "rxInitChannelMask": 1023,
@@ -509,7 +509,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0
@@ -657,7 +657,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0
@@ -805,7 +805,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0
@@ -953,7 +953,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0
@@ -1101,7 +1101,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0
@@ -1249,7 +1249,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0
@@ -1397,7 +1397,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0
@@ -1545,7 +1545,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0
@@ -1693,7 +1693,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0
@@ -1841,7 +1841,7 @@
               "fpEncodeNan": 0
             },
             "integerConfigSettings": {
-              "intEmbeddedBits": 0,
+              "intEmbeddedBits": 1,
               "intSampleResolution": 2,
               "intParity": 2,
               "intEmbeddedPos": 0

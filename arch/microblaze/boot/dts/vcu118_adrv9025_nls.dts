@@ -15,6 +15,8 @@
 
 	clock-output-names = "rx_sampl_clk", "tx_sampl_clk", "rx_os_sampl_clk";
 
+	adi,device-profile-name = "ActiveUseCase_NLS.profile";
+
 	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-top-device = <0>; /* This is the TOP device */
@@ -94,7 +96,7 @@
 		adi,out-clk-select = <XCVR_REFCLK>;
 		adi,use-lpm-enable;
 		adi,use-cpll-enable;
-		
+
 		jesd204-device;
 		#jesd204-cells = <2>;
 		jesd204-inputs =  <&clk0_ad9528 0 FRAMER1_LINK_RX>;

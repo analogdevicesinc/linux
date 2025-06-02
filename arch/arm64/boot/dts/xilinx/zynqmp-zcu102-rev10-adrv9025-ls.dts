@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9025
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9025
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025
+ *
+ * hdl_project: <adrv9026/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020-2023 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev10-adrv9025.dts"
+
+&fpga_axi {
+	rx_os_dma: dma@9c800000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x9c800000 0x10000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		dma-coherent;
+		interrupts = <0 111 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&zynqmp_clk 73>;
+	};
+
+	axi_adrv9025_core_rx_os: axi-adrv9025-rx-os-hpc@84a08000 {
+		compatible = "adi,axi-adrv9009-obs-1.0";
+		reg = <0x84a08000 0x8000>;
+		dmas = <&rx_os_dma 0>;
+		dma-names = "rx";
+		clocks = <&trx0_adrv9025 0>;
+		clock-names = "sampl_clk";
+		spibus-connected=<&trx0_adrv9025>;
+		label="axi-adrv9025-rx-os-hpc";
+	};
+};
+
+&trx0_adrv9025 {
+	adi,device-profile-name = "ActiveUseCase_LS.profile";
+};
