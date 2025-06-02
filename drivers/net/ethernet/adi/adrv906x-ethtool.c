@@ -24,6 +24,7 @@
 #include "adrv906x-cmn.h"
 #include "adrv906x-mac.h"
 #include "adrv906x-phy.h"
+#include "adrv906x-ndma.h"
 #include "adrv906x-ethtool.h"
 
 #define NDMA_LOOPBACK_TEST_PATTERN              0x12
@@ -458,6 +459,49 @@ static void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_s
 		data[i * SWITCH_PORT_STATS_NUM + 90] = es->port_stats[i].bcast_bytes_tx;
 		data[i * SWITCH_PORT_STATS_NUM + 91] = es->port_stats[i].crd_buffer_drop;
 	}
+}
+
+static const struct ethtool_rmon_hist_range adrv906x_ethtool_rmon_ranges[] = {
+	{ 64,	64			  },
+	{ 65,	127			  },
+	{ 128,	255			  },
+	{ 256,	511			  },
+	{ 512,	1023			  },
+	{ 1024, 1518			  },
+	{ 1519, NDMA_MAX_FRAME_SIZE_VALUE },
+	{},
+};
+
+static void adrv906x_ethtool_get_rmon_stats(struct net_device *ndev,
+					    struct ethtool_rmon_stats *stats,
+					    const struct ethtool_rmon_hist_range **ranges)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_mac_rx_stats *mac_rx_stats = &adrv906x_dev->mac.hw_stats_rx;
+	struct adrv906x_mac_tx_stats *mac_tx_stats = &adrv906x_dev->mac.hw_stats_tx;
+
+	*ranges = adrv906x_ethtool_rmon_ranges;
+
+	adrv906x_ndma_update_frame_drop_stats(adrv906x_dev->ndma_dev);
+
+	stats->undersize_pkts = mac_rx_stats->general_stats.undersize_pkts;
+	stats->oversize_pkts = mac_rx_stats->general_stats.oversize_pkts;
+	stats->fragments = mac_rx_stats->fragments;
+	stats->jabbers = mac_rx_stats->jabbers;
+	stats->hist[0] = mac_rx_stats->general_stats.pkts_64_octets;
+	stats->hist[1] = mac_rx_stats->general_stats.pkts_65to127_octets;
+	stats->hist[2] = mac_rx_stats->general_stats.pkts_128to255_octets;
+	stats->hist[3] = mac_rx_stats->general_stats.pkts_256to511_octets;
+	stats->hist[4] = mac_rx_stats->general_stats.pkts_512to1023_octets;
+	stats->hist[5] = mac_rx_stats->general_stats.pkts_1024to1518_octets;
+	stats->hist[6] = mac_rx_stats->general_stats.pkts_1519tox_octets;
+	stats->hist_tx[0] = mac_tx_stats->general_stats.pkts_64_octets;
+	stats->hist_tx[1] = mac_tx_stats->general_stats.pkts_65to127_octets;
+	stats->hist_tx[2] = mac_tx_stats->general_stats.pkts_128to255_octets;
+	stats->hist_tx[3] = mac_tx_stats->general_stats.pkts_256to511_octets;
+	stats->hist_tx[4] = mac_tx_stats->general_stats.pkts_512to1023_octets;
+	stats->hist_tx[5] = mac_tx_stats->general_stats.pkts_1024to1518_octets;
+	stats->hist_tx[6] = mac_tx_stats->general_stats.pkts_1519tox_octets;
 }
 
 static int adrv906x_ethtool_get_fecparam(struct net_device *ndev,
@@ -931,6 +975,7 @@ const struct ethtool_ops adrv906x_ethtool_ops = {
 	.get_sset_count		= adrv906x_ethtool_get_sset_count,
 	.get_strings		= adrv906x_ethtool_get_strings,
 	.get_ethtool_stats	= adrv906x_ethtool_get_stats,
+	.get_rmon_stats		= adrv906x_ethtool_get_rmon_stats,
 	.self_test		= adrv906x_ethtool_selftest_run,
 };
 
