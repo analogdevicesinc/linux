@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad-AD9084
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9084
+ * https://wiki.analog.com/resources/eval/user-guides/ad9084_fmca_ebz/ad9084_fmca_ebz_hdl
+ *
+ * hdl_project: <quad_apollo/vcu118>
+ * board_revision: <>
+ *
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#define DEVICE_PROFILE_NAME	"id01_uc43.bin"
+
+#include "vcu118_quad_ad9084.dts"
+

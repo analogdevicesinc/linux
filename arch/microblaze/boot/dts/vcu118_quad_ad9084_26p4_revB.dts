@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad-AD9084 RevB
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9084
+ * https://wiki.analog.com/resources/eval/user-guides/ad9084_fmca_ebz/ad9084_fmca_ebz_hdl
+ *
+ * hdl_project: <quad_apollo/vcu118>
+ * board_revision: <Rev.B>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+
+#define DEVICE_PROFILE_NAME	"id01_uc43.bin"
+
+#define MHz			1000000
+
+#define FREQ_J1_MHz		(400 * MHz)
+#define TX_CORE_CLK_MHz		(400 * MHz)
+#define RX_CORE_CLK_MHz		(400 * MHz)
+#define FPGA_REFCLK_CLK_MHz	(400 * MHz)
+
+#define SYSREF_CLK_MHz		(2 * 6250000)
+
+#include "vcu118_quad_ad9084_revB.dts"
