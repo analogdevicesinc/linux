@@ -107,6 +107,7 @@ obj-$(CONFIG_ADRV9009) += adrv9009_drv.o
 obj-$(CONFIG_ADRV9025) += adrv902x/
 
 obj-$(CONFIG_ADRV9001) += navassa/
+obj-$(CONFIG_AD9088) += apollo/
 
 obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_AD9680) += ad9680.o
