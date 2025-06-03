@@ -230,6 +230,16 @@ config ADF4377
 	  To compile this driver as a module, choose M here: the
 	  module will be called adf4377.
 
+config ADF4382
+	tristate "Analog Devices ADF4382 Microwave Wideband Synthesizer"
+	depends on SPI && COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices ADF4382 Microwave
+	  Wideband Synthesizer.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adf4382.
+
 config ADF5355
 	tristate "Analog Devices ADF5355/ADF4355 Wideband Synthesizers"
 	depends on SPI
