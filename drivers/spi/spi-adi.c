@@ -728,15 +728,8 @@ static int adi_spi_probe(struct platform_device *pdev)
 	struct spi_controller *controller;
 	struct adi_spi_controller *drv_data;
 	struct resource *mem;
-	struct irq_domain *irq_domain;
-	struct device_node *irq_of_node;
-	struct irq_fwspec spi_fwspec = {
-	    .param_count = 3,
-	    .param = {0, 132, 4},
-	};
-	int virq;
 	struct clk *sclk;
-	int ret;
+	int ret, err_irq;
 
 	sclk = devm_clk_get(dev, "spi");
 	if (IS_ERR(sclk)) {
@@ -781,21 +774,13 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return PTR_ERR(drv_data->regs);
 	}
 
-	irq_of_node = of_find_node_by_name(NULL,"interrupt-controller");
-	if (!irq_of_node) {
-	    dev_err(dev, "could not find node interrupt-controller\n");
-	    return -ENODEV;
+	err_irq = platform_get_irq(pdev, 0);
+	if (!err_irq) {
+		dev_err(dev, "No SPI error irq resource found\n");
+		return -ENODEV;
 	}
 
-	irq_domain = irq_find_host(irq_of_node);
-	if(!irq_domain) {
-	    dev_err(dev, "could not get irq domain from interrupt-controller\n");
-	    return -ENODATA;
-	}
-
-	spi_fwspec.fwnode = irq_domain->fwnode;
-	virq = irq_create_fwspec_mapping(&spi_fwspec);
-	ret = devm_request_irq(dev, virq, spi_irq_err, 0, "SPI ERROR", drv_data);
+	ret = devm_request_irq(dev, err_irq, spi_irq_err, 0, "SPI ERROR", drv_data);
 	if (ret) {
 		dev_err(dev, "could not request spi error irq\n");
 		return ret;
