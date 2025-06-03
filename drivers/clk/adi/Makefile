@@ -7,3 +7,4 @@
 obj-$(CONFIG_COMMON_CLK_AD9545) += clk-ad9545.o
 obj-$(CONFIG_COMMON_CLK_AD9545_I2C) += clk-ad9545-i2c.o
 obj-$(CONFIG_COMMON_CLK_AD9545_SPI) += clk-ad9545-spi.o
+obj-$(CONFIG_COMMON_CLK_LTC6948) += ltc6948.o
