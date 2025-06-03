@@ -26,4 +26,16 @@ config COMMON_CLK_AD9545_SPI
 	  Quad Input, 10-Output, Dual DPLL/IEEE 1588,
 	  1 pps Synchronizer and Jitter Cleaner via SPI
 
+config COMMON_CLK_LTC6948
+	tristate "Analog Devices LTC6948/LTC6947 Fractional-N Synthesizer with Integrated VCO"
+	depends on SPI
+	depends on COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices LTC6948/LTC6947
+	  Fractional-N Synthesizer with Integrated VCO.
+	  The driver provides direct access via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ltc6948.
+
 endmenu
