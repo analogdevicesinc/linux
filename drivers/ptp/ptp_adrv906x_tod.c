@@ -1339,6 +1339,21 @@ static int adrv906x_tod_get_version(struct adrv906x_tod *tod)
 	return 0;
 }
 
+static unsigned int platform_get_num_of_resources(struct platform_device *dev,
+						  unsigned int type)
+{
+	unsigned int num = 0;
+	u32 i;
+
+	for (i = 0; i < dev->num_resources; i++) {
+		struct resource *r = &dev->resource[i];
+		if (type == resource_type(r))
+			num++;
+	}
+
+	return num;
+}
+
 int adrv906x_tod_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1350,6 +1365,7 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 	struct clk *gc_clk;
 	unsigned long rate;
 	void __iomem *regs;
+	unsigned int num;
 	u32 val;
 	int ret;
 	int i;
@@ -1364,18 +1380,27 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	num = platform_get_num_of_resources(pdev, IORESOURCE_MEM);
+	if (num != 1 && num != 2) {
+		dev_err(dev, "invalid number of resources");
+		return -EINVAL;
+	}
+
 	regs = devm_platform_ioremap_resource(pdev, 0U);
 	if (IS_ERR(regs)) {
 		ret = PTR_ERR(regs);
 		return ret;
 	}
 	adrv906x_tod->regs = regs;
+	adrv906x_tod->sec_regs = NULL;
 
-	regs = devm_platform_ioremap_resource(pdev, 1U);
-	if (IS_ERR(regs)) {
-		adrv906x_tod->sec_regs = NULL;
-	} else {
+	if (num == 2) {
 		dev_info(dev, "operating in dual-tile mode");
+		regs = devm_platform_ioremap_resource(pdev, 1U);
+		if (IS_ERR(regs)) {
+			ret = PTR_ERR(regs);
+			return ret;
+		}
 		adrv906x_tod->sec_regs = regs;
 	}
 
