@@ -123,6 +123,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD9523
 	imply AD9528
 	imply AD9548
+	imply ADF4030
 	imply ADF4159
 	imply ADF4350
 	imply ADF4360
@@ -216,3 +217,6 @@ config IIO_ALL_ADI_DRIVERS
 	imply LTC2309
 	imply AD7091R8
 	imply AD9739A
+	imply AD9088
+	imply ADF4382
+	imply AXI_AION_TRIG
