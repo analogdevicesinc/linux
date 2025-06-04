@@ -58,7 +58,7 @@ static int adp5585_gpio_direction_output(struct gpio_chip *chip, unsigned int of
 
 	return regmap_set_bits(adp5585_gpio->regmap,
 			       ADP5585_GPIO_DIRECTION_A + bank, bit);
-}
+}d
 
 static int adp5585_gpio_get_value(struct gpio_chip *chip, unsigned int off)
 {
