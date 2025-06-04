@@ -615,6 +615,12 @@ config REGULATOR_MAX77650
 	  Semiconductor. This device has a SIMO with three independent
 	  power rails and an LDO.
 
+config REGULATOR_MAX77840
+	tristate "Maxim Integrated MAX77840 Regulator"
+	depends on MFD_MAX77840
+	help
+	  Say Y here to add support for Maxim Integrated MAX77840. 
+
 config REGULATOR_MAX77857
 	tristate "ADI MAX77857/MAX77831 regulator support"
 	depends on I2C
