@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/power/supply/maxim,max77840-fuelgauge.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Maxim MAX77840 Fuel Gauge
+
+maintainers:
+  - Joan Na <joan.na@analog.com>
+
+properties:
+  compatible:
+    const: maxim,max77840-fuelgauge
+
+required:
+  - compatible
+
+additionalProperties: false
+
+examples:
+  - |
+    fuelgauge {
+      compatible = "maxim,max77840-fuelgauge";
+      fuelgauge,fuel_alert_soc = <2>;
+    };
