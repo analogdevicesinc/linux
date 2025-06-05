@@ -258,74 +258,38 @@ void adrv906x_eth_cmn_mode_cfg(struct adrv906x_eth_dev *adrv906x_dev)
 
 void adrv906x_eth_cmn_init(void __iomem *regs, bool switch_enabled, bool macsec_enabled)
 {
-	unsigned int val1, val2, val3;
+	unsigned int val1, val2;
 
-	val1 = ioread32(regs + EMAC_CMN_PHY_CTRL);
-	val2 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
-	val3 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL3);
+	val1 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
+	val2 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL3);
 
-	val1 |= EMAC_CMN_RXDES_FORCE_LANE_PD_0 |
-		EMAC_CMN_RXDES_FORCE_LANE_PD_1 |
-		EMAC_CMN_TXSER_FORCE_LANE_PD_0 |
-		EMAC_CMN_TXSER_FORCE_LANE_PD_1;
-	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
-	usleep_range(10, 20);
-	val1 &= ~(EMAC_CMN_RXDES_FORCE_LANE_PD_0 |
-		  EMAC_CMN_RXDES_FORCE_LANE_PD_1 |
-		  EMAC_CMN_TXSER_FORCE_LANE_PD_0 |
-		  EMAC_CMN_TXSER_FORCE_LANE_PD_1);
-	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
-	usleep_range(1, 10);
-
-	val1 &= ~EMAC_CMN_SERDES_REG_RESET_N;
-	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
-	usleep_range(1, 10);
-	val1 |= EMAC_CMN_SERDES_REG_RESET_N;
-	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
-
-	val1 &= ~(EMAC_CMN_TXSER_DIG_RESET_N_0 |
-		  EMAC_CMN_TXSER_DIG_RESET_N_1);
-	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
-	usleep_range(1, 10);
-	val1 |= EMAC_CMN_TXSER_DIG_RESET_N_0 |
-		EMAC_CMN_TXSER_DIG_RESET_N_1;
-	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
-
-	val1 &= ~(EMAC_CMN_RXDES_DIG_RESET_N_0 |
-		  EMAC_CMN_RXDES_DIG_RESET_N_1);
-	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
-	usleep_range(1, 10);
-	val1 |= EMAC_CMN_RXDES_DIG_RESET_N_0 |
-		EMAC_CMN_RXDES_DIG_RESET_N_1;
-	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
-
-	val2 |= EMAC_CMN_RX_LINK0_EN
+	val1 |= EMAC_CMN_RX_LINK0_EN
 		| EMAC_CMN_RX_LINK1_EN
 		| EMAC_CMN_TX_LINK0_EN
 		| EMAC_CMN_TX_LINK1_EN;
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (macsec_enabled)
-		val2 &= ~EMAC_CMN_MACSEC_BYPASS_EN;
+		val1 &= ~EMAC_CMN_MACSEC_BYPASS_EN;
 #endif
 
 	if (switch_enabled) {
-		val2 |= EMAC_CMN_SW_PORT0_EN |
+		val1 |= EMAC_CMN_SW_PORT0_EN |
 			EMAC_CMN_SW_PORT1_EN |
 			EMAC_CMN_SW_PORT2_EN;
-		val2 &= ~(EMAC_CMN_SW_LINK0_BYPASS_EN |
+		val1 &= ~(EMAC_CMN_SW_LINK0_BYPASS_EN |
 			  EMAC_CMN_SW_LINK1_BYPASS_EN);
-		val3 |= EMAC_CMN_SW_PORT2_DSA_INSERT_EN;
+		val2 |= EMAC_CMN_SW_PORT2_DSA_INSERT_EN;
 	} else {
-		val2 |= EMAC_CMN_SW_LINK0_BYPASS_EN |
+		val1 |= EMAC_CMN_SW_LINK0_BYPASS_EN |
 			EMAC_CMN_SW_LINK1_BYPASS_EN;
-		val2 &= ~(EMAC_CMN_SW_PORT0_EN |
+		val1 &= ~(EMAC_CMN_SW_PORT0_EN |
 			  EMAC_CMN_SW_PORT1_EN |
 			  EMAC_CMN_SW_PORT2_EN);
-		val3 &= ~EMAC_CMN_SW_PORT2_DSA_INSERT_EN;
+		val2 &= ~EMAC_CMN_SW_PORT2_DSA_INSERT_EN;
 	}
 
-	iowrite32(val2, regs + EMAC_CMN_DIGITAL_CTRL0);
-	iowrite32(val3, regs + EMAC_CMN_DIGITAL_CTRL3);
+	iowrite32(val1, regs + EMAC_CMN_DIGITAL_CTRL0);
+	iowrite32(val2, regs + EMAC_CMN_DIGITAL_CTRL3);
 }
 
 void adrv906x_cmn_pcs_link_drop_cnt_clear(struct adrv906x_eth_if *adrv906x_eth)
