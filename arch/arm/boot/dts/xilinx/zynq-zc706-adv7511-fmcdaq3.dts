@@ -49,6 +49,16 @@
 		clocks = <&clkc 16>;
 	};
 
+	axi_data_offload_rx: axi-data-offload-rx@7c410000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x7c410000 0x10000>;
+	};
+
+	axi_data_offload_tx: axi-data-offload-tx@7c430000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x7c430000 0x10000>;
+	};
+
 	axi_ad9152_core: axi-ad9152-hpc@44a04000 {
 		compatible = "adi,axi-ad9144-1.0";
 		reg = <0x44a04000 0x4000>;
@@ -57,6 +67,7 @@
 
 		spibus-connected = <&dac0_ad9152>;
 		adi,axi-pl-fifo-enable;
+		adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 
 		/* jesd204-fsm support */
 		jesd204-device;
