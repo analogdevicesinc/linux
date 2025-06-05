@@ -85,6 +85,7 @@ struct ltc4283_hwmon {
 	struct regmap *map;
 	/* lock to protect concurrent device accesses and shared data */
 	struct mutex lock;
+	u32 vsense_max;
 	u32 rsense;
 	bool energy_en;
 };
@@ -263,7 +264,7 @@ static int ltc4283_hwmon_read_in(struct ltc4283_hwmon *st, u32 attr,
 static int ltc4283_read_current_word(const struct ltc4283_hwmon *st, u32 reg,
 				     long *val)
 {
-	u64 temp = DECA * LTC4283_ADC1_FS_uV * MILLI;
+	u64 temp = DECA * LTC4283_ADC1_FS_uV * MICRO;
 	__be16 curr;
 	int ret;
 
@@ -287,8 +288,8 @@ static int ltc4283_read_current_byte(const struct ltc4283_hwmon *st, u32 reg,
 	if (ret)
 		return ret;
 
-	*val = DIV_ROUND_CLOSEST(curr * LTC4283_ADC1_FS_uV * DECA * MILLI,
-				 BIT(8) * st->rsense);
+	*val = DIV_ROUND_CLOSEST_ULL(curr * LTC4283_ADC1_FS_uV * DECA * MICRO,
+				     BIT(8) * st->rsense);
 
 	return 0;
 }
@@ -424,16 +425,119 @@ static int ltc4283_hwmon_write_power(struct ltc4283_hwmon *st, u32 attr,
 		return -EOPNOTSUPP;
 }
 
+static int ltc4283_hwmon_write_in_history(const struct ltc4282_state *st,
+					  u32 reg, long lowest, long highest,
+					  u32 fs)
+{
+	__be16 __raw;
+	u16 tmp;
+
+	guard(mutex)(&st->lock);
+
+	tmp = DIV_ROUND_CLOSEST(BIT(16) * lowest, fs);
+	if (tmp == BIT(16))
+		tmp = U16_MAX;
+
+	__raw = cpu_to_be16(tmp);
+
+	ret = regmap_bulk_write(st->map, reg, &__raw, sizeof(__raw));
+	if (ret)
+		return ret;
+
+	/* Make sure it's really zero for all */
+	return regmap_bulk_write(st->map, reg + 1,  0, sizeof(__raw));
+}
+
+static int ltc4283_hwmon_write_in_byte(const struct ltc4283_hwmon *st,
+				       u32 reg, u32 fs, long val)
+{
+	u32 __raw;
+
+	val = clamp_val(val, 0, fs);
+
+	__raw = DIV_ROUND_CLOSEST(val * BIT(16), fs);
+	if (__raw == BIT(16))
+		__raw = U16_MAX;
+
+	return regmap_write(st->map, reg, __raw)
+}
+
+static int ltc4283_hwmon_write_in_en(const struct ltc4283_hwmon *st,
+				     u32 channel, bool en)
+{
+	unsigned int bit;
+
+	bit = LTC4283_ADC_SELECT_MASK(channel - LTC4283_HWMON_ADI_1);
+	if (channel > LTC4283_HWMON_DRAIN)
+		/* account for two reserved fields after DRAIN */
+		bit += 2;
+
+	/* I'll need a non constant version of field_prep(). Or, create
+	 * a static const map of masks with FIELD_PREP_CONST(). Not sure
+	 * if it's worth it.
+	 */
+	return regmap_update_bits(st->map, LTC4283_ADC_SELECT(channel - 1),
+				  bit, FIELD_PREP(bit, en));
+}
+
 static int ltc4283_hwmon_write_in(struct ltc4283_hwmon *st, u32 attr, long val,
 				  int channel)
 {
+	u32 reg;
+
 	switch (attr) {
 	case hwmon_in_max:
+		if (channel == LTC4283_HWMON_VPWR)
+			return ltc4283_hwmon_write_voltage_byte(st,
+								LTC4283_VPWR_MAX_TH,
+								LTC4283_ADC2_FS_uV, val);
+
+		reg = LTC4283_ADC_2_MAX_TH(channel - LTC4283_HWMON_ADI_1);
+		return ltc4283_hwmon_write_voltage_byte(st, reg, 2048, val);
 	case hwmon_in_min:
+		if (channel == LTC4283_HWMON_VPWR)
+			return ltc4283_hwmon_write_voltage_byte(st,
+								LTC4283_VPWR_MIN_TH,
+								LTC4283_ADC2_FS_uV, val);
+
+		reg = LTC4283_ADC_2_MIN_TH(channel - LTC4283_HWMON_ADI_1);
+		return ltc4283_hwmon_write_voltage_byte(st, reg, 2048, val);
 	case hwmon_in_reset_history:
+		if (channel == LTC4283_HWMON_VPWR)
+			return ltc4283_hwmon_write_in_history(st,
+							      LTC4283_VPWR_MIN,
+							      LTC4283_ADC2_FS_uV, 0,
+							      LTC4283_ADC2_FS_uV);
+
+		reg = LTC4283_ADC_2_MIN(channel - LTC4283_HWMON_ADI_1);
+		return ltc4283_hwmon_write_in_history(st, reg,
+						      LTC4283_ADC2_FS_uV, 0),
+						      LTC4283_ADC2_FS_uV);
 	case hwmon_in_enable:
+		return ltc4283_hwmon_write_in_en(st, channel, !!val);
 	default:
 		return -EOPNOTSUPP;
+}
+
+static int ltc4283_hwmon_reset_curr_hist(const struct ltc4283_hwmon *st,
+					 u32 reg)
+{
+	u64 temp = DECA * LTC4283_ADC1_FS_uV * MICRO;
+	__be16 reg_val;
+	u16 tmp;
+
+	return regmap_bulk_write(st->map, LTC4283_SENSE_MAX, 0,
+				 sizeof(reg_val));
+}
+
+static int ltc4283_hwmon_write_curr_byte(const struct ltc4283_hwmon *st,
+					 u32 reg, long val)
+{
+	u64 temp = (u64)LTC4283_ADC1_FS_uV * DECA * MICRO;
+	u32 reg_val;
+
+	reg_val = DIV64_U64_ROUND_CLOSEST(val * BIT_ULL(8) * st->rsense, temp);
+	return regmap_write(st->map, reg, reg_val)
 }
 
 static int ltc4283_hwmon_write_curr(struct ltc4283_hwmon *st, u32 attr,
@@ -441,8 +545,16 @@ static int ltc4283_hwmon_write_curr(struct ltc4283_hwmon *st, u32 attr,
 {
 	switch (attr) {
 	case hwmon_curr_max:
+		return ltc4283_hwmon_write_in_history(st, LTC4283_SENSE_MIN_TH,
+						      val);
 	case hwmon_curr_min:
+		return ltc4283_hwmon_write_in_history(st, LTC4283_SENSE_MIN_TH,
+						      val);
 	case hwmon_curr_reset_history:
+		return ltc4283_hwmon_write_in_history(st, LTC4283_SENSE_MIN,
+						      st->vsense_max 0,
+						      LTC4283_ADC1_FS_uV);
+		/* Should I also reset OC fault log?? */
 	default:
 		return -EOPNOTSUPP;
 }
