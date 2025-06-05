@@ -42,6 +42,14 @@
 		interrupts = <13 2>;
 		clocks = <&clk_bus_0>;
 	};
+	axi_data_offload_rx: axi-data-offload-rx@7c410000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x7c410000 0x10000>;
+	};
+	axi_data_offload_tx: axi-data-offload-tx@7c430000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x7c430000 0x10000>;
+	};
 	axi_ad9680_core: axi-ad9680-hpc@44a10000 {
 		compatible = "adi,axi-ad9680-1.0";
 		reg = <0x44a10000 0x10000>;
@@ -62,6 +70,7 @@
 		dma-names = "tx";
 		spibus-connected = <&dac0_ad9152>;
 		adi,axi-pl-fifo-enable;
+		adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 
 		/* jesd204-fsm support */
 		jesd204-device;
