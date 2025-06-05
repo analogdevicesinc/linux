@@ -18,17 +18,35 @@
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 
+#define LTC4283_FAULT_STATUS		0x03
+#define   LTC4283_OV_MASK		BIT(0)
+#define   LTC4283_UV_MASK		BIT(1)
+#define   LTC4283_OC_MASK		BIT(2)
+#define   LTC4283_FET_BAD_MASK		BIT(3)
+#define   LTC4283_FET_SHORT_MASK	BIT(6)
+#define LTC4283_FAULT_LOG		0x04
 #define LTC4283_ADC_ALM_LOG_1		0x05
+#define   LTC4283_POWER_LOW_ALM		BIT(0)
+#define   LTC4283_POWER_HIGH_ALM	BIT(1)
+#define   LTC4283_SENSE_LOW_ALM		BIT(4)
+#define   LTC4283_SENSE_HIGH_ALM	BIT(5)
 #define LTC4283_ADC_ALM_LOG_2		0x06
 #define LTC4283_ADC_ALM_LOG_3		0x07
 #define LTC4283_ADC_ALM_LOG_4		0x08
 #define LTC4283_ADC_ALM_LOG_5		0x09
 #define LTC4283_ADC_SELECT(c)		(0x13 + (c) / 8)
 #define   LTC4283_ADC_SELECT_MASK(c)	BIT((c) % 8)
+#define LTC4283_SENSE_MIN_TH		0x1b
+#define LTC4283_SENSE_MAX_TH		0x1c
 #define LTC4283_VPWR_MIN_TH		0x1d
 #define LTC4283_VPWR_MAX_TH		0x1e
+#define LTC4283_POWER_MIN_TH		0x1f
+#define LTC4283_POWER_MAX_TH		0x20
 #define LTC4283_ADC_2_MIN_TH(c)		(0x21 + (c) * 2)
 #define LTC4283_ADC_2_MAX_TH(c)		(0x22 + (c) * 2)
+#define LTC4283_SENSE			0x41
+#define LTC4283_SENSE_MIN		0x42
+#define LTC4283_SENSE_MAX		0x43
 #define LTC4283_VPWR			0x44
 #define LTC4283_VPWR_MIN		0x45
 #define LTC4283_VPWR_MAX		0x46
@@ -39,6 +57,8 @@
 #define LTC4283_ADC_2(c)		(0x4a + (c) * 3)
 #define LTC4283_ADC_2_MIN(c)		(0x4b + (c) * 3)
 #define LTC4283_ADC_2_MAX(c)		(0x4c + (c) * 3)
+/* also applies for differential channels */
+#define LTC4283_ADC1_FS_uV		32768
 #define LTC4283_ADC2_FS_mV		2048
 
 /* voltage channels */
@@ -56,21 +76,11 @@ enum {
 	LTC4283_HWMON_DRNS,
 };
 
-struct ltc4283_hwmon_in_regs {
-	u32 in_input;
-	u32 in_highest;
-	u32 in_lowest;
-	u32 in_max_alarm;
-	u32 in_max_bit;
-	u32 in_min_alarm;
-	u32 in_min_bit;
-};
-
 struct ltc4283_hwmon {
 	struct regmap *map;
 	/* lock to protect concurrent device accesses and shared data */
 	struct mutex lock;
-	struct ltc4283_hwmon_in_regs in_regs[11];
+	u32 rsense;
 };
 
 static int ltc4283_hwmon_read_voltage_word(const struct ltc4283_hwmon *st,
@@ -114,8 +124,8 @@ static int ltc428e_hwmon_read_alarm(const struct ltc4283_hwmon *st, u32 reg,
 	*val = !!(alarm & mask);
 
 	/* if not status/fault logs, clear the alarm after reading it */
-	//if (reg != LTC4282_STATUS_LSB && reg != LTC4282_FAULT_LOG)
-	//	return regmap_clear_bits(st->map, reg, mask);
+	if (reg != LTC4283_FAULT_STATUS && reg != LTC4283_FAULT_LOG)
+		return regmap_clear_bits(st->map, reg, mask);
 
 	return 0;
 }
@@ -221,6 +231,20 @@ static int ltc4283_hwmon_read_in(struct ltc4283_hwmon *st, u32 attr,
 		return ltc4283_hwmon_read_in_alarm(st, channel, true, val);
 	case hwmon_in_min_alarm:
 		return ltc4283_hwmon_read_in_alarm(st, channel, true, val);
+	case hwmon_in_crit_alarm:
+	return ltc4283_hwmon_read_alarm(st, LTC4283_FAULT_STATUS,
+					LTC4283_OV_MASK, val);
+	case hwmon_in_lcrit_alarm:
+	return ltc4283_hwmon_read_alarm(st, LTC4283_FAULT_STATUS,
+					LTC4283_UV_MASK, val);
+	case hwmon_in_fault:
+		/*
+		 * We report failure if we detect either a fer_bad or a
+		 * fet_short in the status register. Should we also consider
+		 * external failure as DRAIN fault?
+		 */
+		return ltc4282_read_alarm(st, LTC4233_FAULT_STATUS,
+					  LTC4283_FET_BAD_MASK | LTC4283_FET_BAD_MASK, val);
 	case hwmon_in_enable:
 		return ltc4283_hwmon_read_in_en(st, channel, val);
 	default:
@@ -229,10 +253,65 @@ static int ltc4283_hwmon_read_in(struct ltc4283_hwmon *st, u32 attr,
 	return 0;
 }
 
+static int ltc4283_read_current_word(const struct ltc4283_hwmon *st, u32 reg,
+				     long *val)
+{
+	__be16 in;
+	int ret;
+
+	ret = regmap_bulk_read(st->map, reg, &in, sizeof(in));
+	if (ret)
+		return ret;
+
+	*val = DIV64_U64_ROUND_CLOSEST(be16_to_cpu(in) * LTC4283_ADC1_FS_uV * DECA,
+				       BIT(16) * (u64)st->rsense);
+
+	return 0;
+}
+
+static int ltc4283_read_current_byte(const struct ltc4283_hwmon *st, u32 reg,
+				     long *val)
+{
+	u32 curr;
+	int ret;
+
+	ret = regmap_read(st->map, reg, &curr);
+	if (ret)
+		return ret;
+
+	*val = DIV_ROUND_CLOSEST(curr * LTC4283_ADC1_FS_uV, BIT(8) * st->rsense);
+
+	return 0;
+}
+
 static int ltc4283_hwmon_read_curr(struct ltc4283_hwmon *st, u32 attr,
 				   long *val)
 {
-	return 0;
+	switch (attr) {
+	case hwmon_curr_input:
+		return ltc4283_read_current_word(st, LTC4283_SENSE, val);
+	case hwmon_curr_highest:
+		return ltc4283_read_current_word(st, LTC4283_SENSE_HIGHEST,
+						 val);
+	case hwmon_curr_lowest:
+		return ltc4283_read_current_word(st, LTC4283_SENSE_LOWEST,
+						 val);
+	case hwmon_curr_max:
+		return ltc4283_read_current_byte(st, LTC4283_VSENSE_MAX, val);
+	case hwmon_curr_min:
+		return ltc4282_read_current_byte(st, LTC4283_VSENSE_MIN, val);
+	case hwmon_curr_max_alarm:
+		return ltc4283_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
+					  LTC4283_SENSE_HIGH_ALM, val);
+	case hwmon_curr_min_alarm:
+		return ltc4283_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
+					  LTC4283_SENSE_LOW_ALM, val);
+	case hwmon_curr_crit_alarm:
+		return ltc4283_read_alarm(st, LTC4283_FAULT_STATUS,
+					  LTC4283_OC_MASK, val);
+	default:
+		return -EOPNOTSUPP;
+	}
 }
 
 static int ltc4283_hwmon_read_power(struct ltc4283_hwmon *st, u32 attr,
