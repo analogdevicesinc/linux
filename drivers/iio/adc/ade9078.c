@@ -496,6 +496,7 @@ static const struct iio_chan_spec_ext_info ade9078_dip_lvl_ext_info[] = {
 	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AV_PCF, num),	\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
+			      BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
 			      BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 	.event_spec = ade9078_events,					\
@@ -1391,6 +1392,14 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 		break;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		ret = regmap_read(st->regmap, ADE9078_REG_PGA_GAIN, &reg);
+		if (ret)
+			return ret;
+		*val = 1 << ((reg >> (8 + chan->channel)) & 0x3);
+		if (*val > 4)
+			*val = 4;
+		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
@@ -1475,6 +1484,13 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 		break;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		if (val > 4 || val < 1 || val == 3)
+			return -EINVAL;
+		addr = ADE9078_REG_PGA_GAIN;
+		val = ilog2(val) << (chan->channel + 8);
+		tmp = 0x3 << (chan->channel + 8);
+		return regmap_update_bits(st->regmap, addr, tmp, val);
 	default:
 		return -EINVAL;
 	}
