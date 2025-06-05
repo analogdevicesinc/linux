@@ -223,6 +223,8 @@
 #define ADE9078_ST1_CROSSING_FIRST	6
 #define ADE9078_ST1_CROSSING_DEPTH	25
 
+#define ADE9078_WFB_TRG_DIP_BIT		BIT(0)
+#define ADE9078_WFB_TRG_SWELL_BIT	BIT(1)
 #define ADE9078_WFB_TRG_ZXIA_BIT	BIT(3)
 #define ADE9078_WFB_TRG_ZXIB_BIT	BIT(4)
 #define ADE9078_WFB_TRG_ZXIC_BIT	BIT(5)
@@ -1537,7 +1539,7 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				      int state)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
-	u32 interrupts;
+	u32 interrupts, tmp;
 	int ret;
 	struct irq_wfb_trig {
 		u32 irq;
@@ -1585,29 +1587,49 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 	} else if (dir == IIO_EV_DIR_RISING) {
 		switch (chan->channel){
 		case ADE9078_PHASE_A_NR: 
-			interrupts = ADE9078_ST1_SWELLA_BIT;
+			tmp |= ADE9078_ST1_SWELLA_BIT;
 			break;
 		case ADE9078_PHASE_B_NR: 
-			interrupts = ADE9078_ST1_SWELLB_BIT;
+			tmp |= ADE9078_ST1_SWELLB_BIT;
 			break;
 		case ADE9078_PHASE_C_NR: 
-			interrupts = ADE9078_ST1_SWELLC_BIT;
+			tmp |= ADE9078_ST1_SWELLC_BIT;
+			break;
+		default:
 			break;
 		}
+
+		if (state) {
+			interrupts |= tmp;
+			st->wfb_trg |= ADE9078_WFB_TRG_SWELL_BIT;
+		} else {
+			interrupts &= ~tmp;
+			st->wfb_trg &= ~ADE9078_WFB_TRG_SWELL_BIT;
+		}
+
 	} else if (dir == IIO_EV_DIR_FALLING) {
 		switch (chan->channel){
 		case ADE9078_PHASE_A_NR: 
-			interrupts = ADE9078_ST1_DIPA_BIT;
+			interrupts |= ADE9078_ST1_DIPA_BIT;
 			break;
 		case ADE9078_PHASE_B_NR: 
-			interrupts = ADE9078_ST1_DIPB_BIT;
+			interrupts |= ADE9078_ST1_DIPB_BIT;
 			break;
 		case ADE9078_PHASE_C_NR: 
-			interrupts = ADE9078_ST1_DIPC_BIT;
+			interrupts |= ADE9078_ST1_DIPC_BIT;
+			break;
+		default:
 			break;
 		}
-	}
 
+		if (state) {
+			interrupts |= tmp;
+			st->wfb_trg |= ADE9078_WFB_TRG_DIP_BIT;
+		} else {
+			interrupts &= ~tmp;
+			st->wfb_trg &= ~ADE9078_WFB_TRG_DIP_BIT;
+		}
+	}
 	return regmap_update_bits(st->regmap, ADE9078_REG_MASK1, interrupts,
 				  interrupts);
 }
