@@ -4,7 +4,6 @@
  *
  * Copyright 2025 Analog Devices Inc.
  */
-#include "asm-generic/int-ll64.h"
 #include <linux/bits.h>
 #include <linux/cleanup.h>
 #include <linux/debugfs.h>
@@ -13,10 +12,14 @@
 #include <linux/hwmon-sysfs.h>
 #include <linux/regmap.h>
 #include <linux/math.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/mod_devicetable.h>
+#include <linux/overflow.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
+#include <linux/units.h>
 
 #define LTC4283_FAULT_STATUS		0x03
 #define   LTC4283_OV_MASK		BIT(0)
@@ -57,9 +60,11 @@
 #define LTC4283_ADC_2(c)		(0x4a + (c) * 3)
 #define LTC4283_ADC_2_MIN(c)		(0x4b + (c) * 3)
 #define LTC4283_ADC_2_MAX(c)		(0x4c + (c) * 3)
+#define LTC4283_ENERGY			0x7a
 /* also applies for differential channels */
 #define LTC4283_ADC1_FS_uV		32768
 #define LTC4283_ADC2_FS_mV		2048
+#define LTC4283_TCONV_uS		64103
 
 /* voltage channels */
 enum {
@@ -81,6 +86,7 @@ struct ltc4283_hwmon {
 	/* lock to protect concurrent device accesses and shared data */
 	struct mutex lock;
 	u32 rsense;
+	bool energy_en;
 };
 
 static int ltc4283_hwmon_read_voltage_word(const struct ltc4283_hwmon *st,
@@ -111,12 +117,13 @@ static int ltc4283_hwmon_read_voltage_byte(const struct ltc4283_hwmon *st,
 	return 0;
 }
 
-static int ltc428e_hwmon_read_alarm(const struct ltc4283_hwmon *st, u32 reg,
+static int ltc4283_hwmon_read_alarm(struct ltc4283_hwmon *st, u32 reg,
 				    u32 mask, long *val)
 {
 	u32 alarm;
 	int ret;
 
+	guard(mutex)(&st->lock);
 	ret = regmap_read(st->map, reg, &alarm);
 	if (ret)
 		return ret;
@@ -130,11 +137,11 @@ static int ltc428e_hwmon_read_alarm(const struct ltc4283_hwmon *st, u32 reg,
 	return 0;
 }
 
-static int ltc4283_hwmon_read_in_alarm(const struct ltc4283_hwmon *st,
-				       u32 channel, bool max_alm, long *val)
+static int ltc4283_hwmon_read_in_alarm(struct ltc4283_hwmon *st, u32 channel,
+				       bool max_alm, long *val)
 {
 	if (channel == LTC4283_HWMON_VPWR)
-		return ltc428e_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
+		return ltc4283_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
 						BIT(2 + max_alm), val);
 
 	if (channel >= LTC4283_HWMON_ADI_1 && channel <= LTC4283_HWMON_ADI_4) {
@@ -143,22 +150,22 @@ static int ltc4283_hwmon_read_in_alarm(const struct ltc4283_hwmon *st,
 		 * Lower channels go to higher bits. We also want to go +1 down
 		 * in the min_alarm case.
 		 */
-		return ltc428e_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_2,
+		return ltc4283_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_2,
 						BIT(7 - bit - !max_alm), val);
 	}
 
 	if (channel >= LTC4283_HWMON_ADIO_1 && channel <= LTC4283_HWMON_ADIO_4) {
 		u32 bit = (channel - LTC4283_HWMON_ADIO_1) * 2;
 
-		return ltc428e_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_3,
+		return ltc4283_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_3,
 						BIT(7 - bit - !max_alm), val);
 	}
 
 	if (channel == LTC4283_HWMON_DRNS)
-		return ltc428e_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_4,
+		return ltc4283_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_4,
 						BIT(6 + max_alm), val);
 
-	return ltc428e_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_4,
+	return ltc4283_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_4,
 					BIT(4 + max_alm), val);
 }
 
@@ -243,8 +250,8 @@ static int ltc4283_hwmon_read_in(struct ltc4283_hwmon *st, u32 attr,
 		 * fet_short in the status register. Should we also consider
 		 * external failure as DRAIN fault?
 		 */
-		return ltc4282_read_alarm(st, LTC4233_FAULT_STATUS,
-					  LTC4283_FET_BAD_MASK | LTC4283_FET_BAD_MASK, val);
+		return ltc4283_hwmon_read_alarm(st, LTC4283_FAULT_STATUS,
+						LTC4283_FET_BAD_MASK | LTC4283_FET_BAD_MASK, val);
 	case hwmon_in_enable:
 		return ltc4283_hwmon_read_in_en(st, channel, val);
 	default:
@@ -256,15 +263,16 @@ static int ltc4283_hwmon_read_in(struct ltc4283_hwmon *st, u32 attr,
 static int ltc4283_read_current_word(const struct ltc4283_hwmon *st, u32 reg,
 				     long *val)
 {
-	__be16 in;
+	u64 temp = DECA * LTC4283_ADC1_FS_uV * MILLI;
+	__be16 curr;
 	int ret;
 
-	ret = regmap_bulk_read(st->map, reg, &in, sizeof(in));
+	ret = regmap_bulk_read(st->map, reg, &curr, sizeof(curr));
 	if (ret)
 		return ret;
 
-	*val = DIV64_U64_ROUND_CLOSEST(be16_to_cpu(in) * LTC4283_ADC1_FS_uV * DECA,
-				       BIT(16) * (u64)st->rsense);
+	*val = DIV64_U64_ROUND_CLOSEST(be16_to_cpu(curr) * temp,
+				       BIT_ULL(16) * st->rsense);
 
 	return 0;
 }
@@ -279,7 +287,8 @@ static int ltc4283_read_current_byte(const struct ltc4283_hwmon *st, u32 reg,
 	if (ret)
 		return ret;
 
-	*val = DIV_ROUND_CLOSEST(curr * LTC4283_ADC1_FS_uV, BIT(8) * st->rsense);
+	*val = DIV_ROUND_CLOSEST(curr * LTC4283_ADC1_FS_uV * DECA * MILLI,
+				 BIT(8) * st->rsense);
 
 	return 0;
 }
@@ -291,33 +300,95 @@ static int ltc4283_hwmon_read_curr(struct ltc4283_hwmon *st, u32 attr,
 	case hwmon_curr_input:
 		return ltc4283_read_current_word(st, LTC4283_SENSE, val);
 	case hwmon_curr_highest:
-		return ltc4283_read_current_word(st, LTC4283_SENSE_HIGHEST,
-						 val);
+		return ltc4283_read_current_word(st, LTC4283_SENSE_MAX, val);
 	case hwmon_curr_lowest:
-		return ltc4283_read_current_word(st, LTC4283_SENSE_LOWEST,
-						 val);
+		return ltc4283_read_current_word(st, LTC4283_SENSE_MIN, val);
 	case hwmon_curr_max:
-		return ltc4283_read_current_byte(st, LTC4283_VSENSE_MAX, val);
+		return ltc4283_read_current_byte(st, LTC4283_SENSE_MAX_TH, val);
 	case hwmon_curr_min:
-		return ltc4282_read_current_byte(st, LTC4283_VSENSE_MIN, val);
+		return ltc4283_read_current_byte(st, LTC4283_SENSE_MIN_TH, val);
 	case hwmon_curr_max_alarm:
-		return ltc4283_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
-					  LTC4283_SENSE_HIGH_ALM, val);
+		return ltc4283_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
+						LTC4283_SENSE_HIGH_ALM, val);
 	case hwmon_curr_min_alarm:
-		return ltc4283_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
-					  LTC4283_SENSE_LOW_ALM, val);
+		return ltc4283_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
+						LTC4283_SENSE_LOW_ALM, val);
 	case hwmon_curr_crit_alarm:
-		return ltc4283_read_alarm(st, LTC4283_FAULT_STATUS,
-					  LTC4283_OC_MASK, val);
+		return ltc4283_hwmon_read_alarm(st, LTC4283_FAULT_STATUS,
+						LTC4283_OC_MASK, val);
 	default:
 		return -EOPNOTSUPP;
 	}
 }
 
+static int ltc4283_hwmon_read_power_word(const struct ltc4283_hwmon *st,
+					 u32 reg, long *val)
+{
+	u64 temp = LTC4283_ADC1_FS_uV * LTC4283_ADC2_FS_mV * DECA * MICRO;
+	__be16 raw;
+	int ret;
+
+	ret = regmap_bulk_read(st->map, reg, &raw, sizeof(raw));
+	if (ret)
+		return ret;
+
+	/*
+	 * Power is given by:
+	 *     P = CODE(16b) * 32.768mV * 2.048V / (2^16 * Rsense)
+	 */
+	if (check_mul_overflow(temp, be16_to_cpu(raw), &temp)) {
+		temp = DIV64_U64_ROUND_CLOSEST(temp, BIT_ULL(16) * st->rsense);
+		*val = temp * be16_to_cpu(raw);
+		return 0;
+	}
+
+	*val = DIV64_U64_ROUND_CLOSEST(temp, BIT_ULL(16) * st->rsense);
+
+	return 0;
+}
+
+static int ltc4283_hwmon_read_power_byte(const struct ltc4283_hwmon *st,
+					 u32 reg, long *val)
+{
+	u64 temp = LTC4283_ADC1_FS_uV * LTC4283_ADC2_FS_mV * DECA;
+	u32 power;
+	int ret;
+
+	ret = regmap_read(st->map, reg, &power);
+	if (ret)
+		return ret;
+
+	*val = DIV64_U64_ROUND_CLOSEST(power * temp * MICRO,
+				       BIT_ULL(8) * st->rsense);
+
+	return 0;
+}
+
 static int ltc4283_hwmon_read_power(struct ltc4283_hwmon *st, u32 attr,
 				    long *val)
 {
-	return 0;
+	switch (attr) {
+	case hwmon_power_input:
+		return ltc4283_hwmon_read_power_word(st, LTC4283_POWER, val);
+	case hwmon_power_input_highest:
+		return ltc4283_hwmon_read_power_word(st, LTC4283_POWER_MAX, val);
+	case hwmon_power_input_lowest:
+		return ltc4283_hwmon_read_power_word(st, LTC4283_POWER_MIN, val);
+	case hwmon_power_max_alarm:
+		return ltc4283_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
+						LTC4283_POWER_HIGH_ALM, val);
+	case hwmon_power_min_alarm:
+		return ltc4283_hwmon_read_alarm(st, LTC4283_ADC_ALM_LOG_1,
+						LTC4283_POWER_LOW_ALM, val);
+	case hwmon_power_max:
+		return ltc4283_hwmon_read_power_byte(st, LTC4283_POWER_MAX_TH,
+						     val);
+	case hwmon_power_min:
+		return ltc4283_hwmon_read_power_byte(st, LTC4283_POWER_MIN_TH,
+						     val);
+	default:
+		return -EOPNOTSUPP;
+	}
 }
 
 static int ltc4283_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
@@ -333,6 +404,9 @@ static int ltc4283_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 	case hwmon_power:
 		return ltc4283_hwmon_read_power(st, attr, val);
 	case hwmon_energy:
+		scoped_guard(mutex, &st->lock) {
+			*val = st->energy_en;
+		}
 		return 0;
 	default:
 		return -EOPNOTSUPP;
@@ -342,19 +416,35 @@ static int ltc4283_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 static int ltc4283_hwmon_write_power(struct ltc4283_hwmon *st, u32 attr,
 				     long val)
 {
-	return 0;
+	switch (attr) {
+	case hwmon_power_max:
+	case hwmon_power_min:
+	case hwmon_power_reset_history:
+	default:
+		return -EOPNOTSUPP;
 }
 
 static int ltc4283_hwmon_write_in(struct ltc4283_hwmon *st, u32 attr, long val,
 				  int channel)
 {
-	return 0;
+	switch (attr) {
+	case hwmon_in_max:
+	case hwmon_in_min:
+	case hwmon_in_reset_history:
+	case hwmon_in_enable:
+	default:
+		return -EOPNOTSUPP;
 }
 
 static int ltc4283_hwmon_write_curr(struct ltc4283_hwmon *st, u32 attr,
 				    long val)
 {
-	return 0;
+	switch (attr) {
+	case hwmon_curr_max:
+	case hwmon_curr_min:
+	case hwmon_curr_reset_history:
+	default:
+		return -EOPNOTSUPP;
 }
 
 static int ltc4283_hwmon_energy_enable_set(struct ltc4283_hwmon *st, long val)
@@ -490,7 +580,38 @@ static int ltc4283_hwmon_read_labels(struct device *dev,
 static ssize_t ltc4283_hwmon_energy_show(struct device *dev,
 					 struct device_attribute *da, char *buf)
 {
-	return sysfs_emit(buf, "%llu\n", 0ULL);
+	u64 temp = LTC4283_ADC1_FS_uV * LTC4283_ADC2_FS_mV * DECA, energy;
+	struct ltc4283_hwmon *st = dev_get_drvdata(dev);
+	__be64 raw;
+	int ret;
+
+	ret = regmap_bulk_read(st->map, LTC4283_ENERGY, &raw, 6);
+	if (ret)
+		return ret;
+
+	energy =  be64_to_cpu(raw) >> 16;
+	/*
+	 * The formula for energy is given by:
+	 *	E = CODE(48b) * 32.768mV * 2.048V * Tconv / 2^24 * Rsense
+	 *
+	 * As Rsense can have tenths of micro-ohm resolution, we need to
+	 * multiply by DECA to get microjoule.
+	 */
+	if (check_mul_overflow(temp * LTC4283_TCONV_uS, energy, &temp)) {
+		/*
+		 * We multiply again by 1000 to make sure that we don't get 0
+		 * in the following division which could happen for big rsense
+		 * values. OTOH, we then divide energy first by 1000 so that
+		 * we do not overflow u64 again for very small rsense values.
+		 */
+		temp = DIV64_U64_ROUND_CLOSEST(temp * LTC4283_TCONV_uS * MILLI,
+					       BIT_ULL(24) * st->rsense);
+		energy = DIV_ROUND_CLOSEST_ULL(energy, MILLI) * temp;
+	} else {
+		energy = DIV64_U64_ROUND_CLOSEST(temp, BIT_ULL(24) * st->rsense);
+	}
+
+	return sysfs_emit(buf, "%llu\n", energy);
 }
 
 static int ltc4283_hwmon_setup(struct ltc4283_hwmon *st, struct device *dev)
