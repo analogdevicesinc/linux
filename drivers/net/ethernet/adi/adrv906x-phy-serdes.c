@@ -1130,7 +1130,7 @@ static int adrv906x_pll_open(int dev_id)
 			return PTR_ERR(pll->fsm.task);
 		}
 		snprintf(pll->fsm.name, sizeof(pll->fsm.name), "pll%d-fsm", dev_id);
-		atomic_set(&pll->fsm.state, PLL_ST_25G_RUN);
+		atomic_set(&pll->fsm.state, PLL_ST_UNLOCKED);
 		pll->fsm.tran_tbl = adrv906x_phy_fsm_pll_trans;
 		pll->fsm.tran_tbl_size = ARRAY_SIZE(adrv906x_phy_fsm_pll_trans);
 		pll->fsm.state_to_str = adrv906x_pll_state_to_str;
