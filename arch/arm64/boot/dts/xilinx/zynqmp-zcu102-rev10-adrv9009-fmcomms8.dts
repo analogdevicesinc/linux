@@ -231,6 +231,11 @@
 			clocks = <&zynqmp_clk 73>;
 		};
 
+		axi_data_offload_tx: axi-data-offload-0@9d410000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x9d410000 0x10000>;
+		};
+
 		axi_adrv9009_core_rx: axi-adrv9009-rx-hpc@85a00000 {
 			compatible = "adi,axi-adrv9009-rx-1.0";
 			reg = <0x85a00000 0x2000>;
@@ -258,6 +263,7 @@
 			clock-names = "sampl_clk";
 			spibus-connected = <&trx2_adrv9009>;
 			adi,axi-pl-fifo-enable;
+			adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 			plddrbypass-gpios = <&gpio 146 0>;
 		};
 
