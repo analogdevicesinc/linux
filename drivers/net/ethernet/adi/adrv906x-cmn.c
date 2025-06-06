@@ -87,7 +87,6 @@ void adrv906x_eth_cmn_pll_reset(struct net_device *ndev)
 
 	mutex_unlock(&eth_if->mtx);
 }
-EXPORT_SYMBOL(adrv906x_eth_cmn_pll_reset);
 
 void adrv906x_eth_cmn_ser_tx_sync_trigger(struct net_device *ndev)
 {
@@ -109,7 +108,6 @@ void adrv906x_eth_cmn_ser_tx_sync_trigger(struct net_device *ndev)
 
 	mutex_unlock(&eth_if->mtx);
 }
-EXPORT_SYMBOL(adrv906x_eth_cmn_ser_tx_sync_trigger);
 
 void adrv906x_eth_cmn_ser_pwr_down(struct net_device *ndev)
 {
@@ -129,7 +127,6 @@ void adrv906x_eth_cmn_ser_pwr_down(struct net_device *ndev)
 
 	mutex_unlock(&eth_if->mtx);
 }
-EXPORT_SYMBOL(adrv906x_eth_cmn_ser_pwr_down);
 
 void adrv906x_eth_cmn_ser_pwr_up_and_reset(struct net_device *ndev)
 {
@@ -158,7 +155,6 @@ void adrv906x_eth_cmn_ser_pwr_up_and_reset(struct net_device *ndev)
 
 	mutex_unlock(&eth_if->mtx);
 }
-EXPORT_SYMBOL(adrv906x_eth_cmn_ser_pwr_up_and_reset);
 
 void adrv906x_eth_cmn_deser_pwr_down(struct net_device *ndev)
 {
@@ -178,7 +174,6 @@ void adrv906x_eth_cmn_deser_pwr_down(struct net_device *ndev)
 
 	mutex_unlock(&eth_if->mtx);
 }
-EXPORT_SYMBOL(adrv906x_eth_cmn_deser_pwr_down);
 
 void adrv906x_eth_cmn_deser_pwr_up_and_reset(struct net_device *ndev)
 {
@@ -207,7 +202,6 @@ void adrv906x_eth_cmn_deser_pwr_up_and_reset(struct net_device *ndev)
 
 	mutex_unlock(&eth_if->mtx);
 }
-EXPORT_SYMBOL(adrv906x_eth_cmn_deser_pwr_up_and_reset);
 
 int adrv906x_eth_cmn_rst_reg(void __iomem *regs)
 {

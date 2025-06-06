@@ -93,4 +93,7 @@
 #define ADRV906X_PCS_RS_FEC_STAT_REG                     201
 #define   ADRV906X_PCS_RS_FEC_STAT_ALIGN                 BIT(14)
 
+int adrv906x_phy_register(void);
+void adrv906x_phy_unregister(void);
+
 #endif /* __ADRV906X_PHY_H__ */
