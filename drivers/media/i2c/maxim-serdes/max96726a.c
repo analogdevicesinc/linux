@@ -368,9 +368,9 @@ static int max96726a_set_pipe_stream_id(struct max_des *des, struct max_des_pipe
 					     stream_id));
 }
 
-static int max96726a_set_pipe_phy(struct max_des *des,
-				  struct max_des_pipe *pipe,
-				  struct max_des_phy *phy)
+static int max96726a_set_pipe_tunnel_phy(struct max_des *des,
+					 struct max_des_pipe *pipe,
+					 struct max_des_phy *phy)
 {
 	struct max96726a_priv *priv = des_to_priv(des);
 	unsigned int phy_id = phy->index == 0 ? 1 : 2;
@@ -461,7 +461,7 @@ static const struct max_des_ops max96726a_ops = {
 	.set_pipe_stream_id = max96726a_set_pipe_stream_id,
 	.set_pipe_vc_remap = max96726a_set_pipe_vc_remap,
 	.set_pipe_vc_remaps_enable = max96726a_set_pipe_vc_remaps_enable,
-	.set_pipe_phy = max96726a_set_pipe_phy,
+	.set_pipe_tunnel_phy = max96726a_set_pipe_tunnel_phy,
 	.select_links = max96726a_select_links,
 	.set_link_version = max96726a_set_link_version,
 };
