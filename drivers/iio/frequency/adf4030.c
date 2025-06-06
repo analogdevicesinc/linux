@@ -262,16 +262,23 @@ static int adf4030_compute_r_n(u32 ref_freq, u32 vco_freq, u32 *rdiv, u32 *ndiv)
 	return -EINVAL;
 }
 
-static int adf4030_compute_odiv(u32 vco_freq, u32 bsync_out_freq, u32 *odiv)
+static int adf4030_compute_odiv(u32 vco_freq, u64 bsync_out_freq_uhz, u32 *odiv)
 {
+	u64 rem;
+	u32 bsync_out_freq;
+
+	bsync_out_freq = div_u64(bsync_out_freq_uhz, MICROHZ_PER_HZ);
+
 	if (bsync_out_freq < ADI_ADF4030_BSYNC_FREQ_MIN ||
 	    bsync_out_freq > ADI_ADF4030_BSYNC_FREQ_MAX)
 		return -EINVAL;
 
-	if (vco_freq % bsync_out_freq)
+	*odiv = div64_u64_rem((u64)vco_freq * MICROHZ_PER_HZ, bsync_out_freq_uhz, &rem);
+	if (rem) {
+		pr_err("VCO frequency %u Hz is not a multiple of Bsync frequency %u Hz\n",
+			vco_freq, bsync_out_freq);
 		return -EINVAL;
-
-	*odiv = vco_freq / bsync_out_freq;
+	}
 
 	if (*odiv > ADI_ADF4030_O_DIV_MAX)
 		return -EINVAL;
@@ -279,20 +286,22 @@ static int adf4030_compute_odiv(u32 vco_freq, u32 bsync_out_freq, u32 *odiv)
 	return 0;
 }
 
-static int adf4030_set_odiva_freq(struct adf4030_state *st, u32 bsync_out_freq_hz)
+static int adf4030_set_odiva_freq(struct adf4030_state *st, u64 bsync_out_freq_uhz)
 {
-	u32 odiv;
+	u32 odiv, fract;
 	int ret;
 
-	ret = adf4030_compute_odiv(st->vco_freq, bsync_out_freq_hz, &odiv);
+	ret = adf4030_compute_odiv(st->vco_freq, bsync_out_freq_uhz, &odiv);
+	fract = do_div(bsync_out_freq_uhz, MICROHZ_PER_HZ);
 	if (ret) {
 		dev_err(&st->spi->dev,
-			"Failed to compute ODIVA for Fvco=%u Hz and Fbsync=%u Hz\n",
-			st->vco_freq, bsync_out_freq_hz);
+			"Failed to compute ODIVA for Fvco=%u Hz and Fbsync=%llu.%06u uHz\n",
+			st->vco_freq, bsync_out_freq_uhz, fract);
+
 		return ret;
 	}
 
-	st->bsync_freq_odiv_a = bsync_out_freq_hz;
+	st->bsync_freq_odiv_a = bsync_out_freq_uhz;
 
 	ret = regmap_write(st->regmap, ADF4030_REG(0x53), odiv);
 	if (ret)
@@ -1037,7 +1046,7 @@ static int adf4030_clk_register(struct adf4030_state *st, unsigned int address,
 
 	init.name = st->clk_out_names[num];
 	init.ops = &adf4030_clk_ops;
-	init.flags = 0;
+	init.flags = CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED;
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
 
@@ -1110,6 +1119,7 @@ static int adf4030_jesd204_link_supported(struct jesd204_dev *jdev,
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct adf4030_state *st = iio_priv(indio_dev);
 	unsigned long rate;
+	u64 bsync_freq_uHz;
 	int ret;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
@@ -1119,11 +1129,15 @@ static int adf4030_jesd204_link_supported(struct jesd204_dev *jdev,
 		jesd204_state_op_reason_str(reason));
 
 	ret = jesd204_link_get_lmfc_lemc_rate(lnk, &rate);
-	if (ret)
+	if (ret < 0) {
+		dev_err(dev, "Failed to get LMFC/LEMC rate: %d\n", ret);
 		return ret;
+	}
+
+	bsync_freq_uHz = (u64)rate * MICROHZ_PER_HZ + (u32) ret;
 
 	if (rate != st->bsync_freq_odiv_a) {
-		ret = adf4030_set_odiva_freq(st, rate);
+		ret = adf4030_set_odiva_freq(st, bsync_freq_uHz);
 		if (ret)
 			return ret;
 	}
@@ -1269,7 +1283,7 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 	ret = adf4030_compute_r_n(ref_input_freq_hz, vco_out_freq_hz, &rdiv, &ndiv);
 	if (ret)
 		return dev_err_probe(&st->spi->dev, ret,
-			"Failed to compute R and N dividers for Fref=%u Hz amd VCO=%u Hz\n",
+			"Failed to compute R and N dividers for Fref=%u Hz and VCO=%u Hz\n",
 			ref_input_freq_hz, vco_out_freq_hz);
 
 	ret = regmap_update_bits(st->regmap, ADF4030_REG(0x57),
@@ -1294,12 +1308,13 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 	if (ret)
 		return dev_err_probe(&st->spi->dev, ret, "PLL failed to lock\n");
 
-	ret = adf4030_set_odiva_freq(st, st->bsync_freq_odiv_a);
+	ret = adf4030_set_odiva_freq(st, (u64)st->bsync_freq_odiv_a * MICROHZ_PER_HZ);
 	if (ret)
 		return ret;
 
 	if (st->bsync_freq_odiv_b) {
-		ret = adf4030_compute_odiv(vco_out_freq_hz, st->bsync_freq_odiv_b, &odiv);
+		ret = adf4030_compute_odiv(vco_out_freq_hz,
+					   (u64)st->bsync_freq_odiv_b * MICROHZ_PER_HZ, &odiv);
 		if (ret)
 			return dev_err_probe(&st->spi->dev, ret,
 				"Failed to compute ODIVB for Fvco=%u Hz and Fbsync=%u Hz\n",
