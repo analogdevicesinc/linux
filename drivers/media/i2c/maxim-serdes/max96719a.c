@@ -74,6 +74,11 @@
 #define MAX96719A_VC_REMAP_CUST0_RCVD_VC0	GENMASK(3, 0)
 #define MAX96719A_VC_REMAP_CUST0_MAPPED_VC0	GENMASK(7, 4)
 
+#define MAX96719A_PATGEN_CFG			0xa143
+#define MAX96719A_PATGEN_CFG_PATGEN_PREDEF	GENMASK(5, 0)
+#define MAX96719A_PATGEN_CFG_PATGEN_PREDEF_EN	BIT(6)
+#define MAX96719A_PATGEN_CFG_PATGEN_EN		BIT(7)
+
 #define MAX96719A_DEFAULT_CLKOUT_RATE		25000000UL
 
 #define MAX96719A_STREAM_ID			2
@@ -685,6 +690,51 @@ static const struct pinmux_ops max96719a_mux_ops = {
 	.set_mux = max96719a_mux_set,
 };
 
+#define MAX96719A_TPG_DT_ENTRIES(code, dt, bpp) \
+	{ 852, 480, { 1, 30 }, (code), (dt), (bpp) }, \
+	{ 1280, 720, { 1, 30 }, (code), (dt), (bpp) }, \
+	{ 1920, 1080, { 1, 30 }, (code), (dt), (bpp) }, \
+	{ 3840, 2160, { 1, 30 }, (code), (dt), (bpp) }, \
+	{ 4620, 2600, { 1, 30 }, (code), (dt), (bpp) }, \
+	{ 3000, 5760, { 1, 30 }, (code), (dt), (bpp) }, \
+	{ 1920, 1080, { 1, 60 }, (code), (dt), (bpp) }, \
+	{ 1920, 1080, { 1, 120 }, (code), (dt), (bpp) }
+
+static const struct max_tpg_entry max96719a_tpg_entries[] = {
+	MAX96719A_TPG_DT_ENTRIES(MEDIA_BUS_FMT_SRGGB8_1X8, MIPI_CSI2_DT_RAW8, 8),
+	MAX96719A_TPG_DT_ENTRIES(MEDIA_BUS_FMT_SRGGB10_1X10, MIPI_CSI2_DT_RAW10, 8),
+	MAX96719A_TPG_DT_ENTRIES(MEDIA_BUS_FMT_SRGGB12_1X12, MIPI_CSI2_DT_RAW12, 8),
+	MAX96719A_TPG_DT_ENTRIES(MEDIA_BUS_FMT_SRGGB16_1X16, MIPI_CSI2_DT_RAW16, 8),
+	MAX96719A_TPG_DT_ENTRIES(0 /* MEDIA_BUS_FMT_SRGGB20_1X20 */, MIPI_CSI2_DT_RAW20, 20),
+	MAX96719A_TPG_DT_ENTRIES(MEDIA_BUS_FMT_RGB888_1X24, MIPI_CSI2_DT_RGB888, 24),
+	MAX96719A_TPG_DT_ENTRIES(MEDIA_BUS_FMT_YUV8_1X24, MIPI_CSI2_DT_YUV420_8B, 24),
+	MAX96719A_TPG_DT_ENTRIES(MEDIA_BUS_FMT_YUV10_1X30, MIPI_CSI2_DT_YUV420_10B, 30),
+};
+
+static int max96719a_set_tpg(struct max_ser *ser, const struct max_tpg_entry *entry)
+{
+	struct max96719a_priv *priv = ser_to_priv(ser);
+	bool enable = entry != NULL;
+	unsigned int i = 0;
+
+	if (enable) {
+		for (i = 0; i < ser->ops->tpg_entries.num_entries; i++)
+			if (entry == &ser->ops->tpg_entries.entries[i])
+				break;
+
+		if (i == ser->ops->tpg_entries.num_entries)
+			return -EINVAL;
+	}
+
+	return regmap_update_bits(priv->regmap, MAX96719A_PATGEN_CFG,
+				  MAX96719A_PATGEN_CFG_PATGEN_PREDEF |
+				  MAX96719A_PATGEN_CFG_PATGEN_PREDEF_EN |
+				  MAX96719A_PATGEN_CFG_PATGEN_EN,
+				  FIELD_PREP(MAX96719A_PATGEN_CFG_PATGEN_PREDEF, i) |
+				  FIELD_PREP(MAX96719A_PATGEN_CFG_PATGEN_PREDEF_EN, enable) |
+				  FIELD_PREP(MAX96719A_PATGEN_CFG_PATGEN_EN, enable));
+}
+
 static const struct max_phys_config max96719a_phys_configs[] = {
 	{ { 4 } },
 };
@@ -698,11 +748,17 @@ static const struct max_ser_ops max96719a_ops = {
 		.num_configs = ARRAY_SIZE(max96719a_phys_configs),
 		.configs = max96719a_phys_configs,
 	},
+	.tpg_entries = {
+		.num_entries = ARRAY_SIZE(max96719a_tpg_entries),
+		.entries = max96719a_tpg_entries,
+	},
+	.tpg_mode = MAX_GMSL_TUNNEL_MODE,
 	.reg_read = max96719a_reg_read,
 	.reg_write = max96719a_reg_write,
 	.log_status = max96719a_log_status,
 	.set_i2c_xlate = max96719a_set_i2c_xlate,
 	.init_phy = max96719a_init_phy,
+	.set_tpg = max96719a_set_tpg,
 	.set_pipe_enable = max96719a_set_pipe_enable,
 	.get_pipe_stream_id = max96719a_get_pipe_stream_id,
 	.set_pipe_vc_remap = max96719a_set_pipe_vc_remap,
