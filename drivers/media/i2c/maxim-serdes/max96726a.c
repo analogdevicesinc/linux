@@ -39,6 +39,12 @@
 #define MAX96726A_STREAM_SEL_ALL		0xf5
 #define MAX96726A_STREAM_SEL_ALL_MASK		BIT(0)
 
+#define MAX96726A_PATGEN_CLK_SRC(p)		(0x10e + (p) * 0x1c)
+#define MAX96726A_PATGEN_CLK_SRC_PATGEN_EN	BIT(4)
+
+#define MAX96726A_COLORBAR_CONFIG(p)		(0x10f + (p) * 0x1c)
+#define MAX96726A_COLORBAR_CONFIG_PATGEN_PREDEF	GENMASK(5, 0)
+
 #define MAX96726A_VPRBS_FLAGS(p)		(0x110 + (p) * 0x1c)
 #define MAX96726A_VPRBS_FLAGS_VIDEO_LOCK	BIT(0)
 
@@ -58,6 +64,7 @@
 
 #define MAX96726A_MIPI_PHY0			0x8b0
 #define MAX96726A_MIPI_PHY0_PHY_STDBY_N(x)	(GENMASK(1, 0) << ((x) * 2))
+#define MAX96726A_MIPI_PHY0_FORCE_CSI_OUT	BIT(7)
 
 #define MAX96726A_MIPI_PHY49			0x8c4
 #define MAX96726A_MIPI_PHY49_CSI2_TX_PKT_CNT(x)	(GENMASK(3, 0) << (4 * ((x) == 0 ? 1 : 0)))
@@ -433,6 +440,47 @@ static int max96726a_set_link_version(struct max_des *des,
 				  MAX96726A_REG7_GMSL3_X(index), gmsl3_en);
 }
 
+static const struct max_tpg_entry max96726a_tpg_entries[] = {
+	{ 852, 480, { 1, 30 }, MEDIA_BUS_FMT_SRGGB16_1X16, MIPI_CSI2_DT_RAW16, 16 },
+	{ 1280, 720, { 1, 30 }, MEDIA_BUS_FMT_SRGGB16_1X16, MIPI_CSI2_DT_RAW16, 16 },
+	{ 1920, 1080, { 1, 30 }, MEDIA_BUS_FMT_SRGGB16_1X16, MIPI_CSI2_DT_RAW16, 16 },
+	{ 3840, 2160, { 1, 30 }, MEDIA_BUS_FMT_SRGGB16_1X16, MIPI_CSI2_DT_RAW16, 16 },
+	{ 852, 480, { 1, 60 }, MEDIA_BUS_FMT_SRGGB16_1X16, MIPI_CSI2_DT_RAW16, 16 },
+	{ 1280, 720, { 1, 60 }, MEDIA_BUS_FMT_SRGGB16_1X16, MIPI_CSI2_DT_RAW16, 16 },
+	{ 1920, 1080, { 1, 60 }, MEDIA_BUS_FMT_SRGGB16_1X16, MIPI_CSI2_DT_RAW16, 16 },
+};
+
+static int max96726a_set_tpg(struct max_des *des, const struct max_tpg_entry *entry)
+{
+	struct max96726a_priv *priv = des_to_priv(des);
+	bool enable = entry != NULL;
+	unsigned int i = 0;
+	int ret;
+
+	if (enable) {
+		for (i = 0; i < des->ops->tpg_entries.num_entries; i++)
+			if (entry == &des->ops->tpg_entries.entries[i])
+				break;
+
+		if (i == des->ops->tpg_entries.num_entries)
+			return -EINVAL;
+	}
+
+	ret = regmap_update_bits(priv->regmap, MAX96726A_COLORBAR_CONFIG(0),
+				 MAX96726A_COLORBAR_CONFIG_PATGEN_PREDEF,
+				 FIELD_PREP(MAX96726A_COLORBAR_CONFIG_PATGEN_PREDEF, i));
+	if (ret)
+		return ret;
+
+	ret = regmap_assign_bits(priv->regmap, MAX96726A_PATGEN_CLK_SRC(0),
+				 MAX96726A_PATGEN_CLK_SRC_PATGEN_EN, enable);
+	if (ret)
+		return ret;
+
+	return regmap_assign_bits(priv->regmap, MAX96726A_MIPI_PHY0,
+				  MAX96726A_MIPI_PHY0_FORCE_CSI_OUT, enable);
+}
+
 static const struct max_phys_config max96726a_phys_configs[] = {
 	{ { 4, 4 } },
 };
@@ -450,6 +498,11 @@ static const struct max_des_ops max96726a_ops = {
 		.num_configs = ARRAY_SIZE(max96726a_phys_configs),
 		.configs = max96726a_phys_configs,
 	},
+	.tpg_entries = {
+		.num_entries = ARRAY_SIZE(max96726a_tpg_entries),
+		.entries = max96726a_tpg_entries,
+	},
+	.tpg_mode = MAX_GMSL_TUNNEL_MODE,
 	.reg_read = max96726a_reg_read,
 	.reg_write = max96726a_reg_write,
 	.log_pipe_status = max9626a_log_pipe_status,
@@ -462,6 +515,7 @@ static const struct max_des_ops max96726a_ops = {
 	.set_pipe_vc_remap = max96726a_set_pipe_vc_remap,
 	.set_pipe_vc_remaps_enable = max96726a_set_pipe_vc_remaps_enable,
 	.set_pipe_tunnel_phy = max96726a_set_pipe_tunnel_phy,
+	.set_tpg = max96726a_set_tpg,
 	.select_links = max96726a_select_links,
 	.set_link_version = max96726a_set_link_version,
 };
