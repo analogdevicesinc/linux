@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/input/adi,max16150.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX16150/MAX16169 nanoPower Pushbutton On/Off Controller
+
+maintainers:
+  - Marc Paolo Sosa <marcpaolo.sosa@analog.com>
+
+description:
+  The MAX16150/MAX16169 is a low-power pushbutton on/off controller with a
+  switch debouncer and built-in latch. It accepts a noisy input from a
+  mechanical switch and produces a clean latched output, as well as a one-shot
+  interrupt output.
+
+properties:
+  compatible:
+    description:
+      Specifies the supported device variants. The MAX16150 and MAX16169 are supported.
+    enum:
+      - adi,max16150a
+      - adi,max16150b
+      - adi,max16169a
+      - adi,max16169b
+
+  interrupt-gpio:
+    maxItems: 1
+
+  clr-gpios:
+    description:
+      Clear Input. Pulling CLR low deasserts the latched OUT signal. If OUT is
+      already deasserted when CLR is pulled low, the state of OUT is unchanged.
+    maxItems: 1
+
+  linux,code:
+    default: KEY_POWER
+
+required:
+  - compatible
+  - interrupt-gpios
+  - clr-gpios
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/input/linux-event-codes.h>
+    #include <dt-bindings/gpio/gpio.h>
+
+    power-button {
+        compatible = "adi,max16150a";
+        interrupt-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
+        clr-gpios = <&gpio 4 GPIO_ACTIVE_LOW>;
+        linux,code = <KEY_POWER>;
+    };
