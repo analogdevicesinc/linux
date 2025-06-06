@@ -9,6 +9,7 @@
 #include <linux/of_mdio.h>
 #include <linux/sfp.h>
 #include <linux/platform_device.h>
+#include <linux/spinlock.h>
 #include "adrv906x-phy.h"
 #include "adrv906x-phy-serdes.h"
 #include "adrv906x-net.h"
@@ -36,6 +37,10 @@ static const struct adrv906x_phy_hw_stat adrv906x_phy_hw_stats[] = {
 	{ "code_error_cnt",		   ADRV906X_PCS_CODE_ERR_REG,	 0,  16 },
 	{ "cpc_shcv_error_cnt",		   ADRV906X_PCS_CPCS_SHCV_REG,	 0,  16 },
 };
+
+static struct kref phydrv_refcount;
+static DEFINE_SPINLOCK(phydrv_lock);
+static bool phydrv_is_registered;
 
 static bool adrv906x_phy_valid_speed(int speed)
 {
@@ -376,65 +381,74 @@ static void adrv906x_phy_remove(struct phy_device *phydev)
 	adrv906x_serdes_close(phydev);
 }
 
-static struct phy_driver adrv906x_phy_driver[] = {
-	{
-		PHY_ID_MATCH_EXACT(ADRV906X_PHY_ID),
-		.name = "adrv906x-phy",
-		.probe = adrv906x_phy_probe,
-		.remove = adrv906x_phy_remove,
-		.config_init = adrv906x_phy_config_init,
-		.soft_reset = genphy_soft_reset,
-		.config_aneg = adrv906x_phy_config_aneg,
-		.aneg_done = adrv906x_phy_aneg_done,
-		.read_status = adrv906x_phy_read_status,
-		.set_loopback = adrv906x_phy_set_loopback,
-		.get_sset_count = adrv906x_phy_get_sset_count,
-		.get_strings = adrv906x_phy_get_strings,
-		.get_stats = adrv906x_phy_get_stats,
-		.get_features = adrv906x_phy_get_features,
-		.resume = adrv906x_phy_resume,
-		.suspend = adrv906x_phy_suspend,
-		.link_change_notify = adrv906x_phy_link_change_notify,
-		.module_info = adrv906x_phy_module_info,
-	},
+static struct phy_driver adrv906x_phy_driver = {
+	PHY_ID_MATCH_EXACT(ADRV906X_PHY_ID),
+	.name = "adrv906x-phy",
+	.probe = adrv906x_phy_probe,
+	.remove = adrv906x_phy_remove,
+	.config_init = adrv906x_phy_config_init,
+	.soft_reset = genphy_soft_reset,
+	.config_aneg = adrv906x_phy_config_aneg,
+	.aneg_done = adrv906x_phy_aneg_done,
+	.read_status = adrv906x_phy_read_status,
+	.set_loopback = adrv906x_phy_set_loopback,
+	.get_sset_count = adrv906x_phy_get_sset_count,
+	.get_strings = adrv906x_phy_get_strings,
+	.get_stats = adrv906x_phy_get_stats,
+	.get_features = adrv906x_phy_get_features,
+	.resume = adrv906x_phy_resume,
+	.suspend = adrv906x_phy_suspend,
+	.link_change_notify = adrv906x_phy_link_change_notify,
+	.module_info = adrv906x_phy_module_info,
 };
 
-static int __init adrv906x_phy_init(void)
+int adrv906x_phy_register(void)
 {
-	int ret;
+	unsigned long flags;
+	int ret = 0;
 
-	ret = phy_drivers_register(adrv906x_phy_driver,
-				   ARRAY_SIZE(adrv906x_phy_driver),
-				   THIS_MODULE);
-	if (ret)
-		return ret;
+	spin_lock_irqsave(&phydrv_lock, flags);
 
-	ret = adrv906x_serdes_genl_register_family();
-	if (ret) {
-		pr_err("%s : register generic netlink family failed", __func__);
-		return ret;
+	if (phydrv_is_registered) {
+		kref_get(&phydrv_refcount);
+		goto out;
+	} else {
+		ret = phy_driver_register(&adrv906x_phy_driver, THIS_MODULE);
+		if (ret) {
+			pr_err("%s: driver register failed", __func__);
+			goto out;
+		}
+
+		ret = adrv906x_serdes_genl_register_family();
+		if (ret) {
+			phy_driver_unregister(&adrv906x_phy_driver);
+			pr_err("%s: generic netlink family register failed", __func__);
+			goto out;
+		}
+
+		phydrv_is_registered = true;
+		kref_init(&phydrv_refcount);
 	}
 
+out:
+	spin_unlock_irqrestore(&phydrv_lock, flags);
 	return ret;
 }
-module_init(adrv906x_phy_init);
 
-static void __exit adrv906x_phy_exit(void)
+static void adrv906x_phy_exit(struct kref *ref)
 {
-	phy_drivers_unregister(adrv906x_phy_driver,
-			       ARRAY_SIZE(adrv906x_phy_driver));
+	unsigned long flags;
 
+	spin_lock_irqsave(&phydrv_lock, flags);
+
+	phydrv_is_registered = false;
+	phy_driver_unregister(&adrv906x_phy_driver);
 	adrv906x_serdes_genl_unregister_family();
+
+	spin_unlock_irqrestore(&phydrv_lock, flags);
 }
-module_exit(adrv906x_phy_exit);
 
-static struct mdio_device_id __maybe_unused adrv906x_phy_ids[] = {
-	{ PHY_ID_MATCH_MODEL(ADRV906X_PHY_ID) },
-	{				      }
-};
-
-MODULE_DEVICE_TABLE(mdio, adrv906x_phy_ids);
-
-MODULE_DESCRIPTION("ADRV906X Gigabit Ethernet PHY driver");
-MODULE_AUTHOR("Slawomir Kulig <slawomir.kulig@analog.com>");
-MODULE_LICENSE("GPL");
+void adrv906x_phy_unregister(void)
+{
+	kref_put(&phydrv_refcount, adrv906x_phy_exit);
+}

@@ -27,6 +27,7 @@
 #include "adrv906x-cmn.h"
 #include "adrv906x-mdio.h"
 #include "adrv906x-tsu.h"
+#include "adrv906x-phy.h"
 
 /* OIF register RX */
 #define OIF_RX_CTRL_EN                      BIT(0)
@@ -158,26 +159,35 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 	phy_print_status(phydev);
 }
 
-/* TBD - add clock, phy configs etc */
-static int adrv906x_eth_phylink_register(struct net_device *ndev, struct device_node *port_np)
+static int adrv906x_eth_phy_connect(struct net_device *ndev, struct device_node *port_np)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct device *dev = adrv906x_dev->dev;
-	struct device_node *phy_node;
-	struct phy_device *phy_dev;
-	phy_interface_t iface;
+	struct device_node *phynode;
+	struct phy_device *phydev;
+	struct device *mdiodev;
 
-	phy_node = of_parse_phandle(port_np, "phy-handle", 0);
-	if (!phy_node) {
+	phynode = of_parse_phandle(port_np, "phy-handle", 0);
+	if (!phynode) {
 		dev_err(dev, "dt: failed to retrieve phy phandle");
 		return -ENODEV;
 	}
 
-	phy_dev = of_phy_connect(ndev, phy_node, &adrv906x_eth_adjust_link, 0, iface);
-	if (!phy_dev) {
+	phydev = of_phy_connect(ndev, phynode, &adrv906x_eth_adjust_link, 0, PHY_INTERFACE_MODE_NA);
+	if (!phydev) {
 		netdev_err(ndev, "could not connect to PHY");
 		return -ENODEV;
 	}
+
+	/* When the of_phy_connect() function attaches the phydev to the netdev based on the
+	 * device tree node, it increases the reference count of the PHY module to prevent it
+	 * from being removed prematurely. For ADRV906x, the PHY and Ethernet drivers are built
+	 * into the same module and, thus, the resulting reference count of the adrv906x_eth
+	 * module is incorrectly increased, which prevents the module from being removed later.
+	 * put_module() decreases the module's reference count.
+	 */
+	mdiodev = &phydev->mdio.dev;
+	module_put(mdiodev->driver->owner);
 
 	return 0;
 }
@@ -812,8 +822,14 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 
 	adrv906x_eth_cdr_get_recovered_clk_divs(np, eth_if);
 
+	ret = adrv906x_phy_register();
+	if (ret)
+		goto error;
+
 	mdio_np = of_get_child_by_name(np, "mdio_if");
-	adrv906x_mdio_probe(pdev, ndev, mdio_np);
+	ret = adrv906x_mdio_register(eth_if, mdio_np);
+	if (ret)
+		goto error;
 
 	/* Get child node ethernet-ports */
 	eth_ports_np = of_get_child_by_name(np, "ethernet-ports");
@@ -912,7 +928,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 
 		__set_default_multicast_filters(adrv906x_dev);
 
-		ret = adrv906x_eth_phylink_register(ndev, port_np);
+		ret = adrv906x_eth_phy_connect(ndev, port_np);
 		if (ret)
 			goto error_unregister_netdev;
 
@@ -997,6 +1013,9 @@ static void adrv906x_eth_remove(struct platform_device *pdev)
 		if (es->enabled)
 			break;
 	}
+
+	adrv906x_mdio_unregister(eth_if);
+	adrv906x_phy_unregister();
 
 	if (es->enabled)
 		adrv906x_switch_cleanup(es);

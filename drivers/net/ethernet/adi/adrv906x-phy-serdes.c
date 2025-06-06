@@ -563,7 +563,9 @@ static int adrv906x_phy_fsm_handle_transition(void *data)
 	int i, event, ret;
 
 	while (!kthread_should_stop()) {
-		wait_for_completion(&fsm->comp_tran);
+		if (!wait_for_completion_timeout(&fsm->comp_tran, msecs_to_jiffies(50)))
+			continue;
+
 		action = NULL;
 
 		ret = kfifo_out_spinlocked(&fsm->event_fifo, &event, sizeof(event), &fsm->event_fifo_lock);
@@ -1147,13 +1149,12 @@ static void adrv906x_pll_close(int dev_id)
 
 	mutex_lock(&pll->mtx);
 	if (pll->started) {
-		kfifo_free(&pll->fsm.event_fifo);
 		kthread_stop(pll->fsm.task);
+		kfifo_free(&pll->fsm.event_fifo);
 		pll->started = false;
 	}
 	mutex_unlock(&pll->mtx);
 }
-
 
 int adrv906x_serdes_open(struct phy_device *phydev,
 			 adrv906x_serdes_cb tx_cb, adrv906x_serdes_cb rx_cb)
@@ -1209,8 +1210,8 @@ int adrv906x_serdes_close(struct phy_device *phydev)
 	if (!serdes)
 		return -EINVAL;
 
-	kfifo_free(&serdes->fsm.event_fifo);
 	kthread_stop(serdes->fsm.task);
+	kfifo_free(&serdes->fsm.event_fifo);
 	adrv906x_pll_close(dev_id / 2);
 
 	return 0;

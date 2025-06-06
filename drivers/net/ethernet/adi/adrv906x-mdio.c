@@ -53,23 +53,22 @@ static int adrv906x_pseudo_mdio_read_c45(struct mii_bus *bus, int addr,
 	return adrv906x_pseudo_mdio_read(bus, addr, regnum);
 }
 
-int adrv906x_mdio_probe(struct platform_device *pdev, struct net_device *ndev,
-			struct device_node *mdio_np)
+int adrv906x_mdio_register(struct adrv906x_eth_if *eth_if, struct device_node *mdio_np)
 {
-	struct device *dev = &pdev->dev;
+	struct device *dev = eth_if->dev;
 	struct adrv906x_mdio_priv *priv;
 	struct mii_bus *bus;
 	int idx, ret;
 	u32 reg, len;
 
-	bus = devm_mdiobus_alloc_size(&pdev->dev, sizeof(*priv));
+	bus = devm_mdiobus_alloc_size(dev, sizeof(*priv));
 	if (!bus) {
 		dev_err(dev, "failed to allocate private driver data");
 		return -ENOMEM;
 	}
 
 	priv = bus->priv;
-	priv->dev = &pdev->dev;
+	priv->dev = dev;
 
 	for (idx = 0; idx < MAX_NETDEV_NUM; idx++) {
 		of_property_read_u32_index(mdio_np, "reg", 2 * idx, &reg);
@@ -80,13 +79,13 @@ int adrv906x_mdio_probe(struct platform_device *pdev, struct net_device *ndev,
 			return PTR_ERR(priv->pcs_base[idx]);
 	}
 
-	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d", pdev->name, pdev->id);
+	snprintf(bus->id, MII_BUS_ID_SIZE, "%s", dev_name(dev));
 	bus->name = "adrv906x-pseudo-mdio";
 	bus->read = adrv906x_pseudo_mdio_read,
 	bus->write = adrv906x_pseudo_mdio_write,
 	bus->read_c45 = adrv906x_pseudo_mdio_read_c45,
 	bus->write_c45 = adrv906x_pseudo_mdio_write_c45,
-	bus->parent = priv->dev;
+	bus->parent = dev;
 
 	ret = of_mdiobus_register(bus, mdio_np);
 	if (ret) {
@@ -94,5 +93,13 @@ int adrv906x_mdio_probe(struct platform_device *pdev, struct net_device *ndev,
 		return ret;
 	}
 
+	eth_if->mdio = bus;
+
 	return 0;
+}
+
+void adrv906x_mdio_unregister(struct adrv906x_eth_if *eth_if)
+{
+	if (eth_if->mdio)
+		mdiobus_unregister(eth_if->mdio);
 }

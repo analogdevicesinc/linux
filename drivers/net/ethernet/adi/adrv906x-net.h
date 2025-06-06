@@ -55,6 +55,7 @@ struct adrv906x_eth_if {
 	struct adrv906x_eth_dev *adrv906x_dev[MAX_NETDEV_NUM];
 	struct device *dev;
 	struct adrv906x_eth_switch ethswitch;
+	struct mii_bus *mdio; /* saved for cleanup */
 	void __iomem *emac_cmn_regs;
 	int tx_max_frames_pending;
 	struct mutex mtx; /* protects regs access*/
