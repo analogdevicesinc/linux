@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/property.h>
 #include <linux/slab.h>
+#include <linux/units.h>
 
 #include "jesd204-priv.h"
 
@@ -373,14 +374,15 @@ EXPORT_SYMBOL_GPL(jesd204_copy_link_params);
  * link configuration parameters. The calculated rate is stored in the variable
  * pointed to by @rate_hz.
  *
- * Return: 0 on success, negative error code on failure
+ * Return: 0 on success (exact division), positive value (remainder in ppm) if not exact,
+ *         or negative error code on failure.
  */
 
 int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 				    unsigned long *rate_hz)
 {
-	u64 lane_rate_hz;
-	u32 bkw;
+	u64 lane_rate_hz, rem;
+	u32 bkw, div;
 	int ret;
 
 	ret = jesd204_link_get_rate(lnk, &lane_rate_hz);
@@ -398,30 +400,33 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 				bkw = 80; /* JESD 204C */
 
 			if (lnk->num_of_multiblocks_in_emb) {
-				do_div(lane_rate_hz, bkw * 32 *
-					lnk->num_of_multiblocks_in_emb);
+				div =  bkw * 32 * lnk->num_of_multiblocks_in_emb;
 			} else {
 				lane_rate_hz *= 8;
-				do_div(lane_rate_hz, bkw *
-					lnk->octets_per_frame *
-					lnk->frames_per_multiframe);
+				div = bkw * lnk->octets_per_frame * lnk->frames_per_multiframe;
 			}
 			break;
 		case JESD204_ENCODER_8B10B:
-			do_div(lane_rate_hz, 10 * lnk->octets_per_frame *
-				lnk->frames_per_multiframe);
+			div = 10 * lnk->octets_per_frame * lnk->frames_per_multiframe;
 			break;
 		default:
 			return -EINVAL;
 		}
 		break;
 	default:
-		do_div(lane_rate_hz, 10 * lnk->octets_per_frame *
-			lnk->frames_per_multiframe);
+			div = 10 * lnk->octets_per_frame * lnk->frames_per_multiframe;
 		break;
 	}
 
+	rem = do_div(lane_rate_hz, div);
 	*rate_hz = lane_rate_hz;
+
+	if (rem) {
+		rem *= MICROHZ_PER_HZ;
+		do_div(rem, div);
+
+		return (u32) rem;
+	}
 
 	return 0;
 }
