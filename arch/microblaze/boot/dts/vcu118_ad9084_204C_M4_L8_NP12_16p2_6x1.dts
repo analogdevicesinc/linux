@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084 RevC
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9084
+ * https://wiki.analog.com/resources/eval/user-guides/ad9084_fmca_ebz/ad9084_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9084_fmca_ebz/vcu118>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP12_16p2_6x1.bin"
+
+
+#define HMC7044_PLL2_FREQ	(3037500000) // 3.0375 GHz (2150...3200 MHz range)
+#define AION_VCO_FREQ_HZ	(2531250000) // 2.53125 GHz (2375...2625 MHz range)
+
+/*
+ * OUT_CLK_SELECT options:
+ * XCVR_OUTCLK_PCS
+ * XCVR_OUTCLK_PMA
+ * XCVR_REFCLK
+ * XCVR_REFCLK_DIV2
+ * XCVR_PROGDIV_CLK	(GTHE3, GTHE4, GTYE4 only)
+*/
+
+#define OUT_CLK_SELECT		XCVR_PROGDIV_CLK
+
+/*
+ * SYS_CLK_SELECT options:
+ * XCVR_CPLL  (CPLL: GTHE3, GTHE4, GTYE4, GTXE2)
+ * XCVR_QPLL1 (QPLL1: GTHE3, GTHE4, GTYE4)
+ * XCVR_QPLL  (QPLL0: GTHE3, GTHE4, GTYE4, GTXE2)
+ */
+
+#define SYS_CLK_SELECT		XCVR_QPLL1
+
+#define SYSREF_CLK_MHz		(AION_VCO_FREQ_HZ / 1000)
+
+#define ASYNM_A_B_MODE 1
+#define WITH_AION 1
+
+#include "vcu118_ad9084.dts"
+
+&hmc7044_c1 {
+	adi,divider = <24>;	// 125
+};
+
+&hmc7044_c3 {
+	adi,divider = <1152>;	// 9.765
+	/delete-property/ adi,jesd204-sysref-chan;
+};
+
+&trx0_ad9084 {
+	adi,dformat-ddc-dither-en;
+};
