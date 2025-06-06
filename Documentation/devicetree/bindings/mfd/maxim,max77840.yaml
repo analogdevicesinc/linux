@@ -20,8 +20,6 @@ properties:
   interrupts:
     maxItems: 1
 
-  interrupt-controller: true
-
 patternProperties:
   "^regulator(@.*)?$":
     type: object
@@ -46,17 +44,15 @@ patternProperties:
 required:
   - compatible
   - reg
-  - interrupt-parent
-  - interrupts
-  - interrupt-controller
 
 additionalProperties: false
 
 examples:
   - |
     #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/gpio/gpio.h>
 
-    i2c@0 {
+    i2c {
       #address-cells = <1>;
       #size-cells = <0>;
 
@@ -65,8 +61,6 @@ examples:
         reg = <0x66>;
         interrupt-parent = <&gpio>;
         interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
-        interrupt-controller;
-        #interrupt-cells = <1>;
         status = "okay";
 
         regulator {
@@ -95,7 +89,6 @@ examples:
 
         fuelgauge {
           compatible = "maxim,max77840-fuelgauge";
-          fuelgauge,fuel_alert_soc = <2>;
         };
       };
     };
