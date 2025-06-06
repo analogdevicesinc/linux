@@ -927,6 +927,9 @@ auto_set_kconfig() {
 		sed -i "s/^$i=m/$i=y/" .config
 	done
 
+	# We collect warnings and assert as the last ci step.
+	scripts/config -d WERROR
+
 	return 0
 }
 
