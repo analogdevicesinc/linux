@@ -459,7 +459,6 @@ static const struct max_des_ops max96726a_ops = {
 	.set_phy_active = max96726a_set_phy_active,
 	.set_pipe_enable = max96726a_set_pipe_enable,
 	.set_pipe_stream_id = max96726a_set_pipe_stream_id,
-	.set_pipe_phy = max96726a_set_pipe_phy,
 	.set_pipe_vc_remap = max96726a_set_pipe_vc_remap,
 	.set_pipe_vc_remaps_enable = max96726a_set_pipe_vc_remaps_enable,
 	.set_pipe_phy = max96726a_set_pipe_phy,
