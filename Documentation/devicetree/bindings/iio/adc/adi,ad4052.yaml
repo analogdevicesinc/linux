@@ -1,0 +1,167 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2025 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,ad4052.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD4052 ADC family device driver
+
+maintainers:
+  - Jorge Marques <jorge.marques@analog.com>
+
+description: |
+  Analog Devices AD4052 Single Channel Precision SAR ADC family
+
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ad4050-ad4056.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ad4052-ad4058.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,ad4050
+      - adi,ad4052
+      - adi,ad4056
+      - adi,ad4058
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    items:
+      - description: Signal coming from the GP0 pin.
+      - description: Signal coming from the GP1 pin.
+
+  interrupt-names:
+    items:
+      - const: gp0
+      - const: gp1
+
+  cnv-gpios:
+    description: The Convert Input (CNV). If omitted, CNV is tied to SPI CS.
+    maxItems: 1
+
+  pwms:
+    maxItems: 1
+    description: PWM connected to the CNV pin.
+
+  trigger-sources:
+    minItems: 1
+    maxItems: 2
+    description:
+      Describes the output pin and event associated.
+
+  "#trigger-source-cells":
+    const: 2
+    description: |
+      Output pins used as trigger source.
+
+      Cell 0 defines the event:
+      * 0 = Data ready
+      * 1 = Min threshold
+      * 2 = Max threshold
+      * 3 = Either threshold
+      * 4 = CHOP control
+      * 5 = Device enable
+      * 6 = Device ready (only GP1)
+
+      Cell 1 defines which pin:
+      * 0 = GP0
+      * 1 = GP1
+
+      For convenience, macros for these values are available in
+      dt-bindings/iio/adc/adi,ad4052.h.
+
+  spi-max-frequency:
+    maximum: 83333333
+
+  vdd-supply:
+    description: Analog power supply.
+
+  vio-supply:
+    description: Digital interface logic power supply.
+
+  ref-supply:
+    description: |
+      Reference voltage to set the ADC full-scale range. If not present,
+      vdd-supply is used as the reference voltage.
+
+required:
+  - compatible
+  - reg
+  - vdd-supply
+  - vio-supply
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/iio/adc/adi,ad4052.h>
+
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        adc@0 {
+            compatible = "adi,ad4052";
+            reg = <0>;
+            vdd-supply = <&vdd>;
+            vio-supply = <&vio>;
+            ref-supply = <&ref>;
+            spi-max-frequency = <83333333>;
+
+            #trigger-source-cells = <2>;
+            trigger-sources = <&adc AD4052_TRIGGER_EVENT_EITHER_THRESH
+                                    AD4052_TRIGGER_PIN_GP0
+                               &adc AD4052_TRIGGER_EVENT_DATA_READY
+                                    AD4052_TRIGGER_PIN_GP1>;
+            interrupt-parent = <&gpio>;
+            interrupts = <0 0 IRQ_TYPE_EDGE_RISING>,
+                         <0 1 IRQ_TYPE_EDGE_FALLING>;
+            interrupt-names = "gp0", "gp1";
+            cnv-gpios = <&gpio 2 GPIO_ACTIVE_HIGH>;
+        };
+    };
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/iio/adc/adi,ad4052.h>
+
+    rx_dma {
+            #dma-cells = <1>;
+    };
+
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        dmas = <&rx_dma 0>;
+        dma-names = "offload0-rx";
+        trigger-sources = <&adc AD4052_TRIGGER_EVENT_DATA_READY
+                                AD4052_TRIGGER_PIN_GP1>;
+
+        adc@0 {
+            compatible = "adi,ad4052";
+            reg = <0>;
+            vdd-supply = <&vdd>;
+            vio-supply = <&vio>;
+            spi-max-frequency = <83333333>;
+            pwms = <&adc_trigger 0 10000 0>;
+
+            #trigger-source-cells = <2>;
+            trigger-sources = <&adc AD4052_TRIGGER_EVENT_EITHER_THRESH
+                                    AD4052_TRIGGER_PIN_GP0
+                               &adc AD4052_TRIGGER_EVENT_DATA_READY
+                                    AD4052_TRIGGER_PIN_GP1>;
+            interrupt-parent = <&gpio>;
+            interrupts = <0 0 IRQ_TYPE_EDGE_RISING>,
+                         <0 1 IRQ_TYPE_EDGE_FALLING>;
+            interrupt-names = "gp0", "gp1";
+            cnv-gpios = <&gpio 2 GPIO_ACTIVE_HIGH>;
+        };
+    };
