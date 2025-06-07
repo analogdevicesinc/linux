@@ -475,7 +475,7 @@ static int max77840_fg_probe(struct platform_device *pdev)
 		INIT_DELAYED_WORK(&chip->work, max77840_fg_work);
 		ret = request_threaded_irq(chip->fg_irq, NULL,
 					   max77840_fg_irq_thread,
-					   IRQF_TRIGGER_FALLING, "fuelgauge-irq", chip);
+					   IRQF_ONESHOT | IRQF_TRIGGER_FALLING, "fuelgauge-irq", chip);
 		if (ret) {
 			pr_err("%s: Failed to Request IRQ\n", __func__);
 			goto error1;
@@ -546,7 +546,6 @@ MODULE_DEVICE_TABLE(of, max77840_fg_dt_ids);
 static struct platform_driver max77840_fg_driver = {
 	.driver = {
 		.name = MAX77840_FUELGAUGE_NAME,
-		.owner = THIS_MODULE,
 		.pm = &max77840_fg_pm_ops,
 #ifdef CONFIG_OF
 		.of_match_table	= max77840_fg_dt_ids,

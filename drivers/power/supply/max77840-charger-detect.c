@@ -399,7 +399,7 @@ static int max77840_chgdet_probe(struct platform_device *pdev)
 
 	ret = request_threaded_irq(chgdet->chgtyp_irq, NULL,
 				   max77840_chgdet_chgin_isr,
-				   IRQF_TRIGGER_FALLING,
+				   IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
 				   "charger-detect-chgtyp",
 				   chgdet);
 	if (ret) {
@@ -462,7 +462,6 @@ MODULE_DEVICE_TABLE(of, max77840_chgdet_dt_ids);
 static struct platform_driver max77840_chgdet_driver = {
 	.driver = {
 		.name = MAX77840_CHARGER_DETECT_NAME,
-		.owner = THIS_MODULE,
 		.pm = &max77840_chgdet_pm_ops,
 #ifdef CONFIG_OF
 		.of_match_table = max77840_chgdet_dt_ids,

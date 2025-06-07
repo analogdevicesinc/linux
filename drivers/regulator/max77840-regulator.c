@@ -265,7 +265,6 @@ MODULE_DEVICE_TABLE(platform, max77840_regulator_id);
 static struct platform_driver max77840_regulator_driver = {
 	.driver = {
 		.name = MAX77840_REGULATOR_NAME,
-		.owner = THIS_MODULE,
 	},
 	.probe = max77840_regulator_probe,
 	.remove = max77840_regulator_remove,

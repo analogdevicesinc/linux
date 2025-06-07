@@ -902,7 +902,7 @@ static int max77840_charger_probe(struct platform_device *pdev)
 
 	ret = request_threaded_irq(charger->chgin_irq, NULL,
 				   max77840_charger_chgin_isr,
-				   IRQF_TRIGGER_FALLING, "charger-chgin", charger);
+				   IRQF_ONESHOT | IRQF_TRIGGER_FALLING, "charger-chgin", charger);
 	if (ret) {
 		pr_err("%s: Failed to Request CHGIN IRQ\n", __func__);
 		goto err_chgin_irq;
@@ -910,7 +910,7 @@ static int max77840_charger_probe(struct platform_device *pdev)
 
 	ret = request_threaded_irq(charger->aicl_irq, NULL,
 				   max77840_charger_aicl_isr,
-				   IRQF_TRIGGER_FALLING, "charger-aicl", charger);
+				   IRQF_ONESHOT | IRQF_TRIGGER_FALLING, "charger-aicl", charger);
 	if (ret) {
 		pr_err("%s: Failed to Request AICL IRQ\n", __func__);
 		goto err_aicl_irq;
@@ -918,7 +918,7 @@ static int max77840_charger_probe(struct platform_device *pdev)
 
 	ret = request_threaded_irq(charger->chg_irq, NULL,
 				   max77840_charger_chg_isr,
-				   IRQF_TRIGGER_FALLING, "charger-chg", charger);
+				   IRQF_ONESHOT  | IRQF_TRIGGER_FALLING, "charger-chg", charger);
 	if (ret) {
 		pr_err("%s: Failed to Request CHG IRQ\n", __func__);
 		goto err_chg_irq;
@@ -986,7 +986,6 @@ MODULE_DEVICE_TABLE(of, max77840_charger_dt_ids);
 static struct platform_driver max77840_charger_driver = {
 	.driver = {
 		.name = MAX77840_CHARGER_NAME,
-		.owner = THIS_MODULE,
 		.pm = &max77840_charger_pm_ops,
 #ifdef CONFIG_OF
 		.of_match_table = max77840_charger_dt_ids,
