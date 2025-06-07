@@ -556,8 +556,8 @@ config CHARGER_MAX77840
 	tristate "Maxim Integrated MAX77840 Charger with Fuel Gauge"
 	depends on MFD_MAX77840
 	help
-	  Say Y to enable support for Maxim Integrated MAX77840 Charger with Fuel Gauge,
-	  providing battery charging, capacity monitoring, and interrupt handling via I2C.
+	  Say Y to enable support for the Maxim Integrated MAX77840 charger with fuel gauge.
+	  It provides battery charging, capacity monitoring, and interrupt handling via I2C.
 
 config CHARGER_MAX77976
 	tristate "Maxim MAX77976 battery charger driver"
