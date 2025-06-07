@@ -901,7 +901,7 @@ config MFD_MAX77840
 	select REGMAP_I2C
 	select REGMAP_IRQ
 	help
-	  Say yes here to add support for Maxim Integrated MAX77840. 
+	  Say yes here to add support for Maxim Integrated MAX77840.
 	  This is a 3A Switch Mode Charger with Fuel Gauge.
 	  This driver provides common support for accessing the device,
 	  additional drivers must be enabled in order to use the functionality
