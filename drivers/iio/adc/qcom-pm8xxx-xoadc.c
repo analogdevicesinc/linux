@@ -911,21 +911,15 @@ static int pm8xxx_xoadc_probe(struct platform_device *pdev)
 	adc->map = map;
 
 	/* Bring up regulator */
-	adc->vref = devm_regulator_get(dev, "xoadc-ref");
-	if (IS_ERR(adc->vref))
-		return dev_err_probe(dev, PTR_ERR(adc->vref),
-				     "failed to get XOADC VREF regulator\n");
-	ret = regulator_enable(adc->vref);
+	ret = devm_regulator_get_enable(dev, "xoadc-ref");
 	if (ret) {
-		dev_err(dev, "failed to enable XOADC VREF regulator\n");
-		return ret;
+		return dev_err_probe(dev, ret, "failed to enable XOADC VREF regulator\n");
 	}
 
 	ret = devm_request_threaded_irq(dev, platform_get_irq(pdev, 0),
 			pm8xxx_eoc_irq, NULL, 0, variant->name, indio_dev);
 	if (ret) {
-		dev_err(dev, "unable to request IRQ\n");
-		goto out_disable_vref;
+		return dev_err_probe(dev, ret, "unable to request IRQ\n");
 	}
 
 	indio_dev->name = variant->name;
@@ -936,7 +930,7 @@ static int pm8xxx_xoadc_probe(struct platform_device *pdev)
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto out_disable_vref;
+		return ret;
 
 	ret = pm8xxx_calibrate_device(adc);
 	if (ret)
@@ -948,9 +942,6 @@ static int pm8xxx_xoadc_probe(struct platform_device *pdev)
 
 out_unreg_device:
 	iio_device_unregister(indio_dev);
-out_disable_vref:
-	regulator_disable(adc->vref);
-
 	return ret;
 }
 
