@@ -615,6 +615,20 @@ config REGULATOR_MAX77650
 	  Semiconductor. This device has a SIMO with three independent
 	  power rails and an LDO.
 
+config REGULATOR_MAX77840
+	tristate "Maxim Integrated MAX77840 Regulator"
+	depends on MFD_MAX77840
+	help
+	  Say Y here to enable support for the voltage regulators provided by
+	  the Maxim Integrated MAX77840 PMIC. This driver supports the control
+	  and monitoring of the on-chip LDOs and buck converters via the regulator
+	  framework.
+
+	  The MAX77840 communicates over the I2C bus and is commonly used in
+	  mobile and battery-powered devices. This driver allows setting regulator
+	  voltage levels and handling regulator enable/disable through standard
+	  kernel interfaces.
+
 config REGULATOR_MAX77857
 	tristate "ADI MAX77857/MAX77831 regulator support"
 	depends on I2C
