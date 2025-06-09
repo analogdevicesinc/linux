@@ -674,9 +674,15 @@ static int adrv906x_ndma_refill_rx(struct adrv906x_ndma_chan *ndma_ch, int budge
 		/* Mark an empty buffer by setting the first byte of the WU header to 0 */
 		skb->data[0] = 0;
 
-		addr = dma_map_single(dev, skb->data, NDMA_RX_WU_BUF_SIZE,
-				      DMA_FROM_DEVICE);
-		if (unlikely(dma_mapping_error(dev, addr) || (addr & 0x1F))) {
+		addr = dma_map_single(dev, skb->data, NDMA_RX_WU_BUF_SIZE, DMA_FROM_DEVICE);
+
+		if (unlikely(dma_mapping_error(dev, addr))) {
+			napi_consume_skb(skb, budget);
+			break;
+		}
+
+		if (unlikely(addr & 0x1F)) {
+			dma_unmap_single(dev, addr, NDMA_RX_WU_BUF_SIZE, DMA_FROM_DEVICE);
 			napi_consume_skb(skb, budget);
 			break;
 		}
