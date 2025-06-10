@@ -168,3 +168,6 @@ dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA-x-prc-07-i3c-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA-x-prc-08-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA-x-prc-09-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA-x-prc-09-i3c-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-rev10-ad9695-QTEST.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-rev10-ad9695.dtb
+
