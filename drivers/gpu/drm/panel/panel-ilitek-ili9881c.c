@@ -2296,10 +2296,10 @@ static const struct drm_display_mode nwe080_default_mode = {
 };
 
 static const struct drm_display_mode cfaf7201280a0_050tx_default_mode = {
-	/* 
- 	 * These timings are a compromise so the panel will work with
- 	 * both the CM4 and CM5.
-  	 */
+	/*
+	 * These timings are a compromise so the panel will work with
+	 * both the CM4 and CM5.
+	 */
 	.clock          = 78000,
 	.hdisplay       = 720,
 	.hsync_start    = 720 + 120,
