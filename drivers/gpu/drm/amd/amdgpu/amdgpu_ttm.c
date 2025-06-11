@@ -2298,8 +2298,6 @@ void amdgpu_ttm_set_buffer_funcs_status(struct amdgpu_device *adev, bool enable)
 		return;
 
 	if (enable) {
-		struct drm_gpu_scheduler *sched;
-
 		if (!adev->mman.num_buffer_funcs_scheds) {
 			dev_warn(adev->dev, "Not enabling DMA transfers for in kernel use");
 			return;
@@ -2307,11 +2305,11 @@ void amdgpu_ttm_set_buffer_funcs_status(struct amdgpu_device *adev, bool enable)
 
 		num_clear_entities = MIN(adev->mman.num_buffer_funcs_scheds, TTM_NUM_MOVE_FENCES);
 		num_move_entities = MIN(adev->mman.num_buffer_funcs_scheds, TTM_NUM_MOVE_FENCES);
-		sched = adev->mman.buffer_funcs_scheds[0];
+		/* default_entity doesn't need multiple schedulers so pass only 1. */
 		r = amdgpu_ttm_buffer_entity_init(&adev->mman.gtt_mgr,
 						  &adev->mman.default_entity,
 						  DRM_SCHED_PRIORITY_KERNEL,
-						  &sched, 1, 0);
+						  adev->mman.buffer_funcs_scheds, 1, 0);
 		if (r < 0) {
 			dev_err(adev->dev,
 				"Failed setting up TTM entity (%d)\n", r);
@@ -2329,8 +2327,11 @@ void amdgpu_ttm_set_buffer_funcs_status(struct amdgpu_device *adev, bool enable)
 
 		for (i = 0; i < num_clear_entities; i++) {
 			r = amdgpu_ttm_buffer_entity_init(
-				&adev->mman.gtt_mgr, &adev->mman.clear_entities[i],
-				DRM_SCHED_PRIORITY_NORMAL, &sched, 1, 1);
+				&adev->mman.gtt_mgr,
+				&adev->mman.clear_entities[i],
+				DRM_SCHED_PRIORITY_NORMAL,
+				adev->mman.buffer_funcs_scheds,
+				adev->mman.num_buffer_funcs_scheds, 1);
 
 			if (r < 0) {
 				for (j = 0; j < i; j++)
@@ -2349,7 +2350,9 @@ void amdgpu_ttm_set_buffer_funcs_status(struct amdgpu_device *adev, bool enable)
 			r = amdgpu_ttm_buffer_entity_init(
 				&adev->mman.gtt_mgr,
 				&adev->mman.move_entities[i],
-				DRM_SCHED_PRIORITY_NORMAL, &sched, 1, 2);
+				DRM_SCHED_PRIORITY_NORMAL,
+				adev->mman.buffer_funcs_scheds,
+				adev->mman.num_buffer_funcs_scheds, 2);
 
 			if (r < 0) {
 				for (j = 0; j < i; j++)
