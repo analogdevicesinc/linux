@@ -16152,8 +16152,8 @@ ONBOARD USB HUB DRIVER
 M:	Matthias Kaehlcke <mka@chromium.org>
 L:	linux-usb@vger.kernel.org
 S:	Maintained
-F:	Documentation/ABI/testing/sysfs-bus-platform-onboard-usb-hub
-F:	drivers/usb/misc/onboard_usb_hub.c
+F:	Documentation/ABI/testing/sysfs-bus-platform-onboard-usb-dev
+F:	drivers/usb/misc/onboard_usb_dev.c
 
 ONENAND FLASH DRIVER
 M:	Kyungmin Park <kyungmin.park@samsung.com>
@@ -24007,6 +24007,13 @@ R:	Michal Simek <michal.simek@xilinx.com>
 S:	Maintained
 F:	Documentation/devicetree/bindings/nvmem/xlnx,versal-sec-cfg.yaml
 F:	drivers/nvmem/xlnx_secure_config.c
+
+XILINX VERSAL THERMAL DRIVER
+M:	Salih Erim <salih.erim@amd.com>
+R:	Dragan Cvetic <dragan.cvetic@amd.com>
+S:	Maintained
+F:	Documentation/devicetree/bindings/thermal/xlnx,versal-thermal.yaml
+F:	drivers/thermal/versal_thermal.c
 
 XILINX UARTLITE SERIAL DRIVER
 M:	Peter Korsgaard <jacmet@sunsite.dk>

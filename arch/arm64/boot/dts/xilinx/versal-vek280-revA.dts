@@ -19,11 +19,11 @@
 
 	memory: memory@0 {
 		device_type = "memory";
-		reg = <0 0 0 0x80000000>, <0x8 0x0 0x7 0x80000000>; /* 32GB */
+		reg = <0 0 0 0x80000000>, <0x8 0x0 0x1 0x80000000>; /* 2GB + 6GB */
 	};
 
 	chosen {
-		bootargs = "console=ttyAMA0 earlycon=pl011,mmio32,0xFF000000,115200n8 clk_ignore_unused";
+		bootargs = "console=ttyAMA0 earlycon=pl011,mmio32,0xFF000000,115200n8";
 		stdout-path = "serial0:115200";
 	};
 
@@ -53,7 +53,6 @@
 
 &ospi { /* PMC MIO0-10, 12, U297 MT35XU02G */
 	status = "okay";
-	compatible = "xlnx,versal-ospi-1.0", "cadence,qspi", "cdns,qspi-nor";
 	bus-num = <2>;
 	num-cs = <1>;
 	#stream-id-cells = <1>;

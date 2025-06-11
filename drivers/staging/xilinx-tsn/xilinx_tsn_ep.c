@@ -360,7 +360,13 @@ static const struct net_device_ops ep_netdev_ops = {
 #if defined(CONFIG_XILINX_TSN_SWITCH)
 	.ndo_get_port_parent_id = tsn_switch_get_port_parent_id,
 #endif
+	.ndo_setup_tc = axienet_tsn_shaper_tc,
 };
+
+bool xlnx_is_port_ep_netdev(const struct net_device *ndev)
+{
+	return ndev && (ndev->netdev_ops == &ep_netdev_ops);
+}
 
 static const struct of_device_id tsn_ep_of_match[] = {
 	{ .compatible = "xlnx,tsn-ep"},

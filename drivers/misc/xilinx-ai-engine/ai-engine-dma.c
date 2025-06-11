@@ -360,8 +360,10 @@ static void aie_part_dmabuf_attach_put(struct aie_dmabuf *adbuf)
  */
 void aie_part_release_dmabufs(struct aie_partition *apart)
 {
+	struct aie_dma_mem *dma_mem, *tmpdmem;
 	struct aie_dmabuf *adbuf, *tmpadbuf;
-	struct aie_part_mem *mems;
+	struct aie_part_mem *mems, *pmem;
+	struct dma_buf *dbuf;
 	int num_mems;
 
 	num_mems = apart->adev->ops->get_mem_info(apart->adev, &apart->range,
@@ -379,7 +381,7 @@ void aie_part_release_dmabufs(struct aie_partition *apart)
 	}
 
 	list_for_each_entry_safe(adbuf, tmpadbuf, &apart->dbufs, node) {
-		struct dma_buf *dbuf = adbuf->attach->dmabuf;
+		dbuf = adbuf->attach->dmabuf;
 
 		dma_buf_unmap_attachment(adbuf->attach, adbuf->sgt,
 					 adbuf->attach->dir);
@@ -388,6 +390,90 @@ void aie_part_release_dmabufs(struct aie_partition *apart)
 		list_del(&adbuf->node);
 		kmem_cache_free(apart->dbufs_cache, adbuf);
 	}
+
+	list_for_each_entry_safe(dma_mem, tmpdmem, &apart->dma_mem, node) {
+		pmem = &dma_mem->pmem;
+		dma_free_coherent(&apart->dev, pmem->mem.size,
+				  (void *)pmem->mem.offset,
+				  dma_mem->dma_addr);
+		list_del(&dma_mem->node);
+		dma_buf_put(pmem->dbuf);
+	}
+}
+
+/**
+ * aie_dma_begin_cpu_access() - syncs the scatter gather list for cpu
+ * @dmabuf: dma buffer structure
+ * @direction: direction to sync scatter gather list.
+ *
+ * @return: 0 for success, negative value for failure.
+ */
+int aie_dma_begin_cpu_access(struct dma_buf *dmabuf,
+			     enum dma_data_direction direction)
+{
+	struct aie_partition *apart;
+	struct aie_part_mem *pmem;
+	struct aie_dmabuf *adbuf;
+	struct sg_table *table;
+	int ret;
+
+	pmem = (struct aie_part_mem *)dmabuf->priv;
+	if (!pmem)
+		return -EINVAL;
+
+	apart = pmem->apart;
+	if (!apart)
+		return -EINVAL;
+
+	ret = mutex_lock_interruptible(&apart->mlock);
+	if (ret)
+		return ret;
+
+	adbuf = aie_part_find_dmabuf(apart, dmabuf);
+	if (!adbuf)
+		return -EINVAL;
+
+	table = adbuf->sgt;
+
+	dma_sync_sg_for_cpu(&apart->dev, table->sgl, table->nents, direction);
+	mutex_unlock(&apart->mlock);
+
+	return 0;
+}
+
+/**
+ * aie_dma_end_cpu_access() - syncs the scatter gather list for device
+ * @dmabuf: dma buffer structure
+ * @direction: direction to sync scatter gather list.
+ *
+ * @return: 0 for success, negative value for failure.
+ */
+int aie_dma_end_cpu_access(struct dma_buf *dmabuf,
+			   enum dma_data_direction direction)
+{
+	struct aie_partition *apart;
+	struct aie_part_mem *pmem;
+	struct aie_dmabuf *adbuf;
+	struct sg_table *table;
+	int ret;
+
+	pmem = (struct aie_part_mem *)dmabuf->priv;
+	apart = pmem->apart;
+
+	ret = mutex_lock_interruptible(&apart->mlock);
+	if (ret)
+		return ret;
+
+	adbuf = aie_part_find_dmabuf(apart, dmabuf);
+	if (!adbuf)
+		return -EINVAL;
+
+	table = adbuf->sgt;
+
+	dma_sync_sg_for_device(&apart->dev, table->sgl, table->nents, direction);
+	mutex_unlock(&apart->mlock);
+
+	return 0;
 }
 
 /**
@@ -456,9 +542,9 @@ long aie_part_attach_dmabuf_req(struct aie_partition *apart,
 long aie_part_detach_dmabuf_req(struct aie_partition *apart,
 				void __user *user_args)
 {
-	int dmabuf_fd;
-	struct dma_buf *dbuf;
 	struct aie_dmabuf *adbuf;
+	struct dma_buf *dbuf;
+	int dmabuf_fd;
 	int ret;
 
 	dmabuf_fd = (int)(uintptr_t)user_args;
@@ -686,6 +772,91 @@ long aie_part_set_dmabuf_bd_from_user(struct aie_partition *apart,
 
 	ret = aie_part_set_dmabuf_bd(apart, &args);
 
+	mutex_unlock(&apart->mlock);
+	return ret;
+}
+
+/**
+ * aie_part_update_dmabuf_bd_from_user() - Updates the AI engine SHIM DMA
+ *					   address
+ * @apart: AI engine partition
+ * @user_args: user AI engine dmabuf argument
+ *
+ * @return: 0 for success, negative value for failure
+ *
+ * This function updates the address in SHIM DMA BD. The offset passed from the
+ * userspace is added with the buffer base address obtained from dmabuf.
+ */
+long aie_part_update_dmabuf_bd_from_user(struct aie_partition *apart,
+					 void __user *user_args)
+{
+	const struct aie_dma_attr *shim_dma = apart->adev->shim_dma;
+	struct aie_aperture *aperture = apart->aperture;
+	struct aie_device *adev = apart->adev;
+	u32 len, regval, *off, laddr, haddr;
+	struct aie_dmabuf_bd_args args;
+	void __iomem *va;
+	dma_addr_t addr;
+	long ret;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	ret = mutex_lock_interruptible(&apart->mlock);
+	if (ret)
+		return ret;
+
+	ret = aie_part_validate_bdloc(apart, args.loc, args.bd_id);
+	if (ret) {
+		dev_err(&apart->dev, "invalid SHIM DMA BD reg address.\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	off = memdup_user((void __user *)args.bd, sizeof(*off));
+	if (IS_ERR(off)) {
+		ret = PTR_ERR(off);
+		goto exit;
+	}
+
+	va = aperture->base +
+	     aie_cal_regoff(adev, args.loc, shim_dma->bd_regoff) +
+	     shim_dma->bd_len * args.bd_id +
+	     shim_dma->buflen.regoff;
+	regval = ioread32(va);
+	len = aie_get_reg_field(&shim_dma->buflen, regval);
+
+	addr = aie_part_get_dmabuf_da_from_off(apart, args.buf_fd, *off, len);
+	if (!addr) {
+		dev_err(&apart->dev, "invalid buffer 0x%x, 0x%x.\n",
+			*off, len);
+		ret = -EINVAL;
+		kfree(off);
+		goto exit;
+	}
+
+	/* Set low 32bit address */
+	laddr = lower_32_bits(addr);
+	va = aperture->base +
+	     aie_cal_regoff(adev, args.loc, shim_dma->bd_regoff) +
+	     shim_dma->bd_len * args.bd_id + shim_dma->laddr.regoff;
+	regval = ioread32(va);
+	regval &= ~shim_dma->laddr.mask;
+	laddr |= aie_get_field_val(&shim_dma->laddr, laddr);
+	iowrite32(laddr, va);
+
+	/* Set high 32bit address */
+	haddr = upper_32_bits(addr);
+	va = aperture->base +
+	     aie_cal_regoff(adev, args.loc, shim_dma->bd_regoff) +
+	     shim_dma->bd_len * args.bd_id + shim_dma->haddr.regoff;
+	regval = ioread32(va);
+	regval &= ~shim_dma->haddr.mask;
+	haddr |= aie_get_field_val(&shim_dma->haddr, haddr);
+	iowrite32(haddr, va);
+	kfree(off);
+
+exit:
 	mutex_unlock(&apart->mlock);
 	return ret;
 }

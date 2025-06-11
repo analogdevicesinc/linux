@@ -77,6 +77,11 @@ static const struct net_device_ops ex_ep_netdev_ops = {
 	.ndo_set_mac_address = netdev_set_ex_ep_mac_address,
 };
 
+bool xlnx_is_port_ep_ex_netdev(const struct net_device *ndev)
+{
+	return ndev && (ndev->netdev_ops == &ex_ep_netdev_ops);
+}
+
 static int tsn_ex_ep_probe(struct platform_device *pdev)
 {
 	struct axienet_local *lp;
@@ -125,8 +130,11 @@ static int tsn_ex_ep_probe(struct platform_device *pdev)
 	}
 	ep_lp = netdev_priv(lp->master);
 	ep_lp->ex_ep = ndev;
-	if (packet_switch)
+	if (packet_switch) {
 		ep_lp->packet_switch = 1;
+		dev_warn(&pdev->dev,
+			 "packet-switch is deprecated and will be removed.Please use \"xlnx,packet-switch\"instead\n");
+	}
 	return ret;
 free_netdev:
 	free_netdev(ndev);

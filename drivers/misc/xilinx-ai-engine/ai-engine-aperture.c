@@ -44,18 +44,13 @@ unsigned int aie_aperture_get_num_parts(struct aie_aperture *aperture)
 {
 	struct aie_partition *apart;
 	int ret;
-	unsigned int rs, re, num_parts = 0;
+	unsigned int num_parts = 0;
 
 	ret = mutex_lock_interruptible(&aperture->mlock);
 	if (ret)
 		return ret;
 
 	list_for_each_entry(apart, &aperture->partitions, node) {
-		num_parts++;
-	}
-
-	for_each_clear_bitrange(rs, re, aperture->cols_res.bitmap,
-				(aperture->range.size.col - 1)) {
 		num_parts++;
 	}
 
@@ -298,8 +293,10 @@ static void aie_aperture_release_device(struct device *dev)
  */
 int aie_aperture_remove(struct aie_aperture *aperture)
 {
-	struct list_head *node, *pos;
+	struct list_head *node, *pos, tmp;
 	int ret;
+
+	INIT_LIST_HEAD(&tmp);
 
 	ret = mutex_lock_interruptible(&aperture->mlock);
 	if (ret)
@@ -310,8 +307,20 @@ int aie_aperture_remove(struct aie_aperture *aperture)
 
 		apart = list_entry(pos, struct aie_partition, node);
 		list_del(&apart->node);
+		list_add_tail(&apart->node, &tmp);
+	}
+	mutex_unlock(&aperture->mlock);
+
+	list_for_each_safe(pos, node, &tmp) {
+		struct aie_partition *apart;
+
+		apart = list_entry(pos, struct aie_partition, node);
 		aie_part_remove(apart);
 	}
+
+	ret = mutex_lock_interruptible(&aperture->mlock);
+	if (ret)
+		return ret;
 
 	if (aperture->adev->device_name == AIE_DEV_GEN_S100 ||
 	    aperture->adev->device_name == AIE_DEV_GEN_S200) {
@@ -570,8 +579,6 @@ of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc)
 		dev_err(dev, "Unable to request node %d\n", aperture->node_id);
 		goto put_aperture_dev;
 	}
-
-	of_node_get(nc);
 
 	ret = aie_aperture_sysfs_create_entries(aperture);
 	if (ret) {

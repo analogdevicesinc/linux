@@ -6823,6 +6823,9 @@ static irqreturn_t ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 	if (intr_status & MCQ_CQ_EVENT_STATUS)
 		retval |= ufshcd_handle_mcq_cq_events(hba);
 
+	if (intr_status & UFSHCD_VENDOR_IS_MASK)
+		retval |= ufshcd_vops_isr(hba, intr_status);
+
 	return retval;
 }
 
@@ -8684,6 +8687,8 @@ static int ufshcd_device_init(struct ufs_hba *hba, bool init_dev_params)
 	ufshcd_force_reset_auto_bkops(hba);
 
 	ufshcd_set_timestamp_attr(hba);
+
+	hba->max_pwr_info.is_valid = false;
 
 	/* Gear up to HS gear if supported */
 	if (hba->max_pwr_info.is_valid) {

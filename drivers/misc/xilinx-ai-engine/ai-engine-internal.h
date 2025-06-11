@@ -239,12 +239,17 @@ enum aie_device_type {
  *			  within an AI engine tile
  * @soff: start offset of the range
  * @eoff: end offset of the range
+ * @width: length of each register in bytes
+ * @step: offset between registers in bytes
+ *        When step == width, no gaps/holes between registers.
  * @attribute: registers attribute. It uses AIE_REGS_ATTR_* macros defined
  *	       above.
  */
 struct aie_tile_regs {
 	size_t soff;
 	size_t eoff;
+	u16 width;
+	u16 step;
 	u32 attribute;
 };
 
@@ -280,6 +285,21 @@ struct aie_part_mem {
 	struct dma_buf *dbuf;
 	struct aie_mem mem;
 	size_t size;
+};
+
+/**
+ * struct aie_dma_mem - AI engine dma memory information structure
+ * @pmem: memory info allocated for dma transactions
+ * @dma_addr: dma address
+ * @node: list node
+ *
+ * This structure holds the virtual memory and dma address returned by
+ * dma_alloc_coherent.
+ */
+struct aie_dma_mem {
+	struct aie_part_mem pmem;
+	dma_addr_t dma_addr;
+	struct list_head node;
 };
 
 /**
@@ -489,16 +509,6 @@ struct aie_dma_attr {
 	u32 num_s2mm_chan;
 	u32 num_bds;
 	u32 bd_len;
-};
-
-/**
- * struct aie_core_regs_attr - AI engine core register attributes structure
- * @core_regs: core registers
- * @width: number of 32 bit words
- */
-struct aie_core_regs_attr {
-	const struct aie_tile_regs *core_regs;
-	u32 width;
 };
 
 struct aie_aperture;
@@ -897,6 +907,7 @@ struct aie_tile {
  * @clk: AI enigne device clock
  * @kernel_regs: array of kernel only registers
  * @core_regs: array of core registers
+ * @core_regs_clr: array of core registers to be cleared
  * @ops: tile operations
  * @col_rst: column reset attribute
  * @col_clkbuf: column clock buffer attribute
@@ -926,7 +937,7 @@ struct aie_tile {
  * @cols_res: AI engine columns resources to indicate
  *	      while columns are occupied by partitions.
  * @num_kernel_regs: number of kernel only registers range
- * @num_core_regs: number of core registers range
+ * @num_core_regs_clr: number of core registers to clear
  * @pm_node_id: AI Engine platform management node ID
  * @clock_id: AI Engine clock ID
  * @device_name: identify ssit device id
@@ -948,7 +959,7 @@ struct aie_device {
 	struct mutex mlock; /* protection for AI engine apertures */
 	struct clk *clk;
 	const struct aie_tile_regs *kernel_regs;
-	const struct aie_core_regs_attr *core_regs;
+	const struct aie_tile_regs *core_regs_clr;
 	const struct aie_tile_operations *ops;
 	const struct aie_single_reg_field *col_rst;
 	const struct aie_single_reg_field *col_clkbuf;
@@ -976,7 +987,7 @@ struct aie_device {
 	u32 row_shift;
 	u32 dev_gen;
 	u32 num_kernel_regs;
-	u32 num_core_regs;
+	u32 num_core_regs_clr;
 	u32 pm_node_id;
 	u32 clock_id;
 	u32 device_name;
@@ -1039,6 +1050,7 @@ struct aie_aperture {
  * @adev: pointer to AI device instance
  * @filep: pointer to file for refcount on the users of the partition
  * @pmems: pointer to partition memories types
+ * @dma_mem: dma memory list
  * @dbufs_cache: memory management object for preallocated dmabuf descriptors
  * @trscs: resources bitmaps for each tile
  * @freq_req: required frequency
@@ -1070,6 +1082,7 @@ struct aie_partition {
 	struct aie_device *adev;
 	struct file *filep;
 	struct aie_part_mem *pmems;
+	struct list_head dma_mem;
 	struct kmem_cache *dbufs_cache;
 	struct aie_tile_rscs trscs[AIE_TILE_TYPE_MAX];
 	u64 freq_req;
@@ -1309,6 +1322,8 @@ long aie_part_set_bd(struct aie_partition *apart,
 					struct aie_dma_bd_args *args);
 long aie_part_set_dmabuf_bd_from_user(struct aie_partition *apart,
 			    void __user *user_args);
+long aie_part_update_dmabuf_bd_from_user(struct aie_partition *apart,
+					 void __user *user_args);
 long aie_part_set_dmabuf_bd(struct aie_partition *apart,
 					struct aie_dmabuf_bd_args *args);
 void aie_part_release_dmabufs(struct aie_partition *apart);
@@ -1460,5 +1475,11 @@ u32 aie_get_core_lr(struct aie_partition *apart,
 		    struct aie_location *loc);
 u32 aie_get_core_sp(struct aie_partition *apart,
 		    struct aie_location *loc);
+int aie_dma_mem_alloc(struct aie_partition *apart, __kernel_size_t size);
+int aie_dma_mem_free(int fd);
+int aie_dma_begin_cpu_access(struct dma_buf *dmabuf,
+			     enum dma_data_direction direction);
+int aie_dma_end_cpu_access(struct dma_buf *dmabuf,
+			   enum dma_data_direction direction);
 
 #endif /* AIE_INTERNAL_H */

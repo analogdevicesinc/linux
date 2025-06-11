@@ -1266,6 +1266,7 @@ int axienet_qbv_init(struct net_device *ndev);
 void axienet_qbv_remove(struct net_device *ndev);
 int axienet_set_schedule(struct net_device *ndev, void __user *useraddr);
 int axienet_get_schedule(struct net_device *ndev, void __user *useraddr);
+int axienet_tsn_shaper_tc(struct net_device *dev, enum tc_setup_type type, void *type_data);
 #endif
 
 #ifdef CONFIG_XILINX_TSN_QBR
@@ -1350,5 +1351,8 @@ int axienet_ethtools_set_coalesce(struct net_device *ndev,
 int tsn_switch_get_port_parent_id(struct net_device *dev,
 				  struct netdev_phys_item_id *ppid);
 #endif
+bool xlnx_is_port_ep_netdev(const struct net_device *ndev);
+bool xlnx_is_port_temac_netdev(const struct net_device *ndev);
+bool xlnx_is_port_ep_ex_netdev(const struct net_device *ndev);
 
 #endif /* XILINX_AXI_ENET_TSN_H */

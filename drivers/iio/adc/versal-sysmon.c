@@ -2,7 +2,7 @@
 /*
  * Xilinx SYSMON for Versal
  *
- * Copyright (C) 2023, Advanced Micro Devices, Inc.
+ * Copyright (C) 2023 - 2024, Advanced Micro Devices, Inc.
  *
  * Description:
  * This driver is developed for SYSMON on Versal. The driver supports INDIO Mode
@@ -24,9 +24,16 @@ module_param(secure_mode, bool, 0444);
 MODULE_PARM_DESC(secure_mode,
 		 "Allow sysmon to access register space using EEMI, when direct register access is restricted or Direct Access Mode (default: Direct Access mode)");
 
-static inline void sysmon_direct_read_reg(struct sysmon *sysmon, u32 offset, u32 *data)
+static struct iio_map sysmon_to_thermal_iio_maps[] = {
+	IIO_MAP("temp", "versal-thermal", "sysmon-temp-channel"),
+	{}
+};
+
+static inline int sysmon_direct_read_reg(struct sysmon *sysmon, u32 offset, u32 *data)
 {
 	*data = readl(sysmon->base + offset);
+
+	return 0;
 }
 
 static inline void sysmon_direct_write_reg(struct sysmon *sysmon, u32 offset, u32 data)
@@ -49,9 +56,9 @@ static struct sysmon_ops direct_access = {
 	.update_reg = sysmon_direct_update_reg,
 };
 
-static inline void sysmon_secure_read_reg(struct sysmon *sysmon, u32 offset, u32 *data)
+static inline int sysmon_secure_read_reg(struct sysmon *sysmon, u32 offset, u32 *data)
 {
-	zynqmp_pm_sec_read_reg(sysmon->pm_info, offset, data);
+	return zynqmp_pm_sec_read_reg(sysmon->pm_info, offset, data);
 }
 
 static inline void sysmon_secure_write_reg(struct sysmon *sysmon, u32 offset, u32 data)
@@ -215,19 +222,47 @@ static int sysmon_probe(struct platform_device *pdev)
 				return ret;
 	}
 
+	/*
+	 * Sysmon dev info is cleared initially.
+	 * temperature satellites and supply channels
+	 * oversampling values will be 0. No need to
+	 * assign them again.
+	 */
+	sysmon->oversampling_avail = sysmon_oversampling_avail;
+	sysmon->oversampling_num = ARRAY_SIZE(sysmon_oversampling_avail);
+
 	sysmon->temp_read = &sysmon_find_extreme_temp;
 
 	platform_set_drvdata(pdev, indio_dev);
 
+	if (sysmon->master_slr) {
+		ret = devm_iio_map_array_register(&pdev->dev, indio_dev,
+						  sysmon_to_thermal_iio_maps);
+		if (ret < 0)
+			return dev_err_probe(&pdev->dev, ret, "IIO map register failed\n");
+	}
+
 	ret = iio_device_register(indio_dev);
 	if (ret < 0)
-		return ret;
+		goto error_exit;
+
+	/* Create the sysfs entries for the averaging enable bits */
+	ret = sysmon_create_avg_en_sysfs_entries(indio_dev);
+	if (ret < 0)
+		goto error_exit;
 
 	mutex_lock(&sysmon->mutex);
 	list_add(&sysmon->list, &sysmon_list_head);
 	mutex_unlock(&sysmon->mutex);
 
 	return 0;
+
+error_exit:
+	if (sysmon->irq < 0)
+		cancel_delayed_work_sync(&sysmon->sysmon_events_work);
+
+	cancel_delayed_work_sync(&sysmon->sysmon_unmask_work);
+	return ret;
 }
 
 static int sysmon_remove(struct platform_device *pdev)
@@ -245,6 +280,7 @@ static int sysmon_remove(struct platform_device *pdev)
 	list_del(&sysmon->list);
 	mutex_unlock(&sysmon->mutex);
 
+	sysfs_remove_group(&indio_dev->dev.kobj, &sysmon->avg_attr_group);
 	/* Unregister the device */
 	iio_device_unregister(indio_dev);
 

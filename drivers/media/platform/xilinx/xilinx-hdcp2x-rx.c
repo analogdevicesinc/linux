@@ -29,6 +29,10 @@
 #define XHDCP2X_CIPHER_OFFSET		0x0000
 #define XHDCP2X_RNG_OFFSET		0x1000
 #define XHDCP2X_MMULT_OFFSET		0x2000
+
+#define XHDCP2X_HDMIRX_RNG_OFFSET	0x30000
+#define XHDCP2X_HDMIRX_MMULT_OFFSET	0x10000
+
 #define XHDCP2X_TIMER_CLOCK_FREQ_HZ	99990001
 #define XHDCP2X_CLK_DIV			1000000
 #define XHDCP2X_CLK_MUL			1000
@@ -57,14 +61,44 @@ static enum xhdcp2x_rx_state (*xhdcp2x_rx_state_table[])(void *) = {
 	xhdcp2x_state_B4
 };
 
+/* This Function is applicable only for HDMI Interface */
+static void xhdcp2x_rx_set_rxstatus_reg(struct xlnx_hdcp2x_config *xhdcp2x_rx,
+					u16 message_size)
+{
+	u8 rx_status[RX_STATUS_SIZE];
+
+	rx_status[0] = (u8)message_size;
+
+	rx_status[1] = (message_size & XHDCP2X_HDMI_RXSTATUS_MSG_HIGH) >> 8;
+	rx_status[1] |= (xhdcp2x_rx->info.topology_ready & XHDCP2X_HDMI_RXSTATUS_READY);
+	rx_status[1] |= (xhdcp2x_rx->info.reauth_req & XHDCP2X_HDMI_RXSTATUS_REAUTH_REQ);
+
+	xhdcp2x_rx->handlers.wr_handler(xhdcp2x_rx->interface_ref,
+						 XHDCP2X_RX_HDMI_RXSTATUS0,
+						 &rx_status[0], 1);
+	xhdcp2x_rx->handlers.wr_handler(xhdcp2x_rx->interface_ref,
+						XHDCP2X_RX_HDMI_RXSTATUS1,
+						&rx_status[1], 1);
+	if (message_size > 0)
+		xhdcp2x_rx->info.ddc_flag &= ~XHDCP2X_RX_DDC_FLAG_READ_MESSAGE_READY;
+}
+
+static void xhdcp2x_rx_reset_ddc(struct xlnx_hdcp2x_config *xhdcp2x_rx)
+{
+	xhdcp2x_rx->info.reauth_req = false;
+	xhdcp2x_rx->info.topology_ready = false;
+
+	xhdcp2x_rx_set_rxstatus_reg(xhdcp2x_rx, 0);
+
+	xhdcp2x_rx->info.ddc_flag = XHDCP2X_RX_DDC_FLAG_READ_MESSAGE_READY;
+	xhdcp2x_rx->handlers.ddc_clear_read_buffer(xhdcp2x_rx->interface_ref);
+
+	xhdcp2x_rx->handlers.ddc_clear_write_buffer(xhdcp2x_rx->interface_ref);
+}
+
 static int xhdcp2x_rx_set_reauth_req(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 {
 	int status = 0;
-
-	if (!xhdcp2x_rx)
-		return -EINVAL;
-
-	xhdcp2x_rx->info.reauth_request_cnt++;
 
 	xhdcp2x_rx->info.reauth_req = 1;
 
@@ -78,6 +112,9 @@ static int xhdcp2x_rx_set_reauth_req(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 			return -EINVAL;
 
 		xhdcp2x_rx->handlers.cp_irq_handler(xhdcp2x_rx->interface_ref);
+	} else {
+		/* Set the RxStatus register */
+		xhdcp2x_rx_set_rxstatus_reg(xhdcp2x_rx, 0);
 	}
 
 	return 0;
@@ -112,6 +149,10 @@ int *xhdcp2x_rx_init(struct device *dev, void *protocol_ref, void __iomem *xhdcp
 {
 	int status;
 	struct xlnx_hdcp2x_config *xhdcp2x_rx;
+	u32 rng_offset = (protocol_rx == XHDCP2X_RX_DP) ? XHDCP2X_RNG_OFFSET :
+			XHDCP2X_HDMIRX_RNG_OFFSET;
+	u32 mmul_offset = (protocol_rx == XHDCP2X_RX_DP) ? XHDCP2X_MMULT_OFFSET :
+			XHDCP2X_HDMIRX_MMULT_OFFSET;
 
 	if (!dev || !protocol_ref || !xhdcp_base_address)
 		return ERR_PTR(-EINVAL);
@@ -139,9 +180,9 @@ int *xhdcp2x_rx_init(struct device *dev, void *protocol_ref, void __iomem *xhdcp
 	xhdcp2x_rx->keys_loaded = 0;
 
 	xhdcp2x_rx->xhdcp2x_hw.rng_inst.rng_coreaddress =
-		xhdcp2x_rx->xhdcp2x_hw.hdcp2xcore_address + XHDCP2X_RNG_OFFSET;
+		xhdcp2x_rx->xhdcp2x_hw.hdcp2xcore_address + rng_offset;
 	xhdcp2x_rx->xhdcp2x_hw.mmult_inst.mmult_coreaddress =
-		xhdcp2x_rx->xhdcp2x_hw.hdcp2xcore_address + XHDCP2X_MMULT_OFFSET;
+		xhdcp2x_rx->xhdcp2x_hw.hdcp2xcore_address + mmul_offset;
 	xhdcp2x_rx->xhdcp2x_hw.cipher_inst.cipher_coreaddress =
 		xhdcp2x_rx->xhdcp2x_hw.hdcp2xcore_address + XHDCP2X_CIPHER_OFFSET;
 
@@ -165,6 +206,7 @@ int *xhdcp2x_rx_init(struct device *dev, void *protocol_ref, void __iomem *xhdcp
 
 	return (void *)xhdcp2x_rx;
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_init);
 
 void *xhdcp2x_timer_init(struct device *dev, void __iomem *timer_base_address)
 {
@@ -186,6 +228,7 @@ void *xhdcp2x_timer_init(struct device *dev, void __iomem *timer_base_address)
 
 	return tmr_config;
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_timer_init);
 
 void xhdcp2x_timer_attach(struct xlnx_hdcp2x_config *xhdcp2x_rx,
 			  struct xlnx_hdcp_timer_config *tmrcntr)
@@ -197,6 +240,7 @@ void xhdcp2x_timer_attach(struct xlnx_hdcp2x_config *xhdcp2x_rx,
 	xlnx_hdcp_tmrcntr_set_options(&xhdcp2x_rx->tmr_config, XHDCP2X_RX_TMR_CNTR_1,
 				      XTC_INT_MODE_OPTION | XTC_DOWN_COUNT_OPTION);
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_timer_attach);
 
 int xhdcp2x_rx_disable(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 {
@@ -212,6 +256,7 @@ int xhdcp2x_rx_disable(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 	xhdcp2x_rx->curr_state = XHDCP2X_STATE_B0;
 	xhdcp2x_rx->prev_state = XHDCP2X_STATE_B0;
 	xhdcp2x_rx->info.msg_event = 0;
+	xhdcp2x_rx->info.ddc_flag = 0;
 
 	if (xhdcp2x_rx->info.authentication_status == XHDCP2X_RX_AUTHENTICATED) {
 		status = xhdcp2x_rx_set_reauth_req(xhdcp2x_rx);
@@ -227,6 +272,7 @@ int xhdcp2x_rx_disable(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_disable);
 
 int xhdcp2x_rx_reset(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 {
@@ -239,7 +285,6 @@ int xhdcp2x_rx_reset(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 	xhdcp2x_rx->info.is_encrypted = 0;
 	xhdcp2x_rx->info.lc_init_attempts = 0;
 	xhdcp2x_rx->info.auth_request_cnt = 0;
-	xhdcp2x_rx->info.reauth_request_cnt = 0;
 	xhdcp2x_rx->info.link_error_cnt = 0;
 	xhdcp2x_rx->info.error_flag = XHDCP2X_RX_ERROR_FLAG_NONE;
 	xhdcp2x_rx->info.error_flag_sticky = XHDCP2X_RX_ERROR_FLAG_NONE;
@@ -289,6 +334,7 @@ int xhdcp2x_rx_enable(struct xlnx_hdcp2x_config *xhdcp2x_rx, u8 lane_count)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_enable);
 
 int xhdcp2x_rx_set_callback(void *ref, u32 handler_type, void *callbackfunc)
 {
@@ -298,11 +344,11 @@ int xhdcp2x_rx_set_callback(void *ref, u32 handler_type, void *callbackfunc)
 		return -EINVAL;
 
 	switch (handler_type) {
-	case (XHDCP2X_RX_HANDLER_DP_AUX_READ):
+	case (XHDCP2X_RX_READ_HANDLER):
 		xhdcp2x_rx->handlers.rd_handler = callbackfunc;
 		break;
 
-	case (XHDCP2X_RX_HANDLER_DP_AUX_WRITE):
+	case (XHDCP2X_RX_WRITE_HANDLER):
 		xhdcp2x_rx->handlers.wr_handler = callbackfunc;
 		break;
 
@@ -313,6 +359,15 @@ int xhdcp2x_rx_set_callback(void *ref, u32 handler_type, void *callbackfunc)
 	case (XHDCP2X_RX_NOTIFICATION_HANDLER):
 		xhdcp2x_rx->handlers.notify_handler = callbackfunc;
 		break;
+
+	case (XHDCP2X_RX_HANDLER_CLEAR_DDC_READ_BUFFER):
+		xhdcp2x_rx->handlers.ddc_clear_read_buffer = callbackfunc;
+		break;
+
+	case (XHDCP2X_RX_HANDLER_CLEAR_DDC_WRITE_BUFFER):
+		xhdcp2x_rx->handlers.ddc_clear_write_buffer = callbackfunc;
+		break;
+
 	default:
 		dev_info(xhdcp2x_rx->dev, "wrong handler type\n");
 		return -EINVAL;
@@ -320,6 +375,7 @@ int xhdcp2x_rx_set_callback(void *ref, u32 handler_type, void *callbackfunc)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_set_callback);
 
 static int xhdcp2x_rx_calc_nprime(struct xlnx_hdcp2x_config *xhdcp2x_rx, const u8 *private_key_ptr)
 {
@@ -368,6 +424,7 @@ int xhdcp2x_rx_set_key(void *ref, void *xhdcp2x_lc128_key, void *xhdcp2x_private
 
 	return status;
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_set_key);
 
 void xhdcp2x_rx_timer_handler(void *callbackref, u8 tmr_cnt_number)
 {
@@ -379,6 +436,7 @@ void xhdcp2x_rx_timer_handler(void *callbackref, u8 tmr_cnt_number)
 	xhdcp2x_rx->info.timer_expired = 1;
 	xhdcp2x_rx->info.msg_event &= ~XHDCP2X_RX_TIMER_EVENT;
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_timer_handler);
 
 void xhdcp2x_rx_set_stream_type(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 {
@@ -396,6 +454,7 @@ void xhdcp2x_rx_set_stream_type(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 					    buf, XHDCP2X_CIPHER_REG_RIV_1_OFFSET, R_IV_SIZE);
 	}
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_set_stream_type);
 
 /**
  * xhdcp2x_rx_push_events - Pushes events from interface driver to HDCP driver
@@ -421,6 +480,7 @@ int xhdcp2x_rx_push_events(void *ref, u32 events)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_push_events);
 
 static void xhdcp2x_rx_reset_params(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 {
@@ -581,18 +641,34 @@ static int xhdcp2x_rx_write_dpcd_msg(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 	return status;
 }
 
+static inline u8 xhdcp2x_rx_is_write_message_available(struct xlnx_hdcp2x_config *xhdcp2x_rx)
+{
+	if (xhdcp2x_rx->info.ddc_flag & XHDCP2X_RX_DDC_FLAG_WRITE_MESSAGE_READY) {
+		xhdcp2x_rx->info.ddc_flag &= ~XHDCP2X_RX_DDC_FLAG_WRITE_MESSAGE_READY;
+
+		return 1;
+	}
+
+	return 0;
+}
+
 /*
  * this function will become common function for both DP and HDMI interface
  * for polling DPCD and DDC registers
  */
 static int xhdcp2x_rx_poll_message(struct xlnx_hdcp2x_config *xhdcp2x_rx)
 {
-	u32 size = 0;
+	if (xhdcp2x_rx->protocol == XHDCP2X_RX_DP) {
+		if (xhdcp2x_rx->info.msg_event != XHDCP2X_RX_DPCD_FLAG_NONE)
+			return xhdcp2x_rx_read_dpcd_msg(xhdcp2x_rx);
+	} else {
+		if (xhdcp2x_rx_is_write_message_available(xhdcp2x_rx))
+			return xhdcp2x_rx->handlers.rd_handler(xhdcp2x_rx->interface_ref,
+							       XHDCP2X_RX_HDMI_WRITE_MESSAGE,
+							       xhdcp2x_rx->msg_buffer, 0xFF);
+	}
 
-	if (xhdcp2x_rx->info.msg_event != XHDCP2X_RX_DPCD_FLAG_NONE)
-		size = xhdcp2x_rx_read_dpcd_msg(xhdcp2x_rx);
-
-	return size;
+	return 0;
 }
 
 static int xhdcp2x_rx_process_message_ake_init(struct xlnx_hdcp2x_config *xhdcp2x_rx)
@@ -613,6 +689,7 @@ static int xhdcp2x_rx_process_message_ake_init(struct xlnx_hdcp2x_config *xhdcp2
 	xlnx_hdcp_tmrcntr_stop(&xhdcp2x_rx->tmr_config, XHDCP2X_RX_TMR_CNTR_1);
 
 	xhdcp2x_rx_reset_params(xhdcp2x_rx);
+	xhdcp2x_rx_reset_ddc(xhdcp2x_rx);
 
 	memcpy(xhdcp2x_rx->param.rtx, msgptr->ake_init.rtx, XHDCP2X_RX_RTX_SIZE);
 	memcpy(xhdcp2x_rx->param.txcaps, msgptr->ake_init.txcaps, XHDCP2X_RX_TXCAPS_SIZE);
@@ -716,6 +793,9 @@ static u8 xhdcp2x_rx_is_read_message_complete(struct xlnx_hdcp2x_config *xhdcp2x
 		return 1;
 	}
 
+	if (xhdcp2x_rx->info.ddc_flag & XHDCP2X_RX_DDC_FLAG_READ_MESSAGE_READY)
+		return 1;
+
 	return 0;
 }
 
@@ -734,6 +814,15 @@ static int xhdcp2x_rx_send_message_ake_send_cert(struct xlnx_hdcp2x_config *xhdc
 		status = xhdcp2x_rx_write_dpcd_msg(xhdcp2x_rx);
 		if (status < 0)
 			return -EINVAL;
+	} else {
+		status = xhdcp2x_rx->handlers.wr_handler(xhdcp2x_rx->interface_ref,
+							 XHDCP2X_RX_HDMI_READ_MESSAGE,
+							 xhdcp2x_rx->msg_buffer,
+							 sizeof(struct xhdcp2x_rx_ake_send_cert));
+		if (status < 0)
+			return -EINVAL;
+
+		xhdcp2x_rx_set_rxstatus_reg(xhdcp2x_rx, sizeof(struct xhdcp2x_rx_ake_send_cert));
 	}
 
 	memcpy(xhdcp2x_rx->param.rrx, msgptr->ake_send_cert.rrx, XHDCP2X_RX_RRX_SIZE);
@@ -770,6 +859,17 @@ static int xhdcp2x_rx_send_message_ake_send_pairing_info(struct xlnx_hdcp2x_conf
 			return -EINVAL;
 
 		xhdcp2x_rx->handlers.cp_irq_handler(xhdcp2x_rx->interface_ref);
+	} else {
+		status =
+		xhdcp2x_rx->handlers.wr_handler(xhdcp2x_rx->interface_ref,
+						XHDCP2X_RX_HDMI_READ_MESSAGE,
+						xhdcp2x_rx->msg_buffer,
+						sizeof(struct xhdcp2x_rx_ake_send_pairing_info));
+		if (status < 0)
+			return -EINVAL;
+
+		xhdcp2x_rx_set_rxstatus_reg(xhdcp2x_rx,
+					    sizeof(struct xhdcp2x_rx_ake_send_pairing_info));
 	}
 
 	memcpy(xhdcp2x_rx->param.ekh, ekhkm, XHDCP2X_RX_EKH_SIZE);
@@ -802,6 +902,15 @@ static int xhdcp2x_rx_send_message_ake_send_hprime(struct xlnx_hdcp2x_config *xh
 			return -EINVAL;
 
 		xhdcp2x_rx->handlers.cp_irq_handler(xhdcp2x_rx->interface_ref);
+	} else {
+		status = xhdcp2x_rx->handlers.wr_handler(xhdcp2x_rx->interface_ref,
+							 XHDCP2X_RX_HDMI_READ_MESSAGE,
+							 xhdcp2x_rx->msg_buffer,
+							 sizeof(struct xhdcp2x_rx_ake_send_hprime));
+		if (status < 0)
+			return -EINVAL;
+
+		xhdcp2x_rx_set_rxstatus_reg(xhdcp2x_rx, sizeof(struct xhdcp2x_rx_ake_send_hprime));
 	}
 
 	memcpy(xhdcp2x_rx->param.hprime, msgptr->ake_send_hprime.hprime, XHDCP2X_RX_HPRIME_SIZE);
@@ -838,6 +947,15 @@ static int xhdcp2x_rx_send_message_lc_send_lprime(struct xlnx_hdcp2x_config *xhd
 		status = xhdcp2x_rx_write_dpcd_msg(xhdcp2x_rx);
 		if (status < 0)
 			return -EINVAL;
+	} else {
+		status = xhdcp2x_rx->handlers.wr_handler(xhdcp2x_rx->interface_ref,
+							 XHDCP2X_RX_HDMI_READ_MESSAGE,
+							 xhdcp2x_rx->msg_buffer,
+							 sizeof(struct xhdcp2x_rx_lc_send_lprime));
+		if (status < 0)
+			return -EINVAL;
+
+		xhdcp2x_rx_set_rxstatus_reg(xhdcp2x_rx, sizeof(struct xhdcp2x_rx_lc_send_lprime));
 	}
 
 	memcpy(xhdcp2x_rx->param.lprime, msgptr->lc_send_lprime.lprime, XHDCP2X_RX_LPRIME_SIZE);
@@ -1066,6 +1184,10 @@ static enum xhdcp2x_rx_state xhdcp2x_state_B3(void *instance)
 
 	if (xhdcp2x_rx->mode == xhdcp2x_rx_receiver) {
 		xhdcp2x_rx->info.sub_state = XHDCP2X_RX_STATE_B4_AUTHENTICATED;
+		if (xhdcp2x_rx->protocol != XHDCP2X_RX_DP)
+			xhdcp2x_rx_start_timer(xhdcp2x_rx,
+					       XHDCP2X_RX_ENCRYPTION_STATUS_INTERVAL,
+					       0);
 		return XHDCP2X_STATE_B4;
 	}
 
@@ -1143,3 +1265,45 @@ static enum xhdcp2x_rx_state xhdcp2x_state_B4(void *instance)
 
 	return XHDCP2X_STATE_B4;
 }
+
+int xhdcp2x_rx_hdcp2x_version_enable(void *ref, bool enable)
+{
+	struct xlnx_hdcp2x_config *xhdcp2x_rx =
+				 (struct xlnx_hdcp2x_config *)ref;
+	int status = 0;
+	u8 buf = 0;
+
+	if (xhdcp2x_rx->protocol != XHDCP2X_RX_HDMI)
+		return -EINVAL;
+
+	/*
+	 * Indicates the receiver is HDCP22 capable as per Sec 2.14 of
+	 * HDCP to HDMI specification. Attempting to disable this register
+	 * write leads to HDCP22 authentication failure.
+	 */
+	if (enable)
+		buf = FIELD_PREP(XHDCP2X_RX_HDMI_HDCP22VERSION_EN_MASK, 1);
+
+	status =
+		xhdcp2x_rx->handlers.wr_handler(xhdcp2x_rx->interface_ref,
+						XHDCP2X_RX_HDMI_HDCP22VERSION_REG,
+						&buf,
+						1);
+	if (status < 0)
+		return -EINVAL;
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_hdcp2x_version_enable);
+
+void xhdcp2x_rx_set_write_message_available(struct xlnx_hdcp2x_config *xhdcp2x_rx)
+{
+	xhdcp2x_rx->info.ddc_flag |= XHDCP2X_RX_DDC_FLAG_WRITE_MESSAGE_READY;
+}
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_set_write_message_available);
+
+void xhdcp2x_rx_set_read_message_complete(struct xlnx_hdcp2x_config *xhdcp2x_rx)
+{
+	xhdcp2x_rx->info.ddc_flag |= XHDCP2X_RX_DDC_FLAG_READ_MESSAGE_READY;
+}
+EXPORT_SYMBOL_GPL(xhdcp2x_rx_set_read_message_complete);

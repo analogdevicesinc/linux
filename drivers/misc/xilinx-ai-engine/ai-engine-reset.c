@@ -11,56 +11,111 @@
 
 #include "ai-engine-internal.h"
 
-/**
- * aie_part_clear_core_regs_of_tile() - clear registers of aie core
- * @apart: AI engine partition
- * @loc: location of aie tile to clear
- */
-static void aie_part_clear_core_regs_of_tile(struct aie_partition *apart,
-					     struct aie_location loc)
+static void aie_part_core_regs_clr_iowrite(struct aie_partition *apart,
+					   u32 addr, u32 width)
 {
-	struct aie_device *adev = apart->adev;
-	struct aie_aperture *aperture = apart->aperture;
-	const struct aie_core_regs_attr *regs = adev->core_regs;
-	u32 i;
+	const struct aie_device *adev = apart->adev;
+	void __iomem *base = apart->aperture->base;
+	const struct aie_range *range = &apart->range;
+	struct aie_location loc;
+	u32 start_col = range->start.col;
+	u32 start_row = range->start.row;
+	u32 num_col = range->start.col + range->size.col;
+	u32 num_row = range->start.row + range->size.row;
+	u32 ttype;
+	u32 (*get_tile_type)(struct aie_device *adev,
+			     struct aie_location *loc);
 
-	for (i = 0; i < adev->num_core_regs; i++) {
-		u32 j, soff, eoff, reg;
+	get_tile_type = apart->adev->ops->get_tile_type;
 
-		soff = aie_cal_regoff(adev, loc, regs[i].core_regs->soff);
-		eoff = aie_cal_regoff(adev, loc, regs[i].core_regs->eoff);
+	for (loc.row = start_row; loc.row < num_row; loc.row++) {
+		u32 addr_row = loc.row << adev->row_shift;
 
-		for (reg = soff; reg <= eoff; reg += AIE_CORE_REGS_STEP) {
-			for (j = 0; j < regs[i].width; j++)
-				iowrite32(0, aperture->base + reg + j * 4);
+		for (loc.col = start_col; loc.col < num_col; loc.col++) {
+			u32 addr_col = loc.col << adev->col_shift;
+
+			ttype = get_tile_type(apart->adev, &loc);
+			if (ttype == AIE_TILE_TYPE_TILE &&
+			    aie_part_check_clk_enable_loc(apart, &loc)) {
+				void __iomem *io_addr = base + (addr | addr_col |
+							addr_row);
+				/* This clears a set of registers to 0 during
+				 * cleanup. No need to preserve order.
+				 * Use relaxed IO.
+				 */
+				switch (width) {
+				case 1:	/* 8 bits */
+				case 2: /* 16 bits */
+				case 4: /* 32 bits */
+					writel_relaxed(0, io_addr);
+					break;
+				case 8: /* 64 bits */
+					writeq_relaxed(0, io_addr);
+					break;
+				default:
+					dev_warn(&apart->dev, "[%d, %d]: Unknown width: %d",
+						 loc.col, loc.row, width);
+					break;
+				};
+			}
 		}
 	}
 }
 
-/**
- * aie_part_clear_core_regs - clear registers of aie core of a partition
- * @apart: AI engine partition
- */
-static void aie_part_clear_core_regs(struct aie_partition *apart)
+static void aie_part_core_regs_clr_memset_io(struct aie_partition *apart,
+					     u32 addr, u32 size)
 {
-	struct aie_range *range = &apart->range;
-	u32 c, r;
+	const struct aie_device *adev = apart->adev;
+	void __iomem *base = apart->aperture->base + addr;
+	const struct aie_range *range = &apart->range;
+	struct aie_location loc;
+	u32 start_col = range->start.col;
+	u32 start_row = range->start.row;
+	u32 num_col = range->start.col + range->size.col;
+	u32 num_row = range->start.row + range->size.row;
+	u32 ttype;
+	u32 (*get_tile_type)(struct aie_device *adev,
+			     struct aie_location *loc);
 
-	/* clear core registers for each tile in the partition */
-	for (c = range->start.col; c < range->start.col + range->size.col;
-			c++) {
-		for (r = range->start.row;
-				r < range->start.row + range->size.row; r++) {
-			struct aie_location loc;
-			u32 ttype;
+	get_tile_type = apart->adev->ops->get_tile_type;
 
-			loc.row = r;
-			loc.col = c;
-			ttype = apart->adev->ops->get_tile_type(apart->adev,
-								&loc);
+	for (loc.row = start_row; loc.row < num_row; loc.row++) {
+		u32 addr_row = loc.row << adev->row_shift;
+
+		for (loc.col = start_col; loc.col < num_col; loc.col++) {
+			u32 addr_col = loc.col << adev->col_shift;
+
+			ttype = get_tile_type(apart->adev, &loc);
 			if (ttype == AIE_TILE_TYPE_TILE &&
-			    aie_part_check_clk_enable_loc(apart, &loc))
-				aie_part_clear_core_regs_of_tile(apart, loc);
+			    aie_part_check_clk_enable_loc(apart, &loc)) {
+				memset_io(base + (addr_col | addr_row), 0, size);
+			}
+		}
+	}
+}
+
+static void aie_part_core_regs_clr(struct aie_partition *apart)
+{
+	int i;
+	const struct aie_device *adev = apart->adev;
+	const struct aie_tile_regs *reg = adev->core_regs_clr;
+
+	for (i = 0; i < adev->num_core_regs_clr; i++) {
+		if (reg[i].width == reg[i].step &&
+		    reg[i].soff != reg[i].eoff) {
+			u32 addr = reg[i].soff;
+			u32 size = reg[i].eoff + reg[i].width - reg[i].soff;
+
+			aie_part_core_regs_clr_memset_io(apart, addr, size);
+		} else {
+			u32 addr;
+			u32 eoff = reg[i].eoff;
+			u32 step = reg[i].step;
+
+			for (addr = reg[i].soff; addr <= eoff; addr += step) {
+				aie_part_core_regs_clr_iowrite(apart, addr,
+							       reg[i].width);
+			}
 		}
 	}
 }
@@ -167,6 +222,8 @@ int aie_part_clear_context(struct aie_partition *apart)
 	ret = zynqmp_pm_aie_operation(node_id, apart->range.start.col,
 					apart->range.size.col,
 					XILINX_AIE_OPS_SET_L2_CTRL_NPI_INTR);
+	aie_part_core_regs_clr(apart);
+
 exit:
 	mutex_unlock(&apart->mlock);
 
@@ -218,7 +275,7 @@ int aie_part_clean(struct aie_partition *apart)
 		return ret;
 
 	apart->adev->ops->mem_clear(apart);
-	aie_part_clear_core_regs(apart);
+	aie_part_core_regs_clr(apart);
 	ret = zynqmp_pm_aie_operation(node_id, apart->range.start.col,
 				      apart->range.size.col,
 				      XILINX_AIE_OPS_DIS_COL_CLK_BUFF);

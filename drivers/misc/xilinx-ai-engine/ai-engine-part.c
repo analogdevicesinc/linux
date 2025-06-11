@@ -295,6 +295,7 @@ static int aie_part_block_set(struct aie_partition *apart,
 	return 0;
 }
 
+#ifndef CONFIG_ARM64_SW_TTBR0_PAN
 /**
  * aie_part_pin_user_region() - pin user pages for access
  * @apart: AI engine partition
@@ -337,6 +338,7 @@ static int aie_part_pin_user_region(struct aie_partition *apart,
 
 	return 0;
 }
+#endif
 
 /**
  * aie_part_unpin_user_region() - unpin user pages
@@ -786,10 +788,35 @@ static long aie_part_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	}
 	case AIE_GET_MEM_IOCTL:
 		return aie_mem_get_info(apart, arg);
+	case AIE_DMA_MEM_ALLOCATE_IOCTL:
+	{
+		__kernel_size_t size;
+
+		if (get_user(size, (__kernel_size_t *)argp))
+			return -EFAULT;
+
+		size = PAGE_ALIGN(size);
+		ret = aie_dma_mem_alloc(apart, size);
+		if (put_user(size, (__kernel_size_t *)argp)) {
+			aie_dma_mem_free(ret);
+			return -EFAULT;
+		}
+		return ret;
+	}
+	case AIE_DMA_MEM_FREE_IOCTL:
+	{
+		int fd;
+
+		if (get_user(fd, (int *)argp))
+			return -EFAULT;
+		return aie_dma_mem_free(fd);
+	}
 	case AIE_ATTACH_DMABUF_IOCTL:
 		return aie_part_attach_dmabuf_req(apart, argp);
 	case AIE_DETACH_DMABUF_IOCTL:
 		return aie_part_detach_dmabuf_req(apart, argp);
+	case AIE_UPDATE_SHIMDMA_DMABUF_BD_ADDR_IOCTL:
+		return aie_part_update_dmabuf_bd_from_user(apart, argp);
 	case AIE_SET_SHIMDMA_BD_IOCTL:
 		return aie_part_set_bd_from_user(apart, argp);
 	case AIE_SET_SHIMDMA_DMABUF_BD_IOCTL:
@@ -1040,6 +1067,7 @@ struct aie_partition *aie_create_partition(struct aie_aperture *aperture,
 	apart->adev = aperture->adev;
 	apart->partition_id = partition_id;
 	INIT_LIST_HEAD(&apart->dbufs);
+	INIT_LIST_HEAD(&apart->dma_mem);
 	mutex_init(&apart->mlock);
 	apart->range.start.col = aie_part_id_get_start_col(partition_id);
 	apart->range.size.col = aie_part_id_get_num_cols(partition_id);

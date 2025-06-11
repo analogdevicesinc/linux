@@ -9,6 +9,7 @@
  * for more details.
  */
 
+#include <linux/clk.h>
 #include <linux/irqdomain.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
@@ -18,6 +19,7 @@
 #include <linux/jump_label.h>
 #include <linux/bug.h>
 #include <linux/of_irq.h>
+#include <linux/of_platform.h>
 
 /* No one else should require these constants, so define them locally here. */
 #define ISR 0x00			/* Interrupt Status Register */
@@ -182,6 +184,24 @@ static int xilinx_intc_of_init(struct device_node *intc,
 	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
 	if (!irqc)
 		return -ENOMEM;
+
+	if (parent) {
+		struct platform_device *pdev;
+		struct clk *clkin;
+
+		pdev = of_find_device_by_node(intc);
+		if (pdev) {
+			clkin = devm_clk_get_optional_enabled(&pdev->dev, NULL);
+			if (IS_ERR(clkin)) {
+				platform_device_put(pdev);
+				return dev_err_probe(&pdev->dev, PTR_ERR(clkin),
+					     "Failed to get and enable clock from Device Tree\n");
+			}
+			platform_device_put(pdev);
+		}
+
+	}
+
 	irqc->base = of_iomap(intc, 0);
 	BUG_ON(!irqc->base);
 
@@ -197,7 +217,7 @@ static int xilinx_intc_of_init(struct device_node *intc,
 		irqc->intr_mask = 0;
 	}
 
-	if (irqc->intr_mask >> irqc->nr_irq)
+	if ((u64)irqc->intr_mask >> irqc->nr_irq)
 		pr_warn("irq-xilinx: mismatch in kind-of-intr param\n");
 
 	pr_info("irq-xilinx: %pOF: num_irq=%d, edge=0x%x\n",

@@ -3,7 +3,7 @@
  * Xilinx Zynq MPSoC Firmware layer
  *
  *  Copyright (C) 2014-2021 Xilinx
- *  Copyright (C), 2022 - 2023 Advanced Micro Devices, Inc.
+ *  Copyright (C), 2022 - 2024 Advanced Micro Devices, Inc.
  *
  *  Michal Simek <michal.simek@amd.com>
  *  Davorin Mista <davorin.mista@aggios.com>
@@ -32,6 +32,19 @@
 /* SMC SIP service Call Function Identifier Prefix */
 #define PM_SIP_SVC			0xC2000000
 
+/* SMC function ID to get SiP SVC version */
+#define GET_SIP_SVC_VERSION	(0x8200ff03U)
+
+/* SiP Service Calls version numbers */
+#define SIP_SVC_VERSION_MAJOR		(0U)
+#define SIP_SVC_VERSION_MINOR		(2U)
+
+#define SIP_SVC_PASSTHROUGH_VERSION	((SIP_SVC_VERSION_MAJOR << 16) | \
+					 SIP_SVC_VERSION_MINOR)
+
+/* Fixed ID for FW specific APIs */
+#define PASS_THROUGH_FW_CMD_ID	GENMASK(11, 0)
+
 /* PM API versions */
 #define PM_API_VERSION_1	1
 #define PM_API_VERSION_2	2
@@ -52,6 +65,7 @@
 
 #define API_ID_MASK		GENMASK(7, 0)
 #define MODULE_ID_MASK		GENMASK(11, 8)
+#define PLM_MODULE_ID_MASK	GENMASK(15, 8)
 
 /* Firmware feature check version mask */
 #define FIRMWARE_VERSION_MASK		0xFFFFU
@@ -77,17 +91,20 @@
 #define XSECURE_API_SHA3_UPDATE		0x504
 #define XSECURE_API_ELLIPTIC_VALIDATE_KEY	0x507
 #define XSECURE_API_ELLIPTIC_VERIFY_SIGN	0x508
+#define XSECURE_API_AES_INIT		0x509
 #define XSECURE_API_AES_OP_INIT		0x50a
 #define XSECURE_API_AES_UPDATE_AAD	0x50b
 #define XSECURE_API_AES_ENCRYPT_UPDATE	0x50c
 #define XSECURE_API_AES_ENCRYPT_FINAL	0x50d
 #define XSECURE_API_AES_DECRYPT_UPDATE	0x50e
 #define XSECURE_API_AES_DECRYPT_FINAL	0x50f
+#define XSECURE_API_AES_KEY_ZERO	0x510
 #define XSECURE_API_AES_WRITE_KEY	0x511
 
 /* XilPuf API commands module id + api id */
 #define XPUF_API_PUF_REGISTRATION	0xc01
 #define XPUF_API_PUF_REGENERATION	0xc02
+#define XPUF_API_PUF_CLEAR_PUF_ID	0xc03
 
 /* XilSEM commands */
 #define PM_XSEM_HEADER			0x300
@@ -101,7 +118,13 @@
 #define PM_GET_META_HEADER_INFO_LIST	0x706
 
 /* Number of 32bits values in payload */
-#define PAYLOAD_ARG_CNT	4U
+#define PAYLOAD_ARG_CNT	7U
+
+/* Number of 64bits arguments for SMC call */
+#define SMC_ARG_CNT_64	8U
+
+/* Number of 32bits arguments for SMC call */
+#define SMC_ARG_CNT_32	13U
 
 /* Number of arguments for a callback */
 #define CB_ARG_CNT     4
@@ -151,6 +174,7 @@
 
 enum pm_module_id {
 	PM_MODULE_ID = 0x0,
+	XPM_MODULE_ID = 0x2,
 	XSEM_MODULE_ID = 0x3,
 	TF_A_MODULE_ID = 0xa,
 };
@@ -280,6 +304,8 @@ enum pm_ioctl_id {
 	IOCTL_AIE_OPS = 33,
 	/* IOCTL to get default/current QoS */
 	IOCTL_GET_QOS = 34,
+	IOCTL_UFS_TXRX_CFGRDY_GET = 40,
+	IOCTL_UFS_SRAM_CSR_SEL = 41,
 };
 
 enum pm_query_id {
@@ -545,6 +571,11 @@ enum ospi_mux_select_type {
 	PM_OSPI_MUX_SEL_LINEAR = 1,
 };
 
+enum ufs_sram_csr_sel_type {
+	PM_UFS_SRAM_CSR_WRITE = 0,
+	PM_UFS_SRAM_CSR_READ = 1,
+};
+
 enum pm_register_access_id {
 	CONFIG_REG_WRITE = 0,
 	CONFIG_REG_READ = 1,
@@ -608,6 +639,7 @@ struct zynqmp_pm_query_data {
 };
 
 int zynqmp_pm_invoke_fn(u32 pm_api_id, u32 *ret_payload, u32 num_args, ...);
+int zynqmp_pm_invoke_fw_fn(u32 pm_api_id, u32 *ret_payload, u32 num_args, ...);
 /**
  * struct xlnx_feature - Feature data
  * @family:	Family code of platform
@@ -730,6 +762,7 @@ int zynqmp_pm_get_qos(u32 node, u32 *const def_qos, u32 *const qos);
 int versal_pm_sha_hash(const u64 src, const u64 dst, const u32 size);
 int versal_pm_aes_key_write(const u32 keylen,
 			    const u32 keysrc, const u64 keyaddr);
+int versal_pm_aes_key_zero(const u32 keysrc);
 int versal_pm_aes_op_init(const u64 hw_req);
 int versal_pm_aes_update_aad(const u64 aad_addr, const u32 aad_len);
 int versal_pm_aes_enc_update(const u64 in_params, const u64 in_addr);
@@ -742,6 +775,10 @@ int versal_pm_ecdsa_validate_key(const u64 key_addr, const u32 curveid);
 int versal_pm_ecdsa_verify_sign(const u64 sign_param_addr);
 int versal_pm_rsa_encrypt(const u64 in_params, const u64 in_addr);
 int versal_pm_rsa_decrypt(const u64 in_params, const u64 in_addr);
+int versal2_pm_ufs_get_txrx_cfgrdy(u32 node_id, u32 *value);
+int versal2_pm_ufs_sram_csr_sel(u32 node_id, u32 type, u32 *value);
+int versal_pm_puf_clear_id(void);
+int versal_pm_aes_init(void);
 #else
 static inline int zynqmp_pm_get_api_version(u32 *version)
 {
@@ -1224,6 +1261,11 @@ static inline int versal_pm_aes_key_write(const u32 keylen,
 	return -ENODEV;
 }
 
+static inline int versal_pm_aes_key_zero(const u32 keysrc)
+{
+	return -ENODEV;
+}
+
 static inline int versal_pm_aes_op_init(const u64 hw_req)
 {
 	return -ENODEV;
@@ -1286,6 +1328,26 @@ static inline int versal_pm_rsa_encrypt(const u64 in_params,
 
 static inline int versal_pm_rsa_decrypt(const u64 in_params,
 					const u64 in_addr)
+{
+	return -ENODEV;
+}
+
+static inline int versal2_pm_ufs_get_txrx_cfgrdy(u32 node_id, u32 *value)
+{
+	return -ENODEV;
+}
+
+static inline int versal2_pm_ufs_sram_csr_sel(u32 node_id, u32 type, u32 *value)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_puf_clear_id(void)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_aes_init(void)
 {
 	return -ENODEV;
 }

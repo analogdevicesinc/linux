@@ -94,6 +94,7 @@ struct xilinx_aead_drv_ctx {
 	struct aead_engine_alg aead;
 	struct device *dev;
 	struct crypto_engine *engine;
+	u8 keysrc;
 	int (*aes_aead_cipher)(struct aead_request *areq);
 	int (*fallback_check)(struct zynqmp_aead_tfm_ctx *ctx,
 			      struct aead_request *areq);
@@ -307,18 +308,18 @@ static int versal_aes_aead_cipher(struct aead_request *req)
 		ret = versal_pm_aes_key_write(hwreq->size, hwreq->keysrc,
 					      dma_addr_data + key_offset);
 		if (ret)
-			goto in_fail;
+			goto key_fail;
 	}
 
 	ret = versal_pm_aes_op_init(dma_addr_hw_req);
 	if (ret)
-		goto in_fail;
+		goto clearkey;
 
 	if (req->assoclen > 0) {
 		/* Currently GMAC is OFF by default */
 		ret = versal_pm_aes_update_aad(dma_addr_data, req->assoclen);
 		if (ret)
-			goto in_fail;
+			goto clearkey;
 	}
 
 	in->in_data_addr = dma_addr_data + req->assoclen;
@@ -329,27 +330,34 @@ static int versal_aes_aead_cipher(struct aead_request *req)
 		ret = versal_pm_aes_enc_update(dma_addr_in,
 					       dma_addr_data + req->assoclen);
 		if (ret)
-			goto in_fail;
+			goto clearkey;
 
 		ret = versal_pm_aes_enc_final(dma_addr_data + gcm_offset);
 		if (ret)
-			goto in_fail;
+			goto clearkey;
 	} else {
 		ret = versal_pm_aes_dec_update(dma_addr_in,
 					       dma_addr_data + req->assoclen);
 		if (ret)
-			goto in_fail;
+			goto clearkey;
 
 		ret = versal_pm_aes_dec_final(dma_addr_data + gcm_offset);
-		if (ret)
-			goto in_fail;
+		if (ret) {
+			ret = -EBADMSG;
+			goto clearkey;
+		}
 	}
 
 	sg_copy_from_buffer(req->dst, sg_nents(req->dst),
 			    kbuf, out_len);
 
+clearkey:
+	if (hwreq->keysrc >= VERSAL_AES_USER_KEY_0 && hwreq->keysrc <= VERSAL_AES_USER_KEY_7)
+		versal_pm_aes_key_zero(hwreq->keysrc);
+key_fail:
+	dma_free_coherent(dev, sizeof(struct versal_in_params), in, dma_addr_in);
 in_fail:
-	memzero_explicit(hwreq, sizeof(struct zynqmp_aead_hw_req));
+	memzero_explicit(hwreq, sizeof(struct versal_init_ops));
 	dma_free_coherent(dev, sizeof(struct versal_init_ops), hwreq, dma_addr_hw_req);
 hwreq_fail:
 	memzero_explicit(kbuf, dma_size);
@@ -565,6 +573,7 @@ static int aes_aead_init(struct crypto_aead *aead)
 
 	drv_ctx = container_of(alg, struct xilinx_aead_drv_ctx, aead.base);
 	tfm_ctx->dev = drv_ctx->dev;
+	tfm_ctx->keysrc = drv_ctx->keysrc;
 
 	tfm_ctx->fbk_cipher = crypto_alloc_aead(drv_ctx->aead.base.base.cra_name,
 						0,
@@ -599,6 +608,7 @@ static void zynqmp_aes_aead_exit(struct crypto_aead *aead)
 static struct xilinx_aead_drv_ctx zynqmp_aes_drv_ctx = {
 	.fallback_check = zynqmp_fallback_check,
 	.aes_aead_cipher = zynqmp_aes_aead_cipher,
+	.keysrc = ZYNQMP_AES_KUP_KEY,
 	.aead.base = {
 		.setkey		= zynqmp_aes_aead_setkey,
 		.setauthsize	= zynqmp_aes_aead_setauthsize,
@@ -630,6 +640,7 @@ static struct xilinx_aead_drv_ctx zynqmp_aes_drv_ctx = {
 static struct xilinx_aead_drv_ctx versal_aes_drv_ctx = {
 	.fallback_check		= versal_fallback_check,
 	.aes_aead_cipher	= versal_aes_aead_cipher,
+	.keysrc = VERSAL_AES_USER_KEY_0,
 	.aead.base = {
 		.setkey		= versal_aes_aead_setkey,
 		.setauthsize	= zynqmp_aes_aead_setauthsize,
@@ -748,19 +759,20 @@ static struct platform_driver zynqmp_aes_driver = {
 	},
 };
 
+static struct platform_device *platform_dev;
+
 static int __init aes_driver_init(void)
 {
-	struct platform_device *pdev;
 	int ret;
 
 	ret = platform_driver_register(&zynqmp_aes_driver);
 	if (ret)
 		return ret;
 
-	pdev = platform_device_register_simple(zynqmp_aes_driver.driver.name,
-					       0, NULL, 0);
-	if (IS_ERR(pdev)) {
-		ret = PTR_ERR(pdev);
+	platform_dev = platform_device_register_simple(zynqmp_aes_driver.driver.name,
+						       0, NULL, 0);
+	if (IS_ERR(platform_dev)) {
+		ret = PTR_ERR(platform_dev);
 		platform_driver_unregister(&zynqmp_aes_driver);
 	}
 
@@ -769,6 +781,7 @@ static int __init aes_driver_init(void)
 
 static void __exit aes_driver_exit(void)
 {
+	platform_device_unregister(platform_dev);
 	platform_driver_unregister(&zynqmp_aes_driver);
 }
 

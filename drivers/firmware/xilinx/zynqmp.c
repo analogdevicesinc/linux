@@ -3,7 +3,7 @@
  * Xilinx Zynq MPSoC Firmware layer
  *
  *  Copyright (C) 2014-2022 Xilinx, Inc.
- *  Copyright (C), 2022 - 2023 Advanced Micro Devices, Inc.
+ *  Copyright (C), 2022 - 2024 Advanced Micro Devices, Inc.
  *
  *  Michal Simek <michal.simek@amd.com>
  *  Davorin Mista <davorin.mista@aggios.com>
@@ -55,6 +55,7 @@ static DEFINE_HASHTABLE(pm_api_features_map, PM_API_FEATURE_CHECK_MAX_ORDER);
 static u32 ioctl_features[FEATURE_PAYLOAD_SIZE];
 static u32 query_features[FEATURE_PAYLOAD_SIZE];
 
+static u32 sip_svc_version;
 static unsigned long register_address;
 static struct platform_device *em_dev;
 
@@ -163,6 +164,9 @@ static noinline int do_fw_call_smc(u32 *ret_payload, u32 num_args, ...)
 		ret_payload[1] = upper_32_bits(res.a0);
 		ret_payload[2] = lower_32_bits(res.a1);
 		ret_payload[3] = upper_32_bits(res.a1);
+		ret_payload[4] = lower_32_bits(res.a2);
+		ret_payload[5] = upper_32_bits(res.a2);
+		ret_payload[6] = lower_32_bits(res.a3);
 	}
 
 	return zynqmp_pm_ret_code((enum pm_ret_status)res.a0);
@@ -203,6 +207,9 @@ static noinline int do_fw_call_hvc(u32 *ret_payload, u32 num_args, ...)
 		ret_payload[1] = upper_32_bits(res.a0);
 		ret_payload[2] = lower_32_bits(res.a1);
 		ret_payload[3] = upper_32_bits(res.a1);
+		ret_payload[4] = lower_32_bits(res.a2);
+		ret_payload[5] = upper_32_bits(res.a2);
+		ret_payload[6] = lower_32_bits(res.a3);
 	}
 
 	return zynqmp_pm_ret_code((enum pm_ret_status)res.a0);
@@ -230,11 +237,14 @@ static int __do_feature_check_call(const u32 api_id, u32 *ret_payload)
 	 * Feature check of TF-A APIs is done in the TF-A layer and it expects for
 	 * MODULE_ID_MASK bits of SMC's arg[0] to be the same as PM_MODULE_ID.
 	 */
-	if (module_id == TF_A_MODULE_ID)
+	if (module_id == TF_A_MODULE_ID) {
 		module_id = PM_MODULE_ID;
+		smc_arg[1] = api_id;
+	} else {
+		smc_arg[1] = (api_id & API_ID_MASK);
+	}
 
 	smc_arg[0] = PM_SIP_SVC | FIELD_PREP(MODULE_ID_MASK, module_id) | feature_check_api_id;
-	smc_arg[1] = (api_id & API_ID_MASK);
 
 	ret = do_fw_call(ret_payload, 2, smc_arg[0], smc_arg[1]);
 	if (ret)
@@ -342,6 +352,70 @@ int zynqmp_pm_is_function_supported(const u32 api_id, const u32 id)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(zynqmp_pm_is_function_supported);
+
+/**
+ * zynqmp_pm_invoke_fw_fn() - Invoke the system-level platform management layer
+ *			caller function depending on the configuration
+ * @pm_api_id:		Requested PM-API call
+ * @ret_payload:	Returned value array
+ * @num_args:		Number of arguments to requested PM-API call
+ *
+ * Invoke platform management function for SMC or HVC call, depending on
+ * configuration.
+ * Following SMC Calling Convention (SMCCC) for SMC64:
+ * Pm Function Identifier,
+ * PM_SIP_SVC + PASS_THROUGH_FW_CMD_ID =
+ *	((SMC_TYPE_FAST << FUNCID_TYPE_SHIFT)
+ *	((SMC_64) << FUNCID_CC_SHIFT)
+ *	((SIP_START) << FUNCID_OEN_SHIFT)
+ *	(PASS_THROUGH_FW_CMD_ID))
+ *
+ * PM_SIP_SVC - Registered ZynqMP SIP Service Call.
+ * PASS_THROUGH_FW_CMD_ID - Fixed SiP SVC call ID for FW specific calls.
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int zynqmp_pm_invoke_fw_fn(u32 pm_api_id, u32 *ret_payload, u32 num_args, ...)
+{
+	/*
+	 * Added SIP service call Function Identifier
+	 * Make sure to stay in x0 register
+	 */
+	u64 smc_arg[SMC_ARG_CNT_64];
+	int ret, i;
+	va_list arg_list;
+	u32 args[SMC_ARG_CNT_32] = {0};
+	u32 module_id;
+
+	if (num_args > SMC_ARG_CNT_32)
+		return -EINVAL;
+
+	va_start(arg_list, num_args);
+
+	/* Check if feature is supported or not */
+	ret = zynqmp_pm_feature(pm_api_id);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < num_args; i++)
+		args[i] = va_arg(arg_list, u32);
+
+	va_end(arg_list);
+
+	module_id = FIELD_GET(PLM_MODULE_ID_MASK, pm_api_id);
+
+	if (module_id == 0)
+		module_id = XPM_MODULE_ID;
+
+	smc_arg[0] = PM_SIP_SVC | PASS_THROUGH_FW_CMD_ID;
+	smc_arg[1] = ((u64)args[0] << 32U) | FIELD_PREP(PLM_MODULE_ID_MASK, module_id) |
+		      (pm_api_id & API_ID_MASK);
+	for (i = 1; i < (SMC_ARG_CNT_64 - 1); i++)
+		smc_arg[i + 1] = ((u64)args[(i * 2)] << 32U) | args[(i * 2) - 1];
+
+	return do_fw_call(ret_payload, 8, smc_arg[0], smc_arg[1], smc_arg[2], smc_arg[3],
+			  smc_arg[4], smc_arg[5], smc_arg[6], smc_arg[7]);
+}
 
 /**
  * zynqmp_pm_invoke_fn() - Invoke the system-level platform management layer
@@ -538,6 +612,35 @@ void *xlnx_get_crypto_dev_data(struct xlnx_feature *feature_map)
 EXPORT_SYMBOL_GPL(xlnx_get_crypto_dev_data);
 
 /**
+ * zynqmp_pm_get_sip_svc_version() - Get SiP service call version
+ * @version:	Returned version value
+ *
+ * Return: Returns status, either success or error+reason
+ */
+static int zynqmp_pm_get_sip_svc_version(u32 *version)
+{
+	struct arm_smccc_res res;
+	u64 args[SMC_ARG_CNT_64] = {0};
+
+	if (!version)
+		return -EINVAL;
+
+	/* Check if SiP SVC version already verified */
+	if (sip_svc_version > 0) {
+		*version = sip_svc_version;
+		return 0;
+	}
+
+	args[0] = GET_SIP_SVC_VERSION;
+
+	arm_smccc_smc(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], &res);
+
+	*version = ((lower_32_bits(res.a0) << 16U) | lower_32_bits(res.a1));
+
+	return zynqmp_pm_ret_code(XST_PM_SUCCESS);
+}
+
+/**
  * zynqmp_pm_get_trustzone_version() - Get secure trustzone firmware version
  * @version:	Returned version value
  *
@@ -601,11 +704,34 @@ static int get_set_conduit_method(struct device_node *np)
  */
 int zynqmp_pm_query_data(struct zynqmp_pm_query_data qdata, u32 *out)
 {
-	int ret;
+	int ret, i = 0;
+	u32 ret_payload[PAYLOAD_ARG_CNT] = {0};
 
-	ret = zynqmp_pm_invoke_fn(PM_QUERY_DATA, out, 4, qdata.qid, qdata.arg1, qdata.arg2,
-				  qdata.arg3);
+	if (sip_svc_version >= SIP_SVC_PASSTHROUGH_VERSION) {
+		ret = zynqmp_pm_invoke_fw_fn(PM_QUERY_DATA, ret_payload, 4,
+					     qdata.qid, qdata.arg1,
+					     qdata.arg2, qdata.arg3);
+		/* To support backward compatibility */
+		if (!ret && !ret_payload[0]) {
+			/*
+			 * TF-A passes return status on 0th index but
+			 * api to get clock name reads data from 0th
+			 * index so pass data at 0th index instead of
+			 * return status
+			 */
+			if (qdata.qid == PM_QID_CLOCK_GET_NAME ||
+			    qdata.qid == PM_QID_PINCTRL_GET_FUNCTION_NAME)
+				i = 1;
 
+			for (; i < PAYLOAD_ARG_CNT; i++, out++)
+				*out = ret_payload[i];
+
+			return ret;
+		}
+	}
+
+	ret = zynqmp_pm_invoke_fn(PM_QUERY_DATA, out, 4, qdata.qid,
+				  qdata.arg1, qdata.arg2, qdata.arg3);
 	/*
 	 * For clock name query, all bytes in SMC response are clock name
 	 * characters and return code is always success. For invalid clocks,
@@ -878,6 +1004,63 @@ int zynqmp_pm_ospi_mux_select(u32 dev_id, u32 select)
 	return zynqmp_pm_invoke_fn(PM_IOCTL, NULL, 3, dev_id, IOCTL_OSPI_MUX_SELECT, select);
 }
 EXPORT_SYMBOL_GPL(zynqmp_pm_ospi_mux_select);
+
+/**
+ * versal2_pm_ufs_get_txrx_cfgrdy() - API to read the UFS TX/RX Configuration ready
+ *
+ * @node_id:	Node Id of the UFS device.
+ * @value:	Tx/Rx configuration ready status information.
+ *
+ * This function read the UFS TX/RX Configuration ready status.
+ *
+ * Return:	Returns status, either success or error+reason
+ */
+int versal2_pm_ufs_get_txrx_cfgrdy(u32 node_id, u32 *value)
+{
+	u32 ret_payload[PAYLOAD_ARG_CNT];
+	int ret;
+
+	if (!value)
+		return -EINVAL;
+
+	ret = zynqmp_pm_invoke_fn(PM_IOCTL, ret_payload, 2, node_id, IOCTL_UFS_TXRX_CFGRDY_GET);
+	*value = ret_payload[1];
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(versal2_pm_ufs_get_txrx_cfgrdy);
+
+/**
+ * versal2_pm_ufs_sram_csr_sel() - API to read or write the UFS SRAM CSR register
+ *
+ * @node_id:	Node Id of the UFS device.
+ * @type:	read(0) or write(1) to SRAM CSR register.
+ * @value:	SRAM CSR register information.
+ *
+ * This function read or write the UFS SRAM CSR register.
+ *
+ * Return:	Returns status, either success or error+reason
+ */
+int versal2_pm_ufs_sram_csr_sel(u32 node_id, u32 type, u32 *value)
+{
+	u32 ret_payload[PAYLOAD_ARG_CNT];
+	int ret;
+
+	if (!value)
+		return -EINVAL;
+
+	if (type == PM_UFS_SRAM_CSR_READ) {
+		ret =  zynqmp_pm_invoke_fn(PM_IOCTL, ret_payload, 3, node_id,
+					   IOCTL_UFS_SRAM_CSR_SEL, type);
+		*value = ret_payload[1];
+	} else {
+		ret = zynqmp_pm_invoke_fn(PM_IOCTL, NULL, 4, node_id, IOCTL_UFS_SRAM_CSR_SEL, type,
+					  *value);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(versal2_pm_ufs_sram_csr_sel);
 
 /**
  * zynqmp_pm_write_ggs() - PM API for writing global general storage (ggs)
@@ -1778,6 +1961,21 @@ int versal_pm_aes_key_write(const u32 keylen,
 EXPORT_SYMBOL_GPL(versal_pm_aes_key_write);
 
 /**
+ * versal_pm_aes_key_zero - Zeroise AES User key registers
+ * @keysrc:	Key Source to be selected to which provided
+ *		key should be updated
+ *
+ * This function provides support to zeroise AES volatile user keys.
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int versal_pm_aes_key_zero(const u32 keysrc)
+{
+	return zynqmp_pm_invoke_fn(XSECURE_API_AES_KEY_ZERO, NULL, 1, keysrc);
+}
+EXPORT_SYMBOL_GPL(versal_pm_aes_key_zero);
+
+/**
  * versal_pm_efuse_read - Reads efuse.
  * @address: Address of the payload
  * @offset: Efuse offset
@@ -1910,6 +2108,19 @@ int versal_pm_aes_dec_final(const u64 gcm_addr)
 				   upper_32_bits(gcm_addr));
 }
 EXPORT_SYMBOL_GPL(versal_pm_aes_dec_final);
+
+/**
+ * versal_pm_aes_init - Init AES block
+ *
+ * This function initialise AES block.
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int versal_pm_aes_init(void)
+{
+	return zynqmp_pm_invoke_fn(XSECURE_API_AES_INIT, NULL, 0);
+}
+EXPORT_SYMBOL_GPL(versal_pm_aes_init);
 
 /**
  * versal_pm_ecdsa_validate_key - Access ECDSA hardware to validate key
@@ -2293,6 +2504,13 @@ int versal_pm_puf_registration(const u64 in_addr)
 				   upper_32_bits(in_addr));
 }
 EXPORT_SYMBOL_GPL(versal_pm_puf_registration);
+
+int versal_pm_puf_clear_id(void)
+{
+	return zynqmp_pm_invoke_fn(XPUF_API_PUF_CLEAR_PUF_ID, NULL,
+				   2, NULL, NULL);
+}
+EXPORT_SYMBOL_GPL(versal_pm_puf_clear_id);
 
 int versal_pm_puf_regeneration(const u64 in_addr)
 {
@@ -2784,11 +3002,11 @@ static ssize_t config_reg_store(struct kobject *kobj,
 	unsigned long address, value, mask;
 	int ret;
 
-	kern_buff = kzalloc(count, GFP_KERNEL);
+	kern_buff = kzalloc(count + 1, GFP_KERNEL);
 	if (!kern_buff)
 		return -ENOMEM;
 
-	ret = strlcpy(kern_buff, buf, count);
+	ret = strscpy(kern_buff, buf, count + 1);
 	if (ret < 0) {
 		ret = -EFAULT;
 		goto err;
@@ -3002,6 +3220,11 @@ static int zynqmp_firmware_probe(struct platform_device *pdev)
 	int ret;
 
 	ret = get_set_conduit_method(dev->of_node);
+	if (ret)
+		return ret;
+
+	/* Get SiP SVC version number */
+	ret = zynqmp_pm_get_sip_svc_version(&sip_svc_version);
 	if (ret)
 		return ret;
 

@@ -19,11 +19,11 @@
 
 	memory: memory@0 {
 		device_type = "memory";
-		reg = <0 0 0 0x80000000>, <0x8 0x0 0x7 0x80000000>; /* 32GB */
+		reg = <0 0 0 0x80000000>, <0x8 0x00000000 0x1 0x80000000>; /* 2GB + 6GB */
 	};
 
 	chosen {
-		bootargs = "console=ttyAMA0 earlycon=pl011,mmio32,0xFF000000,115200n8 clk_ignore_unused";
+		bootargs = "console=ttyAMA0 earlycon=pl011,mmio32,0xFF000000,115200n8";
 		stdout-path = "serial0:115200";
 	};
 
@@ -36,6 +36,7 @@
 		spi0 = &ospi;
 		usb0 = &usb0;
 		rtc0 = &rtc;
+		nvmem0 = &eeprom;
 	};
 };
 
@@ -57,7 +58,6 @@
 
 &ospi { /* PMC MIO0-10, 12, U297 MT35XU02G */
 	status = "okay";
-	compatible = "xlnx,versal-ospi-1.0", "cadence,qspi", "cdns,qspi-nor";
 	bus-num = <2>;
 	num-cs = <1>;
 	#stream-id-cells = <1>;
@@ -115,6 +115,15 @@
 
 &i2c1 { /* PMC_MIO44/45 */
 	status = "okay";
+	bootph-all;
+	clock-frequency = <100000>;
+
+	/* Use for storing information about SC board */
+	eeprom: eeprom@54 { /* u34 - m24128 16kB */
+		compatible = "st,24c128", "atmel,24c128";
+		reg = <0x54>; /* & 0x5c */
+		bootph-all;
+	};
 };
 
 &dcc {

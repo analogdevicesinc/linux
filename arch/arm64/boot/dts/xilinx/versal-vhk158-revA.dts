@@ -23,7 +23,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyAMA0 earlycon=pl011,mmio32,0xFF000000,115200n8 clk_ignore_unused";
+		bootargs = "console=ttyAMA0 earlycon=pl011,mmio32,0xFF000000,115200n8";
 		stdout-path = "serial0:115200";
 	};
 
@@ -55,7 +55,6 @@
 
 &ospi { /* PMC MIO0 - 12, U297 MT35XU02G */
 	status = "okay";
-	compatible = "xlnx,versal-ospi-1.0", "cadence,qspi", "cdns,qspi-nor";
 	bus-num = <2>;
 	num-cs = <1>;
 	#address-cells = <1>;

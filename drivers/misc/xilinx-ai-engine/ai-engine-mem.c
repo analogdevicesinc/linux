@@ -30,38 +30,58 @@ static struct sg_table *
 aie_mem_map_dma_buf(struct dma_buf_attachment *attachment,
 		    enum dma_data_direction direction)
 {
+	struct dma_buf *dmabuf = attachment->dmabuf;
+	struct aie_dma_mem *dma_mem;
+	struct scatterlist *slist;
+	struct aie_part_mem *pmem;
+	struct sg_table *table;
+	void *vaddr;
+	int ret;
+
+	pmem = (struct aie_part_mem *)dmabuf->priv;
+	vaddr = (void *)pmem->mem.offset;
+
+	table = kzalloc(sizeof(*table), GFP_KERNEL);
+	if (!table)
+		return ERR_PTR(-ENOMEM);
+
+	ret = sg_alloc_table(table, 1, GFP_KERNEL);
+
+	if (ret < 0)
+		goto err;
+
+	slist = table->sgl;
+
+	sg_init_one(slist, vaddr, pmem->mem.size);
+
 	/*
-	 * TODO: It is mandatory by DMA buf operation. It is used return
-	 * scatterlist table of an attachment. We don't have the implementation
-	 * for now. And thus it has empty implementation.
+	 * Since memory is allocated using dma_alloc_coherent which stores the
+	 * dma address for the virtual address returned dma_map_sgtable is not
+	 * needed for converting virtual address to dma-able address.
 	 */
-	(void)attachment;
-	(void)direction;
-	dev_warn(attachment->dev,
-		 "AI engine memory map dma buf is not implemented.\n");
-	return NULL;
+	dma_mem = container_of(pmem, struct aie_dma_mem, pmem);
+
+	slist->dma_address = dma_mem->dma_addr;
+
+	return table;
+err:
+	kfree(table);
+	return ERR_PTR(ret);
 }
 
 static void aie_mem_unmap_dma_buf(struct dma_buf_attachment *attachment,
 				  struct sg_table *table,
 				  enum dma_data_direction direction)
 {
-	/*
-	 * TODO: It is mandatory by DMA buf operation. It is used deallocate
-	 * scatterlist table of an attachment. We don't have the implementation
-	 * for now. And thus it has empty implementation.
-	 */
-	(void)attachment;
-	(void)table;
-	(void)direction;
-	dev_warn(attachment->dev,
-		 "AI engine memory unmap dma buf is not implemented.\n");
+	sg_free_table(table);
+	kfree(table);
 }
 
 static int aie_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct aie_part_mem *pmem = dmabuf->priv;
 	struct aie_mem *mem = &pmem->mem;
+	struct aie_dma_mem *dma_mem;
 	struct aie_partition *apart = pmem->apart;
 	struct aie_aperture *aperture = apart->aperture;
 	struct aie_location rloc;
@@ -70,53 +90,69 @@ static int aie_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	unsigned long remainder = vma->vm_end - addr;
 	size_t msize = mem->size;
 	u32 rstart_col = mem->range.start.col - aperture->range.start.col;
+	int ret;
 
 	if (remainder + offset > pmem->size)
 		return -EINVAL;
 
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	for (rloc.col = rstart_col;
-	     rloc.col < rstart_col + mem->range.size.col; rloc.col++) {
-		for (rloc.row = mem->range.start.row;
-		     rloc.row < mem->range.start.row + mem->range.size.row;
-		     rloc.row++) {
-			unsigned long toffset, len;
-			phys_addr_t mempa;
-			int ret;
+	if (pmem->mem.range.size.row == 0) {
+		if (vma->vm_end - addr < pmem->mem.size)
+			return -EINVAL;
 
-			remainder = vma->vm_end - addr;
-			if (!remainder)
-				return 0;
+		dma_mem = container_of(pmem, struct aie_dma_mem, pmem);
+		ret = remap_pfn_range(vma, addr, dma_mem->dma_addr >> PAGE_SHIFT,
+				      pmem->size, vma->vm_page_prot);
+		if (ret < 0) {
+			dev_err(&apart->dev,
+				"failed to mmap dma memory, remap failed, 0x%p, 0x%lx.\n",
+				(void *)dma_mem->dma_addr, pmem->size);
+			return ret;
+		}
+	} else {
+		for (rloc.col = rstart_col;
+		     rloc.col < rstart_col + mem->range.size.col; rloc.col++) {
+			for (rloc.row = mem->range.start.row;
+			     rloc.row < mem->range.start.row + mem->range.size.row;
+			     rloc.row++) {
+				unsigned long toffset, len;
+				phys_addr_t mempa;
+				int ret;
 
-			if (moffset + msize < offset) {
+				remainder = vma->vm_end - addr;
+				if (!remainder)
+					return 0;
+
+				if (moffset + msize < offset) {
+					moffset += msize;
+					continue;
+				}
+				/*
+				 * calculate offset within the tile memory.
+				 * offset is the offset to vma->start.
+				 * moffset is the tile memory start offset to
+				 * vma->start.
+				 */
+				toffset = offset - moffset;
+				len = msize - toffset;
+				if (len > remainder)
+					len = remainder;
+				mempa = aie_cal_reg_pa(apart->aperture, rloc,
+						       toffset + mem->offset);
+
+				ret = remap_pfn_range(vma, addr, mempa >> PAGE_SHIFT,
+						      len, vma->vm_page_prot);
+				if (ret) {
+					dev_err(&apart->dev,
+						"failed to mmap (%u,%u)memory, remap failed, 0x%pa, 0x%lx.\n",
+						(rloc.col + aperture->range.start.col),
+						rloc.row, &mempa, len);
+					return ret;
+				}
+				addr += len;
+				offset += len;
 				moffset += msize;
-				continue;
 			}
-			/*
-			 * calculate offset within the tile memory.
-			 * offset is the offset to vma->start.
-			 * moffset is the tile memory start offset to
-			 * vma->start.
-			 */
-			toffset = offset - moffset;
-			len = msize - toffset;
-			if (len > remainder)
-				len = remainder;
-			mempa = aie_cal_reg_pa(apart->aperture, rloc,
-					       toffset + mem->offset);
-
-			ret = remap_pfn_range(vma, addr, mempa >> PAGE_SHIFT,
-					      len, vma->vm_page_prot);
-			if (ret) {
-				dev_err(&apart->dev,
-					"failed to mmap (%u,%u)memory, remap failed, 0x%pa, 0x%lx.\n",
-					(rloc.col + aperture->range.start.col),
-					rloc.row, &mempa, len);
-				return ret;
-			}
-			addr += len;
-			offset += len;
-			moffset += msize;
 		}
 	}
 	return 0;
@@ -125,14 +161,24 @@ static int aie_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 static void aie_mem_dmabuf_release(struct dma_buf *dmabuf)
 {
 	struct aie_part_mem *pmem = dmabuf->priv;
+	struct aie_dma_mem *dma_mem;
 
 	pmem->dbuf = NULL;
+
+	if (pmem->mem.range.size.row == 0) {
+		dma_mem = container_of(pmem, struct aie_dma_mem, pmem);
+
+		kfree(dma_mem);
+		dma_mem = NULL;
+	}
 }
 
 static const struct dma_buf_ops aie_mem_dma_buf_ops = {
 	.map_dma_buf = aie_mem_map_dma_buf,
 	.unmap_dma_buf = aie_mem_unmap_dma_buf,
 	.mmap = aie_mem_mmap,
+	.begin_cpu_access = aie_dma_begin_cpu_access,
+	.end_cpu_access = aie_dma_end_cpu_access,
 	.release = aie_mem_dmabuf_release,
 };
 
@@ -188,6 +234,113 @@ static int aie_mem_create_dmabuf(struct aie_partition *apart,
 	dma_buf_get(ret);
 	memcpy(mem, &pmem->mem, sizeof(*mem));
 	mem->fd = ret;
+
+	return 0;
+}
+
+/**
+ * aie_dma_mem_alloc() - Allocates physically contiguous memory for dma
+ *			 transactions.
+ * @apart: AI engine partition
+ * @size: Size of the memory to be allocated in bytes
+ * @return: buffer file descriptor on success, otherwise returns error.
+ *
+ * This function allocated physically contiguous memory for dma transactions,
+ * exports it as a dma-buf and creates a file descriptor for the buffer.
+ */
+int aie_dma_mem_alloc(struct aie_partition *apart, __kernel_size_t size)
+{
+	struct aie_dma_mem *dma_mem;
+	struct aie_part_mem *pmem;
+	dma_addr_t dma_addr;
+	struct aie_mem mem;
+	void *vaddr;
+	int ret;
+
+	vaddr = dma_alloc_coherent(&apart->dev, size, &dma_addr, GFP_KERNEL);
+	if (!vaddr)
+		return -ENOMEM;
+
+	dma_mem = kzalloc(sizeof(*dma_mem), GFP_KERNEL);
+	if (!dma_mem) {
+		dma_free_coherent(&apart->dev, size, vaddr, dma_addr);
+		return -ENOMEM;
+	}
+
+	pmem = &dma_mem->pmem;
+
+	pmem->apart = apart;
+	pmem->mem.offset = (__kernel_size_t)vaddr;
+	pmem->mem.size = size;
+	pmem->size = (size_t)size;
+
+	ret = aie_mem_create_dmabuf(apart, pmem, &mem);
+	if (ret < 0) {
+		dma_free_coherent(&apart->dev, size, vaddr, dma_addr);
+		kfree(dma_mem);
+		return -EINVAL;
+	}
+
+	dma_mem->dma_addr = dma_addr;
+
+	ret = mutex_lock_interruptible(&apart->mlock);
+	if (ret) {
+		dma_free_coherent(&apart->dev, size, vaddr, dma_addr);
+		dma_buf_put(pmem->dbuf);
+		return ret;
+	}
+
+	list_add_tail(&dma_mem->node, &apart->dma_mem);
+
+	mutex_unlock(&apart->mlock);
+	return mem.fd;
+}
+
+/**
+ * aie_dma_mem_free() - De-allocates physically contiguous memory for dma
+ *			 transactions.
+ * @fd: DMA-BUF File Descriptor
+ * @return: 0 on success.
+ *
+ * This function de-allocated physically contiguous memory for dma transactions,
+ * and decreases the reference count of the dma-buf.
+ */
+int aie_dma_mem_free(int fd)
+{
+	struct aie_partition *apart;
+	struct aie_dma_mem *dma_mem;
+	struct aie_part_mem *pmem;
+	struct dma_buf *dmabuf;
+	int ret;
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
+
+	pmem = (struct aie_part_mem *)dmabuf->priv;
+	apart = pmem->apart;
+
+	/*
+	 * Following dma_buf_put reduces the reference count increased when
+	 * converting fd to dmabuf using dma_buf_get.
+	 */
+	dma_buf_put(dmabuf);
+
+	dma_mem = container_of(pmem, struct aie_dma_mem, pmem);
+	dma_free_coherent(&apart->dev, pmem->mem.size,
+			  (void *)pmem->mem.offset, dma_mem->dma_addr);
+
+	ret = mutex_lock_interruptible(&apart->mlock);
+	if (ret)
+		return ret;
+
+	list_del(&dma_mem->node);
+
+	mutex_unlock(&apart->mlock);
+	/*
+	 * dma_buf_put reduces the reference count increased during allocation.
+	 */
+	dma_buf_put(dmabuf);
 
 	return 0;
 }

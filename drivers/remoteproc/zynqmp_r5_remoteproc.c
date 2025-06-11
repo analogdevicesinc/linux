@@ -26,7 +26,7 @@
 
 #define BANK_LIST_PROP	"sram"
 #define DDR_LIST_PROP	"memory-region"
-#define PD_PROP		"power-domain"
+#define PD_PROP		"power-domains"
 #define	RSCTBL_PROP	"xlnx,rsc-tbl"
 
 /* IPI buffer MAX length */
@@ -716,7 +716,7 @@ static int xlnx_rpu_prepare(struct rproc *rproc)
 {
 	struct xlnx_rpu_rproc *z_rproc = rproc->priv;
 	struct device *dev = rproc->dev.parent;
-	int ret;
+	int ret = 0;
 
 	/*
 	 * In Versal SoC, the Xilinx platform management firmware will power

@@ -16,6 +16,15 @@
 #include <linux/firmware/xlnx-zynqmp.h>
 #include <uapi/misc/xilinx_puf.h>
 
+static bool puf_clear;
+module_param(puf_clear, bool, 0600);
+MODULE_PARM_DESC(puf_clear, "Flag to enable clearing of PUF ID and key.");
+
+/*
+ * Below macro corresponds to Key source in firmware
+ */
+#define VERSAL_AES_PUF_KEY	11
+
 /**
  * struct puf_params - parameters for PUF
  * @pufoperation: PUF registration or regeneration operation
@@ -72,9 +81,10 @@ static int xlnx_puf_cfg(struct xpuf_dev *puf, struct puf_usrparams *pufreq)
 	if (pufin->pufoperation == PUF_REGIS) {
 		pufdat = dma_alloc_coherent(dev, sizeof(struct pufdata), &dma_addr_data,
 					    GFP_KERNEL);
-		if (!pufdat)
+		if (!pufdat) {
+			ret = -ENOMEM;
 			goto cleanup_pufin;
-
+		}
 		pufin->readsyndromeaddr = (u64)(dma_addr_data);
 		pufin->chashaddr = (u64)(pufin->readsyndromeaddr + sizeof(pufdat->pufhd.syndata));
 		pufin->auxaddr = (u64)(pufin->chashaddr + sizeof(pufdat->pufhd.chash));
@@ -94,8 +104,10 @@ static int xlnx_puf_cfg(struct xpuf_dev *puf, struct puf_usrparams *pufreq)
 		pufhd = dma_alloc_coherent(dev, (sizeof(struct puf_helperdata) +
 					   PUF_ID_LEN_IN_BYTES), &dma_addr_data,
 					   GFP_KERNEL);
-		if (!pufhd)
+		if (!pufhd) {
+			ret = -ENOMEM;
 			goto cleanup_pufin;
+		}
 
 		if (copy_from_user(pufhd, (void *)pufreq->pufdataaddr,
 				   sizeof(struct puf_helperdata))) {
@@ -161,6 +173,22 @@ static long xlnx_puf_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 			return -EINVAL;
 
 		ret = xlnx_puf_cfg(puf, &pufreq);
+		break;
+	case PUF_CLEAR_ID:
+		if (!puf_clear) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
+		ret = versal_pm_puf_clear_id();
+		break;
+	case PUF_CLEAR_KEY:
+		if (!puf_clear) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
+		ret = versal_pm_aes_init();
+		if (!ret)
+			ret = versal_pm_aes_key_zero(VERSAL_AES_PUF_KEY);
 		break;
 	default:
 		ret = -EOPNOTSUPP;
@@ -277,19 +305,20 @@ static struct platform_driver xlnx_puf_drv = {
 	},
 };
 
+static struct platform_device *platform_dev;
+
 static int __init xlnx_puf_driver_init(void)
 {
-	struct platform_device *pdev;
 	int ret;
 
 	ret = platform_driver_register(&xlnx_puf_drv);
 	if (ret)
 		return ret;
 
-	pdev = platform_device_register_simple(xlnx_puf_drv.driver.name,
-					       0, NULL, 0);
-	if (IS_ERR(pdev)) {
-		ret = PTR_ERR(pdev);
+	platform_dev = platform_device_register_simple(xlnx_puf_drv.driver.name,
+						       0, NULL, 0);
+	if (IS_ERR(platform_dev)) {
+		ret = PTR_ERR(platform_dev);
 		platform_driver_unregister(&xlnx_puf_drv);
 	}
 
@@ -298,6 +327,7 @@ static int __init xlnx_puf_driver_init(void)
 
 static void __exit xlnx_puf_driver_exit(void)
 {
+	platform_device_unregister(platform_dev);
 	platform_driver_unregister(&xlnx_puf_drv);
 }
 
