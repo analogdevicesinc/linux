@@ -43,6 +43,14 @@ stages:
           ARCH: arm
           IMAGE: zImage
           artifactName: 'adi_bcmrpi_defconfig'
+        bcm2711_arm64_adi:
+          DEFCONFIG: adi_bcm2711_defconfig
+          ARCH: arm64
+          IMAGE: Image
+        bcm2712_arm64_adi:
+          DEFCONFIG: adi_bcm2712_defconfig
+          ARCH: arm64
+          IMAGE: Image
     pool:
       vmImage: 'ubuntu-latest'
     steps:
