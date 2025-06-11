@@ -42,7 +42,7 @@
 		device_clk: clock@1 {
 			#clock-cells = <0>;
 			compatible = "adjustable-clock";
-			clock-frequency = <60000000>;
+			clock-frequency = <48000000>;
 			clock-accuracy = <1000000000>;
 			clock-output-names = "dev_clk";
 		};
