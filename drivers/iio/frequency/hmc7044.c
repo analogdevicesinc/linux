@@ -11,6 +11,7 @@
 #include <linux/gcd.h>
 #include <linux/rational.h>
 #include <linux/debugfs.h>
+#include <linux/units.h>
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
@@ -1996,6 +1997,7 @@ static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	int ret;
 	unsigned long rate;
+	u64 freq_uHz;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT) {
 		hmc->jdev_lmfc_lemc_rate = 0;
@@ -2019,6 +2021,11 @@ static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
 		ret = jesd204_link_get_lmfc_lemc_rate(lnk, &rate);
 		if (ret < 0)
 			return ret;
+
+		if (ret > 0) {
+			freq_uHz = (u64)rate * MICROHZ_PER_HZ + (u32)ret;
+			rate = DIV_ROUND_CLOSEST_ULL(freq_uHz, MICROHZ_PER_HZ);
+		}
 	}
 
 	if (hmc->jdev_lmfc_lemc_rate) {
