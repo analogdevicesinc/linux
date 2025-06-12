@@ -120,20 +120,13 @@ Devicetree
 
 The following example devicetrees are provided:
 
-* :git-linux:`AD9084-VCU118 Base      <arch/microblaze/boot/dts/vcu118_ad9084.dts>`: vcu118_ad9084.dts
-* :git-linux:`AD9084-VCU118 UC02      <arch/microblaze/boot/dts/vcu118_ad9084_uc02.dts>`: vcu118_ad9084_uc02.dts
-* :git-linux:`AD9084-VCU118 UC02 M68  <arch/microblaze/boot/dts/vcu118_ad9084_uc02_m68.dts>`: vcu118_ad9084_uc02_m68.dts
-* :git-linux:`AD9084-VCU118 UC06      <arch/microblaze/boot/dts/vcu118_ad9084_uc06.dts>`: vcu118_ad9084_uc06.dts
-* :git-linux:`AD9084-VCU118 UC07      <arch/microblaze/boot/dts/vcu118_ad9084_uc07.dts>`: vcu118_ad9084_uc07.dts
-* :git-linux:`AD9084-VCU118 Quad 26.4 <arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4.dts>`: vcu118_quad_ad9084_26p4.dts
-* :git-linux:`AD9084-VCU118 Quad RevB <arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts>`: vcu118_quad_ad9084_26p4_revB.dts
-* :git-linux:`AD9084-VCU118 Quad Base <arch/microblaze/boot/dts/vcu118_quad_ad9084.dts>`: vcu118_quad_ad9084.dts
-* :git-linux:`AD9084-VCU118 Quad RevB <arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts>`: vcu118_quad_ad9084_revB.dts
-* :git-linux:`AD9084-VCU128 Base      <arch/microblaze/boot/dts/vcu128_ad9084.dts>`: vcu128_ad9084.dts
-* :git-linux:`AD9084-VCU128 UC06      <arch/microblaze/boot/dts/vcu128_ad9084_uc06.dts>`: vcu128_ad9084_uc06.dts
-* :git-linux:`AD9084-VCK190 RevA UC44 <arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-b0-uc44.dts>`: versal-vck190-reva-ad9084-b0-uc44.dts
-* :git-linux:`AD9084-VCK190 RevA Base <arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts>`: versal-vck190-reva-ad9084.dts
-* :git-linux:`AD9084-VPK180 RevA Base <arch/arm64/boot/dts/xilinx/versal-vpk180-reva-ad9084.dts>`: versal-vpk180-reva-ad9084.dts
+* :git-linux:`AD9084-VCU118 RevB <arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts>`: vcu118_quad_ad9084_revB.dts
+* :git-linux:`AD9084-VCU118 26p4 RevB Ext <arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts>`: vcu118_quad_ad9084_26p4_revB_ext.dts
+* :git-linux:`AD9084-VCU118 26p4 RevB <arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts>`: vcu118_quad_ad9084_26p4_revB.dts
+* :git-linux:`AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1 <arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts>`: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts
+* :git-linux:`AD9084-VCU118 ad9084 <arch/microblaze/boot/dts/vcu118_ad9084.dts>`: vcu118_ad9084.dts
+* :git-linux:`AD9084-VCU118 RevB Ext <arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts>`: vcu118_quad_ad9084_revB_ext.dts
+* :git-linux:`AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4 <arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts>`: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts
 
 Profile
 ~~~~~~~
