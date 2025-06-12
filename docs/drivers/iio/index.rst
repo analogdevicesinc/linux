@@ -1,4 +1,4 @@
-ADC
+IIO
 ===
 
 .. toctree::
