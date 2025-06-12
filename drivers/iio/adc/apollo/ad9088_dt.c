@@ -181,10 +181,12 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 	ad9088_jesd_lane_setup(phy);
 
 	found = of_property_read_bool(node, "adi,dformat-ddc-dither-en");
-	phy->profile.rx_path[0].rx_dformat[0].ddc_dither_en = found;
-	phy->profile.rx_path[0].rx_dformat[1].ddc_dither_en = found;
-	phy->profile.rx_path[1].rx_dformat[0].ddc_dither_en = found;
-	phy->profile.rx_path[1].rx_dformat[1].ddc_dither_en = found;
+	if (found) {
+		phy->profile.rx_path[0].rx_dformat[0].ddc_dither_en = found;
+		phy->profile.rx_path[0].rx_dformat[1].ddc_dither_en = found;
+		phy->profile.rx_path[1].rx_dformat[0].ddc_dither_en = found;
+		phy->profile.rx_path[1].rx_dformat[1].ddc_dither_en = found;
+	}
 
 	ret = of_property_read_u32(node, "adi,subclass", &val);
 	if (!ret) {
