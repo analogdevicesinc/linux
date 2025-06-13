@@ -54,7 +54,7 @@
 #define ONCHIP_PLL_LOW_FREQ	(400 * MHz)
 #define EXT_VCO_FREQ		(2000 * MHz)
 
-#define ADF4382_DIVIDER		2
+#define ADF4382_DIVIDER		1
 #define ADF4382_DIG_DELAY	14
 #define ADF4382_ANA_DELAY	0
 
