@@ -259,7 +259,7 @@ build_default() {
 	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi-.* \
 		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging-rpi ]]; then
 		echo "Rpi build"
-    		make -j$NUM_JOBS zImage modules dtbs
+    		make -j$NUM_JOBS $IMAGE modules dtbs
 		make INSTALL_MOD_PATH="${PWD}/modules" modules_install
 	else
     		echo "Normal build"
