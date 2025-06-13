@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the LTC4283 Hot Swap controller
+ *
+ * Copyright 2025 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ltc4283: mfd@55 {
+		compatible = "adi,ltc4283";
+		reg = <0x15>;
+
+		/* pgio1 to pgio4 as gpios */
+		adi,gpio-pins = <0 1 2 3>;
+
+		hwmon {
+			compatible = "adi,ltc4283-hwmon";
+
+			adi,rsense-nano-ohms = <1000000000>;
+			adi,current-limit-sense-millivolt = <25>;
+			adi,current-limit-foldback-factor = <10>;
+			adi,cooling-delay-ms = <8190>;
+			adi,fet-bad-timer-delay-ms = <512>;
+                };
+
+		gpio {
+			compatible = "adi,ltc4283-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+	};
+};
