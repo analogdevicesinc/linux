@@ -34,15 +34,13 @@
 #define PWM_MODE_MASK		GENMASK(1, 0)
 
 struct rp1_pwm {
-	struct pwm_chip chip;
-	struct device *dev;
 	void __iomem *base;
 	struct clk *clk;
 };
 
 static inline struct rp1_pwm *to_rp1_pwm(struct pwm_chip *chip)
 {
-	return container_of(chip, struct rp1_pwm, chip);
+	return pwmchip_get_drvdata(chip);
 }
 
 static void rp1_pwm_apply_config(struct pwm_chip *chip, struct pwm_device *pwm)
@@ -83,7 +81,7 @@ static int rp1_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	u32 value;
 
 	if (!clk_rate) {
-		dev_err(pc->dev, "failed to get clock rate\n");
+		dev_err(&chip->dev, "failed to get clock rate\n");
 		return -EINVAL;
 	}
 
@@ -122,45 +120,34 @@ static const struct pwm_ops rp1_pwm_ops = {
 	.request = rp1_pwm_request,
 	.free = rp1_pwm_free,
 	.apply = rp1_pwm_apply,
-	.owner = THIS_MODULE,
 };
 
 static int rp1_pwm_probe(struct platform_device *pdev)
 {
+	struct pwm_chip *chip;
 	struct rp1_pwm *pc;
-	struct resource *res;
 	int ret;
 
-	pc = devm_kzalloc(&pdev->dev, sizeof(*pc), GFP_KERNEL);
-	if (!pc)
-		return -ENOMEM;
+	chip = devm_pwmchip_alloc(&pdev->dev, 4, sizeof(*pc));
 
-	pc->dev = &pdev->dev;
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	pc->base = devm_ioremap_resource(&pdev->dev, res);
+	pc = to_rp1_pwm(chip);
+
+	pc->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(pc->base))
 		return PTR_ERR(pc->base);
 
-	pc->clk = devm_clk_get(&pdev->dev, NULL);
+	pc->clk = devm_clk_get_enabled(&pdev->dev, NULL);
 	if (IS_ERR(pc->clk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(pc->clk),
 				     "clock not found\n");
 
-	ret = clk_prepare_enable(pc->clk);
-	if (ret)
-		return ret;
+	chip->ops = &rp1_pwm_ops;
+	chip->of_xlate = of_pwm_xlate_with_flags;
 
-	pc->chip.dev = &pdev->dev;
-	pc->chip.ops = &rp1_pwm_ops;
-	pc->chip.base = -1;
-	pc->chip.npwm = 4;
-	pc->chip.of_xlate = of_pwm_xlate_with_flags;
-	pc->chip.of_pwm_n_cells = 3;
-
-	platform_set_drvdata(pdev, pc);
-
-	ret = pwmchip_add(&pc->chip);
+	ret = devm_pwmchip_add(&pdev->dev, chip);
 	if (ret < 0)
 		goto add_fail;
 
@@ -176,8 +163,6 @@ static int rp1_pwm_remove(struct platform_device *pdev)
 	struct rp1_pwm *pc = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(pc->clk);
-
-	pwmchip_remove(&pc->chip);
 
 	return 0;
 }

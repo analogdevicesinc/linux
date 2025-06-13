@@ -247,7 +247,7 @@ build_default() {
 	# Also note that this is only an issue for ARM...
 	#
 	# We should keep an eye on this (every time we upgrade) so we can remove this as soon as possible...
-	[ "$ARCH" = "arm" ] && [ "$LOCAL_BUILD" != "y" ] && {
+	( [ "$ARCH" = "arm" ] || ["$ARCH" = "arm64" ] ) && [ "$LOCAL_BUILD" != "y" ] && {
 		sed -i  '/CONFIG_GCC_PLUGINS/d' arch/arm/configs/$DEFCONFIG
 		__setup_dummy_git_account
 		# don't error out if the commit fails as we don't explicitly disable the plugins for
@@ -259,7 +259,7 @@ build_default() {
 	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi-.* \
 		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging-rpi ]]; then
 		echo "Rpi build"
-    		make -j$NUM_JOBS zImage modules dtbs
+    		make -j$NUM_JOBS $IMAGE modules dtbs
 		make INSTALL_MOD_PATH="${PWD}/modules" modules_install
 	else
     		echo "Normal build"

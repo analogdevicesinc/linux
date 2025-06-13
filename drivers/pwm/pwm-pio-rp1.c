@@ -30,8 +30,8 @@ struct pwm_pio_rp1 {
 	uint sm;
 	uint offset;
 	uint gpio;
-	uint32_t period;		/* In SM cycles */
-	uint32_t duty_cycle;		/* In SM cycles */
+	uint32_t period; /* In SM cycles */
+	uint32_t duty_cycle; /* In SM cycles */
 	enum pwm_polarity polarity;
 	bool enabled;
 };
@@ -42,7 +42,7 @@ struct pwm_pio_rp1 {
 #define pwm_loop_ticks 3
 
 static const uint16_t pwm_program_instructions[] = {
-		//     .wrap_target
+	//     .wrap_target
 	0x9080, //  0: pull   noblock         side 0
 	0xa027, //  1: mov    x, osr
 	0xa046, //  2: mov    y, isr
@@ -50,7 +50,7 @@ static const uint16_t pwm_program_instructions[] = {
 	0x1806, //  4: jmp    6               side 1
 	0xa042, //  5: nop
 	0x0083, //  6: jmp    y--, 3
-		//     .wrap
+	//     .wrap
 };
 
 static const struct pio_program pwm_program = {
@@ -96,7 +96,7 @@ static void pio_pwm_set_level(PIO pio, uint sm, uint32_t level)
 }
 
 static int pwm_pio_rp1_apply(struct pwm_chip *chip, struct pwm_device *pwm,
-			  const struct pwm_state *state)
+			     const struct pwm_state *state)
 {
 	struct pwm_pio_rp1 *ppwm = container_of(chip, struct pwm_pio_rp1, chip);
 	uint32_t new_duty_cycle;
@@ -131,8 +131,10 @@ static int pwm_pio_rp1_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	if (state->polarity != ppwm->polarity) {
 		pio_gpio_set_outover(ppwm->pio, ppwm->gpio,
-			(state->polarity == PWM_POLARITY_INVERSED) ?
-			GPIO_OVERRIDE_INVERT : GPIO_OVERRIDE_NORMAL);
+				     (state->polarity ==
+				      PWM_POLARITY_INVERSED) ?
+					     GPIO_OVERRIDE_INVERT :
+					     GPIO_OVERRIDE_NORMAL);
 		ppwm->polarity = state->polarity;
 	}
 
@@ -159,11 +161,11 @@ static int pwm_pio_rp1_probe(struct platform_device *pdev)
 	struct pwm_chip *chip;
 	bool is_rp1;
 
-	ppwm = devm_kzalloc(dev, sizeof(*ppwm), GFP_KERNEL);
-	if (IS_ERR(ppwm))
-		return PTR_ERR(ppwm);
+	chip = devm_pwmchip_alloc(dev, 1, sizeof(*ppwm));
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
 
-	chip = &ppwm->chip;
+	ppwm = pwmchip_get_drvdata(chip);
 
 	mutex_init(&ppwm->mutex);
 
@@ -182,8 +184,7 @@ static int pwm_pio_rp1_probe(struct platform_device *pdev)
 	is_rp1 = of_device_is_compatible(of_args.np, "raspberrypi,rp1-gpio");
 	of_node_put(of_args.np);
 	if (!is_rp1 || of_args.args_count != 2)
-		return dev_err_probe(dev, -EINVAL,
-				     "not an RP1 gpio\n");
+		return dev_err_probe(dev, -EINVAL, "not an RP1 gpio\n");
 
 	ppwm->gpio = of_args.args[0];
 
@@ -196,8 +197,7 @@ static int pwm_pio_rp1_probe(struct platform_device *pdev)
 	ppwm->sm = pio_claim_unused_sm(ppwm->pio, false);
 	if ((int)ppwm->sm < 0) {
 		pio_close(ppwm->pio);
-		return dev_err_probe(dev, -EBUSY,
-				     "%pfw: no free PIO SM\n",
+		return dev_err_probe(dev, -EBUSY, "%pfw: no free PIO SM\n",
 				     dev_fwnode(dev));
 	}
 
@@ -211,9 +211,9 @@ static int pwm_pio_rp1_probe(struct platform_device *pdev)
 
 	pwm_program_init(ppwm->pio, ppwm->sm, ppwm->offset, ppwm->gpio);
 
-	pwm_pio_resolution = (1000u * 1000 * 1000 * pwm_loop_ticks) / clock_get_hz(clk_sys);
+	pwm_pio_resolution =
+		(1000u * 1000 * 1000 * pwm_loop_ticks) / clock_get_hz(clk_sys);
 
-	chip->dev = dev;
 	chip->ops = &pwm_pio_rp1_ops;
 	chip->atomic = true;
 	chip->npwm = 1;
@@ -223,11 +223,13 @@ static int pwm_pio_rp1_probe(struct platform_device *pdev)
 	return devm_pwmchip_add(dev, chip);
 }
 
-static void pwm_pio_rp1_remove(struct platform_device *pdev)
+static int pwm_pio_rp1_remove(struct platform_device *pdev)
 {
 	struct pwm_pio_rp1 *ppwm = platform_get_drvdata(pdev);
 
 	pio_close(ppwm->pio);
+
+	return 0;
 }
 
 static const struct of_device_id pwm_pio_rp1_dt_ids[] = {
@@ -237,13 +239,13 @@ static const struct of_device_id pwm_pio_rp1_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, pwm_pio_rp1_dt_ids);
 
 static struct platform_driver pwm_pio_rp1_driver = {
-	.driver = {
-		.name = "pwm-pio-rp1",
-		.of_match_table = pwm_pio_rp1_dt_ids,
-	},
-	.probe = pwm_pio_rp1_probe,
-	.remove_new = pwm_pio_rp1_remove,
-};
+	 .driver = {
+		 .name = "pwm-pio-rp1",
+		 .of_match_table = pwm_pio_rp1_dt_ids,
+	 },
+	 .probe = pwm_pio_rp1_probe,
+	 .remove = pwm_pio_rp1_remove,
+ };
 module_platform_driver(pwm_pio_rp1_driver);
 
 MODULE_DESCRIPTION("PWM PIO RP1 driver");
