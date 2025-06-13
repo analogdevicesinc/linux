@@ -214,7 +214,7 @@
 #define HMC7044_DYN_DRIVER_EN		BIT(5)
 #define HMC7044_FORCE_MUTE_EN		BIT(7)
 
-#define HMC7044_NUM_CHAN	14
+#define HMC7044_NUM_CHAN	15
 
 #define HMC7044_LOW_VCO_MIN	2150000
 #define HMC7044_LOW_VCO_MAX	2880000
@@ -309,11 +309,6 @@ struct hmc7044 {
 	bool				oscout_path_en;
 	bool				oscout0_driver_en;
 	bool				oscout1_driver_en;
-	u32				oscout_divider_ratio;
-	u32				oscout0_driver_mode;
-	u32				oscout1_driver_mode;
-	u32				oscout0_driver_impedance;
-	u32				oscout1_driver_impedance;
 	unsigned int			sync_pin_mode;
 	unsigned int			pulse_gen_mode;
 	unsigned int			in_buf_mode[5];
@@ -449,6 +444,26 @@ static unsigned int hmc7044_calc_out_div(unsigned long parent_rate,
 	return div;
 }
 
+static unsigned int hmc7044_calc_oscout_div(unsigned long parent_rate,
+					    unsigned long rate)
+{
+	unsigned int div;
+
+	div = DIV_ROUND_CLOSEST(parent_rate, rate);
+
+	/* Supported divide ratios are 1, 2, 4, and 8 */
+	if (div == 1 || div == 2 || div == 4 || div == 8)
+		return div;
+
+	if (div == 0)
+		return 1;
+
+	if (div % 2)
+		div--;
+
+	return (div == 6 || div > 8) ? 8 : div;
+}
+
 static int hmc7044_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int *val,
@@ -466,13 +481,20 @@ static int hmc7044_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
-		*val = hmc->pll2_freq / ch->divider;
+		if (ch->num == 14)
+			*val = hmc->vcxo_freq / ch->divider;
+		else
+			*val = hmc->pll2_freq / ch->divider;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
-		hmc7044_read(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(ch->num),
-			     &tmp);
-		tmp &= 0x1F;
-		code = DIV_ROUND_CLOSEST(tmp * 3141592, ch->divider);
+		if (ch->num == 14) {
+			code = 0;
+		} else {
+			hmc7044_read(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(ch->num),
+				     &tmp);
+			tmp &= 0x1F;
+			code = DIV_ROUND_CLOSEST(tmp * 3141592, ch->divider);
+		}
 		*val = code / 1000000;
 		*val2 = code % 1000000;
 		return IIO_VAL_INT_PLUS_MICRO;
@@ -498,22 +520,33 @@ static int hmc7044_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
-		ch->divider = hmc7044_calc_out_div(hmc->pll2_freq, val);
-		mutex_lock(&hmc->lock);
-		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(ch->num),
-			      HMC7044_DIV_LSB(ch->divider));
-		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(ch->num),
-			      HMC7044_DIV_MSB(ch->divider));
-		mutex_unlock(&hmc->lock);
+		if (ch->num == 14) {
+			ch->divider = hmc7044_calc_oscout_div(hmc->vcxo_freq, val);
+			mutex_lock(&hmc->lock);
+			hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_PATH,
+				      HMC7044_OSCOUT_DIVIDER(ch->divider <= 4 ? ch->divider / 2 : 3) |
+				      hmc->oscout_path_en);
+			mutex_unlock(&hmc->lock);
+		} else {
+			ch->divider = hmc7044_calc_out_div(hmc->pll2_freq, val);
+			mutex_lock(&hmc->lock);
+			hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(ch->num),
+				      HMC7044_DIV_LSB(ch->divider));
+			hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(ch->num),
+				      HMC7044_DIV_MSB(ch->divider));
+			mutex_unlock(&hmc->lock);
+		}
 		break;
 	case IIO_CHAN_INFO_PHASE:
-		mutex_lock(&hmc->lock);
-		code = val * 1000000 + val2 % 1000000;
-		tmp = DIV_ROUND_CLOSEST(code * ch->divider, 3141592);
-		tmp = clamp_t(unsigned int, tmp, 0, 17);
-		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(ch->num),
-			      tmp);
-		mutex_unlock(&hmc->lock);
+		if (ch->num != 14) {
+			mutex_lock(&hmc->lock);
+			code = val * 1000000 + val2 % 1000000;
+			tmp = DIV_ROUND_CLOSEST(code * ch->divider, 3141592);
+			tmp = clamp_t(unsigned int, tmp, 0, 17);
+			hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(ch->num),
+				      tmp);
+			mutex_unlock(&hmc->lock);
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -811,11 +844,21 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	struct hmc7044_output *out = to_output(hw);
 	struct iio_dev *indio_dev = out->indio_dev;
 	struct hmc7044 *hmc = iio_priv(indio_dev);
+	struct hmc7044_chan_spec *ch;
+	long rounded_rate;
 	unsigned int div;
 
-	div = hmc7044_calc_out_div(hmc->pll2_freq, rate);
+	ch = &hmc->channels[out->address];
 
-	return DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+	if (ch->num == 14) {
+		div = hmc7044_calc_oscout_div(hmc->vcxo_freq, rate);
+		rounded_rate = DIV_ROUND_CLOSEST(hmc->vcxo_freq, div);
+	} else {
+		div = hmc7044_calc_out_div(hmc->vcxo_freq, rate);
+		rounded_rate = DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+	}
+
+	return rounded_rate;
 }
 
 static int hmc7044_clk_determine_rate(struct clk_hw *hw,
@@ -824,17 +867,25 @@ static int hmc7044_clk_determine_rate(struct clk_hw *hw,
 	struct hmc7044_output *out = to_output(hw);
 	struct iio_dev *indio_dev = out->indio_dev;
 	struct hmc7044 *hmc = iio_priv(indio_dev);
+	struct hmc7044_chan_spec *ch;
 	unsigned int div;
 
-	div = hmc7044_calc_out_div(hmc->pll2_freq, req->rate);
+	ch = &hmc->channels[out->address];
 
-	req->rate = DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+	if (ch->num == 14) {
+		div = hmc7044_calc_oscout_div(hmc->vcxo_freq, req->rate);
+
+		req->rate = DIV_ROUND_CLOSEST(hmc->vcxo_freq, div);
+	} else {
+		div = hmc7044_calc_out_div(hmc->pll2_freq, req->rate);
+
+		req->rate = DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+	}
 
 	return 0;
 }
 
-static int hmc7044_clk_set_rate(struct clk_hw *hw,
-				unsigned long rate,
+static int hmc7044_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 				unsigned long parent_rate)
 {
 	return hmc7044_set_clk_attr(hw, IIO_CHAN_INFO_FREQUENCY, rate);
@@ -858,7 +909,7 @@ static int hmc7044_clk_register(struct iio_dev *indio_dev,
 
 	init.name = hmc->clk_out_names[num];
 	init.ops = &hmc7044_clk_ops;
-	init.flags = 0;
+	init.flags = CLK_GET_RATE_NOCACHE;
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
 
@@ -1057,6 +1108,12 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(i), 0);
 		if (ret)
 			return ret;
+
+		if (i == 14) {
+			ret = hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_PATH, 0);
+			if (ret)
+				return ret;
+		}
 	}
 
 	/* Load the configuration updates (provided by Analog Devices) */
@@ -1264,43 +1321,75 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
 			continue;
 
-		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(chan->num),
-			      HMC7044_DIV_LSB(chan->divider));
-		if (ret)
-			return ret;
-		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(chan->num),
-			      HMC7044_DIV_MSB(chan->divider));
-		if (ret)
-			return ret;
-		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_8(chan->num),
-			      HMC7044_DRIVER_MODE(chan->driver_mode) |
-			      HMC7044_DRIVER_Z_MODE(chan->driver_impedance) |
-			      (chan->dynamic_driver_enable ?
-			      HMC7044_DYN_DRIVER_EN : 0) |
-			      (chan->force_mute_enable ?
-			      HMC7044_FORCE_MUTE_EN : 0));
-		if (ret)
-			return ret;
-		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_3(chan->num),
-			      chan->fine_delay & 0x1F);
-		if (ret)
-			return ret;
-		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(chan->num),
-			      chan->coarse_delay & 0x1F);
-		if (ret)
-			return ret;
-		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_7(chan->num),
-			      chan->out_mux_mode & 0x3);
-		if (ret)
-			return ret;
-		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
-			      (chan->start_up_mode_dynamic_enable ?
-			      HMC7044_START_UP_MODE_DYN_EN : 0) | BIT(4) |
-			      (chan->high_performance_mode_dis ?
-			      0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
-			      HMC7044_CH_EN);
-		if (ret)
-			return ret;
+		if (chan->num < (HMC7044_NUM_CHAN - 1)) {
+			ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(chan->num),
+					    HMC7044_DIV_LSB(chan->divider));
+			if (ret)
+				return ret;
+			ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(chan->num),
+					    HMC7044_DIV_MSB(chan->divider));
+			if (ret)
+				return ret;
+			ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_8(chan->num),
+					    HMC7044_DRIVER_MODE(chan->driver_mode) |
+					    HMC7044_DRIVER_Z_MODE(chan->driver_impedance) |
+					    (chan->dynamic_driver_enable ?
+					    HMC7044_DYN_DRIVER_EN : 0) |
+					    (chan->force_mute_enable ?
+					    HMC7044_FORCE_MUTE_EN : 0));
+			if (ret)
+				return ret;
+			ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_3(chan->num),
+					    chan->fine_delay & 0x1F);
+			if (ret)
+				return ret;
+			ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(chan->num),
+					    chan->coarse_delay & 0x1F);
+			if (ret)
+				return ret;
+			ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_7(chan->num),
+					    chan->out_mux_mode & 0x3);
+			if (ret)
+				return ret;
+			ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
+					    (chan->start_up_mode_dynamic_enable ?
+					    HMC7044_START_UP_MODE_DYN_EN : 0) | BIT(4) |
+					    (chan->high_performance_mode_dis ?
+					    0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
+					    HMC7044_CH_EN);
+			if (ret)
+				return ret;
+		} else {
+			if (hmc->oscout_path_en) {
+				/* Make sure divider has acceptable value */
+				if (chan->divider != 1 &&  chan->divider != 2 &&
+				    chan->divider != 4 && chan->divider != 8)
+					return -EINVAL;
+				ret = hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_PATH,
+						    HMC7044_OSCOUT_DIVIDER(chan->divider <= 4 ? chan->divider / 2 : 3) |
+						    HMC7044_CH_EN);
+				if (ret)
+					return ret;
+			}
+
+			if (hmc->oscout0_driver_en) {
+				hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_DRIVER_0,
+					      HMC7044_OSCOUT_DRIVER_MODE(chan->driver_mode) |
+					      HMC7044_OSCOUT_IMPEDANCE(chan->driver_impedance) |
+					      HMC7044_CH_EN);
+				if (ret)
+					return ret;
+			}
+
+			if (hmc->oscout1_driver_en) {
+				hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_DRIVER_1,
+					      HMC7044_OSCOUT_DRIVER_MODE(chan->driver_mode) |
+					      HMC7044_OSCOUT_IMPEDANCE(chan->driver_impedance) |
+					      HMC7044_CH_EN);
+				if (ret)
+					return ret;
+			}
+		}
 		hmc->iio_channels[i].type = IIO_ALTVOLTAGE;
 		hmc->iio_channels[i].output = 1;
 		hmc->iio_channels[i].indexed = 1;
@@ -1356,32 +1445,6 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	hmc->clk_data.clks = hmc->clks;
 	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
-
-	if (hmc->oscout_path_en) {
-		ret = hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_PATH,
-				    HMC7044_OSCOUT_DIVIDER(hmc->oscout_divider_ratio) |
-				    hmc->oscout_path_en);
-		if (ret)
-			return ret;
-	}
-
-	if (hmc->oscout0_driver_en) {
-		hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_DRIVER_0,
-			      HMC7044_OSCOUT_DRIVER_MODE(hmc->oscout1_driver_mode) |
-			      HMC7044_OSCOUT_IMPEDANCE(hmc->oscout1_driver_impedance) |
-			      hmc->oscout1_driver_en);
-		if (ret)
-			return ret;
-	}
-
-	if (hmc->oscout1_driver_en) {
-		hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_DRIVER_1,
-			      HMC7044_OSCOUT_DRIVER_MODE(hmc->oscout1_driver_mode) |
-			      HMC7044_OSCOUT_IMPEDANCE(hmc->oscout1_driver_impedance) |
-			      hmc->oscout1_driver_en);
-		if (ret)
-			return ret;
-	}
 
 	ret = hmc7044_info(indio_dev);
 	if (ret)
@@ -1707,29 +1770,9 @@ static int hmc7044_parse_dt(struct device *dev,
 	hmc->oscout_path_en =
 		of_property_read_bool(np, "adi,oscillator-output-path-enable");
 
-	hmc->oscout_divider_ratio = HMC7044_DIVIDER_RATIO_1;
-	of_property_read_u32(np, "adi,oscillator-output-divider-ratio",
-			     &hmc->oscout_divider_ratio);
-
 	hmc->oscout0_driver_en = of_property_read_bool(np, "adi,oscillator-output0-driver-enable");
 
-	hmc->oscout0_driver_mode = HMC7044_DRIVER_MODE_CML;
-	of_property_read_u32(np, "adi,oscillator-output0-driver-mode",
-			     &hmc->oscout0_driver_mode);
-
-	hmc->oscout0_driver_impedance = HMC7044_DRIVER_IMPEDANCE_DISABLE;
-	of_property_read_u32(np, "adi,oscillator-output0-driver-impedance",
-			     &hmc->oscout0_driver_impedance);
-
 	hmc->oscout1_driver_en = of_property_read_bool(np, "adi,oscillator-output1-driver-enable");
-
-	hmc->oscout1_driver_mode = HMC7044_DRIVER_MODE_CML;
-	of_property_read_u32(np, "adi,oscillator-output1-driver-mode",
-			     &hmc->oscout1_driver_mode);
-
-	hmc->oscout1_driver_impedance = HMC7044_DRIVER_IMPEDANCE_DISABLE;
-	of_property_read_u32(np, "adi,oscillator-output1-driver-impedance",
-			     &hmc->oscout1_driver_impedance);
 
 	hmc->sysref_timer_div = 256;
 	of_property_read_u32(np, "adi,sysref-timer-divider",

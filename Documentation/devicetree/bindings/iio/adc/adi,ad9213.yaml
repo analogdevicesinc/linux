@@ -1,0 +1,144 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright 2025 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,ad9213.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD9213 device driver
+
+maintainers:
+  - George Mois <george.mois@analog.com>
+
+description: |
+  Bindings for the Analog Devices AD9213 ADC device. Datasheet can be found
+  here:
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ad9213.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,ad9213
+
+  reg:
+    maxItems: 1
+    description: Chip select number on the SPI bus.
+
+  spi-max-frequency:
+    const: 10000000
+    description: SPI clock frequency in Hz.
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+  jesd204-device:
+    description: Device is added to the jesd204-fsm framework
+    type: boolean
+
+  '#jesd204-cells':
+    const: 2
+
+  jesd204-top-device:
+    const: 0
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Indicates this is the top-level device in the JESD204 link.
+
+  jesd204-link-ids:
+    const: 0
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+
+  jesd204-inputs:
+    description: JESD204-fsm devices phandles and specifiers (used to build the link topology)
+    $ref: /schemas/types.yaml#/definitions/phandle
+
+  adi,adc-frequency-hz:
+    description: ADC Sampling frequency of the device
+    minimum: 6000000000
+    maximum: 10250000000
+
+  adi,octets-per-frame:
+    description: Number of octets per frame (F)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,frames-per-multiframe:
+    description: Number of frames per multi-frame (K)
+    $ref: /schemas/types.yaml#/definitions/uint16
+
+  adi,converter-resolution:
+    description: Converter resolution (N)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,bits-per-sample:
+    description: Number of bits per sample (N')
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,converters-per-device:
+    description: Number of converter per device (M)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,control-bits-per-sample:
+    description: Number of control bits per conversion sample (CS)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,lanes-per-device:
+    description: Number of lanes per link (L)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,subclass:
+    description: The JESD204B sublcass
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  io-backends:
+    description:
+      The AXI ADC IP block connected to the output lines of the
+      ADC. An example backend can be found at
+      http://analogdevicesinc.github.io/hdl/projects/pulsar_lvds/index.html.
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - jesd204-device
+  - '#jesd-cells'
+  - jesd204-top-device
+  - jesd204-link-ids
+  - jesd204-inputs
+  - io-backends
+
+additionalProperties: false
+
+examples:
+  - |
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      adc_ad9213: ad9213@0 {
+        compatible = "adi,ad9213";
+        reg = <0>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+        spi-max-frequency = <10000000>;
+
+        jesd204-device;
+        #jesd204-cells = <2>;
+        jesd204-top-device = <0>; /* This is the TOP device */
+        jesd204-link-ids = <0>;
+        jesd204-inputs = <&axi_ad9213_jesd_rx 0 0>;
+
+        adi,adc-frequency-hz = /bits/ 64 <10000000000>;
+        adi,octets-per-frame = <2>;
+        adi,frames-per-multiframe = <32>;
+        adi,converter-resolution = <16>;
+        adi,bits-per-sample = <16>;
+        adi,converters-per-device = <1>;
+        adi,control-bits-per-sample = <0>;
+        adi,lanes-per-device = <16>;
+        adi,subclass = <1>;
+
+        io-backends = <&iio_backend>;
+      };
+    };
