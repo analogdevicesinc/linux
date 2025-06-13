@@ -590,7 +590,8 @@ static void ad5592r_init_scales(struct ad5592r_state *st, int vref_mV)
 }
 
 int ad5592r_probe(struct device *dev, const char *name,
-		const struct ad5592r_rw_ops *ops)
+		const struct ad5592r_rw_ops *ops,
+		const struct attribute_group **sysfs_groups)
 {
 	struct iio_dev *iio_dev;
 	struct ad5592r_state *st;
@@ -646,6 +647,12 @@ int ad5592r_probe(struct device *dev, const char *name,
 	ret = iio_device_register(iio_dev);
 	if (ret)
 		goto error_reset_ch_modes;
+
+	if (sysfs_groups) {
+		ret = device_add_groups(&iio_dev->dev, sysfs_groups);
+		if (ret)
+			goto error_dev_unregister;
+	}
 
 	ret = ad5592r_gpio_init(st);
 	if (ret)
