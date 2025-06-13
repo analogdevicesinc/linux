@@ -62,6 +62,8 @@ ad9208_drv-y := ad9208.o \
 
 obj-$(CONFIG_AD9208) += ad9208_drv.o
 
+obj-$(CONFIG_AD9213) += ad9213.o
+
 ad9081_drv-y := ad9081.o \
 	ad9081/adi_ad9081_adc.o \
 	ad9081/adi_ad9081_device.o \
