@@ -150,6 +150,15 @@ config INPUT_E3X0_BUTTON
 	  To compile this driver as a module, choose M here: the
 	  module will be called e3x0_button.
 
+config INPUT_MAX16150_PWRBUTTON
+	tristate "MAX16150/MAX16169 Pushbutton driver"
+	help
+	  Say Y here if you want to enable power key reporting via
+	  MAX16150/MAX16169 nanoPower Pushbutton On/Off Controller.
+
+	  To compile this driver as a module, choose M here. The module will
+	  be called max16150.
+
 config INPUT_PCSPKR
 	tristate "PC Speaker support"
 	depends on PCSPKR_PLATFORM
