@@ -102,7 +102,7 @@ struct adrv906x_tod {
 	u16 ver_minor;
 	u16 sec_ver_major;
 	u16 sec_ver_minor;
-	u8 irq;
+	int irq;
 	u8 tod_counter_src;
 	u8 external_pps;
 	u32 ppsx_pulse_width_ns;
