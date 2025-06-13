@@ -1,0 +1,24 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/adi,ltc4282-hwmon.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: HWMON driver for LTC4282 Negative Voltage Hot Swap Controller
+
+maintainers:
+  - Nuno Sá <nuno.sa@analog.com>
+
+description: |
+  This module is part of the LTC4283 MFD device.
+  see Documentation/devicetree/bindings/mfd/adi,ltc4283.yaml
+  This implements the HWMON bindings for the LTC4283 negative voltage hot swap
+  controller.
+
+properties:
+  compatible:
+    enum:
+      - adi,ltc4283-hwmon
+
+required:
+  - compatible
+  - adi,rsense-nano-ohms
