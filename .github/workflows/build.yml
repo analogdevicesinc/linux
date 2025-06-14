@@ -1,0 +1,138 @@
+on:
+  workflow_call:
+    inputs:
+      CXX:
+        type: string
+        default: ""
+      LLVM:
+        type: string
+        default: ""
+      CROSS_COMPILE:
+        type: string
+        default: ""
+      ARCH:
+        required: true
+        type: string
+      DEFCONFIG:
+        required: true
+        type: string
+      CHECKS:
+        type: boolean
+        default: false
+    outputs:
+      fail:
+        value: ${{ jobs.build.outputs.fail }}
+      warn:
+        value: ${{ jobs.build.outputs.warn }}
+
+jobs:
+  build:
+    runs-on: [self-hosted, v1]
+
+    outputs:
+      fail: ${{ steps.assert.outputs.fail }}
+      warn: ${{ steps.assert.outputs.warn }}
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@v1
+
+    - name: Prepare env
+      run: |
+        if [[ ! -z "${{ inputs.CXX }}" ]]; then
+          echo "CXX=gcc-${{ inputs.CXX }}" >> $GITHUB_ENV
+          echo "CID=gcc_${{ inputs.CXX }}" >> $GITHUB_ENV
+        fi
+        if [[ ! -z "${{ inputs.LLVM }}" ]]; then
+          echo "LLVM=-${{ inputs.LLVM }}" >> $GITHUB_ENV
+          echo "CID=llvm_${{ inputs.LLVM }}" >> $GITHUB_ENV
+        fi
+        if [[ "${{ inputs.CHECKS }}" == "true" ]]; then
+          if [[ ! -z "${{ inputs.CXX }}" ]]; then
+            echo "CHECKS_SPARCE=true" >> $GITHUB_ENV
+            echo "CHECKS_GCC_FANALYZER=true" >> $GITHUB_ENV
+            echo "CHECKS_SMATCH=true" >> $GITHUB_ENV
+          fi
+          if [[ ! -z "${{ inputs.LLVM }}" ]]; then
+            echo "CHECKS_CLANG_ANALYZER=true" >> $GITHUB_ENV
+          fi
+        fi
+        echo "CROSS_COMPILE=${{ inputs.CROSS_COMPILE }}" >> $GITHUB_ENV
+        echo "ARCH=${{ inputs.ARCH }}" >> $GITHUB_ENV
+
+    - name: Make defconfig
+      run: |
+        if [[ -f "arch/$ARCH/configs/${{ inputs.DEFCONFIG }}" ]] || \
+           [[ "${{ inputs.DEFCONFIG }}" == "allnoconfig" ]]; then
+          make ${{ inputs.DEFCONFIG }}
+        else
+          make defconfig
+        fi
+
+    - name: Imply driver config and apply cocci/bash
+      run: |
+        source ci/build.sh
+        auto_set_kconfig
+        apply_prerun
+        make savedefconfig
+
+    - name: Compile devicetrees
+      run: |
+        source ci/build.sh
+        compile_devicetree
+
+    - name: Compile kernel
+      run: |
+        source ci/build.sh
+        compile_kernel
+
+    - name: Assert compiled
+      run: |
+        source ci/build.sh
+        assert_compiled
+
+    - name: Sparse
+      if: ${{ env.CHECKS_SPARCE == 'true' }}
+      run: |
+        source ci/build.sh
+        compile_kernel_sparse
+
+    - name: GCC fanalyzer
+      if: ${{ env.CHECKS_GCC_FANALYZER == 'true' }}
+      run: |
+        source ci/build.sh
+        compile_gcc_fanalyzer
+
+    - name: Clang analyzer
+      if: ${{ env.CHECKS_CLANG_ANALYZER == 'true' }}
+      run: |
+        source ci/build.sh
+        compile_clang_analyzer
+
+    - name: Smatch
+      if: ${{ env.CHECKS_SMATCH == 'true' }}
+      run: |
+        source ci/build.sh
+        compile_kernel_smatch
+
+    - name: Prepare dist
+      run: |
+        if [[ -d dist ]]; then
+          rm -r dist
+        fi
+        mkdir -p dist/modules
+        cp defconfig dist
+        cp arch/${{ inputs.ARCH }}/boot/*Image dist
+        find . -type f -name *.ko | \
+          xargs -I % cp --parents % dist/modules
+
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-${{ env.CID }}-${{ inputs.ARCH }}
+        path: dist
+
+    - name: Assert compile
+      id: assert
+      run: |
+        echo "warn=$(printenv | grep ^step_warn_ | grep -v =$ | tr '\n' ',' | sed 's/,$//')" >> "$GITHUB_OUTPUT"
+        echo "fail=$(printenv | grep ^step_fail_ | grep -v =$ | tr '\n' ',' | sed 's/,$//')" >> "$GITHUB_OUTPUT"
