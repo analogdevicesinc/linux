@@ -2465,7 +2465,12 @@ static int of_spi_parse_dt(struct spi_controller *ctlr, struct spi_device *spi,
 
 	if (rc == -EINVAL) {
 		/* Default when property is omitted. */
-		spi->buses = BIT(0);
+		if ((ctlr->flags & SPI_CONTROLLER_DEFAULT_BUS_IS_CS) &&
+		    cs[0] != SPI_INVALID_CS && cs[0] < ctlr->num_buses) {
+			spi->buses = BIT(cs[0]);
+		} else {
+			spi->buses = BIT(0);
+		}
 	} else {
 		for (idx = 0; idx < rc; idx++) {
 			if (buses[idx] >= ctlr->num_buses) {

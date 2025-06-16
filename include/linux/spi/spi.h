@@ -621,6 +621,8 @@ struct spi_controller {
 	 * assert/de-assert more than one chip select at once.
 	 */
 #define SPI_CONTROLLER_MULTI_CS		BIT(7)
+	/* spi_device->buses defaults to spi_device->cs[0] */
+#define SPI_CONTROLLER_DEFAULT_BUS_IS_CS BIT(8)
 
 	/* Flag indicating if the allocation of this struct is devres-managed */
 	bool			devm_allocated;
