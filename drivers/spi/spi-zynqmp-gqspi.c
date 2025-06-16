@@ -184,7 +184,8 @@ struct qspi_platform_data {
  * @mode:		Defines the mode in which QSPI is operating
  * @data_completion:	completion structure
  * @op_lock:		Operational lock
- * @speed_hz:          Current SPI bus clock speed in hz
+ * @speed_hz:		Current SPI bus clock speed in hz
+ * @spi_mode:		Current SPI bus mode
  * @has_tapdelay:	Used for tapdelay register available in qspi
  */
 struct zynqmp_qspi {
@@ -207,6 +208,7 @@ struct zynqmp_qspi {
 	struct completion data_completion;
 	struct mutex op_lock;
 	u32 speed_hz;
+	u32 spi_mode;
 	bool has_tapdelay;
 };
 
@@ -387,16 +389,11 @@ static void zynqmp_qspi_init_hw(struct zynqmp_qspi *xqspi)
 	config_reg |= GQSPI_CFG_WP_HOLD_MASK;
 	/* Clear pre-scalar by default */
 	config_reg &= ~GQSPI_CFG_BAUD_RATE_DIV_MASK;
-	/* Set CPHA */
-	if (xqspi->ctlr->mode_bits & SPI_CPHA)
-		config_reg |= GQSPI_CFG_CLK_PHA_MASK;
-	else
-		config_reg &= ~GQSPI_CFG_CLK_PHA_MASK;
-	/* Set CPOL */
-	if (xqspi->ctlr->mode_bits & SPI_CPOL)
-		config_reg |= GQSPI_CFG_CLK_POL_MASK;
-	else
-		config_reg &= ~GQSPI_CFG_CLK_POL_MASK;
+
+	/* Set default mode */
+	xqspi->spi_mode = SPI_MODE_3;
+	config_reg |= GQSPI_CFG_CLK_PHA_MASK;
+	config_reg |= GQSPI_CFG_CLK_POL_MASK;
 
 	/* Set the clock frequency */
 	clk_rate = clk_get_rate(xqspi->refclk);
@@ -535,6 +532,7 @@ static inline u32 zynqmp_qspi_selectspimode(struct zynqmp_qspi *xqspi,
  *				transfer
  * @xqspi: Pointer to the zynqmp_qspi structure
  * @req_speed_hz: Requested frequency
+ * @mode: Requested SPI mode
  *
  * Sets the operational mode of QSPI controller for the next QSPI transfer and
  * sets the requested clock frequency.
@@ -551,7 +549,8 @@ static inline u32 zynqmp_qspi_selectspimode(struct zynqmp_qspi *xqspi,
  *	by the QSPI controller the driver will set the highest or lowest
  *	frequency supported by controller.
  */
-static int zynqmp_qspi_config_op(struct zynqmp_qspi *xqspi, u32 req_speed_hz)
+static int zynqmp_qspi_config_op(struct zynqmp_qspi *xqspi, u32 req_speed_hz,
+				 u32 mode)
 {
 	ulong clk_rate;
 	u32 config_reg, baud_rate_val = 0;
@@ -577,7 +576,23 @@ static int zynqmp_qspi_config_op(struct zynqmp_qspi *xqspi, u32 req_speed_hz)
 		zynqmp_qspi_set_tapdelay(xqspi, baud_rate_val);
 	}
 
-	dev_dbg(xqspi->dev, "config speed %u\n", req_speed_hz);
+	mode &= SPI_MODE_X_MASK;
+	if (xqspi->spi_mode != mode) {
+		xqspi->spi_mode = mode;
+
+		config_reg = zynqmp_gqspi_read(xqspi, GQSPI_CONFIG_OFST);
+		if (mode & SPI_CPHA)
+			config_reg |= GQSPI_CFG_CLK_PHA_MASK;
+		else
+			config_reg &= ~GQSPI_CFG_CLK_PHA_MASK;
+		if (mode & SPI_CPOL)
+			config_reg |= GQSPI_CFG_CLK_POL_MASK;
+		else
+			config_reg &= ~GQSPI_CFG_CLK_POL_MASK;
+		zynqmp_gqspi_write(xqspi, GQSPI_CONFIG_OFST, config_reg);
+	}
+
+	dev_dbg(xqspi->dev, "config speed %u mode %x\n", req_speed_hz, mode);
 	return 0;
 }
 
@@ -1050,7 +1065,7 @@ static int zynqmp_qspi_exec_op(struct spi_mem *mem,
 	u64 opaddr;
 
 	mutex_lock(&xqspi->op_lock);
-	zynqmp_qspi_config_op(xqspi, op->max_freq);
+	zynqmp_qspi_config_op(xqspi, op->max_freq, mem->spi->mode);
 	zynqmp_qspi_chipselect(mem->spi, false);
 	genfifoentry |= xqspi->genfifocs;
 	genfifoentry |= xqspi->genfifobus;
