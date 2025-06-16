@@ -499,6 +499,15 @@ static void zynqmp_qspi_chipselect(struct spi_device *qspi, bool is_high)
 		dev_err(xqspi->dev, "Chip select timed out\n");
 }
 
+static void zynqmp_qspi_set_cs(struct spi_device *qspi, bool is_high)
+{
+	struct zynqmp_qspi *xqspi = spi_controller_get_devdata(qspi->controller);
+
+	mutex_lock(&xqspi->op_lock);
+	zynqmp_qspi_chipselect(qspi, is_high);
+	mutex_unlock(&xqspi->op_lock);
+}
+
 /**
  * zynqmp_qspi_selectspimode - Selects SPI mode - x1 or x2 or x4.
  * @xqspi:	xqspi is a pointer to the GQSPI instance
@@ -1197,6 +1206,73 @@ return_err:
 	return err;
 }
 
+static int zynqmp_qspi_transfer_one(struct spi_controller *ctlr,
+				    struct spi_device *spi,
+				    struct spi_transfer *transfer)
+{
+	struct zynqmp_qspi *xqspi = spi_controller_get_devdata(ctlr);
+	unsigned long timeout;
+	u32 genfifoentry;
+	u32 mask = 0;
+	int ret;
+
+	dev_dbg(xqspi->dev, "xfer %u/%u %u\n", transfer->tx_nbits,
+		transfer->rx_nbits, transfer->len);
+
+	if (transfer->tx_nbits && transfer->rx_nbits)
+		return -EOPNOTSUPP;
+
+	guard(mutex)(&xqspi->op_lock);
+	zynqmp_qspi_config_op(xqspi, transfer->speed_hz, spi->mode);
+	if (spi_get_csgpiod(spi, 0)) {
+		xqspi->genfifobus =
+			FIELD_PREP(GQSPI_GENFIFO_BUS_MASK, spi->buses);
+		xqspi->genfifocs = 0;
+	}
+	genfifoentry = xqspi->genfifocs | xqspi->genfifobus;
+
+	reinit_completion(&xqspi->data_completion);
+	if (transfer->tx_nbits) {
+		xqspi->txbuf = transfer->tx_buf;
+		xqspi->rxbuf = NULL;
+		xqspi->bytes_to_transfer = transfer->len;
+		xqspi->bytes_to_receive = 0;
+		zynqmp_qspi_write_op(xqspi, transfer->tx_nbits, genfifoentry);
+		mask = GQSPI_IER_TXEMPTY_MASK | GQSPI_IER_GENFIFOEMPTY_MASK |
+		       GQSPI_IER_TXNOT_FULL_MASK;
+		timeout = zynqmp_qspi_timeout(xqspi, transfer->tx_nbits,
+					      transfer->len);
+	} else {
+		xqspi->txbuf = NULL;
+		xqspi->rxbuf = transfer->rx_buf;
+		xqspi->bytes_to_transfer = 0;
+		xqspi->bytes_to_receive = transfer->len;
+		ret = zynqmp_qspi_read_op(xqspi, transfer->rx_nbits,
+					  genfifoentry);
+		if (ret)
+			return ret;
+
+		if (xqspi->mode != GQSPI_MODE_DMA)
+			mask = GQSPI_IER_GENFIFOEMPTY_MASK |
+			       GQSPI_IER_RXNEMPTY_MASK | GQSPI_IER_RXEMPTY_MASK;
+		timeout = zynqmp_qspi_timeout(xqspi, transfer->rx_nbits,
+					      transfer->len);
+	}
+
+	zynqmp_gqspi_write(xqspi, GQSPI_CONFIG_OFST,
+			   zynqmp_gqspi_read(xqspi, GQSPI_CONFIG_OFST) |
+			   GQSPI_CFG_START_GEN_FIFO_MASK);
+	if (mask)
+		zynqmp_gqspi_write(xqspi, GQSPI_IER_OFST, mask);
+	else
+		zynqmp_gqspi_write(xqspi, GQSPI_QSPIDMA_DST_I_EN_OFST,
+				   GQSPI_QSPIDMA_DST_I_EN_DONE_MASK);
+
+	if (!wait_for_completion_timeout(&xqspi->data_completion, timeout))
+		return -ETIMEDOUT;
+	return 0;
+}
+
 static const struct dev_pm_ops zynqmp_qspi_dev_pm_ops = {
 	SET_RUNTIME_PM_OPS(zynqmp_runtime_suspend,
 			   zynqmp_runtime_resume, NULL)
@@ -1316,27 +1392,26 @@ static int zynqmp_qspi_probe(struct platform_device *pdev)
 	if (ret)
 		goto clk_dis_all;
 
+	ctlr->max_native_cs = 2;
 	ret = of_property_read_u32(np, "num-cs", &num_cs);
-	if (ret < 0) {
+	if (ret < 0)
 		ctlr->num_chipselect = GQSPI_DEFAULT_NUM_CS;
-	} else if (num_cs > GQSPI_MAX_NUM_CS) {
-		ret = -EINVAL;
-		dev_err(&pdev->dev, "only %d chip selects are available\n",
-			GQSPI_MAX_NUM_CS);
-		goto clk_dis_all;
-	} else {
+	else
 		ctlr->num_chipselect = num_cs;
-	}
 
 	ctlr->num_buses = 2;
-	ctlr->flags = SPI_CONTROLLER_DEFAULT_BUS_IS_CS;
+	ctlr->flags = SPI_CONTROLLER_DEFAULT_BUS_IS_CS |
+		      SPI_CONTROLLER_HALF_DUPLEX;
 	ctlr->bits_per_word_mask = SPI_BPW_MASK(8);
 	ctlr->mem_ops = &zynqmp_qspi_mem_ops;
 	ctlr->mem_caps = &zynqmp_qspi_mem_caps;
 	ctlr->setup = zynqmp_qspi_setup_op;
+	ctlr->set_cs = zynqmp_qspi_set_cs;
+	ctlr->transfer_one = zynqmp_qspi_transfer_one;
 	ctlr->bits_per_word_mask = SPI_BPW_MASK(8);
 	ctlr->dev.of_node = np;
 	ctlr->auto_runtime_pm = true;
+	ctlr->use_gpio_descriptors = true;
 
 	ret = devm_spi_register_controller(&pdev->dev, ctlr);
 	if (ret) {
