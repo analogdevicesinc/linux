@@ -533,8 +533,8 @@ static inline u32 zynqmp_qspi_selectspimode(struct zynqmp_qspi *xqspi,
 /**
  * zynqmp_qspi_config_op - Configure QSPI controller for specified
  *				transfer
- * @xqspi:	Pointer to the zynqmp_qspi structure
- * @op:		The memory operation to execute
+ * @xqspi: Pointer to the zynqmp_qspi structure
+ * @req_speed_hz: Requested frequency
  *
  * Sets the operational mode of QSPI controller for the next QSPI transfer and
  * sets the requested clock frequency.
@@ -551,13 +551,10 @@ static inline u32 zynqmp_qspi_selectspimode(struct zynqmp_qspi *xqspi,
  *	by the QSPI controller the driver will set the highest or lowest
  *	frequency supported by controller.
  */
-static int zynqmp_qspi_config_op(struct zynqmp_qspi *xqspi,
-				 const struct spi_mem_op *op)
+static int zynqmp_qspi_config_op(struct zynqmp_qspi *xqspi, u32 req_speed_hz)
 {
 	ulong clk_rate;
-	u32 config_reg, req_speed_hz, baud_rate_val = 0;
-
-	req_speed_hz = op->max_freq;
+	u32 config_reg, baud_rate_val = 0;
 
 	if (xqspi->speed_hz != req_speed_hz) {
 		xqspi->speed_hz = req_speed_hz;
@@ -1053,7 +1050,7 @@ static int zynqmp_qspi_exec_op(struct spi_mem *mem,
 	u64 opaddr;
 
 	mutex_lock(&xqspi->op_lock);
-	zynqmp_qspi_config_op(xqspi, op);
+	zynqmp_qspi_config_op(xqspi, op->max_freq);
 	zynqmp_qspi_chipselect(mem->spi, false);
 	genfifoentry |= xqspi->genfifocs;
 	genfifoentry |= xqspi->genfifobus;
