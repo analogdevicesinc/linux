@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * AD5413 Digital to analog converters driver
  *
@@ -8,81 +8,85 @@
  */
 #include <linux/bsearch.h>
 #include <linux/delay.h>
-#include <linux/kernel.h>
+#include <linux/gpio/consumer.h>
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/property.h>
 #include <linux/spi/spi.h>
-#include <linux/gpio/consumer.h>
 
-#include <linux/iio/iio.h>
-#include <linux/iio/sysfs.h>
+
+
 
 /* AD5413 registers definition */
-#define AD5413_NOP                         0x00
-#define AD5413_DAC_INPUT                   0x01
-#define AD5413_DAC_OUTPUT                  0x02
-#define AD5413_CLEAR_CODE                  0x03
-#define AD5413_USER_GAIN                   0x04
-#define AD5413_USER_OFFSET                 0x05
-#define AD5413_DAC_CONFIG                  0x06
-#define AD5413_SW_LDAC                     0x07
-#define AD5413_KEY                         0x08
-#define AD5413_GP_CONFIG1                  0x09
-#define AD5413_GP_CONFIG2                  0x0A
-#define AD5413_DIGITAL_DIAG_CONFIG         0x10
-#define AD5413_FAULT_PIN_CONFIG            0x12
-#define AD5413_TWO_STAGE_READBACK_SELECT   0x13
-#define AD5413_DIGITAL_DIAG_RESULTS        0x14
-#define AD5413_ANALOG_DIAG_RESULTS         0x15
-#define AD5413_STATUS                      0x16
-#define AD5413_CHIP_ID                     0x17
-#define AD5413_FREQ_MONITOR                0x18
-#define AD5413_DEVICE_ID_3                 0x1C
+#define AD5413_REG_NOP                         0x00
+#define AD5413_REG_DAC_INPUT                   0x01
+#define AD5413_REG_DAC_OUTPUT                  0x02
+#define AD5413_REG_CLEAR_CODE                  0x03
+#define AD5413_REG_USER_GAIN                   0x04
+#define AD5413_REG_USER_OFFSET                 0x05
+#define AD5413_REG_DAC_CONFIG                  0x06
+#define AD5413_REG_SW_LDAC                     0x07
+#define AD5413_REG_KEY                         0x08
+#define AD5413_REG_GP_CONFIG1                  0x09
+#define AD5413_REG_GP_CONFIG2                  0x0A
+#define AD5413_REG_DIGITAL_DIAG_CONFIG         0x10
+#define AD5413_REG_FAULT_PIN_CONFIG            0x12
+#define AD5413_REG_TWO_STAGE_READBACK_SELECT   0x13
+#define AD5413_REG_DIGITAL_DIAG_RESULTS        0x14
+#define AD5413_REG_ANALOG_DIAG_RESULTS         0x15
+#define AD5413_REG_STATUS                      0x16
+#define AD5413_REG_CHIP_ID                     0x17
+#define AD5413_REG_FREQ_MONITOR                0x18
+#define AD5413_REG_DEVICE_ID_3                 0x1C
+
+
 
 /* AD5413 DAC_CONFIG Register (Addr = 0x06) Bitfield Macros */
 /* Slew Rate Step (Bits[15:13]) */
-#define AD5413_DAC_CONFIG_SR_STEP_MSK        GENMASK(15, 13)
-#define AD5413_DAC_CONFIG_SR_STEP_MODE(x)    (((x) & 0x7) << 13)
+#define AD5413_REG_DAC_CONFIG_SR_STEP_MSK        GENMASK(15, 13)
+#define AD5413_REG_DAC_CONFIG_SR_STEP_MODE(x)    FIELD_PREP(AD5413_REG_DAC_CONFIG_SR_STEP_MSK, (x))
+
 
 /* Slew Rate Clock (Bits[12:9]) */
-#define AD5413_DAC_CONFIG_SR_CLOCK_MSK       GENMASK(12, 9)
-#define AD5413_DAC_CONFIG_SR_CLOCK_MODE(x)   (((x) & 0xF) << 9)
+#define AD5413_REG_DAC_CONFIG_SR_CLOCK_MSK       GENMASK(12, 9)
+#define AD5413_REG_DAC_CONFIG_SR_CLOCK_MODE(x)   FIELD_PREP(AD5413_REG_DAC_CONFIG_SR_CLOCK_MSK, (x))
 
 /* Slew Rate Enable (Bit 8) */
-#define AD5413_DAC_CONFIG_SR_EN_MSK          BIT(8)
-#define AD5413_DAC_CONFIG_SR_EN_MODE(x)      (((x) & 0x1) << 8)
+#define AD5413_REG_DAC_CONFIG_SR_EN_MSK          BIT(8)
+#define AD5413_REG_DAC_CONFIG_SR_EN_MODE(x)      FIELD_PREP(AD5413_REG_DAC_CONFIG_SR_EN_MSK, (x))
 
 /* External RSET Enable (Bit 7) */
-#define AD5413_DAC_CONFIG_RSET_EXT_EN_MSK    BIT(7)
-#define AD5413_DAC_CONFIG_RSET_EXT_EN_MODE(x) (((x) & 0x1) << 7)
+#define AD5413_REG_DAC_CONFIG_RSET_EXT_EN_MSK    BIT(7)
+#define AD5413_REG_DAC_CONFIG_RSET_EXT_EN_MODE(x) FIELD_PREP(AD5413_REG_DAC_CONFIG_RSET_EXT_EN_MSK, (x))
 
 /* VIOUT Output Enable (Bit 6) */
-#define AD5413_DAC_CONFIG_OUT_EN_MSK         BIT(6)
-#define AD5413_DAC_CONFIG_OUT_EN_MODE(x)     (((x) & 0x1) << 6)
+#define AD5413_REG_DAC_CONFIG_OUT_EN_MSK         BIT(6)
+#define AD5413_REG_DAC_CONFIG_OUT_EN_MODE(x)     FIELD_PREP(AD5413_REG_DAC_CONFIG_OUT_EN_MSK, (x))
 
 /* Internal Buffers Enable (Bit 5) */
-#define AD5413_DAC_CONFIG_INT_EN_MSK         BIT(5)
-#define AD5413_DAC_CONFIG_INT_EN_MODE(x)     (((x) & 0x1) << 5)
+#define AD5413_REG_DAC_CONFIG_INT_EN_MSK         BIT(5)
+#define AD5413_REG_DAC_CONFIG_INT_EN_MODE(x)     FIELD_PREP(AD5413_REG_DAC_CONFIG_INT_EN_MSK, (x))
 
 /* Voltage Over-range Enable (Bit 4) */
-#define AD5413_DAC_CONFIG_OVRNG_EN_MSK       BIT(4)
-#define AD5413_DAC_CONFIG_OVRNG_EN_MODE(x)   (((x) & 0x1) << 4)
+#define AD5413_REG_DAC_CONFIG_OVRNG_EN_MSK       BIT(4)
+#define AD5413_REG_DAC_CONFIG_OVRNG_EN_MODE(x)   FIELD_PREP(AD5413_REG_DAC_CONFIG_OVRNG_EN_MSK, (x))
 
 /* Output Range Select (Bits[3:0]) */
-#define AD5413_DAC_CONFIG_RANGE_MSK          GENMASK(3, 0)
-#define AD5413_DAC_CONFIG_RANGE_MODE(x)      (((x) & 0xF) << 0)
+#define AD5413_REG_DAC_CONFIG_RANGE_MSK          GENMASK(3, 0)
+#define AD5413_REG_DAC_CONFIG_RANGE_MODE(x)      FIELD_PREP(AD5413_REG_DAC_CONFIG_RANGE_MSK, (x))
 
 
 /* AD5413 Key Register (Address: 0x08) */
-#define AD5413_KEY_REG_ADDR_SHIFT     16
-#define AD5413_KEY_REG_ADDR_MASK      GENMASK(20, 16)
-#define AD5413_KEY_CODE_MASK          GENMASK(15, 0)
+#define AD5413_REG_KEY_REG_ADDR_SHIFT     16
+#define AD5413_REG_KEY_REG_ADDR_MASK      GENMASK(20, 16)
+#define AD5413_REG_KEY_CODE_MASK          GENMASK(15, 0)
 
 /* Special Key Codes (bits[15:0]) */
-#define AD5413_KEY_CODE_RESET_1             0x15FA  // Step 1 of software reset
-#define AD5413_KEY_CODE_RESET_2             0xAF51  // Step 2 of software reset
-#define AD5413_KEY_CODE_CALIB_MEM_REFRESH   0xFCBA  // Calibration memory refresh
+#define AD5413_REG_KEY_CODE_RESET_1             0x15FA  // Step 1 of software reset
+#define AD5413_REG_KEY_CODE_RESET_2             0xAF51  // Step 2 of software reset
+#define AD5413_REG_KEY_CODE_CALIB_MEM_REFRESH   0xFCBA  // Calibration memory refresh
 
 /* DIGITAL_DIAG_RESULTS Register (Addr = 0x14) Busy Flags */
 #define AD5413_DIGITAL_DIAG_CAL_MEM_UNREFRESHED_MSK  BIT(15)
@@ -94,8 +98,8 @@
 
 struct ad5413_range {
 	int reg;
-	int min;
-	int max;
+	int min_uv;
+	int max_uv;
 };
 
 /**
@@ -115,7 +119,7 @@ struct ad5413_state {
 	struct ad5413_range out_range;
 	unsigned int slew_time;
 	bool pwr_down;
-	__be32 d32[3];
+    __be32 d32[3] __aligned(IIO_DMA_MINALIGN);
 };
 
 /*
@@ -161,9 +165,9 @@ static int ad5413_spi_reg_read(struct ad5413_state *st, unsigned int addr)
 	int ret;
 
 	st->d32[0] = cpu_to_be32(
-		(AD5413_WR_FLAG_MSK(AD5413_TWO_STAGE_READBACK_SELECT) << 24) |
+		(AD5413_WR_FLAG_MSK(AD5413_REG_TWO_STAGE_READBACK_SELECT) << 24) |
 		(addr << 8));
-	st->d32[1] = cpu_to_be32(AD5413_WR_FLAG_MSK(AD5413_NOP) << 24);
+	st->d32[1] = cpu_to_be32(AD5413_WR_FLAG_MSK(AD5413_REG_NOP) << 24);
 
 	ret = spi_sync_transfer(st->spi, t, ARRAY_SIZE(t));
 	if (ret < 0)
@@ -241,8 +245,8 @@ static int ad5413_calib_mem_refresh(struct ad5413_state *st)
 {
 	int ret;
 
-	ret = ad5413_spi_reg_write(st, AD5413_KEY,
-				   AD5413_KEY_CODE_CALIB_MEM_REFRESH);
+	ret = ad5413_spi_reg_write(st, AD5413_REG_KEY,
+				   AD5413_REG_KEY_CODE_CALIB_MEM_REFRESH);
 	if (ret < 0) {
 		dev_err(&st->spi->dev,
 			"Failed to initiate a calibration memory refresh\n");
@@ -250,7 +254,7 @@ static int ad5413_calib_mem_refresh(struct ad5413_state *st)
 	}
 
 	/* Wait to allow time for the internal calibrations to complete */
-	return ad5413_wait_for_task_complete(st, AD5413_DIGITAL_DIAG_RESULTS,
+	return ad5413_wait_for_task_complete(st, AD5413_REG_DIGITAL_DIAG_RESULTS,
 					     AD5413_DIGITAL_DIAG_CAL_MEM_UNREFRESHED_MSK);
 }
 
@@ -258,14 +262,14 @@ static int ad5413_soft_reset(struct ad5413_state *st)
 {
 	int ret;
 
-	ret = ad5413_spi_reg_write(st, AD5413_KEY, AD5413_KEY_CODE_RESET_1);
+	ret = ad5413_spi_reg_write(st, AD5413_REG_KEY, AD5413_REG_KEY_CODE_RESET_1);
 	if (ret < 0)
 		return ret;
 
-	ret = ad5413_spi_reg_write(st, AD5413_KEY, AD5413_KEY_CODE_RESET_2);
+	ret = ad5413_spi_reg_write(st, AD5413_REG_KEY, AD5413_REG_KEY_CODE_RESET_2);
 
 	/* Perform a software reset and wait at least 100us */
-	usleep_range(100, 1000);
+	fsleep(100);
 
 	return ret;
 }
@@ -278,19 +282,19 @@ static int ad5413_slew_rate_set(struct ad5413_state *st,
 	unsigned long int mask;
 	int ret;
 
-	mask = AD5413_DAC_CONFIG_SR_EN_MSK |
-	       AD5413_DAC_CONFIG_SR_CLOCK_MSK |
-	       AD5413_DAC_CONFIG_SR_STEP_MSK;
-	mode = AD5413_DAC_CONFIG_SR_EN_MODE(1) |
-	       AD5413_DAC_CONFIG_SR_STEP_MODE(sr_step_idx) |
-	       AD5413_DAC_CONFIG_SR_CLOCK_MODE(sr_clk_idx);
+	mask = AD5413_REG_DAC_CONFIG_SR_EN_MSK |
+	       AD5413_REG_DAC_CONFIG_SR_CLOCK_MSK |
+	       AD5413_REG_DAC_CONFIG_SR_STEP_MSK;
+	mode = AD5413_REG_DAC_CONFIG_SR_EN_MODE(1) |
+	       AD5413_REG_DAC_CONFIG_SR_STEP_MODE(sr_step_idx) |
+	       AD5413_REG_DAC_CONFIG_SR_CLOCK_MODE(sr_clk_idx);
 
-	ret = ad5413_spi_write_mask(st, AD5413_DAC_CONFIG, mask, mode);
+	ret = ad5413_spi_write_mask(st, AD5413_REG_DAC_CONFIG, mask, mode);
 	if (ret < 0)
 		return ret;
 
 	/* Wait to allow time for the internal calibrations to complete */
-	return ad5413_wait_for_task_complete(st, AD5413_DIGITAL_DIAG_RESULTS,
+	return ad5413_wait_for_task_complete(st, AD5413_REG_DIGITAL_DIAG_RESULTS,
 					     AD5413_DIGITAL_DIAG_SLEW_BUSY_MSK);
 }
 
@@ -351,14 +355,14 @@ static int ad5413_set_out_range(struct ad5413_state *st, int range)
 {
 	int ret;
 
-	ret = ad5413_spi_write_mask(st, AD5413_DAC_CONFIG,
-				    AD5413_DAC_CONFIG_RANGE_MSK,
-				    AD5413_DAC_CONFIG_RANGE_MODE(range));
+	ret = ad5413_spi_write_mask(st, AD5413_REG_DAC_CONFIG,
+				    AD5413_REG_DAC_CONFIG_RANGE_MSK,
+				    AD5413_REG_DAC_CONFIG_RANGE_MODE(range));
 	if (ret < 0)
 		return ret;
 
 	/* Wait to allow time for the internal calibrations to complete */
-	return ad5413_wait_for_task_complete(st, AD5413_DIGITAL_DIAG_RESULTS,
+	return ad5413_wait_for_task_complete(st, AD5413_REG_DIGITAL_DIAG_RESULTS,
 					     AD5413_DIGITAL_DIAG_CAL_MEM_UNREFRESHED_MSK);
 }
 
@@ -366,14 +370,14 @@ static int ad5413_internal_buffers_en(struct ad5413_state *st, bool enable)
 {
 	int ret;
 
-	ret = ad5413_spi_write_mask(st, AD5413_DAC_CONFIG,
-				    AD5413_DAC_CONFIG_INT_EN_MSK,
-				    AD5413_DAC_CONFIG_INT_EN_MODE(enable));
+	ret = ad5413_spi_write_mask(st, AD5413_REG_DAC_CONFIG,
+				    AD5413_REG_DAC_CONFIG_INT_EN_MSK,
+				    AD5413_REG_DAC_CONFIG_INT_EN_MODE(enable));
 	if (ret < 0)
 		return ret;
 
 	/* Wait to allow time for the internal calibrations to complete */
-	return ad5413_wait_for_task_complete(st, AD5413_DIGITAL_DIAG_RESULTS,
+	return ad5413_wait_for_task_complete(st, AD5413_REG_DIGITAL_DIAG_RESULTS,
 					     AD5413_DIGITAL_DIAG_CAL_MEM_UNREFRESHED_MSK);
 }
 
@@ -428,7 +432,7 @@ static int ad5413_read_raw(struct iio_dev *indio_dev,
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&st->lock);
-		ret = ad5413_spi_reg_read(st, AD5413_DAC_INPUT);
+		ret = ad5413_spi_reg_read(st, AD5413_REG_DAC_INPUT);
 		mutex_unlock(&st->lock);
 		if (ret < 0)
 			return ret;
@@ -436,14 +440,14 @@ static int ad5413_read_raw(struct iio_dev *indio_dev,
 		*val = ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		min = st->out_range.min;
-		max = st->out_range.max;
+		min = st->out_range.min_uv;
+		max = st->out_range.max_uv;
 		*val = (max - min) / 1000;
 		*val2 = 14;
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_OFFSET:
-		min = st->out_range.min;
-		max = st->out_range.max;
+		min = st->out_range.min_uv;
+		max = st->out_range.max_uv;
 		*val = ((min * (1 << 14)) / (max - min)) / 1000;
 		return IIO_VAL_INT;
 	default:
@@ -461,7 +465,7 @@ static int ad5413_write_raw(struct iio_dev *indio_dev,
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&st->lock);
-		ret = ad5413_spi_reg_write(st, AD5413_DAC_INPUT, val);
+		ret = ad5413_spi_reg_write(st, AD5413_REG_DAC_INPUT, val);
 		mutex_unlock(&st->lock);
 		return ret;
 	default:
@@ -500,12 +504,12 @@ static ssize_t ad5413_write_powerdown(struct iio_dev *indio_dev,
 	else
 		val = 1;
 
-	dac_config_mode = AD5413_DAC_CONFIG_OUT_EN_MODE(val) |
-			  AD5413_DAC_CONFIG_INT_EN_MODE(val);
-	dac_config_msk = AD5413_DAC_CONFIG_OUT_EN_MSK |
-			 AD5413_DAC_CONFIG_INT_EN_MSK;
+	dac_config_mode = AD5413_REG_DAC_CONFIG_OUT_EN_MODE(val) |
+			  AD5413_REG_DAC_CONFIG_INT_EN_MODE(val);
+	dac_config_msk = AD5413_REG_DAC_CONFIG_OUT_EN_MSK |
+			 AD5413_REG_DAC_CONFIG_INT_EN_MSK;
 
-	ret = ad5413_spi_write_mask(st, AD5413_DAC_CONFIG,
+	ret = ad5413_spi_write_mask(st, AD5413_REG_DAC_CONFIG,
 				    dac_config_msk,
 				    dac_config_mode);
 	if (ret < 0)
@@ -537,9 +541,9 @@ static const struct iio_chan_spec_ext_info ad5413_ext_info[] = {
 
 #define AD5413_DAC_CHAN(_chan_type) {				\
 	.type = (_chan_type),					\
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_RAW) |	\
-		BIT(IIO_CHAN_INFO_SCALE) |			\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
 		BIT(IIO_CHAN_INFO_OFFSET),			\
+	.info_mask_separate       = BIT(IIO_CHAN_INFO_RAW), \
 	.indexed = 1,						\
 	.output = 1,						\
 	.ext_info = ad5413_ext_info,				\
@@ -557,7 +561,7 @@ static int ad5413_crc_disable(struct ad5413_state *st)
 {
 	unsigned int mask;
 
-	mask = (AD5413_WR_FLAG_MSK(AD5413_DIGITAL_DIAG_CONFIG) << 24) | 0x5C3A;
+	mask = (AD5413_WR_FLAG_MSK(AD5413_REG_DIGITAL_DIAG_CONFIG) << 24) | 0x5C3A;
 	st->d32[0] = cpu_to_be32(mask);
 
 	return spi_write(st->spi, &st->d32[0], 4);
@@ -571,10 +575,10 @@ static int ad5413_find_out_range(struct ad5413_state *st,
 	int i;
 
 	for (i = 0; i < size; i++) {
-		if ((min == range[i].min) && (max == range[i].max)) {
+		if ((min == range[i].min_uv) && (max == range[i].max_uv)) {
 			st->out_range.reg = range[i].reg;
-			st->out_range.min = range[i].min;
-			st->out_range.max = range[i].max;
+			st->out_range.min_uv = range[i].min_uv;
+			st->out_range.max_uv = range[i].max_uv;
 
 			return 0;
 		}
@@ -585,19 +589,26 @@ static int ad5413_find_out_range(struct ad5413_state *st,
 
 static int ad5413_parse_dt(struct ad5413_state *st)
 {
-	unsigned int tmp, tmparray[2], size;
-	const struct ad5413_range *range;
-	int *index, ret;
+    unsigned int tmp, tmparray[2], size;
+    const struct ad5413_range *range;
+    int ret;
 
-    /* 1)  voltage  */
+    /* 1) voltage or current range */
     ret = device_property_read_u32_array(&st->spi->dev,
                                          "adi,range-microvolt",
                                          tmparray, 2);
-    if (!ret) {
+    if (ret == 0) {
+        /* Validate voltage range: only ±10.5 V supported */
+        if (tmparray[0] != -10500000 || tmparray[1] != 10500000) {
+            dev_err(&st->spi->dev,
+                    "Invalid voltage range %u-%u µV; only ±10.5 V supported\n",
+                    tmparray[0], tmparray[1]);
+            return -EINVAL;
+        }
         range = ad5413_voltage_range;
         size  = ARRAY_SIZE(ad5413_voltage_range);
     } else {
-        /*  current  */
+        /* current path */
         ret = device_property_read_u32_array(&st->spi->dev,
                                              "adi,range-microamp",
                                              tmparray, 2);
@@ -606,30 +617,40 @@ static int ad5413_parse_dt(struct ad5413_state *st)
                     "Missing \"adi,range-microvolt\" or \"adi,range-microamp\"\n");
             return ret;
         }
+        /* Validate current range: only 0–24000 µA supported */
+        if (tmparray[0] != 0 || tmparray[1] != 24000) {
+            dev_err(&st->spi->dev,
+                    "Invalid current range %u-%u µA; only 0–24000 supported\n",
+                    tmparray[0], tmparray[1]);
+            return -EINVAL;
+        }
         range = ad5413_current_range;
         size  = ARRAY_SIZE(ad5413_current_range);
     }
 
-    /* 2)  find_out_range() and st->out_range */
+    /* 2) find_out_range() and st->out_range */
     ret = ad5413_find_out_range(st, range, size,
                                 tmparray[0], tmparray[1]);
     if (ret) {
-        dev_err(&st->spi->dev, "Invalid range values (%u, %u)\n",
+        dev_err(&st->spi->dev,
+                "Invalid range values (%u, %u)\n",
                 tmparray[0], tmparray[1]);
         return ret;
     }
 
-    /* 3) read slew-time（optional） */
+    /* 3) read slew-time (optional) */
     ret = device_property_read_u32(&st->spi->dev,
-                                  "adi,slew-time-us", &tmp);
-    if (ret) {
-        dev_dbg(&st->spi->dev, "No \"adi,slew-time-us\" property, disabling slew\n");
-        st->slew_time = 0;
-    } else {
-        st->slew_time = tmp;
+                                   "adi,slew-time-us", &tmp);
+    if (ret == -ENODATA || ret == -EINVAL) {
+        tmp = 0;
+    } else if (ret < 0) {
+        dev_err(&st->spi->dev,
+                "Failed to read adi,slew-time-us: %d\n", ret);
+        return ret;
     }
 
-    return 0;}
+    return 0;
+}
 
 static int ad5413_init(struct ad5413_state *st)
 {
@@ -660,12 +681,12 @@ static int ad5413_init(struct ad5413_state *st)
 	if (ret < 0)
 		return ret;
 
-	regval = ad5413_spi_reg_read(st, AD5413_DIGITAL_DIAG_RESULTS);
+	regval = ad5413_spi_reg_read(st, AD5413_REG_DIGITAL_DIAG_RESULTS);
 	if (regval < 0)
 		return regval;
 
 	/* Clear all the error flags */
-	ret = ad5413_spi_reg_write(st, AD5413_DIGITAL_DIAG_RESULTS, regval);
+	ret = ad5413_spi_reg_write(st, AD5413_REG_DIGITAL_DIAG_RESULTS, regval);
 	if (ret < 0)
 		return ret;
 
@@ -687,9 +708,9 @@ static int ad5413_init(struct ad5413_state *st)
 		return ret;
 
 	/* Enable VIOUT */
-	return ad5413_spi_write_mask(st, AD5413_DAC_CONFIG,
-				     AD5413_DAC_CONFIG_OUT_EN_MSK,
-				     AD5413_DAC_CONFIG_OUT_EN_MODE(1));
+	return ad5413_spi_write_mask(st, AD5413_REG_DAC_CONFIG,
+				     AD5413_REG_DAC_CONFIG_OUT_EN_MSK,
+				     AD5413_REG_DAC_CONFIG_OUT_EN_MODE(1));
 }
 
 static int ad5413_probe(struct spi_device *spi)
@@ -703,7 +724,6 @@ static int ad5413_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
-	spi_set_drvdata(spi, indio_dev);
 
 	st->spi = spi;
 
@@ -719,29 +739,28 @@ static int ad5413_probe(struct spi_device *spi)
 		return ret;
     
     /* By output range, decide voltage or current channel */
-    if (st->out_range.reg == AD5413_RANGE_PLUSMINUS_10_5V)
+    if (st->out_range.reg == AD5413_RANGE_PLUSMINUS_10_5V) {
         indio_dev->channels = ad5413_voltage_ch;
-    else
+	} else {
         indio_dev->channels = ad5413_current_ch;
-    
-	ret = ad5413_init(st);
-	if (ret < 0) {
-		dev_err(&spi->dev, "AD5413 init failed\n");
-		return ret;
 	}
+
+	ret = ad5413_init(st);
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "AD5413 init failed\n");
 
 	return devm_iio_device_register(&st->spi->dev, indio_dev);
 }
 
 static const struct spi_device_id ad5413_id[] = {
 	{ "ad5413", 0 },
-	{}
+	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad5413_id);
 
 static const struct of_device_id ad5413_of_match[] = {
         { .compatible = "adi,ad5413" },
-        { },
+        { }
 };
 MODULE_DEVICE_TABLE(of, ad5413_of_match);
 
