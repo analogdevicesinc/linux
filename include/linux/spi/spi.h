@@ -228,6 +228,11 @@ struct spi_device {
 	struct spi_delay	cs_hold;
 	struct spi_delay	cs_inactive;
 
+	/*
+	 * Bit flags indicating which buses this device is connected to. Only
+	 * applicable to multi-bus controllers.
+	 */
+	u8			buses;
 	u8			chip_select[SPI_CS_CNT_MAX];
 
 	/*
@@ -573,6 +578,14 @@ struct spi_controller {
 	 * might use board-specific GPIOs.
 	 */
 	u16			num_chipselect;
+
+	/*
+	 * Some specialized SPI controllers can have more than one physical
+	 * bus interface per controller. This specifies the number of buses
+	 * in that case. Other controllers do not need to set this (defaults
+	 * to 1).
+	 */
+	u16			num_buses;
 
 	/* Some SPI controllers pose alignment requirements on DMAable
 	 * buffers; let protocol drivers know about these requirements.
