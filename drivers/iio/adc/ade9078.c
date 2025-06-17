@@ -715,7 +715,7 @@ static const struct iio_chan_spec ade9078_c_channels[] = {
 	ADE9078_FREQ_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CPERIOD),
 };
 
-static const struct reg_sequence ade9078_reg_sequence[] = {
+static struct reg_sequence ade9078_reg_sequence[] = {
 	{ ADE9078_REG_PGA_GAIN, ADE9078_PGA_GAIN },
 	{ ADE9078_REG_CONFIG0, ADE9078_CONFIG0 },
 	{ ADE9078_REG_CONFIG1, ADE9078_CONFIG1 },
@@ -2140,6 +2140,11 @@ static int ade9078_reset(struct ade9078_state *st)
 static int ade9078_setup(struct ade9078_state *st)
 {
 	int ret;
+	u32 tmp;
+
+	ret = device_property_read_u32(&st->spi->dev, "adi,egy-time", &tmp);
+	if (!ret)
+		ade9078_reg_sequence[13].def = tmp;
 
 	ret = regmap_multi_reg_write(st->regmap, ade9078_reg_sequence,
 				     ARRAY_SIZE(ade9078_reg_sequence));
