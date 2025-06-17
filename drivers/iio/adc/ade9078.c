@@ -138,7 +138,7 @@
 #define ADE9078_ZX_LP_SEL		0x0000
 
 /* Disable all interrupts */
-#define ADE9078_MASK0			0x00000000
+#define ADE9078_MASK0			0x00000001
 
 /* Disable all interrupts */
 #define ADE9078_MASK1			0x00000000
@@ -167,7 +167,7 @@
 #define ADE9078_EP_CFG			0x0011
 
 /* Accumulate 4000 samples */
-#define ADE9078_EGY_TIME		0x0FA0
+#define ADE9078_EGY_TIME		7999
 
 /*
  * Constant Definitions
@@ -193,6 +193,7 @@
 /* Status and Mask register bits*/
 #define ADE9078_ST0_WFB_TRIG_BIT	BIT(16)
 #define ADE9078_ST0_PAGE_FULL_BIT	BIT(17)
+#define ADE9078_ST0_EGYRDY		BIT(0)
 
 #define ADE9078_ST1_ZXTOVA_BIT		BIT(6)
 #define ADE9078_ST1_ZXTOVB_BIT		BIT(7)
@@ -275,7 +276,7 @@
 #define ADE9078_PHASE_C_POS_BIT		BIT(6)
 
 #define ADE9078_MAX_PHASE_NR		3
-#define AD9078_CHANNELS_PER_PHASE	15
+#define AD9078_CHANNELS_PER_PHASE	18
 
 #define ADE9078_ADDR_ADJUST(addr, chan)					\
 	(((chan) << 4) | (addr))
@@ -312,6 +313,9 @@ struct ade9078_state {
 	struct spi_device *spi;
 	u8 *tx;
 	u8 *rx;
+	u32 egy_active_accum[3];
+	u32 egy_apparent_accum[3];
+	u32 egy_reactive_accum[3];
 	struct spi_transfer xfer[2];
 	struct spi_message spi_msg;
 	struct regmap *regmap;
@@ -628,6 +632,36 @@ static const struct iio_chan_spec_ext_info ade9078_dip_lvl_ext_info[] = {
 	.scan_index = -1                                             \
 }
 
+ #define ADE9078_ENERGY_ACTIVE_ACCUM_CHANNEL(num, name, addr) {     \
+	.type = IIO_ENERGY,                                          \
+	.channel = num,                                              \
+    .address = addr,                                             \
+    .extend_name = name "_active_accum",                            \
+	.indexed = 1,                                                \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),          \
+	.scan_index = -1                                             \
+}
+
+#define ADE9078_ENERGY_APPARENT_ACCUM_CHANNEL(num, name, addr) {     \
+	.type = IIO_ENERGY,                                          \
+	.channel = num,                                              \
+	.address = addr,                                             \
+	.extend_name = name "_apparent_accum",                            \
+	.indexed = 1,                                                \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),          \
+	.scan_index = -1                                             \
+}
+
+#define ADE9078_ENERGY_REACTIVE_ACCUM_CHANNEL(num, name, addr) {     \
+	.type = IIO_ENERGY,                                          \
+	.channel = num,                                              \
+	.address = addr,                                             \
+	.extend_name = name "_reactive_accum",                          \
+	.indexed = 1,                                                \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),          \
+	.scan_index = -1                                             \
+}
+
 #define ADE9078_FREQ_CHANNEL(num, name, addr) {			\
 	.type = IIO_VOLTAGE,						\
 	.channel = num,							\
@@ -676,6 +710,9 @@ static const struct iio_chan_spec ade9078_a_channels[] = {
 	ADE9078_ENERGY_ACTIVE_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_AWATTHR_LO),
 	ADE9078_ENERGY_APPARENT_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_AVAHR_LO),
 	ADE9078_ENERGY_REACTIVE_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_AFVARHR_LO),
+	ADE9078_ENERGY_ACTIVE_ACCUM_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_AWATTHR_LO),
+	ADE9078_ENERGY_APPARENT_ACCUM_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_AVAHR_LO),
+	ADE9078_ENERGY_REACTIVE_ACCUM_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_AFVARHR_LO),
 	ADE9078_FREQ_CHANNEL(ADE9078_PHASE_A_NR, "A", ADE9078_REG_APERIOD),
 };
 
@@ -694,6 +731,9 @@ static const struct iio_chan_spec ade9078_b_channels[] = {
 	ADE9078_ENERGY_ACTIVE_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BWATTHR_LO),
 	ADE9078_ENERGY_APPARENT_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BVAHR_LO),
 	ADE9078_ENERGY_REACTIVE_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BFVARHR_LO),
+	ADE9078_ENERGY_ACTIVE_ACCUM_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BWATTHR_LO),
+	ADE9078_ENERGY_APPARENT_ACCUM_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BVAHR_LO),
+	ADE9078_ENERGY_REACTIVE_ACCUM_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BFVARHR_LO),
 	ADE9078_FREQ_CHANNEL(ADE9078_PHASE_B_NR, "B", ADE9078_REG_BPERIOD),
 };
 
@@ -712,6 +752,9 @@ static const struct iio_chan_spec ade9078_c_channels[] = {
 	ADE9078_ENERGY_ACTIVE_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CWATTHR_LO),
 	ADE9078_ENERGY_APPARENT_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CVAHR_LO),
 	ADE9078_ENERGY_REACTIVE_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CFVARHR_LO),
+	ADE9078_ENERGY_ACTIVE_ACCUM_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CWATTHR_LO),
+	ADE9078_ENERGY_APPARENT_ACCUM_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CVAHR_LO),
+	ADE9078_ENERGY_REACTIVE_ACCUM_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CFVARHR_LO),
 	ADE9078_FREQ_CHANNEL(ADE9078_PHASE_C_NR, "C", ADE9078_REG_CPERIOD),
 };
 
@@ -1134,6 +1177,68 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		handled_irq |= ADE9078_ST0_WFB_TRIG_BIT;
 	}
 
+	if ((status & ADE9078_ST0_EGYRDY) &&
+	    (interrupts & ADE9078_ST0_EGYRDY)) {
+		u32 data;
+		/* As per datasheet, reading the _HI registers is enough. */
+
+		ret = regmap_read(st->regmap, (ADE9078_REG_AWATTHR_LO + 1), &data);
+		if (ret)
+			return ret;
+
+		st->egy_active_accum[0] = data;
+
+		ret = regmap_read(st->regmap, (ADE9078_REG_BWATTHR_LO + 1), &data);
+		if (ret)
+			return ret;
+
+		st->egy_active_accum[1] = data;
+
+		ret = regmap_read(st->regmap, (ADE9078_REG_CWATTHR_LO + 1), &data);
+		if (ret)
+			return ret;
+
+		st->egy_active_accum[2] = data;
+
+		ret = regmap_read(st->regmap, (ADE9078_REG_AVAHR_LO + 1), &data);
+		if (ret)
+			return ret;
+
+		st->egy_apparent_accum[0] = data;
+
+		ret = regmap_read(st->regmap, (ADE9078_REG_BVAHR_LO + 1), &data);
+		if (ret)
+			return ret;
+
+		st->egy_apparent_accum[1] = data;
+
+		ret = regmap_read(st->regmap, (ADE9078_REG_CVAHR_LO + 1), &data);
+		if (ret)
+			return ret;
+
+		st->egy_apparent_accum[2] = data;
+
+		ret = regmap_read(st->regmap, (ADE9078_REG_AFVARHR_LO + 1), &data);
+		if (ret)
+			return ret;
+
+		st->egy_reactive_accum[0] = data;
+
+		ret = regmap_read(st->regmap, (ADE9078_REG_BFVARHR_LO + 1), &data);
+		if (ret)
+			return ret;
+
+		st->egy_reactive_accum[1] = data;
+
+		ret = regmap_read(st->regmap, (ADE9078_REG_CFVARHR_LO + 1), &data);
+		if (ret)
+			return ret;
+
+		st->egy_reactive_accum[2] = data;
+
+		handled_irq |= ADE9078_ST0_EGYRDY;
+	}
+
 	ret = regmap_write(st->regmap, ADE9078_REG_STATUS0, handled_irq);
 	if (ret)
 		dev_err(&st->spi->dev, "IRQ0 write status fail");
@@ -1334,6 +1439,25 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 			*val2 = period + 1;   // Denominator
             		return IIO_VAL_FRACTIONAL;
         	}
+		// Check for ENERGY_ACCUM channel (mapped to _raw attribute)
+		if (chan->type == IIO_ENERGY && chan->extend_name &&
+			strstr(chan->extend_name, "_active_accum")) {
+			*val = st->egy_active_accum[chan->channel / 2];
+			return IIO_VAL_INT;
+		}
+
+		if (chan->type == IIO_ENERGY && chan->extend_name &&
+			strstr(chan->extend_name, "_apparent_accum")) {
+			*val = st->egy_apparent_accum[chan->channel / 2];
+			return IIO_VAL_INT;
+		}
+
+		if (chan->type == IIO_ENERGY && chan->extend_name &&
+			strstr(chan->extend_name, "_reactive_accum")) {
+			*val = st->egy_reactive_accum[chan->channel / 2];
+			return IIO_VAL_INT;
+		}
+
 		// Check for ENERGY channel (mapped to _raw attribute)
 		if (chan->type == IIO_ENERGY) {
 			s64 val64;
