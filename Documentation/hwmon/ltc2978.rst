@@ -167,6 +167,14 @@ Supported chips:
 
     Datasheet: https://www.analog.com/en/products/ltm4644
 
+   * Linear Technology LTM4673
+
+    Prefix: 'ltm4673'
+
+    Addresses scanned: -
+
+    Datasheet: https://www.analog.com/en/products/ltm4673
+
    * Linear Technology LTM4675
 
     Prefix: 'ltm4675'
@@ -245,6 +253,7 @@ Description
 - LTM2987 is a 16-channel Power System Manager with two LTC2977 plus
 - additional components on a single die. The chip is instantiated and reported
 - as two separate chips on two different I2C bus addresses.
+- LTM4673 is a dual 12A and dual 5A μModule regulator.
 - LTM4675 is a dual 9A or single 18A μModule regulator
 - LTM4676 is a dual 13A or single 26A uModule regulator.
 - LTM4686 is a dual 10A or single 20A uModule regulator.
