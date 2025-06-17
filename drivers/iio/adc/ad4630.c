@@ -767,8 +767,6 @@ static int ad4630_buffer_predisable(struct iio_dev *indio_dev)
 			BIT(IIO_CHAN_INFO_CALIBBIAS),			\
 	.info_mask_separate_available = _msk_avail,			\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
-	.info_mask_shared_by_all_available =				\
-				BIT(IIO_CHAN_INFO_SAMP_FREQ),		\
 	.info_mask_shared_by_type = _msk_type |				\
 				BIT(IIO_CHAN_INFO_SCALE),		\
 	.info_mask_shared_by_type_available = _msk_type,		\
