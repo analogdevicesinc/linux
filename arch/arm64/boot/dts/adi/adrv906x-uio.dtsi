@@ -1362,16 +1362,6 @@
         status = "disabled";
         interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_189 IRQ_TYPE_LEVEL_HIGH>;
     };
-    uio-adrv906x-c2c-interrupt-608 {
-        compatible = "generic-uio";
-        status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_190 IRQ_TYPE_LEVEL_HIGH>;
-    };
-    uio-adrv906x-c2c-interrupt-609 {
-        compatible = "generic-uio";
-        status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_191 IRQ_TYPE_LEVEL_HIGH>;
-    };
     uio-adrv906x-interrupt-96 {
         compatible = "generic-uio";
         interrupts = <GIC_SPI O_PDS_TX0_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
