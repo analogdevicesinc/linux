@@ -81,7 +81,8 @@
 		reg = <0x44a60000 0x1000>;
 		label = "adc_conversion_trigger";
 		#pwm-cells = <3>;
-		clocks = <&ref_clk>;
+		clocks = <&clkc 15>, <&ref_clk>;
+		clock-names = "axi", "ext";
 	};
 
 	iio_backend: backend@44a00000{

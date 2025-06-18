@@ -140,6 +140,7 @@
 					reg = <0x00040000 0x1000>;
 					#pwm-cells = <2>;
 					clocks = <&sys_clk>;
+					clock-names = "axi";
 				};
 
 				gpio: gpio@9000 {

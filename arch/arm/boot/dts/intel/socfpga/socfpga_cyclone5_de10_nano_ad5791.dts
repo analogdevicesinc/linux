@@ -45,7 +45,8 @@
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x00050000 0x1000>;
 		#pwm-cells = <3>;
-		clocks = <&spi_clk 0>;
+		clocks = <&sys_clk>, <&spi_clk 0>;
+		clock-names = "axi", "ext";
 	};
 
 	tx_dma: dma-controller@30000 {
