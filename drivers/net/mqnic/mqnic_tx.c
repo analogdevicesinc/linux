@@ -421,6 +421,13 @@ netdev_tx_t mqnic_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		// unknown TX queue
 		goto tx_drop;
 
+	if (skb->len < ETH_HLEN) {
+		netdev_warn(priv->ndev, "%s: ring %d dropping short frame (length %d)",
+				__func__, ring->index, skb->len);
+		ring->dropped_packets++;
+		goto tx_drop_count;
+	}
+
 	cons_ptr = READ_ONCE(ring->cons_ptr);
 
 	// prefetch for BQL
@@ -484,8 +491,7 @@ netdev_tx_t mqnic_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	stop_queue = mqnic_is_tx_ring_full(ring);
 	if (unlikely(stop_queue)) {
-		netdev_dbg(ndev, "%s: TX ring %d full on port %d",
-				__func__, ring_index, priv->index);
+		netdev_dbg(ndev, "%s: TX ring %d full", __func__, ring_index);
 		netif_tx_stop_queue(ring->tx_queue);
 	}
 

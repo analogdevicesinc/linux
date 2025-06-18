@@ -238,11 +238,18 @@ static void mqnic_adev_release(struct device *dev)
 static int mqnic_common_probe(struct mqnic_dev *mqnic)
 {
 	int ret = 0;
+	struct devlink *devlink = priv_to_devlink(mqnic);
 	struct device *dev = mqnic->dev;
 	struct mqnic_reg_block *rb;
 	struct rtc_time tm;
 
-	int k = 0, l = 0;
+	int k = 0;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+	devlink_register(devlink);
+#else
+	devlink_register(devlink, dev);
+#endif
 
 	// Enumerate registers
 	mqnic->rb_list = mqnic_enumerate_reg_block_list(mqnic->hw_addr, 0, mqnic->hw_regs_size);
@@ -288,12 +295,12 @@ static int mqnic_common_probe(struct mqnic_dev *mqnic)
 			(mqnic->board_ver >> 8) & 0xff,
 			mqnic->board_ver & 0xff);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
-	dev_info(dev, "Build date: %ptRd %ptRt UTC (raw: 0x%08x)", &tm, &tm, mqnic->build_date);
+	snprintf(mqnic->build_date_str, sizeof(mqnic->build_date_str), "%ptRd %ptRt", &tm, &tm);
 #else
-	dev_info(dev, "Build date: %04d-%02d-%02d %02d:%02d:%02d UTC (raw: 0x%08x)",
-			tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday,
-			tm.tm_hour, tm.tm_min, tm.tm_sec, mqnic->build_date);
+	snprintf(mqnic->build_date_str, sizeof(mqnic->build_date_str), "%04d-%02d-%02d %02d:%02d:%02d",
+			tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 #endif
+	dev_info(dev, "Build date: %s UTC (raw: 0x%08x)", mqnic->build_date_str, mqnic->build_date);
 	dev_info(dev, "Git hash: %08x", mqnic->git_hash);
 	dev_info(dev, "Release info: %08x", mqnic->rel_info);
 
@@ -302,6 +309,10 @@ static int mqnic_common_probe(struct mqnic_dev *mqnic)
 	if (rb) {
 		mqnic->app_id = ioread32(rb->regs + MQNIC_RB_APP_INFO_REG_ID);
 		dev_info(dev, "Application ID: 0x%08x", mqnic->app_id);
+
+		if (!mqnic->app_hw_addr) {
+			dev_warn(dev, "Warning: application section present, but application BAR not mapped");
+		}
 	}
 
 	mqnic_clk_info_init(mqnic);
@@ -362,8 +373,7 @@ static int mqnic_common_probe(struct mqnic_dev *mqnic)
 	mutex_init(&mqnic->state_lock);
 
 	// Set up interfaces
-	mqnic->dev_port_max = 0;
-	mqnic->dev_port_limit = MQNIC_MAX_IF;
+	mqnic->phys_port_max = 0;
 
 	mqnic->if_count = min_t(u32, mqnic->if_count, MQNIC_MAX_IF);
 
@@ -376,18 +386,16 @@ static int mqnic_common_probe(struct mqnic_dev *mqnic)
 			goto fail_create_if;
 		}
 		mqnic->interface[k] = interface;
-		mqnic->dev_port_max = mqnic->interface[k]->dev_port_max;
 	}
 
 	// pass module I2C clients to interface instances
 	for (k = 0; k < mqnic->if_count; k++) {
+		struct mqnic_priv *priv;
 		struct mqnic_if *interface = mqnic->interface[k];
 		interface->mod_i2c_client = mqnic->mod_i2c_client[k];
 
-		for (l = 0; l < interface->ndev_count; l++) {
-			struct mqnic_priv *priv = netdev_priv(interface->ndev[l]);
+		list_for_each_entry(priv, &interface->ndev_list, ndev_list)
 			priv->mod_i2c_client = mqnic->mod_i2c_client[k];
-		}
 	}
 
 fail_create_if:
@@ -458,6 +466,7 @@ fail_rb_init:
 
 static void mqnic_common_remove(struct mqnic_dev *mqnic)
 {
+	struct devlink *devlink = priv_to_devlink(mqnic);
 	int k = 0;
 
 #ifdef CONFIG_AUXILIARY_BUS
@@ -487,6 +496,8 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 	}
 	if (mqnic->rb_list)
 		mqnic_free_reg_block_list(mqnic->rb_list);
+
+	devlink_unregister(devlink);
 }
 
 #ifdef CONFIG_PCI
@@ -494,6 +505,7 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 {
 	int ret = 0;
 	struct mqnic_dev *mqnic;
+	struct devlink *devlink;
 	struct device *dev = &pdev->dev;
 	struct pci_dev *bridge = pci_upstream_bridge(pdev);
 
@@ -563,10 +575,11 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	pcie_print_link_status(pdev);
 #endif
 
-	mqnic = devm_kzalloc(dev, sizeof(*mqnic), GFP_KERNEL);
-	if (!mqnic)
+	devlink = mqnic_devlink_alloc(dev);
+	if (!devlink)
 		return -ENOMEM;
 
+	mqnic = devlink_priv(devlink);
 	mqnic->dev = dev;
 	mqnic->pdev = pdev;
 	pci_set_drvdata(pdev, mqnic);
@@ -676,12 +689,14 @@ fail_regions:
 	pci_disable_device(pdev);
 fail_enable_device:
 	mqnic_free_id(mqnic);
+	mqnic_devlink_free(devlink);
 	return ret;
 }
 
 static void mqnic_pci_remove(struct pci_dev *pdev)
 {
 	struct mqnic_dev *mqnic = pci_get_drvdata(pdev);
+	struct devlink *devlink = priv_to_devlink(mqnic);
 
 	dev_info(&pdev->dev, DRIVER_NAME " PCI remove");
 
@@ -698,6 +713,7 @@ static void mqnic_pci_remove(struct pci_dev *pdev)
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
 	mqnic_free_id(mqnic);
+	mqnic_devlink_free(devlink);
 }
 
 static void mqnic_pci_shutdown(struct pci_dev *pdev)
@@ -720,6 +736,7 @@ static int mqnic_platform_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct mqnic_dev *mqnic;
+	struct devlink *devlink;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct reset_control *rst;
@@ -730,10 +747,11 @@ static int mqnic_platform_probe(struct platform_device *pdev)
 	dev_info(dev, " NUMA node: %d", pdev->dev.numa_node);
 #endif
 
-	mqnic = devm_kzalloc(dev, sizeof(*mqnic), GFP_KERNEL);
-	if (!mqnic)
+	devlink = mqnic_devlink_alloc(dev);
+	if (!devlink)
 		return -ENOMEM;
 
+	mqnic = devlink_priv(devlink);
 	mqnic->dev = dev;
 	mqnic->pfdev = pdev;
 	platform_set_drvdata(pdev, mqnic);
@@ -822,18 +840,21 @@ static int mqnic_platform_probe(struct platform_device *pdev)
 	// error handling
 fail:
 	mqnic_free_id(mqnic);
+	mqnic_devlink_free(devlink);
 	return ret;
 }
 
 static int mqnic_platform_remove(struct platform_device *pdev)
 {
 	struct mqnic_dev *mqnic = platform_get_drvdata(pdev);
+	struct devlink *devlink = priv_to_devlink(mqnic);
 
 	dev_info(&pdev->dev, DRIVER_NAME " platform remove");
 
 	mqnic_common_remove(mqnic);
 
 	mqnic_free_id(mqnic);
+	mqnic_devlink_free(devlink);
 	return 0;
 }
 

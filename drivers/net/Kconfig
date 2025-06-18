@@ -59,6 +59,11 @@ config BONDING
 
 config MQNIC
 	default y
+	depends on DEBUG_FS
+	depends on INET
+	depends on IPV6 || IPV6=n
+	depends on PSAMPLE || PSAMPLE=n
+	select NET_DEVLINK
 	bool "MQNIC network interface card"
 
 config DUMMY
