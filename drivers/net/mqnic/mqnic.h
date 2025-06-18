@@ -100,6 +100,8 @@ struct mqnic_irq {
 struct mqnic_adev {
 	struct auxiliary_device adev;
 	struct mqnic_dev *mdev;
+	u32    num_resources;
+	struct resource *resources;
 	struct mqnic_adev **ptr;
 	char name[32];
 };
@@ -458,7 +460,11 @@ struct mqnic_priv {
 	struct i2c_client *mod_i2c_client;
 };
 
+#ifdef CONFIG_AUXILIARY_BUS
 // mqnic_main.c
+struct resource *mqnic_auxiliary_device_get_resource (struct auxiliary_device *adev,
+                                                      unsigned int type, unsigned int num);
+#endif
 
 // mqnic_res.c
 struct mqnic_res *mqnic_create_res(unsigned int count, u8 __iomem *base, unsigned int stride);

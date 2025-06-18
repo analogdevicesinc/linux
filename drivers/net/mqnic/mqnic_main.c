@@ -14,6 +14,10 @@
 #include <linux/pci-aspm.h>
 #endif
 
+#ifdef CONFIG_AUXILIARY_BUS
+#include <linux/ioport.h>
+#endif
+
 MODULE_DESCRIPTION("mqnic driver");
 MODULE_AUTHOR("Alex Forencich");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -36,6 +40,100 @@ module_param_named(link_status_poll, mqnic_link_status_poll, uint, 0444);
 MODULE_PARM_DESC(link_status_poll,
 		 "link status polling interval, in ms (default: 1000; 0 to turn off)");
 
+
+#ifdef CONFIG_AUXILIARY_BUS
+// fills in the device structure of the auxiliary resource (MQNIC APP)
+struct resource *mqnic_auxiliary_device_get_resource (struct auxiliary_device *adev,
+										 unsigned int type, unsigned int num)
+{
+	struct mqnic_adev *mqnic_adev;
+	struct mqnic_dev *mdev;
+	struct resource *mqnic_res;
+
+	if (num != 0) {
+		dev_err(&adev->dev, "index (num) of resource not 0.\n");
+		return ERR_PTR(-EINVAL);
+	}
+	if (type != IORESOURCE_MEM) {
+		dev_err(&adev->dev, "type of resource not IORESOURCE_MEM.\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	//FIXME check for adev really being an mqnic_adev
+	// use adev.dev as this should be a device pointer of the parent mqnic device
+	// walk the mqnic instances to match one of the adevs
+	// check ID / name
+	if (!(adev->dev.parent) || !(adev->dev.parent->driver) || (adev->dev.parent->driver->owner != THIS_MODULE)) {
+		dev_err(&adev->dev, "auxiliary_device not an mqnic auxiliary device.\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	// search the respective mqnic device (container_of?)
+	mqnic_adev = container_of(adev, struct mqnic_adev, adev);
+
+	mdev = mqnic_adev->mdev;
+
+	// get the parent resource, if the mqnic is an platform device
+	// platform device -> platform_get_resource(pdev, type, 1)
+#ifdef CONFIG_OF
+	if (mdev->pfdev != NULL)
+	{
+		dev_info(&adev->dev, "Found mqnic platform device.\n");
+		mqnic_res = platform_get_resource(mdev->pfdev, IORESOURCE_MEM, 1);
+		// is this a pointer?
+		if (mqnic_res <= 0)
+		{
+			dev_err(&adev->dev, "Platform device MQNIC APP memory does not exist.\n");
+			return ERR_PTR(-ENOMEM);
+		}
+	}
+#endif
+	// PCIe device -> pcie_get_resource(pdev, BAR 2, 1), if the mqnic is a pcie device
+	// The mqnic APP is assigned to BAR 2
+#ifdef CONFIG_PCI
+	if (mdev->pdev != NULL)
+	{
+		dev_info(&adev->dev, "Found mqnic PCIe device.\n");
+		mqnic_res = &(mdev->pdev->resource[2]);
+		// is this a bar?
+		if (resource_size(mqnic_res) == 0)
+		{
+			dev_err(&adev->dev, "PCIe MQNIC APP BAR does not exist.\n");
+			return ERR_PTR(-ENOMEM);
+		}
+	}
+#endif
+
+	/*
+	udelay(10);
+	// anyway, right now, this is already available as initialized by the
+	// respective probe functions
+	res = kzalloc(sizeof(struct resource), GFP_KERNEL);
+	if (res == NULL) {
+		dev_err(&adev->dev, "Cound not allocate struct resource\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	res->start = mdev->app_hw_regs_phys;
+	res->end = mdev->app_hw_regs_phys + mdev->app_hw_regs_size;
+	res->name = (const char*) "mqnic_app_memory";
+	res->flags = IORESOURCE_MEM; // re-use what is reported by mqnic_res->desc?
+	res->desc = IORES_DESC_NONE; // re-use what is reported by mqnic_res->desc?
+	ret = insert_resource(mqnic_res, res);
+	if (IS_ERR(ret))
+	{
+		dev_err(&adev->dev, "failed to insert resource.\n");
+		return ERR_PTR(ret);
+	}
+	mqnic_adev->num_resources = 1;
+	mqnic_adev->resources = res;
+
+	return res;
+	*/
+	return mqnic_res;
+}
+EXPORT_SYMBOL(mqnic_auxiliary_device_get_resource);
+#endif
 
 #ifdef CONFIG_PCI
 static const struct pci_device_id mqnic_pci_id_table[] = {
@@ -437,7 +535,7 @@ fail_create_if:
 		}
 
 		dev_info(dev, "Registered auxiliary bus device " DRIVER_NAME ".%s.%d",
-				mqnic->app_adev->adev.name, mqnic->app_adev->adev.id);
+				 mqnic->app_adev->adev.name, mqnic->app_adev->adev.id);
 	}
 #endif
 
@@ -459,11 +557,13 @@ fail_rb_init:
 static void mqnic_common_remove(struct mqnic_dev *mqnic)
 {
 	int k = 0;
+	int ret = 0;
 
 #ifdef CONFIG_AUXILIARY_BUS
 	if (mqnic->app_adev) {
 		auxiliary_device_delete(&mqnic->app_adev->adev);
 		auxiliary_device_uninit(&mqnic->app_adev->adev);
+		kfree(mqnic->app_adev);
 	}
 #endif
 
