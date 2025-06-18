@@ -60,7 +60,8 @@
 		reg = <0x44b00000 0x1000>;
 		label = "adc_conversion_trigger";
 		#pwm-cells = <3>;
-		clocks = <&spi_clk>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "axi", "ext";
 	};
 
 	spi_clk: clock-controller@44a70000 {
