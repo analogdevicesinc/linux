@@ -61,7 +61,8 @@
 		reg = <0x44a60000 0x1000>;
 		label = "ltc2387_if";
 		#pwm-cells = <2>;
-		clocks = <&ext_clk>;
+		clocks = <&clkc 15>, <&ext_clk>;
+		clock-names = "axi", "ext";
 	};
 
 	ltc2387@0{
