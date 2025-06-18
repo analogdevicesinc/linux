@@ -1,0 +1,48 @@
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  adi-main:
+    uses: ./.github/workflows/mirror.yml
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      remote_name: "analogdevicesinc/linux"
+      fetch_url: "https://github.com/analogdevicesinc/linux.git"
+      branch: "main"
+      patch_ci: "false"
+
+  next-linux-next-master:
+    uses: ./.github/workflows/mirror.yml
+    needs: [adi-main]
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      remote_name: "next/linux-next"
+      fetch_url: "https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git"
+      branch: "master"
+      ci_branch: "mirror/analogdevicesinc/linux/main"
+
+  jic23-iio-testing:
+    uses: ./.github/workflows/mirror.yml
+    needs: [adi-main]
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      remote_name: "jic23/iio"
+      fetch_url: "https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git"
+      branch: "testing"
+      ci_branch: "mirror/analogdevicesinc/linux/main"
+
+  self:
+    uses: ./.github/workflows/self.yml
+    needs: [adi-main]
+    secrets: inherit
+    permissions:
+      contents: write
+

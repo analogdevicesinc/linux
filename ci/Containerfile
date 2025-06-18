@@ -1,0 +1,51 @@
+FROM opensuse/leap:15.6
+
+ENV runner_labels=v1
+ARG runner_version=2.323.0
+ARG runner_version_sha=f1533c606d724c6f157335b1921fdff17f52ff57f22907f0b77f82862e9900f0
+ARG bashrc=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/v1/bashrc
+ARG github_api_sh=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/v1/github-api.sh
+ARG entrypoint_sh=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/v1/entrypoint.sh
+
+RUN zypper install -y --no-recommends \
+    tar gzip curl jq libicu coreutils sha3sum
+
+RUN useradd -m runner
+
+USER runner
+RUN mkdir -p /home/runner/actions-runner
+WORKDIR /home/runner/actions-runner
+
+RUN curl -o actions-runner.tar.gz -L https://github.com/actions/runner/releases/download/v${runner_version}/actions-runner-linux-x64-${runner_version}.tar.gz && \
+    echo "${runner_version_sha} actions-runner.tar.gz" | sha3sum -a 256 -c && \
+    tar xzf actions-runner.tar.gz
+
+USER root
+COPY install-deps.sh .
+RUN chmod +x install-deps.sh ; ./install-deps.sh
+COPY install-compilers.sh .
+RUN chmod +x install-compilers.sh ; ./install-compilers.sh
+COPY install-extra.sh .
+RUN chmod +x install-extra.sh ; ./install-extra.sh
+
+RUN mkdir -p /usr/local/bin
+WORKDIR /usr/local/bin
+ADD ${github_api_sh} .
+ADD ${entrypoint_sh} .
+RUN chmod +rx github-api.sh
+RUN chmod +rx entrypoint.sh
+
+RUN git config --add --system user.name "CSE CI" ; \
+    git config --add --system user.email "cse-ci-notifications@analog.com" ; \
+    git config --add --system init.defaultBranch  "__runner_init_branch" ; \
+    git config --add --system advice.mergeConflict false ; \
+    git config --add --system advice.detachedHead false ; \
+    git config --add --system safe.directory '*'
+
+USER runner
+WORKDIR /home/runner
+RUN curl -o .bashrc -L ${bashrc} ; \
+    chmod +x .bashrc
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+

@@ -1,0 +1,47 @@
+on:
+  workflow_call:
+    inputs:
+      ci_branch:
+        required: false
+        type: string
+        default: mirror/analogdevicesinc/linux/main
+
+jobs:
+  self:
+    runs-on: [self-hosted, v1]
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@v1
+
+    - name: update-self
+      run: |
+        git fetch origin ${{ inputs.ci_branch }} --depth=1
+        git fetch origin cron:cron -f
+        git checkout cron
+        git rm .github/workflows -r
+        git checkout origin/${{ inputs.ci_branch }} -- .github/workflows.mirror
+        git mv .github/workflows.mirror .github/workflows
+        git checkout origin/${{ inputs.ci_branch }} -- .github/workflows/mirror.yml
+        echo "commit=$(git rev-parse origin/${{ inputs.ci_branch }})" >> $GITHUB_ENV
+
+    - name: push-self
+      env:
+          WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET}}
+      if: ${{ env.WORKFLOW_SECRET != '' }}
+      run: |
+        url_=$(git remote get-url origin)
+        url="https://x-access-token:${{ secrets.WORKFLOW_SECRET }}@github.com/${{ github.repository }}.git"
+        git remote set-url origin "$url"
+        git commit -m "deploy: $commit" -s && \
+          git push origin cron:cron ||
+          true
+        git remote set-url origin "$url_"
+
+    - name: push-self
+      env:
+          WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET}}
+      if: ${{ env.WORKFLOW_SECRET == '' }}
+      run: |
+        git commit -m "deploy: $commit" -s && \
+          git push origin cron:cron ||
+          true
