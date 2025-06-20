@@ -1,0 +1,91 @@
+on:
+  workflow_call:
+    inputs:
+      remote_name:
+        required: true
+        type: string
+      fetch_url:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+      ci_branch:
+        required: false
+        type: string
+        default: main
+      patch_ci:
+        required: false
+        type: string
+        default: true
+
+jobs:
+  mirror:
+    runs-on: [self-hosted, v1]
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@v1
+
+    - name: increase-limits
+      run: |
+        git config http.postBuffer 157286400
+
+    - name: update-mirror
+      run: |
+        git remote add ${{ inputs.remote_name }} ${{ inputs.fetch_url }} 2>/dev/null || \
+          git remote set-url ${{ inputs.remote_name }} ${{ inputs.fetch_url }}
+        target_branch=mirror/${{ inputs.remote_name }}/${{ inputs.branch }}
+        git remote prune origin
+        git remote prune ${{ inputs.remote_name }}
+        git fetch ${{ inputs.remote_name }} ${{ inputs.branch }}:$target_branch -f
+        git checkout $target_branch
+
+        if [[ "${{ inputs.patch_ci }}" == "true" ]]; then
+          git fetch origin "${{ inputs.ci_branch }}" --depth=1
+          declare -a arr=(
+            "ci"
+            ".github"
+            "arch/arm/configs/adi_ci_defconfig"
+            "arch/arm64/configs/adi_ci_defconfig"
+            "arch/x86/configs/adi_ci_defconfig"
+          )
+          for i in "${arr[@]}"
+          do
+            git checkout origin/${{ inputs.ci_branch }} -- "$i"
+          done
+          commit=$(git rev-parse origin/${{ inputs.ci_branch }})
+          git commit -m "deploy: $commit" -m "patch ci" -s
+        fi
+        echo "target_branch=$target_branch" >> "$GITHUB_ENV"
+
+    - name: push-mirror
+      env:
+          WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET}}
+      if: ${{ env.WORKFLOW_SECRET != '' }}
+      run: |
+        url_=$(git remote get-url origin)
+        url="https://x-access-token:${{ secrets.WORKFLOW_SECRET }}@github.com/${{ github.repository }}.git"
+        git remote set-url origin "$url"
+        git push origin $target_branch:$target_branch -f || true
+        git remote set-url origin "$url_"
+
+    - name: push-mirror
+      env:
+          WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET}}
+      if: ${{ env.WORKFLOW_SECRET == '' }}
+      run: |
+        git push origin $target_branch:$target_branch -f
+
+    - name: unset-limits
+      run: |
+        git config --unset http.postBuffer
+
+    - name: clean-up
+      if: github.event_name == 'schedule'
+      run: |
+        git gc --prune=now
+
+    - name: log-cached-branches
+      run: |
+        git --no-pager branch | cut -c 3- | \
+          while IFS= read -r b; do printf "$b: " ; git rev-list --count $b; done
