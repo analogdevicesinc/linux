@@ -108,7 +108,6 @@
 		dmas = <&rx_dma 0>;
 		dma-names = "offload0-rx";
 		trigger-sources = <&trigger_pwm>;
-		num-cs = <1>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
