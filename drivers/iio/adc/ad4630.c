@@ -100,6 +100,8 @@
 #define AD4630_TCNV_HIGH_NS		10
 /* Datasheet says 9.8ns, so use the closest integer value */
 #define AD4630_TQUIET_CNV_DELAY_NS	10
+/* Datasheet says 19.6 ns, so use the closest integer value */
+#define AD4630_TQUIET_CNV_ADV_NS	20
 
 #define AD4630_MAX_CHANNEL_NR		3
 #define AD4630_VREF_MIN			(4096 * MILLI)
@@ -466,6 +468,7 @@ static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq
 	 * so round this setting to the closest available value.
 	 */
 	offload_offset_ns = AD4630_TQUIET_CNV_DELAY_NS;
+	config->periodic.end_cycle_offset_ns = AD4630_TQUIET_CNV_ADV_NS;
 	do {
 		config->periodic.offset_ns = offload_offset_ns;
 		ret = spi_offload_trigger_validate(st->offload_trigger, config);
