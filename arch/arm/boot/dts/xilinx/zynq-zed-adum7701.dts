@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices EV-ADuM7701-8FMCZ
+ * https://www.analog.com/en/products/adum7701.html
+ *
+ * hdl_project: <ad7405_fmc/zed>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/ad7405_fmc
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed-ad7405.dts"
+
+/ {
+	ad7405 {
+		compatible = "adi,adum7701";
+	};
+
+	fpga-axi@0 {
+
+		axi_clk_gen: axi-clkgen@44a40000 {
+			assigned-clock-rates = <21000000>;
+		};
+	};
+};
