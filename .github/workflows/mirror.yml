@@ -32,13 +32,14 @@ jobs:
 
     - name: update-mirror
       run: |
+        git switch -d
         git remote add ${{ inputs.remote_name }} ${{ inputs.fetch_url }} 2>/dev/null || \
           git remote set-url ${{ inputs.remote_name }} ${{ inputs.fetch_url }}
         target_branch=mirror/${{ inputs.remote_name }}/${{ inputs.branch }}
         git remote prune origin
         git remote prune ${{ inputs.remote_name }}
         git fetch ${{ inputs.remote_name }} ${{ inputs.branch }}:$target_branch -f
-        git checkout $target_branch
+        git switch $target_branch
 
         if [[ "${{ inputs.patch_ci }}" == "true" ]]; then
           git fetch origin "${{ inputs.ci_branch }}" --depth=1
