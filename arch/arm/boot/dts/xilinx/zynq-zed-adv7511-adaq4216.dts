@@ -42,7 +42,7 @@
 	trigger_pwm: adc-pwm-trigger {
 		compatible = "pwm-trigger";
 		#trigger-source-cells = <0>;
-		pwms = <&axi_pwm_gen 0 1000000 0>;
+		pwms = <&adc_trigger 0 1000000 0>;
 	};
 
 	clocks {
@@ -72,6 +72,15 @@
 		};
 	};
 
+	adc_trigger: pwm@44b00000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x44b00000 0x1000>;
+		label = "ad463x_cnv";
+		#pwm-cells = <3>;
+		clocks = <&clkc 15>, <&cnv_ext_clk>;
+		clock-names = "axi", "ext";
+	};
+
 	rx_dma: dma-controller@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
@@ -87,15 +96,6 @@
 		clocks = <&clkc 15>, <&clkc 15>;
 		clock-names = "clkin1", "s_axi_aclk";
 		clock-output-names = "spi_clk";
-	};
-
-	axi_pwm_gen: pwm@44b00000 {
-		compatible = "adi,axi-pwmgen-2.00.a";
-		reg = <0x44b00000 0x1000>;
-		label = "ad463x_cnv";
-		#pwm-cells = <3>;
-		clocks = <&clkc 15>, <&cnv_ext_clk>;
-		clock-names = "axi", "ext";
 	};
 
 	axi_spi_engine: spi@44a00000 {
@@ -115,11 +115,11 @@
 		adaq4216: adaq4216@0 {
 			compatible = "adi,adaq4216";
 			reg = <0>;
+			spi-max-frequency = <80000000>;
 			vdd-supply = <&vref>;
 			vdd_1_8-supply = <&vdd_1_8>;
 			vio-supply = <&vio>;
 			vref-supply = <&vref>;
-			spi-max-frequency = <80000000>;
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 			adi,pga-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>,
 					<&gpio0 88 GPIO_ACTIVE_HIGH>;
@@ -128,7 +128,7 @@
 			adi,out-data-mode = <0>;
 			adi,spi-trigger;
 			pwm-names = "cnv";
-			pwms = <&axi_pwm_gen 1 1000000 0>;
+			pwms = <&adc_trigger 1 1000000 0>;
 		};
 	};
 };
