@@ -515,7 +515,7 @@ static int ad4052_update_xfer_offload(struct iio_dev *indio_dev,
 
 	xfer->bits_per_word = scan_type->realbits;
 	xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
-	xfer->len = scan_type->realbits == 24 ? 4 : 2;
+	xfer->len = spi_bpw_to_bytes(scan_type->realbits);
 	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uv);
 
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
