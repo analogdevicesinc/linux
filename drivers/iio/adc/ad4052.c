@@ -794,17 +794,11 @@ static int ad4052_debugfs_reg_access(struct iio_dev *indio_dev, unsigned int reg
 				     unsigned int writeval, unsigned int *readval)
 {
 	struct ad4052_state *st = iio_priv(indio_dev);
-	int ret;
-
-	if (!iio_device_claim_direct(indio_dev))
-		return -EBUSY;
 
 	if (readval)
-		ret = regmap_read(st->regmap, reg, readval);
+		return regmap_read(st->regmap, reg, readval);
 	else
-		ret = regmap_write(st->regmap, reg, writeval);
-	iio_device_release_direct(indio_dev);
-	return ret;
+		return regmap_write(st->regmap, reg, writeval);
 }
 
 static int ad4052_get_current_scan_type(const struct iio_dev *indio_dev,
