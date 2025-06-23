@@ -164,9 +164,9 @@ struct ad4052_state {
 	int drdy_irq;
 	int vio_uv;
 	int vref_uv;
-	u8 reg_tx[3];
-	u8 reg_rx[3];
 	u8 raw[4] __aligned(IIO_DMA_MINALIGN);
+	u8 reg_tx[4];
+	u8 reg_rx[4];
 	u8 buf_reset_pattern[18];
 };
 
@@ -446,7 +446,7 @@ static int ad4052_exit_command(struct ad4052_state *st)
 	struct spi_device *spi = st->spi;
 	const u8 val = 0xA8;
 
-	return spi_write(spi, &val, 1);
+	return spi_write_then_read(spi, &val, 1, NULL, 0);
 }
 
 static int ad4052_set_operation_mode(struct ad4052_state *st,
@@ -497,13 +497,14 @@ static int ad4052_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	struct ad4052_state *st = iio_priv(indio_dev);
 	const struct iio_scan_type *scan_type;
 	int ret;
+	u8 val;
 
 	scan_type = iio_get_current_scan_type(indio_dev, chan);
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	u8 val = FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_0, gp0_role) |
-		 FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_1, gp1_role);
+	val = FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_0, gp0_role) |
+	      FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_1, gp1_role);
 
 	ret = regmap_update_bits(st->regmap, AD4052_REG_GP_CONF,
 				 AD4052_REG_GP_CONF_MODE_MSK_1 | AD4052_REG_GP_CONF_MODE_MSK_0,
@@ -666,6 +667,7 @@ static int __ad4052_read_chan_raw(struct ad4052_state *st, int *val)
 		gpiod_set_value_cansleep(st->cnv_gp, 1);
 		gpiod_set_value_cansleep(st->cnv_gp, 0);
 	} else {
+		/* CNV and CS tied together */
 		ret = spi_sync_transfer(spi, &t_cnv, 1);
 		if (ret)
 			return ret;
@@ -745,8 +747,10 @@ static int ad4052_read_raw(struct iio_dev *indio_dev,
 {
 	int ret;
 
-	if (info == IIO_CHAN_INFO_SCALE)
+	switch (info) {
+	case IIO_CHAN_INFO_SCALE:
 		return ad4052_get_chan_scale(indio_dev, chan, val, val2);
+	}
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
@@ -953,6 +957,8 @@ static int ad4052_runtime_resume(struct device *dev)
 
 	ret = regmap_clear_bits(st->regmap, AD4052_REG_DEVICE_CONFIG,
 				AD4052_REG_DEVICE_CONFIG_POWER_MODE_MSK);
+	if (ret)
+		return ret;
 
 	fsleep(4000);
 	return ret;
