@@ -93,7 +93,7 @@
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x1000>;
 		label = "ad463x_cnv";
-		#pwm-cells = <2>;
+		#pwm-cells = <3>;
 		clocks = <&clkc 15>, <&cnv_ext_clk>;
 		clock-names = "axi", "ext";
 	};
