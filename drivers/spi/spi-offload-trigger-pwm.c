@@ -95,6 +95,7 @@ static void spi_offload_trigger_pwm_disable(struct spi_offload_trigger *trigger)
 	}
 
 	wf.duty_length_ns = 0;
+	wf.period_length_ns = 0;
 
 	ret = pwm_set_waveform_might_sleep(st->pwm, &wf, false);
 	if (ret < 0)
