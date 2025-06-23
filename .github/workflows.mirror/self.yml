@@ -15,9 +15,10 @@ jobs:
 
     - name: update-self
       run: |
+        git switch -d
         git fetch origin ${{ inputs.ci_branch }} --depth=1
         git fetch origin cron:cron -f
-        git checkout cron
+        git switch cron
         git rm .github/workflows -r
         git checkout origin/${{ inputs.ci_branch }} -- .github/workflows.mirror
         git mv .github/workflows.mirror .github/workflows
