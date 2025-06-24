@@ -17,13 +17,13 @@ artifacts_structure() {
 	typeBCM=( "bcm2709" "bcm2711" "bcmrpi" )
 	typeKERNEL=( "kernel7" "kernel7l" "kernel" )
 	for index in "${!typeBCM[@]}"; do
-		cd adi_"${typeBCM[$index]}"_defconfig
+		cd adi_"${typeBCM[$index]}"_arm_defconfig
 		mkdir modules
 		tar -xf rpi_modules.tar.gz -C modules
 		rm rpi_modules.tar.gz
 		mv ./zImage ./"${typeKERNEL[$index]}".img
 		cd ../
-		cp -r ./adi_"${typeBCM[$index]}"_defconfig/* ./${timestamp}
+		cp -r ./adi_"${typeBCM[$index]}"_arm_defconfig/* ./${timestamp}
 	done
 	if [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/*.dtb 2>/dev/null)" ] || [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/overlays/*.dtbo 2>/dev/null)" ]; then
 		echo "Missing one or more required files"
