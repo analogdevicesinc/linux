@@ -1695,9 +1695,7 @@ static int hmc7044_parse_dt(struct device *dev,
 
 	tmp = INT_MAX;
 	ret = of_property_read_u32(np, "adi,jesd204-max-sysref-frequency-hz", &tmp);
-	if (!ret) {
-		hmc->jdev_max_sysref_freq = (u64)tmp * MICROHZ_PER_HZ;
-	}
+	hmc->jdev_max_sysref_freq = (u64)tmp * MICROHZ_PER_HZ;
 
 	ret = of_property_read_u32(np, "adi,jesd204-desired-sysref-frequency-hz", &tmp);
 	if (!ret) {
@@ -2064,7 +2062,7 @@ static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
 		ret = hmc7044_lmfc_lemc_validate(hmc, hmc->jdev_lmfc_lemc_gcd, rate_uHz);
 	} else {
 		hmc->jdev_lmfc_lemc_rate = rate_uHz;
-		ret = hmc7044_lmfc_lemc_validate(hmc, hmc->pll2_freq, rate_uHz);
+		ret = hmc7044_lmfc_lemc_validate(hmc, (u64)hmc->pll2_freq * MICROHZ_PER_HZ, rate_uHz);
 	}
 
 	dev_dbg(dev, "%s:%d link_num %u LMFC/LEMC %llu/%llu gcd %llu\n",
@@ -2253,6 +2251,7 @@ static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 			hmc7044_get_rem(hmc->jdev_lmfc_lemc_gcd, hmc->jdev_lmfc_lemc_gcd >> 1) == 0)
 			hmc->jdev_lmfc_lemc_gcd >>= 1;
 	}
+
 	/* Program the output channels */
 	for (i = 0; i < hmc->num_channels; i++) {
 		if (hmc->channels[i].start_up_mode_dynamic_enable || hmc->channels[i].is_sysref) {
@@ -2281,7 +2280,7 @@ static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 	 * output SYSREF frequency, and program it to be no faster than 4 MHz.
 	 */
 
-	sysref_timer = hmc->jdev_lmfc_lemc_gcd / 2;
+	sysref_timer = DIV_ROUND_CLOSEST_ULL(hmc->jdev_lmfc_lemc_gcd, MICROHZ_PER_HZ) / 2;
 
 	while (sysref_timer >= 4000000U)
 		sysref_timer >>= 1;
