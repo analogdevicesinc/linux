@@ -76,7 +76,7 @@
 		 vref-supply = <&vref>;
 
 		 start-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
-		 reset-gpios = <&gpio0 93 GPIO_ACTIVE_LOW>;
+		 reset-gpios = <&gpio0 90 GPIO_ACTIVE_LOW>;
 		// uncomment following lines for enabling spi-mode
 		//  interrupt-parent = <&intc>;
 		//  interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
