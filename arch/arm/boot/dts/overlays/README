@@ -4059,8 +4059,9 @@ Params: speed                   Display SPI bus speed
 
 
 Name:   pivision
-Info:   Overlay to enable the SECO Pi Vision 10.1 HMI hardware for Compute Module 5.
-        Will be loaded automatically by up-to-date firmware via EEPROM detection.
+Info:   Overlay to enable the SECO Pi Vision 10.1 HMI hardware for Compute
+        Module 5. Will be loaded automatically by up-to-date firmware via
+        EEPROM detection.
 Load:   dtoverlay=pivision
 Params: <None>
 
