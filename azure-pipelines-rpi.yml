@@ -32,25 +32,27 @@ stages:
           DEFCONFIG: adi_bcm2709_defconfig
           ARCH: arm
           IMAGE: zImage
-          artifactName: 'adi_bcm2709_defconfig'
+          artifactName: 'adi_bcm2709_arm_defconfig'
         bcm2711_arm_adi:
           DEFCONFIG: adi_bcm2711_defconfig
           ARCH: arm
           IMAGE: zImage
-          artifactName: 'adi_bcm2711_defconfig'
+          artifactName: 'adi_bcm2711_arm_defconfig'
         bcmrpi_arm_adi:
           DEFCONFIG: adi_bcmrpi_defconfig
           ARCH: arm
           IMAGE: zImage
-          artifactName: 'adi_bcmrpi_defconfig'
+          artifactName: 'adi_bcmrpi_arm_defconfig'
         bcm2711_arm64_adi:
           DEFCONFIG: adi_bcm2711_defconfig
           ARCH: arm64
           IMAGE: Image
+          artifactName: 'adi_bcm2711_arm64_defconfig'
         bcm2712_arm64_adi:
           DEFCONFIG: adi_bcm2712_defconfig
           ARCH: arm64
           IMAGE: Image
+          artifactName: 'adi_bcm2712_arm64_defconfig'
     pool:
       vmImage: 'ubuntu-latest'
     steps:
@@ -65,18 +67,18 @@ stages:
       displayName: 'Copy modules'
     - task: CopyFiles@2
       inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts'
-        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays/?(*.dtbo)'
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts'
+        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/overlays/?(*.dtbo)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: CopyFiles@2
       inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot'
-        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/zImage'
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot'
+        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/$(IMAGE)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: CopyFiles@2
       inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/broadcom'
-        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/broadcom/?(*.dtb)'
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/broadcom'
+        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/broadcom/?(*.dtb)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: PublishPipelineArtifact@1
       inputs:
