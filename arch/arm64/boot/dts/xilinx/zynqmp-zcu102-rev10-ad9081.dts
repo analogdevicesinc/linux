@@ -47,10 +47,10 @@
 		//adi,pll1-clkin-frequencies = <122880000 30720000 0 0>;
 		//adi,vcxo-frequency = <122880000>;
 
-		adi,pll1-clkin-frequencies = <100000000 10000000 0 0>;
+		adi,pll1-clkin-frequencies = <122880000 30720000 0 0>;
 		adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
 		adi,pll1-ref-autorevert-enable;
-		adi,vcxo-frequency = <100000000>;
+		adi,vcxo-frequency = <122880000>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
 		adi,pll1-charge-pump-current-ua = <720>;
@@ -136,7 +136,7 @@
 	trx0_ad9081: ad9081@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "adi,ad9081";
+		compatible = "adi,ad9988";
 		reg = <0>;
 		spi-max-frequency = <5000000>;
 
