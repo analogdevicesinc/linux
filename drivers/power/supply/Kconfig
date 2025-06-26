@@ -552,6 +552,19 @@ config CHARGER_MAX77693
 	help
 	  Say Y to enable support for the Maxim MAX77693 battery charger.
 
+config CHARGER_MAX77840
+	tristate "Maxim Integrated MAX77840 Charger with Fuel Gauge"
+	depends on MFD_MAX77840
+	help
+	  Say Y here to enable support for the Maxim Integrated MAX77840 charger
+	  with integrated fuel gauge functionality. This driver provides support
+	  for battery charging, battery capacity monitoring, and handles various
+	  charger-related interrupts such as charging state changes or faults.
+
+	  The MAX77840 communicates over the I2C bus and is typically part of a
+	  PMIC used in portable devices. This driver interfaces with the Linux
+	  power supply subsystem.
+
 config CHARGER_MAX77976
 	tristate "Maxim MAX77976 battery charger driver"
 	depends on I2C
