@@ -106,7 +106,7 @@ static int ad5593r_i2c_probe(struct i2c_client *i2c)
 				     I2C_FUNC_SMBUS_BYTE | I2C_FUNC_I2C))
 		return -EOPNOTSUPP;
 
-	return ad5592r_probe(&i2c->dev, id->name, &ad5593r_rw_ops);
+	return ad5592r_probe(&i2c->dev, id->name, &ad5593r_rw_ops, NULL);
 }
 
 static void ad5593r_i2c_remove(struct i2c_client *i2c)
