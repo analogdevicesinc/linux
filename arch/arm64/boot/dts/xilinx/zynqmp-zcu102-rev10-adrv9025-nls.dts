@@ -49,7 +49,7 @@
 	};
 
 	axi_adrv9025_core_rx_os: axi-adrv9025-rx-os-hpc@84a08000 {
-		compatible = "adi,axi-adrv9009-obs-1.0";
+		compatible = "adi,axi-adrv9025-obs-1.0";
 		reg = <0x84a08000 0x8000>;
 		dmas = <&rx_os_dma 0>;
 		dma-names = "rx";
