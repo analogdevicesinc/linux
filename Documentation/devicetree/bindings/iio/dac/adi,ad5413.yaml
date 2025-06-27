@@ -19,19 +19,23 @@ properties:
   spi-max-frequency:
     maximum: 50000000
 
+  reset-gpios: true
+
   adi,range-microvolt:
     description: Voltage output range <min, max> in microvolts
     oneOf:
       - items:
           - const: -10500000
           - const: 10500000
+      - items:
+          - const: -12600000
+          - const: 12600000
 
   adi,range-microamp:
     description: Current output range <min, max> in microamps
-    oneOf:
-      - items:
-          - const: 0
-          - const: 24000
+    - items:
+        - const: 0
+        - const: 24000
 
   adi,slew-time-us:
     description: Output digital slew control time in microseconds
@@ -61,6 +65,7 @@ examples:
             compatible = "adi,ad5413";
             reg = <0>;
             spi-max-frequency = <1000000>;
+            reset-gpios = <&gpio 0 GPIO_ACTIVE_LOW>;
             adi,range-microvolt = <(-10500000) 10500000>;
             adi,slew-time-us = <125>;
         };
