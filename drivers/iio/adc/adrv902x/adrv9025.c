@@ -1530,6 +1530,21 @@ static ssize_t adrv9025_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_BIST_FRAMER_1_PRBS:
+		mutex_lock(&phy->lock);
+
+		frm_test_data.injectPoint = ADI_ADRV9025_FTD_FRAMERINPUT;
+		frm_test_data.testDataSource = val;
+		frm_test_data.framerSelMask = ADI_ADRV9025_FRAMER_1;
+
+		ret = adi_adrv9025_FramerTestDataSet(phy->madDevice,
+						     &frm_test_data);
+		mutex_unlock(&phy->lock);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		entry->val = val;
+		return count;
 	case DBGFS_BIST_FRAMER_LOOPBACK:
 		mutex_lock(&phy->lock);
 		ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x6689,
@@ -1623,6 +1638,8 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 
 	adrv9025_add_debugfs_entry(phy, "bist_framer_0_prbs",
 				   DBGFS_BIST_FRAMER_0_PRBS);
+	adrv9025_add_debugfs_entry(phy, "bist_framer_1_prbs",
+				   DBGFS_BIST_FRAMER_1_PRBS);
 	adrv9025_add_debugfs_entry(phy, "bist_framer_loopback",
 				   DBGFS_BIST_FRAMER_LOOPBACK);
 	adrv9025_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
