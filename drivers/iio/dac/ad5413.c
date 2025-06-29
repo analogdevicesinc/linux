@@ -6,6 +6,7 @@
  *
  * TODO: Currently CRC is not supported in this driver
  */
+#include <linux/bitfield.h>
 #include <linux/bsearch.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
@@ -570,37 +571,37 @@ static int ad5413_parse_dt(struct ad5413_state *st)
 
     /* 1) voltage or current range */
 	ret = device_property_read_u32_array(&st->spi->dev,
-					     "adi,range-microvolt",
-					 tmparray, 2);
+						"adi,range-microvolt",
+						tmparray, 2);
 	if (ret == 0) {
 		/* Validate voltage range: only ±10.5 V supported */
 		if (tmparray[0] != -10500000 || tmparray[1] != 10500000)
 			return dev_err_probe(&st->spi->dev, -EINVAL,
-				 "Invalid voltage range %u-%u µV; only ±10.5 V supported\n",
-				 tmparray[0], tmparray[1]);
+				"Invalid voltage range %u-%u µV; only ±10.5 V supported\n",
+				tmparray[0], tmparray[1]);
 
 		ranges = ad5413_voltage_range;
-		size  = ARRAY_SIZE(ad5413_voltage_range);
+		size = ARRAY_SIZE(ad5413_voltage_range);
 	} else {
 		/* current path */
 		ret = device_property_read_u32_array(&st->spi->dev,
-						     "adi,range-microamp",
-					     tmparray, 2);
+							"adi,range-microamp",
+							tmparray, 2);
 		if (ret)
 			return dev_err_probe(&st->spi->dev, ret,
-				 "Missing \"adi,range-microvolt\" or \"adi,range-microamp\"\n");
+					"Missing \"adi,range-microvolt\" or \"adi,range-microamp\"\n");
 	/* Validate current range: only 0–24000 µA supported */
 		if (tmparray[0] != 0 || tmparray[1] != 24000)
 			return dev_err_probe(&st->spi->dev, -EINVAL,
-				 "Invalid current range %u-%u µA; only 0–24000 supported\n",
-				 tmparray[0], tmparray[1]);
+					"Invalid current range %u-%u µA; only 0–24000 supported\n",
+					tmparray[0], tmparray[1]);
 		ranges = ad5413_current_range;
-		size  = ARRAY_SIZE(ad5413_current_range);
+		size = ARRAY_SIZE(ad5413_current_range);
 	}
 
     /* 2) find_out_range() and st->out_range */
 	ret = ad5413_find_out_range(st, ranges, size,
-				    tmparray[0], tmparray[1]);
+					tmparray[0], tmparray[1]);
 	if (ret < 0)
 		return dev_err_probe(&st->spi->dev, ret,
 							"Invalid range values (%u, %u)\n",
@@ -608,7 +609,7 @@ static int ad5413_parse_dt(struct ad5413_state *st)
 
     /* 3) read slew-time (optional) */
 	ret = device_property_read_u32(&st->spi->dev,
-				       "adi,slew-time-us", &slew_time_us);
+						"adi,slew-time-us", &slew_time_us);
 	if (ret == -ENODATA || ret == -EINVAL) {
 		slew_time_us = 0;
 	} else if (ret < 0) {

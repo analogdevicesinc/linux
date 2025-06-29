@@ -33,9 +33,9 @@ properties:
 
   adi,range-microamp:
     description: Current output range <min, max> in microamps
-    - items:
-        - const: 0
-        - const: 24000
+    items:
+      - const: 0
+      - const: 24000
 
   adi,slew-time-us:
     description: Output digital slew control time in microseconds
@@ -52,7 +52,7 @@ allOf:
   - oneOf:
       - required: ['adi,range-microamp']
       - required: ['adi,range-microvolt']
-    
+
 unevaluatedProperties: false
 
 examples:
