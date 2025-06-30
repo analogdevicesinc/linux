@@ -296,9 +296,4 @@ static inline int mmc_card_broken_sd_poweroff_notify(const struct mmc_card *c)
 	return c->quirks & MMC_QUIRK_BROKEN_SD_POWEROFF_NOTIFY;
 }
 
-static inline int mmc_card_working_sd_cq(const struct mmc_card *c)
-{
-	return c->quirks & MMC_QUIRK_WORKING_SD_CQ;
-}
-
 #endif
