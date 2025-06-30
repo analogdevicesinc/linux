@@ -369,6 +369,41 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 		}
 	}
 
+	phydev->dev_flags |= ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN;
+
+	/* TODO  remove the following workaround when A0 silicon is retired */
+	/* Disable RS-FEC for silicon A0 */
+	{
+#define ADRV906X_SI_REV_ID_REG          0x18290005
+#define ADRV906X_SEC_SI_REV_ID_REG      0x1c290005
+		phys_addr_t si_rev_id_reg;
+		void __iomem *addr;
+		unsigned long flags;
+		u32 index;
+		u8 si_rev;
+
+		of_property_read_u32(np, "reg", &index);
+		if (index < 2)
+			si_rev_id_reg = ADRV906X_SI_REV_ID_REG;
+		else
+			si_rev_id_reg = ADRV906X_SEC_SI_REV_ID_REG;
+
+		spin_lock_irqsave(&phydrv_lock, flags);
+		addr = ioremap(si_rev_id_reg, 1);
+		if (!addr)
+			return -ENOMEM;
+		si_rev = ioread8(addr);
+		iounmap(addr);
+		spin_unlock_irqrestore(&phydrv_lock, flags);
+
+		if (si_rev == 0xA0) {
+			phydev->dev_flags &= ~ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN;
+			dev_info(dev, "disable RS-FEC");
+		} else {
+			dev_info(dev, "enable RS-FEC");
+		}
+	}
+
 	ret = adrv906x_serdes_open(phydev, adrv906x_phy_tx_path_enable, adrv906x_phy_rx_path_enable);
 	if (ret)
 		return ret;
