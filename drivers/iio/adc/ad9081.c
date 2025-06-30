@@ -524,12 +524,21 @@ static int ad9081_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 		if (ret < 0)
 			return ret;
 	} else {
-		if (readval == NULL)
+		if (readval == NULL) {
+			dev_dbg(&phy->spi->dev,
+			       "ad9081_reg_access: reg=0x%04x, writeval=0x%08x\n",
+			       reg & 0x3FFF, writeval);
 			return adi_ad9081_hal_reg_set(&phy->ad9081, reg & 0x3FFF, writeval);
+		}
 
 		ret = adi_ad9081_hal_reg_get(&phy->ad9081, reg & 0x3FFF, &val);
 		if (ret < 0)
 			return ret;
+
+		dev_dbg(&phy->spi->dev,
+		       "ad9081_reg_access: reg=0x%04x, readval=0x%08x\n",
+		       reg & 0x3FFF, val);
+
 	}
 	*readval = val;
 
