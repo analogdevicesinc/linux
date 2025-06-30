@@ -78,7 +78,6 @@ struct pwm_waveform {
  * struct pwm_state - state of a PWM channel
  * @period: PWM period (in nanoseconds)
  * @duty_cycle: PWM duty cycle (in nanoseconds)
- * @phase: PWM phase (in nanoseconds)
  * @polarity: PWM polarity
  * @enabled: PWM enabled status
  * @usage_power: If set, the PWM driver is only required to maintain the power
@@ -89,7 +88,6 @@ struct pwm_waveform {
 struct pwm_state {
 	u64 period;
 	u64 duty_cycle;
-	u64 phase;
 	enum pwm_polarity polarity;
 	bool enabled;
 	bool usage_power;
@@ -205,7 +203,6 @@ static inline void pwm_init_state(const struct pwm_device *pwm,
 	state->period = args.period;
 	state->polarity = args.polarity;
 	state->duty_cycle = 0;
-	state->phase = 0;
 	state->usage_power = false;
 }
 
@@ -615,7 +612,6 @@ static inline void pwm_apply_args(struct pwm_device *pwm)
 	state.enabled = false;
 	state.polarity = pwm->args.polarity;
 	state.period = pwm->args.period;
-	state.phase = 0;
 	state.usage_power = false;
 
 	pwm_apply_might_sleep(pwm, &state);

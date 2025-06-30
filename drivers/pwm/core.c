@@ -76,31 +76,20 @@ static bool pwm_wf_valid(const struct pwm_waveform *wf)
 static void pwm_wf2state(const struct pwm_waveform *wf, struct pwm_state *state)
 {
 	if (wf->period_length_ns) {
-		if (wf->duty_length_ns + wf->duty_offset_ns < wf->period_length_ns) {
+		if (wf->duty_length_ns + wf->duty_offset_ns < wf->period_length_ns)
 			*state = (struct pwm_state){
 				.enabled = true,
 				.polarity = PWM_POLARITY_NORMAL,
 				.period = wf->period_length_ns,
 				.duty_cycle = wf->duty_length_ns,
-				.phase = wf->duty_offset_ns,
 			};
-		} else {
+		else
 			*state = (struct pwm_state){
 				.enabled = true,
 				.polarity = PWM_POLARITY_INVERSED,
 				.period = wf->period_length_ns,
 				.duty_cycle = wf->period_length_ns - wf->duty_length_ns,
-				.phase = wf->duty_offset_ns + wf->duty_length_ns,
 			};
-			/*
-			 * Ideally we'd do
-			 * 	.phase = (wf->duty_offset_ns + wf->duty_length_ns) % wf->period_length_ns,
-			 * here, but that involves a 64bit division and so isn't
-			 * allowed.
-			 */
-			while (state->phase >= wf->period_length_ns)
-				state->phase -= wf->period_length_ns;
-		}
 	} else {
 		*state = (struct pwm_state){
 			.enabled = false,
@@ -111,26 +100,18 @@ static void pwm_wf2state(const struct pwm_waveform *wf, struct pwm_state *state)
 static void pwm_state2wf(const struct pwm_state *state, struct pwm_waveform *wf)
 {
 	if (state->enabled) {
-		if (state->polarity == PWM_POLARITY_NORMAL) {
+		if (state->polarity == PWM_POLARITY_NORMAL)
 			*wf = (struct pwm_waveform){
 				.period_length_ns = state->period,
 				.duty_length_ns = state->duty_cycle,
-				.duty_offset_ns = state->phase,
+				.duty_offset_ns = 0,
 			};
-		} else {
+		else
 			*wf = (struct pwm_waveform){
 				.period_length_ns = state->period,
 				.duty_length_ns = state->period - state->duty_cycle,
-				.duty_offset_ns = state->duty_cycle + state->phase,
+				.duty_offset_ns = state->duty_cycle,
 			};
-			/*
-			 * Actually we want
-			 * 	.duty_offset_ns = (state->duty_cycle + state->phase) % wf->period_length_ns
-			 * but as this is a 64bit division do it manually.
-			 */
-			while (wf->duty_offset_ns >= wf->period_length_ns)
-				wf->duty_offset_ns -= wf->period_length_ns;
-		}
 	} else {
 		*wf = (struct pwm_waveform){
 			.period_length_ns = 0,
@@ -608,8 +589,7 @@ static int __pwm_apply(struct pwm_device *pwm, const struct pwm_state *state)
 	    state->duty_cycle == pwm->state.duty_cycle &&
 	    state->polarity == pwm->state.polarity &&
 	    state->enabled == pwm->state.enabled &&
-	    state->usage_power == pwm->state.usage_power &&
-	    state->phase == pwm->state.phase)
+	    state->usage_power == pwm->state.usage_power)
 		return 0;
 
 	if (ops->write_waveform) {
@@ -1125,41 +1105,6 @@ static ssize_t duty_cycle_store(struct device *pwm_dev,
 	return ret ? : size;
 }
 
-static ssize_t phase_show(struct device *pwm_dev,
-			  struct device_attribute *attr,
-			  char *buf)
-{
-	const struct pwm_device *pwm = pwm_from_dev(pwm_dev);
-	struct pwm_state state;
-
-	pwm_get_state(pwm, &state);
-
-	return sprintf(buf, "%llu\n", state.phase);
-}
-
-static ssize_t phase_store(struct device *pwm_dev,
-			   struct device_attribute *attr,
-			   const char *buf, size_t size)
-{
-	struct pwm_export *export = pwmexport_from_dev(pwm_dev);
-	struct pwm_device *pwm = export->pwm;
-	struct pwm_state state;
-	u64 val;
-	int ret;
-
-	ret = kstrtou64(buf, 0, &val);
-	if (ret)
-		return ret;
-
-	mutex_lock(&export->lock);
-	pwm_get_state(pwm, &state);
-	state.phase = val;
-	ret = pwm_apply_state(pwm, &state);
-	mutex_unlock(&export->lock);
-
-	return ret ? : size;
-}
-
 static ssize_t enable_show(struct device *pwm_dev,
 			   struct device_attribute *attr,
 			   char *buf)
@@ -1271,7 +1216,6 @@ static ssize_t capture_show(struct device *pwm_dev,
 
 static DEVICE_ATTR_RW(period);
 static DEVICE_ATTR_RW(duty_cycle);
-static DEVICE_ATTR_RW(phase);
 static DEVICE_ATTR_RW(enable);
 static DEVICE_ATTR_RW(polarity);
 static DEVICE_ATTR_RO(capture);
@@ -1279,7 +1223,6 @@ static DEVICE_ATTR_RO(capture);
 static struct attribute *pwm_attrs[] = {
 	&dev_attr_period.attr,
 	&dev_attr_duty_cycle.attr,
-	&dev_attr_phase.attr,
 	&dev_attr_enable.attr,
 	&dev_attr_polarity.attr,
 	&dev_attr_capture.attr,
@@ -2267,7 +2210,6 @@ static void pwm_dbg_show(struct pwm_chip *chip, struct seq_file *s)
 
 		seq_printf(s, " period: %llu ns", state.period);
 		seq_printf(s, " duty: %llu ns", state.duty_cycle);
-		seq_printf(s, " phase: %llu ns", state.phase);
 		seq_printf(s, " polarity: %s",
 			   state.polarity ? "inverse" : "normal");
 
