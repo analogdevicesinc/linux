@@ -491,10 +491,6 @@ static int axi_aion_jesd204_link_supported(struct jesd204_dev *jdev,
 					   struct jesd204_link *lnk)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct axi_aion_state *st = iio_priv(indio_dev);
-	unsigned long rate;
-	int ret;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
@@ -511,8 +507,7 @@ static int axi_aion_jesd204_opt_setup_stage1(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct axi_aion_state *st = iio_priv(indio_dev);
-	struct axi_aion_chan_spec *chan;
-	int ret, i;
+	int ret;
 	u32 regval;
 	s64 adf4030_phase;
 	int val, val2;
