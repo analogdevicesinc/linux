@@ -833,6 +833,29 @@ static const struct iio_enum ad9088_nyquist_zone_enum = {
 	.get = ad9088_nyquist_zone_read,
 };
 
+/**
+ * Get optional channel.
+ * Returns 0 on success and if channel doesn't exist, or error code otherwise.
+ * In special, if the driver hasn't been probed yet, will return -EPROBE_DEFER.
+ */
+static int ad9088_iio_get_optional_channel(struct ad9088_phy *phy, struct iio_channel **chan,
+					   const char *channel_name)
+{
+	struct device_node *node = phy->spi->dev.of_node;
+	long ptr_err;
+
+	*chan = devm_fwnode_iio_channel_get_by_name(&phy->spi->dev, of_fwnode_handle(node), channel_name);
+	ptr_err = PTR_ERR(*chan);
+	if (IS_ERR(*chan)) {
+		*chan = NULL;
+		if (ptr_err != -ENOENT && ptr_err != -ENODEV)
+			return dev_err_probe(&phy->spi->dev, ptr_err, "%s: error getting channel\n",
+					     channel_name);
+	}
+
+	return 0;
+}
+
 static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 				    uintptr_t private,
 				    const struct iio_chan_spec *chan, char *buf)
@@ -6109,14 +6132,12 @@ static int ad9088_probe(struct spi_device *spi)
 	if (IS_ERR(phy->transceiver_reset_gpio))
 		return PTR_ERR(phy->transceiver_reset_gpio);
 
-	phy->iio_adf4030 = devm_fwnode_iio_channel_get_by_name(&spi->dev, of_fwnode_handle(node), "bsync");
-	if (IS_ERR(phy->iio_adf4030) && PTR_ERR(phy->iio_adf4030) != -ENOENT && PTR_ERR(phy->iio_adf4030) != -ENODEV)
-		return dev_err_probe(&spi->dev, PTR_ERR(phy->iio_adf4030), "%s: error getting channel\n",
-				     "bsync");
-	phy->iio_adf4382 = devm_fwnode_iio_channel_get_by_name(&spi->dev, of_fwnode_handle(node), "clk");
-	if (IS_ERR(phy->iio_adf4382) && PTR_ERR(phy->iio_adf4382) != -ENOENT && PTR_ERR(phy->iio_adf4382) != -ENODEV)
-		return dev_err_probe(&spi->dev, PTR_ERR(phy->iio_adf4382), "%s: error getting channel\n",
-				     "clk");
+	ret = ad9088_iio_get_optional_channel(phy, &phy->iio_adf4030, "bsync");
+	if (ret)
+		return ret;
+	ret = ad9088_iio_get_optional_channel(phy, &phy->iio_adf4382, "clk");
+	if (ret)
+		return ret;
 
 	mutex_init(&phy->lock);
 
