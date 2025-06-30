@@ -378,7 +378,7 @@ static int ad7768_set_dig_fil(struct ad7768_state *st,
 	return 0;
 }
 
-int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
+static int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 	int ret;
@@ -393,8 +393,8 @@ int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
 	return ret;
 }
 
-int ad7768_gpio_direction_output(struct gpio_chip *chip,
-				 unsigned int offset, int value)
+static int ad7768_gpio_direction_output(struct gpio_chip *chip,
+					unsigned int offset, int value)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 	int ret;
@@ -409,7 +409,7 @@ int ad7768_gpio_direction_output(struct gpio_chip *chip,
 	return ret;
 }
 
-int ad7768_gpio_get(struct gpio_chip *chip, unsigned int offset)
+static int ad7768_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 	unsigned int val;
@@ -435,7 +435,7 @@ gpio_get_err:
 	return ret;
 }
 
-void ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
+static void ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 	unsigned int val;
@@ -456,7 +456,7 @@ gpio_set_err:
 	mutex_unlock(&st->lock);
 }
 
-int ad7768_gpio_request(struct gpio_chip *chip, unsigned int offset)
+static int ad7768_gpio_request(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 
@@ -468,7 +468,7 @@ int ad7768_gpio_request(struct gpio_chip *chip, unsigned int offset)
 	return 0;
 }
 
-int ad7768_gpio_init(struct ad7768_state *st)
+static int ad7768_gpio_init(struct ad7768_state *st)
 {
 	int ret;
 
