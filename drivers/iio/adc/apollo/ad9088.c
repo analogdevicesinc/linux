@@ -3385,7 +3385,7 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 
 out1:
 	if (ret != API_CMS_ERROR_OK)
-		dev_err(&phy->spi->dev, "Prgramming filter failed (%d)", ret);
+		dev_err(&phy->spi->dev, "Programming filter failed (%d)", ret);
 
 	return size;
 
@@ -3780,7 +3780,7 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 
 out1:
 	if (ret != API_CMS_ERROR_OK)
-		dev_err(&phy->spi->dev, "Prgramming filter failed (%d)", ret);
+		dev_err(&phy->spi->dev, "Programming filter failed (%d)", ret);
 
 	return size;
 
@@ -4071,8 +4071,8 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 				break;
 			}
 
-			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "AD%X Rev. %u Grade %u DieID %u\n",
-				       phy->chip_id.prod_id, phy->chip_id.dev_revision, phy->chip_id.prod_grade, die_id);
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "AD%X Rev. %u Grade %u\n",
+				       phy->chip_id.prod_id, phy->chip_id.dev_revision, phy->chip_id.prod_grade);
 			break;
 		case DBGFS_CLK_PWR_STAT:
 			ret = adi_apollo_clk_mcs_input_power_status_get(&phy->ad9088, &pwr_stat_a, &pwr_stat_b);
@@ -5214,7 +5214,7 @@ static int ad9088_jesd204_clks_enable(struct jesd204_dev *jdev,
 			 phy->profile.jrx[0].common_link_cfg.lane_rate_kHz);
 		ret = adi_apollo_serdes_jrx_init_cal(&phy->ad9088, serdes, ADI_APOLLO_INIT_CAL_ENABLED);
 		if (ret) {
-			dev_err(dev, "Error from adi_apollo_serdes_jrx_cal() %d\n", ret);
+			dev_err(dev, "Error from adi_apollo_serdes_jrx_init_cal() %d\n", ret);
 			return ret;
 		}
 
@@ -5326,7 +5326,7 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
-	if (IS_ERR_OR_NULL(phy->iio_adf4030) || IS_ERR_OR_NULL(phy->iio_adf4382)) {
+	if (!phy->iio_adf4030 || !phy->iio_adf4382) {
 		dev_info(dev, "Skipping MCS calibration\n");
 		return JESD204_STATE_CHANGE_DONE;
 	}
@@ -5609,7 +5609,7 @@ static int ad9088_jesd204_post_setup_stage4(struct jesd204_dev *jdev,
 	struct ad9088_phy *phy = priv->phy;
 	adi_apollo_device_t *device = &phy->ad9088;
 	int ret;
-	u32 periode_fs;
+	u32 period_fs;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT) {
 		phy->is_initialized = false;
@@ -5635,12 +5635,12 @@ static int ad9088_jesd204_post_setup_stage4(struct jesd204_dev *jdev,
 			return ret;
 		}
 
-		periode_fs = div64_u64(1000000000000000ULL * (phy->profile.clk_cfg.clocking_mode ==
-							      ADI_APOLLO_CLOCKING_MODE_SDR_DIV_8 ? 8 : 4),
+		period_fs = div64_u64(1000000000000000ULL * (phy->profile.clk_cfg.clocking_mode ==
+							     ADI_APOLLO_CLOCKING_MODE_SDR_DIV_8 ? 8 : 4),
 				       phy->profile.clk_cfg.dev_clk_freq_kHz * 1000ULL);
 
-		dev_info(dev, "Trigger Phase %d (ideal %u) periode %u fs\n", phase,
-			 phy->profile.mcs_cfg.internal_sysref_prd_digclk_cycles_center / 2, periode_fs);
+		dev_info(dev, "Trigger Phase %d (ideal %u) period %u fs\n", phase,
+			 phy->profile.mcs_cfg.internal_sysref_prd_digclk_cycles_center / 2, period_fs);
 
 		ret = adi_apollo_clk_mcs_trig_sync_enable(device, 0);
 		if (ret) {
