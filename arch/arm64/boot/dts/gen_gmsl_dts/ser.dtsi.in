@@ -1,0 +1,73 @@
+{% set address = ser_cfg.address | d(default_address) %}
+{% set compatible = ser_cfg.compatible | d(default_compatible) | str_quote %}
+{% set pool_addrs = ser_cfg.pool_addrs | d(['0x50', '0x51']) | join(' ') %}
+{% set ser_label = des_label ~ '_ser_' ~ ser_idx %}
+{% set ser_out_label = ser_label ~ '_out' %}
+{% set ser_out_remote_label = des_in_label_x(ser_idx) %}
+{% set i2c_label = des_i2c_label_x(ser_idx) %}
+{% macro ser_in_label_x(x) -%}
+	{{ ser_label ~ '_in_' ~ x }}
+{%- endmacro %}
+{% macro ser_i2c_label() -%}
+	{{ ser_label ~ '_i2c_' ~ 0 }}
+{%- endmacro %}
+
+{{des_i2c_x(ser_idx)}}
+
+&{{i2c_label}} {
+	{{ser_label}}: gmsl-serializer@{{address | hex_remove_0x}} {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#gpio-cells = <2>;
+
+		compatible = {{compatible}};
+		reg = <{{address}}>;
+
+		gpio-controller;
+		gpio-ranges = <&{{ser_label}} 0 0 11>;
+	};
+};
+
+&{{ser_label}} {
+	i2c-alias-pool = <{{pool_addrs}}>;
+
+	i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		{{ser_i2c_label()}}: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+
+			{{ser_out_label}}: endpoint {
+				remote-endpoint = <&{{ser_out_remote_label}}>;
+			};
+		};
+	};
+};
+
+&{{des_label}} {
+	ports {
+		port@{{ser_idx}} {
+			reg = <0x{{ser_idx}}>;
+
+			{{ser_out_remote_label}}: endpoint {
+				remote-endpoint = <&{{ser_out_label}}>;
+			};
+		};
+	};
+};
+{% for cam_cfg in ser_cfg.cameras %}
+	{% set cam_idx = loop.index0 %}
+	{% include '%s.dtsi.in' % cam_cfg.name %}
+{% endfor %}
