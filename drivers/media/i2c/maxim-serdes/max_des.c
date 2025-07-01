@@ -2443,4 +2443,4 @@ int max_des_remove(struct max_des *des)
 EXPORT_SYMBOL_GPL(max_des_remove);
 
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS("I2C_ATR");
+MODULE_IMPORT_NS(I2C_ATR);
