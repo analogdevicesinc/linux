@@ -672,10 +672,11 @@ static int dwc_csi_get_dphy_configuration(struct dwc_csi_device *csidev,
 					  union phy_configure_opts *opts)
 {
 	struct phy_configure_opts_mipi_dphy *cfg = &opts->mipi_dphy;
-	struct v4l2_subdev *source = csidev->source_sd;
+	struct media_pad *src_pad =
+			&csidev->source_sd->entity.pads[csidev->remote_pad];
 	s64 link_freq;
 
-	link_freq = v4l2_get_link_freq(source->ctrl_handler,
+	link_freq = v4l2_get_link_freq(src_pad,
 				       csidev->csi_fmt->width,
 				       csidev->bus.num_data_lanes * 2);
 	if (link_freq < 0) {
