@@ -25,6 +25,9 @@ on:
       warn:
         value: ${{ jobs.build.outputs.warn }}
 
+env:
+  run_id: ${{ github.run_id }}
+
 jobs:
   build:
     runs-on: [self-hosted, v1]
