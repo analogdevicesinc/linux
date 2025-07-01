@@ -1,0 +1,44 @@
+{% set ns = namespace(phy_cfg=0) %}
+{% for phy_cfg_i in des_cfg.phys %}
+	{% if phy_cfg_i.phy_idx == platform_cfg.phy_idx %}
+		{% set ns.phy_cfg = phy_cfg_i %}
+	{% endif %}
+{% endfor %}
+{% set phy_cfg = ns.phy_cfg %}
+{% if not phy_cfg %}
+	{{raise_exception("Invalid phy index " ~ platform_cfg.phy_idx)}}
+{% endif %}
+{% set csi_idx = platform_cfg.csi_idx %}
+{% set phy_idx = phy_cfg.phy_idx %}
+{% set clock_lanes = phy_cfg.clock_lanes | join(' ') %}
+{% set data_lanes = phy_cfg.data_lanes | join(' ') %}
+{% set link_frequencies = phy_cfg.link_frequencies | join(' ') %}
+{% macro csi_in_label_x(x) -%}
+	{{ "csi" ~ x ~ '_ep' }}
+{%- endmacro %}
+&csi{{csi_idx}} {
+	status = "okay";
+	compatible = "brcm,bcm2835-unicam-upstream";
+
+	port {
+		{{csi_in_label_x(csi_idx)}}: endpoint {
+			remote-endpoint = <&{{des_phy_out_label_x(phy_idx)}}>;
+			clock-lanes = <{{clock_lanes}}>;
+			data-lanes = <{{data_lanes}}>;
+			link-frequencies = /bits/ 64 <{{link_frequencies}}>;
+			clock-noncontinuous;
+		};
+	};
+};
+
+&{{des_phy_out_label_x(phy_idx)}} {
+	remote-endpoint = <&{{csi_in_label_x(csi_idx)}}>;
+};
+
+&{i2c0mux} {
+	status = "okay";
+};
+
+&{i2c0if} {
+	status = "okay";
+};

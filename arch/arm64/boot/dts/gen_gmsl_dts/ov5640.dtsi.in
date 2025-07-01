@@ -1,0 +1,51 @@
+{% set reset_pin = cam_cfg.reset_pin | d(0) %}
+{% set cam_label = ser_label ~ "_cam_" ~ cam_idx %}
+{% set xclk_label = "cam_" ~ cam_idx ~ "_xclk" %}
+{% set cam_out_label = cam_label ~ "_out" %}
+{% set cam_out_remote_label = ser_in_label_x(cam_idx) %}
+
+&{/} {
+	{{xclk_label}}: {{xclk_label}} {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&{{ser_i2c_label()}} {
+	{{cam_label}}: ov5640@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+
+		reset-gpios = <&{{ser_label}} {{reset_pin}} 0>;
+
+		clocks = <&{{xclk_label}}>;
+		clock-names = "xclk";
+
+		port {
+			{{cam_out_label}}: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <456000000>;
+				remote-endpoint = <&{{cam_out_remote_label}}>;
+			};
+		};
+	};
+};
+
+&{{ser_label}} {
+	ports {
+		port@{{cam_idx}} {
+			reg = <0>;
+
+			{{cam_out_remote_label}}: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <456000000>;
+				remote-endpoint = <&{{cam_out_label}}>;
+			};
+		};
+	};
+};
