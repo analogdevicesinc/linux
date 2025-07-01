@@ -25,6 +25,11 @@
 
 #include <asm/irq.h>
 
+/* There is a known issue with the SMBus protocol implementation. As
+ * a temporary solution, an emulated version of the protocol has been selected.
+ */
+#define TWI_USE_EMULATED_SMBUS
+
 /* SMBus mode*/
 #define TWI_I2C_MODE_STANDARD       1
 #define TWI_I2C_MODE_STANDARDSUB    2
@@ -110,6 +115,7 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 				     bool polling)
 {
 	u16 writeValue;
+	u16 fifo_status;
 	unsigned short mast_stat = ioread16(iface->regs_base + ADI_TWI_MSTRSTAT);
 
 	if (twi_int_status & XMTSERV) {
@@ -234,7 +240,9 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 		return;
 	}
 	if (twi_int_status & MCOMP) {
-		if (twi_int_status & (XMTSERV | RCVSERV) &&
+		fifo_status = ioread16(iface->regs_base + ADI_TWI_FIFOSTAT);
+
+		if (fifo_status & (XMTSTAT | RCVSTAT) &&
 		    (ioread16(iface->regs_base + ADI_TWI_MSTRCTL) & MEN) == 0 &&
 		    (iface->cur_mode == TWI_I2C_MODE_REPEAT ||
 		     iface->cur_mode == TWI_I2C_MODE_COMBINED)) {
@@ -363,8 +371,7 @@ static int adi_twi_do_master_xfer(struct i2c_adapter *adap,
 		return -EINVAL;
 	}
 
-	if (iface->msg_num > 1)
-		iface->cur_mode = TWI_I2C_MODE_REPEAT;
+	iface->cur_mode = (iface->msg_num > 1) ? TWI_I2C_MODE_REPEAT : TWI_I2C_MODE_STANDARD;
 	iface->manual_stop = 0;
 	iface->transPtr = pmsg->buf;
 	iface->writeNum = iface->readNum = pmsg->len;
@@ -459,6 +466,7 @@ static int adi_twi_master_xfer_atomic(struct i2c_adapter *adap,
 	return adi_twi_do_master_xfer(adap, msgs, num, true);
 }
 
+#ifndef TWI_USE_EMULATED_SMBUS
 /*
  * One I2C SMBus transfer
  */
@@ -701,6 +709,7 @@ static int adi_twi_smbus_xfer_atomic(struct i2c_adapter *adap, u16 addr,
 	return adi_twi_do_smbus_xfer(adap, addr, flags,
 				     read_write, command, size, data, true);
 }
+#endif /* TWI_USE_EMULATED_SMBUS */
 
 /*
  * Return what the adapter supports
@@ -716,8 +725,10 @@ static u32 adi_twi_functionality(struct i2c_adapter *adap)
 static const struct i2c_algorithm adi_twi_algorithm = {
 	.master_xfer		= adi_twi_master_xfer,
 	.master_xfer_atomic	= adi_twi_master_xfer_atomic,
+#ifndef TWI_USE_EMULATED_SMBUS
 	.smbus_xfer		= adi_twi_smbus_xfer,
 	.smbus_xfer_atomic	= adi_twi_smbus_xfer_atomic,
+#endif /* TWI_USE_EMULATED_SMBUS */
 	.functionality		= adi_twi_functionality,
 };
 
