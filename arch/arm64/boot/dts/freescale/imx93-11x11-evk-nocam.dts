@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2025 Analog Devices Inc.
+ */
+
+/dts-v1/;
+
+#include "imx93-11x11-evk.dts"
+
+/delete-node/ &adp5585_isp;
+/delete-node/ &reg_dvdd_1v2;
+/delete-node/ &reg_vddio_1v8;
+/delete-node/ &reg_avdd_2v8;
+/delete-node/ &reg_hmisc_vddio;
+/delete-node/ &ap1302;
+
+/ {
+	model = "NXP i.MX93 11X11 EVK board + GMSL";
+	compatible = "fsl,imx93-11x11-evk", "fsl,imx93";
+};
+
+&mipi_csi_in {
+	/delete-property/ remote-endpoint;
+};
+
+&lpi2c3 {
+	clock-frequency = <400000>;
+};

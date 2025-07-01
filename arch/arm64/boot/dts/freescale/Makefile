@@ -471,7 +471,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk.dtb \
 			  imx93-11x11-evk-mt9m114.dtb \
 			  imx93-11x11-evk-ld.dtb \
 			  imx93-11x11-evk-iw612-otbr.dtb \
-			  imx93-11x11-evk-rpmsg.dtb imx93-11x11-evk-rpmsg-lpv.dtb
+			  imx93-11x11-evk-rpmsg.dtb imx93-11x11-evk-rpmsg-lpv.dtb \
+			  imx93-11x11-evk-nocam.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx91-11x11-evk.dtb \
 			  imx91-11x11-evk-flexspi-m2.dtb imx91-11x11-evk-flexspi-nand-m2.dtb \
@@ -499,6 +500,7 @@ imx93-11x11-evk-pmic-pf0900-ld-dtbs := imx93-11x11-evk-ld.dtb imx93-11x11-evk-pm
 imx93-11x11-evk-pmic-pf0900-rpmsg-dtbs := imx93-11x11-evk-rpmsg.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 imx93-11x11-evk-pmic-pf0900-rpmsg-lpv-dtbs := imx93-11x11-evk-rpmsg-lpv.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 
+
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-root.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-flexio-i2c.dtb
@@ -514,6 +516,10 @@ dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-mt9m114.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-ld.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-rpmsg.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-rpmsg-lpv.dtb
+
+imx93-11x11-evk-gmsl-dtbs := imx93-11x11-evk-nocam.dtb gmsl-overlay.dtbo
+
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-gmsl.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx93-9x9-qsb.dtb \
 			  imx93-9x9-qsb-can1.dtb \

@@ -1,0 +1,184 @@
+/dts-v1/;
+/plugin/;
+
+&lpi2c3 {
+	status = "okay";
+	max_des_0: gmsl-deserializer@27 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "maxim,max96724";
+		reg = <0x27>;
+
+	};
+};
+
+
+&max_des_0 {
+	i2c-alias-pool = <0x40 0x41 0x42 0x43>;
+
+	max_des_0_i2c_adapter: i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+&max_des_0 {
+	ports {
+		port@6 {
+			reg = <6>;
+
+			max_des_0_phy_2_out: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <750000000>;
+			};
+		};
+	};
+};
+
+&mipi_csi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			csi0_ep: endpoint {
+				remote-endpoint = <&max_des_0_phy_2_out>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <750000000>;
+				clock-noncontinuous;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			mipi_csi_out: endpoint {
+				remote-endpoint = <&isi_in>;
+			};
+		};
+	};
+};
+
+&max_des_0_phy_2_out {
+	remote-endpoint = <&csi0_ep>;
+};
+
+&max_des_0_i2c_adapter {
+	max_des_0_i2c_0: i2c@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x0>;
+	};
+};
+
+&max_des_0_i2c_0 {
+	max_des_0_ser_0: gmsl-serializer@40 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#gpio-cells = <2>;
+
+		compatible = "maxim,max96717";
+		reg = <0x40>;
+
+		gpio-controller;
+		gpio-ranges = <&max_des_0_ser_0 0 0 11>;
+	};
+};
+
+&max_des_0_ser_0 {
+	i2c-alias-pool = <0x58 0x59>;
+
+	i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		max_des_0_ser_0_i2c_0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+
+			max_des_0_ser_0_out: endpoint {
+				remote-endpoint = <&max_des_0_in_0>;
+			};
+		};
+	};
+};
+
+&max_des_0 {
+	ports {
+		port@0 {
+			reg = <0x0>;
+
+			max_des_0_in_0: endpoint {
+				remote-endpoint = <&max_des_0_ser_0_out>;
+			};
+		};
+	};
+};
+
+&{/} {
+	cam_0_xclk: cam_0_xclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&max_des_0_ser_0_i2c_0 {
+	max_des_0_ser_0_cam_0: ov5640@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+
+		reset-gpios = <&max_des_0_ser_0 0 0>;
+
+		clocks = <&cam_0_xclk>;
+		clock-names = "xclk";
+
+		port {
+			max_des_0_ser_0_cam_0_out: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <456000000>;
+				remote-endpoint = <&max_des_0_ser_0_in_0>;
+			};
+		};
+	};
+};
+
+&max_des_0_ser_0 {
+	ports {
+		port@0 {
+			reg = <0>;
+
+			max_des_0_ser_0_in_0: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <456000000>;
+				remote-endpoint = <&max_des_0_ser_0_cam_0_out>;
+			};
+		};
+	};
+};
