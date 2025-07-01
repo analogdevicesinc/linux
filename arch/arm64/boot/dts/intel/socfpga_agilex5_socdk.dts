@@ -32,6 +32,56 @@
 
 	};
 
+	soc {
+		sys_hps_bridges: bridge@80000000 {
+			compatible = "simple-bus";
+			reg = <0x80000000 0x40000000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0x80000000 0x40000000>;
+
+			axi_sysid_0: axi-sysid-0@00018000 {
+				compatible = "adi,axi-sysid-1.00.a";
+				reg = <0x00018000 0x8000>;
+			};
+
+			sys_gpio_in: gpio@00 {
+				compatible = "altr,pio-1.0";
+				reg = <0x00000000 0x00000010>;
+				altr,gpio-bank-width = <32>;
+				resetvalue = <0>;
+				interrupts = <0 22 4>;
+				altr,interrupt-type = <0>;
+				#gpio-cells = <2>;
+				gpio-controller;
+				#interrupt-cells = <2>;
+				interrupt-controller;
+			};
+
+			sys_gpio_out: gpio@20 {
+				compatible = "altr,pio-1.0";
+				reg = <0x00000020 0x00000010>;
+				altr,gpio-bank-width = <32>;
+				resetvalue = <0>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			sys_gpio_bd: gpio@d0 {
+				compatible = "altr,pio-1.0";
+				reg = <0x000000d0 0x00000010>;
+				altr,gpio-bank-width = <32>;
+				resetvalue = <0>;
+				interrupts = <0 23 4>;
+				altr,interrupt-type = <0>;
+				#gpio-cells = <2>;
+				gpio-controller;
+				#interrupt-cells = <2>;
+				interrupt-controller;
+			};
+		};
+	};
+
 	memory {
 		device_type = "memory";
 		/* We expect the bootloader to fill in the reg */
@@ -75,6 +125,14 @@
 			reg = <0>;
 		};
 	};
+};
+
+&i3c0 {
+	status = "okay";
+};
+
+&i3c1 {
+	status = "okay";
 };
 
 &mmc {
@@ -189,15 +247,16 @@
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			rsu-handle = <&qspi_boot>;
 
 			qspi_boot: partition@0 {
-				label = "Boot and fpga data";
-				reg = <0x0 0x03FE0000>;
+				label = "u-boot";
+				reg = <0x0 0x04200000>;
 			};
 
-			qspi_rootfs: partition@3FE0000 {
-				label = "Root Filesystem - JFFS2";
-				reg = <0x03FE0000 0x0C020000>;
+			root: partition@4200000 {
+				label = "root";
+				reg = <0x04200000 0x0BE00000>;
 			};
 		};
 	};

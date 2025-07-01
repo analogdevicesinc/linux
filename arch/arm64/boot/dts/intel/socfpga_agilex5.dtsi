@@ -235,6 +235,8 @@
 			altr,sysmgr-syscon = <&sysmgr 0x44 0>;
 			altr,smtg-hub;
 			iommus = <&smmu 1>;
+			snps,clk-csr = <0>;
+			dma-coherent;
 
 			status = "disabled";
 
@@ -382,6 +384,8 @@
 			altr,sysmgr-syscon = <&sysmgr 0x48 0>;
 			altr,smtg-hub;
 			iommus = <&smmu 2>;
+			snps,clk-csr = <0>;
+			dma-coherent;
 
 			status = "disabled";
 
@@ -529,6 +533,8 @@
 			altr,sysmgr-syscon = <&sysmgr 0x4c 0>;
 			altr,smtg-hub;
 			iommus = <&smmu 3>;
+			snps,clk-csr = <0>;
+			dma-coherent;
 
 			status = "disabled";
 
@@ -1062,6 +1068,17 @@
 				interrupts = <120 IRQ_TYPE_EDGE_RISING>;
 				status = "disabled";
 			};
+
+			sdm-qspi-ecc@10a22000 {
+				compatible = "altr,socfpga-sdm-qspi-ecc";
+				reg = <0x10a22000 0x100>;
+				interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			cram-seu@0 {
+				compatible = "altr,socfpga-cram-seu";
+				reg = <0x0 0x0>;
+			};
 		};
 
 		watchdog0: watchdog@10d00200 {
@@ -1131,7 +1148,8 @@
 				altr,smmu_enable_quirk;
 
 				fpga_mgr: fpga-mgr {
-					compatible = "intel,agilex-soc-fpga-mgr";
+					compatible = "intel,agilex5-soc-fpga-mgr";
+					altr,smmu_enable_quirk;
 				};
 
 				fcs: fcs {
