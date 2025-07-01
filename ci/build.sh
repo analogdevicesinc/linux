@@ -1,3 +1,7 @@
+if [[ -z "$run_id" ]]; then
+	export run_id=$(uuidgen)
+fi
+
 check_checkpatch() {
 	local mail=
 	local fail=0
@@ -322,7 +326,7 @@ check_cppcheck () {
 }
 
 compile_devicetree() {
-	local tmp_log_file=.ci_compile_devicetree_log
+	local tmp_log_file=/dev/shm/$run_id.ci_compile_devicetree.log
 	local err=0
 	local dtb_file=
 	local dts_files=""
@@ -417,7 +421,7 @@ compile_devicetree() {
 }
 
 compile_kernel() {
-	local tmp_log_file=.ci_compile_kernel_log
+	local tmp_log_file=/dev/shm/$run_id.ci_compile_kernel.log
 	local err=0
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local fail=0
