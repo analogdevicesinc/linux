@@ -1,0 +1,115 @@
+{% set address = des_cfg.address | d(default_address) %}
+{% set compatible = des_cfg.compatible | d(default_compatible) | str_quote %}
+{% set pool_addrs = des_cfg.pool_addrs | d(['0x40', '0x41', '0x42', '0x43']) | join(' ') %}
+{% set vpoc_cfg = des_cfg.vpoc_cfg %}
+{% set platform_cfg = des_cfg.platform_cfg %}
+{% set des_label = 'max_des_' ~ des_idx %}
+{% macro des_in_label_x(x) -%}
+	{{ des_label ~ '_in_' ~ x }}
+{%- endmacro %}
+{% macro des_i2c_label_x(x) -%}
+{%- if x >= num_links -%}
+	{{raise_exception('Invalid serializer index ' ~ x)}}
+{%- endif -%}
+	{{ des_label ~ '_i2c_' ~ x }}
+{%- endmacro %}
+{% macro des_vpoc_label_x(x) -%}
+	{{ des_label ~ '_vpoc_' ~ x }}
+{%- endmacro %}
+{% macro des_phy_out_label_x(x) -%}
+	{{ des_label ~ '_phy_' ~ x ~ '_out' }}
+{%- endmacro %}
+{% macro des_phy_port_idx_x(x) -%}
+	{{ x + num_links }}
+{%- endmacro %}
+{% set des_i2c_adapter_label = des_label ~ '_i2c_adapter' %}
+{% if use_gate %}
+{% macro des_i2c_x(ch_idx) -%}
+&{{des_label}} {
+	{{des_i2c_label_x(ch_idx)}}: i2c-gate {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+{%- endmacro %}
+{% else %}
+{% macro des_i2c_x(ch_idx) -%}
+&{{des_i2c_adapter_label}} {
+	{{des_i2c_label_x(ch_idx)}}: i2c@{{ch_idx}} {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x{{ch_idx}}>;
+	};
+};
+{%- endmacro %}
+{% endif %}
+&{{des_cfg.i2c_bus}} {
+	status = "okay";
+	{{des_label}}: gmsl-deserializer@{{address | hex_remove_0x}} {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = {{compatible}};
+		reg = <{{address}}>;
+
+{% if vpoc_cfg %}
+{% for ser_cfg in des_cfg.links %}
+{% set ser_idx = loop.index0 %}
+		port{{ser_idx}}-poc-supply = <&{{des_vpoc_label_x(ser_idx)}}>;
+{% endfor %}
+{% endif %}
+	};
+};
+
+{% if vpoc_cfg %}
+{% include '%s.dtsi.in' % vpoc_cfg.name %}
+{% endif %}
+
+&{{des_label}} {
+{% if use_mux %}
+	{{des_i2c_adapter_label}}: i2c-mux {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+{% elif use_atr %}
+	i2c-alias-pool = <{{pool_addrs}}>;
+
+	{{des_i2c_adapter_label}}: i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+{% endif %}
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+{% for phy_cfg in des_cfg.phys %}
+{% set phy_idx = phy_cfg.phy_idx %}
+{% set clock_lanes = phy_cfg.clock_lanes | join(' ') %}
+{% set data_lanes = phy_cfg.data_lanes | join(' ') %}
+{% set link_frequencies = phy_cfg.link_frequencies | join(' ') %}
+&{{des_label}} {
+	ports {
+		port@{{des_phy_port_idx_x(phy_idx)}} {
+			reg = <{{des_phy_port_idx_x(phy_idx)}}>;
+
+			{{des_phy_out_label_x(phy_idx)}}: endpoint {
+				clock-lanes = <{{clock_lanes}}>;
+				data-lanes = <{{data_lanes}}>;
+				link-frequencies = /bits/ 64 <{{link_frequencies}}>;
+			};
+		};
+	};
+};
+{% endfor %}
+
+{% if platform_cfg %}
+{% include '%s.dtsi.in' % platform_cfg.name %}
+{% endif %}
+{% for ser_cfg in des_cfg.links %}
+	{% set ser_idx = loop.index0 %}
+	{% include '%s.dtsi.in' % ser_cfg.name %}
+{% endfor %}
