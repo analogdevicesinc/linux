@@ -119,4 +119,4 @@ module_i2c_driver(lt3074_driver);
 MODULE_AUTHOR("Cedric Encarnacion <cedricjustine.encarnacion@analog.com>");
 MODULE_DESCRIPTION("PMBus driver for Analog Devices LT3074");
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS("PMBUS");
+MODULE_IMPORT_NS(PMBUS);
