@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "socfpga_agilex5_socdk.dts"
+
+/ {
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "console=uart8250,mmio32,0x10c02000,115200n8 \
+			root=/dev/mmcblk0p2 rw initrd=0x10000000 init=/sbin/init \
+			ramdisk_size=10000000 earlycon=uart8250,mmio32,0x10c02000,115200n8 \
+			panic=-1 nosmp rootfstype=ext4";
+	};
+};
+
+/delete-node/ &emac2_phy0;
+
+&gmac2 {
+	status = "okay";
+	phy-mode = "rgmii";
+	phy-handle = <&emac2_phy0>;
+
+	max-frame-size = <9000>;
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		emac2_phy0: ethernet-phy@0 {
+			reg = <0>;
+		};
+	};
+};
+
+/delete-node/ &qspi;
+
+&soc {
+	sys_hps_bridges: bridge@20000000 {
+		compatible = "simple-bus";
+		reg = <0x0020000000 0x20000000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x00000000 0x0020000000 0x20000000>;
+
+		axi_sysid_0: axi-sysid-0@00018000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x00018000 0x8000>;
+		};
+
+		sys_gpio_in: gpio@00 {
+			compatible = "altr,pio-1.0";
+			reg = <0x00000000 0x00000010>;
+			altr,gpio-bank-width = <32>;
+			resetvalue = <0>;
+			interrupts = <0 22 4>;
+			altr,interrupt-type = <0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			#interrupt-cells = <2>;
+			interrupt-controller;
+		};
+
+		sys_gpio_out: gpio@20 {
+			compatible = "altr,pio-1.0";
+			reg = <0x00000020 0x00000010>;
+			altr,gpio-bank-width = <32>;
+			resetvalue = <0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		sys_gpio_bd: gpio@d0 {
+			compatible = "altr,pio-1.0";
+			reg = <0x000000d0 0x00000010>;
+			altr,gpio-bank-width = <32>;
+			resetvalue = <0>;
+			interrupts = <0 23 4>;
+			altr,interrupt-type = <0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			#interrupt-cells = <2>;
+			interrupt-controller;
+		};
+
+		sys_spi: spi@40 {
+			compatible = "altr,spi-1.0";
+			reg = <0x00000040 0x00000020>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 24 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+		};
+	};
+};
+
