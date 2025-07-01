@@ -1143,5 +1143,5 @@ MODULE_AUTHOR("Ramona Gradinariu <ramona.gradinariu@analog.com>");
 MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com>");
 MODULE_AUTHOR("Robert Budai <robert.budai@analog.com>");
 MODULE_DESCRIPTION("Analog Devices ADIS16550 IMU driver");
-MODULE_IMPORT_NS("IIO_ADISLIB");
+MODULE_IMPORT_NS(IIO_ADISLIB);
 MODULE_LICENSE("GPL");
