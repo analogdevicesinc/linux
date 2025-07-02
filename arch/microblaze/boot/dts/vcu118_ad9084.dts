@@ -525,7 +525,7 @@
 		jesd204-inputs =
 			<&adf4030 0 FRAMER_LINK_A0_RX>,
 			<&adf4030 0 DEFRAMER_LINK_A0_TX>;
-#endif
+#endif /* WITH_AION */
 		clocks = <&clkin_125>;
 		clock-names = "clkin0";
 
