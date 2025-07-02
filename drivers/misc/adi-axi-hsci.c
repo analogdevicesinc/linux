@@ -185,7 +185,7 @@ static int32_t axi_hsci_wait_done(struct axi_hsci_state *st);
  */
 static void axi_hsci_write(struct axi_hsci_state *st, u32 reg, u32 val)
 {
-	dev_dbg(st->dev, "write: 0x%X (0x%X), 0x%X\n", reg, (u32)st->regs + (reg * 4),
+	dev_dbg(st->dev, "write: 0x%X (0x%px), 0x%X\n", reg, st->regs + (reg * 4),
 		val);
 
 	iowrite32(val, st->regs + (reg * 4));
@@ -199,8 +199,8 @@ static void axi_hsci_write(struct axi_hsci_state *st, u32 reg, u32 val)
 		val2 = ioread32(st->regs + (reg * 4));
 
 		if (val != val2)
-			dev_err(st->dev, "FAILED write: 0x%X (0x%X), 0x%X!=0x%x\n", reg,
-				(u32)st->regs + (reg * 4), val, val2);
+			dev_err(st->dev, "FAILED write: 0x%X (0x%px), 0x%X!=0x%x\n", reg,
+				st->regs + (reg * 4), val, val2);
 	}
 }
 
