@@ -157,7 +157,7 @@
 
 		partition@4 {
 			label = "root file system (spi)";
-			reg = <0x08e0000 0x1AC0000>;
+			reg = <0x08e0000 0x3720000>;
 		};
 	};
 };
