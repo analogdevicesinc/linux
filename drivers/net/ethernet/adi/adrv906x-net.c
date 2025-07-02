@@ -673,7 +673,7 @@ static const struct net_device_ops adrv906x_eth_ops = {
 	.ndo_change_mtu		= adrv906x_eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_get_stats64	= adrv906x_eth_get_stats64,
-	.ndo_do_ioctl		= adrv906x_eth_ioctl,
+	.ndo_eth_ioctl		= adrv906x_eth_ioctl,
 };
 
 static const struct of_device_id adrv906x_eth_dt_ids[] = {
