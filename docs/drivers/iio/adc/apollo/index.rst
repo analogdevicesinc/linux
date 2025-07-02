@@ -127,6 +127,7 @@ The following example devicetrees are provided:
 * :git-linux:`AD9084-VCU118 ad9084 <arch/microblaze/boot/dts/vcu118_ad9084.dts>`: vcu118_ad9084.dts
 * :git-linux:`AD9084-VCU118 RevB Ext <arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts>`: vcu118_quad_ad9084_revB_ext.dts
 * :git-linux:`AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4 <arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts>`: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts
+* :git-linux:`AD9084-VCK190 <arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts>`: versal-vck190-reva-ad9084.dts
 
 Profile
 ~~~~~~~
