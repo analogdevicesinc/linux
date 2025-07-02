@@ -146,27 +146,30 @@ struct ad7779_chip_info {
 };
 
 struct ad7779_state {
-	struct spi_device *spi;
-	const struct ad7779_chip_info *chip_info;
-	struct clk *mclk;
-	struct iio_trigger *trig;
-	struct completion completion;
-	unsigned int sampling_freq;
-	enum ad7779_data_lines data_lines;
-	enum ad7779_filter filter_enabled;
-	enum ad7779_power_mode power_mode;
+	struct spi_device 				*spi;
+	const struct ad7779_chip_info 	*chip_info;
+	struct clk 						*mclk;
+	struct iio_trigger 				*trig;
+	struct completion 				completion;
+	struct regulator 				*vref;
+	unsigned int 					sampling_freq;
+	unsigned int 					spidata_mode;
+	unsigned int 					crc_enabled;
+	enum ad7779_data_lines 			data_lines;
+	enum ad7779_filter 				filter_enabled;
+	enum ad7779_power_mode 			power_mode;
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
 	 */
-	// struct {
-	// 	u32 chans[8];
-	// 	aligned_s64 timestamp;
-	// } data __aligned(IIO_DMA_MINALIGN);
-	// u32			spidata_tx[8];
-	u8			reg_rx_buf[3] ____cacheline_aligned;
-	u8			reg_tx_buf[3];
-	u8			reset_buf[8];
+	struct {
+		u32 chans[8];
+		aligned_s64 timestamp;
+	} data __aligned(IIO_DMA_MINALIGN);
+	u32					spidata_tx[8];
+	u8						reg_rx_buf[3]; //____cacheline_aligned;
+	u8						reg_tx_buf[3];
+	u8						reset_buf[8];
 
 	struct iio_backend *back;
 };
@@ -294,6 +297,10 @@ static int ad7779_set_sampling_frequency(struct ad7779_state *st,
 		return -EINVAL;
 
 	if (sampling_freq > AD7779_SPIMODE_MAX_SAMP_FREQ)
+		return -EINVAL;
+
+	if (st->spidata_mode == 1 &&
+	    sampling_freq > AD7779_SPIMODE_MAX_SAMP_FREQ)
 		return -EINVAL;
 
 	if(st->power_mode == AD7779_LOW_POWER)
@@ -603,7 +610,7 @@ static int ad7779_buffer_preenable(struct iio_dev *indio_dev)
 {
 	int ret;
 	struct ad7779_state *st = iio_priv(indio_dev);
-
+	//dev_info(&st->spi->dev,"preenable");
 	ret = ad7779_spi_write_mask(st,
 				    AD7779_REG_GENERAL_USER_CONFIG_3,
 				    AD7779_MOD_SPI_EN_MSK,
@@ -623,14 +630,14 @@ static int ad7779_buffer_preenable(struct iio_dev *indio_dev)
 static int ad7779_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct ad7779_state *st = iio_priv(indio_dev);
-
+	//dev_info(&st->spi->dev,"postdisable");
 	disable_irq(st->spi->irq);
 
 	return ad7779_spi_write(st, AD7779_REG_GENERAL_USER_CONFIG_3,
 			       AD7779_DISABLE_SD);
 }
 
-#if 0
+#if 1
 static irqreturn_t ad7779_trigger_handler(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
@@ -642,7 +649,7 @@ static irqreturn_t ad7779_trigger_handler(int irq, void *p)
 		.tx_buf = st->spidata_tx,
 		.len = AD7779_NUM_CHANNELS * AD7779_CHAN_DATA_SIZE,
 	};
-
+	dev_info(&st->spi->dev,"trig handler");
 	st->spidata_tx[0] = AD7779_SPI_READ_CMD;
 	ret = spi_sync_transfer(st->spi, &t, 1);
 	if (ret) {
@@ -708,7 +715,7 @@ static const struct iio_info ad7779_info = {
 	.read_raw = ad7779_read_raw,
 	.write_raw = ad7779_write_raw,
 	.debugfs_reg_access = &ad7779_reg_access,
-	.update_scan_mode = &ad7779_update_scan_mode,
+	//.update_scan_mode = &ad7779_update_scan_mode,
 };
 
 static const struct iio_enum ad7779_data_lines_enum = {
@@ -739,7 +746,7 @@ static const struct iio_chan_spec_ext_info ad7779_ext_info[] = {
 	{ },
 };
 
-#define AD777x_CHAN(index, _ext_info)					       \
+#define AD7779_CHAN(index, _ext_info)					       \
 	{								       \
 		.type = IIO_VOLTAGE,					       \
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),       \
@@ -759,7 +766,7 @@ static const struct iio_chan_spec_ext_info ad7779_ext_info[] = {
 	{								\
 		.type = IIO_VOLTAGE,					\
 		.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE)  |	\
-				      BIT(IIO_CHAN_INFO_CALIBBIAS),	\
+				      		  BIT(IIO_CHAN_INFO_CALIBBIAS),	\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 		.address = (index),					\
 		.indexed = 1,						\
@@ -770,9 +777,9 @@ static const struct iio_chan_spec_ext_info ad7779_ext_info[] = {
 			.sign = 's',					\
 			.realbits = 24,					\
 			.storagebits = 32,				\
+			.endianness = IIO_BE,			\	
 		},							\
 	}
-			//.endianness = IIO_BE,				
 
 #define AD7779_CHAN_NO_FILTER(index)					       \
 	AD7779_CHAN(index, ad7779_ext_info)
@@ -811,7 +818,7 @@ static const struct iio_buffer_setup_ops ad7779_buffer_setup_ops = {
 	.postdisable = ad7779_buffer_postdisable,
 };
 
-#if 0
+#if 1
 static const struct iio_trigger_ops ad7779_trigger_ops = {
 	.validate_device = iio_trigger_validate_own_device,
 };
@@ -820,30 +827,19 @@ static const struct iio_trigger_ops ad7779_trigger_ops = {
 static int ad7779_conf(struct ad7779_state *st, struct gpio_desc *start_gpio)
 {
 	int ret;
-
+	st->crc_enabled = false;
+	
 	ret = ad7779_spi_write_mask(st, AD7779_REG_GEN_ERR_REG_1_EN,
 				    AD7779_SPI_CRC_EN_MSK,
 				    FIELD_PREP(AD7779_SPI_CRC_EN_MSK, 1));
 	if (ret)
 		return ret;
-
-	ret = ad7779_spi_write_mask(st, AD7779_REG_GENERAL_USER_CONFIG_1,
-				    AD7779_MOD_POWERMODE_MSK,
-				    FIELD_PREP(AD7779_MOD_POWERMODE_MSK, 1));
-	if (ret)
-		return ret;
-
-	ret = ad7779_spi_write_mask(st, AD7779_REG_GENERAL_USER_CONFIG_1,
-				    AD7779_MOD_PDB_REFOUT_MSK,
-				    FIELD_PREP(AD7779_MOD_PDB_REFOUT_MSK, 1));
-	if (ret)
-		return ret;
 		
-	// ret = ad7779_spi_write_mask(st, AD7779_REG_GENERAL_USER_CONFIG_1,
-	// 			    AD7779_USRMOD_INIT_MSK,
-	// 			    FIELD_PREP(AD7779_USRMOD_INIT_MSK, 5));
-	// if (ret)
-	// 	return ret;
+	ret = ad7779_spi_write_mask(st, AD7779_REG_GENERAL_USER_CONFIG_1,
+				    AD7779_USRMOD_INIT_MSK,
+				    FIELD_PREP(AD7779_USRMOD_INIT_MSK, 5));
+	if (ret)
+		return ret;
 
 	ret = ad7779_spi_write_mask(st, AD7779_REG_DOUT_FORMAT,
 				    AD7779_DCLK_CLK_DIV_MSK,
@@ -862,6 +858,7 @@ static int ad7779_conf(struct ad7779_state *st, struct gpio_desc *start_gpio)
 		return ret;
 
 	st->power_mode = AD7779_HIGH_POWER;
+	st->crc_enabled = true;
 	st->data_lines = AD7779_4LINES;
 
 	gpiod_set_value(start_gpio, 0);
@@ -877,65 +874,12 @@ static int ad7779_conf(struct ad7779_state *st, struct gpio_desc *start_gpio)
 	return 0;
 }
 
-static int ad7779_probe(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev;
-	struct ad7779_state *st;
-	struct gpio_desc *reset_gpio, *start_gpio;
-	struct device *dev = &spi->dev;
-	int ret = -EINVAL;
-#if 0
-	if (!spi->irq)
-		return dev_err_probe(dev, ret, "DRDY irq not present\n");
-#endif
-	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
-	if (!indio_dev)
-		return -ENOMEM;
+static int ad7779_register_irq(struct ad7779_state *st, struct iio_dev *indio_dev){
 
-	st = iio_priv(indio_dev);
-	st->spi = spi;
+	int ret;
+	struct device *dev = &st->spi->dev;
 
-	// ret = devm_regulator_bulk_get_enable(dev,
-	// 				     ARRAY_SIZE(ad7779_power_supplies),
-	// 				     ad7779_power_supplies);
-	// if (ret)
-	// 	return dev_err_probe(dev, ret,
-	// 			     "failed to get and enable supplies\n");
-	st->chip_info = spi_get_device_match_data(spi);
-	if (!st->chip_info)
-		return -ENODEV;
-
-	st->mclk = devm_clk_get_enabled(dev, "mclk");
-	if (IS_ERR(st->mclk))
-		return PTR_ERR(st->mclk);
-
-	reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(reset_gpio))
-		return PTR_ERR(reset_gpio);
-
-	start_gpio = devm_gpiod_get(dev, "start", GPIOD_OUT_HIGH);
-	if (IS_ERR(start_gpio))
-		return PTR_ERR(start_gpio);
-
-	crc8_populate_msb(ad7779_crc8_table, AD7779_CRC8_POLY);
-	
-
-	
-
-	ret = ad7779_reset(indio_dev, reset_gpio);
-	if (ret)
-		return ret;
-
-	ret = ad7779_conf(st, start_gpio);
-	if (ret)
-		return ret;
-
-	indio_dev->name = st->chip_info->name;
-	indio_dev->info = &ad7779_info;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
-	indio_dev->channels = st->chip_info->channels;
-	indio_dev->num_channels = ARRAY_SIZE(ad7779_channels);
-#if 0
+	//dev_info(&st->spi->dev,"register irq");
 	st->trig = devm_iio_trigger_alloc(dev, "%s-dev%d", indio_dev->name,
 					  iio_device_id(indio_dev));
 	if (!st->trig)
@@ -945,7 +889,7 @@ static int ad7779_probe(struct spi_device *spi)
 
 	iio_trigger_set_drvdata(st->trig, st);
 
-	ret = devm_request_irq(dev, spi->irq, iio_trigger_generic_data_rdy_poll,
+	ret = devm_request_irq(dev, st->spi->irq, iio_trigger_generic_data_rdy_poll,
 			       IRQF_ONESHOT | IRQF_NO_AUTOEN, indio_dev->name,
 			       st->trig);
 	if (ret)
@@ -972,16 +916,26 @@ static int ad7779_probe(struct spi_device *spi)
 				    FIELD_PREP(AD7779_DCLK_CLK_DIV_MSK, 7));
 	if (ret)
 		return ret;
-#endif
-	st->back = devm_iio_backend_get(&spi->dev, NULL);
+	
+	st->spidata_mode = 1;
+
+	return devm_iio_device_register(dev, indio_dev);
+}
+
+static int ad7779_register_back(struct ad7779_state *st, struct iio_dev *indio_dev){
+
+	int ret;
+	struct device *dev = &st->spi->dev;
+
+	st->back = devm_iio_backend_get(dev, NULL);
 	if (IS_ERR(st->back))
 		return PTR_ERR(st->back);
 
-	ret = devm_iio_backend_request_buffer(&spi->dev, st->back, indio_dev);
+	ret = devm_iio_backend_request_buffer(dev, st->back, indio_dev);
 	if (ret)
 		return ret;
 
-	ret = devm_iio_backend_enable(&spi->dev, st->back);
+	ret = devm_iio_backend_enable(dev, st->back);
 	if (ret)
 		return ret;
 
@@ -989,7 +943,82 @@ static int ad7779_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	st->spidata_mode = 0;
+
 	return devm_iio_device_register(dev, indio_dev);
+}
+
+static int ad7779_probe(struct spi_device *spi)
+{
+	struct iio_dev *indio_dev;
+	struct ad7779_state *st;
+	struct gpio_desc *reset_gpio, *start_gpio;
+	struct device *dev = &spi->dev;
+	int ret = -EINVAL;
+#if 0
+	if (!spi->irq)
+		return dev_err_probe(dev, ret, "DRDY irq not present\n");
+#endif
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
+	if (!indio_dev)
+		return -ENOMEM;
+
+	st = iio_priv(indio_dev);
+	st->spi = spi;
+
+	ret = devm_regulator_bulk_get_enable(dev,
+					     ARRAY_SIZE(ad7779_power_supplies),
+					     ad7779_power_supplies);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "failed to get and enable supplies\n");
+
+
+	st->vref = devm_regulator_get_optional(&spi->dev, "vref");
+	if (IS_ERR(st->vref))
+		return PTR_ERR(st->vref);
+
+
+
+	st->chip_info = spi_get_device_match_data(spi);
+	if (!st->chip_info)
+		return -ENODEV;
+
+	st->mclk = devm_clk_get_enabled(dev, "mclk");
+	if (IS_ERR(st->mclk))
+		return PTR_ERR(st->mclk);
+
+	reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(reset_gpio))
+		return PTR_ERR(reset_gpio);
+
+	start_gpio = devm_gpiod_get(dev, "start", GPIOD_OUT_HIGH);
+	if (IS_ERR(start_gpio))
+		return PTR_ERR(start_gpio);
+
+	crc8_populate_msb(ad7779_crc8_table, AD7779_CRC8_POLY);	
+
+	ret = ad7779_reset(indio_dev, reset_gpio);
+	if (ret)
+		return ret;
+
+	ret = ad7779_conf(st, start_gpio); // = ad777x_powerup
+	if (ret)
+		return ret;
+
+	indio_dev->name = st->chip_info->name;
+	indio_dev->info = &ad7779_info;
+	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
+	indio_dev->channels = st->chip_info->channels;
+	indio_dev->num_channels = ARRAY_SIZE(ad7779_channels);
+
+
+	if(spi->irq){
+		return ad7779_register_irq(st, indio_dev);
+	}
+	else{
+		return ad7779_register_back(st, indio_dev);
+	}
 }
 
 static int ad7779_suspend(struct device *dev)
