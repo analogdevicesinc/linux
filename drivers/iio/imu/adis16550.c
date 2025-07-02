@@ -920,7 +920,7 @@ static int adis16550_reset(struct adis *adis)
 static int adis16550_config_sync(struct adis16550 *st)
 {
 	struct device *dev = &st->adis.spi->dev;
-	const struct adis16550_sync *sync_mode_data;
+	const struct adis16550_sync *sync_mode_data = NULL;
 	struct clk *clk;
 	int ret, i;
 	u16 mode;
@@ -943,7 +943,7 @@ static int adis16550_config_sync(struct adis16550 *st)
 		}
 	}
 
-	if (i == st->info->num_sync)
+	if (!sync_mode_data)
 		return dev_err_probe(dev, -EINVAL, "Clk rate: %lu not in a valid range",
 				     st->clk_freq_hz);
 
