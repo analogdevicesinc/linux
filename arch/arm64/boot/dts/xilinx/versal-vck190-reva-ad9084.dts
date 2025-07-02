@@ -287,6 +287,21 @@
 			adi,hsci-interface-speed-mhz = <HSCI_SPEED>;
 		};
 
+#ifdef WITH_AION
+		axi_aion_trig: axi_aion_trig@bc900000 {
+			compatible = "adi,axi-aion-trig-1.0.a";
+			reg = <0xbc900000 0x1000>;
+			clocks = <&hmc7044 8>;
+			clock-names = "device_clk";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+
+			io-channels = <&adf4030 8>;
+			io-channel-names = "bsync";
+		};
+#endif /* WITH_AION */
+
 		axi_ad9084_core_rx: axi-ad9084-rx-hpc@a4a10000 {
 			compatible = "adi,axi-ad9081-rx-1.0";
 			reg = <0xa4a10000 0x8000>;
@@ -315,24 +330,6 @@
 			jesd204-inputs = <&axi_ad9084_tx_jesd 0 DEFRAMER_LINK_A0_TX>;
 		};
 
-#ifdef AXI_AION_TRIG
-		axi_aion_trig: axi_aion_trig@bc900000 {
-			compatible = "adi,axi-aion-trig-1.0.a";
-			reg = <0xbc900000 0x1000>;
-			clocks = <&hmc7044 8>;
-			clock-names = "device_clk";
-
-			jesd204-device;
-			#jesd204-cells = <2>;
-			jesd204-inputs =
-				<&hmc7044 0 FRAMER_LINK_B0_RX>,
-				<&hmc7044 0 DEFRAMER_LINK_B0_TX>;
-
-			io-channels = <&adf4030 8>;
-			io-channel-names = "bsync";
-		};
-#endif
-
 		axi_ad9084_rx_jesd: axi-jesd204-rx@a4a90000 {
 			compatible = "adi,axi-jesd204-rx-1.0";
 			reg = <0xa4a90000 0x1000>;
@@ -347,11 +344,7 @@
 
 			jesd204-device;
 			#jesd204-cells = <2>;
-#ifdef AXI_AION_TRIG
-			jesd204-inputs = <&axi_aion_trig 0 FRAMER_LINK_A0_RX>;
-#else
-			jesd204-inputs = <&hmc7044 0 FRAMER_LINK_B0_RX>;
-#endif
+			jesd204-inputs = <&hmc7044 0 FRAMER_LINK_A0_RX>;
 
 			reset-done-gpios = <&axi_gpio 32 0>;
 			pll-datapath-reset-gpios = <&axi_gpio 36 0>;
@@ -372,11 +365,7 @@
 
 			jesd204-device;
 			#jesd204-cells = <2>;
-#ifdef AXI_AION_TRIG
-			jesd204-inputs = <&axi_aion_trig 0 DEFRAMER_LINK_A0_TX>;
-#else
-			jesd204-inputs = <&hmc7044 0 DEFRAMER_LINK_B0_TX>;
-#endif
+			jesd204-inputs = <&hmc7044 0 DEFRAMER_LINK_A0_TX>;
 			reset-done-gpios = <&axi_gpio 33 0>;
 			pll-datapath-reset-gpios = <&axi_gpio 37 0>;
 			datapath-reset-gpios = <&axi_gpio 39 0>;
@@ -401,6 +390,27 @@
 			xlnx,num-ss-bits = <0x8>;
 			xlnx,spi-mode = <0>;
 		};
+
+#ifdef WITH_FSRC
+		axi_fsrc_sequencer: axi-fsrc-sequencer@a4540000 {
+			compatible = "adi,axi-fsrc-sequencer";
+			reg = <0xa4540000 0x10000>;
+
+			trig-gpios = <&axi_gpio 26 GPIO_ACTIVE_HIGH>; // 58-32 offset
+			fsrc-topology = <&axi_fsrc_tx &axi_fsrc_rx>;
+			#io-channel-cells = <1>;
+		};
+
+		axi_fsrc_tx: axi-fsrc-sequencer@a4510000 {
+			reg = <0xa4510000 0x10000>;
+			adi,fsrc_tx;
+		};
+
+		axi_fsrc_rx: axi-fsrc-sequencer@a4500000 {
+			reg = <0xa4500000 0x10000>;
+			adi,fsrc_rx;
+		};
+#endif /* WITH_FSRC */
 	};
 };
 
@@ -432,15 +442,16 @@
 		reg = <1>;
 		spi-max-frequency = <1000000>;
 
-		jesd204-device;
-		#jesd204-cells = <2>;
-
 		clocks = <&clkin_125>;
 		clock-names = "clkin0";
 
+		jesd204-device;
+		#jesd204-cells = <2>;
+#ifdef WITH_AION
 		jesd204-inputs =
 			<&adf4030 0 FRAMER_LINK_A0_RX>,
 			<&adf4030 0 DEFRAMER_LINK_A0_TX>;
+#endif /* WITH_AION */
 
 		adi,pll1-clkin-frequencies = <125000000 125000000 125000000 125000000>;
 		adi,vcxo-frequency = <125000000>;
@@ -519,6 +530,7 @@
 		};
 	};
 
+#ifdef WITH_AION
 	adf4030: adf4030@2 {
 		#clock-cells = <1>;
 		compatible = "adi,adf4030";
@@ -539,10 +551,12 @@
 
 		jesd204-device;
 		#jesd204-cells = <2>;
-
-		/* The actual is axi_aion, but that does not contain a callback jesd204_cb,
-		   so use this node as the beginning of the chain */
 		jesd204-sysref-provider;
+
+		jesd204-inputs =
+			<&axi_aion_trig 0 FRAMER_LINK_A0_RX>,
+			<&axi_aion_trig 0 DEFRAMER_LINK_A0_TX>;
+
 		adi,jesd204-max-sysref-frequency-hz = <2000000>;
 
 		adi,vco-frequency-hz = <2500000000>; /* 2.5 GHz */
@@ -581,14 +595,6 @@
 			adi,link-rx-en;
 			adi,float-rx-en;
 		};
-		channel@3 {
-			reg = <3>;
-			adi,extended-name = "BOGUS3";
-		};
-		channel@4 {
-			reg = <4>;
-			adi,extended-name = "BOGUS4";
-		};
 		channel@5 {
 			/* apollo input */
 			reg = <5>;
@@ -599,14 +605,6 @@
 			adi,rcm = <1>;
 			adi,link-rx-en;
 			adi,float-rx-en;
-		};
-		channel@6 {
-			reg = <6>;
-			adi,extended-name = "BOGUS6";
-		};
-		channel@7 {
-			reg = <7>;
-			adi,extended-name = "BOGUS7";
 		};
 		channel@8 {
 			/* fpga sysref_in_p/n input */
@@ -628,6 +626,7 @@
 			adi,rcm = <62>;
 		};
 	};
+#endif 	/* WITH_AION */
 };
 
 &axi_spi_2 {
@@ -654,15 +653,27 @@
 		#jesd204-cells = <2>;
 		jesd204-top-device = <0>; /* This is the TOP device */
 		jesd204-ignore-errors;
-		jesd204-link-ids = <DEFRAMER_LINK_A0_TX DEFRAMER_LINK_B0_TX FRAMER_LINK_A0_RX FRAMER_LINK_B0_RX>;
+		jesd204-link-ids = <DEFRAMER_LINK_A0_TX FRAMER_LINK_A0_RX>;
 
 		jesd204-inputs =
 			<&axi_ad9084_core_rx 0 FRAMER_LINK_A0_RX>,
 			<&axi_ad9084_core_tx 0 DEFRAMER_LINK_A0_TX>;
 		reset-gpios = <&axi_gpio 30 0>;
 
+#ifdef WITH_AION
+#ifdef WITH_FSRC
+		io-channels = <&adf4030 5>, <&adf4382 0>, <&axi_fsrc_sequencer 0>;
+		io-channel-names = "bsync", "clk", "fsrc";
+#else
 		io-channels = <&adf4030 5>, <&adf4382 0>;
 		io-channel-names = "bsync", "clk";
+#endif /* WITH_FSRC */
+#else
+#ifdef WITH_FSRC
+#endif
+		io-channels = <&axi_fsrc_sequencer 0>;
+		io-channel-names = "fsrc";
+#endif /* WITH_AION */
 
 		adi,device-profile-fw-name = DEVICE_PROFILE_NAME;
 
