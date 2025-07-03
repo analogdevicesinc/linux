@@ -35,6 +35,13 @@
 #error "HMC7044_PLL2_FREQ must be defined"
 #endif
 
+#ifdef WITH_AION
+#define JESD_SUBCLASS 1
+#else
+#define JESD_SUBCLASS 0
+#endif
+
+
 / {
 	model = "Analog Devices AD9084-FMCA-EBZ @Xilinx/vcu118";
 
@@ -785,7 +792,7 @@
 		adi,jrx1-physical-lane-mapping = <4 6 2 0 1 7 10 3 5 8 9 11>;
 		adi,jtx1-logical-lane-mapping = <3 9 5 4 2 6 1 7 8 11 0 10>;
 
-		adi,subclass = <1>;
+		adi,subclass = <JESD_SUBCLASS>;
 
 		reset-gpios = <&axi_gpio 62 0>;
 		adi,device-profile-fw-name = DEVICE_PROFILE_NAME;
