@@ -501,7 +501,7 @@ void adrv906x_switch_cleanup(struct adrv906x_eth_switch *es)
 
 int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 {
-	int ret;
+	int portid, ret;
 
 	adrv906x_switch_dsa_tx_enable(es, false);
 	adrv906x_switch_dsa_rx_enable(es, true);
@@ -517,7 +517,12 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	ret = adrv906x_switch_packet_trapping_set(es);
 	if (ret)
 		return ret;
-	adrv906x_switch_port_enable(es, SWITCH_CPU_PORT, true);
+
+	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
+		ret = adrv906x_switch_port_enable(es, portid, portid == SWITCH_CPU_PORT);
+		if (ret)
+			return ret;
+	}
 
 	INIT_DELAYED_WORK(&es->update_stats, adrv906x_switch_update_hw_stats);
 	mod_delayed_work(system_long_wq, &es->update_stats, msecs_to_jiffies(1000));
