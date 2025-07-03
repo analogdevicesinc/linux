@@ -167,7 +167,12 @@ Description:
 		is required is a consistent labeling.  Units after application
 		of scale and offset are millivolts.
 
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_rms_raw
+
 What:		/sys/bus/iio/devices/iio:deviceX/in_powerY_raw
+What:		/sys/bus/iio/devices/iio:deviceX/in_powerY_active_raw
+What:		/sys/bus/iio/devices/iio:deviceX/in_powerY_reactive_raw
+What:		/sys/bus/iio/devices/iio:deviceX/in_powerY_apparent_raw
 KernelVersion:	4.5
 Contact:	linux-iio@vger.kernel.org
 Description:
@@ -175,6 +180,8 @@ Description:
 		channel Y. The number must always be specified and
 		unique to allow association with event codes. Units after
 		application of scale and offset are milliwatts.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_powerY_power_factor
 
 What:		/sys/bus/iio/devices/iio:deviceX/in_capacitanceY_raw
 KernelVersion:	3.2
@@ -1569,6 +1576,12 @@ Description:
 
 What:		/sys/.../iio:deviceX/in_energy_input
 What:		/sys/.../iio:deviceX/in_energy_raw
+What:		/sys/.../iio:deviceX/in_energyY_active_raw
+What:		/sys/.../iio:deviceX/in_energyY_reactive_raw
+What:		/sys/.../iio:deviceX/in_energyY_apparent_raw
+What:		/sys/.../iio:deviceX/in_energyY_active_accum_raw
+What:		/sys/.../iio:deviceX/in_energyY_reactive_accum_raw
+What:		/sys/.../iio:deviceX/in_energyY_apparent_accum_raw
 KernelVersion:	4.0
 Contact:	linux-iio@vger.kernel.org
 Description:
@@ -1692,6 +1705,7 @@ Description:
 
 What:		/sys/bus/iio/devices/iio:deviceX/in_currentY_raw
 What:		/sys/bus/iio/devices/iio:deviceX/in_currentY_supply_raw
+What:		/sys/bus/iio/devices/iio:deviceX/in_currentY_rms_raw
 KernelVersion:	3.17
 Contact:	linux-iio@vger.kernel.org
 Description:
