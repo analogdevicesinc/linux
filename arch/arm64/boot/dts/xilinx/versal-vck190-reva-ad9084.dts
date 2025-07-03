@@ -26,6 +26,12 @@
 #define SYSREF_CLK_MHz		(9765625)
 #endif
 
+#ifdef WITH_AION
+#define JESD_SUBCLASS 1
+#else
+#define JESD_SUBCLASS 0
+#endif /* WITH_AION */
+
 / {
 	clocks {
 		clkin_125: clock@0 {
@@ -658,6 +664,7 @@
 		jesd204-inputs =
 			<&axi_ad9084_core_rx 0 FRAMER_LINK_A0_RX>,
 			<&axi_ad9084_core_tx 0 DEFRAMER_LINK_A0_TX>;
+
 		reset-gpios = <&axi_gpio 30 0>;
 
 #ifdef WITH_AION
@@ -670,9 +677,9 @@
 #endif /* WITH_FSRC */
 #else
 #ifdef WITH_FSRC
-#endif
 		io-channels = <&axi_fsrc_sequencer 0>;
 		io-channel-names = "fsrc";
+#endif
 #endif /* WITH_AION */
 
 		adi,device-profile-fw-name = DEVICE_PROFILE_NAME;
@@ -682,6 +689,8 @@
 
 		adi,jrx1-physical-lane-mapping = <1  7 10  3  5  8  9 11 11 11 11 11>;
 		adi,jtx1-logical-lane-mapping = <11 5  1  0 11  2 11  3  4  7  11 6>;
+
+		adi,subclass = <JESD_SUBCLASS>;
 
 		adi,invalid-en;
 	};
