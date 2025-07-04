@@ -353,8 +353,8 @@ static int axi_hdmi_rx_log_status(struct file *file, void *priv)
 static int axi_hdmi_rx_querycap(struct file *file, void *priv_fh,
 	struct v4l2_capability *vcap)
 {
-	strlcpy(vcap->driver, "axi_hdmi_rx", sizeof(vcap->driver));
-	strlcpy(vcap->card, "axi_hdmi_rx", sizeof(vcap->card));
+	strscpy(vcap->driver, "axi_hdmi_rx", sizeof(vcap->driver));
+	strscpy(vcap->card, "axi_hdmi_rx", sizeof(vcap->card));
 	snprintf(vcap->bus_info, sizeof(vcap->bus_info), "platform:axi-hdmi-rx");
 	vcap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
 	vcap->capabilities = vcap->device_caps | V4L2_CAP_DEVICE_CAPS;
@@ -445,35 +445,35 @@ static int axi_hdmi_rx_enum_fmt_vid_cap(struct file *file, void *priv_fh,
 {
 	switch (f->index) {
 	case 0:
-		strlcpy(f->description, "BGR32", sizeof(f->description));
+		strscpy(f->description, "BGR32", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_BGR32;
 		break;
 	case 1:
-		strlcpy(f->description, "RGB24", sizeof(f->description));
+		strscpy(f->description, "RGB24", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_RGB24;
 		break;
 	case 2:
-		strlcpy(f->description, "RGB32", sizeof(f->description));
+		strscpy(f->description, "RGB32", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_RGB32;
 		break;
 	case 3:
-		strlcpy(f->description, "BGR24", sizeof(f->description));
+		strscpy(f->description, "BGR24", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_BGR24;
 		break;
 	case 4:
-		strlcpy(f->description, "YCBCr", sizeof(f->description));
+		strscpy(f->description, "YCBCr", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_YVYU;
 		break;
 	case 5:
-		strlcpy(f->description, "YCrCb", sizeof(f->description));
+		strscpy(f->description, "YCrCb", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_YUYV;
 		break;
 	case 6:
-		strlcpy(f->description, "CbCrY", sizeof(f->description));
+		strscpy(f->description, "CbCrY", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_VYUY;
 		break;
 	case 7:
-		strlcpy(f->description, "CrCbY", sizeof(f->description));
+		strscpy(f->description, "CrCbY", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_UYVY;
 		break;
 	default:
