@@ -1646,7 +1646,7 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 		ret = of_property_read_string(
 				chan_np, "adi,extended-name", &str);
 		if (ret >= 0)
-			strlcpy(pdata->channels[cnt].extended_name, str,
+			strscpy(pdata->channels[cnt].extended_name, str,
 					sizeof(pdata->channels[cnt].extended_name));
 
 		cnt++;
