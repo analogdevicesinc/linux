@@ -21,6 +21,12 @@ properties:
 
   reset-gpios: true
 
+  power-supplies:
+    description: Device power supplies (must be provided via regulators)
+    type: array
+    items:
+      type: string
+
   adi,range-microvolt:
     description: Voltage output range <min, max> in microvolts
     oneOf:
@@ -41,11 +47,13 @@ properties:
     description: Output digital slew control time in microseconds
     minimum: 0
     maximum: 1000000
+    default: 0
 
 required:
   - compatible
   - reg
   - spi-max-frequency
+  - power-supplies
 
 allOf:
   - $ref: /schemas/spi/spi-peripheral-props.yaml#
