@@ -887,10 +887,24 @@ static int adf4030_read_avail(struct iio_dev *indio_dev,
 	}
 }
 
+static int adf4030_fwnode_xlate(struct iio_dev *indio_dev,
+				const struct fwnode_reference_args *iiospec)
+{
+	struct adf4030_state *st = iio_priv(indio_dev);
+
+	for (int i = 0; i < st->num_channels; i++) {
+		if (st->channels[i].num == iiospec->args[0])
+			return i;
+	}
+
+	return -EINVAL;
+}
+
 static const struct iio_info adf4030_iio_info = {
 	.read_raw = &adf4030_read_raw,
 	.write_raw = &adf4030_write_raw,
 	.read_avail = &adf4030_read_avail,
+	.fwnode_xlate = &adf4030_fwnode_xlate,
 	.debugfs_reg_access = &adf4030_reg_access,
 };
 
