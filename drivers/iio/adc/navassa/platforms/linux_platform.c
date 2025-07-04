@@ -31,7 +31,8 @@
  * \retval ADI_COMMON_ERR_NULL_PARAM The function has been called with a null pointer
  * \retval ADI_COMMON_ERR_API_FAIL If the function failed to flush to write
  */
-int32_t linux_log_write(void *devHalCfg, uint32_t log_level, const char *comment, va_list argp)
+static int32_t linux_log_write(void *devHalCfg, uint32_t log_level, const char *comment,
+			       va_list argp)
 {
 	int ret;
 	struct adrv9002_hal_cfg *hal_cfg = devHalCfg;
@@ -99,7 +100,7 @@ int32_t linux_log_write(void *devHalCfg, uint32_t log_level, const char *comment
  * \retval ADI_COMMON_ERR_NULL_PARAM the function has been called with a null pointer
  * \retval ADI_COMMON_ERR_API_FAIL the data was not written successfully
  */
-int32_t linux_spi_write(void *devHalCfg, const uint8_t txData[], uint32_t numTxBytes)
+static int32_t linux_spi_write(void *devHalCfg, const uint8_t txData[], uint32_t numTxBytes)
 {
 	u32 to_wr = 0;
 	int remaining = numTxBytes;
@@ -140,8 +141,8 @@ int32_t linux_spi_write(void *devHalCfg, const uint8_t txData[], uint32_t numTxB
  * \retval ADI_COMMON_ERR_NULL_PARAM the function has been called with a null pointer
  * \retval ADI_COMMON_ERR_API_FAIL the data was not read successfully
  */
-int32_t linux_spi_read(void *devHalCfg, const uint8_t txData[], uint8_t rxData[],
-		       uint32_t numTxRxBytes)
+static int32_t linux_spi_read(void *devHalCfg, const uint8_t txData[], uint8_t rxData[],
+			      uint32_t numTxRxBytes)
 {
 	int remaining = numTxRxBytes;
 	int ret;
@@ -175,7 +176,7 @@ int32_t linux_spi_read(void *devHalCfg, const uint8_t txData[], uint8_t rxData[]
  *
  * \retval ADI_COMMON_ERR_OK Function completed successfully
  */
-int32_t linux_wait_us(void *devHalCfg, uint32_t time_us)
+static int32_t linux_wait_us(void *devHalCfg, uint32_t time_us)
 {
 	usleep_range(time_us, time_us + 10);
 	return ADI_COMMON_ERR_OK;
@@ -188,7 +189,7 @@ int32_t linux_wait_us(void *devHalCfg, uint32_t time_us)
  *
  * \retval ADI_COMMON_ERR_OK Function completed successfully, no action required
  */
-int32_t linux_hw_open(void *devHalCfg)
+static int32_t linux_hw_open(void *devHalCfg)
 {
 	return ADI_COMMON_ERR_OK;
 }
@@ -201,7 +202,7 @@ int32_t linux_hw_open(void *devHalCfg)
  *
  * \retval ADI_COMMON_ERR_OK Function completed successfully, no action required
  */
-int32_t linux_hw_close(void *devHalCfg)
+static int32_t linux_hw_close(void *devHalCfg)
 {
 	return ADI_COMMON_ERR_OK;
 }
@@ -219,7 +220,7 @@ int32_t linux_hw_close(void *devHalCfg)
  * \retval ADI_COMMON_ERR_OK Function completed successfully, no action required
  * \retval ADI_COMMON_ERR_NULL_PARAM The function has been called with a null pointer
  */
-int32_t linux_hw_reset(void *devHalCfg, uint8_t pinLevel)
+static int32_t linux_hw_reset(void *devHalCfg, uint8_t pinLevel)
 {
 	struct adrv9002_hal_cfg *hal_cfg = devHalCfg;
 
@@ -237,18 +238,18 @@ int32_t linux_hw_reset(void *devHalCfg, uint8_t pinLevel)
 	return ADI_COMMON_ERR_OK;
 }
 
-int32_t linux_mcs_pulse(void* devHalCfg, uint8_t numberOfPulses)
+static int32_t linux_mcs_pulse(void *devHalCfg, uint8_t numberOfPulses)
 {
 	return ADI_COMMON_ERR_OK;
 }
 
-int32_t linux_ssi_reset(void* devHalCfg)
+static int32_t linux_ssi_reset(void *devHalCfg)
 {
 	return ADI_COMMON_ERR_OK;
 }
 
-int32_t linux_image_page_get(void *devHalCfg, const char *ImagePath, uint32_t pageIndex,
-			     uint32_t pageSize, uint8_t *rdBuff)
+static int32_t linux_image_page_get(void *devHalCfg, const char *ImagePath, uint32_t pageIndex,
+				    uint32_t pageSize, uint8_t *rdBuff)
 {
 	struct adrv9002_hal_cfg *hal_cfg = devHalCfg;
 	struct spi_device *spi = hal_cfg->spi;
@@ -273,10 +274,11 @@ int32_t linux_image_page_get(void *devHalCfg, const char *ImagePath, uint32_t pa
 	return 0;
 }
 
-int32_t linux_rx_gain_table_entry_get(void *devHalCfg, const char *rxGainTablePath,
-				      uint16_t lineCount, uint8_t *gainIndex, uint8_t *rxFeGain,
-				      uint8_t *tiaControl, uint8_t *adcControl, uint8_t *extControl,
-				      uint16_t *phaseOffset, int16_t *digGain)
+static int32_t linux_rx_gain_table_entry_get(void *devHalCfg, const char *rxGainTablePath,
+					     uint16_t lineCount, uint8_t *gainIndex,
+					     uint8_t *rxFeGain, uint8_t *tiaControl,
+					     uint8_t *adcControl, uint8_t *extControl,
+					     uint16_t *phaseOffset, int16_t *digGain)
 {
 	struct adrv9002_hal_cfg *hal_cfg = devHalCfg;
 	struct spi_device *spi = hal_cfg->spi;
@@ -318,9 +320,9 @@ int32_t linux_rx_gain_table_entry_get(void *devHalCfg, const char *rxGainTablePa
 	return ret < 0 ? ADI_COMMON_ERR_API_FAIL : ret;
 }
 
-int32_t linux_tx_atten_table_entry_get(void *devHalCfg, const char *txAttenTablePath,
-				       uint16_t lineCount, uint16_t *attenIndex, uint8_t *txAttenHp,
-				       uint16_t *txAttenMult)
+static int32_t linux_tx_atten_table_entry_get(void *devHalCfg, const char *txAttenTablePath,
+					      uint16_t lineCount, uint16_t *attenIndex,
+					      uint8_t *txAttenHp, uint16_t *txAttenMult)
 {
 	struct adrv9002_hal_cfg *hal_cfg = devHalCfg;
 	struct spi_device *spi = hal_cfg->spi;
