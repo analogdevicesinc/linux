@@ -4375,8 +4375,8 @@ static void ad9371_info(struct ad9371_rf_phy *phy)
 		 phy->jdev ? " via jesd204-fsm" : "");
 }
 
-int ad9371_jesd204_link_pre_setup(struct jesd204_dev *jdev,
-				  enum jesd204_state_op_reason reason)
+static int ad9371_jesd204_link_pre_setup(struct jesd204_dev *jdev,
+					 enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct ad9371_jesd204_priv *priv = jesd204_dev_priv(jdev);
