@@ -856,7 +856,7 @@ static int ad9361_spi_writem(struct spi_device *spi,
 	return 0;
 }
 
-u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
+static u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
 {
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 	case ID_AD9363A:
@@ -866,7 +866,7 @@ u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
 	}
 }
 
-int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, bool is_tx, u64 freq)
+static int ad9361_validate_rfpll(struct ad9361_rf_phy *phy, bool is_tx, u64 freq)
 {
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 		case ID_AD9363A:

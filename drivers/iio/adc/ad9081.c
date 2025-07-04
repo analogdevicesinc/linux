@@ -339,7 +339,7 @@ static int adi_ad9081_adc_nco_sync(adi_ad9081_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
-int adi_ad9081_device_gpio_set_highz(adi_ad9081_device_t *device, u8 gpio_index)
+static int adi_ad9081_device_gpio_set_highz(adi_ad9081_device_t *device, u8 gpio_index)
 {
 	int err;
 
@@ -381,8 +381,8 @@ static int ad9081_nco_sync(struct ad9081_phy *phy, bool master)
 					     phy->nco_sync_ms_extra_lmfc_num);
 }
 
-int32_t ad9081_jesd_tx_link_dig_reset(adi_ad9081_device_t *device,
-				      uint8_t reset)
+static int32_t ad9081_jesd_tx_link_dig_reset(adi_ad9081_device_t *device,
+					     uint8_t reset)
 {
 	int32_t err;
 
@@ -408,8 +408,8 @@ ad9081_link_sel(struct ad9081_jesd_link *link)
 	return ad9081_link_is_dual(link) ? AD9081_LINK_ALL : AD9081_LINK_0;
 }
 
-int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
-			 va_list argp)
+static int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
+				va_list argp)
 {
 	struct axiadc_converter *conv = user_data;
 	char logMessage[160];
@@ -898,7 +898,7 @@ static const struct iio_enum ad9081_testmode_enum = {
 	.get = ad9081_testmode_read,
 };
 
-int ad9081_iio_val_to_str(char *buf, u32 max, int val)
+static int ad9081_iio_val_to_str(char *buf, u32 max, int val)
 {
 	int vals[2];
 
@@ -908,7 +908,7 @@ int ad9081_iio_val_to_str(char *buf, u32 max, int val)
 	return iio_format_value(buf, IIO_VAL_FRACTIONAL, 2, vals);
 }
 
-int ad9081_iio_str_to_val(const char *str, int min, int max, int *val)
+static int ad9081_iio_str_to_val(const char *str, int min, int max, int *val)
 {
 	int ret, integer, fract;
 
@@ -1942,8 +1942,8 @@ static const char *const ad9081_jtx_qbf_states[] = {
 	"ILA_BP", "DATA"
 };
 
-int ad9081_jesd_tx_link_status_print(struct ad9081_phy *phy,
-				     struct jesd204_link *lnk, int retry)
+static int ad9081_jesd_tx_link_status_print(struct ad9081_phy *phy,
+					    struct jesd204_link *lnk, int retry)
 {
 	int ret, l;
 	u16 stat;
@@ -4818,8 +4818,7 @@ static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
-int ad9081_jesd204_uninit(struct jesd204_dev *jdev,
-			    enum jesd204_state_op_reason reason)
+static int ad9081_jesd204_uninit(struct jesd204_dev *jdev, enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 
