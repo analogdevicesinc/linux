@@ -5420,7 +5420,7 @@ static char *adrv9009_clk_set_dev_name(struct adrv9009_rf_phy *phy,
 		return NULL;
 
 	if (*name == '-')
-		len = strlcpy(dest, dev_name(&phy->spi->dev),
+		len = strscpy(dest, dev_name(&phy->spi->dev),
 			      ADRV9009_MAX_CLK_NAME);
 	else
 		*dest = '\0';

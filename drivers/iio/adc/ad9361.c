@@ -6545,7 +6545,7 @@ static char *ad9361_clk_set_dev_name(struct ad9361_rf_phy *phy,
 		return NULL;
 
 	if (*name == '-')
-		len = strlcpy(dest, dev_name(&phy->spi->dev),
+		len = strscpy(dest, dev_name(&phy->spi->dev),
 			      AD9361_MAX_CLK_NAME);
 	else
 		*dest = '\0';
