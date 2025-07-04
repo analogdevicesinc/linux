@@ -710,10 +710,6 @@
 			adi,link-rx-en;
 			adi,float-rx-en;
 		};
-		channel@7 {
-			reg = <7>;
-			adi,extended-name = "BOGUS7";
-		};
 
 		channel@8 {
 			/* fpga sysref_in_p/n input */
