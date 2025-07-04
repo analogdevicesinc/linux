@@ -621,7 +621,7 @@ err_release:
 	return ret;
 }
 
-static int ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
+static void ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
 {
 	struct iio_dev *indio_dev = gpiochip_get_data(chip);
 	struct ad7768_state *st = iio_priv(indio_dev);
@@ -629,7 +629,7 @@ static int ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int valu
 	int ret;
 
 	if (!iio_device_claim_direct(indio_dev))
-		return -EBUSY;
+		return ;
 
 	ret = regmap_read(st->regmap, AD7768_REG_GPIO_CONTROL, &val);
 	if (ret)
@@ -642,7 +642,7 @@ static int ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int valu
 err_release:
 	iio_device_release_direct(indio_dev);
 
-	return ret;
+	return ;
 }
 
 static int ad7768_gpio_init(struct iio_dev *indio_dev)
@@ -664,7 +664,7 @@ static int ad7768_gpio_init(struct iio_dev *indio_dev)
 		.direction_input = ad7768_gpio_direction_input,
 		.direction_output = ad7768_gpio_direction_output,
 		.get = ad7768_gpio_get,
-		.set_rv = ad7768_gpio_set,
+		.set = ad7768_gpio_set,
 		.owner = THIS_MODULE,
 	};
 
