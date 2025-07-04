@@ -67,7 +67,7 @@ static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
 	return ioread32(st->regs + reg);
 }
 
-static const char mc_ctrl_sensors[3][8] = {"hall", "bemf", "resolver"};
+static const char mc_ctrl_sensors[3][9] = {"hall", "bemf", "resolver"};
 
 static int mc_ctrl_reg_access(struct iio_dev *indio_dev,
 	unsigned reg, unsigned writeval, unsigned *readval)
