@@ -414,7 +414,18 @@ config BATTERY_MAX1721X
 
 	  Say Y here to enable support for the MAX17211/MAX17215 standalone
 	  battery gas-gauge.
+	  
+config BATTERY_MAX1721X
+	tristate "MAX17201/MAX17215 standalone gas-gauge"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  MAX1720x is fuel-gauge systems for lithium-ion (Li+) batteries
+	  in handheld and portable equipment.
 
+	  Say Y here to enable support for the MAX17201/MAX17335 standalone
+	  battery gas-gauge.
+	  
 config BATTERY_TWL4030_MADC
 	tristate "TWL4030 MADC battery driver"
 	depends on TWL4030_MADC
