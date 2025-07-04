@@ -236,11 +236,11 @@ void adrv906x_eth_cmn_recovered_clk_config(struct adrv906x_eth_dev *adrv906x_dev
 	mutex_unlock(&eth_if->mtx);
 }
 
-void adrv906x_eth_cmn_mode_cfg(struct adrv906x_eth_dev *adrv906x_dev)
+void adrv906x_eth_cmn_mode_cfg(struct net_device *ndev)
 {
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	void __iomem *regs = adrv906x_dev->parent->emac_cmn_regs;
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
-	struct net_device *ndev = adrv906x_dev->ndev;
 	struct phy_device *phydev = ndev->phydev;
 	u32 val;
 
