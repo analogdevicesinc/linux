@@ -1080,6 +1080,7 @@ static void __pll_cfg_10G_send(void *param)
 	netdev = phydev->attached_dev;
 
 	adrv906x_eth_cmn_pll_reset(netdev);
+	adrv906x_eth_cmn_mode_cfg(netdev);
 	ret = adrv906x_phy_send_message(NL_CMD_PLL_CFG_REQ, pll->dev_id, SPEED_10000);
 	if (ret)
 		adrv906x_phy_fsm_trigger_transition(fsm, PLL_EVT_APP_INACT);
@@ -1103,6 +1104,7 @@ static void __pll_cfg_25G_send(void *param)
 	netdev = phydev->attached_dev;
 
 	adrv906x_eth_cmn_pll_reset(netdev);
+	adrv906x_eth_cmn_mode_cfg(netdev);
 	ret = adrv906x_phy_send_message(NL_CMD_PLL_CFG_REQ, pll->dev_id, SPEED_25000);
 	if (ret)
 		adrv906x_phy_fsm_trigger_transition(fsm, PLL_EVT_APP_INACT);

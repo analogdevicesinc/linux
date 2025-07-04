@@ -142,7 +142,6 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 
 	if (phydev->link) {
 		adrv906x_tsu_set_speed(tsu, phydev->speed);
-		adrv906x_eth_cmn_mode_cfg(adrv906x_dev);
 		adrv906x_eth_cmn_recovered_clk_config(adrv906x_dev);
 		adrv906x_mac_set_path(mac, true);
 
