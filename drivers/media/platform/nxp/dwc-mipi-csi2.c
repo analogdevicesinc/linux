@@ -147,7 +147,7 @@
 
 /* IPI Data Type */
 #define CSI2RX_IPI_DATA_TYPE				0x88
-#define CSI2RX_IPI_DATA_TYPE_EMB_DATA_EN		BIT(8)
+#define CSI2RX_IPI_DATA_TYPE_EMB_DATA_EN(x)		FIELD_PREP(BIT(8), (x))
 #define CSI2RX_IPI_DATA_TYPE_DT(x)			FIELD_PREP(GENMASK(5, 0), (x))
 
 /* IPI Flush Memory */
@@ -505,6 +505,11 @@ static const struct dwc_csi_pix_format dwc_csi_formats[] = {
 		.output = MEDIA_BUS_FMT_SRGGB16_1X16,
 		.data_type = MIPI_CSI2_DT_RAW16,
 		.width = 16,
+	}, {
+		.code = MEDIA_BUS_FMT_CCS_EMBEDDED,
+		.output = MEDIA_BUS_FMT_CCS_EMBEDDED,
+		.data_type = MIPI_CSI2_DT_EMBEDDED_8B,
+		.width = 8,
 	}
 };
 
@@ -633,18 +638,25 @@ static int dwc_csi_device_ipi_config(struct dwc_csi_device *csidev,
 	const struct dwc_csi_pix_format *csi_fmt = NULL;
 	struct v4l2_subdev_route *route;
 	struct v4l2_mbus_framefmt *fmt;
+	bool emb_en = false;
 	u32 val;
 
-	if (state->routing.num_routes > 1)
+	if (state->routing.num_routes > 2)
 		return -EINVAL;
 
 	for_each_active_route(&state->routing, route) {
+		const struct dwc_csi_pix_format *route_csi_fmt;
+
 		fmt = v4l2_subdev_state_get_format(state, route->sink_pad,
 						   route->sink_stream);
 		if (!fmt)
 			return -EINVAL;
 
-		csi_fmt = find_csi_format(fmt->code);
+		route_csi_fmt = find_csi_format(fmt->code);
+		if (route_csi_fmt->data_type == MIPI_CSI2_DT_EMBEDDED_8B)
+			emb_en = true;
+		else
+			csi_fmt = route_csi_fmt;
 	}
 
 	/* Do IPI soft reset */
@@ -653,6 +665,7 @@ static int dwc_csi_device_ipi_config(struct dwc_csi_device *csidev,
 
 	/* Select virtual channel and data type to be processed by IPI */
 	val = CSI2RX_IPI_DATA_TYPE_DT(csi_fmt->data_type);
+	val |= CSI2RX_IPI_DATA_TYPE_EMB_DATA_EN(emb_en);
 	dwc_csi_write(csidev, CSI2RX_IPI_DATA_TYPE, val);
 
 	/* Set virtual channel 0 as default */
