@@ -358,7 +358,6 @@ struct dwc_csi_device {
 	struct mutex lock;
 
 	struct dwc_csi_event events[DWC_NUM_EVENTS];
-	const struct dwc_csi_pix_format *csi_fmt;
 
 	/* Used for pattern generator */
 	bool pg_enable;
@@ -546,21 +545,27 @@ static inline u32 dwc_csi_read(struct dwc_csi_device *csidev,
  * DWC MIPI CSI-2 Host Controller Hardware operation
  */
 
-static int dwc_csi_device_pg_enable(struct dwc_csi_device *csidev)
+static int dwc_csi_device_pg_enable(struct dwc_csi_device *csidev,
+				    struct v4l2_subdev_state *state)
 {
-	const struct dwc_csi_pix_format *csi_fmt = csidev->csi_fmt;
+	const struct dwc_csi_pix_format *csi_fmt;
 	struct v4l2_subdev *sd = &csidev->sd;
 	struct v4l2_mbus_framefmt *fmt;
-	struct v4l2_subdev_state *state;
 	u32 val;
 
 	if (!csidev->pg_enable)
 		return 0;
 
-	if (!csi_fmt) {
-		dev_err(csidev->dev, "CSI pixel format is NULL\n");
+	if (state->routing.num_routes != 1)
 		return -EINVAL;
-	}
+
+	fmt = v4l2_subdev_state_get_format(state,
+					   state->routing.routes[0].sink_pad,
+					   state->routing.routes[0].sink_stream);
+	if (!fmt)
+		return -EINVAL;
+
+	csi_fmt = find_csi_format(fmt->code);
 
 	if (csi_fmt->data_type != MIPI_CSI2_DT_RGB888) {
 		dev_err(csidev->dev, "Pattern generator only support RGB888\n");
@@ -622,10 +627,25 @@ static void dwc_csi_ipi_disable(struct dwc_csi_device *csidev)
 	dwc_csi_write(csidev, CSI2RX_IPI_MODE, 0);
 }
 
-static void dwc_csi_device_ipi_config(struct dwc_csi_device *csidev)
+static int dwc_csi_device_ipi_config(struct dwc_csi_device *csidev,
+				     struct v4l2_subdev_state *state)
 {
-	const struct dwc_csi_pix_format *csi_fmt = csidev->csi_fmt;
+	const struct dwc_csi_pix_format *csi_fmt = NULL;
+	struct v4l2_subdev_route *route;
+	struct v4l2_mbus_framefmt *fmt;
 	u32 val;
+
+	if (state->routing.num_routes > 1)
+		return -EINVAL;
+
+	for_each_active_route(&state->routing, route) {
+		fmt = v4l2_subdev_state_get_format(state, route->sink_pad,
+						   route->sink_stream);
+		if (!fmt)
+			return -EINVAL;
+
+		csi_fmt = find_csi_format(fmt->code);
+	}
 
 	/* Do IPI soft reset */
 	dwc_csi_write(csidev, CSI2RX_IPI_SOFTRSTN, 0x0);
@@ -648,6 +668,8 @@ static void dwc_csi_device_ipi_config(struct dwc_csi_device *csidev)
 	val &= ~CSI2RX_IPI_MODE_COLOR_MODE16;
 	val |= CSI2RX_IPI_MODE_CUT_THROUGH;
 	dwc_csi_write(csidev, CSI2RX_IPI_MODE, val);
+
+	return 0;
 }
 
 static void dwc_csi_device_reset(struct dwc_csi_device *csidev)
@@ -948,7 +970,6 @@ static int dwc_csi_subdev_set_fmt(struct v4l2_subdev *sd,
 				   struct v4l2_subdev_state *sd_state,
 				   struct v4l2_subdev_format *sdformat)
 {
-	struct dwc_csi_device *csidev = sd_to_dwc_csi_device(sd);
 	struct dwc_csi_pix_format const *csi_fmt;
 	struct v4l2_mbus_framefmt *fmt;
 	unsigned int align;
@@ -1011,10 +1032,6 @@ static int dwc_csi_subdev_set_fmt(struct v4l2_subdev *sd,
 	/* The format on the source pad might change due to unpacking. */
 	fmt->code = csi_fmt->output;
 
-	/* Store the CSIS format descriptor for active formats. */
-	if (sdformat->which == V4L2_SUBDEV_FORMAT_ACTIVE)
-		csidev->csi_fmt = csi_fmt;
-
 	return 0;
 }
 
@@ -1036,13 +1053,25 @@ static int dwc_csi_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 			       csidev->remote_pad, &source_fd);
 	if (ret < 0) {
 		dev_info(csidev->dev,
-			"Remote sub-device on pad %d should implement .get_frame_desc! Forcing VC = 0 and DT = %x\n",
-			pad, csidev->csi_fmt->data_type);
-		fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
-		fd->num_entries = 1;
-		fd->entry[0].pixelcode = csidev->csi_fmt->code;
-		fd->entry[0].bus.csi2.vc = 0;
-		fd->entry[0].bus.csi2.dt = csidev->csi_fmt->data_type;
+			"Remote sub-device on pad %d should implement .get_frame_desc!\n",
+			pad);
+
+		for_each_active_route(&state->routing, route) {
+			const struct dwc_csi_pix_format *csi_fmt;
+			struct v4l2_mbus_framefmt *fmt;
+
+			fmt = v4l2_subdev_state_get_format(state, route->sink_pad,
+							route->sink_stream);
+			if (!fmt)
+				return -EINVAL;
+
+			csi_fmt = find_csi_format(fmt->code);
+			fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+			fd->entry[fd->num_entries].pixelcode = csi_fmt->code;
+			fd->entry[fd->num_entries].bus.csi2.vc = 0;
+			fd->entry[fd->num_entries].bus.csi2.dt = csi_fmt->data_type;
+			fd->num_entries++;
+		}
 
 		return 0;
 	}
@@ -1099,7 +1128,8 @@ static int dwc_csi_set_routing(struct v4l2_subdev *sd,
 	return __dwc_csi_subdev_set_routing(sd, state, routing);
 }
 
-static int dwc_csi_start_stream(struct dwc_csi_device *csidev)
+static int dwc_csi_start_stream(struct dwc_csi_device *csidev,
+				struct v4l2_subdev_state *state)
 {
 	int ret;
 
@@ -1109,9 +1139,11 @@ static int dwc_csi_start_stream(struct dwc_csi_device *csidev)
 	if (ret)
 		return ret;
 
-	dwc_csi_device_ipi_config(csidev);
+	ret = dwc_csi_device_ipi_config(csidev, state);
+	if (ret)
+		return ret;
 
-	ret = dwc_csi_device_pg_enable(csidev);
+	ret = dwc_csi_device_pg_enable(csidev, state);
 	if (ret)
 		return ret;
 
@@ -1154,7 +1186,7 @@ static int dwc_csi_enable_streams(struct v4l2_subdev *sd,
 
 		dwc_csi_clear_counters(csidev);
 
-		ret = dwc_csi_start_stream(csidev);
+		ret = dwc_csi_start_stream(csidev, state);
 		if (ret < 0)
 			goto err_runtime_put;
 
@@ -1546,11 +1578,6 @@ static irqreturn_t dwc_csi_irq_handler(int irq, void *priv)
  * Probe/remove & platform driver
  */
 
-static inline void dwc_csi_param_init(struct dwc_csi_device *csidev)
-{
-	csidev->csi_fmt = &dwc_csi_formats[0];
-}
-
 static int dwc_csi_subdev_init(struct dwc_csi_device *csidev)
 {
 	struct v4l2_subdev *sd = &csidev->sd;
@@ -1631,8 +1658,6 @@ static int dwc_csi_device_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to get clocks\n");
 		return ret;
 	}
-
-	dwc_csi_param_init(csidev);
 
 	ret = dwc_csi_subdev_init(csidev);
 	if (ret < 0) {
