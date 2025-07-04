@@ -273,7 +273,7 @@ static int frame_buffer_probe(struct platform_device *pdev)
 
 	frm_buff->media_dev.dev = &pdev->dev;
 
-	strlcpy(frm_buff->media_dev.model, "ADI AXI Frame Buffer",
+	strscpy(frm_buff->media_dev.model, "ADI AXI Frame Buffer",
 		sizeof(frm_buff->media_dev.model));
 
 	frm_buff->media_dev.hw_revision = 0;
