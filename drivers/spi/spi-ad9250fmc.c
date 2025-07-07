@@ -40,7 +40,6 @@ static const unsigned char cs_lut[FMC_NUM_SLAVES][2] = {
 
 struct spi_ad9250 {
 	struct spi_device *spi;
-	struct work_struct work;
 	uint8_t data[32] ____cacheline_aligned;
 	unsigned id;
 };
@@ -50,10 +49,10 @@ static inline unsigned cs_to_cpld (unsigned chip_select, unsigned id)
 	return cs_lut[chip_select][id];
 }
 
-static int spi_ad9250_transfer_one(struct spi_master *master,
-	struct spi_message *msg)
+static int spi_ad9250_transfer_one(struct spi_controller *ctrl,
+				   struct spi_message *msg)
 {
-	struct spi_ad9250 *spi_ad9250 = spi_master_get_devdata(master);
+	struct spi_ad9250 *spi_ad9250 = spi_controller_get_devdata(ctrl);
 	struct spi_device *spi = msg->spi;
 	int status = 0, i = 1;
 
@@ -85,7 +84,7 @@ static int spi_ad9250_transfer_one(struct spi_master *master,
 	spi_sync(spi_ad9250->spi, &m);
 
 	msg->status = m.status;
-	spi_finalize_current_message(master);
+	spi_finalize_current_message(ctrl);
 
 	return status;
 }
@@ -98,51 +97,26 @@ static int spi_ad9250_setup(struct spi_device *spi)
 	return 0;
 }
 
-static void spi_ad9250_work(struct work_struct *work)
-{
-	struct spi_ad9250 *spi_ad9250 =
-		container_of(work,struct spi_ad9250, work);
-	struct spi_master *master = spi_get_drvdata(spi_ad9250->spi);
-
-	int ret = spi_register_master(master);
-	if (ret < 0)
-		spi_master_put(master);
-}
-
 static int spi_ad9250_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
 	struct spi_ad9250 *spi_ad9250;
-	struct spi_master *master;
+	struct spi_controller *ctrl;
 
-	master = spi_alloc_master(&spi->dev, sizeof(*spi_ad9250));
-	if (!master)
+	ctrl = devm_spi_alloc_host(&spi->dev, sizeof(*spi_ad9250));
+	if (!ctrl)
 		return -ENOMEM;
 
-	spi_ad9250 = spi_master_get_devdata(master);
+	spi_ad9250 = spi_controller_get_devdata(ctrl);
 	spi_ad9250->id = dev_id->driver_data;
 	spi_ad9250->spi = spi;
-	master->num_chipselect = FMC_NUM_SLAVES;
-	master->mode_bits = SPI_CPHA | SPI_CPOL | SPI_3WIRE;
-	master->setup = spi_ad9250_setup;
-	master->transfer_one_message = spi_ad9250_transfer_one;
-	master->dev.of_node = spi->dev.of_node;
-	spi_set_drvdata(spi, master);
+	ctrl->num_chipselect = FMC_NUM_SLAVES;
+	ctrl->mode_bits = SPI_CPHA | SPI_CPOL | SPI_3WIRE;
+	ctrl->setup = spi_ad9250_setup;
+	ctrl->transfer_one_message = spi_ad9250_transfer_one;
+	ctrl->dev.of_node = spi->dev.of_node;
 
-	/* spi_add_lock in spi_add_device() prevents registering
-	 * the master in place so defer this to an work queue
-	 */
-	INIT_WORK(&spi_ad9250->work, spi_ad9250_work);
-	schedule_work(&spi_ad9250->work);
-
-	return 0;
-}
-
-static void spi_ad9250_remove(struct spi_device *spi)
-{
-	struct spi_master *master = spi_get_drvdata(spi);
-
-	spi_unregister_master(master);
+	return devm_spi_register_controller(&spi->dev, ctrl);
 }
 
 static const struct spi_device_id spi_ad9250_ids[] = {
@@ -150,17 +124,14 @@ static const struct spi_device_id spi_ad9250_ids[] = {
 	{ "spi-adi-daq1", 1 },
 	{ },
 };
-
 MODULE_DEVICE_TABLE(spi, spi_ad9250_ids);
 
 static struct spi_driver spi_ad9250_driver = {
 	.driver = {
 		.name	= "spi-ad9250",
-		.owner	= THIS_MODULE,
 	},
 	.id_table	= spi_ad9250_ids,
 	.probe		= spi_ad9250_probe,
-	.remove		= spi_ad9250_remove,
 };
 module_spi_driver(spi_ad9250_driver);
 
