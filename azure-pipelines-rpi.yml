@@ -25,7 +25,7 @@ stages:
       displayName: 'Checkpatch Script'
 
   - job: BuildDockerized
-    timeoutInMinutes: 75
+    timeoutInMinutes: 90
     strategy:
       matrix:
         bcm2709_arm_adi:
@@ -92,11 +92,11 @@ stages:
     KEY_FILE: $(key.secureFilePath)
   jobs:
   - job: Push_to_SWDownloads
-    condition: and(
-       succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
-       )
+    # condition: and(
+    #    succeeded(),
+    #    or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
+    #       eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
+    #    )
     pool:
       vmImage: 'ubuntu-latest'
     steps:
@@ -113,11 +113,11 @@ stages:
           DEST_SERVER: $(SERVER_ADDRESS)
         displayName: "Push to SWDownloads"
   - job: Push_to_Artifactory
-    condition: and(
-       succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
-       )
+    # condition: and(
+    #    succeeded(),
+    #    or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
+    #       eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
+    #    )
     pool:
       name: Default
       demands:
