@@ -25,7 +25,7 @@ stages:
       displayName: 'Checkpatch Script'
 
   - job: BuildDockerized
-    timeoutInMinutes: 75
+    timeoutInMinutes: 90
     strategy:
       matrix:
         bcm2709_arm_adi:
