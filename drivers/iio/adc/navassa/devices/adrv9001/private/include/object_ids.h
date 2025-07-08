@@ -186,6 +186,7 @@ typedef enum
     OBJID_GS_FREQ_HOP_CONFIGURE       = GENERATE_OBJID(OBJ_GROUP_ID_GS, 0x1Bu),    /*!< 0x9B: Frequency Hopping commands */
     OBJID_GS_TDD_TIMING_PARAMS        = GENERATE_OBJID(OBJ_GROUP_ID_GS, 0x1Cu),    /*!< 0x9C: Set TDD Timing parameters */
     OBJID_GS_LOID                      = GENERATE_OBJID(OBJ_GROUP_ID_GS, 0x1Du),    /*!< 0x9d: set LO ID command parameters */
+    OBJID_GS_RX_PORT_SWITCH_ONLY       = GENERATE_OBJID(OBJ_GROUP_ID_GS, 0x1Eu),    /*!< 0x9E: Switch RX port */
 
     /* Configuration objects ids in OBJ_GROUP_ID_CFG group 
        1-to-1 mapping to IDs defined in cfgId_e
