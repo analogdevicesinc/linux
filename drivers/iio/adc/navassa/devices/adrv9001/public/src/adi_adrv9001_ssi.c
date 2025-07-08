@@ -7,7 +7,7 @@
 */
 
 /**
-* Copyright 2019 Analog Devices Inc.
+* Copyright 2019-2025 Analog Devices Inc.
 * Released under the ADRV9001 API license, for more information
 * see the "LICENSE.txt" file in this zip file.
 */
@@ -379,6 +379,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Tx_TestMode_Status
 
     if ((ADI_ADRV9001_SSI_TESTMODE_DATA_FIXED_PATTERN != ssiTestModeConfig->testData) &&
         (dataFormat != ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA) &&
+        (dataFormat != ADI_ADRV9001_SSI_FORMAT_12_BIT_I_Q_DATA) &&
         (dataFormat != ADI_ADRV9001_SSI_FORMAT_15_BIT_I_Q_DATA_1_BIT_GAIN_CHANGE) &&
         (dataFormat != ADI_ADRV9001_SSI_FORMAT_22_BIT_I_Q_DATA_1_BIT_GAIN_CHANGE_8_BIT_GAIN_INDEX))
     {

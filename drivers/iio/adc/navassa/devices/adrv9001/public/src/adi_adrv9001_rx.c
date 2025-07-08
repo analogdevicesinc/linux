@@ -1648,7 +1648,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_PortSwitch_Configur
     /* NULL pointer check */
     ADI_NULL_PTR_RETURN(&device->common, switchConfig);    
 
-    /* Freuqency range check */
+    /* Frequency range check */
     ADI_RANGE_CHECK_X(device, switchConfig->minFreqPortA_Hz, ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ, ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ, "%llu");    
     ADI_RANGE_CHECK_X(device, switchConfig->maxFreqPortA_Hz, ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ, ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ, "%llu");    
     ADI_RANGE_CHECK_X(device, switchConfig->minFreqPortB_Hz, ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ, ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ, "%llu");    
@@ -1667,18 +1667,22 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_PortSwitch_Configur
         ADI_API_RETURN(device)
     }
 
-    /* Make sure the two ranges do not overlap */
-    if ((switchConfig->minFreqPortA_Hz <= switchConfig->maxFreqPortB_Hz) &&
-        (switchConfig->minFreqPortB_Hz <= switchConfig->maxFreqPortA_Hz))
-    {
-        ADI_ERROR_REPORT(&device->common,
-                         ADI_COMMON_ERRSRC_API,
-                         ADI_COMMON_ERR_API_FAIL,
-                         ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                         NULL,
-                         "Port A and B freuqency ranges cannot overlap.");
-        ADI_API_RETURN(device)
-    }
+    /* Allow frequency range overlapping when Manual Rx Port Switch Enabled */
+	if (!switchConfig->manualRxPortSwitch)
+	{
+		/* Make sure the two ranges do not overlap */
+		if ((switchConfig->minFreqPortA_Hz <= switchConfig->maxFreqPortB_Hz) &&
+		    (switchConfig->minFreqPortB_Hz <= switchConfig->maxFreqPortA_Hz))
+		{
+			ADI_ERROR_REPORT(&device->common,
+				ADI_COMMON_ERRSRC_API,
+				ADI_COMMON_ERR_API_FAIL,
+				ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				NULL,
+				"Port A and B frequency ranges cannot overlap.");
+			ADI_API_RETURN(device)
+		}
+	}
      
     ADI_API_RETURN(device);
 }
@@ -1729,7 +1733,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_PortSwitch_Inspect_
 int32_t adi_adrv9001_Rx_PortSwitch_Inspect(adi_adrv9001_Device_t *device,
                                            adi_adrv9001_RxPortSwitchCfg_t *switchConfig)
 {
-    uint8_t armReadBack[33] = { 0 };
+    uint8_t armReadBack[34] = { 0 };
     uint8_t channelMask = 0;
     uint32_t offset = 0;
 
@@ -1742,7 +1746,8 @@ int32_t adi_adrv9001_Rx_PortSwitch_Inspect(adi_adrv9001_Device_t *device,
     adrv9001_ParseEightBytes(&offset, armReadBack, &switchConfig->minFreqPortB_Hz);
     adrv9001_ParseEightBytes(&offset, armReadBack, &switchConfig->maxFreqPortB_Hz);
 
-    switchConfig->enable = (bool) armReadBack[offset];
+    switchConfig->enable = (bool) armReadBack[offset++];
+	switchConfig->manualRxPortSwitch = (bool) armReadBack[offset++];
     ADI_API_RETURN(device);
 }
 
@@ -2202,4 +2207,126 @@ int32_t adi_adrv9001_Rx_Rssi_Manual_Status_Get(adi_adrv9001_Device_t *adrv9001,
     }
 
 	ADI_API_RETURN(adrv9001);
+}
+
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_ActivePortSwitch_Set_Validate(adi_adrv9001_Device_t *device,
+	                                                                                       adi_common_ChannelNumber_e channel,
+	                                                                                       adi_adrv9001_RxRfInputSel_e nextActivePort)
+{
+	adi_adrv9001_RxPortSwitchCfg_t portSwitchCfg = { 0 };
+
+	ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
+	ADI_RANGE_CHECK(device, nextActivePort, ADI_ADRV9001_RX_A, ADI_ADRV9001_RX_B);
+
+	ADI_EXPECT(adi_adrv9001_Rx_PortSwitch_Inspect, device, &portSwitchCfg);
+
+	if (!portSwitchCfg.enable)
+	{
+		ADI_ERROR_REPORT(device,
+			             ADI_COMMON_ERRSRC_API,
+			             ADI_COMMON_ERR_API_FAIL,
+			             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+			             portSwitchCfg.enable,
+			             "Error attempting to set next Rx port for the specified channel. adi_adrv9001_RxPortSwitchCfg_t.enable should be enabled");
+		ADI_API_RETURN(device);
+	}
+
+	if (!portSwitchCfg.manualRxPortSwitch)
+	{
+		ADI_ERROR_REPORT(device,
+			             ADI_COMMON_ERRSRC_API,
+			             ADI_COMMON_ERR_API_FAIL,
+			             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+			             portSwitchCfg.manualRxPortSwitch,
+			             "Error attempting to set next Rx port for the specified channel. adi_adrv9001_RxPortSwitchCfg_t.manualRxPortSwitch should be enabled");
+		ADI_API_RETURN(device);
+	}
+
+	ADI_API_RETURN(device);
+}
+
+int32_t adi_adrv9001_Rx_ActivePortSwitch_Set(adi_adrv9001_Device_t *device,
+	                                         adi_common_ChannelNumber_e channel,
+	                                         adi_adrv9001_RxRfInputSel_e nextActivePort)
+{
+	uint8_t armData[1] = { 0 };
+	uint8_t extData[2] = { 0 };
+
+	ADI_PERFORM_VALIDATION(adi_adrv9001_Rx_ActivePortSwitch_Set_Validate, device, channel, nextActivePort);
+
+	armData[0] = nextActivePort;
+
+	/* Write new port to ARM mailbox */
+	ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, (uint32_t) ADRV9001_ADDR_ARM_MAILBOX_SET, &armData[0], sizeof(armData), ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
+
+	extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_RX, channel);
+	extData[1] = OBJID_GS_RX_PORT_SWITCH_ONLY;
+
+	ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, device, (uint8_t)ADRV9001_ARM_SET_OPCODE, &extData[0], sizeof(extData));
+
+	ADI_API_RETURN(device);
+}
+
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_ActivePortSwitch_Get_Validate(adi_adrv9001_Device_t *device,
+	                                                                                       adi_common_ChannelNumber_e channel,
+	                                                                                       adi_adrv9001_RxRfInputSel_e *nextActivePort)
+{
+	adi_adrv9001_RxPortSwitchCfg_t portSwitchCfg = { 0 };
+
+	ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
+	ADI_NULL_PTR_RETURN(&device->common, nextActivePort);
+
+	ADI_EXPECT(adi_adrv9001_Rx_PortSwitch_Inspect, device, &portSwitchCfg);
+
+	if (!portSwitchCfg.enable)
+	{
+		ADI_ERROR_REPORT(device,
+			             ADI_COMMON_ERRSRC_API,
+			             ADI_COMMON_ERR_API_FAIL,
+			             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+			             portSwitchCfg.enable,
+			             "Error attempting to get next Rx port for the specified channel. adi_adrv9001_RxPortSwitchCfg_t.enable should be enabled");
+		ADI_API_RETURN(device);
+	}
+
+	if (!portSwitchCfg.manualRxPortSwitch)
+	{
+		ADI_ERROR_REPORT(device,
+			             ADI_COMMON_ERRSRC_API,
+			             ADI_COMMON_ERR_API_FAIL,
+			             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+			             portSwitchCfg.manualRxPortSwitch,
+			             "Error attempting to get next Rx port for the specified channel. adi_adrv9001_RxPortSwitchCfg_t.manualRxPortSwitch should be enabled");
+		ADI_API_RETURN(device);
+	}
+
+	ADI_API_RETURN(device);
+}
+
+int32_t adi_adrv9001_Rx_ActivePortSwitch_Get(adi_adrv9001_Device_t *device,
+	                                         adi_common_ChannelNumber_e channel,
+	                                         adi_adrv9001_RxRfInputSel_e *nextActivePort)
+{
+	uint8_t armReadBack[1] = { 0 };
+	uint8_t extData[2] = { 0 };
+
+	ADI_PERFORM_VALIDATION(adi_adrv9001_Rx_ActivePortSwitch_Get_Validate, device, channel, nextActivePort);
+
+	/* Invoke the GET command */
+	extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_RX, channel);
+	extData[1] = OBJID_GS_RX_PORT_SWITCH_ONLY;
+	ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, device, (uint8_t)ADRV9001_ARM_GET_OPCODE, &extData[0], sizeof(extData));
+
+	/* Wait for command to finish executing */
+	ADRV9001_ARM_CMD_STATUS_WAIT_EXPECT(device,
+		                               (uint8_t)ADRV9001_ARM_GET_OPCODE,
+		                               extData[1],
+		                               (uint32_t)ADI_ADRV9001_RX_INTERFACE_CONTROL_TIMEOUT_US,
+		                               (uint32_t)ADI_ADRV9001_RX_INTERFACE_CONTROL_INTERVAL_US);
+
+	/* Read and parse the data */
+	ADI_EXPECT(adi_adrv9001_arm_Memory_Read, device, ADRV9001_ADDR_ARM_MAILBOX_GET, armReadBack, sizeof(armReadBack), false);
+	*nextActivePort = (adi_adrv9001_RxRfInputSel_e)armReadBack[0];
+
+	ADI_API_RETURN(device);
 }
