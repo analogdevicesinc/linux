@@ -20,6 +20,9 @@ description: |
      https://www.analog.com/en/products/adp1050.html
      https://www.analog.com/en/products/adp1051.html
      https://www.analog.com/en/products/adp1055.html
+     https://www.analog.com/en/products/ltp8800-1a.html
+     https://www.analog.com/en/products/ltp8800-2.html
+     https://www.analog.com/en/products/ltp8800-4a.html
 
 properties:
 
@@ -28,6 +31,7 @@ properties:
       - adi,adp1050
       - adi,adp1051
       - adi,adp1055
+      - adi,ltp8800
 
   reg:
     maxItems: 1
