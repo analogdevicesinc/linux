@@ -873,6 +873,10 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 		ndev->mtu = ETH_DATA_LEN;
 		/* Headroom required for ndma headers for tx packets */
 		ndev->needed_headroom += NDMA_TX_HDR_SOF_SIZE;
+		// Set promiscuous mode by default
+		rtnl_lock();
+		dev_change_flags(ndev, ndev->flags | IFF_PROMISC, NULL);
+		rtnl_unlock();
 
 		ret = device_create_file(&adrv906x_dev->ndev->dev,
 					 &dev_attr_recovered_clock_output);
