@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Sharkbyte
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7768
+ *
+ * hdl_project: <projects/sharkbyte>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "Analog Devices Sharkbyte";
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x20000000>;
+	};
+
+	chosen {
+		stdout-path = "/amba@0/uart@E0001000";
+	};
+};
+
+/ {
+	clocks {
+		hmcad15xx_xtal: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <1000000000>;
+		};
+	};
+};
+
+/ {
+    fpga_axi: fpga-axi@0 {
+        compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+        axi_i2c0: i2c@41600000 {
+            compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+            reg = <0x41600000 0x10000>;
+            interrupt-parent = <&intc>;
+            interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+            clocks = <&clkc 15>;
+            clock-names = "pclk";
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+        };
+
+        // first ADC
+
+        axi_adc1_hmcad15xx: axi_adc1_hmcad15xx@44A00000 {
+            compatible = "adi,axi-adc-10.0.a";
+            reg = <0x44A00000 0x10000>;
+            dmas = <&rx1_dma 0>;
+            dma-names = "rx";
+            spibus-connected = <&hmcad15xx_1>;
+        };
+
+        rx1_dma: rx1-dmac@44a30000 {
+            compatible = "adi,axi-dmac-1.00.a";
+            reg = <0x44A30000 0x10000>;
+            #dma-cells = <1>;
+            interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+            clocks = <&clkc 16>;
+
+            adi,channels {
+                #size-cells = <0>;
+                #address-cells = <1>;
+
+                dma-channel@0 {
+                    reg = <0>;
+                    adi,source-bus-width = <128>;
+                    adi,source-bus-type = <2>;
+                    adi,destination-bus-width = <64>;
+                    adi,destination-bus-type = <0>;
+                };
+            };
+        };
+
+        // second ADC
+
+        axi_adc2_hmcad15xx: axi_adc2_hmcad15xx@44A60000{
+            compatible = "adi,axi-adc-10.0.a";
+            reg = <0x44A60000 0x10000>;
+            dmas = <&rx2_dma 0>;
+            dma-names = "rx";
+            spibus-connected = <&hmcad15xx_2>;
+        };
+
+        rx2_dma: rx2-dmac@44a90000 {
+            compatible = "adi,axi-dmac-1.00.a";
+            reg = <0x44A90000 0x10000>;
+            #dma-cells = <1>;
+            interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+            clocks = <&clkc 16>;
+
+            adi,channels {
+                #size-cells = <0>;
+                #address-cells = <1>;
+
+                dma-channel@0 {
+                    reg = <0>;
+                    adi,source-bus-width = <128>;
+                    adi,source-bus-type = <2>;
+                    adi,destination-bus-width = <64>;
+                    adi,destination-bus-type = <0>;
+                };
+            };
+        };
+    };
+};
+
+&sdhci0 {
+	status = "disabled";
+};
+
+&watchdog0 {
+	status = "okay";
+	reset-on-timeout;
+};
+
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 52 0>;
+	dr_mode = "otg";
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+
+    hmcad15xx_1: adc_1@0 {
+        compatible = "adi,hmcad15xx";
+        reg = <0>;
+        spi-max-frequency = <1000000>;
+        reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+        pd-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
+        clocks = <&hmcad15xx_xtal>;
+        clock-names = "clk";
+    };
+
+    hmcad15xx_2: adc_2@1 {
+        compatible = "adi,hmcad15xx";
+        reg = <1>;
+        spi-max-frequency = <1000000>;
+        reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+        pd-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
+        clocks = <&hmcad15xx_xtal>;
+        clock-names = "clk";
+    };
+};
