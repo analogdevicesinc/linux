@@ -84,7 +84,7 @@ int mqnic_open_tx_ring(struct mqnic_ring *ring, struct mqnic_priv *priv,
 	// set base address
 	iowrite32((ring->buf_dma_addr & 0xfffff000),
 			ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 0);
-	iowrite32(ring->buf_dma_addr >> 32,
+	iowrite32(((u64)ring->buf_dma_addr) >> 32,
 			ring->hw_addr + MQNIC_QUEUE_BASE_ADDR_VF_REG + 4);
 	// set size
 	iowrite32(MQNIC_QUEUE_CMD_SET_SIZE | ilog2(ring->size) | (ring->log_desc_block_size << 8),

@@ -69,7 +69,7 @@ int mqnic_open_cq(struct mqnic_cq *cq, struct mqnic_eq *eq, int size)
 	// set base address
 	iowrite32((cq->buf_dma_addr & 0xfffff000),
 			cq->hw_addr + MQNIC_CQ_BASE_ADDR_VF_REG + 0);
-	iowrite32(cq->buf_dma_addr >> 32,
+	iowrite32(((u64)cq->buf_dma_addr) >> 32,
 			cq->hw_addr + MQNIC_CQ_BASE_ADDR_VF_REG + 4);
 	// set size
 	iowrite32(MQNIC_CQ_CMD_SET_SIZE | ilog2(cq->size),
