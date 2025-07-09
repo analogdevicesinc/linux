@@ -42,6 +42,8 @@ enum adrv904x_rx_ext_info {
 	RX_DIG_DC,
 	RX_RF_BANDWIDTH,
 	RX_ADC,
+	RX_QEC_STATUS,
+	RX_ADC_STATUS,
 };
 
 enum adrv904x_tx_ext_info {
@@ -49,6 +51,8 @@ enum adrv904x_tx_ext_info {
 	TX_LOL,
 	TX_RF_BANDWIDTH,
 	TX_LB_ADC,
+	TX_QEC_STATUS,
+	TX_LOL_STATUS,
 };
 
 enum adrv904x_iio_voltage_in {

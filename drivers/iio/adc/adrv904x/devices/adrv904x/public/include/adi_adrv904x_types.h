@@ -661,6 +661,7 @@ typedef struct adi_adrv904x_Device
     adi_adrv904x_InitCalErrData_t      initCalErrData; /*!< ADRV904X init calibration error data */
     adi_adrv904x_RadioCtrlTxRxEnCfg_t  allDisabledTxRxEnCfg; /*!< Radio Control TxRx Enable Config for all disabled */
     adi_adrv904x_GpIntMask_t           gpIntClear; /*!< GP Interrupt Mask Clear */
+    char			       rxBuf[1006]; /*!< Rx buffer for CPU commands */
 #endif
 } adi_adrv904x_Device_t;
 #endif /* CLIENT_IGNORE */

@@ -703,9 +703,14 @@ static ssize_t adrv904x_phy_rx_read(struct iio_dev *indio_dev,
 			ret = adrv904x_dev_err(phy);
 		break;
 	case RX_RF_BANDWIDTH:
-		ret = sprintf(buf, "%u\n",
-			phy->adi_adrv904x_device.initExtract.rx.rxChannelCfg[chan->channel].rfBandwidth_kHz *
-			1000);
+		if (chan->channel <= CHAN_RX8)
+			ret = sprintf(buf, "%u\n",
+				phy->adi_adrv904x_device.initExtract.rx.rxChannelCfg[chan->channel].rfBandwidth_kHz *
+				1000);
+		else
+			ret = sprintf(buf, "%u\n",
+				phy->adi_adrv904x_device.initExtract.orx.orxChannelCfg[chan->channel - CHAN_OBS_RX1].rfBandwidth_kHz *
+				1000);
 		break;
 	case RX_ADC:
 		if (chan->channel <= CHAN_RX8) {
@@ -719,6 +724,30 @@ static ssize_t adrv904x_phy_rx_read(struct iio_dev *indio_dev,
 			if (ret == 0) {
 				chan_cals = enableMasks.enableMask[chan->channel - CHAN_OBS_RX1];
 				ret = sprintf(buf, "%d\n", !!(chan_cals & ADI_ADRV904X_TC_ORX_ADC_MASK));
+			}
+		}
+		break;
+	case RX_QEC_STATUS:
+		if (chan->channel <= CHAN_RX8) {
+			adi_adrv904x_CalStatus_t calStatus = { 0 };
+			mask = ADI_ADRV904X_RX0 << chan->channel;
+
+			ret = adi_adrv904x_TrackingCalStatusGet(phy->kororDevice, ADI_ADRV904X_TC_RX_QEC_MASK, mask, &calStatus);
+			if (ret == 0) {
+				ret = sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", calStatus.errorCode, calStatus.percentComplete,
+					calStatus.performanceMetric, calStatus.iterCount, calStatus.updateCount);
+			}
+		}
+		break;
+	case RX_ADC_STATUS:
+		if (chan->channel <= CHAN_RX8) {
+			adi_adrv904x_CalStatus_t calStatus = { 0 };
+			mask = ADI_ADRV904X_RX0 << chan->channel;
+
+			ret = adi_adrv904x_TrackingCalStatusGet(phy->kororDevice, ADI_ADRV904X_TC_RX_ADC_MASK, mask, &calStatus);
+			if (ret == 0) {
+				ret = sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", calStatus.errorCode, calStatus.percentComplete,
+					calStatus.performanceMetric, calStatus.iterCount, calStatus.updateCount);
 			}
 		}
 		break;
@@ -744,7 +773,8 @@ static ssize_t adrv904x_phy_tx_read(struct iio_dev *indio_dev,
 	struct adrv904x_rf_phy *phy = iio_priv(indio_dev);
 	adi_adrv904x_TrackingCalEnableMasks_t enableMasks[ADI_ADRV904X_NUM_TRACKING_CAL_CHANNELS] = { 0 };
 	adi_adrv904x_TrackingCalibrationMask_t chan_cals;
-	int val, ret = 0;
+	adi_adrv904x_CalStatus_t calStatus = { 0 };
+	int val, ret = 0, ret_s = 0;
 
 	if (chan->channel > CHAN_TX8)
 		return -EINVAL;
@@ -776,6 +806,18 @@ static ssize_t adrv904x_phy_tx_read(struct iio_dev *indio_dev,
 			val = !!(chan_cals & ADI_ADRV904X_TC_TX_LB_ADC_MASK);
 		}
 		break;
+	case TX_QEC_STATUS:
+		ret = adi_adrv904x_TrackingCalStatusGet(phy->kororDevice, ADI_ADRV904X_TC_TX_QEC_MASK, ADI_ADRV904X_TX0 << chan->channel, &calStatus);
+		if (ret == 0)
+			ret_s = sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", ret, calStatus.percentComplete,
+				calStatus.performanceMetric, calStatus.iterCount, calStatus.updateCount);
+		break;
+	case TX_LOL_STATUS:
+		ret = adi_adrv904x_TrackingCalStatusGet(phy->kororDevice, ADI_ADRV904X_TC_TX_LOL_MASK, ADI_ADRV904X_TX0 << chan->channel, &calStatus);
+		if (ret == 0)
+			ret_s = sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", ret, calStatus.percentComplete,
+				calStatus.performanceMetric, calStatus.iterCount, calStatus.updateCount);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -783,7 +825,11 @@ static ssize_t adrv904x_phy_tx_read(struct iio_dev *indio_dev,
 	mutex_unlock(&phy->lock);
 
 	if (ret == 0)
-		ret = sprintf(buf, "%d\n", val);
+		if (private != TX_QEC_STATUS && private != TX_LOL_STATUS)
+			ret = sprintf(buf, "%d\n", val);
+
+		else
+			ret = ret_s;
 	else
 		return adrv904x_dev_err(phy);
 
@@ -829,6 +875,10 @@ static ssize_t adrv904x_phy_tx_write(struct iio_dev *indio_dev,
 		adi_adrv904x_ChannelTrackingCals_t channelMask = { 0 };
 		channelMask.txChannel = mask;
 
+		ret = adi_adrv904x_TxToOrxMappingSet(phy->kororDevice, 0x50);
+		if (ret)
+			ret = adrv904x_dev_err(phy);
+
 		ret = adi_adrv904x_TrackingCalsEnableSet(phy->kororDevice, calMask,
 							mask,
                                                         enable ? ADI_ADRV904X_TRACKING_CAL_ENABLE :
@@ -872,6 +922,8 @@ static const struct iio_chan_spec_ext_info adrv904x_phy_rx_ext_info[] = {
 	_ADRV904X_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_DIG_DC),
 	_ADRV904X_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
 	_ADRV904X_EXT_RX_INFO("adc_tracking_en", RX_ADC),
+	_ADRV904X_EXT_RX_INFO("quadrature_tracking_status", RX_QEC_STATUS),
+	_ADRV904X_EXT_RX_INFO("adc_tracking_status", RX_ADC_STATUS),
 	{},
 };
 
@@ -890,6 +942,8 @@ static struct iio_chan_spec_ext_info adrv904x_phy_tx_ext_info[] = {
 	_ADRV904X_EXT_TX_INFO("lo_leakage_tracking_en", TX_LOL),
 	_ADRV904X_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
 	_ADRV904X_EXT_TX_INFO("loopback_adc_tracking_en", TX_LB_ADC),
+	_ADRV904X_EXT_TX_INFO("quadrature_tracking_status", TX_QEC_STATUS),
+	_ADRV904X_EXT_TX_INFO("lo_leakage_tracking_status", TX_LOL_STATUS),
 	{},
 };
 
@@ -979,6 +1033,14 @@ static int adrv904x_phy_read_raw(struct iio_dev *indio_dev,
 				ret = adrv904x_gainindex_to_gain(phy, chan->channel,
 								rxGain.gainIndex, val,
 								val2);
+			} else {
+				uint8_t attenDb = 0;
+				ret = adi_adrv904x_OrxAttenGet(phy->kororDevice, chan->channel - CHAN_OBS_RX1, &attenDb);
+				if (ret) {
+					ret = adrv904x_dev_err(phy);
+					break;
+				}
+				*val = attenDb;
 			}
 		}
 		ret = IIO_VAL_INT_PLUS_MICRO_DB;
@@ -1076,19 +1138,26 @@ static int adrv904x_phy_write_raw(struct iio_dev *indio_dev,
 				adrv904x_dev_err(phy);
 
 		} else {
-			adi_adrv904x_RxGain_t rxGain;
-
-			ret = adrv904x_gain_to_gainindex(phy, chan->channel,
-							 val, val2, &code);
-			if (ret < 0)
-				break;
-
 			if (chan->channel <= CHAN_RX8) {
-				rxGain.gainIndex = code;
-				rxGain.rxChannelMask = 1 << chan->channel;
+				adi_adrv904x_RxGain_t rxGain;
 
-				ret = adi_adrv904x_RxGainSet(phy->kororDevice, &rxGain,
-							1);
+				ret = adrv904x_gain_to_gainindex(phy, chan->channel,
+								val, val2, &code);
+				if (ret < 0)
+					break;
+
+				if (chan->channel <= CHAN_RX8) {
+					rxGain.gainIndex = code;
+					rxGain.rxChannelMask = 1 << chan->channel;
+
+					ret = adi_adrv904x_RxGainSet(phy->kororDevice, &rxGain,
+								1);
+					if (ret)
+						adrv904x_dev_err(phy);
+				}
+			} else {
+				uint8_t attenDb = val;
+				ret = adi_adrv904x_OrxAttenSet(phy->kororDevice, chan->channel - CHAN_RX8, attenDb);
 				if (ret)
 					adrv904x_dev_err(phy);
 			}
@@ -1297,7 +1366,8 @@ static const struct iio_chan_spec adrv904x_phy_chan[] = {
 		.type = IIO_VOLTAGE,
 		.indexed = 1,
 		.channel = CHAN_OBS_RX1,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 		.ext_info = adrv904x_phy_obs_rx_ext_info,
 	},
@@ -1307,7 +1377,8 @@ static const struct iio_chan_spec adrv904x_phy_chan[] = {
 		.type = IIO_VOLTAGE,
 		.indexed = 1,
 		.channel = CHAN_OBS_RX2,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 		.ext_info = adrv904x_phy_obs_rx_ext_info,
 	},

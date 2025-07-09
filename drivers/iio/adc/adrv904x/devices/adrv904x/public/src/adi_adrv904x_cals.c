@@ -1108,23 +1108,38 @@ static adi_adrv904x_ErrAction_e adrv904x_CalStatusGet(adi_adrv904x_Device_t* con
     const adi_adrv904x_CalStatus_t* pCalStatus = NULL;
     const adi_adrv904x_CalStatus_t** const ppCalStatus = &pCalStatus;
     adi_adrv904x_ErrAction_e recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
+#ifdef __KERNEL__
+    char *rxBuf = &device->rxBuf[0];
+#else
     char rxBuf[ADRV904X_CPU_CMD_RESP_MAX_SIZE_BYTES] = { 0 };
+#endif
 
     /* Send the cal status get command to the CPU */
     recoveryAction = adrv904x_SendCalStatusCmd(device, ADRV904X_CPU_CMD_CAL_STATUS_COMMON, objId, channel);
     if (recoveryAction == ADI_ADRV904X_ERR_ACT_NONE)
     {
         /* Get the response from the CPU */
+#ifdef __KERNEL__
         recoveryAction = adrv904x_GetCalStatusCmdResp(device,
                                                       objId,
                                                       channel,
                                                       sizeof(adi_adrv904x_CalStatus_t),
-                                                      (void*)&rxBuf[0],
+                                                      (void*)rxBuf,
                                                       (const void** const)ppCalStatus);
+#else
+	recoveryAction = adrv904x_GetCalStatusCmdResp(device,
+						      objId,
+						      channel,
+						      sizeof(adi_adrv904x_CalStatus_t),
+						      (void*)&rxBuf[0],
+						      (const void** const)ppCalStatus);
+#endif
         if (recoveryAction == ADI_ADRV904X_ERR_ACT_NONE)
         {
+		pr_err("TESTING got data with no error\n");
             if (pCalStatus != NULL)
             {
+		pr_err("TESTING %d %d %d %d %d\n", pCalStatus->errorCode, pCalStatus->percentComplete, pCalStatus->performanceMetric, pCalStatus->iterCount, pCalStatus->updateCount);
                 /* Translate the response from the CPU */
                 status->errorCode = ADRV904X_CTOHL(pCalStatus->errorCode);
                 status->percentComplete = ADRV904X_CTOHL(pCalStatus->percentComplete);
@@ -1199,6 +1214,7 @@ static adi_adrv904x_ErrAction_e adrv904x_GetCalStatusCmdResp(adi_adrv904x_Device
 
     /* Read the response from the CPU */
     recoveryAction = adrv904x_CpuCmdRespRead(device, cpuType, ADRV904X_LINK_ID_0, &cmdId, pCmd, sizeof(adrv904x_CpuCmd_GetCalStatusResp_t) + calStatusSize, &cmdStatus);
+
     if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
     {
         if (cmdStatus == ADRV904X_CPU_CMD_STATUS_CMD_FAILED)
