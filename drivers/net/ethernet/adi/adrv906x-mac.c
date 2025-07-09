@@ -195,7 +195,6 @@ void adrv906x_mac_cleanup(struct adrv906x_mac *mac)
 int adrv906x_mac_init(struct adrv906x_mac *mac, unsigned int size)
 {
 	adrv906x_mac_set_mfs(mac, size);
-	adrv906x_mac_promiscuous_mode_en(mac);
 
 	mac->id = ioread32(mac->xmac + MAC_IP_ID);
 	mac->version = ioread32(mac->xmac + MAC_IP_VERSION);
