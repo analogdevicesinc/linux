@@ -44,6 +44,7 @@
 #define   ADI_AXI_ADC_REG_CONFIG_CMOS_OR_LVDS_N	BIT(7)
 
 #define ADI_AXI_ADC_REG_CTRL			0x0044
+#define    ADI_AXI_ADC_CTRL_NUM_LANES_MASK	GENMASK(12, 8)
 #define    ADI_AXI_ADC_CTRL_DDR_EDGESEL_MASK	BIT(1)
 
 #define ADI_AXI_ADC_REG_CNTRL_3			0x004c
@@ -122,7 +123,7 @@ static int axi_adc_enable(struct iio_backend *back)
 	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
 	unsigned int __val;
 	int ret;
-
+	pr_err("%s: %d\n", __FUNCTION__, __LINE__);
 	guard(mutex)(&st->lock);
 	ret = regmap_set_bits(st->regmap, ADI_AXI_REG_RSTN,
 			      ADI_AXI_REG_RSTN_MMCM_RSTN);
@@ -407,7 +408,6 @@ static struct iio_buffer *axi_adc_request_buffer(struct iio_backend *back,
 {
 	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
 	const char *dma_name;
-
 	if (device_property_read_string(st->dev, "dma-names", &dma_name))
 		dma_name = "rx";
 
@@ -500,6 +500,17 @@ static int axi_adc_reg_access(struct iio_backend *back, unsigned int reg,
 	return regmap_write(st->regmap, reg, writeval);
 }
 
+static int axi_adc_set_num_lanes(struct iio_backend *back, unsigned int num_lanes)
+{
+	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
+	u32 val;
+
+	val = FIELD_PREP(ADI_AXI_ADC_CTRL_NUM_LANES_MASK, num_lanes);
+
+	return regmap_update_bits(st->regmap, ADI_AXI_ADC_REG_CTRL,
+				  ADI_AXI_ADC_CTRL_NUM_LANES_MASK, val);
+}
+
 static const struct regmap_config axi_adc_regmap_config = {
 	.val_bits = 32,
 	.reg_bits = 32,
@@ -551,6 +562,7 @@ static const struct iio_backend_ops adi_axi_adc_ops = {
 	.interface_type_get = axi_adc_interface_type_get,
 	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_adc_reg_access),
 	.debugfs_print_chan_status = iio_backend_debugfs_ptr(axi_adc_debugfs_print_chan_status),
+	.set_num_lanes = axi_adc_set_num_lanes,
 };
 
 static const struct iio_backend_info adi_axi_adc_generic = {

@@ -91,9 +91,9 @@
 		 clock-names = "mclk";
 		adi,data-lines = <8>;
 
-		//interrupt-parent = <&intc>;
-		//interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 
-		io-backends = <&iio_backend>;
+		//io-backends = <&iio_backend>;
 	};
 };

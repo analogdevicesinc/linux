@@ -158,6 +158,9 @@ struct iio_backend_ops {
 	int (*data_stream_enable)(struct iio_backend *back);
 	int (*data_stream_disable)(struct iio_backend *back);
 	int (*data_transfer_addr)(struct iio_backend *back, u32 address);
+	int (*set_num_lanes)(struct iio_backend *back, unsigned int num_lanes);
+	int (*crc_enable)(struct iio_backend *back);
+	int (*crc_disable)(struct iio_backend *back);
 };
 
 /**
@@ -247,4 +250,7 @@ ssize_t iio_backend_debugfs_print_chan_status(struct iio_backend *back,
 					      size_t len);
 void iio_backend_debugfs_add(struct iio_backend *back,
 			     struct iio_dev *indio_dev);
+int iio_backend_set_num_lanes(struct iio_backend *back, unsigned int num_lanes);
+int iio_backend_crc_enable(struct iio_backend *back);
+int iio_backend_crc_disable(struct iio_backend *back);
 #endif
