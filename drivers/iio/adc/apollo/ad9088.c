@@ -847,15 +847,10 @@ static int ad9088_fsrc_apply(struct iio_dev *indio_dev,
 
 	if (phy->trig_sync_en) {
 		if (phy->trig_req_gpio) {
+			// TODO: route trigger to the axi_fsrc_tx ip core as well.
 			gpiod_set_value(phy->trig_req_gpio, 1);
 			udelay(1);
 			gpiod_set_value(phy->trig_req_gpio, 0);
-		} else if (phy->iio_axi_fsrc) {
-			ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc, "trig", 1);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev, "Failed to trig axi_fsrc\n");
-				return ret;
-			}
 		}
 
 		ret = adi_apollo_hal_bf_wait_to_set(&phy->ad9088, BF_TRIGGER_SYNC_DONE_A0_INFO(MCS_SYNC_MCSTOP0), 1000000, 100);
@@ -1323,6 +1318,12 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 				if (ret)
 					return ret;
 			}
+
+			ret = iio_write_channel_ext_info(phy->iio_axi_fsrc, "tx_ratio_set", buf, len);
+			if (ret != len) {
+				dev_err(&phy->spi->dev, "Failed to set axi_fsrc tx ratio\n");
+				return -EINVAL;
+			}
 		} else {
 			phy->fsrc.rx_n = n;
 			phy->fsrc.rx_m = m;
@@ -1337,21 +1338,18 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		ret = strtobool(buf, &enable);
 		if (ret)
 			return ret;
+
 		if (phy->iio_axi_fsrc) {
-			ret = strtobool(buf, &enable);
-			if (ret)
-				return ret;
 			if (chan->output) {
-				ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc, "tx_pause", !enable);
+				ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc, "tx_enable", enable);
 				if (ret < 0) {
-					dev_err(&phy->spi->dev, "Failed to pause axi_fsrc tx\n");
+					dev_err(&phy->spi->dev, "Failed to enable/disable axi_fsrc tx enable\n");
 					return ret;
 				}
 			} else {
-				// REVISIT: Disabled to observe the incoming -FS
 				ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc, "rx_enable", enable);
 				if (ret < 0) {
-					dev_err(&phy->spi->dev, "Failed to enable/disable axi_fsrc rx\n");
+					dev_err(&phy->spi->dev, "Failed to enable/disable axi_fsrc rx enable\n");
 					return ret;
 				}
 			}
@@ -1384,12 +1382,20 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		//	return ret;
 
 		ret = ad9088_fsrc_apply(indio_dev, chan);
+		if (!phy->trig_sync_en && phy->iio_axi_fsrc) {
+			ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
+								"tx_active", enable);
+			if (ret < 0) {
+				dev_err(&phy->spi->dev, "Failed to set axi_fsrc tx_active\n");
+				return ret;
+			}
+		}
 		if (ret)
 			return ret;
 
-		//ret = adi_apollo_clk_mcs_dyn_sync_sequence_run(&phy->ad9088);
-		//if (ret)
-		//	return ret;
+		ret = adi_apollo_clk_mcs_dyn_sync_sequence_run(&phy->ad9088);
+		if (ret)
+			return ret;
 		adi_apollo_hal_delay_us(&phy->ad9088, 100);
 
 		adi_apollo_jrx_rm_fifo_reset(&phy->ad9088, ADI_APOLLO_LINK_ALL);
@@ -5929,7 +5935,7 @@ static int ad9088_jesd204_post_setup_stage4(struct jesd204_dev *jdev,
 	}
 
 	if (phy->trig_sync_en && phy->iio_axi_fsrc) {
-		ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc, "trig_enable", 1);
+		ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc, "ext_trig_enable", 1);
 		if (ret < 0) {
 			dev_err(&phy->spi->dev, "Failed to trig_enable axi_fsrc\n");
 			return ret;
