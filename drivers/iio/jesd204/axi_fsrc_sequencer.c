@@ -63,9 +63,6 @@
 #define REG_RX_ENABLE				0x10
 #define   REG_RX_ENABLE_ENABLE			BIT(0)
 
-#define TX_FSRC_DEFAULT_N			2
-#define TX_FSRC_DEFAULT_M			3
-
 enum {
 	AXI_FSRC_RX_ENABLE,
 	AXI_FSRC_TX_ENABLE,
@@ -74,12 +71,11 @@ enum {
 };
 
 struct axi_fsrc {
-	void __iomem *seq;
-	void __iomem *addr[4];
-	struct device_node *np[4];
+	void __iomem *addr[5];
 	struct gpio_desc *trig_req_gpio;
 	const struct axi_fsrc_sequencer_info *info;
 	struct device dev;
+	bool tx_enable;
 	bool tx_active;
 	u8 accum_width;
 	u8 m;
@@ -88,6 +84,7 @@ struct axi_fsrc {
 };
 
 enum {
+	AXI_FSRC_CTRL,
 	AXI_FSRC_RX,
 	AXI_FSRC_TX,
 	AXI_FSRC_RX_A,
@@ -130,25 +127,28 @@ static int axi_fsrc_tx_enable(struct axi_fsrc *st, bool en)
 
 	axi_fsrc_update(st->addr[AXI_FSRC_TX], REG_TX_ENABLE,
 			REG_TX_ENABLE_ENABLE, FIELD_PREP(REG_TX_ENABLE_ENABLE, en));
+	st->tx_enable = en;
 	if (!en)
 		st->tx_active = false;
 
 	return 0;
 }
 
-static int axi_fsrc_tx_active(struct axi_fsrc *st, bool start)
+static int axi_fsrc_tx_active(struct axi_fsrc *st, bool en)
 {
 	if (!st->addr[AXI_FSRC_TX])
 		return -ENODEV;
+	if (!st->tx_enable != false)
+		return -EINVAL;
 
-	if (start)
+	if (en)
 		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CTRL_TRANSMIT,
 			       REG_CTRL_TRANSMIT_START);
 	else
 		/* Send only invalid samples */
 		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CTRL_TRANSMIT,
 			       REG_CTRL_TRANSMIT_STOP);
-	st->tx_active = start;
+	st->tx_active = en;
 
 	return 0;
 }
@@ -160,7 +160,7 @@ static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u64 n, const u64 m)
 	const u64 ratio_fixed = mul_u64_u64_div_u64(one_fixed, n, m);
 
 	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CONV_MASK, (u32)REG_CONV_MASK_MASK);
-	for (int i = 0; i <= 15; i++){
+	for (int i = 0; i <= 15; i++) {
 		val = ((~ratio_fixed + 1) + (i * ratio_fixed));
 		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_L, val);
 		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_H, val >> 32);
@@ -170,6 +170,9 @@ static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u64 n, const u64 m)
 	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_ADD_VAL_L, val);
 	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_ADD_VAL_H, val >> 32);
 	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CTRL_TRANSMIT, REG_CTRL_TRANSMIT_ACCUM_SET);
+
+	st->n = n;
+	st->m = m;
 
 	return 0;
 }
@@ -217,7 +220,7 @@ static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
 	struct axi_fsrc *st = iio_priv(indio_dev);
 	u32 n = 0, m = 0;
 	bool enable;
-	int ret = 0;
+	int size, ret = 0;
 
 	iio_device_claim_direct_scoped(return -EBUSY, indio_dev) {
 		switch ((u32)private) {
@@ -229,8 +232,8 @@ static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
 				return ret;
 			break;
 		case AXI_FSRC_TX_RATIO_SET:
-			ret = sscanf(buf, "%u %u", &n, &m);
-			if (ret != 4)
+			size = sscanf(buf, "%u %u", &n, &m);
+			if (size != 2)
 				return -EINVAL;
 			break;
 		}
@@ -268,7 +271,7 @@ static const struct iio_chan_spec_ext_info axi_fsrc_ext_info[] = {
 	AXI_FSRC_EXT_INFO("rx_enable", AXI_FSRC_RX_ENABLE),
 	AXI_FSRC_EXT_INFO("tx_enable", AXI_FSRC_TX_ENABLE),
 	AXI_FSRC_EXT_INFO("tx_active", AXI_FSRC_TX_ACTIVE),
-	AXI_FSRC_EXT_INFO("tx_ratio_Set", AXI_FSRC_TX_RATIO_SET),
+	AXI_FSRC_EXT_INFO("tx_ratio_set", AXI_FSRC_TX_RATIO_SET),
 	{ },
 };
 
@@ -276,7 +279,6 @@ static const struct iio_chan_spec axi_fsrc_chan = {
 	.type = IIO_ALTVOLTAGE,
 	.indexed = 1,
 	.output = 1,
-	.info_mask_separate = BIT(IIO_CHAN_INFO_FREQUENCY),
 	.ext_info = axi_fsrc_ext_info,
 };
 
@@ -299,9 +301,31 @@ static int axi_fsrc_write_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
+static int axi_fsrc_debugfs_reg_access(struct iio_dev *indio_dev,
+				       unsigned reg, unsigned writeval,
+				       unsigned *readval)
+{
+	struct axi_fsrc *st = iio_priv(indio_dev);
+	u8 addr = reg >> 16;
+
+	reg &= GENMASK(15,0);
+	if (addr > ARRAY_SIZE(st->addr) || (reg & GENMASK(1,0)))
+		return -EINVAL;
+	if (!st->addr[addr])
+		return -ENODEV;
+
+	if (readval != NULL)
+		*readval = axi_fsrc_read(st->addr[addr], reg);
+	else
+		axi_fsrc_write(st->addr[addr], reg, writeval);
+
+	return 0;
+}
+
 static const struct iio_info axi_fsrc_info = {
 	.read_raw = &axi_fsrc_read_raw,
 	.write_raw = &axi_fsrc_write_raw,
+	.debugfs_reg_access = &axi_fsrc_debugfs_reg_access,
 };
 
 /* Match table for of_platform binding */
@@ -331,7 +355,7 @@ int axi_fsrc_sequencer_add_to_topology(struct device *dev, struct axi_fsrc *st, 
 			if (st->en_mask & BIT(i)) {
 				dev_err(&st->dev,
 					"index %d in fscr topology already allocated by %p",
-					i, st->addr[i]);
+					i, st->addr[i+1]);
 				return -ENOENT;
 			}
 			if (!devm_request_mem_region(dev, reg[0], reg[1],
@@ -339,12 +363,11 @@ int axi_fsrc_sequencer_add_to_topology(struct device *dev, struct axi_fsrc *st, 
 				dev_err(&st->dev, "request_mem_region failed\n");
 				return -ENOMEM;
 			}
-			st->addr[i] = devm_ioremap(dev, reg[0], reg[1]);
-			if (!st->addr[i]) {
+			st->addr[i+1] = devm_ioremap(dev, reg[0], reg[1]);
+			if (!st->addr[i+1]) {
 				dev_err(&st->dev, "ioremap failed\n");
 				return -ENOMEM;
 			}
-			st->np[i] = np;
 			st->en_mask |= BIT(i);
 
 			matched = true;
@@ -370,23 +393,25 @@ typedef struct {
 
 static int axi_fsrc_seq_configure(struct axi_fsrc *st, adi_fpga_apollo_hw_fsrc_count_t *count)
 {
-	axi_fsrc_update(st->seq, REG_SEQ_CTRL_2, REG_SEQ_FIRST_TRIG_CNT,
+	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_2, (u32)REG_SEQ_FIRST_TRIG_CNT,
 			FIELD_PREP(REG_SEQ_FIRST_TRIG_CNT, count->first_trig_cnt));
-	axi_fsrc_update(st->seq, REG_SEQ_CTRL_3, REG_SEQ_TX_ACCUM_RST_CNT,
+	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_3, (u32)REG_SEQ_TX_ACCUM_RST_CNT,
 			FIELD_PREP(REG_SEQ_TX_ACCUM_RST_CNT, count->fsrc_accum_reset_cnt));
-	axi_fsrc_update(st->seq, REG_SEQ_CTRL_4, REG_SEQ_RX_DELAY,
+	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_4, (u32)REG_SEQ_RX_DELAY,
 			FIELD_PREP(REG_SEQ_RX_DELAY, count->rx_delay_cnt));
-	axi_fsrc_update(st->seq, REG_SEQ_CTRL_3, REG_SEQ_EN, REG_SEQ_EN);
+	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_3, REG_SEQ_EN, REG_SEQ_EN);
 
 	return 0;
 }
 
 static int axi_fsrc_tx_configure(struct axi_fsrc *st)
 {
-	return axi_fsrc_tx_set_ratio(st, TX_FSRC_DEFAULT_N, TX_FSRC_DEFAULT_M);
+	if (st->addr[AXI_FSRC_TX])
+		st->accum_width = axi_fsrc_read(st->addr[AXI_FSRC_TX], REG_ACCUM_WIDTH);
+	return axi_fsrc_tx_set_ratio(st, 1, 1);
 }
 
-static int axi_fsrc_configure_rx(struct axi_fsrc *st)
+static int axi_fsrc_rx_configure(struct axi_fsrc *st)
 {
 	return 0;
 }
@@ -405,7 +430,7 @@ static int axi_fsrc_init(struct axi_fsrc *st)
 	if (ret)
 		return ret;
 	if (st->en_mask & BIT(0)) {
-		ret = axi_fsrc_configure_rx(st);
+		ret = axi_fsrc_rx_configure(st);
 		if (ret)
 			return ret;
 	}
@@ -440,23 +465,22 @@ static int axi_fsrc_sequencer_probe(struct platform_device *pdev)
 	indio_dev->num_channels = 1;
 	indio_dev->name = "axi_fsrc";
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	st->seq = devm_ioremap_resource(&pdev->dev, res);
+	for (int i = 0 ; i < ARRAY_SIZE(st->addr); i++)
+		st->addr[i] = NULL;
 
-	if (IS_ERR(st->seq))
-		return PTR_ERR(st->seq);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	st->addr[AXI_FSRC_CTRL] = devm_ioremap_resource(&pdev->dev, res);
+
+	if (IS_ERR(st->addr[AXI_FSRC_CTRL]))
+		return PTR_ERR(st->addr[AXI_FSRC_CTRL]);
 	st->dev = pdev->dev;
 
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *np_;
 
-	st->tx_active = 0;
+	st->tx_enable = false;
+	st->tx_active = false;
 	st->en_mask = 0;
-	st->m = 1;
-	st->n = 1;
-
-	for (int i = 0 ; i < ARRAY_SIZE(st->addr); i++)
-		st->addr[i] = NULL;
 
 	for (int i = 0 ; ; i++) {
 		np_ = of_parse_phandle(np, "fsrc-topology", i);
@@ -474,12 +498,11 @@ static int axi_fsrc_sequencer_probe(struct platform_device *pdev)
 	if (IS_ERR(st->trig_req_gpio))
 		return PTR_ERR(st->trig_req_gpio);
 
-	axi_fsrc_write(st->seq, REG_SCRATCH, 0xBE);
-	u8 val = axi_fsrc_read(st->seq, REG_SCRATCH);
+	axi_fsrc_write(st->addr[AXI_FSRC_CTRL], REG_SCRATCH, 0xBE);
+	u8 val = axi_fsrc_read(st->addr[AXI_FSRC_CTRL], REG_SCRATCH);
 	if (val != 0xBE)
 		return dev_err_probe(&pdev->dev, -EINVAL, "Failed sanity test\n");
 
-	st->accum_width = axi_fsrc_read(st->seq, REG_ACCUM_WIDTH);
 	ret = axi_fsrc_init(st);
 	if (ret)
 		return ret;
