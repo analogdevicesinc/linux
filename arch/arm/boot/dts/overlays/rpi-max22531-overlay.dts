@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: (GPL-2.0+)
+/*
+ * Device Tree Overlay for MAX22531 
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "bcrm,bcm2711";
+
+	reg_vdd: regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	max225341@0 {
+		compatible = "maxim,max22531";
+		reg = <0>;	/* Using CS0 on spi0 */
+		spi-max-frequency = <10000000>;
+		vref-supply = <&reg_vdd>;
+
+	};
+};
