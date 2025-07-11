@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices LTC2387
+ * Analog Devices LTC2387-18/ADAQ23878
  *
  * hdl_project: <cn0577/zed>
  * board_revision: <A>
  *
- * Copyright (C) 2022 Analog Devices Inc.
+ * Copyright (C) 2022 - 2025 Analog Devices Inc.
  */
 /dts-v1/;
 
@@ -54,6 +54,19 @@
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
 	};
 
 	axi_pwm_gen: pwm@44a60000 {
@@ -75,6 +88,7 @@
 		pwm-names = "cnv", "clk_en";
 		vref-supply = <&vref>;
 
-		adi,use-two-lanes;
+		// uncomment the below command to use in one lane mode
+		// adi,use-one-lane;
 	};
 };
