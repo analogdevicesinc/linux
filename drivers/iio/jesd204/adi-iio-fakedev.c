@@ -18,6 +18,11 @@ struct adi_iio_fakedev {
 	struct device *dev;
 };
 
+struct adi_iio_fakechilddev {
+	struct device *dev;
+	const char *childdev_name;
+};
+
 static int adi_iio_fakedev_attach_client(struct device *dev, void *data)
 {
 	struct adi_iio_fakedev *fdev = data;
@@ -25,6 +30,17 @@ static int adi_iio_fakedev_attach_client(struct device *dev, void *data)
 	if ((fdev->np == dev->of_node) && dev->driver) {
 		fdev->dev = dev;
 		return 1;
+	}
+
+	return 0;
+}
+
+static int adi_iio_fakedev_match_child(struct device *dev, void *data)
+{
+	struct adi_iio_fakechilddev *child = data;
+
+	if (strcmp(dev_name(dev), child->childdev_name) == 0) {
+		child->dev = dev;
 	}
 
 	return 0;
@@ -66,6 +82,8 @@ static int adi_iio_fakedev_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct adi_iio_fakedev fdev;
 	const struct of_device_id *id;
+	struct kobject *fakedev_kobj;
+	const char *fakedev_name;
 	struct bus_type *bus;
 	struct property *prop;
 	const char *name;
@@ -111,18 +129,32 @@ static int adi_iio_fakedev_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	of_property_for_each_string(pdev->dev.of_node, "adi,attribute-names", prop, name) {
-		ret = compat_only_sysfs_link_entry_to_kobj(&indio_dev->dev.kobj,
-			&fdev.dev->kobj, name, NULL);
-		if (!ret)
-			cnt++;
+	if (of_find_property(pdev->dev.of_node, "adi,use-child-device", NULL)) {
+		struct adi_iio_fakechilddev fdevchild;
+
+		of_property_read_string(pdev->dev.of_node, "adi,use-child-device", &fdevchild.childdev_name);
+		device_for_each_child(fdev.dev, &fdevchild, adi_iio_fakedev_match_child);
+		fakedev_kobj = &fdevchild.dev->kobj;
+		fakedev_name = fdevchild.childdev_name;
+	} else {
+		fakedev_kobj = &fdev.dev->kobj;
+		fakedev_name = dev_name(fdev.dev);
+	}
+
+	if (fakedev_kobj->state_initialized) {
+		of_property_for_each_string(pdev->dev.of_node, "adi,attribute-names", prop, name) {
+			ret = compat_only_sysfs_link_entry_to_kobj(&indio_dev->dev.kobj,
+				fakedev_kobj, name, NULL);
+			if (!ret)
+				cnt++;
+		}
 	}
 
 	ret = devm_add_action_or_reset(&pdev->dev, adi_iio_fakedev_cleanup_links, pdev);
 	if (ret)
 		return ret;
 
-	dev_info(&pdev->dev, "Faking %d attributes from %s", cnt, dev_name(fdev.dev));
+	dev_info(&pdev->dev, "Faking %d attributes from %s", cnt, fakedev_name);
 
 	return 0;
 }

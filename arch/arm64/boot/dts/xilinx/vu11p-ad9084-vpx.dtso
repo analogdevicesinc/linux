@@ -100,6 +100,27 @@
 		memory-region = <&vu11p_ddr_dma>;
 	};
 
+	iio_corundum_app_12340001: corundum-app-12340001@0 {
+		compatible = "adi,iio-fake-platform-device";
+		adi,faked-dev = <&corundum>;
+		adi,use-child-device = "mqnic.app_12340001.0";
+		adi,attribute-names =
+			"version", "scratch", "counter_start", "counter_value",
+			"start_app", "packet_size", "eth_dest_mac", "eth_src_mac",
+			"eth_type", "ip_version", "ip_header_length",
+			"ip_type_of_service", "ip_total_length", "ip_identification",
+			"ip_flags", "ip_fragment_offset", "ip_time_to_live",
+			"ip_protocol", "ip_header_checksum",
+			"ip_src_addr", "ip_dest_addr",
+			"udp_src_port", "udp_dest_port",
+			"udp_length", "udp_checksum",
+			"ber_test_en", "ber_reset",
+			"ber_total_bits", "ber_error_bits",
+			"ber_out_of_sync", "ber_insert_bit_err",
+			"sample_count_per_ch";
+		label = "corundum-app-12340001";
+	};
+
 	adf4382_spi: spi@88000000 {
 		bits-per-word = <8>;
 		compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";

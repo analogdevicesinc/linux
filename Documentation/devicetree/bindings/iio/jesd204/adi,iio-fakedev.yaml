@@ -35,12 +35,22 @@ properties:
     description:
       Names the iio fake device.
 
+  adi,use-child-device:
+    $ref: /schemas/types.yaml#/definitions/string
+    description:
+      Optional property to use a child device of the faked device.
+      This is useful when the faked device has multiple children and
+      only one of them should be used for linking attributes.
+      The value should be the name of the child device which is
+      registered by the parent.
+
 required:
   - compatible
   - adi,faked-dev
   - adi,attribute-names
 
-additionalProperties: false
+additionalProperties:
+  - adi,use-child-device
 
 examples:
   - |
