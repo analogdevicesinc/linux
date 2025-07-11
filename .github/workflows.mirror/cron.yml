@@ -15,6 +15,17 @@ jobs:
       branch: "main"
       patch_ci: "false"
 
+  adi-staging-rpi-rpi-6.12.y:
+    uses: ./.github/workflows/mirror.yml
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      remote_name: "analogdevicesinc/linux"
+      fetch_url: "https://github.com/analogdevicesinc/linux.git"
+      branch: "staging-rpi/rpi-6.12.y"
+      patch_ci: "false"
+
   next-linux-next-master:
     uses: ./.github/workflows/mirror.yml
     needs: [adi-main]
