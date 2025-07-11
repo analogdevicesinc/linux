@@ -15,7 +15,7 @@ jobs:
       branch: "main"
       patch_ci: "false"
 
-  adi-staging-rpi-rpi-6.12.y:
+  adi-staging-rpi-rpi-6-12-y:
     uses: ./.github/workflows/mirror.yml
     secrets: inherit
     permissions:
