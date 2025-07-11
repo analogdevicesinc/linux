@@ -240,7 +240,7 @@ DECLARE_EVENT_CLASS(clk_nshot,
 	),
 
 	TP_fast_assign(
-		__assign_str(name, core->name);
+		__assign_str(name);
 		__entry->nshot = nshot;
 	),
 
