@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices LTC2387-18/ADAQ23878
+ * Analog Devices LTC2387-16/ADAQ23875
  *
- * hdl_project: <cn0577/zed>
+ * hdl_project: <cn0577/zed with make parameter ADC_RES=16>
  * for all config modes, please check the README of the HDL project
  * board_revision: <A>
  *
@@ -39,11 +39,11 @@
 			    <&gpio0 87 GPIO_ACTIVE_HIGH>;
 		channel@0 {
 			reg = <0>;
-			label = "ltc2387_testpat";
+			label = "adaq23875_testpat";
 		};
 		channel@1 {
 			reg = <1>;
-			label = "ltc2387_pd";
+			label = "adaq23875_pd";
 		};
 	};
 };
@@ -62,7 +62,7 @@
 
 			dma-channel@0 {
 				reg = <0>;
-				adi,source-bus-width = <32>;
+				adi,source-bus-width = <16>;
 				adi,source-bus-type = <2>;
 				adi,destination-bus-width = <64>;
 				adi,destination-bus-type = <0>;
@@ -73,14 +73,14 @@
 	axi_pwm_gen: pwm@44a60000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44a60000 0x1000>;
-		label = "ltc2387_if";
+		label = "adaq23875_if";
 		#pwm-cells = <2>;
 		clocks = <&clkc 15>, <&ext_clk>;
 		clock-names = "axi", "ext";
 	};
 
-	ltc2387@0{
-		compatible = "ltc2387-18";
+	adaq23875@0{
+		compatible = "adaq23875";
 		clocks = <&ext_clk>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
