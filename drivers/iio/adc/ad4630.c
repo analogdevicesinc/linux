@@ -1223,6 +1223,8 @@ static void ad4630_prepare_spi_sampling_msg(struct ad4630_state *st,
 	}
 
 	st->offload_xfer.bits_per_word = st->bits_per_word;
+	st->offload_xfer.delay.unit = SPI_DELAY_UNIT_NSECS;
+	st->offload_xfer.delay.value = 100;
 	st->offload_xfer.len = roundup_pow_of_two(BITS_TO_BYTES(st->bits_per_word));
 	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
