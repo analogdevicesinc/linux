@@ -490,8 +490,10 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 
 	ret = wait_for_completion_timeout(&st->completion,
 					  msecs_to_jiffies(1000));
-	if (!ret)
-		return -ETIMEDOUT;
+	if (!ret) {
+		readval = -ETIMEDOUT;
+		goto out;
+	}
 
 	ret = regmap_read(st->regmap24, AD7768_REG24_ADC_DATA, &readval);
 	if (ret)
@@ -506,6 +508,7 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	if (st->oversampling_ratio == 8)
 		readval >>= 8;
 
+out:
 	/*
 	 * Any SPI configuration of the AD7768-1 can only be
 	 * performed in continuous conversion mode.
