@@ -49,12 +49,12 @@
 		ethernet-phy0-ds5 {
 			gpios = <&gpio0 ADI_ADRV906X_PIN_76 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
-			linux,default-trigger = "2b300000.adrv906x_net--1:00:link";
+			linux,default-trigger = "2b300000.adrv906x_net:00:link";
 		};
 		ethernet-phy1-ds7 {
 			gpios = <&gpio0 ADI_ADRV906X_PIN_77 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
-			linux,default-trigger = "2b300000.adrv906x_net--1:01:link";
+			linux,default-trigger = "2b300000.adrv906x_net:01:link";
 		};
 	};
 };
