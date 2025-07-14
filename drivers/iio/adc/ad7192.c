@@ -7,6 +7,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/bitfield.h>
+#include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/device.h>
@@ -164,9 +165,9 @@
 #define AD7192_EXT_FREQ_MHZ_MAX	5120000
 #define AD7192_INT_FREQ_MHZ	4915200
 
-#define AD7192_NO_SYNC_FILTER	1
-#define AD7192_SYNC3_FILTER	3
-#define AD7192_SYNC4_FILTER	4
+#define AD7192_FILTER_DIV	1024
+#define AD7192_FS_MIN		1
+#define AD7192_FS_MAX		1023
 
 /* NOTE:
  * The AD7190/2/5 features a dual use data out ready DOUT/RDY output.
@@ -181,12 +182,42 @@ enum {
 	AD7192_SYSCALIB_FULL_SCALE,
 };
 
+enum ad7192_filter_mode {
+	AD7192_FILTER_SINC4,
+	AD7192_FILTER_SINC3,
+	AD7192_FILTER_SINC4_CHOP,
+	AD7192_FILTER_SINC3_CHOP,
+	AD7192_FILTER_SINC4_AVG2,
+	AD7192_FILTER_SINC3_AVG2,
+	AD7192_FILTER_SINC4_CHOP_AVG2,
+	AD7192_FILTER_SINC3_CHOP_AVG2,
+	AD7192_FILTER_SINC4_AVG8,
+	AD7192_FILTER_SINC3_AVG8,
+	AD7192_FILTER_SINC4_CHOP_AVG8,
+	AD7192_FILTER_SINC3_CHOP_AVG8,
+	AD7192_FILTER_SINC4_AVG16,
+	AD7192_FILTER_SINC3_AVG16,
+	AD7192_FILTER_SINC4_CHOP_AVG16,
+	AD7192_FILTER_SINC3_CHOP_AVG16,
+};
+
 enum {
 	ID_AD7190,
 	ID_AD7192,
 	ID_AD7193,
 	ID_AD7194,
 	ID_AD7195,
+};
+
+struct ad7192_filter_config {
+	enum ad7192_filter_mode		filter_mode;
+	unsigned int			f_order;
+	u8				sinc3_en;
+	u8				chop_en;
+	u8				avg_val;
+	enum iio_available_type		samp_freq_avail_type;
+	int				samp_freq_avail_len;
+	int				samp_freq_avail[2][2];
 };
 
 struct ad7192_chip_info {
@@ -196,6 +227,7 @@ struct ad7192_chip_info {
 	u8				num_channels;
 	const struct ad_sigma_delta_info	*sigma_delta_info;
 	const struct iio_info		*info;
+	const struct ad7192_filter_config	*filter_configs;
 	int (*parse_channels)(struct iio_dev *indio_dev);
 };
 
@@ -209,12 +241,13 @@ struct ad7192_state {
 	u32				mode;
 	u32				conf;
 	u32				scale_avail[8][2];
-	u32				filter_freq_avail[4][2];
-	u32				oversampling_ratio_avail[4];
+	u32				avg_val_avail[4];
 	u8				gpocon;
 	u8				clock_sel;
 	struct mutex			lock;	/* protect sensor state */
 	u8				syscalib_mode[8];
+
+	enum ad7192_filter_mode		filter_mode;
 
 	struct ad_sigma_delta		sd;
 };
@@ -256,6 +289,9 @@ static ssize_t ad7192_write_syscalib(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
+
 	temp = st->syscalib_mode[chan->channel];
 	if (sys_calib) {
 		if (temp == AD7192_SYSCALIB_ZERO_SCALE)
@@ -265,6 +301,8 @@ static ssize_t ad7192_write_syscalib(struct iio_dev *indio_dev,
 			ret = ad_sd_calibrate(&st->sd, AD7192_MODE_CAL_SYS_FULL,
 					      chan->address);
 	}
+
+	iio_device_release_direct(indio_dev);
 
 	return ret ? ret : len;
 }
@@ -276,7 +314,145 @@ static const struct iio_enum ad7192_syscalib_mode_enum = {
 	.get = ad7192_get_syscalib_mode
 };
 
-static const struct iio_chan_spec_ext_info ad7192_calibsys_ext_info[] = {
+#define AD7192_FILTER_CONFIG(_filter_mode, _f_order, _sinc3_en, _chop_en, _avg_val)	\
+{									\
+		.filter_mode = (_filter_mode),				\
+		.f_order = (_f_order),					\
+		.sinc3_en = (_sinc3_en),				\
+		.chop_en = (_chop_en),					\
+		.avg_val = (_avg_val),					\
+		.samp_freq_avail_type = IIO_AVAIL_RANGE,		\
+		.samp_freq_avail_len = 2,		\
+		.samp_freq_avail = {					\
+			{ AD7192_INT_FREQ_MHZ,				\
+				(_f_order) * AD7192_FILTER_DIV * AD7192_FS_MAX },	\
+			{ AD7192_INT_FREQ_MHZ,				\
+				(_f_order) * AD7192_FILTER_DIV * AD7192_FS_MIN },	\
+		},							\
+}
+
+static const struct ad7192_filter_config ad7192_filter_configs[] = {
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4,		1, 0, 0, 1),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3,		1, 1, 0, 1),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4_CHOP,		4, 0, 1, 1),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3_CHOP,		3, 1, 1, 1),
+};
+
+static const struct ad7192_filter_config ad7192_filter_configs_avg[] = {
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4,		1, 0, 0, 1),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3,		1, 1, 0, 1),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4_CHOP,		4, 0, 1, 1),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3_CHOP,		3, 1, 1, 1),
+
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4_AVG2,		5, 0, 0, 2),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3_AVG2,		4, 1, 0, 2),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4_CHOP_AVG2,	5, 0, 1, 2),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3_CHOP_AVG2,	4, 1, 1, 2),
+
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4_AVG8,		11, 0, 0, 8),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3_AVG8,		10, 1, 0, 8),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4_CHOP_AVG8,	11, 0, 1, 8),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3_CHOP_AVG8,	10, 1, 1, 8),
+
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4_AVG16,		19, 0, 0, 16),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3_AVG16,		18, 1, 0, 16),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC4_CHOP_AVG16,	19, 0, 1, 16),
+	AD7192_FILTER_CONFIG(AD7192_FILTER_SINC3_CHOP_AVG16,	18, 1, 1, 16),
+};
+
+static const char *const ad7192_filter_modes_str[] = {
+	[AD7192_FILTER_SINC4] =			"sinc4",
+	[AD7192_FILTER_SINC3] =			"sinc3",
+	[AD7192_FILTER_SINC4_CHOP] =		"sinc4+chop",
+	[AD7192_FILTER_SINC3_CHOP] =		"sinc3+chop",
+	[AD7192_FILTER_SINC4_AVG2] =		"sinc4+avg2",
+	[AD7192_FILTER_SINC3_AVG2] =		"sinc3+avg2",
+	[AD7192_FILTER_SINC4_CHOP_AVG2] =	"sinc4+chop+avg2",
+	[AD7192_FILTER_SINC3_CHOP_AVG2] =	"sinc3+chop+avg2",
+	[AD7192_FILTER_SINC4_AVG8] =		"sinc4+avg8",
+	[AD7192_FILTER_SINC3_AVG8] =		"sinc3+avg8",
+	[AD7192_FILTER_SINC4_CHOP_AVG8] =	"sinc4+chop+avg8",
+	[AD7192_FILTER_SINC3_CHOP_AVG8] =	"sinc3+chop+avg8",
+	[AD7192_FILTER_SINC4_AVG16] =		"sinc4+avg16",
+	[AD7192_FILTER_SINC3_AVG16] =		"sinc3+avg16",
+	[AD7192_FILTER_SINC4_CHOP_AVG16] =	"sinc4+chop+avg16",
+	[AD7192_FILTER_SINC3_CHOP_AVG16] =	"sinc3+chop+avg16",
+};
+
+static int ad7192_get_f_order(struct ad7192_state *st)
+{
+	const struct ad7192_filter_config *filter_config;
+
+	filter_config = &st->chip_info->filter_configs[st->filter_mode];
+
+	return filter_config->f_order;
+}
+
+static int ad7192_get_f_adc(struct ad7192_state *st)
+{
+	unsigned int f_order = ad7192_get_f_order(st);
+
+	return DIV_ROUND_CLOSEST(st->fclk,
+				 f_order * FIELD_GET(AD7192_MODE_RATE_MASK, st->mode));
+}
+
+static int ad7192_set_filter_mode(struct iio_dev *indio_dev,
+				  const struct iio_chan_spec *chan,
+				  unsigned int val)
+{
+	struct ad7192_state *st = iio_priv(indio_dev);
+	const struct ad7192_filter_config *filter_config = &st->chip_info->filter_configs[val];
+	u16 old_samp_freq, div;
+	int i, ret;
+
+	old_samp_freq = ad7192_get_f_adc(st);
+
+	st->filter_mode = val;
+
+	div = DIV_ROUND_CLOSEST(st->fclk, ad7192_get_f_order(st) * old_samp_freq);
+	if (div < AD7192_FS_MIN || div > AD7192_FS_MAX)
+		return -EINVAL;
+
+	st->mode &= ~AD7192_MODE_RATE_MASK;
+	st->mode |= FIELD_PREP(AD7192_MODE_RATE_MASK, div);
+
+	st->mode &= ~AD7192_MODE_SINC3;
+	st->mode |= FIELD_PREP(AD7192_MODE_SINC3, filter_config->sinc3_en);
+
+	st->conf &= ~AD7192_CONF_CHOP;
+	st->conf |= FIELD_PREP(AD7192_CONF_CHOP, filter_config->chop_en);
+
+	for (i = 0; i < ARRAY_SIZE(st->avg_val_avail); i++) {
+		if (filter_config->avg_val != st->avg_val_avail[i])
+			continue;
+
+		st->mode &= ~AD7192_MODE_AVG_MASK;
+		st->mode |= FIELD_PREP(AD7192_MODE_AVG_MASK, i);
+	}
+
+	ret = ad_sd_write_reg(&st->sd, AD7192_REG_MODE, 3, st->mode);
+	if (ret < 0)
+		return ret;
+
+	return ad_sd_write_reg(&st->sd, AD7192_REG_CONF, 3, st->conf);
+}
+
+static int ad7192_get_filter_mode(struct iio_dev *indio_dev,
+				  const struct iio_chan_spec *chan)
+{
+	struct ad7192_state *st = iio_priv(indio_dev);
+
+	return st->filter_mode;
+}
+
+static const struct iio_enum ad7192_filter_mode_enum = {
+	.items = ad7192_filter_modes_str,
+	.num_items = ARRAY_SIZE(ad7192_filter_modes_str),
+	.set = ad7192_set_filter_mode,
+	.get = ad7192_get_filter_mode,
+};
+
+static const struct iio_chan_spec_ext_info ad7192_ext_info[] = {
 	{
 		.name = "sys_calibration",
 		.write = ad7192_write_syscalib,
@@ -286,6 +462,9 @@ static const struct iio_chan_spec_ext_info ad7192_calibsys_ext_info[] = {
 		 &ad7192_syscalib_mode_enum),
 	IIO_ENUM_AVAILABLE("sys_calibration_mode", IIO_SHARED_BY_TYPE,
 			   &ad7192_syscalib_mode_enum),
+	IIO_ENUM("filter_mode", IIO_SHARED_BY_ALL, &ad7192_filter_mode_enum),
+	IIO_ENUM_AVAILABLE("filter_mode", IIO_SHARED_BY_ALL,
+			   &ad7192_filter_mode_enum),
 	{}
 };
 
@@ -638,20 +817,10 @@ static int ad7192_setup(struct iio_dev *indio_dev, struct device *dev)
 		st->scale_avail[i][0] = scale_uv;
 	}
 
-	st->oversampling_ratio_avail[0] = 1;
-	st->oversampling_ratio_avail[1] = 2;
-	st->oversampling_ratio_avail[2] = 8;
-	st->oversampling_ratio_avail[3] = 16;
-
-	st->filter_freq_avail[0][0] = 600;
-	st->filter_freq_avail[1][0] = 800;
-	st->filter_freq_avail[2][0] = 2300;
-	st->filter_freq_avail[3][0] = 2720;
-
-	st->filter_freq_avail[0][1] = 1000;
-	st->filter_freq_avail[1][1] = 1000;
-	st->filter_freq_avail[2][1] = 1000;
-	st->filter_freq_avail[3][1] = 1000;
+	st->avg_val_avail[0] = 1;
+	st->avg_val_avail[1] = 2;
+	st->avg_val_avail[2] = 8;
+	st->avg_val_avail[3] = 16;
 
 	return 0;
 }
@@ -692,9 +861,8 @@ static ssize_t ad7192_set(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	ret = iio_device_claim_direct_mode(indio_dev);
-	if (ret)
-		return ret;
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
 
 	switch ((u32)this_attr->address) {
 	case AD7192_REG_GPOCON:
@@ -717,71 +885,9 @@ static ssize_t ad7192_set(struct device *dev,
 		ret = -EINVAL;
 	}
 
-	iio_device_release_direct_mode(indio_dev);
+	iio_device_release_direct(indio_dev);
 
 	return ret ? ret : len;
-}
-
-static int ad7192_compute_f_order(struct ad7192_state *st, bool sinc3_en, bool chop_en)
-{
-	u8 avg_factor_selected, oversampling_ratio;
-
-	avg_factor_selected = FIELD_GET(AD7192_MODE_AVG_MASK, st->mode);
-
-	if (!avg_factor_selected && !chop_en)
-		return 1;
-
-	oversampling_ratio = st->oversampling_ratio_avail[avg_factor_selected];
-
-	if (sinc3_en)
-		return AD7192_SYNC3_FILTER + oversampling_ratio - 1;
-
-	return AD7192_SYNC4_FILTER + oversampling_ratio - 1;
-}
-
-static int ad7192_get_f_order(struct ad7192_state *st)
-{
-	bool sinc3_en, chop_en;
-
-	sinc3_en = FIELD_GET(AD7192_MODE_SINC3, st->mode);
-	chop_en = FIELD_GET(AD7192_CONF_CHOP, st->conf);
-
-	return ad7192_compute_f_order(st, sinc3_en, chop_en);
-}
-
-static int ad7192_compute_f_adc(struct ad7192_state *st, bool sinc3_en,
-				bool chop_en)
-{
-	unsigned int f_order = ad7192_compute_f_order(st, sinc3_en, chop_en);
-
-	return DIV_ROUND_CLOSEST(st->fclk,
-				 f_order * FIELD_GET(AD7192_MODE_RATE_MASK, st->mode));
-}
-
-static int ad7192_get_f_adc(struct ad7192_state *st)
-{
-	unsigned int f_order = ad7192_get_f_order(st);
-
-	return DIV_ROUND_CLOSEST(st->fclk,
-				 f_order * FIELD_GET(AD7192_MODE_RATE_MASK, st->mode));
-}
-
-static void ad7192_update_filter_freq_avail(struct ad7192_state *st)
-{
-	unsigned int fadc;
-
-	/* Formulas for filter at page 25 of the datasheet */
-	fadc = ad7192_compute_f_adc(st, false, true);
-	st->filter_freq_avail[0][0] = DIV_ROUND_CLOSEST(fadc * 240, 1024);
-
-	fadc = ad7192_compute_f_adc(st, true, true);
-	st->filter_freq_avail[1][0] = DIV_ROUND_CLOSEST(fadc * 240, 1024);
-
-	fadc = ad7192_compute_f_adc(st, false, false);
-	st->filter_freq_avail[2][0] = DIV_ROUND_CLOSEST(fadc * 230, 1024);
-
-	fadc = ad7192_compute_f_adc(st, true, false);
-	st->filter_freq_avail[3][0] = DIV_ROUND_CLOSEST(fadc * 272, 1024);
 }
 
 static IIO_DEVICE_ATTR(bridge_switch_en, 0644,
@@ -814,54 +920,6 @@ static const struct attribute_group ad7195_attribute_group = {
 static unsigned int ad7192_get_temp_scale(bool unipolar)
 {
 	return unipolar ? 2815 * 2 : 2815;
-}
-
-static int ad7192_set_3db_filter_freq(struct ad7192_state *st,
-				      int val, int val2)
-{
-	int i, ret, freq;
-	unsigned int diff_new, diff_old;
-	int idx = 0;
-
-	diff_old = U32_MAX;
-	freq = val * 1000 + val2;
-
-	for (i = 0; i < ARRAY_SIZE(st->filter_freq_avail); i++) {
-		diff_new = abs(freq - st->filter_freq_avail[i][0]);
-		if (diff_new < diff_old) {
-			diff_old = diff_new;
-			idx = i;
-		}
-	}
-
-	switch (idx) {
-	case 0:
-		st->mode &= ~AD7192_MODE_SINC3;
-
-		st->conf |= AD7192_CONF_CHOP;
-		break;
-	case 1:
-		st->mode |= AD7192_MODE_SINC3;
-
-		st->conf |= AD7192_CONF_CHOP;
-		break;
-	case 2:
-		st->mode &= ~AD7192_MODE_SINC3;
-
-		st->conf &= ~AD7192_CONF_CHOP;
-		break;
-	case 3:
-		st->mode |= AD7192_MODE_SINC3;
-
-		st->conf &= ~AD7192_CONF_CHOP;
-		break;
-	}
-
-	ret = ad_sd_write_reg(&st->sd, AD7192_REG_MODE, 3, st->mode);
-	if (ret < 0)
-		return ret;
-
-	return ad_sd_write_reg(&st->sd, AD7192_REG_CONF, 3, st->conf);
 }
 
 static int ad7192_get_3db_filter_freq(struct ad7192_state *st)
@@ -930,18 +988,59 @@ static int ad7192_read_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = DIV_ROUND_CLOSEST(ad7192_get_f_adc(st), 1024);
+		*val = DIV_ROUND_CLOSEST(ad7192_get_f_adc(st), AD7192_FILTER_DIV);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
 		*val = ad7192_get_3db_filter_freq(st);
 		*val2 = 1000;
 		return IIO_VAL_FRACTIONAL;
-	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
-		*val = st->oversampling_ratio_avail[FIELD_GET(AD7192_MODE_AVG_MASK, st->mode)];
-		return IIO_VAL_INT;
 	}
 
 	return -EINVAL;
+}
+
+static int __ad7192_write_raw(struct iio_dev *indio_dev,
+			      struct iio_chan_spec const *chan,
+			      int val,
+			      int val2,
+			      long mask)
+{
+	struct ad7192_state *st = iio_priv(indio_dev);
+	int i, div;
+	unsigned int tmp;
+
+	guard(mutex)(&st->lock);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE:
+		for (i = 0; i < ARRAY_SIZE(st->scale_avail); i++) {
+			if (val2 != st->scale_avail[i][1])
+				continue;
+
+			tmp = st->conf;
+			st->conf &= ~AD7192_CONF_GAIN_MASK;
+			st->conf |= FIELD_PREP(AD7192_CONF_GAIN_MASK, i);
+			if (tmp == st->conf)
+				return 0;
+			ad_sd_write_reg(&st->sd, AD7192_REG_CONF, 3, st->conf);
+			ad7192_calibrate_all(st);
+			return 0;
+		}
+		return -EINVAL;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!val)
+			return -EINVAL;
+
+		div = st->fclk / (val * ad7192_get_f_order(st) * AD7192_FILTER_DIV);
+		if (div < AD7192_FS_MIN || div > AD7192_FS_MAX)
+			return -EINVAL;
+
+		st->mode &= ~AD7192_MODE_RATE_MASK;
+		st->mode |= FIELD_PREP(AD7192_MODE_RATE_MASK, div);
+		return ad_sd_write_reg(&st->sd, AD7192_REG_MODE, 3, st->mode);
+	default:
+		return -EINVAL;
+	}
 }
 
 static int ad7192_write_raw(struct iio_dev *indio_dev,
@@ -950,76 +1049,14 @@ static int ad7192_write_raw(struct iio_dev *indio_dev,
 			    int val2,
 			    long mask)
 {
-	struct ad7192_state *st = iio_priv(indio_dev);
-	int ret, i, div;
-	unsigned int tmp;
+	int ret;
 
-	ret = iio_device_claim_direct_mode(indio_dev);
-	if (ret)
-		return ret;
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
 
-	mutex_lock(&st->lock);
+	ret = __ad7192_write_raw(indio_dev, chan, val, val2, mask);
 
-	switch (mask) {
-	case IIO_CHAN_INFO_SCALE:
-		ret = -EINVAL;
-		for (i = 0; i < ARRAY_SIZE(st->scale_avail); i++)
-			if (val2 == st->scale_avail[i][1]) {
-				ret = 0;
-				tmp = st->conf;
-				st->conf &= ~AD7192_CONF_GAIN_MASK;
-				st->conf |= FIELD_PREP(AD7192_CONF_GAIN_MASK, i);
-				if (tmp == st->conf)
-					break;
-				ad_sd_write_reg(&st->sd, AD7192_REG_CONF,
-						3, st->conf);
-				ad7192_calibrate_all(st);
-				break;
-			}
-		break;
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (!val) {
-			ret = -EINVAL;
-			break;
-		}
-
-		div = st->fclk / (val * ad7192_get_f_order(st) * 1024);
-		if (div < 1 || div > 1023) {
-			ret = -EINVAL;
-			break;
-		}
-
-		st->mode &= ~AD7192_MODE_RATE_MASK;
-		st->mode |= FIELD_PREP(AD7192_MODE_RATE_MASK, div);
-		ad_sd_write_reg(&st->sd, AD7192_REG_MODE, 3, st->mode);
-		ad7192_update_filter_freq_avail(st);
-		break;
-	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
-		ret = ad7192_set_3db_filter_freq(st, val, val2 / 1000);
-		break;
-	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
-		ret = -EINVAL;
-		for (i = 0; i < ARRAY_SIZE(st->oversampling_ratio_avail); i++)
-			if (val == st->oversampling_ratio_avail[i]) {
-				ret = 0;
-				tmp = st->mode;
-				st->mode &= ~AD7192_MODE_AVG_MASK;
-				st->mode |= FIELD_PREP(AD7192_MODE_AVG_MASK, i);
-				if (tmp == st->mode)
-					break;
-				ad_sd_write_reg(&st->sd, AD7192_REG_MODE,
-						3, st->mode);
-				break;
-			}
-		ad7192_update_filter_freq_avail(st);
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
-	mutex_unlock(&st->lock);
-
-	iio_device_release_direct_mode(indio_dev);
+	iio_device_release_direct(indio_dev);
 
 	return ret;
 }
@@ -1033,10 +1070,6 @@ static int ad7192_write_raw_get_fmt(struct iio_dev *indio_dev,
 		return IIO_VAL_INT_PLUS_NANO;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
-		return IIO_VAL_INT_PLUS_MICRO;
-	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
-		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
@@ -1048,6 +1081,7 @@ static int ad7192_read_avail(struct iio_dev *indio_dev,
 			     long mask)
 {
 	struct ad7192_state *st = iio_priv(indio_dev);
+	const struct ad7192_filter_config *filter_config;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
@@ -1057,18 +1091,13 @@ static int ad7192_read_avail(struct iio_dev *indio_dev,
 		*length = ARRAY_SIZE(st->scale_avail) * 2;
 
 		return IIO_AVAIL_LIST;
-	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
-		*vals = (int *)st->filter_freq_avail;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		filter_config = &st->chip_info->filter_configs[st->filter_mode];
+		*vals = (int *)filter_config->samp_freq_avail;
+		*length = filter_config->samp_freq_avail_len * 2;
 		*type = IIO_VAL_FRACTIONAL;
-		*length = ARRAY_SIZE(st->filter_freq_avail) * 2;
 
-		return IIO_AVAIL_LIST;
-	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
-		*vals = (int *)st->oversampling_ratio_avail;
-		*type = IIO_VAL_INT;
-		*length = ARRAY_SIZE(st->oversampling_ratio_avail);
-
-		return IIO_AVAIL_LIST;
+		return filter_config->samp_freq_avail_type;
 	}
 
 	return -EINVAL;
@@ -1123,7 +1152,7 @@ static const struct iio_info ad7195_info = {
 };
 
 #define __AD719x_CHANNEL(_si, _channel1, _channel2, _address, _type, \
-	_mask_all, _mask_type_av, _mask_all_av, _ext_info) \
+	_mask_type_av, _ext_info) \
 	{ \
 		.type = (_type), \
 		.differential = ((_channel2) == -1 ? 0 : 1), \
@@ -1135,12 +1164,10 @@ static const struct iio_info ad7195_info = {
 			BIT(IIO_CHAN_INFO_OFFSET), \
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) | \
-			BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY) | \
-			(_mask_all), \
+			BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY), \
 		.info_mask_shared_by_type_available = (_mask_type_av), \
 		.info_mask_shared_by_all_available = \
-			BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY) | \
-			(_mask_all_av), \
+			BIT(IIO_CHAN_INFO_SAMP_FREQ), \
 		.ext_info = (_ext_info), \
 		.scan_index = (_si), \
 		.scan_type = { \
@@ -1152,23 +1179,19 @@ static const struct iio_info ad7195_info = {
 	}
 
 #define AD719x_DIFF_CHANNEL(_si, _channel1, _channel2, _address) \
-	__AD719x_CHANNEL(_si, _channel1, _channel2, _address, IIO_VOLTAGE, 0, \
-		BIT(IIO_CHAN_INFO_SCALE), 0, ad7192_calibsys_ext_info)
+	__AD719x_CHANNEL(_si, _channel1, _channel2, _address, IIO_VOLTAGE, \
+		BIT(IIO_CHAN_INFO_SCALE), ad7192_ext_info)
 
 #define AD719x_CHANNEL(_si, _channel1, _address) \
-	__AD719x_CHANNEL(_si, _channel1, -1, _address, IIO_VOLTAGE, 0, \
-		BIT(IIO_CHAN_INFO_SCALE), 0, ad7192_calibsys_ext_info)
+	__AD719x_CHANNEL(_si, _channel1, -1, _address, IIO_VOLTAGE, \
+		BIT(IIO_CHAN_INFO_SCALE), ad7192_ext_info)
 
 #define AD719x_TEMP_CHANNEL(_si, _address) \
-	__AD719x_CHANNEL(_si, 0, -1, _address, IIO_TEMP, 0, 0, 0, NULL)
+	__AD719x_CHANNEL(_si, 0, -1, _address, IIO_TEMP, 0, NULL)
 
 #define AD7193_DIFF_CHANNEL(_si, _channel1, _channel2, _address) \
 	__AD719x_CHANNEL(_si, _channel1, _channel2, _address, \
-		IIO_VOLTAGE, \
-		BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO), \
-		BIT(IIO_CHAN_INFO_SCALE), \
-		BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO), \
-		ad7192_calibsys_ext_info)
+		IIO_VOLTAGE, BIT(IIO_CHAN_INFO_SCALE), ad7192_ext_info)
 
 #define AD7193_CHANNEL(_si, _channel1, _address) \
 	AD7193_DIFF_CHANNEL(_si, _channel1, -1, _address)
@@ -1293,6 +1316,7 @@ static const struct ad7192_chip_info ad7192_chip_info_tbl[] = {
 		.num_channels = ARRAY_SIZE(ad7192_channels),
 		.sigma_delta_info = &ad7192_sigma_delta_info,
 		.info = &ad7192_info,
+		.filter_configs = ad7192_filter_configs,
 	},
 	[ID_AD7192] = {
 		.chip_id = CHIPID_AD7192,
@@ -1301,6 +1325,7 @@ static const struct ad7192_chip_info ad7192_chip_info_tbl[] = {
 		.num_channels = ARRAY_SIZE(ad7192_channels),
 		.sigma_delta_info = &ad7192_sigma_delta_info,
 		.info = &ad7192_info,
+		.filter_configs = ad7192_filter_configs,
 	},
 	[ID_AD7193] = {
 		.chip_id = CHIPID_AD7193,
@@ -1309,6 +1334,7 @@ static const struct ad7192_chip_info ad7192_chip_info_tbl[] = {
 		.num_channels = ARRAY_SIZE(ad7193_channels),
 		.sigma_delta_info = &ad7192_sigma_delta_info,
 		.info = &ad7192_info,
+		.filter_configs = ad7192_filter_configs_avg,
 	},
 	[ID_AD7194] = {
 		.chip_id = CHIPID_AD7194,
@@ -1316,6 +1342,7 @@ static const struct ad7192_chip_info ad7192_chip_info_tbl[] = {
 		.info = &ad7194_info,
 		.sigma_delta_info = &ad7194_sigma_delta_info,
 		.parse_channels = ad7194_parse_channels,
+		.filter_configs = ad7192_filter_configs_avg,
 	},
 	[ID_AD7195] = {
 		.chip_id = CHIPID_AD7195,
@@ -1324,6 +1351,7 @@ static const struct ad7192_chip_info ad7192_chip_info_tbl[] = {
 		.num_channels = ARRAY_SIZE(ad7192_channels),
 		.sigma_delta_info = &ad7192_sigma_delta_info,
 		.info = &ad7195_info,
+		.filter_configs = ad7192_filter_configs,
 	},
 };
 
