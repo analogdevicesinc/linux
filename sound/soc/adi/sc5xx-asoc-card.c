@@ -12,6 +12,7 @@
  * Author: Scott Jiang <Scott.Jiang.Linux@gmail.com>
  */
 
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/pinctrl/pinctrl.h>
@@ -300,8 +301,10 @@ static int sc5xx_adau1761_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
+	struct adau *adau = dev_get_drvdata(codec_dai->dev);
 	int pll_rate;
 	int ret;
+	long mclk=0;
 
 	switch (params_rate(params)) {
 	case 48000:
@@ -326,12 +329,18 @@ static int sc5xx_adau1761_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+	if (adau->mclk) {
+		mclk = clk_get_rate(adau->mclk);
+	} else {
+		mclk = 12288000;
+	}
+
 	ret = snd_soc_dai_set_pll(codec_dai, ADAU17X1_PLL,
-			ADAU17X1_PLL_SRC_MCLK, 12288000, pll_rate);
+			DAU17X1_PLL_SRC_MCLK, mclk, pll_rate);
 	if (ret)
 		return ret;
 
-	ret = snd_soc_dai_set_sysclk(codec_dai, ADAU17X1_CLK_SRC_PLL, 12288000,
+	ret = snd_soc_dai_set_sysclk(codec_dai, ADAU17X1_CLK_SRC_PLL, mclk,
 			SND_SOC_CLOCK_IN);
 	if (ret) {
 		pr_err("%s error, ret:%d\n", __func__, ret);
