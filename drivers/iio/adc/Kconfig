@@ -1126,6 +1126,16 @@ config MAX1363
 	  To compile this driver as a module, choose M here: the module will be
 	  called max1363.
 
+config MAX22531
+        tristate "Analog Devices MAX22531 ADC Driver"
+        depends on SPI
+        help
+          Say yes here to build support for field-side self-powered 12-bit
+	  isolated Maxim ADCs. (max22530, max22531, max22532).
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called max22531.
+
 config MAX77541_ADC
 	tristate "Analog Devices MAX77541 ADC driver"
 	depends on MFD_MAX77541

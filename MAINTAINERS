@@ -13058,6 +13058,7 @@ L:	linux-iio@vger.kernel.org
 S:	Maintained
 W:	https://ez.analog.com/linux-software-drivers
 F:	Documentation/devicetree/bindings/iio/adc/adi,max22531.yaml
+F:	drivers/iio/adc/max22531.c
 
 MAX31827 TEMPERATURE SWITCH DRIVER
 M:	Daniel Matyas <daniel.matyas@analog.com>
