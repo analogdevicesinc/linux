@@ -2312,6 +2312,8 @@ Description:
 		* "sinc5+pf1" - Sinc5 + device specific Post Filter 1.
 		* "wideband" - filter with wideband low ripple passband
 		  and sharp transition band.
+		* "sinc4+iir" - Sinc4 + IIR Low Pass Filter.
+		* "dsp" - Digital Signal Processor filtering.
 
 What:		/sys/bus/iio/devices/iio:deviceX/filter_type
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY-voltageZ_filter_type
