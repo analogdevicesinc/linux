@@ -488,6 +488,7 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
+	enable_irq(st->spi->irq);
 	ret = wait_for_completion_timeout(&st->completion,
 					  msecs_to_jiffies(1000));
 	if (!ret) {
@@ -509,6 +510,7 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 		readval >>= 8;
 
 out:
+	disable_irq(st->spi->irq);
 	/*
 	 * Any SPI configuration of the AD7768-1 can only be
 	 * performed in continuous conversion mode.
@@ -1442,7 +1444,21 @@ static const struct iio_buffer_setup_ops ad7768_offload_buffer_ops = {
 	.predisable = ad7768_offload_buffer_predisable,
 };
 
+static int ad7768_set_trigger_state(struct iio_trigger *trig, bool enable)
+{
+	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
+	struct ad7768_state *st = iio_priv(indio_dev);
+
+	if (enable)
+		enable_irq(st->spi->irq);
+	else
+		disable_irq(st->spi->irq);
+
+	return 0;
+}
+
 static const struct iio_trigger_ops ad7768_trigger_ops = {
+	.set_trigger_state = ad7768_set_trigger_state,
 	.validate_device = iio_trigger_validate_own_device,
 };
 
@@ -1888,7 +1904,7 @@ static int ad7768_probe(struct spi_device *spi)
 
 	ret = devm_request_irq(&spi->dev, spi->irq,
 			       &ad7768_interrupt,
-			       IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+			       IRQF_TRIGGER_RISING | IRQF_NO_AUTOEN,
 			       indio_dev->name, indio_dev);
 	if (ret)
 		return ret;
