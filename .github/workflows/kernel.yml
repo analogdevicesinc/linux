@@ -1,0 +1,93 @@
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/**'
+      - 'ci/**'
+      - 'docs/**'
+  pull_request:
+    paths-ignore:
+      - '.github/**'
+      - 'ci/**'
+      - 'docs/**'
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+    secrets: inherit
+    with:
+      ref_branch: "mirror/next/linux-next/master"
+  build_gcc_x86_64:
+    uses: ./.github/workflows/build.yml
+    needs: [checks]
+    secrets: inherit
+    with:
+      CXX: "14"
+      ARCH: "x86"
+      DEFCONFIG: "adi_ci_defconfig"
+  build_llvm_x86_64:
+    uses: ./.github/workflows/build.yml
+    needs: [checks]
+    secrets: inherit
+    with:
+      LLVM: "19"
+      ARCH: "x86"
+      DEFCONFIG: "adi_ci_defconfig"
+      CHECKS: true
+  build_gcc_aarch64:
+    uses: ./.github/workflows/build.yml
+    needs: [checks]
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "aarch64-suse-linux-"
+      ARCH: "arm64"
+      DEFCONFIG: "adi_ci_defconfig"
+  build_gcc_arm:
+    uses: ./.github/workflows/build.yml
+    #needs: [checks]
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "adi_ci_defconfig"
+      CHECKS: true
+  assert:
+    runs-on: [self-hosted, v1]
+    needs: [checks, build_gcc_x86_64, build_llvm_x86_64, build_gcc_aarch64, build_gcc_arm]
+
+    steps:
+      - name: Assert checks
+        env:
+          job_warn_checks: ${{needs.checks.outputs.warn}}
+          job_warn_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.warn}}
+          job_warn_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.warn}}
+          job_warn_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.warn}}
+          job_warn_build_gcc_arm: ${{needs.build_gcc_arm.outputs.warn}}
+          job_fail_checks: ${{needs.checks.outputs.fail}}
+          job_fail_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.fail}}
+          job_fail_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.fail}}
+          job_fail_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.fail}}
+          job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
+        run: |
+          warn=$(printenv | grep ^job_warn_ | grep -v =$ | tr '\n' ';'  | \
+                 sed -E -e 's/;/%0A/g' -e 's/\=true(,)?/%0A  /g' -e 's/=/:%0A  /g' -e 's/(job|step)_(fail|warn)_//g')
+          fail=$(printenv | grep ^job_fail_ | grep -v =$ | tr '\n' ';'  | \
+                 sed -E -e 's/;/%0A/g' -e 's/\=true(,)?/%0A  /g' -e 's/=/:%0A  /g' -e 's/(job|step)_(fail|warn)_//g')
+
+          if [[ ! -z "$fail" ]]; then
+            if [[ ! -z "$warn" ]]; then
+              echo "::error::Some jobs didn't pass strict checks:%0A$fail%0AAnd non-strict checks:%0A$warn"
+            else
+              echo "::error::Some jobs didn't pass strict checks:%0A$fail"
+            fi
+            exit 1
+          else
+            if [[ ! -z "$warn" ]]; then
+              warn=%0A$(echo $warn | tr '\n' ';' | sed 's/;/%0A/g')
+              echo "::warning::Some jobs didn't pass non-strict checks:%0A$warn"
+            fi
+          fi
+
