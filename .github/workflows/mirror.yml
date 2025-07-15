@@ -48,7 +48,6 @@ jobs:
             ".github"
             "arch/arm/configs/adi_ci_defconfig"
             "arch/arm64/configs/adi_ci_defconfig"
-            "arch/x86/configs/adi_ci_defconfig"
           )
           for i in "${arr[@]}"
           do
