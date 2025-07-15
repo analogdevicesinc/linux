@@ -5,7 +5,7 @@
 #include <dt-bindings/jesd204/adxcvr.h>
 
 #ifndef DEVICE_PROFILE_NAME
-#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP16_2p5_4x2.bin"
+#define DEVICE_PROFILE_NAME	"id00_uc00_ims_demo_24576.bin"
 #endif
 
 #ifndef OUT_CLK_SELECT
@@ -175,7 +175,7 @@
 			clock-names = "clkin", "vcoin";
 			vcoin-clock-scales = <1 10>;
 
-			adi,vco-frequency-hz = <2500000000>;
+			adi,vco-frequency-hz = <2457600000>;
 
 			jesd204-device;
 			#jesd204-cells = <2>;
