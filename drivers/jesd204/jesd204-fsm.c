@@ -1125,6 +1125,7 @@ int devm_jesd204_fsm_start(struct device *dev, struct jesd204_dev *jdev,
 	ret = __jesd204_fsm_start(jdev, link_idx, false);
 	if (ret)
 		return ret;
+	pr_err("\n %s %d: ceva adf4371 jesdfsm start: am intrat", __func__, __LINE__);
 
 	return devm_add_action_or_reset(dev, __jesd204_fsm_stop, jdev);
 }
