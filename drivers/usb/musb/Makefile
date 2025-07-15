@@ -23,6 +23,7 @@ obj-$(CONFIG_USB_MUSB_UX500)			+= ux500.o
 obj-$(CONFIG_USB_MUSB_JZ4740)			+= jz4740.o
 obj-$(CONFIG_USB_MUSB_SUNXI)			+= sunxi.o
 obj-$(CONFIG_USB_MUSB_MEDIATEK)      		+= mediatek.o
+obj-$(CONFIG_USB_MUSB_ADI)			+= adi.o
 obj-$(CONFIG_USB_MUSB_POLARFIRE_SOC)		+= mpfs.o
 
 # the kconfig must guarantee that only one of the
