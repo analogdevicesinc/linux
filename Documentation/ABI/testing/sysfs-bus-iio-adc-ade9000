@@ -1,0 +1,64 @@
+What:		/sys/bus/iio/devices/iio:deviceX/wf_cap_en
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable fixed data rate for waveform buffer instead of resampled data.
+		When enabled (1), the waveform buffer uses a fixed data rate.
+		When disabled (0), the waveform buffer uses resampled data.
+
+		This attribute is shared by all channels and represents a device-wide
+		setting that affects the entire waveform buffer configuration.
+		Changes immediately update the hardware configuration.
+
+		Reading: Returns current setting (0 or 1)
+		Writing: Accepts 0, 1
+
+What:		/sys/bus/iio/devices/iio:deviceX/wf_mode
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Waveform buffer filling and trigger mode configuration.
+
+		Valid values:
+		0 - Stop when waveform buffer is full
+		1 - Continuous fill, stop only on enabled trigger events
+		2 - Continuous filling, center capture around enabled trigger events
+		3 - Streaming mode
+
+		This attribute is shared by all channels and represents a device-wide
+		setting that affects the entire waveform buffer configuration.
+		Changes immediately update the hardware configuration.
+
+		Reading: Returns current mode (0-3)
+		Writing: Accepts values 0, 1, 2, or 3
+
+What:		/sys/bus/iio/devices/iio:deviceX/wf_in_en
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable IN waveform samples readout from waveform buffer.
+		When enabled (1), IN waveform samples are included in buffer readout.
+		When disabled (0), IN waveform samples are excluded from buffer readout.
+
+		This attribute is shared by all channels and represents a device-wide
+		setting that affects the entire waveform buffer configuration.
+		Changes immediately update the hardware configuration.
+
+		Reading: Returns current setting (0 or 1)
+		Writing: Accepts 0, 1
+
+What:		/sys/bus/iio/devices/iio:deviceX/egy_time
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Energy accumulation time setting for energy registers.
+		This value configures the time period over which energy
+		measurements are accumulated in the ADE9000 device.
+
+		This attribute is shared by all channels and represents a device-wide
+		setting that affects energy accumulation across all phases.
+		Changes immediately update the hardware configuration.
+
+		Reading: Returns current energy accumulation time value
+		Writing: Accepts any valid 32-bit unsigned integer value
+
