@@ -1,0 +1,86 @@
+on:
+  workflow_call:
+    inputs:
+      ref_branch:
+        required: true
+        type: string
+    outputs:
+      fail:
+        value: ${{ jobs.checks.outputs.fail }}
+      warn:
+        value: ${{ jobs.checks.outputs.warn }}
+
+jobs:
+  checks:
+    runs-on: [self-hosted, v1]
+
+    outputs:
+      fail: ${{ steps.assert.outputs.fail }}
+      warn: ${{ steps.assert.outputs.warn }}
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@v1
+
+    - name: Apply cocci
+      run: |
+        source ci/build.sh
+        apply_prerun
+
+    - name: Check patch
+      run: |
+        source ci/build.sh
+        export -f check_checkpatch set_step_fail set_step_warn
+        timeout 360 bash -c "check_checkpatch" || \
+          echo "step_fail_checkpatch_timeout=true" >> "$GITHUB_ENV"
+
+    - name: Coccicheck
+      run: |
+        source ci/build.sh
+        check_coccicheck
+
+    - name: CPP Check
+      run: |
+        source ci/build.sh
+        check_cppcheck
+
+    - name: Checkout and patch reference branch
+      if: ${{ !startsWith(github.base_ref, 'mirror/') && !startsWith(github.ref_name, 'mirror/') }}
+      run: |
+        git fetch origin --depth=1 "${{ inputs.ref_branch }}"
+        git reset --hard origin/${{ inputs.ref_branch }}
+
+        git checkout $head_sha -- ci/build.sh
+
+        files=$(git diff --name-only $base_sha..$head_sha)
+
+        while read file; do
+          # Only Documentation/devicetree/bindings/**/.yaml files are checked-out,
+          # in the case of header changes the check may falsely fail.
+          # Please, when doing heavy dt bindings work, target the upstream mirrors
+          case "$file" in
+          *.yaml)
+            relative_yaml=${file#Documentation/devicetree/bindings/}
+
+            if [[ ! "$relative_yaml" = "$file" ]]; then
+              git checkout $head_sha -- $file
+            fi
+            ;;
+          esac
+        done <<< "$files"
+
+    - name: Check dt-bindings
+      run: |
+        source ci/build.sh
+        check_dt_binding_check
+
+    - name: Revert patch reference branch
+      if: ${{ !startsWith(github.base_ref, 'mirror/') && !startsWith(github.ref_name, 'mirror/') }}
+      run: |
+        git reset --hard $head_sha
+
+    - name: Assert checks
+      id: assert
+      run: |
+        echo "warn=$(printenv | grep ^step_warn_ | grep -v =$ | tr '\n' ',' | sed 's/,$//')" >> "$GITHUB_OUTPUT"
+        echo "fail=$(printenv | grep ^step_fail_ | grep -v =$ | tr '\n' ',' | sed 's/,$//')" >> "$GITHUB_OUTPUT"
+
