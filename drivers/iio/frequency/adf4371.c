@@ -1077,6 +1077,7 @@ static int adf4371_setup(struct adf4371_state *st)
 	ret = regmap_bulk_write(st->regmap, ADF4371_REG(0x30), st->buf, 5);
 	if (ret < 0)
 		return ret;
+	pr_err("\n %s %d: ceva adf4371", __func__, __LINE__);
 
 	return adf4371_channel_config(st);
 }
@@ -1211,6 +1212,7 @@ static int adf4371_clk_register(struct iio_dev *indio_dev,
 
 static int adf4371_clks_register(struct iio_dev *indio_dev)
 {
+	pr_err("\n %s %d: ceva adf4371: am intrat", __func__, __LINE__);
 	struct adf4371_state *st = iio_priv(indio_dev);
 	int i, ret;
 
@@ -1223,6 +1225,7 @@ static int adf4371_clks_register(struct iio_dev *indio_dev)
 	for (i = 0; i < st->chip_info->num_channels; i++) {
 		ret = adf4371_clk_register(indio_dev, i,
 					   __clk_get_name(st->clkin));
+		pr_err("\n %s %d: ceva adf4371: i=%d, name=%s", __func__, __LINE__, i, __clk_get_name(st->clkin));
 		if (ret < 0) {
 			dev_err(&st->spi->dev,
 				"Clock provider register failed\n");
@@ -1265,6 +1268,7 @@ static const struct jesd204_dev_data adf4371_jesd204_data = {
 
 static int adf4371_probe(struct spi_device *spi)
 {
+	pr_err("\n %s %d: ceva adf4371: am intrat", __func__, __LINE__);
 	const struct spi_device_id *id = spi_get_device_id(spi);
 	struct adf4371_jesd204_priv *priv;
 	struct iio_dev *indio_dev;
@@ -1310,6 +1314,7 @@ static int adf4371_probe(struct spi_device *spi)
 	else
 		indio_dev->name = id->name;
 
+	pr_err("\n %s %d: ceva adf4371: indio_dev->name=%s", __func__, __LINE__, indio_dev->name);
 	indio_dev->info = &adf4371_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->chip_info->channels;
@@ -1320,6 +1325,7 @@ static int adf4371_probe(struct spi_device *spi)
 		return PTR_ERR(st->clkin);
 
 	st->clkin_freq = clk_get_rate(st->clkin);
+	pr_err("\n %s %d: ceva adf4371: clk_get_rate=%d", __func__, __LINE__, st->clkin_freq);
 
 	ret = adf4371_parse_dt(st);
 	if (ret < 0)
@@ -1349,6 +1355,7 @@ static int adf4371_probe(struct spi_device *spi)
 	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret < 0)
 		return ret;
+	pr_err("\n %s %d: ceva adf4371: final de probe", __func__, __LINE__);
 
 	return devm_jesd204_fsm_start(&spi->dev, st->jdev, JESD204_LINKS_ALL);
 }
