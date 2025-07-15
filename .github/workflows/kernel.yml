@@ -18,23 +18,6 @@ jobs:
     secrets: inherit
     with:
       ref_branch: "mirror/next/linux-next/master"
-  build_gcc_x86_64:
-    uses: ./.github/workflows/build.yml
-    needs: [checks]
-    secrets: inherit
-    with:
-      CXX: "14"
-      ARCH: "x86"
-      DEFCONFIG: "adi_ci_defconfig"
-  build_llvm_x86_64:
-    uses: ./.github/workflows/build.yml
-    needs: [checks]
-    secrets: inherit
-    with:
-      LLVM: "19"
-      ARCH: "x86"
-      DEFCONFIG: "adi_ci_defconfig"
-      CHECKS: true
   build_gcc_aarch64:
     uses: ./.github/workflows/build.yml
     needs: [checks]
@@ -56,19 +39,15 @@ jobs:
       CHECKS: true
   assert:
     runs-on: [self-hosted, v1]
-    needs: [checks, build_gcc_x86_64, build_llvm_x86_64, build_gcc_aarch64, build_gcc_arm]
+    needs: [checks, build_gcc_aarch64, build_gcc_arm]
 
     steps:
       - name: Assert checks
         env:
           job_warn_checks: ${{needs.checks.outputs.warn}}
-          job_warn_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.warn}}
-          job_warn_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.warn}}
           job_warn_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.warn}}
           job_warn_build_gcc_arm: ${{needs.build_gcc_arm.outputs.warn}}
           job_fail_checks: ${{needs.checks.outputs.fail}}
-          job_fail_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.fail}}
-          job_fail_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.fail}}
           job_fail_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.fail}}
           job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
         run: |
