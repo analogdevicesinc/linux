@@ -104,6 +104,12 @@ config USB_MUSB_JZ4740
 	depends on USB_MUSB_GADGET
 	select USB_ROLE_SWITCH
 
+config USB_MUSB_ADI
+	tristate "ADI"
+	depends on ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	help
+	  Enable usb on ADI platforms.
+
 config USB_MUSB_MEDIATEK
 	tristate "MediaTek platforms"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
@@ -145,7 +151,7 @@ config USB_UX500_DMA
 
 config USB_INVENTRA_DMA
 	bool 'Inventra'
-	depends on USB_MUSB_OMAP2PLUS || USB_MUSB_MEDIATEK || USB_MUSB_JZ4740 || USB_MUSB_POLARFIRE_SOC
+	depends on USB_MUSB_OMAP2PLUS || USB_MUSB_MEDIATEK || USB_MUSB_JZ4740 || USB_MUSB_POLARFIRE_SOC || USB_MUSB_ADI
 	help
 	  Enable DMA transfers using Mentor's engine.
 
