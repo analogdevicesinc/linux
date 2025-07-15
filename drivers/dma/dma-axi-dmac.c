@@ -165,6 +165,7 @@ struct axi_dmac_chan {
 	bool hw_cyclic;
 	bool hw_2d;
 	bool hw_sg;
+	bool hw_cyclic_hotfix;
 };
 
 struct axi_dmac {
@@ -470,10 +471,22 @@ static bool axi_dmac_handle_cyclic_eot(struct axi_dmac_chan *chan,
 		list_del(&active->vdesc.node);
 		vchan_cookie_complete(&active->vdesc);
 
-		//if (!chan->hw_sg) {
-		//	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, 0);
-		//	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
-		//}
+		if (!chan->hw_sg && chan->hw_cyclic_hotfix) {
+			/*
+			 * In older IP cores, ending a cyclic transfer by clearing
+			 * the CYCLIC flag does not guarantee a gracefully end.
+			 * It can happen that some data (of the next frame) is
+			 * already prefetched and will be wrongly visible in the
+			 * next transfer. To workaround this, we need to reenable
+			 * the core so we. Newer cores handles this correctly and
+			 * do not require this "hotfix". The SG IP also does not
+			 * require this.
+			 */
+			dev_info(dev, "HW cyclic hotfix\n");
+			axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, 0);
+			axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
+		}
+
 		/*
 		 * We know we have something to schedule, so start the next
 		 * transfer now the cyclic one is done.
@@ -1192,6 +1205,9 @@ static int axi_dmac_detect_caps(struct axi_dmac *dmac, unsigned int version)
 	} else {
 		chan->length_align_mask = chan->address_align_mask;
 	}
+
+	if (version < ADI_AXI_PCORE_VER(4, 6, 'a'))
+		chan->hw_cyclic_hotfix = true;
 
 	return 0;
 }
