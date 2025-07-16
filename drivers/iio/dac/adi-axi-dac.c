@@ -763,6 +763,19 @@ static int axi_dac_bus_reg_write(struct iio_backend *back, u32 reg,
 	return __axi_dac_bus_reg_write(back, reg, val, data_size);
 }
 
+static int ad3552r_hs_axi_dac_bus_reg_write(struct iio_backend *back, u32 reg,
+					u32 val, size_t data_size)
+{
+	struct axi_dac_state *st = iio_backend_get_priv(back);
+	int ret;
+
+	ret = axi_dac_wait_bus_free(st);
+	if (ret)
+		return ret;
+
+	return axi_dac_bus_reg_write(back, reg, val, data_size);
+}
+
 static int axi_dac_bus_reg_read(struct iio_backend *back, u32 reg, u32 *val,
 				size_t data_size)
 {
@@ -785,6 +798,19 @@ static int axi_dac_bus_reg_read(struct iio_backend *back, u32 reg, u32 *val,
 		return ret;
 
 	return regmap_read(st->regmap, AXI_DAC_CUSTOM_RD_REG, val);
+}
+
+static int ad3552r_hs_axi_dac_bus_reg_read(struct iio_backend *back, u32 reg, u32 *val,
+				size_t data_size)
+{
+	struct axi_dac_state *st = iio_backend_get_priv(back);
+	int ret;
+
+	ret = axi_dac_wait_bus_free(st);
+	if (ret)
+		return ret;
+
+	return axi_dac_bus_reg_read(back, reg, val, data_size);
 }
 
 static int axi_dac_bus_set_io_mode(struct iio_backend *back,
@@ -816,8 +842,8 @@ static int axi_dac_create_platform_device(struct axi_dac_state *st,
 					  struct fwnode_handle *child)
 {
 	struct ad3552r_hs_platform_data pdata = {
-		.bus_reg_read = axi_dac_bus_reg_read,
-		.bus_reg_write = axi_dac_bus_reg_write,
+		.bus_reg_read = ad3552r_hs_axi_dac_bus_reg_read,
+		.bus_reg_write = ad3552r_hs_axi_dac_bus_reg_write,
 		.bus_set_io_mode = axi_dac_bus_set_io_mode,
 		.bus_sample_data_clock_hz = st->dac_clk_rate,
 	};
