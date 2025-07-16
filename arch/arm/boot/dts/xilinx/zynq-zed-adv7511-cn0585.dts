@@ -203,9 +203,9 @@
 		};
 	};
 
-	axi_dac0: spi@44D04000 {
+	axi_dac0: spi@44D00000 {
 		compatible = "adi,axi-ad3552r";
-		reg = <0x44D04000 0x1000>;
+		reg = <0x44D00000 0x1000>;
 		dmas = <&dac0_tx_dma 0>;
 		dma-names = "tx";
 		#io-backend-cells = <0>;
@@ -241,9 +241,9 @@
 
 	};
 
-	axi_dac1: spi@44E04000 {
+	axi_dac1: spi@44E00000 {
 		compatible = "adi,axi-ad3552r";
-		reg = <0x44E04000 0x1000>;
+		reg = <0x44E00000 0x1000>;
 		dmas = <&dac1_tx_dma 0>;
 		dma-names = "tx";
 		#io-backend-cells = <0>;
