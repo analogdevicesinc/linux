@@ -310,11 +310,16 @@ static ssize_t adxcvr_prbs_error_counter_show(struct device *dev,
 				     char *buf)
 {
 	struct adxcvr_state *st = dev_get_drvdata(dev);
-	unsigned int count;
+	unsigned int count, val;
 	ssize_t len = 0;
 	int i, ret;
 
 	guard(mutex)(&st->mutex);
+
+	/* Check if prbs_select was written with non-zero value */
+	val = adxcvr_read(st, ADXCVR_REG_REG_PRBS_CNTRL);
+	if ((val & 0xF) == 0)
+		return -ENODATA;
 	for (i = 0; i < st->num_lanes; i++) {
 		ret = xilinx_xcvr_prbs_err_cnt_get(&st->xcvr,
 			ADXCVR_DRP_PORT_CHANNEL(i), &count);
@@ -364,6 +369,12 @@ static ssize_t adxcvr_prbs_status_show(struct device *dev,
 	const char *status;
 
 	guard(mutex)(&st->mutex);
+
+	/* Check if prbs_select was written with non-zero value */
+	val = adxcvr_read(st, ADXCVR_REG_REG_PRBS_CNTRL);
+	if ((val & 0xF) == 0)
+		return -ENODATA;
+
 	val = adxcvr_read(st, ADXCVR_REG_REG_PRBS_STATUS);
 
 	if (ADXCVR_PRBS_LOCKED(val))
