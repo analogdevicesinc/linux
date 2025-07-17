@@ -7,7 +7,7 @@
  * hdl_project: <adrv904x/zcu102>
  * board_revision: <>
  *
- * Copyright (C) 2020-2024 Analog Devices Inc.
+ * Copyright (C) 2020-2025 Analog Devices Inc.
  */
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -209,6 +209,7 @@
 			reg = <0x9c400000 0x1000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
+			dma-coherent;
 			interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 73>;
 		};
@@ -218,8 +219,27 @@
 			reg = <0x9c420000 0x1000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
+			dma-coherent;
 			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 73>;
+		};
+
+		axi_rx_clkgen: axi-clkgen@83c10000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x83c10000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&clk0_ad9528 3>, <&zynqmp_clk 71>;
+			clock-names = "clkin1", "s_axi_aclk";
+			clock-output-names = "axi_rx_clkgen";
+		};
+
+		axi_tx_clkgen: axi-clkgen@83c00000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x83c00000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&clk0_ad9528 3>, <&zynqmp_clk 71>;
+			clock-names = "clkin1", "s_axi_aclk";
+			clock-output-names = "axi_tx_clkgen";
 		};
 
 		axi_adrv904x_core_rx: axi-adrv904x-rx-hpc@84a00000 {
@@ -251,7 +271,7 @@
 
 			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&clk0_ad9528 3>, <&axi_adrv904x_adxcvr_rx 0>;
+			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv904x_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -271,7 +291,7 @@
 
 			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&clk0_ad9528 3>, <&axi_adrv904x_adxcvr_tx 0>;
+			clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_adrv904x_adxcvr_tx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -337,7 +357,7 @@
 			// adi,oneshot;
 			// adi,bypass;
 			// adi,sync-config = <2>;
-			adi,transfer-length = /bits/ 64 <0x10000>; // 2**16 bytes
+			// adi,transfer-length = /bits/ 64 <0x10000>; // 2**16 bytes
 		};
 
 		axi_data_offload_rx: axi-data-offload-1@9c450000 {
