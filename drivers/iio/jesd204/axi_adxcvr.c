@@ -154,20 +154,18 @@ static ssize_t adxcvr_debug_reg_write(struct device *dev,
 			st->addr = val & 0xFFFF;
 
 			if (ret == 3) {
-				mutex_lock(&st->mutex);
+				guard(mutex)(&st->mutex);
 				adxcvr_write(st, st->addr, val2);
-				mutex_unlock(&st->mutex);
 			}
 		} else if (strncmp(dest, "drp", sizeof(dest)) == 0 && ret > 2) {
 			st->addr = BIT(31) | (val & 0x1FF) << 16 |
 				   (val2 & 0xFFFF);
 
 			if (ret == 4) {
-				mutex_lock(&st->mutex);
+				guard(mutex)(&st->mutex);
 				ret = adxcvr_drp_write(&st->xcvr,
 							val & 0x1FF,
 							val2 & 0xFFFF, val3);
-				mutex_unlock(&st->mutex);
 				if (ret)
 					return ret;
 			}
@@ -190,21 +188,18 @@ static ssize_t adxcvr_debug_reg_read(struct device *dev,
 	unsigned int val;
 	int ret;
 
-	mutex_lock(&st->mutex);
+	guard(mutex)(&st->mutex);
 	if (st->addr & BIT(31)) {
 		ret = adxcvr_drp_read(&st->xcvr,
 				      (st->addr >> 16) & 0x1FF,
 				      st->addr & 0xFFFF);
-		if (ret < 0) {
-			mutex_unlock(&st->mutex);
+		if (ret < 0)
 			return ret;
-		}
 
 		val = ret;
 	} else {
 		val = adxcvr_read(st, st->addr);
 	}
-	mutex_unlock(&st->mutex);
 
 	return sprintf(buf, "0x%X\n", val);
 }
@@ -230,7 +225,7 @@ static ssize_t adxcvr_prbs_select_store(struct device *dev,
 
 	eval = ret;
 
-	mutex_lock(&st->mutex);
+	guard(mutex)(&st->mutex);
 
 	if (st->xcvr.encoding == ENC_66B64B) {
 		rst = adxcvr_read(st, ADXCVR_REG_RESETN);
@@ -239,10 +234,8 @@ static ssize_t adxcvr_prbs_select_store(struct device *dev,
 		for (i = 0; i < st->num_lanes; i++) {
 			ret = xilinx_xcvr_write_async_gearbox_en(&st->xcvr,
 				ADXCVR_DRP_PORT_CHANNEL(i), rval == 0);
-			if (ret < 0) {
-				mutex_unlock(&st->mutex);
+			if (ret < 0)
 				return ret;
-			}
 		}
 
 		adxcvr_write(st, ADXCVR_REG_CONTROL,
@@ -265,8 +258,6 @@ static ssize_t adxcvr_prbs_select_store(struct device *dev,
 	if (st->xcvr.encoding == ENC_66B64B)
 		adxcvr_write(st, ADXCVR_REG_RESETN, rst);
 
-	mutex_unlock(&st->mutex);
-
 	return count;
 }
 
@@ -278,9 +269,8 @@ static ssize_t adxcvr_prbs_select_show(struct device *dev,
 	unsigned int val;
 	int ret;
 
-	mutex_lock(&st->mutex);
+	guard(mutex)(&st->mutex);
 	val = adxcvr_read(st, ADXCVR_REG_REG_PRBS_CNTRL);
-	mutex_unlock(&st->mutex);
 
 	ret = xilinx_xcvr_prbsel_enc_get(&st->xcvr, ADXCVR_PRBSEL(val), true);
 	if (ret < 0)
@@ -305,10 +295,9 @@ static ssize_t adxcvr_prbs_counter_reset_store(struct device *dev,
 		return ret;
 
 	if (reset) {
-		mutex_lock(&st->mutex);
+		guard(mutex)(&st->mutex);
 		adxcvr_bit_toggle_high(st, ADXCVR_REG_REG_PRBS_CNTRL,
 			ADXCVR_PRBS_CNT_RESET);
-		mutex_unlock(&st->mutex);
 	}
 
 	return count;
@@ -325,17 +314,14 @@ static ssize_t adxcvr_prbs_error_counter_show(struct device *dev,
 	ssize_t len = 0;
 	int i, ret;
 
-	mutex_lock(&st->mutex);
+	guard(mutex)(&st->mutex);
 	for (i = 0; i < st->num_lanes; i++) {
 		ret = xilinx_xcvr_prbs_err_cnt_get(&st->xcvr,
 			ADXCVR_DRP_PORT_CHANNEL(i), &count);
-		if (ret < 0) {
-			mutex_unlock(&st->mutex);
+		if (ret < 0)
 			return ret;
-		}
 		len += sprintf(buf + len, "%u ", count);
 	}
-	mutex_unlock(&st->mutex);
 
 	len += sprintf(buf + len, "\n");
 
@@ -358,10 +344,9 @@ static ssize_t adxcvr_prbs_error_inject_store(struct device *dev,
 		return ret;
 
 	if (inject) {
-		mutex_lock(&st->mutex);
+		guard(mutex)(&st->mutex);
 		adxcvr_bit_toggle_high(st, ADXCVR_REG_REG_PRBS_CNTRL,
 			ADXCVR_PRBS_FORCE_ERR);
-		mutex_unlock(&st->mutex);
 	}
 
 	return count;
@@ -378,9 +363,8 @@ static ssize_t adxcvr_prbs_status_show(struct device *dev,
 	unsigned int val;
 	const char *status;
 
-	mutex_lock(&st->mutex);
+	guard(mutex)(&st->mutex);
 	val = adxcvr_read(st, ADXCVR_REG_REG_PRBS_STATUS);
-	mutex_unlock(&st->mutex);
 
 	if (ADXCVR_PRBS_LOCKED(val))
 		if (ADXCVR_PRBS_ERR(val))
@@ -436,9 +420,8 @@ static void adxcvr_work_func(struct work_struct *work)
 	unsigned long div40_rate;
 	int ret;
 
-	mutex_lock(&st->mutex);
-	div40_rate = st->lane_rate * (1000 / 40);
-	mutex_unlock(&st->mutex);
+	scoped_guard(mutex, &st->mutex)
+		div40_rate = st->lane_rate * (1000 / 40);
 
 	dev_dbg(st->dev, "%s: setting MMCM on %s rate %lu\n",
 		__func__, st->tx_enable ? "TX" : "RX", div40_rate);
