@@ -128,13 +128,22 @@ static int adxcvr_eyescan_es(struct adxcvr_state *st, u32 lane)
 		st->xcvr.type == XILINX_XCVR_TYPE_US_GTY4) {
 		u32 midpoint = ((ES_VSIZE + 1) / 2) * hsize + hsize / 2;
 		u64 errors;
+		size_t max_elements;
 
 		if (st->lpm_enable) {
 			u32 *buf32 = st->eye->buf_virt;
+			max_elements = st->eye->bin.size / sizeof(u32);
+			
+			if (midpoint >= max_elements)
+				return -EINVAL;
 
 			errors = buf32[midpoint] & 0xFFFF;
 		} else {
 			u64 *buf64 = st->eye->buf_virt;
+			max_elements = st->eye->bin.size / sizeof(u64);
+			
+			if (midpoint >= max_elements)
+				return -EINVAL;
 
 			errors = buf64[midpoint] & 0xFFFF0000FFFF;
 		}
