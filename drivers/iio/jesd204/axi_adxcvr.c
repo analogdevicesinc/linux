@@ -435,7 +435,9 @@ static void adxcvr_work_func(struct work_struct *work)
 	unsigned long div40_rate;
 	int ret;
 
+	mutex_lock(&st->mutex);
 	div40_rate = st->lane_rate * (1000 / 40);
+	mutex_unlock(&st->mutex);
 
 	dev_dbg(st->dev, "%s: setting MMCM on %s rate %lu\n",
 		__func__, st->tx_enable ? "TX" : "RX", div40_rate);
