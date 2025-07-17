@@ -470,6 +470,48 @@ static int ad3552r_hs_scratch_pad_test(struct ad3552r_hs_state *st)
 	return 0;
 }
 
+#define AD3552R_SPI_REVISION		0x83
+#define AD3552R_DEVICE_REVISION		0x5
+static int ad3552r_hs_reg_read_test(struct ad3552r_hs_state *st)
+{
+	int ret, val;
+
+	/* Check out interface status */
+	ret = ad3552r_hs_reg_read(st, AD3552R_REG_ADDR_INTERFACE_STATUS_A, &val, 1);
+	if (ret)
+		return ret;
+
+	dev_info(st->dev, "%s: AD3552R_REG_ADDR_INTERFACE_STATUS_A: %d\n",
+		 __func__, val);
+	if (FIELD_GET(AD3552R_MASK_INTERFACE_NOT_READY, val))
+		dev_warn(st->dev, "%s: AD3552R_MASK_INTERFACE_NOT_READY !!!\n",
+			 __func__);
+
+	/* Read SPI Revision register */
+	ret = ad3552r_hs_reg_read(st, AD3552R_REG_ADDR_SPI_REVISION, &val, 1);
+	if (ret)
+		return ret;
+
+	dev_info(st->dev, "%s: AD3552R_REG_ADDR_SPI_REVISION: %d\n",
+		 __func__, val);
+	if (val != AD3552R_SPI_REVISION)
+		dev_warn(st->dev, "%s: AD3552R_REG_ADDR_SPI_REVISION mismatch\n",
+			 __func__);
+
+	/* Read Chip Grade register */
+	ret = ad3552r_hs_reg_read(st, AD3552R_REG_ADDR_CHIP_GRADE, &val, 1);
+	if (ret)
+		return ret;
+
+	dev_info(st->dev, "%s: AD3552R_REG_ADDR_CHIP_GRADE: %d\n",
+		 __func__, val);
+	if (FIELD_GET(AD3552R_MASK_GRADE, val) != AD3552R_DEVICE_REVISION)
+		dev_warn(st->dev, "%s: AD3552R_DEVICE_REVISION mismatch\n",
+			 __func__);
+
+	return 0;
+}
+
 static int ad3552r_hs_setup_custom_gain(struct ad3552r_hs_state *st,
 					int ch, u16 gain, u16 offset)
 {
@@ -620,6 +662,10 @@ static int ad3552r_hs_setup(struct ad3552r_hs_state *st)
 				      AD3552R_REG_ADDR_INTERFACE_CONFIG_B,
 				      AD3552R_MASK_SINGLE_INST |
 				      AD3552R_MASK_SHORT_INSTRUCTION, 1);
+	if (ret)
+		return ret;
+
+	ret = ad3552r_hs_reg_read_test(st);
 	if (ret)
 		return ret;
 
