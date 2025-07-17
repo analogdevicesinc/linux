@@ -631,6 +631,7 @@ static int axi_dac_ddr_disable(struct iio_backend *back)
 {
 	struct axi_dac_state *st = iio_backend_get_priv(back);
 
+	guard(mutex)(&st->lock);
 	return regmap_set_bits(st->regmap, AXI_DAC_CNTRL_2_REG,
 			       AXI_DAC_CNTRL_2_SDR_DDR_N);
 }
