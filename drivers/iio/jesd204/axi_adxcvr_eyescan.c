@@ -185,6 +185,10 @@ adxcvr_eyescan_bin_read(struct file *filp, struct kobject *kobj,
 	dev = container_of(kobj, struct device, kobj);
 	st = dev_get_drvdata(dev);
 
+	/* Check if eye scan is enabled and lane is set */
+	if (st->eye->lane == -1)
+		return -ENODATA;
+
 	if (unlikely(off >= st->eye->bin.size))
 		return 0;
 	if ((off + count) > st->eye->bin.size)
@@ -276,6 +280,10 @@ static ssize_t adxcvr_eyescan_info_read(struct device *dev,
 	struct adxcvr_state *st = dev_get_drvdata(dev);
 	u32 hsize;
 	int ret;
+
+	/* Check if eye scan is enabled and lane is set */
+	if (st->eye->lane == -1)
+		return -ENODATA;
 
 	ret = adxcvr_get_eyescan_es_hsize(st, &hsize);
 	if (ret < 0)
