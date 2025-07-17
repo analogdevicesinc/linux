@@ -1034,6 +1034,11 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		else
 			adi_ad9088_calc_nco_ftw32(&phy->ad9088, phy->profile.adc_config[side].adc_sampling_rate_Hz, readin, &ftw);
 
+		ret = adi_apollo_cnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, cddc_mask,
+					       readin ? ADI_APOLLO_MXR_VAR_IF_MODE : ADI_APOLLO_MXR_ZERO_IF_MODE);
+		if (ret)
+			return ret;
+
 		ret = adi_apollo_cnco_ftw_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, cddc_mask, 0, 1, ftw);
 
 		if (!ret) {
@@ -1067,6 +1072,12 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		}
 
 		adi_ad9088_calc_nco_ftw(&phy->ad9088, f, readin, &ftw);
+
+		ret = adi_apollo_fnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, fddc_mask,
+					       readin ? ADI_APOLLO_MXR_VAR_IF_MODE : ADI_APOLLO_MXR_ZERO_IF_MODE);
+		if (ret)
+			return ret;
+
 		ret = adi_apollo_fnco_main_phase_inc_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, fddc_mask, ftw);
 
 		if (!ret) {
