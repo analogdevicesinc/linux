@@ -650,22 +650,22 @@
 			adi,link-rx-en;
 			adi,float-rx-en;
 		};
-		channel@1 {
+		adf4030_bsync1_debug_p18: channel@1 {
 			/* Output debug loopback */
 			reg = <1>;
-			adi,extended-name = "BSYNC1_DEBUG";
-			auto-align-on-sync-en;
+			adi,extended-name = "BSYNC1_DEBUG_P18";
+			//auto-align-on-sync-en;
 			adi,input-output-reconfig-en;
 			adi,rcm = <62>; // LVDS
 			adi,link-rx-en;
 			adi,float-rx-en;
 			adi,output-en;
 		};
-		channel@2 {
+		adf4030_bsync2_debug_p19: channel@2 {
 			/* Input debug loopback */
 			reg = <2>;
-			adi,extended-name = "BSYNC2_DEBUG";
-			auto-align-on-sync-en;
+			adi,extended-name = "BSYNC2_DEBUG_P19";
+			//auto-align-on-sync-en;
 			adi,input-output-reconfig-en;
 			adi,rcm = <62>;
 			adi,link-rx-en;
