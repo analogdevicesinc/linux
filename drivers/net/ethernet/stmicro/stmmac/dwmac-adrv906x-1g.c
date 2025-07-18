@@ -204,7 +204,7 @@ static void adrv906x_clk_buffer_enable(void __iomem *clk_ctrl_base, bool term_en
 	iowrite32(val, clk_ctrl_base + 0x04);
 }
 
-static int dwmac_adrv906x_probe(struct platform_device *pdev)
+static int adrv906x_dwmac_probe(struct platform_device *pdev)
 {
 	struct plat_stmmacenet_data *plat_dat;
 	struct stmmac_resources stmmac_res;
@@ -214,7 +214,6 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 	void __iomem *clk_ctrl_base;
 	struct sockaddr sock_addr;
 	struct net_device *ndev;
-	const char *if_name;
 	u32 addr, len;
 	bool term_en;
 	int ret;
@@ -301,12 +300,6 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 	ndev = platform_get_drvdata(pdev);
 	adrv_priv->stm_priv = netdev_priv(ndev);
 
-	/* Change interface name from DT property */
-	ret = of_property_read_string(pdev->dev.of_node, "if-name", &if_name);
-	dev_info(dev, "TRY using %s interface name from device tree", if_name);
-	if (!ret)
-		strscpy(ndev->name, if_name, sizeof(ndev->name));
-
 	return 0;
 
 err_exit:
@@ -325,7 +318,7 @@ static const struct of_device_id dwmac_adrv906x_match[] = {
 MODULE_DEVICE_TABLE(of, dwmac_adrv906x_match);
 
 static struct platform_driver dwmac_adrv906x_driver = {
-	.probe			= dwmac_adrv906x_probe,
+	.probe			= adrv906x_dwmac_probe,
 	.remove			= stmmac_pltfr_remove,
 	.driver			= {
 		.name		= "adrv906x1geth",
