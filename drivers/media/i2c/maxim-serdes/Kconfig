@@ -45,3 +45,16 @@ config VIDEO_MAX96724
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called max96724.
+
+config VIDEO_MAX9296A
+	tristate "Maxim MAX9296A Dual Deserializer support"
+	depends on I2C
+	select VIDEO_MAXIM_SERDES
+	help
+	  This driver supports the Maxim MAX9296A, MAX96716A, MAX96792A
+	  Dual Deserializers, and the MAX96714, MAX96714F, MAX96714R
+	  Single Deserializers, which  convert from up to two GMSL2/3
+	  links to up to two MIPI D-PHY outputs.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called max9296a.
