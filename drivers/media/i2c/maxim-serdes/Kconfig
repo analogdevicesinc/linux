@@ -15,3 +15,21 @@ config VIDEO_MAXIM_SERDES
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called max_serdes.
+
+config VIDEO_MAX96717
+	tristate "Maxim MAX96717 Serializer support"
+	depends on COMMON_CLK
+	depends on I2C
+	depends on PINCTRL
+	select VIDEO_MAXIM_SERDES
+	select GENERIC_PINCONF
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GPIOLIB
+	help
+	  This driver supports the Maxim MAX9295A, MAX96717, MAX96717F,
+	  MAX96793 Serializers, which receive video on a MIPI CSI-2
+	  interface and output it on a GMSL2/3 link.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called max96717.
