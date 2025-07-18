@@ -823,31 +823,56 @@ If the ADC and DAC does not have the same sampling frequency, writing will
 fail with -EINVAL.
 Consult the User Guide for all configuration requirements before enabling the loopback.
 
-Test mode
-^^^^^^^^^
+Fast Frequency Hopping
+^^^^^^^^^^^^^^^^^^^^^^
 
-The test modes are available as channel attributes and are applied to the receiving path.
-Even though ``user`` (``ADI_APOLLO_TMODE_TYPE_SEL_USR``) is an option, the user pattern
-is not configurable and will yield the defaults.
+The NCO frequency and phase settings can be stored as a set of up-to 32
+profiles, each with a 32-bit FTW and 16-bit phase offset word, to be
+selectively assigned to the NCO during runtime. This allows to quickly change
+(hop) the NCO frequency, known as Fast Frequency Hopping (FFH).
 
-.. TODO adi_apollo_tmode_usr_pattern_set
+Tx FFH FNCO
++++++++++++
+
+The user configures the NCO FFH frequency by writing the index (0 to 31) to
+``out_voltageX_[i|q]_ffh_fnco_index`` followed by the frequency value to
+``out_voltageX_[i|q]_ffh_fnco_frequency``, for example:
 
 .. shell::
 
    /sys/bus/iio/devices/iio:device8
-   $ls | grep test_mode
-    in_voltage0_i_test_mode
-    in_voltage0_q_test_mode
-    in_voltage1_i_test_mode
-    in_voltage1_q_test_mode
-    in_voltage2_i_test_mode
-    in_voltage2_q_test_mode
-    in_voltage3_i_test_mode
-    in_voltage3_q_test_mode
-    in_voltage_test_mode_available
-   $cat in_voltage_test_mode_available
-    off midscale_short pos_fullscale neg_fullscale checkerboard pn23 pn9
-    one_zero_toggle user pn7 pn15 pn31 ramp
+   $echo 1 > out_voltage0_i_ffh_fnco_index
+   $echo $((16#20000000)) > out_voltage0_ffh_fnco_frequency
+
+Then hop to the desired frequency writing the index to
+``out_voltageX_[i|q]_ffh_fnco_select``, and write -1 to disable the feature;
+for example:
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 1 > out_voltage0_i_ffh_fnco_select
+
+Tx FFH CNCO
++++++++++++
+
+The user configures the NCO FFH frequency by writing the index (0 to 31) to
+``out_voltageX_[i|q]_ffh_cnco_index`` followed by the frequency value to
+``out_voltageX_[i|q]_ffh_cnco_frequency``, for example:
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 1 > out_voltage0_i_ffh_cnco_index
+   $echo $((16#20000000)) > out_voltage0_ffh_cnco_frequency
+
+Then hop to the desired frequency writing the index to
+``out_voltageX_[i|q]_ffh_cnco_select``, for example:
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 1 > out_voltage0_i_ffh_fnco_select
 
 Debug system
 ^^^^^^^^^^^^
