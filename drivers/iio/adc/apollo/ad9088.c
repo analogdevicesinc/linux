@@ -5124,8 +5124,8 @@ static int ad9088_jesd204_link_setup(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
-static int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
-					     const char *ext_name, long long val)
+int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
+				      const char *ext_name, long long val)
 {
 	ssize_t size;
 	char str[16];
