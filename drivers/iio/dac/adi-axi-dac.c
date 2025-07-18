@@ -891,6 +891,7 @@ static const struct iio_backend_ops axi_ad3552r_ops = {
 	.data_stream_disable = axi_dac_data_stream_disable,
 	.data_format_set = axi_dac_data_format_set,
 	.data_transfer_addr = axi_dac_data_transfer_addr,
+	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_dac_reg_access),
 };
 
 static const struct iio_backend_info axi_dac_generic = {
