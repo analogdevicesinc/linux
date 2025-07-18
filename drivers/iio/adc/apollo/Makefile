@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
 ad9088_drv-y = ad9088.o
-ad9088_drv-y += ad9088_dt.o ad9088_fft.o
+ad9088_drv-y += ad9088_dt.o ad9088_fft.o ad9088_ffh.o
 ad9088_drv-y += public/src/adi_apollo_adc.o
 ad9088_drv-y += public/src/adi_apollo_dac.o
 ad9088_drv-y += public/src/adi_apollo_fddc.o
