@@ -47,8 +47,8 @@ int32_t adi_apollo_fnco_profile_load(adi_apollo_device_t *device, adi_apollo_ter
         if (fnco > 0) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
-            for(j = first; j < first+length; j++) {
-                err = adi_apollo_hal_paged_bf_set(device, BF_HOP_PROFILE_PAGE_INFO(regmap_base_addr), j);
+            for(j = 0; j < first+length; j++) {
+                err = adi_apollo_hal_paged_bf_set(device, BF_HOP_PROFILE_PAGE_INFO(regmap_base_addr), j+first);
                 ADI_APOLLO_ERROR_RETURN(err);
 
                 if (word_sel == ADI_APOLLO_NCO_PROFILE_PHASE_INCREMENT) {
