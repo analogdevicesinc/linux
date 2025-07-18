@@ -54,6 +54,9 @@
 #include "adi_apollo_bf_txrx_coarse_nco.h"
 #include "adi_utils.h"
 
+#include "adi_utils/inc/adi_utils.h"
+#include "public/src/adi_apollo_dformat_local.h"
+#include "public/inc/adi_apollo_gpio_hop.h"
 
 #include "../../adc/cf_axi_adc.h"
 
@@ -93,15 +96,21 @@ enum {
 	FDDC_TEST_TONE_OFFSET,
 	TRX_CONVERTER_RATE,
 	TRX_ENABLE,
-	CDDC_FFH_HOPF_SET,
 	ADC_CDDC_FFH_TRIG_HOP_EN,
 	ADC_FFH_GPIO_MODE_SET,
-	CDDC_FFH_INDEX_SET,
 	DAC_FFH_GPIO_MODE_SET,
 	DAC_FFH_FREQ_SET,
 	DAC_INVSINC_EN,
 	CFIR_PROFILE_SEL,
 	CFIR_ENABLE,
+	FFH_FNCO_INDEX,
+	FFH_FNCO_FREQUENCY,
+	FFH_FNCO_SELECT,
+	FFH_FNCO_MODE,
+	FFH_CNCO_INDEX,
+	FFH_CNCO_FREQUENCY,
+	FFH_CNCO_SELECT,
+	FFH_CNCO_MODE,
 };
 
 enum ad9088_iio_dev_attr {
@@ -138,6 +147,30 @@ struct ad9088_clock {
 };
 
 #define to_clk_priv(_hw) container_of(_hw, struct ad9088_clock, hw)
+
+struct _ad9088_ffh {
+	struct {
+		u8 index[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_FNCO_NUM];
+		u64 frequency[ADI_APOLLO_FNCO_PROFILE_NUM];
+		u8 select[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_FNCO_NUM];
+		bool en[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_FNCO_NUM];
+		u8 mode[ADI_APOLLO_FNCO_PROFILE_NUM];
+	} fnco;
+	struct {
+		u8 index[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_CNCO_NUM];
+		u64 frequency[ADI_APOLLO_CNCO_PROFILE_NUM];
+		u8 select[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_CNCO_NUM];
+		u8 mode[ADI_APOLLO_CNCO_PROFILE_NUM];
+	} cnco;
+};
+
+union ad9088_ffh {
+	struct {
+		struct _ad9088_ffh rx;
+		struct _ad9088_ffh tx;
+	};
+	struct _ad9088_ffh dir[2];
+};
 
 struct ad9088_debugfs_entry {
 	struct iio_dev *indio_dev;
@@ -254,6 +287,13 @@ struct ad9088_phy {
 	struct iio_channel      *iio_adf4382;
 
 	adi_apollo_fw_provider_t fw_provider;
+	union ad9088_ffh ffh;
+
+	adi_apollo_gpio_hop_profile_t gpio_hop_profile;
+	adi_apollo_gpio_hop_block_t gpio_hop_block;
+	adi_apollo_gpio_hop_side_t gpio_hop_side;
+	adi_apollo_gpio_hop_slice_t gpio_hop_slice;
+	adi_apollo_gpio_hop_terminal_t gpio_hop_terminal;
 
 	u8 hsci_buf[ADI_APOLLO_HAL_REGIO_HSCI_STREAM_DEFAULT_SIZE];
 	u8 gpios_exported[ADI_APOLLO_NUM_GPIO];
@@ -308,3 +348,12 @@ int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u16 mcs_track_decimati
 				  u16 initialize_track_cal);
 int ad9088_mcs_init_cal_status_print(struct ad9088_phy *phy, char *buf,
 				     adi_apollo_mcs_cal_init_status_t *status);
+int adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy, u64 freq, s64 nco_shift, u32 div, u32 bits,
+			    u64 *ftw, u64 *frac_a, u64 *frac_b);
+const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
+						  const struct iio_chan_spec *chan);
+int ad9088_ffh_probe(struct ad9088_phy *phy);
+ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev, uintptr_t private,
+				 const struct iio_chan_spec *chan, char *buf);
+ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
+				  const struct iio_chan_spec *chan, const char *buf, size_t len);
