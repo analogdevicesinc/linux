@@ -41,8 +41,6 @@ static void mmap_open(struct vm_area_struct *vma)
 
 	/* Alloc the virtual address from specific sram_pool */
 	pdata->vaddr = gen_pool_alloc(pdata->pool, sram_size);
-	if (!pdata->vaddr)
-		pr_err("Failed to alloc memory from sram pool!\n");
 }
 
 static void mmap_close(struct vm_area_struct *vma)
@@ -84,18 +82,14 @@ static int sram_mmap(struct file *fp, struct vm_area_struct *vma)
 	}
 
 	paddr = gen_pool_virt_to_phys(pdata->pool, pdata->vaddr);
-
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
 	if (io_remap_pfn_range(vma, vma->vm_start,
 				__phys_to_pfn(paddr), sram_size,
 				vma->vm_page_prot)) {
-		pr_err("Unable to mmap sram\n");
 		ret = -EAGAIN;
 		goto out_free;
 	}
-	pr_info("sram mmaped 0x%lx : 0x%lx successfully!\n",
-		paddr, paddr + sram_size);
 
 	return 0;
 
@@ -108,36 +102,21 @@ static const struct file_operations sram_fops = {
 	.mmap		= sram_mmap,
 };
 
-static const struct of_device_id adi_sram_mmap_of_match[] = {
-	{ .compatible = "adi,sram-mmap" },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, adi_sram_mmap_of_match);
-
 static int adi_sram_mmap_probe(struct platform_device *pdev)
 {
-	int ret = 0;
+	struct device *dev = &pdev->dev;
 	struct adi_sram_mmap *sram;
-	const struct of_device_id *match;
-	struct device *dev;
+	int ret = 0;
 
-	dev = &pdev->dev;
-
-	/* Allocate sram device data */
 	sram = devm_kzalloc(dev, sizeof(*sram), GFP_KERNEL);
 	if (!sram)
-		return -ENOMEM;
+		return dev_err_probe(dev, -ENOMEM,
+				"Failed to allocate sram device data");
 
-	match = of_match_device(of_match_ptr(adi_sram_mmap_of_match), &pdev->dev);
-	if (!match) {
-		pr_err("No sram mmap device defined in dts file\n");
-		return -ENODEV;
-	}
 	sram->sram_pool = of_gen_pool_get(dev->of_node, "adi,sram", 0);
-	if (!sram->sram_pool) {
-		pr_err("Unable to get sram pool!\n");
-		return -ENODEV;
-	}
+	if (!sram->sram_pool)
+		return dev_err_probe(dev, -ENODEV,
+				"Unable to get sram pool");
 
 	dev_set_drvdata(&pdev->dev, sram);
 
@@ -148,23 +127,28 @@ static int adi_sram_mmap_probe(struct platform_device *pdev)
 
 	ret = misc_register(&sram->miscdev);
 	if (ret < 0)
-		pr_err("Failed to register sram mmap misc device\n");
-
-	return ret;
-}
-
-static int adi_sram_mmap_remove(struct platform_device *pdev)
-{
-	struct adi_sram_mmap *sram = dev_get_drvdata(&pdev->dev);
-
-	misc_deregister(&sram->miscdev);
+		return dev_err_probe(dev, ret,
+				"Failed to register sram mmap misc device");
 
 	return 0;
 }
 
+static void adi_sram_mmap_remove(struct platform_device *pdev)
+{
+	struct adi_sram_mmap *sram = dev_get_drvdata(&pdev->dev);
+
+	misc_deregister(&sram->miscdev);
+}
+
+static const struct of_device_id adi_sram_mmap_of_match[] = {
+	{ .compatible = "adi,sram-mmap" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, adi_sram_mmap_of_match);
+
 static struct platform_driver adi_sram_mmap_driver = {
 	.probe = adi_sram_mmap_probe,
-	.remove = adi_sram_mmap_remove,
+	.remove_new = adi_sram_mmap_remove,
 	.driver = {
 		.name = SRAM_MMAP_DRV_NAME,
 		.of_match_table = of_match_ptr(adi_sram_mmap_of_match),
