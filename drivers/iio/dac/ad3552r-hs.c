@@ -487,6 +487,14 @@ static int ad3552r_hs_reg_read_test(struct ad3552r_hs_state *st)
 		dev_warn(st->dev, "%s: AD3552R_MASK_INTERFACE_NOT_READY !!!\n",
 			 __func__);
 
+	/* Read ERR Status register */
+	ret = ad3552r_hs_reg_read(st, AD3552R_REG_ADDR_ERR_STATUS, &val, 1);
+	if (ret)
+		return ret;
+
+	dev_info(st->dev, "%s: AD3552R_REG_ADDR_ERR_STATUS: %d\n",
+		 __func__, val);
+
 	/* Read SPI Revision register */
 	ret = ad3552r_hs_reg_read(st, AD3552R_REG_ADDR_SPI_REVISION, &val, 1);
 	if (ret)
