@@ -644,4 +644,3 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(ad9088_fft_sniffer_probe);
