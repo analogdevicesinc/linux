@@ -258,5 +258,5 @@ struct ad9088_phy {
 	u8 lb1_blend[ADI_APOLLO_NUM_SIDES];
 };
 
-int ad9088_parse_dt(struct ad9088_phy *phy);
+extern int ad9088_parse_dt(struct ad9088_phy *phy);
 int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel);
