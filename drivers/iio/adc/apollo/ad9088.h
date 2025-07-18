@@ -259,4 +259,4 @@ struct ad9088_phy {
 };
 
 extern int ad9088_parse_dt(struct ad9088_phy *phy);
-int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel);
+extern int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel);
