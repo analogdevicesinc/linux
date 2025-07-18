@@ -202,4 +202,3 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 
 	return 0;
 }
-EXPORT_SYMBOL(ad9088_parse_dt);
