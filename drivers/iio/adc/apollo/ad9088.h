@@ -95,15 +95,19 @@ enum {
 	FDDC_TEST_TONE_OFFSET,
 	TRX_CONVERTER_RATE,
 	TRX_ENABLE,
-	CDDC_FFH_HOPF_SET,
 	ADC_CDDC_FFH_TRIG_HOP_EN,
 	ADC_FFH_GPIO_MODE_SET,
-	CDDC_FFH_INDEX_SET,
 	DAC_FFH_GPIO_MODE_SET,
 	DAC_FFH_FREQ_SET,
 	DAC_INVSINC_EN,
 	CFIR_PROFILE_SEL,
 	CFIR_ENABLE,
+	FFH_FNCO_INDEX,
+	FFH_FNCO_FREQUENCY,
+	FFH_FNCO_SELECT,
+	FFH_CNCO_INDEX,
+	FFH_CNCO_FREQUENCY,
+	FFH_CNCO_SELECT,
 };
 
 enum ad9088_iio_dev_attr {
@@ -150,6 +154,28 @@ struct ad9088_clock {
 };
 
 #define to_clk_priv(_hw) container_of(_hw, struct ad9088_clock, hw)
+
+struct _ad9088_ffh {
+	struct {
+		u8 index[ADI_APOLLO_NUM_SIDES*ADI_APOLLO_FNCO_NUM];
+		u32 frequency[ADI_APOLLO_FNCO_PROFILE_NUM];
+		u8 select[ADI_APOLLO_NUM_SIDES*ADI_APOLLO_FNCO_NUM];
+		bool en[ADI_APOLLO_NUM_SIDES*ADI_APOLLO_FNCO_NUM];
+	} fnco;
+	struct {
+		u8 index[ADI_APOLLO_NUM_SIDES*ADI_APOLLO_CNCO_NUM];
+		u32 frequency[ADI_APOLLO_CNCO_PROFILE_NUM];
+		u8 select[ADI_APOLLO_NUM_SIDES*ADI_APOLLO_CNCO_NUM];
+	} cnco;
+};
+
+union ad9088_ffh {
+	struct {
+		struct _ad9088_ffh rx;
+		struct _ad9088_ffh tx;
+	};
+	struct _ad9088_ffh dir[2];
+};
 
 struct ad9088_debugfs_entry {
 	struct iio_dev *indio_dev;
@@ -246,6 +272,7 @@ struct ad9088_phy {
 	struct iio_channel      *iio_adf4382;
 
 	adi_apollo_fw_provider_t fw_provider;
+	union ad9088_ffh ffh;
 
 	adi_apollo_sniffer_param_t sniffer_config;
 	adi_apollo_sniffer_fft_data_t fft_data;
@@ -260,3 +287,14 @@ struct ad9088_phy {
 
 extern int ad9088_parse_dt(struct ad9088_phy *phy);
 extern int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel);
+extern int ad9088_ffh_probe(struct ad9088_phy *phy);
+extern void ad9088_iiochan_to_fddc_cddc(struct ad9088_phy *phy, const struct iio_chan_spec *chan,
+										u8 *fddc_num, u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
+										u8 *side);
+extern ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev,
+										uintptr_t private,
+										const struct iio_chan_spec *chan, char *buf);
+extern ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev,
+										 uintptr_t private,
+										 const struct iio_chan_spec *chan,
+										 const char *buf, size_t len);

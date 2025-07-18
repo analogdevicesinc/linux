@@ -403,9 +403,9 @@ static int ad9088_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return 0;
 }
 
-static void ad9088_iiochan_to_fddc_cddc(struct ad9088_phy *phy,
-					const struct iio_chan_spec *chan, u8 *fddc_num, u32 *fddc_mask,
-					u8 *cddc_num, u32 *cddc_mask, u8 *side)
+void ad9088_iiochan_to_fddc_cddc(struct ad9088_phy *phy, const struct iio_chan_spec *chan,
+                                 u8 *fddc_num, u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
+                                 u8 *side)
 {
 	const u32 cncos[] = {ADI_APOLLO_CNCO_A0, ADI_APOLLO_CNCO_A1,
 			     ADI_APOLLO_CNCO_B0, ADI_APOLLO_CNCO_B1
@@ -1617,7 +1617,49 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.shared = IIO_SEPARATE,
 		.private = CFIR_PROFILE_SEL,
 	},
-	{},
+	{
+		.name = "ffh_fnco_index",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_FNCO_INDEX,
+	},
+	{
+		.name = "ffh_fnco_frequency",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_FNCO_FREQUENCY,
+	},
+	{
+		.name = "ffh_fnco_select",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_FNCO_SELECT,
+	},
+	{
+		.name = "ffh_cnco_index",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_CNCO_INDEX,
+	},
+	{
+		.name = "ffh_cnco_frequency",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_CNCO_FREQUENCY,
+	},
+	{
+		.name = "ffh_cnco_select",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_CNCO_SELECT,
+	},
+	{ },
 };
 
 static struct iio_chan_spec_ext_info txdac_ext_info[] = {
@@ -1725,7 +1767,49 @@ static struct iio_chan_spec_ext_info txdac_ext_info[] = {
 		.shared = IIO_SEPARATE,
 		.private = CFIR_PROFILE_SEL,
 	},
-	{},
+	{
+		.name = "ffh_fnco_index",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_FNCO_INDEX,
+	},
+	{
+		.name = "ffh_fnco_frequency",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_FNCO_FREQUENCY,
+	},
+	{
+		.name = "ffh_fnco_select",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_FNCO_SELECT,
+	},
+	{
+		.name = "ffh_cnco_index",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_CNCO_INDEX,
+	},
+	{
+		.name = "ffh_cnco_frequency",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_CNCO_FREQUENCY,
+	},
+	{
+		.name = "ffh_cnco_select",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_CNCO_SELECT,
+	},
+	{ },
 };
 
 static int ad9088_set_sample_rate(struct axiadc_converter *conv,
@@ -6378,6 +6462,7 @@ static int ad9088_probe(struct spi_device *spi)
 
 	ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_A);
 	ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_B);
+	ad9088_ffh_probe(phy);
 
 	ad9088_gpio_setup(phy);
 
