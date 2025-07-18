@@ -285,6 +285,8 @@ struct ad9088_phy {
 	u8 lb1_blend[ADI_APOLLO_NUM_SIDES];
 };
 
+extern int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
+										     const char *ext_name, long long val);
 extern int ad9088_parse_dt(struct ad9088_phy *phy);
 extern int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel);
 extern int ad9088_ffh_probe(struct ad9088_phy *phy);
