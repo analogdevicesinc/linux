@@ -785,6 +785,10 @@ static int axi_dac_bus_reg_read(struct iio_backend *back, u32 reg, u32 *val,
 
 	guard(mutex)(&st->lock);
 
+	ret = axi_dac_wait_bus_free(st);
+	if (ret)
+		return ret;
+
 	/*
 	 * SPI, we write with read flag, then we read just at the AXI
 	 * io address space to get data read.
