@@ -677,37 +677,37 @@ static int ad3552r_hs_setup(struct ad3552r_hs_state *st)
 	if (ret)
 		return ret;
 
-	ret = ad3552r_hs_scratch_pad_test(st);
-	if (ret)
-		return ret;
+	//ret = ad3552r_hs_scratch_pad_test(st);
+	//if (ret)
+	//	return ret;
 
-	/*
-	 * Caching config_d, needed to restore it after streaming,
-	 * and also, to detect possible DDR read, that's not allowed.
-	 */
-	ret = st->data->bus_reg_read(st->back,
-				     AD3552R_REG_ADDR_INTERFACE_CONFIG_D,
-				     &st->config_d, 1);
-	if (ret)
-		return ret;
+	// /*
+	//  * Caching config_d, needed to restore it after streaming,
+	//  * and also, to detect possible DDR read, that's not allowed.
+	//  */
+	// ret = st->data->bus_reg_read(st->back,
+	// 			     AD3552R_REG_ADDR_INTERFACE_CONFIG_D,
+	// 			     &st->config_d, 1);
+	// if (ret)
+	// 	return ret;
 
-	ret = ad3552r_hs_reg_read(st, AD3552R_REG_ADDR_PRODUCT_ID_L, &val, 1);
-	if (ret)
-		return ret;
+	// ret = ad3552r_hs_reg_read(st, AD3552R_REG_ADDR_PRODUCT_ID_L, &val, 1);
+	// if (ret)
+	// 	return ret;
 
-	id = val;
+	// id = val;
 
-	ret = ad3552r_hs_reg_read(st, AD3552R_REG_ADDR_PRODUCT_ID_H, &val, 1);
-	if (ret)
-		return ret;
+	// ret = ad3552r_hs_reg_read(st, AD3552R_REG_ADDR_PRODUCT_ID_H, &val, 1);
+	// if (ret)
+	// 	return ret;
 
-	id |= val << 8;
-	if (id != st->model_data->chip_id)
-		dev_warn(st->dev,
-			 "chip ID mismatch, detected 0x%x but expected 0x%x\n",
-			 id, st->model_data->chip_id);
+	// id |= val << 8;
+	// if (id != st->model_data->chip_id)
+	// 	dev_warn(st->dev,
+	// 		 "chip ID mismatch, detected 0x%x but expected 0x%x\n",
+	// 		 id, st->model_data->chip_id);
 
-	dev_dbg(st->dev, "chip id %s detected", st->model_data->model_name);
+	// dev_dbg(st->dev, "chip id %s detected", st->model_data->model_name);
 
 	/* Clear reset error flag, see ad3552r manual, rev B table 38. */
 	ret = st->data->bus_reg_write(st->back, AD3552R_REG_ADDR_ERR_STATUS,
@@ -715,11 +715,11 @@ static int ad3552r_hs_setup(struct ad3552r_hs_state *st)
 	if (ret)
 		return ret;
 
-	ret = st->data->bus_reg_write(st->back,
-				      AD3552R_REG_ADDR_SH_REFERENCE_CONFIG,
-				      0, 1);
-	if (ret)
-		return ret;
+	// ret = st->data->bus_reg_write(st->back,
+	// 			      AD3552R_REG_ADDR_SH_REFERENCE_CONFIG,
+	// 			      0, 1);
+	// if (ret)
+	// 	return ret;
 
 	ret = ad3552r_hs_set_data_source(st, IIO_BACKEND_EXTERNAL);
 	if (ret)
@@ -731,12 +731,12 @@ static int ad3552r_hs_setup(struct ad3552r_hs_state *st)
 
 	val = ret;
 
-	ret = ad3552r_hs_update_reg_bits(st,
-					 AD3552R_REG_ADDR_SH_REFERENCE_CONFIG,
-					 AD3552R_MASK_REFERENCE_VOLTAGE_SEL,
-					 val, 1);
-	if (ret)
-		return ret;
+	// ret = ad3552r_hs_update_reg_bits(st,
+	// 				 AD3552R_REG_ADDR_SH_REFERENCE_CONFIG,
+	// 				 AD3552R_MASK_REFERENCE_VOLTAGE_SEL,
+	// 				 val, 1);
+	// if (ret)
+	// 	return ret;
 
 	ret = ad3552r_get_drive_strength(st->dev, &val);
 	if (!ret) {
