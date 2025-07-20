@@ -75,23 +75,36 @@
 #define MAX14001_REG_WEN_WRITE_ENABLE	0x294
 #define MAX14001_REG_WEN_WRITE_DISABLE	0x0
 
-enum max14001_chips {
+enum max14001_chip_model {
 	max14001,
 	max14002,
 };
 
+struct max14001_chip_info {
+	const char *name;
+	/* TODO: Add more information */
+};
+
+static struct max14001_chip_info max14001_chip_info_tbl[] = {
+	[max14001] = {
+		.name = "max14001",
+	},
+	[max14002] = {
+		.name = "max14002",
+	},
+};
+
 struct max14001_state {
 	struct spi_device *spi;
+	const struct max14001_chip_info *chip_info;
 };
 
 static int max14001_spi_read(struct max14001_state *st, u16 reg, u16 *val)
 {
-	u16 tx = 0;
-	u16 rx = 0;
-	u16 reversed = 0;
-	int ret = 0;
+	u16 tx, rx, reversed;
+	int ret;
 
-	pr_err("[Log Debug] max14001_spi_read: reg: %x, val: %x\n", reg, *val);
+	dev_info(&st->spi->dev, "%s: reg: %x, val: %x\n", __func__, reg, *val);
 
 	tx |= FIELD_PREP(MAX14001_MASK_ADDR, reg);
 	tx |= FIELD_PREP(MAX14001_MASK_WR, MAX14001_REG_READ);
@@ -101,39 +114,58 @@ static int max14001_spi_read(struct max14001_state *st, u16 reg, u16 *val)
 	if (ret < 0)
 		return ret;
 
+	/* TODO: Validate this line in the hw, could be le16_to_cpu */
 	reversed = bitrev16(be16_to_cpu(rx));
-	*val = MAX14001_MASK_ADDR&reversed;
+	*val = FIELD_GET(MAX14001_MASK_ADDR, reversed);
 
 	return ret;
 }
 
 static int max14001_spi_write(struct max14001_state *st, u16 reg, u16 val)
 {
-	u16 tx = 0;
+	struct spi_transfer xfer;
+	int ret;
+	u16 tx, reversed;
 	u16 msg = 0;
-	u16 reversed = 0;
-	int ret = 0;
 
-	pr_err("[Log Debug] max14001_spi_write: reg: %x, val: %x\n", reg, val);
-
-	struct spi_transfer xfer = {
-		.tx_buf = NULL,
-		.len = 0,
-	};
+	dev_info(&st->spi->dev, "%s: reg: %x, val: %x\n", __func__, reg, val);
 
 	msg |= FIELD_PREP(MAX14001_MASK_ADDR, reg);
 	msg |= FIELD_PREP(MAX14001_MASK_WR, MAX14001_REG_WRITE);
 	msg |= FIELD_PREP(MAX14001_MASK_DATA, val);
 
 	reversed = bitrev16(msg);
+	/* TODO: Validate this line in the hw, could be put_unaligned_le16 */
 	put_unaligned_be16(reversed, &tx);
 
 	xfer.tx_buf = &tx;
 	xfer.len = sizeof(tx);
 
-	pr_err("[Log Debug] max14001_spi_write: msg: %x, tx: %x\n", msg, tx);
+	dev_info(&st->spi->dev, "%s: msg: %x, tx: %x\n", __func__, msg, tx);
 
 	ret = spi_sync_transfer(st->spi, &xfer, 1);
+	if (ret < 0)
+		return ret;
+
+	return ret;
+}
+
+static int max14001_spi_write_single_reg(struct max14001_state *st, u16 reg, u16 val)
+{
+	int ret;
+
+	//Enable register write
+	ret = max14001_spi_write(st, MAX14001_REG_WEN, MAX14001_REG_WEN_WRITE_ENABLE);
+	if (ret < 0)
+		return ret;
+
+	//Write data into register
+	ret = max14001_spi_write(st, reg, val);
+	if (ret < 0)
+		return ret;
+
+	//Disable register write
+	ret = max14001_spi_write(st, MAX14001_REG_WEN, MAX14001_REG_WEN_WRITE_DISABLE);
 	if (ret < 0)
 		return ret;
 
@@ -148,16 +180,17 @@ static int max14001_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		pr_err("[Log Debug] max14001_read_raw: IIO_CHAN_INFO_RAW\n");
+		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_RAW\n", __func__);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		pr_err("[Log Debug] max14001_read_raw: IIO_CHAN_INFO_SCALE\n");
+		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_SCALE\n", __func__);
 		return IIO_VAL_INT;
 	}
 
 	return -EINVAL;
 }
 
+/* TODO: Check if this method is nedeed */
 static int max14001_write_raw(struct iio_dev *indio_dev,
 				struct iio_chan_spec const *chan,
 				int val, int val2, long mask)
@@ -165,9 +198,7 @@ static int max14001_write_raw(struct iio_dev *indio_dev,
 	struct max14001_state *st = iio_priv(indio_dev);
 
 	switch (mask) {
-	case IIO_CHAN_INFO_RAW:
-		pr_err("[Log Debug] max14001_write_raw: IIO_CHAN_INFO_RAW\n");
-		return 0;
+
 	}
 
 	return -EINVAL;
@@ -183,7 +214,6 @@ static const struct iio_chan_spec max14001_channel_voltage[] = {
 		.type = IIO_VOLTAGE,
 		.indexed = 1,
 		.channel = 0,
-		.output = 0,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 					  BIT(IIO_CHAN_INFO_SCALE),
 	}
@@ -194,7 +224,6 @@ static const struct iio_chan_spec max14001_channel_current[] = {
 		.type = IIO_CURRENT,
 		.indexed = 1,
 		.channel = 0,
-		.output = 0,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 					  BIT(IIO_CHAN_INFO_SCALE),
 	}
@@ -202,12 +231,16 @@ static const struct iio_chan_spec max14001_channel_current[] = {
 
 static int max14001_probe(struct spi_device *spi)
 {
-	pr_err("[Log Debug] max14001_probe\n");
-
+	const struct max14001_chip_info *info;
+	struct device *dev = &spi->dev;
 	struct max14001_state *st;
 	struct iio_dev *indio_dev;
 	bool current_channel = false;
 	int ret;
+
+	info = spi_get_device_match_data(spi);
+	if (!dev)
+		return dev_err_probe(dev, -ENODEV, "Failed to get match data\n");
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
@@ -215,10 +248,13 @@ static int max14001_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	st->spi = spi;
+	st->chip_info = info;
 
-	indio_dev->name = "max14001"; //spi_get_device_id(spi)->name;
+	indio_dev->name = st->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &max14001_info;
+
+	dev_info(&st->spi->dev, "%s: probe\n", __func__);
 
 	for_each_available_child_of_node_scoped(spi->dev.of_node, child) {
 		current_channel = of_property_read_bool(child, "current-channel");
@@ -234,21 +270,21 @@ static int max14001_probe(struct spi_device *spi)
 		indio_dev->num_channels = ARRAY_SIZE(max14001_channel_voltage);
 	}
 
-	//Enable register write
-	max14001_spi_write(st, MAX14001_REG_WEN, MAX14001_REG_WEN_WRITE_ENABLE);
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct spi_device_id max14001_id_table[] = {
-	{ "max14001", max14001 },
-	{ "max14002", max14002 },
+	{ "max14001", (kernel_ulong_t)&max14001_chip_info_tbl[max14001] },
+	{ "max14002", (kernel_ulong_t)&max14001_chip_info_tbl[max14002] },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, max14001_id_table);
 
 static const struct of_device_id max14001_of_match[] = {
-	{ .compatible = "adi,max14001" },
-	{ .compatible = "adi,max14002" },
+	{ .compatible = "adi,max14001",
+	  .data = &max14001_chip_info_tbl[max14001], },
+	{ .compatible = "adi,max14002",
+	  .data = &max14001_chip_info_tbl[max14002], },
 	{}
 };
 MODULE_DEVICE_TABLE(of, max14001_of_match);
@@ -266,3 +302,4 @@ module_spi_driver(max14001_driver);
 MODULE_AUTHOR("Marilene Andrade Garcia <marilene.agarcia@gmail.com>");
 MODULE_DESCRIPTION("Analog Devices MAX14001/MAX14002 ADCs driver");
 MODULE_LICENSE("GPL v2");
+
