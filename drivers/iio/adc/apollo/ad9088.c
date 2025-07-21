@@ -1639,6 +1639,13 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.private = FFH_FNCO_SELECT,
 	},
 	{
+		.name = "ffh_fnco_mode",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_FNCO_MODE,
+	},
+	{
 		.name = "ffh_cnco_index",
 		.read = ad9088_ext_info_read_ffh,
 		.write = ad9088_ext_info_write_ffh,
@@ -1658,6 +1665,13 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.write = ad9088_ext_info_write_ffh,
 		.shared = IIO_SEPARATE,
 		.private = FFH_CNCO_SELECT,
+	},
+	{
+		.name = "ffh_cnco_mode",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_CNCO_MODE,
 	},
 	{ },
 };
@@ -1789,6 +1803,13 @@ static struct iio_chan_spec_ext_info txdac_ext_info[] = {
 		.private = FFH_FNCO_SELECT,
 	},
 	{
+		.name = "ffh_fnco_mode",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_FNCO_MODE,
+	},
+	{
 		.name = "ffh_cnco_index",
 		.read = ad9088_ext_info_read_ffh,
 		.write = ad9088_ext_info_write_ffh,
@@ -1808,6 +1829,13 @@ static struct iio_chan_spec_ext_info txdac_ext_info[] = {
 		.write = ad9088_ext_info_write_ffh,
 		.shared = IIO_SEPARATE,
 		.private = FFH_CNCO_SELECT,
+	},
+	{
+		.name = "ffh_cnco_mode",
+		.read = ad9088_ext_info_read_ffh,
+		.write = ad9088_ext_info_write_ffh,
+		.shared = IIO_SEPARATE,
+		.private = FFH_CNCO_MODE,
 	},
 	{ },
 };
