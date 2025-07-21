@@ -848,6 +848,11 @@ Then hop to the desired frequency writing the index to
 ``out_voltageX_[i|q]_ffh_fnco_select``, and write -1 to disable the feature;
 for example:
 
+.. important::
+
+   If the trigger mode is not set to 4 (``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP``),
+   the method will return -EINVAL;
+
 .. shell::
 
    /sys/bus/iio/devices/iio:device8
@@ -873,6 +878,28 @@ Then hop to the desired frequency writing the index to
 
    /sys/bus/iio/devices/iio:device8
    $echo 1 > out_voltage0_i_ffh_fnco_select
+
+Trigger mode
+++++++++++++
+
+By default, the profile will hop on the register access for the profile set call.
+Other options are available and configurable with
+``out_voltageX_[i|q]_ffh_fnco_mode``.
+
+The options are:
+
+* 0: ``ADI_APOLLO_NCO_CHAN_SEL_TRIG_AUTO``, Trigger based hopping, auto Hopping Mode (default).
+* 1: ``ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP``, Trigger based hopping, scheduled Regmap.
+* 2: ``ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO``, Trigger based hopping, scheduled GPIO.
+* 3: ``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO``, Direct GPIO profile select, all params hop together.
+* 4: ``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP``, Direct spi/hsci nco profile select, all params hop together.
+
+For example:
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 1 > out_voltage0_i_ffh_fnco_mode
 
 Debug system
 ^^^^^^^^^^^^
