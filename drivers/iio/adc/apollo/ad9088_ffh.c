@@ -152,6 +152,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		ret = adi_apollo_fnco_active_profile_set(&phy->ad9088, dir, fnco_en, val);
 		if (ret)
 			return ret;
+		/* Increment by 1 to use 0 to flag disabled */
 		phy->ffh.dir[chan->output].fnco.select[fddc_num] = val+1;
 		phy->ffh.dir[chan->output].fnco.en[fddc_num] = hop_enable;
 		break;
@@ -172,7 +173,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		index = phy->ffh.dir[chan->output].cnco.index[cddc_num];
 		if (index >= ADI_APOLLO_CNCO_PROFILE_NUM)
 			return -EINVAL;
-		ret = adi_apollo_cnco_profile_load(&phy->ad9088, ADI_APOLLO_TX, cnco_en,
+		ret = adi_apollo_cnco_profile_load(&phy->ad9088, dir, cnco_en,
 						   ADI_APOLLO_NCO_PROFILE_PHASE_INCREMENT,
 						   index, &val, 1);
 		if (ret)
