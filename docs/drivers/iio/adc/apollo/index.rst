@@ -829,7 +829,7 @@ Fast Frequency Hopping
 The NCO frequency and phase settings can be stored as a set of up-to 32
 profiles, each with a 32-bit FTW and 16-bit phase offset word, to be
 selectively assigned to the NCO during runtime. This allows to quickly change
-(hop) the NCO frequency, known as Fast Frequency Hopping (FFH)
+(hop) the NCO frequency, known as Fast Frequency Hopping (FFH).
 
 Tx FFH FNCO
 +++++++++++
@@ -877,7 +877,7 @@ Then hop to the desired frequency writing the index to
 .. shell::
 
    /sys/bus/iio/devices/iio:device8
-   $echo 1 > out_voltage0_i_ffh_cnco_select
+   $echo 1 > out_voltage0_i_ffh_fnco_select
 
 Trigger mode
 ++++++++++++
