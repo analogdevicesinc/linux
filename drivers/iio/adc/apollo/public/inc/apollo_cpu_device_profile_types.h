@@ -619,7 +619,8 @@ typedef enum {
     ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP    = 0x01,                 /*!< Trigger based hopping. Scheduled Regmap  */
     ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO      = 0x02,                 /*!< Trigger based hopping. Scheduled GPIO */
     ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO    = 0x03,                 /*!< Direct GPIO profile select. All params hop together */
-    ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP  = 0x04                  /*!< Direct spi/hsci nco profile select. All params hop together */
+    ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP  = 0x04,                 /*!< Direct spi/hsci nco profile select. All params hop together */
+    ADI_APOLLO_NCO_CHAN_SEL_LEN
 } ADI_APOLLO_PACK_ENUM adi_apollo_nco_profile_sel_mode_e;
 
 /*!
