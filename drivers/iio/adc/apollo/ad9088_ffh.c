@@ -192,6 +192,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 						   index, &val, 1);
 		if (ret)
 			return -EFAULT;
+		phy->ffh.dir[dir].cnco.frequency[index] = val;
 		break;
 	case FFH_CNCO_SELECT:
 		cnco_num = cddc_num + side*4;
