@@ -1559,7 +1559,7 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.name = "channel_nco_frequency_available",
 		.read = ad9088_ext_info_read,
 		.write = ad9088_ext_info_write,
-		.shared = IIO_SEPARATE,
+		.shared = IIO_SHARED_BY_TYPE,
 		.private = FDDC_NCO_FREQ_AVAIL,
 	},
 	{
