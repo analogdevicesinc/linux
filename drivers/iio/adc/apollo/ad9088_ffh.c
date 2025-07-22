@@ -10,7 +10,9 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	int ret;
 
 	fnco_hop_config.nco_trig_hop_sel = ADI_APOLLO_FNCO_TRIG_HOP_FREQ_PHASE;
+	fnco_hop_config.profile_sel_mode = ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP;
 	cnco_hop_config.auto_mode = ADI_APOLLO_NCO_AUTO_HOP_DECR;
+	cnco_hop_config.profile_sel_mode = ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP;
 
 	ret = adi_apollo_fnco_hop_pgm(&phy->ad9088, ADI_APOLLO_RX,
 				      ADI_APOLLO_CNCO_ALL, &fnco_hop_config);
@@ -29,6 +31,18 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	if (ret)
 		return ret;
 
+	/* Cache defaults */
+	memset(&phy->ffh, 0, sizeof(union ad9088_ffh));
+	for (u8 i = 0; i < ADI_APOLLO_FNCO_PROFILE_NUM; i++) {
+		for (u8 j = 0; j < 2; j++) {
+			phy->ffh.dir[j].fnco.mode[i] = cnco_hop_config.profile_sel_mode;
+		}
+	}
+	for (u8 i = 0; i < ADI_APOLLO_CNCO_PROFILE_NUM; i++) {
+		for (u8 j = 0; j < 2; j++) {
+			phy->ffh.dir[j].cnco.mode[i] = fnco_hop_config.profile_sel_mode;
+		}
+	}
 	return ret;
 }
 
