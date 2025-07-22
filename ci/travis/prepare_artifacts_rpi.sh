@@ -5,6 +5,20 @@ timestamp=$(date +%Y_%m_%d-%H_%M)
 GIT_SHA=$(git rev-parse --short HEAD)
 GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${GIT_SHA} | sed -e "s/ \|\:/-/g")
 
+#create version file found in the boot partition
+create_version_file() {
+	mkdir -p ${timestamp}/${1}
+	echo -e "RPI Boot Files: ${BUILD_SOURCEBRANCH} ${GIT_SHA_DATE}\n" > ${SOURCE_DIRECTORY}/${timestamp}/${1}/version_rpi.txt
+	echo -e "  Linux repository: https://github.com/analogdevicesinc/linux" >> ${SOURCE_DIRECTORY}/${timestamp}/${1}/version_rpi.txt
+	echo -e "  Linux branch: ${BUILD_SOURCEBRANCHNAME}" >> ${SOURCE_DIRECTORY}/${timestamp}/${1}/version_rpi.txt
+	echo -e "  Linux git sha: ${GIT_SHA}\n" >> ${SOURCE_DIRECTORY}/${timestamp}/${1}/version_rpi.txt
+	echo -e "Supported RaspberryPi platforms:\n" >> ${SOURCE_DIRECTORY}/${timestamp}/${1}/version_rpi.txt
+	list=($2)
+	for platform in "${list[@]}"; do
+		echo "  ${platform}" >> ${SOURCE_DIRECTORY}/${timestamp}/${1}/version_rpi.txt
+	done
+}
+
 #prepare the structure of the folder containing artifacts
 artifacts_structure() {
 	cd ${SOURCE_DIRECTORY}
@@ -16,6 +30,7 @@ artifacts_structure() {
   typeKERNEL_64bit=( "kernel8" "kernel_2712" )
 
 	mkdir ${timestamp}/32bit
+	create_version_file 32bit "${typeBCM_32bit[*]}"
 	for index in "${!typeBCM_32bit[@]}"; do
 		cd adi_"${typeBCM_32bit[$index]}"_arm_defconfig
 		mkdir modules
@@ -33,6 +48,7 @@ artifacts_structure() {
 	rm -r ${SOURCE_DIRECTORY}/${timestamp}/32bit/modules
 
 	mkdir ${timestamp}/64bit
+	create_version_file 64bit "${typeBCM_64bit[*]}"
 	for index in "${!typeBCM_64bit[@]}"; do
 		cd adi_"${typeBCM_64bit[$index]}"_arm64_defconfig
 		mkdir modules
