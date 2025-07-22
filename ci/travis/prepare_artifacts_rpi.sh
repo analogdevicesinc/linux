@@ -68,23 +68,23 @@ artifacts_swdownloads() {
 
 	cd ${SOURCE_DIRECTORY}/${timestamp}/32bit || exit 1
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/../${BUILD_SOURCEBRANCHNAME}
+		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 	md5_modules_32bit=($(md5sum rpi_modules_32bit.tar.gz| cut -d ' ' -f 1))
 	rm rpi_modules_32bit.tar.gz
 	tar -C ${PWD} -czvf rpi_latest_boot_32bit.tar.gz *
 	md5_boot_32bit=($(md5sum rpi_latest_boot_32bit.tar.gz| cut -d ' ' -f 1))
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-	    -i ${KEY_FILE} -r rpi_latest_boot_32bit.tar.gz ${DEST_SERVER}/../${BUILD_SOURCEBRANCHNAME}
+	    -i ${KEY_FILE} -r rpi_latest_boot_32bit.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 
 	cd ${SOURCE_DIRECTORY}/${timestamp}/64bit || exit 1
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/../${BUILD_SOURCEBRANCHNAME}
+		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 	md5_modules_64bit=($(md5sum rpi_modules_64bit.tar.gz| cut -d ' ' -f 1))
 	rm rpi_modules_64bit.tar.gz
 	tar -C ${PWD} -czvf rpi_latest_boot_64bit.tar.gz *
 	md5_boot_64bit=($(md5sum rpi_latest_boot_64bit.tar.gz| cut -d ' ' -f 1))
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-	    -i ${KEY_FILE} -r rpi_latest_boot_64bit.tar.gz ${DEST_SERVER}/../${BUILD_SOURCEBRANCHNAME}
+	    -i ${KEY_FILE} -r rpi_latest_boot_64bit.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 
 	echo "git_branch=${BUILD_SOURCEBRANCHNAME}" >> rpi_archives_properties.txt
 	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_modules_32bit.tar.gz" >> rpi_archives_properties.txt
@@ -99,7 +99,7 @@ artifacts_swdownloads() {
 	echo "git_sha_date=${GIT_SHA_DATE}" >> rpi_archives_properties.txt
 
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-                -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}/../${BUILD_SOURCEBRANCHNAME}
+                -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 }
 
 artifacts_${1}
