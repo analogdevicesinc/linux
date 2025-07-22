@@ -30,6 +30,7 @@ description: |
   https://analogdevicesinc.github.io/hdl/library/axi_ad408x/index.html
   https://analogdevicesinc.github.io/hdl/library/axi_ad485x/index.html
   http://analogdevicesinc.github.io/hdl/library/axi_ad7606x/index.html
+  https://analogdevicesinc.github.io/hdl/library/axi_ad777x/index.html
 
 properties:
   compatible:
@@ -38,6 +39,7 @@ properties:
       - adi,axi-ad408x
       - adi,axi-ad7606x
       - adi,axi-ad485x
+      - adi,axi-ad777x
 
   reg:
     maxItems: 1
