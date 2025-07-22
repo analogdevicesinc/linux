@@ -17,9 +17,9 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 		bootargs = "console=uart8250,mmio32,0x10c02000,115200n8 \
-			root=/dev/ram0 rw initrd=0x10000000 init=/sbin/init \
+			root=/dev/mmcblk0p2 rw initrd=0x10000000 init=/sbin/init \
 			ramdisk_size=10000000 earlycon=uart8250,mmio32,0x10c02000,115200n8 \
-			panic=-1 nosmp rootfstype=ext3";
+			panic=-1 nosmp rootfstype=ext4";
 	};
 
 	leds {
@@ -33,12 +33,12 @@
 	};
 
 	soc {
-		sys_hps_bridges: bridge@80000000 {
+		sys_hps_bridges: bridge@20000000 {
 			compatible = "simple-bus";
-			reg = <0x80000000 0x40000000>;
+			reg = <0x0020000000 0x20000000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x00000000 0x80000000 0x40000000>;
+			ranges = <0x00000000 0x0020000000 0x20000000>;
 
 			axi_sysid_0: axi-sysid-0@00018000 {
 				compatible = "adi,axi-sysid-1.00.a";

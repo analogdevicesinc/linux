@@ -51,12 +51,12 @@
     };
 
     soc {
-      sys_hps_bridges: bridge@80000000 {
-				compatible = "simple-bus";
-				reg = <0x80000000 0x40000000>;
-				#address-cells = <1>;
-				#size-cells = <1>;
-				ranges = <0x00000000 0x80000000 0x40000000>;
+      sys_hps_bridges: bridge@20000000 {
+			compatible = "simple-bus";
+			reg = <0x0020000000 0x20000000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0x0020000000 0x20000000>;
 
         sys_spi: spi@40 {
 					compatible = "altr,spi-1.0";
@@ -125,13 +125,13 @@
 						hmc7044_c3: channel@3 {
 							reg = <3>;
 							adi,extended-name = "DEV_SYSREF";
-							adi,divider = <768>;
+							adi,divider = <1536>;
 							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 							adi,jesd204-sysref-chan;
 						};
 						hmc7044_c6: channel@6 {
 							reg = <6>;
-							adi,extended-name = "CORE_CLK_TX";
+							adi,extended-name = "DEVICE_CLK";
 							adi,divider = <10>;
 							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 						};
@@ -141,16 +141,16 @@
 							adi,divider = <10>;
 							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 						};
-						hmc7044_c10: channel@10 {
-							reg = <10>;
-							adi,extended-name = "CORE_CLK_RX";
-							adi,divider = <10>;
-							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-						};
+						// hmc7044_c12: channel@12 {
+						// 	reg = <12>;
+						// 	adi,extended-name = "FPGA_REFCLK2";
+						// 	adi,divider = <10>;
+						// 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+						// };
 						hmc7044_c13: channel@13 {
 							reg = <13>;
 							adi,extended-name = "FPGA_SYSREF";
-							adi,divider = <768>;
+							adi,divider = <1536>;
 							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 							adi,jesd204-sysref-chan;
 						};
@@ -188,7 +188,6 @@
 						rx1-enable-gpios =    <&sys_gpio_out (fmc_gpio_base + 56) 0>;
 						tx2-enable-gpios =    <&sys_gpio_out (fmc_gpio_base + 59) 0>;
 						tx1-enable-gpios =    <&sys_gpio_out (fmc_gpio_base + 58) 0>;
-						// refclk-stable-gpios = <&sys_gpio_out (fmc_gpio_base + 60) 0>;
 
 						adi,tx-dacs {
 							#size-cells = <0>;
@@ -260,7 +259,8 @@
 									#size-cells = <0>;
 									reg = <0>;
 
-									adi,logical-lane-mapping = /bits/ 8 <7 5 0 1 6 2 3 4>;
+									adi,logical-lane-mapping = /bits/ 8 <7 7 3 2 7 1 0 7>;
+									// adi,logical-lane-mapping = /bits/ 8 <0 2 7 7 1 7 7 3>;
 									adi,link-mode = <9>;			/* JESD Quick Configuration Mode */
 									adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 									adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
@@ -358,7 +358,8 @@
 										<&ad9081_rx_fddc_chan4 FDDC_I>, <&ad9081_rx_fddc_chan4 FDDC_Q>,
 										<&ad9081_rx_fddc_chan5 FDDC_I>, <&ad9081_rx_fddc_chan5 FDDC_Q>;
 
-									adi,logical-lane-mapping = /bits/ 8 <5 7 0 1 2 3 4 6>;
+									adi,logical-lane-mapping = /bits/ 8 <7 7 3 2 1 0 7 7>;
+									// adi,logical-lane-mapping = /bits/ 8 <2 0 7 7 7 7 3 1>;
 
 									adi,link-mode = <10>;			/* JESD Quick Configuration Mode */
 									adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
@@ -402,18 +403,12 @@
 				axi_ad9081_adxcvr_tx: axi-ad9081-tx-xcvr@CC000 {
 					compatible = "adi,altera-adxcvr-1.00.a";
 					reg = <0x000CC000 0x00002000>,
-								<0x10800000 0x00100000>,
-								<0x10900000 0x00100000>,
-								<0x10A00000 0x00100000>,
-								<0x10B00000 0x00100000>,
-								<0x10C00000 0x00100000>,
-								<0x10D00000 0x00100000>,
-								<0x10E00000 0x00100000>,
-								<0x10F00000 0x00100000>;
+							  <0x02000000 0x00100000>,
+							  <0x02100000 0x00100000>,
+							  <0x02200000 0x00100000>,
+							  <0x02300000 0x00100000>;
 					reg-names = "adxcvr",  "adxcfg-0", "adxcfg-1",
-															   "adxcfg-2", "adxcfg-3",
-																 "adxcfg-4", "adxcfg-5",
-																 "adxcfg-6", "adxcfg-7";
+															   "adxcfg-2", "adxcfg-3";
 
 					clocks = <&hmc7044 8>, <&tx_link_clk>;
 					clock-names = "ref", "link";
@@ -446,7 +441,7 @@
 				interrupt-parent = <&intc>;
 				interrupts = <0 30 IRQ_TYPE_LEVEL_HIGH>;
 
-				clocks = <&sys_clk>, <&rx_link_clk>, <&hmc7044 10>, <&axi_ad9081_adxcvr_rx 0>;
+				clocks = <&sys_clk>, <&rx_link_clk>, <&hmc7044 8>, <&axi_ad9081_adxcvr_rx 0>;
 				clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
 
 				#clock-cells = <0>;
@@ -460,18 +455,12 @@
 			axi_ad9081_adxcvr_rx: axi-ad9081-rx-xcvr@C4000 {
 				compatible = "adi,altera-adxcvr-1.00.a";
 				reg = <0x000C4000 0x00002000>,
-							<0x10000000 0x00100000>,
-							<0x10100000 0x00100000>,
-							<0x10200000 0x00100000>,
-							<0x10300000 0x00100000>,
-							<0x10400000 0x00100000>,
-							<0x10500000 0x00100000>,
-							<0x10600000 0x00100000>,
-							<0x10700000 0x00100000>;
+							<0x01000000 0x00100000>,
+							<0x01100000 0x00100000>,
+							<0x01200000 0x00100000>,
+							<0x01300000 0x00100000>;
 				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1",
-															"adxcfg-2", "adxcfg-3",
-															"adxcfg-4", "adxcfg-5",
-															"adxcfg-6", "adxcfg-7";
+															"adxcfg-2", "adxcfg-3";
 
 				clocks = <&hmc7044 8>, <&rx_link_clk>;
 				clock-names = "ref", "link";
