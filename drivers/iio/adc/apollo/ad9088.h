@@ -294,6 +294,12 @@ extern int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_
 extern int ad9088_parse_dt(struct ad9088_phy *phy);
 extern int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel);
 extern int ad9088_ffh_probe(struct ad9088_phy *phy);
+extern int32_t adi_ad9088_calc_nco_ftw(adi_apollo_device_t *device,
+		                               u64 freq, int64_t nco_shift,
+				                       uint64_t *ftw);
+extern int32_t adi_ad9088_calc_nco_ftw32(adi_apollo_device_t *device,
+	                                     u64 freq, int64_t nco_shift,
+				                         uint64_t *ftw);
 extern void ad9088_iiochan_to_fddc_cddc(struct ad9088_phy *phy, const struct iio_chan_spec *chan,
 										u8 *fddc_num, u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
 										u8 *side);

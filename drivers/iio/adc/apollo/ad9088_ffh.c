@@ -105,10 +105,11 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 	u8 dir = chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX;
 	u8 cddc_num, fddc_num, side, fnco_num, cnco_num, index;
 	struct ad9088_phy *phy = conv->phy;
-	u32 cddc_mask, fddc_mask;
+	u32 cddc_mask, fddc_mask, ftw_u32;
 	u16 fnco_en, cnco_en;
 	bool hop_enable;
 	int val, ret;
+	u64 ftw_u64, f;
 
 	guard(mutex)(&phy->lock);
 	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
@@ -136,9 +137,24 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		ret = adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en, true);
 		if (ret)
 			return -EFAULT;
+		if (chan->output) {
+			u32 cddc_dcm;
+
+			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[side].tx_cduc[cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
+			do_div(f, cddc_dcm);
+		} else {
+			u32 cddc_dcm;
+
+			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[side].rx_cddc[cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
+			do_div(f, cddc_dcm);
+		}
+		adi_ad9088_calc_nco_ftw(&phy->ad9088, f, val, &ftw_u64);
+		ftw_u32 = ftw_u64 >> 16;
 		ret = adi_apollo_fnco_profile_load(&phy->ad9088, dir, fnco_en,
 						   ADI_APOLLO_NCO_PROFILE_PHASE_INCREMENT,
-						   index, &val, 1);
+						   index, &ftw_u32, 1);
 		if (ret)
 			return -EFAULT;
 		phy->ffh.dir[dir].fnco.frequency[index] = val;
@@ -201,9 +217,14 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		index = phy->ffh.dir[dir].cnco.index[cddc_num];
 		if (index >= ADI_APOLLO_CNCO_PROFILE_NUM)
 			return -EINVAL;
+		if (chan->output)
+			adi_ad9088_calc_nco_ftw32(&phy->ad9088, phy->profile.dac_config[side].dac_sampling_rate_Hz, val, &ftw_u64);
+		else
+			adi_ad9088_calc_nco_ftw32(&phy->ad9088, phy->profile.adc_config[side].adc_sampling_rate_Hz, val, &ftw_u64);
+		ftw_u32 = ftw_u64;
 		ret = adi_apollo_cnco_profile_load(&phy->ad9088, dir, cnco_en,
 						   ADI_APOLLO_NCO_PROFILE_PHASE_INCREMENT,
-						   index, &val, 1);
+						   index, &ftw_u32, 1);
 		if (ret)
 			return -EFAULT;
 		phy->ffh.dir[dir].cnco.frequency[index] = val;
