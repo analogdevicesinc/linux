@@ -11,6 +11,7 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/dmaengine.h>
+#include <linux/find.h>
 #include <linux/fpga/adi-axi-common.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -245,10 +246,13 @@ static void spi_engine_gen_sleep(struct spi_engine_program *p, bool dry,
 static void spi_engine_gen_cs(struct spi_engine_program *p, bool dry,
 		struct spi_device *spi, bool assert)
 {
+	unsigned long cs_index_mask = spi->cs_index_mask;
 	unsigned int mask = 0xff;
+	u32 cs_bit;
 
 	if (assert)
-		mask ^= BIT(spi_get_chipselect(spi, 0));
+		for_each_set_bit(cs_bit, &cs_index_mask, SPI_CS_CNT_MAX)
+			mask ^= BIT(spi_get_chipselect(spi, cs_bit));
 
 	spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_ASSERT(0, mask));
 }
@@ -1089,6 +1093,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 	host->unoptimize_message = spi_engine_unoptimize_message;
 	host->get_offload = spi_engine_get_offload;
 	host->put_offload = spi_engine_put_offload;
+	host->flags |= SPI_CONTROLLER_MULTI_CS;
 	host->num_chipselect = 8;
 
 	/* Some features depend of the IP core version. */
