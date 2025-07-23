@@ -16,7 +16,7 @@
 #define _ADI_COMMON_HAL_H_
 
 /* include standard types and definitions */
-#include <linux/kernel.h>
+#include "adi_common_user.h"
 #include "adi_common_log.h"
 
 

@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /**
  * \file adrv9025_cals.c
  * \brief Contains ADRV9025 calibration related private function implementation
  *
- * ADRV9025 API Version: 6.4.0.14
+ * ADRV9025 API Version: 7.0.0.14
  */
 
 /**
@@ -22,8 +22,6 @@
 #include "../../private/include/adrv9025_cpu_macros.h"
 #include "../../private/include/adrv9025_init.h"
 #include "../../private/include/adrv9025_cpu.h"
-
-#include <linux/kernel.h> /* needed for memset */
 
 #ifdef _RELEASE_BUILD_
 #line __LINE__ "adrv9025_cals.c"

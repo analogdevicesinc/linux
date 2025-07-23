@@ -2,9 +2,6 @@
 #ifndef ADRV9025_BF_HAL_H_
 #define ADRV9025_BF_HAL_H_
 
-#include <linux/kernel.h>
-#include <linux/stddef.h>
-
 #include "adi_adrv9025.h"
 #include "adi_common_hal.h"
 #include "./../../private/include/adrv9025_bf_hal_types.h"

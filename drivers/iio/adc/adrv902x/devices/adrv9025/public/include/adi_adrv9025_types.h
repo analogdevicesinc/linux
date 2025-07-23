@@ -3,7 +3,7 @@
 * \file adi_adrv9025_types.h
 * \brief Contains ADRV9025 API configuration and run-time type definitions
 *
-* ADRV9025 API Version: 6.4.0.14
+* ADRV9025 API Version: 7.0.0.14
 */
 
 /**
@@ -15,7 +15,7 @@
 #ifndef _ADI_ADRV9025_TYPES_H_
 #define _ADI_ADRV9025_TYPES_H_
 
-#include <linux/kernel.h>
+#include "adi_platform_types.h"
 #include "adi_adrv9025_tx_types.h"
 #include "adi_adrv9025_rx_types.h"
 #include "adi_adrv9025_cpu_types.h"

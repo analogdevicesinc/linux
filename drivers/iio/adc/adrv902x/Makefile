@@ -16,6 +16,8 @@ SRCS = 	devices/adrv9025/private/src/adrv9025_bf_analog_orx_mem_map.c \
 	devices/adrv9025/private/src/adrv9025_cpu.c \
 	devices/adrv9025/private/src/adrv9025_crc32.c \
 	devices/adrv9025/private/src/adrv9025_data_interface.c \
+	devices/adrv9025/private/src/adrv9025_dfe.c \
+	devices/adrv9025/private/src/adrv9025_dynamic_slicer.c \
 	devices/adrv9025/private/src/adrv9025_gpio.c \
 	devices/adrv9025/private/src/adrv9025_init.c \
 	devices/adrv9025/private/src/adrv9025_radioctrl.c \
@@ -29,6 +31,8 @@ SRCS = 	devices/adrv9025/private/src/adrv9025_bf_analog_orx_mem_map.c \
 	devices/adrv9025/public/src/adi_adrv9025_cals.c \
 	devices/adrv9025/public/src/adi_adrv9025_cpu.c \
 	devices/adrv9025/public/src/adi_adrv9025_data_interface.c \
+	devices/adrv9025/public/src/adi_adrv9025_dfe.c \
+	devices/adrv9025/public/src/adi_adrv9025_dynamic_slicer.c \
 	devices/adrv9025/public/src/adi_adrv9025_gpio.c \
 	devices/adrv9025/public/src/adi_adrv9025_hal.c \
 	devices/adrv9025/public/src/adi_adrv9025_radioctrl.c \

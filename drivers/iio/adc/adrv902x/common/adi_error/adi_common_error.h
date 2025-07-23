@@ -19,7 +19,7 @@
 #ifndef _ADI_COMMON_ERROR_H_
 #define _ADI_COMMON_ERROR_H_
 
-#include <linux/kernel.h>
+#include "adi_common_user.h"
 #include "adi_common_error_types.h"
 #include "adi_common_types.h"
 #include "adi_common_macros.h"

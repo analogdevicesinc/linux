@@ -398,3 +398,4 @@ typedef enum adrv9025_BfTxdacMemMapTxdacWalkPeriod
 #endif // __ADRV9025_BF_TXDAC_MEM_MAP_TYPES_H__
 
 /*  EOF: adrv9025_bf_txdac_mem_map_types.h */
+
