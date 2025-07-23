@@ -4,7 +4,7 @@
 * \brief Contains ADRV9025 processor function prototypes for
 *    adi_adrv9025_cpu.c
 *
-* ADRV9025 API Version: 6.4.0.14
+* ADRV9025 API Version: 7.0.0.14
 */
 
 /**
@@ -19,10 +19,6 @@
 #include "adi_adrv9025_types.h"
 #include "adi_common_error_types.h"
 #include "adi_adrv9025_cpu_types.h"
-
-#ifndef ADRV9025_INIT_SPI_DEBUG
-#define ADRV9025_INIT_SPI_DEBUG 0
-#endif
 
 #ifdef __cplusplus
 extern "C" {

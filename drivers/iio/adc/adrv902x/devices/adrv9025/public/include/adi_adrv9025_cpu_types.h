@@ -3,7 +3,7 @@
 * \file adi_adrv9025_cpu_types.h
 * \brief Contains ADRV9025 data types for on board cpus feature
 *
-* ADRV9025 API Version: 6.4.0.14
+* ADRV9025 API Version: 7.0.0.14
 */
 
 /**
@@ -15,7 +15,7 @@
 #ifndef _ADI_ADRV9025_CPU_TYPES_H_
 #define _ADI_ADRV9025_CPU_TYPES_H_
 
-#include <linux/kernel.h>
+#include "adi_common_user.h"
 #include "../../private/include/adrv9025_cpu_macros.h"
 
 #ifdef __cplusplus
