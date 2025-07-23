@@ -58,3 +58,4 @@ typedef enum adrv9025_BfRxFpRoundMode
 #endif /* __ADRV9025_BF_RX_TYPES_H__ */
 
 /*  EOF: adrv9025_bf_rx_types.h */
+

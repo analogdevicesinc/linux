@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /**
 * \file adi_adrv9025_tx.c
 * \brief Contains Tx features related function implementation defined in
 * adi_adrv9025_tx.h
 *
-* ADRV9025 API Version: 6.4.0.14
+* ADRV9025 API Version: 7.0.0.14
 */
 
 /**
@@ -1199,7 +1199,8 @@ int32_t adi_adrv9025_TxTestToneSet(adi_adrv9025_Device_t*       device,
                 ADI_ERROR_RETURN(device->common.error.newAction);
             }
 
-            tuneWord = (uint32_t)((div_s64(((int64_t)((0 - txNcoTestToneCfg[i].txToneFreq_Hz)) << 32), txSampleRateDiv2_Hz) + 1) >> 1);
+            tuneWord = (uint32_t)((DIV_INT64(((int64_t)((0 - txNcoTestToneCfg[i].txToneFreq_Hz)) << 32), txSampleRateDiv2_Hz) + 1) >> 1);
+
             /* +1 >>1 is round to nearest */
 
             /* Configure part */
@@ -2578,8 +2579,8 @@ int32_t adi_adrv9025_TxPaProtectionCfgGet(adi_adrv9025_Device_t*         device,
     txPaProtectCfg->txChannel          = txChannel;
     txPaProtectCfg->avgDuration        = avgDuration;
     txPaProtectCfg->peakDuration       = peakDuration;
-    txPaProtectCfg->txAttenStep        = 0; /* Gain step down is not allowed for Madura device. This field is not being used actively.*/
-    txPaProtectCfg->gainStepDownEn     = 0; /* Gain step down is not allowed for Madura device. This field is not being used actively.*/
+    txPaProtectCfg->txAttenStep        = 0; /* Gain step down is not allowed for ADRV9025 device. This field is not being used actively.*/
+    txPaProtectCfg->gainStepDownEn     = 0; /* Gain step down is not allowed for ADRV9025 device. This field is not being used actively.*/
     txPaProtectCfg->powerThreshold     = powerThreshold;
     txPaProtectCfg->peakCount          = peakCount;
     txPaProtectCfg->peakThreshold      = peakThreshold;
