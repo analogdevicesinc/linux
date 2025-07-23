@@ -13,6 +13,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
+#include <linux/fs.h>//for SEEK_SET
 #include "adi_platform.h"
 
 /*

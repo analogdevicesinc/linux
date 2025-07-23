@@ -47,3 +47,4 @@ typedef enum adrv9025_BfDeserRxdivrateLcpllRs
 #endif // __ADRV9025_BF_DESER_TYPES_H__
 
 /*  EOF: adrv9025_bf_deser_types.h */
+

@@ -5,7 +5,7 @@
 *
 * Extension of adi_common_error
 *
-* ADRV9025 API Version: 6.4.0.14
+* ADRV9025 API Version: 7.0.0.14
 */
 
 /**

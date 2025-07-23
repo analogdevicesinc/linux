@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /**
 * \file adi_common_log.c
 * \brief Contains ADI Transceiver Logging functions
@@ -18,7 +18,6 @@
 #include "adi_common_hal.h"
 #include "adi_platform.h"
 #include "adi_common_error_types.h"
-#include <linux/kernel.h>
 
 void adrv9025_LogWrite(adi_common_Device_t*  commonDev,
                          adi_common_LogLevel_e logLevel,

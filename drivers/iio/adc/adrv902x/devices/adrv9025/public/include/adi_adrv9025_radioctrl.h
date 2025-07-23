@@ -3,7 +3,7 @@
  * \file adi_adrv9025_radioctrl.h
  * \brief Contains ADRV9025 related function prototypes for adi_adrv9025_radioctrl.c
  *
- *  ADRV9025 API Version: 6.4.0.14
+ *  ADRV9025 API Version: 7.0.0.14
  */
 
 /**

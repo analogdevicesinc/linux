@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /**
-* Copyright 2015 - 2019 Analog Devices Inc.
+* Copyright 2015 - 2020 Analog Devices Inc.
 * Released under the ADRV9025 API license, for more information.
 * see the "LICENSE.pdf" file in this zip file.
 */
@@ -118,12 +118,12 @@ int32_t adi_hal_PlatformSetup(void*               devHalInfo,
     switch (platform)
     {
     case ADI_ADS9_PLATFORM:
-        adi_hal_HwOpen = ads9_HwOpen;
+        adi_hal_HwOpen          = ads9_HwOpen;
         adi_hal_HwClose         = ads9_HwClose;
         adi_hal_HwReset         = ads9_HwReset;
         adi_hal_DevHalCfgCreate = ads9_DevHalCfgCreate;
         adi_hal_DevHalCfgFree   = ads9_DevHalCfgFree;
-	    adi_hal_HwVerify = ads9_HwVerify;
+        adi_hal_HwVerify        = ads9_HwVerify;
 
         adi_hal_SpiInit              = ads9_SpiInit;     /* TODO: remove?  called by HwOpen() */
         adrv9025_hal_SpiWrite             = ads9_SpiWrite_v2; //ads9_SpiWrite;
@@ -149,12 +149,12 @@ int32_t adi_hal_PlatformSetup(void*               devHalInfo,
         break;
 
     case ADI_ADS8_PLATFORM:
-        adi_hal_HwOpen = ads8_HwOpen;
+        adi_hal_HwOpen          = ads8_HwOpen;
         adi_hal_HwClose         = ads8_HwClose;
         adi_hal_HwReset         = ads8_HwReset;
         adi_hal_DevHalCfgCreate = ads8_DevHalCfgCreate;
         adi_hal_DevHalCfgFree   = ads8_DevHalCfgFree;
-	    adi_hal_HwVerify = ads8_HwVerify;
+        adi_hal_HwVerify        = ads8_HwVerify;
 
         adi_hal_SpiInit              = ads8_SpiInit; /* TODO: remove?  called by HwOpen() */
         adrv9025_hal_SpiWrite             = ads8_SpiWrite_v2;
@@ -178,7 +178,35 @@ int32_t adi_hal_PlatformSetup(void*               devHalInfo,
         adi_hal_BbicRegistersWrite = ads8_BbicRegistersWrite;
 
         break;
+    case ADI_UNKNOWN_PLATFORM:
+        adi_hal_HwOpen = NULL;
+        adi_hal_HwClose         = NULL;
+        adi_hal_HwReset         = NULL;
+        adi_hal_DevHalCfgCreate = NULL;
+        adi_hal_DevHalCfgFree   = NULL;
+        adi_hal_HwVerify = NULL;
 
+        adi_hal_SpiInit              = NULL; /* TODO: remove?  called by HwOpen() */
+        adrv9025_hal_SpiWrite             = NULL;
+        adrv9025_hal_SpiRead              = NULL;
+        adi_hal_CustomSpiStreamWrite = NULL;
+        adi_hal_CustomSpiStreamRead  = NULL;
+
+        adi_hal_LogFileOpen  = NULL;
+        adi_hal_LogLevelSet  = NULL;
+        adi_hal_LogLevelGet  = NULL;
+        adi_hal_LogWrite     = ads8_LogWrite;
+        adi_hal_LogFileClose = NULL;
+
+        adi_hal_Wait_us = NULL;
+        adi_hal_Wait_ms = NULL;
+
+        /* only required to support the ADI FPGA*/
+        adi_hal_BbicRegisterRead   = ads8_BbicRegisterRead;
+        adi_hal_BbicRegisterWrite  = ads8_BbicRegisterWrite;
+        adi_hal_BbicRegistersRead  = ads8_BbicRegistersRead;
+        adi_hal_BbicRegistersWrite = ads8_BbicRegistersWrite;
+        break;
 
     default:
         error = ADI_HAL_GEN_SW;

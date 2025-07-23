@@ -8,7 +8,7 @@
 
 /**
 * \Page Disclaimer Legal Disclaimer
-* Copyright 2015 - 2019 Analog Devices Inc.
+* Copyright 2015 - 2020 Analog Devices Inc.
 * Released under the ADRV9025 API license, for more information.
 * see the "LICENSE.pdf" file in this zip file.
 */
