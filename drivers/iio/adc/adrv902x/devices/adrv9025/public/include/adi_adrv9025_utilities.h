@@ -4,7 +4,7 @@
 * \brief Contains ADRV9025 utility functions to load ARM binaries
 *        load stream binaries, load Rx Gain Table, load Tx Atten Table.
 *
-* ADRV9025 API Version: 6.4.0.14
+* ADRV9025 API Version: 7.0.0.14
 */
 
 /**

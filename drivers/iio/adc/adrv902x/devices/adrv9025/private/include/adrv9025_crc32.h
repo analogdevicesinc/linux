@@ -2,7 +2,7 @@
 /**
  * \file adrv9025_crc32.h
  *
- * ADRV9025 API Version: 6.4.0.14
+ * ADRV9025 API Version: 7.0.0.14
  */
 
 /**
