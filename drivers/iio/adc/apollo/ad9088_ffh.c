@@ -155,7 +155,6 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		ret = adi_apollo_fnco_profile_load(&phy->ad9088, dir, fnco_en,
 						   ADI_APOLLO_NCO_PROFILE_PHASE_INCREMENT,
 						   index, &ftw_u32, 1);
-		printk("1: Writing value %x for requested freq %d, sampling rate %llu\n", ftw_u32, val, f);
 		if (ret)
 			return -EFAULT;
 		phy->ffh.dir[dir].fnco.frequency[index] = val;
