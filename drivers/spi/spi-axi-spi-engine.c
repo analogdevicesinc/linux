@@ -790,12 +790,18 @@ static int spi_engine_setup(struct spi_device *device)
 {
 	struct spi_controller *host = device->controller;
 	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
+	unsigned long cs_index_mask = device->cs_index_mask;
 	unsigned int reg;
+	u32 cs_bit;
 
-	if (device->mode & SPI_CS_HIGH)
-		spi_engine->cs_inv |= BIT(spi_get_chipselect(device, 0));
-	else
-		spi_engine->cs_inv &= ~BIT(spi_get_chipselect(device, 0));
+	for_each_set_bit(cs_bit, &cs_index_mask, SPI_CS_CNT_MAX) {
+		if (device->mode & SPI_CS_HIGH)
+			spi_engine->cs_inv |= BIT(spi_get_chipselect(device,
+								     cs_bit));
+		else
+			spi_engine->cs_inv &= ~BIT(spi_get_chipselect(device,
+								      cs_bit));
+	}
 
 	writel_relaxed(SPI_ENGINE_CMD_SYNC(0),
 		       spi_engine->base + SPI_ENGINE_REG_CMD_FIFO);
