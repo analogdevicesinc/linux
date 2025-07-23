@@ -16,6 +16,7 @@
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
+#include <linux/iio/buffer-dmaengine-filtered.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/limits.h>
@@ -1535,8 +1536,24 @@ static int ad4630_probe(struct spi_device *spi)
 		return dev_err_probe(dev, PTR_ERR(rx_dma),
 			"failed to get offload RX DMA\n");
 
-	ret = devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev,
-		rx_dma, IIO_BUFFER_DIRECTION_IN);
+	/*
+	 * The ad4630_fmc HDL project was designed for ADCs with two channels
+	 * and always streams two data channels to DMA (even when the ADC has
+	 * only one physical channel). Though, if the ADC has only one physical
+	 * channel, the data that would come from the second ADC channel comes
+	 * in as noise and has to be discarded. Because of that, when using
+	 * single-channel ADCs, the ADC driver needs to use a special DMA buffer
+	 * that filters out half of the data that reaches DMA memory. With that,
+	 * the ADC sample data can be delivered to user space without any noise
+	 * being added to the IIO buffer.
+	 */
+	if (indio_dev->num_channels == 1)
+		ret = devm_iio_dmaengine_filtered_buffer_setup_with_handle(dev,
+									   indio_dev, rx_dma,
+									   IIO_BUFFER_DIRECTION_IN);
+	else
+		ret = devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev,
+								  rx_dma, IIO_BUFFER_DIRECTION_IN);
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to get DMA buffer\n");
@@ -1632,3 +1649,4 @@ MODULE_AUTHOR("Liviu Adace <liviu.adace@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD4630 and ADAQ4224 ADC family driver");
 MODULE_LICENSE("GPL v2");
 MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);
+MODULE_IMPORT_NS(IIO_DMAENGINE_FILTERED_BUFFER);
