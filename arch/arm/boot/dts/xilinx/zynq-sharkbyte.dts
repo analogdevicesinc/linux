@@ -10,7 +10,7 @@
  */
 /dts-v1/;
 
-#include "zynq-zed.dtsi"
+#include "zynq.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
@@ -33,7 +33,36 @@
 			compatible = "fixed-clock";
 			clock-frequency = <1000000000>;
 		};
+        hmcad15xx_xtal_1: clock1@1 {
+        	#clock-cells = <0>;
+        	compatible = "fixed-clock";
+        	clock-frequency = <1000000000>;
+        };
 	};
+
+    one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios =  <&gpio_exp 12 GPIO_ACTIVE_HIGH >, <&gpio_exp 13 GPIO_ACTIVE_HIGH>, <&gpio_exp 14 GPIO_ACTIVE_LOW>;
+
+		channel@0 {
+			reg = <0>;
+			label = "usr_led";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "ldac";
+		};
+    	channel@2 {
+    		reg = <2>;
+    		label = "rstn_dac";
+    	};
+	};
+
 };
 
 / {
@@ -53,6 +82,16 @@
 
             #address-cells = <1>;
             #size-cells = <0>;
+
+            gpio_exp: gpio@34 {
+				compatible = "adi,adp5589";
+				reg = <0x34>;
+
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+
         };
 
         // first ADC
@@ -65,7 +104,7 @@
             spibus-connected = <&hmcad15xx_1>;
         };
 
-        rx1_dma: rx1-dmac@44a30000 {
+        rx1_dma: rx1_dma@44a30000 {
             compatible = "adi,axi-dmac-1.00.a";
             reg = <0x44A30000 0x10000>;
             #dma-cells = <1>;
@@ -96,7 +135,7 @@
             spibus-connected = <&hmcad15xx_2>;
         };
 
-        rx2_dma: rx2-dmac@44a90000 {
+        rx2_dma: rx2_dma@44a90000 {
             compatible = "adi,axi-dmac-1.00.a";
             reg = <0x44A90000 0x10000>;
             #dma-cells = <1>;
@@ -137,23 +176,21 @@
 &spi0 {
 	status = "okay";
 
-    hmcad15xx_1: adc_1@0 {
+    hmcad15xx_1: hmcad15xx_1@0 {
         compatible = "adi,hmcad15xx";
         reg = <0>;
-        spi-max-frequency = <1000000>;
-        reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
-        pd-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
         clocks = <&hmcad15xx_xtal>;
         clock-names = "clk";
+        reset-gpios = <&gpio_exp 9 GPIO_ACTIVE_LOW>;
+		pd-gpios = <&gpio_exp 10 GPIO_ACTIVE_HIGH>;
     };
 
-    hmcad15xx_2: adc_2@1 {
+    hmcad15xx_2: hmcad15xx_2@1 {
         compatible = "adi,hmcad15xx";
         reg = <1>;
-        spi-max-frequency = <1000000>;
-        reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
-        pd-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
-        clocks = <&hmcad15xx_xtal>;
+        clocks = <&hmcad15xx_xtal_1>;
         clock-names = "clk";
+        reset-gpios = <&gpio_exp 8 GPIO_ACTIVE_LOW>;
+        pd-gpios = <&gpio_exp 11 GPIO_ACTIVE_HIGH>;
     };
 };
