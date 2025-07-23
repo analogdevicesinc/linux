@@ -40,6 +40,11 @@ int devm_iio_dmaengine_buffer_setup_with_handle(struct device *dev,
 						struct dma_chan *chan,
 						enum iio_buffer_direction dir);
 
+int devm_iio_dmaengine_filtered_buffer_setup_with_handle(struct device *dev,
+							 struct iio_dev *indio_dev,
+							 struct dma_chan *chan,
+							 enum iio_buffer_direction dir);
+
 #define devm_iio_dmaengine_buffer_setup(dev, indio_dev, channel)	\
 	devm_iio_dmaengine_buffer_setup_ext(dev, indio_dev, channel,	\
 					    IIO_BUFFER_DIRECTION_IN)
