@@ -30,6 +30,19 @@ config IIO_BUFFER_DMAENGINE
 
 	  Should be selected by drivers that want to use this functionality.
 
+config IIO_BUFFER_DMAENGINE_FILTERED
+	tristate "Industrial I/O DMA buffer integration with DMAEngine that filters data"
+	select IIO_BUFFER_DMA
+	select IIO_BUFFER_DMAENGINE
+	help
+	  Provides a bonding of the generic IIO DMA buffer infrastructure with the
+	  DMAEngine framework. This can be used by converter drivers with a DMA port
+	  connected to an external DMA controller which is supported by the
+	  DMAEngine framework.
+
+	  Should NOT be selected by anything, unless using ADAQ4216 or similar
+	  single-channel ADCs supported by the ad4630.c driver.
+
 config IIO_DMA_BUF_MMAP_LEGACY
 	bool "Enables I/O DMA buffer legacy MMAP support"
 	depends on IIO_BUFFER_DMAENGINE
