@@ -879,6 +879,9 @@ Then hop to the desired frequency writing the index to
    /sys/bus/iio/devices/iio:device8
    $echo 1 > out_voltage0_i_ffh_fnco_select
 
+``out_voltageX_[i|q]_ffh_cnco_frequency`` at index 0 is equivalent to
+``in_voltage0_i_main_nco_frequency``
+
 Trigger mode
 ++++++++++++
 
@@ -888,11 +891,11 @@ Other options are available and configurable with
 
 The options are:
 
-* 0: ``ADI_APOLLO_NCO_CHAN_SEL_TRIG_AUTO``, Trigger based hopping, auto Hopping Mode (default).
+* 0: ``ADI_APOLLO_NCO_CHAN_SEL_TRIG_AUTO``, Trigger based hopping, auto Hopping Mode.
 * 1: ``ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP``, Trigger based hopping, scheduled Regmap.
 * 2: ``ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO``, Trigger based hopping, scheduled GPIO.
 * 3: ``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO``, Direct GPIO profile select, all params hop together.
-* 4: ``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP``, Direct spi/hsci nco profile select, all params hop together.
+* 4: ``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP``, Direct spi/hsci nco profile select, all params hop together (default).
 
 For example:
 
