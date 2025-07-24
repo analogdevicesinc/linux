@@ -2,13 +2,11 @@
 /*
  * SRAM driver for ADI processor on-chip memory
  *
- * (C) Copyright 2022 - Analog Devices, Inc.
+ * (C) Copyright 2025 - Analog Devices, Inc.
  *
- * Written and/or maintained by Timesys Corporation
- *
- * Contact: Nathan Barrett-Morrison <nathan.morrison@timesys.com>
- * Contact: Greg Malysa <greg.malysa@timesys.com>
- *
+ * Authors:
+ *    Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+ *    Greg Malysa <greg.malysa@timesys.com>
  */
 
 #include <linux/module.h>
