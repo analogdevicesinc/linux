@@ -336,14 +336,14 @@
 	};
 };
 
-//&mmc0{
-//	pinctrl-names = "default";
-//	pinctrl-0 = <&mmc0_8bgrp>;
-//	bus-width = <8>;
-//	max-frequency = <50000000>;
-//	non-removable;
-//	status = "okay";
-//};
+&mmc0{
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc0_8bgrp>;
+	bus-width = <8>;
+	max-frequency = <50000000>;
+	non-removable;
+	status = "okay";
+};
 
 &usb0_phy {
 	reset-gpios = <&gpg 11 GPIO_ACTIVE_LOW>;
