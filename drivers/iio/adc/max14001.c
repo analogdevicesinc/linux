@@ -76,10 +76,6 @@
 #define MAX14001_REG_WEN_WRITE_ENABLE	0x294
 #define MAX14001_REG_WEN_WRITE_DISABLE	0x0
 
-/* MAX14001 10-bit ADC */
-#define MAX14001_NUMBER_OF_DATA_BITS	10
-#define MAX14001_BIT_DIV				(1 << 10)
-
 enum max14001_chip_model {
 	max14001,
 	max14002,
@@ -102,30 +98,21 @@ static struct max14001_chip_info max14001_chip_info_tbl[] = {
 struct max14001_state {
 	struct spi_device *spi;
 	const struct max14001_chip_info *chip_info;
-	int vref_mV;
+	int vref_mv;
 };
 
-static int max14001_get_scale(struct max14001_state *st)
-{
-	int scale;
-
-	/* scale = range / 2^10 */
-	scale = st->vref_mV / MAX14001_BIT_DIV;
-	return scale;
-}
-
-static int max14001_get_vref_mV(struct max14001_state *st)
+static int max14001_get_vref_mv(struct max14001_state *st)
 {
 	struct device *dev = &st->spi->dev;
 	int ret = 0;
 
 	ret = devm_regulator_get_enable_read_voltage(dev, "vrefin");
 	if (ret < 0){
-		st->vref_mV = 1250000 / 1000;
-		dev_info(&st->spi->dev, "%s: vrefin not found. vref_mV %d\n", __func__, st->vref_mV);
+		st->vref_mv = 1250000 / 1000;
+		dev_info(&st->spi->dev, "%s: vrefin not found. vref_mv %d\n", __func__, st->vref_mv);
 	} else {
-		st->vref_mV = ret / 1000;
-		dev_info(&st->spi->dev, "%s: vrefin found. vref_mV %d\n", __func__, st->vref_mV);
+		st->vref_mv = ret / 1000;
+		dev_info(&st->spi->dev, "%s: vrefin found. vref_mv %d\n", __func__, st->vref_mv);
 	}
 
 	return ret;
@@ -230,23 +217,22 @@ static int max14001_read_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		ret = max14001_spi_read(st, MAX14001_REG_ADC, val);
-		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_RAW: channel: %d, val: %d\n", __func__, chan->channel, val);
+		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_RAW: channel: %d, val: %d\n", __func__, chan->channel, *val);
 		if (ret < 0)
 			return ret;
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_AVERAGE_RAW:
 		ret = max14001_spi_read(st, MAX14001_REG_FADC, val);
-		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_AVERAGE_RAW: channel: %d, val: %d\n", __func__, chan->channel, val);
+		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_AVERAGE_RAW: channel: %d, val: %d\n", __func__, chan->channel, *val);
 		if (ret < 0)
 			return ret;
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		ret = max14001_get_scale(st);
-		*val = ret;
-		*val2 = MAX14001_NUMBER_OF_DATA_BITS;
-		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_SCALE: val: %d, val2: %d\n", __func__, val, val2);
+		*val = st->vref_mv;
+		*val2 = 10;
+		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_SCALE: val: %d, val2: %d\n", __func__, *val, *val2);
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 	}
@@ -262,7 +248,6 @@ static int max14001_write_raw(struct iio_dev *indio_dev,
 	struct max14001_state *st = iio_priv(indio_dev);
 
 	switch (mask) {
-
 	}
 
 	return -EINVAL;
@@ -337,7 +322,7 @@ static int max14001_probe(struct spi_device *spi)
 	dev_info(&st->spi->dev, "%s: probe\n", __func__);
 
 	max14001_init_required_regulators(st);
-	max14001_get_vref_mV(st);
+	max14001_get_vref_mv(st);
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
