@@ -30,6 +30,10 @@ interref_repos = [
     'documentation',
 ]
 
+intersphinx_mapping = {
+    'linux-upstream': ('https://www.kernel.org/doc/html/latest', None)
+}
+
 # -- Options for HTML output --------------------------------------------------
 
 html_theme = 'harmonic'
