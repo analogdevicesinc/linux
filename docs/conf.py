@@ -31,7 +31,7 @@ interref_repos = [
 ]
 
 intersphinx_mapping = {
-    'upstream': ('https://www.kernel.org/doc/html/latest', None)
+    'linux-upstream': ('https://www.kernel.org/doc/html/latest', None)
 }
 
 # -- Options for HTML output --------------------------------------------------
