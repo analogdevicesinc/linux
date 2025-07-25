@@ -67,11 +67,11 @@
 		label = "axi-jesd204-rx";
 	};
 
-	axi-jesd204-rx@1 {
+	axi-jesd204-tx@1 {
 		compatible = "adi,iio-fake-platform-device";
 		adi,faked-dev = <&axi_ad9084_tx_jesd>;
 		adi,attribute-names = "status", "encoder";
-		label = "axi-jesd204-rx";
+		label = "axi-jesd204-tx";
 	};
 
 	axi-adxcvr-rx@2 {
@@ -101,14 +101,14 @@
 			"lane8_info", "lane9_info", "lane10_info",
 			"lane11_info", "lane12_info", "lane13_info",
 			"lane14_info", "lane15_info";
-		label = "axi-jesd204-rx";
+		label = "axi-jesd204-rx-b";
 	};
 
-	axi-jesd204-rx-b@1 {
+	axi-jesd204-tx-b@1 {
 		compatible = "adi,iio-fake-platform-device";
 		adi,faked-dev = <&axi_ad9084_tx_jesd_b>;
 		adi,attribute-names = "status", "encoder";
-		label = "axi-jesd204-rx";
+		label = "axi-jesd204-tx-b";
 	};
 
 	axi-adxcvr-rx-b@2 {
@@ -118,14 +118,14 @@
 			"eyescan_info", "prbs_status", "prbs_counter_reset",
 			"prescale", "enable", "prbs_error_counters", "reg_access",
 			"eye_data", "prbs_select";
-		label = "axi-adxcvr-rx";
+		label = "axi-adxcvr-rx-b";
 	};
 
 	axi-adxcvr-tx-b@4 {
 		compatible = "adi,iio-fake-platform-device";
 		adi,faked-dev = <&axi_ad9084_adxcvr_tx_b>;
 		adi,attribute-names = "prbs_select", "prbs_error_inject", "reg_access";
-		label = "axi-adxcvr-tx";
+		label = "axi-adxcvr-tx-b";
 	};
 
 #endif
