@@ -191,6 +191,13 @@ A few options are available to tune the HSCI interface.
 * ``adi,hsci-auto-linkup-mode-en``: Enable HSCI auto-linkup mode.
 * ``adi,hsci-disable-after-boot-en``: Use SPI as the interface after initial device initialization.
 
+GPIO
+~~~~
+
+* ``adi,gpio-exports``: Expose a list of the 30s device GPIOs into a GPIO controller.
+
+A more detailed usage is provided :ref:`here <apollo gpio>`.
+
 Compile the driver
 ------------------
 
@@ -903,6 +910,62 @@ For example:
 
    /sys/bus/iio/devices/iio:device8
    $echo 1 > out_voltage0_i_ffh_fnco_mode
+
+.. _apollo gpio:
+
+GPIOs & GPIO chip
+^^^^^^^^^^^^^^^^^
+
+The device contains 30 general purpose GPIOs that can be used to trigger various
+changes and can be exported into a :external+linux-upstream:c:struct:`gpio_chip`
+using the ``adi,gpio-exports`` devicetree property:
+
+.. code:: dts
+
+   trx0_ad9084: ad9084@0 {
+        adi,gpio-exports = /bits/ 8 <15 16 17 18>;
+   };
+
+Some of the device GPIOs are mapped in the HDL design to a axi_gpio IP Core, and
+the apollo's and axi_gpio's can be attached to other drivers in the device tree:
+
+.. tip::
+
+   ``0`` is the index of item in the ``adi,gpio-exports``, and in the previous
+   example, is equivalent to the device's GPIO 15. Also ensure to check the
+   schematics and HDL design for the routes between apollo's GPIO, axi_gpio's
+   and other input options.
+
+.. code:: dts
+
+   my_driver {
+        /* ... */
+        provider-gpios = <&axi_gpio 0 GPIO_ACTIVE_HIGH>;
+        consumer-gpios = <&tx0_ad9084 0 GPIO_ACTIVE_HIGH>;
+   }
+
+Or from user space through SysFs:
+
+.. shell::
+
+   $ cd /sys/class/gpio
+   # Identify gpio chips offsets
+   $cat gpiochip512/label
+    a4000000.gpio
+   $cat gpiochip750/label
+    ad9088
+   $echo 750 > export
+   $echo in > gpio750/direction
+   $echo 512 > export
+   $echo out > gpio512/direction
+   $echo 0 > gpio512/value
+   # Check value from apollo side
+   $cat gpio750/value
+    0
+   $echo 1 > gpio512/value
+   # Check value from apollo side
+   $cat gpio750/value
+    1
 
 Debug system
 ^^^^^^^^^^^^
