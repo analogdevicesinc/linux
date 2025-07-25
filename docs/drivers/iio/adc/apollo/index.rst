@@ -301,7 +301,7 @@ This device can be found under */sys/bus/iio/devices/*
 
 One way to check if the device and driver are present is using **iio_info**:
 
-.. shell:
+.. shell::
    :no-path:
 
    $iio_info
