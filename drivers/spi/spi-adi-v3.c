@@ -552,7 +552,7 @@ static bool adi_spi_can_dma(struct spi_controller *ctlr, struct spi_device *spi,
 {
 	struct adi_spi_device *chip = spi_get_ctldata(spi);
 
-	if (chip->dma)
+	if (chip->dma && !ctlr->fallback)
 		return true;
 	return false;
 }

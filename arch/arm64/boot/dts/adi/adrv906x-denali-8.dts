@@ -14,7 +14,7 @@
 	compatible = "adi,adrv906x-denali-8", "adi,adrv906x";
 
 	chosen {
-		bootargs = "console=ttyAMA0,115200n8 earlycon=pl011,0x20060000 rootwait uio_pdrv_genirq.of_id=generic-uio panic=-1 reboot=w";
+		bootargs = "console=ttyAMA0,115200n8 earlycon=pl011,0x20060000 rootwait uio_pdrv_genirq.of_id=generic-uio panic=-1 reboot=w mtdoops.mtddev=oops";
 		stdout-path = &uart0;
 	};
 

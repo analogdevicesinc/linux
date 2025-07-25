@@ -752,6 +752,41 @@ int spi_nor_wait_till_ready(struct spi_nor *nor)
 }
 
 /**
+ * spi_nor_panic_wait_till_ready() - Wait for a predefined amount of time
+ * for the flash to be ready when trying to write an oops through mtdoops
+ * @nor:	pointer to "struct spi_nor".
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int spi_nor_panic_wait_till_ready(struct spi_nor *nor)
+{
+	unsigned long timeout_jiffies = DEFAULT_READY_WAIT_JIFFIES;
+	unsigned long deadline;
+	int timeout = 0, ret;
+
+	deadline = jiffies + timeout_jiffies;
+
+	while (!timeout) {
+		if (time_after_eq(jiffies, deadline))
+			timeout = 1;
+
+		if (nor->params->ready)
+			ret = nor->params->ready(nor);
+		else
+			ret = spi_nor_sr_ready(nor);
+
+		if (ret < 0)
+			return ret;
+		if (ret)
+			return 0;
+	}
+
+	dev_dbg(nor->dev, "flash operation timed out\n");
+
+	return -ETIMEDOUT;
+}
+
+/**
  * spi_nor_global_block_unlock() - Unlock Global Block Protection.
  * @nor:	pointer to 'struct spi_nor'.
  *
@@ -2132,6 +2167,60 @@ write_err:
 	return ret;
 }
 
+static bool spi_nor_can_dma(struct spi_controller *ctlr, struct spi_device *spi,
+			    struct spi_transfer *xfer)
+{
+	return false;
+}
+
+/*
+ * Similar to spi_nor_write() except this is to write
+ * an oops through mtdoops.
+ */
+static int spi_nor_panic_write(struct mtd_info *mtd, loff_t to, size_t len,
+			       size_t *retlen, const u_char *buf)
+{
+	struct spi_nor *nor = mtd_to_spi_nor(mtd);
+	struct spi_device *spi = nor->spimem->spi;
+	size_t i;
+	ssize_t ret;
+	u32 page_size = nor->params->page_size;
+
+	spi->controller->can_dma = spi_nor_can_dma;
+
+	ret = spi_nor_prep(nor);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < len; ) {
+		ssize_t written;
+		loff_t addr = to + i;
+		size_t page_offset = addr & (page_size - 1);
+		/* the size of data remaining on the first page */
+		size_t page_remain = min_t(size_t, page_size - page_offset, len - i);
+
+		ret = spi_nor_write_enable(nor);
+		if (ret)
+			goto write_err;
+
+		ret = spi_nor_write_data(nor, addr, page_remain, buf + i);
+		if (ret < 0)
+			goto write_err;
+		written = ret;
+
+		ret = spi_nor_panic_wait_till_ready(nor);
+		if (ret)
+			goto write_err;
+		*retlen += written;
+		i += written;
+	}
+
+write_err:
+	spi_nor_unprep(nor);
+
+	return ret;
+}
+
 static int spi_nor_check(struct spi_nor *nor)
 {
 	if (!nor->dev ||
@@ -3400,6 +3489,7 @@ static int spi_nor_set_mtd_info(struct spi_nor *nor)
 	/* Might be already set by some SST flashes. */
 	if (!mtd->_write)
 		mtd->_write = spi_nor_write;
+	mtd->_panic_write = spi_nor_panic_write;
 	mtd->_suspend = spi_nor_suspend;
 	mtd->_resume = spi_nor_resume;
 	mtd->_get_device = spi_nor_get_device;
