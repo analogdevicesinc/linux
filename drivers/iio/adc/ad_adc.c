@@ -37,13 +37,37 @@
 #include <linux/iio/buffer-dmaengine.h>
 #include <linux/jesd204/adi-common.h>
 
+
+#define ADI_REG_CONFIG 			0x000C
+#define ADI_IQCORRECTION_DISABLE	(1 << 0)
+#define ADI_DCFILTER_DISABLE		(1 << 1)
+#define ADI_DATAFORMAT_DISABLE		(1 << 2)
+#define ADI_USERPORTS_DISABLE		(1 << 3)
+#define ADI_MODE_1R1T			(1 << 4)
+#define ADI_DELAY_CONTROL_DISABLE 	(1 << 5)
+#define ADI_CMOS_OR_LVDS_N		(1 << 7)
+#define ADI_PPS_RECEIVER_ENABLE		(1 << 8)
+#define ADI_SCALECORRECTION_ONLY	(1 << 9)
+#define ADI_EXT_SYNC			(1 << 12)
+
 /* ADC Common */
 #define ADI_REG_RSTN			0x0040
 #define ADI_RSTN			(1 << 0)
 
+#define ADI_REG_CNTRL			0x0044
+#define ADI_SYNC			(1 << 3)
+
+#define ADI_REG_CNTRL_2			0x0048
+#define ADI_EXT_SYNC_ARM		(1 << 1)
+#define ADI_EXT_SYNC_DISARM		(1 << 2)
+#define ADI_MANUAL_SYNC_REQUEST		(1 << 8)
+
 #define ADI_REG_STATUS			0x005C
 #define ADI_REG_DMA_STATUS		0x0088
 #define ADI_REG_USR_CNTRL_1		0x00A0
+
+#define ADI_REG_SYNC_STATUS		0x0068
+#define ADI_ADC_SYNC_STATUS		(1 << 0)
 
 /* ADC Channel */
 #define ADI_REG_CHAN_CNTRL(c)		(0x0400 + (c) * 0x40)
@@ -101,6 +125,7 @@ struct axiadc_state {
 	unsigned int			adc_calibbias[2];
 	unsigned int			adc_calibscale[2][2];
 	bool				calibrate;
+	bool				ext_sync_avail;
 };
 
 #define CN0363_CHANNEL(_address, _type, _ch, _mod, _rb) { \
@@ -611,12 +636,103 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static const char * const axiadc_sync_ctrls[] = {
+	"arm", "disarm", "trigger_manual",
+};
+
+static ssize_t axiadc_sync_start_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct axiadc_state *st = iio_priv(indio_dev);
+	int ret;
+
+	ret = sysfs_match_string(axiadc_sync_ctrls, buf);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&st->lock);
+	if (st->ext_sync_avail) {
+		switch (ret) {
+		case 0:
+			axiadc_write(st, ADI_REG_CNTRL_2, ADI_EXT_SYNC_ARM);
+			break;
+		case 1:
+			axiadc_write(st, ADI_REG_CNTRL_2, ADI_EXT_SYNC_DISARM);
+			break;
+		case 2:
+			axiadc_write(st, ADI_REG_CNTRL_2, ADI_MANUAL_SYNC_REQUEST);
+			break;
+		default:
+			ret = -EINVAL;
+		}
+	} else if (ret == 0) {
+		u32 reg;
+
+		reg = axiadc_read(st, ADI_REG_CNTRL);
+		axiadc_write(st, ADI_REG_CNTRL, reg | ADI_SYNC);
+	}
+	mutex_unlock(&st->lock);
+
+	return ret < 0 ? ret : len;
+}
+
+static ssize_t axiadc_sync_start_show(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct axiadc_state *st = iio_priv(indio_dev);
+	u32 reg;
+
+	switch ((u32)this_attr->address) {
+	case 0:
+		reg = axiadc_read(st, ADI_REG_SYNC_STATUS);
+
+		return sprintf(buf, "%s\n", reg & ADI_ADC_SYNC_STATUS ?
+			axiadc_sync_ctrls[0] : axiadc_sync_ctrls[1]);
+	case 1:
+		if (st->ext_sync_avail)
+			return sprintf(buf, "arm disarm trigger_manual\n");
+		else
+			return sprintf(buf, "arm\n");
+	default:
+		return -EINVAL;
+	}
+
+	return -EINVAL;
+}
+
+static IIO_DEVICE_ATTR(sync_start_enable, 0644,
+		       axiadc_sync_start_show,
+		       axiadc_sync_start_store,
+		       0);
+
+static IIO_DEVICE_ATTR(sync_start_enable_available, 0444,
+		       axiadc_sync_start_show,
+		       NULL,
+		       1);
+
+static struct attribute *axiadc_attributes[] = {
+	&iio_dev_attr_sync_start_enable.dev_attr.attr,
+	&iio_dev_attr_sync_start_enable_available.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group axiadc_attribute_group = {
+	.attrs = axiadc_attributes,
+};
+
 static const struct iio_info adc_info = {
 	.read_raw = axiadc_read_raw,
 	.write_raw = axiadc_write_raw,
 	.debugfs_reg_access = &adc_reg_access,
 	.update_scan_mode = axiadc_update_scan_mode,
+	.attrs = &axiadc_attribute_group,
 };
+
 
 static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "adi,cn0363-adc-1.00.a", .data = &cn0363_chip_info },
@@ -701,6 +817,7 @@ static int adc_probe(struct platform_device *pdev)
 	struct axiadc_state *st;
 	struct resource *mem;
 	int ret;
+	u32 config;
 
 	id = of_match_node(adc_of_match, pdev->dev.of_node);
 	if (!id)
@@ -744,6 +861,9 @@ static int adc_probe(struct platform_device *pdev)
 	/* Reset all HDL Cores */
 	axiadc_write(st, ADI_REG_RSTN, 0);
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
+
+	config = axiadc_read(st, ADI_REG_CONFIG);
+	st->ext_sync_avail = !!(config & ADI_EXT_SYNC);
 
 	if (info->has_frontend) {
 		st->frontend = devm_iio_hw_consumer_alloc(&pdev->dev);
