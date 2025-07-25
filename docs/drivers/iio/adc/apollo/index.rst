@@ -944,27 +944,19 @@ the apollo's and axi_gpio's can be attached to other drivers in the device tree:
         consumer-gpios = <&tx0_ad9084 0 GPIO_ACTIVE_HIGH>;
    }
 
-Or from user space through SysFs:
+Or from user space through `gpiod <https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/>`__:
 
 .. shell::
 
-   $ cd /sys/class/gpio
-   # Identify gpio chips offsets
-   $cat gpiochip512/label
-    a4000000.gpio
-   $cat gpiochip750/label
-    ad9088
-   $echo 750 > export
-   $echo in > gpio750/direction
-   $echo 512 > export
-   $echo out > gpio512/direction
-   $echo 0 > gpio512/value
-   # Check value from apollo side
-   $cat gpio750/value
+   $gpiodetect
+    gpiochip0 [a4000000.gpio] (64 lines)
+    gpiochip1 [versal_gpio] (58 lines)
+    gpiochip2 [pmc_gpio] (116 lines)
+    gpiochip3 [ad9088] (4 lines)
+   $gpioget ad9088 3
     0
-   $echo 1 > gpio512/value
-   # Check value from apollo side
-   $cat gpio750/value
+   $gpioset a4000000.gpio 3=1
+   $gpioget ad9088 3
     1
 
 Debug system
