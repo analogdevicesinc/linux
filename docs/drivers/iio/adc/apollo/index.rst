@@ -917,7 +917,7 @@ GPIOs & GPIO chip
 ^^^^^^^^^^^^^^^^^
 
 The device contains 30 general purpose GPIOs that can be used to trigger various
-changes and can be exported into a :external+upstream:c:struct:`gpio_chip`
+changes and can be exported into a :external+linux-upstream:c:struct:`gpio_chip`
 using the ``adi,gpio-exports`` devicetree property:
 
 .. code:: dts
