@@ -104,13 +104,10 @@
 		adi,clkin0-buffer-mode = <0>;
 
 		/delete-property/ adi,pfd1-maximum-limit-frequency-hz;
-
 		/delete-property/ jesd204-sysref-provider;
-
-
 		/delete-property/ adi,jesd204-max-sysref-frequency-hz;
-
 		adi,hmc-two-level-tree-sync-en;
+		adi,sync-through-pll2-force-r2-eq-1;
 
 		hmc7044_c2: channel@2 {
 			reg = <2>;
