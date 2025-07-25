@@ -338,6 +338,8 @@ struct hmc7044 {
 	bool				is_sysref_provider;
 	bool				hmc_two_level_tree_sync_en;
 	bool				read_write_confirmed;
+	bool				ignore_vco_limits; /* Debug only, is at own risk! */
+	bool				sync_through_pll2_force_r2_eq_1;
 };
 
 static const char * const hmc7044_input_clk_names[] = {
@@ -1011,7 +1013,19 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	if (pll2_freq < HMC7044_LOW_VCO_MIN  ||
 	    pll2_freq > HMC7044_HIGH_VCO_MAX)
-		return -EINVAL;
+		if (hmc->ignore_vco_limits) {
+			/* Debug only, is at own risk! May fail across process, voltage and temperature */
+			dev_warn(&hmc->spi->dev,
+				 "PLL2 frequency %u kHz is out of range, "
+				 "ignoring limits\n", pll2_freq);
+		} else {
+			dev_err(&hmc->spi->dev,
+				"PLL2 frequency %u kHz is out of range (%u - %u)\n",
+				pll2_freq, HMC7044_LOW_VCO_MIN / 1000,
+				HMC7044_HIGH_VCO_MAX / 1000);
+			return -EINVAL;
+		}
+
 
 	vco_limit = (HMC7044_LOW_VCO_MAX + HMC7044_HIGH_VCO_MIN) / 2;
 	if (pll2_freq >= vco_limit)
@@ -1022,12 +1036,14 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	/* fVCO / N2 = fVCXO * doubler / R2 */
 	pll2_freq_doubler_en = true;
 	rational_best_approximation(pll2_freq, vcxo_freq * 2,
-				    HMC7044_N2_MAX, HMC7044_R2_MAX,
+				    HMC7044_N2_MAX,
+				    hmc->sync_through_pll2_force_r2_eq_1 ? 1 : HMC7044_R2_MAX,
 				    &n2[0], &r2[0]);
 
 	if (pll2_freq != vcxo_freq * n2[0] / r2[0]) {
 		rational_best_approximation(pll2_freq, vcxo_freq,
-					    HMC7044_N2_MAX, HMC7044_R2_MAX,
+					    HMC7044_N2_MAX,
+					    hmc->sync_through_pll2_force_r2_eq_1 ? 1 : HMC7044_R2_MAX,
 					    &n2[1], &r2[1]);
 
 		if (abs((int)pll2_freq - (int)(vcxo_freq * 2 * n2[0] / r2[0])) >
@@ -1677,6 +1693,10 @@ static int hmc7044_parse_dt(struct device *dev,
 
 		hmc->clkin1_vcoin_en =
 			of_property_read_bool(np, "adi,clkin1-vco-in-enable");
+
+		hmc->ignore_vco_limits = of_property_read_bool(np, "adi,ignore-vco-limits");
+		hmc->sync_through_pll2_force_r2_eq_1 =
+			of_property_read_bool(np, "adi,sync-through-pll2-force-r2-eq-1");
 	} else {
 		ret = of_property_read_u32_array(np, "adi,gpi-controls",
 				hmc->gpi_ctrl, 1);
