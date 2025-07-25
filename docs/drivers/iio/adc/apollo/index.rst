@@ -944,7 +944,7 @@ the apollo's and axi_gpio's can be attached to other drivers in the device tree:
         consumer-gpios = <&tx0_ad9084 0 GPIO_ACTIVE_HIGH>;
    }
 
-Or from user space thorugh SysFs:
+Or from user space through SysFs:
 
 .. shell::
 
