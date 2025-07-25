@@ -401,7 +401,7 @@
 		adar1000_csb_0_1@1 {
 			compatible = "adi,adar1000";
 			reg = <1>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -430,7 +430,7 @@
 		adar1000_csb_0_2@2 {
 			compatible = "adi,adar1000";
 			reg = <2>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -459,7 +459,7 @@
 		adar1000_csb_0_3@3 {
 			compatible = "adi,adar1000";
 			reg = <3>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -488,7 +488,7 @@
 		adar1000_csb_0_4@4 {
 			compatible = "adi,adar1000";
 			reg = <4>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -517,7 +517,7 @@
 		ltc2314_0@5 {
 			compatible = "adi,ltc2314-14";
 			reg = <5>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 			vcc-supply = <&vcc_ltc2314>;
 			label = "ltc2314_0";
 		};
@@ -540,7 +540,7 @@
 		adar1000_csb_1_1@1 {
 			compatible = "adi,adar1000";
 			reg = <1>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -569,7 +569,7 @@
 		adar1000_csb_1_2@2 {
 			compatible = "adi,adar1000";
 			reg = <2>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -598,7 +598,7 @@
 		adar1000_csb_1_3@3 {
 			compatible = "adi,adar1000";
 			reg = <3>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -627,7 +627,7 @@
 		adar1000_csb_1_4@4 {
 			compatible = "adi,adar1000";
 			reg = <4>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -656,7 +656,7 @@
 		ltc2314_1@5 {
 			compatible = "adi,ltc2314-14";
 			reg = <5>;
-			spi-max-frequency = <625000>;
+			spi-max-frequency = <12500000>;
 			vcc-supply = <&vcc_ltc2314>;
 			label = "ltc2314_1";
 		};
