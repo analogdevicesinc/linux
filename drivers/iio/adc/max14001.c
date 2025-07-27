@@ -101,42 +101,10 @@ struct max14001_state {
 	int vref_mv;
 };
 
-static int max14001_get_vref_mv(struct max14001_state *st)
-{
-	struct device *dev = &st->spi->dev;
-	int ret = 0;
-
-	ret = devm_regulator_get_enable_read_voltage(dev, "vrefin");
-	if (ret < 0){
-		st->vref_mv = 1250000 / 1000;
-		dev_info(&st->spi->dev, "%s: vrefin not found. vref_mv %d\n", __func__, st->vref_mv);
-	} else {
-		st->vref_mv = ret / 1000;
-		dev_info(&st->spi->dev, "%s: vrefin found. vref_mv %d\n", __func__, st->vref_mv);
-	}
-
-	return ret;
-}
-
-static int max14001_init_required_regulators(struct max14001_state *st)
-{
-	struct device *dev = &st->spi->dev;
-	int ret = 0;
-
-	ret = devm_regulator_get_enable(dev, "vdd");
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to enable specified Vdd supply\n");
-
-	ret = devm_regulator_get_enable(dev, "vddl");
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to enable specified Vddl supply\n");
-
-	return ret;
-}
-
 static int max14001_spi_read(struct max14001_state *st, u16 reg, int *val)
 {
-	u16 tx, rx, reversed;
+	u16 rx, reversed;
+	u16 tx = 0;
 	int ret;
 
 	dev_info(&st->spi->dev, "%s: reg: %x, val: %x\n", __func__, reg, *val);
@@ -207,6 +175,43 @@ static int max14001_spi_write_single_reg(struct max14001_state *st, u16 reg, u16
 	return ret;
 }
 
+static int max14001_set_verification_registers_values(struct max14001_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	int i, val_read_reg, ret;
+	u16 val_write_reg;
+
+	/* Enable register write */
+	ret = max14001_spi_write(st, MAX14001_REG_WEN, MAX14001_REG_WEN_WRITE_ENABLE);
+	if (ret < 0)
+		goto erro_condition;
+
+	for (i = MAX14001_REG_FLTEN; i <= MAX14001_REG_ENBL; i++) {
+		/* Read register value */
+		val_read_reg = 0;
+		ret = max14001_spi_read(st, i, &val_read_reg);
+		if (ret < 0)
+			goto erro_condition;
+
+		/* Write verification register value */
+		val_write_reg = (u16)val_read_reg;
+		ret = max14001_spi_write(st, MAX14001_REG_VERIFICATION(i), val_write_reg);
+		if (ret < 0)
+			goto erro_condition;
+	}
+
+	/* Disable register write */
+	ret = max14001_spi_write(st, MAX14001_REG_WEN, MAX14001_REG_WEN_WRITE_DISABLE);
+	if (ret < 0)
+		goto erro_condition;
+
+	return ret;
+
+erro_condition:
+	return dev_err_probe(dev, ret, "Failed to set verification registers\n");
+
+}
+
 static int max14001_read_raw(struct iio_dev *indio_dev,
 				struct iio_chan_spec const *chan,
 				int *val, int *val2, long mask)
@@ -240,22 +245,8 @@ static int max14001_read_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
-/* TODO: Check if this method is nedeed */
-static int max14001_write_raw(struct iio_dev *indio_dev,
-				struct iio_chan_spec const *chan,
-				int val, int val2, long mask)
-{
-	struct max14001_state *st = iio_priv(indio_dev);
-
-	switch (mask) {
-	}
-
-	return -EINVAL;
-}
-
 static const struct iio_info max14001_info = {
 	.read_raw = max14001_read_raw,
-	.write_raw = max14001_write_raw,
 };
 
 static const struct iio_chan_spec max14001_channel_voltage[] = {
@@ -305,6 +296,23 @@ static int max14001_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &max14001_info;
 
+	ret = devm_regulator_get_enable(dev, "vdd");
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to enable specified Vdd supply\n");
+
+	ret = devm_regulator_get_enable(dev, "vddl");
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to enable specified Vddl supply\n");
+
+	ret = devm_regulator_get_enable_read_voltage(dev, "vrefin");
+	if (ret < 0) {
+		st->vref_mv = 1250000 / 1000;
+		dev_info(&st->spi->dev, "%s: vrefin not found. vref_mv %d\n", __func__, st->vref_mv);
+	} else {
+		st->vref_mv = ret / 1000;
+		dev_info(&st->spi->dev, "%s: vrefin found. vref_mv %d\n", __func__, st->vref_mv);
+	}
+
 	for_each_available_child_of_node_scoped(spi->dev.of_node, child) {
 		current_channel = of_property_read_bool(child, "current-channel");
 		if (current_channel)
@@ -321,8 +329,10 @@ static int max14001_probe(struct spi_device *spi)
 
 	dev_info(&st->spi->dev, "%s: probe\n", __func__);
 
-	max14001_init_required_regulators(st);
-	max14001_get_vref_mv(st);
+	/* Write the appropriate verification registers values to clear the
+	 * failed memory validation (MV Fault)
+	 */
+	max14001_set_verification_registers_values(st);
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
@@ -356,4 +366,3 @@ module_spi_driver(max14001_driver);
 MODULE_AUTHOR("Marilene Andrade Garcia <marilene.agarcia@gmail.com>");
 MODULE_DESCRIPTION("Analog Devices MAX14001/MAX14002 ADCs driver");
 MODULE_LICENSE("GPL v2");
-

@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2025 Marilene Andrade Garcia
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,max14001.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX14001-MAX14002 10-bit ADCs
+
+maintainers:
+  - Marilene Andrade Garcia <marilene.agarcia@gmail.com>
+
+description:
+  Bindings for the Analog Devices MAX14001-MAX14002 Configurable,
+  Isolated 10-bit ADCs for Multi-Range Binary Inputs.
+
+  Datasheet can be found here:
+    https://www.analog.com/media/en/technical-documentation/data-sheets/MAX14001-MAX14002.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,max14001
+      - adi,max14002
+
+  reg:
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  vdd-supply:
+    description:
+      Isolated DC-DC power supply input voltage.
+
+  vddl-supply:
+    description:
+      Logic power supply.
+
+  vrefin-supply:
+    description:
+      Reference input range.
+
+  spi-max-frequency:
+    maximum: 5000000
+
+  current-channel:
+    description:
+      Enable handle current channel measures instead the default
+      voltage channel measures.
+    type: boolean
+
+required:
+  - compatible
+  - reg
+  - vdd-supply
+  - vddl-supply
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      max14001: adc@0 {
+        compatible = "adi,max14001";
+        reg = <0>;
+        spi-max-frequency = <5000000>;
+        vdd-supply = <&vdd>;
+        vddl-supply = <&vddl>;
+      };
+    };
+...
