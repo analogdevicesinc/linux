@@ -409,7 +409,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_arm_Memory_ReadWrite_V
                          "Invalid parameter value. byteCount must be a multiple of 4 when using autoIncrement");
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
-    
+
     ADI_RANGE_CHECK(device, spiWriteMode, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_4);
     ADI_API_RETURN(device);
 }
@@ -434,7 +434,7 @@ int32_t adi_adrv9001_arm_Memory_Read32(adi_adrv9001_Device_t *device,
 	uint8_t autoIncrement)
 {
 	//uint8_t data[] = { 0 };
-	
+
 	ADI_PERFORM_VALIDATION(adi_adrv9001_arm_Memory_ReadWrite_Validate, device, address, (uint8_t *)returnData, byteCount, 0, autoIncrement);
 
 	ADI_EXPECT(adrv9001_DmaMemRead, device, address, (uint8_t *)returnData, byteCount, autoIncrement);
@@ -464,14 +464,14 @@ int32_t adi_adrv9001_arm_Config_Write(adi_adrv9001_Device_t *device, const uint8
 #if !ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
 	int32_t halError = ADI_COMMON_ACT_NO_ACTION;
 #endif
-	
+
     ADI_ENTRY_PTR_ARRAY_EXPECT(device, armData, armDataSize);
     ADI_ENTRY_PTR_ARRAY_EXPECT(device, mailboxCmd, mailboxCmdSize);
 
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, (uint32_t)ADRV9001_ADDR_ARM_MAILBOX_SET, &armData[0], armDataSize, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, device, ADRV9001_ARM_SET_OPCODE, &mailboxCmd[0], mailboxCmdSize);
-    
+
 #if ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
     /* Wait for command to finish executing */
     ADRV9001_ARM_CMD_STATUS_WAIT_EXPECT(device,
@@ -1244,7 +1244,7 @@ int32_t adi_adrv9001_arm_System_Program(adi_adrv9001_Device_t *device, uint8_t c
 								   ((device->devStateInfo.initializedChannels & ADI_ADRV9001_ILB1) >> (ilbFlgShift)) |
 								   ((device->devStateInfo.initializedChannels & ADI_ADRV9001_ELB1) >> (elbFlgShift)) |
 								   ((device->devStateInfo.initializedChannels & ADI_ADRV9001_TX1) << (txFlgShiftUp)));
-	
+
 	/*Mask for Channel 2 */
 	device->devStateInfo.chProfEnMask[1] = (((device->devStateInfo.initializedChannels & ADI_ADRV9001_RX2) >> 1) |
 								   ((device->devStateInfo.initializedChannels & ADI_ADRV9001_ORX2) >> (orxFlgShift  + 1)) |
@@ -1257,7 +1257,7 @@ int32_t adi_adrv9001_arm_System_Program(adi_adrv9001_Device_t *device, uint8_t c
 		device->devStateInfo.chProfEnMask[0] = device->devStateInfo.chProfEnMask[0] | adcPortBFlg;
 		device->devStateInfo.chProfEnMask[1] = device->devStateInfo.chProfEnMask[1] | adcPortBFlg;
 	}
-	
+
     ADI_API_RETURN(device);
 }
 
@@ -1359,62 +1359,6 @@ int32_t adi_adrv9001_arm_NextPfir_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-int32_t adi_adrv9001_arm_NextRxChannelFilter_Set(adi_adrv9001_Device_t *device,
-                                                 const adi_adrv9001_PfirWbNbBuffer_t *pfirRx1WbNbChFilterCoeff,
-                                                 const adi_adrv9001_PfirWbNbBuffer_t *pfirRx2WbNbChFilterCoeff)
-{
-    ADI_ENTRY_EXPECT(device);
-
-    if (pfirRx1WbNbChFilterCoeff != NULL)
-    {
-        /* Send Rx1 coeffs, which may be the same as Rx2 coeffs */
-        uint8_t channelMask = ADI_ADRV9001_RX1 |
-            ((pfirRx1WbNbChFilterCoeff == pfirRx2WbNbChFilterCoeff)? ADI_ADRV9001_RX2 : 0);
-        ADI_EXPECT(adi_adrv9001_arm_NextPfir_Set, device, channelMask, pfirRx1WbNbChFilterCoeff);
-    }
-    else
-    {
-        /* Error if both Rx1 and Rx2 coeffs are NULL */
-        ADI_NULL_PTR_RETURN(&device->common, pfirRx2WbNbChFilterCoeff);
-    }
-
-    if ((pfirRx2WbNbChFilterCoeff != NULL) && (pfirRx2WbNbChFilterCoeff != pfirRx1WbNbChFilterCoeff))
-    {
-        /* Send Rx2 coefs because different from Rx1 coeffs */
-        ADI_EXPECT(adi_adrv9001_arm_NextPfir_Set, device, ADI_ADRV9001_RX2, pfirRx2WbNbChFilterCoeff);
-    }
-
-    ADI_API_RETURN(device);
-}
-
-int32_t adi_adrv9001_arm_NextTxPulseShaper_Set(adi_adrv9001_Device_t *device,
-                                               const adi_adrv9001_PfirWbNbBuffer_t *pfirTx1WbNbPulShpCoeff,
-                                               const adi_adrv9001_PfirWbNbBuffer_t *pfirTx2WbNbPulShpCoeff)
-{
-    ADI_ENTRY_EXPECT(device);
-
-    if (pfirTx1WbNbPulShpCoeff != NULL)
-    {
-        /* Send Tx1 coeffs, which may be the same as Tx2 coeffs */
-        uint8_t channelMask = ADI_ADRV9001_TX1 |
-            ((pfirTx1WbNbPulShpCoeff == pfirTx2WbNbPulShpCoeff)? ADI_ADRV9001_TX2 : 0);
-        ADI_EXPECT(adi_adrv9001_arm_NextPfir_Set, device, channelMask, pfirTx1WbNbPulShpCoeff);
-    }
-    else
-    {
-        /* Error if both Tx1 and Tx2 coeffs are NULL */
-        ADI_NULL_PTR_RETURN(&device->common, pfirTx2WbNbPulShpCoeff);
-    }
-
-    if ((pfirTx2WbNbPulShpCoeff != NULL) && (pfirTx2WbNbPulShpCoeff != pfirTx1WbNbPulShpCoeff))
-    {
-        /* Send Tx2 coefs because different from Tx1 coeffs */
-        ADI_EXPECT(adi_adrv9001_arm_NextPfir_Set, device, ADI_ADRV9001_TX2, pfirTx2WbNbPulShpCoeff);
-    }
-
-    ADI_API_RETURN(device);
-}
-
 static __maybe_unused int32_t adi_adrv9001_arm_Profile_Switch_Validate(adi_adrv9001_Device_t *adrv9001)
 {
     uint8_t chan_index = 0;
@@ -1476,12 +1420,12 @@ int32_t adi_adrv9001_arm_Start(adi_adrv9001_Device_t *device)
 {
     uint8_t armCtl1 = 0;
     uint8_t mailBox[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
-    
+
     ADI_ENTRY_EXPECT(device);
 
     /* Set MailBox 0xFF */
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_MAILBOX_GET, &mailBox[0], 4, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
-    
+
     armCtl1 = ADRV9001_AC1_ARM_DEBUG_ENABLE | ADRV9001_AC1_ARM_MEM_HRESP_MASK | ADRV9001_AC1_ARM_M3_RUN;
     ADRV9001_SPIWRITEBYTE(device, "ARM_CTL_1", ADRV9001_ADDR_ARM_CTL_1, armCtl1);
 

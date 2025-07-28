@@ -42,6 +42,9 @@ SRCS = 	devices/adrv9025/private/src/adrv9025_bf_analog_orx_mem_map.c \
 	adrv9025.c \
 	adrv9025_conv.c
 
+# For now just disable it in this one file
+CFLAGS_devices/adrv9025/public/src/adi_adrv9025_data_interface.o = -Wno-error=old-style-declaration
+
 # Avoid FP operations and data sytpes - Remove DPD *_dfe.c files
 #SRCS := $(filter-out /devices/adrv9025/private/src/adrv9025_dfe.c /devices/adrv9025/public/src/adi_adrv9025_dfe.c, $(SRCS))
 
@@ -56,7 +59,8 @@ ccflags-y += -I$(srctree)/$(src)/devices/adrv9025/private/include/ \
 	-DADRV9025_CHANNELID_CHECK=0 \
 	-DADI_COMMON_VERBOSE=1 \
 	-DADI_ADRV9025_RADIOCTRL_RANGE_CHECK=1 \
-	-DADI_ADRV9025_ARM_VERBOSE=0
+	-DADI_ADRV9025_ARM_VERBOSE=0 \
+	-Wno-error=missing-prototypes
 
 adrv9025_drv-y := $(SRCS:.c=.o)
 obj-$(CONFIG_ADRV9025) += adrv9025_drv.o
