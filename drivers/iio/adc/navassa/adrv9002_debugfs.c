@@ -206,7 +206,7 @@ static const struct file_operations adrv9002_rx_agc_config_fops = {
 	.release	= single_release,
 };
 
-void adrv9002_debugfs_agc_config_create(struct adrv9002_rx_chan *rx, struct dentry *d)
+static void adrv9002_debugfs_agc_config_create(struct adrv9002_rx_chan *rx, struct dentry *d)
 {
 #define adrv9002_agc_get_attr(nr, member) ((nr) == ADI_CHANNEL_1 ? \
 					"rx0_agc_" #member : "rx1_agc_" #member)

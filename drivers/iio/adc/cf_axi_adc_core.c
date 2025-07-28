@@ -950,8 +950,8 @@ static const struct of_device_id axiadc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
 
-int axiadc_append_attrs(struct iio_dev *indio_dev,
-	const struct attribute_group *add_group, unsigned int skip_cnt)
+static int axiadc_append_attrs(struct iio_dev *indio_dev, const struct attribute_group *add_group,
+			       unsigned int skip_cnt)
 {
 	size_t old_cnt = 0, add_cnt = 0, new_cnt;
 	struct attribute **attrs;
