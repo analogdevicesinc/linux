@@ -68,6 +68,13 @@ ad9081_drv-y := ad9081.o \
 	ad9081/adi_ad9081_sync.o \
 	ad9081/adi_ad9081_dac.o
 
+# Ideally this hack would go away but we would need to make sure the fixes land into
+# the BU APIs.
+CFLAGS_ad9081/adi_ad9081_adc.o = -Wno-error=missing-prototypes
+CFLAGS_ad9081/adi_ad9081_jesd.o = -Wno-error=missing-prototypes
+CFLAGS_ad9081/adi_ad9081_hal.o = -Wno-error=missing-prototypes
+CFLAGS_ad9081/adi_ad9081_device.o = -Wno-error=missing-prototypes
+CFLAGS_ad9081/adi_ad9081_dac.o = -Wno-error=missing-prototypes
 obj-$(CONFIG_AD9081) += ad9081_drv.o
 
 ad9083_drv-y := ad9083.o \
@@ -75,6 +82,9 @@ ad9083_drv-y := ad9083.o \
 	ad9083/adi_ad9083_hal.o \
 	ad9083/adi_ad9083_jesd.o \
 	ad9083/adi_ad9083_rx.o
+CFLAGS_ad9083/adi_ad9083_jesd.o = -Wno-error=missing-prototypes
+CFLAGS_ad9083/adi_ad9083_device.o = -Wno-error=missing-prototypes
+CFLAGS_ad9083/adi_ad9083_rx.o = -Wno-error=missing-prototypes
 
 obj-$(CONFIG_AD9083) += ad9083_drv.o
 
