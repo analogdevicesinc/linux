@@ -624,7 +624,7 @@ static void ad987x_clk_disable(void *data)
 	clk_disable_unprepare(clk);
 }
 
-unsigned long long ad9783_get_data_clk(struct cf_axi_converter *conv)
+static unsigned long long ad9783_get_data_clk(struct cf_axi_converter *conv)
 {
 	return clk_get_rate(conv->clk[CLK_DAC]);
 }
