@@ -1,0 +1,43 @@
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync_branches:
+    runs-on: [self-hosted, v1]
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      fail: ${{ steps.assert.outputs.fail }}
+      warn: ${{ steps.assert.outputs.warn }}
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@v1
+
+    - name: update-mirror
+      run: |
+        source ci/maintenance.sh
+        sync_branches "adi-6.12.0 rpi-6.12.y"
+
+    - name: Export labels
+      id: assert
+      run: |
+        source ci/runner_env.sh
+        export_labels
+
+  assert:
+    runs-on: [self-hosted, v1]
+    needs: [sync_branches]
+
+    steps:
+      - name: Assert checks
+        env:
+          job_warn_sync_main: ${{needs.sync_branches.outputs.warn}}
+          job_fail_sync_main: ${{needs.sync_branches.outputs.fail}}
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
+            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+          source runner_env.sh
+          assert_labels
