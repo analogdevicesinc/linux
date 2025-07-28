@@ -66,6 +66,18 @@
 		#clock-cells = <0>;
 		clock-frequency = <74250000>;
 	};
+
+	dpcon {
+		compatible = "dp-connector";
+		label = "P11";
+		type = "full-size";
+
+		port {
+			dpcon_in: endpoint {
+				remote-endpoint = <&dpsub_dp_out>;
+			};
+		};
+	};
 };
 
 &i2c1 { /* I2C_SCK C26/C27 - MIO from SOM */
@@ -140,6 +152,12 @@
 	assigned-clock-rates = <27000000>, <25000000>, <300000000>;
 };
 
+&out_dp {
+	dpsub_dp_out: endpoint {
+		remote-endpoint = <&dpcon_in>;
+	};
+};
+
 &zynqmp_dpdma {
 	status = "okay";
 	assigned-clock-rates = <600000000>;
@@ -153,11 +171,6 @@
 	phys = <&psgtr 2 PHY_TYPE_USB3 0 2>;
 	reset-gpios = <&slg7xl45106 0 GPIO_ACTIVE_LOW>;
 	assigned-clock-rates = <250000000>, <20000000>;
-
-	usb2244: usb-sd { /* u38 */
-		compatible = "microchip,usb2244";
-		reset-gpios = <&slg7xl45106 2 GPIO_ACTIVE_LOW>;
-	};
 };
 
 &dwc3_0 {
@@ -229,7 +242,6 @@
 	phys = <&psgtr 0 PHY_TYPE_SGMII 0 0>;
 	phy-handle = <&phy0>;
 	phy-mode = "sgmii";
-	is-internal-pcspma;
 	assigned-clock-rates = <250000000>;
 };
 

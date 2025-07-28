@@ -32,18 +32,6 @@ config VIDEO_XILINX_AXI4S_SWITCH
 	  as well as dynamic (control register based) routing.
 	  Say M to modularize. Say N if unsure.
 
-config VIDEO_XILINX_CFA
-	tristate "Xilinx Video Color Filter Array"
-	depends on VIDEO_XILINX
-	help
-	  Driver for the Xilinx Color Filter Array
-
-config VIDEO_XILINX_CRESAMPLE
-	tristate "Xilinx Video Chroma Resampler"
-	depends on VIDEO_XILINX
-	help
-	  Driver for the Xilinx Chroma Resampler
-
 config VIDEO_XILINX_DEMOSAIC
 	tristate "Xilinx Video Demosaic IP"
 	depends on VIDEO_XILINX
@@ -80,12 +68,12 @@ config VIDEO_XILINX_HDCP2X_RX
 	  authentication. Choose this config in a platform where the DP/HDMI Rx
 	  subsystem enabled with HDCP2X.
 
-
 config VIDEO_XILINX_HDMI21RXSS
 	tristate "Xilinx HDMI 2.1 Rx Subsystem"
 	depends on VIDEO_XILINX
 	select VIDEO_XILINX_HDCP1X_RX
 	select VIDEO_XILINX_HDCP2X_RX
+	select MFD_SYSCON
 	help
 	  Driver for the Xilinx HDMI 2.1 Rx subsystem to capture HDMI streams.
 	  This is a V4L2 subdev driver which used to get the stream properties
@@ -108,24 +96,6 @@ config VIDEO_XILINX_ISP
 	  stream format as input and generates an RGB video output.
 	  Say M to modularize. Say N if unsure.
 
-config VIDEO_XILINX_REMAPPER
-	tristate "Xilinx Video Remapper"
-	depends on VIDEO_XILINX
-	help
-	  Driver for the Xilinx Video Remapper
-
-config VIDEO_XILINX_RGB2YUV
-	tristate "Xilinx Video RGB to YUV Converter"
-	depends on VIDEO_XILINX
-	help
-	  Driver for the Xilinx Video RGB to YUV Converter
-
-config VIDEO_XILINX_SCALER
-	tristate "Xilinx Video Scaler"
-	depends on VIDEO_XILINX
-	help
-	  Driver for the Xilinx Video Scaler
-
 config VIDEO_XILINX_MULTISCALER
 	tristate "Xilinx Video Multiscaler"
 	depends on VIDEO_XILINX
@@ -142,12 +112,6 @@ config VIDEO_XILINX_SDIRXSS
 	depends on VIDEO_XILINX
 	help
 	  Driver for Xilinx SDI Rx Subsystem
-
-config VIDEO_XILINX_SWITCH
-	tristate "Xilinx Video Switch"
-	depends on VIDEO_XILINX
-	help
-	  Driver for the Xilinx Video Switch
 
 config VIDEO_XILINX_TPG
 	tristate "Xilinx Video Test Pattern Generator"
@@ -188,6 +152,8 @@ config VIDEO_XILINX_DPRXSS
 	select VIDEO_XILINX_HDCP2X_RX
 	select DRM_DISPLAY_HELPER
 	select DRM_DISPLAY_DP_HELPER
+	select PHY_XILINX_DPGTQUAD
+	select MFD_SYSCON
 	help
 	  Driver for Xilinx DisplayPort Rx Subsystem. This is a V4L sub-device
 	  based driver for the DisplayPort receiver subsystem IP. It captures

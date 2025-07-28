@@ -18,6 +18,7 @@
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/extcon.h>
+#include <linux/gpio.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
@@ -526,6 +527,13 @@ static irqreturn_t ci_irq_handler(int irq, void *data)
 	u32 otgsc = 0;
 
 	if (ci->in_lpm) {
+		/*
+		 * If we already have a wakeup irq pending there,
+		 * let's just return to wait resume finished firstly.
+		 */
+		if (ci->wakeup_int)
+			return IRQ_HANDLED;
+
 		disable_irq_nosync(irq);
 		ci->wakeup_int = true;
 		pm_runtime_get(ci->dev);
@@ -852,6 +860,27 @@ static int ci_extcon_register(struct ci_hdrc *ci)
 	return 0;
 }
 
+static void ci_power_lost_work(struct work_struct *work)
+{
+	struct ci_hdrc *ci = container_of(work, struct ci_hdrc, power_lost_work);
+	enum ci_role role;
+
+	disable_irq_nosync(ci->irq);
+	pm_runtime_get_sync(ci->dev);
+	if (!ci_otg_is_fsm_mode(ci)) {
+		role = ci_get_role(ci);
+
+		if (ci->role != role) {
+			ci_handle_id_switch(ci);
+		} else if (role == CI_ROLE_GADGET) {
+			if (ci->is_otg && hw_read_otgsc(ci, OTGSC_BSV))
+				usb_gadget_vbus_connect(&ci->gadget);
+		}
+	}
+	pm_runtime_put_sync(ci->dev);
+	enable_irq(ci->irq);
+}
+
 static DEFINE_IDA(ci_ida);
 
 struct platform_device *ci_hdrc_add_device(struct device *dev,
@@ -865,7 +894,7 @@ struct platform_device *ci_hdrc_add_device(struct device *dev,
 	if (ret)
 		return ERR_PTR(ret);
 
-	id = ida_simple_get(&ci_ida, 0, 0, GFP_KERNEL);
+	id = ida_alloc(&ci_ida, GFP_KERNEL);
 	if (id < 0)
 		return ERR_PTR(id);
 
@@ -895,7 +924,7 @@ struct platform_device *ci_hdrc_add_device(struct device *dev,
 err:
 	platform_device_put(pdev);
 put_id:
-	ida_simple_remove(&ci_ida, id);
+	ida_free(&ci_ida, id);
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(ci_hdrc_add_device);
@@ -904,7 +933,7 @@ void ci_hdrc_remove_device(struct platform_device *pdev)
 {
 	int id = pdev->id;
 	platform_device_unregister(pdev);
-	ida_simple_remove(&ci_ida, id);
+	ida_free(&ci_ida, id);
 }
 EXPORT_SYMBOL_GPL(ci_hdrc_remove_device);
 
@@ -970,7 +999,7 @@ static int ci_hdrc_create_ulpi_phy(struct device *dev, struct ci_hdrc *ci)
 	reset_gpio = of_get_named_gpio(dev->parent->of_node, "xlnx,phy-reset-gpio", 0);
 	if (gpio_is_valid(reset_gpio)) {
 		ret = devm_gpio_request_one(dev, reset_gpio,
-				GPIOF_INIT_LOW, "ulpi resetb");
+				GPIOF_OUT_INIT_LOW, "ulpi resetb");
 		if (ret) {
 			dev_err(dev, "Failed to request ULPI reset gpio: %d\n", ret);
 			return ret;
@@ -1081,6 +1110,8 @@ static int ci_hdrc_probe(struct platform_device *pdev)
 
 	spin_lock_init(&ci->lock);
 	mutex_init(&ci->mutex);
+	INIT_WORK(&ci->power_lost_work, ci_power_lost_work);
+
 	ci->dev = dev;
 	ci->platdata = dev_get_platdata(dev);
 	ci->imx28_write_fix = !!(ci->platdata->flags &
@@ -1438,25 +1469,6 @@ static int ci_suspend(struct device *dev)
 	return 0;
 }
 
-static void ci_handle_power_lost(struct ci_hdrc *ci)
-{
-	enum ci_role role;
-
-	disable_irq_nosync(ci->irq);
-	if (!ci_otg_is_fsm_mode(ci)) {
-		role = ci_get_role(ci);
-
-		if (ci->role != role) {
-			ci_handle_id_switch(ci);
-		} else if (role == CI_ROLE_GADGET) {
-			if (ci->is_otg && hw_read_otgsc(ci, OTGSC_BSV))
-				usb_gadget_vbus_connect(&ci->gadget);
-		}
-	}
-
-	enable_irq(ci->irq);
-}
-
 static int ci_resume(struct device *dev)
 {
 	struct ci_hdrc *ci = dev_get_drvdata(dev);
@@ -1488,7 +1500,7 @@ static int ci_resume(struct device *dev)
 		ci_role(ci)->resume(ci, power_lost);
 
 	if (power_lost)
-		ci_handle_power_lost(ci);
+		queue_work(system_freezable_wq, &ci->power_lost_work);
 
 	if (ci->supports_runtime_pm) {
 		pm_runtime_disable(dev);

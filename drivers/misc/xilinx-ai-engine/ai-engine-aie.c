@@ -9,6 +9,7 @@
 #include <linux/firmware/xlnx-zynqmp.h>
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/platform_device.h>
 #include <linux/xlnx-ai-engine.h>
 
 #include "ai-engine-internal.h"
@@ -688,6 +689,11 @@ static const struct aie_l2_intr_ctrl_attr aie_l2_intr_ctrl = {
 		.mask = GENMASK(15, 0),
 		.regoff = 0xcU,
 	},
+	.intr = {
+	.mask = GENMASK(1, 0),
+	.regoff = 0x10U,
+	},
+
 	.regoff = 0x15000U,
 	.num_broadcasts = 0x10U,
 };
@@ -1531,7 +1537,7 @@ static u32 aie_get_core_status(struct aie_partition *apart,
 static int aie_part_clear_mems(struct aie_partition *apart)
 {
 	struct aie_range *range = &apart->range;
-	u32 node_id = apart->adev->pm_node_id;
+	u32 node_id = apart->aperture->node_id;
 	int ret;
 
 	ret = zynqmp_pm_aie_operation(node_id, range->start.col,
@@ -2456,8 +2462,14 @@ static const struct aie_tile_operations aie_ops = {
 	.init_part_clk_state = aie_init_part_clk_state,
 	.scan_part_clocks = aie_scan_part_clocks,
 	.set_part_clocks = aie_set_part_clocks,
+	.set_column_clock = aie_part_set_column_clock_from_user,
 	.set_tile_isolation = aie_set_tile_isolation,
 	.mem_clear = aie_part_clear_mems,
+	.part_init = aie_part_initialize,
+	.part_teardown = aie_part_teardown,
+	.part_clear_context = aie_part_clear_context,
+	.part_clean = aie_part_clean,
+	.part_reset = aie_part_reset,
 };
 
 /**

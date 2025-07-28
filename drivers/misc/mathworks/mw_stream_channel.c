@@ -143,7 +143,7 @@ static int mwadma_prep_desc(struct mwadma_dev *mwdev, struct mwadma_chan * mwcha
     return 0;
 }
 
-void mwadma_tx_cb_single_signal(void *data)
+static void mwadma_tx_cb_single_signal(void *data)
 {
     struct mwadma_slist *block = data;
     struct mwadma_chan *mwchan = block->qchan;
@@ -159,7 +159,7 @@ void mwadma_tx_cb_single_signal(void *data)
     sysfs_notify_dirent(mwchan->irq_kn);
 }
 
-void mwadma_tx_cb_continuous_signal_dataflow(void *data)
+static void mwadma_tx_cb_continuous_signal_dataflow(void *data)
 {
     struct mwadma_slist *block = data;
     struct mwadma_chan *mwchan = block->qchan;
@@ -191,7 +191,7 @@ void mwadma_tx_cb_continuous_signal_dataflow(void *data)
 }
 
 
-void mwadma_tx_cb_continuous_signal(void *data)
+static void mwadma_tx_cb_continuous_signal(void *data)
 {
     struct mwadma_slist *block= data;
     struct mwadma_chan *mwchan = block->qchan;
@@ -205,8 +205,7 @@ void mwadma_tx_cb_continuous_signal(void *data)
     mwadma_start(mwchan);
 }
 
-
-void mwadma_rx_cb_single_signal(void *data)
+static void mwadma_rx_cb_single_signal(void *data)
 {
     struct mwadma_slist *block = data;
     struct mwadma_chan *mwchan = block->qchan;
@@ -223,7 +222,7 @@ void mwadma_rx_cb_single_signal(void *data)
     sysfs_notify_dirent(mwchan->irq_kn);
 }
 
-void mwadma_rx_cb_burst(void *data)
+static void mwadma_rx_cb_burst(void *data)
 {
     struct mwadma_slist *block = data;
     struct mwadma_chan *mwchan = block->qchan;
@@ -247,7 +246,7 @@ void mwadma_rx_cb_burst(void *data)
     }
 }
 
-void mwadma_rx_cb_continuous_signal(void *data)
+static void mwadma_rx_cb_continuous_signal(void *data)
 {
     struct mwadma_slist *block = data;
     struct mwadma_chan *mwchan = block->qchan;
@@ -1168,7 +1167,7 @@ static struct mwadma_chan* __must_check mw_stream_chan_probe(
 	return mwchan;
 }
 
-void mw_stream_channels_release(void *opaque) {
+static void mw_stream_channels_release(void *opaque) {
 	struct mwadma_dev *mwdev = opaque;
 	dev_info(IP2DEVP(mwdev), "Removing sysfs entries...");
 	sysfs_remove_group(&IP2DEVP(mwdev)->kobj, &mwdma_attr_group);

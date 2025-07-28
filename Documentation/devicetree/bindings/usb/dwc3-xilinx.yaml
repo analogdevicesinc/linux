@@ -7,7 +7,8 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: Xilinx SuperSpeed DWC3 USB SoC controller
 
 maintainers:
-  - Piyush Mehta <piyush.mehta@amd.com>
+  - Mubin Sayyed <mubin.sayyed@amd.com>
+  - Radhey Shyam Pandey <radhey.shyam.pandey@amd.com>
 
 properties:
   compatible:
@@ -15,6 +16,7 @@ properties:
       - enum:
           - xlnx,zynqmp-dwc3
           - xlnx,versal-dwc3
+          - xlnx,versal2-mmi-dwc3
   reg:
     maxItems: 1
 
@@ -26,6 +28,8 @@ properties:
 
   ranges: true
 
+  dma-coherent: true
+
   power-domains:
     description: specifies a phandle to PM domain provider node
     maxItems: 1
@@ -35,8 +39,9 @@ properties:
       A list of phandle and clock-specifier pairs for the clocks
       listed in clock-names.
     items:
-      - description: Master/Core clock, has to be >= 125 MHz
-          for SS operation and >= 60MHz for HS operation.
+      - description: Master/Core clock, has to be >= 156.25MHz in SSP
+          mode, >= 125 MHz for SS operation and >= 60MHz for HS
+          operation.
       - description: Clock source to core during PHY power down.
 
   clock-names:
@@ -48,17 +53,22 @@ properties:
     description:
       A list of phandles for resets listed in reset-names.
 
-    items:
-      - description: USB core reset
-      - description: USB hibernation reset
-      - description: USB APB reset
+    oneOf:
+      - items:
+          - description: USB controller reset
+      - items:
+          - description: USB core reset
+          - description: USB hibernation reset
+          - description: USB APB reset
 
   reset-names:
-    items:
-      - const: usb_crst
-      - const: usb_hibrst
-      - const: usb_apbrst
-
+    oneOf:
+      - items:
+          - const: usb_crst
+      - items:
+          - const: usb_crst
+          - const: usb_hibrst
+          - const: usb_apbrst
   phys:
     minItems: 1
     maxItems: 2
@@ -83,7 +93,6 @@ patternProperties:
 
 required:
   - compatible
-  - reg
   - "#address-cells"
   - "#size-cells"
   - ranges
@@ -92,6 +101,38 @@ required:
   - clock-names
   - resets
   - reset-names
+
+if:
+  properties:
+    compatible:
+      contains:
+        enum:
+          - xlnx,zynqmp-dwc3
+          - xlnx,versal-dwc3
+then:
+  required:
+    - reg
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - xlnx,versal-dwc3
+              - xlnx,versal2-mmi-dwc3
+    then:
+      properties:
+        resets:
+          maxItems: 1
+        reset-names:
+          maxItems: 1
+    else:
+      properties:
+        resets:
+          minItems: 3
+        reset-names:
+          minItems: 3
 
 additionalProperties: false
 

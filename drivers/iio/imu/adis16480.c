@@ -193,8 +193,6 @@ module_param(low_rate_allow, bool, 0444);
 MODULE_PARM_DESC(low_rate_allow,
 		 "Allow IMU rates below the minimum advisable when external clk is used in PPS mode (default: N)");
 
-#ifdef CONFIG_DEBUG_FS
-
 static ssize_t adis16480_show_firmware_revision(struct file *file,
 		char __user *userbuf, size_t count, loff_t *ppos)
 {
@@ -304,10 +302,13 @@ static int adis16480_show_flash_count(void *arg, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(adis16480_flash_count_fops,
 	adis16480_show_flash_count, NULL, "%lld\n");
 
-static int adis16480_debugfs_init(struct iio_dev *indio_dev)
+static void adis16480_debugfs_init(struct iio_dev *indio_dev)
 {
 	struct adis16480 *adis16480 = iio_priv(indio_dev);
 	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
+
+	if (!IS_ENABLED(CONFIG_DEBUG_FS))
+		return;
 
 	debugfs_create_file_unsafe("firmware_revision", 0400,
 		d, adis16480, &adis16480_firmware_revision_fops);
@@ -319,18 +320,7 @@ static int adis16480_debugfs_init(struct iio_dev *indio_dev)
 		d, adis16480, &adis16480_product_id_fops);
 	debugfs_create_file_unsafe("flash_count", 0400,
 		d, adis16480, &adis16480_flash_count_fops);
-
-	return 0;
 }
-
-#else
-
-static int adis16480_debugfs_init(struct iio_dev *indio_dev)
-{
-	return 0;
-}
-
-#endif
 
 static int adis16480_set_freq(struct iio_dev *indio_dev, int val, int val2)
 {
@@ -345,7 +335,7 @@ static int adis16480_set_freq(struct iio_dev *indio_dev, int val, int val2)
 	if (t == 0)
 		return -EINVAL;
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 	/*
 	 * When using PPS mode, the input clock needs to be scaled so that we have an IMU
 	 * sample rate between (optimally) 4000 and 4250. After this, we can use the
@@ -388,7 +378,7 @@ static int adis16480_set_freq(struct iio_dev *indio_dev, int val, int val2)
 		sync_scale = scaled_rate / st->clk_freq;
 		ret = __adis_write_reg_16(&st->adis, ADIS16495_REG_SYNC_SCALE, sync_scale);
 		if (ret)
-			goto error;
+			return ret;
 
 		sample_rate = scaled_rate;
 	}
@@ -400,10 +390,7 @@ static int adis16480_set_freq(struct iio_dev *indio_dev, int val, int val2)
 	if (t > st->chip_info->max_dec_rate)
 		t = st->chip_info->max_dec_rate;
 
-	ret = __adis_write_reg_16(&st->adis, ADIS16480_REG_DEC_RATE, t);
-error:
-	adis_dev_unlock(&st->adis);
-	return ret;
+	return __adis_write_reg_16(&st->adis, ADIS16480_REG_DEC_RATE, t);
 }
 
 static int adis16480_get_freq(struct iio_dev *indio_dev, int *val, int *val2)
@@ -413,23 +400,21 @@ static int adis16480_get_freq(struct iio_dev *indio_dev, int *val, int *val2)
 	int ret;
 	unsigned int freq, sample_rate = st->clk_freq;
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 
 	if (st->clk_mode == ADIS16480_CLK_PPS) {
 		u16 sync_scale;
 
 		ret = __adis_read_reg_16(&st->adis, ADIS16495_REG_SYNC_SCALE, &sync_scale);
 		if (ret)
-			goto error;
+			return ret;
 
 		sample_rate = st->clk_freq * sync_scale;
 	}
 
 	ret = __adis_read_reg_16(&st->adis, ADIS16480_REG_DEC_RATE, &t);
 	if (ret)
-		goto error;
-
-	adis_dev_unlock(&st->adis);
+		return ret;
 
 	freq = DIV_ROUND_CLOSEST(sample_rate, (t + 1));
 
@@ -437,9 +422,6 @@ static int adis16480_get_freq(struct iio_dev *indio_dev, int *val, int *val2)
 	*val2 = (freq % 1000) * 1000;
 
 	return IIO_VAL_INT_PLUS_MICRO;
-error:
-	adis_dev_unlock(&st->adis);
-	return ret;
 }
 
 enum {
@@ -632,11 +614,11 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 	offset = ad16480_filter_data[chan->scan_index][1];
 	enable_mask = BIT(offset + 2);
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 
 	ret = __adis_read_reg_16(&st->adis, reg, &val);
 	if (ret)
-		goto out_unlock;
+		return ret;
 
 	if (freq == 0) {
 		val &= ~enable_mask;
@@ -658,11 +640,7 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 		val |= enable_mask;
 	}
 
-	ret = __adis_write_reg_16(&st->adis, reg, val);
-out_unlock:
-	adis_dev_unlock(&st->adis);
-
-	return ret;
+	return __adis_write_reg_16(&st->adis, reg, val);
 }
 
 static int adis16480_read_raw(struct iio_dev *indio_dev,
@@ -1403,28 +1381,25 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 	u32 crc;
 	bool valid;
 
-	adis_dev_lock(adis);
-	if (adis->current_page != 0) {
-		adis->tx[0] = ADIS_WRITE_REG(ADIS_REG_PAGE_ID);
-		adis->tx[1] = 0;
-		ret = spi_write(adis->spi, adis->tx, 2);
-		if (ret) {
-			dev_err(dev, "Failed to change device page: %d\n", ret);
-			adis_dev_unlock(adis);
-			goto irq_done;
+	adis_dev_auto_scoped_lock(adis) {
+		if (adis->current_page != 0) {
+			adis->tx[0] = ADIS_WRITE_REG(ADIS_REG_PAGE_ID);
+			adis->tx[1] = 0;
+			ret = spi_write(adis->spi, adis->tx, 2);
+			if (ret) {
+				dev_err(dev, "Failed to change device page: %d\n", ret);
+				goto irq_done;
+			}
+
+			adis->current_page = 0;
 		}
 
-		adis->current_page = 0;
+		ret = spi_sync(adis->spi, &adis->msg);
+		if (ret) {
+			dev_err(dev, "Failed to read data: %d\n", ret);
+			goto irq_done;
+		}
 	}
-
-	ret = spi_sync(adis->spi, &adis->msg);
-	if (ret) {
-		dev_err(dev, "Failed to read data: %d\n", ret);
-		adis_dev_unlock(adis);
-		goto irq_done;
-	}
-
-	adis_dev_unlock(adis);
 
 	/*
 	 * After making the burst request, the response can have one or two
@@ -1462,7 +1437,7 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 	if (!valid)
 		dev_warn(&adis->spi->dev, "Invalid crc\n");
 
-	for_each_set_bit(bit, indio_dev->active_scan_mask, indio_dev->masklength) {
+	iio_for_each_active_channel(indio_dev, bit) {
 		/*
 		 * When burst mode is used, temperature is the first data
 		 * channel in the sequence, but the temperature scan index
@@ -1586,17 +1561,10 @@ static int adis16480_config_irq_pin(struct adis16480 *st)
 {
 	struct device *dev = &st->adis.spi->dev;
 	struct fwnode_handle *fwnode = dev_fwnode(dev);
-	struct irq_data *desc;
 	enum adis16480_int_pin pin;
 	unsigned int irq_type;
 	uint16_t val;
 	int i, irq = 0;
-
-	desc = irq_get_irq_data(st->adis.spi->irq);
-	if (!desc) {
-		dev_err(dev, "Could not find IRQ %d\n", irq);
-		return -EINVAL;
-	}
 
 	/* Disable data ready since the default after reset is on */
 	val = ADIS16480_DRDY_EN(0);
@@ -1625,7 +1593,7 @@ static int adis16480_config_irq_pin(struct adis16480 *st)
 	 * configured as positive or negative, corresponding to
 	 * IRQ_TYPE_EDGE_RISING or IRQ_TYPE_EDGE_FALLING respectively.
 	 */
-	irq_type = irqd_get_trigger_type(desc);
+	irq_type = irq_get_trigger_type(st->adis.spi->irq);
 	if (irq_type == IRQ_TYPE_EDGE_RISING) { /* Default */
 		val |= ADIS16480_DRDY_POL(1);
 	} else if (irq_type == IRQ_TYPE_EDGE_FALLING) {

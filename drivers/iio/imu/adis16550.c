@@ -22,7 +22,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 #include <linux/swab.h>
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #define ADIS16550_REG_BURST_GYRO_ACCEL		0x0a
 #define ADIS16550_REG_BURST_DELTA_ANG_VEL	0x0b
@@ -421,27 +421,22 @@ static int adis16550_get_freq(struct adis16550 *st, u32 *freq)
 	u16 dec = 0;
 	u32 sample_rate = st->clk_freq_hz;
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 
 	if (st->sync_mode == ADIS16550_SYNC_MODE_SCALED) {
 		u16 sync_scale;
 
 		ret = __adis_read_reg_16(&st->adis, ADIS16550_REG_SYNC_SCALE, &sync_scale);
-		if (ret) {
-			adis_dev_unlock(&st->adis);
+		if (ret)
 			return ret;
-		}
+
 		sample_rate = st->clk_freq_hz * sync_scale;
 	}
 
 	ret = __adis_read_reg_16(&st->adis, ADIS16550_REG_DEC_RATE, &dec);
-	if (ret) {
-		adis_dev_unlock(&st->adis);
+	if (ret)
 		return -EINVAL;
-	}
 	*freq = DIV_ROUND_CLOSEST(sample_rate, dec + 1);
-
-	adis_dev_unlock(&st->adis);
 
 	return 0;
 }
@@ -458,12 +453,10 @@ static int adis16550_set_freq_hz(struct adis16550 *st, u32 freq_hz)
 	u32 max_sample_rate = st->info->int_clk * 1000 + 500000;
 	u32 min_sample_rate = st->info->int_clk * 1000 - 1000000;
 
-	if (!freq_hz) {
-		adis_dev_unlock(&st->adis);
+	if (!freq_hz)
 		return -EINVAL;
-	}
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 
 	if (st->sync_mode == ADIS16550_SYNC_MODE_SCALED) {
 		unsigned long scaled_rate = lcm(st->clk_freq_hz, freq_hz);
@@ -480,10 +473,8 @@ static int adis16550_set_freq_hz(struct adis16550 *st, u32 freq_hz)
 		sync_scale = scaled_rate / st->clk_freq_hz;
 		ret = __adis_write_reg_16(&st->adis, ADIS16550_REG_SYNC_SCALE,
 					  sync_scale);
-		if (ret) {
-			adis_dev_unlock(&st->adis);
+		if (ret)
 			return ret;
-		}
 
 		sample_rate = scaled_rate;
 	}
@@ -494,8 +485,6 @@ static int adis16550_set_freq_hz(struct adis16550 *st, u32 freq_hz)
 		dec--;
 
 	dec = min(dec, st->info->max_dec);
-
-	adis_dev_unlock(&st->adis);
 
 	return __adis_write_reg_16(&st->adis, ADIS16550_REG_DEC_RATE, dec);
 }

@@ -405,10 +405,11 @@ struct xhdmi_aux {
  * @hdmi_stream_up: hdmi stream is up or not
  * @hdcp1x_key_available: flag to indicate HDCP 1.4 key is loaded properly
  * @hdcp2x_key_available: flag to indicate HDCP 2.2 key is loaded properly
- * @hdcp1x_prot_event: HDCP 1.4 prot event is detected from downstream
- * @hdcp_enable: flag to indicate if HDCP protocol is enabled
+ * @hdcp1x_prot_event: HDCP 1.4 prot event is detected from upstream source
+ * @hdcp2x_prot_event: HDCP 2X protocol event is detected from upstream source
+ * @hdcp1x_enabled: flag to indicate if HDCP1.4 protocol is enabled
  * @hdcp2x_enable: flag to indicate if HDCP 2.2 protocol is enabled
- * @is_hdcp1x_enabled: flag to indicate if HDCP 1.4 protocol is enabled
+ * @hdcp1x_initialized: flag to indicate if HDCP 1.4 module is initialized properly
  * @isstreamup: flag whether stream is up
  */
 struct xhdmirx_state {
@@ -448,9 +449,10 @@ struct xhdmirx_state {
 	bool hdcp1x_key_available;
 	bool hdcp2x_key_available;
 	bool hdcp1x_prot_event;
-	bool hdcp_enable;
+	bool hdcp2x_prot_event;
+	bool hdcp1x_enabled;
 	bool hdcp2x_enable;
-	bool is_hdcp1x_enabled;
+	bool hdcp1x_initialized;
 	bool isstreamup;
 };
 
@@ -891,7 +893,9 @@ static int xhdmirxss_hdcp1x_keymgmt_table_read(struct xhdmirx_state *state,
 			XHDCP1X_KEYMGMT_REG_TBL_DAT_H, &data))
 		return -EIO;
 
-	temp = (data << BITS_PER_BYTE) * sizeof(u32);
+	temp = data;
+	temp <<= 32;
+
 	if (regmap_read(state->hdcp1x_keymgmt_base,
 			XHDCP1X_KEYMGMT_REG_TBL_DAT_L, &data))
 		return -EIO;
@@ -1097,6 +1101,16 @@ static int xhdmirxss_hdcp1x_key_write(struct xhdmirx_state *xhdmirxss,
 {
 	int ret;
 
+	if (!xhdmirxss->hdcp1x_enabled) {
+		dev_info(xhdmirxss->dev, "HDCP1X is disabled in the subsystem");
+		return -EINVAL;
+	}
+
+	if (xhdmirxss->hdcp1x_key_available) {
+		dev_dbg(xhdmirxss->dev, "HDCP1X keys are already loaded");
+		return -EPERM;
+	}
+
 	if (hdcp_keys->size != XHDCP1X_KEYS_SIZE)
 		return -EINVAL;
 
@@ -1131,6 +1145,16 @@ static int xhdmirxss_hdcp2x_key_write(struct xhdmirx_state *xhdmirxss,
 {
 	int ret = 0;
 
+	if (!xhdmirxss->hdcp2x_enable) {
+		dev_info(xhdmirxss->dev, "HDCP2X is disabled in the subsystem");
+		return -EINVAL;
+	}
+
+	if (xhdmirxss->hdcp2x_key_available) {
+		dev_dbg(xhdmirxss->dev, "HDCP2X keys are already loaded");
+		return -EPERM;
+	}
+
 	if (copy_from_user(xhdmirxss->lc128key,
 			   (const void __user *)xhdcp22_keys->lc128key,
 			   XHDCP2X_LC128_SIZE))
@@ -1164,20 +1188,6 @@ static inline struct xhdmirx_state *to_xhdmirxssstate(struct v4l2_subdev *sd)
 static long xhdmirxss_ioctl(struct v4l2_subdev *sd, u32 cmd, void *arg)
 {
 	struct xhdmirx_state *xhdmirxss = to_xhdmirxssstate(sd);
-
-	if (!(xhdmirxss->hdcp_enable || xhdmirxss->hdcp2x_enable)) {
-		dev_err(xhdmirxss->dev, "HDCP is not enabled in the system");
-		return -ENODEV;
-	}
-
-	if (xhdmirxss->hdcp1x_key_available) {
-		dev_info(xhdmirxss->dev, "HDCP1X keys are already loaded");
-		return -EPERM;
-	}
-	if (xhdmirxss->hdcp2x_key_available) {
-		dev_info(xhdmirxss->dev, "HDCP2X keys are already loaded");
-		return -EPERM;
-	}
 
 	if (cmd == XILINX_HDMIRXSS_HDCP_KEY_WRITE)
 		return xhdmirxss_hdcp1x_key_write(xhdmirxss, arg);
@@ -1840,7 +1850,7 @@ static void phy_rxready_cb(void *param)
 	if (xhdmirx1_gettmdsclkratio(xhdmi))
 		xhdmi->stream.refclk *= 4;
 
-	if (xhdmi->is_hdcp1x_enabled)
+	if (xhdmi->hdcp1x_initialized)
 		xhdcp1x_rx_disable(xhdmi->hdcp1x);
 
 	dev_dbg(xhdmi->dev, "Phy RxReadyCallback refclk = %u Hz\n", xhdmi->stream.refclk);
@@ -2068,7 +2078,7 @@ static void rxstreamup(struct xhdmirx_state *xhdmi)
 #ifdef DEBUG
 	v4l2_print_dv_timings("xilinx-hdmi-rx", "", &xhdmi->dv_timings, 1);
 #endif
-	if (xhdmi->hdcp2x_enable)
+	if (xhdmi->hdcp2x_enable && xhdmi->hdcp2x_prot_event)
 		xhdcp2x_rx_enable(xhdmi->hdcp2x, xhdmi->stream.frl.lanes);
 }
 
@@ -2119,7 +2129,7 @@ static void rxconnect(struct xhdmirx_state *xhdmi)
 	} else {
 		xhdmirx_set_hpd(xhdmi, 0);
 
-		if (xhdmi->is_hdcp1x_enabled)
+		if (xhdmi->hdcp1x_initialized)
 			xhdcp1x_rx_disable(xhdmi->hdcp1x);
 		if (xhdmi->hdcp2x_enable)
 			xhdcp2x_rx_disable(xhdmi->hdcp2x);
@@ -2195,10 +2205,12 @@ static void streamdown(struct xhdmirx_state *xhdmi)
 	}
 	xhdmirx_sysrst_assert(xhdmi);
 	xhdmi->isstreamup = false;
-	if (xhdmi->is_hdcp1x_enabled)
+	if (xhdmi->hdcp1x_initialized)
 		xhdcp1x_rx_disable(xhdmi->hdcp1x);
-	if (xhdmi->hdcp2x_enable)
+	if (xhdmi->hdcp2x_enable) {
+		xhdmi->hdcp2x_prot_event = false;
 		xhdcp2x_rx_disable(xhdmi->hdcp2x);
+	}
 }
 
 static void xhdmirx1_clear(struct xhdmirx_state *xhdmi)
@@ -3460,8 +3472,10 @@ static irqreturn_t xhdmirx_irq_thread(int irq, void *param)
 		xhdmirx_frlint_handler(xhdmi);
 	if (xhdmi->intrstatus[8])
 		xhdmi_write(xhdmi, HDMIRX_DDC_STA_OFFSET, xhdmi->intrstatus[8]);
-	if (xhdmi->intrstatus[8] & HDMIRX_DDC_STA_HDCP_1_PROT_EVT_MASK)
+	if (xhdmi->intrstatus[8] & HDMIRX_DDC_STA_HDCP_1_PROT_EVT_MASK) {
 		xhdmi->hdcp1x_prot_event = true;
+		xhdmirx_ddc_hdcp14_mode(xhdmi);
+	}
 
 	if (xhdmi->intrstatus[8] & HDMIRX_DDC_STA_HDCP_AKSV_EVT_MASK) {
 		if (xhdmi->hdcp1x_prot_event && xhdmi->hdcp1x_key_available) {
@@ -3469,8 +3483,11 @@ static irqreturn_t xhdmirx_irq_thread(int irq, void *param)
 			xhdcp1x_rx_push_events(xhdmi->hdcp1x, XHDCP1X_RX_AKSV_RCVD);
 		}
 	}
-	if (xhdmi->intrstatus[8] & HDMIRX_DDC_STA_HDCP_2_PROT_EVT_MASK)
+	if (xhdmi->intrstatus[8] & HDMIRX_DDC_STA_HDCP_2_PROT_EVT_MASK) {
+		xhdmi->hdcp2x_prot_event = true;
+		xhdmirx_ddc_hdcp22_mode(xhdmi);
 		xhdmi_write(xhdmi, HDMIRX_DDC_STA_OFFSET, HDMIRX_DDC_STA_HDCP_2_PROT_EVT_MASK);
+	}
 
 	if (xhdmi->intrstatus[8] & HDMIRX_DDC_STA_HDCP_WMSG_NEW_EVT_MASK) {
 		xhdcp2x_rx_set_write_message_available(xhdmi->hdcp2x);
@@ -3568,7 +3585,7 @@ static void xhdmirx_init(struct xhdmirx_state *xhdmi)
 	xhdmirx_ddcscdc_clear(xhdmi);
 	xhdmirx_set_hpd(xhdmi, 0);
 
-	if (xhdmi->is_hdcp1x_enabled || xhdmi->hdcp2x_enable)
+	if (xhdmi->hdcp1x_initialized || xhdmi->hdcp2x_enable)
 		xhdmirx_ddc_hdcp_disable(xhdmi);
 
 	/* Rising edge mask */
@@ -3607,10 +3624,9 @@ static void xhdmirx_init(struct xhdmirx_state *xhdmi)
 	xhdmirx_ddc_enable(xhdmi);
 	xhdmirx_ddcscdc_enable(xhdmi);
 
-	if (xhdmi->is_hdcp1x_enabled) {
+	if (xhdmi->hdcp1x_initialized)
 		xhdmirx_ddc_hdcp_enable(xhdmi);
-		xhdmirx_ddc_hdcp14_mode(xhdmi);
-	}
+
 	xhdmirx_auxintr_enable(xhdmi);
 	xhdmirx_lnksta_enable(xhdmi);
 
@@ -3714,14 +3730,9 @@ static int xhdmirx_parse_of(struct xhdmirx_state *xhdmi)
 
 	/* HDCP specific code starts here */
 
-	xhdmi->hdcp_enable = of_property_read_bool(node, "xlnx,include-hdcp");
-	if (xhdmi->hdcp_enable) {
-		xhdmi->is_hdcp1x_enabled = of_property_read_bool(node, "xlnx,include-hdcp-1-4");
-		if (!xhdmi->is_hdcp1x_enabled)
-			dev_info(xhdmi->dev, "HDMI:HDCP 1.4 is not enabled\n");
-		else
-			dev_info(xhdmi->dev, "HDMI:HDCP 1.4 is enabled\n");
-	}
+	xhdmi->hdcp1x_enabled = of_property_read_bool(node, "xlnx,include-hdcp-1-4");
+	if (xhdmi->hdcp1x_enabled)
+		dev_dbg(xhdmi->dev, "HDCP 1.4 is included in design\n");
 
 	xhdmi->hdcp2x_enable = of_property_read_bool(node, "xlnx,include-hdcp-2-2");
 	if (xhdmi->hdcp2x_enable)
@@ -3993,16 +4004,20 @@ static int xhdmirx_g_input_status(struct v4l2_subdev *sd, u32 *status)
  * xhdmirx_query_dv_timings - Gets the current incoming dv timings
  *
  * @subdev: pointer to v4l2 subdev
+ * @pad: media pad
  * @timings: pointer to the dv timings to be filled and returned
  *
  * This function returns the incoming stream's dv timings
  *
  * Returns: 0 on success else -ENOLINK
  */
-static int xhdmirx_query_dv_timings(struct v4l2_subdev *subdev,
+static int xhdmirx_query_dv_timings(struct v4l2_subdev *subdev, unsigned int pad,
 				    struct v4l2_dv_timings *timings)
 {
 	struct xhdmirx_state *xhdmi = to_xhdmirx_state(subdev);
+
+	if (pad != 0)
+		return -EINVAL;
 
 	if (!xhdmi->hdmi_stream_up) {
 		dev_dbg(xhdmi->dev, "failed as no link\n");
@@ -4025,7 +4040,7 @@ __xhdmirx_get_pad_format_ptr(struct xhdmirx_state *xhdmi,
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
 		dev_dbg(xhdmi->dev, "%s V4L2_SUBDEV_FORMAT_TRY\n", __func__);
-		return v4l2_subdev_get_try_format(&xhdmi->sd, sd_state, pad);
+		return v4l2_subdev_state_get_format(sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		dev_dbg(xhdmi->dev, "%s V4L2_SUBDEV_FORMAT_ACTIVE\n", __func__);
 		return &xhdmi->mbus_fmt;
@@ -4115,7 +4130,6 @@ static int xhdmirx_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 
 static const struct v4l2_subdev_video_ops xvideo_ops = {
 	.s_stream		= xhdmirx_s_stream,
-	.query_dv_timings	= xhdmirx_query_dv_timings,
 	.g_input_status		= xhdmirx_g_input_status,
 };
 
@@ -4129,6 +4143,7 @@ static const struct v4l2_subdev_core_ops xcore_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops xpad_ops = {
+	.query_dv_timings	= xhdmirx_query_dv_timings,
 	.get_edid		= xhdmirx_get_edid,
 	.set_edid		= xhdmirx_set_edid,
 	.dv_timings_cap		= xhdmirx_dv_timings_cap,
@@ -4260,6 +4275,8 @@ static int xhdmirx_register_hdcp1x_dev(struct xhdmirx_state *xhdmirxss)
 	xhdcp1x_rx_set_callback(xhdmirxss->hdcp1x,
 				XHDCP1X_RX_NOTIFICATION_HANDLER,
 				xhdmirx_hdcp1x_notification_handler);
+
+	xhdmirxss->hdcp1x_initialized = true;
 
 	return 0;
 }
@@ -4424,6 +4441,7 @@ static int xhdmirx_register_hdcp2x_dev(struct xhdmirx_state *xhdmi,
 		dev_err(xhdmi->dev, "Failed to enable HDCP22 version");
 		return ret;
 	}
+	xhdmi->hdcp2x_prot_event = false;
 
 	return 0;
 }
@@ -4432,21 +4450,19 @@ static int xhdmirx_hdcp_init(struct xhdmirx_state *xhdmi, struct platform_device
 {
 	int irq, ret = 0;
 
-	if (!(xhdmi->hdcp_enable || xhdmi->is_hdcp1x_enabled || xhdmi->hdcp2x_enable))
+	if (!(xhdmi->hdcp1x_enabled || xhdmi->hdcp1x_initialized || xhdmi->hdcp2x_enable))
 		return 0;
 
 	xhdmirx_ddc_hdcp_enable(xhdmi);
 
 	if (xhdmi->hdcp2x_enable) {
-		xhdmirx_ddc_hdcp22_mode(xhdmi);
 		ret = xhdmirx_register_hdcp2x_dev(xhdmi, pdev);
 		if (ret < 0) {
 			dev_err(xhdmi->dev, "HDCP2X init failed\n");
 			return -EINVAL;
 		}
 	}
-	if (xhdmi->is_hdcp1x_enabled) {
-		xhdmirx_ddc_hdcp14_mode(xhdmi);
+	if (xhdmi->hdcp1x_enabled) {
 		xhdmi->hdcp1x_keymgmt_base =
 		syscon_regmap_lookup_by_phandle(xhdmi->dev->of_node, "xlnx,hdcp1x_keymgmt");
 		if (IS_ERR(xhdmi->hdcp1x_keymgmt_base)) {
@@ -4659,7 +4675,7 @@ mutex_err:
 	return ret;
 }
 
-static int xhdmirx_remove(struct platform_device *pdev)
+static void xhdmirx_remove(struct platform_device *pdev)
 {
 	struct xhdmirx_state *xhdmi = platform_get_drvdata(pdev);
 	struct v4l2_subdev *sd = &xhdmi->sd;
@@ -4674,7 +4690,6 @@ static int xhdmirx_remove(struct platform_device *pdev)
 	clk_bulk_disable_unprepare(num_clks, xhdmi->clks);
 
 	dev_info(xhdmi->dev, "driver removed successfully\n");
-	return 0;
 }
 
 static const struct of_device_id xhdmirx_of_id_table[] = {

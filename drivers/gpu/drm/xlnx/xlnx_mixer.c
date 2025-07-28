@@ -82,6 +82,7 @@
 #define XVMIX_B_DATA			0x00198
 #define XVMIX_LAYER1_BUF1_V_DATA	0x00240
 #define XVMIX_LAYER1_BUF2_V_DATA	0x0024c
+#define XVMIX_LAYER1_BUF3_V_DATA	0x00258
 #define XVMIX_LOGOSTARTX_DATA		0x01000
 #define XVMIX_LOGOSTARTY_DATA		0x01008
 #define XVMIX_LOGOWIDTH_DATA		0x01010
@@ -139,6 +140,7 @@
 #define XVMIX_CSC_COEFF_SIZE		(12)
 #define XVMIX_CSC_SCALE_FACTOR		(4096)
 #define XVMIX_CSC_DIVISOR		(10000)
+#define XVMIX_MAX_PLANES		3
 
 /*************************** STATIC DATA  ************************************/
 static const s16
@@ -242,6 +244,9 @@ static const u32 color_table[] = {
 	DRM_FORMAT_XVUY8888,
 	DRM_FORMAT_XV15,
 	DRM_FORMAT_XV20,
+	DRM_FORMAT_YUV444,
+	DRM_FORMAT_X403,
+	DRM_FORMAT_X423,
 };
 
 static bool xlnx_mixer_primary_enable = true;
@@ -298,26 +303,28 @@ enum xlnx_mix_layer_id {
  * struct xlnx_mix_layer_data - Describes the hardware configuration of a given
  * mixer layer
  * @hw_config: struct specifying the IP hardware constraints for this layer
- * @vid_fmt: DRM format for this layer
- * @can_alpha: Indicates that layer alpha is enabled for this layer
- * @can_scale: Indicates that layer scaling is enabled for this layer
- * @is_streaming: Indicates layer is not using mixer DMA but streaming from
+ * @hw_config.vid_fmt: DRM format for this layer
+ * @hw_config.can_alpha: Indicates that layer alpha is enabled for this layer
+ * @hw_config.can_scale: Indicates that layer scaling is enabled for this layer
+ * @hw_config.is_streaming: Indicates layer is not using mixer DMA but streaming from
  *  external DMA
- * @max_width: Max possible pixel width
- * @max_height: Max possible pixel height
- * @min_width: Min possible pixel width
- * @min_height: Min possible pixel height
+ * @hw_config.max_width: Max possible pixel width
+ * @hw_config.max_height: Max possible pixel height
+ * @hw_config.min_width: Min possible pixel width
+ * @hw_config.min_height: Min possible pixel height
  * @layer_regs: struct containing current cached register values
- * @buff_addr: Current physical address of image buffer
- * @x_pos: Current CRTC x offset
- * @y_pos: Current CRTC y offset
- * @width: Current width in pixels
- * @height: Current hight in pixels
- * @stride: Current stride (when Mixer is performing DMA)
- * @alpha: Current alpha setting
- * @is_active: Logical flag indicating layer in use.  If false, calls to
+ * @layer_regs.buff_addr1: Current physical address of image buffer plane1
+ * @layer_regs.buff_addr2: Current physical address of image buffer plane2
+ * @layer_regs.buff_addr3: Current physical address of image buffer plane3
+ * @layer_regs.x_pos: Current CRTC x offset
+ * @layer_regs.y_pos: Current CRTC y offset
+ * @layer_regs.width: Current width in pixels
+ * @layer_regs.height: Current hight in pixels
+ * @layer_regs.stride: Current stride (when Mixer is performing DMA)
+ * @layer_regs.alpha: Current alpha setting
+ * @layer_regs.is_active: Logical flag indicating layer in use.  If false, calls to
  *  enable layer will be ignored.
- * @scale_fact: Current scaling factor applied to layer
+ * @layer_regs.scale_fact: Current scaling factor applied to layer
  * @id: The logical layer id identifies which layer this struct describes
  *  (e.g. 0 = master, 1-15 = overlay).
  *
@@ -337,6 +344,7 @@ struct xlnx_mix_layer_data {
 		bool    can_alpha;
 		bool    can_scale;
 		bool    is_streaming;
+		bool	plane_3;
 		u32     max_width;
 		u32     max_height;
 		u32     min_width;
@@ -346,6 +354,7 @@ struct xlnx_mix_layer_data {
 	struct {
 		u64     buff_addr1;
 		u64     buff_addr2;
+		u64	buff_addr3;
 		u32     x_pos;
 		u32     y_pos;
 		u32     width;
@@ -376,6 +385,7 @@ struct xlnx_mix_layer_data {
  * @ppc: Pixels per component
  * @irq: Interrupt request number assigned
  * @bg_color: Current RGB color value for internal background color generator
+ * @three_planes_prop : three planes video formats enabled
  * @layer_data: Array of layer data
  * @layer_cnt: Layer data array count
  * @max_layers: Maximum number of layers supported by hardware
@@ -396,6 +406,7 @@ struct xlnx_mix_hw {
 	void __iomem        *base;
 	bool                logo_layer_en;
 	bool                logo_pixel_alpha_enabled;
+	bool                three_planes_prop;
 	u32		    csc_enabled;
 	u32                 max_layer_width;
 	u32                 max_layer_height;
@@ -550,6 +561,7 @@ static u32 xlnx_mix_get_bus_fmt(struct xlnx_mix *mixer)
 	case DRM_FORMAT_AYUV:
 	case DRM_FORMAT_VUY888:
 	case DRM_FORMAT_XVUY8888:
+	case DRM_FORMAT_YUV444:
 		return MEDIA_BUS_FMT_VUY8_1X24;
 	case DRM_FORMAT_NV12:
 		return MEDIA_BUS_FMT_VYYUYY8_1X24;
@@ -558,11 +570,14 @@ static u32 xlnx_mix_get_bus_fmt(struct xlnx_mix *mixer)
 	case DRM_FORMAT_Y10:
 		return MEDIA_BUS_FMT_Y10_1X10;
 	case DRM_FORMAT_XVUY2101010:
+	case DRM_FORMAT_X403:
 		return MEDIA_BUS_FMT_VUY10_1X30;
 	case DRM_FORMAT_XV15:
 		return MEDIA_BUS_FMT_VYYUYY10_4X20;
 	case DRM_FORMAT_XV20:
 		return MEDIA_BUS_FMT_UYVY10_1X20;
+	case DRM_FORMAT_X423:
+		return MEDIA_BUS_FMT_YUV12_1X36;
 	default:
 		DRM_DEBUG_KMS("invalid layer format: %d\n",
 			      master->hw_config.vid_fmt);
@@ -1446,6 +1461,7 @@ static int xlnx_mix_disp_set_layer_alpha(struct xlnx_mix_plane *plane,
  * @id: Logical id of video overlay to adjust alpha setting
  * @luma_addr: Start address of plane 1 of frame buffer for layer 1
  * @chroma_addr: Start address of plane 2 of frame buffer for layer 1
+ * @chroma_addr2: Start address of plane 3 of frame buffer for layer 1
  *
  * Sets the buffer address of the specified layer
  * Return:
@@ -1454,33 +1470,48 @@ static int xlnx_mix_disp_set_layer_alpha(struct xlnx_mix_plane *plane,
 static int xlnx_mix_set_layer_buff_addr(struct xlnx_mix_hw *mixer,
 					enum xlnx_mix_layer_id id,
 					dma_addr_t luma_addr,
-					dma_addr_t chroma_addr)
+					dma_addr_t chroma_addr,
+					dma_addr_t chroma_addr2)
 {
 	struct xlnx_mix_layer_data *layer_data;
 	u32 align, offset;
-	u32 reg1, reg2;
+	u32 reg[XVMIX_MAX_PLANES];
+
+	memset(reg, 0, sizeof(reg));
 
 	if (id >= mixer->layer_cnt)
 		return -EINVAL;
 
 	/* Check if addr is aligned to aximm width (PPC * 64-bits) */
 	align = mixer->ppc * 8;
-	if ((luma_addr % align) != 0 || (chroma_addr % align) != 0)
+	if ((luma_addr % align) || (chroma_addr % align) || (chroma_addr2 % align))
 		return -EINVAL;
 
-	offset = (id - 1) * XVMIX_REG_OFFSET;
-	reg1 = XVMIX_LAYER1_BUF1_V_DATA + offset;
-	reg2 = XVMIX_LAYER1_BUF2_V_DATA + offset;
 	layer_data = &mixer->layer_data[id];
+
+	offset = (id - 1) * XVMIX_REG_OFFSET;
+	reg[0] = XVMIX_LAYER1_BUF1_V_DATA + offset;
+	reg[1] = XVMIX_LAYER1_BUF2_V_DATA + offset;
+	/* set only in case of 3 plane YUV444 8, 10 and 12 video formats */
+	if (mixer->three_planes_prop && layer_data->hw_config.plane_3)
+		reg[2] = XVMIX_LAYER1_BUF3_V_DATA + offset;
+
 	if (mixer->dma_addr_size == 64 && sizeof(dma_addr_t) == 8) {
-		reg_writeq(mixer->base, reg1, luma_addr);
-		reg_writeq(mixer->base, reg2, chroma_addr);
+		reg_writeq(mixer->base, reg[0], luma_addr);
+		reg_writeq(mixer->base, reg[1], chroma_addr);
+		if (mixer->three_planes_prop && layer_data->hw_config.plane_3)
+			reg_writeq(mixer->base, reg[2], chroma_addr2);
+		/* TODO: Test 64 bit address configuration */
 	} else {
-		reg_writel(mixer->base, reg1, (u32)luma_addr);
-		reg_writel(mixer->base, reg2, (u32)chroma_addr);
+		reg_writel(mixer->base, reg[0], (u32)luma_addr);
+		reg_writel(mixer->base, reg[1], (u32)chroma_addr);
+		if (mixer->three_planes_prop && layer_data->hw_config.plane_3)
+			reg_writel(mixer->base, reg[2], (u32)chroma_addr2);
 	}
 	layer_data->layer_regs.buff_addr1 = luma_addr;
 	layer_data->layer_regs.buff_addr2 = chroma_addr;
+	if (mixer->three_planes_prop && layer_data->hw_config.plane_3)
+		layer_data->layer_regs.buff_addr3 = chroma_addr2;
 
 	return 0;
 }
@@ -1861,7 +1892,7 @@ static int xlnx_mix_set_plane(struct xlnx_mix_plane *plane,
 	struct xlnx_mix *mixer;
 	struct drm_gem_dma_object *luma_buffer;
 	u32 luma_stride = fb->pitches[0];
-	dma_addr_t luma_addr, chroma_addr = 0;
+	dma_addr_t luma_addr, chroma_addr = 0, chroma_addr2 = 0;
 	u32 active_area_width;
 	u32 active_area_height;
 	enum xlnx_mix_layer_id layer_id;
@@ -1888,6 +1919,15 @@ static int xlnx_mix_set_plane(struct xlnx_mix_plane *plane,
 		if (!chroma_addr) {
 			DRM_ERROR("failed to get chroma paddr\n");
 			return -EINVAL;
+		}
+
+		/* Allocating the buffer for 3rd Plane use case */
+		if (mixer_hw->three_planes_prop && plane->mixer_layer->hw_config.plane_3) {
+			chroma_addr2 = drm_fb_dma_get_gem_addr(fb, plane->base.state, 2);
+			if (!chroma_addr2) {
+				DRM_ERROR("failed to get chroma paddr 2\n");
+				return -EINVAL;
+			}
 		}
 	}
 	ret = xlnx_mix_mark_layer_active(plane);
@@ -1924,7 +1964,7 @@ static int xlnx_mix_set_plane(struct xlnx_mix_plane *plane,
 			if (!plane->mixer_layer->hw_config.is_streaming)
 				ret = xlnx_mix_set_layer_buff_addr
 					(mixer_hw, plane->mixer_layer->id,
-					 luma_addr, chroma_addr);
+					 luma_addr, chroma_addr, chroma_addr2);
 		}
 	}
 	return ret;
@@ -2210,18 +2250,30 @@ static int xlnx_mix_parse_dt_bg_video_fmt(struct device_node *node,
 	layer->hw_config.min_width = XVMIX_LAYER_WIDTH_MIN;
 	layer->hw_config.min_height = XVMIX_LAYER_HEIGHT_MIN;
 
-	if (of_property_read_string(layer_node, "xlnx,vformat",
-				    &vformat)) {
+	if (of_property_count_u8_elems(layer_node, "xlnx,vformat") != sizeof(u32) + 1) {
+		DRM_ERROR("xlnx,vformat property missing or invalid\n");
+		return -EINVAL;
+	}
+
+	if (of_property_read_string(layer_node, "xlnx,vformat", &vformat)) {
 		DRM_ERROR("No xlnx,vformat value for layer 0 in dts\n");
 		return -EINVAL;
 	}
-	strncpy((char *)&layer->hw_config.vid_fmt, vformat, 4);
+
+	layer->hw_config.vid_fmt = fourcc_code(vformat[0], vformat[1], vformat[2], vformat[3]);
+	if (!drm_format_info(layer->hw_config.vid_fmt))
+		return -EINVAL;
+
 	layer->hw_config.is_streaming =
 		of_property_read_bool(layer_node, "xlnx,layer-streaming");
 	if (of_property_read_u32(node, "xlnx,bpc", &mixer_hw->bg_layer_bpc)) {
 		DRM_ERROR("Failed to get bits per component (bpc) prop\n");
 		return -EINVAL;
 	}
+
+	/* set only when 3 Plane video formats are selected */
+	layer->hw_config.plane_3 = 0;
+
 	if (of_property_read_u32(layer_node, "xlnx,layer-max-width",
 				 &layer->hw_config.max_width)) {
 		DRM_ERROR("Failed to get screen width prop\n");
@@ -2273,6 +2325,7 @@ static int xlnx_mix_parse_dt_logo_data(struct device_node *node,
 	layer_data->hw_config.can_scale = true;
 	layer_data->layer_regs.buff_addr1 = 0;
 	layer_data->layer_regs.buff_addr2 = 0;
+	layer_data->layer_regs.buff_addr3 = 0;
 	layer_data->id = mixer_hw->logo_layer_id;
 
 	if (of_property_read_u32(logo_node, "xlnx,logo-width", &max_width)) {
@@ -2362,8 +2415,17 @@ static int xlnx_mix_dt_parse(struct device *dev, struct xlnx_mix *mixer)
 		dev_err(dev, "Failed to map io mem space for mixer\n");
 		return PTR_ERR(mixer_hw->base);
 	}
+
+	if (of_device_is_compatible(dev->of_node, "xlnx,mixer-3.0") ||
+	    of_device_is_compatible(dev->of_node, "xlnx,mixer-4.0"))
+		dev_warn(dev, "xlnx,mixer-3.0/4.0 are deprecated.\n");
+
+	if (of_device_is_compatible(dev->of_node, "xlnx,v-mix-5.3"))
+		mixer_hw->three_planes_prop = true;
+
 	if (of_device_is_compatible(dev->of_node, "xlnx,mixer-4.0") ||
-	    of_device_is_compatible(dev->of_node, "xlnx,mixer-5.0")) {
+	    of_device_is_compatible(dev->of_node, "xlnx,mixer-5.0") ||
+	    of_device_is_compatible(dev->of_node, "xlnx,v-mix-5.3")) {
 		mixer_hw->max_layers = 18;
 		mixer_hw->logo_en_mask = BIT(23);
 		mixer_hw->enable_all_mask = (GENMASK(16, 0) |
@@ -2457,6 +2519,7 @@ static int xlnx_mix_of_init_layer(struct device *dev, struct device_node *node,
 				  u32 max_width, struct xlnx_mix *mixer, int id)
 {
 	struct device_node *layer_node;
+	const struct drm_format_info *info;
 	const char *vformat;
 	int ret;
 
@@ -2485,14 +2548,28 @@ static int xlnx_mix_of_init_layer(struct device *dev, struct device_node *node,
 			layer->id);
 		return -EINVAL;
 	}
-	ret = of_property_read_string(layer_node, "xlnx,vformat", &vformat);
-	if (ret) {
-		dev_err(dev, "No mixer layer vformat in dts for layer id %d\n",
-			layer->id);
-		return ret;
+
+	if (of_property_count_u8_elems(layer_node, "xlnx,vformat") != sizeof(u32) + 1) {
+		DRM_ERROR("xlnx,vformat property missing or invalid\n");
+		return -EINVAL;
 	}
 
-	strncpy((char *)&layer->hw_config.vid_fmt, vformat, 4);
+	if (of_property_read_string(layer_node, "xlnx,vformat", &vformat)) {
+		DRM_ERROR("No xlnx,vformat value for layer 0 in dts\n");
+		return -EINVAL;
+	}
+
+	layer->hw_config.vid_fmt = fourcc_code(vformat[0], vformat[1], vformat[2], vformat[3]);
+	info = drm_format_info(layer->hw_config.vid_fmt);
+	if (!info) {
+		DRM_ERROR("No DRM info, Invalid fourcc code\n");
+		return -EINVAL;
+	}
+
+	/* Set flag only for 3 planar video formats */
+	if (info->num_planes == 3)
+		layer->hw_config.plane_3 = true;
+
 	layer->hw_config.can_scale =
 		    of_property_read_bool(layer_node, "xlnx,layer-scale");
 	if (layer->hw_config.can_scale) {
@@ -3133,7 +3210,7 @@ err:
 	return ret;
 }
 
-static int xlnx_mix_remove(struct platform_device *pdev)
+static void xlnx_mix_remove(struct platform_device *pdev)
 {
 	struct xlnx_mix *mixer = platform_get_drvdata(pdev);
 
@@ -3145,7 +3222,6 @@ static int xlnx_mix_remove(struct platform_device *pdev)
 	}
 	xlnx_drm_pipeline_exit(mixer->master);
 	component_del(&pdev->dev, &xlnx_mix_component_ops);
-	return 0;
 }
 
 /*
@@ -3160,6 +3236,7 @@ static const struct of_device_id xlnx_mix_of_match[] = {
 	{ .compatible = "xlnx,mixer-3.0", },
 	{ .compatible = "xlnx,mixer-4.0", },
 	{ .compatible = "xlnx,mixer-5.0", },
+	{ .compatible = "xlnx,v-mix-5.3", },
 	{ /* end of table */ },
 };
 MODULE_DEVICE_TABLE(of, xlnx_mix_of_match);

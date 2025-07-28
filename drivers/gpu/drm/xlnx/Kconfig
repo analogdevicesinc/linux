@@ -1,3 +1,19 @@
+config DRM_AMD_MMI_DC
+	tristate "Multimedia Integrated Display Controller Driver"
+	depends on DRM && OF
+	depends on DMADEVICES
+	select AMD_MMI_DCDMA
+	select DRM_DISPLAY_DP_HELPER
+	select DRM_DISPLAY_HELPER
+	select DRM_BRIDGE_CONNECTOR
+	select DRM_GEM_DMA_HELPER
+	select DRM_KMS_HELPER
+	help
+	  This is the DRM/KMS CRTC driver for AMD Versal Gen2 Multimedia
+	  Integrated Display Controller. Choose this option if you have
+	  the AMD Versal Gen 2 SoC with DisplayPort subsystem and planning to
+	  use DisplayPort output.
+
 config DRM_ZYNQMP_DPSUB
 	tristate "ZynqMP DisplayPort Controller Driver"
 	depends on ARCH_ZYNQMP || COMPILE_TEST
@@ -5,26 +21,30 @@ config DRM_ZYNQMP_DPSUB
 	depends on DMADEVICES
 	depends on PHY_XILINX_ZYNQMP
 	depends on XILINX_ZYNQMP_DPDMA
-	depends on DRM_XLNX
-	select VIDEOMODE_HELPERS
-	select XILINX_DMA_ENGINES
 	select DMA_ENGINE
 	select DRM_DISPLAY_DP_HELPER
 	select DRM_DISPLAY_HELPER
+	select DRM_BRIDGE_CONNECTOR
 	select DRM_GEM_DMA_HELPER
 	select DRM_KMS_HELPER
 	select GENERIC_PHY
-	select DRM_DISPLAY_HELPER
-	select DRM_DISPLAY_DP_HELPER
-	select MFD_SYSCON
 	help
 	  This is a DRM/KMS driver for ZynqMP DisplayPort controller. Choose
 	  this option if you have a Xilinx ZynqMP SoC with DisplayPort
 	  subsystem.
 
+config DRM_ZYNQMP_DPSUB_AUDIO
+	bool "ZynqMP DisplayPort Audio Support"
+	depends on DRM_ZYNQMP_DPSUB
+	depends on SND && SND_SOC
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	help
+	  Choose this option to enable DisplayPort audio support in the ZynqMP
+	  DisplayPort driver.
+
 config DRM_XLNX
 	tristate "Xilinx DRM KMS Driver"
-	depends on DRM && OF
+	depends on DRM && OF && SND
 	select DRM_KMS_HELPER
 	select DRM_KMS_DMA_HELPER
 	select DRM_GEM_DMA_HELPER
@@ -62,6 +82,8 @@ config DRM_XLNX_DPTX
 	select DRM_DISPLAY_HDMI_HELPER
 	select DRM_DISPLAY_DP_HELPER
 	select DRM_XLNX_HDCP
+	select PHY_XILINX_DPGTQUAD
+	select MFD_SYSCON
 	help
 	  DRM driver for Xilinx DisplayPort Tx Subsystem for FPGA. Choose
 	  this option if you have a FPGA display pipeline that includes
@@ -82,6 +104,7 @@ config DRM_XLNX_HDMITX
 	tristate "Xilinx DRM HDMI Subsystem Driver"
 	depends on DRM_XLNX
 	select DRM_XLNX_HDCP
+	select MFD_SYSCON
 	help
 	  DRM driver for Xilinx HDMI Tx Subsystem for FPGA. Choose
 	  this option if you have a FPGA display pipeline that includes

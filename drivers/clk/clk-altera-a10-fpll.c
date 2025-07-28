@@ -471,11 +471,9 @@ static int altera_a10_fpll_probe(struct platform_device *pdev)
 				    clk);
 }
 
-static int altera_a10_fpll_remove(struct platform_device *pdev)
+static void altera_a10_fpll_remove(struct platform_device *pdev)
 {
 	of_clk_del_provider(pdev->dev.of_node);
-
-	return 0;
 }
 
 static struct platform_driver altera_a10_fpll_driver = {

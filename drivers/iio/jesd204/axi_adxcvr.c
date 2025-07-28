@@ -14,6 +14,7 @@
 #include <linux/of_device.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/platform_device.h>
 #include <dt-bindings/jesd204/adxcvr.h>
 
 #include "axi_adxcvr.h"

@@ -216,7 +216,7 @@ static int daq1_gpio_probe(struct spi_device *spi)
 
 	mutex_init(&daq1->lock);
 
-	ret = gpiochip_add(&daq1->gpio_chip);
+	ret = gpiochip_add_data(&daq1->gpio_chip, NULL);
 	if (!ret) {
 		dev_info(&spi->dev, "ADI-DAQ1-GPIO driver successfully initialized");
 		return 0;

@@ -624,7 +624,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int adxcvr_remove(struct platform_device *pdev)
+static void adxcvr_remove(struct platform_device *pdev)
 {
 	struct adxcvr_state *st = platform_get_drvdata(pdev);
 
@@ -633,8 +633,6 @@ static int adxcvr_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(st->link_clk);
 	clk_disable_unprepare(st->ref_clk);
-
-	return 0;
 }
 
 static const struct of_device_id adxcvr_of_match[] = {

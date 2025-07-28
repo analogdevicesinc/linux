@@ -18,7 +18,7 @@ struct iio_dma_buffer_block;
 struct iio_dma_buffer_queue;
 
 int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
-	struct iio_dma_buffer_block *block);
+				      struct iio_dma_buffer_block *block);
 void iio_dmaengine_buffer_abort(struct iio_dma_buffer_queue *queue);
 
 void iio_dmaengine_buffer_teardown(struct iio_buffer *buffer);

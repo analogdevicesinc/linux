@@ -26,6 +26,7 @@ config XILINX_EMACLITE
 config XILINX_AXI_EMAC
 	tristate "Xilinx 10/100/1000 AXI Ethernet support"
 	depends on HAS_IOMEM
+	depends on XILINX_DMA
 	select PHYLINK
 	help
 	  This driver supports the 10/100/1000 Ethernet from Xilinx for the
@@ -33,8 +34,7 @@ config XILINX_AXI_EMAC
 
 config XILINX_AXI_EMAC_HWTSTAMP
 	bool "Generate hardware packet timestamps"
-	depends on XILINX_AXI_EMAC
-	select PTP_1588_CLOCK
+	depends on XILINX_AXI_EMAC && PTP_1588_CLOCK
 	help
 	  Generate hardware packet timestamps. This is to facilitate IEEE 1588.
 

@@ -23,6 +23,7 @@
 #include <linux/component.h>
 #include <linux/delay.h>
 #include <linux/hdmi.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/mfd/syscon.h>
@@ -328,6 +329,8 @@
 #define TIMEOUT_200MS		200
 #define TIMEOUT_250MS		250
 #define TIMEOUT_10US		10
+/* TODO: Fix this delay in the future */
+#define HDMI_TX_LNK_VID_RDY_DELAY	10000
 
 #define HDMI_TX_MAX_FRL_RATE	6
 #define HDMI_TX_SCDC_MASK	0xFF
@@ -1532,8 +1535,10 @@ static void xlnx_hdmi_set_colordepth(struct xlnx_hdmi *hdmi)
 
 	/* Mask PIO Out Mask register */
 	xlnx_hdmi_pio_set_cd(hdmi);
+	if (hdmi->xvidc_colordepth > hdmi->config.bpc)
+		hdmi->xvidc_colordepth = hdmi->config.bpc;
 
-	switch (hdmi->config.bpc) {
+	switch (hdmi->xvidc_colordepth) {
 	case HDMI_TX_BPC_10:
 		regvalue = 1;
 		break;
@@ -1845,6 +1850,10 @@ static void xlnx_hdmi_streamup_callback(struct xlnx_hdmi *hdmi)
 			xlnx_pioout_bridge_pixel_clr(hdmi);
 		}
 	}
+
+	hdmi->wait_for_streamup =
+		xlnx_hdmi_is_lnk_vid_rdy(hdmi) ? 1 : 0;
+	wake_up(&hdmi->wait_event);
 }
 
 /**
@@ -1859,9 +1868,9 @@ static void xlnx_hdmi_set_frl_timer(struct xlnx_hdmi *hdmi, u32 timer_val)
 
 	clkrate = clk_get_rate(hdmitx_clks[S_AXI_CPU_ACLK].clk);
 	if (timer_val == TIMEOUT_10US)
-		clk_cycles = clkrate / 100000;
+		clk_cycles = div_u64(clkrate, 100000);
 	else if (timer_val > 0)
-		clk_cycles = clkrate * timer_val / 1000;
+		clk_cycles = div_u64(clkrate * timer_val, 1000);
 
 	xlnx_hdmi_writel(hdmi, HDMI_TX_FRL_TMR, clk_cycles);
 }
@@ -2002,7 +2011,7 @@ static void xlnx_hdmi_connect_callback(struct xlnx_hdmi *hdmi)
 		xlnx_hdmi_stream_start(hdmi);
 		phy_cfg.hdmi.tx_params = 1;
 		phy_cfg.hdmi.ppc = hdmi->config.ppc;
-		phy_cfg.hdmi.bpc = hdmi->config.bpc;
+		phy_cfg.hdmi.bpc = hdmi->xvidc_colordepth;
 		phy_cfg.hdmi.fmt = hdmi->xvidc_colorfmt;
 		phy_cfg.hdmi.tx_tmdsclk = hdmi->tmds_clk;
 		ret = xlnx_hdmi_phy_configure(hdmi, &phy_cfg);
@@ -2483,7 +2492,9 @@ static int xlnx_hdmi_exec_frl_state_ltsp(struct xlnx_hdmi *hdmi)
 			if (!status) {
 				hdmi->stream.frl_config.frl_train_states =
 					HDMI_TX_FRLSTATE_LTS_P_FRL_RDY;
-				hdmi->wait_for_streamup = 1;
+				hdmi->wait_for_streamup =
+					xlnx_hdmi_is_lnk_vid_rdy(hdmi) ? 1 : 0;
+				wake_up(&hdmi->wait_event);
 			}
 		}
 	}
@@ -2613,7 +2624,6 @@ static void xlnx_hdmi_piointr_handler(struct xlnx_hdmi *hdmi)
 		} else {
 			hdmi->cable_connected = 0;
 			hdmi->connector.status = connector_status_disconnected;
-			dev_info(hdmi->dev, "stream is not connected\n");
 			xlnx_hdmi_streamdown_callback(hdmi);
 		}
 		xlnx_hdmi_connect_callback(hdmi);
@@ -2670,7 +2680,6 @@ static void xlnx_hdmi_piointr_handler(struct xlnx_hdmi *hdmi)
 				}
 			} else {
 				xlnx_hdmi_streamup_callback(hdmi);
-				hdmi->wait_for_streamup = 1;
 			}
 			xlnx_hdmi_aux_enable(hdmi);
 			xlnx_hdmi_auxintr_enable(hdmi);
@@ -2745,8 +2754,6 @@ static irqreturn_t hdmitx_irq_thread(int irq, void *data)
 
 	if (hdmi->frl_status && hdmi->stream.is_frl)
 		xlnx_hdmi_frlintr_handler(hdmi);
-
-	hdmi->cable_connected = 1;
 
 	hdmi_mutex_unlock(&hdmi->hdmi_mutex);
 
@@ -2953,23 +2960,32 @@ xlnx_hdmi_set_frl_tmds_mode(struct drm_connector *connector)
 static int xlnx_hdmi_connector_get_modes(struct drm_connector *connector)
 {
 	struct xlnx_hdmi *hdmi = connector_to_hdmi(connector);
-	struct edid *edid;
+	const struct drm_edid *drm_edid;
+	const struct edid *edid;
 	int ret;
 	bool is_hdmi_sink;
 
 	hdmi_mutex_lock(&hdmi->hdmi_mutex);
 
-	edid = drm_do_get_edid(connector, xlnx_hdmi_get_edid_block, hdmi);
+	drm_edid = drm_edid_read_custom(connector, xlnx_hdmi_get_edid_block, hdmi);
 
 	/* Set HDMI FRL or TMDS Mode */
 	xlnx_hdmi_set_frl_tmds_mode(connector);
 
 	hdmi_mutex_unlock(&hdmi->hdmi_mutex);
-	if (!edid) {
+	drm_edid_connector_update(connector, drm_edid);
+
+	if (!drm_edid) {
 		dev_info(hdmi->dev, "no edid, assume <= 1024x768 works\n");
-		drm_connector_update_edid_property(connector, NULL);
 		return 0;
 	}
+
+	/*
+	 * FIXME: This should use connector->display_info.is_hdmi from a
+	 * path that has read the EDID and called
+	 * drm_edid_connector_update().
+	 */
+	edid = drm_edid_raw(drm_edid);
 
 	/* If the sink is non HDMI, set the stream type to DVI else HDMI */
 	is_hdmi_sink = drm_detect_hdmi_monitor(edid);
@@ -2983,8 +2999,7 @@ static int xlnx_hdmi_connector_get_modes(struct drm_connector *connector)
 		dev_dbg(hdmi->dev, "setting stream type to DVI\n");
 	}
 
-	drm_connector_update_edid_property(connector, edid);
-	ret = drm_add_edid_modes(connector, edid);
+	ret = drm_edid_connector_add_modes(connector);
 	kfree(edid);
 
 	return ret;
@@ -3078,12 +3093,20 @@ color_formats xlnx_hdmi_find_media_bus(struct xlnx_hdmi *hdmi,
 	case DRM_FORMAT_VUY888:
 	case DRM_FORMAT_XVUY8888:
 	case DRM_FORMAT_Y8:
+	case DRM_FORMAT_YUV444:
 	case MEDIA_BUS_FMT_VUY8_1X24:
 		hdmi->xvidc_colordepth = HDMI_TX_BPC_8;
 		return HDMI_TX_CSF_YCRCB_444;
 	case DRM_FORMAT_XVUY2101010:
 	case DRM_FORMAT_Y10:
+	case DRM_FORMAT_X403:
+	case MEDIA_BUS_FMT_VUY10_1X30:
 		hdmi->xvidc_colordepth = HDMI_TX_BPC_10;
+		return HDMI_TX_CSF_YCRCB_444;
+	/* TODO: Fix using DRM and media formats in same switch case */
+	case DRM_FORMAT_X423:
+	case MEDIA_BUS_FMT_VUY12_1X36:
+		hdmi->xvidc_colordepth = HDMI_TX_BPC_12;
 		return HDMI_TX_CSF_YCRCB_444;
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_UYVY:
@@ -3117,7 +3140,7 @@ static u64 xlnx_hdmi_get_tmdsclk(struct xlnx_hdmi *hdmi, struct drm_display_mode
 		tmdsclk = tmdsclk >> 1;
 
 	if (hdmi->xvidc_colorfmt != HDMI_TX_CSF_YCRCB_422) {
-		switch (hdmi->config.bpc) {
+		switch (hdmi->xvidc_colordepth) {
 		case HDMI_TX_BPC_10:
 			tmdsclk = (tmdsclk * 5) >> 2;
 			break;
@@ -3276,7 +3299,7 @@ xlnx_hdmi_encoder_atomic_mode_set(struct drm_encoder *encoder,
 
 		phy_cfg.hdmi.tx_params = 1;
 		phy_cfg.hdmi.ppc = config->ppc;
-		phy_cfg.hdmi.bpc = config->bpc;
+		phy_cfg.hdmi.bpc = hdmi->xvidc_colordepth;
 		phy_cfg.hdmi.fmt = hdmi->xvidc_colorfmt;
 		phy_cfg.hdmi.tx_tmdsclk = hdmi->tmds_clk;
 		ret = xlnx_hdmi_phy_configure(hdmi, &phy_cfg);
@@ -3286,12 +3309,13 @@ xlnx_hdmi_encoder_atomic_mode_set(struct drm_encoder *encoder,
 		}
 	} else {
 		if (hdmi->xvidc_colorfmt == HDMI_TX_CSF_YCRCB_422) {
-			vid_clk = (hdmi->tmds_clk / config->ppc) / 1000;
+			vid_clk = div_u64(div_u64(hdmi->tmds_clk, config->ppc),
+					  1000);
 			lnk_clk = vid_clk;
 		} else {
-			pixelrate = ((hdmi->tmds_clk * 8) / config->bpc) / 1000;
-			vid_clk = (pixelrate / config->ppc);
-			lnk_clk = (vid_clk *  config->bpc) / 8;
+			pixelrate = div_u64(hdmi->tmds_clk * 8, hdmi->xvidc_colordepth * 1000);
+			vid_clk = div_u64(pixelrate, config->ppc);
+			lnk_clk = div_u64(vid_clk * hdmi->xvidc_colordepth, 8);
 		}
 
 		xlnx_set_frl_link_clk(hdmi, lnk_clk);
@@ -3304,7 +3328,7 @@ xlnx_hdmi_encoder_atomic_mode_set(struct drm_encoder *encoder,
 
 	hdmi->wait_for_streamup = 0;
 	wait_event_timeout(hdmi->wait_event, hdmi->wait_for_streamup,
-			   msecs_to_jiffies(1000));
+			   msecs_to_jiffies(HDMI_TX_LNK_VID_RDY_DELAY));
 	if (!hdmi->wait_for_streamup)
 		dev_err(hdmi->dev, "wait_for_streamup timeout\n");
 
@@ -3498,6 +3522,7 @@ static int xlnx_hdmi_initialize(struct xlnx_hdmi *hdmi)
 
 	/* set default color format to RGB */
 	hdmi->xvidc_colorfmt = HDMI_TX_CSF_RGB;
+	hdmi->xvidc_colordepth = hdmi->config.bpc;
 
 	/* Reset all peripherals */
 	xlnx_hdmi_piointr_disable(hdmi);
@@ -3536,7 +3561,7 @@ static int xlnx_hdmi_initialize(struct xlnx_hdmi *hdmi)
 
 	/* ddc init */
 	clkrate = clk_get_rate(hdmitx_clks[S_AXI_CPU_ACLK].clk);
-	val = (clkrate / HDMI_TX_DDC_CLKDIV) / 2;
+	val = div_u64(clkrate, HDMI_TX_DDC_CLKDIV * 2);
 	val = (val << HDMI_TX_DDC_CTRL_CLK_DIV_SHIFT) &
 		HDMI_TX_DDC_CTRL_CLK_DIV;
 
@@ -4015,7 +4040,7 @@ err_clk_put:
 	return ret;
 }
 
-static int xlnx_hdmi_remove(struct platform_device *pdev)
+static void xlnx_hdmi_remove(struct platform_device *pdev)
 {
 	struct xlnx_hdmi *hdmi = platform_get_drvdata(pdev);
 	int num_clks = ARRAY_SIZE(hdmitx_clks);
@@ -4028,8 +4053,6 @@ static int xlnx_hdmi_remove(struct platform_device *pdev)
 	component_del(&pdev->dev, &xlnx_hdmi_component_ops);
 	clk_bulk_disable_unprepare(num_clks, hdmitx_clks);
 	clk_bulk_put(num_clks, hdmitx_clks);
-
-	return 0;
 }
 
 static const struct of_device_id xlnx_hdmi_of_match[] = {

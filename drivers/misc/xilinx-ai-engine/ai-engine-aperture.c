@@ -278,6 +278,7 @@ static void aie_aperture_release_device(struct device *dev)
 {
 	struct aie_aperture *aperture = dev_get_drvdata(dev);
 
+	flush_work(&aperture->backtrack);
 	aie_resource_uninitialize(&aperture->cols_res);
 	kfree(aperture->l2_mask.val);
 	zynqmp_pm_release_node(aperture->node_id);
@@ -330,7 +331,9 @@ int aie_aperture_remove(struct aie_aperture *aperture)
 	}
 	mutex_unlock(&aperture->mlock);
 
-	aie_aperture_sysfs_remove_entries(aperture);
+	if (aperture->adev->dev_gen != AIE_DEVICE_GEN_AIE2PS)
+		aie_aperture_sysfs_remove_entries(aperture);
+
 	of_node_clear_flag(aperture->dev.of_node, OF_POPULATED);
 	device_del(&aperture->dev);
 	put_device(&aperture->dev);
@@ -509,7 +512,8 @@ of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc)
 	res[0].end = res[i - 1].end;
 	aperture->res = res[0];
 	aperture->base = devm_ioremap_resource(dev, &aperture->res);
-	if (!aperture->base) {
+	if (IS_ERR(aperture->base)) {
+		dev_err(&adev->dev, "Error memory mapping base address\n");
 		ret = -ENOMEM;
 		goto put_aperture_dev;
 	}
@@ -533,12 +537,6 @@ of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc)
 	/* Initialize interrupt */
 	if (aperture->adev->device_name == AIE_DEV_GEN_S100 ||
 	    aperture->adev->device_name == AIE_DEV_GEN_S200) {
-		INIT_WORK(&aperture->backtrack, aie_aperture_backtrack);
-		ret = aie_aperture_create_l2_mask(aperture);
-		if (ret) {
-			dev_err(dev, "failed to initialize l2 mask resource.\n");
-			goto put_aperture_dev;
-		}
 
 		ret = xlnx_register_event(PM_NOTIFY_CB, VERSAL_EVENT_ERROR_PMC_ERR1,
 					  XPM_VERSAL_EVENT_ERROR_MASK_AIE_CR,
@@ -551,24 +549,22 @@ of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc)
 	} else {
 		ret = of_irq_get_byname(nc, "interrupt1");
 		if (ret < 0) {
-			dev_warn(&adev->dev, "no interrupt in device node.");
+			dev_warn(&adev->dev, "interrupt1 not found.");
 		} else {
-			aperture->irq = ret;
-			INIT_WORK(&aperture->backtrack, aie_aperture_backtrack);
-
-			ret = aie_aperture_create_l2_mask(aperture);
-			if (ret) {
-				dev_err(dev, "failed to initialize l2 mask resource.\n");
-				goto put_aperture_dev;
-			}
-
-			ret = devm_request_threaded_irq(dev, aperture->irq, NULL,
-							aie_interrupt, IRQF_ONESHOT,
-							dev_name(dev), aperture);
-			if (ret) {
-				dev_err(dev, "Failed to request AIE IRQ.\n");
-				goto put_aperture_dev;
-			}
+			aperture->npi_irq[0] = ret;
+		}		ret = of_irq_get_byname(nc, "interrupt2");
+		if (ret < 0) {
+			dev_warn(&adev->dev, "interrupt2 not found");
+			aperture->npi_irq[1] = 0;
+		} else {
+			aperture->npi_irq[1] = ret;
+		}
+		ret = of_irq_get_byname(nc, "interrupt3");
+		if (ret < 0) {
+			dev_warn(&adev->dev, "interrupt3 not found");
+			aperture->npi_irq[2] = 0;
+		} else {
+			aperture->npi_irq[2] = ret;
 		}
 	}
 
@@ -580,9 +576,39 @@ of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc)
 		goto put_aperture_dev;
 	}
 
-	ret = aie_aperture_sysfs_create_entries(aperture);
+	if (aperture->adev->dev_gen != AIE_DEVICE_GEN_AIE2PS) {
+		ret = aie_aperture_sysfs_create_entries(aperture);
+		if (ret) {
+			dev_err(dev, "Failed to create aperture sysfs: %d\n", ret);
+			goto put_aperture_dev;
+		}
+	}
+
+	INIT_WORK(&aperture->backtrack, aie_aperture_backtrack);
+	ret = aie_aperture_create_l2_mask(aperture);
 	if (ret) {
-		dev_err(dev, "Failed to create aperture sysfs: %d\n", ret);
+		dev_err(dev, "failed to initialize l2 mask resource.\n");
+		goto put_aperture_dev;
+	}
+
+	switch (adev->dev_gen) {
+	case AIE_DEVICE_GEN_AIE2PS:
+		ret = devm_request_threaded_irq(dev, aperture->npi_irq[0], NULL,
+						aie2ps_interrupt_fn, IRQF_ONESHOT, dev_name(dev),
+						aperture);
+		break;
+	default:
+		if (adev->device_name == AIE_DEV_GEN_S100 ||
+		    adev->device_name == AIE_DEV_GEN_S200) {
+			break;
+		}
+		ret = devm_request_threaded_irq(dev, aperture->npi_irq[0], NULL, aie_interrupt,
+						IRQF_ONESHOT, dev_name(dev), aperture);
+		break;
+	}
+
+	if (ret) {
+		dev_err(dev, "Failed to request AIE IRQ.\n");
 		goto put_aperture_dev;
 	}
 

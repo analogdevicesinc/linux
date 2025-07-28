@@ -13,7 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/spi/spi.h>
 #include <linux/module.h>
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/imu/adis.h>
@@ -478,17 +478,17 @@ int adis_single_conversion(struct iio_dev *indio_dev,
 	unsigned int uval;
 	int ret;
 
-	mutex_lock(&adis->state_lock);
+	guard(mutex)(&adis->state_lock);
 
 	ret = adis->ops->read(adis, chan->address, &uval,
 			      chan->scan_type.storagebits / 8);
 	if (ret)
-		goto err_unlock;
+		return ret;
 
 	if (uval & error_mask) {
 		ret = __adis_check_status(adis);
 		if (ret)
-			goto err_unlock;
+			return ret;
 	}
 
 	if (chan->scan_type.sign == 's')
@@ -496,10 +496,7 @@ int adis_single_conversion(struct iio_dev *indio_dev,
 	else
 		*val = uval & ((1 << chan->scan_type.realbits) - 1);
 
-	ret = IIO_VAL_INT;
-err_unlock:
-	mutex_unlock(&adis->state_lock);
-	return ret;
+	return IIO_VAL_INT;
 }
 EXPORT_SYMBOL_NS_GPL(adis_single_conversion, IIO_ADISLIB);
 

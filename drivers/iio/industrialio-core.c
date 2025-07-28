@@ -11,6 +11,7 @@
 
 #include <linux/anon_inodes.h>
 #include <linux/cdev.h>
+#include <linux/cleanup.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/err.h>
@@ -42,7 +43,7 @@ static DEFINE_IDA(iio_ida);
 static dev_t iio_devt;
 
 #define IIO_DEV_MAX 256
-struct bus_type iio_bus_type = {
+const struct bus_type iio_bus_type = {
 	.name = "iio",
 };
 EXPORT_SYMBOL(iio_bus_type);
@@ -92,6 +93,8 @@ static const char * const iio_chan_type_name_spec[] = {
 	[IIO_MASSCONCENTRATION] = "massconcentration",
 	[IIO_DELTA_ANGL] = "deltaangl",
 	[IIO_DELTA_VELOCITY] = "deltavelocity",
+	[IIO_COLORTEMP] = "colortemp",
+	[IIO_CHROMATICITY] = "chromaticity",
 	[IIO_GENERIC_DATA] = "data",
 	[IIO_FLAGS] = "flags",
 };
@@ -117,6 +120,8 @@ static const char * const iio_modifier_names[] = {
 	[IIO_MOD_LIGHT_GREEN] = "green",
 	[IIO_MOD_LIGHT_BLUE] = "blue",
 	[IIO_MOD_LIGHT_UV] = "uv",
+	[IIO_MOD_LIGHT_UVA] = "uva",
+	[IIO_MOD_LIGHT_UVB] = "uvb",
 	[IIO_MOD_LIGHT_DUV] = "duv",
 	[IIO_MOD_QUATERNION] = "quaternion",
 	[IIO_MOD_TEMP_AMBIENT] = "ambient",
@@ -183,6 +188,7 @@ static const char * const iio_chan_info_postfix[] = {
 	[IIO_CHAN_INFO_THERMOCOUPLE_TYPE] = "thermocouple_type",
 	[IIO_CHAN_INFO_CALIBAMBIENT] = "calibambient",
 	[IIO_CHAN_INFO_ZEROPOINT] = "zeropoint",
+	[IIO_CHAN_INFO_TROUGH] = "trough_raw",
 };
 /**
  * iio_device_id() - query the unique ID for the device
@@ -211,9 +217,7 @@ bool iio_buffer_enabled(struct iio_dev *indio_dev)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 
-	return iio_dev_opaque->currentmode &
-	       (INDIO_BUFFER_HARDWARE | INDIO_BUFFER_SOFTWARE |
-		INDIO_BUFFER_TRIGGERED);
+	return iio_dev_opaque->currentmode & INDIO_ALL_BUFFER_MODES;
 }
 EXPORT_SYMBOL_GPL(iio_buffer_enabled);
 
@@ -666,7 +670,6 @@ static ssize_t __iio_format_value(char *buf, size_t offset, unsigned int type,
 					     vals[1]);
 	case IIO_VAL_FRACTIONAL:
 		tmp2 = div_s64((s64)vals[0] * 1000000000LL, vals[1]);
-		tmp1 = vals[1];
 		tmp0 = (int)div_s64_rem(tmp2, 1000000000, &tmp1);
 		if ((tmp2 < 0) && (tmp0 == 0))
 			return sysfs_emit_at(buf, offset, "-0.%09u", abs(tmp1));
@@ -726,20 +729,25 @@ ssize_t iio_format_value(char *buf, unsigned int type, int size, int *vals)
 }
 EXPORT_SYMBOL_GPL(iio_format_value);
 
+ssize_t do_iio_read_channel_label(struct iio_dev *indio_dev,
+				  const struct iio_chan_spec *c,
+				  char *buf)
+{
+	if (indio_dev->info->read_label)
+		return indio_dev->info->read_label(indio_dev, c, buf);
+
+	if (c->extend_name)
+		return sysfs_emit(buf, "%s\n", c->extend_name);
+
+	return -EINVAL;
+}
+
 static ssize_t iio_read_channel_label(struct device *dev,
 				      struct device_attribute *attr,
 				      char *buf)
 {
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-
-	if (indio_dev->info->read_label)
-		return indio_dev->info->read_label(indio_dev, this_attr->c, buf);
-
-	if (this_attr->c->extend_name)
-		return sysfs_emit(buf, "%s\n", this_attr->c->extend_name);
-
-	return -EINVAL;
+	return do_iio_read_channel_label(dev_to_iio_dev(dev),
+					 to_iio_dev_attr(attr)->c, buf);
 }
 
 static ssize_t iio_read_channel_info(struct device *dev,
@@ -757,9 +765,11 @@ static ssize_t iio_read_channel_info(struct device *dev,
 							INDIO_MAX_RAW_ELEMENTS,
 							vals, &val_len,
 							this_attr->address);
-	else
+	else if (indio_dev->info->read_raw)
 		ret = indio_dev->info->read_raw(indio_dev, this_attr->c,
 				    &vals[0], &vals[1], this_attr->address);
+	else
+		return -EINVAL;
 
 	if (ret < 0)
 		return ret;
@@ -840,6 +850,9 @@ static ssize_t iio_read_channel_info_avail(struct device *dev,
 	int ret;
 	int length;
 	int type;
+
+	if (!indio_dev->info->read_avail)
+		return -EINVAL;
 
 	ret = indio_dev->info->read_avail(indio_dev, this_attr->c,
 					  &vals, &type, &length,
@@ -1582,10 +1595,13 @@ static int iio_device_register_sysfs(struct iio_dev *indio_dev)
 	ret = iio_device_register_sysfs_group(indio_dev,
 					      &iio_dev_opaque->chan_attr_group);
 	if (ret)
-		goto error_clear_attrs;
+		goto error_free_chan_attrs;
 
 	return 0;
 
+error_free_chan_attrs:
+	kfree(iio_dev_opaque->chan_attr_group.attrs);
+	iio_dev_opaque->chan_attr_group.attrs = NULL;
 error_clear_attrs:
 	iio_free_chan_devattr_list(&iio_dev_opaque->channel_attr_list);
 
@@ -1640,19 +1656,20 @@ struct iio_dev *iio_device_alloc(struct device *parent, int sizeof_priv)
 	struct iio_dev *indio_dev;
 	size_t alloc_size;
 
-	alloc_size = sizeof(struct iio_dev_opaque);
-	if (sizeof_priv) {
-		alloc_size = ALIGN(alloc_size, IIO_DMA_MINALIGN);
-		alloc_size += sizeof_priv;
-	}
+	if (sizeof_priv)
+		alloc_size = ALIGN(sizeof(*iio_dev_opaque), IIO_DMA_MINALIGN) + sizeof_priv;
+	else
+		alloc_size = sizeof(*iio_dev_opaque);
 
 	iio_dev_opaque = kzalloc(alloc_size, GFP_KERNEL);
 	if (!iio_dev_opaque)
 		return NULL;
 
 	indio_dev = &iio_dev_opaque->indio_dev;
-	indio_dev->priv = (char *)iio_dev_opaque +
-		ALIGN(sizeof(struct iio_dev_opaque), IIO_DMA_MINALIGN);
+
+	if (sizeof_priv)
+		indio_dev->priv = (char *)iio_dev_opaque +
+			ALIGN(sizeof(*iio_dev_opaque), IIO_DMA_MINALIGN);
 
 	indio_dev->dev.parent = parent;
 	indio_dev->dev.type = &iio_device_type;
@@ -1810,31 +1827,24 @@ static long iio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct iio_dev *indio_dev = ib->indio_dev;
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	struct iio_ioctl_handler *h;
-	int ret = -ENODEV;
+	int ret;
 
-	mutex_lock(&iio_dev_opaque->info_exist_lock);
-
+	guard(mutex)(&iio_dev_opaque->info_exist_lock);
 	/*
 	 * The NULL check here is required to prevent crashing when a device
 	 * is being removed while userspace would still have open file handles
 	 * to try to access this device.
 	 */
 	if (!indio_dev->info)
-		goto out_unlock;
+		return -ENODEV;
 
 	list_for_each_entry(h, &iio_dev_opaque->ioctl_handlers, entry) {
 		ret = h->ioctl(indio_dev, filp, cmd, arg);
 		if (ret != IIO_IOCTL_UNHANDLED)
-			break;
+			return ret;
 	}
 
-	if (ret == IIO_IOCTL_UNHANDLED)
-		ret = -ENODEV;
-
-out_unlock:
-	mutex_unlock(&iio_dev_opaque->info_exist_lock);
-
-	return ret;
+	return -ENODEV;
 }
 
 static bool iio_chan_same_size(const struct iio_chan_spec *a,
@@ -1924,7 +1934,7 @@ static void iio_sanity_check_avail_scan_masks(struct iio_dev *indio_dev)
 	int i;
 
 	av_masks = indio_dev->available_scan_masks;
-	masklength = indio_dev->masklength;
+	masklength = iio_get_masklength(indio_dev);
 	longs_per_mask = BITS_TO_LONGS(masklength);
 
 	/*
@@ -2015,7 +2025,7 @@ int iio_active_scan_mask_index(struct iio_dev *indio_dev)
 	}
 
 	dev_warn(indio_dev->dev.parent,
-		 "active scan mask is not part of the avaialable scan masks\n");
+		 "active scan mask is not part of the available scan masks\n");
 	return -EINVAL;
 }
 EXPORT_SYMBOL_GPL(iio_active_scan_mask_index);
@@ -2121,18 +2131,16 @@ void iio_device_unregister(struct iio_dev *indio_dev)
 
 	cdev_device_del(&iio_dev_opaque->chrdev, &indio_dev->dev);
 
-	mutex_lock(&iio_dev_opaque->info_exist_lock);
+	scoped_guard(mutex, &iio_dev_opaque->info_exist_lock) {
+		iio_device_unregister_debugfs(indio_dev);
 
-	iio_device_unregister_debugfs(indio_dev);
+		iio_disable_all_buffers(indio_dev);
 
-	iio_disable_all_buffers(indio_dev);
+		indio_dev->info = NULL;
 
-	indio_dev->info = NULL;
-
-	iio_device_wakeup_eventset(indio_dev);
-	iio_buffer_wakeup_poll(indio_dev);
-
-	mutex_unlock(&iio_dev_opaque->info_exist_lock);
+		iio_device_wakeup_eventset(indio_dev);
+		iio_buffer_wakeup_poll(indio_dev);
+	}
 
 	iio_buffers_free_sysfs_and_mask(indio_dev);
 }

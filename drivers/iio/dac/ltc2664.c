@@ -516,7 +516,7 @@ static int ltc2664_channel_config(struct ltc2664_state *st)
 	const struct ltc2664_chip_info *chip_info = st->chip_info;
 	struct device *dev = &st->spi->dev;
 	u32 reg, tmp[2], mspan;
-	int ret, span = 0;
+	int ret;
 
 	mspan = LTC2664_MSPAN_SOFTSPAN;
 	ret = device_property_read_u32(dev, "adi,manual-span-operation-config",
@@ -579,20 +579,21 @@ static int ltc2664_channel_config(struct ltc2664_state *st)
 		ret = fwnode_property_read_u32_array(child, "output-range-microvolt",
 						     tmp, ARRAY_SIZE(tmp));
 		if (!ret && mspan == LTC2664_MSPAN_SOFTSPAN) {
-			chan->span = ltc2664_set_span(st, tmp[0] / 1000,
-						      tmp[1] / 1000, reg);
-			if (span < 0)
-				return dev_err_probe(dev, span,
+			ret = ltc2664_set_span(st, tmp[0] / 1000, tmp[1] / 1000, reg);
+			if (ret < 0)
+				return dev_err_probe(dev, ret,
 						     "Failed to set span\n");
+			chan->span = ret;
 		}
 
 		ret = fwnode_property_read_u32_array(child, "output-range-microamp",
 						     tmp, ARRAY_SIZE(tmp));
 		if (!ret) {
-			chan->span = ltc2664_set_span(st, 0, tmp[1] / 1000, reg);
-			if (span < 0)
-				return dev_err_probe(dev, span,
+			ret = ltc2664_set_span(st, 0, tmp[1] / 1000, reg);
+			if (ret < 0)
+				return dev_err_probe(dev, ret,
 						     "Failed to set span\n");
+			chan->span = ret;
 		}
 	}
 
@@ -639,11 +640,6 @@ static int ltc2664_setup(struct ltc2664_state *st)
 	return regmap_set_bits(st->regmap, LTC2664_CMD_CONFIG, LTC2664_REF_DISABLE);
 }
 
-static void ltc2664_disable_regulator(void *regulator)
-{
-	regulator_disable(regulator);
-}
-
 static const struct regmap_config ltc2664_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 16,
@@ -662,7 +658,6 @@ static int ltc2664_probe(struct spi_device *spi)
 	static const char * const regulators[] = { "vcc", "iovcc", "v-neg" };
 	const struct ltc2664_chip_info *chip_info;
 	struct device *dev = &spi->dev;
-	struct regulator *vref_reg;
 	struct iio_dev *indio_dev;
 	struct ltc2664_state *st;
 	int ret;
@@ -692,32 +687,11 @@ static int ltc2664_probe(struct spi_device *spi)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to enable regulators\n");
 
-	vref_reg = devm_regulator_get_optional(dev, "ref");
-	if (IS_ERR(vref_reg)) {
-		if (PTR_ERR(vref_reg) != -ENODEV)
-			return dev_err_probe(dev, PTR_ERR(vref_reg),
-					     "Failed to get ref regulator");
+	ret = devm_regulator_get_enable_read_voltage(dev, "ref");
+	if (ret < 0 && ret != -ENODEV)
+		return ret;
 
-		vref_reg = NULL;
-
-		st->vref_mv = chip_info->internal_vref_mv;
-	} else {
-		ret = regulator_enable(vref_reg);
-		if (ret)
-			return dev_err_probe(dev, ret,
-					     "Failed to enable ref regulators\n");
-
-		ret = devm_add_action_or_reset(dev, ltc2664_disable_regulator,
-					       vref_reg);
-		if (ret)
-			return ret;
-
-		ret = regulator_get_voltage(vref_reg);
-		if (ret < 0)
-			return dev_err_probe(dev, ret, "Failed to get ref\n");
-
-		st->vref_mv = ret / 1000;
-	}
+	st->vref_mv = ret > 0 ? ret / 1000 :  chip_info->internal_vref_mv;
 
 	ret = ltc2664_setup(st);
 	if (ret)

@@ -40,6 +40,7 @@
 #include <linux/ethtool.h>
 #include <linux/iopoll.h>
 #include <linux/ptp_classify.h>
+#include <linux/platform_device.h>
 #include <linux/net_tstamp.h>
 #include <linux/random.h>
 #include <net/sock.h>
@@ -106,7 +107,7 @@
 #define PORT_NUM_FILTER_ENABLE_MASK		0x0000FFFF /* Enable port number based filtering */
 #define VERSION_FILTER_ENABLE_MASK		0xFF000000 /* Enable PTP version based filtering */
 
-#ifdef CONFIG_XILINX_TSN_PTP
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 int axienet_phc_index = -1;
 EXPORT_SYMBOL(axienet_phc_index);
 #endif
@@ -449,7 +450,7 @@ void axienet_adjust_link_tsn(struct net_device *ndev)
  * This function is invoked from the Axi DMA Tx isr to notify the completion
  * of transmit operation. It clears fields in the corresponding Tx BDs and
  * unmaps the corresponding buffer so that CPU can regain ownership of the
- * buffer. It finally invokes "netif_wake_queue" to restart transmission if
+ * buffer. It finally invokes "netif_wake_subqueue" to restart transmission if
  * required.
  */
 void axienet_start_xmit_done_tsn(struct net_device *ndev,
@@ -475,7 +476,7 @@ void axienet_start_xmit_done_tsn(struct net_device *ndev,
 					 XAXIDMA_BD_CTRL_LENGTH_MASK,
 					 DMA_TO_DEVICE);
 		if (cur_p->tx_skb)
-			dev_kfree_skb_irq((struct sk_buff *)cur_p->tx_skb);
+			dev_kfree_skb_irq(cur_p->tx_skb);
 		/*cur_p->phys = 0;*/
 		cur_p->app0 = 0;
 		cur_p->app1 = 0;
@@ -502,12 +503,8 @@ void axienet_start_xmit_done_tsn(struct net_device *ndev,
 	/* Matches barrier in axienet_start_xmit */
 	smp_mb();
 
-	/* Fixme: With the existing multiqueue implementation
-	 * in the driver it is difficult to get the exact queue info.
-	 * We should wake only the particular queue
-	 * instead of waking all ndev queues.
-	 */
-	netif_tx_wake_all_queues(ndev);
+	if (__netif_subqueue_stopped(ndev, q->txq_idx) && packets)
+		netif_wake_subqueue(ndev, q->txq_idx);
 }
 
 /**
@@ -541,29 +538,28 @@ static inline int axienet_check_tx_bd_space(struct axienet_dma_q *q,
 int axienet_queue_xmit_tsn(struct sk_buff *skb,
 			   struct net_device *ndev, u16 map)
 {
-	u32 ii;
-	u32 num_frag;
-	u32 csum_start_off;
-	u32 csum_index_off;
-	dma_addr_t tail_p;
+	u32 csum_start_off, csum_index_off, num_frag, ii;
 	struct axienet_local *lp = netdev_priv(ndev);
 	struct aximcdma_bd *cur_p;
-	unsigned long flags;
 	struct axienet_dma_q *q;
+	unsigned long flags;
+	dma_addr_t tail_p;
+	u8 dmaq_idx;
 
 	num_frag = skb_shinfo(skb)->nr_frags;
 
-	q = lp->dq[map];
+	dmaq_idx = lp->txqs[map].dmaq_idx;
+	q = lp->dq[dmaq_idx];
 
 	cur_p = &q->txq_bd_v[q->tx_bd_tail];
 	spin_lock_irqsave(&q->tx_lock, flags);
 	if (axienet_check_tx_bd_space(q, num_frag)) {
-		if (netif_queue_stopped(ndev)) {
+		if (__netif_subqueue_stopped(ndev, q->txq_idx)) {
 			spin_unlock_irqrestore(&q->tx_lock, flags);
 			return NETDEV_TX_BUSY;
 		}
 
-		netif_stop_queue(ndev);
+		netif_stop_subqueue(ndev, q->txq_idx);
 
 		/* Matches barrier in axienet_start_xmit_done_tsn */
 		smp_mb();
@@ -574,7 +570,7 @@ int axienet_queue_xmit_tsn(struct sk_buff *skb,
 			return NETDEV_TX_BUSY;
 		}
 
-		netif_wake_queue(ndev);
+		netif_wake_subqueue(ndev, q->txq_idx);
 	}
 
 	if (skb->ip_summed == CHECKSUM_PARTIAL && !lp->eth_hasnobuf &&
@@ -598,7 +594,7 @@ int axienet_queue_xmit_tsn(struct sk_buff *skb,
 	cur_p->cntrl = (skb_headlen(skb) | XMCDMA_BD_CTRL_TXSOF_MASK);
 
 	if (!q->eth_hasdre &&
-	    (((phys_addr_t)skb->data & 0x3) || num_frag > 0)) {
+	    (((uintptr_t)skb->data & 0x3) || num_frag > 0)) {
 		skb_copy_and_csum_dev(skb, q->tx_buf[q->tx_bd_tail]);
 
 		cur_p->phys = q->tx_bufs_dma +
@@ -637,10 +633,8 @@ int axienet_queue_xmit_tsn(struct sk_buff *skb,
 out:
 	cur_p->cntrl |= XMCDMA_BD_CTRL_TXEOF_MASK;
 	tail_p = q->tx_bd_p + sizeof(*q->txq_bd_v) * q->tx_bd_tail;
-	cur_p->tx_skb = (phys_addr_t)skb;
-	cur_p->tx_skb = (phys_addr_t)skb;
+	cur_p->tx_skb = skb;
 
-	tail_p = q->tx_bd_p + sizeof(*q->tx_bd_v) * q->tx_bd_tail;
 	/* Ensure BD write before starting transfer */
 	wmb();
 
@@ -698,7 +692,7 @@ static int axienet_recv(struct net_device *ndev, int budget,
 				 lp->max_frm_size,
 				 DMA_FROM_DEVICE);
 
-		skb = (struct sk_buff *)(cur_p->sw_id_offset);
+		skb = (cur_p->sw_id_offset);
 
 		if (lp->eth_hasnobuf ||
 		    lp->axienet_config->mactype != XAXIENET_1G)
@@ -728,7 +722,7 @@ static int axienet_recv(struct net_device *ndev, int budget,
 			skb->csum = be32_to_cpu(cur_p->app3 & 0xFFFF);
 			skb->ip_summed = CHECKSUM_COMPLETE;
 		}
-		if (unlikely(q->flags & MCDMA_MGMT_CHAN)) {
+		if (unlikely(sband_status & XMCDMA_BD_SD_MGMT_VALID_MASK)) {
 			/* received packet on mgmt channel */
 			if ((sband_status & XMCDMA_BD_SD_STS_ALL_MASK)
 			    == XMCDMA_BD_SD_STS_TUSER_MAC_1) {
@@ -783,7 +777,7 @@ static int axienet_recv(struct net_device *ndev, int budget,
 		}
 		cur_p->cntrl = lp->max_frm_size;
 		cur_p->status = 0;
-		cur_p->sw_id_offset = (phys_addr_t)new_skb;
+		cur_p->sw_id_offset = new_skb;
 
 		if (++q->rx_bd_ci >= lp->rx_bd_num)
 			q->rx_bd_ci = 0;
@@ -828,6 +822,7 @@ int xaxienet_rx_poll_tsn(struct napi_struct *napi, int quota)
 
 	struct axienet_dma_q *q = lp->dq[map];
 
+	pr_debug("index %d, chan_id %d\n", map, q->chan_id);
 	spin_lock(&q->rx_lock);
 	status = axienet_dma_in32(q, XMCDMA_CHAN_SR_OFFSET(q->chan_id) +
 				  q->rx_offset);
@@ -914,7 +909,7 @@ static void axienet_poll_controller(struct net_device *ndev)
 }
 #endif
 
-#if defined(CONFIG_XILINX_TSN_PTP)
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 /**
  *  axienet_set_timestamp_mode - sets up the hardware for the requested mode
  *  @lp: Pointer to axienet local structure
@@ -927,7 +922,7 @@ static int axienet_set_timestamp_mode(struct axienet_local *lp,
 {
 	u32 regval;
 
-#ifdef CONFIG_XILINX_TSN_PTP
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 	/* reserved for future extensions */
 	if (config->flags)
 		return -EINVAL;
@@ -1099,7 +1094,7 @@ static int axienet_get_ts_config(struct axienet_local *lp, struct ifreq *ifr)
 /* Ioctl MII Interface */
 static int axienet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
-#if defined(CONFIG_XILINX_TSN_PTP)
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 	struct axienet_local *lp = netdev_priv(dev);
 #endif
 
@@ -1113,7 +1108,7 @@ static int axienet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		if (!dev->phydev)
 			return -EOPNOTSUPP;
 		return phy_mii_ioctl(dev->phydev, rq, cmd);
-#if defined(CONFIG_XILINX_TSN_PTP)
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 	case SIOCSHWTSTAMP:
 		return axienet_set_ts_config(lp, rq);
 	case SIOCGHWTSTAMP:
@@ -1127,10 +1122,13 @@ static int axienet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 static int axienet_ioctl_siocdevprivate(struct net_device *dev,
 					struct ifreq *rq, void __user *data, int cmd)
 {
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBV) || \
+	IS_ENABLED(CONFIG_AXIENET_HAS_TADMA)
 	struct axienet_local *lp = netdev_priv(dev);
+#endif
 
 	switch (cmd) {
-#ifdef CONFIG_XILINX_TSN_QBV
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBV)
 	case SIOCCHIOCTL:
 		if (lp->qbv_regs)
 			return axienet_set_schedule(dev, data);
@@ -1140,7 +1138,7 @@ static int axienet_ioctl_siocdevprivate(struct net_device *dev,
 			return axienet_get_schedule(dev, data);
 		return -EINVAL;
 #endif
-#ifdef CONFIG_AXIENET_HAS_TADMA
+#if IS_ENABLED(CONFIG_AXIENET_HAS_TADMA)
 	case SIOC_TADMA_OFF:
 		if (!(lp->abl_reg & TSN_BRIDGEEP_EPONLY))
 			return -ENOENT;
@@ -1158,7 +1156,7 @@ static int axienet_ioctl_siocdevprivate(struct net_device *dev,
 			return -ENOENT;
 		return axienet_tadma_flush_stream(dev, data);
 #endif
-#ifdef CONFIG_XILINX_TSN_QBR
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBR)
 	case SIOC_PREEMPTION_CFG:
 		return axienet_preemption(dev, data);
 	case SIOC_PREEMPTION_CTRL:
@@ -1169,7 +1167,7 @@ static int axienet_ioctl_siocdevprivate(struct net_device *dev,
 		return axienet_preemption_receive(dev);
 	case SIOC_PREEMPTION_COUNTER:
 		return axienet_preemption_cnt(dev, data);
-#ifdef CONFIG_XILINX_TSN_QBV
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBV)
 	case SIOC_QBU_USER_OVERRIDE:
 		return axienet_qbu_user_override(dev, data);
 	case SIOC_QBU_STS:
@@ -1195,12 +1193,14 @@ static const struct net_device_ops axienet_netdev_ops = {
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = axienet_poll_controller,
 #endif
-#ifdef CONFIG_XILINX_TSN
+#if IS_ENABLED(CONFIG_XILINX_TSN)
 	.ndo_select_queue = axienet_tsn_select_queue,
-#if defined(CONFIG_XILINX_TSN_SWITCH)
+#if IS_ENABLED(CONFIG_XILINX_TSN_SWITCH)
 	.ndo_get_port_parent_id = tsn_switch_get_port_parent_id,
 #endif
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBV)
 	.ndo_setup_tc = axienet_tsn_shaper_tc,
+#endif
 #endif
 };
 
@@ -1492,7 +1492,7 @@ int axienet_ethtools_set_coalesce(struct net_device *ndev,
 	return 0;
 }
 
-#if defined(CONFIG_XILINX_TSN_PTP)
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 /**
  * axienet_ethtools_get_ts_info - Get h/w timestamping capabilities.
  * @ndev:	Pointer to net_device structure
@@ -1501,7 +1501,7 @@ int axienet_ethtools_set_coalesce(struct net_device *ndev,
  * Return: 0, on success, Non-zero error value on failure.
  */
 static int axienet_ethtools_get_ts_info(struct net_device *ndev,
-					struct ethtool_ts_info *info)
+					struct kernel_ethtool_ts_info *info)
 {
 	struct axienet_local *lp = netdev_priv(ndev);
 
@@ -1515,9 +1515,7 @@ static int axienet_ethtools_get_ts_info(struct net_device *ndev,
 			   (1 << HWTSTAMP_FILTER_ALL);
 	info->phc_index = lp->phc_index;
 
-#ifdef CONFIG_XILINX_TSN_PTP
 	info->phc_index = axienet_phc_index;
-#endif
 	return 0;
 }
 #endif
@@ -1603,12 +1601,12 @@ static const struct ethtool_ops axienet_ethtool_ops = {
 	.get_sset_count	= axienet_ethtools_sset_count,
 	.get_ethtool_stats = axienet_ethtools_get_stats,
 	.get_strings = axienet_ethtools_strings,
-#if defined(CONFIG_XILINX_TSN_PTP)
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 	.get_ts_info    = axienet_ethtools_get_ts_info,
 #endif
 	.get_link_ksettings = phy_ethtool_get_link_ksettings,
 	.set_link_ksettings = phy_ethtool_set_link_ksettings,
-#if defined(CONFIG_XILINX_TSN_QBR)
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBR)
 	.get_mm		= axienet_preemption_sts_ethtool,
 	.set_mm		= axienet_preemption_ctrl_ethtool,
 	.get_mm_stats	= axienet_preemption_cnt_ethtool,
@@ -1627,14 +1625,14 @@ static int axienet_clk_init(struct platform_device *pdev,
 	 * the future. For proper clock usage check axiethernet binding
 	 * documentation.
 	 */
-	*axi_aclk = devm_clk_get(&pdev->dev, "ethernet_clk");
+	*axi_aclk = devm_clk_get_enabled(&pdev->dev, "ethernet_clk");
 	if (IS_ERR(*axi_aclk)) {
 		if (PTR_ERR(*axi_aclk) != -ENOENT) {
 			err = PTR_ERR(*axi_aclk);
 			return err;
 		}
 
-		*axi_aclk = devm_clk_get(&pdev->dev, "s_axi_lite_clk");
+		*axi_aclk = devm_clk_get_enabled(&pdev->dev, "s_axi_lite_clk");
 		if (IS_ERR(*axi_aclk)) {
 			if (PTR_ERR(*axi_aclk) != -ENOENT) {
 				err = PTR_ERR(*axi_aclk);
@@ -1647,7 +1645,7 @@ static int axienet_clk_init(struct platform_device *pdev,
 		dev_warn(&pdev->dev, "ethernet_clk is deprecated and will be removed sometime in the future\n");
 	}
 
-	*axis_clk = devm_clk_get(&pdev->dev, "axis_clk");
+	*axis_clk = devm_clk_get_enabled(&pdev->dev, "axis_clk");
 	if (IS_ERR(*axis_clk)) {
 		if (PTR_ERR(*axis_clk) != -ENOENT) {
 			err = PTR_ERR(*axis_clk);
@@ -1656,7 +1654,7 @@ static int axienet_clk_init(struct platform_device *pdev,
 		*axis_clk = NULL;
 	}
 
-	*ref_clk = devm_clk_get(&pdev->dev, "ref_clk");
+	*ref_clk = devm_clk_get_enabled(&pdev->dev, "ref_clk");
 	if (IS_ERR(*ref_clk)) {
 		if (PTR_ERR(*ref_clk) != -ENOENT) {
 			err = PTR_ERR(*ref_clk);
@@ -1665,46 +1663,7 @@ static int axienet_clk_init(struct platform_device *pdev,
 		*ref_clk = NULL;
 	}
 
-	err = clk_prepare_enable(*axi_aclk);
-	if (err) {
-		dev_err(&pdev->dev, "failed to enable axi_aclk/ethernet_clk (%d)\n", err);
-		return err;
-	}
-
-	err = clk_prepare_enable(*axis_clk);
-	if (err) {
-		dev_err(&pdev->dev, "failed to enable axis_clk (%d)\n", err);
-		goto err_disable_axi_aclk;
-	}
-
-	err = clk_prepare_enable(*ref_clk);
-	if (err) {
-		dev_err(&pdev->dev, "failed to enable ref_clk (%d)\n", err);
-		goto err_disable_axis_clk;
-	}
-
 	return 0;
-
-err_disable_axis_clk:
-	clk_disable_unprepare(*axis_clk);
-err_disable_axi_aclk:
-	clk_disable_unprepare(*axi_aclk);
-
-	return err;
-}
-
-static void axienet_clk_disable(struct platform_device *pdev)
-{
-	struct net_device *ndev = platform_get_drvdata(pdev);
-	struct axienet_local *lp = netdev_priv(ndev);
-
-	clk_disable_unprepare(lp->dma_sg_clk);
-	clk_disable_unprepare(lp->dma_tx_clk);
-	clk_disable_unprepare(lp->dma_rx_clk);
-	clk_disable_unprepare(lp->eth_sclk);
-	clk_disable_unprepare(lp->eth_refclk);
-	clk_disable_unprepare(lp->eth_dclk);
-	clk_disable_unprepare(lp->aclk);
 }
 
 static const struct axienet_config axienet_1g_config_tsn = {
@@ -1750,10 +1709,7 @@ static int axienet_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u16(pdev->dev.of_node, "xlnx,num-queues",
 				   &num_queues);
-	if (num_queues < XAE_TSN_MIN_QUEUES)
-		num_queues = XAE_TSN_MIN_QUEUES;
-	else if (num_queues > XAE_MAX_QUEUES)
-		num_queues = XAE_MAX_QUEUES;
+	num_queues = clamp_val(num_queues, XAE_TSN_MIN_QUEUES, XAE_MAX_QUEUES);
 
 	ndev = alloc_etherdev_mq(sizeof(*lp), num_queues);
 	if (!ndev)
@@ -1781,44 +1737,50 @@ static int axienet_probe(struct platform_device *pdev)
 	lp->rx_bd_num = RX_BD_NUM_DEFAULT;
 	lp->tx_bd_num = TX_BD_NUM_DEFAULT;
 
-	lp->axi_clk = devm_clk_get_optional(&pdev->dev, "s_axi_lite_clk");
-	if (!lp->axi_clk) {
-		/* For backward compatibility, if named AXI clock is not present,
-		 * treat the first clock specified as the AXI clock.
-		 */
-		lp->axi_clk = devm_clk_get_optional(&pdev->dev, NULL);
-	}
+	lp->axi_clk = devm_clk_get_optional_enabled(&pdev->dev, "s_axi_lite_clk");
 	if (IS_ERR(lp->axi_clk)) {
 		ret = PTR_ERR(lp->axi_clk);
 		goto free_netdev;
 	}
-	ret = clk_prepare_enable(lp->axi_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "Unable to enable AXI clock: %d\n", ret);
+	if (!lp->axi_clk) {
+		/* For backward compatibility, if named AXI clock is not present,
+		 * treat the first clock specified as the AXI clock.
+		 */
+		lp->axi_clk = devm_clk_get_optional_enabled(&pdev->dev, NULL);
+		if (IS_ERR(lp->axi_clk)) {
+			ret = PTR_ERR(lp->axi_clk);
+			goto free_netdev;
+		}
+	}
+
+	lp->misc_clks[0].clk = devm_clk_get_optional_enabled(&pdev->dev, "axis_clk");
+	if (IS_ERR(lp->misc_clks[0].clk)) {
+		ret = PTR_ERR(lp->misc_clks[0].clk);
+		goto free_netdev;
+	}
+	lp->misc_clks[1].clk = devm_clk_get_optional_enabled(&pdev->dev, "ref_clk");
+	if (IS_ERR(lp->misc_clks[1].clk)) {
+		ret = PTR_ERR(lp->misc_clks[1].clk);
+		goto free_netdev;
+	}
+	lp->misc_clks[2].clk = devm_clk_get_optional_enabled(&pdev->dev, "mgt_clk");
+	if (IS_ERR(lp->misc_clks[2].clk)) {
+		ret = PTR_ERR(lp->misc_clks[2].clk);
 		goto free_netdev;
 	}
 
-	lp->misc_clks[0].id = "axis_clk";
-	lp->misc_clks[1].id = "ref_clk";
-	lp->misc_clks[2].id = "mgt_clk";
-
-	ret = devm_clk_bulk_get_optional(&pdev->dev, XAE_NUM_MISC_CLOCKS, lp->misc_clks);
-	if (ret)
-		goto cleanup_clk;
-
-	ret = clk_bulk_prepare_enable(XAE_NUM_MISC_CLOCKS, lp->misc_clks);
-	if (ret)
-		goto cleanup_clk;
 	ret = of_property_read_u16(pdev->dev.of_node, "xlnx,num-tc",
 				   &lp->num_tc);
-	if (ret || (lp->num_tc != 2 && lp->num_tc != 3))
-		lp->num_tc = XAE_MAX_TSN_TC;
+	if (ret || !axienet_tsn_num_tc_valid(lp->num_tc)) {
+		dev_err(&pdev->dev, "xlnx,num-tc parameter not defined\n");
+		goto free_netdev;
+	}
 
 	/* Map device registers */
 	lp->regs = devm_platform_get_and_ioremap_resource(pdev, 0, &ethres);
 	if (IS_ERR(lp->regs)) {
 		ret = PTR_ERR(lp->regs);
-		goto cleanup_clk;
+		goto free_netdev;
 	}
 	lp->regs_start = ethres->start;
 
@@ -1915,14 +1877,14 @@ static int axienet_probe(struct platform_device *pdev)
 	ret = axienet_tsn_probe(pdev, lp, ndev);
 
 	if (ret)
-		goto cleanup_clk;
+		goto free_netdev;
 
 	ret = axienet_clk_init(pdev, &lp->aclk, &lp->eth_sclk,
 			       &lp->eth_refclk, &lp->eth_dclk);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Ethernet clock init failed %d\n", ret);
-		goto err_disable_clk;
+		goto free_netdev;
 	}
 
 	lp->eth_irq = platform_get_irq(pdev, 0);
@@ -1950,70 +1912,59 @@ static int axienet_probe(struct platform_device *pdev)
 		lp->phy_flags = XAE_PHY_TYPE_1000BASE_X;
 
 	lp->phy_node = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
-	if (lp->phy_node) {
-		ret = axienet_mdio_setup_tsn(lp);
-		if (ret)
-			dev_warn(&pdev->dev,
-				 "error registering MDIO bus: %d\n", ret);
+	if (!lp->phy_node) {
+		dev_err(&pdev->dev, "Failed to get 'phy-handle' from device tree\n");
+		ret = -EINVAL;
+		goto free_netdev;
+	}
+	ret = axienet_mdio_setup_tsn(lp);
+	if (ret) {
+		dev_warn(&pdev->dev, "error registering MDIO bus: %d\n", ret);
+		goto err_of_put;
 	}
 
 	/* Create sysfs file entries for the device */
 	ret = axeinet_mcdma_create_sysfs_tsn(&lp->dev->kobj);
 	if (ret < 0) {
 		dev_err(lp->dev, "unable to create sysfs entries\n");
-		return ret;
+		goto err_mdio;
 	}
 
 	ret = register_netdev(lp->ndev);
 	if (ret) {
 		dev_err(lp->dev, "register_netdev() error (%i)\n", ret);
-		axienet_mdio_teardown_tsn(lp);
-		goto cleanup_clk;
+		goto err_clear_sysfs;
 	}
 
 	return 0;
 
-cleanup_clk:
-	clk_bulk_disable_unprepare(XAE_NUM_MISC_CLOCKS, lp->misc_clks);
-	clk_disable_unprepare(lp->axi_clk);
-
-err_disable_clk:
-	axienet_clk_disable(pdev);
-
+err_clear_sysfs:
+	axeinet_mcdma_remove_sysfs_tsn(&lp->dev->kobj);
+err_mdio:
+	axienet_mdio_teardown_tsn(lp);
+err_of_put:
+	of_node_put(lp->phy_node);
 free_netdev:
 	free_netdev(ndev);
 
 	return ret;
 }
 
-static int axienet_remove(struct platform_device *pdev)
+static void axienet_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct axienet_local *lp = netdev_priv(ndev);
 
-#ifdef CONFIG_XILINX_TSN_PTP
-	if (lp->timer_priv)
-		axienet_ptp_timer_remove(lp->timer_priv);
-#ifdef CONFIG_XILINX_TSN_QBV
-		axienet_qbv_remove(ndev);
-#endif
-#endif
 	unregister_netdev(ndev);
-	axienet_clk_disable(pdev);
 
 	if (lp->mii_bus)
 		axienet_mdio_teardown_tsn(lp);
-
-	clk_bulk_disable_unprepare(XAE_NUM_MISC_CLOCKS, lp->misc_clks);
-	clk_disable_unprepare(lp->axi_clk);
 
 	axeinet_mcdma_remove_sysfs_tsn(&lp->dev->kobj);
 	of_node_put(lp->phy_node);
 	lp->phy_node = NULL;
 
 	free_netdev(ndev);
-
-	return 0;
 }
 
 static void axienet_shutdown(struct platform_device *pdev)
@@ -2029,7 +1980,7 @@ static void axienet_shutdown(struct platform_device *pdev)
 	rtnl_unlock();
 }
 
-static struct platform_driver axienet_driver_tsn = {
+struct platform_driver axienet_driver_tsn = {
 	.probe = axienet_probe,
 	.remove = axienet_remove,
 	.shutdown = axienet_shutdown,
@@ -2038,8 +1989,6 @@ static struct platform_driver axienet_driver_tsn = {
 		 .of_match_table = axienet_of_match,
 	},
 };
-
-module_platform_driver(axienet_driver_tsn);
 
 MODULE_DESCRIPTION("Xilinx Axi Ethernet driver");
 MODULE_AUTHOR("Xilinx");

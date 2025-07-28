@@ -58,19 +58,10 @@
 #define PULSESIN1PPS 128
 #define XTIMER1588_GTX_CLK_FREQ (125 * HZ_PER_MHZ)
 
-/* Read/Write access to the registers */
-#ifndef out_be32
-#if defined(CONFIG_ARCH_ZYNQ) || defined(CONFIG_ARCH_ZYNQMP)
-#define in_be32(offset)		__raw_readl(offset)
-#define out_be32(offset, val)	__raw_writel(val, offset)
-#endif
-#endif
-
 /* The tsn ptp module will set this variable */
 extern int axienet_phc_index;
 
 void *axienet_ptp_timer_probe(void __iomem *base,
 			      struct platform_device *pdev);
-int axienet_ptp_timer_remove(void *priv);
 int axienet_get_phc_index(void *priv);
 #endif

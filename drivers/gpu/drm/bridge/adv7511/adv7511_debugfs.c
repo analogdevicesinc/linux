@@ -94,7 +94,7 @@ int adv7511_debugfs_init(struct adv7511 *adv7511)
 		return -ENOMEM;
 
 	/* tpg only on ADV7533/35*/
-	if (adv7511->type == ADV7533 || adv7511->type == ADV7535) {
+	if (adv7511->info->type == ADV7533 || adv7511->info->type == ADV7535) {
 		debugfs_file = debugfs_create_file("tpg", 0644,
 				adv7511->debugfs, adv7511, &adv7511_tpg_fops);
 

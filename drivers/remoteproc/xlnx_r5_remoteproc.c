@@ -25,6 +25,10 @@
 /* RX mailbox client buffer max length */
 #define MBOX_CLIENT_BUF_MAX	(IPI_BUF_LEN_MAX + \
 				 sizeof(struct zynqmp_ipi_message))
+
+#define RSC_TBL_XLNX_MAGIC	((uint32_t)'x' << 24 | (uint32_t)'a' << 16 | \
+				 (uint32_t)'m' << 8 | (uint32_t)'p')
+
 /*
  * settings for RPU cluster mode which
  * reflects possible values of xlnx,cluster-mode dt-property
@@ -53,6 +57,17 @@ struct mem_bank_data {
 };
 
 /**
+ * struct zynqmp_sram_bank - sram bank description
+ *
+ * @sram_res: sram address region information
+ * @da: device address of sram
+ */
+struct zynqmp_sram_bank {
+	struct resource sram_res;
+	u32 da;
+};
+
+/**
  * struct mbox_info
  *
  * @rx_mc_buf: to copy data from mailbox rx channel
@@ -72,6 +87,26 @@ struct mbox_info {
 	struct mbox_chan *tx_chan;
 	struct mbox_chan *rx_chan;
 };
+
+/**
+ * struct rsc_tbl_data
+ *
+ * Platform specific data structure used to sync resource table address.
+ * It's important to maintain order and size of each field on remote side.
+ *
+ * @version: version of data structure
+ * @magic_num: 32-bit magic number.
+ * @comp_magic_num: complement of above magic number
+ * @rsc_tbl_size: resource table size
+ * @rsc_tbl: resource table address
+ */
+struct rsc_tbl_data {
+	const int version;
+	const u32 magic_num;
+	const u32 comp_magic_num;
+	const u32 rsc_tbl_size;
+	const uintptr_t rsc_tbl;
+} __packed;
 
 /*
  * Hardcoded TCM bank values. This will stay in driver to maintain backward
@@ -95,20 +130,28 @@ static const struct mem_bank_data zynqmp_tcm_banks_lockstep[] = {
 /**
  * struct zynqmp_r5_core
  *
+ * @rsc_tbl_va: resource table virtual address
+ * @sram: Array of sram memories assigned to this core
+ * @num_sram: number of sram for this core
  * @dev: device of RPU instance
  * @np: device node of RPU instance
  * @tcm_bank_count: number TCM banks accessible to this RPU
  * @tcm_banks: array of each TCM bank data
  * @rproc: rproc handle
+ * @rsc_tbl_size: resource table size retrieved from remote
  * @pm_domain_id: RPU CPU power domain id
  * @ipi: pointer to mailbox information
  */
 struct zynqmp_r5_core {
+	void __iomem *rsc_tbl_va;
+	struct zynqmp_sram_bank *sram;
+	int num_sram;
 	struct device *dev;
 	struct device_node *np;
 	int tcm_bank_count;
 	struct mem_bank_data **tcm_banks;
 	struct rproc *rproc;
+	u32 rsc_tbl_size;
 	u32 pm_domain_id;
 	struct mbox_info *ipi;
 };
@@ -221,6 +264,9 @@ static struct mbox_info *zynqmp_r5_setup_mbox(struct device *cdev)
 {
 	struct mbox_client *mbox_cl;
 	struct mbox_info *ipi;
+
+	if (!of_property_present(dev_of_node(cdev), "mbox-names"))
+		return NULL;
 
 	ipi = kzalloc(sizeof(*ipi), GFP_KERNEL);
 	if (!ipi)
@@ -337,6 +383,18 @@ static int zynqmp_r5_rproc_start(struct rproc *rproc)
 	dev_dbg(r5_core->dev, "RPU boot addr 0x%llx from %s.", rproc->bootaddr,
 		bootmem == PM_RPU_BOOTMEM_HIVEC ? "OCM" : "TCM");
 
+	/* Request node before starting RPU core if new version of API is supported */
+	if (zynqmp_pm_feature(PM_REQUEST_NODE) > 1) {
+		ret = zynqmp_pm_request_node(r5_core->pm_domain_id,
+					     ZYNQMP_PM_CAPABILITY_ACCESS, 0,
+					     ZYNQMP_PM_REQUEST_ACK_BLOCKING);
+		if (ret < 0) {
+			dev_err(r5_core->dev, "failed to request 0x%x",
+				r5_core->pm_domain_id);
+			return ret;
+		}
+	}
+
 	ret = zynqmp_pm_request_wake(r5_core->pm_domain_id, 1,
 				     bootmem, ZYNQMP_PM_REQUEST_ACK_NO);
 	if (ret)
@@ -358,10 +416,24 @@ static int zynqmp_r5_rproc_stop(struct rproc *rproc)
 	struct zynqmp_r5_core *r5_core = rproc->priv;
 	int ret;
 
+	/* Use release node API to stop core if new version of API is supported */
+	if (zynqmp_pm_feature(PM_RELEASE_NODE) > 1) {
+		ret = zynqmp_pm_release_node(r5_core->pm_domain_id);
+		if (ret)
+			dev_err(r5_core->dev, "failed to stop remoteproc RPU %d\n", ret);
+		return ret;
+	}
+
+	if (zynqmp_pm_feature(PM_FORCE_POWERDOWN) < 1) {
+		dev_dbg(r5_core->dev, "EEMI interface %d not supported\n",
+			PM_FORCE_POWERDOWN);
+		return -EINVAL;
+	}
+
 	ret = zynqmp_pm_force_pwrdwn(r5_core->pm_domain_id,
 				     ZYNQMP_PM_REQUEST_ACK_BLOCKING);
 	if (ret)
-		dev_err(r5_core->dev, "failed to stop remoteproc RPU %d\n", ret);
+		dev_err(r5_core->dev, "core force power down failed\n");
 
 	return ret;
 }
@@ -466,6 +538,45 @@ static int add_mem_regions_carveout(struct rproc *rproc)
 	return 0;
 }
 
+static int add_sram_carveouts(struct rproc *rproc)
+{
+	struct zynqmp_r5_core *r5_core = rproc->priv;
+	struct rproc_mem_entry *rproc_mem;
+	struct zynqmp_sram_bank *sram;
+	dma_addr_t dma_addr;
+	size_t len;
+	int da, i;
+
+	for (i = 0; i < r5_core->num_sram; i++) {
+		sram = &r5_core->sram[i];
+
+		dma_addr = (dma_addr_t)sram->sram_res.start;
+
+		len = resource_size(&sram->sram_res);
+		da = sram->da;
+
+		rproc_mem = rproc_mem_entry_init(&rproc->dev, NULL,
+						 dma_addr,
+						 len, da,
+						 zynqmp_r5_mem_region_map,
+						 zynqmp_r5_mem_region_unmap,
+						 sram->sram_res.name);
+		if (!rproc_mem) {
+			dev_err(&rproc->dev, "failed to add sram %s da=0x%x, size=0x%lx",
+				sram->sram_res.name, da, len);
+			return -ENOMEM;
+		}
+
+		rproc_add_carveout(rproc, rproc_mem);
+		rproc_coredump_add_segment(rproc, da, len);
+
+		dev_dbg(&rproc->dev, "sram carveout %s addr=%llx, da=0x%x, size=0x%lx",
+			sram->sram_res.name, dma_addr, da, len);
+	}
+
+	return 0;
+}
+
 /*
  * tcm_mem_unmap()
  * @rproc: single R5 core's corresponding rproc instance
@@ -557,6 +668,14 @@ static int add_tcm_banks(struct rproc *rproc)
 		dev_dbg(dev, "TCM carveout %s addr=%llx, da=0x%x, size=0x%lx",
 			bank_name, bank_addr, da, bank_size);
 
+		/*
+		 * In DETACHED state firmware is already running so no need to
+		 * request add TCM registers. However, request TCM PD node to let
+		 * platform management firmware know that TCM is in use.
+		 */
+		if (rproc->state == RPROC_DETACHED)
+			continue;
+
 		rproc_mem = rproc_mem_entry_init(dev, NULL, bank_addr,
 						 bank_size, da,
 						 tcm_mem_map, tcm_mem_unmap,
@@ -633,6 +752,12 @@ static int zynqmp_r5_rproc_prepare(struct rproc *rproc)
 		return ret;
 	}
 
+	ret = add_sram_carveouts(rproc);
+	if (ret) {
+		dev_err(&rproc->dev, "failed to get sram carveout %d\n", ret);
+		return ret;
+	}
+
 	return 0;
 }
 
@@ -662,6 +787,107 @@ static int zynqmp_r5_rproc_unprepare(struct rproc *rproc)
 	return 0;
 }
 
+static struct resource_table *zynqmp_r5_get_loaded_rsc_table(struct rproc *rproc,
+							     size_t *size)
+{
+	struct zynqmp_r5_core *r5_core;
+
+	r5_core = rproc->priv;
+
+	*size = r5_core->rsc_tbl_size;
+
+	return (struct resource_table *)r5_core->rsc_tbl_va;
+}
+
+static int zynqmp_r5_get_rsc_table_va(struct zynqmp_r5_core *r5_core)
+{
+	struct resource_table *rsc_tbl_addr;
+	struct device *dev = r5_core->dev;
+	struct rsc_tbl_data *rsc_data_va;
+	struct resource res_mem;
+	struct device_node *np;
+	int ret;
+
+	/*
+	 * It is expected from remote processor firmware to provide resource
+	 * table address via struct rsc_tbl_data data structure.
+	 * Start address of first entry under "memory-region" property list
+	 * contains that data structure which holds resource table address, size
+	 * and some magic number to validate correct resource table entry.
+	 */
+	np = of_parse_phandle(r5_core->np, "memory-region", 0);
+	if (!np) {
+		dev_err(dev, "failed to get memory region dev node\n");
+		return -EINVAL;
+	}
+
+	ret = of_address_to_resource(np, 0, &res_mem);
+	of_node_put(np);
+	if (ret) {
+		dev_err(dev, "failed to get memory-region resource addr\n");
+		return -EINVAL;
+	}
+
+	rsc_data_va = (struct rsc_tbl_data *)ioremap_wc(res_mem.start,
+							sizeof(struct rsc_tbl_data));
+	if (!rsc_data_va) {
+		dev_err(dev, "failed to map resource table data address\n");
+		return -EIO;
+	}
+
+	/*
+	 * If RSC_TBL_XLNX_MAGIC number and its complement isn't found then
+	 * do not consider resource table address valid and don't attach
+	 */
+	if (rsc_data_va->magic_num != RSC_TBL_XLNX_MAGIC ||
+	    rsc_data_va->comp_magic_num != ~RSC_TBL_XLNX_MAGIC) {
+		dev_dbg(dev, "invalid magic number, won't attach\n");
+		return -EINVAL;
+	}
+
+	r5_core->rsc_tbl_va = ioremap_wc(rsc_data_va->rsc_tbl,
+					 rsc_data_va->rsc_tbl_size);
+	if (!r5_core->rsc_tbl_va) {
+		dev_err(dev, "failed to get resource table va\n");
+		return -EINVAL;
+	}
+
+	rsc_tbl_addr = (struct resource_table *)r5_core->rsc_tbl_va;
+
+	/*
+	 * As of now resource table version 1 is expected. Don't fail to attach
+	 * but warn users about it.
+	 */
+	if (rsc_tbl_addr->ver != 1)
+		dev_warn(dev, "unexpected resource table version %d\n",
+			 rsc_tbl_addr->ver);
+
+	r5_core->rsc_tbl_size = rsc_data_va->rsc_tbl_size;
+
+	iounmap((void __iomem *)rsc_data_va);
+
+	return 0;
+}
+
+static int zynqmp_r5_attach(struct rproc *rproc)
+{
+	dev_dbg(&rproc->dev, "rproc %d attached\n", rproc->index);
+
+	return 0;
+}
+
+static int zynqmp_r5_detach(struct rproc *rproc)
+{
+	/*
+	 * Generate last notification to remote after clearing virtio flag.
+	 * Remote can avoid polling on virtio reset flag if kick is generated
+	 * during detach by host and check virtio reset flag on kick interrupt.
+	 */
+	zynqmp_r5_rproc_kick(rproc, 0);
+
+	return 0;
+}
+
 static const struct rproc_ops zynqmp_r5_rproc_ops = {
 	.prepare	= zynqmp_r5_rproc_prepare,
 	.unprepare	= zynqmp_r5_rproc_unprepare,
@@ -673,6 +899,9 @@ static const struct rproc_ops zynqmp_r5_rproc_ops = {
 	.sanity_check	= rproc_elf_sanity_check,
 	.get_boot_addr	= rproc_elf_get_boot_addr,
 	.kick		= zynqmp_r5_rproc_kick,
+	.get_loaded_rsc_table = zynqmp_r5_get_loaded_rsc_table,
+	.attach		= zynqmp_r5_attach,
+	.detach		= zynqmp_r5_detach,
 };
 
 /**
@@ -723,12 +952,93 @@ static struct zynqmp_r5_core *zynqmp_r5_add_rproc_core(struct device *cdev)
 		goto free_rproc;
 	}
 
+	/*
+	 * If firmware is already available in the memory then move rproc state
+	 * to DETACHED. Firmware can be preloaded via debugger or by any other
+	 * agent (processors) in the system.
+	 * If firmware isn't available in the memory and resource table isn't
+	 * found, then rproc state remains OFFLINE.
+	 */
+	if (!zynqmp_r5_get_rsc_table_va(r5_core))
+		r5_rproc->state = RPROC_DETACHED;
+
 	r5_core->rproc = r5_rproc;
 	return r5_core;
 
 free_rproc:
 	rproc_free(r5_rproc);
 	return ERR_PTR(ret);
+}
+
+static int zynqmp_r5_get_sram_banks(struct zynqmp_r5_core *r5_core)
+{
+	struct device_node *np = r5_core->np;
+	struct device *dev = r5_core->dev;
+	struct zynqmp_sram_bank *sram;
+	struct device_node *sram_np;
+	int num_sram, i, ret;
+	u64 abs_addr, size;
+
+	/* "sram" is optional property. Do not fail, if unavailable. */
+	if (!of_property_present(r5_core->np, "sram"))
+		return 0;
+
+	num_sram = of_property_count_elems_of_size(np, "sram", sizeof(phandle));
+	if (num_sram <= 0) {
+		dev_err(dev, "Invalid sram property, ret = %d\n",
+			num_sram);
+		return -EINVAL;
+	}
+
+	sram = devm_kcalloc(dev, num_sram,
+			    sizeof(struct zynqmp_sram_bank), GFP_KERNEL);
+	if (!sram)
+		return -ENOMEM;
+
+	for (i = 0; i < num_sram; i++) {
+		sram_np = of_parse_phandle(np, "sram", i);
+		if (!sram_np) {
+			dev_err(dev, "failed to get sram %d phandle\n", i);
+			return -EINVAL;
+		}
+
+		if (!of_device_is_available(sram_np)) {
+			dev_err(dev, "sram device not available\n");
+			ret = -EINVAL;
+			goto fail_sram_get;
+		}
+
+		ret = of_address_to_resource(sram_np, 0, &sram[i].sram_res);
+		if (ret) {
+			dev_err(dev, "addr to res failed\n");
+			goto fail_sram_get;
+		}
+
+		/* Get SRAM device address */
+		ret = of_property_read_reg(sram_np, i, &abs_addr, &size);
+		if (ret) {
+			dev_err(dev, "failed to get reg property\n");
+			goto fail_sram_get;
+		}
+
+		sram[i].da = (u32)abs_addr;
+
+		of_node_put(sram_np);
+
+		dev_dbg(dev, "sram %d: name=%s, addr=0x%llx, da=0x%x, size=0x%llx\n",
+			i, sram[i].sram_res.name, sram[i].sram_res.start,
+			sram[i].da, resource_size(&sram[i].sram_res));
+	}
+
+	r5_core->sram = sram;
+	r5_core->num_sram = num_sram;
+
+	return 0;
+
+fail_sram_get:
+	of_node_put(sram_np);
+
+	return ret;
 }
 
 static int zynqmp_r5_get_tcm_node_from_dt(struct zynqmp_r5_cluster *cluster)
@@ -909,7 +1219,7 @@ static int zynqmp_r5_core_init(struct zynqmp_r5_cluster *cluster,
 	r5_core = cluster->r5_cores[0];
 
 	/* Maintain backward compatibility for zynqmp by using hardcode TCM address. */
-	if (of_find_property(r5_core->np, "reg", NULL))
+	if (of_property_present(r5_core->np, "reg"))
 		ret = zynqmp_r5_get_tcm_node_from_dt(cluster);
 	else if (device_is_compatible(dev, "xlnx,zynqmp-r5fss"))
 		ret = zynqmp_r5_get_tcm_node(cluster);
@@ -936,7 +1246,7 @@ static int zynqmp_r5_core_init(struct zynqmp_r5_cluster *cluster,
 			return ret;
 		}
 
-		if (of_find_property(dev_of_node(dev), "xlnx,tcm-mode", NULL) ||
+		if (of_property_present(dev_of_node(dev), "xlnx,tcm-mode") ||
 		    device_is_compatible(dev, "xlnx,zynqmp-r5fss")) {
 			ret = zynqmp_pm_set_tcm_config(r5_core->pm_domain_id,
 						       tcm_mode);
@@ -945,6 +1255,10 @@ static int zynqmp_r5_core_init(struct zynqmp_r5_cluster *cluster,
 				return ret;
 			}
 		}
+
+		ret = zynqmp_r5_get_sram_banks(r5_core);
+		if (ret)
+			return ret;
 	}
 
 	return 0;
@@ -997,7 +1311,7 @@ static int zynqmp_r5_cluster_init(struct zynqmp_r5_cluster *cluster)
 		return -EINVAL;
 	}
 
-	if (of_find_property(dev_node, "xlnx,tcm-mode", NULL)) {
+	if (of_property_present(dev_node, "xlnx,tcm-mode")) {
 		ret = of_property_read_u32(dev_node, "xlnx,tcm-mode", (u32 *)&tcm_mode);
 		if (ret)
 			return ret;
@@ -1021,9 +1335,6 @@ static int zynqmp_r5_cluster_init(struct zynqmp_r5_cluster *cluster)
 	core_count = of_get_available_child_count(dev_node);
 	if (core_count == 0) {
 		dev_err(dev, "Invalid number of r5 cores %d", core_count);
-		return -EINVAL;
-	} else if (cluster_mode == SPLIT_MODE && core_count != 2) {
-		dev_err(dev, "Invalid number of r5 cores for split mode\n");
 		return -EINVAL;
 	} else if (cluster_mode == LOCKSTEP_MODE && core_count == 2) {
 		dev_warn(dev, "Only r5 core0 will be used\n");
@@ -1134,6 +1445,7 @@ static void zynqmp_r5_cluster_exit(void *data)
 	for (i = 0; i < cluster->core_count; i++) {
 		r5_core = cluster->r5_cores[i];
 		zynqmp_r5_free_mbox(r5_core->ipi);
+		iounmap(r5_core->rsc_tbl_va);
 		of_reserved_mem_device_release(r5_core->dev);
 		put_device(r5_core->dev);
 		rproc_del(r5_core->rproc);

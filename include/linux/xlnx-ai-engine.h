@@ -3,6 +3,7 @@
  * xlnx-ai-engine.h - Xilinx AI engine external interface
  *
  * Copyright (c) 2020, Xilinx Inc.
+ * Copyright (C) 2024 - 2025 Advanced Micro Devices, Inc.
  */
 
 #ifndef _XLNX_AI_ENGINE_H_
@@ -153,6 +154,13 @@ int aie_part_rscmgr_set_static_range(struct device *dev,
 
 int aie_get_status_dump(struct device *dev, struct aie_col_status *status);
 int aie_get_tile_info(struct device *dev, struct aie_tile_info *tile_info);
+int aie_partition_read(struct device *dev, struct aie_location loc,
+		       size_t offset, size_t len, void *data);
+int aie_partition_write(struct device *dev, struct aie_location loc,
+			size_t offset, size_t len, void *data, u32 mask);
+int aie_partition_uc_wakeup(struct device *dev, struct aie_location *loc);
+int aie_partition_initialize(struct device *dev, struct aie_partition_init_args *args);
+int aie_partition_teardown(struct device *dev);
 /**
  * aie_get_error_category() - Get the category of an AIE error
  * @err: AI engine hardware error
@@ -206,7 +214,7 @@ static inline int aie_unregister_error_notification(struct device *dev)
 
 static inline struct aie_errors *aie_get_errors(struct device *dev)
 {
-	return NULL;
+	return ERR_PTR(-EINVAL);
 }
 
 static inline u32 aie_get_error_categories(struct aie_errors *aie_errs)

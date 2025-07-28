@@ -639,7 +639,7 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 			return ret;
 
 		lane_rate = xilinx_xcvr_cpll_calc_lane_rate(&st->xcvr, parent_rate,
-			&cpll_conf, out_div); 
+			&cpll_conf, out_div);
 
 		dev_dbg(st->dev, "%s  CPLL %lu   %lu\n", __func__,
 			gt_link->lane_rate, lane_rate);
@@ -1193,7 +1193,7 @@ disable_unprepare:
  * if the driver module is being unloaded. It frees any resources allocated to
  * the device.
  */
-static int jesd204b_gt_remove(struct platform_device *pdev)
+static void jesd204b_gt_remove(struct platform_device *pdev)
 {
 	struct jesd204b_gt_state *st = platform_get_drvdata(pdev);
 
@@ -1211,8 +1211,6 @@ static int jesd204b_gt_remove(struct platform_device *pdev)
 	jesd204b_gt_unregister_clock_provider(pdev);
 	jesd204b_gt_unregister_clocks(st);
 	jesd204b_gt_disable_unprepare_clocks(st);
-
-	return 0;
 }
 
 static struct platform_driver jesd204b_gt_of_driver = {

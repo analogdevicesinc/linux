@@ -60,7 +60,7 @@ static int __ltc235x_set_sampling_freq(struct ltc235x_state *st,
 	cnv_state.duty_cycle = LTC235X_TCNVH_NS;
 	cnv_state.period = DIV_ROUND_CLOSEST_ULL(NANO, freq);
 
-	return pwm_apply_state(st->cnv_pwm, &cnv_state);
+	return pwm_apply_might_sleep(st->cnv_pwm, &cnv_state);
 }
 
 static int ltc235x_set_sampling_freq(struct iio_dev *indio_dev,

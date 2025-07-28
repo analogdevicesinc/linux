@@ -8,7 +8,7 @@
  *
  */
 
-#include <asm-generic/unaligned.h>
+#include <linux/unaligned.h>
 #include <linux/bcd.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
@@ -208,7 +208,7 @@ static bool max31335_volatile_reg(struct device *dev, unsigned int reg)
 		return true;
 
 	/* temperature registers */
-	if (reg == MAX31335_TEMP_DATA_MSB || MAX31335_TEMP_DATA_LSB)
+	if (reg == MAX31335_TEMP_DATA_MSB || reg == MAX31335_TEMP_DATA_LSB)
 		return true;
 
 	return false;
@@ -348,26 +348,16 @@ static int max31335_alarm_irq_enable(struct device *dev, unsigned int enabled)
 static irqreturn_t max31335_handle_irq(int irq, void *dev_id)
 {
 	struct max31335_data *max31335 = dev_id;
-	struct mutex *lock = &max31335->rtc->ops_lock;
-	int ret, status;
+	bool status;
+	int ret;
 
-	mutex_lock(lock);
-
-	ret = regmap_read(max31335->regmap, MAX31335_STATUS1, &status);
+	ret = regmap_update_bits_check(max31335->regmap, MAX31335_STATUS1,
+				       MAX31335_STATUS1_A1F, 0, &status);
 	if (ret)
-		goto exit;
+		return IRQ_HANDLED;
 
-	if (FIELD_GET(MAX31335_STATUS1_A1F, status)) {
-		ret = regmap_update_bits(max31335->regmap, MAX31335_STATUS1,
-					 MAX31335_STATUS1_A1F, 0);
-		if (ret)
-			goto exit;
-
+	if (status)
 		rtc_update_irq(max31335->rtc, 1, RTC_AF | RTC_IRQF);
-	}
-
-exit:
-	mutex_unlock(lock);
 
 	return IRQ_HANDLED;
 }
@@ -679,7 +669,7 @@ static int max31335_probe(struct i2c_client *client)
 }
 
 static const struct i2c_device_id max31335_id[] = {
-	{ "max31335", 0 },
+	{ "max31335" },
 	{ }
 };
 

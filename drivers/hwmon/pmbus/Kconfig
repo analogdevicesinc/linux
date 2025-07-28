@@ -255,6 +255,16 @@ config SENSORS_LTC3815
 	  This driver can also be built as a module. If so, the module will
 	  be called ltc3815.
 
+config SENSORS_LTC4286
+	bool "Analog Devices LTC4286"
+	help
+	  LTC4286 is an integrated solution for hot swap applications that
+	  allows a board to be safely inserted and removed from a live
+	  backplane.
+	  This chip could be used to monitor voltage, current, ...etc.
+	  If you say yes here you get hardware monitoring support for Analog
+	  Devices LTC4286.
+
 config SENSORS_MAX15301
 	tristate "Maxim MAX15301"
 	help
@@ -328,6 +338,15 @@ config SENSORS_MAX8688
 	  This driver can also be built as a module. If so, the module will
 	  be called max8688.
 
+config SENSORS_MP2856
+	tristate "MPS MP2856"
+	help
+	  If you say yes here you get hardware monitoring support for MPS
+	  MP2856 MP2857 Dual Loop Digital Multi-Phase Controller.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called mp2856.
+
 config SENSORS_MP2888
 	tristate "MPS MP2888"
 	help
@@ -337,6 +356,15 @@ config SENSORS_MP2888
 	  This driver can also be built as a module. If so, the module will
 	  be called mp2888.
 
+config SENSORS_MP2891
+    tristate "MPS MP2891"
+    help
+      If you say yes here you get hardware monitoring support for MPS
+      MP2891 Dual Loop Digital Multi-Phase Controller.
+
+      This driver can also be built as a module. If so, the module will
+      be called mp2891.
+
 config SENSORS_MP2975
 	tristate "MPS MP2975"
 	help
@@ -345,6 +373,15 @@ config SENSORS_MP2975
 
 	  This driver can also be built as a module. If so, the module will
 	  be called mp2975.
+
+config SENSORS_MP2993
+	tristate "MPS MP2993"
+	help
+	  If you say yes here you get hardware monitoring support for MPS
+	  MP2993 Dual Loop Digital Multi-Phase Controller.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called mp2993.
 
 config SENSORS_MP2975_REGULATOR
 	depends on SENSORS_MP2975 && REGULATOR
@@ -362,6 +399,33 @@ config SENSORS_MP5023
 	  This driver can also be built as a module. If so, the module will
 	  be called mp5023.
 
+config SENSORS_MP5920
+	tristate "MPS MP5920"
+	help
+	  If you say yes here you get hardware monitoring support for Monolithic
+	  MP5920.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called mp5920.
+
+config SENSORS_MP5990
+	tristate "MPS MP5990"
+	help
+	  If you say yes here you get hardware monitoring support for MPS
+	  MP5990.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called mp5990.
+
+config SENSORS_MP9941
+	tristate "MPS MP9941"
+	help
+	  If you say yes here you get hardware monitoring support for MPS
+	  MP9941.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called mp9941.
+
 config SENSORS_MPQ7932_REGULATOR
 	bool "Regulator support for MPQ7932"
 	depends on SENSORS_MPQ7932 && REGULATOR
@@ -377,6 +441,15 @@ config SENSORS_MPQ7932
 
 	  This driver can also be built as a module. If so, the module will
 	  be called mpq7932.
+
+config SENSORS_MPQ8785
+	tristate "MPS MPQ8785"
+	help
+	  If you say yes here you get hardware monitoring functionality support
+	  for power management IC MPS MPQ8785.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called mpq8785.
 
 config SENSORS_PIM4328
 	tristate "Flex PIM4328 and compatibles"
@@ -483,26 +556,6 @@ config SENSORS_TPS546D24
 	  This driver can also be built as a module. If so, the module will
 	  be called tps546d24
 
-config SENSORS_TPS544
-	tristate "TI TPS544"
-	help
-	  If you say yes here you get hardware monitoring support for Texas
-	  Instruments TPS544.
-
-	  This driver can also be built as a module. If so, the module will
-	  be called tps544.
-
-config SENSORS_TPS544_REGULATOR
-	bool "Regulator support for TPS544"
-	depends on SENSORS_TPS544
-	select REGULATOR
-	help
-	  If you say yes here you get regulator support for Texas Instruments
-	  TPS544.
-
-	  This driver is dependent on TPS544 sensor and it can also be built
-	  as a module.
-
 config SENSORS_UCD9000
 	tristate "TI UCD90120, UCD90124, UCD90160, UCD90320, UCD9090, UCD90910"
 	help
@@ -522,6 +575,15 @@ config SENSORS_UCD9200
 
 	  This driver can also be built as a module. If so, the module will
 	  be called ucd9200.
+
+config SENSORS_XDP710
+	tristate "Infineon XDP710 family"
+	help
+	  If you say yes here you get hardware monitoring support for Infineon
+	  XDP710.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called xdp710.
 
 config SENSORS_XDPE152
 	tristate "Infineon XDPE152 family"

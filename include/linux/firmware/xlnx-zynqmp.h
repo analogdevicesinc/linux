@@ -3,7 +3,7 @@
  * Xilinx Zynq MPSoC Firmware layer
  *
  *  Copyright (C) 2014-2021 Xilinx
- *  Copyright (C), 2022 - 2024 Advanced Micro Devices, Inc.
+ *  Copyright (C) 2022 - 2025, Advanced Micro Devices, Inc.
  *
  *  Michal Simek <michal.simek@amd.com>
  *  Davorin Mista <davorin.mista@aggios.com>
@@ -16,6 +16,11 @@
 #include <linux/types.h>
 
 #include <linux/err.h>
+#include <linux/firmware/xlnx-zynqmp-fpga.h>
+#include <linux/firmware/xlnx-zynqmp-nvm.h>
+#include <linux/firmware/xlnx-zynqmp-pdi.h>
+#include <linux/firmware/xlnx-zynqmp-secure.h>
+#include <linux/firmware/xlnx-zynqmp-sem.h>
 
 #define ZYNQMP_PM_VERSION_MAJOR	1
 #define ZYNQMP_PM_VERSION_MINOR	0
@@ -58,10 +63,11 @@
 /* When all subfamily of platform need to support */
 #define ALL_SUB_FAMILY_CODE		0x00
 #define VERSAL_SUB_FAMILY_CODE		0x01
-#define VERSALNET_SUB_FAMILY_CODE	0x03
+#define VERSAL_SUB_FAMILY_CODE_MAX	0x04
+#define VERSALNET_OR_VERSAL2_SUB_FAMILY_CODE	0x06
 
 #define FAMILY_CODE_MASK	GENMASK(27, 21)
-#define SUB_FAMILY_CODE_MASK	GENMASK(20, 19)
+#define SUB_FAMILY_CODE_MASK	GENMASK(20, 18)
 
 #define API_ID_MASK		GENMASK(7, 0)
 #define MODULE_ID_MASK		GENMASK(11, 8)
@@ -76,47 +82,6 @@
 #define PM_SET_SUSPEND_MODE		0xa02
 #define GET_CALLBACK_DATA		0xa01
 
-/* NVM Commands */
-#define PM_BBRAM_WRITE_KEY		0xB01
-#define PM_BBRAM_ZEROIZE		0xB02
-#define PM_BBRAM_WRITE_USERDATA		0xB03
-#define PM_BBRAM_READ_USERDATA		0xB04
-#define PM_BBRAM_LOCK_USERDATA		0xB05
-#define PM_EFUSE_READ_VERSAL		0xB17
-
-/* xilSecure API commands  module id + api id */
-#define XSECURE_API_RSA_SIGN_VERIFY	0x501
-#define XSECURE_API_RSA_PUBLIC_ENCRYPT	0x502
-#define XSECURE_API_RSA_PRIVATE_DECRYPT	0x503
-#define XSECURE_API_SHA3_UPDATE		0x504
-#define XSECURE_API_ELLIPTIC_VALIDATE_KEY	0x507
-#define XSECURE_API_ELLIPTIC_VERIFY_SIGN	0x508
-#define XSECURE_API_AES_INIT		0x509
-#define XSECURE_API_AES_OP_INIT		0x50a
-#define XSECURE_API_AES_UPDATE_AAD	0x50b
-#define XSECURE_API_AES_ENCRYPT_UPDATE	0x50c
-#define XSECURE_API_AES_ENCRYPT_FINAL	0x50d
-#define XSECURE_API_AES_DECRYPT_UPDATE	0x50e
-#define XSECURE_API_AES_DECRYPT_FINAL	0x50f
-#define XSECURE_API_AES_KEY_ZERO	0x510
-#define XSECURE_API_AES_WRITE_KEY	0x511
-
-/* XilPuf API commands module id + api id */
-#define XPUF_API_PUF_REGISTRATION	0xc01
-#define XPUF_API_PUF_REGENERATION	0xc02
-#define XPUF_API_PUF_CLEAR_PUF_ID	0xc03
-
-/* XilSEM commands */
-#define PM_XSEM_HEADER			0x300
-#define PM_XSEM_CRAM_ERRINJ		0x304
-#define PM_XSEM_RD_CONFIG		0x309
-#define PM_XSEM_CRAM_RD_ECC		0x30B
-
-/* To Get UID info list */
-#define PM_GET_UID_INFO_LIST		0x705
-
-#define PM_GET_META_HEADER_INFO_LIST	0x706
-
 /* Number of 32bits values in payload */
 #define PAYLOAD_ARG_CNT	7U
 
@@ -126,6 +91,9 @@
 /* Number of 32bits arguments for SMC call */
 #define SMC_ARG_CNT_32	13U
 
+/* Number of 32bits arguments for Basic SMC call */
+#define SMC_ARG_CNT_BASIC_32	14U
+
 /* Number of arguments for a callback */
 #define CB_ARG_CNT     4
 
@@ -133,12 +101,6 @@
 #define CB_PAYLOAD_SIZE (CB_ARG_CNT + 1)
 
 #define ZYNQMP_PM_MAX_QOS		100U
-/* Usage status, returned by PmGetNodeStatus */
-#define PM_USAGE_NO_MASTER			0x0U
-#define PM_USAGE_CURRENT_MASTER			0x1U
-#define PM_USAGE_OTHER_MASTER			0x2U
-#define PM_USAGE_BOTH_MASTERS			(PM_USAGE_CURRENT_MASTER | \
-						 PM_USAGE_OTHER_MASTER)
 
 #define GSS_NUM_REGS	(4)
 
@@ -147,26 +109,6 @@
 #define	ZYNQMP_PM_CAPABILITY_CONTEXT	0x2U
 #define	ZYNQMP_PM_CAPABILITY_WAKEUP	0x4U
 #define	ZYNQMP_PM_CAPABILITY_UNUSABLE	0x8U
-
-/* Loader commands */
-#define PM_LOAD_PDI	0x701
-#define PDI_SRC_DDR	0xF
-
-/*
- * Firmware FPGA Manager flags
- * XILINX_ZYNQMP_PM_FPGA_FULL:	FPGA full reconfiguration
- * XILINX_ZYNQMP_PM_FPGA_PARTIAL: FPGA partial reconfiguration
- */
-#define XILINX_ZYNQMP_PM_FPGA_FULL	0x0U
-#define XILINX_ZYNQMP_PM_FPGA_PARTIAL	BIT(0)
-#define XILINX_ZYNQMP_PM_FPGA_AUTHENTICATION_DDR	BIT(1)
-#define XILINX_ZYNQMP_PM_FPGA_AUTHENTICATION_OCM	BIT(2)
-#define XILINX_ZYNQMP_PM_FPGA_ENCRYPTION_USERKEY	BIT(3)
-#define XILINX_ZYNQMP_PM_FPGA_ENCRYPTION_DEVKEY		BIT(4)
-
-/* FPGA Status Reg */
-#define XILINX_ZYNQMP_PM_FPGA_CONFIG_STAT_OFFSET	7U
-#define XILINX_ZYNQMP_PM_FPGA_READ_CONFIG_REG		0U
 
 /* ZynqMP SD tap delay tuning */
 #define SD_ITAPDLY	0xFF180314
@@ -180,20 +122,33 @@ enum pm_module_id {
 };
 
 /* AIE Operation */
-#define XILINX_AIE_OPS_COL_RST				BIT(0)
-#define XILINX_AIE_OPS_SHIM_RST				BIT(1)
-#define XILINX_AIE_OPS_ENB_COL_CLK_BUFF			BIT(2)
-#define XILINX_AIE_OPS_ZEROISATION			BIT(3)
-#define XILINX_AIE_OPS_DIS_COL_CLK_BUFF			BIT(4)
-#define XILINX_AIE_OPS_ENB_AXI_MM_ERR_EVENT		BIT(5)
-#define XILINX_AIE_OPS_SET_L2_CTRL_NPI_INTR		BIT(6)
-#define XILINX_AIE_OPS_DATA_MEM_ZEROIZATION		BIT(8U)
-#define XILINX_AIE_OPS_MEM_TILE_ZEROIZATION		BIT(9U)
-
-
-enum xsecure_aeskeysize {
-	XSECURE_AES_KEY_SIZE_128 = 16,
-	XSECURE_AES_KEY_SIZE_256 = 32,
+enum pm_aie_operations {
+	XILINX_AIE_OPS_MIN = 0U,
+	XILINX_AIE_OPS_COL_RST = 1U,
+	XILINX_AIE_OPS_SHIM_RST = 2U,
+	XILINX_AIE_OPS_UC_ZEROIZATION = 3U,
+	XILINX_AIE_OPS_ENB_COL_CLK_BUFF = 4U,
+	XILINX_AIE_OPS_HANDSHAKE = 5U,
+	XILINX_AIE_OPS_CLR_HW_ERR_STS = 6U,
+	XILINX_AIE_OPS_START_NUM_COL = 7U,
+	XILINX_AIE_OPS_ZEROISATION = 8U,
+	XILINX_AIE_OPS_AXIMM_ISOLATION = 9U,
+	XILINX_AIE_OPS_NMU_CONFIG = 10U,
+	XILINX_AIE_OPS_DIS_MEM_PRIV = 11U,
+	XILINX_AIE_OPS_DIS_MEM_INTERLEAVE = 12U,
+	XILINX_AIE_OPS_ENB_UC_DMA_PAUSE = 13U,
+	XILINX_AIE_OPS_ENB_NOC_DMA_PAUSE = 14U,
+	XILINX_AIE_OPS_SET_ECC_SCRUB_PERIOD = 15U,
+	XILINX_AIE_OPS_DIS_COL_CLK_BUFF = 16U,
+	XILINX_AIE_OPS_HW_ERR_INT = 17U,
+	XILINX_AIE_OPS_HW_ERR_MASK = 18U,
+	XILINX_AIE_OPS_ENB_MEM_PRIV = 19U,
+	XILINX_AIE_OPS_ENB_AXI_MM_ERR_EVENT = 32U,     /* Backward compatibility for AIE1/AIE2 */
+	XILINX_AIE_OPS_SET_L2_CTRL_NPI_INTR = 64U,     /* Backward compatibility for AIE1/AIE2 */
+	XILINX_AIE_OPS_PROG_MEM_ZEROIZATION = 128U,    /* Backward compatibility for AIE1/AIE2 */
+	XILINX_AIE_OPS_DATA_MEM_ZEROIZATION = 256U,    /* Backward compatibility for AIE1/AIE2 */
+	XILINX_AIE_OPS_MEM_TILE_ZEROIZATION = 512U,    /* Backward compatibility for AIE1/AIE2 */
+	XILINX_AIE_OPS_MAX = 1023U,                    /* Backward compatibility for AIE1/AIE2 */
 };
 
 enum pm_api_cb_id {
@@ -304,8 +259,8 @@ enum pm_ioctl_id {
 	IOCTL_AIE_OPS = 33,
 	/* IOCTL to get default/current QoS */
 	IOCTL_GET_QOS = 34,
-	IOCTL_UFS_TXRX_CFGRDY_GET = 40,
-	IOCTL_UFS_SRAM_CSR_SEL = 41,
+	/* AIE2PS Operations */
+	IOCTL_AIE2PS_OPS = 39,
 };
 
 enum pm_query_id {
@@ -323,6 +278,7 @@ enum pm_query_id {
 	PM_QID_PINCTRL_GET_PIN_GROUPS = 11,
 	PM_QID_CLOCK_GET_NUM_CLOCKS = 12,
 	PM_QID_CLOCK_GET_MAX_DIVISOR = 13,
+	PM_QID_PINCTRL_GET_ATTRIBUTES = 15,
 };
 
 enum rpu_oper_mode {
@@ -571,11 +527,6 @@ enum ospi_mux_select_type {
 	PM_OSPI_MUX_SEL_LINEAR = 1,
 };
 
-enum ufs_sram_csr_sel_type {
-	PM_UFS_SRAM_CSR_WRITE = 0,
-	PM_UFS_SRAM_CSR_READ = 1,
-};
-
 enum pm_register_access_id {
 	CONFIG_REG_WRITE = 0,
 	CONFIG_REG_READ = 1,
@@ -638,27 +589,27 @@ struct zynqmp_pm_query_data {
 	u32 arg3;
 };
 
-int zynqmp_pm_invoke_fn(u32 pm_api_id, u32 *ret_payload, u32 num_args, ...);
-int zynqmp_pm_invoke_fw_fn(u32 pm_api_id, u32 *ret_payload, u32 num_args, ...);
 /**
- * struct xlnx_feature - Feature data
- * @family:	Family code of platform
- * @subfamily:	Subfamily code of platform
- * @feature_id:	Feature id of module
- * @data:	Collection of all supported platform data
+ * struct zynqmp_devinfo - Structure for Zynqmp device instance
+ * @dev:		Device Pointer
+ * @feature_conf_id:	Feature conf id
  */
-struct xlnx_feature {
-	u32 family;
-	u32 subfamily;
-	u32 feature_id;
-	void *data;
+struct zynqmp_devinfo {
+	struct device *dev;
+	u32 feature_conf_id;
 };
+
+int zynqmp_pm_invoke_fn(u32 pm_api_id, u32 *ret_payload, u32 num_args, ...);
+int zynqmp_pm_fw_call_extended(u32 pm_api_id, u32 *ret_payload, u32 num_args, ...);
+int zynqmp_firmware_pm_sysfs_entry(struct platform_device *pdev);
 
 #if IS_REACHABLE(CONFIG_ZYNQMP_FIRMWARE)
 int zynqmp_pm_get_api_version(u32 *version);
 int zynqmp_pm_get_chipid(u32 *idcode, u32 *version);
 int zynqmp_pm_get_family_info(u32 *family, u32 *subfamily);
-void *xlnx_get_crypto_dev_data(struct xlnx_feature *feature_map);
+int zynqmp_pm_get_trustzone_version(u32 *version);
+int zynqmp_pm_get_sip_svc_version(u32 *version);
+int zynqmp_pm_load_pdi_word_swap(const u64 address, u64 *swapped_address);
 int zynqmp_pm_query_data(struct zynqmp_pm_query_data qdata, u32 *out);
 int zynqmp_pm_clock_enable(u32 clock_id);
 int zynqmp_pm_clock_disable(u32 clock_id);
@@ -674,9 +625,9 @@ int zynqmp_pm_get_pll_frac_data(u32 clk_id, u32 *data);
 int zynqmp_pm_set_sd_tapdelay(u32 node_id, u32 type, u32 value);
 int zynqmp_pm_sd_dll_reset(u32 node_id, u32 type);
 int zynqmp_pm_ospi_mux_select(u32 dev_id, u32 select);
-int zynqmp_pm_reset_assert(const enum zynqmp_pm_reset reset,
+int zynqmp_pm_reset_assert(const u32 reset,
 			   const enum zynqmp_pm_reset_action assert_flag);
-int zynqmp_pm_reset_get_status(const enum zynqmp_pm_reset reset, u32 *status);
+int zynqmp_pm_reset_get_status(const u32 reset, u32 *status);
 unsigned int zynqmp_pm_bootmode_read(u32 *ps_mode);
 int zynqmp_pm_bootmode_write(u32 ps_mode);
 int zynqmp_pm_init_finalize(void);
@@ -687,25 +638,8 @@ int zynqmp_pm_release_node(const u32 node);
 int zynqmp_pm_set_requirement(const u32 node, const u32 capabilities,
 			      const u32 qos,
 			      const enum zynqmp_pm_request_ack ack);
-int zynqmp_pm_aes_engine(const u64 address, u32 *out);
-int zynqmp_pm_efuse_access(const u64 address, u32 *out);
-int zynqmp_pm_secure_load(const u64 src_addr, u64 key_addr, u64 *dst);
-int zynqmp_pm_bbram_write_usrdata(u32 data);
-int zynqmp_pm_bbram_read_usrdata(const u64 outaddr);
-int zynqmp_pm_bbram_write_aeskey(u32 keylen, const u64 keyaddr);
-int zynqmp_pm_bbram_zeroize(void);
-int zynqmp_pm_bbram_lock_userdata(void);
-int zynqmp_pm_fpga_read(const u32 reg_numframes, const u64 phys_address,
-			u32 readback_type, u32 *value);
-int zynqmp_pm_sha_hash(const u64 address, const u32 size, const u32 flags);
-int zynqmp_pm_rsa(const u64 address, const u32 size, const u32 flags);
 int zynqmp_pm_config_reg_access(u32 register_access_id, u32 address, u32 mask,
 				u32 value, u32 *out);
-int zynqmp_pm_fpga_load(const u64 address, const u32 size, const u32 flags);
-int zynqmp_pm_fpga_get_status(u32 *value);
-int zynqmp_pm_fpga_get_config_status(u32 *value);
-int zynqmp_pm_fpga_get_version(u32 *value);
-int zynqmp_pm_fpga_get_feature_list(u32 *value);
 int zynqmp_pm_write_ggs(u32 index, u32 value);
 int zynqmp_pm_read_ggs(u32 index, u32 *value);
 int zynqmp_pm_write_pggs(u32 index, u32 value);
@@ -722,14 +656,12 @@ int zynqmp_pm_pinctrl_get_config(const u32 pin, const u32 param,
 				 u32 *value);
 int zynqmp_pm_pinctrl_set_config(const u32 pin, const u32 param,
 				 u32 value);
-int zynqmp_pm_load_pdi(const u32 src, const u64 address);
 int zynqmp_pm_register_notifier(const u32 node, const u32 event,
 				const u32 wake, const u32 enable);
 int zynqmp_pm_feature(const u32 api_id);
 int zynqmp_pm_is_function_supported(const u32 api_id, const u32 id);
 int zynqmp_pm_set_feature_config(enum pm_feature_config_id id, u32 value);
 int zynqmp_pm_get_feature_config(enum pm_feature_config_id id, u32 *payload);
-int zynqmp_pm_get_uid_info(const u64 address, const u32 size, u32 *count);
 int zynqmp_pm_sec_read_reg(u32 node_id, u32 offset, u32 *ret_value);
 int zynqmp_pm_sec_mask_write_reg(const u32 node_id, const u32 offset,
 				 u32 mask, u32 value);
@@ -749,36 +681,9 @@ int zynqmp_pm_set_sd_config(u32 node, enum pm_sd_config_type config, u32 value);
 int zynqmp_pm_set_gem_config(u32 node, enum pm_gem_config_type config,
 			     u32 value);
 int zynqmp_pm_get_last_reset_reason(u32 *reset_reason);
-int zynqmp_pm_xilsem_cntrl_ops(u32 cmd, u32 *const response);
-int zynqmp_pm_xilsem_cram_errinj(u32 frame, u32 qword, u32 bit, u32 row, u32 *const response);
-int zynqmp_pm_xilsem_cram_readecc(u32 frame, u32 row, u32 *const response);
-int zynqmp_pm_xilsem_read_cfg(u32 *const response);
-int zynqmp_pm_get_meta_header(const u64 src, const u64 dst,
-			      const u32 size, u32 *count);
 int zynqmp_pm_aie_operation(u32 node, u16 start_col, u16 num_col, u32 operation);
-int versal_pm_puf_registration(const u64 in_addr);
-int versal_pm_puf_regeneration(const u64 in_addr);
 int zynqmp_pm_get_qos(u32 node, u32 *const def_qos, u32 *const qos);
-int versal_pm_sha_hash(const u64 src, const u64 dst, const u32 size);
-int versal_pm_aes_key_write(const u32 keylen,
-			    const u32 keysrc, const u64 keyaddr);
-int versal_pm_aes_key_zero(const u32 keysrc);
-int versal_pm_aes_op_init(const u64 hw_req);
-int versal_pm_aes_update_aad(const u64 aad_addr, const u32 aad_len);
-int versal_pm_aes_enc_update(const u64 in_params, const u64 in_addr);
-int versal_pm_aes_dec_update(const u64 in_params, const u64 in_addr);
-int versal_pm_aes_dec_final(const u64 gcm_addr);
-int versal_pm_aes_enc_final(const u64 gcm_addr);
-int versal_pm_efuse_read(const u64 address, u32 offset, u32 size);
-int versal_pm_efuse_write(const u64 address, const u32 operationid, const u8 envdis);
-int versal_pm_ecdsa_validate_key(const u64 key_addr, const u32 curveid);
-int versal_pm_ecdsa_verify_sign(const u64 sign_param_addr);
-int versal_pm_rsa_encrypt(const u64 in_params, const u64 in_addr);
-int versal_pm_rsa_decrypt(const u64 in_params, const u64 in_addr);
-int versal2_pm_ufs_get_txrx_cfgrdy(u32 node_id, u32 *value);
-int versal2_pm_ufs_sram_csr_sel(u32 node_id, u32 type, u32 *value);
-int versal_pm_puf_clear_id(void);
-int versal_pm_aes_init(void);
+int versal2_pm_aie2ps_operation(u32 node, u32 size, u32 addr_high, u32 addr_low);
 #else
 static inline int zynqmp_pm_get_api_version(u32 *version)
 {
@@ -795,9 +700,14 @@ static inline int zynqmp_pm_get_family_info(u32 *family, u32 *subfamily)
 	return -ENODEV;
 }
 
-static inline void *xlnx_get_crypto_dev_data(struct xlnx_feature *feature_map)
+static inline int zynqmp_pm_get_trustzone_version(u32 *version)
 {
-	return ERR_PTR(-ENODEV);
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_get_sip_svc_version(u32 *version)
+{
+	return -ENODEV;
 }
 
 static inline int zynqmp_pm_query_data(struct zynqmp_pm_query_data qdata,
@@ -876,14 +786,13 @@ static inline int zynqmp_pm_ospi_mux_select(u32 dev_id, u32 select)
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_reset_assert(const enum zynqmp_pm_reset reset,
+static inline int zynqmp_pm_reset_assert(const u32 reset,
 					 const enum zynqmp_pm_reset_action assert_flag)
 {
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_reset_get_status(const enum zynqmp_pm_reset reset,
-					     u32 *status)
+static inline int zynqmp_pm_reset_get_status(const u32 reset, u32 *status)
 {
 	return -ENODEV;
 }
@@ -924,48 +833,6 @@ static inline int zynqmp_pm_set_requirement(const u32 node,
 					    const u32 capabilities,
 					    const u32 qos,
 					    const enum zynqmp_pm_request_ack ack)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_aes_engine(const u64 address, u32 *out)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_efuse_access(const u64 address, u32 *out)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_sha_hash(const u64 address, const u32 size,
-				     const u32 flags)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_fpga_load(const u64 address, const u32 size,
-				      const u32 flags)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_fpga_get_status(u32 *value)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_fpga_get_config_status(u32 *value)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_fpga_get_version(u32 *value)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_fpga_get_feature_list(u32 *value)
 {
 	return -ENODEV;
 }
@@ -1047,48 +914,6 @@ static inline int zynqmp_pm_pinctrl_set_config(const u32 pin, const u32 param,
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_load_pdi(const u32 src, const u64 address)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_fpga_read(const u32 reg_numframes,
-				      const u64 phys_address, u32 readback_type,
-				      u32 *value)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_bbram_write_usrdata(u32 data)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_bbram_read_usrdata(const u64 outaddr)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_bbram_write_aeskey(const u64 keyaddr, u16 keylen)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_bbram_zeroize(void)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_bbram_lock_userdata(void)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_secure_load(const u64 src_addr, u64 key_addr, u64 *dst)
-{
-	return -ENODEV;
-}
-
 static inline int zynqmp_pm_config_reg_access(u32 register_access_id,
 					      u32 address, u32 mask, u32 value,
 					      u32 *out)
@@ -1119,12 +944,6 @@ static inline int zynqmp_pm_get_feature_config(enum pm_feature_config_id id,
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_get_uid_info(const u64 address, const u32 size,
-					 u32 *count)
-{
-	return -ENODEV;
-}
-
 static inline int zynqmp_pm_register_sgi(u32 sgi_num, u32 reset)
 {
 	return -ENODEV;
@@ -1140,12 +959,6 @@ static inline int zynqmp_pm_request_wake(const u32 node,
 					 const bool set_addr,
 					 const u64 address,
 					 const enum zynqmp_pm_request_ack ack)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_rsa(const u64 address, const u32 size,
-				const u32 flags)
 {
 	return -ENODEV;
 }
@@ -1207,147 +1020,14 @@ static inline int zynqmp_pm_get_last_reset_reason(u32 *reset_reason)
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_xilsem_cntrl_ops(u32 cmd, u32 *const response)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_xilsem_cram_readecc(u32 frame, u32 row, u32 *const response)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_xilsem_cram_errinj(u32 frame, u32 qword, u32 bit,
-					       u32 row, u32 *const response)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_xilsem_read_cfg(u32 *const response)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_get_meta_header(const u64 src, const u64 dst,
-					    const u32 size, u32 *count)
-{
-	return -ENODEV;
-}
-
 static inline int zynqmp_pm_aie_operation(u32 node, u16 start_col,
 					  u16 num_col, u32 operation)
 {
 	return -ENODEV;
 }
 
-static inline int versal_pm_puf_registration(const u64 in_addr)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_puf_regeneration(const u64 in_addr)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_sha_hash(const u64 src, const u64 dst, const u32 size)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_aes_key_write(const u32 keylen,
-					  const u32 keysrc, const u64 keyaddr)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_aes_key_zero(const u32 keysrc)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_aes_op_init(const u64 hw_req)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_aes_update_aad(const u64 aad_addr,
-					   const u32 aad_len)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_aes_enc_update(const u64 in_params,
-					   const u64 in_addr)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_aes_dec_update(const u64 in_params,
-					   const u64 in_addr)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_aes_enc_final(const u64 gcm_addr)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_aes_dec_final(const u64 gcm_addr)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_efuse_read(const u64 address, u32 offset, u32 size)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_efuse_write(const u64 address, const u32 operationid, const u8 envdis)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_ecdsa_validate_key(const u64 key_addr,
-					       const u32 curveid)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_ecdsa_verify_sign(const u64 sign_param_addr)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_rsa_encrypt(const u64 in_params,
-					const u64 in_addr)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_rsa_decrypt(const u64 in_params,
-					const u64 in_addr)
-{
-	return -ENODEV;
-}
-
-static inline int versal2_pm_ufs_get_txrx_cfgrdy(u32 node_id, u32 *value)
-{
-	return -ENODEV;
-}
-
-static inline int versal2_pm_ufs_sram_csr_sel(u32 node_id, u32 type, u32 *value)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_puf_clear_id(void)
-{
-	return -ENODEV;
-}
-
-static inline int versal_pm_aes_init(void)
+static inline int versal2_pm_aie2ps_operation(u32 node, u32 size, u32 addr_high,
+					      u32 addr_low)
 {
 	return -ENODEV;
 }
