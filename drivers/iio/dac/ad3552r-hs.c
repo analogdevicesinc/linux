@@ -45,6 +45,17 @@
  * In buffering mode, driver sets best possible mode, D/QSPI and DDR.
  */
 
+enum ad3552r_qspi_state {
+	AD3552R_QSPI_SDI_LOW,
+	AD3552R_QSPI_SDI_HIGH,
+};
+
+/* maps adi,qspi-state property value to enum */
+static const char * const ad3552r_qspi_state_str[] = {
+	[AD3552R_QSPI_SDI_LOW] = "low",
+	[AD3552R_QSPI_SDI_HIGH] = "high",
+};
+
 struct ad3552r_hs_state {
 	const struct ad3552r_model_data *model_data;
 	struct gpio_desc *reset_gpio;
@@ -170,7 +181,26 @@ static int ad3552r_hs_write_raw(struct iio_dev *indio_dev,
 static int ad3552r_hs_set_bus_io_mode_hs(struct ad3552r_hs_state *st)
 {
 	int bus_mode;
+	int ret;
 
+	/*
+	 * Out of IIO kernel tree code. In CN0585 project, the QSPI pin of
+	 * AD3552R devices is hardwired to logical high level which constrains
+	 * to device to always be in QSPI mode. Read custom device tree property
+	 * to properly configure AD3552R SPI mode in that case.
+	 */
+	if (device_property_present(st->dev, "adi,qspi-state")) {
+		ret = device_property_match_property_string(st->dev, "adi,qspi-state",
+							    ad3552r_qspi_state_str,
+							    ARRAY_SIZE(ad3552r_qspi_state_str));
+		if (ret < 0) {
+			dev_err(st->dev, "invalid adi,qspi-state: %d\n", ret);
+			return ret;
+		}
+
+		if (ret == AD3552R_QSPI_SDI_HIGH)
+			return st->data->bus_set_io_mode(st->back, AD3552R_IO_MODE_QSPI);
+	}
 	if (st->model_data->num_spi_data_lanes == 4)
 		bus_mode = AD3552R_IO_MODE_QSPI;
 	else
