@@ -939,7 +939,7 @@ static int adf4371_clock_enable(struct clk_hw *hw)
 	return adf4371_channel_power_down(st, out->num, false);
 }
 
-void adf4371_clock_disable(struct clk_hw *hw)
+static void adf4371_clock_disable(struct clk_hw *hw)
 {
 	struct adf4371_outputs *out = to_adf4371_outputs(hw);
 	struct iio_dev *indio_dev = out->indio_dev;
