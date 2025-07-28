@@ -213,3 +213,6 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADF4030
 	imply ADI_AXI_DAC
 	imply AD3530R
+	imply LTC2309
+	imply AD7091R8
+	imply AD9739A

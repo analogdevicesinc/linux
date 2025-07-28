@@ -30,6 +30,7 @@
 #include <linux/of_dma.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -329,8 +330,7 @@ static int cf_axi_get_parent_sampling_frequency(struct cf_axi_dds_state *st,
 	return 0;
 }
 
-
-void __cf_axi_dds_datasel(struct cf_axi_dds_state *st,
+static void __cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 	int channel, enum dds_data_select sel)
 {
 	unsigned int val;
@@ -2253,7 +2253,7 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, cf_axi_dds_of_match);
 
-int cf_axi_append_attrs(struct iio_dev *indio_dev,
+static int cf_axi_append_attrs(struct iio_dev *indio_dev,
 	const struct attribute_group *add_group, unsigned int skip_cnt)
 {
 	size_t old_cnt = 0, add_cnt = 0, new_cnt;

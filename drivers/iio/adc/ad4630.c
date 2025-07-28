@@ -714,7 +714,7 @@ static int ad4630_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret < 0)
 		goto out_reset_mode;
 
-	spi_bus_lock(st->spi->master);
+	spi_bus_lock(st->spi->controller);
 
 	ret = pwm_set_waveform_might_sleep(st->conv_trigger, &st->conv_wf, false);
 	if (ret)
@@ -728,7 +728,7 @@ static int ad4630_buffer_postenable(struct iio_dev *indio_dev)
 out_pwm_disable:
 	pwm_disable(st->conv_trigger);
 out_unlock:
-	spi_bus_unlock(st->spi->master);
+	spi_bus_unlock(st->spi->controller);
 	spi_unoptimize_message(&st->offload_msg);
 out_reset_mode:
 	/* read this to reenter register configuration mode */
@@ -750,7 +750,7 @@ static int ad4630_buffer_predisable(struct iio_dev *indio_dev)
 	pwm_disable(st->conv_trigger);
 
 	spi_offload_trigger_disable(st->offload, st->offload_trigger);
-	spi_bus_unlock(st->spi->master);
+	spi_bus_unlock(st->spi->controller);
 
 	spi_unoptimize_message(&st->offload_msg);
 	ret = regmap_read(st->regmap, AD4630_REG_ACCESS, &dummy);

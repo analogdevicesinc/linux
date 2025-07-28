@@ -211,7 +211,7 @@ out_unlock:
 	return ret;
 }
 
-int mw_sharedmem_buffer_set_bytes_per_datum(struct iio_buffer *buffer, size_t bpd)
+static int mw_sharedmem_buffer_set_bytes_per_datum(struct iio_buffer *buffer, size_t bpd)
 {
 	buffer->bytes_per_datum = bpd;
 	return 0;

@@ -22,6 +22,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/of_net.h>
+#include <linux/platform_device.h>
 #include <linux/skbuff.h>
 
 #include "xilinx_axienet_tsn.h"
@@ -126,7 +127,7 @@ static int tsn_ex_ep_probe(struct platform_device *pdev)
 	ret = register_netdev(lp->ndev);
 	if (ret) {
 		dev_err(lp->dev, "register_netdev() error (%i)\n", ret);
-		goto free_netdev;
+		goto free_of_node;
 	}
 	ep_lp = netdev_priv(lp->master);
 	ep_lp->ex_ep = ndev;
@@ -135,23 +136,25 @@ static int tsn_ex_ep_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev,
 			 "packet-switch is deprecated and will be removed.Please use \"xlnx,packet-switch\"instead\n");
 	}
+	of_node_put(ep_node);
 	return ret;
+free_of_node:
+	of_node_put(ep_node);
 free_netdev:
 	free_netdev(ndev);
 
 	return ret;
 }
 
-static int tsn_ex_ep_remove(struct platform_device *pdev)
+static void tsn_ex_ep_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
 
 	unregister_netdev(ndev);
 	free_netdev(ndev);
-	return 0;
 }
 
-static struct platform_driver tsn_ex_ep_driver = {
+struct platform_driver tsn_ex_ep_driver = {
 	.probe = tsn_ex_ep_probe,
 	.remove = tsn_ex_ep_remove,
 	.driver = {
@@ -159,8 +162,6 @@ static struct platform_driver tsn_ex_ep_driver = {
 		 .of_match_table = tsn_ex_ep_of_match,
 	},
 };
-
-module_platform_driver(tsn_ex_ep_driver);
 
 MODULE_DESCRIPTION("Xilinx Axi Ethernet driver");
 MODULE_AUTHOR("Xilinx");

@@ -401,7 +401,7 @@ static int axi_hdmi_rx_s_dv_timings(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
-	return v4l2_subdev_call(s->subdev, video, s_dv_timings, timings);
+	return v4l2_subdev_call(s->subdev, pad, s_dv_timings, 0, timings);
 }
 
 static int axi_hdmi_rx_g_dv_timings(struct file *file, void *priv_fh,
@@ -410,7 +410,7 @@ static int axi_hdmi_rx_g_dv_timings(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
-	return v4l2_subdev_call(s->subdev, video, g_dv_timings, timings);
+	return v4l2_subdev_call(s->subdev, pad, g_dv_timings, 0, timings);
 }
 
 static int axi_hdmi_rx_enum_dv_timings(struct file *file, void *priv_fh,
@@ -428,8 +428,7 @@ static int axi_hdmi_rx_query_dv_timings(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
-	return v4l2_subdev_call(s->subdev, video, query_dv_timings,
-		timings);
+	return v4l2_subdev_call(s->subdev, pad, query_dv_timings, 0, timings);
 }
 
 static int axi_hdmi_rx_dv_timings_cap(struct file *file, void *priv_fh,
@@ -948,7 +947,7 @@ err_dma_release_channel:
 	return ret;
 }
 
-static int axi_hdmi_rx_remove(struct platform_device *pdev)
+static void axi_hdmi_rx_remove(struct platform_device *pdev)
 {
 	struct axi_hdmi_rx *hdmi_rx = platform_get_drvdata(pdev);
 
@@ -956,8 +955,6 @@ static int axi_hdmi_rx_remove(struct platform_device *pdev)
 	video_unregister_device(&hdmi_rx->stream.vdev);
 	v4l2_device_unregister(&hdmi_rx->v4l2_dev);
 	dma_release_channel(hdmi_rx->stream.chan);
-
-	return 0;
 }
 
 static const struct of_device_id axi_hdmi_rx_of_match[] = {

@@ -97,6 +97,9 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply REGULATOR_MAX77541
 	imply MFD_MAX77541
         imply REGULATOR_ADP5055
+	imply MFD_ADP5585
+	imply GPIO_ADP5585
+	imply PWM_ADP5585
 
 source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"

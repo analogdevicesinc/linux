@@ -15,8 +15,8 @@
 #include <crypto/internal/rsa.h>
 #include <crypto/scatterwalk.h>
 
-#define XILINX_DMA_BIT_MASK	32U
-#define XILINX_RSA_MAX_KEY_SIZE	1024
+#define ZYNQMP_DMA_BIT_MASK	32U
+#define VERSAL_DMA_BIT_MASK	64U
 #define XILINX_RSA_BLOCKSIZE	64
 
 /* Key size in bytes */
@@ -42,6 +42,7 @@ struct xilinx_rsa_drv_ctx {
 	struct device *dev;
 	struct crypto_engine *engine;
 	int (*xilinx_rsa_xcrypt)(struct akcipher_request *req);
+	u8 dma_bit_mask;
 };
 
 struct xilinx_rsa_tfm_ctx {
@@ -59,6 +60,21 @@ struct xilinx_rsa_tfm_ctx {
 struct xilinx_rsa_req_ctx {
 	enum xilinx_akcipher_op op;
 };
+
+static int xilinx_fallback_check(const struct xilinx_rsa_tfm_ctx *tfm_ctx,
+				 const struct akcipher_request *areq)
+{
+	/* Return 1 if fallback to crypto engine for performing requested operation */
+	if (tfm_ctx->n_len != XSECURE_RSA_2048_KEY_SIZE &&
+	    tfm_ctx->n_len != XSECURE_RSA_3072_KEY_SIZE &&
+	    tfm_ctx->n_len != XSECURE_RSA_4096_KEY_SIZE)
+		return 1;
+
+	if (areq->src_len > areq->dst_len)
+		return 1;
+
+	return 0;
+}
 
 static int zynqmp_rsa_xcrypt(struct akcipher_request *req)
 {
@@ -85,7 +101,7 @@ static int zynqmp_rsa_xcrypt(struct akcipher_request *req)
 	dma_size = req->dst_len + tctx->n_len + len + padding;
 	offset = dma_size - len;
 
-	kbuf = dma_alloc_coherent(tctx->dev, dma_size, &dma_addr, GFP_KERNEL);
+	kbuf = kzalloc(dma_size, GFP_KERNEL);
 	if (!kbuf)
 		return -ENOMEM;
 
@@ -93,15 +109,19 @@ static int zynqmp_rsa_xcrypt(struct akcipher_request *req)
 	memcpy(kbuf + req->dst_len, tctx->n_buf, tctx->n_len);
 
 	memcpy(kbuf + offset, buf, len);
-
+	dma_addr = dma_map_single(tctx->dev, kbuf, dma_size, DMA_BIDIRECTIONAL);
+	if (unlikely(dma_mapping_error(tctx->dev, dma_addr))) {
+		ret = -ENOMEM;
+		goto end;
+	}
 	ret = zynqmp_pm_rsa(dma_addr, tctx->n_len, rq_ctx->op);
+	dma_unmap_single(tctx->dev, dma_addr, dma_size, DMA_BIDIRECTIONAL);
 	if (ret == 0) {
 		sg_copy_from_buffer(req->dst, sg_nents(req->dst), kbuf,
 				    req->dst_len);
 	}
-
-	dma_free_coherent(tctx->dev, dma_size, kbuf, dma_addr);
-
+end:
+	kfree(kbuf);
 	return ret;
 }
 
@@ -115,15 +135,10 @@ static int versal_rsa_xcrypt(struct akcipher_request *req)
 	dma_addr_t dma_addr, dma_addr1;
 	char *kbuf;
 	const char *buf;
+	void *dmabuf;
 	size_t dma_size;
 	u8 padding = 0;
 	int ret = 0;
-
-	para = dma_alloc_coherent(tctx->dev,
-				  sizeof(struct versal_rsa_in_param),
-				  &dma_addr1, GFP_KERNEL);
-	if (!para)
-		return -ENOMEM;
 
 	if (rq_ctx->op == XILINX_RSA_ENCRYPT) {
 		padding = tctx->e_len % 2;
@@ -134,40 +149,42 @@ static int versal_rsa_xcrypt(struct akcipher_request *req)
 		len = tctx->d_len;
 	}
 
-	dma_size = req->dst_len + tctx->n_len + len + padding;
-	offset = dma_size - len;
+	dma_size = sizeof(struct versal_rsa_in_param) + req->dst_len + tctx->n_len + len + padding;
+	offset = req->dst_len + tctx->n_len + padding;
+	dmabuf = kmalloc(dma_size, GFP_KERNEL);
+	if (!dmabuf)
+		return -ENOMEM;
 
-	kbuf = dma_alloc_coherent(tctx->dev, dma_size, &dma_addr, GFP_KERNEL);
-	if (!kbuf) {
+	para = dmabuf;
+	kbuf = dmabuf + sizeof(struct versal_rsa_in_param);
+	memset(kbuf, 0, diff);
+	scatterwalk_map_and_copy(kbuf + diff, req->src, 0, req->src_len, 0);
+	memcpy(kbuf + req->dst_len, tctx->n_buf, tctx->n_len);
+	memset(kbuf + req->dst_len + tctx->n_len, 0, padding);
+	memcpy(kbuf + offset, buf, len);
+	dma_addr1 = dma_map_single(tctx->dev, dmabuf, dma_size, DMA_BIDIRECTIONAL);
+	if (unlikely(dma_mapping_error(tctx->dev, dma_addr1))) {
 		ret = -ENOMEM;
-		goto kbuf_fail;
+		goto end;
 	}
 
-	scatterwalk_map_and_copy(kbuf + diff, req->src, 0, req->src_len, 0);
-
-	memcpy(kbuf + req->dst_len, tctx->n_buf, tctx->n_len);
-
-	memcpy(kbuf + offset, buf, len);
-
+	dma_addr = dma_addr1 + sizeof(struct versal_rsa_in_param);
 	para->key_addr = (u64)(dma_addr + req->dst_len);
 	para->data_addr = (u64)dma_addr;
 	para->size = req->dst_len;
-
+	dma_sync_single_for_device(tctx->dev, dma_addr1, dma_size, DMA_BIDIRECTIONAL);
 	if (rq_ctx->op == XILINX_RSA_ENCRYPT)
 		ret = versal_pm_rsa_encrypt(dma_addr1, dma_addr);
 	else
 		ret = versal_pm_rsa_decrypt(dma_addr1, dma_addr);
-
+	dma_unmap_single(tctx->dev, dma_addr1, dma_size, DMA_BIDIRECTIONAL);
 	if (ret == 0) {
 		sg_copy_from_buffer(req->dst, sg_nents(req->dst), kbuf,
 				    req->dst_len);
 	}
-	dma_free_coherent(tctx->dev, dma_size, kbuf, dma_addr);
 
-kbuf_fail:
-	dma_free_coherent(tctx->dev, sizeof(struct versal_rsa_in_param),
-			  para, dma_addr1);
-
+end:
+	kfree(dmabuf);
 	return ret;
 }
 
@@ -175,11 +192,23 @@ static int xilinx_rsa_decrypt(struct akcipher_request *req)
 {
 	struct xilinx_rsa_req_ctx *rctx = akcipher_request_ctx(req);
 	struct crypto_akcipher *tfm = crypto_akcipher_reqtfm(req);
+	const struct xilinx_rsa_tfm_ctx *tfm_ctx = akcipher_tfm_ctx(tfm);
 	struct akcipher_alg *alg = crypto_akcipher_alg(tfm);
 	struct xilinx_rsa_drv_ctx *drv_ctx;
+	int need_fallback;
+
+	drv_ctx = container_of(alg, struct xilinx_rsa_drv_ctx, alg.base);
+	need_fallback = xilinx_fallback_check(tfm_ctx, req);
+	if (need_fallback) {
+		akcipher_request_set_tfm(req, tfm_ctx->fbk_cipher);
+		akcipher_request_set_callback(req, req->base.flags,
+					      NULL, NULL);
+		akcipher_request_set_crypt(req, req->src, req->dst,
+					   req->src_len, req->dst_len);
+		return crypto_akcipher_decrypt(req);
+	}
 
 	rctx->op = XILINX_RSA_DECRYPT;
-	drv_ctx = container_of(alg, struct xilinx_rsa_drv_ctx, alg.base);
 
 	return crypto_transfer_akcipher_request_to_engine(drv_ctx->engine, req);
 }
@@ -188,11 +217,23 @@ static int xilinx_rsa_encrypt(struct akcipher_request *req)
 {
 	struct xilinx_rsa_req_ctx *rctx = akcipher_request_ctx(req);
 	struct crypto_akcipher *tfm = crypto_akcipher_reqtfm(req);
+	const struct xilinx_rsa_tfm_ctx *tfm_ctx = akcipher_tfm_ctx(tfm);
 	struct akcipher_alg *alg = crypto_akcipher_alg(tfm);
 	struct xilinx_rsa_drv_ctx *drv_ctx;
+	int need_fallback;
+
+	drv_ctx = container_of(alg, struct xilinx_rsa_drv_ctx, alg.base);
+	need_fallback = xilinx_fallback_check(tfm_ctx, req);
+	if (need_fallback) {
+		akcipher_request_set_tfm(req, tfm_ctx->fbk_cipher);
+		akcipher_request_set_callback(req, req->base.flags,
+					      NULL, NULL);
+		akcipher_request_set_crypt(req, req->src, req->dst,
+					   req->src_len, req->dst_len);
+		return crypto_akcipher_encrypt(req);
+	}
 
 	rctx->op = XILINX_RSA_ENCRYPT;
-	drv_ctx = container_of(alg, struct xilinx_rsa_drv_ctx, alg.base);
 
 	return crypto_transfer_akcipher_request_to_engine(drv_ctx->engine, req);
 }
@@ -214,7 +255,7 @@ static inline int xilinx_copy_and_save_keypart(u8 **kpbuf, unsigned int *kplen,
 			break;
 
 	*kplen = sz - nskip;
-	*kpbuf = kmemdup(buf + nskip, *kplen, GFP_KERNEL);
+	*kpbuf = kmemdup(buf + nskip, *kplen, GFP_ATOMIC);
 	if (!*kpbuf)
 		return -ENOMEM;
 
@@ -256,6 +297,7 @@ static int xilinx_rsa_setkey(struct crypto_akcipher *tfm, const void *key,
 	if (ret)
 		return ret;
 
+	xilinx_rsa_free_key_bufs(tctx);
 	ret = xilinx_copy_and_save_keypart(&tctx->n_buf, &tctx->n_len,
 					   raw_key.n, raw_key.n_sz);
 	if (ret)
@@ -321,73 +363,33 @@ static int xilinx_rsa_set_pub_key(struct crypto_akcipher *tfm, const void *key,
 	return xilinx_rsa_setkey(tfm, key, keylen, false);
 }
 
-static int xilinx_fallback_check(const struct xilinx_rsa_tfm_ctx *tfm_ctx,
-				 const struct akcipher_request *areq)
-{
-	/* Return 1 if fallback to crypto engine for performing requested operation */
-	if (tfm_ctx->n_len != XSECURE_RSA_2048_KEY_SIZE &&
-	    tfm_ctx->n_len != XSECURE_RSA_3072_KEY_SIZE &&
-	    tfm_ctx->n_len != XSECURE_RSA_4096_KEY_SIZE)
-		return 1;
-
-	if (areq->src_len > areq->dst_len)
-		return 1;
-
-	return 0;
-}
-
 static int handle_rsa_req(struct crypto_engine *engine,
 			  void *req)
 {
-	struct akcipher_request *areq = container_of(req,
-						     struct akcipher_request,
-						     base);
 	struct crypto_akcipher *akcipher = crypto_akcipher_reqtfm(req);
 	struct akcipher_alg *cipher_alg = crypto_akcipher_alg(akcipher);
-	const struct xilinx_rsa_tfm_ctx *tfm_ctx = akcipher_tfm_ctx(akcipher);
-	const struct xilinx_rsa_req_ctx *rq_ctx = akcipher_request_ctx(areq);
-	struct akcipher_request *subreq = akcipher_request_ctx(req);
 	struct xilinx_rsa_drv_ctx *drv_ctx;
-	int need_fallback, err;
+	int err;
 
 	drv_ctx = container_of(cipher_alg, struct xilinx_rsa_drv_ctx, alg.base);
-
-	need_fallback = xilinx_fallback_check(tfm_ctx, areq);
-	if (need_fallback) {
-		akcipher_request_set_tfm(subreq, tfm_ctx->fbk_cipher);
-
-		akcipher_request_set_callback(subreq, areq->base.flags,
-					      NULL, NULL);
-		akcipher_request_set_crypt(subreq, areq->src, areq->dst,
-					   areq->src_len, areq->dst_len);
-
-		if (rq_ctx->op == XILINX_RSA_ENCRYPT)
-			err = crypto_akcipher_encrypt(subreq);
-		else if (rq_ctx->op == XILINX_RSA_DECRYPT)
-			err = crypto_akcipher_decrypt(subreq);
-		else
-			err = -EOPNOTSUPP;
-	} else {
-		err = drv_ctx->xilinx_rsa_xcrypt(areq);
-	}
-
-	crypto_finalize_akcipher_request(engine, areq, err);
+	err = drv_ctx->xilinx_rsa_xcrypt(req);
+	crypto_finalize_akcipher_request(engine, req, err);
 
 	return 0;
 }
 
 static int xilinx_rsa_init(struct crypto_akcipher *tfm)
 {
-	struct xilinx_rsa_tfm_ctx *tfm_ctx =
-		(struct xilinx_rsa_tfm_ctx *)akcipher_tfm_ctx(tfm);
+	struct xilinx_rsa_tfm_ctx *tfm_ctx = akcipher_tfm_ctx(tfm);
 	struct akcipher_alg *cipher_alg = crypto_akcipher_alg(tfm);
 	struct xilinx_rsa_drv_ctx *drv_ctx;
 
 	drv_ctx = container_of(cipher_alg, struct xilinx_rsa_drv_ctx, alg.base);
 	tfm_ctx->dev = drv_ctx->dev;
-	tfm_ctx->fbk_cipher = crypto_alloc_akcipher(drv_ctx->alg.base.base.cra_name,
-						    0,
-						    CRYPTO_ALG_NEED_FALLBACK);
+	tfm_ctx->d_buf = NULL;
+	tfm_ctx->e_buf = NULL;
+	tfm_ctx->n_buf = NULL;
+	tfm_ctx->fbk_cipher = crypto_alloc_akcipher("rsa-generic", 0, 0);
 	if (IS_ERR(tfm_ctx->fbk_cipher)) {
 		pr_err("%s() Error: failed to allocate fallback for %s\n",
 		       __func__, drv_ctx->alg.base.base.cra_name);
@@ -395,7 +397,7 @@ static int xilinx_rsa_init(struct crypto_akcipher *tfm)
 	}
 
 	akcipher_set_reqsize(tfm, max(sizeof(struct xilinx_rsa_req_ctx),
-			     sizeof(struct akcipher_request) +
+				      sizeof(struct akcipher_request) +
 			     crypto_akcipher_reqsize(tfm_ctx->fbk_cipher)));
 
 	return 0;
@@ -403,8 +405,7 @@ static int xilinx_rsa_init(struct crypto_akcipher *tfm)
 
 static void xilinx_rsa_exit(struct crypto_akcipher *tfm)
 {
-	struct xilinx_rsa_tfm_ctx *tfm_ctx =
-			(struct xilinx_rsa_tfm_ctx *)akcipher_tfm_ctx(tfm);
+	struct xilinx_rsa_tfm_ctx *tfm_ctx = akcipher_tfm_ctx(tfm);
 
 	xilinx_rsa_free_key_bufs(tfm_ctx);
 
@@ -444,6 +445,7 @@ static struct xilinx_rsa_drv_ctx zynqmp_rsa_drv_ctx = {
 	.alg.op = {
 		.do_one_request = handle_rsa_req,
 	},
+	.dma_bit_mask = ZYNQMP_DMA_BIT_MASK,
 };
 
 static struct xilinx_rsa_drv_ctx versal_rsa_drv_ctx = {
@@ -475,6 +477,7 @@ static struct xilinx_rsa_drv_ctx versal_rsa_drv_ctx = {
 	.alg.op = {
 		.do_one_request = handle_rsa_req,
 	},
+	.dma_bit_mask = VERSAL_DMA_BIT_MASK,
 };
 
 static struct xlnx_feature rsa_feature_map[] = {
@@ -507,7 +510,7 @@ static int xilinx_rsa_probe(struct platform_device *pdev)
 	}
 
 	ret = dma_set_mask_and_coherent(dev,
-					DMA_BIT_MASK(XILINX_DMA_BIT_MASK));
+					DMA_BIT_MASK(rsa_drv_ctx->dma_bit_mask));
 	if (ret < 0) {
 		dev_err(dev, "no usable DMA configuration");
 		return ret;
@@ -542,7 +545,7 @@ out:
 	return ret;
 }
 
-static int xilinx_rsa_remove(struct platform_device *pdev)
+static void xilinx_rsa_remove(struct platform_device *pdev)
 {
 	struct xilinx_rsa_drv_ctx *rsa_drv_ctx;
 
@@ -551,8 +554,6 @@ static int xilinx_rsa_remove(struct platform_device *pdev)
 	crypto_engine_exit(rsa_drv_ctx->engine);
 
 	crypto_engine_unregister_akcipher(&rsa_drv_ctx->alg);
-
-	return 0;
 }
 
 static struct platform_driver xilinx_rsa_driver = {
@@ -574,7 +575,7 @@ static int __init xilinx_rsa_driver_init(void)
 		return ret;
 
 	platform_dev = platform_device_register_simple(xilinx_rsa_driver.driver.name,
-					       0, NULL, 0);
+						       0, NULL, 0);
 	if (IS_ERR(platform_dev)) {
 		ret = PTR_ERR(platform_dev);
 		platform_driver_unregister(&xilinx_rsa_driver);

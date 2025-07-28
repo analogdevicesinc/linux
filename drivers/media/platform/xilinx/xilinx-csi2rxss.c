@@ -389,14 +389,6 @@ static void xcsi2rxss_log_counters(struct xcsi2rxss_state *state)
 	}
 }
 
-/**
- * xcsi2rxss_log_status - Logs the status of the CSI-2 Receiver
- * @sd: Pointer to V4L2 subdevice structure
- *
- * This function prints the current status of Xilinx MIPI CSI-2
- *
- * Return: 0 on success
- */
 static int xcsi2rxss_log_status(struct v4l2_subdev *sd)
 {
 	struct xcsi2rxss_state *xcsi2rxss = to_xcsi2rxssstate(sd);
@@ -516,8 +508,6 @@ static int xcsi2rxss_start_stream(struct xcsi2rxss_state *state)
 		goto exit_start_stream;
 	}
 
-	ret = v4l2_subdev_call(state->rsubdev, video, s_stream, 1);
-
 exit_start_stream:
 	if (ret) {
 		/* disable interrupts */
@@ -534,8 +524,6 @@ exit_start_stream:
 
 static void xcsi2rxss_stop_stream(struct xcsi2rxss_state *state)
 {
-	v4l2_subdev_call(state->rsubdev, video, s_stream, 0);
-
 	/* disable interrupts */
 	xcsi2rxss_clr(state, XCSI_IER_OFFSET, XCSI_IER_INTR_MASK);
 	xcsi2rxss_clr(state, XCSI_GIER_OFFSET, XCSI_GIER_GIE);
@@ -647,16 +635,6 @@ static irqreturn_t xcsi2rxss_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-/**
- * xcsi2rxss_s_stream - It is used to start/stop the streaming.
- * @sd: V4L2 Sub device
- * @enable: Flag (True / False)
- *
- * This function controls the start or stop of streaming for the
- * Xilinx MIPI CSI-2 Rx Subsystem.
- *
- * Return: 0 on success, errors otherwise
- */
 static int xcsi2rxss_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct xcsi2rxss_state *xcsi2rxss = to_xcsi2rxssstate(sd);
@@ -689,8 +667,7 @@ __xcsi2rxss_get_pad_format(struct xcsi2rxss_state *xcsi2rxss,
 
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		get_fmt = v4l2_subdev_get_try_format(&xcsi2rxss->subdev,
-						     sd_state, pad);
+		get_fmt = v4l2_subdev_state_get_format(sd_state, pad);
 		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		get_fmt = &xcsi2rxss->format;
@@ -704,17 +681,17 @@ __xcsi2rxss_get_pad_format(struct xcsi2rxss_state *xcsi2rxss,
 }
 
 /**
- * xcsi2rxss_init_cfg - Initialise the pad format config to default
+ * xcsi2rxss_init_state - Initialise the pad format config to default
  * @sd: Pointer to V4L2 Sub device structure
- * @cfg: Pointer to sub device pad information structure
+ * @sd_state: Pointer to sub device state structure
  *
  * This function is used to initialize the pad format with the default
  * values.
  *
  * Return: 0 on success
  */
-static int xcsi2rxss_init_cfg(struct v4l2_subdev *sd,
-			      struct v4l2_subdev_state *sd_state)
+static int xcsi2rxss_init_state(struct v4l2_subdev *sd,
+				struct v4l2_subdev_state *sd_state)
 {
 	struct xcsi2rxss_state *xcsi2rxss = to_xcsi2rxssstate(sd);
 	struct v4l2_mbus_framefmt *format;
@@ -722,7 +699,7 @@ static int xcsi2rxss_init_cfg(struct v4l2_subdev *sd,
 
 	mutex_lock(&xcsi2rxss->lock);
 	for (i = 0; i < XCSI_MEDIA_PADS; i++) {
-		format = v4l2_subdev_get_try_format(sd, sd_state, i);
+		format = v4l2_subdev_state_get_format(sd_state, i);
 		*format = xcsi2rxss->default_format;
 	}
 	mutex_unlock(&xcsi2rxss->lock);
@@ -733,7 +710,7 @@ static int xcsi2rxss_init_cfg(struct v4l2_subdev *sd,
 /**
  * xcsi2rxss_get_format - Get the pad format
  * @sd: Pointer to V4L2 Sub device structure
- * @cfg: Pointer to sub device pad information structure
+ * @sd_state: Pointer to sub device state structure
  * @fmt: Pointer to pad level media bus format
  *
  * This function is used to get the pad format information.
@@ -768,7 +745,7 @@ unlock_get_format:
 /**
  * xcsi2rxss_set_format - This is used to set the pad format
  * @sd: Pointer to V4L2 Sub device structure
- * @cfg: Pointer to sub device pad information structure
+ * @sd_state: Pointer to sub device state structure
  * @fmt: Pointer to pad level media bus format
  *
  * This function is used to set the pad format. Since the pad format is fixed
@@ -828,10 +805,10 @@ unlock_set_format:
 	return ret;
 }
 
-/*
+/**
  * xcsi2rxss_enum_mbus_code - Handle pixel format enumeration
  * @sd: pointer to v4l2 subdev structure
- * @cfg: V4L2 subdev pad configuration
+ * @sd_state: V4L2 subdev pad configuration
  * @code: pointer to v4l2_subdev_mbus_code_enum structure
  *
  * Return: -EINVAL or zero on success
@@ -879,7 +856,6 @@ static const struct v4l2_subdev_video_ops xcsi2rxss_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops xcsi2rxss_pad_ops = {
-	.init_cfg = xcsi2rxss_init_cfg,
 	.get_fmt = xcsi2rxss_get_format,
 	.set_fmt = xcsi2rxss_set_format,
 	.enum_mbus_code = xcsi2rxss_enum_mbus_code,
@@ -890,6 +866,10 @@ static const struct v4l2_subdev_ops xcsi2rxss_ops = {
 	.core = &xcsi2rxss_core_ops,
 	.video = &xcsi2rxss_video_ops,
 	.pad = &xcsi2rxss_pad_ops
+};
+
+static const struct v4l2_subdev_internal_ops xcsi2rxss_internal_ops = {
+	.init_state = xcsi2rxss_init_state,
 };
 
 static int xcsi2rxss_parse_of(struct xcsi2rxss_state *xcsi2rxss)
@@ -1070,6 +1050,7 @@ static int xcsi2rxss_probe(struct platform_device *pdev)
 	/* Initialize V4L2 subdevice and media entity */
 	subdev = &xcsi2rxss->subdev;
 	v4l2_subdev_init(subdev, &xcsi2rxss_ops);
+	subdev->internal_ops = &xcsi2rxss_internal_ops;
 	subdev->dev = dev;
 	strscpy(subdev->name, dev_name(dev), sizeof(subdev->name));
 	subdev->flags |= V4L2_SUBDEV_FL_HAS_EVENTS | V4L2_SUBDEV_FL_HAS_DEVNODE;

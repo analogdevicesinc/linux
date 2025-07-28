@@ -27,6 +27,9 @@
 
 #include "ai-engine-internal.h"
 
+#define CREATE_TRACE_POINTS
+#include "ai-engine-trace.h"
+
 #define AIE_DEV_MAX			(MINORMASK + 1)
 
 static dev_t aie_major;
@@ -358,6 +361,7 @@ static long xilinx_ai_engine_ioctl(struct file *filp, unsigned int cmd,
 	void __user *argp = (void __user *)arg;
 	int ret;
 
+	trace_xilinx_ai_engine_ioctl(adev, cmd);
 	switch (cmd) {
 	case AIE_ENQUIRE_PART_IOCTL:
 	{
@@ -471,6 +475,7 @@ void of_xilinx_ai_engine_aperture_probe(struct aie_device *adev)
 				"Failed to probe AI engine aperture for %pOF\n",
 				nc);
 			of_node_put(nc);
+			mutex_unlock(&adev->mlock);
 			/* try to probe the next node */
 			continue;
 		}
@@ -539,7 +544,6 @@ int xilinx_ai_engine_add_dev(struct aie_device *adev,
 static int xilinx_ai_engine_probe(struct platform_device *pdev)
 {
 	struct aie_device *adev;
-	u32 pm_reg[2];
 	int ret;
 	u8 regs_u8[2];
 	u8 aie_gen;
@@ -597,11 +601,17 @@ static int xilinx_ai_engine_probe(struct platform_device *pdev)
 	adev->ttype_attr[AIE_TILE_TYPE_MEMORY].num_rows = regs_u8[1];
 
 	adev->dev_gen = aie_gen;
-	if (aie_gen == AIE_DEVICE_GEN_AIE) {
+	switch (aie_gen) {
+	case AIE_DEVICE_GEN_AIE:
 		ret = aie_device_init(adev);
-	} else if (aie_gen == AIE_DEVICE_GEN_AIEML) {
+		break;
+	case AIE_DEVICE_GEN_AIEML:
 		ret = aieml_device_init(adev);
-	} else {
+		break;
+	case AIE_DEVICE_GEN_AIE2PS:
+		ret = aie2ps_device_init(adev);
+		break;
+	default:
 		dev_err(&pdev->dev, "Invalid device generation\n");
 		return -EINVAL;
 	}
@@ -609,19 +619,6 @@ static int xilinx_ai_engine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to initialize device instance.\n");
 		return ret;
 	}
-
-	/*
-	 * AI Engine platform management node ID is required for requesting
-	 * services from firmware driver.
-	 */
-	ret = of_property_read_u32_array(pdev->dev.of_node, "power-domains",
-					 pm_reg, ARRAY_SIZE(pm_reg));
-	if (ret < 0) {
-		dev_err(&pdev->dev,
-			"Failed to read power manangement information\n");
-		return ret;
-	}
-	adev->pm_node_id = pm_reg[1];
 
 	adev->clk = devm_clk_get(&pdev->dev, "aclk0");
 	if (IS_ERR(adev->clk)) {
@@ -643,7 +640,7 @@ static int xilinx_ai_engine_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int xilinx_ai_engine_remove(struct platform_device *pdev)
+static void xilinx_ai_engine_remove(struct platform_device *pdev)
 {
 	struct aie_device *adev = platform_get_drvdata(pdev);
 	struct list_head *node, *pos;
@@ -655,13 +652,11 @@ static int xilinx_ai_engine_remove(struct platform_device *pdev)
 		aperture = list_entry(pos, struct aie_aperture, node);
 		ret = aie_aperture_remove(aperture);
 		if (ret)
-			return ret;
+			return;
 	}
 
 	device_del(&adev->dev);
 	put_device(&adev->dev);
-
-	return 0;
 }
 
 static const struct of_device_id xilinx_ai_engine_of_match[] = {
@@ -778,7 +773,6 @@ struct device *aie_partition_request(struct aie_partition_req *req)
 	class_dev_iter_init(&iter, aie_class, NULL, NULL);
 	while ((dev = class_dev_iter_next(&iter))) {
 		struct aie_aperture *aperture;
-		int ret;
 
 		if (strncmp(dev_name(dev), "aieaperture",
 			    strlen("aieaperture")))
@@ -820,6 +814,8 @@ struct device *aie_partition_request(struct aie_partition_req *req)
 		aie_part_remove(apart);
 		mutex_unlock(&apart->aperture->mlock);
 	}
+	apart->user_event1_complete = req->user_event1_complete;
+	apart->user_event1_priv = req->user_event1_priv;
 
 	return &apart->dev;
 }
@@ -870,6 +866,7 @@ void aie_partition_release(struct device *dev)
 
 	apart = dev_to_aiepart(dev);
 	fput(apart->filep);
+	flush_delayed_fput();
 }
 EXPORT_SYMBOL_GPL(aie_partition_release);
 
@@ -886,7 +883,10 @@ int aie_partition_reset(struct device *dev)
 		return -EINVAL;
 
 	apart = dev_to_aiepart(dev);
-	return aie_part_reset(apart);
+	if (apart->adev->ops->part_reset)
+		return apart->adev->ops->part_reset(apart);
+
+	return -EINVAL;
 }
 EXPORT_SYMBOL_GPL(aie_partition_reset);
 

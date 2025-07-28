@@ -62,6 +62,8 @@ static const struct xvip_video_format xvip_video_formats[] = {
 	  2, 16, V4L2_PIX_FMT_X216M, 2, 2, 1, 1 },
 	{ XVIP_VF_YUV_444, 8, NULL, MEDIA_BUS_FMT_VUY8_1X24,
 	  3, 24, V4L2_PIX_FMT_VUY24, 1, 1, 1, 1 },
+	{ XVIP_VF_YUV_444, 12, NULL, MEDIA_BUS_FMT_VUY12_1X36,
+	  1, 12, V4L2_PIX_FMT_X423, 3, 3, 1, 1 },
 	{ XVIP_VF_YUV_444, 10, NULL, MEDIA_BUS_FMT_VUY10_1X30,
 	  1, 24, V4L2_PIX_FMT_X403, 3, 1, 1, 1 },
 	{ XVIP_VF_YUV_444, 8, NULL, MEDIA_BUS_FMT_VUY8_1X24,
@@ -103,7 +105,7 @@ static const struct xvip_video_format xvip_video_formats[] = {
 	{ XVIP_VF_Y_GREY, 16, NULL, MEDIA_BUS_FMT_Y16_1X16,
 	  2, 16, V4L2_PIX_FMT_Y16, 1, 1, 1, 1 },
 	{ XVIP_VF_MONO_SENSOR, 8, "rggb", MEDIA_BUS_FMT_SRGGB8_1X8,
-	  1, 8, V4L2_PIX_FMT_SGRBG8, 1, 1, 1, 1 },
+	  1, 8, V4L2_PIX_FMT_SRGGB8, 1, 1, 1, 1 },
 	{ XVIP_VF_MONO_SENSOR, 8, "grbg", MEDIA_BUS_FMT_SGRBG8_1X8,
 	  1, 8, V4L2_PIX_FMT_SGRBG8, 1, 1, 1, 1 },
 	{ XVIP_VF_MONO_SENSOR, 8, "gbrg", MEDIA_BUS_FMT_SGBRG8_1X8,
@@ -214,6 +216,7 @@ void xvip_bpl_scaling_factor(u32 fourcc, u32 *numerator, u32 *denominator)
 	case V4L2_PIX_FMT_X212M:
 	case V4L2_PIX_FMT_X412:
 	case V4L2_PIX_FMT_X412M:
+	case V4L2_PIX_FMT_X423:
 		*numerator = 12;
 		*denominator = 8;
 		break;
@@ -441,7 +444,7 @@ int xvip_enum_mbus_code(struct v4l2_subdev *subdev,
 	if (code->index)
 		return -EINVAL;
 
-	format = v4l2_subdev_get_try_format(subdev, sd_state, code->pad);
+	format = v4l2_subdev_state_get_format(sd_state, code->pad);
 
 	code->code = format->code;
 
@@ -476,7 +479,7 @@ int xvip_enum_frame_size(struct v4l2_subdev *subdev,
 	if (fse->which == V4L2_SUBDEV_FORMAT_ACTIVE)
 		return -EINVAL;
 
-	format = v4l2_subdev_get_try_format(subdev, sd_state, fse->pad);
+	format = v4l2_subdev_state_get_format(sd_state, fse->pad);
 
 	if (fse->index || fse->code != format->code)
 		return -EINVAL;

@@ -62,6 +62,8 @@ static const char * const iio_chan_type_name_spec[] = {
 	[IIO_MASSCONCENTRATION] = "massconcentration",
 	[IIO_DELTA_ANGL] = "deltaangl",
 	[IIO_DELTA_VELOCITY] = "deltavelocity",
+	[IIO_COLORTEMP] = "colortemp",
+	[IIO_CHROMATICITY] = "chromaticity",
 };
 
 static const char * const iio_ev_type_text[] = {
@@ -106,6 +108,8 @@ static const char * const iio_modifier_names[] = {
 	[IIO_MOD_LIGHT_GREEN] = "green",
 	[IIO_MOD_LIGHT_BLUE] = "blue",
 	[IIO_MOD_LIGHT_UV] = "uv",
+	[IIO_MOD_LIGHT_UVA] = "uva",
+	[IIO_MOD_LIGHT_UVB] = "uvb",
 	[IIO_MOD_LIGHT_DUV] = "duv",
 	[IIO_MOD_QUATERNION] = "quaternion",
 	[IIO_MOD_TEMP_AMBIENT] = "ambient",
@@ -181,6 +185,8 @@ static bool event_is_known(struct iio_event_data *event)
 	case IIO_MASSCONCENTRATION:
 	case IIO_DELTA_ANGL:
 	case IIO_DELTA_VELOCITY:
+	case IIO_COLORTEMP:
+	case IIO_CHROMATICITY:
 		break;
 	default:
 		return false;

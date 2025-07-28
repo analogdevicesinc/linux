@@ -13,9 +13,11 @@
 #include <linux/interrupt.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-dp.h>
 #include <linux/platform_device.h>
@@ -243,6 +245,13 @@
 #define XDPRX_VSC_SDP_FMT_MASK		GENMASK(7, 4)
 #define XDPRX_VSC_SDP_BPC_MASK		GENMASK(11, 8)
 #define XDPRX_EXT_VRD_BWSET_REG		0x7f0
+
+/* table 2-96 DP Spec 1.4 */
+#define XDPRX_MSA_BPC_6			0x00
+#define XDPRX_MSA_BPC_8			0x01
+#define XDPRX_MSA_BPC_10		0x02
+#define XDPRX_MSA_BPC_12		0x03
+#define XDPRX_MSA_BPC_16		0x04
 
 #define XDPRX_COLOR_FORMAT_RGB		0x0
 #define XDPRX_COLOR_FORMAT_422		0x1
@@ -484,7 +493,6 @@ struct vidphy_cfg {
  * @axi_clk: Axi lite interface clock
  * @rx_lnk_clk: DP Rx GT clock
  * @rx_vid_clk: DP RX Video clock
- * @rx_dec_clk: DP Rx Decode clock
  * @tmr_config: Pointer for timer core
  * @dp_base: Base address of DP Rx Subsystem
  * @edid_base: Bare Address of EDID block
@@ -1006,9 +1014,6 @@ static int xlnx_dp_rx_gt_control_init(struct xdprxss_state *dp)
 		       XDPRX_GTCTL_VSWING_INIT_VAL);
 
 	xdprxss_clr(dp, XDPRX_GTCTL_REG, XDPRX_GTCTL_EN);
-	ret = xlnx_dp_phy_ready(dp);
-	if (ret < 0)
-		return ret;
 
 	/* Setting initial link rate */
 	ret = config_gt_control_linerate(dp, DP_LINK_BW_8_1);
@@ -1041,7 +1046,7 @@ static int xdprxss_get_stream_properties(struct xdprxss_state *state)
 	u32 rxmsa_mvid, rxmsa_nvid, rxmsa_misc, recv_clk_freq, linkrate, data;
 	u16 vres_total, hres_total, framerate, lanecount;
 	u16 hact, vact, hsw, vsw, hstart, vstart;
-	u8 pixel_width, fmt;
+	u8 pixel_width, fmt, bpc;
 	u16 read_val;
 
 	rxmsa_mvid = xdprxss_read(state, XDPRX_MSA_MVID_REG);
@@ -1085,10 +1090,23 @@ static int xdprxss_get_stream_properties(struct xdprxss_state *state)
 		read_val = xdprxss_read(state, XDPRX_SDP_PAYLOAD_STREAM1);
 		/* Decoding Data byte 16 */
 		fmt = FIELD_GET(XDPRX_VSC_SDP_FMT_MASK, read_val);
-		state->bpc = FIELD_GET(XDPRX_VSC_SDP_BPC_MASK, read_val);
+		bpc = FIELD_GET(XDPRX_VSC_SDP_BPC_MASK, read_val);
 	} else {
 		fmt = FIELD_GET(XDPRX_MSA_FMT_MASK, rxmsa_misc);
-		state->bpc = FIELD_GET(XDPRX_MSA_BPC_MASK, rxmsa_misc);
+		bpc = FIELD_GET(XDPRX_MSA_BPC_MASK, rxmsa_misc);
+	}
+
+	switch (bpc) {
+	case XDPRX_MSA_BPC_8:
+		state->bpc = 8;
+		break;
+	case XDPRX_MSA_BPC_10:
+		state->bpc = 10;
+		break;
+	default:
+		dev_err(state->dev, "Unsupported bit color depth\n");
+
+		return -EINVAL;
 	}
 
 	switch (fmt) {
@@ -1677,8 +1695,7 @@ __xdprxss_get_pad_format(struct xdprxss_state *xdprxss,
 
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		format = v4l2_subdev_get_try_format(&xdprxss->subdev,
-						    sd_state, pad);
+		format = v4l2_subdev_state_get_format(sd_state, pad);
 		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		format = &xdprxss->format;
@@ -1692,7 +1709,7 @@ __xdprxss_get_pad_format(struct xdprxss_state *xdprxss,
 }
 
 /**
- * xdprxss_init_cfg - Initialise the pad format config to default
+ * xdprxss_init_state - Initialise the pad format config to default
  * @sd: Pointer to V4L2 Sub device structure
  * @sd_state: Pointer to sub device pad information structure
  *
@@ -1701,13 +1718,13 @@ __xdprxss_get_pad_format(struct xdprxss_state *xdprxss,
  *
  * Return: 0 on success
  */
-static int xdprxss_init_cfg(struct v4l2_subdev *sd,
-			    struct v4l2_subdev_state *sd_state)
+static int xdprxss_init_state(struct v4l2_subdev *sd,
+			      struct v4l2_subdev_state *sd_state)
 {
 	struct xdprxss_state *xdprxss = to_xdprxssstate(sd);
 	struct v4l2_mbus_framefmt *format;
 
-	format = v4l2_subdev_get_try_format(sd, sd_state, 0);
+	format = v4l2_subdev_state_get_format(sd_state, 0);
 
 	if (!xdprxss->valid_stream)
 		*format = xdprxss->format;
@@ -1839,10 +1856,13 @@ static int xdprxss_get_dv_timings_cap(struct v4l2_subdev *subdev,
 	return 0;
 }
 
-static int xdprxss_query_dv_timings(struct v4l2_subdev *sd,
+static int xdprxss_query_dv_timings(struct v4l2_subdev *sd, unsigned int pad,
 				    struct v4l2_dv_timings *timings)
 {
 	struct xdprxss_state *state = to_xdprxssstate(sd);
+
+	if (pad != 0)
+		return -EINVAL;
 
 	if (!timings)
 		return -EINVAL;
@@ -2223,13 +2243,12 @@ static const struct v4l2_subdev_core_ops xdprxss_core_ops = {
 };
 
 static const struct v4l2_subdev_video_ops xdprxss_video_ops = {
-	.query_dv_timings	= xdprxss_query_dv_timings,
 	.s_stream		= xdprxss_s_stream,
 	.g_input_status		= xdprxss_g_input_status,
 };
 
 static const struct v4l2_subdev_pad_ops xdprxss_pad_ops = {
-	.init_cfg		= xdprxss_init_cfg,
+	.query_dv_timings	= xdprxss_query_dv_timings,
 	.enum_mbus_code		= xdprxss_enum_mbus_code,
 	.get_fmt		= xdprxss_getset_format,
 	.set_fmt		= xdprxss_getset_format,
@@ -2241,6 +2260,10 @@ static const struct v4l2_subdev_ops xdprxss_ops = {
 	.core	= &xdprxss_core_ops,
 	.video	= &xdprxss_video_ops,
 	.pad	= &xdprxss_pad_ops
+};
+
+static const struct v4l2_subdev_internal_ops xdprxss_internal_ops = {
+	.init_state		= xdprxss_init_state,
 };
 
 /* ----------------------------------------------------------------
@@ -2943,7 +2966,7 @@ static int xdprxss_probe(struct platform_device *pdev)
 	if (!xdprxss->versal_gt_present) {
 		/* acquire vphy lanes */
 		for (i = 0; i < xdprxss->max_lanecount; i++) {
-			char phy_name[16];
+			char phy_name[17];
 
 			snprintf(phy_name, sizeof(phy_name), "dp-phy%u", i);
 			xdprxss->phy[i] = devm_phy_get(xdprxss->dev, phy_name);
@@ -3018,6 +3041,7 @@ static int xdprxss_probe(struct platform_device *pdev)
 	/* Initialize V4L2 subdevice and media entity */
 	subdev = &xdprxss->subdev;
 	v4l2_subdev_init(subdev, &xdprxss_ops);
+	subdev->internal_ops = &xdprxss_internal_ops;
 	subdev->dev = &pdev->dev;
 	strscpy(subdev->name, dev_name(&pdev->dev), sizeof(subdev->name));
 
@@ -3167,7 +3191,7 @@ error_phy:
 	return ret;
 }
 
-static int xdprxss_remove(struct platform_device *pdev)
+static void xdprxss_remove(struct platform_device *pdev)
 {
 	struct xdprxss_state *xdprxss = platform_get_drvdata(pdev);
 	struct v4l2_subdev *subdev = &xdprxss->subdev;
@@ -3189,8 +3213,6 @@ static int xdprxss_remove(struct platform_device *pdev)
 
 	if (xdprxss->audio_init)
 		dprx_unregister_aud_dev(&pdev->dev);
-
-	return 0;
 }
 
 static const struct of_device_id xdprxss_of_id_table[] = {

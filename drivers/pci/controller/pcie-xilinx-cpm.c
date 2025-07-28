@@ -6,6 +6,8 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
@@ -21,6 +23,10 @@
 #include "pcie-xilinx-common.h"
 
 /* Register definitions */
+#define XILINX_CPM_PCIE0_RST		0x00000308
+#define XILINX_CPM5_PCIE0_RST		0x00000318
+#define XILINX_CPM5_PCIE1_RST		0x0000031C
+
 #define XILINX_CPM_PCIE_REG_IDR		0x00000E10
 #define XILINX_CPM_PCIE_REG_IMR		0x00000E14
 #define XILINX_CPM_PCIE_REG_PSCR	0x00000E1C
@@ -84,6 +90,7 @@ enum xilinx_cpm_version {
 	CPM,
 	CPM5,
 	CPM5_HOST1,
+	CPM5NC_HOST,
 };
 
 /**
@@ -92,12 +99,14 @@ enum xilinx_cpm_version {
  * @ir_status: Offset for the error interrupt status register
  * @ir_enable: Offset for the CPM5 local error interrupt enable register
  * @ir_misc_value: A bitmask for the miscellaneous interrupt status
+ * @cpm_pcie_rst: Offset for the PCIe IP reset
  */
 struct xilinx_cpm_variant {
 	enum xilinx_cpm_version version;
 	u32 ir_status;
 	u32 ir_enable;
 	u32 ir_misc_value;
+	u32 cpm_pcie_rst;
 };
 
 /**
@@ -105,6 +114,7 @@ struct xilinx_cpm_variant {
  * @dev: Device pointer
  * @reg_base: Bridge Register Base
  * @cpm_base: CPM System Level Control and Status Register(SLCR) Base
+ * @crx_base: CPM Clock and Reset Control Registers Base
  * @intx_domain: Legacy IRQ domain pointer
  * @cpm_domain: CPM IRQ domain pointer
  * @cfg: Holds mappings of config space window
@@ -117,6 +127,7 @@ struct xilinx_cpm_pcie {
 	struct device			*dev;
 	void __iomem			*reg_base;
 	void __iomem			*cpm_base;
+	void __iomem			*crx_base;
 	struct irq_domain		*intx_domain;
 	struct irq_domain		*cpm_domain;
 	struct pci_config_window	*cfg;
@@ -474,9 +485,44 @@ static int xilinx_cpm_setup_irq(struct xilinx_cpm_pcie *port)
  * xilinx_cpm_pcie_init_port - Initialize hardware
  * @port: PCIe port information
  */
-static void xilinx_cpm_pcie_init_port(struct xilinx_cpm_pcie *port)
+static int xilinx_cpm_pcie_init_port(struct xilinx_cpm_pcie *port)
 {
 	const struct xilinx_cpm_variant *variant = port->variant;
+	struct device *dev = port->dev;
+	struct gpio_desc *reset_gpio;
+
+	if (variant->version == CPM5NC_HOST)
+		return 0;
+
+	if (port->crx_base) {
+		/* Request the GPIO for PCIe reset signal and assert */
+		reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
+		if (IS_ERR(reset_gpio))
+			return dev_err_probe(dev, PTR_ERR(reset_gpio),
+					     "Failed to request reset GPIO\n");
+
+		if (reset_gpio) {
+			/* Assert the PCIe IP reset */
+			writel_relaxed(0x1,
+				       port->crx_base + variant->cpm_pcie_rst);
+
+			/*
+			 * "PERST# active time", as per Table 2-10: Power
+			 * Sequencing and Reset Signal Timings of the PCIe
+			 * Electromechanical Specification, Revision 6.0,
+			 * symbol "T_PERST".
+			 */
+			udelay(100);
+
+			/* Deassert the PCIe IP reset */
+			writel_relaxed(0x0,
+				       port->crx_base + variant->cpm_pcie_rst);
+
+			/* Deassert the reset signal */
+			gpiod_set_value(reset_gpio, 0);
+			mdelay(PCIE_T_RRS_READY_MS);
+		}
+	}
 
 	if (cpm_pcie_link_up(port))
 		dev_info(port->dev, "PCIe Link is UP\n");
@@ -508,6 +554,8 @@ static void xilinx_cpm_pcie_init_port(struct xilinx_cpm_pcie *port)
 	pcie_write(port, pcie_read(port, XILINX_CPM_PCIE_REG_RPSC) |
 		   XILINX_CPM_PCIE_REG_RPSC_BEN,
 		   XILINX_CPM_PCIE_REG_RPSC);
+
+	return 0;
 }
 
 /**
@@ -538,13 +586,23 @@ static int xilinx_cpm_pcie_parse_dt(struct xilinx_cpm_pcie *port,
 	if (IS_ERR(port->cfg))
 		return PTR_ERR(port->cfg);
 
-	if (port->variant->version == CPM5) {
+	if (port->variant->version == CPM5 ||
+	    port->variant->version == CPM5_HOST1) {
 		port->reg_base = devm_platform_ioremap_resource_byname(pdev,
 								    "cpm_csr");
 		if (IS_ERR(port->reg_base))
 			return PTR_ERR(port->reg_base);
 	} else {
 		port->reg_base = port->cfg->win;
+	}
+
+	port->crx_base = devm_platform_ioremap_resource_byname(pdev,
+							       "cpm_crx");
+	if (IS_ERR(port->crx_base)) {
+		if (PTR_ERR(port->crx_base) == -EINVAL)
+			port->crx_base = NULL;
+		else
+			return PTR_ERR(port->crx_base);
 	}
 
 	return 0;
@@ -578,28 +636,38 @@ static int xilinx_cpm_pcie_probe(struct platform_device *pdev)
 
 	port->dev = dev;
 
-	err = xilinx_cpm_pcie_init_irq_domain(port);
-	if (err)
-		return err;
+	port->variant = of_device_get_match_data(dev);
+
+	if (port->variant->version != CPM5NC_HOST) {
+		err = xilinx_cpm_pcie_init_irq_domain(port);
+		if (err)
+			return err;
+	}
 
 	bus = resource_list_first_type(&bridge->windows, IORESOURCE_BUS);
-	if (!bus)
-		return -ENODEV;
-
-	port->variant = of_device_get_match_data(dev);
+	if (!bus) {
+		err = -ENODEV;
+		goto err_free_irq_domains;
+	}
 
 	err = xilinx_cpm_pcie_parse_dt(port, bus->res);
 	if (err) {
 		dev_err(dev, "Parsing DT failed\n");
-		goto err_parse_dt;
+		goto err_free_irq_domains;
 	}
 
-	xilinx_cpm_pcie_init_port(port);
-
-	err = xilinx_cpm_setup_irq(port);
+	err = xilinx_cpm_pcie_init_port(port);
 	if (err) {
-		dev_err(dev, "Failed to set up interrupts\n");
+		dev_err(dev, "Init port failed\n");
 		goto err_setup_irq;
+	}
+
+	if (port->variant->version != CPM5NC_HOST) {
+		err = xilinx_cpm_setup_irq(port);
+		if (err) {
+			dev_err(dev, "Failed to set up interrupts\n");
+			goto err_setup_irq;
+		}
 	}
 
 	bridge->sysdata = port->cfg;
@@ -612,17 +680,20 @@ static int xilinx_cpm_pcie_probe(struct platform_device *pdev)
 	return 0;
 
 err_host_bridge:
-	xilinx_cpm_free_interrupts(port);
+	if (port->variant->version != CPM5NC_HOST)
+		xilinx_cpm_free_interrupts(port);
 err_setup_irq:
 	pci_ecam_free(port->cfg);
-err_parse_dt:
-	xilinx_cpm_free_irq_domains(port);
+err_free_irq_domains:
+	if (port->variant->version != CPM5NC_HOST)
+		xilinx_cpm_free_irq_domains(port);
 	return err;
 }
 
 static const struct xilinx_cpm_variant cpm_host = {
 	.version = CPM,
 	.ir_misc_value = XILINX_CPM_PCIE0_MISC_IR_LOCAL,
+	.cpm_pcie_rst = XILINX_CPM_PCIE0_RST,
 };
 
 static const struct xilinx_cpm_variant cpm5_host = {
@@ -630,6 +701,7 @@ static const struct xilinx_cpm_variant cpm5_host = {
 	.ir_misc_value = XILINX_CPM_PCIE0_MISC_IR_LOCAL,
 	.ir_status = XILINX_CPM_PCIE0_IR_STATUS,
 	.ir_enable = XILINX_CPM_PCIE0_IR_ENABLE,
+	.cpm_pcie_rst = XILINX_CPM5_PCIE0_RST,
 };
 
 static const struct xilinx_cpm_variant cpm5_host1 = {
@@ -637,6 +709,11 @@ static const struct xilinx_cpm_variant cpm5_host1 = {
 	.ir_misc_value = XILINX_CPM_PCIE1_MISC_IR_LOCAL,
 	.ir_status = XILINX_CPM_PCIE1_IR_STATUS,
 	.ir_enable = XILINX_CPM_PCIE1_IR_ENABLE,
+	.cpm_pcie_rst = XILINX_CPM5_PCIE1_RST,
+};
+
+static const struct xilinx_cpm_variant cpm5n_host = {
+	.version = CPM5NC_HOST,
 };
 
 static const struct of_device_id xilinx_cpm_pcie_of_match[] = {
@@ -651,6 +728,10 @@ static const struct of_device_id xilinx_cpm_pcie_of_match[] = {
 	{
 		.compatible = "xlnx,versal-cpm5-host1",
 		.data = &cpm5_host1,
+	},
+	{
+		.compatible = "xlnx,versal-cpm5nc-host",
+		.data = &cpm5n_host,
 	},
 	{}
 };

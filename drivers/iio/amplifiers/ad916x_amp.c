@@ -11,6 +11,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/of_device.h>
+#include <linux/of.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/regmap.h>

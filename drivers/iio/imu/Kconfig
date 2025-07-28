@@ -66,6 +66,7 @@ config ADIS16550
 	  called adis16550.
 
 source "drivers/iio/imu/bmi160/Kconfig"
+source "drivers/iio/imu/bmi323/Kconfig"
 source "drivers/iio/imu/bno055/Kconfig"
 
 config FXOS8700

@@ -185,7 +185,7 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 		state.period = DIV_ROUND_CLOSEST_ULL(1000000000ULL, val);
 		pwm_set_relative_duty_cycle(&state, 50, 100);
 
-		ret = pwm_apply_state(st->pwm, &state);
+		ret = pwm_apply_might_sleep(st->pwm, &state);
 		break;
 	default:
 		ret = -EINVAL;
@@ -207,7 +207,7 @@ static int ad5686_trig_set_state(struct iio_trigger *trig,
 	pwm_get_state(st->pwm, &pwm_st);
 	pwm_st.enabled = state;
 
-	return pwm_apply_state(st->pwm, &pwm_st);
+	return pwm_apply_might_sleep(st->pwm, &pwm_st);
 }
 
 static int ad5686_validate_trigger(struct iio_dev *indio_dev,
@@ -610,7 +610,7 @@ int ad5686_probe(struct device *dev,
 		state.enabled = false;
 		state.period = 1000000;
 		pwm_set_relative_duty_cycle(&state, 50, 100);
-		ret = pwm_apply_state(st->pwm, &state);
+		ret = pwm_apply_might_sleep(st->pwm, &state);
 		if (ret < 0)
 			return ret;
 	} else {

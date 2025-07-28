@@ -14,7 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/spi/spi.h>
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #define FMC_CPLD	0x00 /* chip_select 0 */
 #define FMC_AD9517	0x84 /* chip_select 1 */

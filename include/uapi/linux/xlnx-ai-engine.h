@@ -240,12 +240,16 @@ struct aie_partition_query {
  * @flag: used for application to indicate particular driver requirements
  *	  application wants to have for the partition. e.g. do not clean
  *	  resource when closing the partition.
+ * @user_event1_complete: inference complete call back function.
+ * @user_event1_priv: user_event1_complete's priv data.
  */
 struct aie_partition_req {
 	__u32 partition_id;
 	__u32 uid;
 	__u64 meta_data;
 	__u32 flag;
+	void (*user_event1_complete)(__u32 partition_id, void *user_event1_prov);
+	void *user_event1_priv;
 };
 
 /**
@@ -253,22 +257,72 @@ struct aie_partition_req {
  * @locs: Allocated array of tile locations that will be used
  * @num_tiles: Number of tiles to use
  * @init_opts: Partition initialization options
+ * @ecc_scrub: ecc_scrub period.
+ * @handshake: HSA handshake data.
+ * @handshake_size: handshake data size.
  */
 struct aie_partition_init_args {
 	struct aie_location *locs;
 	__u32 num_tiles;
 	__u32 init_opts;
+	__u32 ecc_scrub;
+	__u32 *handshake;
+	__u32 handshake_size;
 };
 
 /*
  * AI engine partition initialize options
  */
-#define AIE_PART_INIT_OPT_COLUMN_RST		(1U << 0)
-#define AIE_PART_INIT_OPT_SHIM_RST		(1U << 1)
-#define AIE_PART_INIT_OPT_BLOCK_NOCAXIMMERR	(1U << 2)
-#define AIE_PART_INIT_OPT_ISOLATE		(1U << 3)
-#define AIE_PART_INIT_OPT_ZEROIZEMEM		(1U << 4)
-#define AIE_PART_INIT_OPT_DEFAULT		0xFU
+#define AIE_PART_INIT_OPT_START_NUM_COL		0U
+#define AIE_PART_INIT_OPT_COLUMN_RST		BIT(0)
+#define AIE_PART_INIT_OPT_SHIM_RST		BIT(1)
+#define AIE_PART_INIT_OPT_BLOCK_NOCAXIMMERR	BIT(2)
+#define AIE_PART_INIT_OPT_ISOLATE		BIT(3)
+#define AIE_PART_INIT_OPT_ZEROIZEMEM		BIT(4)
+#define AIE_PART_INIT_OPT_UC_ENB_MEM_PRIV	BIT(5)
+#define AIE_PART_INIT_ERROR_HANDLING		BIT(6)
+#define AIE_PART_INIT_OPT_DIS_COLCLK_BUFF	BIT(7)
+#define AIE_PART_INIT_OPT_SET_L2_IRQ		BIT(8)
+#define AIE_PART_INIT_OPT_HW_ERR_INT		BIT(9)
+#define AIE_PART_INIT_OPT_HW_ERR_MASK		BIT(10)
+#define AIE_PART_INIT_OPT_SET_ECC_SCRUB_PERIOD	BIT(11)
+#define AIE_PART_INIT_OPT_NMU_CONFIG		BIT(12)
+#define AIE_PART_INIT_OPT_ENB_COLCLK_BUFF	BIT(13)
+#define AIE_PART_INIT_OPT_UC_ZEROIZATION	BIT(14)
+#define AIE_PART_INIT_OPT_UC_DIS_MEM_PRIV	BIT(15)
+#define AIE_PART_INIT_OPT_ENB_NOC_DMA_PAUSE	BIT(16)
+#define AIE_PART_INIT_OPT_ENB_UC_DMA_PAUSE	BIT(17)
+#define AIE_PART_INIT_OPT_HW_ERR_STS		BIT(18)
+#define AIE_PART_INIT_OPT_DIS_MEM_INTERLEAVE	BIT(19)
+#define AIE_PART_INIT_OPT_HANDSHAKE		BIT(20)
+
+#define AIE_PART_INIT_OPT_DEFAULT	(AIE_PART_INIT_OPT_COLUMN_RST		|	\
+					 AIE_PART_INIT_OPT_SHIM_RST		|	\
+					 AIE_PART_INIT_OPT_BLOCK_NOCAXIMMERR	|	\
+					 AIE_PART_INIT_OPT_ISOLATE		|	\
+					 AIE_PART_INIT_ERROR_HANDLING		|	\
+					 AIE_PART_INIT_OPT_UC_ENB_MEM_PRIV	|	\
+					 AIE_PART_INIT_OPT_SET_L2_IRQ		|	\
+					 AIE_PART_INIT_OPT_HW_ERR_INT		|	\
+					 AIE_PART_INIT_OPT_HW_ERR_MASK		|	\
+					 AIE_PART_INIT_OPT_NMU_CONFIG)
+
+#define AIE_PART_TEARDOWN_OPT_DEFAULT	(AIE_PART_INIT_OPT_COLUMN_RST		|	\
+					 AIE_PART_INIT_OPT_SHIM_RST		|	\
+					 AIE_PART_INIT_OPT_ZEROIZEMEM		|	\
+					 AIE_PART_INIT_OPT_ENB_NOC_DMA_PAUSE	|	\
+					 AIE_PART_INIT_OPT_ENB_UC_DMA_PAUSE	|	\
+					 AIE_PART_INIT_OPT_DIS_COLCLK_BUFF)
+
+/*
+ * AI engine partition uc zeroization options
+ */
+#define AIE_PART_ZEROIZE_UC_PM			BIT(0)
+#define AIE_PART_ZEROIZE_UC_PRIVATE_DM		BIT(1)
+#define AIE_PART_ZEROIZE_UC_SHARED_DM		BIT(2)
+#define AIE_PART_ZEROIZE_UC_MEM_ALL		(AIE_PART_ZEROIZE_UC_PM |		\
+						 AIE_PART_ZEROIZE_UC_PRIVATE_DM |	\
+						 AIE_PART_ZEROIZE_UC_SHARED_DM)		\
 
 /**
  * struct aie_dma_bd_args - AIE DMA buffer descriptor information
@@ -727,5 +781,47 @@ struct aie_rsc_user_stat_array {
  */
 #define AIE_UPDATE_SHIMDMA_DMABUF_BD_ADDR_IOCTL	_IOW(AIE_IOCTL_BASE, 0x1e, \
 						struct aie_dmabuf_bd_args)
+#if IS_ENABLED(CONFIG_XILINX_AIE)
+
+int aie_partition_write_privileged_mem(struct device *dev, size_t offset, size_t len, void *data);
+int aie_partition_read_privileged_mem(struct device *dev, size_t offset, size_t len, void *data);
+bool aie_partition_check_noc_aximm(struct device *dev, struct aie_location *loc);
+int aie_partition_check_uc_aximm(struct device *dev, struct aie_location *loc);
+int aie_partition_uc_zeroize_mem(struct device *dev, struct aie_location *loc, u32 regval);
+int aie_load_cert(struct device *dev, unsigned char *elf_addr);
+
+#else /* IS_ENABLED(CONFIG_XILINX_AIE) */
+
+int aie_partition_write_privileged_mem(struct device *dev, size_t offset, size_t len, void *data)
+{
+	return -EINVAL;
+}
+
+int aie_partition_read_privileged_mem(struct device *dev, size_t offset, size_t len, void *data)
+{
+	return -EINVAL;
+}
+
+bool aie_partition_check_noc_aximm(struct device *dev, struct aie_location *loc)
+{
+	return false;
+}
+
+int aie_partition_check_uc_aximm(struct device *dev, struct aie_location *loc)
+{
+	return 0;
+}
+
+int aie_partition_uc_zeroize_mem(struct device *dev, struct aie_location *loc, u32 regval)
+{
+	return -EINVAL;
+}
+
+int aie_load_cert(struct device *dev, unsigned char *elf_addr)
+{
+	return -EINVAL;
+}
+
+#endif /* IS_ENABLED(CONFIG_XILINX_AIE) */
 
 #endif

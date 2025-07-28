@@ -13,11 +13,12 @@
 #include <dt-bindings/reset/xlnx-versal-net-resets.h>
 
 / {
-	ref_clk: ref_clk {
+	ref_clk: ref-clk {
 		bootph-all;
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <33333333>;
+		clock-output-names = "ref_clk";
 	};
 
 	can0_clk: can0-clk {
@@ -26,6 +27,7 @@
 		clocks = <&versal_net_clk CAN0_REF_2X>;
 		clock-div = <2>;
 		clock-mult = <1>;
+		clock-output-names = "can0_clk";
 	};
 
 	can1_clk: can1-clk {
@@ -34,6 +36,7 @@
 		clocks = <&versal_net_clk CAN1_REF_2X>;
 		clock-div = <2>;
 		clock-mult = <1>;
+		clock-output-names = "can1_clk";
 	};
 
 	firmware {
@@ -52,11 +55,11 @@
 				bootph-all;
 				#clock-cells = <1>;
 				compatible = "xlnx,versal-net-clk", "xlnx,versal-clk";
-				clocks = <&ref_clk>, <&ref_clk>;
-				clock-names = "ref_clk", "pl_alt_ref_clk";
+				clocks = <&ref_clk>, <&ref_clk>, <&ref_clk>;
+				clock-names = "ref", "pl_alt_ref", "alt_ref";
 			};
 
-			versal_net_power: zynqmp-power { /* untested */
+			versal_net_power: power-management { /* untested */
 				compatible = "xlnx,zynqmp-power";
 				interrupt-parent = <&gic>;
 				interrupts = <0 57 4>;
@@ -67,55 +70,58 @@
 
 			versal_sec_cfg: versal-sec-cfg { /* untested */
 				compatible = "xlnx,versal-sec-cfg";
-				#address-cells = <1>;
-				#size-cells = <1>;
+				nvmem-layout {
+					compatible = "fixed-layout";
+					#address-cells = <1>;
+					#size-cells = <1>;
 
-				bbram_zeroize: bbram-zeroize@4 {
-					reg = <0x04 0x4>;
-				};
+					bbram_zeroize: bbram-zeroize@4 {
+						reg = <0x04 0x4>;
+					};
 
-				bbram_key: bbram-key@10 {
-					reg = <0x10 0x20>;
-				};
+					bbram_key: bbram-key@10 {
+						reg = <0x10 0x20>;
+					};
 
-				bbram_usr: bbram-usr@30 {
-					reg = <0x30 0x4>;
-				};
+					bbram_usr: bbram-usr@30 {
+						reg = <0x30 0x4>;
+					};
 
-				bbram_lock: bbram-lock@48 {
-					reg = <0x48 0x4>;
-				};
+					bbram_lock: bbram-lock@48 {
+						reg = <0x48 0x4>;
+					};
 
-				user_key0: user-key@110 {
-					reg = <0x110 0x20>;
-				};
+					user_key0: user-key@110 {
+						reg = <0x110 0x20>;
+					};
 
-				user_key1: user-key@130 {
-					reg = <0x130 0x20>;
-				};
+					user_key1: user-key@130 {
+						reg = <0x130 0x20>;
+					};
 
-				user_key2: user-key@150 {
-					reg = <0x150 0x20>;
-				};
+					user_key2: user-key@150 {
+						reg = <0x150 0x20>;
+					};
 
-				user_key3: user-key@170 {
-					reg = <0x170 0x20>;
-				};
+					user_key3: user-key@170 {
+						reg = <0x170 0x20>;
+					};
 
-				user_key4: user-key@190 {
-					reg = <0x190 0x20>;
-				};
+					user_key4: user-key@190 {
+						reg = <0x190 0x20>;
+					};
 
-				user_key5: user-key@1b0 {
-					reg = <0x1b0 0x20>;
-				};
+					user_key5: user-key@1b0 {
+						reg = <0x1b0 0x20>;
+					};
 
-				user_key6: user-key@1d0 {
-					reg = <0x1d0 0x20>;
-				};
+					user_key6: user-key@1d0 {
+						reg = <0x1d0 0x20>;
+					};
 
-				user_key7: user-key@1f0 {
-					reg = <0x1f0 0x20>;
+					user_key7: user-key@1f0 {
+						reg = <0x1f0 0x20>;
+					};
 				};
 			};
 		};
@@ -131,6 +137,7 @@
 		ranges;
 
 		ipi_mailbox_pmu1: mailbox@eb3f0440 {
+			compatible = "xlnx,zynqmp-ipi-dest-mailbox";
 			reg = <0 0xeb3f0440 0 0x20>,
 			      <0 0xeb3f0460 0 0x20>,
 			      <0 0xeb3f0280 0 0x20>,
@@ -349,22 +356,22 @@
 };
 
 &ttc0 {
-	clocks = <&versal_net_clk TTC0>, <&versal_net_clk LPD_LSBUS>;
+	clocks = <&versal_net_clk TTC0>;
 	power-domains = <&versal_net_firmware PM_DEV_TTC_0>;
 };
 
 &ttc1 {
-	clocks = <&versal_net_clk TTC1>, <&versal_net_clk LPD_LSBUS>;
+	clocks = <&versal_net_clk TTC1>;
 	power-domains = <&versal_net_firmware PM_DEV_TTC_1>;
 };
 
 &ttc2 {
-	clocks = <&versal_net_clk TTC2>, <&versal_net_clk LPD_LSBUS>;
+	clocks = <&versal_net_clk TTC2>;
 	power-domains = <&versal_net_firmware PM_DEV_TTC_2>;
 };
 
 &ttc3 {
-	clocks = <&versal_net_clk TTC3>, <&versal_net_clk LPD_LSBUS>;
+	clocks = <&versal_net_clk TTC3>;
 	power-domains = <&versal_net_firmware PM_DEV_TTC_3>;
 };
 

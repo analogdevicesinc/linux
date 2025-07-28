@@ -214,7 +214,7 @@
 	status = "okay";
 };
 
-&ref_clk {
+&ref {
 	clock-frequency = <33333333>;
 };
 

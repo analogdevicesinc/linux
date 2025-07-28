@@ -7,6 +7,7 @@
  * https://docs.amd.com/r/en-US/Vitis_Libraries/vision/index.html
  */
 
+#include <linux/bitfield.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
@@ -199,10 +200,10 @@
 #define XILINX_ISP_VERSION_1					BIT(0)
 #define XILINX_ISP_VERSION_2					BIT(1)
 #define XISP_AEC_THRESHOLD_DEFAULT	(20)
-#define XGET_BIT(bitmask, reg)    (FIELD_GET(BIT(bitmask), (reg)))
+#define XGET_BIT(bitmask, reg)    (((reg) >> (bitmask)) & 0x1)
 #define XISP_SET_CFG(INDEX, REG, VAL)	\
 	do {	\
-		u32 _index = (INDEX); \
+		const u32 _index = (INDEX); \
 		bool en = XGET_BIT(_index, xisp->module_en); \
 		bool byp_en = XGET_BIT(_index, xisp->module_bypass_en); \
 		bool byp = XGET_BIT(_index, xisp->module_bypass); \
@@ -2015,8 +2016,7 @@ static struct v4l2_mbus_framefmt
 
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		get_fmt = v4l2_subdev_get_try_format(&xisp->xvip.subdev,
-						     sd_state, pad);
+		get_fmt = v4l2_subdev_state_get_format(sd_state, pad);
 		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		get_fmt = &xisp->formats[pad];
@@ -2413,7 +2413,7 @@ static int xisp_parse_of(struct xisp_dev *xisp)
  * it creates the first control from the array. If there are more controls
  * (size > 1), it iterates through the remaining controls and creates them.
  */
-static void xisp_create_controls(struct xisp_dev *xisp, u32 index,
+static void xisp_create_controls(struct xisp_dev *xisp, const u32 index,
 				 struct v4l2_ctrl_config *ctrl_arr, u32 size)
 {
 	int itr;
@@ -2684,7 +2684,7 @@ media_error:
 	return rval;
 }
 
-static int xisp_remove(struct platform_device *pdev)
+static void xisp_remove(struct platform_device *pdev)
 {
 	struct xisp_dev *xisp = platform_get_drvdata(pdev);
 	struct v4l2_subdev *subdev = &xisp->xvip.subdev;
@@ -2692,8 +2692,6 @@ static int xisp_remove(struct platform_device *pdev)
 	v4l2_async_unregister_subdev(subdev);
 	media_entity_cleanup(&subdev->entity);
 	xvip_cleanup_resources(&xisp->xvip);
-
-	return 0;
 }
 
 MODULE_DEVICE_TABLE(of, xisp_of_id_table);

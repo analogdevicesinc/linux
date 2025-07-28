@@ -503,13 +503,11 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int mc_ctrl_remove(struct platform_device *pdev)
+static void mc_ctrl_remove(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 
 	iio_device_unregister(indio_dev);
-
-	return 0;
 }
 
 static const struct of_device_id mc_ctrl_of_match[] = {

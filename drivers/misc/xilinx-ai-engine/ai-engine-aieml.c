@@ -1607,6 +1607,10 @@ static const struct aie_l2_intr_ctrl_attr aieml_l2_intr_ctrl = {
 		.mask = GENMASK(15, 0),
 		.regoff = 0xcU,
 	},
+	.intr = {
+		.mask = GENMASK(1, 0),
+		.regoff = 0x10U,
+	},
 	.regoff = 0x15000U,
 	.num_broadcasts = 0x10U,
 };
@@ -2609,16 +2613,16 @@ static int aieml_scan_part_clocks(struct aie_partition *apart)
 static int aieml_set_part_clocks(struct aie_partition *apart)
 {
 	struct aie_range *range = &apart->range;
-	u32 node_id = apart->adev->pm_node_id;
+	u32 node_id = apart->aperture->node_id;
+	int ret, status = -EINVAL;
 	struct aie_location loc;
-	int ret, status;
 
 	for (loc.col = range->start.col;
 	     loc.col < range->start.col + range->size.col;
 	     loc.col++) {
 		u32 startbit, col_inuse = 0;
 
-		startbit = loc.col * (range->size.row - 1);
+		startbit = (loc.col - range->start.col) * (range->size.row - 1);
 
 		for (loc.row = range->start.row + 1;
 		     loc.row < range->start.row + range->size.row;
@@ -2670,7 +2674,7 @@ static int aieml_set_part_clocks(struct aie_partition *apart)
 static int aieml_part_clear_mems(struct aie_partition *apart)
 {
 	struct aie_range *range = &apart->range;
-	u32 node_id = apart->adev->pm_node_id;
+	u32 node_id = apart->aperture->node_id;
 	int ret;
 
 	ret = zynqmp_pm_aie_operation(node_id, range->start.col,
@@ -2735,12 +2739,18 @@ static const struct aie_tile_operations aieml_ops = {
 	.init_part_clk_state = aieml_init_part_clk_state,
 	.scan_part_clocks = aieml_scan_part_clocks,
 	.set_part_clocks = aieml_set_part_clocks,
+	.set_column_clock = aie_part_set_column_clock_from_user,
 	.set_tile_isolation = aieml_set_tile_isolation,
 	.mem_clear = aieml_part_clear_mems,
 	.get_dma_s2mm_status = aieml_get_dma_s2mm_status,
 	.get_dma_mm2s_status = aieml_get_dma_mm2s_status,
 	.get_chan_status = aieml_get_chan_status,
 	.get_lock_status = aieml_get_lock_status,
+	.part_init = aie_part_initialize,
+	.part_teardown = aie_part_teardown,
+	.part_clear_context = aie_part_clear_context,
+	.part_clean = aie_part_clean,
+	.part_reset = aie_part_reset,
 };
 
 /**

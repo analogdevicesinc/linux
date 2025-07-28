@@ -11,6 +11,7 @@
  */
 #include <linux/atomic.h>
 #include <linux/anon_inodes.h>
+#include <linux/cleanup.h>
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/device.h>
@@ -27,6 +28,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/sched/signal.h>
 
+/* out of tree for iio_buffer_{alloc/free}_scanmask */
+#include <linux/iio/consumer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/iio-opaque.h>
 #include "iio_core.h"
@@ -379,10 +382,12 @@ EXPORT_SYMBOL(iio_buffer_init);
 int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
 			      struct iio_dev *indio_dev)
 {
-	if (!indio_dev->masklength)
+	unsigned int masklength = iio_get_masklength(indio_dev);
+
+	if (!masklength || buffer->scan_mask)
 		return 0;
 
-	buffer->scan_mask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
+	buffer->scan_mask = bitmap_zalloc(masklength, GFP_KERNEL);
 	if (!buffer->scan_mask)
 		return -ENOMEM;
 
@@ -494,6 +499,22 @@ static const unsigned long *iio_scan_mask_match(const unsigned long *av_masks,
 {
 	if (bitmap_empty(mask, masklength))
 		return NULL;
+	/*
+	 * The condition here do not handle multi-long masks correctly.
+	 * It only checks the first long to be zero, and will use such mask
+	 * as a terminator even if there was bits set after the first long.
+	 *
+	 * Correct check would require using:
+	 * while (!bitmap_empty(av_masks, masklength))
+	 * instead. This is potentially hazardous because the
+	 * avaliable_scan_masks is a zero terminated array of longs - and
+	 * using the proper bitmap_empty() check for multi-long wide masks
+	 * would require the array to be terminated with multiple zero longs -
+	 * which is not such an usual pattern.
+	 *
+	 * As writing of this no multi-long wide masks were found in-tree, so
+	 * the simple while (*av_masks) check is working.
+	 */
 	while (*av_masks) {
 		if (strict) {
 			if (bitmap_equal(mask, av_masks, masklength))
@@ -529,17 +550,18 @@ static bool iio_validate_scan_mask(struct iio_dev *indio_dev,
 static int iio_scan_mask_set(struct iio_dev *indio_dev,
 			     struct iio_buffer *buffer, int bit)
 {
+	unsigned int masklength = iio_get_masklength(indio_dev);
 	const unsigned long *mask;
 	unsigned long *trialmask;
 	unsigned int ch;
 
-	if (!indio_dev->masklength) {
+	if (!masklength) {
 		WARN(1, "Trying to set scanmask prior to registering buffer\n");
 		return -EINVAL;
 	}
 
 	/* Upstream uses bitmap_alloc since there's no channel mask support */
-	trialmask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
+	trialmask = bitmap_zalloc(masklength, GFP_KERNEL);
 	if (!trialmask)
 		return -ENOMEM;
 
@@ -553,12 +575,11 @@ static int iio_scan_mask_set(struct iio_dev *indio_dev,
 
 	if (indio_dev->available_scan_masks) {
 		mask = iio_scan_mask_match(indio_dev->available_scan_masks,
-					   indio_dev->masklength,
-					   trialmask, false);
+					   masklength, trialmask, false);
 		if (!mask)
 			goto err_invalid_mask;
 	}
-	bitmap_copy(buffer->scan_mask, trialmask, indio_dev->masklength);
+	bitmap_copy(buffer->scan_mask, trialmask, masklength);
 
 	bitmap_free(trialmask);
 
@@ -573,12 +594,12 @@ err_invalid_mask:
 static int iio_channel_mask_clear(struct iio_dev *indio_dev,
 	struct iio_buffer *buffer, int bit)
 {
+	unsigned int masklength = iio_get_masklength(indio_dev);
 	unsigned int ch;
 
 	clear_bit(bit, buffer->channel_mask);
 
-	memset(buffer->scan_mask, 0,
-	       BITS_TO_LONGS(indio_dev->masklength) * sizeof(*buffer->scan_mask));
+	memset(buffer->scan_mask, 0, BITS_TO_LONGS(masklength) * sizeof(*buffer->scan_mask));
 	for_each_set_bit(ch, buffer->channel_mask, indio_dev->num_channels)
 		set_bit(indio_dev->channels[ch].scan_index, buffer->scan_mask);
 	return 0;
@@ -612,28 +633,26 @@ static ssize_t iio_scan_el_store(struct device *dev,
 	ret = kstrtobool(buf, &state);
 	if (ret < 0)
 		return ret;
-	mutex_lock(&iio_dev_opaque->mlock);
-	if (iio_buffer_is_active(buffer)) {
-		ret = -EBUSY;
-		goto error_ret;
-	}
+
+	guard(mutex)(&iio_dev_opaque->mlock);
+	if (iio_buffer_is_active(buffer))
+		return -EBUSY;
+
 	ret = iio_channel_mask_query(indio_dev, buffer, this_attr->address);
 	if (ret < 0)
-		goto error_ret;
-	if (!state && ret) {
-		ret = iio_channel_mask_clear(indio_dev, buffer, this_attr->address);
-		if (ret)
-			goto error_ret;
-	} else if (state && !ret) {
+		return ret;
+
+	if (state && ret)
+		return len;
+
+	if (state)
 		ret = iio_scan_mask_set(indio_dev, buffer, this_attr->address);
-		if (ret)
-			goto error_ret;
-	}
+	else
+		ret = iio_channel_mask_clear(indio_dev, buffer, this_attr->address);
+	if (ret)
+		return ret;
 
-error_ret:
-	mutex_unlock(&iio_dev_opaque->mlock);
-
-	return ret < 0 ? ret : len;
+	return len;
 }
 
 static ssize_t iio_scan_el_ts_show(struct device *dev,
@@ -660,16 +679,13 @@ static ssize_t iio_scan_el_ts_store(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	mutex_lock(&iio_dev_opaque->mlock);
-	if (iio_buffer_is_active(buffer)) {
-		ret = -EBUSY;
-		goto error_ret;
-	}
-	buffer->scan_timestamp = state;
-error_ret:
-	mutex_unlock(&iio_dev_opaque->mlock);
+	guard(mutex)(&iio_dev_opaque->mlock);
+	if (iio_buffer_is_active(buffer))
+		return -EBUSY;
 
-	return ret ? ret : len;
+	buffer->scan_timestamp = state;
+
+	return len;
 }
 
 static int iio_buffer_add_channel_sysfs(struct iio_dev *indio_dev,
@@ -696,7 +712,7 @@ static int iio_buffer_add_channel_sysfs(struct iio_dev *indio_dev,
 				     &iio_show_fixed_type,
 				     NULL,
 				     0,
-				     0,
+				     IIO_SEPARATE,
 				     &indio_dev->dev,
 				     buffer,
 				     &buffer->buffer_attr_list);
@@ -709,7 +725,7 @@ static int iio_buffer_add_channel_sysfs(struct iio_dev *indio_dev,
 					     &iio_scan_el_show,
 					     &iio_scan_el_store,
 					     address,
-					     0,
+					     IIO_SEPARATE,
 					     &indio_dev->dev,
 					     buffer,
 					     &buffer->buffer_attr_list);
@@ -719,7 +735,7 @@ static int iio_buffer_add_channel_sysfs(struct iio_dev *indio_dev,
 					     &iio_scan_el_ts_show,
 					     &iio_scan_el_ts_store,
 					     address,
-					     0,
+					     IIO_SEPARATE,
 					     &indio_dev->dev,
 					     buffer,
 					     &buffer->buffer_attr_list);
@@ -754,21 +770,16 @@ static ssize_t length_store(struct device *dev, struct device_attribute *attr,
 	if (val == buffer->length)
 		return len;
 
-	mutex_lock(&iio_dev_opaque->mlock);
-	if (iio_buffer_is_active(buffer)) {
-		ret = -EBUSY;
-	} else {
-		buffer->access->set_length(buffer, val);
-		ret = 0;
-	}
-	if (ret)
-		goto out;
+	guard(mutex)(&iio_dev_opaque->mlock);
+	if (iio_buffer_is_active(buffer))
+		return -EBUSY;
+
+	buffer->access->set_length(buffer, val);
+
 	if (buffer->length && buffer->length < buffer->watermark)
 		buffer->watermark = buffer->length;
-out:
-	mutex_unlock(&iio_dev_opaque->mlock);
 
-	return ret ? ret : len;
+	return len;
 }
 
 static ssize_t enable_show(struct device *dev, struct device_attribute *attr,
@@ -814,8 +825,7 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 	int length, i, largest = 0;
 
 	/* How much space will the demuxed element take? */
-	for_each_set_bit(i, mask,
-			 indio_dev->masklength) {
+	for_each_set_bit(i, mask, iio_get_masklength(indio_dev)) {
 		length = iio_storage_bytes_for_si(indio_dev, i);
 		if (length < 0)
 			return length;
@@ -936,6 +946,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 			     struct iio_device_config *config)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+	unsigned int masklength = iio_get_masklength(indio_dev);
 	unsigned long *compound_mask;
 	const unsigned long *scan_mask;
 	bool strict_scanmask = false;
@@ -944,7 +955,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	unsigned int modes;
 
 	if (insert_buffer &&
-	    bitmap_empty(insert_buffer->scan_mask, indio_dev->masklength)) {
+	    bitmap_empty(insert_buffer->scan_mask, masklength)) {
 		dev_dbg(&indio_dev->dev,
 			"At least one scan element must be enabled first\n");
 		return -EINVAL;
@@ -998,7 +1009,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	}
 
 	/* What scan mask do we actually have? */
-	compound_mask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
+	compound_mask = bitmap_zalloc(masklength, GFP_KERNEL);
 	if (!compound_mask)
 		return -ENOMEM;
 
@@ -1008,20 +1019,19 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 		if (buffer == remove_buffer)
 			continue;
 		bitmap_or(compound_mask, compound_mask, buffer->scan_mask,
-			  indio_dev->masklength);
+			  masklength);
 		scan_timestamp |= buffer->scan_timestamp;
 	}
 
 	if (insert_buffer) {
 		bitmap_or(compound_mask, compound_mask,
-			  insert_buffer->scan_mask, indio_dev->masklength);
+			  insert_buffer->scan_mask, masklength);
 		scan_timestamp |= insert_buffer->scan_timestamp;
 	}
 
 	if (indio_dev->available_scan_masks) {
 		scan_mask = iio_scan_mask_match(indio_dev->available_scan_masks,
-						indio_dev->masklength,
-						compound_mask,
+						masklength, compound_mask,
 						strict_scanmask);
 		bitmap_free(compound_mask);
 		if (!scan_mask)
@@ -1086,6 +1096,7 @@ static int iio_buffer_add_demux(struct iio_buffer *buffer,
 static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 				   struct iio_buffer *buffer)
 {
+	unsigned int masklength = iio_get_masklength(indio_dev);
 	int ret, in_ind = -1, out_ind, length;
 	unsigned int in_loc = 0, out_loc = 0;
 	struct iio_demux_table *p = NULL;
@@ -1097,17 +1108,13 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 
 	/* First work out which scan mode we will actually have */
 	if (bitmap_equal(indio_dev->active_scan_mask,
-			 buffer->scan_mask,
-			 indio_dev->masklength))
+			 buffer->scan_mask, masklength))
 		return 0;
 
 	/* Now we have the two masks, work from least sig and build up sizes */
-	for_each_set_bit(out_ind,
-			 buffer->scan_mask,
-			 indio_dev->masklength) {
+	for_each_set_bit(out_ind, buffer->scan_mask, masklength) {
 		in_ind = find_next_bit(indio_dev->active_scan_mask,
-				       indio_dev->masklength,
-				       in_ind + 1);
+				       masklength, in_ind + 1);
 		while (in_ind != out_ind) {
 			ret = iio_storage_bytes_for_si(indio_dev, in_ind);
 			if (ret < 0)
@@ -1117,8 +1124,7 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 			/* Make sure we are aligned */
 			in_loc = roundup(in_loc, length) + length;
 			in_ind = find_next_bit(indio_dev->active_scan_mask,
-					       indio_dev->masklength,
-					       in_ind + 1);
+					       masklength, in_ind + 1);
 		}
 		ret = iio_storage_bytes_for_si(indio_dev, in_ind);
 		if (ret < 0)
@@ -1373,7 +1379,6 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 		       struct iio_buffer *remove_buffer)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
-	int ret;
 
 	if (insert_buffer == remove_buffer)
 		return 0;
@@ -1382,8 +1387,8 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 	    insert_buffer->direction == IIO_BUFFER_DIRECTION_OUT)
 		return -EINVAL;
 
-	mutex_lock(&iio_dev_opaque->info_exist_lock);
-	mutex_lock(&iio_dev_opaque->mlock);
+	guard(mutex)(&iio_dev_opaque->info_exist_lock);
+	guard(mutex)(&iio_dev_opaque->mlock);
 
 	if (insert_buffer && iio_buffer_is_active(insert_buffer))
 		insert_buffer = NULL;
@@ -1391,23 +1396,13 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 	if (remove_buffer && !iio_buffer_is_active(remove_buffer))
 		remove_buffer = NULL;
 
-	if (!insert_buffer && !remove_buffer) {
-		ret = 0;
-		goto out_unlock;
-	}
+	if (!insert_buffer && !remove_buffer)
+		return 0;
 
-	if (!indio_dev->info) {
-		ret = -ENODEV;
-		goto out_unlock;
-	}
+	if (!indio_dev->info)
+		return -ENODEV;
 
-	ret = __iio_update_buffers(indio_dev, insert_buffer, remove_buffer);
-
-out_unlock:
-	mutex_unlock(&iio_dev_opaque->mlock);
-	mutex_unlock(&iio_dev_opaque->info_exist_lock);
-
-	return ret;
+	return __iio_update_buffers(indio_dev, insert_buffer, remove_buffer);
 }
 EXPORT_SYMBOL_GPL(iio_update_buffers);
 
@@ -1431,22 +1426,22 @@ static ssize_t enable_store(struct device *dev, struct device_attribute *attr,
 	if (ret < 0)
 		return ret;
 
-	mutex_lock(&iio_dev_opaque->mlock);
+	guard(mutex)(&iio_dev_opaque->mlock);
 
 	/* Find out if it is in the list */
 	inlist = iio_buffer_is_active(buffer);
 	/* Already in desired state */
 	if (inlist == requested_state)
-		goto done;
+		return len;
 
 	if (requested_state)
 		ret = __iio_update_buffers(indio_dev, buffer, NULL);
 	else
 		ret = __iio_update_buffers(indio_dev, NULL, buffer);
+	if (ret)
+		return ret;
 
-done:
-	mutex_unlock(&iio_dev_opaque->mlock);
-	return (ret < 0) ? ret : len;
+	return len;
 }
 
 static ssize_t watermark_show(struct device *dev, struct device_attribute *attr,
@@ -1473,23 +1468,17 @@ static ssize_t watermark_store(struct device *dev,
 	if (!val)
 		return -EINVAL;
 
-	mutex_lock(&iio_dev_opaque->mlock);
+	guard(mutex)(&iio_dev_opaque->mlock);
 
-	if (val > buffer->length) {
-		ret = -EINVAL;
-		goto out;
-	}
+	if (val > buffer->length)
+		return -EINVAL;
 
-	if (iio_buffer_is_active(buffer)) {
-		ret = -EBUSY;
-		goto out;
-	}
+	if (iio_buffer_is_active(buffer))
+		return -EBUSY;
 
 	buffer->watermark = val;
-out:
-	mutex_unlock(&iio_dev_opaque->mlock);
 
-	return ret ? ret : len;
+	return len;
 }
 
 static ssize_t data_available_show(struct device *dev,
@@ -2568,11 +2557,11 @@ int iio_buffers_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 
 	channels = indio_dev->channels;
 	if (channels) {
-		int ml = indio_dev->masklength;
+		int ml = 0;
 
 		for (i = 0; i < indio_dev->num_channels; i++)
 			ml = max(ml, channels[i].scan_index + 1);
-		indio_dev->masklength = ml;
+		ACCESS_PRIVATE(indio_dev, masklength) = ml;
 	}
 
 	if (!iio_dev_opaque->attached_buffers_cnt)
@@ -2636,7 +2625,7 @@ void iio_buffers_free_sysfs_and_mask(struct iio_dev *indio_dev)
 bool iio_validate_scan_mask_onehot(struct iio_dev *indio_dev,
 				   const unsigned long *mask)
 {
-	return bitmap_weight(mask, indio_dev->masklength) == 1;
+	return bitmap_weight(mask, iio_get_masklength(indio_dev)) == 1;
 }
 EXPORT_SYMBOL_GPL(iio_validate_scan_mask_onehot);
 

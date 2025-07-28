@@ -200,14 +200,12 @@ void of_adjustable_clk_setup(struct device_node *node)
 EXPORT_SYMBOL_GPL(of_adjustable_clk_setup);
 CLK_OF_DECLARE(adjustable_clk, "adjustable-clock", of_adjustable_clk_setup);
 
-static int of_adjustable_clk_remove(struct platform_device *pdev)
+static void of_adjustable_clk_remove(struct platform_device *pdev)
 {
 	struct clk *clk = platform_get_drvdata(pdev);
 
 	if (clk)
 		clk_unregister_adjustable_rate(clk);
-
-	return 0;
 }
 
 static int of_adjustable_clk_probe(struct platform_device *pdev)

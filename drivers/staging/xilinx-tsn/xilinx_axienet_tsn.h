@@ -29,12 +29,8 @@
 #define XAE_MAX_VLAN_FRAME_SIZE  (XAE_MTU + VLAN_ETH_HLEN + XAE_TRL_SIZE)
 #define XAE_MAX_JUMBO_FRAME_SIZE (XAE_JUMBO_MTU + XAE_HDR_SIZE + XAE_TRL_SIZE)
 
-/* Queue Numbers of BE, RES, ST and PTP */
-
+/* Queue 0 is the lowest priority queue */
 #define BE_QUEUE_NUMBER  0
-#define RES_QUEUE_NUMBER 1
-#define ST_QUEUE_NUMBER  2
-#define PTP_QUEUE_NUMBER 3
 
 /* DMA address width min and max range */
 #define XAE_DMA_MASK_MIN	32
@@ -457,6 +453,7 @@
 #define XMCDMA_CHAN_CURDESC_OFFSET(chan_id)	(0x48 + ((chan_id) - 1) * 0x40)
 #define XMCDMA_CHAN_TAILDESC_OFFSET(chan_id)	(0x50 + ((chan_id) - 1) * 0x40)
 #define XMCDMA_CHAN_PKTDROP_OFFSET(chan_id)	(0x58 + ((chan_id) - 1) * 0x40)
+#define XMCDMA_CHAN_SR_IDLE_MASK		BIT(0)
 
 #define XMCDMA_RX_OFFSET	0x500
 
@@ -494,6 +491,7 @@
 #define XMCDMA_BD_CTRL_ALL_MASK		0xC0000000 /* All control bits */
 #define XMCDMA_BD_STS_ALL_MASK		0xF0000000 /* All status bits */
 #define XMCDMA_BD_SD_STS_ALL_MASK	0x00000030 /* TUSER input port bits */
+#define XMCDMA_BD_SD_MGMT_VALID_MASK	BIT(0) /* Management frame */
 
 #define XMCDMA_BD_SD_STS_TUSER_EP	0x00000000
 #define XMCDMA_BD_SD_STS_TUSER_MAC_1	0x00000010
@@ -595,53 +593,6 @@
 #define MRMAC_GT_LANE_OFFSET		BIT(16)
 #define MRMAC_MAX_GT_LANES		4
 /**
- * struct axidma_bd - Axi Dma buffer descriptor layout
- * @next:         MM2S/S2MM Next Descriptor Pointer
- * @reserved1:    Reserved and not used for 32-bit
- * @phys:         MM2S/S2MM Buffer Address
- * @reserved2:    Reserved and not used for 32-bit
- * @reserved3:    Reserved and not used
- * @reserved4:    Reserved and not used
- * @cntrl:        MM2S/S2MM Control value
- * @status:       MM2S/S2MM Status value
- * @app0:         MM2S/S2MM User Application Field 0.
- * @app1:         MM2S/S2MM User Application Field 1.
- * @app2:         MM2S/S2MM User Application Field 2.
- * @app3:         MM2S/S2MM User Application Field 3.
- * @app4:         MM2S/S2MM User Application Field 4.
- * @sw_id_offset: MM2S/S2MM Sw ID
- * @ptp_tx_skb:   If timestamping is enabled used for timestamping skb
- *		  Otherwise reserved.
- * @ptp_tx_ts_tag: Tag value of 2 step timestamping if timestamping is enabled
- *		   Otherwise reserved.
- * @tx_skb:	  Transmit skb address
- * @tx_desc_mapping: Tx Descriptor DMA mapping type.
- */
-struct axidma_bd {
-	phys_addr_t next;	/* Physical address of next buffer descriptor */
-#ifndef CONFIG_PHYS_ADDR_T_64BIT
-	u32 reserved1;
-#endif
-	phys_addr_t phys;
-#ifndef CONFIG_PHYS_ADDR_T_64BIT
-	u32 reserved2;
-#endif
-	u32 reserved3;
-	u32 reserved4;
-	u32 cntrl;
-	u32 status;
-	u32 app0;
-	u32 app1;	/* TX start << 16 | insert */
-	u32 app2;	/* TX csum seed */
-	u32 app3;
-	u32 app4;
-	phys_addr_t sw_id_offset; /* first unused field by h/w */
-	phys_addr_t ptp_tx_skb;
-	u32 ptp_tx_ts_tag;
-	phys_addr_t tx_skb;
-	u32 tx_desc_mapping;
-} __aligned(XAXIDMA_BD_MINIMUM_ALIGNMENT);
-/**
  * struct aximcdma_bd - Axi MCDMA buffer descriptor layout
  * @next:         MM2S/S2MM Next Descriptor Pointer
  * @reserved1:    Reserved and not used for 32-bit
@@ -683,10 +634,10 @@ struct aximcdma_bd {
 	u32 app2;	/* TX csum seed */
 	u32 app3;
 	u32 app4;
-	phys_addr_t sw_id_offset; /* first unused field by h/w */
-	phys_addr_t ptp_tx_skb;
+	struct sk_buff *sw_id_offset; /* first unused field by h/w */
+	struct sk_buff *ptp_tx_skb;
 	u32 ptp_tx_ts_tag;
-	phys_addr_t tx_skb;
+	struct sk_buff *tx_skb;
 	u32 tx_desc_mapping;
 } __aligned(XAXIDMA_BD_MINIMUM_ALIGNMENT);
 
@@ -694,21 +645,26 @@ struct aximcdma_bd {
 #define DESC_DMA_MAP_SINGLE 0
 #define DESC_DMA_MAP_PAGE 1
 
-#define XAE_MAX_QUEUES		7
-
-/* TSN queues range is 2 to 5. For eg: for num_tc = 2 minimum queues = 2;
+/* In Legacy design: TSN queues range is 2 to 5.
+ * For eg: for num_tc = 2 minimum queues = 2;
  * for num_tc = 3 with sideband signalling maximum queues = 5
+ *
+ * In eight queue design: 8 queues are for EP and 8 queues for EX_EP
  */
-#define XAE_MAX_TSN_TC		3
+#define XAE_MAX_QUEUES		16
+
+#define XAE_MAX_TSN_TC		8
+#define XAE_MIN_LEGACY_TSN_TC	2
+#define XAE_MAX_LEGACY_TSN_TC	3
 #define XAE_TSN_MIN_QUEUES	4
 
 #define TSN_BRIDGEEP_EPONLY	BIT(29)
 
-#ifdef CONFIG_AXIENET_HAS_TADMA
+#if IS_ENABLED(CONFIG_AXIENET_HAS_TADMA)
 #define TADMA_MAX_NO_STREAM	128
 struct axitadma_bd {
 	u32 phys;
-	phys_addr_t tx_skb;
+	struct sk_buff *tx_skb;
 	u32 tx_desc_mapping;
 	u32 num_frag;
 	u32 len;
@@ -732,6 +688,19 @@ enum axienet_tsn_ioctl {
 };
 
 /**
+ * struct axienet_tsn_txq - TX queues to DMA channel mapping
+ * @is_tadma: True if the queue is connected via TADMA channel
+ * @dmaq_idx: DMA queue data index for MCDMA and queue type for TADMA
+ * @disable_cnt: Counter which indicates the number of times the queue is
+ *		 disabled.
+ */
+struct axienet_tsn_txq {
+	bool is_tadma;
+	u8 dmaq_idx;
+	u8 disable_cnt;
+};
+
+/**
  * struct axienet_local - axienet private per device data
  * @ndev:	Pointer for net_device to which it will be attached.
  * @dev:	Pointer to device structure
@@ -750,8 +719,6 @@ enum axienet_tsn_ioctl {
  * @phy_mode:	Phy type to identify between MII/GMII/RGMII/SGMII/1000 Base-X
  * @num_tc:	Total number of TSN Traffic classes
  * @abl_reg:	TSN abilities register
- * @st_pcp:     pcp values mapped to scheduled traffic.
- * @res_pcp:    pcp values mapped to reserved traffic.
  * @master:	Master endpoint
  * @slaves:	Front panel ports
  * @ex_ep:	extended end point
@@ -771,14 +738,21 @@ enum axienet_tsn_ioctl {
  * @tadma_regs: pointer to tadma registers base address
  * @tadma_irq: TADMA IRQ number
  * @t_cb: pointer to tadma_cb
+ * @tadma_queues: Bitmask of the TADMA queues connected in design
  * @active_sfm: current active stream fetch memory
  * @num_tadma_buffers: number of TADMA buffers per stream
  * @num_streams: maximum number of streams TADMA can fetch
  * @num_entries: maximum number of entries in TADMA streams config
+ * @get_sid: Number of TADMA streams currently active
+ * @get_sfm: Number of SFM entries currently in use
+ * @default_res_sid: RES queue stream id in TADMA continuous mode
+ * @default_st_sid: ST queue stream id in TADMA continuous mode
+ * @tadma_hash_bits: Number of bits required to represent TADMA streams
  * @tx_bd: tadma transmit buffer descriptor
  * @tx_bd_head: transmit BD head indices
  * @tx_bd_tail: transmit BD tail indices
  * @tx_bd_rd: TADMA read pointer offset
+ * @sid_txq_idx: Maps TADMA sid to TX subqueue index
  * @tadma_tx_lock: TADMA tx lock
  * @ptp_tx_lock: PTP tx lock
  * @dma_err_tasklet: Tasklet structure to process Axi DMA errors
@@ -826,6 +800,9 @@ enum axienet_tsn_ioctl {
  * @gt_lane: MRMAC GT lane index used.
  * @ptp_os_cf: CF TS of PTP PDelay req for one step usage.
  * @xxv_ip_version: XXV IP version
+ * @txqs: TX queues to MCDMA & TADMA channel mapping
+ * @pcpmap: PCP to queues mapping information
+ * @qbv_enabled: Bitmask of the QBV enabled queues
  */
 struct axienet_local {
 	struct net_device *ndev;
@@ -854,14 +831,12 @@ struct axienet_local {
 
 	u16   num_tc;
 	u32   abl_reg;
-	u8    st_pcp;
-	u8    res_pcp;
 	struct net_device *master; /* master endpoint */
 	struct net_device *slaves[2]; /* two front panel ports */
 	struct net_device *ex_ep; /* extended endpoint*/
 	u8	packet_switch;
 	u8      switch_prt;	/* port on the switch */
-#ifdef CONFIG_XILINX_TSN_PTP
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 	void *timer_priv;
 	int ptp_tx_irq;
 	int ptp_rx_irq;
@@ -873,21 +848,28 @@ struct axienet_local {
 	struct sk_buff_head ptp_txq;
 	struct work_struct tx_tstamp_work;
 #endif
-#ifdef CONFIG_XILINX_TSN_QBV
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBV)
 	void __iomem *qbv_regs;
 #endif
-#ifdef CONFIG_AXIENET_HAS_TADMA
+#if IS_ENABLED(CONFIG_AXIENET_HAS_TADMA)
 	void __iomem *tadma_regs;
 	int tadma_irq;
 	void *t_cb;
+	u8 tadma_queues;
 	int active_sfm;
 	int num_tadma_buffers;
 	int num_streams;
 	int num_entries;
+	u32 get_sid;
+	u32 get_sfm;
+	int default_res_sid;
+	int default_st_sid;
+	u8 tadma_hash_bits;
 	struct axitadma_bd **tx_bd;
 	u32 tx_bd_head[TADMA_MAX_NO_STREAM];
 	u32 tx_bd_tail[TADMA_MAX_NO_STREAM];
 	u32 tx_bd_rd[TADMA_MAX_NO_STREAM];
+	u8 sid_txq_idx[TADMA_MAX_NO_STREAM];
 	spinlock_t tadma_tx_lock;               /* TSN TADMA tx lock*/
 #endif
 	spinlock_t ptp_tx_lock;		/* PTP tx lock*/
@@ -913,7 +895,7 @@ struct axienet_local {
 	bool eth_hasptp;
 	const struct axienet_config *axienet_config;
 
-#if defined(CONFIG_XILINX_TSN_PTP)
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 	void __iomem *tx_ts_regs;
 	void __iomem *rx_ts_regs;
 	struct hwtstamp_config tstamp_config;
@@ -945,6 +927,9 @@ struct axienet_local {
 	u32 gt_lane;		/* MRMAC GT lane index used */
 	u64 ptp_os_cf;		/* CF TS of PTP PDelay req for one step usage */
 	u32 xxv_ip_version;
+	struct axienet_tsn_txq txqs[XAE_MAX_TSN_TC];
+	u8 pcpmap[XAE_MAX_TSN_TC];
+	u32 qbv_enabled;
 };
 
 /**
@@ -965,6 +950,7 @@ struct axienet_local {
  * @tx_bufs_dma: Physical address of the Tx buffer address used by the driver
  *		 when DMA h/w is configured without DRE.
  * @eth_hasdre: Tells whether DMA h/w is configured with dre or not.
+ * @txq_idx:	TX subqueue index of this MCDMA queue.
  * @tx_bd_ci:	Stores the index of the Tx buffer descriptor in the ring being
  *		accessed currently. Used while alloc. BDs before a TX starts
  * @tx_bd_tail:	Stores the index of the Tx buffer descriptor in the ring being
@@ -993,8 +979,6 @@ struct axienet_dma_q {
 	spinlock_t rx_lock;		/* rx lock */
 
 	/* Buffer descriptors */
-	struct axidma_bd *tx_bd_v;
-	struct axidma_bd *rx_bd_v;
 	dma_addr_t rx_bd_p;
 	dma_addr_t tx_bd_p;
 
@@ -1002,13 +986,14 @@ struct axienet_dma_q {
 	unsigned char *tx_bufs;
 	dma_addr_t tx_bufs_dma;
 	bool eth_hasdre;
+	u8 txq_idx;
 
 	u32 tx_bd_ci;
 	u32 rx_bd_ci;
 	u32 tx_bd_tail;
 
 	/* MCDMA fields */
-#ifdef CONFIG_XILINX_TSN
+#if IS_ENABLED(CONFIG_XILINX_TSN)
 #define MCDMA_MGMT_CHAN		BIT(0)
 #define MCDMA_EP_EX_CHAN	BIT(1)
 	u32 flags;
@@ -1078,6 +1063,13 @@ extern void __iomem *mrmac_gt_pll;
 extern void __iomem *mrmac_gt_ctrl;
 extern int mrmac_pll_reg;
 extern int mrmac_pll_rst;
+
+extern struct platform_driver tsn_ex_ep_driver;
+#if IS_ENABLED(CONFIG_XILINX_TSN_SWITCH)
+extern struct platform_driver tsnswitch_driver;
+#endif
+extern struct platform_driver axienet_driver_tsn;
+extern struct platform_driver tsn_ep_driver;
 
 /**
  * axienet_ior - Memory mapped Axi Ethernet register read
@@ -1205,7 +1197,7 @@ static inline void axienet_dma_bdout(struct axienet_dma_q *q,
 #endif
 }
 
-#ifdef CONFIG_XILINX_TSN_QBV
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBV)
 /**
  * axienet_qbv_ior - Memory mapped TSN QBV register read
  * @lp:         Pointer to axienet local structure
@@ -1236,6 +1228,11 @@ static inline void axienet_qbv_iow(struct axienet_local *lp, off_t offset,
 }
 #endif
 
+static inline bool axienet_tsn_num_tc_valid(int num_tc)
+{
+	return (num_tc >= XAE_MIN_LEGACY_TSN_TC && num_tc <= XAE_MAX_TSN_TC);
+}
+
 /* Function prototypes visible in xilinx_axienet_mdio.c for other files */
 int axienet_mdio_enable_tsn(struct axienet_local *lp);
 void axienet_mdio_disable_tsn(struct axienet_local *lp);
@@ -1253,23 +1250,22 @@ int axienet_tsn_xmit(struct sk_buff *skb, struct net_device *ndev);
 u16 axienet_tsn_select_queue(struct net_device *ndev, struct sk_buff *skb,
 			     struct net_device *sb_dev);
 u16 axienet_tsn_pcp_to_queue(struct net_device *ndev, struct sk_buff *skb);
-int axienet_get_pcp_mask(struct axienet_local *lp, u16 num_tc);
+void axienet_set_pcpmap(struct axienet_local *lp);
+int axienet_init_tsn_txqs(struct axienet_local *lp, u16 num_tc);
 int tsn_data_path_open(struct net_device *ndev);
 int tsn_data_path_close(struct net_device *ndev);
-#ifdef CONFIG_XILINX_TSN_PTP
+#if IS_ENABLED(CONFIG_XILINX_TSN_PTP)
 void *axienet_ptp_timer_probe(void __iomem *base, struct platform_device *pdev);
 void axienet_tx_tstamp(struct work_struct *work);
-int axienet_ptp_timer_remove(void *priv);
 #endif
-#ifdef CONFIG_XILINX_TSN_QBV
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBV)
 int axienet_qbv_init(struct net_device *ndev);
-void axienet_qbv_remove(struct net_device *ndev);
 int axienet_set_schedule(struct net_device *ndev, void __user *useraddr);
 int axienet_get_schedule(struct net_device *ndev, void __user *useraddr);
 int axienet_tsn_shaper_tc(struct net_device *dev, enum tc_setup_type type, void *type_data);
 #endif
 
-#ifdef CONFIG_XILINX_TSN_QBR
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBR)
 int axienet_preemption(struct net_device *ndev, void __user *useraddr);
 int axienet_preemption_ctrl(struct net_device *ndev, void __user *useraddr);
 int axienet_preemption_sts(struct net_device *ndev, void __user *useraddr);
@@ -1279,7 +1275,7 @@ int axienet_preemption_sts_ethtool(struct net_device *ndev, struct ethtool_mm_st
 void axienet_preemption_cnt_ethtool(struct net_device *ndev, struct ethtool_mm_stats *stats);
 int axienet_preemption_ctrl_ethtool(struct net_device *ndev, struct ethtool_mm_cfg *config_data,
 				    struct netlink_ext_ack *extack);
-#ifdef CONFIG_XILINX_TSN_QBV
+#if IS_ENABLED(CONFIG_XILINX_TSN_QBV)
 int axienet_qbu_user_override(struct net_device *ndev, void __user *useraddr);
 int axienet_qbu_sts(struct net_device *ndev, void __user *useraddr);
 #endif
@@ -1289,7 +1285,7 @@ int axienet_mdio_wait_until_ready_tsn(struct axienet_local *lp);
 void __maybe_unused axienet_bd_free(struct net_device *ndev,
 				    struct axienet_dma_q *q);
 
-#ifdef CONFIG_AXIENET_HAS_TADMA
+#if IS_ENABLED(CONFIG_AXIENET_HAS_TADMA)
 int axienet_tadma_add_stream(struct net_device *ndev, void __user *useraddr);
 int axienet_tadma_flush_stream(struct net_device *ndev, void __user *useraddr);
 int axienet_tadma_off(struct net_device *ndev, void __user *useraddr);
@@ -1339,6 +1335,9 @@ int __maybe_unused axienet_mcdma_tx_probe_tsn(struct platform_device *pdev,
 int __maybe_unused axienet_mcdma_rx_probe_tsn(struct platform_device *pdev,
 					      struct device_node *np,
 					      struct net_device *ndev);
+int axienet_mcdma_disable_tx_q(struct net_device *ndev, u8 map);
+void axienet_mcdma_enable_tx_q(struct net_device *ndev, u8 map);
+
 int axienet_ethtools_get_coalesce(struct net_device *ndev,
 				  struct ethtool_coalesce *ecoalesce,
 				  struct kernel_ethtool_coalesce *kernel_coal,
@@ -1347,7 +1346,7 @@ int axienet_ethtools_set_coalesce(struct net_device *ndev,
 				  struct ethtool_coalesce *ecoalesce,
 				  struct kernel_ethtool_coalesce *kernel_coal,
 				  struct netlink_ext_ack *extack);
-#if defined(CONFIG_XILINX_TSN_SWITCH)
+#if IS_ENABLED(CONFIG_XILINX_TSN_SWITCH)
 int tsn_switch_get_port_parent_id(struct net_device *dev,
 				  struct netdev_phys_item_id *ppid);
 #endif

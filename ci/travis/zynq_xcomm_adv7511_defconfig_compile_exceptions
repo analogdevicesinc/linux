@@ -31,6 +31,7 @@ drivers/usb/gadget/function/f_uac1_legacy.o
 drivers/usb/gadget/function/u_uac1_legacy.o
 drivers/usb/gadget/legacy/audio.o
 drivers/usb/gadget/udc/net2272.o
+drivers/pci/controller/pcie-rcar-host.o
 drivers/comedi/drivers/rti800.o
 drivers/comedi/drivers/rti802.o
 drivers/mtd/maps/gpio-addr-flash.o
@@ -38,6 +39,7 @@ drivers/mtd/maps/latch-addr-flash.o
 drivers/iio/adc/ti-ads7950.o
 drivers/iio/adc/ina2xx-adc.o
 drivers/media/i2c/vs6624.o
+drivers/media/i2c/mt9m114.o
 drivers/misc/xilinx_lcd.o
 sound/pci/ac97/ac97_codec.o
 sound/pci/ac97/ac97_proc.o

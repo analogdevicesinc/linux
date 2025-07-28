@@ -27,7 +27,7 @@
 #include <linux/of_device.h>
 #include <linux/gpio/consumer.h>
 
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>

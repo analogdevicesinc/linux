@@ -21,6 +21,7 @@
 #include <linux/of_device.h>
 #include <linux/of_graph.h>
 #include <linux/phy/phy.h>
+#include <linux/platform_device.h>
 #include <media/hdr-ctrls.h>
 #include <video/videomode.h>
 #include "xlnx_sdi_modes.h"
@@ -1250,7 +1251,6 @@ static const struct component_ops xlnx_sdi_component_ops = {
 static int xlnx_sdi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct resource *res;
 	struct xlnx_sdi *sdi;
 	struct device_node *vpss_node;
 	int ret, irq;
@@ -1264,59 +1264,49 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	sdi->dev = dev;
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	sdi->base = devm_ioremap_resource(dev, res);
+	sdi->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(sdi->base)) {
 		dev_err(dev, "failed to remap io region\n");
 		return PTR_ERR(sdi->base);
 	}
 	platform_set_drvdata(pdev, sdi);
 
-	sdi->axi_clk = devm_clk_get(dev, "s_axi_aclk");
+	sdi->axi_clk = devm_clk_get_enabled(dev, "s_axi_aclk");
 	if (IS_ERR(sdi->axi_clk)) {
 		ret = PTR_ERR(sdi->axi_clk);
 		dev_err(dev, "failed to get s_axi_aclk %d\n", ret);
 		return ret;
 	}
 
-	sdi->sditx_clk = devm_clk_get(dev, "sdi_tx_clk");
+	sdi->sditx_clk = devm_clk_get_enabled(dev, "sdi_tx_clk");
 	if (IS_ERR(sdi->sditx_clk)) {
 		ret = PTR_ERR(sdi->sditx_clk);
 		dev_err(dev, "failed to get sdi_tx_clk %d\n", ret);
 		return ret;
 	}
 
-	sdi->vidin_clk = devm_clk_get(dev, "video_in_clk");
+	sdi->vidin_clk = devm_clk_get_enabled(dev, "video_in_clk");
 	if (IS_ERR(sdi->vidin_clk)) {
 		ret = PTR_ERR(sdi->vidin_clk);
 		dev_err(dev, "failed to get video_in_clk %d\n", ret);
 		return ret;
 	}
 
-	ret = clk_prepare_enable(sdi->axi_clk);
-	if (ret) {
-		dev_err(dev, "failed to enable axi_clk %d\n", ret);
-		return ret;
+	sdi->qpll1_enabled = of_property_read_bool(sdi->dev->of_node, "xlnx,qpll1-enabled");
+	if (!sdi->qpll1_enabled) {
+		sdi->qpll1_enabled = of_property_read_bool(sdi->dev->of_node, "xlnx,qpll1_enabled");
+		if (sdi->qpll1_enabled)
+			dev_warn(dev, "xlnx,qpll1_enabled is deprecated. Use xlnx,qpll1-enabled instead.\n");
 	}
 
-	ret = clk_prepare_enable(sdi->sditx_clk);
-	if (ret) {
-		dev_err(dev, "failed to enable sditx_clk %d\n", ret);
-		goto err_disable_axi_clk;
+	sdi->picxo_enabled = of_property_read_bool(sdi->dev->of_node, "xlnx,picxo-enabled");
+	if (!sdi->picxo_enabled) {
+		sdi->picxo_enabled = of_property_read_bool(sdi->dev->of_node, "xlnx,picxo_enabled");
+		if (sdi->picxo_enabled)
+			dev_warn(dev, "xlnx,picxo_enabled is deprecated. Use xlnx,picxo-enabled instead.\n");
 	}
 
-	ret = clk_prepare_enable(sdi->vidin_clk);
-	if (ret) {
-		dev_err(dev, "failed to enable vidin_clk %d\n", ret);
-		goto err_disable_sditx_clk;
-	}
-
-	sdi->qpll1_enabled = of_property_read_bool(sdi->dev->of_node,
-						   "xlnx,qpll1_enabled");
-
-	sdi->picxo_enabled = of_property_read_bool(sdi->dev->of_node,
-						   "xlnx,picxo_enabled");
-	dev_dbg(dev, "sdi-tx: value of qpll1_en = %d picxo_en = %d\n",
+	dev_dbg(dev, "Values - qpll1-enabled: %d, picxo-enabled: %d\n",
 		sdi->qpll1_enabled, sdi->picxo_enabled);
 
 	if (sdi->qpll1_enabled)
@@ -1327,12 +1317,9 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 	sdi->gt_rst_gpio = devm_gpiod_get_optional(&pdev->dev, "phy-reset",
 						   flags);
 
-	if (IS_ERR(sdi->gt_rst_gpio)) {
-		ret = PTR_ERR(sdi->gt_rst_gpio);
-		if (ret != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get phy gpio\n");
-		goto err_disable_vidin_clk;
-	}
+	if (IS_ERR(sdi->gt_rst_gpio))
+		return dev_err_probe(&pdev->dev, PTR_ERR(sdi->gt_rst_gpio),
+				     "Unable to get phy gpio\n");
 
 	ret = clk_set_rate(sdi->sditx_clk, CLK_RATE);
 	if (ret)
@@ -1361,8 +1348,7 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		if (!endpoint) {
 			dev_err(dev, "No remote port at %s\n", port->name);
 			of_node_put(endpoint);
-			ret = -EINVAL;
-			goto err_disable_vidin_clk;
+			return -EINVAL;
 		}
 
 		of_node_put(endpoint);
@@ -1370,7 +1356,7 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		ret = of_property_read_u32(port, "reg", &index);
 		if (ret) {
 			dev_err(dev, "reg property not present - %d\n", ret);
-			goto err_disable_vidin_clk;
+			return ret;
 		}
 
 		portmask |= (1 << index);
@@ -1386,8 +1372,7 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		sdi->enable_anc_data = false;
 	} else {
 		dev_err(dev, "Incorrect dt node!\n");
-		ret = -EINVAL;
-		goto err_disable_vidin_clk;
+		return -EINVAL;
 	}
 
 	sdi->enable_st352_chroma = of_property_read_bool(sdi->dev->of_node,
@@ -1402,17 +1387,15 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		 * IRQ defined in the device tree.
 		 */
 		irq = platform_get_irq(pdev, 0);
-		if (irq < 0) {
-			ret = irq;
-			goto err_disable_vidin_clk;
-		}
+		if (irq < 0)
+			return irq;
 	}
 
 	ret = devm_request_threaded_irq(sdi->dev, irq, NULL,
 					xlnx_sdi_irq_handler, IRQF_ONESHOT,
 					dev_name(sdi->dev), sdi);
 	if (ret < 0)
-		goto err_disable_vidin_clk;
+		return ret;
 
 	/* initialize the wait queue for GT reset event */
 	init_waitqueue_head(&sdi->wait_event);
@@ -1423,8 +1406,7 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		sdi->bridge = of_xlnx_bridge_get(vpss_node);
 		if (!sdi->bridge) {
 			dev_info(sdi->dev, "Didn't get bridge instance\n");
-			ret = -EPROBE_DEFER;
-			goto err_disable_vidin_clk;
+			return -EPROBE_DEFER;
 		}
 	}
 
@@ -1437,32 +1419,12 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 	/* Initialize to IP default value */
 	sdi->prev_eotf = XST352_BYTE2_EOTF_SDRTV;
 
-	ret = component_add(dev, &xlnx_sdi_component_ops);
-	if (ret < 0)
-		goto err_disable_vidin_clk;
-
-	return ret;
-
-err_disable_vidin_clk:
-	clk_disable_unprepare(sdi->vidin_clk);
-err_disable_sditx_clk:
-	clk_disable_unprepare(sdi->sditx_clk);
-err_disable_axi_clk:
-	clk_disable_unprepare(sdi->axi_clk);
-
-	return ret;
+	return component_add(dev, &xlnx_sdi_component_ops);
 }
 
-static int xlnx_sdi_remove(struct platform_device *pdev)
+static void xlnx_sdi_remove(struct platform_device *pdev)
 {
-	struct xlnx_sdi *sdi = platform_get_drvdata(pdev);
-
 	component_del(&pdev->dev, &xlnx_sdi_component_ops);
-	clk_disable_unprepare(sdi->vidin_clk);
-	clk_disable_unprepare(sdi->sditx_clk);
-	clk_disable_unprepare(sdi->axi_clk);
-
-	return 0;
 }
 
 static const struct of_device_id xlnx_sdi_of_match[] = {

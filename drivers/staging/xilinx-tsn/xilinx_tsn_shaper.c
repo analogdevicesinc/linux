@@ -20,16 +20,11 @@
 #include "xilinx_tsn_shaper.h"
 #include <net/pkt_sched.h>
 
-static inline int axienet_taprio_map_gs_to_hw(struct axienet_local *lp, u32 gs)
-{
-	u8 be_queue = GS_BE_OPEN;
-	u8 re_queue = GS_RE_OPEN;
-	u8 st_queue = (lp->num_tc == 2) ? GS_ST_2TC_OPEN : GS_ST_OPEN;
+/* Total number of TAS GCL entries */
+#define XLNX_TAPRIO_NUM_GCL			256
 
-	return (lp->num_tc == 2) ?
-	       (gs == 1 ? st_queue : be_queue) :
-	       (gs == 0 ? be_queue : (gs == 1 ? re_queue : st_queue));
-}
+/* Maximum supported cycle time in nanoseconds */
+#define XLNX_TAPRIO_MAX_CYCLE_TIME_NS		(BIT(30) - 1)
 
 static inline int axienet_map_gs_to_hw(struct axienet_local *lp, u32 gs)
 {
@@ -38,52 +33,143 @@ static inline int axienet_map_gs_to_hw(struct axienet_local *lp, u32 gs)
 	u8 st_queue = 2;
 	unsigned int acl_bit_map = 0;
 
-	if (lp->num_tc == 2)
+	if (lp->num_tc == XAE_MIN_LEGACY_TSN_TC)
 		st_queue = 1;
 
 	if (gs & GS_BE_OPEN)
 		acl_bit_map |= (1 << be_queue);
 	if (gs & GS_ST_OPEN)
 		acl_bit_map |= (1 << st_queue);
-	if (lp->num_tc == 3 && (gs & GS_RE_OPEN))
+	if (lp->num_tc == XAE_MAX_LEGACY_TSN_TC && (gs & GS_RE_OPEN))
 		acl_bit_map |= (1 << re_queue);
 
 	return acl_bit_map;
 }
 
+static int validate_taprio_qopt(struct net_device *ndev,
+				struct tc_taprio_qopt_offload *qopt)
+{
+	struct axienet_local *lp = netdev_priv(ndev);
+	u32 i = 0, max_tc = 0;
+	u64 total_time = 0;
+
+	if (qopt->cycle_time_extension)
+		return -EOPNOTSUPP;
+
+	if (qopt->num_entries > XLNX_TAPRIO_NUM_GCL)
+		return -EOPNOTSUPP;
+
+	if (!qopt->cycle_time || qopt->cycle_time > XLNX_TAPRIO_MAX_CYCLE_TIME_NS)
+		return -ERANGE;
+
+	for (i = 0; i < qopt->num_entries; ++i) {
+		struct tc_taprio_sched_entry *entry = &qopt->entries[i];
+
+		if (entry->interval > XLNX_TAPRIO_MAX_CYCLE_TIME_NS)
+			return -EOPNOTSUPP;
+
+		max_tc = fls(entry->gate_mask);
+		if (max_tc > lp->num_tc) {
+			netdev_err(ndev, "Invalid gate_mask 0x%x at off %d\n",
+				   entry->gate_mask, i);
+			return -EINVAL;
+		}
+
+		if (entry->command != TC_TAPRIO_CMD_SET_GATES)
+			return -EINVAL;
+
+		total_time += entry->interval;
+	}
+
+	if (total_time > XLNX_TAPRIO_MAX_CYCLE_TIME_NS)
+		return -EINVAL;
+
+	/* The cycle time to be at least as big as sum of each interval of gcl */
+	if (qopt->cycle_time < total_time)
+		return -EINVAL;
+
+	if (qopt->base_time <= 0) {
+		netdev_err(ndev, "Invalid base_time: must be greater than 0, got %lld\n",
+			   qopt->base_time);
+		return -ERANGE;
+	}
+
+	return 0;
+}
+
+static int xlnx_disable_queues(struct net_device *ndev,
+			       struct tc_taprio_qopt_offload *offload)
+{
+	struct axienet_local *lp = netdev_priv(ndev);
+	struct axienet_local *master_lp;
+	struct net_device *master;
+	int i, j, err;
+
+	master = lp->master ? lp->master : ndev;
+	master_lp = netdev_priv(master);
+
+	lp->qbv_enabled = 0;
+	for (i = 0; i < offload->num_entries; i++)
+		lp->qbv_enabled |= offload->entries[i].gate_mask;
+
+	for (i = 0; i < lp->num_tc; i++) {
+		if (master_lp->txqs[i].is_tadma)
+			continue;
+
+		if (lp->qbv_enabled & BIT(i))
+			continue;
+
+		if (!master_lp->txqs[i].disable_cnt) {
+			err = axienet_mcdma_disable_tx_q(master, i);
+			if (err)
+				goto q_disable_err;
+		}
+
+		master_lp->txqs[i].disable_cnt++;
+	}
+
+	return 0;
+
+q_disable_err:
+	for (j = 0; j < i; j++) {
+		if (lp->qbv_enabled & BIT(j))
+			continue;
+
+		master_lp->txqs[j].disable_cnt--;
+		if (!master_lp->txqs[j].disable_cnt)
+			axienet_mcdma_enable_tx_q(master, i);
+	}
+
+	return err;
+}
+
 static int xlnx_taprio_replace(struct net_device *ndev,
 			       struct tc_taprio_qopt_offload *offload)
 {
-	unsigned int acl_bit_map = 0, u_config_change = 0;
 	struct axienet_local *lp = netdev_priv(ndev);
-	u16 i;
+	unsigned int u_config_change = 0;
+	struct timespec64 ts;
+	u16 i, err = 0;
 
-	if (axienet_qbv_ior(lp, PORT_STATUS) & CONFIG_PENDING_MASK) {
-		u_config_change &= ~CC_ADMIN_GATE_ENABLE_BIT;
-		axienet_qbv_iow(lp, CONFIG_CHANGE, u_config_change);
+	err = validate_taprio_qopt(ndev, offload);
+	if (err)
+		return err;
+
+	err = xlnx_disable_queues(ndev, offload);
+	if (err) {
+		dev_err(&ndev->dev, "Failed to disable unused queues\n");
+		return err;
 	}
 
-	if (offload->base_time <= 0)
-		return -ERANGE;
-
-	if (offload->cycle_time == 0) {
-		/* clear the gate enable bit */
-		u_config_change &= ~CC_ADMIN_GATE_ENABLE_BIT;
-		/* open all the gates */
-		u_config_change |= CC_ADMIN_GATE_STATE_SHIFT;
-
-		axienet_qbv_iow(lp, CONFIG_CHANGE, u_config_change);
-
-		return 0;
-	}
-	/* write admin time */
+	/* write admin cycle time */
 	axienet_qbv_iow(lp, ADMIN_CYCLE_TIME_DENOMINATOR,
 			offload->cycle_time & CYCLE_TIME_DENOMINATOR_MASK);
 
-	axienet_qbv_iow(lp, ADMIN_BASE_TIME_NS, 0);
-
-	axienet_qbv_iow(lp, ADMIN_BASE_TIME_SEC, offload->base_time);
-	axienet_qbv_iow(lp, ADMIN_BASE_TIME_SECS, 0);
+	/* write admin base time */
+	ts = ktime_to_timespec64(offload->base_time);
+	axienet_qbv_iow(lp, ADMIN_BASE_TIME_SEC, lower_32_bits(ts.tv_sec));
+	axienet_qbv_iow(lp, ADMIN_BASE_TIME_SECS, upper_32_bits(ts.tv_sec));
+	axienet_qbv_iow(lp, ADMIN_BASE_TIME_NS, ts.tv_nsec);
 
 	u_config_change = axienet_qbv_ior(lp, CONFIG_CHANGE);
 
@@ -94,10 +180,9 @@ static int xlnx_taprio_replace(struct net_device *ndev,
 
 	/* program each list */
 	for (i = 0; i < offload->num_entries; i++) {
-		acl_bit_map = axienet_taprio_map_gs_to_hw(lp, (u8)offload->entries[i].gate_mask);
 		axienet_qbv_iow(lp,  ADMIN_CTRL_LIST(i),
-				(acl_bit_map & (ACL_GATE_STATE_MASK)) <<
-				ACL_GATE_STATE_SHIFT);
+				(offload->entries[i].gate_mask &
+				ACL_GATE_STATE_MASK) << ACL_GATE_STATE_SHIFT);
 
 		/* set the time for each entry */
 		axienet_qbv_iow(lp, ADMIN_CTRL_LIST_TIME(i),
@@ -120,11 +205,41 @@ static int xlnx_taprio_replace(struct net_device *ndev,
 	return 0;
 }
 
+static void xlnx_enable_queues(struct net_device *ndev)
+{
+	struct axienet_local *lp = netdev_priv(ndev);
+	struct axienet_local *master_lp;
+	struct net_device *master;
+	int i;
+
+	master = lp->master ? lp->master : ndev;
+	master_lp = netdev_priv(master);
+
+	for (i = 0; i < lp->num_tc; i++) {
+		if (master_lp->txqs[i].is_tadma)
+			continue;
+
+		if (lp->qbv_enabled & BIT(i))
+			continue;
+
+		master_lp->txqs[i].disable_cnt--;
+		if (!master_lp->txqs[i].disable_cnt)
+			axienet_mcdma_enable_tx_q(master, i);
+	}
+
+	lp->qbv_enabled = 0;
+}
+
 static void xlnx_taprio_destroy(struct net_device *ndev)
 {
 	struct axienet_local *lp = netdev_priv(ndev);
+	u32 u_config_change = 0;
 
-	axienet_qbv_iow(lp, CONFIG_CHANGE, ~(u32)CC_ADMIN_GATE_ENABLE_BIT);
+	u_config_change &= ~CC_ADMIN_GATE_ENABLE_BIT;
+	/* open all the gates */
+	u_config_change |= CC_ADMIN_GATE_STATE_MASK;
+	axienet_qbv_iow(lp, CONFIG_CHANGE, u_config_change);
+	xlnx_enable_queues(ndev);
 }
 
 static int tsn_setup_shaper_tc_taprio(struct net_device *ndev, void *type_data)
@@ -167,7 +282,7 @@ static int __axienet_set_schedule(struct net_device *ndev, struct qbv_info *qbv)
 		/* clear the gate enable bit */
 		u_config_change &= ~CC_ADMIN_GATE_ENABLE_BIT;
 		/* open all the gates */
-		u_config_change |= CC_ADMIN_GATE_STATE_SHIFT;
+		u_config_change |= CC_ADMIN_GATE_STATE_MASK;
 
 		axienet_qbv_iow(lp, CONFIG_CHANGE, u_config_change);
 
@@ -335,15 +450,10 @@ int axienet_qbv_init(struct net_device *ndev)
 
 	if (lp->qbv_irq > 0) {
 		sprintf(irq_name, "%s_qbv", ndev->name);
-		rc = request_irq(lp->qbv_irq, axienet_qbv_irq, 0, irq_name,
-				 ndev);
+		rc = devm_request_irq(lp->dev, lp->qbv_irq, axienet_qbv_irq,
+				      0, irq_name, ndev);
+		if (rc)
+			dev_err(&ndev->dev, "Failed to request qbv_irq: %d\n", rc);
 	}
 	return rc;
-}
-
-void axienet_qbv_remove(struct net_device *ndev)
-{
-	struct axienet_local *lp = netdev_priv(ndev);
-
-	free_irq(lp->qbv_irq, ndev);
 }

@@ -2,7 +2,7 @@
 /*
  * Xilinx Zynq MPSoC Firmware layer for debugfs APIs
  *
- *  Copyright (C) 2014-2021 Xilinx, Inc.
+ *  Copyright (C) 2014-2018 Xilinx, Inc.
  *
  *  Michal Simek <michal.simek@amd.com>
  *  Davorin Mista <davorin.mista@aggios.com>

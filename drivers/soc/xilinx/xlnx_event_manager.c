@@ -3,7 +3,7 @@
  * Xilinx Event Management Driver
  *
  *  Copyright (C) 2021 Xilinx, Inc.
- *  Copyright (C) 2023 - 2024 Advanced Micro Devices, Inc.
+ *  Copyright (C) 2024-2025 Advanced Micro Devices, Inc.
  *
  *  Abhyuday Godhasara <abhyuday.godhasara@xilinx.com>
  */
@@ -11,6 +11,7 @@
 #include <linux/cpuhotplug.h>
 #include <linux/firmware/xlnx-versal-error-events.h>
 #include <linux/firmware/xlnx-versal-net-error-events.h>
+#include <linux/firmware/amd-versal2-error-events.h>
 #include <linux/firmware/xlnx-event-manager.h>
 #include <linux/firmware/xlnx-zynqmp.h>
 #include <linux/hashtable.h>
@@ -26,7 +27,6 @@ static DEFINE_PER_CPU_READ_MOSTLY(int, dummy_cpu_number);
 
 static int virq_sgi;
 static int event_manager_availability = -EACCES;
-static u32 pm_sub_family_code;
 
 /* SGI number used for Event management driver */
 #define XLNX_EVENT_SGI_NUM	(15)
@@ -80,7 +80,11 @@ struct registered_event_data {
 
 static bool xlnx_is_error_event(const u32 node_id)
 {
-	if (pm_sub_family_code == VERSAL_SUB_FAMILY_CODE) {
+	u32 pm_family_code, pm_sub_family_code;
+
+	zynqmp_pm_get_family_info(&pm_family_code, &pm_sub_family_code);
+
+	if (pm_sub_family_code <= VERSAL_SUB_FAMILY_CODE_MAX) {
 		if (node_id == VERSAL_EVENT_ERROR_PMC_ERR1 ||
 		    node_id == VERSAL_EVENT_ERROR_PMC_ERR2 ||
 		    node_id == VERSAL_EVENT_ERROR_PSM_ERR1 ||
@@ -95,7 +99,15 @@ static bool xlnx_is_error_event(const u32 node_id)
 		    node_id == VERSAL_NET_EVENT_ERROR_PSM_ERR2 ||
 		    node_id == VERSAL_NET_EVENT_ERROR_PSM_ERR3 ||
 		    node_id == VERSAL_NET_EVENT_ERROR_PSM_ERR4 ||
-		    node_id == VERSAL_NET_EVENT_ERROR_SW_ERR)
+		    node_id == VERSAL_NET_EVENT_ERROR_SW_ERR ||
+		    node_id == VERSAL2_EVENT_ERROR_PMC_ERR1 ||
+		    node_id == VERSAL2_EVENT_ERROR_PMC_ERR2 ||
+		    node_id == VERSAL2_EVENT_ERROR_PMC_ERR3 ||
+		    node_id == VERSAL2_EVENT_ERROR_LPDSLCR_ERR1 ||
+		    node_id == VERSAL2_EVENT_ERROR_LPDSLCR_ERR2 ||
+		    node_id == VERSAL2_EVENT_ERROR_LPDSLCR_ERR3 ||
+		    node_id == VERSAL2_EVENT_ERROR_LPDSLCR_ERR4 ||
+		    node_id == VERSAL2_EVENT_ERROR_SW_ERR)
 			return true;
 	}
 
@@ -189,8 +201,10 @@ static int xlnx_add_cb_for_suspend(event_cb_func_t cb_fun, void *data)
 	INIT_LIST_HEAD(&eve_data->cb_list_head);
 
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
-	if (!cb_data)
+	if (!cb_data) {
+		kfree(eve_data);
 		return -ENOMEM;
+	}
 	cb_data->eve_cb = cb_fun;
 	cb_data->agent_data = data;
 
@@ -636,7 +650,6 @@ static void xlnx_event_cleanup_sgi(struct platform_device *pdev)
 static int xlnx_event_manager_probe(struct platform_device *pdev)
 {
 	int ret;
-	u32 *platform_data;
 
 	ret = zynqmp_pm_feature(PM_REGISTER_NOTIFIER);
 	if (ret < 0) {
@@ -675,8 +688,6 @@ static int xlnx_event_manager_probe(struct platform_device *pdev)
 	}
 
 	event_manager_availability = 0;
-	platform_data = (u32 *)dev_get_platdata((const struct device *)&pdev->dev);
-	pm_sub_family_code = *platform_data;
 
 	dev_info(&pdev->dev, "SGI %d Registered over TF-A\n", sgi_num);
 	dev_info(&pdev->dev, "Xilinx Event Management driver probed\n");

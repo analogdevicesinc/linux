@@ -44,8 +44,8 @@ static void xlnx_tod_read(struct xlnx_ptp_timer *timer, struct timespec64 *ts)
 {
 	u32 sec, nsec;
 
-	nsec = in_be32(timer->baseaddr + XTIMER1588_CURRENT_RTC_NS);
-	sec = in_be32(timer->baseaddr + XTIMER1588_CURRENT_RTC_SEC_L);
+	nsec = readl(timer->baseaddr + XTIMER1588_CURRENT_RTC_NS);
+	sec = readl(timer->baseaddr + XTIMER1588_CURRENT_RTC_SEC_L);
 
 	ts->tv_sec = sec;
 	ts->tv_nsec = nsec;
@@ -56,17 +56,16 @@ static void xlnx_rtc_offset_write(struct xlnx_ptp_timer *timer,
 {
 	pr_debug("%s: sec: %lld nsec: %ld\n", __func__, ts->tv_sec, ts->tv_nsec);
 
-	out_be32((timer->baseaddr + XTIMER1588_RTC_OFFSET_SEC_H), 0);
-	out_be32((timer->baseaddr + XTIMER1588_RTC_OFFSET_SEC_L),
-		 (ts->tv_sec));
-	out_be32((timer->baseaddr + XTIMER1588_RTC_OFFSET_NS), ts->tv_nsec);
+	writel(0, (timer->baseaddr + XTIMER1588_RTC_OFFSET_SEC_H));
+	writel(ts->tv_sec, (timer->baseaddr + XTIMER1588_RTC_OFFSET_SEC_L));
+	writel(ts->tv_nsec, (timer->baseaddr + XTIMER1588_RTC_OFFSET_NS));
 }
 
 static void xlnx_rtc_offset_read(struct xlnx_ptp_timer *timer,
 				 struct timespec64 *ts)
 {
-	ts->tv_sec = in_be32(timer->baseaddr + XTIMER1588_RTC_OFFSET_SEC_L);
-	ts->tv_nsec = in_be32(timer->baseaddr + XTIMER1588_RTC_OFFSET_NS);
+	ts->tv_sec = readl(timer->baseaddr + XTIMER1588_RTC_OFFSET_SEC_L);
+	ts->tv_nsec = readl(timer->baseaddr + XTIMER1588_RTC_OFFSET_NS);
 }
 
 /* PTP clock operations
@@ -79,7 +78,7 @@ static int xlnx_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 	u32 incval;
 
 	incval = adjust_by_scaled_ppm(timer->rtc_value, scaled_ppm);
-	out_be32((timer->baseaddr + XTIMER1588_RTC_INCREMENT), incval);
+	writel(incval, (timer->baseaddr + XTIMER1588_RTC_INCREMENT));
 	return 0;
 }
 
@@ -214,25 +213,10 @@ static irqreturn_t xlnx_ptp_timer_isr(int irq, void *priv)
 		if (timer->ptp_clock && timer->pps_enable)
 			ptp_clock_event(timer->ptp_clock, &event);
 	}
-	out_be32((timer->baseaddr + XTIMER1588_INTERRUPT),
-		 (1 << XTIMER1588_INT_SHIFT));
+	writel((1 << XTIMER1588_INT_SHIFT),
+	       (timer->baseaddr + XTIMER1588_INTERRUPT));
 
 	return IRQ_HANDLED;
-}
-
-int axienet_ptp_timer_remove(void *priv)
-{
-	struct xlnx_ptp_timer *timer = (struct xlnx_ptp_timer *)priv;
-
-	free_irq(timer->irq, (void *)timer);
-
-	axienet_phc_index = -1;
-	if (timer->ptp_clock) {
-		ptp_clock_unregister(timer->ptp_clock);
-		timer->ptp_clock = NULL;
-	}
-	kfree(timer);
-	return 0;
 }
 
 int axienet_get_phc_index(void *priv)
@@ -245,15 +229,20 @@ int axienet_get_phc_index(void *priv)
 		return -1;
 }
 
+static void tsn_ptp_unregister(void *ptp)
+{
+	ptp_clock_unregister((struct ptp_clock *)ptp);
+}
+
 void *axienet_ptp_timer_probe(void __iomem *base, struct platform_device *pdev)
 {
 	struct xlnx_ptp_timer *timer;
 	struct timespec64 ts;
 	int err = 0;
 
-	timer = kzalloc(sizeof(*timer), GFP_KERNEL);
+	timer = devm_kzalloc(&pdev->dev, sizeof(*timer), GFP_KERNEL);
 	if (!timer)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	timer->baseaddr = base;
 
@@ -265,8 +254,7 @@ void *axienet_ptp_timer_probe(void __iomem *base, struct platform_device *pdev)
 			pr_err("ptp timer interrupt name 'rtc_irq' is deprecated\n");
 		} else {
 			pr_err("ptp timer interrupt not found\n");
-			kfree(timer);
-			return NULL;
+			return ERR_PTR(-EINVAL);
 		}
 	}
 	spin_lock_init(&timer->reg_lock);
@@ -275,10 +263,16 @@ void *axienet_ptp_timer_probe(void __iomem *base, struct platform_device *pdev)
 
 	timer->ptp_clock = ptp_clock_register(&timer->ptp_clock_info,
 					      &pdev->dev);
-
 	if (IS_ERR(timer->ptp_clock)) {
 		err = PTR_ERR(timer->ptp_clock);
 		pr_debug("Failed to register ptp clock\n");
+		goto out;
+	}
+	err = devm_add_action_or_reset(&pdev->dev,
+				       tsn_ptp_unregister,
+				       timer->ptp_clock);
+	if (err) {
+		pr_debug("Failed to add PTP clock unregister action\n");
 		goto out;
 	}
 
@@ -296,23 +290,22 @@ void *axienet_ptp_timer_probe(void __iomem *base, struct platform_device *pdev)
 	 */
 	timer->rtc_value = (div_u64(NSEC_PER_SEC, XTIMER1588_GTX_CLK_FREQ) <<
 			    XTIMER1588_RTC_NS_SHIFT);
-	out_be32((timer->baseaddr + XTIMER1588_RTC_INCREMENT),
-		 timer->rtc_value);
+	writel(timer->rtc_value, (timer->baseaddr + XTIMER1588_RTC_INCREMENT));
 
 	/* Enable interrupts */
-	err = request_irq(timer->irq,
-			  xlnx_ptp_timer_isr,
-			  0,
-			  "ptp_rtc",
-			  (void *)timer);
-	if (err)
-		goto err_irq;
+	err = devm_request_irq(&pdev->dev, timer->irq,
+			       xlnx_ptp_timer_isr,
+			       0,
+			       "ptp_rtc",
+			       (void *)timer);
+	if (err) {
+		pr_err("Failed to request IRQ: %d\n", err);
+		ptp_clock_unregister(timer->ptp_clock);
+		goto out;
+	}
 
 	return timer;
-
-err_irq:
-	ptp_clock_unregister(timer->ptp_clock);
 out:
 	timer->ptp_clock = NULL;
-	return NULL;
+	return ERR_PTR(err);
 }

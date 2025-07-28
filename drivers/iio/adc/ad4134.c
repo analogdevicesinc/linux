@@ -98,7 +98,7 @@ static int _ad4134_set_odr(struct ad4134_state *st, unsigned int odr)
 	state.duty_cycle = DIV_ROUND_CLOSEST_ULL(6ULL * NSEC_PER_SEC, st->sys_clk_rate);
 	state.period = DIV_ROUND_CLOSEST(NSEC_PER_SEC, odr);
 
-	ret = pwm_apply_state(st->odr_pwm, &state);
+	ret = pwm_apply_might_sleep(st->odr_pwm, &state);
 	if (ret)
 		return ret;
 

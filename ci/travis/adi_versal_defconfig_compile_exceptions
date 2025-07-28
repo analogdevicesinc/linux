@@ -38,6 +38,7 @@ drivers/input/misc/adxl34x.o
 drivers/media/i2c/adv7511-v4l2.o
 drivers/media/i2c/vs6624.o
 drivers/media/platform/adi/imageon-bridge.o
+drivers/media/i2c/mt9m114.o
 drivers/misc/xilinx_lcd.o
 drivers/mtd/maps/physmap-core.o
 drivers/net/wireless/marvell/libertas/if_spi.o
@@ -59,6 +60,7 @@ sound/pci/hda/patch_analog.o
 sound/soc/codecs/ad1980.o
 sound/soc/codecs/wm8782.o
 drivers/gpu/drm/tegra/fbdev.o
+drivers/pci/controller/pcie-rcar-host.o
 sound/soc/codecs/max98363.o
 sound/soc/codecs/ssm3515.o
 

@@ -50,6 +50,18 @@
 		#clock-cells = <0>;
 		clock-frequency = <150000000>;
 	};
+
+	dpcon {
+		compatible = "dp-connector";
+		label = "P11";
+		type = "full-size";
+
+		port {
+			dpcon_in: endpoint {
+				remote-endpoint = <&dpsub_dp_out>;
+			};
+		};
+	};
 };
 
 &psgtr {
@@ -326,22 +338,14 @@
 	phy-names = "dp-phy0";
 	phys = <&psgtr 3 PHY_TYPE_DP 0 1>,
 		<&psgtr 2 PHY_TYPE_DP 1 1>;
-};
 
-&zynqmp_dp_snd_codec0 {
-	status = "okay";
-};
-
-&zynqmp_dp_snd_pcm0 {
-	status = "okay";
-};
-
-&zynqmp_dp_snd_pcm1 {
-	status = "okay";
-};
-
-&zynqmp_dp_snd_card0 {
-	status = "okay";
+	ports {
+		port@5 {
+			dpsub_dp_out: endpoint {
+				remote-endpoint = <&dpcon_in>;
+			};
+		};
+	};
 };
 
 &zynqmp_dpdma {

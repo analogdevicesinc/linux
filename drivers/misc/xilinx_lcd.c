@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/platform_device.h>
 
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -234,7 +235,7 @@ failed1:
 	return ret;
 }
 
-static int xlnx_lcd_of_remove(struct platform_device *op)
+static void xlnx_lcd_of_remove(struct platform_device *op)
 {
 	struct device *dev = &op->dev;
 	struct resource r_mem;	/* IO mem resources */
@@ -251,8 +252,6 @@ static int xlnx_lcd_of_remove(struct platform_device *op)
 	sysfs_remove_group(&dev->kobj, &xlnx_lcd_attr_group);
 
 	dev_set_drvdata(dev, NULL);
-
-	return 0;
 }
 
 /* Match table for of_platform binding */

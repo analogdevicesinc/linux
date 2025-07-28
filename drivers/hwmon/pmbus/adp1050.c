@@ -6,8 +6,8 @@
  */
 #include <linux/bits.h>
 #include <linux/i2c.h>
-#include <linux/module.h>
 #include <linux/mod_devicetable.h>
+#include <linux/module.h>
 
 #include "pmbus.h"
 
@@ -29,7 +29,7 @@ static int adp1050_probe(struct i2c_client *client)
 }
 
 static const struct i2c_device_id adp1050_id[] = {
-	{"adp1050", 0},
+	{"adp1050"},
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, adp1050_id);

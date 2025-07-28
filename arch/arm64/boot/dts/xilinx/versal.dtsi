@@ -325,8 +325,6 @@
 			clock-names = "pclk", "hclk", "tx_clk", "rx_clk", "tsu_clk";
 			/* iommus = <&smmu 0x234>; */
 			/* dma-coherent; */
-			#address-cells = <1>;
-			#size-cells = <0>;
 		};
 
 		gem1: ethernet@ff0d0000 {
@@ -337,8 +335,6 @@
 			clock-names = "pclk", "hclk", "tx_clk", "rx_clk", "tsu_clk";
 			/* iommus = <&smmu 0x235>; */
 			/* dma-coherent; */
-			#address-cells = <1>;
-			#size-cells = <0>;
 		};
 
 		gpio0: gpio@ff0b0000 {
@@ -654,7 +650,6 @@
 			interrupt-map-mask = <0 0 0 7>;
 			interrupt-names = "misc";
 			interrupts = <0 72 4>;
-			interrupt-parent = <&gic>;
 			bus-range = <0x00 0xff>;
 			ranges = <0x02000000 0x00000000 0xe0010000 0x0 0xe0010000 0x00000000 0x10000000>,
 				 <0x43000000 0x00000080 0x00000000 0x00000080 0x00000000 0x00000000 0x80000000>;
@@ -683,7 +678,6 @@
 			interrupt-map-mask = <0 0 0 7>;
 			interrupt-names = "misc";
 			interrupts = <0 72 4>;
-			interrupt-parent = <&gic>;
 			bus-range = <0x00 0xff>;
 			ranges = <0x02000000 0x0 0xe0000000 0x0 0xe0000000 0x0 0x10000000>,
 				 <0x43000000 0x80 0x00000000 0x80 0x00000000 0x0 0x80000000>;

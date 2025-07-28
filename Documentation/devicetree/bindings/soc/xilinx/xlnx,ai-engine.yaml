@@ -46,6 +46,22 @@ properties:
       size of cell to describe AI engine range of tiles size.
       As the AI engine tiles are 2D array, the size cell is 2.
 
+  clock-names:
+    description:
+      The clock-names property specifies a list of clock names for the clock inputs
+      used by the AI Engine device core.
+      It must include "aclk0", while "aclk1" is optional.
+    minItems: 1
+    items:
+      - const: aclk0
+      - const: aclk1
+
+  clocks:
+    description:
+      Clock input to the AI engine device core.
+    minItems: 1
+    maxItems: 2
+
   interrupts:
     deprecated: true
     maxItems: 3
@@ -88,6 +104,8 @@ required:
   - xlnx,shim-rows
   - xlnx,core-rows
   - xlnx,mem-rows
+  - clock-names
+  - clocks
 
 patternProperties:
   "^aperture@[0-9]+$":
@@ -122,9 +140,10 @@ patternProperties:
       xlnx,node-id:
         $ref: /schemas/types.yaml#/definitions/uint32
         description: |
-          AI engine aperture node ID, which is defined by Xilinx platform design
-          tool to identify the AI engine aperture in the firmware.
-
+          The AI engine aperture node ID is defined by the Xilinx platform management tool
+          and serves to identify the AI engine aperture in the firmware. This node ID acts
+          as a unique identifier for AI engine partition devices as designated by the
+          Xilinx platform manager within the firmware.
     required:
       - reg
       - xlnx,columns
@@ -183,12 +202,14 @@ examples:
         #address-cells = <2>;
         #size-cells = <2>;
         ranges;
+        clock-names = "aclk0";
+        clocks = <&aie_core_ref_clk_0>;
 
         aperture0: aperture@0 {
           /* 50 columns and 8 core tile rows + 1 SHIM row */
           reg = <0x200 0x0 0x1 0x0>;
           xlnx,columns = <0 50>;
-          xlnx,node-id = <1>;
+          xlnx,node-id = <0x18800000>;
           interrupt-parent = <&gic>;
           interrupts = <0x0 0x94 0x4>,
                        <0x0 0x95 0x4>,
