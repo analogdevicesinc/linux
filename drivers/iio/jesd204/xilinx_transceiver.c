@@ -599,8 +599,9 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_calc_qpll_config);
 
-int xilinx_xcvr_gth34_cpll_read_config(struct xilinx_xcvr *xcvr,
-	unsigned int drp_port, struct xilinx_xcvr_cpll_config *conf)
+static int xilinx_xcvr_gth34_cpll_read_config(struct xilinx_xcvr *xcvr,
+					      unsigned int drp_port,
+					      struct xilinx_xcvr_cpll_config *conf)
 {
 	int val;
 
