@@ -20,20 +20,6 @@ pool:
 stages:
   - stage: Build
     jobs:
-    - job: sync_branches_with_main
-      condition: and(ne(variables['Build.Reason'], 'PullRequest'), eq(variables.isMain, true))
-      variables:
-        BUILD_TYPE: sync_branches_with_main
-        MAIN_BRANCH: $[ variables['Build.SourceBranchName'] ]
-        CI: true
-      steps:
-      - checkout: self
-        fetchDepth: 50
-        clean: true
-        persistCredentials: true
-      - script: ./ci/travis/run-build.sh
-        displayName: 'Sync Branches With Main Branch'
-
     - job: checkpatch
       condition: eq(variables['Build.Reason'], 'PullRequest')
       variables:
