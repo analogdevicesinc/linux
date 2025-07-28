@@ -40,20 +40,7 @@
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  * \retval ADI_HAL_LOGGING_FAIL If the function failed to open or write to the specified filename
  */
-int32_t linux_LogFileOpen(void *devHalCfg, const char *filename)
-{
-	return ADI_HAL_OK;
-}
-
-/**
- * \brief Flushes the logFile buffer to the currently open log file.
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- *
- * \retval ADI_HAL_OK Function completed successfully, no action required
- * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
- */
-int32_t linux_LogFileFlush(void *devHalCfg)
+static int32_t linux_LogFileOpen(void *devHalCfg, const char *filename)
 {
 	return ADI_HAL_OK;
 }
@@ -67,7 +54,7 @@ int32_t linux_LogFileFlush(void *devHalCfg)
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  * \retval ADI_HAL_LOGGING_FAIL Error while flushing or closing the log file.
  */
-int32_t linux_LogFileClose(void *devHalCfg)
+static int32_t linux_LogFileClose(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -82,7 +69,7 @@ int32_t linux_LogFileClose(void *devHalCfg)
  * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM    Recovery action for bad parameter check
  * \retval ADI_COMMON_ACT_NO_ACTION          Function completed successfully, no action required
  */
-int32_t linux_LogLevelSet(void *devHalCfg, int32_t logLevel)
+static int32_t linux_LogLevelSet(void *devHalCfg, int32_t logLevel)
 {
 	adi_hal_Cfg_t *halCfg = NULL;
 
@@ -107,7 +94,7 @@ int32_t linux_LogLevelSet(void *devHalCfg, int32_t logLevel)
  * \retval ADI_HAL_OK Function completed successfully, no action required
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  */
-int32_t linux_LogLevelGet(void *devHalCfg, int32_t *logLevel)
+static int32_t linux_LogLevelGet(void *devHalCfg, int32_t *logLevel)
 {
 	int32_t halError = (int32_t)ADI_HAL_OK;
 	adi_hal_Cfg_t *halCfg = NULL;
@@ -141,8 +128,8 @@ int32_t linux_LogLevelGet(void *devHalCfg, int32_t *logLevel)
  * \retval ADI_HAL_LOGGING_FAIL If the function failed to flush to write
  */
 
-int32_t linux_LogWrite(void *devHalCfg, int32_t logLevel, const char *comment,
-		       va_list argp)
+static int32_t linux_LogWrite(void *devHalCfg, int32_t logLevel, const char *comment,
+			      va_list argp)
 {
 	int32_t halError = (int32_t)ADI_HAL_OK;
 	int32_t result = 0;
@@ -235,57 +222,6 @@ int32_t linux_LogWrite(void *devHalCfg, int32_t logLevel, const char *comment,
 }
 
 /**
- * \brief Opens/allocates any necessary resources to communicate via SPI to a
- *         particular device specified in the devHalCfg structure.
- *
- * This function should perform any necessary steps to open the SPI master resource
- * on the BBIC to enable SPI communications to a particular SPI device.
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- *
- * \retval ADI_HAL_OK function completed successfully, no action required
- * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
- * \retval ADI_HAL_SPI_FAIL the device driver was not opened successfully
- */
-int32_t linux_SpiOpen(void *devHalCfg)
-{
-	return ADI_HAL_OK;
-}
-
-/**
- * \brief Closes any resources open/allocated for a specific SPI device
- *
- * Any information needed to close the particular SPI device should be passed in
- * the devHalCfg structure.
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- *
- * \retval ADI_HAL_OK function completed successfully, no action required
- * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
- * \retval ADI_HAL_SPI_FAIL the device driver was not closed successfully
- */
-int32_t linux_SpiClose(void *devHalCfg)
-{
-	return ADI_HAL_OK;
-}
-
-/**
- * \brief Initializes the SPI device driver mode, bits per word, and speed
- *
- * Any settings needed should be passed in the devHalCfg structure
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- *
- * \retval ADI_HAL_OK function completed successfully, no action required
- * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
- * \retval ADI_HAL_SPI_FAIL the SPI initialization failed
- */
-int32_t linux_SpiInit(void *devHalCfg)
-{
-	return ADI_HAL_OK;
-}
-
-/**
  * \brief Write an array of 8-bit data to a SPI device
  *
  * The function will write numTxBytes number of bytes to the SPI device
@@ -299,8 +235,8 @@ int32_t linux_SpiInit(void *devHalCfg)
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  * \retval ADI_HAL_SPI_FAIL the data was not written successfully
  */
-int32_t linux_SpiWrite(void *devHalCfg, const uint8_t txData[],
-		       uint32_t numTxBytes)
+static int32_t linux_SpiWrite(void *devHalCfg, const uint8_t txData[],
+			      uint32_t numTxBytes)
 {
 	static const uint32_t MAX_SIZE = 4096;
 	uint32_t toWrite = 0;
@@ -351,8 +287,8 @@ int32_t linux_SpiWrite(void *devHalCfg, const uint8_t txData[],
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  * \retval ADI_HAL_SPI_FAIL the data was not read successfully
  */
-int32_t linux_SpiRead(void *devHalCfg, const uint8_t txData[], uint8_t rxData[],
-		      uint32_t numTxRxBytes)
+static int32_t linux_SpiRead(void *devHalCfg, const uint8_t txData[], uint8_t rxData[],
+			     uint32_t numTxRxBytes)
 {
 	static const uint32_t MAX_SIZE = 4096;
 	int32_t remaining = numTxRxBytes;
@@ -389,48 +325,6 @@ int32_t linux_SpiRead(void *devHalCfg, const uint8_t txData[], uint8_t rxData[],
 }
 
 /**
- * \brief Function to open/allocate any necessary resources for the timer wait
- *        functions below.
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- *
- * \retval ADI_HAL_OK Function completed successfully
- */
-int32_t linux_TimerOpen(void *devHalCfg)
-{
-	/* ADI ZC706 platform does not require any timer open /close */
-	return (int32_t)ADI_HAL_OK;
-}
-
-/**
- * \brief Function to close any necessary resources for the timer wait
- *        functions below.
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- *
- * \retval ADI_HAL_OK Function completed successfully
- */
-int32_t linux_TimerClose(void *devHalCfg)
-{
-	/* ADI ZC706 platform does not require any timer open /close */
-	return (int32_t)ADI_HAL_OK;
-}
-
-/**
- * \brief Function to initialize any necessary resources for the timer wait
- *        functions below.
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- *
- * \retval ADI_HAL_OK Function completed successfully
- */
-int32_t linux_TimerInit(void *devHalCfg)
-{
-	/* ADI ZC706 platform does not require any timer init */
-	return (int32_t)ADI_HAL_OK;
-}
-
-/**
  * \brief Provides a blocking delay of the current thread
  *
  * \param devHalCfg Pointer to device instance specific platform settings
@@ -439,7 +333,7 @@ int32_t linux_TimerInit(void *devHalCfg)
  * \retval ADI_HAL_OK Function completed successfully
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  */
-int32_t linux_TimerWait_us(void *devHalCfg, uint32_t time_us)
+static int32_t linux_TimerWait_us(void *devHalCfg, uint32_t time_us)
 {
 	int32_t halError = (int32_t)ADI_HAL_OK;
 
@@ -457,7 +351,7 @@ int32_t linux_TimerWait_us(void *devHalCfg, uint32_t time_us)
  * \retval ADI_HAL_OK Function completed successfully
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  */
-int32_t linux_TimerWait_ms(void *devHalCfg, uint32_t time_ms)
+static int32_t linux_TimerWait_ms(void *devHalCfg, uint32_t time_ms)
 {
 	int32_t halError = (int32_t)ADI_HAL_OK;
 
@@ -475,7 +369,7 @@ int32_t linux_TimerWait_ms(void *devHalCfg, uint32_t time_ms)
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  * \retval errors returned by other function calls.
  */
-int32_t linux_HwOpen(void *devHalCfg)
+static int32_t linux_HwOpen(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -489,7 +383,7 @@ int32_t linux_HwOpen(void *devHalCfg)
  * \retval ADI_HAL_OK Function completed successfully, no action required
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  */
-int32_t linux_HwClose(void *devHalCfg)
+static int32_t linux_HwClose(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -507,7 +401,7 @@ int32_t linux_HwClose(void *devHalCfg)
  * \retval ADI_HAL_OK Function completed successfully, no action required
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  */
-int32_t linux_HwReset(void *devHalCfg, uint8_t pinLevel)
+static int32_t linux_HwReset(void *devHalCfg, uint8_t pinLevel)
 {
 	adi_hal_Cfg_t *halCfg;
 
