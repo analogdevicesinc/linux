@@ -24,15 +24,8 @@
 	the expected sample is compared to the received sample one
 	sample at a time until all have been tested.
 */
-ADI_API int ad916x_jesd_short_tpl_test(ad916x_handle_t *h)
-{
-	if (h != INVALID_POINTER) {
-		return API_ERROR_OK;
-	}
-	return API_ERROR_INVALID_HANDLE_PTR;
-}
 
-ADI_API int ad916x_jesd_phy_prbs_test(ad916x_handle_t *h, 
+ADI_API int ad916x_jesd_phy_prbs_test(ad916x_handle_t *h,
 					const jesd_prbs_pattern_t prbs_pattern,
 					const uint8_t lanes_en, const uint32_t prbs_error_threshold,
 					ad916x_prbs_test_t *result)
@@ -194,10 +187,4 @@ ADI_API int ad916x_jesd_phy_prbs_test(ad916x_handle_t *h,
 	Read Register 0x473 to verify that initial lane synchronization has
 	passed for all enabled link lanes.
 */
-ADI_API int ad916x_jesd_cgs_and_ilas_test(ad916x_handle_t *h)
-{
-	if (h != INVALID_POINTER) {
-		return API_ERROR_OK;
-	}
-	return API_ERROR_INVALID_HANDLE_PTR;
-}
+
