@@ -138,5 +138,5 @@ jobs:
     - name: Assert compile
       id: assert
       run: |
-        echo "warn=$(printenv | grep ^step_warn_ | grep -v =$ | tr '\n' ',' | sed 's/,$//')" >> "$GITHUB_OUTPUT"
-        echo "fail=$(printenv | grep ^step_fail_ | grep -v =$ | tr '\n' ',' | sed 's/,$//')" >> "$GITHUB_OUTPUT"
+        source ci/runner_env.sh
+        export_labels

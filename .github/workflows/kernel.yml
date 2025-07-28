@@ -76,22 +76,7 @@ jobs:
           job_fail_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.fail}}
           job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
         run: |
-          warn=$(printenv | grep ^job_warn_ | grep -v =$ | tr '\n' ';'  | \
-                 sed -E -e 's/;/%0A/g' -e 's/\=true(,)?/%0A  /g' -e 's/=/:%0A  /g' -e 's/(job|step)_(fail|warn)_//g')
-          fail=$(printenv | grep ^job_fail_ | grep -v =$ | tr '\n' ';'  | \
-                 sed -E -e 's/;/%0A/g' -e 's/\=true(,)?/%0A  /g' -e 's/=/:%0A  /g' -e 's/(job|step)_(fail|warn)_//g')
-
-          if [[ ! -z "$fail" ]]; then
-            if [[ ! -z "$warn" ]]; then
-              echo "::error::Some jobs didn't pass strict checks:%0A$fail%0AAnd non-strict checks:%0A$warn"
-            else
-              echo "::error::Some jobs didn't pass strict checks:%0A$fail"
-            fi
-            exit 1
-          else
-            if [[ ! -z "$warn" ]]; then
-              warn=%0A$(echo $warn | tr '\n' ';' | sed 's/;/%0A/g')
-              echo "::warning::Some jobs didn't pass non-strict checks:%0A$warn"
-            fi
-          fi
-
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
+            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+          source runner_env.sh
+          assert_labels
