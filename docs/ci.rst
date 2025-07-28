@@ -1,3 +1,8 @@
+.. description::
+
+   Continuous deployment pipeline and instructions to set up a self-hosted
+   GitHub Actions runner using Podman or Docker and systemd without root.
+
 .. _ci:
 
 Continuous integration
@@ -291,7 +296,7 @@ Or if you are feeling adventurous:
 Interactive run
 ~~~~~~~~~~~~~~~
 
-The :git-doctools:`podman-run.sh <ci/scripts/podman-run.sh>`
+The :git-doctools:`container-run.sh <ci/scripts/container-run.sh>`
 is a suggested container command to interactive login into an image, mounting
 the provided path.
 
@@ -300,15 +305,16 @@ You can leverage it to compile/runs checks using persistent cache, for example:
 .. shell::
 
    ~/linux
-   $pdr adi/linux:v1 .
-   $export CXX=gcc-14 ; \
-   $    export CROSS_COMPILE=arm-suse-linux-gnueabi- ; \
-   $    export ARCH=arm
-   $make xilinx_zynq_defconfig
+   $cr adi/linux:v1
+   $set_arch gcc_aarch64
+    ARCH=arm64
+    CXX=gcc-14
+    CROSS_COMPILE=aarch64-suse-linux-
+   $make adi_ci_defconfig
     #
     # configuration written to .config
     #
-   $make -j$(($(nproc)-1)) UIMAGE_LOADADDR=0x8000
+   $make -j$(nproc)
     UPD     include/generated/compile.h
     CALL    scripts/checksyscalls.sh
     CC      init/version.o
@@ -321,10 +327,16 @@ Or:
 .. shell::
 
    ~/linux
-   $pdr adi/linux:v1 .
-   $source ci/build.sh
-   $base_sha=@~2; head_sha=@
-   $build_checkpatch
+   $cr adi/linux:v1
+   $base_sha=@~2
+   $set_arch gcc_arm
+    ARCH=arm
+    CXX=gcc-14
+    CROSS_COMPILE=arm-suse-linux-gnueabi-
+   $check_checkpatch
+    checkpatch on range @~6..@
+    Collecting ply
+    Downloading ply-3.11-py...
 
 Significantly speeding up interactive testing.
 
@@ -360,7 +372,7 @@ is ignored and a new one is requested.
 The environment variable runner_labels (comma-separated), set the runner labels.
 If not provided on the Containerfile as ``ENV runner_labels=<labels,>`` or as argument
 ``--env runner_labels=<labels,>``, it defaults to ``v1``.
-Most of the times, you want to use the Containerfile-set environment variable.
+Most of the time, you want to use the Containerfile-set environment variable.
 
 If you are in an environment as described in :ref:`podman sssd`, append these flags
 to every ``podman run`` command:
@@ -377,69 +389,98 @@ Self-hosted cluster
 ~~~~~~~~~~~~~~~~~~~
 
 To host a cluster of self-hosted runners, the recommended approach is to use
-systemd services, instead of for example, podman-compose.
+systemd services, instead of for example, container compose solutions.
 
-Below is a suggested systemd service at *~/.config/systemd/user/podman-public-linux@.service*.
+Below is a suggested systemd service at *~/.config/systemd/user/container-public-linux@.service*.
 
-::
+.. code:: systemd
 
    [Unit]
-   Description=Podman public linux ci %i
+   Description=container public linux ci %i
    Wants=network-online.target
-   After=network-online.target
 
    [Service]
    Restart=on-success
-   ExecStartPre=/usr/bin/rm -f /%t/%n-pid /%t/%n-cid
-   ExecStart=/usr/bin/podman run \
+   ExecStart=/bin/podman run \
              --env name_label=%H-%i \
              --secret public_linux_org_repository,type=env,target=org_repository \
              --secret public_linux_runner_token,type=env,target=runner_token \
-             --conmon-pidfile /%t/%n-pid --cidfile /%t/%n-cid \
+             --conmon-pidfile %t/%n-pid --cidfile %t/%n-cid \
              --label "io.containers.autoupdate=local" \
              --name=public_linux_%i \
              --memory-swap=20g \
              --memory=16g \
              --cpus=4 \
              -d adi/linux:latest top
-   ExecStop=/usr/bin/sh -c "/usr/bin/podman rm -f `cat /%t/%n-cid`"
+   ExecStop=/bin/sh -c "/bin/podman stop -t 300 $(cat %t/%n-cid) && /bin/podman rm $(cat %t/%n-cid)"
+   ExecStopPost=/bin/rm %t/%n-pid %t/%n-cid
    TimeoutStopSec=600
    Type=forking
-   PIDFile=/%t/%n-pid
+   PIDFile=%t/%n-pid
 
    [Install]
    WantedBy=multi-user.target
+
+.. collapsible:: Docker alternative
+
+   .. code:: systemd
+
+      [Unit]
+      Description=container public linux ci %i
+      Requires=gpg-passphrase.service
+      Wants=network-online.target
+      After=docker.service
+
+      [Service]
+      Restart=on-success
+      ExecStart=/bin/sh -c "/bin/docker run \
+                --env name_label=%H-%i \
+                --env org_repository=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_org_repository.gpg) \
+                --env runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_runner_token.gpg) \
+                --cidfile %t/%n-cid \
+                --label "io.containers.autoupdate=local" \
+                --name=public_linux_%i \
+                --memory-swap=20g \
+                --memory=16g \
+                --cpus=4 \
+                --log-driver=journald \
+                -d localhost/adi/linux:latest top"
+      RemainAfterExit=yes
+      ExecStop=/bin/sh -c "/bin/docker stop -t 300 $(cat %t/%n-cid) && /bin/docker rm $(cat %t/%n-cid)"
+      ExecStopPost=/bin/rm %t/%n-cid
+      TimeoutStopSec=600
+      Type=forking
+
+      [Install]
+      WantedBy=multi-user.target
 
 Remember to ``systemctl --user daemon-reload`` after modifying.
 With `autoupdate <https://docs.podman.io/en/latest/markdown/podman-auto-update.1.html>`__,
 if the image-digest of the container and local storage differ,
 the local image is considered to be newer and the systemd unit gets restarted.
 
-Instead of passing runner_token, you can also pass a github_token to generate
-the runner_token on demand.
-Using the github_token is the recommended approach because during clean-up the original
-runner_token may have expired already.
-
 Tune the limit flags for your needs.
 The ``--cpus`` flag requires a kernel with ``CONFIG_CFS_BANDWIDTH`` enabled.
 You can check with ``zgrep CONFIG_CFS_BANDWIDTH= /proc/config.gz``.
 
-.. shell::
+Instead of passing ``runner_token``, you can also pass a ``github_token`` to
+generate the ``runner_token`` on demand. Using the ``github_token`` is the
+recommended approach because during clean-up the original runner_token may have
+expired already.
 
-   # e.g. MyVerYSecRetToken
-   $printf GITHUB_TOKEN | podman secret create public_linux_github_token -
+Alternatively, you can mount a FIFO to ``/var/run/secrets/runner_token`` to
+generate a token just in time, without ever passing the github_token to the
+container (scripts not provided).
 
-Alternatively, you can also mount the ``runner_token`` into
-``/run/secrets/runner_token`` and have it read when necessary.
 However, please note, just like the GitHub Actions generated ``GITHUB_TOKEN``,
-the path ``/run/secrets/runner_token`` can be read by workflows,
-while the previous option is removed from the environment prior executing
-the GitHub Actions runtime.
+the path ``/run/secrets/runner_token`` can be read by workflows, while the
+previous option is removed from the environment prior executing the GitHub
+Actions runtime.
 
 The order of precedence for authentication token is:
 
 #. ``github_token``: environment variable.
-#. ``runner_token``: plain text at */run/secrets/runner_token*.
+#. ``runner_token``: plain text or FIFO at */run/secrets/runner_token*.
 #. ``runner_token``: environment variable.
 
 Please understand the security implications and ensure the token secrecy,
@@ -463,8 +504,8 @@ Enable and start the service
 
 .. code:: shell
 
-   systemctl --user enable podman-public-linux@0.service
-   systemctl --user start podman-public-linux@0.service
+   systemctl --user enable container-public-linux@0.service
+   systemctl --user start container-public-linux@0.service
 
 .. attention::
 
