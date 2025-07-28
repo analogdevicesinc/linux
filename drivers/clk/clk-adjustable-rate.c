@@ -91,9 +91,12 @@ const struct clk_ops clk_adjustable_rate_ops = {
  * @adjustable_rate: adjustable clock rate
  * @fixed_accuracy: non-adjustable clock rate
  */
-struct clk *clk_register_adjustable_rate_with_accuracy(struct device *dev,
-		const char *name, const char *parent_name, unsigned long flags,
-		unsigned long adjustable_rate, unsigned long fixed_accuracy)
+static struct clk *clk_register_adjustable_rate_with_accuracy(struct device *dev,
+							      const char *name,
+							      const char *parent_name,
+							      unsigned long flags,
+							      unsigned long adjustable_rate,
+							      unsigned long fixed_accuracy)
 {
 	struct clk_adjustable_rate *adjustable;
 	struct clk *clk;
@@ -130,23 +133,7 @@ struct clk *clk_register_adjustable_rate_with_accuracy(struct device *dev,
 	return clk;
 }
 
-/**
- * clk_register_adjustable_rate - register adjustable-rate clock with the clock framework
- * @dev: device that is registering this clock
- * @name: name of this clock
- * @parent_name: name of clock's parent
- * @flags: framework-specific flags
- * @adjustable_rate: adjustable clock rate
- */
-struct clk *clk_register_adjustable_rate(struct device *dev, const char *name,
-		const char *parent_name, unsigned long flags,
-		unsigned long adjustable_rate)
-{
-	return clk_register_adjustable_rate_with_accuracy(dev, name, parent_name,
-						     flags, adjustable_rate, 0);
-}
-
-void clk_unregister_adjustable_rate(struct clk *clk)
+static void clk_unregister_adjustable_rate(struct clk *clk)
 {
 	struct clk_hw *hw;
 
@@ -162,7 +149,7 @@ void clk_unregister_adjustable_rate(struct clk *clk)
 /**
  * of_adjustable_clk_setup() - Setup function for simple adjustable rate clock
  */
-struct clk *_of_adjustable_clk_setup(struct device_node *node)
+static struct clk *_of_adjustable_clk_setup(struct device_node *node)
 {
 	struct clk *clk;
 	const char *clk_name = node->name;
@@ -192,12 +179,11 @@ struct clk *_of_adjustable_clk_setup(struct device_node *node)
 	return clk;
 }
 
-void of_adjustable_clk_setup(struct device_node *node)
+static void __init of_adjustable_clk_setup(struct device_node *node)
 {
 	if (!IS_ERR(_of_adjustable_clk_setup(node)))
 		of_node_set_flag(node, OF_POPULATED);
 }
-EXPORT_SYMBOL_GPL(of_adjustable_clk_setup);
 CLK_OF_DECLARE(adjustable_clk, "adjustable-clock", of_adjustable_clk_setup);
 
 static void of_adjustable_clk_remove(struct platform_device *pdev)
