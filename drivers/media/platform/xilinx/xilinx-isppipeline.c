@@ -11,6 +11,7 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -183,14 +184,14 @@
 #define XISP_1K					(1000)
 #define XISP_1M					(1000000UL)
 #define XISP_1B					(1000000000UL)
-#define XISP_10B				(10000000000UL)
-#define XISP_1H_1B				(100000000000UL)
-#define XISP_1T					(1000000000000UL)
+#define XISP_10B				(10000000000ULL)
+#define XISP_1H_1B				(100000000000ULL)
+#define XISP_1T					(1000000000000ULL)
 #define XISP_CONST1				(4032000000UL)
-#define XISP_CONST2				(3628800000000UL)
-#define XISP_CONST3				(36288000000000UL)
-#define XISP_CONST4				(399168000000UL)
-#define XISP_CONST5				(62270208000000UL)
+#define XISP_CONST2				(3628800000000ULL)
+#define XISP_CONST3				(36288000000000ULL)
+#define XISP_CONST4				(399168000000ULL)
+#define XISP_CONST5				(62270208000000ULL)
 
 #define XISP_RESET_DEASSERT		(0)
 #define XISP_RESET_ASSERT		(1)
@@ -478,54 +479,55 @@ static u16 xisp_compute_data_reliability_weight(u32 c_intersec, u32 mu_h, u32 mu
 		u32 x = int_pow((mu_l - r), 2);
 		u64 xpow = (c_intersec * x) / XISP_1M;
 
-		wr = XISP_WR_CV / int_pow(3, xpow);
+		wr = div64_u64(XISP_WR_CV, int_pow(3, xpow));
 	} else if (r < mu_h) {
 		wr = XISP_WR_CV;
 	} else {
 		u32 x = int_pow((r - mu_h), 2);
 		u64 xpow = c_intersec * x;
-		u64 taylor_coeff_1 = xpow / XISP_1K;
-		u64 int_coeff_21 = (int_pow(xpow, 2) / (XISP_1H * XISP_1K));
-		u64 taylor_coeff_2 = int_coeff_21 / (20 * XISP_1K);
-		u64 int_coeff_31 = xpow / (6 * XISP_1K);
-		u64 taylor_coeff_3 = (int_coeff_21 * int_coeff_31) / (10 * XISP_1M);
-		u64 taylor_coeff_4 = (int_coeff_21 * int_coeff_21) / (24 * XISP_1H_1B);
-		u64 int_coeff_51 = (int_coeff_21 * xpow) / (120 * XISP_1M);
-		u64 taylor_coeff_5 = (int_coeff_21 * int_coeff_51) / XISP_1H_1B;
-		u64 int_coeff_61 = (int_coeff_21 * int_coeff_21) / (72 * XISP_1M);
-		u64 taylor_coeff_6 = (int_coeff_61 * int_coeff_21) / (10 * XISP_1T);
-		u64 int_coeff_71 = (int_coeff_21 * xpow) / 5040;
-		u64 int_coeff_72 = (int_coeff_21 * int_coeff_21) / XISP_10B;
-		u64 taylor_coeff_7 = (int_coeff_71 * int_coeff_72) / (XISP_1H * XISP_1T);
-		u64 int_coeff_81 = (int_coeff_21 * int_coeff_21) / XISP_10B;
-		u64 int_coeff_82 = (int_coeff_21 * int_coeff_21) / XISP_10B;
-		u64 taylor_coeff_8 = (int_coeff_81 * int_coeff_82) / XISP_CONST1;
-		u64 int_coeff_91 = (int_coeff_21 * int_coeff_21) / (XISP_1H * XISP_1M);
-		u64 int_coeff_92 = (int_coeff_21 * xpow) / (XISP_1H * XISP_1K);
-		u64 int_coeff_93 = (int_coeff_91 * int_coeff_92) / XISP_CONST2;
-		u64 taylor_coeff_9 = (int_coeff_93 * int_coeff_21) / XISP_1H_1B;
-		u64 int_coeff_101 = (int_coeff_21 * int_coeff_21) / XISP_10B;
-		u64 int_coeff_102 = (int_coeff_21 * int_coeff_21) / XISP_10B;
-		u64 int_coeff_103 = int_coeff_21 / (XISP_1H * XISP_1K);
-		u64 taylor_coeff_10 = (int_coeff_101 * int_coeff_102 * int_coeff_103) /
-				       XISP_CONST3;
-		u64 int_coeff_111 = (int_coeff_21 * int_coeff_21) / XISP_1H_1B;
-		u64 int_coeff_112 = (xpow * int_coeff_21) / XISP_1T;
-		u64 int_coeff_113 = (int_coeff_111 * int_coeff_112 * int_coeff_21) /
-				    XISP_CONST4;
-		u64 taylor_coeff_11 = (int_coeff_113 * int_coeff_21) / XISP_1H_1B;
-		u64 int_coeff_121 = (int_coeff_111 * int_coeff_21) / XISP_10B;
-		u64 int_coeff_122 = (int_coeff_121 * int_coeff_21) / 479001600;
-		u64 int_coeff_123 = (int_coeff_122 * int_coeff_21) / XISP_1M;
-		u64 taylor_coeff_12 = (int_coeff_123 * int_coeff_21) / XISP_1T;
-		u64 int_coeff_131 = (int_coeff_21 * int_coeff_21) / XISP_1H_1B;
-		u64 int_coeff_132 = (int_coeff_131 * int_coeff_112 * int_coeff_21) /
-				    XISP_1T;
-		u64 int_coeff_133 = (int_coeff_132 * int_coeff_21) / XISP_1M;
-		u64 taylor_coeff_13 = (int_coeff_133 * int_coeff_21) / XISP_CONST5;
-		u64 int_coeff_141 = (int_coeff_131 * int_coeff_21) / (XISP_1H * XISP_1K);
-		u64 int_coeff_142 = (int_coeff_131 * int_coeff_141) / (XISP_1H * XISP_1K);
-		u64 taylor_coeff_14 = (int_coeff_131 * int_coeff_142) / (87178291200 * XISP_1K);
+		u64 taylor_coeff_1 = div_u64(xpow, XISP_1K);
+		u64 int_coeff_21 = div_u64(int_pow(xpow, 2), XISP_1H * XISP_1K);
+		u64 taylor_coeff_2 = div_u64(int_coeff_21, 20 * XISP_1K);
+		u64 int_coeff_31 = div_u64(xpow, 6 * XISP_1K);
+		u64 taylor_coeff_3 = div_u64(int_coeff_21 * int_coeff_31, 10 * XISP_1M);
+		u64 taylor_coeff_4 = div64_u64(int_coeff_21 * int_coeff_21, 24 * XISP_1H_1B);
+		u64 int_coeff_51 = div_u64(int_coeff_21 * xpow, 120 * XISP_1M);
+		u64 taylor_coeff_5 = div64_u64(int_coeff_21 * int_coeff_51, XISP_1H_1B);
+		u64 int_coeff_61 = div_u64(int_coeff_21 * int_coeff_21, 72 * XISP_1M);
+		u64 taylor_coeff_6 = div64_u64(int_coeff_61 * int_coeff_21, 10 * XISP_1T);
+		u64 int_coeff_71 = div_u64(int_coeff_21 * xpow, 5040);
+		u64 int_coeff_72 = div64_u64(int_coeff_21 * int_coeff_21, XISP_10B);
+		u64 taylor_coeff_7 = div64_u64(int_coeff_71 * int_coeff_72, XISP_1H * XISP_1T);
+		u64 int_coeff_81 = div64_u64(int_coeff_21 * int_coeff_21, XISP_10B);
+		u64 int_coeff_82 = div64_u64(int_coeff_21 * int_coeff_21, XISP_10B);
+		u64 taylor_coeff_8 = div_u64(int_coeff_81 * int_coeff_82, XISP_CONST1);
+		u64 int_coeff_91 = div_u64(int_coeff_21 * int_coeff_21, XISP_1H * XISP_1M);
+		u64 int_coeff_92 = div_u64(int_coeff_21 * xpow, XISP_1H * XISP_1K);
+		u64 int_coeff_93 = div64_u64(int_coeff_91 * int_coeff_92, XISP_CONST2);
+		u64 taylor_coeff_9 = div64_u64(int_coeff_93 * int_coeff_21, XISP_1H_1B);
+		u64 int_coeff_101 = div64_u64(int_coeff_21 * int_coeff_21, XISP_10B);
+		u64 int_coeff_102 = div64_u64(int_coeff_21 * int_coeff_21, XISP_10B);
+		u64 int_coeff_103 = div_u64(int_coeff_21, XISP_1H * XISP_1K);
+		u64 taylor_coeff_10 = div64_u64(int_coeff_101 * int_coeff_102 * int_coeff_103,
+						XISP_CONST3);
+		u64 int_coeff_111 = div64_u64(int_coeff_21 * int_coeff_21, XISP_1H_1B);
+		u64 int_coeff_112 = div64_u64(xpow * int_coeff_21, XISP_1T);
+		u64 int_coeff_113 = div64_u64(int_coeff_111 * int_coeff_112 * int_coeff_21,
+					      XISP_CONST4);
+		u64 taylor_coeff_11 = div64_u64(int_coeff_113 * int_coeff_21, XISP_1H_1B);
+		u64 int_coeff_121 = div64_u64(int_coeff_111 * int_coeff_21, XISP_10B);
+		u64 int_coeff_122 = div_u64(int_coeff_121 * int_coeff_21, 479001600);
+		u64 int_coeff_123 = div_u64(int_coeff_122 * int_coeff_21, XISP_1M);
+		u64 taylor_coeff_12 = div64_u64(int_coeff_123 * int_coeff_21, XISP_1T);
+		u64 int_coeff_131 = div64_u64(int_coeff_21 * int_coeff_21, XISP_1H_1B);
+		u64 int_coeff_132 = div64_u64(int_coeff_131 * int_coeff_112 * int_coeff_21,
+					      XISP_1T);
+		u64 int_coeff_133 = div_u64(int_coeff_132 * int_coeff_21, XISP_1M);
+		u64 taylor_coeff_13 = div64_u64(int_coeff_133 * int_coeff_21, XISP_CONST5);
+		u64 int_coeff_141 = div_u64(int_coeff_131 * int_coeff_21, XISP_1H * XISP_1K);
+		u64 int_coeff_142 = div_u64(int_coeff_131 * int_coeff_141, XISP_1H * XISP_1K);
+		u64 taylor_coeff_14 = div64_u64(int_coeff_131 * int_coeff_142,
+						87178291200ULL * XISP_1K);
 
 		wr1 = XISP_1K - taylor_coeff_1 + taylor_coeff_2 - taylor_coeff_3 + taylor_coeff_4
 			- taylor_coeff_5 + taylor_coeff_6 - taylor_coeff_7 + taylor_coeff_8 -
@@ -578,7 +580,7 @@ static void xisp_hdr_merge(u32 alpha, u32 optical_black_value, u32 intersec,
 	}
 
 	mu_h[m - 1] = (100 * value_max) / exposure_time[m - 1];
-	c_inters = (intersec / (int_pow((gamma_out[0] - mu_h[0]), 2)));
+	c_inters = div64_u64(intersec, int_pow(gamma_out[0] - mu_h[0], 2));
 
 	for (i = 0; i < XISP_NO_EXPS; i++) {
 		for (j = 0; j < (XISP_W_B_SIZE); j++) {
