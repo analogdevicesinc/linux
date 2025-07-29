@@ -259,7 +259,7 @@ static void process_keys(struct lm8323_chip *lm)
 	ret = lm8323_read(lm, LM8323_CMD_READ_FIFO, key_fifo, LM8323_FIFO_LEN);
 
 	if (ret < 0) {
-		dev_err(&lm->client->dev, "Failed reading fifo \n");
+		dev_err(&lm->client->dev, "Failed reading fifo\n");
 		return;
 	}
 	key_fifo[ret] = 0;
