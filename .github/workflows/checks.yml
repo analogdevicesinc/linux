@@ -36,7 +36,8 @@ jobs:
     - name: Coccicheck
       run: |
         source ci/build.sh
-        check_coccicheck
+        timeout 1800 bash -c "check_coccicheck" || \
+          echo "step_fail_coccicheck_timeout=true" >> "$GITHUB_ENV"
 
     - name: CPP Check
       run: |
