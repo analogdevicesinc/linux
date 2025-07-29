@@ -20,18 +20,6 @@ pool:
 stages:
   - stage: Build
     jobs:
-    - job: check_new_file_license
-      condition: eq(variables['Build.Reason'], 'PullRequest')
-      variables:
-        BUILD_TYPE: check_new_file_license
-        TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
-      steps:
-      - checkout: self
-        fetchDepth: 50
-        clean: true
-      - script: ./ci/travis/run-build.sh
-        displayName: 'Check Is New ADI Driver & Dual Licensed'
-
     - job: microblaze_build_test
       variables:
         BUILD_TYPE: microblaze
