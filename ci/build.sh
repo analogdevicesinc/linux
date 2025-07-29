@@ -18,7 +18,13 @@ check_checkpatch() {
 		git --no-pager show --format="%h %s" "$commit" --name-only
 		# Skip empty commits, assume cover letter
 		# and those only touching non-upstream directories .github ci and docs
-		local files=$(git diff --diff-filter=ACMR --name-only $commit~..$commit | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
+		# A treeless (--filter=tree:0) fetch could be done to fetch
+		# full commit message history before running checkpatch, but
+		# that may mess-up the cache and is only useful for checking
+		# SHA references in the commit message, with may not even apply
+		# if the commit is from upstream. Instead, just delegate to the
+		# user to double check the referenced SHA.
+		local files=$(git diff --diff-filter=ACM --no-renames --name-only $commit~..$commit | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
 		if [[ -z "$files" ]]; then
 			echo "empty, skipped"
 			continue
@@ -114,7 +120,7 @@ check_checkpatch() {
 }
 
 check_dt_binding_check() {
-	local files=$(git diff --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local fail=0
 
 	echo "dt_binding_check on range $base_sha..$head_sha"
@@ -140,20 +146,13 @@ check_dt_binding_check() {
 				#
 				# All schema files must be validated before exiting,
 				# so the script should not exit on error.
-				#
-				# Disable exit-on-error flag, check the exit code
-				# manually, and set err if the exit-code is non-zero,
-				# before enabling exit-on-error back.
-				set +e
-				error_txt=$(make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1)
-				if [[ $? -ne 0 ]]; then
+				if ! error_txt=$(make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1); then
 					fail=1
 				fi
-				set -e
 
 				echo "$error_txt"
 
-				# file name or reapath of example appears in output if it contains errors
+				# file name or realpath of example appears in output if it contains errors
 				if echo "$error_txt" | grep -qF -e "$file" -e "$file_ex"; then
 					fail=1
 					echo "::error file=$file,line=0::dt_binding_check contain errors"
@@ -171,7 +170,7 @@ check_dt_binding_check() {
 }
 
 check_coccicheck() {
-	local files=$(git diff --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local mail=
 	local warn=0
 
@@ -248,7 +247,7 @@ check_coccicheck() {
 }
 
 check_cppcheck () {
-	local files=$(git diff --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local fail=0
@@ -328,85 +327,90 @@ check_cppcheck () {
 compile_devicetree() {
 	local tmp_log_file=/dev/shm/$run_id.ci_compile_devicetree.log
 	local err=0
+	local fail=0
 	local dtb_file=
 	local dts_files=""
 	local regex0='^([[:alnum:]/._-]+)(:([0-9]+)\.([0-9]+)-([0-9]+)\.([0-9]+))?: (Warning|Error) (.*)$'
 	local regex1='^Error: ([[:alnum:]/._-]+)(:([0-9]+)\.([0-9]+)-([0-9]+))? (.+)$'
 
+	if [[ -z "$ARCH" ]]; then
+		echo "::error ::compile_devicetree: ARCH is not set."
+		set_step_fail "check_file_license"
+		return
+	fi
+
 	echo "compile devicetree on range $base_sha..$head_sha"
 
-	local dtsi_files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dtsi$ || true)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local dtsi_files=$(echo "$files" | grep ^arch/$ARCH/boot/dts/ | grep dtsi$ || true)
 	if [[ ! -z "$dtsi_files" ]]; then
 		echo "collecting dts files that include dtsi"
 		while read file; do
 			echo $file
 			basename=$(basename $file)
 			dirname=$(dirname $file)
-			for file_ in $dirname/*.dts; do
-				if cat $file_ | grep -q "#include \"$(basename $file)\""; then
-					dts_files="$file_"$'\n'"$dts_files"
-				fi
-			done
+			dts_files+=\ $(find "$dirname" -name "*.dts" | xargs -P "$(nproc)" -I{} \
+				sh -c 'if grep -q "#include \"$(basename "$0")\"" "$1" ; then echo "$1" ; fi' "$file" {})
 		done <<< "$dtsi_files"
 	fi
-	if [[ ! -z "$dts_files" ]]; then
-		dts_files=${dts_files::-1}
-	fi
 
-	dts_files+=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
+	dts_files+=$(echo "$files" | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
 	if [[ -z "$dts_files" ]]; then
 		echo "no dts on range, skipped"
 		return $err
 	fi
 
-	echo "compiling devicetrees"
 	echo > $tmp_log_file
-	while read file; do
-		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
-		make -i $dtb_file 2>&1 | \
-		(while IFS= read -r row; do
-			echo $row
-			if [[ "$row" =~ $regex0 ]]; then
-				file=$(echo ${BASH_REMATCH[1]} | xargs)
-				type=$(echo ${BASH_REMATCH[7]} | xargs  | tr '[:upper:]' '[:lower:]')
-				msg_=${BASH_REMATCH[8]}
+	dtb_files=$(for file in $dts_files; do
+		echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/g'
+	done | sort -u)
 
-				if [[ -z "${BASH_REMATCH[2]}" ]]; then
-					msg="::$type file=$file,line=0::$msg_"
-				else
-					line="${BASH_REMATCH[3]}"
-					col="${BASH_REMATCH[4]}"
-					end_line="${BASH_REMATCH[5]}"
-					end_col="${BASH_REMATCH[6]}"
-					echo "::$type file=$file,line=$line,col=$col,endLine=$end_line,endColumn=$end_col::$msg_" >> $tmp_log_file
-				fi
+	echo "compiling devicetrees"
 
-				if [[ "$type" == "warning" ]]; then
-					warn=1
-				elif [[ "$type" == "error" ]]; then
-					fail=1
-				fi
-			elif [[ "$row" =~ $regex1 ]]; then
-				file=$(echo ${BASH_REMATCH[1]} | xargs)
-				msg_="${BASH_REMATCH[6]}"
+	touch $tmp_log_file
+	make -i $dtb_files -j$(nproc) 2>&1 | \
+	(while IFS= read -r row; do
+		echo $row
+		if [[ "$row" =~ $regex0 ]]; then
+			file=$(echo ${BASH_REMATCH[1]} | xargs)
+			type=$(echo ${BASH_REMATCH[7]} | xargs  | tr '[:upper:]' '[:lower:]')
+			msg_=${BASH_REMATCH[8]}
 
-				if [[ -z "${BASH_REMATCH[2]}" ]]; then
-					echo "::error file=$file,line=0::$msg_"
-				else
-					line="${BASH_REMATCH[3]}"
-					col="${BASH_REMATCH[4]}"
-					end_col="${BASH_REMATCH[5]}"
-					echo "::error file=$file,line=$line,col=$col,endColumn=$end_col::$msg_" >> $tmp_log_file
-				fi
+			if [[ -z "${BASH_REMATCH[2]}" ]]; then
+				msg="::$type file=$file,line=0::$msg_"
+			else
+				line="${BASH_REMATCH[3]}"
+				col="${BASH_REMATCH[4]}"
+				end_line="${BASH_REMATCH[5]}"
+				end_col="${BASH_REMATCH[6]}"
+				echo "::$type file=$file,line=$line,col=$col,endLine=$end_line,endColumn=$end_col::$msg_" >> $tmp_log_file
 			fi
-		done) ; err=${PIPESTATUS[1]}
 
-		if [[ $err -ne 0 ]]; then
-			fail=1
+			if [[ "$type" == "warning" ]]; then
+				export warn=1
+			elif [[ "$type" == "error" ]]; then
+				export fail=1
+			fi
+		elif [[ "$row" =~ $regex1 ]]; then
+			file=$(echo ${BASH_REMATCH[1]} | xargs)
+			msg_="${BASH_REMATCH[6]}"
+
+			if [[ -z "${BASH_REMATCH[2]}" ]]; then
+				echo "::error file=$file,line=0::$msg_"
+			else
+				line="${BASH_REMATCH[3]}"
+				col="${BASH_REMATCH[4]}"
+				end_col="${BASH_REMATCH[5]}"
+				echo "::error file=$file,line=$line,col=$col,endColumn=$end_col::$msg_" >> $tmp_log_file
+			fi
 		fi
-	done <<< "$dts_files"
+	done) ; err=${PIPESTATUS[1]}
 
-	uniq $tmp_log_file
+	if [[ $err -ne 0 ]]; then
+		export fail=1
+	fi
+
+	sort -u $tmp_log_file
 	rm $tmp_log_file
 
 	if [[ "$fail" == "1" ]]; then
@@ -646,7 +650,7 @@ compile_kernel_smatch() {
 }
 
 compile_gcc_fanalyzer () {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local fail=0
@@ -733,7 +737,7 @@ compile_gcc_fanalyzer () {
 }
 
 compile_clang_analyzer () {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local fail=0
@@ -828,7 +832,7 @@ compile_clang_analyzer () {
 }
 
 assert_compiled () {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local fail=0
 
 	echo "assert sources were compiled on range $base_sha..$head_sha"
@@ -867,7 +871,7 @@ apply_prerun() {
 	# e.g. manipulate the source code depending on run conditons or target.
 	local coccis=$(ls ci/prerun/*.cocci 2>/dev/null)
 	local bashes=$(ls ci/prerun/*.sh 2>/dev/null)
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 
 	echo "apply_prerun on range $base_sha..$head_sha"
 
@@ -896,16 +900,16 @@ apply_prerun() {
 }
 
 touch_files () {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 
 	touch $files
 }
 
 auto_set_kconfig() {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	declare -a o_files
 
-	echo "get_kconfig on range $base_sha..$head_sha"
+	echo "auto_set_kconfig on range $base_sha..$head_sha"
 
 	while read file; do
 		case "$file" in
