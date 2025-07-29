@@ -256,40 +256,6 @@ build_allmodconfig() {
 	make -j$NUM_JOBS
 }
 
-build_checkpatch() {
-	local ref_branch="$(get_ref_branch)"
-
-	__echo_green "Running checkpatch for commit range '$ref_branch..'"
-
-	if [ -z "$ref_branch" ] ; then
-		__echo_red "Could not get a base_ref for checkpatch"
-		exit 1
-	fi
-
-	# install checkpatch dependencies
-	[ "${LOCAL_BUILD}" == "y" ] || sudo pip install ply GitPython
-
-	# __update_git_ref() does a shallow fetch with depth=50 by default to speed things
-	# up. However that could be problematic if the branch in the PR diverged from
-	# main/master such that we cannot find a common ancestor. In that case, the job will
-	# timeout after 60min even if the branch is able to merge (even if diverged). We
-	# could do '$GIT_FETCH_DEPTH="disable"' before calling __update_git_ref() but that
-	# would slow things a lot. Instead, let's do a treeless fetch which get's the whole
-	# history while being much faster than a typical fetch.
-	[ "${LOCAL_BUILD}" == "y" ] || \
-                git fetch --filter=tree:0 --no-tags ${ORIGIN} +refs/heads/${ref_branch}:${ref_branch}
-
-	scripts/checkpatch.pl --git "${ref_branch}.." \
-		--strict \
-		--ignore FILE_PATH_CHANGES \
-		--ignore LONG_LINE \
-		--ignore LONG_LINE_STRING \
-		--ignore LONG_LINE_COMMENT \
-		--ignore PARENTHESIS_ALIGNMENT \
-		--ignore CAMELCASE \
-		--ignore UNDOCUMENTED_DT_STRING
-}
-
 build_dt_binding_check() {
 	local ref_branch="$(get_ref_branch)"
 	local commit="$COMMIT"

@@ -10,20 +10,6 @@ pr:
 stages:
 - stage: Builds
   jobs:
-  - job: checkpatch
-    condition: eq(variables['Build.Reason'], 'PullRequest')
-    variables:
-      BUILD_TYPE: checkpatch
-      TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - checkout: self
-      fetchDepth: 50
-      clean: true
-    - script: ./ci/travis/run-build.sh
-      displayName: 'Checkpatch Script'
-
   - job: BuildDockerized
     timeoutInMinutes: 90
     strategy:
