@@ -108,8 +108,9 @@ static bool s1pie_enabled(struct kvm_vcpu *vcpu, enum trans_regime regime)
 	case TR_EL20:
 		return vcpu_read_sys_reg(vcpu, TCR2_EL2) & TCR2_EL2_PIE;
 	case TR_EL10:
-		return  (__vcpu_sys_reg(vcpu, HCRX_EL2) & HCRX_EL2_TCR2En) &&
-			(__vcpu_sys_reg(vcpu, TCR2_EL1) & TCR2_EL1_PIE);
+		return ((!vcpu_has_nv(vcpu) ||
+			 (__vcpu_sys_reg(vcpu, HCRX_EL2) & HCRX_EL2_TCR2En)) &&
+			(__vcpu_sys_reg(vcpu, TCR2_EL1) & TCR2_EL1_PIE));
 	default:
 		BUG();
 	}
@@ -132,7 +133,8 @@ static void compute_s1poe(struct kvm_vcpu *vcpu, struct s1_walk_info *wi)
 		wi->e0poe = (wi->regime == TR_EL20) && (val & TCR2_EL2_E0POE);
 		break;
 	case TR_EL10:
-		if (__vcpu_sys_reg(vcpu, HCRX_EL2) & HCRX_EL2_TCR2En) {
+		if (vcpu_has_nv(vcpu) &&
+		    !(__vcpu_sys_reg(vcpu, HCRX_EL2) & HCRX_EL2_TCR2En)) {
 			wi->poe = wi->e0poe = false;
 			return;
 		}
@@ -150,11 +152,16 @@ static int setup_s1_walk(struct kvm_vcpu *vcpu, struct s1_walk_info *wi,
 	unsigned int stride, x;
 	bool va55, tbi, lva;
 
-	hcr = __vcpu_sys_reg(vcpu, HCR_EL2);
-
 	va55 = va & BIT(55);
 
-	wi->s2 = wi->regime == TR_EL10 && (hcr & (HCR_VM | HCR_DC));
+	if (vcpu_has_nv(vcpu)) {
+		hcr = __vcpu_sys_reg(vcpu, HCR_EL2);
+		wi->s2 = wi->regime == TR_EL10 && (hcr & (HCR_VM | HCR_DC));
+	} else {
+		WARN_ON_ONCE(wi->regime != TR_EL10);
+		wi->s2 = false;
+		hcr = 0;
+	}
 
 	switch (wi->regime) {
 	case TR_EL10:
@@ -851,7 +858,7 @@ static u64 compute_par_s1(struct kvm_vcpu *vcpu, struct s1_walk_info *wi,
 		par  = SYS_PAR_EL1_NSE;
 		par |= wr->pa & GENMASK_ULL(52, 12);
 
-		if (wi->regime == TR_EL10 &&
+		if (wi->regime == TR_EL10 && vcpu_has_nv(vcpu) &&
 		    (__vcpu_sys_reg(vcpu, HCR_EL2) & HCR_DC)) {
 			par |= FIELD_PREP(SYS_PAR_EL1_ATTR,
 					  MEMATTR(WbRaWa, WbRaWa));
