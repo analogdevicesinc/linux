@@ -27,6 +27,11 @@ jobs:
         source ci/build.sh
         apply_prerun
 
+    - name: License
+      run: |
+        source ci/build.sh
+        check_license
+
     - name: Check patch
       run: |
         source ci/build.sh

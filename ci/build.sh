@@ -324,6 +324,49 @@ check_cppcheck () {
 	return
 }
 
+_bad_licence_error() {
+	local license_error="
+	File is being added to Analog Devices Linux tree.%0A
+	Analog Devices code is being marked dual-licensed... Make sure this is really intended!%0A
+	If not intended, change MODULE_LICENSE() or the SPDX-License-Identifier accordingly.%0A
+	This is not as simple as one thinks and upstream might require a lawyer to sign the patches!"
+	echo "::warning file=$1::check_license: $license_error" | tr -d '\t\n' ; echo
+}
+
+check_license() {
+	local fail=0
+
+	echo "check_file_license on range $base_sha..$head_sha"
+
+	local added_files=$(git diff --diff-filter=A --name-only "$base_sha..$head_sha")
+
+	# Get list of new files in the commit range
+	for file in $added_files ; do
+		if git diff $base_sha..$head_sha "$file" 2>/dev/null | grep "^+MODULE_LICENSE" | grep -q "Dual" ; then
+			_bad_licence_error "$file"
+			fail=1
+		elif git diff $base_sha..$head_sha "$file" 2>/dev/null | grep "^+// SPDX-License-Identifier:" | grep -qi " OR " ; then
+			# The below might catch bad licenses in header files and also helps to make sure dual licenses are
+			# not in driver (e.g.: sometimes people have MODULE_LICENSE != SPDX-License-Identifier - which is also
+			# wrong and maybe something to improve in this job).
+			# For devicetree-related files, allow dual license if GPL-2.0 is one of them.
+			if [[ "$file" == *.@(yaml|dts|dtsi|dtso) ]]; then
+				if cat "$file" | grep "^// SPDX-License-Identifier:" | grep -q "GPL-2.0" ; then
+					continue
+				fi
+			fi
+			_bad_licence_error "$file"
+			fail=1
+		fi
+	done
+
+	if [[ "$fail" == "1" ]]; then
+		set_step_fail "check_file_license"
+	fi
+
+	return
+}
+
 compile_devicetree() {
 	local tmp_log_file=/dev/shm/$run_id.ci_compile_devicetree.log
 	local err=0
