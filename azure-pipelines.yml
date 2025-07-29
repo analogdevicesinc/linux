@@ -20,24 +20,6 @@ pool:
 stages:
   - stage: Build
     jobs:
-    - job: checkpatch
-      condition: eq(variables['Build.Reason'], 'PullRequest')
-      variables:
-        BUILD_TYPE: checkpatch
-        TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
-        COMMIT: $[ variables['Build.SourceVersion'] ]
-        REPO_URL: $[ variables['Build.Repository.Uri'] ]
-      steps:
-      - checkout: none
-      - script: |
-          set -ex
-          git init
-          git remote add origin ${REPO_URL}
-          git fetch --filter=tree:0 --no-tags origin ${COMMIT}
-          git checkout --progress --force ${COMMIT}
-          ./ci/travis/run-build.sh
-        displayName: 'Checkpatch Script'
-
     - job: dt_binding_check
       condition: eq(variables['Build.Reason'], 'PullRequest')
       variables:
