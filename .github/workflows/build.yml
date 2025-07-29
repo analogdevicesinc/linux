@@ -30,6 +30,7 @@ env:
 
 jobs:
   build:
+    timeout-minutes: 7200
     runs-on: [self-hosted, v1]
 
     outputs:

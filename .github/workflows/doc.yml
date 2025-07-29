@@ -35,6 +35,8 @@ jobs:
 
   deploy-doc:
     runs-on: [self-hosted, v1]
+    permissions:
+      contents: write
     needs: build-doc
     if: ${{ (github.ref == 'refs/heads/main') }}
 

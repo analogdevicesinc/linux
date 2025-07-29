@@ -9,6 +9,7 @@ jobs:
     secrets: inherit
     permissions:
       contents: write
+      actions: write
     with:
       remote_name: "next/linux-next"
       fetch_url: "https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git"
@@ -19,6 +20,7 @@ jobs:
     secrets: inherit
     permissions:
       contents: write
+      actions: write
     with:
       remote_name: "jic23/iio"
       fetch_url: "https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git"

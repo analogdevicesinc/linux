@@ -2,6 +2,10 @@ on:
   push:
     branches:
       - main
+      - rpi-6.1.y
+      - rpi-6.6.y
+      - rpi-6.12.y
+      - staging-rpi/*
     paths-ignore:
       - '.github/**'
       - 'ci/**'
