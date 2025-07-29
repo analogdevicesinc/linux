@@ -171,7 +171,7 @@ check_dt_binding_check() {
 }
 
 check_coccicheck() {
-	local files=$(git diff --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
 	local mail=
 	local warn=0
 
