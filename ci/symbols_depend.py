@@ -13,7 +13,7 @@ debug = False
 symbols_ = set()
 deps_ = set()
 map_ = {}
-max_recursion = 200
+max_recursion = 500
 
 
 def generate_map():
@@ -169,8 +169,42 @@ def resolve_tree(symbol, path):
                     resolve_tree(s, kconfig)
                 deps_.add(s)
 
+def get_top_level_symbol_for(mk):
+    """
+    From a obj-y, lib-y, at
+        linux/drivers/pinctrl/Makefile
 
-def get_makefile_symbol_and_obj(mk, obj):
+    Look at linux/drivers/Makefile for
+        pinctrl/
+    """
+    obj = f"{path.basename(path.dirname(mk))}/"
+    mk = path.join(path.dirname(path.dirname(mk)), "Makefile")
+    if not path.isfile(mk):
+        return (None, None)
+
+    with open(mk, "r") as file:
+        lines = file.readlines()
+    file_ = []
+    buffer = ""
+    for line in lines:
+        buffer += line.rstrip('\n')
+        if line.endswith('\\\n'):
+            continue
+        file_.append(buffer)
+        buffer = ""
+
+    for line in file_:
+        if obj not in line:
+            continue
+
+        # obj-$(CONFIG_SYMBOL)
+        match = re.search(r'obj-\$\(([^)]+)\)\s*[+:]?=', line)
+        if match:
+            return (match.group(1), None)
+
+    return (None, None)
+
+def get_makefile_symbol_and_obj(mk, obj, l_obj):
     """
     Get Kconfig symbol and obj, example:
 
@@ -186,6 +220,9 @@ def get_makefile_symbol_and_obj(mk, obj):
         driver.o -> ("CONFIG_DRIVER", None)
 
     """
+    if obj == l_obj:
+        print(f"{mk}: Infinite recursion for '{obj}' detected", file=stderr)
+        return (None, None)
     if debug:
         print(f"{mk}: Looking for '{obj}'", file=stderr)
 
@@ -209,20 +246,29 @@ def get_makefile_symbol_and_obj(mk, obj):
         if match:
             return (match.group(1), None)
 
+        # obj-y
+        match = re.search(r'(obj|lib)-y\s*[+:]?=', line)
+        if match:
+            return get_top_level_symbol_for(mk)
+
         # driver-$(CONFIG_SYMBOL)
-        match = re.search(r'([\w\d_]+)-\$\(([^)]+)\)\s*[+:]?=', line)
+        match = re.search(r'([-\w\d]+)-\$\(([^)]+)\)\s*[+:]?=', line)
         if match:
             return (match.group(2), match.group(1))
 
         # driver-y
-        match = re.search(r'([\w\d_]+)-(y|objs)\s*[+:]?=', line)
+        match = re.search(r'([-\w\d]+)-(y|objs)\s*[+:]?=', line)
         if match:
-            return (None, match.group(1))
+            if match.group(1) == obj[:-2]:
+                # mconf-objs := mconf.o
+                return (None, None)
+            else:
+                return (None, match.group(1))
 
     return (None, None)
 
 
-def _get_symbols_from_mk(mk, obj):
+def _get_symbols_from_mk(mk, obj, l_obj):
     """
     Exhaust Makefile until no object and no symbol.
     If returns False, the parent method will proceed to search on ../Makefile,
@@ -230,7 +276,8 @@ def _get_symbols_from_mk(mk, obj):
     """
     global symbols_
 
-    symbol, obj = get_makefile_symbol_and_obj(mk, obj)
+    l_obj_ = obj
+    symbol, obj = get_makefile_symbol_and_obj(mk, obj, l_obj)
     if not symbol and not obj:
         return False
     if symbol:
@@ -241,7 +288,7 @@ def _get_symbols_from_mk(mk, obj):
         if not obj:
             return True
 
-    return _get_symbols_from_mk(mk, f"{obj}.o")
+    return _get_symbols_from_mk(mk, f"{obj}.o", l_obj_)
 
 
 def get_symbols_from_o(files):
@@ -256,7 +303,7 @@ def get_symbols_from_o(files):
         while ldir != "":
             mk = path.join(ldir, "Makefile")
             if path.isfile(mk):
-                if _get_symbols_from_mk(mk, path.join(rdir, base)):
+                if _get_symbols_from_mk(mk, path.join(rdir, base), None):
                     found = True
                     break
 
