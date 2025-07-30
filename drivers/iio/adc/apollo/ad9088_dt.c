@@ -143,7 +143,7 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 			release_firmware(phy->fw);
 			phy->device_profile_firmware_load = true;
 		} else {
-			dev_err(dev, "request_firmware() incompatible size %u != %zu\n", sizeof(*p), phy->fw->size);
+			dev_err(dev, "request_firmware() incompatible size %zu != %zu\n", sizeof(*p), phy->fw->size);
 			release_firmware(phy->fw);
 			return -EINVAL;
 		}

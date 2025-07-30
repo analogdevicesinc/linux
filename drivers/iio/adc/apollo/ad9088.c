@@ -2069,7 +2069,6 @@ static int ad9088_write_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	unsigned long r_clk;
 	u8 cddc_num, fddc_num, side;
 	u32 cddc_mask, fddc_mask;
 	int ret;
@@ -2088,18 +2087,6 @@ static int ad9088_write_raw(struct iio_dev *indio_dev,
 			return -EPERM;
 
 		return ad9088_set_sample_rate(conv, val);
-
-		r_clk = clk_round_rate(conv->clk, val);
-		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
-			dev_warn(&conv->spi->dev,
-				 "Error setting ADC sample rate %ld", r_clk);
-			return -EINVAL;
-		}
-
-		ret = clk_set_rate(conv->clk, r_clk);
-		if (ret < 0)
-			return ret;
-		break;
 
 	case IIO_CHAN_INFO_ENABLE:
 
@@ -4709,7 +4696,7 @@ static int ad9088_setup_chip_info_tbl(struct ad9088_phy *phy,
 
 	phy->chip_info.num_channels = c;
 	phy->chip_info.name = "AD9088";
-	phy->chip_info.max_rate = 28000000000UL;
+	phy->chip_info.max_rate = 28000000UL; /* kHZ and not used */
 
 	return 0;
 }
@@ -6180,7 +6167,6 @@ static int ad9088_probe(struct spi_device *spi)
 	struct ad9088_jesd204_priv *priv;
 	struct gpio_desc *gpio;
 	struct clock_scale devclk_clkscale;
-	struct device_node *node = spi->dev.of_node;
 	u16 api_rev[3];
 	int ret;
 
