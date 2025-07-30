@@ -21,8 +21,8 @@ static int ad9088_jesd204_post_setup_stage2(struct jesd204_dev *jdev,
 static int ad9088_jesd204_post_setup_stage3(struct jesd204_dev *jdev,
 					    enum jesd204_state_op_reason reason);
 
-void adi_ad9088_hal_add_128(u64 ah, uint64_t al, uint64_t bh, uint64_t bl,
-			    u64 *hi, uint64_t *lo)
+static void adi_ad9088_hal_add_128(u64 ah, uint64_t al, uint64_t bh,
+				   uint64_t bl, u64 *hi, uint64_t *lo)
 {
 	u64 rl = al + bl, rh = ah + bh;
 
@@ -32,8 +32,8 @@ void adi_ad9088_hal_add_128(u64 ah, uint64_t al, uint64_t bh, uint64_t bl,
 	*hi = rh;
 }
 
-void adi_ad9088_hal_sub_128(u64 ah, uint64_t al, uint64_t bh, uint64_t bl,
-			    u64 *hi, uint64_t *lo)
+static void adi_ad9088_hal_sub_128(u64 ah, uint64_t al, uint64_t bh,
+				   uint64_t bl, u64 *hi, uint64_t *lo)
 {
 	u64 rl, rh;
 
@@ -50,7 +50,8 @@ void adi_ad9088_hal_sub_128(u64 ah, uint64_t al, uint64_t bh, uint64_t bl,
 	*hi = rh;
 }
 
-void adi_ad9088_hal_mult_128(u64 a, uint64_t b, uint64_t *hi, uint64_t *lo)
+static void adi_ad9088_hal_mult_128(u64 a, uint64_t b, uint64_t *hi,
+				    uint64_t *lo)
 {
 	u64 ah = a >> 32, al = a & 0xffffffff, bh = b >> 32,
 		 bl = b & 0xffffffff, rh = ah * bh, rl = al * bl, rm1 = ah * bl,
@@ -64,7 +65,7 @@ void adi_ad9088_hal_mult_128(u64 a, uint64_t b, uint64_t *hi, uint64_t *lo)
 	*hi = rh;
 }
 
-void adi_ad9088_hal_lshift_128(u64 *hi, uint64_t *lo)
+static void adi_ad9088_hal_lshift_128(u64 *hi, uint64_t *lo)
 {
 	*hi <<= 1;
 	if (*lo & 0x8000000000000000ull)
@@ -72,7 +73,7 @@ void adi_ad9088_hal_lshift_128(u64 *hi, uint64_t *lo)
 	*lo <<= 1;
 }
 
-void adi_ad9088_hal_rshift_128(u64 *hi, uint64_t *lo)
+static void adi_ad9088_hal_rshift_128(u64 *hi, uint64_t *lo)
 {
 	*lo >>= 1;
 	if (*hi & 1ull)
@@ -80,8 +81,8 @@ void adi_ad9088_hal_rshift_128(u64 *hi, uint64_t *lo)
 	*hi >>= 1;
 }
 
-void adi_ad9088_hal_div_128(u64 a_hi, uint64_t a_lo, uint64_t b_hi,
-			    u64 b_lo, uint64_t *hi, uint64_t *lo)
+static void adi_ad9088_hal_div_128(u64 a_hi, uint64_t a_lo, uint64_t b_hi,
+				   u64 b_lo, uint64_t *hi, uint64_t *lo)
 {
 	u64 remain_lo = a_lo, remain_hi = a_hi, part1_lo = b_lo,
 		 part1_hi = b_hi;
@@ -135,9 +136,8 @@ int32_t adi_ad9088_calc_nco_ftw(adi_apollo_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
-int32_t adi_ad9088_calc_nco_freq(adi_apollo_device_t *device,
-				 u64 freq,
-				 u64 ftw, int64_t *nco_shift)
+static int32_t adi_ad9088_calc_nco_freq(adi_apollo_device_t *device, u64 freq,
+					u64 ftw, int64_t *nco_shift)
 {
 	u64 hi, lo;
 	bool neg = false;
@@ -185,9 +185,8 @@ int32_t adi_ad9088_calc_nco_ftw32(adi_apollo_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
-int32_t adi_ad9088_calc_nco32_freq(adi_apollo_device_t *device,
-				   u64 freq,
-				   u64 ftw, int64_t *nco_shift)
+static int32_t adi_ad9088_calc_nco32_freq(adi_apollo_device_t *device, u64 freq,
+					  u64 ftw, int64_t *nco_shift)
 {
 	u64 hi, lo;
 	bool neg = false;
@@ -241,8 +240,8 @@ static u8 ad9088_to_link(u8 linkid)
 	return lut[linkid];
 }
 
-int32_t ad9088_log_write(void *user_data, int32_t log_type, const char *message,
-			 va_list argp)
+static int32_t ad9088_log_write(void *user_data, int32_t log_type,
+				const char *message, va_list argp)
 {
 	struct axiadc_converter *conv = user_data;
 	char logMessage[160];
@@ -752,7 +751,7 @@ static const struct iio_enum ad9088_testmode_enum = {
 	.get = ad9088_testmode_read,
 };
 
-int ad9088_iio_val_to_str(char *buf, u32 max, int val)
+static int ad9088_iio_val_to_str(char *buf, u32 max, int val)
 {
 	int vals[2];
 
@@ -762,7 +761,7 @@ int ad9088_iio_val_to_str(char *buf, u32 max, int val)
 	return iio_format_value(buf, IIO_VAL_FRACTIONAL, 2, vals);
 }
 
-int ad9088_iio_str_to_val(const char *str, int min, int max, int *val)
+static int ad9088_iio_str_to_val(const char *str, int min, int max, int *val)
 {
 	int ret, integer, fract;
 
@@ -1862,8 +1861,8 @@ static int ad9088_request_clks(struct axiadc_converter *conv)
 	return 0;
 }
 
-int ad9088_jesd_tx_link_status_print(struct ad9088_phy *phy,
-				     struct jesd204_link *lnk, int retry)
+static int ad9088_jesd_tx_link_status_print(struct ad9088_phy *phy,
+					    struct jesd204_link *lnk, int retry)
 {
 	int ret;
 	u16 stat;
@@ -2150,7 +2149,7 @@ static int ad9088_read_label(struct iio_dev *indio_dev,
 		       phy->rx_labels[chan->channel]);
 }
 
-int ad9088_mcs_init_cal_setup(struct ad9088_phy *phy)
+static int ad9088_mcs_init_cal_setup(struct ad9088_phy *phy)
 {
 	adi_apollo_device_t *device = &phy->ad9088;
 	s64 reference_period_C_femtoseconds;
@@ -4798,7 +4797,7 @@ static int ad9088_version_info(struct ad9088_phy *phy)
 	return ret;
 }
 
-int32_t ad9088_inspect_jrx_link_all(struct ad9088_phy *phy)
+static int32_t ad9088_inspect_jrx_link_all(struct ad9088_phy *phy)
 {
 	int err;
 	adi_apollo_device_t *device =  &phy->ad9088;
@@ -4837,7 +4836,7 @@ int32_t ad9088_inspect_jrx_link_all(struct ad9088_phy *phy)
 	return API_CMS_ERROR_OK;
 }
 
-int32_t ad9088_inspect_jtx_link_all(struct ad9088_phy *phy)
+static int32_t ad9088_inspect_jtx_link_all(struct ad9088_phy *phy)
 {
 	int err;
 	adi_apollo_device_t *device =  &phy->ad9088;
@@ -5802,8 +5801,8 @@ static int ad9088_jesd204_post_setup_stage4(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
-int ad9088_jesd204_uninit(struct jesd204_dev *jdev,
-			  enum jesd204_state_op_reason reason)
+static int ad9088_jesd204_uninit(struct jesd204_dev *jdev,
+				 enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 
@@ -6089,7 +6088,7 @@ static void ad9088_set_gpio(struct gpio_chip *chip, unsigned int offset, int val
 	adi_apollo_gpio_cmos_output_set(&phy->ad9088, phy->gpios_exported[offset], value);
 }
 
-int ad9088_gpio_setup(struct ad9088_phy *phy)
+static int ad9088_gpio_setup(struct ad9088_phy *phy)
 {
 	int ret, len;
 
