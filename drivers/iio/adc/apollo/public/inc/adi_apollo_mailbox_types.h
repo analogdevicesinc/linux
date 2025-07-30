@@ -132,6 +132,7 @@ typedef enum
     APOLLO_CPU_ADC_RX_ADC_RESUM_SLICE_MODE_SWITCH_FAILED_ERROR   = 0x33, /*< code: 0x33 err: Resuming ADC slice mode fast switch failed, cause: Unexpected HW behavior; Failed on resuming ADC slice mode fast switch; report to ADI, recovery: Reset device. If the problem persists contact ADI. */
     APOLLO_CPU_ADC_RX_ADC_MODE_SWITCH_ENABLED_IN_8T8R_ERROR      = 0x34, /*< code: 0x34 err: ADC slice mode switch not supported in 8T8R, cause: Unexpected HW behavior; ADC slice mode switch not supported in 8T8R; report to ADI, recovery: Reset device. If the problem persists contact ADI. */
     APOLLO_CPU_ADC_RX_GUARD_OBJ_ERROR                            = 0x35, /*< code: 0x35 err: Factory test guard-object, cause: Factory test cal object; report to ADI, recovery: no recovery */
+    APOLLO_CPU_ADC_RX_ADC_CAL_DAC_CFG_ERROR                      = 0x36, /*< code: 0x36 err: ADC wrong parameter or internal error, cause: Unexpected HW behavior; ADC calibration DAC configuration error; report to ADI, recovery: Reset device. If the problem persists contact ADI. */
     APOLLO_CPU_DAC_TX_CMD_ERROR                                  = 0x101, /*< code: 0x101 err: Bad Control command, cause: Unexpected HW behavior; bad command; report to ADI, recovery: Reset device. If the problem persists contact ADI. */
     APOLLO_CPU_DAC_TX_QUEUE_ERROR                                = 0x102, /*< code: 0x102 err: Control command queue, cause: Unexpected HW behavior; command queue error; report to ADI, recovery: Reset device. If the problem persists contact ADI. */
     APOLLO_CPU_DAC_TX_HW_STARTUP_ERROR                           = 0x103, /*< code: 0x103 err: HW start-up error, cause: Unexpected HW behavior; start-up error; report to ADI, recovery: Reset device. If the problem persists contact ADI. */
@@ -1690,18 +1691,17 @@ typedef struct adi_apollo_mailbox_resp_update_cal_data_crc
 ADI_APOLLO_PACKED(
 typedef struct adi_apollo_mailbox_resp_get_fw_version
 {
-    uint32_t status;        /*!< cpu error response code - see \ref adi_apollo_mailbox_cpu_error_code_e */
-    uint16_t year;          /*!< The year component of the version */
-    uint8_t month;          /*!< The month component of the version */
-    uint8_t day;            /*!< The day component of the version */
-    uint8_t minor;          /*!< The minor component of the version */
-    uint16_t build;         /*!< The bulid number component of the version */
-    uint8_t qualifier;      /*!< A qualifier number (may not be used) */
-    uint16_t build_year;    /*!< The year the firmware was built */
-    uint8_t build_month;    /*!< The month the firmware was built */
-    uint8_t build_day;      /*!< The day the firmware was built */
-    uint8_t build_hour;     /*!< The hour the firware was built (UTC) */
-    uint8_t build_min;      /*!< The minute the firware was built (UTC) */
+    uint32_t status;             /*!< cpu error response code - see \ref adi_apollo_mailbox_cpu_error_code_e */
+    uint16_t major;              /*!< Software major version */
+    uint16_t minor;              /*!< Software minor version */
+    uint16_t patch;              /*!< Software patch version */
+    uint8_t quality_level[3];    /*!< Software quality level string */
+    uint16_t state_version;      /*!< Internla release version at give quality level */
+    uint16_t build_year;         /*!< The year the firmware was built */
+    uint8_t build_month;         /*!< The month the firmware was built */
+    uint8_t build_day;           /*!< The day the firmware was built */
+    uint8_t build_hour;          /*!< The hour the firware was built (UTC) */
+    uint8_t build_min;           /*!< The minute the firware was built (UTC) */
 } adi_apollo_mailbox_resp_get_fw_version_t;
 )
 

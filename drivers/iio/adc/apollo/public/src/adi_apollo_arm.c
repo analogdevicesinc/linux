@@ -43,12 +43,11 @@ int32_t adi_apollo_arm_boot_status(adi_apollo_device_t *device, uint8_t *status)
     int32_t err;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
-    ADI_APOLLO_LOG_FUNC();
+    //ADI_APOLLO_LOG_FUNC();
 
     // Core1 Boot Status
     err = adi_apollo_hal_bf_get(device, BF_RAM_BOOT_CORE1_STATUS, status, 1);
     ADI_APOLLO_ERROR_RETURN(err);
-    ADI_APOLLO_LOG_MSG_VAR("Core 1 Ram Boot Status @ 0x%X: 0x%02X.", REG_ADDR_EXTRACT(BF_RAM_BOOT_CORE1_STATUS), *status);
 
     return API_CMS_ERROR_OK;
 }
@@ -264,20 +263,6 @@ int32_t adi_apollo_arm_profile_buf_write(adi_apollo_device_t *device, uint8_t pr
     get_cpu_device_profile_start_address(device, &(binary_info.cpu_start_addr));
 
     err = adi_apollo_arm_memload(device, &binary_info, chunk_sz_bytes);
-    ADI_APOLLO_ERROR_RETURN(err);
-
-    return API_CMS_ERROR_OK;
-}
-
-int32_t adi_apollo_arm_firmware_write(adi_apollo_device_t *device, uint8_t fw_image_buf[], uint32_t fw_image_size_bytes, uint16_t chunk_sz_bytes)
-{
-    int32_t err;
-
-    ADI_APOLLO_NULL_POINTER_RETURN(device);
-    ADI_APOLLO_LOG_FUNC();
-    ADI_APOLLO_NULL_POINTER_RETURN(fw_image_buf);
-
-    err = adi_apollo_arm_firmware_buf_write(device, ADI_APOLLO_CPU_ID_1, fw_image_buf, fw_image_size_bytes, chunk_sz_bytes);
     ADI_APOLLO_ERROR_RETURN(err);
 
     return API_CMS_ERROR_OK;

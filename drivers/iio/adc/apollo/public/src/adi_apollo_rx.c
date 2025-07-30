@@ -125,7 +125,7 @@ int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sid
         /* Program the coarse nco */
         nco_pgm_config.drc_en = config->nco[cnco_idx].drc_en;
         nco_pgm_config.debug_drc_clkoff_n = config->nco[cnco_idx].debug_cdrc_clkoff_n;
-        nco_pgm_config.profile_num = 0;                         // TODO: add to dev profile
+        nco_pgm_config.profile_num = 0;
         nco_pgm_config.profile_sel_mode = config->nco[cnco_idx].nco_profile_sel_mode;
         nco_pgm_config.cmplx_mxr_scale_en = config->nco[cnco_idx].cmplx_mxr_mult_scale_en;
         nco_pgm_config.drc_phase_inc = config->nco[cnco_idx].nco_phase_inc;
@@ -151,9 +151,9 @@ int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sid
         nco_hop_profile_config.profile_sel_mode = config->nco[cnco_idx].nco_profile_sel_mode;
 
         /* Auto hop flip, incr or decr */
-        nco_hop_profile_config.auto_mode = config->nco[cnco_idx].nco_auto_inc_dec; /* TODO: add autoflip to enum */
-        nco_hop_profile_config.low_limit = 0;       /* TODO */
-        nco_hop_profile_config.high_limit = 15;     /* TODO */
+        nco_hop_profile_config.auto_mode = config->nco[cnco_idx].nco_auto_inc_dec;
+        nco_hop_profile_config.low_limit = 0;
+        nco_hop_profile_config.high_limit = 15;
         nco_hop_profile_config.next_hop_number_wr_en = 0;
         nco_hop_profile_config.hop_ctrl_init = 0;
         nco_hop_profile_config.phase_handling = 0;
@@ -161,7 +161,7 @@ int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sid
         err = adi_apollo_cnco_hop_enable(device, ADI_APOLLO_RX, cnco_sel, &nco_hop_profile_config);
         ADI_APOLLO_ERROR_RETURN(err);
 
-        nco_trig_mst_config.trig_enable = ADI_APOLLO_TRIG_DISABLE;      /* TODO: TODO: add to dev profile */
+        nco_trig_mst_config.trig_enable = ADI_APOLLO_TRIG_DISABLE;
         nco_trig_mst_config.trig_period = config->trig_mst_period;
         nco_trig_mst_config.trig_offset = config->trig_mst_offset;
         err = adi_apollo_trigts_cnco_trig_mst_config(device, ADI_APOLLO_RX, cnco_sel, &nco_trig_mst_config);
@@ -175,7 +175,7 @@ int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sid
     }
     
     // Trigger selection mux here
-    err = adi_apollo_trigts_cdrc_trig_sel_mux_set(device, ADI_APOLLO_RX, cddc_sel, ADI_APOLLO_TRIG_SPI);    /* TODO: add to dev profile */
+    err = adi_apollo_trigts_cdrc_trig_sel_mux_set(device, ADI_APOLLO_RX, cddc_sel, ADI_APOLLO_TRIG_SPI);
     ADI_APOLLO_ERROR_RETURN(err);
     
     return API_CMS_ERROR_OK;
@@ -219,7 +219,7 @@ int32_t adi_apollo_rx_fddc_configure(adi_apollo_device_t *device, adi_apollo_sid
         nco_pgm_config.if_mode = config->nco[fnco_idx].nco_if_mode;
         nco_pgm_config.mixer_sel = config->nco[fnco_idx].drc_mxr_sel;
         nco_pgm_config.cmplx_mxr_scale_en = config->nco[fnco_idx].cmplx_mxr_mult_scale_en;
-        nco_pgm_config.profile_num = 0;         // TODO: add to dev profile
+        nco_pgm_config.profile_num = 0;
         nco_pgm_config.profile_sel_mode = config->nco[fnco_idx].nco_profile_sel_mode;
         nco_pgm_config.hop_mode_en = config->nco[fnco_idx].hop_mode_en;
         nco_pgm_config.main_phase_inc =  config->nco[fnco_idx].nco_phase_inc;
@@ -243,12 +243,12 @@ int32_t adi_apollo_rx_fddc_configure(adi_apollo_device_t *device, adi_apollo_sid
         nco_hop_profile_config.profile_sel_mode = config->nco[fnco_idx].nco_profile_sel_mode;
 
         nco_hop_profile_config.nco_trig_hop_sel = config->nco[fnco_idx].nco_trig_hop_sel;
-        nco_hop_profile_config.phase_inc_auto_mode = (adi_apollo_nco_auto_flip_incdir_e) config->nco[fnco_idx].nco_auto_inc_dec_freq;         /* TODO - add autoflip to enum */
-        nco_hop_profile_config.phase_offset_auto_mode = (adi_apollo_nco_auto_flip_incdir_e )config->nco[fnco_idx].nco_auto_inc_dec_phase;     /* TODO - add autoflip to enum */
-        nco_hop_profile_config.phase_inc_low_limit = 0;         // TODO: add to dev profile
-        nco_hop_profile_config.phase_inc_high_limit = 31;       // TODO: add to dev profile
-        nco_hop_profile_config.phase_offset_low_limit = 0;      // TODO: add to dev profile
-        nco_hop_profile_config.phase_offset_high_limit = 31;    // TODO: add to dev profile
+        nco_hop_profile_config.phase_inc_auto_mode = (adi_apollo_nco_auto_flip_incdir_e) config->nco[fnco_idx].nco_auto_inc_dec_freq;
+        nco_hop_profile_config.phase_offset_auto_mode = (adi_apollo_nco_auto_flip_incdir_e )config->nco[fnco_idx].nco_auto_inc_dec_phase;
+        nco_hop_profile_config.phase_inc_low_limit = 0;
+        nco_hop_profile_config.phase_inc_high_limit = 31;
+        nco_hop_profile_config.phase_offset_low_limit = 0;
+        nco_hop_profile_config.phase_offset_high_limit = 31;
         nco_hop_profile_config.phase_handling = 0;
         err = adi_apollo_fnco_hop_pgm(device, ADI_APOLLO_RX, fnco_sel, &nco_hop_profile_config);
 
@@ -262,7 +262,7 @@ int32_t adi_apollo_rx_fddc_configure(adi_apollo_device_t *device, adi_apollo_sid
     }
 
     // Trigger selection mux here
-    err = adi_apollo_trigts_fdrc_trig_sel_mux_set(device, ADI_APOLLO_RX, fddc_sel, ADI_APOLLO_TRIG_SPI);    /* TODO add to dev profile */
+    err = adi_apollo_trigts_fdrc_trig_sel_mux_set(device, ADI_APOLLO_RX, fddc_sel, ADI_APOLLO_TRIG_SPI);
     ADI_APOLLO_ERROR_RETURN(err);
 
     return API_CMS_ERROR_OK;
@@ -355,8 +355,8 @@ int32_t adi_apollo_rx_cfir_configure(adi_apollo_device_t *device, adi_apollo_sid
     int32_t err;
     uint8_t idx_profile, idx_set;
     adi_apollo_cfir_pgm_t blk_mode_config;
-    uint16_t sparse_coeff_sel_sel[ADI_APOLLO_CFIR_NUM_TAPS] = {0};      /* TODO: add to device profile */
-    uint8_t sparse_mem_sel[ADI_APOLLO_CFIR_MEM_SEL_NUM] = {0};          /* TODO: add to device profile */
+    uint16_t sparse_coeff_sel_sel[ADI_APOLLO_CFIR_NUM_TAPS] = {0};
+    uint8_t sparse_mem_sel[ADI_APOLLO_CFIR_MEM_SEL_NUM] = {0};
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
