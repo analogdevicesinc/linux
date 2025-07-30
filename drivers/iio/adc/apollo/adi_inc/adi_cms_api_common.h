@@ -97,6 +97,7 @@ typedef enum {
     API_CMS_ERROR_NOT_IMPLEMENTED           = -93, /*!< Feature not currently implemented */
     API_CMS_ERROR_STRUCT_UNPOPULATED        = -94, /*!< Struct not populated */
     API_CMS_ERROR_PROTOCOL_OP_NOT_SUPPORTED = -95, /*!< Protocol not supported for operation */
+    API_CMS_ERROR_INVALID_CLK_OR_REF_PARAM  = -96, /*!< Invalid clock or reference parameter */
 
     API_CMS_ERROR_MEM_ALLOC                 = -100, /*!< memory allocation error */
     API_CMS_ERROR_MMAP                      = -101, /*!< memory mapping error */

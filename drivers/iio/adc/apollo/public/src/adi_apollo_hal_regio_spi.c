@@ -166,8 +166,6 @@ static int32_t spi_regio_paged_base_addr_set(adi_apollo_hal_regio_spi_desc_t *de
     // Program the spi paged base address
     uint32_t spi_page_base_reg = desc->is_spi1 ?  REG_SPI1_PAGE_ADDRESS_31TO24_ADDR : REG_SPI0_BASE_PAGE_ADDRESS_31TO24_ADDR;
 
-    //TODO: work in progress err = spi_write_stream_fifo_mode(desc, spi_page_base_reg, &reg_word_aligned, 4, 0xffffffff, 0);
-
     if (err = spi_regio_write(desc, spi_page_base_reg + 0, (uint8_t)(reg_word_aligned >> 24)), err != API_CMS_ERROR_OK) {
         return err;
     }

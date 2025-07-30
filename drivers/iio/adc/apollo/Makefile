@@ -48,7 +48,6 @@ ad9088_drv-y += public/src/adi_apollo_mcs_cal.o
 ad9088_drv-y += adi_utils/src/adi_utils.o
 ad9088_drv-y += private/src/adi_apollo_private_bmem.o
 ad9088_drv-y += private/src/adi_apollo_private_device.o
-ad9088_drv-y += public/src/adi_apollo_bmem_deprecated.o
 ad9088_drv-y += public/src/adi_apollo_gpio_hop.o
 ad9088_drv-y += public/src/adi_apollo_loopback.o
 ad9088_drv-y += public/src/adi_apollo_lb0.o
