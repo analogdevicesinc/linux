@@ -26,6 +26,8 @@
 #include <linux/clk.h>
 #include <linux/unaligned.h>
 
+#include "adi-axi-hsci.h"
+
 /*
  * +----------+----------------------------+---------+-----------------------------------------------------------------------+
  * |  ADDRESS | REG NAME                   |  BITS   |  BITFIELD                                                             |
