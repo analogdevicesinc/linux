@@ -195,6 +195,7 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <1 0>;
 			local-mac-address = [00 0a 35 00 00 02];
+			max-speed = <1000>;
 			phy-handle = <&phy0>;
 			reg = <0x40e00000 0x2000>;
 			xlnx,duplex = <0x1>;

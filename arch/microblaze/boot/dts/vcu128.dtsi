@@ -202,6 +202,7 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <1 2>;
 			local-mac-address = [00 0a 35 00 00 00];
+			max-speed = <1000>;
 			phy-handle = <&phy1>;
 			phy-mode = "sgmii";
 			reg = <0x40c00000 0x40000>;
