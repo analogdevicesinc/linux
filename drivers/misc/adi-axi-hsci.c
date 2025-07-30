@@ -7,6 +7,8 @@
  * Wiki: https://wiki.analog.com/resources/fpga/docs/hsci
  */
 //#define DEBUG
+#include "linux/of.h"
+#include <linux/mod_devicetable.h>
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/debugfs.h>
@@ -22,7 +24,7 @@
 #include <linux/stringify.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 /*
  * +----------+----------------------------+---------+-----------------------------------------------------------------------+
@@ -305,7 +307,7 @@ EXPORT_SYMBOL_GPL(axi_hsci_silent);
  *
  * Return: Always returns 0.
  */
-int axi_hsci_manual_linkup(struct axi_hsci_state *st, uint8_t enable,
+int axi_hsci_manual_linkup(struct axi_hsci_state *st, u8 enable,
 			   uint16_t link_up_signal_bits)
 {
 	dev_dbg(st->dev, "%s:%d\n", __func__, __LINE__);
@@ -330,8 +332,8 @@ EXPORT_SYMBOL_GPL(axi_hsci_manual_linkup);
  *
  * Return: Always returns 0.
  */
-int axi_hsci_auto_linkup(struct axi_hsci_state *st, uint8_t enable,
-			 u8 hscim_mosi_clk_inv, uint8_t hscim_miso_clk_inv)
+int axi_hsci_auto_linkup(struct axi_hsci_state *st, u8 enable,
+			 u8 hscim_mosi_clk_inv, u8 hscim_miso_clk_inv)
 {
 	dev_dbg(st->dev, "%s:%d\n", __func__, __LINE__);
 
@@ -405,7 +407,7 @@ EXPORT_SYMBOL_GPL(axi_hsci_alink_tbl_get);
  *
  * Returns: 0 on success, negative error code on failure
  */
-int axi_hsci_readm(struct axi_hsci_state *st, const uint8_t tx_data[],
+int axi_hsci_readm(struct axi_hsci_state *st, const u8 tx_data[],
 		   u8 rx_data[], uint32_t num_tx_rx_bytes,
 		   u8 addr_len,
 		   u8 data_len,
@@ -512,7 +514,7 @@ EXPORT_SYMBOL_GPL(axi_hsci_readm);
  * the length of the address, the length of the data, and the length of the stream
  * as parameters. It returns 0 on success or a negative error code on failure.
  */
-int axi_hsci_writem(struct axi_hsci_state *st, const uint8_t tx_data[],
+int axi_hsci_writem(struct axi_hsci_state *st, const u8 tx_data[],
 		    u32 num_tx_rx_bytes,
 		    u8 addr_len,
 		    u8 data_len,
