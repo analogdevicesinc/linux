@@ -1012,19 +1012,20 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc->pll1_pfd = pfd1_freq;
 
 	if (pll2_freq < HMC7044_LOW_VCO_MIN  ||
-	    pll2_freq > HMC7044_HIGH_VCO_MAX)
+	    pll2_freq > HMC7044_HIGH_VCO_MAX) {
 		if (hmc->ignore_vco_limits) {
 			/* Debug only, is at own risk! May fail across process, voltage and temperature */
 			dev_warn(&hmc->spi->dev,
-				 "PLL2 frequency %u kHz is out of range, "
+				 "PLL2 frequency %lu kHz is out of range, "
 				 "ignoring limits\n", pll2_freq);
 		} else {
 			dev_err(&hmc->spi->dev,
-				"PLL2 frequency %u kHz is out of range (%u - %u)\n",
+				"PLL2 frequency %lu kHz is out of range (%u - %u)\n",
 				pll2_freq, HMC7044_LOW_VCO_MIN / 1000,
 				HMC7044_HIGH_VCO_MAX / 1000);
 			return -EINVAL;
 		}
+	}
 
 
 	vco_limit = (HMC7044_LOW_VCO_MAX + HMC7044_HIGH_VCO_MIN) / 2;
