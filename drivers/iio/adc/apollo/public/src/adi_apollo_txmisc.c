@@ -118,11 +118,6 @@ static int32_t tx_summer_inspect(adi_apollo_device_t* device, uint16_t side_idx,
         dp->fduc_cduc_summer[1] =
             ((fduc_enables[2] & 0x01) >> 0) | ((fduc_enables[2] & 0x04) >> 1) | ((fduc_enables[2] & 0x10) >> 2) | ((fduc_enables[2] & 0x40) >> 3) |
             ((fduc_enables[2] & 0x02) << 3) | ((fduc_enables[2] & 0x08) >> 2) | ((fduc_enables[2] & 0x20) >> 1) | ((fduc_enables[2] & 0x80) >> 0);
-
-        // TODO: summers A2&A3/B2&B3
-        /* Summer A2 */
-        /* Summer A3 */
-
     } else {
         /* Summer A0 */
         dp->fduc_cduc_summer[0] = fduc_enables[0] & 0x0f;

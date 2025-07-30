@@ -123,6 +123,10 @@ int32_t adi_apollo_clk_mcs_tx_data_fifo_mode_set(adi_apollo_device_t *device, co
 /**
  * \brief Align internal to external sysref and issue system sync
  *
+ *  Performs internal to external SYSREF alignment using the HW based method.
+ *  This is followed by a system sync of all digital blocks except for JTx and JRx. Omiting 
+ *  JRx and JTx sync here prevents the JESD links from dropping. 
+ *  
  * \param[in] device        Context variable - Pointer to the APOLLO device data structure
  *
  * \return API_CMS_ERROR_OK     API Completed Successfully
@@ -322,7 +326,16 @@ int32_t adi_apollo_clk_mcs_dynamic_sync(adi_apollo_device_t *device);
 int32_t adi_apollo_clk_mcs_man_reconfig_sync(adi_apollo_device_t *device);
 
 /**
- * \brief Run default Dynamic Sync Sequence.
+ * \brief Run default Dynamic Sync Sequence
+ * 
+ * This sync sequence will minimize supply transients during device synchronization
+ *     - Sync: digital root clocks
+ * 
+ *     - Call: adi_apollo_clk_mcs_dyn_sync_rxtxlinks_sequence_run() to sync
+ *             ADC & DAC fifos, Rx & Tx digital, Loopback fifos and JTx & JRx
+ * 
+ * On Enter: all sync masks are expected to be cleared
+ * On Exit:  all sync masks are clear
  *
  * \param[in] device        Context variable - Pointer to the APOLLO device data structure
  *
@@ -332,8 +345,17 @@ int32_t adi_apollo_clk_mcs_man_reconfig_sync(adi_apollo_device_t *device);
 int32_t adi_apollo_clk_mcs_dyn_sync_sequence_run(adi_apollo_device_t *device);
 
 /**
- * \brief Run JTx and JRx SerDes Link Dynamic Sync Sequence with digital root clks masked.
+ * \brief Run JTx and JRx SerDes Link Dynamic Sync Sequence with digital root clks masked
  *
+ * This sync sequence will minimize supply transients during JESD link synchronization.
+ *     - Sync: ADC & DAC fifos, Rx & Tx digital, Loopback fifos, JTx-A0, JTx-A1 (not dig root clks)
+ *     - Sync: JTx-B0, JTx-B1
+ *     - Sync: JRx-A0, JRx-A1
+ *     - SYnc: JRx-B0, JRx-B1
+ * 
+ * On Enter: all sync masks are expected to be cleared
+ * On Exit:  all sync masks are clear
+ * 
  * \param[in] device        Context variable - Pointer to the APOLLO device data structure
  *
  * \return API_CMS_ERROR_OK     API Completed Successfully

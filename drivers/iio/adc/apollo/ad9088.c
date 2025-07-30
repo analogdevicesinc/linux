@@ -4805,8 +4805,8 @@ static int ad9088_version_info(struct ad9088_phy *phy)
 		return ret;
 	}
 
-	dev_info(&phy->spi->dev, "FW ver: %04d%02d%02d.%d.%d\n",
-		 fw_ver.year, fw_ver.month, fw_ver.day, fw_ver.minor, fw_ver.build);
+	dev_info(&phy->spi->dev, "FW ver: %d.%d.%d\n",
+		 fw_ver.major, fw_ver.minor, fw_ver.patch);
 
 	return ret;
 }

@@ -29,8 +29,6 @@
 #include "adi_utils.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_4T4R_ADC_TIMEOUT                 60
-#define ADI_APOLLO_8T8R_ADC_TIMEOUT                 120
 #define ADC_OVR_SAMPLES_MIN                         1
 #define ADC_OVR_SAMPLES_MAX                         10000
 #define ADC_OVR_CYCLES_MIN                          1

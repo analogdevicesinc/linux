@@ -29,7 +29,7 @@
 #include "adi_apollo_txmisc.h"
 
 /*============= D A T A ====================*/
-static uint16_t apollo_api_revision[3] = { 0, 5, 0 };
+static uint16_t apollo_api_revision[3] = { 1, 1, 0 };
 
 static adi_apollo_mailbox_cmd_set_enabled_temp_sensors_t temp_senors_cmd = {
         .temp_sensor_mask = ADI_APOLLO_DEVTEMP_MASK_SERDESPLL |
@@ -122,6 +122,10 @@ int32_t adi_apollo_device_reset(adi_apollo_device_t *device, adi_apollo_reset_e 
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
+    /* Align the SPI page base addresses after reset */
+    device->hal_info.spi0_desc.page_base_addr = 0;
+    device->hal_info.spi1_desc.page_base_addr = 0;
+    
     return API_CMS_ERROR_OK;
 }
 

@@ -18,7 +18,7 @@
 
 #define ADI_APOLLO_PROFILE_VERSION_MAJOR         9             /*!< Major */
 #define ADI_APOLLO_PROFILE_VERSION_MINOR         1             /*!< Minor */
-#define ADI_APOLLO_PROFILE_VERSION_PATCH         0             /*!< Patch */
+#define ADI_APOLLO_PROFILE_VERSION_PATCH         2             /*!< Patch */
 
 #define ADI_APOLLO_DACS_PER_SIDE                 4             /*!< #DACs per side. */
 #define ADI_APOLLO_ADCS_PER_SIDE                 4             /*!< #Max ADCs per side. (8T8R) */
@@ -41,10 +41,12 @@
 #define ADI_APOLLO_PROFILE_RX_CHAN_POS          (0U)
 #define ADI_APOLLO_NUM_TXRX_CHAN                8
 
+#ifndef ADI_APOLLO_PACK_ENUM
 #ifdef __GNUC__
 #define ADI_APOLLO_PACK_ENUM __attribute__((packed))
 #else
 #define ADI_APOLLO_PACK_ENUM
+#endif
 #endif
 
 /*! Apollo A and B sides, historically named east and west sides */

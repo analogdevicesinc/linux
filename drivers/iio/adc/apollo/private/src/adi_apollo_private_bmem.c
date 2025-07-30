@@ -277,7 +277,7 @@ int32_t adi_apollo_private_bmem_capture_config(adi_apollo_device_t *device, adi_
             err = adi_apollo_hal_bf_set(device, BF_PARITY_CHECK_EN_INFO(regmap_base_addr), config->parity_check_en);
             ADI_CMS_ERROR_RETURN(err);
 
-            // Set trigger mode
+            // Disable trigger mode
             err = adi_apollo_hal_bf_set(device, BF_TRIG_MODE_INFO(regmap_base_addr), 0);
             ADI_CMS_ERROR_RETURN(err);
 
