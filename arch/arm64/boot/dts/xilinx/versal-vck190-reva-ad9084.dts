@@ -40,6 +40,13 @@
 			clock-frequency = <125000000>;
 			clock-output-names = "clkin_125";
 		};
+
+		ref_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <33333333>;
+			clock-output-names = "ref_clk";
+		};
 	};
 };
 
@@ -125,10 +132,6 @@
 
 &ttc0 {
 	status = "okay";
-};
-
-&ref_clk {
-	clock-frequency = <33333333>;
 };
 
 &gem0 {
