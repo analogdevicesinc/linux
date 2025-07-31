@@ -606,7 +606,7 @@ static int ad4630_set_chan_gain(struct iio_dev *indio_dev, int ch,
 
 	gain = gain_int * MICRO + gain_frac;
 
-	if (gain < 0 || gain > AD4630_GAIN_MAX)
+	if (gain > AD4630_GAIN_MAX)
 		return -EINVAL;
 
 	gain = DIV_ROUND_CLOSEST_ULL(gain * 0x8000, 1000000);
