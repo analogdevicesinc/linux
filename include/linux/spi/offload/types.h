@@ -59,6 +59,7 @@ enum spi_offload_trigger_type {
 
 struct spi_offload_trigger_periodic {
 	u64 frequency_hz;
+	u64 end_cycle_offset_ns;
 	u64 offset_ns;
 };
 

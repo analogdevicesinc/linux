@@ -100,6 +100,8 @@
 #define AD4630_TCNV_HIGH_NS		10
 /* Datasheet says 9.8ns, so use the closest integer value */
 #define AD4630_TQUIET_CNV_DELAY_NS	10
+/* Datasheet says 19.6 ns, so use the closest integer value */
+#define AD4630_TQUIET_CNV_ADV_NS	20
 
 #define AD4630_MAX_CHANNEL_NR		3
 #define AD4630_VREF_MIN			(4096 * MILLI)
@@ -337,7 +339,7 @@ static int ad4630_get_avg_frame_len(struct iio_dev *dev, unsigned int *avg_len)
 out:
 	iio_device_release_direct_mode(dev);
 
-	return 0;
+	return ret;
 }
 
 static int ad4630_read_raw(struct iio_dev *indio_dev,
@@ -466,6 +468,7 @@ static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq
 	 * so round this setting to the closest available value.
 	 */
 	offload_offset_ns = AD4630_TQUIET_CNV_DELAY_NS;
+	config->periodic.end_cycle_offset_ns = AD4630_TQUIET_CNV_ADV_NS;
 	do {
 		config->periodic.offset_ns = offload_offset_ns;
 		ret = spi_offload_trigger_validate(st->offload_trigger, config);
@@ -527,7 +530,6 @@ static int ad4630_set_chan_offset(struct iio_dev *indio_dev, int ch, int offset)
 static void ad4630_fill_scale_tbl(struct ad4630_state *st)
 {
 	int val, val2, tmp0, tmp1, i;
-	u64 tmp2;
 
 	val2 = st->chip->modes[st->out_data].channels->scan_type.realbits;
 	for (i = 0; i < ARRAY_SIZE(ad4630_gains); i++) {
@@ -536,8 +538,7 @@ static void ad4630_fill_scale_tbl(struct ad4630_state *st)
 		val = mult_frac(val, ad4630_gains_frac[i][1] * MILLI,
 				ad4630_gains_frac[i][0]);
 		/* Would multiply by NANO here but we already multiplied by MILLI */
-		tmp2 = shift_right((u64)val * MICRO, val2);
-		tmp0 = (int)div_s64_rem(tmp2, NANO, &tmp1);
+		tmp0 = (int)div_u64_rem(((u64)val * MICRO) >> val2, NANO, &tmp1);
 		st->scale_tbl[i][0] = tmp0; /* Integer part */
 		st->scale_tbl[i][1] = abs(tmp1); /* Fractional part */
 	}
@@ -551,7 +552,7 @@ static int ad4630_calc_pga_gain(int gain_int, int gain_fract, int vref,
 
 	gain_nano = gain_int * NANO + gain_fract;
 
-	if (gain_nano < 0 || gain_nano > ADAQ4224_GAIN_MAX_NANO)
+	if (gain_nano > ADAQ4224_GAIN_MAX_NANO)
 		return -EINVAL;
 
 	tmp = DIV_ROUND_CLOSEST_ULL(gain_nano << precision, NANO);
@@ -605,7 +606,7 @@ static int ad4630_set_chan_gain(struct iio_dev *indio_dev, int ch,
 
 	gain = gain_int * MICRO + gain_frac;
 
-	if (gain < 0 || gain > AD4630_GAIN_MAX)
+	if (gain > AD4630_GAIN_MAX)
 		return -EINVAL;
 
 	gain = DIV_ROUND_CLOSEST_ULL(gain * 0x8000, 1000000);
@@ -642,7 +643,7 @@ static int ad4630_set_avg_frame_len(struct iio_dev *dev,
 	unsigned int last_avg_idx = ARRAY_SIZE(ad4630_average_modes) - 1;
 	int ret, freq;
 
-	if (avg_val < 0 || avg_val > ad4630_average_modes[last_avg_idx])
+	if (avg_val > ad4630_average_modes[last_avg_idx])
 		return -EINVAL;
 
 	ret = iio_device_claim_direct_mode(dev);
@@ -767,8 +768,6 @@ static int ad4630_buffer_predisable(struct iio_dev *indio_dev)
 			BIT(IIO_CHAN_INFO_CALIBBIAS),			\
 	.info_mask_separate_available = _msk_avail,			\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
-	.info_mask_shared_by_all_available =				\
-				BIT(IIO_CHAN_INFO_SAMP_FREQ),		\
 	.info_mask_shared_by_type = _msk_type |				\
 				BIT(IIO_CHAN_INFO_SCALE),		\
 	.info_mask_shared_by_type_available = _msk_type,		\
@@ -882,20 +881,20 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 static const struct ad4630_out_mode adaq4216_modes[] = {
 	[AD4630_16_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 0, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 16, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 16,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2,
-				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 30, 2,
+				    BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
 	}
@@ -904,20 +903,20 @@ static const struct ad4630_out_mode adaq4216_modes[] = {
 static const struct ad4630_out_mode adaq4220_modes[] = {
 	[AD4630_16_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 20, 0, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 20, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 20,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2,
-				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 30, 2,
+				    BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
 	}
@@ -926,26 +925,26 @@ static const struct ad4630_out_mode adaq4220_modes[] = {
 static const struct ad4630_out_mode adaq4224_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 24, 0, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 24, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 24, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 24, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 32,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2,
-				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 32, 30, 2,
+				    BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
 	}
@@ -1032,7 +1031,7 @@ static const struct ad4630_chip_info ad4630_chip_info[] = {
 	[ID_ADAQ4216] = {
 		.available_masks = ad4030_channel_masks,
 		.modes = adaq4216_modes,
-		.out_modes_mask = GENMASK(3, 0),
+		.out_modes_mask = BIT(3) | GENMASK(1, 0),
 		.name = "adaq4216",
 		.grade = 0x1E,
 		.min_offset = (int)BIT(15) * -1,
@@ -1222,6 +1221,8 @@ static void ad4630_prepare_spi_sampling_msg(struct ad4630_state *st,
 	}
 
 	st->offload_xfer.bits_per_word = st->bits_per_word;
+	st->offload_xfer.delay.unit = SPI_DELAY_UNIT_NSECS;
+	st->offload_xfer.delay.value = 100;
 	st->offload_xfer.len = roundup_pow_of_two(BITS_TO_BYTES(st->bits_per_word));
 	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
@@ -1537,8 +1538,24 @@ static int ad4630_probe(struct spi_device *spi)
 		return dev_err_probe(dev, PTR_ERR(rx_dma),
 			"failed to get offload RX DMA\n");
 
-	ret = devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev,
-		rx_dma, IIO_BUFFER_DIRECTION_IN);
+	/*
+	 * The ad4630_fmc HDL project was designed for ADCs with two channels
+	 * and always streams two data channels to DMA (even when the ADC has
+	 * only one physical channel). Though, if the ADC has only one physical
+	 * channel, the data that would come from the second ADC channel comes
+	 * in as noise and has to be discarded. Because of that, when using
+	 * single-channel ADCs, the ADC driver needs to use a special DMA buffer
+	 * that filters out half of the data that reaches DMA memory. With that,
+	 * the ADC sample data can be delivered to user space without any noise
+	 * being added to the IIO buffer.
+	 */
+	if (indio_dev->num_channels == 1)
+		ret = devm_iio_dmaengine_filtered_buffer_setup_with_handle(dev,
+									   indio_dev, rx_dma,
+									   IIO_BUFFER_DIRECTION_IN);
+	else
+		ret = devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev,
+								  rx_dma, IIO_BUFFER_DIRECTION_IN);
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to get DMA buffer\n");
@@ -1635,3 +1652,4 @@ MODULE_AUTHOR("Liviu Adace <liviu.adace@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD4630 and ADAQ4224 ADC family driver");
 MODULE_LICENSE("GPL v2");
 MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);
+MODULE_IMPORT_NS(IIO_DMAENGINE_FILTERED_BUFFER);
