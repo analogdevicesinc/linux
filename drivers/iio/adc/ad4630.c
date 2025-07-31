@@ -528,7 +528,6 @@ static int ad4630_set_chan_offset(struct iio_dev *indio_dev, int ch, int offset)
 static void ad4630_fill_scale_tbl(struct ad4630_state *st)
 {
 	int val, val2, tmp0, tmp1, i;
-	u64 tmp2;
 
 	val2 = st->chip->modes[st->out_data].channels->scan_type.realbits;
 	for (i = 0; i < ARRAY_SIZE(ad4630_gains); i++) {
@@ -537,8 +536,7 @@ static void ad4630_fill_scale_tbl(struct ad4630_state *st)
 		val = mult_frac(val, ad4630_gains_frac[i][1] * MILLI,
 				ad4630_gains_frac[i][0]);
 		/* Would multiply by NANO here but we already multiplied by MILLI */
-		tmp2 = shift_right((u64)val * MICRO, val2);
-		tmp0 = (int)div_s64_rem(tmp2, NANO, &tmp1);
+		tmp0 = (int)div_u64_rem(((u64)val * MICRO) >> val2, NANO, &tmp1);
 		st->scale_tbl[i][0] = tmp0; /* Integer part */
 		st->scale_tbl[i][1] = abs(tmp1); /* Fractional part */
 	}
