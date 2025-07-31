@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: BSD-2-Clause-Views
+# Copyright (c) 2019-2024 The Regents of the University of California
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/net/corundum,mqnic.yaml#"
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Corundum mqnic Ethernet controller
+
+maintainers:
+  - Alex Forencich <alex@alexforencich.com>
+
+description: |
+  The Corundum mqnic is an open-source multi-queue network interface controller
+  for FPGA platforms.
+
+properties:
+  compatible:
+    enum:
+      - corundum,mqnic
+
+  reg:
+    description: >
+      Address and length of the "control" register set. Optionally a second and
+      third range, the "app" and "ram" register sets may be added.
+
+  reg-names:
+    description: >
+      Names for each register region in 'reg'.
+
+  interrupts:
+    minItems: 1
+    description: >
+      Should contain mqnic interrupt(s)
+
+  nvmem-cells:
+    description: >
+      Phandle of nvmem cell containing the base MAC address
+
+  nvmem-cell-names:
+    const: mac-address
+    description: >
+      Should be "mac-address"
+
+  mac-address-increment-byte:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: >
+      Index of base MAC address byte to increment (default: 0x5)
+
+  mac-address-increment:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: >
+      Number to add to the chosen base MAC address byte (default: 0x0)
+
+  mac-address-local:
+    type: boolean
+    description: >
+      Boolean, mark derived MAC addresses as "locally administrated"
+      (default: false)
+
+  module-eeproms:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: >
+      Array of phandles to SFP module EEPROM node(s)
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    mqnic0: ethernet@a0000000 {
+      compatible = "corundum,mqnic";
+      reg = <0x0 0xa0000000 0x0 0x1000000>,
+            <0x0 0xb0000000 0x0 0x1000000>;
+      reg-names = "csr", "app";
+      interrupt-parent = <&gic>;
+      interrupts = <0x0 0x59 0x1>;
+
+      nvmem-cells = <&macaddress>;
+      nvmem-cell-names = "mac-address";
+
+      mac-address-increment = <0x1>;
+      mac-address-local;
+
+      module-eeproms = <&module_eeprom_sfp0>;
+    };
+
+    eeprom {
+      #address-cells = <1>;
+      #size-cells = <1>;
+
+      macaddress: macaddress@20 {
+        reg = <0x20 0x06>;
+      };
+    };
