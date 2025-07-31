@@ -10845,7 +10845,7 @@ static int bnxt_init_msix(struct bnxt *bp)
 	}
 
 	bp->flags |= BNXT_FLAG_USING_MSIX;
-	kfree(msix_ent);
+
 
 	return 0;
 
