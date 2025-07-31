@@ -322,6 +322,8 @@ patternProperties:
     description: Chengdu Corpro Technology Co., Ltd.
   "^cortina,.*":
     description: Cortina Systems, Inc.
+  "^corundum,.*":
+    description: Corundum Project (https://github.com/ucsdsysnet/corundum)
   "^cosmic,.*":
     description: Cosmic Circuits
   "^crane,.*":
