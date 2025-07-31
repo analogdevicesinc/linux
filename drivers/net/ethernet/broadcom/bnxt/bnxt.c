@@ -10796,7 +10796,7 @@ static int bnxt_get_num_msix(struct bnxt *bp)
 	return bnxt_nq_rings_in_use(bp);
 }
 
-static int bnxt_init_int_mode(struct bnxt *bp)
+static int bnxt_init_msix(struct bnxt *bp)
 {
 	int i, total_vecs, max, rc = 0, min = 1, ulp_msix, tx_cp, tbl_size;
 
@@ -10850,10 +10850,39 @@ static int bnxt_init_int_mode(struct bnxt *bp)
 	return 0;
 
 msix_setup_exit:
-	netdev_err(bp->dev, "bnxt_init_int_mode err: %x\n", rc);
+	netdev_err(bp->dev, "bnxt_init_msix err: %x\n", rc);
 	kfree(bp->irq_tbl);
 	bp->irq_tbl = NULL;
 	pci_free_irq_vectors(bp->pdev);
+	return rc;
+}
+
+static int bnxt_init_inta(struct bnxt *bp)
+{
+	bp->irq_tbl = kzalloc(sizeof(struct bnxt_irq), GFP_KERNEL);
+	if (!bp->irq_tbl)
+		return -ENOMEM;
+
+	bp->total_irqs = 1;
+	bp->rx_nr_rings = 1;
+	bp->tx_nr_rings = 1;
+	bp->cp_nr_rings = 1;
+	bp->flags |= BNXT_FLAG_SHARED_RINGS;
+	bp->irq_tbl[0].vector = bp->pdev->irq;
+	return 0;
+}
+
+static int bnxt_init_int_mode(struct bnxt *bp)
+{
+	int rc = -ENODEV;
+
+	if (bp->flags & BNXT_FLAG_MSIX_CAP)
+		rc = bnxt_init_msix(bp);
+
+	if (!(bp->flags & BNXT_FLAG_USING_MSIX) && BNXT_PF(bp)) {
+		/* fallback to INTA */
+		rc = bnxt_init_inta(bp);
+	}
 	return rc;
 }
 
@@ -12909,7 +12938,7 @@ bool bnxt_rfs_capable(struct bnxt *bp, bool new_rss_ctx)
 	    !BNXT_SUPPORTS_NTUPLE_VNIC(bp))
 		return bnxt_rfs_supported(bp);
 
-	if (!bnxt_can_reserve_rings(bp) || !bp->rx_nr_rings)
+	if (!(bp->flags & BNXT_FLAG_MSIX_CAP) || !bnxt_can_reserve_rings(bp) || !bp->rx_nr_rings)
 		return false;
 
 	hwr.grp = bp->rx_nr_rings;
@@ -15792,11 +15821,6 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (pci_is_bridge(pdev))
 		return -ENODEV;
 
-	if (!pdev->msix_cap) {
-		dev_err(&pdev->dev, "MSIX capability not found, aborting\n");
-		return -ENODEV;
-	}
-
 	/* Clear any pending DMA transactions from crash kernel
 	 * while loading driver in capture kernel.
 	 */
@@ -15822,6 +15846,9 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/* No devlink port registration in case of a VF */
 	if (BNXT_PF(bp))
 		SET_NETDEV_DEVLINK_PORT(dev, &bp->dl_port);
+
+	if (pdev->msix_cap)
+		bp->flags |= BNXT_FLAG_MSIX_CAP;
 
 	rc = bnxt_init_board(pdev, dev);
 	if (rc < 0)
