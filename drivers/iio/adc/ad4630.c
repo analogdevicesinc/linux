@@ -643,7 +643,7 @@ static int ad4630_set_avg_frame_len(struct iio_dev *dev,
 	unsigned int last_avg_idx = ARRAY_SIZE(ad4630_average_modes) - 1;
 	int ret, freq;
 
-	if (avg_val < 0 || avg_val > ad4630_average_modes[last_avg_idx])
+	if (avg_val > ad4630_average_modes[last_avg_idx])
 		return -EINVAL;
 
 	ret = iio_device_claim_direct_mode(dev);
