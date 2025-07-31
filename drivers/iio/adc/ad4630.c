@@ -552,7 +552,7 @@ static int ad4630_calc_pga_gain(int gain_int, int gain_fract, int vref,
 
 	gain_nano = gain_int * NANO + gain_fract;
 
-	if (gain_nano < 0 || gain_nano > ADAQ4224_GAIN_MAX_NANO)
+	if (gain_nano > ADAQ4224_GAIN_MAX_NANO)
 		return -EINVAL;
 
 	tmp = DIV_ROUND_CLOSEST_ULL(gain_nano << precision, NANO);
