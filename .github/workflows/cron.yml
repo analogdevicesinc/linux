@@ -1,0 +1,26 @@
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  next-linux-next-master:
+    uses: ./.github/workflows/mirror.yml
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      remote_name: "next/linux-next"
+      fetch_url: "https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git"
+      branch: "master"
+
+  jic23-iio-testing:
+    uses: ./.github/workflows/mirror.yml
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      remote_name: "jic23/iio"
+      fetch_url: "https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git"
+      branch: "testing"
+
