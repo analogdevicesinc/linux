@@ -292,17 +292,17 @@
 			line-name = "led3-en";
 		};
 
-		spi2d2-d3 {
+		som-flash-d2d3 {
 			gpio-hog;
-			gpios = <3 0x0>;
-			output-low;
+			gpios = <3 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "~spi2d2-d3-en";
 		};
 
-		spi2flash-cs {
+		som-flash-cs {
 			gpio-hog;
-			gpios = <4 0x0>;
-			output-low;
+			gpios = <4 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "~spi2flash-cs";
 		};
 
