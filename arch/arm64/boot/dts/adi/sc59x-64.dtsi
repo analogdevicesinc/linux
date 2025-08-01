@@ -552,6 +552,7 @@
 			snps,force_sf_dma_mode;
 			snps,perfect-filter-entries = <32>;
 			snps,tso = <1>;
+			snps,sph-disable;
 			clocks = <&clk ADSP_SC598_CLK_GIGE>;
 			clock-names = "stmmaceth";
 			adi,system-config = <&pads_system_config>;
