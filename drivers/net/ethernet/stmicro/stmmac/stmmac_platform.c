@@ -503,6 +503,9 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 	if (of_property_read_bool(np, "snps,en-tx-lpi-clockgating"))
 		plat->flags |= STMMAC_FLAG_EN_TX_LPI_CLOCKGATING;
 
+	if (of_property_read_bool(np, "snps,sph-disable"))
+		plat->flags |= STMMAC_FLAG_SPH_DISABLE;
+
 	/* Set the maxmtu to a default of JUMBO_LEN in case the
 	 * parameter is not present in the device tree.
 	 */
