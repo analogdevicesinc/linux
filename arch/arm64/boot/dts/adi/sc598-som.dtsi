@@ -214,28 +214,28 @@
 		spi-max-frequency = <25000000>;
 		spi-rx-bus-width = <4>;
 
-		qspi_0: partition@0 {
-			label = "U-Boot SPL";
+		partition@0 {
+			label = "u-boot-spl";
 			reg = <0x0 0x40000>;
 		};
 
-		qspi_1: partition@1 {
-			label = "U-Boot Proper";
-			reg = <0x40000 0xC0000>;
+		partition@1 {
+			label = "u-boot";
+			reg = <0x40000 0xc0000>;
 		};
 
-		qspi_2: partition@2 {
-			label = "U-Boot Environment";
+		partition@2 {
+			label = "devicetree";
 			reg = <0x100000 0x20000>;
 		};
 
-		qspi_3: partition@3 {
-			label = "FIT Image";
+		partition@3 {
+			label = "kernel";
 			reg = <0x120000 0xF00000>;
 		};
 
-		qspi_4: partition@4 {
-			label = "JFFS2 Formatted RFS";
+		partition@4 {
+			label = "rootfs";
 			reg = <0x1020000 0x2FE0000>;
 		};
 
