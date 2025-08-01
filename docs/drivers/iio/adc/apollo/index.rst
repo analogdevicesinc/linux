@@ -134,6 +134,8 @@ Profile
 
 * ``adi,device-profile-fw-name``: Set the profile firmware to use.
 
+See :ref:`apollo profile` for more information.
+
 Bring-up
 ~~~~~~~~~
 
@@ -249,6 +251,26 @@ Configure kernel with ``make menuconfig``
            <*>   Analog Devices AXI ADXCVR PHY Support
            <*>   Analog Devices AXI JESD204B TX Support
            <*>   Analog Devices AXI JESD204B RX Support
+
+.. _apollo profile:
+
+Device profile
+--------------
+
+The device profiles can be generated with the profile generator tool that is
+part of the :adi:`ACE` Evaluation Software. Profile modifications can be done
+through :external+pyadi-jif:doc:`pyadi-jif <index>`. During runtime, some
+profile options are reconfigured, such as :ref:`apollo ffh`.
+
+With the device profile generated, compile into the kernel by adding it to the
+*firmware* folder and appending too the ``CONFIG_EXTRA_FIRMWARE`` kernel
+symbol. The *firmware* folder is set by the symbol
+``CONFIG_EXTRA_FIRMWARE_DIR``, if it is set to something else, add to that path
+instead. Then, update devicetree property ``adi,device-profile-fw-name``.
+
+You can have multiple profiles compiled into the kernel image by passing
+multiple profile paths, however only one set in the devicetree property.
+Consider using devicetree overlays to swapping profiles.
 
 Usage
 -----
