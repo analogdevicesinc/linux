@@ -323,27 +323,27 @@
 		emmc {
 			gpio-hog;
 			gpios = <8 0x0>;
-			output-low;
+			output-high;
 			line-name = "emmc-en";
 		};
 
 		emmc-som-en {
 			gpio-hog;
 			gpios = <9 0x0>;
-			output-high;
+			output-low;
 			line-name = "emmc-som-en";
 		};
 	};
 };
 
-//&mmc0{
-//	pinctrl-names = "default";
-//	pinctrl-0 = <&mmc0_8bgrp>;
-//	bus-width = <8>;
-//	max-frequency = <50000000>;
-//	non-removable;
-//	status = "okay";
-//};
+&mmc0{
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc0_8bgrp>;
+	bus-width = <8>;
+	max-frequency = <50000000>;
+	non-removable;
+	status = "okay";
+};
 
 &usb0_phy {
 	reset-gpios = <&gpg 11 GPIO_ACTIVE_LOW>;
