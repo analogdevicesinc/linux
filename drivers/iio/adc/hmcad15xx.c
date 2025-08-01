@@ -57,8 +57,8 @@
 #define HMCAD15XX_INP_SEL_ADC4_MSK 		   GENMASK(12, 9)
 
 
-#define HMCAD15XX_ADC_1_3_GET_SEL(x)		   (( x & HMCAD15XX_INP_SEL_ADC1_MSK) >> 2)
-#define HMCAD15XX_ADC_2_4_GET_SEL(x)		   (( x & HMCAD15XX_INP_SEL_ADC2_MSK) >> 10)
+#define HMCAD15XX_ADC_1_3_GET_SEL(x)	  (__builtin_ctz((( x & HMCAD15XX_INP_SEL_ADC1_MSK) >> 1)))
+#define HMCAD15XX_ADC_2_4_GET_SEL(x)	  (__builtin_ctz((( x & HMCAD15XX_INP_SEL_ADC2_MSK) >> 9)))
 
 #define HMCAD15XX_INP_2_4_SEL(x)		(((1<<x) & 0xf) << 9)
 #define HMCAD15XX_INP_1_3_SEL(x)		(((1<<x) & 0xf) << 1)
@@ -72,7 +72,7 @@
 #define HMCAD15XX_PD_MSK                    BIT(9)
 
 #define HMCAD15XX_OUTPUT_MODE_TWOS_COMPLEMENT	0x01
-
+#define HMCAD15XX_OUTPUT_MODE_OFFSET_BINARY 	0x00
 
 #define HMCAD15XX_ADC_OP_MODE_SET(x)    (1<<x & 0x7)
 #define HMCAD15XX_ADC_OP_MODE_GET(x)    (x>>1 & 0x7)
@@ -147,7 +147,7 @@ static int hmcad15xx_spi_reg_read(struct hmcad15xx_state *st, unsigned int addr,
 {
 
 	*val = st->regs_hw[addr];
-	dev_info(&st->spi->dev,"Adress %x : value:%x , saved value: %x ",addr,&val,st->regs_hw[addr]);
+	dev_info(&st->spi->dev,"Adress %x : value:%x , saved value: %x ",addr,val,st->regs_hw[addr]);
 	return 0;
 }
 
@@ -345,18 +345,22 @@ static int hmcad15xx_get_input_select(struct iio_dev *dev,
 		ret =  hmcad15xx_spi_reg_read(st, HMCAD15XX_INP_SEL_ADC1_ADC2, &regval);
 		if (ret < 0)
 			return ret;
+		dev_info(&st->spi->dev,"selection %x ",HMCAD15XX_ADC_1_3_GET_SEL(regval));
 		return HMCAD15XX_ADC_1_3_GET_SEL(regval);
 		break;
 	case 1:
 		ret =  hmcad15xx_spi_reg_read(st, HMCAD15XX_INP_SEL_ADC1_ADC2,&regval);
+		dev_info(&st->spi->dev,"selection %x ",HMCAD15XX_ADC_2_4_GET_SEL(regval));
 		return HMCAD15XX_ADC_2_4_GET_SEL(regval);
 		break;
 	case 2:
 		ret =  hmcad15xx_spi_reg_read(st, HMCAD15XX_INP_SEL_ADC3_ADC4,&regval);
+		dev_info(&st->spi->dev,"selection %x ",HMCAD15XX_ADC_1_3_GET_SEL(regval));
 		return HMCAD15XX_ADC_1_3_GET_SEL(regval);
 		break;
 	case 3:
 		ret =  hmcad15xx_spi_reg_read(st, HMCAD15XX_INP_SEL_ADC3_ADC4,&regval);
+		dev_info(&st->spi->dev,"selection %x",HMCAD15XX_ADC_2_4_GET_SEL(regval));
 		return HMCAD15XX_ADC_2_4_GET_SEL(regval);
 		break;
 	default:
@@ -503,7 +507,7 @@ static const struct iio_info hmcad15xx_info = {
 		.scan_index = index,					\
 		.ext_info = hmcad15xx_ext_info,				\
 		.scan_type = {						\
-			.sign = 's',					\
+			.sign = 'u',					\
 			.realbits = 8,					\
 			.storagebits = 8,				\
 		},							\
@@ -543,7 +547,7 @@ static int hmcad15xx_register_axi_adc(struct hmcad15xx_state *st)
 
 	conv->spi = st->spi;
 	conv->chip_info = st->chip_info;
-	conv->adc_output_mode = HMCAD15XX_OUTPUT_MODE_TWOS_COMPLEMENT;
+	conv->adc_output_mode = HMCAD15XX_OUTPUT_MODE_OFFSET_BINARY;
 	conv->reg_access = &hmcad15xx_reg_access;
 	conv->write_raw = &hmcad15xx_write_raw;
 	conv->read_raw = &hmcad15xx_read_raw;
