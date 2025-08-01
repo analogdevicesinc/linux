@@ -43,7 +43,9 @@ SRCS = 	devices/adrv9025/private/src/adrv9025_bf_analog_orx_mem_map.c \
 	adrv9025_conv.c
 
 # For now just disable it in this one file
+ifdef CONFIG_CC_IS_GCC
 CFLAGS_devices/adrv9025/public/src/adi_adrv9025_data_interface.o = -Wno-error=old-style-declaration
+endif
 
 # Avoid FP operations and data sytpes - Remove DPD *_dfe.c files
 #SRCS := $(filter-out /devices/adrv9025/private/src/adrv9025_dfe.c /devices/adrv9025/public/src/adi_adrv9025_dfe.c, $(SRCS))
