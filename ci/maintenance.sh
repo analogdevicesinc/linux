@@ -1,6 +1,7 @@
 sync_branches () {
 	local fail_
 	local fail=0
+	local initial_branch=
 
 	echo "sync_branches_with_main on range $base_sha..$head_sha"
 
@@ -9,6 +10,7 @@ sync_branches () {
 		set_step_fail "sync_branches"
 		return
 	fi
+	initial_branch=$(git rev-parse --abbrev-ref @)
 	for branch in $@ ; do
 		echo "patching branch $branch"
 		git switch -d
@@ -35,6 +37,7 @@ sync_branches () {
 		fi
 		git push origin HEAD:$branch
 	done
+	git switch $initial_branch
 
 	if [[ "$fail" == "1" ]]; then
 		set_step_fail "sync_branches"
