@@ -222,10 +222,13 @@ static int ltc2387_setup(struct iio_dev *indio_dev)
 	struct ltc2387_dev *ltc = iio_priv(indio_dev);
 	struct device *dev = indio_dev->dev.parent;
 
-	if (device_property_present(dev, "adi,use-two-lanes"))
+	if (device_property_present(dev, "adi,use-one-lane")) {
+		ltc->lane_mode = ONE_LANE;
+		return ltc2387_set_sampling_freq(ltc, 7.5 * MHz);
+	} else {
 		ltc->lane_mode = TWO_LANES;
-
-	return ltc2387_set_sampling_freq(ltc, 15 * MHz);
+		return ltc2387_set_sampling_freq(ltc, 15 * MHz);
+	}
 }
 
 static int ltc2387_read_raw(struct iio_dev *indio_dev,
