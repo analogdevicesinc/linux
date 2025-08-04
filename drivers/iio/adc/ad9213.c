@@ -616,6 +616,10 @@ static int ad9213_probe(struct spi_device *spi)
 
 	adc->lmfc_offset = 0;
 	device_property_read_u32(&spi->dev, "adi,lmfc-offset", &adc->lmfc_offset);
+	if (adc->lmfc_offset > 0x1F) {
+		dev_err(&spi->dev, "lmfc-offset must be between 0 and 0x1F\n");
+		return -EINVAL;
+	}
 
 	adc->adc_frequency_hz = 10000000000;
 	ret = device_property_read_u64(&spi->dev, "adi,adc-frequency-hz",
