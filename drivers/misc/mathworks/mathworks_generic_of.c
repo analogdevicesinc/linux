@@ -19,6 +19,7 @@
 
 #define DRIVER_NAME "mathworks_generic_of"
 
+#if defined(CONFIG_I2C)
 static inline void mwgen_of_node_put(void *data)
 {
 	struct device_node *node = data;
@@ -100,6 +101,7 @@ static int mathworks_generic_of_i2c_init(struct mathworks_ip_info *thisIpcore){
 
 	return 0;
 }
+#endif
 
 static int	mathworks_generic_of_get_param(struct mathworks_ip_info *thisIpcore, void *arg)
 {
