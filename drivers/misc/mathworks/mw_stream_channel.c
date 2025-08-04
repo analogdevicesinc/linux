@@ -773,7 +773,7 @@ static vm_fault_t mwadma_mmap_fault(struct vm_fault *vmf)
     struct page *thisPage;
     unsigned long offset;
     offset = (vmf->pgoff - vma->vm_pgoff) << PAGE_SHIFT;
-    thisPage = virt_to_page((void *)(MWDEV_TO_MWIP(mwdev)->mem->start + offset));
+    thisPage = virt_to_page((void *)(uintptr_t)(MWDEV_TO_MWIP(mwdev)->mem->start + offset));
     get_page(thisPage);
     vmf->page = thisPage;
     return 0;
