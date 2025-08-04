@@ -1585,9 +1585,8 @@ static int ad4630_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops ad4630_pm_ops = {
-	SET_RUNTIME_PM_OPS(ad4630_runtime_suspend, ad4630_runtime_resume, NULL)
-};
+static DEFINE_SIMPLE_DEV_PM_OPS(ad4630_pm_ops, ad4630_runtime_suspend,
+				ad4630_runtime_resume);
 
 static const struct spi_device_id ad4630_id_table[] = {
 	{ "ad4030-24", (kernel_ulong_t)&ad4630_chip_info[ID_AD4030_24] },
