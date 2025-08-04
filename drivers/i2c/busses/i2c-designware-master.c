@@ -19,6 +19,7 @@
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm_runtime.h>
@@ -60,10 +61,10 @@ static void clock_calc(struct dw_i2c_dev *dev, u32 *hcnt, u32 *lcnt)
 			  (wanted_khz <= 400) ?
 				linear_interpolate(wanted_khz, 100, 400, 4000, 600) :
 				linear_interpolate(wanted_khz, 400, 1000, 600, 260);
-	u32 high_cycles = (u32)(((u64)clk_khz * min_high_ns + 999999) / 1000000) + 1;
-	u32 extra_high_cycles = (u32)((u64)clk_khz * t->scl_fall_ns / 1000000);
-	u32 extra_low_cycles = (u32)((u64)clk_khz * t->scl_rise_ns / 1000000);
-	u32 period = ((u64)clk_khz + wanted_khz - 1) / wanted_khz;
+	u32 high_cycles = div_u64((u64)clk_khz * min_high_ns + 999999, 1000000) + 1;
+	u32 extra_high_cycles = div_u64((u64)clk_khz * t->scl_fall_ns, 1000000);
+	u32 extra_low_cycles = div_u64((u64)clk_khz * t->scl_rise_ns, 1000000);
+	u32 period = div_u64((u64)clk_khz + wanted_khz - 1, wanted_khz);
 
 	*hcnt = u16_clamp(high_cycles - extra_high_cycles);
 	*lcnt = u16_clamp(period - high_cycles - extra_low_cycles);
