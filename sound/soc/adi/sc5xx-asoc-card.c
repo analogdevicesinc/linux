@@ -359,7 +359,6 @@ static int __maybe_unused sc5xx_adau1979_init(struct snd_soc_pcm_runtime *rtd)
 }
 
 
-#if IS_ENABLED(CONFIG_SND_SC5XX_ADAU1372)
 static struct snd_soc_dai_link_component adau1372_codec_component[] = {
 	{
 		.name = NULL,
@@ -367,7 +366,6 @@ static struct snd_soc_dai_link_component adau1372_codec_component[] = {
 		.dai_name = "adau1372",
 	},
 };
-#endif
 
 static struct snd_soc_dai_link_component adau1962_codec_component[] = {
 	{
@@ -378,7 +376,6 @@ static struct snd_soc_dai_link_component adau1962_codec_component[] = {
 };
 
 
-#if IS_ENABLED(CONFIG_SND_SC5XX_ADAU1979)
 static struct snd_soc_dai_link_component adau1979_codec_component[] = {
 	{
 		.name = NULL,
@@ -386,14 +383,13 @@ static struct snd_soc_dai_link_component adau1979_codec_component[] = {
 		.dai_name = "adau1977-hifi",
 	},
 };
-#endif
 
 #if IS_ENABLED(CONFIG_SND_SC5XX_ADAU1761)
 static struct snd_soc_dai_link_component adau1961_codec_component[] = {
 	{
 		.name = NULL,
 		.of_node = NULL,
-		.dai_name = "adau1961-hifi",
+		.dai_name = "adau-hifi",
 	},
 };
 #endif

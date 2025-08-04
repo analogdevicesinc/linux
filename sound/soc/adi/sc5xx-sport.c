@@ -306,6 +306,7 @@ struct sport_device *sport_create(struct platform_device *pdev)
 	if (ret)
 		goto err_free_data;
 
+	dev_info(&pdev->dev, "SPORT device created\n");
 	return sport;
 
 err_free_data:
