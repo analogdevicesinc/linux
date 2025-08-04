@@ -1,3 +1,5 @@
+name: Synchronization cron
+
 on:
   workflow_dispatch:
   schedule:

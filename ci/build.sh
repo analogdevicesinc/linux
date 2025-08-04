@@ -2,6 +2,20 @@ if [[ -z "$run_id" ]]; then
 	export run_id=$(uuidgen)
 fi
 
+if [[ "$GITHUB_ACTIONS" == "true" ]]; then
+	export _n='%0A'
+else
+	export _n=$'\n'
+fi
+
+_fmt() {
+	msg=$(echo "$1" | tr -d '\t')
+	if [[ ! "$_n" == $'\n' ]]; then
+		msg=$(printf "$msg" | sed ':a;N;$!ba;s/\n/'"$_n"'/g')
+	fi
+	printf "%s\n" "$msg"
+}
+
 check_checkpatch() {
 	local mail=
 	local fail=0
@@ -64,7 +78,7 @@ check_checkpatch() {
 					line=${list[3]}
 					echo $row
 				else
-					msg=${msg}${row}%0A
+					msg=${msg}${row}$_n
 					if [[ -z $row ]]; then
 						if [[ -z $file ]]; then
 							# If no file, add to file 0 of first file on list.
@@ -90,7 +104,7 @@ check_checkpatch() {
 				type="warning"
 			fi
 			if [[ "$row" =~ ^(CHECK|WARNING|ERROR): ]]; then
-				msg=$(echo "$row" | sed -E  's/^(CHECK|WARNING|ERROR): //')%0A
+				msg=$(echo "$row" | sed -E  's/^(CHECK|WARNING|ERROR): //')$_n
 				# Suppress some cases:
 				if [[ "$row" =~ ^"WARNING: Unknown commit id" ]]; then
 					# Checkpatch may want to look back beyond fetched commits.
@@ -298,7 +312,7 @@ check_cppcheck () {
 
 				else
 					if [[ $found == "1" ]]; then
-						msg=${msg}%0A${row}
+						msg=${msg}$_n${row}
 					else
 						echo $row
 					fi
@@ -326,11 +340,11 @@ check_cppcheck () {
 
 _bad_licence_error() {
 	local license_error="
-	File is being added to Analog Devices Linux tree.%0A
-	Analog Devices code is being marked dual-licensed... Make sure this is really intended!%0A
-	If not intended, change MODULE_LICENSE() or the SPDX-License-Identifier accordingly.%0A
+	File is being added to Analog Devices Linux tree.
+	Analog Devices code is being marked dual-licensed... Make sure this is really intended!
+	If not intended, change MODULE_LICENSE() or the SPDX-License-Identifier accordingly.
 	This is not as simple as one thinks and upstream might require a lawyer to sign the patches!"
-	echo "::warning file=$1::check_license: $license_error" | tr -d '\t\n' ; echo
+	_fmt "::warning file=$1::check_license: $license_error"
 }
 
 check_license() {
@@ -368,6 +382,7 @@ check_license() {
 }
 
 compile_devicetree() {
+	local exceptions_file="ci/travis/dtb_build_test_exceptions"
 	local tmp_log_file=/dev/shm/$run_id.ci_compile_devicetree.log
 	local err=0
 	local fail=0
@@ -378,8 +393,8 @@ compile_devicetree() {
 
 	if [[ -z "$ARCH" ]]; then
 		echo "::error ::compile_devicetree: ARCH is not set."
-		set_step_fail "check_file_license"
-		return
+		set_step_fail "compile_devicetree"
+		return 1
 	fi
 
 	echo "compile devicetree on range $base_sha..$head_sha"
@@ -402,6 +417,24 @@ compile_devicetree() {
 		echo "no dts on range, skipped"
 		return $err
 	fi
+
+	# Only check arm & arm64 DTs, they are shipped via SD-card
+	hdl_dts_files=$(echo "$dts_files" | tr ' ' '\n' | grep -E 'arch/arm(64)?' || true)
+	if [[ -f $exceptions_file ]]; then
+		hdl_dts_files=$(comm -13 <(sort $exceptions_file) <(echo $hdl_dts_files | tr ' ' '\n' | sort))
+	fi
+	local hdl_dts_error="
+	DTS does not contain 'hdl_project:' tag
+	 Either:
+	  1. Create a 'hdl_project' tag for it
+	 OR
+	  2. add it in file '$exceptions_file'"
+	for file in $hdl_dts_files; do
+		if ! grep -q "hdl_project:" $file ; then
+			_fmt "::error file=$file::compile_devicetree: $hdl_dts_error"
+			fail=1
+		fi
+	done
 
 	echo > $tmp_log_file
 	dtb_files=$(for file in $dts_files; do
@@ -430,9 +463,9 @@ compile_devicetree() {
 			fi
 
 			if [[ "$type" == "warning" ]]; then
-				export warn=1
+				warn=1
 			elif [[ "$type" == "error" ]]; then
-				export fail=1
+				fail=1
 			fi
 		elif [[ "$row" =~ $regex1 ]]; then
 			file=$(echo ${BASH_REMATCH[1]} | xargs)
@@ -450,7 +483,7 @@ compile_devicetree() {
 	done) ; err=${PIPESTATUS[1]}
 
 	if [[ $err -ne 0 ]]; then
-		export fail=1
+		fail=1
 	fi
 
 	sort -u $tmp_log_file
@@ -462,6 +495,40 @@ compile_devicetree() {
 
 	if [[ "$warn" == "1" ]]; then
 		set_step_warn "compile_devicetree"
+	fi
+
+	return $err
+}
+
+compile_many_devicetrees() {
+	local exceptions_file="ci/travis/dtb_build_test_exceptions"
+	local err=0
+	local dtb_file=
+	local dts_files=""
+
+	if [[ -z "$ARCHS" ]]; then
+		echo "::error ::compile_many_devicetrees: ARCHS list is not set."
+		set_step_fail "compile_many_devicetrees"
+		return 1
+	fi
+	if [[ -z "$DTS_FILES" ]]; then
+		echo "::error ::compile_many_devicetrees: DTS_FILES glob rules are not set."
+		set_step_fail "compile_many_devicetrees"
+		return 1
+	fi
+
+	dts_files=$DTS_FILES
+	if [[ -f $exceptions_file ]]; then
+		dts_files=$(comm -13 <(sort $exceptions_file) <(echo $dts_files | tr ' ' '\n' | sort))
+	fi
+	for ARCH in $ARCHS; do
+		dts_files_=$(echo $dts_files | tr ' ' '\n' | grep ^arch/$ARCH/ | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/')
+		ARCH=$ARCH make allnoconfig
+		ARCH=$ARCH make -k -j$(nproc) $dts_files_ || err=$?
+	done
+
+	if [[ $err -ne 0 ]]; then
+		set_step_fail "compile_many_devicetrees"
 	fi
 
 	return $err
@@ -516,7 +583,7 @@ compile_kernel() {
 
 		else
 			if [[ $found == "1" ]]; then
-				msg=${msg}%0A${row}
+				msg=${msg}$_n${row}
 			fi
 		fi
 	done) ; err=${PIPESTATUS[1]}
@@ -589,7 +656,7 @@ compile_kernel_sparse() {
 
 		else
 			if [[ $found == "1" ]]; then
-				msg=${msg}%0A${row}
+				msg=${msg}$_n${row}
 			else
 				echo $row
 			fi
@@ -671,7 +738,7 @@ compile_kernel_smatch() {
 
 		else
 			if [[ $found == "1" ]]; then
-				msg=${msg}%0A${row}
+				msg=${msg}$_n${row}
 			else
 				echo $row
 			fi
@@ -755,7 +822,7 @@ compile_gcc_fanalyzer () {
 
 				else
 					if [[ $found == "1" ]]; then
-						msg=${msg}%0A${row}
+						msg=${msg}$_n${row}
 					else
 						echo $row
 					fi
@@ -847,7 +914,7 @@ compile_clang_analyzer () {
 
 				else
 					if [[ $found == "1" ]]; then
-						msg=${msg}%0A${row}
+						msg=${msg}$_n${row}
 					else
 						echo $row
 					fi
