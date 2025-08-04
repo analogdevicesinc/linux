@@ -19,11 +19,31 @@
 
 #define DRIVER_NAME "mathworks_generic_of"
 
-static void mwgen_of_unlink_i2c_device(struct mathworks_ip_info *thisIpcore){
+static inline void mwgen_of_node_put(void *data)
+{
+	struct device_node *node = data;
+
+	of_node_put(node);
+}
+
+static inline void mwgen_put_device(void *data)
+{
+	struct device *dev = data;
+
+	put_device(dev);
+}
+
+static inline void mwgen_of_unlink_i2c_device(void *data)
+{
+	struct mathworks_ip_info *thisIpcore = data;
+
 	sysfs_remove_link(&thisIpcore->char_device->kobj, "i2c_device");
 }
 
-static void mwgen_of_unlink_i2c_adapter(struct mathworks_ip_info *thisIpcore){
+static inline void mwgen_of_unlink_i2c_adapter(void *data)
+{
+	struct mathworks_ip_info *thisIpcore = data;
+
 	sysfs_remove_link(&thisIpcore->char_device->kobj, "i2c_adapter");
 }
 
@@ -34,7 +54,8 @@ static int mathworks_generic_of_i2c_init(struct mathworks_ip_info *thisIpcore){
 
 	slave_node = of_parse_phandle(nodePointer, "i2c-controller", 0);
 	if (slave_node) {
-		status = devm_add_action_helper(thisIpcore->dev, (devm_action_fn)of_node_put, slave_node);
+		status = devm_add_action_helper(thisIpcore->dev,
+						mwgen_of_node_put, slave_node);
 		if(status)
 			return status;
 
@@ -45,7 +66,9 @@ static int mathworks_generic_of_i2c_init(struct mathworks_ip_info *thisIpcore){
 			dev_err(thisIpcore->dev, "could not find i2c device\n");
 			return -ENODEV;
 		}
-		status = devm_add_action_helper(thisIpcore->dev, (devm_action_fn)put_device, &thisIpcore->i2c->dev);
+		status = devm_add_action_helper(thisIpcore->dev,
+						mwgen_put_device,
+						&thisIpcore->i2c->dev);
 		if(status)
 			return status;
 
@@ -55,7 +78,9 @@ static int mathworks_generic_of_i2c_init(struct mathworks_ip_info *thisIpcore){
 		status = sysfs_create_link(&thisIpcore->char_device->kobj, &thisIpcore->i2c->dev.kobj, "i2c_device");
 		if (status)
 			return status;
-		status = devm_add_action_helper(thisIpcore->dev, (devm_action_fn)mwgen_of_unlink_i2c_device, thisIpcore);
+		status = devm_add_action_helper(thisIpcore->dev,
+						mwgen_of_unlink_i2c_device,
+						thisIpcore);
 		if(status)
 			return status;
 
@@ -63,7 +88,9 @@ static int mathworks_generic_of_i2c_init(struct mathworks_ip_info *thisIpcore){
 		status = sysfs_create_link(&thisIpcore->char_device->kobj, &thisIpcore->i2c->adapter->dev.kobj, "i2c_adapter");
 		if (status)
 			return status;
-		status = devm_add_action_helper(thisIpcore->dev, (devm_action_fn)mwgen_of_unlink_i2c_adapter, thisIpcore);
+		status = devm_add_action_helper(thisIpcore->dev,
+						mwgen_of_unlink_i2c_adapter,
+						thisIpcore);
 		if(status)
 			return status;
 

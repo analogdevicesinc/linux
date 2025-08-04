@@ -192,6 +192,13 @@ static void mw_mm_iio_channel_release(struct device *dev)
 {
 }
 
+static inline void mw_device_unregister(void *data)
+{
+	struct device *dev = data;
+
+	device_unregister(dev);
+}
+
 static struct iio_dev *devm_mw_mm_iio_alloc(
 		struct mathworks_ipcore_dev *mwdev,
 		struct device_node *node,
@@ -253,7 +260,7 @@ static struct iio_dev *devm_mw_mm_iio_alloc(
 	if (status)
 		return ERR_PTR(status);
 
-	status = devm_add_action(IP2DEVP(mwdev), (devm_action_fn)device_unregister, &mwchan->dev);
+	status = devm_add_action(IP2DEVP(mwdev), mw_device_unregister, &mwchan->dev);
 	if (status) {
 		device_unregister(&mwchan->dev);
 		return ERR_PTR(status);
