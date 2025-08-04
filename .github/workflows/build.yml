@@ -1,3 +1,5 @@
+name: Kernel build
+
 on:
   workflow_call:
     inputs:
@@ -19,6 +21,9 @@ on:
       CHECKS:
         type: boolean
         default: false
+      AUTO_FROM_RANGE:
+        type: boolean
+        default: true
     outputs:
       fail:
         value: ${{ jobs.build.outputs.fail }}
@@ -62,6 +67,7 @@ jobs:
         fi
         echo "CROSS_COMPILE=${{ inputs.CROSS_COMPILE }}" >> $GITHUB_ENV
         echo "ARCH=${{ inputs.ARCH }}" >> $GITHUB_ENV
+        echo "AUTO_FROM_RANGE=${{ inputs.AUTO_FROM_RANGE }}" >> $GITHUB_ENV
 
     - name: Make defconfig
       run: |
@@ -72,14 +78,20 @@ jobs:
           make defconfig
         fi
 
-    - name: Imply driver config and apply cocci/bash
+    - name: Imply driver config
+      if: ${{ env.AUTO_FROM_RANGE == 'true' }}
       run: |
         source ci/build.sh
         auto_set_kconfig
+
+    - name: Apply cocci/bash and save defconfig
+      run: |
+        source ci/build.sh
         apply_prerun
         make savedefconfig
 
     - name: Compile devicetrees
+      if: ${{ env.AUTO_FROM_RANGE == 'true' }}
       run: |
         source ci/build.sh
         compile_devicetree
@@ -90,6 +102,7 @@ jobs:
         compile_kernel
 
     - name: Assert compiled
+      if: ${{ env.AUTO_FROM_RANGE == 'true' }}
       run: |
         source ci/build.sh
         assert_compiled
@@ -132,7 +145,7 @@ jobs:
     - name: Store the distribution packages
       uses: actions/upload-artifact@v4
       with:
-        name: dist-${{ env.CID }}-${{ inputs.ARCH }}
+        name: dist-${{ inputs.DEFCONFIG }}-${{ env.CID }}-${{ inputs.ARCH }}
         path: dist
 
     - name: Assert compile
