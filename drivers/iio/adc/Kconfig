@@ -71,6 +71,7 @@ config AD4630
 	select IIO_BUFFER
 	select IIO_BUFFER_DMA
 	select IIO_BUFFER_DMAENGINE
+	select SPI_OFFLOAD
 	help
 	  Say yes here to build support for Analog Devices AD4630 high speed
 	  SPI analog to digital converters (ADC).
