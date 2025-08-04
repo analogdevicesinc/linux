@@ -67,7 +67,10 @@ an error, a warning or something else.
 So the workflows separate the steps outputs into steps events named
 ``err``, ``fail``, and ``warn``:
 
-* ``err``: What a method return, if not captured (``|| true``), fails the CI.
+* ``err``: What a method that must succeed returns, if not captured
+  (``|| true``), fails the CI. Internal to the bash methods, return codes
+  expected to return known warnings and errors are filtered-out, deferring
+  to the assertion step.
 * ``fail``: Indicates that a warning or error deemed strict was raised.
   Is collected at the assert job and ends the run with failure.
 * ``warn``: Indicates that a warning or error non-deemed strict was raised.
