@@ -1,0 +1,71 @@
+name: Many devicetrees
+
+on:
+  workflow_call:
+    inputs:
+      CXX:
+        type: string
+        default: ""
+      CROSS_COMPILE:
+        type: string
+        default: ""
+      ARCHS:
+        required: true
+        type: string
+      DTS_FILES:
+        required: true
+        type: string
+    outputs:
+      fail:
+        value: ${{ jobs.build.outputs.fail }}
+      warn:
+        value: ${{ jobs.build.outputs.warn }}
+
+env:
+  run_id: ${{ github.run_id }}
+
+jobs:
+  build:
+    timeout-minutes: 7200
+    runs-on: [self-hosted, v1]
+
+    outputs:
+      fail: ${{ steps.assert.outputs.fail }}
+      warn: ${{ steps.assert.outputs.warn }}
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@v1
+
+    - name: Prepare env
+      run: |
+        if [[ ! -z "${{ inputs.CXX }}" ]]; then
+          echo "CXX=gcc-${{ inputs.CXX }}" >> $GITHUB_ENV
+        fi
+        echo "ARCHS=${{ inputs.ARCHS }}" >> $GITHUB_ENV
+        echo "DTS_FILES=${{ inputs.DTS_FILES }}" >> $GITHUB_ENV
+
+    - name: Compile many devicetrees
+      run: |
+        source ci/build.sh
+        compile_many_devicetrees
+
+    - name: Prepare dist
+      run: |
+        if [[ -d dist ]]; then
+          rm -r dist
+        fi
+        mkdir -p dist/dtb
+        find . -type f -name *.dtb| \
+          xargs -I % cp --parents % dist/dtb
+
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-dtb-${{ env.CXX }}
+        path: dist
+
+    - name: Assert
+      id: assert
+      run: |
+        source ci/runner_env.sh
+        export_labels
