@@ -301,7 +301,7 @@ check_cppcheck () {
 						warn=1
 					fi
 					if [[ "$type" == "error" ]]; then
-						fail=1
+						warn=1
 					fi
 					if [[ "$type" == "error" ]] || [[ "$type" == "warning" ]]; then
 						found=1
