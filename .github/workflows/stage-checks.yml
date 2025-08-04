@@ -1,3 +1,5 @@
+name: Kernel build (changed files)
+
 on:
   push:
     branches:
@@ -60,10 +62,15 @@ jobs:
       CHECKS: true
   assert:
     runs-on: [self-hosted, v1]
-    needs: [checks, build_gcc_x86_64, build_llvm_x86_64, build_gcc_aarch64, build_gcc_arm]
+    needs:
+      - checks
+      - build_gcc_x86_64
+      - build_llvm_x86_64
+      - build_gcc_aarch64
+      - build_gcc_arm
 
     steps:
-      - name: Assert checks
+      - name: Assert
         env:
           job_warn_checks: ${{needs.checks.outputs.warn}}
           job_warn_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.warn}}

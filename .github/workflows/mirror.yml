@@ -1,3 +1,5 @@
+name: Mirror synchronization
+
 on:
   workflow_call:
     inputs:

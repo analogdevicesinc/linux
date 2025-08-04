@@ -1,0 +1,121 @@
+name: Kernel build (common defconfigs, many devicetrees)
+
+on:
+  workflow_run:
+    workflows: ["Kernel build (changed files)"]
+    branches:
+      - main
+      - rpi-6.1.y
+      - rpi-6.6.y
+      - rpi-6.12.y
+      - staging-rpi/*
+    types:
+      - completed
+
+jobs:
+  build_gcc_arm_zynq_xcomm_adv7511_defconfig:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "zynq_xcomm_adv7511_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_arm_socfpga_adi_defconfig:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "socfpga_adi_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_arm_zynq_pluto_defconfig:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "zynq_pluto_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_arm_zynq_m2k_defconfig:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "zynq_m2k_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_aarch64_adi_zynqmp_defconfig:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "aarch64-suse-linux-"
+      ARCH: "arm64"
+      DEFCONFIG: "adi_zynqmp_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_arm_adi_versal_defconfig:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "adi_versal_defconfig"
+      AUTO_FROM_RANGE: false
+  many_devicetrees:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/many_devicetrees.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      ARCHS: "arm arm64 microblaze nios2"
+      DTS_FILES: >
+        arch/microblaze/boot/dts/*.dts
+        arch/arm/boot/dts/xilinx/zynq-*.dts
+        arch/arm/boot/dts/intel/socfpga/socfpga_*.dts
+        arch/arm64/boot/dts/xilinx/zynqmp-*.dts
+        arch/arm64/boot/dts/xilinx/versal-*.dts
+        arch/nios2/boot/dts/*.dts
+  assert:
+    runs-on: [self-hosted, v1]
+    needs:
+      - build_gcc_arm_zynq_xcomm_adv7511_defconfig
+      - build_gcc_arm_socfpga_adi_defconfig
+      - build_gcc_arm_zynq_pluto_defconfig
+      - build_gcc_arm_zynq_m2k_defconfig
+      - build_gcc_aarch64_adi_zynqmp_defconfig
+      - build_gcc_arm_adi_versal_defconfig
+      - many_devicetrees
+    steps:
+      - name: Assert
+        env:
+          job_warn_build_gcc_arm_zynq_xcomm_adv7511_defconfig: ${{needs.build_gcc_arm_zynq_xcomm_adv7511_defconfig.outputs.warn}}
+          job_fail_build_gcc_arm_zynq_xcomm_adv7511_defconfig: ${{needs.build_gcc_arm_zynq_xcomm_adv7511_defconfig.outputs.fail}}
+          job_warn_build_gcc_arm_socfpga_adi_defconfig: ${{needs.build_gcc_arm_socfpga_adi_defconfig.outputs.warn}}
+          job_fail_build_gcc_arm_socfpga_adi_defconfig: ${{needs.build_gcc_arm_socfpga_adi_defconfig.outputs.fail}}
+          job_warn_build_gcc_arm_zynq_pluto_defconfig: ${{needs.build_gcc_arm_zynq_pluto_defconfig.outputs.warn}}
+          job_fail_build_gcc_arm_zynq_pluto_defconfig: ${{needs.build_gcc_arm_zynq_pluto_defconfig.outputs.fail}}
+          job_warn_build_gcc_arm_zynq_m2k_defconfig: ${{needs.build_gcc_arm_zynq_m2k_defconfig.outputs.warn}}
+          job_fail_build_gcc_arm_zynq_m2k_defconfig: ${{needs.build_gcc_arm_zynq_m2k_defconfig.outputs.fail}}
+          job_warn_build_gcc_aarch64_adi_zynqmp_defconfig: ${{needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.warn}}
+          job_fail_build_gcc_aarch64_adi_zynqmp_defconfig: ${{needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.fail}}
+          job_warn_build_gcc_arm_adi_versal_defconfig: ${{needs.build_gcc_arm_adi_versal_defconfig.outputs.warn}}
+          job_fail_build_gcc_arm_adi_versal_defconfig: ${{needs.build_gcc_arm_adi_versal_defconfig.outputs.fail}}
+          job_warn_many_devicetrees: ${{needs.many_devicetrees.outputs.warn}}
+          job_fail_many_devicetrees: ${{needs.many_devicetrees.outputs.fail}}
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
+            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+          source runner_env.sh
+          assert_labels
