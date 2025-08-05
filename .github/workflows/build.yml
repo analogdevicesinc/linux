@@ -37,6 +37,7 @@ jobs:
   build:
     timeout-minutes: 7200
     runs-on: [self-hosted, v1]
+    continue-on-error: true
 
     outputs:
       fail: ${{ steps.assert.outputs.fail }}
@@ -101,36 +102,6 @@ jobs:
         source ci/build.sh
         compile_kernel
 
-    - name: Assert compiled
-      if: ${{ env.AUTO_FROM_RANGE == 'true' }}
-      run: |
-        source ci/build.sh
-        assert_compiled
-
-    - name: Sparse
-      if: ${{ env.CHECKS_SPARCE == 'true' }}
-      run: |
-        source ci/build.sh
-        compile_kernel_sparse
-
-    - name: GCC fanalyzer
-      if: ${{ env.CHECKS_GCC_FANALYZER == 'true' }}
-      run: |
-        source ci/build.sh
-        compile_gcc_fanalyzer
-
-    - name: Clang analyzer
-      if: ${{ env.CHECKS_CLANG_ANALYZER == 'true' }}
-      run: |
-        source ci/build.sh
-        compile_clang_analyzer
-
-    - name: Smatch
-      if: ${{ env.CHECKS_SMATCH == 'true' }}
-      run: |
-        source ci/build.sh
-        compile_kernel_smatch
-
     - name: Prepare dist
       run: |
         if [[ -d dist ]]; then
@@ -142,13 +113,52 @@ jobs:
         find . -type f -name *.ko | \
           xargs -I % cp --parents % dist/modules
 
+    - name: Assert compiled
+      if: ${{ env.AUTO_FROM_RANGE == 'true' }}
+      run: |
+        source ci/build.sh
+        assert_compiled
+
+    - name: Assert state
+      if: ${{ failure() }}
+      run: |
+        source ci/build.sh
+        set_step_fail "assert_state"
+        echo "fatal=true" >> "$GITHUB_ENV"
+
+    - name: Sparse
+      if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_SPARCE == 'true' }}
+      run: |
+        source ci/build.sh
+        compile_kernel_sparse
+
+    - name: GCC fanalyzer
+      if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_GCC_FANALYZER == 'true' }}
+      run: |
+        source ci/build.sh
+        compile_gcc_fanalyzer
+
+    - name: Clang analyzer
+      if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_CLANG_ANALYZER == 'true' }}
+      run: |
+        source ci/build.sh
+        compile_clang_analyzer
+
+    - name: Smatch
+      if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_SMATCH == 'true' }}
+      run: |
+        source ci/build.sh
+        compile_kernel_smatch
+
     - name: Store the distribution packages
+      if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v4
       with:
         name: dist-${{ inputs.DEFCONFIG }}-${{ env.CID }}-${{ inputs.ARCH }}
         path: dist
 
-    - name: Assert compile
+    - name: Export labels
+      if: ${{ !cancelled() }}
       id: assert
       run: |
         source ci/runner_env.sh
