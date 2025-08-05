@@ -669,6 +669,7 @@
 			<&axi_ad9084_core_tx 0 DEFRAMER_LINK_A0_TX>;
 
 		reset-gpios = <&axi_gpio 30 0>;
+		adi,gpio-exports = /bits/ 8 <15 16 17 18 19 20 21 22 23>; // <block, hop>
 
 #ifdef WITH_AION
 #ifdef WITH_FSRC
