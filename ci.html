@@ -8,8 +8,8 @@
 
     <title>Continuous integration &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=04bde29a" />
-    <script async="async" src="_static/app.umd.js?v=470d438e"></script>
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=3f4bd1a2" />
+    <script async="async" src="_static/app.umd.js?v=75bad8ae"></script>
     <link rel="icon" href="_static/icon.svg"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -236,7 +236,10 @@ an error, a warning or something else.
 So the workflows separate the steps outputs into steps events named
 <code class="docutils literal notranslate"><span class="pre">err</span></code>, <code class="docutils literal notranslate"><span class="pre">fail</span></code>, and <code class="docutils literal notranslate"><span class="pre">warn</span></code>:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">err</span></code>: What a method return, if not captured (<code class="docutils literal notranslate"><span class="pre">||</span> <span class="pre">true</span></code>), fails the CI.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">err</span></code>: What a method that must succeed returns, if not captured
+(<code class="docutils literal notranslate"><span class="pre">||</span> <span class="pre">true</span></code>), fails the CI. Internal to the bash methods, return codes
+expected to return known warnings and errors are filtered-out, deferring
+to the assertion step.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">fail</span></code>: Indicates that a warning or error deemed strict was raised.
 Is collected at the assert job and ends the run with failure.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">warn</span></code>: Indicates that a warning or error non-deemed strict was raised.
@@ -359,9 +362,14 @@ Cocci files are applied only to <code class="docutils literal notranslate"><span
 <h2>Setting up and running<a class="headerlink" href="#setting-up-and-running" title="Link to this heading"></a></h2>
 <p>In this section there are instructions to bring-up your own continuous integration,
 either to run locally, in a self-hosted runner or even in a cluster.</p>
+<p>The container engine you use, like as <code class="docutils literal notranslate"><span class="pre">podman</span></code> or <code class="docutils literal notranslate"><span class="pre">docker</span></code>, is up to you.
+Limited instructions for each are provided in this section, you should consult
+their source documentation for detailed information.</p>
 <section id="configure-podman">
 <span id="conf-podman"></span><h3>Configure podman<a class="headerlink" href="#configure-podman" title="Link to this heading"></a></h3>
-<p>Below are suggested instructions for setting up <code class="docutils literal notranslate"><span class="pre">podman</span></code> on a Linux environment.</p>
+<p>Below are suggested instructions for setting up <code class="docutils literal notranslate"><span class="pre">podman</span></code> on a Linux environment,
+if you wish to use it as your container engine. If you already use something else
+like <code class="docutils literal notranslate"><span class="pre">docker</span></code>, <strong>keep it</strong> and skip this section.</p>
 <p>Adjust to your preference as needed, and skip the steps marked in <span class="green">green</span>
 if not using WSL2.</p>
 <p>Install <code class="docutils literal notranslate"><span class="pre">podman</span></code> from your package manager.</p>
@@ -371,7 +379,7 @@ if not using WSL2.</p>
 </pre></div>
 </div>
 <p><span class="green">Restart wsl2.</span></p>
-<p>Enable podman service for your user.</p>
+<p>Enable <code class="docutils literal notranslate"><span class="pre">podman</span></code> service for your user.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
@@ -443,7 +451,13 @@ sudo<span class="w"> </span>mount<span class="w"> </span>~/.local/share/containe
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>build<span class="w"> </span>--tag<span class="w"> </span>adi/linux:latest<span class="w"> </span>ci
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">alias</span><span class="w"> </span><span class="nv">container</span><span class="o">=</span>podman<span class="w"> </span><span class="c1"># or docker, ...</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>build<span class="w"> </span>--tag<span class="w"> </span>adi/linux:latest<span class="w"> </span>ci
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>You may want to build the container in a host, where you have all your tools installed,
@@ -452,7 +466,7 @@ In this case, export the image and then import on the server:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>save<span class="w"> </span>-o<span class="w"> </span>adi-linux.tar<span class="w"> </span>adi/linux:latest
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>-o<span class="w"> </span>adi-linux.tar<span class="w"> </span>adi/linux:latest
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
@@ -464,14 +478,14 @@ In this case, export the image and then import on the server:</p>
 <div class="clear-left"></div></div></div><div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>admin@server:/tmp$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>load<span class="w"> </span>-i<span class="w"> </span>adi-linux.tar
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>load<span class="w"> </span>-i<span class="w"> </span>adi-linux.tar
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>Or if you are feeling adventurous:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>save<span class="w"> </span>adi/linux:latest<span class="w"> </span><span class="p">|</span><span class="w"> </span>ssh<span class="w"> </span>server<span class="w"> </span><span class="s2">&quot;cat - | podman load&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>adi/linux:latest<span class="w"> </span><span class="p">|</span><span class="w"> </span>ssh<span class="w"> </span>server<span class="w"> </span><span class="s2">&quot;cat - | podman load&quot;</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></section>
@@ -484,7 +498,7 @@ the provided path.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v1
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:latest
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -532,7 +546,7 @@ AR      init/built-in.a
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v1
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:latest
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -563,12 +577,13 @@ Collecting ply
 Downloading ply-3.11-py...
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><p>Significantly speeding up interactive testing.</p>
+<div class="clear-left"></div></div></div><p>Significantly speeding up interactive testing.
+Remember to replace <code class="docutils literal notranslate"><span class="pre">container_engine</span></code> variable with your preferred container engine.</p>
 </section>
 <section id="self-hosted-runner">
 <span id="podman-run"></span><h3>Self-hosted runner<a class="headerlink" href="#self-hosted-runner" title="Link to this heading"></a></h3>
 <p>To host your <a class="icon link reference external" href="https://github.com/actions/runner" target="_blank">GitHub Actions Runner</a>,
-set up your secrets:</p>
+set up your secrets (<code class="docutils literal notranslate"><span class="pre">podman</span></code> only):</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
@@ -593,7 +608,7 @@ set up your secrets:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">printf</span><span class="w"> </span>RUNNER_TOKEN<span class="w"> </span><span class="p">|</span><span class="w"> </span>podman<span class="w"> </span>secret<span class="w"> </span>create<span class="w"> </span>public_linux_runner_token<span class="w"> </span>-
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><p>The runner token is obtained from the GUI at <code class="docutils literal notranslate"><span class="pre">github.com/&lt;org&gt;/&lt;repository&gt;/settings/actions/runners/new</span></code>.</p>
+<div class="clear-left"></div></div></div><p>The runner token is obtained from the GUI at <code class="docutils literal notranslate"><span class="pre">https://github.com/&lt;org&gt;/&lt;repository&gt;/settings/actions/runners/new</span></code>.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">github_token</span></code> from <a class="reference internal" href="#cluster-podman"><span class="std std-ref">Self-hosted cluster</span></a> is set, the runner_token
 is ignored and a new one is requested.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -606,7 +621,25 @@ is ignored and a new one is requested.</p>
 <span class="w">    </span>adi/linux:latest
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><p>The environment variable runner_labels (comma-separated), set the runner labels.
+<div class="clear-left"></div></div></div><div><div class="collapsible docutils container">
+<input class="collapsible_input" id="07aa9594775da74d7723cf4a88e88f1aae6fb315" name="07aa9594775da74d7723cf4a88e88f1aae6fb315" type="checkbox"></input><label for="07aa9594775da74d7723cf4a88e88f1aae6fb315"><p>Docker alternative</p>
+<div class="icon"></div></label><div class="collapsible_content docutils container">
+<p><code class="docutils literal notranslate"><span class="pre">docker</span></code> does <strong>not</strong> have a built-in keyring, instead you pass directly
+to <code class="docutils literal notranslate"><span class="pre">run</span></code> command. <span class="red">Consider hardening strategies to mitigate risks</span>,
+like using another keyring as below.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_org_repository</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_org_repository.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_runner_token</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_runner_token.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>v1,big_cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>localhost/adi/linux:latest
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></div>
+</div>
+</div><p>The environment variable runner_labels (comma-separated), set the runner labels.
 If not provided on the Containerfile as <code class="docutils literal notranslate"><span class="pre">ENV</span> <span class="pre">runner_labels=&lt;labels,&gt;</span></code> or as argument
 <code class="docutils literal notranslate"><span class="pre">--env</span> <span class="pre">runner_labels=&lt;labels,&gt;</span></code>, it defaults to <code class="docutils literal notranslate"><span class="pre">v1</span></code>.
 Most of the time, you want to use the Containerfile-set environment variable.</p>
@@ -653,7 +686,7 @@ systemd services, instead of for example, container compose solutions.</p>
 </pre></div>
 </div>
 <div><div class="collapsible docutils container">
-<input class="collapsible_input" id="0956b5a01e8f08a20f70239a15d96faedca8a1ad" name="0956b5a01e8f08a20f70239a15d96faedca8a1ad" type="checkbox"></input><label for="0956b5a01e8f08a20f70239a15d96faedca8a1ad"><p>Docker alternative</p>
+<input class="collapsible_input" id="4ac201ba0318f67630657e611985169ac2c7c286" name="4ac201ba0318f67630657e611985169ac2c7c286" type="checkbox"></input><label for="4ac201ba0318f67630657e611985169ac2c7c286"><p>Docker alternative</p>
 <div class="icon"></div></label><div class="collapsible_content docutils container">
 <div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
 <span class="na">Description</span><span class="o">=</span><span class="s">container public linux ci %i</span>
@@ -666,7 +699,7 @@ systemd services, instead of for example, container compose solutions.</p>
 <span class="na">ExecStart</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/docker run </span>\
 <span class="w">          </span><span class="s">--env name_label=%H-%i </span>\
 <span class="w">          </span><span class="s">--env org_repository=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_org_repository.gpg) </span>\
-<span class="w">          </span><span class="s">--env runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_runner_token.gpg) </span>\
+<span class="w">          </span><span class="s">--env runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_runner_token.gpg) </span>\
 <span class="w">          </span><span class="s">--cidfile %t/%n-cid </span>\
 <span class="w">          </span><span class="s">--label &quot;io.containers.autoupdate=local&quot; </span>\
 <span class="w">          </span><span class="s">--name=public_linux_%i </span>\
