@@ -184,8 +184,8 @@ arch/arm/boot/dts/xilinx/zynq-zed-imageon.dts
 arch/arm/boot/dts/xilinx/zynq-zed-seps525.dts
 arch/arm/boot/dts/xilinx/zynq-zc706-adv7511-ad9361-fmcomms5-userspace.dts
 arch/arm/boot/dts/xilinx/zynq-zc706-adv7511-ad9625-fmcadc7.dts
-arch/arm/boot/dts/intel/socfpga_arria10_socdk_ad9136_fmc_ebz.dts
-arch/arm/boot/dts/intel/socfpga_arria10_socdk_fmclidar1.dts
+arch/arm/boot/dts/intel/socfpga/socfpga_arria10_socdk_ad9136_fmc_ebz.dts
+arch/arm/boot/dts/intel/socfpga/socfpga_arria10_socdk_fmclidar1.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-fmclidar1.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu102-revB-ad9361-fmcomms2-3.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu102-revB-adrv9363.dts
