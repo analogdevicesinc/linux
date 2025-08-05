@@ -418,8 +418,8 @@ compile_devicetree() {
 		return $err
 	fi
 
-	# Only check arm & arm64 DTs, they are shipped via SD-card
-	hdl_dts_files=$(echo "$dts_files" | tr ' ' '\n' | grep -E 'arch/arm(64)?' || true)
+	# Only check fpga arm & arm64 DTs, they are shipped via SD-card
+	hdl_dts_files=$(echo "$dts_files" | tr ' ' '\n' | grep -E 'arch/arm(64)?' | grep -E '/(socfpga|xilinx|microblaze)/' || true)
 	if [[ -f $exceptions_file ]]; then
 		hdl_dts_files=$(comm -13 <(sort $exceptions_file) <(echo $hdl_dts_files | tr ' ' '\n' | sort))
 	fi
