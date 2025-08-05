@@ -65,16 +65,33 @@ Warning and error handling
 Each tool will have its own outputs and the standard to consider something
 an error, a warning or something else.
 So the workflows separate the steps outputs into steps events named
-``err``, ``fail``, and ``warn``:
+``fail``, and ``warn``:
 
-* ``err``: What a method that must succeed returns, if not captured
-  (``|| true``), fails the CI. Internal to the bash methods, return codes
-  expected to return known warnings and errors are filtered-out, deferring
-  to the assertion step.
-* ``fail``: Indicates that a warning or error deemed strict was raised.
-  Is collected at the assert job and ends the run with failure.
+* ``fail``: Indicates that a warning or error deemed strict was raised, and
+  or what the method that must succeed returns. Will fail the step if not
+  captured (``|| true``). The CI allows some steps to fail, in order to
+  collect all failures and assert the job at the end.
 * ``warn``: Indicates that a warning or error non-deemed strict was raised.
   Is collected at the assert job and **does not** end the run with failure.
+
+When ``continue-on-error: true`` is used at the job level, the following
+topology rules must be followed based on the immediate downstream step:
+
+* If downstream is an assert job, the ci already fails on ``step_fail_*``, so a
+  ``failure()`` step should just set ``set_step_fail "assert_state"``, as well
+  the job-scoped ``fatal=true`` environment variable.
+* If downstream is an regular job, the job must export an ``fail=$fail`` output,
+  to be used alongside the ``needs`` rule, for example:
+
+  .. code:: yaml
+
+     build_gcc_aarch64:
+       needs: [checks]
+       if: needs.checks.outputs.fatal != 'true'
+
+These rules ensure that the downstream jobs do not run on fatal errors.
+Optional steps may also set ``fatal`` job-scoped environment variable, if taking
+care of calling ``set_step_fail``.
 
 Checking steps description
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -115,7 +132,7 @@ The checkers are, followed by which step event they raise:
   - | ``sparse``: the changed files are touched and recompiled with ``C=1``.
     | ``fail``: ``error`` logged
     | ``warn``: ``warning`` logged
-  - | ``ggc fanalyzer``: the changed files are recompiled appending the ``-fanalyzer`` flag.
+  - | ``gcc fanalyzer``: the changed files are recompiled appending the ``-fanalyzer`` flag.
     | It uses the *compile_commands.json* file to extract the correct compilation flags.
     | ``fail``: ``error`` or ``warning`` logged
   - | ``smatch``: the changed files are touched and recompiled with ``C=1 CHECK="smatch -p=kernel"``.
