@@ -165,12 +165,18 @@ Setting up and running
 In this section there are instructions to bring-up your own continuous integration,
 either to run locally, in a self-hosted runner or even in a cluster.
 
+The container engine you use, like as ``podman`` or ``docker``, is up to you.
+Limited instructions for each are provided in this section, you should consult
+their source documentation for detailed information.
+
 .. _conf-podman:
 
 Configure podman
 ~~~~~~~~~~~~~~~~
 
-Below are suggested instructions for setting up ``podman`` on a Linux environment.
+Below are suggested instructions for setting up ``podman`` on a Linux environment,
+if you wish to use it as your container engine. If you already use something else
+like ``docker``, **keep it** and skip this section.
 
 Adjust to your preference as needed, and skip the steps marked in :green:`green`
 if not using WSL2.
@@ -186,7 +192,7 @@ Install ``podman`` from your package manager.
 
 :green:`Restart wsl2.`
 
-Enable podman service for your user.
+Enable ``podman`` service for your user.
 
 .. shell::
 
@@ -261,7 +267,8 @@ To build the container image, use your favorite container engine:
 .. shell::
 
    $cd ~/linux
-   $podman build --tag adi/linux:latest ci
+   $alias container=podman # or docker, ...
+   $container build --tag adi/linux:latest ci
 
 You may want to build the container in a host, where you have all your tools installed,
 and then deploy to a server.
@@ -273,7 +280,7 @@ In this case, export the image and then import on the server:
    :group: host
 
    ~/linux
-   $podman save -o adi-linux.tar adi/linux:latest
+   $container save -o adi-linux.tar adi/linux:latest
    $scp adi-linux.tar server:/tmp/
 
 .. shell::
@@ -282,7 +289,7 @@ In this case, export the image and then import on the server:
    :group: server
 
    /tmp
-   $podman load -i adi-linux.tar
+   $container load -i adi-linux.tar
 
 Or if you are feeling adventurous:
 
@@ -292,7 +299,7 @@ Or if you are feeling adventurous:
    :group: host
 
    ~/linux
-   $podman save adi/linux:latest | ssh server "cat - | podman load"
+   $container save adi/linux:latest | ssh server "cat - | podman load"
 
 .. _interactive-run:
 
@@ -308,7 +315,7 @@ You can leverage it to compile/runs checks using persistent cache, for example:
 .. shell::
 
    ~/linux
-   $cr adi/linux:v1
+   $cr adi/linux:latest
    $set_arch gcc_aarch64
     ARCH=arm64
     CXX=gcc-14
@@ -330,7 +337,7 @@ Or:
 .. shell::
 
    ~/linux
-   $cr adi/linux:v1
+   $cr adi/linux:latest
    $base_sha=@~2
    $set_arch gcc_arm
     ARCH=arm
@@ -342,6 +349,7 @@ Or:
     Downloading ply-3.11-py...
 
 Significantly speeding up interactive testing.
+Remember to replace ``container_engine`` variable with your preferred container engine.
 
 .. _podman-run:
 
@@ -349,7 +357,7 @@ Self-hosted runner
 ~~~~~~~~~~~~~~~~~~
 
 To host your `GitHub Actions Runner <https://github.com/actions/runner>`__,
-set up your secrets:
+set up your secrets (``podman`` only):
 
 .. shell::
 
@@ -358,7 +366,7 @@ set up your secrets:
    # e.g. MyVerYSecRunnerToken
    $printf RUNNER_TOKEN | podman secret create public_linux_runner_token -
 
-The runner token is obtained from the GUI at ``github.com/<org>/<repository>/settings/actions/runners/new``.
+The runner token is obtained from the GUI at ``https://github.com/<org>/<repository>/settings/actions/runners/new``.
 
 If ``github_token`` from :ref:`cluster-podman` is set, the runner_token
 is ignored and a new one is requested.
@@ -371,6 +379,21 @@ is ignored and a new one is requested.
    $    --secret public_linux_runner_token,type=env,target=runner_token \
    $    --env runner_labels=v1,big_cpu \
    $    adi/linux:latest
+
+.. collapsible:: Docker alternative
+
+   ``docker`` does **not** have a built-in keyring, instead you pass directly
+   to ``run`` command. :red:`Consider hardening strategies to mitigate risks`,
+   like using another keyring as below.
+
+   .. shell::
+
+      ~/linux
+      $docker run \
+      $    --env public_linux_org_repository=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_org_repository.gpg) \
+      $    --env public_linux_runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_runner_token.gpg) \
+      $    --env runner_labels=v1,big_cpu \
+      $    localhost/adi/linux:latest
 
 The environment variable runner_labels (comma-separated), set the runner labels.
 If not provided on the Containerfile as ``ENV runner_labels=<labels,>`` or as argument
@@ -439,7 +462,7 @@ Below is a suggested systemd service at *~/.config/systemd/user/container-public
       ExecStart=/bin/sh -c "/bin/docker run \
                 --env name_label=%H-%i \
                 --env org_repository=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_org_repository.gpg) \
-                --env runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_runner_token.gpg) \
+                --env runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_runner_token.gpg) \
                 --cidfile %t/%n-cid \
                 --label "io.containers.autoupdate=local" \
                 --name=public_linux_%i \
