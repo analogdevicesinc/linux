@@ -130,7 +130,7 @@ check_checkpatch() {
 		set_step_warn "checkpatch"
 	fi
 
-	return 0
+	return $fail
 }
 
 check_dt_binding_check() {
@@ -180,7 +180,7 @@ check_dt_binding_check() {
 		set_step_fail "dtbinding"
 	fi
 
-	return 0
+	return $fail
 }
 
 check_coccicheck() {
@@ -335,7 +335,7 @@ check_cppcheck () {
 		set_step_warn "cppcheck"
 	fi
 
-	return
+	return $fail
 }
 
 _bad_licence_error() {
@@ -378,7 +378,7 @@ check_license() {
 		set_step_fail "check_file_license"
 	fi
 
-	return
+	return $fail
 }
 
 compile_devicetree() {
@@ -497,7 +497,7 @@ compile_devicetree() {
 		set_step_warn "compile_devicetree"
 	fi
 
-	return $err
+	return $fail
 }
 
 compile_many_devicetrees() {
@@ -610,7 +610,7 @@ compile_kernel() {
 
 	python3.11 scripts/clang-tools/gen_compile_commands.py
 
-	return $err
+	return $fail
 }
 
 compile_kernel_sparse() {
@@ -678,7 +678,7 @@ compile_kernel_sparse() {
 		set_step_warn "kernel_sparce"
 	fi
 
-	return $err
+	return $fail
 }
 
 compile_kernel_smatch() {
@@ -756,7 +756,7 @@ compile_kernel_smatch() {
 		set_step_warn "kernel_smatch"
 	fi
 
-	return $err
+	return $fail
 }
 
 compile_gcc_fanalyzer () {
@@ -843,7 +843,7 @@ compile_gcc_fanalyzer () {
 		set_step_fail "gcc_fanalyzer"
 	fi
 
-	return
+	return $fail
 }
 
 compile_clang_analyzer () {
@@ -938,7 +938,7 @@ compile_clang_analyzer () {
 		set_step_fail "clang_analyzer"
 	fi
 
-	return
+	return $fail
 }
 
 assert_compiled () {
@@ -973,7 +973,7 @@ assert_compiled () {
 		set_step_fail "assert_compiled"
 	fi
 
-	return 0
+	return $fail
 }
 
 apply_prerun() {
