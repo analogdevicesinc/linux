@@ -27,6 +27,7 @@ jobs:
   build_gcc_x86_64:
     uses: ./.github/workflows/build.yml
     needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
     with:
       CXX: "14"
@@ -35,6 +36,7 @@ jobs:
   build_llvm_x86_64:
     uses: ./.github/workflows/build.yml
     needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
     with:
       LLVM: "19"
@@ -44,6 +46,7 @@ jobs:
   build_gcc_aarch64:
     uses: ./.github/workflows/build.yml
     needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
     with:
       CXX: "14"
@@ -52,7 +55,6 @@ jobs:
       DEFCONFIG: "adi_ci_defconfig"
   build_gcc_arm:
     uses: ./.github/workflows/build.yml
-    #needs: [checks]
     secrets: inherit
     with:
       CXX: "14"
