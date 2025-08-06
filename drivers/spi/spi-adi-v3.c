@@ -574,7 +574,7 @@ static int adi_spi_transfer_one(struct spi_controller *ctlr, struct spi_device *
 
 	iowrite32(cr, drv->regs + ADI_SPI_CTL);
 
-	if (adi_spi_can_dma(ctlr, spi, xfer))
+	if (ctlr->can_dma && ctlr->can_dma(ctlr, spi, xfer))
 		return adi_spi_dma_xfer(ctlr, spi, xfer);
 	return adi_spi_pio_xfer(ctlr, spi, xfer);
 }
@@ -620,7 +620,7 @@ static int adi_spi_prepare_message(struct spi_controller *ctlr, struct spi_messa
 	cr &= ~SPI_CTL_SOSI;
 	iowrite32(cr, drv->regs + ADI_SPI_CTL);
 
-	if (adi_spi_can_dma(ctlr, msg->spi, xfer)) {
+	if (ctlr->can_dma && ctlr->can_dma(ctlr, msg->spi, xfer)) {
 		dma_config.direction = DMA_MEM_TO_DEV;
 		dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
