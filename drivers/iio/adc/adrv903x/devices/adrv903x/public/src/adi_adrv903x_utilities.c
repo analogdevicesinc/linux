@@ -973,7 +973,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_CpuProfileImageLoad(adi_adrv903x_D
                 goto cleanup;
             }
         }
-        else if (ferror(cpuProfileFilePtr))
+        else if (ADI_LIBRARY_FERROR(cpuProfileFilePtr))
         {
             recoveryAction = ADI_ADRV903X_ERR_ACT_CHECK_PARAM;
             ADI_PARAM_ERROR_REPORT(&device->common, recoveryAction, numFileChunks, "Error Reading Block of Data from CPU Binary File");
