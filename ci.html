@@ -234,17 +234,33 @@ that includes the CI workflows, <a class="icon git reference external" href="htt
 <p>Each tool will have its own outputs and the standard to consider something
 an error, a warning or something else.
 So the workflows separate the steps outputs into steps events named
-<code class="docutils literal notranslate"><span class="pre">err</span></code>, <code class="docutils literal notranslate"><span class="pre">fail</span></code>, and <code class="docutils literal notranslate"><span class="pre">warn</span></code>:</p>
+<code class="docutils literal notranslate"><span class="pre">fail</span></code>, and <code class="docutils literal notranslate"><span class="pre">warn</span></code>:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">err</span></code>: What a method that must succeed returns, if not captured
-(<code class="docutils literal notranslate"><span class="pre">||</span> <span class="pre">true</span></code>), fails the CI. Internal to the bash methods, return codes
-expected to return known warnings and errors are filtered-out, deferring
-to the assertion step.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">fail</span></code>: Indicates that a warning or error deemed strict was raised.
-Is collected at the assert job and ends the run with failure.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fail</span></code>: Indicates that a warning or error deemed strict was raised, and
+or what the method that must succeed returns. Will fail the step if not
+captured (<code class="docutils literal notranslate"><span class="pre">||</span> <span class="pre">true</span></code>). The CI allows some steps to fail, in order to
+collect all failures and assert the job at the end.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">warn</span></code>: Indicates that a warning or error non-deemed strict was raised.
 Is collected at the assert job and <strong>does not</strong> end the run with failure.</p></li>
 </ul>
+<p>When <code class="docutils literal notranslate"><span class="pre">continue-on-error:</span> <span class="pre">true</span></code> is used at the job level, the following
+topology rules must be followed based on the immediate downstream step:</p>
+<ul>
+<li><p>If downstream is an assert job, the ci already fails on <code class="docutils literal notranslate"><span class="pre">step_fail_*</span></code>, so a
+<code class="docutils literal notranslate"><span class="pre">failure()</span></code> step should just set <code class="docutils literal notranslate"><span class="pre">set_step_fail</span> <span class="pre">&quot;assert_state&quot;</span></code>, as well
+the job-scoped <code class="docutils literal notranslate"><span class="pre">fatal=true</span></code> environment variable.</p></li>
+<li><p>If downstream is an regular job, the job must export an <code class="docutils literal notranslate"><span class="pre">fail=$fail</span></code> output,
+to be used alongside the <code class="docutils literal notranslate"><span class="pre">needs</span></code> rule, for example:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">build_gcc_aarch64</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">needs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">checks</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">needs.checks.outputs.fatal != &#39;true&#39;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+<p>These rules ensure that the downstream jobs do not run on fatal errors.
+Optional steps may also set <code class="docutils literal notranslate"><span class="pre">fatal</span></code> job-scoped environment variable, if taking
+care of calling <code class="docutils literal notranslate"><span class="pre">set_step_fail</span></code>.</p>
 </section>
 <section id="checking-steps-description">
 <h3>Checking steps description<a class="headerlink" href="#checking-steps-description" title="Link to this heading"></a></h3>
@@ -309,7 +325,7 @@ when possible.</p>
 </div>
 </li>
 <li><div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">ggc</span> <span class="pre">fanalyzer</span></code>: the changed files are recompiled appending the <code class="docutils literal notranslate"><span class="pre">-fanalyzer</span></code> flag.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">gcc</span> <span class="pre">fanalyzer</span></code>: the changed files are recompiled appending the <code class="docutils literal notranslate"><span class="pre">-fanalyzer</span></code> flag.</div>
 <div class="line">It uses the <em>compile_commands.json</em> file to extract the correct compilation flags.</div>
 <div class="line"><code class="docutils literal notranslate"><span class="pre">fail</span></code>: <code class="docutils literal notranslate"><span class="pre">error</span></code> or <code class="docutils literal notranslate"><span class="pre">warning</span></code> logged</div>
 </div>
