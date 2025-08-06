@@ -51,6 +51,9 @@
 #include "adi_apollo_bf_txrx_prefsrc_reconf.h"
 #include "adi_apollo_bf_master_bias_ctrl.h"
 #include "adi_apollo_sniffer.h"
+#include "adi_utils/inc/adi_utils.h"
+#include "public/src/adi_apollo_dformat_local.h"
+#include "public/inc/adi_apollo_gpio_hop.h"
 
 #include "../cf_axi_adc.h"
 
