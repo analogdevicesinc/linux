@@ -2160,7 +2160,7 @@ static int ad9088_mcs_init_cal_setup(struct ad9088_phy *phy)
 			 phy->profile.mcs_cfg.internal_sysref_prd_digclk_cycles_center);
 	reference_period_C_femtoseconds = div64_u64(1000000000000000ULL, freq);
 
-	dev_dbg(&phy->spi->dev, "SYSREF frequeny %llu Hz, SYSREF period: %lld fs\n", freq, reference_period_C_femtoseconds);
+	dev_dbg(&phy->spi->dev, "SYSREF frequency %llu Hz, SYSREF period: %lld fs\n", freq, reference_period_C_femtoseconds);
 
 	adi_apollo_mcs_cal_config_t cal_config  = {
 		.use_side_A_as_reference            = 0,
@@ -4046,7 +4046,7 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			}
 
 			for (i = 0; i < phy->jrx_lanes_used; i++)
-				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf), "%c: lane-%u %u/%u\n",
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "%c: lane-%u %u/%u\n",
 						phy->jrx_lanes[i] < 12 ? 'A' : 'B',
 						phy->jrx_lanes[i] > 11 ? phy->jrx_lanes[i] - 12 : phy->jrx_lanes[i],
 						prbs_stat[phy->jrx_lanes[i]].err_count, prbs_stat[phy->jrx_lanes[i]].err_sticky);
@@ -4121,7 +4121,7 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			for (i = 0; i < ADI_APOLLO_SERDES_JRX_VERT_EYE_TEST_RESP_BUF_SIZE; i += 2)
 				if (!(vert_resp.eye_heights_at_spo[i] == 127 && vert_resp.eye_heights_at_spo[i + 1] == -127))
 					len += snprintf(phy->dbuf + len,
-							sizeof(phy->dbuf),
+							sizeof(phy->dbuf) - len,
 							"%d,%d,%d\n", (i / 2) - 16,
 							vert_resp.eye_heights_at_spo[i] * 4,
 							vert_resp.eye_heights_at_spo[i + 1] * 4);
@@ -4172,7 +4172,7 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 				break;
 			}
 
-			len = snprintf(phy->dbuf + len, sizeof(phy->dbuf), "DieID %u\n",
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "DieID %u\n",
 				       die_id);
 			break;
 		case DBGFS_DEV_CHIP_INFO:
@@ -4192,7 +4192,7 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "Clock input power detection A: %s\n",
 				       !pwr_stat_a ? "GOOD" : (pwr_stat_a == ADI_APOLLO_CLK_PWR_UNDERDRIVEN ? "UNDERDRIVEN" :
 							       (pwr_stat_a == ADI_APOLLO_CLK_PWR_OVERDRIVEN ? "OVERDRIVEN" : "UNUSED")));
-			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf), "Clock input power detection B: %s\n",
+			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "Clock input power detection B: %s\n",
 					!pwr_stat_b ? "GOOD" : (pwr_stat_b == ADI_APOLLO_CLK_PWR_UNDERDRIVEN ? "UNDERDRIVEN" :
 								(pwr_stat_b == ADI_APOLLO_CLK_PWR_OVERDRIVEN ? "OVERDRIVEN" : "UNUSED")));
 			break;
