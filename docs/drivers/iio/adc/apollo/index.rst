@@ -852,6 +852,8 @@ If the ADC and DAC does not have the same sampling frequency, writing will
 fail with -EINVAL.
 Consult the User Guide for all configuration requirements before enabling the loopback.
 
+.. _apollo ffh:
+
 Fast Frequency Hopping
 ^^^^^^^^^^^^^^^^^^^^^^
 
