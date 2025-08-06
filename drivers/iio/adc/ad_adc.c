@@ -362,7 +362,7 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 	unsigned int i, ctrl;
 
-	for (i = 0; i < indio_dev->masklength; i++) {
+	for (i = 0; i < iio_get_masklength(indio_dev); i++) {
 		ctrl = axiadc_read(st, ADI_REG_CHAN_CNTRL(i));
 
 		if (test_bit(i, scan_mask))
