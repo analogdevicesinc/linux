@@ -3980,6 +3980,7 @@ enum ad9088_debugfs_cmd {
 	DBGFS_DEV_CHIP_INFO,
 	DBGFS_DEV_TEMP_INFO,
 	DBGFS_HSCI_ENABLE,
+	DBFGS_NVM_CALDATA_FUSED,
 	DBGFS_CLK_PWR_STAT,
 	DBGFS_GENERIC,
 	DBGFS_JRX_PHASE_ADJUST_CALC,
@@ -4005,6 +4006,7 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 	ssize_t len = 0;
 	int ret, i, lane, prbs, duration;
 	u8 uuid[ADI_APOLLO_UUID_NUM_BYTES];
+	u8 nvm_caldata[4];
 	u16 api_rev[3];
 	u8 die_id;
 
@@ -4201,6 +4203,15 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			} else {
 				val = 0;
 			}
+			break;
+		case DBFGS_NVM_CALDATA_FUSED:
+			ret = adi_apollo_hal_bf_get(&phy->ad9088, BF_ADC_NVM_CALDATA_FUSED_INFO, nvm_caldata, 4);
+			if (ret)
+				break;
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "ADC_NVM_CALDATA_FUSED_INFO: %x\n", nvm_caldata[0]);
+			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "DAC_NVM_CALDATA_FUSED_INFO: %x\n", nvm_caldata[1]);
+			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "BF_SERDES_JRX_NVM_CALDATA_FUSED_INFO: %x\n", nvm_caldata[2]);
+			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "BF_SERDES_JTX_NVM_CALDATA_FUSED_INFO: %x\n", nvm_caldata[3]);
 			break;
 		default:
 			val = entry->val;
@@ -4510,6 +4521,8 @@ static int ad9088_post_iio_register(struct iio_dev *indio_dev)
 					 "hsci_enable", DBGFS_HSCI_ENABLE);
 		ad9088_add_debugfs_entry(indio_dev,
 					 "misc", DBGFS_GENERIC);
+		ad9088_add_debugfs_entry(indio_dev,
+					 "nvm_caldata_fused", DBFGS_NVM_CALDATA_FUSED);
 		ad9088_add_debugfs_entry(indio_dev,
 					 "jrx_phase_adjust_calc", DBGFS_JRX_PHASE_ADJUST_CALC);
 		ad9088_add_debugfs_entry(indio_dev,
