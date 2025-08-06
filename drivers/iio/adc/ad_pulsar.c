@@ -622,20 +622,19 @@ static int ad_pulsar_buffer(struct iio_dev *indio_dev,
 				  adc->info->num_channels);
 
 	last = find_last_bit(indio_dev->active_scan_mask,
-			     indio_dev->masklength);
+			     iio_get_masklength(indio_dev));
 
 	first = find_first_bit(indio_dev->active_scan_mask,
-			       indio_dev->masklength);
+			       iio_get_masklength(indio_dev));
 	if (num_en_ch > 1) {
 		second = find_next_bit(indio_dev->active_scan_mask,
-				       indio_dev->masklength,
+				       iio_get_masklength(indio_dev),
 				       first + 1);
 	}
 
 	spi_message_init(msg);
 
-	for_each_set_bit(ch, indio_dev->active_scan_mask,
-			 indio_dev->masklength) {
+	iio_for_each_active_channel(indio_dev, ch) {
 		active_ch[i] = ch;
 		i++;
 	}
