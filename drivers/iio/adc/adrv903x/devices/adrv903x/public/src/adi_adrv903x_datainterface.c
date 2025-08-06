@@ -7707,7 +7707,7 @@ static FILE* adrv903x_openSerdesCalStatusLogFile(const adi_adrv903x_GenericStrBu
             "b[],ps[],yVector[]\n");
     }
 
-    if (ferror(filePtr) != 0)
+    if (ADI_LIBRARY_FERROR(filePtr) != 0)
     {
         /* Open worked, write failed; Close file and return NULL. */
         ADI_LIBRARY_FCLOSE(filePtr);
