@@ -1041,7 +1041,7 @@ static int cf_axi_dds_update_scan_mode(struct iio_dev *indio_dev,
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	unsigned int i, sel;
 
-	for (i = 0; i < indio_dev->masklength; i++) {
+	for (i = 0; i < iio_get_masklength(indio_dev); i++) {
 
 		if (test_bit(i, scan_mask))
 			sel = DATA_SEL_DMA;
