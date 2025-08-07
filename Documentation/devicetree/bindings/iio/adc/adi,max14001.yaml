@@ -14,7 +14,7 @@ description:
   Bindings for the Analog Devices MAX14001-MAX14002 Configurable,
   Isolated 10-bit ADCs for Multi-Range Binary Inputs.
 
-  Datasheet can be found here:
+  Datasheet can be found here
     https://www.analog.com/media/en/technical-documentation/data-sheets/MAX14001-MAX14002.pdf
 
 properties:

@@ -103,50 +103,53 @@ struct max14001_state {
 
 static int max14001_spi_read(struct max14001_state *st, u16 reg, int *val)
 {
-	u16 rx, reversed;
-	u16 tx = 0;
+	u16 rx, tx = 0;
 	int ret;
-
-	dev_info(&st->spi->dev, "%s: reg: %x, val: %x\n", __func__, reg, *val);
 
 	tx |= FIELD_PREP(MAX14001_MASK_ADDR, reg);
 	tx |= FIELD_PREP(MAX14001_MASK_WR, MAX14001_REG_READ);
-	reversed = bitrev16(tx);
+	tx  = bitrev16(tx);
 
-	ret = spi_write_then_read(st->spi, &reversed, 2, &rx, 2);
-	if (ret < 0)
-		return ret;
+	struct spi_transfer xfer[] = {
+		{
+			.tx_buf = &tx,
+			.len = sizeof(tx),
+			.bits_per_word = 16,
+			.cs_change = 1,
+		},
+		{
+			.rx_buf = &rx,
+			.len = sizeof(rx),
+			.bits_per_word = 16,
+		},
+	};
+	ret = spi_sync_transfer(st->spi, xfer, ARRAY_SIZE(xfer));
 
-	/* TODO: Validate this line in the hw, could be le16_to_cpu */
-	reversed = bitrev16(be16_to_cpu(rx));
-	*val = FIELD_GET(MAX14001_MASK_DATA, reversed);
+	rx = bitrev16(rx);
+	*val = FIELD_GET(MAX14001_MASK_DATA, rx);
 
 	return ret;
 }
 
 static int max14001_spi_write(struct max14001_state *st, u16 reg, u16 val)
 {
-	struct spi_transfer xfer;
+	u16 tx = 0;
 	int ret;
-	u16 tx, reversed;
-	u16 msg = 0;
 
-	dev_info(&st->spi->dev, "%s: reg: %x, val: %x\n", __func__, reg, val);
+	tx |= FIELD_PREP(MAX14001_MASK_ADDR, reg);
+	tx |= FIELD_PREP(MAX14001_MASK_WR, MAX14001_REG_WRITE);
+	tx |= FIELD_PREP(MAX14001_MASK_DATA, val);
+	tx = bitrev16(tx);
 
-	msg |= FIELD_PREP(MAX14001_MASK_ADDR, reg);
-	msg |= FIELD_PREP(MAX14001_MASK_WR, MAX14001_REG_WRITE);
-	msg |= FIELD_PREP(MAX14001_MASK_DATA, val);
+	struct spi_transfer xfer[] = {
+		{
+			.tx_buf = &tx,
+			.len = sizeof(tx),
+			.bits_per_word = 16,
+		},
+	};
 
-	reversed = bitrev16(msg);
-	/* TODO: Validate this line in the hw, could be put_unaligned_le16 */
-	put_unaligned_be16(reversed, &tx);
-
-	xfer.tx_buf = &tx;
-	xfer.len = sizeof(tx);
-
-	dev_info(&st->spi->dev, "%s: msg: %x, tx: %x\n", __func__, msg, tx);
-
-	ret = spi_sync_transfer(st->spi, &xfer, 1);
+	ret = spi_sync_transfer(st->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret < 0)
 		return ret;
 
@@ -222,14 +225,12 @@ static int max14001_read_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		ret = max14001_spi_read(st, MAX14001_REG_ADC, val);
-		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_RAW: channel: %d, val: %d\n", __func__, chan->channel, *val);
 		if (ret < 0)
 			return ret;
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_AVERAGE_RAW:
 		ret = max14001_spi_read(st, MAX14001_REG_FADC, val);
-		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_AVERAGE_RAW: channel: %d, val: %d\n", __func__, chan->channel, *val);
 		if (ret < 0)
 			return ret;
 
@@ -237,7 +238,6 @@ static int max14001_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 		*val = st->vref_mv;
 		*val2 = 10;
-		dev_info(&st->spi->dev, "%s: IIO_CHAN_INFO_SCALE: val: %d, val2: %d\n", __func__, *val, *val2);
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 	}
@@ -277,8 +277,8 @@ static int max14001_probe(struct spi_device *spi)
 	struct device *dev = &spi->dev;
 	struct max14001_state *st;
 	struct iio_dev *indio_dev;
-	bool current_channel = false;
 	int ret;
+	bool current_channel = false;
 
 	info = spi_get_device_match_data(spi);
 	if (!dev)
@@ -307,18 +307,11 @@ static int max14001_probe(struct spi_device *spi)
 	ret = devm_regulator_get_enable_read_voltage(dev, "vrefin");
 	if (ret < 0) {
 		st->vref_mv = 1250000 / 1000;
-		dev_info(&st->spi->dev, "%s: vrefin not found. vref_mv %d\n", __func__, st->vref_mv);
 	} else {
 		st->vref_mv = ret / 1000;
-		dev_info(&st->spi->dev, "%s: vrefin found. vref_mv %d\n", __func__, st->vref_mv);
 	}
 
-	for_each_available_child_of_node_scoped(spi->dev.of_node, child) {
-		current_channel = of_property_read_bool(child, "current-channel");
-		if (current_channel)
-			break;
-	}
-
+	current_channel = device_property_read_bool(dev, "current-channel");
 	if (current_channel) {
 		indio_dev->channels = max14001_channel_current;
 		indio_dev->num_channels = ARRAY_SIZE(max14001_channel_current);
@@ -326,8 +319,6 @@ static int max14001_probe(struct spi_device *spi)
 		indio_dev->channels = max14001_channel_voltage;
 		indio_dev->num_channels = ARRAY_SIZE(max14001_channel_voltage);
 	}
-
-	dev_info(&st->spi->dev, "%s: probe\n", __func__);
 
 	/* Write the appropriate verification registers values to clear the
 	 * failed memory validation (MV Fault)

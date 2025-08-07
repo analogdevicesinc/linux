@@ -12,14 +12,16 @@
 
 / {
 	compatible = "brcm,bcm2712";
+};
 
+&{/} {
 	vdd: fixedregulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "Isolated DC-DC Power Supply Input Voltage";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		regulator-boot-on;
-		enable-active-high;
+		regulator-always-on;
 		status = "okay";
 	};
 
@@ -29,7 +31,7 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		regulator-boot-on;
-		enable-active-high;
+		regulator-always-on;
 		status = "okay";
 	};
 
@@ -39,7 +41,7 @@
 		regulator-min-microvolt = <1250000>;
 		regulator-max-microvolt = <1250000>;
 		regulator-boot-on;
-		enable-active-high;
+		regulator-always-on;
 		status = "okay";
 	};
 };
@@ -57,9 +59,9 @@
 	};
 	max14001_current_channel: max14001@1 {
 		compatible = "adi,max14001";
+		current-channel;
 		reg = <0x1>;
 		spi-max-frequency = <5000000>;
-		current-channel;
 		vdd-supply = <&vdd>;
 		vddl-supply = <&vddl>;
 		vrefin-supply = <&vrefin>;
