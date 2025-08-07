@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2025 Abhinav Jain
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,max22531.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX22530-MAX22532 12-bit Field Isolated ADCs
+
+maintainers:
+  - Abhinav Jain <jain.abhinav177@gmail.com>
+
+description:
+  Bindings for the Analog Devices Max22530-MAX22532 Field-Side Self-Powered,
+  4-Channel, 12-bit, Isolated ADCs.
+
+  Datasheet can be found here
+    https://www.analog.com/media/en/technical-documentation/data-sheets/max22530-max22532.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,max22530
+      - adi,max22531
+      - adi,max22532
+
+  reg:
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  vddl-supply:
+    description:
+      Logic power supply.
+
+  vddpl-supply:
+    description:
+      Isolated DC-DC converter power supply.
+
+  required:
+    - compatible
+    - reg
+    - vddl-supply
+    - vddpl-supply
+
+  allOf:
+    - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+  examples:
+    - |
+      spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        max22531: adc@0 {
+          compatible = "adi,max22531";
+          reg = <0>;
+          spi-max-frequency = <5000000>;
+          vddl-supply = <&vddl>;
+          vddpl-supply = <&vddpl>;
+        };
+      };
