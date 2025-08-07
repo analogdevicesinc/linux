@@ -18,6 +18,8 @@
 #include <dt-bindings/iio/frequency/hmc7044.h>
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 
+#define fmc_gpio_base (-32)
+
 / {
 	clocks {
 		sys_clk: sys_clk {
@@ -176,6 +178,8 @@
 		clock-names = "sampl_clk";
 		spibus-connected = <&trx0_ad9081>;
 
+		plddrbypass-gpios = <&sys_gpio_out (fmc_gpio_base + 60) 0>;
+
 		jesd204-device;
 		#jesd204-cells = <2>;
 		jesd204-inputs = <&axi_ad9081_tx_jesd 0 DEFRAMER_LINK0_TX>;
@@ -296,8 +300,6 @@
 		jesd204-inputs =
 			<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
 			<&axi_ad9081_core_tx 0 DEFRAMER_LINK0_TX>;
-
-		#define fmc_gpio_base (-32)
 
 		reset-gpios =         <&sys_gpio_out (fmc_gpio_base + 55) 0>;
 		sysref-req-gpios =    <&sys_gpio_out (fmc_gpio_base + 54) 0>;
