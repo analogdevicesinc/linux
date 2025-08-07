@@ -173,7 +173,6 @@
 			"Speaker", "TX";
 
 		simple-audio-card,dai-link@0 {
-			format = "spdif";
 			cpu {
 				sound-dai = <&axi_spdif_tx_0>;
 				frame-master;
