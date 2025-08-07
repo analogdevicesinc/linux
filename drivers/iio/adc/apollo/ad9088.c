@@ -4027,6 +4027,8 @@ enum ad9088_debugfs_cmd {
 	DBGFS_DEV_TEMP_INFO,
 	DBGFS_HSCI_ENABLE,
 	DBFGS_NVM_CALDATA_FUSED,
+	DBFGS_NVM_CALDATA,
+	DBFGS_CALDATA,
 	DBGFS_CLK_PWR_STAT,
 	DBGFS_GENERIC,
 	DBGFS_JRX_PHASE_ADJUST_CALC,
@@ -4055,6 +4057,7 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 	u8 nvm_caldata[4];
 	u16 api_rev[3];
 	u8 die_id;
+	u8 *buf;
 
 	if (*ppos)
 		return 0;
@@ -4258,6 +4261,23 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "DAC_NVM_CALDATA_FUSED_INFO: %x\n", nvm_caldata[1]);
 			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "BF_SERDES_JRX_NVM_CALDATA_FUSED_INFO: %x\n", nvm_caldata[2]);
 			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "BF_SERDES_JTX_NVM_CALDATA_FUSED_INFO: %x\n", nvm_caldata[3]);
+			break;
+		case DBFGS_NVM_CALDATA:
+		case DBFGS_CALDATA:
+			if (entry->cmd == DBFGS_NVM_CALDATA)
+				buf = phy->nvm_adc_cal;
+			else
+				buf = phy->adc_cal;
+			if (!buf)
+				return -EFAULT;
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "ADC Cal data total lenght: %zu\n", phy->adc_cal_len);
+			if (sizeof(phy->dbuf) - len <= phy->adc_cal_len)
+				return -ENOMEM;
+			for (u32 i = 0; i < phy->adc_cal_len ; i++) {
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "%x", buf[i]);
+			}
+			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "\n");
 			break;
 		default:
 			val = entry->val;
@@ -4569,6 +4589,10 @@ static int ad9088_post_iio_register(struct iio_dev *indio_dev)
 					 "misc", DBGFS_GENERIC);
 		ad9088_add_debugfs_entry(indio_dev,
 					 "nvm_caldata_fused", DBFGS_NVM_CALDATA_FUSED);
+		ad9088_add_debugfs_entry(indio_dev,
+					 "nvm_caldata", DBFGS_NVM_CALDATA);
+		ad9088_add_debugfs_entry(indio_dev,
+					 "caldata", DBFGS_CALDATA);
 		ad9088_add_debugfs_entry(indio_dev,
 					 "jrx_phase_adjust_calc", DBGFS_JRX_PHASE_ADJUST_CALC);
 		ad9088_add_debugfs_entry(indio_dev,
@@ -5305,6 +5329,43 @@ static int ad9088_jesd204_setup_stage1(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
+static int ad9088_adc_cal_data_to_buf(struct ad9088_phy *phy, u8 **buf, size_t *len_)
+{
+	u16 adc_cal_chans;
+	u8 mode, adc_num;
+	u32 total_len = 0;
+	u32 len;
+	int ret;
+	u8 *buf_;
+
+	adc_cal_chans = phy->ad9088.dev_info.is_8t8r ? ADI_APOLLO_ADC_ALL : ADI_APOLLO_ADC_ALL_4T4R;
+
+	for (mode = 0; mode < 2; mode++) {
+		ret = adi_apollo_cfg_adc_cal_data_len_get(&phy->ad9088, mode, &len);
+		if (ret)
+			return -EFAULT;
+		total_len += len;
+	}
+	total_len *= phy->ad9088.dev_info.is_8t8r ? 8 : 4;
+
+	*buf = kmalloc(total_len, GFP_KERNEL);
+	buf_ = *buf;
+	for (mode = 0; mode < 2; mode++) {
+		for (adc_num = 0; adc_num < ADI_APOLLO_ADC_NUM; adc_num++) {
+			if (adc_cal_chans & (ADI_APOLLO_ADC_A0 << adc_num)) {
+				ret =  adi_apollo_cfg_adc_cal_data_get(&phy->ad9088, (ADI_APOLLO_ADC_A0 << adc_num), mode, buf_, len);
+				if (ret)
+					break;
+				buf_ += len;
+			}
+		}
+	}
+
+	if (len_)
+		*len_ = total_len;
+	return 0;
+}
+
 static int ad9088_jesd204_setup_stage2(struct jesd204_dev *jdev,
 				       enum jesd204_state_op_reason reason)
 {
@@ -5333,6 +5394,8 @@ static int ad9088_jesd204_setup_stage2(struct jesd204_dev *jdev,
 			dev_err(dev, "Error in adi_apollo_clk_mcs_dyn_sync_rxtxlinks_sequence_run %d\n", ret);
 			return ret;
 		}
+
+		ad9088_adc_cal_data_to_buf(phy, &phy->adc_cal, NULL);
 	}
 
 	return JESD204_STATE_CHANGE_DONE;
@@ -6538,6 +6601,8 @@ static int ad9088_probe(struct spi_device *spi)
 
 	ad9088_gpio_setup(phy);
 
+	ad9088_adc_cal_data_to_buf(phy, &phy->nvm_adc_cal, &phy->adc_cal_len);
+
 	ret = jesd204_fsm_start(jdev, JESD204_LINKS_ALL);
 	if (ret)
 		goto out_clk_del_provider;
@@ -6559,6 +6624,9 @@ static void ad9088_remove(struct spi_device *spi)
 
 	if (phy->standalone || !jesd204_dev_is_top(phy->jdev))
 		iio_device_unregister(conv->indio_dev);
+
+	kfree(phy->nvm_adc_cal);
+	kfree(phy->adc_cal);
 
 	clk_disable_unprepare(phy->dev_clk);
 	of_clk_del_provider(spi->dev.of_node);

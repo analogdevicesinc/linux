@@ -292,10 +292,14 @@ struct ad9088_phy {
 
 	u8 hsci_buf[ADI_APOLLO_HAL_REGIO_HSCI_STREAM_DEFAULT_SIZE];
 	u8 gpios_exported[ADI_APOLLO_NUM_GPIO];
-	char dbuf[1024];
+	char dbuf[60000];
 
 	u8 loopback_mode[ADI_APOLLO_NUM_SIDES];
 	u8 lb1_blend[ADI_APOLLO_NUM_SIDES];
+
+	u8 *nvm_adc_cal;
+	u8 *adc_cal;
+	size_t adc_cal_len;
 };
 
 extern int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
