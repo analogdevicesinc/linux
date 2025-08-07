@@ -720,7 +720,7 @@ compile_gcc_fanalyzer () {
 	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
-	local fail=0
+	local warn=0
 
 	echo "recompile with gcc fanalyzer flag on range $base_sha..$head_sha"
 
@@ -739,7 +739,7 @@ compile_gcc_fanalyzer () {
 				      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
 			if [[ -z "$compile_cmd" ]]; then
 				echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
-				fail=1
+				warn=1
 				continue
 			fi
 
@@ -771,7 +771,7 @@ compile_gcc_fanalyzer () {
 					if [[ "$type" == "note" ]]; then
 						echo $row
 					else
-						fail=1
+						warn=1
 						found=1
 						msg="::$type file=$file,line=$line,col=$col::gcc_fanalayzer: $msg_"
 					fi
@@ -795,7 +795,8 @@ compile_gcc_fanalyzer () {
 
 	done <<< "$files"
 
-	return $fail
+	_set_step_warn $warn
+	return 0
 }
 
 compile_clang_analyzer () {
