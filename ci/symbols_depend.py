@@ -9,6 +9,7 @@ from glob import glob
 import re
 
 debug = False
+debug_blocks = False
 
 symbols_ = set()
 deps_ = set()
@@ -106,6 +107,8 @@ def find_symbol_block(symbol, kconfig_path):
         elif re.match(rf'(menu)?config\s+{symbol}\b', line.strip()):
             in_block = True
             block = [line]
+            if debug:
+                print(f"{kconfig_path}: Found '{symbol}'", file=stderr)
     return ''.join(block) if block else None
 
 
@@ -121,6 +124,48 @@ def filter_symbols(symbols):
             and not sym.startswith('CPU_')}
 
 
+def extract_tristate(kconfig_path, symbol, symbol_block):
+    """
+    If a symbol is a tristate, look for symbols that selects it in the same
+    kconfig.
+    """
+    tristate = re.findall(r'tristate', symbol_block)
+    if not tristate:
+        return []
+
+    if debug:
+        print(f"{kconfig_path}: Looking for block that selects '{symbol}'",
+              file=stderr)
+    with open(kconfig_path) as f:
+        lines = f.readlines()
+
+    deps = []
+    block = []
+    in_block = False
+    c_symbol = None
+    for line in lines:
+        if in_block:
+            if not re.match(r'^(?:\s+|\s*$)', line):
+                in_block = False
+                block = []
+            else:
+                match = re.match(rf'select\s+{symbol}\b', line.strip())
+                if match:
+                    if debug:
+                        print(f"{kconfig_path}: {c_symbol} selects {symbol}",
+                              file=stderr)
+                    deps.append(c_symbol)
+                block.append(line)
+        else:
+            match = re.match(r'(?:menu)?config\s+(.+)\b', line.strip())
+            if match:
+                c_symbol = match.group(1)
+                in_block = True
+                block = [line]
+
+    return deps
+
+
 def extract_dependencies(symbol_block, if_blocks):
     depends = re.findall(r'depends on\s+(.+)', symbol_block)
     all_conds = depends + if_blocks
@@ -132,7 +177,7 @@ def extract_dependencies(symbol_block, if_blocks):
     deps = {sym[:-2] if sym.endswith('=y') else sym
             for sym in deps
             if not sym.endswith('=n') and not sym.startswith('!')}
-    return filter_symbols(deps)
+    return deps
 
 
 def get_symbol_dependencies(symbol, path_to_kconfig_dir):
@@ -142,7 +187,12 @@ def get_symbol_dependencies(symbol, path_to_kconfig_dir):
     if not block:
         print(f"Symbol {symbol} not found in {kconfig_file}", file=stderr)
         return []
-    return extract_dependencies(block, if_blocks)
+    if debug and debug_blocks:
+        print(block, file=stderr)
+    deps = []
+    deps.extend(extract_tristate(kconfig_file, symbol, block))
+    deps.extend(extract_dependencies(block, if_blocks))
+    return filter_symbols(deps)
 
 
 def get_top_level_kconfig(symbol):
@@ -168,6 +218,7 @@ def resolve_tree(symbol, path):
                 if max_recursion:
                     resolve_tree(s, kconfig)
                 deps_.add(s)
+
 
 def get_top_level_symbol_for(mk):
     """
@@ -203,6 +254,7 @@ def get_top_level_symbol_for(mk):
             return (match.group(1), None)
 
     return (None, None)
+
 
 def get_makefile_symbol_and_obj(mk, obj, l_obj):
     """
