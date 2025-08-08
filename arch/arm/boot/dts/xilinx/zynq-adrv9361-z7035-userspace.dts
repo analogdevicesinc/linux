@@ -12,6 +12,7 @@
  */
 /dts-v1/;
 #include "zynq.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "Analog Devices ADRV9361-Z7035";
@@ -53,7 +54,7 @@
 };
 
 &usb0 {
-	xlnx,phy-reset-gpio = <&gpio0 7 0>;
+	xlnx,phy-reset-gpio = <&gpio0 7 GPIO_ACTIVE_LOW>;
 };
 
 &qspi {

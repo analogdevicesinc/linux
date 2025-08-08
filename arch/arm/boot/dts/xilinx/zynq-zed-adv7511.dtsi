@@ -326,5 +326,5 @@
 };
 
 &usb0 {
-	xlnx,phy-reset-gpio = <&gpio0 85 GPIO_ACTIVE_HIGH>;
+	xlnx,phy-reset-gpio = <&gpio0 85 GPIO_ACTIVE_LOW>;
 };
