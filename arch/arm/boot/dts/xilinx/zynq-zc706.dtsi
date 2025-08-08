@@ -3,6 +3,7 @@
 
 #include "zynq.dtsi"
 
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
@@ -77,7 +78,7 @@
 };
 
 &usb0 {
-	xlnx,phy-reset-gpio = <&gpio0 7 0>;
+	xlnx,phy-reset-gpio = <&gpio0 7 GPIO_ACTIVE_LOW>;
 };
 
 &qspi {
