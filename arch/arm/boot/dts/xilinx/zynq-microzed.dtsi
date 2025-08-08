@@ -2,6 +2,7 @@
 /* Copyright (C) 2024 Analog Devices Inc. */
 
 #include "zynq.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "Avnet MicroZed";
@@ -34,7 +35,7 @@
 };
 
 &usb0 {
-	xlnx,phy-reset-gpio = <&gpio0 7 0>;
+	xlnx,phy-reset-gpio = <&gpio0 7 GPIO_ACTIVE_LOW>;
 };
 
 &qspi {
