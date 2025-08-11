@@ -43,6 +43,7 @@ patternProperties:
           identify one device.
 
       adi,phasetable-name:
+        $ref: /schemas/types.yaml#/definitions/string
         description:
           The name specified here will be used by the device to load a custom
           phase table using the firmware load feature. The user can determine
