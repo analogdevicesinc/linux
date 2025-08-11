@@ -54,27 +54,55 @@ typedef time64_t time_t;
 #define ADI_LIBRARY_OFFSETOF                            offsetof
 
 /* stdio.h */
+#ifndef __KERNEL__
 #define ADI_LIBRARY_PRINTF                              printf
 #define ADI_LIBRARY_FPRINTF                             fprintf
+#else
+#define ADI_LIBRARY_PRINTF                              printk
+#define ADI_LIBRARY_FPRINTF                             adrv903x_fprintf
+#endif
 #define ADI_LIBRARY_SPRINTF                             sprintf
 #define ADI_LIBRARY_SNPRINTF                            snprintf
 #define ADI_LIBRARY_VPRINTF                             vprintf
 #define ADI_LIBRARY_VSNPRINTF                           vsnprintf
+#ifndef __KERNEL__
 #define ADI_LIBRARY_FFLUSH                              fflush
 #define ADI_LIBRARY_FSEEK                               fseek
 #define ADI_LIBRARY_FREAD                               fread
 #define ADI_LIBRARY_FWRITE                              fwrite
+#else
+#define ADI_LIBRARY_FFLUSH                              adrv903x_fflush
+#define ADI_LIBRARY_FSEEK                               adrv903x_fseek
+#define ADI_LIBRARY_FREAD                               adrv903x_fread
+#define ADI_LIBRARY_FWRITE                              adrv903x_fwrite
+#endif
+
 #define ADI_LIBRARY_FOPEN                               fopen
 #define ADI_LIBRARY_FOPEN_S                             fopen_s
+#ifndef __KERNEL__
 #define ADI_LIBRARY_FCLOSE                              fclose
 #define ADI_LIBRARY_FTELL                               ftell
 #define ADI_LIBRARY_FERROR                              ferror
+#else
+#define ADI_LIBRARY_FCLOSE                              adrv903x_fclose
+#define ADI_LIBRARY_FTELL                               adrv903x_ftell
+#define ADI_LIBRARY_FERROR                              adrv903x_ferror
+#endif
 #define ADI_LIBRARY_SETVBUF                             setvbuf
+#ifndef __KERNEL__
 #define ADI_LIBRARY_FGETS                               fgets
+#else
+#define ADI_LIBRARY_FGETS                               adrv903x_fgets
+#endif
 
 /* stdlib.h */
+#ifndef __KERNEL__
 #define ADI_LIBRARY_CALLOC                              calloc
 #define ADI_LIBRARY_FREE                                free
+#else
+#define ADI_LIBRARY_CALLOC                              __adrv903x_calloc
+#define ADI_LIBRARY_FREE                                kfree
+#endif
 #define ADI_LIBRARY_RAND                                rand
 #define ADI_LIBRARY_EXIT                                exit
 #define ADI_LIBRARY_ABS                                 abs
@@ -116,7 +144,11 @@ typedef time64_t time_t;
 
 /* time.h */
 
+#ifndef __KERNEL__
 #define ADI_LIBRARY_TIME                                time
+#else
+#define ADI_LIBRARY_TIME                                adrv903x_time
+#endif
 #define ADI_LIBRARY_LOCALTIME_R                         localtime_r
 #define ADI_LIBRARY_MKTIME                              mktime
 #define ADI_LIBRARY_CTIME                               ctime
@@ -139,7 +171,7 @@ typedef time64_t time_t;
  * it gives a pointer to an array and not an actual array so be careful using sizeof() with it, or
  * taking its address!
  */
-/*#define ADI_PLATFORM_LARGE_VARS_ON_HEAP*/
+#define ADI_PLATFORM_LARGE_VARS_ON_HEAP
 
 #ifdef ADI_PLATFORM_LARGE_VARS_ON_HEAP
 
