@@ -30,24 +30,24 @@
  */
 
 /* Initialization interface to open, init, close drivers and pointers to resources */
-adi_hal_Err_e (*adi_hal_HwOpen)(void* const devHalCfg)                          = NULL;
+adi_hal_Err_e (*adrv903x_HwOpen)(void* const devHalCfg)                          = NULL;
 
-adi_hal_Err_e (*adi_hal_HwClose)(void* const devHalCfg)                         = NULL;
+adi_hal_Err_e (*adrv903x_HwClose)(void* const devHalCfg)                         = NULL;
 
-adi_hal_Err_e (*adi_hal_HwReset)(void* const devHalCfg, const uint8_t pinLevel) = NULL;
+adi_hal_Err_e (*adrv903x_HwReset)(void* const devHalCfg, const uint8_t pinLevel) = NULL;
 
-void*         (*adi_hal_DevHalCfgCreate)(   const uint32_t      interfaceMask,
+void*         (*adrv903x_DevHalCfgCreate)(   const uint32_t      interfaceMask,
                                             const uint8_t       spiChipSelect,
                                             const char* const   logFilename)    = NULL;
 
-adi_hal_Err_e (*adi_hal_DevHalCfgFree)(void* devHalCfg)                         = NULL;
+adi_hal_Err_e (*adrv903x_DevHalCfgFree)(void* devHalCfg)                         = NULL;
 
 /* SPI Interface */
-adi_hal_Err_e (*adi_hal_SpiWrite)(  void* const     devHalCfg,
+adi_hal_Err_e (*adrv903x_SpiWrite)(  void* const     devHalCfg,
                                     const uint8_t   txData[],
                                     const uint32_t  numTxBytes) = NULL;
 
-adi_hal_Err_e (*adi_hal_SpiRead)(   void* const     devHalCfg,
+adi_hal_Err_e (*adrv903x_SpiRead)(   void* const     devHalCfg,
                                     const uint8_t   txData[],
                                     uint8_t         rxData[],
                                     const uint32_t  numRxBytes) = NULL;
@@ -64,13 +64,13 @@ adi_hal_Err_e(*adi_hal_I2cRead)(    void* const     devHalCfg,
                                     const uint32_t  numRxBytes) = NULL;
 
 /* Logging interface */
-adi_hal_Err_e (*adi_hal_LogFileOpen)(   void* const         devHalCfg,
+adi_hal_Err_e (*adrv903x_LogFileOpen)(   void* const         devHalCfg,
                                         const char* const   filename)   = NULL;
 
-adi_hal_Err_e (*adi_hal_LogLevelSet)(   void* const     devHalCfg,
+adi_hal_Err_e (*adrv903x_LogLevelSet)(   void* const     devHalCfg,
                                         const uint32_t  logLevelMask)   = NULL;
 
-adi_hal_Err_e (*adi_hal_LogLevelGet)(   void* const     devHalCfg,
+adi_hal_Err_e (*adrv903x_LogLevelGet)(   void* const     devHalCfg,
                                         uint32_t* const logLevelMask)   = NULL;
 
 adi_hal_Err_e (*adi_hal_LogStatusGet)(  void* const                     devHalCfg,
@@ -79,17 +79,17 @@ adi_hal_Err_e (*adi_hal_LogStatusGet)(  void* const                     devHalCf
 adi_hal_Err_e (*adi_hal_LogConsoleSet)( void* const devHalCfg,
                                         const adi_hal_LogConsole_e  logConsoleFlag) = NULL;
 
-adi_hal_Err_e (*adi_hal_LogWrite)(  void* const                 devHalCfg,
+adi_hal_Err_e (*adrv903x_LogWrite)( void* const                 devHalCfg,
                                     const adi_hal_LogLevel_e    logLevel,
                                     const uint8_t               indent,
                                     const char* const           comment,
                                     va_list                     argp)   = NULL;
 
-adi_hal_Err_e (*adi_hal_LogFileClose)(void* const devHalCfg) = NULL;
+adi_hal_Err_e (*adrv903x_LogFileClose)(void* const devHalCfg) = NULL;
 
 /* Timer interface */
-adi_hal_Err_e (*adi_hal_Wait_ms)(void* const devHalCfg, const uint32_t time_ms) = NULL;
-adi_hal_Err_e (*adi_hal_Wait_us)(void* const devHalCfg, const uint32_t time_us) = NULL;
+adi_hal_Err_e (*adrv903x_Wait_ms)(void* const devHalCfg, const uint32_t time_ms) = NULL;
+adi_hal_Err_e (*adrv903x_Wait_us)(void* const devHalCfg, const uint32_t time_us) = NULL;
 
 /* BBIC control interface */
 adi_hal_Err_e (*adi_hal_BbicRegisterRead)(  void* const     devHalCfg,
@@ -113,19 +113,19 @@ adi_hal_Err_e (*adi_hal_BbicRegistersWrite)(void* const     devHalCfg,
 /* Thread Interface */
 adi_hal_thread_t (*adi_hal_ThreadSelf)(void) = NULL;
 
-adi_hal_Err_e (*adi_hal_TlsSet)(const adi_hal_TlsType_e tlsType, void* const value) = NULL;
+adi_hal_Err_e (*adrv903x_TlsSet)(const adi_hal_TlsType_e tlsType, void* const value) = NULL;
 
-void* (*adi_hal_TlsGet)(const adi_hal_TlsType_e tlsType) = NULL;
+void* (*adrv903x_TlsGet)(const adi_hal_TlsType_e tlsType) = NULL;
 
 /* Mutex Interface */
-adi_hal_Err_e(*adi_hal_MutexInit)(adi_hal_mutex_t* const mutex) = NULL;
-adi_hal_Err_e(*adi_hal_MutexLock)(adi_hal_mutex_t* const mutex) = NULL;
-adi_hal_Err_e(*adi_hal_MutexUnlock)(adi_hal_mutex_t* const mutex) = NULL;
-adi_hal_Err_e(*adi_hal_MutexDestroy)(adi_hal_mutex_t* const mutex) = NULL;
+adi_hal_Err_e(*adrv903x_MutexInit)(adi_hal_mutex_t* const mutex) = NULL;
+adi_hal_Err_e(*adrv903x_MutexLock)(adi_hal_mutex_t* const mutex) = NULL;
+adi_hal_Err_e(*adrv903x_MutexUnlock)(adi_hal_mutex_t* const mutex) = NULL;
+adi_hal_Err_e(*adrv903x_MutexDestroy)(adi_hal_mutex_t* const mutex) = NULL;
 
 adi_hal_Err_e(*adi_hal_BoardIdentify)(char** boardNames, int32_t* numBoards) = NULL;
 
-ADI_API adi_hal_Err_e adi_hal_PlatformSetup(const adi_hal_Platforms_e platform)
+ADI_API adi_hal_Err_e adi_adrv903x_hal_PlatformSetup(const adi_hal_Platforms_e platform)
 {
     adi_hal_Err_e error = ADI_HAL_ERR_PARAM;
 
@@ -133,32 +133,32 @@ ADI_API adi_hal_Err_e adi_hal_PlatformSetup(const adi_hal_Platforms_e platform)
     {
     case ADI_ADS10_PLATFORM:
 #ifdef _ADI_ADS10_PLATFORM
-        adi_hal_HwOpen = ads10_HwOpen;
-        adi_hal_HwClose = ads10_HwClose;
-        adi_hal_HwReset = ads10_HwReset;
-        adi_hal_DevHalCfgCreate = ads10_DevHalCfgCreate;
-        adi_hal_DevHalCfgFree = ads10_DevHalCfgFree;
+        adrv903x_HwOpen = ads10_HwOpen;
+        adrv903x_HwClose = ads10_HwClose;
+        adrv903x_HwReset = ads10_HwReset;
+        adrv903x_DevHalCfgCreate = ads10_DevHalCfgCreate;
+        adrv903x_DevHalCfgFree = ads10_DevHalCfgFree;
 
 #ifdef ADI_ADRV903X_SPI_DEV_DRIVER_EN
-        adi_hal_SpiWrite = ads10_SpiWrite;
-        adi_hal_SpiRead = ads10_SpiRead;
+        adrv903x_SpiWrite = ads10_SpiWrite;
+        adrv903x_SpiRead = ads10_SpiRead;
 #else
-        adi_hal_SpiWrite = ads10_SpiWrite_v2;
-        adi_hal_SpiRead = ads10_SpiRead_v2;
+        adrv903x_SpiWrite = ads10_SpiWrite_v2;
+        adrv903x_SpiRead = ads10_SpiRead_v2;
 #endif
         adi_hal_I2cWrite = NULL; /* ADS10 does not require I2C interface to any devices used in device API layer */
         adi_hal_I2cRead = NULL;  /* ADS10 does not require I2C interface to any devices used in device API layer */
 
-        adi_hal_LogFileOpen     = adi_LogFileOpen;
-        adi_hal_LogLevelSet     = adi_LogLevelSet;
-        adi_hal_LogLevelGet     = adi_LogLevelGet;
+        adrv903x_LogFileOpen     = adi_LogFileOpen;
+        adrv903x_LogLevelSet     = adi_LogLevelSet;
+        adrv903x_LogLevelGet     = adi_LogLevelGet;
         adi_hal_LogStatusGet    = adi_LogStatusGet;
         adi_hal_LogConsoleSet   = adi_LogConsoleSet;
-        adi_hal_LogWrite        = adi_LogWrite;
-        adi_hal_LogFileClose    = adi_LogFileClose;
+        adrv903x_LogWrite        = adi_LogWrite;
+        adrv903x_LogFileClose    = adi_LogFileClose;
 
-        adi_hal_Wait_us = ads10_TimerWait_us;
-        adi_hal_Wait_ms = ads10_TimerWait_ms;
+        adrv903x_Wait_us = ads10_TimerWait_us;
+        adrv903x_Wait_ms = ads10_TimerWait_ms;
 
         /* only required to support the ADI FPGA*/
         adi_hal_BbicRegisterRead   = ads10_BbicRegisterRead;
@@ -167,19 +167,46 @@ ADI_API adi_hal_Err_e adi_hal_PlatformSetup(const adi_hal_Platforms_e platform)
         adi_hal_BbicRegistersWrite = ads10_BbicRegistersWrite;
 
         adi_hal_ThreadSelf = posix_ThreadSelf;
-        adi_hal_TlsGet = common_TlsGet;
-        adi_hal_TlsSet = common_TlsSet;
-        adi_hal_MutexInit = posix_MutexInit;
-        adi_hal_MutexLock = posix_MutexLock;
-        adi_hal_MutexUnlock = posix_MutexUnlock;
-        adi_hal_MutexDestroy = posix_MutexDestroy;
+        adrv903x_TlsGet = common_TlsGet;
+        adrv903x_TlsSet = common_TlsSet;
+        adrv903x_MutexInit = posix_MutexInit;
+        adrv903x_MutexLock = posix_MutexLock;
+        adrv903x_MutexUnlock = posix_MutexUnlock;
+        adrv903x_MutexDestroy = posix_MutexDestroy;
         adi_hal_BoardIdentify = ads10_BoardIdentify;
         error = common_TlsInit();
 #else
         error = ADI_HAL_ERR_NOT_IMPLEMENTED;
 #endif
         break;
-                default:
+    case ADI_LINUX:
+        adrv903x_HwOpen = linux_adrv903x_HwOpen;
+        adrv903x_HwClose = linux_adrv903x_HwClose;
+        adrv903x_HwReset = linux_adrv903x_HwReset;
+
+        adrv903x_SpiWrite = linux_adrv903x_SpiWrite;
+        adrv903x_SpiRead = linux_adrv903x_SpiRead;
+
+        adrv903x_LogFileOpen = linux_adrv903x_LogFileOpen;
+        adrv903x_LogLevelSet = linux_adrv903x_LogLevelSet;
+        adrv903x_LogLevelGet = linux_adrv903x_LogLevelGet;
+        adrv903x_LogWrite  = linux_adrv903x_LogWrite;
+        adrv903x_LogFileClose  = linux_adrv903x_LogFileClose;
+
+        adrv903x_Wait_us = linux_adrv903x_TimerWait_us;
+        adrv903x_Wait_ms = linux_adrv903x_TimerWait_ms;
+
+        adrv903x_TlsGet = linux_adrv903x_TlsGet;
+        adrv903x_TlsSet = linux_adrv903x_TlsSet;
+
+        adrv903x_MutexInit = linux_adrv903x_MutexInit;
+        adrv903x_MutexLock = linux_adrv903x_MutexLock;
+        adrv903x_MutexUnlock = linux_adrv903x_MutexUnlock;
+        adrv903x_MutexDestroy = linux_adrv903x_MutexDestroy;
+
+        error = ADI_HAL_ERR_OK;
+        break;
+    default:
             error = ADI_HAL_ERR_PARAM;
             break;
     }
