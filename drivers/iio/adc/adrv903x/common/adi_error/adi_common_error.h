@@ -256,7 +256,7 @@ if (ptr == NULL)                            \
     adi_common_Device_t commonDev;                                              \
     ADI_LIBRARY_MEMSET(&commonDev, 0, sizeof(adi_common_Device_t));             \
                                                                                 \
-    commonDev.errPtr = (adi_common_ErrData_t*) adi_hal_TlsGet(HAL_TLS_ERR);     \
+    commonDev.errPtr = (adi_common_ErrData_t*) adrv903x_TlsGet(HAL_TLS_ERR);    \
                                                                                 \
                 ADI_ERROR_REPORT(   &commonDev,                                 \
                                     ADI_COMMON_ERRSRC_APP,                      \
