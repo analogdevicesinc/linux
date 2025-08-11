@@ -40,7 +40,8 @@ properties:
 
   jesd204-inputs:
     description: JESD204-fsm devices phandles and specifiers (used to build the link topology)
-    $ref: /schemas/types.yaml#/definitions/phandle
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+    maxItems: 1
 
   spi-max-frequency:
     const: 1000000
@@ -143,41 +144,41 @@ properties:
 
   adi,octets-per-frame:
     description: Number of octets per frame (F)
-    $ref: /schemas/types.yaml#/definitions/uint8
+    $ref: /schemas/types.yaml#/definitions/uint32
 
   adi,frames-per-multiframe:
     description: Number of frames per multi-frame (K)
-    $ref: /schemas/types.yaml#/definitions/uint16
+    $ref: /schemas/types.yaml#/definitions/uint32
 
   adi,converter-resolution:
     description: Converter resolution (N)
-    $ref: /schemas/types.yaml#/definitions/uint8
+    $ref: /schemas/types.yaml#/definitions/uint32
 
   adi,bits-per-sample:
     description: Number of bits per sample (N')
-    $ref: /schemas/types.yaml#/definitions/uint8
+    $ref: /schemas/types.yaml#/definitions/uint32
 
   adi,converters-per-device:
     description: Number of converter per device (M)
-    $ref: /schemas/types.yaml#/definitions/uint8
+    $ref: /schemas/types.yaml#/definitions/uint32
 
   adi,control-bits-per-sample:
     description: Number of control bits per conversion sample (CS)
-    $ref: /schemas/types.yaml#/definitions/uint8
+    $ref: /schemas/types.yaml#/definitions/uint32
 
   adi,lanes-per-device:
     description: Number of lanes per link (L)
-    $ref: /schemas/types.yaml#/definitions/uint8
+    $ref: /schemas/types.yaml#/definitions/uint32
 
   adi,subclass:
     description: The JESD204B sublcass
-    $ref: /schemas/types.yaml#/definitions/uint8
+    $ref: /schemas/types.yaml#/definitions/uint32
 
 required:
   - compatible
   - reg
   - jesd204-device
-  - '#jesd-cells'
+  - '#jesd204-cells'
   - jesd204-top-device
   - jesd204-link-ids
   - jesd204-inputs
@@ -206,7 +207,6 @@ examples:
         spi-max-frequency = <1000000>;
         clocks = <&ad9528 13>;
         clock-names = "adc_ref_clk";
-        adi,sampling-frequency-hz = /bits/ 64 <125000000>;
 
         /* adi_ad9083 config */
 
