@@ -66,7 +66,7 @@ impl<T: drm::Driver> Device<T> {
         open: Some(drm::File::<T::File>::open_callback),
         postclose: Some(drm::File::<T::File>::postclose_callback),
         unload: None,
-        release: None,
+        release: Some(Self::release),
         master_set: None,
         master_drop: None,
         debugfs_init: None,
@@ -154,13 +154,23 @@ impl<T: drm::Driver> Device<T> {
     /// Additionally, callers must ensure that the `struct device`, `ptr` is pointing to, is
     /// embedded in `Self`.
     #[doc(hidden)]
-    pub unsafe fn as_ref<'a>(ptr: *const bindings::drm_device) -> &'a Self {
+    pub unsafe fn from_raw<'a>(ptr: *const bindings::drm_device) -> &'a Self {
         // SAFETY: By the safety requirements of this function `ptr` is a valid pointer to a
         // `struct drm_device` embedded in `Self`.
         let ptr = unsafe { Self::from_drm_device(ptr) };
 
         // SAFETY: `ptr` is valid by the safety requirements of this function.
         unsafe { &*ptr.cast() }
+    }
+
+    extern "C" fn release(ptr: *mut bindings::drm_device) {
+        // SAFETY: `ptr` is a valid pointer to a `struct drm_device` and embedded in `Self`.
+        let this = unsafe { Self::from_drm_device(ptr) };
+
+        // SAFETY:
+        // - When `release` runs it is guaranteed that there is no further access to `this`.
+        // - `this` is valid for dropping.
+        unsafe { core::ptr::drop_in_place(this) };
     }
 }
 
@@ -190,7 +200,7 @@ impl<T: drm::Driver> AsRef<device::Device> for Device<T> {
     fn as_ref(&self) -> &device::Device {
         // SAFETY: `bindings::drm_device::dev` is valid as long as the DRM device itself is valid,
         // which is guaranteed by the type invariant.
-        unsafe { device::Device::as_ref((*self.as_raw()).dev) }
+        unsafe { device::Device::from_raw((*self.as_raw()).dev) }
     }
 }
 
