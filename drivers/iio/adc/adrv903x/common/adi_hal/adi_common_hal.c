@@ -80,7 +80,7 @@ ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwOpen(adi_common_Device_t* cons
 
     ADI_NULL_PTR_RETURN(commonDev);
 
-    halError = adi_hal_MutexInit(&commonDev->mutex);
+    halError = adrv903x_MutexInit(&commonDev->mutex);
     if (ADI_HAL_ERR_OK != halError)
     {
         recoveryAction = adi_common_hal_ErrCodeConvert(halError);
@@ -93,7 +93,7 @@ ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwOpen(adi_common_Device_t* cons
         return recoveryAction;
     }
 
-    halError = adi_hal_HwOpen(commonDev->devHalInfo);
+    halError = adrv903x_HwOpen(commonDev->devHalInfo);
     if (ADI_HAL_ERR_OK == halError)
     {
         recoveryAction  = ADI_COMMON_ERR_ACT_NONE;
@@ -119,7 +119,7 @@ ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwClose(adi_common_Device_t* con
 
     ADI_NULL_COMMON_PTR_RETURN(commonDev);
 
-    halError = adi_hal_HwClose(commonDev->devHalInfo);
+    halError = adrv903x_HwClose(commonDev->devHalInfo);
     if (ADI_HAL_ERR_OK != halError)
     {
         recoveryAction = adi_common_hal_ErrCodeConvert(halError);
@@ -132,7 +132,7 @@ ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwClose(adi_common_Device_t* con
         return recoveryAction;
     }
 
-    halError = adi_hal_MutexDestroy(&commonDev->mutex);
+    halError = adrv903x_MutexDestroy(&commonDev->mutex);
     if (ADI_HAL_ERR_OK == halError)
     {
         recoveryAction  = ADI_COMMON_ERR_ACT_NONE;
@@ -161,7 +161,7 @@ ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwReset(const adi_common_Device_
 
     ADI_NULL_COMMON_PTR_RETURN(commonDev);
 
-    halError = adi_hal_HwReset(commonDev->devHalInfo, pinLevel);
+    halError = adrv903x_HwReset(commonDev->devHalInfo, pinLevel);
 
     if (ADI_HAL_ERR_OK == halError)
     {
@@ -188,7 +188,7 @@ ADI_API adi_common_ErrAction_e adi_adrv903x_hal_Wait_us(const adi_common_Device_
 
     ADI_NULL_COMMON_PTR_RETURN(commonDev);
 
-    halError = adi_hal_Wait_us(commonDev->devHalInfo, time_us);
+    halError = adrv903x_Wait_us(commonDev->devHalInfo, time_us);
 
     if (ADI_HAL_ERR_OK == halError)
     {
@@ -215,7 +215,7 @@ ADI_API adi_common_ErrAction_e adi_adrv903x_hal_Wait_ms(const adi_common_Device_
 
     ADI_NULL_COMMON_PTR_RETURN(commonDev);
 
-    halError = adi_hal_Wait_us(commonDev->devHalInfo, (time_ms * 1000));
+    halError = adrv903x_Wait_us(commonDev->devHalInfo, (time_ms * 1000));
 
     if (ADI_HAL_ERR_OK == halError)
     {
@@ -242,8 +242,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Lock(adi_common_Device_t* const co
 
     /* Use NULL_DEVICE as NULL_COMMON_PTR also checks common->errPtr which is not set yet */
     ADI_NULL_DEVICE_PTR_RETURN(commonDev);
-
-    halError = adi_hal_MutexLock(&commonDev->mutex);
+    halError = adrv903x_MutexLock(&commonDev->mutex);
     if (ADI_HAL_ERR_OK == halError)
     {
         recoveryAction  = ADI_COMMON_ERR_ACT_NONE;
@@ -264,7 +263,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Lock(adi_common_Device_t* const co
     {
         recoveryAction = ADI_COMMON_ERR_ACT_RESET_DEVICE;
         /* Range of lockCnt type exceeded. Do not check unlock return */
-        (void) adi_hal_MutexUnlock(&commonDev->mutex);
+        (void) adrv903x_MutexUnlock(&commonDev->mutex);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_HAL,
                             ADI_COMMON_ERRCODE_LOCK,
@@ -296,7 +295,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Unlock(adi_common_Device_t* const 
     }
     --commonDev->lockCnt;
 
-    halError = adi_hal_MutexUnlock(&commonDev->mutex);
+    halError = adrv903x_MutexUnlock(&commonDev->mutex);
     if (ADI_HAL_ERR_OK == halError)
     {
         recoveryAction  = ADI_COMMON_ERR_ACT_NONE;
@@ -337,14 +336,14 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device
             {
                 recoveryAction = ADI_COMMON_ERR_ACT_OPEN_DEVICE;
 
-                if ( NULL != adi_hal_TlsGet(HAL_TLS_ERR))
+                if ( NULL != adrv903x_TlsGet(HAL_TLS_ERR))
                 {
                     /* Bypass Common Device Structure for Error Reporting if TLS has Error Pointer */
                     adi_common_Device_t dummyDev;
 
                     ADI_LIBRARY_MEMSET(&dummyDev, 0, sizeof(adi_common_Device_t));
 
-                    dummyDev.errPtr = (adi_common_ErrData_t*) adi_hal_TlsGet(HAL_TLS_ERR);
+                    dummyDev.errPtr = (adi_common_ErrData_t*) adrv903x_TlsGet(HAL_TLS_ERR);
 
                     ADI_ERROR_REPORT(   &dummyDev,
                                         ADI_COMMON_ERRSRC_API,
@@ -356,7 +355,6 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device
 
                 return recoveryAction;
             }
-
             /* Lock Device */
             recoveryAction = adi_common_hal_Lock(commonDev);
             break;
@@ -373,14 +371,14 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device
     if (ADI_COMMON_ERR_ACT_NONE != recoveryAction)
     {
         /* Device Locking Failed */
-        if (NULL != adi_hal_TlsGet(HAL_TLS_ERR))
+        if (NULL != adrv903x_TlsGet(HAL_TLS_ERR))
         {
             /* Bypass Common Device Structure for Error Reporting if TLS has Error Pointer */
             adi_common_Device_t dummyDev;
 
             ADI_LIBRARY_MEMSET(&dummyDev, 0, sizeof(adi_common_Device_t));
 
-            dummyDev.errPtr = (adi_common_ErrData_t*) adi_hal_TlsGet(HAL_TLS_ERR);
+            dummyDev.errPtr = (adi_common_ErrData_t*) adrv903x_TlsGet(HAL_TLS_ERR);
 
             ADI_ERROR_REPORT(   &dummyDev,
                                 ADI_COMMON_ERRSRC_API,
@@ -416,10 +414,10 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device
         }
     }
 
-    if (NULL != adi_hal_TlsGet(HAL_TLS_ERR))
+    if (NULL != adrv903x_TlsGet(HAL_TLS_ERR))
     {
         /* Assume using TLS for Error Reporting */
-        commonDev->errPtr = (adi_common_ErrData_t*) adi_hal_TlsGet(HAL_TLS_ERR);
+        commonDev->errPtr = (adi_common_ErrData_t*) adrv903x_TlsGet(HAL_TLS_ERR);
     }
     else
     {
@@ -546,23 +544,23 @@ ADI_API adi_common_ErrAction_e adi_common_hal_PlatformFunctionCheck(adi_common_D
 
     ADI_NULL_COMMON_PTR_RETURN(commonDev);
 
-    if ((adi_hal_HwOpen         == NULL)    ||
-        (adi_hal_HwClose        == NULL)    ||
-        (adi_hal_HwReset        == NULL)    ||
-        (adi_hal_SpiWrite       == NULL)    ||
-        (adi_hal_SpiRead        == NULL)    ||
-        (adi_hal_LogFileOpen    == NULL)    ||
-        (adi_hal_LogLevelSet    == NULL)    ||
-        (adi_hal_LogLevelGet    == NULL)    ||
-        (adi_hal_LogWrite       == NULL)    ||
-        (adi_hal_Wait_us        == NULL)    ||
-        (adi_hal_Wait_ms        == NULL)    ||
-        (adi_hal_MutexInit      == NULL)    ||
-        (adi_hal_MutexLock      == NULL)    ||
-        (adi_hal_MutexUnlock    == NULL)    ||
-        (adi_hal_MutexDestroy   == NULL)    ||
-        (adi_hal_TlsSet         == NULL)    ||
-        (adi_hal_TlsGet         == NULL))
+    if ((adrv903x_HwOpen         == NULL)    ||
+        (adrv903x_HwClose        == NULL)    ||
+        (adrv903x_HwReset        == NULL)    ||
+        (adrv903x_SpiWrite       == NULL)    ||
+        (adrv903x_SpiRead        == NULL)    ||
+        (adrv903x_LogFileOpen    == NULL)    ||
+        (adrv903x_LogLevelSet    == NULL)    ||
+        (adrv903x_LogLevelGet    == NULL)    ||
+        (adrv903x_LogWrite       == NULL)    ||
+        (adrv903x_Wait_us        == NULL)    ||
+        (adrv903x_Wait_ms        == NULL)    ||
+        (adrv903x_MutexInit      == NULL)    ||
+        (adrv903x_MutexLock      == NULL)    ||
+        (adrv903x_MutexUnlock    == NULL)    ||
+        (adrv903x_MutexDestroy   == NULL)    ||
+        (adrv903x_TlsSet         == NULL)    ||
+        (adrv903x_TlsGet         == NULL))
     {
         recoveryAction = adi_common_hal_ErrCodeConvert(ADI_HAL_ERR_NOT_IMPLEMENTED);
         ADI_ERROR_REPORT(   commonDev,
