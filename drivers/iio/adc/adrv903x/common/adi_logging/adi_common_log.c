@@ -21,7 +21,7 @@
 
 #define ADI_FILE    ADI_COMMON_FILE_LOGGING
 
-ADI_API void adi_common_LogWrite(   const adi_common_Device_t* const    commonDev,
+ADI_API void adi_adrv903x_LogWrite(   const adi_common_Device_t* const    commonDev,
                                     const adi_hal_LogLevel_e            logLevel,
                                     const char*                         comment,
                                     ...)
@@ -44,7 +44,7 @@ ADI_API void adi_common_LogWrite(   const adi_common_Device_t* const    commonDe
     }
 }
 
-ADI_API void adi_common_LogLevelSet(const adi_common_Device_t* const    commonDev,
+ADI_API void adi_adrv903x_LogLevelSet(const adi_common_Device_t* const    commonDev,
                                     const uint32_t                      logMask)
 {
     if ((NULL != commonDev) &&
@@ -64,7 +64,7 @@ ADI_API void adi_common_LogLevelSet(const adi_common_Device_t* const    commonDe
     }
 }
 
-ADI_API void adi_common_LogLevelGet(const adi_common_Device_t* const    commonDev,
+ADI_API void adi_adrv903x_LogLevelGet(const adi_common_Device_t* const    commonDev,
                                     uint32_t* const                     logMask)
 {
     if ((NULL != commonDev)                 &&
@@ -107,7 +107,7 @@ ADI_API void adi_common_LogConsoleSet(const adi_common_Device_t* const commonDev
     }
 }
 
-ADI_API void adi_common_LogFileOpen(const adi_common_Device_t* const    commonDev,
+ADI_API void adi_adrv903x_LogFileOpen(const adi_common_Device_t* const    commonDev,
                                     const char* const                   fileName)
 {
     if ((NULL != commonDev)                 &&
@@ -119,7 +119,7 @@ ADI_API void adi_common_LogFileOpen(const adi_common_Device_t* const    commonDe
     }
 }
 
-ADI_API void adi_common_LogFileClose(const adi_common_Device_t* const commonDev)
+ADI_API void adi_adrv903x_LogFileClose(const adi_common_Device_t* const commonDev)
 {
     if ((NULL != commonDev) &&
         (NULL != commonDev->devHalInfo))
