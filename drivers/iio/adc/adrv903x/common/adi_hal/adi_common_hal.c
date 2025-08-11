@@ -73,7 +73,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ErrCodeConvert(const adi_hal_Err_e
     return action;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_HwOpen(adi_common_Device_t* const commonDev)
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwOpen(adi_common_Device_t* const commonDev)
 {
     adi_common_ErrAction_e  recoveryAction  = ADI_COMMON_ERR_ACT_CHECK_PARAM;
     adi_hal_Err_e           halError        = ADI_HAL_ERR_PARAM;
@@ -112,7 +112,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_HwOpen(adi_common_Device_t* const 
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_HwClose(adi_common_Device_t* const commonDev)
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwClose(adi_common_Device_t* const commonDev)
 {
     adi_common_ErrAction_e  recoveryAction  = ADI_COMMON_ERR_ACT_CHECK_PARAM;
     adi_hal_Err_e           halError        = ADI_HAL_ERR_PARAM;
@@ -154,7 +154,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_HwClose(adi_common_Device_t* const
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_HwReset(const adi_common_Device_t* const commonDev, const uint8_t pinLevel)
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwReset(const adi_common_Device_t* const commonDev, const uint8_t pinLevel)
 {    
     adi_common_ErrAction_e  recoveryAction  = ADI_COMMON_ERR_ACT_CHECK_PARAM;
     adi_hal_Err_e           halError        = ADI_HAL_ERR_PARAM;
@@ -181,7 +181,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_HwReset(const adi_common_Device_t*
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_Wait_us(const adi_common_Device_t* const commonDev, const uint32_t time_us)
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_Wait_us(const adi_common_Device_t* const commonDev, const uint32_t time_us)
 {
     adi_common_ErrAction_e  recoveryAction  = ADI_COMMON_ERR_ACT_CHECK_PARAM;
     adi_hal_Err_e           halError        = ADI_HAL_ERR_PARAM;
@@ -208,7 +208,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Wait_us(const adi_common_Device_t*
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_Wait_ms(const adi_common_Device_t* const commonDev, const uint32_t time_ms)
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_Wait_ms(const adi_common_Device_t* const commonDev, const uint32_t time_ms)
 {
     adi_common_ErrAction_e  recoveryAction  = ADI_COMMON_ERR_ACT_CHECK_PARAM;
     adi_hal_Err_e           halError        = ADI_HAL_ERR_PARAM;
@@ -402,8 +402,8 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device
         /* Recursive public function entry detected; Change from Public to Private Logging Level */
         if (ADI_FALSE == ADI_COMMON_DEVICE_STATE_IS_TC(*commonDev))
         {
-            /* Time Critical Mode Off - All adi_common_LogWrite(), bar error logging, are gated by this check to avoid unnecessary adi_hal_LogWrite() calls */
-            adi_common_LogWrite(commonDev, ADI_HAL_LOG_API_PRIV, "-> %s()", fnName);
+            /* Time Critical Mode Off - All adi_adrv903x_LogWrite(), bar error logging, are gated by this check to avoid unnecessary adrv903x_LogWrite() calls */
+            adi_adrv903x_LogWrite(commonDev, ADI_HAL_LOG_API_PRIV, "-> %s()", fnName);
         }
     }
     else
@@ -411,8 +411,8 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device
         /* Normal case - just log the entry at Public API level */
         if (ADI_FALSE == ADI_COMMON_DEVICE_STATE_IS_TC(*commonDev))
         {
-            /* Time Critical Mode Off - All adi_common_LogWrite(), bar error logging, are gated by this check to avoid unnecessary adi_hal_LogWrite() calls */
-            adi_common_LogWrite(commonDev, ADI_HAL_LOG_API, "-> %s()", fnName);
+            /* Time Critical Mode Off - All adi_adrv903x_LogWrite(), bar error logging, are gated by this check to avoid unnecessary adrv903x_LogWrite() calls */
+            adi_adrv903x_LogWrite(commonDev, ADI_HAL_LOG_API, "-> %s()", fnName);
         }
     }
 
@@ -461,8 +461,8 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit_vLogCtl(adi_common_Device_
         /* Recursive public function exit detected; Change from Public to Private Logging Level */
         if (ADI_FALSE == ADI_COMMON_DEVICE_STATE_IS_TC(*commonDev))
         {
-            /* Time Critical Mode Off - All adi_common_LogWrite(), bar error logging, are gated by this check to avoid unnecessary adi_hal_LogWrite() calls */
-            adi_common_LogWrite(commonDev, ADI_HAL_LOG_API_PRIV, "<- %s()", fnName);
+            /* Time Critical Mode Off - All adi_adrv903x_LogWrite(), bar error logging, are gated by this check to avoid unnecessary adrv903x_LogWrite() calls */
+            adi_adrv903x_LogWrite(commonDev, ADI_HAL_LOG_API_PRIV, "<- %s()", fnName);
         }
     }
     else
@@ -470,8 +470,8 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit_vLogCtl(adi_common_Device_
         /* Normal case - just log the exit at Public API level */
         if (ADI_FALSE == ADI_COMMON_DEVICE_STATE_IS_TC(*commonDev))
         {
-            /* Time Critical Mode Off - All adi_common_LogWrite(),  bar error logging, are gated by this check to avoid unnecessary adi_hal_LogWrite() calls */
-            adi_common_LogWrite(commonDev, ADI_HAL_LOG_API, "<- %s()", fnName);
+            /* Time Critical Mode Off - All adi_adrv903x_LogWrite(),  bar error logging, are gated by this check to avoid unnecessary adrv903x_LogWrite() calls */
+            adi_adrv903x_LogWrite(commonDev, ADI_HAL_LOG_API, "<- %s()", fnName);
         }
     }
 
