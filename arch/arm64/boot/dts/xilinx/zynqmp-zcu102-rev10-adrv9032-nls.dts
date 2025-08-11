@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV903X
+ * https://wiki.analog.com/resources/eval/user-guides/adrv903x
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv903x
+ *
+ * hdl_project: <adrv903x/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020-2025 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev10-adrv9032.dts"
+
+&trx0_adrv903x {
+
+	clock-output-names = "rx_sampl_clk", "tx_sampl_clk", "obs_sampl_clk";
+	// clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
+
+	jesd204-ignore-errors;
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-top-device = <0>; /* This is the TOP device */
+	jesd204-link-ids = <DEFRAMER0_LINK_TX FRAMER0_LINK_RX FRAMER1_LINK_RX>;
+
+	jesd204-inputs =
+		<&axi_adrv903x_rx_jesd 0 FRAMER0_LINK_RX>,
+		<&axi_adrv903x_rx_os_jesd 0 FRAMER1_LINK_RX>,
+		<&axi_adrv903x_core_tx 0 DEFRAMER0_LINK_TX>;
+};
+
+&fpga_axi {
+	rx_os_dma: dma@9c800000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x9c800000 0x10000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		dma-coherent;
+		interrupts = <0 111 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&zynqmp_clk 73>;
+	};
+
+	axi_rx_os_clkgen: axi-clkgen@83c20000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x83c20000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clk0_ad9528 3>, <&zynqmp_clk 71>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "axi_rx_os_clkgen";
+	};
+
+	axi_adrv903x_core_rx_os: axi-adrv903x-rx-os-hpc@84a08000 {
+		compatible = "adi,axi-adrv903x-obs-1.0";
+		reg = <0x84a08000 0x8000>;
+		dmas = <&rx_os_dma 0>;
+		dma-names = "rx";
+		clocks = <&trx0_adrv903x 2>;
+		clock-names = "sampl_clk";
+		spibus-connected=<&trx0_adrv903x>;
+		label="axi-adrv903x-rx-os-hpc";
+	};
+
+	axi_adrv903x_rx_os_jesd: axi-jesd204-rx-os@85aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x85aa0000 0x1000>;
+
+		interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+
+		clocks = <&zynqmp_clk 71>, <&axi_rx_os_clkgen>, <&axi_adrv903x_adxcvr_rx_os 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_rx_os_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_adrv903x_adxcvr_rx_os 0 FRAMER1_LINK_RX>;
+	};
+
+	axi_adrv903x_adxcvr_rx_os: axi-adxcvr-rx-os@85a60000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x85a60000 0x1000>;
+
+		clocks = <&clk0_ad9528 13>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
+
+		adi,sys-clk-select = <XCVR_QPLL>;
+		// adi,out-clk-select = <XCVR_REFCLK>;
+		adi,out-clk-select = <XCVR_PROGDIV_CLK>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs =  <&clk0_ad9528 0 FRAMER1_LINK_RX>;
+	};
+};
