@@ -43,44 +43,44 @@ properties:
     maxItems: 2
 
   adi,flock-mode:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       Select operating mode of the framebuffer.
       0 -> Frame rate conversion mode
       1 -> Output delay mode
     enum: [ 0, 1 ]
-    maxItems: 1
 
   adi,flock-frm-buf-nr:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       The total number of video frame buffers.
       Related to NUM_BUF synthesys parameter.
     minimum: 3
-    maxItems: 1
 
   adi,flock-distance:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       Applicable only in output delay mode. Set the output delay in frames.
       Should be set in interval 0 to flock,frm-buf-nr - 2
     minimum: 0
-    maxItems: 1
 
   adi,flock-line-stride:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       The number of bytes between the start of one row and the next row.
       Needs to be aligned to the bus width.
-    maxItems: 1
 
   adi,flock-frm-stride:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       Stride of consecutive frames in memory in bytes. Should be at least the
       size of one frame.
-    maxItems: 1
 
   adi,flock-dwidth:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       Represent the number of bytes per pixel according to used color space.
     enum: [ 1, 2, 4 ]
-    maxItems: 1
 
 required:
   - compatible
