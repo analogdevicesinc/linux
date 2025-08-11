@@ -532,7 +532,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_CpuStartStatusCheck(adi_adrv903x_D
         if (bootStatus == ADRV903X_CPU_BOOT_STATUS_POWER_UP || bootStatus == ADRV903X_CPU_BOOT_WAIT_FOR_CPUS)
         {
             /* Wait interval then check again */
-            recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+            recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, waitInterval_us);
             if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Wait#1 failed");
@@ -543,7 +543,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_CpuStartStatusCheck(adi_adrv903x_D
         else if ((cpuDebugLoaded == 1U) && (bootStatus == ADRV903X_CPU_JTAG_BUILD_STATUS_READY))
         {
             /* Wait interval then check again */
-            recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+            recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, waitInterval_us);
             if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Wait#2 failed");

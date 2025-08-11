@@ -53,7 +53,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_Unlock(adi_adrv903x_Device_t* cons
 * This function must be called on the device before any other function is called. The
 * function must not be called more than once on the same device.
 *
-* Uses adi_common_hal_HwOpen internally. See that function for important relevant information.
+* Uses adi_adrv903x_hal_HwOpen internally. See that function for important relevant information.
 *
 * This API shall call the ADI HAL function adi_hal_HwOpen for
 * ADRV903X Hardware initialization.  This HAL function initializes all the external
@@ -87,7 +87,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HwOpen(adi_adrv903x_Device_t* cons
 * ADRV903X Hardware shutdown.  This HAL function shuts down all the external
 * hardware blocks required in the operation of the ADRV903X device.
 *
-* Uses adi_common_hal_HwClose internally. See that function for important relevant information.
+* Uses adi_adrv903x_hal_HwClose internally. See that function for important relevant information.
 *
 * \pre This function may be called any time after device->common.devHalInfo has been
 * initialized with user values

@@ -350,7 +350,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_InitCalsWait( adi_adrv903x_Device_
         }
  
         /* Init cals are still in progress. Wait the specified wait interval, then check again for status. */
-        recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV903X_INITCALSWAIT_INTERVAL_US);
+        recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, ADI_ADRV903X_INITCALSWAIT_INTERVAL_US);
         if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -405,7 +405,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_InitCalsWait_v2(  adi_adrv903x_Dev
         }
  
         /* Init cals are still in progress. Wait the specified wait interval, then check again for status. */
-        recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV903X_INITCALSWAIT_INTERVAL_US);
+        recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, ADI_ADRV903X_INITCALSWAIT_INTERVAL_US);
         if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");

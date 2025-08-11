@@ -2234,7 +2234,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_StandbyEnter(adi_adrv903x_Device_t
         }
 
         /* Some tracking cals are still running. Wait the specified wait interval, then check again for inactivity. */
-        recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV903X_TRACKCALDISABLE_INTERVAL_US);
+        recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, ADI_ADRV903X_TRACKCALDISABLE_INTERVAL_US);
         if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -3505,7 +3505,7 @@ static adi_adrv903x_ErrAction_e adrv903x_CpuMemDumpBinWrite(adi_adrv903x_Device_
 
                     if (exceptionValue == (uint32_t)ADRV903X_CPU_NO_EXCEPTION)
                     {
-                        recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+                        recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, waitInterval_us);
                         if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
                         {
                             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
@@ -4715,7 +4715,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_JrxRepairEnter(adi_adrv903x_Device
             }
 
             /* Serdes tracking cals is still running. Wait the specified wait interval, then check again for inactivity. */
-            recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV903X_TRACKCALDISABLE_INTERVAL_US);
+            recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, ADI_ADRV903X_TRACKCALDISABLE_INTERVAL_US);
             if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -5253,7 +5253,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_JrxRepairTest(adi_adrv903x_Device_
     }
 
     /* Wait a bit */
-    recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV903X_JRXREPAIR_TEST_WAIT_US);
+    recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, ADI_ADRV903X_JRXREPAIR_TEST_WAIT_US);
     if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
     {
         ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -5576,7 +5576,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_JrxRepairSwCEnableGet(adi_adrv903x
             }
 
             /* SwC set Command is still in progress. Wait the specified wait interval, then check again for status. */
-            recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV903X_TRACKCALDISABLE_INTERVAL_US);
+            recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, ADI_ADRV903X_TRACKCALDISABLE_INTERVAL_US);
             if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -5691,7 +5691,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_JrxRepairSwCEnableSet(adi_adrv903x
         }
 
         /* SwC set Command is still in progress. Wait the specified wait interval, then check again for status. */
-        recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV903X_TRACKCALDISABLE_INTERVAL_US);
+        recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, ADI_ADRV903X_TRACKCALDISABLE_INTERVAL_US);
         if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -5846,7 +5846,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_JrxRepairExecute(adi_adrv903x_Devi
         }
 
         /* Wait a bit */
-        recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV903X_JRXREPAIR_APPLY_WAIT_US);
+        recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, ADI_ADRV903X_JRXREPAIR_APPLY_WAIT_US);
         if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
