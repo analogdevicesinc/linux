@@ -25,12 +25,11 @@ properties:
     const: 0
 
   in-gpios:
-    description:
-      - Input GPIO numbers
+    description: Input GPIO numbers
 
   out-gpios:
-    description:
-      - Output GPIO numbers
+    description: Output GPIO numbers
+
 required:
   - compatible
   - in-gpios
