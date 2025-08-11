@@ -31,9 +31,11 @@ properties:
     const: 2
 
   jesd204-top-device:
+    $ref: /schemas/types.yaml#/definitions/uint32
     const: 0
 
   jesd204-link-ids:
+    $ref: /schemas/types.yaml#/definitions/uint32
     const: 0
 
   jesd204-inputs:
