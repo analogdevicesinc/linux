@@ -106,7 +106,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ErrCodeConvert(const adi_hal_Err_e
  *
  * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
  */
-ADI_API adi_common_ErrAction_e adi_common_hal_HwOpen(adi_common_Device_t* const commonDev);
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwOpen(adi_common_Device_t* const commonDev);
 
 /**
 * \brief Used to close the HAL hardware.
@@ -128,7 +128,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_HwOpen(adi_common_Device_t* const 
 * the device-specific HwClose. See HwOpen for further thread-safety considerations.
 *
 *
-* \pre The device must have been previously opened using adi_common_hal_HwOpen.
+* \pre The device must have been previously opened using adi_adrv903x_hal_HwOpen.
 *
 * \dep_begin
 * \dep{device->common}
@@ -138,14 +138,14 @@ ADI_API adi_common_ErrAction_e adi_common_hal_HwOpen(adi_common_Device_t* const 
 *
 * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
 */
-ADI_API adi_common_ErrAction_e adi_common_hal_HwClose(adi_common_Device_t* const commonDev);
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwClose(adi_common_Device_t* const commonDev);
 
 /**
 * \brief    Service to control HwReset Signal via a Logic Level
 *
 *           Caller is responsible for handling triggering (i.e. Level or Edge)
 *
-* \pre The device must have been previously opened using adi_common_hal_HwOpen.
+* \pre The device must have been previously opened using adi_adrv903x_hal_HwOpen.
 *
 * \dep_begin
 * \dep{device->common}
@@ -156,7 +156,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_HwClose(adi_common_Device_t* const
 *
 * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
 */
-ADI_API adi_common_ErrAction_e adi_common_hal_HwReset(  const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_HwReset(  const adi_common_Device_t* const    commonDev,
                                                         const uint8_t                       pinLevel);
 
 /**
@@ -171,7 +171,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_HwReset(  const adi_common_Device_
 *
 * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
 */
-ADI_API adi_common_ErrAction_e adi_common_hal_Wait_us(  const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_Wait_us(  const adi_common_Device_t* const    commonDev,
                                                         const uint32_t                      time_us);
 
 /**
@@ -187,7 +187,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Wait_us(  const adi_common_Device_
 *
 * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
 */
-ADI_API adi_common_ErrAction_e adi_common_hal_Wait_ms(  const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adi_adrv903x_hal_Wait_ms(  const adi_common_Device_t* const    commonDev,
                                                         const uint32_t                      time_ms);
 
 /**
