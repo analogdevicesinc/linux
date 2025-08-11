@@ -292,6 +292,11 @@ typedef struct adi_hal_Cfg
     adi_hal_EepromCfg_t     eepromCfg;                          /*!< Eeprom Configuration */
 #endif
     int32_t                 error;                              /*!< Operating System Error Code */
+#ifdef __KERNEL__
+    struct spi_device *spi;
+    struct gpio_desc *reset_gpio;
+    struct gpio_desc *int_gpio;
+#endif
 } adi_hal_Cfg_t;
 
 /**
@@ -307,5 +312,41 @@ typedef struct adi_hal_BoardInfo
     uint8_t pcbName[ADI_HAL_STRING_LENGTH];         /* PCB Name */
     uint8_t bomRev[ADI_HAL_STRING_LENGTH];          /* BOM Revision */
 } adi_hal_BoardInfo_t;
+
+#ifdef __KERNEL__
+typedef struct linux_hal_fileio
+{
+    adi_hal_Cfg_t *hal;
+    const struct firmware *fw;
+    char *ptr, *start, *end;
+} FILE;
+
+FILE* fopen(const char * filename, const char *mode);
+
+struct tm* gmtime(const ktime_t *timer);
+
+extern int adrv903x_fseek (FILE * stream, long int offset, int origin);
+extern size_t adrv903x_fread(void *ptr, size_t size, size_t count, FILE *stream);
+extern size_t adrv903x_fwrite(const void * ptr, size_t size, size_t count, FILE *stream);
+extern int adrv903x_fprintf(FILE *stream, const char *fmt, ...);
+extern int adrv903x_fclose(FILE *stream);
+extern long int adrv903x_ftell(FILE *stream);
+extern int adrv903x_ferror(FILE *stream);
+extern char *adrv903x_fgets(char *dst, int num, FILE *stream);
+extern int adrv903x_fflush(FILE *stream);
+
+extern FILE* adrv903x_fopen (adi_hal_Cfg_t *hal, const char * filename, const char *mode);
+#define fopen(filename, mode) adrv903x_fopen(device->common.devHalInfo, filename, mode)
+
+extern void *adrv903x_malloc(size_t size);
+#define malloc(size) adrv903x_malloc(size)
+
+extern void *__adrv903x_calloc(size_t size, size_t nmemb);
+
+extern void adrv903x_time(ktime_t *second);
+extern struct tm* adrv903x_gmtime(adi_hal_Cfg_t *hal, const ktime_t *timer);
+#define gmtime(timer) adrv903x_gmtime(device->common.devHalInfo, timer)
+
+#endif
 
 #endif /* __ADI_PLATFORM_TYPES_H__*/
