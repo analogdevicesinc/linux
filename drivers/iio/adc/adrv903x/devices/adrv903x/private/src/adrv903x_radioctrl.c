@@ -1320,7 +1320,7 @@ ADI_API adi_adrv903x_ErrAction_e adrv903x_StreamTrigger(adi_adrv903x_Device_t* c
 
         if (cpuCommandBusy == ADI_TRUE)
         {
-            recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+            recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, waitInterval_us);
             if (ADI_ADRV903X_ERR_ACT_NONE != recoveryAction)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
@@ -1405,7 +1405,7 @@ ADI_API adi_adrv903x_ErrAction_e adrv903x_TxStreamTrigger(adi_adrv903x_Device_t*
 
         if (rdStreamId != UNUSED_STREAM_ID)
         {
-            recoveryAction = (adi_adrv903x_ErrAction_e)adi_common_hal_Wait_us(&device->common, 1);
+            recoveryAction = (adi_adrv903x_ErrAction_e)adi_adrv903x_hal_Wait_us(&device->common, 1);
             if (ADI_ADRV903X_ERR_ACT_NONE != recoveryAction)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
@@ -1481,7 +1481,7 @@ ADI_API adi_adrv903x_ErrAction_e adrv903x_RxStreamTrigger(adi_adrv903x_Device_t*
 
         if (rdStreamId != UNUSED_STREAM_ID)
         {
-            recoveryAction = (adi_adrv903x_ErrAction_e)adi_common_hal_Wait_us(&device->common, 1);
+            recoveryAction = (adi_adrv903x_ErrAction_e)adi_adrv903x_hal_Wait_us(&device->common, 1);
             if (ADI_ADRV903X_ERR_ACT_NONE != recoveryAction)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");

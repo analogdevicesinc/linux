@@ -23,7 +23,7 @@
 /**
 * \brief Macro to Log API function entry
 * 
-* This macro will call adi_common_LogWrite function with the __func__ preprocessor.
+* This macro will call adi_adrv903x_LogWrite function with the __func__ preprocessor.
 * 
 * However, if the device is in time-critical mode the logging is ignored.
 * 
@@ -34,7 +34,7 @@
 #define ADI_FUNCTION_ENTRY_LOG(commonDev, logLevel)                              \
     if (!ADI_COMMON_DEVICE_STATE_IS_TC(*(commonDev)))                            \
     {                                                                            \
-            adi_common_LogWrite((commonDev),                                     \
+            adi_adrv903x_LogWrite((commonDev),                                     \
                                 (adi_hal_LogLevel_e) (logLevel),                 \
                                 "%s(...)",                                       \
                                 __func__);                                       \
@@ -54,7 +54,7 @@
 #define ADI_VARIABLE_LOG(commonDev, logLevel, message, ...)                      \
     if (!ADI_COMMON_DEVICE_STATE_IS_TC(*(commonDev)))                            \
     {                                                                            \
-        adi_common_LogWrite((commonDev),                                         \
+        adi_adrv903x_LogWrite((commonDev),                                         \
                             (adi_hal_LogLevel_e) (logLevel),                     \
                             message,                                             \
                             ##__VA_ARGS__);                                      \
@@ -63,12 +63,12 @@
 /**
 * \brief Macro to log error structure
 *
-* This macro will call adi_common_LogWrite function with the required string for logging the error.
+* This macro will call adi_adrv903x_LogWrite function with the required string for logging the error.
 *
 * \param[in] commonDev  pointer to adi_common_Device_t
 * \param[in] err        pointer to the error structure
 */
-#define  ADI_ERROR_LOG(commonDev, err)      adi_common_LogWrite(commonDev,                                                              \
+#define  ADI_ERROR_LOG(commonDev, err)      adi_adrv903x_LogWrite(commonDev,                                                              \
                                                                 ADI_HAL_LOG_ERR,                                                        \
                                                                 "Device Information: Type: %" PRIX32 ", ID: %" PRIX32 ", Name: %s\n"    \
                                                                 ADI_COMMON_LOG_ERR_INDENT1 "Recovery Action: 0x%" PRIX64 "\n"           \
@@ -104,7 +104,7 @@
 * \param[in]    logMask     Logging Mask
 *
 */
-ADI_API void adi_common_LogLevelSet(const adi_common_Device_t* const    commonDev,
+ADI_API void adi_adrv903x_LogLevelSet(const adi_common_Device_t* const    commonDev,
                                     const uint32_t                      logMask);
 
 /**
@@ -116,7 +116,7 @@ ADI_API void adi_common_LogLevelSet(const adi_common_Device_t* const    commonDe
 * \param[out]    logMask     Logging Mask
 *
 */
-ADI_API void adi_common_LogLevelGet(const adi_common_Device_t* const    commonDev,
+ADI_API void adi_adrv903x_LogLevelGet(const adi_common_Device_t* const    commonDev,
                                     uint32_t* const                     logMask);
 
 /**
@@ -147,7 +147,7 @@ ADI_API void adi_common_LogConsoleSet(const adi_common_Device_t* const commonDev
 * \param[in]    ...             variable(s) argument passed to adi_common_Logwrite
 *
 */
-ADI_API void adi_common_LogWrite(   const adi_common_Device_t* const    commonDev,
+ADI_API void adi_adrv903x_LogWrite(   const adi_common_Device_t* const    commonDev,
                                     const adi_hal_LogLevel_e            logLevel,
                                     const char*                         comment,
                                     ...);
@@ -161,7 +161,7 @@ ADI_API void adi_common_LogWrite(   const adi_common_Device_t* const    commonDe
 * \param[in]    fileName    file name to be open, if null default name in the devHalInfo structure will be used
 *
 */
-ADI_API void adi_common_LogFileOpen(    const adi_common_Device_t* const    commonDev,
+ADI_API void adi_adrv903x_LogFileOpen(    const adi_common_Device_t* const    commonDev,
                                         const char* const                   fileName);
 
 /**
@@ -170,7 +170,7 @@ ADI_API void adi_common_LogFileOpen(    const adi_common_Device_t* const    comm
 * \param[in] commonDev   pointer to adi_common_Device_t
 *
 */
-ADI_API void adi_common_LogFileClose(const adi_common_Device_t* const commonDev);
+ADI_API void adi_adrv903x_LogFileClose(const adi_common_Device_t* const commonDev);
 
 /*
  * \brief   Service to Log an Error

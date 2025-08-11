@@ -119,7 +119,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HwOpen(adi_adrv903x_Device_t* cons
     if (!ADI_COMMON_DEVICE_STATE_IS_OPEN(device->common))
     {
         /* Perform Hardware Open Once */
-        recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_HwOpen(&device->common);
+        recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_HwOpen(&device->common);
         if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Common HwOpen Issue");
@@ -127,7 +127,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HwOpen(adi_adrv903x_Device_t* cons
         }
 
         /* Earliest Point for Logging */
-        adi_common_LogLevelSet(&device->common, ADI_ADRV903X_LOGGING);
+        adi_adrv903x_LogLevelSet(&device->common, ADI_ADRV903X_LOGGING);
 
         ADI_FUNCTION_ENTRY_LOG(&device->common, ADI_HAL_LOG_API);
 
@@ -187,7 +187,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HwClose(adi_adrv903x_Device_t* con
 
     if (ADI_COMMON_DEVICE_STATE_IS_OPEN(device->common))
     {
-        recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_HwClose(&device->common);
+        recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_HwClose(&device->common);
         if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Common HAL HwClose Failed");
@@ -221,16 +221,16 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HwReset(adi_adrv903x_Device_t* con
     ADI_ADRV903X_API_ENTRY(&device->common);
 
     /* HwReset is Positive Edge Triggered */
-    recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_HwReset(&device->common, RESETB_LEVEL_LOW);
+    recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_HwReset(&device->common, RESETB_LEVEL_LOW);
     if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
     {
-        ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Issue with adi_common_hal_HwReset() setting Level Low");
+        ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Issue with adi_adrv903x_hal_HwReset() setting Level Low");
         goto cleanup;
     }
 
     {
     static const uint8_t RESETB_WAIT_MS = 50U; /* move here to fix compiler warning */
-    recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_ms(&device->common, RESETB_WAIT_MS);
+    recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_ms(&device->common, RESETB_WAIT_MS);
 }
         if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
     {
@@ -238,15 +238,15 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HwReset(adi_adrv903x_Device_t* con
         goto cleanup;
     }
 
-    recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_HwReset(&device->common, RESETB_LEVEL_HIGH);
+    recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_HwReset(&device->common, RESETB_LEVEL_HIGH);
     if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
     {
-        ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Issue with adi_common_hal_HwReset() setting Level High");
+        ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Issue with adi_adrv903x_hal_HwReset() setting Level High");
         goto cleanup;
     }
 
     /* Give SPI state machine time to come out of reset */
-    recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_Wait_us(&device->common, WAIT_10_US);
+    recoveryAction = (adi_adrv903x_ErrAction_e) adi_adrv903x_hal_Wait_us(&device->common, WAIT_10_US);
     if (recoveryAction != ADI_ADRV903X_ERR_ACT_NONE)
     {
         ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait(us) Failed");
