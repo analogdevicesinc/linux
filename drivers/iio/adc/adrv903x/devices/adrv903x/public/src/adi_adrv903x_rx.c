@@ -547,7 +547,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_RxGainSet(adi_adrv903x_Device_t* c
                 {
                     dataPageSetup[5U]  = rxFuncSecondByte;
                     dataPageSetup[17U] = rxGain[configIndex].gainIndex;
-                    halError = adi_hal_SpiWrite(device->common.devHalInfo, dataPageSetup, DATA_TRANSACTION_1_SIZE);
+                    halError = adrv903x_SpiWrite(device->common.devHalInfo, dataPageSetup, DATA_TRANSACTION_1_SIZE);
                     if (halError != ADI_HAL_ERR_OK)
                     {
                         recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_ErrCodeConvert(halError);
@@ -566,7 +566,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_RxGainSet(adi_adrv903x_Device_t* c
                     /* update data array to point to correct slice and with correct gain index for given configIndex */
                     data[2U] = rxFuncSecondByte;
                     data[5U] = rxGain[configIndex].gainIndex;
-                    halError = adi_hal_SpiWrite(device->common.devHalInfo, data, DATA_TRANSACTION_2_SIZE);
+                    halError = adrv903x_SpiWrite(device->common.devHalInfo, data, DATA_TRANSACTION_2_SIZE);
                     if (halError != ADI_HAL_ERR_OK)
                     {
                         recoveryAction = (adi_adrv903x_ErrAction_e) adi_common_hal_ErrCodeConvert(halError);

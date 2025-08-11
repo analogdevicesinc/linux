@@ -154,7 +154,7 @@ typedef enum
 {
     HAL_TLS_ERR = 0U,   /*!< Key for associating an adi_common_ErrData_t with a thread. */
     HAL_TLS_USR,        /*!< Key for associating an arbitrary void* with a thread. */
-    HAL_TLS_END         /*!< Marks end of valid values; And a special case in adi_hal_TlsSet */
+    HAL_TLS_END         /*!< Marks end of valid values; And a special case in adrv903x_TlsSet */
 } adi_hal_TlsType_e;
 
 /**

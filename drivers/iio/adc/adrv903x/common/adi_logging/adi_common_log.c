@@ -39,7 +39,7 @@ ADI_API void adi_adrv903x_LogWrite(   const adi_common_Device_t* const    common
 
         ADI_LIBRARY_VA_START(argp, comment);
         /* ADI Logging Feature Reports Errors via own HAL Data Structure */
-        (void) adi_hal_LogWrite(commonDev->devHalInfo, logLevel, indent, comment, argp);
+        (void) adrv903x_LogWrite(commonDev->devHalInfo, logLevel, indent, comment, argp);
         ADI_LIBRARY_VA_END(argp);
     }
 }
@@ -51,7 +51,7 @@ ADI_API void adi_adrv903x_LogLevelSet(const adi_common_Device_t* const    common
         (NULL != commonDev->devHalInfo))
     {
         /* ADI Logging Feature Reports Errors via own HAL Data Structure */
-        (void) adi_hal_LogLevelSet(commonDev->devHalInfo, logMask);
+        (void) adrv903x_LogLevelSet(commonDev->devHalInfo, logMask);
 
         if (logMask == 0U)
         {
@@ -72,7 +72,7 @@ ADI_API void adi_adrv903x_LogLevelGet(const adi_common_Device_t* const    common
         (NULL != logMask))
     {
         /* ADI Logging Feature Reports Errors via own HAL Data Structure */
-        (void) adi_hal_LogLevelGet(commonDev->devHalInfo, logMask);
+        (void) adrv903x_LogLevelGet(commonDev->devHalInfo, logMask);
     }
 }
 
@@ -115,7 +115,7 @@ ADI_API void adi_adrv903x_LogFileOpen(const adi_common_Device_t* const    common
         (NULL != fileName))
     {
         /* ADI Logging Feature Reports Errors via own HAL Data Structure */
-        (void) adi_hal_LogFileOpen(commonDev->devHalInfo, fileName);
+        (void) adrv903x_LogFileOpen(commonDev->devHalInfo, fileName);
     }
 }
 
@@ -125,7 +125,7 @@ ADI_API void adi_adrv903x_LogFileClose(const adi_common_Device_t* const commonDe
         (NULL != commonDev->devHalInfo))
     {
         /* ADI Logging Feature Reports Errors via own HAL Data Structure */
-        (void) adi_hal_LogFileClose(commonDev->devHalInfo);
+        (void) adrv903x_LogFileClose(commonDev->devHalInfo);
     }
 }
 
