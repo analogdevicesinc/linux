@@ -40,7 +40,7 @@ properties:
 
   jesd204-inputs:
     description: JESD204-fsm devices phandles and specifiers (used to build the link topology)
-    $ref: "/schemas/types.yaml#/definitions/phandle"
+    $ref: /schemas/types.yaml#/definitions/phandle
 
   spi-max-frequency:
     const: 1000000
@@ -49,7 +49,7 @@ properties:
     maxItems: 1
 
   clock-names:
-    const: "adc_ref_clk"
+    const: adc_ref_clk
     description: AD9083 reference clock name
 
   adi,adc-frequency-hz:
