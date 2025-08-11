@@ -936,7 +936,8 @@ static void adrv906x_tod_cfg_cdc_delay_set(struct adrv906x_tod_counter *counter)
 		ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_CDC_DELAY + i * sizeof(u32),
 					tod->cdc.delay_cnt[i]);
 
-	/* According to the user manual, all CFG_CDC_DELAY:CDC register fields
+	/*
+	 * According to the user manual, all CFG_CDC_DELAY:CDC register fields
 	 * shall have the same value. So we just pick the first one.
 	 */
 	adrv906x_tod_cfg_cdc_delay = tod->cdc.delay_cnt[0];
@@ -945,7 +946,7 @@ static void adrv906x_tod_cfg_cdc_delay_set(struct adrv906x_tod_counter *counter)
 /**
  * @brief Initialize the counter HW
  * @param counter Context struct
- * @return See adrv906x_tod_cfg_lc_clk()
+ * @return See adrv906x_tod_cfg_lc_clk() and adrv906x_tod_hw_settstamp()
  */
 static int adrv906x_tod_module_init(struct adrv906x_tod_counter *counter)
 {
@@ -960,6 +961,18 @@ static int adrv906x_tod_module_init(struct adrv906x_tod_counter *counter)
 		val = ADRV906X_REG_READ(tod, ADRV906X_TOD_CFG_INCR);
 		val |= ADRV906X_TOD_CFG_INCR_CFG_TOD_CNT_EN_MASK;
 		ADRV906X_REG_WRITE_DUAL(tod, ADRV906X_TOD_CFG_INCR, val);
+	}
+
+	/*
+	 * When the counter is configured to use PPS in dual-tile mode, we need
+	 * align the time across tiles because they cannot be started
+	 * simultaneously.
+	 */
+	if (tod->sec_regs && counter->trigger_mode == HW_TOD_TRIG_MODE_PPS) {
+		counter->trigger_mode = HW_TOD_TRIG_MODE_GC;
+		struct adrv906x_tod_tstamp tstamp = { 0U, 0U, 0U };
+		ret = adrv906x_tod_hw_settstamp(counter, &tstamp);
+		counter->trigger_mode = HW_TOD_TRIG_MODE_PPS;
 	}
 
 	return ret;
