@@ -47,12 +47,14 @@ properties:
       - minimum: 1
 
   adi,spi-3wire-enable:
+    $ref: /schemas/types.yaml#/definitions/flag
     description:
       This attribute needs to be set in case the 4-wire SPI controller is
       used, and the 4 to 3 wire conversion is done with some external logic
       in between.
 
   adi,muxout-level-1v8-enable:
+    $ref: /schemas/types.yaml#/definitions/flag
     description:
       When set the output level of the mux out pin is set to 1.8V.
       (default is 3.3V)
@@ -121,6 +123,7 @@ patternProperties:
         maxItems: 1
 
       adi,output-enable:
+        $ref: /schemas/types.yaml#/definitions/flag
         description: |
           If this property is specified, the output channel will be enabled.
           If left empty, the driver will initialize the defaults (RF8x, channel 0
