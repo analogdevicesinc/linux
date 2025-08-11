@@ -22,7 +22,7 @@ typedef struct mutex adi_hal_mutex_t;
 /**
  *  \brief  Default filepath for logfiles if none provided
  *
- *   This should be used in platform implementation of adi_hal_LogFileOpen
+ *   This should be used in platform implementation of adrv903x_LogFileOpen
  *   to define the default logfile path.
  */
 #define ADI_PLATFORM_LOG_PATH_DEFAULT     "adi_default_log.txt"
@@ -31,7 +31,7 @@ typedef struct mutex adi_hal_mutex_t;
 /**
  *  \brief  Max number of characters for log file
  *
- *   This should be used in platform implementation of adi_hal_LogFileOpen
+ *   This should be used in platform implementation of adrv903x_LogFileOpen
  *   to define the max filepath length.
  */
 #define ADI_HAL_STRING_LENGTH       256U
@@ -39,7 +39,7 @@ typedef struct mutex adi_hal_mutex_t;
 /**
  *  \brief  Max number of characters per log message
  *
- *   This should be used in platform implementation of adi_hal_LogWrite
+ *   This should be used in platform implementation of adrv903x_LogWrite
  *   to define the number of characters allowed per log message.
  */
 #define ADI_HAL_MAX_LOG_LINE        1000U
@@ -47,7 +47,7 @@ typedef struct mutex adi_hal_mutex_t;
 /**
  *  \brief  Max number of lines in log file
  *
- *   This should be used in platform implementation of adi_hal_LogWrite.
+ *   This should be used in platform implementation of adrv903x_LogWrite.
  *   This will ensure log files do not become excessively large during
  *   operation.
  */
@@ -67,7 +67,7 @@ typedef struct mutex adi_hal_mutex_t;
 /**
  *  \brief  Default mode for log console output
  *
- *   Can be used in platform implementation of adi_hal_DevHalCfgCreate to 
+ *   Can be used in platform implementation of adrv903x_DevHalCfgCreate to 
  *   give a default value for log console mode when configuring logging.
  */
 #define ADI_LOG_CONSOLE_DEFAULT_MODE        ADI_LOG_CONSOLE_OFF

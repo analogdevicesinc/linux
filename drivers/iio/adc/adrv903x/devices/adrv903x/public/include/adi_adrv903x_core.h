@@ -55,7 +55,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_Unlock(adi_adrv903x_Device_t* cons
 *
 * Uses adi_adrv903x_hal_HwOpen internally. See that function for important relevant information.
 *
-* This API shall call the ADI HAL function adi_hal_HwOpen for
+* This API shall call the ADI HAL function adrv903x_HwOpen for
 * ADRV903X Hardware initialization.  This HAL function initializes all the external
 * hardware blocks required in the operation of the ADRV903X device.
 * This API will also set the HAL timeout limit for the HAL driver as per API
@@ -83,7 +83,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HwOpen(adi_adrv903x_Device_t* cons
 /**
 * \brief Performs a hardware shutdown for ADRV903X Device.
 *
-* This API shall call the ADI HAL function adi_hal_HwClose for
+* This API shall call the ADI HAL function adrv903x_HwClose for
 * ADRV903X Hardware shutdown.  This HAL function shuts down all the external
 * hardware blocks required in the operation of the ADRV903X device.
 *
