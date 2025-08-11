@@ -22,8 +22,12 @@
 #include "posix/posix_mutex.h"
 #endif
 
+#ifdef __KERNEL__
+#include "linux_platform.h"
+#else
 #include "../platforms/common/tls.h"
 #include "../platforms/common/adi_logging.h"
+#endif
 
 /*
  * Function pointer assignment for default configuration
@@ -109,9 +113,10 @@ adi_hal_Err_e (*adi_hal_BbicRegistersWrite)(void* const     devHalCfg,
                                             const uint32_t  addr,
                                             const uint32_t  data[],
                                             const uint32_t  numDataWords)   = NULL;
-
+#ifndef __KERNEL__
 /* Thread Interface */
 adi_hal_thread_t (*adi_hal_ThreadSelf)(void) = NULL;
+#endif
 
 adi_hal_Err_e (*adrv903x_TlsSet)(const adi_hal_TlsType_e tlsType, void* const value) = NULL;
 
