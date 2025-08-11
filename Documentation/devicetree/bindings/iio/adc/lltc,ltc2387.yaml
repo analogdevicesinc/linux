@@ -30,8 +30,8 @@ properties:
       - adaq23878
 
   clocks:
+    description: Sampling clock
     maxItems: 1
-      Sampling clock
 
   dmas:
     maxItems: 1
