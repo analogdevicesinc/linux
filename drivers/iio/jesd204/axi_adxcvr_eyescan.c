@@ -124,6 +124,8 @@ static int adxcvr_eyescan_es(struct adxcvr_state *st, u32 lane)
 
 	} while (stat & ADXCVR_ES_REQ);
 
+	st->eye->words_available = hsize * ES_VSIZE;
+
 	if (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4 ||
 		st->xcvr.type == XILINX_XCVR_TYPE_US_GTY4) {
 		u32 midpoint = ((ES_VSIZE + 1) / 2) * hsize + hsize / 2;
@@ -202,6 +204,59 @@ adxcvr_eyescan_bin_read(struct file *filp, struct kobject *kobj,
 	return count;
 }
 
+static ssize_t
+adxcvr_eyescan_bin_read_partial(struct file *filp, struct kobject *kobj,
+		     struct bin_attribute *bin_attr,
+		     char *buf, loff_t off, size_t count)
+{
+	struct adxcvr_state *st;
+	struct device *dev;
+	int words_to_read, i = 0;
+	size_t len = 0;
+
+	dev = container_of(kobj, struct device, kobj);
+	st = dev_get_drvdata(dev);
+
+	if (off)
+		return 0;
+
+	/* Check if eye scan is enabled and lane is set */
+	if (st->eye->lane == -1)
+		return -ENODATA;
+
+	words_to_read = st->eye->words_available - st->eye->words_read;
+
+	if (words_to_read <= 0)
+		return 0;
+
+	if (wait_for_completion_interruptible(&st->eye->complete)) {
+		adxcvr_eyescan_write(st, ADXCVR_REG_ES_REQ, 0);
+		return -EINTR;
+	}
+
+	if (st->lpm_enable) {
+		u32 *buf32 = st->eye->buf_virt;
+
+		do {
+			len += scnprintf(buf + len, count - len, "%x,",
+					buf32[st->eye->words_read + i++]);
+		} while (len < (count - strlen("ffffffff,")) && i < words_to_read);
+		buf[len - 1] = '\0';
+	} else {
+		u64 *buf64 = st->eye->buf_virt;
+
+		do {
+			len += scnprintf(buf + len, count - len, "%llx,",
+					buf64[st->eye->words_read + i++]);
+		} while (len < (count - strlen("ffffffffffffffff,")) && i < words_to_read);
+		buf[len - 1] = '\0';
+	}
+
+	st->eye->words_read += i;
+
+	return count;
+}
+
 static ssize_t adxcvr_eyescan_set_enable(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t count)
@@ -215,6 +270,8 @@ static ssize_t adxcvr_eyescan_set_enable(struct device *dev,
 
 	if (st->eye->lane >= 0xFF || st->eye->lane < 0)
 		return -EINVAL;
+
+	st->eye->words_read = 0;
 
 	if (!completion_done(&st->eye->complete)) {
 		adxcvr_eyescan_write(st, ADXCVR_REG_ES_REQ, 0);
@@ -288,6 +345,21 @@ static ssize_t adxcvr_eyescan_info_read(struct device *dev,
 
 static DEVICE_ATTR(eyescan_info, 0444, adxcvr_eyescan_info_read, NULL);
 
+
+static ssize_t adxcvr_eyescan_get_available(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	struct adxcvr_state *st = dev_get_drvdata(dev);
+
+	if (!completion_done(&st->eye->complete) && (st->eye->lane != -1))
+		return -EBUSY;
+
+	return sprintf(buf, "%d\n", st->eye->words_available - st->eye->words_read);
+}
+
+static DEVICE_ATTR(eye_data_available, 0444, adxcvr_eyescan_get_available, NULL);
+
 int adxcvr_eyescan_register(struct adxcvr_state *st)
 {
 	struct adxcvr_eyescan *eye;
@@ -310,6 +382,12 @@ int adxcvr_eyescan_register(struct adxcvr_state *st)
 	eye->bin.read = adxcvr_eyescan_bin_read;
 	eye->bin.size = ES_HSIZE_HEX * ES_VSIZE * sizeof(u64);
 
+	sysfs_bin_attr_init(&eye->bin_partial);
+	eye->bin_partial.attr.name = "eye_data_partial";
+	eye->bin_partial.attr.mode = 0444;
+	eye->bin_partial.read = adxcvr_eyescan_bin_read_partial;
+	eye->bin_partial.size = 4095;
+
 	eye->buf_virt = dma_alloc_coherent(st->dev, PAGE_ALIGN(eye->bin.size),
 					  &eye->buf_phys, GFP_KERNEL);
 
@@ -326,9 +404,16 @@ int adxcvr_eyescan_register(struct adxcvr_state *st)
 		goto err_dma_free;
 	}
 
+	ret = sysfs_create_bin_file(&st->dev->kobj, &eye->bin_partial);
+	if (ret) {
+		dev_err(st->dev, "Failed to create sysfs bin file\n");
+		goto err_dma_free;
+	}
+
 	device_create_file(st->dev, &dev_attr_enable);
 	device_create_file(st->dev, &dev_attr_prescale);
 	device_create_file(st->dev, &dev_attr_eyescan_info);
+	device_create_file(st->dev, &dev_attr_eye_data_available);
 
 	INIT_WORK(&eye->work, adxcvr_eyescan_work_func);
 	init_completion(&eye->complete);
@@ -352,9 +437,11 @@ int adxcvr_eyescan_unregister(struct adxcvr_state *st)
 	complete_all(&st->eye->complete);
 
 	sysfs_remove_bin_file(&st->dev->kobj, &st->eye->bin);
+	sysfs_remove_bin_file(&st->dev->kobj, &st->eye->bin_partial);
 	device_remove_file(st->dev, &dev_attr_enable);
 	device_remove_file(st->dev, &dev_attr_prescale);
 	device_remove_file(st->dev, &dev_attr_eyescan_info);
+	device_remove_file(st->dev, &dev_attr_eye_data_available);
 
 	dma_free_coherent(st->dev, PAGE_ALIGN(st->eye->bin.size),
 			  st->eye->buf_virt, st->eye->buf_phys);
