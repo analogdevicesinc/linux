@@ -185,7 +185,7 @@
 		compatible = "adi,iio-fake-platform-device";
 		adi,faked-dev = <&axi_ad9084_tx_jesd>;
 		adi,attribute-names = "status", "encoder";
-		label = "axi-jesd204-rx";
+		label = "axi-jesd204-tx";
 	};
 
 	axi-adxcvr-rx@2 {
@@ -194,7 +194,7 @@
 		adi,attribute-names =
 			"eyescan_info", "prbs_status", "prbs_counter_reset",
 			"prescale", "enable", "prbs_error_counters", "reg_access",
-			"eye_data", "prbs_select";
+			"eye_data_available", "eye_data_partial", "prbs_select";
 		label = "axi-adxcvr-rx";
 	};
 
