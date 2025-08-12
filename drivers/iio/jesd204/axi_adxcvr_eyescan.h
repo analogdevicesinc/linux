@@ -81,6 +81,7 @@ struct adxcvr_eyescan {
 	struct device		*dev;
 	struct work_struct	work;
 	struct bin_attribute	bin;
+	struct bin_attribute	bin_partial;
 	struct completion	complete;
 	struct adxcvr_state	*st;
 
@@ -89,6 +90,8 @@ struct adxcvr_eyescan {
 
 	int			lane;
 	int			prescale;
+	int			words_available;
+	int 			words_read;
 };
 
 int adxcvr_eyescan_register(struct adxcvr_state *st);
