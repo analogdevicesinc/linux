@@ -695,6 +695,7 @@ static int ad9088_testmode_write(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
+	adi_apollo_rx_tmode_res_e res;
 	u8 cddc_num, fddc_num, side;
 	u32 cddc_mask, fddc_mask;
 	int ret = 0;
@@ -703,10 +704,32 @@ static int ad9088_testmode_write(struct iio_dev *indio_dev,
 				    &fddc_mask, &cddc_num, &cddc_mask, &side);
 
 	guard(mutex)(&phy->lock);
+
+	switch (phy->profile.rx_path[side].rx_dformat[0].res) {
+	case ADI_APOLLO_RX_DFORMAT_RES_16B:
+		res = ADI_APOLLO_RX_TMODE_RES_16B;
+		break;
+	case ADI_APOLLO_RX_DFORMAT_RES_15B:
+		res = ADI_APOLLO_RX_TMODE_RES_15B;
+		break;
+	case ADI_APOLLO_RX_DFORMAT_RES_14B:
+		res = ADI_APOLLO_RX_TMODE_RES_14B;
+		break;
+	case ADI_APOLLO_RX_DFORMAT_RES_13B:
+		res = ADI_APOLLO_RX_TMODE_RES_13B;
+		break;
+	case ADI_APOLLO_RX_DFORMAT_RES_12B:
+		res = ADI_APOLLO_RX_TMODE_RES_12B;
+		break;
+	default:
+		dev_warn(&phy->spi->dev, "Unsupported tmode resolution %d\n",
+			phy->profile.rx_path[side].rx_dformat[0].res);
+		res = ADI_APOLLO_RX_TMODE_RES_12B;
+	}
+
 	ret = adi_apollo_tmode_config_set(&phy->ad9088,
 					  side ? ADI_APOLLO_LINK_B0 : ADI_APOLLO_LINK_A0,
-					  item ? 0xFF : 0, item,
-					  phy->profile.rx_path[side].rx_dformat[0].tmode.res);
+					  item ? 0xFF : 0, item, res);
 
 	if (!ret)
 		conv->testmode[chan->channel] = item;
