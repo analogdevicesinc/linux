@@ -821,6 +821,19 @@ config VIDEO_AD5820
 	  This is a driver for the AD5820 camera lens voice coil.
 	  It is used for example in Nokia N900 (RX-51).
 
+config VIDEO_ADSD3500
+	tristate "Analog Devices ADSD3500 TOF camera sensor support"
+	depends on OF && GPIOLIB && I2C && VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the Analog Devices
+	  ADSD3500 time-of-flight (TOF) camera sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adsd3500.
+
 config VIDEO_AK7375
 	tristate "AK7375 lens voice coil support"
 	depends on I2C && VIDEO_DEV

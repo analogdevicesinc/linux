@@ -1,0 +1,151 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Definitions for Analog Devices ADSD3500 TOF camera sensor on VC I2C bus
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/{
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2c0if>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	clk_frag: fragment@1 {
+		target = <&cam1_clk>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c0mux>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	i2c_frag: fragment@100 {
+		target = <&i2c_csi_dsi>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			cam_node: adsd3500@38 {
+				compatible = "adi,adsd3500";
+				reg = <0x38>;
+				status = "disabled";
+
+				//reset-gpios = <&gpio 41 GPIO_ACTIVE_LOW>;
+				//interrupt-gpios = <&gpio 40 GPIO_ACTIVE_HIGH>;
+
+				rotation = <0>;
+				orientation = <0>;
+
+				port {
+					cam_endpoint: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						clock-noncontinuous;
+						link-frequencies =
+							/bits/ 64 <732000000>;
+					};
+				};
+			};
+
+			/* MAX7320 on ADSD3500 BRD */
+			gpio_exp_1: gpio@58 {
+				compatible = "maxim,max7320";
+				reg = <0x58>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-line-names = "M0", "M1", "SI0", "U0",
+                              "IDSEL", "DS2", "EN_1P8", "EN_0P8";
+			};
+
+			/* MAX7321 on ADSD3500 BRD */
+			gpio_exp_2: gpio@68 {
+				compatible = "maxim,max7321";
+				reg = <0x68>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-line-names = "OC0", "OC1", "OC2", "OC3",
+                               "OC4", "OC5", "OC6", "FLASH_WP";
+			};
+
+			/* MAX7322 on RPI interposer */
+			gpio_exp_3: gpio@6c {
+				compatible = "maxim,max7322";
+				reg = <0x6c>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-line-names = "EN_VAUX", "EN_VSYS", "I2_NC", "I3_NC",
+                               "SHUTDOWN_RPI", "I5_NC", "O6_NC", "F_SYNC_RPI";
+			};
+		};
+	};
+
+	csi_frag: fragment@101 {
+		target = <&csi1>;
+		csi: __overlay__ {
+			status = "okay";
+
+			port {
+				csi_ep: endpoint {
+					remote-endpoint = <&cam_endpoint>;
+					clock-lanes = <0>;
+					data-lanes = <1 2>;
+					clock-noncontinuous;
+				};
+			};
+		};
+	};
+
+	fragment@102 {
+		target = <&csi1>;
+		__dormant__ {
+			compatible = "brcm,bcm2835-unicam-legacy";
+		};
+	};
+
+	fragment@201 {
+		target = <&csi_ep>;
+		__dormant__ {
+			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	fragment@202 {
+		target = <&cam_endpoint>;
+		__dormant__ {
+			data-lanes = <1 2 3 4>;
+			link-frequencies =
+					/bits/ 64 <732000000>;
+		};
+	};
+
+	__overrides__ {
+		rotation = <&cam_node>,"rotation:0";
+		orientation = <&cam_node>,"orientation:0";
+		media-controller = <0>,"!102";
+		cam0 = <&i2c_frag>, "target:0=",<&i2c_csi_dsi0>,
+		       <&csi_frag>, "target:0=",<&csi0>,
+		       <&clk_frag>, "target:0=",<&cam0_clk>,
+		       <&cam_node>, "clocks:0=",<&cam0_clk>;
+		4lane = <0>, "+201+202";
+		use-vc = <&cam_node>,"adi,use-vc?";
+	};
+};
+
+&cam_node {
+	status = "okay";
+};
+
+&cam_endpoint {
+	remote-endpoint = <&csi_ep>;
+};
