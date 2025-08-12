@@ -18,15 +18,16 @@
 #include "adrv906x-phy-serdes.h"
 #include "adrv906x-cmn.h"
 
-#define ADRV906X_GENL_NAME          "adrv906x"
-#define ADRV906X_GENL_VERSION       1
-#define ADRV906X_GENL_MC_GRP_NAME   "adrv906x_mcgrp"
-#define ADRV906X_PHY_MAX_PLLS       2
-#define ADRV906X_PHY_MAX_LANES      4
-#define ADRV906X_PHY_DEV_IDX_MSK    GENMASK(3, 0)
-#define ADRV906X_PHY_DEV_SPEED_MSK  GENMASK(31, 16)
+#define ADRV906X_GENL_NAME              "adrv906x"
+#define ADRV906X_GENL_VERSION           1
+#define ADRV906X_GENL_MC_GRP_NAME       "adrv906x_mcgrp"
+#define ADRV906X_PHY_MAX_PLLS           2
+#define ADRV906X_PHY_MAX_LANES          4
+#define ADRV906X_PHY_DEV_IDX_MSK        GENMASK(3, 0)
+#define ADRV906X_PHY_DEV_SPEED_MSK      GENMASK(31, 16)
+#define ADRV906X_PHY_APP_START_IND_MSK  BIT(15)
 
-#define APP_HEARTBEAT_TIMEOUT_MS    1500
+#define APP_HEARTBEAT_TIMEOUT_MS        10000
 
 typedef void (*adrv906x_phy_fsm_action)(void *param);
 typedef char * (*adrv906x_phy_fsm_state_to_str)(u32 state);
@@ -74,6 +75,7 @@ enum adrv906x_serdes_states {
 
 enum adrv906x_serdes_events {
 	SD_EVT_UNKNOWN,
+	SD_EVT_APP_STARTED,
 	SD_EVT_APP_ACTV,
 	SD_EVT_APP_INACT,
 	SD_EVT_LNK_UP,
@@ -106,6 +108,7 @@ enum adrv906x_pll_states {
 enum adrv906x_pll_events {
 	PLL_EVT_UNKNOWN,
 	PLL_EVT_UNLOCKED,
+	PLL_EVT_APP_STARTED,
 	PLL_EVT_APP_ACTV,
 	PLL_EVT_APP_INACT,
 	PLL_EVT_LNK0_10G_REQ,
@@ -183,9 +186,11 @@ static DEFINE_MUTEX(genl_mutex);
 
 static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_serdes_trans[] = {
 	/* Source State       Event                 Action        	  	Destination State */
+	{ SD_ST_IDLE,	      SD_EVT_APP_STARTED,   __do_nothing,	      SD_ST_APP_ACTV	 },
 	{ SD_ST_IDLE,	      SD_EVT_APP_ACTV,	    __do_nothing,	      SD_ST_APP_ACTV	 },
 	{ SD_ST_IDLE,	      SD_EVT_LNK_UP,	    __do_nothing,	      SD_ST_LNK_UP_PEND	 },
 
+	{ SD_ST_LNK_UP_PEND,  SD_EVT_APP_STARTED,   __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_LNK_UP_PEND,  SD_EVT_APP_ACTV,	    __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_LNK_UP_PEND,  SD_EVT_LNK_DOWN,	    __do_nothing,	      SD_ST_IDLE	 },
 
@@ -194,16 +199,19 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_serdes_trans[] = {
 
 	{ SD_ST_PLL_UNLOCKED, SD_EVT_PWR_DOWN_DONE, __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_PLL_UNLOCKED, SD_EVT_APP_INACT,	    __do_nothing,	      SD_ST_LNK_UP_PEND	 },
+	{ SD_ST_PLL_UNLOCKED, SD_EVT_APP_STARTED,   __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 
 	{ SD_ST_PLL_CFG,      SD_EVT_PLL_LOCKED,    __sd_ser_cfg_send,	      SD_ST_SER_CFG	 },
 	{ SD_ST_PLL_CFG,      SD_EVT_PLL_UNLOCKED,  __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_PLL_CFG,      SD_EVT_LNK_DOWN,	    __sd_lnk_down_notif,      SD_ST_APP_ACTV	 },
 	{ SD_ST_PLL_CFG,      SD_EVT_APP_INACT,	    __do_nothing,	      SD_ST_LNK_UP_PEND	 },
+	{ SD_ST_PLL_CFG,      SD_EVT_APP_STARTED,   __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_PLL_CFG,      SD_EVT_LNK_UP,	    __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_PLL_CFG,      SD_EVT_PWR_DOWN_DONE, __sd_ser_cfg_send,	      SD_ST_SER_CFG	 },
 
 	{ SD_ST_SER_CFG,      SD_EVT_SER_RDY,	    __sd_deser_cfg_send,      SD_ST_DESER_CFG	 },
 	{ SD_ST_SER_CFG,      SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_LNK_UP_PEND	 },
+	{ SD_ST_SER_CFG,      SD_EVT_APP_STARTED,   __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_SER_CFG,      SD_EVT_LNK_DOWN,	    __sd_pwr_down_notif_send, SD_ST_PWR_DOWN	 },
 	{ SD_ST_SER_CFG,      SD_EVT_PLL_LOCKED,    __sd_pwr_down_notif_send, SD_ST_PLL_CFG	 },
 	{ SD_ST_SER_CFG,      SD_EVT_PLL_UNLOCKED,  __sd_pwr_down_notif_send, SD_ST_PLL_UNLOCKED },
@@ -211,6 +219,7 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_serdes_trans[] = {
 
 	{ SD_ST_DESER_CFG,    SD_EVT_DESER_RDY,	    __sd_deser_init_cal_send, SD_ST_CAL_STARTED	 },
 	{ SD_ST_DESER_CFG,    SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_LNK_UP_PEND	 },
+	{ SD_ST_DESER_CFG,    SD_EVT_APP_STARTED,   __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_DESER_CFG,    SD_EVT_LNK_DOWN,	    __sd_pwr_down_notif_send, SD_ST_PWR_DOWN	 },
 	{ SD_ST_DESER_CFG,    SD_EVT_PLL_LOCKED,    __sd_pwr_down_notif_send, SD_ST_PLL_CFG	 },
 	{ SD_ST_DESER_CFG,    SD_EVT_PLL_UNLOCKED,  __sd_pwr_down_notif_send, SD_ST_PLL_UNLOCKED },
@@ -218,6 +227,7 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_serdes_trans[] = {
 
 	{ SD_ST_CAL_STARTED,  SD_EVT_SIGNAL_OK,	    __do_nothing,	      SD_ST_SIGNAL_OK	 },
 	{ SD_ST_CAL_STARTED,  SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_LNK_UP_PEND	 },
+	{ SD_ST_CAL_STARTED,  SD_EVT_APP_STARTED,   __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_CAL_STARTED,  SD_EVT_LNK_DOWN,	    __sd_pwr_down_notif_send, SD_ST_PWR_DOWN	 },
 	{ SD_ST_CAL_STARTED,  SD_EVT_PLL_LOCKED,    __sd_pwr_down_notif_send, SD_ST_PLL_CFG	 },
 	{ SD_ST_CAL_STARTED,  SD_EVT_PLL_UNLOCKED,  __sd_pwr_down_notif_send, SD_ST_PLL_UNLOCKED },
@@ -225,6 +235,7 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_serdes_trans[] = {
 
 	{ SD_ST_SIGNAL_OK,    SD_EVT_LOS_DETECTED,  __do_nothing,	      SD_ST_LOS		 },
 	{ SD_ST_SIGNAL_OK,    SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_LNK_UP_PEND	 },
+	{ SD_ST_SIGNAL_OK,    SD_EVT_APP_STARTED,   __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_SIGNAL_OK,    SD_EVT_LNK_DOWN,	    __sd_pwr_down_notif_send, SD_ST_PWR_DOWN	 },
 	{ SD_ST_SIGNAL_OK,    SD_EVT_PLL_LOCKED,    __sd_pwr_down_notif_send, SD_ST_PLL_CFG	 },
 	{ SD_ST_SIGNAL_OK,    SD_EVT_PLL_UNLOCKED,  __sd_pwr_down_notif_send, SD_ST_PLL_UNLOCKED },
@@ -232,16 +243,19 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_serdes_trans[] = {
 
 	{ SD_ST_LOS,	      SD_EVT_SIGNAL_OK,	    __do_nothing,	      SD_ST_SIGNAL_OK	 },
 	{ SD_ST_LOS,	      SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_LNK_UP_PEND	 },
+	{ SD_ST_LOS,	      SD_EVT_APP_STARTED,   __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_LOS,	      SD_EVT_LNK_DOWN,	    __sd_pwr_down_notif_send, SD_ST_PWR_DOWN	 },
 	{ SD_ST_LOS,	      SD_EVT_PLL_LOCKED,    __sd_pwr_down_notif_send, SD_ST_PLL_CFG	 },
 	{ SD_ST_LOS,	      SD_EVT_PLL_UNLOCKED,  __sd_pwr_down_notif_send, SD_ST_PLL_UNLOCKED },
 	{ SD_ST_LOS,	      SD_EVT_LNK_UP,	    __sd_pwr_down_notif_send, SD_ST_RATE_CHANGED },
 
 	{ SD_ST_PWR_DOWN,     SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_IDLE	 },
+	{ SD_ST_PWR_DOWN,     SD_EVT_APP_STARTED,   __sd_pwr_down,	      SD_ST_APP_ACTV	 },
 	{ SD_ST_PWR_DOWN,     SD_EVT_PWR_DOWN_DONE, __sd_lnk_down_notif,      SD_ST_APP_ACTV	 },
 	{ SD_ST_PWR_DOWN,     SD_EVT_LNK_UP,	    __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 
-	{ SD_ST_RATE_CHANGED, SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_IDLE	 },
+	{ SD_ST_RATE_CHANGED, SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_LNK_UP_PEND	 },
+	{ SD_ST_RATE_CHANGED, SD_EVT_APP_STARTED,   __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 	{ SD_ST_RATE_CHANGED, SD_EVT_PWR_DOWN_DONE, __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
 };
 
@@ -257,6 +271,7 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_pll_trans[] = {
 	{ PLL_ST_10G_RUN,	 PLL_EVT_LNK0_25G_REQ, __pll_check_actv_lnks,	PLL_ST_LNK0_25G_REQ   },
 	{ PLL_ST_10G_RUN,	 PLL_EVT_LNK1_25G_REQ, __pll_check_actv_lnks,	PLL_ST_LNK1_25G_REQ   },
 	{ PLL_ST_10G_RUN,	 PLL_EVT_UNLOCKED,     __pll_unlkd_notif_lnk01, PLL_ST_UNLOCKED	      },
+	{ PLL_ST_10G_RUN,	 PLL_EVT_APP_STARTED,  __do_nothing,		PLL_ST_UNLOCKED	      },
 	{ PLL_ST_10G_RUN,	 PLL_EVT_APP_INACT,    __do_nothing,		PLL_ST_UNLOCKED	      },
 
 	{ PLL_ST_25G_RUN,	 PLL_EVT_LNK0_25G_REQ, __pll_lkd_notif_lnk0,	PLL_ST_25G_RUN	      },
@@ -264,6 +279,7 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_pll_trans[] = {
 	{ PLL_ST_25G_RUN,	 PLL_EVT_LNK0_10G_REQ, __pll_check_actv_lnks,	PLL_ST_LNK0_10G_REQ   },
 	{ PLL_ST_25G_RUN,	 PLL_EVT_LNK1_10G_REQ, __pll_check_actv_lnks,	PLL_ST_LNK1_10G_REQ   },
 	{ PLL_ST_25G_RUN,	 PLL_EVT_UNLOCKED,     __pll_unlkd_notif_lnk01, PLL_ST_UNLOCKED	      },
+	{ PLL_ST_25G_RUN,	 PLL_EVT_APP_STARTED,  __do_nothing,		PLL_ST_UNLOCKED	      },
 	{ PLL_ST_25G_RUN,	 PLL_EVT_APP_INACT,    __do_nothing,		PLL_ST_UNLOCKED	      },
 
 	{ PLL_ST_LNK0_10G_REQ,	 PLL_EVT_LNK0_DOWN,    __do_nothing,		PLL_ST_25G_RUN	      },
@@ -296,36 +312,42 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_pll_trans[] = {
 
 	{ PLL_ST_LNK0_10G_PEND,	 PLL_EVT_CFG_DONE,     __pll_lkd_notif_lnk0,	PLL_ST_10G_RUN	      },
 	{ PLL_ST_LNK0_10G_PEND,	 PLL_EVT_APP_INACT,    __do_nothing,		PLL_ST_UNLOCKED	      },
+	{ PLL_ST_LNK0_10G_PEND,	 PLL_EVT_APP_STARTED,  __do_nothing,		PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK0_10G_PEND,	 PLL_EVT_UNLOCKED,     __pll_unlkd_notif_lnk01, PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK0_10G_PEND,	 PLL_EVT_LNK1_10G_REQ, __do_nothing,		PLL_ST_LNK01_10G_PEND },
 	{ PLL_ST_LNK0_10G_PEND,	 PLL_EVT_LNK1_25G_REQ, __do_nothing,		PLL_ST_LNK1_25G_REQ   },
 
 	{ PLL_ST_LNK1_10G_PEND,	 PLL_EVT_CFG_DONE,     __pll_lkd_notif_lnk1,	PLL_ST_10G_RUN	      },
 	{ PLL_ST_LNK1_10G_PEND,	 PLL_EVT_APP_INACT,    __do_nothing,		PLL_ST_UNLOCKED	      },
+	{ PLL_ST_LNK1_10G_PEND,	 PLL_EVT_APP_STARTED,  __do_nothing,		PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK1_10G_PEND,	 PLL_EVT_UNLOCKED,     __pll_unlkd_notif_lnk01, PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK1_10G_PEND,	 PLL_EVT_LNK0_10G_REQ, __do_nothing,		PLL_ST_LNK01_10G_PEND },
 	{ PLL_ST_LNK1_10G_PEND,	 PLL_EVT_LNK0_25G_REQ, __do_nothing,		PLL_ST_LNK0_25G_REQ   },
 
 	{ PLL_ST_LNK01_10G_PEND, PLL_EVT_CFG_DONE,     __pll_lkd_notif_lnk01,	PLL_ST_10G_RUN	      },
 	{ PLL_ST_LNK01_10G_PEND, PLL_EVT_APP_INACT,    __do_nothing,		PLL_ST_UNLOCKED	      },
+	{ PLL_ST_LNK01_10G_PEND, PLL_EVT_APP_STARTED,  __do_nothing,		PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK01_10G_PEND, PLL_EVT_UNLOCKED,     __pll_unlkd_notif_lnk01, PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK01_10G_PEND, PLL_EVT_LNK1_25G_REQ, __do_nothing,		PLL_ST_LNK1_25G_REQ   },
 	{ PLL_ST_LNK01_10G_PEND, PLL_EVT_LNK0_25G_REQ, __do_nothing,		PLL_ST_LNK0_25G_REQ   },
 
 	{ PLL_ST_LNK0_25G_PEND,	 PLL_EVT_CFG_DONE,     __pll_lkd_notif_lnk0,	PLL_ST_25G_RUN	      },
 	{ PLL_ST_LNK0_25G_PEND,	 PLL_EVT_APP_INACT,    __do_nothing,		PLL_ST_UNLOCKED	      },
+	{ PLL_ST_LNK0_25G_PEND,	 PLL_EVT_APP_STARTED,  __do_nothing,		PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK0_25G_PEND,	 PLL_EVT_UNLOCKED,     __pll_unlkd_notif_lnk01, PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK0_25G_PEND,	 PLL_EVT_LNK1_25G_REQ, __do_nothing,		PLL_ST_LNK01_25G_PEND },
 	{ PLL_ST_LNK0_25G_PEND,	 PLL_EVT_LNK1_10G_REQ, __do_nothing,		PLL_ST_LNK1_10G_REQ   },
 
 	{ PLL_ST_LNK1_25G_PEND,	 PLL_EVT_CFG_DONE,     __pll_lkd_notif_lnk1,	PLL_ST_25G_RUN	      },
 	{ PLL_ST_LNK1_25G_PEND,	 PLL_EVT_APP_INACT,    __do_nothing,		PLL_ST_UNLOCKED	      },
+	{ PLL_ST_LNK1_25G_PEND,	 PLL_EVT_APP_STARTED,  __do_nothing,		PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK1_25G_PEND,	 PLL_EVT_UNLOCKED,     __pll_unlkd_notif_lnk01, PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK1_25G_PEND,	 PLL_EVT_LNK0_25G_REQ, __do_nothing,		PLL_ST_LNK01_25G_PEND },
 	{ PLL_ST_LNK1_25G_PEND,	 PLL_EVT_LNK0_10G_REQ, __do_nothing,		PLL_ST_LNK0_10G_REQ   },
 
 	{ PLL_ST_LNK01_25G_PEND, PLL_EVT_CFG_DONE,     __pll_lkd_notif_lnk01,	PLL_ST_25G_RUN	      },
 	{ PLL_ST_LNK01_25G_PEND, PLL_EVT_APP_INACT,    __do_nothing,		PLL_ST_UNLOCKED	      },
+	{ PLL_ST_LNK01_25G_PEND, PLL_EVT_APP_STARTED,  __do_nothing,		PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK01_25G_PEND, PLL_EVT_UNLOCKED,     __pll_unlkd_notif_lnk01, PLL_ST_UNLOCKED	      },
 	{ PLL_ST_LNK01_25G_PEND, PLL_EVT_LNK1_10G_REQ, __do_nothing,		PLL_ST_LNK1_10G_REQ   },
 	{ PLL_ST_LNK01_25G_PEND, PLL_EVT_LNK0_10G_REQ, __do_nothing,		PLL_ST_LNK0_10G_REQ   },
@@ -445,6 +467,7 @@ static char *adrv906x_serdes_event_to_str(u32 event)
 	switch (event) {
 	case SD_EVT_APP_ACTV:      return "APP_ACTV";
 	case SD_EVT_APP_INACT:     return "APP_INACT";
+	case SD_EVT_APP_STARTED:   return "APP_STARTED";
 	case SD_EVT_LNK_UP:        return "LNK_UP";
 	case SD_EVT_PLL_LOCKED:    return "PLL_LOCKED";
 	case SD_EVT_PLL_UNLOCKED:  return "PLL_UNLOCKED";
@@ -484,6 +507,7 @@ static char *adrv906x_pll_event_to_str(u32 event)
 	case PLL_EVT_UNLOCKED:     return "UNLOCKED";
 	case PLL_EVT_APP_ACTV:     return "APP_ACTV";
 	case PLL_EVT_APP_INACT:    return "APP_INACT";
+	case PLL_EVT_APP_STARTED:  return "APP_STARTED";
 	case PLL_EVT_LNK0_10G_REQ: return "LNK0_10G_REQ";
 	case PLL_EVT_LNK1_10G_REQ: return "LNK1_10G_REQ";
 	case PLL_EVT_LNK0_25G_REQ: return "LNK0_25G_REQ";
@@ -516,20 +540,23 @@ static int adrv906x_phy_send_message(u32 cmd, u32 dev_id, u32 speed)
 	       | FIELD_PREP(ADRV906X_PHY_DEV_SPEED_MSK, speed);
 
 	skb = genlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-	if (unlikely(!skb))
-		return -ENOMEM;
+	if (unlikely(!skb)) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	hdr = genlmsg_put(skb, 0, 0, &adrv906x_phy_genl_fam, 0, cmd);
 	if (unlikely(!hdr)) {
 		nlmsg_free(skb);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err;
 	}
 
 	ret = nla_put_u32(skb, ATTR_CMD_PAYLOAD, data);
 	if (ret) {
 		genlmsg_cancel(skb, hdr);
 		nlmsg_free(skb);
-		return ret;
+		goto err;
 	}
 
 	genlmsg_end(skb, hdr);
@@ -537,7 +564,13 @@ static int adrv906x_phy_send_message(u32 cmd, u32 dev_id, u32 speed)
 	mutex_lock(&genl_mutex);
 	ret = genlmsg_multicast(&adrv906x_phy_genl_fam, skb, 0, 0, GFP_KERNEL);
 	mutex_unlock(&genl_mutex);
+	if (ret)
+		goto err;
 
+	return ret;
+
+err:
+	pr_warn("[adrv906x] failed to send message to serdes-app!");
 	return ret;
 }
 
@@ -693,35 +726,32 @@ static int __sd_app_heartbeat_recv(struct sk_buff *skb, struct genl_info *info)
 	struct adrv906x_serdes *serdes3 = adrv906x_serdes_instance_get(3);
 	struct adrv906x_pll *pll0 = adrv906x_pll_instance_get(0);
 	struct adrv906x_pll *pll1 = adrv906x_pll_instance_get(1);
+	int pll_event, serdes_event;
+	u32 data;
+
+	if (!info->attrs[ATTR_CMD_PAYLOAD])
+		return -EINVAL;
+
+	data = nla_get_u32(info->attrs[ATTR_CMD_PAYLOAD]);
+	pll_event = data & ADRV906X_PHY_APP_START_IND_MSK ? PLL_EVT_APP_STARTED : PLL_EVT_APP_ACTV;
+	serdes_event = data & ADRV906X_PHY_APP_START_IND_MSK ? SD_EVT_APP_STARTED : SD_EVT_APP_ACTV;
 
 	mod_delayed_work(system_long_wq, &adrv_906x_app_watchdog_task,
 			 msecs_to_jiffies(APP_HEARTBEAT_TIMEOUT_MS));
 
-	adrv906x_phy_fsm_trigger_transition(&pll0->fsm, PLL_EVT_APP_ACTV);
-	adrv906x_phy_fsm_trigger_transition(&pll1->fsm, PLL_EVT_APP_ACTV);
-	adrv906x_phy_fsm_trigger_transition(&serdes0->fsm, SD_EVT_APP_ACTV);
-	adrv906x_phy_fsm_trigger_transition(&serdes1->fsm, SD_EVT_APP_ACTV);
-	adrv906x_phy_fsm_trigger_transition(&serdes2->fsm, SD_EVT_APP_ACTV);
-	adrv906x_phy_fsm_trigger_transition(&serdes3->fsm, SD_EVT_APP_ACTV);
+	adrv906x_phy_fsm_trigger_transition(&pll0->fsm, pll_event);
+	adrv906x_phy_fsm_trigger_transition(&pll1->fsm, pll_event);
+	adrv906x_phy_fsm_trigger_transition(&serdes0->fsm, serdes_event);
+	adrv906x_phy_fsm_trigger_transition(&serdes1->fsm, serdes_event);
+	adrv906x_phy_fsm_trigger_transition(&serdes2->fsm, serdes_event);
+	adrv906x_phy_fsm_trigger_transition(&serdes3->fsm, serdes_event);
 
 	return 0;
 }
 
 static void __sd_app_watchdog_expired(struct work_struct *work)
 {
-	struct adrv906x_serdes *serdes0 = adrv906x_serdes_instance_get(0);
-	struct adrv906x_serdes *serdes1 = adrv906x_serdes_instance_get(1);
-	struct adrv906x_serdes *serdes2 = adrv906x_serdes_instance_get(2);
-	struct adrv906x_serdes *serdes3 = adrv906x_serdes_instance_get(3);
-	struct adrv906x_pll *pll0 = adrv906x_pll_instance_get(0);
-	struct adrv906x_pll *pll1 = adrv906x_pll_instance_get(1);
-
-	adrv906x_phy_fsm_trigger_transition(&pll0->fsm, PLL_EVT_APP_INACT);
-	adrv906x_phy_fsm_trigger_transition(&pll1->fsm, PLL_EVT_APP_INACT);
-	adrv906x_phy_fsm_trigger_transition(&serdes0->fsm, SD_EVT_APP_INACT);
-	adrv906x_phy_fsm_trigger_transition(&serdes1->fsm, SD_EVT_APP_INACT);
-	adrv906x_phy_fsm_trigger_transition(&serdes2->fsm, SD_EVT_APP_INACT);
-	adrv906x_phy_fsm_trigger_transition(&serdes3->fsm, SD_EVT_APP_INACT);
+	pr_warn("[adrv906x] no heartbeat pulse received from serdes-app for 10 sec");
 }
 
 static int __sd_ser_cfg_done_recv(struct sk_buff *skb, struct genl_info *info)
