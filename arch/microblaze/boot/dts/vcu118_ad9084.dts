@@ -80,7 +80,7 @@
 		adi,attribute-names =
 			"eyescan_info", "prbs_status", "prbs_counter_reset",
 			"prescale", "enable", "prbs_error_counters", "reg_access",
-			"eye_data", "prbs_select";
+			"prbs_select", "eye_data_available", "eye_data_partial";
 		label = "axi-adxcvr-rx";
 	};
 
@@ -117,7 +117,7 @@
 		adi,attribute-names =
 			"eyescan_info", "prbs_status", "prbs_counter_reset",
 			"prescale", "enable", "prbs_error_counters", "reg_access",
-			"eye_data", "prbs_select";
+			"prbs_select", "eye_data_available", "eye_data_partial";
 		label = "axi-adxcvr-rx-b";
 	};
 
@@ -133,12 +133,8 @@
 };
 
 &axi_intc {
-#ifdef ASYNM_A_B_MODE
 	xlnx,kind-of-intr = <0xffff0410>;
 	xlnx,num-intr-inputs = <0x17>;
-#else
-	xlnx,kind-of-intr = <0xffff05f0>;
-#endif
 };
 
 &axi_ethernet {
@@ -351,11 +347,7 @@
 		fifo-size = <16>;
 		interrupt-names = "ip2intc_irpt";
 		interrupt-parent = <&axi_intc>;
-#ifdef ASYNM_A_B_MODE
 		interrupts = <16 0>;
-#else
-		interrupts = <8 0>;
-#endif
 		num-cs = <0x8>;
 		reg = <0x44A80000 0x1000>;
 		xlnx,num-ss-bits = <0x8>;
@@ -780,7 +772,7 @@
 
 		adi,side-b-use-seperate-tpl-en;
 #else
-		jesd204-link-ids = <DEFRAMER_LINK_A0_TX FRAMER_LINK_A0_RX>;
+		jesd204-link-ids = <DEFRAMER_LINK_A0_TX DEFRAMER_LINK_B0_TX FRAMER_LINK_A0_RX FRAMER_LINK_B0_RX>;
 
 		jesd204-inputs =
 			<&axi_ad9084_core_rx 0 FRAMER_LINK_A0_RX>,
