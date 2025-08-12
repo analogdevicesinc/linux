@@ -625,6 +625,8 @@ static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "adi,m2k-adc-1.00.a", .data = &m2k_adc_chip_info },
 	{ .compatible = "adi,axi-adrv9009-obs-1.0",
 				.data = &obs_rx_chip_info },
+	{ .compatible = "adi,axi-adrv9025-obs-1.0",
+				.data = &obs_rx_chip_info },
 	{ .compatible = "adi,axi-adrv9009-obs-single-1.0",
 				.data = &obs_rx_chip_info },
 	{ .compatible = "adi,axi-adrv9002-rx2-1.0",
