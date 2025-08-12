@@ -45,10 +45,6 @@ int32_t adi_apollo_tmode_config_set(adi_apollo_device_t *device,
     err = adi_apollo_dformat_conv_test_mode_enable_set(device, links, converter_mask);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    /* set JTx output as 16bit resolution */
-    err = adi_apollo_dformat_res_sel_set(device, links, ADI_APOLLO_CHIP_OUT_RES_16BIT);
-    ADI_APOLLO_ERROR_RETURN(err);
-
     /* Set ADC TMODE block res */
     adi_apollo_tmode_resolution_set(device, links, res); 
 
