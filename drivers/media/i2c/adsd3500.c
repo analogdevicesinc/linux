@@ -136,7 +136,7 @@ static int debug_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-ssize_t debug_read(struct file *file, char __user *buff, size_t count, loff_t *offset){
+static ssize_t debug_read(struct file *file, char __user *buff, size_t count, loff_t *offset){
 
 	struct adsd3500 *adsd3500 = file->private_data;
 	unsigned int read_val;
@@ -158,7 +158,7 @@ ssize_t debug_read(struct file *file, char __user *buff, size_t count, loff_t *o
 
 }
 
-ssize_t debug_write(struct file *file, const char __user *buff, size_t count, loff_t *offset){
+static ssize_t debug_write(struct file *file, const char __user *buff, size_t count, loff_t *offset){
 
 	struct adsd3500 *adsd3500 = file->private_data;
 
@@ -1038,7 +1038,7 @@ static const struct v4l2_ctrl_config adsd3500_depth_en = {
 };
 
 static int adsd3500_enum_mbus_code(struct v4l2_subdev *sd,
-				   struct v4l2_subdev_pad_config *cfg,
+				   struct v4l2_subdev_state *state,
 				   struct v4l2_subdev_mbus_code_enum *code)
 {
 	if (code->pad != 0)
@@ -1061,7 +1061,7 @@ static int adsd3500_enum_mbus_code(struct v4l2_subdev *sd,
 }
 
 static int adsd3500_enum_frame_size(struct v4l2_subdev *subdev,
-				    struct v4l2_subdev_pad_config *cfg,
+				    struct v4l2_subdev_state *state,
 				    struct v4l2_subdev_frame_size_enum *fse)
 {
 	int i, j = 0;
@@ -1089,145 +1089,126 @@ static int adsd3500_enum_frame_size(struct v4l2_subdev *subdev,
 	return 0;
 }
 
-static struct v4l2_mbus_framefmt *
-adsd3500_get_pad_format(struct adsd3500 *adsd3500,
-			struct v4l2_subdev_pad_config *cfg, unsigned int pad,
-			enum v4l2_subdev_format_whence which)
-{
-	switch (which) {
-	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&adsd3500->sd, cfg, pad);
-	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &adsd3500->fmt;
-	default:
-		return ERR_PTR(-EINVAL);
-	}
-}
-
-static int adsd3500_get_format(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
-			       struct v4l2_subdev_format *format)
-{
-	struct adsd3500 *adsd3500 = to_adsd3500(sd);
-	struct v4l2_mbus_framefmt *pad_format;
-
-	pad_format = adsd3500_get_pad_format(adsd3500, cfg, format->pad,
-					     format->which);
-	if (IS_ERR(pad_format))
-		return PTR_ERR(pad_format);
-
-	format->format = *pad_format;
-
-	return 0;
-}
-
-static struct v4l2_rect *
-adsd3500_get_pad_crop(struct adsd3500 *adsd3500,
-		      struct v4l2_subdev_pad_config *cfg,
-		      unsigned int pad, enum v4l2_subdev_format_whence which)
-{
-	switch (which) {
-	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_crop(&adsd3500->sd, cfg, pad);
-	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &adsd3500->crop;
-	default:
-		return ERR_PTR(-EINVAL);
-	}
-}
 
 static int adsd3500_set_format(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
+			       struct v4l2_subdev_state *state,
 			       struct v4l2_subdev_format *format)
 {
 	struct adsd3500 *adsd3500 = to_adsd3500(sd);
 	struct v4l2_mbus_framefmt *framefmt;
 	struct v4l2_rect *crop;
 	const struct adsd3500_mode_info *new_mode;
-	int ret;
 
 	dev_dbg(adsd3500->dev, "set_fmt: %x %dx%d %d\n",
 		format->format.code, format->format.width,
 		format->format.height, format->which);
 
-	mutex_lock(&adsd3500->lock);
-
 	if (format->pad != 0)
 		return -EINVAL;
 
-	crop = adsd3500_get_pad_crop(adsd3500, cfg, format->pad,
-				     format->which);
-	if (IS_ERR(crop))
-		return PTR_ERR(crop);
+	if (!state) {
+		dev_err(adsd3500->dev, "set_fmt: state is NULL\n");
+		return -EINVAL;
+	}
 
-	new_mode = v4l2_find_nearest_size(adsd3500_mode_info_data,
-					  ARRAY_SIZE(adsd3500_mode_info_data),
-					  width, height, format->format.width,
-					  format->format.height);
+	crop = v4l2_subdev_state_get_crop(state, format->pad);
+
+	/* Find mode that matches both format code and resolution */
+	new_mode = NULL;
+	for (int i = 0; i < ARRAY_SIZE(adsd3500_mode_info_data); i++) {
+		if (adsd3500_mode_info_data[i].code == format->format.code &&
+		    adsd3500_mode_info_data[i].width == format->format.width &&
+		    adsd3500_mode_info_data[i].height == format->format.height) {
+			new_mode = &adsd3500_mode_info_data[i];
+			break;
+		}
+	}
+	
+	/* If exact match not found, fall back to nearest size with same format code */
+	if (!new_mode) {
+		for (int i = 0; i < ARRAY_SIZE(adsd3500_mode_info_data); i++) {
+			if (adsd3500_mode_info_data[i].code == format->format.code) {
+				if (!new_mode) {
+					new_mode = &adsd3500_mode_info_data[i];
+				} else {
+					/* Find closest match by comparing area difference */
+					int current_diff = abs((int)(adsd3500_mode_info_data[i].width * adsd3500_mode_info_data[i].height) -
+							      (int)(format->format.width * format->format.height));
+					int best_diff = abs((int)(new_mode->width * new_mode->height) -
+							   (int)(format->format.width * format->format.height));
+					if (current_diff < best_diff) {
+						new_mode = &adsd3500_mode_info_data[i];
+					}
+				}
+			}
+		}
+	}
+	
+	/* If no mode found at all, return error */
+	if (!new_mode) {
+		dev_dbg(adsd3500->dev, "set_fmt: no mode found for %x %dx%d\n",
+			format->format.code, format->format.width, format->format.height);
+		return -EINVAL;
+	}
+	
+	dev_dbg(adsd3500->dev, "set_fmt: selected mode %dx%d (code %x)\n",
+		new_mode->width, new_mode->height, new_mode->code);
+	
 	crop->width = new_mode->width;
 	crop->height = new_mode->height;
+	crop->left = 0;
+	crop->top = 0;
 
 	if (format->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
-		ret = v4l2_ctrl_s_ctrl_int64(adsd3500->pixel_rate,
-					     new_mode->pixel_rate);
-		if (ret < 0)
-			return ret;
-
-		ret = v4l2_ctrl_s_ctrl(adsd3500->link_freq,
-				       new_mode->link_freq_idx);
-		if (ret < 0)
-			return ret;
-
 		adsd3500->current_mode = new_mode;
 	}
 
-	framefmt = adsd3500_get_pad_format(adsd3500, cfg, format->pad,
-					   format->which);
-	if (IS_ERR(framefmt))
-		return PTR_ERR(framefmt);
-
-	framefmt->width = crop->width;
-	framefmt->height = crop->height;
+	framefmt = v4l2_subdev_state_get_format(state, format->pad);
+	framefmt->width = new_mode->width;
+	framefmt->height = new_mode->height;
 	framefmt->code = format->format.code;
 	framefmt->field = V4L2_FIELD_NONE;
 	framefmt->colorspace = V4L2_COLORSPACE_RAW;
 
 	format->format = *framefmt;
-	adsd3500->fmt = *framefmt;
-
-	mutex_unlock(&adsd3500->lock);
+	
+	/* Only update driver state for ACTIVE format */
+	if (format->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
+		adsd3500->fmt = *framefmt;
+		adsd3500->crop = *crop;
+	}
 
 	return 0;
 }
 
-static int adsd3500_entity_init_cfg(struct v4l2_subdev *subdev,
-				    struct v4l2_subdev_pad_config *cfg)
+static int adsd3500_init_state(struct v4l2_subdev *subdev,
+			       struct v4l2_subdev_state *state)
 {
-	struct v4l2_subdev_format fmt = { 0 };
+	struct adsd3500 *adsd3500 = to_adsd3500(subdev);
+	struct v4l2_subdev_format fmt = {
+		.which = V4L2_SUBDEV_FORMAT_TRY,
+		.pad = 0,
+		.format = {
+			.code = adsd3500_mode_info_data[0].code,
+			.width = adsd3500_mode_info_data[0].width,
+			.height = adsd3500_mode_info_data[0].height,
+		},
+	};
+	
+	dev_dbg(adsd3500->dev, "init_state: setting TRY format %x %dx%d\n",
+		fmt.format.code, fmt.format.width, fmt.format.height);
 
-	fmt.which = cfg ? V4L2_SUBDEV_FORMAT_TRY : V4L2_SUBDEV_FORMAT_ACTIVE;
-	fmt.format.width = adsd3500_mode_info_data[0].width;
-	fmt.format.height = adsd3500_mode_info_data[0].height;
-	fmt.format.code = adsd3500_mode_info_data[0].code;
-
-	return adsd3500_set_format(subdev, cfg, &fmt);
+	return adsd3500_set_format(subdev, state, &fmt);
 }
 
 static int adsd3500_get_selection(struct v4l2_subdev *sd,
-				  struct v4l2_subdev_pad_config *cfg,
+				  struct v4l2_subdev_state *state,
 				  struct v4l2_subdev_selection *sel)
 {
-	struct adsd3500 *adsd3500 = to_adsd3500(sd);
-	struct v4l2_rect *crop;
-
 	if (sel->target != V4L2_SEL_TGT_CROP)
 		return -EINVAL;
 
-	crop = adsd3500_get_pad_crop(adsd3500, cfg, sel->pad, sel->which);
-	if (IS_ERR(crop))
-		return PTR_ERR(crop);
-
-	sel->r = *crop;
+	sel->r = *v4l2_subdev_state_get_crop(state, sel->pad);
 
 	return 0;
 }
@@ -1295,8 +1276,9 @@ err_unlock:
 	return ret;
 }
 
-static int adsd3500_g_frame_interval(struct v4l2_subdev *subdev,
-				     struct v4l2_subdev_frame_interval *fi)
+static int adsd3500_get_frame_interval(struct v4l2_subdev *subdev,
+				       struct v4l2_subdev_state *state,
+				       struct v4l2_subdev_frame_interval *fi)
 {
 	struct adsd3500 *adsd3500 = to_adsd3500(subdev);
 	uint32_t val;
@@ -1314,14 +1296,15 @@ static int adsd3500_g_frame_interval(struct v4l2_subdev *subdev,
 	return ret;
 }
 
-static int adsd3500_s_frame_interval(struct v4l2_subdev *subdev,
-				     struct v4l2_subdev_frame_interval *fi)
+static int adsd3500_set_frame_interval(struct v4l2_subdev *subdev,
+				       struct v4l2_subdev_state *state,
+				       struct v4l2_subdev_frame_interval *fi)
 {
 	struct adsd3500 *adsd3500 = to_adsd3500(subdev);
 	uint32_t val;
 	int ret;
 
-	val = DIV_ROUND_UP(fi->interval.denominator,  fi->interval.numerator);
+	val = DIV_ROUND_UP(fi->interval.denominator, fi->interval.numerator);
 
 	ret = regmap_write(adsd3500->regmap, SET_FRAMERATE_CMD, val);
 	if (ret < 0)
@@ -1352,17 +1335,20 @@ static const struct v4l2_subdev_core_ops adsd3500_core_ops = {
 
 static const struct v4l2_subdev_video_ops adsd3500_video_ops = {
 	.s_stream			= adsd3500_s_stream,
-	.g_frame_interval	= adsd3500_g_frame_interval,
-	.s_frame_interval	= adsd3500_s_frame_interval,
 };
 
 static const struct v4l2_subdev_pad_ops adsd3500_subdev_pad_ops = {
-	.init_cfg			= adsd3500_entity_init_cfg,
 	.enum_mbus_code		= adsd3500_enum_mbus_code,
 	.enum_frame_size	= adsd3500_enum_frame_size,
-	.get_fmt			= adsd3500_get_format,
+	.get_fmt			= v4l2_subdev_get_fmt,
 	.set_fmt			= adsd3500_set_format,
 	.get_selection		= adsd3500_get_selection,
+	.get_frame_interval	= adsd3500_get_frame_interval,
+	.set_frame_interval	= adsd3500_set_frame_interval,
+};
+
+static const struct v4l2_subdev_internal_ops adsd3500_internal_ops = {
+	.init_state		= adsd3500_init_state,
 };
 
 static const struct v4l2_subdev_ops adsd3500_subdev_ops = {
@@ -1708,6 +1694,7 @@ static int adsd3500_probe(struct i2c_client *client)
 		goto release_gpio;
 
 	v4l2_i2c_subdev_init(&adsd3500->sd, client, &adsd3500_subdev_ops);
+	adsd3500->sd.internal_ops = &adsd3500_internal_ops;
 	adsd3500->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	adsd3500->pad.flags = MEDIA_PAD_FL_SOURCE;
 	adsd3500->sd.dev = &client->dev;
@@ -1729,16 +1716,17 @@ static int adsd3500_probe(struct i2c_client *client)
 		}
 	}
 
-	ret = adsd3500_entity_init_cfg(&adsd3500->sd, NULL);
-	if (ret) {
-		dev_err(dev, "Could not init v4l2 device\n");
+	adsd3500->sd.state_lock = adsd3500->ctrls.lock;
+	ret = v4l2_subdev_init_finalize(&adsd3500->sd);
+	if (ret < 0) {
+		dev_err(dev, "subdev init error\n");
 		goto free_entity;
 	}
 
 	ret = v4l2_async_register_subdev(&adsd3500->sd);
 	if (ret < 0) {
 		dev_err(dev, "Could not register v4l2 device\n");
-		goto free_entity;
+		goto free_subdev;
 	}
 
 	pm_runtime_set_active(dev);
@@ -1747,6 +1735,8 @@ static int adsd3500_probe(struct i2c_client *client)
 
 	return 0;
 
+free_subdev:
+	v4l2_subdev_cleanup(&adsd3500->sd);
 free_entity:
 	media_entity_cleanup(&adsd3500->sd.entity);
 free_ctrl:
@@ -1760,12 +1750,13 @@ release_gpio:
 	return ret;
 }
 
-static int adsd3500_remove(struct i2c_client *client)
+static void adsd3500_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
 	struct adsd3500 *adsd3500 = to_adsd3500(sd);
 
 	v4l2_async_unregister_subdev(&adsd3500->sd);
+	v4l2_subdev_cleanup(&adsd3500->sd);
 	media_entity_cleanup(&adsd3500->sd.entity);
 	devm_free_irq(adsd3500->dev, adsd3500->irq, adsd3500);
 	gpiod_put(adsd3500->rst_gpio);
@@ -1778,8 +1769,6 @@ static int adsd3500_remove(struct i2c_client *client)
 	if (!pm_runtime_status_suspended(adsd3500->dev))
 		adsd3500_power_off(adsd3500->dev);
 	pm_runtime_set_suspended(adsd3500->dev);
-
-	return 0;
 }
 
 static const struct of_device_id adsd3500_of_match[] = {
@@ -1798,8 +1787,8 @@ static struct i2c_driver adsd3500_i2c_driver = {
 		.name		= "adsd3500",
 		.pm		= &adsd3500_pm_ops,
 	},
-	.probe_new		= adsd3500_probe,
-	.remove			= adsd3500_remove,
+	.probe		= adsd3500_probe,
+	.remove		= adsd3500_remove,
 };
 
 module_i2c_driver(adsd3500_i2c_driver);
