@@ -77,7 +77,6 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADAR1000
 	imply ADAR3000
 	imply ADRV9009
-	imply ADRV9001
 	imply AD9467
 	imply AD9680
 	imply ADMC
@@ -88,6 +87,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply LTC2497
 	imply LTC2308
 	imply LTC2358
+	imply LTC2378
 	imply LTC2387
 	imply AD8366
 	imply ADA4250
