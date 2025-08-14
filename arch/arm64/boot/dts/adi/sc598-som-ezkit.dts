@@ -75,7 +75,7 @@
 };
 
 &i2c2 {
-	ssw1: gpio@22 {
+	crr_gpio_expander: gpio@22 {
 		compatible = "microchip,mcp23017";
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -84,93 +84,93 @@
 
 		eeprom {
 			gpio-hog;
-			gpios = <0 0x0>;
-			output-low;
+			gpios = <0 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "eeprom-en";
 		};
 
 		pushbutton {
 			gpio-hog;
-			gpios = <1 0x0>;
-			output-high;
+			gpios = <1 GPIO_ACTIVE_LOW>;
+			output-low;
 			line-name = "pushbutton-en";
 		};
 
-		microsd {
+		spi-sdcard {
 			gpio-hog;
-			gpios = <2 0x0>;
-			output-high;
-			line-name = "~microsd-spi";
+			gpios = <2 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spi-sdcard";
 		};
 
 		ftdi {
 			gpio-hog;
-			gpios = <3 0x0>;
+			gpios = <3 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "~ftdi-usb-en";
+			line-name = "ftdi-usb-en";
 		};
 
 		can {
 			gpio-hog;
-			gpios = <4 0x0>;
-			output-high;
-			line-name = "~can-en";
+			gpios = <4 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "can-en";
 		};
 
 		adau1962 {
 			gpio-hog;
-			gpios = <6 0x0>;
+			gpios = <6 GPIO_ACTIVE_LOW>;
 			output-low;
 			line-name = "adau1962-en";
 		};
 
 		adau1979 {
 			gpio-hog;
-			gpios = <7 0x0>;
+			gpios = <7 GPIO_ACTIVE_LOW>;
 			output-low;
 			line-name = "adau1979-en";
 		};
 
 		octal {
 			gpio-hog;
-			gpios = <8 0x0>;
+			gpios = <8 GPIO_ACTIVE_LOW>;
 			output-low;
 			line-name = "octal-spi-cs-en";
 		};
 
 		spdif-dig {
 			gpio-hog;
-			gpios = <9 0x0>;
-			output-high;
-			line-name = "~spdif-digital-en";
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-digital-en";
 		};
 
 		spdif-opt {
 			gpio-hog;
-			gpios = <10 0x0>;
-			output-high;
-			line-name = "~spdif-optical-en";
+			gpios = <10 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-optical-en";
 		};
 
 		audio-jack {
 			gpio-hog;
-			gpios = <11 0x0>;
-			output-high;
+			gpios = <11 GPIO_ACTIVE_LOW>;
+			output-low;
 			line-name = "audio-jack-sel";
 		};
 
 		mlb {
 			gpio-hog;
-			gpios = <12 0x0>;
-			output-high;
-			line-name = "~mlb-en";
+			gpios = <12 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "mlb-en";
 		};
 
 		eth1 {
 			gpio-hog;
-			gpios = <13 0x0>;
+			gpios = <13 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "~eth1-en";
+			line-name = "eth1-en";
 		};
 
 		eth1-reset {
@@ -186,7 +186,7 @@
 			gpio-hog;
 			gpios = <15 0x0>;
 			output-high;
-			line-name = "~gige-reset";
+			line-name = "eth1-reset";
 		};
 	};
 
@@ -198,7 +198,7 @@
 	adau1962: adau1962@4 {
 		compatible = "adi,adau1962";
 		reg = <0x4>;
-		reset-gpios = <&ssw1 5 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&crr_gpio_expander 5 GPIO_ACTIVE_LOW>;
 	};
 };
 
