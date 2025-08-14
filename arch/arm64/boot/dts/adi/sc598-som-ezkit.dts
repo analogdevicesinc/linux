@@ -181,13 +181,6 @@
 			output-low;
 			line-name = "~eth1-reset";
 		};
-
-		gige-reset {
-			gpio-hog;
-			gpios = <15 0x0>;
-			output-high;
-			line-name = "eth1-reset";
-		};
 	};
 
 	adau1979: adau1979@11 {
