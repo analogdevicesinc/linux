@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9081-FMC-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9081_fmca_ebz/vcu118>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2025 Analog Devices Inc.
+ */
+
+#include "vcu118_ad9081_m8_l4.dts"
+
+/ {
+	model = "Analog Devices AD9081-FMCA-EBZ @Xilinx/vcu118 Corundum support";
+};
+
+&amba_pl {
+	corundum_reset: gpio@52000000 {
+		#gpio-cells = <2>;
+		clock-frequency = <100000000>;
+		clock-names = "s_axi_aclk";
+		clocks = <&clk_bus_0>;
+		compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
+		gpio-controller ;
+		reg = <0x52000000 0x1000>;
+		xlnx,all-inputs = <0x0>;
+		xlnx,all-inputs-2 = <0x0>;
+		xlnx,all-outputs = <0x1>;
+		xlnx,all-outputs-2 = <0x0>;
+		xlnx,dout-default = <0x00000000>;
+		xlnx,dout-default-2 = <0x00000000>;
+		xlnx,gpio-width = <0x1>;
+		xlnx,gpio2-width = <0x20>;
+		xlnx,interrupt-present = <0x0>;
+		xlnx,is-dual = <0x0>;
+		xlnx,tri-default = <0xFFFFFFFF>;
+		xlnx,tri-default-2 = <0xFFFFFFFF>;
+	};
+	corundum: corundum_eth100g@50000000 {
+		compatible = "corundum,mqnic";
+		reg = <0x50000000 0x1000000>;
+		reg-names = "csr";
+		local-mac-address = [00 0a 35 00 01 02];
+		interrupt-names = "irq";
+		interrupt-parent = <&axi_intc>;
+		interrupts = <5 2>;
+		reset-gpios = <&corundum_reset 0 GPIO_ACTIVE_HIGH>;
+	};
+};
