@@ -17,6 +17,8 @@ description:
   Datasheet can be found here
     https://www.analog.com/media/en/technical-documentation/data-sheets/MAX14001-MAX14002.pdf
 
+$ref: /schemas/spi/spi-peripheral-props.yaml#
+
 properties:
   compatible:
     enum:
@@ -25,12 +27,6 @@ properties:
 
   reg:
     maxItems: 1
-
-  '#address-cells':
-    const: 1
-
-  '#size-cells':
-    const: 0
 
   vdd-supply:
     description:
@@ -47,20 +43,11 @@ properties:
   spi-max-frequency:
     maximum: 5000000
 
-  current-channel:
-    description:
-      Enable handle current channel measures instead the default
-      voltage channel measures.
-    type: boolean
-
 required:
   - compatible
   - reg
   - vdd-supply
   - vddl-supply
-
-allOf:
-  - $ref: /schemas/spi/spi-peripheral-props.yaml#
 
 unevaluatedProperties: false
 

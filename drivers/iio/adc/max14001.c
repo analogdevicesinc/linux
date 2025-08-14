@@ -83,7 +83,15 @@ enum max14001_chip_model {
 
 struct max14001_chip_info {
 	const char *name;
-	/* TODO: Add more information */
+};
+
+struct max14001_state {
+	struct spi_device *spi;
+	const struct max14001_chip_info *chip_info;
+	int vref_mv;
+
+	__be16 rx_buffer __aligned(IIO_DMA_MINALIGN);
+	__be16 tx_buffer;
 };
 
 static struct max14001_chip_info max14001_chip_info_tbl[] = {
@@ -95,129 +103,41 @@ static struct max14001_chip_info max14001_chip_info_tbl[] = {
 	},
 };
 
-struct max14001_state {
-	struct spi_device *spi;
-	const struct max14001_chip_info *chip_info;
-	int vref_mv;
-};
-
 static int max14001_spi_read(struct max14001_state *st, u16 reg, int *val)
 {
-	u16 rx, tx = 0;
 	int ret;
-
-	tx |= FIELD_PREP(MAX14001_MASK_ADDR, reg);
-	tx |= FIELD_PREP(MAX14001_MASK_WR, MAX14001_REG_READ);
-	tx  = bitrev16(tx);
 
 	struct spi_transfer xfer[] = {
 		{
-			.tx_buf = &tx,
-			.len = sizeof(tx),
+			.tx_buf = &st->tx_buffer,
+			.len = sizeof(st->tx_buffer),
 			.bits_per_word = 16,
 			.cs_change = 1,
 		},
 		{
-			.rx_buf = &rx,
-			.len = sizeof(rx),
+			.rx_buf = &st->rx_buffer,
+			.len = sizeof(st->rx_buffer),
 			.bits_per_word = 16,
 		},
 	};
-	ret = spi_sync_transfer(st->spi, xfer, ARRAY_SIZE(xfer));
 
-	rx = bitrev16(rx);
-	*val = FIELD_GET(MAX14001_MASK_DATA, rx);
-
-	return ret;
-}
-
-static int max14001_spi_write(struct max14001_state *st, u16 reg, u16 val)
-{
-	u16 tx = 0;
-	int ret;
-
-	tx |= FIELD_PREP(MAX14001_MASK_ADDR, reg);
-	tx |= FIELD_PREP(MAX14001_MASK_WR, MAX14001_REG_WRITE);
-	tx |= FIELD_PREP(MAX14001_MASK_DATA, val);
-	tx = bitrev16(tx);
-
-	struct spi_transfer xfer[] = {
-		{
-			.tx_buf = &tx,
-			.len = sizeof(tx),
-			.bits_per_word = 16,
-		},
-	};
+	st->tx_buffer = FIELD_PREP(MAX14001_MASK_ADDR, reg);
+	st->tx_buffer |= FIELD_PREP(MAX14001_MASK_WR, MAX14001_REG_READ);
+	st->tx_buffer = bitrev16(st->tx_buffer);
 
 	ret = spi_sync_transfer(st->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret < 0)
 		return ret;
 
-	return ret;
-}
-
-static int max14001_spi_write_single_reg(struct max14001_state *st, u16 reg, u16 val)
-{
-	int ret;
-
-	/* Enable register write */
-	ret = max14001_spi_write(st, MAX14001_REG_WEN, MAX14001_REG_WEN_WRITE_ENABLE);
-	if (ret < 0)
-		return ret;
-
-	/* Write data into register */
-	ret = max14001_spi_write(st, reg, val);
-	if (ret < 0)
-		return ret;
-
-	/* Disable register write */
-	ret = max14001_spi_write(st, MAX14001_REG_WEN, MAX14001_REG_WEN_WRITE_DISABLE);
-	if (ret < 0)
-		return ret;
+	st->rx_buffer = bitrev16(st->rx_buffer);
+	*val = FIELD_GET(MAX14001_MASK_DATA, st->rx_buffer);
 
 	return ret;
-}
-
-static int max14001_set_verification_registers_values(struct max14001_state *st)
-{
-	struct device *dev = &st->spi->dev;
-	int i, val_read_reg, ret;
-	u16 val_write_reg;
-
-	/* Enable register write */
-	ret = max14001_spi_write(st, MAX14001_REG_WEN, MAX14001_REG_WEN_WRITE_ENABLE);
-	if (ret < 0)
-		goto erro_condition;
-
-	for (i = MAX14001_REG_FLTEN; i <= MAX14001_REG_ENBL; i++) {
-		/* Read register value */
-		val_read_reg = 0;
-		ret = max14001_spi_read(st, i, &val_read_reg);
-		if (ret < 0)
-			goto erro_condition;
-
-		/* Write verification register value */
-		val_write_reg = (u16)val_read_reg;
-		ret = max14001_spi_write(st, MAX14001_REG_VERIFICATION(i), val_write_reg);
-		if (ret < 0)
-			goto erro_condition;
-	}
-
-	/* Disable register write */
-	ret = max14001_spi_write(st, MAX14001_REG_WEN, MAX14001_REG_WEN_WRITE_DISABLE);
-	if (ret < 0)
-		goto erro_condition;
-
-	return ret;
-
-erro_condition:
-	return dev_err_probe(dev, ret, "Failed to set verification registers\n");
-
 }
 
 static int max14001_read_raw(struct iio_dev *indio_dev,
-				struct iio_chan_spec const *chan,
-				int *val, int *val2, long mask)
+							struct iio_chan_spec const *chan,
+							int *val, int *val2, long mask)
 {
 	struct max14001_state *st = iio_priv(indio_dev);
 	int ret;
@@ -249,20 +169,9 @@ static const struct iio_info max14001_info = {
 	.read_raw = max14001_read_raw,
 };
 
-static const struct iio_chan_spec max14001_channel_voltage[] = {
+static const struct iio_chan_spec max14001_channel[] = {
 	{
 		.type = IIO_VOLTAGE,
-		.indexed = 1,
-		.channel = 0,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-					  BIT(IIO_CHAN_INFO_AVERAGE_RAW) |
-					  BIT(IIO_CHAN_INFO_SCALE),
-	}
-};
-
-static const struct iio_chan_spec max14001_channel_current[] = {
-	{
-		.type = IIO_CURRENT,
 		.indexed = 1,
 		.channel = 0,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
@@ -278,13 +187,12 @@ static int max14001_probe(struct spi_device *spi)
 	struct max14001_state *st;
 	struct iio_dev *indio_dev;
 	int ret;
-	bool current_channel = false;
 
 	info = spi_get_device_match_data(spi);
 	if (!dev)
 		return dev_err_probe(dev, -ENODEV, "Failed to get match data\n");
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
@@ -295,6 +203,8 @@ static int max14001_probe(struct spi_device *spi)
 	indio_dev->name = st->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &max14001_info;
+	indio_dev->channels = max14001_channel;
+	indio_dev->num_channels = ARRAY_SIZE(max14001_channel);
 
 	ret = devm_regulator_get_enable(dev, "vdd");
 	if (ret)
@@ -305,27 +215,12 @@ static int max14001_probe(struct spi_device *spi)
 		return dev_err_probe(dev, ret, "Failed to enable specified Vddl supply\n");
 
 	ret = devm_regulator_get_enable_read_voltage(dev, "vrefin");
-	if (ret < 0) {
+	if (ret < 0)
 		st->vref_mv = 1250000 / 1000;
-	} else {
+	else
 		st->vref_mv = ret / 1000;
-	}
 
-	current_channel = device_property_read_bool(dev, "current-channel");
-	if (current_channel) {
-		indio_dev->channels = max14001_channel_current;
-		indio_dev->num_channels = ARRAY_SIZE(max14001_channel_current);
-	} else {
-		indio_dev->channels = max14001_channel_voltage;
-		indio_dev->num_channels = ARRAY_SIZE(max14001_channel_voltage);
-	}
-
-	/* Write the appropriate verification registers values to clear the
-	 * failed memory validation (MV Fault)
-	 */
-	max14001_set_verification_registers_values(st);
-
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	return devm_iio_device_register(dev, indio_dev);
 }
 
 static const struct spi_device_id max14001_id_table[] = {

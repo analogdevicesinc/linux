@@ -48,7 +48,7 @@
 
 &spi0 {
     status = "okay";
-	max14001_voltage_channel: max14001@0 {
+	max14001_u51: max14001@0 {
 		compatible = "adi,max14001";
 		reg = <0x0>;
 		spi-max-frequency = <5000000>;
@@ -57,9 +57,8 @@
 		vrefin-supply = <&vrefin>;
 		status = "okay";
 	};
-	max14001_current_channel: max14001@1 {
+	max14001_u11: max14001@1 {
 		compatible = "adi,max14001";
-		current-channel;
 		reg = <0x1>;
 		spi-max-frequency = <5000000>;
 		vdd-supply = <&vdd>;
