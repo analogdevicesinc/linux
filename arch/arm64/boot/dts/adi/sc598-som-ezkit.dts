@@ -175,7 +175,7 @@
 
 		eth1-reset {
 			gpio-hog;
-			gpios = <14 0x0>;
+			gpios = <14 GPIO_ACTIVE_LOW>;
 /* USB0 lines are shared with Eth1 so  Eth PHY must be held in reset
    when using the USB */
 			output-low;
