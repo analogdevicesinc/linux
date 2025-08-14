@@ -1,0 +1,202 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/regulator/maxim,max77675.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Maxim MAX77675 PMIC Regulator
+
+maintainers:
+  - Joan Na <joan.na@analog.com>
+
+description: |
+  The MAX77675 is a PMIC providing multiple switching buck regulators
+  (SBB0–SBB3), accessible via I2C. Each SBB can be configured individually
+  in the Device Tree. Additional PMIC settings can be configured through
+  device-specific properties.
+  Users should use the macros from dt-bindings/regulator/maxim,max77675-regulator.h
+
+allOf:
+  - $ref: regulator.yaml#
+
+properties:
+  compatible:
+    const: maxim,max77675
+
+  reg:
+    maxItems: 1
+
+  maxim,dvs-slew-rate:
+    description: |
+      DVS slew rate setting.
+      0 (MAX77675_DVS_SLEW_5MV) - 5 mV/μs
+      1 (MAX77675_DVS_SLEW_10MV) - 10 mV/μs
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  maxim,latency-mode:
+    description: |
+      Latency mode for voltage transition:
+      0 (MAX77675_LAT_MODE_HIGH_LATENCY) - Low quiescent current, high latency (~100μs)
+      1 (MAX77675_LAT_MODE_LOW_LATENCY) - High quiescent current, low latency (~10μs)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  maxim,drv-sbb-strength:
+    description: |
+      SIMO Buck-Boost Drive Strength Trim.
+      0 (MAX77675_DRV_SBB_FASTEST) - Fastest transition (~0.6 ns)
+      1 (MAX77675_DRV_SBB_FAST) - Faster transition (~1.2 ns)
+      2 (MAX77675_DRV_SBB_MEDIUM) - Moderate transition (~1.8 ns)
+      3 (MAX77675_DRV_SBB_SLOWEST) - Slowest transition (~8 ns)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3]
+
+  maxim,manual-reset-time:
+    description: |
+      Manual reset time in seconds:
+      0 (MAX77675_MRT_4S): 4 seconds
+      1 (MAX77675_MRT_8S): 8 seconds
+      2 (MAX77675_MRT_12S): 12 seconds
+      3 (MAX77675_MRT_16S): 16 seconds
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3]
+
+  maxim,en-pullup-disable:
+    description: |
+      Disable internal pull-up for EN pin.
+      0 (MAX77675_PU_EN): Internal pull-up enabled (default).
+      1 (MAX77675_PU_DIS): Internal pull-up disabled.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  maxim,bias-low-power-request:
+    description: |
+      Controls the bias low-power mode setting.
+      0 (MAX77675_BIAS_NORMAL): Normal bias operation
+      1 (MAX77675_BIAS_LPM_REQ): Request low-power bias mode
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  maxim,simo-int-ldo-always-on:
+    description: |
+      SIMO internal channel disable configuration.
+      0 (MAX77675_SIMO_INT_NORMAL): SIMO channel enabled
+      1 (MAX77675_SIMO_INT_LDO): SIMO channel disabled
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  maxim,en-mode:
+    description: |
+      Enable mode configuration.
+      0 (MAX77675_EN_PUSH_BUTTON): Push button
+      1 (MAX77675_EN_SLIDE_SWITCH): Slide switch
+      2 (MAX77675_EN_LOGIC): Logic mode
+      3 (MAX77675_EN_RESERVED): Reserved
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3]
+
+  maxim,en-debounce-time:
+    description: |
+      Debounce timer enable.
+      0 (MAX77675_DBEN_100US): 100us
+      1 (MAX77675_DBEN_30MS): 30ms
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  regulators:
+    type: object
+    description: Regulator child nodes
+    patternProperties:
+      "^sbb[0-3]$":
+        type: object
+        $ref: regulator.yaml#
+    properties:
+      maxim,fps-slot:
+        description: |
+          FPS slot selection.
+          0 (MAX77675_FPS_SLOT_0): FPS Slot 0
+          1 (MAX77675_FPS_SLOT_1): FPS Slot 1
+          2 (MAX77675_FPS_SLOT_2): FPS Slot 2
+          3 (MAX77675_FPS_SLOT_3): FPS Slot 3
+          4 (MAX77675_FPS_NONE): No FPS Slot (disabled)
+          5 (MAX77675_FPS_DEF): Use the defaul
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [0, 1, 2, 3, 4, 5]
+
+      maxim,slew-rate-use-dvs:
+        description: |
+          0 (MAX77675_SR_2MV_PER_US): Fixed slew rate of 2mV/μs.
+          1 (MAX77675_SR_USE_DVS): Uses maxim,dvs-slew-rate for dynamic voltage scaling.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [0, 1]
+    additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - regulators
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/regulator/maxim,max77675-regulator.h>
+
+    i2c {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      max77675: pmic@44 {
+        compatible = "maxim,max77675";
+        reg = <0x44>;
+
+        maxim,dvs-slew-rate = <MAX77675_DVS_SLEW_5MV>;
+        maxim,latency-mode = <MAX77675_LAT_MODE_HIGH_LATENCY>;
+        maxim,drv-sbb-strength = <MAX77675_DRV_SBB_FASTEST>;
+        maxim,manual-reset-time = <MAX77675_MRT_4S>;
+        maxim,en-pullup-disable = <MAX77675_PU_EN>;
+        maxim,bias-low-power-request = <MAX77675_BIAS_NORMAL>;
+        maxim,simo-int-ldo-always-on = <MAX77675_SIMO_INT_NORMAL>;
+        maxim,en-mode = <MAX77675_EN_PUSH_BUTTON>;
+        maxim,en-debounce-time = <MAX77675_DBEN_100US>;
+
+        regulators {
+          sbb0: sbb0 {
+            regulator-name = "sbb0";
+            regulator-min-microvolt = <500000>;
+            regulator-max-microvolt = <5500000>;
+            maxim,fps-slot = <MAX77675_FPS_DEF>;
+            maxim,slew-rate-use-dvs = <MAX77675_SR_2MV_PER_US>;
+          };
+
+          sbb1: sbb1 {
+            regulator-name = "sbb1";
+            regulator-min-microvolt = <500000>;
+            regulator-max-microvolt = <5500000>;
+            regulator-allow-set-voltage;
+            maxim,fps-slot = <MAX77675_FPS_DEF>;
+            maxim,slew-rate-use-dvs = <MAX77675_SR_2MV_PER_US>;
+          };
+
+          sbb2: sbb2 {
+            regulator-name = "sbb2";
+            regulator-min-microvolt = <500000>;
+            regulator-max-microvolt = <5500000>;
+            regulator-allow-set-voltage;
+            maxim,fps-slot = <MAX77675_FPS_DEF>;
+            maxim,slew-rate-use-dvs = <MAX77675_SR_2MV_PER_US>;
+          };
+
+          sbb3: sbb3 {
+            regulator-name = "sbb3";
+            regulator-min-microvolt = <500000>;
+            regulator-max-microvolt = <5500000>;
+            regulator-allow-set-voltage;
+            maxim,fps-slot = <MAX77675_FPS_DEF>;
+            maxim,slew-rate-use-dvs = <MAX77675_SR_2MV_PER_US>;
+          };
+        };
+      };
+    };
+
