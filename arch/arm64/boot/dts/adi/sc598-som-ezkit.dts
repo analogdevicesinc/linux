@@ -205,7 +205,7 @@
 &emac0 {
 	snps,reset-active-low;
 	snps,reset-delays-us = <0 200 500>;
-	phy-handle = <&dp83867>;
+	phy-handle = <&adin1300>;
 	phy-mode = "rgmii-id";
 	pinctrl-names = "default";
 	pinctrl-0 = <&eth0_default>;
@@ -249,12 +249,9 @@
 		compatible = "snps,dwmac-mdio";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dp83867: ethernet-phy@0 {
+		adin1300: ethernet-phy@0 {
 			reg = <0>;
-			ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-			ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-			ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
-			ti,dp83867-rxctrl-strap-quirk;
+			reset-gpios = <&crr_gpio_expander 15 GPIO_ACTIVE_LOW>;
 		};
 	};
 };
