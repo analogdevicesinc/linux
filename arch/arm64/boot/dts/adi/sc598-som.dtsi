@@ -227,17 +227,17 @@
 
 		partition@2 {
 			label = "devicetree";
-			reg = <0x100000 0x20000>;
+			reg = <0x100000 0x10000>;
 		};
 
 		partition@3 {
 			label = "kernel";
-			reg = <0x120000 0xF00000>;
+			reg = <0x110000 0x2000000>;
 		};
 
 		partition@4 {
 			label = "rootfs";
-			reg = <0x1020000 0x2FE0000>;
+			reg = <0x2110000 0x5ef0000>;
 		};
 
 	};
