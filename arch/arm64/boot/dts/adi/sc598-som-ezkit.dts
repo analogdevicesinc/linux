@@ -270,7 +270,8 @@
 //		compatible = "snps,dwmac-mdio";
 //		#address-cells = <1>;
 //		#size-cells = <0>;
-//		dp83848: ethernet-phy@1 {
+//		reset-gpios = <&crr_gpio_expander 14 GPIO_ACTIVE_LOW>;
+//		adin1200: ethernet-phy@1 {
 //			reg = <1>;
 //		};
 //	};//
