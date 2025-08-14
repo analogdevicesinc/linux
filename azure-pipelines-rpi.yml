@@ -82,7 +82,7 @@ stages:
   - job: Push_to_SWDownloads
     condition: and(
        succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
+       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
           eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
        )
     pool:
@@ -103,7 +103,7 @@ stages:
   - job: Push_to_Artifactory
     condition: and(
        succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
+       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
           eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
        )
     pool:
