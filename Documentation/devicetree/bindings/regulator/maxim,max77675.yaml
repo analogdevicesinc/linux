@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/regulator/maxim,max77675.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Maxim MAX77675 PMIC Regulator
+
+maintainers:
+  - Your Name <your.email@example.com>
+
+description: |
+  The MAX77675 is a PMIC providing multiple switching buck regulators
+  (SBB0–SBB3), accessible via I2C. Each SBB can be configured individually
+  in the Device Tree.
+
+allOf:
+  - $ref: "regulator.yaml#"
+
+properties:
+  compatible:
+    const: maxim,max77675
+
+  reg:
+    maxItems: 1
+
+  regulators:
+    type: object
+    description: Regulator child nodes
+    patternProperties:
+      "^sbb[0-3]$":
+        type: object
+        $ref: "regulator.yaml#"
+    additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - regulators
+
+additionalProperties: false
+
+examples:
+    - |
+      i2c {
+          max77675: pmic@44 {
+              compatible = "maxim,max77675";
+              reg = <0x44>;
+
+              regulators {
+                  sbb0: sbb0 {
+                      regulator-name = "sbb0";
+                      regulator-min-microvolt = <500000>;
+                      regulator-max-microvolt = <5500000>;
+                      regulator-boot-on;
+                      regulator-allow-set-voltage;
+                  };
+
+                  sbb1: sbb1 {
+                      regulator-name = "sbb1";
+                      regulator-min-microvolt = <500000>;
+                      regulator-max-microvolt = <5500000>;
+                      regulator-boot-on;
+                      regulator-always-on;
+                      regulator-allow-set-voltage;
+                  };
+
+                  sbb2: sbb2 {
+                      regulator-name = "sbb2";
+                      regulator-min-microvolt = <500000>;
+                      regulator-max-microvolt = <5500000>;
+                      regulator-boot-on;
+                      regulator-always-on;
+                      regulator-allow-set-voltage;
+                  };
+
+                  sbb3: sbb3 {
+                      regulator-name = "sbb3";
+                      regulator-min-microvolt = <500000>;
+                      regulator-max-microvolt = <5500000>;
+                      regulator-boot-on;
+                      regulator-always-on;
+                      regulator-allow-set-voltage;
+                  };
+              };
+          };
+      };
+
