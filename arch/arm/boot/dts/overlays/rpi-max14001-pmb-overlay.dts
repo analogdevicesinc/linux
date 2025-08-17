@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Overlay for the MAX14001 ADC
+ *
+ * Copyright (c) 2025 Marilene Andrade Garcia <marilene.agarcia@gmail.com>
+ *
+ * Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/MAX14001-MAX14002.pdf
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2712";
+};
+
+&{/} {
+	vdd: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "Isolated DC-DC Power Supply Input Voltage";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		regulator-always-on;
+		status = "okay";
+	};
+
+	vddl: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "Logic Power Supply Voltage";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		regulator-always-on;
+		status = "okay";
+	};
+
+	vrefin: fixedregulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "Reference Input Range Voltage";
+		regulator-min-microvolt = <1250000>;
+		regulator-max-microvolt = <1250000>;
+		regulator-boot-on;
+		regulator-always-on;
+		status = "okay";
+	};
+};
+
+&spi0 {
+    status = "okay";
+	max14001_u51: max14001@0 {
+		compatible = "adi,max14001";
+		reg = <0x0>;
+		spi-max-frequency = <5000000>;
+		vdd-supply = <&vdd>;
+		vddl-supply = <&vddl>;
+		vrefin-supply = <&vrefin>;
+		status = "okay";
+	};
+	max14001_u11: max14001@1 {
+		compatible = "adi,max14001";
+		reg = <0x1>;
+		spi-max-frequency = <5000000>;
+		vdd-supply = <&vdd>;
+		vddl-supply = <&vddl>;
+		vrefin-supply = <&vrefin>;
+		status = "okay";
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
