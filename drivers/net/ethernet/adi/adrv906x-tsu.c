@@ -17,11 +17,12 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 {
 	u32 rx_pcs, rx_pcs_pipeline, rx_pcs_decode, rx_pcs_gearbox, rx_rs_fec, rx_des_delay;
 	u32 tx_pcs, tx_pcs_pipeline, tx_pcs_encode, tx_pcs_gearbox, tx_rs_fec, tx_ser_delay;
-	u32 t_div66, t_div64;
+	u32 t_div66, t_div64, t_hsdig_clk;
 	u32 tod_cdc_delay;
 
 	t_div66 = (speed == SPEED_25000) ? T_DIV66_25G : T_DIV66_10G;
 	t_div64 = (speed == SPEED_25000) ? T_DIV64_25G : T_DIV64_10G;
+	t_hsdig_clk = (1000000000ULL << 16) / tsu->hsdig_clk_rate;
 
 	tx_ser_delay = (speed == SPEED_25000) ?
 		       ADRV906X_SER_DELAY_TX_25G : ADRV906X_SER_DELAY_TX_10G;
@@ -30,8 +31,7 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 
 	/* ToD_cdc_delay = 1.5 * 1 / hsdig_clk + (cdc_delay + 3.0) * T_div66 */
 
-	tod_cdc_delay = (1000000000ULL << 16) / tsu->hsdig_clk_rate;
-	tod_cdc_delay = tod_cdc_delay * 3 / 2;
+	tod_cdc_delay = t_hsdig_clk * 3 / 2;
 	tod_cdc_delay += (adrv906x_tod_cfg_cdc_delay + 3) * t_div66;
 
 	/* Calculate Rx_static_phy_delay */
@@ -40,14 +40,14 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 	 *
 	 * Rx_pcs_pipeline = 2 * T_div66 + 2 * T_div64
 	 * Rx_pcs_decode   = 6 * T_div66 - bit_slip / 66 * T_div66
-	 * Rx_pcs_gearbox  = floor(fine_buf_receive_delay) * T_div66
+	 * Rx_pcs_gearbox  = floor(fine_buf_receive_delay) * T_hsdig_clk
 	 * if RS-FEC is used
 	 *   Rx_rs_fec       = 234 * T_div66
 	 */
 
 	rx_pcs_pipeline = 2 * t_div66 + 2 * t_div64;
 	rx_pcs_decode = 6 * t_div66 - bit_slip * t_div66 / 66;
-	rx_pcs_gearbox = buf_delay_rx * t_div66;
+	rx_pcs_gearbox = buf_delay_rx * t_hsdig_clk;
 	rx_rs_fec = rs_fec_enabled ? 234 * t_div66 : 0;
 
 	rx_pcs = rx_pcs_pipeline + rx_pcs_decode + rx_pcs_gearbox + rx_rs_fec;
@@ -65,14 +65,14 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 	 *
 	 * Tx_pcs_pipeline = 2 * T_div66 + T_div64
 	 * Tx_pcs_decode   = 4 * T_div66
-	 * Tx_pcs_gearbox  = floor(fine_buf_transmit_delay) * T_div66
+	 * Tx_pcs_gearbox  = floor(fine_buf_transmit_delay) * T_hsdig_clk
 	 * if RS-FEC is used
 	 *   Tx_rs_fec       = 17 * T_div66
 	 */
 
 	tx_pcs_pipeline = 2 * t_div66 + t_div64;
 	tx_pcs_encode = 4 * t_div66;
-	tx_pcs_gearbox = buf_delay_tx * t_div66;
+	tx_pcs_gearbox = buf_delay_tx * t_hsdig_clk;
 	tx_rs_fec = rs_fec_enabled ? 17 * t_div66 : 0;
 
 	tx_pcs = tx_pcs_pipeline + tx_pcs_encode + tx_pcs_gearbox + tx_rs_fec;
