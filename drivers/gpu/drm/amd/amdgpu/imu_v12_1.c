@@ -201,9 +201,34 @@ static int imu_v12_1_switch_compute_partition(struct amdgpu_device *adev,
 	return 0;
 }
 
+#define regGFX_IMU_MCM_ADDR_LUT_PF		0x5f8d
+#define regGFX_IMU_MCM_ADDR_LUT_PF_BASE_IDX	1
+
 static void imu_v12_1_init_mcm_addr_lut(struct amdgpu_device *adev)
 {
-	/* todo: fill in when interface is ready */
+	/* Encoding mcm_addr_lut in SPX mode for now
+	 * I've noticed variations in encoding
+	 * Need to revisit the configuration later
+	 * XCD0:: Bits-[3:0 ] AID-01 XCD-00
+	 * XCD1:: Bits-[7:4 ] AID-01 XCD-01
+	 * XCD2:: Bits-[11:8 ] AID-01 XCD-10
+	 * XCD3:: Bits-[15:12] AID-01 XCD-11
+	 * XCD4:: Bits-[19:16] AID-10 XCD-00
+	 * XCD5:: Bits-[23:20] AID-10 XCD-01
+	 * XCD6:: Bits-[27:24] AID-10 XCD-10
+	 * XCD7:: Bits-[31:28] AID-10 XCD-11
+	 */
+	int data = 0xba987654;
+	int i, num_xcc, partition_num, encode_data;
+
+	num_xcc = NUM_XCC(adev->gfx.xcc_mask);
+	for (i = 0; i < num_xcc; i++) {
+		partition_num = GET_INST(GC, i) / adev->gfx.num_xcc_per_xcp;
+		encode_data = (data >> (partition_num * adev->gfx.num_xcc_per_xcp * 4)) &
+			      GENMASK(adev->gfx.num_xcc_per_xcp * 4 - 1, 0);
+		WREG32_SOC15(GC, GET_INST(GC, i),
+			     regGFX_IMU_MCM_ADDR_LUT_PF, encode_data);
+	}
 }
 
 const struct amdgpu_imu_funcs gfx_v12_1_imu_funcs = {
