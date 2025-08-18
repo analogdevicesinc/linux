@@ -91,8 +91,7 @@ jobs:
           assert_labels
   conditional_xlnx:
     if: |
-      (github.event_name == 'push' && startsWith(github.ref_name, 'ci/') || github.ref_name == 'main') ||
-      (github.event_name == 'pull_request' && startsWith(github.base_ref, 'ci/') || github.ref_name == 'main')
+      (github.event_name == 'push' && startsWith(github.ref_name, 'ci/') || github.ref_name == 'main')
     runs-on: [self-hosted, v1]
     needs: [assert_checks]
     steps:
@@ -206,8 +205,7 @@ jobs:
           assert_labels
   conditional_rpi:
     if: |
-      (github.event_name == 'push' && startsWith(github.ref_name, 'rpi-')) ||
-      (github.event_name == 'pull_request' && startsWith(github.base_ref, 'rpi-'))
+      (github.event_name == 'push' && startsWith(github.ref_name, 'rpi-'))
     runs-on: [self-hosted, v1]
     needs: [assert_checks]
     steps:
