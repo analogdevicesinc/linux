@@ -84,109 +84,109 @@
 
 		eeprom {
 			gpio-hog;
-			gpios = <0 0x0>;
+			gpios = <0 GPIO_ACTIVE_HIGH>;
 			output-low;
 			line-name = "eeprom-en";
 		};
 
 		pushbutton {
 			gpio-hog;
-			gpios = <1 0x0>;
+			gpios = <1 GPIO_ACTIVE_HIGH>;
 			output-high;
 			line-name = "pushbutton-en";
 		};
 
 		microsd {
 			gpio-hog;
-			gpios = <2 0x0>;
-			output-high;
-			line-name = "~microsd-spi";
+			gpios = <2 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "microsd-spi";
 		};
 
 		ftdi {
 			gpio-hog;
-			gpios = <3 0x0>;
-			output-low;
-			line-name = "~ftdi-usb-en";
+			gpios = <3 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "ftdi-usb-en";
 		};
 
 		can {
 			gpio-hog;
-			gpios = <4 0x0>;
-			output-high;
-			line-name = "~can-en";
+			gpios = <4 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "can-en";
 		};
 
 		adau1962 {
 			gpio-hog;
-			gpios = <6 0x0>;
-			output-low;
+			gpios = <6 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "adau1962-en";
 		};
 
 		adau1979 {
 			gpio-hog;
-			gpios = <7 0x0>;
-			output-low;
+			gpios = <7 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "adau1979-en";
 		};
 
 		octal {
 			gpio-hog;
-			gpios = <8 0x0>;
+			gpios = <8 GPIO_ACTIVE_HIGH>;
 			output-low;
 			line-name = "octal-spi-cs-en";
 		};
 
 		spdif-dig {
 			gpio-hog;
-			gpios = <9 0x0>;
-			output-high;
-			line-name = "~spdif-digital-en";
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-digital-en";
 		};
 
 		spdif-opt {
 			gpio-hog;
-			gpios = <10 0x0>;
-			output-high;
-			line-name = "~spdif-optical-en";
+			gpios = <10 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-optical-en";
 		};
 
 		audio-jack {
 			gpio-hog;
-			gpios = <11 0x0>;
+			gpios = <11 GPIO_ACTIVE_HIGH>;
 			output-high;
 			line-name = "audio-jack-sel";
 		};
 
 		mlb {
 			gpio-hog;
-			gpios = <12 0x0>;
+			gpios = <12 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~mlb-en";
+			line-name = "mlb-en";
 		};
 
 		eth1 {
 			gpio-hog;
-			gpios = <13 0x0>;
-			output-low;
-			line-name = "~eth1-en";
+			gpios = <13 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "eth1-en";
 		};
 
 		eth1-reset {
 			gpio-hog;
-			gpios = <14 0x0>;
+			gpios = <14 GPIO_ACTIVE_LOW>;
 /* USB0 lines are shared with Eth1 so  Eth PHY must be held in reset
    when using the USB */
-			output-low;
-			line-name = "~eth1-reset";
+			output-high;
+			line-name = "eth1-reset";
 		};
 
 		gige-reset {
 			gpio-hog;
-			gpios = <15 0x0>;
+			gpios = <15 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~gige-reset";
+			line-name = "gige-reset";
 		};
 	};
 
