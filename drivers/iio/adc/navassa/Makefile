@@ -43,13 +43,13 @@ adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_profileutil.o
 
 obj-$(CONFIG_ADRV9001) += adrv9002_drv.o
 
-ccflags-y += -I$(srctree)/$(src)/devices/adrv9001/private/include \
-	-I$(srctree)/$(src)/devices/adrv9001/private/include/bitfields/c0 \
-	-I$(srctree)/$(src)/devices/adrv9001/public/include  \
-	-I$(srctree)/$(src)/common/ \
-	-I$(srctree)/$(src)/platforms/ \
-	-I$(srctree)/$(src)/third_party/jsmn/ \
-	-I$(srctree)/$(src)/third_party/adi_pmag_macros/ \
+ccflags-y += -I$(src)/devices/adrv9001/private/include \
+	-I$(src)/devices/adrv9001/private/include/bitfields/c0 \
+	-I$(src)/devices/adrv9001/public/include  \
+	-I$(src)/common/ \
+	-I$(src)/platforms/ \
+	-I$(src)/third_party/jsmn/ \
+	-I$(src)/third_party/adi_pmag_macros/ \
 	-DADI_DYNAMIC_PROFILE_LOAD
 
 ccflags-$(CONFIG_ADRV9001_COMMON_VERBOSE) += -DADI_COMMON_VERBOSE
