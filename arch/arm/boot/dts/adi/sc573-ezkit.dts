@@ -213,86 +213,86 @@
 
 		eeprom-en {
 			gpio-hog;
-			gpios = <0 0>;
-			output-high;
-			line-name = "~eeprom_en";
+			gpios = <0 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "eeprom_en";
 		};
 
 		uart0-flow-en {
 			gpio-hog;
-			gpios = <1 0>;
-			output-high;
-			line-name = "~uart0-flow-en";
+			gpios = <1 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "uart0-flow-en";
 		};
 
 		mlb3-en {
 			gpio-hog;
-			gpios = <5 0>;
+			gpios = <5 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~mlb3-en";
+			line-name = "mlb3-en";
 		};
 
 		can0-en {
 			gpio-hog;
-			gpios = <6 0>;
-			output-high;
-			line-name = "~can0-en";
+			gpios = <6 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "can0-en";
 		};
 
 		can1-en {
 			gpio-hog;
-			gpios = <7 0>;
-			output-high;
-			line-name = "~can1-en";
+			gpios = <7 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "can1-en";
 		};
 
 		adau1962-en {
 			gpio-hog;
-			gpios = <8 0>;
-			output-low;
+			gpios = <8 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "adau1962-en";
 		};
 
 		adau1979-en {
 			gpio-hog;
-			gpios = <9 0>;
-			output-low;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "adau1979-en";
 		};
 
 		sd-wp-en {
 			gpio-hog;
-			gpios = <11 0>;
-			output-high;
-			line-name = "~sd-wp-en";
+			gpios = <11 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "sd-wp-en";
 		};
 
 		spi2flash-cs-en {
 			gpio-hog;
-			gpios = <12 0>;
-			output-low;
-			line-name = "~spi2flash-cs-en";
+			gpios = <12 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "spi2flash-cs-en";
 		};
 
 		spi2d2-d3-en {
 			gpio-hog;
-			gpios = <13 0>;
-			output-low;
-			line-name = "~spi2-d2-d3-en";
+			gpios = <13 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "spi2-d2-d3-en";
 		};
 
 		spdif-optical-en {
 			gpio-hog;
-			gpios = <14 0>;
-			output-high;
-			line-name = "~spdif-optical-en";
+			gpios = <14 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-optical-en";
 		};
 
 		spdif-digital-en {
 			gpio-hog;
-			gpios = <15 0>;
-			output-high;
-			line-name = "~spdif-digital-en";
+			gpios = <15 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-digital-en";
 		};
 
 	};
@@ -305,86 +305,86 @@
 
 		pushbutton3-en {
 			gpio-hog;
-			gpios = <0 0>;
+			gpios = <0 GPIO_ACTIVE_HIGH>;
 			output-low;
-			line-name = "~pushbutton3-en";
+			line-name = "pushbutton3-en";
 		};
 
 		pushbutton2-en {
 			gpio-hog;
-			gpios = <1 0>;
+			gpios = <1 GPIO_ACTIVE_HIGH>;
 			output-low;
-			line-name = "~pushbutton2-en";
+			line-name = "pushbutton2-en";
 		};
 
 		pushbutton1-en {
 			gpio-hog;
-			gpios = <2 0>;
+			gpios = <2 GPIO_ACTIVE_HIGH>;
 			output-low;
-			line-name = "~pushbutton1-en";
+			line-name = "pushbutton1-en";
 		};
 
 		leds-en {
 			gpio-hog;
-			gpios = <3 0>;
+			gpios = <3 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~leds-en";
+			line-name = "leds-en";
 		};
 
 		flag0-loop {
 			gpio-hog;
-			gpios = <4 0>;
+			gpios = <4 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~flag0-loop";
+			line-name = "flag0-loop";
 		};
 
 		flag1-loop {
 			gpio-hog;
-			gpios = <5 0>;
+			gpios = <5 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~flag1-loop";
+			line-name = "flag1-loop";
 		};
 
 		flag2-loop {
 			gpio-hog;
-			gpios = <6 0>;
+			gpios = <6 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~flag2-loop";
+			line-name = "flag2-loop";
 		};
 
 		flag3-loop {
 			gpio-hog;
-			gpios = <7 0>;
+			gpios = <7 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~flag3-loop";
+			line-name = "flag3-loop";
 		};
 
 		adau1977-en {
 			gpio-hog;
-			gpios = <8 0>;
+			gpios = <8 GPIO_ACTIVE_HIGH>;
 			output-high;
 			line-name = "adau1977-en";
 		};
 
 		adau1977-fault-rst-en {
 			gpio-hog;
-			gpios = <9 0>;
+			gpios = <9 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~adau1977-fault-rst-en";
+			line-name = "adau1977-fault-rst-en";
 		};
 
 		thumbwheel-oe {
 			gpio-hog;
-			gpios = <10 0>;
+			gpios = <10 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~thumbwheel-oe";
+			line-name = "thumbwheel-oe";
 		};
 
 		engine-rpm-oe {
 			gpio-hog;
-			gpios = <11 0>;
+			gpios = <11 GPIO_ACTIVE_HIGH>;
 			output-high;
-			line-name = "~engine-rpm-oe";
+			line-name = "engine-rpm-oe";
 		};
 
 	};
