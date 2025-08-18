@@ -50,14 +50,14 @@ endif
 # Avoid FP operations and data sytpes - Remove DPD *_dfe.c files
 #SRCS := $(filter-out /devices/adrv9025/private/src/adrv9025_dfe.c /devices/adrv9025/public/src/adi_adrv9025_dfe.c, $(SRCS))
 
-ccflags-y += -I$(srctree)/$(src)/devices/adrv9025/private/include/ \
-	-I$(srctree)/$(src)/devices/adrv9025/public/include/  \
-	-I$(srctree)/$(src)/common/ \
-	-I$(srctree)/$(src)/common/adi_hal/  \
-	-I$(srctree)/$(src)/common/adi_error/  \
-	-I$(srctree)/$(src)/common/adi_libc/  \
-	-I$(srctree)/$(src)/common/adi_logging/  \
-	-I$(srctree)/$(src)/platforms/ \
+ccflags-y += -I$(src)/devices/adrv9025/private/include/ \
+	-I$(src)/devices/adrv9025/public/include/  \
+	-I$(src)/common/ \
+	-I$(src)/common/adi_hal/  \
+	-I$(src)/common/adi_error/  \
+	-I$(src)/common/adi_libc/  \
+	-I$(src)/common/adi_logging/  \
+	-I$(src)/platforms/ \
 	-DADRV9025_CHANNELID_CHECK=0 \
 	-DADI_COMMON_VERBOSE=1 \
 	-DADI_ADRV9025_RADIOCTRL_RANGE_CHECK=1 \
