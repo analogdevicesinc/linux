@@ -396,7 +396,7 @@ compile_devicetree() {
 		done <<< "$dtsi_files"
 	fi
 
-	dts_files+=$(echo "$files" | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
+	dts_files+=\ $(echo "$files" | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
 	if [[ -z "$dts_files" ]]; then
 		echo "no dts on range, skipped"
 		return $err
