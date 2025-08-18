@@ -7,7 +7,7 @@ Linux documentation.
 .. toctree::
    :maxdepth: 1
 
-   drivers/index
+   iio/index
    ci
 
 This documentation contains information only about this and the device drivers
