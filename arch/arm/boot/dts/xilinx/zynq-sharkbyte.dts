@@ -38,7 +38,17 @@
         	compatible = "fixed-clock";
         	clock-frequency = <1000000000>;
         };
-	};
+    };
+
+    vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	    };
+
+
 
     one-bit-adc-dac@0 {
 		compatible = "adi,one-bit-adc-dac";
@@ -46,7 +56,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios =  <&gpio_exp 12 GPIO_ACTIVE_HIGH >, <&gpio_exp 13 GPIO_ACTIVE_HIGH>, <&gpio_exp 14 GPIO_ACTIVE_LOW>;
+		out-gpios =  <&gpio_exp 12 GPIO_ACTIVE_HIGH >, <&gpio_exp 13 GPIO_ACTIVE_LOW>, <&gpio_exp 14 GPIO_ACTIVE_LOW>;
 
 		channel@0 {
 			reg = <0>;
@@ -84,6 +94,9 @@
             #address-cells = <1>;
             #size-cells = <0>;
 
+            status = "okay";
+
+
             gpio_exp: gpio@34 {
 				compatible = "adi,adp5589";
 				reg = <0x34>;
@@ -91,6 +104,12 @@
 				#gpio-cells = <2>;
 				gpio-controller;
 			};
+
+            ad5696: dac@c {
+	        	compatible = "adi,ad5696";
+	        	reg = <0x0c>;
+	        	vcc-supply = <&vref>;
+	        };
 
 
         };
