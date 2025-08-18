@@ -76,14 +76,15 @@ jobs:
 
         git checkout $head_sha -- ci/build.sh
 
+        # Only Documentation/devicetree/bindings/**/.yaml (touched) and
+        # include/dt-bindings/**/.h (touched and only on source branch) files
+        # are checked-out, in the case of other changes the check may falsely
+        # fail. Please, when doing heavy dt bindings work, target the
+        # upstream mirrors
+
         files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 
         while read file; do
-          # Only Documentation/devicetree/bindings/**/.yaml and
-          # include/dt-bindings/**/.h files are checked-out, in the case of
-          # other changes the check may falsely fail.
-          # Please, when doing heavy dt bindings work, target the upstream
-          # mirrors
           case "$file" in
           *.yaml)
             relative_file=${file#Documentation/devicetree/bindings/}
@@ -98,6 +99,18 @@ jobs:
             if [[ ! "$relative_file" = "$file" ]]; then
               git checkout $head_sha -- $file
             fi
+            ;;
+          esac
+        done <<< "$files"
+
+        files=$(comm -13 \
+          <(git ls-tree -r --name-only ${{ inputs.ref_branch }} include/dt-bindings | sort) \
+          <(git ls-tree -r --name-only $head_sha include/dt-bindings | sort))
+
+        while read file; do
+          case "$file" in
+          *.h)
+            git checkout $head_sha -- $file
             ;;
           esac
         done <<< "$files"
