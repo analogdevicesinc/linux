@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2025 Marilene Andrade Garcia
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,max14001.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX14001-MAX14002 10-bit ADCs
+
+maintainers:
+  - Marilene Andrade Garcia <marilene.agarcia@gmail.com>
+
+description:
+  Bindings for the Analog Devices MAX14001-MAX14002 Configurable,
+  Isolated 10-bit ADCs for Multi-Range Binary Inputs.
+
+  Datasheet can be found here
+    https://www.analog.com/media/en/technical-documentation/data-sheets/MAX14001-MAX14002.pdf
+
+$ref: /schemas/spi/spi-peripheral-props.yaml#
+
+properties:
+  compatible:
+    enum:
+      - adi,max14001
+      - adi,max14002
+
+  reg:
+    maxItems: 1
+
+  vdd-supply:
+    description:
+      Isolated DC-DC power supply input voltage.
+
+  vddl-supply:
+    description:
+      Logic power supply.
+
+  vrefin-supply:
+    description:
+      ADC voltage reference supply.
+
+  interrupts:
+    items:
+      - description: |
+          Interrupt for signaling when conversion results exceed the configured
+          upper threshold for ADC readings or fall below the lower threshold for
+          them. Interrupt source must be attached to COUT pin.
+      - description: |
+          Alert output that asserts low during a number of different error
+          conditions. The interrupt source must be attached to FAULT pin.
+
+  spi-max-frequency:
+    maximum: 5000000
+
+required:
+  - compatible
+  - reg
+  - vdd-supply
+  - vddl-supply
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      max14001: adc@0 {
+        compatible = "adi,max14001";
+        reg = <0>;
+        spi-max-frequency = <5000000>;
+        vdd-supply = <&vdd>;
+        vddl-supply = <&vddl>;
+      };
+    };
+...
