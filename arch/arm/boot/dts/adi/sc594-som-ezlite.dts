@@ -44,64 +44,64 @@
 
 		usb-spi0 {
 			gpio-hog;
-			gpios = <8 GPIO_ACTIVE_HIGH>;
-			output-high;
+			gpios = <8 GPIO_ACTIVE_LOW>;
+			output-low;
 			line-name = "usb_spi0_en";
 		};
 
 		usb-spi1 {
 			gpio-hog;
-			gpios = <9 GPIO_ACTIVE_HIGH>;
-			output-high;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-low;
 			line-name = "usb_spi1_en";
 		};
 
 		usb-qspi-en {
 			gpio-hog;
-			gpios = <10 GPIO_ACTIVE_HIGH>;
-			output-high;
+			gpios = <10 GPIO_ACTIVE_LOW>;
+			output-low;
 			line-name = "usb_qspi_en";
 		};
 
 		usb-qspi-reset {
 			gpio-hog;
-			gpios = <11 GPIO_ACTIVE_HIGH>;
-			output-low;
+			gpios = <11 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "usb_qspi_reset";
 		};
 
 		eth0-reset {
 			gpio-hog;
-			gpios = <12 GPIO_ACTIVE_HIGH>;
-			output-high;
-			line-name = "~eth0-reset";
+			gpios = <12 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "eth0-reset";
 		};
 
 		adau1372-pwrdwn {
 			gpio-hog;
-			gpios = <13 GPIO_ACTIVE_HIGH>;
-			output-high;
+			gpios = <13 GPIO_ACTIVE_LOW>;
+			output-low;
 			line-name = "adau1372_pwrdwn";
 		};
 
 		led1 {
 			gpio-hog;
-			gpios = <15 GPIO_ACTIVE_HIGH>;
-			output-low;
+			gpios = <15 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "led1-en";
 		};
 
 		led2 {
 			gpio-hog;
-			gpios = <16 GPIO_ACTIVE_HIGH>;
-			output-low;
+			gpios = <16 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "led2-en";
 		};
 
 		led3 {
 			gpio-hog;
-			gpios = <17 GPIO_ACTIVE_HIGH>;
-			output-low;
+			gpios = <17 GPIO_ACTIVE_LOW>;
+			output-high;
 			line-name = "led3-en";
 		};
 	};
