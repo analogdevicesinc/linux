@@ -1,0 +1,286 @@
+.. SPDX-License-Identifier: GPL-2.0
+
+===============
+ADE9000 driver
+===============
+
+This driver supports Analog Device's ADE9000 energy measurement IC on SPI bus.
+
+1. Supported devices
+====================
+
+* `ADE9000 <https://www.analog.com/media/en/technical-documentation/data-sheets/ADE9000.pdf>`_
+
+The ADE9000 is a highly accurate, fully integrated, multiphase energy and power
+quality monitoring device. Superior analog performance and a digital signal
+processing (DSP) core enable accurate energy monitoring over a wide dynamic
+range. An integrated high end reference ensures low drift over temperature
+with a combined drift of less than ±25 ppm/°C maximum for the entire channel
+including a programmable gain amplifier (PGA) and an analog-to-digital
+converter (ADC).
+
+2. Device attributes
+====================
+
+Power and energy measurements are provided for voltage, current, active power,
+reactive power, apparent power, and power factor across three phases.
+
+Each IIO device has a device folder under ``/sys/bus/iio/devices/iio:deviceX``,
+where X is the IIO index of the device. Under these folders reside a set of
+device files, depending on the characteristics and features of the hardware
+device in question. These files are consistently generalized and documented in
+the IIO ABI documentation.
+
+The following tables show the ADE9000 related device files, found in the
+specific device folder path ``/sys/bus/iio/devices/iio:deviceX``.
+
++---------------------------------------------------+----------------------------------------------------------+
+| Current measurement related device files          | Description                                              |
++---------------------------------------------------+----------------------------------------------------------+
+| in_current[0-2]_raw                               | Raw current measurement for phases A, B, C.              |
++---------------------------------------------------+----------------------------------------------------------+
+| in_current[0-2]_scale                             | Scale for current channels.                              |
++---------------------------------------------------+----------------------------------------------------------+
+| in_current[0-2]_calibscale                        | Calibration gain for current channels (AIGAIN reg).      |
++---------------------------------------------------+----------------------------------------------------------+
+| in_current[0-2]_offset                            | Offset correction for current channels (IRMSOS reg).     |
++---------------------------------------------------+----------------------------------------------------------+
+| in_altcurrent[0-2]_rms_raw                        | RMS current measurement for phases A, B, C.              |
++---------------------------------------------------+----------------------------------------------------------+
+
++---------------------------------------------------+----------------------------------------------------------+
+| Voltage measurement related device files          | Description                                              |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage[0-2]_raw                               | Raw voltage measurement for phases A, B, C.              |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage[0-2]_scale                             | Scale for voltage channels.                              |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage[0-2]_calibscale                        | Calibration gain for voltage channels (AVGAIN reg).      |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage[0-2]_offset                            | Offset correction for voltage channels (VRMSOS reg).     |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage[0-2]_frequency                         | Measured line frequency for phases A, B, C.              |
++---------------------------------------------------+----------------------------------------------------------+
+| in_altvoltage[0-2]_rms_raw                        | RMS voltage measurement for phases A, B, C.              |
++---------------------------------------------------+----------------------------------------------------------+
+
++---------------------------------------------------+----------------------------------------------------------+
+| Power measurement related device files            | Description                                              |
++---------------------------------------------------+----------------------------------------------------------+
+| in_power[0-2]_raw                                 | Raw active power measurement for phases A, B, C.         |
++---------------------------------------------------+----------------------------------------------------------+
+| in_power[0-2]_active_raw                          | Active power measurement for phases A, B, C.             |
++---------------------------------------------------+----------------------------------------------------------+
+| in_power[0-2]_reactive_raw                        | Reactive power measurement for phases A, B, C.           |
++---------------------------------------------------+----------------------------------------------------------+
+| in_power[0-2]_apparent_raw                        | Apparent power measurement for phases A, B, C.           |
++---------------------------------------------------+----------------------------------------------------------+
+| in_power[0-2]_powerfactor                         | Power factor for phases A, B, C.                         |
++---------------------------------------------------+----------------------------------------------------------+
+| in_power[0-2]_scale                               | Scale for power channels.                                |
++---------------------------------------------------+----------------------------------------------------------+
+| in_power[0-2]_calibscale                          | Calibration gain for power channels (APGAIN reg).        |
++---------------------------------------------------+----------------------------------------------------------+
+| in_power[0-2]_calibbias                           | Calibration offset for power channels (xWATTOS regs).    |
++---------------------------------------------------+----------------------------------------------------------+
+
++---------------------------------------------------+----------------------------------------------------------+
+| Energy measurement related device files           | Description                                              |
++---------------------------------------------------+----------------------------------------------------------+
+| in_energy[0-2]_raw                                | Raw energy measurement for phases A, B, C.               |
++---------------------------------------------------+----------------------------------------------------------+
+| in_energy[0-2]_scale                              | Scale for energy channels.                               |
++---------------------------------------------------+----------------------------------------------------------+
+
++------------------------------+------------------------------------------------------------------+
+| Shared device attributes     | Description                                                      |
++------------------------------+------------------------------------------------------------------+
+| name                         | Name of the IIO device.                                          |
++------------------------------+------------------------------------------------------------------+
+| frequency                    | System line frequency configuration (50Hz/60Hz).                |
++------------------------------+------------------------------------------------------------------+
+| scale                        | Shared PGA gain setting (1x, 2x, 4x) affecting all channels.   |
++------------------------------+------------------------------------------------------------------+
+
+3. Calibration and scaling
+===========================
+
+The ADE9000 provides multiple levels of gain and offset correction:
+
+**PGA Gain (shared)**
+  The programmable gain amplifier affects the analog input stage for all channels.
+  Controlled via the shared ``scale`` attribute with values 1, 2, or 4.
+
+**Calibration Gain (per-channel)**
+  Fine-tuning calibration gains applied in the digital domain for each channel type.
+  Controlled via ``calibscale`` attributes (AIGAIN, AVGAIN, APGAIN registers).
+
+**Calibration Offset (per-channel)**
+  Hardware calibration offsets applied by the device for power measurements.
+  Controlled via ``calibbias`` attributes for power channels.
+
+**Correction Offsets (per-channel)**
+  RMS offset corrections for current and voltage measurements.
+  Controlled via ``offset`` attributes (IRMSOS, VRMSOS registers).
+
+4. Event attributes
+===================
+
+The ADE9000 provides various interrupts that are mapped to IIO events.
+Event functionality is only available if the corresponding interrupts are
+connected in the device tree.
+
++---------------------------------------------------+----------------------------------------------------------+
+| IIO Event Attribute                               | ADE9000 Datasheet Equivalent                             |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage0_thresh_either_en                      | Zero crossing detection interrupt (ZXVA)                 |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage0_thresh_rising_en                      | Swell detection interrupt (SWELLA)                       |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage0_thresh_falling_en                     | Sag/dip detection interrupt (DIPA)                       |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage0_thresh_none_en                        | Zero crossing timeout interrupt (ZXTOVA)                 |
++---------------------------------------------------+----------------------------------------------------------+
+| events_mag_none_en                                | Energy ready interrupt (EGYRDY)                          |
++---------------------------------------------------+----------------------------------------------------------+
+| events_change_none_en                             | Sequence error interrupt (SEQERR)                        |
++---------------------------------------------------+----------------------------------------------------------+
+| events_thresh_none_value                          | Zero crossing timeout threshold (ZXTOUT register)        |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage0_thresh_falling_value                  | Sag/dip threshold (DIP_LVL register)                     |
++---------------------------------------------------+----------------------------------------------------------+
+| in_voltage0_thresh_rising_value                   | Swell threshold (SWELL_LVL register)                     |
++---------------------------------------------------+----------------------------------------------------------+
+
+Event directions:
+- ``rising``: Upper threshold crossing (swell detection)
+- ``falling``: Lower threshold crossing (sag/dip detection)
+- ``either``: Any threshold crossing (zero crossing detection)
+- ``none``: Timeout or non-directional events
+
+**Note**: Event attributes are only available if the corresponding interrupts
+(irq0, irq1, dready) are specified in the device tree. The driver works without
+interrupts but with reduced functionality.
+
+5. Device buffers
+=================
+
+This driver supports IIO buffers for waveform capture. Buffer functionality
+requires the dready interrupt to be connected.
+
+The device supports capturing voltage and current waveforms for power quality
+analysis. The waveform buffer can be configured to capture data from different
+channel combinations.
+
+Supported channel combinations for buffered capture:
+- Phase A: voltage and current (IA + VA)
+- Phase B: voltage and current (IB + VB)
+- Phase C: voltage and current (IC + VC)
+- All phases: all voltage and current channels
+- Individual channels: IA, VA, IB, VB, IC, VC
+
+Usage examples
+--------------
+
+Enable waveform capture for Phase A:
+
+.. code-block:: bash
+
+        root:/sys/bus/iio/devices/iio:device0> echo 1 > scan_elements/in_current0_en
+        root:/sys/bus/iio/devices/iio:device0> echo 1 > scan_elements/in_voltage0_en
+
+Set buffer length and enable:
+
+.. code-block:: bash
+
+        root:/sys/bus/iio/devices/iio:device0> echo 100 > buffer/length
+        root:/sys/bus/iio/devices/iio:device0> echo 1 > buffer/enable
+
+6. Clock output
+===============
+
+The ADE9000 can provide a clock output via the CLKOUT pin when using an external
+crystal/clock source. This feature is enabled by specifying ``#clock-cells = <0>``
+in the device tree. The output clock will be registered as "clkout" and can be
+referenced by other devices.
+
+7. Usage examples
+=================
+
+Show device name:
+
+.. code-block:: bash
+
+	root:/sys/bus/iio/devices/iio:device0> cat name
+        ade9000
+
+Read voltage measurements:
+
+.. code-block:: bash
+
+        root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_raw
+        12345
+        root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_scale
+        0.000030517
+
+- Phase A voltage = in_voltage0_raw * in_voltage0_scale = 0.3769 V
+
+Read power measurements:
+
+.. code-block:: bash
+
+        root:/sys/bus/iio/devices/iio:device0> cat in_power0_active_raw
+        5678
+        root:/sys/bus/iio/devices/iio:device0> cat in_power0_scale
+        0.000244140
+
+- Phase A active power = in_power0_active_raw * in_power0_scale = 1.386 W
+
+Configure PGA gain (affects all channels):
+
+.. code-block:: bash
+
+        # Set PGA gain to 2x
+        root:/sys/bus/iio/devices/iio:device0> echo 2 > scale
+        # Read current gain setting
+        root:/sys/bus/iio/devices/iio:device0> cat scale
+        2
+
+Configure line frequency:
+
+.. code-block:: bash
+
+        # Set to 60Hz operation
+        root:/sys/bus/iio/devices/iio:device0> echo 60 > frequency
+        # Read current frequency setting
+        root:/sys/bus/iio/devices/iio:device0> cat frequency
+        60
+
+Configure calibration gains:
+
+.. code-block:: bash
+
+        # Set current channel 0 calibration gain
+        root:/sys/bus/iio/devices/iio:device0> echo 0x800000 > in_current0_calibscale
+        # Set voltage channel 0 calibration gain
+        root:/sys/bus/iio/devices/iio:device0> echo 0x7FFFFF > in_voltage0_calibscale
+
+Configure voltage event thresholds (requires interrupts):
+
+.. code-block:: bash
+
+        # Set sag detection threshold
+        root:/sys/bus/iio/devices/iio:device0> echo 180000 > events/in_voltage0_thresh_falling_value
+        # Enable sag detection
+        root:/sys/bus/iio/devices/iio:device0> echo 1 > events/in_voltage0_thresh_falling_en
+
+        # Set swell detection threshold
+        root:/sys/bus/iio/devices/iio:device0> echo 260000 > events/in_voltage0_thresh_rising_value
+        # Enable swell detection
+        root:/sys/bus/iio/devices/iio:device0> echo 1 > events/in_voltage0_thresh_rising_en
+
+8. IIO Interfacing Tools
+========================
+
+See ``Documentation/iio/iio_tools.rst`` for the description of the available IIO
+interfacing tools.
