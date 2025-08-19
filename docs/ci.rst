@@ -43,7 +43,7 @@ provided (``mirror/<remote-name>/<branch>``):
 When upstreaming a driver, target the pull-request against the mirror.
 
 All of them are mirrors from the links shown with a single commit on top
-that includes the CI workflows, :git-linux:`as simple as <.github/workflows/sync-mirror.yml>`:
+that includes the CI workflows, :git-linux:`as simple as <.github/workflows/mirror.yml>`:
 
 .. shell::
 
