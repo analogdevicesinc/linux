@@ -104,7 +104,7 @@ jobs:
         done <<< "$files"
 
         files=$(comm -13 \
-          <(git ls-tree -r --name-only ${{ inputs.ref_branch }} include/dt-bindings | sort) \
+          <(git ls-tree -r --name-only origin/${{ inputs.ref_branch }} include/dt-bindings | sort) \
           <(git ls-tree -r --name-only $head_sha include/dt-bindings | sort))
 
         while read file; do
