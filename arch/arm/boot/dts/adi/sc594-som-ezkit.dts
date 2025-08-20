@@ -34,7 +34,7 @@
 		eeprom {
 			gpio-hog;
 			gpios = <0 GPIO_ACTIVE_LOW>;
-			output-high
+			output-high;
 			line-name = "eeprom-en";
 		};
 
