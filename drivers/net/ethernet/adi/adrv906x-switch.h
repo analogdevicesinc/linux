@@ -13,6 +13,8 @@
 #include <linux/io.h>
 
 #define SWITCH_MAX_PORT_NUM                             3
+#define NUM_DEFAULT_VIDS                                4
+
 #define SWITCH_CPU_PORT                                 2
 #define SWITCH_PORT_STATS_NUM                           32
 #define SWITCH_MAE_TIMEOUT                              50      /* read count */
@@ -157,11 +159,16 @@ struct switch_port_stats {
 struct adrv906x_eth_switch {
 	struct platform_device *pdev;
 	bool enabled;
+	unsigned int pcp_ipv_mapping;
+	unsigned int pcp_regen_val;
 	struct switch_port switch_port[SWITCH_MAX_PORT_NUM];
 	struct list_head vlan_cfg_list;
 	struct mutex vlan_cfg_list_lock; /* VLan cfg list lock */
+	struct device_attribute port_vlan_ctrl_attr;
+	struct attribute_group attr_group;
 	void __iomem *reg_match_action;
 	void __iomem *reg_switch;
+	u16 default_vids[NUM_DEFAULT_VIDS];
 	u16 pvid;
 	int err_irqs[2];
 	struct switch_isr_args isr_pre_args;
@@ -180,5 +187,6 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es);
 void adrv906x_switch_set_mae_age_time(struct adrv906x_eth_switch *es, u8 data);
 void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es);
 void adrv906x_switch_cleanup(struct adrv906x_eth_switch *es);
+void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es);
 
 #endif /* __ADRV906X_SWITCH_H__ */

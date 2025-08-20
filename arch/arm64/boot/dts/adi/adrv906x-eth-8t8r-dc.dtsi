@@ -17,6 +17,8 @@
 		reg = <SEC_EMAC_SW_BASE 0x30 SEC_EMAC_SW_MAE_BASE 0x30>;
 		interrupt-names = "switch_error_0", "switch_error_1";
 		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_190 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI C2C_OUT_HW_INTERRUPT_191 IRQ_TYPE_LEVEL_HIGH>;
+		pvid = /bits/ 16 <1>;
+		vids = /bits/ 16 <2 3 4 5>;
 		switch_port3:switch-port@3 {
 			id = <0>;
 			reg = <SEC_EMAC_SW_PORT_0_BASE 0x400>;
