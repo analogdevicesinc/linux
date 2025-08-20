@@ -194,25 +194,25 @@ static void adi_rproc_virtio_del_vqs(struct virtio_device *vdev)
 
 static int adi_rpmsg_virtio_find_vqs(struct virtio_device *vdev, unsigned int nvqs,
 				 struct virtqueue *vqs[],
-				 vq_callback_t *callbacks[],
-				 const char * const names[],
-				 const bool *ctx,
+				 struct virtqueue_info vqs_info[],
 				 struct irq_affinity *desc)
 {
-
 	int i, ret;
 
 	if (nvqs != 2)
 		return -EINVAL;
 
 	for (i = 0; i < nvqs; ++i) {
-		if (!names[i]) {
+		struct virtqueue_info *vqi = &vqs_info[i];
+
+		if (!vqi->name) {
 			vqs[i] = NULL;
 			continue;
 		}
 
-		vqs[i] = adi_find_vq(vdev, i, callbacks[i], names[i],
-				    ctx ? ctx[i] : false);
+		vqs[i] = adi_find_vq(vdev, i, vqi->callback, vqi->name,
+				    vqi->ctx);
+
 		if (IS_ERR(vqs[i])) {
 			ret = PTR_ERR(vqs[i]);
 			goto error;
@@ -560,7 +560,7 @@ free_adi_tru:
 	return ret;
 }
 
-static int adi_rpmsg_remove(struct platform_device *pdev)
+static void adi_rpmsg_remove(struct platform_device *pdev)
 {
 	struct adi_rpmsg_channel *rpchan = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
@@ -575,7 +575,6 @@ static int adi_rpmsg_remove(struct platform_device *pdev)
 		size = rpchan->vring[0].size + rpchan->vring[1].size;
 		dma_free_coherent(dev, size, rpchan->vring[0].va, rpchan->vring[0].da);
 	}
-	return 0;
 }
 
 static const struct of_device_id adi_rpmsg_dt_ids[] = {
