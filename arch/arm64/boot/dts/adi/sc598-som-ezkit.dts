@@ -100,21 +100,21 @@
 			gpio-hog;
 			gpios = <2 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "~microsd-spi";
+			line-name = "microsd-spi";
 		};
 
 		ftdi {
 			gpio-hog;
 			gpios = <3 GPIO_ACTIVE_LOW>;
 			output-high;
-			line-name = "~ftdi-usb-en";
+			line-name = "ftdi-usb-en";
 		};
 
 		can {
 			gpio-hog;
 			gpios = <4 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "~can-en";
+			line-name = "can-en";
 		};
 
 		adau1962 {
@@ -142,14 +142,14 @@
 			gpio-hog;
 			gpios = <9 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "~spdif-digital-en";
+			line-name = "spdif-digital-en";
 		};
 
 		spdif-opt {
 			gpio-hog;
 			gpios = <10 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "~spdif-optical-en";
+			line-name = "spdif-optical-en";
 		};
 
 		audio-jack {
@@ -170,7 +170,7 @@
 			gpio-hog;
 			gpios = <13 GPIO_ACTIVE_LOW>;
 			output-high;
-			line-name = "~eth1-en";
+			line-name = "eth1-en";
 		};
 
 		eth1-reset {
@@ -179,7 +179,7 @@
 /* USB0 lines are shared with Eth1 so  Eth PHY must be held in reset
    when using the USB */
 			output-high;
-			line-name = "~eth1-reset";
+			line-name = "eth1-reset";
 		};
 
 		gige-reset {

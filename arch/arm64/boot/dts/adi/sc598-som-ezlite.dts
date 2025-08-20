@@ -70,7 +70,7 @@
 			gpio-hog;
 			gpios = <12 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "~eth0-reset";
+			line-name = "eth0-reset";
 		};
 
 		adau1372-pwrdwn {
