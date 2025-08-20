@@ -1,0 +1,381 @@
+
+/dts-v1/;
+
+#include "zynqmp.dtsi"
+#include "zynqmp-clk-ccf.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/phy/phy.h>
+
+#include <dt-bindings/iio/adc/adi,ad9088.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+
+/ {
+
+	model = "ADSY1100 ZU4EG/VU11P Rev.A";
+
+	chosen {
+		bootargs = "earlycon console=ttyPS0,115200 clk_ignore_unused root=/dev/mmcblk0p2 ro rootwait";
+		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+		ethernet0 = &gem0;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &axi_iic_adm1266;
+		i2c3 = &axi_iic_ipcm1;
+		i2c4 = &axi_iic_ltc2977;
+		serial0 = &uart0;
+		serial1 = &uart1;
+		spi0 = &qspi;
+		spi1 = &spi0;
+		spi2 = &spi1;
+	};
+
+	psgtr_ref0: ext_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <125000000>;
+	};
+
+	vu11p_fpga_mgr: fpga-mgr@93000000 {
+		compatible = "adi,fpga-16-selectmap";
+		reg = <0x0 0x93000000 0x0 0x10000>;
+		prog-gpios = <&gpio 116 GPIO_ACTIVE_LOW>; //38
+		init-gpios = <&gpio 114 GPIO_ACTIVE_LOW>;//36
+		done-gpios = <&gpio 115 GPIO_ACTIVE_HIGH>;//37
+		csi-gpios = <&gpio 121 GPIO_ACTIVE_LOW>;//43
+		rdwr-gpios = <&gpio 117 GPIO_ACTIVE_LOW>;//39
+	};
+
+	vu11p_fpga_region: fpga-vu11p {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		compatible = "fpga-region";
+		fpga-mgr = <&vu11p_fpga_mgr>;
+		ranges = <0x0 0x80000000 0x0 0x80000000 0x0 0x10000000>;
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x7ff00000>;
+	};
+
+	memory_vu11p@1 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x7ff0000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		vu11p_ddr_dma: vu11p_dma_mem_region@80000000 {
+			compatible = "restricted-dma-pool";
+			reg = <0x0 0x80000000 0x0 0x7ff0000>;
+		};
+	};
+};
+
+
+/ {
+	amba_pl: amba_pl@0 {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "simple-bus";
+		ranges ;
+		axi_chip2chip: axi_chip2chip@80000000 {
+			clock-names = "aurora_init_clk", "axi_c2c_phy_clk", "s_aclk";
+			clocks = <&zynqmp_clk 71>, <&misc_clk_0>, <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-chip2chip-5.0";
+			reg = <0x0 0x80000000 0x0 0x10000000>;
+			xlnx,aurora-width = <0x80>;
+			xlnx,axi-addr-width = <0x20>;
+			xlnx,axi-brst-width = <0x2>;
+			xlnx,axi-bus-type = <0x0>;
+			xlnx,axi-data-width = <0x80>;
+			xlnx,axi-id-width = <0x1>;
+			xlnx,axi-len-width = <0x8>;
+			xlnx,axi-lite-addr-width = <0x20>;
+			xlnx,axi-lite-data-width = <0x20>;
+			xlnx,axi-lite-prot-width = <0x2>;
+			xlnx,axi-lite-resp-width = <0x2>;
+			xlnx,axi-lite-stb-width = <0x4>;
+			xlnx,axi-resp-width = <0x2>;
+			xlnx,axi-size-width = <0x3>;
+			xlnx,axi-stb-width = <0x10>;
+			xlnx,axi-wuser-width = <0x1>;
+			xlnx,common-clk = <0x0>;
+			xlnx,disable-clk-shift = <0x0>;
+			xlnx,disable-deskew = <0x0>;
+			xlnx,ecc-enable = <0x1>;
+			xlnx,en-aur-gtm-exdes = "false";
+			xlnx,en-axi-link-hndlr = <0x0>;
+			xlnx,en-legacy-mode = <0x0>;
+			xlnx,include-axilite = <0x0>;
+			xlnx,interface-mode = <0x1>;
+			xlnx,interface-type = <0x2>;
+			xlnx,interrupt-width = <0x4>;
+			xlnx,master-fpga = <0x1>;
+			xlnx,num-of-io = <0x14>;
+			xlnx,selectio-phy-clk = <0x64>;
+			xlnx,simulation = <0x0>;
+			xlnx,support-narrowburst = "axi_c2c";
+			xlnx,use-diff-clk = <0x0>;
+			xlnx,use-diff-io = <0x0>;
+		};
+		misc_clk_0: misc_clk_0 {
+			#clock-cells = <0>;
+			clock-frequency = <195312500>;
+			compatible = "fixed-clock";
+		};
+		axi_iic_adm1266: i2c@91000000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-iic-2.1", "xlnx,xps-iic-2.00.a";
+			interrupt-names = "iic2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 95 4>;
+			reg = <0x0 0x91000000 0x0 0x1000>;
+		};
+		axi_iic_ipcm1: i2c@92000000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-iic-2.1", "xlnx,xps-iic-2.00.a";
+			interrupt-names = "iic2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 94 4>;
+			reg = <0x0 0x92000000 0x0 0x1000>;
+		};
+		axi_iic_ltc2977: i2c@90000000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-iic-2.1", "xlnx,xps-iic-2.00.a";
+			interrupt-names = "iic2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 96 4>;
+			reg = <0x0 0x90000000 0x0 0x1000>;
+		};
+		axi_selmap: axi_selmap@93000000 {
+			clock-names = "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-selmap-1.0";
+			reg = <0x0 0x93000000 0x0 0x10000>;
+		};
+	};
+};
+
+//TODO:PCW
+&gic {
+	num_cpus = <2>;
+	num_interrupts = <96>;
+};
+&lpd_dma_chan1 {
+	status = "okay";
+};
+&lpd_dma_chan2 {
+	status = "okay";
+};
+&lpd_dma_chan3 {
+	status = "okay";
+};
+&lpd_dma_chan4 {
+	status = "okay";
+};
+&lpd_dma_chan5 {
+	status = "okay";
+};
+&lpd_dma_chan6 {
+	status = "okay";
+};
+&lpd_dma_chan7 {
+	status = "okay";
+};
+&lpd_dma_chan8 {
+	status = "okay";
+};
+&xilinx_ams {
+	status = "okay";
+};
+&cci {
+	status = "okay";
+};
+&gem0 {
+	phy-mode = "sgmii";
+	status = "okay";
+	xlnx,ptp-enet-clock = <0x0>;
+};
+&fpd_dma_chan1 {
+	status = "okay";
+};
+&fpd_dma_chan2 {
+	status = "okay";
+};
+&fpd_dma_chan3 {
+	status = "okay";
+};
+&fpd_dma_chan4 {
+	status = "okay";
+};
+&fpd_dma_chan5 {
+	status = "okay";
+};
+&fpd_dma_chan6 {
+	status = "okay";
+};
+&fpd_dma_chan7 {
+	status = "okay";
+};
+&fpd_dma_chan8 {
+	status = "okay";
+};
+&gpio {
+	emio-gpio-width = <32>;
+	gpio-mask-high = <0x0>;
+	gpio-mask-low = <0x5600>;
+	status = "okay";
+};
+&gpu {
+	status = "okay";
+	xlnx,tz-nonsecure = <0x1>;
+};
+&i2c0 {
+	status = "okay";
+};
+&i2c1 {
+	status = "okay";
+};
+&qspi {
+	is-dual = <1>;
+	num-cs = <2>;
+	spi-rx-bus-width = <4>;
+	spi-tx-bus-width = <4>;
+	status = "okay";
+};
+&rtc {
+	status = "okay";
+};
+&sdhci1 {
+	clock-frequency = <199998001>;
+	status = "okay";
+	xlnx,mio-bank = <0x1>;
+};
+&psgtr {
+	status = "okay";
+};
+&spi0 {
+	is-decoded-cs = <0>;
+	num-cs = <1>;
+	status = "okay";
+};
+&spi1 {
+	is-decoded-cs = <0>;
+	num-cs = <1>;
+	status = "okay";
+};
+&uart0 {
+	cts-override ;
+	device_type = "serial";
+	port-number = <0>;
+	status = "okay";
+	u-boot,dm-pre-reloc ;
+};
+&uart1 {
+	cts-override ;
+	device_type = "serial";
+	port-number = <1>;
+	status = "okay";
+	u-boot,dm-pre-reloc ;
+};
+&pinctrl0 {
+	i2c1-default {
+		/delete-node/ conf ;
+		/delete-node/ mux ;
+	};
+	i2c1-gpio {
+		/delete-node/ conf ;
+		/delete-node/ mux ;
+	};
+};
+&ams_ps {
+	status = "okay";
+};
+&ams_pl {
+	status = "okay";
+};
+
+&axi_selmap {
+	status = "disabled";
+};
+
+&psgtr {
+	status = "okay";
+	clocks = <&psgtr_ref0>;
+	clock-names = "ref0";
+};
+
+&gem0 {
+	phys = <&psgtr 0 PHY_TYPE_SGMII 0 0>;
+	phy-handle = <&phy1>;
+	phy-mode = "sgmii";
+	is-internal-pcspma;
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		phy1: ethernet-phy@1 {
+			reg = <1>;
+			device_type = "ethernet-phy";
+			reset-gpios = <&gpio 82 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <20000>;
+			reset-deassert-us = <500>;
+		};
+	};
+};
+
+&sdhci1 {
+	disable-wp;
+	no-1-8-v;
+};
+
+&qspi {
+	status = "okay";
+	is-dual = <1>;
+	num-cs = <1>;
+	primary_flash: qspi@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		compatible = "n25q512a", "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <50000000>;
+		// partition@full_2G {
+		// 	label = "qspi-full_2G";
+		// 	reg = <0x0 0x80000000>; /* 2G */
+		// };
+		partition@qspi-fsbl-uboot {
+			label = "qspi-fsbl-uboot";
+			reg = <0x0 0x2000000>; /* 32M */
+		};
+		partition@qspi-uboot-env {
+			label = "qspi-uboot-env";
+			reg = <0x2000000 0x20000>; /* 128k */
+		};
+		partition@qspi-nvmfs {
+			label = "qspi-nvmfs";
+			reg = <0x2020000 0xE0000>; /* 1M */
+		};
+		partition@qspi-linux {
+			label = "qspi-linux";
+			reg = <0x2100000 0x5E00000>; /* 94M */
+		};
+	};
+};
