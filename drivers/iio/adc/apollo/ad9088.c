@@ -21,188 +21,66 @@ static int ad9088_jesd204_post_setup_stage2(struct jesd204_dev *jdev,
 static int ad9088_jesd204_post_setup_stage3(struct jesd204_dev *jdev,
 					    enum jesd204_state_op_reason reason);
 
-void adi_ad9088_hal_add_128(u64 ah, uint64_t al, uint64_t bh, uint64_t bl,
-			    u64 *hi, uint64_t *lo)
-{
-	u64 rl = al + bl, rh = ah + bh;
-
-	if (rl < al)
-		rh++;
-	*lo = rl;
-	*hi = rh;
-}
-
-void adi_ad9088_hal_sub_128(u64 ah, uint64_t al, uint64_t bh, uint64_t bl,
-			    u64 *hi, uint64_t *lo)
-{
-	u64 rl, rh;
-
-	if (bl <= al) {
-		rl = al - bl;
-		rh = ah - bh;
-	} else {
-		rl = bl - al - 1;
-		rl = 0xffffffffffffffffull - rl;
-		ah--;
-		rh = ah - bh;
-	}
-	*lo = rl;
-	*hi = rh;
-}
-
-void adi_ad9088_hal_mult_128(u64 a, uint64_t b, uint64_t *hi, uint64_t *lo)
-{
-	u64 ah = a >> 32, al = a & 0xffffffff, bh = b >> 32,
-		 bl = b & 0xffffffff, rh = ah * bh, rl = al * bl, rm1 = ah * bl,
-		 rm2 = al * bh, rm1h = rm1 >> 32, rm2h = rm2 >> 32,
-		 rm1l = rm1 & 0xffffffff, rm2l = rm2 & 0xffffffff,
-		 rmh = rm1h + rm2h, rml = rm1l + rm2l,
-		 c = ((rl >> 32) + rml) >> 32;
-	rl = rl + (rml << 32);
-	rh = rh + rmh + c;
-	*lo = rl;
-	*hi = rh;
-}
-
-void adi_ad9088_hal_lshift_128(u64 *hi, uint64_t *lo)
-{
-	*hi <<= 1;
-	if (*lo & 0x8000000000000000ull)
-		*hi |= 1ull;
-	*lo <<= 1;
-}
-
-void adi_ad9088_hal_rshift_128(u64 *hi, uint64_t *lo)
-{
-	*lo >>= 1;
-	if (*hi & 1ull)
-		*lo |= 0x8000000000000000ull;
-	*hi >>= 1;
-}
-
-void adi_ad9088_hal_div_128(u64 a_hi, uint64_t a_lo, uint64_t b_hi,
-			    u64 b_lo, uint64_t *hi, uint64_t *lo)
-{
-	u64 remain_lo = a_lo, remain_hi = a_hi, part1_lo = b_lo,
-		 part1_hi = b_hi;
-	u64 result_lo = 0, result_hi = 0, mask_lo = 1, mask_hi = 0;
-
-	while (!(part1_hi & 0x8000000000000000ull)) {
-		adi_ad9088_hal_lshift_128(&part1_hi, &part1_lo);
-		adi_ad9088_hal_lshift_128(&mask_hi, &mask_lo);
-	}
-
-	do {
-		if ((remain_hi > part1_hi) ||
-		    ((remain_hi == part1_hi) && (remain_lo >= part1_lo))) {
-			adi_ad9088_hal_sub_128(remain_hi, remain_lo, part1_hi,
-					       part1_lo, &remain_hi,
-					       &remain_lo);
-			adi_ad9088_hal_add_128(result_hi, result_lo, mask_hi,
-					       mask_lo, &result_hi, &result_lo);
-		}
-		adi_ad9088_hal_rshift_128(&part1_hi, &part1_lo);
-		adi_ad9088_hal_rshift_128(&mask_hi, &mask_lo);
-	} while ((mask_hi != 0) || (mask_lo != 0));
-	*lo = result_lo;
-	*hi = result_hi;
-}
-
 int32_t adi_ad9088_calc_nco_ftw(adi_apollo_device_t *device,
-				u64 freq, int64_t nco_shift,
-				uint64_t *ftw)
+				  u64 freq, s64 nco_shift, u32 bits,
+				  u64 *ftw, u64 *frac_a, u64 *frac_b)
 {
-	u64 hi, lo;
+	bool neg = false;
+	int ret;
 
-	if (!freq)
+	pr_debug("adi_ad9088_calc_nco_ftw: freq=%llu, nco_shift=%lld, bits=%u\n",
+		freq, nco_shift, bits);
+
+	if (!freq || !bits || (bits > 64) || !ftw || !frac_a || !frac_b)
 		return -EINVAL;
 
 	nco_shift = clamp_t(int64_t, nco_shift, -(freq >> 1), freq >> 1);
 
-	if (nco_shift >= 0) {
-		adi_ad9088_hal_mult_128(281474976710656ull, nco_shift, &hi,
-					&lo);
-		adi_ad9088_hal_add_128(hi, lo, 0, freq >> 1, &hi, &lo);
-		adi_ad9088_hal_div_128(hi, lo, 0, freq, &hi, ftw);
-	} else {
-		adi_ad9088_hal_mult_128(281474976710656ull, -nco_shift, &hi,
-					&lo);
-		adi_ad9088_hal_add_128(hi, lo, 0, freq >> 1, &hi, &lo);
-		adi_ad9088_hal_div_128(hi, lo, 0, freq, &hi, ftw);
-		*ftw = 281474976710656ull - *ftw;
+	if (nco_shift < 0) {
+		nco_shift = -nco_shift;
+		neg = true;
 	}
+
+	ret = adi_api_utils_ratio_decomposition(nco_shift, freq, bits, ftw, frac_a, frac_b);
+	if (ret) {
+		pr_err("Error in ratio decomposition: %d\n", ret);
+		return ret;
+	}
+	/* frac_a and fact_b are 24-bit registers */
+	while (*frac_a >= (1 << 24) || *frac_b >= (1 << 24)) {
+		*frac_a >>= 1;
+		*frac_b >>= 1;
+	};
+
+	if (neg)
+		*ftw = (1ULL << bits) - *ftw;
 
 	return API_CMS_ERROR_OK;
 }
 
 int32_t adi_ad9088_calc_nco_freq(adi_apollo_device_t *device,
-				 u64 freq,
-				 u64 ftw, int64_t *nco_shift)
+				 u64 freq, u64 ftw, u32 a, u32 b,
+				 u32 bits, s64 *nco_shift)
 {
-	u64 hi, lo;
+	u64 hi, lo, mod;
 	bool neg = false;
 
-	if (!freq)
+	pr_debug("adi_ad9088_calc_nco_freq: freq=%llu, ftw=%llu, a=%u, b=%u, bits=%u\n",
+		freq, ftw, a, b, bits);
+
+	if (!freq || !bits || (bits > 64) || (a > b) || !b)
 		return -EINVAL;
 
-	if (ftw > 140737488355328ull) {
-		ftw = 0x1000000000000 - ftw;
+	mod = (1ULL << bits);
+
+	if (ftw > (mod >> 1)) {
+		ftw = mod - ftw;
 		neg = true;
 	}
 
-	adi_ad9088_hal_mult_128(freq, ftw, &hi, &lo);
-	adi_ad9088_hal_add_128(hi, lo, 0, 281474976710656ull / 2, &hi, &lo);
-	adi_ad9088_hal_div_128(hi, lo, 0, 281474976710656ull, &hi, nco_shift);
-
-	if (neg)
-		*nco_shift *= -1;
-
-	return API_CMS_ERROR_OK;
-}
-
-int32_t adi_ad9088_calc_nco_ftw32(adi_apollo_device_t *device,
-				  u64 freq, int64_t nco_shift,
-				  uint64_t *ftw)
-{
-	u64 hi, lo;
-
-	if (!freq)
-		return -EINVAL;
-
-	nco_shift = clamp_t(int64_t, nco_shift, -(freq >> 1), freq >> 1);
-
-	if (nco_shift >= 0) {
-		adi_ad9088_hal_mult_128(4294967296ull, nco_shift, &hi, &lo);
-		adi_ad9088_hal_add_128(hi, lo, 0, freq >> 1, &hi, &lo);
-		adi_ad9088_hal_div_128(hi, lo, 0, freq, &hi, ftw);
-	} else {
-		adi_ad9088_hal_mult_128(4294967296ull, -nco_shift, &hi, &lo);
-		adi_ad9088_hal_add_128(hi, lo, 0, freq >> 1, &hi, &lo);
-		adi_ad9088_hal_div_128(hi, lo, 0, freq, &hi, ftw);
-		*ftw = 4294967296ull - *ftw;
-	}
-
-	return API_CMS_ERROR_OK;
-}
-
-int32_t adi_ad9088_calc_nco32_freq(adi_apollo_device_t *device,
-				   u64 freq,
-				   u64 ftw, int64_t *nco_shift)
-{
-	u64 hi, lo;
-	bool neg = false;
-
-	if (!freq)
-		return -EINVAL;
-
-	if (ftw > 2147483648ull) {
-		ftw = 0x100000000 - ftw;
-		neg = true;
-	}
-
-	adi_ad9088_hal_mult_128(freq, ftw, &hi, &lo);
-	adi_ad9088_hal_add_128(hi, lo, 0, 4294967296ull / 2, &hi, &lo);
-	adi_ad9088_hal_div_128(hi, lo, 0, 4294967296ull, &hi, nco_shift);
+	adi_api_utils_mult_128(freq, (ftw * 100ULL) + ((100 * a) / b), &hi, &lo);
+	adi_api_utils_add_128(hi, lo, 0, (mod * 100) >> 1, &hi, &lo);
+	adi_api_utils_div_128(hi, lo, 0, (mod * 100), &hi, nco_shift);
 
 	if (neg)
 		*nco_shift *= -1;
@@ -903,36 +781,43 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 
 	switch (private) {
 	case CDDC_NCO_FREQ:
-
-		if (chan->output)
-			adi_ad9088_calc_nco32_freq(&phy->ad9088, phy->profile.dac_config[side].dac_sampling_rate_Hz,
-						   phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc, &val);
-		else
-			adi_ad9088_calc_nco32_freq(&phy->ad9088, phy->profile.adc_config[side].adc_sampling_rate_Hz,
-						   phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc, &val);
-
-		//val = phy->cnco_freq[chan->output][side][cddc_num];
-		ret = 0;
+		if (chan->output) {
+			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
+			ret = adi_ad9088_calc_nco_freq(&phy->ad9088, f, phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc,
+							phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_a,
+							phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
+		} else {
+			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
+			ret = adi_ad9088_calc_nco_freq(&phy->ad9088, f, phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc,
+						        phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_a,
+							phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
+		}
 		break;
 	case FDDC_NCO_FREQ:
-
 		if (chan->output) {
 			u32 cddc_dcm;
 
 			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[side].tx_cduc[cddc_num].drc_ratio, &cddc_dcm);
 			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
 			do_div(f, cddc_dcm);
-			adi_ad9088_calc_nco_freq(&phy->ad9088, f, phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc, &val);
+
+			ret = adi_ad9088_calc_nco_freq(&phy->ad9088, f,
+						 phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc,
+						 phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_a,
+						 phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_b,
+						 48, &val);
 		} else {
 			u32 cddc_dcm;
 
 			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[side].rx_cddc[cddc_num].drc_ratio, &cddc_dcm);
 			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
 			do_div(f, cddc_dcm);
-			adi_ad9088_calc_nco_freq(&phy->ad9088, f, phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc, &val);
+			ret = adi_ad9088_calc_nco_freq(&phy->ad9088, f,
+						 phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc,
+						 phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_a,
+						 phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_b,
+						 48, &val);
 		}
-		//val = phy->fnco_freq[chan->output][side][fddc_num];
-		ret = 0;
 		break;
 	case CDDC_NCO_FREQ_AVAIL:
 		if (chan->output)
@@ -1036,7 +921,7 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 	u32 cddc_mask, fddc_mask;
 	s32 val32, tmp;
 	s64 val64;
-	u64 ftw, f;
+	u64 ftw, f, frac_a, frac_b;
 	adi_apollo_terminal_e terminal;
 	adi_apollo_cfir_sel_e cfir_sel;
 	adi_apollo_cfir_dp_sel dp_sel;
@@ -1053,26 +938,32 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 
 		if (chan->output)
-			adi_ad9088_calc_nco_ftw32(&phy->ad9088, phy->profile.dac_config[side].dac_sampling_rate_Hz, readin, &ftw);
+			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
 		else
-			adi_ad9088_calc_nco_ftw32(&phy->ad9088, phy->profile.adc_config[side].adc_sampling_rate_Hz, readin, &ftw);
+			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
 
-		ret = adi_apollo_cnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, cddc_mask,
-					       readin ? ADI_APOLLO_MXR_VAR_IF_MODE : ADI_APOLLO_MXR_ZERO_IF_MODE);
+
+		ret = adi_ad9088_calc_nco_ftw(&phy->ad9088, f, readin, 32, &ftw, &frac_a, &frac_b);
 		if (ret)
 			return ret;
 
-		ret = adi_apollo_cnco_ftw_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, cddc_mask, 0, 1, ftw);
+		ret = adi_apollo_cnco_ftw_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, cddc_mask, 0, 1, (u32) ftw);
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_cnco_mod_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, cddc_mask, (u32) frac_a, (u32) frac_b);
 
 		if (!ret) {
-			if (chan->output)
+			if (chan->output) {
 				phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc = ftw;
-			else
+				phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+				phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+			} else {
 				phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc = ftw;
+				phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+				phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+			}
 		}
-
-		// if (!ret)
-		//      phy->cnco_freq[chan->output][side][cddc_num] = readin;
 
 		break;
 	case FDDC_NCO_FREQ:
@@ -1094,25 +985,30 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			do_div(f, cddc_dcm);
 		}
 
-		adi_ad9088_calc_nco_ftw(&phy->ad9088, f, readin, &ftw);
-
-		ret = adi_apollo_fnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, fddc_mask,
-					       readin ? ADI_APOLLO_MXR_VAR_IF_MODE : ADI_APOLLO_MXR_ZERO_IF_MODE);
+		ret = adi_ad9088_calc_nco_ftw(&phy->ad9088, f, readin, 48, &ftw, &frac_a, &frac_b);
 		if (ret)
 			return ret;
 
-		ret = adi_apollo_fnco_main_phase_inc_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, fddc_mask, ftw);
+		adi_apollo_fine_nco_main_pgm_t config = {
+			.main_phase_inc = ftw,
+			.main_phase_offset = div_s64(phy->fnco_phase[chan->output][side][fddc_num] * 14073748835533, 18000LL),
+			.drc_phase_inc_frac_a = frac_a,
+			.drc_phase_inc_frac_b = frac_b,
+		};
+
+		ret = adi_apollo_fnco_main_pgm(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, fddc_mask, &config);
 
 		if (!ret) {
-			if (chan->output)
+			if (chan->output) {
 				phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc = ftw;
-			else
+				phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+				phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+			} else {
 				phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc = ftw;
+				phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+				phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+			}
 		}
-
-		// if (!ret)
-		//      phy->fnco_freq[chan->output][side][fddc_num] = readin;
-
 		break;
 	case CDDC_NCO_PHASE:
 		ret = kstrtoll(buf, 10, &readin);

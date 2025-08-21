@@ -109,7 +109,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 	u16 fnco_en, cnco_en;
 	bool hop_enable;
 	int val, ret;
-	u64 ftw_u64, f;
+	u64 ftw_u64, f, tmp;
 
 	guard(mutex)(&phy->lock);
 	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
@@ -150,8 +150,8 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
 			do_div(f, cddc_dcm);
 		}
-		adi_ad9088_calc_nco_ftw(&phy->ad9088, f, val, &ftw_u64);
-		ftw_u32 = ftw_u64 >> 16;
+		adi_ad9088_calc_nco_ftw(&phy->ad9088, f, val, 32, &ftw_u64, &tmp, &tmp);
+		ftw_u32 = ftw_u64;
 		ret = adi_apollo_fnco_profile_load(&phy->ad9088, dir, fnco_en,
 						   ADI_APOLLO_NCO_PROFILE_PHASE_INCREMENT,
 						   index, &ftw_u32, 1);
@@ -218,9 +218,9 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		if (index >= ADI_APOLLO_CNCO_PROFILE_NUM)
 			return -EINVAL;
 		if (chan->output)
-			adi_ad9088_calc_nco_ftw32(&phy->ad9088, phy->profile.dac_config[side].dac_sampling_rate_Hz, val, &ftw_u64);
+			adi_ad9088_calc_nco_ftw(&phy->ad9088, phy->profile.dac_config[side].dac_sampling_rate_Hz, val, 32, &ftw_u64, &tmp, &tmp);
 		else
-			adi_ad9088_calc_nco_ftw32(&phy->ad9088, phy->profile.adc_config[side].adc_sampling_rate_Hz, val, &ftw_u64);
+			adi_ad9088_calc_nco_ftw(&phy->ad9088, phy->profile.adc_config[side].adc_sampling_rate_Hz, val, 32, &ftw_u64, &tmp, &tmp);
 		ftw_u32 = ftw_u64;
 		ret = adi_apollo_cnco_profile_load(&phy->ad9088, dir, cnco_en,
 						   ADI_APOLLO_NCO_PROFILE_PHASE_INCREMENT,
