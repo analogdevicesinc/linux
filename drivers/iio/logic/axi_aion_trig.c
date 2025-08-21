@@ -77,6 +77,7 @@ struct axi_aion_state {
 	struct clk *dev_clk;
 	struct jesd204_dev *jdev;
 	struct iio_channel *iio_adf4030;
+	u32 trigX_phase[8];
 };
 
 struct axi_aion_state *st_global;
@@ -300,6 +301,7 @@ static int axi_aion_iio_write_raw(struct iio_dev *indio_dev, struct iio_chan_spe
 	case IIO_CHAN_INFO_PHASE:
 		if (val > 0xFFFF || val < 0)
 			return -EINVAL;
+		st->trigX_phase[chan->channel] = val;
 		return regmap_write(st->regmap, chan->address, val);
 	case IIO_CHAN_INFO_ENABLE:
 		return regmap_update_bits(st->regmap, AION_CONTROL_REG, BIT(chan->channel + 2),
@@ -507,7 +509,7 @@ static int axi_aion_jesd204_opt_setup_stage1(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct axi_aion_state *st = iio_priv(indio_dev);
-	int ret;
+	int ret, i;
 	u32 regval;
 	s64 adf4030_phase;
 	int val, val2;
@@ -650,6 +652,9 @@ static int axi_aion_jesd204_opt_setup_stage1(struct jesd204_dev *jdev,
 		dev_err(dev, "Failed to select trigger channel\n");
 		return ret;
 	}
+
+	for (i = 0; i < ARRAY_SIZE(st->trigX_phase); i++)
+		regmap_write(st->regmap, AION_TRIG_CH0_PHASE_REG + (i * 4), st->trigX_phase[i]);
 
 	return JESD204_STATE_CHANGE_DONE;
 out:
