@@ -1550,7 +1550,116 @@ static const struct iio_enum ad9088_loopback_modes_enum = {
 	.get = ad9088_loopback_mode_read,
 };
 
+static int ad9088_cnco_mixer_mode_read(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	u8 cddc_num, fddc_num, side, mode;
+	u32 cddc_mask, fddc_mask;
+	int ret;
+
+	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+
+	ret = adi_apollo_hal_bf_get(&phy->ad9088,
+		BF_DRC_IF_MODE_TXRX_COARSE_NCO_INFO(chan->output ? calc_tx_cnco_base(cddc_num) : calc_rx_cnco_base(cddc_num)),
+		&mode, 1);
+	if (ret)
+		return ret;
+
+	return mode & 0x3;
+}
+
+static int ad9088_cnco_mixer_mode_write(struct iio_dev *indio_dev,
+				      const struct iio_chan_spec *chan,
+				      unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	u8 cddc_num, fddc_num, side;
+	u32 cddc_mask, fddc_mask;
+	int ret = 0;
+
+	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+
+	guard(mutex)(&phy->lock);
+
+	return adi_apollo_cnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
+					cddc_mask, item);
+
+	return ret;
+}
+
+static int ad9088_fnco_mixer_mode_read(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	u8 cddc_num, fddc_num, side, mode;
+	u32 cddc_mask, fddc_mask;
+	int ret;
+
+	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+
+	ret = adi_apollo_hal_bf_get(&phy->ad9088,
+		BF_DRC_IF_MODE_TXRX_FINE_NCO_INFO(chan->output ? calc_tx_fnco_base(fddc_num) : calc_rx_fnco_base(fddc_num)),
+		&mode, 1);
+	if (ret)
+		return ret;
+
+	return mode & 0x3;
+}
+
+static int ad9088_fnco_mixer_mode_write(struct iio_dev *indio_dev,
+				      const struct iio_chan_spec *chan,
+				      unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	u8 cddc_num, fddc_num, side;
+	u32 cddc_mask, fddc_mask;
+	int ret = 0;
+
+	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+
+	guard(mutex)(&phy->lock);
+
+	return adi_apollo_fnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
+					fddc_mask, item);
+
+	return ret;
+}
+
+static const char *const ad9088_mixer_modes[] = {
+	[ADI_APOLLO_MXR_VAR_IF_MODE] = "var_IF",
+	[ADI_APOLLO_MXR_ZERO_IF_MODE] = "zero_IF",
+	[ADI_APOLLO_MXR_FS_BY_4_MODE] = "fs/4_IF",
+	[ADI_APOLLO_MXR_TEST_MODE] = "test_tone",
+};
+
+static const struct iio_enum ad9088_cnco_mixer_modes_enum = {
+	.items = ad9088_mixer_modes,
+	.num_items = ARRAY_SIZE(ad9088_mixer_modes),
+	.set = ad9088_cnco_mixer_mode_write,
+	.get = ad9088_cnco_mixer_mode_read,
+};
+
+static const struct iio_enum ad9088_fnco_mixer_modes_enum = {
+	.items = ad9088_mixer_modes,
+	.num_items = ARRAY_SIZE(ad9088_mixer_modes),
+	.set = ad9088_fnco_mixer_mode_write,
+	.get = ad9088_fnco_mixer_mode_read,
+};
+
 static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
+	IIO_ENUM("main_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("main_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_fnco_mixer_modes_enum),
+	IIO_ENUM("channel_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("channel_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_fnco_mixer_modes_enum),
 	IIO_ENUM("test_mode", IIO_SEPARATE, &ad9088_testmode_enum),
 	IIO_ENUM_AVAILABLE("test_mode", IIO_SHARED_BY_TYPE, &ad9088_testmode_enum),
 	IIO_ENUM("loopback", IIO_SEPARATE, &ad9088_loopback_modes_enum),
@@ -1700,6 +1809,10 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 };
 
 static struct iio_chan_spec_ext_info txdac_ext_info[] = {
+	IIO_ENUM("main_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("main_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_fnco_mixer_modes_enum),
+	IIO_ENUM("channel_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("channel_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_fnco_mixer_modes_enum),
 	{
 		.name = "main_nco_frequency",
 		.read = ad9088_ext_info_read,
