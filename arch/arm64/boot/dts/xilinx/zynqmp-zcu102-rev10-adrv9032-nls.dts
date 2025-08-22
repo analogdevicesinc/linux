@@ -90,8 +90,8 @@
 		clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
 
 		adi,sys-clk-select = <XCVR_QPLL>;
-		// adi,out-clk-select = <XCVR_REFCLK>;
-		adi,out-clk-select = <XCVR_PROGDIV_CLK>;
+		adi,out-clk-select = <XCVR_REFCLK>;
+		// adi,out-clk-select = <XCVR_PROGDIV_CLK>;
 
 		jesd204-device;
 		#jesd204-cells = <2>;
