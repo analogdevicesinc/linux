@@ -637,8 +637,10 @@ static const struct of_device_id adc_of_match[] = {
 				.data = &adrv9002_rx_chip_info },
 	{ .compatible = "adi,axi-adrv9006-rx2-1.0",
 				.data = &adrv9002_rx_chip_info },
+	{ .compatible = "adi,axi-adrv903x-obs-1.0",
+				.data = &obs_rx_chip_info },
 	{ .compatible = "adi,axi-adc-tpl-so-10.0.a",
-		.data = &obs_rx_chip_info },
+				.data = &obs_rx_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
