@@ -1018,12 +1018,12 @@ adi_adrv903x_PostMcsInit_t utilityInit =
         .txRadioCtrlModeCfg = 
         {
             .txEnableMode = ADI_ADRV903X_TX_EN_SPI_MODE,
-            .txChannelMask = 0x11,
+            .txChannelMask = 0xFF,
         },
         .rxRadioCtrlModeCfg = 
         {
             .rxEnableMode = ADI_ADRV903X_RX_EN_SPI_MODE,
-            .rxChannelMask = 0x11,
+            .rxChannelMask = 0xFF,
         },
         .orxRadioCtrlModeCfg = 
         {
@@ -1035,7 +1035,7 @@ adi_adrv903x_PostMcsInit_t utilityInit =
     {
         .txEnMapping = 
         {
-            1, 2, 4, 8, 16, 32, 64, 128,
+            0, 0, 0, 0, 0, 0, 0, 0,
         }, // txEnMapping (end of array)
         .txAltMapping = 
         {
@@ -1043,7 +1043,7 @@ adi_adrv903x_PostMcsInit_t utilityInit =
         }, // txAltMapping (end of array)
         .rxEnMapping = 
         {
-            1, 2, 4, 8, 16, 32, 64, 128,
+            0, 0, 0, 0, 0, 0, 0, 0,
         }, // rxEnMapping (end of array)
         .rxAltMapping = 
         {
@@ -1068,8 +1068,8 @@ adi_adrv903x_PostMcsInit_t utilityInit =
     .initCals = 
     {
         .calMask = 0x4EFE,
-        .rxChannelMask = 0x11,
-        .txChannelMask = 0x11,
+        .rxChannelMask = 0xFF,
+        .txChannelMask = 0xFF,
         .orxChannelMask = 0x03,
         .warmBoot = 0,
     },
