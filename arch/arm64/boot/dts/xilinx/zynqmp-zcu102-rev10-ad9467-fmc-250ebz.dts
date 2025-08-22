@@ -15,12 +15,6 @@
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
 
-/*
-#include "zynq-zed.dtsi"
-#include "zynq-zed-adv7511.dtsi"
-*/
-
-
 / {
 	fpga_axi: fpga-axi@0 {
       interrupt-parent = <&gic>;
@@ -31,12 +25,10 @@
       
       rx_dma: dma-controller@84A30000 {
          compatible = "adi,axi-dmac-1.00.a";
-         reg = <0x84A30000 0x1000>;
+         reg = <0x84A30000 0x10000>;
          #dma-cells = <1>;
-         interrupt-parent = <&gic>;
          interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
          clocks = <&zynqmp_clk 71>;
-         status = "okay";
       };
       
       cf_ad9467_core_0: cf-ad9467-core-lpc@84A00000 {
@@ -44,7 +36,6 @@
          reg = <0x84A00000 0x10000>;
          dmas = <&rx_dma 0>;
          dma-names = "rx";
-         status = "okay";
 
          spibus-connected = <&adc_ad9467>;
       };
@@ -52,10 +43,6 @@
 };
 
 &spi0 {
-	status = "okay";
-};
-
-&spi1 {
 	status = "okay";
 };
 
