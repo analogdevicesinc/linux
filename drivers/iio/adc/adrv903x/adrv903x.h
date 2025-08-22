@@ -35,7 +35,9 @@
 enum debugfs_cmd {
 	DBGFS_NONE,
 	DBGFS_BIST_FRAMER_0_PRBS,
-	DBGFS_BIST_FRAMER_LOOPBACK,
+	DBGFS_BIST_FRAMER_1_PRBS,
+	DBGFS_BIST_FRAMER_0_LOOPBACK,
+	DBGFS_BIST_FRAMER_1_LOOPBACK,
 	DBGFS_BIST_TONE,
 };
 
@@ -98,6 +100,7 @@ struct adrv903x_debugfs_entry {
 enum adrv903x_clocks {
 	RX_SAMPL_CLK,
 	TX_SAMPL_CLK,
+	OBS_SAMPL_CLK,
 	NUM_ADRV903X_CLKS,
 };
 
@@ -129,6 +132,7 @@ struct adrv903x_rf_phy {
 
 	u32 tx_iqRate_kHz;
 	u32 rx_iqRate_kHz;
+	u32 orx_iqRate_kHz;
 
 	adi_hal_Cfg_t linux_hal;
 	struct clk *dev_clk;

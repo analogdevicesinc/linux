@@ -1046,15 +1046,27 @@ static int adrv903x_phy_read_raw(struct iio_dev *indio_dev,
 		ret = IIO_VAL_INT_PLUS_MICRO_DB;
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (chan->output)
-			*val = clk_get_rate(phy->clks[TX_SAMPL_CLK]);
-		else
-			*val = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+		switch (chan->channel) {
+			case CHAN_RX1:
+			case CHAN_RX2:
+			case CHAN_RX3:
+			case CHAN_RX4:
+			case CHAN_RX5:
+			case CHAN_RX6:
+			case CHAN_RX7:
+			case CHAN_RX8:
+				*val = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+				break;
+			case CHAN_OBS_RX1:
+			case CHAN_OBS_RX2:
+				*val = clk_get_rate(phy->clks[OBS_SAMPL_CLK]);
+				break;
+			}
 
 		ret = IIO_VAL_INT;
 		break;
 	case IIO_CHAN_INFO_PROCESSED:
-		// ToDo variable avg_mask 
+		// ToDo variable avg_mask
 		adi_adrv903x_TemperatureGet(phy->palauDevice, avg_mask, &temp);
 		*val = (temp.tempDegreesCelsius[avg_mask]* 1000);
 		ret = IIO_VAL_INT;
@@ -1371,7 +1383,7 @@ static const struct iio_chan_spec adrv903x_phy_chan[] = {
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 		.ext_info = adrv903x_phy_obs_rx_ext_info,
 	},
-	
+
 	{
 		/* RX Sniffer/Observation */
 		.type = IIO_VOLTAGE,
@@ -1477,9 +1489,34 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
-	case DBGFS_BIST_FRAMER_LOOPBACK:
+
+	case DBGFS_BIST_FRAMER_1_PRBS:
+		mutex_lock(&phy->lock);
+
+		frm_test_data.injectPoint = ADI_ADRV903X_FTD_FRAMERINPUT;
+		frm_test_data.testDataSource = val;
+		frm_test_data.framerSelMask = ADI_ADRV903X_FRAMER_1;
+
+		ret = adi_adrv903x_FramerTestDataSet(phy->palauDevice,
+						     &frm_test_data);
+		mutex_unlock(&phy->lock);
+		if (ret)
+			return adrv903x_dev_err(phy);
+
+		entry->val = val;
+		return count;
+	case DBGFS_BIST_FRAMER_0_LOOPBACK:
 		mutex_lock(&phy->lock);
 		ret = adi_adrv903x_FramerLoopbackSet(phy->palauDevice, ADI_ADRV903X_FRAMER_0);
+		mutex_unlock(&phy->lock);
+		if (ret)
+			return ret;
+
+		entry->val = val;
+		return count;
+	case DBGFS_BIST_FRAMER_1_LOOPBACK:
+		mutex_lock(&phy->lock);
+		ret = adi_adrv903x_FramerLoopbackSet(phy->palauDevice, ADI_ADRV903X_FRAMER_1);
 		mutex_unlock(&phy->lock);
 		if (ret)
 			return ret;
@@ -1572,8 +1609,12 @@ static int adrv903x_register_debugfs(struct iio_dev *indio_dev)
 
 	adrv903x_add_debugfs_entry(phy, "bist_framer_0_prbs",
 				   DBGFS_BIST_FRAMER_0_PRBS);
-	adrv903x_add_debugfs_entry(phy, "bist_framer_loopback",
-				   DBGFS_BIST_FRAMER_LOOPBACK);
+	adrv903x_add_debugfs_entry(phy, "bist_framer_1_prbs",
+				   DBGFS_BIST_FRAMER_1_PRBS);
+	adrv903x_add_debugfs_entry(phy, "bist_framer_0_loopback",
+				   DBGFS_BIST_FRAMER_0_LOOPBACK);
+	adrv903x_add_debugfs_entry(phy, "bist_framer_1_loopback",
+				   DBGFS_BIST_FRAMER_1_LOOPBACK);
 	adrv903x_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
 
 	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++)
@@ -1669,8 +1710,14 @@ static int adrv903x_clk_register(struct adrv903x_rf_phy *phy, const char *name,
 
 	switch (source) {
 	case RX_SAMPL_CLK:
+		phy->rx_iqRate_kHz = phy->palauDevice->initExtract.rx.rxChannelCfg[0].rxDdc0OutputRate_kHz;
 		init.ops = &bb_clk_ops;
 		clk_priv->rate = phy->rx_iqRate_kHz;
+		break;
+	case OBS_SAMPL_CLK:
+		phy->orx_iqRate_kHz = phy->palauDevice->initExtract.jesdSetting.framerSetting[1].iqRate_kHz;
+		init.ops = &bb_clk_ops;
+		clk_priv->rate = phy->orx_iqRate_kHz;;
 		break;
 	case TX_SAMPL_CLK:
 		adrv903x_TxLinkSamplingRateFind(phy->palauDevice,
@@ -1852,9 +1899,13 @@ static int adrv903x_jesd204_link_init(struct jesd204_dev *jdev,
 
 		priv->link[lnk->link_id].source_id = source_id;
 		priv->link[lnk->link_id].is_framer = true;
-		phy->rx_iqRate_kHz  =
-			phy->palauDevice->initExtract.jesdSetting.framerSetting[source_id - 1].iqRate_kHz;
+		// phy->rx_iqRate_kHz  =
+		// 	phy->palauDevice->initExtract.jesdSetting.framerSetting[source_id - 1].iqRate_kHz;
 		rate = phy->palauDevice->initExtract.jesdSetting.framerSetting[source_id - 1].iqRate_kHz;
+		if (lnk->link_id == FRAMER0_LINK_RX)
+			phy->rx_iqRate_kHz = rate;
+		if (lnk->link_id == FRAMER1_LINK_RX)
+			phy->orx_iqRate_kHz = rate;
 		lnk->num_lanes = hweight8(
 					 phy->palauDevice->initExtract.jesdSetting.framerSetting[source_id - 1].serialLaneEnabled);
 		lnk->num_converters =
@@ -2183,12 +2234,12 @@ static int adrv903x_jesd204_link_enable(struct jesd204_dev *jdev,
 
 		ret = adi_adrv903x_DeframerLinkStateSet(phy->palauDevice,
 			priv->link[lnk->link_id].source_id, ADI_ENABLE);
-		if (ret) 
+		if (ret)
 			return adrv903x_dev_err(phy);
 
 		ret = adi_adrv903x_DeframerSysrefCtrlSet(phy->palauDevice,
 				priv->link[lnk->link_id].source_id, ADI_ENABLE);
-		if (ret) 
+		if (ret)
 			return adrv903x_dev_err(phy);
 	};
 
@@ -2324,6 +2375,7 @@ static int adrv903x_jesd204_post_running_stage(struct jesd204_dev *jdev,
 	}
 
 	clk_set_rate(phy->clks[RX_SAMPL_CLK], phy->rx_iqRate_kHz * 1000);
+	clk_set_rate(phy->clks[OBS_SAMPL_CLK], phy->orx_iqRate_kHz * 1000);
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], phy->tx_iqRate_kHz * 1000);
 
 	// Tx enabled only if EN toggles
@@ -2354,7 +2406,7 @@ static int adrv903x_jesd204_post_running_stage(struct jesd204_dev *jdev,
 	memset(&initCalStatus, 0, sizeof(adi_adrv903x_InitCalStatus_t));
 
 	ret = adi_adrv903x_InitCalsDetailedStatusGet(phy->palauDevice, &initCalStatus);
-	if (ret) 
+	if (ret)
 		return adrv903x_dev_err(phy);
 
 	for (i = 0U; i < NUM_TRACKING_CALS; ++i)
@@ -2480,7 +2532,7 @@ static int adrv903x_probe(struct spi_device *spi)
 	phy->dev_clk = clk;
 	phy->jdev = jdev;
 	mutex_init(&phy->lock);
-	
+
 	priv = jesd204_dev_priv(jdev);
 	priv->phy = phy;
 
@@ -2567,7 +2619,7 @@ static int adrv903x_probe(struct spi_device *spi)
 		return adrv903x_dev_err(phy);
 
 	ret = adi_adrv903x_SpiVerify(phy->palauDevice);
-	if (ret) 
+	if (ret)
 		return adrv903x_dev_err(phy);
 
 	ret = adi_adrv903x_ApiVersionGet(phy->palauDevice, &apiVersion);
@@ -2629,7 +2681,9 @@ static int adrv903x_probe(struct spi_device *spi)
 	adrv903x_clk_register(phy, "-rx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
 			      RX_SAMPL_CLK);
-
+	adrv903x_clk_register(phy, "-obs_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
+			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+			      OBS_SAMPL_CLK);
 	adrv903x_clk_register(phy, "-tx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
 			      TX_SAMPL_CLK);
@@ -2702,13 +2756,14 @@ out_disable_clocks:
 
 static void adrv903x_remove(struct spi_device *spi)
 {
-	// struct adrv903x_rf_phy *phy = adrv903x_spi_to_phy(spi);
+	struct adrv903x_rf_phy *phy = adrv903x_spi_to_phy(spi);
 
-	// iio_device_unregister(phy->indio_dev);
-	// of_clk_del_provider(spi->dev.of_node);
-	// clk_disable_unprepare(phy->dev_clk);
+	iio_device_unregister(phy->indio_dev);
+	of_clk_del_provider(spi->dev.of_node);
+	clk_disable_unprepare(phy->dev_clk);
 
-	// adrv9025_shutdown(phy);
+	adrv903x_shutdown(phy);
+	return;
 }
 
 static const struct spi_device_id adrv903x_id[] = {
