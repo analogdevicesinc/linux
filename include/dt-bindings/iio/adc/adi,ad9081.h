@@ -100,4 +100,45 @@
 #define FRAMER_LINK0_RX 2
 #define FRAMER_LINK1_RX 3
 
+/*
+ * PA Protection Soft-Off Trigger Bitmasks
+ * Used with adi,pa-protection-soft-off-triggers property
+ * Multiple triggers can be OR'd together
+ * Example:
+ *   adi,pa-protection-soft-off-triggers = <(AD9081_PA_SOFT_OFF_SPI |
+ *                                           AD9081_PA_SOFT_OFF_TXEN |
+ *                                           AD9081_PA_SOFT_OFF_JESD_ERR)>;
+ */
+#define AD9081_PA_SOFT_OFF_SPI              (1 << 0)  /*!< SPI soft-off */
+#define AD9081_PA_SOFT_OFF_TXEN             (1 << 1)  /*!< TxEN soft-off */
+#define AD9081_PA_SOFT_OFF_ROTATE           (1 << 2)  /*!< Rotate soft-off */
+#define AD9081_PA_SOFT_OFF_JESD_ERR         (1 << 3)  /*!< JESD error soft-off */
+#define AD9081_PA_SOFT_OFF_HWIP_ERR         (1 << 4)  /*!< Hardware IP error soft-off */
+#define AD9081_PA_SOFT_OFF_LONG_PAERR       (1 << 6)  /*!< Long PA error soft-off */
+#define AD9081_PA_SOFT_OFF_SHORT_PAERR      (1 << 7)  /*!< Short PA error soft-off */
+#define AD9081_PA_SOFT_OFF_DLL_UNLOCK       (1 << 8)  /*!< DLL unlock soft-off */
+#define AD9081_PA_SOFT_OFF_204C_CRC_ERR     (1 << 9)  /*!< 204C CRC error soft-off */
+#define AD9081_PA_SOFT_OFF_HI_LO_FAIL       (1 << 11) /*!< Hi-Lo fail soft-off */
+#define AD9081_PA_SOFT_OFF_SLEW_RATE_ERR    (1 << 12) /*!< Slew rate error soft-off */
+
+/*
+ * PA Protection Soft-On Trigger Bitmasks
+ * Used with adi,pa-protection-soft-on-triggers property
+ * Example:
+ *   adi,pa-protection-soft-on-triggers = <(AD9081_PA_SOFT_ON_HI_LO_RECV |
+ *                                          AD9081_PA_SOFT_ON_SPI_FORCE)>;
+ */
+#define AD9081_PA_SOFT_ON_HI_LO_RECV        (1 << 4)  /*!< Hi-Lo recover soft-on */
+#define AD9081_PA_SOFT_ON_LONG_LEVEL        (1 << 6)  /*!< Long level soft-on */
+#define AD9081_PA_SOFT_ON_SPI_FORCE         (1 << 7)  /*!< SPI force soft-on when gain is 0 */
+
+/*
+ * PA Protection Rotation Mode Values
+ * Used with adi,pa-protection-rotation-mode property
+ * Example:
+ *   adi,pa-protection-rotation-mode = <AD9081_PA_ROTATION_JESD_AUTO>;
+ */
+#define AD9081_PA_ROTATION_JESD_AUTO        (1 << 0)  /*!< Enable JESD auto off/on during rotation */
+#define AD9081_PA_ROTATION_DATAPATH_AUTO    (1 << 1)  /*!< Enable datapath auto soft off/on during rotation */
+
 #endif
