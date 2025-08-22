@@ -88,7 +88,7 @@
 			adi,extended-name = "DEV_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <4>;
+			adi,channel-divider = <2>;
 			adi,signal-source = <SOURCE_VCO>;
 			//adi,output-dis;
 		};
@@ -109,8 +109,8 @@
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
 			adi,channel-divider = <2>;
-			adi,signal-source = <SOURCE_SYSREF_VCO>;
-			//adi,output-dis;
+			adi,signal-source = <SOURCE_VCO>;
+			adi,output-dis;
 		};
 
 		ad9528_0_c12: channel@12 {
@@ -270,14 +270,11 @@
 
 			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv903x_adxcvr_rx 0>, <&axi_adrv903x_adxcvr_rx 1>;
-			clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
+			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv903x_adxcvr_rx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
 			clock-output-names = "jesd_rx_lane_clk";
-
-			adi,octets-per-frame = <4>;
-			adi,frames-per-multiframe = <32>;
 
 			jesd204-device;
 			#jesd204-cells = <2>;
@@ -315,7 +312,7 @@
 			clock-output-names = "rx_gt_clk", "rx_out_clk";
 
 			adi,sys-clk-select = <XCVR_QPLL>;
-			adi,out-clk-select = <XCVR_PROGDIV_CLK>;
+			adi,out-clk-select = <XCVR_REFCLK>;
 
 			jesd204-device;
 			#jesd204-cells = <2>;
