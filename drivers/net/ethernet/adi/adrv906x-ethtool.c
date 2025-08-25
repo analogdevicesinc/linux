@@ -199,7 +199,6 @@ static const char adrv906x_gstrings_stats_names[][ETH_GSTRING_LEN] = {
 static const char adrv906x_gstrings_selftest_names[][ETH_GSTRING_LEN] = {
 	"Near-end loopback:       ",
 	"NDMA loopback:           ",
-	"Far-end loopback on/off: ",
 };
 
 #define ADRV906X_NUM_STATS ARRAY_SIZE(adrv906x_gstrings_stats_names)
@@ -800,35 +799,6 @@ out:
 	return ret;
 }
 
-static int adrv906x_test_far_end_loopback_test(struct net_device *ndev)
-{
-	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	static bool loopback_state[2];
-	u32 index;
-
-	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_far_end_loopback_test");
-
-	index = adrv906x_dev->port;
-	if (index > 1) {
-		netdev_err(ndev, "port index %d is out of range", index);
-		return -EFAULT;
-	}
-
-	if (loopback_state[index]) {
-		adrv906x_cmn_set_mac_loopback(adrv906x_dev, false);
-		loopback_state[index] = 0;
-		netif_start_queue(ndev);
-		netdev_info(ndev, "Turn off MAC loopback");
-	} else {
-		netif_stop_queue(ndev);
-		adrv906x_cmn_set_mac_loopback(adrv906x_dev, true);
-		loopback_state[index] = 1;
-		netdev_info(ndev, "Turn on MAC loopback");
-	}
-
-	return 0;
-}
-
 static void adrv906x_ndma_loopback_tx_callback(struct sk_buff *skb, unsigned int port_id,
 					       struct timespec64 ts, void *cb_param)
 {
@@ -942,11 +912,6 @@ struct adrv906x_test adrv906x_ethtool_selftests[] = {
 		.name = "NDMA loopback",
 		.fn = adrv906x_ndma_loopback_test,
 		.etest_flag = ETH_TEST_FL_OFFLINE,
-	},
-	{
-		.name = "Far-end loopback",
-		.fn = adrv906x_test_far_end_loopback_test,
-		.etest_flag = 0,
 	},
 };
 
