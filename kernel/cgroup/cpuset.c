@@ -250,6 +250,12 @@ static struct cpuset top_cpuset = {
 
 static DEFINE_MUTEX(cpuset_mutex);
 
+/**
+ * cpuset_lock - Acquire the global cpuset mutex
+ *
+ * This locks the global cpuset mutex to prevent modifications to cpuset
+ * hierarchy and configurations. This helper is not enough to make modification.
+ */
 void cpuset_lock(void)
 {
 	mutex_lock(&cpuset_mutex);
@@ -258,6 +264,24 @@ void cpuset_lock(void)
 void cpuset_unlock(void)
 {
 	mutex_unlock(&cpuset_mutex);
+}
+
+/**
+ * cpuset_full_lock - Acquire full protection for cpuset modification
+ *
+ * Takes both CPU hotplug read lock (cpus_read_lock()) and cpuset mutex
+ * to safely modify cpuset data.
+ */
+void cpuset_full_lock(void)
+{
+	cpus_read_lock();
+	mutex_lock(&cpuset_mutex);
+}
+
+void cpuset_full_unlock(void)
+{
+	mutex_unlock(&cpuset_mutex);
+	cpus_read_unlock();
 }
 
 static DEFINE_SPINLOCK(callback_lock);
@@ -411,94 +435,101 @@ static void guarantee_online_mems(struct cpuset *cs, nodemask_t *pmask)
 }
 
 /**
- * alloc_cpumasks - allocate three cpumasks for cpuset
- * @cs:  the cpuset that have cpumasks to be allocated.
- * @tmp: the tmpmasks structure pointer
+ * alloc_cpumasks - Allocate an array of cpumask variables
+ * @pmasks: Pointer to array of cpumask_var_t pointers
+ * @size: Number of cpumasks to allocate
  * Return: 0 if successful, -ENOMEM otherwise.
  *
- * Only one of the two input arguments should be non-NULL.
+ * Allocates @size cpumasks and initializes them to empty. Returns 0 on
+ * success, -ENOMEM on allocation failure. On failure, any previously
+ * allocated cpumasks are freed.
  */
-static inline int alloc_cpumasks(struct cpuset *cs, struct tmpmasks *tmp)
+static inline int alloc_cpumasks(cpumask_var_t *pmasks[], u32 size)
 {
-	cpumask_var_t *pmask1, *pmask2, *pmask3, *pmask4;
+	int i;
 
-	if (cs) {
-		pmask1 = &cs->cpus_allowed;
-		pmask2 = &cs->effective_cpus;
-		pmask3 = &cs->effective_xcpus;
-		pmask4 = &cs->exclusive_cpus;
-	} else {
-		pmask1 = &tmp->new_cpus;
-		pmask2 = &tmp->addmask;
-		pmask3 = &tmp->delmask;
-		pmask4 = NULL;
+	for (i = 0; i < size; i++) {
+		if (!zalloc_cpumask_var(pmasks[i], GFP_KERNEL)) {
+			while (--i >= 0)
+				free_cpumask_var(*pmasks[i]);
+			return -ENOMEM;
+		}
 	}
-
-	if (!zalloc_cpumask_var(pmask1, GFP_KERNEL))
-		return -ENOMEM;
-
-	if (!zalloc_cpumask_var(pmask2, GFP_KERNEL))
-		goto free_one;
-
-	if (!zalloc_cpumask_var(pmask3, GFP_KERNEL))
-		goto free_two;
-
-	if (pmask4 && !zalloc_cpumask_var(pmask4, GFP_KERNEL))
-		goto free_three;
-
-
 	return 0;
-
-free_three:
-	free_cpumask_var(*pmask3);
-free_two:
-	free_cpumask_var(*pmask2);
-free_one:
-	free_cpumask_var(*pmask1);
-	return -ENOMEM;
 }
 
 /**
- * free_cpumasks - free cpumasks in a tmpmasks structure
- * @cs:  the cpuset that have cpumasks to be free.
+ * alloc_tmpmasks - Allocate temporary cpumasks for cpuset operations.
+ * @tmp: Pointer to tmpmasks structure to populate
+ * Return: 0 on success, -ENOMEM on allocation failure
+ */
+static inline int alloc_tmpmasks(struct tmpmasks *tmp)
+{
+	/*
+	 * Array of pointers to the three cpumask_var_t fields in tmpmasks.
+	 * Note: Array size must match actual number of masks (3)
+	 */
+	cpumask_var_t *pmask[3] = {
+		&tmp->new_cpus,
+		&tmp->addmask,
+		&tmp->delmask
+	};
+
+	return alloc_cpumasks(pmask, ARRAY_SIZE(pmask));
+}
+
+/**
+ * free_tmpmasks - free cpumasks in a tmpmasks structure
  * @tmp: the tmpmasks structure pointer
  */
-static inline void free_cpumasks(struct cpuset *cs, struct tmpmasks *tmp)
+static inline void free_tmpmasks(struct tmpmasks *tmp)
 {
-	if (cs) {
-		free_cpumask_var(cs->cpus_allowed);
-		free_cpumask_var(cs->effective_cpus);
-		free_cpumask_var(cs->effective_xcpus);
-		free_cpumask_var(cs->exclusive_cpus);
-	}
-	if (tmp) {
-		free_cpumask_var(tmp->new_cpus);
-		free_cpumask_var(tmp->addmask);
-		free_cpumask_var(tmp->delmask);
-	}
+	free_cpumask_var(tmp->new_cpus);
+	free_cpumask_var(tmp->addmask);
+	free_cpumask_var(tmp->delmask);
 }
 
 /**
- * alloc_trial_cpuset - allocate a trial cpuset
- * @cs: the cpuset that the trial cpuset duplicates
+ * dup_or_alloc_cpuset - Duplicate or allocate a new cpuset
+ * @cs: Source cpuset to duplicate (NULL for a fresh allocation)
+ *
+ * Creates a new cpuset by either:
+ * 1. Duplicating an existing cpuset (if @cs is non-NULL), or
+ * 2. Allocating a fresh cpuset with zero-initialized masks (if @cs is NULL)
+ *
+ * Return: Pointer to newly allocated cpuset on success, NULL on failure
  */
-static struct cpuset *alloc_trial_cpuset(struct cpuset *cs)
+static struct cpuset *dup_or_alloc_cpuset(struct cpuset *cs)
 {
 	struct cpuset *trial;
 
-	trial = kmemdup(cs, sizeof(*cs), GFP_KERNEL);
+	/* Allocate base structure */
+	trial = cs ? kmemdup(cs, sizeof(*cs), GFP_KERNEL) :
+		     kzalloc(sizeof(*cs), GFP_KERNEL);
 	if (!trial)
 		return NULL;
 
-	if (alloc_cpumasks(trial, NULL)) {
+	/* Setup cpumask pointer array */
+	cpumask_var_t *pmask[4] = {
+		&trial->cpus_allowed,
+		&trial->effective_cpus,
+		&trial->effective_xcpus,
+		&trial->exclusive_cpus
+	};
+
+	if (alloc_cpumasks(pmask, ARRAY_SIZE(pmask))) {
 		kfree(trial);
 		return NULL;
 	}
 
-	cpumask_copy(trial->cpus_allowed, cs->cpus_allowed);
-	cpumask_copy(trial->effective_cpus, cs->effective_cpus);
-	cpumask_copy(trial->effective_xcpus, cs->effective_xcpus);
-	cpumask_copy(trial->exclusive_cpus, cs->exclusive_cpus);
+	/* Copy masks if duplicating */
+	if (cs) {
+		cpumask_copy(trial->cpus_allowed, cs->cpus_allowed);
+		cpumask_copy(trial->effective_cpus, cs->effective_cpus);
+		cpumask_copy(trial->effective_xcpus, cs->effective_xcpus);
+		cpumask_copy(trial->exclusive_cpus, cs->exclusive_cpus);
+	}
+
 	return trial;
 }
 
@@ -508,7 +539,10 @@ static struct cpuset *alloc_trial_cpuset(struct cpuset *cs)
  */
 static inline void free_cpuset(struct cpuset *cs)
 {
-	free_cpumasks(cs, NULL);
+	free_cpumask_var(cs->cpus_allowed);
+	free_cpumask_var(cs->effective_cpus);
+	free_cpumask_var(cs->effective_xcpus);
+	free_cpumask_var(cs->exclusive_cpus);
 	kfree(cs);
 }
 
@@ -2338,7 +2372,7 @@ static int update_cpumask(struct cpuset *cs, struct cpuset *trialcs,
 	if (cpumask_equal(cs->cpus_allowed, trialcs->cpus_allowed))
 		return 0;
 
-	if (alloc_cpumasks(NULL, &tmp))
+	if (alloc_tmpmasks(&tmp))
 		return -ENOMEM;
 
 	if (old_prs) {
@@ -2427,7 +2461,7 @@ static int update_cpumask(struct cpuset *cs, struct cpuset *trialcs,
 	if (cs->partition_root_state)
 		update_partition_sd_lb(cs, old_prs);
 out_free:
-	free_cpumasks(NULL, &tmp);
+	free_tmpmasks(&tmp);
 	return retval;
 }
 
@@ -2482,7 +2516,7 @@ static int update_exclusive_cpumask(struct cpuset *cs, struct cpuset *trialcs,
 	if (retval)
 		return retval;
 
-	if (alloc_cpumasks(NULL, &tmp))
+	if (alloc_tmpmasks(&tmp))
 		return -ENOMEM;
 
 	if (old_prs) {
@@ -2530,7 +2564,7 @@ static int update_exclusive_cpumask(struct cpuset *cs, struct cpuset *trialcs,
 	if (cs->partition_root_state)
 		update_partition_sd_lb(cs, old_prs);
 
-	free_cpumasks(NULL, &tmp);
+	free_tmpmasks(&tmp);
 	return 0;
 }
 
@@ -2826,7 +2860,7 @@ int cpuset_update_flag(cpuset_flagbits_t bit, struct cpuset *cs,
 	int spread_flag_changed;
 	int err;
 
-	trialcs = alloc_trial_cpuset(cs);
+	trialcs = dup_or_alloc_cpuset(cs);
 	if (!trialcs)
 		return -ENOMEM;
 
@@ -2887,7 +2921,7 @@ static int update_prstate(struct cpuset *cs, int new_prs)
 	if (new_prs && is_prs_invalid(old_prs))
 		old_prs = PRS_MEMBER;
 
-	if (alloc_cpumasks(NULL, &tmpmask))
+	if (alloc_tmpmasks(&tmpmask))
 		return -ENOMEM;
 
 	err = update_partition_exclusive_flag(cs, new_prs);
@@ -2983,7 +3017,7 @@ out:
 	notify_partition_change(cs, old_prs);
 	if (force_sd_rebuild)
 		rebuild_sched_domains_locked();
-	free_cpumasks(NULL, &tmpmask);
+	free_tmpmasks(&tmpmask);
 	return 0;
 }
 
@@ -3224,12 +3258,11 @@ ssize_t cpuset_write_resmask(struct kernfs_open_file *of,
 	int retval = -ENODEV;
 
 	buf = strstrip(buf);
-	cpus_read_lock();
-	mutex_lock(&cpuset_mutex);
+	cpuset_full_lock();
 	if (!is_cpuset_online(cs))
 		goto out_unlock;
 
-	trialcs = alloc_trial_cpuset(cs);
+	trialcs = dup_or_alloc_cpuset(cs);
 	if (!trialcs) {
 		retval = -ENOMEM;
 		goto out_unlock;
@@ -3254,8 +3287,7 @@ ssize_t cpuset_write_resmask(struct kernfs_open_file *of,
 	if (force_sd_rebuild)
 		rebuild_sched_domains_locked();
 out_unlock:
-	mutex_unlock(&cpuset_mutex);
-	cpus_read_unlock();
+	cpuset_full_unlock();
 	flush_workqueue(cpuset_migrate_mm_wq);
 	return retval ?: nbytes;
 }
@@ -3358,12 +3390,10 @@ static ssize_t cpuset_partition_write(struct kernfs_open_file *of, char *buf,
 	else
 		return -EINVAL;
 
-	cpus_read_lock();
-	mutex_lock(&cpuset_mutex);
+	cpuset_full_lock();
 	if (is_cpuset_online(cs))
 		retval = update_prstate(cs, val);
-	mutex_unlock(&cpuset_mutex);
-	cpus_read_unlock();
+	cpuset_full_unlock();
 	return retval ?: nbytes;
 }
 
@@ -3462,14 +3492,9 @@ cpuset_css_alloc(struct cgroup_subsys_state *parent_css)
 	if (!parent_css)
 		return &top_cpuset.css;
 
-	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
+	cs = dup_or_alloc_cpuset(NULL);
 	if (!cs)
 		return ERR_PTR(-ENOMEM);
-
-	if (alloc_cpumasks(cs, NULL)) {
-		kfree(cs);
-		return ERR_PTR(-ENOMEM);
-	}
 
 	__set_bit(CS_SCHED_LOAD_BALANCE, &cs->flags);
 	fmeter_init(&cs->fmeter);
@@ -3493,9 +3518,7 @@ static int cpuset_css_online(struct cgroup_subsys_state *css)
 	if (!parent)
 		return 0;
 
-	cpus_read_lock();
-	mutex_lock(&cpuset_mutex);
-
+	cpuset_full_lock();
 	if (is_spread_page(parent))
 		set_bit(CS_SPREAD_PAGE, &cs->flags);
 	if (is_spread_slab(parent))
@@ -3547,8 +3570,7 @@ static int cpuset_css_online(struct cgroup_subsys_state *css)
 	cpumask_copy(cs->effective_cpus, parent->cpus_allowed);
 	spin_unlock_irq(&callback_lock);
 out_unlock:
-	mutex_unlock(&cpuset_mutex);
-	cpus_read_unlock();
+	cpuset_full_unlock();
 	return 0;
 }
 
@@ -3563,16 +3585,12 @@ static void cpuset_css_offline(struct cgroup_subsys_state *css)
 {
 	struct cpuset *cs = css_cs(css);
 
-	cpus_read_lock();
-	mutex_lock(&cpuset_mutex);
-
+	cpuset_full_lock();
 	if (!cpuset_v2() && is_sched_load_balance(cs))
 		cpuset_update_flag(CS_SCHED_LOAD_BALANCE, cs, 0);
 
 	cpuset_dec();
-
-	mutex_unlock(&cpuset_mutex);
-	cpus_read_unlock();
+	cpuset_full_unlock();
 }
 
 /*
@@ -3584,16 +3602,11 @@ static void cpuset_css_killed(struct cgroup_subsys_state *css)
 {
 	struct cpuset *cs = css_cs(css);
 
-	cpus_read_lock();
-	mutex_lock(&cpuset_mutex);
-
+	cpuset_full_lock();
 	/* Reset valid partition back to member */
 	if (is_partition_valid(cs))
 		update_prstate(cs, PRS_MEMBER);
-
-	mutex_unlock(&cpuset_mutex);
-	cpus_read_unlock();
-
+	cpuset_full_unlock();
 }
 
 static void cpuset_css_free(struct cgroup_subsys_state *css)
@@ -3926,7 +3939,7 @@ static void cpuset_handle_hotplug(void)
 	bool on_dfl = is_in_v2_mode();
 	struct tmpmasks tmp, *ptmp = NULL;
 
-	if (on_dfl && !alloc_cpumasks(NULL, &tmp))
+	if (on_dfl && !alloc_tmpmasks(&tmp))
 		ptmp = &tmp;
 
 	lockdep_assert_cpus_held();
@@ -4006,7 +4019,7 @@ static void cpuset_handle_hotplug(void)
 	if (force_sd_rebuild)
 		rebuild_sched_domains_cpuslocked();
 
-	free_cpumasks(NULL, ptmp);
+	free_tmpmasks(ptmp);
 }
 
 void cpuset_update_active_cpus(void)
