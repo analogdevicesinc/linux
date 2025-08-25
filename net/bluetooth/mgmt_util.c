@@ -320,6 +320,29 @@ void mgmt_pending_remove(struct mgmt_pending_cmd *cmd)
 	mgmt_pending_free(cmd);
 }
 
+bool mgmt_pending_valid(struct hci_dev *hdev, struct mgmt_pending_cmd *cmd,
+			bool remove)
+{
+	struct mgmt_pending_cmd *tmp;
+
+	if (!cmd)
+		return false;
+
+	mutex_lock(&hdev->mgmt_pending_lock);
+
+	list_for_each_entry(tmp, &hdev->mgmt_pending, list) {
+		if (cmd == tmp) {
+			if (remove)
+				list_del(&cmd->list);
+			mutex_unlock(&hdev->mgmt_pending_lock);
+			return true;
+		}
+	}
+
+	mutex_unlock(&hdev->mgmt_pending_lock);
+	return false;
+}
+
 void mgmt_mesh_foreach(struct hci_dev *hdev,
 		       void (*cb)(struct mgmt_mesh_tx *mesh_tx, void *data),
 		       void *data, struct sock *sk)
