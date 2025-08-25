@@ -18,7 +18,7 @@
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/extcon.h>
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
@@ -36,7 +36,6 @@
 #include <linux/usb/of.h>
 #include <linux/usb/ulpi.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/phy.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/ehci_def.h>
@@ -993,20 +992,22 @@ static void ci_get_otg_capable(struct ci_hdrc *ci)
 static int ci_hdrc_create_ulpi_phy(struct device *dev, struct ci_hdrc *ci)
 {
 	struct usb_phy *ulpi;
-	int reset_gpio;
-	int ret;
+	struct gpio_desc *reset_gpio;
 
-	reset_gpio = of_get_named_gpio(dev->parent->of_node, "xlnx,phy-reset-gpio", 0);
-	if (gpio_is_valid(reset_gpio)) {
-		ret = devm_gpio_request_one(dev, reset_gpio,
-				GPIOF_OUT_INIT_LOW, "ulpi resetb");
-		if (ret) {
-			dev_err(dev, "Failed to request ULPI reset gpio: %d\n", ret);
+	reset_gpio = devm_gpiod_get_optional(dev->parent, "xlnx,phy-reset-gpio",
+					     GPIOD_OUT_HIGH);
+	if (IS_ERR(reset_gpio))
+		return dev_err_probe(dev, PTR_ERR(reset_gpio), "Failed to get ULPI reset gpio\n");
+	if (reset_gpio) {
+		int ret;
+
+		ret = gpiod_set_consumer_name(reset_gpio, "ulpi resetb");
+		if (ret)
 			return ret;
-		}
-		msleep(5);
-		gpio_set_value_cansleep(reset_gpio, 1);
-		msleep(1);
+
+		fsleep(5);
+		gpiod_set_value_cansleep(reset_gpio, 0);
+		fsleep(1);
 	}
 
 	ulpi = otg_ulpi_create(&ulpi_viewport_access_ops,
