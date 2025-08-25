@@ -4245,7 +4245,7 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 			phy->rx_cddc_gain_6db_en[reg] = of_property_read_bool(
 				of_chan, "adi,digital-gain-6db-enable");
 			phy->rx_cddc_select |= BIT(reg);
-			ret = of_property_read_u32(of_trx_path,
+			ret = of_property_read_u32(of_chan,
 				"adi,nyquist-zone", &tmp);
 			if (!ret)
 				phy->rx_nyquist_zone[reg] = tmp;
