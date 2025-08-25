@@ -272,6 +272,37 @@ struct ad9081_phy {
 	u8 rx_ffh_gpio_mux_sel[6];
 	u8 sync_ms_gpio_num;
 	char dbuf[1024];
+
+	/* Global PA Protection settings */
+	bool pa_protection_gpio_as_pa_en;
+	u8 pa_protection_rotation_mode;
+	bool pa_protection_rotation_mode_valid;
+
+	/* Per-DAC PA Protection settings */
+	struct {
+		bool soft_off_enable;
+		bool soft_off_new_gain_enable;
+		u8 soft_off_ramp_rate;
+		bool soft_off_ramp_rate_valid;
+		u16 soft_off_triggers;  /* Bitmask of triggers */
+		bool soft_off_triggers_valid;
+		u8 soft_on_triggers;    /* Bitmask of triggers */
+		bool soft_on_triggers_valid;
+		bool long_avg_enable;
+		u8 long_avg_time;
+		u16 long_avg_threshold;
+		bool long_avg_valid;  /* Both time and threshold must be provided */
+		bool short_avg_enable;
+		u8 short_avg_time;
+		u16 short_avg_threshold;
+		bool short_avg_valid;  /* Both time and threshold must be provided */
+		bool dsa_enable;
+		u8 dsa_code;
+		u8 dsa_cutover;
+		u8 dsa_boost;
+		u16 dsa_gain;
+		bool dsa_params_valid;  /* All DSA params must be provided */
+	} pa_protection[MAX_NUM_MAIN_DATAPATHS];
 };
 
 static int adi_ad9081_adc_nco_sync(adi_ad9081_device_t *device,
@@ -2167,6 +2198,121 @@ static int ad9081_setup_tx(struct spi_device *spi)
 		adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081, 0);
 	}
 
+	/* Configure PA Protection for each DAC */
+	for (i = 0; i < ARRAY_SIZE(phy->pa_protection); i++) {
+		u8 dac_mask = BIT(i);
+
+		/* Configure soft-off enable */
+		ret = adi_ad9081_dac_soft_off_gain_enable_set(&phy->ad9081,
+			dac_mask, phy->pa_protection[i].soft_off_enable);
+		if (ret != 0) {
+			dev_err(&spi->dev, "Failed to enable soft-off gain for DAC %d\n", i);
+			return ret;
+		}
+
+		/* Enable new soft-off gain block if requested */
+		ret = adi_ad9081_dac_soft_off_new_gain_enable_set(&phy->ad9081,
+			dac_mask, phy->pa_protection[i].soft_off_new_gain_enable);
+		if (ret != 0) {
+			dev_err(&spi->dev, "Failed to enable new soft-off gain for DAC %d\n", i);
+			return ret;
+		}
+
+		/* Set ramp rate - only if provided in DT */
+		if (phy->pa_protection[i].soft_off_ramp_rate_valid) {
+			ret = adi_ad9081_dac_soft_off_gain_ramp_rate_set(&phy->ad9081,
+				dac_mask, phy->pa_protection[i].soft_off_ramp_rate);
+			if (ret != 0) {
+				dev_err(&spi->dev, "Failed to set soft-off ramp rate for DAC %d\n", i);
+				return ret;
+			}
+		}
+
+		/* Configure soft-off triggers - only if provided in DT */
+		if (phy->pa_protection[i].soft_off_triggers_valid) {
+			ret = adi_ad9081_dac_soft_off_enable_set(&phy->ad9081,
+				dac_mask, phy->pa_protection[i].soft_off_triggers);
+			if (ret != 0) {
+				dev_err(&spi->dev, "Failed to set soft-off triggers for DAC %d\n", i);
+				return ret;
+			}
+		}
+
+		/* Configure soft-on triggers - only if provided in DT */
+		if (phy->pa_protection[i].soft_on_triggers_valid) {
+			ret = adi_ad9081_dac_soft_on_enable_set(&phy->ad9081,
+				dac_mask, phy->pa_protection[i].soft_on_triggers);
+			if (ret != 0) {
+				dev_err(&spi->dev, "Failed to set soft-on triggers for DAC %d\n", i);
+				return ret;
+			}
+		}
+
+		/* Configure long averaging PA protection - only if enabled and params valid */
+		if (phy->pa_protection[i].long_avg_enable && phy->pa_protection[i].long_avg_valid) {
+			ret = adi_ad9081_dac_long_pa_set(&phy->ad9081, dac_mask, 1,
+				phy->pa_protection[i].long_avg_time,
+				phy->pa_protection[i].long_avg_threshold);
+			if (ret != 0) {
+				dev_err(&spi->dev, "Failed to set long PA averaging for DAC %d\n", i);
+				return ret;
+			}
+		}
+
+		/* Configure short averaging PA protection - only if enabled and params valid */
+		if (phy->pa_protection[i].short_avg_enable && phy->pa_protection[i].short_avg_valid) {
+			ret = adi_ad9081_dac_short_pa_set(&phy->ad9081, dac_mask, 1,
+				phy->pa_protection[i].short_avg_time,
+				phy->pa_protection[i].short_avg_threshold);
+			if (ret != 0) {
+				dev_err(&spi->dev, "Failed to set short PA averaging for DAC %d\n", i);
+				return ret;
+			}
+		}
+
+		/* Configure DSA - only if enabled and all params valid */
+		if (phy->pa_protection[i].dsa_enable && phy->pa_protection[i].dsa_params_valid) {
+			ret = adi_ad9081_dac_duc_main_dsa_enable_set(&phy->ad9081,
+				dac_mask, 1);
+			if (ret != 0) {
+				dev_err(&spi->dev, "Failed to enable DSA for DAC %d\n", i);
+				return ret;
+			}
+
+			/* Set DSA parameters */
+			ret = adi_ad9081_dac_duc_main_dsa_set(&phy->ad9081, dac_mask,
+				phy->pa_protection[i].dsa_code,
+				phy->pa_protection[i].dsa_cutover,
+				phy->pa_protection[i].dsa_boost,
+				phy->pa_protection[i].dsa_gain);
+			if (ret != 0) {
+				dev_err(&spi->dev, "Failed to configure DSA for DAC %d\n", i);
+				return ret;
+			}
+		}
+	}
+
+	/* Configure global PA protection settings */
+
+	/* Configure rotation mode if provided in DT (global setting) */
+	if (phy->pa_protection_rotation_mode_valid) {
+		ret = adi_ad9081_dac_rotation_mode_set(&phy->ad9081,
+			phy->pa_protection_rotation_mode);
+		if (ret != 0) {
+			dev_err(&spi->dev, "Failed to set rotation mode\n");
+			return ret;
+		}
+	}
+
+	/* Configure GPIO as PA enable if requested (global setting) */
+	if (phy->pa_protection_gpio_as_pa_en) {
+		ret = adi_ad9081_dac_gpio_as_pa_en_set(&phy->ad9081, 1);
+		if (ret != 0) {
+			dev_err(&spi->dev, "Failed to configure GPIO as PA enable\n");
+			return ret;
+		}
+	}
+
 	return 0;
 }
 
@@ -4020,7 +4166,11 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 {
 	struct device_node *of_channels, *of_chan;
 	struct device_node *of_trx_path;
-	u32 reg, index, tmp;
+	u32 reg, index, tmp, value;
+	bool has_long_time = false, has_long_thresh = false;
+	bool has_short_time = false, has_short_thresh = false;
+	bool has_dsa_code = false, has_dsa_cutover = false;
+	bool has_dsa_boost = false, has_dsa_gain = false;
 	int i, ret;
 
 	of_trx_path = of_get_child_by_name(np, "adi,tx-dacs");
@@ -4038,6 +4188,16 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 
 	phy->tx_ffh_hopf_via_gpio_en =
 		of_property_read_bool(of_trx_path, "adi,ffh-hopf-via-gpio-enable");
+
+	/* Global PA protection settings */
+	phy->pa_protection_gpio_as_pa_en =
+		of_property_read_bool(of_trx_path, "adi,pa-protection-gpio-as-pa-enable");
+
+	ret = of_property_read_u32(of_trx_path, "adi,pa-protection-rotation-mode", &tmp);
+	if (!ret) {
+		phy->pa_protection_rotation_mode = tmp;
+		phy->pa_protection_rotation_mode_valid = true;
+	}
 
 	/* The 4 DAC Main Datapaths */
 
@@ -4095,6 +4255,102 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 
 				phy->tx_dac_chan_xbar[reg] |= BIT(index);
 			}
+
+			/* PA Protection properties */
+			phy->pa_protection[reg].soft_off_enable =
+				of_property_read_bool(of_chan, "adi,pa-protection-soft-off-enable");
+			phy->pa_protection[reg].soft_off_new_gain_enable =
+				of_property_read_bool(of_chan, "adi,pa-protection-soft-off-new-gain-enable");
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-soft-off-ramp-rate", &value);
+			if (!ret) {
+				phy->pa_protection[reg].soft_off_ramp_rate = value;
+				phy->pa_protection[reg].soft_off_ramp_rate_valid = true;
+			}
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-soft-off-triggers", &value);
+			if (!ret) {
+				phy->pa_protection[reg].soft_off_triggers = value;
+				phy->pa_protection[reg].soft_off_triggers_valid = true;
+			}
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-soft-on-triggers", &value);
+			if (!ret) {
+				phy->pa_protection[reg].soft_on_triggers = value;
+				phy->pa_protection[reg].soft_on_triggers_valid = true;
+			}
+
+			/* Long averaging PA protection */
+			phy->pa_protection[reg].long_avg_enable =
+				of_property_read_bool(of_chan, "adi,pa-protection-long-avg-enable");
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-long-avg-time", &value);
+			if (!ret) {
+				phy->pa_protection[reg].long_avg_time = value;
+				has_long_time = true;
+			}
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-long-avg-threshold", &value);
+			if (!ret) {
+				phy->pa_protection[reg].long_avg_threshold = value;
+				has_long_thresh = true;
+			}
+
+			/* Mark long avg valid only if both parameters provided */
+			if (has_long_time && has_long_thresh)
+				phy->pa_protection[reg].long_avg_valid = true;
+
+			/* Short averaging PA protection */
+			phy->pa_protection[reg].short_avg_enable =
+				of_property_read_bool(of_chan, "adi,pa-protection-short-avg-enable");
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-short-avg-time", &value);
+			if (!ret) {
+				phy->pa_protection[reg].short_avg_time = value;
+				has_short_time = true;
+			}
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-short-avg-threshold", &value);
+			if (!ret) {
+				phy->pa_protection[reg].short_avg_threshold = value;
+				has_short_thresh = true;
+			}
+
+			/* Mark short avg valid only if both parameters provided */
+			if (has_short_time && has_short_thresh)
+				phy->pa_protection[reg].short_avg_valid = true;
+
+			/* DSA settings */
+			phy->pa_protection[reg].dsa_enable =
+				of_property_read_bool(of_chan, "adi,pa-protection-dsa-enable");
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-dsa-code", &value);
+			if (!ret) {
+				phy->pa_protection[reg].dsa_code = value;
+				has_dsa_code = true;
+			}
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-dsa-cutover", &value);
+			if (!ret) {
+				phy->pa_protection[reg].dsa_cutover = value;
+				has_dsa_cutover = true;
+			}
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-dsa-boost", &value);
+			if (!ret) {
+				phy->pa_protection[reg].dsa_boost = value;
+				has_dsa_boost = true;
+			}
+
+			ret = of_property_read_u32(of_chan, "adi,pa-protection-dsa-gain", &value);
+			if (!ret) {
+				phy->pa_protection[reg].dsa_gain = value;
+				has_dsa_gain = true;
+			}
+
+			/* Mark DSA params valid only if all parameters provided */
+			if (has_dsa_code && has_dsa_cutover && has_dsa_boost && has_dsa_gain)
+				phy->pa_protection[reg].dsa_params_valid = true;
 		}
 	}
 
