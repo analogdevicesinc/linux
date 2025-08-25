@@ -259,8 +259,12 @@ Device profile
 
 The device profiles can be generated with the profile generator tool that is
 part of the :adi:`ACE` Evaluation Software. Profile modifications can be done
-through :external+pyadi-jif:doc:`pyadi-jif <index>`. During runtime, some
-profile options are reconfigured, such as :ref:`apollo ffh`.
+through :external+pyadi-jif:doc:`pyadi-jif <index>`.
+In particular, the a Python Jupyter Notebook at :git-pyadi-jif:`examples/triton/triton_vcu118.ipynb`
+guides you through the profile generation and modification, with sample files
+at the :git-pyadi-jif:`directory of the notebook <examples/triton>`.
+During runtime, some profile options are reconfigured, such as
+:ref:`apollo ffh`.
 
 With the device profile generated, compile into the kernel by adding it to the
 *firmware* folder and appending too the ``CONFIG_EXTRA_FIRMWARE`` kernel
