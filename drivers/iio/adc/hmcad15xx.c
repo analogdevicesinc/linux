@@ -74,8 +74,7 @@
 #define HMCAD15XX_OUTPUT_MODE_TWOS_COMPLEMENT	0x01
 #define HMCAD15XX_OUTPUT_MODE_OFFSET_BINARY 	0x00
 
-#define HMCAD15XX_ADC_OP_MODE_SET(x)    (1<<x & 0x7)
-#define HMCAD15XX_ADC_OP_MODE_GET(x)    (x>>1 & 0x7)
+#define OP_MODE_ADC_TO_HDL(adc_val) (((adc_val) == 4) ? 3 : ((adc_val) >> 1))
 
 
 enum hmcad15xx_clk_div {
@@ -85,11 +84,6 @@ enum hmcad15xx_clk_div {
 	CLK_DIV_8=3
 };
 
-enum hmcad15xx_operation_mode {
-	SINGLE_CHANNEL,
-	DUAL_CHANNEL,
-	QUAD_CHANNEL
-};
 enum hmcad15xx_input_select {
 	IP1_IN1,
 	IP2_IN2,
@@ -103,12 +97,6 @@ static const int hmcad15xx_clk_div_value[] = {
 	[CLK_DIV_8]    = 8,
 };
 
-static const int hmcad15xx_operation_mode_value[] = {
-	[SINGLE_CHANNEL]    = 1,
-	[DUAL_CHANNEL]    = 2,
-	[QUAD_CHANNEL]    = 4,
-};
-
 struct hmcad15xx_state {
 	struct spi_device *spi;
 	struct clk *clk;
@@ -118,7 +106,8 @@ struct hmcad15xx_state {
 	unsigned int sampling_freq;
 	unsigned long		regs_hw[86];
 	enum hmcad15xx_clk_div		clk_div;
-	enum hmcad15xx_operation_mode op_mode;
+	unsigned int en_channels;
+	unsigned int pol_mask;
 
 	const struct axiadc_chip_info *chip_info;
 	__be32 d32;
@@ -202,98 +191,6 @@ exit:
 	return ret;
 }
 
-static int hmcad15xx_set_clk_div(struct iio_dev *dev,
-				 const struct iio_chan_spec *chan,
-				 unsigned int mode)
-{
-	struct hmcad15xx_state *st = hmcad15xx_get_data(dev);
-	int ret = 0;
-	mutex_lock(&st->lock);
-
-	gpiod_set_value_cansleep(st->gpio_pd, 1);
-
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-	                 HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK,
-	                 HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(mode));
-
-
-	gpiod_set_value_cansleep(st->gpio_pd, 0);
-
-	mutex_unlock(&st->lock);
-
-	return ret;
-
-}
-
-static int hmcad15xx_get_clk_div(struct iio_dev *dev,
-				 const struct iio_chan_spec *chan)
-{
-	struct hmcad15xx_state *st = hmcad15xx_get_data(dev);
-	unsigned int regval, clk_div;
-	int ret;
-
-	ret =  hmcad15xx_spi_reg_read(st, HMCAD15XX_OPERATION_MODE, &regval);
-	if (ret < 0)
-		return ret;
-	clk_div = HMCAD15XX_CLK_DIVIDE_GET_CLK_DIVIDE(regval);
-
-	st-> clk_div = clk_div;
-
-	return st-> clk_div;
-}
-
-
-
-static int hmcad15xx_set_operation_mode(struct iio_dev *dev,
-				 const struct iio_chan_spec *chan,
-				 unsigned int mode)
-{
-	struct hmcad15xx_state *st = hmcad15xx_get_data(dev);
-	struct axiadc_state *axiadc_st = iio_priv(dev);
-	int ret = 0;
-	unsigned tmp;
-
-	mutex_lock(&st->lock);
-
-	gpiod_set_value_cansleep(st->gpio_pd, 1);
-
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-	                 HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK,
-	            	 HMCAD15XX_ADC_OP_MODE_SET(mode));
-
-   // 0 - single channel  1- dual  3-quad - HDL
-   // 1 - single channel  2- dual  4-quad - adc
-
-	tmp = axiadc_read(axiadc_st, ADI_REG_CNTRL_3);
-	axiadc_write(axiadc_st, ADI_REG_CNTRL_3, (HMCAD15XX_ADC_OP_MODE_SET(mode) << 2));
-
-	gpiod_set_value_cansleep(st->gpio_pd, 0);
-
-	mutex_unlock(&st->lock);
-
-	return ret;
-
-}
-
-static int hmcad15xx_get_operation_mode(struct iio_dev *dev,
-				 const struct iio_chan_spec *chan)
-{
-	struct hmcad15xx_state *st = hmcad15xx_get_data(dev);
-	unsigned int regval, op_mode;
-	int ret;
-
-	ret =  hmcad15xx_spi_reg_read(st, HMCAD15XX_OPERATION_MODE, &regval);
-	if (ret < 0)
-		return ret;
-
-	op_mode = HMCAD15XX_ADC_OP_MODE_GET(regval);
-
-	st->op_mode = op_mode;
-
-	return st->op_mode;
-}
-
-
 static int  hmcad15xx_set_input_select(struct iio_dev *dev,
 				  const struct iio_chan_spec *chan,
 				  unsigned int mode)
@@ -369,20 +266,6 @@ static int hmcad15xx_get_input_select(struct iio_dev *dev,
 return 0;
 }
 
-static const char * const  hmcad15xx_clk_div_iio_enum[] = {
-	[CLK_DIV_1] = "CLK_DIV_1",
-    [CLK_DIV_2] = "CLK_DIV_2",
-    [CLK_DIV_4] = "CLK_DIV_4",
-    [CLK_DIV_8] = "CLK_DIV_8"
-};
-
-
-static const char * const  hmcad15xx_operation_mode_iio_enum[] = {
-	[SINGLE_CHANNEL] = "SINGLE_CHANNEL",
-    [DUAL_CHANNEL]   = "DUAL_CHANNEL",
-    [QUAD_CHANNEL]   = "QUAD_CHANNEL"
-};
-
 static const char * const  hmcad15xx_input_select_iio_enum[] = {
 	[IP1_IN1]   = "IP1_IN1",
     [IP2_IN2]   = "IP2_IN2",
@@ -390,19 +273,6 @@ static const char * const  hmcad15xx_input_select_iio_enum[] = {
 	[IP4_IN4]   = "IP4_IN4"
 };
 
-static const struct iio_enum hmcad15xx_clk_div_enum = {
-	.items = hmcad15xx_clk_div_iio_enum,
-	.num_items = ARRAY_SIZE(hmcad15xx_clk_div_iio_enum),
-	.set = hmcad15xx_set_clk_div,
-	.get = hmcad15xx_get_clk_div,
-};
-
-static const struct iio_enum hmcad15xx_operation_mode_enum = {
-	.items = hmcad15xx_operation_mode_iio_enum,
-	.num_items = ARRAY_SIZE(hmcad15xx_operation_mode_iio_enum),
-	.set = hmcad15xx_set_operation_mode,
-	.get = hmcad15xx_get_operation_mode,
-};
 
 static const struct iio_enum hmcad15xx_input_select_enum = {
 	.items = hmcad15xx_input_select_iio_enum,
@@ -458,18 +328,6 @@ static int hmcad15xx_write_raw(struct iio_dev *indio_dev,
 }
 
 static struct iio_chan_spec_ext_info hmcad15xx_ext_info[] = {
-	IIO_ENUM("clk_div",
-		IIO_SHARED_BY_ALL,
-		&hmcad15xx_clk_div_enum),
-	IIO_ENUM_AVAILABLE("clk_div",
-			   IIO_SHARED_BY_ALL,
-			   &hmcad15xx_clk_div_enum),
-	IIO_ENUM("operation_mode",
-	 	IIO_SHARED_BY_ALL,
-	 	&hmcad15xx_operation_mode_enum),
-	IIO_ENUM_AVAILABLE("operation_mode",
-			   IIO_SHARED_BY_ALL,
-			   &hmcad15xx_operation_mode_enum),
 	IIO_ENUM("input_select",
 		IIO_SEPARATE,
 		&hmcad15xx_input_select_enum),
@@ -507,7 +365,7 @@ static const struct iio_info hmcad15xx_info = {
 		.scan_index = index,					\
 		.ext_info = hmcad15xx_ext_info,				\
 		.scan_type = {						\
-			.sign = 'u',					\
+			.sign = 's',					\
 			.realbits = 8,					\
 			.storagebits = 8,				\
 		},							\
@@ -530,9 +388,15 @@ static int hmcad15xx_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *axiadc_st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct hmcad15xx_state *st = conv->phy;
 
-	axiadc_write(axiadc_st, ADI_REG_CNTRL_3, (HMCAD15XX_ADC_OP_MODE_SET(0) << 2));
+	// 0 - single channel  1- dual  4-quad - HDL
+	// 1 - single channel  2- dual  4-quad - adc
 
+	axiadc_write(axiadc_st, ADI_REG_CNTRL_3,st->en_channels<<2);
+	axiadc_write(axiadc_st, 0x0080, st->pol_mask);
+	dev_info(&st->spi->dev,"hmcad15xx_post_setup number of st->en_channels: %d ",st->en_channels<<2);
+	dev_info(&st->spi->dev,"hmcad15xx_post_setup number of pol-mask: %d ",st->pol_mask);
 	return 0;
 }
 
@@ -567,6 +431,7 @@ static int hmcad15xx_probe(struct spi_device *spi)
 	struct hmcad15xx_state *st;
 	struct iio_dev *indio_dev;
 	int ret;
+	unsigned int regval, clk_div;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
@@ -587,38 +452,80 @@ static int hmcad15xx_probe(struct spi_device *spi)
 
 	st->spi = spi;
 
+	st->en_channels = 1;
+
+	ret = device_property_read_u32(&spi->dev, "adi,num-channels",
+				       &st->en_channels);
+	if (ret < 0)
+		return (ret != -EINVAL) ? ret : 0;
+
+	ret = device_property_read_u32(&spi->dev, "adi,pol-mask",
+		&st->pol_mask);
+	if (ret < 0)
+	return (ret != -EINVAL) ? ret : 0;
+
+	dev_info(&st->spi->dev,"number of enabled channels: %d ",st->en_channels);
+	dev_info(&st->spi->dev,"number of pol-mask: %d ",st->pol_mask);
+
     st->gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset",
 				     GPIOD_OUT_HIGH);
 
 	if (IS_ERR(st->gpio_reset))
 		return PTR_ERR(st->gpio_reset);
 
+	st->gpio_pd = devm_gpiod_get_optional(&spi->dev, "pd",
+				GPIOD_OUT_HIGH);
+
+	if (IS_ERR(st->gpio_pd))
+		return PTR_ERR(st->gpio_pd);
+
 	if (st->gpio_reset) {
 		gpiod_set_value_cansleep(st->gpio_reset, 1);
 		fsleep(2);
 		gpiod_set_value_cansleep(st->gpio_reset, 0);
 		fsleep(100);
+	} else {
+		hmcad15xx_spi_reg_write(st,0x00,0x0001);
 	}
-    st->gpio_pd = devm_gpiod_get_optional(&spi->dev, "pd",
-    				     GPIOD_OUT_HIGH);
-    if (IS_ERR(st->gpio_pd))
-    	return PTR_ERR(st->gpio_pd);
+
+	if (st->gpio_pd) {
+		fsleep(2);
+		gpiod_set_value_cansleep(st->gpio_pd, 1);
+		fsleep(1660);
+	} else {
+		hmcad15xx_spi_reg_write(st,0x0F,0x0200);
+	}
+
+	ret =  hmcad15xx_spi_reg_write(st, HMCAD15XX_PHASE_DDR,0x00);
 
 	 ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_LVDS_OUTPUT_MODE,
 	 			                 HMCAD15XX_OUTPUT_MODE_RESOLUTION_MSK,
 	 			                 0X0);
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-			                 HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK,
-			                 0x1);
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-		                 HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK,
-		                 HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(0));
 
- 	if (st->gpio_pd) {
- 		fsleep(2);
- 		gpiod_set_value_cansleep(st->gpio_pd, 0);
- 		fsleep(1660);
- 	}
+	//CLK_DIV_1=0, CLK_DIV_2=1, CLK_DIV_4=2, CLK_DIV_8=3
+
+	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
+			          HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK,
+			        HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(st->en_channels>>1));
+
+	ret =  hmcad15xx_spi_reg_read(st, HMCAD15XX_OPERATION_MODE, &regval);
+	if (ret < 0)
+		return ret;
+
+	clk_div = HMCAD15XX_CLK_DIVIDE_GET_CLK_DIVIDE(regval);
+	st-> clk_div = clk_div;
+
+	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
+		HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK,
+		st->en_channels);
+
+	if (st->gpio_pd) {
+		fsleep(2);
+		gpiod_set_value_cansleep(st->gpio_pd, 0);
+		fsleep(1660);
+	} else {
+		hmcad15xx_spi_reg_write(st,0x0F,0x0000);
+	}
 
 	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC1_ADC2,
 			                HMCAD15XX_INP_SEL_ADC1_MSK,

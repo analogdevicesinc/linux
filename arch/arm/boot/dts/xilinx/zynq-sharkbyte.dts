@@ -203,6 +203,8 @@
         clock-names = "clk";
         reset-gpios = <&gpio_exp 9 GPIO_ACTIVE_LOW>;
 		pd-gpios = <&gpio_exp 10 GPIO_ACTIVE_HIGH>;
+        adi,num-channels = <4>;
+        adi,pol-mask =<239>;
     };
 
     hmcad15xx_2: hmcad15xx_2@1 {
@@ -212,5 +214,7 @@
         clock-names = "clk";
         reset-gpios = <&gpio_exp 8 GPIO_ACTIVE_LOW>;
         pd-gpios = <&gpio_exp 11 GPIO_ACTIVE_HIGH>;
+        adi,num-channels = <4>;
+        adi,pol-mask =<32>;
     };
 };
