@@ -236,8 +236,8 @@ config RESET_SC5XX
 	depends on ARCH_SC59X_64
 	default y
 	help
-	  This enables simple reset controller for ADI ADSP-SC5xx family. 
-	  Support software reset. 
+	  This enables simple reset controller for ADI ADSP-SC5xx family.
+	  Support software reset.
 
 config RESET_SCMI
 	tristate "Reset driver controlled via ARM SCMI interface"
