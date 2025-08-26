@@ -28,3 +28,16 @@ jobs:
       fetch_url: "https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git"
       branch: "testing"
 
+  self-branches:
+    uses: ./.github/workflows/sync_ci.yml
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write
+    strategy:
+      matrix:
+        branch:
+          - "oran-6.12.38-y"
+          - "adsp-6.12.38-y"
+    with:
+      branch: ${{ matrix.branch }}
