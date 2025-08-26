@@ -65,24 +65,22 @@
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <25000000>;
-			//clock-output-names = "sys_clkin0";
+			clock-output-names = "sys_clkin0";
 		};
 
 		sys_clkin1: oscillator@2 {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <25000000>;
-			//clock-output-names = "sys_clkin1";
+			clock-output-names = "sys_clkin1";
 		};
 		clk_dummy: oscillator@3 {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <0>;
-			//clock-output-names = "dummy";
+			clock-output-names = "dummy";
 		};
 	};
-
-	
 
 	clk_cgu0: clocks@3108d000 {
 		compatible = "adi,sc598-cgu0";
@@ -93,7 +91,6 @@
 		status = "okay";
 	};
 
-	
 	clk_cgu1: clocks@3108e000 {
 		compatible = "adi,sc598-cgu1";
 		reg = <0x3108e000 0x1000>;
