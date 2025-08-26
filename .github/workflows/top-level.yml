@@ -8,6 +8,8 @@ on:
       - rpi-6.1.y
       - rpi-6.6.y
       - rpi-6.12.y
+      - 'adsp-[0-9]+.[0-9]+*-y'
+      - 'oran-[0-9]+.[0-9]+*-y'
     paths-ignore:
       - '.github/**'
       - 'ci/**'
@@ -282,6 +284,135 @@ jobs:
           job_fail_build_gcc_arm_adi_bcmrpi_defconfig: ${{needs.build_gcc_arm_adi_bcmrpi_defconfig.outputs.fail}}
           job_fail_build_gcc_aarch64_adi_bcm2711_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2711_defconfig.outputs.fail}}
           job_fail_build_gcc_aarch64_adi_bcm2712_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2712_defconfig.outputs.fail}}
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
+            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+          source runner_env.sh
+          assert_labels
+  conditional_adsp:
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref_name, 'adsp-'))
+    runs-on: [self-hosted, v1]
+    needs: [assert_checks]
+    steps:
+      - name: Conditional ADSP
+        run: echo ADSP
+  build_gcc_arm_sc573-ezkit_defconfig:
+    needs: [conditional_adsp]
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "sc573-ezkit_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_arm_sc589-mini_defconfig:
+    needs: [conditional_adsp]
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "sc589-mini_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_arm_sc594-som-ezkit_defconfig:
+    needs: [conditional_adsp]
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "sc594-som-ezkit_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_arm_sc594-som-ezlite_defconfig:
+    needs: [conditional_adsp]
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
+      ARCH: "arm"
+      DEFCONFIG: "sc594-som-ezlite_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_aarch64_sc598-som-ezkit_defconfig:
+    needs: [conditional_adsp]
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "aarch64-suse-linux-"
+      ARCH: "arm64"
+      DEFCONFIG: "sc598-som-ezkit_defconfig"
+      AUTO_FROM_RANGE: false
+  build_gcc_aarch64_sc598-som-ezlite_defconfig:
+    needs: [conditional_adsp]
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "aarch64-suse-linux-"
+      ARCH: "arm64"
+      DEFCONFIG: "sc598-som-ezlite_defconfig"
+      AUTO_FROM_RANGE: false
+  assert_build_adsp:
+    runs-on: [self-hosted, v1]
+    needs:
+      - build_gcc_arm_sc573-ezkit_defconfig
+      - build_gcc_arm_sc589-mini_defconfig
+      - build_gcc_arm_sc594-som-ezkit_defconfig
+      - build_gcc_arm_sc594-som-ezlite_defconfig
+      - build_gcc_aarch64_sc598-som-ezkit_defconfig
+      - build_gcc_aarch64_sc598-som-ezlite_defconfig
+    steps:
+      - name: Assert
+        env:
+          job_warn_build_gcc_arm_sc573-ezkit_defconfig: ${{needs.build_gcc_arm_sc573-ezkit_defconfig.outputs.warn}}
+          job_warn_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.warn}}
+          job_warn_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.warn}}
+          job_warn_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.warn}}
+          job_warn_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.warn}}
+          job_warn_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.warn}}
+          job_fail_build_gcc_arm_sc573-ezkit_defconfig: ${{needs.build_gcc_arm_sc573-ezkit_defconfig.outputs.fail}}
+          job_fail_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.fail}}
+          job_fail_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.fail}}
+          job_fail_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.fail}}
+          job_fail_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.fail}}
+          job_fail_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.fail}}
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
+            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+          source runner_env.sh
+          assert_labels
+  conditional_oran:
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref_name, 'oran-'))
+    runs-on: [self-hosted, v1]
+    needs: [assert_checks]
+    steps:
+      - name: Conditional O-RAN
+        run: echo O-RAN
+  build_gcc_aarch64_adrv906x-eval_defconfig:
+    needs: [conditional_oran]
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      CXX: "14"
+      CROSS_COMPILE: "aarch64-suse-linux-"
+      ARCH: "arm64"
+      DEFCONFIG: "adrv906x-eval_defconfig"
+      AUTO_FROM_RANGE: false
+  assert_build_oran:
+    runs-on: [self-hosted, v1]
+    needs:
+      - build_gcc_aarch64_adrv906x-eval_defconfig
+    steps:
+      - name: Assert
+        env:
+          job_warn_build_gcc_aarch64_adrv906x-eval_defconfig: ${{needs.build_gcc_aarch64_adrv906x-eval_defconfig.outputs.warn}}
+          job_fail_build_gcc_aarch64_adrv906x-eval_defconfig: ${{needs.build_gcc_aarch64_adrv906x-eval_defconfig.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
