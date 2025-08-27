@@ -718,6 +718,7 @@ compile_kernel_smatch() {
 
 compile_gcc_fanalyzer () {
 	export step_name="gcc_fanalyzer"
+	local exceptions_file="ci/travis/deadcode_exceptions"
 	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
@@ -728,6 +729,10 @@ compile_gcc_fanalyzer () {
 	if [[ ! -f "compile_commands.json" ]]; then
 		echo "::error ::$step_name: compile_commands.json does not exist."
 		return 1
+	fi
+
+	if [[ -f $exceptions_file ]]; then
+		files=$(comm -13 <(sort $exceptions_file) <(echo $files | tr ' ' '\n' | sort))
 	fi
 
 	while read file; do
@@ -891,14 +896,28 @@ compile_clang_analyzer () {
 
 assert_compiled () {
 	export step_name="assert_compiled"
+	local exceptions_file="ci/travis/deadcode_exceptions"
 	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local fail=0
+	local error="
+	 At least one file was not compiled during kernel compilation
+	 Either:
+	  1. ensure the Kconfig is able to enable it/them
+	 OR
+	  2. remove deadcode
+	 OR
+	  3. add it/them in file '$exceptions_file'"
 
 	echo "$step_name were compiled on range $base_sha..$head_sha"
 
 	if [[ ! -f "compile_commands.json" ]]; then
 		echo "::error ::$step_name: compile_commands.json does not exist."
 		return 1
+	fi
+
+	# Allows deadcode
+	if [[ -f $exceptions_file ]]; then
+		files=$(comm -13 <(sort $exceptions_file) <(echo $files | tr ' ' '\n' | sort))
 	fi
 
 	while read file; do
@@ -909,13 +928,17 @@ assert_compiled () {
 			compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
 				      .command" compile_commands.json)
 			if [[ -z "$compile_cmd" ]]; then
-				echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation, ensure defconfig enables it"
+				echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation."
 				fail=1
 			fi
 			;;
 		esac
 
 	done <<< "$files"
+
+	if [[ "$fail" == "true" ]]; then
+		_fmt "::error ::$step_name: $error"
+	fi
 
 	return $fail
 }
