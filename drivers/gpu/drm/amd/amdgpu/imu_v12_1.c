@@ -218,16 +218,20 @@ static void imu_v12_1_init_mcm_addr_lut(struct amdgpu_device *adev)
 	 * XCD6:: Bits-[27:24] AID-10 XCD-10
 	 * XCD7:: Bits-[31:28] AID-10 XCD-11
 	 */
-	int data = 0xba987654;
-	int i, num_xcc, partition_num, encode_data;
+	int data, encode_data;
+	int i, j, num_xcc;
 
 	num_xcc = NUM_XCC(adev->gfx.xcc_mask);
-	for (i = 0; i < num_xcc; i++) {
-		partition_num = GET_INST(GC, i) / adev->gfx.num_xcc_per_xcp;
-		encode_data = (data >> (partition_num * adev->gfx.num_xcc_per_xcp * 4)) &
-			      GENMASK(adev->gfx.num_xcc_per_xcp * 4 - 1, 0);
-		WREG32_SOC15(GC, GET_INST(GC, i),
-			     regGFX_IMU_MCM_ADDR_LUT_PF, encode_data);
+	for (i = 0; i < (num_xcc / adev->gfx.num_xcc_per_xcp); i++) {
+		encode_data = 0;
+		for (j = 0; j < adev->gfx.num_xcc_per_xcp; j++) {
+			data = ((GET_INST(GC, i * adev->gfx.num_xcc_per_xcp + j) / 4 + 1) << 2) |
+			        (GET_INST(GC, i * adev->gfx.num_xcc_per_xcp + j) % 4);
+			encode_data |= data << (j * 4);
+		}
+		for (j = 0; j < adev->gfx.num_xcc_per_xcp; j++)
+			WREG32_SOC15(GC, GET_INST(GC, i * adev->gfx.num_xcc_per_xcp + j),
+					regGFX_IMU_MCM_ADDR_LUT_PF, encode_data);
 	}
 }
 
