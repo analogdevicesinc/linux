@@ -525,7 +525,7 @@ config I2C_ADI_SC5XX
      help
        This is the I2C bus driver for ADI on-chip TWI interface.
 
-       This driver can also be built as a module. 
+       This driver can also be built as a module.
 
 config I2C_CADENCE
 	tristate "Cadence I2C Controller"

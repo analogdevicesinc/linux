@@ -41,8 +41,9 @@ struct adsp_gpio_port {
 	void __iomem *regs;
 	struct gpio_chip gpio;
 	struct irq_domain *irq_domain;
-	uint32_t irq_offset;
-	uint32_t open_drain;
+	u32 irq_offset;
+	u32 open_drain;
+	//lock gpio port when setting for GPIO or alternative functions
 	spinlock_t lock;
 };
 

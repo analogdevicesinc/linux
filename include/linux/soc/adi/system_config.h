@@ -15,10 +15,10 @@
 #include <linux/regmap.h>
 
 struct adi_system_register {
-	uint32_t id;
-	uint32_t offset;
-	uint32_t mask;
-	uint8_t shift;
+	u32 id;
+	u32 offset;
+	u32 mask;
+	u8 shift;
 	bool is_bits;
 };
 

@@ -87,7 +87,6 @@ static int adi_rcu_probe(struct platform_device *pdev)
 			ret);
 		return ret;
 	}
-	
 
 	dev_set_drvdata(dev, adi_rcu);
 

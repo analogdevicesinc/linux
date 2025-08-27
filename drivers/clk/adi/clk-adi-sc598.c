@@ -58,7 +58,7 @@ static struct adi_clk_branch cgu0_branches[] __initdata = {
 		5, 3, CLK_DIVIDER_MAX_AT_ZERO),
 	DIVIDER(ADSP_CLK_CGU0_S1SELDIV, "cgu0_s1seldiv", "sysclk_0", CGU_DIV,
 		13, 3, CLK_DIVIDER_MAX_AT_ZERO),
-	DIVIDER(ADSP_CLK_CGU0_S1SELEXDIV, "cgu0_s1selexdiv", "cgu0_pllclk", 
+	DIVIDER(ADSP_CLK_CGU0_S1SELEXDIV, "cgu0_s1selexdiv", "cgu0_pllclk",
 		CGU_DIVEX, 16, 8, CLK_DIVIDER_MAX_AT_ZERO),
 	MUX(ADSP_CLK_CGU0_S1SEL, "cgu0_sclk1sel", cgu0_s1sels, CLK_SET_RATE_PARENT, CGU_CTL, 17, 1),
 	FIXED(ADSP_CLK_CGU0_CCLK2, "cclk2_0", "cgu0_vco", CLK_SET_RATE_PARENT, 1, 3),
@@ -143,7 +143,7 @@ static struct adi_clk_branch cdu_branches[] __initdata = {
 	CDU_GATE(ADSP_CLK_SHARC0, "sharc0", "sharc0_sel", CDU_CFG0, CLK_IS_CRITICAL),
 	CDU_GATE(ADSP_CLK_SHARC1, "sharc1", "sharc1_sel", CDU_CFG1, CLK_IS_CRITICAL),
 	CDU_GATE(ADSP_CLK_ARM, "arm", "arm_sel", CDU_CFG2, CLK_IS_CRITICAL),
-	CDU_GATE(ADSP_CLK_CDU_DDR, "cdu_ddr", "cdu_ddr_sel",CDU_CFG3, 0),
+	CDU_GATE(ADSP_CLK_CDU_DDR, "cdu_ddr", "cdu_ddr_sel", CDU_CFG3, 0),
 	CDU_GATE(ADSP_CLK_CAN, "can", "can_sel", CDU_CFG4, 0),
 	CDU_GATE(ADSP_CLK_SPDIF, "spdif", "spdif_sel", CDU_CFG5, 0),
 	CDU_GATE(ADSP_CLK_SPI, "spi", "spi_sel", CDU_CFG6, 0),
@@ -169,9 +169,10 @@ static struct adi_clk_branch pll3_branches[] __initdata = {
 		11, 1),
 };
 
-static void sc5xx_clock_setup(struct device_node *np, 
+static void sc5xx_clock_setup(struct device_node *np,
 			      struct adi_clk_branch *branch_list,
-			      unsigned int nr_clk) {
+			      unsigned int nr_clk)
+{
 	struct adi_clk_provider *ctx;
 	void __iomem *reg_base;
 
