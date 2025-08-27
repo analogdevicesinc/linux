@@ -136,4 +136,4 @@ module_platform_driver(adsp_gpio_driver);
 
 MODULE_DESCRIPTION("Analog Devices GPIO driver");
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Greg Malysa <greg.malysa@timesys.com>");
+MODULE_AUTHOR("Greg Malysa <malysagreg@gmail.com>");

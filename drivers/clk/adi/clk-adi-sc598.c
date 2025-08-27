@@ -223,4 +223,4 @@ CLK_OF_DECLARE(adi_sc598_clocks_pll, "adi,sc598-pll", sc598_clock_setup_pll);
 
 MODULE_DESCRIPTION("Analog Devices Clock driver");
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Greg Malysa <greg.malysa@timesys.com>");
+MODULE_AUTHOR("Greg Malysa <malysagreg@gmail.com>");

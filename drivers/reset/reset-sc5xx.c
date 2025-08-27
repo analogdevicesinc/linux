@@ -113,4 +113,4 @@ module_platform_driver(adi_rcu_driver);
 
 MODULE_DESCRIPTION("Analog Devices RCU driver");
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Greg Malysa <greg.malysa@timesys.com>");
+MODULE_AUTHOR("Greg Malysa <malysagreg@gmail.com>");

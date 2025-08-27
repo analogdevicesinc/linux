@@ -914,4 +914,4 @@ arch_initcall(adsp_pinctrl_init);
 
 MODULE_DESCRIPTION("Analog Devices Pinctrl driver");
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Greg Malysa <greg.malysa@timesys.com>");
+MODULE_AUTHOR("Greg Malysa <malysagreg@gmail.com>");

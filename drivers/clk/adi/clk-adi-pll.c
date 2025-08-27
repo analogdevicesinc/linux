@@ -147,5 +147,4 @@ struct clk *sc5xx_cgu_pll(const char *name, const char *parent_name,
 
 MODULE_DESCRIPTION("Analog Devices CLock PLL driver");
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Greg Malysa <greg.malysa@timesys.com>");
-
+MODULE_AUTHOR("Greg Malysa <malysagreg@gmail.com>");
