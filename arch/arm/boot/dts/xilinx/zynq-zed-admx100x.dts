@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADMX100x
+ *
+ * hdl_project: <admx100x/zed>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		ad7768_1_mclk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <16384000>;
+		};
+	};
+
+	one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		in-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>,
+				   <&gpio0 92 GPIO_ACTIVE_HIGH>,
+				   <&gpio0 94 GPIO_ACTIVE_HIGH>;
+		out-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>,
+					<&gpio0 91 GPIO_ACTIVE_HIGH>,
+					<&gpio0 86 GPIO_ACTIVE_HIGH>,
+					<&gpio0 93 GPIO_ACTIVE_HIGH>;
+		channel@0 {
+			reg = <0>;
+			label = "admx100x_sync_mode";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "admx100x_cal";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "admx100x_trig";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "admx100x_ready";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "admx100x_valid";
+		};
+        channel@5 {
+			reg = <5>;
+			label = "admx100x_ot";
+		};
+        channel@6 {
+			reg = <6>;
+			label = "admx100x_dac_ldac";
+		};
+	};
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	admx100x: adc@0 {
+		compatible = "adi,admx1002";
+		reg = <0>;
+		reset-gpios = <&gpio0 89 GPIO_ACTIVE_LOW>;
+		spi-max-frequency = <20000000>;
+	};
+};
