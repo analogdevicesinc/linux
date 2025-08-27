@@ -9,11 +9,12 @@ from glob import glob
 import re
 
 debug = False
+debug_blocks = False
 
 symbols_ = set()
 deps_ = set()
 map_ = {}
-max_recursion = 200
+max_recursion = 500
 
 
 def generate_map():
@@ -106,6 +107,8 @@ def find_symbol_block(symbol, kconfig_path):
         elif re.match(rf'(menu)?config\s+{symbol}\b', line.strip()):
             in_block = True
             block = [line]
+            if debug:
+                print(f"{kconfig_path}: Found '{symbol}'", file=stderr)
     return ''.join(block) if block else None
 
 
@@ -121,6 +124,48 @@ def filter_symbols(symbols):
             and not sym.startswith('CPU_')}
 
 
+def extract_tristate(kconfig_path, symbol, symbol_block):
+    """
+    If a symbol is a tristate, look for symbols that selects it in the same
+    kconfig.
+    """
+    tristate = re.findall(r'tristate', symbol_block)
+    if not tristate:
+        return []
+
+    if debug:
+        print(f"{kconfig_path}: Looking for block that selects '{symbol}'",
+              file=stderr)
+    with open(kconfig_path) as f:
+        lines = f.readlines()
+
+    deps = []
+    block = []
+    in_block = False
+    c_symbol = None
+    for line in lines:
+        if in_block:
+            if not re.match(r'^(?:\s+|\s*$)', line):
+                in_block = False
+                block = []
+            else:
+                match = re.match(rf'select\s+{symbol}\b', line.strip())
+                if match:
+                    if debug:
+                        print(f"{kconfig_path}: {c_symbol} selects {symbol}",
+                              file=stderr)
+                    deps.append(c_symbol)
+                block.append(line)
+        else:
+            match = re.match(r'(?:menu)?config\s+(.+)\b', line.strip())
+            if match:
+                c_symbol = match.group(1)
+                in_block = True
+                block = [line]
+
+    return deps
+
+
 def extract_dependencies(symbol_block, if_blocks):
     depends = re.findall(r'depends on\s+(.+)', symbol_block)
     all_conds = depends + if_blocks
@@ -132,7 +177,7 @@ def extract_dependencies(symbol_block, if_blocks):
     deps = {sym[:-2] if sym.endswith('=y') else sym
             for sym in deps
             if not sym.endswith('=n') and not sym.startswith('!')}
-    return filter_symbols(deps)
+    return deps
 
 
 def get_symbol_dependencies(symbol, path_to_kconfig_dir):
@@ -142,7 +187,12 @@ def get_symbol_dependencies(symbol, path_to_kconfig_dir):
     if not block:
         print(f"Symbol {symbol} not found in {kconfig_file}", file=stderr)
         return []
-    return extract_dependencies(block, if_blocks)
+    if debug and debug_blocks:
+        print(block, file=stderr)
+    deps = []
+    deps.extend(extract_tristate(kconfig_file, symbol, block))
+    deps.extend(extract_dependencies(block, if_blocks))
+    return filter_symbols(deps)
 
 
 def get_top_level_kconfig(symbol):
@@ -170,7 +220,43 @@ def resolve_tree(symbol, path):
                 deps_.add(s)
 
 
-def get_makefile_symbol_and_obj(mk, obj):
+def get_top_level_symbol_for(mk):
+    """
+    From a obj-y, lib-y, at
+        linux/drivers/pinctrl/Makefile
+
+    Look at linux/drivers/Makefile for
+        pinctrl/
+    """
+    obj = f"{path.basename(path.dirname(mk))}/"
+    mk = path.join(path.dirname(path.dirname(mk)), "Makefile")
+    if not path.isfile(mk):
+        return (None, None)
+
+    with open(mk, "r") as file:
+        lines = file.readlines()
+    file_ = []
+    buffer = ""
+    for line in lines:
+        buffer += line.rstrip('\n')
+        if line.endswith('\\\n'):
+            continue
+        file_.append(buffer)
+        buffer = ""
+
+    for line in file_:
+        if obj not in line:
+            continue
+
+        # obj-$(CONFIG_SYMBOL)
+        match = re.search(r'obj-\$\(([^)]+)\)\s*[+:]?=', line)
+        if match:
+            return (match.group(1), None)
+
+    return (None, None)
+
+
+def get_makefile_symbol_and_obj(mk, obj, l_obj):
     """
     Get Kconfig symbol and obj, example:
 
@@ -186,6 +272,9 @@ def get_makefile_symbol_and_obj(mk, obj):
         driver.o -> ("CONFIG_DRIVER", None)
 
     """
+    if obj == l_obj:
+        print(f"{mk}: Infinite recursion for '{obj}' detected", file=stderr)
+        return (None, None)
     if debug:
         print(f"{mk}: Looking for '{obj}'", file=stderr)
 
@@ -209,20 +298,29 @@ def get_makefile_symbol_and_obj(mk, obj):
         if match:
             return (match.group(1), None)
 
+        # obj-y
+        match = re.search(r'(obj|lib)-y\s*[+:]?=', line)
+        if match:
+            return get_top_level_symbol_for(mk)
+
         # driver-$(CONFIG_SYMBOL)
-        match = re.search(r'([\w\d_]+)-\$\(([^)]+)\)\s*[+:]?=', line)
+        match = re.search(r'([-\w\d]+)-\$\(([^)]+)\)\s*[+:]?=', line)
         if match:
             return (match.group(2), match.group(1))
 
         # driver-y
-        match = re.search(r'([\w\d_]+)-(y|objs)\s*[+:]?=', line)
+        match = re.search(r'([-\w\d]+)-(y|objs)\s*[+:]?=', line)
         if match:
-            return (None, match.group(1))
+            if match.group(1) == obj[:-2]:
+                # mconf-objs := mconf.o
+                return (None, None)
+            else:
+                return (None, match.group(1))
 
     return (None, None)
 
 
-def _get_symbols_from_mk(mk, obj):
+def _get_symbols_from_mk(mk, obj, l_obj):
     """
     Exhaust Makefile until no object and no symbol.
     If returns False, the parent method will proceed to search on ../Makefile,
@@ -230,7 +328,8 @@ def _get_symbols_from_mk(mk, obj):
     """
     global symbols_
 
-    symbol, obj = get_makefile_symbol_and_obj(mk, obj)
+    l_obj_ = obj
+    symbol, obj = get_makefile_symbol_and_obj(mk, obj, l_obj)
     if not symbol and not obj:
         return False
     if symbol:
@@ -241,7 +340,7 @@ def _get_symbols_from_mk(mk, obj):
         if not obj:
             return True
 
-    return _get_symbols_from_mk(mk, f"{obj}.o")
+    return _get_symbols_from_mk(mk, f"{obj}.o", l_obj_)
 
 
 def get_symbols_from_o(files):
@@ -256,7 +355,7 @@ def get_symbols_from_o(files):
         while ldir != "":
             mk = path.join(ldir, "Makefile")
             if path.isfile(mk):
-                if _get_symbols_from_mk(mk, path.join(rdir, base)):
+                if _get_symbols_from_mk(mk, path.join(rdir, base), None):
                     found = True
                     break
 

@@ -39,6 +39,7 @@ drivers/mtd/maps/latch-addr-flash.o
 drivers/iio/adc/ti-ads7950.o
 drivers/iio/adc/ina2xx-adc.o
 drivers/media/i2c/vs6624.o
+drivers/media/i2c/mt9m114.o
 drivers/misc/xilinx_lcd.o
 sound/pci/ac97/ac97_codec.o
 sound/pci/ac97/ac97_proc.o
@@ -55,6 +56,7 @@ drivers/iio/adc/adrv902x/devices/adrv9025/public/src/adi_adrv9025_dfe.o
 drivers/iio/adc/adrv902x/devices/adrv9025/public/src/adi_adrv9025_dynamic_slicer.o
 drivers/iio/adc/adrv902x/platforms/adi_platform.o
 drivers/gpu/drm/tegra/fbdev.o
+drivers/pci/controller/pcie-rcar-host.o
 sound/soc/codecs/max98363.o
 sound/soc/codecs/ssm3515.o
 

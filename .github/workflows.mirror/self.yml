@@ -1,3 +1,5 @@
+name: Self synchronization
+
 on:
   workflow_call:
     inputs:

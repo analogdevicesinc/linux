@@ -2,12 +2,27 @@ if [[ -z "$run_id" ]]; then
 	export run_id=$(uuidgen)
 fi
 
+if [[ "$GITHUB_ACTIONS" == "true" ]]; then
+	export _n='%0A'
+else
+	export _n=$'\n'
+fi
+
+_fmt() {
+	msg=$(echo "$1" | tr -d '\t')
+	if [[ ! "$_n" == $'\n' ]]; then
+		msg=$(printf "$msg" | sed ':a;N;$!ba;s/\n/'"$_n"'/g')
+	fi
+	printf "%s\n" "$msg"
+}
+
 check_checkpatch() {
+	export step_name="checkpatch"
 	local mail=
 	local fail=0
 	local warn=0
 
-	echo "checkpatch on range $base_sha..$head_sha"
+	echo "$step_name on range $base_sha..$head_sha"
 
 	python3.11 -m venv ~/venv
         source ~/venv/bin/activate
@@ -18,7 +33,13 @@ check_checkpatch() {
 		git --no-pager show --format="%h %s" "$commit" --name-only
 		# Skip empty commits, assume cover letter
 		# and those only touching non-upstream directories .github ci and docs
-		local files=$(git diff --diff-filter=ACMR --name-only $commit~..$commit | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
+		# A treeless (--filter=tree:0) fetch could be done to fetch
+		# full commit message history before running checkpatch, but
+		# that may mess-up the cache and is only useful for checking
+		# SHA references in the commit message, with may not even apply
+		# if the commit is from upstream. Instead, just delegate to the
+		# user to double check the referenced SHA.
+		local files=$(git diff --diff-filter=ACM --no-renames --name-only $commit~..$commit | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
 		if [[ -z "$files" ]]; then
 			echo "empty, skipped"
 			continue
@@ -58,14 +79,14 @@ check_checkpatch() {
 					line=${list[3]}
 					echo $row
 				else
-					msg=${msg}${row}%0A
+					msg=${msg}${row}$_n
 					if [[ -z $row ]]; then
 						if [[ -z $file ]]; then
 							# If no file, add to file 0 of first file on list.
 							file=$(git show --name-only --pretty=format: $commit | head -n 1)
-							echo "::$type file=$file,line=0::checkpatch: $msg"
+							echo "::$type file=$file,line=0::$step_name: $msg"
 						else
-							echo "::$type file=$file,line=$line::checkpatch: $msg"
+							echo "::$type file=$file,line=$line::$step_name: $msg"
 						fi
 						found=0
 						file=
@@ -84,7 +105,7 @@ check_checkpatch() {
 				type="warning"
 			fi
 			if [[ "$row" =~ ^(CHECK|WARNING|ERROR): ]]; then
-				msg=$(echo "$row" | sed -E  's/^(CHECK|WARNING|ERROR): //')%0A
+				msg=$(echo "$row" | sed -E  's/^(CHECK|WARNING|ERROR): //')$_n
 				# Suppress some cases:
 				if [[ "$row" =~ ^"WARNING: Unknown commit id" ]]; then
 					# Checkpatch may want to look back beyond fetched commits.
@@ -103,21 +124,16 @@ check_checkpatch() {
 		done <<< "$mail"
 	done
 
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "checkpatch"
-	fi
-	if [[ "$warn" == "1" ]]; then
-		set_step_warn "checkpatch"
-	fi
-
-	return 0
+	_set_step_warn $warn
+	return $fail
 }
 
 check_dt_binding_check() {
-	local files=$(git diff --name-only $base_sha..$head_sha)
+	export step_name="dt_binding_check"
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local fail=0
 
-	echo "dt_binding_check on range $base_sha..$head_sha"
+	echo "$step_name on range $base_sha..$head_sha"
 
 	python3.11 -m venv ~/venv
         source ~/venv/bin/activate
@@ -140,42 +156,33 @@ check_dt_binding_check() {
 				#
 				# All schema files must be validated before exiting,
 				# so the script should not exit on error.
-				#
-				# Disable exit-on-error flag, check the exit code
-				# manually, and set err if the exit-code is non-zero,
-				# before enabling exit-on-error back.
-				set +e
-				error_txt=$(make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1)
-				if [[ $? -ne 0 ]]; then
+				if ! error_txt=$(make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1); then
 					fail=1
 				fi
-				set -e
 
 				echo "$error_txt"
 
-				# file name or reapath of example appears in output if it contains errors
+				# file name or realpath of example appears in output if it contains errors
 				if echo "$error_txt" | grep -qF -e "$file" -e "$file_ex"; then
 					fail=1
-					echo "::error file=$file,line=0::dt_binding_check contain errors"
+					echo "::error file=$file,line=0::$step_name contain errors"
 				fi
 			fi
 			;;
 		esac
 	done <<< "$files"
 
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "dtbinding"
-	fi
-
-	return 0
+	_set_step_warn $warn
+	return $fail
 }
 
 check_coccicheck() {
-	local files=$(git diff --name-only $base_sha..$head_sha)
+	export step_name="coccicheck"
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local mail=
 	local warn=0
 
-	echo "coccicheck on range $base_sha..$head_sha"
+	echo "$step_name on range $base_sha..$head_sha"
 
 	if [[ -z "$ARCH" ]]; then
 		ARCH=x86
@@ -225,7 +232,7 @@ check_coccicheck() {
 						for ((i=2; i<${#list[@]}; i++)); do
 							msg="$msg${list[$i]} "
 						done
-						echo "::$type file=$file,line=$line::coccicheck: $msg"
+						echo "::$type file=$file,line=$line::$step_name: $msg"
 					else
 						if [[ "$row" ]]; then
 							echo $row
@@ -240,21 +247,19 @@ check_coccicheck() {
 
 	done <<< "$files"
 
-	if [[ "$warn" == "1" ]]; then
-		set_step_warn "coccicheck"
-	fi
-
+	_set_step_warn $warn
 	return 0
 }
 
 check_cppcheck () {
-	local files=$(git diff --name-only $base_sha..$head_sha)
+	export step_name="cppcheck"
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local fail=0
 	local warn=0
 
-	echo "cppcheck on range $base_sha..$head_sha"
+	echo "$step_name range $base_sha..$head_sha"
 
 	while read file; do
 		case "$file" in
@@ -262,7 +267,7 @@ check_cppcheck () {
 			# --force checks all configurations, overrides cppcheck default 12 limit.
 			echo -e "\e[1m$file\e[0m"
 			mail=$(cppcheck --check-level=exhaustive -Iinclude --force $file 2>&1 || (
-				echo "::error file=$file,line=0::cppcheck: Exited with code '$?'" ; true)
+				echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
 			)
 			found=0
 			msg=
@@ -288,18 +293,18 @@ check_cppcheck () {
 						warn=1
 					fi
 					if [[ "$type" == "error" ]]; then
-						fail=1
+						warn=1
 					fi
 					if [[ "$type" == "error" ]] || [[ "$type" == "warning" ]]; then
 						found=1
-						msg="::$type file=$file,line=$line,col=$col::cppcheck: $msg_"
+						msg="::$type file=$file,line=$line,col=$col::$step_name: $msg_"
 					else
 						echo $row
 					fi
 
 				else
 					if [[ $found == "1" ]]; then
-						msg=${msg}%0A${row}
+						msg=${msg}$_n${row}
 					else
 						echo $row
 					fi
@@ -315,112 +320,195 @@ check_cppcheck () {
 
 	done <<< "$files"
 
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "cppcheck"
-	fi
-	if [[ "$warn" == "1" ]]; then
-		set_step_warn "cppcheck"
-	fi
+	_set_step_warn $warn
+	return $fail
+}
 
-	return
+_bad_licence_error() {
+	local license_error="
+	File is being added to Analog Devices Linux tree.
+	Analog Devices code is being marked dual-licensed... Make sure this is really intended!
+	If not intended, change MODULE_LICENSE() or the SPDX-License-Identifier accordingly.
+	This is not as simple as one thinks and upstream might require a lawyer to sign the patches!"
+	_fmt "::warning file=$1::$step_name: $license_error"
+}
+
+check_license() {
+	export step_name="check_license"
+	local fail=0
+
+	echo "$step_name on range $base_sha..$head_sha"
+
+	local added_files=$(git diff --diff-filter=A --name-only "$base_sha..$head_sha")
+
+	# Get list of new files in the commit range
+	for file in $added_files ; do
+		if git diff $base_sha..$head_sha "$file" 2>/dev/null | grep "^+MODULE_LICENSE" | grep -q "Dual" ; then
+			_bad_licence_error "$file"
+			fail=1
+		elif git diff $base_sha..$head_sha "$file" 2>/dev/null | grep "^+// SPDX-License-Identifier:" | grep -qi " OR " ; then
+			# The below might catch bad licenses in header files and also helps to make sure dual licenses are
+			# not in driver (e.g.: sometimes people have MODULE_LICENSE != SPDX-License-Identifier - which is also
+			# wrong and maybe something to improve in this job).
+			# For devicetree-related files, allow dual license if GPL-2.0 is one of them.
+			if [[ "$file" == *.@(yaml|dts|dtsi|dtso) ]]; then
+				if cat "$file" | grep "^// SPDX-License-Identifier:" | grep -q "GPL-2.0" ; then
+					continue
+				fi
+			fi
+			_bad_licence_error "$file"
+			fail=1
+		fi
+	done
+
+	_set_step_warn $warn
+	return $fail
 }
 
 compile_devicetree() {
+	export step_name="compile_devicetree"
+	local exceptions_file="ci/travis/dtb_build_test_exceptions"
 	local tmp_log_file=/dev/shm/$run_id.ci_compile_devicetree.log
 	local err=0
+	local fail=0
 	local dtb_file=
 	local dts_files=""
 	local regex0='^([[:alnum:]/._-]+)(:([0-9]+)\.([0-9]+)-([0-9]+)\.([0-9]+))?: (Warning|Error) (.*)$'
 	local regex1='^Error: ([[:alnum:]/._-]+)(:([0-9]+)\.([0-9]+)-([0-9]+))? (.+)$'
 
+	if [[ -z "$ARCH" ]]; then
+		echo "::error ::$step_name: ARCH is not set."
+		return 1
+	fi
+
 	echo "compile devicetree on range $base_sha..$head_sha"
 
-	local dtsi_files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dtsi$ || true)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local dtsi_files=$(echo "$files" | grep ^arch/$ARCH/boot/dts/ | grep dtsi$ || true)
 	if [[ ! -z "$dtsi_files" ]]; then
 		echo "collecting dts files that include dtsi"
 		while read file; do
 			echo $file
 			basename=$(basename $file)
 			dirname=$(dirname $file)
-			for file_ in $dirname/*.dts; do
-				if cat $file_ | grep -q "#include \"$(basename $file)\""; then
-					dts_files="$file_"$'\n'"$dts_files"
-				fi
-			done
+			dts_files+=\ $(find "$dirname" -name "*.dts" | xargs -P "$(nproc)" -I{} \
+				sh -c 'if grep -q "#include \"$(basename "$0")\"" "$1" ; then echo "$1" ; fi' "$file" {})
 		done <<< "$dtsi_files"
 	fi
-	if [[ ! -z "$dts_files" ]]; then
-		dts_files=${dts_files::-1}
-	fi
 
-	dts_files+=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
+	dts_files+=\ $(echo "$files" | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
+	dts_files=$(echo $dts_files | xargs)
 	if [[ -z "$dts_files" ]]; then
 		echo "no dts on range, skipped"
 		return $err
 	fi
 
-	echo "compiling devicetrees"
-	echo > $tmp_log_file
-	while read file; do
-		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
-		make -i $dtb_file 2>&1 | \
-		(while IFS= read -r row; do
-			echo $row
-			if [[ "$row" =~ $regex0 ]]; then
-				file=$(echo ${BASH_REMATCH[1]} | xargs)
-				type=$(echo ${BASH_REMATCH[7]} | xargs  | tr '[:upper:]' '[:lower:]')
-				msg_=${BASH_REMATCH[8]}
-
-				if [[ -z "${BASH_REMATCH[2]}" ]]; then
-					msg="::$type file=$file,line=0::$msg_"
-				else
-					line="${BASH_REMATCH[3]}"
-					col="${BASH_REMATCH[4]}"
-					end_line="${BASH_REMATCH[5]}"
-					end_col="${BASH_REMATCH[6]}"
-					echo "::$type file=$file,line=$line,col=$col,endLine=$end_line,endColumn=$end_col::$msg_" >> $tmp_log_file
-				fi
-
-				if [[ "$type" == "warning" ]]; then
-					warn=1
-				elif [[ "$type" == "error" ]]; then
-					fail=1
-				fi
-			elif [[ "$row" =~ $regex1 ]]; then
-				file=$(echo ${BASH_REMATCH[1]} | xargs)
-				msg_="${BASH_REMATCH[6]}"
-
-				if [[ -z "${BASH_REMATCH[2]}" ]]; then
-					echo "::error file=$file,line=0::$msg_"
-				else
-					line="${BASH_REMATCH[3]}"
-					col="${BASH_REMATCH[4]}"
-					end_col="${BASH_REMATCH[5]}"
-					echo "::error file=$file,line=$line,col=$col,endColumn=$end_col::$msg_" >> $tmp_log_file
-				fi
-			fi
-		done) ; err=${PIPESTATUS[1]}
-
-		if [[ $err -ne 0 ]]; then
+	# Only check fpga arm & arm64 DTs, they are shipped via SD-card
+	hdl_dts_files=$(echo "$dts_files" | tr ' ' '\n' | grep -E 'arch/arm(64)?' | grep -E '/(socfpga|xilinx|microblaze)/' || true)
+	if [[ -f $exceptions_file ]]; then
+		hdl_dts_files=$(comm -13 <(sort $exceptions_file) <(echo $hdl_dts_files | tr ' ' '\n' | sort))
+	fi
+	local hdl_dts_error="
+	DTS does not contain 'hdl_project:' tag
+	 Either:
+	  1. Create a 'hdl_project' tag for it
+	 OR
+	  2. add it in file '$exceptions_file'"
+	for file in $hdl_dts_files; do
+		if ! grep -q "hdl_project:" $file ; then
+			_fmt "::error file=$file::$step_name: $hdl_dts_error"
 			fail=1
 		fi
-	done <<< "$dts_files"
+	done
 
-	uniq $tmp_log_file
+	echo > $tmp_log_file
+	dtb_files=$(for file in $dts_files; do
+		echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/g'
+	done | sort -u)
+
+	echo "compiling devicetrees"
+
+	touch $tmp_log_file
+	make -i $dtb_files -j$(nproc) 2>&1 | \
+	(while IFS= read -r row; do
+		echo $row
+		if [[ "$row" =~ $regex0 ]]; then
+			file=$(echo ${BASH_REMATCH[1]} | xargs)
+			type=$(echo ${BASH_REMATCH[7]} | xargs  | tr '[:upper:]' '[:lower:]')
+			msg_=${BASH_REMATCH[8]}
+
+			if [[ -z "${BASH_REMATCH[2]}" ]]; then
+				msg="::$type file=$file,line=0::$msg_"
+			else
+				line="${BASH_REMATCH[3]}"
+				col="${BASH_REMATCH[4]}"
+				end_line="${BASH_REMATCH[5]}"
+				end_col="${BASH_REMATCH[6]}"
+				echo "::$type file=$file,line=$line,col=$col,endLine=$end_line,endColumn=$end_col::$msg_" >> $tmp_log_file
+			fi
+
+			if [[ "$type" == "warning" ]]; then
+				warn=1
+			elif [[ "$type" == "error" ]]; then
+				fail=1
+			fi
+		elif [[ "$row" =~ $regex1 ]]; then
+			file=$(echo ${BASH_REMATCH[1]} | xargs)
+			msg_="${BASH_REMATCH[6]}"
+
+			if [[ -z "${BASH_REMATCH[2]}" ]]; then
+				echo "::error file=$file,line=0::$msg_"
+			else
+				line="${BASH_REMATCH[3]}"
+				col="${BASH_REMATCH[4]}"
+				end_col="${BASH_REMATCH[5]}"
+				echo "::error file=$file,line=$line,col=$col,endColumn=$end_col::$msg_" >> $tmp_log_file
+			fi
+		fi
+	done) ; err=${PIPESTATUS[1]}
+
+	if [[ $err -ne 0 ]]; then
+		fail=1
+	fi
+
+	sort -u $tmp_log_file
 	rm $tmp_log_file
 
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "compile_devicetree"
+	_set_step_warn $warn
+	return $fail
+}
+
+compile_many_devicetrees() {
+	export step_name="compile_many_devicetrees"
+	local exceptions_file="ci/travis/dtb_build_test_exceptions"
+	local err=0
+	local dtb_file=
+	local dts_files=""
+
+	if [[ -z "$ARCHS" ]]; then
+		echo "::error ::$step_name: ARCHS list is not set."
+		return 1
+	fi
+	if [[ -z "$DTS_FILES" ]]; then
+		echo "::error ::$step_name: DTS_FILES glob rules are not set."
+		return 1
 	fi
 
-	if [[ "$warn" == "1" ]]; then
-		set_step_warn "compile_devicetree"
+	dts_files=$DTS_FILES
+	if [[ -f $exceptions_file ]]; then
+		dts_files=$(comm -13 <(sort $exceptions_file) <(echo $dts_files | tr ' ' '\n' | sort))
 	fi
+	for ARCH in $ARCHS; do
+		dts_files_=$(echo $dts_files | tr ' ' '\n' | grep ^arch/$ARCH/ | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/')
+		ARCH=$ARCH make allnoconfig
+		ARCH=$ARCH make -k -j$(nproc) $dts_files_ || err=$?
+	done
 
 	return $err
 }
 
 compile_kernel() {
+	export step_name="kernel"
 	local tmp_log_file=/dev/shm/$run_id.ci_compile_kernel.log
 	local err=0
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
@@ -434,7 +522,7 @@ compile_kernel() {
 	# does not even compile, the checkers don't run and the reason
 	# is at this step.
 
-	echo "compile kernel"
+	echo "$step_name"
 
 	echo > $tmp_log_file
 	yes n 2>/dev/null | \
@@ -464,12 +552,12 @@ compile_kernel() {
 
 			if [[ ! "$type" == "note" ]]; then
 				found=1
-				msg="::$type file=$file,line=$line,col=$col::$msg_"
+				msg="::$type file=$file,line=$line,col=$col::$step_name: $msg_"
 			fi
 
 		else
 			if [[ $found == "1" ]]; then
-				msg=${msg}%0A${row}
+				msg=${msg}$_n${row}
 			fi
 		fi
 	done) ; err=${PIPESTATUS[1]}
@@ -486,20 +574,14 @@ compile_kernel() {
 	fi
 	rm $tmp_log_file
 
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "kernel"
-	fi
-
-	if [[ "$warn" == "1" ]]; then
-		set_step_warn "kernel"
-	fi
-
 	python3.11 scripts/clang-tools/gen_compile_commands.py
 
-	return $err
+	_set_step_warn $warn
+	return $fail
 }
 
 compile_kernel_sparse() {
+	export step_name="kernel_sparse"
 	local err=0
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local fail=0
@@ -507,7 +589,7 @@ compile_kernel_sparse() {
 
 	touch_files
 
-	echo "compile kernel with sparce (C=1)"
+	echo "$step_name (C=1)"
 
 	yes n 2>/dev/null | \
 		make -j$(nproc) C=1 $EXTRA_FLAGS 2>&1 | \
@@ -537,12 +619,12 @@ compile_kernel_sparse() {
 				echo $row
 			else
 				found=1
-				msg="::$type file=$file,line=$line,col=$col::sparse: $msg_"
+				msg="::$type file=$file,line=$line,col=$col::$step_name: $msg_"
 			fi
 
 		else
 			if [[ $found == "1" ]]; then
-				msg=${msg}%0A${row}
+				msg=${msg}$_n${row}
 			else
 				echo $row
 			fi
@@ -557,17 +639,12 @@ compile_kernel_sparse() {
 		fail=1
 	fi
 
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "kernel_sparce"
-	fi
-	if [[ "$warn" == "1" ]]; then
-		set_step_warn "kernel_sparce"
-	fi
-
-	return $err
+	_set_step_warn $warn
+	return $fail
 }
 
 compile_kernel_smatch() {
+	export step_name="kernel_smatch"
 	local err=0
 	local regex='^([[:alnum:]/._-]+):([[:digit:]]+) (.*) ([[:alpha:]]+): (.*)$'
 	local fail=0
@@ -575,7 +652,7 @@ compile_kernel_smatch() {
 
 	touch_files
 
-	echo "compile kernel with smatch (C=1)"
+	echo "$step_name (C=1)"
 
 	if ! command -v smatch 2>&1 >/dev/null ; then
 		if [[ ! -f /tmp/smatch/smatch ]]; then
@@ -592,9 +669,9 @@ compile_kernel_smatch() {
 	fi
 
 	if [[ "$smatch_error" == "true" ]]; then
-		echo "::error ::smatch: Fetching or compiling smatch failed, so the step was skipped."
-		set_step_warn "kernel_smatch_get_sources"
-		return $err;
+		echo "::error ::$step_name: Fetching or compiling smatch failed, so the step was skipped."
+		_set_step_warn '1'
+		return 0;
 	fi
 
 	yes n 2>/dev/null | \
@@ -617,14 +694,14 @@ compile_kernel_smatch() {
 			fi
 
 			if [[ "$type" == "error" ]] || [[ "$type" == "warning" ]]; then
-				echo "::$type file=$file,line=$line::smatch: $msg_"
+				echo "::$type file=$file,line=$line::$step_name: $msg_"
 			else
 				echo $row
 			fi
 
 		else
 			if [[ $found == "1" ]]; then
-				msg=${msg}%0A${row}
+				msg=${msg}$_n${row}
 			else
 				echo $row
 			fi
@@ -635,28 +712,22 @@ compile_kernel_smatch() {
 		fail=1
 	fi
 
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "kernel_smatch"
-	fi
-	if [[ "$warn" == "1" ]]; then
-		set_step_warn "kernel_smatch"
-	fi
-
-	return $err
+	_set_step_warn $warn
+	return $fail
 }
 
 compile_gcc_fanalyzer () {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	export step_name="gcc_fanalyzer"
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
-	local fail=0
+	local warn=0
 
 	echo "recompile with gcc fanalyzer flag on range $base_sha..$head_sha"
 
 	if [[ ! -f "compile_commands.json" ]]; then
-		echo "::error ::gcc_fanalayzer: compile_commands.json does not exist! Was scripts/clang-tools/gen_compile_commands.py called?"
-		set_step_fail "gcc_fanalyzer_no_compile_commands"
-		return 0
+		echo "::error ::$step_name: compile_commands.json does not exist."
+		return 1
 	fi
 
 	while read file; do
@@ -668,15 +739,15 @@ compile_gcc_fanalyzer () {
 				      sed 's/^"//;s/"$//g' |
 				      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
 			if [[ -z "$compile_cmd" ]]; then
-				echo "::error file=$file,line=0::gcc_fanalayzer: Failed to get compile command from compile_commands.json"
-				fail=1
+				echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
+				warn=1
 				continue
 			fi
 
 			echo -e "\e[1m$file\e[0m"
 			compile_cmd=$(printf "$compile_cmd -fanalyzer")
 			mail=$($compile_cmd 2>&1 || (
-				echo "::error file=$file,line=0::gcc_fanalayzer: Exited with code '$?'" ; true)
+				echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
 			)
 			found=0
 			msg=
@@ -701,14 +772,14 @@ compile_gcc_fanalyzer () {
 					if [[ "$type" == "note" ]]; then
 						echo $row
 					else
-						fail=1
+						warn=1
 						found=1
 						msg="::$type file=$file,line=$line,col=$col::gcc_fanalayzer: $msg_"
 					fi
 
 				else
 					if [[ $found == "1" ]]; then
-						msg=${msg}%0A${row}
+						msg=${msg}$_n${row}
 					else
 						echo $row
 					fi
@@ -725,26 +796,23 @@ compile_gcc_fanalyzer () {
 
 	done <<< "$files"
 
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "gcc_fanalyzer"
-	fi
-
-	return
+	_set_step_warn $warn
+	return 0
 }
 
 compile_clang_analyzer () {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	export step_name="clang_analyzer"
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local fail=0
 	local warn=0
 
-	echo "recompile with clang analyzer flag on range $base_sha..$head_sha"
+	echo "$step_name on range $base_sha..$head_sha"
 
 	if [[ ! -f "compile_commands.json" ]]; then
-		echo "::error ::clang_analyzer: compile_commands.json does not exist! Was scripts/clang-tools/gen_compile_commands.py called?"
-		set_step_fail "clang_analyzer_no_compile_commands"
-		return 0
+		echo "::error ::$step_name: compile_commands.json does not exist."
+		return 1
 	fi
 
 	while read file; do
@@ -756,7 +824,7 @@ compile_clang_analyzer () {
 				      sed 's/^"//;s/"$//g' |
 				      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
 			if [[ -z "$compile_cmd" ]]; then
-				echo "::error file=$file,line=0::clang_analyzer: Failed to get compile command from compile_commands.json"
+				echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
 				fail=1
 				continue
 			fi
@@ -764,7 +832,7 @@ compile_clang_analyzer () {
 			echo -e "\e[1m$file\e[0m"
 			compile_cmd=$(printf "$compile_cmd --analyze -Xanalyzer -analyzer-output=text")
 			mail=$($compile_cmd 2>&1 || (
-				echo "::error file=$file,line=0::clang_analyzer: Exited with code '$?'" ; true)
+				echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
 			)
 			found=0
 			msg=
@@ -800,7 +868,7 @@ compile_clang_analyzer () {
 
 				else
 					if [[ $found == "1" ]]; then
-						msg=${msg}%0A${row}
+						msg=${msg}$_n${row}
 					else
 						echo $row
 					fi
@@ -817,26 +885,20 @@ compile_clang_analyzer () {
 
 	done <<< "$files"
 
-	if [[ "$warn" == "1" ]]; then
-		set_step_warn "clang_analyzer"
-	fi
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "clang_analyzer"
-	fi
-
-	return
+	_set_step_warn $warn
+	return $fail
 }
 
 assert_compiled () {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	export step_name="assert_compiled"
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local fail=0
 
-	echo "assert sources were compiled on range $base_sha..$head_sha"
+	echo "$step_name were compiled on range $base_sha..$head_sha"
 
 	if [[ ! -f "compile_commands.json" ]]; then
-		echo "::error ::assert_compiled: compile_commands.json does not exist! Was scripts/clang-tools/gen_compile_commands.py called?"
-		set_step_fail "assert_compiled_no_compile_commands"
-		return 0
+		echo "::error ::$step_name: compile_commands.json does not exist."
+		return 1
 	fi
 
 	while read file; do
@@ -847,7 +909,7 @@ assert_compiled () {
 			compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
 				      .command" compile_commands.json)
 			if [[ -z "$compile_cmd" ]]; then
-				echo "::error file=$file,line=0::assert_compiled: Was not compiled during kernel compilation, ensure defconfig enables it"
+				echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation, ensure defconfig enables it"
 				fail=1
 			fi
 			;;
@@ -855,21 +917,18 @@ assert_compiled () {
 
 	done <<< "$files"
 
-	if [[ "$fail" == "1" ]]; then
-		set_step_fail "assert_compiled"
-	fi
-
-	return 0
+	return $fail
 }
 
 apply_prerun() {
+	export step_name="apply_prerun"
 	# Run cocci and bash scripts from ci/prerun
 	# e.g. manipulate the source code depending on run conditons or target.
 	local coccis=$(ls ci/prerun/*.cocci 2>/dev/null)
 	local bashes=$(ls ci/prerun/*.sh 2>/dev/null)
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 
-	echo "apply_prerun on range $base_sha..$head_sha"
+	echo "$step_name on range $base_sha..$head_sha"
 
 	if [[ ! -z "$coccis" ]]; then
 		while read cocci; do
@@ -896,16 +955,17 @@ apply_prerun() {
 }
 
 touch_files () {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 
 	touch $files
 }
 
 auto_set_kconfig() {
-	local files=$(git diff --diff-filter=ACMR --name-only $base_sha..$head_sha)
+	export step_name="auto_set_kconfig"
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	declare -a o_files
 
-	echo "get_kconfig on range $base_sha..$head_sha"
+	echo "$step_name on range $base_sha..$head_sha"
 
 	while read file; do
 		case "$file" in
@@ -1001,3 +1061,18 @@ set_step_warn () {
 set_step_fail () {
 	echo ; echo "step_fail_$1=true" >> "$GITHUB_ENV"
 }
+
+_set_step_warn () {
+	if [[ "$1" == "1" ]]; then
+		set_step_warn "$step_name"
+	fi
+}
+
+_set_step_fail () {
+	if [[ ! -z "$step_name" ]]; then
+		set_step_fail "$step_name"
+		unset step_name
+	fi
+}
+
+trap '_set_step_fail' ERR
