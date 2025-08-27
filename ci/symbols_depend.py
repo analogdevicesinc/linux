@@ -64,7 +64,7 @@ def track_if_blocks(symbol, target_kconfig):
 
     for kconfig in get_all_parent_kconfigs(path.dirname(target_kconfig)):
         if debug:
-            print(f"{target_kconfig}: Tracking if blocks at '{kconfig}'",
+            print(f"{target_kconfig}: Tracking if blocks at '{kconfig}' for symbol '{symbol}'",
                   file=stderr)
         with open(kconfig, 'r') as f:
             lines = f.readlines()
@@ -74,7 +74,7 @@ def track_if_blocks(symbol, target_kconfig):
             line_ = line.strip()
             if line.startswith('if '):
                 stack.append(line[3:].strip())
-            elif line_ == 'endif':
+            elif line_.startswith('endif'):
                 if stack:
                     stack.pop()
             elif line_.startswith('source') and line_.endswith('Kconfig"'):
