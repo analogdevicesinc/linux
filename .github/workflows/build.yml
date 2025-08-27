@@ -113,18 +113,18 @@ jobs:
         find . -type f -name *.ko | \
           xargs -I % cp --parents % dist/modules
 
-    - name: Assert compiled
-      if: ${{ env.AUTO_FROM_RANGE == 'true' }}
-      run: |
-        source ci/build.sh
-        assert_compiled
-
     - name: Assert state
       if: ${{ failure() }}
       run: |
         source ci/build.sh
         set_step_fail "assert_state"
         echo "fatal=true" >> "$GITHUB_ENV"
+
+    - name: Assert compiled
+      if: ${{ !cancelled() && env.fatal != 'true' && env.AUTO_FROM_RANGE == 'true' }}
+      run: |
+        source ci/build.sh
+        assert_compiled
 
     - name: Sparse
       if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_SPARCE == 'true' }}
