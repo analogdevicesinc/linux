@@ -21,54 +21,72 @@ static int ad9088_jesd204_post_setup_stage2(struct jesd204_dev *jdev,
 static int ad9088_jesd204_post_setup_stage3(struct jesd204_dev *jdev,
 					    enum jesd204_state_op_reason reason);
 
-int32_t adi_ad9088_calc_nco_ftw(adi_apollo_device_t *device,
-				  u64 freq, s64 nco_shift, u32 bits,
+int32_t adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy,
+				  u64 freq, s64 nco_shift, u32 div, u32 bits,
 				  u64 *ftw, u64 *frac_a, u64 *frac_b)
 {
 	bool neg = false;
 	int ret;
+	u64 f_clamp = freq;
 
-	pr_debug("adi_ad9088_calc_nco_ftw: freq=%llu, nco_shift=%lld, bits=%u\n",
-		freq, nco_shift, bits);
-
-	if (!freq || !bits || (bits > 64) || !ftw || !frac_a || !frac_b)
+	if (!freq || !bits || (bits > 48) || !ftw || !frac_a || !frac_b || !div)
 		return -EINVAL;
 
-	nco_shift = clamp_t(int64_t, nco_shift, -(freq >> 1), freq >> 1);
+	do_div(f_clamp, div);
+
+	dev_dbg(&phy->spi->dev, "adi_ad9088_calc_nco_ftw: freq=%llu, nco_shift=%lld, bits=%u\n",
+		f_clamp, nco_shift, bits);
+
+	nco_shift = clamp_t(int64_t, nco_shift, -(f_clamp >> 1), f_clamp >> 1);
 
 	if (nco_shift < 0) {
 		nco_shift = -nco_shift;
 		neg = true;
 	}
 
-	ret = adi_api_utils_ratio_decomposition(nco_shift, freq, bits, ftw, frac_a, frac_b);
+	ret = adi_api_utils_ratio_decomposition(nco_shift * div, freq, bits, ftw, frac_a, frac_b);
 	if (ret) {
-		pr_err("Error in ratio decomposition: %d\n", ret);
+		dev_err(&phy->spi->dev, "Error in ratio decomposition: (%d)\n", ret);
 		return ret;
 	}
-	/* frac_a and fact_b are 24-bit registers */
-	while (*frac_a >= (1 << 24) || *frac_b >= (1 << 24)) {
-		*frac_a >>= 1;
-		*frac_b >>= 1;
+
+	if ((bits == 32) && !phy->cnco_dual_modulus_mode_en) {
+		*frac_a = 0;
+		*frac_b = 1;
+	} else if ((bits == 48) && !phy->fnco_dual_modulus_mode_en) {
+		*frac_a = 0;
+		*frac_b = 1;
+	} else if ((bits == 48) && phy->fnco_dual_modulus_mode_en) {
+		/* frac_a and fact_b are 24-bit registers */
+		while (*frac_a >= (1 << 24) || *frac_b >= (1 << 24)) {
+			*frac_a >>= 1;
+			*frac_b >>= 1;
+		};
 	};
 
 	if (neg)
 		*ftw = (1ULL << bits) - *ftw;
 
+	dev_dbg(&phy->spi->dev, "adi_ad9088_calc_nco_ftw: ftw=%llx, frac_a=%llu, frac_b=%llu\n",
+		*ftw, *frac_a, *frac_b);
+
 	return API_CMS_ERROR_OK;
 }
 
-int32_t adi_ad9088_calc_nco_freq(adi_apollo_device_t *device,
+int32_t adi_ad9088_calc_nco_freq(struct ad9088_phy *phy,
 				 u64 freq, u64 ftw, u32 a, u32 b,
 				 u32 bits, s64 *nco_shift)
 {
 	u64 hi, lo, mod;
 	bool neg = false;
 
-	pr_debug("adi_ad9088_calc_nco_freq: freq=%llu, ftw=%llu, a=%u, b=%u, bits=%u\n",
+	dev_dbg(&phy->spi->dev, "adi_ad9088_calc_nco_freq: freq=%llu, ftw=%llu, a=%u, b=%u, bits=%u\n",
 		freq, ftw, a, b, bits);
 
-	if (!freq || !bits || (bits > 64) || (a > b) || !b)
+	if (!b)
+		b = 1;
+
+	if (!freq || !bits || (bits > 48) || (a > b))
 		return -EINVAL;
 
 	mod = (1ULL << bits);
@@ -783,12 +801,12 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 	case CDDC_NCO_FREQ:
 		if (chan->output) {
 			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
-			ret = adi_ad9088_calc_nco_freq(&phy->ad9088, f, phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc,
+			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc,
 							phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_a,
 							phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
 		} else {
 			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
-			ret = adi_ad9088_calc_nco_freq(&phy->ad9088, f, phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc,
+			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc,
 						        phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_a,
 							phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
 		}
@@ -801,7 +819,7 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
 			do_div(f, cddc_dcm);
 
-			ret = adi_ad9088_calc_nco_freq(&phy->ad9088, f,
+			ret = adi_ad9088_calc_nco_freq(phy, f,
 						 phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc,
 						 phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_a,
 						 phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_b,
@@ -812,7 +830,7 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[side].rx_cddc[cddc_num].drc_ratio, &cddc_dcm);
 			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
 			do_div(f, cddc_dcm);
-			ret = adi_ad9088_calc_nco_freq(&phy->ad9088, f,
+			ret = adi_ad9088_calc_nco_freq(phy, f,
 						 phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc,
 						 phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_a,
 						 phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_b,
@@ -920,6 +938,7 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 	u8 cddc_num, fddc_num, side;
 	u32 cddc_mask, fddc_mask;
 	s32 val32, tmp;
+	u32 cddc_dcm;
 	s64 val64;
 	u64 ftw, f, frac_a, frac_b;
 	adi_apollo_terminal_e terminal;
@@ -943,7 +962,7 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
 
 
-		ret = adi_ad9088_calc_nco_ftw(&phy->ad9088, f, readin, 32, &ftw, &frac_a, &frac_b);
+		ret = adi_ad9088_calc_nco_ftw(phy, f, readin, 1, 32, &ftw, &frac_a, &frac_b);
 		if (ret)
 			return ret;
 
@@ -972,20 +991,14 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 
 		if (chan->output) {
-			u32 cddc_dcm;
-
 			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[side].tx_cduc[cddc_num].drc_ratio, &cddc_dcm);
 			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
-			do_div(f, cddc_dcm);
 		} else {
-			u32 cddc_dcm;
-
 			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[side].rx_cddc[cddc_num].drc_ratio, &cddc_dcm);
 			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
-			do_div(f, cddc_dcm);
 		}
 
-		ret = adi_ad9088_calc_nco_ftw(&phy->ad9088, f, readin, 48, &ftw, &frac_a, &frac_b);
+		ret = adi_ad9088_calc_nco_ftw(phy, f, readin, cddc_dcm, 48, &ftw, &frac_a, &frac_b);
 		if (ret)
 			return ret;
 

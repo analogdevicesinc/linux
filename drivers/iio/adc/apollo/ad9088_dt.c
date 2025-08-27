@@ -178,6 +178,9 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 		return -EINVAL;
 	}
 
+	phy->fnco_dual_modulus_mode_en = of_property_read_bool(node, "adi,fnco-dual-modulus-mode-en");
+	phy->cnco_dual_modulus_mode_en = of_property_read_bool(node, "adi,cnco-dual-modulus-mode-en");
+
 	ad9088_jesd_lane_setup(phy);
 
 	found = of_property_read_bool(node, "adi,dformat-ddc-dither-en");

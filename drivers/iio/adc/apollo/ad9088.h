@@ -275,6 +275,8 @@ struct ad9088_phy {
 	bool hsci_use_auto_linkup_mode;
 	bool hsci_disable_after_initial_configuration;
 	bool aion_background_serial_alignment_en;
+	bool fnco_dual_modulus_mode_en;
+	bool cnco_dual_modulus_mode_en;
 
 	struct iio_channel      *iio_adf4030;
 	struct iio_channel      *iio_adf4382;
@@ -298,8 +300,8 @@ extern int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_
 extern int ad9088_parse_dt(struct ad9088_phy *phy);
 extern int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel);
 extern int ad9088_ffh_probe(struct ad9088_phy *phy);
-extern int32_t adi_ad9088_calc_nco_ftw(adi_apollo_device_t *device,
-					u64 freq, s64 nco_shift, u32 bits,
+extern int32_t adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy,
+					u64 freq, s64 nco_shift, u32 div, u32 bits,
 					u64 *ftw, u64 *frac_a, u64 *frac_b);
 
 extern void ad9088_iiochan_to_fddc_cddc(struct ad9088_phy *phy, const struct iio_chan_spec *chan,
