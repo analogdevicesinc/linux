@@ -1838,7 +1838,7 @@ struct adrv9025_jesd204_priv {
 	struct adrv9025_jesd204_link link[5];
 };
 
-int adrv9025_jesd204_link_pre_setup(struct jesd204_dev *jdev,
+static int adrv9025_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 		enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
@@ -1979,7 +1979,7 @@ static int adrv9025_jesd204_link_init(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
-int adrv9025_jesd204_link_setup(struct jesd204_dev *jdev,
+static int adrv9025_jesd204_link_setup(struct jesd204_dev *jdev,
 				enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
