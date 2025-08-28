@@ -147,6 +147,7 @@ config CF_AXI_DDS_AD9172
 config CF_AXI_DDS_AD9783
 	tristate "Analog Devices AD9783 DAC"
 	depends on CF_AXI_DDS
+	select REGMAP_SPI
 	help
 	  Say yes here to build support for Analog Devices AD9783 DAC family,
 	  provides direct access via sysfs.
