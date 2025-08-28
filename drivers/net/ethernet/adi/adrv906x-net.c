@@ -658,6 +658,46 @@ static void adrv906x_eth_get_stats64(struct net_device *ndev,
 	memcpy(stats, &adrv906x_dev->rtnl_stats, sizeof(*stats));
 }
 
+static int adrv906x_vlan_rx_add_vid(struct net_device *ndev, __be16 proto, u16 vid)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
+	int ret;
+
+	if (eth_if->ethswitch.enabled) {
+		ret = adrv906x_switch_vlan_add(es, adrv906x_dev->port, vid);
+		if (ret)
+			return ret;
+
+		ret = adrv906x_switch_vlan_add_cpuport(es, vid);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int adrv906x_vlan_rx_kill_vid(struct net_device *ndev, __be16 proto, u16 vid)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
+	int ret;
+
+	if (eth_if->ethswitch.enabled) {
+		ret = adrv906x_switch_vlan_del(es, adrv906x_dev->port, vid);
+		if (ret)
+			return ret;
+
+		ret = adrv906x_switch_vlan_del_cpuport(es, vid);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static const struct net_device_ops adrv906x_eth_ops = {
 	.ndo_open		= adrv906x_eth_open,
 	.ndo_stop		= adrv906x_eth_stop,
@@ -668,6 +708,8 @@ static const struct net_device_ops adrv906x_eth_ops = {
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_get_stats64	= adrv906x_eth_get_stats64,
 	.ndo_eth_ioctl		= adrv906x_eth_ioctl,
+	.ndo_vlan_rx_add_vid	= adrv906x_vlan_rx_add_vid,
+	.ndo_vlan_rx_kill_vid	= adrv906x_vlan_rx_kill_vid,
 };
 
 static const struct of_device_id adrv906x_eth_dt_ids[] = {
@@ -944,6 +986,10 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 				    &adrv906x_eth_switch_reset_soft_post, eth_if);
 	if (ret)
 		dev_warn(dev, "failed to probe switch - falling back to non-switch mode");
+
+	if (eth_if->ethswitch.enabled)
+		for (i = 0; i < MAX_NETDEV_NUM; i++)
+			eth_if->adrv906x_dev[i]->ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 
 	mutex_lock(&eth_if->mtx);
 #if IS_ENABLED(CONFIG_MACSEC)

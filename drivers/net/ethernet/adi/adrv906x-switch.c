@@ -114,7 +114,7 @@ static struct vlan_cfg_list *adrv906x_switch_vlan_find(struct adrv906x_eth_switc
 	return NULL;
 }
 
-static int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u16 vid)
+int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 {
 	struct vlan_cfg_list *vcl;
 	u32 mask;
@@ -151,7 +151,7 @@ static int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u1
 	return 0;
 }
 
-static int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid)
+int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 {
 	struct vlan_cfg_list *vcl;
 	u32 mask;
@@ -185,6 +185,27 @@ static int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u1
 	}
 
 	return 0;
+}
+
+int adrv906x_switch_vlan_add_cpuport(struct adrv906x_eth_switch *es, u16 vid)
+{
+	struct vlan_cfg_list *vcl = adrv906x_switch_vlan_find(es, vid);
+
+	/* if host port is already configured for this vid, skip it */
+	if (vcl->port_mask >= BIT(SWITCH_CPU_PORT))
+		return 0;
+
+	return adrv906x_switch_vlan_add(es, SWITCH_CPU_PORT, vid);
+}
+
+int adrv906x_switch_vlan_del_cpuport(struct adrv906x_eth_switch *es, u16 vid)
+{
+	struct vlan_cfg_list *vcl = adrv906x_switch_vlan_find(es, vid);
+
+	/* if another port is configured for this vid, don't remove vid from host port */
+	if (vcl->port_mask > BIT(SWITCH_CPU_PORT))
+		return 0;
+	return adrv906x_switch_vlan_del(es, SWITCH_CPU_PORT, vid);
 }
 
 static int adrv906x_switch_pvid_set(struct adrv906x_eth_switch *es, u16 pvid)
@@ -353,7 +374,9 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 		}
 
 		if (!strncmp(tokens[1], "add", 3)) {
+			rtnl_lock();
 			ret = adrv906x_switch_vlan_add(es, port, vid);
+			rtnl_unlock();
 			if (ret)
 				goto free_m;
 
@@ -361,7 +384,9 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 		}
 
 		if (!strncmp(tokens[1], "del", 3)) {
+			rtnl_lock();
 			ret = adrv906x_switch_vlan_del(es, port, vid);
+			rtnl_unlock();
 			if (ret)
 				goto free_m;
 
@@ -372,7 +397,9 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 		if (ret)
 			return ret;
 
+		rtnl_lock();
 		ret = adrv906x_switch_pvid_set(es, vid);
+		rtnl_unlock();
 		if (ret)
 			goto free_m;
 

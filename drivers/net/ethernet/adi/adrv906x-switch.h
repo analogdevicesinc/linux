@@ -188,5 +188,9 @@ void adrv906x_switch_set_mae_age_time(struct adrv906x_eth_switch *es, u8 data);
 void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es);
 void adrv906x_switch_cleanup(struct adrv906x_eth_switch *es);
 void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es);
+int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u16 vid);
+int adrv906x_switch_vlan_add_cpuport(struct adrv906x_eth_switch *es, u16 vid);
+int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid);
+int adrv906x_switch_vlan_del_cpuport(struct adrv906x_eth_switch *es, u16 vid);
 
 #endif /* __ADRV906X_SWITCH_H__ */
