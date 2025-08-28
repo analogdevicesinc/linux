@@ -4,8 +4,10 @@ fi
 
 if [[ "$GITHUB_ACTIONS" == "true" ]]; then
 	export _n='%0A'
+	export _c='%2C'
 else
 	export _n=$'\n'
+	export _c=$','
 fi
 
 _fmt() {
@@ -14,6 +16,10 @@ _fmt() {
 		msg=$(printf "$msg" | sed ':a;N;$!ba;s/\n/'"$_n"'/g')
 	fi
 	printf "%s\n" "$msg"
+}
+
+_file () {
+	$(echo "$1" | sed 's/,/'"$_c"'/g')
 }
 
 check_checkpatch() {
@@ -84,9 +90,9 @@ check_checkpatch() {
 						if [[ -z $file ]]; then
 							# If no file, add to file 0 of first file on list.
 							file=$(git show --name-only --pretty=format: $commit | head -n 1)
-							echo "::$type file=$file,line=0::$step_name: $msg"
+							echo "::$type file=$(_file "$file"),line=0::$step_name: $msg"
 						else
-							echo "::$type file=$file,line=$line::$step_name: $msg"
+							echo "::$type file=$(_file "$file"),line=$line::$step_name: $msg"
 						fi
 						found=0
 						file=
@@ -161,7 +167,7 @@ check_dt_binding_check() {
 		# file name or realpath of example appears in output if it contains errors
 		if echo "$error_txt" | grep -qF -e "$file" -e "$file_ex"; then
 			fail=1
-			echo "::error file=$file,line=0::$step_name contain errors"
+			echo "::error file=$(_file "$file"),line=0::$step_name contain errors"
 		fi
 	done <<< "$files"
 
@@ -215,13 +221,12 @@ check_coccicheck() {
 				elif [[ "$row" =~ ^$file: ]]; then
 					# drivers/iio/.../adi_adrv9001_fh.c:645:67-70: duplicated argument to & or |
 					IFS=':' read -r -a list <<< "$row"
-					file_=$(echo ${list[0]} | xargs)
 					line=${list[1]}
 					msg=
 					for ((i=2; i<${#list[@]}; i++)); do
 						msg="$msg${list[$i]} "
 					done
-					echo "::$type file=$file,line=$line::$step_name: $msg"
+					echo "::$type file=$(_file "$file"),line=$line::$step_name: $msg"
 				else
 					if [[ "$row" ]]; then
 						echo $row
