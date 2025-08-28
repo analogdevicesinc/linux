@@ -3,9 +3,8 @@ FROM opensuse/leap:15.6
 ENV runner_labels=v1
 ARG runner_version=2.323.0
 ARG runner_version_sha=f1533c606d724c6f157335b1921fdff17f52ff57f22907f0b77f82862e9900f0
-ARG bashrc=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/v1/bashrc
-ARG github_api_sh=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/v1/github-api.sh
-ARG entrypoint_sh=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/v1/entrypoint.sh
+ARG bashrc=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/main/ci/bashrc
+ARG entrypoint_sh=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/main/ci/entrypoint.sh
 
 RUN zypper install -y --no-recommends \
     tar gzip curl jq libicu coreutils sha3sum
@@ -30,9 +29,7 @@ RUN chmod +x install-extra.sh ; ./install-extra.sh
 
 RUN mkdir -p /usr/local/bin
 WORKDIR /usr/local/bin
-ADD ${github_api_sh} .
 ADD ${entrypoint_sh} .
-RUN chmod +rx github-api.sh
 RUN chmod +rx entrypoint.sh
 
 RUN git config --add --system user.name "CSE CI" ; \
