@@ -35,12 +35,6 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
-
-	/*trigger_pwm: adc-pwm-trigger {
-		compatible = "pwm-trigger";
-		#trigger-source-cells = <0>;
-		pwms = <&adc_trigger 0 1000000 0>; // 1 kHz CNV pulse
-	}; */
 };
 
 &fpga_axi {
@@ -61,8 +55,8 @@
 		clock-names = "s_axi_aclk", "clkin1";
 		clock-output-names = "spi_clk";
 
-		//assigned-clocks = <&spi_clk>;
-		//assigned-clock-rates = <90000000>; // 90 MHz SCLK
+		assigned-clocks = <&spi_clk>;
+		assigned-clock-rates = <90000000>;
 	};
 	adc_trigger: pwm@0x44b00000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
@@ -91,6 +85,8 @@
         	        compatible = "adi,ltc2378";
         	        reg = <0>;
         	        spi-max-frequency = <90000000>;
+        	        // SPI mode 0 (CPOL=0, CPHA=0) - LTC2378 datasheet specifies this
+        	        // Data valid on rising edge, idle low
 
         	        clocks = <&spi_clk>;
         	        clock-names = "spi_clk";
