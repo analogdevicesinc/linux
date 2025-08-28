@@ -149,7 +149,7 @@ static int imu_v12_1_switch_compute_partition(struct amdgpu_device *adev,
 					      int compute_partition_mode)
 {
 	int ret, i, num_xcc;
-	u32 tmp = 0;
+	u32 tmp = 0, physical_xcc_mask = 0;
 
 	if (adev->psp.funcs) {
 		ret = psp_spatial_partition(&adev->psp, compute_partition_mode);
@@ -176,7 +176,14 @@ static int imu_v12_1_switch_compute_partition(struct amdgpu_device *adev,
 			return -EINVAL;
 		}
 
-		for (i = 0; i < num_xcc; i++) {
+		num_xcc = NUM_XCC(adev->gfx.xcc_mask);
+		for(i = 0; i < num_xcc; i++) {
+			if (i % num_xccs_per_xcp == 0) {
+				physical_xcc_mask =
+					adev->gfx.xcc_mask &
+					(GENMASK(GET_INST(GC, i + num_xccs_per_xcp - 1),
+						 GET_INST(GC, i)));
+			}
 			tmp = REG_SET_FIELD(tmp, GFX_IMU_PARTITION_SWITCH,
 					    PARTITION_MODE, compute_partition_mode);
 			tmp = REG_SET_FIELD(tmp, GFX_IMU_PARTITION_SWITCH,
@@ -184,9 +191,8 @@ static int imu_v12_1_switch_compute_partition(struct amdgpu_device *adev,
 			tmp = REG_SET_FIELD(tmp, GFX_IMU_PARTITION_SWITCH,
 					    VIRTUAL_XCC_ID, i % num_xccs_per_xcp);
 			tmp = REG_SET_FIELD(tmp, GFX_IMU_PARTITION_SWITCH,
-					    PHYSICAL_XCC_MASK, adev->gfx.xcc_mask);
-			WREG32_SOC15(GC, GET_INST(GC, i),
-				     regGFX_IMU_PARTITION_SWITCH, tmp);
+					    PHYSICAL_XCC_MASK, physical_xcc_mask);
+			WREG32_SOC15(GC, GET_INST(GC, i), regGFX_IMU_PARTITION_SWITCH, tmp);
 		}
 		ret = 0;
 	}
