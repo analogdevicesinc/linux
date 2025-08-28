@@ -10,6 +10,7 @@
  #include <linux/bitops.h>
  #include <linux/clk.h>
  #include <linux/delay.h>
+ #include <linux/string.h>
  #include <linux/device.h>
  #include <linux/dma-mapping.h>
  #include <linux/dmaengine.h>
@@ -57,53 +58,65 @@ struct ltc2378_adc {
         int spi_speed_hz;
         int samp_freq;
         int device_id;
-        u8 rx_buf[3]; // for 24-bit data
+        u8 rx_buf[4]; // for 32-bit data
 
         /*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
 	 */
 
-         u8 spi_rx_data[4] __aligned(IIO_DMA_MINALIGN);
-         u8 spi_tx_data[4];
+         __be32 spi_rx_word __aligned(IIO_DMA_MINALIGN);
+
 };
 
 static const struct iio_chan_spec ltc2378_chan = {
         .type = IIO_VOLTAGE,
         .indexed = 1,
+        .channel = 0,
         .info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 			      BIT(IIO_CHAN_INFO_SCALE),
-        .scan_type.sign = 'u',
-        .scan_type.storagebits = 32,
-        .scan_type.realbits = 20,
+        .scan_index = 0,
+        .scan_type = {
+                .sign = 's',  // LTC2378-20 two's complement
+                .storagebits = 32,
+                .realbits = 20,
+                .shift = 0,
+                .endianness = IIO_CPU,
+        },
 };
 
 static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
 {
-	struct spi_transfer xfer = {
-		.rx_buf = adc->rx_buf,
-		.len = 3, // LTC2378 outputs 20 bits, aligned MSB-first in a 24-bit word
-		.speed_hz = adc->info->sclk_rate,
-		.bits_per_word = 8, // Standard SPI byte-wise transfer
-	};
-	int ret;
-	u32 raw = 0;
+    int ret;
+    u32 raw;
+    s32 signed_val;
 
-	// Read 3 bytes (24 bits)
-	ret = spi_sync_transfer(adc->spi, &xfer, 1);
-	if (ret)
-		return ret;
+    struct spi_transfer xfer = {
+        .rx_buf = &adc->spi_rx_word,   // Aligned 32-bit buffer
+        .len = 1,                      // Single 32-bit word
+        .bits_per_word = 20,          // Exactly 20 clock pulses
+        .speed_hz = adc->info->sclk_rate,
+    };
 
-	// Combine bytes into 24-bit word, MSB first
-	raw = (adc->rx_buf[0] << 16) | (adc->rx_buf[1] << 8) | adc->rx_buf[2];
+    ret = spi_sync_transfer(adc->spi, &xfer, 1);
+    if (ret)
+        return ret;
 
-	// The 20-bit result is in the top 20 bits of this 24-bit word
-	*val = raw >> 4;
+    raw = be32_to_cpu(adc->spi_rx_word); // Handle byte order
+    raw >>= 12;                          // shift 20-bit value to LSB
+    raw &= 0xFFFFF;                      // Mask to keep only the 20 valid bits
 
-	return 0;
+    // Sign-extend 20-bit two's complement to 32-bit signed
+    if (raw & BIT(19))
+        signed_val = raw | 0xFFF00000;   // Fill top 12 bits with 1s
+    else
+        signed_val = raw;
+
+    *val = signed_val;
+
+    return 0;
 }
-
 
 static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
 {
@@ -168,7 +181,6 @@ static int ltc2378_read_raw(struct iio_dev *indio_dev,
         default:
                 return -EINVAL;
         }
-
 }
 
 static int ltc2378_write_raw(struct iio_dev *indio_dev,
@@ -187,24 +199,20 @@ static int ltc2378_write_raw(struct iio_dev *indio_dev,
 
 static int ltc2378_buffer(struct iio_dev *indio_dev, struct spi_message *msg)
 {
-        struct ltc2378_adc *adc = iio_priv(indio_dev);
-        struct spi_transfer *xfer = &adc->seq_xfer[0]; // only 1 channel
+    struct ltc2378_adc *adc = iio_priv(indio_dev);
+    struct spi_transfer *xfer = &adc->seq_xfer[0];
 
-        /* Clear the SPI message structure */
-        spi_message_init(msg);
+    spi_message_init(msg);
 
-        /*Setup transfer - reading 3 bytes*/
+    xfer->rx_buf = &adc->spi_rx_word;
+    xfer->len = 1;
+    xfer->bits_per_word = 20;
+    xfer->speed_hz = adc->info->sclk_rate;
+    xfer->cs_change = 0;
 
-        xfer->rx_buf = adc->rx_buf;
-        xfer->len = 3; //sends 20 bits in 24-bit frame (mSB-aligned)
-        xfer->cs_change = 0; // Release chip select after transfer
-        xfer->word_delay.value = 2; //insert a 2us delay between the words during SPI transfer
-        xfer->word_delay.unit = SPI_DELAY_UNIT_USECS;
+    spi_message_add_tail(xfer, msg);
 
-        /* Add the transfer to the message */
-        spi_message_add_tail(xfer, msg);
-
-        return 0;
+    return 0;
 }
 
 static int ltc2378_buffer_preenable(struct iio_dev *indio_dev)
@@ -221,7 +229,7 @@ static int ltc2378_buffer_preenable(struct iio_dev *indio_dev)
         ret = legacy_spi_engine_offload_load_msg(adc->spi, &msg);
         if (ret)
                 return ret;
-        
+
         legacy_spi_engine_offload_enable(adc->spi, true);
 
         return 0;
@@ -296,11 +304,9 @@ static int ltc2378_probe(struct spi_device *spi)
         
         adc =  iio_priv(indio_dev);
         adc->spi = spi;
-        printk("ltc2378 - before vref");
-        adc->vref = devm_regulator_get(&spi->dev, "vref"); // check with devicetree
+        adc->vref = devm_regulator_get(&spi->dev, "vref");
         if (IS_ERR(adc->vref))
                 return PTR_ERR(adc->vref);
-        printk("ltc2378 - before enable vref");
         ret = regulator_enable(adc->vref);
         if (ret) {
                 dev_err(&spi->dev, "Failed to enable VREF regulator");
@@ -310,29 +316,26 @@ static int ltc2378_probe(struct spi_device *spi)
         ret = devm_add_action_or_reset(&spi->dev, ltc2378_reg_disable, adc->vref);
         if (ret)
                 return ret;
-        printk("ltc2378 - before ref_clk");
-        ref_clk = devm_clk_get(&spi->dev, "spi_clk"); // check with devicetree
+        ref_clk = devm_clk_get(&spi->dev, "spi_clk");
         if (IS_ERR(ref_clk))
                 return PTR_ERR(ref_clk);
-        printk("ltc2378 - before enable ref_clk");
         ret = clk_prepare_enable(ref_clk);
         if (ret)
                 return ret;
-        
+
         ret = devm_add_action_or_reset(&spi->dev, ltc2378_clk_disable, ref_clk);
         if (ret)
                 return ret;
         
         adc->ref_clk_rate = clk_get_rate(ref_clk);
-        printk("ltc2378 - before cnv");
-        adc->cnv = devm_pwm_get(&spi->dev, "cnv"); //check with devicetree
+        adc->cnv = devm_pwm_get(&spi->dev, "cnv");
         if (IS_ERR(adc->cnv))
                 return PTR_ERR(adc->cnv);
         
         ret = devm_add_action_or_reset(&spi->dev, ltc2378_pwm_disable, adc->cnv);
         if (ret)
                 return ret;
-        
+
         adc->info = device_get_match_data(&spi->dev);
         if (!adc->info) {
                 adc->info = (struct ltc2378_chip_info *)
@@ -340,27 +343,23 @@ static int ltc2378_probe(struct spi_device *spi)
                 if (!adc->info)
                         return ret;
         }
-        printk("ltc2378 - before parse channel");
         ret = ltc2378_parse_channels(indio_dev);
         if (ret)
                 return -EINVAL;
-        
+
         indio_dev->name = adc->info->name;
         indio_dev->info = &ltc2378_iio_info;
         indio_dev->modes = INDIO_BUFFER_HARDWARE | INDIO_DIRECT_MODE;
         indio_dev->setup_ops = &ltc2378_buffer_ops;
-        printk("ltc2378 - after indio_dev set");
         ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
                                               indio_dev, "rx");
         if (ret)
                 return ret;
-        printk("ltc2378 - before set_samp_freq");
         ret = ltc2378_set_samp_freq(adc, adc->info->max_rate);
         if (ret)
                 return ret;
-        printk("ltc2378 - after set_samp_freq");
-                
-        printk("ltc2378 - before exit probe");
+
+        dev_info(&spi->dev, "ltc2378 - bits_per_word_mask: 0x%lx\n", spi->controller->bits_per_word_mask); // check if SPI supports 20 bit transfers
         
         return devm_iio_device_register(&spi->dev, indio_dev);
 }
