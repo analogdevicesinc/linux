@@ -889,10 +889,10 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 		break;
 	case CDDC_TEST_TONE_OFFSET:
 		val = phy->cnco_test_tone_offset[chan->output][side][cddc_num];
-		return ad9088_iio_val_to_str(buf, 0x3FFF, val);
+		return ad9088_iio_val_to_str(buf, chan->output ? 0x1FFF : 0x7FF, val);
 	case FDDC_TEST_TONE_OFFSET:
 		val = phy->fnco_test_tone_offset[chan->output][side][fddc_num];
-		return ad9088_iio_val_to_str(buf, 0x3FFF, val);
+		return ad9088_iio_val_to_str(buf, chan->output ? 0x7FFF : 0x1FFF, val);
 	case TRX_CONVERTER_RATE:
 		if (chan->output)
 			val = phy->profile.dac_config[side].dac_sampling_rate_Hz;
@@ -1135,7 +1135,7 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			phy->fnco_test_tone_en[chan->output][side][fddc_num] = enable;
 		break;
 	case CDDC_TEST_TONE_OFFSET:
-		ret = ad9088_iio_str_to_val(buf, 0, 0x3FFF, &readin_32);
+		ret = ad9088_iio_str_to_val(buf, 0, chan->output ? 0x1FFF : 0x7FF, &readin_32);
 		if (ret)
 			return ret;
 
@@ -1146,7 +1146,7 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 
 		break;
 	case FDDC_TEST_TONE_OFFSET:
-		ret = ad9088_iio_str_to_val(buf, 0, 0x3FFF, &readin_32);
+		ret = ad9088_iio_str_to_val(buf, 0, chan->output ? 0x7FFF : 0x1FFF, &readin_32);
 		if (ret)
 			return ret;
 
@@ -1566,8 +1566,8 @@ static const struct iio_enum ad9088_fnco_mixer_modes_enum = {
 
 static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 	IIO_ENUM("main_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
-	IIO_ENUM_AVAILABLE("main_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_fnco_mixer_modes_enum),
-	IIO_ENUM("channel_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("main_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM("channel_nco_mixer_mode", IIO_SEPARATE, &ad9088_fnco_mixer_modes_enum),
 	IIO_ENUM_AVAILABLE("channel_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_fnco_mixer_modes_enum),
 	IIO_ENUM("test_mode", IIO_SEPARATE, &ad9088_testmode_enum),
 	IIO_ENUM_AVAILABLE("test_mode", IIO_SHARED_BY_TYPE, &ad9088_testmode_enum),
@@ -1616,6 +1616,20 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.write = ad9088_ext_info_write,
 		.shared = IIO_SEPARATE,
 		.private = FDDC_NCO_PHASE,
+	},
+	{
+		.name = "main_nco_test_tone_scale",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_TEST_TONE_OFFSET,
+	},
+	{
+		.name = "channel_nco_test_tone_scale",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = FDDC_TEST_TONE_OFFSET,
 	},
 	{
 		.name = "main_tb1_6db_digital_gain_en",
@@ -1719,8 +1733,8 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 
 static struct iio_chan_spec_ext_info txdac_ext_info[] = {
 	IIO_ENUM("main_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
-	IIO_ENUM_AVAILABLE("main_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_fnco_mixer_modes_enum),
-	IIO_ENUM("channel_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("main_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM("channel_nco_mixer_mode", IIO_SEPARATE, &ad9088_fnco_mixer_modes_enum),
 	IIO_ENUM_AVAILABLE("channel_nco_mixer_mode", IIO_SHARED_BY_TYPE, &ad9088_fnco_mixer_modes_enum),
 	{
 		.name = "main_nco_frequency",
