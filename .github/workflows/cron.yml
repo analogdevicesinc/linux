@@ -37,6 +37,7 @@ jobs:
     strategy:
       matrix:
         branch:
+          - "oran-6.12-y"
           - "oran-6.12.38-y"
           - "adsp-6.12.38-y"
     with:
