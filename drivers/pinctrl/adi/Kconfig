@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+
+config PINCTRL_ADI
+	bool "ADI SoC pin control support"
+	default false
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GENERIC_PINCONF
+	select PINCTRL_ADI_ADRV906X #if (ARCH_ADRV906X)
+    help
+        Say yes here to add support for ADI SoC pincontroller support
+		This the use of general ADI related pinmux controllers
+        Once selected, the available ADI SoC's will populate
+        and the specific SoC will need to be selected
+
+config PINCTRL_ADI_ADRV906X
+    depends on PINCTRL_ADI
+	bool "ADI ADRV906X SOC pin control support"
+	default true
+    help
+        Say The ADRV906X SoC provides a pin controller that allows
+        specified I/O the ability to be optionally enable for
+        use with specific ADRV906X peripherals.
+        Input yes here to add support for ADI ADRV906X SoC pin control
