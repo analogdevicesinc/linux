@@ -985,20 +985,18 @@ touch_files () {
 
 auto_set_kconfig() {
 	export step_name="auto_set_kconfig"
-	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local c_files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha -- '**/*.c')
+	local k_blocks=$(git show --diff-filter=ACM --no-renames $base_sha..$head_sha -- '**/Kconfig' '**/Kconfig.*')
 	declare -a o_files
 
 	echo "$step_name on range $base_sha..$head_sha"
 
 	while read file; do
-		case "$file" in
-		*.c)
-			o_files+=("$(echo $file | sed 's/c$/o/')")
-			;;
-		esac
-	done <<< "$files"
+		o_files+=("$(echo $file | sed 's/c$/o/')")
+	done <<< "$c_files"
 
-	symbols=$(python3.11 ci/symbols_depend.py "${o_files[@]}")
+	local k_symbols=$(echo "$k_blocks" | awk -f ci/touched_kconfig.awk)
+	symbols=$(python3.11 ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
 	for sym in $symbols; do
 		scripts/config -e $sym
 	done
