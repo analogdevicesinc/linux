@@ -130,7 +130,7 @@ check_checkpatch() {
 
 check_dt_binding_check() {
 	export step_name="dt_binding_check"
-	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha -- 'Documentation/devicetree/bindings/**/*.yaml')
 	local fail=0
 
 	echo "$step_name on range $base_sha..$head_sha"
@@ -139,37 +139,30 @@ check_dt_binding_check() {
         source ~/venv/bin/activate
         pip3.11 install dtschema yamllint --upgrade
 
+	[[ -z "$files" ]] && return 0
 	while read file; do
-		case "$file" in
-		*.yaml)
-			local relative_yaml=${file#Documentation/devicetree/bindings/}
-			local file_ex=$(realpath ${file%.yaml}.example.dtb)
+		local relative_yaml=${file#Documentation/devicetree/bindings/}
+		local file_ex=$(realpath ${file%.yaml}.example.dtb)
 
-			if [[ "$relative_yaml" = "$file" ]]; then
-				echo "$file not a devicetree binding, skip check..."
-			else
-				echo "Testing devicetree binding $file"
+		echo "Testing devicetree binding $file"
 
-				# The dt_binding_check rule won't exit with an error
-				# for schema errors, but will exit with an error for
-				# dts example errors.
-				#
-				# All schema files must be validated before exiting,
-				# so the script should not exit on error.
-				if ! error_txt=$(make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1); then
-					fail=1
-				fi
+		# The dt_binding_check rule won't exit with an error
+		# for schema errors, but will exit with an error for
+		# dts example errors.
+		#
+		# All schema files must be validated before exiting,
+		# so the script should not exit on error.
+		if ! error_txt=$(make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1); then
+			fail=1
+		fi
 
-				echo "$error_txt"
+		echo "$error_txt"
 
-				# file name or realpath of example appears in output if it contains errors
-				if echo "$error_txt" | grep -qF -e "$file" -e "$file_ex"; then
-					fail=1
-					echo "::error file=$file,line=0::$step_name contain errors"
-				fi
-			fi
-			;;
-		esac
+		# file name or realpath of example appears in output if it contains errors
+		if echo "$error_txt" | grep -qF -e "$file" -e "$file_ex"; then
+			fail=1
+			echo "::error file=$file,line=0::$step_name contain errors"
+		fi
 	done <<< "$files"
 
 	_set_step_warn $warn
@@ -178,7 +171,7 @@ check_dt_binding_check() {
 
 check_coccicheck() {
 	export step_name="coccicheck"
-	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha -- '**/*.c')
 	local mail=
 	local warn=0
 
@@ -189,61 +182,55 @@ check_coccicheck() {
 	fi
 
 	coccis=$(ls scripts/coccinelle/**/*.cocci)
-	if [[ -z "$coccis" ]]; then
-		return 0
-	fi
-
+	[[ -z "$coccis" ]] && return 0
+	[[ -z "$files" ]] && return 0
 	while read file; do
-		case "$file" in
-		*.c)
-			echo -e "\e[1m$file\e[0m"
+		echo -e "\e[1m$file\e[0m"
 
-			while read cocci; do
+		while read cocci; do
 
-				mail=$(spatch -D report  --very-quiet --cocci-file $cocci --no-includes \
-					    --include-headers --patch . \
-					    -I arch/$ARCH/include -I arch/$ARCH/include/generated -I include \
-					    -I arch/$ARCH/include/uapi -I arch/$ARCH/include/generated/uapi \
-					    -I include/uapi -I include/generated/uapi \
-					    --include include/linux/compiler-version.h \
-					    --include include/linux/kconfig.h $file || true)
+			mail=$(spatch -D report  --very-quiet --cocci-file $cocci --no-includes \
+				    --include-headers --patch . \
+				    -I arch/$ARCH/include -I arch/$ARCH/include/generated -I include \
+				    -I arch/$ARCH/include/uapi -I arch/$ARCH/include/generated/uapi \
+				    -I include/uapi -I include/generated/uapi \
+				    --include include/linux/compiler-version.h \
+				    --include include/linux/kconfig.h $file || true)
 
-				msg=
+			msg=
 
-				while read -r row
-				do
-					# There is no standard for cocci, so this is the best we can do
-					# is match common beginnings and log the rest
-					if [[ "$row" =~ ^$file: ]]; then
-						type="warning"
-						warn=1
-					fi
+			while read -r row
+			do
+				# There is no standard for cocci, so this is the best we can do
+				# is match common beginnings and log the rest
+				if [[ "$row" =~ ^$file: ]]; then
+					type="warning"
+					warn=1
+				fi
 
-					if [[ "$row" =~ ^(warning): ]]; then
-						# warning: line 223: should nonseekable_open be a metavariable?
-						# internal cocci warning, not user fault
+				if [[ "$row" =~ ^(warning): ]]; then
+					# warning: line 223: should nonseekable_open be a metavariable?
+					# internal cocci warning, not user fault
+					echo $row
+				elif [[ "$row" =~ ^$file: ]]; then
+					# drivers/iio/.../adi_adrv9001_fh.c:645:67-70: duplicated argument to & or |
+					IFS=':' read -r -a list <<< "$row"
+					file_=$(echo ${list[0]} | xargs)
+					line=${list[1]}
+					msg=
+					for ((i=2; i<${#list[@]}; i++)); do
+						msg="$msg${list[$i]} "
+					done
+					echo "::$type file=$file,line=$line::$step_name: $msg"
+				else
+					if [[ "$row" ]]; then
 						echo $row
-					elif [[ "$row" =~ ^$file: ]]; then
-						# drivers/iio/.../adi_adrv9001_fh.c:645:67-70: duplicated argument to & or |
-						IFS=':' read -r -a list <<< "$row"
-						file_=$(echo ${list[0]} | xargs)
-						line=${list[1]}
-						msg=
-						for ((i=2; i<${#list[@]}; i++)); do
-							msg="$msg${list[$i]} "
-						done
-						echo "::$type file=$file,line=$line::$step_name: $msg"
-					else
-						if [[ "$row" ]]; then
-							echo $row
-						fi
 					fi
+				fi
 
-				done <<< "$mail"
+			done <<< "$mail"
 
-			done <<< "$coccis"
-			;;
-		esac
+		done <<< "$coccis"
 
 	done <<< "$files"
 
@@ -253,7 +240,7 @@ check_coccicheck() {
 
 check_cppcheck () {
 	export step_name="cppcheck"
-	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha -- '**/*.c')
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local fail=0
@@ -261,62 +248,59 @@ check_cppcheck () {
 
 	echo "$step_name range $base_sha..$head_sha"
 
+	[[ -z "$files" ]] && return 0
 	while read file; do
-		case "$file" in
-		*.c)
-			# --force checks all configurations, overrides cppcheck default 12 limit.
-			echo -e "\e[1m$file\e[0m"
-			mail=$(cppcheck --check-level=exhaustive -Iinclude --force $file 2>&1 || (
-				echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
-			)
-			found=0
-			msg=
+		# --force checks all configurations, overrides cppcheck default 12 limit.
+		echo -e "\e[1m$file\e[0m"
+		mail=$(cppcheck --check-level=exhaustive -Iinclude --force $file 2>&1 || (
+			echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
+		)
+		found=0
+		msg=
 
-			while read -r row
-			do
-				if [[ "$row" =~ $regex ]]; then
-					if [[ "$found" == "1" ]]; then
-						echo $msg
-						msg=
-					fi
-					found=0
+		while read -r row
+		do
+			if [[ "$row" =~ $regex ]]; then
+				if [[ "$found" == "1" ]]; then
+					echo $msg
+					msg=
+				fi
+				found=0
 
-					IFS=':' read -r -a list <<< "$row"
+				IFS=':' read -r -a list <<< "$row"
 
-					file=$(echo ${list[0]} | xargs)
-					line=${list[1]}
-					col=${list[2]}
-					type=$(echo ${list[3]} | xargs)
-					msg_=${list[4]}
+				file=$(echo ${list[0]} | xargs)
+				line=${list[1]}
+				col=${list[2]}
+				type=$(echo ${list[3]} | xargs)
+				msg_=${list[4]}
 
-					if [[ "$type" == "warning" ]]; then
-						warn=1
-					fi
-					if [[ "$type" == "error" ]]; then
-						warn=1
-					fi
-					if [[ "$type" == "error" ]] || [[ "$type" == "warning" ]]; then
-						found=1
-						msg="::$type file=$file,line=$line,col=$col::$step_name: $msg_"
-					else
-						echo $row
-					fi
-
+				if [[ "$type" == "warning" ]]; then
+					warn=1
+				fi
+				if [[ "$type" == "error" ]]; then
+					warn=1
+				fi
+				if [[ "$type" == "error" ]] || [[ "$type" == "warning" ]]; then
+					found=1
+					msg="::$type file=$file,line=$line,col=$col::$step_name: $msg_"
 				else
-					if [[ $found == "1" ]]; then
-						msg=${msg}$_n${row}
-					else
-						echo $row
-					fi
+					echo $row
 				fi
 
-			done <<< "$mail"
-
-			if [[ "$found" == "1" ]]; then
-				echo $msg
+			else
+				if [[ $found == "1" ]]; then
+					msg=${msg}$_n${row}
+				else
+					echo $row
+				fi
 			fi
-			;;
-		esac
+
+		done <<< "$mail"
+
+		if [[ "$found" == "1" ]]; then
+			echo $msg
+		fi
 
 	done <<< "$files"
 
@@ -719,7 +703,7 @@ compile_kernel_smatch() {
 compile_gcc_fanalyzer () {
 	export step_name="gcc_fanalyzer"
 	local exceptions_file="ci/travis/deadcode_exceptions"
-	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha  -- '**/*.c')
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local warn=0
@@ -734,70 +718,65 @@ compile_gcc_fanalyzer () {
 	if [[ -f $exceptions_file ]]; then
 		files=$(comm -13 <(sort $exceptions_file) <(echo $files | tr ' ' '\n' | sort))
 	fi
-
+	[[ -z "$files" ]] && return 0
 	while read file; do
-		case "$file" in
-		*.c)
-			abs_file=$(realpath .)/$file
-			compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
-				      .command" compile_commands.json |
-				      sed 's/^"//;s/"$//g' |
-				      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
-			if [[ -z "$compile_cmd" ]]; then
-				echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
-				warn=1
-				continue
-			fi
+		abs_file=$(realpath .)/$file
+		compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
+			      .command" compile_commands.json |
+			      sed 's/^"//;s/"$//g' |
+			      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
+		if [[ -z "$compile_cmd" ]]; then
+			echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
+			warn=1
+			continue
+		fi
 
-			echo -e "\e[1m$file\e[0m"
-			compile_cmd=$(printf "$compile_cmd -fanalyzer")
-			mail=$($compile_cmd 2>&1 || (
-				echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
-			)
-			found=0
-			msg=
+		echo -e "\e[1m$file\e[0m"
+		compile_cmd=$(printf "$compile_cmd -fanalyzer")
+		mail=$($compile_cmd 2>&1 || (
+			echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
+		)
+		found=0
+		msg=
 
-			while read -r row
-			do
-				if [[ "$row" =~ $regex ]]; then
-					if [[ "$found" == "1" ]]; then
-						echo $msg
-						msg=
-					fi
-
-					found=0
-					IFS=':' read -r -a list <<< "$row"
-
-					file=$(echo ${list[0]} | xargs)
-					line=${list[1]}
-					col=${list[2]}
-					type=$(echo ${list[3]} | xargs)
-					msg_=${list[4]}
-
-					if [[ "$type" == "note" ]]; then
-						echo $row
-					else
-						warn=1
-						found=1
-						msg="::$type file=$file,line=$line,col=$col::gcc_fanalayzer: $msg_"
-					fi
-
-				else
-					if [[ $found == "1" ]]; then
-						msg=${msg}$_n${row}
-					else
-						echo $row
-					fi
+		while read -r row
+		do
+			if [[ "$row" =~ $regex ]]; then
+				if [[ "$found" == "1" ]]; then
+					echo $msg
+					msg=
 				fi
 
-			done <<< "$mail"
+				found=0
+				IFS=':' read -r -a list <<< "$row"
 
-			if [[ "$found" == "1" ]]; then
-				echo $msg
+				file=$(echo ${list[0]} | xargs)
+				line=${list[1]}
+				col=${list[2]}
+				type=$(echo ${list[3]} | xargs)
+				msg_=${list[4]}
+
+				if [[ "$type" == "note" ]]; then
+					echo $row
+				else
+					warn=1
+					found=1
+					msg="::$type file=$file,line=$line,col=$col::gcc_fanalayzer: $msg_"
+				fi
+
+			else
+				if [[ $found == "1" ]]; then
+					msg=${msg}$_n${row}
+				else
+					echo $row
+				fi
 			fi
 
-			;;
-		esac
+		done <<< "$mail"
+
+		if [[ "$found" == "1" ]]; then
+			echo $msg
+		fi
 
 	done <<< "$files"
 
@@ -807,7 +786,7 @@ compile_gcc_fanalyzer () {
 
 compile_clang_analyzer () {
 	export step_name="clang_analyzer"
-	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha -- '**/*.c')
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local mail=
 	local fail=0
@@ -819,74 +798,69 @@ compile_clang_analyzer () {
 		echo "::error ::$step_name: compile_commands.json does not exist."
 		return 1
 	fi
-
+	[[ -z "$files" ]] && return 0
 	while read file; do
-		case "$file" in
-		*.c)
-			abs_file=$(realpath .)/$file
-			compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
-				      .command" compile_commands.json |
-				      sed 's/^"//;s/"$//g' |
-				      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
-			if [[ -z "$compile_cmd" ]]; then
-				echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
-				fail=1
-				continue
-			fi
+		abs_file=$(realpath .)/$file
+		compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
+			      .command" compile_commands.json |
+			      sed 's/^"//;s/"$//g' |
+			      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
+		if [[ -z "$compile_cmd" ]]; then
+			echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
+			fail=1
+			continue
+		fi
 
-			echo -e "\e[1m$file\e[0m"
-			compile_cmd=$(printf "$compile_cmd --analyze -Xanalyzer -analyzer-output=text")
-			mail=$($compile_cmd 2>&1 || (
-				echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
-			)
-			found=0
-			msg=
+		echo -e "\e[1m$file\e[0m"
+		compile_cmd=$(printf "$compile_cmd --analyze -Xanalyzer -analyzer-output=text")
+		mail=$($compile_cmd 2>&1 || (
+			echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
+		)
+		found=0
+		msg=
 
-			while read -r row
-			do
-				if [[ "$row" =~ $regex ]]; then
-					if [[ "$found" == "1" ]]; then
-						echo $msg
-						msg=
-					fi
-
-					found=0
-					IFS=':' read -r -a list <<< "$row"
-
-					file=$(echo ${list[0]} | xargs)
-					line=${list[1]}
-					col=${list[2]}
-					type=$(echo ${list[3]} | xargs)
-					msg_=${list[4]}
-
-					if [[ "$type" == "note" ]]; then
-						echo $row
-					else
-						if [[ "$type" == "error" ]]; then
-							fail=1
-						else
-							warn=1
-						fi
-						found=1
-						msg="::$type file=$file,line=$line,col=$col::clang_analyzer: $msg_"
-					fi
-
-				else
-					if [[ $found == "1" ]]; then
-						msg=${msg}$_n${row}
-					else
-						echo $row
-					fi
+		while read -r row
+		do
+			if [[ "$row" =~ $regex ]]; then
+				if [[ "$found" == "1" ]]; then
+					echo $msg
+					msg=
 				fi
 
-			done <<< "$mail"
+				found=0
+				IFS=':' read -r -a list <<< "$row"
+
+				file=$(echo ${list[0]} | xargs)
+				line=${list[1]}
+				col=${list[2]}
+				type=$(echo ${list[3]} | xargs)
+				msg_=${list[4]}
+
+				if [[ "$type" == "note" ]]; then
+					echo $row
+				else
+					if [[ "$type" == "error" ]]; then
+						fail=1
+					else
+						warn=1
+					fi
+					found=1
+					msg="::$type file=$file,line=$line,col=$col::clang_analyzer: $msg_"
+				fi
+
+			else
+				if [[ $found == "1" ]]; then
+					msg=${msg}$_n${row}
+				else
+					echo $row
+				fi
+			fi
+
+		done <<< "$mail"
 
 			if [[ "$found" == "1" ]]; then
 				echo $msg
 			fi
-
-			;;
-		esac
 
 	done <<< "$files"
 
@@ -897,7 +871,7 @@ compile_clang_analyzer () {
 assert_compiled () {
 	export step_name="assert_compiled"
 	local exceptions_file="ci/travis/deadcode_exceptions"
-	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha -- '**/*.c')
 	local fail=0
 	local error="
 	 At least one file was not compiled during kernel compilation
@@ -919,20 +893,16 @@ assert_compiled () {
 	if [[ -f $exceptions_file ]]; then
 		files=$(comm -13 <(sort $exceptions_file) <(echo $files | tr ' ' '\n' | sort))
 	fi
-
+	[[ -z "$files" ]] && return 0
 	while read file; do
-		case "$file" in
-		*.c)
-			echo -e "\e[1m$file\e[0m"
-			abs_file=$(realpath .)/$file
-			compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
-				      .command" compile_commands.json)
-			if [[ -z "$compile_cmd" ]]; then
-				echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation."
-				fail=1
-			fi
-			;;
-		esac
+		echo -e "\e[1m$file\e[0m"
+		abs_file=$(realpath .)/$file
+		compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
+			      .command" compile_commands.json)
+		if [[ -z "$compile_cmd" ]]; then
+			echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation."
+			fail=1
+		fi
 
 	done <<< "$files"
 
@@ -949,19 +919,16 @@ apply_prerun() {
 	# e.g. manipulate the source code depending on run conditons or target.
 	local coccis=$(ls ci/prerun/*.cocci 2>/dev/null)
 	local bashes=$(ls ci/prerun/*.sh 2>/dev/null)
-	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha -- '**/*.c')
 
 	echo "$step_name on range $base_sha..$head_sha"
-
+	[[ -z "$files" ]] && return 0
 	if [[ ! -z "$coccis" ]]; then
 		while read cocci; do
 			echo "apply $cocci"
 			while read file; do
-				case "$file" in
-				*.c)
-					echo -e "\e[1m$cocci $file\e[0m"
-					spatch --sp-file $cocci --in-place $file
-				esac
+				echo -e "\e[1m$cocci $file\e[0m"
+				spatch --sp-file $cocci --in-place $file
 			done <<< "$files"
 		done <<< "$coccis"
 	fi
