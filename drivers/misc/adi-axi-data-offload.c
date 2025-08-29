@@ -7,11 +7,11 @@
  * Wiki: https://wiki.analog.com/resources/fpga/docs/data_offload
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
-#include <linux/fpga/adi-axi-common.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/list.h>

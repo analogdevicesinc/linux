@@ -16,6 +16,7 @@
  * AXI ADC and decouple it from this driver.
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
@@ -23,8 +24,6 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-
-#include <linux/fpga/adi-axi-common.h>
 
 #define ADI_REG_RSTN			0x0040
 #define ADI_RSTN			(1 << 0)
