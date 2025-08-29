@@ -103,6 +103,7 @@ struct adrv9025_debugfs_entry {
 enum adrv9025_clocks {
 	RX_SAMPL_CLK,
 	TX_SAMPL_CLK,
+	OBS_SAMPL_CLK,
 	NUM_ADRV9025_CLKS,
 };
 
@@ -135,6 +136,7 @@ struct adrv9025_rf_phy {
 
 	u32 tx_iqRate_kHz;
 	u32 rx_iqRate_kHz;
+	u32 orx_iqRate_kHz;
 
 	adi_hal_Cfg_t linux_hal;
 	struct clk *dev_clk;
