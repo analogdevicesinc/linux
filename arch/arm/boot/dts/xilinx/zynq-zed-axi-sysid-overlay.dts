@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+ 
+/ {
+	fragment@0 {
+		target-path = "/fpga-axi";
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			axi-sysid-0@45000000 {
+				compatible = "adi,axi-sysid-1.00.a";
+				reg = <0x45000000 0x10000>;
+			};
+		};
+	};
+};

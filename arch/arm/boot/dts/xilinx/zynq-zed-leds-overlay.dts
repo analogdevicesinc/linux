@@ -1,0 +1,53 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			leds: leds {
+				compatible = "gpio-leds";
+
+				ld0 {
+					label = "ld0:red";
+					gpios = <&gpio0 0x49 0x00>;
+				};
+
+				ld1 {
+					label = "ld1:red";
+					gpios = <&gpio0 0x4a 0x00>;
+				};
+
+				ld2 {
+					label = "ld2:red";
+					gpios = <&gpio0 0x4b 0x00>;
+				};
+
+				ld3 {
+					label = "ld3:red";
+					gpios = <&gpio0 0x4c 0x00>;
+				};
+
+				ld4 {
+					label = "ld4:red";
+					gpios = <&gpio0 0x4d 0x00>;
+				};
+
+				ld5 {
+					label = "ld5:red";
+					gpios = <&gpio0 0x4e 0x00>;
+				};
+
+				ld6 {
+					label = "ld6:red";
+					gpios = <&gpio0 0x4f 0x00>;
+				};
+
+				ld7 {
+					label = "ld7:red";
+					gpios = <&gpio0 0x50 0x00>;
+				};
+			};
+		};
+	};
+};

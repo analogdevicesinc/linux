@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target-path = "/fpga-full";
+		__overlay__ {
+			firmware-name = "system_top.bit.bin";
+		};
+	};
+};
