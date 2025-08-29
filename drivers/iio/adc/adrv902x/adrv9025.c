@@ -967,6 +967,80 @@ static ssize_t adrv9025_phy_tx_write(struct iio_dev *indio_dev,
 	return ret ? ret : len;
 }
 
+static const char * const adrv9025_obs1_rx_port[] = {
+	"OFF", "ORX1_ON_ORX2_OFF", "ORX1_OFF_ORX2_ON",
+};
+
+static const char * const adrv9025_obs2_rx_port[] = {
+	"OFF", "ORX3_ON_ORX4_OFF", "ORX3_OFF_ORX4_ON",
+};
+
+static const u8 ad9371_obs_rx_port_lut[] = {
+	0x00, BIT(4), BIT(5)
+};
+
+static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan, u32 mode)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	u32 rxchan = 0, txchan = 0;
+	u32 mask = 0xFFFFFFCF;
+	u32 val = 0;
+	int ret;
+
+	ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
+					 &txchan);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	val = ad9371_obs_rx_port_lut[mode];
+	if (chan->channel > CHAN_OBS_RX1) {
+		mask = mask << 2 | 0xF;
+		val <<= 2;
+	}
+
+	rxchan = (rxchan & mask) | val;
+
+	ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan, txchan);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	return ret;
+}
+
+static int adrv9025_get_obs_rx_path(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	u32 rxchan = 0, txchan = 0;
+	int shift_right = CHAN_OBS_RX1;
+	int ret;
+
+	ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
+					 &txchan);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	if (chan->channel > CHAN_OBS_RX1)
+		shift_right = CHAN_OBS_RX3;
+
+	return rxchan >> shift_right & 0x3;
+}
+
+static const struct iio_enum adrv9025_rf_obs1_rx_port_available = {
+	.items = adrv9025_obs1_rx_port,
+	.num_items = ARRAY_SIZE(adrv9025_obs1_rx_port),
+	.get = adrv9025_get_obs_rx_path,
+	.set = adrv9025_set_obs_rx_path,
+};
+
+static const struct iio_enum adrv9025_rf_obs2_rx_port_available = {
+	.items = adrv9025_obs2_rx_port,
+	.num_items = ARRAY_SIZE(adrv9025_obs2_rx_port),
+	.get = adrv9025_get_obs_rx_path,
+	.set = adrv9025_set_obs_rx_path,
+};
+
 #define _ADRV9025_EXT_TX_INFO(_name, _ident)                                   \
 	{                                                                      \
 		.name = _name, .read = adrv9025_phy_tx_read,                   \
@@ -990,7 +1064,7 @@ static const struct iio_chan_spec_ext_info adrv9025_phy_rx_ext_info[] = {
 	{},
 };
 
-static const struct iio_chan_spec_ext_info adrv9025_phy_obs_rx_ext_info[] = {
+static const struct iio_chan_spec_ext_info adrv9025_phy_obs1_rx_ext_info[] = {
 	/* Ideally we use IIO_CHAN_INFO_FREQUENCY, but there are
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
@@ -998,6 +1072,21 @@ static const struct iio_chan_spec_ext_info adrv9025_phy_obs_rx_ext_info[] = {
 	_ADRV9025_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_ADRV9025_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
 	_ADRV9025_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_DIG_DC),
+	IIO_ENUM_AVAILABLE("rf_port_select", IIO_SEPARATE, &adrv9025_rf_obs1_rx_port_available),
+	IIO_ENUM("rf_port_select", IIO_SEPARATE, &adrv9025_rf_obs1_rx_port_available),
+	{},
+};
+
+static const struct iio_chan_spec_ext_info adrv9025_phy_obs2_rx_ext_info[] = {
+	/* Ideally we use IIO_CHAN_INFO_FREQUENCY, but there are
+	 * values > 2^32 in order to support the entire frequency range
+	 * in Hz. Using scale is a bit ugly.
+	 */
+	_ADRV9025_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
+	_ADRV9025_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
+	_ADRV9025_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_DIG_DC),
+	IIO_ENUM_AVAILABLE("rf_port_select", IIO_SEPARATE, &adrv9025_rf_obs2_rx_port_available),
+	IIO_ENUM("rf_port_select", IIO_SEPARATE, &adrv9025_rf_obs2_rx_port_available),
 	{},
 };
 
@@ -1039,6 +1128,7 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 {
 	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
 	u32 rxchan = 0, txchan = 0;
+	int chan_no;
 	u16 temp;
 	int ret;
 
@@ -1056,7 +1146,15 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 		if (chan->output)
 			*val = !!(txchan & (ADI_ADRV9025_TX1 << chan->channel));
 		else
-			*val = !!(rxchan & (ADI_ADRV9025_RX1 << chan->channel));
+			if (chan->channel >= CHAN_OBS_RX1) {
+				chan_no = chan->channel;
+				if (chan_no == CHAN_OBS_RX2)
+					chan_no += 1;
+				*val = !!(rxchan & (ADI_ADRV9025_RX1 << chan_no) ||
+					  rxchan & (ADI_ADRV9025_RX1 << (chan_no + 1)));
+			} else {
+				*val = !!(rxchan & (ADI_ADRV9025_RX1 << chan->channel));
+			}
 
 		ret = IIO_VAL_INT;
 		break;
@@ -1133,6 +1231,7 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 {
 	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
 	u32 rxchan = 0, txchan = 0;
+	int chan_no;
 	u32 code;
 	int ret = 0;
 
@@ -1153,10 +1252,19 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 			else
 				txchan &= ~(ADI_ADRV9025_TX1 << chan->channel);
 		} else {
-			if (val)
-				rxchan |= (ADI_ADRV9025_RX1 << chan->channel);
-			else
-				rxchan &= ~(ADI_ADRV9025_RX1 << chan->channel);
+			chan_no = chan->channel;
+			if (chan_no == CHAN_OBS_RX2)
+				chan_no += 1;
+			if (val) {
+				rxchan |= (ADI_ADRV9025_RX1 << chan_no);
+			} else {
+				if (chan_no < CHAN_OBS_RX1) {
+					rxchan &= ~(ADI_ADRV9025_RX1 << chan_no);
+				} else {
+					rxchan &= ~(ADI_ADRV9025_RX1 << chan_no);
+					rxchan &= ~(ADI_ADRV9025_RX1 << (chan_no + 1));
+				}
+			}
 		}
 		ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan,
 						 txchan);
@@ -1331,7 +1439,7 @@ static const struct iio_chan_spec adrv9025_phy_chan[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
 				      BIT(IIO_CHAN_INFO_ENABLE),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = adrv9025_phy_obs_rx_ext_info,
+		.ext_info = adrv9025_phy_obs1_rx_ext_info,
 	},
 	{
 		/* RX Sniffer/Observation */
@@ -1341,7 +1449,7 @@ static const struct iio_chan_spec adrv9025_phy_chan[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
 				      BIT(IIO_CHAN_INFO_ENABLE),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = adrv9025_phy_obs_rx_ext_info,
+		.ext_info = adrv9025_phy_obs2_rx_ext_info,
 	},
 	{
 		.type = IIO_TEMP,
@@ -1734,6 +1842,7 @@ static int adrv9025_clk_register(struct adrv9025_rf_phy *phy, const char *name,
 		p_name[2][ADRV9025_MAX_CLK_NAME + 1];
 	const char *_parent_name[2];
 	u32 rate;
+	int ret;
 
 	/* struct adrv9025_clock assignments */
 	clk_priv->source = source;
@@ -1754,24 +1863,29 @@ static int adrv9025_clk_register(struct adrv9025_rf_phy *phy, const char *name,
 
 	switch (source) {
 	case RX_SAMPL_CLK:
-			adrv9025_RxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
-							ADI_ADRV9025_FRAMER_0,
-							&rate);
+		ret = adrv9025_RxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
+						      ADI_ADRV9025_FRAMER_0,
+						      &rate);
+		if (ret)
+			return adrv9025_dev_err(phy);
 		init.ops = &bb_clk_ops;
 		clk_priv->rate = rate;
 		break;
 	case OBS_SAMPL_CLK:
-			adrv9025_RxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
-							ADI_ADRV9025_FRAMER_1,
-							&rate);
+		ret = adrv9025_RxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
+						      ADI_ADRV9025_FRAMER_1,
+						      &rate);
+		if (ret)
+			return adrv9025_dev_err(phy);
 		init.ops = &bb_clk_ops;
 		clk_priv->rate = rate;
 		break;
 	case TX_SAMPL_CLK:
-			adrv9025_TxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
-							ADI_ADRV9025_DEFRAMER_0,
-							&rate);
-
+		ret = adrv9025_TxLinkSamplingRateFind(phy->madDevice, &phy->deviceInitStruct,
+						      ADI_ADRV9025_DEFRAMER_0,
+						      &rate);
+		if (ret)
+			return adrv9025_dev_err(phy);
 		init.ops = &bb_clk_ops;
 		clk_priv->rate = rate;
 		break;
