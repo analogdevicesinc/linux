@@ -6,10 +6,8 @@
  *  Author: Lars-Peter Clausen <lars@metafoo.de>
  */
 
-#include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/clk-provider.h>
-#include <linux/fpga/adi-axi-common.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -59,9 +57,6 @@ struct axi_clkgen {
 	void __iomem *base;
 	struct clk_hw clk_hw;
 	struct axi_clkgen_limits limits;
-	unsigned int pcore_version;
-	struct clk *parent_clocks[2];
-	struct clk *axi_clk;
 };
 
 static uint32_t axi_clkgen_lookup_filter(unsigned int m)
@@ -112,16 +107,6 @@ static uint32_t axi_clkgen_lookup_lock(unsigned int m)
 		return axi_clkgen_lock_table[m];
 	return 0x1f1f00fa;
 }
-
-#ifdef ARCH_ZYNQMP
-static unsigned int fpfd_max = 450000;
-static unsigned int fvco_min = 800000;
-static unsigned int fvco_max = 1600000;
-#else
-static unsigned int fpfd_max = 300000;
-static unsigned int fvco_min = 600000;
-static unsigned int fvco_max = 1200000;
-#endif
 
 static const struct axi_clkgen_limits axi_clkgen_zynqmp_default_limits = {
 	.fpfd_min = 10000,
@@ -253,55 +238,6 @@ static void axi_clkgen_read(struct axi_clkgen *axi_clkgen,
 	unsigned int reg, unsigned int *val)
 {
 	*val = readl(axi_clkgen->base + reg);
-}
-
-/*
- * !FIXME: This API is storing the limits in static global variables that are then
- * not used (the limits structure is) so this functions needs to be adapted properly.
- * I do not want to hide the fix in a merge commit so I'm leaving this note in here
- * so that I'll eventually stumble against it...
- */
-static void axi_clkgen_setup_ranges(struct axi_clkgen *axi_clkgen)
-{
-	unsigned int reg_value;
-	unsigned int tech, family, speed_grade, voltage;
-
-	axi_clkgen_read(axi_clkgen, ADI_AXI_REG_FPGA_INFO, &reg_value);
-	tech = ADI_AXI_INFO_FPGA_TECH(reg_value);
-	family = ADI_AXI_INFO_FPGA_FAMILY(reg_value);
-	speed_grade = ADI_AXI_INFO_FPGA_SPEED_GRADE(reg_value);
-
-	axi_clkgen_read(axi_clkgen, ADI_AXI_REG_FPGA_VOLTAGE, &reg_value);
-	voltage = ADI_AXI_INFO_FPGA_VOLTAGE(reg_value);
-
-	switch (speed_grade) {
-	case ADI_AXI_FPGA_SPEED_1 ... ADI_AXI_FPGA_SPEED_1LV:
-		fvco_max = 1200000;
-		fpfd_max = 450000;
-		break;
-	case ADI_AXI_FPGA_SPEED_2 ... ADI_AXI_FPGA_SPEED_2LV:
-		fvco_max = 1440000;
-		fpfd_max = 500000;
-		if ((family == ADI_AXI_FPGA_FAMILY_KINTEX) ||
-		    (family == ADI_AXI_FPGA_FAMILY_ARTIX)) {
-			if (voltage < 950) {
-				fvco_max = 1200000;
-				fpfd_max = 450000;
-			}
-		}
-		break;
-	case ADI_AXI_FPGA_SPEED_3:
-		fvco_max = 1600000;
-		fpfd_max = 550000;
-		break;
-	default:
-		break;
-	};
-
-	if (tech == ADI_AXI_FPGA_TECH_ULTRASCALE_PLUS) {
-		fvco_max = 1600000;
-		fvco_min = 800000;
-	}
 }
 
 static int axi_clkgen_wait_non_busy(struct axi_clkgen *axi_clkgen)
@@ -569,17 +505,11 @@ static const struct clk_ops axi_clkgen_ops = {
 	.get_parent = axi_clkgen_get_parent,
 };
 
-static void axi_clkgen_disable_clk(void *clk)
-{
-	clk_disable_unprepare(clk);
-}
-
 static int axi_clkgen_probe(struct platform_device *pdev)
 {
 	const struct axi_clkgen_limits *dflt_limits;
 	struct axi_clkgen *axi_clkgen;
 	struct clk_init_data init;
-	char clkin_name[7];
 	const char *parent_names[2];
 	const char *clk_name;
 	unsigned int i;
@@ -597,47 +527,14 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	if (IS_ERR(axi_clkgen->base))
 		return PTR_ERR(axi_clkgen->base);
 
-	axi_clkgen->axi_clk = devm_clk_get_enabled(&pdev->dev, "s_axi_aclk");
-	if (IS_ERR(axi_clkgen->axi_clk)) {
-		if (PTR_ERR(axi_clkgen->axi_clk) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "failed to get s_axi_aclk\n");
-		return PTR_ERR(axi_clkgen->axi_clk);
-	}
-
-	axi_clkgen_read(axi_clkgen, ADI_AXI_REG_VERSION,
-			&axi_clkgen->pcore_version);
-
-	if (ADI_AXI_PCORE_VER_MAJOR(axi_clkgen->pcore_version) > 0x04)
-		axi_clkgen_setup_ranges(axi_clkgen);
-
-	for (i = 0, init.num_parents = 0; i < ARRAY_SIZE(axi_clkgen->parent_clocks); i++) {
-		sprintf(clkin_name, "clkin%d", i + 1);
-		axi_clkgen->parent_clocks[i] = devm_clk_get(&pdev->dev, clkin_name);
-		if (PTR_ERR(axi_clkgen->parent_clocks[i]) == -ENOENT)
-			continue;
-		if (IS_ERR(axi_clkgen->parent_clocks[i])) {
-			ret = PTR_ERR(axi_clkgen->parent_clocks[i]);
-			return ret;
-		}
-
-		parent_names[i] = __clk_get_name(axi_clkgen->parent_clocks[i]);
-		init.num_parents++;
-	}
-
-	if (init.num_parents < 1) {
-		dev_err(&pdev->dev, "Missing input clock, see 'clkin1' and 'clkin2'\n");
+	init.num_parents = of_clk_get_parent_count(pdev->dev.of_node);
+	if (init.num_parents < 1 || init.num_parents > 2)
 		return -EINVAL;
-	}
 
 	for (i = 0; i < init.num_parents; i++) {
-		ret = clk_prepare_enable(axi_clkgen->parent_clocks[i]);
-		if (ret)
-			return ret;
-
-		ret = devm_add_action_or_reset(&pdev->dev, axi_clkgen_disable_clk,
-					       axi_clkgen->parent_clocks[i]);
-		if (ret)
-			return ret;
+		parent_names[i] = of_clk_get_parent_name(pdev->dev.of_node, i);
+		if (!parent_names[i])
+			return -EINVAL;
 	}
 
 	memcpy(&axi_clkgen->limits, dflt_limits, sizeof(axi_clkgen->limits));
