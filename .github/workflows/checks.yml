@@ -30,40 +30,40 @@ jobs:
 
     - name: Apply cocci
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         apply_prerun
 
     - name: Assert state
       if: ${{ failure() }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         set_step_fail "assert_state"
         echo "fatal=true" >> "$GITHUB_ENV"
 
     - name: License
       if: ${{ !cancelled() && env.fatal != 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         check_license
 
     - name: Check patch
       if: ${{ !cancelled() && env.fatal != 'true' }}
       run: |
-        status=0; timeout 1d bash -c "source ci/build.sh ; check_checkpatch" || status=$?
+        status=0; timeout 1d bash -c "source ./ci/build.sh ; check_checkpatch" || status=$?
         [ $status -eq 124 ] && echo "step_fail_checkpatch_timeout=true" >> "$GITHUB_ENV"
         exit $status
 
     - name: Coccicheck
       if: ${{ !cancelled() && env.fatal != 'true' }}
       run: |
-        status=0; timeout 1d bash -c "source ci/build.sh ; check_coccicheck" || status=$?
+        status=0; timeout 1d bash -c "source ./ci/build.sh ; check_coccicheck" || status=$?
         [ $status -eq 124 ] && echo "step_fail_coccicheck_timeout=true" >> "$GITHUB_ENV"
         exit $status
 
     - name: CPP Check
       if: ${{ !cancelled() && env.fatal != 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         check_cppcheck
 
     - name: Checkout and patch reference branch
@@ -118,7 +118,7 @@ jobs:
     - name: Check dt-bindings
       if: ${{ !cancelled() && env.fatal != 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         check_dt_binding_check
 
     - name: Revert patch reference branch
@@ -131,6 +131,6 @@ jobs:
       id: assert
       run: |
         echo "fatal=$fatal" >> "$GITHUB_OUTPUT"
-        source ci/runner_env.sh
+        source ./ci/runner_env.sh
         export_labels
 

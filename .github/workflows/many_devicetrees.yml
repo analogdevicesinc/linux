@@ -46,7 +46,7 @@ jobs:
 
     - name: Compile many devicetrees
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         compile_many_devicetrees
 
     - name: Prepare dist
@@ -67,5 +67,5 @@ jobs:
     - name: Assert
       id: assert
       run: |
-        source ci/runner_env.sh
+        source ./ci/runner_env.sh
         export_labels

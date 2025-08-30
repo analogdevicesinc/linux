@@ -20,13 +20,13 @@ jobs:
 
     - name: update-mirror
       run: |
-        source ci/maintenance.sh
+        source ./ci/maintenance.sh
         sync_branches "adi-6.12.0 rpi-6.12.y"
 
     - name: Export labels
       id: assert
       run: |
-        source ci/runner_env.sh
+        source ./ci/runner_env.sh
         export_labels
 
   assert:

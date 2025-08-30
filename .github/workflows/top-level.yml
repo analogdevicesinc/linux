@@ -89,7 +89,7 @@ jobs:
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
+          source ./runner_env.sh
           assert_labels
   conditional_xlnx:
     if: |
@@ -203,7 +203,7 @@ jobs:
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
+          source ./runner_env.sh
           assert_labels
   conditional_rpi:
     if: |
@@ -287,7 +287,7 @@ jobs:
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
+          source ./runner_env.sh
           assert_labels
   conditional_adsp:
     if: |
@@ -384,7 +384,7 @@ jobs:
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
+          source ./runner_env.sh
           assert_labels
   conditional_oran:
     if: |
@@ -416,5 +416,5 @@ jobs:
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
+          source ./runner_env.sh
           assert_labels
