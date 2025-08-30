@@ -82,24 +82,24 @@ jobs:
     - name: Imply driver config
       if: ${{ env.AUTO_FROM_RANGE == 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         auto_set_kconfig
 
     - name: Apply cocci/bash and save defconfig
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         apply_prerun
         make savedefconfig
 
     - name: Compile devicetrees
       if: ${{ env.AUTO_FROM_RANGE == 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         compile_devicetree
 
     - name: Compile kernel
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         compile_kernel
 
     - name: Prepare dist
@@ -116,38 +116,38 @@ jobs:
     - name: Assert state
       if: ${{ failure() }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         set_step_fail "assert_state"
         echo "fatal=true" >> "$GITHUB_ENV"
 
     - name: Assert compiled
       if: ${{ !cancelled() && env.fatal != 'true' && env.AUTO_FROM_RANGE == 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         assert_compiled
 
     - name: Sparse
       if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_SPARCE == 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         compile_kernel_sparse
 
     - name: GCC fanalyzer
       if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_GCC_FANALYZER == 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         compile_gcc_fanalyzer
 
     - name: Clang analyzer
       if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_CLANG_ANALYZER == 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         compile_clang_analyzer
 
     - name: Smatch
       if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_SMATCH == 'true' }}
       run: |
-        source ci/build.sh
+        source ./ci/build.sh
         compile_kernel_smatch
 
     - name: Store the distribution packages
@@ -161,5 +161,5 @@ jobs:
       if: ${{ !cancelled() }}
       id: assert
       run: |
-        source ci/runner_env.sh
+        source ./ci/runner_env.sh
         export_labels
