@@ -343,11 +343,20 @@ def _get_symbols_from_mk(mk, obj, l_obj):
     return _get_symbols_from_mk(mk, f"{obj}.o", l_obj_)
 
 
-def get_symbols_from_o(files):
+def get_symbols(files):
     """
     Resolve the base symbols for .o targets.
+    If it is a symbol already, just add it.
     """
+    global symbols_
+
     for f in files:
+        if f == "":
+            continue
+        if not f.endswith(".o"):
+            symbols_.add(f)
+            continue
+
         found = False
         base = path.basename(f)
         ldir = path.dirname(f)
@@ -367,14 +376,14 @@ def get_symbols_from_o(files):
 
 def main():
     """
-    Resolve dependencies of a symbol based on the .o target.
+    Resolve dependencies of a symbol based on symbols and .o target.
     usage:
 
-        symbols=$(ci/symbols_depend.py [O_FILES])
+        symbols=$(ci/symbols_depend.py [SYMBOLS] [O_FILES])
 
     """
     argv.pop(0)
-    get_symbols_from_o(set(argv))
+    get_symbols(set(argv))
     print("Symbols of touched files:", file=stderr)
     print(symbols_, file=stderr)
     generate_map()
