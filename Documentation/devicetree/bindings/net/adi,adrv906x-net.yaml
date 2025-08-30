@@ -1,0 +1,408 @@
+# SPDX-License-Identifier: GPL-2.0+
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/adi,adrv906x-net.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADRV906X Gigabit Ethernet driver
+
+maintainers:
+  - Kim Holdt <kim.holdt@analog.com>
+  - Sheng Wang <sheng.wang@analog.com>
+
+description: Bindings for ADRV906X 10G/25G Network Interface Controller Device
+
+properties:
+  compatible:
+    const: adi,adrv906x-net
+  reg:
+    maxItems: 1
+    description: EMAC_CMN_BASE
+  recovered_clk_10g:
+    description: Clock divider value for the recovered Ethernet clock that
+                 is used as a reference to support SyncE in 10 GbE operation
+    const: 22
+  recovered_clk_25g:
+    description: Clock divider value for the recovered Ethernet clock that
+                 is used as a reference to support SyncE in 25 GbE operation
+    const: 55
+  ethernet-ports:
+    type: object
+    properties:
+      '#address-cells':
+        const: 1
+      '#size-cells':
+        const: 1
+      clock-names:
+        items:
+          - const: hsdig_clk
+      clocks:
+        items:
+          - description: Clock phandle for HSDIG clock
+      macsec:
+        description: Physical base address for MACsec instance
+      interrupts:
+        description: macsecX interrupt. Do only populate macsec1 when the switch
+                     is enabled!
+      interrupt-names:
+        items:
+          - const: ts_event
+      ndma-handle:
+        maxItems: 1
+        description: phandle on NIC-DMA associated with the port
+      phy-handle:
+        maxItems: 1
+        description: phandle on PHY connected to the port
+      mac-address:
+        description: Optionally filled in by u-boot if property field is
+                     not defined and U-Boot is able to get the address
+                     from OTP or NVMEM.
+                     If the property is defined with any value including 0
+                     then it is not updated by U-Boot.
+      adi,pcb-delay-tx-ns:
+        description: PCB delay for tx channel, which is part of static PHY
+                     delay. This is the integer portion in units of ns.
+        default: 0
+        minimum: 0
+        maximum: 0xFFFF
+
+      adi,pcb-delay-tx-frac-ns:
+        description: PCB delay for tx channel, which is part of static PHY
+                     delay. This is the fractional portion in units of
+                     2^(-16)ns. For example, 1.125ns is represented by 1ns
+                     and the frac-ns = 0x2000
+        default: 0
+        minimum: 0
+        maximum: 0xFFFF
+
+      adi,pcb-delay-rx-ns:
+        description: PCB delay for rx channel, which is part of static PHY
+                     delay. This is the integer portion in units of ns.
+        default: 0
+        minimum: 0
+        maximum: 0xFFFF
+
+      adi,pcb-delay-rx-frac-ns:
+        description: PCB delay for rx channel, which is part of static PHY
+                     delay. This is the fractional portion in units of
+                     2^(-16)ns. For example, 1.125ns is represented by 1ns
+                     and the frac-ns = 0x2000.
+        default: 0
+        minimum: 0
+        maximum: 0xFFFF
+
+    patternProperties:
+      "^port@[0-9]+$":
+        type: object
+        description: ADI NIC external ports
+        properties:
+          id:
+            $ref: /schemas/types.yaml#definitions/uint32
+            description: port id for the ethernet device
+          reg:
+            maxItems: 4
+            description: The address and size of the register must be
+                         in the below list order!
+              - The physical base address and size of the XMAC registers
+              - The physical base address and size of the EMAC TX control
+                registers
+              - The physical base address and size of the EMAC RX control
+                registers
+              - The physical base address and size of the TSU control
+                registers
+          if-name:
+            description: Optional field that can be used for changing interface
+                         name registered. Must fulfill netdev naming standards.
+        additionalProperties: false
+    additionalProperties: false
+
+  ndmaX:
+    type: object
+    description: NDMA X supporting DDE DMA
+    properties:
+      id:
+        $ref: /schemas/types.yaml#definitions/uint32
+        description: NDMA device id number
+      reg:
+        maxItems: 5
+        description:
+          The physical base address(s) and size of the NDMA X's registers.
+          The 1st region is the NDMA TX register base and size.
+          The 2nd region is the DMA TX data register base and size.
+          The 3rd region is the DMA TX status register base and size.
+          The 4th region is the NDMA RX register base and size.
+          The 5th region is the DMA RX data and status register base and size.
+      reset-ctrl:
+        description:
+          control ndmaX tx & rx reset
+      interrupts:
+        items:
+          - description: dmaX tx data done interrupt
+          - description: dmaX tx data error interrupt
+          - description: dmaX tx status done interrupt
+          - description: dmaX tx status error interrupt
+          - description: dmaX rx done interrupt
+          - description: dmaX rx error interrupt
+      interrupt-names:
+        items:
+          - const: tx_data_dma_done
+          - const: tx_data_dma_error
+          - const: tx_status_dma_done
+          - const: tx_status_dma_error
+          - const: rx_dma_done
+          - const: rx_dma_error
+      interrupt-ctrl:
+        description: control register address for NDMA interrupt enable
+    additionalProperties: false
+
+  oran_if:
+    type: object
+    properties:
+      reg:
+        description: Enable O-RAN IF to forward traffic to NDMA.
+      reg-names:
+        items:
+          - const: OIF_0_RX_CTRL
+          - const: OIF_0_TX_CTRL
+          - const: OIF_1_RX_CTRL
+          - const: OIF_1_TX_CTRL
+    additionalProperties: false
+
+  mdio_if:
+    type: object
+    properties:
+      reg:
+        description: Enable MDIO bus interface binding for PHY control.
+      regnames:
+        items:
+          - const: EMAC_PCS_0_BASE
+          - const: EMAC_PCS_1_BASE
+    patternProperties:
+      "^_phy@[0-9a-f]+$":
+        type: object
+        properties:
+          reg:
+            minimum: 0
+            maximum: 3
+            description: The ID number for the PHY, globally unique.
+          speed:
+            enum: [10000, 25000]
+            default: 25000
+            description: Default PHY speed in Mbits/sec.
+          compatible:
+            const: ethernet-phy-ieee802.3-c45
+            description: PHY implements IEEE802.3 clause 45.
+        additionalProperties: false
+    additionalProperties: false
+
+  eth_recov_clk:
+    type: object
+    properties:
+      reg:
+        items:
+          description: Enable Ethernet recovered clock output.reg name
+
+      reg-names:
+        items:
+          - const: EMAC_RECOVERED_CLK_CTRL
+    additionalProperties: false
+
+  eth_switch:
+    type: object
+    description: Switch used for daisy-chain and 8t8r operational modes.
+    properties:
+      '#address-cells':
+        const: 1
+      '#size-cells':
+        const: 1
+      reg:
+        maxItems: 2
+        description: Physical base address for switch and switch matching
+                     engine.
+      interrupts:
+        items:
+          description: switchportX error interrupt
+      interrupt-names:
+        items:
+          - const: switch_error_X
+      trap-ptp-forwardable:
+        description: Enable optional trapping of PTP forwardable packets.
+        type: boolean
+      
+    patternProperties:
+      "^switch-port@[0-2]+$":
+        type: object
+        description: A child node for each physical port on the built-in switch.
+                     Must be in numerical order!
+        properties:
+          id:
+            $ref: /schemas/types.yaml#definitions/uint32
+            description: port id for the ethernet switch, 0-2
+          reg:
+            maxItems: 1
+            description: Physical base address for the specific switch port.
+        additionalProperties: false
+    additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - ndma
+  - dmas
+  - dma-names
+  - ethernet-ports
+  - mdio-handle
+  - phy-hanlde
+  - oran_if
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/gpio/gpio.h>
+
+    #define EMAC_CMN_BASE           0x2B300000
+    #define EMAC_MAC_0_BASE         0x2B330000
+    #define EMAC_MAC_0_RX           0x2B331300
+    #define EMAC_MAC_0_TX           0x2B330300
+    #define EMAC_MAC_1_BASE         0x2B340000
+    #define EMAC_MAC_1_RX           0x2B341300
+    #define EMAC_MAC_1_TX           0x2B340300
+    #define EMAC_PCS_0_BASE         0x2B310000
+    #define EMAC_PCS_0_TSU          0x2B310400
+    #define EMAC_PCS_1_BASE         0x2B320000
+    #define EMAC_PCS_1_TSU          0x2B320400
+    #define EMAC_SW_BASE            0x2B350100
+    #define EMAC_SW_MAE_BASE        0x2B350300
+    #define EMAC_SW_PORT_0_BASE     0x2B350600
+    #define EMAC_SW_PORT_1_BASE     0x2B350D00
+    #define EMAC_SW_PORT_2_BASE     0x2B351400
+    #define OIF_0_RX_CTRL           0x2b103040
+    #define OIF_0_TX_CTRL           0x2b10903c
+    #define OIF_1_RX_CTRL           0x2b104340
+    #define OIF_1_TX_CTRL           0x2b10b83c
+    #define EMAC_RECOVERED_CLK_CTRL 0x20102d00
+    #define NDMA_0_RX_BASE          0x20214000
+    #define NDMA_0_RX_DMA           0x20260000
+    #define NDMA_0_TX_BASE          0x20216000
+    #define NDMA_0_TX_DMA           0x20261000
+    #define NDMA_0_TX_STATUS_DMA    0x20264000
+
+    #define NDMA_DMA_ERR_INTR_GATED_0         210
+    #define NDMA_DMA_ERR_INTR_GATED_1         211
+    #define NDMA_DMA_DONE_INTR_GATED_0        214
+    #define NDMA_DMA_DONE_INTR_GATED_1        215
+    #define NDMA_STATUS_DMA_ERR_INTR_GATED_0  218
+    #define NDMA_STATUS_DMA_ERR_INTR_GATED_1  219
+    #define DEBUG_DDE_ERR_INTR_0              220
+    #define DEBUG_DDE_ERR_INTR_1              221
+    #define NDMA_STATUS_DMA_DONE_INTR_GATED_0 222
+    #define NDMA_STATUS_DMA_DONE_INTR_GATED_1 223
+    #define ETH_IRQ_PCS_RX_ERROR_0            787
+    #define ETH_IRQ_PCS_RX_ERROR_1            788
+
+    adrv906x_net0: adrv906x_net@EMAC_CMN_BASE_UADDR {
+      compatible = "adi,adrv906x-net";
+      reg = <EMAC_CMN_BASE 0x3004>;
+      #address-cells = <1>;
+      #size-cells = <1>;
+
+      ethernet-ports {
+        port@0 {
+          id = <0>;
+          reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>,
+                <EMAC_MAC_0_RX 0x9c>, <EMAC_PCS_0_TSU 0x44>;
+          phy-handle = <&adrv906x_phy0>;
+          mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
+                                                  by u-boot */
+          ndma-handle = <&ndma0>;
+          clocks = <&hsdigclk>;
+          clock-names = "hsdig_clk";
+          adi,pcb-delay-tx-ns = <0>;
+          adi,pcb-delay-tx-frac-ns = <0>;
+          adi,pcb-delay-rx-ns = <0>;
+          adi,pcb-delay-rx-frac-ns = <0>;
+        };
+        port@1 {
+          id = <1>;
+          reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>,
+                <EMAC_MAC_1_RX 0x9c>, <EMAC_PCS_1_TSU 0x44>;
+          phy-handle = <&adrv906x_phy1>;
+          mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
+                                                  by u-boot */
+          ndma-handle = <&ndma1>;
+          clocks = <&hsdigclk>;
+          clock-names = "hsdig_clk";
+          adi,pcb-delay-tx-ns = <0>;
+          adi,pcb-delay-tx-frac-ns = <0>;
+          adi,pcb-delay-rx-ns = <0>;
+          adi,pcb-delay-rx-frac-ns = <0>;
+        };
+      };
+
+      oran_if {
+        reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>,
+              <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
+      };
+
+      mdio_if {
+        reg = <EMAC_PCS_0_BASE 0x350>, <EMAC_PCS_1_BASE 0x350>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+         adrv906x_phy0: ethernet-phy@0 {
+           compatible = "ethernet-phy-ieee802.3-c45";
+           reg = <0>;
+           speed = <10000>;
+         };
+         adrv906x_phy1: ethernet-phy@1 {
+           compatible = "ethernet-phy-ieee802.3-c45";
+           reg = <1>;
+           speed = <10000>;
+         };
+       };
+
+      eth_recov_clk {
+        reg = <EMAC_RECOVERED_CLK_CTRL 0x4>;
+      };
+
+      eth_switch {
+        reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
+        interrupt-names = "switch_error_0", "switch_error_1";
+        interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
+        switch_port0:switch-port@0 {
+          id = <0>;
+          reg = <EMAC_SW_PORT_0_BASE 0x400>;
+        };
+        switch_port1:switch-port@1 {
+          id = <1>;
+          reg = <EMAC_SW_PORT_1_BASE 0x400>;
+        };
+        switch_port2:switch-port@2 {
+          id = <2>;
+          reg = <EMAC_SW_PORT_2_BASE 0x400>;
+        };
+      };
+    };
+
+    ndma0: ndma0@NDMA_0_TX_BASE_UADDR {
+      id = <0>;
+      reg = <NDMA_0_TX_BASE 0x100>,
+            <NDMA_0_TX_DMA 0x80>,
+            <NDMA_0_TX_STATUS_DMA 0x80>,
+            <NDMA_0_RX_BASE 0x1000>,
+            <NDMA_0_RX_DMA 0x80>;
+      reset-ctrl = <&ndma_rst>;
+      interrupts = <GIC_SPI NDMA_DMA_DONE_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_DMA_ERR_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_STATUS_DMA_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_STATUS_DMA_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_DMA_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+              <GIC_SPI NDMA_DMA_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>;
+      interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
+                        "tx_status_dma_done", "tx_status_dma_error",
+                        "rx_dma_done", "rx_dma_error";
+      interrupt-ctrl = <&ndma0_interrupt_ctrl>;
+    };
+...

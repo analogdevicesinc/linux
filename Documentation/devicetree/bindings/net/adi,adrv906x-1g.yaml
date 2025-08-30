@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/adi,adrv906x-1g.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADRV906X 1G Ethernet driver
+
+maintainers:
+  - Kim Holdt <kim.holdt@analog.com>
+  - Daniel Mateu <daniel.mateu@analog.com>
+
+description:
+  Bindings for Analog Devices ADRV906X 1G Ethernet Interface Devices
+
+properties:
+  compatible:
+    const: adi,adrv906x-dwmac
+
+  reg:
+    maxItems: 1
+    description: The register base address and range
+  base-clk-speed:
+    maxItems: 1
+    description: The default clock speed at initialization in Mhz
+                 The speed can be 50MHz, 125MHz or 250MHz
+  mac-address:
+    description: Optionally filled in by u-boot if this property is
+                 not defined and U-Boot is able to get the address
+                 from OTP or NVMEM.
+                 If the property is defined with any value including 0
+                 then it is not updated by U-Boot.
+  if-name:
+    description: Optional field that can be used for changing interface
+                 name registered. Must fulfill netdev naming standards.
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/gpio/gpio.h>
+
+    #define EMAC_1G_CLK_CTRL        0x20190000
+    #define EMAC_1G_DIV_CTRL        0x201c0050
+    #define EMAC_1G_BASE            0x20720000
+    #define EMAC_1G_SBD_INTR_PIPED  298
+    #define ADI_ADRV906X_PIN_88     (88U)
+
+    // Common base:
+    emac0: ethernet@EMAC_1G_BASE_UADDR {
+      status = "okay";
+      compatible = "adi,adrv906x-dwmac", "snps,dwmac-5.10a";
+      reg = <EMAC_1G_BASE 0x1168>;
+      interrupts = <GIC_SPI EMAC_1G_SBD_INTR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "macirq";
+      clocks = <&emac0clk>;
+      clock-names = "stmmaceth";
+      phy-mode = "rgmii";
+      snps,reset-gpio = <&gpio0 ADI_ADRV906X_PIN_88 GPIO_ACTIVE_LOW>;
+      snps,reset-delays-us = <1000 1000 1000>;
+      snps,tso;
+      pinctrl-names = "default";
+      pinctrl-0 = <&pinctrl_emac0_rgmii>;
+      mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
+                                              by u-boot */
+      #address-cells = <1>;
+      #size-cells = <1>;
+      clock_divider {
+        reg = <EMAC_1G_DIV_CTRL 0x04>;
+        ctrl_reg = <EMAC_1G_CLK_CTRL 0x08>;
+      };
+    };
+
+    /* Customization for RGMII auto-negotiation:
+    &emac0 {
+      phy-handle = <&phy0>;
+      mdio0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        compatible = "snps,dwmac-mdio";
+        phy0: ethernet-phy@0 {
+          reg = <15>;
+        };
+      };
+    };
+    */
+
+    /* Customization for RMII fixed-link speed:
+    &emac0 {
+      phy-mode = "rmii";
+      pinctrl-0 = <&pinctrl_emac0_rmii>;
+      max-speed = <100>;
+
+      fixed-link {
+        speed = <100>;
+        full-duplex;
+      };
+    };
+    */

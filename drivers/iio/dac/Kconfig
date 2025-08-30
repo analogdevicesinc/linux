@@ -475,6 +475,15 @@ config MCP4922
 	  To compile this driver as a module, choose M here: the module
 	  will be called mcp4922.
 
+config ADI_PWM_DAC
+	tristate "Analog Devices PWM DAC"
+	depends on OF
+	help
+	  Say yes here to build support for using Analog Devices PWM as a DAC.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called adi-pwm-dac.
+
 config STM32_DAC
 	tristate "STMicroelectronics STM32 DAC"
 	depends on (ARCH_STM32 && OF) || COMPILE_TEST

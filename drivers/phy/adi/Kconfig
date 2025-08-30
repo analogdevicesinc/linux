@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+#
+# PHY drivers for ADI platforms
+#
+
+config PHY_ADI_SDHCI
+	tristate "ADI SDHCI PHY driver"
+	depends on OF
+	select GENERIC_PHY
+	help
+	  Enable this to support the ADI SDHCI PHY.
