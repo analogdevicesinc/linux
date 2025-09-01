@@ -56,7 +56,7 @@
 		clock-output-names = "spi_clk";
 
 		assigned-clocks = <&spi_clk>;
-		assigned-clock-rates = <90000000>;
+		assigned-clock-rates = <180000000>;
 	};
 	adc_trigger: pwm@0x44b00000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
