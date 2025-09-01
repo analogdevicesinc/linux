@@ -1,0 +1,53 @@
+soc/arm
+	renesas/arm
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-soc-for-v6.18-tag1
+
+soc/dt
+	patch
+		Documentation/process: maintainer-soc: Use "DTS" instead of "devicetree"
+	apple/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-6.18
+	aspeed/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.18-devicetree-0
+	nuvoton/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm-6.18-devicetree-0
+	nuvoton/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-6.18-devicetree-0
+	ux500/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-nomadik tags/ux500-dts-v6.18
+	ixp4xx/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/ixp4xx-dts-v6.18
+	renesas/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v6.18-tag1
+	sti/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/pchotard/sti tags/sti-dt-for-v6.18-round1
+
+soc/drivers
+	aspeed/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.18-drivers-0
+	renesas/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v6.18-tag1
+
+soc/defconfig
+	renesas/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v6.18-tag1
+	patch
+		ARM: defconfig: pxa: Remove duplicate CONFIG_USB_GPIO_VBUS entry
+
+soc/late
+
+arm/fixes
+	<no branch> (25daf9af0ac1bf12490b723b5efaf8dcc85980bc)
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-fixes-for-6.17
+	<no branch> (50a74d0095cd23d2012133e208df45a298868870)
+		https://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-fixes-for-v6.17
+	<no branch> (75dbd4304afe574fcfc4118a5b78776a9f48fdc4)
+		https://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/optee-typo-fix-for-v6.17
+	patch
+		MAINTAINERS: Update Nobuhiro Iwamatsu's email address
+	<no branch> (37e5caa5571b5a60b0c835a0bc09ab1e53f57bfe)
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-fixes-6.17
+	patch
+		arm64: dts: axiado: Add missing UART aliases
+		MAINTAINERS: exclude defconfig from ARM64 PORT
+
