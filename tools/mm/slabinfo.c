@@ -156,7 +156,6 @@ static void usage(void)
 static unsigned long read_obj(const char *name)
 {
 	size_t len;
-
 	FILE *f = fopen(name, "r");
 
 	if (!f) {
