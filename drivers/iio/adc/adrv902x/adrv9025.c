@@ -1552,6 +1552,18 @@ static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 
 	} else if (entry->cmd) {
 		switch (entry->cmd) {
+		case DBGFS_ORX1_TO_TX:
+		case DBGFS_ORX2_TO_TX:
+		case DBGFS_ORX3_TO_TX:
+		case DBGFS_ORX4_TO_TX:
+			mutex_lock(&phy->lock);
+			ret = adi_adrv9025_TxToOrxMappingGet(phy->madDevice,
+							     ADI_ADRV9025_ORX1 << (entry->cmd - DBGFS_ORX1_TO_TX),
+							     (adi_adrv9025_TxChannels_e *)&val);
+			mutex_unlock(&phy->lock);
+			if (ret)
+				return adrv9025_dev_err(phy);
+			break;
 		case DBGFS_RX0_QEC_STATUS:
 		case DBGFS_RX1_QEC_STATUS:
 		case DBGFS_RX2_QEC_STATUS:
@@ -1666,7 +1678,23 @@ static ssize_t adrv9025_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_ORX1_TO_TX:
+	case DBGFS_ORX2_TO_TX:
+	case DBGFS_ORX3_TO_TX:
+	case DBGFS_ORX4_TO_TX:
+		if (ret != 1)
+			return -EINVAL;
 
+		mutex_lock(&phy->lock);
+		ret = adi_adrv9025_TxToOrxMappingSet(phy->madDevice,
+						     ADI_ADRV9025_ORX1 << (entry->cmd - DBGFS_ORX1_TO_TX),
+						     val);
+		mutex_unlock(&phy->lock);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		entry->val = val;
+		return count;
 	default:
 		break;
 	}
@@ -1732,6 +1760,10 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 	adrv9025_add_debugfs_entry(phy, "bist_framer_loopback",
 				   DBGFS_BIST_FRAMER_LOOPBACK);
 	adrv9025_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	adrv9025_add_debugfs_entry(phy, "orx1_to_tx_mapping", DBGFS_ORX1_TO_TX);
+	adrv9025_add_debugfs_entry(phy, "orx2_to_tx_mapping", DBGFS_ORX2_TO_TX);
+	adrv9025_add_debugfs_entry(phy, "orx3_to_tx_mapping", DBGFS_ORX3_TO_TX);
+	adrv9025_add_debugfs_entry(phy, "orx4_to_tx_mapping", DBGFS_ORX4_TO_TX);
 	adrv9025_add_debugfs_entry(phy, "rx0_qec_status", DBGFS_RX0_QEC_STATUS);
 	adrv9025_add_debugfs_entry(phy, "rx1_qec_status", DBGFS_RX1_QEC_STATUS);
 	adrv9025_add_debugfs_entry(phy, "rx2_qec_status", DBGFS_RX2_QEC_STATUS);
