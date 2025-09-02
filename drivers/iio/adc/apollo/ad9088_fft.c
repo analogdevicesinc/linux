@@ -114,6 +114,8 @@ static int ad9088_fft_sniffer_data_read(struct ad9088_fft_sniffer_state *st, adi
 	bool iq_mode;
 	int ret, i, j;
 
+	printk("capturing...\n");
+
 	ret = adi_apollo_hal_bf_get(device, BF_FFT_DONE_INFO(st->regmap_base), &fft_done, 1);
 	if (ret)
 		dev_err(st->dev, "adi_apollo_hal_bf_set failed in (%s:%d)\n", __func__, __LINE__);
@@ -304,20 +306,20 @@ static const struct iio_enum ad9088_testmode_enum = {
 };
 
 static struct iio_chan_spec_ext_info ad9088_fft_sniffer_ext_info[] = {
-	IIO_ENUM("mode", IIO_SHARED_BY_TYPE, &ad9088_testmode_enum),
-	IIO_ENUM_AVAILABLE("mode", IIO_SHARED_BY_TYPE, &ad9088_testmode_enum),
+	IIO_ENUM("mode", IIO_SHARED_BY_ALL, &ad9088_testmode_enum),
+	IIO_ENUM_AVAILABLE("mode", IIO_SHARED_BY_ALL, &ad9088_testmode_enum),
 	{
 		.name = "max_threshold",
 		.read = ad9088_fft_sniffer_ext_info_read,
 		.write = ad9088_fft_sniffer_ext_info_write,
-		.shared = IIO_SEPARATE,
+		.shared = IIO_SHARED_BY_ALL,
 		.private = 0,
 	},
 	{
 		.name = "min_threshold",
 		.read = ad9088_fft_sniffer_ext_info_read,
 		.write = ad9088_fft_sniffer_ext_info_write,
-		.shared = IIO_SHARED_BY_TYPE,
+		.shared = IIO_SHARED_BY_ALL,
 		.private = 1,
 	},
 	{},
