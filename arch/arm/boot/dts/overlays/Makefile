@@ -12,6 +12,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	ads1115.dtbo \
 	ads7846.dtbo \
 	adsd3500.dtbo \
+	adis16475.dtbo \
 	adv7282m.dtbo \
 	adv728x-m.dtbo \
 	akkordion-iqdacplus.dtbo \
