@@ -529,6 +529,10 @@ static IIO_DEVICE_ATTR(calibrate_tx_lol_ext_en, 0644,
 		       ADRV9025_INIT_CAL |
 			       (ADI_ADRV9025_TX_LO_LEAKAGE_EXTERNAL << 8));
 
+static IIO_DEVICE_ATTR(calibrate_ext_path_delay_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | (ADI_ADRV9025_EXTERNAL_PATH_DELAY << 8));
+
 static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
 		       adrv9025_phy_show,
 		       NULL,
@@ -560,6 +564,7 @@ static struct attribute *adrv9025_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
