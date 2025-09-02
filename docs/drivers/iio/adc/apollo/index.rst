@@ -200,6 +200,14 @@ GPIO
 
 A more detailed usage is provided :ref:`here <apollo gpio>`.
 
+Spectrum Sniffer
+~~~~~~~~~~~~~~~~
+
+* ``interrupt-names``: ``fft_done_A"`` and ``fft_done_B`` for the spectrum
+  sniffer interrupt signal for side a and b, respectively.
+
+A more detailed usage is provided :ref:`here <apollo fft>`.
+
 Compile the driver
 ------------------
 
@@ -855,6 +863,180 @@ enabling loopback for in_voltage0 will also enable for in_voltage1.
 If the ADC and DAC does not have the same sampling frequency, writing will
 fail with -EINVAL.
 Consult the User Guide for all configuration requirements before enabling the loopback.
+
+.. _apollo fft:
+
+Spectrum Sniffer
+^^^^^^^^^^^^^^^^
+
+The Spectrum Sniffer provides users information with fast indications of where
+the strong and weak signals are within the digitized signal bandwidth.
+
+The interrupt-names ``fft_done_A`` and ``fft_done_B`` maps the spectrum
+sniffer interrupt for side A and B, respectively. The debug attributes for the
+spectrum sniffer for each side are only probed if the respective interrupt is
+present.
+
+With the spectrum sniffer interrupts mapped, an additional iio device is probed
+and the fft properties are exposed as properties and debug properties.
+
+.. shell::
+
+   $cd /sys/bus/iio/devices/iio:device6
+   $ls
+    buffer   max_threshold  mode_available  power          uevent
+    buffer0  min_threshold  name            scan_elements  waiting_for_supplier
+    dev      mode           of_node         subsystem
+
+- ``buffer``/``buffer0``: Allocated buffer to store and read captured data.
+
+- ``max_threshold``: Maximum threshold for comparison with magnitude Output
+  from FFT Engine.
+
+  | Default: ``20``
+  | Range: ``0-255``
+
+- ``min_threshold``: Minimum threshold for comparison with magnitude Output
+  from FFT Engine.
+
+  | Default: ``0``
+  | Range: ``0-255``
+
+- ``mode``: Spectrum output mode during data capture, affects both IQ and
+  Magnitude modes.
+
+  | ``normal``: Normal mode.
+  | ``instant``: Instantaneous/Debug IQ mode.
+  | Default: ``instant``
+
+- ``mode_available``: Returns all valid spectrum output modes.
+
+.. shell::
+
+   $cd /sys/kernel/debug/iio/iio:device6
+   $ls
+    adc                   direct_reg_access  min_threshold
+    adc_sampling_rate_Hz  dither_enable      real_mode
+    alpha_factor          fft_enable_sel     run_fft_engine_background
+    bottom_fft_enable     fft_hold_sel       sort_enable
+    continuous_mode       low_power_enable   window_enable
+    delay_capture_ms      max_threshold
+
+- ``adc``: ADC to configure and use the feature.
+
+  | Default: ``ADI_APOLLO_ADC_0``
+
+- ``fft_hold_sel``: Control the Sniffer ``fft_hold`` bit by SPI operation
+  (via API function) or GPIO to hold overwriting of data to registers.
+
+  | ``0``: Select GPIO control.
+  | ``1``: Select registers control.
+  | Default: ``0``
+
+- ``fft_enable_sel``: Control the Sniffer ``fft_enable`` bit by SPI operation
+  (via API function) or GPIO to enable the FFT Engine.
+
+  | ``0``: Select GPIO control.
+  | ``1``: Select registers control.
+  | Default: ``1``
+
+- ``real_mode``: Select between real and complex FFT operation.
+
+  | ``0``: Select Complex FFT. Pair of converters used for I and Q sampling.
+  | ``1``: Select Real FFT.
+  | Default: ``0``
+
+- ``max_threshold``: Maximum threshold for comparison with magnitude Output
+  from FFT Engine. Same as the device property.
+
+  | Default: ``255``
+  | Range: ``0-255``
+
+- ``min_threshold``: Minimum threshold for comparison with magnitude Output
+  from FFT Engine.
+
+  | Default: ``0``
+  | Range: ``0-255``
+
+- ``sort_enable``: Incoming magnitude data is sorted from least to greatest
+  before it is stored. When sorting is disabled, magnitude data is left
+  unsorted and is ordered by its bin number. Sorting is only available in
+  magnitude mode.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``1``
+
+- ``continuous_mode``: In continuous mode, the sniffer continuously stores new
+  data, guaranteeing that the latest data is stored. In single mode data is
+  only stored once between the time that ``fft_hold`` is set to low, and the
+  data is obtained. Hence, the user may miss critical data during this period
+  in single mode. Continuous mode is only supported in magnitude mode.
+
+  | ``0``: Single mode.
+  | ``1``: Continuous mode.
+  | Default: ``0``
+
+- ``bottom_fft_enable``: Each sniffer instance has one top and one bottom FFT
+  engine that are 50% overlapped and compute in parallel. With this feature,
+  the top and bottom FFT engine results are averaged and assist in avoiding
+  critical time domain events
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``0``
+
+- ``window_enable``: A hard-coded frequency domain Hamming window is applied to
+  and is optimized for narrow spectral peaks to optimize the resolution
+  bandwidth. in I/Q output mode, windowing will deemphasize data towards the
+  edges of the 512-bin spectrum boundary, and thus the threshold may not be
+  reached resulting in data not being captured.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``1``
+
+- ``low_power_enable``: Low power mode disables continuous mode and exponential
+  averaging. The expected power savings for this mode is 600mW.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``1``
+
+- ``dither_enable``: Dither is added to input samples to reduce spurs across
+  the spectrum.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``1``
+
+- ``alpha_factor``: Exponential averaging is enabled by setting the
+  alpha_factor between 1 and 8 and disabled when set to 0. The alpha factor
+  sets :math:`\alpha` in the equation
+  :math:`y[n] = 2^{-\alpha}x[n]+(1-2^{-\alpha}y[n-1])`
+  and directly controls the weight of the previous sample. The average is reset
+  to zero when data is stored or if FFT computation is stopped. Exponential
+  averaging is only available in single mode and magnitude mode.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``0``
+
+- ``run_fft_engine_background``: Set to 1 for GPIO control, to skip writting
+  the ``fft_enable`` register.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``0``
+
+- ``delay_capture_ms``: Delay capture by an amount of time.
+
+  | Default: ``100``
+  | Unit: ``ms``
+
+- ``adc_sampling_rate_Hz``: Read the ADC sampling rate
+
+The acquired data is pushed to the device's IIO buffer.
 
 .. _apollo ffh:
 
