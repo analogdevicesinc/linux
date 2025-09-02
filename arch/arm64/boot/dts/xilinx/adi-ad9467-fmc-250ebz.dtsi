@@ -22,8 +22,8 @@
 		spi-max-frequency = <10000000>;
 		adi,spi-3wire-enable;
 
-		clocks = <&clk_ad9517 3>;
-		// clocks = <&ad9517_ref_clk>;
+		// clocks = <&clk_ad9517 3>;
+		clocks = <&ad9517_ref_clk>;
 		clock-names = "adc_clk";
 
 		#address-cells = <1>;
@@ -31,7 +31,6 @@
 	};
 
 	clk_ad9517: ad9517@1 {
-		// compatible = "adi,ad9517-3";
 		compatible = "adi,ad9517-4";
 		reg = <1>;
 
@@ -44,9 +43,8 @@
 		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
 		#clock-cells = <1>;
 
-		// firmware = "ad9467_intbypass_ad9517.stp";
+		firmware = "ad9467_intbypass_ad9517.stp";
 
-      // My additions
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
