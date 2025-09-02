@@ -128,10 +128,10 @@ int adrv9025_spi_write(struct spi_device *spi, unsigned int reg, unsigned int va
 	return 0;
 }
 
-int adrv9025_RxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
-				    adi_adrv9025_Init_t *adrv9025Init,
-				    adi_adrv9025_FramerSel_e framerSel,
-				    u32 *iqRate_kHz)
+static int adrv9025_RxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
+					   adi_adrv9025_Init_t *adrv9025Init,
+					   adi_adrv9025_FramerSel_e framerSel,
+					   u32 *iqRate_kHz)
 {
 	int recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 	adi_adrv9025_AdcSampleXbarSel_e conv = ADI_ADRV9025_ADC_RX1_Q;
@@ -226,10 +226,10 @@ int adrv9025_RxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
 	return recoveryAction;
 }
 
-int adrv9025_TxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
-				    adi_adrv9025_Init_t *adrv9025Init,
-				    adi_adrv9025_DeframerSel_e deframerSel,
-				    u32 *iqRate_kHz)
+static int adrv9025_TxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
+					   adi_adrv9025_Init_t *adrv9025Init,
+					   adi_adrv9025_DeframerSel_e deframerSel,
+					   u32 *iqRate_kHz)
 {
 	int recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 	u32 deframerIndex = 0;
