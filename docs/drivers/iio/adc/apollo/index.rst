@@ -704,68 +704,68 @@ The ``pfilt_config`` input must have the following format:
 
 The format for each parameter is as follows:
 
-- mode: <imode> <qmode>
+- | mode: <imode> <qmode>
 
-  - Sets the mode for the PFIR filter. The <imode> and <qmode> values should be
-    one of the predefined filter modes: ``disabled``, ``real_n4``, ``real_n2``,
-    ``undef``, ``matrix``, ``undef``, ``complex_half``, ``real_n``.
+  Sets the mode for the PFIR filter. The <imode> and <qmode> values should be
+  one of the predefined filter modes: ``disabled``, ``real_n4``, ``real_n2``,
+  ``undef``, ``matrix``, ``undef``, ``complex_half``, ``real_n``.
 
-- gain: <ix> <iy> <qx> <qy>
+- | gain: <ix> <iy> <qx> <qy>
 
-  - Sets the gain values for the PFIR filter. The <ix>, <iy>, <qx>,
-    and <qy> values should be integers representing the gain in dB.
+  Sets the gain values for the PFIR filter. The <ix>, <iy>, <qx>,
+  and <qy> values should be integers representing the gain in dB.
 
-- scalar_gain: <ix> <iy> <qx> <qy>
+- | scalar_gain: <ix> <iy> <qx> <qy>
 
-  - Sets the scalar gain values for the PFIR filter. The <ix>, <iy>,
-    <qx>, and <qy> values should be integers representing the scalar
-    gain.
+  Sets the scalar gain values for the PFIR filter. The <ix>, <iy>,
+  <qx>, and <qy> values should be integers representing the scalar
+  gain.
 
-- dest: <terminal> <pfilt_sel> <bank_sel>
+- | dest: <terminal> <pfilt_sel> <bank_sel>
 
-  - Sets the destination for the PFIR filter. The <terminal> value should be
-    either ``rx`` or ``tx``. The <pfilt_sel> value should be one of the
-    predefined filter selects: ``pfilt_a0``, ``pfilt_a1``, ``pfilt_b0``,
-    ``pfilt_b1``, ``pfilt_all``, ``pfilt_mask``. The <bank_sel> value should be
-    one of the predefined filter banks: ``bank_0``, ``bank_1``, ``bank_2``,
-    ``bank_3``, ``bank_all``, ``bank_mask``.
+  Sets the destination for the PFIR filter. The <terminal> value should be
+  either ``rx`` or ``tx``. The <pfilt_sel> value should be one of the
+  predefined filter selects: ``pfilt_a0``, ``pfilt_a1``, ``pfilt_b0``,
+  ``pfilt_b1``, ``pfilt_all``, ``pfilt_mask``. The <bank_sel> value should be
+  one of the predefined filter banks: ``bank_0``, ``bank_1``, ``bank_2``,
+  ``bank_3``, ``bank_all``, ``bank_mask``.
 
-- hc_delay: <delay>
+- | hc_delay: <delay>
 
-  - Sets the high cut delay value for the PFIR filter. The <delay>
-    value should be an unsigned 8-bit integer.
+  Sets the high cut delay value for the PFIR filter. The <delay>
+  value should be an unsigned 8-bit integer.
 
-- mode_switch_en: <value>
+- | mode_switch_en: <value>
 
-  - Sets the mode switch enable value for the PFIR filter. The <value>
-    should be either 0 or 1.
+  Sets the mode switch enable value for the PFIR filter. The <value>
+  should be either 0 or 1.
 
-- mode_switch_add_en: <value>
+- | mode_switch_add_en: <value>
 
-  - Sets the mode switch add enable value for the PFIR filter. The
-    <value> should be either 0 or 1.
+  Sets the mode switch add enable value for the PFIR filter. The
+  <value> should be either 0 or 1.
 
-- real_data_mode_en: <value>
+- | real_data_mode_en: <value>
 
-  - Sets the real data mode enable value for the PFIR filter. The
-    <value> should be either 0 or 1.
+  Sets the real data mode enable value for the PFIR filter. The
+  <value> should be either 0 or 1.
 
-- quad_mode_en: <value>
+- | quad_mode_en: <value>
 
-  - Sets the quad mode enable value for the PFIR filter. The <value>
-    should be either 0 or 1.
+  Sets the quad mode enable value for the PFIR filter. The <value>
+  should be either 0 or 1.
 
-- selection_mode: <mode>
+- | selection_mode: <mode>
 
-  - Sets the profile selection mode for the PFIR filter. The <mode> value
-    should be one of the predefined profile selection modes: ``direct_regmap``,
-    ``direct_gpio``, ``direct_gpio1``, ``trig_regmap``, ``trig_gpio``,
-    ``trig_gpio1``.
+  Sets the profile selection mode for the PFIR filter. The <mode> value
+  should be one of the predefined profile selection modes: ``direct_regmap``,
+  ``direct_gpio``, ``direct_gpio1``, ``trig_regmap``, ``trig_gpio``,
+  ``trig_gpio1``.
 
-- <sval>
+- | <sval>
 
-  - Sets the coefficient values for the PFIR filter. The <sval> value
-    should be an integer representing the coefficient value.
+  Sets the coefficient values for the PFIR filter. The <sval> value
+  should be an integer representing the coefficient value.
 
 CFIR
 ^^^^
