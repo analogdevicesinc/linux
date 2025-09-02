@@ -64,7 +64,7 @@ static int ad9088_rx_sniffer_populate_default_params(adi_apollo_sniffer_mode_e m
 	config->init.fft_hold_sel = 1;                 // 0 - gpio 1 - regmap
 	config->init.fft_enable_sel = 1;               // 0 - gpio 1 - regmap
 	config->init.real_mode = 1;                    // 1 real 0 complex
-	config->init.max_threshold = 20;                // Max threshold for max
+	config->init.max_threshold = 255;              // Max threshold for max
 	config->init.min_threshold = 0;                // Min threshold for min
 	config->init.sniffer_enable = 1;               // Enable spec sniffer
 
