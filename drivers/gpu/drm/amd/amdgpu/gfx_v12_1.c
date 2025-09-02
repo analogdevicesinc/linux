@@ -1475,6 +1475,19 @@ static void gfx_v12_1_get_tcc_info(struct amdgpu_device *adev)
 {
 }
 
+static void gfx_v12_1_xcc_xnack_set_chicken_bits(struct amdgpu_device *adev, int xcc_id)
+{
+	/* NOTE: COMPRESSION_ENABLE is used a chicken bit to enable/disable xcc xnack */
+	mutex_lock(&adev->srbm_mutex);
+	if (!adev->gmc.noretry) {
+		WREG32_FIELD15_PREREG(GC, GET_INST(GC, xcc_id),
+				      TCP_PERFCOUNTER_FILTER, COMPRESSION_ENABLE, 0x1);
+	} else
+		WREG32_FIELD15_PREREG(GC, GET_INST(GC, xcc_id),
+				      TCP_PERFCOUNTER_FILTER, COMPRESSION_ENABLE, 0x0);
+	mutex_unlock(&adev->srbm_mutex);
+}
+
 static void gfx_v12_1_xcc_constants_init(struct amdgpu_device *adev,
 					 int xcc_id)
 {
@@ -1502,6 +1515,8 @@ static void gfx_v12_1_xcc_constants_init(struct amdgpu_device *adev,
 	mutex_unlock(&adev->srbm_mutex);
 
 	gfx_v12_1_xcc_init_compute_vmid(adev, xcc_id);
+	gfx_v12_1_xcc_xnack_set_chicken_bits(adev, xcc_id);
+
 }
 
 static void gfx_v12_1_constants_init(struct amdgpu_device *adev)
