@@ -40,7 +40,7 @@ artifacts_structure() {
 		cd ../
 		cp -r ./adi_"${typeBCM_32bit[$index]}"_arm_defconfig/* ./${timestamp}/32bit
 	done
-	if [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/32bit/*.dtb 2>/dev/null)" ] || [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/32bit/overlays/*.dtbo 2>/dev/null)" ]; then
+	if [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/32bit/*.dtb 2>/dev/null)" ] || [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/32bit/overlays/*.dtb* 2>/dev/null)" ]; then
 		echo "Missing one or more required files from the 32bit artifacts."
 		exit 1
 	fi
@@ -58,7 +58,7 @@ artifacts_structure() {
 		cd ../
 		cp -r ./adi_"${typeBCM_64bit[$index]}"_arm64_defconfig/* ./${timestamp}/64bit
 	done
-	if [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/64bit/*.dtb 2>/dev/null)" ] || [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/64bit/overlays/*.dtbo 2>/dev/null)" ]; then
+	if [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/64bit/*.dtb 2>/dev/null)" ] || [ -z "$(ls  ${SOURCE_DIRECTORY}/${timestamp}/64bit/overlays/*.dtb* 2>/dev/null)" ]; then
 		echo "Missing one or more required files from the 64bit artifacts."
 		exit 1
 	fi
