@@ -233,7 +233,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	if (ret < 0)
 		return ret;
 
-	ltc->sampling_freq = freq;
+	ltc->sampling_freq = (u64)DIV_ROUND_UP(NSEC_PER_SEC, (u32)clk_gate_wf.period_length_ns);
 
 	pr_err("\nadaq2387 freq=%ld\n", freq);
 	return 0;
