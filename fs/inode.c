@@ -550,11 +550,11 @@ static void __inode_add_lru(struct inode *inode, bool rotate)
 struct wait_queue_head *inode_bit_waitqueue(struct wait_bit_queue_entry *wqe,
 					    struct inode *inode, u32 bit)
 {
-        void *bit_address;
+	void *bit_address;
 
-        bit_address = inode_state_wait_address(inode, bit);
-        init_wait_var_entry(wqe, bit_address, 0);
-        return __var_waitqueue(bit_address);
+	bit_address = inode_state_wait_address(inode, bit);
+	init_wait_var_entry(wqe, bit_address, 0);
+	return __var_waitqueue(bit_address);
 }
 EXPORT_SYMBOL(inode_bit_waitqueue);
 
@@ -1915,10 +1915,10 @@ retry:
 	lockdep_assert_not_held(&inode->i_lock);
 	VFS_BUG_ON_INODE(inode->i_state & I_CLEAR, inode);
 	/*
-        * Note this assert is technically racy as if the count is bogusly
-        * equal to one, then two CPUs racing to further drop it can both
-        * conclude it's fine.
-        */
+	 * Note this assert is technically racy as if the count is bogusly
+	 * equal to one, then two CPUs racing to further drop it can both
+	 * conclude it's fine.
+	 */
 	VFS_BUG_ON_INODE(atomic_read(&inode->i_count) < 1, inode);
 
 	if (atomic_add_unless(&inode->i_count, -1, 1))
@@ -1942,9 +1942,9 @@ retry:
 	}
 
 	/*
-        * iput_final() drops ->i_lock, we can't assert on it as the inode may
-        * be deallocated by the time the call returns.
-        */
+	 * iput_final() drops ->i_lock, we can't assert on it as the inode may
+	 * be deallocated by the time the call returns.
+	 */
 	iput_final(inode);
 }
 EXPORT_SYMBOL(iput);
