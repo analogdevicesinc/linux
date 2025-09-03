@@ -30,9 +30,9 @@ check_checkpatch() {
 
 	echo "$step_name on range $base_sha..$head_sha"
 
-	python3.11 -m venv ~/venv
+	python3.13 -m venv ~/venv
         source ~/venv/bin/activate
-        pip3.11 install ply GitPython --upgrade
+        pip3.13 install ply GitPython --upgrade
 
 	# The output is not properly captured with --git
 	for commit in $(git rev-list $base_sha..$head_sha --reverse); do
@@ -141,9 +141,9 @@ check_dt_binding_check() {
 
 	echo "$step_name on range $base_sha..$head_sha"
 
-	python3.11 -m venv ~/venv
+	python3.13 -m venv ~/venv
         source ~/venv/bin/activate
-        pip3.11 install dtschema yamllint --upgrade
+        pip3.13 install dtschema yamllint --upgrade
 
 	[[ -z "$files" ]] && return 0
 	while read file; do
@@ -563,7 +563,7 @@ compile_kernel() {
 	fi
 	rm $tmp_log_file
 
-	python3.11 scripts/clang-tools/gen_compile_commands.py
+	python3.13 scripts/clang-tools/gen_compile_commands.py
 
 	_set_step_warn $warn
 	return $fail
@@ -968,7 +968,7 @@ auto_set_kconfig() {
 	done <<< "$c_files"
 
 	local k_symbols=$(echo "$k_blocks" | awk -f ci/touched_kconfig.awk)
-	symbols=$(python3.11 ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
+	symbols=$(python3.13 ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
 	for sym in $symbols; do
 		scripts/config -e $sym
 	done
