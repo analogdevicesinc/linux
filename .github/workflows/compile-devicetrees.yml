@@ -24,10 +24,10 @@ env:
 jobs:
   build:
     timeout-minutes: 7200
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only, v2]
 
     env:
-      GCC_VERSION: 14
+      GCC_VERSION: 15
 
     outputs:
       fail: ${{ steps.assert.outputs.fail }}
