@@ -35,6 +35,23 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
+
+        one-bit-adc-dac@0 {
+                compatible = "adi,one-bit-adc-dac";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                out-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>,
+			    <&gpio0 87 GPIO_ACTIVE_HIGH>;
+
+                channel@0 {
+			reg = <0>;
+			label = "CHAIN";
+                };
+                channel@1 {
+			reg = <1>;
+			label = "DCG";
+                };
+        };
 };
 
 &fpga_axi {
