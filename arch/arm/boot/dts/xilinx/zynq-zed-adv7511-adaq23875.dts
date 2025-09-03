@@ -79,7 +79,7 @@
 		clock-names = "axi", "ext";
 	};
 
-	adaq23875@0{
+	adaq23875@0 {
 		compatible = "adaq23875";
 		clocks = <&ext_clk>;
 		dmas = <&rx_dma 0>;
