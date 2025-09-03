@@ -6355,10 +6355,54 @@ __bpf_kfunc s32 scx_bpf_task_cpu(const struct task_struct *p)
  */
 __bpf_kfunc struct rq *scx_bpf_cpu_rq(s32 cpu)
 {
+	struct scx_sched *sch = scx_root;
+
 	if (!kf_cpu_valid(cpu, NULL))
 		return NULL;
 
+	if (!sch->warned_deprecated_rq) {
+		printk_deferred(KERN_WARNING "sched_ext: %s() is deprecated; "
+				"use scx_bpf_locked_rq() when holding rq lock "
+				"or scx_bpf_cpu_curr() to read remote curr safely.\n", __func__);
+		sch->warned_deprecated_rq = true;
+	}
+
 	return cpu_rq(cpu);
+}
+
+/**
+ * scx_bpf_locked_rq - Return the rq currently locked by SCX
+ *
+ * Returns the rq if a rq lock is currently held by SCX.
+ * Otherwise emits an error and returns NULL.
+ */
+__bpf_kfunc struct rq *scx_bpf_locked_rq(void)
+{
+	struct rq *rq;
+
+	preempt_disable();
+	rq = scx_locked_rq();
+	if (!rq) {
+		preempt_enable();
+		scx_kf_error("accessing rq without holding rq lock");
+		return NULL;
+	}
+	preempt_enable();
+
+	return rq;
+}
+
+/**
+ * scx_bpf_cpu_curr - Return remote CPU's curr task
+ * @cpu: CPU of interest
+ *
+ * Callers must hold RCU read lock (KF_RCU).
+ */
+__bpf_kfunc struct task_struct *scx_bpf_cpu_curr(s32 cpu)
+{
+	if (!kf_cpu_valid(cpu, NULL))
+		return NULL;
+	return rcu_dereference(cpu_rq(cpu)->curr);
 }
 
 /**
@@ -6525,6 +6569,8 @@ BTF_ID_FLAGS(func, scx_bpf_put_cpumask, KF_RELEASE)
 BTF_ID_FLAGS(func, scx_bpf_task_running, KF_RCU)
 BTF_ID_FLAGS(func, scx_bpf_task_cpu, KF_RCU)
 BTF_ID_FLAGS(func, scx_bpf_cpu_rq)
+BTF_ID_FLAGS(func, scx_bpf_locked_rq, KF_RET_NULL)
+BTF_ID_FLAGS(func, scx_bpf_cpu_curr, KF_RET_NULL | KF_RCU)
 #ifdef CONFIG_CGROUP_SCHED
 BTF_ID_FLAGS(func, scx_bpf_task_cgroup, KF_RCU | KF_ACQUIRE)
 #endif
