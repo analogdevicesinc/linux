@@ -29,6 +29,7 @@
  #include <linux/iio/buffer-dmaengine.h>
  #include <linux/iio/iio.h>
  #include <linux/iio/sysfs.h>
+ #include <linux/io.h>
 
 struct ltc2378_chip_info {
         const char *name;
@@ -125,24 +126,50 @@ static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
         int ret;
         u32 rem;
 
+        printk(KERN_INFO "ltc2378: freq input = %d\n", freq);
+        printk(KERN_INFO "ltc2378: max_rate = %d\n", adc->info->max_rate);
         freq = clamp(freq, 1, adc->info->max_rate); // freq between 1 Hz and max_rate
+        printk(KERN_INFO "ltc2378: freq clamped = %d\n", freq);
+        
+        printk(KERN_INFO "ltc2378: ref_clk_rate = %lu\n", adc->ref_clk_rate);
         ref_clk_period_ns = DIV_ROUND_UP(NSEC_PER_SEC, adc->ref_clk_rate);
+        printk(KERN_INFO "ltc2378: ref_clk_period_ns = %llu\n", ref_clk_period_ns);
 
         pwm_get_state(adc->cnv, &cnv_state);
+        printk(KERN_INFO "ltc2378: PWM current period = %llu\n", cnv_state.period);
+        printk(KERN_INFO "ltc2378: PWM current duty_cycle = %llu\n", cnv_state.duty_cycle);
+        printk(KERN_INFO "ltc2378: PWM current enabled = %d\n", cnv_state.enabled);
 
         cnv_state.duty_cycle = ref_clk_period_ns;
         cnv_state.enabled = true;
+        printk(KERN_INFO "ltc2378: PWM new duty_cycle = %llu\n", cnv_state.duty_cycle);
 
+        printk(KERN_INFO "ltc2378: DIV_ROUND_UP(ref_clk_rate, freq) = %u\n", DIV_ROUND_UP(adc->ref_clk_rate, freq));
         cnv_state.period = div_u64_rem((u64)DIV_ROUND_UP(adc->ref_clk_rate, freq) * NSEC_PER_SEC, // compute PWM period
                                         adc->ref_clk_rate, &rem);
-        if (rem)
+        printk(KERN_INFO "ltc2378: PWM new period = %llu\n", cnv_state.period);
+        printk(KERN_INFO "ltc2378: rem = %u\n", rem);
+        
+        /* Special case for 1MHz: treat as 999999 Hz */
+        if (freq == 1000000) {
+                cnv_state.period = div_u64_rem((u64)DIV_ROUND_UP(adc->ref_clk_rate, 999999) * NSEC_PER_SEC,
+                                               adc->ref_clk_rate, &rem);
+                if (rem) {
+                        cnv_state.period += 1;
+                }
+                printk(KERN_INFO "ltc2378: 1MHz special case - calculated as 999999 Hz, period = %llu\n", cnv_state.period);
+        } else if (rem) {
                 cnv_state.period += 1;
+                printk(KERN_INFO "ltc2378: PWM period adjusted = %llu\n", cnv_state.period);
+        }
 
         ret = pwm_apply_might_sleep(adc->cnv, &cnv_state);  // apply calculated PWM state
+        printk(KERN_INFO "ltc2378: pwm_apply ret = %d\n", ret);
         if (ret)
                 return ret;
 
         adc->samp_freq = freq;
+        printk(KERN_INFO "ltc2378: samp_freq set to = %d\n", adc->samp_freq);
 
         return ret;
 }
@@ -209,6 +236,16 @@ static int ltc2378_buffer(struct iio_dev *indio_dev, struct spi_message *msg)
     xfer->bits_per_word = 20;
     xfer->speed_hz = adc->info->sclk_rate;
     xfer->cs_change = 0;
+    
+    /* Minimize all delays for fastest timing */
+    xfer->delay.value = 0;
+    xfer->delay.unit = SPI_DELAY_UNIT_NSECS;
+    
+    xfer->cs_change_delay.value = 0;
+    xfer->cs_change_delay.unit = SPI_DELAY_UNIT_NSECS;
+    
+    xfer->word_delay.value = 0;
+    xfer->word_delay.unit = SPI_DELAY_UNIT_NSECS;
 
     spi_message_add_tail(xfer, msg);
 
