@@ -20,14 +20,6 @@
 #define HMC7044_PULSE_GEN_CONT_PULSE		7
 
 /*
- * adi,divider-ratio
- */
-#define HMC7044_DIVIDER_RATIO_1			0
-#define HMC7044_DIVIDER_RATIO_2			1
-#define HMC7044_DIVIDER_RATIO_4			2
-#define HMC7044_DIVIDER_RATIO_8			3
-
-/*
  * adi,driver-mode
  */
 #define HMC7044_DRIVER_MODE_CML			0
