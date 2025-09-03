@@ -187,33 +187,55 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 
 	cnv_wf.period_length_ns = div_u64_rem((u64)DIV_ROUND_UP(ltc->ref_clk_rate, freq) * NSEC_PER_SEC,
 					      ltc->ref_clk_rate, &rem);
-	if (rem)
+	pr_err("\nadaq2387 rem=%u",                       rem);
+	pr_err("\nadaq2387 round up=%llu",               (u64)DIV_ROUND_UP(ltc->ref_clk_rate, freq));
+	pr_err("\nadaq2387 ltc->ref_clk_rate=%lu",        ltc->ref_clk_rate);
+	pr_err("\nadaq2387 ref_clk_period_ns=%llu",       ref_clk_period_ns);
+	pr_err("\nadaq2387 cnv_wf.period_length_ns=%llu", cnv_wf.period_length_ns);
+	pr_err("\nadaq2387 cnv_wf.duty_length_ns=%llu",   cnv_wf.duty_length_ns);
+	pr_err("\nadaq2387 cnv_wf.duty_offset_ns=%llu",   cnv_wf.duty_offset_ns);
+	if (rem) {
 		cnv_wf.period_length_ns += 1;
+		pr_err("\nadaq2387 cnv_wf.period_length_ns=%llu", cnv_wf.period_length_ns);
+	}
 
 	ret = pwm_set_waveform_might_sleep(ltc->cnv, &cnv_wf, false);
 	if (ret < 0)
 		return ret;
 
 	/* Gate the active period of the clock (see page 10-13 for both LTC's) */
-	if (ltc->lane_mode == TWO_LANES)
+	if (ltc->lane_mode == TWO_LANES) {
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 4);
-	else
+		pr_err("\nadaq2387 TWOLANE=1\n");
+	} else {
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 2);
+		pr_err("\nadaq2387 TWOLANE=0\n");
+	}
 
 	clk_gate_wf.period_length_ns = cnv_wf.period_length_ns;
 	clk_gate_wf.duty_length_ns = ref_clk_period_ns * clk_en_time;
 	clk_gate_wf.duty_offset_ns = LTC2387_T_FIRSTCLK_NS;
 
-	if (clk_gate_wf.duty_offset_ns > clk_gate_wf.period_length_ns)
+	pr_err("\nadaq2387 clk_en_time=%d", clk_en_time);
+	pr_err("\nadaq2387 clk_gate_wf.period_length_ns=%llu", clk_gate_wf.period_length_ns);
+	pr_err("\nadaq2387 clk_gate_wf.duty_length_ns=%llu", clk_gate_wf.duty_length_ns);
+	pr_err("\nadaq2387 clk_gate_wf.duty_offset_ns=%llu", clk_gate_wf.duty_offset_ns);
+
+	if (clk_gate_wf.duty_offset_ns >= clk_gate_wf.period_length_ns)
 		div64_u64_rem(clk_gate_wf.duty_offset_ns, clk_gate_wf.period_length_ns,
 				&clk_gate_wf.duty_offset_ns);
 
+	//if (clk_gate_wf.duty_offset_ns == clk_gate_wf.period_length_ns)
+	//	clk_gate_wf.duty_offset_ns = 0;
+
+	pr_err("\nadaq2387 clk_gate_wf.duty_offset_ns=%llu", clk_gate_wf.duty_offset_ns);
 	ret = pwm_set_waveform_might_sleep(ltc->clk_en, &clk_gate_wf, false);
 	if (ret < 0)
 		return ret;
 
-	ltc->sampling_freq = freq;
+	ltc->sampling_freq = (u64)DIV_ROUND_UP(NSEC_PER_SEC, (u32)clk_gate_wf.period_length_ns);
 
+	pr_err("\nadaq2387 freq=%ld\n", freq);
 	return 0;
 }
 
@@ -222,9 +244,12 @@ static int ltc2387_setup(struct iio_dev *indio_dev)
 	struct ltc2387_dev *ltc = iio_priv(indio_dev);
 	struct device *dev = indio_dev->dev.parent;
 
-	if (device_property_present(dev, "adi,use-two-lanes"))
-		ltc->lane_mode = TWO_LANES;
+	if (device_property_present(dev, "adi,use-one-lane")) {
+		ltc->lane_mode = ONE_LANE;
+		return ltc2387_set_sampling_freq(ltc, 7.5 * MHz);
+	}
 
+	ltc->lane_mode = TWO_LANES;
 	return ltc2387_set_sampling_freq(ltc, 15 * MHz);
 }
 
@@ -365,6 +390,7 @@ static int ltc2387_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 	ltc->ref_clk_rate = clk_get_rate(ltc->ref_clk);
+	pr_err("\nadaq2387 ltc->ref_clk_rate=%lu", ltc->ref_clk_rate);
 
 	ltc->clk_en = devm_pwm_get(&pdev->dev, "clk_en");
 	if (IS_ERR(ltc->clk_en))
