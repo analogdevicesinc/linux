@@ -171,6 +171,7 @@ struct adrv9025_rf_phy {
 	/* DPD */
 	adi_adrv9025_DpdModelConfig_v2_t *dpdModelConfig;
 	adi_adrv9025_TxChannels_e dpdTxChannel;
+	adi_adrv9025_DpdTrackingConfig_t *dpdTrackingConfig;
 };
 
 int adrv9025_hdl_loopback(struct adrv9025_rf_phy *phy, bool enable);
