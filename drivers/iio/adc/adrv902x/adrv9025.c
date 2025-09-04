@@ -44,6 +44,7 @@
 
 enum adrv9025_iio_dev_attr {
 	ADRV9025_INIT_CAL,
+	ADRV9025_CAL_MASK,
 	adrv9025_JESD204_FSM_ERROR,
 	adrv9025_JESD204_FSM_PAUSED,
 	adrv9025_JESD204_FSM_STATE,
@@ -343,8 +344,9 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 				60000; /*60 seconds timeout*/
 			u8 initCalsError = 0;
 
-			phy->cal_mask.channelMask =
-				phy->adrv9025PostMcsInitInst.initCals.channelMask;
+			if (!phy->cal_mask.channelMask)
+				phy->cal_mask.channelMask =
+					phy->adrv9025PostMcsInitInst.initCals.channelMask;
 
 			/* Run Init Cals */
 			ret = adi_adrv9025_InitCalsRun(phy->madDevice,
@@ -360,6 +362,16 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 			if (ret)
 				ret = adrv9025_dev_err(phy);
 		}
+		break;
+	case ADRV9025_CAL_MASK:
+		ret = kstrtou64(buf, 0, &val);
+		if (ret)
+			break;
+
+		if (val <= 0x0F)
+			phy->cal_mask.channelMask = (u8)val;
+		else
+			ret = -EINVAL;
 		break;
 	case adrv9025_JESD204_FSM_RESUME:
 		if (!phy->jdev) {
@@ -419,6 +431,10 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 		if (val)
 			ret = sprintf(buf, "%d\n",
 				      !!(phy->cal_mask.calMask & val));
+		break;
+	case ADRV9025_CAL_MASK:
+		ret = sprintf(buf, "%d\n",
+			      phy->cal_mask.channelMask);
 		break;
 	case adrv9025_JESD204_FSM_ERROR:
 		if (!phy->jdev) {
@@ -536,6 +552,9 @@ static IIO_DEVICE_ATTR(calibrate_ext_path_delay_en, 0644,
 		       ADRV9025_INIT_CAL |
 			       (ADI_ADRV9025_EXTERNAL_PATH_DELAY << 8));
 
+static IIO_DEVICE_ATTR(calibrate_mask, 0644, adrv9025_phy_show,
+		       adrv9025_phy_store, ADRV9025_CAL_MASK);
+
 static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
 		       adrv9025_phy_show,
 		       NULL,
@@ -568,6 +587,7 @@ static struct attribute *adrv9025_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_mask.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
@@ -2959,6 +2979,8 @@ static int adrv9025_probe(struct spi_device *spi)
 	ret = adi_adrv9025_UtilityInitFileLoad(phy->madDevice, name, &phy->adrv9025PostMcsInitInst);
 	if (ret)
 		return adrv9025_dev_err(phy);
+
+	phy->cal_mask.channelMask = phy->adrv9025PostMcsInitInst.initCals.channelMask;
 
 	adrv9025_clk_register(phy, "-rx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
