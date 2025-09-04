@@ -162,6 +162,10 @@ struct adrv9025_rf_phy {
 
 	bool is_initialized;
 	int spi_device_id;
+
+	/* DPD */
+	struct bin_attribute bin;
+	adi_adrv9025_DpdModelConfig_v2_t *dpdModelConfig;
 };
 
 int adrv9025_hdl_loopback(struct adrv9025_rf_phy *phy, bool enable);
