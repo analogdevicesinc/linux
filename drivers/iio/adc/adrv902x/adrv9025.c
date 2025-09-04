@@ -976,6 +976,11 @@ static ssize_t adrv9025_phy_tx_read(struct iio_dev *indio_dev,
 		ret = adi_adrv9025_TrackingCalsEnableGet(phy->madDevice, &mask);
 		val = !!(tmask & mask);
 		break;
+	case TX_DPD:
+		tmask = ADI_ADRV9025_TRACK_TX1_DPD << chan->channel;
+		ret = adi_adrv9025_TrackingCalsEnableGet(phy->madDevice, &mask);
+		val = !!(tmask & mask);
+		break;
 	case TX_RF_BANDWIDTH:
 		val = phy->deviceInitStruct.tx.txChannelCfg[chan->channel]
 			      .profile.rfBandwidth_kHz *
@@ -1033,6 +1038,15 @@ static ssize_t adrv9025_phy_tx_write(struct iio_dev *indio_dev,
 			phy->madDevice, mask,
 			enable ? ADI_ADRV9025_TRACKING_CAL_ENABLE :
 				 ADI_ADRV9025_TRACKING_CAL_DISABLE);
+		if (ret)
+			ret = adrv9025_dev_err(phy);
+		break;
+	case TX_DPD:
+		mask = ADI_ADRV9025_TRACK_TX1_DPD << chan->channel;
+
+		ret = adi_adrv9025_TrackingCalsEnableSet(phy->madDevice, mask,
+							 enable ? ADI_ADRV9025_TRACKING_CAL_ENABLE :
+							 ADI_ADRV9025_TRACKING_CAL_DISABLE);
 		if (ret)
 			ret = adrv9025_dev_err(phy);
 		break;
@@ -1172,6 +1186,7 @@ static struct iio_chan_spec_ext_info adrv9025_phy_tx_ext_info[] = {
 	_ADRV9025_EXT_TX_INFO("quadrature_tracking_en", TX_QEC),
 	_ADRV9025_EXT_TX_INFO("lo_leakage_tracking_en", TX_LOL),
 	_ADRV9025_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
+	_ADRV9025_EXT_TX_INFO("dpd_en", TX_DPD),
 	{},
 };
 static int adrv9025_gainindex_to_gain(struct adrv9025_rf_phy *phy, int channel,
