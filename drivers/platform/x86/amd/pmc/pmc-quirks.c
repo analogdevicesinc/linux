@@ -11,7 +11,7 @@
 #include <linux/dmi.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
-#include <asm/amd/fch.h>
+#include <linux/platform_data/x86/amd-fch.h>
 
 #include "pmc.h"
 
@@ -188,6 +188,15 @@ static const struct dmi_system_id fwbug_list[] = {
 		.matches = {
 			DMI_MATCH(DMI_BOARD_VENDOR, "LENOVO"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "82XQ"),
+		}
+	},
+	/* https://gitlab.freedesktop.org/drm/amd/-/issues/4434 */
+	{
+		.ident = "Lenovo Yoga 6 13ALC6",
+		.driver_data = &quirk_s2idle_bug,
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "LENOVO"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "82ND"),
 		}
 	},
 	/* https://gitlab.freedesktop.org/drm/amd/-/issues/2684 */
