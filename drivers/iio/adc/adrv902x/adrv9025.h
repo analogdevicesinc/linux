@@ -73,6 +73,7 @@ enum adrv9025_tx_ext_info {
 	TX_QEC,
 	TX_LOL,
 	TX_RF_BANDWIDTH,
+	TX_DPD,
 };
 
 enum adrv9025_iio_voltage_in {
