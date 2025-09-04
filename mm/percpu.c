@@ -1276,7 +1276,7 @@ static int pcpu_alloc_area(struct pcpu_chunk *chunk, int alloc_bits,
 static int pcpu_free_area(struct pcpu_chunk *chunk, int off)
 {
 	struct pcpu_block_md *chunk_md = &chunk->chunk_md;
-	int bit_off, bits, end, oslot, freed;
+	int bit_off, bits, end, oslot, freed, free_bit;
 
 	lockdep_assert_held(&pcpu_lock);
 	pcpu_stats_area_dealloc(chunk);
@@ -1289,6 +1289,11 @@ static int pcpu_free_area(struct pcpu_chunk *chunk, int off)
 	end = find_next_bit(chunk->bound_map, pcpu_chunk_map_bits(chunk),
 			    bit_off + 1);
 	bits = end - bit_off;
+
+	free_bit = find_next_bit(chunk->alloc_map, end, bit_off);
+	if (WARN(free_bit != bit_off, "Trying to free already free memory"))
+		return 0;
+
 	bitmap_clear(chunk->alloc_map, bit_off, bits);
 
 	freed = bits * PCPU_MIN_ALLOC_SIZE;
