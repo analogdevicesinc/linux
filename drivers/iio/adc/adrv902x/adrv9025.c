@@ -2850,6 +2850,68 @@ static int adrv9025_phy_parse_agc_dt(struct iio_dev *iodev, struct device *dev)
 				&phy->agcConfig->agcSlowloopFastGainChangeBlockEnable, 0, 0, 1);
 }
 
+static int adrv9025_parse_dpd_coef(struct adrv9025_rf_phy *phy, char *data, u32 size)
+{
+	u8 dpdNumFeatures = 0, i, j, k, lut;
+	char *ptr = data;
+	char coef[10];
+	char *line;
+	int ret;
+
+	while ((line = strsep(&ptr, "\n"))) {
+		if (line >= data + size)
+			break;
+
+		ret = sscanf(line, "%hhu %hhu %hhu %hhu %s", &i, &j, &k, &lut, coef);
+		if (ret != 5)
+			return ret;
+
+		if (i == 1 && j == 1 && k == 0)
+			k = 1; // for 1x1x0, force k to 1
+
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].i = i;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].j = j;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].k = k;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].lut = (adi_adrv9025_DpdLut_e)lut;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].coeffReal_xM = 0;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].coeffImaginary_xM = 0;
+
+		dpdNumFeatures++;
+	}
+
+	phy->dpdModelConfig->txChannelMask = 0;
+	phy->dpdModelConfig->dpdNumFeatures = dpdNumFeatures;
+
+	return size;
+}
+
+static ssize_t adrv9025_dpd_coef_write(struct file *filp, struct kobject *kobj,
+				       struct bin_attribute *bin_attr,
+				       char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+
+	return adrv9025_parse_dpd_coef(phy, buf, count);
+}
+
+static ssize_t adrv9025_dpd_coef_read(struct file *filp, struct kobject *kobj,
+				      struct bin_attribute *bin_attr,
+				      char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+
+	if (off)
+		return 0;
+
+	return sprintf(buf, "%hhu %hhu %hhu %hhu 0.0 0.0\n",
+		       phy->dpdModelConfig->dpdFeatures[0].i,
+		       phy->dpdModelConfig->dpdFeatures[0].j,
+		       phy->dpdModelConfig->dpdFeatures[0].k,
+		       phy->dpdModelConfig->dpdFeatures[0].lut);
+}
+
 static int adrv9025_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -2886,6 +2948,9 @@ static int adrv9025_probe(struct spi_device *spi)
 	phy->jdev = jdev;
 	phy->agcConfig = kzalloc(sizeof(adi_adrv9025_AgcCfg_t), GFP_KERNEL);
 	if (!(phy->agcConfig))
+		return -ENOMEM;
+	phy->dpdModelConfig = kzalloc(sizeof(adi_adrv9025_DpdModelConfig_v2_t), GFP_KERNEL);
+	if (!(phy->dpdModelConfig))
 		return -ENOMEM;
 	mutex_init(&phy->lock);
 
@@ -3002,6 +3067,13 @@ static int adrv9025_probe(struct spi_device *spi)
 	if (ret)
 		goto out_disable_clocks;
 
+	sysfs_bin_attr_init(&phy->bin);
+	phy->bin.attr.name = "dpd_coef_model";
+	phy->bin.attr.mode = 0644;
+	phy->bin.write = adrv9025_dpd_coef_write;
+	phy->bin.read = adrv9025_dpd_coef_read;
+	phy->bin.size = 4096;
+
 	indio_dev->dev.parent = &spi->dev;
 
 	if (np)
@@ -3031,6 +3103,10 @@ static int adrv9025_probe(struct spi_device *spi)
 	ret = adrv9025_register_axi_converter(phy);
 	if (ret < 0)
 		goto out_iio_device_unregister;
+
+	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->bin);
+	if (ret < 0)
+		return ret;
 
 	ret = adrv9025_register_debugfs(indio_dev);
 	if (ret < 0)
