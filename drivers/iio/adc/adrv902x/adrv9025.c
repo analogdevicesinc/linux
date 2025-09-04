@@ -2940,6 +2940,157 @@ static int adrv9025_phy_parse_agc_dt(struct iio_dev *iodev, struct device *dev)
 				&phy->agcConfig->agcSlowloopFastGainChangeBlockEnable, 0, 0, 1);
 }
 
+static int adrv9025_parse_dpd_coef(struct adrv9025_rf_phy *phy, char *data, u32 size)
+{
+	u8 dpdNumFeatures = 0, i, j, k, lut;
+	char *ptr = data;
+	char coef[10];
+	char *line;
+	int ret;
+
+	while ((line = strsep(&ptr, "\n"))) {
+		/* skip comment lines or blank lines */
+		if (line[0] == '#' || !line[0])
+			continue;
+
+		if (line >= data + size)
+			break;
+
+		if (dpdNumFeatures >= ADI_ADRV9025_MAX_DPD_FEATURES) {
+			dev_warn(&phy->spi->dev,
+				 "WARNING: DPD coefficient table exceeds max number of features (%d)\n",
+				 ADI_ADRV9025_MAX_DPD_FEATURES);
+			break;
+		}
+
+		ret = sscanf(line, "%hhu %hhu %hhu %hhu %s", &i, &j, &k, &lut, coef);
+		if (ret != 5) {
+			dev_err(&phy->spi->dev,
+				"ERROR: Malformed DPD coefficient table\n");
+			return -EINVAL;
+		}
+
+		if (i == 1 && j == 1 && k == 0)
+			k = 1; // for 1x1x0, force k to 1
+
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].i = i;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].j = j;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].k = k;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].lut = lut;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].coeffReal_xM = 0;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].coeffImaginary_xM = 0;
+
+		dpdNumFeatures++;
+	}
+
+	phy->dpdModelConfig->txChannelMask = 0;
+	phy->dpdModelConfig->dpdNumFeatures = dpdNumFeatures;
+
+	return size;
+}
+
+static ssize_t adrv9025_dpd_coef_write(struct file *filp, struct kobject *kobj,
+				       struct bin_attribute *bin_attr,
+				       char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	int ret;
+
+	/* force a one write() call as it simplifies things a lot */
+	if (off) {
+		dev_err(&phy->spi->dev, "Coefficients must be set in one write() call\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&phy->lock);
+	ret = adrv9025_parse_dpd_coef(phy, buf, count);
+	mutex_unlock(&phy->lock);
+
+	return ret ? ret : count;
+}
+
+static ssize_t adrv9025_dpd_coef_read(struct file *filp, struct kobject *kobj,
+				      struct bin_attribute *bin_attr,
+				      char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	ssize_t len = 0;
+	char *kbuf;
+	int idx;
+	int ret;
+
+	mutex_lock(&phy->lock);
+	if (!phy->dpdModelConfig) {
+		mutex_unlock(&phy->lock);
+		return -ENODATA;
+	}
+
+	kbuf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!kbuf) {
+		mutex_unlock(&phy->lock);
+		return -ENOMEM;
+	}
+
+	for (idx = 0; idx < phy->dpdModelConfig->dpdNumFeatures; idx++) {
+		adi_adrv9025_DpdFeature_v2_t *f = &phy->dpdModelConfig->dpdFeatures[idx];
+
+		ret = scnprintf(kbuf + len, PAGE_SIZE - len, "%u %u %u %u %d %d\n",
+				f->i, f->j, f->k, f->lut,
+				f->coeffReal_xM, f->coeffImaginary_xM);
+		if (ret < 0)
+			break;
+		len += ret;
+		if (len >= PAGE_SIZE)
+			break;
+	}
+	mutex_unlock(&phy->lock);
+
+	ret = memory_read_from_buffer(buf, count, &off, kbuf, len);
+	kfree(kbuf);
+
+	return ret;
+}
+
+static BIN_ATTR(dpd_coef_model, 0644,
+		adrv9025_dpd_coef_read,
+		adrv9025_dpd_coef_write, PAGE_SIZE);
+
+struct adrv9025_bin_attr_drop {
+	const struct bin_attribute *attr;
+	struct device *dev;
+};
+
+static void adrv9025_remove_bin_file(void *data)
+{
+	struct adrv9025_bin_attr_drop *drop = data;
+
+	device_remove_bin_file(drop->dev, drop->attr);
+}
+
+static int adrv9025_bin_attr_add(struct device *dev, const struct bin_attribute *attr)
+{
+	struct adrv9025_bin_attr_drop *drop;
+	int ret;
+
+	drop = devm_kzalloc(dev, sizeof(*drop), GFP_KERNEL);
+	if (!drop)
+		return -ENOMEM;
+
+	drop->attr = attr;
+	drop->dev = dev;
+
+	ret = device_create_bin_file(dev, attr);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(dev, adrv9025_remove_bin_file, drop);
+}
+
+static const struct bin_attribute *adrv9025_bin_attributes =
+	&bin_attr_dpd_coef_model;
+
 static int adrv9025_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -2977,11 +3128,14 @@ static int adrv9025_probe(struct spi_device *spi)
 	phy->agcConfig = kzalloc(sizeof(adi_adrv9025_AgcCfg_t), GFP_KERNEL);
 	if (!(phy->agcConfig))
 		return -ENOMEM;
+	phy->dpdModelConfig = kzalloc(sizeof(adi_adrv9025_DpdModelConfig_v2_t), GFP_KERNEL);
+	if (!(phy->dpdModelConfig))
+		return -ENOMEM;
 	mutex_init(&phy->lock);
 
 	ret = adrv9025_phy_parse_agc_dt(indio_dev, &spi->dev);
 	if (ret)
-		return ret;
+		goto err_free_dpd_model;
 
 	priv = jesd204_dev_priv(jdev);
 	priv->phy = phy;
@@ -2995,14 +3149,16 @@ static int adrv9025_probe(struct spi_device *spi)
 		strncpy(phy->platformFiles.armImageFile, name, sizeof(phy->platformFiles.armImageFile));
 	} else {
 		dev_err(&spi->dev, "error missing dt property: adi,arm-firmware-name\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_free_dpd_model;
 	}
 
 	if (!of_property_read_string(np, "adi,stream-firmware-name", &name)) {
 		strncpy(phy->platformFiles.streamImageFile, name, sizeof(phy->platformFiles.streamImageFile));
 	} else {
 		dev_err(&spi->dev, "error missing dt property: adi,stream-firmware-name\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_free_dpd_model;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(phy->platformFiles.rxGainTableFileArr); i++) {
@@ -3034,7 +3190,7 @@ static int adrv9025_probe(struct spi_device *spi)
 
 	ret = clk_prepare_enable(phy->dev_clk);
 	if (ret)
-		return ret;
+		goto err_free_dpd_model;
 
 	phy->spiSettings.msbFirst = 1;
 	phy->spiSettings.enSpiStreaming = 0;
@@ -3043,8 +3199,10 @@ static int adrv9025_probe(struct spi_device *spi)
 	phy->spiSettings.cmosPadDrvStrength = ADI_ADRV9025_CMOSPAD_DRV_STRONG;
 
 	ret = adi_adrv9025_HwOpen(phy->madDevice, &phy->spiSettings);
-	if (ret)
-		return adrv9025_dev_err(phy);
+	if (ret) {
+		ret = adrv9025_dev_err(phy);
+		goto err_free_dpd_model;
+	}
 
 	adi_common_LogLevelSet(&phy->madDevice->common,
 			       ADI_HAL_LOG_ERR | ADI_HAL_LOG_WARN);
@@ -3053,22 +3211,28 @@ static int adrv9025_probe(struct spi_device *spi)
 	ret = of_property_read_string(np, "adi,device-profile-name", &name);
 	if (ret) {
 		dev_err(&spi->dev, "error missing dt property: adi,device-profile-name\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_free_dpd_model;
 	}
 
 	ret = adi_adrv9025_ConfigFileLoad(phy->madDevice, name, &phy->deviceInitStruct);
-	if (ret)
-		return adrv9025_dev_err(phy);
+	if (ret) {
+		ret = adrv9025_dev_err(phy);
+		goto err_free_dpd_model;
+	}
 
 	ret = of_property_read_string(np, "adi,init-profile-name", &name);
 	if (ret) {
 		dev_err(&spi->dev, "error missing dt property: adi,init-profile-name\n");
-		return -EINVAL;
+		ret = adrv9025_dev_err(phy);
+		goto err_free_dpd_model;
 	}
 
 	ret = adi_adrv9025_UtilityInitFileLoad(phy->madDevice, name, &phy->adrv9025PostMcsInitInst);
-	if (ret)
-		return adrv9025_dev_err(phy);
+	if (ret) {
+		ret = adrv9025_dev_err(phy);
+		goto err_free_dpd_model;
+	}
 
 	phy->cal_mask.channelMask = phy->adrv9025PostMcsInitInst.initCals.channelMask;
 
@@ -3139,6 +3303,10 @@ static int adrv9025_probe(struct spi_device *spi)
 		}
 	}
 
+	ret = adrv9025_bin_attr_add(&indio_dev->dev, adrv9025_bin_attributes);
+	if (ret)
+		goto out_iio_device_unregister;
+
 	adi_adrv9025_ApiVersionGet(phy->madDevice, &apiVersion);
 	adi_adrv9025_Shutdown(phy->madDevice);
 	adi_adrv9025_HwClose(phy->madDevice);
@@ -3162,6 +3330,8 @@ out_clk_del_provider:
 	of_clk_del_provider(np);
 out_disable_clocks:
 	clk_disable_unprepare(phy->dev_clk);
+err_free_dpd_model:
+	kfree(phy->dpdModelConfig);
 
 	return ret;
 }
@@ -3173,6 +3343,7 @@ static void adrv9025_remove(struct spi_device *spi)
 	iio_device_unregister(phy->indio_dev);
 	of_clk_del_provider(spi->dev.of_node);
 	clk_disable_unprepare(phy->dev_clk);
+	kfree(phy->dpdModelConfig);
 
 	adrv9025_shutdown(phy);
 }
