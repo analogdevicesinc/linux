@@ -88,17 +88,17 @@ artifacts_structure() {
                 echo "IMAGE: ${image_to_copy[${platform}]}!"
                 cp ${image_to_copy[${platform}]} ${image_location}
             fi
-        done
 
-        if [ "${arch}" == "microblaze" ]; then
-            dtbs_to_copy=$(ls -d -1 Microblaze/*)
-        else
-            dtbs_to_copy=$(ls -d -1 DTBs/* | grep "${platform}-")
-        fi
+            if [ "${arch}" == "microblaze" ]; then
+                dtbs_to_copy=$(ls -d -1 Microblaze/*)
+            else
+                dtbs_to_copy=$(ls -d -1 DTBs/* | grep "${platform}[-|_]")
+            fi
 
-        # Copy DTBs to the correct location
-        for dtb in ${dtbs_to_copy}; do
-            cp ${dtb} "${TIMESTAMP}/${arch}"
+            # Copy DTBs to the correct location
+            for dtb in ${dtbs_to_copy}; do
+                cp ${dtb} "${TIMESTAMP}/${arch}"
+            done
         done
     done
 }

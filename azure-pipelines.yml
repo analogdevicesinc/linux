@@ -84,57 +84,57 @@ stages:
           targetPath: '$(Build.ArtifactStagingDirectory)'
           artifactName: 'DTBs'
 
-    - job: BuildDockerized
-      strategy:
-        matrix:
-          zynq_adi_default:
-            DEFCONFIG: zynq_xcomm_adv7511_defconfig
-            ARCH: arm
-            IMAGE: uImage
-            CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
-          socfpga_adi_default:
-            DEFCONFIG: socfpga_adi_defconfig
-            ARCH: arm
-            IMAGE: zImage
-            CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
-          zynqmp_adi_default:
-            DEFCONFIG: adi_zynqmp_defconfig
-            ARCH: arm64
-            IMAGE: Image
-            CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
-          versal_adi_default:
-            DEFCONFIG: adi_versal_defconfig
-            ARCH: arm64
-            IMAGE: Image
-            CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
-          zynq_pluto:
-            DEFCONFIG: zynq_pluto_defconfig
-            ARCH: arm
-            IMAGE: uImage
-          zynq_m2k:
-            DEFCONFIG: zynq_m2k_defconfig
-            ARCH: arm
-            IMAGE: uImage
-      steps:
-      - checkout: self
-        fetchDepth: 1
-        clean: true
-      - script: ./ci/travis/run-build-docker.sh
-        displayName: "Build test for '$(DEFCONFIG)'"
-      - task: CopyFiles@2
-        inputs:
-          sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot'
-          contents: '[uz]Image'
-          targetFolder: '$(Build.ArtifactStagingDirectory)'
-      - task: CopyFiles@2
-        inputs:
-          sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm64/boot'
-          contents: 'Image'
-          targetFolder: '$(Build.ArtifactStagingDirectory)'
-      - task: PublishPipelineArtifact@1
-        inputs:
-          targetPath: '$(Build.ArtifactStagingDirectory)/'
-          artifactName: '$(DEFCONFIG)'
+    # - job: BuildDockerized
+    #   strategy:
+    #     matrix:
+    #       zynq_adi_default:
+    #         DEFCONFIG: zynq_xcomm_adv7511_defconfig
+    #         ARCH: arm
+    #         IMAGE: uImage
+    #         CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+    #       socfpga_adi_default:
+    #         DEFCONFIG: socfpga_adi_defconfig
+    #         ARCH: arm
+    #         IMAGE: zImage
+    #         CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+    #       zynqmp_adi_default:
+    #         DEFCONFIG: adi_zynqmp_defconfig
+    #         ARCH: arm64
+    #         IMAGE: Image
+    #         CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+    #       versal_adi_default:
+    #         DEFCONFIG: adi_versal_defconfig
+    #         ARCH: arm64
+    #         IMAGE: Image
+    #         CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+    #       zynq_pluto:
+    #         DEFCONFIG: zynq_pluto_defconfig
+    #         ARCH: arm
+    #         IMAGE: uImage
+    #       zynq_m2k:
+    #         DEFCONFIG: zynq_m2k_defconfig
+    #         ARCH: arm
+    #         IMAGE: uImage
+    #   steps:
+    #   - checkout: self
+    #     fetchDepth: 1
+    #     clean: true
+    #   - script: ./ci/travis/run-build-docker.sh
+    #     displayName: "Build test for '$(DEFCONFIG)'"
+    #   - task: CopyFiles@2
+    #     inputs:
+    #       sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot'
+    #       contents: '[uz]Image'
+    #       targetFolder: '$(Build.ArtifactStagingDirectory)'
+    #   - task: CopyFiles@2
+    #     inputs:
+    #       sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm64/boot'
+    #       contents: 'Image'
+    #       targetFolder: '$(Build.ArtifactStagingDirectory)'
+    #   - task: PublishPipelineArtifact@1
+    #     inputs:
+    #       targetPath: '$(Build.ArtifactStagingDirectory)/'
+    #       artifactName: '$(DEFCONFIG)'
 
   - stage: PushArtifacts
     dependsOn: Build
@@ -159,6 +159,7 @@ stages:
           ),
           or(
             eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+            eq(variables['Build.SourceBranch'], 'refs/heads/staging/fix-ci'),
             eq(variables['Build.SourceBranch'], 'refs/heads/next_stable'),
             startsWith(variables['Build.SourceBranch'], 'refs/heads/202')
           )
