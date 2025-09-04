@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 #!/bin/bash -e
 
-TIMESTAMP=$(date +%Y_%m_%d-%H_%M)
+TIMESTAMP=$(date +%Y_%m_%d-%H_%M_%S)
 # For PRs, Azure makes a merge commit (HEAD) because of the shallow copy option
 # (which we want). So, GIT_SHA in this case is the actual correct commit inside
 # the PR, and MERGE_COMMIT is the commit made by Azure (which we extract the date
@@ -93,7 +93,7 @@ artifacts_structure() {
         if [ "${arch}" == "microblaze" ]; then
             dtbs_to_copy=$(ls -d -1 Microblaze/*)
         else
-            dtbs_to_copy=$(ls -d -1 DTBs/* | grep "${platform}")
+            dtbs_to_copy=$(ls -d -1 DTBs/* | grep "${platform}-")
         fi
 
         # Copy DTBs to the correct location
