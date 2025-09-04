@@ -45,6 +45,7 @@
 enum adrv9025_iio_dev_attr {
 	ADRV9025_INIT_CAL,
 	ADRV9025_CAL_MASK,
+	ADRV9025_DPD_TX_MASK,
 	adrv9025_JESD204_FSM_ERROR,
 	adrv9025_JESD204_FSM_PAUSED,
 	adrv9025_JESD204_FSM_STATE,
@@ -373,6 +374,16 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 		else
 			ret = -EINVAL;
 		break;
+	case ADRV9025_DPD_TX_MASK:
+		ret = kstrtou64(buf, 0, &val);
+		if (ret)
+			break;
+
+		if (val <= 0x0F)
+			phy->dpdTxChannel = (u8)val;
+		else
+			ret = -EINVAL;
+		break;
 	case adrv9025_JESD204_FSM_RESUME:
 		if (!phy->jdev) {
 			ret = -ENOTSUPP;
@@ -435,6 +446,9 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 	case ADRV9025_CAL_MASK:
 		ret = sprintf(buf, "%d\n",
 			      phy->cal_mask.channelMask);
+		break;
+	case ADRV9025_DPD_TX_MASK:
+		ret = sprintf(buf, "%d\n", phy->dpdTxChannel);
 		break;
 	case adrv9025_JESD204_FSM_ERROR:
 		if (!phy->jdev) {
@@ -555,6 +569,9 @@ static IIO_DEVICE_ATTR(calibrate_ext_path_delay_en, 0644,
 static IIO_DEVICE_ATTR(calibrate_mask, 0644, adrv9025_phy_show,
 		       adrv9025_phy_store, ADRV9025_CAL_MASK);
 
+static IIO_DEVICE_ATTR(dpd_tx_mask, 0644, adrv9025_phy_show,
+		       adrv9025_phy_store, ADRV9025_DPD_TX_MASK);
+
 static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
 		       adrv9025_phy_show,
 		       NULL,
@@ -588,6 +605,7 @@ static struct attribute *adrv9025_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_mask.dev_attr.attr,
+	&iio_dev_attr_dpd_tx_mask.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
