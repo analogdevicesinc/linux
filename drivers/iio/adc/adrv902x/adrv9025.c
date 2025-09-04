@@ -47,6 +47,7 @@ enum adrv9025_iio_dev_attr {
 	ADRV9025_CAL_MASK,
 	ADRV9025_DPD_TX_MASK,
 	ADRV9025_DPD_RESET,
+	ADRV9025_DPD_CONFIG_SET,
 	adrv9025_JESD204_FSM_ERROR,
 	adrv9025_JESD204_FSM_PAUSED,
 	adrv9025_JESD204_FSM_STATE,
@@ -396,6 +397,20 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 				ret = adrv9025_dev_err(phy);
 		}
 		break;
+	case ADRV9025_DPD_CONFIG_SET:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			break;
+
+		phy->dpdTrackingConfig->txChannelMask = phy->dpdTxChannel;
+
+		if (enable) {
+			ret = adi_adrv9025_DpdTrackingConfigSet(phy->madDevice,
+								phy->dpdTrackingConfig);
+			if (ret)
+				ret = adrv9025_dev_err(phy);
+		}
+		break;
 	case adrv9025_JESD204_FSM_RESUME:
 		if (!phy->jdev) {
 			ret = -ENOTSUPP;
@@ -587,6 +602,9 @@ static IIO_DEVICE_ATTR(dpd_tx_mask, 0644, adrv9025_phy_show,
 static IIO_DEVICE_ATTR(dpd_reset, 0200, NULL,
 		       adrv9025_phy_store, ADRV9025_DPD_RESET);
 
+static IIO_DEVICE_ATTR(dpd_tracking_config_set, 0200, NULL,
+		       adrv9025_phy_store, ADRV9025_DPD_CONFIG_SET);
+
 static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
 		       adrv9025_phy_show,
 		       NULL,
@@ -622,6 +640,7 @@ static struct attribute *adrv9025_phy_attributes[] = {
 	&iio_dev_attr_calibrate_mask.dev_attr.attr,
 	&iio_dev_attr_dpd_tx_mask.dev_attr.attr,
 	&iio_dev_attr_dpd_reset.dev_attr.attr,
+	&iio_dev_attr_dpd_tracking_config_set.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
@@ -3010,6 +3029,72 @@ static int adrv9025_phy_parse_agc_dt(struct iio_dev *iodev, struct device *dev)
 				&phy->agcConfig->agcSlowloopFastGainChangeBlockEnable, 0, 0, 1);
 }
 
+static int adrv9025_phy_parse_dpd_config_dt(struct iio_dev *iodev, struct device *dev)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(iodev);
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-indirect-regularization-value",
+			       &phy->dpdTrackingConfig->dpdIndirectRegularizationValue, 20, 0, 63);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-direct-regularization-value",
+			       &phy->dpdTrackingConfig->dpdDirectRegularizationValue, 35, 0, 63);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-samples",
+			       &phy->dpdTrackingConfig->dpdSamples, 16384, 4096, 61440);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-m-threshold",
+			       &phy->dpdTrackingConfig->dpdMThreshold, 2920, 0, 32767);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-peak-search-window-size",
+			       &phy->dpdTrackingConfig->dpdPeakSearchWindowSize, 65535, 0, 16777215);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-update-mode",
+			       &phy->dpdTrackingConfig->dpdUpdateMode, 0, 0, 2);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-min-avg-signal-level",
+			       &phy->dpdTrackingConfig->minAvgSignalLevel, 519, 0, 65535);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-mu",
+			       &phy->dpdTrackingConfig->dpdMu, 50, 0, 100);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-min-avg-signal-level-orx",
+			       &phy->dpdTrackingConfig->minAvgSignalLevelOrx, 519, 0, 65535);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-filter-sel",
+			       &phy->dpdTrackingConfig->dpdFilterSel, 0, 0, 1);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-enable-direct-learning",
+			       &phy->dpdTrackingConfig->enableDirectLearning, 0, 0, 1);
+	if (ret)
+		return ret;
+
+	return ADRV9025_OF_PROP("adi,dpd-indirect-regularization-low-power-value",
+				&phy->dpdTrackingConfig->dpdIndirectRegularizationLowPowerValue,
+				20, 0, 63);
+}
+
 static int adrv9025_parse_dpd_coef(struct adrv9025_rf_phy *phy, char *data, u32 size)
 {
 	u8 dpdNumFeatures = 0, i, j, k, lut;
@@ -3201,11 +3286,20 @@ static int adrv9025_probe(struct spi_device *spi)
 	phy->dpdModelConfig = kzalloc(sizeof(adi_adrv9025_DpdModelConfig_v2_t), GFP_KERNEL);
 	if (!(phy->dpdModelConfig))
 		return -ENOMEM;
+	phy->dpdTrackingConfig = kzalloc(sizeof(adi_adrv9025_DpdTrackingConfig_t), GFP_KERNEL);
+	if (!(phy->dpdTrackingConfig)) {
+		ret = -ENOMEM;
+		goto err_free_dpd_model;
+	}
 	mutex_init(&phy->lock);
 
 	ret = adrv9025_phy_parse_agc_dt(indio_dev, &spi->dev);
 	if (ret)
-		goto err_free_dpd_model;
+		goto err_free_dpd_tracking_config;
+
+	ret = adrv9025_phy_parse_dpd_config_dt(indio_dev, &spi->dev);
+	if (ret)
+		goto err_free_dpd_tracking_config;
 
 	priv = jesd204_dev_priv(jdev);
 	priv->phy = phy;
@@ -3220,7 +3314,7 @@ static int adrv9025_probe(struct spi_device *spi)
 	} else {
 		dev_err(&spi->dev, "error missing dt property: adi,arm-firmware-name\n");
 		ret = -EINVAL;
-		goto err_free_dpd_model;
+		goto err_free_dpd_tracking_config;
 	}
 
 	if (!of_property_read_string(np, "adi,stream-firmware-name", &name)) {
@@ -3228,7 +3322,7 @@ static int adrv9025_probe(struct spi_device *spi)
 	} else {
 		dev_err(&spi->dev, "error missing dt property: adi,stream-firmware-name\n");
 		ret = -EINVAL;
-		goto err_free_dpd_model;
+		goto err_free_dpd_tracking_config;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(phy->platformFiles.rxGainTableFileArr); i++) {
@@ -3260,7 +3354,7 @@ static int adrv9025_probe(struct spi_device *spi)
 
 	ret = clk_prepare_enable(phy->dev_clk);
 	if (ret)
-		goto err_free_dpd_model;
+		goto err_free_dpd_tracking_config;
 
 	phy->spiSettings.msbFirst = 1;
 	phy->spiSettings.enSpiStreaming = 0;
@@ -3271,7 +3365,7 @@ static int adrv9025_probe(struct spi_device *spi)
 	ret = adi_adrv9025_HwOpen(phy->madDevice, &phy->spiSettings);
 	if (ret) {
 		ret = adrv9025_dev_err(phy);
-		goto err_free_dpd_model;
+		goto err_free_dpd_tracking_config;
 	}
 
 	adi_common_LogLevelSet(&phy->madDevice->common,
@@ -3282,26 +3376,26 @@ static int adrv9025_probe(struct spi_device *spi)
 	if (ret) {
 		dev_err(&spi->dev, "error missing dt property: adi,device-profile-name\n");
 		ret = -EINVAL;
-		goto err_free_dpd_model;
+		goto err_free_dpd_tracking_config;
 	}
 
 	ret = adi_adrv9025_ConfigFileLoad(phy->madDevice, name, &phy->deviceInitStruct);
 	if (ret) {
 		ret = adrv9025_dev_err(phy);
-		goto err_free_dpd_model;
+		goto err_free_dpd_tracking_config;
 	}
 
 	ret = of_property_read_string(np, "adi,init-profile-name", &name);
 	if (ret) {
 		dev_err(&spi->dev, "error missing dt property: adi,init-profile-name\n");
 		ret = adrv9025_dev_err(phy);
-		goto err_free_dpd_model;
+		goto err_free_dpd_tracking_config;
 	}
 
 	ret = adi_adrv9025_UtilityInitFileLoad(phy->madDevice, name, &phy->adrv9025PostMcsInitInst);
 	if (ret) {
 		ret = adrv9025_dev_err(phy);
-		goto err_free_dpd_model;
+		goto err_free_dpd_tracking_config;
 	}
 
 	phy->cal_mask.channelMask = phy->adrv9025PostMcsInitInst.initCals.channelMask;
@@ -3400,6 +3494,8 @@ out_clk_del_provider:
 	of_clk_del_provider(np);
 out_disable_clocks:
 	clk_disable_unprepare(phy->dev_clk);
+err_free_dpd_tracking_config:
+	kfree(phy->dpdTrackingConfig);
 err_free_dpd_model:
 	kfree(phy->dpdModelConfig);
 
@@ -3413,6 +3509,7 @@ static void adrv9025_remove(struct spi_device *spi)
 	iio_device_unregister(phy->indio_dev);
 	of_clk_del_provider(spi->dev.of_node);
 	clk_disable_unprepare(phy->dev_clk);
+	kfree(phy->dpdTrackingConfig);
 	kfree(phy->dpdModelConfig);
 
 	adrv9025_shutdown(phy);
