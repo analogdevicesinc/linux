@@ -66,8 +66,13 @@ stages:
         displayName: 'Device-Tree Build Test'
       - task: CopyFiles@2
         inputs:
-          sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts'
-          contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/?(*.dtb)'
+          sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/intel/socfpga'
+          contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/intel/socfpga/?(*.dtb)'
+          targetFolder: '$(Build.ArtifactStagingDirectory)'
+      - task: CopyFiles@2
+        inputs:
+          sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/xilinx'
+          contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/xilinx/?(*.dtb)'
           targetFolder: '$(Build.ArtifactStagingDirectory)'
       - task: CopyFiles@2
         inputs:
