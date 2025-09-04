@@ -1653,6 +1653,26 @@ static ssize_t adrv9025_tx_lol_status_read(struct adrv9025_rf_phy *phy,
 			 txLolStatus.updateCount);
 }
 
+static ssize_t adrv9025_tx_dpd_status_read(struct adrv9025_rf_phy *phy,
+					   adi_adrv9025_TxChannels_e txChannel,
+					   char *buf)
+{
+	adi_adrv9025_DpdStatus_v2_t txDpdStatus = { 0 };
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9025_DpdStatusGet_v2(phy->madDevice, txChannel, &txDpdStatus);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	return scnprintf(buf, PAGE_SIZE, "err %d %% %d iter cnt %d update cnt %d\n",
+			 txDpdStatus.dpdErrorCode,
+			 txDpdStatus.dpdPercentComplete,
+			 txDpdStatus.dpdIterCount,
+			 txDpdStatus.dpdUpdateCount);
+}
+
 static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 				     size_t count, loff_t *ppos)
 {
@@ -1729,6 +1749,16 @@ static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 		case DBGFS_TX3_LOL_STATUS:
 			chan = ADI_ADRV9025_TX1 << (entry->cmd - DBGFS_TX0_LOL_STATUS);
 			ret = adrv9025_tx_lol_status_read(phy, chan, buf);
+			if (ret < 0)
+				return ret;
+			len = ret;
+			break;
+		case DBGFS_TX0_DPD_STATUS:
+		case DBGFS_TX1_DPD_STATUS:
+		case DBGFS_TX2_DPD_STATUS:
+		case DBGFS_TX3_DPD_STATUS:
+			chan = ADI_ADRV9025_TX1 << (entry->cmd - DBGFS_TX0_DPD_STATUS);
+			ret = adrv9025_tx_dpd_status_read(phy, chan, buf);
 			if (ret < 0)
 				return ret;
 			len = ret;
@@ -1931,6 +1961,10 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 	adrv9025_add_debugfs_entry(phy, "tx1_lol_status", DBGFS_TX1_LOL_STATUS);
 	adrv9025_add_debugfs_entry(phy, "tx2_lol_status", DBGFS_TX2_LOL_STATUS);
 	adrv9025_add_debugfs_entry(phy, "tx3_lol_status", DBGFS_TX3_LOL_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx0_dpd_status", DBGFS_TX0_DPD_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx1_dpd_status", DBGFS_TX1_DPD_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx2_dpd_status", DBGFS_TX2_DPD_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx3_dpd_status", DBGFS_TX3_DPD_STATUS);
 
 	for (i = 0; i < phy->adrv9025_debugfs_entry_index; i++) {
 		if (phy->adrv9025_debugfs_entry_index > DBGFS_BIST_TONE)
