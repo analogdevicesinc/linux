@@ -7,6 +7,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/device.h>
@@ -21,7 +22,6 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
-#include <linux/fpga/adi-axi-common.h>
 
 #include <linux/jesd204/jesd204.h>
 
