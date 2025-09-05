@@ -184,9 +184,9 @@
 
 		gige-reset {
 			gpio-hog;
-			gpios = <15 GPIO_ACTIVE_LOW>;
-			output-low;
-			line-name = "~gige-reset";
+			gpios = <15 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "gige-reset";
 		};
 	};
 
