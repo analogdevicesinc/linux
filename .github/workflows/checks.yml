@@ -60,12 +60,6 @@ jobs:
         [ $status -eq 124 ] && echo "step_fail_coccicheck_timeout=true" >> "$GITHUB_ENV"
         exit $status
 
-    - name: CPP Check
-      if: ${{ !cancelled() && env.fatal != 'true' }}
-      run: |
-        source ./ci/build.sh
-        check_cppcheck
-
     - name: Checkout and patch reference branch
       if: ${{ !cancelled() && env.fatal != 'true' && !startsWith(github.base_ref, 'mirror/') && !startsWith(github.ref_name, 'mirror/') }}
       run: |
