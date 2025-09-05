@@ -23,6 +23,12 @@ config MMC_SUNPLUS
 
 	  If unsure, say N
 
+config MMC_ADI_SYSTEMC
+	bool "MMC host driver for ADI SystemC"
+	default n
+	help
+	  This selects the MMC driver with workarounds for the ADI SystemC eMMC.
+
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA
@@ -250,6 +256,16 @@ config MMC_SDHCI_OF_SPARX5
 
 	  If you have a Sparx5 SoC with this interface, say Y or M here.
 
+	  If unsure, say N.
+
+config MMC_SDHCI_OF_ADI
+	tristate "SDHCI OF support for the ADI SDHCI controller"
+	depends on MMC_SDHCI_PLTFM
+	depends on OF
+	depends on COMMON_CLK
+	help
+	  This selects the ADI SDHCI controller support
+	  If you have a controller with this interface, say Y or M here.
 	  If unsure, say N.
 
 config MMC_SDHCI_OF_MA35D1

@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ */
+
+#include "adrv906x-eth-8t8r.dtsi"
+#include "adrv906x-eth-4t4r-dc.dtsi"
+
+&adrv906x_net1 {
+	ethernet-ports {
+		port@0 {
+			ndma-handle = <&sec_ndma1>;
+		};
+	};
+
+	eth_switch {
+		reg = <SEC_EMAC_SW_BASE 0x30 SEC_EMAC_SW_MAE_BASE 0x30>;
+		interrupt-names = "switch_error_0", "switch_error_1";
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_190 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI C2C_OUT_HW_INTERRUPT_191 IRQ_TYPE_LEVEL_HIGH>;
+		switch_port3:switch-port@3 {
+			id = <0>;
+			reg = <SEC_EMAC_SW_PORT_0_BASE 0x400>;
+		};
+		switch_port4:switch-port@4 {
+			id = <1>;
+			reg = <SEC_EMAC_SW_PORT_1_BASE 0x400>;
+		};
+		switch_port5:switch-port@5 {
+			id = <2>;
+			reg = <SEC_EMAC_SW_PORT_2_BASE 0x400>;
+		};
+	};
+};
