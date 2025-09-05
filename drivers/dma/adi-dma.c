@@ -613,7 +613,7 @@ static enum dma_status adi_dma_tx_status(struct dma_chan *chan, dma_cookie_t coo
 	struct adi_dma_descriptor *desc = adi_chan->current_desc;
 	u32 done, bytes, start;
 	enum dma_status ret;
-	struct adi_dde_descriptor *dde_desc = &desc->dde_descriptor_src;
+	struct adi_dde_descriptor *dde_desc;
 	struct list_head *curr;
 	struct list_head *tmp;
 	bool desc_done = true;
@@ -630,6 +630,7 @@ static enum dma_status adi_dma_tx_status(struct dma_chan *chan, dma_cookie_t coo
 
 	spin_lock(&adi_chan->lock);
 	txstate->residue = 0;
+	dde_desc = &desc->dde_descriptor_src;
 
 	//check sg based transfers
 	if (desc->scattergather_mode) {
@@ -768,6 +769,15 @@ static int adi_dma_terminate_all(struct dma_chan *chan)
 	__adi_dma_clear_and_reset(adi_chan);
 	__adi_dma_disable_irqs(adi_chan);
 
+	if (adi_chan->use_interrupts) {
+		synchronize_irq(adi_chan->src_irq);
+		synchronize_irq(adi_chan->src_err_irq);
+		if (adi_chan->iodest) {
+			synchronize_irq(adi_chan->dest_irq);
+			synchronize_irq(adi_chan->dest_err_irq);
+		}
+	}
+
 	if (adi_chan->current_desc) {
 		desc = adi_chan->current_desc;
 		desc->tx.desc_free(&desc->tx);
@@ -793,7 +803,17 @@ static int adi_dma_terminate_all(struct dma_chan *chan)
 
 static void adi_dma_synchronize(struct dma_chan *chan)
 {
-	// terminate all doesn't sleep and also has nothing asynchronous to wait on
+	struct adi_dma_channel *adi_chan = adi_dma_to_adi_channel(chan);
+
+	/* Make sure no IRQ or threaded IRQ is still running */
+	if (adi_chan->use_interrupts) {
+		synchronize_irq(adi_chan->src_irq);
+		synchronize_irq(adi_chan->src_err_irq);
+		if (adi_chan->iodest) {
+			synchronize_irq(adi_chan->dest_irq);
+			synchronize_irq(adi_chan->dest_err_irq);
+		}
+	}
 }
 
 static int adi_dma_slave_config(struct dma_chan *chan,

@@ -884,6 +884,12 @@ static void adi_spi_remove(struct platform_device *pdev)
 	struct spi_controller *ctlr = platform_get_drvdata(pdev);
 	struct adi_spi_controller *drv_data = spi_controller_get_devdata(ctlr);
 
+	if (ctlr->dma_tx)
+		dmaengine_terminate_sync(ctlr->dma_tx);
+
+	if (ctlr->dma_rx)
+		dmaengine_terminate_sync(ctlr->dma_rx);
+
 	adi_spi_disable(drv_data);
 	clk_disable_unprepare(drv_data->sclk);
 
