@@ -6,7 +6,6 @@ repository = 'linux'
 project = 'Linux Drivers'
 copyright = '2025, Analog Devices, Inc.'
 author = 'Analog Devices, Inc.'
-version = '0.3'
 
 locale_dirs = ['locales/']  # path is relative to the source directory
 language = 'en'
