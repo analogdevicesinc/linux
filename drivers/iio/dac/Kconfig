@@ -102,7 +102,7 @@ config AD5413
 	  Digital to Analog Converter.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called ad5758.
+	  module will be called ad5413.
 
 config AD5421
 	tristate "Analog Devices AD5421 DAC driver"

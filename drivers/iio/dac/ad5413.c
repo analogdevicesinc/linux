@@ -50,9 +50,6 @@
 #define AD5413_REG_FREQ_MONITOR                0x18
 #define AD5413_REG_DEVICE_ID_3                 0x1C
 
-/* AD5413 Key Register (Address: 0x08) */
-#define AD5413_REG_KEY_REG_ADDR_SHIFT     16
-
 /* Special Key Codes (bits[15:0]) */
 #define AD5413_REG_KEY_CODE_RESET_1             0x15FA
 #define AD5413_REG_KEY_CODE_RESET_2             0xAF51
@@ -73,7 +70,7 @@ struct ad5413_range {
 	int max_uv;
 };
 
-/**
+/*
  * struct ad5413_state - driver instance specific data
  * @spi:	spi_device
  * @lock:	mutex lock
