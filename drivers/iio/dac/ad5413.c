@@ -50,9 +50,6 @@
 #define AD5413_REG_FREQ_MONITOR                0x18
 #define AD5413_REG_DEVICE_ID_3                 0x1C
 
-/* AD5413 Key Register (Address: 0x08) */
-#define AD5413_REG_KEY_REG_ADDR_SHIFT     16
-
 /* Special Key Codes (bits[15:0]) */
 #define AD5413_REG_KEY_CODE_RESET_1             0x15FA
 #define AD5413_REG_KEY_CODE_RESET_2             0xAF51
@@ -73,16 +70,7 @@ struct ad5413_range {
 	int max_uv;
 };
 
-/**
- * struct ad5413_state - driver instance specific data
- * @spi:	spi_device
- * @lock:	mutex lock
- * @gpio_reset:	gpio descriptor for the reset line
- * @out_range:	struct which stores the output range
- * @slew_time:	variable which stores the target slew time
- * @pwr_down:	variable which contains whether a channel is powered down or not
- * @d32:	spi transfer buffers
- */
+/* struct ad5413_state - driver instance specific data */
 struct ad5413_state {
 	struct spi_device *spi;
 	struct mutex lock;	/* Protects all register access via SPI */
@@ -384,9 +372,8 @@ static int ad5413_reg_access(struct iio_dev *indio_dev,
 	guard(mutex)(&st->lock);
 	if (readval) {
 		ret = ad5413_spi_reg_read(st, reg);
-		if (ret < 0) {
+		if (ret < 0)
 			return ret;
-		}
 
 		*readval = ret;
 		ret = 0;
@@ -562,7 +549,7 @@ static int ad5413_parse_dt(struct ad5413_state *st)
 	const struct ad5413_range *ranges;
 	int ret;
 
-    /* 1) voltage or current range */
+	/* 1) voltage or current range */
 	ret = device_property_read_u32_array(&st->spi->dev,
 						"adi,range-microvolt",
 						tmparray, 2);
@@ -592,7 +579,7 @@ static int ad5413_parse_dt(struct ad5413_state *st)
 		size  = ARRAY_SIZE(ad5413_current_range);
 	}
 
-    /* 2) find_out_range() and st->out_range */
+	/* 2) find_out_range() and st->out_range */
 	ret = ad5413_find_out_range(st, ranges, size,
 					tmparray[0], tmparray[1]);
 	if (ret < 0)
@@ -600,7 +587,7 @@ static int ad5413_parse_dt(struct ad5413_state *st)
 							"Invalid range values (%u, %u)\n",
 							tmparray[0], tmparray[1]);
 
-    /* 3) read slew-time (optional) */
+	/* 3) read slew-time (optional) */
 	ret = device_property_read_u32(&st->spi->dev,
 						"adi,slew-time-us", &slew_time_us);
 	if (ret == -ENODATA || ret == -EINVAL) {
