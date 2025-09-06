@@ -40,32 +40,9 @@ jobs:
     permissions:
       contents: write
     needs: build-doc
-    if: ${{ (github.ref == 'refs/heads/main') }}
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: 'gh-pages'
-
-    - name: Empty gh-pages
-      run: |
-        git rm -r . --quiet || true
-
-    - uses: actions/download-artifact@v4
+    - uses: analogdevicesinc/doctools/gh-pages-deploy@action
       with:
         name: html
-
-    - name: Patch doc build
-      run: |
-        rm -r _sources
-        touch .nojekyll
-
-    - name: Commit gh-pages
-      run: |
-        git add . >> /dev/null
-        git commit -m "deploy: ${GITHUB_SHA}" --allow-empty
-
-    - name: Push to gh-pages
-      run: |
-        git push origin gh-pages:gh-pages
 
