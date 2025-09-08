@@ -72,7 +72,7 @@ config ADI_AXI_TDD
 	  and is not embedded into other devices.
 
 config ADI_AXI_HSCI
-	bool "Analog Devices HSCI Interface Support"
+	tristate "Analog Devices HSCI Interface Support"
 	depends on HAS_IOMEM
 	depends on OF
 	help
