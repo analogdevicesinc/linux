@@ -19,34 +19,19 @@
 	};
 
 	fragment@1 {
-		target-path = "/";
-		__overlay__ {
-			clocks {
-				ad7124_mclk: clock@0 {
-					#clock-cells = <0>;
-					compatible = "fixed-clock";
-					clock-frequency = <614400>;
-				};
-			};
-		};
-	};
-
-	fragment@2 {
 		target = <&spi0>;
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
 
-			ad7124: ad7124@0 {
+			ad7124: adc@0 {
 				compatible = "adi,ad7124-8";
 				reg = <0>; //CS0 default
 				spi-max-frequency = <5000000>;
 				interrupts = <19 2>; // interrupt, Default to PMD-RPI-INTZ P1
 				interrupt-parent = <&gpio>;
 				refin1-supply = <&vref>;
-				clocks = <&ad7124_mclk>;
-				clock-names = "mclk";
 
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -94,14 +79,14 @@
 		};
 	};
 
-	fragment@3 {
+	fragment@2 {
 		target = <&spidev0>;
 		__overlay__ {
 			status = "disabled";
 		};
 	};
 
-	fragment@4 {
+	fragment@3 {
 		target = <&spidev1>;
 		__overlay__ {
 			status = "disabled";
