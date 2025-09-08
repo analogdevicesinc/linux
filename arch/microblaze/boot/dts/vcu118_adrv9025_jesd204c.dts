@@ -26,7 +26,3 @@
 	/delete-property/ adi,use-cpll-enable;
 	/delete-property/ adi,use-lpm-enable;
 };
-
-&ad9528_0_c13 {
-	adi,channel-divider = <2>;
-};
