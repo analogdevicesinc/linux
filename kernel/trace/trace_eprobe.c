@@ -9,14 +9,15 @@
  * Copyright (C) 2021, VMware Inc, Tzvetomir Stoyanov tz.stoyanov@gmail.com>
  *
  */
+#include <linux/cleanup.h>
+#include <linux/ftrace.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
-#include <linux/ftrace.h>
 
 #include "trace_dynevent.h"
 #include "trace_probe.h"
-#include "trace_probe_tmpl.h"
 #include "trace_probe_kernel.h"
+#include "trace_probe_tmpl.h"
 
 #define EPROBE_EVENT_SYSTEM "eprobes"
 
@@ -59,6 +60,9 @@ static void trace_event_probe_cleanup(struct trace_eprobe *ep)
 	kfree(ep->filter_str);
 	kfree(ep);
 }
+
+DEFINE_FREE(trace_event_probe_cleanup, struct trace_eprobe *,
+		if (!IS_ERR_OR_NULL(_T)) trace_event_probe_cleanup(_T))
 
 static struct trace_eprobe *to_trace_eprobe(struct dyn_event *ev)
 {
@@ -196,10 +200,10 @@ static struct trace_eprobe *alloc_event_probe(const char *group,
 					      struct trace_event_call *event,
 					      int nargs)
 {
-	struct trace_eprobe *ep;
+	struct trace_eprobe *ep __free(trace_event_probe_cleanup) = NULL;
 	const char *event_name;
 	const char *sys_name;
-	int ret = -ENOMEM;
+	int ret;
 
 	if (!event)
 		return ERR_PTR(-ENODEV);
@@ -210,25 +214,22 @@ static struct trace_eprobe *alloc_event_probe(const char *group,
 	ep = kzalloc(struct_size(ep, tp.args, nargs), GFP_KERNEL);
 	if (!ep) {
 		trace_event_put_ref(event);
-		goto error;
+		return ERR_PTR(-ENOMEM);
 	}
 	ep->event = event;
 	ep->event_name = kstrdup(event_name, GFP_KERNEL);
 	if (!ep->event_name)
-		goto error;
+		return ERR_PTR(-ENOMEM);
 	ep->event_system = kstrdup(sys_name, GFP_KERNEL);
 	if (!ep->event_system)
-		goto error;
+		return ERR_PTR(-ENOMEM);
 
 	ret = trace_probe_init(&ep->tp, this_event, group, false, nargs);
 	if (ret < 0)
-		goto error;
+		return ERR_PTR(ret);
 
 	dyn_event_init(&ep->devent, &eprobe_dyn_event_ops);
-	return ep;
-error:
-	trace_event_probe_cleanup(ep);
-	return ERR_PTR(ret);
+	return_ptr(ep);
 }
 
 static int eprobe_event_define_fields(struct trace_event_call *event_call)
@@ -343,10 +344,15 @@ get_event_field(struct fetch_insn *code, void *rec)
 			val = *(unsigned int *)addr;
 		break;
 	default:
-		if (field->is_signed)
-			val = *(long *)addr;
-		else
-			val = *(unsigned long *)addr;
+		if (field->size == sizeof(long)) {
+			if (field->is_signed)
+				val = *(long *)addr;
+			else
+				val = *(unsigned long *)addr;
+			break;
+		}
+		/* This is an array, point to the addr itself */
+		val = (unsigned long)addr;
 		break;
 	}
 	return val;
@@ -795,23 +801,6 @@ find_and_get_event(const char *system, const char *event_name)
 	return NULL;
 }
 
-static int trace_eprobe_tp_update_arg(struct trace_eprobe *ep, const char *argv[], int i)
-{
-	struct traceprobe_parse_context ctx = {
-		.event = ep->event,
-		.flags = TPARG_FL_KERNEL | TPARG_FL_TEVENT,
-	};
-	int ret;
-
-	ret = traceprobe_parse_probe_arg(&ep->tp, i, argv[i], &ctx);
-	/* Handle symbols "@" */
-	if (!ret)
-		ret = traceprobe_update_arg(&ep->tp.args[i]);
-
-	traceprobe_finish_parse(&ctx);
-	return ret;
-}
-
 static int trace_eprobe_parse_filter(struct trace_eprobe *ep, int argc, const char *argv[])
 {
 	struct event_filter *dummy = NULL;
@@ -848,13 +837,10 @@ static int trace_eprobe_parse_filter(struct trace_eprobe *ep, int argc, const ch
 	ret = create_event_filter(top_trace_array(), ep->event, ep->filter_str,
 				  true, &dummy);
 	free_event_filter(dummy);
-	if (ret)
-		goto error;
-
-	return 0;
-error:
-	kfree(ep->filter_str);
-	ep->filter_str = NULL;
+	if (ret) {
+		kfree(ep->filter_str);
+		ep->filter_str = NULL;
+	}
 	return ret;
 }
 
@@ -866,40 +852,52 @@ static int __trace_eprobe_create(int argc, const char *argv[])
 	 * Fetch args (no space):
 	 *  <name>=$<field>[:TYPE]
 	 */
+	struct traceprobe_parse_context *ctx __free(traceprobe_parse_context) = NULL;
+	struct trace_eprobe *ep __free(trace_event_probe_cleanup) = NULL;
+	const char *trlog __free(trace_probe_log_clear) = NULL;
 	const char *event = NULL, *group = EPROBE_EVENT_SYSTEM;
 	const char *sys_event = NULL, *sys_name = NULL;
 	struct trace_event_call *event_call;
-	struct trace_eprobe *ep = NULL;
-	char buf1[MAX_EVENT_NAME_LEN];
-	char buf2[MAX_EVENT_NAME_LEN];
-	char gbuf[MAX_EVENT_NAME_LEN];
+	char *buf1 __free(kfree) = NULL;
+	char *buf2 __free(kfree) = NULL;
+	char *gbuf __free(kfree) = NULL;
 	int ret = 0, filter_idx = 0;
 	int i, filter_cnt;
 
 	if (argc < 2 || argv[0][0] != 'e')
 		return -ECANCELED;
 
-	trace_probe_log_init("event_probe", argc, argv);
+	trlog = trace_probe_log_init("event_probe", argc, argv);
 
 	event = strchr(&argv[0][1], ':');
 	if (event) {
+		gbuf = kmalloc(MAX_EVENT_NAME_LEN, GFP_KERNEL);
+		if (!gbuf)
+			return -ENOMEM;
 		event++;
 		ret = traceprobe_parse_event_name(&event, &group, gbuf,
 						  event - argv[0]);
 		if (ret)
-			goto parse_error;
+			return -EINVAL;
 	}
 
 	trace_probe_log_set_index(1);
 	sys_event = argv[1];
+
+	buf2 = kmalloc(MAX_EVENT_NAME_LEN, GFP_KERNEL);
+	if (!buf2)
+		return -ENOMEM;
+
 	ret = traceprobe_parse_event_name(&sys_event, &sys_name, buf2, 0);
 	if (ret || !sys_event || !sys_name) {
 		trace_probe_log_err(0, NO_EVENT_INFO);
-		goto parse_error;
+		return -EINVAL;
 	}
 
 	if (!event) {
-		strscpy(buf1, sys_event, MAX_EVENT_NAME_LEN);
+		buf1 = kstrdup(sys_event, GFP_KERNEL);
+		if (!buf1)
+			return -ENOMEM;
 		event = buf1;
 	}
 
@@ -915,8 +913,7 @@ static int __trace_eprobe_create(int argc, const char *argv[])
 	if (argc - 2 > MAX_TRACE_ARGS) {
 		trace_probe_log_set_index(2);
 		trace_probe_log_err(0, TOO_MANY_ARGS);
-		ret = -E2BIG;
-		goto error;
+		return -E2BIG;
 	}
 
 	scoped_guard(mutex, &event_mutex) {
@@ -930,29 +927,39 @@ static int __trace_eprobe_create(int argc, const char *argv[])
 			trace_probe_log_err(0, BAD_ATTACH_EVENT);
 		/* This must return -ENOMEM or missing event, else there is a bug */
 		WARN_ON_ONCE(ret != -ENOMEM && ret != -ENODEV);
-		ep = NULL;
-		goto error;
+		return ret;
 	}
 
 	if (filter_idx) {
 		trace_probe_log_set_index(filter_idx);
 		ret = trace_eprobe_parse_filter(ep, filter_cnt, argv + filter_idx);
 		if (ret)
-			goto parse_error;
+			return -EINVAL;
 	} else
 		ep->filter_str = NULL;
+
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return -ENOMEM;
+	ctx->event = ep->event;
+	ctx->flags = TPARG_FL_KERNEL | TPARG_FL_TEVENT;
 
 	argc -= 2; argv += 2;
 	/* parse arguments */
 	for (i = 0; i < argc; i++) {
 		trace_probe_log_set_index(i + 2);
-		ret = trace_eprobe_tp_update_arg(ep, argv, i);
+
+		ret = traceprobe_parse_probe_arg(&ep->tp, i, argv[i], ctx);
+		/* Handle symbols "@" */
+		if (!ret)
+			ret = traceprobe_update_arg(&ep->tp.args[i]);
 		if (ret)
-			goto error;
+			return ret;
 	}
 	ret = traceprobe_set_print_fmt(&ep->tp, PROBE_PRINT_EVENT);
 	if (ret < 0)
-		goto error;
+		return ret;
+
 	init_trace_eprobe_call(ep);
 	scoped_guard(mutex, &event_mutex) {
 		ret = trace_probe_register_event_call(&ep->tp);
@@ -961,22 +968,16 @@ static int __trace_eprobe_create(int argc, const char *argv[])
 				trace_probe_log_set_index(0);
 				trace_probe_log_err(0, EVENT_EXIST);
 			}
-			goto error;
+			return ret;
 		}
 		ret = dyn_event_add(&ep->devent, &ep->tp.event->call);
 		if (ret < 0) {
 			trace_probe_unregister_event_call(&ep->tp);
-			goto error;
+			return ret;
 		}
+		/* To avoid freeing registered eprobe event, clear ep. */
+		ep = NULL;
 	}
-	trace_probe_log_clear();
-	return ret;
-
-parse_error:
-	ret = -EINVAL;
-error:
-	trace_probe_log_clear();
-	trace_event_probe_cleanup(ep);
 	return ret;
 }
 
