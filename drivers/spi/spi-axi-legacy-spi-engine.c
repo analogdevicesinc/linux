@@ -227,8 +227,12 @@ static void spi_engine_gen_sleep(struct spi_engine_program *p, bool dry,
 
 	/* spi_clk is in Hz while delay is nsec, a division is required */
 	t = DIV_ROUND_CLOSEST_ULL(t, 1000000000);
+	pr_info("SPI Engine: SLEEP — requested_delay = %d ns, spi_clk = %u Hz, clk_div = %u, calculated t = %llu\n",
+		delay, spi_clk, clk_div, t);
 	while (t) {
 		unsigned int n = min_t(unsigned int, t, 256U);
+		pr_info("SPI Engine:   emitting SLEEP opcode: 0x%04x (n = %u)\n",
+			SPI_ENGINE_CMD_SLEEP(n - 1), n);
 
 		spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_SLEEP(n - 1));
 		t -= n;
@@ -280,13 +284,14 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 					word_len));
 		}
 
-		if (cs_change)
+		if (cs_change) {
 			spi_engine_gen_cs(p, dry, spi, true);
+			/* Add delay after CS assertion if specified */
+			spi_engine_gen_sleep(p, dry, spi_engine, xfer->delay, clk_div, xfer);
+		}
 
 		spi_engine_update_xfer_len(spi_engine, xfer);
 		spi_engine_gen_xfer(p, dry, xfer);
-		spi_engine_gen_sleep(p, dry, spi_engine, xfer->delay, clk_div,
-				     xfer);
 
 		cs_change = xfer->cs_change;
 		if (list_is_last(&xfer->transfer_list, &msg->transfers))
