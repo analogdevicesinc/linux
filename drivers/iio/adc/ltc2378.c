@@ -98,6 +98,10 @@ static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
         .len = 1,                      // Single 32-bit word
         .bits_per_word = 20,          // Exactly 20 clock pulses
         .speed_hz = adc->info->sclk_rate,
+        .delay = {
+            .value = 600,             // 600ns delay after CS assertion
+            .unit = SPI_DELAY_UNIT_NSECS,
+        },
     };
 
     ret = spi_sync_transfer(adc->spi, &xfer, 1);
@@ -231,21 +235,23 @@ static int ltc2378_buffer(struct iio_dev *indio_dev, struct spi_message *msg)
 
     spi_message_init(msg);
 
+    xfer->tx_buf = NULL;
     xfer->rx_buf = &adc->spi_rx_word;
     xfer->len = 1;
     xfer->bits_per_word = 20;
     xfer->speed_hz = adc->info->sclk_rate;
     xfer->cs_change = 0;
     
-    /* Minimize all delays for fastest timing */
-    xfer->delay.value = 0;
+    /* Add 600ns delay after CS assertion before SCLK starts */
+    xfer->delay.value = 600;  /* Delay before transfer starts (after CS assertion) */
     xfer->delay.unit = SPI_DELAY_UNIT_NSECS;
     
-    xfer->cs_change_delay.value = 0;
-    xfer->cs_change_delay.unit = SPI_DELAY_UNIT_NSECS;
+    /* No additional delays for other timing */
+   // xfer->cs_change_delay.value = 0;
+   // xfer->cs_change_delay.unit = SPI_DELAY_UNIT_NSECS;
     
-    xfer->word_delay.value = 0;
-    xfer->word_delay.unit = SPI_DELAY_UNIT_NSECS;
+    //xfer->word_delay.value = 0;
+    //xfer->word_delay.unit = SPI_DELAY_UNIT_NSECS;
 
     spi_message_add_tail(xfer, msg);
 
