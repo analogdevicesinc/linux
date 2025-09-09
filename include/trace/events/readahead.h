@@ -11,7 +11,7 @@
 #include <linux/fs.h>
 #include <linux/pagemap.h>
 
-TRACE_EVENT(do_page_cache_ra,
+TRACE_EVENT(page_cache_ra_unbounded,
 	TP_PROTO(struct inode *inode, pgoff_t index, unsigned long nr_to_read,
 		 unsigned long lookahead_size),
 
