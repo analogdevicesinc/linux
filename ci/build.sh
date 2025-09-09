@@ -8,6 +8,7 @@ if [[ "$GITHUB_ACTIONS" == "true" ]]; then
 else
 	export _n=$'\n'
 	export _c=$','
+	export _color='--color'
 fi
 
 _fmt() {
