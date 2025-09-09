@@ -150,7 +150,9 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 			adrv906x_switch_set_mae_age_time(es, val);
 			adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
 		}
+		netif_wake_queue(ndev);
 	} else {
+		netif_stop_queue(ndev);
 		if (eth_if->ethswitch.enabled)
 			adrv906x_switch_port_enable(es, adrv906x_dev->port, false);
 	}
