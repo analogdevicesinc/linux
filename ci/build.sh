@@ -285,6 +285,50 @@ check_license() {
 	return $fail
 }
 
+check_assert_defconfigs() {
+	export step_name="check_assert_defconfigs"
+	local fail=0
+	local arch
+	local defconfig
+	local file
+	local message="
+	Verify if the changes are coherent, for example, the changes were not
+	caused by a mistakenly set Kconfig, and if so, run 'make savedefconfig',
+	overwrite the defconfig and commit it.
+	"
+
+	echo "$step_name"
+	for arg in "$@"; do
+		arch=$(cut -d "/" -f1 <<< "$arg")
+		[[ "$arch" == "arm64" ]] && arch_=aarch64 || arch_=$arch
+		defconfig=$(cut -d "/" -f2 <<< "$arg")
+		file=arch/$arch/configs/$defconfig
+		if [[ "$defconfig" == "adi_ci_defconfig" ]]; then
+			# Contain subsystem symbols that are removed if no
+			# controller is enabled, but are required in the config
+			# template for when a controller is indeed inferred.
+			continue
+		fi
+
+		if [[ -f $file ]]; then
+			echo $file
+			set_arch gcc_$arch_ 1>/dev/null
+			make $defconfig savedefconfig 1>/dev/null
+			rm .config
+
+			mv defconfig $file
+			out=$(git diff $_color --exit-code $file) || {
+				_fmt "::error file=$file::$step_name: Defconfig '$file' changed. $message
+				      $out"
+				fail=1
+			}
+			git restore $file
+		fi
+	done
+
+	return $fail
+}
+
 compile_devicetree() {
 	export step_name="compile_devicetree"
 	local exceptions_file="ci/travis/dtb_build_test_exceptions"
