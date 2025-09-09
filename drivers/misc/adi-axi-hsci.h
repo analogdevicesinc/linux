@@ -12,8 +12,6 @@
 
 struct axi_hsci_state;
 
-#ifdef CONFIG_ADI_AXI_HSCI
-
 void axi_hsci_silent(struct axi_hsci_state *st, bool enable);
 
 int axi_hsci_manual_linkup(struct axi_hsci_state *st, uint8_t enable,
