@@ -35,6 +35,8 @@ config GPIO_ACPI
 	def_bool y
 	depends on ACPI
 
+source "drivers/gpio/adi/Kconfig"
+
 config GPIOLIB_IRQCHIP
 	select IRQ_DOMAIN
 	bool
