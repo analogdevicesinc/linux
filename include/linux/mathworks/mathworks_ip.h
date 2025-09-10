@@ -34,7 +34,6 @@
 /*********************************************************
 * Devm Helpers
 *********************************************************/
-typedef void (*devm_action_fn)(void *);
 
 static inline int devm_add_action_helper(struct device *dev, void (*action)(void *), void *data){
 	int status;
