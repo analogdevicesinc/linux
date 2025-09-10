@@ -1,0 +1,58 @@
+name: Cherry pick range to branches
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        required: true
+      base_sha:
+        required: true
+      head_sha:
+        required: true
+
+jobs:
+  mirror:
+    runs-on: [self-hosted, v1]
+
+    steps:
+    - uses: analogdevicesinc/doctools/blank@action
+
+    - name: cherry-pick-to-branches
+      run: |
+        sync_branches () {
+          local fail_
+          local fail=0
+          local initial_branch=
+
+          for branch in $@ ; do
+            echo "patching branch $branch"
+            git switch -d
+            git fetch origin $branch:$branch --depth=1 -f || continue # skip on missing ref
+            git switch $branch
+
+            range=$(($(git rev-list --count ${{ github.event.inputs.base_sha }}..${{ github.event.inputs.head_sha }}) - 1 ))
+            for (( iter=$range; iter >= 0; iter-- )); do
+              fail_=0
+              commit=$(git rev-parse ${{ github.event.inputs.head_sha }}~$iter)
+              # check if merge commit, and choose parent if so
+              git rev-parse $commit^2  2>/dev/null &&
+                merge="-m 1"|| merge=""
+              git cherry-pick --allow-empty --empty=keep $merge $commit 1>/dev/null || fail_=1
+              if [[ "$fail_" == "1" ]]; then
+                git cherry-pick --abort
+                break
+              fi
+            done
+            if [[ "$fail_" == "1" ]]; then
+              printf "failed to cherry-pick at $commit"
+              fail=1
+              break
+            fi
+            git push origin HEAD:$branch
+          done
+
+          return $fail
+        }
+
+        sync_branches "${{ github.event.inputs.branch }}"
+

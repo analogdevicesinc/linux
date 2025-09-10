@@ -1,0 +1,70 @@
+name: CI synchronization
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        required: true
+      top_level_branch:
+        required: true
+
+jobs:
+  mirror:
+    runs-on: [self-hosted, v1]
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@action
+
+    - name: increase-limits
+      run: |
+        git config http.postBuffer 157286400
+
+    - name: update-mirror
+      run: |
+        git switch -d
+        git remote prune origin
+        git fetch origin ${{ github.event.inputs.branch }}:${{ github.event.inputs.branch }} -f
+        git switch ${{ github.event.inputs.branch }}
+
+        git fetch origin ${{ github.event.inputs.top_level_branch }} --depth=1
+        declare -a arr=(
+          "ci"
+          ".github"
+          "arch/arm/configs/adi_ci_defconfig"
+          "arch/arm64/configs/adi_ci_defconfig"
+          "arch/x86/configs/adi_ci_defconfig"
+        )
+        for i in "${arr[@]}"
+        do
+          git rm -rf "$i" || true
+          git checkout origin/${{ github.event.inputs.top_level_branch }} -- "$i"
+        done
+        commit=$(git rev-parse origin/${{ github.event.inputs.top_level_branch }})
+        git diff --cached --quiet || ( \
+            git commit -m "deploy: $commit" -m "patch ci" -s &&
+            echo "push=true" >> "$GITHUB_ENV"
+          )
+        echo "{{ github.event.inputs.branch }}=${{ github.event.inputs.branch }}" >> "$GITHUB_ENV"
+
+    - name: push-ci
+      env:
+          WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET}}
+      if: ${{ env.push == 'true' && env.WORKFLOW_SECRET != '' }}
+      run: |
+        url_=$(git remote get-url origin)
+        url="https://x-access-token:${{ secrets.WORKFLOW_SECRET }}@github.com/${{ github.repository }}.git"
+        git remote set-url origin "$url"
+        git push origin ${{ github.event.inputs.branch }}:${{ github.event.inputs.branch }}
+        git remote set-url origin "$url_"
+
+    - name: push-ci
+      env:
+          WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET}}
+      if: ${{ env.push == 'true' && env.WORKFLOW_SECRET == '' }}
+      run: |
+        git push origin ${{ github.event.inputs.branch }}:${{ github.event.inputs.branch }}
+
+    - name: unset-limits
+      run: |
+        git config --unset http.postBuffer
+

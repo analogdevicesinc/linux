@@ -1,0 +1,130 @@
+name: Checks
+
+on:
+  workflow_call:
+    inputs:
+      ref_branch:
+        required: true
+        type: string
+    outputs:
+      fatal:
+        value: ${{ jobs.checks.outputs.fatal}}
+      fail:
+        value: ${{ jobs.checks.outputs.fail }}
+      warn:
+        value: ${{ jobs.checks.outputs.warn }}
+
+jobs:
+  checks:
+    timeout-minutes: 7200
+    runs-on: [self-hosted, v1]
+    continue-on-error: true
+
+    outputs:
+      fatal: ${{ steps.assert.outputs.fatal }}
+      fail: ${{ steps.assert.outputs.fail }}
+      warn: ${{ steps.assert.outputs.warn }}
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@action
+
+    - name: Apply cocci
+      run: |
+        source ./ci/build.sh
+        apply_prerun
+
+    - name: Assert state
+      if: ${{ failure() }}
+      run: |
+        source ./ci/build.sh
+        set_step_fail "assert_state"
+        echo "fatal=true" >> "$GITHUB_ENV"
+
+    - name: License
+      if: ${{ !cancelled() && env.fatal != 'true' }}
+      run: |
+        source ./ci/build.sh
+        check_license
+
+    - name: Check patch
+      if: ${{ !cancelled() && env.fatal != 'true' }}
+      run: |
+        status=0; timeout 1d bash -c "source ./ci/build.sh ; check_checkpatch" || status=$?
+        [ $status -eq 124 ] && echo "step_fail_checkpatch_timeout=true" >> "$GITHUB_ENV"
+        exit $status
+
+    - name: Coccicheck
+      if: ${{ !cancelled() && env.fatal != 'true' }}
+      run: |
+        status=0; timeout 1d bash -c "source ./ci/build.sh ; check_coccicheck" || status=$?
+        [ $status -eq 124 ] && echo "step_fail_coccicheck_timeout=true" >> "$GITHUB_ENV"
+        exit $status
+
+    - name: Checkout and patch reference branch
+      if: ${{ !cancelled() && env.fatal != 'true' && !startsWith(github.base_ref, 'mirror/') && !startsWith(github.ref_name, 'mirror/') }}
+      run: |
+        git fetch origin --depth=1 "${{ inputs.ref_branch }}" &&
+        git reset --hard origin/${{ inputs.ref_branch }} ||
+        (echo "::error ::check_checkout_reference_branch: Failed to fetch ${{ inputs.ref_branch }}" ;
+         echo "step_fail_checkout_reference_branch=true" >> "$GITHUB_ENV")
+
+        git checkout $head_sha -- ci/build.sh
+
+        # Only Documentation/devicetree/bindings/**/.yaml (touched) and
+        # include/dt-bindings/**/.h (touched and only on source branch) files
+        # are checked-out, in the case of other changes the check may falsely
+        # fail. Please, when doing heavy dt bindings work, target the
+        # upstream mirrors
+
+        files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
+
+        while read file; do
+          case "$file" in
+          *.yaml)
+            relative_file=${file#Documentation/devicetree/bindings/}
+
+            if [[ ! "$relative_file" = "$file" ]]; then
+              git checkout $head_sha -- $file
+            fi
+            ;;
+          *.h)
+            relative_file=${file#include/dt-bindings/}
+
+            if [[ ! "$relative_file" = "$file" ]]; then
+              git checkout $head_sha -- $file
+            fi
+            ;;
+          esac
+        done <<< "$files"
+
+        files=$(comm -13 \
+          <(git ls-tree -r --name-only origin/${{ inputs.ref_branch }} include/dt-bindings | sort) \
+          <(git ls-tree -r --name-only $head_sha include/dt-bindings | sort))
+
+        while read file; do
+          case "$file" in
+          *.h)
+            git checkout $head_sha -- $file
+            ;;
+          esac
+        done <<< "$files"
+
+    - name: Check dt-bindings
+      if: ${{ !cancelled() && env.fatal != 'true' }}
+      run: |
+        source ./ci/build.sh
+        check_dt_binding_check
+
+    - name: Revert patch reference branch
+      if: ${{ !cancelled() && env.fatal != 'true' && !startsWith(github.base_ref, 'mirror/') && !startsWith(github.ref_name, 'mirror/') }}
+      run: |
+        git reset --hard $head_sha
+
+    - name: Export labels
+      if: ${{ !cancelled() }}
+      id: assert
+      run: |
+        echo "fatal=$fatal" >> "$GITHUB_OUTPUT"
+        source ./ci/runner_env.sh
+        export_labels
+
