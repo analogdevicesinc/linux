@@ -46,6 +46,7 @@ obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_ADI_AXI_ADC) += adi-axi-adc.o
 obj-$(CONFIG_AD9963) += ad9963.o
 obj-$(CONFIG_ADAQ8092) += adaq8092.o
+obj-$(CONFIG_ADA4355) += ada4355.o
 obj-$(CONFIG_ADM1177) += adm1177.o
 
 cf_axi_adc-y := cf_axi_adc_core.o
