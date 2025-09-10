@@ -42,3 +42,12 @@ config  MACH_SC594_SOM
 		Say 'Y' here if you want your kernel to run on the ADI
 		SC594-SOM-EZKIT or SC594-SOM-EZLITE board.
 
+config ARCH_SC58X
+	bool "ADI SC58x SoCs (Cortex-A5-based)"
+	depends on ARCH_SC5XX
+	select COMMON_CLK_ADI_SC58X
+	help
+		This enables support for 32-bit Cortex-A5-based ADI ADSP SC-58X
+		SoCs, like the SC589. It does not include the 64-bit Cortex-A55-based
+		SoCs (see ARCH_SC58X_64 for those).
+
