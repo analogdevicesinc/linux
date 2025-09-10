@@ -5,6 +5,7 @@
  *  Copyright (C) 2008 Magnus Damm
  */
 
+#include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/clockchips.h>
 #include <linux/clocksource.h>
@@ -623,51 +624,6 @@ static void sh_cmt_stop_clocksource(struct sh_cmt_channel *ch)
 	pm_runtime_put(&ch->cmt->pdev->dev);
 }
 
-static int sh_cmt_start_clockevent(struct sh_cmt_channel *ch)
-{
-	int ret = 0;
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&ch->lock, flags);
-
-	if (!(ch->flags & (FLAG_CLOCKEVENT | FLAG_CLOCKSOURCE))) {
-		pm_runtime_get_sync(&ch->cmt->pdev->dev);
-		ret = sh_cmt_enable(ch);
-	}
-
-	if (ret)
-		goto out;
-
-	ch->flags |= FLAG_CLOCKEVENT;
- out:
-	raw_spin_unlock_irqrestore(&ch->lock, flags);
-
-	return ret;
-}
-
-static void sh_cmt_stop_clockevent(struct sh_cmt_channel *ch)
-{
-	unsigned long flags;
-	unsigned long f;
-
-	raw_spin_lock_irqsave(&ch->lock, flags);
-
-	f = ch->flags & (FLAG_CLOCKEVENT | FLAG_CLOCKSOURCE);
-
-	ch->flags &= ~FLAG_CLOCKEVENT;
-
-	if (f && !(ch->flags & (FLAG_CLOCKEVENT | FLAG_CLOCKSOURCE))) {
-		sh_cmt_disable(ch);
-		pm_runtime_put(&ch->cmt->pdev->dev);
-	}
-
-	/* adjust the timeout to maximum if only clocksource left */
-	if (ch->flags & FLAG_CLOCKSOURCE)
-		__sh_cmt_set_next(ch, ch->max_match_value);
-
-	raw_spin_unlock_irqrestore(&ch->lock, flags);
-}
-
 static struct sh_cmt_channel *cs_to_sh_cmt(struct clocksource *cs)
 {
 	return container_of(cs, struct sh_cmt_channel, cs);
@@ -774,19 +730,30 @@ static struct sh_cmt_channel *ced_to_sh_cmt(struct clock_event_device *ced)
 
 static void sh_cmt_clock_event_start(struct sh_cmt_channel *ch, int periodic)
 {
-	sh_cmt_start_clockevent(ch);
-
 	if (periodic)
 		sh_cmt_set_next(ch, ((ch->cmt->rate + HZ/2) / HZ) - 1);
 	else
 		sh_cmt_set_next(ch, ch->max_match_value);
 }
 
+static void sh_cmt_clock_event_stop(struct sh_cmt_channel *ch)
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&ch->lock, flags);
+
+	/* adjust the timeout to maximum if only clocksource left */
+	if (ch->flags & FLAG_CLOCKSOURCE)
+		__sh_cmt_set_next(ch, ch->max_match_value);
+
+	raw_spin_unlock_irqrestore(&ch->lock, flags);
+}
+
 static int sh_cmt_clock_event_shutdown(struct clock_event_device *ced)
 {
 	struct sh_cmt_channel *ch = ced_to_sh_cmt(ced);
 
-	sh_cmt_stop_clockevent(ch);
+	sh_cmt_clock_event_stop(ch);
 	return 0;
 }
 
@@ -797,7 +764,7 @@ static int sh_cmt_clock_event_set_state(struct clock_event_device *ced,
 
 	/* deal with old setting first */
 	if (clockevent_state_oneshot(ced) || clockevent_state_periodic(ced))
-		sh_cmt_stop_clockevent(ch);
+		sh_cmt_clock_event_stop(ch);
 
 	dev_info(&ch->cmt->pdev->dev, "ch%u: used for %s clock events\n",
 		 ch->index, periodic ? "periodic" : "oneshot");
@@ -967,6 +934,32 @@ static int sh_cmt_setup_channel(struct sh_cmt_channel *ch, unsigned int index,
 
 	ch->match_value = ch->max_match_value;
 	raw_spin_lock_init(&ch->lock);
+
+	if (clockevent) {
+		/*
+		 * To support clock events the CMT must always be ready to
+		 * accept new events, start it and leave no way for it to be
+		 * turned off.
+		 *
+		 * This is OK as we can't never unregister a CMT device. If this
+		 * is fixed in future an equal unconditional shutdown is needed.
+		 *
+		 * We don't need to hold the channel lock here as we have not
+		 * yet register any clock source or event so there is no
+		 * possible race. And holding the spinlock at probe time
+		 * produces lockdep warnings.
+		 */
+		pm_runtime_get_sync(&ch->cmt->pdev->dev);
+		ret = sh_cmt_enable(ch);
+		if (ret)
+			return ret;
+
+		/*
+		 * Flag that the channel is used as a clock event, it's not
+		 * allowed to be powered off!
+		 */
+		ch->flags |= FLAG_CLOCKEVENT;
+	}
 
 	ret = sh_cmt_register(ch, dev_name(&cmt->pdev->dev),
 			      clockevent, clocksource);
