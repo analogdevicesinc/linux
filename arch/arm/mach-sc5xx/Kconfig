@@ -1,10 +1,18 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)-or-later
 
 
-config ARCH_SC5XX
-	bool "ADI ADSP-SC5XX Family"
-	select CPU_V7
+menuconfig ARCH_SC5XX
+	bool "SC5xx SoCs (Cortex-A5-based)"
+	depends on ARCH_MULTI_V7
 	select ARM_GIC
+	select PINCTRL
+	select COUNTER
+	select GPIOLIB
+	select SERIAL_ADI_UART4
+	select ADI_ADSP_IRQ
+	select GPIO_ADI_ADSP_PORT
+	select COMMON_CLK
+	select GENERIC_IRQ_MULTI_HANDLER
 	select VFP
 	select NEON
 	select MIGHT_HAVE_CACHE_L2X0
@@ -13,14 +21,7 @@ config ARCH_SC5XX
 	select IRQ_DOMAIN
 	select SPARSE_IRQ
 	select GENERIC_CLOCKEVENTS
-	select COMMON_CLK
-	select GPIOLIB
-	select PINCTRL
-	select TIMER_OF
-	select COUNTER
 	select PINCTRL_ADSP_SC5XX
-	select GPIO_ADI_ADSP_PORT
-	select GENERIC_IRQ_MULTI_HANDLER
 
 config ARCH_SC59X
 	bool "ADI SC59x SoCs (Cortex-A5-based)"
