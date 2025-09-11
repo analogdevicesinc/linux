@@ -28,16 +28,12 @@
 
 / {
 	clocks {
-		hmcad15xx_xtal: clock@0 {
-			#clock-cells = <0>;
+		adf4355_clkin: clock@0 {
 			compatible = "fixed-clock";
-			clock-frequency = <1000000000>;
+			clock-frequency = <10000000>;
+			clock-output-names = "clkin";
+			#clock-cells = <0>;
 		};
-        hmcad15xx_xtal_1: clock1@1 {
-        	#clock-cells = <0>;
-        	compatible = "fixed-clock";
-        	clock-frequency = <1000000000>;
-        };
     };
 
     vref: regulator-vref {
@@ -56,7 +52,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios =  <&gpio_exp 12 GPIO_ACTIVE_HIGH >, <&gpio_exp 13 GPIO_ACTIVE_LOW>, <&gpio_exp 14 GPIO_ACTIVE_LOW>;
+		out-gpios =  <&gpio_exp 12 GPIO_ACTIVE_HIGH >, <&gpio_exp 13 GPIO_ACTIVE_LOW>, <&gpio_exp 14 GPIO_ACTIVE_LOW>, <&gpio_exp 15 GPIO_ACTIVE_LOW>;
 
 		channel@0 {
 			reg = <0>;
@@ -72,6 +68,10 @@
     		reg = <2>;
     		label = "rstn_dac";
     	};
+        channel@3 {
+        	reg = <3>;
+        	label = "clk_sel";
+        };
 	};
 
 };
@@ -199,7 +199,7 @@
     hmcad15xx_1: hmcad15xx_1@0 {
         compatible = "adi,hmcad15xx";
         reg = <0>;
-        clocks = <&hmcad15xx_xtal>;
+        clocks = <&adf4355_clk>;
         clock-names = "clk";
         reset-gpios = <&gpio_exp 9 GPIO_ACTIVE_LOW>;
 		pd-gpios = <&gpio_exp 10 GPIO_ACTIVE_HIGH>;
@@ -210,11 +210,32 @@
     hmcad15xx_2: hmcad15xx_2@1 {
         compatible = "adi,hmcad15xx";
         reg = <1>;
-        clocks = <&hmcad15xx_xtal_1>;
+        clocks = <&adf4355_clk>;
         clock-names = "clk";
         reset-gpios = <&gpio_exp 8 GPIO_ACTIVE_LOW>;
         pd-gpios = <&gpio_exp 11 GPIO_ACTIVE_HIGH>;
         adi,num-channels = <4>;
         adi,pol-mask =<32>;
     };
+
+    adf4355_clk: adf4355@2 {
+		compatible = "adi,adf4355";
+		reg = <2>;
+		spi-max-frequency = <10000000>;
+		clocks = <&adf4355_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "adf4355_pll";
+		#clock-cells = <0>;
+		adi,charge-pump-current = <900>;
+		adi,muxout-select = <6>;
+		adi,output-a-power = <3>;
+		adi,output-b-power = <3>;
+        adi,mute-till-lock-enable;
+		adi,charge-pump-negative-bleed-enable;
+		adi,reference-differential-input-enable;
+		adi,power-up-frequency = /bits/ 64 <1000000000>;
+		adi,output-a-enable;
+		adi,output-b-enable;
+	};
+
 };
