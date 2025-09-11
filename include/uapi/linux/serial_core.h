@@ -109,6 +109,9 @@
 /* Xilinx uartlite */
 #define PORT_UARTLITE	74
 
+/* Blackfin */
+#define PORT_BFIN	75
+
 /* Broadcom BCM7271 UART */
 #define PORT_BCM7271	76
 
