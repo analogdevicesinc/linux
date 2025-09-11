@@ -1558,7 +1558,13 @@ emit_cond_jmp:
 		if (ret < 0)
 			return ret;
 		emit_call(func_addr, ctx);
-		emit(A64_MOV(1, r0, A64_R(0)), ctx);
+		/*
+		 * Call to arch_bpf_timed_may_goto() is emitted by the
+		 * verifier and called with custom calling convention with
+		 * first argument and return value in BPF_REG_AX (x9).
+		 */
+		if (func_addr != (u64)arch_bpf_timed_may_goto)
+			emit(A64_MOV(1, r0, A64_R(0)), ctx);
 		break;
 	}
 	/* tail call */
@@ -2767,7 +2773,6 @@ int arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *ro_image,
 		goto out;
 	}
 
-	bpf_flush_icache(ro_image, ro_image + size);
 out:
 	kvfree(image);
 	return ret;
@@ -3035,6 +3040,11 @@ bool bpf_jit_bypass_spec_v4(void)
 	 * no need to provide any additional instructions. Therefore, skip
 	 * inserting nospec insns against Spectre v4.
 	 */
+	return true;
+}
+
+bool bpf_jit_supports_timed_may_goto(void)
+{
 	return true;
 }
 
