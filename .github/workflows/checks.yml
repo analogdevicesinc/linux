@@ -120,6 +120,15 @@ jobs:
       run: |
         git reset --hard $head_sha
 
+    - name: Check defconfigs
+      if: ${{ !cancelled() && env.fatal != 'true' }}
+      run: |
+        configs=($(awk '/ARCH:/{arch=$2} /DEFCONFIG:/{print arch "/" $2}' \
+                   .github/workflows/top-level.yml | \
+                 sed 's/"//g'))
+        source ./ci/build.sh
+        check_assert_defconfigs ${configs[@]}
+
     - name: Export labels
       if: ${{ !cancelled() }}
       id: assert
