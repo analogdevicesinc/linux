@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)-or-later
-
-
 menuconfig ARCH_SC5XX
 	bool "SC5xx SoCs (Cortex-A5-based)"
 	depends on ARCH_MULTI_V7

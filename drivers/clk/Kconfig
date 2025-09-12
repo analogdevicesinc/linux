@@ -521,6 +521,7 @@ config COMMON_CLK_RPMI
 	  the RISC-V platform management interface (RPMI) specification.
 
 source "drivers/clk/actions/Kconfig"
+source "drivers/clk/adi/Kconfig"
 source "drivers/clk/analogbits/Kconfig"
 source "drivers/clk/baikal-t1/Kconfig"
 source "drivers/clk/bcm/Kconfig"
