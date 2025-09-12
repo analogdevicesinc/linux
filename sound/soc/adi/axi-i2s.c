@@ -161,7 +161,6 @@ static struct snd_soc_dai_driver axi_i2s_dai = {
 
 static const struct snd_soc_component_driver axi_i2s_component = {
 	.name = "axi-i2s",
-	.legacy_dai_naming = 1,
 };
 
 static const struct regmap_config axi_i2s_regmap_config = {
@@ -274,11 +273,13 @@ err_clk_disable:
 	return ret;
 }
 
-static void axi_i2s_dev_remove(struct platform_device *pdev)
+static int axi_i2s_dev_remove(struct platform_device *pdev)
 {
 	struct axi_i2s *i2s = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(i2s->clk);
+
+	return 0;
 }
 
 static const struct of_device_id axi_i2s_of_match[] = {
