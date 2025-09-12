@@ -115,10 +115,9 @@ struct sc5xx_gptimer_controller {
 	struct clockevent_gptimer *cevt;
 	struct sc5xx_gptimer *timers;
 	size_t num_timers;
-	struct counter_device counter_dev;
 };
 
-static struct sc5xx_gptimer_controller gptimer_controller = { 0 };
+static struct sc5xx_gptimer_controller gptimer_controller = { 0x00 };
 
 static struct clockevent_gptimer *to_clockevent_gptimer(struct
 							clock_event_device
@@ -463,7 +462,7 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 	n = of_get_child_count(np);
 	gptimer_controller.num_timers = n;
 	gptimer_controller.timers =
-	    kcalloc(n, sizeof(*gptimer_controller.timers), GFP_KERNEL);
+		kcalloc(n, sizeof(*gptimer_controller.timers), GFP_KERNEL);
 
 	if (!gptimer_controller.timers) {
 		pr_err("%s: Unable to allocate memory for timers\n",
@@ -493,35 +492,48 @@ TIMER_OF_DECLARE(sc5xx_gptimers, "adi,sc5xx-gptimers",
 static int gptimer_counter_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct counter_count *counts;
+	struct counter_count *adi_counts;
+	struct sc5xx_gptimer_controller *priv;
+	struct counter_device *counter;
 	uint32_t i;
+	int ret;
 
-	if (!gptimer_controller.base) {
-		dev_err(dev, "gptimer controller not yet mapped?\n");
-		return -ENODEV;
+	adi_counts =
+	    devm_kcalloc(dev, gptimer_controller.num_timers,
+			 sizeof(*adi_counts), GFP_KERNEL);
+	if (!adi_counts) {
+		return -ENOMEM;
 	}
 
-	counts =
-	    devm_kcalloc(dev, gptimer_controller.num_timers,
-			 sizeof(*counts), GFP_KERNEL);
-	if (!counts)
+	
+	counter = devm_counter_alloc(dev, sizeof(*priv));
+	if (!counter)
 		return -ENOMEM;
 
+	priv = counter_priv(counter);
+	
+
 	for (i = 0; i < gptimer_controller.num_timers; ++i) {
-		counts[i].id = i;
-		counts[i].name =
+		adi_counts[i].name =
 		    kasprintf(GFP_KERNEL, "gptimer_counter%d", i);
 	}
 
-	gptimer_controller.counter_dev.name = dev_name(dev);
-	gptimer_controller.counter_dev.parent = dev;
-	gptimer_controller.counter_dev.ops = &gptimer_counter_ops;
-	gptimer_controller.counter_dev.counts = counts;
-	gptimer_controller.counter_dev.num_counts =
-	    gptimer_controller.num_timers;
+	priv->clk = gptimer_controller.clk;
 
-	//changed from devm_counter_register
-	return devm_counter_add(dev, &gptimer_controller.counter_dev);
+	counter->name = dev_name(dev);
+	counter->parent = dev;
+	counter->ops = &gptimer_counter_ops;
+	counter->counts = adi_counts;
+	counter->num_counts = gptimer_controller.num_timers;
+
+	/* Register Counter device */
+	ret = devm_counter_add(dev, counter);
+	if (ret < 0) {
+		dev_err_probe(dev, ret, "Failed to add counter\n");
+	}
+	return ret;
+
+	
 }
 
 static const struct of_device_id adsp_gptimer_counter_match[] = {
