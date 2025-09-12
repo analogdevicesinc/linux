@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config COMMON_CLK_ADI_SC594
+	bool "ADI SC594 clock driver"
+	depends on ARCH_SC5XX || COMPILE_TEST
+	help
+	  This enables the ADI SC594 clock driver. The driver provides
+	  support for the clock controller on the ADI SC594 SoC.
+	  If you are using the ADI SC594 SoC, say Y here.
+	  If unsure, say N.
+
+config COMMON_CLK_ADI_SC598
+	bool "ADI SC598 clock driver"
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	help
+	  This enables the ADI SC594 clock driver. The driver provides
+	  support for the clock controller on the ADI SC598 SoC.
+	  If you are using the ADI SC598 SoC, say Y here.
+	  If unsure, say N.
