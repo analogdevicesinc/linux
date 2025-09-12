@@ -68,7 +68,7 @@ static void adrv906x_phy_get_strings(struct phy_device *phydev, u8 *data)
 			adrv906x_phy_hw_stats[i].string, ETH_GSTRING_LEN);
 }
 
-static u64 adrv906x_phy_get_stat(struct phy_device *phydev, int i)
+static u64 adrv906x_phy_get_stat(struct phy_device *phydev, unsigned int i)
 {
 	const struct adrv906x_phy_hw_stat *stat = &adrv906x_phy_hw_stats[i];
 	u32 val;
@@ -87,6 +87,26 @@ static void adrv906x_phy_get_stats(struct phy_device *phydev,
 
 	for (i = 0; i < ARRAY_SIZE(adrv906x_phy_hw_stats); i++)
 		data[i] = adrv906x_phy_get_stat(phydev, i);
+}
+
+void adrv906x_phy_get_fec_stats(struct net_device *dev, struct ethtool_fec_stats *fec_stats)
+{
+	struct phy_device *phydev = dev->phydev;
+	u32 val;
+
+	fec_stats->corrected_blocks.total = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_COR_CW1);
+	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_COR_CW2);
+	fec_stats->corrected_blocks.total += val << 16;
+
+	fec_stats->uncorrectable_blocks.total =
+		phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_UNCOR_CW1);
+	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_UNCOR_CW2);
+	fec_stats->uncorrectable_blocks.total += val << 16;
+
+	/* ADRV906x can only report the number of corrected symbols, not how many bits were corrected. */
+	fec_stats->corrected_bits.total = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_SYM_ERR1);
+	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_SYM_ERR2);
+	fec_stats->corrected_bits.total += val << 16;
 }
 
 static int adrv906x_phy_get_features(struct phy_device *phydev)

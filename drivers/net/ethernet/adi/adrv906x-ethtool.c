@@ -934,6 +934,7 @@ static void adrv906x_ethtool_selftest_run(struct net_device *ndev, struct ethtoo
 const struct ethtool_ops adrv906x_ethtool_ops = {
 	.get_link_ksettings	= phy_ethtool_get_link_ksettings,
 	.set_link_ksettings	= adrv906x_ethtool_set_link_ksettings,
+	.get_fec_stats		= adrv906x_phy_get_fec_stats,
 	.get_fecparam		= adrv906x_ethtool_get_fecparam,
 	.set_fecparam		= adrv906x_ethtool_set_fecparam,
 	.get_ts_info		= adrv906x_ethtool_get_ts_info,
