@@ -484,6 +484,7 @@ config COMMON_CLK_SP7021
 	  by the driver.
 
 source "drivers/clk/actions/Kconfig"
+source "drivers/clk/adi/Kconfig"
 source "drivers/clk/analogbits/Kconfig"
 source "drivers/clk/baikal-t1/Kconfig"
 source "drivers/clk/bcm/Kconfig"
