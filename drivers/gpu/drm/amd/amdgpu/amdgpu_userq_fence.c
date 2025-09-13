@@ -466,9 +466,13 @@ int amdgpu_userq_signal_ioctl(struct drm_device *dev, void *data,
 
 	struct drm_gem_object **gobj_write, **gobj_read;
 	u32 *syncobj_handles, num_syncobj_handles;
+	u64 *syncobj_points;
 	struct amdgpu_usermode_queue *queue;
 	struct amdgpu_userq_fence *fence;
-	struct drm_syncobj **syncobj;
+	struct {
+		struct drm_syncobj *syncobj;
+		struct dma_fence_chain *chain;
+	} *syncobj;
 	struct drm_exec exec;
 	void __user *ptr;
 	int r, i, entry;
@@ -488,18 +492,39 @@ int amdgpu_userq_signal_ioctl(struct drm_device *dev, void *data,
 	if (IS_ERR(syncobj_handles))
 		return PTR_ERR(syncobj_handles);
 
+	if (args->syncobj_points) {
+		ptr = u64_to_user_ptr(args->syncobj_points);
+		syncobj_points = memdup_array_user(ptr, num_syncobj_handles,
+					    sizeof(u64));
+		if (IS_ERR(syncobj_points)) {
+			r = PTR_ERR(syncobj_points);
+			goto free_syncobj_handles;
+		}
+	} else {
+		syncobj_points = NULL;
+	}
+
 	syncobj = kmalloc_array(num_syncobj_handles, sizeof(*syncobj),
 				GFP_KERNEL);
 	if (!syncobj) {
 		r = -ENOMEM;
-		goto free_syncobj_handles;
+		goto free_syncobj_points;
 	}
 
 	for (entry = 0; entry < num_syncobj_handles; entry++) {
-		syncobj[entry] = drm_syncobj_find(filp, syncobj_handles[entry]);
-		if (!syncobj[entry]) {
+		syncobj[entry].chain = NULL;
+		syncobj[entry].syncobj = drm_syncobj_find(filp, syncobj_handles[entry]);
+		if (!syncobj[entry].syncobj) {
 			r = -ENOENT;
 			goto free_syncobj;
+		}
+		if (syncobj_points && syncobj_points[entry]) {
+			syncobj[entry].chain = dma_fence_chain_alloc();
+			if (!syncobj[entry].chain) {
+				drm_syncobj_put(syncobj[entry].syncobj);
+				r = -ENOMEM;
+				goto free_syncobj;
+			}
 		}
 	}
 
@@ -569,8 +594,15 @@ int amdgpu_userq_signal_ioctl(struct drm_device *dev, void *data,
 		dma_resv_add_fence(gobj_write[i]->resv, &fence->base,
 				   DMA_RESV_USAGE_WRITE);
 
-	for (i = 0; i < num_syncobj_handles; i++)
-		drm_syncobj_replace_fence(syncobj[i], &fence->base);
+	for (i = 0; i < num_syncobj_handles; i++) {
+		if (syncobj[i].chain) {
+			drm_syncobj_add_point(syncobj[i].syncobj, syncobj[i].chain,
+					   &fence->base, syncobj_points[i]);
+			syncobj[i].chain = NULL;
+		} else {
+			drm_syncobj_replace_fence(syncobj[i].syncobj, &fence->base);
+		}
+	}
 
 exec_fini:
 	/* drop the reference acquired in fence creation function */
@@ -588,9 +620,13 @@ put_gobj_read:
 		drm_gem_object_put(gobj_read[i]);
 	kvfree(gobj_read);
 free_syncobj:
-	while (entry-- > 0)
-		drm_syncobj_put(syncobj[entry]);
+	while (entry-- > 0) {
+		drm_syncobj_put(syncobj[entry].syncobj);
+		dma_fence_chain_free(syncobj[entry].chain);
+	}
 	kfree(syncobj);
+free_syncobj_points:
+	kfree(syncobj_points);
 free_syncobj_handles:
 	kfree(syncobj_handles);
 
