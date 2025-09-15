@@ -157,6 +157,14 @@ config GPIO_74XX_MMIO
 	    8 bits:	74244 (Input), 74273 (Output)
 	    16 bits:	741624 (Input), 7416374 (Output)
 
+config GPIO_ADI_ADSP_PORT
+	bool "ADI ADSP PORT GPIO driver"
+	depends on OF_GPIO
+	select GPIO_GENERIC
+	help
+	  Say Y to enable the ADSP PORT-based GPIO driver for Analog Devices
+	  ADSP chips.
+
 config GPIO_ALTERA
 	tristate "Altera GPIO"
 	select GPIOLIB_IRQCHIP
