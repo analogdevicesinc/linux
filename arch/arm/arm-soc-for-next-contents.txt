@@ -73,6 +73,14 @@ soc/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.18-arm64-dt
 	aspeed/dt-2
 		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.18-devicetree-1
+	imx/dt-bindings
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-bindings-6.18
+	imx/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt-6.18
+	imx/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt64-6.18
+	patch
+		ARM: dts: socionext: Drop "linux,spdif-dit" port node unit-address
 
 soc/drivers
 	aspeed/drivers
@@ -103,6 +111,8 @@ soc/drivers
 		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-6.18
 	microchip/drivers-Kconfig
 		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-soc-6.18
+	mediate/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/v6.17-next-soc
 
 soc/defconfig
 	renesas/defconfig
@@ -113,6 +123,8 @@ soc/defconfig
 		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-defconfig-6.18
 	broadcom/defconfig
 		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.18/defconfig-arm64
+	imx/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-defconfig-6.18
 
 soc/late
 
