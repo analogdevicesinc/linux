@@ -226,6 +226,12 @@ config SPI_BCM2835AUX
 	  "universal SPI master", and the regular SPI controller.
 	  This driver is for the universal/auxiliary SPI controller.
 
+config SPI_ADI
+	tristate "SPI controller v3 for ADI"
+	help
+	  This is the SPI controller v3 master driver
+	  found on ADI SC5xx processor.
+
 config SPI_BCM63XX
 	tristate "Broadcom BCM63xx SPI controller"
 	depends on BCM63XX || BMIPS_GENERIC || COMPILE_TEST
