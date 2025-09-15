@@ -303,9 +303,8 @@ static int i2c_adi_twi_xfer_msg(struct adi_twi_dev *priv,
 				priv->result = -1;
 				dev_err(priv->dev, "transfer timeout occurred (polling mode)");
 				break;
-			} else {
-				udelay(1);
 			}
+			udelay(1);
 		}
 	} else { /* Interrupt mode */
 		while (!priv->result) {

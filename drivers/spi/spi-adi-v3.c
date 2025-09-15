@@ -754,7 +754,8 @@ static int adi_qspi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 {
 	/* Once ops is defined, this callback needs to be present
 	 * Do nothing and return error. Fallback will be the regular core
-	 * spi_meme_exec_op implmentation */
+	 * spi_mem_exec_op implementation
+	 */
 	return -ENOTSUPP;
 }
 

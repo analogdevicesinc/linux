@@ -435,15 +435,11 @@ static irqreturn_t adrv906x_dma_rx_done_irq_handler(int irq, void *ctx)
 static irqreturn_t adrv906x_dma_error_irq_handler(int irq, void *ctx)
 {
 	struct adrv906x_ndma_chan *ndma_ch = ctx;
-	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
-	struct device *dev = ndma_dev->dev;
 
 	if (ndma_ch->rx_dma_error_irq == irq)
 		adrv906x_dma_rx_reset(ndma_ch);
 	else
 		adrv906x_dma_tx_reset(ndma_ch);
-
-	dev_dbg(dev, "%s", __func__);
 
 	return IRQ_WAKE_THREAD;
 }
@@ -451,8 +447,6 @@ static irqreturn_t adrv906x_dma_error_irq_handler(int irq, void *ctx)
 static irqreturn_t adrv906x_dma_error_irq_handler_thread(int irq, void *ctx)
 {
 	struct adrv906x_ndma_chan *ndma_ch = ctx;
-	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
-	struct device *dev = ndma_dev->dev;
 	unsigned long flags;
 
 	/* TODO: Implement recovery procedure */
@@ -466,8 +460,6 @@ static irqreturn_t adrv906x_dma_error_irq_handler_thread(int irq, void *ctx)
 			ndma_ch->stats.tx.data_dma_errors++;
 	}
 	spin_unlock_irqrestore(&ndma_ch->lock, flags);
-
-	dev_dbg(dev, "%s", __func__);
 
 	return IRQ_HANDLED;
 }

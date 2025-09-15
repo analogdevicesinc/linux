@@ -108,22 +108,20 @@ static struct attribute *adrv906x_eth_debug_attrs[] = {
 
 ATTRIBUTE_GROUPS(adrv906x_eth_debug);
 
-static ssize_t adrv906x_eth_recovered_clock_output_get(struct device *dev,
-						       struct device_attribute *attr, char *buf)
+static ssize_t recovered_clock_output_show(struct device *dev,
+					   struct device_attribute *attr, char *buf)
 {
 	return adrv906x_cmn_recovered_clock_output_get(dev, buf);
 }
 
-static ssize_t adrv906x_eth_recovered_clock_output_set(struct device *dev,
-						       struct device_attribute *attr,
-						       const char *buf, size_t cnt)
+static ssize_t recovered_clock_output_store(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf, size_t cnt)
 {
 	return adrv906x_cmn_recovered_clock_output_set(dev, buf, cnt);
 }
 
-static DEVICE_ATTR(recovered_clock_output, 0644,
-		   adrv906x_eth_recovered_clock_output_get,
-		   adrv906x_eth_recovered_clock_output_set);
+static DEVICE_ATTR_RW(recovered_clock_output);
 
 static void adrv906x_eth_adjust_link(struct net_device *ndev)
 {
@@ -577,10 +575,7 @@ static int adrv906x_eth_switch_reset_soft_post(void *arg)
 static int adrv906x_eth_open(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	struct device *dev = adrv906x_dev->dev;
 	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
-
-	dev_info(dev, "%s called", __func__);
 
 	adrv906x_eth_oran_if_en(&adrv906x_dev->oif);
 
@@ -604,9 +599,7 @@ static int adrv906x_eth_stop(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
-	struct device *dev = adrv906x_dev->dev;
 
-	dev_info(dev, "%s called", __func__);
 	netif_stop_queue(ndev);
 	adrv906x_ndma_close(ndma_dev);
 	if (ndev->phydev)
@@ -761,7 +754,8 @@ static int adrv906x_eth_dev_reg(struct platform_device *pdev, struct device_node
 	if (!ret) {
 		if (dev_valid_name(if_name)) {
 			if (__dev_get_by_name(net, if_name)) {
-				dev_err(dev, "interface name: %s is already used, using default", if_name);
+				dev_err(dev, "interface name: %s is already used, using default",
+					if_name);
 			} else {
 				dev_info(dev, "using %s interface name from device tree", if_name);
 				snprintf(ndev->name, IFNAMSIZ, if_name);

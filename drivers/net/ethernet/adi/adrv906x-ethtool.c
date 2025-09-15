@@ -295,7 +295,8 @@ static int adrv906x_ethtool_set_link_ksettings(struct net_device *ndev,
 	return 0;
 }
 
-static int adrv906x_ethtool_get_ts_info(struct net_device *ndev, struct kernel_ethtool_ts_info *info)
+static int adrv906x_ethtool_get_ts_info(struct net_device *ndev,
+					struct kernel_ethtool_ts_info *info)
 {
 	info->so_timestamping =
 		SOF_TIMESTAMPING_TX_SOFTWARE |
@@ -754,8 +755,6 @@ static int adrv906x_test_near_end_loopback_test(struct net_device *ndev)
 	int dev_state = netif_running(ndev);
 	int ret;
 
-	netdev_printk(KERN_DEBUG, ndev, "enter %s", __func__);
-
 	if (es->enabled)
 		adrv906x_switch_reset_soft(es);
 	adrv906x_mac_set_path(mac, true);
@@ -793,8 +792,6 @@ out:
 		adrv906x_switch_port_enable(es, adrv906x_dev->port, false);
 		adrv906x_switch_reset_soft(es);
 	}
-
-	netdev_printk(KERN_DEBUG, ndev, "%s done", __func__);
 
 	return ret;
 }
@@ -915,7 +912,8 @@ struct adrv906x_test adrv906x_ethtool_selftests[] = {
 	},
 };
 
-static void adrv906x_ethtool_selftest_run(struct net_device *ndev, struct ethtool_test *etest, u64 *buf)
+static void adrv906x_ethtool_selftest_run(struct net_device *ndev, struct ethtool_test *etest,
+					  u64 *buf)
 {
 	unsigned char etest_flags = etest->flags;
 	int i, ret;

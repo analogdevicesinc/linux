@@ -971,6 +971,7 @@ static int adrv906x_tod_module_init(struct adrv906x_tod_counter *counter)
 	if (tod->sec_regs && counter->trigger_mode == HW_TOD_TRIG_MODE_PPS) {
 		counter->trigger_mode = HW_TOD_TRIG_MODE_GC;
 		struct adrv906x_tod_tstamp tstamp = { 0U, 0U, 0U };
+
 		ret = adrv906x_tod_hw_settstamp(counter, &tstamp);
 		counter->trigger_mode = HW_TOD_TRIG_MODE_PPS;
 	}
@@ -1360,6 +1361,7 @@ static unsigned int platform_get_num_of_resources(struct platform_device *dev,
 
 	for (i = 0; i < dev->num_resources; i++) {
 		struct resource *r = &dev->resource[i];
+
 		if (type == resource_type(r))
 			num++;
 	}

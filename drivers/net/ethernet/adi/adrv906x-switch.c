@@ -333,7 +333,7 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 
 	orig = cmdstr;
 
-	strcpy(cmdstr, buf);
+	strscpy(cmdstr, buf, cnt);
 	ret = adrv906x_get_attr_cmd_tokens(cmdstr, tokens);
 	if (ret)
 		goto free_m;

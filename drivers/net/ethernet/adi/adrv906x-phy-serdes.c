@@ -126,7 +126,7 @@ struct adrv906x_phy_fsm {
 	int tran_tbl_size;
 	struct completion comp_tran;
 	struct kfifo event_fifo;
-	spinlock_t event_fifo_lock;
+	spinlock_t event_fifo_lock; /* fsm lock */
 	adrv906x_phy_fsm_state_to_str state_to_str;
 	adrv906x_phy_fsm_event_to_str event_to_str;
 };
@@ -183,7 +183,7 @@ static void __sd_app_watchdog_expired(struct work_struct *work);
 static DEFINE_MUTEX(genl_mutex);
 
 static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_serdes_trans[] = {
-	/* Source State       Event                 Action        	  	Destination State */
+	/* Source State       Event                 Action              Destination State */
 	{ SD_ST_IDLE,	      SD_EVT_APP_ACTV,	    __do_nothing,	      SD_ST_APP_ACTV	 },
 	{ SD_ST_IDLE,	      SD_EVT_LNK_UP,	    __do_nothing,	      SD_ST_LNK_UP_PEND	 },
 
@@ -247,7 +247,7 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_serdes_trans[] = {
 };
 
 static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_pll_trans[] = {
-	/* Source State          Event                 Action               	Destination State */
+	/* Source State          Event                 Action                   Destination State */
 	{ PLL_ST_UNLOCKED,	 PLL_EVT_LNK0_10G_REQ, __pll_cfg_10G_send,	PLL_ST_LNK0_10G_PEND  },
 	{ PLL_ST_UNLOCKED,	 PLL_EVT_LNK1_10G_REQ, __pll_cfg_10G_send,	PLL_ST_LNK1_10G_PEND  },
 	{ PLL_ST_UNLOCKED,	 PLL_EVT_LNK0_25G_REQ, __pll_cfg_25G_send,	PLL_ST_LNK0_25G_PEND  },
@@ -578,7 +578,8 @@ static int adrv906x_phy_fsm_handle_transition(void *data)
 
 		action = NULL;
 
-		ret = kfifo_out_spinlocked(&fsm->event_fifo, &event, sizeof(event), &fsm->event_fifo_lock);
+		ret = kfifo_out_spinlocked(&fsm->event_fifo, &event, sizeof(event),
+					   &fsm->event_fifo_lock);
 		if (!ret)
 			continue;
 
@@ -1088,10 +1089,12 @@ static void __pll_check_actv_lnks(void *param)
 	struct adrv906x_pll *pll = container_of(fsm, struct adrv906x_pll, fsm);
 	int event = PLL_EVT_UNKNOWN;
 
-	if ((atomic_read(&fsm->state) == PLL_ST_LNK0_10G_REQ || atomic_read(&fsm->state) == PLL_ST_LNK0_25G_REQ)
+	if ((atomic_read(&fsm->state) == PLL_ST_LNK0_10G_REQ
+	     || atomic_read(&fsm->state) == PLL_ST_LNK0_25G_REQ)
 	    && adrv906x_serdes_disabled(2 * pll->dev_id + 1))
 		event = PLL_EVT_LNK1_DOWN;
-	else if ((atomic_read(&fsm->state) == PLL_ST_LNK1_10G_REQ || atomic_read(&fsm->state) == PLL_ST_LNK1_25G_REQ)
+	else if ((atomic_read(&fsm->state) == PLL_ST_LNK1_10G_REQ
+		  || atomic_read(&fsm->state) == PLL_ST_LNK1_25G_REQ)
 		 && adrv906x_serdes_disabled(2 * pll->dev_id))
 		event = PLL_EVT_LNK0_DOWN;
 

@@ -94,7 +94,8 @@ void adrv906x_phy_get_fec_stats(struct net_device *dev, struct ethtool_fec_stats
 	struct phy_device *phydev = dev->phydev;
 	u32 val;
 
-	fec_stats->corrected_blocks.total = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_COR_CW1);
+	fec_stats->corrected_blocks.total = phy_read_mmd(phydev, MDIO_MMD_PCS,
+							 ADRV906X_PCS_RS_FEC_COR_CW1);
 	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_COR_CW2);
 	fec_stats->corrected_blocks.total += val << 16;
 
@@ -103,8 +104,11 @@ void adrv906x_phy_get_fec_stats(struct net_device *dev, struct ethtool_fec_stats
 	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_UNCOR_CW2);
 	fec_stats->uncorrectable_blocks.total += val << 16;
 
-	/* ADRV906x can only report the number of corrected symbols, not how many bits were corrected. */
-	fec_stats->corrected_bits.total = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_SYM_ERR1);
+	/* ADRV906x can only report the number of corrected symbols, not how many bits were
+	 * corrected.
+	 */
+	fec_stats->corrected_bits.total = phy_read_mmd(phydev, MDIO_MMD_PCS,
+						       ADRV906X_PCS_RS_FEC_SYM_ERR1);
 	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_SYM_ERR2);
 	fec_stats->corrected_bits.total += val << 16;
 }
@@ -384,7 +388,8 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 		phydev->speed = SPEED_25000;
 	} else {
 		if (phydev->speed != SPEED_10000 && phydev->speed != SPEED_25000) {
-			dev_warn(dev, "dt: phy unsupported speed: %d, defaulting to 25000", phydev->speed);
+			dev_warn(dev, "dt: phy unsupported speed: %d, defaulting to 25000",
+				 phydev->speed);
 			phydev->speed = SPEED_25000;
 		}
 	}
@@ -424,7 +429,8 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 		}
 	}
 
-	ret = adrv906x_serdes_open(phydev, adrv906x_phy_tx_path_enable, adrv906x_phy_rx_path_enable);
+	ret = adrv906x_serdes_open(phydev, adrv906x_phy_tx_path_enable,
+				   adrv906x_phy_rx_path_enable);
 	if (ret)
 		return ret;
 
