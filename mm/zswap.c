@@ -306,12 +306,12 @@ static struct zswap_pool *__zswap_pool_create_fallback(void)
 		       zswap_compressor, CONFIG_ZSWAP_COMPRESSOR_DEFAULT);
 		param_free_charp(&zswap_compressor);
 		zswap_compressor = CONFIG_ZSWAP_COMPRESSOR_DEFAULT;
-		if (!crypto_has_acomp(zswap_compressor, 0, 0)) {
-			pr_err("default compressor %s not available\n",
-			       zswap_compressor);
-			zswap_compressor = ZSWAP_PARAM_UNSET;
-			return NULL;
-		}
+	}
+
+	/* Default compressor should be available. Kconfig bug? */
+	if (WARN_ON_ONCE(!crypto_has_acomp(zswap_compressor, 0, 0))) {
+		zswap_compressor = ZSWAP_PARAM_UNSET;
+		return NULL;
 	}
 
 	return zswap_pool_create(zswap_compressor);
