@@ -142,6 +142,7 @@ obj-$(CONFIG_SPI_SN_F_OSPI)		+= spi-sn-f-ospi.o
 obj-$(CONFIG_SPI_SG2044_NOR)	+= spi-sg2044-nor.o
 obj-$(CONFIG_SPI_SPRD)			+= spi-sprd.o
 obj-$(CONFIG_SPI_SPRD_ADI)		+= spi-sprd-adi.o
+obj-$(CONFIG_SPI_ADI) 			+= spi-adi.o
 obj-$(CONFIG_SPI_STM32) 		+= spi-stm32.o
 obj-$(CONFIG_SPI_STM32_OSPI) 		+= spi-stm32-ospi.o
 obj-$(CONFIG_SPI_STM32_QSPI) 		+= spi-stm32-qspi.o
