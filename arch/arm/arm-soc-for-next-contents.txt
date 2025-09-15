@@ -79,12 +79,40 @@ soc/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.18-drivers-0
 	renesas/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v6.18-tag1
+	drivers/reset
+		https://git.pengutronix.de/git/pza/linux tags/reset-for-v6.18
+	broadcom/drivers
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.18/drivers
+	qcom/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-6.18
+	hisi/drivers
+		https://github.com/hisilicon/linux-hisi tags/hisi-drivers-for-6.18
+	drivers/tee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-improve-sysfs-for-v6.18
+	tee/sha1
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-sha1-lib-for-v6.18
+	drivers/optee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-prot-dma-buf-for-v6.18
+	renesas/drivers-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v6.18-tag2
+	samsung/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-6.18
+	tegra114/fuse
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.18-soc
+	drivers/scmi
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-6.18
+	microchip/drivers-Kconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-soc-6.18
 
 soc/defconfig
 	renesas/defconfig
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v6.18-tag1
 	patch
 		ARM: defconfig: pxa: Remove duplicate CONFIG_USB_GPIO_VBUS entry
+	samsung/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-defconfig-6.18
+	broadcom/defconfig
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.18/defconfig-arm64
 
 soc/late
 
