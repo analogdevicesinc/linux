@@ -57,6 +57,12 @@ config DMA_OF
 	select DMA_ENGINE
 
 #devices
+config ADI_DMA
+	bool "ADI SC5xx DMA Controller"
+	depends on DMA_ENGINE && (ARCH_SC59X || ARCH_SC59X_64 || ARCH_SC58X || ARCH_SC57X) && DMA_OF
+	help
+	  Enable DMA controller for ADI SC5xx SoCs
+
 config ALTERA_MSGDMA
 	tristate "Altera / Intel mSGDMA Engine"
 	depends on HAS_IOMEM
@@ -471,7 +477,7 @@ config MOXART_DMA
 	select DMA_VIRTUAL_CHANNELS
 	help
 	  Enable support for the MOXA ART SoC DMA controller.
- 
+
 	  Say Y here if you enabled MMP ADMA, otherwise say N.
 
 config MPC512X_DMA
