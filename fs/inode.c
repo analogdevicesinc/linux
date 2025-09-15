@@ -550,11 +550,11 @@ static void __inode_add_lru(struct inode *inode, bool rotate)
 struct wait_queue_head *inode_bit_waitqueue(struct wait_bit_queue_entry *wqe,
 					    struct inode *inode, u32 bit)
 {
-        void *bit_address;
+	void *bit_address;
 
-        bit_address = inode_state_wait_address(inode, bit);
-        init_wait_var_entry(wqe, bit_address, 0);
-        return __var_waitqueue(bit_address);
+	bit_address = inode_state_wait_address(inode, bit);
+	init_wait_var_entry(wqe, bit_address, 0);
+	return __var_waitqueue(bit_address);
 }
 EXPORT_SYMBOL(inode_bit_waitqueue);
 
@@ -1915,10 +1915,10 @@ retry:
 	lockdep_assert_not_held(&inode->i_lock);
 	VFS_BUG_ON_INODE(inode->i_state & I_CLEAR, inode);
 	/*
-        * Note this assert is technically racy as if the count is bogusly
-        * equal to one, then two CPUs racing to further drop it can both
-        * conclude it's fine.
-        */
+	 * Note this assert is technically racy as if the count is bogusly
+	 * equal to one, then two CPUs racing to further drop it can both
+	 * conclude it's fine.
+	 */
 	VFS_BUG_ON_INODE(atomic_read(&inode->i_count) < 1, inode);
 
 	if (atomic_add_unless(&inode->i_count, -1, 1))
@@ -1942,9 +1942,9 @@ retry:
 	}
 
 	/*
-        * iput_final() drops ->i_lock, we can't assert on it as the inode may
-        * be deallocated by the time the call returns.
-        */
+	 * iput_final() drops ->i_lock, we can't assert on it as the inode may
+	 * be deallocated by the time the call returns.
+	 */
 	iput_final(inode);
 }
 EXPORT_SYMBOL(iput);
@@ -2941,10 +2941,18 @@ EXPORT_SYMBOL(mode_strip_sgid);
  *
  * TODO: add a proper inode dumping routine, this is a stub to get debug off the
  * ground.
+ *
+ * TODO: handle getting to fs type with get_kernel_nofault()?
+ * See dump_mapping() above.
  */
 void dump_inode(struct inode *inode, const char *reason)
 {
-	pr_warn("%s encountered for inode %px (%s)\n", reason, inode, inode->i_sb->s_type->name);
+	struct super_block *sb = inode->i_sb;
+
+	pr_warn("%s encountered for inode %px\n"
+		"fs %s mode %ho opflags 0x%hx flags 0x%x state 0x%x count %d\n",
+		reason, inode, sb->s_type->name, inode->i_mode, inode->i_opflags,
+		inode->i_flags, inode->i_state, atomic_read(&inode->i_count));
 }
 
 EXPORT_SYMBOL(dump_inode);
