@@ -1014,6 +1014,14 @@ If file version is 2.0 or higher then each line may contain additional
 For example if the counters are not accurate, the line will be appended with
 "accurate:no" pair.
 
+Supported markers in v2:
+accurate:no
+              Absolute values of the counters in this line are not
+              accurate because of the failure to allocate storage required
+              to track some of the allocations made at this location.
+              Deltas in these counters are accurate, therefore counters
+              can be used to track allocation size and count changes.
+
 Example output.
 
 ::
