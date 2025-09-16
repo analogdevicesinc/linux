@@ -927,7 +927,7 @@ apply_prerun() {
 touch_files () {
 	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 
-	touch $files
+	[[ ! -z "$files" ]] && touch $files
 }
 
 auto_set_kconfig() {
