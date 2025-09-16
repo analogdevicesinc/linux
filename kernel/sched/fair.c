@@ -8921,6 +8921,7 @@ static void yield_task_fair(struct rq *rq)
 	 */
 	rq_clock_skip_update(rq);
 
+	se->vruntime = se->deadline;
 	se->deadline += calc_delta_fair(se->slice, se);
 }
 
