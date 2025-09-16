@@ -34,8 +34,8 @@ int32_t adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy,
 
 	do_div(f_clamp, div);
 
-	dev_dbg(&phy->spi->dev, "adi_ad9088_calc_nco_ftw: freq=%llu, nco_shift=%lld, bits=%u\n",
-		f_clamp, nco_shift, bits);
+	dev_dbg(&phy->spi->dev, "%s: freq=%llu, nco_shift=%lld, bits=%u\n",
+		__func__, f_clamp, nco_shift, bits);
 
 	nco_shift = clamp_t(int64_t, nco_shift, -(f_clamp >> 1), f_clamp >> 1);
 
@@ -67,8 +67,8 @@ int32_t adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy,
 	if (neg)
 		*ftw = (1ULL << bits) - *ftw;
 
-	dev_dbg(&phy->spi->dev, "adi_ad9088_calc_nco_ftw: ftw=%llx, frac_a=%llu, frac_b=%llu\n",
-		*ftw, *frac_a, *frac_b);
+	dev_dbg(&phy->spi->dev, "%s: ftw=%llx, frac_a=%llu, frac_b=%llu\n",
+		__func__, *ftw, *frac_a, *frac_b);
 
 	return API_CMS_ERROR_OK;
 }
@@ -80,8 +80,8 @@ int32_t adi_ad9088_calc_nco_freq(struct ad9088_phy *phy,
 	u64 hi, lo, mod;
 	bool neg = false;
 
-	dev_dbg(&phy->spi->dev, "adi_ad9088_calc_nco_freq: freq=%llu, ftw=%llu, a=%u, b=%u, bits=%u\n",
-		freq, ftw, a, b, bits);
+	dev_dbg(&phy->spi->dev, "%s: freq=%llu, ftw=%llu, a=%u, b=%u, bits=%u\n",
+		__func__, freq, ftw, a, b, bits);
 
 	if (!b)
 		b = 1;
@@ -300,8 +300,8 @@ static int ad9088_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 }
 
 void ad9088_iiochan_to_fddc_cddc(struct ad9088_phy *phy, const struct iio_chan_spec *chan,
-                                 u8 *fddc_num, u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
-                                 u8 *side)
+				 u8 *fddc_num, u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
+				 u8 *side)
 {
 	const u32 cncos[] = {ADI_APOLLO_CNCO_A0, ADI_APOLLO_CNCO_A1,
 			     ADI_APOLLO_CNCO_B0, ADI_APOLLO_CNCO_B1
@@ -807,8 +807,8 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 		} else {
 			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
 			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc,
-						        phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_a,
-							phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
+						       phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_a,
+						       phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
 		}
 		break;
 	case FDDC_NCO_FREQ:
@@ -3973,7 +3973,7 @@ ad9088_cfir_bin_write(struct file *filp, struct kobject *kobj,
 	return ad9088_parse_cfilt(phy, buf, count);
 }
 
-#if 1
+#if DEBUG
 static int ad9088_dbg(struct ad9088_phy *phy, int val, int val2, int val3, int val4)
 {
 	adi_apollo_device_t *device = &phy->ad9088;
@@ -4288,9 +4288,8 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "ADC Cal data total lenght: %zu\n", phy->adc_cal_len);
 			if (sizeof(phy->dbuf) - len <= phy->adc_cal_len)
 				return -ENOMEM;
-			for (u32 i = 0; i < phy->adc_cal_len ; i++) {
+			for (u32 i = 0; i < phy->adc_cal_len ; i++)
 				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "%x", buf[i]);
-			}
 			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "\n");
 			break;
 		default:
@@ -4641,26 +4640,6 @@ static int ad9088_post_iio_register(struct iio_dev *indio_dev)
 
 	return sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->cfir);
 }
-
-#if 0
-static int ad9088_reg_from_phandle(struct ad9088_phy *phy,
-				   const struct device_node *np,
-				   const char *phandle_name, int index,
-				   u32 *reg)
-{
-	int ret;
-	struct device_node *ph = of_parse_phandle(np, phandle_name, index);
-
-	if (!np)
-		return -EINVAL;
-
-	ret = of_property_read_u32(ph, "reg", reg);
-
-	of_node_put(ph);
-
-	return ret;
-}
-#endif
 
 static char *ad9088_label_writer(struct ad9088_phy *phy, const struct iio_chan_spec *chan)
 {
@@ -6554,13 +6533,7 @@ static int ad9088_probe(struct spi_device *spi)
 	conv->write_raw = ad9088_write_raw;
 	conv->read_raw = ad9088_read_raw;
 	conv->read_label = ad9088_read_label;
-#if 0
-	conv->read_event_value = ad9088_read_thresh,
-	      conv->write_event_value = ad9088_write_thresh,
-		    conv->read_event_config = ad9088_read_thresh_en,
-			  conv->write_event_config = ad9088_write_thresh_en,
-				conv->set_pnsel = ad9088_set_pnsel;
-#endif
+
 	conv->post_setup = ad9088_post_setup;
 	conv->post_iio_register = ad9088_post_iio_register;
 
