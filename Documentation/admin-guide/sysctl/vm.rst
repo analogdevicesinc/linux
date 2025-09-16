@@ -309,18 +309,38 @@ physical memory) vs performance / capacity implications in transparent and
 HugeTLB cases.
 
 For all architectures, enable_soft_offline controls whether to soft offline
-memory pages.  When set to 1, kernel attempts to soft offline the pages
-whenever it thinks needed.  When set to 0, kernel returns EOPNOTSUPP to
-the request to soft offline the pages.  Its default value is 1.
+memory pages.
+
+enable_soft_offline is a bitmask:
+
+Bits::
+
+	0 - Enable soft offline
+	1 - Disable soft offline for HugeTLB pages
+
+Supported values::
+
+	0 - Soft offline is disabled
+	1 - Soft offline is enabled
+	3 - Soft offline is enabled (disabled for HugeTLB pages)
+
+The default value is 1.
+
+If soft offline is disabled for the requested page type, EOPNOTSUPP is returned.
 
 It is worth mentioning that after setting enable_soft_offline to 0, the
 following requests to soft offline pages will not be performed:
 
+- Request to soft offline from sysfs (soft_offline_page).
+
 - Request to soft offline pages from RAS Correctable Errors Collector.
 
-- On ARM, the request to soft offline pages from GHES driver.
+- On ARM and X86, the request to soft offline pages from GHES driver.
 
 - On PARISC, the request to soft offline pages from Page Deallocation Table.
+
+Note:
+	Soft offlining a HugeTLB page reduces the HugeTLB page pool.
 
 extfrag_threshold
 =================
