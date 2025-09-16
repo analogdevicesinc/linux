@@ -443,6 +443,8 @@ source "arch/arm/mach-s5pv210/Kconfig"
 
 source "arch/arm/mach-sa1100/Kconfig"
 
+source "arch/arm/mach-sc5xx/Kconfig"
+
 source "arch/arm/mach-shmobile/Kconfig"
 
 source "arch/arm/mach-socfpga/Kconfig"
@@ -1101,7 +1103,6 @@ config HZ_500
 
 config HZ_1000
 	bool "1000 Hz"
-
 endchoice
 
 config HZ
@@ -1486,7 +1487,7 @@ config ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND
 	bool "Extend with bootloader kernel arguments"
 	help
 	  The command-line arguments provided by the boot loader will be
-	  appended to the the device tree bootargs property.
+	  appended to the device tree bootargs property.
 
 endchoice
 
@@ -1628,7 +1629,7 @@ config DMI
 	  continue to boot on existing non-UEFI platforms.
 
 	  NOTE: This does *NOT* enable or encourage the use of DMI quirks,
-	  i.e., the the practice of identifying the platform via DMI to
+	  i.e., the practice of identifying the platform via DMI to
 	  decide whether certain workarounds for buggy hardware and/or
 	  firmware need to be enabled. This would require the DMI subsystem
 	  to be enabled much earlier than we do on ARM, which is non-trivial.
