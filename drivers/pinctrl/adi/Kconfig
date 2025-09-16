@@ -6,6 +6,12 @@ config PINCTRL_ADSP
 	select PINMUX
 	select GENERIC_PINCONF
 
+config SRUCTRL_ADSP
+	bool
+	depends on OF
+	select PINMUX
+	select GENERIC_PINCONF
+
 config PINCTRL_ADSP_SC5XX
 	bool "ADSP-SC5XX pinctrl driver"
 	depends on (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X)
@@ -13,3 +19,11 @@ config PINCTRL_ADSP_SC5XX
 	help
 	  Say Y here to enable the ADSP-SC5XX pinctrl driver. This is required for
 	  correct peripheral functionality on the SoC.
+
+config SRUCTRL_ADSP_SC5XX
+	bool "ADSP-SC5XX SRU control driver"
+	depends on (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X)
+	select SRUCTRL_ADSP
+	help
+	  Say Y here to enable the ADSP-SC5XX SRU control driver. This is required for
+	  SRU muxing functionaility on the SoC.
