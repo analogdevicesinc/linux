@@ -28,7 +28,7 @@ source_suffix = '.rst'
 
 interref_repos = [
     'documentation',
-    'pyadi-jif/main',
+    'pyadi-jif',
 ]
 
 intersphinx_mapping = {
