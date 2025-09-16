@@ -20,7 +20,7 @@ _fmt() {
 }
 
 _file () {
-	$(echo "$1" | sed 's/,/'"$_c"'/g')
+	echo "$1" | sed 's/,/'"$_c"'/g'
 }
 
 check_checkpatch() {
