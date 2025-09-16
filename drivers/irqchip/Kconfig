@@ -102,6 +102,15 @@ config ALPINE_MSI
 	select IRQ_MSI_LIB
 	select GENERIC_IRQ_CHIP
 
+config ADI_ADSP_IRQ
+	bool "ADI PORT PINT Driver"
+	depends on OF
+	depends on (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X)
+	select IRQ_DOMAIN
+	help
+	  Say Y to enable the PORT-based PINT interrupt controller for
+	  Analog Devices ADSP devices.
+
 config AL_FIC
 	bool "Amazon's Annapurna Labs Fabric Interrupt Controller"
 	depends on OF
