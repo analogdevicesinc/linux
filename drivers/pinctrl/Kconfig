@@ -681,6 +681,7 @@ config PINCTRL_RP1
 	  Enable the gpio and pinctrl/mux driver for RaspberryPi RP1
 	  multi function device.
 
+source "drivers/pinctrl/adi/Kconfig"
 source "drivers/pinctrl/actions/Kconfig"
 source "drivers/pinctrl/aspeed/Kconfig"
 source "drivers/pinctrl/bcm/Kconfig"
