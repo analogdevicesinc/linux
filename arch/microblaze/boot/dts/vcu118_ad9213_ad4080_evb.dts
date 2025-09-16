@@ -32,7 +32,8 @@
 				    <&axi_gpio 49 GPIO_ACTIVE_HIGH>,
 				    <&axi_gpio 48 GPIO_ACTIVE_HIGH>,
 				    <&axi_gpio 47 GPIO_ACTIVE_HIGH>,
-				    <&axi_gpio 46 GPIO_ACTIVE_HIGH>;
+				    <&axi_gpio 46 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 52 GPIO_ACTIVE_HIGH>;
 		channel@0 {
 			reg = <0>;
 			label = "ltc2664_tgp";
@@ -68,6 +69,10 @@
 		channel@8 {
 			reg = <8>;
 			label = "hmc7044_sync_req";
+		};
+		channel@9 {
+			reg = <9>;
+			label = "adl5580_en";
 		};
 	};
 };
