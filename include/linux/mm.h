@@ -3672,14 +3672,34 @@ static inline vm_fault_t vmf_insert_page(struct vm_area_struct *vma,
 	return VM_FAULT_NOPAGE;
 }
 
-#ifndef io_remap_pfn_range
-static inline int io_remap_pfn_range(struct vm_area_struct *vma,
-				     unsigned long addr, unsigned long pfn,
-				     unsigned long size, pgprot_t prot)
+#ifdef io_remap_pfn_range_pfn
+static inline unsigned long io_remap_pfn_range_prot(pgprot_t prot)
 {
-	return remap_pfn_range(vma, addr, pfn, size, pgprot_decrypted(prot));
+	/* We do not decrypt if arch customises PFN. */
+	return prot;
+}
+#else
+static inline unsigned long io_remap_pfn_range_pfn(unsigned long pfn,
+		unsigned long size)
+{
+	return pfn;
+}
+
+static inline pgprot_t io_remap_pfn_range_prot(pgprot_t prot)
+{
+	return pgprot_decrypted(prot);
 }
 #endif
+
+static inline int io_remap_pfn_range(struct vm_area_struct *vma,
+				     unsigned long addr, unsigned long orig_pfn,
+				     unsigned long size, pgprot_t orig_prot)
+{
+	const unsigned long pfn = io_remap_pfn_range_pfn(orig_pfn, size);
+	const pgprot_t prot = io_remap_pfn_range_prot(orig_prot);
+
+	return remap_pfn_range(vma, addr, pfn, size, prot);
+}
 
 static inline vm_fault_t vmf_error(int err)
 {
