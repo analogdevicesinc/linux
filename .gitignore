@@ -177,3 +177,7 @@ sphinx_*/
 
 # Rust analyzer configuration
 /rust-project.json
+
+# Yocto symlinks
+oe-logs
+oe-workdir

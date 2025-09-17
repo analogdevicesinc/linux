@@ -4,7 +4,11 @@
 #
 
 obj-$(CONFIG_MMC_ARMMMCI) += armmmci.o
-armmmci-y := mmci.o
+ifeq ($(CONFIG_MMC_ADI_SYSTEMC),y)
+    armmmci-y := mmci_adi_systemc.o
+else
+    armmmci-y := mmci.o
+endif
 armmmci-$(CONFIG_MMC_QCOM_DML) += mmci_qcom_dml.o
 armmmci-$(CONFIG_MMC_STM32_SDMMC) += mmci_stm32_sdmmc.o
 obj-$(CONFIG_MMC_PXA)		+= pxamci.o
@@ -89,6 +93,7 @@ obj-$(CONFIG_MMC_SDHCI_OF_HLWD)		+= sdhci-of-hlwd.o
 obj-$(CONFIG_MMC_SDHCI_OF_DWCMSHC)	+= sdhci-of-dwcmshc.o
 obj-$(CONFIG_MMC_SDHCI_OF_SPARX5)	+= sdhci-of-sparx5.o
 obj-$(CONFIG_MMC_SDHCI_OF_MA35D1)	+= sdhci-of-ma35d1.o
+obj-$(CONFIG_MMC_SDHCI_OF_ADI)		+= sdhci-of-adi.o
 obj-$(CONFIG_MMC_SDHCI_BCM_KONA)	+= sdhci-bcm-kona.o
 obj-$(CONFIG_MMC_SDHCI_IPROC)		+= sdhci-iproc.o
 obj-$(CONFIG_MMC_SDHCI_NPCM)		+= sdhci-npcm.o

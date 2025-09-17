@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ */
+
+/* For now, Titan-4 is identical to Denali-4 except for the changes below */
+#include "adrv906x-denali-4.dts"
+
+/ {
+	model = "ADI ADRV906X Titan 4T4R Evaluation Kit";
+	compatible = "adi,adrv906x-titan-4", "adi,adrv906x";
+
+	sfp_port0: sfp_port0 {
+		compatible = "sff,sfp";
+		i2c-bus = <&i2c1>;
+		los-gpio = <&gpio0 ADI_ADRV906X_PIN_72 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpio = <&gpio0 ADI_ADRV906X_PIN_73 GPIO_ACTIVE_LOW>;
+		tx-disable-gpio = <&gpio0 ADI_ADRV906X_PIN_70 GPIO_ACTIVE_HIGH>;
+		tx-fault-gpio = <&gpio0 ADI_ADRV906X_PIN_71 GPIO_ACTIVE_HIGH>;
+	};
+
+	sfp_port1: sfp_port1 {
+		compatible = "sff,sfp";
+		i2c-bus = <&i2c7>;
+		los-gpio = <&gpio0 ADI_ADRV906X_PIN_58 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpio = <&gpio0 ADI_ADRV906X_PIN_59 GPIO_ACTIVE_LOW>;
+		tx-disable-gpio = <&gpio0 ADI_ADRV906X_PIN_56 GPIO_ACTIVE_HIGH>;
+		tx-fault-gpio = <&gpio0 ADI_ADRV906X_PIN_57 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&mmc1 {
+	/* BRINGUP TODO: Set this back to 50MHz */
+	max-frequency = <12500000>;
+};
+
+&i2c7 {
+	status = "okay";
+};
+
+&dac0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm12>;
+};
+
+/*
+ * GPIO Pin mapping: 
+ * 
+ * Pin 0-6:     SD
+ * Pins 7-19:	RFFE
+ * Pins 20-21: 	I2C
+ * Pins 22-23:	Stream processor fault handling
+ * Pins 24-27:	UART0
+ * Pins 28-29: 	Not Connected
+ * Pins 30-31: 	UART4
+ * Pin 32:		GPINT0
+ * Pins 33-37: 	RFFE
+ * Pins 38-39:	JTAG M4
+ * Pins 40-41:	RFFE
+ * Pin 42:		SPI_MASTER0_SELB_1
+ * Pin 43: 		RFFE
+ * Pin 44:		TRACE_D2
+ * Pin 45: 		ONE_PPS_CLK_OUTPUT_SE
+ * Pin 46: 		PWM_12
+ * Pin 47:		RFFE
+ * Pin 51:		Board pushbutton
+ * Pins 52-53:	Not Connected
+ * Pins 54-55:	RFFE
+ * Pins 56-59:	QSFP Interface
+ * Pins 60-64:  JTAG A5
+ * Pins 65-69:	RFFE
+ * Pins 70-73:	QSFP Interface
+ * Pins 74-77: 	Gpio LEDs
+ * Pins 78-84: 	QSPI
+ * Pins 85-100: EMAC
+ * Pin 101:		GPINT_INTERRUPT_INPUT_SECONDARY_TO_PRIMARY
+ * Pin 102: 	A55_GPIO_S_102_PIN (reboot/shutdown signal to ADM12366)
+ */
+&pinctrl_hog {
+	adi,pins = <
+	/* RFFE signals */
+	RFFE_0_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_1_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_2_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_3_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_4_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_5_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_6_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_7_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_8_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_9_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_10_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_11_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_12_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_19_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_20_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_21_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_22_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_30_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_31_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_32_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_33_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_34_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_37_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_38_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_39_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_40_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_44_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_45_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_46_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
+	/* Pin 51: Board pushbutton */
+	A55_GPIO_NS_51_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+
+	/* Pins 56-59: SFP1 interface */
+	A55_GPIO_NS_56_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_57_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	A55_GPIO_NS_58_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	A55_GPIO_NS_59_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+
+	/* Pins 70-73: SFP0 interface */
+	A55_GPIO_NS_70_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_71_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	A55_GPIO_NS_72_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	A55_GPIO_NS_73_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	>;
+};
+
+&adrv906x_phy0 {
+	sfp = <&sfp_port0>;
+};
+
+&adrv906x_phy1 {
+	sfp = <&sfp_port1>;
+};
+
+&adrv906x_net0 {
+	ethernet-ports {
+		port@0 {
+			adi,pcb-delay-tx-ns = <1>;
+			adi,pcb-delay-tx-frac-ns = <0>;
+			adi,pcb-delay-rx-ns = <1>;
+			adi,pcb-delay-rx-frac-ns = <0>;
+		};
+		port@1 {
+			adi,pcb-delay-tx-ns = <1>;
+			adi,pcb-delay-tx-frac-ns = <0>;
+			adi,pcb-delay-rx-ns = <1>;
+			adi,pcb-delay-rx-frac-ns = <0>;
+		};
+	};
+};

@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2023, Analog Devices Incorporated, All Rights Reserved
+ */
+
+/ {
+	/* eMMC, SystemC only. Using 0 as node address to differentiate it from SDHCI driver */
+	mmc0@0 {
+		compatible = "arm,pl180", "arm,primecell";
+		arm,primecell-periphid = <0xF0041180>;
+		reg = <EMMC_0_BASE 0x1000>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SPI 900 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 901 IRQ_TYPE_LEVEL_HIGH>;
+		max-frequency = <12000000>;
+		vmmc-supply = <&sysc_mmc_regulator>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "mclk", "apb_pclk";
+		status = "disabled";
+	};
+
+	/* SD, SystemC only. Using 1 as node address to differentiate it from SDHCI driver */
+	mmc1@1 {
+		compatible = "arm,pl180", "arm,primecell";
+		arm,primecell-periphid = <0xF0041180>;
+		reg = <SD_0_BASE 0x1000>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SPI 902 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 903 IRQ_TYPE_LEVEL_HIGH>;
+		max-frequency = <12000000>;
+		vmmc-supply = <&sysc_mmc_regulator>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "mclk", "apb_pclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mmc1_sd>;
+		status = "disabled";
+	};
+
+	/* SystemC only */
+	ethernet@2 {
+		compatible = "smsc,lan91c111";
+		reg = <EMAC_1G_BASE 0x4000>;
+		interrupts = <GIC_SPI 904 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+	};
+
+	/* SystemC only */
+	sysc_mmc_regulator: sysc-fixed-regulator-0 {
+		compatible = "regulator-fixed";
+		regulator-name = "3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+		status = "disabled";
+	};
+};

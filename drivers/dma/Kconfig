@@ -733,6 +733,13 @@ config XILINX_ZYNQMP_DPDMA
 	  driver provides the dmaengine required by the DisplayPort subsystem
 	  display driver.
 
+config ADI_DMA
+    tristate "adi dma support"
+    select DMA_ENGINE
+    select DMA_VIRTUAL_CHANNELS
+    help
+      support ADI's distributed DMA engine
+
 # driver files
 source "drivers/dma/amd/Kconfig"
 

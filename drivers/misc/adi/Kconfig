@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+config ADI_SRAM_MMAP
+	bool "Aarch64 MMAP driver for ADI onchip SRAM"
+	depends on SRAM
+	default n
+	help
+	  Enable the mmap driver for ADI on chip SRAM.
+

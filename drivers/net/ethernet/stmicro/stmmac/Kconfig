@@ -298,6 +298,12 @@ config DWMAC_LOONGSON
 	  This selects the LOONGSON PCI bus support for the stmmac driver,
 	  Support for ethernet controller on Loongson-2K1000 SoC and LS7A1000 bridge.
 
+config DWMAC_ADRV906X
+	tristate "ADRV906X 1G support"
+	depends on OF && STMMAC_PLATFORM
+	help
+	  ADRV906X 1G ethernet driver.
+
 config STMMAC_PCI
 	tristate "STMMAC PCI bus support"
 	depends on STMMAC_ETH && PCI
