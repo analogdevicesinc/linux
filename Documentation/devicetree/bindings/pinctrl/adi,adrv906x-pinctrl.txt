@@ -1,0 +1,115 @@
+* Analog Devices Inc. (ADI) - Pinmux Controller for the ADRV906X SoC
+
+The ADRV906X SoC integrates many internal function blocks (UART, SPI, I2C, GPIO, among others) 
+which can be optionally enabled by the end user. To conserve the number of pins, and  
+reduce overall package size, a Pinmux Controller is utilzed. This Pinmux Controller 
+allows for several of these function blocks to share a single Input/Output pin. 
+The number of configurable pins, number of sources per pin, their mappings is 
+described in the referenced header file (pinctrl-adi-adrv906x-io-pad.h). This
+readme describes how to setup the ADRV906X SoC's configurable I/O mapping.  See the
+SoC documentation for more information.
+
+Please refer to pinctrl-bindings.txt in this directory for details of the
+common pinctrl bindings used by client devices, including the meaning of the
+phrase "pin configuration node".
+
+ADI ADRV906X pin configuration node is a node of a group of pins which can be
+used for a specific device or function. This node represents the pin number,
+source mux, and config of the pins in that group. The 'source mux' selects the 
+function that connects to specified pin. This pin can work on and the 'config' 
+configures various pad settings such as pull-up, open drain, drive strength, etc.
+
+Required properties for pinmux controller:
+- compatible: "adi,adrv906x-pinctrl"
+
+Pin Configuration:
+- adi,pins: each pinmux entry consists of 3 32-bit integers representing:
+     <PIN_NUMBER>  <SOURCE_MUX>   <CONFIG_WORD>
+     1. Pin Number
+     2. Source Mux Value
+     3. Configuration Word
+
+A header file is provided, include/dt-bindings/pinctrl/pinctrl-adi-adrv906x-io-pad.h 
+This header provides SoC specifiec pin controller info such as 
+   1. Total configurable I/O
+   2. Maximum pinmux sources per pin
+   3. Maximum pinmux sources available
+
+Also provided pre configured descriptive Pin IDs (which contain Pin Number and Source Mux) 
+for all possible I/O configurations.  Below illustrate these Pin IDs.  See the above referenced 
+header for up-to-date PIN ID values.
+
+PIN-ID table example from pinctrl-adi-adrv906x-io-pad.h:
+
+              PIN-ID                        PIN_NUMBER            MUX_SRC
+----------------------------------------------------------------------------------------              
+    #define   UART4_CTSIN_PIN               ADI_ADRV906X_PIN_51     ADI_PINMUX_SRC_SEL_1
+    #define   UART4_RTSOUT_PIN              ADI_ADRV906X_PIN_50     ADI_PINMUX_SRC_SEL_4
+    #define   UART4_RXSIN_PIN               ADI_ADRV906X_PIN_30     ADI_PINMUX_SRC_SEL_3
+    #define   UART4_TXSOUT_PIN              ADI_ADRV906X_PIN_31     ADI_PINMUX_SRC_SEL_1
+
+
+Configuration Word 32-BIT Description:
+BIT(s)      Name             Description
+----------------------------------------------------------------------------------------
+31:7        unused                   N/A
+6           PULLUP_ENABLE            Setting this bit to '1' enables pullup of selected pin, '0' 
+                                     for pulldown.
+5           PULL_ENABLEMENT          Setting this bit to '1' enables the pull (up/down) capability 
+                                     of the selected pin.
+4           SCHMITT_TRIGGER_ENABLE   Setting this bit to a '1' enables the schmitt trigger input
+                                     capability
+3:0         DRIVE_STRENGTH           This 4-bit field specifies the drive strength (0-15) of the
+                                     selected output signal.  See the SoC documentation for 
+                                     more detail.
+
+The referenced helper file also contains configuration word helper macros that can be utilized
+within the device tree descriptions.  See these helper macros in pinctrl-adi-adrv906x-io-pad.h, also
+see usage examples below.
+
+NOTE:
+Some requirements for using adi,adrv906x-pinctrl binding:
+
+1. We have pin function node defined under the controller node to represent
+   what pinmux functions this SoC supports.
+2. The driver can use the function node's name and pin configuration node's
+   name describe the pin function and group hierarchy.
+   For example, Linux adrv906x-pinctrl driver takes the function node's name
+   as the function name and pin configuration node's name as group name to
+   create the map table.
+3. Each pin configuration node should have a phandle, devices can set pins
+   configurations by referring to the phandle of that pin configuration node.
+4. The gpio controller must be describe in the pinctrl simple-bus.
+
+Examples:
+&spi0 {
+	storage,flash-handle = <&flash>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spi0>;
+
+	flash: mt25q@0 {
+		compatible = "n25q128a11", "jedec,spi-nor";
+		spi-max-frequency = <100000000>;
+		reg = <0>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+
+		#include "adrv906x-nor-flash-part.dtsi"
+	};
+};
+
+&pinctrl0 {
+	pinctrl_spi0: spi0-grp {
+		adi,pins = <
+			QSPI_FLASH_CLK_PIN		 (ADI_CONFIG_NO_PULL)
+			QSPI_FLASH_SELB_PIN		 (ADI_CONFIG_ENABLE_PULLUP | ADI_CONFIG_DRIVE_STRENGTH_4)
+			QSPI_FLASH_D0_PIN		    (ADI_CONFIG_NO_PULL       | ADI_CONFIG_DRIVE_STRENGTH_4)
+			QSPI_FLASH_D1_PIN		    (ADI_CONFIG_NO_PULL       | ADI_CONFIG_DRIVE_STRENGTH_4)
+			QSPI_FLASH_D2_PIN		    (ADI_CONFIG_NO_PULL       | ADI_CONFIG_DRIVE_STRENGTH_4)
+			QSPI_FLASH_D3_PIN		    (ADI_CONFIG_NO_PULL       | ADI_CONFIG_DRIVE_STRENGTH_4)
+			QSPI_FLASH_RESETN_PIN    (ADI_CONFIG_ENABLE_PULLUP | ADI_CONFIG_DRIVE_STRENGTH_4)
+			QSPI_FLOW_READY_PIN		 (ADI_CONFIG_NO_PULL)
+		>;
+	};
+	....
+};

@@ -1,0 +1,219 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ */
+
+#include "adrv906x.dtsi"
+
+/ {
+	aliases {
+		/* Virtual UART: A55 to M4  on secondary */
+		serial7 = &sec_v_uart1_1;
+
+		/* I2C buses */
+		i2c8 = &sec_i2c0;
+		i2c9 = &sec_i2c1;
+		i2c10 = &sec_i2c2;
+		i2c11 = &sec_i2c3;
+		i2c12 = &sec_i2c4;
+		i2c13 = &sec_i2c5;
+		i2c14 = &sec_i2c6;
+		i2c15 = &sec_i2c7;
+	};
+
+	sec_v_uart1_1: v_uart@SEC_VIRTUAL_PL011_1_1_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <SEC_VIRTUAL_PL011_1_1_BASE 0x1000>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_243 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+		status = "okay";
+	};
+
+	pinctrl_secondary: pinctrl@SEC_PINCTRL_BASE_UADDR {
+			reg = <SEC_PINCTRL_BASE 0x1000>;
+			compatible = "adi,adrv906x-pinctrl";
+	};
+
+	sec_ndma_reset_ctrl: reset@SEC_NDMA_RST_CTRL_UADDR{
+		reg = <SEC_NDMA_RST_CTRL 0x04>;
+	};
+	sec_ndma0_interrupt_ctrl: ndma0_intr_ctrl@SEC_NDMA_0_INTR_CTRL_UADDR {
+		reg = <SEC_NDMA_0_INTR_CTRL 0x20>;
+	};
+	sec_ndma1_interrupt_ctrl: ndma1_intr_ctrl@SEC_NDMA_1_INTR_CTRL_UADDR {
+		reg = <SEC_NDMA_1_INTR_CTRL 0x20>;
+	};
+
+	sec_ndma0: ndma0@SEC_NDMA_0_TX_BASE_UADDR {
+		id = <0>;
+		reg = <SEC_NDMA_0_TX_BASE 0x100>,
+			  <SEC_NDMA_0_TX_DMA 0x80>,
+			  <SEC_NDMA_0_TX_STATUS_DMA 0x80>,
+			  <SEC_NDMA_0_RX_BASE 0x1000>,
+			  <SEC_NDMA_0_RX_DMA 0x80>;
+		reset-ctrl = <&sec_ndma_reset_ctrl>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_113 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_109 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_120 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_116 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_112 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_108 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
+						  "tx_status_dma_done", "tx_status_dma_error",
+						  "rx_dma_done", "rx_dma_error";
+		interrupt-ctrl = <&sec_ndma0_interrupt_ctrl>;
+	};
+
+	sec_ndma1: ndma1@SEC_NDMA_1_TX_BASE_UADDR {
+		id = <1>;
+		reg = <SEC_NDMA_1_TX_BASE 0x100>,
+			  <SEC_NDMA_1_TX_DMA 0x80>,
+			  <SEC_NDMA_1_TX_STATUS_DMA 0x80>,
+			  <SEC_NDMA_1_RX_BASE 0x1000>,
+			  <SEC_NDMA_1_RX_DMA 0x80>;
+		reset-ctrl = <&sec_ndma_reset_ctrl>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_115 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_111 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_121 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_117 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_114 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_110 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
+						  "tx_status_dma_done", "tx_status_dma_error",
+						  "rx_dma_done", "rx_dma_error";
+		interrupt-ctrl = <&sec_ndma1_interrupt_ctrl>;
+	};
+
+	sec_i2c0: twi@SEC_I2C_0_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_0_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_94 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c0>;
+		status = "disabled";
+	};
+
+	sec_i2c1: twi@SEC_I2C_1_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_1_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_95 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c1>;
+		status = "disabled";
+	};
+
+	sec_i2c2: twi@SEC_I2C_2_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_2_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_96 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c2>;
+		status = "disabled";
+	};
+
+	sec_i2c3: twi@SEC_I2C_3_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_3_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_97 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c3>;
+		status = "disabled";
+	};
+
+	sec_i2c4: twi@SEC_I2C_4_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_4_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_98 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c4>;
+		status = "disabled";
+	};
+
+	sec_i2c5: twi@SEC_I2C_5_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_5_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_99 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c5>;
+		status = "disabled";
+	};
+
+	sec_i2c6: twi@SEC_I2C_6_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_6_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_100 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c6>;
+		status = "disabled";
+	};
+
+	sec_i2c7: twi@SEC_I2C_7_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <SEC_I2C_7_BASE 0xFF>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_101 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_secondary_i2c7>;
+		status = "disabled";
+	};
+
+	sec_dac0: dac@SEC_PWM_BASE_UADDR {
+		compatible = "adi,pwm-dac";
+		reg = <SEC_PWM_BASE 0x100>;
+		clocks = <&hsdigclk>;
+		adi,iovdd-microvolt = <1800000>;
+		adi,gpio-max-frequency = <122880000>;
+		status = "disabled";
+	};
+
+	sec_gpio0: gpio@SEC_GPIO_NS_BASE_UADDR {
+		compatible = "adi,adrv906x-gpio";
+		reg = <SEC_GPIO_NS_BASE 0x1000>;
+		pintmux = <SEC_PINTMUX_BASE>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <ADI_ADRV906X_PIN_COUNT>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+	};
+};
+
+&ptpclk {
+	reg = <EMAC_TOD_BASE 0xFF SEC_EMAC_TOD_BASE 0xFF>;
+	/* This enables both 1PPS outputs for debug purposes only. */
+	pinctrl-0 = <&pinctrl_one_pps &pinctrl_secondary_one_pps>;
+};
+
+#include "adrv906x-pinctrl-secondary.dtsi"

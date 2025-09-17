@@ -1,0 +1,65 @@
+       Analog Devices SPI3 controller driver
+
+Copyright (C) 2014 - 2018 Analog Devices Inc.
+
+This document describes the driver for the on-chip SPI3 controllers (Analog Devices IP blocks).
+
+This driver only supports SPI master controller mode.
+
+1) Kernel Configuration
+
+The kernel configuration option is SPI_ADI_V3:
+ Device Drivers ---> SPI support ---> SPI controller v3 for ADI
+
+In situations where a user wants simple means to send and receive SPI messages, the spidev driver can be
+used. Spidev provides a userspace accessible means to communicate with the SPI interface. If you want to
+use user space API, enable the spidev driver (the kernel configuration option is SPI_SPIDEV):
+ Device Drivers ---> SPI support ---> User mode SPI device driver support
+
+2) Driver parameters list
+ This driver does not take in any parameters.
+
+3) Command line options
+ This driver does not take in any command line options.
+
+4) Driver information and notes
+
+4.1) Features
+The driver has the following features:
+
+- Support for ADI SPIv3/SPIv4 IP modules
+- SPI PIO and SPI DMA data transfers.
+- Internal and external (GPIO) chip selects.
+- Per-slave device (chip) configuration.
+- System-wide PM suspend, resume support.
+
+4.2) Implementation
+The controller driver incorporates the standard queueing mechanism which the SPI core framework provides -
+where &struct spi_message FIFO is serviced by a kernel thread. The kernel thread - spi_pump_messages() - drives
+message FIFO and is responsible for queuing SPI transactions as well as setting up and launching the DMA or PIO
+message transfers - this is done via a set of callbacks provided and registered by the controller driver in the
+probe().
+
+4.3) Platform information
+The SPI core framework defines several mandatory and optional configuration information that can be passed
+through the device-tree for both the SPI controller (master) and the associated SPI device (slave). Additionally ADI
+SPI3 master controller driver provides an extension for slave device configuration via the structure "adi_spi_device".
+The adi_spi master controller driver will use this configuration whenever the driver communicates with the
+slave device. The below fields are optional (disabled by default).
+
+struct adi_spi_device {
+	bool dma;
+	u32 control;
+};
+
+o dma: Field informs the driver to leverage DMA mode when transferring data to/from the SPI controller. 
+o control: Field is  used to enable ODM (Open Drain Mode for all output pins) and PSSE (Controls signalling of
+MODF error) - see the "3.1.2 SPI_CONTROL" section of "SPI3_specification.pdf".
+
+4.4) DMA and PIO I/O Support
+The adi_spi driver supports both DMA and  PIO message transfers. PIO is the default mode of operation. Set the "dma"
+flag in the "adi_spi_device" structure to enable DMA mode. 
+
+4.5) Device-tree support.
+Please see the following document:
+	Documentation/devicetree/bindings/spi/adi,spi3.yaml

@@ -1,0 +1,113 @@
+* Analog Devices Direct Memory Access (DMA) Controller for ADRV906X-series processors
+
+This document will only describe differences to the generic DMA Controller and
+DMA request bindings as described in dma/dma.txt
+
+* DMA controller
+
+Required properties:
+- compatible : Should be "adi,mdma-controller" or "adi,dma-controller".
+- reg : Should contain DMA registers location and length
+- #dma-cells : Has to be 1. Does not support anything else.
+- interrupts : subnode, containing:
+    adi,id:
+    adi,src-offset: Offset from base address
+    adi,skip-interrupts: Set to 0 usually.  Setting to 1 will skip handling interrupts,
+                         so the SHARC cores may handle them instead.
+    interrupts: list of interrupts, from processor's GIC interrupt list
+    interrupt-names: list of interrupt names
+Optional properties:
+- dde-descriptor-mode : this is optionally specified for a dma channel. A dma channel with this
+                        property runs in descriptor list mode. otherwise the dma channel 
+                        runs in register based mode.
+- dde-sync-bit-disable: disable the DDE sync bit for a dma channel. A sync bit is used to synchronize
+                        work unit transitions.
+                
+Example (DMA):
+
+    sport0_dma_cluster: dma@0x31022000 {
+            compatible = "adi,dma-controller";
+            reg = <0x31022000 0x1000>;
+            status = "okay";
+            #dma-cells = <1>;
+
+            sport0a: channel@0 {
+                    adi,id = <0>;
+                    adi,src-offset = <0>;
+                    adi,skip-interrupts = <0>;
+                    interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>,
+                            <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>;
+                    interrupt-names = "complete", "error";
+            };
+
+            sport0b: channel@1 {
+                    adi,id = <1>;
+                    adi,src-offset = <0x80>;
+                    adi,skip-interrupts = <0>;
+                    interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>,
+                            <GIC_SPI 298 IRQ_TYPE_LEVEL_HIGH>;
+                    interrupt-names = "complete", "error";
+            };
+    };
+
+Example (MDMA):
+
+    mdma: dma@0x3109a000 {
+            compatible = "adi,mdma-controller";
+            reg = <0x3109a000 0x1000>;
+            status = "okay";
+
+            sdma2: channel@40 {
+                    adi,id = <40>;
+                    // The destination interrupts are used for primary complete detection
+                    interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+                            <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH>,
+                            <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH>,
+                            <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+                    interrupt-names = "complete", "error", "complete2", "error2";
+                    adi,src-offset = <0>;
+                    adi,dest-offset = <0x80>;
+            };
+    };
+
+* DMA client
+
+Clients have to specify the DMA requests with phandles in a list.
+
+Required properties:
+- dmas: List of one or more DMA request specifiers. One DMA request specifier
+    consists of a phandle to the DMA controller followed by the integer
+    specifying the request line.
+- dma-names: List of string identifiers for the DMA requests. For the correct
+    names, have a look at the specific client driver.
+
+Example:
+
+    i2s0: i2s0@0 {
+            ...
+            dmas = <&sport0_dma_cluster 0>, <&sport0_dma_cluster 1>;
+            dma-names = "tx", "rx";
+            ...
+    };
+
+From a driver level, additional configuration of things like bus width can set via:
+
+    dma_config.direction = DMA_DEV_TO_MEM;
+    dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+    dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+    dma_config.src_maxburst = 1;
+    dma_config.dst_maxburst = 1;
+
+    dmaengine_slave_config(crc->dma_ch, &dma_config);
+
+Or cyclic mode can be enabled via something like:
+    (a cyclic descriptor will reuse itself, triggering callbacks as expected, * and will not free itself when it finishes)
+
+    desc = dmaengine_prep_dma_cyclic(uart->rx_dma_channel, uart->rx_dma_phy,
+        UART_XMIT_SIZE, DMA_RX_XCOUNT, DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT);
+    desc->callback = adi_uart4_serial_dma_rx;
+    desc->callback_param = uart;
+
+MDMA controllers can be found automatically through the kernel's standard DMA memcpy API:
+
+    struct dma_chan *chan = dma_find_channel(DMA_MEMCPY);

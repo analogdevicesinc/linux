@@ -1433,7 +1433,14 @@ static int mmc_select_hs400es(struct mmc_card *card)
 	if (host->ops->hs400_enhanced_strobe)
 		host->ops->hs400_enhanced_strobe(host, &host->ios);
 
-	err = mmc_switch_status(card, true);
+	/*
+	 * Workaround: According to JEDEC, it is not reliable to send CMD 13
+	 * just after switching speed mode (there might be CRC errors).
+	 * Adrv906x suffers this issue in this specific point at high
+	 * temperature conditions, so let's ignore the error in case of CRC
+	 * error.
+	*/
+	err = mmc_switch_status(card, false);
 	if (err)
 		goto out_err;
 

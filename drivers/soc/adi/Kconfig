@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config SOC_ADRV906X
+    bool "ADI ADRV906X SoC driver support"
+    depends on ARCH_ADRV906X
+    default ARCH_ADRV906X
+    help
+        Say yes here to add support for ADI ADRV906X SoC
