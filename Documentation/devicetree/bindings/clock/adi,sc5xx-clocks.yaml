@@ -29,20 +29,20 @@ properties:
     const: 1
 
   reg:
-    minItems: 1
-    maxItems: 2
+    minItems: 3
+    maxItems: 4
 
   clocks:
     description:
       Specifies the CLKIN0 and CLKIN1 reference clock(s) from which the
       output frequencies are derived via CDU+CGU
-    minItems: 1
+    minItems: 2
     maxItems: 2
 
   clock-names:
     description:
       String reference names for CLKIN0 and CLKIN1
-    minItems: 1
+    minItems: 2
     maxItems: 2
 
 required:
