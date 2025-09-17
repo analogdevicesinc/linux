@@ -114,8 +114,6 @@ static int ad9088_fft_sniffer_data_read(struct ad9088_fft_sniffer_state *st, adi
 	bool iq_mode;
 	int ret, i, j;
 
-	printk("capturing...\n");
-
 	ret = adi_apollo_hal_bf_get(device, BF_FFT_DONE_INFO(st->regmap_base), &fft_done, 1);
 	if (ret)
 		dev_err(st->dev, "adi_apollo_hal_bf_set failed in (%s:%d)\n", __func__, __LINE__);
