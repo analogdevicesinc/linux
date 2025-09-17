@@ -1016,11 +1016,11 @@ For example if the counters are not accurate, the line will be appended with
 
 Supported markers in v2:
 accurate:no
-              Absolute values of the counters in this line are not
-              accurate because of the failure to allocate storage required
-              to track some of the allocations made at this location.
-              Deltas in these counters are accurate, therefore counters
-              can be used to track allocation size and count changes.
+              Absolute values of the counters in this line are not accurate
+              because of the failure to allocate memory to track some of the
+              allocations made at this location.  Deltas in these counters are
+              accurate, therefore counters can be used to track allocation size
+              and count changes.
 
 Example output.
 
