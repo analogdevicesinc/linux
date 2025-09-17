@@ -4344,7 +4344,8 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		if (ret < 1)
 			return -EINVAL;
 
-		ret = ad9088_dbg(phy, val, val2, val3, val4);
+		if (__is_defined(DEBUG))
+			ret = ad9088_dbg(phy, val, val2, val3, val4);
 		break;
 	case DBGFS_BIST_JRX_2D_EYE:
 		if (ret < 1)
