@@ -546,15 +546,16 @@ compile_kernel() {
 
 compile_kernel_sparse() {
 	export step_name="kernel_sparse"
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local err=0
 	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
 	local fail=0
 	local warn=0
 
-	touch_files
-
 	echo "$step_name (C=1)"
 
+	[[ -z "$files" ]] && return 0
+	touch $files
 	yes n 2>/dev/null | \
 		make -j$(nproc) C=1 $EXTRA_FLAGS 2>&1 | \
 		(while IFS= read -r row; do
@@ -609,15 +610,16 @@ compile_kernel_sparse() {
 
 compile_kernel_smatch() {
 	export step_name="kernel_smatch"
+	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
 	local err=0
 	local regex='^([[:alnum:]/._-]+):([[:digit:]]+) (.*) ([[:alpha:]]+): (.*)$'
 	local fail=0
 	local warn=0
 
-	touch_files
-
 	echo "$step_name (C=1)"
 
+	[[ -z "$files" ]] && return 0
+	touch $files
 	if ! command -v smatch 2>&1 >/dev/null ; then
 		if [[ ! -f /tmp/smatch/smatch ]]; then
 			pushd /tmp
@@ -922,12 +924,6 @@ apply_prerun() {
 			done <<< "$files"
 		done <<< "$bashes"
 	fi
-}
-
-touch_files () {
-	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha)
-
-	[[ ! -z "$files" ]] && touch $files
 }
 
 auto_set_kconfig() {
