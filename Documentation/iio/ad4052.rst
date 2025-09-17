@@ -1,0 +1,139 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+=============
+AD4052 driver
+=============
+
+ADC driver for Analog Devices Inc. AD4052 and similar devices. The module name
+is ``ad4052``.
+
+Supported devices
+=================
+
+The following chips are supported by this driver:
+
+* `AD4050 <https://www.analog.com/AD4050>`_
+* `AD4052 <https://www.analog.com/AD4052>`_
+* `AD4056 <https://www.analog.com/AD4056>`_
+* `AD4058 <https://www.analog.com/AD4058>`_
+
+Wiring modes
+============
+
+The ADC uses SPI 4-wire mode, and contain two programmable GPIOs and a CNV pin.
+
+The CNV pin is exposed as the ``cnv-gpios`` and triggers an ADC conversion. GP1
+is ADC conversion ready signal and GP0 Threshold event interrupt, both exposed
+as interrupts.
+
+Omit ``cnv-gpios`` and tie CNV and CS together to use the rising edge of the CS
+as the CNV signal.
+
+Device attributes
+=================
+
+The ADC contains only one channel with following attributes:
+
+.. list-table:: Channel attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``in_voltage_calibscale``
+     - Scale factor to multiply the raw value.
+   * - ``in_voltage_raw``
+     - Raw ADC voltage value
+   * - ``in_voltage_oversampling_ratio``
+     - Enable the device's burst averaging mode to over sample using the
+       internal sample rate.
+   * - ``in_voltage_oversampling_ratio_available``
+     - List of available oversampling values. Value 1 disable the burst
+       averaging mode.
+   * - ``in_voltage_sampling_frequency``
+     - Set the sampling frequency, only present if SPI Offload is being used.
+
+Also contain the following device attributes:
+
+.. list-table:: Device attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``oversamling_frequency``
+     - Frequency used in the burst averaging mode, sets the device internal
+       sample rate when the mode is activated.
+   * - ``oversampling_frequency_available``
+     - List of available sample rates.
+
+Interrupts
+==========
+
+The cell of trigger-sources of the parent node sets which GPIO has the role of
+data ready signal. If not present, defaults as ``gp0``. If not set in the
+``interrupt-names`` property, the driver will not wait for the data ready
+assertion, and will result in reading a sample before it's ready, particularly
+in oversampling mode.
+
+A second element in the ``interrupt-names`` property sets which GPIO has the
+role of the threshold event. If not provided, the IIO events attributes are
+still present, but no IIO Event will ever be triggered. This allows to use the
+GPIO output to trigger other resource.
+
+Low-power mode
+==============
+
+The device enters low-power mode on idle to save power. Enabling an event puts
+the device out of the low-power since the ADC autonomously samples to assert
+the event condition.
+
+SPI offload support
+===================
+
+To be able to achieve the maximum sample rate, the driver can be used with the
+`AXI SPI Engine`_ to provide SPI offload support.
+
+.. _AXI SPI Engine: http://analogdevicesinc.github.io/hdl/projects/ad4052_ardz/index.html
+
+When SPI offload is being used, additional attributes are present:
+
+.. list-table:: Additional attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``in_voltage_sampling_frequency``
+     - Set the sampling frequency.
+
+Threshold events
+================
+
+The ADC supports a monitoring mode to raise threshold events. The driver
+supports a single interrupt for both rising and falling readings.
+
+The feature is enabled/disabled by setting ``thresh_either_en``. During monitor
+mode, the device continuously operates in autonomous mode until put back in
+configuration mode, due to this, the device returns busy until the feature is
+disabled.
+
+The following event attributes are available:
+
+.. list-table:: Event attributes
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+   * - ``sampling_frequency``
+     - Frequency used in the monitoring mode, sets the device internal sample
+       rate when the mode is activated.
+   * - ``sampling_frequency_available``
+     - List of available sample rates.
+   * - ``thresh_either_en``
+     - Enable monitoring mode.
+   * - ``thresh_falling_hysteresis``
+     - Set the hysteresis value for the minimum threshold.
+   * - ``thresh_falling_value``
+     - Set the minimum threshold value.
+   * - ``thresh_rising_hysteresis``
+     - Set the hysteresis value for the maximum threshold.
+   * - ``thresh_rising_value``
+     - Set the maximum threshold value.
