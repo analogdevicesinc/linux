@@ -1830,6 +1830,7 @@ int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 
 	INIT_LIST_HEAD(&rx_chan->rx_data_wu_list);
 
+	dev_set_threaded(ndev, true);
 	netif_napi_add_weight(ndev, &rx_chan->napi,
 			      adrv906x_ndma_rx_data_and_status_poll, NDMA_RX_NAPI_POLL_WEIGHT);
 	netif_napi_add_weight(ndev, &tx_chan->napi,
