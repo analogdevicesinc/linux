@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="The Apollo mixed signal front-end (MxFE®) is a highly integrated device with a 16-bit, 28/16 GSPS maximum sample rate, RF digital-to-analog converter (DAC) core, and 12-bit, 20/8 GSPS maximum sample rate, RF analog-to-digital converter (ADC) core. The AD9084/AD9088 supports eight transmit channels and eight receive channels. The AD9084/AD9088 is well suited for applications requiring both wideband ADCs and DACs to process signal(s) having wide instantaneous bandwidth. The device features a 48 lane, 28.1/32.51 Gbps JESD204C or 16/20 Gbps JESD204B data transceiver port, an on-chip clock multiplier, and a digital signal processing (DSP) capability targeted at either wideband or multi-band, direct to RF applications. The AD9084/AD9088 also features a bypass mode that allows the full bandwidth capability of the ADC and/or DAC cores to bypass the DSP datapaths. The device also features low latency loopback and frequency hopping modes targeted at phased array radar systems and electronic warfare applications." name="description" />
+
+    <title>AD9084/AD9088 &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../_static/app.min.css?v=5af46cdf" />
+    <script async="async" src="../_static/app.umd.js?v=2f9373fc"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="icon" href="../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Continuous integration" href="../ci.html" />
+    <link rel="prev" title="ADXL380 driver" href="adxl380.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head><body>
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs" tabindex="0">Docs</label>
+        
+        <a id="logo" href="../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">AD9084/AD9088</a><ul>
+<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#devicetree">Devicetree</a><ul>
+<li><a class="reference internal" href="#profile">Profile</a></li>
+<li><a class="reference internal" href="#bring-up">Bring-up</a></li>
+<li><a class="reference internal" href="#format">Format</a></li>
+<li><a class="reference internal" href="#trigger">Trigger</a></li>
+<li><a class="reference internal" href="#topology">Topology</a></li>
+<li><a class="reference internal" href="#spi">SPI</a></li>
+<li><a class="reference internal" href="#hsci">HSCI</a></li>
+<li><a class="reference internal" href="#gpio">GPIO</a></li>
+<li><a class="reference internal" href="#spectrum-sniffer">Spectrum Sniffer</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#compile-the-driver">Compile the driver</a></li>
+<li><a class="reference internal" href="#device-profile">Device profile</a></li>
+<li><a class="reference internal" href="#usage">Usage</a><ul>
+<li><a class="reference internal" href="#general-iio-and-driver-conventions">General IIO and driver conventions</a></li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#show-channel-name">Show channel name</a></li>
+<li><a class="reference internal" href="#adc-rate">ADC Rate</a></li>
+<li><a class="reference internal" href="#rx-sample-rate">RX Sample Rate</a></li>
+<li><a class="reference internal" href="#dac-rate">DAC Rate</a></li>
+<li><a class="reference internal" href="#tx-sample-rate">TX Sample Rate</a></li>
+<li><a class="reference internal" href="#nco-frequency-control">NCO Frequency Control</a><ul>
+<li><a class="reference internal" href="#main-data-path">Main Data Path</a></li>
+<li><a class="reference internal" href="#channel-data-path">Channel Data Path</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#nco-phase-control">NCO Phase Control</a><ul>
+<li><a class="reference internal" href="#id1">Main Data Path</a></li>
+<li><a class="reference internal" href="#id2">Channel Data Path</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#tx-nco-channel-digital-gain">TX NCO Channel Digital Gain</a></li>
+<li><a class="reference internal" href="#pfir">PFIR</a></li>
+<li><a class="reference internal" href="#cfir">CFIR</a></li>
+<li><a class="reference internal" href="#loopback">Loopback</a></li>
+<li><a class="reference internal" href="#apollo-fft">Spectrum Sniffer</a></li>
+<li><a class="reference internal" href="#fast-frequency-hopping">Fast Frequency Hopping</a><ul>
+<li><a class="reference internal" href="#tx-ffh-fnco">Tx FFH FNCO</a></li>
+<li><a class="reference internal" href="#tx-ffh-cnco">Tx FFH CNCO</a></li>
+<li><a class="reference internal" href="#trigger-mode">Trigger mode</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#gpios-gpio-chip">GPIOs &amp; GPIO chip</a></li>
+<li><a class="reference internal" href="#debug-system">Debug system</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <html>
+  <body><ul class="current">
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="index.html">Industrial I/O</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="iio_devbuf.html">Industrial IIO device buffers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad3552r.html">AD3552R driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4000.html">AD4000 driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4695.html">AD4695 driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7191.html">AD7191 driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7380.html">AD7380 driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7625.html">AD7625 driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7944.html">AD7944 driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adis16475.html">ADIS16475 driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adis16480.html">ADIS16480 driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adis16550.html">ADIS16550 driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adxl380.html">ADXL380 driver</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">AD9084/AD9088</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../ci.html">Continuous integration</a></li>
+</ul>
+</body>
+</html>
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="index.html">Industrial I/O</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="ad9084-ad9088">
+<h1>AD9084/AD9088<a class="headerlink" href="#ad9084-ad9088" title="Link to this heading"></a></h1>
+<p>The Apollo mixed signal front-end (MxFE®) is a highly integrated device with a
+16-bit, 28/16 GSPS maximum sample rate, RF digital-to-analog converter (DAC)
+core, and 12-bit, 20/8 GSPS maximum sample rate, RF analog-to-digital converter
+(ADC) core. The <a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a>/<a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a> supports eight transmit channels
+and eight receive channels. The <a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a>/<a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a> is well suited for
+applications requiring both wideband ADCs and DACs to process signal(s) having
+wide instantaneous bandwidth. The device features a 48 lane, 28.1/32.51 Gbps
+JESD204C or 16/20 Gbps JESD204B data transceiver port, an on-chip clock
+multiplier, and a digital signal processing (DSP) capability targeted at either
+wideband or multi-band, direct to RF applications. The
+<a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a>/<a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a> also features a bypass mode that allows the full
+bandwidth capability of the ADC and/or DAC cores to bypass the DSP datapaths.
+The device also features low latency loopback and frequency hopping modes
+targeted at phased array radar systems and electronic warfare applications.</p>
+<section id="supported-devices">
+<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a>
+(<a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/data-sheets/ad9084.pdf" target="_blank">Data Sheet</a>)</p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a>
+(<a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/data-sheets/ad9088.pdf" target="_blank">Data Sheet</a>)</p></li>
+</ul>
+</section>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
+<ul>
+<li><div class="line-block">
+<div class="line"><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD9084" target="_blank">EVAL-AD9084</a></div>
+<div class="line"><a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/user-guides/eval-ad9084-ug-2326.pdf" target="_blank">User Guide (UG-2326)</a></div>
+</div>
+</li>
+</ul>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
+<p>Is the driver in mainland? <span class="red">No</span>.</p>
+<p>The driver is divided into two groups: The API, and the Linux driver. The API
+is as an abstraction layer between the application and the hardware and is
+agnostic processor and operating system integration. The Linux Driver uses the
+API to connect the device to the Linux Kernel subsystems.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The standalone sources for the API can be requested at <a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a> main
+page.</p>
+</div>
+<p>Linux Driver</p>
+<ul class="simple">
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088.c" target="_blank">ad9088.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088.h" target="_blank">ad9088.h</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_dt.c" target="_blank">ad9088_dt.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_fft.c" target="_blank">ad9088_fft.c</a></p></li>
+</ul>
+<p>API:</p>
+<ul class="simple">
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/adi_inc" target="_blank">adi_inc</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/adi_utils" target="_blank">adi_utils</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/private" target="_blank">private</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/public" target="_blank">public</a></p></li>
+</ul>
+<section id="interrelated-device-drivers">
+<h3>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h3>
+<p>These are drivers that are connected to or is a dependency of <code class="docutils literal notranslate"><span class="pre">ad9088.c</span></code>.</p>
+<ul class="simple">
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework" target="_blank">JESD204 (FSM) Interface Linux Kernel Framework</a></p></li>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/peripherals/jesd204" target="_blank">JESD204 Interface Framework</a></p></li>
+<li><p>Transport Layer Receive AXI-ADC driver</p>
+<ul>
+<li><p>Sources:</p>
+<ul>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></li>
+</ul>
+</li>
+<li><p>Documentation:</p>
+<ul>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl" target="_blank">AXI ADC HDL Linux Driver</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Transport Layer Transmit AXI-DAC / DDS driver</p>
+<ul>
+<li><p>Sources:</p>
+<ul>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_adc.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></li>
+</ul>
+</li>
+<li><p>Documentation:</p>
+<ul>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dds/axi-dac-dds-hdl" target="_blank">AXI DAC HDL Linux Driver</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Link Layer AXI JESD204B HDL driver</p>
+<ul>
+<li><p>Sources:</p>
+<ul>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></li>
+</ul>
+</li>
+<li><p>Documentation:</p>
+<ul>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_jesd204_tx" target="_blank">JESD204B/C Transmit Linux Driver</a></p></li>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_jesd204_rx" target="_blank">JESD204B/C Receive Linux Driver</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>PHY Layer AXI JESD204B GT (Gigabit Transceiver) HDL driver (XILINX/ALTERA-INTEL)</p>
+<ul>
+<li><p>Sources:</p>
+<ul>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></li>
+</ul>
+</li>
+<li><p>Documentation:</p>
+<ul>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_adxcvr" target="_blank">JESD204B/C AXI_ADXCVR Highspeed Transceivers Linux Driver</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="devicetree">
+<h2>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h2>
+<p>The following example devicetrees are provided:</p>
+<ul class="simple">
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts" target="_blank">AD9084-VCU118 RevB</a>: vcu118_quad_ad9084_revB.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts" target="_blank">AD9084-VCU118 26p4 RevB Ext</a>: vcu118_quad_ad9084_26p4_revB_ext.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts" target="_blank">AD9084-VCU118 26p4 RevB</a>: vcu118_quad_ad9084_26p4_revB.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1</a>: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084.dts" target="_blank">AD9084-VCU118 ad9084</a>: vcu118_ad9084.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts" target="_blank">AD9084-VCU118 RevB Ext</a>: vcu118_quad_ad9084_revB_ext.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4</a>: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts" target="_blank">AD9084-VCK190</a>: versal-vck190-reva-ad9084.dts</p></li>
+</ul>
+<section id="profile">
+<h3>Profile<a class="headerlink" href="#profile" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,device-profile-fw-name</span></code>: Set the profile firmware to use.</p></li>
+</ul>
+<p>See <a class="reference internal" href="#apollo-profile"><span class="std std-ref">Device profile</span></a> for more information.</p>
+</section>
+<section id="bring-up">
+<h3>Bring-up<a class="headerlink" href="#bring-up" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,delayed-serdes-jrx-cal-en</span></code>: Run SERDES calculation during the
+“link running” phase instead of the earlier “clocks enable” phase.</p></li>
+</ul>
+</section>
+<section id="format">
+<h3>Format<a class="headerlink" href="#format" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,rx-real-channel-en</span></code>: Disable complex Q/I samples for RX path.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,tx-real-channel-en</span></code>:  Disable complex Q/I samples for RX path.</p></li>
+</ul>
+<p>In practice, doesn’t set the channel modifier, treating each channel as
+independent real channel.
+If not present, even number are I samples, and odd Q samples.</p>
+</section>
+<section id="trigger">
+<h3>Trigger<a class="headerlink" href="#trigger" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,trigger-sync-en</span></code>: Enable trigger synchronization, needed to reset FSCR.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,trig-req-gpio</span></code>: Set the GPIO that trigger Enable trigger synchronization.
+If not provided, the SPI trigger will be used for trigger synchronization.</p></li>
+</ul>
+<p>If the option is enabled and no trigger is provided, the synchronization will
+time out.</p>
+</section>
+<section id="topology">
+<h3>Topology<a class="headerlink" href="#topology" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,side-b-use-seperate-tpl-en</span></code>: Set side B to use own transport layer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code>: Allocate own IIO device to device.
+Top device always allocates IIO device through <code class="docutils literal notranslate"><span class="pre">axiadc_converter</span></code>,
+therefore has no effect on it.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,multidevice-instance-count</span></code>: Define the <strong>total</strong> number of devices in
+the system on the main device.
+Only present if the subordinates uses <code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code>.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">adi,multidevice-instance-count</span></code> is a companion of the <code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code>
+attribute.
+For a topology of 4 devices, the main device has it set to 4, and the 3 subordinates
+contain the latter attribute.</p>
+</section>
+<section id="spi">
+<h3>SPI<a class="headerlink" href="#spi" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,spi-3wire-enable</span></code>: Use 3-wire SPI for SPI0.</p></li>
+</ul>
+</section>
+<section id="hsci">
+<h3>HSCI<a class="headerlink" href="#hsci" title="Link to this heading"></a></h3>
+<p>A few options are available to tune the HSCI interface.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,axi-hsci-connected</span></code>: Sets the HSCI controller for the HSCI interface.
+If absent, only SPI is used to communicate with the device, considerably slower.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,hsci-auto-linkup-mode-en</span></code>: Enable HSCI auto-linkup mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,hsci-disable-after-boot-en</span></code>: Use SPI as the interface after initial device initialization.</p></li>
+</ul>
+</section>
+<section id="gpio">
+<h3>GPIO<a class="headerlink" href="#gpio" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code>: Expose a list of the 30s device GPIOs into a GPIO controller.</p></li>
+</ul>
+<p>A more detailed usage is provided <a class="reference internal" href="#apollo-gpio"><span class="std std-ref">here</span></a>.</p>
+</section>
+<section id="spectrum-sniffer">
+<h3>Spectrum Sniffer<a class="headerlink" href="#spectrum-sniffer" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">interrupt-names</span></code>: <code class="docutils literal notranslate"><span class="pre">fft_done_A&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">fft_done_B</span></code> for the spectrum
+sniffer interrupt signal for side a and b, respectively.</p></li>
+</ul>
+<p>A more detailed usage is provided <a class="reference internal" href="#apollo-fft"><span class="std std-ref">here</span></a>.</p>
+</section>
+</section>
+<section id="compile-the-driver">
+<h2>Compile the driver<a class="headerlink" href="#compile-the-driver" title="Link to this heading"></a></h2>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code>
+(alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>).</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Linux Kernel Configuration
+    Device Drivers  ---&gt;
+        &lt;*&gt; JESD204 High-Speed Serial Interface Framework
+    &lt;*&gt; Industrial I/O support ---&gt;
+        --- Industrial I/O support
+         -*-   Enable buffer support within IIO
+         &lt;*&gt;     IIO callback buffer used for push in-kernel interfaces
+         -*-     Industrial I/O DMA buffer infrastructure
+         -*-     Industrial I/O DMA buffer integration with DMAEngine
+         [*]       Enables I/O DMA buffer legacy MMAP support
+         -*-     Industrial I/O HW buffering
+         -*-     Industrial I/O buffering based on kfifo
+         -*-     Industrial I/O triggered buffer support
+         -*-   Enable IIO configuration via configfs
+         -*-   Enable triggered sampling support
+         &lt;*&gt;   Enable software IIO device support
+         &lt;*&gt;   Enable software triggers support
+         &lt;*&gt;   Enable triggered events support
+         &lt;*&gt;   Analog Devices AXI ADXCVR PHY Support
+         &lt;*&gt;   Generic AXI JESD204B configuration driver
+         &lt;*&gt;   Analog Devices AXI JESD204B TX Support
+         &lt;*&gt;   Analog Devices AXI JESD204B RX Support
+         &lt;*&gt;   Analog Devices Generic IIO fake device driver
+               Light sensors  ---&gt;
+               Logic Analyzers  ---&gt;
+         &lt;*&gt;   AXI AION Trigger support
+
+           Analog to digital converters ---&gt;
+         -*- Analog Devices High-Speed AXI ADC driver core
+                 &lt;*&gt; Analog Devices AD9088 and similar Mixed Signal Front End (MxFE)
+
+    Frequency Synthesizers DDS/PLL  ---&gt;
+            Direct Digital Synthesis  ---&gt;
+             &lt;*&gt; Analog Devices CoreFPGA AXI DDS driver
+        Clock Generator/Distribution  ---&gt;
+                     &lt;*&gt; Analog Devices HMC7044, HMC7043 Clock Jitter Attenuator with JESD204B
+                     &lt;*&gt; Analog Devices ADF4030 10-Channel Precision Synchronizer
+
+    &lt;*&gt;   JESD204 High-Speed Serial Interface Support  ---&gt;
+        --- JESD204 High-Speed Serial Interface Support
+        &lt;*&gt;   Analog Devices AXI ADXCVR PHY Support
+        &lt;*&gt;   Analog Devices AXI JESD204B TX Support
+        &lt;*&gt;   Analog Devices AXI JESD204B RX Support
+</pre></div>
+</div>
+</section>
+<section id="device-profile">
+<span adsd id="apollo-profile"></span><h2>Device profile<a class="headerlink" href="#device-profile" title="Link to this heading"></a></h2>
+<p>The device profiles can be generated with the profile generator tool that is
+part of the <a class="icon adi reference external" href="https://www.analog.com/ACE" target="_blank">ACE</a> Evaluation Software. Profile modifications can be done
+through <a class="icon link reference external" href="https://analogdevicesinc.github.io/pyadi-jif/index.html" target="_blank" title="(in pyadi-jif)"><span class="xref std std-doc">pyadi-jif</span></a>.
+In particular, the a Python Jupyter Notebook at <a class="icon git reference external" href="https://github.com/analogdevicesinc/pyadi-jif/tree/main/examples/triton/triton_vcu118.ipynb" target="_blank">examples/triton/triton_vcu118.ipynb</a>
+guides you through the profile generation and modification, with sample files
+at the <a class="icon git reference external" href="https://github.com/analogdevicesinc/pyadi-jif/tree/main/examples/triton" target="_blank">directory of the notebook</a>.
+During runtime, some profile options are reconfigured, such as
+<a class="reference internal" href="#apollo-ffh"><span class="std std-ref">Fast Frequency Hopping</span></a>.</p>
+<p>With the device profile generated, compile into the kernel by adding it to the
+<em>firmware</em> folder and appending too the <code class="docutils literal notranslate"><span class="pre">CONFIG_EXTRA_FIRMWARE</span></code> kernel
+symbol. The <em>firmware</em> folder is set by the symbol
+<code class="docutils literal notranslate"><span class="pre">CONFIG_EXTRA_FIRMWARE_DIR</span></code>, if it is set to something else, add to that path
+instead. Then, update devicetree property <code class="docutils literal notranslate"><span class="pre">adi,device-profile-fw-name</span></code>.</p>
+<p>You can have multiple profiles compiled into the kernel image by passing
+multiple profile paths, however only one set in the devicetree property.
+Consider using devicetree overlays to swapping profiles.</p>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
+<section id="general-iio-and-driver-conventions">
+<h3>General IIO and driver conventions<a class="headerlink" href="#general-iio-and-driver-conventions" title="Link to this heading"></a></h3>
+<p>Controlling the MxFE is done via the IIO sysfs interface. For convenience users
+can use <a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/software/libiio/index.html#libiio" target="_blank" title="(in System Level Documentation)"><span>Libiio</span></a> and its various programming
+languages bindings.</p>
+<p>The MxFE IIO device under /sys/bus/iio/devices/iio:deviceX features a set of
+channels and device attributes, which are explained here. Some basic, but
+important concepts are explained in the bullet list below:</p>
+<ul class="simple">
+<li><p>Channels prefixed with <code class="docutils literal notranslate"><span class="pre">**in_**voltageX</span></code> apply to Receive (RX) ADC data paths.</p></li>
+<li><p>Channels prefixed with <code class="docutils literal notranslate"><span class="pre">**out**_voltageX</span></code> apply to Transmit (TX) DAC data paths.</p></li>
+<li><p>Each channel has a complex modifier <code class="docutils literal notranslate"><span class="pre">in_voltageX_**i**</span></code> and
+<code class="docutils literal notranslate"><span class="pre">in_voltageX_**q**</span></code> or <code class="docutils literal notranslate"><span class="pre">out_voltageX_**i**</span></code> and <code class="docutils literal notranslate"><span class="pre">out_voltageX_**q**</span></code>.
+Controlling a channel attribute for the <code class="docutils literal notranslate"><span class="pre">i</span></code> modified channel will
+simultaneously control the <code class="docutils literal notranslate"><span class="pre">q</span></code> modified channel and vice versa. So,
+writing/reading only needs to happen once, since they are mirrored. The
+complex IQ modifiers are only important for the data buffers, sine I &amp; Q are
+individual data components.</p></li>
+<li><p>IIO channels <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX</span></code> apply to the channelizer data paths (Fine DDC/DUC).</p>
+<ul>
+<li><p>Each IIO channel has some <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_**channel**_[attributes]</span></code></p></li>
+<li><p>In case the channelizer data paths (Fine DDC/DUC) are bypassed
+(decimation=1 or interpolation=1), the X still applies to a data path.</p></li>
+</ul>
+</li>
+<li><p>Each channelizer data path (FDDC, FDUC) connects at least to one Coarse
+DDC/DUC (CDDC/CDUC), which maps then to one or more ADCs/DACs depending on
+configuration. These are called main data paths and are controlled via the
+<code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_**main**_[attributes]</span></code> attributes.</p>
+<ul>
+<li><p>Be aware, since multiple channels can map to the same main data path
+(CDDC/CDUC), changing a main attribute of one channel will also update same
+attribute of any other channel that maps to the same main data path
+(CDDC/CDUC).</p></li>
+<li><p>The crossbar mapping between Fine and Coarse Digital Up/Down Converters,
+ADCs/DACs is defined in the device tree.</p></li>
+</ul>
+</li>
+<li><p>Device attributes (without <code class="docutils literal notranslate"><span class="pre">**in_**voltageX``or</span> <span class="pre">``**out_**voltageX</span></code> prefix)
+apply to the entire device.</p></li>
+</ul>
+</section>
+<section id="driver-testing">
+<h3>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h3>
+<p>This device can be found under <em>/sys/bus/iio/devices/</em></p>
+<p>One way to check if the device and driver are present is using <strong>iio_info</strong>:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>iio_info
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>    iio:device0: ad4052 (buffer capable)
+            1 channels found:
+                    voltage0:  (input, index: 0, format: le:s16/32&gt;&gt;0)
+                    2 channel-specific attributes found:
+                            attr  0: raw value: 12167
+                            attr  1: sampling_frequency value: 1000000
+            1 device-specific attributes found:
+                            attr  0: waiting_for_supplier value: 0
+            3 buffer-specific attributes found:
+                            attr  0: data_available value: 0
+                            attr  1: direction value: in
+                            attr  2: length_align_bytes value: 8
+            1 debug attributes found:
+                            debug attr  0: direct_reg_access value: 0x10
+            No trigger on this device
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>You can go to the device folder using:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="k">$(</span>grep<span class="w"> </span>-rw<span class="w"> </span>/sys/bus/iio/devices/*/name<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;ad9088&quot;</span><span class="w"> </span>-l<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>dirname<span class="k">)</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><div><div class="collapsible docutils container">
+<input class="collapsible_input" id="373adff33667043ee2608485073c711fb61edf6c" name="373adff33667043ee2608485073c711fb61edf6c" type="checkbox"></input><label for="373adff33667043ee2608485073c711fb61edf6c"><p>In the folder there are several files that can set specific device attributes:</p>
+<div class="icon"></div></label><div class="collapsible_content docutils container">
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls<span class="w"> </span>-l
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>total 0
+drwxr-xr-x 2 root root    0 Feb 11 15:17 buffer
+drwxr-xr-x 2 root root    0 Feb 11 15:17 buffer0
+--w------- 1 root root 4096 Feb 11 15:17 cfir_config
+-r--r--r-- 1 root root 4096 Feb 11 15:17 dev
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_temp0_input
+-r--r--r-- 1 root root 4096 Feb 11 15:17 in_temp0_label
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_cfir_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_cfir_profile_sel
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_6db_digital_gain_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_nco_frequency
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_nco_frequency_available
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_nco_phase
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_en
+-r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_label
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_loopback
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_hb1_6db_digital_gain_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_nco_frequency
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_nco_phase
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_tb1_6db_digital_gain_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_nyquist_zone
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_test_mode
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_cfir_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_cfir_profile_sel
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_6db_digital_gain_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_nco_frequency
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_nco_frequency_available
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_nco_phase
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_en
+-r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_label
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_loopback
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_hb1_6db_digital_gain_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_nco_frequency
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_nco_phase
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_tb1_6db_digital_gain_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_nyquist_zone
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_test_mode
+...
+-r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_adc_frequency
+-r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_loopback_available
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_main_nco_frequency_available
+-r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_nyquist_zone_available
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_sampling_frequency
+-r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_test_mode_available
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 jesd204_fsm_ctrl
+-r--r--r-- 1 root root 4096 Feb 11 15:17 jesd204_fsm_error
+-r--r--r-- 1 root root 4096 Feb 11 15:17 jesd204_fsm_paused
+--w------- 1 root root 4096 Feb 11 15:17 jesd204_fsm_resume
+-r--r--r-- 1 root root 4096 Feb 11 15:17 jesd204_fsm_state
+-r--r--r-- 1 root root 4096 Feb 11 15:17 loopback1_blend_available
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 loopback1_blend_side_a
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 loopback1_blend_side_b
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_bg_tacking_cal_run
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_cal_run
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_dt0_measurement
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_dt1_measurement
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_dt1_restore
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_fg_tacking_cal_run
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_init
+-r--r--r-- 1 root root 4096 Feb 11 15:17 mcs_init_cal_status
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_tracking_init
+-r--r--r-- 1 root root 4096 Feb 11 15:17 mcs_tracking_status
+-r--r--r-- 1 root root 4096 Feb 11 15:17 name
+lrwxrwxrwx 1 root root    0 Feb 11 15:17 of_node -&gt; ../../../../../firmware/devicetree/base/fpga-axi@0/axi-ad9084-rx-hpc@a4a10000
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_cfir_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_cfir_profile_sel
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_frequency
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_gain_scale
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_phase
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_test_tone_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_test_tone_scale
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_invsinc_en
+-r--r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_label
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_main_nco_frequency
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_main_nco_phase
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_main_nco_test_tone_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_main_nco_test_tone_scale
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_cfir_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_cfir_profile_sel
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_frequency
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_gain_scale
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_phase
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_test_tone_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_test_tone_scale
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_invsinc_en
+-r--r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_label
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_main_nco_frequency
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_main_nco_phase
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_main_nco_test_tone_en
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_main_nco_test_tone_scale
+...
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_channel_nco_frequency_available
+-r--r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_dac_frequency
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_main_nco_frequency_available
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_sampling_frequency
+--w------- 1 root root 4096 Feb 11 15:17 pfilt_config
+drwxr-xr-x 2 root root    0 Feb 11 15:17 power
+drwxr-xr-x 2 root root    0 Feb 11 15:17 scan_elements
+lrwxrwxrwx 1 root root    0 Feb 11 15:17 subsystem -&gt; ../../../../../bus/iio
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 sync_start_enable
+-r--r--r-- 1 root root 4096 Feb 11 15:17 sync_start_enable_available
+-rw-r--r-- 1 root root 4096 Feb 11 15:17 uevent
+-r--r--r-- 1 root root 4096 Feb 11 15:17 waiting_for_supplier
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></div>
+</div>
+</div><section id="show-channel-name">
+<h4>Show channel name<a class="headerlink" href="#show-channel-name" title="Link to this heading"></a></h4>
+<p>The channel label contains the data path and it is shown with:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage2_q_label
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>Side-B:FDDC0-&gt;CDDC0-&gt;ADC0
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="adc-rate">
+<h4>ADC Rate<a class="headerlink" href="#adc-rate" title="Link to this heading"></a></h4>
+<p>What: <code class="docutils literal notranslate"><span class="pre">in_voltage_adc_frequency</span></code></p>
+<p>Read only attribute which returns the RX ADC rate Hz.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage_adc_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>4000000000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="rx-sample-rate">
+<h4>RX Sample Rate<a class="headerlink" href="#rx-sample-rate" title="Link to this heading"></a></h4>
+<p>What: <code class="docutils literal notranslate"><span class="pre">in_voltage_sampling_frequency</span></code></p>
+<p>Read only attribute which returns the RX digital IQ base-band rate in
+Hz. This must not be confused with the ADC rate, which is
+(Main_decimation * Channel_decimation) time higher. Main_decimation,
+Channel_decimation are defined in the device tree.</p>
+<p>in_voltage_sampling_frequency = <span class="math notranslate nohighlight">\(in\_voltage\_adc\_frequency / (Main\_decimation * Channel\_decimation)\)</span></p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage_sampling_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>250000000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="dac-rate">
+<h4>DAC Rate<a class="headerlink" href="#dac-rate" title="Link to this heading"></a></h4>
+<p>What: <code class="docutils literal notranslate"><span class="pre">out_voltage_dac_frequency</span></code></p>
+<p>Read only attribute which returns the TX DAC rate Hz.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_voltage_dac_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>20000000000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="tx-sample-rate">
+<h4>TX Sample Rate<a class="headerlink" href="#tx-sample-rate" title="Link to this heading"></a></h4>
+<p>What: <code class="docutils literal notranslate"><span class="pre">out_voltage_sampling_frequency</span></code></p>
+<p>Read only attribute which returns the TX digital IQ baseband rate in
+Hz. This must not be confused with the DAC rate, which is
+(Main_interpolation * Channel_interpolation) time higher.
+Main_interpolation, Channel_interpolation are defined in the device
+tree.</p>
+<p>out_voltage_sampling_frequency = <span class="math notranslate nohighlight">\(f_{DAC} / ({Main\_interpolation} * {Channel\_interpolation}\)</span>)</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_voltage_sampling_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>250000000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="nco-frequency-control">
+<h4>NCO Frequency Control<a class="headerlink" href="#nco-frequency-control" title="Link to this heading"></a></h4>
+<section id="main-data-path">
+<h5>Main Data Path<a class="headerlink" href="#main-data-path" title="Link to this heading"></a></h5>
+<p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_main_nco_frequency</span></code></p>
+<p>Sets the main data path (CDDC/CDUC) NCO frequency (f<sub>Carrier</sub>) in Hz</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">out_voltageX_i_main_nco_frequency</span></code> Range is: <span class="math notranslate nohighlight">\(−f_{DAC}/2 ≤ f_{Carrier} &lt; +f_{DAC}/2\)</span></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">in_voltageX_i_main_nco_frequency</span></code> Range is: <span class="math notranslate nohighlight">\(−f_{ADC}/2 ≤ f_{Carrier} &lt; +f_{ADC}/2\)</span></p></li>
+</ul>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1000000000</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_main_nco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_voltage0_i_main_nco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1000000000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">300000000</span><span class="w"> </span>&gt;<span class="w"> </span>in_voltage0_i_main_nco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage0_i_main_nco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>300000000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="channel-data-path">
+<h5>Channel Data Path<a class="headerlink" href="#channel-data-path" title="Link to this heading"></a></h5>
+<p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_channel_nco_frequency</span></code></p>
+<p>Sets the channel data path (FDDC/FDUC) NCO frequency (f<sub>Carrier</sub>) in Hz</p>
+<p><code class="docutils literal notranslate"><span class="pre">out_voltageX_i_channel_nco_frequency</span></code> range is:</p>
+<blockquote>
+<div><div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[−(f_{DAC}/Main\_interpolation)/2 ≤ f_{Carrier} &lt; +(f_{DAC}/Main\_interpolation)/2\]</div>
+</div>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">in_voltageX_i_channel_nco_frequency</span></code> range is:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[−(f_{ADC}/Main\_decimation)/2 ≤ f_{Carrier}&lt; +(f_{ADC}/Main\_decimation)/2\]</div>
+</div>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1000000000</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_channel_nco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_voltage0_i_channel_nco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1000000000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">300000000</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_channel_nco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_voltage0_i_channel_nco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>300000000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+</section>
+<section id="nco-phase-control">
+<h4>NCO Phase Control<a class="headerlink" href="#nco-phase-control" title="Link to this heading"></a></h4>
+<section id="id1">
+<h5>Main Data Path<a class="headerlink" href="#id1" title="Link to this heading"></a></h5>
+<p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_main_nco_phase</span></code></p>
+<p>Sets the main data path (CDDC/CDUC) NCO phase offset in milli degrees</p>
+<p>Range is: −180° ≤ Degrees Offset ≤ +180° (Values are in milli degrees.)</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">66000</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_main_nco_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_voltage0_i_main_nco_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>66000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span>-42000<span class="w"> </span>&gt;<span class="w"> </span>in_voltage0_i_main_nco_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage0_i_main_nco_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>-42000
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="id2">
+<h5>Channel Data Path<a class="headerlink" href="#id2" title="Link to this heading"></a></h5>
+<p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_channel_nco_phase</span></code></p>
+<p>Sets the channel data path (FDDC/FDUC) NCO phase offset in milli degrees</p>
+<p>Range is: −180° ≤ Degrees Offset ≤ +180° (Values are in milli degrees.)</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">13123</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_channel_nco_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_voltage0_i_channel_nco_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>13123
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+</section>
+<section id="tx-nco-channel-digital-gain">
+<h4>TX NCO Channel Digital Gain<a class="headerlink" href="#tx-nco-channel-digital-gain" title="Link to this heading"></a></h4>
+<p>What: <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_channel_nco_gain_scale</span></code></p>
+<p>The input data into each channelizer stage can be rescaled prior to
+additional processing. This feature is useful in multiband applications
+to prevent digital clipping when the outputs of two or more channelizer
+stages are summed in the main datapath to produce a multiband band
+signal.
+The gain/scale is set via <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_channel_nco_gain_scale</span></code> attribute.</p>
+<p>Range is: <span class="math notranslate nohighlight">\(0 ≤ Gain ≤ 1.999 (−∞ dB &lt; dBGain ≤ +6.018 dB)\)</span></p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">0</span>.707<span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_channel_nco_gain_scale
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_voltage0_i_channel_nco_gain_scale
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>0.707
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="pfir">
+<h4>PFIR<a class="headerlink" href="#pfir" title="Link to this heading"></a></h4>
+<p>The PFIR (Programmable Finite Impulse Response) configuration is defined the
+configuration <code class="docutils literal notranslate"><span class="pre">pfilt_config</span></code> (write-only).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">pfilt_config</span></code> input must have the following format:</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="na">mode</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;imode&gt; &lt;qmode&gt;</span>
+<span class="na">gain</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;ix&gt; &lt;iy&gt; &lt;qx&gt; &lt;qy&gt;</span>
+<span class="na">scalar_gain</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;ix&gt; &lt;iy&gt; &lt;qx&gt; &lt;qy&gt;</span>
+<span class="na">dest</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;terminal&gt; &lt;pfilt_sel&gt; &lt;bank_sel&gt;</span>
+<span class="na">hc_delay</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;delay&gt;</span>
+<span class="na">mode_switch_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;value&gt;</span>
+<span class="na">mode_switch_add_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;value&gt;</span>
+<span class="na">real_data_mode_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;value&gt;</span>
+<span class="na">quad_mode_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;value&gt;</span>
+<span class="na">selection_mode</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;mode&gt;</span>
+<span class="na">&lt;sval&gt;</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Each line represents a parameter or setting for the PFIR filter.</p></li>
+<li><p>Lines starting with ‘#’ are considered comments and are ignored.</p></li>
+</ul>
+<p>The format for each parameter is as follows:</p>
+<ul>
+<li><div class="line-block">
+<div class="line">mode: &lt;imode&gt; &lt;qmode&gt;</div>
+</div>
+<p>Sets the mode for the PFIR filter. The &lt;imode&gt; and &lt;qmode&gt; values should be
+one of the predefined filter modes: <code class="docutils literal notranslate"><span class="pre">disabled</span></code>, <code class="docutils literal notranslate"><span class="pre">real_n4</span></code>, <code class="docutils literal notranslate"><span class="pre">real_n2</span></code>,
+<code class="docutils literal notranslate"><span class="pre">undef</span></code>, <code class="docutils literal notranslate"><span class="pre">matrix</span></code>, <code class="docutils literal notranslate"><span class="pre">undef</span></code>, <code class="docutils literal notranslate"><span class="pre">complex_half</span></code>, <code class="docutils literal notranslate"><span class="pre">real_n</span></code>.</p>
+</li>
+<li><div class="line-block">
+<div class="line">gain: &lt;ix&gt; &lt;iy&gt; &lt;qx&gt; &lt;qy&gt;</div>
+</div>
+<p>Sets the gain values for the PFIR filter. The &lt;ix&gt;, &lt;iy&gt;, &lt;qx&gt;,
+and &lt;qy&gt; values should be integers representing the gain in dB.</p>
+</li>
+<li><div class="line-block">
+<div class="line">scalar_gain: &lt;ix&gt; &lt;iy&gt; &lt;qx&gt; &lt;qy&gt;</div>
+</div>
+<p>Sets the scalar gain values for the PFIR filter. The &lt;ix&gt;, &lt;iy&gt;,
+&lt;qx&gt;, and &lt;qy&gt; values should be integers representing the scalar
+gain.</p>
+</li>
+<li><div class="line-block">
+<div class="line">dest: &lt;terminal&gt; &lt;pfilt_sel&gt; &lt;bank_sel&gt;</div>
+</div>
+<p>Sets the destination for the PFIR filter. The &lt;terminal&gt; value should be
+either <code class="docutils literal notranslate"><span class="pre">rx</span></code> or <code class="docutils literal notranslate"><span class="pre">tx</span></code>. The &lt;pfilt_sel&gt; value should be one of the
+predefined filter selects: <code class="docutils literal notranslate"><span class="pre">pfilt_a0</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_a1</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_b0</span></code>,
+<code class="docutils literal notranslate"><span class="pre">pfilt_b1</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_all</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_mask</span></code>. The &lt;bank_sel&gt; value should be
+one of the predefined filter banks: <code class="docutils literal notranslate"><span class="pre">bank_0</span></code>, <code class="docutils literal notranslate"><span class="pre">bank_1</span></code>, <code class="docutils literal notranslate"><span class="pre">bank_2</span></code>,
+<code class="docutils literal notranslate"><span class="pre">bank_3</span></code>, <code class="docutils literal notranslate"><span class="pre">bank_all</span></code>, <code class="docutils literal notranslate"><span class="pre">bank_mask</span></code>.</p>
+</li>
+<li><div class="line-block">
+<div class="line">hc_delay: &lt;delay&gt;</div>
+</div>
+<p>Sets the high cut delay value for the PFIR filter. The &lt;delay&gt;
+value should be an unsigned 8-bit integer.</p>
+</li>
+<li><div class="line-block">
+<div class="line">mode_switch_en: &lt;value&gt;</div>
+</div>
+<p>Sets the mode switch enable value for the PFIR filter. The &lt;value&gt;
+should be either 0 or 1.</p>
+</li>
+<li><div class="line-block">
+<div class="line">mode_switch_add_en: &lt;value&gt;</div>
+</div>
+<p>Sets the mode switch add enable value for the PFIR filter. The
+&lt;value&gt; should be either 0 or 1.</p>
+</li>
+<li><div class="line-block">
+<div class="line">real_data_mode_en: &lt;value&gt;</div>
+</div>
+<p>Sets the real data mode enable value for the PFIR filter. The
+&lt;value&gt; should be either 0 or 1.</p>
+</li>
+<li><div class="line-block">
+<div class="line">quad_mode_en: &lt;value&gt;</div>
+</div>
+<p>Sets the quad mode enable value for the PFIR filter. The &lt;value&gt;
+should be either 0 or 1.</p>
+</li>
+<li><div class="line-block">
+<div class="line">selection_mode: &lt;mode&gt;</div>
+</div>
+<p>Sets the profile selection mode for the PFIR filter. The &lt;mode&gt; value
+should be one of the predefined profile selection modes: <code class="docutils literal notranslate"><span class="pre">direct_regmap</span></code>,
+<code class="docutils literal notranslate"><span class="pre">direct_gpio</span></code>, <code class="docutils literal notranslate"><span class="pre">direct_gpio1</span></code>, <code class="docutils literal notranslate"><span class="pre">trig_regmap</span></code>, <code class="docutils literal notranslate"><span class="pre">trig_gpio</span></code>,
+<code class="docutils literal notranslate"><span class="pre">trig_gpio1</span></code>.</p>
+</li>
+<li><div class="line-block">
+<div class="line">&lt;sval&gt;</div>
+</div>
+<p>Sets the coefficient values for the PFIR filter. The &lt;sval&gt; value
+should be an integer representing the coefficient value.</p>
+</li>
+</ul>
+</section>
+<section id="cfir">
+<h4>CFIR<a class="headerlink" href="#cfir" title="Link to this heading"></a></h4>
+<p>The CFIR configuration is defined by enabling <code class="docutils literal notranslate"><span class="pre">[in|out]_voltage&lt;index&gt;_[i|q]_cfir_profile_sel</span></code>,
+profile selection <code class="docutils literal notranslate"><span class="pre">[in|out]_voltage&lt;index&gt;_[i|q]_cfir_profile_sel</span></code>
+and the configuration <code class="docutils literal notranslate"><span class="pre">cfir_config</span></code> (write-only).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">cfir_config</span></code> input must have the following format:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">cfir_config</span></code> input must have the following format:</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="na">dest</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;terminal&gt; &lt;cfir_select&gt; &lt;cfir_profile&gt; &lt;cfir_datapath&gt;</span>
+<span class="na">gain</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;gain_value&gt;</span>
+<span class="na">complex_scalar</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;scalar_i&gt; &lt;scalar_q&gt;</span>
+<span class="na">bypass</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;bypass_value&gt;</span>
+<span class="na">sparse_filt_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;sparse_filt_en_value&gt;</span>
+<span class="na">32taps_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;32taps_en_value&gt;</span>
+<span class="na">coeff_transfer</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;coeff_transfer_value&gt;</span>
+<span class="na">enable</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;enable_value&gt; &lt;enable_profile_value&gt;</span>
+<span class="na">selection_mode</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;selection_mode_value&gt;</span>
+<span class="na">&lt;cfir_coeff0_i&gt; &lt;cfir_coeff0_q&gt;</span>
+<span class="na">&lt;cfir_coeff1_i&gt; &lt;cfir_coeff1_q&gt;</span>
+<span class="na">...</span>
+<span class="na">&lt;cfir_coeffN_i&gt; &lt;cfir_coeffN_q&gt;</span>
+</pre></div>
+</div>
+<p>Each line in the string represents a specific configuration parameter.
+The <code class="docutils literal notranslate"><span class="pre">dest</span></code> line specifies the destination terminal, CFIR select, CFIR profile,
+and CFIR datapath. The <code class="docutils literal notranslate"><span class="pre">gain</span></code> line specifies the gain value. The <code class="docutils literal notranslate"><span class="pre">complex_scalar</span></code>
+line specifies the complex scalar values. The <code class="docutils literal notranslate"><span class="pre">bypass</span></code> line specifies the bypass
+value. The <code class="docutils literal notranslate"><span class="pre">sparse_filt_en</span></code> line specifies the sparse filter enable value.
+The <code class="docutils literal notranslate"><span class="pre">32taps_en</span></code> line specifies the 32 taps enable value. The <code class="docutils literal notranslate"><span class="pre">coeff_transfer</span></code>
+line specifies the coefficient transfer value. The <code class="docutils literal notranslate"><span class="pre">enable</span></code> line specifies the
+enable value and enable profile value. The <code class="docutils literal notranslate"><span class="pre">selection_mode</span></code> line specifies the
+selection mode value. The &lt;cfir_coeff_i&gt; and &lt;cfir_coeff_q&gt; lines specify the
+CFIR coefficient values.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>cfir
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>cfir_config
+in_voltage0_i_cfir_en
+in_voltage0_i_cfir_profile_sel
+in_voltage1_i_cfir_en
+in_voltage1_i_cfir_profile_sel
+...
+out_voltage0_i_cfir_en
+out_voltage0_i_cfir_profile_sel
+...
+out_voltage3_q_cfir_en
+out_voltage3_q_cfir_profile_sel
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>in_voltage0_i_cfir_en
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage0_i_cfir_en
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>One main use case of CFIR is to equalize the RF carriers independent of PFILT.</p>
+</section>
+<section id="loopback">
+<h4>Loopback<a class="headerlink" href="#loopback" title="Link to this heading"></a></h4>
+<p>The four loopback modes are available as channel attributes.
+The value is always written to a side: A or B, so
+enabling loopback for in_voltage0 will also enable for in_voltage1.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>loopback
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>in_voltage0_i_loopback
+in_voltage0_q_loopback
+in_voltage1_i_loopback
+in_voltage1_q_loopback
+in_voltage2_i_loopback
+in_voltage2_q_loopback
+in_voltage3_i_loopback
+in_voltage3_q_loopback
+in_voltage_loopback_available
+loopback1_blend_available
+loopback1_blend_side_a
+loopback1_blend_side_b
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage_loopback_available
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>off loopback0 loopback1 loopback2 loopback3_jesd
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span>loopback1<span class="w"> </span>&gt;<span class="w"> </span>in_voltage2_i_loopback
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage3_q_loopback
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>loopback1
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>If the ADC and DAC does not have the same sampling frequency, writing will
+fail with -EINVAL.
+Consult the User Guide for all configuration requirements before enabling the loopback.</p>
+</section>
+<section id="apollo-fft">
+<span adsd id="id3"></span><h4>Spectrum Sniffer<a class="headerlink" href="#apollo-fft" title="Link to this heading"></a></h4>
+<p>The Spectrum Sniffer provides users information with fast indications of where
+the strong and weak signals are within the digitized signal bandwidth.</p>
+<p>The interrupt-names <code class="docutils literal notranslate"><span class="pre">fft_done_A</span></code> and <code class="docutils literal notranslate"><span class="pre">fft_done_B</span></code> maps the spectrum
+sniffer interrupt for side A and B, respectively. The debug attributes for the
+spectrum sniffer for each side are only probed if the respective interrupt is
+present.</p>
+<p>With the spectrum sniffer interrupts mapped, an additional iio device is probed
+and the fft properties are exposed as properties and debug properties.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/sys/bus/iio/devices/iio:device6
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device6$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>buffer   max_threshold  mode_available  power          uevent
+buffer0  min_threshold  name            scan_elements  waiting_for_supplier
+dev      mode           of_node         subsystem
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">buffer</span></code>/<code class="docutils literal notranslate"><span class="pre">buffer0</span></code>: Allocated buffer to store and read captured data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_threshold</span></code>: Maximum threshold for comparison with magnitude Output
+from FFT Engine.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">20</span></code></div>
+<div class="line">Range: <code class="docutils literal notranslate"><span class="pre">0-255</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_threshold</span></code>: Minimum threshold for comparison with magnitude Output
+from FFT Engine.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+<div class="line">Range: <code class="docutils literal notranslate"><span class="pre">0-255</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code>: Spectrum output mode during data capture, affects both IQ and
+Magnitude modes.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">normal</span></code>: Normal mode.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">instant</span></code>: Instantaneous/Debug IQ mode.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">instant</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mode_available</span></code>: Returns all valid spectrum output modes.</p></li>
+</ul>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/sys/kernel/debug/iio/iio:device6
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device6$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>adc                   direct_reg_access  min_threshold
+adc_sampling_rate_Hz  dither_enable      real_mode
+alpha_factor          fft_enable_sel     run_fft_engine_background
+bottom_fft_enable     fft_hold_sel       sort_enable
+continuous_mode       low_power_enable   window_enable
+delay_capture_ms      max_threshold
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">adc</span></code>: ADC to configure and use the feature.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_ADC_0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fft_hold_sel</span></code>: Control the Sniffer <code class="docutils literal notranslate"><span class="pre">fft_hold</span></code> bit by SPI operation
+(via API function) or GPIO to hold overwriting of data to registers.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Select GPIO control.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Select registers control.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fft_enable_sel</span></code>: Control the Sniffer <code class="docutils literal notranslate"><span class="pre">fft_enable</span></code> bit by SPI operation
+(via API function) or GPIO to enable the FFT Engine.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Select GPIO control.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Select registers control.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">real_mode</span></code>: Select between real and complex FFT operation.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Select Complex FFT. Pair of converters used for I and Q sampling.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Select Real FFT.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_threshold</span></code>: Maximum threshold for comparison with magnitude Output
+from FFT Engine. Same as the device property.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">255</span></code></div>
+<div class="line">Range: <code class="docutils literal notranslate"><span class="pre">0-255</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_threshold</span></code>: Minimum threshold for comparison with magnitude Output
+from FFT Engine.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+<div class="line">Range: <code class="docutils literal notranslate"><span class="pre">0-255</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sort_enable</span></code>: Incoming magnitude data is sorted from least to greatest
+before it is stored. When sorting is disabled, magnitude data is left
+unsorted and is ordered by its bin number. Sorting is only available in
+magnitude mode.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">continuous_mode</span></code>: In continuous mode, the sniffer continuously stores new
+data, guaranteeing that the latest data is stored. In single mode data is
+only stored once between the time that <code class="docutils literal notranslate"><span class="pre">fft_hold</span></code> is set to low, and the
+data is obtained. Hence, the user may miss critical data during this period
+in single mode. Continuous mode is only supported in magnitude mode.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Single mode.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Continuous mode.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bottom_fft_enable</span></code>: Each sniffer instance has one top and one bottom FFT
+engine that are 50% overlapped and compute in parallel. With this feature,
+the top and bottom FFT engine results are averaged and assist in avoiding
+critical time domain events</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">window_enable</span></code>: A hard-coded frequency domain Hamming window is applied to
+and is optimized for narrow spectral peaks to optimize the resolution
+bandwidth. in I/Q output mode, windowing will de-emphasize data towards the
+edges of the 512-bin spectrum boundary, and thus the threshold may not be
+reached resulting in data not being captured.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">low_power_enable</span></code>: Low power mode disables continuous mode and exponential
+averaging. The expected power savings for this mode is 600mW.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dither_enable</span></code>: Dither is added to input samples to reduce spurs across
+the spectrum.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha_factor</span></code>: Exponential averaging is enabled by setting the
+alpha_factor between 1 and 8 and disabled when set to 0. The alpha factor
+sets <span class="math notranslate nohighlight">\(\alpha\)</span> in the equation
+<span class="math notranslate nohighlight">\(y[n] = 2^{-\alpha}x[n]+(1-2^{-\alpha}y[n-1])\)</span>
+and directly controls the weight of the previous sample. The average is reset
+to zero when data is stored or if FFT computation is stopped. Exponential
+averaging is only available in single mode and magnitude mode.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">run_fft_engine_background</span></code>: Set to 1 for GPIO control, to skip writing
+the <code class="docutils literal notranslate"><span class="pre">fft_enable</span></code> register.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">delay_capture_ms</span></code>: Delay capture by an amount of time.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">100</span></code></div>
+<div class="line">Unit: <code class="docutils literal notranslate"><span class="pre">ms</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adc_sampling_rate_Hz</span></code>: Read the ADC sampling rate</p></li>
+</ul>
+<p>The acquired data is pushed to the device’s IIO buffer.</p>
+</section>
+<section id="fast-frequency-hopping">
+<span adsd id="apollo-ffh"></span><h4>Fast Frequency Hopping<a class="headerlink" href="#fast-frequency-hopping" title="Link to this heading"></a></h4>
+<p>The NCO frequency and phase settings can be stored as a set of up-to 32
+profiles, each with a 32-bit FTW and 16-bit phase offset word, to be
+selectively assigned to the NCO during runtime. This allows to quickly change
+(hop) the NCO frequency, known as Fast Frequency Hopping (FFH).</p>
+<section id="tx-ffh-fnco">
+<h5>Tx FFH FNCO<a class="headerlink" href="#tx-ffh-fnco" title="Link to this heading"></a></h5>
+<p>The user configures the NCO FFH frequency by writing the index (0 to 31) to
+<code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_fnco_index</span></code> followed by the frequency value to
+<code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_fnco_frequency</span></code>, for example:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_fnco_index
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="k">$((</span><span class="m">16#20000000</span><span class="k">))</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_ffh_fnco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Then hop to the desired frequency writing the index to
+<code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_fnco_select</span></code>, and write -1 to disable the feature;
+for example:</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>If the trigger mode is not set to 4 (<code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP</span></code>),
+the method will return -EINVAL;</p>
+</div>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_fnco_select
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="tx-ffh-cnco">
+<h5>Tx FFH CNCO<a class="headerlink" href="#tx-ffh-cnco" title="Link to this heading"></a></h5>
+<p>The user configures the NCO FFH frequency by writing the index (0 to 31) to
+<code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_cnco_index</span></code> followed by the frequency value to
+<code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_cnco_frequency</span></code>, for example:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_cnco_index
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="k">$((</span><span class="m">16#20000000</span><span class="k">))</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_ffh_cnco_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Then hop to the desired frequency writing the index to
+<code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_cnco_select</span></code>, for example:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_fnco_select
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p><code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_cnco_frequency</span></code> at index 0 is equivalent to
+<code class="docutils literal notranslate"><span class="pre">in_voltage0_i_main_nco_frequency</span></code></p>
+</section>
+<section id="trigger-mode">
+<h5>Trigger mode<a class="headerlink" href="#trigger-mode" title="Link to this heading"></a></h5>
+<p>By default, the profile will hop on the register access for the profile set call.
+Other options are available and configurable with
+<code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_fnco_mode</span></code>.</p>
+<p>The options are:</p>
+<ul class="simple">
+<li><p>0: <code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_TRIG_AUTO</span></code>, Trigger based hopping, auto Hopping Mode.</p></li>
+<li><p>1: <code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP</span></code>, Trigger based hopping, scheduled Regmap.</p></li>
+<li><p>2: <code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO</span></code>, Trigger based hopping, scheduled GPIO.</p></li>
+<li><p>3: <code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO</span></code>, Direct GPIO profile select, all params hop together.</p></li>
+<li><p>4: <code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP</span></code>, Direct spi/hsci nco profile select, all params hop together (default).</p></li>
+</ul>
+<p>For example:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_fnco_mode
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+</section>
+<section id="gpios-gpio-chip">
+<span adsd id="apollo-gpio"></span><h4>GPIOs &amp; GPIO chip<a class="headerlink" href="#gpios-gpio-chip" title="Link to this heading"></a></h4>
+<p>The device contains 30 general purpose GPIOs that can be used to trigger various
+changes and can be exported into a <a class="icon link reference external" href="https://www.kernel.org/doc/html/latest/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v6.17.0-rc6)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
+using the <code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code> devicetree property:</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">     </span><span class="n">adi</span><span class="p">,</span><span class="n">gpio-exports</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">8 &lt;15 16 17 18&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Some of the device GPIOs are mapped in the HDL design to a axi_gpio IP Core, and
+the apollo’s and axi_gpio’s can be attached to other drivers in the device tree:</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> is the index of item in the <code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code>, and in the previous
+example, is equivalent to the device’s GPIO 15. Also ensure to check the
+schematics and HDL design for the routes between apollo’s GPIO, axi_gpio’s
+and other input options.</p>
+</div>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">my_driver</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">     </span><span class="cm">/* ... */</span>
+<span class="w">     </span><span class="n">provider-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_gpio</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">GPIO_ACTIVE_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">     </span><span class="n">consumer-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">tx0_ad9084</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">GPIO_ACTIVE_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Or from user space through <a class="icon link reference external" href="https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/" target="_blank">gpiod</a>:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gpiodetect
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>gpiochip0 [a4000000.gpio] (64 lines)
+gpiochip1 [versal_gpio] (58 lines)
+gpiochip2 [pmc_gpio] (116 lines)
+gpiochip3 [ad9088] (4 lines)
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gpioget<span class="w"> </span>ad9088<span class="w"> </span><span class="m">3</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>0
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gpioset<span class="w"> </span>a4000000.gpio<span class="w"> </span><span class="nv">3</span><span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gpioget<span class="w"> </span>ad9088<span class="w"> </span><span class="m">3</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="debug-system">
+<h4>Debug system<a class="headerlink" href="#debug-system" title="Link to this heading"></a></h4>
+<p>An additional debug provided through debugfs:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/sys/kernel/debug/iio/iio<span class="se">\:</span>device8<span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="nb">pwd</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device8
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Read API version:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>api_version
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>0.4.40
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Get link statuses:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>status
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>JRX ADI_APOLLO_LINK_A0: JESD204C Subclass=1 L=4 M=4 F=2 S=1 Np=16 CS=0 link_en=Enabled
+    Lane0 status: Reset
+    Lane1 status: Link is good
+    Lane2 status: Reset
+    Lane3 status: Link is good
+    Lane4 status: Reset
+    Lane5 status: Link is good
+    Lane6 status: Reset
+    Lane7 status: Link is good
+    Lane8 status: Reset
+    Lane9 status: Reset
+    Lane10 status: Reset
+    Lane11 status: Reset
+    User status: Ready, SYSREF Phase: Locked
+JRX ADI_APOLLO_LINK_B0: JESD204C Subclass=1 L=4 M=4 F=2 S=1 Np=16 CS=0 link_en=Enabled
+    Lane0 status: Reset
+    Lane1 status: Link is good
+    Lane2 status: Reset
+    Lane3 status: Link is good
+    Lane4 status: Reset
+    Lane5 status: Reset
+    Lane6 status: Reset
+    Lane7 status: Link is good
+    Lane8 status: Reset
+    Lane9 status: Reset
+    Lane10 status: Link is good
+    Lane11 status: Reset
+    User status: Ready, SYSREF Phase: Locked
+JTX ADI_APOLLO_LINK_A0: JESD204C Subclass=1 L=4 M=4 F=2 S=1 Np=16 CS=0 link_en=Enabled
+    PLL locked, PHASE established, MODE valid
+JTX ADI_APOLLO_LINK_B0: JESD204C Subclass=1 L=4 M=4 F=2 S=1 Np=16 CS=0 link_en=Enabled
+    PLL locked, PHASE established, MODE valid
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Change protocol to use, HSCI (1) or SPI (0):</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>hsci_enable
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>0
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>hsci_enable
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>hsci_enable
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="adxl380.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">ADXL380 driver</a>
+    <a href="../ci.html" title="Next document (Alt+Shift+RightArrow)" class="next">Continuous integration</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>
