@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Driver for AD9088 and similar mixed signal front end (MxFE®)
+ *
+ * Copyright 2025 Analog Devices Inc.
+ */
 #include <linux/types.h>
 #include <linux/kstrtox.h>
 
@@ -44,14 +50,12 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	/* Cache defaults */
 	memset(&phy->ffh, 0, sizeof(union ad9088_ffh));
 	for (u8 i = 0; i < ADI_APOLLO_FNCO_PROFILE_NUM; i++) {
-		for (u8 j = 0; j < 2; j++) {
+		for (u8 j = 0; j < 2; j++)
 			phy->ffh.dir[j].fnco.mode[i] = cnco_hop_config.profile_sel_mode;
-		}
 	}
 	for (u8 i = 0; i < ADI_APOLLO_CNCO_PROFILE_NUM; i++) {
-		for (u8 j = 0; j < 2; j++) {
+		for (u8 j = 0; j < 2; j++)
 			phy->ffh.dir[j].cnco.mode[i] = fnco_hop_config.profile_sel_mode;
-		}
 	}
 	return ret;
 }
