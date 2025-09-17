@@ -15,3 +15,4 @@ Industrial I/O Kernel Drivers
    :glob:
 
    ad*
+   apollo
