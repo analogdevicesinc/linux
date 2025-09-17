@@ -1,0 +1,1 @@
+.. include:: ../../Documentation/iio/ad7625.rst
