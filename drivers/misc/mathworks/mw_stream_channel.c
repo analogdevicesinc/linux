@@ -1087,6 +1087,27 @@ static void mw_stream_chan_release(struct device *dev)
 	}
 }
 
+static inline void mw_dma_release_channel(void *data)
+{
+	struct dma_chan *chan = data;
+
+	dma_release_channel(chan);
+}
+
+static inline void mw_device_unregister(void *data)
+{
+	struct device *dev = data;
+
+	device_unregister(dev);
+}
+
+static inline void mw_sysfs_put(void *data)
+{
+	struct kernfs_node *kn = data;
+
+	sysfs_put(kn);
+}
+
 static struct mwadma_chan* __must_check mw_stream_chan_probe(
 		struct mwadma_dev *mwdev,
 		enum dma_transfer_direction direction,
@@ -1111,7 +1132,7 @@ static struct mwadma_chan* __must_check mw_stream_chan_probe(
 		return (void *)chan;
 	}
 	/* Create the cleanup action */
-	status = devm_add_action(IP2DEVP(mwdev), (devm_action_fn)dma_release_channel, chan);
+	status = devm_add_action(IP2DEVP(mwdev), mw_dma_release_channel, chan);
 	if(status){
 		dma_release_channel(chan);
 		return ERR_PTR(status);
@@ -1135,7 +1156,7 @@ static struct mwadma_chan* __must_check mw_stream_chan_probe(
 	if (mwchan->dev.id < 0) {
 		return ERR_PTR(mwchan->dev.id);
 	}
-	status = devm_add_action(IP2DEVP(mwdev),mw_stream_chan_ida_remove, mwchan);
+	status = devm_add_action(IP2DEVP(mwdev), mw_stream_chan_ida_remove, mwchan);
 	if(status){
 		ida_simple_remove(&mw_stream_channel_ida, mwchan->dev.id);
 		return ERR_PTR(status);
@@ -1148,7 +1169,7 @@ static struct mwadma_chan* __must_check mw_stream_chan_probe(
 	status = device_add(&mwchan->dev);
 	if (status)
 		return ERR_PTR(status);
-	status = devm_add_action(IP2DEVP(mwdev), (devm_action_fn)device_unregister, &mwchan->dev);
+	status = devm_add_action(IP2DEVP(mwdev), mw_device_unregister, &mwchan->dev);
 	if(status){
 		device_unregister(&mwchan->dev);
 		return ERR_PTR(status);
@@ -1159,7 +1180,7 @@ static struct mwadma_chan* __must_check mw_stream_chan_probe(
 	if(!mwchan->irq_kn){
 		return ERR_PTR(-ENODEV);
 	}
-	status = devm_add_action(&mwchan->dev, (devm_action_fn)sysfs_put, mwchan->irq_kn);
+	status = devm_add_action(&mwchan->dev, mw_sysfs_put, mwchan->irq_kn);
 	if(status) {
 	    sysfs_put(mwchan->irq_kn);
 	    return ERR_PTR(status);
