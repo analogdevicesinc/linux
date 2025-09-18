@@ -1318,6 +1318,16 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/rtc/amlogic,a4-rtc.yaml
 F:	drivers/rtc/rtc-amlogic-a4.c
 
+AMLOGIC SPIFC DRIVER
+M:	Liang Yang <liang.yang@amlogic.com>
+M:	Feng Chen <feng.chen@amlogic.com>
+M:	Xianwei Zhao <xianwei.zhao@amlogic.com>
+L:	linux-amlogic@lists.infradead.org
+L:	linux-spi@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/spi/amlogic,a4-spifc.yaml
+F:	drivers/spi/spi-amlogic-spifc-a4.c
+
 AMLOGIC SPISG DRIVER
 M:	Sunny Luo <sunny.luo@amlogic.com>
 M:	Xianwei Zhao <xianwei.zhao@amlogic.com>
@@ -25640,16 +25650,10 @@ W:	https://github.com/srcres258/linux-doc
 T:	git https://github.com/srcres258/linux-doc.git doc-zh-tw
 F:	Documentation/translations/zh_TW/
 
-TRIGGER SOURCE - ADI UTIL SIGMA DELTA SPI
-M:	David Lechner <dlechner@baylibre.com>
-S:	Maintained
-F:	Documentation/devicetree/bindings/trigger-source/adi,util-sigma-delta-spi.yaml
-
 TRIGGER SOURCE
 M:	David Lechner <dlechner@baylibre.com>
 S:	Maintained
-F:	Documentation/devicetree/bindings/trigger-source/gpio-trigger.yaml
-F:	Documentation/devicetree/bindings/trigger-source/pwm-trigger.yaml
+F:	Documentation/devicetree/bindings/trigger-source/*
 
 TRUSTED SECURITY MODULE (TSM) INFRASTRUCTURE
 M:	Dan Williams <dan.j.williams@intel.com>
