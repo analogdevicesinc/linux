@@ -3,16 +3,13 @@ name: Many devicetrees
 on:
   workflow_call:
     inputs:
-      CXX:
+      compiler:
         type: string
-        default: ""
-      CROSS_COMPILE:
-        type: string
-        default: ""
-      ARCHS:
+        default: "gcc"
+      archs:
         required: true
         type: string
-      DTS_FILES:
+      dts_files:
         required: true
         type: string
     outputs:
@@ -29,6 +26,9 @@ jobs:
     timeout-minutes: 7200
     runs-on: [self-hosted, v1]
 
+    env:
+      GCC_VERSION: 14
+
     outputs:
       fail: ${{ steps.assert.outputs.fail }}
       warn: ${{ steps.assert.outputs.warn }}
@@ -38,11 +38,14 @@ jobs:
 
     - name: Prepare env
       run: |
-        if [[ ! -z "${{ inputs.CXX }}" ]]; then
-          echo "CXX=gcc-${{ inputs.CXX }}" >> $GITHUB_ENV
+        if [[ "${{ inputs.compiler }}" == "gcc" ]]; then
+          echo "CXX=gcc-$GCC_VERSION" >> $GITHUB_ENV
+        else
+          echo "::error ::Compiler '${{ inputs.compiler }}' is not supported, valid are 'gcc' or 'llvm'."
+          exit 1
         fi
-        echo "ARCHS=${{ inputs.ARCHS }}" >> $GITHUB_ENV
-        echo "DTS_FILES=${{ inputs.DTS_FILES }}" >> $GITHUB_ENV
+        echo "ARCHS=${{ inputs.archs }}" >> $GITHUB_ENV
+        echo "DTS_FILES=${{ inputs.dts_files }}" >> $GITHUB_ENV
 
     - name: Compile many devicetrees
       run: |
