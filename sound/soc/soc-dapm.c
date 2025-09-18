@@ -838,13 +838,13 @@ static struct list_head *dapm_kcontrol_get_path_list(
 	list_for_each_entry(path, dapm_kcontrol_get_path_list(kcontrol), \
 		list_kcontrol)
 
-unsigned int dapm_kcontrol_get_value(const struct snd_kcontrol *kcontrol)
+unsigned int snd_soc_dapm_kcontrol_get_value(const struct snd_kcontrol *kcontrol)
 {
 	struct dapm_kcontrol_data *data = snd_kcontrol_chip(kcontrol);
 
 	return data->value;
 }
-EXPORT_SYMBOL_GPL(dapm_kcontrol_get_value);
+EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_get_value);
 
 static bool dapm_kcontrol_set_value(const struct snd_kcontrol *kcontrol,
 	unsigned int value)
@@ -877,31 +877,42 @@ static bool dapm_kcontrol_set_value(const struct snd_kcontrol *kcontrol,
 }
 
 /**
- * snd_soc_dapm_kcontrol_widget() - Returns the widget associated to a
+ * snd_soc_dapm_kcontrol_to_widget() - Returns the widget associated to a
  *   kcontrol
  * @kcontrol: The kcontrol
  */
-struct snd_soc_dapm_widget *snd_soc_dapm_kcontrol_widget(
-				struct snd_kcontrol *kcontrol)
+struct snd_soc_dapm_widget *snd_soc_dapm_kcontrol_to_widget(struct snd_kcontrol *kcontrol)
 {
 	return dapm_kcontrol_get_wlist(kcontrol)->widgets[0];
 }
-EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_widget);
+EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_to_widget);
 
 /**
- * snd_soc_dapm_kcontrol_dapm() - Returns the dapm context associated to a
- *  kcontrol
+ * snd_soc_dapm_kcontrol_to_dapm() - Returns the dapm context associated to a kcontrol
  * @kcontrol: The kcontrol
  *
  * Note: This function must only be used on kcontrols that are known to have
  * been registered for a CODEC. Otherwise the behaviour is undefined.
  */
-struct snd_soc_dapm_context *snd_soc_dapm_kcontrol_dapm(
-	struct snd_kcontrol *kcontrol)
+struct snd_soc_dapm_context *snd_soc_dapm_kcontrol_to_dapm(struct snd_kcontrol *kcontrol)
 {
 	return dapm_kcontrol_get_wlist(kcontrol)->widgets[0]->dapm;
 }
-EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_dapm);
+EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_to_dapm);
+
+/**
+ * snd_soc_dapm_kcontrol_to_component() - Returns the component associated to a
+ * kcontrol
+ * @kcontrol: The kcontrol
+ *
+ * This function must only be used on DAPM contexts that are known to be part of
+ * a COMPONENT (e.g. in a COMPONENT driver). Otherwise the behavior is undefined
+ */
+struct snd_soc_component *snd_soc_dapm_kcontrol_to_component(struct snd_kcontrol *kcontrol)
+{
+	return snd_soc_dapm_to_component(snd_soc_dapm_kcontrol_to_dapm(kcontrol));
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_to_component);
 
 static void dapm_reset(struct snd_soc_card *card)
 {
@@ -1000,6 +1011,25 @@ int snd_soc_dapm_force_bias_level(struct snd_soc_dapm_context *dapm,
 EXPORT_SYMBOL_GPL(snd_soc_dapm_force_bias_level);
 
 /**
+ * snd_soc_dapm_init_bias_level() - Initialize DAPM bias level
+ * @dapm: The DAPM context to initialize
+ * @level: The DAPM level to initialize to
+ *
+ * This function only sets the driver internal state of the DAPM level and will
+ * not modify the state of the device. Hence it should not be used during normal
+ * operation, but only to synchronize the internal state to the device state.
+ * E.g. during driver probe to set the DAPM level to the one corresponding with
+ * the power-on reset state of the device.
+ *
+ * To change the DAPM state of the device use snd_soc_dapm_set_bias_level().
+ */
+void snd_soc_dapm_init_bias_level(struct snd_soc_dapm_context *dapm, enum snd_soc_bias_level level)
+{
+	dapm->bias_level = level;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_init_bias_level);
+
+/**
  * snd_soc_dapm_set_bias_level - set the bias level for the system
  * @dapm: DAPM context
  * @level: level to configure
@@ -1036,6 +1066,18 @@ out:
 
 	return ret;
 }
+
+/**
+ * snd_soc_dapm_get_bias_level() - Get current DAPM bias level
+ * @dapm: The context for which to get the bias level
+ *
+ * Returns: The current bias level of the passed DAPM context.
+ */
+enum snd_soc_bias_level snd_soc_dapm_get_bias_level(struct snd_soc_dapm_context *dapm)
+{
+	return dapm->bias_level;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_get_bias_level);
 
 static int dapm_is_shared_kcontrol(struct snd_soc_dapm_context *dapm,
 	struct snd_soc_dapm_widget *kcontrolw,
