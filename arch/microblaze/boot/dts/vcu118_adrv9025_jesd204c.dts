@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9025
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9025
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025
+ *
+ * hdl_project: <adrv9026/vcu118>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+#include "vcu118_adrv9025_nls.dts"
+
+&trx0_adrv9025 {
+	adi,device-profile-name = "ActiveUseCase_204C.profile";
+};
+
+&axi_adrv9025_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_QPLL>;
+	/delete-property/ adi,use-cpll-enable;
+	/delete-property/ adi,use-lpm-enable;
+};
+
+&axi_adrv9025_adxcvr_rx_os {
+	adi,sys-clk-select = <XCVR_QPLL>;
+	/delete-property/ adi,use-cpll-enable;
+	/delete-property/ adi,use-lpm-enable;
+};
