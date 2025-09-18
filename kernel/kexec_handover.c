@@ -405,6 +405,7 @@ static int __init kho_parse_scratch_size(char *p)
 {
 	size_t len;
 	unsigned long sizes[3];
+	size_t total_size = 0;
 	int i;
 
 	if (!p)
@@ -441,10 +442,18 @@ static int __init kho_parse_scratch_size(char *p)
 		}
 
 		sizes[i] = memparse(p, &endp);
-		if (!sizes[i] || endp == p)
+		if (endp == p)
 			return -EINVAL;
 		p = endp;
+		total_size += sizes[i];
 	}
+
+	if (!total_size)
+		return -EINVAL;
+
+	/* The string should be fully consumed by now. */
+	if (*p)
+		return -EINVAL;
 
 	scratch_size_lowmem = sizes[0];
 	scratch_size_global = sizes[1];

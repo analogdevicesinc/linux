@@ -190,6 +190,9 @@ static void filemap_unaccount_folio(struct address_space *mapping,
 		__lruvec_stat_mod_folio(folio, NR_FILE_THPS, -nr);
 		filemap_nr_thps_dec(mapping);
 	}
+	if (test_bit(AS_KERNEL_FILE, &folio->mapping->flags))
+		mod_node_page_state(folio_pgdat(folio),
+				    NR_KERNEL_FILE_PAGES, -nr);
 
 	/*
 	 * At this point folio must be either written or cleaned by
@@ -960,8 +963,14 @@ int filemap_add_folio(struct address_space *mapping, struct folio *folio,
 {
 	void *shadow = NULL;
 	int ret;
+	struct mem_cgroup *tmp;
+	bool kernel_file = test_bit(AS_KERNEL_FILE, &mapping->flags);
 
+	if (kernel_file)
+		tmp = set_active_memcg(root_mem_cgroup);
 	ret = mem_cgroup_charge(folio, NULL, gfp);
+	if (kernel_file)
+		set_active_memcg(tmp);
 	if (ret)
 		return ret;
 
@@ -983,6 +992,10 @@ int filemap_add_folio(struct address_space *mapping, struct folio *folio,
 		if (!(gfp & __GFP_WRITE) && shadow)
 			workingset_refault(folio, shadow);
 		folio_add_lru(folio);
+		if (kernel_file)
+			mod_node_page_state(folio_pgdat(folio),
+					    NR_KERNEL_FILE_PAGES,
+					    folio_nr_pages(folio));
 	}
 	return ret;
 }
@@ -1140,10 +1153,10 @@ static int wake_page_function(wait_queue_entry_t *wait, unsigned mode, int sync,
 	 */
 	flags = wait->flags;
 	if (flags & WQ_FLAG_EXCLUSIVE) {
-		if (test_bit(key->bit_nr, &key->folio->flags))
+		if (test_bit(key->bit_nr, &key->folio->flags.f))
 			return -1;
 		if (flags & WQ_FLAG_CUSTOM) {
-			if (test_and_set_bit(key->bit_nr, &key->folio->flags))
+			if (test_and_set_bit(key->bit_nr, &key->folio->flags.f))
 				return -1;
 			flags |= WQ_FLAG_DONE;
 		}
@@ -1226,9 +1239,9 @@ static inline bool folio_trylock_flag(struct folio *folio, int bit_nr,
 					struct wait_queue_entry *wait)
 {
 	if (wait->flags & WQ_FLAG_EXCLUSIVE) {
-		if (test_and_set_bit(bit_nr, &folio->flags))
+		if (test_and_set_bit(bit_nr, &folio->flags.f))
 			return false;
-	} else if (test_bit(bit_nr, &folio->flags))
+	} else if (test_bit(bit_nr, &folio->flags.f))
 		return false;
 
 	wait->flags |= WQ_FLAG_WOKEN | WQ_FLAG_DONE;
@@ -1961,7 +1974,7 @@ no_page:
 			gfp &= ~__GFP_FS;
 		if (fgp_flags & FGP_NOWAIT) {
 			gfp &= ~GFP_KERNEL;
-			gfp |= GFP_NOWAIT | __GFP_NOWARN;
+			gfp |= GFP_NOWAIT;
 		}
 		if (WARN_ON_ONCE(!(fgp_flags & (FGP_LOCK | FGP_FOR_MMAP))))
 			fgp_flags |= FGP_LOCK;
@@ -2447,6 +2460,9 @@ static bool filemap_range_uptodate(struct address_space *mapping,
 		pos -= folio_pos(folio);
 	}
 
+	if (pos == 0 && count >= folio_size(folio))
+		return false;
+
 	return mapping->a_ops->is_partially_uptodate(folio, pos, count);
 }
 
@@ -2619,9 +2635,10 @@ retry:
 			goto err;
 	}
 	if (!folio_test_uptodate(folio)) {
-		if ((iocb->ki_flags & IOCB_WAITQ) &&
-		    folio_batch_count(fbatch) > 1)
-			iocb->ki_flags |= IOCB_NOWAIT;
+		if (folio_batch_count(fbatch) > 1) {
+			err = -EAGAIN;
+			goto err;
+		}
 		err = filemap_update_page(iocb, mapping, count, folio,
 					  need_uptodate);
 		if (err)
@@ -3323,9 +3340,17 @@ static struct file *do_async_mmap_readahead(struct vm_fault *vmf,
 	if (vmf->vma->vm_flags & VM_RAND_READ || !ra->ra_pages)
 		return fpin;
 
-	mmap_miss = READ_ONCE(ra->mmap_miss);
-	if (mmap_miss)
-		WRITE_ONCE(ra->mmap_miss, --mmap_miss);
+	/*
+	 * If the folio is locked, we're likely racing against another fault.
+	 * Don't touch the mmap_miss counter to avoid decreasing it multiple
+	 * times for a single folio and break the balance with mmap_miss
+	 * increase in do_sync_mmap_readahead().
+	 */
+	if (likely(!folio_test_locked(folio))) {
+		mmap_miss = READ_ONCE(ra->mmap_miss);
+		if (mmap_miss)
+			WRITE_ONCE(ra->mmap_miss, --mmap_miss);
+	}
 
 	if (folio_test_readahead(folio)) {
 		fpin = maybe_unlock_mmap_for_io(vmf, fpin);
