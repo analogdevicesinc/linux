@@ -133,9 +133,8 @@ enum {
 	Opt_enospc_debug,
 #ifdef CONFIG_BTRFS_DEBUG
 	Opt_fragment, Opt_fragment_data, Opt_fragment_metadata, Opt_fragment_all,
-#endif
-#ifdef CONFIG_BTRFS_FS_REF_VERIFY
 	Opt_ref_verify,
+	Opt_ref_tracker,
 #endif
 	Opt_err,
 };
@@ -257,8 +256,7 @@ static const struct fs_parameter_spec btrfs_fs_parameters[] = {
 	fsparam_flag_no("enospc_debug", Opt_enospc_debug),
 #ifdef CONFIG_BTRFS_DEBUG
 	fsparam_enum("fragment", Opt_fragment, btrfs_parameter_fragment),
-#endif
-#ifdef CONFIG_BTRFS_FS_REF_VERIFY
+	fsparam_flag("ref_tracker", Opt_ref_tracker),
 	fsparam_flag("ref_verify", Opt_ref_verify),
 #endif
 	{}
@@ -276,6 +274,7 @@ static int btrfs_parse_compress(struct btrfs_fs_context *ctx,
 				const struct fs_parameter *param, int opt)
 {
 	const char *string = param->string;
+	int ret;
 
 	/*
 	 * Provide the same semantics as older kernels that don't use fs
@@ -294,15 +293,19 @@ static int btrfs_parse_compress(struct btrfs_fs_context *ctx,
 		btrfs_clear_opt(ctx->mount_opt, NODATASUM);
 	} else if (btrfs_match_compress_type(string, "zlib", true)) {
 		ctx->compress_type = BTRFS_COMPRESS_ZLIB;
-		ctx->compress_level = btrfs_compress_str2level(BTRFS_COMPRESS_ZLIB,
-							       string + 4);
+		ret = btrfs_compress_str2level(BTRFS_COMPRESS_ZLIB, string + 4,
+					       &ctx->compress_level);
+		if (ret < 0)
+			goto error;
 		btrfs_set_opt(ctx->mount_opt, COMPRESS);
 		btrfs_clear_opt(ctx->mount_opt, NODATACOW);
 		btrfs_clear_opt(ctx->mount_opt, NODATASUM);
 	} else if (btrfs_match_compress_type(string, "lzo", true)) {
 		ctx->compress_type = BTRFS_COMPRESS_LZO;
-		ctx->compress_level = btrfs_compress_str2level(BTRFS_COMPRESS_LZO,
-							       string + 3);
+		ret = btrfs_compress_str2level(BTRFS_COMPRESS_LZO, string + 3,
+					       &ctx->compress_level);
+		if (ret < 0)
+			goto error;
 		if (string[3] == ':' && string[4])
 			btrfs_warn(NULL, "Compression level ignored for LZO");
 		btrfs_set_opt(ctx->mount_opt, COMPRESS);
@@ -310,8 +313,10 @@ static int btrfs_parse_compress(struct btrfs_fs_context *ctx,
 		btrfs_clear_opt(ctx->mount_opt, NODATASUM);
 	} else if (btrfs_match_compress_type(string, "zstd", true)) {
 		ctx->compress_type = BTRFS_COMPRESS_ZSTD;
-		ctx->compress_level = btrfs_compress_str2level(BTRFS_COMPRESS_ZSTD,
-							       string + 4);
+		ret = btrfs_compress_str2level(BTRFS_COMPRESS_ZSTD, string + 4,
+					       &ctx->compress_level);
+		if (ret < 0)
+			goto error;
 		btrfs_set_opt(ctx->mount_opt, COMPRESS);
 		btrfs_clear_opt(ctx->mount_opt, NODATACOW);
 		btrfs_clear_opt(ctx->mount_opt, NODATASUM);
@@ -322,10 +327,14 @@ static int btrfs_parse_compress(struct btrfs_fs_context *ctx,
 		btrfs_clear_opt(ctx->mount_opt, COMPRESS);
 		btrfs_clear_opt(ctx->mount_opt, FORCE_COMPRESS);
 	} else {
-		btrfs_err(NULL, "unrecognized compression value %s", string);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto error;
 	}
 	return 0;
+error:
+	btrfs_err(NULL, "failed to parse compression option '%s'", string);
+	return ret;
+
 }
 
 static int btrfs_parse_param(struct fs_context *fc, struct fs_parameter *param)
@@ -635,10 +644,11 @@ static int btrfs_parse_param(struct fs_context *fc, struct fs_parameter *param)
 			return -EINVAL;
 		}
 		break;
-#endif
-#ifdef CONFIG_BTRFS_FS_REF_VERIFY
 	case Opt_ref_verify:
 		btrfs_set_opt(ctx->mount_opt, REF_VERIFY);
+		break;
+	case Opt_ref_tracker:
+		btrfs_set_opt(ctx->mount_opt, REF_TRACKER);
 		break;
 #endif
 	default:
@@ -1145,6 +1155,8 @@ static int btrfs_show_options(struct seq_file *seq, struct dentry *dentry)
 #endif
 	if (btrfs_test_opt(info, REF_VERIFY))
 		seq_puts(seq, ",ref_verify");
+	if (btrfs_test_opt(info, REF_TRACKER))
+		seq_puts(seq, ",ref_tracker");
 	seq_printf(seq, ",subvolid=%llu", btrfs_root_id(BTRFS_I(d_inode(dentry))->root));
 	subvol_name = btrfs_get_subvol_name_from_objectid(info,
 			btrfs_root_id(BTRFS_I(d_inode(dentry))->root));
@@ -1271,7 +1283,7 @@ static inline void btrfs_remount_cleanup(struct btrfs_fs_info *fs_info,
 	const bool cache_opt = btrfs_test_opt(fs_info, SPACE_CACHE);
 
 	/*
-	 * We need to cleanup all defragable inodes if the autodefragment is
+	 * We need to cleanup all defraggable inodes if the autodefragment is
 	 * close or the filesystem is read only.
 	 */
 	if (btrfs_raw_test_opt(old_opts, AUTO_DEFRAG) &&
@@ -2263,10 +2275,7 @@ static long btrfs_control_ioctl(struct file *file, unsigned int cmd,
 		device = btrfs_scan_one_device(vol->name, false);
 		if (IS_ERR_OR_NULL(device)) {
 			mutex_unlock(&uuid_mutex);
-			if (IS_ERR(device))
-				ret = PTR_ERR(device);
-			else
-				ret = 0;
+			ret = PTR_ERR_OR_ZERO(device);
 			break;
 		}
 		ret = !(device->fs_devices->num_devices ==
@@ -2474,9 +2483,6 @@ static int __init btrfs_print_mod_info(void)
 #endif
 #ifdef CONFIG_BTRFS_ASSERT
 			", assert=on"
-#endif
-#ifdef CONFIG_BTRFS_FS_REF_VERIFY
-			", ref-verify=on"
 #endif
 #ifdef CONFIG_BLK_DEV_ZONED
 			", zoned=yes"

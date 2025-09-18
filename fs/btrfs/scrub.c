@@ -113,7 +113,7 @@ enum {
 	/* Which blocks are covered by extent items. */
 	scrub_bitmap_nr_has_extent = 0,
 
-	/* Which blocks are meteadata. */
+	/* Which blocks are metadata. */
 	scrub_bitmap_nr_is_metadata,
 
 	/*
@@ -206,7 +206,7 @@ struct scrub_ctx {
 	ktime_t			throttle_deadline;
 	u64			throttle_sent;
 
-	int			is_dev_replace;
+	bool			is_dev_replace;
 	u64			write_pointer;
 
 	struct mutex            wr_lock;
@@ -446,7 +446,7 @@ static void scrub_put_ctx(struct scrub_ctx *sctx)
 }
 
 static noinline_for_stack struct scrub_ctx *scrub_setup_ctx(
-		struct btrfs_fs_info *fs_info, int is_dev_replace)
+		struct btrfs_fs_info *fs_info, bool is_dev_replace)
 {
 	struct scrub_ctx *sctx;
 	int		i;
@@ -696,6 +696,20 @@ static void *scrub_stripe_get_kaddr(struct scrub_stripe *stripe, int sector_nr)
 	return page_address(page) + offset_in_page(offset);
 }
 
+static phys_addr_t scrub_stripe_get_paddr(struct scrub_stripe *stripe, int sector_nr)
+{
+	struct btrfs_fs_info *fs_info = stripe->bg->fs_info;
+	u32 offset = (sector_nr << fs_info->sectorsize_bits);
+	const struct page *page = stripe->pages[offset >> PAGE_SHIFT];
+
+	/* stripe->pages[] is allocated by us and no highmem is allowed. */
+	ASSERT(page);
+	ASSERT(!PageHighMem(page));
+	/* And the range must be contained inside the page. */
+	ASSERT(offset_in_page(offset) + fs_info->sectorsize <= PAGE_SIZE);
+	return page_to_phys(page) + offset_in_page(offset);
+}
+
 static void scrub_verify_one_metadata(struct scrub_stripe *stripe, int sector_nr)
 {
 	struct btrfs_fs_info *fs_info = stripe->bg->fs_info;
@@ -788,7 +802,7 @@ static void scrub_verify_one_sector(struct scrub_stripe *stripe, int sector_nr)
 	struct btrfs_fs_info *fs_info = stripe->bg->fs_info;
 	struct scrub_sector_verification *sector = &stripe->sectors[sector_nr];
 	const u32 sectors_per_tree = fs_info->nodesize >> fs_info->sectorsize_bits;
-	void *kaddr = scrub_stripe_get_kaddr(stripe, sector_nr);
+	phys_addr_t paddr = scrub_stripe_get_paddr(stripe, sector_nr);
 	u8 csum_buf[BTRFS_CSUM_SIZE];
 	int ret;
 
@@ -833,7 +847,7 @@ static void scrub_verify_one_sector(struct scrub_stripe *stripe, int sector_nr)
 		return;
 	}
 
-	ret = btrfs_check_sector_csum(fs_info, kaddr, csum_buf, sector->csum);
+	ret = btrfs_check_block_csum(fs_info, paddr, csum_buf, sector->csum);
 	if (ret < 0) {
 		scrub_bitmap_set_bit_csum_error(stripe, sector_nr);
 		scrub_bitmap_set_bit_error(stripe, sector_nr);
@@ -1369,8 +1383,7 @@ static void scrub_throttle_dev_io(struct scrub_ctx *sctx, struct btrfs_device *d
 	 * Slice is divided into intervals when the IO is submitted, adjust by
 	 * bwlimit and maximum of 64 intervals.
 	 */
-	div = max_t(u32, 1, (u32)(bwlimit / (16 * 1024 * 1024)));
-	div = min_t(u32, 64, div);
+	div = clamp(bwlimit / (16 * 1024 * 1024), 1, 64);
 
 	/* Start new epoch, set deadline */
 	now = ktime_get();
@@ -3013,7 +3026,7 @@ static noinline_for_stack int scrub_workers_get(struct btrfs_fs_info *fs_info)
 
 int btrfs_scrub_dev(struct btrfs_fs_info *fs_info, u64 devid, u64 start,
 		    u64 end, struct btrfs_scrub_progress *progress,
-		    int readonly, int is_dev_replace)
+		    bool readonly, bool is_dev_replace)
 {
 	struct btrfs_dev_lookup_args args = { .devid = devid };
 	struct scrub_ctx *sctx;

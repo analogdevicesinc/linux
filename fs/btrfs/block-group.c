@@ -1358,7 +1358,7 @@ struct btrfs_trans_handle *btrfs_start_trans_remove_block_group(
  * data in this block group. That check should be done by relocation routine,
  * not this function.
  */
-static int inc_block_group_ro(struct btrfs_block_group *cache, int force)
+static int inc_block_group_ro(struct btrfs_block_group *cache, bool force)
 {
 	struct btrfs_space_info *sinfo = cache->space_info;
 	u64 num_bytes;
@@ -1795,7 +1795,14 @@ static int reclaim_bgs_cmp(void *unused, const struct list_head *a,
 	bg1 = list_entry(a, struct btrfs_block_group, bg_list);
 	bg2 = list_entry(b, struct btrfs_block_group, bg_list);
 
-	return bg1->used > bg2->used;
+	/*
+	 * Some other task may be updating the ->used field concurrently, but it
+	 * is not serious if we get a stale value or load/store tearing issues,
+	 * as sorting the list of block groups to reclaim is not critical and an
+	 * occasional imperfect order is ok. So silence KCSAN and avoid the
+	 * overhead of locking or any other synchronization.
+	 */
+	return data_race(bg1->used > bg2->used);
 }
 
 static inline bool btrfs_should_reclaim(const struct btrfs_fs_info *fs_info)
@@ -1964,7 +1971,7 @@ void btrfs_reclaim_bgs_work(struct work_struct *work)
 		 * called, which is where we will transfer a reserved extent's
 		 * size from the "reserved" counter to the "used" counter - this
 		 * happens when running delayed references. When we relocate the
-		 * chunk below, relocation first flushes dellaloc, waits for
+		 * chunk below, relocation first flushes delalloc, waits for
 		 * ordered extent completion (which is where we create delayed
 		 * references for data extents) and commits the current
 		 * transaction (which runs delayed references), and only after
@@ -2832,7 +2839,7 @@ next:
 		 * space or none at all (due to no need to COW, extent buffers
 		 * were already COWed in the current transaction and still
 		 * unwritten, tree heights lower than the maximum possible
-		 * height, etc). For data we generally reserve the axact amount
+		 * height, etc). For data we generally reserve the exact amount
 		 * of space we are going to allocate later, the exception is
 		 * when using compression, as we must reserve space based on the
 		 * uncompressed data size, because the compression is only done
