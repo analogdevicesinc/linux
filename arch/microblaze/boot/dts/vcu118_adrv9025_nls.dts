@@ -4,16 +4,18 @@
  * https://wiki.analog.com/resources/eval/user-guides/adrv9025
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025
  *
- * hdl_project: <adrv9026/zcu102>
+ * hdl_project: <adrv9026/vcu118>
  * board_revision: <>
  *
- * Copyright (C) 2020-2025 Analog Devices Inc.
+ * Copyright (C) 2025 Analog Devices Inc.
  */
 #include "vcu118_adrv9025.dts"
 
 &trx0_adrv9025 {
 
 	clock-output-names = "rx_sampl_clk", "tx_sampl_clk", "rx_os_sampl_clk";
+
+	adi,device-profile-name = "ActiveUseCase_NLS.profile";
 
 	jesd204-device;
 	#jesd204-cells = <2>;
@@ -69,9 +71,6 @@
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_rx_os_lane_clk";
-
-		adi,octets-per-frame = <4>;
-		adi,frames-per-multiframe = <32>;
 
 		jesd204-device;
 		#jesd204-cells = <2>;
