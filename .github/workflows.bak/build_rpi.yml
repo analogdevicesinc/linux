@@ -1,0 +1,54 @@
+name: Build the Raspberry Pi kernel matrix (ADI flavours)
+
+on:
+  pull_request:
+    branches:
+      - 'rpi-[4-9].[0-9].y'
+      - 'rpi-[4-9].[1-9][0-9].y'
+  push:
+    branches:
+      - 'rpi-[4-9].[0-9].y'
+      - 'rpi-[4-9].[1-9][0-9].y'
+
+jobs:
+  checkpatch:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+    env:
+      BUILD_TYPE: checkpatch
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 50
+    - name: Run Linux's checkpatch script
+      run: ./ci/travis/run-build.sh
+
+  bcm2709_arm_adi:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the BCM2709 ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: adi_bcm2709_defconfig
+        ARCH: arm
+      run: ./ci/travis/run-build-docker.sh
+
+  bcm2711_arm_adi:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the BCM2711 ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: adi_bcm2711_defconfig
+        ARCH: arm
+      run: ./ci/travis/run-build-docker.sh
+
+  bcmrpi_arm_adi:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the RPi Zero ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: adi_bcmrpi_defconfig
+        ARCH: arm
+      run: ./ci/travis/run-build-docker.sh
