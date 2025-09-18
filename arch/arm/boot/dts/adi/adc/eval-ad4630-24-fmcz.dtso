@@ -32,8 +32,8 @@
 	eval_u20: eval-board-u20-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "EVAL 1.8V IOVDD supply (U20)";
-		min-regulator-microvolt = <1800000>;
-		max-regulator-microvolt = <1800000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
 
@@ -100,6 +100,7 @@
 			reg = <0>;
 
 			spi-max-frequency = <80000000>;
+			spi-buses = <0>, <1>;
 
 			vdd-5v-supply = <&eval_u18>;
 			vdd-1v8-supply = <&eval_u19>;
@@ -110,7 +111,8 @@
 			pwms = <&adc_trigger 1 1000000 0>;
 
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
-			// cnv-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>;
+			/* TODO: CNV GPIO is not implemented in HDL. */
+			cnv-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>;
 		};
 	};
 };
