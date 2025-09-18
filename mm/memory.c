@@ -2955,6 +2955,7 @@ static int remap_pfn_range_notrack(struct vm_area_struct *vma, unsigned long add
 		unsigned long pfn, unsigned long size, pgprot_t prot)
 {
 	int error = remap_pfn_range_internal(vma, addr, pfn, size, prot);
+
 	if (!error)
 		return 0;
 
