@@ -394,6 +394,7 @@
 			xlnx,use-parity = <0x0>;
 		};
 		sys_mb_debug: serial@41400000 {
+			status = "disabled";
 			clock-frequency = <100000000>;
 			clocks = <&clk_bus_0>;
 			compatible = "xlnx,mdm-3.2", "xlnx,xps-uartlite-1.00.a";
