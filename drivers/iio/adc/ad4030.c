@@ -233,9 +233,11 @@ struct ad4030_state {
 }
 
 static const int ad4030_average_modes[] = {
-	1, 2, 4, 8, 16, 32, 64, 128,
-	256, 512, 1024, 2048, 4096, 8192, 16384, 32768,
-	65536,
+	BIT(0),					/* No averaging/oversampling */
+	BIT(1), BIT(2), BIT(3), BIT(4),		/* 2 to 16 */
+	BIT(5), BIT(6), BIT(7), BIT(8),		/* 32 to 256 */
+	BIT(9), BIT(10), BIT(11), BIT(12),	/* 512 to 4096 */
+	BIT(13), BIT(14), BIT(15), BIT(16),	/* 8192 to 65536 */
 };
 
 static int ad4030_enter_config_mode(struct ad4030_state *st)
