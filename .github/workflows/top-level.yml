@@ -22,12 +22,12 @@ on:
 
 jobs:
   checks:
-    uses: ./.github/workflows/checks.yml
+    uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
     secrets: inherit
     with:
       ref_branch: "mirror/next/linux-next/master"
   build_gcc_x86_64:
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
@@ -36,7 +36,7 @@ jobs:
       ARCH: "x86"
       DEFCONFIG: "adi_ci_defconfig"
   build_llvm_x86_64:
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
@@ -46,7 +46,7 @@ jobs:
       DEFCONFIG: "adi_ci_defconfig"
       CHECKS: true
   build_gcc_aarch64:
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
@@ -56,7 +56,7 @@ jobs:
       ARCH: "arm64"
       DEFCONFIG: "adi_ci_defconfig"
   build_gcc_arm:
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -101,7 +101,7 @@ jobs:
         run: echo xlnx
   build_gcc_arm_zynq_xcomm_adv7511_defconfig:
     needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -111,7 +111,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_arm_socfpga_adi_defconfig:
     needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -121,7 +121,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_arm_zynq_pluto_defconfig:
     needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -131,7 +131,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_arm_zynq_m2k_defconfig:
     needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -141,7 +141,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_aarch64_adi_zynqmp_defconfig:
     needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -151,7 +151,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_arm_adi_versal_defconfig:
     needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -161,7 +161,7 @@ jobs:
       AUTO_FROM_RANGE: false
   many_devicetrees:
     needs: [conditional_xlnx]
-    uses: ./.github/workflows/many_devicetrees.yml
+    uses: analogdevicesinc/linux/.github/workflows/many_devicetrees.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -215,7 +215,7 @@ jobs:
         run: echo rpi
   build_gcc_arm_adi_bcm2709_defconfig:
     needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -225,7 +225,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_arm_adi_bcm2711_defconfig:
     needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -235,7 +235,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_arm_adi_bcmrpi_defconfig:
     needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -245,7 +245,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_aarch64_adi_bcm2711_defconfig:
     needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -255,7 +255,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_aarch64_adi_bcm2712_defconfig:
     needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -299,7 +299,7 @@ jobs:
         run: echo ADSP
   build_gcc_arm_sc573-ezkit_defconfig:
     needs: [conditional_adsp]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -309,7 +309,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_arm_sc589-mini_defconfig:
     needs: [conditional_adsp]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -319,7 +319,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_arm_sc594-som-ezkit_defconfig:
     needs: [conditional_adsp]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -329,7 +329,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_arm_sc594-som-ezlite_defconfig:
     needs: [conditional_adsp]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -339,7 +339,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_aarch64_sc598-som-ezkit_defconfig:
     needs: [conditional_adsp]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -349,7 +349,7 @@ jobs:
       AUTO_FROM_RANGE: false
   build_gcc_aarch64_sc598-som-ezlite_defconfig:
     needs: [conditional_adsp]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
@@ -396,7 +396,7 @@ jobs:
         run: echo O-RAN
   build_gcc_aarch64_adrv906x-eval_defconfig:
     needs: [conditional_oran]
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       CXX: "14"
