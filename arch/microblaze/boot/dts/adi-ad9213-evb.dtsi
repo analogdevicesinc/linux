@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: GPL-2.0
+#include <dt-bindings/iio/frequency/hmc7044.h>
+
+&amba_pl {
+	hmc7044_spi: spi@44a71000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		bits-per-word = <8>;
+		compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+		fifo-size = <16>;
+		interrupt-names = "ip2intc_irpt";
+		interrupt-parent = <&axi_intc>;
+		interrupts = <7 0>;
+		num-cs = <0x2>;
+		reg = <0x44a71000 0x1000>;
+		xlnx,num-ss-bits = <0x2>;
+		xlnx,spi-mode = <0>;
+
+		status = "okay";
+
+		hmc7044: hmc7044@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#clock-cells = <1>;
+			compatible = "adi,hmc7044";
+			spi-max-frequency = <10000000>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-sysref-provider;
+			adi,jesd204-max-sysref-frequency-hz = <20000000>;
+
+			adi,pll1-clkin-frequencies = <0 0 0 125000000>;
+			adi,vcxo-frequency = <125000000>;
+
+			adi,pll1-loop-bandwidth-hz = <200>;
+
+			adi,pll2-output-frequency = <2500000000>;
+
+			adi,sysref-timer-divider = <1024>;
+			adi,pulse-generator-mode = <0>;
+
+			adi,clkin3-buffer-mode  = <0x15>;
+			adi,oscin-buffer-mode = <0x15>;
+
+			adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+			adi,gpo-controls = <0x1f 0x2b 0x33 0x37>;
+
+			adi,oscillator-output-path-enable;
+
+			adi,oscillator-output1-driver-enable;
+
+			clock-output-names =
+				"hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
+				"hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
+				"hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
+				"hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
+				"hmc7044_out12", "hmc7044_out13", "hmc7044_oscout1";
+
+			hmc7044_c1: channel@1 {
+				reg = <1>;
+				adi,extended-name = "ADC_SYSREF";
+				adi,divider = <128>;
+				adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+				adi,jesd204-sysref-chan;
+			};
+			hmc7044_c3: channel@3 {
+				reg = <3>;
+				adi,extended-name = "FMC_SYSREF";
+				adi,divider = <128>;
+				adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+				adi,jesd204-sysref-chan;
+			};
+			hmc7044_c4: channel@4 {
+				reg = <4>;
+				adi,extended-name = "CLKOUT_MMCX";
+				adi,divider = <8>;
+				adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			};
+			hmc7044_c5: channel@5 {
+				reg = <5>;
+				adi,extended-name = "FMC_CLK_COPY";
+				adi,divider = <8>;
+				adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			};
+			hmc7044_c7: channel@7 {
+				reg = <7>;
+				adi,extended-name = "FMC_REFCLK";
+				adi,divider = <4>;
+				adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			};
+			hmc7044_c9: channel@9 {
+				reg = <9>;
+				adi,extended-name = "FMC_REFCLK_COPY";
+				adi,divider = <4>;
+				adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			};
+			hmc7044_c11: channel@11 {
+				reg = <11>;
+				adi,extended-name = "CORE_CLK";
+				adi,divider = <8>;
+				adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			};
+			hmc7044_c14: channel@14 {
+				reg = <14>;
+				adi,extended-name = "ADF_CLK";
+				adi,divider = <1>;
+				adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
+				adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+			};
+		};
+
+		adf4371: adf4371@1 {
+			compatible = "adi,adf4371";
+			reg = <1>;
+
+			#address-cells = <1>;
+			#clock-cells = <1>;
+			#size-cells = <0>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&adc_ad9213 0 0>;
+
+			spi-max-frequency = <10000000>;
+			adi,spi-3wire-enable;
+			adi,muxout-select = <1>;
+			clocks = <&hmc7044 14>;
+			clock-names = "clkin";
+			clock-output-names = "pll0-clk-rf8", "pll0-clk-rfaux8",
+				"pll0-clk-rf16", "pll0-clk-rf32";
+
+			channel@2 {
+				reg = <2>;
+				adi,output-enable;
+				adi,power-up-frequency = /bits/ 64 <10000000000>;
+			};
+		};
+	};
+
+	axi_spi: spi@44a70000 {
+		status = "okay";
+
+		adc_ad9213: ad9213@0 {
+			compatible = "adi,ad9213";
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <10000000>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-top-device = <0>; /* This is the TOP device */
+			jesd204-link-ids = <0>;
+			jesd204-inputs = <&axi_ad9213_jesd_rx 0 0>;
+
+			adi,adc-frequency-hz = /bits/ 64 <10000000000>;
+			adi,octets-per-frame = <2>;
+			adi,frames-per-multiframe = <32>;
+			adi,converter-resolution = <16>;
+			adi,bits-per-sample = <16>;
+			adi,converters-per-device = <1>;
+			adi,control-bits-per-sample = <0>;
+			adi,lanes-per-device = <16>;
+			adi,subclass = <1>;
+
+			io-backends = <&iio_backend>;
+		};
+	};
+};
