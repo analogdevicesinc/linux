@@ -1,1 +1,0 @@
-.. include:: ../../Documentation/iio/ad4695.rst
