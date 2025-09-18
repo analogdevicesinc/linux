@@ -1179,6 +1179,12 @@ struct idt_entry {
 void vm_install_exception_handler(struct kvm_vm *vm, int vector,
 			void (*handler)(struct ex_regs *));
 
+/*
+ * Exception fixup morphs #DE to an arbitrary magic vector so that '0' can be
+ * used to signal "no expcetion".
+ */
+#define KVM_MAGIC_DE_VECTOR 0xff
+
 /* If a toddler were to say "abracadabra". */
 #define KVM_EXCEPTION_MAGIC 0xabacadabaULL
 
@@ -1313,6 +1319,26 @@ static inline uint8_t xsetbv_safe(uint32_t index, uint64_t value)
 }
 
 bool kvm_is_tdp_enabled(void);
+
+static inline bool get_kvm_intel_param_bool(const char *param)
+{
+	return kvm_get_module_param_bool("kvm_intel", param);
+}
+
+static inline bool get_kvm_amd_param_bool(const char *param)
+{
+	return kvm_get_module_param_bool("kvm_amd", param);
+}
+
+static inline int get_kvm_intel_param_integer(const char *param)
+{
+	return kvm_get_module_param_integer("kvm_intel", param);
+}
+
+static inline int get_kvm_amd_param_integer(const char *param)
+{
+	return kvm_get_module_param_integer("kvm_amd", param);
+}
 
 static inline bool kvm_is_pmu_enabled(void)
 {
