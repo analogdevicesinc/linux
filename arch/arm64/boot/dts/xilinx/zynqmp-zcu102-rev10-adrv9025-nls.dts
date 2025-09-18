@@ -7,7 +7,7 @@
  * hdl_project: <adrv9026/zcu102>
  * board_revision: <>
  *
- * Copyright (C) 2020-2025 Analog Devices Inc.
+ * Copyright (C) 2025 Analog Devices Inc.
  */
 #include "zynqmp-zcu102-rev10-adrv9025.dts"
 
@@ -70,9 +70,6 @@
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_rx_os_lane_clk";
-
-		adi,octets-per-frame = <4>;
-		adi,frames-per-multiframe = <32>;
 
 		jesd204-device;
 		#jesd204-cells = <2>;
