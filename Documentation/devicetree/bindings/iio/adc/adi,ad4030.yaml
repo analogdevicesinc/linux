@@ -19,6 +19,8 @@ description: |
   * https://www.analog.com/media/en/technical-documentation/data-sheets/ad4030-24-4032-24.pdf
   * https://www.analog.com/media/en/technical-documentation/data-sheets/ad4630-24_ad4632-24.pdf
   * https://www.analog.com/media/en/technical-documentation/data-sheets/ad4630-16-4632-16.pdf
+  * https://www.analog.com/media/en/technical-documentation/data-sheets/adaq4216.pdf
+  * https://www.analog.com/media/en/technical-documentation/data-sheets/adaq4224.pdf
 
 $ref: /schemas/spi/spi-peripheral-props.yaml#
 
@@ -31,6 +33,8 @@ properties:
       - adi,ad4630-24
       - adi,ad4632-16
       - adi,ad4632-24
+      - adi,adaq4216
+      - adi,adaq4224
 
   reg:
     maxItems: 1
@@ -54,6 +58,14 @@ properties:
     description:
       Internal buffered Reference. Used when ref-supply is not connected.
 
+  vddh-supply:
+    description:
+      PGIA Positive Power Supply.
+
+  vdd-fda-supply:
+    description:
+      FDA Positive Power Supply.
+
   cnv-gpios:
     description:
       The Convert Input (CNV). It initiates the sampling conversions.
@@ -63,6 +75,27 @@ properties:
     description:
       The Reset Input (/RST). Used for asynchronous device reset.
     maxItems: 1
+
+  pga-gpios:
+    description:
+      A0 and A1 pins for gain selection. For devices that have PGA configuration
+      input pins, pga-gpios should be defined if adi,gain-milli is absent.
+    minItems: 2
+    maxItems: 2
+
+  adi,pga-value:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      Should be present if PGA control inputs are pin-strapped. The values
+      specify the gain per mille. For example, 333 means the input signal is
+      scaled by a 0.333 factor (i.e. attenuated to one third of it's original
+      magnitude). Possible values:
+      Gain 333 (A1=0, A0=0)
+      Gain 555 (A1=0, A0=1)
+      Gain 2222 (A1=1, A0=0)
+      Gain 6666 (A1=1, A0=1)
+      If defined, pga-gpios must be absent.
+    enum: [333, 555, 2222, 6666]
 
   pwms:
     description: PWM signal connected to the CNV pin.
@@ -86,11 +119,33 @@ required:
   - vio-supply
   - cnv-gpios
 
-oneOf:
-  - required:
-      - ref-supply
-  - required:
-      - refin-supply
+allOf:
+  - oneOf:
+      - required:
+          - ref-supply
+      - required:
+          - refin-supply
+  # ADAQ devices require a gain property to indicate how hardware PGA is set
+  - if:
+      properties:
+        compatible:
+          contains:
+            pattern: ^adi,adaq
+    then:
+      allOf:
+        - required: [vddh-supply, vdd-fda-supply]
+          properties:
+            ref-supply: false
+        - oneOf:
+            - required:
+                - adi,pga-value
+            - required:
+                - pga-gpios
+    else:
+      properties:
+        adi,pga-value: false
+        pga-gpios: false
+
 
 unevaluatedProperties: false
 
