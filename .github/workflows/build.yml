@@ -3,25 +3,19 @@ name: Kernel build
 on:
   workflow_call:
     inputs:
-      CXX:
+      compiler:
         type: string
-        default: ""
-      LLVM:
-        type: string
-        default: ""
-      CROSS_COMPILE:
-        type: string
-        default: ""
-      ARCH:
+        default: "gcc"
+      arch:
         required: true
         type: string
-      DEFCONFIG:
+      defconfig:
         required: true
         type: string
-      CHECKS:
+      checks:
         type: boolean
         default: false
-      AUTO_FROM_RANGE:
+      auto_from_range:
         type: boolean
         default: true
     outputs:
@@ -39,6 +33,10 @@ jobs:
     runs-on: [self-hosted, v1]
     continue-on-error: true
 
+    env:
+      GCC_VERSION: 14
+      LLVM_VERSION: 19
+
     outputs:
       fail: ${{ steps.assert.outputs.fail }}
       warn: ${{ steps.assert.outputs.warn }}
@@ -48,33 +46,41 @@ jobs:
 
     - name: Prepare env
       run: |
-        if [[ ! -z "${{ inputs.CXX }}" ]]; then
-          echo "CXX=gcc-${{ inputs.CXX }}" >> $GITHUB_ENV
-          echo "CID=gcc_${{ inputs.CXX }}" >> $GITHUB_ENV
+        if [[ "${{ inputs.compiler }}" == "gcc" ]]; then
+          echo "CXX=gcc-$GCC_VERSION" >> $GITHUB_ENV
+          echo "CID=gcc_$GCC_VERSION" >> $GITHUB_ENV
+        elif [[ "${{ inputs.compiler }}" == "llvm" ]]; then
+          echo "LLVM=-$LLVM_VERSION" >> $GITHUB_ENV
+          echo "CID=llvm_$LLVM_VERSION" >> $GITHUB_ENV
+        else
+          echo "::error ::Compiler '${{ inputs.compiler }}' is not supported, valid are 'gcc' or 'llvm'."
+          exit 1
         fi
-        if [[ ! -z "${{ inputs.LLVM }}" ]]; then
-          echo "LLVM=-${{ inputs.LLVM }}" >> $GITHUB_ENV
-          echo "CID=llvm_${{ inputs.LLVM }}" >> $GITHUB_ENV
-        fi
-        if [[ "${{ inputs.CHECKS }}" == "true" ]]; then
-          if [[ ! -z "${{ inputs.CXX }}" ]]; then
+        if [[ "${{ inputs.checks }}" == "true" ]]; then
+          if [[ "${{ inputs.compiler }}" == "gcc" ]]; then
             echo "CHECKS_SPARCE=true" >> $GITHUB_ENV
             echo "CHECKS_GCC_FANALYZER=true" >> $GITHUB_ENV
             echo "CHECKS_SMATCH=true" >> $GITHUB_ENV
           fi
-          if [[ ! -z "${{ inputs.LLVM }}" ]]; then
+          if [[ "${{ inputs.compiler }}" == "llvm" ]]; then
             echo "CHECKS_CLANG_ANALYZER=true" >> $GITHUB_ENV
           fi
         fi
-        echo "CROSS_COMPILE=${{ inputs.CROSS_COMPILE }}" >> $GITHUB_ENV
-        echo "ARCH=${{ inputs.ARCH }}" >> $GITHUB_ENV
-        echo "AUTO_FROM_RANGE=${{ inputs.AUTO_FROM_RANGE }}" >> $GITHUB_ENV
+
+        if [[ "${{ inputs.arch }}" == "arm" ]]; then
+          echo "CROSS_COMPILE=arm-suse-linux-gnueabi-" >> $GITHUB_ENV
+        elif [[ "${{ inputs.arch }}" == "arm64" ]]; then
+          echo "CROSS_COMPILE=aarch64-suse-linux-" >> $GITHUB_ENV
+        fi
+        echo "ARCH=${{ inputs.arch }}" >> $GITHUB_ENV
+        echo "DEFCONFIG=${{ inputs.defconfig }}" >> $GITHUB_ENV
+        echo "AUTO_FROM_RANGE=${{ inputs.auto_from_range }}" >> $GITHUB_ENV
 
     - name: Make defconfig
       run: |
-        if [[ -f "arch/$ARCH/configs/${{ inputs.DEFCONFIG }}" ]] || \
-           [[ "${{ inputs.DEFCONFIG }}" == "allnoconfig" ]]; then
-          make ${{ inputs.DEFCONFIG }}
+        if [[ -f "arch/$ARCH/configs/$DEFCONFIG" ]] || \
+           [[ "$DEFCONFIG" == "allnoconfig" ]]; then
+          make $DEFCONFIG
         else
           make defconfig
         fi
@@ -109,7 +115,7 @@ jobs:
         fi
         mkdir -p dist/modules
         cp defconfig dist
-        cp arch/${{ inputs.ARCH }}/boot/*Image dist
+        cp arch/$ARCH/boot/*Image dist
         find . -type f -name *.ko | \
           xargs -I % cp --parents % dist/modules
 
@@ -154,7 +160,7 @@ jobs:
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v4
       with:
-        name: dist-${{ inputs.DEFCONFIG }}-${{ env.CID }}-${{ inputs.ARCH }}
+        name: dist-${{ env.DEFCONFIG }}-${{ env.CID }}-${{ env.ARCH }}
         path: dist
 
     - name: Export labels
