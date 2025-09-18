@@ -7,7 +7,7 @@
  * hdl_project: <adrv9026/vcu118>
  * board_revision: <>
  *
- * Copyright (C) 2024 Analog Devices Inc.
+ * Copyright (C) 2024-2025 Analog Devices Inc.
  */
 /dts-v1/;
 
@@ -89,7 +89,8 @@
 		clock-names = "sampl_clk";
 		spibus-connected = <&trx0_adrv9025>;
 
-		plddrbypass-gpios = <&axi_gpio 63 0>;
+		adi,axi-pl-fifo-enable;
+		adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 
 		jesd204-device;
 		#jesd204-cells = <2>;
@@ -172,6 +173,11 @@
 		jesd204-inputs =  <&clk0_ad9528 0 DEFRAMER0_LINK_TX>;
 	};
 
+	axi_data_offload_tx: axi-data-offload-0@7c430000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x7c430000 0x10000>;
+	};
+
 	axi_sysid_0: axi-sysid-0@45000000 {
 		compatible = "adi,axi-sysid-1.00.a";
 		reg = <0x45000000 0x10000>;
@@ -189,7 +195,6 @@
 		#size-cells = <0>;
 
 		spi-max-frequency = <1000000>;
-		//adi,spi-3wire-enable;
 		reset-gpios = <&axi_gpio 62 0>;
 
 		clock-output-names = "ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2",
@@ -213,10 +218,11 @@
 		adi,pll1-charge-pump-current-nA = <5000>;
 
 		/* PLL2 config */
-		adi,pll2-vco-div-m1 = <3>; /* use 5 for 184320000 output device clock */
-		adi,pll2-n2-div = <10>; /* N / M1 */
+		adi,pll2-vco-div-m1 = <4>; /* use 5 for 184320000 output device clock */
+		adi,pll2-n2-div = <4>; /* N / M1 */
 		adi,pll2-r1-div = <1>;
 		adi,pll2-charge-pump-current-nA = <805000>;
+		adi,pll2-freq-doubler-enable;
 
 		/* SYSREF config */
 		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
@@ -237,7 +243,7 @@
 			adi,extended-name = "DEV_SYSREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
@@ -246,7 +252,7 @@
 			adi,extended-name = "DEV_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -255,7 +261,7 @@
 			adi,extended-name = "CORE_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -264,7 +270,7 @@
 			adi,extended-name = "FMC_SYSREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
@@ -273,7 +279,7 @@
 			adi,extended-name = "FMC_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 		};
 	};
