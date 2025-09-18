@@ -3893,7 +3893,7 @@ ad9088_cfir_bin_write(struct file *filp, struct kobject *kobj,
 	return ad9088_parse_cfilt(phy, buf, count);
 }
 
-#if DEBUG
+#ifdef DEBUG
 static int ad9088_dbg(struct ad9088_phy *phy, int val, int val2, int val3, int val4)
 {
 	adi_apollo_device_t *device = &phy->ad9088;
@@ -3946,6 +3946,8 @@ static int ad9088_dbg(struct ad9088_phy *phy, int val, int val2, int val3, int v
 
 	return 0;
 }
+#else
+int ad9088_dbg(struct ad9088_phy *phy, int val, int val2, int val3, int val4);
 #endif
 
 enum ad9088_debugfs_cmd {
