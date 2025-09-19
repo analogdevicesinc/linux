@@ -123,7 +123,6 @@
 #define GEN3_RELATED_OFF_GEN3_EQ_DISABLE	BIT(16)
 #define GEN3_RELATED_OFF_RATE_SHADOW_SEL_SHIFT	24
 #define GEN3_RELATED_OFF_RATE_SHADOW_SEL_MASK	GENMASK(25, 24)
-#define GEN3_RELATED_OFF_RATE_SHADOW_SEL_16_0GT	0x1
 
 #define GEN3_EQ_CONTROL_OFF			0x8A8
 #define GEN3_EQ_CONTROL_OFF_FB_MODE		GENMASK(3, 0)
@@ -134,8 +133,8 @@
 #define GEN3_EQ_FB_MODE_DIR_CHANGE_OFF		0x8AC
 #define GEN3_EQ_FMDC_T_MIN_PHASE23		GENMASK(4, 0)
 #define GEN3_EQ_FMDC_N_EVALS			GENMASK(9, 5)
-#define GEN3_EQ_FMDC_MAX_PRE_CUSROR_DELTA	GENMASK(13, 10)
-#define GEN3_EQ_FMDC_MAX_POST_CUSROR_DELTA	GENMASK(17, 14)
+#define GEN3_EQ_FMDC_MAX_PRE_CURSOR_DELTA	GENMASK(13, 10)
+#define GEN3_EQ_FMDC_MAX_POST_CURSOR_DELTA	GENMASK(17, 14)
 
 #define PCIE_PORT_MULTI_LANE_CTRL	0x8C0
 #define PORT_MLTI_UPCFG_SUPPORT		BIT(7)
@@ -609,6 +608,27 @@ static inline void dw_pcie_writel_dbi2(struct dw_pcie *pci, u32 reg, u32 val)
 	dw_pcie_write_dbi2(pci, reg, 0x4, val);
 }
 
+static inline int dw_pcie_read_cfg_byte(struct dw_pcie *pci, int where,
+					u8 *val)
+{
+	*val = dw_pcie_readb_dbi(pci, where);
+	return PCIBIOS_SUCCESSFUL;
+}
+
+static inline int dw_pcie_read_cfg_word(struct dw_pcie *pci, int where,
+					u16 *val)
+{
+	*val = dw_pcie_readw_dbi(pci, where);
+	return PCIBIOS_SUCCESSFUL;
+}
+
+static inline int dw_pcie_read_cfg_dword(struct dw_pcie *pci, int where,
+					 u32 *val)
+{
+	*val = dw_pcie_readl_dbi(pci, where);
+	return PCIBIOS_SUCCESSFUL;
+}
+
 static inline unsigned int dw_pcie_ep_get_dbi_offset(struct dw_pcie_ep *ep,
 						     u8 func_no)
 {
@@ -672,6 +692,27 @@ static inline u8 dw_pcie_ep_readb_dbi(struct dw_pcie_ep *ep, u8 func_no,
 				      u32 reg)
 {
 	return dw_pcie_ep_read_dbi(ep, func_no, reg, 0x1);
+}
+
+static inline int dw_pcie_ep_read_cfg_byte(struct dw_pcie_ep *ep, u8 func_no,
+					   int where, u8 *val)
+{
+	*val = dw_pcie_ep_readb_dbi(ep, func_no, where);
+	return PCIBIOS_SUCCESSFUL;
+}
+
+static inline int dw_pcie_ep_read_cfg_word(struct dw_pcie_ep *ep, u8 func_no,
+					   int where, u16 *val)
+{
+	*val = dw_pcie_ep_readw_dbi(ep, func_no, where);
+	return PCIBIOS_SUCCESSFUL;
+}
+
+static inline int dw_pcie_ep_read_cfg_dword(struct dw_pcie_ep *ep, u8 func_no,
+					    int where, u32 *val)
+{
+	*val = dw_pcie_ep_readl_dbi(ep, func_no, where);
+	return PCIBIOS_SUCCESSFUL;
 }
 
 static inline unsigned int dw_pcie_ep_get_dbi2_offset(struct dw_pcie_ep *ep,
