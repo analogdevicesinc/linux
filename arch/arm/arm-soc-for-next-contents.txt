@@ -1,0 +1,157 @@
+soc/arm
+	renesas/arm
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-soc-for-v6.18-tag1
+	patch
+		ARM: mach-hpe: Rework support and directory structure
+
+soc/dt
+	patch
+		Documentation/process: maintainer-soc: Use "DTS" instead of "devicetree"
+	apple/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-6.18
+	aspeed/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.18-devicetree-0
+	nuvoton/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm-6.18-devicetree-0
+	nuvoton/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-6.18-devicetree-0
+	ux500/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-nomadik tags/ux500-dts-v6.18
+	ixp4xx/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/ixp4xx-dts-v6.18
+	renesas/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v6.18-tag1
+	sti/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/pchotard/sti tags/sti-dt-for-v6.18-round1
+	thead/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v6.18
+	rockchip/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.18-rockchip-dts64-1
+	rockchip/dt32
+		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.18-rockchip-dts32-1
+	socfpga/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_updates_for_v6.18
+	samsung/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-6.18
+	dt/gpio-fixes
+		git://git.kernel.org/pub/scm/linux/kernel/git/wsa/linux tags/i2c-gpio-fixes-for-6.18
+	dt/irq-cleanup
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt64-cleanup-6.18
+	samsung/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt-6.18
+	mediatek/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/v6.17-next-dts64
+	broadcom/dt
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.18/devicetree-arm64
+	broadcom/dt32
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.18/devicetree
+	patch
+		arm64: dts: apm: Move slimpro nodes out of "simple-bus" node
+		arm64: dts: apm: Clean-up clock bindings
+		arm64: dts: socionext: Drop "linux,spdif-dit" port node unit-address
+	lpc32xx/dt
+		https://github.com/vzapolskiy/linux-lpc32xx tags/lpc32xx-dt-for-6.18
+	qcom/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-6.18
+	qcom/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-6.18
+	renesas/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dt-bindings-for-v6.18-tag1
+	renesas/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v6.18-tag2
+	zymqmp/dt
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-dt-for-6.18
+	mvebu/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-6.18-1
+	sti/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/pchotard/sti tags/sti-dt-for-v6.18-round2
+	tegra/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.18-dt-bindings
+	tegra/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.18-arm-dt
+	tegra/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.18-arm64-dt
+	aspeed/dt-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.18-devicetree-1
+	imx/dt-bindings
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-bindings-6.18
+	imx/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt-6.18
+	imx/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt64-6.18
+	patch
+		ARM: dts: socionext: Drop "linux,spdif-dit" port node unit-address
+
+soc/drivers
+	aspeed/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.18-drivers-0
+	renesas/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v6.18-tag1
+	drivers/reset
+		https://git.pengutronix.de/git/pza/linux tags/reset-for-v6.18
+	broadcom/drivers
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.18/drivers
+	qcom/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-6.18
+	hisi/drivers
+		https://github.com/hisilicon/linux-hisi tags/hisi-drivers-for-6.18
+	drivers/tee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-improve-sysfs-for-v6.18
+	tee/sha1
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-sha1-lib-for-v6.18
+	drivers/optee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-prot-dma-buf-for-v6.18
+	renesas/drivers-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v6.18-tag2
+	samsung/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-6.18
+	tegra114/fuse
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.18-soc
+	drivers/scmi
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-6.18
+	microchip/drivers-Kconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-soc-6.18
+	mediate/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/v6.17-next-soc
+
+soc/defconfig
+	renesas/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v6.18-tag1
+	patch
+		ARM: defconfig: pxa: Remove duplicate CONFIG_USB_GPIO_VBUS entry
+	samsung/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-defconfig-6.18
+	broadcom/defconfig
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.18/defconfig-arm64
+	imx/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-defconfig-6.18
+
+soc/late
+
+arm/fixes
+	<no branch> (25daf9af0ac1bf12490b723b5efaf8dcc85980bc)
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-fixes-for-6.17
+	<no branch> (50a74d0095cd23d2012133e208df45a298868870)
+		https://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-fixes-for-v6.17
+	<no branch> (75dbd4304afe574fcfc4118a5b78776a9f48fdc4)
+		https://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/optee-typo-fix-for-v6.17
+	patch
+		MAINTAINERS: Update Nobuhiro Iwamatsu's email address
+	<no branch> (37e5caa5571b5a60b0c835a0bc09ab1e53f57bfe)
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-fixes-6.17
+	patch
+		arm64: dts: axiado: Add missing UART aliases
+		MAINTAINERS: exclude defconfig from ARM64 PORT
+	<no branch> (dcc6785caffad27f2ea601fdd2f9782036e1faed)
+		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.17-rockchip-dtsfixes1
+	<no branch> (217efb440933bf97a78ef328b211d8a39f4ff171)
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-6.17
+	<no branch> (794a066688038df46c01e177cc6faebded0acba4)
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-fixes-6.17-1
+	<no branch> (9a52827a9bbbabb461e87bb41174a96a82c0e8ae)
+		https://git.pengutronix.de/git/pza/linux tags/reset-fixes-for-v6.17
+	<no branch> (ea9da67e2add7bd5f1e4b38dc2404480e711f4d8)
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_fix_for_v6.17
+	<no branch> (a50342f976d25aace73ff551845ce89406f48f35)
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-fixes-6.17-2
+
