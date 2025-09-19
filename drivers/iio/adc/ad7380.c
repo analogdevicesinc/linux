@@ -1235,6 +1235,14 @@ static int ad7380_offload_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
+	/*
+	 * When the sequencer is required to read all channels, we need to
+	 * trigger twice per sample period in order to read one complete set
+	 * of samples.
+	 */
+	if (st->seq)
+		config.periodic.frequency_hz *= 2;
+
 	switch (st->num_sdi) {
 	case 2:
 		sdo = AD7380_CONFIG2_SDO_2_WIRE;
