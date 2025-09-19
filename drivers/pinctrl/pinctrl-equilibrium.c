@@ -325,7 +325,7 @@ static int eqbr_pinmux_set_mux(struct pinctrl_dev *pctldev,
 			       unsigned int selector, unsigned int group)
 {
 	struct eqbr_pinctrl_drv_data *pctl = pinctrl_dev_get_drvdata(pctldev);
-	struct function_desc *func;
+	const struct function_desc *func;
 	struct group_desc *grp;
 	unsigned int *pinmux;
 	int i;
@@ -445,7 +445,7 @@ static int eqbr_pinconf_get(struct pinctrl_dev *pctldev, unsigned int pin,
 	}
 	raw_spin_unlock_irqrestore(&pctl->lock, flags);
 	*config = pinconf_to_config_packed(param, val);
-;
+
 	return 0;
 }
 
