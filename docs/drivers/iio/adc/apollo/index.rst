@@ -155,7 +155,7 @@ If not present, even number are I samples, and odd Q samples.
 Trigger
 ~~~~~~~
 
-* ``adi,trigger-sync-en``: Enable trigger synchronization, needed to reset FSCR.
+* ``adi,trigger-sync-en``: Enable trigger synchronization.
 * ``adi,trig-req-gpio``: Set the GPIO that trigger Enable trigger synchronization.
   If not provided, the SPI trigger will be used for trigger synchronization.
 
