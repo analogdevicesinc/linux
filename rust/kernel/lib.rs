@@ -213,7 +213,7 @@ impl ThisModule {
     }
 }
 
-#[cfg(not(any(testlib, test)))]
+#[cfg(not(testlib))]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     pr_emerg!("{}\n", info);

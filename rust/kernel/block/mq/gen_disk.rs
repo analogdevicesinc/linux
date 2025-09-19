@@ -3,19 +3,19 @@
 //! Generic disk abstraction.
 //!
 //! C header: [`include/linux/blkdev.h`](srctree/include/linux/blkdev.h)
-//! C header: [`include/linux/blk_mq.h`](srctree/include/linux/blk_mq.h)
+//! C header: [`include/linux/blk-mq.h`](srctree/include/linux/blk-mq.h)
 
 use crate::{
     bindings,
     block::mq::{Operations, TagSet},
     error::{self, from_err_ptr, Result},
+    fmt::{self, Write},
     prelude::*,
     static_lock_class,
     str::NullTerminatedFormatter,
     sync::Arc,
     types::{ForeignOwnable, ScopeGuard},
 };
-use core::fmt::{self, Write};
 
 /// A builder for [`GenDisk`].
 ///

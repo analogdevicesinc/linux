@@ -10,7 +10,7 @@ use kernel::{
     page, pci,
     prelude::*,
     scatterlist::{Owned, SGTable},
-    types::ARef,
+    sync::aref::ARef,
 };
 
 #[pin_data(PinnedDrop)]
