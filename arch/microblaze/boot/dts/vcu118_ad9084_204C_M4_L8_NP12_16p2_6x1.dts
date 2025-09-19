@@ -42,10 +42,13 @@
 
 #define SYSREF_CLK_MHz		(AION_VCO_FREQ_HZ / 1000)
 
-#define ASYNM_A_B_MODE 1
 #define WITH_AION 1
 
 #include "vcu118_ad9084.dts"
+
+/ {
+	model = "Analog Devices AD9084-FMCA-EBZ @Xilinx/vcu118 204C_M4_L8_NP12_16p2_6x1";
+};
 
 &hmc7044_c1 {
 	adi,divider = <40>; /* 32 for 2700 MHz, 40 for 3375 MHz */
