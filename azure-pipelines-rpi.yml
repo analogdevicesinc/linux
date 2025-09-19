@@ -101,6 +101,7 @@ stages:
           DEST_SERVER: $(SERVER_ADDRESS)
         displayName: "Push to SWDownloads"
   - job: Push_to_Artifactory
+    timeoutInMinutes: 90
     condition: and(
        succeeded(),
        or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
