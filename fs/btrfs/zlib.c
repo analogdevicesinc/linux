@@ -34,11 +34,9 @@ struct workspace {
 	int level;
 };
 
-static struct workspace_manager wsm;
-
-struct list_head *zlib_get_workspace(unsigned int level)
+struct list_head *zlib_get_workspace(struct btrfs_fs_info *fs_info, unsigned int level)
 {
-	struct list_head *ws = btrfs_get_workspace(BTRFS_COMPRESS_ZLIB, level);
+	struct list_head *ws = btrfs_get_workspace(fs_info, BTRFS_COMPRESS_ZLIB, level);
 	struct workspace *workspace = list_entry(ws, struct workspace, list);
 
 	workspace->level = level;
@@ -55,8 +53,9 @@ void zlib_free_workspace(struct list_head *ws)
 	kfree(workspace);
 }
 
-struct list_head *zlib_alloc_workspace(unsigned int level)
+struct list_head *zlib_alloc_workspace(struct btrfs_fs_info *fs_info, unsigned int level)
 {
+	const u32 blocksize = fs_info->sectorsize;
 	struct workspace *workspace;
 	int workspacesize;
 
@@ -80,8 +79,8 @@ struct list_head *zlib_alloc_workspace(unsigned int level)
 		workspace->buf_size = ZLIB_DFLTCC_BUF_SIZE;
 	}
 	if (!workspace->buf) {
-		workspace->buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
-		workspace->buf_size = PAGE_SIZE;
+		workspace->buf = kmalloc(blocksize, GFP_KERNEL);
+		workspace->buf_size = blocksize;
 	}
 	if (!workspace->strm.workspace || !workspace->buf)
 		goto fail;
@@ -133,11 +132,12 @@ static int copy_data_into_buffer(struct address_space *mapping,
 	return 0;
 }
 
-int zlib_compress_folios(struct list_head *ws, struct address_space *mapping,
+int zlib_compress_folios(struct list_head *ws, struct btrfs_inode *inode,
 			 u64 start, struct folio **folios, unsigned long *out_folios,
 			 unsigned long *total_in, unsigned long *total_out)
 {
 	struct workspace *workspace = list_entry(ws, struct workspace, list);
+	struct address_space *mapping = inode->vfs_inode.i_mapping;
 	int ret;
 	char *data_in = NULL;
 	char *cfolio_out;
@@ -147,6 +147,7 @@ int zlib_compress_folios(struct list_head *ws, struct address_space *mapping,
 	unsigned long len = *total_out;
 	unsigned long nr_dest_folios = *out_folios;
 	const unsigned long max_out = nr_dest_folios * PAGE_SIZE;
+	const u32 blocksize = inode->root->fs_info->sectorsize;
 	const u64 orig_end = start + len;
 
 	*out_folios = 0;
@@ -155,8 +156,6 @@ int zlib_compress_folios(struct list_head *ws, struct address_space *mapping,
 
 	ret = zlib_deflateInit(&workspace->strm, workspace->level);
 	if (unlikely(ret != Z_OK)) {
-		struct btrfs_inode *inode = BTRFS_I(mapping->host);
-
 		btrfs_err(inode->root->fs_info,
 	"zlib compression init failed, error %d root %llu inode %llu offset %llu",
 			  ret, btrfs_root_id(inode->root), btrfs_ino(inode), start);
@@ -225,8 +224,6 @@ int zlib_compress_folios(struct list_head *ws, struct address_space *mapping,
 
 		ret = zlib_deflate(&workspace->strm, Z_SYNC_FLUSH);
 		if (unlikely(ret != Z_OK)) {
-			struct btrfs_inode *inode = BTRFS_I(mapping->host);
-
 			btrfs_warn(inode->root->fs_info,
 		"zlib compression failed, error %d root %llu inode %llu offset %llu",
 				   ret, btrfs_root_id(inode->root), btrfs_ino(inode),
@@ -237,7 +234,7 @@ int zlib_compress_folios(struct list_head *ws, struct address_space *mapping,
 		}
 
 		/* we're making it bigger, give up */
-		if (workspace->strm.total_in > 8192 &&
+		if (workspace->strm.total_in > blocksize * 2 &&
 		    workspace->strm.total_in <
 		    workspace->strm.total_out) {
 			ret = -E2BIG;
@@ -484,8 +481,7 @@ out:
 	return ret;
 }
 
-const struct btrfs_compress_op btrfs_zlib_compress = {
-	.workspace_manager	= &wsm,
+const struct btrfs_compress_levels btrfs_zlib_compress = {
 	.min_level		= 1,
 	.max_level		= 9,
 	.default_level		= BTRFS_ZLIB_DEFAULT_LEVEL,
