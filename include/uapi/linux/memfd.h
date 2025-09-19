@@ -12,6 +12,8 @@
 #define MFD_NOEXEC_SEAL		0x0008U
 /* executable */
 #define MFD_EXEC		0x0010U
+#define MFD_ALL_FLAGS		(MFD_CLOEXEC | MFD_ALLOW_SEALING | \
+				 MFD_HUGETLB | MFD_NOEXEC_SEAL | MFD_EXEC)
 
 /*
  * Huge page size encoding when MFD_HUGETLB is specified, and a huge page

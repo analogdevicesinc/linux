@@ -201,7 +201,8 @@ u64 stable_page_flags(const struct page *page)
 
 	if (ps.flags & PAGE_SNAPSHOT_PG_BUDDY)
 		u |= 1 << KPF_BUDDY;
-
+	if (folio_test_stack(folio))
+		u |= 1 << KPF_KSTACK;
 	if (folio_test_offline(folio))
 		u |= 1 << KPF_OFFLINE;
 	if (folio_test_pgtable(folio))
@@ -256,6 +257,7 @@ u64 stable_page_flags(const struct page *page)
 
 	return u;
 }
+EXPORT_SYMBOL_GPL(stable_page_flags);
 
 /* /proc/kpageflags - an array exposing page flags
  *

@@ -316,7 +316,10 @@ static __always_inline unsigned long _compound_head(const struct page *page)
  * check that the page number lies within @folio; the caller is presumed
  * to have a reference to the page.
  */
-#define folio_page(folio, n)	nth_page(&(folio)->page, n)
+static inline struct page *folio_page(const struct folio *folio, unsigned long n)
+{
+	return (struct page *)(&folio->page + n);
+}
 
 static __always_inline int PageTail(const struct page *page)
 {
@@ -933,6 +936,7 @@ enum pagetype {
 	PGTY_zsmalloc		= 0xf6,
 	PGTY_unaccepted		= 0xf7,
 	PGTY_large_kmalloc	= 0xf8,
+	PGTY_kstack		= 0xf9,
 
 	PGTY_mapcount_underflow = 0xff
 };
@@ -994,6 +998,10 @@ static __always_inline void __ClearPage##uname(struct page *page)	\
 	VM_BUG_ON_PAGE(!Page##uname(page), page);			\
 	page->page_type = UINT_MAX;					\
 }
+
+/* PageStack() indicates that a page is used by kernel stacks.
+ */
+PAGE_TYPE_OPS(Stack, kstack, stack)
 
 /*
  * PageBuddy() indicates that the page is free and in the buddy system

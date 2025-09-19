@@ -2142,8 +2142,10 @@ static void damos_adjust_quota(struct damon_ctx *c, struct damos *s)
 		return;
 
 	/* First charge window */
-	if (!quota->total_charged_sz && !quota->charged_from)
+	if (!quota->total_charged_sz && !quota->charged_from) {
 		quota->charged_from = jiffies;
+		damos_set_effective_quota(quota);
+	}
 
 	/* New charge window starts */
 	if (time_after_eq(jiffies, quota->charged_from +
@@ -2260,6 +2262,8 @@ static void damon_merge_regions_of(struct damon_target *t, unsigned int thres,
 
 	damon_for_each_region_safe(r, next, t) {
 		if (abs(r->nr_accesses - r->last_nr_accesses) > thres)
+			r->age = 0;
+		else if ((r->nr_accesses == 0) != (r->last_nr_accesses == 0))
 			r->age = 0;
 		else
 			r->age++;
@@ -2857,6 +2861,16 @@ void damon_update_region_access_rate(struct damon_region *r, bool accessed,
 
 	if (accessed)
 		r->nr_accesses++;
+}
+
+/**
+ * damon_initialized() - Return if DAMON is ready to be used.
+ *
+ * Return: true if DAMON is ready to be used, false otherwise.
+ */
+bool damon_initialized(void)
+{
+	return damon_region_cache != NULL;
 }
 
 static int __init damon_init(void)

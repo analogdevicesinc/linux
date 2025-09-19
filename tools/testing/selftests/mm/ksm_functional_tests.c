@@ -602,6 +602,116 @@ unmap:
 	munmap(map, size);
 }
 
+long ksm_get_global_ksm_zero_pages(void)
+{
+	int global_ksm_zero_pages_fd;
+	char buf[10];
+	ssize_t ret;
+
+	global_ksm_zero_pages_fd = open("/sys/kernel/mm/ksm/ksm_zero_pages",
+								O_RDONLY);
+	if (global_ksm_zero_pages_fd < 0)
+		return -errno;
+
+	ret = pread(global_ksm_zero_pages_fd, buf, sizeof(buf) - 1, 0);
+	close(global_ksm_zero_pages_fd);
+	if (ret <= 0)
+		return -errno;
+	buf[ret] = 0;
+
+	return strtol(buf, NULL, 10);
+}
+
+static void test_fork_global_ksm_zero_pages_count(void)
+{
+	const unsigned int size = 2 * MiB;
+	char *map;
+	pid_t child_pid;
+	int status;
+	long g_zpages_before = 0, g_zpages_after = 0;
+
+	ksft_print_msg("[RUN] %s\n", __func__);
+
+	/* Unmerge all pages before test */
+	if (ksm_stop() < 0) {
+		ksft_test_result_fail("KSM unmerging failed\n");
+		return;
+	}
+	/* Get the global zero page count before test */
+	g_zpages_before = ksm_get_global_ksm_zero_pages();
+	/* Let KSM deduplicate zero pages. */
+	map = mmap_and_merge_range(0x00, size, PROT_READ | PROT_WRITE, KSM_MERGE_MADVISE);
+	if (map == MAP_FAILED)
+		return;
+
+	child_pid = fork();
+	if (!child_pid) {
+		exit(ksm_stop());
+	} else if (child_pid < 0) {
+		ksft_test_result_fail("fork() failed\n");
+		return;
+	}
+	if (waitpid(child_pid, &status, 0) < 0) {
+		ksft_test_result_fail("waitpid() failed\n");
+		return;
+	}
+	status = WEXITSTATUS(status);
+	if (status < 0) {
+		ksft_test_result_fail("KSM unmerging failed in child\n");
+		return;
+	}
+
+	/* Verify global zero-page count remains unchanged */
+	g_zpages_after = ksm_get_global_ksm_zero_pages();
+	if (g_zpages_before != g_zpages_after) {
+		ksft_test_result_fail("Incorrect global ksm zero page count after fork\n");
+		return;
+	}
+
+	ksft_test_result_pass("Global ksm zero page count is correct after fork\n");
+	ksm_stop();
+	munmap(map, size);
+}
+
+static void test_fork_ksm_merging_page_count(void)
+{
+	const unsigned int size = 2 * MiB;
+	char *map;
+	pid_t child_pid;
+	int status;
+
+	ksft_print_msg("[RUN] %s\n", __func__);
+
+	map = mmap_and_merge_range(0xcf, size, PROT_READ | PROT_WRITE, KSM_MERGE_MADVISE);
+	if (map == MAP_FAILED)
+		return;
+
+	child_pid = fork();
+	if (!child_pid) {
+		init_global_file_handles();
+		exit(ksm_get_self_merging_pages());
+	} else if (child_pid < 0) {
+		ksft_test_result_fail("fork() failed\n");
+		return;
+	}
+
+	if (waitpid(child_pid, &status, 0) < 0) {
+		ksft_test_result_fail("waitpid() failed\n");
+		return;
+	}
+
+	status = WEXITSTATUS(status);
+	if (status) {
+		ksft_test_result_fail("ksm_merging_page in child: %d\n", status);
+		return;
+	}
+
+	ksft_test_result_pass("ksm_merging_pages is not inherited after fork\n");
+
+	ksm_stop();
+	munmap(map, size);
+}
+
 static void init_global_file_handles(void)
 {
 	mem_fd = open("/proc/self/mem", O_RDWR);
@@ -620,7 +730,7 @@ static void init_global_file_handles(void)
 
 int main(int argc, char **argv)
 {
-	unsigned int tests = 8;
+	unsigned int tests = 10;
 	int err;
 
 	if (argc > 1 && !strcmp(argv[1], FORK_EXEC_CHILD_PRG_NAME)) {
@@ -652,6 +762,8 @@ int main(int argc, char **argv)
 	test_prctl_fork();
 	test_prctl_fork_exec();
 	test_prctl_unmerge();
+	test_fork_ksm_merging_page_count();
+	test_fork_global_ksm_zero_pages_count();
 
 	err = ksft_get_fail_cnt();
 	if (err)
