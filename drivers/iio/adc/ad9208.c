@@ -1570,9 +1570,9 @@ static int ad9208_probe(struct spi_device *spi)
 		break;
 	case CHIPID_AD9695:
 		phy->ad9208.model = 0x9208;
-		phy->ad9208.input_clk_min_hz = 625000000ULL;
+		phy->ad9208.input_clk_min_hz = 24000000ULL;
 		phy->ad9208.input_clk_max_hz = 1300000000ULL;
-		phy->ad9208.adc_clk_min_hz = 625000000ULL;
+		phy->ad9208.adc_clk_min_hz = 24000000ULL;
 		phy->ad9208.adc_clk_max_hz = 3100000000ULL;
 		phy->ad9208.slr_max_mbps = 16000;
 		phy->ad9208.slr_min_mbps = 1687;
