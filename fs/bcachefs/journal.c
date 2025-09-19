@@ -1627,14 +1627,14 @@ int bch2_dev_journal_init(struct bch_dev *ca, struct bch_sb *sb)
 	unsigned nr_bvecs = DIV_ROUND_UP(JOURNAL_ENTRY_SIZE_MAX, PAGE_SIZE);
 
 	for (unsigned i = 0; i < ARRAY_SIZE(ja->bio); i++) {
-		ja->bio[i] = kzalloc(struct_size(ja->bio[i], bio.bi_inline_vecs,
-				     nr_bvecs), GFP_KERNEL);
+		ja->bio[i] = kzalloc(sizeof(*ja->bio[i]) +
+				sizeof(struct bio_vec) * nr_bvecs, GFP_KERNEL);
 		if (!ja->bio[i])
 			return bch_err_throw(c, ENOMEM_dev_journal_init);
 
 		ja->bio[i]->ca = ca;
 		ja->bio[i]->buf_idx = i;
-		bio_init(&ja->bio[i]->bio, NULL, ja->bio[i]->bio.bi_inline_vecs, nr_bvecs, 0);
+		bio_init_inline(&ja->bio[i]->bio, NULL, nr_bvecs, 0);
 	}
 
 	ja->buckets = kcalloc(ja->nr, sizeof(u64), GFP_KERNEL);
