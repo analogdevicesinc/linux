@@ -2392,6 +2392,8 @@ static int __annotate_ifc(struct objtool_file *file, int type, struct instructio
 
 static int __annotate_late(struct objtool_file *file, int type, struct instruction *insn)
 {
+	struct symbol *sym;
+
 	switch (type) {
 	case ANNOTYPE_NOENDBR:
 		/* early */
@@ -2431,6 +2433,15 @@ static int __annotate_late(struct objtool_file *file, int type, struct instructi
 
 	case ANNOTYPE_REACHABLE:
 		insn->dead_end = false;
+		break;
+
+	case ANNOTYPE_NOCFI:
+		sym = insn->sym;
+		if (!sym) {
+			ERROR_INSN(insn, "dodgy NOCFI annotation");
+			return -1;
+		}
+		insn->sym->nocfi = 1;
 		break;
 
 	default:
@@ -3554,7 +3565,9 @@ static int validate_branch(struct objtool_file *file, struct symbol *func,
 		if (func && insn_func(insn) && func != insn_func(insn)->pfunc) {
 			/* Ignore KCFI type preambles, which always fall through */
 			if (!strncmp(func->name, "__cfi_", 6) ||
-			    !strncmp(func->name, "__pfx_", 6))
+			    !strncmp(func->name, "__pfx_", 6) ||
+			    !strncmp(func->name, "__pi___cfi_", 11) ||
+			    !strncmp(func->name, "__pi___pfx_", 11))
 				return 0;
 
 			if (file->ignore_unreachables)
@@ -3990,6 +4003,37 @@ static int validate_retpoline(struct objtool_file *file)
 		WARN_INSN(insn, "indirect %s found in MITIGATION_RETPOLINE build",
 			  insn->type == INSN_JUMP_DYNAMIC ? "jump" : "call");
 		warnings++;
+	}
+
+	if (!opts.cfi)
+		return warnings;
+
+	/*
+	 * kCFI call sites look like:
+	 *
+	 *     movl $(-0x12345678), %r10d
+	 *     addl -4(%r11), %r10d
+	 *     jz 1f
+	 *     ud2
+	 *  1: cs call __x86_indirect_thunk_r11
+	 *
+	 * Verify all indirect calls are kCFI adorned by checking for the
+	 * UD2. Notably, doing __nocfi calls to regular (cfi) functions is
+	 * broken.
+	 */
+	list_for_each_entry(insn, &file->retpoline_call_list, call_node) {
+		struct symbol *sym = insn->sym;
+
+		if (sym && (sym->type == STT_NOTYPE ||
+			    sym->type == STT_FUNC) && !sym->nocfi) {
+			struct instruction *prev =
+				prev_insn_same_sym(file, insn);
+
+			if (!prev || prev->type != INSN_BUG) {
+				WARN_INSN(insn, "no-cfi indirect call!");
+				warnings++;
+			}
+		}
 	}
 
 	return warnings;
@@ -4634,6 +4678,47 @@ static void disas_warned_funcs(struct objtool_file *file)
 		disas_funcs(funcs);
 }
 
+__weak bool arch_absolute_reloc(struct elf *elf, struct reloc *reloc)
+{
+	unsigned int type = reloc_type(reloc);
+	size_t sz = elf_addr_size(elf);
+
+	return (sz == 8) ? (type == R_ABS64) : (type == R_ABS32);
+}
+
+static int check_abs_references(struct objtool_file *file)
+{
+	struct section *sec;
+	struct reloc *reloc;
+	int ret = 0;
+
+	for_each_sec(file, sec) {
+		/* absolute references in non-loadable sections are fine */
+		if (!(sec->sh.sh_flags & SHF_ALLOC))
+			continue;
+
+		/* section must have an associated .rela section */
+		if (!sec->rsec)
+			continue;
+
+		/*
+		 * Special case for compiler generated metadata that is not
+		 * consumed until after boot.
+		 */
+		if (!strcmp(sec->name, "__patchable_function_entries"))
+			continue;
+
+		for_each_reloc(sec->rsec, reloc) {
+			if (arch_absolute_reloc(file->elf, reloc)) {
+				WARN("section %s has absolute relocation at offset 0x%lx",
+				     sec->name, reloc_offset(reloc));
+				ret++;
+			}
+		}
+	}
+	return ret;
+}
+
 struct insn_chunk {
 	void *addr;
 	struct insn_chunk *next;
@@ -4766,6 +4851,9 @@ int check(struct objtool_file *file)
 		if (ret)
 			goto out;
 	}
+
+	if (opts.noabs)
+		warnings += check_abs_references(file);
 
 	if (opts.orc && nr_insns) {
 		ret = orc_create(file);

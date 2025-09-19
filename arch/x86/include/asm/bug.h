@@ -5,13 +5,18 @@
 #include <linux/stringify.h>
 #include <linux/instrumentation.h>
 #include <linux/objtool.h>
+#include <asm/asm.h>
 
 /*
  * Despite that some emulators terminate on UD2, we use it for WARN().
  */
-#define ASM_UD2		".byte 0x0f, 0x0b"
+#define ASM_UD2		_ASM_BYTES(0x0f, 0x0b)
 #define INSN_UD2	0x0b0f
 #define LEN_UD2		2
+
+#define ASM_UDB		_ASM_BYTES(0xd6)
+#define INSN_UDB	0xd6
+#define LEN_UDB		1
 
 /*
  * In clang we have UD1s reporting UBSAN failures on X86, 64 and 32bit.
@@ -26,7 +31,7 @@
 #define BUG_UD2			0xfffe
 #define BUG_UD1			0xfffd
 #define BUG_UD1_UBSAN		0xfffc
-#define BUG_EA			0xffea
+#define BUG_UDB			0xffd6
 #define BUG_LOCK		0xfff0
 
 #ifdef CONFIG_GENERIC_BUG
@@ -57,13 +62,13 @@
 	".popsection\n"							\
 	extra
 
-#define _BUG_FLAGS(ins, flags, extra)					\
-do {									\
-	asm_inline volatile(_BUG_FLAGS_ASM(ins, "%c0",			\
-					   "%c1", "%c2", "%c3", extra)	\
-		     : : "i" (__FILE__), "i" (__LINE__),		\
-			 "i" (flags),					\
-			 "i" (sizeof(struct bug_entry)));		\
+#define _BUG_FLAGS(cond_str, ins, flags, extra)						\
+do {											\
+	asm_inline volatile(_BUG_FLAGS_ASM(ins, "%c0",					\
+					   "%c1", "%c2", "%c3", extra)			\
+		     : : "i" (WARN_CONDITION_STR(cond_str) __FILE__), "i" (__LINE__),	\
+			 "i" (flags),							\
+			 "i" (sizeof(struct bug_entry)));				\
 } while (0)
 
 #define ARCH_WARN_ASM(file, line, flags, size)				\
@@ -71,7 +76,7 @@ do {									\
 
 #else
 
-#define _BUG_FLAGS(ins, flags, extra)  asm volatile(ins)
+#define _BUG_FLAGS(cond_str, ins, flags, extra)  asm volatile(ins)
 
 #endif /* CONFIG_GENERIC_BUG */
 
@@ -79,7 +84,7 @@ do {									\
 #define BUG()							\
 do {								\
 	instrumentation_begin();				\
-	_BUG_FLAGS(ASM_UD2, 0, "");				\
+	_BUG_FLAGS("", ASM_UD2, 0, "");				\
 	__builtin_unreachable();				\
 } while (0)
 
@@ -92,12 +97,12 @@ do {								\
 
 #define ARCH_WARN_REACHABLE	ANNOTATE_REACHABLE(1b)
 
-#define __WARN_FLAGS(flags)					\
-do {								\
-	__auto_type __flags = BUGFLAG_WARNING|(flags);		\
-	instrumentation_begin();				\
-	_BUG_FLAGS(ASM_UD2, __flags, ARCH_WARN_REACHABLE);	\
-	instrumentation_end();					\
+#define __WARN_FLAGS(cond_str, flags)					\
+do {									\
+	__auto_type __flags = BUGFLAG_WARNING|(flags);			\
+	instrumentation_begin();					\
+	_BUG_FLAGS(cond_str, ASM_UD2, __flags, ARCH_WARN_REACHABLE);	\
+	instrumentation_end();						\
 } while (0)
 
 #include <asm-generic/bug.h>
