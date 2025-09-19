@@ -108,7 +108,7 @@ u64 nfs_compat_user_ino64(u64 fileid)
 
 int nfs_drop_inode(struct inode *inode)
 {
-	return NFS_STALE(inode) || generic_drop_inode(inode);
+	return NFS_STALE(inode) || inode_generic_drop(inode);
 }
 EXPORT_SYMBOL_GPL(nfs_drop_inode);
 
@@ -608,7 +608,7 @@ nfs_fhget(struct super_block *sb, struct nfs_fh *fh, struct nfs_fattr *fattr)
 		inode->i_sb->s_id,
 		(unsigned long long)NFS_FILEID(inode),
 		nfs_display_fhandle_hash(fh),
-		atomic_read(&inode->i_count));
+		icount_read(inode));
 
 out:
 	return inode;
@@ -2236,7 +2236,7 @@ static int nfs_update_inode(struct inode *inode, struct nfs_fattr *fattr)
 	dfprintk(VFS, "NFS: %s(%s/%lu fh_crc=0x%08x ct=%d info=0x%llx)\n",
 			__func__, inode->i_sb->s_id, inode->i_ino,
 			nfs_display_fhandle_hash(NFS_FH(inode)),
-			atomic_read(&inode->i_count), fattr->valid);
+			icount_read(inode), fattr->valid);
 
 	if (!(fattr->valid & NFS_ATTR_FATTR_FILEID)) {
 		/* Only a mounted-on-fileid? Just exit */

@@ -54,6 +54,11 @@ extern struct pid_namespace init_pid_ns;
 #define PIDNS_ADDING (1U << 31)
 
 #ifdef CONFIG_PID_NS
+static inline struct pid_namespace *to_pid_ns(struct ns_common *ns)
+{
+	return container_of(ns, struct pid_namespace, ns);
+}
+
 static inline struct pid_namespace *get_pid_ns(struct pid_namespace *ns)
 {
 	if (ns != &init_pid_ns)
@@ -83,6 +88,9 @@ extern struct pid_namespace *copy_pid_ns(unsigned long flags,
 extern void zap_pid_ns_processes(struct pid_namespace *pid_ns);
 extern int reboot_pid_ns(struct pid_namespace *pid_ns, int cmd);
 extern void put_pid_ns(struct pid_namespace *ns);
+
+extern bool pidns_is_ancestor(struct pid_namespace *child,
+			      struct pid_namespace *ancestor);
 
 #else /* !CONFIG_PID_NS */
 #include <linux/err.h>
@@ -117,6 +125,12 @@ static inline void zap_pid_ns_processes(struct pid_namespace *ns)
 static inline int reboot_pid_ns(struct pid_namespace *pid_ns, int cmd)
 {
 	return 0;
+}
+
+static inline bool pidns_is_ancestor(struct pid_namespace *child,
+				     struct pid_namespace *ancestor)
+{
+	return false;
 }
 #endif /* CONFIG_PID_NS */
 

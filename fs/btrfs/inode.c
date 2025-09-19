@@ -4580,7 +4580,7 @@ static void btrfs_prune_dentries(struct btrfs_root *root)
 
 	inode = btrfs_find_first_inode(root, min_ino);
 	while (inode) {
-		if (atomic_read(&inode->vfs_inode.i_count) > 1)
+		if (icount_read(&inode->vfs_inode) > 1)
 			d_prune_aliases(&inode->vfs_inode);
 
 		min_ino = btrfs_ino(inode) + 1;
@@ -7997,7 +7997,7 @@ int btrfs_drop_inode(struct inode *inode)
 	if (btrfs_root_refs(&root->root_item) == 0)
 		return 1;
 	else
-		return generic_drop_inode(inode);
+		return inode_generic_drop(inode);
 }
 
 static void init_once(void *foo)
