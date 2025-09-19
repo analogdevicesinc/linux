@@ -385,7 +385,7 @@ struct iwl_mac_cfg {
 #define IWL_NUM_RBDS_EHT		(512 * 8)
 
 /**
- * struct iwl_rf_cfg
+ * struct iwl_rf_cfg - RF/CRF configuration data
  * @fw_name_pre: Firmware filename prefix. The api version and extension
  *	(.ucode) will be added to filename before loading from disk. The
  *	filename is constructed as <fw_name_pre>-<api>.ucode.
@@ -688,6 +688,7 @@ extern const char iwl_killer_bn1850i_name[];
 extern const char iwl_bn201_name[];
 extern const char iwl_be221_name[];
 extern const char iwl_be223_name[];
+extern const char iwl_ax221_name[];
 #if IS_ENABLED(CONFIG_IWLDVM)
 extern const struct iwl_rf_cfg iwl5300_agn_cfg;
 extern const struct iwl_rf_cfg iwl5350_agn_cfg;

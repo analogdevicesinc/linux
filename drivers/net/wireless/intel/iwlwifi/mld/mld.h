@@ -134,6 +134,8 @@
  * @fw: a pointer to the fw object
  * @hw: pointer to the hw object.
  * @wiphy: a pointer to the wiphy struct, for easier access to it.
+ * @ext_capab: extended capabilities that will be set to wiphy on registration.
+ * @sta_ext_capab: extended capabilities for the station interface.
  * @nvm_data: pointer to the nvm_data that includes all our capabilities
  * @fwrt: fw runtime data
  * @debugfs_dir: debugfs directory
@@ -180,6 +182,8 @@
  * @mcast_filter_cmd: pointer to the multicast filter command.
  * @mgmt_tx_ant: stores the last TX antenna index; used for setting
  *	TX rate_n_flags for non-STA mgmt frames (toggles on every TX failure).
+ * @set_tx_ant: stores the last TX antenna bitmask set by user space (if any)
+ * @set_rx_ant: stores the last RX antenna bitmask set by user space (if any)
  * @fw_rates_ver_3: FW rates are in version 3
  * @low_latency: low-latency manager.
  * @tzone: thermal zone device's data
@@ -225,6 +229,8 @@ struct iwl_mld {
 	const struct iwl_fw *fw;
 	struct ieee80211_hw *hw;
 	struct wiphy *wiphy;
+	struct wiphy_iftype_ext_capab ext_capab[IWL_MLD_EXT_CAPA_NUM_IFTYPES];
+	u8 sta_ext_capab[IWL_MLD_STA_EXT_CAPA_SIZE];
 	struct iwl_nvm_data *nvm_data;
 	struct iwl_fw_runtime fwrt;
 	struct dentry *debugfs_dir;
@@ -278,6 +284,9 @@ struct iwl_mld {
 	struct iwl_mcast_filter_cmd *mcast_filter_cmd;
 
 	u8 mgmt_tx_ant;
+
+	u8 set_tx_ant;
+	u8 set_rx_ant;
 
 	bool fw_rates_ver_3;
 
@@ -374,6 +383,9 @@ static inline u8 iwl_mld_get_valid_tx_ant(const struct iwl_mld *mld)
 	if (mld->nvm_data && mld->nvm_data->valid_tx_ant)
 		tx_ant &= mld->nvm_data->valid_tx_ant;
 
+	if (mld->set_tx_ant)
+		tx_ant &= mld->set_tx_ant;
+
 	return tx_ant;
 }
 
@@ -383,6 +395,9 @@ static inline u8 iwl_mld_get_valid_rx_ant(const struct iwl_mld *mld)
 
 	if (mld->nvm_data && mld->nvm_data->valid_rx_ant)
 		rx_ant &= mld->nvm_data->valid_rx_ant;
+
+	if (mld->set_rx_ant)
+		rx_ant &= mld->set_rx_ant;
 
 	return rx_ant;
 }
