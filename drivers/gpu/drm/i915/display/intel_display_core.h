@@ -475,7 +475,21 @@ struct intel_display {
 
 		struct work_struct vblank_notify_work;
 
-		u32 de_irq_mask[I915_MAX_PIPES];
+		/*
+		 * Cached value of VLV/CHV IMR to avoid reads in updating the
+		 * bitfield.
+		 */
+		u32 vlv_imr_mask;
+		/*
+		 * Cached value of gen 5-7 DE IMR to avoid reads in updating the
+		 * bitfield.
+		 */
+		u32 ilk_de_imr_mask;
+		/*
+		 * Cached value of BDW+ DE pipe IMR to avoid reads in updating
+		 * the bitfield.
+		 */
+		u32 de_pipe_imr_mask[I915_MAX_PIPES];
 		u32 pipestat_irq_mask[I915_MAX_PIPES];
 	} irq;
 
@@ -566,6 +580,11 @@ struct intel_display {
 		u32 chv_dpll_md[I915_MAX_PIPES];
 		u32 bxt_phy_grc;
 	} state;
+
+	struct {
+		unsigned int hpll_freq;
+		unsigned int czclk_freq;
+	} vlv_clock;
 
 	struct {
 		/* ordered wq for modesets */

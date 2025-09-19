@@ -129,76 +129,15 @@
 #include "skl_scaler.h"
 #include "skl_universal_plane.h"
 #include "skl_watermark.h"
-#include "vlv_dpio_phy_regs.h"
 #include "vlv_dsi.h"
 #include "vlv_dsi_pll.h"
 #include "vlv_dsi_regs.h"
-#include "vlv_sideband.h"
 
 static void intel_set_transcoder_timings(const struct intel_crtc_state *crtc_state);
 static void intel_set_pipe_src_size(const struct intel_crtc_state *crtc_state);
 static void hsw_set_transconf(const struct intel_crtc_state *crtc_state);
 static void bdw_set_pipe_misc(struct intel_dsb *dsb,
 			      const struct intel_crtc_state *crtc_state);
-
-/* returns HPLL frequency in kHz */
-int vlv_get_hpll_vco(struct drm_device *drm)
-{
-	int hpll_freq, vco_freq[] = { 800, 1600, 2000, 2400 };
-
-	/* Obtain SKU information */
-	hpll_freq = vlv_cck_read(drm, CCK_FUSE_REG) &
-		CCK_FUSE_HPLL_FREQ_MASK;
-
-	return vco_freq[hpll_freq] * 1000;
-}
-
-int vlv_get_cck_clock(struct drm_device *drm,
-		      const char *name, u32 reg, int ref_freq)
-{
-	u32 val;
-	int divider;
-
-	val = vlv_cck_read(drm, reg);
-	divider = val & CCK_FREQUENCY_VALUES;
-
-	drm_WARN(drm, (val & CCK_FREQUENCY_STATUS) !=
-		 (divider << CCK_FREQUENCY_STATUS_SHIFT),
-		 "%s change in progress\n", name);
-
-	return DIV_ROUND_CLOSEST(ref_freq << 1, divider + 1);
-}
-
-int vlv_get_cck_clock_hpll(struct drm_device *drm,
-			   const char *name, u32 reg)
-{
-	struct drm_i915_private *dev_priv = to_i915(drm);
-	int hpll;
-
-	vlv_cck_get(drm);
-
-	if (dev_priv->hpll_freq == 0)
-		dev_priv->hpll_freq = vlv_get_hpll_vco(drm);
-
-	hpll = vlv_get_cck_clock(drm, name, reg, dev_priv->hpll_freq);
-
-	vlv_cck_put(drm);
-
-	return hpll;
-}
-
-void intel_update_czclk(struct intel_display *display)
-{
-	struct drm_i915_private *dev_priv = to_i915(display->drm);
-
-	if (!display->platform.valleyview && !display->platform.cherryview)
-		return;
-
-	dev_priv->czclk_freq = vlv_get_cck_clock_hpll(display->drm, "czclk",
-						      CCK_CZ_CLOCK_CONTROL);
-
-	drm_dbg_kms(display->drm, "CZ clock rate: %d kHz\n", dev_priv->czclk_freq);
-}
 
 static bool is_hdr_mode(const struct intel_crtc_state *crtc_state)
 {
@@ -3952,6 +3891,20 @@ static bool hsw_get_pipe_config(struct intel_crtc *crtc,
 	intel_joiner_get_config(pipe_config);
 	intel_dsc_get_config(pipe_config);
 
+	/* intel_vrr_get_config() depends on .framestart_delay */
+	if (!transcoder_is_dsi(pipe_config->cpu_transcoder)) {
+		tmp = intel_de_read(display, CHICKEN_TRANS(display, pipe_config->cpu_transcoder));
+
+		pipe_config->framestart_delay = REG_FIELD_GET(HSW_FRAME_START_DELAY_MASK, tmp) + 1;
+	} else {
+		/* no idea if this is correct */
+		pipe_config->framestart_delay = 1;
+	}
+
+	/*
+	 * intel_vrr_get_config() depends on TRANS_SET_CONTEXT_LATENCY
+	 * readout done by intel_get_transcoder_timings().
+	 */
 	if (!transcoder_is_dsi(pipe_config->cpu_transcoder) ||
 	    DISPLAY_VER(display) >= 11)
 		intel_get_transcoder_timings(crtc, pipe_config);
@@ -4001,15 +3954,6 @@ static bool hsw_get_pipe_config(struct intel_crtc *crtc,
 				      TRANS_MULT(display, pipe_config->cpu_transcoder)) + 1;
 	} else {
 		pipe_config->pixel_multiplier = 1;
-	}
-
-	if (!transcoder_is_dsi(pipe_config->cpu_transcoder)) {
-		tmp = intel_de_read(display, CHICKEN_TRANS(display, pipe_config->cpu_transcoder));
-
-		pipe_config->framestart_delay = REG_FIELD_GET(HSW_FRAME_START_DELAY_MASK, tmp) + 1;
-	} else {
-		/* no idea if this is correct */
-		pipe_config->framestart_delay = 1;
 	}
 
 out:
