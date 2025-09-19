@@ -40,12 +40,34 @@
 	};
 	corundum: corundum_eth100g@50000000 {
 		compatible = "corundum,mqnic";
-		reg = <0x50000000 0x1000000>;
-		reg-names = "csr";
+		reg = <0x50000000 0x1000000>,
+			<0x51000000 0x1000000>;
+		reg-names = "csr", "app";
 		local-mac-address = [00 0a 35 00 01 02];
 		interrupt-names = "irq";
 		interrupt-parent = <&axi_intc>;
 		interrupts = <5 2>;
 		reset-gpios = <&corundum_reset 0 GPIO_ACTIVE_HIGH>;
+	};
+
+	iio_corundum_app_12340001: corundum-app-12340001@0 {
+		compatible = "adi,iio-fake-platform-device";
+		adi,faked-dev = <&corundum>;
+		adi,use-child-device = "mqnic.app_12340001.0";
+		adi,attribute-names =
+			"version", "scratch", "counter_start", "counter_value",
+			"start_app", "packet_size", "eth_dest_mac", "eth_src_mac",
+			"eth_type", "ip_version", "ip_header_length",
+			"ip_type_of_service", "ip_total_length", "ip_identification",
+			"ip_flags", "ip_fragment_offset", "ip_time_to_live",
+			"ip_protocol", "ip_header_checksum",
+			"ip_src_addr", "ip_dest_addr",
+			"udp_src_port", "udp_dest_port",
+			"udp_length", "udp_checksum",
+			"ber_test_en", "ber_reset",
+			"ber_total_bits", "ber_error_bits",
+			"ber_out_of_sync", "ber_insert_bit_err",
+			"sample_count_per_ch";
+		label = "corundum-app-12340001";
 	};
 };
