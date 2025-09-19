@@ -22,6 +22,11 @@ struct cached_dir_dentry {
 	struct dentry *dentry;
 };
 
+static bool is_valid_cached_dir(struct cached_fid *cfid)
+{
+	return !!cfid->time && cfid->has_lease;
+}
+
 static struct cached_fid *find_or_create_cached_dir(struct cached_fids *cfids,
 						    const char *path,
 						    bool lookup_only,
@@ -36,9 +41,8 @@ static struct cached_fid *find_or_create_cached_dir(struct cached_fids *cfids,
 			 * fully cached or it may be in the process of
 			 * being deleted due to a lease break.
 			 */
-			if (!cfid->time || !cfid->has_lease) {
+			if (!is_valid_cached_dir(cfid))
 				return NULL;
-			}
 			kref_get(&cfid->refcount);
 			return cfid;
 		}
@@ -194,7 +198,7 @@ replay_again:
 	 * Otherwise, it is either a new entry or laundromat worker removed it
 	 * from @cfids->entries.  Caller will put last reference if the latter.
 	 */
-	if (cfid->has_lease && cfid->time) {
+	if (is_valid_cached_dir(cfid)) {
 		cfid->last_access_time = jiffies;
 		spin_unlock(&cfids->cfid_list_lock);
 		*ret_cfid = cfid;
@@ -417,9 +421,14 @@ int open_cached_dir_by_dentry(struct cifs_tcon *tcon,
 	if (cfids == NULL)
 		return -EOPNOTSUPP;
 
+	if (!dentry)
+		return -ENOENT;
+
 	spin_lock(&cfids->cfid_list_lock);
 	list_for_each_entry(cfid, &cfids->entries, entry) {
-		if (dentry && cfid->dentry == dentry) {
+		if (cfid->dentry == dentry) {
+			if (!is_valid_cached_dir(cfid))
+				break;
 			cifs_dbg(FYI, "found a cached file handle by dentry\n");
 			kref_get(&cfid->refcount);
 			*ret_cfid = cfid;

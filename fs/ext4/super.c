@@ -1417,7 +1417,7 @@ static struct inode *ext4_alloc_inode(struct super_block *sb)
 
 static int ext4_drop_inode(struct inode *inode)
 {
-	int drop = generic_drop_inode(inode);
+	int drop = inode_generic_drop(inode);
 
 	if (!drop)
 		drop = fscrypt_drop_inode(inode);
@@ -1470,6 +1470,12 @@ static void init_once(void *foo)
 	init_rwsem(&ei->i_data_sem);
 	inode_init_once(&ei->vfs_inode);
 	ext4_fc_init_inode(&ei->vfs_inode);
+#ifdef CONFIG_FS_ENCRYPTION
+	ei->i_crypt_info = NULL;
+#endif
+#ifdef CONFIG_FS_VERITY
+	ei->i_verity_info = NULL;
+#endif
 }
 
 static int __init init_inodecache(void)

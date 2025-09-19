@@ -207,8 +207,9 @@ static struct fuse_req *fuse_get_req(struct mnt_idmap *idmap,
 
 	if (fuse_block_alloc(fc, for_background)) {
 		err = -EINTR;
-		if (wait_event_killable_exclusive(fc->blocked_waitq,
-				!fuse_block_alloc(fc, for_background)))
+		if (wait_event_state_exclusive(fc->blocked_waitq,
+				!fuse_block_alloc(fc, for_background),
+				(TASK_KILLABLE | TASK_FREEZABLE)))
 			goto out;
 	}
 	/* Matches smp_wmb() in fuse_set_initialized() */
@@ -322,6 +323,7 @@ unsigned int fuse_req_hash(u64 unique)
 {
 	return hash_long(unique & ~FUSE_INT_REQ_BIT, FUSE_PQ_HASH_BITS);
 }
+EXPORT_SYMBOL_GPL(fuse_req_hash);
 
 /*
  * A new request is available, wake fiq->waitq
@@ -1528,14 +1530,34 @@ static int fuse_dev_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+struct fuse_dev *fuse_get_dev(struct file *file)
+{
+	struct fuse_dev *fud = __fuse_get_dev(file);
+	int err;
+
+	if (likely(fud))
+		return fud;
+
+	err = wait_event_interruptible(fuse_dev_waitq,
+				       READ_ONCE(file->private_data) != FUSE_DEV_SYNC_INIT);
+	if (err)
+		return ERR_PTR(err);
+
+	fud = __fuse_get_dev(file);
+	if (!fud)
+		return ERR_PTR(-EPERM);
+
+	return fud;
+}
+
 static ssize_t fuse_dev_read(struct kiocb *iocb, struct iov_iter *to)
 {
 	struct fuse_copy_state cs;
 	struct file *file = iocb->ki_filp;
 	struct fuse_dev *fud = fuse_get_dev(file);
 
-	if (!fud)
-		return -EPERM;
+	if (IS_ERR(fud))
+		return PTR_ERR(fud);
 
 	if (!user_backed_iter(to))
 		return -EINVAL;
@@ -1555,8 +1577,8 @@ static ssize_t fuse_dev_splice_read(struct file *in, loff_t *ppos,
 	struct fuse_copy_state cs;
 	struct fuse_dev *fud = fuse_get_dev(in);
 
-	if (!fud)
-		return -EPERM;
+	if (IS_ERR(fud))
+		return PTR_ERR(fud);
 
 	bufs = kvmalloc_array(pipe->max_usage, sizeof(struct pipe_buffer),
 			      GFP_KERNEL);
@@ -1600,45 +1622,37 @@ static int fuse_notify_poll(struct fuse_conn *fc, unsigned int size,
 			    struct fuse_copy_state *cs)
 {
 	struct fuse_notify_poll_wakeup_out outarg;
-	int err = -EINVAL;
+	int err;
 
 	if (size != sizeof(outarg))
-		goto err;
+		return -EINVAL;
 
 	err = fuse_copy_one(cs, &outarg, sizeof(outarg));
 	if (err)
-		goto err;
+		return err;
 
 	fuse_copy_finish(cs);
 	return fuse_notify_poll_wakeup(fc, &outarg);
-
-err:
-	fuse_copy_finish(cs);
-	return err;
 }
 
 static int fuse_notify_inval_inode(struct fuse_conn *fc, unsigned int size,
 				   struct fuse_copy_state *cs)
 {
 	struct fuse_notify_inval_inode_out outarg;
-	int err = -EINVAL;
+	int err;
 
 	if (size != sizeof(outarg))
-		goto err;
+		return -EINVAL;
 
 	err = fuse_copy_one(cs, &outarg, sizeof(outarg));
 	if (err)
-		goto err;
+		return err;
 	fuse_copy_finish(cs);
 
 	down_read(&fc->killsb);
 	err = fuse_reverse_inval_inode(fc, outarg.ino,
 				       outarg.off, outarg.len);
 	up_read(&fc->killsb);
-	return err;
-
-err:
-	fuse_copy_finish(cs);
 	return err;
 }
 
@@ -1647,29 +1661,26 @@ static int fuse_notify_inval_entry(struct fuse_conn *fc, unsigned int size,
 {
 	struct fuse_notify_inval_entry_out outarg;
 	int err;
-	char *buf = NULL;
+	char *buf;
 	struct qstr name;
 
-	err = -EINVAL;
 	if (size < sizeof(outarg))
-		goto err;
+		return -EINVAL;
 
 	err = fuse_copy_one(cs, &outarg, sizeof(outarg));
 	if (err)
-		goto err;
+		return err;
 
-	err = -ENAMETOOLONG;
 	if (outarg.namelen > fc->name_max)
-		goto err;
+		return -ENAMETOOLONG;
 
 	err = -EINVAL;
 	if (size != sizeof(outarg) + outarg.namelen + 1)
-		goto err;
+		return -EINVAL;
 
-	err = -ENOMEM;
 	buf = kzalloc(outarg.namelen + 1, GFP_KERNEL);
 	if (!buf)
-		goto err;
+		return -ENOMEM;
 
 	name.name = buf;
 	name.len = outarg.namelen;
@@ -1682,12 +1693,8 @@ static int fuse_notify_inval_entry(struct fuse_conn *fc, unsigned int size,
 	down_read(&fc->killsb);
 	err = fuse_reverse_inval_entry(fc, outarg.parent, 0, &name, outarg.flags);
 	up_read(&fc->killsb);
-	kfree(buf);
-	return err;
-
 err:
 	kfree(buf);
-	fuse_copy_finish(cs);
 	return err;
 }
 
@@ -1696,29 +1703,25 @@ static int fuse_notify_delete(struct fuse_conn *fc, unsigned int size,
 {
 	struct fuse_notify_delete_out outarg;
 	int err;
-	char *buf = NULL;
+	char *buf;
 	struct qstr name;
 
-	err = -EINVAL;
 	if (size < sizeof(outarg))
-		goto err;
+		return -EINVAL;
 
 	err = fuse_copy_one(cs, &outarg, sizeof(outarg));
 	if (err)
-		goto err;
+		return err;
 
-	err = -ENAMETOOLONG;
 	if (outarg.namelen > fc->name_max)
-		goto err;
+		return -ENAMETOOLONG;
 
-	err = -EINVAL;
 	if (size != sizeof(outarg) + outarg.namelen + 1)
-		goto err;
+		return -EINVAL;
 
-	err = -ENOMEM;
 	buf = kzalloc(outarg.namelen + 1, GFP_KERNEL);
 	if (!buf)
-		goto err;
+		return -ENOMEM;
 
 	name.name = buf;
 	name.len = outarg.namelen;
@@ -1731,12 +1734,8 @@ static int fuse_notify_delete(struct fuse_conn *fc, unsigned int size,
 	down_read(&fc->killsb);
 	err = fuse_reverse_inval_entry(fc, outarg.parent, outarg.child, &name, 0);
 	up_read(&fc->killsb);
-	kfree(buf);
-	return err;
-
 err:
 	kfree(buf);
-	fuse_copy_finish(cs);
 	return err;
 }
 
@@ -1754,17 +1753,15 @@ static int fuse_notify_store(struct fuse_conn *fc, unsigned int size,
 	loff_t file_size;
 	loff_t end;
 
-	err = -EINVAL;
 	if (size < sizeof(outarg))
-		goto out_finish;
+		return -EINVAL;
 
 	err = fuse_copy_one(cs, &outarg, sizeof(outarg));
 	if (err)
-		goto out_finish;
+		return err;
 
-	err = -EINVAL;
 	if (size - sizeof(outarg) != outarg.size)
-		goto out_finish;
+		return -EINVAL;
 
 	nodeid = outarg.nodeid;
 
@@ -1824,8 +1821,6 @@ out_iput:
 	iput(inode);
 out_up_killsb:
 	up_read(&fc->killsb);
-out_finish:
-	fuse_copy_finish(cs);
 	return err;
 }
 
@@ -1940,13 +1935,12 @@ static int fuse_notify_retrieve(struct fuse_conn *fc, unsigned int size,
 	u64 nodeid;
 	int err;
 
-	err = -EINVAL;
 	if (size != sizeof(outarg))
-		goto copy_finish;
+		return -EINVAL;
 
 	err = fuse_copy_one(cs, &outarg, sizeof(outarg));
 	if (err)
-		goto copy_finish;
+		return err;
 
 	fuse_copy_finish(cs);
 
@@ -1961,10 +1955,6 @@ static int fuse_notify_retrieve(struct fuse_conn *fc, unsigned int size,
 	}
 	up_read(&fc->killsb);
 
-	return err;
-
-copy_finish:
-	fuse_copy_finish(cs);
 	return err;
 }
 
@@ -2044,6 +2034,42 @@ static int fuse_notify_inc_epoch(struct fuse_conn *fc)
 	return 0;
 }
 
+static int fuse_notify_prune(struct fuse_conn *fc, unsigned int size,
+			     struct fuse_copy_state *cs)
+{
+	struct fuse_notify_prune_out outarg;
+	const unsigned int batch = 512;
+	u64 *nodeids __free(kfree) = kmalloc(sizeof(u64) * batch, GFP_KERNEL);
+	unsigned int num, i;
+	int err;
+
+	if (!nodeids)
+		return -ENOMEM;
+
+	if (size < sizeof(outarg))
+		return -EINVAL;
+
+	err = fuse_copy_one(cs, &outarg, sizeof(outarg));
+	if (err)
+		return err;
+
+	if (size - sizeof(outarg) != outarg.count * sizeof(u64))
+		return -EINVAL;
+
+	for (; outarg.count; outarg.count -= num) {
+		num = min(batch, outarg.count);
+		err = fuse_copy_one(cs, nodeids, num * sizeof(u64));
+		if (err)
+			return err;
+
+		scoped_guard(rwsem_read, &fc->killsb) {
+			for (i = 0; i < num; i++)
+				fuse_try_prune_one_inode(fc, nodeids[i]);
+		}
+	}
+	return 0;
+}
+
 static int fuse_notify(struct fuse_conn *fc, enum fuse_notify_code code,
 		       unsigned int size, struct fuse_copy_state *cs)
 {
@@ -2075,8 +2101,10 @@ static int fuse_notify(struct fuse_conn *fc, enum fuse_notify_code code,
 	case FUSE_NOTIFY_INC_EPOCH:
 		return fuse_notify_inc_epoch(fc);
 
+	case FUSE_NOTIFY_PRUNE:
+		return fuse_notify_prune(fc, size, cs);
+
 	default:
-		fuse_copy_finish(cs);
 		return -EINVAL;
 	}
 }
@@ -2156,7 +2184,7 @@ static ssize_t fuse_dev_do_write(struct fuse_dev *fud,
 	 */
 	if (!oh.unique) {
 		err = fuse_notify(fc, oh.error, nbytes - sizeof(oh), cs);
-		goto out;
+		goto copy_finish;
 	}
 
 	err = -EINVAL;
@@ -2229,7 +2257,7 @@ copy_finish:
 static ssize_t fuse_dev_write(struct kiocb *iocb, struct iov_iter *from)
 {
 	struct fuse_copy_state cs;
-	struct fuse_dev *fud = fuse_get_dev(iocb->ki_filp);
+	struct fuse_dev *fud = __fuse_get_dev(iocb->ki_filp);
 
 	if (!fud)
 		return -EPERM;
@@ -2251,11 +2279,10 @@ static ssize_t fuse_dev_splice_write(struct pipe_inode_info *pipe,
 	unsigned idx;
 	struct pipe_buffer *bufs;
 	struct fuse_copy_state cs;
-	struct fuse_dev *fud;
+	struct fuse_dev *fud = __fuse_get_dev(out);
 	size_t rem;
 	ssize_t ret;
 
-	fud = fuse_get_dev(out);
 	if (!fud)
 		return -EPERM;
 
@@ -2341,7 +2368,7 @@ static __poll_t fuse_dev_poll(struct file *file, poll_table *wait)
 	struct fuse_iqueue *fiq;
 	struct fuse_dev *fud = fuse_get_dev(file);
 
-	if (!fud)
+	if (IS_ERR(fud))
 		return EPOLLERR;
 
 	fiq = &fud->fc->iq;
@@ -2394,7 +2421,7 @@ static void end_polls(struct fuse_conn *fc)
  * The same effect is usually achievable through killing the filesystem daemon
  * and all users of the filesystem.  The exception is the combination of an
  * asynchronous request and the tricky deadlock (see
- * Documentation/filesystems/fuse.rst).
+ * Documentation/filesystems/fuse/fuse.rst).
  *
  * Aborting requests under I/O goes as follows: 1: Separate out unlocked
  * requests, they should be finished off immediately.  Locked requests will be
@@ -2488,7 +2515,7 @@ void fuse_wait_aborted(struct fuse_conn *fc)
 
 int fuse_dev_release(struct inode *inode, struct file *file)
 {
-	struct fuse_dev *fud = fuse_get_dev(file);
+	struct fuse_dev *fud = __fuse_get_dev(file);
 
 	if (fud) {
 		struct fuse_conn *fc = fud->fc;
@@ -2519,8 +2546,8 @@ static int fuse_dev_fasync(int fd, struct file *file, int on)
 {
 	struct fuse_dev *fud = fuse_get_dev(file);
 
-	if (!fud)
-		return -EPERM;
+	if (IS_ERR(fud))
+		return PTR_ERR(fud);
 
 	/* No locking - fasync_helper does its own locking */
 	return fasync_helper(fd, file, on, &fud->fc->iq.fasync);
@@ -2530,7 +2557,7 @@ static int fuse_device_clone(struct fuse_conn *fc, struct file *new)
 {
 	struct fuse_dev *fud;
 
-	if (new->private_data)
+	if (__fuse_get_dev(new))
 		return -EINVAL;
 
 	fud = fuse_dev_alloc_install(fc);
@@ -2561,7 +2588,7 @@ static long fuse_dev_ioctl_clone(struct file *file, __u32 __user *argp)
 	 * uses the same ioctl handler.
 	 */
 	if (fd_file(f)->f_op == file->f_op)
-		fud = fuse_get_dev(fd_file(f));
+		fud = __fuse_get_dev(fd_file(f));
 
 	res = -EINVAL;
 	if (fud) {
@@ -2579,8 +2606,8 @@ static long fuse_dev_ioctl_backing_open(struct file *file,
 	struct fuse_dev *fud = fuse_get_dev(file);
 	struct fuse_backing_map map;
 
-	if (!fud)
-		return -EPERM;
+	if (IS_ERR(fud))
+		return PTR_ERR(fud);
 
 	if (!IS_ENABLED(CONFIG_FUSE_PASSTHROUGH))
 		return -EOPNOTSUPP;
@@ -2596,8 +2623,8 @@ static long fuse_dev_ioctl_backing_close(struct file *file, __u32 __user *argp)
 	struct fuse_dev *fud = fuse_get_dev(file);
 	int backing_id;
 
-	if (!fud)
-		return -EPERM;
+	if (IS_ERR(fud))
+		return PTR_ERR(fud);
 
 	if (!IS_ENABLED(CONFIG_FUSE_PASSTHROUGH))
 		return -EOPNOTSUPP;
@@ -2606,6 +2633,19 @@ static long fuse_dev_ioctl_backing_close(struct file *file, __u32 __user *argp)
 		return -EFAULT;
 
 	return fuse_backing_close(fud->fc, backing_id);
+}
+
+static long fuse_dev_ioctl_sync_init(struct file *file)
+{
+	int err = -EINVAL;
+
+	mutex_lock(&fuse_mutex);
+	if (!__fuse_get_dev(file)) {
+		WRITE_ONCE(file->private_data, FUSE_DEV_SYNC_INIT);
+		err = 0;
+	}
+	mutex_unlock(&fuse_mutex);
+	return err;
 }
 
 static long fuse_dev_ioctl(struct file *file, unsigned int cmd,
@@ -2623,6 +2663,9 @@ static long fuse_dev_ioctl(struct file *file, unsigned int cmd,
 	case FUSE_DEV_IOC_BACKING_CLOSE:
 		return fuse_dev_ioctl_backing_close(file, argp);
 
+	case FUSE_DEV_IOC_SYNC_INIT:
+		return fuse_dev_ioctl_sync_init(file);
+
 	default:
 		return -ENOTTY;
 	}
@@ -2631,7 +2674,7 @@ static long fuse_dev_ioctl(struct file *file, unsigned int cmd,
 #ifdef CONFIG_PROC_FS
 static void fuse_dev_show_fdinfo(struct seq_file *seq, struct file *file)
 {
-	struct fuse_dev *fud = fuse_get_dev(file);
+	struct fuse_dev *fud = __fuse_get_dev(file);
 	if (!fud)
 		return;
 

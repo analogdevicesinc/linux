@@ -116,7 +116,7 @@ static void csum_tree_block(struct extent_buffer *buf, u8 *result)
  * detect blocks that either didn't get written at all or got written
  * in the wrong place.
  */
-int btrfs_buffer_uptodate(struct extent_buffer *eb, u64 parent_transid, int atomic)
+int btrfs_buffer_uptodate(struct extent_buffer *eb, u64 parent_transid, bool atomic)
 {
 	if (!extent_buffer_uptodate(eb))
 		return 0;
@@ -1047,7 +1047,7 @@ static struct btrfs_root *read_tree_root_path(struct btrfs_root *tree_root,
 		root->node = NULL;
 		goto fail;
 	}
-	if (!btrfs_buffer_uptodate(root->node, generation, 0)) {
+	if (!btrfs_buffer_uptodate(root->node, generation, false)) {
 		ret = -EIO;
 		goto fail;
 	}
@@ -1248,6 +1248,7 @@ void btrfs_free_fs_info(struct btrfs_fs_info *fs_info)
 
 	if (fs_info->fs_devices)
 		btrfs_close_devices(fs_info->fs_devices);
+	btrfs_free_compress_wsm(fs_info);
 	percpu_counter_destroy(&fs_info->stats_read_blocks);
 	percpu_counter_destroy(&fs_info->dirty_metadata_bytes);
 	percpu_counter_destroy(&fs_info->delalloc_bytes);
@@ -2088,10 +2089,10 @@ static int btrfs_replay_log(struct btrfs_fs_info *fs_info,
 
 	/* returns with log_tree_root freed on success */
 	ret = btrfs_recover_log_trees(log_tree_root);
+	btrfs_put_root(log_tree_root);
 	if (ret) {
 		btrfs_handle_fs_error(fs_info, ret,
 				      "Failed to recover log tree");
-		btrfs_put_root(log_tree_root);
 		return ret;
 	}
 
@@ -2439,21 +2440,7 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 		ret = -EINVAL;
 	}
 
-	/*
-	 * We only support at most 3 sectorsizes: 4K, PAGE_SIZE, MIN_BLOCKSIZE.
-	 *
-	 * For 4K page sized systems with non-debug builds, all 3 matches (4K).
-	 * For 4K page sized systems with debug builds, there are two block sizes
-	 * supported. (4K and 2K)
-	 *
-	 * We can support 16K sectorsize with 64K page size without problem,
-	 * but such sectorsize/pagesize combination doesn't make much sense.
-	 * 4K will be our future standard, PAGE_SIZE is supported from the very
-	 * beginning.
-	 */
-	if (sectorsize > PAGE_SIZE || (sectorsize != SZ_4K &&
-				       sectorsize != PAGE_SIZE &&
-				       sectorsize != BTRFS_MIN_BLOCKSIZE)) {
+	if (!btrfs_supported_blocksize(sectorsize)) {
 		btrfs_err(fs_info,
 			"sectorsize %llu not yet supported for page size %lu",
 			sectorsize, PAGE_SIZE);
@@ -3259,7 +3246,7 @@ int btrfs_check_features(struct btrfs_fs_info *fs_info, bool is_rw_mount)
 	/*
 	 * Subpage runtime limitation on v1 cache.
 	 *
-	 * V1 space cache still has some hard codeed PAGE_SIZE usage, while
+	 * V1 space cache still has some hard coded PAGE_SIZE usage, while
 	 * we're already defaulting to v2 cache, no need to bother v1 as it's
 	 * going to be deprecated anyway.
 	 */
@@ -3397,6 +3384,8 @@ int __cold open_ctree(struct super_block *sb, struct btrfs_fs_devices *fs_device
 	fs_info->nodesize_bits = ilog2(nodesize);
 	fs_info->sectorsize = sectorsize;
 	fs_info->sectorsize_bits = ilog2(sectorsize);
+	fs_info->block_min_order = ilog2(round_up(sectorsize, PAGE_SIZE) >> PAGE_SHIFT);
+	fs_info->block_max_order = ilog2((BITS_PER_LONG << fs_info->sectorsize_bits) >> PAGE_SHIFT);
 	fs_info->csums_per_leaf = BTRFS_MAX_ITEM_SIZE(fs_info) / fs_info->csum_size;
 	fs_info->stripesize = stripesize;
 	fs_info->fs_devices->fs_info = fs_info;
@@ -3422,6 +3411,9 @@ int __cold open_ctree(struct super_block *sb, struct btrfs_fs_devices *fs_device
 	 */
 	fs_info->max_inline = min_t(u64, fs_info->max_inline, fs_info->sectorsize);
 
+	ret = btrfs_alloc_compress_wsm(fs_info);
+	if (ret)
+		goto fail_sb_buffer;
 	ret = btrfs_init_workqueues(fs_info);
 	if (ret)
 		goto fail_sb_buffer;

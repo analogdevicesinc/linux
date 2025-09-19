@@ -973,7 +973,7 @@ typedef int (*iterate_inode_ref_t)(u64 dir, struct fs_path *p, void *ctx);
  * path must point to the INODE_REF or INODE_EXTREF when called.
  */
 static int iterate_inode_ref(struct btrfs_root *root, struct btrfs_path *path,
-			     struct btrfs_key *found_key, int resolve,
+			     struct btrfs_key *found_key, bool resolve,
 			     iterate_inode_ref_t iterate, void *ctx)
 {
 	struct extent_buffer *eb = path->nodes[0];
@@ -1251,8 +1251,7 @@ static int get_inode_path(struct btrfs_root *root,
 		goto out;
 	}
 
-	ret = iterate_inode_ref(root, p, &found_key, 1,
-				__copy_first_ref, path);
+	ret = iterate_inode_ref(root, p, &found_key, true, __copy_first_ref, path);
 	if (ret < 0)
 		goto out;
 	ret = 0;
@@ -1389,7 +1388,7 @@ static bool lookup_backref_cache(u64 leaf_bytenr, void *ctx,
 	struct backref_ctx *bctx = ctx;
 	struct send_ctx *sctx = bctx->sctx;
 	struct btrfs_fs_info *fs_info = sctx->send_root->fs_info;
-	const u64 key = leaf_bytenr >> fs_info->sectorsize_bits;
+	const u64 key = leaf_bytenr >> fs_info->nodesize_bits;
 	struct btrfs_lru_cache_entry *raw_entry;
 	struct backref_cache_entry *entry;
 
@@ -1444,7 +1443,7 @@ static void store_backref_cache(u64 leaf_bytenr, const struct ulist *root_ids,
 	if (!new_entry)
 		return;
 
-	new_entry->entry.key = leaf_bytenr >> fs_info->sectorsize_bits;
+	new_entry->entry.key = leaf_bytenr >> fs_info->nodesize_bits;
 	new_entry->entry.gen = 0;
 	new_entry->num_roots = 0;
 	ULIST_ITER_INIT(&uiter);
@@ -1739,7 +1738,7 @@ static int read_symlink(struct btrfs_root *root,
 		 * An empty symlink inode. Can happen in rare error paths when
 		 * creating a symlink (transaction committed before the inode
 		 * eviction handler removed the symlink inode items and a crash
-		 * happened in between or the subvol was snapshoted in between).
+		 * happened in between or the subvol was snapshotted in between).
 		 * Print an informative message to dmesg/syslog so that the user
 		 * can delete the symlink.
 		 */
@@ -2769,7 +2768,7 @@ out:
  * processing an inode that is a directory and it just got renamed, and existing
  * entries in the cache may refer to inodes that have the directory in their
  * full path - in which case we would generate outdated paths (pre-rename)
- * for the inodes that the cache entries point to. Instead of prunning the
+ * for the inodes that the cache entries point to. Instead of pruning the
  * cache when inserting, do it after we finish processing each inode at
  * finish_inode_if_needed().
  */
@@ -4756,8 +4755,8 @@ static int record_new_ref(struct send_ctx *sctx)
 {
 	int ret;
 
-	ret = iterate_inode_ref(sctx->send_root, sctx->left_path,
-				sctx->cmp_key, 0, record_new_ref_if_needed, sctx);
+	ret = iterate_inode_ref(sctx->send_root, sctx->left_path, sctx->cmp_key,
+				false, record_new_ref_if_needed, sctx);
 	if (ret < 0)
 		return ret;
 
@@ -4768,9 +4767,8 @@ static int record_deleted_ref(struct send_ctx *sctx)
 {
 	int ret;
 
-	ret = iterate_inode_ref(sctx->parent_root, sctx->right_path,
-				sctx->cmp_key, 0, record_deleted_ref_if_needed,
-				sctx);
+	ret = iterate_inode_ref(sctx->parent_root, sctx->right_path, sctx->cmp_key,
+				false, record_deleted_ref_if_needed, sctx);
 	if (ret < 0)
 		return ret;
 
@@ -4781,12 +4779,12 @@ static int record_changed_ref(struct send_ctx *sctx)
 {
 	int ret;
 
-	ret = iterate_inode_ref(sctx->send_root, sctx->left_path,
-			sctx->cmp_key, 0, record_new_ref_if_needed, sctx);
+	ret = iterate_inode_ref(sctx->send_root, sctx->left_path, sctx->cmp_key,
+				false, record_new_ref_if_needed, sctx);
 	if (ret < 0)
 		return ret;
-	ret = iterate_inode_ref(sctx->parent_root, sctx->right_path,
-			sctx->cmp_key, 0, record_deleted_ref_if_needed, sctx);
+	ret = iterate_inode_ref(sctx->parent_root, sctx->right_path, sctx->cmp_key,
+				false, record_deleted_ref_if_needed, sctx);
 	if (ret < 0)
 		return ret;
 
@@ -4835,7 +4833,7 @@ static int process_all_refs(struct send_ctx *sctx,
 		     found_key.type != BTRFS_INODE_EXTREF_KEY))
 			break;
 
-		ret = iterate_inode_ref(root, path, &found_key, 0, cb, sctx);
+		ret = iterate_inode_ref(root, path, &found_key, false, cb, sctx);
 		if (ret < 0)
 			goto out;
 	}
@@ -6578,7 +6576,7 @@ static int process_all_extents(struct send_ctx *sctx)
 	return ret;
 }
 
-static int process_recorded_refs_if_needed(struct send_ctx *sctx, int at_end,
+static int process_recorded_refs_if_needed(struct send_ctx *sctx, bool at_end,
 					   int *pending_move,
 					   int *refs_processed)
 {
@@ -6601,7 +6599,7 @@ out:
 	return ret;
 }
 
-static int finish_inode_if_needed(struct send_ctx *sctx, int at_end)
+static int finish_inode_if_needed(struct send_ctx *sctx, bool at_end)
 {
 	int ret = 0;
 	struct btrfs_inode_info info;
@@ -7986,7 +7984,7 @@ static int ensure_commit_roots_uptodate(struct send_ctx *sctx)
 }
 
 /*
- * Make sure any existing dellaloc is flushed for any root used by a send
+ * Make sure any existing delalloc is flushed for any root used by a send
  * operation so that we do not miss any data and we do not race with writeback
  * finishing and changing a tree while send is using the tree. This could
  * happen if a subvolume is in RW mode, has delalloc, is turned to RO mode and

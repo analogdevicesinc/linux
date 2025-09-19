@@ -1449,6 +1449,10 @@ static int follow_automount(struct path *path, int *count, unsigned lookup_flags
 	    dentry->d_inode)
 		return -EISDIR;
 
+	/* No need to trigger automounts if mountpoint crossing is disabled. */
+	if (lookup_flags & LOOKUP_NO_XDEV)
+		return -EXDEV;
+
 	if (count && (*count)++ >= MAXSYMLINKS)
 		return -ELOOP;
 
@@ -1472,6 +1476,10 @@ static int __traverse_mounts(struct path *path, unsigned flags, bool *jumped,
 		/* Allow the filesystem to manage the transit without i_rwsem
 		 * being held. */
 		if (flags & DCACHE_MANAGE_TRANSIT) {
+			if (lookup_flags & LOOKUP_NO_XDEV) {
+				ret = -EXDEV;
+				break;
+			}
 			ret = path->dentry->d_op->d_manage(path, false);
 			flags = smp_load_acquire(&path->dentry->d_flags);
 			if (ret < 0)
@@ -1489,6 +1497,10 @@ static int __traverse_mounts(struct path *path, unsigned flags, bool *jumped,
 				// here we know it's positive
 				flags = path->dentry->d_flags;
 				need_mntput = true;
+				if (unlikely(lookup_flags & LOOKUP_NO_XDEV)) {
+					ret = -EXDEV;
+					break;
+				}
 				continue;
 			}
 		}
@@ -1630,12 +1642,8 @@ static inline int handle_mounts(struct nameidata *nd, struct dentry *dentry,
 			return -ECHILD;
 	}
 	ret = traverse_mounts(path, &jumped, &nd->total_link_count, nd->flags);
-	if (jumped) {
-		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-			ret = -EXDEV;
-		else
-			nd->state |= ND_JUMPED;
-	}
+	if (jumped)
+		nd->state |= ND_JUMPED;
 	if (unlikely(ret)) {
 		dput(path->dentry);
 		if (path->mnt != nd->path.mnt)
@@ -2673,7 +2681,7 @@ static int path_lookupat(struct nameidata *nd, unsigned flags, struct path *path
 }
 
 int filename_lookup(int dfd, struct filename *name, unsigned flags,
-		    struct path *path, struct path *root)
+		    struct path *path, const struct path *root)
 {
 	int retval;
 	struct nameidata nd;
@@ -3563,8 +3571,8 @@ static struct dentry *atomic_open(struct nameidata *nd, struct dentry *dentry,
 	if (nd->flags & LOOKUP_DIRECTORY)
 		open_flag |= O_DIRECTORY;
 
-	file->f_path.dentry = DENTRY_NOT_SET;
-	file->f_path.mnt = nd->path.mnt;
+	file->__f_path.dentry = DENTRY_NOT_SET;
+	file->__f_path.mnt = nd->path.mnt;
 	error = dir->i_op->atomic_open(dir, dentry, file,
 				       open_to_namei_flags(open_flag), mode);
 	d_lookup_done(dentry);
@@ -3932,8 +3940,8 @@ int vfs_tmpfile(struct mnt_idmap *idmap,
 	child = d_alloc(parentpath->dentry, &slash_name);
 	if (unlikely(!child))
 		return -ENOMEM;
-	file->f_path.mnt = parentpath->mnt;
-	file->f_path.dentry = child;
+	file->__f_path.mnt = parentpath->mnt;
+	file->__f_path.dentry = child;
 	mode = vfs_prepare_mode(idmap, dir, mode, mode, mode);
 	error = dir->i_op->tmpfile(idmap, dir, file, mode);
 	dput(child);
@@ -4170,7 +4178,7 @@ struct dentry *kern_path_create(int dfd, const char *pathname,
 }
 EXPORT_SYMBOL(kern_path_create);
 
-void done_path_create(struct path *path, struct dentry *dentry)
+void done_path_create(const struct path *path, struct dentry *dentry)
 {
 	if (!IS_ERR(dentry))
 		dput(dentry);
@@ -4828,7 +4836,7 @@ int vfs_link(struct dentry *old_dentry, struct mnt_idmap *idmap,
 		return -EPERM;
 	/*
 	 * Updating the link count will likely cause i_uid and i_gid to
-	 * be writen back improperly if their true value is unknown to
+	 * be written back improperly if their true value is unknown to
 	 * the vfs.
 	 */
 	if (HAS_UNMAPPED_ID(idmap, inode))

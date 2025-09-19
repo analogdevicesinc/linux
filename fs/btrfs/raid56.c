@@ -1208,17 +1208,16 @@ static void index_one_bio(struct btrfs_raid_bio *rbio, struct bio *bio)
 	const u32 sectorsize = rbio->bioc->fs_info->sectorsize;
 	const u32 sectorsize_bits = rbio->bioc->fs_info->sectorsize_bits;
 	struct bvec_iter iter = bio->bi_iter;
+	phys_addr_t paddr;
 	u32 offset = (bio->bi_iter.bi_sector << SECTOR_SHIFT) -
 		     rbio->bioc->full_stripe_logical;
 
-	while (iter.bi_size) {
+	btrfs_bio_for_each_block(paddr, bio, &iter, sectorsize) {
 		unsigned int index = (offset >> sectorsize_bits);
 		struct sector_ptr *sector = &rbio->bio_sectors[index];
-		struct bio_vec bv = bio_iter_iovec(bio, iter);
 
 		sector->has_paddr = true;
-		sector->paddr = bvec_phys(&bv);
-		bio_advance_iter_single(bio, &iter, sectorsize);
+		sector->paddr = paddr;
 		offset += sectorsize;
 	}
 }
@@ -1511,22 +1510,17 @@ static struct sector_ptr *find_stripe_sector(struct btrfs_raid_bio *rbio,
  */
 static void set_bio_pages_uptodate(struct btrfs_raid_bio *rbio, struct bio *bio)
 {
-	const u32 sectorsize = rbio->bioc->fs_info->sectorsize;
-	struct bio_vec *bvec;
-	struct bvec_iter_all iter_all;
+	const u32 blocksize = rbio->bioc->fs_info->sectorsize;
+	phys_addr_t paddr;
 
 	ASSERT(!bio_flagged(bio, BIO_CLONED));
 
-	bio_for_each_segment_all(bvec, bio, iter_all) {
-		struct sector_ptr *sector;
-		phys_addr_t paddr = bvec_phys(bvec);
+	btrfs_bio_for_each_block_all(paddr, bio, blocksize) {
+		struct sector_ptr *sector = find_stripe_sector(rbio, paddr);
 
-		for (u32 off = 0; off < bvec->bv_len; off += sectorsize) {
-			sector = find_stripe_sector(rbio, paddr + off);
-			ASSERT(sector);
-			if (sector)
-				sector->uptodate = 1;
-		}
+		ASSERT(sector);
+		if (sector)
+			sector->uptodate = 1;
 	}
 }
 
@@ -1573,8 +1567,7 @@ static void verify_bio_data_sectors(struct btrfs_raid_bio *rbio,
 {
 	struct btrfs_fs_info *fs_info = rbio->bioc->fs_info;
 	int total_sector_nr = get_bio_sector_nr(rbio, bio);
-	struct bio_vec *bvec;
-	struct bvec_iter_all iter_all;
+	phys_addr_t paddr;
 
 	/* No data csum for the whole stripe, no need to verify. */
 	if (!rbio->csum_bitmap || !rbio->csum_buf)
@@ -1584,27 +1577,20 @@ static void verify_bio_data_sectors(struct btrfs_raid_bio *rbio,
 	if (total_sector_nr >= rbio->nr_data * rbio->stripe_nsectors)
 		return;
 
-	bio_for_each_segment_all(bvec, bio, iter_all) {
-		void *kaddr;
+	btrfs_bio_for_each_block_all(paddr, bio, fs_info->sectorsize) {
+		u8 csum_buf[BTRFS_CSUM_SIZE];
+		u8 *expected_csum = rbio->csum_buf + total_sector_nr * fs_info->csum_size;
+		int ret;
 
-		kaddr = bvec_kmap_local(bvec);
-		for (u32 off = 0; off < bvec->bv_len;
-		     off += fs_info->sectorsize, total_sector_nr++) {
-			u8 csum_buf[BTRFS_CSUM_SIZE];
-			u8 *expected_csum = rbio->csum_buf +
-					    total_sector_nr * fs_info->csum_size;
-			int ret;
+		/* No csum for this sector, skip to the next sector. */
+		if (!test_bit(total_sector_nr, rbio->csum_bitmap))
+			continue;
 
-			/* No csum for this sector, skip to the next sector. */
-			if (!test_bit(total_sector_nr, rbio->csum_bitmap))
-				continue;
-
-			ret = btrfs_check_sector_csum(fs_info, kaddr + off,
-						      csum_buf, expected_csum);
-			if (ret < 0)
-				set_bit(total_sector_nr, rbio->error_bitmap);
-		}
-		kunmap_local(kaddr);
+		ret = btrfs_check_block_csum(fs_info, paddr,
+					     csum_buf, expected_csum);
+		if (ret < 0)
+			set_bit(total_sector_nr, rbio->error_bitmap);
+		total_sector_nr++;
 	}
 }
 
@@ -1802,7 +1788,6 @@ static int verify_one_sector(struct btrfs_raid_bio *rbio,
 	struct sector_ptr *sector;
 	u8 csum_buf[BTRFS_CSUM_SIZE];
 	u8 *csum_expected;
-	void *kaddr;
 	int ret;
 
 	if (!rbio->csum_bitmap || !rbio->csum_buf)
@@ -1824,9 +1809,7 @@ static int verify_one_sector(struct btrfs_raid_bio *rbio,
 	csum_expected = rbio->csum_buf +
 			(stripe_nr * rbio->stripe_nsectors + sector_nr) *
 			fs_info->csum_size;
-	kaddr = kmap_local_sector(sector);
-	ret = btrfs_check_sector_csum(fs_info, kaddr, csum_buf, csum_expected);
-	kunmap_local(kaddr);
+	ret = btrfs_check_block_csum(fs_info, sector->paddr, csum_buf, csum_expected);
 	return ret;
 }
 

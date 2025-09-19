@@ -957,7 +957,7 @@ static noinline int btrfs_mksnapshot(struct dentry *parent,
 
 	/*
 	 * Force new buffered writes to reserve space even when NOCOW is
-	 * possible. This is to avoid later writeback (running dealloc) to
+	 * possible. This is to avoid later writeback (running delalloc) to
 	 * fallback to COW mode and unexpectedly fail with ENOSPC.
 	 */
 	btrfs_drew_read_lock(&root->snapshot_lock);
@@ -1251,7 +1251,7 @@ out:
 }
 
 static noinline int btrfs_ioctl_snap_create(struct file *file,
-					    void __user *arg, int subvol)
+					    void __user *arg, bool subvol)
 {
 	struct btrfs_ioctl_vol_args *vol_args;
 	int ret;
@@ -5223,13 +5223,13 @@ long btrfs_ioctl(struct file *file, unsigned int
 	case FITRIM:
 		return btrfs_ioctl_fitrim(fs_info, argp);
 	case BTRFS_IOC_SNAP_CREATE:
-		return btrfs_ioctl_snap_create(file, argp, 0);
+		return btrfs_ioctl_snap_create(file, argp, false);
 	case BTRFS_IOC_SNAP_CREATE_V2:
-		return btrfs_ioctl_snap_create_v2(file, argp, 0);
+		return btrfs_ioctl_snap_create_v2(file, argp, false);
 	case BTRFS_IOC_SUBVOL_CREATE:
-		return btrfs_ioctl_snap_create(file, argp, 1);
+		return btrfs_ioctl_snap_create(file, argp, true);
 	case BTRFS_IOC_SUBVOL_CREATE_V2:
-		return btrfs_ioctl_snap_create_v2(file, argp, 1);
+		return btrfs_ioctl_snap_create_v2(file, argp, true);
 	case BTRFS_IOC_SNAP_DESTROY:
 		return btrfs_ioctl_snap_destroy(file, argp, false);
 	case BTRFS_IOC_SNAP_DESTROY_V2:

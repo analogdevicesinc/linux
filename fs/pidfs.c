@@ -443,7 +443,7 @@ static bool pidfs_ioctl_valid(unsigned int cmd)
 		 * erronously mistook the file descriptor for a pidfd.
 		 * This is not perfect but will catch most cases.
 		 */
-		return (_IOC_TYPE(cmd) == _IOC_TYPE(PIDFD_GET_INFO));
+		return extensible_ioctl_valid(cmd, PIDFD_GET_INFO, PIDFD_INFO_SIZE_VER0);
 	}
 
 	return false;
@@ -721,7 +721,7 @@ static void pidfs_evict_inode(struct inode *inode)
 }
 
 static const struct super_operations pidfs_sops = {
-	.drop_inode	= generic_delete_inode,
+	.drop_inode	= inode_just_drop,
 	.evict_inode	= pidfs_evict_inode,
 	.statfs		= simple_statfs,
 };
@@ -850,7 +850,7 @@ static int pidfs_export_permission(struct handle_to_path_ctx *ctx,
 	return 0;
 }
 
-static struct file *pidfs_export_open(struct path *path, unsigned int oflags)
+static struct file *pidfs_export_open(const struct path *path, unsigned int oflags)
 {
 	/*
 	 * Clear O_LARGEFILE as open_by_handle_at() forces it and raise
