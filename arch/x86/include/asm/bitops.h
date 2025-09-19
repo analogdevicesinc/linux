@@ -240,7 +240,7 @@ arch_test_bit_acquire(unsigned long nr, const volatile unsigned long *addr)
 					  variable_test_bit(nr, addr);
 }
 
-static __always_inline unsigned long variable__ffs(unsigned long word)
+static __always_inline __attribute_const__ unsigned long variable__ffs(unsigned long word)
 {
 	asm("tzcnt %1,%0"
 		: "=r" (word)
@@ -259,7 +259,7 @@ static __always_inline unsigned long variable__ffs(unsigned long word)
 	 (unsigned long)__builtin_ctzl(word) :	\
 	 variable__ffs(word))
 
-static __always_inline unsigned long variable_ffz(unsigned long word)
+static __always_inline __attribute_const__ unsigned long variable_ffz(unsigned long word)
 {
 	return variable__ffs(~word);
 }
@@ -281,7 +281,7 @@ static __always_inline unsigned long variable_ffz(unsigned long word)
  *
  * Undefined if no set bit exists, so code should check against 0 first.
  */
-static __always_inline unsigned long __fls(unsigned long word)
+static __always_inline __attribute_const__ unsigned long __fls(unsigned long word)
 {
 	if (__builtin_constant_p(word))
 		return BITS_PER_LONG - 1 - __builtin_clzl(word);
@@ -295,7 +295,7 @@ static __always_inline unsigned long __fls(unsigned long word)
 #undef ADDR
 
 #ifdef __KERNEL__
-static __always_inline int variable_ffs(int x)
+static __always_inline __attribute_const__ int variable_ffs(int x)
 {
 	int r;
 
@@ -349,7 +349,7 @@ static __always_inline int variable_ffs(int x)
  * set bit if value is nonzero. The last (most significant) bit is
  * at position 32.
  */
-static __always_inline int fls(unsigned int x)
+static __always_inline __attribute_const__ int fls(unsigned int x)
 {
 	int r;
 
@@ -394,7 +394,7 @@ static __always_inline int fls(unsigned int x)
  * at position 64.
  */
 #ifdef CONFIG_X86_64
-static __always_inline int fls64(__u64 x)
+static __always_inline __attribute_const__ int fls64(__u64 x)
 {
 	int bitpos = -1;
 
