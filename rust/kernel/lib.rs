@@ -94,6 +94,7 @@ pub mod fs;
 pub mod init;
 pub mod io;
 pub mod ioctl;
+pub mod iov;
 pub mod irq;
 pub mod jump_label;
 #[cfg(CONFIG_KUNIT)]
