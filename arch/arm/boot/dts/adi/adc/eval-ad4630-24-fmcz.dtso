@@ -1,0 +1,116 @@
+/*
+ * https://www.analog.com/en/resources/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4630-24.html
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&{/} {
+	eval_u4: eval-board-u4-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL 5V REFERENCE supply (U4)";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	eval_u18: eval-board-u18-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL AVDD +5.4V supply (U18)";
+		regulator-always-on;
+	};
+
+	eval_u19: eval-board-u19-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL 1.8V VDD supply (U19)";
+		regulator-always-on;
+	};
+
+	eval_u20: eval-board-u20-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL 1.8V IOVDD supply (U20)";
+		min-regulator-microvolt = <1800000>;
+		max-regulator-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	eval_y1: eval-100mhz-clock {
+		compatible = "fixed-clock";
+		clock-frequency = <100000000>;
+	};
+
+	trigger_pwm: adc-pwm-trigger {
+		compatible = "pwm-trigger";
+		#trigger-source-cells = <0>;
+		pwms = <&adc_trigger 0 10000 0>;
+	};
+};
+
+&amba {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	interrupt-parent = <&intc>;
+
+	adc_trigger: pwm@44b00000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x44b00000 0x1000>;
+		#pwm-cells = <3>;
+		clocks = <&clkc 15>, <&eval_y1>;
+		clock-names = "axi", "ext";
+	};
+
+	rx_dma: dma-controller@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	spi_clk: clock-controller@44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x1000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "spi_clk";
+		// assigned-clocks = <&spi_clk>;
+		// assigned-clock-rates = <160000000>;
+	};
+
+	axi_spi_engine_0: spi@44a00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+
+		dmas = <&rx_dma 0>;
+		dma-names = "offload0-rx";
+		trigger-sources = <&trigger_pwm>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		adc@0 {
+			compatible = "adi,ad4630-24";
+			reg = <0>;
+
+			spi-max-frequency = <80000000>;
+
+			vdd-5v-supply = <&eval_u18>;
+			vdd-1v8-supply = <&eval_u19>;
+			vio-supply = <&eval_u20>;
+			/* JP5 is in default position. */
+			refin-supply = <&eval_u4>;
+
+			pwms = <&adc_trigger 1 1000000 0>;
+
+			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+			// cnv-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>;
+		};
+	};
+};
