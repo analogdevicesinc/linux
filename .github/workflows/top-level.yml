@@ -86,7 +86,7 @@ jobs:
           job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
   conditional_xlnx:
@@ -194,7 +194,7 @@ jobs:
           job_fail_many_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
   conditional_rpi:
@@ -273,7 +273,7 @@ jobs:
           job_fail_build_gcc_aarch64_adi_bcm2712_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2712_defconfig.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
   conditional_adsp:
@@ -364,7 +364,7 @@ jobs:
           job_fail_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
   conditional_oran:
@@ -395,6 +395,6 @@ jobs:
           job_fail_build_gcc_aarch64_adrv906x-eval_defconfig: ${{needs.build_gcc_aarch64_adrv906x-eval_defconfig.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
+            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
