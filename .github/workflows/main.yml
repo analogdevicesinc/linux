@@ -26,6 +26,8 @@ jobs:
     - name: Export labels
       id: assert
       run: |
+        curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o ci/runner_env.sh \
+          https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
         source ./ci/runner_env.sh
         export_labels
 
@@ -39,7 +41,7 @@ jobs:
           job_warn_sync_main: ${{needs.sync_branches.outputs.warn}}
           job_fail_sync_main: ${{needs.sync_branches.outputs.fail}}
         run: |
-          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o ci/runner_env.sh \
+            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
+          source ./ci/runner_env.sh
           assert_labels
