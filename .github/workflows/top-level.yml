@@ -5,11 +5,7 @@ on:
     branches:
       - main
       - ci/*
-      - rpi-6.1.y
-      - rpi-6.6.y
       - rpi-6.12.y
-      - 'adsp-[0-9]+.[0-9]+*-y'
-      - 'oran-[0-9]+.[0-9]+*-y'
     paths-ignore:
       - '.github/**'
       - 'ci/**'
@@ -89,16 +85,8 @@ jobs:
             https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
-  conditional_xlnx:
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref_name, 'ci/') || github.ref_name == 'main')
-    runs-on: [self-hosted, v1]
-    needs: [assert_checks]
-    steps:
-      - name: Conditional xilinx
-        run: echo xlnx
   build_gcc_arm_zynq_xcomm_adv7511_defconfig:
-    needs: [conditional_xlnx]
+    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
@@ -107,7 +95,7 @@ jobs:
       defconfig: "zynq_xcomm_adv7511_defconfig"
       auto_from_range: false
   build_gcc_arm_socfpga_adi_defconfig:
-    needs: [conditional_xlnx]
+    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
@@ -116,7 +104,7 @@ jobs:
       defconfig: "socfpga_adi_defconfig"
       auto_from_range: false
   build_gcc_arm_zynq_pluto_defconfig:
-    needs: [conditional_xlnx]
+    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
@@ -125,7 +113,7 @@ jobs:
       defconfig: "zynq_pluto_defconfig"
       auto_from_range: false
   build_gcc_arm_zynq_m2k_defconfig:
-    needs: [conditional_xlnx]
+    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
@@ -134,7 +122,7 @@ jobs:
       defconfig: "zynq_m2k_defconfig"
       auto_from_range: false
   build_gcc_aarch64_adi_zynqmp_defconfig:
-    needs: [conditional_xlnx]
+    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
@@ -143,7 +131,7 @@ jobs:
       defconfig: "adi_zynqmp_defconfig"
       auto_from_range: false
   build_gcc_arm_adi_versal_defconfig:
-    needs: [conditional_xlnx]
+    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
@@ -152,7 +140,7 @@ jobs:
       defconfig: "adi_versal_defconfig"
       auto_from_range: false
   compile_devicetrees:
-    needs: [conditional_xlnx]
+    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@ci
     secrets: inherit
     with:
@@ -165,7 +153,7 @@ jobs:
         arch/arm64/boot/dts/xilinx/zynqmp-*.dts
         arch/arm64/boot/dts/xilinx/versal-*.dts
         arch/nios2/boot/dts/*.dts
-  assert_build_xlnx:
+  assert_build:
     runs-on: [self-hosted, v1]
     needs:
       - build_gcc_arm_zynq_xcomm_adv7511_defconfig
@@ -192,207 +180,6 @@ jobs:
           job_fail_build_gcc_aarch64_adi_zynqmp_defconfig: ${{needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_adi_versal_defconfig: ${{needs.build_gcc_arm_adi_versal_defconfig.outputs.fail}}
           job_fail_many_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
-        run: |
-          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
-          source ./runner_env.sh
-          assert_labels
-  conditional_rpi:
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref_name, 'rpi-'))
-    runs-on: [self-hosted, v1]
-    needs: [assert_checks]
-    steps:
-      - name: Conditional rpi
-        run: echo rpi
-  build_gcc_arm_adi_bcm2709_defconfig:
-    needs: [conditional_rpi]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm"
-      defconfig: "adi_bcm2709_defconfig"
-      auto_from_range: false
-  build_gcc_arm_adi_bcm2711_defconfig:
-    needs: [conditional_rpi]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm"
-      defconfig: "adi_bcm2711_defconfig"
-      auto_from_range: false
-  build_gcc_arm_adi_bcmrpi_defconfig:
-    needs: [conditional_rpi]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm"
-      defconfig: "adi_bcmrpi_defconfig"
-      auto_from_range: false
-  build_gcc_aarch64_adi_bcm2711_defconfig:
-    needs: [conditional_rpi]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm64"
-      defconfig: "adi_bcm2711_defconfig"
-      auto_from_range: false
-  build_gcc_aarch64_adi_bcm2712_defconfig:
-    needs: [conditional_rpi]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm64"
-      defconfig: "adi_bcm2712_defconfig"
-      auto_from_range: false
-  assert_build_rpi:
-    runs-on: [self-hosted, v1]
-    needs:
-      - build_gcc_arm_adi_bcm2709_defconfig
-      - build_gcc_arm_adi_bcm2711_defconfig
-      - build_gcc_arm_adi_bcmrpi_defconfig
-      - build_gcc_aarch64_adi_bcm2711_defconfig
-      - build_gcc_aarch64_adi_bcm2712_defconfig
-    steps:
-      - name: Assert
-        env:
-          job_warn_build_gcc_arm_adi_bcm2709_defconfig: ${{needs.build_gcc_arm_adi_bcm2709_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_adi_bcm2711_defconfig: ${{needs.build_gcc_arm_adi_bcm2711_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_adi_bcmrpi_defconfig: ${{needs.build_gcc_arm_adi_bcmrpi_defconfig.outputs.warn}}
-          job_warn_build_gcc_aarch64_adi_bcm2711_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2711_defconfig.outputs.warn}}
-          job_warn_build_gcc_aarch64_adi_bcm2712_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2712_defconfig.outputs.warn}}
-          job_fail_build_gcc_arm_adi_bcm2709_defconfig: ${{needs.build_gcc_arm_adi_bcm2709_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_adi_bcm2711_defconfig: ${{needs.build_gcc_arm_adi_bcm2711_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_adi_bcmrpi_defconfig: ${{needs.build_gcc_arm_adi_bcmrpi_defconfig.outputs.fail}}
-          job_fail_build_gcc_aarch64_adi_bcm2711_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2711_defconfig.outputs.fail}}
-          job_fail_build_gcc_aarch64_adi_bcm2712_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2712_defconfig.outputs.fail}}
-        run: |
-          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
-          source ./runner_env.sh
-          assert_labels
-  conditional_adsp:
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref_name, 'adsp-'))
-    runs-on: [self-hosted, v1]
-    needs: [assert_checks]
-    steps:
-      - name: Conditional ADSP
-        run: echo ADSP
-  build_gcc_arm_sc573-ezkit_defconfig:
-    needs: [conditional_adsp]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm"
-      defconfig: "sc573-ezkit_defconfig"
-      auto_from_range: false
-  build_gcc_arm_sc589-mini_defconfig:
-    needs: [conditional_adsp]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm"
-      defconfig: "sc589-mini_defconfig"
-      auto_from_range: false
-  build_gcc_arm_sc594-som-ezkit_defconfig:
-    needs: [conditional_adsp]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm"
-      defconfig: "sc594-som-ezkit_defconfig"
-      auto_from_range: false
-  build_gcc_arm_sc594-som-ezlite_defconfig:
-    needs: [conditional_adsp]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm"
-      defconfig: "sc594-som-ezlite_defconfig"
-      auto_from_range: false
-  build_gcc_aarch64_sc598-som-ezkit_defconfig:
-    needs: [conditional_adsp]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm64"
-      defconfig: "sc598-som-ezkit_defconfig"
-      auto_from_range: false
-  build_gcc_aarch64_sc598-som-ezlite_defconfig:
-    needs: [conditional_adsp]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm64"
-      defconfig: "sc598-som-ezlite_defconfig"
-      auto_from_range: false
-  assert_build_adsp:
-    runs-on: [self-hosted, v1]
-    needs:
-      - build_gcc_arm_sc573-ezkit_defconfig
-      - build_gcc_arm_sc589-mini_defconfig
-      - build_gcc_arm_sc594-som-ezkit_defconfig
-      - build_gcc_arm_sc594-som-ezlite_defconfig
-      - build_gcc_aarch64_sc598-som-ezkit_defconfig
-      - build_gcc_aarch64_sc598-som-ezlite_defconfig
-    steps:
-      - name: Assert
-        env:
-          job_warn_build_gcc_arm_sc573-ezkit_defconfig: ${{needs.build_gcc_arm_sc573-ezkit_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.warn}}
-          job_warn_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.warn}}
-          job_warn_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.warn}}
-          job_fail_build_gcc_arm_sc573-ezkit_defconfig: ${{needs.build_gcc_arm_sc573-ezkit_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.fail}}
-          job_fail_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.fail}}
-          job_fail_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.fail}}
-        run: |
-          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
-          source ./runner_env.sh
-          assert_labels
-  conditional_oran:
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref_name, 'oran-'))
-    runs-on: [self-hosted, v1]
-    needs: [assert_checks]
-    steps:
-      - name: Conditional O-RAN
-        run: echo O-RAN
-  build_gcc_aarch64_adrv906x-eval_defconfig:
-    needs: [conditional_oran]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    with:
-      compiler: "gcc"
-      arch: "arm64"
-      defconfig: "adrv906x-eval_defconfig"
-      auto_from_range: false
-  assert_build_oran:
-    runs-on: [self-hosted, v1]
-    needs:
-      - build_gcc_aarch64_adrv906x-eval_defconfig
-    steps:
-      - name: Assert
-        env:
-          job_warn_build_gcc_aarch64_adrv906x-eval_defconfig: ${{needs.build_gcc_aarch64_adrv906x-eval_defconfig.outputs.warn}}
-          job_fail_build_gcc_aarch64_adrv906x-eval_defconfig: ${{needs.build_gcc_aarch64_adrv906x-eval_defconfig.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
