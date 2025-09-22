@@ -152,6 +152,7 @@ enum ad9081_debugfs_cmd {
 	DBGFS_BIST_PRBS_JTX,
 	DBGFS_DEV_API_INFO,
 	DBGFS_DEV_CHIP_INFO,
+	DBGFS_REG_MONITOR,
 	DBGFS_ENTRY_MAX,
 };
 
@@ -3475,6 +3476,7 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 	struct iio_dev *indio_dev = entry->indio_dev;
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
+	struct device *dev = &phy->spi->dev;
 	adi_ad9081_deser_mode_e dmode;
 	adi_cms_jesd_prbs_pattern_e prbs;
 	s16 eye_data[195];
@@ -3620,6 +3622,52 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 
 			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "AD%X Rev. %u Grade %u\n",
 				conv->id, phy->chip_id.dev_revision, phy->chip_id.prod_grade);
+			break;
+		case DBGFS_REG_MONITOR:
+			if (of_property_present(dev->of_node, "monitoring-regs")) {
+				struct property *regs;
+				const char *str;
+				char op;
+				int pars;
+				u32 reg, val;
+				u8 rval;
+
+				mutex_lock(&conv->lock);
+
+				of_property_for_each_string(dev->of_node, "monitoring-regs", regs, str) {
+					pars = sscanf(str, "%c:%i %i", &op, &reg, &val);
+					if (pars > 1) {
+						switch (op) {
+						case 'w':
+							if (pars == 3) {
+								ret = adi_ad9081_hal_reg_set(&phy->ad9081, reg, val);
+							} else {
+								ret = -EINVAL;
+								dev_err(dev, "insufficient paramters for reg write in monitoring-regs");
+							}
+							break;
+						case 'r':
+							ret = adi_ad9081_hal_reg_get(&phy->ad9081, reg, &rval);
+							if (!ret)
+								len += snprintf(phy->dbuf + len, sizeof(phy->dbuf), "0x%X=0x%X,", reg, rval);
+							break;
+						default:
+							ret = -EINVAL;
+						}
+						if (ret < 0) {
+							mutex_unlock(&conv->lock);
+							dev_err(dev, "reg_monitor failed %s (%d)", str, ret);
+							return ret;
+						}
+					}
+				}
+				if (len)
+					phy->dbuf[len - 1] = '\n';
+
+				mutex_unlock(&conv->lock);
+			} else {
+				return -ENOTSUPP;
+			}
 			break;
 		default:
 			val = entry->val;
@@ -3865,6 +3913,8 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 			"api_version", DBGFS_DEV_API_INFO);
 		ad9081_add_debugfs_entry(indio_dev,
 			"chip_version", DBGFS_DEV_CHIP_INFO);
+		ad9081_add_debugfs_entry(indio_dev,
+			"reg_monitor", DBGFS_REG_MONITOR);
 
 		for (i = 0; i < phy->ad9081_debugfs_entry_index; i++)
 			debugfs_create_file( phy->debugfs_entry[i].propname, 0644,
