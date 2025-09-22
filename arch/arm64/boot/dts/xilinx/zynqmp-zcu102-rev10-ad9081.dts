@@ -147,6 +147,8 @@
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 		#clock-cells = <1>;
 
+		monitoring-regs = "r:0x722", "r:0x5ad", "r:0x5ae", "w:0x1d 0x1", "r:0x55e", "w:0x1d 0x2", "r:0x55e", "w:0x1b 0x1", "r:0x301", "w:0x1b 0x2", "r:0x301";
+
 		jesd204-device;
 		#jesd204-cells = <2>;
 		jesd204-top-device = <0>; /* This is the TOP device */
