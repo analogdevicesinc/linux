@@ -36,6 +36,31 @@ jobs:
     steps:
     - uses: analogdevicesinc/doctools/checkout@v1
 
+    - name: Get sources
+      run: |
+        file=$(echo "${{ github.workflow_ref }}" | cut -d'/' -f3- | cut -d'@' -f1)
+        workflow_ref=$(awk '
+          $0 ~ "uses:" && $0 ~ job".yml" {
+            sub(/^[[:space:]]*uses:[[:space:]]*/, "", $0);
+            print $0;
+            exit
+          }
+        ' "$file")
+        echo $workflow_ref
+
+        org_repo="$(echo "$workflow_ref" | cut -d'/' -f1-2)"
+        ref="$(echo "$workflow_ref" | cut -d'@' -f2)"
+
+        get_file () {
+          echo https://raw.githubusercontent.com/$org_repo/$ref/$1
+          curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
+              https://raw.githubusercontent.com/$org_repo/$ref/$1
+        }
+
+        mkdir -p ci
+        get_file ci/build.sh
+        get_file ci/runner_env.sh
+
     - name: Prepare env
       run: |
         if [[ "${{ inputs.compiler }}" == "gcc" ]]; then

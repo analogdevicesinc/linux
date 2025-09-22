@@ -46,7 +46,6 @@ jobs:
         if [[ "${{ inputs.patch_ci }}" == "true" ]]; then
           git fetch origin "${{ inputs.ci_branch }}" --depth=1
           declare -a arr=(
-            "ci"
             ".github"
             "arch/arm/configs/adi_ci_defconfig"
             "arch/arm64/configs/adi_ci_defconfig"
