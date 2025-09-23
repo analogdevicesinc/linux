@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/amplifiers/adi,adl8113.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADL8113 Low Noise Amplifier with integrated bypass switches
+
+maintainers:
+  - Antoniu Miclaus <antoniu.miclaus@analog.com>
+
+description: |
+  The ADL8113 is a 10MHz to 12GHz Low Noise Amplifier with integrated bypass
+  switches controlled by two GPIO pins (VA and VB). The device supports four
+  operation modes:
+    - Internal Amplifier: VA=0, VB=0 - Signal passes through the internal LNA
+    - Internal Bypass: VA=1, VB=1 - Signal bypasses through internal path
+    - External Bypass A: VA=0, VB=1 - Signal routes through external bypass path A
+    - External Bypass B: VA=1, VB=0 - Signal routes through external bypass path B
+
+    https://www.analog.com/en/products/adl8113.html
+
+properties:
+  compatible:
+    const: adi,adl8113
+
+  vdd1-supply: true
+
+  vdd2-supply: true
+
+  vss2-supply: true
+
+  va-gpios:
+    description:
+      GPIO connected to the VA control pin. Must be specified as GPIO_ACTIVE_HIGH.
+    maxItems: 1
+
+  vb-gpios:
+    description:
+      GPIO connected to the VB control pin. Must be specified as GPIO_ACTIVE_HIGH.
+    maxItems: 1
+
+  adi,initial-mode:
+    description: |
+      Initial operation mode after device initialization
+        0 - Internal Amplifier (default)
+        1 - Internal Bypass
+        2 - External Bypass A
+        3 - External Bypass B
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3]
+    default: 0
+
+required:
+  - compatible
+  - va-gpios
+  - vb-gpios
+  - vdd1-supply
+  - vdd2-supply
+  - vss2-supply
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    amplifier {
+        compatible = "adi,adl8113";
+        va-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
+        vb-gpios = <&gpio 23 GPIO_ACTIVE_HIGH>;
+        vdd1-supply = <&vdd1_5v>;
+        vdd2-supply = <&vdd2_3v3>;
+        vss2-supply = <&vss2_neg>;
+        adi,initial-mode = <0>;
+    };
+...
