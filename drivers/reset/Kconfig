@@ -231,6 +231,13 @@ config RESET_RZG2L_USBPHY_CTRL
 	  Support for USBPHY Control found on RZ/G2L family. It mainly
 	  controls reset and power down of the USB/PHY.
 
+config RESET_SC5XX
+	bool "ADI SC5CC Reset Driver"
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	help
+	  This enables simple reset controller for ADI ADSP-SC5xx family.
+	  Support software reset.
+
 config RESET_SCMI
 	tristate "Reset driver controlled via ARM SCMI interface"
 	depends on ARM_SCMI_PROTOCOL || COMPILE_TEST
