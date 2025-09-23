@@ -519,6 +519,14 @@ config I2C_BRCMSTB
 
 	  If you do not need I2C interface, say N.
 
+config I2C_ADI_SC5XX
+	tristate "ADI SC5XX I2C support"
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	help
+	  This is the I2C bus driver for ADI on-chip TWI interface.
+
+	  This driver can also be built as a module.
+
 config I2C_CADENCE
 	tristate "Cadence I2C Controller"
 	depends on ARCH_ZYNQ || ARM64 || XTENSA || RISCV || COMPILE_TEST
