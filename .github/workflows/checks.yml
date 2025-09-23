@@ -88,14 +88,14 @@ jobs:
     - name: Checkout and patch reference branch
       if: ${{ !cancelled() && env.fatal != 'true' && !startsWith(github.base_ref, 'mirror/') && !startsWith(github.ref_name, 'mirror/') }}
       run: |
-        cp ci/build.sh /tmp
-        cp ci/runner_env.sh /tmp
+        cp ci/build.sh /tmp/build.sh
+        cp ci/runner_env.sh /tmp/runner_env.sh
         git fetch origin --depth=1 "${{ inputs.ref_branch }}" &&
         git reset --hard origin/${{ inputs.ref_branch }} ||
         (echo "::error ::check_checkout_reference_branch: Failed to fetch ${{ inputs.ref_branch }}" ;
          echo "step_fail_checkout_reference_branch=true" >> "$GITHUB_ENV")
-        mv /tmp ci/build.sh
-        mv /tmp ci/runner_env.sh
+        mv /tmp/build.sh ci/build.sh
+        mv /tmp/runner_env.sh ci/runner_env.sh
 
         # Only Documentation/devicetree/bindings/**/.yaml (touched) and
         # include/dt-bindings/**/.h (touched and only on source branch) files
@@ -145,11 +145,11 @@ jobs:
     - name: Revert patch reference branch
       if: ${{ !cancelled() && env.fatal != 'true' && !startsWith(github.base_ref, 'mirror/') && !startsWith(github.ref_name, 'mirror/') }}
       run: |
-        cp ci/build.sh /tmp
-        cp ci/runner_env.sh /tmp
+        cp ci/build.sh /tmp/build.sh
+        cp ci/runner_env.sh /tmp/runner_env.sh
         git reset --hard $head_sha
-        mv /tmp ci/build.sh
-        mv /tmp ci/runner_env.sh
+        mv /tmp/build.sh ci/build.sh
+        mv /tmp/runner_env.sh ci/runner_env.sh
 
     - name: Check defconfigs
       if: ${{ !cancelled() && env.fatal != 'true' }}
