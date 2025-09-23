@@ -331,7 +331,7 @@ static void xilinx_xcvr_setup_qpll_vco_range(struct xilinx_xcvr *xcvr,
 					     unsigned int *vco1_max)
 {
 	if (xcvr->type == XILINX_XCVR_TYPE_S7_GTX2) {
-		if ((xcvr->family == ADI_AXI_FPGA_FAMILY_KINTEX))
+		if (xcvr->family == ADI_AXI_FPGA_FAMILY_KINTEX)
 			if ((xcvr->dev_package == ADI_AXI_FPGA_DEV_FB) ||
 			    (xcvr->dev_package == ADI_AXI_FPGA_DEV_RF) ||
 			    (xcvr->dev_package == ADI_AXI_FPGA_DEV_FF))
