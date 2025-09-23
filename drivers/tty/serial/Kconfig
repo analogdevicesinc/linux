@@ -471,6 +471,23 @@ config SERIAL_SA1100_CONSOLE
 	  your boot loader (lilo or loadlin) about how to pass options to the
 	  kernel at boot time.)
 
+config SERIAL_ADI_UART
+	tristate "ADI uart serial port support"
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	select SERIAL_CORE
+	select SERIAL_CORE_CONSOLE
+	help
+	  Add support for the built-in adi uart driver.
+
+config SERIAL_ADI_UART_CONSOLE
+	bool "Console on ADI uart serial port"
+	depends on SERIAL_ADI_UART
+	default y
+	select SERIAL_CORE_CONSOLE
+	help
+	  If you have enabled the ADI UART serial port, you can
+	  make it the console by answering Y to this option.
+
 config SERIAL_IMX
 	tristate "IMX serial port support"
 	depends on ARCH_MXC || COMPILE_TEST
