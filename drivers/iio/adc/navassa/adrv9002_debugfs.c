@@ -850,6 +850,31 @@ static int adrv9002_rx_near_end_loopback_set(void *arg, const u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_rx_near_end_loopback_set_fops, NULL,
 			 adrv9002_rx_near_end_loopback_set, "%llu\n");
 
+static int adrv9002_cals_int_path_delay_get(void *arg, u64 *val)
+{
+	struct adrv9002_chan *chan = arg;
+	struct adrv9002_rf_phy *phy = chan_to_phy(chan);
+	u32 delay_ns;
+	int ret;
+
+	guard(mutex)(&phy->lock);
+	if (!chan->enabled)
+		return -ENODEV;
+
+	ret = api_call(phy, adi_adrv9001_cals_InternalPathDelay_Get, chan->port, chan->number,
+		       &delay_ns, 1);
+	if (ret)
+		return ret;
+
+	*val = delay_ns;
+
+	return 0;
+};
+DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_cals_int_path_delay_fops,
+			 adrv9002_cals_int_path_delay_get,
+			 NULL,
+			 "%llu\n");
+
 static ssize_t adrv9002_api_version_get(struct file *file, char __user *userbuf,
 					size_t count, loff_t *off)
 {
@@ -1652,6 +1677,10 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		/* tx datapath loopback */
 		sprintf(attr, "tx%d_datapath_loopback_en", chan);
 		debugfs_create_file_unsafe(attr, 0600, d, tx, &adrv9002_tx_datapath_loopback_fops);
+		/* cals internal path delay */
+		sprintf(attr, "tx%d_cals_internal_path_delay_ns", chan);
+		debugfs_create_file_unsafe(attr, 0400, d, &tx->channel,
+					   &adrv9002_cals_int_path_delay_fops);
 	}
 
 	for (chan = 0; chan < phy->chip->n_rx; chan++) {
@@ -1707,6 +1736,10 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		debugfs_create_u16(attr, 0600, d, &rx->channel.mcs_delay.sampleDelay);
 		sprintf(attr, "rx%d_mcs_delays", chan);
 		debugfs_create_file(attr, 0600, d, &rx->channel, &adrv9002_mcs_delays_fops);
+		/* cals internal path delay */
+		sprintf(attr, "rx%d_cals_internal_path_delay_ns", chan);
+		debugfs_create_file_unsafe(attr, 0400, d, &rx->channel,
+					   &adrv9002_cals_int_path_delay_fops);
 	}
 
 	adrv9002_debugfs_fh_config_create(phy, d);
