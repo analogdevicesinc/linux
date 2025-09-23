@@ -193,6 +193,7 @@ struct ad4030_state {
 	enum ad4030_out_mode mode;
 	struct mutex lock; /* Protect read-modify-write and multi write sequences */
 	/* Offload sampling */
+	unsigned int num_spi_buses;
 	struct spi_transfer offload_xfer;
 	struct spi_message offload_msg;
 	struct spi_offload *offload;
@@ -1206,17 +1207,33 @@ static void ad4030_prepare_offload_msg(struct iio_dev *indio_dev)
 	st->offload_xfer.bits_per_word = roundup_pow_of_two(offload_bpw);
 	st->offload_xfer.len = spi_bpw_to_bytes(offload_bpw);
 	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+	if (st->num_spi_buses > 1)
+		st->offload_xfer.multi_bus_mode = SPI_MULTI_BUS_MODE_STRIPE;
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
 }
 
 static int ad4030_offload_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4030_state *st = iio_priv(indio_dev);
-	int ret;
+	int ret, ret2;
+
+	// TODO: we can probably just set this once during probe and not have
+	// to switch back and forth every time the buffer is enabled/disabled.
+	// We would just need to adapt the single sample conversion function to
+	// account for that. It should not affect register reads/writes.
+	if (st->num_spi_buses > 1 && st->chip->num_voltage_inputs > 1) {
+		ret = regmap_update_bits(st->regmap,
+					 AD4030_REG_MODES,
+					 AD4030_REG_MODES_MASK_LANE_MODE,
+					 FIELD_PREP(AD4030_REG_MODES_MASK_LANE_MODE,
+						    AD4030_LANE_MD_1_PER_CH));
+		if (ret)
+			return ret;
+	}
 
 	ret = regmap_write(st->regmap, AD4030_REG_EXIT_CFG_MODE, BIT(0));
 	if (ret)
-		return ret;
+		goto out_restore_lane_mode;
 
 	ad4030_prepare_offload_msg(indio_dev);
 	st->offload_msg.offload = st->offload;
@@ -1241,10 +1258,24 @@ out_unoptimize:
 	spi_unoptimize_message(&st->offload_msg);
 out_reset_mode:
 	/* reenter register configuration mode */
-	ret = ad4030_enter_config_mode(st);
-	if (ret)
+	ret2 = ad4030_enter_config_mode(st);
+	if (ret2)
 		dev_err(&st->spi->dev,
-			"couldn't reenter register configuration mode\n");
+			"couldn't reenter register configuration mode: %d\n",
+			ret2);
+out_restore_lane_mode:
+	if (st->num_spi_buses > 1 && st->chip->num_voltage_inputs > 1) {
+		ret2 = regmap_update_bits(st->regmap,
+					  AD4030_REG_MODES,
+					  AD4030_REG_MODES_MASK_LANE_MODE,
+					  FIELD_PREP(AD4030_REG_MODES_MASK_LANE_MODE,
+						     AD4030_LANE_MD_INTERLEAVED));
+		if (ret2)
+			dev_err(&st->spi->dev,
+				"couldn't restore lane mode: %d\n", ret2);
+	}
+	
+
 	return ret;
 }
 
@@ -1263,9 +1294,21 @@ static int ad4030_offload_buffer_predisable(struct iio_dev *indio_dev)
 	ret = ad4030_enter_config_mode(st);
 	if (ret)
 		dev_err(&st->spi->dev,
-			"couldn't reenter register configuration mode\n");
+			"couldn't reenter register configuration mode: %d\n",
+			ret);
 
-	return ret;
+	if (st->num_spi_buses > 1 && st->chip->num_voltage_inputs > 1) {
+		ret = regmap_update_bits(st->regmap,
+					 AD4030_REG_MODES,
+					 AD4030_REG_MODES_MASK_LANE_MODE,
+					 FIELD_PREP(AD4030_REG_MODES_MASK_LANE_MODE,
+						    AD4030_LANE_MD_INTERLEAVED));
+		if (ret)
+			dev_err(&st->spi->dev,
+				"couldn't restore lane mode: %d\n", ret);
+	}
+
+	return 0;
 }
 
 static const struct iio_buffer_setup_ops ad4030_offload_buffer_setup_ops = {
@@ -1470,6 +1513,7 @@ static int ad4030_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	st->spi = spi;
+	st->num_spi_buses = hweight8(spi->buses);
 
 	st->regmap = devm_regmap_init(dev, &ad4030_regmap_bus, st,
 				      &ad4030_regmap_config);
@@ -1565,7 +1609,7 @@ static int ad4030_probe(struct spi_device *spi)
 			return dev_err_probe(&spi->dev, ret,
 					     "Failed to get PWM: %d\n", ret);
 
-		ret = __ad4030_set_sampling_freq(st, st->chip->max_sample_rate_hz,
+		ret = __ad4030_set_sampling_freq(st, st->chip->max_sample_rate_hz / 10,
 						 st->avg_log2);
 		if (ret)
 			return dev_err_probe(&spi->dev, ret,
