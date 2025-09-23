@@ -23,6 +23,9 @@
 #include <linux/spi/spi.h>
 #include <trace/events/spi.h>
 
+#define SPI_ENGINE_REG_DATA_WIDTH		0x0C
+#define   SPI_ENGINE_REG_DATA_WIDTH_NUM_OF_SDIO_MASK	GENMASK(24, 16)
+#define   SPI_ENGINE_REG_DATA_WIDTH_MASK		GENMASK(15, 0)
 #define SPI_ENGINE_REG_OFFLOAD_MEM_ADDR_WIDTH	0x10
 #define SPI_ENGINE_REG_RESET			0x40
 
@@ -75,6 +78,8 @@
 #define SPI_ENGINE_CMD_REG_CLK_DIV		0x0
 #define SPI_ENGINE_CMD_REG_CONFIG		0x1
 #define SPI_ENGINE_CMD_REG_XFER_BITS		0x2
+#define SPI_ENGINE_CMD_REG_SDI_MASK		0x3
+#define SPI_ENGINE_CMD_REG_SDO_MASK		0x4
 
 #define SPI_ENGINE_MISC_SYNC			0x0
 #define SPI_ENGINE_MISC_SLEEP			0x1
@@ -104,6 +109,10 @@
 /* default sizes - can be changed when SPI Engine firmware is compiled */
 #define SPI_ENGINE_OFFLOAD_CMD_FIFO_SIZE	16
 #define SPI_ENGINE_OFFLOAD_SDO_FIFO_SIZE	16
+
+/* Extending SPI_MULTI_BUS_MODE values for optimizing messages. */
+#define SPI_ENGINE_MULTI_BUS_MODE_UNKNOWN	-1
+#define SPI_ENGINE_MULTI_BUS_MODE_CONFLICTING	-2
 
 struct spi_engine_program {
 	unsigned int length;
@@ -142,6 +151,8 @@ struct spi_engine_offload {
 	unsigned long flags;
 	unsigned int offload_num;
 	unsigned int spi_mode_config;
+	unsigned int multi_bus_mode;
+	u8 bus_mask;
 	u8 bits_per_word;
 };
 
@@ -193,7 +204,7 @@ static unsigned int spi_engine_get_config(struct spi_device *spi)
 }
 
 static void spi_engine_gen_xfer(struct spi_engine_program *p, bool dry,
-	struct spi_transfer *xfer)
+				struct spi_transfer *xfer, u32 num_buses)
 {
 	unsigned int len;
 
@@ -203,6 +214,9 @@ static void spi_engine_gen_xfer(struct spi_engine_program *p, bool dry,
 		len = xfer->len / 2;
 	else
 		len = xfer->len / 4;
+
+	if (xfer->multi_bus_mode == SPI_MULTI_BUS_MODE_STRIPE)
+		len /= num_buses;
 
 	while (len) {
 		unsigned int n = min(len, 256U);
@@ -269,6 +283,7 @@ static int spi_engine_precompile_message(struct spi_message *msg)
 {
 	unsigned int clk_div, max_hz = msg->spi->controller->max_speed_hz;
 	struct spi_transfer *xfer;
+	int multi_bus_mode = SPI_ENGINE_MULTI_BUS_MODE_UNKNOWN;
 	u8 min_bits_per_word = U8_MAX;
 	u8 max_bits_per_word = 0;
 
@@ -284,6 +299,24 @@ static int spi_engine_precompile_message(struct spi_message *msg)
 			min_bits_per_word = min(min_bits_per_word, xfer->bits_per_word);
 			max_bits_per_word = max(max_bits_per_word, xfer->bits_per_word);
 		}
+
+		if (xfer->rx_buf || xfer->offload_flags & SPI_OFFLOAD_XFER_RX_STREAM ||
+		    xfer->tx_buf || xfer->offload_flags & SPI_OFFLOAD_XFER_TX_STREAM) {
+			switch (xfer->multi_bus_mode) {
+			case SPI_MULTI_BUS_MODE_SINGLE:
+			case SPI_MULTI_BUS_MODE_STRIPE:
+				break;
+			default:
+				/* Other modes, like mirror not supported */
+				return -EINVAL;
+			}
+
+			/* If all xfers have the same multi-bus mode, we can optimize. */
+			if (multi_bus_mode == SPI_ENGINE_MULTI_BUS_MODE_UNKNOWN)
+				multi_bus_mode = xfer->multi_bus_mode;
+			else if (multi_bus_mode != xfer->multi_bus_mode)
+				multi_bus_mode = SPI_ENGINE_MULTI_BUS_MODE_CONFLICTING;
+		}
 	}
 
 	/*
@@ -297,6 +330,9 @@ static int spi_engine_precompile_message(struct spi_message *msg)
 			priv->bits_per_word = min_bits_per_word;
 		else
 			priv->bits_per_word = 0;
+
+		priv->multi_bus_mode = multi_bus_mode;
+		priv->bus_mask = msg->spi->buses;
 	}
 
 	return 0;
@@ -309,7 +345,9 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 	struct spi_controller *host = spi->controller;
 	struct spi_engine_offload *priv;
 	struct spi_transfer *xfer;
+	u32 num_buses = hweight8(spi->buses);
 	int clk_div, new_clk_div, inst_ns;
+	int prev_multi_bus_mode = SPI_MULTI_BUS_MODE_SINGLE;
 	bool keep_cs = false;
 	u8 bits_per_word = 0;
 
@@ -334,6 +372,7 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 		 * in the same way.
 		 */
 		bits_per_word = priv->bits_per_word;
+		prev_multi_bus_mode = priv->multi_bus_mode;
 	} else {
 		spi_engine_program_add_cmd(p, dry,
 			SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CONFIG,
@@ -344,6 +383,24 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 	spi_engine_gen_cs(p, dry, spi, !xfer->cs_off);
 
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
+		if (xfer->rx_buf || xfer->offload_flags & SPI_OFFLOAD_XFER_RX_STREAM ||
+		    xfer->tx_buf || xfer->offload_flags & SPI_OFFLOAD_XFER_TX_STREAM) {
+			if (xfer->multi_bus_mode != prev_multi_bus_mode) {
+				uint16_t bus_flags = 1;
+
+				if (xfer->multi_bus_mode == SPI_MULTI_BUS_MODE_STRIPE)
+					bus_flags = spi->buses;
+
+				spi_engine_program_add_cmd(p, dry,
+					SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDI_MASK,
+							     bus_flags));
+				spi_engine_program_add_cmd(p, dry,
+					SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDO_MASK,
+							     bus_flags));
+			}
+			prev_multi_bus_mode = xfer->multi_bus_mode;
+		}
+
 		new_clk_div = host->max_speed_hz / xfer->effective_speed_hz;
 		if (new_clk_div != clk_div) {
 			clk_div = new_clk_div;
@@ -360,7 +417,7 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 					bits_per_word));
 		}
 
-		spi_engine_gen_xfer(p, dry, xfer);
+		spi_engine_gen_xfer(p, dry, xfer, num_buses);
 		spi_engine_gen_sleep(p, dry, spi_delay_to_ns(&xfer->delay, xfer),
 				     inst_ns, xfer->effective_speed_hz);
 
@@ -394,6 +451,14 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 	if (clk_div != 1)
 		spi_engine_program_add_cmd(p, dry,
 			SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CLK_DIV, 0));
+
+	/* Restore single bus mode. */
+	if (prev_multi_bus_mode == SPI_MULTI_BUS_MODE_STRIPE) {
+		spi_engine_program_add_cmd(p, dry,
+			SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDI_MASK, 1));
+		spi_engine_program_add_cmd(p, dry,
+			SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDO_MASK, 1));
+	}
 }
 
 static void spi_engine_xfer_next(struct spi_message *msg,
@@ -521,29 +586,40 @@ static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine,
 	unsigned int n, m, i;
 
 	n = readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SDI_FIFO_LEVEL);
+	// TODO: remove debug prints
+	// printk("RX FIFO level: %u\n", n);
 	while (n && st->rx_length) {
 		if (st->rx_xfer->bits_per_word <= 8) {
 			u8 *buf = st->rx_buf;
 
 			m = min(n, st->rx_length);
-			for (i = 0; i < m; i++)
+			for (i = 0; i < m; i++) {
 				buf[i] = readl_relaxed(addr);
+				// TODO: remove debug prints
+				// printk("RX: %02X\n", buf[i]);
+			}
 			st->rx_buf += m;
 			st->rx_length -= m;
 		} else if (st->rx_xfer->bits_per_word <= 16) {
 			u16 *buf = (u16 *)st->rx_buf;
 
 			m = min(n, st->rx_length / 2);
-			for (i = 0; i < m; i++)
+			for (i = 0; i < m; i++) {
 				buf[i] = readl_relaxed(addr);
+				// TODO: remove debug prints
+				// printk("RX: %04X\n", buf[i]);
+			}
 			st->rx_buf += m * 2;
 			st->rx_length -= m * 2;
 		} else {
 			u32 *buf = (u32 *)st->rx_buf;
 
 			m = min(n, st->rx_length / 4);
-			for (i = 0; i < m; i++)
+			for (i = 0; i < m; i++) {
 				buf[i] = readl_relaxed(addr);
+				// TODO: remove debug prints
+				// printk("RX: %08X\n", buf[i]);
+			}
 			st->rx_buf += m * 4;
 			st->rx_length -= m * 4;
 		}
@@ -551,6 +627,9 @@ static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine,
 		if (st->rx_length == 0)
 			spi_engine_rx_next(msg);
 	}
+
+	// TODO: remove debug prints
+	// printk("\n");
 
 	return st->rx_length != 0;
 }
@@ -729,6 +808,12 @@ static int spi_engine_optimize_message(struct spi_message *msg)
 		spi_engine_program_add_cmd(p, false, SPI_ENGINE_CMD_SYNC(
 			msg->offload ? 0 : AXI_SPI_ENGINE_CUR_MSG_SYNC_ID));
 
+	// TODO: remove debug prints
+	// for (int i = 0; i < p_dry.length; i++)
+	// 	printk("p->instructions[%d] = %04X\n", i, p->instructions[i]);
+
+	// printk("\n");
+
 	msg->opt_state = p;
 
 	if (msg->offload) {
@@ -870,6 +955,23 @@ static int spi_engine_transfer_one_message(struct spi_controller *host,
 		msg->status = -ETIMEDOUT;
 	}
 
+	// REVISIT: Not sure that this is actually needed. Ran into issues while
+	// testing, but it may have been caused by something else and the statement
+	// below is not actually true.
+	/*
+	 * Ensure that we have read all received data. The SYNC interrupt may
+	 * come before we finish draining the RX FIFO, especially when using
+	 * multi-bus mode.
+	 */
+	// while (readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SDI_FIFO_LEVEL))
+	// 	spi_engine_read_rx_fifo(spi_engine, msg);
+
+	// TODO: remove debug prints
+	// unsigned int rx_fifo_level = readl(spi_engine->base + SPI_ENGINE_REG_SDI_FIFO_LEVEL);
+	// if (rx_fifo_level)
+	// 	printk("RX FIFO not empty after transfer completion, level=%u\n", rx_fifo_level);
+
+
 	if (trace_spi_transfer_stop_enabled()) {
 		struct spi_transfer *xfer;
 
@@ -902,6 +1004,15 @@ static int spi_engine_trigger_enable(struct spi_offload *offload)
 						    priv->bits_per_word),
 			       spi_engine->base + SPI_ENGINE_REG_CMD_FIFO);
 
+	if (priv->multi_bus_mode == SPI_MULTI_BUS_MODE_STRIPE) {
+		writel_relaxed(SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDI_MASK,
+						    priv->bus_mask),
+			       spi_engine->base + SPI_ENGINE_REG_CMD_FIFO);
+		writel_relaxed(SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDO_MASK,
+						    priv->bus_mask),
+			       spi_engine->base + SPI_ENGINE_REG_CMD_FIFO);
+	}
+
 	writel_relaxed(SPI_ENGINE_CMD_SYNC(1),
 		spi_engine->base + SPI_ENGINE_REG_CMD_FIFO);
 
@@ -929,6 +1040,14 @@ static void spi_engine_trigger_disable(struct spi_offload *offload)
 	reg &= ~SPI_ENGINE_OFFLOAD_CTRL_ENABLE;
 	writel_relaxed(reg, spi_engine->base +
 			    SPI_ENGINE_REG_OFFLOAD_CTRL(priv->offload_num));
+
+	/* Restore single-bus mode. */
+	if (priv->multi_bus_mode == SPI_MULTI_BUS_MODE_STRIPE) {
+		writel_relaxed(SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDI_MASK, 0x01),
+			       spi_engine->base + SPI_ENGINE_REG_CMD_FIFO);
+		writel_relaxed(SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDO_MASK, 0x01),
+			       spi_engine->base + SPI_ENGINE_REG_CMD_FIFO);
+	}
 }
 
 static struct dma_chan
@@ -973,7 +1092,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 {
 	struct spi_engine *spi_engine;
 	struct spi_controller *host;
-	unsigned int version;
+	unsigned int version, data_width_reg_val;
 	int irq, ret;
 
 	irq = platform_get_irq(pdev, 0);
@@ -1042,13 +1161,15 @@ static int spi_engine_probe(struct platform_device *pdev)
 		return PTR_ERR(spi_engine->base);
 
 	version = readl(spi_engine->base + ADI_AXI_REG_VERSION);
-	if (ADI_AXI_PCORE_VER_MAJOR(version) != 1) {
+	if (ADI_AXI_PCORE_VER_MAJOR(version) > 2) {
 		dev_err(&pdev->dev, "Unsupported peripheral version %u.%u.%u\n",
 			ADI_AXI_PCORE_VER_MAJOR(version),
 			ADI_AXI_PCORE_VER_MINOR(version),
 			ADI_AXI_PCORE_VER_PATCH(version));
 		return -ENODEV;
 	}
+
+	data_width_reg_val = readl(spi_engine->base + SPI_ENGINE_REG_DATA_WIDTH);
 
 	if (adi_axi_pcore_ver_gteq(version, 1, 1)) {
 		unsigned int sizes = readl(spi_engine->base +
@@ -1097,9 +1218,22 @@ static int spi_engine_probe(struct platform_device *pdev)
 	}
 	if (adi_axi_pcore_ver_gteq(version, 1, 3))
 		host->mode_bits |= SPI_MOSI_IDLE_LOW | SPI_MOSI_IDLE_HIGH;
+	if (adi_axi_pcore_ver_gteq(version, 2, 0))
+		host->num_buses = FIELD_GET(SPI_ENGINE_REG_DATA_WIDTH_NUM_OF_SDIO_MASK,
+					    data_width_reg_val);
 
 	if (host->max_speed_hz == 0)
 		return dev_err_probe(&pdev->dev, -EINVAL, "spi_clk rate is 0");
+
+	if (host->num_buses > 1) {
+		// REVISIT: This may end up being the default in the HDL. We can
+		// drop that if it becomes so. The HDL isn't finalized yet.
+		/* Default to "normal" SPI with single bus. */
+		writel_relaxed(SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDI_MASK, 0x01),
+			spi_engine->base + SPI_ENGINE_REG_CMD_FIFO);
+		writel_relaxed(SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDO_MASK, 0x01),
+			spi_engine->base + SPI_ENGINE_REG_CMD_FIFO);
+	}
 
 	return devm_spi_register_controller(&pdev->dev, host);
 }
