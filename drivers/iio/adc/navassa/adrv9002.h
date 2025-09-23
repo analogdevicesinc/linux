@@ -216,6 +216,7 @@ struct adrv9002_tx_chan {
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_TxSsiTestModeCfg ssi_test;
 	u8 loopback;
+	u8 datapath_loopback;
 #endif
 };
 
