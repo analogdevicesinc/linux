@@ -1,0 +1,32 @@
+What:		/sys/bus/iio/devices/iio:deviceX/mode
+Date:		January 2025
+KernelVersion:	6.14
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to set the operation mode of the
+		ADL8113 Low Noise Amplifier. The available modes control signal
+		routing through different paths within the device.
+
+		The supported modes are:
+
+		* internal_amplifier - Signal passes through the internal low
+		  noise amplifier (VA=0, VB=0). Provides 14dB gain.
+
+		* internal_bypass - Signal bypasses through internal bypass path
+		  (VA=1, VB=1). Provides 0dB gain.
+
+		* external_bypass_a - Signal routes through external bypass path A
+		  (VA=0, VB=1). Provides 0dB gain.
+
+		* external_bypass_b - Signal routes through external bypass path B
+		  (VA=1, VB=0). Provides 0dB gain.
+
+What:		/sys/bus/iio/devices/iio:deviceX/mode_available
+Date:		January 2025
+KernelVersion:	6.14
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this attribute returns a space-separated list of all
+		available operation modes for the ADL8113 device. The modes
+		control the signal path and determine whether the signal passes
+		through the internal amplifier or various bypass paths.
