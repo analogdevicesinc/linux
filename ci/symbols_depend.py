@@ -350,13 +350,13 @@ def get_symbols(files):
     """
     global symbols_
 
-    for f in files:
-        if f == "":
-            continue
-        if not f.endswith(".o"):
-            symbols_.add(f)
-            continue
+    if "" in files:
+        files.remove("")
+    files = [s for s in files if s.endswith('.o')]
+    symbols = [s for s in files if not s.endswith('.o')]
+    symbols_.update(filter_symbols(symbols))
 
+    for f in files:
         found = False
         base = path.basename(f)
         ldir = path.dirname(f)
