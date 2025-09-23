@@ -7,5 +7,6 @@
 obj-$(CONFIG_AD8366) += ad8366.o
 obj-$(CONFIG_ADA4250) += ada4250.o
 obj-$(CONFIG_AD916X_AMP) += ad916x_amp.o
+obj-$(CONFIG_ADL8113) += adl8113.o
 obj-$(CONFIG_ADL5580) += adl5580.o
 obj-$(CONFIG_HMC425) += hmc425a.o
