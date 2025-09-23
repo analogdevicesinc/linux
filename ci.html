@@ -467,11 +467,22 @@ sudo<span class="w"> </span>mount<span class="w"> </span>~/.local/share/containe
 </section>
 <section id="build-the-container-image">
 <span id="image-podman"></span><h3>Build the container image<a class="headerlink" href="#build-the-container-image" title="Link to this heading"></a></h3>
-<p>To build the container image, use your favorite container engine:</p>
+<p>To build the container image, use your favorite container engine from the
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/" target="_blank">ci branch</a>:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/linux
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>branch
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>* ci
+  main
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -483,7 +494,7 @@ sudo<span class="w"> </span>mount<span class="w"> </span>~/.local/share/containe
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>build<span class="w"> </span>--tag<span class="w"> </span>adi/linux:latest<span class="w"> </span>ci
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>build<span class="w"> </span>--tag<span class="w"> </span>adi/linux:latest<span class="w"> </span>container
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>You may want to build the container in a host, where you have all your tools installed,
