@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2021-2024 - Analog Devices Inc.
+ * Author: Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+ */
+
+/dts-v1/;
+
+#include "sc598-som.dtsi"
+
+/ {
+	model = "ADI 64-bit SC598 SOM EZ Kit";
+	compatible = "adi,sc598-som-ezkit", "adi,sc59x-64";
+};
