@@ -26,7 +26,7 @@ jobs:
     runs-on: [self-hosted, v1]
 
     steps:
-    - uses: analogdevicesinc/doctools/checkout@v1
+    - uses: analogdevicesinc/doctools/checkout@action
 
     - name: increase-limits
       run: |

@@ -42,7 +42,7 @@ jobs:
       warn: ${{ steps.assert.outputs.warn }}
 
     steps:
-    - uses: analogdevicesinc/doctools/checkout@v1
+    - uses: analogdevicesinc/doctools/checkout@action
 
     - name: Get sources
       run: |
