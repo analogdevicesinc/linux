@@ -282,15 +282,15 @@
 					adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 					adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
-					adi,converters-per-device = <8>;	/* JESD M */
-					adi,octets-per-frame = <12>;		/* JESD F */
+					adi,converters-per-device = <1>;	/* JESD M */
+					adi,octets-per-frame = <1>;		/* JESD F */
 
-					adi,frames-per-multiframe = <64>;	/* JESD K */
-					adi,converter-resolution = <12>;	/* JESD N */
-					adi,bits-per-sample = <12>;		/* JESD NP' */
+					adi,frames-per-multiframe = <256>;	/* JESD K */
+					adi,converter-resolution = <16>;	/* JESD N */
+					adi,bits-per-sample = <16>;		/* JESD NP' */
 					adi,control-bits-per-sample = <0>;	/* JESD CS */
-					adi,lanes-per-device = <1>;		/* JESD L */
-					adi,samples-per-converter-per-frame = <1>; /* JESD S */
+					adi,lanes-per-device = <8>;		/* JESD L */
+					adi,samples-per-converter-per-frame = <4>; /* JESD S */
 					adi,high-density = <1>;			/* JESD HD */
 
 					adi,tpl-phase-adjust = <0x3>;
@@ -400,15 +400,15 @@
 					adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 					adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
-					adi,converters-per-device = <8>;	/* JESD M */
-					adi,octets-per-frame = <12>;		/* JESD F */
+					adi,converters-per-device = <1>;	/* JESD M */
+					adi,octets-per-frame = <1>;		/* JESD F */
 
-					adi,frames-per-multiframe = <64>;	/* JESD K */
-					adi,converter-resolution = <12>;	/* JESD N */
-					adi,bits-per-sample = <12>;		/* JESD NP' */
+					adi,frames-per-multiframe = <256>;	/* JESD K */
+					adi,converter-resolution = <16>;	/* JESD N */
+					adi,bits-per-sample = <16>;		/* JESD NP' */
 					adi,control-bits-per-sample = <0>;	/* JESD CS */
-					adi,lanes-per-device = <1>;		/* JESD L */
-					adi,samples-per-converter-per-frame = <1>; /* JESD S */
+					adi,lanes-per-device = <8>;		/* JESD L */
+					adi,samples-per-converter-per-frame = <4>; /* JESD S */
 					adi,high-density = <1>;			/* JESD HD */
 				};
 			};
