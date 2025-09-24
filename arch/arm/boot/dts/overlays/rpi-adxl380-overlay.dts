@@ -12,46 +12,100 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	compatible = "brcm,bcm2835", "brcm,bcm2711";
-};
+	compatible = "brcm,bcm2835", "brcm,bcm2711", "brcm,bcm2709";
 
-&{/} {
-	vddio: fixedregulator@1 {
-		compatible = "regulator-fixed";
-		regulator-name = "vddio-supply";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
+	fragment@4 {
+		target-path = "/";
+
+		__overlay__ {
+			vddio: fixedregulator@1 {
+				compatible = "regulator-fixed";
+				regulator-name = "vddio-supply";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+			};
+		};
 	};
 
-	vsupply: fixedregulator@2 {
-		compatible = "regulator-fixed";
-		regulator-name = "vsupply-supply";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
+	fragment@5 {
+		target-path = "/";
+
+		__overlay__ {
+			vsupply: fixedregulator@2 {
+				compatible = "regulator-fixed";
+				regulator-name = "vsupply-supply";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+			};
+		};
+	};
+
+	fragment@0 {
+		target = <&spidev0>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev1>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adxl319: adxl319@0 {
+				compatible = "adi,adxl319";
+				reg = <0>;
+				spi-max-frequency = <8000000>;
+				vddio-supply = <&vddio>;
+				vsupply-supply = <&vsupply>;
+				interrupt-parent = <&gpio>;
+				interrupts = <25 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "INT0";
+			};
+		};
+	};
+
+	__overrides__ {
+			cs_pin	= <&adxl319>,"reg:0";
 	};
 };
 
-&spidev0 {
-	status = "disabled";
-};
+// &{/} {
+	
+// };
 
-&spidev1 {
-	status = "disabled";
-};
+// &spidev0 {
+// 	status = "disabled";
+// };
 
-&spi0 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	status = "okay";
+// &spidev1 {
+// 	status = "disabled";
+// };
 
-	adxl380: adxl380@0 {
-		compatible = "adi,adxl380";
-		reg = <0>;
-		spi-max-frequency = <8000000>;
-		vddio-supply = <&vddio>;
-		vsupply-supply = <&vsupply>;
-		interrupt-parent = <&gpio>;
-		interrupts = <25 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "INT0";
-	};
-};
+// &spi0 {
+// 	#address-cells = <1>;
+// 	#size-cells = <0>;
+// 	status = "okay";
+
+// 	adxl380: adxl380@0 {
+// 		compatible = "adi,adxl380";
+// 		reg = <0>;
+// 		spi-max-frequency = <8000000>;
+// 		vddio-supply = <&vddio>;
+// 		vsupply-supply = <&vsupply>;
+// 		interrupt-parent = <&gpio>;
+// 		interrupts = <25 IRQ_TYPE_LEVEL_HIGH>;
+// 		interrupt-names = "INT0";
+// 	};
+// };
