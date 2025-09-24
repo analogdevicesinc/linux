@@ -5,7 +5,6 @@
  * Copyright 2022-2024 - Analog Devices Inc.
  */
 
-#include <linux/circ_buf.h>
 #include <linux/clk.h>
 #include <linux/dmaengine.h>
 #include <linux/gpio.h>
@@ -47,105 +46,105 @@ struct adi_uart_serial_port {
 static struct adi_uart_serial_port *adi_uart_serial_ports[ADI_UART_NR_PORTS];
 
 /* UART_CTL Masks */
-#define UCEN                     0x1  /* Enable UARTx Clocks */
-#define LOOP_ENA                 0x2  /* Loopback Mode Enable */
-#define UMOD_MDB                 0x10  /* Enable MDB Mode */
-#define UMOD_IRDA                0x20  /* Enable IrDA Mode */
-#define UMOD_MASK                0x30  /* Uart Mode Mask */
-#define WLS(x)                   (((x - 5) & 0x03) << 8)  /* Word Length Select */
-#define WLS_MASK                 0x300  /* Word length Select Mask */
-#define WLS_OFFSET               8      /* Word length Select Offset */
-#define STB                      0x1000  /* Stop Bits */
-#define STBH                     0x2000  /* Half Stop Bits */
-#define PEN                      0x4000  /* Parity Enable */
-#define EPS                      0x8000  /* Even Parity Select */
-#define STP                      0x10000  /* Stick Parity */
-#define FPE                      0x20000  /* Force Parity Error On Transmit */
-#define FFE                      0x40000  /* Force Framing Error On Transmit */
-#define SB                       0x80000  /* Set Break */
-#define LCR_MASK		 (SB | STP | EPS | PEN | STB | WLS_MASK)
-#define FCPOL                    0x400000  /* Flow Control Pin Polarity */
-#define RPOLC                    0x800000  /* IrDA RX Polarity Change */
-#define TPOLC                    0x1000000  /* IrDA TX Polarity Change */
-#define MRTS                     0x2000000  /* Manual Request To Send */
-#define XOFF                     0x4000000  /* Transmitter Off */
-#define ARTS                     0x8000000  /* Automatic Request To Send */
-#define ACTS                     0x10000000  /* Automatic Clear To Send */
-#define RFIT                     0x20000000  /* Receive FIFO IRQ Threshold */
-#define RFRT                     0x40000000  /* Receive FIFO RTS Threshold */
+#define UCEN			0x1  /* Enable UARTx Clocks */
+#define LOOP_ENA		0x2  /* Loopback Mode Enable */
+#define UMOD_MDB		0x10  /* Enable MDB Mode */
+#define UMOD_IRDA		0x20  /* Enable IrDA Mode */
+#define UMOD_MASK		0x30  /* Uart Mode Mask */
+#define WLS(x)			(((x - 5) & 0x03) << 8)  /* Word Length Select */
+#define WLS_MASK		0x300  /* Word length Select Mask */
+#define WLS_OFFSET		8      /* Word length Select Offset */
+#define STB			0x1000  /* Stop Bits */
+#define STBH			0x2000  /* Half Stop Bits */
+#define PEN			0x4000  /* Parity Enable */
+#define EPS			0x8000  /* Even Parity Select */
+#define STP			0x10000  /* Stick Parity */
+#define FPE			0x20000  /* Force Parity Error On Transmit */
+#define FFE			0x40000  /* Force Framing Error On Transmit */
+#define SB			0x80000  /* Set Break */
+#define LCR_MASK		(SB | STP | EPS | PEN | STB | WLS_MASK)
+#define FCPOL			0x400000  /* Flow Control Pin Polarity */
+#define RPOLC			0x800000  /* IrDA RX Polarity Change */
+#define TPOLC			0x1000000  /* IrDA TX Polarity Change */
+#define MRTS			0x2000000  /* Manual Request To Send */
+#define XOFF			0x4000000  /* Transmitter Off */
+#define ARTS			0x8000000  /* Automatic Request To Send */
+#define ACTS			0x10000000  /* Automatic Clear To Send */
+#define RFIT			0x20000000  /* Receive FIFO IRQ Threshold */
+#define RFRT			0x40000000  /* Receive FIFO RTS Threshold */
 
 /* UART_STAT Masks */
-#define DR                       0x01  /* Data Ready */
-#define OE                       0x02  /* Overrun Error */
-#define PE                       0x04  /* Parity Error */
-#define FE                       0x08  /* Framing Error */
-#define BI                       0x10  /* Break Interrupt */
-#define THRE                     0x20  /* THR Empty */
-#define TEMT                     0x80  /* TSR and UART_THR Empty */
-#define TFI                      0x100  /* Transmission Finished Indicator */
+#define DR			0x01  /* Data Ready */
+#define OE			0x02  /* Overrun Error */
+#define PE			0x04  /* Parity Error */
+#define FE			0x08  /* Framing Error */
+#define BI			0x10  /* Break Interrupt */
+#define THRE			0x20  /* THR Empty */
+#define TEMT			0x80  /* TSR and UART_THR Empty */
+#define TFI			0x100  /* Transmission Finished Indicator */
 
-#define ASTKY                    0x200  /* Address Sticky */
-#define ADDR                     0x400  /* Address bit status */
-#define RO			 0x800  /* Reception Ongoing */
-#define SCTS                     0x1000  /* Sticky CTS */
-#define CTS                      0x10000  /* Clear To Send */
-#define RFCS                     0x20000  /* Receive FIFO Count Status */
+#define ASTKY			0x200  /* Address Sticky */
+#define ADDR			0x400  /* Address bit status */
+#define RO			0x800  /* Reception Ongoing */
+#define SCTS			0x1000  /* Sticky CTS */
+#define CTS			0x10000  /* Clear To Send */
+#define RFCS			0x20000  /* Receive FIFO Count Status */
 
 /* UART_CLOCK Masks */
-#define EDBO                     0x80000000 /* Enable Devide by One */
+#define EDBO			0x80000000 /* Enable Devide by One */
 
 /* UART_IER Masks */
-#define ERBFI                    0x01  /* Enable Receive Buffer Full Interrupt */
-#define ETBEI                    0x02  /* Enable Transmit Buffer Empty Interrupt */
-#define ELSI                     0x04  /* Enable RX Status Interrupt */
-#define EDSSI                    0x08  /* Enable Modem Status Interrupt */
-#define EDTPTI                   0x10  /* Enable DMA Transmit PIRQ Interrupt */
-#define ETFI                     0x20  /* Enable Transmission Finished Interrupt */
-#define ERFCI                    0x40  /* Enable Receive FIFO Count Interrupt */
+#define ERBFI			0x01  /* Enable Receive Buffer Full Interrupt */
+#define ETBEI			0x02  /* Enable Transmit Buffer Empty Interrupt */
+#define ELSI			0x04  /* Enable RX Status Interrupt */
+#define EDSSI			0x08  /* Enable Modem Status Interrupt */
+#define EDTPTI			0x10  /* Enable DMA Transmit PIRQ Interrupt */
+#define ETFI			0x20  /* Enable Transmission Finished Interrupt */
+#define ERFCI			0x40  /* Enable Receive FIFO Count Interrupt */
 
-# define OFFSET_REDIV            0x00  /* Version ID Register             */
-# define OFFSET_CTL              0x04  /* Control Register                */
-# define OFFSET_STAT             0x08  /* Status Register                 */
-# define OFFSET_SCR              0x0C  /* SCR Scratch Register            */
-# define OFFSET_CLK              0x10  /* Clock Rate Register             */
-# define OFFSET_IER              0x14  /* Interrupt Enable Register       */
-# define OFFSET_IER_SET          0x18  /* Set Interrupt Enable Register   */
-# define OFFSET_IER_CLEAR        0x1C  /* Clear Interrupt Enable Register */
-# define OFFSET_RBR              0x20  /* Receive Buffer register         */
-# define OFFSET_THR              0x24  /* Transmit Holding register       */
+# define OFFSET_REDIV		0x00  /* Version ID Register	     */
+# define OFFSET_CTL		0x04  /* Control Register		*/
+# define OFFSET_STAT		0x08  /* Status Register		 */
+# define OFFSET_SCR		0x0C  /* SCR Scratch Register	    */
+# define OFFSET_CLK		0x10  /* Clock Rate Register	     */
+# define OFFSET_IER		0x14  /* Interrupt Enable Register       */
+# define OFFSET_IER_SET		0x18  /* Set Interrupt Enable Register   */
+# define OFFSET_IER_CLEAR	0x1C  /* Clear Interrupt Enable Register */
+# define OFFSET_RBR		0x20  /* Receive Buffer register	 */
+# define OFFSET_THR		0x24  /* Transmit Holding register       */
 
-#define UART_GET_CHAR(p)      readl(p->port.membase + OFFSET_RBR)
-#define UART_GET_CLK(p)       readl(p->port.membase + OFFSET_CLK)
-#define UART_GET_CTL(p)       readl(p->port.membase + OFFSET_CTL)
-#define UART_GET_GCTL(p)      UART_GET_CTL(p)
-#define UART_GET_LCR(p)       UART_GET_CTL(p)
-#define UART_GET_MCR(p)       UART_GET_CTL(p)
-#define UART_GET_STAT(p)      readl(p->port.membase + OFFSET_STAT)
-#define UART_GET_MSR(p)       UART_GET_STAT(p)
+#define UART_GET_CHAR(p)	readl(p->port.membase + OFFSET_RBR)
+#define UART_GET_CLK(p)		readl(p->port.membase + OFFSET_CLK)
+#define UART_GET_CTL(p)		readl(p->port.membase + OFFSET_CTL)
+#define UART_GET_GCTL(p)	UART_GET_CTL(p)
+#define UART_GET_LCR(p)		UART_GET_CTL(p)
+#define UART_GET_MCR(p)		UART_GET_CTL(p)
+#define UART_GET_STAT(p)	readl(p->port.membase + OFFSET_STAT)
+#define UART_GET_MSR(p)		UART_GET_STAT(p)
 
-#define UART_PUT_CHAR(p, v)   writel(v, p->port.membase + OFFSET_THR)
-#define UART_PUT_CLK(p, v)    writel(v, p->port.membase + OFFSET_CLK)
-#define UART_PUT_CTL(p, v)    writel(v, p->port.membase + OFFSET_CTL)
-#define UART_PUT_GCTL(p, v)   UART_PUT_CTL(p, v)
-#define UART_PUT_LCR(p, v)    UART_PUT_CTL(p, v)
-#define UART_PUT_MCR(p, v)    UART_PUT_CTL(p, v)
-#define UART_PUT_STAT(p, v)   writel(v, p->port.membase + OFFSET_STAT)
+#define UART_PUT_CHAR(p, v)	writel(v, p->port.membase + OFFSET_THR)
+#define UART_PUT_CLK(p, v)	writel(v, p->port.membase + OFFSET_CLK)
+#define UART_PUT_CTL(p, v)	writel(v, p->port.membase + OFFSET_CTL)
+#define UART_PUT_GCTL(p, v)	UART_PUT_CTL(p, v)
+#define UART_PUT_LCR(p, v)	UART_PUT_CTL(p, v)
+#define UART_PUT_MCR(p, v)	UART_PUT_CTL(p, v)
+#define UART_PUT_STAT(p, v)	writel(v, p->port.membase + OFFSET_STAT)
 
-#define UART_CLEAR_IER(p, v)  writel(v, p->port.membase + OFFSET_IER_CLEAR)
-#define UART_GET_IER(p)       readl(p->port.membase + OFFSET_IER)
-#define UART_SET_IER(p, v)    writel(v, p->port.membase + OFFSET_IER_SET)
+#define UART_CLEAR_IER(p, v)	writel(v, p->port.membase + OFFSET_IER_CLEAR)
+#define UART_GET_IER(p)		readl(p->port.membase + OFFSET_IER)
+#define UART_SET_IER(p, v)	writel(v, p->port.membase + OFFSET_IER_SET)
 
-#define UART_CLEAR_LSR(p)     UART_PUT_STAT(p, -1)
-#define UART_GET_LSR(p)       UART_GET_STAT(p)
-#define UART_PUT_LSR(p, v)    UART_PUT_STAT(p, v)
+#define UART_CLEAR_LSR(p)	UART_PUT_STAT(p, -1)
+#define UART_GET_LSR(p)		UART_GET_STAT(p)
+#define UART_PUT_LSR(p, v)	UART_PUT_STAT(p, v)
 
 /* This handles hard CTS/RTS */
-#define UART_CLEAR_SCTS(p)      UART_PUT_STAT(p, SCTS)
-#define UART_GET_CTS(x)         (UART_GET_MSR(x) & CTS)
-#define UART_DISABLE_RTS(x)     UART_PUT_MCR(x, UART_GET_MCR(x) & ~(ARTS | MRTS))
-#define UART_ENABLE_RTS(x)      UART_PUT_MCR(x, UART_GET_MCR(x) | MRTS | ARTS)
-#define UART_ENABLE_INTS(x, v)  UART_SET_IER(x, v)
-#define UART_DISABLE_INTS(x)    UART_CLEAR_IER(x, 0xF)
+#define UART_CLEAR_SCTS(p)	UART_PUT_STAT(p, SCTS)
+#define UART_GET_CTS(x)		(UART_GET_MSR(x) & CTS)
+#define UART_DISABLE_RTS(x)	UART_PUT_MCR(x, UART_GET_MCR(x) & ~(ARTS | MRTS))
+#define UART_ENABLE_RTS(x)	UART_PUT_MCR(x, UART_GET_MCR(x) | MRTS | ARTS)
+#define UART_ENABLE_INTS(x, v)	UART_SET_IER(x, v)
+#define UART_DISABLE_INTS(x)	UART_CLEAR_IER(x, 0xF)
 
 #define DMA_RX_XCOUNT		512
 #define DMA_RX_YCOUNT		(PAGE_SIZE / DMA_RX_XCOUNT)

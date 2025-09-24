@@ -42,7 +42,6 @@ static long sc5xx_cgu_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 	if (!prate)
 		return 0;
 
-
 	m = rate / prate;
 
 	if (m > pll->msel) {
