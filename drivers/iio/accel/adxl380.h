@@ -14,10 +14,14 @@ struct adxl380_chip_info {
 	const int samp_freq_tbl[3];
 	const int temp_offset;
 	const u16 chip_id;
+	const struct iio_info *info;
+	const bool has_low_power;
 };
 
 extern const struct adxl380_chip_info adxl380_chip_info;
 extern const struct adxl380_chip_info adxl382_chip_info;
+extern const struct adxl380_chip_info adxl318_chip_info;
+extern const struct adxl380_chip_info adxl319_chip_info;
 
 int adxl380_probe(struct device *dev, struct regmap *regmap,
 		  const struct adxl380_chip_info *chip_info);

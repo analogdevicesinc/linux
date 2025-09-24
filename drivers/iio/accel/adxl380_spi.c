@@ -37,6 +37,8 @@ static int adxl380_spi_probe(struct spi_device *spi)
 static const struct spi_device_id adxl380_spi_id[] = {
 	{ "adxl380", (kernel_ulong_t)&adxl380_chip_info },
 	{ "adxl382", (kernel_ulong_t)&adxl382_chip_info },
+	{ "adxl318", (kernel_ulong_t)&adxl318_chip_info },
+	{ "adxl319", (kernel_ulong_t)&adxl319_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adxl380_spi_id);
@@ -44,6 +46,8 @@ MODULE_DEVICE_TABLE(spi, adxl380_spi_id);
 static const struct of_device_id adxl380_of_match[] = {
 	{ .compatible = "adi,adxl380", .data = &adxl380_chip_info },
 	{ .compatible = "adi,adxl382", .data = &adxl382_chip_info },
+	{ .compatible = "adi,adxl318", .data = &adxl318_chip_info },
+	{ .compatible = "adi,adxl319", .data = &adxl319_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adxl380_of_match);
