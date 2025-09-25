@@ -21,7 +21,7 @@
  #include <linux/property.h>
  #include <linux/pwm.h>
  #include <linux/spi/spi.h>
- #include <linux/spi/legacy-spi-engine.h>
+ #include <linux/spi/offload/consumer.h>
  #include <linux/regulator/consumer.h>
  
  #include <linux/iio/buffer.h>
@@ -30,6 +30,9 @@
  #include <linux/iio/iio.h>
  #include <linux/iio/sysfs.h>
  #include <linux/io.h>
+
+/* LTC2378 timing constants from datasheet */
+#define LTC2378_TCNV_HIGH_NS  20  /* Minimum CNV pulse width for reliable operation */
 
 struct ltc2378_chip_info {
         const char *name;
@@ -47,19 +50,33 @@ static const struct ltc2378_chip_info ltc2378_chip_info = {
         .sclk_rate = 90000000
 };
 
+/* SPI offload configuration for LTC2378 */
+static const struct spi_offload_config ltc2378_offload_config = {
+	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER |
+			    SPI_OFFLOAD_CAP_RX_STREAM_DMA,
+};
+
 struct ltc2378_adc {
         const struct ltc2378_chip_info *info;
         struct iio_chan_spec *channels;
         struct spi_transfer seq_xfer[1];
         unsigned int cfg;
         unsigned long ref_clk_rate;
-        struct pwm_device *cnv;
+        struct pwm_device *cnv_pwm;  /* Direct PWM control for pulse width */
         struct spi_device *spi;
         struct regulator *vref;
         int spi_speed_hz;
         int samp_freq;
         int device_id;
         u8 rx_buf[4]; // for 32-bit data
+        
+        /* New SPI offload API fields */
+        struct spi_transfer offload_xfer;
+        struct spi_message offload_msg;
+        struct spi_offload *offload;
+        struct spi_offload_trigger *offload_trigger;
+        struct spi_offload_trigger_config offload_trigger_config;
+        struct pwm_waveform conv_wf;  /* PWM waveform like AD4630 */
 
         /*
 	 * DMA (thus cache coherency maintenance) requires the
@@ -99,7 +116,8 @@ static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
         .bits_per_word = 20,          // Exactly 20 clock pulses
         .speed_hz = adc->info->sclk_rate,
         .delay = {
-            .value = 600,             // 600ns delay after CS assertion
+            .value = 0,             // 600ns delay after CS assertion
+            //.value = 690,
             .unit = SPI_DELAY_UNIT_NSECS,
         },
     };
@@ -125,57 +143,60 @@ static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
 
 static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
 {
-        unsigned long long ref_clk_period_ns;
-        struct pwm_state cnv_state;
+        struct spi_offload_trigger_config config = {
+                .type = SPI_OFFLOAD_TRIGGER_PERIODIC,
+                .periodic = {
+                        .frequency_hz = freq,
+                },
+        };
         int ret;
-        u32 rem;
 
         printk(KERN_INFO "ltc2378: freq input = %d\n", freq);
         printk(KERN_INFO "ltc2378: max_rate = %d\n", adc->info->max_rate);
-        freq = clamp(freq, 1, adc->info->max_rate); // freq between 1 Hz and max_rate
+        freq = clamp(freq, 1, adc->info->max_rate);
         printk(KERN_INFO "ltc2378: freq clamped = %d\n", freq);
         
-        printk(KERN_INFO "ltc2378: ref_clk_rate = %lu\n", adc->ref_clk_rate);
-        ref_clk_period_ns = DIV_ROUND_UP(NSEC_PER_SEC, adc->ref_clk_rate);
-        printk(KERN_INFO "ltc2378: ref_clk_period_ns = %llu\n", ref_clk_period_ns);
-
-        pwm_get_state(adc->cnv, &cnv_state);
-        printk(KERN_INFO "ltc2378: PWM current period = %llu\n", cnv_state.period);
-        printk(KERN_INFO "ltc2378: PWM current duty_cycle = %llu\n", cnv_state.duty_cycle);
-        printk(KERN_INFO "ltc2378: PWM current enabled = %d\n", cnv_state.enabled);
-
-        cnv_state.duty_cycle = ref_clk_period_ns;
-        cnv_state.enabled = true;
-        printk(KERN_INFO "ltc2378: PWM new duty_cycle = %llu\n", cnv_state.duty_cycle);
-
-        printk(KERN_INFO "ltc2378: DIV_ROUND_UP(ref_clk_rate, freq) = %u\n", DIV_ROUND_UP(adc->ref_clk_rate, freq));
-        cnv_state.period = div_u64_rem((u64)DIV_ROUND_UP(adc->ref_clk_rate, freq) * NSEC_PER_SEC, // compute PWM period
-                                        adc->ref_clk_rate, &rem);
-        printk(KERN_INFO "ltc2378: PWM new period = %llu\n", cnv_state.period);
-        printk(KERN_INFO "ltc2378: rem = %u\n", rem);
+        config.periodic.frequency_hz = freq;
         
-        /* Special case for 1MHz: treat as 999999 Hz */
-        if (freq == 1000000) {
-                cnv_state.period = div_u64_rem((u64)DIV_ROUND_UP(adc->ref_clk_rate, 999999) * NSEC_PER_SEC,
-                                               adc->ref_clk_rate, &rem);
-                if (rem) {
-                        cnv_state.period += 1;
+        /* Store frequency directly - no trigger validation needed with direct PWM */
+        adc->samp_freq = freq;
+        adc->offload_trigger_config = config;
+        
+        printk(KERN_INFO "ltc2378: frequency set = %d\n", adc->samp_freq);
+
+        /* Configure PWM waveform like AD4630 does */
+        if (adc->cnv_pwm) {
+                struct pwm_waveform conv_wf = { };
+                u64 target = LTC2378_TCNV_HIGH_NS;  /* Start with 20ns */
+                
+                /* Set period based on validated frequency - use ARM32-safe division */
+                conv_wf.period_length_ns = div_u64(NSEC_PER_SEC + (config.periodic.frequency_hz >> 1), config.periodic.frequency_hz);
+                
+                /* Set narrow pulse width like AD4630 algorithm */
+                do {
+                        conv_wf.duty_length_ns = target;
+                        ret = pwm_round_waveform_might_sleep(adc->cnv_pwm, &conv_wf);
+                        if (ret) {
+                                printk(KERN_ERR "ltc2378: PWM round waveform failed: %d\n", ret);
+                                return ret;
+                        }
+                        target += 10;
+                } while (conv_wf.duty_length_ns < LTC2378_TCNV_HIGH_NS);  /* Ensure at least 20ns */
+                
+                /* Apply the waveform */
+                ret = pwm_set_waveform_might_sleep(adc->cnv_pwm, &conv_wf, false);
+                if (ret) {
+                        printk(KERN_ERR "ltc2378: failed to set PWM waveform: %d\n", ret);
+                        return ret;
                 }
-                printk(KERN_INFO "ltc2378: 1MHz special case - calculated as 999999 Hz, period = %llu\n", cnv_state.period);
-        } else if (rem) {
-                cnv_state.period += 1;
-                printk(KERN_INFO "ltc2378: PWM period adjusted = %llu\n", cnv_state.period);
+                
+                printk(KERN_INFO "ltc2378: PWM waveform set - period=%llu ns, duty=%llu ns\n",
+                       conv_wf.period_length_ns, conv_wf.duty_length_ns);
+        } else {
+                printk(KERN_INFO "ltc2378: No PWM device available for waveform control\n");
         }
 
-        ret = pwm_apply_might_sleep(adc->cnv, &cnv_state);  // apply calculated PWM state
-        printk(KERN_INFO "ltc2378: pwm_apply ret = %d\n", ret);
-        if (ret)
-                return ret;
-
-        adc->samp_freq = freq;
-        printk(KERN_INFO "ltc2378: samp_freq set to = %d\n", adc->samp_freq);
-
-        return ret;
+        return 0;
 }
 
 static int ltc2378_read_raw(struct iio_dev *indio_dev,
@@ -228,69 +249,107 @@ static int ltc2378_write_raw(struct iio_dev *indio_dev,
         }
 }
 
-static int ltc2378_buffer(struct iio_dev *indio_dev, struct spi_message *msg)
-{
-    struct ltc2378_adc *adc = iio_priv(indio_dev);
-    struct spi_transfer *xfer = &adc->seq_xfer[0];
+/* ltc2378_buffer function no longer needed with new offload API */
 
-    spi_message_init(msg);
-
-    xfer->tx_buf = NULL;
-    xfer->rx_buf = &adc->spi_rx_word;
-    xfer->len = 1;
-    xfer->bits_per_word = 20;
-    xfer->speed_hz = adc->info->sclk_rate;
-    xfer->cs_change = 0;
-    
-    /* Add 600ns delay after CS assertion before SCLK starts */
-    xfer->delay.value = 600;  /* Delay before transfer starts (after CS assertion) */
-    xfer->delay.unit = SPI_DELAY_UNIT_NSECS;
-    
-    /* No additional delays for other timing */
-   // xfer->cs_change_delay.value = 0;
-   // xfer->cs_change_delay.unit = SPI_DELAY_UNIT_NSECS;
-    
-    //xfer->word_delay.value = 0;
-    //xfer->word_delay.unit = SPI_DELAY_UNIT_NSECS;
-
-    spi_message_add_tail(xfer, msg);
-
-    return 0;
-}
-
-static int ltc2378_buffer_preenable(struct iio_dev *indio_dev)
+static int ltc2378_buffer_postenable(struct iio_dev *indio_dev)
 {
         struct ltc2378_adc *adc = iio_priv(indio_dev);
-        struct spi_message msg;
         int ret;
-
-        ret = ltc2378_buffer(indio_dev, &msg);
-        if (ret)
-                return ret;
         
-        spi_bus_lock(adc->spi->controller);
-        ret = legacy_spi_engine_offload_load_msg(adc->spi, &msg);
-        if (ret)
-                return ret;
+        printk(KERN_INFO "ltc2378: buffer_postenable called\n");
 
-        legacy_spi_engine_offload_enable(adc->spi, true);
+        /* Setup offload transfer */
+        printk(KERN_INFO "ltc2378: setting up offload transfer\n");
+        adc->offload_xfer.rx_buf = NULL;  /* For streaming, DMA framework handles buffer */
+        adc->offload_xfer.tx_buf = NULL;
+        adc->offload_xfer.len = 4;  /* 4 bytes for 20-bit data (32-bit aligned) */
+        adc->offload_xfer.bits_per_word = 20;
+        adc->offload_xfer.speed_hz = adc->info->sclk_rate;
+        adc->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;  /* Enable RX streaming */
+        
+        /* Setup delay after CS assertion */
+        adc->offload_xfer.delay.value = 0;  /* Start with no delay for testing */
+        adc->offload_xfer.delay.unit = SPI_DELAY_UNIT_NSECS;
+
+        /* Initialize message with offload */
+        printk(KERN_INFO "ltc2378: initializing SPI message with transfers\n");
+        spi_message_init_with_transfers(&adc->offload_msg, &adc->offload_xfer, 1);
+        adc->offload_msg.offload = adc->offload;
+
+        /* Optimize message for offload */
+        printk(KERN_INFO "ltc2378: optimizing SPI message\n");
+        ret = spi_optimize_message(adc->spi, &adc->offload_msg);
+        if (ret) {
+                printk(KERN_ERR "ltc2378: spi_optimize_message failed: %d\n", ret);
+                return ret;
+        }
+        printk(KERN_INFO "ltc2378: SPI message optimized successfully\n");
+
+        /* Enable offload trigger - but PWM pulse width controlled by HDL */
+        printk(KERN_INFO "ltc2378: enabling SPI offload trigger\n");
+        ret = spi_offload_trigger_enable(adc->offload, adc->offload_trigger,
+                                        &adc->offload_trigger_config);
+        if (ret) {
+                printk(KERN_ERR "ltc2378: failed to enable SPI offload trigger: %d\n", ret);
+                spi_unoptimize_message(&adc->offload_msg);
+                return ret;
+        }
+        
+        /* CRITICAL: Set exact PWM waveform like AD4630 - before trigger enable */
+        if (adc->cnv_pwm) {
+                struct pwm_waveform conv_wf = { };
+                u64 target = LTC2378_TCNV_HIGH_NS;  /* Start with 20ns */
+                
+                /* Set period from frequency - use ARM32-safe division */
+                conv_wf.period_length_ns = div_u64(NSEC_PER_SEC + (adc->samp_freq >> 1), adc->samp_freq);
+                
+                /* Set narrow pulse width like AD4630 does */
+                do {
+                        conv_wf.duty_length_ns = target;
+                        ret = pwm_round_waveform_might_sleep(adc->cnv_pwm, &conv_wf);
+                        if (ret) {
+                                printk(KERN_ERR "ltc2378: PWM round waveform failed: %d\n", ret);
+                                break;
+                        }
+                        target += 10;
+                } while (conv_wf.duty_length_ns < LTC2378_TCNV_HIGH_NS);  /* Ensure at least 20ns */
+                
+                /* Apply the waveform */
+                ret = pwm_set_waveform_might_sleep(adc->cnv_pwm, &conv_wf, false);
+                if (ret == 0) {
+                        printk(KERN_INFO "ltc2378: Set PWM waveform - period=%llu ns, duty=%llu ns\n", 
+                               conv_wf.period_length_ns, conv_wf.duty_length_ns);
+                } else {
+                        printk(KERN_ERR "ltc2378: PWM set waveform failed: %d\n", ret);
+                }
+        } else {
+                printk(KERN_INFO "ltc2378: No PWM device available for waveform control\n");
+        }
+        
+        printk(KERN_INFO "ltc2378: SPI offload trigger enabled successfully\n");
 
         return 0;
 }
 
-static int ltc2378_buffer_postdisable(struct iio_dev *indio_dev)
+static int ltc2378_buffer_predisable(struct iio_dev *indio_dev)
 {
         struct ltc2378_adc *adc = iio_priv(indio_dev);
 
-        legacy_spi_engine_offload_enable(adc->spi, false);
-        spi_bus_unlock(adc->spi->controller);
+        printk(KERN_INFO "ltc2378: buffer_predisable called\n");
+        
+        /* Disable offload trigger */
+        printk(KERN_INFO "ltc2378: disabling SPI offload trigger\n");
+        spi_offload_trigger_disable(adc->offload, adc->offload_trigger);
+        
+        /* Unoptimize message */
+        spi_unoptimize_message(&adc->offload_msg);
 
         return 0;
 }
 
 static const struct iio_buffer_setup_ops ltc2378_buffer_ops = {
-        .preenable = &ltc2378_buffer_preenable,
-        .postdisable = &ltc2378_buffer_postdisable,
+        .postenable = &ltc2378_buffer_postenable,
+        .predisable = &ltc2378_buffer_predisable,
 };
 
 static const struct iio_info ltc2378_iio_info = {
@@ -324,14 +383,15 @@ static void ltc2378_reg_disable(void *data)
         regulator_disable(data);
 }
 
-static void ltc2378_pwm_disable(void *data)
-{
-        pwm_disable(data);
-}
 
 static void ltc2378_clk_disable(void *data)
 {
         clk_disable_unprepare(data);
+}
+
+static void ltc2378_pwm_disable(void *data)
+{
+        pwm_disable(data);
 }
 
 static int ltc2378_probe(struct spi_device *spi)
@@ -341,17 +401,27 @@ static int ltc2378_probe(struct spi_device *spi)
         struct clk *ref_clk;
         int ret;
 
+        printk(KERN_INFO "ltc2378: probe start\n");
+
         indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*adc));
-        if (!indio_dev)
+        if (!indio_dev) {
+                printk(KERN_ERR "ltc2378: failed to allocate iio device\n");
                 return -ENOMEM;
+        }
         
+        printk(KERN_INFO "ltc2378: iio device allocated\n");
         adc =  iio_priv(indio_dev);
         adc->spi = spi;
+        printk(KERN_INFO "ltc2378: getting vref regulator\n");
         adc->vref = devm_regulator_get(&spi->dev, "vref");
-        if (IS_ERR(adc->vref))
+        if (IS_ERR(adc->vref)) {
+                printk(KERN_ERR "ltc2378: failed to get vref regulator: %ld\n", PTR_ERR(adc->vref));
                 return PTR_ERR(adc->vref);
+        }
+        printk(KERN_INFO "ltc2378: enabling vref regulator\n");
         ret = regulator_enable(adc->vref);
         if (ret) {
+                printk(KERN_ERR "ltc2378: failed to enable VREF regulator: %d\n", ret);
                 dev_err(&spi->dev, "Failed to enable VREF regulator");
                 return ret;
         }
@@ -371,14 +441,21 @@ static int ltc2378_probe(struct spi_device *spi)
                 return ret;
         
         adc->ref_clk_rate = clk_get_rate(ref_clk);
-        adc->cnv = devm_pwm_get(&spi->dev, "cnv");
-        if (IS_ERR(adc->cnv))
-                return PTR_ERR(adc->cnv);
         
-        ret = devm_add_action_or_reset(&spi->dev, ltc2378_pwm_disable, adc->cnv);
-        if (ret)
-                return ret;
+        /* Get PWM for direct pulse width control (like AD4630) */
+        adc->cnv_pwm = devm_pwm_get(&spi->dev, "cnv");
+        if (IS_ERR(adc->cnv_pwm)) {
+                /* PWM is optional - offload framework can still work without it */
+                printk(KERN_INFO "ltc2378: No direct PWM control, using offload defaults\n");
+                adc->cnv_pwm = NULL;
+        } else {
+                printk(KERN_INFO "ltc2378: PWM device acquired for pulse width control\n");
+                ret = devm_add_action_or_reset(&spi->dev, ltc2378_pwm_disable, adc->cnv_pwm);
+                if (ret)
+                        return ret;
+        }
 
+        printk("ltc2378 - before device_get_match_data");
         adc->info = device_get_match_data(&spi->dev);
         if (!adc->info) {
                 adc->info = (struct ltc2378_chip_info *)
@@ -386,25 +463,72 @@ static int ltc2378_probe(struct spi_device *spi)
                 if (!adc->info)
                         return ret;
         }
+        printk("ltc2378 - before parse channels");
         ret = ltc2378_parse_channels(indio_dev);
         if (ret)
                 return -EINVAL;
 
+        printk("ltc2378 - before devm_spi_offload_get");
+        /* Get SPI offload support */
+        adc->offload = devm_spi_offload_get(&spi->dev, spi, &ltc2378_offload_config);
+        if (IS_ERR(adc->offload)) {
+                dev_err(&spi->dev, "Failed to get SPI offload\n");
+                return PTR_ERR(adc->offload);
+        }
+        
+        printk("ltc2378 - before offload trigger get");
+        /* Get offload trigger - but don't let it override HDL PWM settings */
+        adc->offload_trigger = devm_spi_offload_trigger_get(&spi->dev,
+                                                            adc->offload,
+                                                            SPI_OFFLOAD_TRIGGER_PERIODIC);
+        if (IS_ERR(adc->offload_trigger)) {
+                dev_err(&spi->dev, "Failed to get offload trigger\n");
+                return PTR_ERR(adc->offload_trigger);
+        }
+        
+        printk("ltc2378 - before configure trigger timing");
+        /* Configure trigger timing */
+        adc->offload_trigger_config.type = SPI_OFFLOAD_TRIGGER_PERIODIC;
+        adc->offload_trigger_config.periodic.frequency_hz = adc->info->max_rate;
+        adc->offload_trigger_config.periodic.offset_ns = 0;  /* No offset initially */
+
+        printk("ltc2378 - before indio_dev assignments");
         indio_dev->name = adc->info->name;
         indio_dev->info = &ltc2378_iio_info;
         indio_dev->modes = INDIO_BUFFER_HARDWARE | INDIO_DIRECT_MODE;
         indio_dev->setup_ops = &ltc2378_buffer_ops;
-        ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
-                                              indio_dev, "rx");
-        if (ret)
+        printk("ltc2378 - before getting offload RX DMA");
+        struct dma_chan *rx_dma;
+        rx_dma = devm_spi_offload_rx_stream_request_dma_chan(&spi->dev, adc->offload);
+        if (IS_ERR(rx_dma)) {
+                printk(KERN_ERR "ltc2378: failed to get offload RX DMA: %ld\n", PTR_ERR(rx_dma));
+                return PTR_ERR(rx_dma);
+        }
+        
+        printk("ltc2378 - before devm_iio_dmaengine_buffer_setup_with_handle");
+        ret = devm_iio_dmaengine_buffer_setup_with_handle(&spi->dev, indio_dev,
+                                                          rx_dma, IIO_BUFFER_DIRECTION_IN);
+        if (ret) {
+                printk(KERN_ERR "ltc2378: devm_iio_dmaengine_buffer_setup_with_handle failed: %d\n", ret);
                 return ret;
+        }
+        printk("ltc2378 - DMA buffer setup success");
+        printk("ltc2378 - before set_sam_freq"); 
         ret = ltc2378_set_samp_freq(adc, adc->info->max_rate);
         if (ret)
                 return ret;
 
-        dev_info(&spi->dev, "ltc2378 - bits_per_word_mask: 0x%lx\n", spi->controller->bits_per_word_mask); // check if SPI supports 20 bit transfers
+        dev_info(&spi->dev, "ltc2378 - bits_per_word_mask: 0x%x\n", spi->controller->bits_per_word_mask); // check if SPI supports 20 bit transfers
         
-        return devm_iio_device_register(&spi->dev, indio_dev);
+        printk("ltc2378 - before devm_iio_device_register");
+        ret = devm_iio_device_register(&spi->dev, indio_dev);
+        if (ret) {
+                printk(KERN_ERR "ltc2378: devm_iio_device_register failed: %d\n", ret);
+                return ret;
+        }
+        printk("ltc2378 - probe completed successfully!");
+        
+        return 0;
 }
 
 static const struct of_device_id ltc2378_of_match[] = {
