@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mux/adi,adg2404.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADG2404 4:1 multiplexer
+
+maintainers:
+  - Antoniu Miclaus <antoniu.miclaus@analog.com>
+
+description: |
+  Bindings for Analog Devices ADG2404 4:1 single-ended analog multiplexer
+
+  The multiplexer state corresponds to the selected input channel:
+  * 0: Channel S1 selected
+  * 1: Channel S2 selected
+  * 2: Channel S3 selected
+  * 3: Channel S4 selected
+
+allOf:
+  - $ref: mux-controller.yaml#
+
+properties:
+  compatible:
+    const: adi,adg2404
+
+  a0-gpios:
+    description: GPIO connected to the A0 address pin
+    maxItems: 1
+
+  a1-gpios:
+    description: GPIO connected to the A1 address pin
+    maxItems: 1
+
+  en-gpios:
+    description: GPIO connected to the EN (enable) pin
+    maxItems: 1
+
+  '#mux-control-cells':
+    const: 0
+
+required:
+  - compatible
+  - a0-gpios
+  - a1-gpios
+  - en-gpios
+  - '#mux-control-cells'
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    mux-controller {
+        compatible = "adi,adg2404";
+        #mux-control-cells = <0>;
+
+        a0-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>;
+        a1-gpios = <&gpio 2 GPIO_ACTIVE_HIGH>;
+        en-gpios = <&gpio 3 GPIO_ACTIVE_HIGH>;
+
+        idle-state = <0>; /* Select channel S1 when idle */
+    };
+
+...
