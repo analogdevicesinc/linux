@@ -1,0 +1,149 @@
+name: Upload artifacts to cloudmsith
+
+on:
+  workflow_call:
+    inputs:
+      artifacts:
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: write
+  actions: read
+
+jobs:
+  upload-artifacts-to-cloudsmith:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+
+    steps:
+    - name: Prepare path
+      run: |
+        rm -rf dist ; mkdir dist
+
+    - uses: cloudsmith-io/cloudsmith-cli-action@v1.0.4
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' }}
+      with:
+        oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
+        oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        oidc-auth-only: 'true'
+
+    - name: Cloudsmith API Key
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG == '' }}
+      run: echo "CLOUDSMITH_API_KEY=${{ secrets.CLOUDSMITH_API_KEY }}" >> "$GITHUB_ENV"
+
+    - name: Download artifacts
+      if: ${{ env.CLOUDSMITH_API_KEY != '' }}
+      run: |
+        gh-get-workflow-artifacts()
+        {
+          artifacts=$(curl -sfL \
+               -H "Accept: application/vnd.github+json" \
+               -H "Authorization: Bearer $1 " \
+               -H "X-GitHub-Api-Version: 2022-11-28" \
+               https://api.github.com/repos/$2/actions/runs/$3/artifacts)
+          echo "$artifacts"
+        }
+
+        gh-download-artifact () {
+          curl -sfL \
+            -H "Authorization: Bearer $1" \
+            -H "Accept: application/vnd.github+json" \
+            -o "$2" \
+            "$3"
+        }
+
+        artifacts=$(
+          gh-get-workflow-artifacts ${{ secrets.GITHUB_TOKEN }} \
+                                    ${{ github.repository }} \
+                                    ${{ github.run_id }}
+        )
+
+        total_count=$(echo $artifacts | jq '.total_count' -r)
+
+        if [[ "$total_count" == "null" ]] || [[ "$total_count" == "0" ]]; then
+          exit
+        fi
+
+        artifacts_files=$(echo $artifacts | jq '[.artifacts[] | [.name, .archive_download_url]]' -r)
+        patterns="${{ inputs.artifacts }}"
+        echo $artifacts_files |  jq -r '.[] | @tsv' | while IFS=$'\t' read -r name url; do
+          matched=0
+          for p in $patterns; do
+            if [[ $name == $p ]]; then
+              matched=1
+              break
+            fi
+          done
+
+          if [[ "$matched" == "1" ]]; then
+            echo "$name"
+            gh-download-artifact ${{ secrets.GITHUB_TOKEN }} \
+                                 "dist/$name" \
+                                 "$url"
+          else
+            echo "$name no match, skipped"
+          fi
+        done
+
+    - name: Cloudsmith upload assets
+      if: ${{ env.CLOUDSMITH_API_KEY != '' }}
+      run: |
+        cs-package-upload()
+        {
+          package_file=$(curl -sfL \
+            -T $4 \
+            -H "X-Api-Key: $1" \
+            -H "Content-Sha256: $(shasum -a256 $4 | cut -f1 -d' ')" \
+            https://upload.cloudsmith.io/$2/$3/$4 | jq -r .identifier)
+          echo $package_file
+        }
+
+        cs-package-store-raw () {
+          curl -sfL \
+            -X POST \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Key: $1" \
+            -d "{\"package_file\":\"$4\", \
+                 \"republish\":\"true\", \
+                 \"name\":\"$5\", \
+                 \"tags\": \"$6\", \
+                 \"version\":\"$7\"}" \
+            https://api.cloudsmith.com/v1/packages/$2/$3/upload/raw/
+        }
+
+        # push: refs/heads/<branch>
+        # tag || release: refs/tags/<tag>
+        # pull_request: refs/pull/<id>/merge
+        tags_="${{ github.ref }}, on/${{ github.event_name }}"
+        [[ "${{ github.ref }}" == refs/pull/* ]] && \
+          tags_+=", refs/heads/${{ github.head_ref }}, refs/base/${{ github.base_ref }}"
+
+        [ -z "$( ls -A 'dist' )" ] && exit
+
+        cd dist
+        for file in * ; do
+          package_file=$(
+            cs-package-upload ${{ env.CLOUDSMITH_API_KEY }} \
+                              ${{ vars.CLOUDSMITH_NAMESPACE }} \
+                              ${{ vars.CLOUDSMITH_REPOSITORY }} \
+                              "$file"
+          )
+
+          cs-package-store-raw ${{ env.CLOUDSMITH_API_KEY }} \
+                               ${{ vars.CLOUDSMITH_NAMESPACE }} \
+                               ${{ vars.CLOUDSMITH_REPOSITORY }} \
+                               $package_file \
+                               $file \
+                               "$tags_" \
+                               ${GITHUB_SHA:0:12}
+        done
