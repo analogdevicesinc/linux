@@ -36,6 +36,14 @@
 		regulator-always-on;
 	};
 
+	/* Minimal trigger wrapper - just for SPI engine, preserve HDL PWM defaults */
+	trigger_pwm: adc-pwm-trigger {
+		compatible = "pwm-trigger";
+		#trigger-source-cells = <0>;
+		/* Reference PWM with minimal control - preserve HDL pulse width */
+		pwms = <&adc_trigger 0 1000000 2>;
+	};
+
         one-bit-adc-dac@0 {
                 compatible = "adi,one-bit-adc-dac";
                 #address-cells = <1>;
@@ -79,19 +87,24 @@
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x1000>;
 		label = "adc_conversion_trigger";
-		#pwm-cells = <2>;
-		clocks = <&clkc 15>, <&spi_clk>;
-		clock-names = "axi", "ext";
+		#pwm-cells = <3>;
+		#trigger-source-cells = <0>;  /* Act as direct trigger source */
+		clocks = <&clkc 15>;
+		clock-names = "axi";
 	};
 
 	spi_engine: spi@0x44a00000 {
-		compatible = "adi,legacy-axi-spi-engine-1.00.a";
+		compatible = "adi,axi-spi-engine-1.00.a";  /* New SPI engine */
 		reg = <0x44a00000 0x10000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>, <&spi_clk>;
 		clock-names = "s_axi_aclk", "spi_clk";
-                num-cs = <1>;
+		
+		/* New: DMA and trigger configuration for offload */
+		dmas = <&rx_dma 0>;
+		dma-names = "offload0-rx";
+		trigger-sources = <&trigger_pwm>;
 
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -105,14 +118,12 @@
         	        // SPI mode 0 (CPOL=0, CPHA=0) - LTC2378 datasheet specifies this
         	        // Data valid on rising edge, idle low
 
+        	        /* PWM for direct pulse width control */
+        	        pwms = <&adc_trigger 0 1000 20>;  /* channel 0, 1000ns period, 20ns pulse */
+        	        pwm-names = "cnv";
+        	        
         	        clocks = <&spi_clk>;
         	        clock-names = "spi_clk";
-
-                        dmas = <&rx_dma 0>;
-		        dma-names = "rx";
-
-                        pwms = <&adc_trigger 0 0>;
-        	        pwm-names = "cnv";
 
         	        vdd-supply = <&vdd>;
         	        vref-supply = <&vref>;
