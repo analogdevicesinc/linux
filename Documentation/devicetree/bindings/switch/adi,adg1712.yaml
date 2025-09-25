@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/switch/adi,adg1712.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADG1712 quad SPST switch controller
+
+maintainers:
+  - Antoniu Miclaus <antoniu.miclaus@analog.com>
+
+description: |
+  Bindings for Analog Devices ADG1712 quad single-pole, single-throw (SPST)
+  switch controlled by GPIOs. The device features four independent switches,
+  each controlled by a dedicated GPIO input pin.
+
+  Each switch can be controlled independently. Setting a GPIO high enables the
+  corresponding switch (closes the connection), while setting it low disables
+  the switch (opens the connection).
+
+properties:
+  compatible:
+    const: adi,adg1712
+
+  switch0-gpios:
+    description: GPIO connected to IN1 control pin (controls SW1).
+    maxItems: 1
+
+  switch1-gpios:
+    description: GPIO connected to IN2 control pin (controls SW2).
+    maxItems: 1
+
+  switch2-gpios:
+    description: GPIO connected to IN3 control pin (controls SW3).
+    maxItems: 1
+
+  switch3-gpios:
+    description: GPIO connected to IN4 control pin (controls SW4).
+    maxItems: 1
+
+  gpio-controller: true
+
+  "#gpio-cells":
+    const: 2
+    description: |
+      The first cell is the switch number (0-3 corresponding to SW1-SW4).
+      The second cell specifies GPIO flags.
+
+required:
+  - compatible
+  - gpio-controller
+  - "#gpio-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    // All switches connected
+    adg1712_full: switch-controller-full {
+        compatible = "adi,adg1712";
+        gpio-controller;
+        #gpio-cells = <2>;
+
+        switch0-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
+        switch1-gpios = <&gpio 11 GPIO_ACTIVE_HIGH>;
+        switch2-gpios = <&gpio 12 GPIO_ACTIVE_HIGH>;
+        switch3-gpios = <&gpio 13 GPIO_ACTIVE_HIGH>;
+    };
+
+    // Only SW2 and SW4 connected
+    adg1712_sparse: switch-controller-sparse {
+        compatible = "adi,adg1712";
+        gpio-controller;
+        #gpio-cells = <2>;
+
+        switch1-gpios = <&gpio 11 GPIO_ACTIVE_HIGH>; /* SW2 */
+        switch3-gpios = <&gpio 13 GPIO_ACTIVE_HIGH>; /* SW4 */
+    };
+...
