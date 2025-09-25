@@ -195,15 +195,16 @@
 		regulator-boot-on;
 	};
 
-	stingray_control@0 {
+	mantaray_control@0 {
+		status = "disabled";
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
 
 		out-gpios = <&axi_fmc_gpio 30 0>, <&axi_fmc_gpio 31 0>,
-								<&axi_fmc_gpio 29 0>, <&axi_fmc_gpio 28 0>,
-								<&axi_fmc_gpio 27 0>, <&axi_fmc_gpio 26 0>;
-		label = "stingray0_control";
+			<&axi_fmc_gpio 29 0>, <&axi_fmc_gpio 28 0>;
+
+		label = "mantaray_control_gpio";
 
 		channel@0 {
 			reg = <0>;
@@ -224,61 +225,10 @@
 			reg = <3>;
 			label = "RX_LOAD";
 		};
-
-		channel@4 {
-			reg = <4>;
-			label = "5V_CTRL";
-		};
-
-		channel@5 {
-			reg = <5>;
-			label = "PWR_UP_DOWN";
-		};
 	};
-
-	stingray_control_1@1 {
-		compatible = "adi,one-bit-adc-dac";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		out-gpios = <&axi_fmc_gpio 13 0>, <&axi_fmc_gpio 12 0>,
-								<&axi_fmc_gpio 11 0>, <&axi_fmc_gpio 10 0>,
-								<&axi_fmc_gpio  9 0>, <&axi_fmc_gpio  8 0>;
-		label = "stingray1_control";
-
-		channel@0 {
-			reg = <0>;
-			label = "PA_ON";
-		};
-
-		channel@1 {
-			reg = <1>;
-			label = "TR";
-		};
-
-		channel@2 {
-			reg = <2>;
-			label = "TX_LOAD";
-		};
-
-		channel@3 {
-			reg = <3>;
-			label = "RX_LOAD";
-		};
-
-		channel@4 {
-			reg = <4>;
-			label = "5V_CTRL";
-		};
-
-		channel@5 {
-			reg = <5>;
-			label = "PWR_UP_DOWN";
-		};
-	};
-
 
 	xud_control@2 {
+		status = "disabled";
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -320,6 +270,7 @@
 	};
 
 	imu_control@3 {
+		status = "disabled";
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -330,6 +281,20 @@
 		channel@0 {
 			reg = <0>;
 			label = "RST";
+		};
+	};
+
+	tdd_sync_control@4 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios =  <&axi_fmc_gpio 25 0>;
+		label = "tdd_sync_control";
+
+		channel@0 {
+			reg = <0>;
+			label = "TDD_SYNC";
 		};
 	};
 };
@@ -404,6 +369,7 @@
 		xlnx,spi-mode = <0>;
 
 		adar1000_csb_0_1@1 {
+			status = "disabled";
 			compatible = "adi,adar1000";
 			reg = <1>;
 			spi-max-frequency = <12500000>;
@@ -433,6 +399,7 @@
 		};
 
 		adar1000_csb_0_2@2 {
+			status = "disabled";
 			compatible = "adi,adar1000";
 			reg = <2>;
 			spi-max-frequency = <12500000>;
@@ -462,6 +429,7 @@
 		};
 
 		adar1000_csb_0_3@3 {
+			status = "disabled";
 			compatible = "adi,adar1000";
 			reg = <3>;
 			spi-max-frequency = <12500000>;
@@ -491,6 +459,7 @@
 		};
 
 		adar1000_csb_0_4@4 {
+			status = "disabled";
 			compatible = "adi,adar1000";
 			reg = <4>;
 			spi-max-frequency = <12500000>;
@@ -520,6 +489,7 @@
 		};
 
 		ltc2314_0@5 {
+			status = "disabled";
 			compatible = "adi,ltc2314-14";
 			reg = <5>;
 			spi-max-frequency = <12500000>;
@@ -543,6 +513,7 @@
 		xlnx,spi-mode = <0>;
 
 		adar1000_csb_1_1@1 {
+			status = "disabled";
 			compatible = "adi,adar1000";
 			reg = <1>;
 			spi-max-frequency = <12500000>;
@@ -572,6 +543,7 @@
 		};
 
 		adar1000_csb_1_2@2 {
+			status = "disabled";
 			compatible = "adi,adar1000";
 			reg = <2>;
 			spi-max-frequency = <12500000>;
@@ -601,6 +573,7 @@
 		};
 
 		adar1000_csb_1_3@3 {
+			status = "disabled";
 			compatible = "adi,adar1000";
 			reg = <3>;
 			spi-max-frequency = <12500000>;
@@ -630,6 +603,7 @@
 		};
 
 		adar1000_csb_1_4@4 {
+			status = "disabled";
 			compatible = "adi,adar1000";
 			reg = <4>;
 			spi-max-frequency = <12500000>;
@@ -659,6 +633,7 @@
 		};
 
 		ltc2314_1@5 {
+			status = "disabled";
 			compatible = "adi,ltc2314-14";
 			reg = <5>;
 			spi-max-frequency = <12500000>;
