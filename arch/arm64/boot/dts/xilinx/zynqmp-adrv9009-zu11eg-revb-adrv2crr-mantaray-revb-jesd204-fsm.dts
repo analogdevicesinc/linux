@@ -195,97 +195,43 @@
 		regulator-boot-on;
 	};
 
-	stingray_control@0 {
+	mantaray_control@0 {
+
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios = <&axi_fmc_gpio 30 0>, <&axi_fmc_gpio 31 0>,
-								<&axi_fmc_gpio 29 0>, <&axi_fmc_gpio 28 0>,
-								<&axi_fmc_gpio 27 0>, <&axi_fmc_gpio 26 0>;
-		label = "stingray0_control";
+		out-gpios = <&axi_fmc_gpio 29 0>, <&axi_fmc_gpio 28 0>,
+				<&axi_fmc_gpio 11 0>, <&axi_fmc_gpio 10 0>;
+		label = "mantaray_control";
 
 		channel@0 {
 			reg = <0>;
-			label = "PA_ON";
+			label = "TX_LOAD0";
 		};
 
 		channel@1 {
 			reg = <1>;
-			label = "TR";
+			label = "RX_LOAD0";
 		};
 
 		channel@2 {
 			reg = <2>;
-			label = "TX_LOAD";
+			label = "TX_LOAD1";
 		};
 
 		channel@3 {
 			reg = <3>;
-			label = "RX_LOAD";
-		};
-
-		channel@4 {
-			reg = <4>;
-			label = "5V_CTRL";
-		};
-
-		channel@5 {
-			reg = <5>;
-			label = "PWR_UP_DOWN";
+			label = "RX_LOAD1";
 		};
 	};
 
-	stingray_control_1@1 {
+	xud_control@1 {
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios = <&axi_fmc_gpio 13 0>, <&axi_fmc_gpio 12 0>,
-								<&axi_fmc_gpio 11 0>, <&axi_fmc_gpio 10 0>,
-								<&axi_fmc_gpio  9 0>, <&axi_fmc_gpio  8 0>;
-		label = "stingray1_control";
-
-		channel@0 {
-			reg = <0>;
-			label = "PA_ON";
-		};
-
-		channel@1 {
-			reg = <1>;
-			label = "TR";
-		};
-
-		channel@2 {
-			reg = <2>;
-			label = "TX_LOAD";
-		};
-
-		channel@3 {
-			reg = <3>;
-			label = "RX_LOAD";
-		};
-
-		channel@4 {
-			reg = <4>;
-			label = "5V_CTRL";
-		};
-
-		channel@5 {
-			reg = <5>;
-			label = "PWR_UP_DOWN";
-		};
-	};
-
-
-	xud_control@2 {
-		compatible = "adi,one-bit-adc-dac";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		out-gpios = <&axi_fmc_gpio 16 0>, <&axi_fmc_gpio 17 0>,
-								<&axi_fmc_gpio 18 0>, <&axi_fmc_gpio 19 0>,
-								<&axi_fmc_gpio 20 0>, <&axi_fmc_gpio 21 0>;
+		out-gpios = <&axi_fmc_gpio 16 0>, <&axi_fmc_gpio 21 0>;
 		label = "xud_control";
 
 		channel@0 {
@@ -295,26 +241,6 @@
 
 		channel@1 {
 			reg = <1>;
-			label = "TXRX0";
-		};
-
-		channel@2 {
-			reg = <2>;
-			label = "TXRX1";
-		};
-
-		channel@3 {
-			reg = <3>;
-			label = "TXRX2";
-		};
-
-		channel@4 {
-			reg = <4>;
-			label = "TXRX3";
-		};
-
-		channel@5 {
-			reg = <5>;
 			label = "PLL_OUTPUT_SEL";
 		};
 	};
@@ -368,7 +294,13 @@
 			"out_channel4_off_raw", "out_channel4_off_ms",
 			"out_channel5_enable", "out_channel5_polarity",
 			"out_channel5_on_raw", "out_channel5_on_ms",
-			"out_channel5_off_raw", "out_channel5_off_ms";
+			"out_channel5_off_raw", "out_channel5_off_ms",
+			"out_channel6_enable", "out_channel6_polarity",
+			"out_channel6_on_raw", "out_channel6_on_ms",
+			"out_channel6_off_raw", "out_channel6_off_ms",
+			"out_channel7_enable", "out_channel7_polarity",
+			"out_channel7_on_raw", "out_channel7_on_ms",
+			"out_channel7_off_raw", "out_channel7_off_ms";
 		label = "iio-axi-tdd-0";
 	};
 
@@ -719,65 +651,5 @@
 		xlnx,is-dual = <0x0>;
 		xlnx,tri-default = <0xFFFFFFFF>;
 		xlnx,tri-default-2 = <0xFFFFFFFF>;
-	};
-
-	axi_i2c_pmod_0: i2c@85100000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		clock-names = "s_axi_aclk";
-		clocks = <&zynqmp_clk 71>;
-		compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
-		interrupt-names = "iic2intc_irpt";
-		interrupt-parent = <&gic>;
-		interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x0 0x85100000 0x1000>;
-
-		ltc2992_0@6a {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "adi,ltc2992";
-			reg = <0x6A>;
-			label = "ltc2992_0";
-
-			channel_0_0@0 {
-				reg = <0x0>;
-				shunt-resistor-micro-ohms = <8000>;
-			};
-
-			channel_0_1@1 {
-				reg = <0x1>;
-				shunt-resistor-micro-ohms = <3500>;
-			};
-		};
-	};
-
-	axi_i2c_pmod_1: i2c@85300000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		clock-names = "s_axi_aclk";
-		clocks = <&zynqmp_clk 71>;
-		compatible = "xlnx,axi-iic-2.1", "xlnx,xps-iic-2.00.a";
-		interrupt-names = "iic2intc_irpt";
-		interrupt-parent = <&gic>;
-		interrupts = <0 91 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x0 0x85300000 0x1000>;
-
-		ltc2992_1@6a {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "adi,ltc2992";
-			reg = <0x6A>;
-			label = "ltc2992_1";
-
-			channel_1_0@0 {
-				reg = <0x0>;
-				shunt-resistor-micro-ohms = <8000>;
-			};
-
-			channel_1_1@1 {
-				reg = <0x1>;
-				shunt-resistor-micro-ohms = <3500>;
-			};
-		};
 	};
 };
