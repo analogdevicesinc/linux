@@ -9,6 +9,18 @@ config MULTIPLEXER
 menu "Multiplexer drivers"
 	depends on MULTIPLEXER
 
+config MUX_ADG2404
+	tristate "Analog Devices ADG2404 Multiplexer"
+	depends on GPIOLIB || COMPILE_TEST
+	help
+	  ADG2404 4:1 single-ended analog multiplexer controlled by GPIO.
+
+	  The multiplexer state is controlled by 3 GPIO pins: A0, A1
+	  (address selection) and EN (enable).
+
+	  To compile the driver as a module, choose M here: the module will
+	  be called mux-adg2404.
+
 config MUX_ADG792A
 	tristate "Analog Devices ADG792A/ADG792G Multiplexers"
 	depends on I2C
