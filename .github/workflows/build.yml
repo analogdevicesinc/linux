@@ -38,8 +38,10 @@ jobs:
       LLVM_VERSION: 19
 
     outputs:
+      fatal: ${{ steps.assert.outputs.fatal }}
       fail: ${{ steps.assert.outputs.fail }}
       warn: ${{ steps.assert.outputs.warn }}
+      asset_alias_name: ${{ steps.get_asset.outputs.asset_alias_name }}
 
     steps:
     - uses: analogdevicesinc/doctools/checkout@action
@@ -152,6 +154,7 @@ jobs:
         source ./ci/build.sh
         set_step_fail "assert_state"
         echo "fatal=true" >> "$GITHUB_ENV"
+        echo "fatal=true" >> "$GITHUB_OUTPUT"
 
     - name: Assert compiled
       if: ${{ !cancelled() && env.fatal != 'true' && env.AUTO_FROM_RANGE == 'true' }}
@@ -183,11 +186,19 @@ jobs:
         source ./ci/build.sh
         compile_kernel_smatch
 
+    - name: Package file create
+      if: ${{ !cancelled() }}
+      id: get_asset
+      run: |
+        asset_alias_name=dist-${{ env.DEFCONFIG }}-${{ env.CID }}-${{ env.ARCH }}
+        echo "asset_alias_name=$asset_alias_name" >> "$GITHUB_OUTPUT"
+        echo "asset_alias_name=$asset_alias_name" >> "$GITHUB_ENV"
+
     - name: Store the distribution packages
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v4
       with:
-        name: dist-${{ env.DEFCONFIG }}-${{ env.CID }}-${{ env.ARCH }}
+        name: ${{ env.asset_alias_name }}
         path: dist
 
     - name: Export labels
@@ -196,3 +207,74 @@ jobs:
       run: |
         source ./ci/runner_env.sh
         export_labels
+
+  deploy-cloudsmith:
+    runs-on: [self-hosted, v1]
+    needs: [build]
+    if: needs.build.outputs.fatal != 'true'
+    permissions:
+      id-token: write
+      contents: write
+    with:
+      asset_alias_name: ${{ needs.build.outputs.asset_alias_name }}
+
+    steps:
+    - name: Get assets
+      run: |
+        curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o cloudsmith-api.sh \
+          https://raw.githubusercontent.com/analogdevicesinc/linux/refs/heads/main/ci/cloudsmith-api.sh
+
+    - name: Ensure clean dist
+      run: |
+        rm -rf dist
+
+    - uses: cloudsmith-io/cloudsmith-cli-action@v1.0.4
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' }}
+      with:
+        oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
+        oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        oidc-auth-only: 'true'
+
+    - name: Cloudsmith API Key
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG == '' }}
+      run: echo "CLOUDSMITH_API_KEY=${{ secrets.CLOUDSMITH_API_KEY }}" >> "$GITHUB_ENV"
+
+    - uses: actions/download-artifact@v5
+      if: ${{ env.CLOUDSMITH_API_KEY != '' }}
+      with:
+        name: ${{ env.asset_alias_name }}
+        path: dist
+
+    - name: Cloudsmith compress and upload asset
+      if: ${{ env.CLOUDSMITH_API_KEY != '' }}
+      run: |
+        tar -czvf "$asset_alias_name.tar.gz" dist
+
+        source ./cloudsmith-api.sh
+
+        # push: refs/heads/<branch>
+        # tag || release: refs/tags/<tag>
+        # pull_request: refs/pull/<id>/merge
+        tags_="${{ github.ref }}, on/${{ github.event_name }}"
+        [[ "${{ github.ref }}" == refs/pull/* ]] && \
+          tags_+=", refs/heads/${{ github.head_ref }}, refs/base/${{ github.base_ref }}"
+
+        package_file=$(
+          cs-package-upload ${{ env.CLOUDSMITH_API_KEY }} \
+                            ${{ vars.CLOUDSMITH_NAMESPACE }} \
+                            ${{ vars.CLOUDSMITH_REPOSITORY }} \
+                            "$asset_alias_name.tar.gz" \
+                            package_file
+        )
+
+        cs-package-store-raw ${{ env.CLOUDSMITH_API_KEY }} \
+                             ${{ vars.CLOUDSMITH_NAMESPACE }} \
+                             ${{ vars.CLOUDSMITH_REPOSITORY }} \
+                             $package_file \
+                             $asset_alias_name \
+                             "$tags_" \
+                             ${GITHUB_SHA:0:12}
