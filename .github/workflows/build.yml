@@ -215,7 +215,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
-    with:
+    env:
       asset_alias_name: ${{ needs.build.outputs.asset_alias_name }}
 
     steps:
