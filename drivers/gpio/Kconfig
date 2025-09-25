@@ -1785,6 +1785,15 @@ config GPIO_74X164
 	  shift registers. This driver can be used to provide access
 	  to more GPIO outputs.
 
+config GPIO_ADG1712
+	tristate "Analog Devices ADG1712 quad SPST switch GPIO driver"
+	depends on GPIOLIB
+	help
+	  GPIO driver for Analog Devices ADG1712 quad single-pole,
+	  single-throw (SPST) switch. The driver provides a GPIO controller
+	  interface where each GPIO line controls one of the four independent
+	  analog switches on the ADG1712.
+
 config GPIO_ADI_DAQ1
 	tristate "Analog Devices AD-FMCDAQ1-EBZ SPI-GPIO expander driver"
 	help
