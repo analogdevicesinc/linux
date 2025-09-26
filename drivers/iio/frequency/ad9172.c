@@ -182,6 +182,11 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 	return regmap_write(st->map, 0x596, 0x1c);
 }
 
+static void ad9172_clk_disable(void *clk)
+{
+	clk_disable_unprepare(clk);
+}
+
 static int ad9172_setup(struct ad9172_state *st)
 {
 	struct regmap *map = st->map;
@@ -353,9 +358,9 @@ static int ad9172_setup(struct ad9172_state *st)
 		return ret;
 	}
 
-	devm_add_action_or_reset(dev,
-				 (void(*)(void *))clk_disable_unprepare,
-				 st->conv.clk[CLK_DATA]);
+	ret = devm_add_action_or_reset(dev, ad9172_clk_disable, st->conv.clk[CLK_DATA]);
+	if (ret)
+		return ret;
 
 	ad917x_jesd_set_sysref_enable(ad917x_h, !!st->jesd_subclass);
 
@@ -398,9 +403,9 @@ static int ad9172_get_clks(struct cf_axi_converter *conv)
 			if (ret < 0)
 				return ret;
 
-			devm_add_action_or_reset(&conv->spi->dev,
-					(void(*)(void *))clk_disable_unprepare,
-					clk);
+			ret = devm_add_action_or_reset(&conv->spi->dev, ad9172_clk_disable, clk);
+			if (ret)
+				return ret;
 		}
 
 		of_clk_get_scale(conv->spi->dev.of_node,
