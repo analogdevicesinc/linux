@@ -367,7 +367,7 @@
 			"out_channel5_enable", "out_channel5_polarity",
 			"out_channel5_on_raw", "out_channel5_on_ms",
 			"out_channel5_off_raw", "out_channel5_off_ms";
-		label = "axi-core-tdd";
+		label = "iio-axi-tdd-0";
 	};
 
 	axi_data_offload_tx: axi-data-offload-0@9c460000 {
