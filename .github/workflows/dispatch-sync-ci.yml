@@ -1,0 +1,22 @@
+name: Synchronization sync ci
+
+on:
+  workflow_dispatch:
+    inputs:
+      branches:
+        # '["oran-6.12-y","oran-6.12.38-y","adsp-6.12.38-y"]'
+        required: true
+        type: string
+
+jobs:
+  sync_ci:
+    uses: analogdevicesinc/linux/.github/workflows/sync-ci.yml@ci
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write
+    strategy:
+      matrix:
+        branch: ${{ fromJSON(inputs.branches) }}
+    with:
+      branch: ${{ matrix.branch }}
