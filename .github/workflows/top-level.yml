@@ -1,7 +1,6 @@
 name: Kernel build
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - 'adsp-[0-9]+.[0-9]+*-y'
@@ -10,8 +9,6 @@ on:
       - 'ci/**'
       - 'docs/**'
   pull_request:
-    branches:
-      - 'adsp-[0-9]+.[0-9]+*-y'
     paths-ignore:
       - '.github/**'
       - 'ci/**'
@@ -84,7 +81,7 @@ jobs:
           job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
   build_gcc_arm_sc573-ezkit_defconfig:
@@ -141,7 +138,19 @@ jobs:
       arch: "arm64"
       defconfig: "sc598-som-ezlite_defconfig"
       auto_from_range: false
-  assert_build_adsp:
+  compile_devicetrees:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@ci
+    secrets: inherit
+    with:
+      compiler: "gcc"
+      archs: "arm arm64"
+      dts_files: >
+        arch/arm/boot/dts/adi/sc573-*.dts
+        arch/arm/boot/dts/adi/sc589-*.dts
+        arch/arm/boot/dts/adi/sc594-*.dts
+        arch/arm64/boot/dts/adi/sc598-*.dts
+  assert_build:
     runs-on: [self-hosted, v1]
     needs:
       - build_gcc_arm_sc573-ezkit_defconfig
@@ -150,6 +159,7 @@ jobs:
       - build_gcc_arm_sc594-som-ezlite_defconfig
       - build_gcc_aarch64_sc598-som-ezkit_defconfig
       - build_gcc_aarch64_sc598-som-ezlite_defconfig
+      - compile_devicetrees
     steps:
       - name: Assert
         env:
@@ -159,14 +169,16 @@ jobs:
           job_warn_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.warn}}
           job_warn_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.warn}}
           job_warn_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.warn}}
+          job_warn_compile_devicetrees: ${{needs.compile_devicetrees.outputs.warn}}
           job_fail_build_gcc_arm_sc573-ezkit_defconfig: ${{needs.build_gcc_arm_sc573-ezkit_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.fail}}
           job_fail_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.fail}}
           job_fail_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.fail}}
+          job_fail_compile_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
