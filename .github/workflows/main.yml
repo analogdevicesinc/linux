@@ -28,7 +28,7 @@ jobs:
       id: assert
       run: |
         curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o ci/runner_env.sh \
-          https://raw.githubusercontent.com/analogdevicesinc/ci/ci/runner_env.sh
+          https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
         source ./ci/runner_env.sh
         export_labels
 
@@ -43,6 +43,6 @@ jobs:
           job_fail_sync_main: ${{needs.sync_branches.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o ci/runner_env.sh \
-            https://raw.githubusercontent.com/analogdevicesinc/ci/ci/runner_env.sh
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./ci/runner_env.sh
           assert_labels
