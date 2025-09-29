@@ -51,7 +51,7 @@ config AD525X_DPOT_SPI
 	  module will be called ad525x_dpot-spi.
 
 config ADI_AXI_DATA_OFFLOAD
-	bool "support Analog Devices Data Offload Engine"
+	tristate "support Analog Devices Data Offload Engine"
 	depends on HAS_IOMEM
 	depends on OF
 	help
