@@ -625,6 +625,15 @@ config GPIO_SAMA5D2_PIOBU
 	  The difference from regular GPIOs is that they
 	  maintain their value during backup/self-refresh.
 
+config GPIO_SC5XX
+	bool "ADI ADSP-SC5XX PORT GPIO driver"
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	depends on OF_GPIO
+	select GPIO_GENERIC
+	help
+	  Say Y to enable the ADSP PORT-based GPIO driver for Analog Devices
+	  ADSP chips.
+
 config GPIO_SIFIVE
 	tristate "SiFive GPIO support"
 	depends on OF_GPIO

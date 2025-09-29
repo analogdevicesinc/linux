@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gpio/adi,sc5xx-gpio.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices GPIO Port Driver for SC5XX-family processors
+
+maintainers:
+  - Arturs Artamonovs <arturs.artamonovs@analog.com>
+  - Utsav Agarwal <Utsav.Agarwal@analog.com>
+
+description: |
+  Analog Devices GPIO Port Driver for SC5XX-family processors
+
+properties:
+  compatible:
+    enum:
+      - adi,sc5xx-gpio
+
+  gpio-controller: true
+
+  "#gpio-cells":
+    const: 2
+
+  gpio-ranges:
+    description: Associated pinmux controller and the GPIO range values
+
+  adi,pint:
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+    description: Associated pin interrupt controller driver
+    items:
+      - items:
+          - description: phandle to pin interrupt controller driver
+          - description: interrupt value
+
+  reg:
+    description: PORT GPIO control registers
+
+required:
+  - compatible
+  - reg
+  - "#gpio-cells"
+  - gpio-controller
+  - gpio-ranges
+
+additionalProperties: false
+
+examples:
+  - |
+    gpa: 31004000 {
+      compatible = "adi,sc5xx-gpio";
+      gpio-controller;
+      #gpio-cells = <2>;
+      reg = <0x31004000 0x7f>;
+      gpio-ranges = <&pinctrl0 0 0 16>;
+    };
