@@ -51,6 +51,7 @@ jobs:
   build_gcc_arm:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
     with:
       compiler: "gcc"
