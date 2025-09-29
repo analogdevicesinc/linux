@@ -51,6 +51,8 @@ jobs:
       defconfig: "adi_ci_defconfig"
   build_gcc_arm:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
     with:
       compiler: "gcc"
@@ -111,9 +113,9 @@ jobs:
       - name: Assert
         env:
           job_warn_build_gcc_aarch64_adrv906x-eval_defconfig: ${{needs.build_gcc_aarch64_adrv906x-eval_defconfig.outputs.warn}}
-          job_warn_many_devicetrees: ${{needs.compile_devicetrees.outputs.warn}}
+          job_warn_compile_devicetrees: ${{needs.compile_devicetrees.outputs.warn}}
           job_fail_build_gcc_aarch64_adrv906x-eval_defconfig: ${{needs.build_gcc_aarch64_adrv906x-eval_defconfig.outputs.fail}}
-          job_fail_many_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
+          job_fail_compile_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
