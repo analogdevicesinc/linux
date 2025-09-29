@@ -14,6 +14,8 @@
 	};
 
 	eth_switch {
+		#address-cells = <1>;
+		#size-cells = <1>;
 		reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
 		interrupt-names = "switch_error_0", "switch_error_1";
 		interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;

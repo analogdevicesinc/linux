@@ -76,12 +76,12 @@
 		reg = <SEC_EMAC_CMN_BASE 0x000B0000>;
 	};
 
-	uio-ethernet-debug-tod@EMAC_TOD_BASE {
+	uio-ethernet-debug-tod@EMAC_TOD_BASE_UADDR {
 		compatible = "generic-uio";
 		reg = <EMAC_TOD_BASE 0xff>;
 	};
 
-	uio-ethernet-debug-tod-sec@SEC_EMAC_TOD_BASE {
+	uio-ethernet-debug-tod-sec@SEC_EMAC_TOD_BASE_UADDR {
 		compatible = "generic-uio";
 		reg = <SEC_EMAC_TOD_BASE 0xff>;
 	};

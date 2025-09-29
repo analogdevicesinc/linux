@@ -15,6 +15,8 @@
 	};
 
 	eth_switch {
+		#address-cells = <1>;
+		#size-cells = <1>;
 		reg = <SEC_EMAC_SW_BASE 0x30 SEC_EMAC_SW_MAE_BASE 0x30>;
 		interrupt-names = "switch_error_0", "switch_error_1";
 		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_190 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI C2C_OUT_HW_INTERRUPT_191 IRQ_TYPE_LEVEL_HIGH>;
