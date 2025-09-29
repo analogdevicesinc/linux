@@ -70,18 +70,6 @@ void adrv906x_switch_set_mae_age_time(struct adrv906x_eth_switch *es, u8 data)
 	iowrite32(val, es->reg_match_action + SWITCH_MAS_CFG_MAE);
 }
 
-static void adrv906x_switch_mae_vlan_dom_sep_enable(struct adrv906x_eth_switch *es)
-{
-	u32 val;
-
-	val = ioread32(es->reg_match_action + SWITCH_MAS_CFG_MAE);
-	if (es->vlan_enabled)
-		val |= CFG_MAE_VLAN_DOM_SEP_EN_MASK;
-	else
-		val &= ~CFG_MAE_VLAN_DOM_SEP_EN_MASK;
-	iowrite32(val, es->reg_match_action + SWITCH_MAS_CFG_MAE);
-}
-
 static void adrv906x_switch_dsa_tx_enable(struct adrv906x_eth_switch *es, bool enabled)
 {
 	int i, val;
@@ -768,7 +756,6 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 
 	adrv906x_switch_set_mae_age_time(es, AGE_TIME_5MIN_25G);
 	ret = adrv906x_switch_pvid_set(es, es->pvid);
-	adrv906x_switch_mae_vlan_dom_sep_enable(es);
 	ret = adrv906x_switch_pvid_set(es, SWITCH_PVID);
 	if (ret)
 		return ret;

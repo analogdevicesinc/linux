@@ -41,5 +41,5 @@
 };
 
 &macsec1 {
-	status = "okay";
+	status = "disabled";
 };

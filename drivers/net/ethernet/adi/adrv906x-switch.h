@@ -87,7 +87,6 @@
 #define   CFG_MAE_AGE_TIME_MASK                         GENMASK(11, 4)
 #define   AGE_TIME_5MIN_25G                             0x19
 #define   AGE_TIME_5MIN_10G                             0x0A
-#define   CFG_MAE_VLAN_DOM_SEP_EN_MASK                  BIT(0)
 
 #define SWITCH_SOFT_RESET                               0x0020
 #define   SWITCH_ALL_EX_MAE                             BIT(0)
