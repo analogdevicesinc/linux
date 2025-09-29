@@ -435,6 +435,7 @@
 		compatible = "adi,adf4382";
 		reg = <0>;
 		spi-max-frequency = <5000000>;
+		adi,spi-3wire-enable;
 		clocks = <&clkin_125>;
 		clock-names = "ref_clk";
 		clock-output-names = "adf4382_out_clk";
@@ -550,6 +551,7 @@
 		#io-channel-cells = <1>;
 
 		spi-max-frequency = <1000000>;
+		adi,spi-3wire-enable;
 		clocks = <&hmc7044 1>;
 		clock-names = "refin";
 		clock-output-names = "adf4030_bsync_0", "adf4030_bsync_1",
