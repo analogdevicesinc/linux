@@ -332,8 +332,10 @@ static struct iio_buffer *mw_sharedmem_buffer_alloc(struct device *dev,
 	return &sharedmem_buff->buffer;
 }
 
-static void mw_sharedmem_buffer_free(struct iio_buffer *buffer)
+static void mw_sharedmem_buffer_free(void *data)
 {
+	struct iio_buffer *buffer = data;
+
 	iio_buffer_put(buffer);
 }
 
@@ -528,7 +530,7 @@ static int devm_mw_sharedmem_configure_buffer(struct iio_dev *indio_dev, enum ii
 
 	buffer->direction = direction;
 
-	status = devm_add_action(indio_dev->dev.parent,(devm_action_fn)mw_sharedmem_buffer_free, buffer);
+	status = devm_add_action(indio_dev->dev.parent, mw_sharedmem_buffer_free, buffer);
 	if(status){
 		mw_sharedmem_buffer_free(buffer);
 		return status;
@@ -657,7 +659,15 @@ static int mw_sharedmem_setup_offset_channel(struct iio_dev *indio_dev, struct i
 	return 0;
 }
 
-static void mw_sharedmem_iio_unregister(void *opaque) {
+static inline void mw_device_unregister(void *data)
+{
+	struct device *dev = data;
+
+	device_unregister(dev);
+}
+
+static inline void mw_sharedmem_iio_unregister(void *opaque)
+{
 	struct device *dev = opaque;
 
 	/* Unregister the IIO device */
@@ -818,7 +828,7 @@ static struct iio_dev *devm_mw_sharedmem_iio_alloc(
 	if (status)
 		return ERR_PTR(status);
 
-	status = devm_add_action(IP2DEVP(mwdev), (devm_action_fn)device_unregister, &mwchan->dev);
+	status = devm_add_action(IP2DEVP(mwdev), mw_device_unregister, &mwchan->dev);
 	if (status) {
 		device_unregister(&mwchan->dev);
 		return ERR_PTR(status);
@@ -986,7 +996,7 @@ static struct mw_sharedmem_region_dev *devm_mw_sharedmem_region_alloc(
 	if (status)
 		return ERR_PTR(status);
 
-	status = devm_add_action(IP2DEVP(mwdev), (devm_action_fn)device_unregister, &mwregion->dev);
+	status = devm_add_action(IP2DEVP(mwdev), mw_device_unregister, &mwregion->dev);
 	if (status) {
 		device_unregister(&mwregion->dev);
 		return ERR_PTR(status);
