@@ -87,7 +87,7 @@ struct adi_rcu *get_adi_rcu_from_node(struct device *dev)
 	if (!ret)
 		ret = ERR_PTR(-EPROBE_DEFER);
 
-      cleanup:
+cleanup:
 	of_node_put(rcu_node);
 	return ret;
 }
@@ -143,7 +143,8 @@ int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
 	adi_rcu_writel(val | (1 << coreid), rcu, ADI_RCU_REG_CRCTL);
 
 	// Poll until Core is in reset
-	while (!(adi_rcu_readl(rcu, ADI_RCU_REG_CRSTAT) & (1 << coreid)));
+	while (!(adi_rcu_readl(rcu, ADI_RCU_REG_CRSTAT) & (1 << coreid)))
+		;
 
 	// Clear SIDIS to reenable the system interface
 	val = adi_rcu_readl(rcu, ADI_RCU_REG_SIDIS);

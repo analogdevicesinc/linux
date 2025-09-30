@@ -71,7 +71,7 @@ struct adi_tru *get_adi_tru_from_node(struct device *dev)
 	if (!ret)
 		ret = ERR_PTR(-EPROBE_DEFER);
 
-      cleanup:
+cleanup:
 	of_node_put(tru_node);
 	return ret;
 }
@@ -105,6 +105,7 @@ EXPORT_SYMBOL(adi_tru_trigger_device);
 static int adi_tru_smc_trigger(struct adi_tru *tru, u32 master)
 {
 	struct arm_smccc_res res;
+
 	arm_smccc_smc(ADI_TRU_SMC_TRIGGER, master, 0, 0, 0, 0, 0, 0, &res);
 	return (res.a0 == 0) ? 0 : -EINVAL;
 }

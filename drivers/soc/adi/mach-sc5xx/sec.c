@@ -148,7 +148,7 @@ struct adi_sec *get_adi_sec_from_node(struct device *dev)
 
 	ret = dev_get_drvdata(&sec_pdev->dev);
 
-      cleanup:
+cleanup:
 	of_node_put(sec_node);
 	return ret;
 }
@@ -245,7 +245,7 @@ static int adi_sec_probe(struct platform_device *pdev)
 
 	return 0;
 
-      free_rcu:
+free_rcu:
 	put_adi_rcu(adi_rcu);
 	return ret;
 }

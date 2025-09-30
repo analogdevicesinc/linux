@@ -39,7 +39,7 @@
 /** @todo spu stuff move to sec.c and make it a real driver */
 static void __iomem *spu_base;
 
-void set_spu_securep_msec(uint16_t n, bool msec)
+void set_spu_securep_msec(u16 n, bool msec)
 {
 	/*
 	 * This throws a data abort right now.
