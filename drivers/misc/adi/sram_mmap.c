@@ -59,7 +59,6 @@ struct adi_sram_mmap {
 	struct reserved_mem *rmem;
 };
 
-
 static bool sram_dirty_folio(struct address_space *mapping, struct folio *folio)
 {
 	/* do nothing but avoid using __set_page_dirty_buffers which would
