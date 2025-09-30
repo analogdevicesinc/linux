@@ -132,7 +132,7 @@ config KEYSTONE_REMOTEPROC
 	tristate "Keystone Remoteproc support"
 	depends on ARCH_KEYSTONE
 	help
-	  Say Y here here to support Keystone remote processors (DSP)
+	  Say Y here to support Keystone remote processors (DSP)
 	  via the remote processor framework.
 
 	  It's safe to say N here if you're not interested in the Keystone

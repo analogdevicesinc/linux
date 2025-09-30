@@ -69,9 +69,9 @@ struct bcode_flag_t {
 
 struct ldr_hdr {
 	struct bcode_flag_t bcode_flag;
-	uint32_t target_addr;
-	uint32_t byte_count;
-	uint32_t argument;
+	u32 target_addr;
+	u32 byte_count;
+	u32 argument;
 };
 
 struct sharc_resource_table {
@@ -243,7 +243,7 @@ static void ldr_load(struct adi_rproc_data *rproc_data)
 {
 	struct ldr_hdr *block_hdr = NULL;
 	struct ldr_hdr *next_hdr = NULL;
-	uint8_t *virbuf = (uint8_t *) rproc_data->mem_virt;
+	u8 *virbuf = (u8 *) rproc_data->mem_virt;
 	dma_addr_t phybuf = rproc_data->mem_handle;
 	int offset;
 // part of verify buffer code
@@ -359,7 +359,7 @@ static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
 	return -EINVAL;
 }
 
-void set_spu_securep_msec(uint16_t n, bool msec);
+void set_spu_securep_msec(u16 n, bool msec);
 static void enable_spu(void)
 {
 	set_spu_securep_msec(SPU_MDMA0_SRC_ID, true);
