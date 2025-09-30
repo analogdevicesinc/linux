@@ -265,9 +265,9 @@ static irqreturn_t cevt_gptimer_handler(int irq, void *dev)
 
 static int gptimer_counter_count_read(struct counter_device *counter,
 				      struct counter_count *count,
-				      u64 * val)
+				      u64 *val)
 {
-	uint32_t id = count->id;
+	u32 id = count->id;
 	struct sc5xx_gptimer *timer = &gptimer_controller.timers[id];
 	u64 timer_count = get_gptimer_count(timer);
 
@@ -495,7 +495,7 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 	struct counter_count *adi_counts;
 	struct sc5xx_gptimer_controller *priv;
 	struct counter_device *counter;
-	uint32_t i;
+	u32 i;
 	int ret;
 
 	adi_counts =
@@ -505,13 +505,13 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	
+
 	counter = devm_counter_alloc(dev, sizeof(*priv));
 	if (!counter)
 		return -ENOMEM;
 
 	priv = counter_priv(counter);
-	
+
 
 	for (i = 0; i < gptimer_controller.num_timers; ++i) {
 		adi_counts[i].name =
@@ -533,7 +533,7 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 	}
 	return ret;
 
-	
+
 }
 
 static const struct of_device_id adsp_gptimer_counter_match[] = {
