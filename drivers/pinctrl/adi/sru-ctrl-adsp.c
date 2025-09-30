@@ -812,8 +812,7 @@ static const struct dai_source dai0_sources[] = {
 };
 
 static const struct dai_source dai1_sources[] = {
-	{ "DAI1_PB01_O_ABCDE", 0x00,
-	 GROUP_A | GROUP_B | GROUP_C | GROUP_D | GROUP_E },
+	{ "DAI1_PB01_O_ABCDE", 0x00, GROUP_A | GROUP_B | GROUP_C | GROUP_D | GROUP_E },
 	{ "DAI1_PB02_O_ABCDE", 0x01,
 	 GROUP_A | GROUP_B | GROUP_C | GROUP_D | GROUP_E },
 	{ "DAI1_PB03_O_ABCDE", 0x02,
@@ -1177,7 +1176,6 @@ static const struct dai_source *adsp_find_source(struct adsp_sru_ctrl
 	return NULL;
 }
 
-
 static const char *adsp_pinmux_get_function_name(struct pinctrl_dev
 						 *pctldev,
 						 unsigned int selector)
@@ -1198,7 +1196,6 @@ static int adsp_pinmux_get_function_groups(struct pinctrl_dev *pctldev,
 	struct group_combination *grp_combs = adsp_sru_ctrl->grp_combs;
 	u32 *grp_combs_cnt = &adsp_sru_ctrl->grp_combs_cnt;
 	u32 i, associated_groups;
-
 
 	associated_groups =
 	    adsp_find_source(adsp_sru_ctrl, selector)->group;
@@ -1319,8 +1316,6 @@ static int adsp_sru_ctrl_init_groups(struct adsp_sru_ctrl *adsp_sru_ctrl,
 	return 0;
 }
 
-
-
 static int adsp_sru_ctrl_get_groups_count(struct pinctrl_dev *pctldev)
 {
 	struct adsp_sru_ctrl *adsp_sru_ctrl =
@@ -1338,7 +1333,6 @@ static const char *adsp_sru_ctrl_get_group_name(struct pinctrl_dev
 
 	return adsp_sru_ctrl->group_names[selector];
 }
-
 
 static int adsp_sru_ctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 					   struct device_node *np,
@@ -1473,7 +1467,7 @@ static int adsp_sru_ctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 		return -EINVAL;
 	}
 
-      exit:
+exit:
 	kfree(configs);
 	return ret;
 }
@@ -1501,11 +1495,10 @@ static int adsp_sru_ctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 	}
 	return 0;
 
-      exit:
+exit:
 	pinctrl_utils_free_map(pctldev, *map, *num_maps);
 	return ret;
 }
-
 
 static int adsp_sru_ctrl_get_group_pins(struct pinctrl_dev *pctldev,
 					unsigned int selector,
