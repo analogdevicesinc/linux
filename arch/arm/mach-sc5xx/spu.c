@@ -15,7 +15,7 @@
 #include <linux/export.h>
 #include <linux/types.h>
 
-void set_spu_securep_msec(uint16_t n, bool msec)
+void set_spu_securep_msec(u16 n, bool msec)
 {
 	(void)n;
 	(void)msec;
