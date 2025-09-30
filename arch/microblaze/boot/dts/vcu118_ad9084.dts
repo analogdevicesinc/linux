@@ -35,7 +35,7 @@
 #error "HMC7044_PLL2_FREQ must be defined"
 #endif
 
-#ifdef WITH_AION
+#if WITH_AION
 #define JESD_SUBCLASS 1
 #else
 #define JESD_SUBCLASS 0
@@ -90,7 +90,7 @@
 		adi,attribute-names = "prbs_select", "prbs_error_inject", "reg_access";
 		label = "axi-adxcvr-tx";
 	};
-#ifdef ASYNM_A_B_MODE
+#if ASYNM_A_B_MODE
 	axi-jesd204-rx-b@0 {
 		compatible = "adi,iio-fake-platform-device";
 		adi,faked-dev = <&axi_ad9084_rx_jesd_b>;
@@ -324,7 +324,7 @@
 		adi,hsci-interface-speed-mhz = <800>;
 	};
 
-#ifdef WITH_AION
+#if WITH_AXI_AION_TRIG
 	axi_aion_trig: axi_aion_trig@7c600000 {
 		compatible = "adi,axi-aion-trig-1.0.a";
 		reg = <0x7c600000 0x1000>;
@@ -337,7 +337,7 @@
 		io-channels = <&adf4030 8>;
 		io-channel-names = "bsync";
 	};
-#endif /* WITH_AION */
+#endif /* WITH_AXI_AION_TRIG */
 
 	axi_spi_2: spi@44A80000  {
 		#address-cells = <1>;
@@ -354,7 +354,7 @@
 		xlnx,spi-mode = <0>;
 	};
 
-#ifdef ASYNM_A_B_MODE
+#if ASYNM_A_B_MODE
 	rx_dma_b: dma@7c470000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c470000 0x10000>;
@@ -521,7 +521,7 @@
 		#jesd204-cells = <2>;
 
 		//adi,clkin1-vco-in-enable;
-#ifdef WITH_AION
+#if WITH_AION
 		jesd204-inputs =
 			<&adf4030 0 FRAMER_LINK_A0_RX>,
 			<&adf4030 0 DEFRAMER_LINK_A0_TX>;
@@ -607,7 +607,7 @@
 		};
 	};
 
-#ifdef WITH_AION	
+#if WITH_AION
 	adf4030: adf4030@4 {
 		#clock-cells = <1>;
 		compatible = "adi,adf4030";
@@ -632,9 +632,11 @@
 		#jesd204-cells = <2>;
 		jesd204-sysref-provider;
 
+#if WITH_AXI_AION_TRIG
 		jesd204-inputs =
 			<&axi_aion_trig 0 FRAMER_LINK_A0_RX>,
 			<&axi_aion_trig 0 DEFRAMER_LINK_A0_TX>;
+#endif /* WITH_AXI_AION_TRIG */
 
 		adi,vco-frequency-hz = <AION_VCO_FREQ_HZ>; /* 2.5 GHz */
 		adi,bsync-frequency-hz = <SYSREF_CLK_MHz>;
@@ -731,7 +733,7 @@
 			adi,input-output-reconfig-en;
 			adi,rcm = <62>;
 		};
-	};	
+	};
 #endif 	/* WITH_AION */
 };
 
@@ -763,7 +765,7 @@
 		#jesd204-cells = <2>;
 		jesd204-top-device = <0>; /* This is the TOP device */
 		jesd204-ignore-errors;
-#ifdef ASYNM_A_B_MODE
+#if ASYNM_A_B_MODE
 		jesd204-link-ids = <DEFRAMER_LINK_A0_TX DEFRAMER_LINK_B0_TX FRAMER_LINK_A0_RX FRAMER_LINK_B0_RX>;
 
 		jesd204-inputs =
@@ -790,13 +792,16 @@
 
 		reset-gpios = <&axi_gpio 62 0>;
 		adi,device-profile-fw-name = DEVICE_PROFILE_NAME;
-		
-		trig-req-gpios = <&axi_gpio 48 GPIO_ACTIVE_HIGH>; 
+
+#if WITH_AXI_AION_TRIG
+		trig-req-gpios = <&axi_gpio 48 GPIO_ACTIVE_HIGH>;
 		adi,trigger-sync-en;
-#ifdef WITH_AION		
+#endif /* WITH_AXI_AION_TRIG */
+
+#if WITH_AION
 		io-channels = <&adf4030 5>, <&adf4382 0>;
 		io-channel-names = "bsync", "clk";
-#endif
+#endif /* WITH_AION */
 
 		adi,nyquist-zone = <1>; /* 1 - 1st Nyquist zone, 2 - 2nd Nyquist zone */
 	};
