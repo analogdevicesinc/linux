@@ -263,7 +263,7 @@ static void adi_uart4_serial_stop_tx(struct uart_port *port)
 	} else {
 		if (!uart->tx_done)
 			dma_unmap_sg(uart->dev, &uart->tx_sgl, 1, DMA_TO_DEVICE);
-		
+
 		dmaengine_terminate_sync(uart->tx_dma_channel);
 		uart->port.icount.tx += uart->tx_count;
 		uart->tx_count = 0;
@@ -1092,7 +1092,6 @@ static struct console adi_uart4_serial_console = {
 	.data		= &adi_uart4_serial_reg,
 };
 
-
 #define ADI_SERIAL_UART4_CONSOLE (&adi_uart4_serial_console)
 #else
 #define ADI_SERIAL_UART4_CONSOLE NULL
@@ -1276,7 +1275,7 @@ static void adi_uart4_serial_remove(struct platform_device *pdev)
 		uart_remove_one_port(&adi_uart4_serial_reg, &uart->port);
 		adi_uart4_serial_ports[uart->port.line] = NULL;
 		kfree(uart);
-		if(IS_ERR(uart->tx_dma_channel))
+		if (IS_ERR(uart->tx_dma_channel))
 			return;
 
 		dma_release_channel(uart->tx_dma_channel);
@@ -1344,14 +1343,12 @@ static inline void adi_uart_write(struct uart_port *port, u32 val,
 	writel(val, port->membase + off);
 }
 
-
 static void adi_uart_wait_bit_set(struct uart_port *port, unsigned int offset,
 				  u32 bit)
 {
 	while (!(adi_uart_read(port, offset) & bit))
 		cpu_relax();
 }
-
 
 static void adi_uart_console_putchar(struct uart_port *port, unsigned char ch)
 {
@@ -1362,7 +1359,6 @@ static void adi_uart_console_putchar(struct uart_port *port, unsigned char ch)
 	adi_uart_write(port, ch, OFFSET_THR);
 }
 
-
 static void adi_uart_early_write(struct console *con, const char *s,
 		unsigned int n)
 {
@@ -1370,7 +1366,6 @@ static void adi_uart_early_write(struct console *con, const char *s,
 
 	uart_console_write(&dev->port, s, n, adi_uart_console_putchar);
 }
-
 
 static int __init adi_uart_early_console_setup(struct earlycon_device *device,
 					  const char *opt)
