@@ -252,7 +252,6 @@ static const struct musb_platform_ops adi_musb_ops = {
 	.set_mode = adi_musb_set_mode,
 };
 
-
 static int adi_musb_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -349,7 +348,7 @@ static int adi_musb_probe(struct platform_device *pdev)
 	}
 	musb_resources[1].start = ret;
 	musb_resources[1].flags = IORESOURCE_IRQ;
-	musb_resources[1].name   = "mc",
+	musb_resources[1].name  = "mc";
 
 	ret = platform_get_irq(pdev, 1);
 	if (!ret) {
@@ -360,7 +359,7 @@ static int adi_musb_probe(struct platform_device *pdev)
 	}
 	musb_resources[2].start = ret;
 	musb_resources[2].flags = IORESOURCE_IRQ;
-	musb_resources[2].name   = "dma",
+	musb_resources[2].name  = "dma";
 
 	ret = platform_device_add_resources(musb, musb_resources, 3);
 	if (ret) {
