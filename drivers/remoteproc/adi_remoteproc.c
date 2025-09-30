@@ -87,7 +87,6 @@ struct adi_sharc_resource_table {
 	struct sharc_resource_table rsc_table;
 } __packed;
 
-
 #define VRING_ALIGN 0x1000
 #define VRING_DEFAULT_SIZE 0x800
 
@@ -468,7 +467,6 @@ static int adi_rproc_stop(struct rproc *rproc)
 	ret = adi_core_reset(rproc_data);
 	if (ret)
 		return ret;
-
 
 	if (rproc_data->mem_virt) {
 		memset(rproc_data->mem_virt, 0, rproc_data->fw_size * MEMORY_COUNT);
