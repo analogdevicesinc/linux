@@ -57,7 +57,6 @@
 static unsigned int timeout = WATCHDOG_TIMEOUT;
 static bool nowayout = WATCHDOG_NOWAYOUT;
 
-
 module_param(timeout, uint, 0);
 MODULE_PARM_DESC(timeout,
 	"Watchdog timeout in seconds. (1<=timeout<=((2^32)/SCLK), default="
