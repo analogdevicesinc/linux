@@ -358,7 +358,6 @@ static int __maybe_unused sc5xx_adau1979_init(struct snd_soc_pcm_runtime *rtd)
 			ADAU1977_SYSCLK_SRC_MCLK, 24576000, SND_SOC_CLOCK_IN);
 }
 
-
 #if IS_ENABLED(CONFIG_SND_SC5XX_ADAU1372)
 static struct snd_soc_dai_link_component adau1372_codec_component[] = {
 	{
@@ -376,7 +375,6 @@ static struct snd_soc_dai_link_component adau1962_codec_component[] = {
 		.dai_name = "adau1962-hifi",
 	},
 };
-
 
 #if IS_ENABLED(CONFIG_SND_SC5XX_ADAU1979)
 static struct snd_soc_dai_link_component adau1979_codec_component[] = {

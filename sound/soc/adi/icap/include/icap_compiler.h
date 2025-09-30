@@ -58,5 +58,4 @@
 #define ICAP_PACKED_END __packed
 #endif
 
-
 #endif /* _ICAP_COMPILER_H_ */

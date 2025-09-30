@@ -281,7 +281,6 @@ static const struct snd_kcontrol_new adau1962_snd_controls[] = {
 	SOC_ENUM("DAC Oversampling Rate", adau1962_enum[0]),
 };
 
-
 #if __DEBUG
 void adau1962_print(struct adau1962 *adau1962)
 {
