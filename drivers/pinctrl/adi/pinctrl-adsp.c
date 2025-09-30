@@ -82,7 +82,7 @@
 struct adsp_pin_function {
 	const char *name;
 	/* 0 for gpio, 1-4 for alt functions 0-3 */
-	uint8_t mode;
+	u8 mode;
 };
 
 /*
@@ -121,8 +121,8 @@ struct adsp_pinctrl {
 	unsigned int *pins;
 	spinlock_t lock;
 	size_t num_ports;
-	uint32_t *pin_counts;
-	uint32_t total_pins;
+	u32 *pin_counts;
+	u32 total_pins;
 
 	/* Are the drive strength registers missing on this part? */
 	bool ds_missing;
@@ -216,7 +216,7 @@ static int adsp_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 	unsigned long *configs;
 	unsigned int num_configs, num_pins;
 	unsigned int reserve = 0;
-	uint32_t pinmux;
+	u32 pinmux;
 	int ret;
 
 	num_pins = of_property_count_u32_elems(np, "pinmux");
