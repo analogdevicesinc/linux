@@ -43,13 +43,13 @@ struct adi_dma_filter_data {
 struct adi_dma_descriptor {
 	// hardware fields in order; if we wanted to use hw descriptor mode instead of
 	// register mode these should be most of the required implementation
-	uint32_t next;
-	uint32_t start;
-	uint32_t cfg;
-	uint32_t xcnt;
-	uint32_t xmod;
-	uint32_t ycnt;
-	uint32_t ymod;
+	u32 next;
+	u32 start;
+	u32 cfg;
+	u32 xcnt;
+	u32 xmod;
+	u32 ycnt;
+	u32 ymod;
 
 	// additional bookkeeping
 	struct dma_async_tx_descriptor tx;
@@ -71,7 +71,7 @@ struct adi_dma_descriptor {
 	dma_addr_t dest;
 
 	// virtual address of memset buffer, used only with memset
-	uint64_t *memset;
+	u64 *memset;
 
 	// for scatter-gather only, sg is the original scatter gather list in
 	// case we need to do a cyclic sg operation, and sg_next is the next
@@ -348,9 +348,9 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 	struct dma_slave_config *cfg = &adi_chan->config;
 	u32 mburst, pburst;
 	u32 lconf = 0;
-	uint64_t tmp_dma_addr; 
+	u64 tmp_dma_addr;
 
-	if (DMA_DEV_TO_MEM == direction) {
+	if (direction == DMA_DEV_TO_MEM) {
 		pburst = cfg->src_maxburst * cfg->src_addr_width;
 		mburst = cfg->dst_maxburst * cfg->dst_addr_width;
 	} else {
@@ -396,7 +396,7 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 		*shift = 1;
 		break;
 	default:
-		if(mburst != 1)
+		if (mburst != 1)
 			dev_err(adi_chan->dma->dev,
 				"%s: invalid mem-side burst config %u, \
 				defaulting to 1 byte\n",
@@ -418,7 +418,7 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 		lconf |= PSIZE_16;
 		break;
 	default:
-		if(pburst != 1)
+		if (pburst != 1)
 			dev_err(adi_chan->dma->dev,
 				"%s: invalid burst length %u, defaulting to 1 \
 				byte\n",
