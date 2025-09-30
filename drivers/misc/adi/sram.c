@@ -134,8 +134,8 @@ static int adi_sram_probe(struct platform_device *pdev)
 
 	/* create sram proc show data */
 	d = proc_create("sraminfo", 0, NULL, &adi_sram_ops);
-	if (!d){
-		dev_err(dev,"Cannot create proc sraminfo entry\n");
+	if (!d) {
+		dev_err(dev, "Cannot create proc sraminfo entry\n");
 		return -ENOMEM;
 	}
 

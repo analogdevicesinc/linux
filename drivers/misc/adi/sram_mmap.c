@@ -30,9 +30,10 @@ struct sram_region_info {
 };
 
 static struct sram_region_info sram_regions[MAX_SRAM_REGIONS];
-static int next_region = 0;
+static int next_region;
 
-static struct reserved_mem *find_sram_mem(struct device *dev, int *id) {
+static struct reserved_mem *find_sram_mem(struct device *dev, int *id)
+{
 	int i;
 
 	if (!dev) {
@@ -59,7 +60,8 @@ struct adi_sram_mmap {
 };
 
 
-static bool sram_dirty_folio(struct address_space *mapping, struct folio *folio) {
+static bool sram_dirty_folio(struct address_space *mapping, struct folio *folio)
+{
 	/* do nothing but avoid using __set_page_dirty_buffers which would
 	 * actually mark the page as dirty and cause a warning later */
 	return false;
@@ -130,7 +132,7 @@ static const struct of_device_id adi_sram_mmap_of_match[] = {
 	{ .compatible = "adi,sram-mmap" },
 	{ },
 };
-MODULE_DEVICE_TABLE(of,adi_sram_mmap_of_match);
+MODULE_DEVICE_TABLE(of, adi_sram_mmap_of_match);
 
 static int adi_sram_mmap_probe(struct platform_device *pdev)
 {
@@ -189,6 +191,7 @@ static int adi_sram_mmap_probe(struct platform_device *pdev)
 static void adi_sram_mmap_remove(struct platform_device *pdev)
 {
 	struct adi_sram_mmap *sram = dev_get_drvdata(&pdev->dev);
+
 	misc_deregister(&sram->miscdev);
 }
 
@@ -201,15 +204,19 @@ static struct platform_driver adi_sram_mmap_driver = {
 	},
 };
 
-static int rmem_sram_init(struct reserved_mem *rmem, struct device *dev) {
+static int rmem_sram_init(struct reserved_mem *rmem, struct device *dev)
+{
 	struct sram_region_info *info = rmem->priv;
+
 	printk(KERN_ERR"sram_init\n");
 	info->dev = dev;
 	return 0;
 }
 
-static void rmem_sram_release(struct reserved_mem *rmem, struct device *dev) {
+static void rmem_sram_release(struct reserved_mem *rmem, struct device *dev)
+{
 	struct sram_region_info *info = rmem->priv;
+
 	info->dev = NULL;
 }
 
@@ -218,7 +225,8 @@ static const struct reserved_mem_ops rmem_sram_ops = {
 	.device_release = rmem_sram_release,
 };
 
-static int __init rmem_sram_setup(struct reserved_mem *rmem) {
+static int __init rmem_sram_setup(struct reserved_mem *rmem)
+{
 	if (next_region >= MAX_SRAM_REGIONS) {
 		pr_err("Cannot allocate more SRAM regions--increase MAX_SRAM_REGIONS\n");
 		return -EINVAL;
