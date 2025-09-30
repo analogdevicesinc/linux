@@ -29,40 +29,23 @@ static struct clk *clks[ADSP_SC598_CLK_END];
 static struct clk_onecell_data clk_data;
 
 static const char *const cgu1_in_sels[] = { "sys_clkin0", "sys_clkin1" };
-static const char *const cgu0_s1sels[] =
-    { "cgu0_s1seldiv", "cgu0_s1selexdiv" };
-static const char *const cgu1_s0sels[] =
-    { "cgu1_s0seldiv", "cgu1_s0selexdiv" };
-static const char *const cgu1_s1sels[] =
-    { "cgu1_s1seldiv", "cgu1_s1selexdiv" };
-static const char *const sharc0_sels[] =
-    { "cclk0_0", "dummy", "dummy", "dummy" };
-static const char *const sharc1_sels[] =
-    { "cclk0_0", "dummy", "dummy", "dummy" };
-static const char *const arm_sels[] =
-    { "dummy", "dummy", "cclk2_0", "cclk2_1" };
-static const char *const cdu_ddr_sels[] =
-    { "dclk_0", "dclk_1", "dummy", "dummy" };
-static const char *const can_sels[] =
-    { "dummy", "oclk_1", "dummy", "dummy" };
-static const char *const spdif_sels[] =
-    { "sclk1_0", "dummy", "dummy", "dummy" };
-static const char *const spi_sels[] =
-    { "sclk0_0", "oclk_0", "dummy", "dummy" };
-static const char *const gige_sels[] =
-    { "sclk0_0", "sclk0_1", "dummy", "dummy" };
-static const char *const lp_sels[] =
-    { "oclk_0", "sclk0_0", "cclk0_1", "dummy" };
-static const char *const lp_ddr_sels[] =
-    { "oclk_0", "dclk_0", "sysclk_1", "dummy" };
-static const char *const ospi_refclk_sels[] =
-    { "sysclk_0", "sclk0_0", "sclk1_1", "dummy" };
-static const char *const trace_sels[] =
-    { "sclk0_0", "dummy", "dummy", "dummy" };
-static const char *const emmc_sels[] =
-    { "oclk_0", "sclk0_1", "dclk_0_half", "dclk_1_half" };
-static const char *const emmc_timer_sels[] =
-    { "dummy", "sclk1_1_half", "dummy", "dummy" };
+static const char *const cgu0_s1sels[] = { "cgu0_s1seldiv", "cgu0_s1selexdiv" };
+static const char *const cgu1_s0sels[] = { "cgu1_s0seldiv", "cgu1_s0selexdiv" };
+static const char *const cgu1_s1sels[] = { "cgu1_s1seldiv", "cgu1_s1selexdiv" };
+static const char *const sharc0_sels[] = { "cclk0_0", "dummy", "dummy", "dummy" };
+static const char *const sharc1_sels[] = { "cclk0_0", "dummy", "dummy", "dummy" };
+static const char *const arm_sels[] = { "dummy", "dummy", "cclk2_0", "cclk2_1" };
+static const char *const cdu_ddr_sels[] = { "dclk_0", "dclk_1", "dummy", "dummy" };
+static const char *const can_sels[] = { "dummy", "oclk_1", "dummy", "dummy" };
+static const char *const spdif_sels[] = { "sclk1_0", "dummy", "dummy", "dummy" };
+static const char *const spi_sels[] = { "sclk0_0", "oclk_0", "dummy", "dummy" };
+static const char *const gige_sels[] = { "sclk0_0", "sclk0_1", "dummy", "dummy" };
+static const char *const lp_sels[] = { "oclk_0", "sclk0_0", "cclk0_1", "dummy" };
+static const char *const lp_ddr_sels[] = { "oclk_0", "dclk_0", "sysclk_1", "dummy" };
+static const char *const ospi_refclk_sels[] = { "sysclk_0", "sclk0_0", "sclk1_1", "dummy" };
+static const char *const trace_sels[] = { "sclk0_0", "dummy", "dummy", "dummy" };
+static const char *const emmc_sels[] = { "oclk_0", "sclk0_1", "dclk_0_half", "dclk_1_half" };
+static const char *const emmc_timer_sels[] = { "dummy", "sclk1_1_half", "dummy", "dummy" };
 
 static const char *const ddr_sels[] = { "cdu_ddr", "3pll_ddiv" };
 
@@ -361,7 +344,7 @@ static void sc598_clock_probe(struct device_node *np)
 
 	return;
 
-      cleanup:
+cleanup:
 	for (i = 0; i < ARRAY_SIZE(clks); i++)
 		clk_unregister(clks[i]);
 }
