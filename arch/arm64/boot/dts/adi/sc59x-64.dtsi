@@ -46,7 +46,6 @@
 		sru1 = &sru_ctrl_dai1;
 	};
 
-
 	cpus {
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -1080,7 +1079,6 @@
 				interrupt-names = "complete", "error";
 			};
 		};
-
 
 		sport4_dma_cluster: dma@0x31023000 {
 			compatible = "adi,dma-controller";
