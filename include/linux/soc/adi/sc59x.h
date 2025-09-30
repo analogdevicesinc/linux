@@ -92,12 +92,10 @@
 // SEC Source Interface (SSI) Register Definitions
 #define SEC_SCTL0                 0x00000000	// SEC Source Control Register n
 
-
 // SEC_SCTL
 #define SEC_SCTL_SRC_EN           0x00000004	// SEN: Enable
 #define SEC_SCTL_FAULT_EN         0x00000002	// FEN: Enable
 #define SEC_SCTL_INT_EN           0x00000001	// IEN: Enable
-
 
 // TRU0
 // 0x3108A000 + (0x4 * n)

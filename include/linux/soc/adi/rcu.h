@@ -48,7 +48,6 @@
 #define ADI_RCU_REG_MSG_CLR			0x74
 #endif
 
-
 /* Register bit definitions */
 #define ADI_RCU_CTL_SYSRST		BIT(0)
 
