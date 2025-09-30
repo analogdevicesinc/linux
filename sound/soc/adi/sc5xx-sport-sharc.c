@@ -297,7 +297,6 @@ int sport_tx_stop(struct sport_device *sport)
 }
 EXPORT_SYMBOL(sport_tx_stop);
 
-
 void sport_rx_stop_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work, struct sport_device, send_rx_stop_work);
@@ -865,7 +864,6 @@ void rpmsg_icap_sport_remove(struct rpmsg_device *rpdev)
 	}
 
 	spin_unlock_irqrestore(&sport->icap_spinlock, flags);
-
 
 	if (sport->tx_substream &&
 	    sport->tx_substream->runtime &&

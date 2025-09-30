@@ -142,14 +142,12 @@ static int sa_pcm_hw_params(struct snd_soc_component *component,
 	return 0;
 }
 
-
 static int sa_pcm_hw_free(struct snd_soc_component *component,
 	struct snd_pcm_substream *substream)
 {
 	snd_pcm_lib_free_pages(substream);
 	return 0;
 }
-
 
 static snd_pcm_uframes_t sa_pcm_pointer(struct snd_soc_component *component,
 	struct snd_pcm_substream *substream)
@@ -493,7 +491,6 @@ static void sa_delayed_probe(struct work_struct *work)
 			goto sa_delayed_probe_fail;
 		}
 		sa->cpu_num++;
-
 
 		/* Initialize ASoC platform driver */
 		memset(&sa_comp, 0, sizeof(sa_comp));

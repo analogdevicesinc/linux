@@ -113,24 +113,24 @@
  * @defgroup sample_format_bit Sample format bit field
  * @{
  */
-#define ICAP_FMTBIT_S8 (1<<ICAP_FORMAT_S8)
-#define ICAP_FMTBIT_U8 (1<<ICAP_FORMAT_U8)
-#define ICAP_FMTBIT_S16_LE (1<<ICAP_FORMAT_S16_LE)
-#define ICAP_FMTBIT_S16_BE (1<<ICAP_FORMAT_S16_BE)
-#define ICAP_FMTBIT_U16_LE (1<<ICAP_FORMAT_U16_LE)
-#define ICAP_FMTBIT_U16_BE (1<<ICAP_FORMAT_U16_BE)
-#define ICAP_FMTBIT_S24_LE (1<<ICAP_FORMAT_S24_LE)
-#define ICAP_FMTBIT_S24_BE (1<<ICAP_FORMAT_S24_BE)
-#define ICAP_FMTBIT_U24_LE (1<<ICAP_FORMAT_U24_LE)
-#define ICAP_FMTBIT_U24_BE (1<<ICAP_FORMAT_U24_BE)
-#define ICAP_FMTBIT_S32_LE (1<<ICAP_FORMAT_S32_LE)
-#define ICAP_FMTBIT_S32_BE (1<<ICAP_FORMAT_S32_BE)
-#define ICAP_FMTBIT_U32_LE (1<<ICAP_FORMAT_U32_LE)
-#define ICAP_FMTBIT_U32_BE (1<<ICAP_FORMAT_U32_BE)
-#define ICAP_FMTBIT_FLOAT_LE (1<<ICAP_FORMAT_FLOAT_LE)
-#define ICAP_FMTBIT_FLOAT_BE (1<<ICAP_FORMAT_FLOAT_BE)
-#define ICAP_FMTBIT_FLOAT64_LE (1<<ICAP_FORMAT_FLOAT64_LE)
-#define ICAP_FMTBIT_FLOAT64_BE (1<<ICAP_FORMAT_FLOAT64_BE)
+#define ICAP_FMTBIT_S8 (1 << ICAP_FORMAT_S8)
+#define ICAP_FMTBIT_U8 (1 << ICAP_FORMAT_U8)
+#define ICAP_FMTBIT_S16_LE (1 << ICAP_FORMAT_S16_LE)
+#define ICAP_FMTBIT_S16_BE (1 << ICAP_FORMAT_S16_BE)
+#define ICAP_FMTBIT_U16_LE (1 << ICAP_FORMAT_U16_LE)
+#define ICAP_FMTBIT_U16_BE (1 << ICAP_FORMAT_U16_BE)
+#define ICAP_FMTBIT_S24_LE (1 << ICAP_FORMAT_S24_LE)
+#define ICAP_FMTBIT_S24_BE (1 << ICAP_FORMAT_S24_BE)
+#define ICAP_FMTBIT_U24_LE (1 << ICAP_FORMAT_U24_LE)
+#define ICAP_FMTBIT_U24_BE (1 << ICAP_FORMAT_U24_BE)
+#define ICAP_FMTBIT_S32_LE (1 << ICAP_FORMAT_S32_LE)
+#define ICAP_FMTBIT_S32_BE (1 << ICAP_FORMAT_S32_BE)
+#define ICAP_FMTBIT_U32_LE (1 << ICAP_FORMAT_U32_LE)
+#define ICAP_FMTBIT_U32_BE (1 << ICAP_FORMAT_U32_BE)
+#define ICAP_FMTBIT_FLOAT_LE (1 << ICAP_FORMAT_FLOAT_LE)
+#define ICAP_FMTBIT_FLOAT_BE (1 << ICAP_FORMAT_FLOAT_BE)
+#define ICAP_FMTBIT_FLOAT64_LE (1 << ICAP_FORMAT_FLOAT64_LE)
+#define ICAP_FMTBIT_FLOAT64_BE (1 << ICAP_FORMAT_FLOAT64_BE)
 /**@}*/
 
 /**
@@ -138,37 +138,37 @@
  * @{
  */
 /** @brief 5.512kHz sample rate */
-#define ICAP_RATE_5512	(1<<0)
+#define ICAP_RATE_5512	(1 << 0)
 /** @brief 8kHz sample rate */
-#define ICAP_RATE_8000	(1<<1)
+#define ICAP_RATE_8000	(1 << 1)
 /** @brief 11.025kHz sample rate */
-#define ICAP_RATE_11025	(1<<2)
+#define ICAP_RATE_11025	(1 << 2)
 /** @brief 16kHz sample rate */
-#define ICAP_RATE_16000	(1<<3)
+#define ICAP_RATE_16000	(1 << 3)
 /** @brief 22.05kHz sample rate */
-#define ICAP_RATE_22050	(1<<4)
+#define ICAP_RATE_22050	(1 << 4)
 /** @brief 32kHz sample rate */
-#define ICAP_RATE_32000	(1<<5)
+#define ICAP_RATE_32000	(1 << 5)
 /** @brief 44.1kHz sample rate */
-#define ICAP_RATE_44100	(1<<6)
+#define ICAP_RATE_44100	(1 << 6)
 /** @brief 48kHz sample rate */
-#define ICAP_RATE_48000	(1<<7)
+#define ICAP_RATE_48000	(1 << 7)
 /** @brief 64kHz sample rate */
-#define ICAP_RATE_64000	(1<<8)
+#define ICAP_RATE_64000	(1 << 8)
 /** @brief 88.2kHz sample rate */
-#define ICAP_RATE_88200	(1<<9)
+#define ICAP_RATE_88200	(1 << 9)
 /** @brief 96kHz sample rate */
-#define ICAP_RATE_96000	(1<<10)
+#define ICAP_RATE_96000	(1 << 10)
 /** @brief 176.4kHz sample rate */
-#define ICAP_RATE_176400	(1<<11)
+#define ICAP_RATE_176400	(1 << 11)
 /** @brief 192kHz sample rate */
-#define ICAP_RATE_192000	(1<<12)
+#define ICAP_RATE_192000	(1 << 12)
 /** @brief 352.8kHz sample rate */
-#define ICAP_RATE_352800	(1<<13)
+#define ICAP_RATE_352800	(1 << 13)
 /** @brief 384kHz sample rate */
-#define ICAP_RATE_384000	(1<<14)
+#define ICAP_RATE_384000	(1 << 14)
 /** @brief Linear range of frequencies */
-#define ICAP_RATE_ALL_FREQ	(1<<30)
+#define ICAP_RATE_ALL_FREQ	(1 << 30)
 
 /** @brief Range 8kHz to 44.1kHz */
 #define ICAP_RATES_8000_44100 ( \
@@ -234,7 +234,6 @@ struct icap_instance {
 	u32 seq_num;
 };
 
-
 /**
  * @defgroup msg_structs Message structs send and received by application and device sides.
  * @{
@@ -287,7 +286,6 @@ struct icap_buf_frags {
 	/** @brief Indicates how many audio fragments were consumed */
 	u32 frags;
 } ICAP_PACKED_END;
-
 
 /* @brief Struct send by icap_frags() application function,
  * used with #ICAP_BUF_SCATTERED buffer type

@@ -68,7 +68,6 @@ int32_t icap_application_init(struct icap_instance *icap, char *name,
 	if ((icap == NULL) || (cb == NULL))
 		return -ICAP_ERROR_INVALID;
 
-
 	if (icap->callbacks != NULL)
 		return -ICAP_ERROR_BUSY;
 
@@ -260,12 +259,10 @@ s32 icap_add_src(struct icap_instance *icap, struct icap_buf_descriptor *buf)
 	if (buf == NULL)
 		return -ICAP_ERROR_INVALID;
 
-
 	ret = icap_send_msg(icap, ICAP_MSG_ADD_SRC, buf,
 			    sizeof(struct icap_buf_descriptor), 1, &response);
 	if (ret)
 		return ret;
-
 
 	if (response.header.payload_len != sizeof(uint32_t))
 		return -ICAP_ERROR_MSG_LEN;
