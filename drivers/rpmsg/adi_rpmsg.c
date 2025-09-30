@@ -322,7 +322,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 	void *va;
 	int ret, size, num;
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	rpchan = devm_kzalloc(dev, sizeof(struct adi_rpmsg_channel), GFP_KERNEL);
 	if (!rpchan)
@@ -332,7 +332,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 	if (IS_ERR(adi_tru))
 		return PTR_ERR(adi_tru);
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	adi_rcu = get_adi_rcu_from_node(dev);
 	if (IS_ERR(adi_rcu)) {
@@ -340,7 +340,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		goto free_adi_tru;
 	}
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	platform_set_drvdata(pdev, rpchan);
 	rpchan->pdev = pdev;
@@ -350,7 +350,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 	rpchan->rcu = adi_rcu;
 	rpchan->rpmsg_state = ADI_RP_RPMSG_WAITING;
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	ret = of_property_read_u32(dev_node, "core-id", &rpchan->core_id);
 	if (ret) {
@@ -358,7 +358,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		goto free_adi_rcu;
 	}
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	rpchan->icc_irq = platform_get_irq(pdev, 0);
 	if (rpchan->icc_irq <= 0) {
@@ -367,13 +367,13 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		goto free_adi_rcu;
 	}
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	//res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	
+
 	rpchan->icc_irq_flags = IRQF_PERCPU | IRQF_SHARED | IRQF_ONESHOT;
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	ret = devm_request_threaded_irq(rpchan->dev, rpchan->icc_irq, NULL,
 		adi_rpmsg_virtio_irq_threaded_handler, rpchan->icc_irq_flags,
@@ -384,7 +384,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		goto free_adi_rcu;
 	}
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	if (of_property_read_bool(dev_node, "adi,check-idle")) {
 		ret = adi_rcu_is_core_idle(rpchan->rcu, rpchan->core_id);
@@ -398,7 +398,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		}
 	}
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	/* Get ADI resource table address */
 	node = of_parse_phandle(dev_node, "adi,rsc-table", 0);
@@ -415,7 +415,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		goto free_adi_rcu;
 	}
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	rpchan->adi_rsc_table = devm_ioremap_wc(dev, rmem->base, rmem->size);
 	if (IS_ERR(rpchan->adi_rsc_table)) {
@@ -424,7 +424,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		goto free_adi_rcu;
 	}
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	ret = adi_rpmsg_parse_resource_table(rpchan);
 	if (ret)
@@ -515,7 +515,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		rpchan->vring[1].va = rpchan->vring[0].va + rpchan->vring[0].size;
 	}
 
-	printk(KERN_ERR"adi rpmsg probe %d \n",__LINE__);
+	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	/* Update resource table */
 	rpchan->rsc_vring[0]->da = rpchan->vring[0].da;
@@ -534,7 +534,6 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		dev_info(dev, "msg buffers in memory-region.\n");
 		rpchan->flags |= ADI_RPMSG_FLAG_HAS_MEMORY_REGION;
 	}
-
 
 	rpchan->vring[0].notify_id = rpchan->core_id;
 	rpchan->vring[1].notify_id = rpchan->core_id;
