@@ -67,7 +67,6 @@
 #define DMA_RUN_WAIT_ACK	0x00000400	/* DMA Running WAIT ACK */
 #define DMA_RUN_MASK		0x00000700	/* DMA Running Bits Mask */
 
-
 #define DMAFLOW			0x000007000	/* Flow Control */
 #define DMAFLOW_STOP		0x000000000	/* Stop Mode */
 #define DMAFLOW_AUTO		0x000001000	/* Autobuffer Mode */
@@ -102,34 +101,42 @@ static inline void set_dma_start_addr(void __iomem *ioaddr, dma_addr_t addr)
 {
 	writel(lower_32_bits(addr), ioaddr + ADI_DMA_ADDRSTART);
 }
+
 static inline void set_dma_next_desc_addr(void __iomem *ioaddr, dma_addr_t addr)
 {
 	writel(lower_32_bits(addr), ioaddr + ADI_DMA_NEXT_DESC);
 }
+
 static inline void set_dma_curr_desc_addr(void __iomem *ioaddr, dma_addr_t addr)
 {
 	writel(lower_32_bits(addr), ioaddr + ADI_DMA_DSCPTR_CUR);
 }
+
 static inline void set_dma_x_count(void __iomem *ioaddr, unsigned long x_count)
 {
 	writel(x_count, ioaddr + ADI_DMA_XCNT);
 }
+
 static inline void set_dma_y_count(void __iomem *ioaddr, unsigned long y_count)
 {
 	writel(y_count, ioaddr + ADI_DMA_YCNT);
 }
+
 static inline void set_dma_x_modify(void __iomem *ioaddr, long x_modify)
 {
 	writel(x_modify, ioaddr + ADI_DMA_XMOD);
 }
+
 static inline void set_dma_y_modify(void __iomem *ioaddr, long y_modify)
 {
 	writel(y_modify, ioaddr + ADI_DMA_YMOD);
 }
+
 static inline void set_dma_config(void __iomem *ioaddr, unsigned long config)
 {
 	writel(config, ioaddr + ADI_DMA_CFG);
 }
+
 static inline void set_dma_curr_addr(void __iomem *ioaddr, dma_addr_t addr)
 {
 	writel(lower_32_bits(addr), ioaddr + ADI_DMA_ADDR_CUR);
@@ -139,26 +146,32 @@ static inline unsigned long get_dma_curr_irqstat(void __iomem *ioaddr)
 {
 	return readl(ioaddr + ADI_DMA_STAT);
 }
+
 static inline unsigned long get_dma_curr_xcount(void __iomem *ioaddr)
 {
 	return readl(ioaddr + ADI_DMA_XCNT_CUR);
 }
+
 static inline unsigned long get_dma_curr_ycount(void __iomem *ioaddr)
 {
 	return readl(ioaddr + ADI_DMA_YCNT_CUR);
 }
+
 static inline dma_addr_t get_dma_next_desc_ptr(void __iomem *ioaddr)
 {
 	return readl(ioaddr + ADI_DMA_NEXT_DESC);
 }
+
 static inline dma_addr_t get_dma_curr_desc_ptr(void __iomem *ioaddr)
 {
 	return readl(ioaddr + ADI_DMA_DSCPTR_CUR);
 }
+
 static inline unsigned long get_dma_config(void __iomem *ioaddr)
 {
 	return readl(ioaddr + ADI_DMA_CFG);
 }
+
 static inline unsigned long get_dma_curr_addr(void __iomem *ioaddr)
 {
 	return readl(ioaddr + ADI_DMA_ADDR_CUR);
