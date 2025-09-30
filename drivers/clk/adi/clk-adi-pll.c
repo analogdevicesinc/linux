@@ -156,8 +156,8 @@ static const struct clk_ops clk_sc5xx_cgu_pll_ops = {
 };
 
 struct clk *sc5xx_cgu_pll(const char *name, const char *parent_name,
-			  void __iomem * base, u8 shift, u8 width,
-			  u32 m_offset, bool half_m, spinlock_t * lock)
+			  void __iomem *base, u8 shift, u8 width,
+			  u32 m_offset, bool half_m, spinlock_t *lock)
 {
 	struct clk_sc5xx_cgu_pll *pll;
 	struct clk *clk;

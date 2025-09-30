@@ -71,15 +71,15 @@
 struct clk_sc5xx_cgu_pll *to_clk_sc5xx_cgu_pll(struct clk_hw *hw);
 
 struct clk *sc5xx_cgu_pll(const char *name, const char *parent_name,
-			  void __iomem * base, u8 shift, u8 width,
-			  u32 m_offset, bool half_m, spinlock_t * lock);
+			  void __iomem *base, u8 shift, u8 width,
+			  u32 m_offset, bool half_m, spinlock_t *lock);
 
 /**
  * All CDU clock muxes are the same size
  */
-static inline struct clk *cdu_mux(const char *name, void __iomem * reg,
+static inline struct clk *cdu_mux(const char *name, void __iomem *reg,
 				  const char *const *parents,
-				  spinlock_t * cdu_lock)
+				  spinlock_t *cdu_lock)
 {
 	return clk_register_mux(NULL, name, parents, CDU_MUX_SIZE,
 				CLK_SET_RATE_PARENT, reg, CDU_MUX_SHIFT,
@@ -87,9 +87,9 @@ static inline struct clk *cdu_mux(const char *name, void __iomem * reg,
 }
 
 static inline struct clk *cgu_divider(const char *name, const char *parent,
-				      void __iomem * reg, u8 shift,
+				      void __iomem *reg, u8 shift,
 				      u8 width, u8 extra_flags,
-				      spinlock_t * cdu_lock)
+				      spinlock_t *cdu_lock)
 {
 	return clk_register_divider(NULL, name, parent,
 				    CLK_SET_RATE_PARENT, reg, shift, width,
@@ -98,8 +98,8 @@ static inline struct clk *cgu_divider(const char *name, const char *parent,
 }
 
 static inline struct clk *cdu_gate(const char *name, const char *parent,
-				   void __iomem * reg, u32 flags,
-				   spinlock_t * cdu_lock)
+				   void __iomem *reg, u32 flags,
+				   spinlock_t *cdu_lock)
 {
 	return clk_register_gate(NULL, name, parent,
 				 CLK_SET_RATE_PARENT | flags, reg,
@@ -107,8 +107,8 @@ static inline struct clk *cdu_gate(const char *name, const char *parent,
 }
 
 static inline struct clk *cgu_gate(const char *name, const char *parent,
-				   void __iomem * reg, u8 bit,
-				   spinlock_t * cdu_lock)
+				   void __iomem *reg, u8 bit,
+				   spinlock_t *cdu_lock)
 {
 	return clk_register_gate(NULL, name, parent, CLK_SET_RATE_PARENT,
 				 reg, bit, CLK_GATE_SET_TO_DISABLE,
