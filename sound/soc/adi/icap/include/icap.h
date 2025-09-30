@@ -222,7 +222,7 @@ struct icap_instance {
 	char *name;
 
 	/** @brief ICAP instance type, one of the #icap_instance_type */
-	uint32_t type;
+	u32 type;
 
 	/** @brief Private pointer for caller use */
 	void *priv;
@@ -231,7 +231,7 @@ struct icap_instance {
 	void *callbacks;
 
 	/** @brief Internal counter for messages */
-	uint32_t seq_num;
+	u32 seq_num;
 };
 
 
@@ -246,46 +246,46 @@ struct icap_buf_descriptor {
 	char name[ICAP_BUF_NAME_LEN];
 
 	/** @brief Subdevice id to which the buffer should be attached */
-	int32_t subdev_id;
+	s32 subdev_id;
 
 	/** @brief Pointer to shared memory with the audio data */
-	uint64_t buf;
+	u64 buf;
 
 	/** @brief Size of the shared memory */
-	uint32_t buf_size;
+	u32 buf_size;
 
 	/** @brief Buffer type, one of the #icap_buf_type */
-	uint32_t type;
+	u32 type;
 
 	/** @brief Gaps between audio fragments in the shared memory */
-	uint32_t gap_size;
+	u32 gap_size;
 
 	/** @brief Audio fragments size in the shared memory */
-	uint32_t frag_size;
+	u32 frag_size;
 
 	/** @brief Number of channels */
-	uint32_t channels;
+	u32 channels;
 
 	/** @brief Sample format, one of the @ref sample_format */
-	uint32_t format;
+	u32 format;
 
 	/** @brief Sample rate, integer frequency value which corresponds to @ref sample_rate */
-	uint32_t rate;
+	u32 rate;
 
 	/* @brief Set this flag if ICAP device must report that it
 	 * consumed audio fragment from this buffer
 	 */
-	uint32_t report_frags;
+	u32 report_frags;
 } ICAP_PACKED_END;
 
 /** @brief Struct send by icap_frag_ready() device function */
 ICAP_PACKED_BEGIN
 struct icap_buf_frags {
 	/** @brief Indicates buffer which the fragments were consumed */
-	uint32_t buf_id;
+	u32 buf_id;
 
 	/** @brief Indicates how many audio fragments were consumed */
-	uint32_t frags;
+	u32 frags;
 } ICAP_PACKED_END;
 
 
@@ -295,60 +295,60 @@ struct icap_buf_frags {
 ICAP_PACKED_BEGIN
 struct icap_buf_offsets {
 	/** @brief Indicates buffer which the offset table refers to */
-	uint32_t buf_id;
+	u32 buf_id;
 
 	/** @brief Number of valid offsets in the table */
-	uint32_t num;
+	u32 num;
 
 	/** @brief Offset table with the new audio fragments */
-	uint32_t frags_offsets[ICAP_BUF_MAX_FRAGS_OFFSETS_NUM];
+	u32 frags_offsets[ICAP_BUF_MAX_FRAGS_OFFSETS_NUM];
 } ICAP_PACKED_END;
 
 /** @brief Subdevice requested by icap_get_subdevice_features() */
 ICAP_PACKED_BEGIN
 struct icap_subdevice_features {
 	/** @brief One of the #icap_dev_type */
-	uint32_t type;
+	u32 type;
 
 	/** @brief Max number of supported source buffers */
-	uint32_t src_buf_max;
+	u32 src_buf_max;
 
 	/** @brief Max number of supported destination buffers */
-	uint32_t dst_buf_max;
+	u32 dst_buf_max;
 
 	/** @brief Min number of supported channels */
-	uint32_t channels_min;
+	u32 channels_min;
 
 	/** @brief Max number of supported channels */
-	uint32_t channels_max;
+	u32 channels_max;
 
 	/** @brief Supported sample formats, bitfield @ref sample_format_bit */
-	uint32_t formats;
+	u32 formats;
 
 	/** @brief Supported sample rates, bitfield @ref sample_rate */
-	uint32_t rates;
+	u32 rates;
 } ICAP_PACKED_END;
 
 /** @brief Subdevice params to be initialized with, send by icap_subdevice_init() */
 struct icap_subdevice_params {
 	/** @brief Subdevice id to be initialized */
-	uint32_t subdev_id;
+	u32 subdev_id;
 
 	/** @brief Number of channels requested */
-	uint32_t channels;
+	u32 channels;
 
 	/** @brief Sample format requested, one of the @ref sample_format */
-	uint32_t format;
+	u32 format;
 
 	/** @brief Integer value of the sample rate frequency */
-	uint32_t rate;
+	u32 rate;
 } ICAP_PACKED_END;
 
 /**@}*/
 
 /** @brief Used to verify remote address, only rpmsg supported currently */
 union icap_remote_addr {
-	uint32_t rpmsg_addr;
+	u32 rpmsg_addr;
 	void *tcpip_addr;
 };
 
@@ -367,7 +367,7 @@ union icap_remote_addr {
  * @return int32_t Returns 0 on success, negative error code on failure.
  */
 int32_t icap_parse_msg(struct icap_instance *icap, union icap_remote_addr *src_addr,
-		       void *data, uint32_t size);
+		       void *data, u32 size);
 
 /**
  * @brief Save a message in a queue to be parsed later by icap_loop()
@@ -379,7 +379,7 @@ int32_t icap_parse_msg(struct icap_instance *icap, union icap_remote_addr *src_a
  * @return int32_t Returns 0 on success, negative error code on failure.
  */
 int32_t icap_put_msg(struct icap_instance *icap, union icap_remote_addr *src_addr,
-		     void *data, uint32_t size);
+		     void *data, u32 size);
 
 /**
  * @brief Parses messages saved by icap_put_msg()
@@ -387,7 +387,7 @@ int32_t icap_put_msg(struct icap_instance *icap, union icap_remote_addr *src_add
  * @param icap Pointer to icap instance
  * @return int32_t Returns 0 on success, negative error code on failure.
  */
-int32_t icap_loop(struct icap_instance *icap);
+s32 icap_loop(struct icap_instance *icap);
 
 /**@}*/
 

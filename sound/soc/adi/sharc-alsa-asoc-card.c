@@ -37,10 +37,10 @@ enum sa_state {
 
 struct sa_subdev {
 	spinlock_t buf_pos_lock;
-	uint32_t state;
+	u32 state;
 	size_t buf_frags;
 	size_t buf_frag_pos;
-	uint32_t buf_id;
+	u32 buf_id;
 	struct snd_pcm_substream *substream;
 	struct wait_queue_head pending_stop_event;
 };
@@ -204,8 +204,8 @@ static int sa_pcm_prepare(struct snd_soc_component *component,
 	subdev->buf_frag_pos = 0;
 	subdev->buf_frags = runtime->periods;
 
-	icap_buf.subdev_id = (uint32_t)subdev_id;
-	icap_buf.buf = (uint64_t)runtime->dma_addr;
+	icap_buf.subdev_id = (u32)subdev_id;
+	icap_buf.buf = (u64)runtime->dma_addr;
 	icap_buf.buf_size = runtime->periods * period_bytes;
 	icap_buf.type = ICAP_BUF_CIRCURAL;
 	icap_buf.gap_size = 0; // continuous circural
@@ -229,7 +229,7 @@ static int sa_pcm_prepare(struct snd_soc_component *component,
 		ret = icap_add_src(icap, &icap_buf);
 		if (ret < 0)
 			return ret;
-		subdev->buf_id = (uint32_t)ret;
+		subdev->buf_id = (u32)ret;
 
 	} else {
 
@@ -245,7 +245,7 @@ static int sa_pcm_prepare(struct snd_soc_component *component,
 		ret = icap_add_dst(icap, &icap_buf);
 		if (ret < 0)
 			return ret;
-		subdev->buf_id = (uint32_t)ret;
+		subdev->buf_id = (u32)ret;
 	}
 
 	return ret;
@@ -298,7 +298,7 @@ static int sa_pcm_new(struct snd_soc_component *component,
 	return 0;
 }
 
-static int32_t sa_frag_ready_cb(struct icap_instance *icap, struct icap_buf_frags *buf_frags)
+static s32 sa_frag_ready_cb(struct icap_instance *icap, struct icap_buf_frags *buf_frags)
 {
 	struct sa_card_data *sa = (struct sa_card_data *)icap->priv;
 	struct sa_subdev *subdev;

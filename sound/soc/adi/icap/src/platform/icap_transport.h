@@ -101,10 +101,10 @@ enum icap_msg_cmd {
  */
 ICAP_PACKED_BEGIN
 union icap_msg_payload {
-	uint8_t bytes[ICAP_BUF_NAME_LEN];
+	u8 bytes[ICAP_BUF_NAME_LEN];
 	char name[ICAP_BUF_NAME_LEN];
-	uint32_t u32;
-	int32_t s32;
+	u32 u32;
+	s32 s32;
 	struct icap_buf_descriptor buf;
 	struct icap_buf_frags frags;
 	struct icap_buf_offsets offsets;
@@ -118,14 +118,14 @@ union icap_msg_payload {
  */
 ICAP_PACKED_BEGIN
 struct icap_msg_header {
-	uint32_t protocol_version; /**< ICAP protocol version. */
-	uint32_t seq_num; /**< Sequence number of a message, increments every msg.*/
-	uint32_t cmd; /**< Command ID of the message.*/
-	uint32_t type; /* < Specifies if message or response to a message:
+	u32 protocol_version; /**< ICAP protocol version. */
+	u32 seq_num; /**< Sequence number of a message, increments every msg.*/
+	u32 cmd; /**< Command ID of the message.*/
+	u32 type; /* < Specifies if message or response to a message:
 			* ICAP_MSG, ICAP_ACK, ICAP_NAK.
 			*/
-	uint32_t reserved[5]; /**< Reserved for future use.*/
-	uint32_t payload_len; /**< Payload length in bytes.*/
+	u32 reserved[5]; /**< Reserved for future use.*/
+	u32 payload_len; /**< Payload length in bytes.*/
 } ICAP_PACKED_END;
 
 /**
@@ -144,7 +144,7 @@ struct icap_msg {
  * @param icap Pointer to ICAP instance.
  * @return int32_t Returns 0 on success, negative error code on failure.
  */
-int32_t icap_init_transport(struct icap_instance *icap);
+s32 icap_init_transport(struct icap_instance *icap);
 
 /**
  * @brief Releases platform specific transport layer.
@@ -152,7 +152,7 @@ int32_t icap_init_transport(struct icap_instance *icap);
  * @param icap Pointer to ICAP instance.
  * @return int32_t Returns 0 on success, negative error code on failure.
  */
-int32_t icap_deinit_transport(struct icap_instance *icap);
+s32 icap_deinit_transport(struct icap_instance *icap);
 
 /**
  * @brief Verifies if source address is correct.
@@ -161,7 +161,7 @@ int32_t icap_deinit_transport(struct icap_instance *icap);
  * @param src_addr Source address to verify.
  * @return int32_t Returns 0 when address is correct, -ICAP_ERROR_REMOTE_ADDR if wrong.
  */
-int32_t icap_verify_remote(struct icap_instance *icap, union icap_remote_addr *src_addr);
+s32 icap_verify_remote(struct icap_instance *icap, union icap_remote_addr *src_addr);
 
 /**
  * @brief Send ICAP message using platform specific transport.
@@ -171,7 +171,7 @@ int32_t icap_verify_remote(struct icap_instance *icap, union icap_remote_addr *s
  * @param size Totall size of the ICAP message.
  * @return int32_t Returns 0 on success, negative error code on failure.
  */
-int32_t icap_send_platform(struct icap_instance *icap, void *data, uint32_t size);
+s32 icap_send_platform(struct icap_instance *icap, void *data, u32 size);
 
 /**
  * @brief Notifies about received response, may unblock a thread waiting for the response.
@@ -182,7 +182,7 @@ int32_t icap_send_platform(struct icap_instance *icap, void *data, uint32_t size
  * @return int32_t Returns -ICAP_ERROR_TIMEOUT if nobody waits
  * for the message, 0 otherwise.
  */
-int32_t icap_response_notify(struct icap_instance *icap, struct icap_msg *response);
+s32 icap_response_notify(struct icap_instance *icap, struct icap_msg *response);
 
 /**
  * @brief Allows platform to prepare for expected response before sending the message.
@@ -191,7 +191,7 @@ int32_t icap_response_notify(struct icap_instance *icap, struct icap_msg *respon
  * @param msg Pointer to ICAP message which response to is expected.
  * @return int32_t Returns 0 on success, negative error code on failure.
  */
-int32_t icap_prepare_wait(struct icap_instance *icap, struct icap_msg *msg);
+s32 icap_prepare_wait(struct icap_instance *icap, struct icap_msg *msg);
 
 /**
  * @brief Puts the thread into sleep while waiting for response.
@@ -201,8 +201,8 @@ int32_t icap_prepare_wait(struct icap_instance *icap, struct icap_msg *msg);
  * @param response If not NULL the expected response is copied to the struct.
  * @return int32_t Returns 0 on success, negative error code on failure.
  */
-int32_t icap_wait_for_response(struct icap_instance *icap,
-			       uint32_t seq_num, struct icap_msg *response);
+s32 icap_wait_for_response(struct icap_instance *icap,
+			       u32 seq_num, struct icap_msg *response);
 
 /**
  * @brief Lock critical section.

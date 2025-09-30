@@ -134,15 +134,15 @@ void get_sharc_features(struct sport_device *sport, int sharc_core)
 {
 	struct icap_instance *icap = &sport->icap[sharc_core];
 	struct icap_subdevice_features features;
-	uint32_t dev_num, i;
-	int32_t ret;
+	u32 dev_num, i;
+	s32 ret;
 
 	ret = icap_get_subdevices(icap);
 	if (ret < 0)
 		dev_err(&sport->pdev->dev, "Get sharc%d devices error: %d", sharc_core, ret);
 		return;
 
-	dev_num = (uint32_t)ret;
+	dev_num = (u32)ret;
 
 	for (i = 0; i < dev_num; i++) {
 		ret = icap_get_subdevice_features(icap, i, &features);
@@ -191,8 +191,8 @@ void sport_tx_start_work_func(struct work_struct *work)
 						  struct sport_device,
 						  send_tx_start_work);
 	unsigned long flags;
-	uint32_t sharc_core, dev_id;
-	int ret;
+	u32 sharc_core, dev_id;
+	s32 ret;
 
 	spin_lock_irqsave(&sport->icap_spinlock, flags);
 	sharc_core = sport->sharc_tx_core;
@@ -208,7 +208,7 @@ void sport_tx_start_work_func(struct work_struct *work)
 
 int sport_tx_start(struct sport_device *sport)
 {
-	int32_t ret;
+	s32 ret;
 
 	ret = queue_work(system_highpri_wq, &sport->send_tx_start_work);
 	if (ret == 0)
@@ -227,8 +227,8 @@ void sport_rx_start_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work, struct sport_device, send_rx_start_work);
 	unsigned long flags;
-	uint32_t sharc_core, dev_id;
-	int ret;
+	u32 sharc_core, dev_id;
+	s32 ret;
 
 	spin_lock_irqsave(&sport->icap_spinlock, flags);
 	sharc_core = sport->sharc_rx_core;
@@ -260,8 +260,8 @@ void sport_tx_stop_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work, struct sport_device, send_tx_stop_work);
 	unsigned long flags;
-	uint32_t sharc_core, dev_id;
-	int ret;
+	u32 sharc_core, dev_id;
+	s32 ret;
 
 	spin_lock_irqsave(&sport->icap_spinlock, flags);
 	sharc_core = sport->sharc_tx_core;
@@ -302,8 +302,8 @@ void sport_rx_stop_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work, struct sport_device, send_rx_stop_work);
 	unsigned long flags;
-	uint32_t sharc_core, dev_id;
-	int ret;
+	u32 sharc_core, dev_id;
+	s32 ret;
 
 	spin_lock_irqsave(&sport->icap_spinlock, flags);
 	sharc_core = sport->sharc_rx_core;
@@ -361,7 +361,7 @@ int sport_config_tx_dma(struct sport_device *sport, void *buf,
 	struct icap_buf_descriptor audio_buf;
 	struct icap_subdevice_params params;
 	unsigned long flags;
-	uint32_t sharc_core, dev_id;
+	u32 sharc_core, dev_id;
 	struct dma_slave_config dma_config = {0};
 	int ret;
 
@@ -441,7 +441,7 @@ int sport_config_tx_dma(struct sport_device *sport, void *buf,
 	// Set ALSA buffer size and pointer
 	snprintf(audio_buf.name, ICAP_BUF_NAME_LEN, "%s-alsa-playback", sport->pdev->name);
 	audio_buf.subdev_id = dev_id;
-	audio_buf.buf = (uint64_t)buf;
+	audio_buf.buf = (u64)buf;
 	audio_buf.buf_size = fragsize * fragcount;
 	audio_buf.type = ICAP_BUF_CIRCURAL;
 	audio_buf.gap_size = 0; // continuous circural
@@ -461,12 +461,12 @@ int sport_config_tx_dma(struct sport_device *sport, void *buf,
 	if (ret < 0)
 		return ret;
 
-	sport->tx_alsa_icap_buf_id = (uint32_t)ret;
+	sport->tx_alsa_icap_buf_id = (u32)ret;
 
 	// Set DMA buffer size and pointer
 	snprintf(audio_buf.name, ICAP_BUF_NAME_LEN, "%s-dma-playback", sport->pdev->name);
 	audio_buf.subdev_id = dev_id;
-	audio_buf.buf = (uint64_t)sport->sharc_tx_dma_buf.addr;
+	audio_buf.buf = (u64)sport->sharc_tx_dma_buf.addr;
 	audio_buf.buf_size = fragsize * fragcount;
 	audio_buf.type = ICAP_BUF_CIRCURAL;
 	audio_buf.gap_size = 0; // continuous circural
@@ -487,7 +487,7 @@ int sport_config_tx_dma(struct sport_device *sport, void *buf,
 		icap_remove_src(&sport->icap[sharc_core], sport->tx_alsa_icap_buf_id);
 		return ret;
 	}
-	sport->tx_dma_icap_buf_id = (uint32_t)ret;
+	sport->tx_dma_icap_buf_id = (u32)ret;
 
 	return 0;
 }
@@ -499,7 +499,7 @@ int sport_config_rx_dma(struct sport_device *sport, void *buf,
 	struct icap_buf_descriptor audio_buf;
 	struct icap_subdevice_params params;
 	unsigned long flags;
-	uint32_t sharc_core, dev_id;
+	u32 sharc_core, dev_id;
 	struct dma_slave_config dma_config = {0};
 	int ret;
 
@@ -580,7 +580,7 @@ int sport_config_rx_dma(struct sport_device *sport, void *buf,
 	// Set ALSA buffer size and pointer
 	snprintf(audio_buf.name, ICAP_BUF_NAME_LEN, "%s-alsa-record", sport->pdev->name);
 	audio_buf.subdev_id = dev_id;
-	audio_buf.buf = (uint64_t)buf;
+	audio_buf.buf = (u64)buf;
 	audio_buf.buf_size = fragsize * fragcount;
 	audio_buf.type = ICAP_BUF_CIRCURAL;
 	audio_buf.gap_size = 0; // continuous circural
@@ -600,12 +600,12 @@ int sport_config_rx_dma(struct sport_device *sport, void *buf,
 	if (ret < 0)
 		return ret;
 
-	sport->rx_alsa_icap_buf_id = (uint32_t)ret;
+	sport->rx_alsa_icap_buf_id = (u32)ret;
 
 	// Set DMA buffer size and pointer
 	snprintf(audio_buf.name, ICAP_BUF_NAME_LEN, "%s-dma-record", sport->pdev->name);
 	audio_buf.subdev_id = dev_id;
-	audio_buf.buf = (uint64_t)sport->sharc_rx_dma_buf.addr;
+	audio_buf.buf = (u64)sport->sharc_rx_dma_buf.addr;
 	audio_buf.buf_size = fragsize * fragcount;
 	audio_buf.type = ICAP_BUF_CIRCURAL;
 	audio_buf.gap_size = 0; // continuous circural
@@ -626,7 +626,7 @@ int sport_config_rx_dma(struct sport_device *sport, void *buf,
 		icap_remove_dst(&sport->icap[sharc_core], sport->rx_alsa_icap_buf_id);
 		return ret;
 	}
-	sport->rx_dma_icap_buf_id = (uint32_t)ret;
+	sport->rx_dma_icap_buf_id = (u32)ret;
 
 	return 0;
 }

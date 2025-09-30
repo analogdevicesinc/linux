@@ -40,7 +40,7 @@
 
 #define __ICAP_MSG_TIMEOUT usecs_to_jiffies(ICAP_MSG_TIMEOUT_US)
 
-int32_t icap_init_transport(struct icap_instance *icap)
+s32 icap_init_transport(struct icap_instance *icap)
 {
 	struct icap_transport *transport = &icap->transport;
 
@@ -53,7 +53,7 @@ int32_t icap_init_transport(struct icap_instance *icap)
 	return 0;
 }
 
-int32_t icap_deinit_transport(struct icap_instance *icap)
+s32 icap_deinit_transport(struct icap_instance *icap)
 {
 	struct icap_transport *transport = &icap->transport;
 	struct sk_buff *skb;
@@ -74,14 +74,14 @@ int32_t icap_deinit_transport(struct icap_instance *icap)
 	return 0;
 }
 
-int32_t icap_verify_remote(struct icap_instance *icap,
+s32 icap_verify_remote(struct icap_instance *icap,
 		union icap_remote_addr *src_addr)
 {
 	/* rpmsg endpoints on linux are one to one - no need to verify src address*/
 	return 0;
 }
 
-int32_t icap_send_platform(struct icap_instance *icap, void *data, uint32_t size)
+s32 icap_send_platform(struct icap_instance *icap, void *data, u32 size)
 {
 	struct icap_transport *transport = &icap->transport;
 	int32_t ret;
@@ -96,13 +96,13 @@ int32_t icap_send_platform(struct icap_instance *icap, void *data, uint32_t size
 }
 
 struct _icap_wait_hint {
-	uint32_t received;
-	uint32_t seq_num;
-	uint32_t msg_cmd;
+	u32 received;
+	u32 seq_num;
+	u32 msg_cmd;
 };
 
 static
-struct sk_buff *_find_seq_num(struct sk_buff_head *queue, uint32_t seq_num)
+struct sk_buff *_find_seq_num(struct sk_buff_head *queue, u32 seq_num)
 {
 	struct _icap_wait_hint *hint;
 	struct sk_buff *skb;
@@ -115,7 +115,7 @@ struct sk_buff *_find_seq_num(struct sk_buff_head *queue, uint32_t seq_num)
 	return NULL;
 }
 
-int32_t icap_prepare_wait(struct icap_instance *icap, struct icap_msg *msg)
+s32 icap_prepare_wait(struct icap_instance *icap, struct icap_msg *msg)
 {
 	struct icap_transport *transport = &icap->transport;
 	struct sk_buff *skb;
@@ -152,7 +152,7 @@ prepare_wait_unlock:
 	return ret;
 }
 
-int32_t icap_response_notify(struct icap_instance *icap, struct icap_msg *response)
+s32 icap_response_notify(struct icap_instance *icap, struct icap_msg *response)
 {
 	struct icap_transport *transport = &icap->transport;
 	struct sk_buff *skb;
@@ -183,12 +183,12 @@ int32_t icap_response_notify(struct icap_instance *icap, struct icap_msg *respon
 	return ret;
 }
 
-int32_t icap_wait_for_response(struct icap_instance *icap, uint32_t seq_num,
+s32 icap_wait_for_response(struct icap_instance *icap, u32 seq_num,
 		struct icap_msg *response)
 {
 	struct icap_transport *transport = &icap->transport;
 	struct device *dev;
-	uint8_t icap_id;
+	u8 icap_id;
 	char _env[64];
 	char *envp[] = { _env, NULL };
 	long timeout;
