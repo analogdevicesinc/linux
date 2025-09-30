@@ -193,12 +193,12 @@ static u64 read_cs_gptimer(struct clocksource *cs)
 	struct clocksource_gptimer *gp =
 	    container_of(cs, struct clocksource_gptimer, cs);
 
-	return (u64) get_gptimer_count(gp->timer);
+	return (u64)get_gptimer_count(gp->timer);
 }
 
 static u64 notrace read_sched_gptimer(void)
 {
-	return (u64) get_gptimer_count(gptimer_controller.cs->timer);
+	return (u64)get_gptimer_count(gptimer_controller.cs->timer);
 }
 
 /**
@@ -488,7 +488,6 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 
 TIMER_OF_DECLARE(sc5xx_gptimers, "adi,sc5xx-gptimers",
 		 sc5xx_gptimer_controller_init);
-
 static int gptimer_counter_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -501,17 +500,14 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 	adi_counts =
 	    devm_kcalloc(dev, gptimer_controller.num_timers,
 			 sizeof(*adi_counts), GFP_KERNEL);
-	if (!adi_counts) {
+	if (!adi_counts)
 		return -ENOMEM;
-	}
-
 
 	counter = devm_counter_alloc(dev, sizeof(*priv));
 	if (!counter)
 		return -ENOMEM;
 
 	priv = counter_priv(counter);
-
 
 	for (i = 0; i < gptimer_controller.num_timers; ++i) {
 		adi_counts[i].name =
@@ -532,8 +528,6 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 		dev_err_probe(dev, ret, "Failed to add counter\n");
 	}
 	return ret;
-
-
 }
 
 static const struct of_device_id adsp_gptimer_counter_match[] = {
