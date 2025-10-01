@@ -33,6 +33,8 @@
  #include <linux/io.h>
 
 #define LTC2378_TCYC_NS			MILLI
+#define LTC2378_TCONV_NS		675
+#define LTC2378_TDSDOBUSYL_NS		5
 
 struct ltc2378_chip_info {
         const char *name;
@@ -70,7 +72,7 @@ struct ltc2378_adc {
         u8 rx_buf[4]; // for 32-bit data
 
         /* New SPI offload API fields */
-        struct spi_transfer offload_xfer;
+        struct spi_transfer offload_xfer[2];
         struct spi_message offload_msg;
         struct spi_offload *offload;
         struct spi_offload_trigger *offload_trigger;
@@ -237,40 +239,38 @@ static int ltc2378_write_raw(struct iio_dev *indio_dev,
         }
 }
 
+static int ltc2378_prepare_offload_message(struct device *dev,
+					   struct ltc2378_adc *adc)
+{
+	/* Dummy transfer to wait for the conversion time */
+	adc->offload_xfer[0].delay.value = LTC2378_TCONV_NS + LTC2378_TDSDOBUSYL_NS;
+	adc->offload_xfer[0].delay.unit = SPI_DELAY_UNIT_NSECS;
+
+        /* Setup data read transfer */
+        adc->offload_xfer[1].rx_buf = NULL;  /* For streaming, DMA framework handles buffer */
+        adc->offload_xfer[1].tx_buf = NULL;
+        adc->offload_xfer[1].len = 4;  /* 4 bytes for 20-bit data (32-bit aligned) */
+        adc->offload_xfer[1].bits_per_word = 20;
+        adc->offload_xfer[1].offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;  /* Enable RX streaming */
+        /* Additional SLEEP instruction needed for tQUIET timing requirements. */
+        adc->offload_xfer[1].delay.value = 20;
+        adc->offload_xfer[1].delay.unit = SPI_DELAY_UNIT_NSECS;
+
+        /* Initialize message with offload */
+        spi_message_init_with_transfers(&adc->offload_msg, adc->offload_xfer,
+					ARRAY_SIZE(adc->offload_xfer));
+        adc->offload_msg.offload = adc->offload;
+
+	return devm_spi_optimize_message(dev, adc->spi, &adc->offload_msg);
+}
+
 static int ltc2378_buffer_postenable(struct iio_dev *indio_dev)
 {
         struct ltc2378_adc *adc = iio_priv(indio_dev);
         int ret;
 
-        /* Setup offload transfer */
-        adc->offload_xfer.rx_buf = NULL;  /* For streaming, DMA framework handles buffer */
-        adc->offload_xfer.tx_buf = NULL;
-        adc->offload_xfer.len = 4;  /* 4 bytes for 20-bit data (32-bit aligned) */
-        adc->offload_xfer.bits_per_word = 20;
-        adc->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;  /* Enable RX streaming */
-
-        /* Additional SLEEP instruction needed for tQUIET timing requirements. */
-        adc->offload_xfer.delay.value = 15;
-        adc->offload_xfer.delay.unit = SPI_DELAY_UNIT_NSECS;
-
-        /* Initialize message with offload */
-        spi_message_init_with_transfers(&adc->offload_msg, &adc->offload_xfer, 1);
-        adc->offload_msg.offload = adc->offload;
-
-        /* Optimize message for offload */
-        ret = spi_optimize_message(adc->spi, &adc->offload_msg);
-        if (ret) {
-                printk(KERN_ERR "ltc2378: spi_optimize_message failed: %d\n", ret);
-                return ret;
-        }
-
         ret = spi_offload_trigger_enable(adc->offload, adc->offload_trigger,
                                         &adc->offload_trigger_config);
-        if (ret) {
-                printk(KERN_ERR "ltc2378: failed to enable SPI offload trigger: %d\n", ret);
-                spi_unoptimize_message(&adc->offload_msg);
-                return ret;
-        }
 
         return 0;
 }
@@ -280,8 +280,6 @@ static int ltc2378_buffer_predisable(struct iio_dev *indio_dev)
         struct ltc2378_adc *adc = iio_priv(indio_dev);
 
         spi_offload_trigger_disable(adc->offload, adc->offload_trigger);
-
-        spi_unoptimize_message(&adc->offload_msg);
 
         return 0;
 }
@@ -430,6 +428,10 @@ static int ltc2378_probe(struct spi_device *spi)
         ret = ltc2378_set_samp_freq(adc, adc->info->max_rate);
         if (ret)
                 return ret;
+
+	ret = ltc2378_prepare_offload_message(&spi->dev, adc);
+	if (ret)
+		return ret;
 
         ret = devm_iio_device_register(&spi->dev, indio_dev);
         if (ret) {
