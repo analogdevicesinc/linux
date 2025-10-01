@@ -1319,6 +1319,7 @@ static int ad4062_regulators_get(struct ad4062_state *st, bool *ref_sel)
 static const struct i3c_device_id ad4062_id_table[] = {
 	I3C_DEVICE(AD4062_I3C_VENDOR, ad4060_chip_info.prod_id, &ad4060_chip_info),
 	I3C_DEVICE(AD4062_I3C_VENDOR, ad4062_chip_info.prod_id, &ad4062_chip_info),
+	I3C_DEVICE(AD4062_I3C_VENDOR, 0x70, &ad4062_chip_info), // REVISIT: pre-prod silicon (remove).
 	{}
 };
 MODULE_DEVICE_TABLE(i3c, ad4062_id_table);
