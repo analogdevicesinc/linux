@@ -56,6 +56,16 @@ static int spi_offload_trigger_pwm_validate(struct spi_offload_trigger *trigger,
 	if (ret < 0)
 		return ret;
 
+
+	u64 target = wf.duty_length_ns;
+	do {
+		wf.duty_length_ns = target;
+		ret = pwm_round_waveform_might_sleep(st->pwm, &wf);
+		if (ret)
+			return ret;
+		target += 10;
+	} while (wf.period_length_ns < DIV_ROUND_DOWN_ULL(NSEC_PER_SEC, periodic->frequency_hz));
+
 	periodic->frequency_hz = DIV_ROUND_UP_ULL(NSEC_PER_SEC, wf.period_length_ns);
 	periodic->offset_ns = wf.duty_offset_ns;
 	return 0;
