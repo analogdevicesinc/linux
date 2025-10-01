@@ -137,15 +137,10 @@ static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
 
 static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
 {
-        struct spi_offload_trigger_config config = {
-                .type = SPI_OFFLOAD_TRIGGER_PERIODIC,
-                .periodic = {
-                        .frequency_hz = freq,
-                },
-        };
-
+	struct spi_offload_trigger_config *config = &adc->offload_trigger_config;
         u64 period_ns;
         u64 adjusted_freq;
+	int ret;
 
         printk(KERN_INFO "ltc2378: freq input = %d\n", freq);
         printk(KERN_INFO "ltc2378: max_rate = %d\n", adc->info->max_rate);
@@ -161,6 +156,11 @@ static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
         period_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, (u64)freq);
         printk(KERN_INFO "ltc2378: calculated period_ns = %llu\n", period_ns);
 
+	config->periodic.frequency_hz = freq;
+	ret = spi_offload_trigger_validate(adc->offload_trigger, config);
+	if (ret)
+		return ret;
+
         // if (period_ns <= 1000) {
         //         /* At or near 1 MSPS - adjust frequency to ensure period >= 1000ns
         //          * after PWM hardware quantization. Use 999kHz to get 1001ns period,
@@ -171,12 +171,11 @@ static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
         //                freq, adjusted_freq);
         //         config.periodic.frequency_hz = adjusted_freq;
         // } else {
-                config.periodic.frequency_hz = freq;
+                //config.periodic.frequency_hz = freq; //already set above
         //}
         
         /* Store frequency - trigger framework controls PWM */
         adc->samp_freq = freq;
-        adc->offload_trigger_config = config;
 
         printk(KERN_INFO "ltc2378: frequency set = %d\n", adc->samp_freq);
 
