@@ -6,6 +6,10 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/jesd204/adxcvr.h>
 
+#define WITH_AION 1
+#define WITH_AXI_AION_TRIG 0
+#define WITH_FSRC 0
+
 #define fmc_spi spi0
 
 #ifndef DEVICE_PROFILE_NAME
@@ -26,7 +30,7 @@
 #define SYSREF_CLK_MHz		(9765625)
 #endif
 
-#ifdef WITH_AION
+#if WITH_AION
 #define JESD_SUBCLASS 1
 #else
 #define JESD_SUBCLASS 0
@@ -296,7 +300,7 @@
 			adi,hsci-interface-speed-mhz = <HSCI_SPEED>;
 		};
 
-#ifdef WITH_AION
+#if WITH_AXI_AION_TRIG
 		axi_aion_trig: axi_aion_trig@bc900000 {
 			compatible = "adi,axi-aion-trig-1.0.a";
 			reg = <0xbc900000 0x1000>;
@@ -309,7 +313,7 @@
 			io-channels = <&adf4030 8>;
 			io-channel-names = "bsync";
 		};
-#endif /* WITH_AION */
+#endif /* WITH_AXI_AION_TRIG */
 
 		axi_ad9084_core_rx: axi-ad9084-rx-hpc@a4a10000 {
 			compatible = "adi,axi-ad9081-rx-1.0";
@@ -400,7 +404,7 @@
 			xlnx,spi-mode = <0>;
 		};
 
-#ifdef WITH_FSRC
+#if WITH_FSRC
 		axi_fsrc_sequencer: axi-fsrc-sequencer@a4540000 {
 			compatible = "adi,axi-fsrc-sequencer";
 			reg = <0xa4540000 0x10000>;
@@ -457,7 +461,7 @@
 
 		jesd204-device;
 		#jesd204-cells = <2>;
-#ifdef WITH_AION
+#if WITH_AION
 		jesd204-inputs =
 			<&adf4030 0 FRAMER_LINK_A0_RX>,
 			<&adf4030 0 DEFRAMER_LINK_A0_TX>;
@@ -540,7 +544,7 @@
 		};
 	};
 
-#ifdef WITH_AION
+#if WITH_AION
 	adf4030: adf4030@2 {
 		#clock-cells = <1>;
 		compatible = "adi,adf4030";
@@ -564,9 +568,11 @@
 		#jesd204-cells = <2>;
 		jesd204-sysref-provider;
 
+#if WITH_AXI_AION_TRIG
 		jesd204-inputs =
 			<&axi_aion_trig 0 FRAMER_LINK_A0_RX>,
 			<&axi_aion_trig 0 DEFRAMER_LINK_A0_TX>;
+#endif /* WITH_AXI_AION_TRIG */
 
 		adi,jesd204-max-sysref-frequency-hz = <2000000>;
 
@@ -673,8 +679,8 @@
 		reset-gpios = <&axi_gpio 30 0>;
 		adi,gpio-exports = /bits/ 8 <15 16 17 18 19 20 21 22 23>; // <block, hop>
 
-#ifdef WITH_AION
-#ifdef WITH_FSRC
+#if WITH_AION
+#if WITH_FSRC
 		io-channels = <&adf4030 5>, <&adf4382 0>, <&axi_fsrc_sequencer 0>;
 		io-channel-names = "bsync", "clk", "fsrc";
 #else
@@ -682,7 +688,7 @@
 		io-channel-names = "bsync", "clk";
 #endif /* WITH_FSRC */
 #else
-#ifdef WITH_FSRC
+#if WITH_FSRC
 		io-channels = <&axi_fsrc_sequencer 0>;
 		io-channel-names = "fsrc";
 #endif
