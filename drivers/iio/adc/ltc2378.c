@@ -60,7 +60,6 @@ static const struct spi_offload_config ltc2378_offload_config = {
 
 struct ltc2378_adc {
         const struct ltc2378_chip_info *info;
-        struct iio_chan_spec *channels;
         struct spi_transfer seq_xfer[1];
         unsigned int cfg;
         unsigned long ref_clk_rate;
@@ -294,27 +293,6 @@ static const struct iio_info ltc2378_iio_info = {
         .write_raw = &ltc2378_write_raw,
 };
 
-static int ltc2378_parse_channels(struct iio_dev *indio_dev)
-{
-        struct ltc2378_adc *adc = iio_priv(indio_dev);
-        struct device *dev = indio_dev->dev.parent;
-
-        /* Allocate space for one channel */
-        adc->channels = devm_kcalloc(dev, 1, sizeof(struct iio_chan_spec),
-				     GFP_KERNEL);
-        if (!adc->channels)
-                return -ENOMEM;
-        
-        /* Setup the single channel */
-        *adc->channels = ltc2378_chan;
-        adc->channels->scan_type.realbits = adc->info->resolution;
-
-        indio_dev->channels = adc->channels;
-        indio_dev->num_channels = 1;
-
-        return 0;
-}
-
 static void ltc2378_reg_disable(void *data)
 {
         regulator_disable(data);
@@ -382,9 +360,9 @@ static int ltc2378_probe(struct spi_device *spi)
                         return ret;
         }
 
-        ret = ltc2378_parse_channels(indio_dev);
-        if (ret)
-                return -EINVAL;
+        /* Setup the single channel */
+        indio_dev->channels = &ltc2378_chan;
+        indio_dev->num_channels = 1;
 
         /* Get SPI offload support */
         adc->offload = devm_spi_offload_get(&spi->dev, spi, &ltc2378_offload_config);
