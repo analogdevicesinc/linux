@@ -247,7 +247,6 @@ static int ltc2378_buffer_postenable(struct iio_dev *indio_dev)
         adc->offload_xfer.tx_buf = NULL;
         adc->offload_xfer.len = 4;  /* 4 bytes for 20-bit data (32-bit aligned) */
         adc->offload_xfer.bits_per_word = 20;
-        adc->offload_xfer.speed_hz = adc->info->sclk_rate;
         adc->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;  /* Enable RX streaming */
 
         /* Additional SLEEP instruction needed for tQUIET timing requirements. */
