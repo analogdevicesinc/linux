@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices AD4000 series of ADCs
- * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad400x
- * https://wiki.analog.com/resources/eval/ad400x-eval-board
- * https://wiki.analog.com/resources/eval/user-guides/ad400x
+ * Analog Devices LTC2378-20 series of ADCs
+ * https://www.analog.com/en/products/ltc2378-20.html
  *
  * hdl_project: <ltc2378_fmc/zed>
  * Link: 
@@ -36,11 +34,9 @@
 		regulator-always-on;
 	};
 
-	/* Minimal trigger wrapper - just for SPI engine, preserve HDL PWM defaults */
 	trigger_pwm: adc-pwm-trigger {
 		compatible = "pwm-trigger";
 		#trigger-source-cells = <0>;
-		/* Reference PWM with minimal control - preserve HDL pulse width */
 		pwms = <&adc_trigger 0 1000000 2>;
 	};
 
@@ -118,10 +114,6 @@
         	        // SPI mode 0 (CPOL=0, CPHA=0) - LTC2378 datasheet specifies this
         	        // Data valid on rising edge, idle low
 
-        	        /* PWM for direct pulse width control */
-        	        pwms = <&adc_trigger 0 1000 20>;  /* channel 0, 1000ns period, 20ns pulse */
-        	        pwm-names = "cnv";
-        	        
         	        clocks = <&spi_clk>;
         	        clock-names = "spi_clk";
 
