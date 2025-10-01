@@ -70,9 +70,9 @@ static int spi_offload_trigger_pwm_validate(struct spi_offload_trigger *trigger,
 	min_period_ns = DIV_ROUND_DOWN_ULL(NSEC_PER_SEC, periodic->frequency_hz);
 	printk(KERN_INFO "ltc2378: pwm_validate - min_period_ns (round_down) = %llu\n", min_period_ns);
 
-	target = wf.duty_length_ns;
+	target = min_period_ns;
 	do {
-		wf.duty_length_ns = target;
+		wf.period_length_ns = target;
 		ret = pwm_round_waveform_might_sleep(st->pwm, &wf);
 		if (ret)
 			return ret;
