@@ -23,6 +23,7 @@
  #include <linux/spi/spi.h>
  #include <linux/spi/offload/consumer.h>
  #include <linux/regulator/consumer.h>
+#include <linux/units.h>
  
  #include <linux/iio/buffer.h>
  #include <linux/iio/buffer-dma.h>
@@ -30,6 +31,8 @@
  #include <linux/iio/iio.h>
  #include <linux/iio/sysfs.h>
  #include <linux/io.h>
+
+#define LTC2378_TCYC_NS			MILLI
 
 struct ltc2378_chip_info {
         const char *name;
@@ -144,7 +147,9 @@ static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
 
         printk(KERN_INFO "ltc2378: freq input = %d\n", freq);
         printk(KERN_INFO "ltc2378: max_rate = %d\n", adc->info->max_rate);
-        freq = clamp(freq, 1, adc->info->max_rate);
+	if (!in_range(freq, 1, adc->info->max_rate))
+		return -EINVAL;
+
         printk(KERN_INFO "ltc2378: freq clamped = %d\n", freq);
 
         /* LTC2378-20 requires minimum 1000ns cycle time (1 MSPS max).
