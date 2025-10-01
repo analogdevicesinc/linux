@@ -110,10 +110,10 @@ static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
         .len = 1,                      // Single 32-bit word
         .bits_per_word = 20,          // Exactly 20 clock pulses
         .speed_hz = adc->info->sclk_rate,
-        .delay = {
+        /*.delay = {
             .value = 0,
             .unit = SPI_DELAY_UNIT_NSECS,
-        },
+        }, */
     };
 
     ret = spi_sync_transfer(adc->spi, &xfer, 1);
@@ -161,18 +161,18 @@ static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
         period_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, (u64)freq);
         printk(KERN_INFO "ltc2378: calculated period_ns = %llu\n", period_ns);
 
-        if (period_ns <= 1000) {
-                /* At or near 1 MSPS - adjust frequency to ensure period >= 1000ns
-                 * after PWM hardware quantization. Use 999kHz to get 1001ns period,
-                 * which rounds to 100 clocks (1000ns) instead of 99 clocks (990ns).
-                 */
-                adjusted_freq = DIV_ROUND_UP_ULL(NSEC_PER_SEC, 1001);
-                printk(KERN_INFO "ltc2378: adjusted freq from %d to %llu to meet min period\n",
-                       freq, adjusted_freq);
-                config.periodic.frequency_hz = adjusted_freq;
-        } else {
+        // if (period_ns <= 1000) {
+        //         /* At or near 1 MSPS - adjust frequency to ensure period >= 1000ns
+        //          * after PWM hardware quantization. Use 999kHz to get 1001ns period,
+        //          * which rounds to 100 clocks (1000ns) instead of 99 clocks (990ns).
+        //          */
+        //         adjusted_freq = DIV_ROUND_UP_ULL(NSEC_PER_SEC, 1001);
+        //         printk(KERN_INFO "ltc2378: adjusted freq from %d to %llu to meet min period\n",
+        //                freq, adjusted_freq);
+        //         config.periodic.frequency_hz = adjusted_freq;
+        // } else {
                 config.periodic.frequency_hz = freq;
-        }
+        //}
         
         /* Store frequency - trigger framework controls PWM */
         adc->samp_freq = freq;
@@ -275,8 +275,6 @@ static int ltc2378_buffer_postenable(struct iio_dev *indio_dev)
 static int ltc2378_buffer_predisable(struct iio_dev *indio_dev)
 {
         struct ltc2378_adc *adc = iio_priv(indio_dev);
-
-        printk(KERN_INFO "ltc2378: buffer_predisable called\n");
 
         spi_offload_trigger_disable(adc->offload, adc->offload_trigger);
 
