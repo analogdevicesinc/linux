@@ -41,6 +41,8 @@ static int spi_offload_trigger_pwm_validate(struct spi_offload_trigger *trigger,
 	struct spi_offload_trigger_periodic *periodic = &config->periodic;
 	struct pwm_waveform wf = { };
 	int ret;
+	u64 target;
+	u64 min_period_ns;
 
 	if (config->type != SPI_OFFLOAD_TRIGGER_PERIODIC)
 		return -EINVAL;
@@ -48,26 +50,45 @@ static int spi_offload_trigger_pwm_validate(struct spi_offload_trigger *trigger,
 	if (!periodic->frequency_hz)
 		return -EINVAL;
 
+	printk(KERN_INFO "ltc2378: pwm_validate - input frequency_hz = %llu\n", periodic->frequency_hz);
+
 	wf.period_length_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, periodic->frequency_hz);
+	printk(KERN_INFO "ltc2378: pwm_validate - initial period_length_ns = %llu\n", wf.period_length_ns);
+
 	/* REVISIT: 50% duty-cycle for now - may add config parameter later */
 	wf.duty_length_ns = wf.period_length_ns / 2;
+	printk(KERN_INFO "ltc2378: pwm_validate - initial duty_length_ns = %llu (50%%)\n", wf.duty_length_ns);
+
 	wf.duty_offset_ns = periodic->offset_ns;
 	ret = pwm_round_waveform_might_sleep(st->pwm, &wf);
 	if (ret < 0)
 		return ret;
 
+	printk(KERN_INFO "ltc2378: pwm_validate - after first round: period=%llu, duty=%llu\n",
+	       wf.period_length_ns, wf.duty_length_ns);
 
-	u64 target = wf.duty_length_ns;
+	min_period_ns = DIV_ROUND_DOWN_ULL(NSEC_PER_SEC, periodic->frequency_hz);
+	printk(KERN_INFO "ltc2378: pwm_validate - min_period_ns (round_down) = %llu\n", min_period_ns);
+
+	target = wf.duty_length_ns;
 	do {
 		wf.duty_length_ns = target;
 		ret = pwm_round_waveform_might_sleep(st->pwm, &wf);
 		if (ret)
 			return ret;
+		printk(KERN_INFO "ltc2378: pwm_validate - loop: target=%llu, period=%llu, duty=%llu\n",
+		       target, wf.period_length_ns, wf.duty_length_ns);
 		target += 10;
-	} while (wf.period_length_ns < DIV_ROUND_DOWN_ULL(NSEC_PER_SEC, periodic->frequency_hz));
+	} while (wf.period_length_ns < min_period_ns);
+
+	printk(KERN_INFO "ltc2378: pwm_validate - final period=%llu, duty=%llu\n",
+	       wf.period_length_ns, wf.duty_length_ns);
 
 	periodic->frequency_hz = DIV_ROUND_UP_ULL(NSEC_PER_SEC, wf.period_length_ns);
 	periodic->offset_ns = wf.duty_offset_ns;
+
+	printk(KERN_INFO "ltc2378: pwm_validate - output frequency_hz = %llu\n", periodic->frequency_hz);
+
 	return 0;
 }
 
