@@ -407,7 +407,6 @@ static int ltc2378_probe(struct spi_device *spi)
         /* Configure trigger timing */
         adc->offload_trigger_config.type = SPI_OFFLOAD_TRIGGER_PERIODIC;
         adc->offload_trigger_config.periodic.frequency_hz = adc->info->max_rate;
-        adc->offload_trigger_config.periodic.offset_ns = 0;
 
         indio_dev->name = adc->info->name;
         indio_dev->info = &ltc2378_iio_info;
