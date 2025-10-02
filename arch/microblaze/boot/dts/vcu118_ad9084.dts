@@ -36,6 +36,12 @@
 #endif
 
 #if WITH_AION
+#ifndef SYSREF_CLK_MHz
+#error "SYSREF_CLK_MHz must be defined"
+#endif
+#ifndef AION_VCO_FREQ_HZ
+#error "AION_VCO_FREQ_HZ must be defined"
+#endif
 #define JESD_SUBCLASS 1
 #else
 #define JESD_SUBCLASS 0
