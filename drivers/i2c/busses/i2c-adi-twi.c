@@ -393,7 +393,7 @@ static int i2c_adi_twi_resume(struct device *dev)
 {
 	struct adi_twi_dev *priv = dev_get_drvdata(dev);
 
-	int ret = request_irq(priv->irq, adi_twi_interrupt_entry,
+	int ret = request_irq(priv->irq, i2c_adi_twi_interrupt_entry,
 			      0, to_platform_device(dev)->name, priv);
 
 	if (ret) {
