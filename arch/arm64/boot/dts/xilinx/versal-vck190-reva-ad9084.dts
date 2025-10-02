@@ -6,14 +6,17 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/jesd204/adxcvr.h>
 
-#define WITH_AION 1
 #define WITH_AXI_AION_TRIG 0
 #define WITH_FSRC 0
 
 #define fmc_spi spi0
 
 #ifndef DEVICE_PROFILE_NAME
-#define DEVICE_PROFILE_NAME	"id00_uc93.bin"
+#error "DEVICE_PROFILE_NAME must be defined"
+#endif
+
+#ifndef HMC7044_PLL2_FREQ
+#error "HMC7044_PLL2_FREQ must be defined"
 #endif
 
 #define HSCI_SPEED 800
@@ -26,11 +29,14 @@
 #define AD9084_TX_LANERATE_KHZ	20625000
 #define AD9084_TX_LINK_CLK	312500000
 
-#ifndef SYSREF_CLK_MHz
-#define SYSREF_CLK_MHz		(9765625)
-#endif
-
 #if WITH_AION
+#ifdef WITH_AION
+#ifndef SYSREF_CLK_MHz
+#error "SYSREF_CLK_MHz must be defined"
+#endif
+#ifndef AION_VCO_FREQ_HZ
+#error "AION_VCO_FREQ_HZ must be defined"
+#endif
 #define JESD_SUBCLASS 1
 #else
 #define JESD_SUBCLASS 0
@@ -472,7 +478,7 @@
 
 		adi,pll1-loop-bandwidth-hz = <200>;
 
-		adi,pll2-output-frequency = <2500000000>;
+		adi,pll2-output-frequency = <HMC7044_PLL2_FREQ>;
 
 		adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
 		adi,pll1-ref-autorevert-enable;
@@ -576,7 +582,7 @@
 
 		adi,jesd204-max-sysref-frequency-hz = <2000000>;
 
-		adi,vco-frequency-hz = <2500000000>; /* 2.5 GHz */
+		adi,vco-frequency-hz = <AION_VCO_FREQ_HZ>; /* 2.5 GHz */
 		adi,bsync-frequency-hz = <SYSREF_CLK_MHz>;
 		adi,bsync-autoalign-reference-channel = <0>; /* LTC6952_OUT_6 */
 		adi,bsync-autoalign-iteration-count = <6>;
