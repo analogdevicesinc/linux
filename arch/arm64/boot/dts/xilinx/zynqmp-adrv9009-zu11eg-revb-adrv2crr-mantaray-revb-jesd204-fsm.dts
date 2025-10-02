@@ -176,6 +176,8 @@
 };
 
 / {
+	model = "Mantaray ADRV9009-ZU11EG Rev.B SOM";
+
 	clocks {
 		adf4371_clkin: clock@0 {
 			#clock-cells = <0>;
@@ -373,14 +375,17 @@
 	axi_data_offload_tx: axi-data-offload-0@9c460000 {
 		compatible = "adi,axi-data-offload-1.0.a";
 		reg = <0x0 0x9c460000 0x10000>;
-		adi,oneshot;
 		adi,sync-config = <1>;
+		/* The Mantaray ADRV9009-ZU11EG Rev.B SOM HDL design
+		 * is set by default to cyclic mode for data offload TX */
 	};
 
 	axi_data_offload_rx: axi-data-offload-1@9c450000 {
 		compatible = "adi,axi-data-offload-1.0.a";
 		reg = <0x0 0x9c450000 0x10000>;
-		adi,oneshot;
+		/* The Mantaray ADRV9009-ZU11EG Rev.B SOM HDL design
+		 * is set by default to bypass mode for data offload RX */
+		adi,bypass;
 		adi,sync-config = <1>;
 	};
 
