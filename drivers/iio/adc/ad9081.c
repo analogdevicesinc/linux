@@ -525,10 +525,21 @@ static int ad9081_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 		if (ret < 0)
 			return ret;
 	} else {
+		if (reg & 0x3F000000) {
+			/* Support for setting a PAGE MASK prior in register read/write */
+			dev_dbg(&phy->spi->dev,
+			       "ad9081_reg_access: mask-reg=0x%04x, mask-val=0x%08x\n",
+			       (reg >> 24) & 0x3F, (reg >> 16) & 0xFF);
+
+			ret = adi_ad9081_hal_reg_set(&phy->ad9081, (reg >> 24) & 0x3F, (reg >> 16) & 0xFF);
+			if (ret < 0)
+				return ret;
+		}
 		if (readval == NULL) {
 			dev_dbg(&phy->spi->dev,
 			       "ad9081_reg_access: reg=0x%04x, writeval=0x%08x\n",
 			       reg & 0x3FFF, writeval);
+
 			return adi_ad9081_hal_reg_set(&phy->ad9081, reg & 0x3FFF, writeval);
 		}
 
