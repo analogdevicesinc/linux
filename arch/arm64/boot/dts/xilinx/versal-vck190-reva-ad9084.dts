@@ -30,7 +30,6 @@
 #define AD9084_TX_LINK_CLK	312500000
 
 #if WITH_AION
-#ifdef WITH_AION
 #ifndef SYSREF_CLK_MHz
 #error "SYSREF_CLK_MHz must be defined"
 #endif
