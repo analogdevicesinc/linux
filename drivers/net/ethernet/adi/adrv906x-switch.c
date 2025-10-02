@@ -348,13 +348,14 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 	if (cnt < 6 || cnt > 48)
 		return -EINVAL;
 
-	cmdstr = kmalloc(cnt, GFP_KERNEL);
+	cmdstr = kmalloc(cnt + 1, GFP_KERNEL);
 	if (!cmdstr)
 		return -ENOMEM;
 
 	orig = cmdstr;
 
-	strscpy(cmdstr, buf, cnt);
+	strncpy(cmdstr, buf, cnt);
+	cmdstr[cnt] = '\0';
 	ret = adrv906x_get_attr_cmd_tokens(cmdstr, tokens);
 	if (ret)
 		goto free_m;
