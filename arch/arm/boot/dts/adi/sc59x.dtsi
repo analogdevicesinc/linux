@@ -477,9 +477,7 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
-			snps,mixed-burst;
 			snps,pbl = <8>;
-			snps,force_sf_dma_mode;
 			snps,perfect-filter-entries = <32>;
 			clocks = <&clk ADSP_SC594_CLK_GIGE>;
 			clock-names = "stmmaceth";
