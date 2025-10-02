@@ -294,6 +294,9 @@ config ARCH_ROCKCHIP
 
 config ARCH_ADRV906X
 	bool "ADI ADRV906X SoC"
+	select GPIOLIB
+	select PINCTRL
+	select PINCTRL_ADI_ADRV906X
 	help
 	 This enables support for Analog Devices Incorporated's ADRV906X SoC family.
 
