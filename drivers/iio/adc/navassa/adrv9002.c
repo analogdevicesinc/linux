@@ -3963,7 +3963,7 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 	}
 
 	memcpy(tbl->bin_table, buf, count);
-	/* The bellow is always safe as @bin_table is bigger (by 1 byte) than the bin attribute */
+	/* The below is always safe as @bin_table is bigger (by 1 byte) than the bin attribute */
 	tbl->bin_table[count] = '\0';
 
 	if (phy->fh.mode == ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP)
@@ -3988,7 +3988,7 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 			return -EINVAL;
 		}
 
-		if (entry > max_sz) {
+		if (entry >= max_sz) {
 			dev_err(&phy->spi->dev, "Hop:%d table:%d too big:%d\n", hop, table, entry);
 			return -EINVAL;
 		}
@@ -4002,10 +4002,10 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 
 		tbl->hop_tbl[entry].hopFrequencyHz = lo;
 		tbl->hop_tbl[entry].rx1OffsetFrequencyHz = rx10_if;
-		tbl->hop_tbl[entry].rx2OffsetFrequencyHz = rx10_if;
+		tbl->hop_tbl[entry].rx2OffsetFrequencyHz = rx20_if;
 		tbl->hop_tbl[entry].rx1GainIndex = rx1_gain;
 		tbl->hop_tbl[entry].tx1Attenuation_fifthdB = tx1_atten;
-		tbl->hop_tbl[entry].rx2GainIndex = rx1_gain;
+		tbl->hop_tbl[entry].rx2GainIndex = rx2_gain;
 		tbl->hop_tbl[entry].tx2Attenuation_fifthdB = tx2_atten;
 		entry++;
 	}
