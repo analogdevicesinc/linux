@@ -12,7 +12,7 @@ on:
 
 jobs:
   build-doc:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
 
     steps:
     - uses: analogdevicesinc/doctools/checkout@v1
@@ -36,7 +36,7 @@ jobs:
         path: docs/_build/html
 
   deploy-doc:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
     permissions:
       contents: write
     needs: build-doc
