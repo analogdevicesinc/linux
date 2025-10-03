@@ -3228,6 +3228,16 @@ static int adrv9002_radio_init(const struct adrv9002_rf_phy *phy)
 		.phaseMargin_degrees = 60,
 		.powerScale = 5
 	};
+	/*
+	 * Put some defaults as we will have to still call adi_adrv9001_Rx_PortSwitch_Configure()
+	 * and API validations would fail.
+	 */
+	struct adi_adrv9001_RxPortSwitchCfg port_switch = {
+		.minFreqPortA_Hz = 890000000,
+		.maxFreqPortA_Hz = 910000000,
+		.minFreqPortB_Hz = 1890000000,
+		.maxFreqPortB_Hz = 1910000000,
+	};
 	struct adi_adrv9001_Carrier carrier = {0};
 
 	ret = api_call(phy, adi_adrv9001_Radio_PllLoopFilter_Set,
@@ -3242,6 +3252,15 @@ static int adrv9002_radio_init(const struct adrv9002_rf_phy *phy)
 
 	ret = api_call(phy, adi_adrv9001_Radio_PllLoopFilter_Set,
 		       ADI_ADRV9001_PLL_AUX, &pll_loop_filter);
+	if (ret)
+		return ret;
+
+	/*
+	 * This needs to be done otherwise selecting port B on RX2 and port A on RX1 would
+	 * not properly work. Likely a bug in the device FW but for now, let`s just
+	 * workaround it here.
+	 */
+	ret = api_call(phy, adi_adrv9001_Rx_PortSwitch_Configure, &port_switch);
 	if (ret)
 		return ret;
 
