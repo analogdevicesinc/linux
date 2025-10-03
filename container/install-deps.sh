@@ -6,6 +6,6 @@ set -e
 zypper install -y --no-recommends \
     update-alternatives \
     which wget make openssl openssl-devel ca-certificates ca-certificates-mozilla \
-    nodejs npm-default
+    nodejs npm-default \
 
 update-ca-certificates
