@@ -59,7 +59,7 @@ jobs:
       defconfig: "adi_ci_defconfig"
       checks: true
   assert_checks:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
     needs:
       - checks
       - build_gcc_x86_64
@@ -154,7 +154,7 @@ jobs:
         arch/arm64/boot/dts/xilinx/versal-*.dts
         arch/nios2/boot/dts/*.dts
   assert_build:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
     needs:
       - build_gcc_arm_zynq_xcomm_adv7511_defconfig
       - build_gcc_arm_socfpga_adi_defconfig

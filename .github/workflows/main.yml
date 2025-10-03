@@ -7,7 +7,7 @@ on:
 
 jobs:
   sync_branches:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
     permissions:
       contents: write
       actions: write
@@ -33,7 +33,7 @@ jobs:
         export_labels
 
   assert:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
     needs: [sync_branches]
 
     steps:
