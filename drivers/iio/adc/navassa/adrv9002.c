@@ -3566,11 +3566,14 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return ret;
 
-	if (phy->port_switch.enable) {
-		ret = api_call(phy, adi_adrv9001_Rx_PortSwitch_Configure, &phy->port_switch);
-		if (ret)
-			return ret;
-	}
+	/*
+	 * This needs to be done otherwise selecting port B on RX2 and port A on RX1 would
+	 * not properly work. Likely a bug in the device FW but for now, let`s just
+	 * workaround it here.
+	 */
+	ret = api_call(phy, adi_adrv9001_Rx_PortSwitch_Configure, &phy->port_switch);
+	if (ret)
+		return ret;
 
 	for (chan = 0; chan < ARRAY_SIZE(phy->channels); chan++) {
 		struct adrv9002_chan *c = phy->channels[chan];
