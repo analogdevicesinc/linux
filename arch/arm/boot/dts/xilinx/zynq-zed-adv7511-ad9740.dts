@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2025 Analog Devices Inc. */
+
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+
+	vcc: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		adf4351_clkin: clock@1 {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <10000000>;
+			clock-output-names = "refclk";
+		};
+	};
+};
+
+	&spi0 {
+    status="okay";
+
+   adf4351: adf4351@0 {
+      compatible = "adi,adf4351";
+      reg = <0>;
+
+      spi-max-frequency = <10000000>;
+
+      clocks = <&adf4351_clkin>;
+      clock-names = "clkin";
+
+      adi,channel-spacing = <10000>;
+      adi,power-up-frequency = <210000000>;
+      adi,phase-detector-polarity-positive-enable;
+      adi,charge-pump-current = <2500>;
+      adi,output-power = <3>;
+      adi,mute-till-lock-enable;
+      adi,muxout-select = <6>;
+    };
+  };
