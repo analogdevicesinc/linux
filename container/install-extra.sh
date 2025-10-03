@@ -12,3 +12,7 @@ cd smatch
 make -j$(nproc)
 
 ln -s $(realpath smatch) /usr/local/bin/smatch
+
+# user
+zypper install -y --no-recommends \
+    bash-completion openssh openssh-server
