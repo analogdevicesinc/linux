@@ -1078,6 +1078,18 @@ static int adrv9002_parse_port_switch(struct adrv9002_rf_phy *phy, struct device
 	const char *mode;
 	int ret;
 
+	/*
+	 * Put some defaults even if disabled as we will have to still call
+	 * adi_adrv9001_Rx_PortSwitch_Configure() during setup() and API validations would
+	 * fail. This needas to be done otherwise selecting port B on RX2 and port A on RX1 would
+	 * not properly work. Likely a bug in the device FW but for now, let`s just
+	 * workaround it here.
+	 */
+	phy->port_switch.minFreqPortA_Hz = 890000000;
+	phy->port_switch.maxFreqPortA_Hz = 910000000;
+	phy->port_switch.minFreqPortB_Hz = 1890000000;
+	phy->port_switch.maxFreqPortB_Hz = 1910000000;
+
 	ret = of_property_read_string(node, "adi,rx-port-switch", &mode);
 	if (ret)
 		/* not a mandatory property... Ignoring errors...*/
