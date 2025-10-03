@@ -15,7 +15,7 @@ jobs:
     runs-on: [self-hosted, repo-only]
 
     steps:
-    - uses: analogdevicesinc/doctools/checkout@v1
+    - uses: analogdevicesinc/doctools/checkout@action
 
     - name: Install pip packages
       run: |

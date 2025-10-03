@@ -17,7 +17,7 @@ jobs:
     if: ${{ github.repository_owner == 'analogdevicesinc' }}
 
     steps:
-    - uses: analogdevicesinc/doctools/checkout@v1
+    - uses: analogdevicesinc/doctools/checkout@action
 
     - name: update-mirror
       run: |
