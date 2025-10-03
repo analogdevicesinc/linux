@@ -4,7 +4,7 @@ on:
 
 jobs:
   clean-gh-pages:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
     permissions:
       contents: write
 
