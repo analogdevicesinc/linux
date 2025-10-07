@@ -39,11 +39,13 @@
       clock-names = "clkin";
 
       adi,channel-spacing = <10000>;
-      adi,power-up-frequency = <210000000>;
+      adi,power-up-frequency = <128000000>;
       adi,phase-detector-polarity-positive-enable;
       adi,charge-pump-current = <2500>;
       adi,output-power = <3>;
       adi,mute-till-lock-enable;
+      adi,aux-output-enable;
+      adi,aux-output-power = <3>;
       adi,muxout-select = <6>;
     };
   };
