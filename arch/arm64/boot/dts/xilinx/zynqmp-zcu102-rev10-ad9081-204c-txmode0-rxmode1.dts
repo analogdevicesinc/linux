@@ -10,42 +10,41 @@
  * Copyright (C) 2021 Analog Devices Inc.
  */
 
-// ad9081_204b_txmode_0_rxmode_1: 204C use case with low lane rate,
-// using gearbox and PRGOGDIV
+// 204C use case with low lane rate, 8.11Gbps using REFCLK
 //     * 4Txs / 4Rxs per MxFE
 //     * DAC_CLK = 5.8GSPS
-//     * ADC_CLK = 2.9GSPS
-//     * Tx I/Q Rate: 120.83 MSPS (Interpolation of 12x4)
-//     * Rx I/Q Rate: 60.41 MSPS (Decimation of 6x8)
-//     * DAC JESD204B: Mode 0, L=1, M=8, N=N'=12
-//     * ADC JESD204B: Mode 1, L=1, M=8, N=N'=12
-//     * DAC-Side JESD204B Lane Rate: 5.98Gbps
-//     * ADC-Side JESD204B Lane Rate: 11.96Gbps
+//     * ADC_CLK = 3.9321212 GSPS
+//     * Tx I/Q Rate: 5800 MSPS (Interpolation of 1x1)
+//     * Rx I/Q Rate: 3932.1212 MSPS (Decimation of 1x1)
+//     * DAC JESD204B: Mode 0, L=1, M=8, N=N'=16
+//     * ADC JESD204B: Mode 1, L=1, M=8, N=N'=16
+//     * DAC-Side JESD204C Lane Rate: 8.11Gbps
+//     * ADC-Side JESD204C Lane Rate: 8.11Gbps
 
 // HDL Synthesis Parameters:
 // JESD_MODE=64B66B
-// RX_RATE=5.98
-// RX_JESD_M=8
-// RX_JESD_L=1
-// RX_JESD_S=1
-// RX_JESD_NP=12
-// TX_RATE=11.96
-// TX_JESD_M=8
-// TX_JESD_L=1
-// TX_JESD_S=1
-// TX_JESD_NP=12
+// RX_RATE=8.11
+// RX_JESD_M=1
+// RX_JESD_L=8
+// RX_JESD_S=4
+// RX_JESD_NP=16
+// TX_RATE=8.11
+// TX_JESD_M=1
+// TX_JESD_L=8
+// TX_JESD_S=4
+// TX_JESD_NP=16
 
 #include <dt-bindings/iio/frequency/hmc7044.h>
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 #include "zynqmp-zcu102-rev10-ad9081-default.dtsi"
 
 &axi_ad9081_rx_jesd {
-	clocks = <&zynqmp_clk 71>, <&hmc7044 10>, <&axi_ad9081_adxcvr_rx 1>, <&axi_ad9081_adxcvr_rx 0>;
+	clocks = <&zynqmp_clk 71>, <&clkwiz_devclk 0>, <&axi_ad9081_adxcvr_rx 1>, <&axi_ad9081_adxcvr_rx 0>;
 	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 };
 
 &axi_ad9081_tx_jesd {
-	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_ad9081_adxcvr_tx 1>, <&axi_ad9081_adxcvr_tx 0>;
+	clocks = <&zynqmp_clk 71>, <&clkwiz_devclk 0>, <&axi_ad9081_adxcvr_tx 1>, <&axi_ad9081_adxcvr_tx 0>;
 	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 };
 
@@ -97,7 +96,7 @@
 		adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
 		adi,pll1-ref-autorevert-enable;
 
-		adi,pll2-output-frequency = <2900000000>;
+		adi,pll2-output-frequency = <3932121212>;
 
 		adi,sysref-timer-divider = <1024>;
 		adi,pulse-generator-mode = <0>;
@@ -186,7 +185,7 @@
 		spi-max-frequency = <5000000>;
 
 		/* Clocks */
-		clocks = <&hmc7044 2>;
+		clocks = <&clkwiz_devclk 0>;
 		clock-names = "dev_clk";
 
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
@@ -196,6 +195,7 @@
 		#jesd204-cells = <2>;
 		jesd204-top-device = <0>; /* This is the TOP device */
 		jesd204-link-ids = <FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+		jesd204-ignore-errors;
 
 		jesd204-inputs =
 			<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
@@ -302,7 +302,7 @@
 			#size-cells = <0>;
 			#address-cells = <1>;
 
-			adi,adc-frequency-hz = /bits/ 64 <2900000000>;
+			adi,adc-frequency-hz = /bits/ 64 <3932121212>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
