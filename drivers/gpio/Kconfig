@@ -1791,6 +1791,22 @@ config GPIO_ADI_DAQ1
 	  Say yes here to enable support for the SPI-GPIO CPLD expander
 	  found on the Analog Devices AD-FMCDAQ1-EBZ card.
 
+config GPIO_ADGM3121
+	tristate "Analog Devices ADGM3121/ADGM3144 MEMS RF Switch"
+	depends on SPI || GPIOLIB
+	help
+	  Say yes here to enable support for the Analog Devices ADGM3121 DPDT
+	  and ADGM3144 SP4T MEMS RF switches. These devices operate from DC to
+	  23 GHz and support both SPI and parallel GPIO control modes.
+
+	  The ADGM3121 is a Dual-Pole Dual-Throw (DPDT) switch with RF1A/1B
+	  and RF2A/2B ports connected to RFCA/RFCB.
+
+	  The ADGM3144 is a Single-Pole Four-Throw (SP4T) switch with RF1-4
+	  ports connected to RFC.
+
+	  Both devices expose 4 GPIOs for switch control.
+
 config GPIO_MAX3191X
 	tristate "Maxim MAX3191x industrial serializer"
 	select CRC8
