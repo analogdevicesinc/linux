@@ -10,7 +10,7 @@
  * Copyright (C) 2025 Analog Devices Inc.
  */
 
-#define DEVICE_PROFILE_NAME     "204C_M4_L8_NP16_20p0_4x4.bin"
+#define DEVICE_PROFILE_NAME     "204C_M4_L4_NP16_20p0_4x4.bin"
 
 
 #define HMC7044_PLL2_FREQ       (2500000000) // 2.5 GHz (2150...3200 MHz range)
