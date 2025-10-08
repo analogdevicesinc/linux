@@ -20,7 +20,7 @@ on:
 jobs:
   checks:
     timeout-minutes: 7200
-    runs-on: [self-hosted, repo-only, v2]
+    runs-on: [self-hosted, repo-only, v3]
     continue-on-error: true
 
     outputs:

@@ -30,11 +30,11 @@ env:
 jobs:
   build:
     timeout-minutes: 7200
-    runs-on: [self-hosted, repo-only, v2]
+    runs-on: [self-hosted, repo-only, v3]
     continue-on-error: true
 
     env:
-      GCC_VERSION: 15
+      GCC_VERSION: 13
       LLVM_VERSION: 19
 
     outputs:

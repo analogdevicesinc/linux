@@ -962,7 +962,7 @@ auto_set_kconfig() {
 }
 
 set_arch () {
-	local version_gcc=14
+	local version_gcc=13
 	local version_llvm=19
 	local arch_gcc=("gcc_arm" "gcc_aarch64" "gcc_x86")
 	local arch_llvm=("llvm_x86")
