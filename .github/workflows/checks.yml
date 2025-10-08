@@ -75,7 +75,7 @@ jobs:
         check_license
 
     - name: Check patch
-      if: ${{ !cancelled() && env.fatal != 'true' && inputs.skip_checkpatch == 'false' }}
+      if: ${{ !cancelled() && env.fatal != 'true' && inputs.skip_checkpatch == false }}
       run: |
         status=0; timeout 1d bash -c "source ./ci/build.sh ; check_checkpatch" || status=$?
         [ $status -eq 124 ] && echo "step_fail_checkpatch_timeout=true" >> "$GITHUB_ENV"
