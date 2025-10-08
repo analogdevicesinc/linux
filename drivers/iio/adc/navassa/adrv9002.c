@@ -4833,6 +4833,37 @@ static void adrv9002_free_coeffs(void *dev)
 	kfree(phy->warm_boot.cals);
 }
 
+struct adrv9002_bin_attr_drop {
+	const struct bin_attribute *attr;
+	struct device *dev;
+};
+
+static void adrv9002_remove_bin_file(void *data)
+{
+	struct adrv9002_bin_attr_drop *drop = data;
+
+	device_remove_bin_file(drop->dev, drop->attr);
+}
+
+static int adrv9002_bin_attr_add(struct device *dev, const struct bin_attribute *attr)
+{
+	struct adrv9002_bin_attr_drop *drop;
+	int ret;
+
+	drop = devm_kzalloc(dev, sizeof(*drop), GFP_KERNEL);
+	if (!drop)
+		return -ENOMEM;
+
+	drop->attr = attr;
+	drop->dev = dev;
+
+	ret = device_create_bin_file(dev, attr);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(dev, adrv9002_remove_bin_file, drop);
+}
+
 static const char * const clk_names[NUM_ADRV9002_CLKS] = {
 	[RX1_SAMPL_CLK] = "-rx1_sampl_clk",
 	[RX2_SAMPL_CLK] = "-rx2_sampl_clk",
@@ -4998,7 +5029,7 @@ tx_clk_register:
 	if (!phy->bin_attr_buf)
 		return -ENOMEM;
 
-	ret = device_create_bin_file(&indio_dev->dev, &bin_attr_profile_config);
+	ret = adrv9002_bin_attr_add(&indio_dev->dev, &bin_attr_profile_config);
 	if (ret < 0)
 		return ret;
 
@@ -5006,12 +5037,12 @@ tx_clk_register:
 	if (!phy->stream_buf)
 		return -ENOMEM;
 
-	ret = device_create_bin_file(&indio_dev->dev, &bin_attr_stream_config);
+	ret = adrv9002_bin_attr_add(&indio_dev->dev, &bin_attr_stream_config);
 	if (ret < 0)
 		return ret;
 
 	for (c = 0; c < ARRAY_SIZE(hop_attrs); c++) {
-		ret = device_create_bin_file(&indio_dev->dev, hop_attrs[c]);
+		ret = adrv9002_bin_attr_add(&indio_dev->dev, hop_attrs[c]);
 		if (ret < 0)
 			return ret;
 	}
@@ -5021,18 +5052,18 @@ tx_clk_register:
 		if (!phy->tx_channels[c].dpd_init)
 			continue;
 
-		ret = device_create_bin_file(&indio_dev->dev, dpd_fh_regions[c]);
+		ret = adrv9002_bin_attr_add(&indio_dev->dev, dpd_fh_regions[c]);
 		if (ret)
 			return ret;
 
 		for (r = 0; r < ADRV9002_DPD_MAX_REGIONS; r++) {
-			ret = device_create_bin_file(&indio_dev->dev, dpd_coeffs[c][r]);
+			ret = adrv9002_bin_attr_add(&indio_dev->dev, dpd_coeffs[c][r]);
 			if (ret)
 				return ret;
 		}
 	}
 
-	ret = device_create_bin_file(&indio_dev->dev, &bin_attr_warmboot_coefficients);
+	ret = adrv9002_bin_attr_add(&indio_dev->dev, &bin_attr_warmboot_coefficients);
 	if (ret)
 		return ret;
 
