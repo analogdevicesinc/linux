@@ -12,10 +12,10 @@
 
 // 204C use case with low lane rate, 8.11Gbps using REFCLK
 //     * 4Txs / 4Rxs per MxFE
-//     * DAC_CLK = 7.8624242 GSPS
-//     * ADC_CLK = 3.9321212 GSPS
-//     * Tx I/Q Rate: 5800 MSPS (Interpolation of 1x2)
-//     * Rx I/Q Rate: 3932.1212 MSPS (Decimation of 1x1)
+//     * DAC_CLK = 7.86432 GSPS
+//     * ADC_CLK = 3.93216 GSPS
+//     * Tx I/Q Rate: 3932.16 MSPS (Interpolation of 1x2)
+//     * Rx I/Q Rate: 3932.16 MSPS (Decimation of 1x1)
 //     * DAC JESD204B: Mode 0, L=1, M=8, N=N'=16
 //     * ADC JESD204B: Mode 1, L=1, M=8, N=N'=16
 //     * DAC-Side JESD204C Lane Rate: 8.11Gbps
@@ -195,7 +195,7 @@
 			#size-cells = <0>;
 			#address-cells = <1>;
 
-			adi,dac-frequency-hz = /bits/ 64 <7864242424>;
+			adi,dac-frequency-hz = /bits/ 64 <7864320000>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -292,7 +292,7 @@
 			#size-cells = <0>;
 			#address-cells = <1>;
 
-			adi,adc-frequency-hz = /bits/ 64 <3932121212>;
+			adi,adc-frequency-hz = /bits/ 64 <3932160000>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
