@@ -138,7 +138,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
 
-			clocks = <&zynqmp_clk 71>;
+			clocks = <&clk_sma>; // refclk; 245.76MHz
 			clock-names = "conv";
 
 			#clock-cells = <1>;
@@ -159,7 +159,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84b60000 0x1000>;
 
-			clocks = <&zynqmp_clk 71>;
+			clocks = <&clk_sma>; // refclk; 245.76MHz
 			clock-names = "conv";
 
 			#clock-cells = <1>;
