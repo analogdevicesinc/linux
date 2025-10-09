@@ -265,7 +265,7 @@
 					#size-cells = <0>;
 					reg = <0>;
 
-					adi,logical-lane-mapping = /bits/ 8 <0 2 7 7 1 7 7 3>;
+					adi,logical-lane-mapping = /bits/ 8 <0 2 7 6 1 5 4 3>;
 
 					adi,link-mode = <0>;			/* JESD Quick Configuration Mode */
 					adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
@@ -383,7 +383,7 @@
 						<&ad9081_rx_fddc_chan4 FDDC_I>, <&ad9081_rx_fddc_chan4 FDDC_Q>,
 						<&ad9081_rx_fddc_chan5 FDDC_I>, <&ad9081_rx_fddc_chan5 FDDC_Q>;
 
-					adi,logical-lane-mapping = /bits/ 8 <2 0 7 7 7 7 3 1>;
+					adi,logical-lane-mapping = /bits/ 8 <2 0 7 6 5 4 3 1>;
 
 					adi,link-mode = <1>;			/* JESD Quick Configuration Mode */
 					adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
