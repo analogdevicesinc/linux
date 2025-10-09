@@ -4648,7 +4648,6 @@ static int adrv9002_profile_load(struct adrv9002_rf_phy *phy)
 	int ret;
 	const struct firmware *fw;
 	const char *profile;
-	void *buf;
 
 	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
 		profile = phy->chip->cmos_profile;
@@ -4659,16 +4658,8 @@ static int adrv9002_profile_load(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return ret;
 
-	buf = kzalloc(fw->size, GFP_KERNEL);
-	if (!buf) {
-		release_firmware(fw);
-		return -ENOMEM;
-	}
-
-	memcpy(buf, fw->data, fw->size);
-	ret = api_call(phy, adi_adrv9001_profileutil_Parse, &phy->profile, buf, fw->size);
+	ret = api_call(phy, adi_adrv9001_profileutil_Parse, &phy->profile, fw->data, fw->size);
 	release_firmware(fw);
-	kfree(buf);
 
 	return ret;
 }
