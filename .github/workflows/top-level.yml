@@ -85,6 +85,19 @@ jobs:
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
+  deploy_cloudsmith_checks:
+    needs: [assert_checks]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    with:
+      artifacts: >
+        dist-adi_ci_defconfig-*
+
   build_gcc_arm_zynq_xcomm_adv7511_defconfig:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
@@ -185,3 +198,21 @@ jobs:
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
+  deploy_cloudsmith_build:
+    needs: [assert_build]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    with:
+      artifacts: >
+        dist-adi_versal_defconfig-*
+        dist-adi_zynqmp_defconfig-*
+        dist-socfpga_adi_defconfig-*
+        dist-zynq_m2k_defconfig-*
+        dist-zynq_pluto_defconfig-*
+        dist-zynq_xcomm_adv7511_defconfig-*
+        dist-dtb-*
