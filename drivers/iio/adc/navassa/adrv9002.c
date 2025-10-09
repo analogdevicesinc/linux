@@ -4643,7 +4643,6 @@ static ssize_t adrv9002_init_cals_bin_read(struct file *filp, struct kobject *ko
 static int adrv9002_profile_load(struct adrv9002_rf_phy *phy)
 {
 	int ret;
-	const struct firmware *fw;
 	const char *profile;
 
 	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
@@ -4651,14 +4650,12 @@ static int adrv9002_profile_load(struct adrv9002_rf_phy *phy)
 	else
 		profile = phy->chip->lvd_profile;
 
+	const struct firmware *fw __free(firmware) = NULL;
 	ret = request_firmware(&fw, profile, &phy->spi->dev);
 	if (ret)
 		return ret;
 
-	ret = api_call(phy, adi_adrv9001_profileutil_Parse, &phy->profile, fw->data, fw->size);
-	release_firmware(fw);
-
-	return ret;
+	return api_call(phy, adi_adrv9001_profileutil_Parse, &phy->profile, fw->data, fw->size);
 }
 
 static int adrv9002_init_cals_coeffs_name_get(struct adrv9002_rf_phy *phy)
