@@ -2988,10 +2988,7 @@ static void adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 		if (!c->enabled)
 			continue;
 
-		if (c->port == ADI_RX)
-			pos |= ADRV9002_PORT_MASK(c);
-		else
-			pos |= ADRV9002_PORT_MASK(c);
+		pos |= ADRV9002_PORT_MASK(c);
 	}
 
 	phy->init_cals.chanInitCalMask[0] = adrv9002_init_cals_mask[pos][0];
