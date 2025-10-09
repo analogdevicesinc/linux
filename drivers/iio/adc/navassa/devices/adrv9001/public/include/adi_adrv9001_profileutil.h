@@ -38,7 +38,7 @@ extern "C" {
  */
 int32_t adi_adrv9001_profileutil_Parse(adi_adrv9001_Device_t *adrv9001,
                                        adi_adrv9001_Init_t *init,
-                                       char *jsonBuffer,
+                                       const char *jsonBuffer,
                                        uint32_t length);
 #endif // !CLIENT_IGNORE
 
