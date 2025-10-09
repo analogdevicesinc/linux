@@ -48,16 +48,6 @@
 	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 };
 
-&axi_ad9081_adxcvr_rx {
-	adi,sys-clk-select = <XCVR_QPLL>;
-	adi,out-clk-select = <XCVR_PROGDIV_CLK>;
-};
-
-&axi_ad9081_adxcvr_tx {
-	adi,out-clk-select = <XCVR_REFCLK>;
-	adi,out-clk-select = <XCVR_PROGDIV_CLK>;
-};
-
 &spi1 {
 	status = "okay";
 
