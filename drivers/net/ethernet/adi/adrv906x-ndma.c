@@ -2024,7 +2024,8 @@ static int adrv906x_ndma_rx_data_and_status_poll(struct napi_struct *napi, int b
 
 		/* Get the index of the current and next descriptors */
 		next_desc_addr = ioread32(ndma_ch->rx_dma_base + DMA_NEXT_DESC);
-		next_desc_idx = (next_desc_addr - ndma_ch->rx_ring_dma) / sizeof(struct dma_desc);
+		next_desc_idx = div64_u64(next_desc_addr - ndma_ch->rx_ring_dma,
+					  sizeof(struct dma_desc));
 		cur_desc_idx = (next_desc_idx + NDMA_RX_RING_SIZE - 1) % NDMA_RX_RING_SIZE;
 
 		/* If neither current nor next descriptors are the end of the list,

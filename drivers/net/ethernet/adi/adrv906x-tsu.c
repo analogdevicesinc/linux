@@ -22,7 +22,7 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 
 	t_div66 = (speed == SPEED_25000) ? T_DIV66_25G : T_DIV66_10G;
 	t_div64 = (speed == SPEED_25000) ? T_DIV64_25G : T_DIV64_10G;
-	t_hsdig_clk = (1000000000ULL << 16) / tsu->hsdig_clk_rate;
+	t_hsdig_clk = div64_u64(1000000000ULL << 16, tsu->hsdig_clk_rate);
 
 	tx_ser_delay = (speed == SPEED_25000) ?
 		       ADRV906X_SER_DELAY_TX_25G : ADRV906X_SER_DELAY_TX_10G;
@@ -31,7 +31,7 @@ void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 
 	/* ToD_cdc_delay = 1.5 * 1 / hsdig_clk + (cdc_delay + 3.0) * T_div66 */
 
-	tod_cdc_delay = t_hsdig_clk * 3 / 2;
+	tod_cdc_delay = div64_u64(t_hsdig_clk * 3, 2);
 	tod_cdc_delay += (adrv906x_tod_cfg_cdc_delay + 3) * t_div66;
 
 	/* Calculate Rx_static_phy_delay */
