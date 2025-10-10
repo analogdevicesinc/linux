@@ -697,7 +697,7 @@ static const struct spi_device_id ad5413_id[] = {
 };
 MODULE_DEVICE_TABLE(spi, ad5413_id);
 
-static const struct of_device_id ad5413_of_match[] = { 
+static const struct of_device_id ad5413_of_match[] = {
 	{ .compatible = "adi,ad5413" },
 	{ }
 };
