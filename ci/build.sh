@@ -656,13 +656,11 @@ compile_kernel_smatch() {
 
 			if [[ "$type" == "warn" ]]; then
 				type="warning"
-				warn=1
-			elif [[ "$type" == "error" ]]; then
-				fail=1
 			fi
 
 			if [[ "$type" == "error" ]] || [[ "$type" == "warning" ]]; then
 				echo "::$type file=$file,line=$line::$step_name: $msg_"
+				warn=1
 			else
 				echo $row
 			fi
