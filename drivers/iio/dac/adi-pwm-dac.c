@@ -71,7 +71,7 @@ static int adi_pwm_dac_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_RAW:
 		reg = readl(dac->base + chan->channel * 4);
 		tmp = dac->iovdd_microvolt;
-		tmp = tmp * reg / 65521;
+		tmp = div64_u64(tmp * reg, 65521);
 		*val = (int)tmp;
 		return IIO_VAL_INT;
 
@@ -106,7 +106,7 @@ static int adi_pwm_dac_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 
 		tmp = val;
-		tmp = tmp * 65521 / dac->iovdd_microvolt;
+		tmp = div64_u64(tmp * 65521, dac->iovdd_microvolt);
 
 		/*
 		 * Wait until the AVRG register is ready to be written or
