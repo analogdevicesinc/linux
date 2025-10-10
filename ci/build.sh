@@ -11,6 +11,8 @@ else
 	export _color='--color'
 fi
 
+[[ ! -v CI_WORKTREE ]] && export CI_WORKTREE='.'
+
 _fmt() {
 	msg=$(echo "$1" | tr -d '\t')
 	if [[ ! "$_n" == $'\n' ]]; then
@@ -938,8 +940,8 @@ auto_set_kconfig() {
 		o_files+=("$(echo $file | sed 's/c$/o/')")
 	done <<< "$c_files"
 
-	local k_symbols=$(echo "$k_blocks" | awk -f ci/touched_kconfig.awk)
-	symbols=$(python3.13 ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
+	local k_symbols=$(echo "$k_blocks" | awk -f $CI_WORKTREE/ci/touched_kconfig.awk)
+	symbols=$(python3.13 $CI_WORKTREE/ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
 	for sym in $symbols; do
 		scripts/config -e $sym
 	done
