@@ -11,6 +11,8 @@
 #include <linux/platform_device.h>
 #include <linux/atomic.h>
 #include <linux/io.h>
+#include <linux/wait.h>
+#include <linux/kthread.h>
 
 #define SWITCH_MAX_PORT_NUM                             3
 #define NUM_DEFAULT_VIDS                                4
@@ -178,6 +180,9 @@ struct adrv906x_eth_switch {
 	struct switch_port_stats port_stats[SWITCH_MAX_PORT_NUM];
 	struct delayed_work update_stats;
 	bool trap_ptp_fwd_en;
+	wait_queue_head_t recovery_wq;
+	bool wait_flag;
+	struct task_struct *recovery_task;
 };
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
