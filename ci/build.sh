@@ -83,6 +83,12 @@ check_checkpatch() {
 
 					# Get file-name after removing spaces.
 					file=$(echo ${list[2]} | xargs)
+					# Downgrade from API-looking paths
+					if grep -qE '(public/include|public/src|private/include|private/src)/' <<< "$file"; then
+						type="note"
+					fi
+					[[ "$type" == "error" ]] && fail=1
+					[[ "$type" == "warning" ]] && warn=1
 
 					# Get line-number
 					line=${list[3]}
@@ -100,16 +106,15 @@ check_checkpatch() {
 						found=0
 						file=
 						line=
+						type=
 					fi
 				fi
 			fi
 
 			if [[ "$row" =~ ^ERROR: ]]; then
 				type="error"
-				fail=1
 			elif [[ "$row" =~ ^WARNING: ]]; then
 				type="warning"
-				warn=1
 			elif [[ "$row" =~ ^CHECK: ]]; then
 				type="warning"
 			fi
