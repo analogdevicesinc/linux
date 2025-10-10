@@ -423,16 +423,15 @@ err_out:
 	return ret;
 }
 
-static int adrv906x_ptp_remove(struct platform_device *pdev)
+static void adrv906x_ptp_remove(struct platform_device *pdev)
 {
 	struct adrv906x_phc_pll *pll_phc = platform_get_drvdata(pdev);
 	int ret;
 
-	ret = adrv906x_tod_remove(pdev);
+	adrv906x_tod_remove(pdev);
+	ret = adrv906x_pll_remove(pll_phc);
 	if (ret)
-		return ret;
-
-	return adrv906x_pll_remove(pll_phc);
+		dev_err(pll_phc->dev, "failed to remove pll");
 }
 
 static const struct of_device_id ptp_adrv906x_soc_of_match[] = {
