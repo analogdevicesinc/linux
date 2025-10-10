@@ -369,7 +369,7 @@ static int adrv906x_tod_hw_op_poll_reg(struct adrv906x_tod_counter *counter, u32
 	if (!done) {
 		dev_err(counter->parent->dev,
 			"trigger operation on reg 0x%x bit(s) 0x%x missed, delay configured: %llu us",
-			regaddr, bit_mask, p_delay->ns / NSEC_PER_USEC);
+			regaddr, bit_mask, div64_u64(p_delay->ns, NSEC_PER_USEC));
 		err = -EAGAIN;
 	}
 
