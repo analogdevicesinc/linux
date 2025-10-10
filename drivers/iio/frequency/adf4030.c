@@ -276,12 +276,12 @@ static int adf4030_compute_odiv(u32 vco_freq, u64 bsync_out_freq_uhz, u32 *odiv)
 
 static int adf4030_set_odiva_freq(struct adf4030_state *st, u64 bsync_out_freq_uhz)
 {
-	u32 odiv;
+	u32 odiv, fract;
 	int ret;
 
 	ret = adf4030_compute_odiv(st->vco_freq, bsync_out_freq_uhz, &odiv);
+	fract = do_div(bsync_out_freq_uhz, MICROHZ_PER_HZ);
 	if (ret) {
-		u32 fract = do_div(bsync_out_freq_uhz, MICROHZ_PER_HZ);
 
 		dev_err(&st->spi->dev,
 			"Failed to compute ODIVA for Fvco=%u Hz and Fbsync=%llu.%06u uHz\n",
