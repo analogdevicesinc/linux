@@ -29,13 +29,12 @@ config ADIN1110
 # SPDX-License-Identifier: GPL-2.0-only
 #
 config NET_ADRV906X
-    tristate "ADRV906X Ethernet MAC support"
-    depends on HAS_DMA
+    tristate "ADRV906x Ethernet support"
+    depends on (ARCH_ADRV906X || COMPILE_TEST) && HAS_DMA
     select LED_TRIGGER_PHY
+    select LEDS_TRIGGERS
     select PHYLIB
     help
-      This driver supports the ADRV906X Ethernet MAC.
-      To compile this driver as a module, choose M here. The module
-      will be called adrv906x_eth.
+      Say yes here to build support for the ADRV906x 10G/25G Ethernet subsystem.
 
 endif # NET_VENDOR_ADI
