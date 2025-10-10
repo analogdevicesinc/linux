@@ -33,6 +33,8 @@ config NET_ADRV906X
     depends on (ARCH_ADRV906X || COMPILE_TEST) && HAS_DMA
     select LED_TRIGGER_PHY
     select LEDS_TRIGGERS
+    select LEDS_CLASS
+    select NEW_LEDS
     select PHYLIB
     help
       Say yes here to build support for the ADRV906x 10G/25G Ethernet subsystem.
