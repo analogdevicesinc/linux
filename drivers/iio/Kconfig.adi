@@ -216,3 +216,5 @@ config IIO_ALL_ADI_DRIVERS
 	imply LTC2309
 	imply AD7091R8
 	imply AD9739A
+	imply ADMT4000_POS
+
