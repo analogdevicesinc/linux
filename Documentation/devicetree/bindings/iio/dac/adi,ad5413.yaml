@@ -55,7 +55,6 @@ properties:
 required:
   - compatible
   - reg
-  - spi-max-frequency
   - avdd-supply
   - dvdd-supply
   - avss-supply
