@@ -299,10 +299,10 @@ config DWMAC_LOONGSON
 	  Support for ethernet controller on Loongson-2K1000 SoC and LS7A1000 bridge.
 
 config DWMAC_ADRV906X
-	tristate "ADRV906X 1G support"
-	depends on OF && STMMAC_PLATFORM
+	tristate "ADRV906X DWMAC support"
+	depends on OF && STMMAC_PLATFORM && (ARCH_ADRV906X || COMPILE_TEST)
 	help
-	  ADRV906X 1G ethernet driver.
+	  Say yes here to build support for the ADRV906x DWMAC 1G Ethernet driver.
 
 config STMMAC_PCI
 	tristate "STMMAC PCI bus support"
