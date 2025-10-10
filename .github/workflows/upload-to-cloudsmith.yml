@@ -132,6 +132,7 @@ jobs:
 
         cd dist
         for file in * ; do
+          echo "$file"
           package_file=$(
             cs-package-upload ${{ env.CLOUDSMITH_API_KEY }} \
                               ${{ vars.CLOUDSMITH_NAMESPACE }} \
