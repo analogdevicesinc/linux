@@ -41,6 +41,7 @@ config PTP_1588_CLOCK_OPTIONAL
 
 config PTP_1588_CLOCK_ADRV906X
 	tristate "ToD counter for ADRV906X"
+	depends on ARCH_ADRV906X || COMPILE_TEST
 	depends on PTP_1588_CLOCK
 	help
 	  This driver adds support for using the hardware ToD module
@@ -51,7 +52,6 @@ config PTP_1588_CLOCK_ADRV906X
 
 config PTP_1588_CLOCK_ADRV906X_SOC
 	tristate "PTP clock for ADRV906X"
-	depends on PTP_1588_CLOCK
 	select PTP_1588_CLOCK_ADRV906X
 	help
 	  This in an example driver that adds support for using the hardware
