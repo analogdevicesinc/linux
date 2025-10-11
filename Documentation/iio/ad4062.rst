@@ -81,6 +81,15 @@ The device enters low-power mode on idle to save power. Enabling an event puts
 the device out of the low-power since the ADC autonomously samples to assert
 the event condition.
 
+IIO trigger support
+===================
+
+An IIO trigger is registered to the same device, to capture samples to a
+software buffer. The acquisition is sequential and bounded by the protocol,
+internal, and software delays, the sample rate is not configurable.
+The burst averaging mode does impact the effective sample rate, since it
+increases the internal delay.
+
 Unimplemented features
 ======================
 
