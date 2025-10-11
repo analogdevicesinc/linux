@@ -13,6 +13,7 @@
 #include <linux/i3c/device.h>
 #include <linux/i3c/master.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/events.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/trigger.h>
@@ -160,6 +161,8 @@ struct ad4062_state {
 	struct i3c_device *i3cdev;
 	struct regmap *regmap;
 	u16 sampling_frequency;
+	u16 events_frequency;
+	bool wait_event;
 	int vref_uv;
 	bool gpo_irq[2];
 	u8 raw[4] __aligned(IIO_DMA_MINALIGN);
@@ -189,6 +192,26 @@ static const struct regmap_range ad4062_regmap_wr_ranges[] = {
 static const struct regmap_access_table ad4062_regmap_wr_table = {
 	.yes_ranges = ad4062_regmap_wr_ranges,
 	.n_yes_ranges = ARRAY_SIZE(ad4062_regmap_wr_ranges),
+};
+
+static const struct iio_event_spec ad4062_events[] = {
+	{
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_EITHER,
+		.mask_shared_by_all = BIT(IIO_EV_INFO_ENABLE),
+	},
+	{
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_RISING,
+		.mask_shared_by_all = BIT(IIO_EV_INFO_VALUE) |
+				      BIT(IIO_EV_INFO_HYSTERESIS),
+	},
+	{
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_FALLING,
+		.mask_shared_by_all = BIT(IIO_EV_INFO_VALUE) |
+				      BIT(IIO_EV_INFO_HYSTERESIS),
+	},
 };
 
 static const char *const ad4062_conversion_freqs[] = {
@@ -252,6 +275,8 @@ AD4062_EXT_INFO(AD4062_2MSPS);
 	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),	\
 	.indexed = 1,									\
 	.channel = 0,									\
+	.event_spec = ad4062_events,							\
+	.num_event_specs = ARRAY_SIZE(ad4062_events),					\
 	.has_ext_scan_type = 1,								\
 	.ext_scan_type = ad4062_scan_type_##bits##_s,					\
 	.num_ext_scan_type = ARRAY_SIZE(ad4062_scan_type_##bits##_s),			\
@@ -272,6 +297,82 @@ static const struct ad4062_chip_info ad4062_chip_info = {
 	.prod_id = 0x7C,
 	.max_avg = AD4062_MAX_AVG,
 	.grade = AD4062_2MSPS,
+};
+
+/**
+ * A register access will cause the device to drop from monitor mode
+ * into configuration mode, update the state to reflect that.
+ */
+static void ad4062_exit_monitor_mode(struct ad4062_state *st)
+{
+	if (st->wait_event) {
+		pm_runtime_mark_last_busy(&st->i3cdev->dev);
+		pm_runtime_put_autosuspend(&st->i3cdev->dev);
+		st->wait_event = 0;
+	}
+}
+
+static ssize_t ad4062_events_frequency_show(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf)
+{
+	struct ad4062_state *st = iio_priv(dev_to_iio_dev(dev));
+
+	return sysfs_emit(buf, "%s\n", ad4062_conversion_freqs[st->events_frequency]);
+}
+
+static ssize_t ad4062_events_frequency_store(struct device *dev,
+					     struct device_attribute *attr,
+					     const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct ad4062_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
+	ad4062_exit_monitor_mode(st);
+
+	ret = __sysfs_match_string(AD4062_FS(st->chip->grade),
+				   AD4062_FS_LEN(st->chip->grade), buf);
+	if (ret < 0)
+		goto out_release;
+
+	st->events_frequency = ret;
+
+out_release:
+	iio_device_release_direct(indio_dev);
+	return ret ? ret : len;
+}
+
+static IIO_DEVICE_ATTR(sampling_frequency, 0644, ad4062_events_frequency_show,
+		       ad4062_events_frequency_store, 0);
+
+static ssize_t sampling_frequency_available_show(struct device *dev,
+						 struct device_attribute *attr,
+						 char *buf)
+{
+	struct ad4062_state *st = iio_priv(dev_to_iio_dev(dev));
+	int ret = 0;
+
+	for (u8 i = AD4062_FS_OFFSET(st->chip->grade);
+	     i < AD4062_FS_LEN(st->chip->grade); i++)
+		ret += sysfs_emit_at(buf, ret, "%s ", ad4062_conversion_freqs[i]);
+
+	ret += sysfs_emit_at(buf, ret, "\n");
+	return ret;
+}
+
+static IIO_DEVICE_ATTR_RO(sampling_frequency_available, 0);
+
+static struct attribute *ad4062_event_attributes[] = {
+	&iio_dev_attr_sampling_frequency.dev_attr.attr,
+	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
+	NULL
+};
+
+static const struct attribute_group ad4062_event_attribute_group = {
+	.attrs = ad4062_event_attributes,
 };
 
 static int ad4062_set_oversampling_ratio(struct iio_dev *indio_dev,
@@ -391,9 +492,12 @@ static int ad4062_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	u8 val = FIELD_PREP(AD4062_REG_GP_CONF_MODE_MSK_1, AD4062_GP_DRDY);
+	u8 val = FIELD_PREP(AD4062_REG_GP_CONF_MODE_MSK_0, AD4062_GP_INTR) |
+		 FIELD_PREP(AD4062_REG_GP_CONF_MODE_MSK_1, AD4062_GP_DRDY);
+
 	ret = regmap_update_bits(st->regmap, AD4062_REG_GP_CONF,
-				 AD4062_REG_GP_CONF_MODE_MSK_1, val);
+				 AD4062_REG_GP_CONF_MODE_MSK_1 | AD4062_REG_GP_CONF_MODE_MSK_0,
+				 val);
 	if (ret)
 		return ret;
 
@@ -409,14 +513,29 @@ static int ad4062_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	if (ret)
 		return ret;
 
-	val = FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_1, AD4062_INTR_EN_NEITHER);
+	val = FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_0, AD4062_INTR_EN_EITHER) |
+	      FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_1, AD4062_INTR_EN_NEITHER);
 	ret = regmap_update_bits(st->regmap, AD4062_REG_INTR_CONF,
-				 AD4062_REG_INTR_CONF_EN_MSK_1, val);
+				 AD4062_REG_INTR_CONF_EN_MSK_0 | AD4062_REG_INTR_CONF_EN_MSK_1,
+				 val);
 	if (ret)
 		return ret;
 
 	put_unaligned_be16(AD4062_MON_VAL_MIDDLE_POINT, st->raw);
 	return regmap_bulk_write(st->regmap, AD4062_REG_MON_VAL, &st->raw, 2);
+}
+
+static irqreturn_t ad4062_irq_handler_thresh(int irq, void *private)
+{
+	struct iio_dev *indio_dev = private;
+
+	iio_push_event(indio_dev,
+		       IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE, 0,
+					    IIO_EV_TYPE_THRESH,
+					    IIO_EV_DIR_EITHER),
+		       iio_get_time_ns(indio_dev));
+
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t ad4062_irq_handler_drdy(int irq, void *private)
@@ -437,10 +556,19 @@ static void ad4062_ibi_handler(struct i3c_device *i3cdev,
 {
 	struct ad4062_state *st = i3cdev_get_drvdata(i3cdev);
 
-	if (iio_buffer_enabled(st->indio_dev))
-		iio_trigger_poll_nested(st->trigger);
-	else
-		complete(&st->completion);
+
+	if (st->wait_event) {
+		iio_push_event(st->indio_dev,
+			       IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE, 0,
+						    IIO_EV_TYPE_THRESH,
+						    IIO_EV_DIR_EITHER),
+			       iio_get_time_ns(st->indio_dev));
+	} else {
+		if (iio_buffer_enabled(st->indio_dev))
+			iio_trigger_poll_nested(st->trigger);
+		else
+			complete(&st->completion);
+	}
 }
 
 static void ad4062_trigger_work(struct work_struct *work)
@@ -526,6 +654,24 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 	struct ad4062_state *st = iio_priv(indio_dev);
 	struct device *dev = &st->i3cdev->dev;
 	int ret;
+
+	ret = fwnode_irq_get_byname(dev_fwnode(&st->i3cdev->dev), "gp0");
+	if (ret >= 0) {
+		ret = devm_request_threaded_irq(dev, ret, NULL,
+						ad4062_irq_handler_thresh,
+						IRQF_ONESHOT, indio_dev->name,
+						indio_dev);
+		if (ret)
+			return ret;
+	} else if (ret != -EPROBE_DEFER) {
+		ret = regmap_update_bits(st->regmap, AD4062_REG_ADC_IBI_EN,
+					 AD4062_REG_ADC_IBI_EN_MAX | AD4062_REG_ADC_IBI_EN_MIN,
+					 AD4062_REG_ADC_IBI_EN_MAX | AD4062_REG_ADC_IBI_EN_MIN);
+		if (ret)
+			return ret;
+	} else {
+		return ret;
+	}
 
 	ret = fwnode_irq_get_byname(dev_fwnode(&st->i3cdev->dev), "gp1");
 	if (ret == -EPROBE_DEFER) {
@@ -742,6 +888,7 @@ static int ad4062_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan, int *val,
 			   int *val2, long info)
 {
+	struct ad4062_state *st = iio_priv(indio_dev);
 	int ret;
 
 	if (info == IIO_CHAN_INFO_SCALE)
@@ -749,6 +896,7 @@ static int ad4062_read_raw(struct iio_dev *indio_dev,
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
+	ad4062_exit_monitor_mode(st);
 
 	ret = ad4062_read_raw_dispatch(indio_dev, chan, val, val2, info);
 
@@ -776,12 +924,204 @@ static int ad4062_write_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan, int val,
 			    int val2, long info)
 {
+	struct ad4062_state *st = iio_priv(indio_dev);
 	int ret;
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
+	ad4062_exit_monitor_mode(st);
 
 	ret = ad4062_write_raw_dispatch(indio_dev, chan, val, val2, info);
+
+	iio_device_release_direct(indio_dev);
+	return ret;
+}
+
+static int ad4062_monitor_mode_enable(struct ad4062_state *st, bool enable)
+{
+	int ret = 0;
+
+	if (!enable)
+		goto out_suspend;
+
+	ret = pm_runtime_resume_and_get(&st->i3cdev->dev);
+	if (ret)
+		return ret;
+
+	ret = ad4062_conversion_frequency_set(st, st->events_frequency);
+	if (ret)
+		goto out_suspend;
+
+	ret = ad4062_set_operation_mode(st, AD4062_MONITOR_MODE);
+	if (ret)
+		goto out_suspend;
+
+	return ret;
+out_suspend:
+	pm_runtime_put_autosuspend(&st->i3cdev->dev);
+	return ret;
+}
+
+static int ad4062_read_event_config(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    enum iio_event_type type,
+				    enum iio_event_direction dir)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+
+	return st->wait_event;
+}
+
+static int ad4062_write_event_config(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan,
+				     enum iio_event_type type,
+				     enum iio_event_direction dir,
+				     bool state)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
+	if (st->wait_event == state) {
+		ret = 0;
+		goto out_release;
+	}
+
+	ret = ad4062_monitor_mode_enable(st, state);
+	if (!ret)
+		st->wait_event = state;
+
+out_release:
+	iio_device_release_direct(indio_dev);
+	return ret;
+}
+
+static int __ad4062_read_event_info_value(struct ad4062_state *st,
+					   enum iio_event_direction dir, int *val)
+{
+	int ret;
+	u8 reg;
+
+	if (dir == IIO_EV_DIR_RISING)
+		reg = AD4062_REG_MAX_LIMIT;
+	else
+		reg = AD4062_REG_MIN_LIMIT;
+
+	ret = regmap_bulk_read(st->regmap, reg, &st->raw, 2);
+	if (ret)
+		return ret;
+
+	*val = sign_extend32(get_unaligned_be16(st->raw), 11);
+
+	return 0;
+}
+
+static int __ad4062_read_event_info_hysteresis(struct ad4062_state *st,
+						enum iio_event_direction dir, int *val)
+{
+	u8 reg;
+
+	if (dir == IIO_EV_DIR_RISING)
+		reg = AD4062_REG_MAX_HYST;
+	else
+		reg = AD4062_REG_MIN_HYST;
+	return regmap_read(st->regmap, reg, val);
+}
+
+static int ad4062_read_event_value(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan,
+				   enum iio_event_type type,
+				   enum iio_event_direction dir,
+				   enum iio_event_info info, int *val,
+				   int *val2)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
+	ad4062_exit_monitor_mode(st);
+
+	switch (info) {
+	case IIO_EV_INFO_VALUE:
+		ret = __ad4062_read_event_info_value(st, dir, val);
+		break;
+	case IIO_EV_INFO_HYSTERESIS:
+		ret = __ad4062_read_event_info_hysteresis(st, dir, val);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	iio_device_release_direct(indio_dev);
+	return ret ? ret : IIO_VAL_INT;
+}
+
+static int __ad4062_write_event_info_value(struct ad4062_state *st,
+					   enum iio_event_direction dir, int val)
+{
+	u8 reg;
+
+	if (val > 2047 || val < -2048)
+		return -EINVAL;
+	if (dir == IIO_EV_DIR_RISING)
+		reg = AD4062_REG_MAX_LIMIT;
+	else
+		reg = AD4062_REG_MIN_LIMIT;
+	put_unaligned_be16(val, &st->raw);
+
+	return regmap_bulk_write(st->regmap, reg, &st->raw, 2);
+}
+
+static int __ad4062_write_event_info_hysteresis(struct ad4062_state *st,
+						enum iio_event_direction dir, int val)
+{
+	u8 reg;
+
+	if (val >= BIT(7))
+		return -EINVAL;
+	if (dir == IIO_EV_DIR_RISING)
+		reg = AD4062_REG_MAX_HYST;
+	else
+		reg = AD4062_REG_MIN_HYST;
+
+	return regmap_write(st->regmap, reg, val);
+}
+
+static int ad4062_write_event_value(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    enum iio_event_type type,
+				    enum iio_event_direction dir,
+				    enum iio_event_info info, int val,
+				    int val2)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
+	ad4062_exit_monitor_mode(st);
+
+	switch (type) {
+	case IIO_EV_TYPE_THRESH:
+		switch (info) {
+		case IIO_EV_INFO_VALUE:
+			ret = __ad4062_write_event_info_value(st, dir, val);
+			break;
+		case IIO_EV_INFO_HYSTERESIS:
+			ret = __ad4062_write_event_info_hysteresis(st, dir, val);
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+		}
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
 
 	iio_device_release_direct(indio_dev);
 	return ret;
@@ -796,6 +1136,7 @@ static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 	ret = pm_runtime_resume_and_get(&st->i3cdev->dev);
 	if (ret)
 		return ret;
+	ad4062_exit_monitor_mode(st);
 
 	ret = ad4062_set_operation_mode(st, st->mode);
 	if (ret)
@@ -847,6 +1188,7 @@ static int ad4062_debugfs_reg_access(struct iio_dev *indio_dev, unsigned int reg
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
+	ad4062_exit_monitor_mode(st);
 
 	if (readval)
 		ret = regmap_read(st->regmap, reg, readval);
@@ -871,6 +1213,11 @@ static const struct iio_info ad4062_info = {
 	.read_raw = ad4062_read_raw,
 	.write_raw = ad4062_write_raw,
 	.read_avail = ad4062_read_avail,
+	.read_event_config = &ad4062_read_event_config,
+	.write_event_config = &ad4062_write_event_config,
+	.read_event_value = &ad4062_read_event_value,
+	.write_event_value = &ad4062_write_event_value,
+	.event_attrs = &ad4062_event_attribute_group,
 	.get_current_scan_type = &ad4062_get_current_scan_type,
 	.debugfs_reg_access = &ad4062_debugfs_reg_access,
 };
@@ -951,8 +1298,10 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 				     "Failed to initialize regmap\n");
 
 	st->mode = AD4062_SAMPLE_MODE;
+	st->wait_event = false;
 	st->chip = chip;
 	st->sampling_frequency = AD4062_FS_OFFSET(st->chip->grade);
+	st->events_frequency = AD4062_FS_OFFSET(st->chip->grade);
 	st->indio_dev = indio_dev;
 
 	indio_dev->modes = INDIO_DIRECT_MODE;
