@@ -12,8 +12,12 @@
 #include <linux/err.h>
 #include <linux/i3c/device.h>
 #include <linux/i3c/master.h>
+#include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/trigger.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
 #include <linux/math.h>
@@ -418,7 +422,10 @@ static irqreturn_t ad4062_irq_handler_drdy(int irq, void *private)
 	struct iio_dev *indio_dev = private;
 	struct ad4062_state *st = iio_priv(indio_dev);
 
-	complete(&st->completion);
+	if (iio_buffer_enabled(indio_dev) && iio_trigger_using_own(indio_dev))
+		iio_trigger_poll_nested(st->trigger);
+	else
+		complete(&st->completion);
 
 	return IRQ_HANDLED;
 }
@@ -428,7 +435,49 @@ static void ad4062_ibi_handler(struct i3c_device *i3cdev,
 {
 	struct ad4062_state *st = i3cdev_get_drvdata(i3cdev);
 
-	complete(&st->completion);
+	if (iio_buffer_enabled(st->indio_dev))
+		iio_trigger_poll(st->trigger);
+	else
+		complete(&st->completion);
+}
+
+static irqreturn_t ad4062_poll_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct ad4062_state *st = iio_priv(indio_dev);
+	u8 addr = AD4062_REG_CONV_TRIGGER;
+	int ret;
+
+	/* Read current and trigger next conversion */
+	struct i3c_priv_xfer t[2] = {
+		{
+			.data.in = &st->raw,
+			.len = 4,
+			.rnw = true,
+		},
+		{
+			.data.out = &addr,
+			.len = 1,
+			.rnw = false,
+		}
+	};
+
+	/* Separated transfers to not infeer repeated-start */
+	ret = i3c_device_do_priv_xfers(st->i3cdev, &t[0], 1);
+	if (ret)
+		goto out;
+	ret = i3c_device_do_priv_xfers(st->i3cdev, &t[1], 1);
+	if (ret)
+		goto out;
+
+	iio_push_to_buffers_with_timestamp(indio_dev, &st->raw,
+					   pf->timestamp);
+
+out:
+	iio_trigger_notify_done(indio_dev->trig);
+
+	return IRQ_HANDLED;
 }
 
 static void ad4062_remove_ibi(void *data)
@@ -484,6 +533,27 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 	}
 
 	return ret;
+}
+
+static const struct iio_trigger_ops ad4062_trigger_ops = {
+	.validate_device = &iio_trigger_validate_own_device,
+};
+
+static int ad4062_request_trigger(struct iio_dev *indio_dev)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+	struct device *dev = &st->i3cdev->dev;
+
+	st->trigger = devm_iio_trigger_alloc(dev, "%s-dev%d",
+					     indio_dev->name,
+					     iio_device_id(indio_dev));
+	if (!st->trigger)
+		return -ENOMEM;
+
+	st->trigger->ops = &ad4062_trigger_ops;
+	iio_trigger_set_drvdata(st->trigger, indio_dev);
+
+	return devm_iio_trigger_register(dev, st->trigger);
 }
 
 static const int ad4062_oversampling_avail[] = {
@@ -706,6 +776,52 @@ static int ad4062_write_raw(struct iio_dev *indio_dev,
 	return ret;
 }
 
+static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+	u8 addr = AD4062_REG_CONV_TRIGGER;
+	int ret;
+
+	ret = pm_runtime_resume_and_get(&st->i3cdev->dev);
+	if (ret)
+		return ret;
+
+	ret = ad4062_set_operation_mode(st, st->mode);
+	if (ret)
+		goto out_mode_error;
+
+	/* Trigger first conversion */
+	struct i3c_priv_xfer t = {
+		.data.out = &addr,
+		.len = 1,
+		.rnw = false,
+	};
+
+	ret = i3c_device_do_priv_xfers(st->i3cdev, &t, 1);
+	if (ret)
+		goto out_mode_error;
+	return 0;
+
+out_mode_error:
+	pm_runtime_put_autosuspend(&st->i3cdev->dev);
+
+	return ret;
+}
+
+static int ad4062_triggered_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+
+	pm_runtime_mark_last_busy(&st->i3cdev->dev);
+	pm_runtime_put_autosuspend(&st->i3cdev->dev);
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops ad4062_triggered_buffer_setup_ops = {
+	.postenable = &ad4062_triggered_buffer_postenable,
+	.predisable = &ad4062_triggered_buffer_predisable,
+};
+
 static int ad4062_debugfs_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 				     unsigned int writeval, unsigned int *readval)
 {
@@ -841,6 +957,17 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 		return ret;
 
 	ret = ad4062_request_irq(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = ad4062_request_trigger(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = devm_iio_triggered_buffer_setup(&i3cdev->dev, indio_dev,
+					      iio_pollfunc_store_time,
+					      ad4062_poll_handler,
+					      &ad4062_triggered_buffer_setup_ops);
 	if (ret)
 		return ret;
 
