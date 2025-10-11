@@ -12,8 +12,12 @@
 #include <linux/err.h>
 #include <linux/i3c/device.h>
 #include <linux/i3c/master.h>
+#include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/trigger.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
 #include <linux/math.h>
@@ -60,6 +64,7 @@
 #define     AD4062_REG_DEVICE_STATUS_DEVICE_RESET	BIT(6)
 #define AD4062_REG_IBI_STATUS				0x48
 #define AD4062_REG_CONV_READ_LSB			0x50
+#define AD4062_REG_CONV_READ				0x53
 #define AD4062_REG_CONV_TRIGGER				0x59
 #define AD4062_REG_CONV_AUTO				0x61
 #define AD4062_MAX_REG					AD4062_REG_CONV_AUTO
@@ -137,6 +142,7 @@ struct ad4062_state {
 	const struct ad4062_chip_info *chip;
 	const struct ad4062_bus_ops *ops;
 	enum ad4062_operation_mode mode;
+	struct work_struct trig_conv;
 	struct completion completion;
 	struct iio_trigger *trigger;
 	struct iio_dev *indio_dev;
@@ -144,6 +150,7 @@ struct ad4062_state {
 	struct regmap *regmap;
 	int vref_uV;
 	unsigned int samp_freqs[ARRAY_SIZE(ad4062_conversion_freqs)];
+	bool gpo_irq[2];
 	union {
 		__be32 be32;
 		__be16 be16;
@@ -411,7 +418,10 @@ static irqreturn_t ad4062_irq_handler_drdy(int irq, void *private)
 	struct iio_dev *indio_dev = private;
 	struct ad4062_state *st = iio_priv(indio_dev);
 
-	complete(&st->completion);
+	if (iio_buffer_enabled(indio_dev) && iio_trigger_using_own(indio_dev))
+		iio_trigger_poll(st->trigger);
+	else
+		complete(&st->completion);
 
 	return IRQ_HANDLED;
 }
@@ -421,7 +431,56 @@ static void ad4062_ibi_handler(struct i3c_device *i3cdev,
 {
 	struct ad4062_state *st = i3cdev_get_drvdata(i3cdev);
 
-	complete(&st->completion);
+	if (iio_buffer_enabled(st->indio_dev))
+		iio_trigger_poll_nested(st->trigger);
+	else
+		complete(&st->completion);
+}
+
+static void ad4062_trigger_work(struct work_struct *work)
+{
+	struct ad4062_state *st = container_of(work, struct ad4062_state,
+					       trig_conv);
+	int ret;
+
+	/* Read current conversion, if at reg CONV_READ, stop bit triggers
+	 * next sample and does not need writing the address.
+	 */
+	struct i3c_priv_xfer t[2] = {
+		{
+			.data.in = &st->buf.be32,
+			.len = sizeof(st->buf.be32),
+			.rnw = true,
+		},
+		{
+			.data.out = &st->reg_addr_conv,
+			.len = sizeof(st->reg_addr_conv),
+			.rnw = false,
+		},
+	};
+
+	ret = i3c_device_do_priv_xfers(st->i3cdev, &t[0], 1);
+	if (ret)
+		return;
+
+	iio_push_to_buffers_with_timestamp(st->indio_dev, &st->buf.be32,
+					   iio_get_time_ns(st->indio_dev));
+	if (st->gpo_irq[1])
+		return;
+
+	i3c_device_do_priv_xfers(st->i3cdev, &t[1], 1);
+}
+
+static irqreturn_t ad4062_poll_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct ad4062_state *st = iio_priv(indio_dev);
+
+	iio_trigger_notify_done(indio_dev->trig);
+	schedule_work(&st->trig_conv);
+
+	return IRQ_HANDLED;
 }
 
 static void ad4062_remove_ibi(void *data)
@@ -466,14 +525,46 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 	if (ret == -EPROBE_DEFER) {
 		return ret;
 	} else if (ret < 0) {
+		st->gpo_irq[1] = false;
+		st->reg_addr_conv = AD4062_REG_CONV_TRIGGER;
 		return regmap_update_bits(st->regmap, AD4062_REG_ADC_IBI_EN,
 					  AD4062_REG_ADC_IBI_EN_CONV_TRIGGER,
 					  AD4062_REG_ADC_IBI_EN_CONV_TRIGGER);
 	}
+	st->gpo_irq[1] = true;
+	st->reg_addr_conv = AD4062_REG_CONV_READ;
 	return devm_request_threaded_irq(dev, ret,
 					 ad4062_irq_handler_drdy,
 					 NULL, IRQF_ONESHOT, indio_dev->name,
 					 indio_dev);
+}
+
+static const struct iio_trigger_ops ad4062_trigger_ops = {
+	.validate_device = &iio_trigger_validate_own_device,
+};
+
+static int ad4062_request_trigger(struct iio_dev *indio_dev)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+	struct device *dev = &st->i3cdev->dev;
+	int ret;
+
+	st->trigger = devm_iio_trigger_alloc(dev, "%s-dev%d",
+					     indio_dev->name,
+					     iio_device_id(indio_dev));
+	if (!st->trigger)
+		return -ENOMEM;
+
+	st->trigger->ops = &ad4062_trigger_ops;
+	iio_trigger_set_drvdata(st->trigger, indio_dev);
+
+	ret = devm_iio_trigger_register(dev, st->trigger);
+	if (ret)
+		return ret;
+
+	indio_dev->trig = iio_trigger_get(st->trigger);
+
+	return 0;
 }
 
 static const int ad4062_oversampling_avail[] = {
@@ -572,15 +663,17 @@ static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 {
 	int ret;
 	struct i3c_device *i3cdev = st->i3cdev;
-	struct i3c_priv_xfer t0 = {
-		.data.out = &st->reg_addr_conv,
-		.len = sizeof(st->reg_addr_conv),
-		.rnw = false,
-	};
-	struct i3c_priv_xfer t1 = {
-		.data.in = &st->buf.be32,
-		.len = sizeof(st->buf.be32),
-		.rnw = true,
+	struct i3c_priv_xfer t[] = {
+		{
+			.data.out = &st->reg_addr_conv,
+			.len = sizeof(st->reg_addr_conv),
+			.rnw = false,
+		},
+		{
+			.data.in = &st->buf.be32,
+			.len = sizeof(st->buf.be32),
+			.rnw = true,
+		}
 	};
 
 	ACQUIRE(pm_runtime_active_try_enabled, pm)(&st->i3cdev->dev);
@@ -593,8 +686,8 @@ static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 		return ret;
 
 	reinit_completion(&st->completion);
-	/* Change address pointer to trigger conversion */
-	ret = i3c_device_do_priv_xfers(i3cdev, &t0, 1);
+	/* Change address pointer (and read if CONV_READ) to trigger conversion. */
+	ret = i3c_device_do_priv_xfers(i3cdev, t, st->gpo_irq[1] ? 2 : 1);
 	if (ret)
 		return ret;
 	/*
@@ -606,7 +699,7 @@ static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 	if (!ret)
 		return -ETIMEDOUT;
 
-	ret = i3c_device_do_priv_xfers(i3cdev, &t1, 1);
+	ret = i3c_device_do_priv_xfers(i3cdev, &t[1], 1);
 	if (ret)
 		return ret;
 	*val = get_unaligned_be32(st->buf.bytes);
@@ -686,6 +779,57 @@ static int ad4062_write_raw(struct iio_dev *indio_dev,
 	iio_device_release_direct(indio_dev);
 	return ret;
 }
+
+static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+	int ret;
+
+	ret = pm_runtime_resume_and_get(&st->i3cdev->dev);
+	if (ret)
+		return ret;
+
+	ret = ad4062_set_operation_mode(st, st->mode);
+	if (ret)
+		goto out_mode_error;
+
+	/* CONV_READ requires read to trigger first sample. */
+	struct i3c_priv_xfer t[2] = {
+		{
+			.data.out = &st->reg_addr_conv,
+			.len = sizeof(st->reg_addr_conv),
+			.rnw = false,
+		},
+		{
+			.data.in = &st->buf.be32,
+			.len = sizeof(st->buf.be32),
+			.rnw = true,
+		}
+	};
+
+	ret = i3c_device_do_priv_xfers(st->i3cdev, t, st->gpo_irq[1] ? 2 : 1);
+	if (ret)
+		goto out_mode_error;
+	return 0;
+
+out_mode_error:
+	pm_runtime_put_autosuspend(&st->i3cdev->dev);
+
+	return ret;
+}
+
+static int ad4062_triggered_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad4062_state *st = iio_priv(indio_dev);
+
+	pm_runtime_put_autosuspend(&st->i3cdev->dev);
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops ad4062_triggered_buffer_setup_ops = {
+	.postenable = &ad4062_triggered_buffer_postenable,
+	.predisable = &ad4062_triggered_buffer_predisable,
+};
 
 static int ad4062_debugfs_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 				     unsigned int writeval, unsigned int *readval)
@@ -798,7 +942,6 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 	st->sampling_frequency = 0;
 	st->oversamp_ratio = 0;
 	st->indio_dev = indio_dev;
-	st->reg_addr_conv = AD4062_REG_CONV_TRIGGER;
 
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->num_channels = 1;
@@ -822,6 +965,17 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 	if (ret)
 		return ret;
 
+	ret = ad4062_request_trigger(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = devm_iio_triggered_buffer_setup(&i3cdev->dev, indio_dev,
+					      iio_pollfunc_store_time,
+					      ad4062_poll_handler,
+					      &ad4062_triggered_buffer_setup_ops);
+	if (ret)
+		return ret;
+
 	pm_runtime_set_active(dev);
 	ret = devm_pm_runtime_enable(dev);
 	if (ret)
@@ -833,6 +987,8 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 	ret = ad4062_request_ibi(i3cdev);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to request i3c ibi\n");
+
+	INIT_WORK(&st->trig_conv, ad4062_trigger_work);
 
 	return devm_iio_device_register(dev, indio_dev);
 }
