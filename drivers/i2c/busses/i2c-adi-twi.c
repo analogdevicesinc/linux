@@ -473,10 +473,8 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 	}
 
 	priv->irq = platform_get_irq(pdev, 0);
-	if (priv->irq < 0) {
-		dev_err(&pdev->dev, "cannot find irq");
+	if (priv->irq < 0)
 		return -ENOENT;
-	}
 
 	adap = &priv->adap;
 	adap->nr = pdev->id;
