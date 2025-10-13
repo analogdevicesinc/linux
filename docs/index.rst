@@ -8,6 +8,7 @@ Linux documentation.
    :maxdepth: 1
 
    iio/index
+   user-guide
    ci
 
 This documentation contains information only about this and the device drivers
