@@ -19,9 +19,9 @@ jobs:
 
     - name: Install pip packages
       run: |
-        python3.11 -m venv ~/venv
+        python3 -m venv ~/venv
         source ~/venv/bin/activate
-        pip3.11 install -r docs/requirements.txt --upgrade
+        pip3 install -r docs/requirements.txt --upgrade
 
     - name: Build doc
       working-directory: docs
