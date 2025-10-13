@@ -112,7 +112,7 @@ properties:
     const: 1
 
 patternProperties:
-  "^channel@[01]$":
+  "^channel@[0-3]$":
     type: object
     description: Represents the external channels which are connected to the device.
 
@@ -129,15 +129,14 @@ patternProperties:
           If this property is specified, the output channel will be enabled.
           If left empty, the driver will initialize the defaults (RF8x, channel 0
           will be the only one enabled).
-        maxItems: 1
 
       adi,power-up-frequency:
+        $ref: /schemas/types.yaml#/definitions/uint64
         description: |
           Set the frequency after power up for the channel. If this property is
           specified, it has to be in sync with the power up frequency set on the
           other channels. This limitation is due to the fact that all the channel
           frequencies are derived from the VCO fundamental frequency.
-        maxItems: 1
 
     required:
       - reg
