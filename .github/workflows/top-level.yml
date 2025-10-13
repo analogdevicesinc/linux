@@ -87,7 +87,7 @@ jobs:
           assert_labels
   deploy_cloudsmith_checks:
     needs: [assert_checks]
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
     uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
     secrets: inherit
     permissions:
@@ -200,7 +200,7 @@ jobs:
           assert_labels
   deploy_cloudsmith_build:
     needs: [assert_build]
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
     uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
     secrets: inherit
     permissions:
