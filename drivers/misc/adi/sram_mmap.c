@@ -51,13 +51,13 @@ static int sram_mmap(struct file *fp, struct vm_area_struct *vma)
 	int ret = 0;
 
 	if ((vma->vm_pgoff * PAGE_SIZE) + sram_size > sram->rmem->size) {
-		dev_err(sram->dev, "Tried to map 0x%zx@0x%zx, only 0x%zx available\n",
+		dev_err(sram->dev, "Tried to map %zx@0x%lx, only 0x%zx available\n",
 			sram_size, vma->vm_pgoff * PAGE_SIZE, (size_t)sram->rmem->size);
 		return -ENOMEM;
 	}
 
 	if (sram_size % PAGE_SIZE) {
-		dev_err(sram->dev, "Requested mapping is not a multiple of page size, requested 0x%lx bytes\n", sram_size);
+		dev_err(sram->dev, "Requested mapping is not a multiple of page size, requested 0x%zx bytes\n", sram_size);
 		return -EINVAL;
 	}
 
