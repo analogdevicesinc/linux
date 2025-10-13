@@ -184,8 +184,10 @@ interactive usage.</p>
 </div>
 <section id="code-checkers">
 <h2>Code checkers<a class="headerlink" href="#code-checkers" title="Link to this heading"></a></h2>
-<p>The kernel offers multiple static and style checkers to catch issues before
-submission. For an extensive usage examples, check the <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/ci/build.sh" target="_blank">ci/build.sh</a> file.</p>
+<p>There are many checkers to catch issues before submitting changes to the Kernel
+mailing lists. <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/ci/build.sh" target="_blank">ci/build.sh</a> combines all of the checkers so that
+they can be run with one command using a standard configuration. The checkers
+supported by build.sh are as follows.</p>
 <section id="checkpatch">
 <h3>Checkpatch<a class="headerlink" href="#checkpatch" title="Link to this heading"></a></h3>
 <p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/checkpatch.html" target="_blank" title="(in The Linux Kernel v6.18.0-rc1)"><span>Checkpatch</span></a>
@@ -228,7 +230,9 @@ relies on patches and distribution lists for code contributions and review.</p>
 extensively detailed, as well as the tools to ease it, such as
 <a class="icon link reference external" href="https://b4.docs.kernel.org/en/latest/contributor/prep.html" target="_blank" title="(in B4 end-user docs)"><span class="xref std std-doc">b4 prep</span></a>,
 <a class="icon link reference external" href="https://b4.docs.kernel.org/en/latest/contributor/send.html" target="_blank" title="(in B4 end-user docs)"><span class="xref std std-doc">b4 send</span></a>, and
-<a class="icon link reference external" href="https://b4.docs.kernel.org/en/latest/contributor/trailers.html" target="_blank" title="(in B4 end-user docs)"><span class="xref std std-doc">b4 trailers</span></a>,.</p>
+<a class="icon link reference external" href="https://b4.docs.kernel.org/en/latest/contributor/trailers.html" target="_blank" title="(in B4 end-user docs)"><span class="xref std std-doc">b4 trailers</span></a>.</p>
+<p>B4 tools is not currently leveraged by continuous integration, please run
+locally.</p>
 </section>
 <section id="sparse-and-smatch">
 <h3>Sparse and smatch<a class="headerlink" href="#sparse-and-smatch" title="Link to this heading"></a></h3>
@@ -250,7 +254,8 @@ Usage:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span><span class="nv">C</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">CHECK</span><span class="o">=</span><span class="s2">&quot;smatch -p=kernel&quot;</span>
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div></section>
+<div class="clear-left"></div></div></div><p>Further reading: <a class="icon link reference external" href="https://lwn.net/Articles/1023646/" target="_blank">Finding locking bugs with Smatch</a></p>
+</section>
 <section id="gcc-fanalyzer">
 <h3>GCC fanalyzer<a class="headerlink" href="#gcc-fanalyzer" title="Link to this heading"></a></h3>
 <p>GCC’s
@@ -295,8 +300,8 @@ structure and language for describing hardware. More specifically, it is a
 description of hardware that is readable by an operating system so that the
 operating system doesn’t need to hard code details of the machine.</p>
 <p>Even though some devicetrees are provided with the Linux Kernel, in general,
-the user should assemble its own devicetree for its hardware, using the
-protopytes provided by the
+a custom devicetree will need to be written to describe a specific board or
+device, using the protopytes provided by the
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings" target="_blank">Documentation/devicetree/bindings/**/*.yaml</a> files.</p>
 <p>When submitting dt-bindings, you must check:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -305,7 +310,7 @@ protopytes provided by the
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>dt_binding_chec<span class="w"> </span><span class="nv">CONFIG_DTC</span><span class="o">=</span>y<span class="w"> </span><span class="nv">DT_CHECKER_FLAGS</span><span class="o">=</span>-m<span class="w">  </span><span class="nv">DT_SCHEMA_FILES</span><span class="o">=</span><span class="s2">&quot;./path/to/.yaml&quot;</span>
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><p>For warnings and euros and resolve accordingly.</p>
+<div class="clear-left"></div></div></div><p>For warnings and erros and resolve accordingly.</p>
 </section>
 <section id="subsytems">
 <span id="subsystem"></span><h2>Subsytems<a class="headerlink" href="#subsytems" title="Link to this heading"></a></h2>

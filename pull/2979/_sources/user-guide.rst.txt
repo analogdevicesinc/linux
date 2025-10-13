@@ -14,8 +14,10 @@ maintained by Analog Devices Inc.
 Code checkers
 -------------
 
-The kernel offers multiple static and style checkers to catch issues before
-submission. For an extensive usage examples, check the :git-linux:`ci:ci/build.sh` file.
+There are many checkers to catch issues before submitting changes to the Kernel
+mailing lists. :git-linux:`ci:ci/build.sh` combines all of the checkers so that
+they can be run with one command using a standard configuration. The checkers
+supported by build.sh are as follows.
 
 Checkpatch
 ~~~~~~~~~~
@@ -67,7 +69,10 @@ The section that you will most interested in is the
 extensively detailed, as well as the tools to ease it, such as
 :external+b4:doc:`b4 prep <contributor/prep>`,
 :external+b4:doc:`b4 send <contributor/send>`, and
-:external+b4:doc:`b4 trailers <contributor/trailers>`,.
+:external+b4:doc:`b4 trailers <contributor/trailers>`.
+
+B4 tools is not currently leveraged by continuous integration, please run
+locally.
 
 Sparse and smatch
 ~~~~~~~~~~~~~~~~~
@@ -89,6 +94,8 @@ Usage:
 
    ~/linux
    $make C=1 CHECK="smatch -p=kernel"
+
+Further reading: `Finding locking bugs with Smatch <https://lwn.net/Articles/1023646/>`__
 
 GCC fanalyzer
 ~~~~~~~~~~~~~
@@ -139,8 +146,8 @@ description of hardware that is readable by an operating system so that the
 operating system doesn’t need to hard code details of the machine.
 
 Even though some devicetrees are provided with the Linux Kernel, in general,
-the user should assemble its own devicetree for its hardware, using the
-protopytes provided by the
+a custom devicetree will need to be written to describe a specific board or
+device, using the protopytes provided by the
 :git-linux:`Documentation/devicetree/bindings/**/*.yaml <Documentation/devicetree/bindings>` files.
 
 When submitting dt-bindings, you must check:
@@ -150,7 +157,7 @@ When submitting dt-bindings, you must check:
    ~/linux
    $make dt_binding_chec CONFIG_DTC=y DT_CHECKER_FLAGS=-m  DT_SCHEMA_FILES="./path/to/.yaml"
 
-For warnings and euros and resolve accordingly.
+For warnings and erros and resolve accordingly.
 
 .. _subsystem:
 
