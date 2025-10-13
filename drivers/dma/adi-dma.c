@@ -1185,7 +1185,7 @@ static void __adi_dma_prep_slave_sg_desc_list(struct adi_dma_descriptor *desc, s
 
 	INIT_LIST_HEAD(&desc->dde_desc_list);
 
-	dde_desc = adi_dma_alloc_dde_descriptor(dma);
+	dde_desc = dde_desc_next = adi_dma_alloc_dde_descriptor(dma);
 
 	sync = adi_chan->ch_sync_disable ? 0 : DMASYNC;
 
