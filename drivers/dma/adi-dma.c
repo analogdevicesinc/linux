@@ -1413,7 +1413,7 @@ static int adi_dma_probe(struct platform_device *pdev)
 
 	child = NULL;
 	while ((child = of_get_next_child(np, child))) {
-		ret = adi_dma_init_channel(dma, child, res->start, res->end - res->start + 1);
+		ret = adi_dma_init_channel(dma, child, res->start, resource_size(res));
 		if (ret) {
 			of_node_put(child);
 			return ret;
