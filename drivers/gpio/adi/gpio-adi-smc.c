@@ -16,13 +16,13 @@
 
 /* SMC Handler return Status Values (res.a0 return value) */
 #define ADI_PINTMUX_SMC_RETURN_SUCCESS              (0U)
-#define ADI_PINTMUX_SMC_RETURN_UNSUPPORTED_REQUEST  (0xFFFFFFFFFFFFFFFFU)
+#define ADI_PINTMUX_SMC_RETURN_UNSUPPORTED_REQUEST  (-1U)
 
 /* SMC Pintmux Handler return values (res.a1 return value) */
-#define ADI_TFA_PINTMUX_ERR_LOOKUP_FAIL  (0xFFFFFFFFFFFFFFFFU)
-#define ADI_TFA_PINTMUX_ERR_MAP_FAIL     (0xFFFFFFFFFFFFFFFEU)
-#define ADI_TFA_PINTMUX_ERR_NOT_MAPPED   (0xFFFFFFFFFFFFFFFDU)
-#define ADI_TFA_PINTMUX_ERR_SECURITY     (0xFFFFFFFFFFFFFFFCU)
+#define ADI_TFA_PINTMUX_ERR_LOOKUP_FAIL  (-1U)
+#define ADI_TFA_PINTMUX_ERR_MAP_FAIL     (-2U)
+#define ADI_TFA_PINTMUX_ERR_NOT_MAPPED   (-3U)
+#define ADI_TFA_PINTMUX_ERR_SECURITY     (-4U)
 
 static bool adi_adrv906x_pintmux_smc(unsigned int fid, unsigned int pin_id, bool polarity, unsigned int *irq_num, uintptr_t base_addr)
 {
