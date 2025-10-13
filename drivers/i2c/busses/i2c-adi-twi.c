@@ -109,6 +109,7 @@ static void i2c_adi_twi_handle_interrupt(struct adi_twi_dev *priv,
 					 bool polling)
 {
 	u16 val;
+	unsigned short mstat = ioread16(priv->base + ADI_TWI_MSTRSTAT);
 
 	if (twi_int_status & XMTSERV) {
 		/* Transmit next data */
@@ -147,20 +148,18 @@ static void i2c_adi_twi_handle_interrupt(struct adi_twi_dev *priv,
 		if (!priv->last_msg &&
 		    !priv->msg_buf &&
 		    twi_int_status & MCOMP &&
-		    val & DNAK) {
+		    mstat & DNAK) {
 			priv->result = 1;
 		} else {
-			val = ioread16(priv->base + ADI_TWI_MSTRSTAT);
-
-			if (val & LOSTARB)
+			if (mstat & LOSTARB)
 				dev_dbg(priv->dev, "lost arbitration");
-			if (val & ANAK)
+			if (mstat & ANAK)
 				dev_dbg(priv->dev, "address not acknowledged");
-			if (val & DNAK)
+			if (mstat & DNAK)
 				dev_dbg(priv->dev, "data not acknowledged");
-			if (val & BUFRDERR)
+			if (mstat & BUFRDERR)
 				dev_dbg(priv->dev, "buffer read error");
-			if (val & BUFWRERR)
+			if (mstat & BUFWRERR)
 				dev_dbg(priv->dev, "buffer write error");
 
 			priv->result = -EIO;
