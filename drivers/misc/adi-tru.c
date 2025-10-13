@@ -122,6 +122,7 @@ int adi_tru_trigger(struct adi_tru *tru, int n, ...)
 
 	writel(reg, tru->base + TRU_MTR);
 
+	va_end(ap);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(adi_tru_trigger);
