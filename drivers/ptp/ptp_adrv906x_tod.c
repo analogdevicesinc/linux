@@ -1515,6 +1515,7 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 		adrv906x_tod->tod_counter_src = val;
 	} else {
 		dev_err(dev, "selected default tod not enabled - exiting");
+		ret = -EINVAL;
 		goto err_out_unreg;
 	}
 
