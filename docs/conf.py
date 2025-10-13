@@ -14,6 +14,7 @@ language = 'en'
 
 extensions = [
     'adi_doctools',
+    'sphinx.ext.intersphinx',
 ]
 
 needs_extensions = {
@@ -22,6 +23,13 @@ needs_extensions = {
 
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 source_suffix = '.rst'
+
+# -- External docs configuration ----------------------------------------------
+
+intersphinx_mapping = {
+    'upstream': ('https://docs.kernel.org', None),
+    'b4': ('https://b4.docs.kernel.org/en/latest', None),
+}
 
 # -- Options for HTML output --------------------------------------------------
 
