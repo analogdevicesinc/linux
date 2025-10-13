@@ -522,7 +522,7 @@ static void __adi_dma_process_descriptor(struct adi_dma_descriptor *desc)
 	channel->current_desc = desc;
 	desc->src = dde_desc->start;
 
-	dev_dbg(dma->dev, "dma config: src = 0x%llx, dst = 0x%llx\n", desc->src, desc->dest);
+	dev_dbg(dma->dev, "dma config: src = %pad, dst = %pad\n", &desc->src, &desc->dest);
 	dev_dbg(dma->dev, "  xcount = %d, xmod = %d, cfg = 0x%x\n", dde_desc->xcnt, dde_desc->xmod, dde_desc->cfg);
 
 	if (dde_desc->cfg & DMA2D) {
