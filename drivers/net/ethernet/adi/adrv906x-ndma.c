@@ -2156,7 +2156,7 @@ int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 
 	ndma_pdev = of_platform_device_create(ndma_np, NULL, &pdev->dev);
 	if (!ndma_pdev) {
-		dev_err(dev, "failed to create ndma platform device");
+		dev_err(&pdev->dev, "failed to create ndma platform device");
 		return -ENODEV;
 	}
 	dev = &ndma_pdev->dev;
