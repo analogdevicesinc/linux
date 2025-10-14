@@ -419,7 +419,9 @@ static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
 				       ADF4030_MATH_BUSY_MSK)),
 				       2000, 10000);
 	if (ret) {
-		dev_err(&st->spi->dev, "TDC measurement failed TDC_BUSY\n");
+		dev_err(&st->spi->dev,
+			"TDC measurement channel %d to channel %d failed TDC_BUSY\n",
+			channel, source_channel);
 		return ret;
 	}
 
@@ -492,7 +494,9 @@ static int adf4030_duty_cycle_measure(struct adf4030_state *st, u32 channel,
 				       ADF4030_MATH_BUSY_MSK)),
 				       2000, 10000);
 	if (ret) {
-		dev_err(&st->spi->dev, "TDC measurement failed TDC_BUSY\n");
+		dev_err(&st->spi->dev,
+			"TDC measurement channel %d failed TDC_BUSY\n",
+			channel);
 		return ret;
 	}
 
@@ -597,7 +601,9 @@ static int adf4030_auto_align_single_channel(const struct adf4030_state *st,
 					       regval, !(regval & ADF4030_FSM_BUSY_MSK),
 					       4000, 3000000);
 		if (ret) {
-			dev_err(&st->spi->dev, "Autoalign failed FSM_BUSY\n");
+			dev_err(&st->spi->dev,
+				"Autoalign channel %d to channel %d failed FSM_BUSY\n",
+				channel, source_channel);
 			return ret;
 		}
 		ret = regmap_read(st->regmap, ADF4030_REG(0x90), &regval);
