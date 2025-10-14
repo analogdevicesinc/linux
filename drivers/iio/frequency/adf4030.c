@@ -202,8 +202,8 @@ struct adf4030_state {
 	u32 bsync_autoalign_iter;
 	u32 bsync_autoalign_theshold_fs;
 	u32 bsync_autoalign_ref_chan;
-	u32 bsync_freq_odiv_a;
-	u32 bsync_freq_odiv_b;
+	u64 bsync_freq_odiv_a_uhz;
+	u64 bsync_freq_odiv_b_uhz;
 	u32 avgexp;
 	bool bsync_autoalign_theshold_en;
 	unsigned int num_channels;
@@ -292,8 +292,8 @@ static int adf4030_set_odiva_freq(struct adf4030_state *st, u64 bsync_out_freq_u
 	int ret;
 
 	ret = adf4030_compute_odiv(st->vco_freq, bsync_out_freq_uhz, &odiv);
-	fract = do_div(bsync_out_freq_uhz, MICROHZ_PER_HZ);
 	if (ret) {
+		fract = do_div(bsync_out_freq_uhz, MICROHZ_PER_HZ);
 		dev_err(&st->spi->dev,
 			"Failed to compute ODIVA for Fvco=%u Hz and Fbsync=%llu.%06u uHz\n",
 			st->vco_freq, bsync_out_freq_uhz, fract);
@@ -301,7 +301,7 @@ static int adf4030_set_odiva_freq(struct adf4030_state *st, u64 bsync_out_freq_u
 		return ret;
 	}
 
-	st->bsync_freq_odiv_a = bsync_out_freq_uhz;
+	st->bsync_freq_odiv_a_uhz = bsync_out_freq_uhz;
 
 	ret = regmap_write(st->regmap, ADF4030_REG(0x53), odiv);
 	if (ret)
@@ -373,12 +373,14 @@ static int adf4030_chan_dir_set(const struct adf4030_state *st,
 }
 
 static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
-			       u32 source_channel, u32 source_out_freq_hz,
+			       u32 source_channel, u64 source_out_freq_uhz,
 			       s64 *result)
 {
 	u32 raw_time_diff, m_time, regval;
 	int ret, time_diff;
 	s64 res_in_fs = 0;
+	u64 abs_time_diff;
+	bool is_negative;
 
 	ret = regmap_update_bits(st->regmap, ADF4030_REG(0x11),
 				 ADF4030_TDC_SOURCE_MSK,
@@ -407,7 +409,7 @@ static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
 		return ret;
 
 	m_time = DIV_ROUND_UP_ULL(1000000ULL * (1 << (st->avgexp + 6)),
-				  source_out_freq_hz);
+				  div_u64(source_out_freq_uhz, MICROHZ_PER_HZ));
 
 	fsleep(m_time);
 
@@ -432,8 +434,15 @@ static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
 
 	raw_time_diff = (st->vals[2] << 16) | (st->vals[1] << 8) | st->vals[0];
 	time_diff = sign_extend32(raw_time_diff, 23);
-	res_in_fs = div_s64(time_diff * 1000000000LL, 1 << 24);
-	res_in_fs = div_s64(res_in_fs * 1000000LL, source_out_freq_hz);
+	is_negative = (time_diff < 0);
+	abs_time_diff = (u64)abs(time_diff);
+
+	/* Step 1: (abs_time_diff * 10^12) / 2^24 */
+	res_in_fs = mul_u64_u64_div_u64(abs_time_diff, 1000000000000ULL, 1ULL << 24);
+	/* Step 2: (res_in_fs * 10^9) / freq_uhz */
+	res_in_fs = mul_u64_u64_div_u64(res_in_fs, 1000000000ULL, source_out_freq_uhz);
+	if (is_negative)
+		res_in_fs = -res_in_fs;
 
 	*result = res_in_fs;
 
@@ -441,7 +450,7 @@ static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
 }
 
 static int adf4030_duty_cycle_measure(struct adf4030_state *st, u32 channel,
-				      u32 source_out_freq_hz, u64 *result)
+				      u64 source_out_freq_uhz, u64 *result)
 {
 	u32 raw_time_diff, m_time, regval;
 	int ret;
@@ -473,7 +482,7 @@ static int adf4030_duty_cycle_measure(struct adf4030_state *st, u32 channel,
 		return ret;
 
 	m_time = DIV_ROUND_UP_ULL(1000000ULL * (1 << (st->avgexp + 6)),
-				  source_out_freq_hz);
+				  div_u64(source_out_freq_uhz, MICROHZ_PER_HZ));
 
 	fsleep(m_time);
 
@@ -745,7 +754,7 @@ static ssize_t adf4030_ext_info_read(struct iio_dev *indio_dev,
 	case BSYNC_ALIGN_ITER:
 		return sysfs_emit(buf, "%u\n", st->bsync_autoalign_iter);
 	case BSYNC_DUTY_CYCLE:
-		ret = adf4030_duty_cycle_measure(st, ch->num, st->bsync_freq_odiv_a, &tdc_result);
+		ret = adf4030_duty_cycle_measure(st, ch->num, st->bsync_freq_odiv_a_uhz, &tdc_result);
 		if (ret)
 			return ret;
 
@@ -893,6 +902,7 @@ static int adf4030_read_raw(struct iio_dev *indio_dev,
 	struct adf4030_state *st = iio_priv(indio_dev);
 	struct adf4030_chan_spec *ch;
 	s64 tdc_result;
+	u64 val_u64;
 	int ret;
 
 	ch = &st->channels[chan->address];
@@ -901,11 +911,12 @@ static int adf4030_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
-		*val = ch->odivb_en ? st->bsync_freq_odiv_b : st->bsync_freq_odiv_a;
+		val_u64 = ch->odivb_en ? st->bsync_freq_odiv_b_uhz : st->bsync_freq_odiv_a_uhz;
+		*val = div_u64(val_u64, MICROHZ_PER_HZ);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		ret = adf4030_tdc_measure(st, ch->num, ch->reference_chan,
-					  st->bsync_freq_odiv_a, &tdc_result);
+					  st->bsync_freq_odiv_a_uhz, &tdc_result);
 		if (ret)
 			return ret;
 
@@ -1020,6 +1031,7 @@ static unsigned long adf4030_clk_recalc_rate(struct clk_hw *hw,
 	struct iio_chan_spec *chan;
 	struct adf4030_chan_spec *ch;
 	unsigned int address;
+	u64 val_u64;
 
 	address = clkout->address;
 	if (address >= st->num_channels)
@@ -1027,8 +1039,9 @@ static unsigned long adf4030_clk_recalc_rate(struct clk_hw *hw,
 
 	chan = &st->iio_channels[address];
 	ch = &st->channels[chan->address];
+	val_u64 = ch->odivb_en ? st->bsync_freq_odiv_b_uhz : st->bsync_freq_odiv_a_uhz;
 
-	return ch->odivb_en ? st->bsync_freq_odiv_b : st->bsync_freq_odiv_a;
+	return div_u64(val_u64, MICROHZ_PER_HZ);
 }
 
 static const struct clk_ops adf4030_clk_ops = {
@@ -1136,7 +1149,7 @@ static int adf4030_jesd204_link_supported(struct jesd204_dev *jdev,
 
 	bsync_freq_uHz = (u64)rate * MICROHZ_PER_HZ + (u32) ret;
 
-	if (rate != st->bsync_freq_odiv_a) {
+	if (bsync_freq_uHz != st->bsync_freq_odiv_a_uhz) {
 		ret = adf4030_set_odiva_freq(st, bsync_freq_uHz);
 		if (ret)
 			return ret;
@@ -1308,17 +1321,16 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 	if (ret)
 		return dev_err_probe(&st->spi->dev, ret, "PLL failed to lock\n");
 
-	ret = adf4030_set_odiva_freq(st, (u64)st->bsync_freq_odiv_a * MICROHZ_PER_HZ);
+	ret = adf4030_set_odiva_freq(st, (u64)st->bsync_freq_odiv_a_uhz);
 	if (ret)
 		return ret;
 
-	if (st->bsync_freq_odiv_b) {
-		ret = adf4030_compute_odiv(vco_out_freq_hz,
-					   (u64)st->bsync_freq_odiv_b * MICROHZ_PER_HZ, &odiv);
+	if (st->bsync_freq_odiv_b_uhz) {
+		ret = adf4030_compute_odiv(vco_out_freq_hz, st->bsync_freq_odiv_b_uhz, &odiv);
 		if (ret)
 			return dev_err_probe(&st->spi->dev, ret,
-				"Failed to compute ODIVB for Fvco=%u Hz and Fbsync=%u Hz\n",
-				vco_out_freq_hz, st->bsync_freq_odiv_b);
+				"Failed to compute ODIVB for Fvco=%u Hz and Fbsync=%llu uHz\n",
+				vco_out_freq_hz, st->bsync_freq_odiv_b_uhz);
 
 		ret = regmap_write(st->regmap, ADF4030_REG(0x55), odiv >> 4);
 		if (ret)
@@ -1332,7 +1344,7 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 	}
 
 	/* Set some defaults based datasheets limits */
-	if (st->bsync_freq_odiv_a > 2000000U)
+	if (st->bsync_freq_odiv_a_uhz > 2000000000000ULL)
 		st->avgexp = 15;
 	else
 		st->avgexp = 13;
@@ -1351,6 +1363,7 @@ static int adf4030_parse_fw(struct adf4030_state *st)
 	struct device *dev = &st->spi->dev;
 	unsigned int i, cnt = 0;
 	int ret;
+	u32 val;
 
 	st->spi_3wire_en = device_property_read_bool(dev,
 						     "adi,spi-3wire-enable");
@@ -1361,14 +1374,24 @@ static int adf4030_parse_fw(struct adf4030_state *st)
 		return dev_err_probe(dev, -EINVAL,
 				     "Missing mandatoy adi,vco-frequency-hz property");
 
-	ret = device_property_read_u32(dev, "adi,bsync-frequency-hz",
-				       &st->bsync_freq_odiv_a);
-	if (ret)
-		return dev_err_probe(dev, -EINVAL,
-				     "Missing mandatoy adi,bsync-frequency-hz property");
+	ret = device_property_read_u64(dev, "adi,bsync-frequency-uhz",
+				       &st->bsync_freq_odiv_a_uhz);
+	if (ret) {
+		ret = device_property_read_u32(dev, "adi,bsync-frequency-hz", &val);
+		if (ret)
+			return dev_err_probe(dev, -EINVAL,
+					     "Missing mandatoy adi,bsync-frequency-hz property");
 
-	device_property_read_u32(dev, "adi,bsync-secondary-frequency-hz",
-				 &st->bsync_freq_odiv_b);
+		st->bsync_freq_odiv_a_uhz = (u64) val * MICROHZ_PER_HZ;
+	}
+
+	ret = device_property_read_u64(dev, "adi,bsync-secondary-frequency-uhz",
+				 &st->bsync_freq_odiv_b_uhz);
+	if (ret) {
+		ret = device_property_read_u32(dev, "adi,bsync-secondary-frequency-hz", &val);
+		if (!ret)
+			st->bsync_freq_odiv_b_uhz = (u64) val * MICROHZ_PER_HZ;
+	}
 
 	ret = device_property_read_u32(dev, "adi,bsync-autoalign-reference-channel",
 				       &st->bsync_autoalign_ref_chan);
