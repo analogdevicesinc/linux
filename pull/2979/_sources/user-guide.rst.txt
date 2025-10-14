@@ -159,6 +159,26 @@ When submitting dt-bindings, you must check:
 
 For warnings and erros and resolve accordingly.
 
+.. _b4:
+
+B4
+--
+
+:external+b4:doc:`B4 <index>` is a tool created to make it easier for project
+developers and maintainers to use a distributed development workflow that
+relies on patches and distribution lists for code contributions and review.
+
+Take some time to try it out, and understand how it simplies many tasks.
+B4 tools is not currently leveraged by continuous integration, and you
+must run it locally.
+
+The section that you will most interested in is the
+:external+b4:doc:`contributor/overview`, where the contributor workflow is
+extensively detailed, as well as the tools to ease it, such as
+:external+b4:doc:`b4 prep <contributor/prep>`,
+:external+b4:doc:`b4 send <contributor/send>`, and
+:external+b4:doc:`b4 trailers <contributor/trailers>`.
+
 .. _subsystem:
 
 Subsytems
