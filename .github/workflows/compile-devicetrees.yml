@@ -65,8 +65,9 @@ jobs:
       run: |
         if [[ "${{ inputs.compiler }}" == "gcc" ]]; then
           echo "CXX=gcc-$GCC_VERSION" >> $GITHUB_ENV
+          echo "compiler_version=$GCC_VERSION" >> $GITHUB_ENV
         else
-          echo "::error ::Compiler '${{ inputs.compiler }}' is not supported, valid are 'gcc' or 'llvm'."
+          echo "::error ::Compiler '${{ inputs.compiler }}' is not supported, valid is 'gcc'."
           exit 1
         fi
         echo "ARCHS=${{ inputs.archs }}" >> $GITHUB_ENV
@@ -82,14 +83,22 @@ jobs:
         if [[ -d dist ]]; then
           rm -r dist
         fi
+
+        kversion=$(cat ./include/config/kernel.release)
+
         mkdir -p dist/dtb
         find . -type f -name *.dtb| \
           xargs -I % cp --parents % dist/dtb
 
+        echo "kernel_release=$kversion" > dist/context.txt
+        echo "compiler_name=${{ inputs.compiler }}" >> dist/context.txt
+        echo "compiler_version=${{ env.compiler_version }}" >> dist/context.txt
+        echo "git_sha=${GITHUB_SHA:0:12}" >> dist/context.txt
+
     - name: Store the distribution packages
       uses: actions/upload-artifact@v4
       with:
-        name: dist-dtb-${{ env.CXX }}
+        name: dist-dtb-${{ inputs.compiler }}
         path: dist
 
     - name: Assert
