@@ -3,7 +3,8 @@
 config ADI_SRAM_MMAP
 	bool "Aarch64 MMAP driver for ADI onchip SRAM"
 	depends on SRAM
-	default n
+	depends on ARM64 || COMPILE_TEST
+	default ARCH_ADRV906X
 	help
 	  Enable the mmap driver for ADI on chip SRAM.
 
