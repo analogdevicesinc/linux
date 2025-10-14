@@ -8,12 +8,12 @@
 
     <title>Continuous integration &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=8d0b0339" />
-    <script async="async" src="_static/app.umd.js?v=2f9373fc"></script>
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=85dade36" />
+    <script async="async" src="_static/app.umd.js?v=3a4867e9"></script>
     <link rel="icon" href="_static/icon.svg"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="AD9088 driver" href="iio/apollo.html" />
+    <link rel="prev" title="User guide" href="user-guide.html" />
    
   
   
@@ -41,7 +41,10 @@
     }
   }
 </style>
-  </head><body>
+  </head>
+  
+    <body>
+  
   <input type="checkbox" id="input-show-toc">
   <input type="checkbox" id="input-show-localtoc">
   <input type="checkbox" id="input-show-repotoc">
@@ -154,6 +157,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="iio/apollo.html">AD9088 driver</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="user-guide.html">User guide</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Continuous integration</a></li>
 </ul>
 </body>
@@ -210,7 +214,7 @@ provided (<code class="docutils literal notranslate"><span class="pre">mirror/&l
 </ul>
 <p>When upstreaming a driver, target the pull-request against the mirror.</p>
 <p>All of them are mirrors from the links shown with a single commit on top
-that includes the CI workflows, <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/.github/workflows/mirror.yml" target="_blank">as simple as</a>:</p>
+that includes the CI workflows, <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/.github/workflows/mirror.yml" target="_blank">as simple as</a>:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
@@ -494,7 +498,7 @@ sudo<span class="w"> </span>mount<span class="w"> </span>~/.local/share/containe
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>build<span class="w"> </span>--tag<span class="w"> </span>adi/linux:latest<span class="w"> </span>container
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>build<span class="w"> </span>--tag<span class="w"> </span>adi/linux:v3<span class="w"> </span>container
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>You may want to build the container in a host, where you have all your tools installed,
@@ -503,7 +507,7 @@ In this case, export the image and then import on the server:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>-o<span class="w"> </span>adi-linux.tar<span class="w"> </span>adi/linux:latest
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>-o<span class="w"> </span>adi-linux.tar<span class="w"> </span>adi/linux:v3
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
@@ -522,20 +526,21 @@ In this case, export the image and then import on the server:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>adi/linux:latest<span class="w"> </span><span class="p">|</span><span class="w"> </span>ssh<span class="w"> </span>server<span class="w"> </span><span class="s2">&quot;cat - | podman load&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>adi/linux:v3<span class="w"> </span><span class="p">|</span><span class="w"> </span>ssh<span class="w"> </span>server<span class="w"> </span><span class="s2">&quot;cat - | podman load&quot;</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="interactive-run">
 <span id="id1"></span><h3>Interactive run<a class="headerlink" href="#interactive-run" title="Link to this heading"></a></h3>
-<p>The <a class="icon git reference external" href="https://github.com/analogdevicesinc/doctools/tree/main/ci/scripts/container-run.sh" target="_blank">container-run.sh</a>
-is a suggested container command to interactive login into an image, mounting
-the provided path.</p>
-<p>You can leverage it to compile/runs checks using persistent cache, for example:</p>
+<p>The <a class="icon git reference external" href="https://github.com/analogdevicesinc/doctools/tree/main/ci/scripts/container-run.sh" target="_blank">container-run.sh</a> is a
+suggested container command to interactive login into an image, mounting the
+provided path and preparting the <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/" target="_blank">_ci</a> worktree to leverage the
+same scripts used by the continuous integration.</p>
+<p>You can use it to compile/runs checks using persistent cache, for example:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:latest
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v3
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -579,11 +584,17 @@ AR      init/built-in.a
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">exit</span>
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><p>Or:</p>
+<div class="clear-left"></div></div></div><div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The enviroment variables <code class="docutils literal notranslate"><span class="pre">base_sha</span></code> and <code class="docutils literal notranslate"><span class="pre">head_sha</span></code> define the range of
+commits the steps are run against, adjust it to match your series.
+By default, it is set to <code class="docutils literal notranslate"><span class="pre">&#64;~6..&#64;</span></code>.</p>
+</div>
+<p>Or:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:latest
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v3
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -595,28 +606,139 @@ AR      init/built-in.a
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>check_checkpatch
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>checkpatch on range @~6..@
+Collecting ply
+Downloading ply-3.11-py
+[...]
+Documentation/hwmon/adp1050.rst
+drivers/hwmon/pmbus/adp1050.c
+total: 0 errors, 0 warnings, 0 checks, 179 lines checked
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Significantly speeding up interactive testing.
+Remember to replace <code class="docutils literal notranslate"><span class="pre">container_engine</span></code> variable with your preferred container engine.</p>
+<div><div class="collapsible docutils container">
+<input class="collapsible_input" id="101b59081eebdd047c1683671e006471f5f619ca" name="101b59081eebdd047c1683671e006471f5f619ca" type="checkbox"></input><label for="101b59081eebdd047c1683671e006471f5f619ca"><p>First usage output example.</p>
+<div class="icon"></div></label><div class="collapsible_content docutils container">
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v3
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>Remote &#39;public&#39; matches &#39;analogdevicesinc&#39;, and has branch &#39;ci&#39;.
+Fetch (y/n)? y
+Fetching branch &#39;ci&#39;...
+Fetched CI branch to &#39;_ci&#39;.
+
+To clean-up, use:
+  git worktree remove _ci
+
+Keep it up to date as well with git pull.
+
+Sourced methods from &#39;/mnt/wsl/data/repos/linux-factory/ci/_ci/ci/build.sh&#39;:
+check_checkpatch                compile_many_devicetrees        assert_compiled
+check_dt_binding_check          compile_kernel                  apply_prerun
+check_coccicheck                compile_kernel_sparse           auto_set_kconfig
+check_license                   compile_kernel_smatch           set_arch
+check_assert_defconfigs         compile_gcc_fanalyzer           set_step_warn
+compile_devicetree              compile_clang_analyzer          set_step_fail
+The git commit range was set to:
+$base_sha..$head_sha: @~6..@
+Adjust &#39;$base_sha&#39; and &#39;$head_sha&#39; to your work range.
+Directory: /mnt/wsl/data/repos/linux-factory/main
+Mon Oct 13 09:53:55 UTC 2025
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>set_arch
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>Missing architecture, usage:
+  set_arch &lt;arch&gt;
+Available architectures:
+  llvm_x86 gcc_arm gcc_aarch64 gcc_x86
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>set_arch<span class="w"> </span>gcc_arm
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>ARCH=arm
-CXX=gcc-14
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>CXX=gcc-13
+ARCH=arm
 CROSS_COMPILE=arm-suse-linux-gnueabi-
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>check_checkpatch
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">base_sha</span><span class="o">=</span>@~3
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>checkpatch on range @~6..@
-Collecting ply
-Downloading ply-3.11-py...
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><p>Significantly speeding up interactive testing.
-Remember to replace <code class="docutils literal notranslate"><span class="pre">container_engine</span></code> variable with your preferred container engine.</p>
-</section>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>auto_set_kconfig
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>auto_set_kconfig on range @~3..@
+Symbols of touched files:
+{&#39;SENSORS_ADP1050&#39;, &#39;AD9081&#39;}
+Resolved symbols:
+{&#39;HWMON&#39;, &#39;I2C&#39;, &#39;SPI&#39;, &#39;AD9081&#39;, &#39;PMBUS&#39;, &#39;HAS_IOMEM&#39;, &#39;IIO&#39;, &#39;SENSORS_ADP1050&#39;}
+#
+# configuration written to .config
+#
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>compile_kernel
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>kernel
+SYNC include/config/auto.conf
+UPD include/generated/compile.h
+CALL scripts/checksyscalls.sh
+CC init/version.o
+AR init/built-in.a
+UPD kernel/config_data
+GZIP kernel/config_data.gz
+CC [M] kernel/configs.o
+CC [M] drivers/hwmon/pmbus/pmbus_core.o
+[..]
+OBJCOPY arch/arm/boot/zImage
+Kernel: arch/arm/boot/zImage is ready
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>assert_compiled
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>assert_compiled were compiled on range @~3..@
+drivers/hwmon/pmbus/adp1050.c
+drivers/iio/adc/ad9081.c
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></div>
+</div>
+</div></section>
 <section id="self-hosted-runner">
 <span id="podman-run"></span><h3>Self-hosted runner<a class="headerlink" href="#self-hosted-runner" title="Link to this heading"></a></h3>
 <p>To host your <a class="icon link reference external" href="https://github.com/actions/runner" target="_blank">GitHub Actions Runner</a>,
@@ -655,11 +777,11 @@ is ignored and a new one is requested.</p>
 <span class="w">    </span>--secret<span class="w"> </span>public_linux_org_repository,type<span class="o">=</span>env,target<span class="o">=</span>org_repository<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--secret<span class="w"> </span>public_linux_runner_token,type<span class="o">=</span>env,target<span class="o">=</span>runner_token<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>v1,big_cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>adi/linux:latest
+<span class="w">    </span>adi/linux:v3
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><div><div class="collapsible docutils container">
-<input class="collapsible_input" id="07aa9594775da74d7723cf4a88e88f1aae6fb315" name="07aa9594775da74d7723cf4a88e88f1aae6fb315" type="checkbox"></input><label for="07aa9594775da74d7723cf4a88e88f1aae6fb315"><p>Docker alternative</p>
+<input class="collapsible_input" id="2bba38a7921a981a89c149e1ff2b07e024ea70e7" name="2bba38a7921a981a89c149e1ff2b07e024ea70e7" type="checkbox"></input><label for="2bba38a7921a981a89c149e1ff2b07e024ea70e7"><p>Docker alternative</p>
 <div class="icon"></div></label><div class="collapsible_content docutils container">
 <p><code class="docutils literal notranslate"><span class="pre">docker</span></code> does <strong>not</strong> have a built-in keyring, instead you pass directly
 to <code class="docutils literal notranslate"><span class="pre">run</span></code> command. <span class="red">Consider hardening strategies to mitigate risks</span>,
@@ -671,7 +793,7 @@ like using another keyring as below.</p>
 <span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_org_repository</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_org_repository.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_runner_token</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_runner_token.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>v1,big_cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>localhost/adi/linux:latest
+<span class="w">    </span>localhost/adi/linux:v3
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></div>
@@ -711,7 +833,7 @@ systemd services, instead of for example, container compose solutions.</p>
 <span class="w">          </span><span class="s">--memory-swap=20g </span>\
 <span class="w">          </span><span class="s">--memory=16g </span>\
 <span class="w">          </span><span class="s">--cpus=4 </span>\
-<span class="w">          </span><span class="s">-d adi/linux:latest top</span>
+<span class="w">          </span><span class="s">-d adi/linux:v3 top</span>
 <span class="na">ExecStop</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/podman stop -t 300 $(cat %t/%n-cid) &amp;&amp; /bin/podman rm $(cat %t/%n-cid)&quot;</span>
 <span class="na">ExecStopPost</span><span class="o">=</span><span class="s">/bin/rm %t/%n-pid %t/%n-cid</span>
 <span class="na">TimeoutStopSec</span><span class="o">=</span><span class="s">600</span>
@@ -723,7 +845,7 @@ systemd services, instead of for example, container compose solutions.</p>
 </pre></div>
 </div>
 <div><div class="collapsible docutils container">
-<input class="collapsible_input" id="4ac201ba0318f67630657e611985169ac2c7c286" name="4ac201ba0318f67630657e611985169ac2c7c286" type="checkbox"></input><label for="4ac201ba0318f67630657e611985169ac2c7c286"><p>Docker alternative</p>
+<input class="collapsible_input" id="d3ea954a2c556a9e4733b074d41448cf46480782" name="d3ea954a2c556a9e4733b074d41448cf46480782" type="checkbox"></input><label for="d3ea954a2c556a9e4733b074d41448cf46480782"><p>Docker alternative</p>
 <div class="icon"></div></label><div class="collapsible_content docutils container">
 <div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
 <span class="na">Description</span><span class="o">=</span><span class="s">container public linux ci %i</span>
@@ -744,7 +866,7 @@ systemd services, instead of for example, container compose solutions.</p>
 <span class="w">          </span><span class="s">--memory=16g </span>\
 <span class="w">          </span><span class="s">--cpus=4 </span>\
 <span class="w">          </span><span class="s">--log-driver=journald </span>\
-<span class="w">          </span><span class="s">-d localhost/adi/linux:latest top&quot;</span>
+<span class="w">          </span><span class="s">-d localhost/adi/linux:v3 top&quot;</span>
 <span class="na">RemainAfterExit</span><span class="o">=</span><span class="s">yes</span>
 <span class="na">ExecStop</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/docker stop -t 300 $(cat %t/%n-cid) &amp;&amp; /bin/docker rm $(cat %t/%n-cid)&quot;</span>
 <span class="na">ExecStopPost</span><span class="o">=</span><span class="s">/bin/rm %t/%n-cid</span>
@@ -813,7 +935,7 @@ systemctl<span class="w"> </span>--user<span class="w"> </span>start<span class=
           </div>
               <div class="related">
                 &nbsp;
-    <a href="iio/apollo.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD9088 driver</a>
+    <a href="user-guide.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">User guide</a>
     <div></div>
               </div>
           

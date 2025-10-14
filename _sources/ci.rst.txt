@@ -43,7 +43,7 @@ provided (``mirror/<remote-name>/<branch>``):
 When upstreaming a driver, target the pull-request against the mirror.
 
 All of them are mirrors from the links shown with a single commit on top
-that includes the CI workflows, :git-linux:`as simple as <.github/workflows/mirror.yml>`:
+that includes the CI workflows, :git-linux:`as simple as <ci:.github/workflows/mirror.yml>`:
 
 .. shell::
 
@@ -289,7 +289,7 @@ To build the container image, use your favorite container engine from the
     * ci
       main
    $alias container=podman # or docker, ...
-   $container build --tag adi/linux:latest container
+   $container build --tag adi/linux:v3 container
 
 You may want to build the container in a host, where you have all your tools installed,
 and then deploy to a server.
@@ -301,7 +301,7 @@ In this case, export the image and then import on the server:
    :group: host
 
    ~/linux
-   $container save -o adi-linux.tar adi/linux:latest
+   $container save -o adi-linux.tar adi/linux:v3
    $scp adi-linux.tar server:/tmp/
 
 .. shell::
@@ -320,23 +320,24 @@ Or if you are feeling adventurous:
    :group: host
 
    ~/linux
-   $container save adi/linux:latest | ssh server "cat - | podman load"
+   $container save adi/linux:v3 | ssh server "cat - | podman load"
 
 .. _interactive-run:
 
 Interactive run
 ~~~~~~~~~~~~~~~
 
-The :git-doctools:`container-run.sh <ci/scripts/container-run.sh>`
-is a suggested container command to interactive login into an image, mounting
-the provided path.
+The :git-doctools:`container-run.sh <ci/scripts/container-run.sh>` is a
+suggested container command to interactive login into an image, mounting the
+provided path and preparting the :git-linux:`_ci <ci:>` worktree to leverage the
+same scripts used by the continuous integration.
 
-You can leverage it to compile/runs checks using persistent cache, for example:
+You can use it to compile/runs checks using persistent cache, for example:
 
 .. shell::
 
    ~/linux
-   $cr adi/linux:latest
+   $cr adi/linux:v3
    $set_arch gcc_aarch64
     ARCH=arm64
     CXX=gcc-14
@@ -353,24 +354,97 @@ You can leverage it to compile/runs checks using persistent cache, for example:
     [ ... ]
    $exit
 
+.. tip::
+
+   The enviroment variables ``base_sha`` and ``head_sha`` define the range of
+   commits the steps are run against, adjust it to match your series.
+   By default, it is set to ``@~6..@``.
+
 Or:
 
 .. shell::
 
    ~/linux
-   $cr adi/linux:latest
+   $cr adi/linux:v3
    $base_sha=@~2
-   $set_arch gcc_arm
-    ARCH=arm
-    CXX=gcc-14
-    CROSS_COMPILE=arm-suse-linux-gnueabi-
    $check_checkpatch
     checkpatch on range @~6..@
     Collecting ply
-    Downloading ply-3.11-py...
+    Downloading ply-3.11-py
+    [...]
+    Documentation/hwmon/adp1050.rst
+    drivers/hwmon/pmbus/adp1050.c
+    total: 0 errors, 0 warnings, 0 checks, 179 lines checked
 
 Significantly speeding up interactive testing.
 Remember to replace ``container_engine`` variable with your preferred container engine.
+
+.. collapsible:: First usage output example.
+
+   .. shell::
+
+      ~/linux
+      $cr adi/linux:v3
+       Remote 'public' matches 'analogdevicesinc', and has branch 'ci'.
+       Fetch (y/n)? y
+       Fetching branch 'ci'...
+       Fetched CI branch to '_ci'.
+
+       To clean-up, use:
+         git worktree remove _ci
+
+       Keep it up to date as well with git pull.
+
+       Sourced methods from '/mnt/wsl/data/repos/linux-factory/ci/_ci/ci/build.sh':
+       check_checkpatch                compile_many_devicetrees        assert_compiled
+       check_dt_binding_check          compile_kernel                  apply_prerun
+       check_coccicheck                compile_kernel_sparse           auto_set_kconfig
+       check_license                   compile_kernel_smatch           set_arch
+       check_assert_defconfigs         compile_gcc_fanalyzer           set_step_warn
+       compile_devicetree              compile_clang_analyzer          set_step_fail
+       The git commit range was set to:
+       $base_sha..$head_sha: @~6..@
+       Adjust '$base_sha' and '$head_sha' to your work range.
+       Directory: /mnt/wsl/data/repos/linux-factory/main
+       Mon Oct 13 09:53:55 UTC 2025
+      $set_arch
+       Missing architecture, usage:
+         set_arch <arch>
+       Available architectures:
+         llvm_x86 gcc_arm gcc_aarch64 gcc_x86
+      $set_arch gcc_arm
+       CXX=gcc-13
+       ARCH=arm
+       CROSS_COMPILE=arm-suse-linux-gnueabi-
+      $base_sha=@~3
+      $auto_set_kconfig
+       auto_set_kconfig on range @~3..@
+       Symbols of touched files:
+       {'SENSORS_ADP1050', 'AD9081'}
+       Resolved symbols:
+       {'HWMON', 'I2C', 'SPI', 'AD9081', 'PMBUS', 'HAS_IOMEM', 'IIO', 'SENSORS_ADP1050'}
+       #
+       # configuration written to .config
+       #
+      $compile_kernel
+       kernel
+       SYNC include/config/auto.conf
+       UPD include/generated/compile.h
+       CALL scripts/checksyscalls.sh
+       CC init/version.o
+       AR init/built-in.a
+       UPD kernel/config_data
+       GZIP kernel/config_data.gz
+       CC [M] kernel/configs.o
+       CC [M] drivers/hwmon/pmbus/pmbus_core.o
+       [..]
+       OBJCOPY arch/arm/boot/zImage
+       Kernel: arch/arm/boot/zImage is ready
+      $assert_compiled
+       assert_compiled were compiled on range @~3..@
+       drivers/hwmon/pmbus/adp1050.c
+       drivers/iio/adc/ad9081.c
+      $
 
 .. _podman-run:
 
@@ -399,7 +473,7 @@ is ignored and a new one is requested.
    $    --secret public_linux_org_repository,type=env,target=org_repository \
    $    --secret public_linux_runner_token,type=env,target=runner_token \
    $    --env runner_labels=v1,big_cpu \
-   $    adi/linux:latest
+   $    adi/linux:v3
 
 .. collapsible:: Docker alternative
 
@@ -414,7 +488,7 @@ is ignored and a new one is requested.
       $    --env public_linux_org_repository=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_org_repository.gpg) \
       $    --env public_linux_runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_runner_token.gpg) \
       $    --env runner_labels=v1,big_cpu \
-      $    localhost/adi/linux:latest
+      $    localhost/adi/linux:v3
 
 The environment variable runner_labels (comma-separated), set the runner labels.
 If not provided on the Containerfile as ``ENV runner_labels=<labels,>`` or as argument
@@ -458,7 +532,7 @@ Below is a suggested systemd service at *~/.config/systemd/user/container-public
              --memory-swap=20g \
              --memory=16g \
              --cpus=4 \
-             -d adi/linux:latest top
+             -d adi/linux:v3 top
    ExecStop=/bin/sh -c "/bin/podman stop -t 300 $(cat %t/%n-cid) && /bin/podman rm $(cat %t/%n-cid)"
    ExecStopPost=/bin/rm %t/%n-pid %t/%n-cid
    TimeoutStopSec=600
@@ -491,7 +565,7 @@ Below is a suggested systemd service at *~/.config/systemd/user/container-public
                 --memory=16g \
                 --cpus=4 \
                 --log-driver=journald \
-                -d localhost/adi/linux:latest top"
+                -d localhost/adi/linux:v3 top"
       RemainAfterExit=yes
       ExecStop=/bin/sh -c "/bin/docker stop -t 300 $(cat %t/%n-cid) && /bin/docker rm $(cat %t/%n-cid)"
       ExecStopPost=/bin/rm %t/%n-cid
