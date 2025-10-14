@@ -15,6 +15,9 @@
 #include <linux/spinlock.h>
 #include <linux/bitfield.h>
 #include <net/rtnetlink.h>
+#include <linux/slab.h>
+#include <linux/jhash.h>
+#include <linux/jiffies.h>
 #include "adrv906x-ndma.h"
 
 #define NDMA_TX_STAT_AND_CTRL                      0x000
@@ -1143,12 +1146,81 @@ static void adrv906x_ndma_config_loopback(struct adrv906x_ndma_dev *ndma_dev, bo
 	iowrite32(val, rx_chan->ctrl_base + NDMA_RX_STAT_AND_CTRL);
 }
 
-void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_fn,
-			ndma_callback rx_cb_fn, void *cb_param, bool loopback_mode)
+static u32 adrv906x_ndma_mac_hash(const u8 *mac)
+{
+	return jhash(mac, ETH_ALEN, 0);
+}
+
+static int adrv906x_ndma_add_mac(struct adrv906x_ndma_dev *ndma_dev, const u8 *mac)
+{
+	struct adrv906x_ndma_mac_entry *entry;
+
+	if (!is_valid_ether_addr(mac))
+		return -EADDRNOTAVAIL;
+
+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	memcpy(entry->mac, mac, ETH_ALEN);
+	hash_add_rcu(ndma_dev->mac_table, &entry->hnode, adrv906x_ndma_mac_hash(mac));
+	ndma_dev->mac_count++;
+	return 0;
+}
+
+static int adrv906x_ndma_remove_mac(struct adrv906x_ndma_dev *ndma_dev, const u8 *mac)
+{
+	struct adrv906x_ndma_mac_entry *entry;
+	u32 key = adrv906x_ndma_mac_hash(mac);
+
+	hash_for_each_possible_rcu(ndma_dev->mac_table, entry, hnode, key) {
+		if (ether_addr_equal(entry->mac, mac)) {
+			hash_del_rcu(&entry->hnode);
+			kfree_rcu(entry, rcu);
+			ndma_dev->mac_count--;
+			return 0;
+		}
+	}
+	return -ENOENT;
+}
+
+static bool adrv906x_ndma_mac_exists_in_table(struct adrv906x_ndma_dev *ndma_dev, const u8 *mac)
+{
+	struct adrv906x_ndma_mac_entry *entry;
+	u32 key = adrv906x_ndma_mac_hash(mac);
+	bool found = false;
+
+	rcu_read_lock();
+	hash_for_each_possible_rcu(ndma_dev->mac_table, entry, hnode, key) {
+		if (ether_addr_equal(entry->mac, mac)) {
+			found = true;
+			break;
+		}
+	}
+	rcu_read_unlock();
+	return found;
+}
+
+static void adrv906x_ndma_clear_mac_table(struct adrv906x_ndma_dev *ndma_dev)
+{
+	struct adrv906x_ndma_mac_entry *entry;
+	struct hlist_node *tmp;
+	int bkt;
+
+	hash_for_each_safe(ndma_dev->mac_table, bkt, tmp, entry, hnode) {
+		hash_del(&entry->hnode);
+		kfree_rcu(entry, rcu);
+	}
+}
+
+void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_pkt_callback tx_cb_fn,
+			ndma_pkt_callback rx_cb_fn, void *cb_param, ndma_flood_callback flood_cb_fn,
+			bool loopback_mode)
 {
 	struct adrv906x_ndma_chan *rx_chan = &ndma_dev->rx_chan;
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
 	unsigned long flags0, flags1;
+	struct net_device *ndev;
 
 	spin_lock_irqsave(&ndma_dev->lock, flags0);
 	if (!ndma_dev->enabled) {
@@ -1204,10 +1276,18 @@ void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_
 					  NDMA_TX_STATUS_DMA_ERR_IRQ |
 					  NDMA_TX_STATUS_DMA_DONE_IRQ);
 
+		ndma_dev->flood_cb_fn = flood_cb_fn;
 		ndma_dev->enabled = true;
 		kref_init(&ndma_dev->refcount);
 	} else {
 		kref_get(&ndma_dev->refcount);
+	}
+
+	if (!loopback_mode) {
+		ndev = (struct net_device *)cb_param;
+		ndma_dev->ndev = ndev;
+		/* Add the net device MAC address to the MAC filter list */
+		adrv906x_ndma_add_mac(ndma_dev, ndev->dev_addr);
 	}
 
 	mod_delayed_work(system_long_wq, &ndma_dev->update_stats, msecs_to_jiffies(1000));
@@ -1288,9 +1368,17 @@ static void adrv906x_ndma_stop(struct kref *ref)
 	ndma_dev->enabled = false;
 }
 
-void adrv906x_ndma_close(struct adrv906x_ndma_dev *ndma_dev)
+void adrv906x_ndma_close(struct adrv906x_ndma_dev *ndma_dev, struct net_device *ndev)
 {
+	unsigned long flags;
+
 	kref_put(&ndma_dev->refcount, adrv906x_ndma_stop);
+
+	if (!ndma_dev->loopback_en) {
+		spin_lock_irqsave(&ndma_dev->lock, flags);
+		adrv906x_ndma_remove_mac(ndma_dev, ndev->dev_addr);
+		spin_unlock_irqrestore(&ndma_dev->lock, flags);
+	}
 }
 
 static int adrv906x_ndma_parse_rx_status_header(struct adrv906x_ndma_chan *ndma_ch,
@@ -1410,6 +1498,34 @@ out:
 	return skb;
 }
 
+static bool adrv906x_ndma_mac_filter_match(struct adrv906x_ndma_dev *ndma_dev,
+					   int port_id)
+{
+	struct adrv906x_ndma_chan *ndma_ch = &ndma_dev->rx_chan;
+	struct sk_buff *skb;
+	struct ethhdr *eth;
+	u64 mac;
+
+	if (!ndma_dev->flood_mitigate_en)
+		return true;
+
+	skb = list_first_entry(&ndma_ch->rx_data_wu_list, struct sk_buff, list);
+	eth = (struct ethhdr *)(skb->data + NDMA_RX_HDR_DATA_SIZE);
+
+	if (!adrv906x_ndma_mac_exists_in_table(ndma_dev, eth->h_dest) &&
+	    !is_multicast_ether_addr(eth->h_dest)) {
+		mac = ether_addr_to_u64(eth->h_dest);
+
+		if (ndma_dev->flood_cb_fn)
+			ndma_dev->flood_cb_fn(ndma_dev->ndev, mac, port_id);
+
+		ndma_ch->stats.rx.flooded_frame_count++;
+
+		return false;
+	}
+	return true;
+}
+
 static void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_ch,
 					       struct sk_buff *skb, int budget)
 {
@@ -1430,13 +1546,16 @@ static void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_c
 		} else {
 			ret = adrv906x_ndma_parse_rx_status_header(ndma_ch, skb->data, &ts,
 								   &port_id, &frame_size);
+
 			if (ret == NDMA_NO_ERROR || ret == NDMA_RX_SEQNUM_MISMATCH_ERROR ||
 			    unlikely(ndma_dev->loopback_en)) {
-				pktbuf = adrv906x_ndma_rx_build_linear_pkt_buf(&ndma_ch->rx_data_wu_list,
-									       frame_size);
-				if (pktbuf)
-					ndma_ch->status_cb_fn(pktbuf, port_id, ts,
-							      ndma_ch->status_cb_param);
+				if (adrv906x_ndma_mac_filter_match(ndma_dev, port_id)) {
+					pktbuf = adrv906x_ndma_rx_build_linear_pkt_buf(&ndma_ch->rx_data_wu_list,
+										       frame_size);
+					if (pktbuf)
+						ndma_ch->status_cb_fn(pktbuf, port_id, ts,
+								      ndma_ch->status_cb_param);
+				}
 			}
 		}
 		adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list, budget);
@@ -1793,8 +1912,96 @@ static int adrv906x_ndma_rx_data_and_status_poll(struct napi_struct *napi, int b
 	return count;
 }
 
+static ssize_t adrv906x_ndma_flood_mitigate_show(struct device *dev,
+						 struct device_attribute *attr, char *buf)
+{
+	struct adrv906x_ndma_dev *ndma =
+		container_of(attr, struct adrv906x_ndma_dev, attr_flood_mitigate);
+
+	return sprintf(buf, "%d\n", ndma->flood_mitigate_en);
+}
+
+static ssize_t adrv906x_ndma_flood_mitigate_store(struct device *dev,
+						  struct device_attribute *attr,
+						  const char *buf, size_t count)
+{
+	struct adrv906x_ndma_dev *ndma =
+		container_of(attr, struct adrv906x_ndma_dev, attr_flood_mitigate);
+	int val;
+	int ret;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret)
+		return -EINVAL;
+
+	ndma->flood_mitigate_en = !!val;
+	return count;
+}
+
+static ssize_t adrv906x_ndma_mac_add_store(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t count)
+{
+	struct adrv906x_ndma_dev *ndma =
+		container_of(attr, struct adrv906x_ndma_dev, attr_mac_add);
+	u8 mac[ETH_ALEN];
+	int ret;
+
+	if (!mac_pton(buf, mac))
+		return -EINVAL;
+
+	if (adrv906x_ndma_mac_exists_in_table(ndma, mac))
+		return -EEXIST;
+
+	spin_lock(&ndma->lock);
+	if (ndma->mac_count >= NDMA_MAX_MACS)
+		ret = -ENOMEM;
+	else
+		ret = adrv906x_ndma_add_mac(ndma, mac);
+	spin_unlock(&ndma->lock);
+
+	return ret ? ret : count;
+}
+
+static ssize_t adrv906x_ndma_mac_remove_store(struct device *dev,
+					      struct device_attribute *attr,
+					      const char *buf, size_t count)
+{
+	struct adrv906x_ndma_dev *ndma =
+		container_of(attr, struct adrv906x_ndma_dev, attr_mac_remove);
+	u8 mac[ETH_ALEN];
+	int ret;
+
+	if (!mac_pton(buf, mac))
+		return -EINVAL;
+
+	spin_lock(&ndma->lock);
+	ret = adrv906x_ndma_remove_mac(ndma, mac);
+	spin_unlock(&ndma->lock);
+
+	return ret ? ret : count;
+}
+
+static ssize_t adrv906x_ndma_mac_list_show(struct device *dev,
+					   struct device_attribute *attr, char *buf)
+{
+	struct adrv906x_ndma_dev *ndma =
+		container_of(attr, struct adrv906x_ndma_dev, attr_mac_list);
+	struct adrv906x_ndma_mac_entry *entry;
+	int bkt, len = 0;
+
+	rcu_read_lock();
+	hash_for_each_rcu(ndma->mac_table, bkt, entry, hnode) {
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%pM\n", entry->mac);
+	}
+	rcu_read_unlock();
+
+	return len;
+}
+
 int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
-			struct device_node *ndma_np, struct adrv906x_ndma_dev *ndma_dev)
+			struct device_node *ndma_np, struct adrv906x_ndma_dev *ndma_dev,
+			bool flood_mitigate_supported)
 {
 	struct adrv906x_ndma_chan *rx_chan = &ndma_dev->rx_chan;
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
@@ -1809,7 +2016,9 @@ int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 	}
 	dev = &ndma_pdev->dev;
 	ndma_dev->dev = dev;
+	ndma_dev->flood_mitigate_supported = flood_mitigate_supported;
 
+	hash_init(ndma_dev->mac_table);
 	if (of_property_read_u32(ndma_np, "id", &ndma_dev->dev_num)) {
 		dev_err(dev, "failed to retrieve ndma device id from device tree");
 		return -EINVAL;
@@ -1836,11 +2045,52 @@ int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 	netif_napi_add_weight(ndev, &tx_chan->napi,
 			      adrv906x_ndma_tx_status_poll, NDMA_TX_NAPI_POLL_WEIGHT);
 
+	if (flood_mitigate_supported) {
+		ndma_dev->attr_flood_mitigate.attr.name = "flood_mitigate";
+		ndma_dev->attr_flood_mitigate.attr.mode = 0664;
+		ndma_dev->attr_flood_mitigate.show = adrv906x_ndma_flood_mitigate_show;
+		ndma_dev->attr_flood_mitigate.store = adrv906x_ndma_flood_mitigate_store;
+
+		ndma_dev->attr_mac_add.attr.name = "mac_add";
+		ndma_dev->attr_mac_add.attr.mode = 0200;
+		ndma_dev->attr_mac_add.show = NULL;
+		ndma_dev->attr_mac_add.store = adrv906x_ndma_mac_add_store;
+
+		ndma_dev->attr_mac_remove.attr.name = "mac_remove";
+		ndma_dev->attr_mac_remove.attr.mode = 0200;
+		ndma_dev->attr_mac_remove.show = NULL;
+		ndma_dev->attr_mac_remove.store = adrv906x_ndma_mac_remove_store;
+
+		ndma_dev->attr_mac_list.attr.name = "mac_list";
+		ndma_dev->attr_mac_list.attr.mode = 0444;
+		ndma_dev->attr_mac_list.show = adrv906x_ndma_mac_list_show;
+		ndma_dev->attr_mac_list.store = NULL;
+
+		ndma_dev->attrs[0] = &ndma_dev->attr_flood_mitigate.attr;
+		ndma_dev->attrs[1] = &ndma_dev->attr_mac_add.attr;
+		ndma_dev->attrs[2] = &ndma_dev->attr_mac_remove.attr;
+		ndma_dev->attrs[3] = &ndma_dev->attr_mac_list.attr;
+		ndma_dev->attrs[4] = NULL;
+
+		ndma_dev->attr_group.attrs = ndma_dev->attrs;
+
+		ret = sysfs_create_group(&ndma_dev->dev->kobj, &ndma_dev->attr_group);
+		if (ret) {
+			dev_err(ndma_dev->dev, "Failed to create sysfs group\n");
+			return ret;
+		}
+	}
+
 	return 0;
 }
 
 void adrv906x_ndma_remove(struct adrv906x_ndma_dev *ndma_dev)
 {
+	adrv906x_ndma_clear_mac_table(ndma_dev);
+
+	if (ndma_dev->flood_mitigate_supported)
+		sysfs_remove_group(&ndma_dev->dev->kobj, &ndma_dev->attr_group);
+
 	adrv906x_ndma_chan_disable(&ndma_dev->tx_chan);
 	adrv906x_ndma_chan_disable(&ndma_dev->rx_chan);
 	of_platform_device_destroy(ndma_dev->dev, NULL);

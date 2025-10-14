@@ -264,7 +264,8 @@ static void adrv906x_switch_ipv_mapping_set(struct adrv906x_eth_switch *es, u32 
 		iowrite32(pcpmap, es->switch_port[portid].reg + SWITCH_PORT_PCP2IPV);
 }
 
-static int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, int portid)
+int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, int portid,
+				  bool is_static)
 {
 	u32 val, mac_addr_hi, mac_addr_lo;
 	int ret;
@@ -284,7 +285,7 @@ static int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac
 	iowrite32(BIT(portid), es->reg_match_action + SWITCH_MAS_PORT_MASK1);
 	iowrite32(mac_addr_hi, es->reg_match_action + SWITCH_MAS_FDB_MAC_INSERT_1);
 	val = FIELD_PREP(SWITCH_INSERT_MAC_ADDR_LOW_MASK, mac_addr_lo) |
-	      SWITCH_INSERT_VALID | SWITCH_INSERT_STATIC;
+	      (is_static ? SWITCH_INSERT_STATIC : 0) | SWITCH_INSERT_VALID;
 	iowrite32(val, es->reg_match_action + SWITCH_MAS_FDB_MAC_INSERT_2);
 	val = FIELD_PREP(SWITCH_MAS_OP_CTRL_OPCODE_MASK, SWITCH_MAS_OP_CTRL_MAC_INSERT) |
 	      SWITCH_MAS_OP_CTRL_TRIGGER;
@@ -303,14 +304,14 @@ static int adrv906x_switch_packet_trapping_set(struct adrv906x_eth_switch *es)
 	iowrite32(val, es->switch_port[0].reg + SWITCH_PORT_TRAP_PTP);
 	iowrite32(val, es->switch_port[1].reg + SWITCH_PORT_TRAP_PTP);
 
-	ret = adrv906x_switch_add_fdb_entry(es, EAPOL_MAC_ADDR, SWITCH_CPU_PORT);
+	ret = adrv906x_switch_add_fdb_entry(es, EAPOL_MAC_ADDR, SWITCH_CPU_PORT, true);
 	if (ret)
 		return ret;
-	ret = adrv906x_switch_add_fdb_entry(es, ESMC_MAC_ADDR, SWITCH_CPU_PORT);
+	ret = adrv906x_switch_add_fdb_entry(es, ESMC_MAC_ADDR, SWITCH_CPU_PORT, true);
 	if (ret)
 		return ret;
 	if (es->trap_ptp_fwd_en) {
-		ret = adrv906x_switch_add_fdb_entry(es, PTP_FWD_ADDR, SWITCH_CPU_PORT);
+		ret = adrv906x_switch_add_fdb_entry(es, PTP_FWD_ADDR, SWITCH_CPU_PORT, true);
 		if (ret)
 			return ret;
 	}

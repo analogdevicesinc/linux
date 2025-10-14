@@ -300,6 +300,16 @@ static void adrv906x_eth_rx_callback(struct sk_buff *skb, unsigned int port_id,
 	netif_receive_skb(skb);
 }
 
+static void adrv906x_eth_flood_callback(struct net_device *ndev,
+					u64 mac_addr, int portid)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
+
+	adrv906x_switch_add_fdb_entry(es, mac_addr, (portid + 1) % MAX_NETDEV_NUM, false);
+}
+
 static void adrv906x_eth_multicast_list(struct net_device *ndev)
 {
 	struct adrv906x_mac *mac;
@@ -584,7 +594,7 @@ static int adrv906x_eth_open(struct net_device *ndev)
 	phy_start(ndev->phydev);
 
 	adrv906x_ndma_open(ndma_dev, adrv906x_eth_tx_callback, adrv906x_eth_rx_callback, ndev,
-			   false);
+			   adrv906x_eth_flood_callback, false);
 
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (adrv906x_dev->macsec)
@@ -603,7 +613,7 @@ static int adrv906x_eth_stop(struct net_device *ndev)
 	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
 
 	netif_stop_queue(ndev);
-	adrv906x_ndma_close(ndma_dev);
+	adrv906x_ndma_close(ndma_dev, ndev);
 	if (ndev->phydev)
 		phy_stop(ndev->phydev);
 	return 0;
@@ -700,12 +710,26 @@ static int adrv906x_vlan_rx_kill_vid(struct net_device *ndev, __be16 proto, u16 
 	return 0;
 }
 
+static int adrv906x_eth_set_mac_addr(struct net_device *ndev, void *p)
+{
+	int ret;
+
+	if (netif_running(ndev))
+		return -EBUSY;
+
+	ret = eth_mac_addr(ndev, p);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static const struct net_device_ops adrv906x_eth_ops = {
 	.ndo_open		= adrv906x_eth_open,
 	.ndo_stop		= adrv906x_eth_stop,
 	.ndo_start_xmit		= adrv906x_eth_start_xmit,
 	.ndo_set_rx_mode	= adrv906x_eth_multicast_list,
-	.ndo_set_mac_address	= eth_mac_addr,
+	.ndo_set_mac_address	= adrv906x_eth_set_mac_addr,
 	.ndo_change_mtu		= adrv906x_eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_get_stats64	= adrv906x_eth_get_stats64,
@@ -895,6 +919,12 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	else
 		dev_warn(dev, "dt: eth_recov_clk_np node missing - skipping");
 
+	ret = adrv906x_switch_probe(&eth_if->ethswitch, pdev,
+				    &adrv906x_eth_switch_reset_soft_pre,
+				    &adrv906x_eth_switch_reset_soft_post, eth_if);
+	if (ret)
+		dev_warn(dev, "failed to probe switch - falling back to non-switch mode");
+
 	for (i = 0; i < MAX_NETDEV_NUM; i++) {
 		/* Get port@i of node ethernet-ports */
 		port_np = adrv906x_get_eth_child_node(eth_ports_np, i);
@@ -920,10 +950,14 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 		ndev->mtu = ETH_DATA_LEN;
 		/* Headroom required for ndma headers for tx packets */
 		ndev->needed_headroom += NDMA_TX_HDR_SOF_SIZE;
+
 		// Set promiscuous mode by default
 		rtnl_lock();
 		dev_change_flags(ndev, ndev->flags | IFF_PROMISC, NULL);
 		rtnl_unlock();
+
+		if (eth_if->ethswitch.enabled)
+			ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 
 		ret = device_create_file(&adrv906x_dev->ndev->dev,
 					 &dev_attr_recovered_clock_output);
@@ -994,7 +1028,7 @@ no_macsec:
 				return -ENOMEM;
 
 			ret = adrv906x_ndma_probe(pdev, ndev, ndma_np,
-						  ndma_devs[ndma_num]);
+						  ndma_devs[ndma_num], eth_if->ethswitch.enabled);
 			if (ret) {
 				dev_err(dev, "failed to probe ndma device");
 				goto error_unregister_netdev;
@@ -1029,16 +1063,6 @@ no_macsec:
 
 		spin_lock_init(&adrv906x_dev->lock);
 	}
-
-	ret = adrv906x_switch_probe(&eth_if->ethswitch, pdev,
-				    &adrv906x_eth_switch_reset_soft_pre,
-				    &adrv906x_eth_switch_reset_soft_post, eth_if);
-	if (ret)
-		dev_warn(dev, "failed to probe switch - falling back to non-switch mode");
-
-	if (eth_if->ethswitch.enabled && eth_if->ethswitch.vlan_enabled)
-		for (i = 0; i < MAX_NETDEV_NUM; i++)
-			eth_if->adrv906x_dev[i]->ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 
 #if IS_ENABLED(CONFIG_MACSEC)
 	for (i = 0; i < MAX_NETDEV_NUM; i++)

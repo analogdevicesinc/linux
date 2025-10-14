@@ -11,13 +11,19 @@
 #include <linux/atomic.h>
 #include <linux/platform_device.h>
 #include <linux/netdevice.h>
+#include <linux/hashtable.h>
+#include <linux/rculist.h>
+#include <linux/etherdevice.h>
 
-#define NDMA_MAX_FRAME_SIZE_VALUE 9038
-#define NDMA_RX_MIN_FRAME_SIZE_VALUE 42
-#define NDMA_TX_MIN_FRAME_SIZE_VALUE 57
+#define NDMA_MAC_HASH_BITS                 6  /* 2^6 = 64 buckets */
+#define NDMA_MAX_MACS                      16
 
-#define NDMA_PTP_MODE_1 0
-#define NDMA_PTP_MODE_4 1
+#define NDMA_MAX_FRAME_SIZE_VALUE          9038
+#define NDMA_RX_MIN_FRAME_SIZE_VALUE       42
+#define NDMA_TX_MIN_FRAME_SIZE_VALUE       57
+
+#define NDMA_PTP_MODE_1                    0
+#define NDMA_PTP_MODE_4                    1
 #define NDMA_HDR_TYPE_MASK                 GENMASK(1, 0)
 
 /* NDMA TX header */
@@ -64,8 +70,10 @@ enum adrv906x_ndma_chan_type {
 	MAX_NDMA_CHANNELS
 };
 
-typedef void (*ndma_callback)(struct sk_buff *skb, unsigned int port_id,
-			      struct timespec64 ts, void *cb_param);
+typedef void (*ndma_pkt_callback)(struct sk_buff *skb, unsigned int port_id,
+				  struct timespec64 ts, void *cb_param);
+
+typedef void (*ndma_flood_callback)(struct net_device *ndev, u64 mac_addr, int portid);
 
 struct dma_desc {
 	u32 next;
@@ -106,6 +114,7 @@ union adrv906x_ndma_chan_stats {
 		u64 pending_work_units;
 		u64 done_work_units;
 		u64 dma_errors;
+		u64 flooded_frame_count;
 	} rx;
 };
 
@@ -114,7 +123,7 @@ struct adrv906x_ndma_chan {
 	enum adrv906x_ndma_chan_type chan_type;
 	void __iomem *ctrl_base;
 	union adrv906x_ndma_chan_stats stats;
-	ndma_callback status_cb_fn;
+	ndma_pkt_callback status_cb_fn;
 	void *status_cb_param;
 	spinlock_t lock; /* protects struct and register access */
 	unsigned char expected_seq_num;
@@ -150,8 +159,15 @@ struct adrv906x_ndma_chan {
 	struct napi_struct napi;
 };
 
+struct adrv906x_ndma_mac_entry {
+	u8 mac[ETH_ALEN];
+	struct hlist_node hnode;
+	struct rcu_head rcu;
+};
+
 struct adrv906x_ndma_dev {
 	struct device *dev;
+	struct net_device *ndev;
 	unsigned int dev_num;
 	struct adrv906x_ndma_chan rx_chan;
 	struct adrv906x_ndma_chan tx_chan;
@@ -162,17 +178,30 @@ struct adrv906x_ndma_dev {
 	struct kref refcount;
 	spinlock_t lock; /* protects struct and stats access */
 	bool loopback_en;
+	bool flood_mitigate_en;
+	bool flood_mitigate_supported;
+	ndma_flood_callback flood_cb_fn;
+	DECLARE_HASHTABLE(mac_table, NDMA_MAC_HASH_BITS);
+	int mac_count;
+	struct device_attribute attr_flood_mitigate;
+	struct device_attribute attr_mac_add;
+	struct device_attribute attr_mac_remove;
+	struct device_attribute attr_mac_list;
+	struct attribute *attrs[5];
+	struct attribute_group attr_group;
 };
 
 int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff *skb,
 			     unsigned char port, bool hw_tstamp_en, bool dsa_en);
 int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
-			struct device_node *ndma_np, struct adrv906x_ndma_dev *ndma_dev);
+			struct device_node *ndma_np, struct adrv906x_ndma_dev *ndma_dev,
+			bool flood_mitigate_supported);
 void adrv906x_ndma_remove(struct adrv906x_ndma_dev *ndma_dev);
 void adrv906x_ndma_set_ptp_mode(struct adrv906x_ndma_dev *ndma_dev, u32 ptp_mode);
-void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_fn,
-			ndma_callback rx_cb_fn, void *rx_cb_param, bool loopback_mode);
-void adrv906x_ndma_close(struct adrv906x_ndma_dev *ndma_dev);
+void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_pkt_callback tx_cb_fn,
+			ndma_pkt_callback rx_cb_fn, void *cb_param, ndma_flood_callback flood_cb_fn,
+			bool loopback_mode);
+void adrv906x_ndma_close(struct adrv906x_ndma_dev *ndma_dev, struct net_device *ndev);
 void adrv906x_ndma_update_frame_drop_stats(struct adrv906x_ndma_dev *ndma_dev);
 
 #endif /* __ADRV906X_NDMA_H__ */

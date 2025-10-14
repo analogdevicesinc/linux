@@ -199,5 +199,7 @@ int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u16 vid);
 int adrv906x_switch_vlan_add_cpuport(struct adrv906x_eth_switch *es, u16 vid);
 int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid);
 int adrv906x_switch_vlan_del_cpuport(struct adrv906x_eth_switch *es, u16 vid);
+int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, int portid,
+				  bool is_static);
 
 #endif /* __ADRV906X_SWITCH_H__ */
