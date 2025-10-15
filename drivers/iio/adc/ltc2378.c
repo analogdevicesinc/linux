@@ -35,6 +35,7 @@
 #define LTC2378_TCYC_NS			MILLI
 #define LTC2378_TCONV_NS		675
 #define LTC2378_TDSDOBUSYL_NS		5
+#define LTC2378_TBUSYLH_NS		13
 
 struct ltc2378_chip_info {
         const char *name;
@@ -100,6 +101,7 @@ static const struct iio_chan_spec ltc2378_chan = {
                 .realbits = 20,
                 .shift = 0,
                 .endianness = IIO_CPU,
+                //.endianness = IIO_BE,
         },
 };
 
@@ -111,7 +113,7 @@ static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
 
     struct spi_transfer xfer = {
         .rx_buf = &adc->spi_rx_word,   // Aligned 32-bit buffer
-        .len = 1,                      // Single 32-bit word
+        .len = 4,                      // 4 bytes for 20-bit data (32-bit aligned)
         .bits_per_word = 20,          // Exactly 20 clock pulses
         .speed_hz = adc->info->sclk_rate,
         /*.delay = {
@@ -213,7 +215,7 @@ static int ltc2378_read_raw(struct iio_dev *indio_dev,
                  if (ret < 0)
                         return ret;
                 
-                *val = ret / 1000; // convert uV to mV
+                *val = 2 * (ret / 1000); // convert uV to mV - ADD FACTOR OF 2 for differential ±VREF range
 
                 *val2 = adc->info->resolution;
 
@@ -242,7 +244,8 @@ static int ltc2378_prepare_offload_message(struct device *dev,
 					   struct ltc2378_adc *adc)
 {
 	/* Dummy transfer to wait for the conversion time */
-	adc->offload_xfer[0].delay.value = LTC2378_TCONV_NS + LTC2378_TDSDOBUSYL_NS;
+	//adc->offload_xfer[0].delay.value = LTC2378_TCONV_NS + LTC2378_TDSDOBUSYL_NS + LTC2378_TBUSYLH_NS;
+        adc->offload_xfer[0].delay.value = 0;
 	adc->offload_xfer[0].delay.unit = SPI_DELAY_UNIT_NSECS;
 
         /* Setup data read transfer */

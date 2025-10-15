@@ -21,8 +21,8 @@
 	vref: regulator-vref {
 		compatible = "regulator-fixed";
 		regulator-name = "fixed-supply";
-		regulator-min-microvolt = <4096000>;
-		regulator-max-microvolt = <4096000>;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
 
@@ -113,6 +113,8 @@
         	        spi-max-frequency = <90000000>;
         	        // SPI mode 0 (CPOL=0, CPHA=0) - LTC2378 datasheet specifies this
         	        // Data valid on rising edge, idle low
+
+                        //spi-cpha; //CPHA = 1 - spi mode 1
 
         	        clocks = <&spi_clk>;
         	        clock-names = "spi_clk";
