@@ -13,6 +13,8 @@ on:
 jobs:
   build-doc:
     runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
 
     steps:
     - uses: analogdevicesinc/doctools/checkout@action
