@@ -14,6 +14,8 @@ jobs:
   checks:
     uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       ref_branch: "mirror/next/linux-next/master"
   build_gcc_x86_64:
@@ -21,6 +23,8 @@ jobs:
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "x86"
@@ -30,6 +34,8 @@ jobs:
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "llvm"
       arch: "x86"
@@ -40,6 +46,8 @@ jobs:
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm64"
@@ -47,6 +55,8 @@ jobs:
   build_gcc_arm:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
@@ -54,6 +64,8 @@ jobs:
       checks: true
   assert_checks:
     runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
     needs:
       - checks
       - build_gcc_x86_64
@@ -96,6 +108,8 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
@@ -105,6 +119,8 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
@@ -114,6 +130,8 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
@@ -123,6 +141,8 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm64"
@@ -132,6 +152,8 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm64"
@@ -153,6 +175,8 @@ jobs:
         arch/arm64/boot/dts/overlays/*.dts
   assert_build:
     runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
     needs:
       - build_gcc_arm_adi_bcm2709_defconfig
       - build_gcc_arm_adi_bcm2711_defconfig
