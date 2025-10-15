@@ -34,6 +34,8 @@ jobs:
 
   assert:
     runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
     needs: [sync_branches]
 
     steps:
