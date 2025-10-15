@@ -35,7 +35,6 @@ sync_branches () {
 		if [[ "$fail_" == "1" ]]; then
 			printf "Failed to cherry-pick at $commit"
 			fail=1
-			break
 		fi
 		git push origin HEAD:$branch
 	done
