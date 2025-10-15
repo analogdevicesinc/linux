@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			clocks {
+				adf4151_clkin: clock@0 {
+					#clock-cells = <0>;
+					compatible = "fixed-clock";
+					clock-frequency = <100000000>; // 100MHz
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adf41513@0 {
+				compatible = "adi,adf41513";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				clocks = <&adf4151_clkin>;
+				clock-names = "clkin";
+				clock-output-names = "rf_out";
+				#clock-cells = <0>;
+				adi,power-up-frequency = /bits/ 64 <10000000000>; /* 10 GHz */
+			};
+		};
+	};
+};

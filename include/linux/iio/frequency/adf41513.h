@@ -1,0 +1,264 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * ADF41513 SPI PLL driver
+ *
+ * Copyright 2024 Analog Devices Inc.
+ */
+
+#ifndef IIO_PLL_ADF41513_H_
+#define IIO_PLL_ADF41513_H_
+
+/* Registers */
+#define ADF41513_REG0		0
+#define ADF41513_REG1		1
+#define ADF41513_REG2		2
+#define ADF41513_REG3		3
+#define ADF41513_REG4		4
+#define ADF41513_REG5		5
+#define ADF41513_REG6		6
+#define ADF41513_REG7		7
+#define ADF41513_REG8		8
+#define ADF41513_REG9		9
+#define ADF41513_REG10		10
+#define ADF41513_REG11		11
+#define ADF41513_REG12		12
+#define ADF41513_REG13		13
+
+#define ADF41513_SYNC_REG0	BIT(ADF41513_REG0)
+#define ADF41513_SYNC_REG1	BIT(ADF41513_REG1)
+#define ADF41513_SYNC_REG2	BIT(ADF41513_REG2)
+#define ADF41513_SYNC_REG3	BIT(ADF41513_REG3)
+#define ADF41513_SYNC_REG4	BIT(ADF41513_REG4)
+#define ADF41513_SYNC_REG5	BIT(ADF41513_REG5)
+#define ADF41513_SYNC_REG6	BIT(ADF41513_REG6)
+#define ADF41513_SYNC_REG7	BIT(ADF41513_REG7)
+#define ADF41513_SYNC_REG9	BIT(ADF41513_REG9)
+#define ADF41513_SYNC_REG11	BIT(ADF41513_REG11)
+#define ADF41513_SYNC_REG12	BIT(ADF41513_REG12)
+#define ADF41513_SYNC_REG13	BIT(ADF41513_REG13)
+#define ADF41513_SYNC_DIFF	0
+#define ADF41513_SYNC_ALL	GENMASK(ADF41513_REG13, ADF41513_REG0)
+
+/* REG0 Bit Definitions */
+#define ADF41513_REG0_CTRL_BITS_MSK		GENMASK(3, 0)
+#define ADF41513_REG0_INT_MSK			GENMASK(19, 4)
+#define ADF41513_REG0_INT(x)			FIELD_PREP(ADF41513_REG0_INT_MSK, x)
+//#define ADF41513_REG0_PRESCALER_MSK		BIT(23)
+//#define ADF41513_REG0_PRESCALER(x)		FIELD_PREP(ADF41513_REG0_PRESCALER_MSK, x)
+#define ADF41513_REG0_VAR_MOD_MSK		BIT(28)
+#define ADF41513_REG0_VAR_MOD(x)		FIELD_PREP(ADF41513_REG0_VAR_MOD_MSK, x)
+
+/* REG1 Bit Definitions */
+#define ADF41513_REG1_FRAC1_MSK			GENMASK(28, 4)
+#define ADF41513_REG1_FRAC1(x)			FIELD_PREP(ADF41513_REG1_FRAC1_MSK, x)
+#define ADF41513_REG1_DITHER2_MSK		BIT(31)
+#define ADF41513_REG1_DITHER2(x)		FIELD_PREP(ADF41513_REG1_DITHER2_MSK, x)
+
+/* REG2 Bit Definitions */
+#define ADF41513_REG2_PHASE_VAL_MSK		GENMASK(15, 4)
+#define ADF41513_REG2_PHASE_VAL(x)		FIELD_PREP(ADF41513_REG2_PHASE_VAL_MSK, x)
+#define ADF41513_REG2_PHASE_ADJ_MSK		BIT(31)
+#define ADF41513_REG2_PHASE_ADJ(x)		FIELD_PREP(ADF41513_REG2_PHASE_ADJ_MSK, x)
+
+/* REG3 Bit Definitions */
+#define ADF41513_REG3_FRAC2_MSK			GENMASK(27, 4)
+#define ADF41513_REG3_FRAC2(x)			FIELD_PREP(ADF41513_REG3_FRAC2_MSK, x)
+
+/* REG4 Bit Definitions */
+#define ADF41513_REG4_MOD2_MSK			GENMASK(27, 4)
+#define ADF41513_REG4_MOD2(x)			FIELD_PREP(ADF41513_REG4_MOD2_MSK, x)
+
+/* REG5 Bit Definitions */
+#define ADF41513_REG5_CLK1_DIV_MSK		GENMASK(15, 4)
+#define ADF41513_REG5_CLK1_DIV(x)		FIELD_PREP(ADF41513_REG5_CLK1_DIV_MSK, x)
+#define ADF41513_REG5_R_CNT_MSK			GENMASK(20, 16)
+#define ADF41513_REG5_R_CNT(x)			FIELD_PREP(ADF41513_REG5_R_CNT_MSK, x)
+#define ADF41513_REG5_REF_DOUBLER_MSK		BIT(21)
+#define ADF41513_REG5_REF_DOUBLER(x)		FIELD_PREP(ADF41513_REG5_REF_DOUBLER_MSK, x)
+#define ADF41513_REG5_RDIV2_MSK			BIT(22)
+#define ADF41513_REG5_RDIV2(x)			FIELD_PREP(ADF41513_REG5_RDIV2_MSK, x)
+#define ADF41513_REG5_PRESCALER_MSK		BIT(23)
+#define ADF41513_REG5_PRESCALER(x)		FIELD_PREP(ADF41513_REG5_PRESCALER_MSK, x)
+#define ADF41513_REG5_LSB_P1_MSK		BIT(24)
+#define ADF41513_REG5_LSB_P1(x)			FIELD_PREP(ADF41513_REG5_LSB_P1_MSK, x)
+#define ADF41513_REG5_CP_CURRENT_MSK		GENMASK(28, 25)
+#define ADF41513_REG5_CP_CURRENT(x)		FIELD_PREP(ADF41513_REG5_CP_CURRENT_MSK, x)
+#define ADF41513_REG5_DLD_MODES_MSK		GENMASK(31, 30)
+#define ADF41513_REG5_DLD_MODES(x)		FIELD_PREP(ADF41513_REG5_DLD_MODES_MSK, x)
+
+/* REG6 Bit Definitions */
+#define ADF41513_REG6_COUNTER_RESET_MSK		BIT(4)
+#define ADF41513_REG6_COUNTER_RESET(x)		FIELD_PREP(ADF41513_REG6_COUNTER_RESET_MSK, x)
+#define ADF41513_REG6_CP_TRISTATE_MSK		BIT(5)
+#define ADF41513_REG6_CP_TRISTATE(x)		FIELD_PREP(ADF41513_REG6_CP_TRISTATE_MSK, x)
+#define ADF41513_REG6_POWER_DOWN_MSK		BIT(6)
+#define ADF41513_REG6_POWER_DOWN(x)		FIELD_PREP(ADF41513_REG6_POWER_DOWN_MSK, x)
+#define ADF41513_REG6_PD_POLARITY_MSK		BIT(7)
+#define ADF41513_REG6_PD_POLARITY(x)		FIELD_PREP(ADF41513_REG6_PD_POLARITY_MSK, x)
+#define ADF41513_REG6_LDP_MSK			GENMASK(9, 8)
+#define ADF41513_REG6_LDP(x)			FIELD_PREP(ADF41513_REG6_LDP_MSK, x)
+#define ADF41513_REG6_CP_TRISTATE_PD_ON_MSK	BIT(16)
+#define ADF41513_REG6_CP_TRISTATE_PD_ON(x)	FIELD_PREP(ADF41513_REG6_CP_TRISTATE_PD_ON_MSK, x)
+#define ADF41513_REG6_SD_RESET_MSK		BIT(17)
+#define ADF41513_REG6_SD_RESET(x)		FIELD_PREP(ADF41513_REG6_SD_RESET_MSK, x)
+#define ADF41513_REG6_LOL_ENABLE_MSK		BIT(18)
+#define ADF41513_REG6_LOL_ENABLE(x)		FIELD_PREP(ADF41513_REG6_LOL_ENABLE_MSK, x)
+#define ADF41513_REG6_ABP_MSK			BIT(19)
+#define ADF41513_REG6_ABP(x)			FIELD_PREP(ADF41513_REG6_ABP_MSK, x)
+#define ADF41513_REG6_INT_MODE_MSK		BIT(20)
+#define ADF41513_REG6_INT_MODE(x)		FIELD_PREP(ADF41513_REG6_INT_MODE_MSK, x)
+#define ADF41513_REG6_BLEED_ENABLE_MSK		BIT(22)
+#define ADF41513_REG6_BLEED_ENABLE(x)		FIELD_PREP(ADF41513_REG6_BLEED_ENABLE_MSK, x)
+#define ADF41513_REG6_BLEED_POLARITY_MSK	BIT(23)
+#define ADF41513_REG6_BLEED_POLARITY(x)		FIELD_PREP(ADF41513_REG6_BLEED_POLARITY_MSK, x)
+#define ADF41513_REG6_BLEED_CURRENT_MSK		GENMASK(31, 24)
+#define ADF41513_REG6_BLEED_CURRENT(x)		FIELD_PREP(ADF41513_REG6_BLEED_CURRENT_MSK, x)
+
+/* REG7 Bit Definitions */
+#define ADF41513_REG7_CLK2_DIV_MSK		GENMASK(17, 6)
+#define ADF41513_REG7_CLK2_DIV(x)		FIELD_PREP(ADF41513_REG7_CLK2_DIV_MSK, x)
+#define ADF41513_REG7_CLK_DIV_MODE_MSK		GENMASK(19, 18)
+#define ADF41513_REG7_CLK_DIV_MODE(x)		FIELD_PREP(ADF41513_REG7_CLK_DIV_MODE_MSK, x)
+#define ADF41513_REG7_PS_BIAS_MSK		GENMASK(21, 20)
+#define ADF41513_REG7_PS_BIAS(x)		FIELD_PREP(ADF41513_REG7_PS_BIAS_MSK, x)
+#define ADF41513_REG7_N_DELAY_MSK		GENMASK(23, 22)
+#define ADF41513_REG7_N_DELAY(x)		FIELD_PREP(ADF41513_REG7_N_DELAY_MSK, x)
+#define ADF41513_REG7_LD_CLK_SEL_MSK		BIT(26)
+#define ADF41513_REG7_LD_CLK_SEL(x)		FIELD_PREP(ADF41513_REG7_LD_CLK_SEL_MSK, x)
+#define ADF41513_REG7_LD_COUNT_MSK		GENMASK(29, 27)
+#define ADF41513_REG7_LD_COUNT(x)		FIELD_PREP(ADF41513_REG7_LD_COUNT_MSK, x)
+
+/* REG9 Bit Definitions */
+#define ADF41513_REG9_LD_BIAS_MSK		GENMASK(31, 30)
+#define ADF41513_REG9_LD_BIAS(x)		FIELD_PREP(ADF41513_REG9_LD_BIAS_MSK, x)
+
+/* REG11 Bit Definitions */
+#define ADF41513_REG11_POWER_DOWN_SEL_MSK	BIT(31)
+#define ADF41513_REG11_POWER_DOWN_SEL(x)	FIELD_PREP(ADF41513_REG11_POWER_DOWN_SEL_MSK, x)
+
+/* REG12 Bit Definitions */
+#define ADF41513_REG12_READBACK_SEL_MSK		GENMASK(19, 14)
+#define ADF41513_REG12_READBACK_SEL(x)		FIELD_PREP(ADF41513_REG12_READBACK_SEL_MSK, x)
+#define ADF41513_REG12_LE_SELECT_MSK		BIT(20)
+#define ADF41513_REG12_LE_SELECT(x)		FIELD_PREP(ADF41513_REG12_LE_SELECT_MSK, x)
+#define ADF41513_REG12_MASTER_RESET_MSK		BIT(22)
+#define ADF41513_REG12_MASTER_RESET(x)		FIELD_PREP(ADF41513_REG12_MASTER_RESET_MSK, x)
+#define ADF41513_REG12_LOGIC_LEVEL_MSK		BIT(27)
+#define ADF41513_REG12_LOGIC_LEVEL(x)		FIELD_PREP(ADF41513_REG12_LOGIC_LEVEL_MSK, x)
+#define ADF41513_REG12_MUXOUT_MSK		GENMASK(31, 28)
+#define ADF41513_REG12_MUXOUT(x)		FIELD_PREP(ADF41513_REG12_MUXOUT_MSK, x)
+
+/* MUXOUT Selection */
+#define ADF41513_MUXOUT_TRISTATE		0x0
+#define ADF41513_MUXOUT_R_DIV			0x3
+#define ADF41513_MUXOUT_N_DIV			0x4
+#define ADF41513_MUXOUT_DIG_LD			0x6
+#define ADF41513_MUXOUT_SDO			0x7
+#define ADF41513_MUXOUT_READBACK		0x8
+#define ADF41513_MUXOUT_CLK1_DIV		0xA
+#define ADF41513_MUXOUT_R_DIV2			0xD
+#define ADF41513_MUXOUT_N_DIV2			0xE
+
+/* DLD Mode Selection */
+#define ADF41513_DLD_TRISTATE			0x0
+#define ADF41513_DLD_DIG_LD			0x1
+#define ADF41513_DLD_LOW			0x2
+#define ADF41513_DLD_HIGH			0x3
+
+/* Prescaler Selection */
+#define ADF41513_PRESCALER_4_5			0
+#define ADF41513_PRESCALER_8_9			1
+#define ADF41513_PRESCALER_AUTO			2
+
+/* Specifications */
+#define ADF41513_MIN_RF_FREQ			1000000000ULL	/* 1 GHz */
+#define ADF41510_MAX_RF_FREQ			10000000000ULL	/* 10 GHz */
+#define ADF41513_MAX_RF_FREQ			26500000000ULL	/* 26.5 GHz */
+
+#define ADF41513_MIN_REF_FREQ			10000000U	/* 10 MHz */
+#define ADF41513_MAX_REF_FREQ			800000000U	/* 800 MHz */
+#define ADF41513_MAX_REF_FREQ_DOUBLER		225000000U	/* 225 MHz */
+
+#define ADF41513_MAX_PFD_FREQ_INT_N_HZ		250000000U		/* 250 MHz */
+#define ADF41513_MAX_PFD_FREQ_FRAC_N_HZ		125000000U		/* 125 MHz */
+#define ADF41513_MAX_PFD_FREQ_INT_N_UHZ		250000000000000ULL	/* 250 MHz */
+#define ADF41513_MAX_PFD_FREQ_FRAC_N_UHZ	125000000000000ULL	/* 125 MHz */
+
+#define ADF41513_MIN_INT_4_5			20
+#define ADF41513_MAX_INT_4_5			511
+#define ADF41513_MIN_INT_8_9			64
+#define ADF41513_MAX_INT_8_9			1023
+
+#define ADF41513_MIN_INT_FRAC_4_5		23
+#define ADF41513_MIN_INT_FRAC_8_9		75
+
+#define ADF41513_MIN_R_CNT			1
+#define ADF41513_MAX_R_CNT			32
+
+#define ADF41513_MIN_CP_VOLTAGE_MV		810
+#define ADF41513_MAX_CP_VOLTAGE_MV		12960
+
+#define ADF41513_MAX_CLK_DIVIDER		4095		/* 12 bits */
+
+/* Fixed Modulus */
+#define ADF41513_FIXED_MODULUS			BIT_ULL(25)	/* 2^25 */
+
+/* Variable Modulus */
+#define ADF41513_MAX_MOD2			((1 << 24) - 1)	/* 2^24 - 1 */
+#define ADF41513_VAR_MODULUS_RESOLUTION		49		/* 2^49 resolution */
+
+/* Frequency conversion constants */
+#define ADF41513_HZ_TO_UHZ			1000000ULL	/* Convert Hz to uHz */
+#define ADF41513_HZ_DECIMAL_PRECISION		6
+
+/**
+ * struct adf41513_platform_data - platform specific information
+ * @name:			Device name.
+ * @clkin:			Reference input frequency in Hz.
+ * @power_up_frequency:		Optional, If set in Hz the PLL tunes to the desired
+ *				frequency on probe.
+ * @ref_div_factor:		Optional, if set the driver skips dynamic calculation
+ *				and uses this default value instead.
+ * @ref_doubler_en:		Enables reference doubler.
+ * @ref_div2_en:		Enables reference divide by 2.
+ * @charge_pump_voltage_mv:	Charge pump (current x RSET resistor) in millivolts.
+ * @phase_detector_polarity:	Phase detector polarity (true = positive).
+ * @muxout_select:		MUXOUT pin selection.
+ * @muxout_1v8_en:		Enables MUXOUT 1.8V logic levels.
+ * @lock_detect_precision:	Lock detector precision (0-3).
+ * @lock_detect_count:		Lock detector count (0-7).
+ * @lock_detect_bias:		Lock detector bias (0-3).
+ * @fast_lock_en:		Enables fast lock mode.
+ * @phase_resync_clk_div:	Phase resync clock divider values (2 elements).
+ * @phase_resync_en:		Enables phase resync feature.
+ * @load_enable_sync:		Enables load enable sync with reference input.
+ * @freq_resolution_uhz:	Target frequency resolution in uHz (default = 1 Hz).
+ */
+struct adf41513_platform_data {
+	char				name[32];
+	u64				clkin;
+	u64				power_up_frequency;
+
+	u8				ref_div_factor;
+	bool				ref_doubler_en;
+	bool				ref_div2_en;
+
+	u32				charge_pump_voltage_mv;
+	bool				phase_detector_polarity;
+
+	u8				muxout_select;
+	bool				muxout_1v8_en;
+
+	u8				lock_detect_precision;
+	u8				lock_detect_count;
+	u8				lock_detect_bias;
+	bool				fast_lock_en;
+
+	u16				phase_resync_clk_div[2];
+	bool				phase_resync_en;
+	bool				load_enable_sync;
+
+	u64				freq_resolution_uhz;
+};
+
+#endif /* IIO_PLL_ADF41513_H_ */

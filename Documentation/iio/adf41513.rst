@@ -1,0 +1,398 @@
+.. SPDX-License-Identifier: GPL-2.0
+
+==============
+ADF41513 driver
+==============
+
+This driver supports Analog Devices' ADF41513 and ADF41510 PLL frequency
+synthesizers on SPI bus.
+
+1. Supported devices
+====================
+
+* `ADF41510 <https://www.analog.com/ADF41510>`_
+* `ADF41513 <https://www.analog.com/ADF41513>`_
+
+The ADF41513 is an ultralow noise frequency synthesizer that can be used to
+implement local oscillators (LOs) as high as 26.5 GHz in the upconversion and
+downconversion sections of wireless receivers and transmitters. The ADF41510
+is a similar device that supports frequencies up to 10 GHz.
+
+Both devices support integer-N and fractional-N operation modes, providing
+excellent phase noise performance and flexible frequency generation
+capabilities.
+
+Key Features:
+
+- **ADF41513**: 1 GHz to 26.5 GHz frequency range
+- **ADF41510**: 1 GHz to 10 GHz frequency range
+- Integer-N and fractional-N operation modes
+- Ultra-low phase noise (−235 dBc/Hz integer-N, −231 dBc/Hz fractional-N)
+- High maximum PFD frequency (250 MHz integer-N, 125 MHz fractional-N)
+- 25-bit fixed modulus or 49-bit variable modulus fractional modes
+- Programmable charge pump currents with 16× range
+- Digital lock detect functionality
+- Phase resync capability for consistent output phase
+- Clock framework integration for system clock generation
+
+2. Device attributes
+====================
+
+The ADF41513 driver provides the following IIO extended attributes for
+frequency control and monitoring:
+
+Each IIO device has a device folder under ``/sys/bus/iio/devices/iio:deviceX``,
+where X is the IIO index of the device. Under these folders reside a set of
+device files that provide access to the synthesizer's functionality.
+
+The following table shows the ADF41513 related device files:
+
++----------------------+-------------------------------------------------------+
+| Device file          | Description                                           |
++======================+=======================================================+
+| frequency            | RF output frequency control and readback (Hz)        |
++----------------------+-------------------------------------------------------+
+| frequency_resolution | Target frequency resolution control (Hz)             |
++----------------------+-------------------------------------------------------+
+| refin_frequency      | Reference input frequency control and readback (Hz)  |
++----------------------+-------------------------------------------------------+
+| powerdown            | Power management control (0=active, 1=power down)    |
++----------------------+-------------------------------------------------------+
+
+2.1 Frequency Control
+----------------------
+
+The ``frequency`` attribute controls the RF output frequency with sub-Hz precision.
+The driver automatically selects between integer-N and fractional-N modes to
+achieve the requested frequency with the best possible phase noise performance.
+
+**Supported ranges:**
+
+- **ADF41513**: 1,000,000,000 Hz to 26,500,000,000 Hz (1 GHz to 26.5 GHz)
+- **ADF41510**: 1,000,000,000 Hz to 10,000,000,000 Hz (1 GHz to 10 GHz)
+
+The frequency is specified in Hz, for sub-Hz precision use decimal notation.
+For example, 12.102000000 GHz would be written as "12102000000.000000".
+
+2.2 Frequency Resolution Control
+--------------------------------
+
+The ``frequency_resolution`` attribute controls the target frequency resolution
+that the driver attempts to achieve. This affects the choice between fixed
+modulus (25-bit) and variable modulus (49-bit) fractional-N modes:
+
+- **Fixed modulus**: Resolution = f_PFD / 2^25 (typically ~3 Hz with 100 MHz PFD)
+- **Variable modulus**: Resolution = f_PFD / 2^49 (µHz resolution possible)
+
+Default resolution is 1 Hz (1,000,000 µHz).
+
+2.3 Reference Input Control
+---------------------------
+
+The ``refin_frequency`` attribute allows control of the reference input frequency
+when using a programmable reference clock. The supported range is 10 MHz to
+800 MHz.
+
+2.4 Power Management
+--------------------
+
+The ``powerdown`` attribute provides software power control:
+
+- **0**: Device active and operational
+- **1**: Device in power-down mode (low power consumption)
+
+3. Operating modes
+==================
+
+3.1 Integer-N Mode
+------------------
+
+When the requested frequency can be achieved as an integer multiple of the PFD
+frequency (within the specified resolution tolerance), the driver automatically
+selects integer-N mode for optimal phase noise performance.
+
+In integer-N mode:
+
+- Phase noise: −235 dBc/Hz normalized floor
+- Frequency resolution: f_PFD (same as PFD frequency)
+- Maximum PFD frequency: 250 MHz
+- Bleed current: Disabled for best performance
+
+3.2 Fractional-N Mode
+---------------------
+
+When sub-integer frequency steps are required, the driver automatically selects
+fractional-N mode using either fixed or variable modulus.
+
+**Fixed Modulus (25-bit)**:
+
+- Used when variable modulus is not required
+- Resolution: f_PFD / 2^25
+- Simpler implementation, faster settling
+
+**Variable Modulus (49-bit)**:
+
+- Used for maximum resolution requirements
+- Resolution: f_PFD / 2^49 (theoretical)
+- Exact frequency synthesis capability
+
+In fractional-N mode:
+
+- Phase noise: −231 dBc/Hz normalized floor
+- Maximum PFD frequency: 125 MHz
+- Bleed current: Automatically enabled and optimized
+- Dithering: Enabled to reduce fractional spurs
+
+3.3 Automatic Mode Selection
+----------------------------
+
+The driver automatically selects the optimal operating mode based on:
+
+1. **Frequency accuracy requirements**: Determined by frequency_resolution setting
+2. **Phase noise optimization**: Integer-N preferred when possible
+3. **PFD frequency constraints**: Different limits for integer vs fractional modes
+4. **Prescaler selection**: Automatic 4/5 vs 8/9 prescaler selection based on frequency
+
+4. Clock framework integration
+==============================
+
+The ADF41513 driver integrates with the Linux Common Clock Framework (CCF) when
+the device tree includes clock provider properties (``#clock-cells = <0>``).
+
+When enabled, the driver registers as a clock provider, allowing other kernel
+drivers to use the synthesizer output as a system clock source.
+
+**Device tree configuration for clock provider**:
+
+.. code-block:: dts
+
+    adf41513@0 {
+        compatible = "adi,adf41513";
+        reg = <0>;
+        /* ... other properties ... */
+        #clock-cells = <0>;
+        clock-output-names = "adf41513_clk";
+    };
+
+**Clock consumer example**:
+
+.. code-block:: dts
+
+    some_device {
+        clocks = <&adf41513>;
+        clock-names = "ref_clk";
+    };
+
+5. Device tree configuration
+============================
+
+See ``Documentation/devicetree/bindings/iio/frequency/adi,adf41513.yaml`` for
+complete device tree binding documentation.
+
+**Basic configuration example**:
+
+.. code-block:: dts
+
+    adf41513@0 {
+        compatible = "adi,adf41513";
+        reg = <0>;
+        spi-max-frequency = <10000000>;
+        clocks = <&ref_clk>;
+        clock-names = "clkin";
+        vcc-supply = <&vcc_3v3>;
+
+        adi,power-up-frequency = /bits/ 64 <12000000000>;
+        adi,charge-pump-current = <2400>;
+        adi,phase-detector-polarity-positive;
+    };
+
+6. Performance characteristics
+==============================
+
+6.1 Phase Noise Performance
+----------------------------
+
+The ADF41513 provides excellent phase noise performance:
+
+**Integer-N mode**:
+
+- Normalized phase noise floor: −235 dBc/Hz
+- 1/f noise corner: Typically around 10 kHz offset
+- Best performance mode for integer frequency multiples
+
+**Fractional-N mode**:
+
+- Normalized phase noise floor: −231 dBc/Hz
+- Additional fractional spurs may be present
+- Optimized with automatic bleed current and dithering
+
+6.2 Frequency Ranges and Prescalers
+------------------------------------
+
+The driver automatically selects the appropriate prescaler based on frequency:
+
+**4/5 Prescaler**:
+
+- RF frequency range: 1 GHz to 16 GHz
+- Integer-N: N = 20 to 511
+- Fractional-N: N = 23 to 511
+
+**8/9 Prescaler** (ADF41513 only):
+
+- RF frequency range: 1 GHz to 26.5 GHz
+- Integer-N: N = 64 to 1023
+- Fractional-N: N = 75 to 1023
+
+6.3 Reference Input Requirements
+---------------------------------
+
+- Frequency range: 10 MHz to 800 MHz
+- Input sensitivity: −10 dBm to +8 dBm
+- Slew rate requirement: >320 V/µs (>500 V/µs recommended)
+- With doubler enabled: Maximum 225 MHz reference frequency
+
+7. Usage examples
+=================
+
+7.1 Basic Frequency Setting
+----------------------------
+
+Set output frequency to 12.102 GHz:
+
+.. code-block:: bash
+
+    root:/sys/bus/iio/devices/iio:device0> echo 12102000000 > out_altvoltage0_frequency
+
+Read current frequency:
+
+.. code-block:: bash
+
+    root:/sys/bus/iio/devices/iio:device0> cat out_altvoltage0_frequency
+    12101999999.582767
+
+7.2 High Resolution Frequency Control
+-------------------------------------
+
+Configure for sub-Hz resolution and set a precise frequency:
+
+.. code-block:: bash
+
+    # Set resolution to 0.1 Hz (100,000 µHz)
+    root:/sys/bus/iio/devices/iio:device0> echo 0.1 > out_altvoltage0_frequency_resolution
+
+    # Set frequency to 12.102 GHz (1 µHz precision)
+    root:/sys/bus/iio/devices/iio:device0> echo 12102000000 > out_altvoltage0_frequency
+    root:/sys/bus/iio/devices/iio:device0> cat out_altvoltage0_frequency
+    12101999999.980131
+
+7.3 Reference Frequency Control
+-------------------------------
+
+Change reference input frequency (if using programmable reference):
+
+.. code-block:: bash
+
+    # Set reference to 122.88 MHz
+    root:/sys/bus/iio/devices/iio:device0> echo 122880000 > out_altvoltage0_refin_frequency
+
+    # Verify the change
+    root:/sys/bus/iio/devices/iio:device0> cat out_altvoltage0_refin_frequency
+    122880000
+
+7.4 Power Management
+--------------------
+
+Power down the device:
+
+.. code-block:: bash
+
+    root:/sys/bus/iio/devices/iio:device0> echo 1 > out_altvoltage0_powerdown
+
+    # Power back up
+    root:/sys/bus/iio/devices/iio:device0> echo 0 > out_altvoltage0_powerdown
+
+7.5 Monitor Lock Status
+-----------------------
+
+When lock detect GPIO is configured, check if PLL is locked:
+
+.. code-block:: bash
+
+    # Read frequency - will return error if not locked
+    cat out_altvoltage0_frequency
+
+If the PLL is not locked, the frequency read will return ``-EBUSY`` (Device or resource busy).
+
+8. Advanced features
+====================
+
+8.1 Phase Resync
+-----------------
+
+When enabled in device tree (``adi,phase-resync-enable``), the phase resync
+feature provides a consistent output phase relationship to the reference input.
+This is particularly useful for beamforming applications where phase coherence
+across multiple synthesizers is required.
+
+8.2 Charge Pump Optimization
+-----------------------------
+
+The driver automatically optimizes charge pump settings:
+
+- **Current**: Programmable from 0.45 mA to 7.2 mA
+- **Bleed current**: Automatically calculated and enabled in fractional-N mode
+- **Loop filter integration**: Works with external passive loop filters
+
+8.3 Spurious Performance
+------------------------
+
+The driver includes automatic spur reduction techniques:
+
+- **Integer boundary spur avoidance**: Automatic PFD frequency optimization
+- **Fractional spur reduction**: Automatic dithering and bleed current
+- **Reference spur suppression**: High PFD frequency operation when possible
+
+9. Troubleshooting
+==================
+
+9.1 Common Issues
+-----------------
+
+**"PLL un-locked" errors**:
+
+- Check reference input signal quality and level
+- Verify loop filter design matches charge pump current
+- Ensure VCO tuning range covers target frequency
+- Check power supply voltage and stability
+
+**Frequency accuracy issues**:
+
+- Verify reference frequency accuracy
+- Check frequency_resolution setting
+- Ensure target frequency is within device range
+
+**High spurious content**:
+
+- Verify PCB layout follows ADI recommendations
+- Check loop filter component values and quality
+- Ensure adequate power supply decoupling
+- Verify reference input signal purity
+
+9.2 Debug Information
+---------------------
+
+Enable dynamic debug for detailed driver operation:
+
+.. code-block:: bash
+
+    echo "module adf41513 +p" > /sys/kernel/debug/dynamic_debug/control
+
+This will show PLL calculations, mode selections, and register programming
+details in the kernel log.
+
+10. References
+==============
+
+- `ADF41513 Product Page <https://www.analog.com/ADF41513>`_
+- `ADF41510 Product Page <https://www.analog.com/ADF41510>`_
+- `ADF41513 Datasheet <https://www.analog.com/media/en/technical-documentation/data-sheets/adf41513.pdf>`_

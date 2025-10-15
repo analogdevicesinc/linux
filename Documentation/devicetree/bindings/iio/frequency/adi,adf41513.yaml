@@ -1,0 +1,259 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/frequency/adi,adf41513.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADF41513 PLL Frequency Synthesizer
+
+maintainers:
+  - Rodrigo Alencar <rodrigo.alencar@analog.com>
+  - Dragos Bogdan <dragos.bogdan@analog.com>
+
+description: |
+  The ADF41513 is an ultralow noise frequency synthesizer that can be used to
+  implement local oscillators (LOs) as high as 26.5 GHz in the upconversion and
+  downconversion sections of wireless receivers and transmitters. The ADF41510
+  supports frequencies up to 10 GHz.
+
+  https://www.analog.com/en/products/adf41513.html
+  https://www.analog.com/en/products/adf41510.html
+
+properties:
+  compatible:
+    enum:
+      - adi,adf41510
+      - adi,adf41513
+
+  reg:
+    maxItems: 1
+
+  spi-max-frequency:
+    maximum: 25000000
+
+  clocks:
+    maxItems: 1
+    description: Clock that provides the reference input frequency.
+
+  clock-names:
+    const: clkin
+
+  '#clock-cells':
+    const: 0
+
+  clock-output-names:
+    maxItems: 1
+
+  vcc-supply:
+    description: Power supply for the device (3.3V)
+
+  chip-enable-gpios:
+    description: |
+      GPIO that controls the chip enable pin. A logic low on this pin
+      powers down the device and puts the charge pump output into
+      three-state mode.
+    maxItems: 1
+
+  lock-detect-gpios:
+    description: |
+      GPIO for lock detect functionality. When configured for digital lock
+      detect, this pin will output a logic high when the PLL is locked.
+    maxItems: 1
+
+  adi,power-up-frequency:
+    $ref: /schemas/types.yaml#/definitions/uint64
+    description:
+      If set, the PLL tunes to this frequency (in Hz) on driver probe.
+      Range is 1 GHz to 26.5 GHz for ADF41513, and 1 GHz to 10 GHz for ADF41510.
+
+  adi,reference-div-factor:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    maximum: 32
+    description:
+      Reference division factor (R Counter). If not specified, the driver
+      will calculate the optimal value automatically.
+
+  adi,reference-doubler-enable:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Enables the reference doubler. The maximum reference frequency when
+      the doubler is enabled is 225 MHz.
+
+  adi,reference-div2-enable:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Enables the reference divide-by-2 function. This provides a 50%
+      duty cycle signal to the PFD.
+
+  adi,charge-pump-current:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 450
+    maximum: 7200
+    description:
+      Charge pump current in microamps. The value will be rounded to the
+      nearest supported value. Default is 2400 µA.
+
+  adi,charge-pump-resistor:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1800
+    maximum: 10000
+    description:
+      External charge pump resistor value in ohms. This sets the maximum
+      charge pump current along with the charge pump current setting.
+      Default is 2700 ohms.
+
+  adi,muxout-select:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 14
+    description: |
+      Multiplexer output selection. Valid values are:
+      0: Tristate (default)
+      3: R divider output
+      4: N divider output
+      6: Digital lock detect
+      7: Serial data output
+      8: Readback
+      10: CLK1 divider output
+      13: R divider/2 output
+      14: N divider/2 output
+
+  adi,muxout-level-1v8-enable:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Set MUXOUT and DLD logic levels to 1.8V. Default is 3.3V.
+
+  adi,phase-detector-polarity-positive:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Set phase detector polarity to positive. Default is negative.
+      Use positive polarity with non-inverting loop filter and VCO with
+      positive tuning slope, or with inverting loop filter and VCO with
+      negative tuning slope.
+
+  adi,lock-detect-precision:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 3
+    description:
+      Lock detector precision setting. Higher values provide more precise
+      lock detection but may increase lock time.
+
+  adi,lock-detect-count:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 7
+    description:
+      Lock detector count setting (3-bit value). Determines the number of
+      consecutive phase detector cycles that must be within the lock detector
+      window before lock is declared.
+
+  adi,lock-detect-bias:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 3
+    description:
+      Lock detector bias setting. Controls the lock detector window size
+      along with the lock detector precision setting.
+
+  adi,fast-lock-enable:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Enable fast lock mode. This changes the lock detector clock selection
+      for faster lock indication.
+
+  adi,phase-resync-enable:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Enable phase resync functionality. This produces a consistent output
+      phase offset with respect to the input reference.
+
+  adi,12bit-clk-divider:
+    $ref: /schemas/types.yaml#/definitions/uint16-array
+    minItems: 2
+    maxItems: 2
+    description:
+      CLK1 and CLK2 divider values for phase resync timing control.
+      Each value is a 12-bit divider (0-4095).
+
+  adi,load-enable-sync:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Synchronize the rising edge of LE on an SPI write with the falling
+      edge of the reference signal to prevent glitches.
+
+  adi,freq-resolution-uhz:
+    $ref: /schemas/types.yaml#/definitions/uint64
+    description:
+      Target frequency resolution in micro-Hz (µHz) for the algorithm to achieve.
+      This influences the choice between fixed and variable modulus modes.
+      Default is 1000000 µHz (1 Hz).
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - vcc-supply
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pll@0 {
+            compatible = "adi,adf41513";
+            reg = <0>;
+            spi-max-frequency = <10000000>;
+            clocks = <&ref_clk>;
+            clock-names = "clkin";
+            vcc-supply = <&vcc_3v3>;
+            #clock-cells = <0>;
+
+            adi,power-up-frequency = /bits/ 64 <12000000000>;
+            adi,charge-pump-current = <2400>;
+            adi,phase-detector-polarity-positive;
+        };
+    };
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        /* Example with advanced features enabled */
+        pll_advanced@0 {
+            compatible = "adi,adf41513";
+            reg = <0>;
+            spi-max-frequency = <25000000>;
+            clocks = <&ref_clk>;
+            clock-names = "clkin";
+            vcc-supply = <&vcc_3v3>;
+            chip-enable-gpios = <&gpio0 10 GPIO_ACTIVE_HIGH>;
+            lock-detect-gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
+            #clock-cells = <0>;
+            clock-output-names = "adf41513_clk";
+
+            adi,power-up-frequency = /bits/ 64 <15500000000>;
+            adi,charge-pump-current = <3600>;
+            adi,charge-pump-resistor = <2700>;
+            adi,reference-doubler-enable;
+            adi,muxout-select = <6>; /* Digital lock detect */
+            adi,lock-detect-precision = <1>;
+            adi,lock-detect-count = <4>;
+            adi,lock-detect-bias = <2>;
+            adi,fast-lock-enable;
+            adi,phase-resync-enable;
+            adi,12bit-clk-divider = <100>, <200>;
+            adi,load-enable-sync;
+            adi,freq-resolution-uhz = /bits/ 64 <1000000>;
+            adi,phase-detector-polarity-positive;
+        };
+    };
+...
