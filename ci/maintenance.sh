@@ -23,7 +23,9 @@ sync_branches () {
 			commit=$(git rev-parse $head_sha~$iter)
 			# check if merge commit, and choose parent if so
 			git rev-parse $commit^2  2>/dev/null &&
-				merge="-m 1"|| merge=""
+				merge="-m 1" || merge=""
+			echo "Cherry-pick $commit $merge"
+			git --no-pager show --name-only --pretty=format:%s $commit
 			git cherry-pick --allow-empty --empty=keep $merge $commit 1>/dev/null || fail_=1
 			if [[ "$fail_" == "1" ]]; then
 				git cherry-pick --abort
@@ -31,7 +33,7 @@ sync_branches () {
 			fi
 		done
 		if [[ "$fail_" == "1" ]]; then
-			printf "failed to cherry-pick at $commit"
+			printf "Failed to cherry-pick at $commit"
 			fail=1
 			break
 		fi
