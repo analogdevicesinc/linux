@@ -1171,6 +1171,7 @@ static int adrv906x_pll_open(int dev_id)
 		ret = kfifo_alloc(&pll->fsm.event_fifo, 32, GFP_KERNEL);
 		if (ret) {
 			pr_err("failed to allocate fifo");
+			mutex_unlock(&pll->mtx);
 			return ret;
 		}
 		pll->fsm.task = kthread_run(adrv906x_phy_fsm_handle_transition,
