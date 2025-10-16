@@ -40,7 +40,7 @@
 #define DEFAULT_RECOVERED_CLK_DIV_25G       55
 
 static char *macaddr[MAX_NETDEV_NUM];
-module_param_array(macaddr, charp, 0, 0644);
+module_param_array(macaddr, charp, NULL, 0644);
 MODULE_PARM_DESC(macaddr, "set dev0 and dev1 mac addresses via kernel module parameter");
 static u64 default_multicast_list[MAX_MULTICAST_FILTERS] = {
 	0x0000011B19000000, 0x00000180C200000E, 0x00000180C2000003
