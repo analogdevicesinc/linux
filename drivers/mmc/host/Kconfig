@@ -257,6 +257,7 @@ config MMC_SDHCI_OF_ADI
 	depends on MMC_SDHCI_PLTFM
 	depends on OF
 	depends on COMMON_CLK
+	depends on (ARCH_ADRV906X || COMPILE_TEST)
 	help
 	  This selects the ADI SDHCI controller support
 	  If you have a controller with this interface, say Y or M here.
