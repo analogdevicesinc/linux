@@ -418,8 +418,10 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 
 		spin_lock_irqsave(&phydrv_lock, flags);
 		addr = ioremap(si_rev_id_reg, 1);
-		if (!addr)
+		if (!addr) {
+			spin_unlock_irqrestore(&phydrv_lock, flags);
 			return -ENOMEM;
+		}
 		si_rev = ioread8(addr);
 		iounmap(addr);
 		spin_unlock_irqrestore(&phydrv_lock, flags);
