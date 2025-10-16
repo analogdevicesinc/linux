@@ -5,8 +5,9 @@
 #
 
 config PHY_ADI_SDHCI
-	tristate "ADI SDHCI PHY driver"
+	tristate "ADI ADRV906x SDHCI PHY driver"
 	depends on OF
+	depends on ARCH_ADRV906X || COMPILE_TEST
 	select GENERIC_PHY
 	help
-	  Enable this to support the ADI SDHCI PHY.
+	  Enable this to support the SDHCI PHY on ADI ADRV906x.
