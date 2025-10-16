@@ -36,6 +36,8 @@
 #define LTC2378_TCONV_NS		675
 #define LTC2378_TDSDOBUSYL_NS		5
 #define LTC2378_TBUSYLH_NS		13
+#define LTC2378_TCNV_HIGH_NS		40	/* Minimum CNV high time (with margin) */
+#define LTC2378_TRIGGER_TO_SCLK_CYCLES	8	/* SPI clock cycles from trigger to SCLK start -> 9 - 1 margin*/
 
 struct ltc2378_chip_info {
         const char *name;
@@ -50,7 +52,7 @@ static const struct ltc2378_chip_info ltc2378_chip_info = {
         .resolution = 20,
         .num_channels = 1,
         .max_rate = 1000000,
-        .sclk_rate = 90000000
+        .sclk_rate = 70000000
 };
 
 /* SPI offload configuration for LTC2378 */
@@ -70,6 +72,10 @@ struct ltc2378_adc {
         int samp_freq;
         int device_id;
         u8 rx_buf[4]; // for 32-bit data
+
+        /* PWM control for CNV signal (dual PWM architecture) */
+        struct pwm_device *conv_trigger;
+        struct pwm_waveform conv_wf;
 
         /* New SPI offload API fields */
         struct spi_transfer offload_xfer[2];
@@ -141,53 +147,81 @@ static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
     return 0;
 }
 
+static int ltc2378_pwm_get(struct ltc2378_adc *adc)
+{
+	struct device *dev = &adc->spi->dev;
+
+	/* Get PWM channel 1 for CNV control from device tree */
+	adc->conv_trigger = devm_pwm_get(dev, "cnv");
+	if (IS_ERR(adc->conv_trigger))
+		return dev_err_probe(dev, PTR_ERR(adc->conv_trigger),
+				     "Failed to get cnv pwm\n");
+
+	/* Preemptively disable - only enable with buffer */
+	pwm_disable(adc->conv_trigger);
+
+	return 0;
+}
+
 static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
 {
 	struct spi_offload_trigger_config *config = &adc->offload_trigger_config;
-        u64 period_ns;
-        u64 adjusted_freq;
+	struct pwm_waveform conv_wf = { };
+	u64 target = LTC2378_TCNV_HIGH_NS;
 	int ret;
 
-        printk(KERN_INFO "ltc2378: freq input = %d\n", freq);
-        printk(KERN_INFO "ltc2378: max_rate = %d\n", adc->info->max_rate);
 	if (!in_range(freq, 1, adc->info->max_rate))
 		return -EINVAL;
 
-        printk(KERN_INFO "ltc2378: freq clamped = %d\n", freq);
+	/* Configure PWM1 (CNV) waveform */
+	conv_wf.period_length_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC, freq);
 
-        /* LTC2378-20 requires minimum 1000ns cycle time (1 MSPS max).
-         * Due to rounding in PWM hardware (10ns clock period), 1MHz can become
-         * 990ns (99 clocks) instead of 1000ns (100 clocks). To ensure we meet
-         * the minimum timing requirement, adjust the frequency slightly lower
-         * so the period rounds up to the next clock cycle.
-         */
-        period_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, (u64)freq);
-        printk(KERN_INFO "ltc2378: calculated period_ns = %llu\n", period_ns);
+	/*
+	 * Ensure CNV high time meets minimum requirement (20ns).
+	 * The PWM hardware may round the duty cycle, so iterate
+	 * until we get at least the minimum required high time.
+	 */
+	do {
+		conv_wf.duty_length_ns = target;
+		ret = pwm_round_waveform_might_sleep(adc->conv_trigger, &conv_wf);
+		if (ret)
+			return ret;
+		target += 10;  /* Increment by PWM clock period (10ns) */
+	} while (conv_wf.duty_length_ns < LTC2378_TCNV_HIGH_NS);
 
-	config->periodic.frequency_hz = freq;
+	/*
+	 * Configure PWM0 (SPI offload trigger).
+	 * Trigger should fire after CNV falls + conversion time + BUSY timing.
+	 * Account for the delay from trigger to SCLK start (hardware pipeline).
+	 *
+	 * CRITICAL: Use the SAME period as CNV PWM to avoid 1-cycle mismatch!
+	 * Convert back from period to frequency for the SPI offload API.
+	 *
+	 * Total timing needed: TCONV (675ns) + TBUSYLH (13ns) + TDSDOBUSYL (5ns) = 693ns
+	 * Subtract trigger-to-SCLK delay: 8 SPI clock cycles (9 - 1 margin clock)
+	 */
+	u64 spi_clk_period_ns = DIV_ROUND_CLOSEST_ULL(NSEC_PER_SEC, adc->ref_clk_rate);
+	u64 trigger_to_sclk_delay_ns = LTC2378_TRIGGER_TO_SCLK_CYCLES * spi_clk_period_ns;
+	u64 actual_freq_hz = DIV_ROUND_CLOSEST_ULL(NSEC_PER_SEC, conv_wf.period_length_ns);
+
+	dev_info(&adc->spi->dev,
+		 "SPI clock: %lu Hz, period: %llu ns, trigger-to-SCLK delay: %llu ns, PWM period: %llu ns (actual freq: %llu Hz)\n",
+		 adc->ref_clk_rate, spi_clk_period_ns, trigger_to_sclk_delay_ns,
+		 conv_wf.period_length_ns, actual_freq_hz);
+
+	config->periodic.frequency_hz = actual_freq_hz;
+	config->periodic.offset_ns = LTC2378_TCONV_NS + LTC2378_TBUSYLH_NS +
+				      LTC2378_TDSDOBUSYL_NS - trigger_to_sclk_delay_ns;
+
 	ret = spi_offload_trigger_validate(adc->offload_trigger, config);
 	if (ret)
 		return ret;
 
-        // if (period_ns <= 1000) {
-        //         /* At or near 1 MSPS - adjust frequency to ensure period >= 1000ns
-        //          * after PWM hardware quantization. Use 999kHz to get 1001ns period,
-        //          * which rounds to 100 clocks (1000ns) instead of 99 clocks (990ns).
-        //          */
-        //         adjusted_freq = DIV_ROUND_UP_ULL(NSEC_PER_SEC, 1001);
-        //         printk(KERN_INFO "ltc2378: adjusted freq from %d to %llu to meet min period\n",
-        //                freq, adjusted_freq);
-        //         config.periodic.frequency_hz = adjusted_freq;
-        // } else {
-                //config.periodic.frequency_hz = freq; //already set above
-        //}
-        
-        /* Store frequency - trigger framework controls PWM */
-        adc->samp_freq = freq;
+	/* Store configuration for later use in buffer enable */
+	adc->conv_wf = conv_wf;
+	adc->samp_freq = freq;
 
-        printk(KERN_INFO "ltc2378: frequency set = %d\n", adc->samp_freq);
-
-        return 0;
+	return 0;
 }
 
 static int ltc2378_read_raw(struct iio_dev *indio_dev,
@@ -243,9 +277,11 @@ static int ltc2378_write_raw(struct iio_dev *indio_dev,
 static int ltc2378_prepare_offload_message(struct device *dev,
 					   struct ltc2378_adc *adc)
 {
-	/* Dummy transfer to wait for the conversion time */
-	//adc->offload_xfer[0].delay.value = LTC2378_TCONV_NS + LTC2378_TDSDOBUSYL_NS + LTC2378_TBUSYLH_NS;
-        adc->offload_xfer[0].delay.value = 0;
+	/*
+	 * No initial delay needed - PWM timing controls when trigger fires.
+	 * The trigger offset in ltc2378_set_samp_freq() ensures proper timing.
+	 */
+	adc->offload_xfer[0].delay.value = 0;
 	adc->offload_xfer[0].delay.unit = SPI_DELAY_UNIT_NSECS;
 
         /* Setup data read transfer */
@@ -255,8 +291,8 @@ static int ltc2378_prepare_offload_message(struct device *dev,
         adc->offload_xfer[1].bits_per_word = 20;
         adc->offload_xfer[1].offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;  /* Enable RX streaming */
         /* Additional SLEEP instruction needed for tQUIET timing requirements. */
-        adc->offload_xfer[1].delay.value = 20;
-        adc->offload_xfer[1].delay.unit = SPI_DELAY_UNIT_NSECS;
+        //adc->offload_xfer[1].delay.value = 20;
+        //adc->offload_xfer[1].delay.unit = SPI_DELAY_UNIT_NSECS;
 
         /* Initialize message with offload */
         spi_message_init_with_transfers(&adc->offload_msg, adc->offload_xfer,
@@ -268,22 +304,48 @@ static int ltc2378_prepare_offload_message(struct device *dev,
 
 static int ltc2378_buffer_postenable(struct iio_dev *indio_dev)
 {
-        struct ltc2378_adc *adc = iio_priv(indio_dev);
-        int ret;
+	struct ltc2378_adc *adc = iio_priv(indio_dev);
+	int ret;
 
-        ret = spi_offload_trigger_enable(adc->offload, adc->offload_trigger,
-                                        &adc->offload_trigger_config);
+	spi_bus_lock(adc->spi->controller);
 
-        return 0;
+	/* Start PWM1 (CNV) - begins conversions */
+	ret = pwm_set_waveform_might_sleep(adc->conv_trigger, &adc->conv_wf, false);
+	if (ret)
+		goto out_unlock;
+
+	/* Enable PWM0 (trigger) - begins SPI readouts */
+	ret = spi_offload_trigger_enable(adc->offload, adc->offload_trigger,
+					&adc->offload_trigger_config);
+	if (ret)
+		goto out_pwm_disable;
+
+	spi_bus_unlock(adc->spi->controller);
+
+	return 0;
+
+out_pwm_disable:
+	pwm_disable(adc->conv_trigger);
+out_unlock:
+	spi_bus_unlock(adc->spi->controller);
+	return ret;
 }
 
 static int ltc2378_buffer_predisable(struct iio_dev *indio_dev)
 {
-        struct ltc2378_adc *adc = iio_priv(indio_dev);
+	struct ltc2378_adc *adc = iio_priv(indio_dev);
 
-        spi_offload_trigger_disable(adc->offload, adc->offload_trigger);
+	spi_bus_lock(adc->spi->controller);
 
-        return 0;
+	/* Disable PWM0 (trigger) first - stops new SPI transactions */
+	spi_offload_trigger_disable(adc->offload, adc->offload_trigger);
+
+	/* Stop PWM1 (CNV) - stops conversions */
+	pwm_disable(adc->conv_trigger);
+
+	spi_bus_unlock(adc->spi->controller);
+
+	return 0;
 }
 
 static const struct iio_buffer_setup_ops ltc2378_buffer_ops = {
@@ -405,6 +467,11 @@ static int ltc2378_probe(struct spi_device *spi)
                 printk(KERN_ERR "ltc2378: devm_iio_dmaengine_buffer_setup_with_handle failed: %d\n", ret);
                 return ret;
         }
+
+	/* Get PWM for CNV control */
+	ret = ltc2378_pwm_get(adc);
+	if (ret)
+		return ret;
 
         ret = ltc2378_set_samp_freq(adc, adc->info->max_rate);
         if (ret)
