@@ -1155,7 +1155,6 @@ static struct platform_driver adrv906x_eth_drv = {
 	.driver			= {
 		.name		= "adrv906x-net",
 		.of_match_table = of_match_ptr(adrv906x_eth_dt_ids),
-		.owner		= THIS_MODULE,
 	},
 };
 
