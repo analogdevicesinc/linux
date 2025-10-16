@@ -1085,6 +1085,7 @@ static int adrv906x_tod_enable(struct adrv906x_tod_counter *counter,
 
 		/* Enable ppsx for periodic output for given tod counter */
 		adrv906x_tod_perout_enable(counter, &rq->perout);
+		ret = 0;
 		break;
 	case PTP_CLK_REQ_PPS:
 		/* Enable internal pps output for given tod counter */
