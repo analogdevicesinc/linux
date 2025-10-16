@@ -14,5 +14,7 @@ description and try to push all related PRs simultaneously.
 
 ## PR Checklist
 - [ ] I have conducted a self-review of my own code changes
+- [ ] I have compiled my changes, including the documentation
 - [ ] I have tested the changes on the relevant hardware
-- [ ] I have updated the documentation outside this repo accordingly (if there is the case)
+- [ ] I have updated the documentation outside this repo accordingly
+- [ ] I have provided links for the relevant upstream lore
