@@ -304,7 +304,7 @@ static int adrv906x_pll_i2c_remove(struct adrv906x_hw_pll *hw_pll)
 	return 0;
 }
 
-struct phc_pll_ops adrv906x_pll_ops = {
+static struct phc_pll_ops adrv906x_pll_ops = {
 	.adjfine	= &adrv906x_pll_adjfine_ad9545,
 	.close		= &adrv906x_pll_i2c_remove,
 };
@@ -334,7 +334,7 @@ static struct ptp_clock_info adrv906x_pll_caps = {
 	.adjfine	= &adrv906x_phc_adjfine,
 };
 
-int adrv906x_phc_pll_probe(struct adrv906x_phc_pll *pll_phc)
+static int adrv906x_phc_pll_probe(struct adrv906x_phc_pll *pll_phc)
 {
 	struct adrv906x_hw_pll *hw_pll = &pll_phc->hw_pll;
 	struct device *dev = pll_phc->dev;
@@ -381,7 +381,7 @@ probe_error:
 	return ret;
 }
 
-int adrv906x_pll_remove(struct adrv906x_phc_pll *pll_phc)
+static int adrv906x_pll_remove(struct adrv906x_phc_pll *pll_phc)
 {
 	struct adrv906x_hw_pll *hw_pll = &pll_phc->hw_pll;
 
