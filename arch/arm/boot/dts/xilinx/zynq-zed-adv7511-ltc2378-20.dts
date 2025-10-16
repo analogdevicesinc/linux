@@ -37,7 +37,16 @@
 	trigger_pwm: adc-pwm-trigger {
 		compatible = "pwm-trigger";
 		#trigger-source-cells = <0>;
-		pwms = <&adc_trigger 0 1000000 2>;
+		pwms = <&adc_trigger 1 0>;  /* PWM1 for SPI offload trigger */
+	};
+
+	clocks {
+		ltc2378_ext_clk: ext-clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "ltc2378_ext_clk";
+		};
 	};
 
         one-bit-adc-dac@0 {
@@ -77,16 +86,16 @@
 		clock-output-names = "spi_clk";
 
 		assigned-clocks = <&spi_clk>;
-		assigned-clock-rates = <180000000>;
+		assigned-clock-rates = <140000000>;
 	};
 	adc_trigger: pwm@0x44b00000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x1000>;
 		label = "adc_conversion_trigger";
-		#pwm-cells = <3>;
+		#pwm-cells = <2>;
 		#trigger-source-cells = <0>;  /* Act as direct trigger source */
-		clocks = <&clkc 15>;
-		clock-names = "axi";
+		clocks = <&clkc 15>, <&ltc2378_ext_clk>;
+		clock-names = "axi", "ext";
 	};
 
 	spi_engine: spi@0x44a00000 {
@@ -110,7 +119,7 @@
 			#size-cells = <0>;
         	        compatible = "adi,ltc2378";
         	        reg = <0>;
-        	        spi-max-frequency = <90000000>;
+        	        spi-max-frequency = <70000000>;
         	        // SPI mode 0 (CPOL=0, CPHA=0) - LTC2378 datasheet specifies this
         	        // Data valid on rising edge, idle low
 
@@ -121,6 +130,14 @@
 
         	        vdd-supply = <&vdd>;
         	        vref-supply = <&vref>;
+
+			/* PWM configuration for dual PWM architecture:
+			 * - PWM channel 0: CNV signal (conversion trigger)
+			 * - PWM channel 1: SPI offload trigger
+			 * Note: Driver only controls CNV (PWM0), SPI offload controls trigger (PWM1)
+			 */
+			pwms = <&adc_trigger 0 0>;
+			pwm-names = "cnv";
                 };
 	};
 };
