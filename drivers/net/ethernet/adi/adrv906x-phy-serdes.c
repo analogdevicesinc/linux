@@ -408,17 +408,11 @@ static struct adrv906x_pll adrv906x_pll_dev[ADRV906X_PHY_MAX_PLLS] = {
 
 static struct adrv906x_serdes *adrv906x_serdes_instance_get(int dev_id)
 {
-	if (dev_id >= ADRV906X_PHY_MAX_LANES)
-		return NULL;
-
 	return &adrv906x_serdes_devs[dev_id];
 }
 
 static struct adrv906x_pll *adrv906x_pll_instance_get(int dev_id)
 {
-	if (dev_id >= ADRV906X_PHY_MAX_PLLS)
-		return NULL;
-
 	return &adrv906x_pll_dev[dev_id];
 }
 
@@ -632,8 +626,10 @@ static int __pll_cfg_done_recv(struct sk_buff *skb, struct genl_info *info)
 	if (ret)
 		return ret;
 
-	if (dev_id >= ADRV906X_PHY_MAX_PLLS)
+	if (dev_id >= ADRV906X_PHY_MAX_PLLS) {
+		pr_err("pll device id %d not found", dev_id);
 		return -EINVAL;
+	}
 
 	pll = adrv906x_pll_instance_get(dev_id);
 
@@ -662,8 +658,10 @@ static int __pll_relock_succeed_recv(struct sk_buff *skb, struct genl_info *info
 	if (ret)
 		return ret;
 
-	if (dev_id >= ADRV906X_PHY_MAX_PLLS)
+	if (dev_id >= ADRV906X_PHY_MAX_PLLS) {
+		pr_err("pll device id %d not found", dev_id);
 		return -EINVAL;
+	}
 
 	if (speed != SPEED_10000 && speed != SPEED_25000)
 		return -EINVAL;
@@ -687,8 +685,10 @@ static int __pll_relock_failed_recv(struct sk_buff *skb, struct genl_info *info)
 	if (ret)
 		return ret;
 
-	if (dev_id >= ADRV906X_PHY_MAX_PLLS)
+	if (dev_id >= ADRV906X_PHY_MAX_PLLS) {
+		pr_err("pll device id %d not found", dev_id);
 		return -EINVAL;
+	}
 
 	pll = adrv906x_pll_instance_get(dev_id);
 	adrv906x_phy_fsm_trigger_transition(&pll->fsm, PLL_EVT_UNLOCKED);
@@ -757,8 +757,10 @@ static int __sd_ser_cfg_done_recv(struct sk_buff *skb, struct genl_info *info)
 	if (ret)
 		return ret;
 
-	if (dev_id >= ADRV906X_PHY_MAX_LANES)
+	if (dev_id >= ADRV906X_PHY_MAX_LANES) {
+		pr_err("phy device id %d not found", dev_id);
 		return -EINVAL;
+	}
 
 	if (speed != SPEED_10000 && speed != SPEED_25000)
 		return -EINVAL;
@@ -784,8 +786,10 @@ static int __sd_deser_cfg_done_recv(struct sk_buff *skb, struct genl_info *info)
 	if (ret)
 		return ret;
 
-	if (dev_id >= ADRV906X_PHY_MAX_LANES)
+	if (dev_id >= ADRV906X_PHY_MAX_LANES) {
+		pr_err("phy device id %d not found", dev_id);
 		return -EINVAL;
+	}
 
 	if (speed != SPEED_10000 && speed != SPEED_25000)
 		return -EINVAL;
@@ -808,8 +812,10 @@ static int __sd_deser_signal_ok_recv(struct sk_buff *skb, struct genl_info *info
 	if (ret)
 		return ret;
 
-	if (dev_id >= ADRV906X_PHY_MAX_LANES)
+	if (dev_id >= ADRV906X_PHY_MAX_LANES) {
+		pr_err("phy device id %d not found", dev_id);
 		return -EINVAL;
+	}
 
 	if (speed != SPEED_10000 && speed != SPEED_25000)
 		return -EINVAL;
@@ -841,8 +847,10 @@ static int __sd_app_pwr_down_rdy_recv(struct sk_buff *skb, struct genl_info *inf
 	if (ret)
 		return ret;
 
-	if (dev_id >= ADRV906X_PHY_MAX_LANES)
+	if (dev_id >= ADRV906X_PHY_MAX_LANES) {
+		pr_err("phy device id %d not found", dev_id);
 		return -EINVAL;
+	}
 
 	if (speed != SPEED_10000 && speed != SPEED_25000)
 		return -EINVAL;
@@ -868,8 +876,10 @@ static int __sd_deser_los_detected_recv(struct sk_buff *skb, struct genl_info *i
 	if (ret)
 		return ret;
 
-	if (dev_id >= ADRV906X_PHY_MAX_LANES)
+	if (dev_id >= ADRV906X_PHY_MAX_LANES) {
+		pr_err("phy device id %d not found", dev_id);
 		return -EINVAL;
+	}
 
 	if (speed != SPEED_10000 && speed != SPEED_25000)
 		return -EINVAL;
