@@ -1475,8 +1475,10 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 	}
 
 	tod_np = of_get_child_by_name(np, "adrv906x-tod");
-	if (!tod_np)
+	if (!tod_np) {
+		ret = -ENOENT;
 		goto err_out;
+	}
 
 	mutex_init(&adrv906x_tod->reg_lock);
 
