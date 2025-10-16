@@ -712,6 +712,7 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 		of_property_read_u32(switch_port_np, "id", &portid);
 		if (portid != i) {
 			dev_err(dev, "dt: port id mismatch");
+			of_node_put(switch_port_np);
 			return -EINVAL;
 		}
 		/* get switch port register address */
@@ -720,6 +721,7 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 		es->switch_port[i].reg = devm_ioremap(&es->pdev->dev, reg, len);
 		if (!es->switch_port[i].reg) {
 			dev_err(dev, "ioremap switch port %d failed!", portid);
+			of_node_put(switch_port_np);
 			return -ENOMEM;
 		}
 		i++;
