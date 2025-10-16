@@ -1460,7 +1460,6 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 
 	adrv906x_tod->irq = platform_get_irq_byname(pdev, "pps");
 	if (adrv906x_tod->irq < 0) {
-		dev_err(dev, "dt: irq node missing");
 		ret = -ENOENT;
 		goto err_out;
 	}
