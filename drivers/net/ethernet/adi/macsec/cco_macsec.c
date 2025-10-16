@@ -46,9 +46,9 @@ static u32 count_secy(struct net_device *netdev)
 	u32 cnt = 0;
 
 	for (i = 0; i < macsec_priv->capabilities.no_of_secys && i < CCO_MACSEC_SECY_MAX; ++i)
-	if (macsec_priv->secy_array[i]) {
-		cnt++;
-	}
+		if (macsec_priv->secy_array[i]) {
+			cnt++;
+		}
 	return cnt;
 }
 
