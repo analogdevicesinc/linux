@@ -4187,7 +4187,7 @@ static void ad9081_dt_err(struct ad9081_phy *phy, const char *prop)
 
 static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 {
-	struct device_node *of_channels, *of_chan;
+	struct device_node *of_channels;
 	struct device_node *of_trx_path;
 	u32 reg, index, tmp, value;
 	bool has_long_time = false, has_long_thresh = false;
@@ -4240,7 +4240,7 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 		return ret;
 	}
 
-	for_each_child_of_node(of_channels, of_chan) {
+	for_each_child_of_node_scoped(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
 		if (!ret && (reg < ARRAY_SIZE(phy->tx_main_shift))) {
 			of_property_read_u64(of_chan,
@@ -4398,7 +4398,7 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 		return ret;
 	}
 
-	for_each_child_of_node(of_channels, of_chan) {
+	for_each_child_of_node_scoped(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
 		if (!ret && (reg < ARRAY_SIZE(phy->tx_chan_shift))) {
 			u32 val;
@@ -4439,7 +4439,7 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 	phy->jrx_link_watchdog_en = of_property_read_bool(of_channels,
 		"adi,jrx-link-watchdog-enable");
 
-	for_each_child_of_node(of_channels, of_chan) {
+	for_each_child_of_node_scoped(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
 		if (!ret && (reg < ARRAY_SIZE(phy->jrx_link_tx))) {
 			ad9081_parse_jesd_link_dt(phy, of_chan,
@@ -4448,7 +4448,6 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 			dev_err(&phy->spi->dev,
 				"Missing or invalid reg property in tx jesd-links node (%d)\n",
 				reg);
-			of_node_put(of_chan);
 			break;
 		}
 	}
@@ -4461,7 +4460,7 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 
 static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 {
-	struct device_node *of_channels, *of_chan;
+	struct device_node *of_channels;
 	struct device_node *of_trx_path;
 	u32 reg, tmp, nz;
 	int ret, i;
@@ -4498,7 +4497,7 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 		return -ENODEV;
 	}
 
-	for_each_child_of_node(of_channels, of_chan) {
+	for_each_child_of_node_scoped(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
 		if (!ret && (reg < ARRAY_SIZE(phy->tx_main_shift))) {
 			of_property_read_u64(of_chan,
@@ -4544,7 +4543,7 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 		return -ENODEV;
 	}
 
-	for_each_child_of_node(of_channels, of_chan) {
+	for_each_child_of_node_scoped(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
 		if (!ret && (reg < ARRAY_SIZE(phy->rx_fddc_shift))) {
 			u32 mode;
@@ -4613,7 +4612,7 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 			phy->ad9081.serdes_info.ser_settings.lane_settings[i].post_emp_setting =
 				lane_cfg[i];
 
-	for_each_child_of_node(of_channels, of_chan) {
+	for_each_child_of_node_scoped(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
 		if (!ret && (reg < ARRAY_SIZE(phy->jtx_link_rx))) {
 			ad9081_parse_jesd_link_dt(phy, of_chan,
@@ -4622,7 +4621,6 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 			dev_err(&phy->spi->dev,
 				"Missing or invalid reg property in rx jesd-links node (%d)\n",
 				reg);
-			of_node_put(of_chan);
 			break;
 		}
 	}
