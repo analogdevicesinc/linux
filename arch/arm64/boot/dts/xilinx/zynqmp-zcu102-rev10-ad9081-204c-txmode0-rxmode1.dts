@@ -122,7 +122,7 @@
 					adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
 					adi,converters-per-device = <1>;	/* JESD M */
-					adi,octets-per-frame = <1>;		/* JESD F */
+					adi,octets-per-frame = <8>;		/* JESD F */
 
 					adi,frames-per-multiframe = <256>;	/* JESD K */
 					adi,converter-resolution = <16>;	/* JESD N */
@@ -190,7 +190,7 @@
 					adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
 					adi,converters-per-device = <1>;	/* JESD M */
-					adi,octets-per-frame = <1>;		/* JESD F */
+					adi,octets-per-frame = <8>;		/* JESD F */
 
 					adi,frames-per-multiframe = <256>;	/* JESD K */
 					adi,converter-resolution = <16>;	/* JESD N */
