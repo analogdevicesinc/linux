@@ -3081,13 +3081,17 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 	u16 stat;
 	u8 vals[3];
 
+	mutex_lock(&conv->lock);
+
 	for (l = AD9081_LINK_0; !phy->tx_disable && (l < (ad9081_link_is_dual(phy->jrx_link_tx) ?
 		AD9081_LINK_ALL : AD9081_LINK_1)); l++) {
 
 		ret = adi_ad9081_jesd_rx_link_status_get(
 			&phy->ad9081, l, &stat);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&conv->lock);
 			return -EFAULT;
+		}
 
 		adi_ad9081_hal_reg_get(&phy->ad9081, REG_JRX_TPL_3_ADDR, &vals[0]);
 		adi_ad9081_hal_reg_get(&phy->ad9081, REG_JRX_TPL_4_ADDR, &vals[1]);
@@ -3111,8 +3115,10 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 
 		ret = adi_ad9081_jesd_tx_link_status_get(
 			&phy->ad9081, l, &stat);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&conv->lock);
 			return -EFAULT;
+		}
 
 		if (phy->jtx_link_rx[0].jesd_param.jesd_jesdv == JESD204_VERSION_C) {
 			seq_printf(file,
@@ -3132,11 +3138,10 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 		}
 	}
 
+	mutex_unlock(&conv->lock);
+
 	return 0;
 }
-
-
-
 
 static void ad9081_work_func(struct work_struct *work)
 {
@@ -3445,8 +3450,13 @@ ad9081_fir_bin_write(struct file *filp, struct kobject *kobj,
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
+	int ret;
 
-	return ad9081_parse_fir(phy, buf, count);
+	mutex_lock(&conv->lock);
+	ret = ad9081_parse_fir(phy, buf, count);
+	mutex_unlock(&conv->lock);
+
+	return ret;
 }
 
 static adi_ad9081_deser_mode_e
