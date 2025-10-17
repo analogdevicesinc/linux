@@ -1785,6 +1785,19 @@ config GPIO_74X164
 	  shift registers. This driver can be used to provide access
 	  to more GPIO outputs.
 
+config GPIO_ADGS6414D
+	tristate "Analog Devices ADGS6414D Octal SPST Switch"
+	depends on SPI_MASTER
+	depends on OF_GPIO
+	help
+	  Say yes here to enable support for the Analog Devices ADGS6414D
+	  Octal SPST (Single-Pole Single-Throw) switch GPIO expander.
+	  This device provides 8 independently controlled switches that
+	  can be used as GPIO outputs.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called gpio-adgs6414d.
+
 config GPIO_ADI_DAQ1
 	tristate "Analog Devices AD-FMCDAQ1-EBZ SPI-GPIO expander driver"
 	help
