@@ -2682,7 +2682,6 @@ static int ad9081_write_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
-	unsigned long r_clk;
 	int ret;
 
 	guard(mutex)(&conv->lock);
@@ -2699,18 +2698,6 @@ static int ad9081_write_raw(struct iio_dev *indio_dev,
 			return -EPERM;
 
 		return ad9081_set_sample_rate(conv, val);
-
-		r_clk = clk_round_rate(conv->clk, val);
-		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
-			dev_warn(&conv->spi->dev,
-				 "Error setting ADC sample rate %ld", r_clk);
-			return -EINVAL;
-		}
-
-		ret = clk_set_rate(conv->clk, r_clk);
-		if (ret < 0)
-			return ret;
-		break;
 	case IIO_CHAN_INFO_ENABLE:
 		if (chan->output) {
 			u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
