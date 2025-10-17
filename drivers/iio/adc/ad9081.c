@@ -3206,6 +3206,8 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 	u16 stat;
 	u8 vals[3];
 
+	guard(mutex)(&conv->lock);
+
 	for (l = AD9081_LINK_0; !phy->tx_disable && (l < (ad9081_link_is_dual(phy->jrx_link_tx) ?
 		AD9081_LINK_ALL : AD9081_LINK_1)); l++) {
 
@@ -3259,9 +3261,6 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 
 	return 0;
 }
-
-
-
 
 static void ad9081_work_func(struct work_struct *work)
 {
@@ -3567,6 +3566,8 @@ ad9081_fir_bin_write(struct file *filp, struct kobject *kobj,
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
+
+	guard(mutex)(&conv->lock);
 
 	return ad9081_parse_fir(phy, buf, count);
 }
