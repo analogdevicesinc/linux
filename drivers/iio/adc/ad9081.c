@@ -1334,6 +1334,8 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		}
 		ret = sysfs_emit(buf, "%lld\n",
 			phy->tx_ffh_hopf_vals[phy->tx_ffh_hopf_index[cddc_num]][cddc_num]);
+		if (ret <= 0)
+			ret = -EINVAL;
 		break;
 	default:
 		ret = -EINVAL;
