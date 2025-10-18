@@ -512,6 +512,11 @@ int *fd_l2_percpu;
 struct timeval interval_tv = { 5, 0 };
 struct timespec interval_ts = { 5, 0 };
 
+void print_intel_patch_version(void)
+{
+	fprintf(outf, "Intel internal patch version 2026.01.14 - Len Brown <len.brown@intel.com>\n");
+}
+
 unsigned int num_iterations;
 unsigned int header_iterations;
 unsigned int debug;
@@ -1193,6 +1198,52 @@ static const struct platform_features amd_features_with_rapl = {
 	.rapl_quirk_tdp = 280,	/* This is the max stock TDP of HEDT/Server Fam17h+ chips */
 };
 
+#ifndef	INTEL_BEASTLAKE
+#define INTEL_BEASTLAKE			IFM(18, 0x02)	/* BST */
+#endif
+#ifndef	INTEL_RAZORLAKE
+#define INTEL_RAZORLAKE			IFM(18, 0x06)	/* RZL */
+#endif
+#ifndef	INTEL_RAZORLAKE_L
+#define INTEL_RAZORLAKE_L		IFM(18, 0x07)	/* RZL */
+#endif
+#ifndef	INTEL_RAZORLAKE_U
+#define INTEL_RAZORLAKE_U		IFM(18, 0x09)	/* RZL */
+#endif
+#ifndef	INTEL_ATOM_PALMRIDGE
+#define INTEL_ATOM_PALMRIDGE		IFM(19, 0x04)	/* PMR */
+#endif
+#ifndef	INTEL_DIAMONDRAPIDS_RS
+#define INTEL_DIAMONDRAPIDS_RS		IFM(19, 0x05)	/* NWP */
+#endif
+#ifndef	INTEL_CORALRAPIDS_X
+#define INTEL_CORALRAPIDS_X		IFM(19, 0x08)	/* COR */
+#endif
+#ifndef	INTEL_CORALRAPIDS_HD
+#define INTEL_CORALRAPIDS_HD		IFM(19, 0x09)	/* COR */
+#endif
+#ifndef	INTEL_CORALRAPIDS_D
+#define INTEL_CORALRAPIDS_D		IFM(19, 0x0A)	/* COR-D */
+#endif
+#ifndef	INTEL_TITANLAKE_U
+#define INTEL_TITANLAKE_U		IFM(18, 0x0C)	/* TTL */
+#endif
+#ifndef	INTEL_TITANLAKE
+#define INTEL_TITANLAKE			IFM(18, 0x0D)	/* TTL */
+#endif
+#ifndef	INTEL_TITANLAKE_L
+#define INTEL_TITANLAKE_L		IFM(18, 0x0E)	/* TTL */
+#endif
+#ifndef	INTEL_TITANLAKE_P
+#define INTEL_TITANLAKE_P		IFM(20, 0x01)	/* TTL */
+#endif
+#ifndef	INTEL_HAMMERLAKE_L
+#define INTEL_HAMMERLAKE_L		IFM(20, 0x02)	/* HML */
+#endif
+#ifndef	INTEL_HAMMERLAKE
+#define INTEL_HAMMERLAKE		IFM(20, 0x03)	/* HML */
+#endif
+
 static const struct platform_data turbostat_pdata[] = {
 	{ INTEL_NEHALEM, &nhm_features },
 	{ INTEL_NEHALEM_G, &nhm_features },
@@ -1233,6 +1284,10 @@ static const struct platform_data turbostat_pdata[] = {
 	{ INTEL_GRANITERAPIDS_X, &spr_features },
 	{ INTEL_GRANITERAPIDS_D, &spr_features },
 	{ INTEL_DIAMONDRAPIDS_X, &dmr_features },
+	{ INTEL_DIAMONDRAPIDS_RS, &dmr_features },
+	{ INTEL_CORALRAPIDS_X, &dmr_features },
+	{ INTEL_CORALRAPIDS_HD, &dmr_features },
+	{ INTEL_CORALRAPIDS_D, &dmr_features },
 	{ INTEL_LAKEFIELD, &cnl_features },
 	{ INTEL_ALDERLAKE, &adl_features },
 	{ INTEL_ALDERLAKE_L, &adl_features },
@@ -1250,6 +1305,16 @@ static const struct platform_data turbostat_pdata[] = {
 	{ INTEL_NOVALAKE, &lnl_features },
 	{ INTEL_NOVALAKE_L, &lnl_features },
 	{ INTEL_WILDCATLAKE_L, &lnl_features },
+	{ INTEL_BEASTLAKE, &lnl_features },
+	{ INTEL_RAZORLAKE, &lnl_features },
+	{ INTEL_RAZORLAKE_L, &lnl_features },
+	{ INTEL_RAZORLAKE_U, &lnl_features },
+	{ INTEL_TITANLAKE_U, &lnl_features },
+	{ INTEL_TITANLAKE, &lnl_features },
+	{ INTEL_TITANLAKE_L, &lnl_features },
+	{ INTEL_TITANLAKE_P, &lnl_features },
+	{ INTEL_HAMMERLAKE_L, &lnl_features },
+	{ INTEL_HAMMERLAKE, &lnl_features },
 	{ INTEL_ATOM_SILVERMONT, &slv_features },
 	{ INTEL_ATOM_SILVERMONT_D, &slvd_features },
 	{ INTEL_ATOM_AIRMONT, &amt_features },
@@ -1262,6 +1327,7 @@ static const struct platform_data turbostat_pdata[] = {
 	{ INTEL_ATOM_GRACEMONT, &adl_features },
 	{ INTEL_ATOM_CRESTMONT_X, &srf_features },
 	{ INTEL_ATOM_CRESTMONT, &grr_features },
+	{ INTEL_ATOM_PALMRIDGE, &grr_features },
 	{ INTEL_ATOM_DARKMONT_X, &srf_features },
 	{ INTEL_XEON_PHI_KNL, &knl_features },
 	{ INTEL_XEON_PHI_KNM, &knl_features },
@@ -11661,6 +11727,7 @@ void cmdline(int argc, char **argv)
 			break;
 		case 'v':
 			print_version();
+			print_intel_patch_version();
 			exit(0);
 			break;
 		default:
@@ -11713,6 +11780,7 @@ skip_cgroup_setting:
 
 	if (!quiet) {
 		print_version();
+		print_intel_patch_version();
 		print_bootcmd();
 	}
 
