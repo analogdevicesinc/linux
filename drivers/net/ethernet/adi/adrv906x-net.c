@@ -146,13 +146,20 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 		if (eth_if->ethswitch.enabled) {
 			val = phydev->speed == SPEED_10000 ? AGE_TIME_5MIN_10G : AGE_TIME_5MIN_25G;
 			adrv906x_switch_set_mae_age_time(es, val);
-			adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
+			/* adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
+			 * TODO Investigate why en-/disabling the port causes issues with the link coming
+			 *  up correctly.
+			 */
 		}
 		netif_wake_queue(ndev);
 	} else {
 		netif_stop_queue(ndev);
-		if (eth_if->ethswitch.enabled)
-			adrv906x_switch_port_enable(es, adrv906x_dev->port, false);
+		/* if (eth_if->ethswitch.enabled)
+		 *	adrv906x_switch_port_enable(es, adrv906x_dev->port, false);
+		 * TODO Investigate why en-/disabling the port causes issues with the link coming
+		 *  up correctly.
+		 */
+
 	}
 
 	phy_print_status(phydev);

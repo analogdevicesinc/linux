@@ -893,7 +893,9 @@ static void __sd_pwr_down(void *param)
 	struct net_device *netdev = phydev->attached_dev;
 
 	serdes->rx_path_en(phydev, false);
-	serdes->tx_path_en(phydev, false);
+	/* serdes->tx_path_en(phydev, false);
+	 * TODO Check with HW team if TX path disable is needed when link is down
+	 */
 	phy_trigger_machine(phydev);
 	adrv906x_eth_cmn_ser_pwr_down(netdev);
 	adrv906x_eth_cmn_deser_pwr_down(netdev);
