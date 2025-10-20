@@ -56,7 +56,7 @@ stages:
     - task: CopyFiles@2
       inputs:
         sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts'
-        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/overlays/?(*.dtb*)'
+        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/overlays/?(*.dtb|*.dtbo)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: CopyFiles@2
       inputs:
