@@ -50,7 +50,7 @@
 
 &fpga_axi {
 
-	dac_tx_dma: dma-controller@44a30000 {
+	dac_tx_dma: dma-controller@44a40000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a40000 0x10000>;
 		#dma-cells = <1>;
@@ -72,8 +72,8 @@
 		};
 	};
 
-	axi_dac: spi@44a70000 {
-		compatible = "adi,axi-ad3552r";
+	axi_dac: axi-ad9740@44a70000 {
+		compatible = "adi,axi-ad9740";
 		reg = <0x44a70000 0x1000>;
 		dmas = <&dac_tx_dma 0>;
 		dma-names = "tx";
@@ -86,28 +86,11 @@
 
 		dac@0 {
 			reg = <0>;
-			compatible = "adi,ad3552r";
+			compatible = "adi,ad9740";
 			reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
 			io-backends = <&axi_dac>;
-
-		        clocks = <&adf4351_clkout>;
-
-			spi-3-wire;
-			spi-tx-bus-width = <4>;
-			spi-rx-bus-width = <4>;
-
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			channel@0 {
-				reg = <0>;
-				adi,output-range-microvolt = <0 5000000>;
-			};
-
-			channel@1 {
-				reg = <1>;
-				adi,output-range-microvolt = <0 5000000>;
-			};
+			/* Data format: use offset binary (false) or 2's complement (true) */
+			/* adi,twos-complement; */
 		};
 	};
 };

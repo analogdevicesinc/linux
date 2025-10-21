@@ -834,6 +834,7 @@ static const struct iio_backend_ops axi_dac_generic_ops = {
 	.ext_info_set = axi_dac_ext_info_set,
 	.ext_info_get = axi_dac_ext_info_get,
 	.data_source_set = axi_dac_data_source_set,
+	.data_source_get = axi_dac_data_source_get,
 	.set_sample_rate = axi_dac_set_sample_rate,
 	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_dac_reg_access),
 };
@@ -1009,9 +1010,17 @@ static const struct axi_dac_info dac_ad3552r = {
 	.has_child_nodes = true,
 };
 
+static const struct axi_dac_info dac_ad9740 = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.backend_info = &axi_dac_generic,
+	.has_dac_clk = true,
+	.has_child_nodes = true,
+};
+
 static const struct of_device_id axi_dac_of_match[] = {
 	{ .compatible = "adi,axi-dac-9.1.b", .data = &dac_generic },
 	{ .compatible = "adi,axi-ad3552r", .data = &dac_ad3552r },
+	{ .compatible = "adi,axi-ad9740", .data = &dac_ad9740 },
 	{}
 };
 MODULE_DEVICE_TABLE(of, axi_dac_of_match);
