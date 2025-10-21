@@ -1,0 +1,72 @@
+name: Cherry-pick commits to a branch
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: true
+        type: string
+      filter:
+        type: string
+        default: ""
+    outputs:
+      fail:
+        value: ${{ jobs.cherry_pick.outputs.fail }}
+      warn:
+        value: ${{ jobs.cherry_pick.outputs.warn }}
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  cherry_pick:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: write
+      actions: write
+
+    outputs:
+      fail: ${{ steps.assert.outputs.fail }}
+      warn: ${{ steps.assert.outputs.warn }}
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@action
+
+    - name: Get sources
+      run: |
+        file=$(echo "${{ github.workflow_ref }}" | cut -d'/' -f3- | cut -d'@' -f1)
+        workflow_ref=$(awk '
+          $0 ~ "uses:" && $0 ~ job".yml" {
+            sub(/^[[:space:]]*uses:[[:space:]]*/, "", $0);
+            print $0;
+            exit
+          }
+        ' "$file")
+        echo $workflow_ref
+
+        org_repo="$(echo "$workflow_ref" | cut -d'/' -f1-2)"
+        ref="$(echo "$workflow_ref" | cut -d'@' -f2)"
+
+        get_file () {
+          echo https://raw.githubusercontent.com/$org_repo/$ref/$1
+          curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
+              https://raw.githubusercontent.com/$org_repo/$ref/$1
+        }
+
+        mkdir -p ci
+        get_file ci/maintenance.sh
+        get_file ci/runner_env.sh
+
+    - name: update-mirror
+      run: |
+        source ./ci/maintenance.sh
+        for branch in "${{ inputs.branch }}" ; do
+          cherry_pick "$branch" "${{ inputs.filter }}"
+        done
+
+    - name: Export labels
+      id: assert
+      run: |
+        source ./ci/runner_env.sh
+        export_labels
