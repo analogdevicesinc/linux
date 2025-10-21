@@ -28,8 +28,9 @@
 		interrupts = <0 93 1>;
 		assigned-clocks = <&zynqmp_clk 72>; // PL1_REF
 		assigned-clock-rates = <250000000>;
-		resets = <&zynqmp_reset 116>; // ZYNQMP_RESET_PS_PL0
+		resets = <&zynqmp_reset 117>; // ZYNQMP_RESET_PS_PL1
 		reset-names = "reset";
+		//status = "disabled";
 	};
 };
 

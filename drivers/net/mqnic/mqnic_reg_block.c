@@ -7,10 +7,13 @@
 
 struct mqnic_reg_block *mqnic_enumerate_reg_block_list(u8 __iomem *base, size_t offset, size_t size)
 {
+	printk(KERN_ERR "just entered mqnic_enumerate_reg_block_list\n");
 	int max_count = 8;
 	struct mqnic_reg_block *reg_block_list = kzalloc(max_count * sizeof(struct mqnic_reg_block), GFP_KERNEL);
 	int count = 0;
 	int k;
+
+	printk(KERN_ERR "mqnic_enumerate_reg_block_list: done allocating reg_block_list\n");
 
 	u8 __iomem *ptr;
 
@@ -20,6 +23,7 @@ struct mqnic_reg_block *mqnic_enumerate_reg_block_list(u8 __iomem *base, size_t 
 	if (!reg_block_list)
 		return NULL;
 
+	printk(KERN_ERR "mqnic_enumerate_reg_block_list: before while\n");
 	while (1) {
 		reg_block_list[count].type = 0;
 		reg_block_list[count].version = 0;
@@ -27,10 +31,14 @@ struct mqnic_reg_block *mqnic_enumerate_reg_block_list(u8 __iomem *base, size_t 
 		reg_block_list[count].regs = 0;
 
 		if ((offset == 0 && count != 0) || offset >= size)
+		{
+			printk(KERN_ERR "mqnic_enumerate_reg_block_list: in while: breaked the loop\n");
 			break;
+		}
 
 		ptr = base + offset;
 
+		printk(KERN_ERR "mqnic_enumerate_reg_block_list: in while: before for\n");
 		for (k = 0; k < count; k++) {
 			if (ptr == reg_block_list[k].regs) {
 				pr_err("Register blocks form a loop");
@@ -39,8 +47,11 @@ struct mqnic_reg_block *mqnic_enumerate_reg_block_list(u8 __iomem *base, size_t 
 		}
 
 		rb_type = ioread32(ptr + MQNIC_RB_REG_TYPE);
+		printk(KERN_ERR "rb_type read\n");
 		rb_version = ioread32(ptr + MQNIC_RB_REG_VER);
+		printk(KERN_ERR "rb_version read\n");
 		offset = ioread32(ptr + MQNIC_RB_REG_NEXT_PTR);
+		printk(KERN_ERR "offset read\n");
 
 		reg_block_list[count].type = rb_type;
 		reg_block_list[count].version = rb_version;

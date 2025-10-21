@@ -234,7 +234,11 @@ static int mqnic_common_probe(struct mqnic_dev *mqnic)
 
 	int k = 0;
 
+	printk(KERN_ERR "mqnic_common_probe before devlink register\n");
+
 	devlink_register(devlink);
+
+	printk(KERN_ERR "mqnic_common_probe after devlink register\n");
 
 	// Enumerate registers
 	mqnic->rb_list = mqnic_enumerate_reg_block_list(mqnic->hw_addr, 0, mqnic->hw_regs_size);
