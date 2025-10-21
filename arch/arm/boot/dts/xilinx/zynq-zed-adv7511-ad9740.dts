@@ -8,25 +8,24 @@
 
 / {
 
-	vcc: regulator-vref {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-always-on;
-	};
-
 	clocks {
 		adf4351_clkin: clock@1 {
-			#clock-cells = <0x0>;
+			#clock-cells = <0>;
 			compatible = "fixed-clock";
 			clock-frequency = <10000000>;
 			clock-output-names = "refclk";
 		};
+
+		adf4351_clkout: clock@2 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <128000000>;
+			clock-output-names = "adf4351_clkout";
+		};
 	};
 };
 
-	&spi0 {
+&spi0 {
     status="okay";
 
    adf4351: adf4351@0 {
@@ -43,9 +42,72 @@
       adi,phase-detector-polarity-positive-enable;
       adi,charge-pump-current = <2500>;
       adi,output-power = <3>;
-      adi,mute-till-lock-enable;
       adi,aux-output-enable;
       adi,aux-output-power = <3>;
       adi,muxout-select = <6>;
     };
   };
+
+&fpga_axi {
+
+	dac_tx_dma: dma-controller@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a40000 0x10000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
+	axi_dac: spi@44a70000 {
+		compatible = "adi,axi-ad3552r";
+		reg = <0x44a70000 0x1000>;
+		dmas = <&dac_tx_dma 0>;
+		dma-names = "tx";
+		#io-backend-cells = <0>;
+		clocks = <&clkc 15>, <&adf4351_clkout>;
+		clock-names = "s_axi_aclk", "dac_clk";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		dac@0 {
+			reg = <0>;
+			compatible = "adi,ad3552r";
+			reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
+			io-backends = <&axi_dac>;
+
+		        clocks = <&adf4351_clkout>;
+
+			spi-3-wire;
+			spi-tx-bus-width = <4>;
+			spi-rx-bus-width = <4>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			channel@0 {
+				reg = <0>;
+				adi,output-range-microvolt = <0 5000000>;
+			};
+
+			channel@1 {
+				reg = <1>;
+				adi,output-range-microvolt = <0 5000000>;
+			};
+		};
+	};
+};
