@@ -157,6 +157,7 @@ jobs:
     - name: Check defconfigs
       if: ${{ !cancelled() && env.fatal != 'true' }}
       run: |
+        # Collect all defconfigs mentioned in the top-level and look for changes
         configs=($(awk '/ARCH:/{arch=$2} /DEFCONFIG:/{print arch "/" $2}' \
                    .github/workflows/top-level.yml | \
                  sed 's/"//g'))
