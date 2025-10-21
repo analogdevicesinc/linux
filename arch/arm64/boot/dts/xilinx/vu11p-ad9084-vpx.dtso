@@ -152,12 +152,10 @@
 			// };
 			channel@3 {
 				reg = <3>;
-				adi,extended-name = "Apollo SYSREF";
-				adi,divider = <768>;
+				adi,extended-name = "VUP Core CLK";
+				adi,divider = <8>;
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
-				adi,sysref-mode = <0>;
-				adi,jesd204-sysref-chan;
 			};
 			channel@4 {
 				reg = <4>;
@@ -170,10 +168,12 @@
 			};
 			channel@5 {
 				reg = <5>;
-				adi,extended-name = "VUP Core CLK";
-				adi,divider = <8>;
+				adi,extended-name = "Apollo SYSREF";
+				adi,divider = <768>;
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
+				adi,sysref-mode = <0>;
+				adi,jesd204-sysref-chan;
 			};
 			channel@6 {
 				reg = <6>;
@@ -385,7 +385,7 @@
 		interrupt-parent = <&axi_intc_0>;
 		interrupts = <5 2>;
 
-		clocks = <&mig_clkout1>, <&axi_ad9084_adxcvr_rx 1>, <&ltc6952 5>, <&axi_ad9084_adxcvr_rx 0>;
+		clocks = <&mig_clkout1>, <&axi_ad9084_adxcvr_rx 1>, <&ltc6952 3>, <&axi_ad9084_adxcvr_rx 0>;
 		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
@@ -403,7 +403,7 @@
 		interrupt-parent = <&axi_intc_0>;
 		interrupts = <6 2>;
 
-		clocks = <&mig_clkout1>, <&axi_ad9084_adxcvr_tx 1>, <&ltc6952 5>, <&axi_ad9084_adxcvr_tx 0>;
+		clocks = <&mig_clkout1>, <&axi_ad9084_adxcvr_tx 1>, <&ltc6952 3>, <&axi_ad9084_adxcvr_tx 0>;
 		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
@@ -595,7 +595,7 @@
 		interrupt-parent = <&axi_intc_0>;
 		interrupts = <12 2>;
 
-		clocks = <&mig_clkout1>, <&axi_ad9084_adxcvr_rx_b 1>, <&ltc6952 5>, <&axi_ad9084_adxcvr_rx_b 0>;
+		clocks = <&mig_clkout1>, <&axi_ad9084_adxcvr_rx_b 1>, <&ltc6952 3>, <&axi_ad9084_adxcvr_rx_b 0>;
 		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
@@ -613,7 +613,7 @@
 		interrupt-parent = <&axi_intc_0>;
 		interrupts = <13 2>;
 
-		clocks = <&mig_clkout1>, <&axi_ad9084_adxcvr_tx_b 1>, <&ltc6952 5>, <&axi_ad9084_adxcvr_tx_b 0>;
+		clocks = <&mig_clkout1>, <&axi_ad9084_adxcvr_tx_b 1>, <&ltc6952 3>, <&axi_ad9084_adxcvr_tx_b 0>;
 		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
