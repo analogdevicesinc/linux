@@ -87,6 +87,12 @@ struct adi_sharc_resource_table {
 	struct sharc_resource_table rsc_table;
 } __packed;
 
+/* LDR recipient Core ID */
+uint8_t ldr_core_id[3] = {
+	0xAD,
+	0xAC,
+	0xAB,
+};
 
 #define VRING_ALIGN 0x1000
 #define VRING_DEFAULT_SIZE 0x800
@@ -164,6 +170,9 @@ struct adi_rproc_data {
 	struct sharc_resource_table *loaded_rsc_table;
 };
 
+/*
+ * Load first instruction to be executed after reset
+ */
 static int adi_core_set_svect(struct adi_rproc_data *rproc_data,
 					unsigned long svect)
 {
@@ -230,6 +239,11 @@ static int is_empty(struct ldr_hdr *hdr)
 	return hdr->bcode_flag.bFlag_ignore || (hdr->byte_count == 0);
 }
 
+static int is_final_and_empty(struct ldr_hdr *hdr)
+{
+	return is_final(hdr) && is_empty(hdr);
+}
+
 static void load_callback(void *p)
 {
 	struct completion *cmp = p;
@@ -237,107 +251,194 @@ static void load_callback(void *p)
 	complete(cmp);
 }
 
-/* @todo this needs to return status */
-/* @todo the error paths here leak tremendously, this needs further cleanup */
-static void ldr_load(struct adi_rproc_data *rproc_data)
+/*
+ * We validate if the current and next header checksum are valid based
+ * on the current header block. This way we validate the current block
+ * header integrity and validity of the block size with respect to the stream.
+ *
+ * In case of Direct Code Execution and Single block boot streams it is possible
+ * to verify the block header via an xor checksum of the bcode_flag field.
+ */
+static int adi_verify_ldr_hdr(struct adi_rproc_data *rproc_data,
+		struct ldr_hdr *block_hdr)
+{
+	struct bcode_flag_t *block_flags;
+	struct ldr_hdr *next_hdr;
+	uint8_t expected_core_id;
+	uint8_t hdr_xor;
+
+	block_flags = &block_hdr->bcode_flag;
+
+	 /* Verify core id */
+	expected_core_id = ldr_core_id[rproc_data->core_id];
+	if (expected_core_id != block_flags->bHdrSIGN) {
+		pr_err("Wrong core being loaded!\n");
+		return -EINVAL;
+	}
+
+	/* Check packet type - if direct / single block, check checksum */
+	hdr_xor = block_flags->bFlag_first && block_flags->bFlag_final;
+	if (hdr_xor) {
+		uint8_t curr_hdr_xor_checksum;
+		uint8_t expected_xor_checksum;
+		uint32_t flag_mask, flag_byte;
+		int i;
+
+		expected_xor_checksum = block_hdr->bcode_flag.bHdrCHK;
+		curr_hdr_xor_checksum = 0;
+		flag_mask = 0xFF000000;
+		for (i = 4; i > 0; i--) {
+			/* dont include checksum */
+			if (i != 3) {
+				flag_byte = flag_mask & *(uint32_t *) block_flags;
+				/* eg 0xAB000000, mask is 0xFF000000,
+				 * to convert into uint8_t,
+				 * shift by ((4-1)x2)x4=24 bits
+				 */
+				flag_byte = flag_byte >> (((i-1)*2*4));
+				/* truncate and XOR */
+				curr_hdr_xor_checksum ^= (uint8_t) flag_byte;
+			}
+			/* next byte */
+			flag_mask = flag_mask >> 8;
+		}
+
+		if (expected_xor_checksum != curr_hdr_xor_checksum) {
+			dev_err(rproc_data->dev, "Expected ldr xor:%08x got:%08x\n",
+					expected_xor_checksum,
+					curr_hdr_xor_checksum);
+			return -EINVAL;
+		}
+	}
+
+	/* Check if size offset leads to next header, unless final (should have
+	 * same core id since part of same stream and block is not final)
+	 */
+	if (block_flags->bFlag_final)
+		return 0;
+
+	next_hdr = block_hdr + 1;
+	if (!block_flags->bFlag_fill)
+		next_hdr = (struct ldr_hdr *)((uint8_t *) next_hdr +
+				block_hdr->byte_count);
+
+	if (expected_core_id != next_hdr->bcode_flag.bHdrSIGN) {
+		dev_err(rproc_data->dev,
+				"Next block does not belong to this core!\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ldr_load(struct adi_rproc_data *rproc_data)
 {
 	struct ldr_hdr *block_hdr = NULL;
 	struct ldr_hdr *next_hdr = NULL;
 	uint8_t *virbuf = (uint8_t *) rproc_data->mem_virt;
 	dma_addr_t phybuf = rproc_data->mem_handle;
 	int offset;
-// part of verify buffer code
-//	int i;
-//	uint32_t verfied = 0;
-//	uint8_t *pCompareBuffer;
-//	uint8_t *pVerifyBuffer;
+	uint32_t byte_cnt_offset;
 	struct dma_chan *chan = dma_find_channel(DMA_MEMCPY);
 	struct dma_async_tx_descriptor *tx;
+	int final_hdr_empty;
 	struct completion cmp;
 
 	if (!chan) {
 		dev_err(rproc_data->dev, "Could not find dma memcpy channel\n");
-		return;
+		return -ENODEV;
 	}
 
 	init_completion(&cmp);
 
-	do {
+
+	/* ldr data is organised as blocks, verify the current block
+	 * and estimate the next block to be read based on the
+	 * information obtained regarding the current one
+	 */
+	offset = 0;
+	while (1) {
+		int blkhdr_dma_init_val;
+		dma_addr_t blkhdr_dma_src;
+
 		/* read the header */
-		block_hdr = (struct ldr_hdr *) virbuf;
-		offset = sizeof(struct ldr_hdr) + (block_hdr->bcode_flag.bFlag_fill ?
-					       0 : block_hdr->byte_count);
-		next_hdr = (struct ldr_hdr *) (virbuf + offset);
-		tx = NULL;
-
-		/* Overwrite the ldr_load_addr */
-		if (block_hdr->bcode_flag.bFlag_first)
-			rproc_data->ldr_load_addr = (unsigned long)block_hdr->target_addr;
-
-		if (!is_empty(block_hdr)) {
-			if (block_hdr->bcode_flag.bFlag_fill) {
-				tx = dmaengine_prep_dma_memset(chan,
-							       block_hdr->target_addr,
-							       block_hdr->argument,
-							       block_hdr->byte_count, 0);
-			} else {
-				tx = dmaengine_prep_dma_memcpy(chan,
-							       block_hdr->target_addr,
-							       phybuf + sizeof(struct ldr_hdr),
-							       block_hdr->byte_count, 0);
-
-//				if (rproc_data->verify) {
-//					@todo implement verification
-//					pCompareBuffer = virbuf + sizeof(struct ldr_hdr);
-//					pVerifyBuffer = virbuf + rproc_data->fw_size;
-//
-//					dma_memcpy(phybuf + rproc_data->fw_size,
-//							   block_hdr->target_addr,
-//							   block_hdr->byte_count);
-//
-//					/* check the data */
-//					for (i = 0; i < block_hdr->byte_count; i++) {
-//						if (pCompareBuffer[i] != pVerifyBuffer[i]) {
-//							dev_err(rproc_data->dev,
-//								    "dirty data, compare[%d]:0x%x,"
-//									"verify[%d]:0x%x\n",
-//									i, pCompareBuffer[i], i,
-//									pVerifyBuffer[i]);
-//							verfied++;
-//							break;
-//						}
-//					}
-//				}
-			}
-
-			if (!tx) {
-				dev_err(rproc_data->dev, "Failed to allocate dma transaction\n");
-				return;
-			}
-
-			if (is_final(block_hdr) || (is_final(next_hdr) && is_empty(next_hdr))) {
-				tx->callback = load_callback;
-				tx->callback_param = &cmp;
-			}
-			dmaengine_submit(tx);
-			dma_async_issue_pending(chan);
-		}
-
-		if (is_final(block_hdr)) {
-			wait_for_completion(&cmp);
-			break;
-		}
-
 		virbuf += offset;
 		phybuf += offset;
-	} while (1);
+		block_hdr = (struct ldr_hdr *) virbuf;
+		if (block_hdr->bcode_flag.bFlag_fill)
+			byte_cnt_offset = 0;
+		else
+			byte_cnt_offset = block_hdr->byte_count;
 
-//	if (rproc_data->verify) {
-//		if (verfied == 0)
-//			dev_err(rproc_data->dev, "success to verify all the data\n");
-//		else
-//			dev_err(rproc_data->dev, "fail to verify all the data %d\n", verfied);
-//	}
+		offset = sizeof(struct ldr_hdr) + byte_cnt_offset;
+		next_hdr = (struct ldr_hdr *) (virbuf + offset);
+		tx = NULL;
+		/* Overwrite the ldr_load_addr */
+		if (block_hdr->bcode_flag.bFlag_first)
+			rproc_data->ldr_load_addr =
+				(unsigned long) block_hdr->target_addr;
+
+		/* Skip empty blocks if they are not final */
+		if (is_empty(block_hdr)) {
+			if (!is_final(block_hdr))
+				continue;
+
+			if (rproc_data->verify)
+				dev_info(rproc_data->dev,
+						"Verified and loaded ldr\n");
+
+			wait_for_completion(&cmp);
+			return 0;
+		}
+
+		if (block_hdr->bcode_flag.bFlag_fill) {
+			blkhdr_dma_init_val = block_hdr->argument;
+			tx = dmaengine_prep_dma_memset(chan,
+					       block_hdr->target_addr,
+					       blkhdr_dma_init_val,
+					       block_hdr->byte_count, 0);
+		} else {
+			if (rproc_data->verify) {
+				int verify_stat = adi_verify_ldr_hdr(rproc_data,
+						block_hdr);
+				if (verify_stat)
+					return verify_stat;
+			}
+
+			blkhdr_dma_src = phybuf + sizeof(struct ldr_hdr);
+			tx = dmaengine_prep_dma_memcpy(chan,
+					       block_hdr->target_addr,
+					       blkhdr_dma_src,
+					       block_hdr->byte_count, 0);
+
+		}
+
+		if (!tx) {
+			dev_err(rproc_data->dev,
+					"Failed to allocate dma transaction\n");
+			return -ENOMEM;
+		}
+
+		/* Prepare in advance for an empty final block */
+		final_hdr_empty = is_final_and_empty(next_hdr);
+		if (is_final(block_hdr) || final_hdr_empty) {
+			tx->callback = load_callback;
+			tx->callback_param = &cmp;
+		}
+
+		dmaengine_submit(tx);
+		dma_async_issue_pending(chan);
+		if (is_final(block_hdr)) {
+			wait_for_completion(&cmp);
+			if (rproc_data->verify)
+				dev_info(rproc_data->dev,
+						"Verified and loaded ldr\n");
+			return 0;
+		}
+
+	}
+
+	return 0;
 }
 
 static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
@@ -376,30 +477,28 @@ static int adi_ldr_load(struct adi_rproc_data *rproc_data,
 						const struct firmware *fw)
 {
 	rproc_data->fw_size = fw->size;
-	if (!rproc_data->mem_virt) {
+	if (rproc_data->mem_virt == NULL) {
 		rproc_data->mem_virt = dma_alloc_coherent(rproc_data->dev,
 							  fw->size * MEMORY_COUNT,
 							  &rproc_data->mem_handle,
 							  GFP_KERNEL);
-		if (rproc_data->mem_virt == NULL) {
+		if (!rproc_data->mem_virt) {
 			dev_err(rproc_data->dev, "Unable to allocate memory\n");
 			return -ENOMEM;
 		}
 	}
 
 	memcpy((char *)rproc_data->mem_virt, fw->data, fw->size);
-
 	enable_spu();
 	ldr_load(rproc_data);
 	disable_spu();
-
 	return 0;
 }
 
 /*
  * adi_rproc_load: parse and load ADI SHARC LDR file into memory
  *
- * This function would be called when user run the start command
+ * This function would be called when user runs the start command
  * echo start > /sys/class/remoteproc/remoteprocX/state
  */
 static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
@@ -433,9 +532,10 @@ static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
  */
 static int adi_rproc_start(struct rproc *rproc)
 {
-	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	struct adi_rproc_data *rproc_data;
 	int ret;
 
+	rproc_data = (struct adi_rproc_data *)rproc->priv;
 	ret = adi_core_set_svect(rproc_data, rproc_data->ldr_load_addr);
 	if (ret)
 		return ret;
@@ -747,8 +847,9 @@ static void adi_rproc_kick(struct rproc *rproc, int vqid)
 
 static int adi_rproc_sanity_check(struct rproc *rproc, const struct firmware *fw)
 {
-	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	struct adi_rproc_data *rproc_data;
 
+	rproc_data = (struct adi_rproc_data *)rproc->priv;
 	/* Check if it is a LDR or ELF file */
 	rproc_data->firmware_format = adi_valid_firmware(rproc, fw);
 
@@ -865,11 +966,12 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data = (struct adi_rproc_data *)rproc->priv;
 	platform_set_drvdata(pdev, rproc);
 
-	/* for now device addresses are represented as 32 bits and expanded to 64
-	 * here in driver code
+	/* for now device addresses are represented as 32 bits and expanded to
+	 * 64 here in driver code
 	 */
 	if (of_property_read_u32_array(np, "adi,l1-da", addr, 2)) {
-		dev_err(dev, "Missing adi,l1-da with L1 device address range information\n");
+		dev_err(dev,
+		"Missing adi,l1-da with L1 device address range information\n");
 		ret = -ENODEV;
 		goto free_rproc;
 	}
@@ -877,7 +979,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data->l1_da_range[1] = addr[1];
 
 	if (of_property_read_u32_array(np, "adi,l2-da", addr, 2)) {
-		dev_err(dev, "Missing adi,l2-da with L2 device address range information\n");
+		dev_err(dev,
+		"Missing adi,l2-da with L2 device address range information\n");
 		ret = -ENODEV;
 		goto free_rproc;
 	}
@@ -891,7 +994,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		rmem = of_reserved_mem_lookup(node);
 		of_node_put(node);
 		if (!rmem) {
-			dev_err(&pdev->dev, "Translating adi,rsc-table failed\n");
+			dev_err(&pdev->dev,
+					"Translating adi,rsc-table failed\n");
 			ret = -ENOMEM;
 			goto free_adi_rcu;
 		}
@@ -913,7 +1017,6 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		}
 
 		rproc_data->icc_irq_flags = IRQF_PERCPU | IRQF_SHARED | IRQF_ONESHOT;
-
 	} else {
 		rproc_data->adi_rsc_table = NULL;
 	}
@@ -963,7 +1066,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 
 	rproc_data->verify = 0;
 	of_property_read_u32(np, "adi,verify", &rproc_data->verify);
-	rproc_data->verify = !!rproc_data->verify;
+	rproc_data->verify = rproc_data->verify;
 	if (rproc_data->verify)
 		dev_info(dev, "Load verification enabled\n");
 
@@ -975,7 +1078,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data->firmware_name = name;
 	rproc_data->mem_virt = NULL;
 	rproc_data->fw_size = 0;
-	rproc_data->ldr_load_addr = SHARC_IDLE_ADDR;
+	rproc_data->ldr_load_addr = SHARC_IDLE_ADDR; //start core as idle
 	rproc_data->rpmsg_state = ADI_RP_RPMSG_TIMED_OUT;
 
 	ret = rproc_add(rproc);
