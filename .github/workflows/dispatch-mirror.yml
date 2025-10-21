@@ -1,0 +1,29 @@
+name: Synchronization cron
+
+on:
+  workflow_dispatch:
+    inputs:
+      remote_name:
+        # jic23/iio
+        required: true
+        type: string
+      fetch_url:
+        # https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git
+        required: true
+        type: string
+      branch:
+        # testing
+        required: true
+        type: string
+
+jobs:
+  mirror:
+    uses: analogdevicesinc/linux/.github/workflows/mirror.yml@ci
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write
+    with:
+      remote_name: ${{ inputs.remote_name }}
+      fetch_url: ${{ inputs.fetch_url }}
+      branch: ${{ inputs.branch }}
