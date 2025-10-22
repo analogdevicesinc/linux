@@ -6,7 +6,6 @@
  * Copyright 2025 Analog Devices Inc.
  */
 
-#include <linux/bitfield.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/iio/backend.h>
@@ -14,30 +13,16 @@
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
-#include <linux/spi/spi.h>
 
 /*
- * AD9740 Register Map
+ * AD9740 has no configuration registers - it's a simple parallel DAC.
+ * All configuration is done via the AXI DAC IP core in the FPGA.
  */
-#define AD9740_REG_FSC_MSB		0x00
-#define AD9740_REG_FSC_LSB		0x01
-#define AD9740_REG_MODE			0x02
-#define AD9740_REG_POWER		0x03
-
-/* MODE register bits */
-#define AD9740_MODE_MIX_MODE		BIT(7)
-#define AD9740_MODE_2S_COMPLEMENT	BIT(6)
-
-/* POWER register bits */
-#define AD9740_POWER_DOWN		BIT(0)
 
 struct ad9740_state {
 	struct device *dev;
 	struct iio_backend *back;
-	struct spi_device *spi;
 	struct gpio_desc *reset_gpio;
-	/* Full-scale current setting (8-20 mA) */
-	unsigned int fsc_ua;
 	/* Data format: true = 2's complement, false = offset binary */
 	bool twos_complement;
 	/* Protects backend I/O operations from concurrent accesses. */
@@ -294,10 +279,10 @@ static int ad9740_setup(struct ad9740_state *st)
 		return ret;
 	}
 
-	/* TODO: Configure AD9740 registers via SPI:
-	 * - Full-scale current
-	 * - Mix mode
-	 * - Data format (2's complement)
+	/*
+	 * AD9740 has no software-configurable registers.
+	 * Hardware configuration (full-scale current, references, etc.)
+	 * is done via external analog components on the board.
 	 */
 
 	dev_info(st->dev, "AD9740 setup completed successfully\n");

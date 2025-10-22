@@ -41,9 +41,9 @@
       adi,power-up-frequency = <128000000>;
       adi,phase-detector-polarity-positive-enable;
       adi,charge-pump-current = <2500>;
-      adi,output-power = <3>;
+      adi,output-power = <0>;
       adi,aux-output-enable;
-      adi,aux-output-power = <3>;
+      adi,aux-output-power = <0>;
       adi,muxout-select = <6>;
     };
   };
