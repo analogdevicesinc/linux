@@ -32,7 +32,8 @@ jobs:
     permissions:
       contents: read
     needs:
-      - cherry_pick
+      - cherry_pick_adi
+      - cherry_pick_rpi
 
     steps:
       - name: Assert checks
