@@ -821,16 +821,12 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 
 	adrv906x_switch_vlan_enable(es);
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
-		ret = adrv906x_switch_port_enable(es, portid, true);
-		/* ret = adrv906x_switch_port_enable(es, portid, portid == SWITCH_CPU_PORT);
-		 * TODO Investigate why en-/disabling the port causes issues with the link coming
-		 *  up correctly.
-		 */
+		ret = adrv906x_switch_port_enable(es, portid, portid == SWITCH_CPU_PORT);
 		if (ret)
 			return ret;
 	}
 
-#define __SWITCH_ATTR_RW(_name) {                                                         \
+#define __SWITCH_ATTR_RW(_name) {                                                                 \
 		es->_name ## _attr.attr.name = __stringify(_name);                                \
 		es->_name ## _attr.attr.mode = VERIFY_OCTAL_PERMISSIONS(0644);                    \
 		es->_name ## _attr.show = _name ## _show;                                         \

@@ -154,10 +154,7 @@ static void adrv906x_phy_tx_path_enable(struct phy_device *phydev, bool enable)
 static int adrv906x_phy_suspend(struct phy_device *phydev)
 {
 	adrv906x_phy_rx_path_enable(phydev, false);
-	/* adrv906x_phy_tx_path_enable(phydev, false);
-	 * TODO The line above is commented out to keep the TX path enabled during suspend.
-	 *  Disabling the TX path may lead to issues with the interface coming back up.
-	 */
+	adrv906x_phy_tx_path_enable(phydev, false);
 	adrv906x_serdes_lnk_down_req(phydev);
 
 	return 0;
@@ -235,10 +232,7 @@ static void adrv906x_phy_link_change_notify(struct phy_device *phydev)
 static int adrv906x_phy_resume(struct phy_device *phydev)
 {
 	adrv906x_phy_rx_path_enable(phydev, true);
-	/* adrv906x_phy_tx_path_enable(phydev, true);
-	 * TODO The line above is commented out to keep the TX path enabled during suspend.
-	 *  Disabling the TX path may lead to issues with the interface coming back up.
-	 */
+	adrv906x_phy_tx_path_enable(phydev, true);
 
 	return 0;
 }
