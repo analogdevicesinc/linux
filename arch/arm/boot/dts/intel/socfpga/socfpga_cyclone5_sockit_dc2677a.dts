@@ -152,7 +152,7 @@
 				};
 
 				axi_ltc235x_adc_core: axi-ltc235x@20000 {
-					compatible = "adi,axi-adc-10.0.a";
+					compatible = "adi,axi-adc-legacy-10.0.a";
 					reg = <0x00020000 0x00010000>;
 					dmas = <&rx_dma 0>;
 					dma-names = "rx";

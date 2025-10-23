@@ -42,7 +42,7 @@
 	};
 
 	axi_adc_ad7768: cf_axi_adc@43c00000 {
-		compatible = "adi,axi-adc-10.0.a";
+		compatible = "adi,axi-adc-legacy-10.0.a";
 		reg = <0x43c00000 0x10000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
