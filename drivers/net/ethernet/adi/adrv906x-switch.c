@@ -619,6 +619,25 @@ int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool
 	return 0;
 }
 
+int adrv906x_switch_flood_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled)
+{
+	u32 val, offset;
+
+	if (portid >= SWITCH_MAX_PORT_NUM)
+		return -EINVAL;
+
+	offset = portid > 31 ? SWITCH_MAS_FLOOD_MASK_2 : SWITCH_MAS_FLOOD_MASK_1;
+
+	val = ioread32(es->reg_match_action + offset);
+	if (enabled)
+		val |= BIT(portid);
+	else
+		val &= ~BIT(portid);
+	iowrite32(val, es->reg_match_action + offset);
+
+	return 0;
+}
+
 int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es, struct device_node *np)
 {
 	char err_irq_name[16] = { 0, };

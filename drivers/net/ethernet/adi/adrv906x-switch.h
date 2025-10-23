@@ -89,6 +89,8 @@
 #define   CFG_MAE_AGE_TIME_MASK                         GENMASK(11, 4)
 #define   AGE_TIME_5MIN_25G                             0x19
 #define   AGE_TIME_5MIN_10G                             0x0A
+#define SWITCH_MAS_FLOOD_MASK_1                         0x001C
+#define SWITCH_MAS_FLOOD_MASK_2                         0x0020
 
 #define SWITCH_SOFT_RESET                               0x0020
 #define   SWITCH_ALL_EX_MAE                             BIT(0)
@@ -186,6 +188,7 @@ struct adrv906x_eth_switch {
 };
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
+int adrv906x_switch_flood_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
 int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es,
 				  struct device_node *eth_switch_np);
 int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device *pdev,
