@@ -21,7 +21,7 @@ cherry_pick () {
 	initial_branch=$(git rev-parse --abbrev-ref @)
 	git switch -d
 	git fetch origin $branch:$branch --depth=1 -f || return # on missing ref
-	git switch $branch
+	git switch $branch -f
 
 	range=$(($(git rev-list --count $base_sha..$head_sha) - 1 ))
 	for (( iter=$range; iter >= 0; iter-- )); do
