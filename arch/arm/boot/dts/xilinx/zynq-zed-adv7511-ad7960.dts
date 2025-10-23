@@ -89,7 +89,7 @@
 
 	iio_backend: backend@44a00000{
 		reg = <0x44a00000 0x10000>;
-		compatible = "adi,axi-adc-10.0.a";
+		compatible = "adi,axi-adc-legacy-10.0.a";
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
 		clocks = <&ref_clk>;
