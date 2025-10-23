@@ -1,0 +1,200 @@
+.. SPDX-License-Identifier: GPL-2.0
+
+Analog Devices MAX31732 hardware monitor
+========================================
+
+Supported chips
+---------------
+
+* Analog Devices MAX31732 - 4-channel remote plus on-chip temperature sensor
+
+  Prefix: ``max31732``
+
+  I2C addresses: 0x1c - 0x4f (can be selected by connecting a resistor between ADD pin and GND)
+
+  Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/max31732.pdf
+
+Overview
+--------
+
+The MAX31732 combines a local temperature sensor with four remote
+probes. The local sensor monitors the chip's own temperature, while the remote probes monitor external diode-connected transistors.
+The device supports comparator or interrupt behaviour on
+two open-drain ALARM outputs, implements programmable fault queues,
+and exposes calibration features such as custom ideality factors and beta compensation.
+The Linux driver uses the regmap abstraction on top of the I2C bus and integrates with the HWMON
+subsystem, exposing both the standard ``temp`` attributes and a set of
+chip-specific controls documented below.
+
+Key device capabilities
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- Five measurement channels (local sensor + four remote diodes)
+- 12-bit temperature conversion with 0.0625degC resolution
+- Extended range option that shifts the readable window by +64degC
+- "highest temperature" recorded per enabled channel
+- Independent primary (ALARM1) and secondary (ALARM2) alarm thresholds
+- Per-channel programmable offsets, digital filtering and calibration
+- Non-volatile (MTP) storage for alarm/fault configuration
+
+Temperature data is reported in milli-degree Celsius through sysfs.
+
+Standard temperature attributes
+-------------------------------
+
+===================== == =====================================================
+temp[1-5]_input       RO Instantaneous temperature for local (1) and remote
+                         channels (2-5).
+temp[1-5]_enable      RW Enable (1) or disable (0) a channel.
+temp[1-5]_max         RW Primary over-temperature limit (asserts ALARM1).
+temp[1-5]_max_alarm   RO Primary over-temperature status.
+temp[1-5]_crit        RW Secondary over-temperature limit (asserts ALARM2).
+temp[1-5]_crit_alarm  RO Secondary over-temperature status.
+temp[1-5]_min         RW Primary under-temperature limit. Only ``temp1_min``
+                         is writable; the value applies to all channels.
+temp[1-5]_min_alarm   RO Primary under-temperature status.
+temp[1-5]_lcrit       RW Secondary under-temperature limit. Only
+                         ``temp1_lcrit`` is writable; the value applies to all
+                         channels and controls ALARM2.
+temp[1-5]_lcrit_alarm RO Secondary under-temperature status.
+temp[2-5]_offset      RW Programmable offset for each remote channel. Offset
+                         writes automatically enable ``tempN_offset``.
+temp[2-5]_fault       RO Indicates open/short fault detection on remote sensors.
+===================== == =====================================================
+
+Extended features
+-----------------
+
+Highest temperature recorder
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+=============================== == =================================================
+highest_temp_input              RO Max temperature after each temperature conversion (millidegree Celsius).
+local_highest_temp_enable       RW Enable highest-temperature capture for ``temp1``.
+remote[1-4]_highest_temp_enable RW Enable highest-temperature capture for remote sensors (``temp2`` - ``temp5``).
+=============================== == =================================================
+
+Conversion control and configuration bits
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+========================= == ==================================================
+stop                       RW Halt (1) or resume (0) conversions (STOP bit).
+soft_por                   RW Trigger a soft power-on reset when written to ``1``.
+one_shot                   RW Initiate a single conversion when written to ``1``.
+extended_range             RW Mirrors the ``EXTRANGE`` bit. When set, extended
+                              data format that allows temperatures greater than
+                              +127.9375°C to be read for the Primary threshold
+                              limits and +127°C for the Secondary threshold limits
+ignore_isc2gnd             RW Mask short to ground faults.
+remote[1-4]_filter_enable  RW Enable the filter that averages the previous four conversions.
+========================= == ==================================================
+
+Calibration helpers
+~~~~~~~~~~~~~~~~~~~
+
+==================================== == ===========================================
+remote[1-4]_custom_ideality_enable    RW Enables use of the custom ideality value
+                                         for a remote channel.
+remote[1-4]_custom_ideality_code      RW Eight-bit code that programs the custom
+                                         ideality factor.
+local_reference_temp                  RW Reference junction temperature for the
+                                         local channel (mdegC).
+remote[1-4]_reference_temp            RW Reference junction temperatures for
+                                         remote channels (mdegC).
+remote[1-4]_beta_compensation_enable  RW Turn beta compensation on/off per channel.
+remote[1-4]_beta_compensation_value   RO Currently measured beta of the targeted transistor.
+==================================== == ===========================================
+
+Fault status indicators
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+======================== == ================================================
+remote[1-4]_oc              RO Open-circuit detected on the diode input.
+remote[1-4]_sc2gnd          RO Short-circuit to ground detected.
+remote[1-4]_sc2vcc          RO Short-circuit to VCC detected.
+remote[1-4]_sc2dxp          RO DXP shorted to DXN or ground detected.
+======================== == ================================================
+
+Alarm masking
+~~~~~~~~~~~~~
+
+========================= == ==================================================
+local_alarm1_mask          RW Mask ALARM1 assertions for local temperature fault.
+remote[1-4]_alarm1_mask    RW Mask ALARM1 assertions for remote channel faults.
+local_alarm2_mask          RW Mask ALARM2 assertions for local temperature fault.
+remote[1-4]_alarm2_mask    RW Mask ALARM2 assertions for remote channel faults.
+========================= == ==================================================
+
+Write ``1`` to mask (disable) an alarm for the associated channel; write ``0`` to
+allow the interrupt comparator to operate normally.
+
+Multi-Time Programmable Nonvolatile Memory (MTP) access
+-------------------------------------------------------
+
+The MAX31732 provides a 512-bit MTP that helps facilitate device configuration during power-up or during normal operation if desired.
+
+=============================== == ===========================================
+mtp/mtp_config_store           WO Start copying the current volatile register
+                                   image into MTP when written ``1``. Returns
+                                   ``-EBUSY`` while a store operation is in
+                                   progress.
+mtp/mtp_config_load            WO Restore configuration from MTP when written
+                                   ``1``. Returns ``-EBUSY`` if a load is still
+                                   running.
+mtp/mtp_user_software_revision RW User-defined 16-bit field stored in MTP.
+mtp/mtp_pu_load_enable         RW Enable power-up MTP loading.
+mtp/mtp_fault_write_enable     RW Allow updates to the MTP fault storage.
+mtp/temp[1-5]_fault_write_enable   RW Per-channel gate that permits writing the
+                                   associated fault register into MTP.
+mtp/mtp_temp[1-5]_max_alarm    RO Alarm1 status bits as captured in MTP space.
+mtp/mtp_temp[1-5]_min_alarm    RO Alarm1 low threshold status from MTP.
+mtp/mtp_temp[1-5]_fault_value  RO Latched fault temperature stored in MTP
+                                   (mdegC).
+=============================== == ===========================================
+
+Interrupt support
+-----------------
+
+The driver optionally registers threaded IRQ handlers for the ALARM1 and
+ALARM2 outputs. Provide ``interrupts`` and matching ``interrupt-names`` ("ALARM1",
+"ALARM2") in firmware/Device Tree to enable this path. When configured, the
+handler clears the corresponding status registers and issues
+``hwmon_notify_event()`` callbacks so userspace can react promptly.
+
+Device Tree properties
+----------------------
+
+Refer to :doc:`/devicetree/bindings/hwmon/adi,max31732` for the authoritative
+schema. The driver currently consumes the following optional properties in
+addition to ``compatible`` and ``reg``:
+
+``interrupts`` / ``interrupt-names``
+    Map ALARM1/ALARM2 lines to the host controller.
+
+``adi,alarm1-interrupt-mode``
+    Configure ALARM1 output to function in interrupt mode. Absent -> comparator mode.
+
+``adi,alarm2-interrupt-mode``
+    Configure ALARM2 output to function in interrupt mode. Absent -> comparator mode.
+
+``adi,alarm1-fault-queue``
+    Number of consecutive faults before ALARM1 asserts. Permitted values: 1, 2,
+    4, 6. Defaults to 1.
+
+``adi,alarm2-fault-queue``
+    Number of consecutive faults before ALARM2 asserts. Same domain as above.
+
+``adi,extended-range``
+    Set the extended range bit during probe so that sysfs temperatures cover the
+    higher operating range without additional configuration.
+
+``adi,alarm1-mask`` / ``adi,alarm2-mask``
+    Bit mask applied at probe time to disable specific ALARM1/ALARM2 channels.
+    Each bit corresponds to temp1..temp5 (bit0 = local channel).
+
+Usage notes
+-----------
+
+* All temperatures reported via sysfs are in milli-degree Celsius.
+* ``stop`` halts conversions but does not power-cycle the part; use ``soft_por``
+  to restore all the registers to their default values.
