@@ -25,7 +25,7 @@
 	};
 
 	cf_ad9467_core_0: cf-ad9467-core-lpc@44a00000 {
-		compatible = "adi,axi-adc-10.0.a";
+		compatible = "adi,axi-adc-legacy-10.0.a";
 		reg = <0x44A00000 0x10000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";

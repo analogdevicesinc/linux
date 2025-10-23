@@ -53,7 +53,7 @@
 	};
 
 	axi_adc_adaq8092: adaq8092@44a00000 {
-		compatible = "adi,axi-adc-10.0.a";
+		compatible = "adi,axi-adc-legacy-10.0.a";
 		reg = <0x44a00000 0x10000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
