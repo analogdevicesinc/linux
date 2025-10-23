@@ -19,6 +19,9 @@
 #include <net/rtnetlink.h>
 #include "adrv906x-switch.h"
 
+#define SWITCH_RECOVERY_NONE 0
+#define SWITCH_RECOVERY_VID  1
+
 static struct attribute *adrv906x_switch_attrs[4] = { NULL, NULL, NULL, NULL };
 
 static int adrv906x_switch_wait_for_mae_ready(struct adrv906x_eth_switch *es)
@@ -466,12 +469,6 @@ static ssize_t port_vlan_ctrl_show(struct device *dev,
 	}
 	mutex_unlock(&es->vlan_cfg_list_lock);
 
-#if 0
-	/* TODO remove temporary testing hook after recovery
-	 * thread improvement work is done */
-	es->wait_flag = true;
-	wake_up_interruptible(&es->recovery_wq);
-#endif
 	return char_cnt;
 }
 
@@ -507,7 +504,7 @@ static irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
 	adrv906x_switch_reset_soft(es);
 
 	/* Wake up recovery thread to restore VLAN membership */
-	es->wait_flag = true;
+	es->wait_cmd_flag = SWITCH_RECOVERY_VID;
 	wake_up_interruptible(&es->recovery_wq);
 
 	ret = es->isr_post_args.func(es->isr_post_args.arg);
@@ -768,28 +765,15 @@ static void adrv906x_switch_vlan_membership_recovery(struct adrv906x_eth_switch 
 {
 	struct vlan_cfg_list *vcl = NULL;
 	struct device *dev = &es->pdev->dev;
-	int vid, port, ret;
+	int ret;
 
-	/* TODO: improve the run time efficiency by accesssing the list and use
-	 * adrv906x_switch_vlan_match_action_sync directly */
-
-	for (vid = 0; vid < VLAN_N_VID; vid++) {
-		vcl = adrv906x_switch_vlan_find(es, vid);
-		if (vcl) {
-			for (port = 0; port <= SWITCH_MAX_PORT_NUM; port++) {
-				if (vcl->port_mask & BIT(port)) {
-					ret = adrv906x_switch_vlan_del(es, port, vid);
-					if (ret)
-						dev_err(dev, "del vid %d from port %d error %d",
-							vid, port, ret);
-					ret = adrv906x_switch_vlan_add(es, port, vid);
-					if (ret)
-						dev_err(dev, "add vid %d from port %d error %d",
-							vid, port, ret);
-				}
-			}
-		}
+	mutex_lock(&es->vlan_cfg_list_lock);
+	list_for_each_entry(vcl, &es->vlan_cfg_list, list) {
+		ret = adrv906x_switch_vlan_match_action_sync(es, vcl->port_mask, vcl->vlan_id);
+		if (ret)
+			dev_warn(dev, "failed recoverying vlan %d", vcl->vlan_id);
 	}
+	mutex_unlock(&es->vlan_cfg_list_lock);
 }
 
 static int adrv906x_switch_recovery(void *data)
@@ -798,12 +782,14 @@ static int adrv906x_switch_recovery(void *data)
 	struct device *dev = &es->pdev->dev;
 
 	while (true) {
-		wait_event_interruptible(es->recovery_wq, es->wait_flag != 0);
-		dev_info(dev, "setting vlan membership after soft reset");
-		rtnl_lock();
-		adrv906x_switch_vlan_membership_recovery(es);
-		es->wait_flag = false;
-		rtnl_unlock();
+		wait_event_interruptible(es->recovery_wq, es->wait_cmd_flag != SWITCH_RECOVERY_NONE);
+		if (es->wait_cmd_flag == SWITCH_RECOVERY_VID) {
+			dev_info(dev, "setting vlan membership after soft reset");
+			rtnl_lock();
+			adrv906x_switch_vlan_membership_recovery(es);
+			rtnl_unlock();
+		}
+		es->wait_cmd_flag = SWITCH_RECOVERY_NONE;
 	}
 
 	return 0;
@@ -862,7 +848,7 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	mod_delayed_work(system_long_wq, &es->update_stats, msecs_to_jiffies(1000));
 
 	init_waitqueue_head(&es->recovery_wq);
-	es->wait_flag = false;
+	es->wait_cmd_flag = SWITCH_RECOVERY_NONE;
 	es->recovery_task = kthread_create(adrv906x_switch_recovery, (void *)es,
 					   "adrv906x_switch_recovery_thread");
 	if (es->recovery_task) {

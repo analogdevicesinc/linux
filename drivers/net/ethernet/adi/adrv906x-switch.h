@@ -183,7 +183,7 @@ struct adrv906x_eth_switch {
 	struct delayed_work update_stats;
 	bool trap_ptp_fwd_en;
 	wait_queue_head_t recovery_wq;
-	bool wait_flag;
+	u16 wait_cmd_flag;
 	struct task_struct *recovery_task;
 };
 
