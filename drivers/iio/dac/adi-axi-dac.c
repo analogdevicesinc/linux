@@ -682,7 +682,12 @@ static int axi_dac_data_format_set(struct iio_backend *back, unsigned int ch,
 	struct axi_dac_state *st = iio_backend_get_priv(back);
 
 	switch (data->type) {
+	case IIO_BACKEND_OFFSET_BINARY:
 	case IIO_BACKEND_DATA_UNSIGNED:
+		/* Offset binary and unsigned are the same for DACs */
+		return regmap_set_bits(st->regmap, AXI_DAC_CNTRL_2_REG,
+				       AXI_DAC_CNTRL_2_UNSIGNED_DATA);
+	case IIO_BACKEND_TWOS_COMPLEMENT:
 		return regmap_clear_bits(st->regmap, AXI_DAC_CNTRL_2_REG,
 					 AXI_DAC_CNTRL_2_UNSIGNED_DATA);
 	default:
@@ -835,6 +840,9 @@ static const struct iio_backend_ops axi_dac_generic_ops = {
 	.ext_info_get = axi_dac_ext_info_get,
 	.data_source_set = axi_dac_data_source_set,
 	.data_source_get = axi_dac_data_source_get,
+	.data_format_set = axi_dac_data_format_set,
+	.data_stream_enable = axi_dac_data_stream_enable,
+	.data_stream_disable = axi_dac_data_stream_disable,
 	.set_sample_rate = axi_dac_set_sample_rate,
 	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_dac_reg_access),
 };

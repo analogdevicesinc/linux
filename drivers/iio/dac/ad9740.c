@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Analog Devices AD9740
- * 10-Bit, 210 MSPS Digital-to-Analog Converter
+ * 14-Bit, 210 MSPS Digital-to-Analog Converter
  *
  * Copyright 2025 Analog Devices Inc.
  */
@@ -111,8 +111,8 @@ static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
 		dev_info(st->dev, "Configuring data format: offset binary\n");
 	}
 
-	dev_info(st->dev, "Setting backend data format (10-bit in 16-bit container)\n");
-	/* Configure data format: 10-bit in 16-bit container */
+	dev_info(st->dev, "Setting backend data format (14-bit in 16-bit container)\n");
+	/* Configure data format: 14-bit in 16-bit container */
 	ret = iio_backend_data_format_set(st->back, 0, &fmt);
 	if (ret) {
 		dev_err(st->dev, "Failed to set data format: %d\n", ret);
@@ -303,7 +303,7 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 	.scan_index = (ch), \
 	.scan_type = { \
 		.sign = 'u', \
-		.realbits = 10, \
+		.realbits = 14, \
 		.storagebits = 16, \
 		.endianness = IIO_BE, \
 	} \
