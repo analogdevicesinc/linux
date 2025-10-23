@@ -305,7 +305,7 @@
 			};
 
 			axi_adrv9025_core_rx: axi-adrv9025-rx-hpc@60000 {
-				compatible = "adi,axi-adc-10.0.a";
+				compatible = "adi,axi-adc-legacy-10.0.a";
 				reg = <0x00060000 0x8000>;
 				dmas = <&rx_dma 0>;
 				dma-names = "rx";
