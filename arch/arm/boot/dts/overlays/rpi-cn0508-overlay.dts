@@ -52,19 +52,6 @@
 	};
 
 	fragment@3 {
-		target-path = "/";
-		__overlay__ {
-			clocks {
-				ad7124_mclk: clock@0 {
-					#clock-cells = <0>;
-					compatible = "fixed-clock";
-					clock-frequency = <614400>;
-				};
-			};
-		};
-	};
-
-	fragment@4 {
 		target = <&spi0>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -81,22 +68,20 @@
 		};
 	};
 
-	fragment@5 {
+	fragment@4 {
 		target = <&spi0>;
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
 
-			ad7124@1 {
+			adc@1 {
 				compatible = "adi,ad7124-4";
 				reg = <1>;
 				spi-max-frequency = <5000000>;
 				interrupts = <23 2>;
 				interrupt-parent = <&gpio>;
 				refin1-supply = <&vref>;
-				clocks = <&ad7124_mclk>;
-				clock-names = "mclk";
 
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -152,21 +137,21 @@
 		};
 	};
 
-	fragment@6 {
+	fragment@5 {
 		target = <&spidev0>;
 		__overlay__ {
 			status = "disabled";
 		};
 	};
 
-	fragment@7 {
+	fragment@6 {
 		target = <&spidev1>;
 		__overlay__ {
 			status = "disabled";
 		};
 	};
 
-	fragment@8 {
+	fragment@7 {
 		target = <&gpio>;
 		__overlay__ {
 			pitft_pins: pitft_pins {
@@ -177,7 +162,7 @@
 		};
 	};
 
-	fragment@9 {
+	fragment@8 {
 		target = <&spi0>;
 		__overlay__ {
 			/* needed to avoid dtc warning */
@@ -235,7 +220,7 @@
 		};
 	};
 
-	fragment@10 {
+	fragment@9 {
 		target-path = "/soc";
 		__overlay__ {
 			backlight {
