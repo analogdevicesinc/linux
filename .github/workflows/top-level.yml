@@ -141,7 +141,7 @@ jobs:
       archs: "arm arm64"
       dts_files: >
         arch/arm/boot/dts/broadcom/bcm*-rpi-*.dts
-        arch/arm64/boot/dts/xilinx/zynq-*.dts
+        arch/arm64/boot/dts/broadcom/bcm*-rpi-*.dts
   assert_build:
     runs-on: [self-hosted, repo-only]
     needs:
