@@ -11,6 +11,7 @@ obj-$(CONFIG_AD3552R) += ad3552r.o
 obj-$(CONFIG_AD5270) += ad5270.o
 obj-$(CONFIG_AD5360) += ad5360.o
 obj-$(CONFIG_AD5380) += ad5380.o
+obj-$(CONFIG_AD5413) += ad5413.o
 obj-$(CONFIG_AD5421) += ad5421.o
 obj-$(CONFIG_AD5624R_SPI) += ad5624r_spi.o
 obj-$(CONFIG_AD5064) += ad5064.o
