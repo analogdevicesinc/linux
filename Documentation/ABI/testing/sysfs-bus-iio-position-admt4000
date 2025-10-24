@@ -1,0 +1,41 @@
+What:		/sys/bus/iio/devices/deviceX/in_angl_h1ph_corr
+What:		/sys/bus/iio/devices/deviceX/in_angl_h2ph_corr
+What:		/sys/bus/iio/devices/deviceX/in_angl_h3ph_corr
+What:		/sys/bus/iio/devices/deviceX/in_angl_h8ph_corr
+KernelVersion:	6.6.0
+Contact:	linux-iio@vger.kernel.org
+Description:
+	These attributes expose per-harmonic phase correction angles used by the
+	device to compensate for phase errors in signal measurement. Each attribute
+	corresponds to a specific harmonic order (h1, h2, h3, h8).
+
+What:		/sys/bus/iio/devices/deviceX/in_angl_h1mag_corr
+What:		/sys/bus/iio/devices/deviceX/in_angl_h2mag_corr
+What:		/sys/bus/iio/devices/deviceX/in_angl_h3mag_corr
+What:		/sys/bus/iio/devices/deviceX/in_angl_h8mag_corr
+KernelVersion:	6.6.0
+Contact:	linux-iio@vger.kernel.org
+Description:
+	These attributes expose per-harmonic magnitude correction factors used by
+	the device to compensate for amplitude errors in harmonic signal measurement.
+	Each attribute corresponds to a specific harmonic order (h1, h2, h3, h8).
+
+What:		/sys/bus/iio/devices/deviceX/in_angl_h8_corr_src
+KernelVersion:	6.6.0
+Contact:	linux-iio@vger.kernel.org
+Description:
+	This attribute selects the source of the correction coefficients for the 8th
+	harmonic angular measurement.
+
+What:		/sys/bus/iio/devices/deviceX/in_angl_h8_corr_src_available
+KernelVersion:	6.6.0
+Contact:	linux-iio@vger.kernel.org
+Description:
+	Supported values are "factory" for built-in device calibration and "user"
+	for software-provided calibration data.
+
+What:		/sys/bus/iio/devices/deviceX/in_angl_filter_en
+KernelVersion:	6.6.0
+Contact:	linux-iio@vger.kernel.org
+Description:
+	Enable or disable the device's angle measurement filter.
