@@ -24,6 +24,12 @@
 #define VU11_FIRMWARE_NAME	"vu11p.bin"
 #endif
 
+#ifdef WITH_AION
+#define JESD_SUBCLASS 1
+#else
+#define JESD_SUBCLASS 0
+#endif
+
 &vu11p_fpga_region {
 	#address-cells = <2>;
 	#size-cells = <2>;
@@ -48,6 +54,13 @@
 		#clock-cells = <0>;
 		clock-frequency = <62500000>;
 		clock-output-names = "clkin_div2_ref";
+		compatible = "fixed-clock";
+	};
+
+	clkin_250: clock@3 {
+		#clock-cells = <0>;
+		clock-frequency = <250000000>;
+		clock-output-names = "clkin_mul2_ref";
 		compatible = "fixed-clock";
 	};
 
@@ -123,7 +136,11 @@
 
 			jesd204-device;
 			#jesd204-cells = <2>;
+#if WITH_AION
+			jesd204-inputs =  <&adf4030 0 FRAMER_LINK_A0_RX>;
+#else
 			jesd204-sysref-provider;
+#endif /* WITH_AION */
 
 			clock-output-names = "ltc6952_0_out0", "ltc6952_0_out1",
 				"ltc6952_0_out2", "ltc6952_0_out3", "ltc6952_0_out4",
@@ -133,7 +150,15 @@
 			#clock-cells = <1>;
 
 			adi,pulse-generator-mode = <2>; /* Four Pulses */
-
+#if WITH_AION
+			channel@0 {
+				reg = <0>;
+				adi,extended-name = "ADF4030_BSYNC0";
+				adi,divider = <256>;
+				adi,digital-delay = <0>;
+				adi,analog-delay = <0>;
+			};
+#endif /* WITH_AION */
 			// channel@1 {
 			//	reg = <1>;
 			//	adi,extended-name = "Aurora RF GTH";
@@ -157,6 +182,7 @@
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
 			};
+#ifndef WITH_AION
 			channel@4 {
 				reg = <4>;
 				adi,extended-name = "VUP JESD SYSREF";
@@ -175,6 +201,7 @@
 				adi,sysref-mode = <0>;
 				adi,jesd204-sysref-chan;
 			};
+#endif /* !WITH_AION */
 			channel@6 {
 				reg = <6>;
 				adi,extended-name = "JESD REF CLK 1";
@@ -223,6 +250,93 @@
 			clock-scales = <1 10>;
 		};
 	};
+	
+#if WITH_AION
+	adf4030_spi: spi@88260000 {
+		bits-per-word = <8>;
+		compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+		fifo-size = <16>;
+		interrupt-names = "ip2intc_irpt";
+		interrupt-parent = <&axi_intc_0>;
+		interrupts = <18 0>;
+		num-cs = <1>;
+		reg = <0x0 0x88260000 0x0 0x1000>;
+		xlnx,num-ss-bits = <0x2>;
+		xlnx,spi-mode = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		adf4030: adf4030@0 {
+			#clock-cells = <1>;
+			compatible = "adi,adf4030";
+			reg = <0>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+
+			spi-max-frequency = <1000000>;
+			adi,spi-3wire-enable;
+
+			clocks = <&clkin_250>;
+			clock-names = "refin";
+			clock-output-names = "adf4030_bsync_0", "adf4030_bsync_1",
+				"adf4030_bsync_2", "adf4030_bsync_3", "adf4030_bsync_4",
+				"adf4030_bsync_5", "adf4030_bsync_6", "adf4030_bsync_7",
+				"adf4030_bsync_8", "adf4030_bsync_9";
+			label = "adf4030";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-sysref-provider;
+
+			adi,vco-frequency-hz = <2500000000>; /* 2.5 GHz */
+			adi,bsync-frequency-hz = <9765625>;
+			adi,bsync-autoalign-reference-channel = <0>;
+			adi,bsync-autoalign-iteration-count = <6>;
+			adi,bsync-secondary-frequency-hz = <9765625>;
+
+			channel@0 {
+				reg = <0>;
+				adi,extended-name = "ADF4030_BSYNC0";
+				auto-align-on-sync-en;
+				adi,rcm = <62>; // LVDS
+				adi,link-rx-en;
+				adi,float-rx-en;
+			};
+			channel@1 {
+				reg = <1>;
+				adi,extended-name = "BSYNC1_APOLLO_SYSREF";
+				auto-align-on-sync-en;
+				adi,output-en;
+				adi,input-output-reconfig-en;
+				adi,rcm = <62>; // LVDS
+				adi,link-rx-en;
+				adi,float-rx-en;
+			};
+			channel@2 {
+				reg = <2>;
+				adi,extended-name = "BSYNC2_JESD_SYSREF";
+				auto-align-on-sync-en;
+				adi,output-en;
+				adi,input-output-reconfig-en;
+				adi,rcm = <62>;
+				adi,link-rx-en;
+				adi,float-rx-en;
+			};
+			channel@9 {
+				reg = <9>;
+				adi,extended-name = "ADF4030_BSYNC9";
+				adi,output-en;
+				auto-align-on-sync-en;
+				adi,input-output-reconfig-en;
+				adi,rcm = <62>;
+			};
+		};
+	};
+#endif 	/* WITH_AION */
+
 
 	axi_gpio_0: gpio@88120000 {
 		#gpio-cells = <2>;
@@ -484,6 +598,13 @@
 			adi,jtx0-logical-lane-mapping =  < 8 6 10 11 9 4 7 2 5 0 3 1>; 
 			adi,jrx1-physical-lane-mapping = <3 1 5 0 7 2 8  6 4  9 10 11>;
 			adi,jtx1-logical-lane-mapping =  <0 2 1 4 3 5 6 10 7 11  8  9>; 
+
+			adi,subclass = <JESD_SUBCLASS>;
+
+#if WITH_AION
+			io-channels = <&adf4030 1>, <&adf4382 0>;
+			io-channel-names = "bsync", "clk";
+#endif /* WITH_AION */
 
 			//adi,standalone-enable;
 		};
