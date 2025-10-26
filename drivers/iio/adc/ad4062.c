@@ -410,7 +410,7 @@ static int ad4062_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	val = FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_0, (AD4062_INTR_EN_EITHER)) |
 	      FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_1, (AD4062_INTR_EN_NEITHER));
 
-	ret = regmap_update_bits(st->regmap, AD4062_REG_ADC_MODES,
+	ret = regmap_update_bits(st->regmap, AD4062_REG_ADC_CONFIG,
 				 AD4062_REG_ADC_CONFIG_REF_EN_MSK,
 				 FIELD_PREP(AD4062_REG_ADC_CONFIG_REF_EN_MSK,
 					    *ref_sel));
@@ -422,9 +422,14 @@ static int ad4062_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	if (ret)
 		return ret;
 
-	return regmap_update_bits(st->regmap, AD4062_REG_INTR_CONF,
-				  AD4062_REG_INTR_CONF_EN_MSK_0 | AD4062_REG_INTR_CONF_EN_MSK_1,
-				  val);
+	ret = regmap_update_bits(st->regmap, AD4062_REG_INTR_CONF,
+				 AD4062_REG_INTR_CONF_EN_MSK_0 | AD4062_REG_INTR_CONF_EN_MSK_1,
+				 val);
+	if (ret)
+		return ret;
+
+	put_unaligned_be16(AD4062_MON_VAL_MIDDLE_POINT, st->raw);
+	return regmap_bulk_write(st->regmap, AD4062_REG_MON_VAL, &st->raw, 2);
 }
 
 static irqreturn_t ad4062_irq_handler_drdy(int irq, void *private)
@@ -574,7 +579,7 @@ static int ad4062_set_chan_calibscale(struct iio_dev *indio_dev,
 		return ret;
 
 	/* Enable scale if gain is not one. */
-	return regmap_update_bits(st->regmap, AD4062_REG_ADC_MODES,
+	return regmap_update_bits(st->regmap, AD4062_REG_ADC_CONFIG,
 				  AD4062_REG_ADC_CONFIG_SCALE_EN_MSK,
 				  FIELD_PREP(AD4062_REG_ADC_CONFIG_SCALE_EN_MSK,
 					     !(gain_int == 1 && gain_frac == 0)));
