@@ -49,7 +49,7 @@ The ADC contains only one channel with following attributes:
      - Returns the raw ADC voltage value.
    * - ``in_voltage_scale``
      - Returns the channel scale in reference to the reference voltage
-       ``ref-supply``.
+       ``ref-supply`` or ``vdd-supply`` if the former not present.
 
 Also contain the following device attributes:
 
