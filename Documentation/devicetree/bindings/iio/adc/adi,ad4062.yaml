@@ -26,15 +26,27 @@ properties:
     maxItems: 1
 
   interrupts:
+    description:
+      The interrupt pins are digital outputs that can be configured at runtime
+      as multiple interrupt signals. Each can be configured as GP_INTR, RDY,
+      DEV_EN, logic low, logic high and DEV_RDY (GP1 only). RDY is the
+      active-low data ready signal, indicates when new ADC data are ready to
+      read. DEV_EN synchronizes the enable and power-down states of signal
+      chain devices with the ADC sampling instant. DEV_RDY is an active-high
+      signal that indicates when the device is ready to accept serial interface
+      communications. In GP_INTR mode, the interrupt outputs one of the
+      threshold detection interrupt signals (MIN_INTR, MAX_INTR or either).
     minItems: 1
-    maxItems: 2
+    items:
+      - description:
+          gp0, interrupt line for GP0 pin, cannot be configured as DEV_RDY.
+      - description:
+          gp1, interrupt line for GP1 pin, can be configured to any setting.
 
   interrupt-names:
     items:
       - const: gp0
-        description: Signal coming from the GP0 pin.
       - const: gp1
-        description: Signal coming from the GP1 pin.
 
   vdd-supply:
     description: Analog power supply.
@@ -43,7 +55,7 @@ properties:
     description: Digital interface logic power supply.
 
   ref-supply:
-    description: |
+    description:
       Reference voltage to set the ADC full-scale range. If not present,
       vdd-supply is used as the reference voltage.
 
@@ -67,7 +79,7 @@ examples:
         #address-cells = <3>;
         #size-cells = <0>;
 
-        ad4062: adc@0,2ee007c0000 {
+        adc@0,2ee007c0000 {
             reg = <0x0 0x2ee 0x7c0000>;
             vdd-supply = <&vdd>;
             vio-supply = <&vio>;
