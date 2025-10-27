@@ -5295,7 +5295,7 @@ static int ad9081_probe(struct spi_device *spi)
 	priv->phy = phy;
 
 	ret = ad9081_request_clks(conv);
-	if (ret)
+ 	if (ret)
 		return ret;
 
 	phy->ad9081.hal_info.sdo = (spi->mode & SPI_3WIRE) ? SPI_SDIO : SPI_SDO;

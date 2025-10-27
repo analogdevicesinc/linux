@@ -681,7 +681,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 			}
 
 			prog_div = DIV_ROUND_CLOSEST(ratio * out_div, 2 * div);
-
+			pr_err("div = %d, progdiv = %d, out_div = %d\n", div, prog_div, out_div);
 			if (prog_div > max_progdiv) {
 				prog_div = 0; /* disabled */
 				dev_warn(st->dev,
@@ -825,14 +825,23 @@ static int adxcvr_clk_register(struct device *dev,
 		out_clk_multiplier = 50; /* 1000 */
 		parent_name = clk_names[0];
 		break;
-	case XCVR_REFCLK:
-		out_clk_divider = 1;
-		out_clk_multiplier = 1;
-		break;
-	case XCVR_REFCLK_DIV2:
-		out_clk_divider = 2;
-		out_clk_multiplier = 1;
-		break;
+        case XCVR_REFCLK:
+			// out_clk_divider = 1;
+			out_clk_multiplier = 1;
+			if (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4 && st->xcvr.encoding == ENC_66B64B)
+				out_clk_divider = 2;
+			else
+				out_clk_divider = 1;
+			break;
+        case XCVR_REFCLK_DIV2:
+			// out_clk_divider = 2;
+			out_clk_multiplier = 1;
+			if (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4 && st->xcvr.encoding == ENC_66B64B)
+				out_clk_divider = 4;
+			else
+				out_clk_divider = 2;
+			break;
+
 	case XCVR_PROGDIV_CLK:
 		switch (st->xcvr.type) {
 		case XILINX_XCVR_TYPE_US_GTH3:
