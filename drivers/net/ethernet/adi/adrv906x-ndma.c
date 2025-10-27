@@ -1703,6 +1703,7 @@ int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff 
 	union adrv906x_ndma_chan_stats *stats = &ndma_ch->stats;
 	struct device *dev = ndma_dev->dev;
 	unsigned int tx_frames_max_num;
+	unsigned int needed_tailroom;
 	unsigned long flags;
 	unsigned int size;
 	dma_addr_t addr;
@@ -1716,8 +1717,20 @@ int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff 
 		goto out;
 	}
 
-	if (skb->len < NDMA_TX_MIN_FRAME_SIZE_VALUE)
-		skb_put(skb, NDMA_TX_MIN_FRAME_SIZE_VALUE - skb->len);
+	if (skb->len < NDMA_TX_MIN_FRAME_SIZE_VALUE) {
+		needed_tailroom = NDMA_TX_MIN_FRAME_SIZE_VALUE - skb->len;
+
+		if (unlikely(skb_tailroom(skb) < needed_tailroom)) {
+			ret = pskb_expand_head(skb, 0, needed_tailroom - skb_tailroom(skb), GFP_ATOMIC);
+			if (ret) {
+				dev_kfree_skb(skb); /* Drop the packet if expansion fails */
+				ret = 0;
+				goto out;
+			}
+		}
+
+		skb_put(skb, needed_tailroom);
+	}
 
 	adrv906x_ndma_add_tx_header(ndma_dev, skb, ndma_ch->seq_num, port, hw_tstamp_en, dsa_en);
 

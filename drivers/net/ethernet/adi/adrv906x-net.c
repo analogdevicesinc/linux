@@ -54,7 +54,7 @@ struct adrv906x_macsec_priv *adrv906x_macsec_get(struct net_device *netdev)
 	return adrv906x_dev->macsec;
 #else
 	return NULL;
-#endif // IS_ENABLED(CONFIG_MACSEC)
+#endif /* IS_ENABLED(CONFIG_MACSEC) */
 }
 
 static void adrv906x_eth_cdr_get_recovered_clk_divs(struct device_node *np,
@@ -599,7 +599,7 @@ static int adrv906x_eth_open(struct net_device *ndev)
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (adrv906x_dev->macsec)
 		adrv906x_macsec_commonport_status_update(ndev);
-#endif // IS_ENABLED(CONFIG_MACSEC)
+#endif /* IS_ENABLED(CONFIG_MACSEC) */
 
 	adrv906x_dev->tx_frames_pending = 0;
 
@@ -948,10 +948,10 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 		ndev->max_mtu = MAX_MTU_SIZE;
 		ndev->min_mtu = ETH_MIN_MTU;
 		ndev->mtu = ETH_DATA_LEN;
-		/* Headroom required for ndma headers for tx packets */
+		/* Reserve buffer space for NDMA header in TX packet */
 		ndev->needed_headroom += NDMA_TX_HDR_SOF_SIZE;
 
-		// Set promiscuous mode by default
+		/* Set promiscuous mode by default */
 		rtnl_lock();
 		dev_change_flags(ndev, ndev->flags | IFF_PROMISC, NULL);
 		rtnl_unlock();
@@ -1007,7 +1007,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 
 		dev_info(dev, "%s: connected to macsec%d", ndev->name, macsec_num);
 no_macsec:
-#endif // IS_ENABLED(CONFIG_MACSEC)
+#endif /* IS_ENABLED(CONFIG_MACSEC) */
 
 		/* read ndma dt */
 		ndma_np = of_parse_phandle(port_np, "ndma-handle", 0);
@@ -1130,7 +1130,7 @@ static void adrv906x_eth_remove(struct platform_device *pdev)
 			unregister_netdev(ndev);
 #if IS_ENABLED(CONFIG_MACSEC)
 			adrv906x_macsec_remove(ndev);
-#endif // IS_ENABLED(CONFIG_MACSEC)
+#endif /* IS_ENABLED(CONFIG_MACSEC) */
 			adrv906x_mac_cleanup(&eth_if->adrv906x_dev[i]->mac);
 		}
 	}
