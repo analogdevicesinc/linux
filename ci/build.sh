@@ -177,6 +177,10 @@ check_dt_binding_check() {
 			fail=1
 			echo "::error file=$(_file "$file"),line=0::$step_name contain errors"
 		fi
+		if echo "$error_txt" | grep -qF -e "TypeError:"; then
+			fail=1
+			echo "::error file=$(_file "$file"),line=0::$step_name contain type errors"
+		fi
 	done <<< "$files"
 
 	_set_step_warn $warn
