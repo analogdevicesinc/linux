@@ -86,7 +86,7 @@
 
 		dac@0 {
 			reg = <0>;
-			compatible = "adi,ad9740";
+			compatible = "adi,ad9744";
 			reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
 			io-backends = <&axi_dac>;
 			/* Data format: use offset binary (false) or 2's complement (true) */

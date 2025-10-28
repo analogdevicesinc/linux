@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Analog Devices AD9740
- * 14-Bit, 210 MSPS Digital-to-Analog Converter
+ * Analog Devices AD9740/AD9742/AD9744/AD9748
+ * 8/10/12/14-Bit, 210 MSPS Digital-to-Analog Converters
  *
  * Copyright 2025 Analog Devices Inc.
  */
@@ -15,14 +15,22 @@
 #include <linux/property.h>
 
 /*
- * AD9740 has no configuration registers - it's a simple parallel DAC.
+ * AD974x family has no configuration registers - they are simple parallel DACs.
  * All configuration is done via the AXI DAC IP core in the FPGA.
  */
+
+struct ad9740_chip_info {
+	const char *name;
+	unsigned int resolution;	/* DAC resolution in bits */
+	const struct iio_chan_spec *channels;
+	int num_channels;
+};
 
 struct ad9740_state {
 	struct device *dev;
 	struct iio_backend *back;
 	struct gpio_desc *reset_gpio;
+	const struct ad9740_chip_info *chip_info;
 	/* Data format: true = 2's complement, false = offset binary */
 	bool twos_complement;
 	/* Protects backend I/O operations from concurrent accesses. */
@@ -111,8 +119,9 @@ static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
 		dev_info(st->dev, "Configuring data format: offset binary\n");
 	}
 
-	dev_info(st->dev, "Setting backend data format (14-bit in 16-bit container)\n");
-	/* Configure data format: 14-bit in 16-bit container */
+	dev_info(st->dev, "Setting backend data format (%u-bit in 16-bit container)\n",
+		 st->chip_info->resolution);
+	/* Configure data format: N-bit in 16-bit container */
 	ret = iio_backend_data_format_set(st->back, 0, &fmt);
 	if (ret) {
 		dev_err(st->dev, "Failed to set data format: %d\n", ret);
@@ -269,7 +278,7 @@ static int ad9740_setup(struct ad9740_state *st)
 {
 	int ret;
 
-	dev_info(st->dev, "Starting AD9740 setup\n");
+	dev_info(st->dev, "Starting %s setup\n", st->chip_info->name);
 
 	/* Set data source to external (from DMA) */
 	dev_info(st->dev, "Initializing data source to DMA mode\n");
@@ -280,12 +289,12 @@ static int ad9740_setup(struct ad9740_state *st)
 	}
 
 	/*
-	 * AD9740 has no software-configurable registers.
+	 * AD974x family has no software-configurable registers.
 	 * Hardware configuration (full-scale current, references, etc.)
 	 * is done via external analog components on the board.
 	 */
 
-	dev_info(st->dev, "AD9740 setup completed successfully\n");
+	dev_info(st->dev, "%s setup completed successfully\n", st->chip_info->name);
 	return 0;
 }
 
@@ -294,7 +303,7 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 	.predisable = ad9740_buffer_predisable,
 };
 
-#define AD9740_CHANNEL(ch) { \
+#define AD974X_CHANNEL(ch, bits) { \
 	.type = IIO_ALTVOLTAGE, \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
 	.output = 1, \
@@ -303,14 +312,26 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 	.scan_index = (ch), \
 	.scan_type = { \
 		.sign = 'u', \
-		.realbits = 14, \
+		.realbits = (bits), \
 		.storagebits = 16, \
 		.endianness = IIO_BE, \
 	} \
 }
 
+static const struct iio_chan_spec ad9748_channels[] = {
+	AD974X_CHANNEL(0, 8),
+};
+
 static const struct iio_chan_spec ad9740_channels[] = {
-	AD9740_CHANNEL(0),
+	AD974X_CHANNEL(0, 10),
+};
+
+static const struct iio_chan_spec ad9742_channels[] = {
+	AD974X_CHANNEL(0, 12),
+};
+
+static const struct iio_chan_spec ad9744_channels[] = {
+	AD974X_CHANNEL(0, 14),
 };
 
 static const struct iio_info ad9740_info = {
@@ -318,13 +339,39 @@ static const struct iio_info ad9740_info = {
 	.write_raw = &ad9740_write_raw,
 };
 
+static const struct ad9740_chip_info ad9748_chip_info = {
+	.name = "ad9748",
+	.resolution = 8,
+	.channels = ad9748_channels,
+	.num_channels = ARRAY_SIZE(ad9748_channels),
+};
+
+static const struct ad9740_chip_info ad9740_chip_info = {
+	.name = "ad9740",
+	.resolution = 10,
+	.channels = ad9740_channels,
+	.num_channels = ARRAY_SIZE(ad9740_channels),
+};
+
+static const struct ad9740_chip_info ad9742_chip_info = {
+	.name = "ad9742",
+	.resolution = 12,
+	.channels = ad9742_channels,
+	.num_channels = ARRAY_SIZE(ad9742_channels),
+};
+
+static const struct ad9740_chip_info ad9744_chip_info = {
+	.name = "ad9744",
+	.resolution = 14,
+	.channels = ad9744_channels,
+	.num_channels = ARRAY_SIZE(ad9744_channels),
+};
+
 static int ad9740_probe(struct platform_device *pdev)
 {
 	struct ad9740_state *st;
 	struct iio_dev *indio_dev;
 	int ret;
-
-	dev_info(&pdev->dev, "AD9740 probe starting\n");
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 	if (!indio_dev) {
@@ -334,6 +381,16 @@ static int ad9740_probe(struct platform_device *pdev)
 
 	st = iio_priv(indio_dev);
 	st->dev = &pdev->dev;
+
+	/* Get chip info from device match data */
+	st->chip_info = device_get_match_data(&pdev->dev);
+	if (!st->chip_info) {
+		dev_err(&pdev->dev, "Failed to get chip info\n");
+		return -ENODEV;
+	}
+
+	dev_info(&pdev->dev, "%s probe starting (%u-bit DAC)\n",
+		 st->chip_info->name, st->chip_info->resolution);
 
 	mutex_init(&st->lock);
 	dev_dbg(&pdev->dev, "Mutex initialized\n");
@@ -388,8 +445,9 @@ static int ad9740_probe(struct platform_device *pdev)
 	int num_our_ext_info, num_backend_ext_info, i, j;
 
 	dev_info(&pdev->dev, "Creating modifiable channel spec\n");
-	channels = devm_kmemdup(&pdev->dev, ad9740_channels,
-				sizeof(ad9740_channels), GFP_KERNEL);
+	channels = devm_kmemdup(&pdev->dev, st->chip_info->channels,
+				sizeof(struct iio_chan_spec) * st->chip_info->num_channels,
+				GFP_KERNEL);
 	if (!channels) {
 		dev_err(&pdev->dev, "Failed to allocate channel spec\n");
 		return -ENOMEM;
@@ -439,11 +497,11 @@ static int ad9740_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "Extended attributes merged successfully\n");
 
 	dev_info(&pdev->dev, "Configuring IIO device structure\n");
-	indio_dev->name = "ad9740";
+	indio_dev->name = st->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
 	indio_dev->setup_ops = &ad9740_buffer_setup_ops;
 	indio_dev->channels = channels;
-	indio_dev->num_channels = ARRAY_SIZE(ad9740_channels);
+	indio_dev->num_channels = st->chip_info->num_channels;
 	indio_dev->info = &ad9740_info;
 	dev_info(&pdev->dev, "IIO device configured: %d channel(s), modes=0x%x\n",
 		 indio_dev->num_channels, indio_dev->modes);
@@ -472,9 +530,11 @@ static int ad9740_probe(struct platform_device *pdev)
 	}
 
 	dev_info(&pdev->dev, "========================================\n");
-	dev_info(&pdev->dev, "AD9740 DAC registered successfully!\n");
+	dev_info(&pdev->dev, "%s %u-bit DAC registered successfully!\n",
+		 st->chip_info->name, st->chip_info->resolution);
 	dev_info(&pdev->dev, "========================================\n");
 	dev_info(&pdev->dev, "Features:\n");
+	dev_info(&pdev->dev, "  - Resolution: %u-bit\n", st->chip_info->resolution);
 	dev_info(&pdev->dev, "  - DDS dual-tone generator\n");
 	dev_info(&pdev->dev, "  - DMA streaming mode\n");
 	dev_info(&pdev->dev, "  - Internal ramp pattern\n");
@@ -491,7 +551,10 @@ static int ad9740_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id ad9740_of_id[] = {
-	{ .compatible = "adi,ad9740" },
+	{ .compatible = "adi,ad9748", .data = &ad9748_chip_info },
+	{ .compatible = "adi,ad9740", .data = &ad9740_chip_info },
+	{ .compatible = "adi,ad9742", .data = &ad9742_chip_info },
+	{ .compatible = "adi,ad9744", .data = &ad9744_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad9740_of_id);
@@ -506,6 +569,6 @@ static struct platform_driver ad9740_driver = {
 module_platform_driver(ad9740_driver);
 
 MODULE_AUTHOR("Analog Devices Inc.");
-MODULE_DESCRIPTION("Analog Devices AD9740 DAC Driver");
+MODULE_DESCRIPTION("Analog Devices AD9740/AD9742/AD9744/AD9748 DAC Driver");
 MODULE_LICENSE("GPL");
 MODULE_IMPORT_NS(IIO_BACKEND);
