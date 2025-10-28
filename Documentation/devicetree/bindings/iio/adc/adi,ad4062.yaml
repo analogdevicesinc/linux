@@ -85,8 +85,6 @@ examples:
             vio-supply = <&vio>;
             ref-supply = <&ref>;
 
-            gp1-gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>;
-            gp0-gpios = <&gpio0 1 GPIO_ACTIVE_HIGH>;
             interrupt-parent = <&gpio>;
             interrupts = <0 0 IRQ_TYPE_EDGE_RISING>,
                          <0 1 IRQ_TYPE_EDGE_FALLING>;
