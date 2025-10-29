@@ -20,6 +20,10 @@
 #define HSCI_ENABLE		0
 #endif
 
+#ifndef WITH_AION
+#define WITH_AION		1
+#endif
+
 #ifndef VU11_FIRMWARE_NAME
 #define VU11_FIRMWARE_NAME	"vu11p.bin"
 #endif
