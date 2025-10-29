@@ -173,22 +173,6 @@
 	pinctrl-0 = <&eth0_default>;
 	status = "okay";
 
-	emac0txconfig: tx-config {
-		snps,tx-queues-to-use = <3>;
-
-		queue0 {
-			snps,dcb-algorithm;
-		};
-
-		queue1 {
-			snps,dcb-algorithm;
-		};
-
-		queue2 {
-			snps,dcb-algorithm;
-		};
-	};
-
 	mdio0 {
 		compatible = "snps,dwmac-mdio";
 		#address-cells = <1>;
