@@ -37,7 +37,7 @@
 #define SYSREF_CLK_MHz		(10000000)
 
 #define WITH_AION 1
-#define WITH_AXI_AION_TRIG 1
+#define WITH_AXI_AION_TRIG 0
 #define ASYNM_A_B_MODE 1
 
 #include "vcu118_ad9084.dts"
