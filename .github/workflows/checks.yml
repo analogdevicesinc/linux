@@ -151,6 +151,7 @@ jobs:
         cp ci/build.sh /tmp/build.sh
         cp ci/runner_env.sh /tmp/runner_env.sh
         git reset --hard $head_sha
+        mkdir -p ci
         mv /tmp/build.sh ci/build.sh
         mv /tmp/runner_env.sh ci/runner_env.sh
 
