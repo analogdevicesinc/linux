@@ -51,6 +51,7 @@
 *.tar
 *.xz
 *.zst
+__pycache__/
 Module.symvers
 dtbs-list
 modules.order
