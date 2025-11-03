@@ -682,7 +682,7 @@ static int ad4052_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 			return ret;
 	}
 
-	ret = regmap_update_bits(st->regmap, AD4052_REG_ADC_MODES,
+	ret = regmap_update_bits(st->regmap, AD4052_REG_ADC_CONFIG,
 				 AD4052_REG_ADC_CONFIG_REF_EN_MSK,
 				 FIELD_PREP(AD4052_REG_ADC_CONFIG_REF_EN_MSK,
 					    *ref_sel));
@@ -696,9 +696,14 @@ static int ad4052_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 
 	val = FIELD_PREP(AD4052_REG_INTR_CONF_EN_MSK_0, (AD4052_INTR_EN_EITHER)) |
 	      FIELD_PREP(AD4052_REG_INTR_CONF_EN_MSK_1, (AD4052_INTR_EN_EITHER));
-	return regmap_update_bits(st->regmap, AD4052_REG_INTR_CONF,
+	ret = regmap_update_bits(st->regmap, AD4052_REG_INTR_CONF,
 				  AD4052_REG_INTR_CONF_EN_MSK_0 | AD4052_REG_INTR_CONF_EN_MSK_1,
 				  val);
+	if (ret)
+		return ret;
+
+	put_unaligned_be16(AD4062_MON_VAL_MIDDLE_POINT, st->raw);
+	return regmap_bulk_write(st->regmap, AD4062_REG_MON_VAL, &st->raw, 2);
 }
 
 static irqreturn_t ad4052_irq_handler_thresh(int irq, void *private)
@@ -866,7 +871,8 @@ static int ad4052_set_chan_calibscale(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	return regmap_update_bits(st->regmap, AD4052_REG_ADC_MODES,
+	/* Enable scale if gain is not one. */
+	return regmap_update_bits(st->regmap, AD4052_REG_ADC_CONFIG,
 				  AD4052_REG_ADC_CONFIG_SCALE_EN_MSK,
 				  FIELD_PREP(AD4052_REG_ADC_CONFIG_SCALE_EN_MSK,
 					     !(gain_int == 1 && gain_frac == 0)));
