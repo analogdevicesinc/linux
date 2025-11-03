@@ -61,7 +61,7 @@ jobs:
       defconfig: "adi_ci_defconfig"
       checks: true
   assert_checks:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
     needs:
       - checks
       - build_gcc_x86_64
@@ -142,7 +142,7 @@ jobs:
       defconfig: "sc598-som-ezlite_defconfig"
       auto_from_range: false
   assert_build_adsp:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
     needs:
       - build_gcc_arm_sc573-ezkit_defconfig
       - build_gcc_arm_sc589-mini_defconfig
