@@ -818,7 +818,7 @@ static int ad4052_get_chan_scale(struct iio_dev *indio_dev,
 
 	*val = (st->vref_uv * 2) / MILLI;
 
-	*val2 = scan_type->realbits;
+	*val2 = scan_type->realbits - 1; /* signed */
 
 	return IIO_VAL_FRACTIONAL_LOG2;
 }
