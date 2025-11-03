@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/serial/adi,sc5xx-uart.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices UART Driver for SC5XX-family processors
+
+maintainers:
+  - Arturs Artamonovs <arturs.artamonovs@analog.com>
+  - Utsav Agarwal <Utsav.Agarwal@analog.com>
+
+description: Analog Devices UART Driver for SC59X-family processors
+
+properties:
+  compatible:
+    enum:
+      - adi,sc5xx-uart
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    description: Clock name
+    items:
+      - const: sclk0
+
+  interrupt-names:
+    items:
+      - const: tx
+      - const: rx
+      - const: status
+
+  interrupts:
+    minItems: 3
+    maxItems: 3
+    description: GIC interrupt numbers
+
+  adi,use-edbo:
+    type: boolean
+    description: Increase by 16 incoming bit sampling rate for better
+      granularity and accuracy at high speed rates.
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - interrupt-names
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/clock/adi-sc5xx-clock.h>
+
+    serial@31003000 {
+      compatible = "adi,sc5xx-uart";
+      reg = <0x31003000 0x40>;
+      clocks = <&clk ADSP_CLK_CGU0_SCLK0>;
+      clock-names = "sclk0";
+      interrupt-parent = <&gic>;
+      interrupt-names = "tx", "rx", "status";
+      interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
+      adi,use-edbo;
+    };
