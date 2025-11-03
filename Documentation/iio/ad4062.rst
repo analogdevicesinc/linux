@@ -39,7 +39,8 @@ The ADC contains only one channel with following attributes:
    * - Attribute
      - Description
    * - ``in_voltage_calibscale``
-     - Sets the scale factor to multiply the raw value.
+     - Sets the gain scaling factor that the hardware applies to the sample,
+       to compensate for system gain error.
    * - ``in_voltage_oversampling_ratio``
      - Sets device's burst averaging mode to over sample using the
        internal sample rate. Value 1 disable the burst averaging mode.
