@@ -3,6 +3,10 @@
 
 set -e
 
+# linux headers_install
+zypper install -y --no-recommends \
+    rsync
+
 # linux checks
 zypper install -y --no-recommends \
     sqlite3-devel
