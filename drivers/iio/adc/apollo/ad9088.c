@@ -1491,9 +1491,12 @@ static int ad9088_device_loopback1(struct ad9088_phy *phy,
 	adi_apollo_side_select_e sides = side ? ADI_APOLLO_SIDE_B : ADI_APOLLO_SIDE_A;
 	adi_apollo_device_t *device = &phy->ad9088;
 	int err = API_CMS_ERROR_OK;
-	u16 lb1_cducs = side ?
-			     ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 | ADI_APOLLO_CDUC_B2 | ADI_APOLLO_CDUC_B3 :
-			     ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1 | ADI_APOLLO_CDUC_A2 | ADI_APOLLO_CDUC_A3;
+
+	u16 lb1_cducs = device->dev_info.is_8t8r ?
+			(side ? ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 | ADI_APOLLO_CDUC_B2 | ADI_APOLLO_CDUC_B3 :
+			        ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1 | ADI_APOLLO_CDUC_A2 | ADI_APOLLO_CDUC_A3) :
+			(side ? ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 :
+			        ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1);
 
 	err = adi_apollo_loopback_lb1_enable_set(device, sides, 1);
 	if (err)
@@ -1518,7 +1521,8 @@ static int ad9088_device_loopback2(struct ad9088_phy *phy,
 	adi_apollo_side_select_e sides = side ? ADI_APOLLO_SIDE_B : ADI_APOLLO_SIDE_A;
 	adi_apollo_device_t *device = &phy->ad9088;
 	int err = API_CMS_ERROR_OK;
-	u16 lb2_fducs = side ? ADI_APOLLO_FDUC_B_ALL : ADI_APOLLO_FDUC_A_ALL;
+	u16 lb2_fducs = device->dev_info.is_8t8r ? (side ? ADI_APOLLO_FDUC_B_ALL : ADI_APOLLO_FDUC_A_ALL) :
+						   (side ? ADI_APOLLO_FDUC_B_ALL_4T4R : ADI_APOLLO_FDUC_A_ALL_4T4R);
 
 	err = adi_apollo_loopback_lb2_enable_set(device, sides, 1);
 	if (err != API_CMS_ERROR_OK)
@@ -1555,11 +1559,13 @@ static int ad9088_device_loopback_disable(struct ad9088_phy *phy,
 	adi_apollo_adc_select_e select_adc = side ? ADI_APOLLO_ADC_B_ALL : ADI_APOLLO_ADC_A_ALL;
 	adi_apollo_device_t *device = &phy->ad9088;
 	int err = API_CMS_ERROR_OK;
-	u16 lb1_cducs = side ?
-			     ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 | ADI_APOLLO_CDUC_B2 | ADI_APOLLO_CDUC_B3 :
-			     ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1 | ADI_APOLLO_CDUC_A2 | ADI_APOLLO_CDUC_A3;
-	u16 lb2_fducs = side ?
-			     ADI_APOLLO_FDUC_B_ALL : ADI_APOLLO_FDUC_A_ALL;
+	u16 lb1_cducs = device->dev_info.is_8t8r ?
+			(side ? ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 | ADI_APOLLO_CDUC_B2 | ADI_APOLLO_CDUC_B3 :
+			        ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1 | ADI_APOLLO_CDUC_A2 | ADI_APOLLO_CDUC_A3) :
+			(side ? ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 :
+			        ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1);
+	u16 lb2_fducs = device->dev_info.is_8t8r ? (side ? ADI_APOLLO_FDUC_B_ALL : ADI_APOLLO_FDUC_A_ALL) :
+						   (side ? ADI_APOLLO_FDUC_B_ALL_4T4R : ADI_APOLLO_FDUC_A_ALL_4T4R);
 	adi_apollo_side_select_e sides = side ? ADI_APOLLO_SIDE_B : ADI_APOLLO_SIDE_A;
 
 	switch (phy->loopback_mode[side]) {
@@ -2772,7 +2778,7 @@ static ssize_t ad9088_phy_store(struct device *dev,
 	adi_apollo_device_t *device = &phy->ad9088;
 	adi_apollo_side_select_e side;
 	unsigned long res;
-	u8 side_index;
+	adi_apollo_sides_e side_index;
 	bool bres;
 	bool enable;
 	int ret = 0;
@@ -2793,9 +2799,13 @@ static ssize_t ad9088_phy_store(struct device *dev,
 
 		phy->lb1_blend[side_index] = res;
 		if (phy->loopback_mode[side_index] == ADI_APOLLO_LOOPBACK_1) {
-			u16 lb1_cducs = side == ADI_APOLLO_SIDE_A ?
-					     ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1 | ADI_APOLLO_CDUC_A2 | ADI_APOLLO_CDUC_A3 :
-					     ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 | ADI_APOLLO_CDUC_B2 | ADI_APOLLO_CDUC_B3;
+			u16 lb1_cducs = device->dev_info.is_8t8r ?
+					(side_index ?
+						ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 | ADI_APOLLO_CDUC_B2 | ADI_APOLLO_CDUC_B3 :
+					        ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1 | ADI_APOLLO_CDUC_A2 | ADI_APOLLO_CDUC_A3) :
+					(side_index ?
+						ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 :
+					        ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1);
 			ret = adi_apollo_loopback_lb1_blend_set(device, lb1_cducs, phy->lb1_blend[side_index]);
 			if (ret)
 				return ret;
