@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 #ifndef ADI_I2C_H
 #define ADI_I2C_H
 
