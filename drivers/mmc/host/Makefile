@@ -4,11 +4,7 @@
 #
 
 obj-$(CONFIG_MMC_ARMMMCI) += armmmci.o
-ifeq ($(CONFIG_MMC_ADI_SYSTEMC),y)
-    armmmci-y := mmci_adi_systemc.o
-else
-    armmmci-y := mmci.o
-endif
+armmmci-y := mmci.o
 armmmci-$(CONFIG_MMC_QCOM_DML) += mmci_qcom_dml.o
 armmmci-$(CONFIG_MMC_STM32_SDMMC) += mmci_stm32_sdmmc.o
 obj-$(CONFIG_MMC_PXA)		+= pxamci.o

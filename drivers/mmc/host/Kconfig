@@ -23,12 +23,6 @@ config MMC_SUNPLUS
 
 	  If unsure, say N
 
-config MMC_ADI_SYSTEMC
-	bool "MMC host driver for ADI SystemC"
-	default n
-	help
-	  This selects the MMC driver with workarounds for the ADI SystemC eMMC.
-
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA
