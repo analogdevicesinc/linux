@@ -348,6 +348,7 @@ int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u16 mcs_track_decimati
 				  u16 initialize_track_cal);
 int ad9088_mcs_init_cal_status_print(struct ad9088_phy *phy, char *buf,
 				     adi_apollo_mcs_cal_init_status_t *status);
+int ad9088_bmem_probe(struct ad9088_phy *phy);
 int adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy, u64 freq, s64 nco_shift, u32 div, u32 bits,
 			    u64 *ftw, u64 *frac_a, u64 *frac_b);
 const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
