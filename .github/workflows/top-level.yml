@@ -1,0 +1,181 @@
+name: Kernel build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'adsp-[0-9]+.[0-9]+*-y'
+    paths-ignore:
+      - 'docs/**'
+  pull_request:
+    branches:
+      - 'adsp-[0-9]+.[0-9]+*-y'
+    paths-ignore:
+      - 'docs/**'
+
+jobs:
+  checks:
+    uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+  build_gcc_x86_64:
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "x86"
+      defconfig: "adi_ci_defconfig"
+  build_llvm_x86_64:
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "llvm"
+      arch: "x86"
+      defconfig: "adi_ci_defconfig"
+      checks: true
+  build_gcc_aarch64:
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm64"
+      defconfig: "adi_ci_defconfig"
+  build_gcc_arm:
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    needs: [checks]
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "adi_ci_defconfig"
+      checks: true
+  assert_checks:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
+    needs:
+      - checks
+      - build_gcc_x86_64
+      - build_llvm_x86_64
+      - build_gcc_aarch64
+      - build_gcc_arm
+
+    steps:
+      - name: Assert
+        env:
+          job_checks: ${{ needs.checks.outputs.summary }}
+          job_build_gcc_x86_64: ${{ needs.build_gcc_x86_64.outputs.summary }}
+          job_build_llvm_x86_64: ${{ needs.build_llvm_x86_64.outputs.summary }}
+          job_build_gcc_aarch64: ${{ needs.build_gcc_aarch64.outputs.summary }}
+          job_build_gcc_arm: ${{ needs.build_gcc_arm.outputs.summary }}
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
+          source ./runner_env.sh
+          assert_job_summary
+  build_gcc_arm_sc573-ezlite_defconfig:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "sc573-ezlite_defconfig"
+      auto_from_range: false
+  build_gcc_arm_sc589-mini_defconfig:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "sc589-mini_defconfig"
+      auto_from_range: false
+  build_gcc_arm_sc594-som-ezkit_defconfig:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "sc594-som-ezkit_defconfig"
+      auto_from_range: false
+  build_gcc_arm_sc594-som-ezlite_defconfig:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "sc594-som-ezlite_defconfig"
+      auto_from_range: false
+  build_gcc_aarch64_sc598-som-ezkit_defconfig:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm64"
+      defconfig: "sc598-som-ezkit_defconfig"
+      auto_from_range: false
+  build_gcc_aarch64_sc598-som-ezlite_defconfig:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm64"
+      defconfig: "sc598-som-ezlite_defconfig"
+      auto_from_range: false
+  assert_build:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
+    needs:
+      - build_gcc_arm_sc573-ezlite_defconfig
+      - build_gcc_arm_sc589-mini_defconfig
+      - build_gcc_arm_sc594-som-ezkit_defconfig
+      - build_gcc_arm_sc594-som-ezlite_defconfig
+      - build_gcc_aarch64_sc598-som-ezkit_defconfig
+      - build_gcc_aarch64_sc598-som-ezlite_defconfig
+    steps:
+      - name: Assert
+        env:
+          job_build_gcc_arm_sc573-ezlite_defconfig: ${{ needs.build_gcc_arm_sc573-ezlite_defconfig.outputs.summary }}
+          job_build_gcc_arm_sc589-mini_defconfig: ${{ needs.build_gcc_arm_sc589-mini_defconfig.outputs.summary }}
+          job_build_gcc_arm_sc594-som-ezkit_defconfig: ${{ needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.summary }}
+          job_build_gcc_arm_sc594-som-ezlite_defconfig: ${{ needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.summary }}
+          job_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{ needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.summary }}
+          job_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{ needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.summary }}
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
+          source ./runner_env.sh
+          assert_job_summary
