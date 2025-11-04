@@ -6753,6 +6753,7 @@ static int ad9088_probe(struct spi_device *spi)
 		gpiod_set_value(phy->transceiver_reset_gpio, 0);
 	}
 
+	ad9088_bmem_probe(phy);
 	ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_A);
 	ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_B);
 	ad9088_ffh_probe(phy);

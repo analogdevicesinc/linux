@@ -321,3 +321,5 @@ extern ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev,
 
 extern int ad9088_check_apollo_error(struct device *dev, int ret,
 				     const char *api_name);
+
+int ad9088_bmem_probe(struct ad9088_phy *phy);
