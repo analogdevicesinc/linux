@@ -4973,6 +4973,10 @@ static int ad9088_probe(struct spi_device *spi)
 		gpiod_set_value_cansleep(reset, 0);
 	}
 
+	ret = ad9088_bmem_probe(phy);
+	if (ret)
+		return ret;
+
 	if (phy->sniffer_en) {
 		ret = ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_A);
 		if (ret)
