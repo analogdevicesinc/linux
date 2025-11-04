@@ -172,6 +172,300 @@ int32_t ad9088_log_write(void *user_data, int32_t log_type, const char *message,
 	return 0;
 }
 
+/**
+ * @brief Get a human-readable string for a CMS error code
+ * @param error_code The error code to look up
+ * @return Pointer to a constant string describing the error
+ */
+const char* adi_cms_error_to_string(int error_code)
+{
+    switch (error_code) {
+        case API_CMS_ERROR_OK:
+            return "No Error";
+        case API_CMS_ERROR_ERROR:
+            return "General Error";
+        case API_CMS_ERROR_NULL_PARAM:
+            return "Null parameter";
+        case API_CMS_ERROR_OVERFLOW:
+            return "General overflow";
+        case API_CMS_ERROR_DIV_BY_ZERO:
+            return "Divide by zero";
+        case API_CMS_ERROR_FEAT_LOCKOUT:
+            return "Device feature is locked out";
+        case API_CMS_ERROR_SPI_SDO:
+            return "Wrong value assigned to the SDO in device structure";
+        case API_CMS_ERROR_INVALID_HANDLE_PTR:
+            return "Device handler pointer is invalid";
+        case API_CMS_ERROR_INVALID_XFER_PTR:
+            return "Invalid pointer to the SPI write or read function assigned";
+        case API_CMS_ERROR_INVALID_DELAYUS_PTR:
+            return "Invalid pointer to the delay_us function assigned";
+        case API_CMS_ERROR_INVALID_PARAM:
+            return "Invalid parameter passed";
+        case API_CMS_ERROR_INVALID_RESET_CTRL_PTR:
+            return "Invalid pointer to the reset control function assigned";
+        case API_CMS_ERROR_NOT_SUPPORTED:
+            return "Not supported";
+        case API_CMS_ERROR_INVALID_MASK_SELECT:
+            return "Invalid bitmask select parameter passed";
+        case API_CMS_ERROR_IN_REF_STATUS:
+            return "The Input Reference Signal is not available";
+        case API_CMS_ERROR_VCO_OUT_OF_RANGE:
+            return "The VCO is out of range";
+        case API_CMS_ERROR_PLL_NOT_LOCKED:
+            return "PLL is not locked";
+        case API_CMS_ERROR_DLL_NOT_LOCKED:
+            return "DLL is not locked";
+        case API_CMS_ERROR_MODE_NOT_IN_TABLE:
+            return "JESD Mode not in table";
+        case API_CMS_ERROR_CLK_CKT:
+            return "Clock circuit error";
+        case API_CMS_ERROR_FTW_LOAD_ACK:
+            return "FTW acknowledge not received";
+        case API_CMS_ERROR_NCO_NOT_ENABLED:
+            return "The NCO is not enabled";
+        case API_CMS_ERROR_INIT_SEQ_FAIL:
+            return "Initialization sequence failed";
+        case API_CMS_ERROR_TEST_FAILED:
+            return "Test failed";
+        case API_CMS_ERROR_SPI_XFER:
+            return "SPI transfer error";
+        case API_CMS_ERROR_TX_EN_PIN_CTRL:
+            return "TX enable function error";
+        case API_CMS_ERROR_RESET_PIN_CTRL:
+            return "HW reset function error";
+        case API_CMS_ERROR_EVENT_HNDL:
+            return "Event handling error";
+        case API_CMS_ERROR_HW_OPEN:
+            return "HW open function error";
+        case API_CMS_ERROR_HW_CLOSE:
+            return "HW close function error";
+        case API_CMS_ERROR_LOG_OPEN:
+            return "Log open error";
+        case API_CMS_ERROR_LOG_WRITE:
+            return "Log write error";
+        case API_CMS_ERROR_LOG_CLOSE:
+            return "Log close error";
+        case API_CMS_ERROR_DELAY_US:
+            return "Delay error";
+        case API_CMS_ERROR_HSCI_LINK_UP:
+            return "HSCI Linkup error";
+        case API_CMS_ERROR_SPI_REGIO_XFER:
+            return "Register transaction error spi";
+        case API_CMS_ERROR_HSCI_REGIO_XFER:
+            return "Register transaction error hsci";
+        case API_CMS_ERROR_OPERATION_TIMEOUT:
+            return "Operation timeout";
+        case API_CMS_ERROR_LINK_DOWN:
+            return "JESD links down";
+        case API_CMS_ERROR_FILE_OPEN:
+            return "File open error";
+        case API_CMS_ERROR_SERDES_CAL_ERROR:
+            return "SERDES cal error";
+        case API_CMS_ERROR_SERDES_CAL_TIMEOUT:
+            return "SERDES cal timeout";
+        case API_CMS_ERROR_PLATFORM_READ:
+            return "Platform (e.g. FPGA) read error";
+        case API_CMS_ERROR_PLATFORM_WRITE:
+            return "Platform (e.g. FPGA) write error";
+        case API_CMS_ERROR_FILE_READ:
+            return "File read error";
+        case API_CMS_ERROR_FILE_WRITE:
+            return "File write error";
+        case API_CMS_ERROR_FILE_OPERATION:
+            return "General file error (e.g. seek)";
+        case API_CMS_ERROR_PLATFORM_IMAGE_LOAD:
+            return "Error loading platform FPGA image";
+        case API_CMS_ERROR_NOT_IMPLEMENTED:
+            return "Feature not currently implemented";
+        case API_CMS_ERROR_STRUCT_UNPOPULATED:
+            return "Struct not populated";
+        case API_CMS_ERROR_PROTOCOL_OP_NOT_SUPPORTED:
+            return "Protocol not supported for operation";
+        case API_CMS_ERROR_INVALID_CLK_OR_REF_PARAM:
+            return "Invalid clock or reference parameter";
+        case API_CMS_ERROR_MEM_ALLOC:
+            return "Memory allocation error";
+        case API_CMS_ERROR_MMAP:
+            return "Memory mapping error";
+        case API_CMS_ERROR_DEV_MEM_OPEN:
+            return "Device memory open error";
+        case API_CMS_ERROR_I2C_ERROR:
+            return "I2C General Error";
+        case API_CMS_ERROR_I2C_WRITE:
+            return "I2C Write Operation Failed";
+        case API_CMS_ERROR_I2C_READ:
+            return "I2C Read Operation Failed";
+        case API_CMS_ERROR_I2C_BUSY:
+            return "I2C controller or device is busy";
+        case API_CMS_ERROR_PMOD_NVM_LOCK:
+            return "A fault occurred while accessing the Power Module's NVM";
+        case API_CMS_ERROR_EC_RAM_LOCK_ERROR:
+            return "EC ram-lock error";
+        case API_CMS_ERROR_PROFILE_CRC:
+            return "Profile CRC invalid";
+        case API_CMS_ERROR_MAILBOX_RESP_STATUS:
+            return "Mailbox Command Response Status Error";
+        case API_CMS_ERROR_MCS_CAL_CONFIG_ERROR:
+            return "MCS Cal Configuration related error";
+        case API_CMS_ERROR_MCS_INIT_CAL_ERROR:
+            return "MCS Init Cal related error";
+        case API_CMS_ERROR_MCS_TRACK_CAL_ERROR:
+            return "MCS Tracking Cal related error";
+        case API_CMS_ERROR_MCS_CAL_TIMEOUT:
+            return "MCS Cal run or status check response timed out error";
+        case API_CMS_ERROR_ADC_INIT_CAL_ERROR:
+            return "ADC Init Cal related error";
+        case API_CMS_ERROR_ADC_TRACK_CAL_ERROR:
+            return "ADC Tracking Cal related error";
+        case API_CMS_ERROR_ADC_CAL_TIMEOUT:
+            return "ADC Cal run or status check response timed out error";
+        case API_CMS_ERROR_BAD_STATE:
+            return "Device is not in appropriate state to perform operation";
+        case API_CMS_ERROR_STARTUP_FW_RDY_FOR_PROFILE_ERROR:
+            return "FW did not reach ready for profile config state";
+        case API_CMS_ERROR_STARTUP_FW_MAILBOX_RDY_ERROR:
+            return "FW did not reach mailbox ready state";
+        case API_CMS_ERROR_PLATFORM_CAPTURE_INVALID_CONFIG:
+            return "Invalid platform capture configuration";
+        default:
+            return "Unknown error code";
+    }
+}
+
+/**
+ * @brief Convert CMS API error code to Linux errno value
+ * @param api_error The CMS API error code
+ * @return Corresponding Linux errno value (positive)
+ * @note Returns the absolute value suitable for setting errno or returning -errno
+ */
+int adi_cms_error_to_errno(int api_error)
+{
+    /* Success case */
+    if (api_error == API_CMS_ERROR_OK) {
+        return 0;
+    }
+
+    switch (api_error) {
+        /* Invalid parameter errors -> EINVAL */
+        case API_CMS_ERROR_NULL_PARAM:
+        case API_CMS_ERROR_INVALID_PARAM:
+        case API_CMS_ERROR_INVALID_MASK_SELECT:
+        case API_CMS_ERROR_INVALID_CLK_OR_REF_PARAM:
+        case API_CMS_ERROR_PLATFORM_CAPTURE_INVALID_CONFIG:
+            return EINVAL;
+
+        /* Invalid pointer/handle errors -> EINVAL */
+        case API_CMS_ERROR_INVALID_HANDLE_PTR:
+        case API_CMS_ERROR_INVALID_XFER_PTR:
+        case API_CMS_ERROR_INVALID_DELAYUS_PTR:
+        case API_CMS_ERROR_INVALID_RESET_CTRL_PTR:
+            return EINVAL;
+
+        /* Memory errors -> ENOMEM or EFAULT */
+        case API_CMS_ERROR_MEM_ALLOC:
+            return ENOMEM;
+        case API_CMS_ERROR_MMAP:
+        case API_CMS_ERROR_DEV_MEM_OPEN:
+            return EFAULT;
+
+        /* Overflow errors -> EOVERFLOW */
+        case API_CMS_ERROR_OVERFLOW:
+            return EOVERFLOW;
+
+        /* Divide by zero -> EDOM (domain error) */
+        case API_CMS_ERROR_DIV_BY_ZERO:
+            return EDOM;
+
+        /* Not supported -> ENOTSUP or EOPNOTSUPP */
+        case API_CMS_ERROR_NOT_SUPPORTED:
+        case API_CMS_ERROR_NOT_IMPLEMENTED:
+        case API_CMS_ERROR_PROTOCOL_OP_NOT_SUPPORTED:
+            return EOPNOTSUPP;
+
+        /* Device busy/locked -> EBUSY */
+        case API_CMS_ERROR_FEAT_LOCKOUT:
+        case API_CMS_ERROR_I2C_BUSY:
+        case API_CMS_ERROR_EC_RAM_LOCK_ERROR:
+        case API_CMS_ERROR_PMOD_NVM_LOCK:
+            return EBUSY;
+
+        /* Timeout errors -> ETIMEDOUT */
+        case API_CMS_ERROR_OPERATION_TIMEOUT:
+        case API_CMS_ERROR_SERDES_CAL_TIMEOUT:
+        case API_CMS_ERROR_MCS_CAL_TIMEOUT:
+        case API_CMS_ERROR_ADC_CAL_TIMEOUT:
+            return ETIMEDOUT;
+        /* File operation errors -> appropriate file errno */
+        case API_CMS_ERROR_FILE_OPEN:
+            return ENOENT;
+        /* Hardware errors -> EIO */
+        case API_CMS_ERROR_TX_EN_PIN_CTRL:
+        case API_CMS_ERROR_RESET_PIN_CTRL:
+        case API_CMS_ERROR_HW_OPEN:
+        case API_CMS_ERROR_HW_CLOSE:
+        case API_CMS_ERROR_PLATFORM_READ:
+        case API_CMS_ERROR_PLATFORM_WRITE:
+        case API_CMS_ERROR_PLATFORM_IMAGE_LOAD:
+            return EIO;
+
+        /* Communication/link errors -> ECOMM or ENOTCONN */
+        case API_CMS_ERROR_HSCI_LINK_UP:
+        case API_CMS_ERROR_HSCI_REGIO_XFER:
+        case API_CMS_ERROR_LINK_DOWN:
+            return ENOTCONN;
+
+        /* Hardware not ready errors -> EAGAIN */
+        case API_CMS_ERROR_IN_REF_STATUS:
+        case API_CMS_ERROR_VCO_OUT_OF_RANGE:
+        case API_CMS_ERROR_PLL_NOT_LOCKED:
+        case API_CMS_ERROR_DLL_NOT_LOCKED:
+        case API_CMS_ERROR_FTW_LOAD_ACK:
+        case API_CMS_ERROR_NCO_NOT_ENABLED:
+            return EAGAIN;
+
+        /* State/sequencing errors -> EILSEQ */
+        case API_CMS_ERROR_INIT_SEQ_FAIL:
+        case API_CMS_ERROR_BAD_STATE:
+        case API_CMS_ERROR_STARTUP_FW_RDY_FOR_PROFILE_ERROR:
+        case API_CMS_ERROR_STARTUP_FW_MAILBOX_RDY_ERROR:
+            return EILSEQ;
+
+        /* Data integrity errors -> EBADMSG */
+        case API_CMS_ERROR_PROFILE_CRC:
+        case API_CMS_ERROR_MAILBOX_RESP_STATUS:
+            return EBADMSG;
+        /* Lookup/table errors -> ENOENT */
+        case API_CMS_ERROR_MODE_NOT_IN_TABLE:
+            return ENOENT;
+        /* Missing/unpopulated data -> ENODATA */
+        case API_CMS_ERROR_STRUCT_UNPOPULATED:
+            return ENODATA;
+        default:
+            return EIO;
+    }
+}
+
+/**
+ * ad9088_check_apollo_error - Check and handle Apollo API return value
+ * @dev: Device context for error reporting
+ * @ret: Return value from Apollo API call
+ * @api_name: Name of the API for error reporting
+ *
+ * Returns: 0 on success, negative Linux error code on failure
+ */
+int ad9088_check_apollo_error(struct device *dev, int ret,
+				     const char *api_name)
+{
+	if (ret != API_CMS_ERROR_OK) {
+		dev_err(dev, "Apollo API call %s failed with error: %s (%d)\n",
+			api_name, adi_cms_error_to_string(ret), ret);
+		return adi_cms_error_to_errno(ret);
+	}
+
+	return 0;
+}
+
 static int ad9088_udelay(void *user_data, unsigned int us)
 {
 	usleep_range(us, (us * 110) / 100);

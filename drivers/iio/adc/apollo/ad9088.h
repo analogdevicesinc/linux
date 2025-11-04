@@ -318,3 +318,6 @@ extern ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev,
 										 uintptr_t private,
 										 const struct iio_chan_spec *chan,
 										 const char *buf, size_t len);
+
+extern int ad9088_check_apollo_error(struct device *dev, int ret,
+				     const char *api_name);
