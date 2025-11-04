@@ -157,6 +157,15 @@ config GPIO_74XX_MMIO
 	    8 bits:	74244 (Input), 74273 (Output)
 	    16 bits:	741624 (Input), 7416374 (Output)
 
+config GPIO_ADG1712
+	tristate "Analog Devices ADG1712 quad SPST switch GPIO driver"
+	depends on GPIOLIB
+	help
+	  GPIO driver for Analog Devices ADG1712 quad single-pole,
+	  single-throw (SPST) switch. The driver provides a GPIO controller
+	  interface where each GPIO line controls one of the four independent
+	  analog switches on the ADG1712.
+
 config GPIO_ALTERA
 	tristate "Altera GPIO"
 	select GPIOLIB_IRQCHIP
