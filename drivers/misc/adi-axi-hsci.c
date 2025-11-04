@@ -460,7 +460,7 @@ int axi_hsci_readm(struct axi_hsci_state *st, const u8 tx_data[],
 				byte_size = len % 4;
 				for (i = 0; i < word_size; i++) {
 					rdData = axi_hsci_read(st, AXI_HSCI_BUF_RDDATA + i);
-					put_unaligned_be32(rdData, &rx_data[4 + (i * 4)]);
+					put_unaligned_le32(rdData, &rx_data[4 + (i * 4)]);
 				}
 				if (byte_size != 0)
 					rdData = axi_hsci_read(st, AXI_HSCI_BUF_RDDATA + word_size);
