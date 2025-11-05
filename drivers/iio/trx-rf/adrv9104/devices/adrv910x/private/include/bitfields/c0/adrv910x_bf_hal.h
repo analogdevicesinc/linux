@@ -30,7 +30,7 @@ extern "C" {
  *
  * To write to the FIELD a value of 2, call
  * \code
- * adi_bf_hal_Field_Write(device, 0xBEEF, 0x2, 0x6, 0x1);
+ * adrv9104_bf_hal_Field_Write(device, 0xBEEF, 0x2, 0x6, 0x1);
  * \endcode
  *
  * Bits [d7:d3] and d0 should not be modified, generally requiring a read, modify, and write
@@ -43,7 +43,7 @@ extern "C" {
  *
  * \returns Zero (0) to indicate success; error otherwise
  */
-int32_t adi_bf_hal_Field_Write(void *device, uint16_t address, uint8_t value, uint8_t mask, uint8_t startBit);
+int32_t adrv9104_bf_hal_Field_Write(void *device, uint16_t address, uint8_t value, uint8_t mask, uint8_t startBit);
 
 /**
  * \brief Read a field within a register
@@ -56,7 +56,7 @@ int32_t adi_bf_hal_Field_Write(void *device, uint16_t address, uint8_t value, ui
  *
  * \returns Zero (0) to indicate success; error otherwise
  */
-int32_t adi_bf_hal_Field_Read(void *device, uint16_t address, uint8_t *value, uint8_t mask, uint8_t startBit);
+int32_t adrv9104_bf_hal_Field_Read(void *device, uint16_t address, uint8_t *value, uint8_t mask, uint8_t startBit);
 
 /**
  * \brief Write to a register
@@ -67,7 +67,7 @@ int32_t adi_bf_hal_Field_Read(void *device, uint16_t address, uint8_t *value, ui
  *
  * \returns Zero (0) to indicate success; error otherwise
  */
-int32_t adi_bf_hal_Register_Write(void *device, uint16_t address, uint8_t value);
+int32_t adrv9104_bf_hal_Register_Write(void *device, uint16_t address, uint8_t value);
 
 /**
  * \brief Read from a register
@@ -78,7 +78,12 @@ int32_t adi_bf_hal_Register_Write(void *device, uint16_t address, uint8_t value)
  *
  * \returns Zero (0) to indicate success; error otherwise
  */
-int32_t adi_bf_hal_Register_Read(void *device, uint16_t address, uint8_t *value);
+int32_t adrv9104_bf_hal_Register_Read(void *device, uint16_t address, uint8_t *value);
+
+#define adi_bf_hal_Field_Write		adrv9104_bf_hal_Field_Write
+#define adi_bf_hal_Field_Read		adrv9104_bf_hal_Field_Read
+#define adi_bf_hal_Register_Write	adrv9104_bf_hal_Register_Write
+#define adi_bf_hal_Register_Read	adrv9104_bf_hal_Register_Read
 
 #ifdef __cplusplus
 }

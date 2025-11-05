@@ -1,8 +1,8 @@
 /**
  * \file
- * \brief Contains Common API error handling function prototypes and macros 
+ * \brief Contains Common API error handling function prototypes and macros
  * that will be used by the API and will call functions in adi_common_error.c
- * 
+ *
  * These functions are public to the customer for getting more details on
  * errors and debugging.
  *
@@ -33,9 +33,9 @@
 /**
 * \brief Macro to call API mutex release function
 * This macro implements a simple recusive mutex to un-lock API
-* 
+*
 * \param commonDev Pointer to the common device structure
-* 
+*
 */
 #define ADI_MUTEX_ERROR_RELEASE(commonDev)\
 {\
@@ -69,9 +69,9 @@
 /**
 * \brief Macro to call API mutex release function
 * This macro implements a simple recusive mutex to un-lock API
-* 
+*
 * \param commonDev Pointer to the common device structure
-* 
+*
 */
 #define ADI_MUTEX_AQUIRE(commonDev) \
 {\
@@ -86,17 +86,17 @@
 }
 
 #else /* API_MUTEX */
-#define ADI_MUTEX_RELEASE(commonDev) 
-#define ADI_MUTEX_ERROR_RELEASE(commonDev) 
-#define ADI_MUTEX_AQUIRE(commonDev) 
+#define ADI_MUTEX_RELEASE(commonDev)
+#define ADI_MUTEX_ERROR_RELEASE(commonDev)
+#define ADI_MUTEX_AQUIRE(commonDev)
 #endif /* API_MUTEX */
 
 /**
 * \brief Macro to check if device pointer is a valid pointer
 * if null pointer detected return ADI_COMMON_ACT_ERR_CHECK_PARAM action
-* 
+*
 * \param ptr Pointer to be checked
-* 
+*
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_NULL_DEVICE_PTR_RETURN(ptr)\
@@ -108,10 +108,10 @@ if(ptr == NULL)\
 /**
 * \brief Macro to check if a pointer is a valid pointer
 * This macro upon detection of a null pointer will report the error and return ADI_COMMON_ACT_ERR_CHECK_PARAM action
-* 
+*
 * \param commonDev Pointer to the common device structure
 * \param ptr Pointer to be checked
-* 
+*
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_NULL_PTR_RETURN(commonDev, ptr)\
@@ -127,8 +127,8 @@ if(ptr == NULL)\
 /**
 * \brief Macro to check if return from AI function is needed
 *
-* \param a Action to be checked 
-* 
+* \param a Action to be checked
+*
 * \retval Action passed
 */
 #define ADI_ERROR_RETURN(a) if(a < ADI_COMMON_ACT_NO_ACTION) { return a; }
@@ -138,7 +138,7 @@ if(ptr == NULL)\
 *
 * \param 1 an Action to be checked
 * \param 2 the file to close
-* 
+*
 * \retval Action passed
 */
 #define ADI_ERROR_CLOSE_RETURN(action, fileToClose) if(action < ADI_COMMON_ACT_NO_ACTION) {(void)fclose(fileToClose); return action;}
@@ -146,22 +146,22 @@ if(ptr == NULL)\
 #ifdef ADI_COMMON_VERBOSE
 /**
 * \brief Macro to perform error reporting
-* This macro will call adi_common_ErrorReport and extract the necessary information from the API function using the preprocessors:
+* This macro will call adrv9104_common_ErrorReport and extract the necessary information from the API function using the preprocessors:
 * __FILE__ will represent the full path of the current API function file where the error happend,
 * __FUNCTION__ will expand to the name of the function in the API where the error was produced,
 * __LINE__ theis preprocessor macro expands to the line number inside the API function where the error happened.
-* 
-* \param commonDev Pointer to the common device structure 
+*
+* \param commonDev Pointer to the common device structure
 * \param errorSource Error source of error code of type enum adi_common_ErrSources_e
 * \param error Detected error
 * \param action Action to recover from
 * \param variable variable that had the error; can be NULL to indicate the error does not depend on a variable only
 * \param customError error message to be written to the struct
-* 
+*
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_ERROR_REPORT(commonDev, errorSource, error, action, variable, customError) \
-    adi_common_ErrorReport((adi_common_Device_t *)(commonDev), (adi_common_ErrSources_e)errorSource, (int32_t)error, (int32_t)action, __FILE__, __FUNCTION__, __LINE__, #variable, customError)
+    adrv9104_common_ErrorReport((adi_common_Device_t *)(commonDev), (adi_common_ErrSources_e)errorSource, (int32_t)error, (int32_t)action, __FILE__, __FUNCTION__, __LINE__, #variable, customError)
 #else /* ADI_COMMON_VERBOSE */
 #define ADI_ERROR_REPORT(commonDev, errorSource, errorCode, action, variable, customError) \
 do \
@@ -184,7 +184,7 @@ do \
  *		1) Test if value is less than minimum or greater than maximum.
  *		2) If so, report error as invalid parameter with appropriate error message.
  *		3) Then perform error return with the current error state.
- *		
+ *
  * \param devicePtr function pointer to the device handle
  * \param value the value to be range-checked
  * \param minimum the minimum allowable value in the range
@@ -238,11 +238,11 @@ if ((value < minimum) || (value > maximum)) \
 *     2) Invoke a function, typically a bitfield set or get
 *     3) Call ADI_ERROR_REPORT macro with the device's common error message
 *     4) Call ADI_ERROR_RETURN macro
-* 
+*
 * \param fcnPtr function pointer to the Get or Set function to be invoked
 * \param devicePtr function pointer to the device handle
 * \param __VA_ARGS__ variadic macro to handle the remaining parameters passed to fcnPtr
-* 
+*
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_EXPECT(fcnPtr, devicePtr, ...) \
@@ -262,12 +262,12 @@ if ((value < minimum) || (value > maximum)) \
 *     2) Invoke a function, typically a bitfield set or get
 *     3) Call ADI_ERROR_REPORT macro with custom message
 *     4) Call ADI_ERROR_RETURN macro
-* 
+*
 * \param errMsg error message to be logged
 * \param fcnPtr function pointer to the Get or Set function to be invoked
 * \param devicePtr function pointer to the device handle
 * \param __VA_ARGS__ variadic macro to handle the remaining parameters passed to fcnPtr
-* 
+*
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_MSG_EXPECT(errMsg, fcnPtr, devicePtr, ...) \
@@ -285,10 +285,10 @@ if ((value < minimum) || (value > maximum)) \
 * This macro will create boilerplate code to:
 *     1) Test for device null pointer
 *     2) Log entry into this function
-*     
+*
 * \param devicePtr function pointer to the device handle
 * \param logLevel common log enum to represent the level of logging
-* 
+*
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_ENTRY_EXPECT(devicePtr) \
@@ -304,11 +304,11 @@ if ((value < minimum) || (value > maximum)) \
 *     1) Test for device null pointer
 *     2) Log entry into this function
 *     3) Test for null pointer which should be a struct pointer
-*     
+*
 * \param devicePtr function pointer to the device handle
 * \param logLevel common log enum to represent the level of logging
 * \param ptr pointer to be validated
-* 
+*
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_ENTRY_PTR_EXPECT(devicePtr, ptr) \
@@ -325,12 +325,12 @@ if ((value < minimum) || (value > maximum)) \
 *     2) Log entry into this function
 *     3) Test for null pointer which should be an array
 *     4) Test that the array size is greater than zero
-*     
+*
 * \param devicePtr function pointer to the device handle
 * \param ptr pointer to be validated
 * \param arraySize size of the ptr array
 * \param logLevel common log enum to represent the level of logging
-* 
+*
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_ENTRY_PTR_ARRAY_EXPECT(devicePtr, ptr, arraySize) \
@@ -351,12 +351,12 @@ if ((value < minimum) || (value > maximum)) \
 
 /**
 * \brief Macro to return an error code from an API function.
-* 
+*
 * This macro returns from an API function with the current
 * error state.
-*     
+*
 * \param devicePtr pointer to device handle; can be any device type
-* 
+*
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_API_RETURN(devicePtr) \
@@ -378,17 +378,17 @@ extern "C" {
 
 /**
  * \brief Common API error reporting facility
- *  
+ *
  * Error handling to assign actions:
  * If actionToRecover is ADI_COMMON_ACT_NO_ACTION then nothing gets logged or reported, if the previous new action in the error structure
- * is different to ADI_COMMON_ACT_NO_ACTION the error struct will be cleared and then the previous action will be stored in the lastAction 
+ * is different to ADI_COMMON_ACT_NO_ACTION the error struct will be cleared and then the previous action will be stored in the lastAction
  * member.
- * 
- * If not ADI_COMMON_ACT_NO_ACTION then check latest action previously logged in the error structure and verify if the new found action 
- * is of a higher priority level than the last error in the structure, 
+ *
+ * If not ADI_COMMON_ACT_NO_ACTION then check latest action previously logged in the error structure and verify if the new found action
+ * is of a higher priority level than the last error in the structure,
  * If it is then we need to demote the error.newAction and log the previous action again
  * demoting is done by assign it to error.lastAction.
- * If action is a warning then it gets logged and assigned to the error structure the same way as the error action, if an error 
+ * If action is a warning then it gets logged and assigned to the error structure the same way as the error action, if an error
  * action occurs after a warning the warning will be demoted and could be accessed through  error.lastAction
  *
  * \param commonDev pointer to adi_common_Device_t
@@ -401,25 +401,28 @@ extern "C" {
  * \param varName variable name that had the error, this can be NULL and it will mean that there is an error not depending on a variable only
  * \param customError error message to be written to the struct
  */
-void adi_common_ErrorReport(adi_common_Device_t *commonDev,
-                            adi_common_ErrSources_e errSrc,
-                            int32_t detErr, 
-                            int32_t actionToRecover,
-                            const char* fileName,
-                            const char* funcName,
-                            uint32_t lineNum,
-                            const char* varName,
-                            const char* customError);
+void adrv9104_common_ErrorReport(adi_common_Device_t *commonDev,
+				 adi_common_ErrSources_e errSrc,
+				 int32_t detErr,
+				 int32_t actionToRecover,
+				 const char* fileName,
+				 const char* funcName,
+				 uint32_t lineNum,
+				 const char* varName,
+				 const char* customError);
 
 
 /**
  * \brief Function to clear existing error
- * 
+ *
  * \param commonDev pointer to adi_common_Device_t
- * 
+ *
  * \retval ADI_COMMON_ACT_NO_ACTION Function completed successfully, no action required
  */
-int32_t adi_common_ErrorClear(adi_common_Device_t *commonDev);
+int32_t adrv9104_common_ErrorClear(adi_common_Device_t *commonDev);
+
+#define adi_common_ErrorReport	adrv9104_common_ErrorReport
+#define adi_common_ErrorClear	adrv9104_common_ErrorClear
 
 #endif
 
