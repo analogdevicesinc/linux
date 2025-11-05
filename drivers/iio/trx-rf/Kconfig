@@ -26,4 +26,29 @@ config ADRV903X
 	  To compile this driver as a module, choose M here: the module will be
 	  called adrv903x_drv.
 
+config ADRV9104
+	tristate "Analog Devices ADRV9104 RF Transceiver driver"
+	depends on SPI
+	select IIO_BACKEND
+	help
+	  Say yes to build support for the Analog Devices ADRV9102 integrated
+	  RF transceiver and similar devices.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called adrv9104_drv
+
+config ADRV9104_COMMON_VERBOSE
+	bool "Enables verbose error reports"
+	depends on ADRV9104
+	default y
+
+config ADRV9104_ARM_VERBOSE
+	bool "Enables ARM verbose error messages"
+	depends on ADRV9104
+	default y
+
+config ADRV9104_VALIDATE_PARAMS
+	bool "Causes the API to validate all the input parameters"
+	depends on ADRV9104
+	default y
 endmenu
