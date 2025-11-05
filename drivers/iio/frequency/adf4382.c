@@ -24,7 +24,6 @@
 #include <linux/units.h>
 #include <linux/util_macros.h>
 
-
 /* ADF4382 REG0000 Map */
 #define ADF4382_SOFT_RESET_R_MSK		BIT(7)
 #define ADF4382_LSB_FIRST_R_MSK			BIT(6)
@@ -383,6 +382,9 @@
 /* ADF4382 REG0054 Map */
 #define ADF4382_ADC_ST_CNV_MSK			BIT(0)
 
+/* ADF4382 REG0058 Map */
+#define ADF4382_PLL_LOCK_MSK			BIT(0)
+
 #define ADF4382_MOD2WORD_LSB_MSK		GENMASK(7, 0)
 #define ADF4382_MOD2WORD_MID_MSK		GENMASK(15, 8)
 #define ADF4382_MOD2WORD_MSB_MSK		GENMASK(23, 16)
@@ -426,6 +428,7 @@
 #define ADF4382A_CLKOUT_DIV_REG_VAL_MAX		2
 
 #define ADF4382_CP_I_DEFAULT			15
+#define ADF4382_OPOWER_DEFAULT			11
 #define ADF4382_REF_DIV_DEFAULT			1
 #define ADF4382_RFOUT_DEFAULT			2875000000ULL	// 2.875GHz
 #define ADF4382_SCRATCHPAD_VAL			0xA5
@@ -438,13 +441,19 @@
 
 #define FS_PER_NS				MICRO
 #define NS_PER_MS				MICRO
+#define MS_PER_NS				MICRO
+#define NS_PER_FS				MICRO
 #define PS_PER_NS				1000
 #define UA_PER_A				1000000
 
 #define PERIOD_IN_DEG				360
 #define PERIOD_IN_DEG_MS			360000
 
+// #ifdef CONFIG_64BIT
+// #define ADF4382_CLK_SCALE			1
+// #else
 #define	ADF4382_CLK_SCALE			10ULL
+// #endif
 
 enum {
 	ADF4382_FREQ,
@@ -619,6 +628,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	u64 pfd_freq_hz;
 	u32 frac1_word;
 	u8 clkout_div;
+	u32 read_val;
 	u8 dclk_div1;
 	u8 int_mode;
 	u8 en_bleed;
@@ -629,7 +639,6 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	u64 vco;
 	int ret;
 	u8 var;
-	u32 read_val;
 
 	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
 	if (ret) {
@@ -694,10 +703,6 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 		"VCO=%llu PFD=%llu RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
 		vco, pfd_freq_hz, 1 << clkout_div, n_int,
 		frac1_word, frac2_word, mod2_word);
-
-	// ret = regmap_update_bits(st->regmap, 0x20, ADF4382_EN_AUTOCAL_MSK , 1);
-	// if (ret)
-	// 	return ret;
 
 	ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK,
 				 frac2_word != 0 ? 0xff : 0);
@@ -829,10 +834,6 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x29, st->opwr_a);
-	if (ret)
-		return ret;
-
 	var = (n_int >> 8) & ADF4382_N_INT_MSB_MSK;
 	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
 	if (ret)
@@ -849,12 +850,14 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
+	if (!FIELD_GET(ADF4382_PLL_LOCK_MSK, read_val)) {
+		dev_err(&st->spi->dev, "PLL is not locked.\n");
+		return -EINVAL;
+	}
+	
 	dev_info(&st->spi->dev, "PLL %s, REF %s\n",
-		 read_val & BIT(0) ? "Locked" : "Unlocked",
-		 read_val & BIT(3) ? "OK" : "Error");
-
-	//regmap_update_bits(st->regmap, 0x20, ADF4382_EN_AUTOCAL_MSK , 0);
-
+		read_val & BIT(0) ? "Locked" : "Unlocked",
+		read_val & BIT(3) ? "OK" : "Error");
 
 	return 0;
 }
@@ -1034,10 +1037,63 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	return regmap_update_bits(st->regmap, 0x34, ADF4382_PHASE_ADJ_MSK, 0xff);
 }
 
-static int adf4382_set_phase_pol(struct adf4382_state *st, bool sub_pol)
+static int adf4382_get_phase_adjust(struct adf4382_state *st, u32 *val)
+{
+	unsigned int tmp;
+	u8 phase_reg_value;
+	u64 phase_value;
+	u64 pfd_freq_hz;
+	int ret;
+
+	ret = regmap_read(st->regmap, 0x33, &tmp);
+	if (ret)
+		return ret;
+
+	phase_reg_value = tmp;
+
+	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
+	if (ret) {
+		dev_err(&st->spi->dev, "PFD frequency is out of range.\n");
+		return ret;
+	}
+
+	phase_value = phase_reg_value * PERIOD_IN_DEG;
+	phase_value = phase_value * st->freq;
+	phase_value = div64_u64(phase_value, pfd_freq_hz);
+
+	phase_value = phase_value * ADF4382_PHASE_BLEED_CNST_DIV;
+	phase_value = phase_value * MS_PER_NS;
+	phase_value = div_u64(phase_value, ADF4382_PHASE_BLEED_CNST_MUL);
+	phase_value = phase_value * MILLI;
+	phase_value = div_u64(phase_value, adf4382_ci_ua[st->cp_i]);
+
+	phase_value = phase_value * NS_PER_FS;
+	phase_value = div_u64(phase_value, PERIOD_IN_DEG);
+	phase_value = div64_u64(phase_value, st->freq);
+
+	*val = (u32)phase_value;
+
+	return 0;
+}
+
+static int adf4382_set_phase_pol(struct adf4382_state *st, bool ph_pol)
 {
 	return regmap_update_bits(st->regmap, 0x32, ADF4382_PHASE_ADJ_POL_MSK,
-				  FIELD_PREP(ADF4382_PHASE_ADJ_POL_MSK, sub_pol));
+				  FIELD_PREP(ADF4382_PHASE_ADJ_POL_MSK, ph_pol));
+}
+
+static int adf4382_get_phase_pol(struct adf4382_state *st, bool *ph_pol)
+{
+	unsigned int tmp;
+	int ret;
+
+	ret =  regmap_read(st->regmap, 0x32, &tmp);
+	if (ret)
+		return ret;
+
+	*ph_pol = FIELD_GET(ADF4382_PHASE_ADJ_POL_MSK, tmp);
+
+	return 0;
 }
 
 static int adf4382_set_out_power(struct adf4382_state *st, int ch, int pwr)
@@ -1181,8 +1237,9 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
+	bool pol;
+	u32 tmp;
 	int ret;
-	u32 regval;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
@@ -1196,7 +1253,18 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 			return ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
-		*val = st->phase;
+		ret = adf4382_get_phase_adjust(st, &tmp);
+		if (ret)
+			return ret;
+		*val = tmp;
+
+		ret = adf4382_get_phase_pol(st, &pol);
+		if (ret)
+			return ret;
+
+		if (pol)
+			*val *= -1;
+
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
 		ret = regmap_write(st->regmap, 0x54, 0x0);
@@ -1212,22 +1280,22 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		ret = regmap_read_poll_timeout(st->regmap, 0x58,
-					regval, !(regval & ADF4382_ADC_BUSY),
+					tmp, !(tmp & ADF4382_ADC_BUSY),
 					500, 10000);
 		if (ret)
 			return ret;
 
-		ret = regmap_read(st->regmap, 0x5b, &regval);
+		ret = regmap_read(st->regmap, 0x5b, &tmp);
 		if (ret)
 			return ret;
 
-		*val = regval * 1000;
+		*val = tmp * 1000;
 
-		ret = regmap_read(st->regmap, 0x5c, &regval);
+		ret = regmap_read(st->regmap, 0x5c, &tmp);
 		if (ret)
 			return ret;
 
-		if (regval & 0x1)
+		if (tmp & 0x1)
 			*val = -*val;
 
 		ret = regmap_update_bits(st->regmap, 0x31, ADF4382_EN_ADC_CLK_MSK, 0);
@@ -1428,6 +1496,28 @@ static int adf4382_show_coarse_current(void *arg, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(adf4382_coarse_current_fops,
 			 adf4382_show_coarse_current, NULL, "%llu\n");
 
+
+static int adf4382_show_lock_status(void *arg, u64 *val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct adf4382_state *st = iio_priv(indio_dev);
+	u8 lock = 0;
+	unsigned int tmp;
+	int ret;
+
+	ret = regmap_read(st->regmap, 0x58, &tmp);
+	if (ret)
+		return ret;
+
+	lock = FIELD_GET(ADF4382_PLL_LOCK_MSK, tmp);
+
+	*val = lock;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(adf4382_show_lock_status_fops,
+			 adf4382_show_lock_status, NULL, "%llu\n");
+
 static void adf4382_debugfs_init(struct iio_dev *indio_dev)
 {
 	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
@@ -1443,6 +1533,9 @@ static void adf4382_debugfs_init(struct iio_dev *indio_dev)
 
 	debugfs_create_file_unsafe("coarse_current", 0400, d,
 				   indio_dev, &adf4382_coarse_current_fops);
+
+	debugfs_create_file_unsafe("lock_status", 0400, d,
+				   indio_dev, &adf4382_show_lock_status_fops);
 }
 #else
 static void adf4382_debugfs_init(struct iio_dev *indio_dev)
@@ -1480,9 +1573,9 @@ static int adf4382_parse_device(struct adf4382_state *st)
 	ret = device_property_read_u32(&st->spi->dev, "adi,output-power-value",
 				       &tmp);
 	if (ret)
-		st->opwr_a = 0xb;
+		st->opwr_a = ADF4382_OPOWER_DEFAULT;
 	else
-		st->opwr_a = (u8)tmp;
+		st->opwr_a = clamp_t(u8, tmp, 0, 15);
 
 	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
 				       &tmp);
@@ -1567,6 +1660,14 @@ static int adf4382_init(struct adf4382_state *st)
 
 
 	st->ref_freq_hz = clk_get_rate(st->clkin);
+
+	ret = adf4382_set_out_power(st, 0, st->opwr_a);
+	if (ret)
+		return ret;
+
+	ret = adf4382_set_out_power(st, 1, st->opwr_a);
+	if (ret)
+		return ret;
 
 	return _adf4382_set_freq(st);
 }
