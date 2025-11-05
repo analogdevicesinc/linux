@@ -30,7 +30,7 @@
 #include "dmaengine.h"
 #include "adi-dma.h"
 
-#define ADI_MEMSET_SIZE (4*sizeof(uint64_t))
+#define ADI_MEMSET_SIZE (4 * sizeof(uint64_t))
 
 struct adi_dma_hw {
 	int has_mdma;
@@ -365,12 +365,12 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 	if (mburst > 32)
 		mburst = 32;
 
-	tmp_dma_addr = (uint64_t) mem;
+	tmp_dma_addr = (uint64_t)mem;
 	// Find the max bursts that divide the transfer length and align correctly
 	while (len % pburst || do_div(tmp_dma_addr, pburst))
 		pburst = pburst / 2;
 
-	tmp_dma_addr = (uint64_t) mem;
+	tmp_dma_addr = (uint64_t)mem;
 	while (len % mburst || do_div(tmp_dma_addr, mburst))
 		mburst = mburst / 2;
 
@@ -794,7 +794,7 @@ static irqreturn_t __adi_dma_handler(struct adi_dma_channel *channel,
 	if (!channel->running) {
 		__clear_and_reset(channel);
 		dev_err(channel->dma->dev,
-			"channel %d: received interrupt while not runnnig\n", channel->id);
+			"channel %d: received interrupt while not runnig\n", channel->id);
 		ret = IRQ_HANDLED;
 		goto done;
 	}
@@ -982,7 +982,7 @@ static struct dma_async_tx_descriptor *adi_prep_memset(struct dma_chan *chan,
 	struct adi_dma_channel *adi_chan = to_adi_channel(chan);
 	struct adi_dma *dma = adi_chan->dma;
 	struct adi_dma_descriptor *desc;
-	u8 byte = (u8) value;
+	u8 byte = (u8)value;
 	u64 bigword = byte * 0x01010101010101ull;
 	u32 conf, shift;
 	s16 mod;
@@ -1126,7 +1126,7 @@ static struct dma_chan *adi_dma_translate(struct of_phandle_args *args,
 	if (args->args_count != 1)
 		return NULL;
 
-	data.id = (u32) args->args[0];
+	data.id = (u32)args->args[0];
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
 
