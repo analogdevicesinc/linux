@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * gptimer driver for providing system clock source, clock event source,
