@@ -122,7 +122,6 @@ static unsigned long sc5xx_cgu_pll_recalc_rate(struct clk_hw *hw,
 		return parent_rate * m * 2;
 	else
 		return parent_rate * m;
-
 }
 
 static int sc5xx_cgu_pll_set_rate(struct clk_hw *hw, unsigned long rate,
