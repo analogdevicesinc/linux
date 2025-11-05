@@ -1,7 +1,7 @@
 /**
  * \file
  * \brief ADRV910X common interfaces
- * 
+ *
  * Copyright (c) 2022 Analog Devices, Inc. All Rights Reserved.
  * This software is proprietary to Analog Devices, Inc. and its licensors.
  */
@@ -35,7 +35,7 @@ extern "C" {
  * \retval 0 success
  * \retval -2 invalid parameter
  */
-int32_t adi_common_port_to_index(adi_common_Port_e port, uint8_t *index);
+int32_t adrv9104_common_port_to_index(adi_common_Port_e port, uint8_t *index);
 
 /**
  * \brief Convert an adi_common_ChannelNumber_e into a numeric index
@@ -46,7 +46,7 @@ int32_t adi_common_port_to_index(adi_common_Port_e port, uint8_t *index);
  * \retval 0 success
  * \retval -2 invalid parameter
  */
-int32_t adi_common_channel_to_index(adi_common_ChannelNumber_e channel, uint8_t *index);
+int32_t adrv9104_common_channel_to_index(adi_common_ChannelNumber_e channel, uint8_t *index);
 
 /**
  * \brief Convert a numeric index to an adi_common_Port_e
@@ -57,7 +57,7 @@ int32_t adi_common_channel_to_index(adi_common_ChannelNumber_e channel, uint8_t 
  * \retval 0 success
  * \retval -2 invalid parameter
  */
-int32_t adi_common_index_to_port(uint8_t index, adi_common_Port_e *port);
+int32_t adrv9104_common_index_to_port(uint8_t index, adi_common_Port_e *port);
 
 /**
  * \brief Convert a numeric index to an adi_common_ChannelNumber_e
@@ -68,7 +68,12 @@ int32_t adi_common_index_to_port(uint8_t index, adi_common_Port_e *port);
  * \retval 0 success
  * \retval -2 invalid parameter
  */
-int32_t adi_common_index_to_channel(uint8_t index, adi_common_ChannelNumber_e *channel);
+int32_t adrv9104_common_index_to_channel(uint8_t index, adi_common_ChannelNumber_e *channel);
+
+#define adi_common_port_to_index	adrv9104_common_port_to_index
+#define adi_common_channel_to_index	adrv9104_common_channel_to_index
+#define adi_common_index_to_port	adrv9104_common_index_to_port
+#define adi_common_index_to_channel	adrv9104_common_index_to_channel
 
 #endif
 

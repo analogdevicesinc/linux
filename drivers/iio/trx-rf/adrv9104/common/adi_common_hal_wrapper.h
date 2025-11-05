@@ -40,7 +40,7 @@ extern "C" {
 * \retval ADI_COMMON_ACT_ERR_RESET_INTERFACE Recovery action for SPI reset required
 * \retval ADI_COMMON_ACT_NO_ACTION Function completed successfully, no action required
 */
-int32_t adi_common_hal_wrapper_Wait_us(adi_common_Device_t *commonDev, uint32_t time_us);
+int32_t adrv9104_common_hal_wrapper_Wait_us(adi_common_Device_t *commonDev, uint32_t time_us);
 
 #endif
 

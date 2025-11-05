@@ -3,7 +3,7 @@
 * \brief Contains ADI Transceiver Hardware Abstraction functions
 *        Analog Devices maintains and provides updates to this code layer.
 *        The end user should not modify this file or any code in this directory.
-*        
+*
 * ADI common lib Version: $ADI_COMMON_LIB_VERSION$
 */
 
@@ -18,10 +18,10 @@
 #include "adi_common_error.h"
 #include "adi_common_hal.h"
 
-int32_t adi_common_hal_wrapper_Wait_us(adi_common_Device_t *commonDev, uint32_t time_us)
+int32_t adrv9104_common_hal_wrapper_Wait_us(adi_common_Device_t *commonDev, uint32_t time_us)
 {
     int32_t halError = 0;
-    
+
     ADI_NULL_DEVICE_PTR_RETURN(commonDev);
 
     halError = adi_common_hal_Wait_us(commonDev->devHalInfo, time_us);

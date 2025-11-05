@@ -22,15 +22,15 @@
 #include "adi_common_error.h"
 #include "adi_common_log.h"
 
-void adi_common_ErrorReport(adi_common_Device_t *commonDev,
-                            adi_common_ErrSources_e errSrc,
-                            int32_t detErr,
-                            int32_t actionToRecover,
-                            const char* fileName,
-                            const char* funcName,
-                            uint32_t lineNum,
-                            const char* varName,
-                            const char* customError)
+void adrv9104_common_ErrorReport(adi_common_Device_t *commonDev,
+				 adi_common_ErrSources_e errSrc,
+				 int32_t detErr,
+				 int32_t actionToRecover,
+				 const char* fileName,
+				 const char* funcName,
+				 uint32_t lineNum,
+				 const char* varName,
+				 const char* customError)
 {
     int32_t actionReport = actionToRecover;
     int32_t lastAction = ADI_COMMON_ACT_NO_ACTION;
@@ -120,11 +120,11 @@ void adi_common_ErrorReport(adi_common_Device_t *commonDev,
 }
 
 
-int32_t adi_common_ErrorClear(adi_common_Device_t *commonDev)
+int32_t adrv9104_common_ErrorClear(adi_common_Device_t *commonDev)
 {
     /* Check device pointer is not null */
     ADI_NULL_DEVICE_PTR_RETURN(commonDev);
-    
+
     commonDev->error.errormessage[0] = '\0';
     commonDev->error.errSource = 0;
     commonDev->error.errCode = 0;
