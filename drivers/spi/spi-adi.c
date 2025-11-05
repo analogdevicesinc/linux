@@ -361,7 +361,7 @@ static void adi_spi_u16_read(struct adi_spi_controller *drv,
 	for (i = 0; i < xfer->len; ++i) {
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u16 *)(xfer->rx_buf + 2*i) = ioread32(&drv->regs->rfifo);
+		*(u16 *)(xfer->rx_buf + 2 * i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
@@ -373,7 +373,7 @@ static void adi_spi_u32_read(struct adi_spi_controller *drv,
 	for (i = 0; i < xfer->len; ++i) {
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u32 *)(xfer->rx_buf + 4*i) = ioread32(&drv->regs->rfifo);
+		*(u32 *)(xfer->rx_buf + 4 * i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
@@ -396,10 +396,10 @@ static void adi_spi_u16_duplex(struct adi_spi_controller *drv,
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
-		iowrite32(*(u16 *)(xfer->tx_buf + 2*i), &drv->regs->tfifo);
+		iowrite32(*(u16 *)(xfer->tx_buf + 2 * i), &drv->regs->tfifo);
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u16 *)(xfer->rx_buf + 2*i) = ioread32(&drv->regs->rfifo);
+		*(u16 *)(xfer->rx_buf + 2 * i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
@@ -409,10 +409,10 @@ static void adi_spi_u32_duplex(struct adi_spi_controller *drv,
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
-		iowrite32(*(u32 *)(xfer->tx_buf + 4*i), &drv->regs->tfifo);
+		iowrite32(*(u32 *)(xfer->tx_buf + 4 * i), &drv->regs->tfifo);
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u32 *)(xfer->rx_buf + 4*i) = ioread32(&drv->regs->rfifo);
+		*(u32 *)(xfer->rx_buf + 4 * i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
@@ -873,4 +873,4 @@ module_platform_driver(adi_spi_driver);
 
 MODULE_DESCRIPTION("Analog Devices SPI3 controller driver");
 MODULE_AUTHOR("Scott Jiang <Scott.Jiang.Linux@gmail.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
