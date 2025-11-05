@@ -50,4 +50,6 @@ obj-y += resolver/
 obj-y += temperature/
 obj-y += test/
 obj-y += trigger/
+obj-y += trx-rf/
+
 
