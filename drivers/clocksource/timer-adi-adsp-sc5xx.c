@@ -523,9 +523,9 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 
 	/* Register Counter device */
 	ret = devm_counter_add(dev, counter);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err_probe(dev, ret, "Failed to add counter\n");
-	}
+
 	return ret;
 }
 
