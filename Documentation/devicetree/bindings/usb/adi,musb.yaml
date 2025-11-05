@@ -1,5 +1,4 @@
-
-# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# SPDX-License-Identifier: (GPL-2.0-only)
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/timer/adi,musb.yaml#
@@ -22,45 +21,45 @@ properties:
   reg:
     maxItems: 1
 
-  "reg-names":
+  reg-names:
     maxItems: 1
 
-  "interrupts":
+  interrupts:
     maxItems: 1
 
-  "interrupt-names":
+  interrupt-names:
     maxItems: 1
 
-  "spu_securep_id":
+  spu_securep_id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  mentor,multipoint:
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  mentor,num-eps:
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  mentor,ram-bits:
     maxItems: 1
 
-  "mentor,multipoint":
-    maxItems: 1
+  mentor,power:
+    $ref: /schemas/types.yaml#/definitions/uint32
 
-  "mentor,num-eps":
-    maxItems: 1
-
-  "mentor,ram-bits":
-    maxItems: 1
-
-  "mentor,power":
-    maxItems: 1
-
-  "phys":
+  phys:
     maxItems: 1
 
 required:
   - compatible
   - reg
-  - "reg-names"
-  - "interrupts"
-  - "interrupt-names"
-  - "spu_securep_id"
-  - "mentor,multipoint"
-  - "mentor,num-eps"
-  - "mentor,ram-bits"
-  - "mentor,power"
-  - "phys"
+  - reg-names
+  - interrupts
+  - interrupt-names
+  - spu_securep_id
+  - mentor,multipoint
+  - mentor,num-eps
+  - mentor,ram-bits
+  - mentor,power
+  - phys
 
 additionalProperties: false
 
