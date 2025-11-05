@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 #ifndef ADI_PADS_SYSTEM_H
 #define ADI_PADS_SYSTEM_H
 
