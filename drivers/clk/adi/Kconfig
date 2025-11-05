@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config COMMON_CLK_ADI_SC57X
+	bool "ADI SC573 clock driver"
+	help
+	  This enables the ADI SC573-ezkit clock driver. The driver provides
+	  support for the clock controller on the ADI SC573-ezkit SoC.
+	  If you are using the ADI SC573-ezkit SoC, say Y here.
+	  If unsure, say N.
+
+config COMMON_CLK_ADI_SC58X
+	bool "ADI SC589 clock driver"
+	help
+	  This enables the ADI SC589 clock driver. The driver provides
+	  support for the clock controller on the ADI SC589 SoC.
+	  If you are using the ADI SC589 SoC, say Y here.
+	  If unsure, say N.
+
+config COMMON_CLK_ADI_SC594
+	bool "ADI SC594 clock driver"
+	help
+	  This enables the ADI SC594 clock driver. The driver provides
+	  support for the clock controller on the ADI SC594 SoC.
+	  If you are using the ADI SC594 SoC, say Y here.
+	  If unsure, say N.
+
+config COMMON_CLK_ADI_SC598
+	bool "ADI SC598 clock driver"
+	help
+	  This enables the ADI SC594 clock driver. The driver provides
+	  support for the clock controller on the ADI SC598 SoC.
+	  If you are using the ADI SC598 SoC, say Y here.
+	  If unsure, say N.

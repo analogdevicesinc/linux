@@ -292,6 +292,19 @@ config ARCH_ROCKCHIP
 	  This enables support for the ARMv8 based Rockchip chipsets,
 	  like the RK3368.
 
+config ARCH_SC59X_64
+	bool "ADI 64-bit SC59X Platforms"
+	select TIMER_OF
+	select GPIOLIB
+	select PINCTRL
+	select PINCTRL_SC59x
+	select SERIAL_ADI_UART4
+	select SPI_ADI
+	select COUNTER
+	help
+		This enables support for Analog Devices Incorporated's
+		Family of ARM64 processors
+
 config ARCH_SEATTLE
 	bool "AMD Seattle SoC Family"
 	help

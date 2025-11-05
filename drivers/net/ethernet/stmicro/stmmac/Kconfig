@@ -57,6 +57,18 @@ config DWMAC_GENERIC
 	  platform specific code to function or is using platform
 	  data for setup.
 
+config DWMAC_ADI
+	tristate "ADI DWMAC support"
+	default ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	depends on OF && (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST)
+	help
+	  Support for ethernet controller on SC5XX SOCs.
+
+	  This selects SC5XX SoC glue layer support for the stmmac
+	  device driver. This driver is used on for the SC5XX series
+	  SOCs EMAC ethernet controller.
+	  GMAC ethernet controller.
+
 config DWMAC_ANARION
 	tristate "Adaptrum Anarion GMAC support"
 	default ARC
