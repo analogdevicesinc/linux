@@ -152,7 +152,6 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 				iowrite16(writeValue, &iface->regs_base->master_ctl);
 			} else if (iface->cur_mode == TWI_I2C_MODE_REPEAT &&
 				   iface->cur_msg + 1 < iface->msg_num) {
-
 				if (iface->pmsg[iface->cur_msg + 1].flags & I2C_M_RD) {
 					writeValue = ioread16(&iface->regs_base->master_ctl)
 							      | MDIR;
@@ -162,7 +161,6 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 							      & ~MDIR;
 					iowrite16(writeValue, &iface->regs_base->master_ctl);
 				}
-
 			}
 		}
 		/* Transmit next data */
@@ -176,7 +174,7 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 		while (iface->readNum > 0 &&
 		       (ioread16(&iface->regs_base->fifo_stat) & RCVSTAT)) {
 			/* Receive next data */
-			*(iface->transPtr) = ioread16(&iface->regs_base->rcv_data8);
+			*iface->transPtr = ioread16(&iface->regs_base->rcv_data8);
 			if (iface->cur_mode == TWI_I2C_MODE_COMBINED) {
 				/* Change combine mode into sub mode after
 				 * read first data.
@@ -257,7 +255,7 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 		 * not an err, return 1.
 		 */
 		if (iface->cur_mode == TWI_I2C_MODE_STANDARD &&
-			iface->transPtr == NULL &&
+			!iface->transPtr &&
 			(twi_int_status & MCOMP) && (mast_stat & DNAK))
 			iface->result = 1;
 
