@@ -85,8 +85,8 @@ const char* const adrv910x_error_table_CmdCtrlMboxCmdError[] =
     "Command error"
 };
 
-const char* const adrv910x_error_table_CmdError[] = 
-{ 
+const char* const adrv910x_error_table_CmdError[] =
+{
     "Error occurred during an Init Calibration. Check that no signal is being applied to the Rx ports. Check that "
         "correct external LOs are applied, and synchronized,  where appropriate",
     "Error occurred during a Tracking Calibration. Disable tracking calibrations, reset and program. If enabled "
@@ -338,7 +338,7 @@ static __maybe_unused int32_t adrv910x_DmaMemReadByte(adi_adrv910x_Device_t *dev
 	{
 		regRead &= ~ADRV910X_DMA_CTL_SYS_CODEB;
 	}
-    
+
     /* bus size, 2'b00=byte; 2'b01=half-word; 2'b10=full-word; 2'b11=invalid */
     /* core_bf.bus_size.write(bf_status, 2'b10); */
     regRead |= ADRV910X_BF_ENCODE(0, ADRV910X_DMA_CTL_BUS_SIZE_MASK, ADRV910X_DMA_CTL_BUS_SIZE_SHIFT);
@@ -365,7 +365,7 @@ static __maybe_unused int32_t adrv910x_DmaMemReadByte(adi_adrv910x_Device_t *dev
 		DMAByteSelect = ADRV910X_ADDR_SYS2_ARM_DMA_BYTE_SEL;
 		DMADataBase = ADRV910X_ADDR_SYS2_ARM_DMA_DATA0;
 	}
-    
+
 
     if (autoIncrement == 0)
     {
@@ -420,7 +420,7 @@ static __maybe_unused int32_t adrv910x_DmaMemReadByte(adi_adrv910x_Device_t *dev
             returnData[i + 1] = dataRead0;
 	        ADRV910X_SPIREADBYTEDMA(device, "ARM_DMA_DATA_2", DMADataBase+2, &dataRead0);
             returnData[i + 2] = dataRead0;
-            
+
             /* 'single_instruction' has to be cleared before reading DMA_DATA3 and set back after */
             ADI_EXPECT(adrv910x_NevisMonitorRegmapCore_SingleInstruction_Set, device, 0x0);
 	        ADRV910X_SPIREADBYTEDMA(device, "ARM_DMA_DATA_3", DMADataBase+3, &dataRead0);
@@ -455,7 +455,7 @@ int32_t adrv910x_DmaMemWrite(adi_adrv910x_Device_t *device,
     uint8_t spiMode = 0;
     uint8_t spiConfig_A = 0;
 	uint16_t DMABase, DMADataBase, DMAByteSelect, DMACtrl;
-    
+
     ADI_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
 
     ADRV910X_DMAINFO("ARM_MEM_WRITE", armMemAddress, byteCount);
@@ -489,7 +489,7 @@ int32_t adrv910x_DmaMemWrite(adi_adrv910x_Device_t *device,
     /* If Address is not on word boundary, Or ByteCount is not on Word boundary */
     if (((armMemAddress & 0x00000003) > 0) || ((byteCount & 0x00000003) > 0))
     {
-	    if ((ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_CACHED_BYTES_N == spiWriteMode) || 
+	    if ((ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_CACHED_BYTES_N == spiWriteMode) ||
             (ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_4 == spiWriteMode))
         {
             ADI_ERROR_REPORT(&device->common,
@@ -542,7 +542,7 @@ int32_t adrv910x_DmaMemWrite(adi_adrv910x_Device_t *device,
 
     /* setting up the DMA control register for a write */
     ADRV910X_SPIWRITEBYTEDMA(device, "ARM_DMA_CTL", DMACtrl, regWrite);
-    
+
     /* Enable single instruction and disable SPI streaming mode by default.
      * If ADRV910X SPI streming mode is selected, then single instruction and single instruction are disbled */
 	ADI_EXPECT(adrv910x_NevisMonitorRegmapCore_SingleInstruction_Set, device, 0x1);
@@ -552,7 +552,7 @@ int32_t adrv910x_DmaMemWrite(adi_adrv910x_Device_t *device,
 		ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_1 == spiWriteMode)
     {
 	    ADRV910X_SPIWRITEBYTEDMA(device, "SPI_INTERFACE_CONFIG_A", ADRV910X_ADDR_SPI_INTERFACE_CONFIG_A, ADRV910X_CONFIG_A_SPI_SDO_ACTIVE);
-	    
+
 	    ADI_EXPECT(adrv910x_NevisMonitorRegmapCore_AddrAscension2_Set, device, 0x0);
 	    ADI_EXPECT(adrv910x_NevisMonitorRegmapCore_SingleInstruction_Set, device, 0x0);
         device->spiSettings.enSpiStreaming = 1;
@@ -586,7 +586,7 @@ int32_t adrv910x_DmaMemWrite(adi_adrv910x_Device_t *device,
 			}
 
 			dataArray[addrIndex] = data[dataIndex];
-	        
+
 			addrArray[addrIndex] = DMADataBase + (3 - index);
 
 			addrIndex++;
@@ -650,7 +650,7 @@ int32_t adrv910x_DmaMemWrite(adi_adrv910x_Device_t *device,
 	else if (ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_1 == spiWriteMode)
 	{
 		int x, amount, arrloc = 0;
-		
+
 		/* disable spi auto increment */
 		ADRV910X_SPIWRITEBYTEDMA(device, "SPI_INTERFACE_CONFIG_B", ADRV910X_ADDR_SPI_INTERFACE_CONFIG_B, 0x08);
 		dataArray[0] = (uint8_t)((DMADataBase >> 8) & 0x7F);
@@ -774,7 +774,7 @@ int32_t adrv910x_DmaMemRead(adi_adrv910x_Device_t *device, uint32_t address, uin
         returnData[i + 2] = dataRead;
 	    ADRV910X_SPIREADBYTEDMA(device, "ARM_DMA_DATA_1", DMADataBase+1, &dataRead);
         returnData[i + 1] = dataRead;
-        
+
         /* 'single_instruction' has to be cleared before reading DMA_DATA3 and set back after */
 	    ADI_EXPECT(adrv910x_NevisMonitorRegmapCore_SingleInstruction_Set, device, 0x0);
 	    ADRV910X_SPIREADBYTEDMA(device, "ARM_DMA_DATA_0", DMADataBase, &dataRead);
@@ -1317,11 +1317,11 @@ static const char* adrv910x_CmdErrMsgGet(uint32_t errCode)
     {
 	    return adrv910x_error_table_CmdError[7];
     }
-    
+
     return NULL;
 }
 
-const char* adrv910x_ArmMailBoxErrMsgGet(uint32_t errCode)
+static const char* adrv910x_ArmMailBoxErrMsgGet(uint32_t errCode)
 {
 #ifndef ADI_ADRV910X_ARM_VERBOSE
     return "";
@@ -1374,7 +1374,7 @@ int32_t adrv910x_ArmCmdErrorHandler(adi_adrv910x_Device_t *device, uint32_t detE
 
             ADI_EXPECT(adrv910x_ArmMailBoxErrCodeGet, device, &mailboxErrCode);
             errorString = adrv910x_CmdErrMsgGet(mailboxErrCode);
-            
+
             ADI_ERROR_REPORT(&device->common,
                              ADI_ADRV910X_SRC_ARMCMD,
                              mailboxErrCode,
@@ -1429,9 +1429,9 @@ int32_t adrv910x_ArmProfileWrite(adi_adrv910x_Device_t *device, const deviceProf
 		profileAddr = 0x20000000;
 		byteCount = sizeof(deviceProfilePS2_t);
 	}
-	
+
 	ADI_EXPECT(adi_adrv910x_arm_Memory_Write, device, profileAddr, &profPtr[0], byteCount, ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4, PS);
-	
+
 	ADI_API_RETURN(device);
 }
 
@@ -1439,7 +1439,7 @@ int32_t adrv910x_ArmProfileWrite(adi_adrv910x_Device_t *device, const deviceProf
 * Fetches the (cached) pointer to the PFIR profile buffer on the ARM.
 * Returns ADI_COMMON_ERR_API_FAIL if the cached value is invalid - perhaps the program hasn't been loaded yet.
 */
-int32_t adrv910x_pFirProfileAddr_Get(adi_adrv910x_Device_t *device, uint32_t *pfirProfileAddr)
+static int32_t adrv910x_pFirProfileAddr_Get(adi_adrv910x_Device_t *device, uint32_t *pfirProfileAddr)
 {
     int32_t  recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 
@@ -1471,9 +1471,9 @@ int32_t adrv910x_PfirProfilesWrite(adi_adrv910x_Device_t *device, const pfirBuff
     profileAddr = profileStartAddr;
 
 	uint8_t *pfirProfPtr = (uint8_t*)pfirBuffer;
-	
+
 	ADI_EXPECT(adi_adrv910x_arm_Memory_Write, device, profileAddr, &pfirProfPtr[0], sizeof(pfirBuffer_t), ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4, ADI_PS1);
-	
+
 	ADI_API_RETURN(device);
 
     return recoveryAction;
@@ -1592,7 +1592,7 @@ static __maybe_unused int32_t adrv910x_lockDmaMemReadByte(adi_adrv910x_Device_t 
 	/* 1 = read, 0 = write */
 	/* core_bf.rd_wrb.write(bf_status, 1'b1); */
 	regWrite |= ADRV910X_DMA_CTL_RD_WRB | ADRV910X_DMA_CTL_SYS_CODEB;
-    
+
 	/* bus size, 2'b00=byte; 2'b01=half-word; 2'b10=full-word; 2'b11=invalid */
 	/* core_bf.bus_size.write(bf_status, 2'b10); */
 	regWrite |= ADRV910X_BF_ENCODE(0, ADRV910X_DMA_CTL_BUS_SIZE_MASK, ADRV910X_DMA_CTL_BUS_SIZE_SHIFT);
@@ -1608,7 +1608,7 @@ static __maybe_unused int32_t adrv910x_lockDmaMemReadByte(adi_adrv910x_Device_t 
 	ADRV910X_SPIWRITEBYTEDMA_UNLOCKED(device, ADRV910X_ADDR_ARM_DMA_ADDR0 + 2, (uint8_t)((address) >> ADRV910X_ADDR_ARM_DMA_ADDR2_BYTE_SHIFT));
 	ADRV910X_SPIWRITEBYTEDMA_UNLOCKED(device, ADRV910X_ADDR_ARM_DMA_ADDR0 + 1, (uint8_t)((address) >> ADRV910X_ADDR_ARM_DMA_ADDR1_BYTE_SHIFT));
 	ADRV910X_SPIWRITEBYTEDMA_UNLOCKED(device, ADRV910X_ADDR_ARM_DMA_ADDR0, (uint8_t)((address) >> ADRV910X_ADDR_ARM_DMA_ADDR0_BYTE_SHIFT));
-	
+
 
 	/* read back value */
 	ADRV910X_SPIREADBYTEDMA_UNLOCKED(device, ADRV910X_ADDR_ARM_DMA_DATA0 + (address % 4), dataRead0);

@@ -103,9 +103,9 @@ int32_t adi_adrv910x_Radio_Channel_State_Get(adi_adrv910x_Device_t *adrv910x,
     ADI_API_RETURN(adrv910x);
 }
 
-uint8_t adi_adrv910x_Radio_MailboxChannelMask_Get(adi_common_Port_e ports[],
-	                                              adi_common_ChannelNumber_e channels[],
-	                                              uint32_t length)
+static uint8_t adi_adrv910x_Radio_MailboxChannelMask_Get(adi_common_Port_e ports[],
+							 adi_common_ChannelNumber_e channels[],
+							 uint32_t length)
 {
 	uint8_t i = 0;
 	uint8_t channelMask = 0;
@@ -974,10 +974,10 @@ int32_t adi_adrv910x_Radio_ChannelEnablementDelays_Inspect(adi_adrv910x_Device_t
     ADI_API_RETURN(adrv910x);
 }
 
-int32_t adi_adrv910x_ExtPllOpenLoopTestMode_Configure_Validate(adi_adrv910x_Device_t *adrv910x,
-	                                                adi_adrv910x_ExtPllSel_e extPll,
-	                                                bool testModeEn,
-	                                                adi_adrv910x_ExtPllOpenLoopTestConfig_t *extPllOpenLoopTestConfig)
+static int32_t adi_adrv910x_ExtPllOpenLoopTestMode_Configure_Validate(adi_adrv910x_Device_t *adrv910x,
+								      adi_adrv910x_ExtPllSel_e extPll,
+								      bool testModeEn,
+								      adi_adrv910x_ExtPllOpenLoopTestConfig_t *extPllOpenLoopTestConfig)
 {
 	adi_adrv910x_RadioState_t currentState = { 0 };
 	static const uint32_t CHANNELS[2][2] = { {ADI_ADRV910X_RX1, ADI_ADRV910X_RXNB}, {ADI_ADRV910X_TX1, ADI_ADRV910X_TXNB} };

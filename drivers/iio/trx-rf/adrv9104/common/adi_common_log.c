@@ -18,6 +18,7 @@
 #include "adi_common_error.h"
 #include "adi_common_types.h"
 #include "adi_common_hal.h"
+#include "adi_common_log.h"
 
 void adrv9104_common_LogWrite(adi_common_Device_t *commonDev, uint32_t logLevel, const char* comment, ...)
 {
