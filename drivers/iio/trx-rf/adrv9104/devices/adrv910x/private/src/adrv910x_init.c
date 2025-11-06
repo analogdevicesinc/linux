@@ -20,6 +20,10 @@
 #include "adrv910x_arm_macros.h"
 #include "adrv910x_bf.h"
 
+#ifndef __KERNEL__
+#define fallthrough	do {} while (0)  /* fallthrough */
+#endif
+
 static __maybe_unused int32_t adrv910x_RefClockEnable(adi_adrv910x_Device_t *device)
 {
 	// Write Bitfield: (ref_clk_adcdac_pd) to 0
@@ -167,12 +171,14 @@ int32_t adrv910x_ProfilesVerify(adi_adrv910x_Device_t *device, deviceProfile_t *
 			{
 			case ADI_ADRV910X_RX1:  /* Falls through */
 				index = 0;
+				fallthrough;
 			case ADI_ADRV910X_RXNB:
 				ADI_EXPECT(adrv910x_VerifyRxProfile, device, &profile->rxConfig[index]);
 				device->devStateInfo.profilesValid |= ADI_ADRV910X_RX_PROFILE_VALID;
 				break;
 			case ADI_ADRV910X_ORX1: /* Falls through */
 				index = 0;
+				fallthrough;
 			case ADI_ADRV910X_ORXNB:
 				ADI_EXPECT(adrv910x_VerifyRxProfile, device, &profile->orxConfig[index]);
 				device->devStateInfo.profilesValid |= ADI_ADRV910X_ORX_PROFILE_VALID;
@@ -182,6 +188,7 @@ int32_t adrv910x_ProfilesVerify(adi_adrv910x_Device_t *device, deviceProfile_t *
 				break;
 			case ADI_ADRV910X_ELB1: /* Falls through */
 				index = 0;
+				fallthrough;
 			case ADI_ADRV910X_ELBNB:
 				ADI_EXPECT(adrv910x_VerifyRxProfile, device, &profile->elbConfig[index]);
 				device->devStateInfo.profilesValid |= ADI_ADRV910X_ELB_PROFILE_VALID;
