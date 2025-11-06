@@ -1069,7 +1069,7 @@ int32_t adrv910x_FlexStreamProcessorMemWrite(adi_adrv910x_Device_t *device,
     ADRV910X_SPIWRITEBYTEDMA(device, "ADRV910X_ADDR_FLEX_SP_ARM_DMA_ADDR_1", ADRV910X_ADDR_FLEX_SP_ARM_DMA_ADDR1, (uint8_t)((flexSpAddress) >> ADRV910X_ADDR_ARM_DMA_ADDR1_BYTE_SHIFT));
     ADRV910X_SPIWRITEBYTEDMA(device, "ADRV910X_ADDR_FLEX_SP_ARM_DMA_ADDR_0", ADRV910X_ADDR_FLEX_SP_ARM_DMA_ADDR0, (uint8_t)((flexSpAddress) >> ADRV910X_ADDR_ARM_DMA_ADDR0_BYTE_SHIFT));
 
-#if ADI_ADRV910X_SW_TEST > 0
+#ifdef ADI_ADRV910X_SW_TEST
     /* No Cache Enable for SW test */
     if (device->devStateInfo.swTest > 1)
     {
@@ -1401,19 +1401,19 @@ static uint32_t adrv910x_ArmProfileWrite_Validate(adi_adrv910x_Device_t *device,
 
 		ADI_ERROR_RETURN(device->common.error.newAction);
 	}
-	
+
 	ADI_API_RETURN(device);
 }
 
 int32_t adrv910x_ArmProfileWrite(adi_adrv910x_Device_t *device, const deviceProfile_t *profile, adi_common_Processor_Subsystem_e PS)
 {
 	ADI_EXPECT(adrv910x_ArmProfileWrite_Validate, device, profile);
-	
+
 	uint8_t *profPtr = (uint8_t*)profile;
 	uint32_t profileAddr = 0;
 	uint32_t byteCount = 0;
-	
-	
+
+
 	if (PS == ADI_PS1)
 	{
 		profileAddr = device->devStateInfo.profileAddr;

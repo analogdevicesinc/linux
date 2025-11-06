@@ -1,7 +1,7 @@
 /**
  * \file
  * \brief ADRV910X core functionality
- * 
+ *
  * Copyright (c) 2021 Analog Devices, Inc. All Rights Reserved.
  * This software is proprietary to Analog Devices, Inc. and its licensors.
  */
@@ -132,7 +132,7 @@ int32_t adi_adrv910x_HwReset(adi_adrv910x_Device_t *device)
     }
 
 	device->devStateInfo.devState = ADI_ADRV910X_STATE_POWERON_RESET;
-	
+
     /* Configure and Verify Spi */
     ADI_MSG_EXPECT("Failed to set SPI Config", adi_adrv910x_spi_Configure, device, &device->spiSettings);
 
@@ -288,7 +288,7 @@ int32_t adi_adrv910x_spi_Verify(adi_adrv910x_Device_t *device)
 	ADI_MUTEX_AQUIRE(device);
     /* Check SPI read - VENDOR_ID_0 */
     ADRV910X_SPIREADBYTE(device, "VENDOR_ID_0", ADRV910X_ADDR_VENDOR_ID_0, &spiReg);
-#if ADI_ADRV910X_SW_TEST > 0
+#ifdef ADI_ADRV910X_SW_TEST
     if (device->devStateInfo.swTest == 1)
     {
         spiReg = 0;
@@ -307,7 +307,7 @@ int32_t adi_adrv910x_spi_Verify(adi_adrv910x_Device_t *device)
     spiReg = 0;
     ADRV910X_SPIREADBYTE(device, "VENDOR_ID_1", ADRV910X_ADDR_VENDOR_ID_1, &spiReg);
 
-#if ADI_ADRV910X_SW_TEST > 0
+#ifdef ADI_ADRV910X_SW_TEST
     if (device->devStateInfo.swTest == 2)
     {
         spiReg = 0;
@@ -328,7 +328,7 @@ int32_t adi_adrv910x_spi_Verify(adi_adrv910x_Device_t *device)
 
     ADRV910X_SPIREADBYTE(device, "SCRATCH_PAD", ADRV910X_ADDR_SCRATCH_PAD, &spiReg);
 
-#if ADI_ADRV910X_SW_TEST > 0
+#ifdef ADI_ADRV910X_SW_TEST
     if (device->devStateInfo.swTest == 3)
     {
         spiReg = 0;
@@ -349,7 +349,7 @@ int32_t adi_adrv910x_spi_Verify(adi_adrv910x_Device_t *device)
 
     ADRV910X_SPIREADBYTE(device, "SCRATCH_PAD", ADRV910X_ADDR_SCRATCH_PAD, &spiReg);
 
-#if ADI_ADRV910X_SW_TEST > 0
+#ifdef ADI_ADRV910X_SW_TEST
     if (device->devStateInfo.swTest == 4)
     {
         spiReg = 0;
@@ -363,7 +363,7 @@ int32_t adi_adrv910x_spi_Verify(adi_adrv910x_Device_t *device)
         ADI_MUTEX_ERROR_RELEASE(device);
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
-    
+
     /* Note: Only MONITOR REGMAP registers can be accessed and verified at initTime */
 
     /* TODO: Add code to check Spi Streaming when HAL support is available. */
@@ -419,9 +419,9 @@ static void cacheInitInfo(adi_adrv910x_Device_t *adrv910x, deviceProfile_t *prof
           adrv910x->devStateInfo.agcHighThresholdSettings.ApdPeakUnderloadThresh = profile->rxNbConfig.gainControl.agcHighThresholdSettings.ApdPeakUnderloadThresh;
           adrv910x->devStateInfo.agcHighThresholdSettings.Hb2PeakOverloadThresh = profile->rxNbConfig.gainControl.agcHighThresholdSettings.Hb2PeakOverloadThresh;
           adrv910x->devStateInfo.agcHighThresholdSettings.Hb2PeakUnderloadThresh = profile->rxNbConfig.gainControl.agcHighThresholdSettings.Hb2PeakUnderloadThresh;
-          adrv910x->devStateInfo.agcHighThresholdSettings.Hb2SecondaryUpperThresh = profile->rxNbConfig.gainControl.agcHighThresholdSettings.Hb2SecondaryUpperThresh; 
+          adrv910x->devStateInfo.agcHighThresholdSettings.Hb2SecondaryUpperThresh = profile->rxNbConfig.gainControl.agcHighThresholdSettings.Hb2SecondaryUpperThresh;
         }
-    
+
 	if (adrv910x->devStateInfo.profilesValid & ADI_ADRV910X_TX_PROFILE_VALID)
 	{
 		adrv910x->devStateInfo.txOutputSignaling[0] = profile->txConfig[0].outputSignalingSel;
@@ -435,13 +435,13 @@ int32_t adi_adrv910x_apiVersion_get(adi_adrv910x_Device_t *adrv910x, adi_common_
 {
     char *version = ADI_ADRV910X_CURRENT_VERSION;
     uint8_t location = 0;
-    
+
     ADI_ENTRY_PTR_EXPECT(adrv910x, apiVersion);
-    
+
     apiVersion->major = number_extract(version, &location);
     apiVersion->minor = number_extract(version, &location);
     apiVersion->patch = number_extract(version, &location);
-    
+
     ADI_API_RETURN(adrv910x);
 }
 
@@ -461,11 +461,11 @@ int32_t adi_adrv910x_PartNumber_Get(adi_adrv910x_Device_t *device, adi_adrv910x_
 	    (ADI_ADRV910X_PART_NUMBER_ADRV9104 != *partNumber))
 	{
         *partNumber = ADI_ADRV910X_PART_NUMBER_UNKNOWN;
-        ADI_ERROR_REPORT(device, 
-                         ADI_COMMON_ERRSRC_API, 
-                         ADI_COMMON_ERR_API_FAIL, 
-                         ADI_COMMON_ACT_ERR_RESET_FULL, 
-                         NULL, 
+        ADI_ERROR_REPORT(device,
+                         ADI_COMMON_ERRSRC_API,
+                         ADI_COMMON_ERR_API_FAIL,
+                         ADI_COMMON_ACT_ERR_RESET_FULL,
+                         NULL,
                          "Unknown part number detected");
     }
 
@@ -489,7 +489,7 @@ int32_t adi_adrv910x_InitAnalog(adi_adrv910x_Device_t *device,
 	device->common.error.lock = adi_bbic_sem_lock;
 	device->common.error.unlock = adi_bbic_sem_unlock;
 #endif /* API_MUTEX */
-	
+
 	device->devStateInfo = devStateInfoClear;
 	ADI_EXPECT(adrv910x_InitAnalog, device, profile, adrv910xDeviceClockOutDivisor);
 
@@ -518,7 +518,7 @@ int32_t adi_adrv910x_InitDevPS2(adi_adrv910x_Device_t *device,
         cacheInitInfo(device, profile);
     }
   }
-  
+
   device->devStateInfo.devState = (adi_adrv910x_ApiStates_e)(device->devStateInfo.devState | ADI_ADRV910X_STATE_ANA_INITIALIZED);
 
   if (timerCallback != NULL)

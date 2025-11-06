@@ -2,7 +2,7 @@
  * \file
  * \brief Contains ARM features related function implementation defined in
  * adi_adrv910x_arm.h
- * 
+ *
  * Copyright (c) 2022 Analog Devices, Inc. All Rights Reserved.
  * This software is proprietary to Analog Devices, Inc. and its licensors.
  */
@@ -32,7 +32,7 @@ int32_t adi_adrv910x_arm_AhbSpiBridge_Enable(adi_adrv910x_Device_t *device)
 
 	ahbSpiReg = ahbSpiReg | ADRV910X_AHB_SPI_BRIDGE_ENABLE;
 	ADRV910X_SPIWRITEBYTE(device, "AHB_SPI_BRIDGE", ADRV910X_ADDR_AHB_SPI_BRIDGE, ahbSpiReg);
-	
+
 	ADRV910X_SPIREADBYTE(device, "AHB_SPI_BRIDGE", ADRV910X_ADDR_SYS2_AHB_SPI_BRIDGE, &ahbSpiReg);
 
 	ahbSpiReg = ahbSpiReg | ADRV910X_AHB_SPI_BRIDGE_ENABLE;
@@ -97,7 +97,7 @@ int32_t adi_adrv910x_arm_Image_Write(adi_adrv910x_Device_t *device, uint32_t byt
 			"Invalid byteOffset. Must be multiple of 4.");
 		ADI_ERROR_RETURN(device->common.error.newAction);
 	}
-	
+
 	ADI_MUTEX_AQUIRE(device);
 	if (byteOffset == 0)
 	{
@@ -146,7 +146,7 @@ int32_t adi_adrv910x_arm_Image_Write(adi_adrv910x_Device_t *device, uint32_t byt
 		ADRV910X_SPIWRITEBYTE(device, "ARM_STACK_PTR_BYTE_3", stBase+3, stackPtr[3]);
 
 	}
-	
+
 	if ((ADRV910X_ADDR_DEVICE_PROFILE_OFFSET >= byteOffset) &&
 	    (ADRV910X_ADDR_DEVICE_PROFILE_OFFSET < (byteOffset + byteCount + 4)) &&
 		PS != ADI_PS2)
@@ -218,7 +218,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_arm_Memory_ReadWrite_V
                          "Invalid parameter value. byteCount must be a multiple of 4 when using autoIncrement");
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
-    
+
     ADI_RANGE_CHECK(device, spiWriteMode, ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4, ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_1);
     ADI_API_RETURN(device);
 }
@@ -283,7 +283,7 @@ int32_t adi_adrv910x_arm_StartStatus_Check(adi_adrv910x_Device_t *device, uint32
     {
         ADI_EXPECT(adi_adrv910x_Radio_State_Get, device, &state);
 
-#if ADI_ADRV910X_SW_TEST > 0
+#ifdef ADI_ADRV910X_SW_TEST
         if (device->devStateInfo.swTest)
         {
             state.bootState = device->devStateInfo.swTest;
@@ -356,7 +356,7 @@ int32_t adi_adrv910x_arm_StartStatus_Check(adi_adrv910x_Device_t *device, uint32
     }
 
 	ADI_MUTEX_RELEASE(device);
-	
+
     device->devStateInfo.devState = (adi_adrv910x_ApiStates_e)(device->devStateInfo.devState | ADI_ADRV910X_STATE_ARM_LOADED);
 
     ADI_API_RETURN(device);
@@ -366,7 +366,7 @@ int32_t adi_adrv910x_arm_Start(adi_adrv910x_Device_t *device, adi_common_Process
 {
     uint8_t armCtl1 = 0;
     uint8_t mailBox[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
-    
+
     ADI_ENTRY_EXPECT(device);
 	ADI_MUTEX_AQUIRE(device);
 	armCtl1 = ADRV910X_AC1_ARM_DEBUG_ENABLE | ADRV910X_AC1_ARM_MEM_HRESP_MASK | ADRV910X_AC1_ARM_M3_RUN;
@@ -424,7 +424,7 @@ int32_t adi_adrv910x_arm_Profile_Write(adi_adrv910x_Device_t *device, const adi_
 	{
 		ADI_EXPECT(adrv910x_ArmProfileWrite, device, (const deviceProfile_t*)&profile->profilePS2, PS);
 	}
-	
+
 
 	ADI_MUTEX_RELEASE(device);
     ADI_API_RETURN(device);
@@ -487,7 +487,7 @@ int32_t adi_adrv910x_arm_CmdStatus_Get(adi_adrv910x_Device_t *device, uint16_t *
     {
         ADRV910X_SPIREADBYTE(device, "", ((uint16_t)ADRV910X_ADDR_ARM_CMD_STATUS_0 + i), &bytes[i]);
 
-#if ADI_ADRV910X_SW_TEST > 0
+#ifdef ADI_ADRV910X_SW_TEST
         /* Test error */
         if (device->devStateInfo.swTest > 1)
         {
@@ -711,7 +711,7 @@ int32_t adi_adrv910x_arm_Cmd_Write(adi_adrv910x_Device_t *device, uint8_t opCode
         ADI_MUTEX_ERROR_RELEASE(device);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
-#if ADI_ADRV910X_SW_TEST > 0
+#ifdef ADI_ADRV910X_SW_TEST
         /* Test error */
         if (device->devStateInfo.swTest > 0)
         {
@@ -799,16 +799,16 @@ int32_t adi_adrv910x_arm_System_Program(adi_adrv910x_Device_t *device, uint8_t c
     }
     // TODO: Valid for SDK2 state machine, move to initCalsRun in SDK3
 	device->devStateInfo.devState = (adi_adrv910x_ApiStates_e)(device->devStateInfo.devState | ADI_ADRV910X_STATE_INITCALS_RUN);
-	
+
     ADI_MUTEX_RELEASE(device);
     ADI_API_RETURN(device);
 }
 
 int32_t adi_adrv910x_arm_ConfigJtag_ps2(adi_adrv910x_Device_t *device)
 {
-	
+
 	//#define JTAG_DAISY_CHAIN
-	
+
 	uint8_t SetJtagArmDaisyEn = 0;
 	uint8_t SetJtagArmSel = 0;
 	uint8_t SetJtagArm1TmsEn = 0;
@@ -827,7 +827,7 @@ int32_t adi_adrv910x_arm_ConfigJtag_ps2(adi_adrv910x_Device_t *device)
 	SetJtagArm2TrstEn = 0;
 	SetJtagTestModeEn = 1;
 #endif
-	
+
 #if defined(JTAG_DAISY_CHAIN)
 	/* Daisy Chain */
 	SetJtagArmDaisyEn = 1;
@@ -838,7 +838,7 @@ int32_t adi_adrv910x_arm_ConfigJtag_ps2(adi_adrv910x_Device_t *device)
 	SetJtagArm2TrstEn = 0;
 	SetJtagTestModeEn = 1;
 #endif
-	
+
 	/* Check device pointer is not null */
 	ADI_ENTRY_EXPECT(device);
 
@@ -856,18 +856,18 @@ int32_t adi_adrv910x_arm_ConfigJtag_ps2(adi_adrv910x_Device_t *device)
 	adrv910x_NevisMonitorRegmapCore_JtagArm2TrstEn_Set(device, SetJtagArm2TrstEn);
 	/* Config test mode */
 	adrv910x_NevisMonitorRegmapCore_JtagTestmodeEn_Set(device, SetJtagTestModeEn);
-	
+
 	ADI_API_RETURN(device);
 }
 
 /*! ****************************************************************************
  * Function:    Crc32
- * 
+ *
  * @brief       Run Cyclic Redundancy Check on the specified block of memory
  *
  * @details     CRC32 algorithm, operating on 8-bit words
  *
- * Parameters: 
+ * Parameters:
  * @param [in]  buf - array of bytes on which CRC is run
  * @param [in]  buf_len - length of the input array in bytes
  *
@@ -886,10 +886,10 @@ static uint32_t Crc32(const uint8_t buf[], uint32_t bufLen)
 		0x2608edb8u, 0x22c9f00fu, 0x2f8ad6d6u, 0x2b4bcb61u,
 		0x350c9b64u, 0x31cd86d3u, 0x3c8ea00au, 0x384fbdbdu
 	};
-	
+
 	uint32_t i;
 	uint32_t a, b, c, d;
-  
+
 	a = 0x00000000u;
 
 	for (i = 0u; i < bufLen; i++) {
