@@ -121,7 +121,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_AuxDac_Code_Set_Valida
 int32_t adi_adrv910x_AuxDac_Code_Set(adi_adrv910x_Device_t *device, adi_adrv910x_AuxDac_e auxDac, uint16_t code)
 {
 	ADI_PERFORM_VALIDATION(adi_adrv910x_AuxDac_Code_Set_Validate, device, auxDac, code);
-	int32_t status = 0;
+
 	switch (auxDac)
 	{
 	case ADI_ADRV910X_AUXDAC0:
@@ -140,7 +140,7 @@ int32_t adi_adrv910x_AuxDac_Code_Set(adi_adrv910x_Device_t *device, adi_adrv910x
 		ADI_SHOULD_NOT_EXECUTE(device);
 		break;
 	}
-	
+
 
 	ADI_API_RETURN(device);
 }

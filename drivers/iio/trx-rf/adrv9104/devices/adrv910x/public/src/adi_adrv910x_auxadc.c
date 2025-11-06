@@ -112,32 +112,32 @@ int32_t adi_adrv910x_AuxAdc_Voltage_Get(adi_adrv910x_Device_t *device,
 	uint16_t *auxAdc_mV)
 {
 	uint16_t auxAdcCode = 0;
-	uint32_t auxAdcWait, armClk_Hz, auxAdcClk_Hz, status;	
-	uint8_t refClkDiv, hsClkDiv, armClkDiv, auxAdcClkSel;
+	uint32_t auxAdcWait, armClk_Hz, auxAdcClk_Hz;
+	uint8_t refClkDiv, auxAdcClkSel;
 	static const uint16_t MEASURED_OFFSET = 0;
 	static const uint16_t MEASURED_GAIN = 4096;
-	
+
 	//These settings are hardcoded in auxadc configure
 	static const uint32_t AUXADC_CLK_DIV_ENCODED = 63; // Encoded clock divider value (x6 ==> x3F or d63)
 	uint32_t auxadcClkDiv = AUXADC_CLK_DIV_ENCODED;
 	uint32_t decimator = 2048; //decimator is hardcoded as x0. This corresponds to 2048.
-	
+
 	ADI_PERFORM_VALIDATION(adi_adrv910x_AuxAdc_Voltage_Get_Validate, device, auxAdc, auxAdc_mV);
-	
+
 	ADI_EXPECT(adrv910x_NvsRegmapCore1_AuxAdcClkArmSel_Get, device, &auxAdcClkSel);
 	if (auxAdcClkSel == 0)
 	{
 		//Clock is ref clock
 		ADI_EXPECT(adrv910x_NevisMonitorRegmapCore_RefClkIntDevclkDivideRatio_Get, device, &refClkDiv);
-		//read ref clk divider		
+		//read ref clk divider
 		auxAdcClk_Hz = (device->devStateInfo.devClock_Hz) / (1U << refClkDiv);
 	}
-	
+
 	else
-	{	
+	{
 		armClk_Hz = device->devStateInfo.hsDigFreq_Hz/ device->devStateInfo.ps1ArmClkDiv;
 	}
-	
+
 	/* Get 12 bit ADC word from selected AuxADC */
 	if (auxAdc == ADI_ADRV910X_AUXADC0)
 	{
@@ -153,7 +153,7 @@ int32_t adi_adrv910x_AuxAdc_Voltage_Get(adi_adrv910x_Device_t *device,
 		ADI_EXPECT(adrv910x_NvsRegmapCore3_AuxAdc1Linearity_Set, device, 0x800);
 		ADI_EXPECT(adrv910x_NvsRegmapCore3_AuxAdc1DecLinearDataCapture_Set, device, 0x1);
 		//Add harware configurable timer based on AUXADC clock
-		auxAdcWait = 2000000 / (auxAdcClk_Hz  / auxadcClkDiv / decimator);	
+		auxAdcWait = 2000000 / (auxAdcClk_Hz  / auxadcClkDiv / decimator);
 		adi_common_hal_Wait_us(&device->common, auxAdcWait);
 		ADI_EXPECT(adrv910x_NvsRegmapCore3_AuxAdc1ReadData_Get, device, &auxAdcCode);
 	}

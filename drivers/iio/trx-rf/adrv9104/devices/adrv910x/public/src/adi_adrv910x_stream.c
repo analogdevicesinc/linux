@@ -92,15 +92,6 @@ int32_t adi_adrv910x_Stream_Image_Write(adi_adrv910x_Device_t *device,
     static const uint8_t MIN_BYTECOUNT = 68;
     static const uint8_t MAIN_IMAGE_OFFSET = 40;
 
-    /* Arm stream download order: main, tx1/2, rx1/2 */
-    static const uint32_t streamChannel[] = {
-        0xFFFFFFFF,
-        ADI_ADRV910X_TX1,
-        ADI_ADRV910X_TXNB,
-        ADI_ADRV910X_RX1 | ADI_ADRV910X_ORX1,
-        ADI_ADRV910X_RXNB | ADI_ADRV910X_ORXNB
-    };
-
     ADI_ENTRY_PTR_EXPECT(device, binary);
     ADI_RANGE_CHECK(device,
                     spiWriteMode,
@@ -346,7 +337,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Stream_Gpio_Debug_Set_
                 ADI_API_RETURN(adrv910x)
             }
         }
-    }   
+    }
     ADI_API_RETURN(adrv910x);
 }
 
