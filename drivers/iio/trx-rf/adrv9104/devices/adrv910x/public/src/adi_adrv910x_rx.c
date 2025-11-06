@@ -42,11 +42,8 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Rx_GainTable_Write_Val
     static const uint8_t MAX_ADC_TIA_GAIN  = 63;
     static const int16_t MIN_DIG_GAIN = -360; /*Dig gain is in the range -18dB to 50db*/
     static const int16_t MAX_DIG_GAIN = 1000; /*Dig gain is in the range -18dB to 50db*/
-    static const uint8_t ABSOLUTE_MIN_INDEX = 187;
 
     uint16_t  gainIndex = 0;
-    uint16_t totalGainSteps = 0;
-    uint8_t i = 0;
 
     ADI_ENTRY_PTR_ARRAY_EXPECT(device, gainTableRows, arraySize);
 
@@ -128,7 +125,6 @@ int32_t adi_adrv910x_Rx_GainTable_Write(adi_adrv910x_Device_t *device,
     static uint8_t armDmaData[((ADI_ADRV910X_MAX_GAIN_TABLE_INDEX - ADI_ADRV910X_MIN_GAIN_TABLE_INDEX) + 1) * ADI_ADRV910X_NUM_BYTES_PER_RX_GAIN_INDEX] = { 0 };
     static const uint8_t DEC_POWER_CONFIG1 = 0x09; /* dec_power_log_shift | dec_power_enable_meas */
     static const uint8_t DIGITAL_GAIN_CONFIG2 = 0x01; /* digital_gain_enable */
-    static const uint8_t ABSOLUTE_MIN_INDEX = 187;
 
     ADI_PERFORM_VALIDATION(adi_adrv910x_Rx_GainTable_Write_Validate, device, port, channel, gainIndexOffset, gainTableRows, arraySize, gainTableType);
 
@@ -758,7 +754,6 @@ int32_t adi_adrv910x_Rx_GainControl_Configure(adi_adrv910x_Device_t *device,
     uint8_t gpioSource1_0 = 0;
     uint8_t gpioSource3_2 = 0;
     uint32_t gpioOutEn = 0;
-    static const uint8_t GPIO_CONTROL_SYSTEM_SEL = 0x0; /* Accessing SYS1 Registers */
     static const uint16_t GPIO_SOURCE_SEL_ADDR = 0x24a; /* SYS1 core gpio source sel base addr */
     static const uint8_t ADI_ADRV910X_GPIO_SOURCE_RX1_5_4 = 0x02; /* peak or peak&power */
     static const uint8_t ADI_ADRV910X_GPIO_SOURCE_RX1_7_6 = 0x03; /* peak or peak&power */
@@ -2183,7 +2178,7 @@ int32_t adi_adrv910x_Rx_Loid_Status_Get(adi_adrv910x_Device_t *device,
 		&armReadBack[0],
 		sizeof(armReadBack),
 		false, ADI_PS1);
-		
+
 	*rfdcResidual = armReadBack[0];
 
     ADI_MUTEX_RELEASE(device);
@@ -2244,7 +2239,7 @@ adi_adrv910x_HighBlockerModeCfg_t *highBlockerConfig)
 	armData[offset++] = highBlockerConfig->enableHighBlockerMode;
 	adrv910x_LoadTwoBytes(&offset, armData, highBlockerConfig->highBlockerModeThresholdOne_negQuartdBFS);
 	adrv910x_LoadTwoBytes(&offset, armData, highBlockerConfig->highBlockerModeThresholdTwo_QuartdB);
-	
+
     ADI_MUTEX_AQUIRE(device);
 
     /* Write High blocker config to ARM mailbox */
