@@ -68,9 +68,9 @@ int32_t adi_adrv910x_cals_InitCals_Run(adi_adrv910x_Device_t *adrv910x,
 	payloadMailbox[9]  = (uint8_t)(initCals->chanInitCalMask[ADRV910X_RXNB_TXNB] >> 8);
 	payloadMailbox[10] = (uint8_t)(initCals->chanInitCalMask[ADRV910X_RXNB_TXNB] >> 16);
 	payloadMailbox[11] = (uint8_t)(initCals->chanInitCalMask[ADRV910X_RXNB_TXNB] >> 24);
-	
+
 	ADI_MUTEX_AQUIRE(adrv910x);
-    
+
     ADI_MSG_EXPECT("Failed to write ARM mem",
                    adi_adrv910x_arm_Memory_Write,
                    adrv910x,
@@ -84,7 +84,7 @@ int32_t adi_adrv910x_cals_InitCals_Run(adi_adrv910x_Device_t *adrv910x,
 
     /* Mode to select the Init calibration algorithms to run */
     payload[1] = (uint8_t)(initCals->calMode);
-    
+
     /* A value of true will force all enabled calibrations to re-run */
     payload[2] = (uint8_t)(initCals->force);
 
@@ -238,9 +238,9 @@ int32_t adi_adrv910x_cals_Tracking_Set(adi_adrv910x_Device_t *adrv910x,
 	payloadMailbox[5] = (uint8_t)(trackingCals->chanTrackingCalMask[ADRV910X_RXNB_TXNB] >> 8);
 	payloadMailbox[6] = (uint8_t)(trackingCals->chanTrackingCalMask[ADRV910X_RXNB_TXNB] >> 16);
 	payloadMailbox[7] = (uint8_t)(trackingCals->chanTrackingCalMask[ADRV910X_RXNB_TXNB] >> 24);
-	
+
 	ADI_MUTEX_AQUIRE(adrv910x);
-    
+
     ADI_MSG_EXPECT("Failed to write ARM mem",
                    adi_adrv910x_arm_Memory_Write,
                    adrv910x,
@@ -320,10 +320,10 @@ int32_t adi_adrv910x_cals_Tracking_Get(adi_adrv910x_Device_t *adrv910x,
     ADI_API_RETURN(adrv910x);
 }
 
-int32_t adi_adrv910x_cals_InitCalsLoGenParams_Configure_Validate(adi_adrv910x_Device_t *device,
-                                                        adi_common_Port_e port,
-                                                        adi_common_ChannelNumber_e channel,
-                                                        adi_adrv910x_LoGenCalSettings_t *loGenCalSettings)
+static int32_t __maybe_unused adi_adrv910x_cals_InitCalsLoGenParams_Configure_Validate(adi_adrv910x_Device_t *device,
+										       adi_common_Port_e port,
+										       adi_common_ChannelNumber_e channel,
+										       adi_adrv910x_LoGenCalSettings_t *loGenCalSettings)
 {
 
     ADI_EXPECT(adi_adrv910x_Port_Validate, device, port);
@@ -357,7 +357,7 @@ int32_t adi_adrv910x_cals_InitCalsLoGenParams_Configure(adi_adrv910x_Device_t *d
 
     /* Write Ext LO VCO cal settings to ARM mailbox */
     ADI_EXPECT(adi_adrv910x_arm_Memory_Write, device, ADRV910X_ADDR_ARM_MAILBOX_SET, &armData[0], sizeof(armData), ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4, ADI_PS1);
-    
+
     extData[0] = adi_adrv910x_Radio_MailboxChannel_Get(port, channel);
     extData[1] = OBJID_GS_EXTLO_VCO_PARAMS;
 
@@ -369,25 +369,25 @@ int32_t adi_adrv910x_cals_InitCalsLoGenParams_Configure(adi_adrv910x_Device_t *d
         extData[1],
 		(uint32_t)ADI_ADRV910X_DEFAULT_TIMEOUT_US,
 		(uint32_t)ADI_ADRV910X_DEFAULT_INTERVAL_US);
-    
+
     ADI_MUTEX_RELEASE(device);
     ADI_API_RETURN(device);
 
 }
 
-int32_t adi_adrv910x_cals_InitCalsLoGenParams_Inspect_Validate(adi_adrv910x_Device_t *device,
-                                                        adi_common_Port_e port,
-                                                        adi_common_ChannelNumber_e channel,
-                                                        adi_adrv910x_LoGenCalSettings_t *loGenCalSettings)
+static int32_t __maybe_unused adi_adrv910x_cals_InitCalsLoGenParams_Inspect_Validate(adi_adrv910x_Device_t *device,
+										     adi_common_Port_e port,
+										     adi_common_ChannelNumber_e channel,
+										     adi_adrv910x_LoGenCalSettings_t *loGenCalSettings)
 {
 
-    
+
     ADI_EXPECT(adi_adrv910x_Port_Validate, device, port);
     ADI_EXPECT(adi_adrv910x_Channel_Validate, device, channel);
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
     ADI_NULL_PTR_RETURN(&device->common, loGenCalSettings);
-    
+
     ADI_API_RETURN(device);
 
 }
@@ -397,9 +397,9 @@ int32_t adi_adrv910x_cals_InitCalsLoGenParams_Inspect(adi_adrv910x_Device_t *dev
                                                         adi_common_ChannelNumber_e channel,
                                                         adi_adrv910x_LoGenCalSettings_t *loGenCalSettings)
 {
-    uint8_t armReadBack[4] = { 0 };	
+    uint8_t armReadBack[4] = { 0 };
     uint8_t extData[2] = { 0 };
-    
+
     ADI_PERFORM_VALIDATION(adi_adrv910x_cals_InitCalsLoGenParams_Inspect_Validate, device, port, channel, loGenCalSettings);
 
     extData[0] = adi_adrv910x_Radio_MailboxChannel_Get(port, channel);
@@ -707,15 +707,16 @@ int32_t adi_adrv910x_cals_ExternalPathDelay_Get(adi_adrv910x_Device_t *adrv910x,
 
     ADI_API_RETURN(adrv910x);
 }
-int32_t adi_adrv910x_cals_InternalPathDelay_Get_Validate(adi_adrv910x_Device_t *adrv910x,
-                                                         adi_common_Port_e port,
-                                                         adi_common_ChannelNumber_e channel,
-                                                         uint32_t internalPathDelays_ns[],
-                                                         uint32_t length)
+
+static int32_t __maybe_unused adi_adrv910x_cals_InternalPathDelay_Get_Validate(adi_adrv910x_Device_t *adrv910x,
+									       adi_common_Port_e port,
+									       adi_common_ChannelNumber_e channel,
+									       uint32_t internalPathDelays_ns[],
+									       uint32_t length)
 {
     static uint8_t MAX_NUM_PROFILE = 6;
     adi_adrv910x_ChannelState_e state = ADI_ADRV910X_CHANNEL_STANDBY;
-    
+
     ADI_RANGE_CHECK(adrv910x, port, ADI_RX, ADI_TX);
     ADI_RANGE_CHECK(adrv910x, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&adrv910x->common, internalPathDelays_ns);
@@ -723,7 +724,7 @@ int32_t adi_adrv910x_cals_InternalPathDelay_Get_Validate(adi_adrv910x_Device_t *
     ADI_EXPECT(adi_adrv910x_Radio_Channel_State_Get, adrv910x, port, channel, &state);
     if (ADI_ADRV910X_CHANNEL_STANDBY == state)
     {
-        ADI_ERROR_REPORT(&adrv910x->common, 
+        ADI_ERROR_REPORT(&adrv910x->common,
             ADI_COMMON_ERRSRC_API,
             ADI_COMMON_ERR_INV_PARAM,
             ADI_COMMON_ACT_ERR_CHECK_PARAM,

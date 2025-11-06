@@ -103,9 +103,9 @@ int32_t adi_adrv910x_Radio_Channel_State_Get(adi_adrv910x_Device_t *adrv910x,
     ADI_API_RETURN(adrv910x);
 }
 
-uint8_t adi_adrv910x_Radio_MailboxChannelMask_Get(adi_common_Port_e ports[],
-	                                              adi_common_ChannelNumber_e channels[],
-	                                              uint32_t length)
+static uint8_t adi_adrv910x_Radio_MailboxChannelMask_Get(adi_common_Port_e ports[],
+							 adi_common_ChannelNumber_e channels[],
+							 uint32_t length)
 {
 	uint8_t i = 0;
 	uint8_t channelMask = 0;

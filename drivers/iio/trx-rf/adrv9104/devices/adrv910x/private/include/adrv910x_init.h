@@ -172,6 +172,16 @@ int32_t adrv910x_InitAnalog(adi_adrv910x_Device_t *device,
 int32_t adrv910x_SetDeviceClockOutDivider(adi_adrv910x_Device_t *adrv910x,
 	adi_adrv910x_DeviceClockDivisor_e adrv910xDeviceClockOutDivisor);
 
+/**
+* \brief
+*
+* This function verifies the ADRV910X profiles provided by the user
+*
+* \param[in] device                        Structure pointer to ADRV910X device data structure
+* \param[in] profile                       Structure pointer to ADRV910X profile data structure
+*/
+int32_t adrv910x_ProfilesVerify(adi_adrv910x_Device_t *device, deviceProfile_t *profile);
+
 #ifdef __cplusplus
 }
 #endif
