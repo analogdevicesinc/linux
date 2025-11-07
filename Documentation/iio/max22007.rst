@@ -1,0 +1,170 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+===============
+MAX22007 driver
+===============
+
+Device driver for Analog Devices Inc. MAX22007 quad-channel industrial DAC.
+The module name is ``max22007``.
+
+Supported devices
+=================
+
+* `MAX22007 <https://www.analog.com/en/products/max22007.html>`_
+
+Wiring connections
+==================
+
+The MAX22007 uses a standard SPI interface.
+
+Device Tree Configuration
+=========================
+
+The device supports both global and per-channel configuration through device tree.
+
+Global Properties:
+* ``reset-gpios``: GPIO pin for hardware reset (optional, falls back to software reset if not specified)
+* ``vdd-supply``: Low-Voltage Power Supply from +2.7V to +5.5V (optional)
+* ``hvdd-supply``: Positive High-Voltage Power Supply from +8V to (HVSS +24V) for the Output Channels (optional)
+* ``hvss-supply``: Negative High-Voltage Power Supply from -2V to 0V for the Output Channels (optional)
+
+Per-channel properties:
+* ``adi,type``: Specify the channel output type - must be either "voltage" or "current" (mandatory)
+
+Note: The driver operates in transparent mode (immediate register-to-output updates).
+Channel mode is determined by the ``adi,type`` property:
+- ``adi,type = "current"``: the channel operates in current mode
+- ``adi,type = "voltage"``: the channel operates in voltage mode
+
+Device attributes
+=================
+
+The MAX22007 driver provides IIO DAC interfaces that vary based on the
+configured channel mode. Each channel appears as a separate IIO device
+attribute:
+
+* ``out_voltage_raw`` (voltage mode channels)
+* ``out_current_raw`` (current mode channels)
+* ``out_voltage_scale`` / ``out_current_scale`` (channel scaling factors)
+* ``out_voltage_powerdown`` / ``out_current_powerdown`` (channel power control)
+
+The driver automatically configures the IIO channel type based on the configured
+channel mode from device tree.
+
+Power Mode Control
+==================
+
+Each channel provides standard IIO ``powerdown`` attributes for runtime power control:
+
+* Write ``1`` to power down (disable) the channel output
+* Write ``0`` to power up (enable) the channel output
+* Read the attribute to get the current power state (1=powered down, 0=powered up)
+
+This allows individual channels to be powered on/off independently for power
+management and safety purposes.
+
+Usage Examples
+==============
+
+Setting DAC output values:
+
+.. code-block:: bash
+
+    # Set channel 0 (voltage mode) to raw value 655 (≈2V)
+    # Output is updated immediately in transparent mode
+    echo 655 > /sys/bus/iio/devices/iio:deviceX/out_voltage0_raw
+
+    # Set channel 1 (current mode)
+    # Output is updated immediately in transparent mode
+    echo 1024 > /sys/bus/iio/devices/iio:deviceX/out_current1_raw
+
+Controlling channel power modes:
+
+.. code-block:: bash
+
+    # Enable channel 0 (power up)
+    echo 0 > /sys/bus/iio/devices/iio:deviceX/out_voltage0_powerdown
+
+    # Disable channel 1 (power down)
+    echo 1 > /sys/bus/iio/devices/iio:deviceX/out_current1_powerdown
+
+    # Check current power state (0=powered up, 1=powered down)
+    cat /sys/bus/iio/devices/iio:deviceX/out_voltage0_powerdown
+
+Reading channel values and scale factors:
+
+.. code-block:: bash
+
+    # Read raw DAC value
+    cat /sys/bus/iio/devices/iio:deviceX/out_voltage0_raw
+
+    # Read scale factor (volts per LSB)
+    cat /sys/bus/iio/devices/iio:deviceX/out_voltage0_scale
+
+Check available channels:
+
+.. code-block:: bash
+
+    ls /sys/bus/iio/devices/iio:deviceX/out_*_raw
+
+Scale Calculations
+==================
+
+The driver provides accurate scale factors based on the hardware configuration:
+
+**Voltage Mode:**
+  - Scale = (5 × 2.5V) / 4096 = 0.003051757 V per LSB
+  - Range: 0V to 12.5V over 12-bit (0-4095)
+  - Formula: Output = Raw_Value × Scale
+
+**Current Mode:**
+  - Scale = (2.5V / (2 × 50Ω)) / 4096 = 0.000006103515625 A per LSB
+  - Range: 0A to 0.025A over 12-bit (0-4095)
+  - Formula: Output = Raw_Value × Scale
+
+Register Map
+------------
+
+The MAX22007 uses the following register mapping:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Address
+     - Register Name
+     - Description
+   * - 0x03
+     - CONFIG_REG
+     - Configuration register (CRC enable, DAC latch modes)
+   * - 0x04
+     - CONTROL_REG
+     - LDAC control register for runtime updates
+   * - 0x05
+     - CHANNEL_MODE_REG
+     - Channel mode and power control
+   * - 0x06
+     - SOFT_RESET_REG
+     - Software reset control
+   * - 0x07-0x0A
+     - DAC_CHANNEL_REG(0-3)
+     - DAC data registers for channels 0-3
+
+
+Driver Architecture
+===================
+
+The driver implements the following key features:
+
+* **CRC8 Error Checking**: Always-enabled CRC8 for SPI data integrity
+* **Channel Configuration**: Supports per-channel mode and power configuration
+* **Register Map**: Uses regmap for efficient register access and caching
+* **IIO Integration**: Full integration with the Linux IIO subsystem
+
+Not Implemented
+===============
+
+* Channel configuration (voltage/current mode) is set via the ``adi,type`` device tree
+  property at probe time and cannot be changed dynamically
+* The driver requires proper device tree configuration with mandatory ``adi,type``
+  property for each channel
+* Simultaneous multi-channel LDAC updates (only single-channel updates supported)
