@@ -5,7 +5,7 @@
 menu "RF Transceivers and Advanced Mixed Signal Frontends"
 
 config ADRV9104
-	tristate ""
+	tristate "Analog Devices ADRV9104 and similar RF Transceiver driver"
 	depends on SPI
 	select IIO_BACKEND
 	help

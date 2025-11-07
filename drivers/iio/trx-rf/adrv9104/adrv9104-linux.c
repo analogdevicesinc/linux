@@ -13,6 +13,7 @@
 
 #include "adi_adrv910x_hal.h"
 #include "adi_common_error_types.h"
+#include "adi_common_hal.h"
 
 #define ADRV9104_SPI_MAX_SIZE	4096
 
@@ -94,9 +95,74 @@ static int adrv9104_hw_reset(void *dev_hal, u8 pin_level)
 	return ADI_COMMON_ERR_OK;
 }
 
+static const char * const log_str[] = {
+	[ADI_LOGLEVEL_TRACE] = "[TRACE]",
+	[ADI_LOGLEVEL_DEBUG] = "[DEBUG]",
+	[ADI_LOGLEVEL_INFO] = "[INFO]",
+	[ADI_LOGLEVEL_WARN] = "[WARN]",
+	[ADI_LOGLEVEL_ERROR] = "[ERROR]",
+	[ADI_LOGLEVEL_FATAL] = "[FATAL]"
+};
+
+static int adrv9104_log_write(void *dev_hal, u32 log_level, const char *comment, va_list argp)
+{
+	struct adrv9104_hal_cfg *hal_cfg = dev_hal;
+	struct device *dev = &hal_cfg->spi->dev;
+	char fmt[512] = { 0 };
+	struct va_format vaf;
+	int ret;
+
+	if (!dev_hal)
+		return ADI_COMMON_ERR_NULL_PARAM;
+
+	if (log_level == ADI_LOGLEVEL_NONE)
+		/* If logging disabled, exit gracefully */
+		return ADI_COMMON_ERR_OK;
+	if (log_level > ADI_LOGLEVEL_FATAL)
+		return ADI_COMMON_ERR_INV_PARAM;
+
+	ret = snprintf(fmt, sizeof(fmt), "%s: %s", log_str[log_level], comment);
+	if (ret < 0)
+		return ADI_COMMON_ERR_API_FAIL;
+
+	vaf.fmt = fmt;
+	vaf.va = &argp;
+
+	switch (log_level) {
+	case ADI_LOGLEVEL_TRACE:
+	case ADI_LOGLEVEL_DEBUG:
+		dev_dbg_ratelimited(dev, "%pV", &vaf);
+		break;
+	case ADI_LOGLEVEL_INFO:
+		dev_info(dev, "%pV", &vaf);
+		break;
+	case ADI_LOGLEVEL_WARN:
+		dev_warn(dev, "%pV", &vaf);
+		break;
+	case ADI_LOGLEVEL_ERROR:
+		dev_err(dev, "%pV", &vaf);
+		break;
+	case ADI_LOGLEVEL_FATAL:
+		dev_crit(dev, "%pV", &vaf);
+		break;
+	}
+
+	return ADI_COMMON_ERR_OK;
+}
+
+static int adrv9104_wait_us(void *dev_hal, u32 time_us)
+{
+	fsleep(time_us);
+	return ADI_COMMON_ERR_OK;
+}
+
 /* HAL function pointer assignments for ADRV910X API */
 int (*adi_adrv910x_hal_open)(void *dev_hal) = adrv9104_hw_open;
 int (*adi_adrv910x_hal_close)(void *dev_hal) = adrv9104_hw_close;
 int (*adi_adrv910x_hal_spi_write)(void *dev_hal, const u8 *tx, u32 len) = adrv9104_spi_write;
 int (*adi_adrv910x_hal_spi_read)(void *dev_hal, const u8 *tx, u8 *rx, u32 len) = adrv9104_spi_read;
 int (*adi_adrv910x_hal_resetbPin_set)(void *dev_hal, u8 pin_level) = adrv9104_hw_reset;
+
+int (*adi_common_hal_LogWrite)(void *dev_hal, u32 log_level, const char *comment,
+			       va_list argp) = adrv9104_log_write;
+int (*adi_common_hal_Wait_us)(void *dev_hal, u32 time_us) = adrv9104_wait_us;
