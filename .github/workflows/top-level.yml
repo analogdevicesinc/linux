@@ -6,6 +6,7 @@ on:
       - main
       - ci/*
       - rpi-6.12.y
+      - staging/**
     paths-ignore:
       - '.github/**'
       - 'ci/**'
