@@ -179,6 +179,9 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 
 	phy->sniffer_en = !of_property_read_bool(node, "adi,sniffer-disable");
 
+	phy->cddc_sample_delay_en = of_property_read_bool(node, "adi,cddc-bmem-sample-delay-en");
+	phy->fddc_sample_delay_en = of_property_read_bool(node, "adi,fddc-bmem-sample-delay-en");
+
 	ad9088_jesd_lane_setup(phy);
 
 	/*

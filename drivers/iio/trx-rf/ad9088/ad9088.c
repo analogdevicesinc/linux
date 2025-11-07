@@ -1566,6 +1566,10 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 	case CFIR_ENABLE:
 		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
 		return sysfs_emit(buf, "%u\n", phy->cfir_enable[terminal][cfir_sel][dp_sel]);
+	case BMEM_CDDC_DELAY:
+		return sysfs_emit(buf, "%u\n", phy->cddc_sample_delay[map->side][map->cddc_num]);
+	case BMEM_FDDC_DELAY:
+		return sysfs_emit(buf, "%u\n", phy->fddc_sample_delay[map->side][map->cddc_num]);
 	default:
 		return -EINVAL;
 	}
@@ -1856,6 +1860,45 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 		phy->cfir_enable[terminal][cfir_sel][dp_sel] = enable;
+		return len;
+	case BMEM_CDDC_DELAY:
+		if (!phy->cddc_sample_delay_en) {
+			dev_err(&phy->spi->dev, "adi,cddc-bmem-sample-delay-en is not set in the device tree\n");
+			return -ENOTSUPP;
+		}
+
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			return ret;
+		readin = clamp_t(long long, readin, 0, 4095);
+
+		ret = adi_apollo_bmem_cddc_delay_sample_set(&phy->ad9088, map->cddc_mask, readin);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_bmem_cddc_delay_sample_set");
+		if (ret)
+			return ret;
+
+		phy->cddc_sample_delay[map->side][map->cddc_num] = readin;
+		return len;
+	case BMEM_FDDC_DELAY:
+		if (!phy->fddc_sample_delay_en) {
+			dev_err(&phy->spi->dev, "adi,fddc-bmem-sample-delay-en is not set in the device tree\n");
+			return -ENOTSUPP;
+		}
+
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			return ret;
+
+		readin = clamp_t(long long, readin, 0, 255);
+
+		ret = adi_apollo_bmem_fddc_delay_sample_set(&phy->ad9088, map->fddc_mask, readin);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_bmem_fddc_delay_sample_set");
+		if (ret)
+			return ret;
+
+		phy->fddc_sample_delay[map->side][map->fddc_num] = readin;
 		return len;
 	default:
 		return -EINVAL;
@@ -2429,6 +2472,20 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.write = ad9088_ext_info_write_ffh,
 		.shared = IIO_SEPARATE,
 		.private = FFH_CNCO_MODE,
+	},
+	{
+		.name = "main_bmem_sample_delay",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = BMEM_CDDC_DELAY,
+	},
+	{
+		.name = "channel_bmem_sample_delay",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = BMEM_FDDC_DELAY,
 	},
 	{ },
 };
@@ -4358,6 +4415,12 @@ int ad9088_inspect_jtx_link_all(struct ad9088_phy *phy)
 
 static int ad9088_setup(struct ad9088_phy *phy)
 {
+	adi_apollo_bmem_delay_sample_t config = {
+		.sample_size = 0,
+		.ramclk_ph_dis = 1,
+		.sample_delay = 0,
+		.parity_check_en = 1,
+	};
 	adi_apollo_top_t *profile = &phy->profile;
 	struct spi_device *spi = phy->spi;
 	adi_apollo_device_t *device = &phy->ad9088;
@@ -4380,6 +4443,24 @@ static int ad9088_setup(struct ad9088_phy *phy)
 	if (ret)
 		return dev_err_probe(&spi->dev, ret,
 				     "Error displaying version info. This may indicate device clock is incorrect\n");
+
+	if (phy->cddc_sample_delay_en) {
+		ret = adi_apollo_bmem_cddc_delay_sample_config(device, ADI_APOLLO_BMEM_ALL,
+							       &config);
+		ret = ad9088_check_apollo_error(&spi->dev, ret,
+						"adi_apollo_bmem_cddc_delay_sample_config");
+		if (ret)
+			return ret;
+	}
+
+	if (phy->fddc_sample_delay_en) {
+		ret = adi_apollo_bmem_fddc_delay_sample_config(device, ADI_APOLLO_BMEM_ALL,
+							       &config);
+		ret = ad9088_check_apollo_error(&spi->dev, ret,
+						"adi_apollo_bmem_fddc_delay_sample_config");
+		if (ret)
+			return ret;
+	}
 
 	if (phy->sniffer_en) {
 		ret = adi_apollo_sniffer_enable_set(device, ADI_APOLLO_SIDE_ALL, ADI_APOLLO_ENABLE);
