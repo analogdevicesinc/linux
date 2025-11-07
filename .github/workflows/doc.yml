@@ -12,16 +12,18 @@ on:
 
 jobs:
   build-doc:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
 
     steps:
-    - uses: analogdevicesinc/doctools/checkout@v1
+    - uses: analogdevicesinc/doctools/checkout@action
 
     - name: Install pip packages
       run: |
-        python3.11 -m venv ~/venv
+        python3 -m venv ~/venv
         source ~/venv/bin/activate
-        pip3.11 install -r docs/requirements.txt --upgrade
+        pip3 install -r docs/requirements.txt --upgrade
 
     - name: Build doc
       working-directory: docs
@@ -36,36 +38,13 @@ jobs:
         path: docs/_build/html
 
   deploy-doc:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
     permissions:
       contents: write
     needs: build-doc
-    if: ${{ (github.ref == 'refs/heads/main') }}
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: 'gh-pages'
-
-    - name: Empty gh-pages
-      run: |
-        git rm -r . --quiet || true
-
-    - uses: actions/download-artifact@v4
+    - uses: analogdevicesinc/doctools/gh-pages-deploy@action
       with:
         name: html
-
-    - name: Patch doc build
-      run: |
-        rm -r _sources
-        touch .nojekyll
-
-    - name: Commit gh-pages
-      run: |
-        git add . >> /dev/null
-        git commit -m "deploy: ${GITHUB_SHA}" --allow-empty
-
-    - name: Push to gh-pages
-      run: |
-        git push origin gh-pages:gh-pages
 

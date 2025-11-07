@@ -5,8 +5,6 @@ on:
     branches:
       - main
       - ci/*
-      - rpi-6.1.y
-      - rpi-6.6.y
       - rpi-6.12.y
     paths-ignore:
       - '.github/**'
@@ -20,50 +18,60 @@ on:
 
 jobs:
   checks:
-    uses: ./.github/workflows/checks.yml
+    uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       ref_branch: "mirror/next/linux-next/master"
   build_gcc_x86_64:
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      ARCH: "x86"
-      DEFCONFIG: "adi_ci_defconfig"
+      compiler: "gcc"
+      arch: "x86"
+      defconfig: "adi_ci_defconfig"
   build_llvm_x86_64:
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      LLVM: "19"
-      ARCH: "x86"
-      DEFCONFIG: "adi_ci_defconfig"
-      CHECKS: true
+      compiler: "llvm"
+      arch: "x86"
+      defconfig: "adi_ci_defconfig"
+      checks: true
   build_gcc_aarch64:
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      CROSS_COMPILE: "aarch64-suse-linux-"
-      ARCH: "arm64"
-      DEFCONFIG: "adi_ci_defconfig"
+      compiler: "gcc"
+      arch: "arm64"
+      defconfig: "adi_ci_defconfig"
   build_gcc_arm:
-    uses: ./.github/workflows/build.yml
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
-      ARCH: "arm"
-      DEFCONFIG: "adi_ci_defconfig"
-      CHECKS: true
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "adi_ci_defconfig"
+      checks: true
   assert_checks:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
     needs:
       - checks
       - build_gcc_x86_64
@@ -86,94 +94,108 @@ jobs:
           job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
+          source ./runner_env.sh
           assert_labels
-  conditional_xlnx:
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref_name, 'ci/') || github.ref_name == 'main') ||
-      (github.event_name == 'pull_request' && startsWith(github.base_ref, 'ci/') || github.ref_name == 'main')
-    runs-on: [self-hosted, v1]
+  deploy_cloudsmith_checks:
     needs: [assert_checks]
-    steps:
-      - name: Conditional xilinx
-        run: echo xlnx
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    with:
+      artifacts: >
+        dist-adi_ci_defconfig-*
+
   build_gcc_arm_zynq_xcomm_adv7511_defconfig:
-    needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
-      ARCH: "arm"
-      DEFCONFIG: "zynq_xcomm_adv7511_defconfig"
-      AUTO_FROM_RANGE: false
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "zynq_xcomm_adv7511_defconfig"
+      auto_from_range: false
   build_gcc_arm_socfpga_adi_defconfig:
-    needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
-      ARCH: "arm"
-      DEFCONFIG: "socfpga_adi_defconfig"
-      AUTO_FROM_RANGE: false
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "socfpga_adi_defconfig"
+      auto_from_range: false
   build_gcc_arm_zynq_pluto_defconfig:
-    needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
-      ARCH: "arm"
-      DEFCONFIG: "zynq_pluto_defconfig"
-      AUTO_FROM_RANGE: false
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "zynq_pluto_defconfig"
+      auto_from_range: false
   build_gcc_arm_zynq_m2k_defconfig:
-    needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
-      ARCH: "arm"
-      DEFCONFIG: "zynq_m2k_defconfig"
-      AUTO_FROM_RANGE: false
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "zynq_m2k_defconfig"
+      auto_from_range: false
   build_gcc_aarch64_adi_zynqmp_defconfig:
-    needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      CROSS_COMPILE: "aarch64-suse-linux-"
-      ARCH: "arm64"
-      DEFCONFIG: "adi_zynqmp_defconfig"
-      AUTO_FROM_RANGE: false
+      compiler: "gcc"
+      arch: "arm64"
+      defconfig: "adi_zynqmp_defconfig"
+      auto_from_range: false
   build_gcc_arm_adi_versal_defconfig:
-    needs: [conditional_xlnx]
-    uses: ./.github/workflows/build.yml
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
-      ARCH: "arm"
-      DEFCONFIG: "adi_versal_defconfig"
-      AUTO_FROM_RANGE: false
-  many_devicetrees:
-    needs: [conditional_xlnx]
-    uses: ./.github/workflows/many_devicetrees.yml
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "adi_versal_defconfig"
+      auto_from_range: false
+  compile_devicetrees:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
-      CXX: "14"
-      ARCHS: "arm arm64 microblaze nios2"
-      DTS_FILES: >
+      compiler: "gcc"
+      archs: "arm arm64 microblaze nios2"
+      dts_files: >
         arch/microblaze/boot/dts/*.dts
         arch/arm/boot/dts/xilinx/zynq-*.dts
         arch/arm/boot/dts/intel/socfpga/socfpga_*.dts
         arch/arm64/boot/dts/xilinx/zynqmp-*.dts
         arch/arm64/boot/dts/xilinx/versal-*.dts
         arch/nios2/boot/dts/*.dts
-  assert_build_xlnx:
-    runs-on: [self-hosted, v1]
+  assert_build:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
     needs:
       - build_gcc_arm_zynq_xcomm_adv7511_defconfig
       - build_gcc_arm_socfpga_adi_defconfig
@@ -181,7 +203,7 @@ jobs:
       - build_gcc_arm_zynq_m2k_defconfig
       - build_gcc_aarch64_adi_zynqmp_defconfig
       - build_gcc_arm_adi_versal_defconfig
-      - many_devicetrees
+      - compile_devicetrees
     steps:
       - name: Assert
         env:
@@ -191,101 +213,34 @@ jobs:
           job_warn_build_gcc_arm_zynq_m2k_defconfig: ${{needs.build_gcc_arm_zynq_m2k_defconfig.outputs.warn}}
           job_warn_build_gcc_aarch64_adi_zynqmp_defconfig: ${{needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.warn}}
           job_warn_build_gcc_arm_adi_versal_defconfig: ${{needs.build_gcc_arm_adi_versal_defconfig.outputs.warn}}
-          job_warn_many_devicetrees: ${{needs.many_devicetrees.outputs.warn}}
+          job_warn_compile_devicetrees: ${{needs.compile_devicetrees.outputs.warn}}
           job_fail_build_gcc_arm_zynq_xcomm_adv7511_defconfig: ${{needs.build_gcc_arm_zynq_xcomm_adv7511_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_socfpga_adi_defconfig: ${{needs.build_gcc_arm_socfpga_adi_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_zynq_pluto_defconfig: ${{needs.build_gcc_arm_zynq_pluto_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_zynq_m2k_defconfig: ${{needs.build_gcc_arm_zynq_m2k_defconfig.outputs.fail}}
           job_fail_build_gcc_aarch64_adi_zynqmp_defconfig: ${{needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_adi_versal_defconfig: ${{needs.build_gcc_arm_adi_versal_defconfig.outputs.fail}}
-          job_fail_many_devicetrees: ${{needs.many_devicetrees.outputs.fail}}
+          job_fail_compile_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
+          source ./runner_env.sh
           assert_labels
-  conditional_rpi:
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref_name, 'rpi-')) ||
-      (github.event_name == 'pull_request' && startsWith(github.base_ref, 'rpi-'))
-    runs-on: [self-hosted, v1]
-    needs: [assert_checks]
-    steps:
-      - name: Conditional rpi
-        run: echo rpi
-  build_gcc_arm_adi_bcm2709_defconfig:
-    needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
+  deploy_cloudsmith_build:
+    needs: [assert_build]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
     secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
     with:
-      CXX: "14"
-      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
-      ARCH: "arm"
-      DEFCONFIG: "adi_bcm2709_defconfig"
-      AUTO_FROM_RANGE: false
-  build_gcc_arm_adi_bcm2711_defconfig:
-    needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
-    secrets: inherit
-    with:
-      CXX: "14"
-      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
-      ARCH: "arm"
-      DEFCONFIG: "adi_bcm2711_defconfig"
-      AUTO_FROM_RANGE: false
-  build_gcc_arm_adi_bcmrpi_defconfig:
-    needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
-    secrets: inherit
-    with:
-      CXX: "14"
-      CROSS_COMPILE: "arm-suse-linux-gnueabi-"
-      ARCH: "arm"
-      DEFCONFIG: "adi_bcmrpi_defconfig"
-      AUTO_FROM_RANGE: false
-  build_gcc_aarch64_adi_bcm2711_defconfig:
-    needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
-    secrets: inherit
-    with:
-      CXX: "14"
-      CROSS_COMPILE: "aarch64-suse-linux-"
-      ARCH: "arm64"
-      DEFCONFIG: "adi_bcm2711_defconfig"
-      AUTO_FROM_RANGE: false
-  build_gcc_aarch64_adi_bcm2712_defconfig:
-    needs: [conditional_rpi]
-    uses: ./.github/workflows/build.yml
-    secrets: inherit
-    with:
-      CXX: "14"
-      CROSS_COMPILE: "aarch64-suse-linux-"
-      ARCH: "arm64"
-      DEFCONFIG: "adi_bcm2712_defconfig"
-      AUTO_FROM_RANGE: false
-  assert_build_rpi:
-    runs-on: [self-hosted, v1]
-    needs:
-      - build_gcc_arm_adi_bcm2709_defconfig
-      - build_gcc_arm_adi_bcm2711_defconfig
-      - build_gcc_arm_adi_bcmrpi_defconfig
-      - build_gcc_aarch64_adi_bcm2711_defconfig
-      - build_gcc_aarch64_adi_bcm2712_defconfig
-    steps:
-      - name: Assert
-        env:
-          job_warn_build_gcc_arm_adi_bcm2709_defconfig: ${{needs.build_gcc_arm_adi_bcm2709_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_adi_bcm2711_defconfig: ${{needs.build_gcc_arm_adi_bcm2711_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_adi_bcmrpi_defconfig: ${{needs.build_gcc_arm_adi_bcmrpi_defconfig.outputs.warn}}
-          job_warn_build_gcc_aarch64_adi_bcm2711_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2711_defconfig.outputs.warn}}
-          job_warn_build_gcc_aarch64_adi_bcm2712_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2712_defconfig.outputs.warn}}
-          job_fail_build_gcc_arm_adi_bcm2709_defconfig: ${{needs.build_gcc_arm_adi_bcm2709_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_adi_bcm2711_defconfig: ${{needs.build_gcc_arm_adi_bcm2711_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_adi_bcmrpi_defconfig: ${{needs.build_gcc_arm_adi_bcmrpi_defconfig.outputs.fail}}
-          job_fail_build_gcc_aarch64_adi_bcm2711_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2711_defconfig.outputs.fail}}
-          job_fail_build_gcc_aarch64_adi_bcm2712_defconfig: ${{needs.build_gcc_aarch64_adi_bcm2712_defconfig.outputs.fail}}
-        run: |
-          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
-          assert_labels
+      artifacts: >
+        dist-adi_versal_defconfig-*
+        dist-adi_zynqmp_defconfig-*
+        dist-socfpga_adi_defconfig-*
+        dist-zynq_m2k_defconfig-*
+        dist-zynq_pluto_defconfig-*
+        dist-zynq_xcomm_adv7511_defconfig-*
+        dist-dtb-*

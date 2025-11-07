@@ -6,40 +6,44 @@ on:
       - main
 
 jobs:
-  sync_branches:
-    runs-on: [self-hosted, v1]
+  cherry_pick_adi:
+    uses: analogdevicesinc/linux/.github/workflows/cherry-pick.yml@ci
+    secrets: inherit
     permissions:
       contents: write
       actions: write
-    outputs:
-      fail: ${{ steps.assert.outputs.fail }}
-      warn: ${{ steps.assert.outputs.warn }}
-
-    steps:
-    - uses: analogdevicesinc/doctools/checkout@v1
-
-    - name: update-mirror
-      run: |
-        source ci/maintenance.sh
-        sync_branches "adi-6.12.0 rpi-6.12.y"
-
-    - name: Export labels
-      id: assert
-      run: |
-        source ci/runner_env.sh
-        export_labels
+    with:
+      branch: adi-6.12.0
+    if: ${{ github.repository_owner == 'analogdevicesinc' }}
+  cherry_pick_rpi:
+    uses: analogdevicesinc/linux/.github/workflows/cherry-pick.yml@ci
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write
+    with:
+      branch: rpi-6.12.y
+      filter: |
+        .github/*
+    if: ${{ github.repository_owner == 'analogdevicesinc' }}
 
   assert:
-    runs-on: [self-hosted, v1]
-    needs: [sync_branches]
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
+    needs:
+      - cherry_pick_adi
+      - cherry_pick_rpi
 
     steps:
       - name: Assert checks
         env:
-          job_warn_sync_main: ${{needs.sync_branches.outputs.warn}}
-          job_fail_sync_main: ${{needs.sync_branches.outputs.fail}}
+          job_warn_cherry_pick_adi: ${{needs.cherry_pick_adi.outputs.warn}}
+          job_warn_cherry_pick_rpi: ${{needs.cherry_pick_rpi.outputs.warn}}
+          job_fail_cherry_pick_adi: ${{needs.cherry_pick_adi.outputs.fail}}
+          job_fail_cherry_pick_rpi: ${{needs.cherry_pick_rpi.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_SHA/ci/runner_env.sh
-          source runner_env.sh
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
+          source ./runner_env.sh
           assert_labels
