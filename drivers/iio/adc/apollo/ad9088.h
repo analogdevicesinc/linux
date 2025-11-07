@@ -116,6 +116,8 @@ enum {
 	FFH_CNCO_FREQUENCY,
 	FFH_CNCO_SELECT,
 	FFH_CNCO_MODE,
+	BMEM_CDDC_DELAY,
+	BMEM_FDDC_DELAY,
 };
 
 enum ad9088_iio_dev_attr {
@@ -241,6 +243,8 @@ struct ad9088_phy {
 	bool trig_sync_en;
 	bool mcs_cal_bg_tracking_run;
 	bool mcs_cal_bg_tracking_freeze;
+	bool cddc_sample_delay_en;
+	bool fddc_sample_delay_en;
 	u32 multidevice_instance_count;
 
 	struct ad9088_debugfs_entry debugfs_entry[20];
@@ -262,6 +266,9 @@ struct ad9088_phy {
 
 	u8 cfir_profile[NUM_RXTX][ADI_APOLLO_CFIR_ALL][ADI_APOLLO_CFIR_DP_ALL];
 	u8 cfir_enable[NUM_RXTX][ADI_APOLLO_CFIR_ALL][ADI_APOLLO_CFIR_DP_ALL];
+
+	u32 cddc_sample_delay[NUM_RXTX][MAX_NUM_MAIN_DATAPATHS];
+	u32 fddc_sample_delay[NUM_RXTX][MAX_NUM_CHANNELIZER];
 
 	u32 rx_nyquist_zone;
 	u8 jrx_lanes[24];

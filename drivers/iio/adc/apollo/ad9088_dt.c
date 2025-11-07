@@ -181,6 +181,9 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 	phy->fnco_dual_modulus_mode_en = of_property_read_bool(node, "adi,fnco-dual-modulus-mode-en");
 	phy->cnco_dual_modulus_mode_en = of_property_read_bool(node, "adi,cnco-dual-modulus-mode-en");
 
+	phy->cddc_sample_delay_en = of_property_read_bool(node, "adi,cddc-bmem-sample-delay-en");
+	phy->fddc_sample_delay_en = of_property_read_bool(node, "adi,fddc-bmem-sample-delay-en");
+
 	ad9088_jesd_lane_setup(phy);
 
 	found = of_property_read_bool(node, "adi,dformat-ddc-dither-en");
