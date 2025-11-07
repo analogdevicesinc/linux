@@ -388,6 +388,22 @@ static int ad9088_jesd204_setup_stage2(struct jesd204_dev *jdev,
 		return ret;
 	}
 
+	if (phy->cddc_sample_delay_en) {
+		ret = adi_apollo_bmem_cddc_delay_start(device, ADI_APOLLO_BMEM_ALL);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_bmem_cddc_delay_start");
+		if (ret)
+			return ret;
+	}
+
+	if (phy->fddc_sample_delay_en) {
+		ret = adi_apollo_bmem_fddc_delay_start(device, ADI_APOLLO_BMEM_ALL);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_bmem_fddc_delay_start");
+		if (ret)
+			return ret;
+	}
+
 	return JESD204_STATE_CHANGE_DONE;
 }
 
