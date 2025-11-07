@@ -600,7 +600,7 @@
 			/* Output debug loopback */
 			reg = <1>;
 			adi,extended-name = "BSYNC1_DEBUG";
-			auto-align-on-sync-en;
+			//auto-align-on-sync-en;
 			adi,input-output-reconfig-en;
 			adi,rcm = <62>; // LVDS
 			adi,link-rx-en;
@@ -611,7 +611,7 @@
 			/* Input debug loopback */
 			reg = <2>;
 			adi,extended-name = "BSYNC2_DEBUG";
-			auto-align-on-sync-en;
+			//auto-align-on-sync-en;
 			adi,input-output-reconfig-en;
 			adi,rcm = <62>;
 			adi,link-rx-en;
@@ -643,7 +643,7 @@
 			reg = <9>;
 			adi,extended-name = "SYSREF_OUT_FMC";
 			adi,output-en;
-			auto-align-on-sync-en;
+			//auto-align-on-sync-en;
 			adi,input-output-reconfig-en;
 			adi,rcm = <62>;
 		};
@@ -710,5 +710,9 @@
 		adi,subclass = <JESD_SUBCLASS>;
 
 		adi,invalid-en;
+
+		// adi,cddc-bmem-sample-delay-en;
+		// adi,fddc-bmem-sample-delay-en;
+
 	};
 };
