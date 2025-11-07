@@ -17,8 +17,12 @@
 #ifndef __DEVICE_PROFILE_PLL_RECONFIG_T_H__
 #define __DEVICE_PROFILE_PLL_RECONFIG_T_H__
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdint.h>
 #include <stdbool.h>
+#endif
 #include "adi_device_profile_pack.h"
 //#include "device_addr_def.h"
 

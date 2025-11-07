@@ -20,7 +20,11 @@
 #define __DEVICE_PROFILE_RX_GAINCONTROL_T_HEADER__
 
 #include "adi_device_profile_pack.h"
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdint.h>
+#endif
 
 /*!
  *  @addtogroup rx_gaincontrol
@@ -38,7 +42,7 @@ typedef struct
     uint16_t Hb2PeakUnderloadThresh; /*!< HB2 Peak underload threshold, Optional*/
     uint16_t Hb2SecondaryUpperThresh; /*!< HB2 Secondary upper threshold*/
     uint8_t padding[2];
-} rxNbAgcHighThresholdSettings_t; 
+} rxNbAgcHighThresholdSettings_t;
 ADI_NEVIS_PACK_FINISH
 
 /*! Gain Control settings*/
@@ -48,7 +52,7 @@ typedef struct
     bool rxNbAgcHighThresholdModeEnable; /*!< Enable PFIR on AGC Path*/
     uint8_t padding[3];
     rxNbAgcHighThresholdSettings_t agcHighThresholdSettings; /*!< rxNbAgc settings for the profile */
-} rx_gainControl_t; 
+} rx_gainControl_t;
 ADI_NEVIS_PACK_FINISH
 
 #endif /*! __DEVICE_PROFILE_RX_GAINCONTROL_T_HEADER__ */

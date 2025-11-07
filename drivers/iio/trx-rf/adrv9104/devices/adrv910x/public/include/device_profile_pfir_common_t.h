@@ -18,7 +18,11 @@
 #ifndef __DEVICE_PROFILE_PFIR_COMMON_T_H__
 #define __DEVICE_PROFILE_PFIR_COMMON_T_H__
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdint.h>
+#endif
 #include "adi_device_profile_pack.h"
 
 /**
@@ -71,7 +75,7 @@ typedef enum {
     PFIR_BANK_C = 2u,                       /*!< bank C */
     PFIR_BANK_D = 3u,                       /*!< bank D */
     PFIR_BANK_E = 4u,                       /*!< bank E */
-    PFIR_BANK_F = 5u,                       /*!< bank F */    
+    PFIR_BANK_F = 5u,                       /*!< bank F */
 } ADI_NEVIS_PACK_ENUM pfirBank_e;
 
 /**@}*/

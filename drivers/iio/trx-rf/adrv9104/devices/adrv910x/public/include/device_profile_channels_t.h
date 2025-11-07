@@ -15,8 +15,12 @@
 #ifndef __DEVICE_PROFILE_CHANNELS_T_HEADER__
 #define __DEVICE_PROFILE_CHANNELS_T_HEADER__
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdint.h>
 #include <stdbool.h>
+#endif
 #include "adi_device_profile_pack.h"
 
 /*!
@@ -43,13 +47,13 @@ typedef enum
     CHANNEL_ID_RX1      = 0u,  /*!< ID for RX1                   */
     CHANNEL_ID_START    = 0u,  /*!< First ID for all channels    */
     CHANNEL_ID_RX_START = 0u,  /*!< First ID for all RX channels */
-    
+
     CHANNEL_ID_RXNB      = 1u,  /*!< ID for RX NB                */
     CHANNEL_ID_RX_END   = 1u,  /*!< Last ID for all RX channels  */
 
     CHANNEL_ID_TX1      = 2u,  /*!< ID for TX1                   */
     CHANNEL_ID_TX_START = 2u,  /*!< First ID for all TX channels */
-    
+
     CHANNEL_ID_TXNB      = 3u,  /*!< ID for TX NB                */
     CHANNEL_ID_TX_END   = 3u,  /*!< Last ID for all TX channels  */
 
@@ -152,7 +156,7 @@ typedef enum
  */
 typedef enum
 {
-  
+
     CHANNEL_PROFILE_RX       = 0u,  /*!< Normal RX path with high power ADC */
     CHANNEL_PROFILE_START    = 0u,  /*!< First ID of all the profiles       */
     CHANNEL_PROFILE_RX_START = 0u,  /*!< First ID of all the RX profiles    */
@@ -160,7 +164,7 @@ typedef enum
     CHANNEL_PROFILE_ILB      = 2u,  /*!< RX in internal loopback path       */
     CHANNEL_PROFILE_ELB      = 3u,  /*!< RX in external loopback path       */
     CHANNEL_PROFILE_RX_END   = 4u,  /*!< Last ID of all the RX profiles     */
-    
+
     CHANNEL_PROFILE_TX       = 5u,  /*!< Normal TX path                     */
     CHANNEL_PROFILE_TX_START = 5u,  /*!< First ID of all the TX profiles    */
     CHANNEL_PROFILE_TX_END   = 5u,  /*!< Last ID of all the TX profiles     */
@@ -197,7 +201,7 @@ typedef enum
 #define PROFILE_BITM_LBDP    ( PROFILE_BITM_ORX \
                              | PROFILE_BITM_ILB \
                              | PROFILE_BITM_ELB )
- 
+
 /* Test if the channel is valid by comparing to the channel mask */
 #define IS_RX_DP_PROFILE(profId) (((PROFILE_BITM_RXDP) & ((1u)<<(profId))) != 0u)
 #define IS_TX_DP_PROFILE(profId) (((PROFILE_BITM_TXDP) & ((1u)<<(profId))) != 0u)
