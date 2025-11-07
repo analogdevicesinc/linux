@@ -23,7 +23,12 @@ extern "C" {
 
 //#define ADRV910X_INIT_DEBUG 1
 #ifdef ADRV910X_INIT_DEBUG
+#ifdef __KERNEL__
+#include <linux/printk.h>
+#define printf(...)     pr_info(__VA_ARGS__)
+#else
 #include <stdio.h>
+#endif
 #define ADRV910X_DEBUG_INFO(x) printf("MESSAGE: %s ******************************* \n", (x));
 #define ADRV910X_DEBUG_INFO_NUM(x,n) printf("MESSAGE: %s: %d 0x%08x \n", (x),(n),(n));
 #else
@@ -180,7 +185,7 @@ int32_t adrv910x_InitAnalog(adi_adrv910x_Device_t *device,
 */
 int32_t adrv910x_SetDeviceClockOutDivider(adi_adrv910x_Device_t *adrv910x,
 	adi_adrv910x_DeviceClockDivisor_e adrv910xDeviceClockOutDivisor);
-	
+
 #ifdef __cplusplus
 }
 #endif
