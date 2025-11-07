@@ -1627,7 +1627,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Rx_InterfaceGain_Confi
     ADI_EXPECT(adi_adrv910x_Rx_InterfaceGain_Validate,
                device,
                channel,
-               device->devStateInfo.gainTableType[channel - 1],
+               (adi_adrv910x_RxGainTableType_e)device->devStateInfo.gainTableType[channel - 1],
                rxInterfaceGainCtrl->gain);
 
     ADI_RANGE_CHECK(device,
