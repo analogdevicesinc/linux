@@ -37,4 +37,5 @@ Industrial I/O Kernel Drivers
    adxl345
    bno055
    ep93xx_adc
+   max22007
    opt4060
