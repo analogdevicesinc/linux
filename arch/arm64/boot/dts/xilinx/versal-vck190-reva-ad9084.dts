@@ -59,6 +59,12 @@
 	};
 };
 
+&cpu_opp_table {
+	opp00 {
+		opp-hz = /bits/ 64 <1399999988>;
+	};
+};
+
 &gic {
 	num_cpus = <2>;
 	num_interrupts = <96>;
