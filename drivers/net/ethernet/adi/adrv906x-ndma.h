@@ -56,13 +56,13 @@
 #define NDMA_RX_WU_BUF_SIZE                ALIGN(1536 + NDMA_RX_HDR_DATA_SIZE + NET_IP_ALIGN, 32)
 #define NDMA_RX_PKT_BUF_SIZE               (NDMA_RX_WU_BUF_SIZE - NDMA_RX_HDR_DATA_SIZE)
 
-#define NDMA_TX_RING_SIZE                  64
+#define NDMA_TX_RING_SIZE                  32
 #define NDMA_TX_NAPI_POLL_WEIGHT           (NDMA_TX_RING_SIZE / 2)
 #define NDMA_RX_RING_SIZE                  128
 #define NDMA_RX_NAPI_POLL_WEIGHT           (NDMA_RX_RING_SIZE / 2)
 
 /* default timestamp timeout delay */
-#define NDMA_TS_TX_DELAY 0x9975
+#define NDMA_TX_TS_DELAY 0x17fa5
 
 enum adrv906x_ndma_chan_type {
 	NDMA_TX_CHANNEL,
@@ -101,6 +101,7 @@ union adrv906x_ndma_chan_stats {
 		u64 done_work_units;
 		u64 status_dma_errors;
 		u64 data_dma_errors;
+		u64 recovery_count;
 	} tx;
 	struct {
 		u64 frame_errors;
@@ -143,7 +144,8 @@ struct adrv906x_ndma_chan {
 	unsigned int tx_head;   /* Next entry in tx ring to give a new buffer */
 	unsigned int tx_frames_waiting;
 	unsigned int tx_frames_pending;
-	struct timer_list tx_timer;
+	unsigned int tx_retry_count;
+	struct hrtimer tx_frames_timer;
 
 	/* RX DMA channel related fields */
 	void __iomem *rx_dma_base;
@@ -195,7 +197,7 @@ int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff 
 			     unsigned char port, bool hw_tstamp_en, bool dsa_en);
 int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 			struct device_node *ndma_np, struct adrv906x_ndma_dev *ndma_dev,
-			bool flood_mitigate_supported);
+			bool switch_enabled);
 void adrv906x_ndma_remove(struct adrv906x_ndma_dev *ndma_dev);
 void adrv906x_ndma_set_ptp_mode(struct adrv906x_ndma_dev *ndma_dev, u32 ptp_mode);
 void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_pkt_callback tx_cb_fn,

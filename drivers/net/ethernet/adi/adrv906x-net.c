@@ -241,7 +241,7 @@ static int adrv906x_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
 	int port = adrv906x_dev->port;
-	bool hw_tstamp_en, dsa_en;
+	bool hw_tstamp_req, dsa_en;
 	unsigned long flags;
 	int ret;
 
@@ -250,14 +250,14 @@ static int adrv906x_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		netif_stop_queue(ndev);
 	spin_unlock_irqrestore(&adrv906x_dev->lock, flags);
 
-	hw_tstamp_en = (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ? 1 : 0;
-	if (hw_tstamp_en)
+	hw_tstamp_req = (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ? 1 : 0;
+	if (hw_tstamp_req)
 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 	skb_tx_timestamp(skb);
 
 	dsa_en = es->enabled ? 1 : 0;
 
-	ret = adrv906x_ndma_start_xmit(ndma_dev, skb, port, hw_tstamp_en, dsa_en);
+	ret = adrv906x_ndma_start_xmit(ndma_dev, skb, port, hw_tstamp_req, dsa_en);
 
 	return ret ? NETDEV_TX_BUSY : NETDEV_TX_OK;
 }
