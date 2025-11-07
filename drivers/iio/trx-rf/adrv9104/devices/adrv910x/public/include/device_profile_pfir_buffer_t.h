@@ -19,7 +19,11 @@
 #define __DEVICE_PROFILE_PFIR_BUFFER_T_H__
 
 #include "adi_device_profile_pack.h"
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdint.h>
+#endif
 #include "device_profile_pfir_common_t.h"
 #include "device_profile_pfir_mag_t.h"
 #include "device_profile_pfir_pulse_t.h"
@@ -42,7 +46,7 @@ typedef struct {
 	pfirWbNbBuffer_t     pfirRxWbNbChFilterCoeff_C;
 	pfirWbNbBuffer_t     pfirRxWbNbChFilterCoeff_D;
 	pfirWbNbBuffer_t     pfirRxWbNbChFilterCoeff_E;
-	pfirWbNbBuffer_t     pfirRxWbNbChFilterCoeff_F;    
+	pfirWbNbBuffer_t     pfirRxWbNbChFilterCoeff_F;
     /*!<TX WB/NB Preprocessing pulse shaping PFIR coefficient Bank A/B in TX preproc*/
 	pfirWbNbBuffer_t     pfirTxWbNbPulShpCoeff_A;
 	pfirWbNbBuffer_t     pfirTxWbNbPulShpCoeff_B;
