@@ -79,7 +79,7 @@
 #define ADA4355_ENABLE_ERROR_MASK		0x00C8
 
 static const int ada4355_scale_table[][2] = {
-	{6000, 0},
+	{2000, 0}, /* 2V differential range (±1V) for 1V reference ADC */
 };
 
 struct ada4355_state {
