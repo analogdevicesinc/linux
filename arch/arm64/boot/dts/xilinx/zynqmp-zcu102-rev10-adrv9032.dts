@@ -100,7 +100,7 @@
 			adi,divider-phase = <0>;
 			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
-			//adi,output-dis;
+			// adi,output-dis;
 		};
 
 		ad9528_0_c11: channel@11 {
@@ -110,7 +110,7 @@
 			adi,divider-phase = <0>;
 			adi,channel-divider = <2>;
 			adi,signal-source = <SOURCE_VCO>;
-			adi,output-dis;
+			// adi,output-dis;
 		};
 
 		ad9528_0_c12: channel@12 {
@@ -130,7 +130,7 @@
 			adi,divider-phase = <0>;
 			adi,channel-divider = <2>;
 			adi,signal-source = <SOURCE_VCO>;
-			adi,output-dis;
+			// adi,output-dis;
 		};
 	};
 
@@ -270,8 +270,10 @@
 
 			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv903x_adxcvr_rx 0>;
-			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+			// clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv903x_adxcvr_rx 0>;
+			// clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv903x_adxcvr_rx 0>, <&clk0_ad9528 3>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
 
 			#clock-cells = <0>;
 			clock-output-names = "jesd_rx_lane_clk";
@@ -287,8 +289,10 @@
 
 			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_adrv903x_adxcvr_tx 0>;
-			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+			// clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_adrv903x_adxcvr_tx 0>;
+			// clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+			clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_adrv903x_adxcvr_tx 0>, <&clk0_ad9528 3>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
 
 			#clock-cells = <0>;
 			clock-output-names = "jesd_tx_lane_clk";
@@ -313,6 +317,7 @@
 
 			adi,sys-clk-select = <XCVR_QPLL>;
 			adi,out-clk-select = <XCVR_REFCLK>;
+			// adi,out-clk-select = <XCVR_PROGDIV_CLK>;
 
 			jesd204-device;
 			#jesd204-cells = <2>;
@@ -334,6 +339,7 @@
 
 			adi,sys-clk-select = <XCVR_QPLL>;
 			adi,out-clk-select = <XCVR_REFCLK>;
+			// adi,out-clk-select = <XCVR_PROGDIV_CLK>;
 
 			jesd204-device;
 			#jesd204-cells = <2>;
