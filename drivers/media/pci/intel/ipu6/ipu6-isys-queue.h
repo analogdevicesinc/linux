@@ -60,6 +60,8 @@ struct ipu6_isys_buffer_list {
 void ipu6_isys_buffer_list_queue(struct ipu6_isys_buffer_list *bl,
 				 unsigned long op_flags,
 				 enum vb2_buffer_state state);
+int ipu6_isys_buffer_list_get(struct ipu6_isys_stream *stream,
+			      struct ipu6_isys_buffer_list *bl);
 void ipu6_isys_queue_buf_ready(struct ipu6_isys_stream *stream,
 			       struct ipu6_fw_isys_resp_info_abi *info);
 int ipu6_isys_queue_init(struct ipu6_isys_queue *aq);

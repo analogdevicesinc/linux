@@ -23,6 +23,7 @@
 #include "ipu6-isys.h"
 #include "ipu6-isys-csi2.h"
 #include "ipu6-isys-subdev.h"
+#include "ipu6-isys-video.h"
 #include "ipu6-platform-isys-csi2-reg.h"
 #include "ipu7-isys-csi2-regs.h"
 
@@ -442,9 +443,25 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 	struct ipu6_isys_csi2 *csi2 = to_ipu6_isys_csi2(asd);
 	struct ipu6_device *isp = asd->isys->adev->isp;
 	struct v4l2_subdev *remote_sd;
-	struct media_pad *remote_pad;
+	struct media_pad *remote_pad,
+		*vdev_pad = media_pad_remote_pad_unique(&sd->entity.pads[pad]);
+	struct ipu6_isys_video *av =
+		container_of_const(vdev_pad, struct ipu6_isys_video, pad);
+	struct ipu6_isys_buffer_list bl;
 	u64 sink_streams;
 	int ret;
+
+	ret = ipu6_isys_buffer_list_get(av->stream, &bl);
+	if (ret < 0) {
+		dev_warn(sd->dev, "no buffer available, DRIVER BUG?\n");
+		return ret;
+	}
+
+	ret = ipu6_isys_start_stream_firmware(av, &bl);
+	if (ret) {
+		dev_err(sd->dev, "start stream of firmware failed\n");
+		goto err_return_buffers;
+	}
 
 	remote_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
 	remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
@@ -456,30 +473,43 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 	ret = IS_IPU7(isp) ? ipu7_isys_csi2_stream_enable(csi2) :
 			     ipu6_isys_csi2_stream_enable(csi2);
 	if (ret)
-		return ret;
+		goto err_stop_stream_firmware;
 
 	ret = v4l2_subdev_enable_streams(remote_sd, remote_pad->index,
 					 sink_streams);
-	if (ret) {
-		if IS_IPU7(isp)
-			ipu7_isys_csi2_stream_disable(csi2);
-		else
-			ipu6_isys_csi2_stream_disable(csi2);
-		return ret;
-	}
+	if (ret)
+		goto err_stop_stream_csi2;
 
 	return 0;
+
+err_stop_stream_csi2:
+	if (IS_IPU7(isp))
+		ipu7_isys_csi2_stream_disable(csi2);
+	else
+		ipu6_isys_csi2_stream_disable(csi2);
+
+err_stop_stream_firmware:
+	ipu6_isys_stop_streaming_firmware(av);
+	ipu6_isys_close_streaming_firmware(av);
+
+err_return_buffers:
+	ipu6_isys_buffer_list_queue(&bl, IPU6_ISYS_BUFFER_LIST_FL_INCOMING, 0);
+
+	return ret;
 }
 
 static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 					  struct v4l2_subdev_state *state,
 					  u32 pad, u64 streams_mask)
 {
+	struct media_pad *remote_pad,
+		*vdev_pad = media_pad_remote_pad_unique(&sd->entity.pads[pad]);
+	struct ipu6_isys_video *av =
+		container_of_const(vdev_pad, struct ipu6_isys_video, pad);
 	struct ipu6_isys_subdev *asd = to_ipu6_isys_subdev(sd);
 	struct ipu6_isys_csi2 *csi2 = to_ipu6_isys_csi2(asd);
 	struct ipu6_device *isp = asd->isys->adev->isp;
 	struct v4l2_subdev *remote_sd;
-	struct media_pad *remote_pad;
 	u64 sink_streams;
 
 	sink_streams =
@@ -489,12 +519,16 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 	remote_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
 	remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
 
+	ipu6_isys_stop_streaming_firmware(av);
+
 	if IS_IPU7(isp)
 		ipu7_isys_csi2_stream_disable(csi2);
 	else
 		ipu6_isys_csi2_stream_disable(csi2);
 
 	v4l2_subdev_disable_streams(remote_sd, remote_pad->index, sink_streams);
+
+	ipu6_isys_close_streaming_firmware(av);
 
 	return 0;
 }

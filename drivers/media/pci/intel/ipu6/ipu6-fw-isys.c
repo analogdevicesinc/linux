@@ -774,7 +774,7 @@ static int ipu6_isys_fw_pin_cfg(struct ipu6_isys_video *av,
 	int output_pins;
 	u32 src_stream;
 
-	src_stream = ipu6_isys_get_src_stream_by_src_pad(sd, src_pad->index);
+	src_stream = __ipu6_isys_get_src_stream_by_src_pad(state, src_pad->index);
 	fmt = *v4l2_subdev_state_get_format(state, src_pad->index, src_stream);
 	v4l2_crop = *v4l2_subdev_state_get_crop(state, src_pad->index, src_stream);
 

@@ -450,8 +450,8 @@ static void put_stream_opened(struct ipu6_isys_video *av)
 	spin_unlock_irqrestore(&av->isys->streams_lock, flags);
 }
 
-static int start_stream_firmware(struct ipu6_isys_video *av,
-				 struct ipu6_isys_buffer_list *bl)
+int ipu6_isys_start_stream_firmware(struct ipu6_isys_video *av,
+				    struct ipu6_isys_buffer_list *bl)
 {
 	struct ipu6_bus_device *adev = av->isys->adev;
 	const struct ipu6_fw_isys_ops *fw_ops = adev->auxdrv_data->fw_ops;
@@ -499,23 +499,18 @@ static int start_stream_firmware(struct ipu6_isys_video *av,
 	}
 	dev_dbg(dev, "start stream: open complete\n");
 
-	if (bl) {
-		msg = ipu6_get_fw_msg_buf(stream);
-		if (!msg) {
-			ret = -ENOMEM;
-			goto out_put_stream_opened;
-		}
-
-		fw_ops->prepare_buf_set(msg, stream, bl);
-		ipu6_isys_buffer_list_queue(bl,
-					    IPU6_ISYS_BUFFER_LIST_FL_ACTIVE, 0);
+	msg = ipu6_get_fw_msg_buf(stream);
+	if (!msg) {
+		ret = -ENOMEM;
+		goto out_put_stream_opened;
 	}
+	fw_ops->prepare_buf_set(msg, stream, bl);
+	ipu6_isys_buffer_list_queue(bl, IPU6_ISYS_BUFFER_LIST_FL_ACTIVE, 0);
 
 	reinit_completion(&stream->stream_start_completion);
 
 	ret = fw_ops->stream_start(av->isys, stream->stream_handle, msg,
 				   capture);
-
 	if (ret < 0) {
 		dev_err(dev, "can't start streaming (%d)\n", ret);
 		goto out_stream_close;
@@ -561,7 +556,7 @@ out_put_stream_opened:
 	return ret;
 }
 
-static void stop_streaming_firmware(struct ipu6_isys_video *av)
+void ipu6_isys_stop_streaming_firmware(struct ipu6_isys_video *av)
 {
 	struct ipu6_bus_device *adev = av->isys->adev;
 	const struct ipu6_fw_isys_ops *fw_ops = adev->auxdrv_data->fw_ops;
@@ -587,7 +582,7 @@ static void stop_streaming_firmware(struct ipu6_isys_video *av)
 		dev_dbg(dev, "stop stream: complete\n");
 }
 
-static void close_streaming_firmware(struct ipu6_isys_video *av)
+void ipu6_isys_close_streaming_firmware(struct ipu6_isys_video *av)
 {
 	struct ipu6_bus_device *adev = av->isys->adev;
 	const struct ipu6_fw_isys_ops *fw_ops = adev->auxdrv_data->fw_ops;
@@ -889,8 +884,7 @@ static u64 get_stream_mask_by_pipeline(struct ipu6_isys_video *__av)
 	return stream_mask;
 }
 
-int ipu6_isys_video_set_streaming(struct ipu6_isys_video *av, int state,
-				  struct ipu6_isys_buffer_list *bl)
+int ipu6_isys_video_set_streaming(struct ipu6_isys_video *av, int state)
 {
 	struct v4l2_subdev_krouting *routing;
 	struct ipu6_isys_stream *stream = av->stream;
@@ -920,8 +914,6 @@ int ipu6_isys_video_set_streaming(struct ipu6_isys_video *av, int state,
 
 	stream_mask = get_stream_mask_by_pipeline(av);
 	if (!state) {
-		stop_streaming_firmware(av);
-
 		/* stop sub-device which connects with video */
 		dev_dbg(dev, "stream off entity %s pad:%d mask:0x%llx\n",
 			sd->name, r_pad->index, stream_mask);
@@ -930,33 +922,17 @@ int ipu6_isys_video_set_streaming(struct ipu6_isys_video *av, int state,
 		if (ret)
 			dev_err(dev, "stream off %s failed with %d\n", sd->name,
 				ret);
-
-		close_streaming_firmware(av);
 	} else {
-		ret = start_stream_firmware(av, bl);
-		if (ret) {
-			dev_err(dev, "start stream of firmware failed\n");
-			return ret;
-		}
-
 		/* start sub-device which connects with video */
 		dev_dbg(dev, "stream on %s pad %d mask 0x%llx\n", sd->name,
 			r_pad->index, stream_mask);
 		ret = v4l2_subdev_enable_streams(sd, r_pad->index, stream_mask);
-		if (ret) {
+		if (ret)
 			dev_err(dev, "stream on %s failed with %d\n", sd->name,
 				ret);
-			goto out_media_entity_stop_streaming_firmware;
-		}
 	}
 
 	av->streaming = state;
-
-	return 0;
-
-out_media_entity_stop_streaming_firmware:
-	stop_streaming_firmware(av);
-	close_streaming_firmware(av);
 
 	return ret;
 }
