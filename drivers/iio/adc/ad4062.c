@@ -470,15 +470,17 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 	int ret;
 
 	ret = fwnode_irq_get_byname(dev_fwnode(&st->i3cdev->dev), "gp1");
-	if (ret >= 0) {
-		ret = devm_request_threaded_irq(dev, ret, NULL,
-						 ad4062_irq_handler_drdy,
-						 IRQF_ONESHOT, indio_dev->name,
-						 indio_dev);
-	} else if (ret != -EPROBE_DEFER) {
+	if (ret == -EPROBE_DEFER) {
+		return ret;
+	} else if (ret < 0) {
 		ret = regmap_update_bits(st->regmap, AD4062_REG_ADC_IBI_EN,
 					 AD4062_REG_ADC_IBI_EN_CONV_TRIGGER,
 					 AD4062_REG_ADC_IBI_EN_CONV_TRIGGER);
+	} else {
+		ret = devm_request_threaded_irq(dev, ret,
+						 ad4062_irq_handler_drdy,
+						 NULL, IRQF_ONESHOT, indio_dev->name,
+						 indio_dev);
 	}
 
 	return ret;
