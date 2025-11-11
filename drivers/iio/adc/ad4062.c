@@ -75,44 +75,31 @@
 #define AD4062_REG_CONV_READ				0x53
 #define AD4062_REG_CONV_TRIGGER				0x59
 #define AD4062_REG_CONV_AUTO				0x61
-#define AD4062_MAX_REG					0x61
+#define AD4062_MAX_REG					AD4062_REG_CONV_AUTO
 
 #define AD4062_I3C_VENDOR	0x0177
 
-#define AD4050_MAX_AVG		0x7
+#define AD4062_SOFT_RESET	0x81
+#define AD4060_MAX_AVG		0x7
 #define AD4062_MAX_AVG		0xB
-#define AD4062_MAX_RATE(x)	((x) == AD4062_2MSPS ? 2000000 : 500000)
 #define AD4062_FS_OFFSET(g)	((g) == AD4062_2MSPS ? 0 : 2)
 #define AD4062_FS(g)		(&ad4062_conversion_freqs[AD4062_FS_OFFSET(g)])
 #define AD4062_FS_LEN(g)	(ARRAY_SIZE(ad4062_conversion_freqs) - (AD4062_FS_OFFSET(g)))
 #define AD4062_MON_VAL_MAX_GAIN		1999970
 #define AD4062_MON_VAL_MIDDLE_POINT	0x8000
-#define AD4062_T_CNVH_NS	10
-#define AD4062_VIO_3V3		3300000
-#define AD4062_SPI_MAX_ADC_XFER_SPEED(x)	((x) >= AD4062_VIO_3V3 ? 83333333 : 58823529)
-#define AD4062_SPI_MAX_REG_XFER_SPEED		16000000
+#define AD4062_GP_INTR		0x1
+#define AD4062_GP_DRDY		0x2
+#define AD4062_INTR_EN_NEITHER	0x0
+#define AD4062_INTR_EN_EITHER	0x3
 
 enum ad4062_grade {
 	AD4062_2MSPS,
 };
 
 enum ad4062_operation_mode {
-	AD4062_SAMPLE_MODE = 0,
-	AD4062_BURST_AVERAGING_MODE = 1,
-	AD4062_MONITOR_MODE = 3,
-};
-
-enum ad4062_gp_mode {
-	AD4062_GP_DISABLED,
-	AD4062_GP_INTR,
-	AD4062_GP_DRDY,
-};
-
-enum ad4062_interrupt_en {
-	AD4062_INTR_EN_NEITHER,
-	AD4062_INTR_EN_MIN,
-	AD4062_INTR_EN_MAX,
-	AD4062_INTR_EN_EITHER,
+	AD4062_SAMPLE_MODE = 0x0,
+	AD4062_BURST_AVERAGING_MODE = 0x1,
+	AD4062_MONITOR_MODE = 0x3,
 };
 
 struct ad4062_chip_info {
@@ -269,7 +256,7 @@ static const struct ad4062_chip_info ad4060_chip_info = {
 	.name = "ad4060",
 	.channels = { AD4062_CHAN(12, AD4062_2MSPS) },
 	.prod_id = 0x7A,
-	.max_avg = AD4050_MAX_AVG,
+	.max_avg = AD4060_MAX_AVG,
 	.grade = AD4062_2MSPS,
 };
 
@@ -374,7 +361,7 @@ static int ad4062_set_operation_mode(struct ad4062_state *st,
 
 static int ad4062_soft_reset(struct ad4062_state *st)
 {
-	u8 val = 0x81;
+	u8 val = AD4062_SOFT_RESET;
 	int ret;
 
 	ret = regmap_write(st->regmap, AD4062_REG_INTERFACE_CONFIG_A, val);
@@ -398,17 +385,11 @@ static int ad4062_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	u8 val = FIELD_PREP(AD4062_REG_GP_CONF_MODE_MSK_0, AD4062_GP_INTR) |
-		 FIELD_PREP(AD4062_REG_GP_CONF_MODE_MSK_1, AD4062_GP_DRDY);
-
+	u8 val = FIELD_PREP(AD4062_REG_GP_CONF_MODE_MSK_1, AD4062_GP_DRDY);
 	ret = regmap_update_bits(st->regmap, AD4062_REG_GP_CONF,
-				 AD4062_REG_GP_CONF_MODE_MSK_1 | AD4062_REG_GP_CONF_MODE_MSK_0,
-				 val);
+				 AD4062_REG_GP_CONF_MODE_MSK_1, val);
 	if (ret)
 		return ret;
-
-	val = FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_0, (AD4062_INTR_EN_EITHER)) |
-	      FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_1, (AD4062_INTR_EN_NEITHER));
 
 	ret = regmap_update_bits(st->regmap, AD4062_REG_ADC_CONFIG,
 				 AD4062_REG_ADC_CONFIG_REF_EN_MSK,
@@ -422,9 +403,9 @@ static int ad4062_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	if (ret)
 		return ret;
 
+	val = FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_1, AD4062_INTR_EN_NEITHER);
 	ret = regmap_update_bits(st->regmap, AD4062_REG_INTR_CONF,
-				 AD4062_REG_INTR_CONF_EN_MSK_0 | AD4062_REG_INTR_CONF_EN_MSK_1,
-				 val);
+				 AD4062_REG_INTR_CONF_EN_MSK_1, val);
 	if (ret)
 		return ret;
 
@@ -450,6 +431,14 @@ static void ad4062_ibi_handler(struct i3c_device *i3cdev,
 	complete(&st->completion);
 }
 
+static void ad4062_remove_ibi(void *data)
+{
+	struct i3c_device *i3cdev = data;
+
+	i3c_device_disable_ibi(i3cdev);
+	i3c_device_free_ibi(i3cdev);
+}
+
 static int ad4062_request_ibi(struct i3c_device *i3cdev)
 {
 	const struct i3c_ibi_setup ibireq = {
@@ -466,7 +455,8 @@ static int ad4062_request_ibi(struct i3c_device *i3cdev)
 	ret = i3c_device_enable_ibi(i3cdev);
 	if (ret)
 		goto err_enable_ibi;
-	return 0;
+
+	return devm_add_action_or_reset(&i3cdev->dev, ad4062_remove_ibi, i3cdev);
 
 err_enable_ibi:
 	i3c_device_free_ibi(i3cdev);
@@ -621,7 +611,7 @@ static int __ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 	if (ret)
 		return ret;
 	*val = get_unaligned_be32(st->raw);
-	return ret;
+	return 0;
 }
 
 static int ad4062_read_chan_raw(struct iio_dev *indio_dev, int *val)
@@ -763,32 +753,37 @@ static const struct regmap_config ad4062_regmap_config = {
 static int ad4062_regulators_get(struct ad4062_state *st, bool *ref_sel)
 {
 	struct device *dev = &st->i3cdev->dev;
-	int uv;
+	int ret;
 
-	uv = devm_regulator_get_enable_read_voltage(dev, "vio");
-	if (uv < 0)
-		return dev_err_probe(dev, uv,
-				     "Failed to enable and read vio voltage\n");
-
-	uv = devm_regulator_get_enable_read_voltage(dev, "vdd");
-	if (uv < 0)
-		return dev_err_probe(dev, uv,
-				     "Failed to enable vdd regulator\n");
+	ret = devm_regulator_get_enable(dev, "vio");
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to enable vio voltage\n");
 
 	st->vref_uv = devm_regulator_get_enable_read_voltage(dev, "ref");
 	*ref_sel = st->vref_uv == -ENODEV;
-	if (st->vref_uv == -ENODEV)
-		st->vref_uv = uv;
-	else if (st->vref_uv < 0)
+	if (st->vref_uv < 0 && st->vref_uv != -ENODEV) {
 		return dev_err_probe(dev, st->vref_uv,
 				     "Failed to enable and read ref voltage\n");
+	} else if (st->vref_uv == -ENODEV) {
+		st->vref_uv = devm_regulator_get_enable_read_voltage(dev, "vdd");
+		if (st->vref_uv < 0)
+			return dev_err_probe(dev, st->vref_uv,
+					     "Failed to enable and read vdd voltage\n");
+	} else {
+		ret = devm_regulator_get_enable(dev, "vdd");
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "Failed to enable vdd regulator\n");
+	}
+
 	return 0;
 }
 
 static const struct i3c_device_id ad4062_id_table[] = {
 	I3C_DEVICE(AD4062_I3C_VENDOR, ad4060_chip_info.prod_id, &ad4060_chip_info),
 	I3C_DEVICE(AD4062_I3C_VENDOR, ad4062_chip_info.prod_id, &ad4062_chip_info),
-	{}
+	{ }
 };
 MODULE_DEVICE_TABLE(i3c, ad4062_id_table);
 
@@ -837,8 +832,7 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 
 	ret = ad4062_check_ids(st);
 	if (ret)
-		return dev_err_probe(dev, ret,
-				     "AD4062 fields assertions failed\n");
+		return ret;
 
 	ret = ad4062_setup(indio_dev, indio_dev->channels, &ref_sel);
 	if (ret)
@@ -863,12 +857,6 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 	return devm_iio_device_register(dev, indio_dev);
 }
 
-static void ad4062_remove(struct i3c_device *i3cdev)
-{
-	i3c_device_disable_ibi(i3cdev);
-	i3c_device_free_ibi(i3cdev);
-}
-
 static int ad4062_runtime_suspend(struct device *dev)
 {
 	struct ad4062_state *st = dev_get_drvdata(dev);
@@ -885,14 +873,15 @@ static int ad4062_runtime_resume(struct device *dev)
 
 	ret = regmap_clear_bits(st->regmap, AD4062_REG_DEVICE_CONFIG,
 				AD4062_REG_DEVICE_CONFIG_POWER_MODE_MSK);
+	if (ret)
+		return ret;
 
 	fsleep(4000);
-	return ret;
+	return 0;
 }
 
-static const struct dev_pm_ops ad4062_pm_ops = {
-	SET_RUNTIME_PM_OPS(ad4062_runtime_suspend, ad4062_runtime_resume, NULL)
-};
+static DEFINE_RUNTIME_DEV_PM_OPS(ad4062_pm_ops, ad4062_runtime_suspend,
+				 ad4062_runtime_resume, NULL);
 
 static struct i3c_driver ad4062_driver = {
 	.driver = {
@@ -900,7 +889,6 @@ static struct i3c_driver ad4062_driver = {
 		.pm = pm_ptr(&ad4062_pm_ops),
 	},
 	.probe = ad4062_probe,
-	.remove = ad4062_remove,
 	.id_table = ad4062_id_table,
 };
 module_i3c_driver(ad4062_driver);
