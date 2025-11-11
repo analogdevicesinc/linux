@@ -1,0 +1,329 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV903X
+ * https://wiki.analog.com/resources/eval/user-guides/adrv903x
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv903x
+ *
+ * hdl_project: <adrv903x/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020-2025 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adc/adi,adrv903x.h>
+
+#include <dt-bindings/iio/frequency/ad9528.h>
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+
+&spi0 {
+	status = "okay";
+
+	clk0_hmc7044: hmc7044@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		//adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
+
+		adi,pll1-clkin-frequencies = <122880000 0 0 0>;
+		adi,vcxo-frequency = <122880000>;
+
+		adi,pll1-ref-prio-ctrl = <0xE4>; /* prefer CLKIN0 -> CLKIN1 -> CLKIN2 -> CLKIN3 */
+		adi,pll1-ref-autorevert-enable;
+
+		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pfd1-maximum-limit-frequency-hz = <30720000>;
+		adi,pll1-charge-pump-current-ua = <1920>;
+
+		adi,pll2-output-frequency = <2949120000>;
+
+		adi,sysref-timer-divider = <128>;
+		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_8_PULSE>;
+
+		adi,clkin0-buffer-mode  = <0x07>;
+		adi,clkin1-buffer-mode  = <0x07>;
+		adi,oscin-buffer-mode = <0x15>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x37 0x33 0x00 0x00>;
+
+		clock-output-names =
+		"hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
+		"hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
+		"hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
+		"hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
+		"hmc7044_out12", "hmc7044_out13";
+
+		hmc7044_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "DEV_SYSREF";
+			adi,divider = <6>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c1: channel@1 {
+			reg = <1>;
+			adi,extended-name = "DEV_CLK";
+			adi,divider = <6>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "FPGA_CORE_REFCLK";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c7: channel@7 {
+			reg = <7>;
+			adi,extended-name = "FPGA_CORE_SYSREF";
+			adi,divider = <6>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "FPGA_REFCLK";
+			adi,divider = <6>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+	};
+
+	trx0_adrv903x: adrv903x-phy@0 {
+		compatible = "adrv9032";
+		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* SPI Setup */
+		spi-max-frequency = <25000000>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <134 IRQ_TYPE_EDGE_RISING>; /* adrv903x_gpint1 - CHECK */
+
+		/* Clocks */
+		clocks = <&clk0_hmc7044 1>;
+
+		clock-names = "dev_clk";
+
+		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>; /* This is the TOP device */
+		jesd204-link-ids = <DEFRAMER0_LINK_TX FRAMER0_LINK_RX>;
+
+		jesd204-inputs =
+			<&axi_adrv903x_rx_jesd 0 FRAMER0_LINK_RX>,
+			<&axi_adrv903x_core_tx 0 DEFRAMER0_LINK_TX>;
+
+		adi,device-config-name = "ADRV9030_DeviceProfileTest.bin";
+		adi,arm-firmware-name = "ADRV9030_FW.bin";
+		adi,stream-firmware-name = "ADRV9030_stream_image.bin";
+		adi,rx-gaintable-names = "ADRV9030_RxGainTable.csv";
+		adi,rx-gaintable-channel-masks = <0xFF>;
+		//adi,tx-attntable-names = "ADRV903X_TxAttenTable.csv";
+		//adi,tx-attntable-channel-masks = <0x0F>;
+	};
+};
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@1 { /* HPC1 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			/* HPC0_IIC */
+			ad7291@2f {
+				compatible = "adi,ad7291";
+				reg = <0x2f>;
+			};
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx_dma: dma@9c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c400000 0x1000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			dma-coherent;
+			interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+		};
+
+		tx_dma: dma@9c420000  {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c420000 0x1000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			dma-coherent;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+		};
+
+		axi_rx_clkgen: axi-clkgen@83c10000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x83c10000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&clk0_hmc7044 6>, <&zynqmp_clk 71>;
+			clock-names = "clkin1", "s_axi_aclk";
+			clock-output-names = "axi_rx_clkgen";
+		};
+
+		axi_tx_clkgen: axi-clkgen@83c00000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x83c00000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&clk0_hmc7044 6>, <&zynqmp_clk 71>;
+			clock-names = "clkin1", "s_axi_aclk";
+			clock-output-names = "axi_tx_clkgen";
+		};
+
+		axi_adrv903x_core_rx: axi-adrv903x-rx-hpc@84a00000 {
+			compatible = "adi,axi-adc-10.0.a";
+			reg = <0x84a00000 0x6000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&trx0_adrv903x>;
+		};
+
+		axi_adrv903x_core_tx: axi-adrv903x-tx-hpc@84a04000 {
+			compatible = "adi,axi-adrv903x-tx-1.0";
+			reg = <0x84a04000 0x2000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			clocks = <&trx0_adrv903x 1>;
+			clock-names = "sampl_clk";
+			adi,axi-pl-fifo-enable;
+			adi,axi-data-offload-connected = <&axi_data_offload_tx>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_adrv903x_tx_jesd 0 DEFRAMER0_LINK_TX>;
+		};
+
+		axi_adrv903x_rx_jesd: axi-jesd204-rx@84aa0000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x84aa0000 0x4000>;
+
+			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv903x_adxcvr_rx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_rx_lane_clk";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_adrv903x_adxcvr_rx 0 FRAMER0_LINK_RX>;
+		};
+
+		axi_adrv903x_tx_jesd: axi-jesd204-tx@84a90000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0x84a90000 0x4000>;
+
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_adrv903x_adxcvr_tx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_tx_lane_clk";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_adrv903x_adxcvr_tx 0 DEFRAMER0_LINK_TX>;
+
+		};
+
+		axi_adrv903x_adxcvr_rx: axi-adxcvr-rx@84a60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84a60000 0x10000>;
+
+			clocks = <&clk0_hmc7044 12>;
+			clock-names = "conv";
+
+			#clock-cells = <1>;
+			clock-output-names = "rx_gt_clk", "rx_out_clk";
+
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs =  <&clk0_hmc7044 0 FRAMER0_LINK_RX>;
+
+		};
+
+		axi_adrv903x_adxcvr_tx: axi-adxcvr-tx@84a80000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84a80000 0x1000>;
+
+			clocks = <&clk0_hmc7044 12>;
+			clock-names = "conv";
+
+			#clock-cells = <1>;
+			clock-output-names = "tx_gt_clk", "tx_out_clk";
+
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs =  <&clk0_hmc7044 0 DEFRAMER0_LINK_TX>;
+
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+
+		axi_data_offload_tx: axi-data-offload-0@9c440000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x9c440000 0x10000>;
+		};
+
+		axi_data_offload_rx: axi-data-offload-1@9c450000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x9c450000 0x10000>;
+		};
+	};
+};
+
+&trx0_adrv903x {
+	reset-gpios = <&gpio 134 0>; // TBD
+};
+
+&clk0_hmc7044 {
+	reset-gpios = <&gpio 147 0>; // TBD
+};
