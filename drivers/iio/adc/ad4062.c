@@ -153,6 +153,7 @@ struct ad4062_state {
 	const struct ad4062_chip_info *chip;
 	const struct ad4062_bus_ops *ops;
 	enum ad4062_operation_mode mode;
+	struct work_struct trig_conv;
 	struct completion completion;
 	struct iio_trigger *trigger;
 	struct iio_dev *indio_dev;
@@ -423,7 +424,7 @@ static irqreturn_t ad4062_irq_handler_drdy(int irq, void *private)
 	struct ad4062_state *st = iio_priv(indio_dev);
 
 	if (iio_buffer_enabled(indio_dev) && iio_trigger_using_own(indio_dev))
-		iio_trigger_poll_nested(st->trigger);
+		iio_trigger_poll(st->trigger);
 	else
 		complete(&st->completion);
 
@@ -436,9 +437,30 @@ static void ad4062_ibi_handler(struct i3c_device *i3cdev,
 	struct ad4062_state *st = i3cdev_get_drvdata(i3cdev);
 
 	if (iio_buffer_enabled(st->indio_dev))
-		iio_trigger_poll(st->trigger);
+		iio_trigger_poll_nested(st->trigger);
 	else
 		complete(&st->completion);
+}
+
+static void ad4062_trigger_work(struct work_struct *work)
+{
+	struct ad4062_state *st = container_of(work, struct ad4062_state,
+					       trig_conv);
+	int ret;
+
+	/* Read current and trigger next conversion */
+	struct i3c_priv_xfer t = {
+		.data.in = &st->raw,
+		.len = 4,
+		.rnw = true,
+	};
+
+	ret = i3c_device_do_priv_xfers(st->i3cdev, &t, 1);
+	if (ret)
+		return;
+
+	iio_push_to_buffers_with_timestamp(st->indio_dev, &st->raw,
+					   iio_get_time_ns(st->indio_dev));
 }
 
 static irqreturn_t ad4062_poll_handler(int irq, void *p)
@@ -446,36 +468,9 @@ static irqreturn_t ad4062_poll_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad4062_state *st = iio_priv(indio_dev);
-	u8 addr = AD4062_REG_CONV_TRIGGER;
-	int ret;
 
-	/* Read current and trigger next conversion */
-	struct i3c_priv_xfer t[2] = {
-		{
-			.data.in = &st->raw,
-			.len = 4,
-			.rnw = true,
-		},
-		{
-			.data.out = &addr,
-			.len = 1,
-			.rnw = false,
-		}
-	};
-
-	/* Separated transfers to not infeer repeated-start */
-	ret = i3c_device_do_priv_xfers(st->i3cdev, &t[0], 1);
-	if (ret)
-		goto out;
-	ret = i3c_device_do_priv_xfers(st->i3cdev, &t[1], 1);
-	if (ret)
-		goto out;
-
-	iio_push_to_buffers_with_timestamp(indio_dev, &st->raw,
-					   pf->timestamp);
-
-out:
 	iio_trigger_notify_done(indio_dev->trig);
+	schedule_work(&st->trig_conv);
 
 	return IRQ_HANDLED;
 }
@@ -779,7 +774,7 @@ static int ad4062_write_raw(struct iio_dev *indio_dev,
 static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4062_state *st = iio_priv(indio_dev);
-	u8 addr = AD4062_REG_CONV_TRIGGER;
+	u8 addr = AD4062_REG_CONV_READ;
 	int ret;
 
 	ret = pm_runtime_resume_and_get(&st->i3cdev->dev);
@@ -791,13 +786,20 @@ static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 		goto out_mode_error;
 
 	/* Trigger first conversion */
-	struct i3c_priv_xfer t = {
-		.data.out = &addr,
-		.len = 1,
-		.rnw = false,
+	struct i3c_priv_xfer t[2] = {
+		{
+			.data.out = &addr,
+			.len = 1,
+			.rnw = false,
+		},
+		{
+			.data.in = &st->raw,
+			.len = 4,
+			.rnw = true,
+		}
 	};
 
-	ret = i3c_device_do_priv_xfers(st->i3cdev, &t, 1);
+	ret = i3c_device_do_priv_xfers(st->i3cdev, t, 2);
 	if (ret)
 		goto out_mode_error;
 	return 0;
@@ -982,6 +984,8 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 	ret = ad4062_request_ibi(i3cdev);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to request i3c ibi\n");
+
+	INIT_WORK(&st->trig_conv, ad4062_trigger_work);
 
 	return devm_iio_device_register(dev, indio_dev);
 }
