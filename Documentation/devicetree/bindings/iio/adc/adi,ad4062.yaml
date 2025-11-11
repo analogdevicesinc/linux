@@ -48,6 +48,17 @@ properties:
       - const: gp0
       - const: gp1
 
+  gpio-controller:
+    description:
+      Marks the device node as a GPIO controller. GPs not listed in
+      interrupt-names are exposed as a GPO.
+
+  '#gpio-cells':
+    const: 2
+    description:
+      The first cell is the GPIO number and the second cell specifies
+      GPIO flags, as defined in <dt-bindings/gpio/gpio.h>.
+
   vdd-supply:
     description: Analog power supply.
 
@@ -89,5 +100,24 @@ examples:
             interrupts = <0 0 IRQ_TYPE_EDGE_RISING>,
                          <0 1 IRQ_TYPE_EDGE_FALLING>;
             interrupt-names = "gp0", "gp1";
+        };
+    };
+
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    i3c {
+        #address-cells = <3>;
+        #size-cells = <0>;
+
+        adc@0,2ee007c0000 {
+            reg = <0x0 0x2ee 0x7c0000>;
+            vdd-supply = <&vdd>;
+            vio-supply = <&vio>;
+            ref-supply = <&ref>;
+
+            gpio-controller;
+            #gpio-cells = <2>;
         };
     };
