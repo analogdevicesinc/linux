@@ -161,6 +161,7 @@ struct ad4062_state {
 	struct regmap *regmap;
 	u16 sampling_frequency;
 	int vref_uv;
+	bool gpo_irq[2];
 	u8 raw[4] __aligned(IIO_DMA_MINALIGN);
 };
 
@@ -446,21 +447,34 @@ static void ad4062_trigger_work(struct work_struct *work)
 {
 	struct ad4062_state *st = container_of(work, struct ad4062_state,
 					       trig_conv);
+	u8 addr = AD4062_REG_CONV_TRIGGER;
 	int ret;
 
-	/* Read current conversion, stop bit triggers next conversion */
-	struct i3c_priv_xfer t = {
-		.data.in = &st->raw,
-		.len = 4,
-		.rnw = true,
+	/* Read current conversion, if at reg CONV_READ, stop bit triggers
+	 * next sample and does not need writing the address */
+	struct i3c_priv_xfer t[2] = {
+		{
+			.data.in = &st->raw,
+			.len = 4,
+			.rnw = true,
+		},
+		{
+			.data.out = &addr,
+			.len = 1,
+			.rnw = false,
+		},
 	};
 
-	ret = i3c_device_do_priv_xfers(st->i3cdev, &t, 1);
+	ret = i3c_device_do_priv_xfers(st->i3cdev, &t[0], 1);
 	if (ret)
 		return;
 
 	iio_push_to_buffers_with_timestamp(st->indio_dev, &st->raw,
 					   iio_get_time_ns(st->indio_dev));
+	if (st->gpo_irq[1])
+		return;
+
+	i3c_device_do_priv_xfers(st->i3cdev, &t[1], 1);
 }
 
 static irqreturn_t ad4062_poll_handler(int irq, void *p)
@@ -517,10 +531,12 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 	if (ret == -EPROBE_DEFER) {
 		return ret;
 	} else if (ret < 0) {
+		st->gpo_irq[1] = false;
 		ret = regmap_update_bits(st->regmap, AD4062_REG_ADC_IBI_EN,
 					 AD4062_REG_ADC_IBI_EN_CONV_TRIGGER,
 					 AD4062_REG_ADC_IBI_EN_CONV_TRIGGER);
 	} else {
+		st->gpo_irq[1] = true;
 		ret = devm_request_threaded_irq(dev, ret,
 						 ad4062_irq_handler_drdy,
 						 NULL, IRQF_ONESHOT, indio_dev->name,
@@ -774,7 +790,7 @@ static int ad4062_write_raw(struct iio_dev *indio_dev,
 static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4062_state *st = iio_priv(indio_dev);
-	u8 addr = AD4062_REG_CONV_READ;
+	u8 addr = st->gpo_irq[1] ? AD4062_REG_CONV_READ : AD4062_REG_CONV_TRIGGER;
 	int ret;
 
 	ret = pm_runtime_resume_and_get(&st->i3cdev->dev);
@@ -785,7 +801,7 @@ static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		goto out_mode_error;
 
-	/* Trigger first conversion by dummy read at conv_read address */
+	/* Trigger first sample. CONV_READ requires read to trigger sample. */
 	struct i3c_priv_xfer t[2] = {
 		{
 			.data.out = &addr,
@@ -799,7 +815,7 @@ static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 		}
 	};
 
-	ret = i3c_device_do_priv_xfers(st->i3cdev, t, 2);
+	ret = i3c_device_do_priv_xfers(st->i3cdev, t, st->gpo_irq[1] ? 2 : 1);
 	if (ret)
 		goto out_mode_error;
 	return 0;
