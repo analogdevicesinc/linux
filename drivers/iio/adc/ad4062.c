@@ -448,7 +448,7 @@ static void ad4062_trigger_work(struct work_struct *work)
 					       trig_conv);
 	int ret;
 
-	/* Read current and trigger next conversion */
+	/* Read current conversion, stop bit triggers next conversion */
 	struct i3c_priv_xfer t = {
 		.data.in = &st->raw,
 		.len = 4,
@@ -785,7 +785,7 @@ static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		goto out_mode_error;
 
-	/* Trigger first conversion */
+	/* Trigger first conversion by dummy read at conv_read address */
 	struct i3c_priv_xfer t[2] = {
 		{
 			.data.out = &addr,
@@ -814,7 +814,6 @@ static int ad4062_triggered_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4062_state *st = iio_priv(indio_dev);
 
-	pm_runtime_mark_last_busy(&st->i3cdev->dev);
 	pm_runtime_put_autosuspend(&st->i3cdev->dev);
 	return 0;
 }
