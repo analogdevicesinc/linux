@@ -299,19 +299,6 @@ static const struct ad4062_chip_info ad4062_chip_info = {
 	.grade = AD4062_2MSPS,
 };
 
-/**
- * A register access will cause the device to drop from monitor mode
- * into configuration mode, update the state to reflect that.
- */
-static void ad4062_exit_monitor_mode(struct ad4062_state *st)
-{
-	if (st->wait_event) {
-		pm_runtime_mark_last_busy(&st->i3cdev->dev);
-		pm_runtime_put_autosuspend(&st->i3cdev->dev);
-		st->wait_event = 0;
-	}
-}
-
 static ssize_t ad4062_events_frequency_show(struct device *dev,
 					    struct device_attribute *attr,
 					    char *buf)
@@ -331,7 +318,10 @@ static ssize_t ad4062_events_frequency_store(struct device *dev,
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	ad4062_exit_monitor_mode(st);
+	if (st->wait_event) {
+		ret = -EBUSY;
+		goto out_release;
+	}
 
 	ret = __sysfs_match_string(AD4062_FS(st->chip->grade),
 				   AD4062_FS_LEN(st->chip->grade), buf);
@@ -895,10 +885,14 @@ static int ad4062_read_raw(struct iio_dev *indio_dev,
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	ad4062_exit_monitor_mode(st);
+	if (st->wait_event) {
+		ret = -EBUSY;
+		goto out_release;
+	}
 
 	ret = ad4062_read_raw_dispatch(indio_dev, chan, val, val2, info);
 
+out_release:
 	iio_device_release_direct(indio_dev);
 	return ret ? ret : IIO_VAL_INT;
 }
@@ -928,10 +922,14 @@ static int ad4062_write_raw(struct iio_dev *indio_dev,
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	ad4062_exit_monitor_mode(st);
+	if (st->wait_event) {
+		ret = -EBUSY;
+		goto out_release;
+	}
 
 	ret = ad4062_write_raw_dispatch(indio_dev, chan, val, val2, info);
 
+out_release:
 	iio_device_release_direct(indio_dev);
 	return ret;
 }
@@ -1040,7 +1038,10 @@ static int ad4062_read_event_value(struct iio_dev *indio_dev,
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	ad4062_exit_monitor_mode(st);
+	if (st->wait_event) {
+		ret = -EBUSY;
+		goto out_release;
+	}
 
 	switch (info) {
 	case IIO_EV_INFO_VALUE:
@@ -1054,6 +1055,7 @@ static int ad4062_read_event_value(struct iio_dev *indio_dev,
 		break;
 	}
 
+out_release:
 	iio_device_release_direct(indio_dev);
 	return ret ? ret : IIO_VAL_INT;
 }
@@ -1101,7 +1103,10 @@ static int ad4062_write_event_value(struct iio_dev *indio_dev,
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	ad4062_exit_monitor_mode(st);
+	if (st->wait_event) {
+		ret = -EBUSY;
+		goto out_release;
+	}
 
 	switch (type) {
 	case IIO_EV_TYPE_THRESH:
@@ -1122,6 +1127,7 @@ static int ad4062_write_event_value(struct iio_dev *indio_dev,
 		break;
 	}
 
+out_release:
 	iio_device_release_direct(indio_dev);
 	return ret;
 }
@@ -1132,10 +1138,13 @@ static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 	u8 addr = st->gpo_irq[1] ? AD4062_REG_CONV_READ : AD4062_REG_CONV_TRIGGER;
 	int ret;
 
+
+	if (st->wait_event)
+		return -EBUSY;
+
 	ret = pm_runtime_resume_and_get(&st->i3cdev->dev);
 	if (ret)
 		return ret;
-	ad4062_exit_monitor_mode(st);
 
 	ret = ad4062_set_operation_mode(st, st->mode);
 	if (ret)
@@ -1187,13 +1196,17 @@ static int ad4062_debugfs_reg_access(struct iio_dev *indio_dev, unsigned int reg
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	ad4062_exit_monitor_mode(st);
+	if (st->wait_event) {
+		ret = -EBUSY;
+		goto out_release;
+	}
 
 	if (readval)
 		ret = regmap_read(st->regmap, reg, readval);
 	else
 		ret = regmap_write(st->regmap, reg, writeval);
 
+out_release:
 	iio_device_release_direct(indio_dev);
 	return ret;
 }
