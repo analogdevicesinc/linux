@@ -357,9 +357,8 @@ static ssize_t sampling_frequency_available_show(struct device *dev,
 
 	for (u8 i = AD4062_FS_OFFSET(st->chip->grade);
 	     i < AD4062_FS_LEN(st->chip->grade); i++)
-		ret += sysfs_emit_at(buf, ret, "%s ", ad4062_conversion_freqs[i]);
-
-	ret += sysfs_emit_at(buf, ret, "\n");
+		ret += sysfs_emit_at(buf, ret, "%s%s", ad4062_conversion_freqs[i],
+				     i != (AD4062_FS_LEN(st->chip->grade) - 1) ? "\n" : " ");
 	return ret;
 }
 
@@ -656,21 +655,21 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 	int ret;
 
 	ret = fwnode_irq_get_byname(dev_fwnode(&st->i3cdev->dev), "gp0");
-	if (ret >= 0) {
-		ret = devm_request_threaded_irq(dev, ret, NULL,
-						ad4062_irq_handler_thresh,
-						IRQF_ONESHOT, indio_dev->name,
-						indio_dev);
-		if (ret)
-			return ret;
-	} else if (ret != -EPROBE_DEFER) {
+	if (ret == -EPROBE_DEFER) {
+		return ret;
+	} else if (ret < 0) {
 		ret = regmap_update_bits(st->regmap, AD4062_REG_ADC_IBI_EN,
 					 AD4062_REG_ADC_IBI_EN_MAX | AD4062_REG_ADC_IBI_EN_MIN,
 					 AD4062_REG_ADC_IBI_EN_MAX | AD4062_REG_ADC_IBI_EN_MIN);
 		if (ret)
 			return ret;
 	} else {
-		return ret;
+		ret = devm_request_threaded_irq(dev, ret, NULL,
+						ad4062_irq_handler_thresh,
+						IRQF_ONESHOT, indio_dev->name,
+						indio_dev);
+		if (ret)
+			return ret;
 	}
 
 	ret = fwnode_irq_get_byname(dev_fwnode(&st->i3cdev->dev), "gp1");
@@ -959,7 +958,7 @@ static int ad4062_monitor_mode_enable(struct ad4062_state *st, bool enable)
 	return ret;
 out_suspend:
 	pm_runtime_put_autosuspend(&st->i3cdev->dev);
-	return ret;
+	return 0;
 }
 
 static int ad4062_read_event_config(struct iio_dev *indio_dev,
