@@ -275,7 +275,6 @@
 		clocks = <&mig_clkout1>;
 		compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
 		gpio-controller;
-		interrupt-controller;
 		reg = <0x0 0x88140000 0x0 0x10000>;
 		xlnx,all-inputs = <0x0>;
 		xlnx,all-inputs-2 = <0x0>;
