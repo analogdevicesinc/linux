@@ -626,7 +626,10 @@ ssize_t iio_backend_ext_info_get(struct iio_dev *indio_dev, uintptr_t private,
 	 * backend from the frontend. Anyways, let's only introduce new options
 	 * when really needed...
 	 */
-	back = iio_backend_from_indio_dev_parent(indio_dev->dev.parent);
+	if (indio_dev->info->get_iio_backend)
+		back = indio_dev->info->get_iio_backend(indio_dev, private, chan);
+	else
+		back = iio_backend_from_indio_dev_parent(indio_dev->dev.parent);
 	if (IS_ERR(back))
 		return PTR_ERR(back);
 
