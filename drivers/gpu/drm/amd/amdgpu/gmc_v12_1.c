@@ -600,6 +600,21 @@ static void gmc_v12_1_get_vm_pde(struct amdgpu_device *adev, int level,
 	}
 }
 
+static void gmc_v12_1_get_npa_flags(struct amdgpu_device *adev,
+				    uint64_t *flags)
+{
+	bool is_aid_a1 = (adev->rev_id & 0x10);
+	unsigned int mtype_remote;
+
+	mtype_remote = is_aid_a1 ? MTYPE_NC : MTYPE_UC;
+
+	*flags = AMDGPU_PTE_MTYPE_GFX12(*flags, mtype_remote);
+	/* VSCT = 0011 to identify NPA. Additionally PTE.B = 1 */
+	*flags |= AMDGPU_PTE_SNOOPED | AMDGPU_PTE_PRT_GFX12 |
+		   AMDGPU_PTE_BUS_ATOMICS;
+	*flags &= ~AMDGPU_PTE_VALID;
+}
+
 static void gmc_v12_1_get_coherence_flags(struct amdgpu_device *adev,
 					  struct amdgpu_bo *bo,
 					  uint64_t *flags)
@@ -668,6 +683,8 @@ static void gmc_v12_1_get_vm_pte(struct amdgpu_device *adev,
 				 uint32_t vm_flags,
 				 uint64_t *flags)
 {
+	struct ttm_resource *mem;
+
 	if (vm_flags & AMDGPU_VM_PAGE_EXECUTABLE)
 		*flags |= AMDGPU_PTE_EXECUTABLE;
 	else
@@ -689,8 +706,17 @@ static void gmc_v12_1_get_vm_pte(struct amdgpu_device *adev,
 		break;
 	}
 
-	if ((*flags & AMDGPU_PTE_VALID) && bo)
-		gmc_v12_1_get_coherence_flags(adev, bo, flags);
+	if (bo) {
+		mem = bo->tbo.resource;
+		if (mem && mem->mem_type == AMDGPU_PL_NPA) {
+			dev_dbg(adev->dev,
+				"Setting PTE for NPA BO, mem->type: %d, mem->start: %lx, mem->size: %u, cur_flags: %llx\n",
+				mem->mem_type, mem->start, (u32)mem->size, *flags);
+			gmc_v12_1_get_npa_flags(adev, flags);
+		} else if (*flags & AMDGPU_PTE_VALID) {
+			gmc_v12_1_get_coherence_flags(adev, bo, flags);
+		}
+	}
 }
 
 static const struct amdgpu_gmc_funcs gmc_v12_1_gmc_funcs = {

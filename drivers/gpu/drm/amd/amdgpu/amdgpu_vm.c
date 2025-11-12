@@ -1196,7 +1196,9 @@ int amdgpu_vm_update_range(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 		uint64_t tmp, num_entries, addr;
 
 		num_entries = cursor.size >> AMDGPU_GPU_PAGE_SHIFT;
-		if (pages_addr) {
+		if (res && res->mem_type == AMDGPU_PL_NPA) {
+			addr = cursor.start;
+		} else if (pages_addr) {
 			bool contiguous = true;
 
 			if (num_entries > AMDGPU_GPU_PAGES_IN_CPU_PAGE) {
