@@ -302,7 +302,7 @@ struct ad7768_state {
 	struct spi_device *spi;
 	struct spi_offload *offload;
 	struct spi_offload_trigger *offload_trigger;
-	struct spi_transfer offload_xfer;
+	struct spi_transfer offload_xfer[2];
 	struct spi_message offload_msg;
 	bool offload_en;
 	struct regmap *regmap;
@@ -488,12 +488,14 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	enable_irq(st->spi->irq);
-	ret = wait_for_completion_timeout(&st->completion,
-					  msecs_to_jiffies(1000));
-	if (!ret) {
-		readval = -ETIMEDOUT;
-		goto out;
+	if (!st->offload_en) {
+		enable_irq(st->spi->irq);
+		ret = wait_for_completion_timeout(&st->completion,
+						msecs_to_jiffies(1000));
+		if (!ret) {
+			readval = -ETIMEDOUT;
+			goto out;
+		}
 	}
 
 	ret = regmap_read(st->regmap24, AD7768_REG24_ADC_DATA, &readval);
@@ -510,7 +512,8 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 		readval >>= 8;
 
 out:
-	disable_irq(st->spi->irq);
+	if (!st->offload_en)
+		disable_irq(st->spi->irq);
 	/*
 	 * Any SPI configuration of the AD7768-1 can only be
 	 * performed in continuous conversion mode.
@@ -1393,9 +1396,18 @@ static int ad7768_offload_buffer_postenable(struct iio_dev *indio_dev)
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	st->offload_xfer.len = roundup_pow_of_two(BITS_TO_BYTES(scan_type->realbits));
-	st->offload_xfer.bits_per_word = scan_type->realbits;
-	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+	// st->offload_xfer[0].cs_change = 1;
+	st->offload_xfer[0].bits_per_word = scan_type->realbits;
+	st->offload_xfer[0].delay.value = 100;
+	st->offload_xfer[0].delay.unit = SPI_DELAY_UNIT_NSECS;
+
+	st->offload_xfer[1].len = roundup_pow_of_two(BITS_TO_BYTES(scan_type->realbits));
+	st->offload_xfer[1].bits_per_word = scan_type->realbits;
+	st->offload_xfer[1].offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+
+	// st->offload_xfer[0].len = roundup_pow_of_two(BITS_TO_BYTES(scan_type->realbits));
+	// st->offload_xfer[0].bits_per_word = scan_type->realbits;
+	// st->offload_xfer[0].offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 
 	// TODO: Should this be here?
 	ret = spi_offload_trigger_validate(st->offload_trigger, &config);
@@ -1411,7 +1423,8 @@ static int ad7768_offload_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+	// spi_message_init_with_transfers(&st->offload_msg, st->offload_xfer, 1);
+	spi_message_init_with_transfers(&st->offload_msg, st->offload_xfer, 2);
 	st->offload_msg.offload = st->offload;
 
 	ret = spi_optimize_message(st->spi, &st->offload_msg);
@@ -1866,6 +1879,7 @@ static int ad7768_probe(struct spi_device *spi)
 		return PTR_ERR(st->mclk);
 
 	st->mclk_freq = clk_get_rate(st->mclk);
+	printk("st->mclk_freq: %d\n", st->mclk_freq);
 
 	st->chip = spi_get_device_match_data(spi);
 	if (!st->chip)
@@ -1928,9 +1942,12 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	/* the IRQ core clears IRQ_DISABLE_UNLAZY flag when freeing an IRQ */
+	irq_set_status_flags(spi->irq, IRQ_DISABLE_UNLAZY);
+
 	ret = devm_request_irq(&spi->dev, spi->irq,
 			       &ad7768_interrupt,
-			       IRQF_TRIGGER_RISING | IRQF_NO_AUTOEN,
+			       IRQF_TRIGGER_RISING | IRQF_NO_AUTOEN | IRQF_ONESHOT,
 			       indio_dev->name, indio_dev);
 	if (ret)
 		return ret;
