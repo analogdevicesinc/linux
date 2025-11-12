@@ -71,6 +71,42 @@ static const char * const iio_endian_prefix[] = {
 	[IIO_LE] = "le",
 };
 
+static int iio_buffer_preenable(struct iio_buffer *buf,
+				struct iio_dev *indio_dev)
+{
+	if (buf->setup_ops && buf->setup_ops->preenable)
+		return buf->setup_ops->preenable(indio_dev);
+
+	return 0;
+}
+
+static int iio_buffer_postenable(struct iio_buffer *buf,
+				 struct iio_dev *indio_dev)
+{
+	if (buf->setup_ops && buf->setup_ops->postenable)
+		return buf->setup_ops->postenable(indio_dev);
+
+	return 0;
+}
+
+static int iio_buffer_predisable(struct iio_buffer *buf,
+				 struct iio_dev *indio_dev)
+{
+	if (buf->setup_ops && buf->setup_ops->predisable)
+		return buf->setup_ops->predisable(indio_dev);
+
+	return 0;
+}
+
+static int iio_buffer_postdisable(struct iio_buffer *buf,
+				  struct iio_dev *indio_dev)
+{
+	if (buf->setup_ops && buf->setup_ops->postdisable)
+		return buf->setup_ops->postdisable(indio_dev);
+
+	return 0;
+}
+
 static bool iio_buffer_is_active(struct iio_buffer *buf)
 {
 	return !list_empty(&buf->buffer_list);
@@ -529,8 +565,12 @@ static const unsigned long *iio_scan_mask_match(const unsigned long *av_masks,
 }
 
 static bool iio_validate_scan_mask(struct iio_dev *indio_dev,
+				   struct iio_buffer *buffer,
 				   const unsigned long *mask)
 {
+	if (buffer->setup_ops && buffer->setup_ops->validate_scan_mask)
+		return buffer->setup_ops->validate_scan_mask(indio_dev, mask);
+
 	if (!indio_dev->setup_ops->validate_scan_mask)
 		return true;
 
@@ -570,7 +610,7 @@ static int iio_scan_mask_set(struct iio_dev *indio_dev,
 	for_each_set_bit(ch, buffer->channel_mask, indio_dev->num_channels)
 		set_bit(indio_dev->channels[ch].scan_index, trialmask);
 
-	if (!iio_validate_scan_mask(indio_dev, trialmask))
+	if (!iio_validate_scan_mask(indio_dev, buffer, trialmask))
 		goto err_invalid_mask;
 
 	if (indio_dev->available_scan_masks) {
@@ -1227,8 +1267,22 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 			config->watermark);
 
 	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
+		ret = iio_buffer_preenable(buffer, indio_dev);
+		if (ret) {
+			tmp = buffer;
+			goto err_disable_buffers;
+		}
+
 		ret = iio_buffer_enable(buffer, indio_dev);
 		if (ret) {
+			iio_buffer_postdisable(buffer, indio_dev);
+			tmp = buffer;
+			goto err_disable_buffers;
+		}
+
+		ret = iio_buffer_postenable(buffer, indio_dev);
+		if (ret) {
+			iio_buffer_postdisable(buffer, indio_dev);
 			tmp = buffer;
 			goto err_disable_buffers;
 		}
@@ -1260,8 +1314,11 @@ err_detach_pollfunc:
 err_disable_buffers:
 	buffer = list_prepare_entry(tmp, &iio_dev_opaque->buffer_list, buffer_list);
 	list_for_each_entry_continue_reverse(buffer, &iio_dev_opaque->buffer_list,
-					     buffer_list)
+					     buffer_list) {
+		iio_buffer_predisable(buffer, indio_dev);
 		iio_buffer_disable(buffer, indio_dev);
+		iio_buffer_postdisable(buffer, indio_dev);
+	}
 err_run_postdisable:
 	if (indio_dev->setup_ops->postdisable)
 		indio_dev->setup_ops->postdisable(indio_dev);
@@ -1302,7 +1359,15 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 	}
 
 	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
+		ret2 = iio_buffer_predisable(buffer, indio_dev);
+		if (ret2 && !ret)
+			ret = ret2;
+
 		ret2 = iio_buffer_disable(buffer, indio_dev);
+		if (ret2 && !ret)
+			ret = ret2;
+
+		ret2 = iio_buffer_postdisable(buffer, indio_dev);
 		if (ret2 && !ret)
 			ret = ret2;
 	}
