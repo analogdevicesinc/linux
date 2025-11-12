@@ -178,9 +178,10 @@ int iio_backend_iodelay_set(struct iio_backend *back, unsigned int lane,
 			    unsigned int taps);
 int iio_backend_data_sample_trigger(struct iio_backend *back,
 				    enum iio_backend_sample_trigger trigger);
-int devm_iio_backend_request_buffer(struct device *dev,
-				    struct iio_backend *back,
-				    struct iio_dev *indio_dev);
+int devm_iio_backend_request_buffer_with_ops(struct device *dev,
+					     struct iio_backend *back,
+					     struct iio_dev *indio_dev,
+					     const struct iio_buffer_setup_ops *setup_ops);
 int iio_backend_ddr_enable(struct iio_backend *back);
 int iio_backend_ddr_disable(struct iio_backend *back);
 int iio_backend_data_stream_enable(struct iio_backend *back);
@@ -228,4 +229,8 @@ ssize_t iio_backend_debugfs_print_chan_status(struct iio_backend *back,
 					      size_t len);
 void iio_backend_debugfs_add(struct iio_backend *back,
 			     struct iio_dev *indio_dev);
+
+#define devm_iio_backend_request_buffer(dev, back, indio_dev) \
+	devm_iio_backend_request_buffer_with_ops(dev, back, indio_dev, NULL)
+
 #endif

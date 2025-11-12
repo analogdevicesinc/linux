@@ -45,6 +45,7 @@
 #include <linux/types.h>
 
 #include <linux/iio/backend.h>
+#include <linux/iio/buffer_impl.h>
 #include <linux/iio/iio.h>
 
 struct iio_backend {
@@ -520,6 +521,7 @@ static void iio_backend_free_buffer(void *arg)
  * @dev: Consumer device for the backend
  * @back: Backend device
  * @indio_dev: IIO device
+ * @setup_ops: Buffer Setup callbacks
  *
  * Request an IIO buffer from the backend. The type of the buffer (typically
  * INDIO_BUFFER_HARDWARE) is up to the backend to decide. This is because,
@@ -530,9 +532,10 @@ static void iio_backend_free_buffer(void *arg)
  * RETURNS:
  * 0 on success, negative error number on failure.
  */
-int devm_iio_backend_request_buffer(struct device *dev,
-				    struct iio_backend *back,
-				    struct iio_dev *indio_dev)
+int devm_iio_backend_request_buffer_with_ops(struct device *dev,
+					     struct iio_backend *back,
+					     struct iio_dev *indio_dev,
+					     const struct iio_buffer_setup_ops *setup_ops)
 {
 	struct iio_backend_buffer_pair *pair;
 	struct iio_buffer *buffer;
@@ -545,13 +548,15 @@ int devm_iio_backend_request_buffer(struct device *dev,
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
+	buffer->setup_ops = setup_ops;
+
 	/* weak reference should be all what we need */
 	pair->back = back;
 	pair->buffer = buffer;
 
 	return devm_add_action_or_reset(dev, iio_backend_free_buffer, pair);
 }
-EXPORT_SYMBOL_NS_GPL(devm_iio_backend_request_buffer, IIO_BACKEND);
+EXPORT_SYMBOL_NS_GPL(devm_iio_backend_request_buffer_with_ops, IIO_BACKEND);
 
 /**
  * iio_backend_read_raw - Read a channel attribute from a backend device.
