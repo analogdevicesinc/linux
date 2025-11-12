@@ -17,7 +17,7 @@
 #endif
 
 #ifndef HSCI_ENABLE
-#define HSCI_ENABLE		0
+#define HSCI_ENABLE		1
 #endif
 
 #ifndef WITH_AION
@@ -79,7 +79,7 @@
 		interrupts = <0 104 4>;
 		reg = <0x0 0x88160000 0x0 0x1000>;
 		xlnx,kind-of-intr = <0xffe0385>;
-		xlnx,num-intr-inputs = <17>;
+		xlnx,num-intr-inputs = <19>;
 	};
 
 	adf4382_spi: spi@88000000 {
@@ -141,7 +141,9 @@
 			jesd204-device;
 			#jesd204-cells = <2>;
 #if WITH_AION
-			jesd204-inputs =  <&adf4030 0 FRAMER_LINK_A0_RX>;
+		    jesd204-inputs =
+				<&adf4030 0 FRAMER_LINK_A0_RX>,
+				<&adf4030 0 DEFRAMER_LINK_A0_TX>;
 #else
 			jesd204-sysref-provider;
 #endif /* WITH_AION */
