@@ -167,6 +167,11 @@ struct iio_buffer {
 	 */
 	const struct iio_buffer_access_funcs *access;
 
+	/**
+	 * @setup_ops: Buffer setup related callbacks.
+	 */
+	const struct iio_buffer_setup_ops *setup_ops;
+
 	/** @scan_mask: Bitmask used in masking scan mode elements. */
 	long *scan_mask;
 

@@ -40,6 +40,9 @@
 
 #define DMABUF_ENQUEUE_TIMEOUT_MS 5000
 
+#define iio_buffer_is_independent(buf) \
+	((buf) && (buf)->setup_ops && (buf)->access->modes & INDIO_BUFFER_HARDWARE)
+
 MODULE_IMPORT_NS(DMA_BUF);
 
 struct iio_dmabuf_priv {
@@ -529,8 +532,12 @@ static const unsigned long *iio_scan_mask_match(const unsigned long *av_masks,
 }
 
 static bool iio_validate_scan_mask(struct iio_dev *indio_dev,
+				   struct iio_buffer *buffer,
 				   const unsigned long *mask)
 {
+	if (buffer->setup_ops && buffer->setup_ops->validate_scan_mask)
+		return buffer->setup_ops->validate_scan_mask(indio_dev, mask);
+
 	if (!indio_dev->setup_ops->validate_scan_mask)
 		return true;
 
@@ -570,7 +577,7 @@ static int iio_scan_mask_set(struct iio_dev *indio_dev,
 	for_each_set_bit(ch, buffer->channel_mask, indio_dev->num_channels)
 		set_bit(indio_dev->channels[ch].scan_index, trialmask);
 
-	if (!iio_validate_scan_mask(indio_dev, trialmask))
+	if (!iio_validate_scan_mask(indio_dev, buffer, trialmask))
 		goto err_invalid_mask;
 
 	if (indio_dev->available_scan_masks) {
@@ -991,12 +998,6 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	if ((modes & INDIO_BUFFER_TRIGGERED) && indio_dev->trig) {
 		config->mode = INDIO_BUFFER_TRIGGERED;
 	} else if (modes & INDIO_BUFFER_HARDWARE) {
-		/*
-		 * Keep things simple for now and only allow a single buffer to
-		 * be connected in hardware mode.
-		 */
-		if (insert_buffer && !list_empty(&iio_dev_opaque->buffer_list))
-			return -EINVAL;
 		config->mode = INDIO_BUFFER_HARDWARE;
 		strict_scanmask = true;
 	} else if (modes & INDIO_BUFFER_SOFTWARE) {
@@ -1186,6 +1187,66 @@ error_clear_mux_table:
 	return ret;
 }
 
+static void iio_buffer_apply_new_config(struct iio_dev *indio_dev,
+					const struct iio_device_config *config)
+{
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+
+	indio_dev->active_scan_mask = config->scan_mask;
+	indio_dev->scan_timestamp = config->scan_timestamp;
+	indio_dev->scan_bytes = config->scan_bytes;
+	iio_dev_opaque->currentmode = config->mode;
+}
+
+static int iio_enable_independent_buffer(struct iio_dev *indio_dev,
+					 struct iio_buffer *insert_buffer,
+					 const struct iio_device_config *config)
+{
+	/* save the old device config */
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+	struct iio_device_config old_config = {
+		.mode = iio_dev_opaque->currentmode,
+		.scan_bytes = indio_dev->scan_bytes,
+		.scan_timestamp = indio_dev->scan_timestamp,
+		.scan_mask = indio_dev->active_scan_mask,
+	};
+	int ret;
+
+	iio_buffer_activate(indio_dev, insert_buffer);
+	iio_buffer_apply_new_config(indio_dev, config);
+
+	/* We can only get here if remove_buffer->setup_op != NULL */
+	if (insert_buffer->setup_ops->preenable) {
+		ret = insert_buffer->setup_ops->preenable(indio_dev);
+		if (ret)
+			goto err_deactivate_buffer;
+	}
+
+	ret = iio_buffer_enable(insert_buffer, indio_dev);
+	if (ret)
+		goto err_deactivate_buffer;
+
+	if (insert_buffer->setup_ops->postenable) {
+		ret = insert_buffer->setup_ops->postenable(indio_dev);
+		if (ret)
+			goto err_disable_buffer;
+	}
+
+	if (old_config.scan_mask)
+		iio_free_scan_mask(indio_dev, old_config.scan_mask);
+
+	return 0;
+
+err_disable_buffer:
+	iio_buffer_disable(insert_buffer, indio_dev);
+	if (insert_buffer->setup_ops->postdisable)
+		insert_buffer->setup_ops->postdisable(indio_dev);
+err_deactivate_buffer:
+	iio_buffer_apply_new_config(indio_dev, &old_config);
+	iio_buffer_deactivate(insert_buffer);
+	return ret;
+}
+
 static int iio_enable_buffers(struct iio_dev *indio_dev,
 			      struct iio_device_config *config)
 {
@@ -1227,6 +1288,10 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 			config->watermark);
 
 	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
+		/* See comment in  __iio_update_buffers() */
+		if (iio_buffer_is_independent(buffer))
+			continue;
+
 		ret = iio_buffer_enable(buffer, indio_dev);
 		if (ret) {
 			tmp = buffer;
@@ -1272,6 +1337,41 @@ err_undo_config:
 	return ret;
 }
 
+static int iio_disable_independent_buffer(struct iio_dev *indio_dev,
+					  struct iio_buffer *remove_buffer,
+					  const struct iio_device_config *config)
+{
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+	int ret = 0, ret2;
+
+	/* We can only get here if remove_buffer->setup_op != NULL */
+	if (remove_buffer->setup_ops->predisable) {
+		ret2 = remove_buffer->setup_ops->predisable(indio_dev);
+		if (ret2)
+			ret = ret2;
+	}
+
+	ret2 = iio_buffer_disable(remove_buffer, indio_dev);
+	if (ret2 && !ret)
+		ret = ret2;
+
+	if (remove_buffer->setup_ops->postdisable) {
+		ret2 = remove_buffer->setup_ops->postdisable(indio_dev);
+		if (ret2 && !ret)
+			ret = ret2;
+	}
+
+	iio_buffer_deactivate(remove_buffer);
+	iio_free_scan_mask(indio_dev, indio_dev->active_scan_mask);
+	indio_dev->active_scan_mask = NULL;
+	iio_dev_opaque->currentmode = INDIO_DIRECT_MODE;
+
+	if (!list_empty(&iio_dev_opaque->buffer_list))
+		iio_buffer_apply_new_config(indio_dev, config);
+
+	return ret;
+}
+
 static int iio_disable_buffers(struct iio_dev *indio_dev)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
@@ -1302,6 +1402,10 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 	}
 
 	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
+		/* See comment in  __iio_update_buffers() */
+		if (iio_buffer_is_independent(buffer))
+			continue;
+
 		ret2 = iio_buffer_disable(buffer, indio_dev);
 		if (ret2 && !ret)
 			ret = ret2;
@@ -1337,6 +1441,48 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		ret = iio_buffer_request_update(indio_dev, insert_buffer);
 		if (ret)
 			goto err_free_config;
+	}
+
+	/*
+	 * We cannot do this dance for buffers that are trully independent from each other.
+	 * Otherwise, enabling or disabling one buffer will mess with other completley independent
+	 * captures. Imagine we have a DMA cyclic transfer on some output buffer. If we
+	 * indirectly disable it through this path, that transfer is pretty much done even
+	 * when we re-enable it.
+	 *
+	 * Hence, we assume that if a buffer has it's own setup ops, it is independent from
+	 * other active buffers and so enabling/disabling it should not affect them at all.
+	 *
+	 * !\NOTE: To keep it simpler, constrain to HW buffers where doing these things is even
+	 * more sensitive given that userspace can even own the data blocks (eg: dma_buf).
+	 */
+	if (iio_buffer_is_independent(remove_buffer) || iio_buffer_is_independent(insert_buffer)) {
+		if (remove_buffer) {
+			ret = iio_disable_independent_buffer(indio_dev,
+							     remove_buffer,
+							     &new_config);
+			if (ret)
+				/* If we fail for this one, don't disable the others */
+				return ret;
+
+			/*
+			 * Nothing else to do. Note here we don't jump to err_free_config.
+			 * Because:
+			 *  - Either we are disabling the last buffer and so new_config
+			 *    has nothing.
+			 *  - Or we still have active buffers in which case we already
+			 *    did iio_buffer_apply_new_config() in iio_disable_independent_buffer().
+			 * In either case, we don't have nothing else to cleanup.
+			 */
+			return 0;
+		}
+
+		ret = iio_enable_independent_buffer(indio_dev, insert_buffer,
+						    &new_config);
+		if (ret)
+			goto err_free_config;
+
+		return 0;
 	}
 
 	ret = iio_disable_buffers(indio_dev);
