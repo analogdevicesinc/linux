@@ -66,8 +66,8 @@
 		interrupt-parent = <&axi_intc>;
 		interrupts = <15 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&clk_bus_0>, <&axi_rx_os_clkgen>, <&axi_adrv9025_adxcvr_rx_os 0>;
-		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+		clocks = <&clk_bus_0>, <&axi_rx_os_clkgen>, <&axi_adrv9025_adxcvr_rx_os 0>, <&axi_adrv9025_adxcvr_rx_os 1>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_rx_os_lane_clk";

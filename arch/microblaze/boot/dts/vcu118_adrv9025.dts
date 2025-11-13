@@ -104,8 +104,8 @@
 		interrupt-parent = <&axi_intc>;
 		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&clk_bus_0>, <&axi_rx_clkgen>, <&axi_adrv9025_adxcvr_rx 0>;
-		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+		clocks = <&clk_bus_0>, <&axi_rx_clkgen>, <&axi_adrv9025_adxcvr_rx 0>, <&axi_adrv9025_adxcvr_rx 1>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_rx_lane_clk";
@@ -121,8 +121,8 @@
 
 		interrupt-parent = <&axi_intc>;
 		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk_bus_0>, <&axi_tx_clkgen>, <&axi_adrv9025_adxcvr_tx 0>;
-		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+		clocks = <&clk_bus_0>, <&axi_tx_clkgen>, <&axi_adrv9025_adxcvr_tx 0>, <&axi_adrv9025_adxcvr_tx 1>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_tx_lane_clk";
@@ -229,7 +229,7 @@
 		adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
 		adi,sysref-k-div = <512>;
 		adi,sysref-nshot-mode = <SYSREF_NSHOT_8_PULSES>;
-		adi,jesd204-desired-sysref-frequency-hz = <3840000>;
+		adi,jesd204-desired-sysref-frequency-hz = <1920000>;
 
 		adi,rpole2 = <RPOLE2_900_OHM>;
 		adi,rzero = <RZERO_1850_OHM>;
