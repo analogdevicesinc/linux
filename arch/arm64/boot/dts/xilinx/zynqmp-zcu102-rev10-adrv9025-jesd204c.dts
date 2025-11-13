@@ -17,6 +17,21 @@
 	adi,device-profile-name = "ActiveUseCase_204C.profile";
 };
 
+&axi_adrv9025_rx_jesd {
+	clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv9025_adxcvr_rx 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+};
+
+&axi_adrv9025_rx_os_jesd {
+	clocks = <&zynqmp_clk 71>, <&axi_rx_os_clkgen>, <&axi_adrv9025_adxcvr_rx_os 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+};
+
+&axi_adrv9025_tx_jesd {
+	clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_adrv9025_adxcvr_tx 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+};
+
 &axi_adrv9025_adxcvr_rx {
 	adi,sys-clk-select = <XCVR_QPLL>;
 	/delete-property/ adi,use-cpll-enable;
