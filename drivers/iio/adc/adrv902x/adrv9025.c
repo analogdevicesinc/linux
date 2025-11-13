@@ -44,6 +44,10 @@
 
 enum adrv9025_iio_dev_attr {
 	ADRV9025_INIT_CAL,
+	ADRV9025_CAL_MASK,
+	ADRV9025_DPD_TX_MASK,
+	ADRV9025_DPD_RESET,
+	ADRV9025_DPD_CONFIG_SET,
 	adrv9025_JESD204_FSM_ERROR,
 	adrv9025_JESD204_FSM_PAUSED,
 	adrv9025_JESD204_FSM_STATE,
@@ -343,8 +347,9 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 				60000; /*60 seconds timeout*/
 			u8 initCalsError = 0;
 
-			phy->cal_mask.channelMask =
-				phy->adrv9025PostMcsInitInst.initCals.channelMask;
+			if (!phy->cal_mask.channelMask)
+				phy->cal_mask.channelMask =
+					phy->adrv9025PostMcsInitInst.initCals.channelMask;
 
 			/* Run Init Cals */
 			ret = adi_adrv9025_InitCalsRun(phy->madDevice,
@@ -357,6 +362,53 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 			ret = adi_adrv9025_InitCalsWait(phy->madDevice,
 							INIT_CALS_TIMEOUT_MS,
 							&initCalsError);
+			if (ret)
+				ret = adrv9025_dev_err(phy);
+		}
+		break;
+	case ADRV9025_CAL_MASK:
+		ret = kstrtou64(buf, 0, &val);
+		if (ret)
+			break;
+
+		if (val <= 0x0F)
+			phy->cal_mask.channelMask = (u8)val;
+		else
+			ret = -EINVAL;
+		break;
+	case ADRV9025_DPD_TX_MASK:
+		ret = kstrtou64(buf, 0, &val);
+		if (ret)
+			break;
+
+		if (val <= 0x0F)
+			phy->dpdTxChannel = (u8)val;
+		else
+			ret = -EINVAL;
+		break;
+	case ADRV9025_DPD_RESET:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			break;
+
+		if (enable) {
+			ret = adi_adrv9025_DpdReset(phy->madDevice,
+						    phy->dpdTxChannel,
+						    ADI_ADRV9025_DPD_RESET_FULL);
+			if (ret)
+				ret = adrv9025_dev_err(phy);
+		}
+		break;
+	case ADRV9025_DPD_CONFIG_SET:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			break;
+
+		phy->dpdTrackingConfig->txChannelMask = phy->dpdTxChannel;
+
+		if (enable) {
+			ret = adi_adrv9025_DpdTrackingConfigSet(phy->madDevice,
+								phy->dpdTrackingConfig);
 			if (ret)
 				ret = adrv9025_dev_err(phy);
 		}
@@ -419,6 +471,13 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 		if (val)
 			ret = sprintf(buf, "%d\n",
 				      !!(phy->cal_mask.calMask & val));
+		break;
+	case ADRV9025_CAL_MASK:
+		ret = sprintf(buf, "%d\n",
+			      phy->cal_mask.channelMask);
+		break;
+	case ADRV9025_DPD_TX_MASK:
+		ret = sprintf(buf, "%d\n", phy->dpdTxChannel);
 		break;
 	case adrv9025_JESD204_FSM_ERROR:
 		if (!phy->jdev) {
@@ -531,6 +590,23 @@ static IIO_DEVICE_ATTR(calibrate_tx_lol_ext_en, 0644,
 		       ADRV9025_INIT_CAL |
 			       (ADI_ADRV9025_TX_LO_LEAKAGE_EXTERNAL << 8));
 
+static IIO_DEVICE_ATTR(calibrate_ext_path_delay_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL |
+			       (ADI_ADRV9025_EXTERNAL_PATH_DELAY << 8));
+
+static IIO_DEVICE_ATTR(calibrate_mask, 0644, adrv9025_phy_show,
+		       adrv9025_phy_store, ADRV9025_CAL_MASK);
+
+static IIO_DEVICE_ATTR(dpd_tx_mask, 0644, adrv9025_phy_show,
+		       adrv9025_phy_store, ADRV9025_DPD_TX_MASK);
+
+static IIO_DEVICE_ATTR(dpd_reset, 0200, NULL,
+		       adrv9025_phy_store, ADRV9025_DPD_RESET);
+
+static IIO_DEVICE_ATTR(dpd_tracking_config_set, 0200, NULL,
+		       adrv9025_phy_store, ADRV9025_DPD_CONFIG_SET);
+
 static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
 		       adrv9025_phy_show,
 		       NULL,
@@ -562,6 +638,11 @@ static struct attribute *adrv9025_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_mask.dev_attr.attr,
+	&iio_dev_attr_dpd_tx_mask.dev_attr.attr,
+	&iio_dev_attr_dpd_reset.dev_attr.attr,
+	&iio_dev_attr_dpd_tracking_config_set.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
@@ -898,6 +979,11 @@ static ssize_t adrv9025_phy_tx_read(struct iio_dev *indio_dev,
 		ret = adi_adrv9025_TrackingCalsEnableGet(phy->madDevice, &mask);
 		val = !!(tmask & mask);
 		break;
+	case TX_DPD:
+		tmask = ADI_ADRV9025_TRACK_TX1_DPD << chan->channel;
+		ret = adi_adrv9025_TrackingCalsEnableGet(phy->madDevice, &mask);
+		val = !!(tmask & mask);
+		break;
 	case TX_RF_BANDWIDTH:
 		val = phy->deviceInitStruct.tx.txChannelCfg[chan->channel]
 			      .profile.rfBandwidth_kHz *
@@ -955,6 +1041,15 @@ static ssize_t adrv9025_phy_tx_write(struct iio_dev *indio_dev,
 			phy->madDevice, mask,
 			enable ? ADI_ADRV9025_TRACKING_CAL_ENABLE :
 				 ADI_ADRV9025_TRACKING_CAL_DISABLE);
+		if (ret)
+			ret = adrv9025_dev_err(phy);
+		break;
+	case TX_DPD:
+		mask = ADI_ADRV9025_TRACK_TX1_DPD << chan->channel;
+
+		ret = adi_adrv9025_TrackingCalsEnableSet(phy->madDevice, mask,
+							 enable ? ADI_ADRV9025_TRACKING_CAL_ENABLE :
+							 ADI_ADRV9025_TRACKING_CAL_DISABLE);
 		if (ret)
 			ret = adrv9025_dev_err(phy);
 		break;
@@ -1094,6 +1189,7 @@ static struct iio_chan_spec_ext_info adrv9025_phy_tx_ext_info[] = {
 	_ADRV9025_EXT_TX_INFO("quadrature_tracking_en", TX_QEC),
 	_ADRV9025_EXT_TX_INFO("lo_leakage_tracking_en", TX_LOL),
 	_ADRV9025_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
+	_ADRV9025_EXT_TX_INFO("dpd_en", TX_DPD),
 	{},
 };
 static int adrv9025_gainindex_to_gain(struct adrv9025_rf_phy *phy, int channel,
@@ -1520,6 +1616,23 @@ static ssize_t adrv9025_tx_lol_status_read(struct adrv9025_rf_phy *phy,
 		       txLolStatus.varianceMetric, txLolStatus.iterCount, txLolStatus.updateCount);
 }
 
+static ssize_t adrv9025_tx_dpd_status_read(struct adrv9025_rf_phy *phy,
+					   adi_adrv9025_TxChannels_e txChannel,
+					   char *buf)
+{
+	adi_adrv9025_DpdStatus_v2_t txDpdStatus = { 0 };
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9025_DpdStatusGet_v2(phy->madDevice, txChannel, &txDpdStatus);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	return sprintf(buf, "err %d %% %d iter cnt %d update cnt %d\n", txDpdStatus.dpdErrorCode,
+		       txDpdStatus.dpdPercentComplete, txDpdStatus.dpdIterCount, txDpdStatus.dpdUpdateCount);
+}
+
 static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 				     size_t count, loff_t *ppos)
 {
@@ -1554,6 +1667,18 @@ static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 
 	} else if (entry->cmd) {
 		switch (entry->cmd) {
+		case DBGFS_ORX1_TO_TX:
+		case DBGFS_ORX2_TO_TX:
+		case DBGFS_ORX3_TO_TX:
+		case DBGFS_ORX4_TO_TX:
+			mutex_lock(&phy->lock);
+			ret = adi_adrv9025_TxToOrxMappingGet(phy->madDevice,
+							     ADI_ADRV9025_ORX1 << (entry->cmd - DBGFS_ORX1_TO_TX),
+							     (adi_adrv9025_TxChannels_e *)&val);
+			mutex_unlock(&phy->lock);
+			if (ret)
+				return adrv9025_dev_err(phy);
+			break;
 		case DBGFS_RX0_QEC_STATUS:
 		case DBGFS_RX1_QEC_STATUS:
 		case DBGFS_RX2_QEC_STATUS:
@@ -1582,6 +1707,16 @@ static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 		case DBGFS_TX3_LOL_STATUS:
 			chan = ADI_ADRV9025_TX1 << (entry->cmd - DBGFS_TX0_LOL_STATUS);
 			ret = adrv9025_tx_lol_status_read(phy, chan, buf);
+			if (ret < 0)
+				return ret;
+			len = ret;
+			break;
+		case DBGFS_TX0_DPD_STATUS:
+		case DBGFS_TX1_DPD_STATUS:
+		case DBGFS_TX2_DPD_STATUS:
+		case DBGFS_TX3_DPD_STATUS:
+			chan = ADI_ADRV9025_TX1 << (entry->cmd - DBGFS_TX0_DPD_STATUS);
+			ret = adrv9025_tx_dpd_status_read(phy, chan, buf);
 			if (ret < 0)
 				return ret;
 			len = ret;
@@ -1668,7 +1803,23 @@ static ssize_t adrv9025_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_ORX1_TO_TX:
+	case DBGFS_ORX2_TO_TX:
+	case DBGFS_ORX3_TO_TX:
+	case DBGFS_ORX4_TO_TX:
+		if (ret != 1)
+			return -EINVAL;
 
+		mutex_lock(&phy->lock);
+		ret = adi_adrv9025_TxToOrxMappingSet(phy->madDevice,
+						     ADI_ADRV9025_ORX1 << (entry->cmd - DBGFS_ORX1_TO_TX),
+						     val);
+		mutex_unlock(&phy->lock);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		entry->val = val;
+		return count;
 	default:
 		break;
 	}
@@ -1734,6 +1885,10 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 	adrv9025_add_debugfs_entry(phy, "bist_framer_loopback",
 				   DBGFS_BIST_FRAMER_LOOPBACK);
 	adrv9025_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	adrv9025_add_debugfs_entry(phy, "orx1_to_tx_mapping", DBGFS_ORX1_TO_TX);
+	adrv9025_add_debugfs_entry(phy, "orx2_to_tx_mapping", DBGFS_ORX2_TO_TX);
+	adrv9025_add_debugfs_entry(phy, "orx3_to_tx_mapping", DBGFS_ORX3_TO_TX);
+	adrv9025_add_debugfs_entry(phy, "orx4_to_tx_mapping", DBGFS_ORX4_TO_TX);
 	adrv9025_add_debugfs_entry(phy, "rx0_qec_status", DBGFS_RX0_QEC_STATUS);
 	adrv9025_add_debugfs_entry(phy, "rx1_qec_status", DBGFS_RX1_QEC_STATUS);
 	adrv9025_add_debugfs_entry(phy, "rx2_qec_status", DBGFS_RX2_QEC_STATUS);
@@ -1748,6 +1903,10 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 	adrv9025_add_debugfs_entry(phy, "tx1_lol_status", DBGFS_TX1_LOL_STATUS);
 	adrv9025_add_debugfs_entry(phy, "tx2_lol_status", DBGFS_TX2_LOL_STATUS);
 	adrv9025_add_debugfs_entry(phy, "tx3_lol_status", DBGFS_TX3_LOL_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx0_dpd_status", DBGFS_TX0_DPD_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx1_dpd_status", DBGFS_TX1_DPD_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx2_dpd_status", DBGFS_TX2_DPD_STATUS);
+	adrv9025_add_debugfs_entry(phy, "tx3_dpd_status", DBGFS_TX3_DPD_STATUS);
 
 	for (i = 0; i < phy->adrv9025_debugfs_entry_index; i++) {
 		if (phy->adrv9025_debugfs_entry_index > DBGFS_BIST_TONE)
@@ -2812,6 +2971,137 @@ static int adrv9025_phy_parse_agc_dt(struct iio_dev *iodev, struct device *dev)
 				&phy->agcConfig->agcSlowloopFastGainChangeBlockEnable, 0, 0, 1);
 }
 
+static int adrv9025_phy_parse_dpd_config_dt(struct iio_dev *iodev, struct device *dev)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(iodev);
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-indirect-regularization-value",
+			       &phy->dpdTrackingConfig->dpdIndirectRegularizationValue, 20, 0, 63);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-direct-regularization-value",
+			       &phy->dpdTrackingConfig->dpdDirectRegularizationValue, 35, 0, 63);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-samples",
+			       &phy->dpdTrackingConfig->dpdSamples, 16384, 4096, 61440);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-m-threshold",
+			       &phy->dpdTrackingConfig->dpdMThreshold, 2920, 0, 32767);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-peak-search-window-size",
+			       &phy->dpdTrackingConfig->dpdPeakSearchWindowSize, 65535, 0, 16777215);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-update-mode",
+			       &phy->dpdTrackingConfig->dpdUpdateMode, 0, 0, 2);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-min-avg-signal-level",
+			       &phy->dpdTrackingConfig->minAvgSignalLevel, 519, 0, 65535);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-mu",
+			       &phy->dpdTrackingConfig->dpdMu, 50, 0, 100);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-min-avg-signal-level-orx",
+			       &phy->dpdTrackingConfig->minAvgSignalLevelOrx, 519, 0, 65535);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-filter-sel",
+			       &phy->dpdTrackingConfig->dpdFilterSel, 0, 0, 1);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,dpd-enable-direct-learning",
+			       &phy->dpdTrackingConfig->enableDirectLearning, 0, 0, 1);
+	if (ret)
+		return ret;
+
+	return ADRV9025_OF_PROP("adi,dpd-indirect-regularization-low-power-value",
+				&phy->dpdTrackingConfig->dpdIndirectRegularizationLowPowerValue,
+				20, 0, 63);
+}
+
+static int adrv9025_parse_dpd_coef(struct adrv9025_rf_phy *phy, char *data, u32 size)
+{
+	u8 dpdNumFeatures = 0, i, j, k, lut;
+	char *ptr = data;
+	char coef[10];
+	char *line;
+	int ret;
+
+	while ((line = strsep(&ptr, "\n"))) {
+		if (line >= data + size)
+			break;
+
+		ret = sscanf(line, "%hhu %hhu %hhu %hhu %s", &i, &j, &k, &lut, coef);
+		if (ret != 5) {
+			dev_err(&phy->spi->dev,
+				"ERROR: Malformed DPD coefficient table\n");
+			return -EINVAL;
+		}
+
+		if (i == 1 && j == 1 && k == 0)
+			k = 1; // for 1x1x0, force k to 1
+
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].i = i;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].j = j;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].k = k;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].lut = (adi_adrv9025_DpdLut_e)lut;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].coeffReal_xM = 0;
+		phy->dpdModelConfig->dpdFeatures[dpdNumFeatures].coeffImaginary_xM = 0;
+
+		dpdNumFeatures++;
+	}
+
+	phy->dpdModelConfig->txChannelMask = 0;
+	phy->dpdModelConfig->dpdNumFeatures = dpdNumFeatures;
+
+	return size;
+}
+
+static ssize_t adrv9025_dpd_coef_write(struct file *filp, struct kobject *kobj,
+				       struct bin_attribute *bin_attr,
+				       char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+
+	return adrv9025_parse_dpd_coef(phy, buf, count);
+}
+
+static ssize_t adrv9025_dpd_coef_read(struct file *filp, struct kobject *kobj,
+				      struct bin_attribute *bin_attr,
+				      char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+
+	if (off)
+		return 0;
+
+	return sprintf(buf, "%hhu %hhu %hhu %hhu 0.0 0.0\n",
+		       phy->dpdModelConfig->dpdFeatures[0].i,
+		       phy->dpdModelConfig->dpdFeatures[0].j,
+		       phy->dpdModelConfig->dpdFeatures[0].k,
+		       phy->dpdModelConfig->dpdFeatures[0].lut);
+}
+
 static int adrv9025_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -2849,9 +3139,19 @@ static int adrv9025_probe(struct spi_device *spi)
 	phy->agcConfig = kzalloc(sizeof(adi_adrv9025_AgcCfg_t), GFP_KERNEL);
 	if (!(phy->agcConfig))
 		return -ENOMEM;
+	phy->dpdModelConfig = kzalloc(sizeof(adi_adrv9025_DpdModelConfig_v2_t), GFP_KERNEL);
+	if (!(phy->dpdModelConfig))
+		return -ENOMEM;
+	phy->dpdTrackingConfig = kzalloc(sizeof(adi_adrv9025_DpdTrackingConfig_t), GFP_KERNEL);
+	if (!(phy->dpdTrackingConfig))
+		return -ENOMEM;
 	mutex_init(&phy->lock);
 
 	ret = adrv9025_phy_parse_agc_dt(indio_dev, &spi->dev);
+	if (ret)
+		return ret;
+
+	ret = adrv9025_phy_parse_dpd_config_dt(indio_dev, &spi->dev);
 	if (ret)
 		return ret;
 
@@ -2942,6 +3242,8 @@ static int adrv9025_probe(struct spi_device *spi)
 	if (ret)
 		return adrv9025_dev_err(phy);
 
+	phy->cal_mask.channelMask = phy->adrv9025PostMcsInitInst.initCals.channelMask;
+
 	adrv9025_clk_register(phy, "-rx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
 			      RX_SAMPL_CLK);
@@ -2961,6 +3263,13 @@ static int adrv9025_probe(struct spi_device *spi)
 				  &phy->clk_data);
 	if (ret)
 		goto out_disable_clocks;
+
+	sysfs_bin_attr_init(&phy->bin);
+	phy->bin.attr.name = "dpd_coef_model";
+	phy->bin.attr.mode = 0644;
+	phy->bin.write = adrv9025_dpd_coef_write;
+	phy->bin.read = adrv9025_dpd_coef_read;
+	phy->bin.size = 4096;
 
 	indio_dev->dev.parent = &spi->dev;
 
@@ -2992,6 +3301,10 @@ static int adrv9025_probe(struct spi_device *spi)
 	if (ret < 0)
 		goto out_iio_device_unregister;
 
+	ret = device_create_bin_file(&indio_dev->dev, &phy->bin);
+	if (ret < 0)
+		goto out_iio_device_unregister;
+
 	ret = adrv9025_register_debugfs(indio_dev);
 	if (ret < 0)
 		dev_warn(&spi->dev, "%s: failed to register debugfs", __func__);
@@ -3005,7 +3318,7 @@ static int adrv9025_probe(struct spi_device *spi)
 		if (ret) {
 			dev_err(&spi->dev, "request_irq() failed with %d\n",
 				ret);
-			goto out_iio_device_unregister;
+			goto out_remove_device_bin;
 		}
 	}
 
@@ -3022,10 +3335,12 @@ static int adrv9025_probe(struct spi_device *spi)
 
 	ret = devm_jesd204_fsm_start(&spi->dev, phy->jdev, JESD204_LINKS_ALL);
 	if (ret)
-		goto out_iio_device_unregister;
+		goto out_remove_device_bin;
 
 	return 0;
 
+out_remove_device_bin:
+	device_remove_bin_file(&phy->indio_dev->dev, &phy->bin);
 out_iio_device_unregister:
 	iio_device_unregister(indio_dev);
 out_clk_del_provider:

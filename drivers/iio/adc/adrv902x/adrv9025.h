@@ -36,6 +36,10 @@ enum debugfs_cmd {
 	DBGFS_BIST_FRAMER_0_PRBS,
 	DBGFS_BIST_FRAMER_LOOPBACK,
 	DBGFS_BIST_TONE,
+	DBGFS_ORX1_TO_TX,
+	DBGFS_ORX2_TO_TX,
+	DBGFS_ORX3_TO_TX,
+	DBGFS_ORX4_TO_TX,
 	DBGFS_RX0_QEC_STATUS,
 	DBGFS_RX1_QEC_STATUS,
 	DBGFS_RX2_QEC_STATUS,
@@ -50,6 +54,10 @@ enum debugfs_cmd {
 	DBGFS_TX1_LOL_STATUS,
 	DBGFS_TX2_LOL_STATUS,
 	DBGFS_TX3_LOL_STATUS,
+	DBGFS_TX0_DPD_STATUS,
+	DBGFS_TX1_DPD_STATUS,
+	DBGFS_TX2_DPD_STATUS,
+	DBGFS_TX3_DPD_STATUS,
 };
 
 enum adrv9025_rx_ext_info {
@@ -64,6 +72,7 @@ enum adrv9025_tx_ext_info {
 	TX_QEC,
 	TX_LOL,
 	TX_RF_BANDWIDTH,
+	TX_DPD,
 };
 
 enum adrv9025_iio_voltage_in {
@@ -158,6 +167,12 @@ struct adrv9025_rf_phy {
 
 	bool is_initialized;
 	int spi_device_id;
+
+	/* DPD */
+	struct bin_attribute bin;
+	adi_adrv9025_DpdModelConfig_v2_t *dpdModelConfig;
+	adi_adrv9025_TxChannels_e dpdTxChannel;
+	adi_adrv9025_DpdTrackingConfig_t *dpdTrackingConfig;
 };
 
 int adrv9025_hdl_loopback(struct adrv9025_rf_phy *phy, bool enable);
