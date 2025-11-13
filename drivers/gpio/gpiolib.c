@@ -22,6 +22,7 @@
 #include <linux/nospec.h>
 #include <linux/of.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/pinctrl/pinconf-generic.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/srcu.h>
@@ -3197,6 +3198,46 @@ int gpiod_set_debounce(struct gpio_desc *desc, unsigned int debounce)
 	return gpiod_set_config(desc, config);
 }
 EXPORT_SYMBOL_GPL(gpiod_set_debounce);
+
+/**
+ * gpiod_switch_enable - Enable a switch-type GPIO
+ * @desc: GPIO descriptor
+ *
+ * Enable a GPIO that controls a switch by using PIN_CONFIG_OUTPUT_ENABLE.
+ * This is intended for switch devices where the concept of "high" and "low"
+ * doesn't apply, only "enabled" (switch closed) or "disabled" (switch open).
+ *
+ * Returns:
+ * 0 on success, or negative error code on failure.
+ */
+int gpiod_switch_enable(struct gpio_desc *desc)
+{
+	unsigned long config;
+
+	config = pinconf_to_config_packed(PIN_CONFIG_OUTPUT_ENABLE, 1);
+	return gpiod_set_config(desc, config);
+}
+EXPORT_SYMBOL_GPL(gpiod_switch_enable);
+
+/**
+ * gpiod_switch_disable - Disable a switch-type GPIO
+ * @desc: GPIO descriptor
+ *
+ * Disable a GPIO that controls a switch by using PIN_CONFIG_OUTPUT_ENABLE.
+ * This is intended for switch devices where the concept of "high" and "low"
+ * doesn't apply, only "enabled" (switch closed) or "disabled" (switch open).
+ *
+ * Returns:
+ * 0 on success, or negative error code on failure.
+ */
+int gpiod_switch_disable(struct gpio_desc *desc)
+{
+	unsigned long config;
+
+	config = pinconf_to_config_packed(PIN_CONFIG_OUTPUT_ENABLE, 0);
+	return gpiod_set_config(desc, config);
+}
+EXPORT_SYMBOL_GPL(gpiod_switch_disable);
 
 /**
  * gpiod_set_transitory - Lose or retain GPIO state on suspend or reset

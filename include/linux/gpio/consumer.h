@@ -161,6 +161,10 @@ int gpiod_set_config(struct gpio_desc *desc, unsigned long config);
 int gpiod_set_debounce(struct gpio_desc *desc, unsigned int debounce);
 void gpiod_toggle_active_low(struct gpio_desc *desc);
 
+/* Switch control helper functions */
+int gpiod_switch_enable(struct gpio_desc *desc);
+int gpiod_switch_disable(struct gpio_desc *desc);
+
 int gpiod_is_active_low(const struct gpio_desc *desc);
 int gpiod_cansleep(const struct gpio_desc *desc);
 
@@ -490,6 +494,20 @@ static inline void gpiod_toggle_active_low(struct gpio_desc *desc)
 {
 	/* GPIO can never have been requested */
 	WARN_ON(desc);
+}
+
+static inline int gpiod_switch_enable(struct gpio_desc *desc)
+{
+	/* GPIO can never have been requested */
+	WARN_ON(desc);
+	return -ENOSYS;
+}
+
+static inline int gpiod_switch_disable(struct gpio_desc *desc)
+{
+	/* GPIO can never have been requested */
+	WARN_ON(desc);
+	return -ENOSYS;
 }
 
 static inline int gpiod_is_active_low(const struct gpio_desc *desc)
