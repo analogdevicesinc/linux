@@ -52,28 +52,37 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios =  <&gpio_exp 12 GPIO_ACTIVE_HIGH >, <&gpio_exp 13 GPIO_ACTIVE_LOW>, <&gpio_exp 14 GPIO_ACTIVE_LOW>, <&gpio_exp 15 GPIO_ACTIVE_LOW>;
+		out-gpios =  <&gpio_exp 13 GPIO_ACTIVE_LOW>, <&gpio_exp 14 GPIO_ACTIVE_LOW>, <&gpio_exp 15 GPIO_ACTIVE_LOW>;
 
 		channel@0 {
 			reg = <0>;
-
-			label = "usr_led";
-		};
-
-		channel@1 {
-			reg = <1>;
 			label = "ldac";
 		};
-    	channel@2 {
-    		reg = <2>;
-    		label = "rstn_dac";
+		channel@1 {
+			reg = <1>;
+			label = "rstn_dac";
     	};
-        channel@3 {
-        	reg = <3>;
-        	label = "clk_sel";
+		channel@2 {
+			reg = <2>;
+			label = "clk_sel";
         };
 	};
 
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio_exp 12 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+	};
 };
 
 / {
@@ -246,7 +255,7 @@
         clock-names = "clk";
         reset-gpios = <&gpio_exp 9 GPIO_ACTIVE_LOW>;
 		pd-gpios = <&gpio_exp 10 GPIO_ACTIVE_HIGH>;
-        adi,num-channels = <4>;
+        adi,num-channels = <1>;
         adi,pol-mask =<239>;
     };
 
@@ -257,7 +266,7 @@
         clock-names = "clk";
         reset-gpios = <&gpio_exp 8 GPIO_ACTIVE_LOW>;
         pd-gpios = <&gpio_exp 11 GPIO_ACTIVE_HIGH>;
-        adi,num-channels = <4>;
+        adi,num-channels = <1>;
         adi,pol-mask =<32>;
     };
 
