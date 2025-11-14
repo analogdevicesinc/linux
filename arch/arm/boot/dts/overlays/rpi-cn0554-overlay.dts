@@ -31,12 +31,6 @@
 };
 
 &{/clocks} {
-	ad7124_mclk: clock@0 {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <614400>;
-	};
-
 	ltc2688_tgp1: clock@1 {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -72,9 +66,6 @@
 
 		#address-cells = <1>;
 		#size-cells = <0>;
-
-		clocks = <&ad7124_mclk>;
-		clock-names = "mclk";
 
 		interrupts = <25 2>;
 		interrupt-parent = <&gpio>;
