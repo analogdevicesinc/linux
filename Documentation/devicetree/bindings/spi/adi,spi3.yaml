@@ -17,7 +17,7 @@ maintainers:
   - Slawomir Kulig <slawomir.kulig@analog.com>
 
 allOf:
-  - $ref: "spi-controller.yaml#"
+  - $ref: spi-controller.yaml#
 
 properties:
   compatible:
