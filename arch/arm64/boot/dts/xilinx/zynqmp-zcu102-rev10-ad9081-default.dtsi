@@ -14,20 +14,54 @@
 
 &i2c1 {
 	i2c-mux@75 {
-		i2c@0 { /* HPC0 */
+		i2c@1 { /* HPC1 */
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0>;
-			/* HPC0_IIC */
+			reg = <1>;
+			/* HPC1_IIC */
 			eeprom@50 {
 				compatible = "at24,24c02";
 				reg = <0x50>;
 			};
+
+			pca9543-mux@70 {
+				compatible = "nxp,pca9543";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x70>;
+				vdd-supply = <&p3v3>;
+
+				i2c@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+
+					si570_refclk: clock-generator@5d {
+						#clock-cells = <0>;
+						compatible = "silabs,si570";
+						temperature-stability = <50>;
+						reg = <0x5d>;
+						factory-fout = <156250000>;
+						clock-frequency = <100000000>;
+						clock-output-names = "si570";
+					};
+				};
+			};
+
 		};
 	};
 };
 
 / {
+	p3v3: regulator-p3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "p3v3";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
@@ -35,19 +69,19 @@
 		#size-cells = <0x1>;
 		ranges = <0 0 0 0xffffffff>;
 
-		clk_sma: clock@0 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <200000000>; // in Hz (200.00 MHz)
-			clock-output-names = "clock_sma";
-		};
+		//clk_sma: clock@0 {
+		//	#clock-cells = <0>;
+		//	compatible = "fixed-clock";
+		//	clock-frequency = <200000000>; // in Hz (200.00 MHz)
+		//	clock-output-names = "clock_sma";
+		//};
 
-		clkwiz_devclk: clock@1 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <100000000>; // in Hz (100.00 MHz)
-			clock-output-names = "clkwiz_device_clk";
-		};
+		//clkwiz_devclk: clock@1 {
+		//	#clock-cells = <0>;
+		//	compatible = "fixed-clock";
+		//	clock-frequency = <100000000>; // in Hz (100.00 MHz)
+		//	clock-output-names = "clkwiz_device_clk";
+		//};
 
 
 		rx_dma: dma-controller@9c420000 {
@@ -87,7 +121,7 @@
 			reg = <0x84b10000 0x4000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
-			clocks = <&clkwiz_devclk>;
+			clocks = <&si570_refclk>;
 			clock-names = "sampl_clk";
 			// spibus-connected = <&trx0_ad9081>;
 			//adi,axi-pl-fifo-enable;
@@ -108,7 +142,7 @@
 
 			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&clkwiz_devclk>;
+			clocks = <&zynqmp_clk 71>, <&si570_refclk>, <&si570_refclk>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -128,7 +162,7 @@
 
 			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&clkwiz_devclk>;
+			clocks = <&zynqmp_clk 71>, <&si570_refclk>, <&si570_refclk>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -152,7 +186,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
 
-			clocks = <&clk_sma>, <&clkwiz_devclk>;
+			clocks = <&si570_refclk>, <&si570_refclk>;
 			clock-names = "conv", "div40";
 
 			#clock-cells = <1>;
@@ -174,7 +208,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84b60000 0x1000>;
 
-			clocks = <&clk_sma>, <&clkwiz_devclk>;
+			clocks = <&si570_refclk>, <&si570_refclk>;
 			clock-names = "conv", "div40";
 
 			#clock-cells = <1>;
