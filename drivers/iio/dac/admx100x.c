@@ -276,29 +276,28 @@ static int admx_write_raw(struct iio_dev *indio_dev,
 		dev_info(&st->spi->dev, "ADMX: write_raw called for ENABLE with val=%d\n", val);
 
 		if (val) {
-        /* Validate parameters first */
-        ret = admx_validate_params(st);
-        if (ret)
-            break;
+			/* Validate parameters first */
+			ret = admx_validate_params(st);
+			if (ret)
+				break;
 
-
-        /* Start signal generation */
-        ret = admx_set_task(st, ADMX_TASK_GENERATE_SIGNAL);
-        if (!ret) {
-            st->output_enabled = true;
-            dev_info(&st->spi->dev, "ADMX: Output ENABLED\n");
-        } else {
-			dev_err(&st->spi->dev, "ADMX: Failed to enable output (ret=%d)\n", ret);
+			/* Start signal generation */
+			ret = admx_set_task(st, ADMX_TASK_GENERATE_SIGNAL);
+			if (!ret) {
+				st->output_enabled = true;
+				dev_info(&st->spi->dev, "ADMX: Output ENABLED\n");
+			} else {
+				dev_err(&st->spi->dev, "ADMX: Failed to enable output (ret=%d)\n", ret);
+			}
+		} else {
+			ret = admx_stop_output(st);
+			if (!ret) {
+				st->output_enabled = false;
+				dev_info(&st->spi->dev, "ADMX: Output DISABLED\n");
+			} else {
+				dev_err(&st->spi->dev, "ADMX: Failed to disable output (ret=%d)\n", ret);
+			}
 		}
-    } else {
-        ret = admx_stop_output(st);
-        if (!ret) {
-            st->output_enabled = false;
-            dev_info(&st->spi->dev, "ADMX: Output DISABLED\n");
-        } else {
-			dev_err(&st->spi->dev, "ADMX: Failed to disable output (ret=%d)\n", ret);
-		}
-    }
 		break;
 
 	default:
@@ -405,47 +404,6 @@ static ssize_t admx_calibrate_store(struct device *dev,
 
 	return ret ? ret : len;
 }
-static ssize_t admx_enable_show(struct device *dev,
-	struct device_attribute *attr,
-	char *buf)
-{
-struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-struct admx_state *st = iio_priv(indio_dev);
-
-return sprintf(buf, "%d\n", st->output_enabled);
-}
-
-static ssize_t admx_enable_store(struct device *dev,
-	 struct device_attribute *attr,
-	 const char *buf, size_t len)
-{
-struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-struct admx_state *st = iio_priv(indio_dev);
-bool val;
-int ret;
-
-ret = kstrtobool(buf, &val);
-if (ret)
-return ret;
-
-mutex_lock(&st->lock);
-
-if (val)
-ret = admx_set_task(st, ADMX_TASK_GENERATE_SIGNAL);
-else
-ret = admx_stop_output(st);
-
-if (!ret)
-st->output_enabled = val;
-
-mutex_unlock(&st->lock);
-
-return ret ? ret : len;
-}
-
-static IIO_DEVICE_ATTR(out_altvoltage0_enable, 0644,
-	admx_enable_show,
-	admx_enable_store, 0);
 
 static IIO_DEVICE_ATTR(signal_type, 0644,
 		       admx_signal_type_show,
@@ -461,7 +419,7 @@ static struct attribute *admx_attributes[] = {
 	&iio_dev_attr_signal_type.dev_attr.attr,
 	&iio_dev_attr_signal_types_available.dev_attr.attr,
 	&iio_dev_attr_calibrate.dev_attr.attr,
-	&iio_dev_attr_out_altvoltage0_enable.dev_attr.attr,
+	/* Remove duplicate enable - use IIO channel enable only */
 	NULL,
 };
 
@@ -490,7 +448,7 @@ static const struct iio_chan_spec admx_channels[] = {
 static int admx_init(struct admx_state *st)
 {
 	unsigned int val;
-	int ret =0;
+	int ret = 0;
 
 	//Set default values
 	st->amplitude_uvrms = 1000000; //1 Vrms
@@ -498,12 +456,6 @@ static int admx_init(struct admx_state *st)
 	st->signal_type = ADMX_SIGNAL_TYPE_SINE;
 	st->output_enabled = true;
 
-	//Wait for module to be ready
-	//ret = admx_wait_ready(st, 20000);
-	if (ret) {
-		dev_err(&st->spi->dev, "Module not ready\n");
-		return ret;
-	}
 	//Read module ID
 	ret = regmap_read(st->regmap, ADMX_REG_MODULE_ID, &val);
 	if (ret){
@@ -544,7 +496,6 @@ static int admx_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct admx_state *st;
-	struct gpio_desc *reset_gpio;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -568,17 +519,8 @@ static int admx_probe(struct spi_device *spi)
 	ret = admx_init(st);
 	if (ret)
 		return ret;
+
 	return devm_iio_device_register(&spi->dev, indio_dev);
-
-	reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
-
-	// if (IS_ERR(reset_gpio))
-	// 	return PTR_ERR(reset_gpio);
-
-	gpiod_set_value(reset_gpio, 0);
-	fsleep(1000);
-	gpiod_set_value(reset_gpio, 1);
-	fsleep(3000);
 }
 
 static const struct spi_device_id admx_id[] = {
