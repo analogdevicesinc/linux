@@ -12,20 +12,30 @@ maintainers:
 
 description: Bindings for ADRV906X 10G/25G Network Interface Controller Device
 
+allOf:
+  - $ref: ethernet-controller.yaml#
+
 properties:
   compatible:
     const: adi,adrv906x-net
+  '#address-cells':
+    const: 1
+  '#size-cells':
+    const: 1
   reg:
     maxItems: 1
     description: EMAC_CMN_BASE
   recovered_clk_10g:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description: Clock divider value for the recovered Ethernet clock that
                  is used as a reference to support SyncE in 10 GbE operation
     const: 22
   recovered_clk_25g:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description: Clock divider value for the recovered Ethernet clock that
                  is used as a reference to support SyncE in 25 GbE operation
     const: 55
+
   ethernet-ports:
     type: object
     properties:
@@ -33,72 +43,14 @@ properties:
         const: 1
       '#size-cells':
         const: 1
-      clock-names:
-        items:
-          - const: hsdig_clk
-      clocks:
-        items:
-          - description: Clock phandle for HSDIG clock
-      macsec:
-        description: Physical base address for MACsec instance
-      interrupts:
-        description: macsecX interrupt. Do only populate macsec1 when the switch
-                     is enabled!
-      interrupt-names:
-        items:
-          - const: ts_event
-      ndma-handle:
-        maxItems: 1
-        description: phandle on NIC-DMA associated with the port
-      phy-handle:
-        maxItems: 1
-        description: phandle on PHY connected to the port
-      mac-address:
-        description: Optionally filled in by u-boot if property field is
-                     not defined and U-Boot is able to get the address
-                     from OTP or NVMEM.
-                     If the property is defined with any value including 0
-                     then it is not updated by U-Boot.
-      adi,pcb-delay-tx-ns:
-        description: PCB delay for tx channel, which is part of static PHY
-                     delay. This is the integer portion in units of ns.
-        default: 0
-        minimum: 0
-        maximum: 0xFFFF
-
-      adi,pcb-delay-tx-frac-ns:
-        description: PCB delay for tx channel, which is part of static PHY
-                     delay. This is the fractional portion in units of
-                     2^(-16)ns. For example, 1.125ns is represented by 1ns
-                     and the frac-ns = 0x2000
-        default: 0
-        minimum: 0
-        maximum: 0xFFFF
-
-      adi,pcb-delay-rx-ns:
-        description: PCB delay for rx channel, which is part of static PHY
-                     delay. This is the integer portion in units of ns.
-        default: 0
-        minimum: 0
-        maximum: 0xFFFF
-
-      adi,pcb-delay-rx-frac-ns:
-        description: PCB delay for rx channel, which is part of static PHY
-                     delay. This is the fractional portion in units of
-                     2^(-16)ns. For example, 1.125ns is represented by 1ns
-                     and the frac-ns = 0x2000.
-        default: 0
-        minimum: 0
-        maximum: 0xFFFF
-
     patternProperties:
       "^port@[0-9]+$":
         type: object
-        description: ADI NIC external ports
+        description: ADRV906x NIC Ethernet interface.
         properties:
           id:
-            $ref: /schemas/types.yaml#definitions/uint32
-            description: port id for the ethernet device
+            $ref: /schemas/types.yaml#/definitions/uint32
+            description: port id for the Ethernet device
           reg:
             maxItems: 4
             description: The address and size of the register must be
@@ -110,31 +62,90 @@ properties:
                 registers
               - The physical base address and size of the TSU control
                 registers
+          clock-names:
+            items:
+              - const: hsdig_clk
+          clocks:
+            items:
+              - description: Clock phandle for HSDIG clock
+          macsec-handle:
+            $ref: /schemas/types.yaml#/definitions/phandle
+            description: Physical base address for MACSec instance
+          interrupts:
+            description: macsecX interrupt. Do only populate macsec1 when the 
+              switch is enabled!
+          interrupt-names:
+            items:
+              - const: ts_event
+          ndma-handle:
+            $ref: /schemas/types.yaml#/definitions/phandle
+            description: phandle on NDMA associated with the port
+          phy-handle:
+            maxItems: 1
+            description: phandle on PHY connected to the port
+          mac-address:
+            description: Optionally filled in by u-boot if property field is
+              not defined and U-Boot is able to get the address
+              from OTP or NVMEM.
+              If the property is defined with any value including 0
+              then it is not updated by U-Boot.
+          adi,pcb-delay-tx-ns:
+            description: PCB delay for tx channel, which is part of static PHY
+              delay. This is the integer portion in units of ns.
+            default: 0
+            minimum: 0
+            maximum: 0xFFFF
+          adi,pcb-delay-tx-frac-ns:
+            description: PCB delay for tx channel, which is part of static PHY
+              delay. This is the fractional portion in units of
+              2^(-16)ns. For example, 1.125ns is represented by 1ns
+              and the frac-ns = 0x2000
+            default: 0
+            minimum: 0
+            maximum: 0xFFFF
+          adi,pcb-delay-rx-ns:
+            description: PCB delay for rx channel, which is part of static PHY
+              delay. This is the integer portion in units of ns.
+            default: 0
+            minimum: 0
+            maximum: 0xFFFF
+          adi,pcb-delay-rx-frac-ns:
+            description: PCB delay for rx channel, which is part of static PHY
+              delay. This is the fractional portion in units of
+              2^(-16)ns. For example, 1.125ns is represented by 1ns
+              and the frac-ns = 0x2000.
+            default: 0
+            minimum: 0
+            maximum: 0xFFFF
           if-name:
+            $ref: /schemas/types.yaml#/definitions/string
             description: Optional field that can be used for changing interface
                          name registered. Must fulfill netdev naming standards.
+        required:
+          - id
+          - reg
+          - phy-handle
+          - ndma-handle
+          - clocks
+          - clock-names
         additionalProperties: false
     additionalProperties: false
 
-  ndmaX:
+patternProperties:
+  "^ndma@[0-9A-Fa-f]+$":
     type: object
-    description: NDMA X supporting DDE DMA
+    description:
+      NDMA controller node.
     properties:
       id:
-        $ref: /schemas/types.yaml#definitions/uint32
+        $ref: /schemas/types.yaml#/definitions/uint32
         description: NDMA device id number
       reg:
         maxItems: 5
-        description:
-          The physical base address(s) and size of the NDMA X's registers.
-          The 1st region is the NDMA TX register base and size.
-          The 2nd region is the DMA TX data register base and size.
-          The 3rd region is the DMA TX status register base and size.
-          The 4th region is the NDMA RX register base and size.
-          The 5th region is the DMA RX data and status register base and size.
+        description: Physical base address(s) and size of NDMA X's registers.
       reset-ctrl:
-        description:
-          control ndmaX tx & rx reset
+        $ref: /schemas/types.yaml#/definitions/phandle
+        description: Control NDMA X's tx & rx reset
       interrupts:
         items:
           - description: dmaX tx data done interrupt
@@ -152,11 +163,12 @@ properties:
           - const: rx_dma_done
           - const: rx_dma_error
       interrupt-ctrl:
-        description: control register address for NDMA interrupt enable
+        $ref: /schemas/types.yaml#/definitions/phandle
+        description: Control register address for NDMA interrupt enable
     additionalProperties: false
-
-  oran_if:
+  "^oran_if@[0-9A-Fa-f]+$":
     type: object
+    description: O-RAN IF node to forward traffic to NDMA.
     properties:
       reg:
         description: Enable O-RAN IF to forward traffic to NDMA.
@@ -167,20 +179,26 @@ properties:
           - const: OIF_1_RX_CTRL
           - const: OIF_1_TX_CTRL
     additionalProperties: false
-
-  mdio_if:
+  "^mdio_if@[0-9A-Fa-f]+$":
     type: object
+    description: MDIO bus interface binding for PHY control.
     properties:
       reg:
-        description: Enable MDIO bus interface binding for PHY control.
-      regnames:
-        items:
-          - const: EMAC_PCS_0_BASE
-          - const: EMAC_PCS_1_BASE
+        minItems: 2
+        maxItems: 2
+        description: Physical base addresses for MDIO bus.
+      "#address-cells":
+        const: 1
+      "#size-cells":
+        const: 0
     patternProperties:
-      "^_phy@[0-9a-f]+$":
+      "^ethernet-phy@[0-9]+$":
         type: object
+        description: Ethernet PHY node on the MDIO bus.
         properties:
+          compatible:
+            const: ethernet-phy-ieee802.3-c45
+            description: PHY implements IEEE802.3 clause 45.
           reg:
             minimum: 0
             maximum: 3
@@ -189,25 +207,22 @@ properties:
             enum: [10000, 25000]
             default: 25000
             description: Default PHY speed in Mbits/sec.
-          compatible:
-            const: ethernet-phy-ieee802.3-c45
-            description: PHY implements IEEE802.3 clause 45.
+        required:
+          - compatible
+          - reg
         additionalProperties: false
     additionalProperties: false
-
-  eth_recov_clk:
+  "^eth_recov_clk@[0-9A-Fa-f]+$":
     type: object
+    description: Ethernet recovered clock output control node.
     properties:
       reg:
-        items:
-          description: Enable Ethernet recovered clock output.reg name
-
-      reg-names:
-        items:
-          - const: EMAC_RECOVERED_CLK_CTRL
+        description: Enable Ethernet recovered clock output control register.
+        maxItems: 1
+    required:
+      - reg
     additionalProperties: false
-
-  eth_switch:
+  "^eth_switch@[0-9A-Fa-f]+$":
     type: object
     description: Switch used for daisy-chain and 8t8r operational modes.
     properties:
@@ -224,19 +239,28 @@ properties:
           description: switchportX error interrupt
       interrupt-names:
         items:
-          - const: switch_error_X
-      pvid: (optional)
-        description: (u16) Should be '1' but can have any valid VLAN ID.
-      vids: (optional)
-        description: (u16) A list of up to '4' VLANs applied to all
-                     switch ports.
+          - const: switch_error_0
+          - const: switch_error_1
+      pvid:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 4094
+        description: Primary VLAN ID (1–4094).
+      vids:
+        $ref: /schemas/types.yaml#/definitions/uint32-array
+        minItems: 1
         maxItems: 4
-      vlan_enabled: (optional)
-        description: (bool) Enable VLAN support, VLAN is disabled without this field 
+        items:
+          minimum: 1
+          maximum: 4094
+        description: Up to 4 VLAN IDs (1–4094) applied to all switch ports.
+      vlan_enabled:
+        type: boolean
+        description: Enable VLAN support, VLAN is disabled without this field.
       trap-ptp-forwardable:
         description: Enable optional trapping of PTP forwardable packets.
         type: boolean
-      
+
     patternProperties:
       "^switch-port@[0-2]+$":
         type: object
@@ -244,7 +268,7 @@ properties:
                      Must be in numerical order!
         properties:
           id:
-            $ref: /schemas/types.yaml#definitions/uint32
+            $ref: /schemas/types.yaml#/definitions/uint32
             description: port id for the ethernet switch, 0-2
           reg:
             maxItems: 1
@@ -255,13 +279,7 @@ properties:
 required:
   - compatible
   - reg
-  - ndma
-  - dmas
-  - dma-names
   - ethernet-ports
-  - mdio-handle
-  - phy-hanlde
-  - oran_if
 
 unevaluatedProperties: false
 
@@ -297,6 +315,13 @@ examples:
     #define NDMA_0_TX_DMA           0x20261000
     #define NDMA_0_TX_STATUS_DMA    0x20264000
 
+    #define EMAC_CMN_BASE_UADDR           2B300000
+    #define EMAC_PCS_0_BASE_UADDR         2B310000
+    #define EMAC_SW_BASE_UADDR            2B350100
+    #define OIF_0_RX_CTRL_UADDR           2B103040
+    #define EMAC_RECOVERED_CLK_CTRL_UADDR 20102D00
+    #define NDMA_0_TX_BASE_UADDR          20216000
+    
     #define NDMA_DMA_ERR_INTR_GATED_0         210
     #define NDMA_DMA_ERR_INTR_GATED_1         211
     #define NDMA_DMA_DONE_INTR_GATED_0        214
@@ -310,14 +335,17 @@ examples:
     #define ETH_IRQ_PCS_RX_ERROR_0            787
     #define ETH_IRQ_PCS_RX_ERROR_1            788
 
-    adrv906x_net0: adrv906x_net@EMAC_CMN_BASE_UADDR {
+    adrv906x_net0: ethernet@EMAC_CMN_BASE_UADDR {
       compatible = "adi,adrv906x-net";
       reg = <EMAC_CMN_BASE 0x3004>;
       #address-cells = <1>;
       #size-cells = <1>;
 
       ethernet-ports {
-        port@0 {
+      #address-cells = <1>;
+      #size-cells = <1>;
+    
+      port@0 {
           id = <0>;
           reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>,
                 <EMAC_MAC_0_RX 0x9c>, <EMAC_PCS_0_TSU 0x44>;
@@ -349,12 +377,12 @@ examples:
         };
       };
 
-      oran_if {
+      oran_if@OIF_0_RX_CTRL_UADDR {
         reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>,
               <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
       };
 
-      mdio_if {
+      mdio_if@EMAC_PCS_0_BASE_UADDR {
         reg = <EMAC_PCS_0_BASE 0x350>, <EMAC_PCS_1_BASE 0x350>;
         #address-cells = <1>;
         #size-cells = <0>;
@@ -370,17 +398,19 @@ examples:
          };
        };
 
-      eth_recov_clk {
+      eth_recov_clk@EMAC_RECOVERED_CLK_CTRL_UADDR {
         reg = <EMAC_RECOVERED_CLK_CTRL 0x4>;
       };
 
-      eth_switch {
-        reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
+      eth_switch@EMAC_SW_BASE_UADDR {
+      #address-cells = <1>;
+      #size-cells = <1>;  
+      reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
         interrupt-names = "switch_error_0", "switch_error_1";
         interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>,
                      <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
-        pvid = /bits/ 16 <1>;
-        vids = /bits/ 16 <2 3 4 5>;
+        pvid = <1>;
+        vids = <2 3 4 5>;
         vlan_enabled;
         switch_port0:switch-port@0 {
           id = <0>;
@@ -397,7 +427,7 @@ examples:
       };
     };
 
-    ndma0: ndma0@NDMA_0_TX_BASE_UADDR {
+    ndma0: ndma@NDMA_0_TX_BASE_UADDR {
       id = <0>;
       reg = <NDMA_0_TX_BASE 0x100>,
             <NDMA_0_TX_DMA 0x80>,

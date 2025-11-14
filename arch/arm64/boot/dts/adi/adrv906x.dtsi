@@ -773,7 +773,7 @@
 		reg = <NDMA_1_INTR_CTRL 0x20>;
 	};
 
-	ndma0: ndma0@NDMA_0_TX_BASE_UADDR {
+	ndma0: ndma@NDMA_0_TX_BASE_UADDR {
 		id = <0>;
 		reg = <NDMA_0_TX_BASE 0x100>,
 			  <NDMA_0_TX_DMA 0x80>,
@@ -794,7 +794,7 @@
 	};
 
 
-	ndma1: ndma1@NDMA_1_TX_BASE_UADDR {
+	ndma1: ndma@NDMA_1_TX_BASE_UADDR {
 		id = <1>;
 		reg = <NDMA_1_TX_BASE 0x100>,
 			  <NDMA_1_TX_DMA 0x80>,
