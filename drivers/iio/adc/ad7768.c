@@ -598,9 +598,9 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 			return ret;
 
 		chan[chan_idx] = ad7768_channel_template;
-		chan[chan_idx].address = chan_idx;
+		chan[chan_idx].address = channel;
 		chan[chan_idx].channel = channel;
-		chan[chan_idx].scan_index = chan_idx;
+		chan[chan_idx].scan_index = channel;
 		chan_idx++;
 	}
 
