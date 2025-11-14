@@ -108,7 +108,7 @@
 
 			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&axi_ad9081_adxcvr_rx 0>;
+			clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&clkwiz_devclk>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -128,7 +128,7 @@
 
 			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&axi_ad9081_adxcvr_tx 0>;
+			clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&clkwiz_devclk>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
