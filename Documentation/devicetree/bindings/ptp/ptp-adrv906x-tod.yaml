@@ -20,7 +20,8 @@ properties:
     const: 1
 
   reg:
-    maxItems: 4
+    minItems: 1
+    maxItems: 2
     description: Base address and size of the register set for the device.
                  The second pair is optional and is used for two-chip instances.
 
@@ -45,9 +46,7 @@ properties:
 
   adi,ppsx-pulse-width-ns:
     description: Value of PPSX pulse width in nanoseconds. Default is 10000000
-                 (10ms).
-    minimum: 1
-    maximum: 99999999
+                 (10ms). Range is 1 to 99999999 ns.
 
   adi,external-pps:
     type: boolean
@@ -58,18 +57,19 @@ properties:
 
   adi,pps-in-pulse-width-ms:
     description:
-      The expected pulse width of the input PPS signal in milliseconds.
-    minimum: 0
-    maximum: 1000
+      The expected pulse width of the input PPS signal in milliseconds. 
+      Range is 0 to 1000 ms.
 
   adrv906x-tod:
     type: object
     properties:
       adi,default-tod-counter:
-        description: Default selected ToD counter for the local ToD and CDC
-                     output.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description:
+          Default selected ToD counter for the local ToD and CDC output.
 
       adi,cdc-delay-value:
+        $ref: /schemas/types.yaml#/definitions/uint32-array
         description:
           this property is only for debugging or special use cases.
           Instead, for normal operation, we need to configure this on the basis
@@ -105,13 +105,19 @@ properties:
               otherwise, the counter runs in the GC trigger mode.
 
           adi,trigger-delay-tick:
+            $ref: /schemas/types.yaml#/definitions/uint32
             description:
               The trigger delay for the GC trigger mode in clock cycles.
               Default is 491520.
             minimum: 0
             maximum: 0xFFFFFFFF
+        required:
+          - reg
         additionalProperties: false
+
     additionalProperties: false
+
+additionalProperties: false
 
 required:
   - compatible
@@ -122,18 +128,18 @@ required:
   - clocks
   - adrv906x-tod
 
-additionalProperties: false
-
 examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/gpio/gpio.h>
-    #define EMAC_TOD_BASE   0x2B380000
-    #define SEC_EMAC_TOD_BASE       0x2F380000
-    #define TOD_IRQ 201
+    #define EMAC_TOD_BASE        0x2B380000
+    #define EMAC_TOD_BASE_UADDR  2B380000
+    #define SEC_EMAC_TOD_BASE    0x2F380000
 
-    ptpclk: ptpclk {
-      compatible = "adi,adi-tod";
+    #define TOD_IRQ          201
+
+    ptpclk: ptpclk@EMAC_TOD_BASE_UADDR {
+      compatible = "adi,adrv906x-tod";
       #address-cells = <1>;
       #size-cells = <1>;
       reg = <EMAC_TOD_BASE 0xff SEC_EMAC_TOD_BASE 0xff>;
@@ -154,8 +160,16 @@ examples:
     };
 
   - |
-    ptpclk2: ptpclk {
-      compatible = "adi,adi-tod";
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/gpio/gpio.h>
+    #define EMAC_TOD_BASE        0x2B380000
+    #define EMAC_TOD_BASE_UADDR  2B380000
+    #define SEC_EMAC_TOD_BASE    0x2F380000
+
+    #define TOD_IRQ          201
+
+    ptpclk2: ptpclk@EMAC_TOD_BASE_UADDR {
+      compatible = "adi,adrv906x-tod";
       #address-cells = <1>;
       #size-cells = <1>;
       reg = <EMAC_TOD_BASE 0xff>;
