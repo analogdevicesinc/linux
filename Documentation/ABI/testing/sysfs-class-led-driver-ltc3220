@@ -1,0 +1,26 @@
+What:		/sys/class/leds/<led>/gradation_period_ms
+Date:		November 2025
+KernelVersion:	6.19
+Contact:	Edelweise Escala <edelweise.escala@analog.com>
+Description:	LTC3220 gradation period where:
+		0 - disabled
+		313 - Ramp time of 0.24s and Period of 0.313s
+		625 - Ramp time of 0.48s and Period of 0.625s
+		1250 - Ramp time of 0.96s and Period of 1.25s
+
+What:		/sys/class/leds/<led>/gradation_mode
+Date:		November 2025
+KernelVersion:	6.19
+Contact:	Edelweise Escala <edelweise.escala@analog.com>
+Description:	LTC3220 gradation mode command. This sets if gradation
+		will ramp up or down. Possible values are:
+		"ramp_up"
+		"ramp_down"
+
+What:		/sys/class/leds/<led>/gradation_mode_available
+Date:		November 2025
+KernelVersion:	6.19
+Contact:	Edelweise Escala <edelweise.escala@analog.com>
+Description:	LTC3220 read only command to show possible gradiation mode such as:
+		"ramp_up"
+		"ramp_down"

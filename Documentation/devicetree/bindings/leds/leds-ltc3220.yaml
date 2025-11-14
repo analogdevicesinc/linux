@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/leds/leds-ltc3220.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices LTC3220 LED Drivers
+
+maintainers:
+  - Edelweise Escala <edelweise.escala@analog.com>
+
+description: Bindings for the Analog Devices LTC3220 18 channel LED Drivers.
+
+  For more product information please see the link below
+    https://www.analog.com/en/products/ltc3220.html
+
+properties:
+  compatible:
+    enum:
+      - adi,ltc3220
+      - adi,ltc3220-1
+
+  reg:
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  reset-gpios:
+    maxItems: 1
+    description: GPIO attached to the chip's reset pin
+
+  adi,force-cpo-mode:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Force charge pump operation mode.
+      0 = Auto mode (default) - Automatically selects optimal charge pump mode
+      1 = 1.5x mode - 1.5x voltage multiplication
+      2 = 2x mode - 2x voltage multiplication
+      3 = 1x mode - Charge pump bypass
+    minimum: 0
+    maximum: 3
+    default: 0
+
+  adi,quick-write-enable:
+    type: boolean
+    description:
+      Enable quick write mode. When enabled, writing to LED D1 (register 0x01)
+      will update all 18 LED outputs with the same brightness value.
+
+patternProperties:
+  "(^led@([1-9]|1[0-8])$|led)":
+    type: object
+    $ref: common.yaml#
+    unevaluatedProperties: false
+    properties:
+      reg:
+        description: Output channel for the LED. reg value to output to LED output number
+        enum:
+          - 1  # LED output D1
+          - 2  # LED output D2
+          - 3  # LED output D3
+          - 4  # LED output D4
+          - 5  # LED output D5
+          - 6  # LED output D6
+          - 7  # LED output D7
+          - 8  # LED output D8
+          - 9  # LED output D9
+          - 10 # LED output D10
+          - 11 # LED output D11
+          - 12 # LED output D12
+          - 13 # LED output D13
+          - 14 # LED output D14
+          - 15 # LED output D15
+          - 16 # LED output D16
+          - 17 # LED output D17
+          - 18 # LED output D18
+    required:
+      - reg
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/leds/common.h>
+
+    i2c {
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       led-controller@1c {
+             compatible = "adi,ltc3220";
+             reg = <0x1c>;
+             #address-cells = <1>;
+             #size-cells = <0>;
+             reset-gpios = <&gpio 17 GPIO_ACTIVE_LOW>;
+             adi,force-cpo-mode = <0>;
+             adi,quick-write-enable;
+
+             led@1 {
+                 reg = <1>;
+             };
+
+             led@2 {
+                 reg = <2>;
+             };
+
+             led@3 {
+                 reg = <3>;
+             };
+
+             led@4 {
+                 reg = <4>;
+             };
+
+             led@5 {
+                 reg = <5>;
+             };
+
+             led@6 {
+                 reg = <6>;
+             };
+        };
+    };
+
+...
