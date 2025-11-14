@@ -13,15 +13,24 @@ maintainers:
 description:
   Bindings for Analog Devices ADRV906X 1G Ethernet Interface Devices
 
+allOf:
+  - $ref: snps,dwmac.yaml#
+
 properties:
   compatible:
-    const: adi,adrv906x-dwmac
-
+    items:
+      - const: adi,adrv906x-dwmac
+      - const: snps,dwmac-5.10a
+    description: Product-specific string optionally followed by Synopsys fallback.
+  '#address-cells':
+    const: 1
+  '#size-cells':
+    const: 1
   reg:
     maxItems: 1
     description: The register base address and range
   base-clk-speed:
-    maxItems: 1
+    $ref: /schemas/types.yaml#/definitions/uint32
     description: The default clock speed at initialization in Mhz
                  The speed can be 50MHz, 125MHz or 250MHz
   mac-address:
@@ -31,9 +40,25 @@ properties:
                  If the property is defined with any value including 0
                  then it is not updated by U-Boot.
   if-name:
+    $ref: /schemas/types.yaml#/definitions/string
     description: Optional field that can be used for changing interface
                  name registered. Must fulfill netdev naming standards.
-additionalProperties: false
+
+patternProperties:
+  "^clock_divider(@.*)?$":
+    type: object
+    description: Optional clock divider control subnode
+    properties:
+      reg:
+        description: Register address for the clock divider register
+        maxItems: 1
+      ctrl_reg:
+        $ref: /schemas/types.yaml#/definitions/uint32-array
+        minItems: 2
+        maxItems: 2
+    additionalProperties: true
+
+unevaluatedProperties: false
 
 examples:
   - |
@@ -42,7 +67,9 @@ examples:
 
     #define EMAC_1G_CLK_CTRL        0x20190000
     #define EMAC_1G_DIV_CTRL        0x201c0050
+    #define EMAC_1G_DIV_CTRL_UADDR  201c0050
     #define EMAC_1G_BASE            0x20720000
+    #define EMAC_1G_BASE_UADDR      20720000
     #define EMAC_1G_SBD_INTR_PIPED  298
     #define ADI_ADRV906X_PIN_88     (88U)
 
@@ -50,6 +77,8 @@ examples:
     emac0: ethernet@EMAC_1G_BASE_UADDR {
       status = "okay";
       compatible = "adi,adrv906x-dwmac", "snps,dwmac-5.10a";
+      #address-cells = <1>;
+      #size-cells = <1>;
       reg = <EMAC_1G_BASE 0x1168>;
       interrupts = <GIC_SPI EMAC_1G_SBD_INTR_PIPED IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "macirq";
@@ -63,9 +92,7 @@ examples:
       pinctrl-0 = <&pinctrl_emac0_rgmii>;
       mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
                                               by u-boot */
-      #address-cells = <1>;
-      #size-cells = <1>;
-      clock_divider {
+      clock_divider@EMAC_1G_DIV_CTRL_UADDR {
         reg = <EMAC_1G_DIV_CTRL 0x04>;
         ctrl_reg = <EMAC_1G_CLK_CTRL 0x08>;
       };

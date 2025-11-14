@@ -565,7 +565,7 @@
 		pinctrl-0 = <&pinctrl_emac0_rgmii>;
 		status = "disabled";
 		#address-cells = <1>;
-	        #size-cells = <1>;
+		#size-cells = <1>;
 		emac0_clk_div: clock_divider {
 			reg = <EMAC_1G_DIV_CTRL 0x04>;
 			ctrl_reg = <EMAC_1G_CLK_CTRL 0x08>;
