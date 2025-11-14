@@ -1908,10 +1908,6 @@ static int adf4382_init(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = adf4382_set_defaults(st);
-	if (ret)
-		return ret;
-
 	ret = regmap_write(st->regmap, 0x20,
 			   ADF4382_EN_AUTOCAL_MSK |
 			   FIELD_PREP(ADF4382_EN_RDBLR_MSK, st->ref_doubler_en) |
@@ -1923,8 +1919,11 @@ static int adf4382_init(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-
 	st->ref_freq_hz = clk_get_rate(st->clkin);
+	
+	ret = adf4382_set_defaults(st);
+	if (ret)
+		return ret;
 
 	ret = adf4382_set_out_power(st, 0, st->opwr_a);
 	if (ret)
