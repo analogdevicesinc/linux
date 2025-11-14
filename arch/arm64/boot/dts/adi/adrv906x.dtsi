@@ -830,7 +830,7 @@
 		status = "disabled";
 	};
 
-	ptpclk: ptpclk {
+	ptpclk: ptpclk@EMAC_TOD_BASE_UADDR {
 		compatible = "adi,adrv906x-tod";
 		#address-cells = <1>;
 		#size-cells = <1>;
