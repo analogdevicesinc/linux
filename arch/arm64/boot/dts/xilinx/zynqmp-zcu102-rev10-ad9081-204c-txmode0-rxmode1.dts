@@ -38,12 +38,12 @@
 #include "zynqmp-zcu102-rev10-ad9081-default.dtsi"
 
 &axi_ad9081_rx_jesd {
-	clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&clkwiz_devclk>, <&axi_ad9081_adxcvr_rx 0>;
+	clocks = <&zynqmp_clk 71>, <&si570_refclk>, <&si570_refclk>, <&axi_ad9081_adxcvr_rx 0>;
 	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 };
 
 &axi_ad9081_tx_jesd {
-	clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&clkwiz_devclk>, <&axi_ad9081_adxcvr_tx 0>;
+	clocks = <&zynqmp_clk 71>, <&si570_refclk>, <&si570_refclk>, <&axi_ad9081_adxcvr_tx 0>;
 	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 };
 
@@ -209,3 +209,21 @@
 	single-shot-output-gpios = <&gpio 139 0>;
 	single-shot-output-gpios = <&gpio 133 0>;
 };
+
+//&i2c1 {
+//	i2c-mux@75 {
+//		i2c@0 { /* HPC0 - FMC+ Crossover Cable */
+//			/* Si5391A Clock Generator on FMC+ crossover ribbon cable */
+//			si5391a: clock-generator@68 {
+//				compatible = "skyworks,si5391a";
+//				reg = <0x68>;  /* I2C address */
+//
+//				#clock-cells = <1>;
+//				clock-output-names = "si5391a-out8-200mhz", "si5391a-out9-100mhz";
+//
+//				/* Optional reset GPIO - uncomment if RST_N is connected to GPIO */
+//				/* reset-gpios = <&gpio <pin_number> GPIO_ACTIVE_HIGH>; */
+//			};
+//		};
+//	};
+//};
