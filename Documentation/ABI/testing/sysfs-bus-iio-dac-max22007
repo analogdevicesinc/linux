@@ -1,0 +1,33 @@
+What:		/sys/bus/iio/devices/iio:deviceX/out_voltageY_ldac_update
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Trigger LDAC (Load DAC) update for the specified channel. Write 1 to update DAC outputs.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_currentY_ldac_update
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Trigger LDAC (Load DAC) update for the specified channel.
+		Writing 1 will transfer the DAC register value to the actual
+		DAC output, effectively updating the analog output current.
+		Writing 0 has no effect. This is useful when using the
+		transparent latch mode is disabled, allowing manual control
+		over when DAC register changes take effect on the output.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_voltageY_powermode
+What:		/sys/bus/iio/devices/iio:deviceX/out_currentY_powermode
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Control the power state of the specified channel. Write "on" to
+		enable the channel output, or "off" to disable it. Reading
+		returns the current power state.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_voltageY_powermode_available
+What:		/sys/bus/iio/devices/iio:deviceX/out_currentY_powermode_available
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Shows the available power modes for the channel. Always returns
+		"on off".
