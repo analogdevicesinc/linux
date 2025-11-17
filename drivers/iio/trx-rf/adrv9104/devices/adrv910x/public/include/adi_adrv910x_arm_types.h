@@ -20,6 +20,9 @@
 #include <stdint.h>
 #endif
 
+#include "device_profile_top_t.h"
+#include "device_profile_ps2_t.h"
+
 /**
 * \brief Enumerated list of ARM System States.
 */
@@ -88,12 +91,12 @@ typedef enum adi_adrv910x_ArmClockType
  * \brief ARM memory SPI write mode
  */
 typedef enum adi_adrv910x_ArmSingleSpiWriteMode
-{	
+{
     ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4, /*!< Write 4 Bytes to ARM Memory. A SPI Operation (CSB-Low-to-High, 1R/W, 15 ADDR and 8 DATA bits) for each byte */
     ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_CACHED_BYTES_N, /*!< Cache SPI bytes before sending to SPI buffer. Each SPI Operation (CSB-Low-to-High) writes up to N bytes (1R/W, 15 ADDR and 8 DATA bits). N is dictated by platform SPI Buffer size */
     ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_4,   /*!< Each SPI Operation (CSB-Low-to-High) writes 4 data bytes, Streaming 4 bytes at a time (1R/W, 15 ADDR and 32 DATA bits) */
-	ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_1,   /*!< Each SPI Operation (CSB-Low-to-High) writes N data bytes, Streaming 1 byte at a time (1R/W, 15 ADDR and N*8 DATA bits) N is dictated by platform SPI Buffer size */ 
-	
+	ADI_ADRV910X_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_1,   /*!< Each SPI Operation (CSB-Low-to-High) writes N data bytes, Streaming 1 byte at a time (1R/W, 15 ADDR and N*8 DATA bits) N is dictated by platform SPI Buffer size */
+
 }adi_adrv910x_ArmSingleSpiWriteMode_e;
 
 /**
