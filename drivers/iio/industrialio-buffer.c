@@ -1031,12 +1031,6 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	if ((modes & INDIO_BUFFER_TRIGGERED) && indio_dev->trig) {
 		config->mode = INDIO_BUFFER_TRIGGERED;
 	} else if (modes & INDIO_BUFFER_HARDWARE) {
-		/*
-		 * Keep things simple for now and only allow a single buffer to
-		 * be connected in hardware mode.
-		 */
-		if (insert_buffer && !list_empty(&iio_dev_opaque->buffer_list))
-			return -EINVAL;
 		config->mode = INDIO_BUFFER_HARDWARE;
 		strict_scanmask = true;
 	} else if (modes & INDIO_BUFFER_SOFTWARE) {
@@ -1238,7 +1232,9 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 	indio_dev->scan_bytes = config->scan_bytes;
 	iio_dev_opaque->currentmode = config->mode;
 
-	iio_update_demux(indio_dev);
+	/* There is no SW demuxer for HW buffers */
+	if (config->mode != INDIO_BUFFER_HARDWARE)
+		iio_update_demux(indio_dev);
 
 	/* Wind up again */
 	if (indio_dev->setup_ops->preenable) {
