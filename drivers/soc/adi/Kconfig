@@ -2,7 +2,7 @@
 
 config SOC_ADRV906X
     bool "ADI ADRV906X SoC driver support"
-    depends on ARCH_ADRV906X
+    depends on (ARCH_ADRV906X || COMPILE_TEST)
     default ARCH_ADRV906X
     help
         Say yes here to add support for ADI ADRV906X SoC
