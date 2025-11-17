@@ -39,26 +39,214 @@
 #define LTC2378_TCNV_HIGH_NS		40	/* Minimum CNV high time (with margin) */
 #define LTC2378_TRIGGER_TO_SCLK_CYCLES	8	/* SPI clock cycles from trigger to SCLK start -> 9 - 1 margin*/
 
+/* Input mode for different variants */
+enum ltc237x_input_mode {
+	LTC237X_DIFFERENTIAL,		/* Fully differential (±VREF range) */
+	LTC237X_PSEUDO_DIFF,		/* Pseudo-differential unipolar (0 to VREF) */
+};
+
+/* Device IDs for all supported variants */
+enum ltc237x_supported_device_ids {
+	/* Fully differential variants */
+	ID_LTC2376_16,
+	ID_LTC2376_18,
+	ID_LTC2376_20,
+	ID_LTC2377_16,
+	ID_LTC2377_18,
+	ID_LTC2377_20,
+	ID_LTC2378_16,
+	ID_LTC2378_18,
+	ID_LTC2378_20,
+	ID_LTC2379_18,
+	ID_LTC2380_16,
+	/* Pseudo-differential unipolar variants */
+	ID_LTC2364_16,
+	ID_LTC2364_18,
+	ID_LTC2367_16,
+	ID_LTC2367_18,
+	ID_LTC2368_16,
+	ID_LTC2368_18,
+	ID_LTC2369_18,
+	ID_LTC2370_16,
+};
+
 struct ltc2378_chip_info {
         const char *name;
         int num_channels;
         int resolution;
         int sclk_rate;
         int max_rate;
-};
-
-static const struct ltc2378_chip_info ltc2378_chip_info = {
-        .name = "ltc2378",
-        .resolution = 20,
-        .num_channels = 1,
-        .max_rate = 1000000,
-        .sclk_rate = 70000000
+        enum ltc237x_input_mode input_mode;
 };
 
 /* SPI offload configuration for LTC2378 */
 static const struct spi_offload_config ltc2378_offload_config = {
 	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER |
 			    SPI_OFFLOAD_CAP_RX_STREAM_DMA,
+};
+
+/* Chip information for all supported variants */
+static const struct ltc2378_chip_info ltc237x_chip_info[] = {
+	/* Fully differential 250 kSPS variants */
+	[ID_LTC2376_16] = {
+		.name = "ltc2376-16",
+		.resolution = 16,
+		.num_channels = 1,
+		.max_rate = 250000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	[ID_LTC2376_18] = {
+		.name = "ltc2376-18",
+		.resolution = 18,
+		.num_channels = 1,
+		.max_rate = 250000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	[ID_LTC2376_20] = {
+		.name = "ltc2376-20",
+		.resolution = 20,
+		.num_channels = 1,
+		.max_rate = 250000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	/* Fully differential 500 kSPS variants */
+	[ID_LTC2377_16] = {
+		.name = "ltc2377-16",
+		.resolution = 16,
+		.num_channels = 1,
+		.max_rate = 500000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	[ID_LTC2377_18] = {
+		.name = "ltc2377-18",
+		.resolution = 18,
+		.num_channels = 1,
+		.max_rate = 500000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	[ID_LTC2377_20] = {
+		.name = "ltc2377-20",
+		.resolution = 20,
+		.num_channels = 1,
+		.max_rate = 500000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	/* Fully differential 1 MSPS variants */
+	[ID_LTC2378_16] = {
+		.name = "ltc2378-16",
+		.resolution = 16,
+		.num_channels = 1,
+		.max_rate = 1000000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	[ID_LTC2378_18] = {
+		.name = "ltc2378-18",
+		.resolution = 18,
+		.num_channels = 1,
+		.max_rate = 1000000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	[ID_LTC2378_20] = {
+		.name = "ltc2378-20",
+		.resolution = 20,
+		.num_channels = 1,
+		.max_rate = 1000000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	/* Fully differential high-speed variants */
+	[ID_LTC2379_18] = {
+		.name = "ltc2379-18",
+		.resolution = 18,
+		.num_channels = 1,
+		.max_rate = 1600000,	/* 1.6 MSPS */
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	[ID_LTC2380_16] = {
+		.name = "ltc2380-16",
+		.resolution = 16,
+		.num_channels = 1,
+		.max_rate = 2000000,	/* 2 MSPS */
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
+	/* Pseudo-differential 250 kSPS variants */
+	[ID_LTC2364_16] = {
+		.name = "ltc2364-16",
+		.resolution = 16,
+		.num_channels = 1,
+		.max_rate = 250000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_PSEUDO_DIFF,
+	},
+	[ID_LTC2364_18] = {
+		.name = "ltc2364-18",
+		.resolution = 18,
+		.num_channels = 1,
+		.max_rate = 250000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_PSEUDO_DIFF,
+	},
+	/* Pseudo-differential 500 kSPS variants */
+	[ID_LTC2367_16] = {
+		.name = "ltc2367-16",
+		.resolution = 16,
+		.num_channels = 1,
+		.max_rate = 500000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_PSEUDO_DIFF,
+	},
+	[ID_LTC2367_18] = {
+		.name = "ltc2367-18",
+		.resolution = 18,
+		.num_channels = 1,
+		.max_rate = 500000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_PSEUDO_DIFF,
+	},
+	/* Pseudo-differential 1 MSPS variants */
+	[ID_LTC2368_16] = {
+		.name = "ltc2368-16",
+		.resolution = 16,
+		.num_channels = 1,
+		.max_rate = 1000000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_PSEUDO_DIFF,
+	},
+	[ID_LTC2368_18] = {
+		.name = "ltc2368-18",
+		.resolution = 18,
+		.num_channels = 1,
+		.max_rate = 1000000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_PSEUDO_DIFF,
+	},
+	/* Pseudo-differential high-speed variants */
+	[ID_LTC2369_18] = {
+		.name = "ltc2369-18",
+		.resolution = 18,
+		.num_channels = 1,
+		.max_rate = 1600000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_PSEUDO_DIFF,
+	},
+	[ID_LTC2370_16] = {
+		.name = "ltc2370-16",
+		.resolution = 16,
+		.num_channels = 1,
+		.max_rate = 2000000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_PSEUDO_DIFF,
+	},
 };
 
 struct ltc2378_adc {
@@ -116,16 +304,14 @@ static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
     int ret;
     u32 raw;
     s32 signed_val;
+    unsigned int shift_bits;
+    unsigned int mask;
 
     struct spi_transfer xfer = {
         .rx_buf = &adc->spi_rx_word,   // Aligned 32-bit buffer
-        .len = 4,                      // 4 bytes for 20-bit data (32-bit aligned)
-        .bits_per_word = 20,          // Exactly 20 clock pulses
+        .len = 4,                      // Always 4 bytes (32-bit aligned)
+        .bits_per_word = adc->info->resolution,  // Dynamic based on chip
         .speed_hz = adc->info->sclk_rate,
-        /*.delay = {
-            .value = 0,
-            .unit = SPI_DELAY_UNIT_NSECS,
-        }, */
     };
 
     ret = spi_sync_transfer(adc->spi, &xfer, 1);
@@ -133,14 +319,22 @@ static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
         return ret;
 
     raw = be32_to_cpu(adc->spi_rx_word); // Handle byte order
-    raw >>= 12;                          // shift 20-bit value to LSB
-    raw &= 0xFFFFF;                      // Mask to keep only the 20 valid bits
+    shift_bits = 32 - adc->info->resolution;
+    raw >>= shift_bits;                  // shift to LSB based on resolution
+    mask = (1 << adc->info->resolution) - 1;
+    raw &= mask;                         // Mask to keep only valid bits
 
-    // Sign-extend 20-bit two's complement to 32-bit signed
-    if (raw & BIT(19))
-        signed_val = raw | 0xFFF00000;   // Fill top 12 bits with 1s
-    else
+    if (adc->info->input_mode == LTC237X_DIFFERENTIAL) {
+        /* Two's complement for differential mode */
+        unsigned int sign_bit = adc->info->resolution - 1;
+        if (raw & BIT(sign_bit))
+            signed_val = raw | ~mask;    // Sign extend
+        else
+            signed_val = raw;
+    } else {
+        /* Straight binary for pseudo-differential unipolar */
         signed_val = raw;
+    }
 
     *val = signed_val;
 
@@ -248,8 +442,15 @@ static int ltc2378_read_raw(struct iio_dev *indio_dev,
                  ret = regulator_get_voltage(adc->vref);
                  if (ret < 0)
                         return ret;
-                
-                *val = 2 * (ret / 1000); // convert uV to mV - ADD FACTOR OF 2 for differential ±VREF range
+
+                /* Scale depends on input mode:
+                 * - Differential: ±VREF range = 2*VREF total
+                 * - Pseudo-differential: 0 to VREF = VREF total
+                 */
+                if (adc->info->input_mode == LTC237X_DIFFERENTIAL)
+                        *val = 2 * (ret / 1000); // convert uV to mV, factor of 2
+                else
+                        *val = ret / 1000;       // convert uV to mV, no factor
 
                 *val2 = adc->info->resolution;
 
@@ -287,8 +488,8 @@ static int ltc2378_prepare_offload_message(struct device *dev,
         /* Setup data read transfer */
         adc->offload_xfer[1].rx_buf = NULL;  /* For streaming, DMA framework handles buffer */
         adc->offload_xfer[1].tx_buf = NULL;
-        adc->offload_xfer[1].len = 4;  /* 4 bytes for 20-bit data (32-bit aligned) */
-        adc->offload_xfer[1].bits_per_word = 20;
+        adc->offload_xfer[1].len = 4;  /* Always 4 bytes (32-bit aligned) */
+        adc->offload_xfer[1].bits_per_word = adc->info->resolution;  /* Dynamic resolution */
         adc->offload_xfer[1].offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;  /* Enable RX streaming */
         /* Additional SLEEP instruction needed for tQUIET timing requirements. */
         //adc->offload_xfer[1].delay.value = 20;
@@ -425,8 +626,29 @@ static int ltc2378_probe(struct spi_device *spi)
                         return ret;
         }
 
-        /* Setup the single channel */
-        indio_dev->channels = &ltc2378_chan;
+        /* Setup the single channel dynamically based on chip resolution */
+        struct iio_chan_spec *chan;
+
+        chan = devm_kzalloc(&spi->dev, sizeof(*chan), GFP_KERNEL);
+        if (!chan)
+                return -ENOMEM;
+
+        /* Initialize channel spec based on chip info */
+        chan->type = IIO_VOLTAGE;
+        chan->indexed = 1;
+        chan->channel = 0;
+        chan->info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ);
+        chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE);
+        chan->scan_index = 0;
+
+        /* Set scan type based on chip resolution and input mode */
+        chan->scan_type.sign = (adc->info->input_mode == LTC237X_DIFFERENTIAL) ? 's' : 'u';
+        chan->scan_type.storagebits = 32;  /* Always 32-bit aligned */
+        chan->scan_type.realbits = adc->info->resolution;
+        chan->scan_type.shift = 0;
+        chan->scan_type.endianness = IIO_CPU;
+
+        indio_dev->channels = chan;
         indio_dev->num_channels = 1;
 
         /* Get SPI offload support */
@@ -490,28 +712,68 @@ static int ltc2378_probe(struct spi_device *spi)
         return 0;
 }
 
-static const struct of_device_id ltc2378_of_match[] = {
-        { .compatible = "adi,ltc2378", .data = &ltc2378_chip_info},
+static const struct of_device_id ltc237x_of_match[] = {
+        /* Fully differential variants */
+        { .compatible = "adi,ltc2376-16", .data = &ltc237x_chip_info[ID_LTC2376_16] },
+        { .compatible = "adi,ltc2376-18", .data = &ltc237x_chip_info[ID_LTC2376_18] },
+        { .compatible = "adi,ltc2376-20", .data = &ltc237x_chip_info[ID_LTC2376_20] },
+        { .compatible = "adi,ltc2377-16", .data = &ltc237x_chip_info[ID_LTC2377_16] },
+        { .compatible = "adi,ltc2377-18", .data = &ltc237x_chip_info[ID_LTC2377_18] },
+        { .compatible = "adi,ltc2377-20", .data = &ltc237x_chip_info[ID_LTC2377_20] },
+        { .compatible = "adi,ltc2378-16", .data = &ltc237x_chip_info[ID_LTC2378_16] },
+        { .compatible = "adi,ltc2378-18", .data = &ltc237x_chip_info[ID_LTC2378_18] },
+        { .compatible = "adi,ltc2378-20", .data = &ltc237x_chip_info[ID_LTC2378_20] },
+        { .compatible = "adi,ltc2379-18", .data = &ltc237x_chip_info[ID_LTC2379_18] },
+        { .compatible = "adi,ltc2380-16", .data = &ltc237x_chip_info[ID_LTC2380_16] },
+        /* Pseudo-differential variants */
+        { .compatible = "adi,ltc2364-16", .data = &ltc237x_chip_info[ID_LTC2364_16] },
+        { .compatible = "adi,ltc2364-18", .data = &ltc237x_chip_info[ID_LTC2364_18] },
+        { .compatible = "adi,ltc2367-16", .data = &ltc237x_chip_info[ID_LTC2367_16] },
+        { .compatible = "adi,ltc2367-18", .data = &ltc237x_chip_info[ID_LTC2367_18] },
+        { .compatible = "adi,ltc2368-16", .data = &ltc237x_chip_info[ID_LTC2368_16] },
+        { .compatible = "adi,ltc2368-18", .data = &ltc237x_chip_info[ID_LTC2368_18] },
+        { .compatible = "adi,ltc2369-18", .data = &ltc237x_chip_info[ID_LTC2369_18] },
+        { .compatible = "adi,ltc2370-16", .data = &ltc237x_chip_info[ID_LTC2370_16] },
         { },
 };
-MODULE_DEVICE_TABLE(of, ltc2378_of_match);
+MODULE_DEVICE_TABLE(of, ltc237x_of_match);
 
-static const struct spi_device_id ltc2378_spi_id[] = {
-        { "ltc2378", (kernel_ulong_t)&ltc2378_chip_info },
+static const struct spi_device_id ltc237x_spi_id[] = {
+        /* Fully differential */
+        { "ltc2376-16", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2376_16] },
+        { "ltc2376-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2376_18] },
+        { "ltc2376-20", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2376_20] },
+        { "ltc2377-16", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2377_16] },
+        { "ltc2377-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2377_18] },
+        { "ltc2377-20", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2377_20] },
+        { "ltc2378-16", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2378_16] },
+        { "ltc2378-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2378_18] },
+        { "ltc2378-20", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2378_20] },
+        { "ltc2379-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2379_18] },
+        { "ltc2380-16", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2380_16] },
+        /* Pseudo-differential */
+        { "ltc2364-16", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2364_16] },
+        { "ltc2364-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2364_18] },
+        { "ltc2367-16", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2367_16] },
+        { "ltc2367-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2367_18] },
+        { "ltc2368-16", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2368_16] },
+        { "ltc2368-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2368_18] },
+        { "ltc2369-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2369_18] },
+        { "ltc2370-16", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2370_16] },
         { },
 };
-MODULE_DEVICE_TABLE(spi, ltc2378_spi_id);
+MODULE_DEVICE_TABLE(spi, ltc237x_spi_id);
 
-static struct spi_driver ltc2378_driver = {
+static struct spi_driver ltc237x_driver = {
         .driver = {
-                .name = "ltc2378_adc",
-                .of_match_table = ltc2378_of_match
+                .name = "ltc237x",
+                .of_match_table = ltc237x_of_match
         },
         .probe = ltc2378_probe,
-        .id_table = ltc2378_spi_id,
+        .id_table = ltc237x_spi_id,
 };
-module_spi_driver(ltc2378_driver);
+module_spi_driver(ltc237x_driver);
 
 MODULE_AUTHOR("Pop Ioan Daniel <pop.ioan-daniel@analog.com>");
-MODULE_DESCRIPTION("Analog Devices LTC2378");
+MODULE_DESCRIPTION("Analog Devices LTC237x/236x ADC family driver");
 MODULE_LICENSE("GPL");
