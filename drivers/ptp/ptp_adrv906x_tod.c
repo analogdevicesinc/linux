@@ -1155,8 +1155,10 @@ static int adrv906x_tod_gettimex(struct adrv906x_tod_counter *counter,
 	ptp_read_system_prets(sts);
 	err = adrv906x_tod_hw_get_tstamp(counter, &tstamp);
 	ptp_read_system_postts(sts);
-	tstamp_to_timespec(ts, &tstamp);
 	mutex_unlock(&tod->reg_lock);
+
+	if (!err)
+		tstamp_to_timespec(ts, &tstamp);
 
 	return err;
 }
