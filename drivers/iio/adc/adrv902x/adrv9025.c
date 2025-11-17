@@ -415,8 +415,8 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 		val = this_attr->address >> 8;
 
 		if (val)
-			ret = sprintf(buf, "%d\n",
-				      !!(phy->cal_mask.calMask & val));
+			ret = sysfs_emit(buf, "%d\n",
+					 !!(phy->cal_mask.calMask & val));
 		break;
 	case adrv9025_JESD204_FSM_ERROR:
 		if (!phy->jdev) {
@@ -441,7 +441,7 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 				break;
 			}
 		}
-		ret = sprintf(buf, "%d\n", err);
+		ret = sysfs_emit(buf, "%d\n", err);
 		break;
 	case adrv9025_JESD204_FSM_PAUSED:
 		if (!phy->jdev) {
@@ -469,7 +469,7 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 				break;
 			}
 		}
-		ret = sprintf(buf, "%d\n", paused);
+		ret = sysfs_emit(buf, "%d\n", paused);
 		break;
 	case adrv9025_JESD204_FSM_STATE:
 		if (!phy->jdev) {
@@ -490,7 +490,7 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 		 * just get the first link state; we're assuming that all 3 are in sync
 		 * and that adrv9025_JESD204_FSM_PAUSED was called before
 		 */
-		ret = sprintf(buf, "%s\n", jesd204_link_get_state_str(links[0]));
+		ret = sysfs_emit(buf, "%s\n", jesd204_link_get_state_str(links[0]));
 		break;
 	case adrv9025_JESD204_FSM_CTRL:
 		if (!phy->jdev) {
@@ -498,7 +498,7 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 			break;
 		}
 
-		ret = sprintf(buf, "%d\n", phy->is_initialized);
+		ret = sysfs_emit(buf, "%d\n", phy->is_initialized);
 		break;
 	default:
 		ret = -EINVAL;
@@ -651,7 +651,7 @@ static ssize_t adrv9025_phy_lo_read(struct iio_dev *indio_dev,
 	}
 	mutex_unlock(&phy->lock);
 
-	return ret ? ret : sprintf(buf, "%llu\n", val);
+	return ret ? ret : sysfs_emit(buf, "%llu\n", val);
 }
 
 #define _ADRV9025_EXT_LO_INFO(_name, _ident)                                   \
@@ -823,8 +823,8 @@ static ssize_t adrv9025_phy_rx_read(struct iio_dev *indio_dev,
 		ret = adi_adrv9025_RxDecPowerGet(phy->madDevice, rxchan,
 						 &dec_pwr_mdb);
 		if (ret == 0)
-			ret = sprintf(buf, "%u.%02u dB\n", dec_pwr_mdb / 1000,
-				      dec_pwr_mdb % 1000);
+			ret = sysfs_emit(buf, "%u.%02u dB\n", dec_pwr_mdb / 1000,
+					 dec_pwr_mdb % 1000);
 		else
 			ret = adrv9025_dev_err(phy);
 
@@ -833,29 +833,29 @@ static ssize_t adrv9025_phy_rx_read(struct iio_dev *indio_dev,
 		tmask = ADI_ADRV9025_TRACK_RX1_QEC << chan->channel;
 		ret = adi_adrv9025_TrackingCalsEnableGet(phy->madDevice, &mask);
 		if (ret == 0)
-			ret = sprintf(buf, "%d\n", !!(tmask & mask));
+			ret = sysfs_emit(buf, "%d\n", !!(tmask & mask));
 
 		break;
 	case RX_HD2:
 		tmask = ADI_ADRV9025_TRACK_RX1_HD2 << chan->channel;
 		ret = adi_adrv9025_TrackingCalsEnableGet(phy->madDevice, &mask);
 		if (ret == 0)
-			ret = sprintf(buf, "%d\n", !!(tmask & mask));
+			ret = sysfs_emit(buf, "%d\n", !!(tmask & mask));
 
 		break;
 	case RX_DIG_DC:
 		ret = adi_adrv9025_DigDcOffsetEnableGet(phy->madDevice, &mask16);
 
 		if (ret == 0)
-			ret = sprintf(buf, "%d\n",
-				!!((ADI_ADRV9025_MSHIFT_DC_OFFSET_RX_CH0 << chan->channel) & mask16));
+			ret = sysfs_emit(buf, "%d\n",
+					 !!((ADI_ADRV9025_MSHIFT_DC_OFFSET_RX_CH0 << chan->channel) & mask16));
 		else
 			ret = adrv9025_dev_err(phy);
 		break;
 	case RX_RF_BANDWIDTH:
-		ret = sprintf(buf, "%u\n",
-			phy->deviceInitStruct.rx.rxChannelCfg[chan->channel].profile.rfBandwidth_kHz *
-			1000);
+		ret = sysfs_emit(buf, "%u\n",
+				 phy->deviceInitStruct.rx.rxChannelCfg[chan->channel].profile.rfBandwidth_kHz *
+				 1000);
 		break;
 	default:
 		ret = -EINVAL;
@@ -907,7 +907,7 @@ static ssize_t adrv9025_phy_tx_read(struct iio_dev *indio_dev,
 	mutex_unlock(&phy->lock);
 
 	if (ret == 0)
-		ret = sprintf(buf, "%d\n", val);
+		ret = sysfs_emit(buf, "%d\n", val);
 	else
 		return adrv9025_dev_err(phy);
 
@@ -1479,8 +1479,12 @@ static ssize_t adrv9025_rx_qec_status_read(struct adrv9025_rf_phy *phy,
 	if (ret)
 		return adrv9025_dev_err(phy);
 
-	return sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", rxQecStatus.errorCode, rxQecStatus.percentComplete,
-		       rxQecStatus.selfcheckIrrDb, rxQecStatus.iterCount, rxQecStatus.updateCount);
+	return scnprintf(buf, PAGE_SIZE, "err %d %% %d perf %d iter cnt %d update cnt %d\n",
+			 rxQecStatus.errorCode,
+			 rxQecStatus.percentComplete,
+			 rxQecStatus.selfcheckIrrDb,
+			 rxQecStatus.iterCount,
+			 rxQecStatus.updateCount);
 }
 
 static ssize_t adrv9025_tx_qec_status_read(struct adrv9025_rf_phy *phy,
@@ -1496,8 +1500,12 @@ static ssize_t adrv9025_tx_qec_status_read(struct adrv9025_rf_phy *phy,
 	if (ret)
 		return adrv9025_dev_err(phy);
 
-	return sprintf(buf, "err %d %% %d perf %d iter cnt %d update cnt %d\n", txQecStatus.errorCode, txQecStatus.percentComplete,
-		       txQecStatus.correctionMetric, txQecStatus.iterCount, txQecStatus.updateCount);
+	return scnprintf(buf, PAGE_SIZE, "err %d %% %d perf %d iter cnt %d update cnt %d\n",
+			 txQecStatus.errorCode,
+			 txQecStatus.percentComplete,
+			 txQecStatus.correctionMetric,
+			 txQecStatus.iterCount,
+			 txQecStatus.updateCount);
 }
 
 static ssize_t adrv9025_tx_lol_status_read(struct adrv9025_rf_phy *phy,
@@ -1513,8 +1521,12 @@ static ssize_t adrv9025_tx_lol_status_read(struct adrv9025_rf_phy *phy,
 	if (ret)
 		return adrv9025_dev_err(phy);
 
-	return sprintf(buf, "err %d %% %d var %d iter cnt %d update cnt %d\n", txLolStatus.errorCode, txLolStatus.percentComplete,
-		       txLolStatus.varianceMetric, txLolStatus.iterCount, txLolStatus.updateCount);
+	return scnprintf(buf, PAGE_SIZE, "err %d %% %d var %d iter cnt %d update cnt %d\n",
+			 txLolStatus.errorCode,
+			 txLolStatus.percentComplete,
+			 txLolStatus.varianceMetric,
+			 txLolStatus.iterCount,
+			 txLolStatus.updateCount);
 }
 
 static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
@@ -1590,7 +1602,7 @@ static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 	}
 
 	if (!len)
-		len = snprintf(buf, sizeof(buf), "%llu\n", val);
+		len = scnprintf(buf, sizeof(buf), "%llu\n", val);
 
 	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
 }
