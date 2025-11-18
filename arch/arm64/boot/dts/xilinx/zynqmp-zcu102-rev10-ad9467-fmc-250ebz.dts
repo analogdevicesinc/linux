@@ -5,7 +5,7 @@
  * https://wiki.analog.com/resources/eval/ad9467-fmc-250ebz
  * https://wiki.analog.com/resources/fpga/xilinx/fmc/ad9467
  *
- * hdl_project: <ad9467_fmc/zed>
+ * hdl_project: <ad9467_fmc/zcu102>
  * board_revision: <>
  *
  * Copyright (C) 2025 Analog Devices Inc.
