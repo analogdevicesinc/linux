@@ -3,17 +3,12 @@ name: Kernel build
 on:
   push:
     branches:
-      - main
-      - ci/*
-      - rpi-6.12.y
+      - 'main'
+      - 'ci/*'
     paths-ignore:
-      - '.github/**'
-      - 'ci/**'
       - 'docs/**'
   pull_request:
     paths-ignore:
-      - '.github/**'
-      - 'ci/**'
       - 'docs/**'
 
 jobs:
