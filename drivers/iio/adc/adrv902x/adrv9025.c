@@ -133,7 +133,6 @@ static int adrv9025_RxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
 					   adi_adrv9025_FramerSel_e framerSel,
 					   u32 *iqRate_kHz)
 {
-	int recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 	adi_adrv9025_AdcSampleXbarSel_e conv = ADI_ADRV9025_ADC_RX1_Q;
 	u32 framerIndex = 0;
 
@@ -164,7 +163,7 @@ static int adrv9025_RxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
 
 	if (adrv9025Init->dataInterface.framer[framerIndex].jesd204M < 1) {
 		*iqRate_kHz = 0;
-		return recoveryAction;
+		return ADI_COMMON_ACT_NO_ACTION;
 	}
 
 	conv = adrv9025Init->dataInterface.framer[framerIndex]
@@ -223,7 +222,7 @@ static int adrv9025_RxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
 		ADI_ERROR_RETURN(device->common.error.newAction);
 	}
 
-	return recoveryAction;
+	return ADI_COMMON_ACT_NO_ACTION;
 }
 
 static int adrv9025_TxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
@@ -231,7 +230,6 @@ static int adrv9025_TxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
 					   adi_adrv9025_DeframerSel_e deframerSel,
 					   u32 *iqRate_kHz)
 {
-	int recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 	u32 deframerIndex = 0;
 
 	/* Check device pointer is not null */
@@ -259,7 +257,7 @@ static int adrv9025_TxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
 
 	if (adrv9025Init->dataInterface.deframer[deframerIndex].jesd204M < 1) {
 		*iqRate_kHz = 0;
-		return recoveryAction;
+		return ADI_COMMON_ACT_NO_ACTION;
 	}
 
 	//Use samplerate of DAC set to use deframer output 0.
@@ -295,7 +293,7 @@ static int adrv9025_TxLinkSamplingRateFind(adi_adrv9025_Device_t *device,
 				      .profile.txInputRate_kHz;
 	}
 
-	return recoveryAction;
+	return ADI_COMMON_ACT_NO_ACTION;
 }
 
 static void adrv9025_shutdown(struct adrv9025_rf_phy *phy)
@@ -1183,9 +1181,9 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 				break;
 			}
 
-			ret = adrv9025_gainindex_to_gain(phy, chan->channel,
-							 rxGain.gainIndex, val,
-							 val2);
+			adrv9025_gainindex_to_gain(phy, chan->channel,
+						   rxGain.gainIndex, val,
+						   val2);
 		}
 		ret = IIO_VAL_INT_PLUS_MICRO_DB;
 		break;
@@ -1548,9 +1546,8 @@ static ssize_t adrv9025_debugfs_read(struct file *file, char __user *userbuf,
 			val = *(u64 *)entry->out_value;
 			break;
 		default:
-			ret = -EINVAL;
+			return -EINVAL;
 		}
-
 	} else if (entry->cmd) {
 		switch (entry->cmd) {
 		case DBGFS_RX0_QEC_STATUS:
@@ -1705,7 +1702,7 @@ static ssize_t adrv9025_debugfs_write(struct file *file,
 			*(u64 *)entry->out_value = val;
 			break;
 		default:
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 	}
 
@@ -1737,7 +1734,6 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 {
 	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
 	umode_t mode = 0644;
-	struct dentry *d;
 	int i;
 
 	if (!iio_get_debugfs_dentry(indio_dev))
@@ -1768,10 +1764,10 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 	for (i = 0; i < phy->adrv9025_debugfs_entry_index; i++) {
 		if (phy->adrv9025_debugfs_entry_index > DBGFS_BIST_TONE)
 			mode = 0400;
-		d = debugfs_create_file(phy->debugfs_entry[i].propname, mode,
-					iio_get_debugfs_dentry(indio_dev),
-					&phy->debugfs_entry[i],
-					&adrv9025_debugfs_reg_fops);
+		debugfs_create_file(phy->debugfs_entry[i].propname, mode,
+				    iio_get_debugfs_dentry(indio_dev),
+				    &phy->debugfs_entry[i],
+				    &adrv9025_debugfs_reg_fops);
 	}
 	return 0;
 }
@@ -2091,7 +2087,7 @@ static int adrv9025_jesd204_link_init(struct jesd204_dev *jdev,
 		lnk->jesd_encoder = deframer->enableJesd204C ? JESD204_ENCODER_64B66B : JESD204_ENCODER_8B10B;
 		lnk->subclass = JESD204_SUBCLASS_1;
 		lnk->is_transmit = true;
-	};
+	}
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -2329,8 +2325,7 @@ static int adrv9025_jesd204_clks_enable(struct jesd204_dev *jdev,
 			priv->link[lnk->link_id].source_id, 0);
 		if (ret)
 			return adrv9025_dev_err(phy);
-
-	};
+	}
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -2385,8 +2380,7 @@ static int adrv9025_jesd204_link_enable(struct jesd204_dev *jdev,
 			priv->link[lnk->link_id].source_id, 1);
 		if (ret)
 			return adrv9025_dev_err(phy);
-
-	};
+	}
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -2462,7 +2456,7 @@ static int adrv9025_jesd204_link_running(struct jesd204_dev *jdev,
 			ADI_ADRV9025_TRACKING_CAL_ENABLE);
 		if (ret)
 			return adrv9025_dev_err(phy);
-	};
+	}
 
 	return JESD204_STATE_CHANGE_DONE;
 }
