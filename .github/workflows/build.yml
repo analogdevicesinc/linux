@@ -71,6 +71,11 @@ jobs:
         get_file ci/symbols_depend.py
         get_file ci/touched_kconfig.awk
 
+        if [[ "${{ inputs.defconfig }}" == "adi_ci_defconfig" ]]; then
+          mkdir -p arch/${{ inputs.arch }}/configs
+          get_file arch/${{ inputs.arch }}/configs/${{ inputs.defconfig }}
+        fi
+
     - name: Prepare env
       run: |
         if [[ "${{ inputs.compiler }}" == "gcc" ]]; then
