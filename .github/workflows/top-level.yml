@@ -82,6 +82,19 @@ jobs:
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
+  deploy_cloudsmith_checks:
+    needs: [assert_checks]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    with:
+      artifacts: >
+        adi_ci_defconfig-*
+
   build_gcc_arm_adi_bcm2709_defconfig:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
@@ -179,5 +192,5 @@ jobs:
       actions: read
     with:
       artifacts: >
-        dist-adi_bcm*_defconfig-*
-        dist-dtb-*
+        adi_bcm*_defconfig-*
+        dtb-*
