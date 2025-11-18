@@ -142,15 +142,18 @@ jobs:
 
     - name: Prepare dist
       run: |
-        if [[ -d dist ]]; then
-          rm -r dist
-        fi
+        [[ -d dist ]] && rm -r dist || true
+        [[ -d dist-headers ]] && rm -r dist-headers || true
 
         kversion=$(cat ./include/config/kernel.release)
         mkdir -p dist/usr/lib/modules/$kversion ; (cd $_ ; touch modules.order modules.builtin modules.builtin.modinfo)
         make INSTALL_MOD_PATH=dist modules_install
-        if command -v rsync ; then make INSTALL_HDR_PATH=dist/usr headers_install ; fi
         (cd dist ; find . -type l -delete)
+        mkdir -p dist-headers
+        if command -v rsync ; then
+          make INSTALL_HDR_PATH=dist-headers/usr headers_install
+          (cd dist-headers ; find . -type l -delete)
+        fi
 
         cp defconfig dist
         mkdir -p dist/boot
@@ -162,6 +165,7 @@ jobs:
         echo "compiler_version=${{ env.compiler_version }}" >> dist/context.txt
         echo "compiler_arch=${{ inputs.arch }}" >> dist/context.txt
         echo "git_sha=${GITHUB_SHA:0:12}" >> dist/context.txt
+        [[ -d dist-headers/usr ]] && cp dist/context.txt dist-headers/context.txt || true
 
     - name: Assert state
       if: ${{ failure() }}
@@ -200,12 +204,20 @@ jobs:
         source ./ci/build.sh
         compile_kernel_smatch
 
-    - name: Store the distribution packages
+    - name: Store the Linux kernel and modules drivers
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v4
       with:
-        name: dist-${{ inputs.defconfig }}-${{ inputs.compiler }}-${{ inputs.arch }}
+        name: ${{ inputs.defconfig }}-${{ inputs.compiler }}-${{ inputs.arch }}
         path: dist
+
+    - name: Store the Linux headers
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.defconfig }}-${{ inputs.compiler }}-${{ inputs.arch }}-headers
+        path: dist-headers
+        if-no-files-found: ignore
 
     - name: Export labels
       if: ${{ !cancelled() }}
