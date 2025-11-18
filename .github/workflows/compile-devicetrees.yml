@@ -98,7 +98,7 @@ jobs:
     - name: Store the distribution packages
       uses: actions/upload-artifact@v4
       with:
-        name: dist-dtb-${{ inputs.compiler }}
+        name: dtb-${{ inputs.compiler }}
         path: dist
 
     - name: Assert
