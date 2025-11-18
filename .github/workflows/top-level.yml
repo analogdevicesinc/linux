@@ -5,12 +5,9 @@ on:
     branches:
       - 'rpi-*.y'
     paths-ignore:
-      - 'ci/**'
       - 'docs/**'
   pull_request:
     paths-ignore:
-      - '.github/**'
-      - 'ci/**'
       - 'docs/**'
 
 jobs:
