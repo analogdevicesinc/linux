@@ -154,7 +154,7 @@ static struct iio_chan_spec_ext_info ad7134_ext_info[] = {
 	 .private = ODR_SET_FREQ,
 	},
 	{
-	 .name = "ad7134_sync",
+	 .name = "ad4134_sync",
 	 .write = ad7134_set_sync,
 	 .read = ad7134_get_sync,
 	 .shared = IIO_SHARED_BY_ALL,
