@@ -108,7 +108,7 @@ jobs:
       actions: read
     with:
       artifacts: >
-        dist-adi_ci_defconfig-*
+        adi_ci_defconfig-*
 
   build_gcc_arm_zynq_xcomm_adv7511_defconfig:
     needs: [assert_checks]
@@ -237,10 +237,10 @@ jobs:
       actions: read
     with:
       artifacts: >
-        dist-adi_versal_defconfig-*
-        dist-adi_zynqmp_defconfig-*
-        dist-socfpga_adi_defconfig-*
-        dist-zynq_m2k_defconfig-*
-        dist-zynq_pluto_defconfig-*
-        dist-zynq_xcomm_adv7511_defconfig-*
-        dist-dtb-*
+        adi_versal_defconfig-*
+        adi_zynqmp_defconfig-*
+        socfpga_adi_defconfig-*
+        zynq_m2k_defconfig-*
+        zynq_pluto_defconfig-*
+        zynq_xcomm_adv7511_defconfig-*
+        dtb-*
