@@ -3,23 +3,19 @@ name: Kernel build
 on:
   push:
     branches:
-      - main
-      - ci/*
-      - rpi-6.12.y
+      - 'staging/oran-*.y'
     paths-ignore:
-      - '.github/**'
-      - 'ci/**'
       - 'docs/**'
   pull_request:
     paths-ignore:
-      - '.github/**'
-      - 'ci/**'
       - 'docs/**'
 
 jobs:
   checks:
     uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       ref_branch: "mirror/next/linux-next/master"
   build_gcc_x86_64:
@@ -27,6 +23,8 @@ jobs:
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "x86"
@@ -36,6 +34,8 @@ jobs:
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "llvm"
       arch: "x86"
@@ -46,6 +46,8 @@ jobs:
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm64"
@@ -53,13 +55,17 @@ jobs:
   build_gcc_arm:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
       defconfig: "adi_ci_defconfig"
       checks: true
   assert_checks:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
     needs:
       - checks
       - build_gcc_x86_64
@@ -85,10 +91,25 @@ jobs:
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
+  deploy_cloudsmith_checks:
+    needs: [assert_checks]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    with:
+      artifacts: >
+        adi_ci_defconfig-*
+
   build_gcc_aarch64_adi_adrv906x_defconfig:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm64"
@@ -98,13 +119,17 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       archs: "arm64"
       dts_files: >
         arch/arm64/boot/dts/adi/*.dts
   assert_build:
-    runs-on: [self-hosted, v1]
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
     needs:
       - build_gcc_aarch64_adi_adrv906x_defconfig
       - compile_devicetrees
@@ -112,11 +137,24 @@ jobs:
       - name: Assert
         env:
           job_warn_build_gcc_aarch64_adi_adrv906x_defconfig: ${{needs.build_gcc_aarch64_adi_adrv906x_defconfig.outputs.warn}}
-          job_warn_many_devicetrees: ${{needs.compile_devicetrees.outputs.warn}}
+          job_warn_compile_devicetrees: ${{needs.compile_devicetrees.outputs.warn}}
           job_fail_build_gcc_aarch64_adi_adrv906x_defconfig_defconfig: ${{needs.build_gcc_aarch64_adi_adrv906x_defconfig.outputs.fail}}
-          job_fail_many_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
+          job_fail_compile_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
+  deploy_cloudsmith_build:
+    needs: [assert_build]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    with:
+      artifacts: >
+        adi_adrv906x_defconfig-*
+        dtb-*
