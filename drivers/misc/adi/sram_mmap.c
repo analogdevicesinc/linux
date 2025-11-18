@@ -193,8 +193,8 @@ static int __init rmem_sram_setup(struct reserved_mem *rmem)
 	}
 
 	if (rmem->size & (PAGE_SIZE - 1)) {
-		pr_err("sram region starting at 0x%px is not a multiple of the page size (requested 0x%llx bytes)\n",
-		       (void *)rmem->base, rmem->size);
+		pr_err("sram region starting at 0x%px is not a multiple of the page size (requested 0x%zx bytes)\n",
+		       (void *)rmem->base, (size_t)rmem->size);
 		return -EINVAL;
 	}
 
