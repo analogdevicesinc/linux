@@ -27,6 +27,7 @@ properties:
     maximum: 5000000
 
   adi,gpio-max-frequency:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description: |
       The maximum frequency of GPIO [Hz]
     minimum: 0
