@@ -10,29 +10,26 @@
  * Copyright (C) 2021 Analog Devices Inc.
  */
 
-// 204C use case with low lane rate, 6.6 Gbps using REFCLK 100mhz
-//     * 4Txs / 4Rxs per MxFE
-//     * DAC_CLK = 6.4 GSPS
-//     * ADC_CLK = 3.2 GSPS
-//     * Tx I/Q Rate: 3200 MSPS (Interpolation of 1x2)
-//     * Rx I/Q Rate: 3200 MSPS (Decimation of 1x1)
-//     * DAC JESD204B: Mode 0, L=1, M=8, N=N'=16
-//     * ADC JESD204B: Mode 1, L=1, M=8, N=N'=16
-//     * DAC-Side JESD204C Lane Rate: 6.6Gbps
-//     * ADC-Side JESD204C Lane Rate: 6.6Gbps
+// JESD204C use case with 6.6 Gbps lane rate using REFCLK 100MHz
 
 // HDL Synthesis Parameters:
 // JESD_MODE=64B66B
-// RX_RATE=6.6
+// RX_LANE_RATE=6.6
+// TX_LANE_RATE=6.6
 // RX_JESD_M=1
 // RX_JESD_L=8
 // RX_JESD_S=4
 // RX_JESD_NP=16
-// TX_RATE=6.6
+// RX_NUM_LINKS=1
+// RX_TPL_WIDTH=16
 // TX_JESD_M=1
 // TX_JESD_L=8
 // TX_JESD_S=4
 // TX_JESD_NP=16
+// TX_NUM_LINKS=1
+// TX_TPL_WIDTH=16
+// TDD_SUPPORT=0
+// SHARED_DEVCLK=0
 
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 #include "zynqmp-zcu102-rev10-ad9081-default.dtsi"
