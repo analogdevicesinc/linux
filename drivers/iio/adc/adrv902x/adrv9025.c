@@ -1254,6 +1254,8 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 				chan_no += 1;
 			if (val) {
 				rxchan |= (ADI_ADRV9025_RX1 << chan_no);
+				if (chan_no >= CHAN_OBS_RX1)
+					rxchan &= ~(ADI_ADRV9025_RX1 << (chan_no + 1));
 			} else {
 				if (chan_no < CHAN_OBS_RX1) {
 					rxchan &= ~(ADI_ADRV9025_RX1 << chan_no);
