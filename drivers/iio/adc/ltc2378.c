@@ -68,6 +68,8 @@ enum ltc237x_supported_device_ids {
 	ID_LTC2368_18,
 	ID_LTC2369_18,
 	ID_LTC2370_16,
+	/* LTC2338 series - similar interface */
+	ID_LTC2338_18,
 };
 
 struct ltc2378_chip_info {
@@ -247,6 +249,14 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.sclk_rate = 70000000,
 		.input_mode = LTC237X_PSEUDO_DIFF,
 	},
+	[ID_LTC2338_18] = {
+		.name = "ltc2338-18",
+		.resolution = 18,
+		.num_channels = 1,
+		.max_rate = 1000000,
+		.sclk_rate = 70000000,
+		.input_mode = LTC237X_DIFFERENTIAL,
+	},
 };
 
 struct ltc2378_adc {
@@ -279,24 +289,6 @@ struct ltc2378_adc {
 
          __be32 spi_rx_word __aligned(IIO_DMA_MINALIGN);
 
-};
-
-static const struct iio_chan_spec ltc2378_chan = {
-        .type = IIO_VOLTAGE,
-        .indexed = 1,
-        .channel = 0,
-        .info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-			      BIT(IIO_CHAN_INFO_SCALE),
-        .scan_index = 0,
-        .scan_type = {
-                .sign = 's',  // LTC2378-20 two's complement
-                .storagebits = 32,
-                .realbits = 20,
-                .shift = 0,
-                .endianness = IIO_CPU,
-                //.endianness = IIO_BE,
-        },
 };
 
 static int ltc2378_read_channel(struct ltc2378_adc *adc, unsigned int *val)
@@ -734,6 +726,7 @@ static const struct of_device_id ltc237x_of_match[] = {
         { .compatible = "adi,ltc2368-18", .data = &ltc237x_chip_info[ID_LTC2368_18] },
         { .compatible = "adi,ltc2369-18", .data = &ltc237x_chip_info[ID_LTC2369_18] },
         { .compatible = "adi,ltc2370-16", .data = &ltc237x_chip_info[ID_LTC2370_16] },
+        { .compatible = "adi,ltc2338-18", .data = &ltc237x_chip_info[ID_LTC2338_18] },
         { },
 };
 MODULE_DEVICE_TABLE(of, ltc237x_of_match);
@@ -760,6 +753,7 @@ static const struct spi_device_id ltc237x_spi_id[] = {
         { "ltc2368-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2368_18] },
         { "ltc2369-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2369_18] },
         { "ltc2370-16", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2370_16] },
+        { "ltc2338-18", (kernel_ulong_t)&ltc237x_chip_info[ID_LTC2338_18] },
         { },
 };
 MODULE_DEVICE_TABLE(spi, ltc237x_spi_id);
