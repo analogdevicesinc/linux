@@ -1401,6 +1401,8 @@ static int nhi_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	dev_dbg(dev, "NHI initialized, starting thunderbolt\n");
 
+	init_completion(&nhi->domain_released);
+
 	res = tb_domain_add(tb, host_reset);
 	if (res) {
 		/*
@@ -1408,6 +1410,7 @@ static int nhi_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		 * activated. Do a proper shutdown.
 		 */
 		tb_domain_put(tb);
+		wait_for_completion(&nhi->domain_released);
 		nhi_shutdown(nhi);
 		return res;
 	}
@@ -1433,6 +1436,7 @@ static void nhi_remove(struct pci_dev *pdev)
 	pm_runtime_forbid(&pdev->dev);
 
 	tb_domain_remove(tb);
+	wait_for_completion(&nhi->domain_released);
 	nhi_shutdown(nhi);
 }
 

@@ -319,12 +319,15 @@ const struct bus_type tb_bus_type = {
 static void tb_domain_release(struct device *dev)
 {
 	struct tb *tb = container_of(dev, struct tb, dev);
+	struct tb_nhi *nhi = tb->nhi;
 
 	tb_ctl_free(tb->ctl);
 	destroy_workqueue(tb->wq);
 	ida_free(&tb_domain_ida, tb->index);
 	mutex_destroy(&tb->lock);
 	kfree(tb);
+
+	complete(&nhi->domain_released);
 }
 
 const struct device_type tb_domain_type = {
