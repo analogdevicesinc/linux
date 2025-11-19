@@ -17,22 +17,26 @@ properties:
     maxItems: 1
 
   adi,tru-last-source-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description: |
       The last TRU trigger source ID
     minimum: 0
     maximum: 0xff
 
   adi,tru-last-target-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description: |
       The last TRU trigger target ID
     minimum: 0
     maximum: 0xffffffff
 
   adi,tru-connections-preset:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
     description: |
       Preset connections between TRU sources and targets
 
   adi,tru-connections-preset-locked:
+    type: boolean
     description: |
       The preset connections between TRU sources and targets are locked.
 
