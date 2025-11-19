@@ -33,7 +33,15 @@
  #include <linux/io.h>
 
 #define LTC2378_TCYC_NS			MILLI
-#define LTC2378_TCONV_NS		675
+
+/* Conversion time (TCONV) */
+#define LTC237X_TCONV_2MSPS_NS		322	/* 2 MSPS parts: LTC2380-16, LTC2370-16 */
+#define LTC237X_TCONV_1_6MSPS_NS	412	/* 1.6 MSPS parts: LTC2379-18, LTC2369-18 */
+#define LTC237X_TCONV_1MSPS_NS		527	/* 1 MSPS parts: LTC2378/2368/2338 */
+#define LTC237X_TCONV_1MSPS_20BIT_NS	675	/* 1 MSPS 20-bit: LTC2378-20 */
+#define LTC237X_TCONV_500KSPS_NS	1500	/* 500 kSPS parts: LTC2377/2367 */
+#define LTC237X_TCONV_250KSPS_NS	3000	/* 250 kSPS parts: LTC2376/2364 */
+
 #define LTC2378_TDSDOBUSYL_NS		5
 #define LTC2378_TBUSYLH_NS		13
 #define LTC2378_TCNV_HIGH_NS		40	/* Minimum CNV high time (with margin) */
@@ -78,6 +86,7 @@ struct ltc2378_chip_info {
         int resolution;
         int sclk_rate;
         int max_rate;
+        int tconv_ns;
         enum ltc237x_input_mode input_mode;
 };
 
@@ -96,6 +105,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 250000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_250KSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	[ID_LTC2376_18] = {
@@ -104,6 +114,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 250000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_250KSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	[ID_LTC2376_20] = {
@@ -112,6 +123,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 250000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_250KSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	/* Fully differential 500 kSPS variants */
@@ -121,6 +133,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 500000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_500KSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	[ID_LTC2377_18] = {
@@ -129,6 +142,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 500000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_500KSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	[ID_LTC2377_20] = {
@@ -137,6 +151,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 500000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_500KSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	/* Fully differential 1 MSPS variants */
@@ -146,6 +161,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 1000000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_1MSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	[ID_LTC2378_18] = {
@@ -154,6 +170,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 1000000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_1MSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	[ID_LTC2378_20] = {
@@ -162,6 +179,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 1000000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_1MSPS_20BIT_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	/* Fully differential high-speed variants */
@@ -171,6 +189,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 1600000,	/* 1.6 MSPS */
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_1_6MSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	[ID_LTC2380_16] = {
@@ -179,6 +198,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 2000000,	/* 2 MSPS */
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_2MSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 	/* Pseudo-differential 250 kSPS variants */
@@ -188,6 +208,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 250000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_250KSPS_NS,
 		.input_mode = LTC237X_PSEUDO_DIFF,
 	},
 	[ID_LTC2364_18] = {
@@ -196,6 +217,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 250000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_250KSPS_NS,
 		.input_mode = LTC237X_PSEUDO_DIFF,
 	},
 	/* Pseudo-differential 500 kSPS variants */
@@ -205,6 +227,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 500000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_500KSPS_NS,
 		.input_mode = LTC237X_PSEUDO_DIFF,
 	},
 	[ID_LTC2367_18] = {
@@ -213,6 +236,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 500000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_500KSPS_NS,
 		.input_mode = LTC237X_PSEUDO_DIFF,
 	},
 	/* Pseudo-differential 1 MSPS variants */
@@ -222,6 +246,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 1000000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_1MSPS_NS,
 		.input_mode = LTC237X_PSEUDO_DIFF,
 	},
 	[ID_LTC2368_18] = {
@@ -230,6 +255,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 1000000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_1MSPS_NS,
 		.input_mode = LTC237X_PSEUDO_DIFF,
 	},
 	/* Pseudo-differential high-speed variants */
@@ -239,6 +265,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 1600000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_1_6MSPS_NS,
 		.input_mode = LTC237X_PSEUDO_DIFF,
 	},
 	[ID_LTC2370_16] = {
@@ -247,6 +274,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 2000000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_2MSPS_NS,
 		.input_mode = LTC237X_PSEUDO_DIFF,
 	},
 	[ID_LTC2338_18] = {
@@ -255,6 +283,7 @@ static const struct ltc2378_chip_info ltc237x_chip_info[] = {
 		.num_channels = 1,
 		.max_rate = 1000000,
 		.sclk_rate = 70000000,
+		.tconv_ns = LTC237X_TCONV_1MSPS_NS,
 		.input_mode = LTC237X_DIFFERENTIAL,
 	},
 };
@@ -383,7 +412,7 @@ static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
 	 * CRITICAL: Use the SAME period as CNV PWM to avoid 1-cycle mismatch!
 	 * Convert back from period to frequency for the SPI offload API.
 	 *
-	 * Total timing needed: TCONV (675ns) + TBUSYLH (13ns) + TDSDOBUSYL (5ns) = 693ns
+	 * Total timing needed: TCONV (part-specific) + TBUSYLH (13ns) + TDSDOBUSYL (5ns)
 	 * Subtract trigger-to-SCLK delay: 8 SPI clock cycles (9 - 1 margin clock)
 	 */
 	u64 spi_clk_period_ns = DIV_ROUND_CLOSEST_ULL(NSEC_PER_SEC, adc->ref_clk_rate);
@@ -396,7 +425,7 @@ static int ltc2378_set_samp_freq(struct ltc2378_adc *adc, int freq)
 		 conv_wf.period_length_ns, actual_freq_hz);
 
 	config->periodic.frequency_hz = actual_freq_hz;
-	config->periodic.offset_ns = LTC2378_TCONV_NS + LTC2378_TBUSYLH_NS +
+	config->periodic.offset_ns = adc->info->tconv_ns + LTC2378_TBUSYLH_NS +
 				      LTC2378_TDSDOBUSYL_NS - trigger_to_sclk_delay_ns;
 
 	ret = spi_offload_trigger_validate(adc->offload_trigger, config);
