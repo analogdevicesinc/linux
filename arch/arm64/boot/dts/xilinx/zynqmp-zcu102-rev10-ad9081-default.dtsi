@@ -47,7 +47,6 @@
 					};
 				};
 			};
-
 		};
 	};
 };
@@ -68,21 +67,6 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
 		ranges = <0 0 0 0xffffffff>;
-
-		//clk_sma: clock@0 {
-		//	#clock-cells = <0>;
-		//	compatible = "fixed-clock";
-		//	clock-frequency = <200000000>; // in Hz (200.00 MHz)
-		//	clock-output-names = "clock_sma";
-		//};
-
-		//clkwiz_devclk: clock@1 {
-		//	#clock-cells = <0>;
-		//	compatible = "fixed-clock";
-		//	clock-frequency = <100000000>; // in Hz (100.00 MHz)
-		//	clock-output-names = "clkwiz_device_clk";
-		//};
-
 
 		rx_dma: dma-controller@9c420000 {
 			compatible = "adi,axi-dmac-1.00.a";
@@ -109,11 +93,6 @@
 			reg = <0x84a10000 0x8000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
-			// spibus-connected = <&trx0_ad9081>;
-
-			// jesd204-device;
-			// #jesd204-cells = <2>;
-			// jesd204-inputs = <&axi_ad9081_rx_jesd 0 FRAMER_LINK0_RX>;
 		};
 
 		axi_ad9081_core_tx: axi-ad9081-tx-hpc@84b10000 {
@@ -123,17 +102,7 @@
 			dma-names = "tx";
 			clocks = <&si570_refclk>;
 			clock-names = "sampl_clk";
-			// spibus-connected = <&trx0_ad9081>;
-			//adi,axi-pl-fifo-enable;
 			adi,axi-data-offload-connected = <&axi_data_offload_tx>;
-
-			// jesd204-ignore-errors;
-			// jesd204-top-device = <0>; /* This is the TOP device */
-			// jesd204-inputs =
-			// 	<&axi_ad9081_rx_jesd 0 FRAMER_LINK0_RX>,
-			// 	<&axi_ad9081_tx_jesd 0 DEFRAMER_LINK0_TX>;
-			// jesd204-device;
-			// #jesd204-cells = <2>;
 		};
 
 		axi_ad9081_rx_jesd: axi-jesd204-rx@84a90000 {
@@ -150,10 +119,6 @@
 
 			adi,octets-per-frame = <1>;
 			adi,frames-per-multiframe = <256>;
-
-			// jesd204-device;
-			// #jesd204-cells = <2>;
-			// jesd204-inputs = <&axi_ad9081_adxcvr_rx 0 FRAMER_LINK0_RX>;
 		};
 
 		axi_ad9081_tx_jesd: axi-jesd204-tx@84b90000 {
@@ -174,10 +139,6 @@
 			adi,bits-per-sample = <16>;
 			adi,converters-per-device = <1>;
 			adi,control-bits-per-sample = <0>;
-
-			// jesd204-device;
-			// #jesd204-cells = <2>;
-			// jesd204-inputs = <&axi_ad9081_adxcvr_tx 0 DEFRAMER_LINK0_TX>;
 		};
 
 		axi_ad9081_adxcvr_rx: axi-adxcvr-rx@84a60000 {
@@ -194,12 +155,6 @@
 
 			adi,sys-clk-select = <XCVR_QPLL>;
 			adi,out-clk-select = <XCVR_REFCLK>;
-			// adi,use-lpm-enable;
-
-			// jesd204-device;
-			// #jesd204-cells = <2>;
-			// jesd204-inputs = <&clk_sma 0 DEFRAMER_LINK0_TX>;
-
 		};
 
 		axi_ad9081_adxcvr_tx: axi-adxcvr-tx@84b60000 {
@@ -216,9 +171,6 @@
 
 			adi,sys-clk-select = <XCVR_QPLL>;
 			adi,out-clk-select = <XCVR_REFCLK>;
-
-			// jesd204-device;
-			// #jesd204-cells = <2>;
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {
@@ -229,11 +181,6 @@
 		axi_data_offload_tx: axi-data-offload-0@9c440000 {
 			compatible = "adi,axi-data-offload-1.0.a";
 			reg = <0x9c440000 0x10000>;
-			// adi,bringup;
-			// adi,oneshot;
-			// adi,bypass;
-			// adi,sync-config = <2>;
-			// adi,transfer-length = /bits/ 64 <0x10000>; // 2**16 bytes
 		};
 
 		axi_data_offload_rx: axi-data-offload-1@9c450000 {
@@ -248,44 +195,3 @@
 };
 
 #define fmc_spi spi0
-
-// ad_iobuf #(.DATA_WIDTH(12)) i_iobuf (
-//	.dio_t (gpio_t[43:32]),
-//	.dio_i (gpio_o[43:32]),
-//	.dio_o (gpio_i[43:32]),
-//	dio_p ({hmc_gpio1,       // 43 121
-//	gpio[10:0]}));   // 42-32
-//
-// assign gpio_i[44] = agc0[0];
-// assign gpio_i[45] = agc0[1];
-// assign gpio_i[46] = agc1[0];
-// assign gpio_i[47] = agc1[1];
-// assign gpio_i[48] = agc2[0];
-// assign gpio_i[49] = agc2[1];
-// assign gpio_i[50] = agc3[0];
-// assign gpio_i[51] = agc3[1];
-// assign gpio_i[52] = irqb[0];
-// assign gpio_i[53] = irqb[1];
-//
-// assign hmc_sync         = gpio_o[54];
-// assign rstb             = gpio_o[55]; 133
-// assign rxen[0]          = gpio_o[56]; 134
-// assign rxen[1]          = gpio_o[57]; 135
-// assign txen[0]          = gpio_o[58]; 136
-// assign txen[1]          = gpio_o[59]; 137
-
-// &fmc_spi {
-
-	// trx0_ad9081: ad9081@0 {
-	// 	#address-cells = <1>;
-	// 	#size-cells = <0>;
-
-	// 	reset-gpios = <&gpio 133 0>;
-	// 	sysref-req-gpios = <&gpio 121 0>;
-	// 	rx2-enable-gpios = <&gpio 135 0>;
-	// 	rx1-enable-gpios = <&gpio 134 0>;
-	// 	tx2-enable-gpios = <&gpio 137 0>;
-	// 	tx1-enable-gpios = <&gpio 136 0>;
-
-	// };
-// };
