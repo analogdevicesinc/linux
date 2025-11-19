@@ -1173,9 +1173,39 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 
 		} else {
 			adi_adrv9025_RxGain_t rxGain;
+			chan_no = chan->channel;
+
+			if (chan_no > CHAN_RX4) {
+				/* For OBS channels, determine which specific channel is enabled */
+				ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan, &txchan);
+				if (ret) {
+					ret = adrv9025_dev_err(phy);
+					break;
+				}
+
+				if (chan_no == CHAN_OBS_RX1) {
+					if ((rxchan & ADI_ADRV9025_ORX1) && !(rxchan & ADI_ADRV9025_ORX2)) {
+						chan_no = CHAN_OBS_RX1;
+					} else if (!(rxchan & ADI_ADRV9025_ORX1) && (rxchan & ADI_ADRV9025_ORX2)) {
+						chan_no = CHAN_OBS_RX2;
+					} else {
+						ret = -EINVAL;
+						break;
+					}
+				} else if (chan_no == CHAN_OBS_RX2) {
+					if ((rxchan & ADI_ADRV9025_ORX3) && !(rxchan & ADI_ADRV9025_ORX4)) {
+						chan_no = CHAN_OBS_RX3;
+					} else if (!(rxchan & ADI_ADRV9025_ORX3) && (rxchan & ADI_ADRV9025_ORX4)) {
+						chan_no = CHAN_OBS_RX4;
+					} else {
+						ret = -EINVAL;
+						break;
+					}
+				}
+			}
 
 			ret = adi_adrv9025_RxGainGet(
-				phy->madDevice, 1 << chan->channel, &rxGain);
+				phy->madDevice, 1 << chan_no, &rxGain);
 			if (ret) {
 				ret = adrv9025_dev_err(phy);
 				break;
@@ -1292,14 +1322,44 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 
 		} else {
 			adi_adrv9025_RxGain_t rxGain;
+			chan_no = chan->channel;
 
-			ret = adrv9025_gain_to_gainindex(phy, chan->channel,
+			if (chan_no > CHAN_RX4) {
+				ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
+								 &txchan);
+				if (ret) {
+					ret = adrv9025_dev_err(phy);
+					goto out;
+				}
+
+				if (chan_no == CHAN_OBS_RX1) {
+					if (rxchan & ADI_ADRV9025_ORX1 && !(rxchan & ADI_ADRV9025_ORX2)) {
+						chan_no = CHAN_OBS_RX1;
+					} else if (!(rxchan & ADI_ADRV9025_ORX1) && (rxchan & ADI_ADRV9025_ORX2)) {
+						chan_no = CHAN_OBS_RX2;
+					} else {
+						ret = -EINVAL;
+						goto out;
+					}
+				} else if (chan_no == CHAN_OBS_RX2) {
+					if (rxchan & ADI_ADRV9025_ORX3 && !(rxchan & ADI_ADRV9025_ORX4)) {
+						chan_no = CHAN_OBS_RX3;
+					} else if (!(rxchan & ADI_ADRV9025_ORX3) && (rxchan & ADI_ADRV9025_ORX4)) {
+						chan_no = CHAN_OBS_RX4;
+					} else {
+						ret = -EINVAL;
+						goto out;
+					}
+				}
+			}
+
+			ret = adrv9025_gain_to_gainindex(phy, chan_no,
 							 val, val2, &code);
 			if (ret < 0)
 				break;
 
 			rxGain.gainIndex = code;
-			rxGain.rxChannelMask = 1 << chan->channel;
+			rxGain.rxChannelMask = 1 << chan_no;
 
 			ret = adi_adrv9025_RxGainSet(phy->madDevice, &rxGain,
 						     1);
