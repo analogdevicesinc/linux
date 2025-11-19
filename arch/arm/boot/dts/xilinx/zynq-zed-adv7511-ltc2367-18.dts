@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices LTC2367-18
+ * https://www.analog.com/en/products/ltc2367-18.html
+ *
+ * hdl_project: <ltc2378_fmc/zed>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/ltc2378_fmc
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed-adv7511-ltc2378-20.dts"
+
+/* Override one-bit-adc-dac to have only CHAIN (no DCG) */
+&{/one-bit-adc-dac@0} {
+  	out-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;  /* Only CHAIN GPIO */
+
+  	/delete-node/ channel@1;  /* Remove DCG channel */
+};
+
+&ltc2378 {
+      compatible = "adi,ltc2367-18";
+};

@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices LTC2378-18
+ * https://www.analog.com/en/products/ltc2378-18.html
+ *
+ * hdl_project: <ltc2378_fmc/zed>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/ltc2378_fmc
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed-adv7511-ltc2378-20.dts"
+
+&ltc2378 {
+      compatible = "adi,ltc2378-18";
+};

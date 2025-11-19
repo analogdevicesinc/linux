@@ -117,7 +117,7 @@
                 ltc2378: adc@0 {
                         #address-cells = <1>;
 			#size-cells = <0>;
-        	        compatible = "adi,ltc2378";
+			compatible = "adi,ltc2378-20";
         	        reg = <0>;
         	        spi-max-frequency = <70000000>;
         	        // SPI mode 0 (CPOL=0, CPHA=0) - LTC2378 datasheet specifies this
