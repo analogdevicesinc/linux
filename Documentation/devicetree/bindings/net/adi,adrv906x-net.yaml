@@ -8,7 +8,7 @@ title: ADRV906X Gigabit Ethernet driver
 
 maintainers:
   - Kim Holdt <kim.holdt@analog.com>
-  - Sheng Wang <sheng.wang@analog.com>
+  - Slawomir Kulig <slawomir.kulig@analog.com>
 
 description: Bindings for ADRV906X 10G/25G Network Interface Controller Device
 
