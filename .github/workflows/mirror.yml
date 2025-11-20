@@ -47,13 +47,10 @@ jobs:
           git fetch origin "${{ inputs.ci_branch }}" --depth=1
           declare -a arr=(
             ".github"
-            "arch/arm/configs/adi_ci_defconfig"
-            "arch/arm64/configs/adi_ci_defconfig"
-            "arch/x86/configs/adi_ci_defconfig"
           )
           for i in "${arr[@]}"
           do
-            git rm -rf "$i" || true
+            git rm -rf "$i" 2>/dev/null || true
             git checkout origin/${{ inputs.ci_branch }} -- "$i"
           done
           commit=$(git rev-parse origin/${{ inputs.ci_branch }})
