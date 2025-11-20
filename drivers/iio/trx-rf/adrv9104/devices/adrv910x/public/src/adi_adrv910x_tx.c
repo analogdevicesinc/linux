@@ -42,7 +42,7 @@
 static __maybe_unused int32_t __maybe_unused adi_adrv910x_Tx_AttenuationTable_Write_Validate(adi_adrv910x_Device_t *device,
                                                                               uint32_t channelMask,
                                                                               uint32_t indexOffset,
-                                                                              adi_adrv910x_TxAttenTableRow_t attenTableRows[],
+                                                                              const adi_adrv910x_TxAttenTableRow_t attenTableRows[],
                                                                               uint32_t arraySize)
 {
     static const uint8_t ATTEN_HP_MIN = 0;
@@ -93,7 +93,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Tx_AttenuationTable_Wr
 int32_t adi_adrv910x_Tx_AttenuationTable_Write(adi_adrv910x_Device_t *device,
                                                uint32_t channelMask,
                                                uint32_t indexOffset,
-                                               adi_adrv910x_TxAttenTableRow_t attenTableRows[],
+                                               const adi_adrv910x_TxAttenTableRow_t attenTableRows[],
                                                uint32_t arraySize)
 {
     static const uint32_t ATTEN_HP_MASK = 0x0003F000;
@@ -225,7 +225,7 @@ int32_t adi_adrv910x_Tx_AttenuationTable_Read(adi_adrv910x_Device_t *device,
     ADI_EXPECT(adrv910x_NvsRegmapCore2_Tx1GainTableClkEn_Set, device, true);
 
     ADI_EXPECT(adrv910x_DmaMemRead, device, offset + stop, &cfgData[0], numTxAttenEntriesRead, ADRV910X_ARM_MEM_READ_AUTOINCR, ADI_PS1);
-	
+
     for (idx = 0; idx < arraySize; idx++)
     {
         data = (((uint32_t)cfgData[start + 3] << 24) |
@@ -259,7 +259,7 @@ int32_t adi_adrv910x_Tx_AttenuationTable_Read(adi_adrv910x_Device_t *device,
 	/* Disable ARM clock to Tx1 atten table memory access */
 	ADI_EXPECT(adrv910x_NvsRegmapCore2_Tx1GainTableClkEn_Set, device, false);
 	ADI_EXPECT(adrv910x_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, false);
-	
+
     ADI_MUTEX_RELEASE(device);
     ADI_API_RETURN(device);
 }
@@ -300,7 +300,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Tx_AttenuationMode_Set
             ADI_EXPECT(adi_adrv910x_Radio_Channel_State_Get, device, ADI_TX, channel, &state);
             switch (state)
             {
-            case ADI_ADRV910X_CHANNEL_STANDBY:  
+            case ADI_ADRV910X_CHANNEL_STANDBY:
             case ADI_ADRV910X_CHANNEL_CALIBRATED:
                 break;
             default:
@@ -325,7 +325,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Tx_AttenuationMode_Set
 						 txModeRead,
 						 "Invalid TxAttenuation Control Mode. Cannot control when mode CLGC is enabled");
 	}
-	
+
     ADI_API_RETURN(device);
 }
 
@@ -342,9 +342,9 @@ int32_t adi_adrv910x_Tx_AttenuationMode_Set(adi_adrv910x_Device_t *device,
 	{
 		mode = ADI_ADRV910X_TX_ATTENUATION_CONTROL_MODE_SPI;
 	}
-	
+
     ADI_EXPECT(adrv910x_NvsRegmapTx_TxAttenMode_Set, device, (uint8_t)mode);
-    
+
     ADI_MUTEX_RELEASE(device);
     ADI_API_RETURN(device);
 }
@@ -356,7 +356,7 @@ int32_t adi_adrv910x_Tx_AttenuationMode_Get(adi_adrv910x_Device_t *device,
 	adi_adrv910x_RadioState_t radioState = {0};
     ADI_NULL_PTR_RETURN(&device->common, mode);
     ADI_MUTEX_AQUIRE(device);
-	
+
 	ADI_EXPECT(adi_adrv910x_Radio_State_Get, device, &radioState);
 	if (radioState.channelStates[ADI_TX][0] == ADI_ADRV910X_CHANNEL_PRIMED ||
 		radioState.channelStates[ADI_TX][1] == ADI_ADRV910X_CHANNEL_PRIMED)
@@ -367,11 +367,11 @@ int32_t adi_adrv910x_Tx_AttenuationMode_Get(adi_adrv910x_Device_t *device,
 	{
 		ADI_EXPECT(adrv910x_NvsRegmapTx_TxAttenMode_Get, device, &regData);
 		*mode = (adi_adrv910x_TxAttenuationControlMode_e)regData;
-	
+
 		if (device->devStateInfo.txAttenMode == ADI_ADRV910X_TX_ATTENUATION_CONTROL_MODE_CLGC)
 			*mode = ADI_ADRV910X_TX_ATTENUATION_CONTROL_MODE_CLGC;
 	}
-	
+
 	ADI_MUTEX_RELEASE(device);
     ADI_API_RETURN(device);
 }
@@ -404,7 +404,7 @@ int32_t adi_adrv910x_Tx_Attenuation_Inspect(adi_adrv910x_Device_t *device,
     uint8_t disableTxOnPllUnlock = 0;
     uint8_t txAttenStepRead = ADI_ADRV910X_TXATTEN_0P05_DB;
     adi_adrv910x_TxAttenuationControlMode_e txModeRead = ADI_ADRV910X_TX_ATTENUATION_CONTROL_MODE_SPI;
-    
+
     ADI_NULL_PTR_RETURN(&device->common, config);
     ADI_MUTEX_AQUIRE(device);
     /* RFPLL unlock setting for Tx attenuation ramp */
@@ -421,7 +421,7 @@ int32_t adi_adrv910x_Tx_Attenuation_Inspect(adi_adrv910x_Device_t *device,
     config->txAttenStepSize = (adi_adrv910x_TxAttenStepSize_e)txAttenStepRead;
 
     ADI_MUTEX_RELEASE(device);
-    ADI_API_RETURN(device);    
+    ADI_API_RETURN(device);
 }
 
 static __maybe_unused int32_t __maybe_unused adi_adrv910x_Tx_Attenuation_Set_Validate(adi_adrv910x_Device_t *device,
@@ -455,7 +455,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Tx_Attenuation_Set_Val
 						     txModeRead,
 						     "Cannot set TxAtten when CLGC is enabled and loop is closed");
 	}
-	
+
     ADI_API_RETURN(device);
 }
 
@@ -587,7 +587,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Tx_OutputPowerBoost_Se
 								 txModeRead,
 								 "Invalid TxAttenuation Control Mode. Cannot control when mode CLGC is enabled");
 	}
-	
+
     /* Validate calibration state for initialized Tx channels */
     for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
     {

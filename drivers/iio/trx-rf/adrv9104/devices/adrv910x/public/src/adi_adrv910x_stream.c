@@ -60,7 +60,7 @@ static void adrv910x_BinaryParamsGetNumberStreamImageSize(adi_adrv910x_Device_t 
 
 int32_t adi_adrv910x_Stream_Image_Write(adi_adrv910x_Device_t *device,
                                       uint32_t byteOffset,
-                                      uint8_t binary[],
+                                      const uint8_t binary[],
                                       uint32_t byteCount,
                                       adi_adrv910x_ArmSingleSpiWriteMode_e spiWriteMode)
 {
