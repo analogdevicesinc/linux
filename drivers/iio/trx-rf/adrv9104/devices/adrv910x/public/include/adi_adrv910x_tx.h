@@ -47,7 +47,7 @@ extern "C" {
 int32_t adi_adrv910x_Tx_AttenuationTable_Write(adi_adrv910x_Device_t *adrv910x,
                                                uint32_t channelMask,
                                                uint32_t indexOffset,
-                                               adi_adrv910x_TxAttenTableRow_t attenTableRows[],
+                                               const adi_adrv910x_TxAttenTableRow_t attenTableRows[],
                                                uint32_t arraySize);
 
 /**
@@ -89,9 +89,9 @@ int32_t adi_adrv910x_Tx_AttenuationMode_Set(adi_adrv910x_Device_t *adrv910x,
 
 /**
  * \brief Get the current attenuation control mode
- * 
+ *
  * \note Message type: \ref timing_direct "Direct register acccess"
- * 
+ *
  * \param[in]  adrv910x             Context variable - Pointer to the ADRV910X device data structure
  * \param[out] mode                 The current Tx attenuation mode
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
@@ -140,32 +140,32 @@ int32_t adi_adrv910x_Tx_Attenuation_Inspect(adi_adrv910x_Device_t *adrv910x,
  * \pre Attenuation mode is ADI_ADRV910X_TX_ATTENUATION_CONTROL_MODE_CLGC
  *      channel state must be any of STANDBY, CALIBRATED, PRIMED, RF_ENABLED
  *      clgcLoopOpen must be true
- * 
+ *
  * \note Message type: \ref timing_direct "Direct register acccess"
  * \note The new attenuation only takes effect in the RF_ENABLED state - may read back incorrect value otherwise
  *
- * \param[in] adrv910x                     Context variable - Pointer to the ADRV910X device data structure 
+ * \param[in] adrv910x                     Context variable - Pointer to the ADRV910X device data structure
  * \param[in] attenuation_mdB              The desired attenuation in milli-dB (Range: 0 to 41950 mdB)
- * 
- * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover 
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv910x_Tx_Attenuation_Set(adi_adrv910x_Device_t *adrv910x,
                                         uint16_t attenuation_mdB);
 
 /**
  * \brief Get the Tx attenuation
- * 
+ *
  * \pre This feature requires the initialization to be complete and the attenuation table to be loaded.
- * 
+ *
  * \note Message type: \ref timing_direct "Direct register acccess"
  * \note During the transition from RF_ENABLED to PRIMED, attenuation will be ramped up to 40dB to protect the analog
  * front-end. During the reverse transition, the attenuation will be ramped to the value last set by the user. As a
  * result, unexpected values may be returned during TDD operation.
- * 
- * \param[in]  adrv910x                 Context variable - Pointer to the ADRV910X device data structure 
+ *
+ * \param[in]  adrv910x                 Context variable - Pointer to the ADRV910X device data structure
  * \param[out] attenuation_mdB          The current attenuation in milli-dB (Range: 0 to 41950 mdB)
- * 
- * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover  
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv910x_Tx_Attenuation_Get(adi_adrv910x_Device_t *adrv910x,
                                         uint16_t *attenuation_mdB);

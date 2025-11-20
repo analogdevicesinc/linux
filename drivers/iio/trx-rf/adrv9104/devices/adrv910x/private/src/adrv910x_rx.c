@@ -15,7 +15,7 @@
 #include "adrv910x_rx.h"
 
 int32_t adrv910x_RxGainTableFormat(adi_adrv910x_Device_t *device,
-                                   adi_adrv910x_RxGainTableRow_t *gainTablePtr,
+                                   const adi_adrv910x_RxGainTableRow_t *gainTablePtr,
                                    uint8_t *formattedGainTablePtr,
                                    uint16_t numGainIndicesInTable)
 {

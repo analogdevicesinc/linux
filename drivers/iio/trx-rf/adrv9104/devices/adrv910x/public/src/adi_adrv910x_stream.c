@@ -65,10 +65,10 @@ static void adrv910x_BinaryParamsGetNumberStreamImageSize(adi_adrv910x_Device_t 
 
 #ifndef NEVIS_PS2
 int32_t adi_adrv910x_Stream_Image_Write(adi_adrv910x_Device_t *device,
-                                      uint32_t byteOffset,
-                                      uint8_t binary[],
-                                      uint32_t byteCount,
-                                      adi_adrv910x_ArmSingleSpiWriteMode_e spiWriteMode)
+					uint32_t byteOffset,
+					const uint8_t binary[],
+					uint32_t byteCount,
+					adi_adrv910x_ArmSingleSpiWriteMode_e spiWriteMode)
 {
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     uint16_t binaryImageSize = 0;
@@ -276,7 +276,7 @@ static uint8_t streamChunkBuffer[STREAM_FLASH_CHUNK_SIZE] = {0};
 
 int32_t adi_adrv910x_Stream_Image_Write(adi_adrv910x_Device_t *device,
                                       uint32_t byteOffset,
-                                      uint8_t binary[],
+                                      const uint8_t binary[],
                                       uint32_t byteCount,
                                       adi_adrv910x_ArmSingleSpiWriteMode_e spiWriteMode)
 {
@@ -334,7 +334,7 @@ int32_t adi_adrv910x_Stream_Image_Write(adi_adrv910x_Device_t *device,
             "Failed to get bootloader configuration.");
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
-    
+
     adi_flash_Handle_t flashHdl = bootConfig.flash_handle;
     ADI_NULL_DEVICE_PTR_RETURN(flashHdl);
 
@@ -351,7 +351,7 @@ int32_t adi_adrv910x_Stream_Image_Write(adi_adrv910x_Device_t *device,
             "Failed to get active image from bootloader catalog.");
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
-    
+
 	uint32_t flashReadAddress = streamImage.code_flash_start_addr;
     byteCount = streamImage.code_flash_size;
     uint32_t bytesRemaining = byteCount;

@@ -39,7 +39,7 @@ extern "C"{
 * \retval ADI_COMMON_ACT_NO_ACTION Function completed successfully, no action required
 */
 int32_t adrv910x_RxGainTableFormat(adi_adrv910x_Device_t *device,
-                                   adi_adrv910x_RxGainTableRow_t *gainTablePtr, 
+                                   const adi_adrv910x_RxGainTableRow_t *gainTablePtr,
                                    uint8_t *formattedGainTablePtr,
                                    uint16_t numGainIndicesInTable);
 
@@ -60,7 +60,7 @@ int32_t adrv910x_RxGainTableFormat(adi_adrv910x_Device_t *device,
 * \retval ADI_COMMON_ACT_NO_ACTION Function completed successfully, no action required
 */
 int32_t adrv910x_RxGainTableParse(adi_adrv910x_Device_t *device,
-                                  adi_adrv910x_RxGainTableRow_t *gainTablePtr, 
+                                  adi_adrv910x_RxGainTableRow_t *gainTablePtr,
                                   uint8_t *armDmaDataGainTablePtr,
                                   uint16_t numGainIndicesInTable);
 

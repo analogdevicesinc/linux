@@ -34,7 +34,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Rx_GainTable_Write_Val
                                        adi_common_Port_e port,
                                        adi_common_ChannelNumber_e channel,
                                        uint8_t  gainIndexOffset,
-                                       adi_adrv910x_RxGainTableRow_t gainTableRows[],
+                                       const adi_adrv910x_RxGainTableRow_t gainTableRows[],
                                        uint32_t arraySize,
                                        adi_adrv910x_RxGainTableType_e gainTableType)
 {
@@ -111,14 +111,14 @@ int32_t adi_adrv910x_Rx_GainTable_Write(adi_adrv910x_Device_t *device,
                                         adi_common_Port_e port,
                                         adi_common_ChannelNumber_e channel,
                                         uint8_t  gainIndexOffset,
-                                        adi_adrv910x_RxGainTableRow_t gainTableRows[],
+                                        const adi_adrv910x_RxGainTableRow_t gainTableRows[],
                                         uint32_t arraySize,
                                         adi_adrv910x_RxGainTableType_e gainTableType)
 {
     uint32_t baseIndex = 0;
     uint32_t baseAddress = 0;
     uint16_t numGainIndicesToWrite = 0;
-    adi_adrv910x_RxGainTableRow_t *gainTablePtr = NULL;
+    const adi_adrv910x_RxGainTableRow_t *gainTablePtr = NULL;
     uint8_t minGainIndex = 0;
 
     /*Maximum Array Size = Max Gain Table Size x Bytes Per Gain Table Entry*/

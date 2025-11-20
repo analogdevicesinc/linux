@@ -41,7 +41,7 @@ extern "C" {
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
-int32_t adi_adrv910x_Stream_Image_Write(adi_adrv910x_Device_t *adrv910x, uint32_t byteOffset, uint8_t binary[], uint32_t byteCount, adi_adrv910x_ArmSingleSpiWriteMode_e spiWriteMode);
+int32_t adi_adrv910x_Stream_Image_Write(adi_adrv910x_Device_t *adrv910x, uint32_t byteOffset, const uint8_t binary[], uint32_t byteCount, adi_adrv910x_ArmSingleSpiWriteMode_e spiWriteMode);
 
  /**
  * \brief Reads back the version of the stream processor binary loaded in the ADRV910X memory
@@ -63,7 +63,7 @@ int32_t adi_adrv910x_Stream_Version(adi_adrv910x_Device_t *adrv910x, adi_adrv910
 *        Dedicated GPIO pins are used to route stream processor operation status:
 *        Rx1 stream processor --> DGPIO0
 *        Tx1 stream processor --> DGPIO1
-*        Rx2 stream processor --> DGPIO2 
+*        Rx2 stream processor --> DGPIO2
 *        Tx2 stream processor --> DGPIO3
 *
 * \note Message type: \ref timing_mailbox "Mailbox command"
