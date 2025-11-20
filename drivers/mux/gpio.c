@@ -40,6 +40,7 @@ static const struct mux_control_ops mux_gpio_ops = {
 
 static const struct of_device_id mux_gpio_dt_ids[] = {
 	{ .compatible = "gpio-mux", },
+	{ .compatible = "adi,adg1712", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mux_gpio_dt_ids);
