@@ -1947,8 +1947,13 @@ static int adrv9025_tx_advanced_dpd_status_show(struct seq_file *s, void *ignore
 	mutex_lock(&phy->lock);
 	ret = adi_adrv9025_DpdStatusGet_v2(phy->madDevice, txChannel, &dpdStatus);
 	mutex_unlock(&phy->lock);
-	if (ret)
-		return adrv9025_dev_err(phy);
+
+	if (ret) {
+		dev_err(&phy->spi->dev,
+			"Failed to get DPD status for TX%u, error: %d\n",
+			chan, ret);
+		return ret;
+	}
 
 	seq_printf(s, "ADRV9025 TX%u Advanced DPD Status\n", chan);
 
