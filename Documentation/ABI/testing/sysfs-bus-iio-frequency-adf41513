@@ -1,0 +1,21 @@
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_pfd_frequency
+KernelVersion:	6.18
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns channel Y PFD frequency in Hz, which is the operating frequency
+		of the Phase Frequency Detector used in the PLL.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_ld_count
+KernelVersion:	6.18
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Sets the value for Lock Detector count of a PLL, which determines the
+		number of consecutive phase detector cycles that must be within the lock
+		detector window before lock is declared. Lower values increase the lock
+		detection sensitivity.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_ld_count_available
+KernelVersion:	6.18
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available values for the lock dectetor count.
