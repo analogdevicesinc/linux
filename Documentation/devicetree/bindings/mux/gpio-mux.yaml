@@ -17,9 +17,14 @@ description: |+
   multiplexer GPIO pins, where the first pin is the least significant
   bit. An active pin is a binary 1, an inactive pin is a binary 0.
 
+  For ADG1712, each GPIO directly controls one independent switch, and
+  the state represents the combination of all four switches (0-15).
+
 properties:
   compatible:
-    const: gpio-mux
+    enum:
+      - gpio-mux
+      - adi,adg1712
 
   mux-gpios:
     description:
@@ -99,5 +104,22 @@ examples:
                 reg = <0x20>;
             };
         };
+    };
+
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    // ADG1712 quad SPST switch controller
+    adg1712: switch-controller {
+        compatible = "adi,adg1712";
+        #mux-control-cells = <0>;
+
+        mux-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>,
+                    <&gpio 11 GPIO_ACTIVE_HIGH>,
+                    <&gpio 12 GPIO_ACTIVE_HIGH>,
+                    <&gpio 13 GPIO_ACTIVE_HIGH>;
+
+        // Initial state: SW1=ON, SW2=OFF, SW3=ON, SW4=OFF (binary: 0101 = 5)
+        idle-state = <5>;
     };
 ...
