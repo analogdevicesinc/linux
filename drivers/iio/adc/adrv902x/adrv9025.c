@@ -18,6 +18,7 @@
 #include <linux/string.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/seq_file.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include <linux/types.h>
@@ -1946,6 +1947,90 @@ static const struct file_operations adrv9025_debugfs_reg_fops = {
 	.write = adrv9025_debugfs_write,
 };
 
+static int adrv9025_tx_advanced_dpd_status_show(struct seq_file *s, void *ignored)
+{
+	struct adrv9025_tx_chan_ctx *ctx = s->private;
+	adi_adrv9025_DpdStatus_v2_t dpdStatus = { 0 };
+	struct adrv9025_rf_phy *phy = ctx->phy;
+	adi_adrv9025_TxChannels_e txChannel;
+	u8 chan = ctx->channel;
+	int ret;
+
+	/* Convert channel index to TX channel enum */
+	txChannel = ADI_ADRV9025_TX1 << chan;
+
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9025_DpdStatusGet_v2(phy->madDevice, txChannel, &dpdStatus);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	seq_printf(s, "ADRV9025 TX%u Advanced DPD Status\n", chan);
+
+	/* Basic Status */
+	seq_puts(s, "Basic Status:\n");
+	seq_printf(s, "  Error Code: %d\n", dpdStatus.dpdErrorCode);
+	seq_printf(s, "  Percent Complete: %u%%\n", dpdStatus.dpdPercentComplete);
+	seq_printf(s, "  Iteration Count: %u\n", dpdStatus.dpdIterCount);
+	seq_printf(s, "  Update Count: %u\n", dpdStatus.dpdUpdateCount);
+	seq_printf(s, "  Sync Status: %d\n", dpdStatus.dpdSyncStatus);
+	seq_printf(s, "  Model Table: %d\n", dpdStatus.dpdModelTable);
+
+	/* Power Statistics */
+	seq_puts(s, "\nPower Statistics:\n");
+	seq_printf(s, "  Mean TU Power: %d.%03d dBFS\n",
+		   dpdStatus.dpdStatistics.dpdMeanTuPower_mdB / 1000,
+		   abs(dpdStatus.dpdStatistics.dpdMeanTuPower_mdB % 1000));
+	seq_printf(s, "  Peak TU Power: %d.%03d dBFS\n",
+		   dpdStatus.dpdStatistics.dpdPeakTuPower_mdB / 1000,
+		   abs(dpdStatus.dpdStatistics.dpdPeakTuPower_mdB % 1000));
+	seq_printf(s, "  Mean TX Power: %d.%03d dBFS\n",
+		   dpdStatus.dpdStatistics.dpdMeanTxPower_mdB / 1000,
+		   abs(dpdStatus.dpdStatistics.dpdMeanTxPower_mdB % 1000));
+	seq_printf(s, "  Peak TX Power: %d.%03d dBFS\n",
+		   dpdStatus.dpdStatistics.dpdPeakTxPower_mdB / 1000,
+		   abs(dpdStatus.dpdStatistics.dpdPeakTxPower_mdB % 1000));
+	seq_printf(s, "  Mean ORx Power: %d.%03d dBFS\n",
+		   dpdStatus.dpdStatistics.dpdMeanOrxPower_mdB / 1000,
+		   abs(dpdStatus.dpdStatistics.dpdMeanOrxPower_mdB % 1000));
+	seq_printf(s, "  Peak ORx Power: %d.%03d dBFS\n",
+		   dpdStatus.dpdStatistics.dpdPeakOrxPower_mdB / 1000,
+		   abs(dpdStatus.dpdStatistics.dpdPeakOrxPower_mdB % 1000));
+
+	/* Error Metrics */
+	seq_puts(s, "\nError Metrics:\n");
+	seq_printf(s, "  Direct EVM: %u.%04u%%\n",
+		   dpdStatus.dpdStatistics.dpdDirectEvm_xM / 10000,
+		   dpdStatus.dpdStatistics.dpdDirectEvm_xM % 10000);
+	seq_printf(s, "  Indirect EVM: %u.%04u%%\n",
+		   dpdStatus.dpdStatistics.dpdIndirectEvm_xM / 10000,
+		   dpdStatus.dpdStatistics.dpdIndirectEvm_xM % 10000);
+	seq_printf(s, "  Select Error: %u.%04u%%\n",
+		   dpdStatus.dpdStatistics.dpdSelectError_xM / 10000,
+		   dpdStatus.dpdStatistics.dpdSelectError_xM % 10000);
+	seq_printf(s, "  Indirect Error: %u.%04u%%\n",
+		   dpdStatus.dpdStatistics.dpdIndirectError_xM / 10000,
+		   dpdStatus.dpdStatistics.dpdIndirectError_xM % 10000);
+
+	/* Error Status */
+	seq_puts(s, "\nError Status:\n");
+	seq_printf(s, "  Error Status 0: metrics_mask=0x%04x, action_mask=0x%04x\n",
+		   dpdStatus.dpdErrorStatus0.dpdMetricsMask,
+		   dpdStatus.dpdErrorStatus0.dpdActionMask);
+	seq_printf(s, "  Error Status 1: metrics_mask=0x%04x, action_mask=0x%04x\n",
+		   dpdStatus.dpdErrorStatus1.dpdMetricsMask,
+		   dpdStatus.dpdErrorStatus1.dpdActionMask);
+	seq_printf(s, "  Persistent Error 0: metrics_mask=0x%04x, action_mask=0x%04x\n",
+		   dpdStatus.dpdPersistentErrorStatus0.dpdMetricsMask,
+		   dpdStatus.dpdPersistentErrorStatus0.dpdActionMask);
+	seq_printf(s, "  Persistent Error 1: metrics_mask=0x%04x, action_mask=0x%04x\n",
+		   dpdStatus.dpdPersistentErrorStatus1.dpdMetricsMask,
+		   dpdStatus.dpdPersistentErrorStatus1.dpdActionMask);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(adrv9025_tx_advanced_dpd_status);
+
 static void adrv9025_add_debugfs_entry(struct adrv9025_rf_phy *phy,
 				       const char *propname, unsigned int cmd)
 {
@@ -2008,6 +2093,21 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 				    &phy->debugfs_entry[i],
 				    &adrv9025_debugfs_reg_fops);
 	}
+
+	/* Create seqfile-based debugfs entries for each TX channel */
+	for (i = 0; i < ADRV9025_NUMBER_OF_TX_CHANNELS; i++) {
+		char attr[64];
+
+		phy->tx_chan_ctx[i].phy = phy;
+		phy->tx_chan_ctx[i].channel = i;
+
+		sprintf(attr, "tx%d_advanced_dpd_status", i);
+		debugfs_create_file(attr, 0444,
+				    iio_get_debugfs_dentry(indio_dev),
+				    &phy->tx_chan_ctx[i],
+				    &adrv9025_tx_advanced_dpd_status_fops);
+	}
+
 	return 0;
 }
 

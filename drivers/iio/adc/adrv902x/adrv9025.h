@@ -59,6 +59,7 @@ enum debugfs_cmd {
 	DBGFS_TX1_DPD_STATUS,
 	DBGFS_TX2_DPD_STATUS,
 	DBGFS_TX3_DPD_STATUS,
+	DBGFS_ADVANCED_DPD_STATUS,
 };
 
 enum adrv9025_rx_ext_info {
@@ -108,6 +109,11 @@ struct adrv9025_debugfs_entry {
 	u32 val;
 	u8 size;
 	u8 cmd;
+};
+
+struct adrv9025_tx_chan_ctx {
+	struct adrv9025_rf_phy *phy;
+	u8 channel;
 };
 
 enum adrv9025_clocks {
@@ -173,6 +179,9 @@ struct adrv9025_rf_phy {
 	adi_adrv9025_DpdModelConfig_v2_t *dpdModelConfig;
 	adi_adrv9025_TxChannels_e dpdTxChannel;
 	adi_adrv9025_DpdTrackingConfig_t *dpdTrackingConfig;
+
+	/* TX channel context for debugfs */
+	struct adrv9025_tx_chan_ctx tx_chan_ctx[4];
 };
 
 int adrv9025_hdl_loopback(struct adrv9025_rf_phy *phy, bool enable);
