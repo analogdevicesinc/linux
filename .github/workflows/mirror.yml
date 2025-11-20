@@ -37,7 +37,7 @@ jobs:
         git switch -d
         git remote add ${{ inputs.remote_name }} ${{ inputs.fetch_url }} 2>/dev/null || \
           git remote set-url ${{ inputs.remote_name }} ${{ inputs.fetch_url }}
-        target_branch=mirror/${{ inputs.remote_name }}/${{ inputs.branch }}
+        target_branch=mirror_ci/${{ inputs.remote_name }}/${{ inputs.branch }}
         git remote prune origin
         git remote prune ${{ inputs.remote_name }}
         git fetch ${{ inputs.remote_name }} ${{ inputs.branch }}:$target_branch -f
