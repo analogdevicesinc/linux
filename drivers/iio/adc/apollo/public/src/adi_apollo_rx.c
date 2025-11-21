@@ -82,9 +82,14 @@ int32_t adi_apollo_rx_configure(adi_apollo_device_t *device, adi_apollo_sides_e 
        ADI_APOLLO_ERROR_RETURN(err);
    }
 
-    return API_CMS_ERROR_OK;
+   /* SMON config */
+   for (i = 0; i < ADI_APOLLO_SMONS_PER_SIDE; i++) {
+       err = adi_apollo_rx_smon_configure(device, side, (adi_apollo_smon_idx_e)i, &(config->rx_smon[i]));
+       ADI_APOLLO_ERROR_RETURN(err);
+   }
+   
+   return API_CMS_ERROR_OK;
 }
-
 
 int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_cddc_idx_e idx, adi_apollo_cddc_cfg_t *config)
 {
@@ -474,6 +479,38 @@ int32_t adi_apollo_rx_dformat_configure(adi_apollo_device_t *device, adi_apollo_
 
     err = adi_apollo_dformat_pgm(device, ADI_APOLLO_DFMT_IDX2B(side, link_idx), &dformat_config);
     ADI_APOLLO_ERROR_RETURN(err);
+
+    return API_CMS_ERROR_OK;
+}
+
+int32_t adi_apollo_rx_smon_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_smon_idx_e idx,
+                                     adi_apollo_smon_cfg_t *config)
+{
+    int32_t err;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_NULL_POINTER_RETURN(config);
+    ADI_APOLLO_INVALID_PARAM_RETURN((side > ADI_APOLLO_NUM_SIDES - 1));
+    ADI_APOLLO_INVALID_PARAM_RETURN((idx > ADI_APOLLO_SMONS_PER_SIDE - 1))
+
+    adi_apollo_smon_pgm_t smon_pgm = {
+        .sframer_mode_en = (config->sframer_mode == ADI_APOLLO_RX_SMON_FRAMER_MODE_5B) ? ADI_APOLLO_SFRAMER_FIVE_BIT_ENABLE : ADI_APOLLO_SFRAMER_TEN_BIT_ENABLE,
+        .smon_period = config->period,
+        .thresh_low = config->thresh_low,
+        .thresh_high = config->thresh_high,
+        .sync_en = config->sync_en,
+        .sync_next = config->sync_next,
+        .sframer_en = config->sframer_en,
+        .sframer_mode = config->sframer_mode,
+        .sframer_insel = 2, // only peak mag in framer supported
+        .peak_en = config->peak_en,
+        .status_rdsel = 1, // only peak mag in reg readback supported
+        .jlink_sel = config->jlink_sel,
+        .gpio_en = config->gpio_en
+    };
+    err = adi_apollo_smon_pgm(device, ADI_APOLLO_SMON_IDX2B(side, idx), &smon_pgm);
+    ADI_CMS_ERROR_RETURN(err);
 
     return API_CMS_ERROR_OK;
 }

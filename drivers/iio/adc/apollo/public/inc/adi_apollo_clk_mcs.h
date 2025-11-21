@@ -445,7 +445,7 @@ int32_t adi_apollo_clk_mcs_subclass_get(adi_apollo_device_t *device, uint32_t *s
  * Result is units of Fclk.
  *
  * \param[in]  device        Context variable - Pointer to the APOLLO device data structure
- * \param[out] phase_diff    Pointer to ext-to-int SYSREF phase delta in units or FClk.
+ * \param[out] sysref_phase  Pointer to ext-to-int SYSREF phase delta in units or FClk.
  *
  * \return API_CMS_ERROR_OK     API Completed Successfully
  * \return <0                   Failed. \ref adi_cms_error_e for details.

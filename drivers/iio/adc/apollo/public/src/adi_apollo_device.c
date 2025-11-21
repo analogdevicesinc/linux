@@ -29,7 +29,7 @@
 #include "adi_apollo_txmisc.h"
 
 /*============= D A T A ====================*/
-static uint16_t apollo_api_revision[3] = { 1, 1, 0 };
+static uint16_t apollo_api_revision[3] = { 1, 10, 0 };
 
 static adi_apollo_mailbox_cmd_set_enabled_temp_sensors_t temp_senors_cmd = {
         .temp_sensor_mask = ADI_APOLLO_DEVTEMP_MASK_SERDESPLL |

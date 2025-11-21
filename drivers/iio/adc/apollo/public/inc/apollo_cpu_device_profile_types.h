@@ -18,7 +18,7 @@
 
 #define ADI_APOLLO_PROFILE_VERSION_MAJOR         9             /*!< Major */
 #define ADI_APOLLO_PROFILE_VERSION_MINOR         1             /*!< Minor */
-#define ADI_APOLLO_PROFILE_VERSION_PATCH         2             /*!< Patch */
+#define ADI_APOLLO_PROFILE_VERSION_PATCH         3             /*!< Patch */
 
 #define ADI_APOLLO_DACS_PER_SIDE                 4             /*!< #DACs per side. */
 #define ADI_APOLLO_ADCS_PER_SIDE                 4             /*!< #Max ADCs per side. (8T8R) */
@@ -695,7 +695,7 @@ typedef struct adi_apollo_cnco_cfg
     /* Hopping and Trigger */
     adi_apollo_nco_profile_sel_mode_e nco_profile_sel_mode;                   /*!< Profile selection mode (e.g. direct or trigger based) */
     adi_apollo_nco_auto_hop_dir_sel_e nco_auto_inc_dec;                       /*!< Increment or decrement profile selection for auto hop. */
-    bool                              debug_cdrc_clkoff_n;                    /*!< if TRUE (typical), enable nco clocks */   
+    bool                              debug_cdrc_clkoff_n;                    /*!< if TRUE (typical), enable nco clocks */
 
 } adi_apollo_cnco_cfg_t;
 ADI_APOLLO_PACK_FINISH
@@ -734,7 +734,7 @@ typedef struct adi_apollo_fnco_cfg
 
     bool                              hop_mode_en;              /*!< If TRUE, enable freq hopping. */
     uint8_t                           hop_mode;                 /*!< Fine NCO hop mode. */
-    
+
     uint32_t                          nco_phase_inc_words[ADI_APOLLO_FNCO_PROFILE_NUM];       /*!< NCO phase increment words */
     uint32_t                          nco_phase_offset_words[ADI_APOLLO_FNCO_PROFILE_NUM];    /*!< NCO phase offset words */
 
@@ -1231,7 +1231,7 @@ typedef enum
     ADI_APOLLO_RX_MUX0_NUM_8T8R = 4
 } ADI_APOLLO_PACK_ENUM adi_apollo_rx_mux0_idx_e;
 
-/*! Rx Coarse fine crossbar (MUX2) configuration */ 
+/*! Rx Coarse fine crossbar (MUX2) configuration */
 typedef enum
 {
     /* values for FDDC0 (and FDDC4 in 8T8R) */
@@ -2034,7 +2034,7 @@ typedef struct adi_apollo_gpio_cfg
     uint64_t gpio_from_master;                          /*!<  This field is used by masters (core0/core1/stream_proc) to write data to Digital GPIO pins. */
     uint64_t gpio_from_set;                             /*!<  Writing a '1' to a bit in this field sets the corresponding bit in the gpio_from_master register. */
     uint8_t  gpio_source_control[ADI_APOLLO_NUM_GPIOS]; /*!<  Select pin of GPIO functional pinmux. */
-    uint64_t gpio_stage_sel_lsb;                        /*!<  64Bits select the mux stage of GPIO pinmuxing. */ 
+    uint64_t gpio_stage_sel_lsb;                        /*!<  64Bits select the mux stage of GPIO pinmuxing. */
     uint64_t gpio_stage_sel_msb;                        /*!<  38Bits select the mux stage of GPIO pinmuxing. */
 } adi_apollo_gpio_cfg_t;
 ADI_APOLLO_PACK_FINISH
