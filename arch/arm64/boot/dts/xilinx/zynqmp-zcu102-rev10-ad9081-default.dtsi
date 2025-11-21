@@ -42,7 +42,7 @@
 						temperature-stability = <50>;
 						reg = <0x5d>;
 						factory-fout = <156250000>;
-						clock-frequency = <100000000>;
+						clock-frequency = <200000000>;
 						clock-output-names = "si570";
 					};
 				};
@@ -59,6 +59,32 @@
 		regulator-boot-on;
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
+	};
+
+
+	clocks {
+		linkclk_100: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "linkclk_100";
+		};
+
+		fixed_3200: clock@1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <3200000000>;
+			clock-output-names = "fixed_3200";
+		};
+
+		si570_div2: clock@2 {
+       			#clock-cells = <0>;
+       			compatible = "fixed-factor-clock";
+       			clocks = <&si570_refclk>;
+       			clock-div = <2>;
+       			clock-mult = <1>;
+       			clock-output-names = "si570_div2";
+       		};
 	};
 
 	fpga_axi: fpga-axi@0 {
@@ -93,6 +119,8 @@
 			reg = <0x84a10000 0x8000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
+			clocks = <&fixed_3200>;
+			clock-names = "sampl_clk";
 		};
 
 		axi_ad9081_core_tx: axi-ad9081-tx-hpc@84b10000 {
@@ -100,7 +128,7 @@
 			reg = <0x84b10000 0x4000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
-			clocks = <&si570_refclk>;
+			clocks = <&fixed_3200>;
 			clock-names = "sampl_clk";
 			adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 		};
@@ -111,7 +139,7 @@
 
 			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&si570_refclk>, <&si570_refclk>;
+			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_ad9081_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -127,7 +155,7 @@
 
 			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&si570_refclk>, <&si570_refclk>;
+			clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_ad9081_adxcvr_tx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -147,7 +175,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
 
-			clocks = <&si570_refclk>, <&si570_refclk>;
+			clocks = <&si570_refclk>, <&linkclk_100>;
 			clock-names = "conv", "div40";
 
 			#clock-cells = <1>;
@@ -163,7 +191,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84b60000 0x1000>;
 
-			clocks = <&si570_refclk>, <&si570_refclk>;
+			clocks = <&si570_refclk>, <&linkclk_100>;
 			clock-names = "conv", "div40";
 
 			#clock-cells = <1>;
@@ -186,6 +214,24 @@
 		axi_data_offload_rx: axi-data-offload-1@9c450000 {
 			compatible = "adi,axi-data-offload-1.0.a";
 			reg = <0x9c450000 0x10000>;
+		};
+
+		axi_tx_clkgen: clock-controller@83c10000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x83c10000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&si570_div2>, <&zynqmp_clk 71>;
+			clock-names = "clkin1", "s_axi_aclk";
+			clock-output-names = "axi_tx_clkgen";
+		};
+
+		axi_rx_clkgen: clock-controller@83c00000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x83c00000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&si570_div2>, <&zynqmp_clk 71>;
+			clock-names = "clkin1", "s_axi_aclk";
+			clock-output-names = "axi_rx_clkgen";
 		};
 	};
 };
