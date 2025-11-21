@@ -202,6 +202,31 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 		phy->profile.jrx[1].common_link_cfg.subclass = val;
 	}
 
+	if (phy->profile.profile_cfg.profile_version.major != ADI_APOLLO_PROFILE_VERSION_MAJOR ||
+	    phy->profile.profile_cfg.profile_version.minor != ADI_APOLLO_PROFILE_VERSION_MINOR) {
+		dev_err(dev, "Incompatible profile version %u.%u != %u.%u\n",
+			phy->profile.profile_cfg.profile_version.major,
+			phy->profile.profile_cfg.profile_version.minor,
+			ADI_APOLLO_PROFILE_VERSION_MAJOR,
+			ADI_APOLLO_PROFILE_VERSION_MINOR);
+
+		return -EINVAL;
+	}
+
+	/* FIXME ! */
+	if (phy->profile.profile_cfg.profile_version.patch< 3) {
+		dev_warn(dev, "Old profile version patch %u, updating to %u\n",
+			 phy->profile.profile_cfg.profile_version.patch, 3);
+
+		phy->profile.profile_cfg.profile_version.patch = 3;
+		phy->profile.reserved_cfg[4] = phy->profile.reserved_cfg[0];
+		phy->profile.reserved_cfg[5] = phy->profile.reserved_cfg[1];
+		phy->profile.reserved_cfg[0] = 0;
+		phy->profile.reserved_cfg[1] = 0;
+		phy->profile.mcs_cfg.center_sysref.sysref_present = true;
+
+	}
+
 	dev_dbg(dev, "Profile CRC32 %u\n", phy->profile.profile_checksum);
 	phy->profile.profile_checksum = crc32_be(0, (unsigned char const *)p, sizeof(*p) - sizeof(u32));
 	dev_dbg(dev, "Profile CRC32 %u\n", phy->profile.profile_checksum);

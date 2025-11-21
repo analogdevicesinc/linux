@@ -2520,57 +2520,25 @@ static int ad9088_read_label(struct iio_dev *indio_dev,
 int ad9088_mcs_init_cal_setup(struct ad9088_phy *phy)
 {
 	adi_apollo_device_t *device = &phy->ad9088;
-	s64 reference_period_C_femtoseconds;
-	u64 freq;
+	int ret;
 
-	freq = phy->profile.clk_cfg.dev_clk_freq_kHz * 1000ULL;
-	freq = div64_u64(freq, (phy->profile.clk_cfg.clocking_mode == ADI_APOLLO_CLOCKING_MODE_SDR_DIV_8 ? 8 : 4) *
-			 phy->profile.mcs_cfg.internal_sysref_prd_digclk_cycles_center);
-	reference_period_C_femtoseconds = div64_u64(1000000000000000ULL, freq);
+	if (!device->dev_info.is_dual_clk) {
+		ret = adi_apollo_mcs_cal_parameter_set(device, MCS_OFFSET_C_FEMTOSECONDS_INT64, 0);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_parameter_set");
+		if (ret)
+			return ret;
+	} else {
+		ret = adi_apollo_mcs_cal_parameter_set(device, MCS_OFFSET_A_FEMTOSECONDS_INT64, 0);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_parameter_set");
+		if (ret)
+			return ret;
+		ret = adi_apollo_mcs_cal_parameter_set(device, MCS_OFFSET_B_FEMTOSECONDS_INT64, 0);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_parameter_set");
+		if (ret)
+			return ret;
+	}
 
-	dev_dbg(&phy->spi->dev, "SYSREF frequency %llu Hz, SYSREF period: %lld fs\n", freq, reference_period_C_femtoseconds);
-
-	adi_apollo_mcs_cal_config_t cal_config  = {
-		.use_side_A_as_reference            = 0,
-		.use_gapped_sysref                  = 0,
-		.pad8                               = 0,
-		.leave_sysref_receiver_ON_post_sync = 1,
-		.track_abort                        = 0,
-		.track_halt                         = 0,
-		.track_initialize                   = 1,
-		.pad8_2                             = 0,
-		.track_foreground                   = 0,
-		.track_force_foreground             = 0,
-		.track_background                   = {0, 0},
-		.track_coarse_jump                  = {0, 0},
-		.track_force_background_step        = {0, 0},
-		.measurement_decimation_rate        = 31,  // TDC Decimation setting prioritizing execution time.
-		.pad16                              = 0,
-		.reference_period_C_femtoseconds    = reference_period_C_femtoseconds,
-		.reference_period_A_femtoseconds    = 1,
-		.reference_period_B_femtoseconds    = 1,
-		.offset_C_femtoseconds              = 0,
-		.offset_A_femtoseconds              = 0,
-		.offset_B_femtoseconds              = 0,
-		.adf4382_specific_config            = {
-			.del_mode              = CpBld_Mode,
-			.track_start_coarse    = 0,
-			.track_start_bleed_pol = 0,
-			.track_polarity_select = 0,
-			.phase_adjustment      = 1,
-			.pad8                  = 0,
-			.track_start_fine      = 0,
-			.DELSTR_gpio           = {30, 0}, /* FIXME Hardcoded */
-			.pad                   = {0, 0},
-			.DELADJ_gpio           = {29, 0},
-			.pad2                  = {0, 0},
-			.track_win             = 500,
-			.track_target          = {20000, 0}
-		}
-	};
-
-	/* Load MCS Calibration Configuration settings. */
-	return adi_apollo_mcs_cal_config_set(device, &cal_config);
+	return 0;
 }
 
 static int ad9088_mcs_init_cal_status_print(struct ad9088_phy *phy, char *buf,
@@ -2703,6 +2671,7 @@ static int ad9088_delta_t_measurement_set(struct ad9088_phy *phy, u32 mode)
 	bsync_set_config_cmd.bsync_div = bsync_divider;
 
 	ret = adi_apollo_mailbox_mcs_bsync_set_config(device, &bsync_set_config_cmd, &bsync_set_config_resp);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mailbox_mcs_bsync_set_config");
 	if (ret)
 		return ret;
 
@@ -2710,6 +2679,7 @@ static int ad9088_delta_t_measurement_set(struct ad9088_phy *phy, u32 mode)
 		dev_warn(&phy->spi->dev, "bsync_set_config_resp.status: %d.\n", bsync_set_config_resp.status);
 
 	ret = adi_apollo_mailbox_mcs_bsync_go(device, &bsync_go_resp);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mailbox_mcs_bsync_go");
 	if (ret)
 		return ret;
 
@@ -2810,6 +2780,19 @@ static int ad9088_mcs_tracking_cal_setup(adi_apollo_device_t *device, u16 mcs_tr
 	ret = adi_apollo_mcs_cal_tracking_decimation_set(device, mcs_track_decimation);
 	if (ret)
 		return ret;
+
+	/* Optional: Calibration values for setting tracking offset between internal
+	 * and external SYSREF may be customized to align with hardware setup
+	 */
+	ret = adi_apollo_mcs_cal_parameter_set(device, MCS_ADF4382_TRACK_TARGET_0_INT32, 0);
+	if (ret)
+		return ret;
+
+	if (device->dev_info.is_dual_clk) {
+		ret = adi_apollo_mcs_cal_parameter_set(device, MCS_ADF4382_TRACK_TARGET_1_INT32, 0);
+		if (ret)
+			return ret;
+	}
 
 	// Enable MCS Tracking Cal. Tracking decimation needs to be updated before this API call.
 	ret = adi_apollo_mcs_cal_tracking_enable(device, 1);
@@ -5830,7 +5813,7 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 	u64 path_delay, round_trip_delay = 0;
 	s64 adf4030_phase;
 	int val, val2;
-	int ret;
+	int ret, ret2;
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
@@ -5871,7 +5854,7 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 
 	ret = ad9088_delta_t_measurement_set(phy, 0);
 	if (ret) {
-		dev_err(dev, "Failed to set delta_t measurement\n");
+		dev_err(dev, "Failed to set delta_t measurement 0\n");
 		return ret;
 	}
 	ret = ad9088_delta_t_measurement_get(phy, 0, &apollo_delta_t0);
@@ -5895,12 +5878,30 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 	}
 	ret = ad9088_delta_t_measurement_set(phy, 1);
 	if (ret) {
-		dev_err(dev, "Failed to set delta_t measurement\n");
+		dev_err(dev, "Failed to set delta_t measurement 1\n");
+
+		ret2 = ad9088_delta_t_measurement_set(phy, 2);
+		if (ret2) {
+			dev_err(dev, "Failed to set delta_t measurement 2\n");
+			return ret2;
+		}
+
+		ad9088_iio_write_channel_ext_info(phy, phy->iio_adf4030, "output_enable", 1);
+
 		return ret;
 	}
 	ret = ad9088_delta_t_measurement_get(phy, 1, &apollo_delta_t1);
 	if (ret) {
 		dev_err(dev, "Failed to get delta_t measurement\n");
+
+		ret2 = ad9088_delta_t_measurement_set(phy, 2);
+		if (ret2) {
+			dev_err(dev, "Failed to set delta_t measurement 2\n");
+			return ret2;
+		}
+
+		ad9088_iio_write_channel_ext_info(phy, phy->iio_adf4030, "output_enable", 1);
+
 		return ret;
 	}
 	dev_dbg(dev, "apollo_delta_t1 %lld fs\n", apollo_delta_t1);
@@ -5908,6 +5909,15 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 	ret = iio_read_channel_attribute(phy->iio_adf4030, &val, &val2, IIO_CHAN_INFO_PHASE);
 	if (ret < 0) {
 		dev_err(dev, "Failed to read adf4030 phase\n");
+
+		ret2 = ad9088_delta_t_measurement_set(phy, 2);
+		if (ret2) {
+			dev_err(dev, "Failed to set delta_t measurement 2\n");
+			return ret2;
+		}
+
+		ad9088_iio_write_channel_ext_info(phy, phy->iio_adf4030, "output_enable", 1);
+
 		return ret;
 	}
 	adf4030_delta_t1 = (s64)((((u64)val2) << 32) | (u32)val);
@@ -5915,7 +5925,7 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 
 	ret = ad9088_delta_t_measurement_set(phy, 2);
 	if (ret) {
-		dev_err(dev, "Failed to set delta_t measurement\n");
+		dev_err(dev, "Failed to set delta_t measurement 2\n");
 		return ret;
 	}
 
