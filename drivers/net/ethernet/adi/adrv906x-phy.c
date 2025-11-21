@@ -94,22 +94,22 @@ void adrv906x_phy_get_fec_stats(struct net_device *dev, struct ethtool_fec_stats
 	struct phy_device *phydev = dev->phydev;
 	u32 val;
 
+	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_COR_CW2);
 	fec_stats->corrected_blocks.total = phy_read_mmd(phydev, MDIO_MMD_PCS,
 							 ADRV906X_PCS_RS_FEC_COR_CW1);
-	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_COR_CW2);
 	fec_stats->corrected_blocks.total += val << 16;
 
+	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_UNCOR_CW2);
 	fec_stats->uncorrectable_blocks.total =
 		phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_UNCOR_CW1);
-	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_UNCOR_CW2);
 	fec_stats->uncorrectable_blocks.total += val << 16;
 
 	/* ADRV906x can only report the number of corrected symbols, not how many bits were
 	 * corrected.
 	 */
+	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_SYM_ERR2);
 	fec_stats->corrected_bits.total = phy_read_mmd(phydev, MDIO_MMD_PCS,
 						       ADRV906X_PCS_RS_FEC_SYM_ERR1);
-	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_SYM_ERR2);
 	fec_stats->corrected_bits.total += val << 16;
 }
 
@@ -156,7 +156,7 @@ static int adrv906x_phy_suspend(struct phy_device *phydev)
 	adrv906x_phy_rx_path_enable(phydev, false);
 	/* adrv906x_phy_tx_path_enable(phydev, false);
 	 * TODO: The line above is commented out to keep the TX path enabled during suspend.
-	 *  	 Disabling the TX path may lead to issues with the interface coming back up.
+	 *	 Disabling the TX path may lead to issues with the interface coming back up.
 	 */
 	adrv906x_serdes_lnk_down_req(phydev);
 

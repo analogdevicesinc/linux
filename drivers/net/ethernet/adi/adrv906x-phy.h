@@ -93,12 +93,12 @@
 #define ADRV906X_PCS_RS_FEC_STAT_REG                     201
 #define   ADRV906X_PCS_RS_FEC_STAT_ALIGN                 BIT(14)
 
-#define ADRV906X_PCS_RS_FEC_COR_CW1                      201
-#define ADRV906X_PCS_RS_FEC_COR_CW2                      202
-#define ADRV906X_PCS_RS_FEC_UNCOR_CW1                    203
-#define ADRV906X_PCS_RS_FEC_UNCOR_CW2                    204
-#define ADRV906X_PCS_RS_FEC_SYM_ERR1                     205
-#define ADRV906X_PCS_RS_FEC_SYM_ERR2                     206
+#define ADRV906X_PCS_RS_FEC_COR_CW1                      202
+#define ADRV906X_PCS_RS_FEC_COR_CW2                      203
+#define ADRV906X_PCS_RS_FEC_UNCOR_CW1                    204
+#define ADRV906X_PCS_RS_FEC_UNCOR_CW2                    205
+#define ADRV906X_PCS_RS_FEC_SYM_ERR1                     206
+#define ADRV906X_PCS_RS_FEC_SYM_ERR2                     207
 
 int adrv906x_phy_register(void);
 void adrv906x_phy_unregister(void);
