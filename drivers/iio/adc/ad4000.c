@@ -800,11 +800,24 @@ err_out:
 	return IRQ_HANDLED;
 }
 
+static int ad4000_debugfs_reg_access(struct iio_dev *indio_dev,
+				     unsigned int reg, unsigned int writeval,
+				     unsigned int *readval)
+{
+	struct ad4000_state *st = iio_priv(indio_dev);
+
+	if (readval)
+		return ad4000_read_reg(st, readval);
+
+	return ad4000_write_reg(st, writeval);
+}
+
 static const struct iio_info ad4000_reg_access_info = {
 	.read_raw = &ad4000_read_raw,
 	.read_avail = &ad4000_read_avail,
 	.write_raw = &ad4000_write_raw,
 	.write_raw_get_fmt = &ad4000_write_raw_get_fmt,
+	.debugfs_reg_access = ad4000_debugfs_reg_access,
 };
 
 static const struct iio_info ad4000_offload_info = {
