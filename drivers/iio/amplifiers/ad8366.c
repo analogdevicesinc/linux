@@ -14,23 +14,22 @@
  *   HMC1019A: 0.5 dB LSB GaAs MMIC 5-BIT DIGITAL ATTENUATOR, 0.1 - 30 GHz
  *   HMC1119 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator
  *
- * Copyright 2012-2021 Analog Devices Inc.
+ * Copyright 2012-2025 Analog Devices Inc.
  */
 
-#include <linux/device.h>
-#include <linux/kernel.h>
-#include <linux/slab.h>
-#include <linux/sysfs.h>
-#include <linux/spi/spi.h>
-#include <linux/regulator/consumer.h>
-#include <linux/gpio/consumer.h>
-#include <linux/err.h>
-#include <linux/module.h>
 #include <linux/bitrev.h>
-#include <linux/of.h>
-
+#include <linux/cleanup.h>
+#include <linux/device.h>
+#include <linux/err.h>
+#include <linux/gpio/consumer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/module.h>
+#include <linux/mod_devicetable.h>
+#include <linux/regulator/consumer.h>
+#include <linux/slab.h>
+#include <linux/spi/spi.h>
+#include <linux/sysfs.h>
 
 enum ad8366_type {
 	ID_AD8366,
@@ -53,8 +52,7 @@ struct ad8366_info {
 
 struct ad8366_state {
 	struct spi_device	*spi;
-	struct regulator	*reg;
-	struct mutex            lock; /* protect sensor state */
+	struct mutex		lock; /* protect sensor state */
 	struct gpio_desc	*reset_gpio;
 	struct gpio_desc	*enable_gpio;
 	unsigned char		ch[2];
@@ -165,7 +163,8 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 	int ret;
 	int code, gain = 0;
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
+
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		code = st->ch[chan->channel];
@@ -211,7 +210,6 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&st->lock);
 
 	return ret;
 };
@@ -268,7 +266,8 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 		break;
 	}
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
+
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		st->ch[chan->channel] = code;
@@ -277,7 +276,6 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -324,30 +322,21 @@ static int ad8366_probe(struct spi_device *spi)
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
-	if (indio_dev == NULL)
+	if (!indio_dev)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
-
-	st->reg = devm_regulator_get(&spi->dev, "vcc");
-	if (!IS_ERR(st->reg)) {
-		ret = regulator_enable(st->reg);
-		if (ret)
-			return ret;
-	}
-
-	spi_set_drvdata(spi, indio_dev);
-	mutex_init(&st->lock);
 	st->spi = spi;
 	st->type = spi_get_device_id(spi)->driver_data;
+	spi_set_drvdata(spi, indio_dev);
 
-	/* try to get a unique name */
-	if (spi->dev.platform_data)
-		indio_dev->name = spi->dev.platform_data;
-	else if (spi->dev.of_node)
-		indio_dev->name = spi->dev.of_node->name;
-	else
-		indio_dev->name = spi_get_device_id(spi)->name;
+	ret = devm_regulator_get_enable(&spi->dev, "vcc");
+	if (ret)
+		return dev_err_probe(&spi->dev, ret, "Failed to get regulator\n");
+
+	ret = devm_mutex_init(&spi->dev, &st->lock);
+	if (ret)
+		return dev_err_probe(&spi->dev, ret, "failed to initialize mutex: %d\n", ret);
 
 	switch (st->type) {
 	case ID_AD8366:
@@ -365,21 +354,20 @@ static int ad8366_probe(struct spi_device *spi)
 	case ID_HMC1018:
 	case ID_HMC1019:
 		st->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
-		if (IS_ERR(st->reset_gpio)) {
-			ret = PTR_ERR(st->reset_gpio);
-			goto error_disable_reg;
-		}
+		if (IS_ERR(st->reset_gpio))
+			return dev_err_probe(&spi->dev, PTR_ERR(st->reset_gpio),
+					     "Failed to get reset GPIO\n");
 
-		st->enable_gpio = devm_gpiod_get(&spi->dev, "enable",
-			GPIOD_OUT_HIGH);
+		st->enable_gpio = devm_gpiod_get(&spi->dev, "enable", GPIOD_OUT_HIGH);
+		if (IS_ERR(st->enable_gpio))
+			return dev_err_probe(&spi->dev, PTR_ERR(st->enable_gpio),
+					     "Failed to get enable GPIO\n");
 
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
 		break;
 	default:
-		dev_err(&spi->dev, "Invalid device ID\n");
-		ret = -EINVAL;
-		goto error_disable_reg;
+		return dev_err_probe(&spi->dev, -EINVAL, "Invalid device ID\n");
 	}
 
 	st->info = &ad8366_infos[st->type];
@@ -389,31 +377,9 @@ static int ad8366_probe(struct spi_device *spi)
 
 	ret = ad8366_write(indio_dev, 0, 0);
 	if (ret < 0)
-		goto error_disable_reg;
+		return dev_err_probe(&spi->dev, ret, "failed to write initial gain\n");
 
-	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto error_disable_reg;
-
-	return 0;
-
-error_disable_reg:
-	if (!IS_ERR(st->reg))
-		regulator_disable(st->reg);
-
-	return ret;
-}
-
-static void ad8366_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct ad8366_state *st = iio_priv(indio_dev);
-	struct regulator *reg = st->reg;
-
-	iio_device_unregister(indio_dev);
-
-	if (!IS_ERR(reg))
-		regulator_disable(reg);
+	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct spi_device_id ad8366_id[] = {
@@ -432,12 +398,26 @@ static const struct spi_device_id ad8366_id[] = {
 };
 MODULE_DEVICE_TABLE(spi, ad8366_id);
 
+static const struct of_device_id ad8366_of_match[] = {
+	{ .compatible = "adi,ad8366" },
+	{ .compatible = "adi,ada4961" },
+	{ .compatible = "adi,adrf5720" },
+	{ .compatible = "adi,adrf5730" },
+	{ .compatible = "adi,adrf5731" },
+	{ .compatible = "adi,adl5240" },
+	{ .compatible = "adi,hmc792a" },
+	{ .compatible = "adi,hmc1018a" },
+	{ .compatible = "adi,hmc1019a" },
+	{ .compatible = "adi,hmc1119" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, ad8366_of_match);
+
 static struct spi_driver ad8366_driver = {
 	.driver = {
 		.name	= KBUILD_MODNAME,
 	},
 	.probe		= ad8366_probe,
-	.remove		= ad8366_remove,
 	.id_table	= ad8366_id,
 };
 
