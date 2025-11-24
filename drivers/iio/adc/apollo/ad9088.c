@@ -71,7 +71,7 @@ int32_t adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy,
 	return API_CMS_ERROR_OK;
 }
 
-int32_t adi_ad9088_calc_nco_freq(struct ad9088_phy *phy,
+static int32_t adi_ad9088_calc_nco_freq(struct ad9088_phy *phy,
 				 u64 freq, u64 ftw, u32 a, u32 b,
 				 u32 bits, s64 *nco_shift)
 {
@@ -135,7 +135,7 @@ static u8 ad9088_to_link(u8 linkid)
 	return lut[linkid];
 }
 
-int32_t ad9088_log_write(void *user_data, int32_t log_type, const char *message,
+static int32_t ad9088_log_write(void *user_data, int32_t log_type, const char *message,
 			 va_list argp)
 {
 	struct axiadc_converter *conv = user_data;
@@ -177,7 +177,7 @@ int32_t ad9088_log_write(void *user_data, int32_t log_type, const char *message,
  * @param error_code The error code to look up
  * @return Pointer to a constant string describing the error
  */
-const char* adi_cms_error_to_string(int error_code)
+static const char *adi_cms_error_to_string(int error_code)
 {
     switch (error_code) {
         case API_CMS_ERROR_OK:
@@ -339,7 +339,7 @@ const char* adi_cms_error_to_string(int error_code)
  * @return Corresponding Linux errno value (positive)
  * @note Returns the absolute value suitable for setting errno or returning -errno
  */
-int adi_cms_error_to_errno(int api_error)
+static int adi_cms_error_to_errno(int api_error)
 {
     /* Success case */
     if (api_error == API_CMS_ERROR_OK) {
@@ -946,7 +946,7 @@ static const struct iio_enum ad9088_testmode_enum = {
 	.get = ad9088_testmode_read,
 };
 
-int ad9088_iio_val_to_str(char *buf, u32 max, int val)
+static int ad9088_iio_val_to_str(char *buf, u32 max, int val)
 {
 	int vals[2];
 
@@ -956,7 +956,7 @@ int ad9088_iio_val_to_str(char *buf, u32 max, int val)
 	return iio_format_value(buf, IIO_VAL_FRACTIONAL, 2, vals);
 }
 
-int ad9088_iio_str_to_val(const char *str, int min, int max, int *val)
+static int ad9088_iio_str_to_val(const char *str, int min, int max, int *val)
 {
 	int ret, integer, fract;
 
@@ -2333,7 +2333,7 @@ static int ad9088_request_clks(struct axiadc_converter *conv)
 	return 0;
 }
 
-int ad9088_jesd_tx_link_status_print(struct ad9088_phy *phy,
+static int ad9088_jesd_tx_link_status_print(struct ad9088_phy *phy,
 				     struct jesd204_link *lnk, int retry)
 {
 	int ret;
@@ -2620,7 +2620,7 @@ static int ad9088_read_label(struct iio_dev *indio_dev,
 		       phy->rx_labels[chan->channel]);
 }
 
-int ad9088_mcs_init_cal_setup(struct ad9088_phy *phy)
+static int ad9088_mcs_init_cal_setup(struct ad9088_phy *phy)
 {
 	adi_apollo_device_t *device = &phy->ad9088;
 	int ret;
@@ -5223,7 +5223,7 @@ static int ad9088_version_info(struct ad9088_phy *phy)
 	return ret;
 }
 
-int32_t ad9088_inspect_jrx_link_all(struct ad9088_phy *phy)
+static int32_t ad9088_inspect_jrx_link_all(struct ad9088_phy *phy)
 {
 	int err;
 	adi_apollo_device_t *device =  &phy->ad9088;
@@ -5262,7 +5262,7 @@ int32_t ad9088_inspect_jrx_link_all(struct ad9088_phy *phy)
 	return API_CMS_ERROR_OK;
 }
 
-int32_t ad9088_inspect_jtx_link_all(struct ad9088_phy *phy)
+static int32_t ad9088_inspect_jtx_link_all(struct ad9088_phy *phy)
 {
 	int err;
 	adi_apollo_device_t *device =  &phy->ad9088;
@@ -6318,7 +6318,7 @@ static int ad9088_jesd204_post_setup_stage4(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
-int ad9088_jesd204_uninit(struct jesd204_dev *jdev,
+static int ad9088_jesd204_uninit(struct jesd204_dev *jdev,
 			  enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
@@ -6604,7 +6604,7 @@ static void ad9088_set_gpio(struct gpio_chip *chip, unsigned int offset, int val
 	adi_apollo_gpio_cmos_output_set(&phy->ad9088, phy->gpios_exported[offset], value);
 }
 
-int ad9088_gpio_setup(struct ad9088_phy *phy)
+static int ad9088_gpio_setup(struct ad9088_phy *phy)
 {
 	int ret, len;
 
