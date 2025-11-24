@@ -149,6 +149,8 @@ jobs:
       dts_files: >
         arch/arm/boot/dts/broadcom/bcm*-rpi-*.dts
         arch/arm64/boot/dts/broadcom/bcm*-rpi-*.dts
+        arch/arm/boot/dts/overlays/*.dts
+        arch/arm64/boot/dts/overlays/*.dts
   assert_build:
     runs-on: [self-hosted, repo-only]
     needs:
