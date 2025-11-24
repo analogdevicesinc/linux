@@ -1027,6 +1027,107 @@ static const struct iio_enum ad9088_nyquist_zone_enum = {
 	.get = ad9088_nyquist_zone_read,
 };
 
+static int ad9088_sampling_mode_read(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	adi_apollo_mailbox_resp_get_adc_slice_modes_t slice_modes;
+	u8 cddc_num, fddc_num, side, adc_idx;
+	u32 cddc_mask, fddc_mask;
+	int ret;
+
+	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+
+	/* Calculate ADC index: A0-A3 = 0-3, B0-B3 = 4-7 */
+	adc_idx = side * ADI_APOLLO_ADC_PER_SIDE_NUM + cddc_num;
+
+	guard(mutex)(&phy->lock);
+
+	ret = adi_apollo_mailbox_get_adc_slice_modes(&phy->ad9088, &slice_modes);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Error getting ADC slice modes: %d\n", ret);
+		return -EFAULT;
+	}
+
+	if (slice_modes.adc_slice_mode[adc_idx] == ADI_APOLLO_ADC_MODE_DISABLED) {
+		dev_err(&phy->spi->dev, "ADC%c%d is disabled\n",
+			side ? 'B' : 'A', cddc_num);
+		return -ENODEV;
+	}
+
+	return slice_modes.adc_slice_mode[adc_idx];
+}
+
+static int ad9088_sampling_mode_write(struct iio_dev *indio_dev,
+				      const struct iio_chan_spec *chan,
+				      unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	adi_apollo_mailbox_resp_get_adc_slice_modes_t slice_modes;
+	u8 cddc_num, fddc_num, side, adc_idx;
+	u32 cddc_mask, fddc_mask;
+	adi_apollo_blk_sel_t adc_mask;
+	int ret;
+
+	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+
+	/* Calculate ADC index: A0-A3 = 0-3, B0-B3 = 4-7 */
+	adc_idx = side * ADI_APOLLO_ADC_PER_SIDE_NUM + cddc_num;
+
+	/* Use correct base address for side A or B */
+	adc_mask = (side ? ADI_APOLLO_ADC_B0 : ADI_APOLLO_ADC_A0) << cddc_num;
+
+	guard(mutex)(&phy->lock);
+
+	/* Check if already in the requested mode */
+	ret = adi_apollo_mailbox_get_adc_slice_modes(&phy->ad9088, &slice_modes);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Error getting ADC slice modes: %d\n", ret);
+		return -EFAULT;
+	}
+
+	if (slice_modes.adc_slice_mode[adc_idx] == item)
+		return 0; /* Already in requested mode */
+
+	/* Execute mode switch sequence */
+	ret = adi_apollo_adc_mode_switch_prepare(&phy->ad9088, adc_mask);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Mode switch prepare failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = adi_apollo_adc_mode_switch_execute(&phy->ad9088, adc_mask,
+						 ADI_APOLLO_ADC_MODE_SWITCH_BY_COMMAND);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Mode switch execute failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = adi_apollo_adc_mode_switch_restore(&phy->ad9088, adc_mask, 1);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Mode switch restore failed: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static const char *const ad9088_adc_sampling_modes[] = {
+	[ADI_APOLLO_ADC_MODE_RANDOM] = "random",
+	[ADI_APOLLO_ADC_MODE_SEQUENTIAL] = "sequential",
+};
+
+static const struct iio_enum ad9088_sampling_mode_enum = {
+	.items = ad9088_adc_sampling_modes,
+	.num_items = ARRAY_SIZE(ad9088_adc_sampling_modes),
+	.set = ad9088_sampling_mode_write,
+	.get = ad9088_sampling_mode_read,
+};
+
 /**
  * Get optional channel.
  * Returns 0 on success and if channel doesn't exist, or error code otherwise.
@@ -1877,6 +1978,8 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 	IIO_ENUM_AVAILABLE("loopback", IIO_SHARED_BY_TYPE, &ad9088_loopback_modes_enum),
 	IIO_ENUM("nyquist_zone", IIO_SEPARATE, &ad9088_nyquist_zone_enum),
 	IIO_ENUM_AVAILABLE("nyquist_zone", IIO_SHARED_BY_TYPE, &ad9088_nyquist_zone_enum),
+	IIO_ENUM("sampling_mode", IIO_SEPARATE, &ad9088_sampling_mode_enum),
+	IIO_ENUM_AVAILABLE("sampling_mode", IIO_SHARED_BY_TYPE, &ad9088_sampling_mode_enum),
 	{
 		.name = "main_nco_frequency",
 		.read = ad9088_ext_info_read,
@@ -5197,6 +5300,11 @@ static int ad9088_setup(struct ad9088_phy *phy)
 	u64 sample_rate;
 	int ret;
 	adi_apollo_sniffer_param_t *sniffer_config = &phy->sniffer_config;
+
+	ret = adi_apollo_adc_mode_switch_enable_set(device, 1);
+	ret = ad9088_check_apollo_error(&spi->dev, ret, "adi_apollo_adc_mode_switch_enable_set");
+	if (ret)
+			return ret;
 
 	ret = adi_apollo_startup_execute(device, profile, ADI_APOLLO_STARTUP_SEQ_DEFAULT);
 	if (ret) {
