@@ -187,6 +187,10 @@ int iio_backend_ddr_disable(struct iio_backend *back);
 int iio_backend_data_stream_enable(struct iio_backend *back);
 int iio_backend_data_stream_disable(struct iio_backend *back);
 int iio_backend_data_transfer_addr(struct iio_backend *back, u32 address);
+int iio_backend_reg_write(struct iio_backend *back, unsigned int reg,
+			  unsigned int val);
+int iio_backend_reg_read(struct iio_backend *back, unsigned int reg,
+			 unsigned int *val);
 ssize_t iio_backend_ext_info_set(struct iio_dev *indio_dev, uintptr_t private,
 				 const struct iio_chan_spec *chan,
 				 const char *buf, size_t len);

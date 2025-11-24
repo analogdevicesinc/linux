@@ -801,6 +801,45 @@ int iio_backend_data_stream_enable(struct iio_backend *back)
 EXPORT_SYMBOL_NS_GPL(iio_backend_data_stream_enable, IIO_BACKEND);
 
 /**
+ * iio_backend_reg_write - Write to a backend register
+ * @back: Backend device
+ * @reg: Register address
+ * @val: Value to write
+ *
+ * This operation is intended for controlling backend features that will likely
+ * never go upstream. This allows full control of the backend while keeping
+ * out-of-tree code in the backend core to a minimum. We also just make use of
+ * the existing debugfs_reg_access() interface. So assume it's compiled!
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_reg_write(struct iio_backend *back, unsigned int reg,
+			  unsigned int val)
+{
+	return iio_backend_op_call(back, debugfs_reg_access, reg, val, NULL);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_reg_write, IIO_BACKEND);
+
+/**
+ * iio_backend_reg_read - Read from a backend register
+ * @back: Backend device
+ * @reg: Register address
+ * @val: Pointer to store the read value
+ *
+ * See above
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_reg_read(struct iio_backend *back, unsigned int reg,
+			 unsigned int *val)
+{
+	return iio_backend_op_call(back, debugfs_reg_access, reg, 0, val);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_reg_read, IIO_BACKEND);
+
+/**
  * iio_backend_data_stream_disable - Disable data stream
  * @back: Backend device
  *
