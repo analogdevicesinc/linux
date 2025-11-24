@@ -702,8 +702,8 @@ static int ad4052_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	if (ret)
 		return ret;
 
-	put_unaligned_be16(AD4062_MON_VAL_MIDDLE_POINT, st->raw);
-	return regmap_bulk_write(st->regmap, AD4062_REG_MON_VAL, &st->raw, 2);
+	put_unaligned_be16(AD4052_MON_VAL_MIDDLE_POINT, st->raw);
+	return regmap_bulk_write(st->regmap, AD4052_REG_MON_VAL, &st->raw, 2);
 }
 
 static irqreturn_t ad4052_irq_handler_thresh(int irq, void *private)
