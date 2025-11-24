@@ -76,13 +76,6 @@
 			clock-frequency = <3200000000>;
 			clock-output-names = "fixed_3200";
 		};
-
-		clkwiz_devclk: clock@3 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <100000000>; // in Hz (100.00 MHz)
-			clock-output-names = "clkwiz_device_clk";
-		};
 	};
 
 	fpga_axi: fpga-axi@0 {
@@ -137,7 +130,7 @@
 
 			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&linkclk_100>, <&axi_ad9081_adxcvr_rx 0>;
+			clocks = <&zynqmp_clk 71>, <&axi_ad9081_adxcvr_rx 1>, <&linkclk_100>, <&axi_ad9081_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -153,7 +146,7 @@
 
 			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&clkwiz_devclk>, <&linkclk_100>, <&axi_ad9081_adxcvr_tx 0>;
+			clocks = <&zynqmp_clk 71>, <&axi_ad9081_adxcvr_tx 1>, <&linkclk_100>, <&axi_ad9081_adxcvr_tx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -180,7 +173,7 @@
 			clock-output-names = "rx_gt_clk", "rx_out_clk";
 
 			adi,sys-clk-select = <XCVR_QPLL>;
-			adi,out-clk-select = <XCVR_REFCLK>;
+			adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		};
 
 		axi_ad9081_adxcvr_tx: axi-adxcvr-tx@84b60000 {
@@ -196,7 +189,7 @@
 			clock-output-names = "tx_gt_clk", "tx_out_clk";
 
 			adi,sys-clk-select = <XCVR_QPLL>;
-			adi,out-clk-select = <XCVR_REFCLK>;
+			adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {
