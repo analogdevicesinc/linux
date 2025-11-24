@@ -34,16 +34,6 @@
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 #include "zynqmp-zcu102-rev10-ad9081-default.dtsi"
 
-&axi_ad9081_rx_jesd {
-	clocks = <&zynqmp_clk 71>, <&axi_ad9081_adxcvr_rx 1>, <&linkclk_100>, <&axi_ad9081_adxcvr_rx 0>;
-	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
-};
-
-&axi_ad9081_tx_jesd {
-	clocks = <&zynqmp_clk 71>, <&axi_ad9081_adxcvr_tx 1>, <&linkclk_100>, <&axi_ad9081_adxcvr_tx 0>;
-	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
-};
-
 &axi_ad9081_core_tx {
 	single-shot-output-gpios = <&gpio 139 0>;
 	single-shot-output-gpios = <&gpio 133 0>;
