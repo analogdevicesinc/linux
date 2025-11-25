@@ -95,7 +95,9 @@ jobs:
     needs: [assert_checks]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
     uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
-    secrets: inherit
+    secrets:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
     permissions:
       id-token: write
       contents: write
@@ -208,7 +210,9 @@ jobs:
     needs: [assert_build]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
     uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
-    secrets: inherit
+    secrets:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
     permissions:
       id-token: write
       contents: write
