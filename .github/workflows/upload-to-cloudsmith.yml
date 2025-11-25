@@ -25,6 +25,16 @@ jobs:
       run: |
         rm -rf dist ; mkdir dist
 
+    - name: Assert 2
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      run: |
+        echo "${{ secrets.CLOUDSMITH_SERVICE_SLUG }}"
+        echo "${{ env.CLOUDSMITH_SERVICE_SLUG }}"
+        echo "${{ env.CLOUDSMITH_API_KEY }}"
+        echo "${{ vars.CLOUDSMITH_NAMESPACE }}"
+        echo "$CLOUDSMITH_SERVICE_SLUG"
+
     - uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
       env:
         CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
