@@ -1,0 +1,192 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+===============
+MAX22007 driver
+===============
+
+Device driver for Analog Devices Inc. MAX22007 quad-channel industrial DAC.
+The module name is ``max22007``.
+
+Supported devices
+=================
+
+* `MAX22007 <https://www.analog.com/en/products/max22007.html>`_
+
+Wiring connections
+==================
+
+The MAX22007 uses a standard SPI interface.
+
+Device Tree Configuration
+=========================
+
+The device supports both global and per-channel configuration through device tree.
+
+Global Properties:
+* ``adi,crc-disable``: Disable CRC8 error checking for SPI communications (optional, CRC enabled by default)
+* ``reset-gpios``: GPIO pin for hardware reset (optional, falls back to software reset if not specified)
+* ``vdd-supply``: Low-Voltage Power Supply from +2.7V to +5.5V (optional)
+* ``hvdd-supply``: Positive High-Voltage Power Supply from +8V to (HVSS +24V) for the Output Channels (optional)
+* ``hvss-supply``: Negative High-Voltage Power Supply from -2V to 0V for the Output Channels (optional)
+
+Per-channel properties:
+* ``adi,dac-latch-mode``: Controls when DAC updates occur
+  - "ldac-control": LDAC pin controls the latch (default)
+  - "transparent": Transparent latch mode (immediate update)
+
+* ``adi,mode``: Sets the output mode
+  - "voltage": Voltage output mode (default)
+  - "current": Current output mode
+
+Device attributes
+=================
+
+The MAX22007 driver provides IIO DAC interfaces that vary based on the
+configured channel mode. Each channel appears as a separate IIO device
+attribute:
+
+* ``out_voltage_raw`` (voltage mode channels)
+* ``out_current_raw`` (current mode channels)
+* ``out_voltage_scale`` / ``out_current_scale`` (channel scaling factors)
+* ``out_voltage_powermode`` / ``out_current_powermode`` (channel power control)
+* ``out_voltage_powermode_available`` / ``out_current_powermode_available`` (available power modes)
+* ``ldac_update`` (per-channel LDAC latch control)
+
+The driver automatically configures the IIO channel type based on the configured
+channel mode from device tree.
+
+LDAC Update Control
+===================
+
+Each channel provides an ``ldac_update`` attribute for runtime LDAC (Latch DAC)
+control. This allows precise timing control of when DAC register values are
+transferred to the output:
+
+* Write ``1`` to trigger an immediate LDAC update for that specific channel
+* Write ``0`` for no operation (returns immediately)
+
+This provides fine-grained control over output timing, which is essential for
+applications requiring synchronized DAC updates.
+
+Power Mode Control
+==================
+
+Each channel provides ``powermode`` attributes for runtime power control:
+
+* Write ``"on"`` to enable the channel output
+* Write ``"off"`` to disable the channel output
+* Read the attribute to get the current power state
+* Read ``powermode_available`` to see available power modes (always ``"off on"``)
+
+This allows individual channels to be powered on/off independently for power
+management and safety purposes.
+
+Usage Examples
+==============
+
+Setting DAC output value and triggering LDAC update:
+
+.. code-block:: bash
+
+    # Set channel 0 (voltage mode) to raw value 655 (≈2V)
+    echo 655 > /sys/bus/iio/devices/iio:deviceX/out_voltage0_raw
+
+    # Trigger LDAC update to apply the new value
+    echo 1 > /sys/bus/iio/devices/iio:deviceX/out_voltage0_ldac_update
+
+    # Set channel 1 (current mode) and update
+    echo 1024 > /sys/bus/iio/devices/iio:deviceX/out_current1_raw
+    echo 1 > /sys/bus/iio/devices/iio:deviceX/out_current1_ldac_update
+
+Controlling channel power modes:
+
+.. code-block:: bash
+
+    # Enable channel 0
+    echo on > /sys/bus/iio/devices/iio:deviceX/out_voltage0_powermode
+
+    # Disable channel 1
+    echo off > /sys/bus/iio/devices/iio:deviceX/out_current1_powermode
+
+    # Check current power state
+    cat /sys/bus/iio/devices/iio:deviceX/out_voltage0_powermode
+
+    # Check available power modes
+    cat /sys/bus/iio/devices/iio:deviceX/out_voltage0_powermode_available
+
+Reading channel values and scale factors:
+
+.. code-block:: bash
+
+    # Read raw DAC value
+    cat /sys/bus/iio/devices/iio:deviceX/out_voltage0_raw
+
+    # Read scale factor (volts per LSB)
+    cat /sys/bus/iio/devices/iio:deviceX/out_voltage0_scale
+
+Check available channels:
+
+.. code-block:: bash
+
+    ls /sys/bus/iio/devices/iio:deviceX/out_*_raw
+
+Scale Calculations
+==================
+
+The driver provides accurate scale factors based on the hardware configuration:
+
+**Voltage Mode:**
+  - Scale = (5 × 2.5V) / 4096 = 0.003051757 V per LSB
+  - Range: 0V to 12.5V over 12-bit (0-4095)
+  - Formula: Output = Raw_Value × Scale
+
+**Current Mode:**
+  - Scale = (2.5V / (2 × 50Ω)) / 4096 = 0.000006103515625 A per LSB
+  - Range: 0A to 0.025A over 12-bit (0-4095)
+  - Formula: Output = Raw_Value × Scale
+
+Register Map
+------------
+
+The MAX22007 uses the following register mapping:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Address
+     - Register Name
+     - Description
+   * - 0x03
+     - CONFIG_REG
+     - Configuration register (CRC enable, DAC latch modes)
+   * - 0x04
+     - CONTROL_REG
+     - LDAC control register for runtime updates
+   * - 0x05
+     - CHANNEL_MODE_REG
+     - Channel mode and power control
+   * - 0x06
+     - SOFT_RESET_REG
+     - Software reset control
+   * - 0x07-0x0A
+     - DAC_CHANNEL_REG(0-3)
+     - DAC data registers for channels 0-3
+
+
+Driver Architecture
+===================
+
+The driver implements the following key features:
+
+* **CRC8 Error Checking**: All SPI communications use CRC8 for data integrity
+* **Channel Configuration**: Supports per-channel mode and power configuration
+* **Register Map**: Uses regmap for efficient register access and caching
+* **IIO Integration**: Full integration with the Linux IIO subsystem
+
+Not Implemented
+===============
+
+* Channel configuration (voltage/current mode) is set at device tree parsing
+  and cannot be changed dynamically
+* The driver requires proper device tree configuration for optimal operation
+* Simultaneous multi-channel LDAC updates (only single-channel updates supported)
