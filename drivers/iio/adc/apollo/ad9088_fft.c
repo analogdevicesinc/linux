@@ -19,6 +19,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/kfifo_buf.h>
+#include <linux/iio/buffer_impl.h>
 
 #include "adi_apollo_bf_rx_spectrum_sniffer.h"
 
@@ -94,97 +95,79 @@ static int ad9088_rx_sniffer_populate_default_params(adi_apollo_sniffer_mode_e m
 static int ad9088_fft_sniffer_request(struct ad9088_fft_sniffer_state *st)
 {
 	int ret;
-	u8 reg;
 
-	ret = adi_apollo_hal_reg_get(&st->phy->ad9088, st->regmap_base, &reg);
+	/* Set FFT enable high */
+	ret = adi_apollo_sniffer_fft_enable_set(&st->phy->ad9088, st->side_sel, 1);
 	if (ret)
 		return ret;
 
-	reg &= ~BIT(5);
-	reg |= BIT(1);
-
-	return adi_apollo_hal_reg_set(&st->phy->ad9088, st->regmap_base, reg);
+	/* Set FFT hold low to request new data */
+	return adi_apollo_sniffer_fft_hold_set(&st->phy->ad9088, st->side_sel, 0);
 }
 
 static int ad9088_fft_sniffer_data_read(struct ad9088_fft_sniffer_state *st, adi_apollo_sniffer_param_t *config)
 {
 	adi_apollo_device_t *device = &st->phy->ad9088;
-	u32 valid_data_length;
+	adi_apollo_sniffer_fft_data_t fft_data;
 	u8 fft_done = 0;
 	bool iq_mode;
 	int ret, i, j;
 
-	ret = adi_apollo_hal_bf_get(device, BF_FFT_DONE_INFO(st->regmap_base), &fft_done, 1);
-	if (ret)
-		dev_err(st->dev, "adi_apollo_hal_bf_set failed in (%s:%d)\n", __func__, __LINE__);
-
-	if (!config->read.run_fft_engine_background) {
-		ret  = adi_apollo_hal_bf_set(device, BF_FFT_ENABLE_INFO(st->regmap_base), 0);
-		if (ret)
-			dev_err(st->dev, "adi_apollo_hal_bf_set failed in (%s:%d)\n", __func__, __LINE__);
+	/* Check if FFT is done */
+	ret = adi_apollo_sniffer_fft_done_get(device, st->side_sel, &fft_done);
+	if (ret) {
+		dev_err(st->dev, "Failed to get FFT done status: %d\n", ret);
+		return ret;
 	}
-
-	ret  = adi_apollo_hal_bf_set(device, BF_FFT_HOLD_INFO(st->regmap_base), 1);
-	if (ret)
-		dev_err(st->dev, "adi_apollo_hal_bf_set failed in (%s:%d)\n", __func__, __LINE__);
 
 	if (!fft_done) {
 		dev_dbg(st->dev, "FFT not done\n");
 		return 0;
 	}
 
-	valid_data_length = (config->init.real_mode) ? (ADI_APOLLO_SNIFFER_FFT_LENGTH / 2) : ADI_APOLLO_SNIFFER_FFT_LENGTH;
+	/* Disable FFT engine if not running in background */
+	if (!config->read.run_fft_engine_background) {
+		ret = adi_apollo_sniffer_fft_enable_set(device, st->side_sel, 0);
+		if (ret)
+			dev_err(st->dev, "Failed to disable FFT engine: %d\n", ret);
+	}
+
+	/* Hold FFT data */
+	ret = adi_apollo_sniffer_fft_hold_set(device, st->side_sel, 1);
+	if (ret) {
+		dev_err(st->dev, "Failed to hold FFT: %d\n", ret);
+		return ret;
+	}
+
+	/* Read FFT data using new API */
+	ret = adi_apollo_sniffer_fft_data_get(device, st->side_sel, config, &fft_data);
+	if (ret) {
+		dev_err(st->dev, "Failed to get FFT data: %d\n", ret);
+		return ret;
+	}
+
 	iq_mode = config->pgm.sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE;
 
-	for (i = 0; i < valid_data_length; i++) {
-		// if (iq_mode || config->pgm.sort_enable) { // IQ mode or sorting enabled
-		//      ret = adi_apollo_hal_reg32_get(device, REG_MAGNITUDE_I_0_ADDR(st->regmap_base, i), (u32 *)&st->buffer_hw[0]);
-		//      if (ret)
-		//              dev_err(st->dev, "adi_apollo_hal_bf_get failed in\n", __func__, __LINE__);
-		// } else {
-		//                      // Read Magnitude / I data
-		//      ret  = adi_apollo_hal_bf_get(device, BF_MAGNITUDE_I_INFO(st->regmap_base, i),
-		//                              (uint8_t *) &st->buffer_hw[0], 2);
-		//      if (ret)
-		//              dev_err(st->dev, "adi_apollo_hal_bf_get failed in\n", __func__, __LINE__);
-
-		//      st->buffer_hw[1] = i; // When sorting is disabled, every bin_number returns as 0 so we manually set it in software
-		// }
-
-		// Read Magnitude / I data
-		ret  = adi_apollo_hal_bf_get(device, BF_MAGNITUDE_I_INFO(st->regmap_base, i),
-					     (uint8_t *)&st->buffer_hw[0], 2);
-		if (ret)
-			dev_err(st->dev, "adi_apollo_hal_bf_get failed in (%s:%d)\n", __func__, __LINE__);
-
-		// Read Bin number / Q data
-		if (iq_mode || config->pgm.sort_enable) { // IQ mode or sorting enabled
-			ret  = adi_apollo_hal_bf_get(device, BF_BIN_NUMBER_Q_INFO(st->regmap_base, i),
-						     (uint8_t *)&st->buffer_hw[1], 2);
-			if (ret)
-				dev_err(st->dev, "adi_apollo_hal_bf_get failed in (%s:%d)\n", __func__, __LINE__);
-		} else {
-			st->buffer_hw[1] = i; // When sorting is disabled, every bin_number returns as 0 so we manually set it in software
-		}
-
+	/* Push data to IIO buffer */
+	for (i = 0; i < fft_data.valid_data_length; i++) {
 		j = 0;
 
 		if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_SI_INDEX))
-			st->buffer[j++] = iq_mode ? i : st->buffer_hw[1];
+			st->buffer[j++] = iq_mode ? i : fft_data.bin_q_data[i];
 
 		if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_I_INDEX))
-			st->buffer[j++] = st->buffer_hw[0];
+			st->buffer[j++] = fft_data.mag_i_data[i];
 
 		if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_Q_INDEX))
-			st->buffer[j++] = st->buffer_hw[1];
+			st->buffer[j++] = fft_data.bin_q_data[i];
 
 		if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_MAGN_INDEX))
-			st->buffer[j++] = st->buffer_hw[0];
+			st->buffer[j++] = fft_data.mag_i_data[i];
 
 		iio_push_to_buffers(st->indio_dev, st->buffer);
 	}
 
-	return ret;
+	return 0;
 }
 
 static int ad9088_fft_sniffer_read_raw(struct iio_dev *indio_dev,
@@ -445,8 +428,18 @@ static int ad9088_fft_sniffer_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad9088_fft_sniffer_state *st = iio_priv(indio_dev);
 	int ret = 0;
+	u32 blen, dlen;
 
 	dev_dbg(st->dev, "%s:%d\n", __func__, __LINE__);
+
+	blen = indio_dev->buffer->length / indio_dev->num_channels;
+	dlen = st->sniffer_config_hw.init.real_mode ? (ADI_APOLLO_SNIFFER_FFT_LENGTH / 2) : ADI_APOLLO_SNIFFER_FFT_LENGTH;
+
+	if (blen < dlen) {
+		dev_err(st->dev, "Buffer length %d incompatible with current sniffer mode (real/complex) set to %d\n",
+			blen, dlen);
+		return -EINVAL;
+	}
 
 	guard(mutex)(&st->phy->lock);
 
@@ -535,21 +528,59 @@ static void ad9088_fft_sniffer_sync_work_func(struct work_struct *work)
 {
 	struct ad9088_fft_sniffer_state *st =
 		container_of(work, struct ad9088_fft_sniffer_state, sync_work.work);
-	int ret;
-
-	scoped_guard(mutex, &st->phy->lock) {
-		ret = ad9088_fft_sniffer_request(st);
-		if (ret != API_CMS_ERROR_OK)
-			dev_err(st->dev, "Error in adi_apollo_sniffer_data_request: %d\n", ret);
-	}
-
-	wait_for_completion_interruptible(&st->complete);
-	reinit_completion(&st->complete);
+	adi_apollo_sniffer_fft_data_t fft_data;
+	bool iq_mode;
+	int ret, i, j;
 
 	guard(mutex)(&st->phy->lock);
 
-	ad9088_fft_sniffer_data_read(st, &st->sniffer_config_hw);
+	if (st->irq) {
+		/* IRQ-based mode: manually trigger and wait for interrupt */
+		ret = ad9088_fft_sniffer_request(st);
+		if (ret != API_CMS_ERROR_OK) {
+			dev_err(st->dev, "Error requesting FFT data: %d\n", ret);
+			goto requeue;
+		}
 
+		mutex_unlock(&st->phy->lock);
+		wait_for_completion_interruptible(&st->complete);
+		reinit_completion(&st->complete);
+		mutex_lock(&st->phy->lock);
+
+		/* Read data after IRQ */
+		ad9088_fft_sniffer_data_read(st, &st->sniffer_config_hw);
+	} else {
+		/* Polling mode: use complete data_get API */
+		ret = adi_apollo_sniffer_data_get(&st->phy->ad9088, st->side_sel,
+						  &st->sniffer_config_hw, &fft_data);
+		if (ret) {
+			dev_err(st->dev, "Failed to get FFT data (polling): %d\n", ret);
+			goto requeue;
+		}
+
+		iq_mode = st->sniffer_config_hw.pgm.sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE;
+
+		/* Push data to IIO buffer */
+		for (i = 0; i < fft_data.valid_data_length; i++) {
+			j = 0;
+
+			if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_SI_INDEX))
+				st->buffer[j++] = iq_mode ? i : fft_data.bin_q_data[i];
+
+			if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_I_INDEX))
+				st->buffer[j++] = fft_data.mag_i_data[i];
+
+			if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_Q_INDEX))
+				st->buffer[j++] = fft_data.bin_q_data[i];
+
+			if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_MAGN_INDEX))
+				st->buffer[j++] = fft_data.mag_i_data[i];
+
+			iio_push_to_buffers(st->indio_dev, st->buffer);
+		}
+	}
+
+requeue:
 	queue_delayed_work(system_freezable_wq, &st->sync_work, msecs_to_jiffies(st->delay_ms));
 }
 
@@ -563,7 +594,7 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 	static char *irq_name;
 
 	static adi_apollo_gpio_func_e gpio_func;
-	u8 pin;
+	u32 pin;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev) {
@@ -593,17 +624,25 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 		irq_name = "fft_done_A";
 		indio_dev->name = "ad9088-fft-sniffer-A";
 		gpio_func = ADI_APOLLO_FUNC_FFT_DONE_A;
-		pin = 17;
 		st->side_sel = ADI_APOLLO_SNIFFER_A;
 		st->regmap_base = RX_SPECTRUM_SNIFFER_RX_SLICE_0_RX_DIGITAL0;
+		/* Read GPIO pin from devicetree */
+		ret = device_property_read_u32(dev, "adi,gpio-sniffer-a-export",
+					      &pin);
+		if (ret)
+			pin = 17; /* Default fallback */
 		break;
 	case ADI_APOLLO_SIDE_B:
 		irq_name = "fft_done_B";
 		indio_dev->name = "ad9088-fft-sniffer-B";
 		gpio_func = ADI_APOLLO_FUNC_FFT_DONE_B;
-		pin = 18;
 		st->side_sel = ADI_APOLLO_SNIFFER_B;
 		st->regmap_base = RX_SPECTRUM_SNIFFER_RX_SLICE_0_RX_DIGITAL1;
+		/* Read GPIO pin from devicetree */
+		ret = device_property_read_u32(dev, "adi,gpio-sniffer-b-export",
+					      &pin);
+		if (ret)
+			pin = 18; /* Default fallback */
 		break;
 	default:
 		dev_err(&phy->spi->dev, "Invalid side selection\n");
@@ -617,24 +656,32 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 		return -EPROBE_DEFER;
 
 	if (st->irq < 0) {
+		/* No IRQ available, use polling mode */
+		dev_info(dev, "%s: No IRQ found, using polling mode\n",
+			 indio_dev->name);
 		st->irq = 0;
-		return 0;
 	}
 
+	/* Set up IIO buffer for both IRQ and polling modes */
 	ret = devm_iio_kfifo_buffer_setup_ext(st->dev, indio_dev,
 					      &ad9088_fft_sniffer_buffer_ops,
 					      NULL);
 	if (ret)
 		return ret;
 
-	ret = devm_request_irq(dev, st->irq,
-			       ad9088_fft_sniffer_irq_handler, 0,
-			       indio_dev->name, indio_dev);
-	if (ret)
-		return dev_err_probe(st->dev, ret, "Failed to request irq\n");
+	/* Only request IRQ and configure GPIO if IRQ is available */
+	if (st->irq > 0) {
+		ret = devm_request_irq(dev, st->irq,
+				       ad9088_fft_sniffer_irq_handler, 0,
+				       indio_dev->name, indio_dev);
+		if (ret)
+			return dev_err_probe(st->dev, ret,
+					     "Failed to request irq\n");
 
-	adi_apollo_gpio_quick_config_mode_set(&phy->ad9088, 0);
-	adi_apollo_gpio_cmos_func_mode_set(&phy->ad9088, pin, gpio_func);
+		adi_apollo_gpio_quick_config_mode_set(&phy->ad9088, 0);
+		adi_apollo_gpio_cmos_func_mode_set(&phy->ad9088, pin,
+						    gpio_func);
+	}
 
 	ad9088_rx_sniffer_populate_default_params(ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE, &st->sniffer_config);
 
