@@ -6,6 +6,11 @@ on:
       artifacts:
         required: true
         type: string
+    secrets:
+      CLOUDSMITH_SERVICE_SLUG:
+        required: false
+      CLOUDSMITH_API_KEY:
+        required: false
 
 permissions:
   id-token: write
