@@ -53,6 +53,7 @@ struct ad9088_fft_sniffer_state {
 	struct iio_dev *indio_dev;
 
 	u32 side_sel;
+	u16 adc_select;
 	adi_apollo_sniffer_param_t sniffer_config;
 	adi_apollo_sniffer_param_t sniffer_config_hw;
 
@@ -70,7 +71,7 @@ static int ad9088_rx_sniffer_populate_default_params(adi_apollo_sniffer_mode_e m
 	config->init.sniffer_enable = 1;               // Enable spec sniffer
 
 	config->pgm.sniffer_mode = mode;               // see \ref adi_apollo_sniffer_mode_e
-	config->pgm.sort_enable = 1;                   // 1 enable 0 disable
+	config->pgm.sort_enable = 0;                   // 1 enable 0 disable
 	config->pgm.continuous_mode = 0;               // 1 continuous 0 single
 	config->pgm.bottom_fft_enable = 0;             // 1 enable 0 disable
 	config->pgm.window_enable = 0;                 // 1 enable 0 disable
@@ -279,6 +280,81 @@ static int ad9088_fft_sniffer_modes_write(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static const char *const ad9088_fft_sniffer_adc_select[] = {
+	[0] = "adc0",
+	[1] = "adc1",
+	[2] = "adc2",
+	[3] = "adc3",
+};
+
+static int ad9088_fft_sniffer_adc_select_read(struct iio_dev *indio_dev,
+					      const struct iio_chan_spec *chan)
+{
+	struct ad9088_fft_sniffer_state *st = iio_priv(indio_dev);
+	int i;
+
+	/* Convert bit position to array index (0x1->0, 0x2->1, 0x4->2, 0x8->3) */
+	for (i = 0; i < 4; i++) {
+		if (st->adc_select == (1 << i))
+			return i;
+	}
+
+	return -EINVAL;
+}
+
+static int ad9088_fft_sniffer_adc_select_write(struct iio_dev *indio_dev,
+					       const struct iio_chan_spec *chan,
+					       unsigned int item)
+{
+	struct ad9088_fft_sniffer_state *st = iio_priv(indio_dev);
+	struct ad9088_phy *phy = st->phy;
+	bool is_8t8r = phy->ad9088.dev_info.is_8t8r;
+	int ret;
+
+	/* For 4t4r, only ADC0 and ADC1 are valid */
+	if (!is_8t8r && item > 1)
+		return -EINVAL;
+
+	/* Validate item range */
+	if (item > 3)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	/* Convert index to bit position (0->0x1, 1->0x2, 2->0x4, 3->0x8) */
+	st->adc_select = 1 << item;
+
+	/* Apply ADC mux setting */
+	ret = adi_apollo_sniffer_adc_mux_set(&phy->ad9088, st->side_sel,
+					     st->adc_select);
+	if (ret) {
+		dev_err(st->dev, "Failed to set ADC mux: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static ssize_t ad9088_fft_sniffer_adc_select_available(struct iio_dev *indio_dev,
+						       uintptr_t private,
+						       const struct iio_chan_spec *chan,
+						       char *buf)
+{
+	struct ad9088_fft_sniffer_state *st = iio_priv(indio_dev);
+	struct ad9088_phy *phy = st->phy;
+	bool is_8t8r = phy->ad9088.dev_info.is_8t8r;
+	int i, len = 0;
+	int max_adc = is_8t8r ? 4 : 2;
+
+	for (i = 0; i < max_adc; i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ",
+				 ad9088_fft_sniffer_adc_select[i]);
+
+	buf[len - 1] = '\n';
+
+	return len;
+}
+
 static const struct iio_enum ad9088_testmode_enum = {
 	.items = ad9088_fft_sniffer_modes,
 	.num_items = ARRAY_SIZE(ad9088_fft_sniffer_modes),
@@ -286,9 +362,22 @@ static const struct iio_enum ad9088_testmode_enum = {
 	.get = ad9088_fft_sniffer_modes_read,
 };
 
+static const struct iio_enum ad9088_adc_select_enum = {
+	.items = ad9088_fft_sniffer_adc_select,
+	.num_items = ARRAY_SIZE(ad9088_fft_sniffer_adc_select),
+	.set = ad9088_fft_sniffer_adc_select_write,
+	.get = ad9088_fft_sniffer_adc_select_read,
+};
+
 static struct iio_chan_spec_ext_info ad9088_fft_sniffer_ext_info[] = {
 	IIO_ENUM("mode", IIO_SHARED_BY_ALL, &ad9088_testmode_enum),
 	IIO_ENUM_AVAILABLE("mode", IIO_SHARED_BY_ALL, &ad9088_testmode_enum),
+	IIO_ENUM("adc_select", IIO_SHARED_BY_ALL, &ad9088_adc_select_enum),
+	{
+		.name = "adc_select_available",
+		.read = ad9088_fft_sniffer_adc_select_available,
+		.shared = IIO_SHARED_BY_ALL,
+	},
 	{
 		.name = "max_threshold",
 		.read = ad9088_fft_sniffer_ext_info_read,
@@ -608,6 +697,7 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 	st->indio_dev = indio_dev;
 	st->delay_ms = 100;
 	st->mode = 1; /* instant */
+	st->adc_select = ADI_APOLLO_ADC_0; /* Default to ADC0 */
 
 	mutex_init(&st->lock);
 	init_completion(&st->complete);
