@@ -64,15 +64,18 @@
 #define AD4062_REG_CONV_AUTO				0x61
 #define AD4062_MAX_REG					AD4062_REG_CONV_AUTO
 
-#define AD4062_I3C_VENDOR	0x0177
+#define AD4062_MON_VAL_MIDDLE_POINT	0x8000
 
+#define AD4062_I3C_VENDOR	0x0177
 #define AD4062_SOFT_RESET	0x81
+
 #define AD4060_MAX_AVG		0x7
 #define AD4062_MAX_AVG		0xB
-#define AD4062_MON_VAL_MAX_GAIN		1999970
-#define AD4062_MON_VAL_MIDDLE_POINT	0x8000
+
 #define AD4062_GP_DRDY		0x2
+
 #define AD4062_INTR_EN_NEITHER	0x0
+
 #define AD4062_TCONV_NS		270
 
 enum ad4062_operation_mode {
@@ -139,15 +142,15 @@ struct ad4062_state {
 	struct iio_dev *indio_dev;
 	struct i3c_device *i3cdev;
 	struct regmap *regmap;
-	u16 sampling_frequency;
-	int vref_uv;
+	int vref_uV;
 	int samp_freqs[ARRAY_SIZE(ad4062_conversion_freqs)];
-	u8 oversamp_ratio;
 	union {
 		__be32 be32;
 		__be16 be16;
 		u8 bytes[4];
 	} buf __aligned(IIO_DMA_MINALIGN);
+	u16 sampling_frequency;
+	u8 oversamp_ratio;
 	u8 reg_addr_conv;
 };
 
@@ -215,9 +218,11 @@ static const struct ad4062_chip_info ad4062_chip_info = {
 
 static int ad4062_set_oversampling_ratio(struct ad4062_state *st, unsigned int val)
 {
+	const u32 _max = GENMASK(st->chip->max_avg, 0)  + 1;
+	const u32 _min = 1;
 	int ret;
 
-	if (val < 1 || val > BIT(st->chip->max_avg + 1))
+	if (!in_range(val, _min, _max))
 		return -EINVAL;
 
 	/* 1 disables oversampling */
@@ -246,7 +251,11 @@ static int ad4062_get_oversampling_ratio(struct ad4062_state *st,
 	}
 
 	ret = regmap_read(st->regmap, AD4062_REG_AVG_CONFIG, &buf);
-	return 0;
+	if (ret)
+		return ret;
+
+	*val = BIT(buf + 1);
+	return ret;
 }
 
 static int ad4062_calc_sampling_frequency(int fosc, unsigned int n_avg)
@@ -259,16 +268,18 @@ static int ad4062_calc_sampling_frequency(int fosc, unsigned int n_avg)
 
 static int ad4062_populate_sampling_frequency(struct ad4062_state *st)
 {
-	for (int i = 0; i < ARRAY_SIZE(ad4062_conversion_freqs); i++)
-		st->samp_freqs[i] = ad4062_calc_sampling_frequency(ad4062_conversion_freqs[i],
-								   st->oversamp_ratio);
+	for (u8 i = 0; i < ARRAY_SIZE(ad4062_conversion_freqs); i++)
+		st->samp_freqs[i] =
+			ad4062_calc_sampling_frequency(ad4062_conversion_freqs[i],
+						       st->oversamp_ratio);
 	return 0;
 }
 
 static int ad4062_get_sampling_frequency(struct ad4062_state *st, int *val)
 {
-	*val = ad4062_calc_sampling_frequency(ad4062_conversion_freqs[st->sampling_frequency],
-					      st->oversamp_ratio);
+	int freq = ad4062_conversion_freqs[st->sampling_frequency];
+
+	*val = ad4062_calc_sampling_frequency(freq, st->oversamp_ratio);
 	return 0;
 }
 
@@ -287,6 +298,7 @@ static int ad4062_set_sampling_frequency(struct ad4062_state *st, int val)
 
 static int ad4062_check_ids(struct ad4062_state *st)
 {
+	struct device *dev = &st->i3cdev->dev;
 	int ret;
 	u16 val;
 
@@ -297,8 +309,7 @@ static int ad4062_check_ids(struct ad4062_state *st)
 
 	val = get_unaligned_be16(st->buf.bytes);
 	if (val != st->chip->prod_id)
-		dev_warn(&st->i3cdev->dev,
-			 "Production ID x%x does not match known values", val);
+		dev_warn(dev, "Production ID x%x does not match known values", val);
 
 	ret = regmap_bulk_read(st->regmap, AD4062_REG_VENDOR_H,
 			       &st->buf.be16, sizeof(st->buf.be16));
@@ -307,8 +318,7 @@ static int ad4062_check_ids(struct ad4062_state *st)
 
 	val = get_unaligned_be16(st->buf.bytes);
 	if (val != AD4062_I3C_VENDOR) {
-		dev_err(&st->i3cdev->dev,
-			"Vendor ID x%x does not match expected value\n", val);
+		dev_err(dev, "Vendor ID x%x does not match expected value\n", val);
 		return -ENODEV;
 	}
 
@@ -345,7 +355,7 @@ static int ad4062_soft_reset(struct ad4062_state *st)
 		return ret;
 
 	/* Wait AD4062 treset time */
-	fsleep(5000);
+	ndelay(60);
 
 	return 0;
 }
@@ -451,21 +461,19 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 	if (ret == -EPROBE_DEFER) {
 		return ret;
 	} else if (ret < 0) {
-		ret = regmap_update_bits(st->regmap, AD4062_REG_ADC_IBI_EN,
-					 AD4062_REG_ADC_IBI_EN_CONV_TRIGGER,
-					 AD4062_REG_ADC_IBI_EN_CONV_TRIGGER);
-	} else {
-		ret = devm_request_threaded_irq(dev, ret,
-						ad4062_irq_handler_drdy,
-						NULL, IRQF_ONESHOT, indio_dev->name,
-						indio_dev);
+		return regmap_update_bits(st->regmap, AD4062_REG_ADC_IBI_EN,
+					  AD4062_REG_ADC_IBI_EN_CONV_TRIGGER,
+					  AD4062_REG_ADC_IBI_EN_CONV_TRIGGER);
 	}
-
-	return ret;
+	return devm_request_threaded_irq(dev, ret,
+					 ad4062_irq_handler_drdy,
+					 NULL, IRQF_ONESHOT, indio_dev->name,
+					 indio_dev);
 }
 
 static const int ad4062_oversampling_avail[] = {
-	1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+	BIT(0), BIT(1), BIT(2), BIT(3), BIT(4), BIT(5), BIT(6), BIT(7), BIT(8),
+	BIT(9), BIT(10), BIT(11), BIT(12),
 };
 
 static int ad4062_read_avail(struct iio_dev *indio_dev,
@@ -487,7 +495,7 @@ static int ad4062_read_avail(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 		*vals = st->samp_freqs;
-		*len = st->oversamp_ratio != 1 ? ARRAY_SIZE(ad4062_conversion_freqs) : 1;
+		*len = st->oversamp_ratio == 1 ? 1 : ARRAY_SIZE(ad4062_conversion_freqs);
 		*type = IIO_VAL_INT;
 
 		return IIO_AVAIL_LIST;
@@ -505,7 +513,7 @@ static int ad4062_get_chan_scale(struct iio_dev *indio_dev, int *val, int *val2)
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	*val = (st->vref_uv * 2) / MILLI;
+	*val = (st->vref_uV * 2) / (MICRO / MILLI);
 
 	*val2 = scan_type->realbits - 1; /* signed */
 
@@ -514,7 +522,6 @@ static int ad4062_get_chan_scale(struct iio_dev *indio_dev, int *val, int *val2)
 
 static int ad4062_get_chan_calibscale(struct ad4062_state *st, int *val, int *val2)
 {
-	u16 gain;
 	int ret;
 
 	ret = regmap_bulk_read(st->regmap, AD4062_REG_MON_VAL,
@@ -522,30 +529,27 @@ static int ad4062_get_chan_calibscale(struct ad4062_state *st, int *val, int *va
 	if (ret)
 		return ret;
 
-	gain = get_unaligned_be16(st->buf.bytes);
-
 	/* From datasheet: code out = code in × mon_val/0x8000 */
-	*val = gain / AD4062_MON_VAL_MIDDLE_POINT;
-	*val2 = mul_u64_u32_div(gain % AD4062_MON_VAL_MIDDLE_POINT, NANO,
-				AD4062_MON_VAL_MIDDLE_POINT);
+	*val = get_unaligned_be16(st->buf.bytes) * 2;
+	*val2 = 16;
 
-	return IIO_VAL_INT_PLUS_NANO;
+	return IIO_VAL_FRACTIONAL_LOG2;
 }
 
-static int ad4062_set_chan_calibscale(struct ad4062_state *st, int gain_int, int gain_frac)
+static int ad4062_set_chan_calibscale(struct ad4062_state *st, int gain_int,
+				      int gain_frac)
 {
-	u64 gain;
+	u32 gain;
 	int ret;
 
 	if (gain_int < 0 || gain_frac < 0)
 		return -EINVAL;
 
-	gain = mul_u32_u32(gain_int, MICRO) + gain_frac;
-
-	if (gain > AD4062_MON_VAL_MAX_GAIN)
+	gain = gain_int * MICRO + gain_frac;
+	if (gain > 1999970)
 		return -EINVAL;
 
-	put_unaligned_be16(DIV_ROUND_CLOSEST_ULL(gain * AD4062_MON_VAL_MIDDLE_POINT,
+	put_unaligned_be16(DIV_ROUND_CLOSEST_ULL((u64)gain * AD4062_MON_VAL_MIDDLE_POINT,
 						 MICRO),
 			   st->buf.bytes);
 
@@ -554,33 +558,40 @@ static int ad4062_set_chan_calibscale(struct ad4062_state *st, int gain_int, int
 	if (ret)
 		return ret;
 
-	/* Enable scale if gain is not one. */
+	/* Enable scale if gain is not equal to one */
 	return regmap_update_bits(st->regmap, AD4062_REG_ADC_CONFIG,
 				  AD4062_REG_ADC_CONFIG_SCALE_EN_MSK,
 				  FIELD_PREP(AD4062_REG_ADC_CONFIG_SCALE_EN_MSK,
 					     !(gain_int == 1 && gain_frac == 0)));
 }
 
-static int __ad4062_read_chan_raw(struct ad4062_state *st, int *val)
+static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 {
-	struct i3c_device *i3cdev = st->i3cdev;
-	struct i3c_priv_xfer t[2] = {
-		{
-			.data.out = &st->reg_addr_conv,
-			.len = sizeof(st->reg_addr_conv),
-			.rnw = false,
-		},
-		{
-			.data.in = &st->buf.be32,
-			.len = sizeof(st->buf.be32),
-			.rnw = true,
-		}
-	};
 	int ret;
+	struct i3c_device *i3cdev = st->i3cdev;
+	struct i3c_priv_xfer t0 = {
+		.data.out = &st->reg_addr_conv,
+		.len = sizeof(st->reg_addr_conv),
+		.rnw = false,
+	};
+	struct i3c_priv_xfer t1 = {
+		.data.in = &st->buf.be32,
+		.len = sizeof(st->buf.be32),
+		.rnw = true,
+	};
+
+	ACQUIRE(pm_runtime_active_try_enabled, pm)(&st->i3cdev->dev);
+	ret = ACQUIRE_ERR(pm_runtime_active_try_enabled, &pm);
+	if (ret)
+		return ret;
+
+	ret = ad4062_set_operation_mode(st, st->mode);
+	if (ret)
+		return ret;
 
 	reinit_completion(&st->completion);
 	/* Change address pointer to trigger conversion */
-	ret = i3c_device_do_priv_xfers(i3cdev, &t[0], 1);
+	ret = i3c_device_do_priv_xfers(i3cdev, &t0, 1);
 	if (ret)
 		return ret;
 	/*
@@ -592,31 +603,15 @@ static int __ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 	if (!ret)
 		return -ETIMEDOUT;
 
-	ret = i3c_device_do_priv_xfers(i3cdev, &t[1], 1);
+	ret = i3c_device_do_priv_xfers(i3cdev, &t1, 1);
 	if (ret)
 		return ret;
 	*val = get_unaligned_be32(st->buf.bytes);
 	return 0;
 }
 
-static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
-{
-	int ret;
-
-	ACQUIRE(pm_runtime_active_try_enabled, pm)(&st->i3cdev->dev);
-	ret = ACQUIRE_ERR(pm_runtime_active_try_enabled, &pm);
-	if (ret)
-		return ret;
-
-	ret = ad4062_set_operation_mode(st, st->mode);
-	if (ret)
-		return ret;
-
-	return __ad4062_read_chan_raw(st, val);
-}
-
-static int ad4062_read_raw_dispatch(struct ad4062_state *st, int *val, int *val2,
-				    long info)
+static int ad4062_read_raw_dispatch(struct ad4062_state *st,
+				    int *val, int *val2, long info)
 {
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
@@ -637,8 +632,8 @@ static int ad4062_read_raw_dispatch(struct ad4062_state *st, int *val, int *val2
 }
 
 static int ad4062_read_raw(struct iio_dev *indio_dev,
-			   struct iio_chan_spec const *chan, int *val,
-			   int *val2, long info)
+			   struct iio_chan_spec const *chan,
+			   int *val, int *val2, long info)
 {
 	struct ad4062_state *st = iio_priv(indio_dev);
 	int ret;
@@ -652,7 +647,7 @@ static int ad4062_read_raw(struct iio_dev *indio_dev,
 	ret = ad4062_read_raw_dispatch(st, val, val2, info);
 
 	iio_device_release_direct(indio_dev);
-	return ret ? ret : IIO_VAL_INT;
+	return ret ?: IIO_VAL_INT;
 }
 
 static int ad4062_write_raw_dispatch(struct ad4062_state *st, int val, int val2,
@@ -693,14 +688,11 @@ static int ad4062_debugfs_reg_access(struct iio_dev *indio_dev, unsigned int reg
 				     unsigned int writeval, unsigned int *readval)
 {
 	struct ad4062_state *st = iio_priv(indio_dev);
-	int ret;
 
 	if (readval)
-		ret = regmap_read(st->regmap, reg, readval);
+		return regmap_read(st->regmap, reg, readval);
 	else
-		ret = regmap_write(st->regmap, reg, writeval);
-
-	return ret;
+		return regmap_write(st->regmap, reg, writeval);
 }
 
 static int ad4062_get_current_scan_type(const struct iio_dev *indio_dev,
@@ -741,15 +733,17 @@ static int ad4062_regulators_get(struct ad4062_state *st, bool *ref_sel)
 		return dev_err_probe(dev, ret,
 				     "Failed to enable vio voltage\n");
 
-	st->vref_uv = devm_regulator_get_enable_read_voltage(dev, "ref");
-	*ref_sel = st->vref_uv == -ENODEV;
-	if (st->vref_uv < 0 && st->vref_uv != -ENODEV) {
-		return dev_err_probe(dev, st->vref_uv,
+	st->vref_uV = devm_regulator_get_enable_read_voltage(dev, "ref");
+	*ref_sel = st->vref_uV == -ENODEV;
+	if (st->vref_uV < 0 && !*ref_sel) {
+		return dev_err_probe(dev, st->vref_uV,
 				     "Failed to enable and read ref voltage\n");
-	} else if (st->vref_uv == -ENODEV) {
-		st->vref_uv = devm_regulator_get_enable_read_voltage(dev, "vdd");
-		if (st->vref_uv < 0)
-			return dev_err_probe(dev, st->vref_uv,
+	}
+
+	if (*ref_sel) {
+		st->vref_uV = devm_regulator_get_enable_read_voltage(dev, "vdd");
+		if (st->vref_uV < 0)
+			return dev_err_probe(dev, st->vref_uV,
 					     "Failed to enable and read vdd voltage\n");
 	} else {
 		ret = devm_regulator_get_enable(dev, "vdd");
@@ -859,12 +853,13 @@ static int ad4062_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	fsleep(4000);
+	/* Wait device functional blocks to power up */
+	fsleep(2 * USEC_PER_MSEC);
 	return 0;
 }
 
-static DEFINE_RUNTIME_DEV_PM_OPS(ad4062_pm_ops, ad4062_runtime_suspend,
-				 ad4062_runtime_resume, NULL);
+static DEFINE_RUNTIME_DEV_PM_OPS(ad4062_pm_ops,
+				 ad4062_runtime_suspend, ad4062_runtime_resume, NULL);
 
 static struct i3c_driver ad4062_driver = {
 	.driver = {
