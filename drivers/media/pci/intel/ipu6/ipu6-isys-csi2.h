@@ -49,6 +49,7 @@ struct ipu6_isys_csi2 {
 	unsigned int port;
 	u32 legacy_irq_mask;
 	unsigned int phy_mode;
+	u32 streaming_vc;
 };
 
 struct ipu6_isys_csi2_timing {
