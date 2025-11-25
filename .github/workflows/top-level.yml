@@ -16,8 +16,6 @@ jobs:
     secrets: inherit
     permissions:
       contents: read
-    with:
-      ref_branch: "mirror/next/linux-next/master"
   build_gcc_x86_64:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     needs: [checks]
