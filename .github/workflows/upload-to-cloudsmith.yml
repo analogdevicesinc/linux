@@ -28,7 +28,7 @@ jobs:
     - uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
       env:
         CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
-      if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' && env.CLOUDSMITH_SERVICE_SLUG != ' ' }}
       with:
         oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
         oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
@@ -37,8 +37,10 @@ jobs:
     - name: Cloudsmith API Key
       env:
         CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
-      if: ${{ env.CLOUDSMITH_SERVICE_SLUG == '' }}
-      run: echo "CLOUDSMITH_API_KEY=${{ secrets.CLOUDSMITH_API_KEY }}" >> "$GITHUB_ENV"
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG == '' || env.CLOUDSMITH_SERVICE_SLUG == ' ' }}
+      run: |
+        CLOUDSMITH_API_KEY=$(echo "${{ secrets.CLOUDSMITH_API_KEY }}" | xargs)
+        echo "CLOUDSMITH_API_KEY=$CLOUDSMITH_API_KEY" >> "$GITHUB_ENV"
 
     - name: Download artifacts
       if: ${{ env.CLOUDSMITH_API_KEY != '' }}
@@ -95,7 +97,7 @@ jobs:
         done
 
     - name: Cloudsmith upload assets
-      if: ${{ env.CLOUDSMITH_API_KEY != '' }}
+      if: ${{ env.CLOUDSMITH_API_KEY != '' && env.CLOUDSMITH_API_KEY != ' ' }}
       run: |
         cs-package-upload()
         {
