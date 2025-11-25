@@ -2317,22 +2317,6 @@ static int ad9088_set_sample_rate(struct axiadc_converter *conv,
 	return -ENOTSUPP;
 }
 
-static int ad9088_request_clks(struct axiadc_converter *conv)
-{
-	struct ad9088_phy *phy = conv->phy;
-	int ret;
-
-	phy->dev_clk = devm_clk_get(&conv->spi->dev, "dev_clk");
-	if (IS_ERR(phy->dev_clk))
-		return PTR_ERR(phy->dev_clk);
-
-	ret = clk_prepare_enable(phy->dev_clk);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
 static int ad9088_jesd_tx_link_status_print(struct ad9088_phy *phy,
 				     struct jesd204_link *lnk, int retry)
 {
@@ -6717,9 +6701,9 @@ static int ad9088_probe(struct spi_device *spi)
 	priv = jesd204_dev_priv(jdev);
 	priv->phy = phy;
 
-	ret = ad9088_request_clks(conv);
-	if (ret)
-		return ret;
+	phy->dev_clk = devm_clk_get(&conv->spi->dev, "dev_clk");
+	if (IS_ERR(phy->dev_clk))
+		return PTR_ERR(phy->dev_clk);
 
 	conv->reset_gpio =
 		devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
@@ -6791,6 +6775,10 @@ static int ad9088_probe(struct spi_device *spi)
 	clk_set_rate_scaled(phy->dev_clk,
 			    (u64)phy->profile.clk_cfg.dev_clk_freq_kHz * 1000,
 			    &devclk_clkscale);
+
+	ret = clk_prepare_enable(phy->dev_clk);
+	if (ret)
+		return ret;
 
 	phy->ad9088.hal_info.spi0_desc.spi_config.sdo = (spi->mode & SPI_3WIRE || phy->spi_3wire_en) ?
 							ADI_APOLLO_DEVICE_SPI_SDIO : ADI_APOLLO_DEVICE_SPI_SDO;
