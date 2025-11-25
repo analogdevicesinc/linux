@@ -3,8 +3,9 @@ name: Checks
 on:
   workflow_call:
     inputs:
+      # deprecated: not used
       ref_branch:
-        required: true
+        required: false
         type: string
       skip_checkpatch:
         type: boolean
