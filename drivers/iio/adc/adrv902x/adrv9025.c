@@ -636,8 +636,7 @@ static ssize_t adrv9025_phy_lo_read(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan, char *buf)
 {
 	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
-
-	u64 val;
+	u64 val = 0;
 	int ret;
 
 	mutex_lock(&phy->lock);
@@ -1841,7 +1840,7 @@ static int adrv9025_clk_register(struct adrv9025_rf_phy *phy, const char *name,
 	char c_name[ADRV9025_MAX_CLK_NAME + 1],
 		p_name[2][ADRV9025_MAX_CLK_NAME + 1];
 	const char *_parent_name[2];
-	u32 rate;
+	u32 rate = 0;
 	int ret;
 
 	/* struct adrv9025_clock assignments */
