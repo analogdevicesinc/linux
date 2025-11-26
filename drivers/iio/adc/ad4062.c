@@ -1088,7 +1088,7 @@ static int __ad4062_write_event_info_hysteresis(struct ad4062_state *st,
 {
 	u8 reg;
 
-	if (val >= BIT(7))
+	if (val & ~GENMASK(6,0))
 		return -EINVAL;
 	if (dir == IIO_EV_DIR_RISING)
 		reg = AD4062_REG_MAX_HYST;
@@ -1279,9 +1279,6 @@ static void ad4062_gpio_set(struct gpio_chip *gc, unsigned int offset, int value
 	struct ad4062_state *st = gpiochip_get_data(gc);
 	unsigned int reg_val = value ? AD4062_GP_STATIC_HIGH : AD4062_GP_STATIC_LOW;
 
-	if (st->gpo_irq[offset])
-		return;
-
 	if (offset)
 		regmap_update_bits(st->regmap, AD4062_REG_GP_CONF,
 				   AD4062_REG_GP_CONF_MODE_MSK_1,
@@ -1300,9 +1297,6 @@ static int ad4062_gpio_get(struct gpio_chip *gc, unsigned int offset)
 
 	ret = regmap_read(st->regmap, AD4062_REG_GP_CONF, &reg_val);
 	if (ret)
-		return 0;
-
-	if (st->gpo_irq[offset])
 		return -ENODEV;
 
 	if (offset)
@@ -1333,9 +1327,9 @@ static int ad4062_gpio_init_valid_mask(struct gpio_chip *gc,
 	bitmap_zero(valid_mask, ngpios);
 
 	if (!st->gpo_irq[0])
-		set_bit(0, valid_mask);
+		*valid_mask |= BIT(0);
 	if (!st->gpo_irq[1])
-		set_bit(1, valid_mask);
+		*valid_mask |= BIT(1);
 
 	return 0;
 }
@@ -1347,8 +1341,7 @@ static int ad4062_gpio_init(struct ad4062_state *st)
 	u8 val, mask;
 	int ret;
 
-	if ((st->gpo_irq[0] && st->gpo_irq[1]) ||
-	    !device_property_read_bool(dev, "gpio-controller"))
+	if (!device_property_read_bool(dev, "gpio-controller"))
 		return 0;
 
 	gc = devm_kzalloc(dev, sizeof(*gc), GFP_KERNEL);
