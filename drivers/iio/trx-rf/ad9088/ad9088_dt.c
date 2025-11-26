@@ -134,6 +134,27 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 		}
 	}
 
+	/* Check if calibration firmware is available - defer probe if not yet accessible */
+	ret = of_property_read_string(node, "adi,device-calibration-data-name", &name);
+	if (!ret) {
+		const struct firmware *fw;
+
+		ret = firmware_request_nowarn(&fw, name, dev);
+		if (ret == -ENOENT)
+			return dev_err_probe(dev, -EPROBE_DEFER,
+					     "Calibration firmware '%s' not available yet, deferring probe\n",
+					     name);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "Failed to load calibration firmware '%s': %d\n",
+					     name, ret);
+		/*
+		 * Firmware is available, release it - will be loaded later in
+		 * ad9088_cal_load_from_firmware()
+		 */
+		release_firmware(fw);
+	}
+
 	phy->complex_rx = !of_property_read_bool(node, "adi,rx-real-channel-en");
 	phy->complex_tx = !of_property_read_bool(node, "adi,tx-real-channel-en");
 
@@ -141,7 +162,7 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 		phy->aion_background_serial_alignment_en = true;
 
 	phy->side_b_use_own_tpl_en = of_property_read_bool(node,
-							   "adi,side-b-use-seperate-tpl-en");
+							   "adi,side-b-use-separate-tpl-en");
 
 	phy->hsci_use_auto_linkup_mode = of_property_read_bool(node,
 							       "adi,hsci-auto-linkup-mode-en");
