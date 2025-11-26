@@ -575,23 +575,26 @@ static int dw_mci_idmac_init(struct dw_mci *host)
 	return 0;
 }
 
-static inline int dw_mci_prepare_desc64(struct dw_mci *host,
-					 struct mmc_data *data,
-					 unsigned int sg_len)
+static inline int dw_mci_prepare_desc(struct dw_mci *host, struct mmc_data *data,
+				      unsigned int sg_len, bool is_64bit)
 {
 	unsigned int desc_len;
-	struct idmac_desc_64addr *desc_first, *desc_last, *desc;
-	u32 val;
-	int i;
+	struct idmac_desc *desc_first, *desc_last, *desc;
+	struct idmac_desc_64addr *desc64_first, *desc64_last, *desc64;
+	u32 val, des0;
+	int i, err;
 
-	desc_first = desc_last = desc = host->sg_cpu;
+	if (is_64bit)
+		desc64_first = desc64_last = desc64 = host->sg_cpu;
+	else
+		desc_first = desc_last = desc = host->sg_cpu;
 
 	for (i = 0; i < sg_len; i++) {
 		unsigned int length = sg_dma_len(&data->sg[i]);
 
 		u64 mem_addr = sg_dma_address(&data->sg[i]);
 
-		for ( ; length ; desc++) {
+		while (length > 0) {
 			desc_len = (length <= DW_MCI_DESC_DATA_LENGTH) ?
 				   length : DW_MCI_DESC_DATA_LENGTH;
 
@@ -603,113 +606,60 @@ static inline int dw_mci_prepare_desc64(struct dw_mci *host,
 			 * isn't still owned by IDMAC as IDMAC's write
 			 * ops and CPU's read ops are asynchronous.
 			 */
-			if (readl_poll_timeout_atomic(&desc->des0, val,
-						!(val & IDMAC_DES0_OWN),
-						10, 100 * USEC_PER_MSEC))
+			if (is_64bit)
+				err = readl_poll_timeout_atomic(&desc64->des0, val,
+					IDMAC_OWN_CLR64(val), 10, 100 * USEC_PER_MSEC);
+			else
+				err = readl_poll_timeout_atomic(&desc->des0, val,
+					IDMAC_OWN_CLR64(val), 10, 100 * USEC_PER_MSEC);
+			if (err)
 				goto err_own_bit;
 
+			des0 = IDMAC_DES0_OWN | IDMAC_DES0_DIC | IDMAC_DES0_CH;
+			if (is_64bit)
+				desc64->des0 = des0;
+			else
+				desc->des0 = cpu_to_le32(des0);
+
 			/*
-			 * Set the OWN bit and disable interrupts
-			 * for this descriptor
+			 * 1. Set OWN bit and disable interrupts for this descriptor
+			 * 2. Set Buffer length
+			 * Set physical address to DMA to/from
 			 */
-			desc->des0 = IDMAC_DES0_OWN | IDMAC_DES0_DIC |
-						IDMAC_DES0_CH;
-
-			/* Buffer length */
-			IDMAC_64ADDR_SET_BUFFER1_SIZE(desc, desc_len);
-
-			/* Physical address to DMA to/from */
-			desc->des4 = mem_addr & 0xffffffff;
-			desc->des5 = mem_addr >> 32;
+			if (is_64bit) {
+				desc64->des0 = IDMAC_DES0_OWN | IDMAC_DES0_DIC | IDMAC_DES0_CH;
+				IDMAC_64ADDR_SET_BUFFER1_SIZE(desc64, desc_len);
+				desc64->des4 = mem_addr & 0xffffffff;
+				desc64->des5 = mem_addr >> 32;
+			} else {
+				IDMAC_SET_BUFFER1_SIZE(desc, desc_len);
+				desc->des2 = cpu_to_le32(mem_addr);
+			}
 
 			/* Update physical address for the next desc */
 			mem_addr += desc_len;
 
 			/* Save pointer to the last descriptor */
-			desc_last = desc;
+			if (is_64bit) {
+				desc64_last = desc64;
+				desc64++;
+			} else {
+				desc_last = desc;
+				desc++;
+			}
 		}
 	}
 
-	/* Set first descriptor */
-	desc_first->des0 |= IDMAC_DES0_FD;
-
-	/* Set last descriptor */
-	desc_last->des0 &= ~(IDMAC_DES0_CH | IDMAC_DES0_DIC);
-	desc_last->des0 |= IDMAC_DES0_LD;
-
-	return 0;
-err_own_bit:
-	/* restore the descriptor chain as it's polluted */
-	dev_dbg(host->dev, "descriptor is still owned by IDMAC.\n");
-	memset(host->sg_cpu, 0, DESC_RING_BUF_SZ);
-	dw_mci_idmac_init(host);
-	return -EINVAL;
-}
-
-
-static inline int dw_mci_prepare_desc32(struct dw_mci *host,
-					 struct mmc_data *data,
-					 unsigned int sg_len)
-{
-	unsigned int desc_len;
-	struct idmac_desc *desc_first, *desc_last, *desc;
-	u32 val;
-	int i;
-
-	desc_first = desc_last = desc = host->sg_cpu;
-
-	for (i = 0; i < sg_len; i++) {
-		unsigned int length = sg_dma_len(&data->sg[i]);
-
-		u32 mem_addr = sg_dma_address(&data->sg[i]);
-
-		for ( ; length ; desc++) {
-			desc_len = (length <= DW_MCI_DESC_DATA_LENGTH) ?
-				   length : DW_MCI_DESC_DATA_LENGTH;
-
-			length -= desc_len;
-
-			/*
-			 * Wait for the former clear OWN bit operation
-			 * of IDMAC to make sure that this descriptor
-			 * isn't still owned by IDMAC as IDMAC's write
-			 * ops and CPU's read ops are asynchronous.
-			 */
-			if (readl_poll_timeout_atomic(&desc->des0, val,
-						      IDMAC_OWN_CLR64(val),
-						      10,
-						      100 * USEC_PER_MSEC))
-				goto err_own_bit;
-
-			/*
-			 * Set the OWN bit and disable interrupts
-			 * for this descriptor
-			 */
-			desc->des0 = cpu_to_le32(IDMAC_DES0_OWN |
-						 IDMAC_DES0_DIC |
-						 IDMAC_DES0_CH);
-
-			/* Buffer length */
-			IDMAC_SET_BUFFER1_SIZE(desc, desc_len);
-
-			/* Physical address to DMA to/from */
-			desc->des2 = cpu_to_le32(mem_addr);
-
-			/* Update physical address for the next desc */
-			mem_addr += desc_len;
-
-			/* Save pointer to the last descriptor */
-			desc_last = desc;
-		}
+	/* Set the first descriptor and the last descriptor */
+	if (is_64bit) {
+		desc64_first->des0 |= IDMAC_DES0_FD;
+		desc64_last->des0 &= ~(IDMAC_DES0_CH | IDMAC_DES0_DIC);
+		desc64_last->des0 |= IDMAC_DES0_LD;
+	} else {
+		desc_first->des0 |= cpu_to_le32(IDMAC_DES0_FD);
+		desc_last->des0 &= cpu_to_le32(~(IDMAC_DES0_CH | IDMAC_DES0_DIC));
+		desc_last->des0 |= cpu_to_le32(IDMAC_DES0_LD);
 	}
-
-	/* Set first descriptor */
-	desc_first->des0 |= cpu_to_le32(IDMAC_DES0_FD);
-
-	/* Set last descriptor */
-	desc_last->des0 &= cpu_to_le32(~(IDMAC_DES0_CH |
-				       IDMAC_DES0_DIC));
-	desc_last->des0 |= cpu_to_le32(IDMAC_DES0_LD);
 
 	return 0;
 err_own_bit:
@@ -725,11 +675,7 @@ static int dw_mci_idmac_start_dma(struct dw_mci *host, unsigned int sg_len)
 	u32 temp;
 	int ret;
 
-	if (host->dma_64bit_address == 1)
-		ret = dw_mci_prepare_desc64(host, host->data, sg_len);
-	else
-		ret = dw_mci_prepare_desc32(host, host->data, sg_len);
-
+	ret = dw_mci_prepare_desc(host, host->data, sg_len, host->dma_64bit_address);
 	if (ret)
 		goto out;
 
