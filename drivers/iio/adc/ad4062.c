@@ -134,7 +134,7 @@ static const struct iio_scan_type ad4062_scan_type_12_s[] = {
 static const struct iio_scan_type ad4062_scan_type_16_s[] = {
 	[AD4062_SCAN_TYPE_SAMPLE] = {
 		.sign = 's',
-		.realbits = 16,
+		.realbits = 24,
 		.storagebits = 32,
 		.endianness = IIO_BE,
 	},
