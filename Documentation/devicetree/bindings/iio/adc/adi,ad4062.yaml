@@ -39,19 +39,20 @@ properties:
     minItems: 1
     items:
       - description:
-          gp0, interrupt line for GP0 pin, cannot be configured as DEV_RDY.
+          GP0 pin, cannot be configured as DEV_RDY.
       - description:
-          gp1, interrupt line for GP1 pin, can be configured to any setting.
+          GP1 pin, can be configured to any setting.
 
   interrupt-names:
+    minItems: 1
     items:
       - const: gp0
       - const: gp1
 
   gpio-controller:
     description:
-      Marks the device node as a GPIO controller. GPs not listed in
-      interrupt-names are exposed as a GPO.
+      Marks the device node as a GPIO controller. GPs not listed as interrupts
+      are exposed as a GPO.
 
   '#gpio-cells':
     const: 2
