@@ -4944,7 +4944,18 @@ static int ad9088_post_iio_register(struct iio_dev *indio_dev)
 	phy->cfir.write = ad9088_cfir_bin_write;
 	phy->cfir.size = 4096;
 
-	return sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->cfir);
+	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->cfir);
+	if (ret)
+		return ret;
+
+	sysfs_bin_attr_init(&phy->cal_data);
+	phy->cal_data.attr.name = "calibration_data";
+	phy->cal_data.attr.mode = 0600;  /* Read and write */
+	phy->cal_data.read = ad9088_cal_data_read;
+	phy->cal_data.write = ad9088_cal_data_write;
+	phy->cal_data.size = 0;  /* Dynamic size */
+
+	return sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->cal_data);
 }
 
 static char *ad9088_label_writer(struct ad9088_phy *phy, const struct iio_chan_spec *chan)
@@ -5255,6 +5266,20 @@ static int ad9088_setup(struct ad9088_phy *phy)
 		dev_err(&spi->dev,
 			"Error displaying version info. This may indicate device clock is incorrect (%d)\n",
 			ret);
+		return ret;
+	}
+
+	ret = adi_apollo_device_chip_id_get(&phy->ad9088, &phy->chip_id);
+	if (ret < 0) {
+		dev_err(&spi->dev, "chip_id failed (%d)\n", ret);
+		return ret;
+	}
+
+	/* Load calibration data from firmware if specified in device tree */
+	ret = ad9088_cal_load_from_firmware(phy);
+	if (ret) {
+		dev_err(&spi->dev,
+			"Failed to load calibration data from firmware (%d)\n", ret);
 		return ret;
 	}
 
@@ -5612,14 +5637,19 @@ static int ad9088_jesd204_setup_stage1(struct jesd204_dev *jdev,
 		adi_apollo_init_cal_cfg_e init_cal_cfg;
 		u32 adc_cal_chans = device->dev_info.is_8t8r ? ADI_APOLLO_ADC_ALL : ADI_APOLLO_ADC_ALL_4T4R;
 
-		ret = adi_apollo_hal_bf_get(device, BF_ADC_NVM_CALDATA_FUSED_INFO, &is_adc_nvm_fused, 1);
-		if (ret != API_CMS_ERROR_OK) {
-			dev_err(dev, "Error reading ADC NVM fused info %d\n", ret);
-			return ret;
+		if (!phy->cal_data_loaded_from_fw) {
+			ret = adi_apollo_hal_bf_get(device, BF_ADC_NVM_CALDATA_FUSED_INFO, &is_adc_nvm_fused, 1);
+			if (ret != API_CMS_ERROR_OK) {
+				dev_err(dev, "Error reading ADC NVM fused info %d\n", ret);
+				return ret;
+			}
+			init_cal_cfg = is_adc_nvm_fused ? ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_NVM : ADI_APOLLO_INIT_CAL_ENABLED;
+			dev_info(dev, "Run ADC cal from %s (can take up to 100 secs)...\n", is_adc_nvm_fused ? "NVM" : "scratch");
+		} else {
+			dev_info(dev, "Run ADC CAK WARMBOOT from USER\n");
+			init_cal_cfg = ADI_APOLLO_INIT_CAL_DISABLED_WARMBOOT_FROM_USER;
 		}
-		init_cal_cfg = is_adc_nvm_fused ? ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_NVM : ADI_APOLLO_INIT_CAL_ENABLED;
 
-		dev_info(dev, "Run ADC cal from %s (can take up to 100 secs)...\n", is_adc_nvm_fused ? "NVM" : "scratch");
 		ret = adi_apollo_adc_init_cal_start(device, adc_cal_chans, init_cal_cfg);
 		if (ret) {
 			dev_err(dev, "Error in adi_apollo_adc_init_cal_start %d\n", ret);
@@ -5751,16 +5781,18 @@ static int ad9088_jesd204_clks_enable(struct jesd204_dev *jdev,
 			dev_err(dev, "Error from adi_apollo_serdes_jrx_bgcal_freeze() %d\n", ret);
 			return ret;
 		}
-		dev_info(dev, "%s: SERDES JRx bg cal freeze\n", ad9088_fsm_links_to_str[lnk->link_id]);
+		dev_dbg(dev, "%s: SERDES JRx bg cal freeze\n", ad9088_fsm_links_to_str[lnk->link_id]);
 	}
 
 	if (lnk->is_transmit && (reason == JESD204_STATE_OP_REASON_INIT) &&
 	    phy->profile.jrx[0].common_link_cfg.lane_rate_kHz > 8000000) {
-		dev_info(dev, "%s: SERDES JRx cal Rate %u kBps ...\n", ad9088_fsm_links_to_str[lnk->link_id],
-			 phy->profile.jrx[0].common_link_cfg.lane_rate_kHz);
-		ret = adi_apollo_serdes_jrx_init_cal(&phy->ad9088, serdes, ADI_APOLLO_INIT_CAL_ENABLED);
+		dev_info(dev, "%s: SERDES JRx cal Rate %u kBps via %s ...\n", ad9088_fsm_links_to_str[lnk->link_id],
+			 phy->profile.jrx[0].common_link_cfg.lane_rate_kHz,
+			 phy->cal_data_loaded_from_fw ? "WARMBOOT_FROM_USER" : "INIT_CAL");
+		ret = adi_apollo_serdes_jrx_init_cal(&phy->ad9088, serdes,
+			phy->cal_data_loaded_from_fw ? ADI_APOLLO_INIT_CAL_DISABLED_WARMBOOT_FROM_USER : ADI_APOLLO_INIT_CAL_ENABLED);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_serdes_jrx_init_cal");
 		if (ret) {
-			dev_err(dev, "Error from adi_apollo_serdes_jrx_init_cal() %d\n", ret);
 			return ret;
 		}
 
@@ -5770,7 +5802,7 @@ static int ad9088_jesd204_clks_enable(struct jesd204_dev *jdev,
 				dev_err(dev, "Error from adi_apollo_serdes_jrx_bgcal_unfreeze() %d\n", ret);
 				return ret;
 			}
-			dev_info(dev, "%s: SERDES JRx bg cal unfreeze\n", ad9088_fsm_links_to_str[lnk->link_id]);
+			dev_dbg(dev, "%s: SERDES JRx bg cal unfreeze\n", ad9088_fsm_links_to_str[lnk->link_id]);
 		}
 	}
 
@@ -6316,7 +6348,7 @@ static const struct jesd204_dev_data jesd204_ad9088_init = {
 	},
 
 	.max_num_links = 4,
-	.num_retries = 3,
+	.num_retries = 0,
 	.sizeof_priv = sizeof(struct ad9088_jesd204_priv),
 };
 
@@ -6839,11 +6871,11 @@ static int ad9088_probe(struct spi_device *spi)
 			break;
 		}
 
-		ret = adi_apollo_device_chip_id_get(&phy->ad9088, &phy->chip_id);
-		if (ret < 0) {
-			dev_err(&spi->dev, "chip_id failed (%d)\n", ret);
-			break;
-		}
+		// ret = adi_apollo_device_chip_id_get(&phy->ad9088, &phy->chip_id);
+		// if (ret < 0) {
+		// 	dev_err(&spi->dev, "chip_id failed (%d)\n", ret);
+		// 	break;
+		// }
 
 		conv->id = phy->chip_id.prod_id;
 		conv->chip_info = &phy->chip_info;
