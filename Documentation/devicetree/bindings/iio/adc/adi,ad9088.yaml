@@ -123,6 +123,69 @@ properties:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: JESD subclass setting.
 
+  adi,gpio-hop-profile:
+    minItems: 1
+    maxItems: 5
+    items:
+      $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      GPIO indices for frequency hopping profile selection.
+      Supports up to 5 GPIOs for profile control. Missing values
+      are filled with -1 (ADI_APOLLO_GPIO_HOP_IDX_NONE).
+
+  adi,gpio-hop-block:
+    minItems: 1
+    maxItems: 4
+    items:
+      $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      GPIO indices for frequency hopping block selection.
+      Supports up to 4 GPIOs for block control. Missing values
+      are filled with -1 (ADI_APOLLO_GPIO_HOP_IDX_NONE).
+
+  adi,gpio-hop-side:
+    maxItems: 1
+    items:
+      $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      GPIO index for frequency hopping side selection.
+      Supports 1 GPIO for side control. Missing value is
+      filled with -1 (ADI_APOLLO_GPIO_HOP_IDX_NONE).
+
+  adi,gpio-hop-slice:
+    minItems: 1
+    maxItems: 5
+    items:
+      $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      GPIO indices for frequency hopping slice selection.
+      Supports up to 5 GPIOs for slice control. Missing values
+      are filled with -1 (ADI_APOLLO_GPIO_HOP_IDX_NONE).
+
+  adi,gpio-hop-terminal:
+    minItems: 1
+    maxItems: 4
+    items:
+      $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      GPIO indices for frequency hopping terminal selection.
+      Supports up to 4 GPIOs for terminal control. Missing values
+      are filled with -1 (ADI_APOLLO_GPIO_HOP_IDX_NONE).
+
+  adi,gpio-sniffer-a-export:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      GPIO pin number for FFT sniffer side A done signal export.
+      Used to export FFT done status to external GPIO pin.
+      Defaults to 17 if not specified.
+
+  adi,gpio-sniffer-b-export:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      GPIO pin number for FFT sniffer side B done signal export.
+      Used to export FFT done status to external GPIO pin.
+      Defaults to 18 if not specified.
+
 required:
   - compatible
   - adi,device-profile-fw-name
@@ -174,5 +237,13 @@ examples:
 
         reset-gpios = <&axi_gpio 62 0>;
         adi,device-profile-fw-name = "DEVICE_PROFILE_NAME";
+
+        /* GPIO frequency hopping configuration (optional) */
+        adi,gpio-hop-profile = <19 20 21 22 23>;
+        adi,gpio-hop-block = <15 16 17 18>;
+
+        /* FFT sniffer GPIO exports (optional) */
+        adi,gpio-sniffer-a-export = <17>;
+        adi,gpio-sniffer-b-export = <18>;
       };
     };
