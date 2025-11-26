@@ -181,6 +181,8 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 	phy->fnco_dual_modulus_mode_en = of_property_read_bool(node, "adi,fnco-dual-modulus-mode-en");
 	phy->cnco_dual_modulus_mode_en = of_property_read_bool(node, "adi,cnco-dual-modulus-mode-en");
 
+	phy->sniffer_en = !of_property_read_bool(node, "adi,sniffer-disable");
+
 	phy->cddc_sample_delay_en = of_property_read_bool(node, "adi,cddc-bmem-sample-delay-en");
 	phy->fddc_sample_delay_en = of_property_read_bool(node, "adi,fddc-bmem-sample-delay-en");
 

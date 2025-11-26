@@ -818,52 +818,6 @@ static irqreturn_t ad9088_fdB_handler(int irq, void *private)
 	return ad9088_event_handler(private, 1);
 }
 
-static int ad9088_rx_sniffer_populate_default_params(adi_apollo_sniffer_mode_e mode, adi_apollo_sniffer_param_t *config)
-{
-	config->init.fft_hold_sel = 1;                 // 0 - gpio 1 - regmap
-	config->init.fft_enable_sel = 1;               // 0 - gpio 1 - regmap
-	config->init.real_mode = 1;                    // 1 real 0 complex
-	config->init.max_threshold = 20;                // Max threshold for max
-	config->init.min_threshold = 0;                // Min threshold for min
-	config->init.sniffer_enable = 1;               // Enable spec sniffer
-
-	config->pgm.sniffer_mode = mode;               // see \ref adi_apollo_sniffer_mode_e
-	config->pgm.sort_enable = 1;                   // 1 enable 0 disable
-	config->pgm.continuous_mode = 0;               // 1 continuous 0 single
-	config->pgm.bottom_fft_enable = 0;             // 1 enable 0 disable
-	config->pgm.window_enable = 0;                 // 1 enable 0 disable
-	config->pgm.low_power_enable = 0;              // 1 enable 0 disable
-	config->pgm.dither_enable = 0;                 // 1 enable 0 disable
-	config->pgm.alpha_factor = 0;                  // exp. avg. 0 - disable 1-8 - enable
-	config->pgm.adc = ADI_APOLLO_ADC_0;
-
-	config->read.run_fft_engine_background = 0;
-	config->read.timeout_us = 1000000;
-
-	if (mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE) { // IQ mode necessities
-		config->init.real_mode = 0;
-
-		config->pgm.sort_enable = 0;
-		config->pgm.continuous_mode = 0;
-		config->pgm.alpha_factor = 0;
-	}
-
-	return API_CMS_ERROR_OK;
-}
-
-static int ad9088_rx_sniffer_setup(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel,
-				   adi_apollo_sniffer_init_t *config)
-{
-	int ret;
-
-	/* Init sniffer */
-	ret = adi_apollo_sniffer_init(&phy->ad9088, side_sel, config);
-	if (ret != API_CMS_ERROR_OK)
-		dev_err(&phy->spi->dev, "Error in adi_apollo_sniffer_pgm: %d\n", ret);
-
-	return ret;
-}
-
 static int ad9088_testmode_read(struct iio_dev *indio_dev,
 				const struct iio_chan_spec *chan)
 {
@@ -5283,7 +5237,6 @@ static int ad9088_setup(struct ad9088_phy *phy)
 	adi_apollo_device_t *device = &phy->ad9088;
 	u64 sample_rate;
 	int ret;
-	adi_apollo_sniffer_param_t *sniffer_config = &phy->sniffer_config;
 
 	ret = adi_apollo_adc_mode_switch_enable_set(device, 1);
 	ret = ad9088_check_apollo_error(&spi->dev, ret, "adi_apollo_adc_mode_switch_enable_set");
@@ -5305,14 +5258,12 @@ static int ad9088_setup(struct ad9088_phy *phy)
 		return ret;
 	}
 
-
 	adi_apollo_bmem_delay_sample_t config = {
 		.sample_size = 0,
 		.ramclk_ph_dis = 1,
 		.sample_delay = 0,
 		.parity_check_en = 1,
 	};
-
 
 	if (phy->cddc_sample_delay_en) {
 		ret = adi_apollo_bmem_cddc_delay_sample_config(device, ADI_APOLLO_BMEM_ALL, &config);
@@ -5328,10 +5279,11 @@ static int ad9088_setup(struct ad9088_phy *phy)
 			return ret;
 	}
 
-	ad9088_rx_sniffer_populate_default_params(ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE, sniffer_config);
-	ret = ad9088_rx_sniffer_setup(phy, ADI_APOLLO_SIDE_ALL, &sniffer_config->init);
-	if (ret)
-		dev_err(&phy->spi->dev, "Error in ad9088_rx_sniffer_setup: %d\n", ret);
+	if (phy->sniffer_en) {
+		ret = adi_apollo_sniffer_enable_set(device, ADI_APOLLO_SIDE_ALL, ADI_APOLLO_ENABLE);
+		if (ret)
+			return ret;
+	}
 
 	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_config[0].dac_sampling_rate_Hz,
 					    phy->profile.jrx[0].rx_link_cfg[0].link_total_ratio);
@@ -6966,11 +6918,14 @@ static int ad9088_probe(struct spi_device *spi)
 	}
 
 	ad9088_bmem_probe(phy);
-	ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_A);
-	ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_B);
-	//ad9088_ffh_probe(phy);
 
-	//ad9088_gpio_setup(phy);
+	if (phy->sniffer_en) {
+		ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_A);
+		ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_B);
+	}
+
+	ad9088_ffh_probe(phy);
+	ad9088_gpio_setup(phy);
 
 	ad9088_adc_cal_data_to_buf(phy, &phy->nvm_adc_cal, &phy->adc_cal_len);
 

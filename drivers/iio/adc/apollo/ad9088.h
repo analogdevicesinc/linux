@@ -284,6 +284,7 @@ struct ad9088_phy {
 	bool aion_background_serial_alignment_en;
 	bool fnco_dual_modulus_mode_en;
 	bool cnco_dual_modulus_mode_en;
+	bool sniffer_en;
 
 	struct iio_channel      *iio_adf4030;
 	struct iio_channel      *iio_adf4382;
@@ -296,9 +297,6 @@ struct ad9088_phy {
 	adi_apollo_gpio_hop_side_t gpio_hop_side;
 	adi_apollo_gpio_hop_slice_t gpio_hop_slice;
 	adi_apollo_gpio_hop_terminal_t gpio_hop_terminal;
-
-	adi_apollo_sniffer_param_t sniffer_config;
-	adi_apollo_sniffer_fft_data_t fft_data;
 
 	u8 hsci_buf[ADI_APOLLO_HAL_REGIO_HSCI_STREAM_DEFAULT_SIZE];
 	u8 gpios_exported[ADI_APOLLO_NUM_GPIO];

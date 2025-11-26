@@ -56,6 +56,7 @@ struct ad9088_fft_sniffer_state {
 	u16 adc_select;
 	adi_apollo_sniffer_param_t sniffer_config;
 	adi_apollo_sniffer_param_t sniffer_config_hw;
+	adi_apollo_sniffer_fft_data_t fft_data;
 
 	__le16 buffer[AD9088_FFT_SNIFFER_CHAN_MAX];
 	__le16 buffer_hw[AD9088_FFT_SNIFFER_CHAN_MAX] __aligned(IIO_DMA_MINALIGN);
@@ -109,7 +110,7 @@ static int ad9088_fft_sniffer_request(struct ad9088_fft_sniffer_state *st)
 static int ad9088_fft_sniffer_data_read(struct ad9088_fft_sniffer_state *st, adi_apollo_sniffer_param_t *config)
 {
 	adi_apollo_device_t *device = &st->phy->ad9088;
-	adi_apollo_sniffer_fft_data_t *fft_data = &st->phy->fft_data;
+	adi_apollo_sniffer_fft_data_t *fft_data = &st->fft_data;
 	u8 fft_done = 0;
 	bool iq_mode;
 	int ret, i, j;
@@ -524,7 +525,7 @@ static int ad9088_fft_sniffer_buffer_postenable(struct iio_dev *indio_dev)
 	blen = indio_dev->buffer->length / indio_dev->num_channels;
 	dlen = st->sniffer_config_hw.init.real_mode ? (ADI_APOLLO_SNIFFER_FFT_LENGTH / 2) : ADI_APOLLO_SNIFFER_FFT_LENGTH;
 
-	if (blen < dlen) {
+	if (blen != dlen) {
 		dev_err(st->dev, "Buffer length %d incompatible with current sniffer mode (real/complex) set to %d\n",
 			blen, dlen);
 		return -EINVAL;
@@ -617,7 +618,7 @@ static void ad9088_fft_sniffer_sync_work_func(struct work_struct *work)
 {
 	struct ad9088_fft_sniffer_state *st =
 		container_of(work, struct ad9088_fft_sniffer_state, sync_work.work);
-	adi_apollo_sniffer_fft_data_t *fft_data = &st->phy->fft_data;
+	adi_apollo_sniffer_fft_data_t *fft_data = &st->fft_data;
 	bool iq_mode;
 	int ret, i, j;
 
