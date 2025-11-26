@@ -6968,9 +6968,9 @@ static int ad9088_probe(struct spi_device *spi)
 	ad9088_bmem_probe(phy);
 	ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_A);
 	ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_B);
-	ad9088_ffh_probe(phy);
+	//ad9088_ffh_probe(phy);
 
-	ad9088_gpio_setup(phy);
+	//ad9088_gpio_setup(phy);
 
 	ad9088_adc_cal_data_to_buf(phy, &phy->nvm_adc_cal, &phy->adc_cal_len);
 

@@ -291,6 +291,12 @@ struct ad9088_phy {
 	adi_apollo_fw_provider_t fw_provider;
 	union ad9088_ffh ffh;
 
+	adi_apollo_gpio_hop_profile_t gpio_hop_profile;
+	adi_apollo_gpio_hop_block_t gpio_hop_block;
+	adi_apollo_gpio_hop_side_t gpio_hop_side;
+	adi_apollo_gpio_hop_slice_t gpio_hop_slice;
+	adi_apollo_gpio_hop_terminal_t gpio_hop_terminal;
+
 	adi_apollo_sniffer_param_t sniffer_config;
 	adi_apollo_sniffer_fft_data_t fft_data;
 

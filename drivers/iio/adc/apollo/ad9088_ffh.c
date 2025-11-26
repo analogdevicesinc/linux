@@ -6,16 +6,54 @@
  */
 #include <linux/types.h>
 #include <linux/kstrtox.h>
+#include <linux/property.h>
 #include "ad9088.h"
 
-adi_apollo_gpio_hop_profile_t hop_config = {{19, 20, 21, 22, 23}};
-adi_apollo_gpio_hop_block_t block_config = {{15, 16, 17, 18}};
+/**
+ * ad9088_read_gpio_hop_array - Read GPIO hop array from device tree
+ * @dev: Device pointer
+ * @propname: Device tree property name
+ * @array: Output array to fill
+ * @count: Maximum number of elements to read
+ *
+ * Reads GPIO indices from device tree and fills the array. Missing values
+ * are filled with ADI_APOLLO_GPIO_HOP_IDX_NONE (-1).
+ *
+ * Return: Number of GPIOs read, or 0 if property not found
+ */
+static int ad9088_read_gpio_hop_array(struct device *dev, const char *propname,
+				      int8_t *array, size_t count)
+{
+	u32 tmp[count];
+	int ret, i;
+
+	/* Initialize all to NONE (-1) */
+	for (i = 0; i < count; i++)
+		array[i] = ADI_APOLLO_GPIO_HOP_IDX_NONE;
+
+	ret = device_property_count_u32(dev, propname);
+	if (ret <= 0)
+		return 0;
+
+	/* Read up to count values */
+	ret = device_property_read_u32_array(dev, propname, tmp,
+					     min(ret, (int)count));
+	if (ret < 0)
+		return 0;
+
+	/* Copy to output array */
+	for (i = 0; i < ret; i++)
+		array[i] = (int8_t)tmp[i];
+
+	return ret;
+}
 
 int ad9088_ffh_probe(struct ad9088_phy *phy)
 {
 	adi_apollo_fine_nco_hop_t fnco_hop_config;
 	adi_apollo_coarse_nco_hop_t cnco_hop_config;
-	int ret;
+	struct device *dev = &phy->spi->dev;
+	int ret, n_gpios;
 
 	fnco_hop_config.nco_trig_hop_sel = ADI_APOLLO_FNCO_TRIG_HOP_FREQ_PHASE;
 	fnco_hop_config.profile_sel_mode = ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP;
@@ -39,12 +77,75 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	if (ret)
 		return ret;
 
-	ret = adi_apollo_gpio_hop_profile_configure(&phy->ad9088, &hop_config);
-	if (ret)
-		return -EFAULT;
-	ret = adi_apollo_gpio_hop_block_configure(&phy->ad9088, &block_config);
-	if (ret)
-		return -EFAULT;
+	/* Read GPIO hop profile configuration directly into phy structure */
+	n_gpios = ad9088_read_gpio_hop_array(dev, "adi,gpio-hop-profile",
+					     (int8_t *)phy->gpio_hop_profile.index,
+					     ADI_APOLLO_GPIO_HOP_PROFILE_BIT_NUMBER);
+	if (n_gpios > 0) {
+		ret = adi_apollo_gpio_hop_profile_configure(&phy->ad9088,
+							    &phy->gpio_hop_profile);
+		if (ret) {
+			dev_err(dev, "Failed to configure GPIO hop profile: %d\n", ret);
+			return ret;
+		}
+		dev_info(dev, "Configured %d GPIO hop profile bits\n", n_gpios);
+	}
+
+	/* Read GPIO hop block configuration directly into phy structure */
+	n_gpios = ad9088_read_gpio_hop_array(dev, "adi,gpio-hop-block",
+					     (int8_t *)phy->gpio_hop_block.index,
+					     ADI_APOLLO_GPIO_HOP_BLOCK_BIT_NUMBER);
+	if (n_gpios > 0) {
+		ret = adi_apollo_gpio_hop_block_configure(&phy->ad9088,
+							  &phy->gpio_hop_block);
+		if (ret) {
+			dev_err(dev, "Failed to configure GPIO hop block: %d\n", ret);
+			return ret;
+		}
+		dev_info(dev, "Configured %d GPIO hop block bits\n", n_gpios);
+	}
+
+	/* Read GPIO hop side configuration directly into phy structure */
+	n_gpios = ad9088_read_gpio_hop_array(dev, "adi,gpio-hop-side",
+					     (int8_t *)phy->gpio_hop_side.index,
+					     ADI_APOLLO_GPIO_HOP_SIDE_BIT_NUMBER);
+	if (n_gpios > 0) {
+		ret = adi_apollo_gpio_hop_side_configure(&phy->ad9088,
+							 &phy->gpio_hop_side);
+		if (ret) {
+			dev_err(dev, "Failed to configure GPIO hop side: %d\n", ret);
+			return ret;
+		}
+		dev_info(dev, "Configured %d GPIO hop side bits\n", n_gpios);
+	}
+
+	/* Read GPIO hop slice configuration directly into phy structure */
+	n_gpios = ad9088_read_gpio_hop_array(dev, "adi,gpio-hop-slice",
+					     (int8_t *)phy->gpio_hop_slice.index,
+					     ADI_APOLLO_GPIO_HOP_SLICE_BIT_NUMBER);
+	if (n_gpios > 0) {
+		ret = adi_apollo_gpio_hop_slice_configure(&phy->ad9088,
+							  &phy->gpio_hop_slice);
+		if (ret) {
+			dev_err(dev, "Failed to configure GPIO hop slice: %d\n", ret);
+			return ret;
+		}
+		dev_info(dev, "Configured %d GPIO hop slice bits\n", n_gpios);
+	}
+
+	/* Read GPIO hop terminal configuration directly into phy structure */
+	n_gpios = ad9088_read_gpio_hop_array(dev, "adi,gpio-hop-terminal",
+					     (int8_t *)phy->gpio_hop_terminal.index,
+					     ADI_APOLLO_GPIO_HOP_TERMINAL_BIT_NUMBER);
+	if (n_gpios > 0) {
+		ret = adi_apollo_gpio_hop_terminal_configure(&phy->ad9088,
+							     &phy->gpio_hop_terminal);
+		if (ret) {
+			dev_err(dev, "Failed to configure GPIO hop terminal: %d\n", ret);
+			return ret;
+		}
+		dev_info(dev, "Configured %d GPIO hop terminal bits\n", n_gpios);
+	}
 
 	/* Cache defaults */
 	memset(&phy->ffh, 0, sizeof(union ad9088_ffh));
@@ -126,7 +227,6 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 	bool hop_enable;
 	u64 val, ret;
 	u64 ftw_u64, f, tmp;
-	u64 gpio, val2;
 
 	guard(mutex)(&phy->lock);
 	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
@@ -191,14 +291,24 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			break;
 		if (phy->ffh.dir[dir].fnco.mode[fddc_num] == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO ||
 		    phy->ffh.dir[dir].fnco.mode[fddc_num] == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO) {
-			ret = adi_apollo_gpio_hop_profile_calc(&phy->ad9088, &hop_config, val, &gpio, &val2);
+			u64 gpio, val2;
+
+			ret = adi_apollo_gpio_hop_profile_calc(&phy->ad9088,
+							       &phy->gpio_hop_profile,
+							       val, &gpio, &val2);
 			if (ret)
 				return ret;
-			dev_info(&conv->spi->dev, "Profile GPIO: mask: %llx value: %llx\n", gpio, val2);
-			ret = adi_apollo_gpio_hop_block_calc(&phy->ad9088, &block_config, 0, &gpio, &val2);
+			dev_info(&conv->spi->dev,
+				 "Profile GPIO: mask: %llx value: %llx\n",
+				 gpio, val2);
+			ret = adi_apollo_gpio_hop_block_calc(&phy->ad9088,
+							     &phy->gpio_hop_block,
+							     0, &gpio, &val2);
 			if (ret)
 				return ret;
-			dev_info(&conv->spi->dev, "Block GPIO: mask: %llx value: %llx\n", gpio, val2);
+			dev_info(&conv->spi->dev,
+				 "Block GPIO: mask: %llx value: %llx\n",
+				 gpio, val2);
 		}
 		if (phy->ffh.dir[dir].fnco.mode[fddc_num] != ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP &&
 		    phy->ffh.dir[dir].fnco.mode[fddc_num] != ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP)
@@ -261,14 +371,24 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EINVAL;
 		if (phy->ffh.dir[dir].cnco.mode[cddc_num] == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO ||
 		    phy->ffh.dir[dir].cnco.mode[cddc_num] == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO) {
-			ret = adi_apollo_gpio_hop_profile_calc(&phy->ad9088, &hop_config, val, &gpio, &val2);
+			u64 gpio, val2;
+
+			ret = adi_apollo_gpio_hop_profile_calc(&phy->ad9088,
+							       &phy->gpio_hop_profile,
+							       val, &gpio, &val2);
 			if (ret)
 				return ret;
-			dev_info(&conv->spi->dev, "Profile GPIO: mask: %llx value: %llx\n", gpio, val2);
-			ret = adi_apollo_gpio_hop_block_calc(&phy->ad9088, &block_config, 0, &gpio, &val2);
+			dev_info(&conv->spi->dev,
+				 "Profile GPIO: mask: %llx value: %llx\n",
+				 gpio, val2);
+			ret = adi_apollo_gpio_hop_block_calc(&phy->ad9088,
+							     &phy->gpio_hop_block,
+							     0, &gpio, &val2);
 			if (ret)
 				return ret;
-			dev_info(&conv->spi->dev, "Block GPIO: mask: %llx value: %llx\n", gpio, val2);
+			dev_info(&conv->spi->dev,
+				 "Block GPIO: mask: %llx value: %llx\n",
+				 gpio, val2);
 		}
 		if (phy->ffh.dir[dir].cnco.mode[cddc_num] != ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP &&
 		    phy->ffh.dir[dir].cnco.mode[cddc_num] != ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP)
@@ -297,5 +417,3 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 
 	return len;
 }
-
-
