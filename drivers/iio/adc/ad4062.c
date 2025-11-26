@@ -9,6 +9,7 @@
 #include <linux/bitops.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
+#include <linux/devm-helpers.h>
 #include <linux/err.h>
 #include <linux/i3c/device.h>
 #include <linux/i3c/master.h>
@@ -439,11 +440,12 @@ static void ad4062_ibi_handler(struct i3c_device *i3cdev,
 
 static void ad4062_trigger_work(struct work_struct *work)
 {
-	struct ad4062_state *st = container_of(work, struct ad4062_state,
-					       trig_conv);
+	struct ad4062_state *st =
+		container_of(work, struct ad4062_state, trig_conv);
 	int ret;
 
-	/* Read current conversion, if at reg CONV_READ, stop bit triggers
+	/*
+	 * Read current conversion, if at reg CONV_READ, stop bit triggers
 	 * next sample and does not need writing the address.
 	 */
 	struct i3c_priv_xfer t[2] = {
@@ -785,13 +787,15 @@ static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 	struct ad4062_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = pm_runtime_resume_and_get(&st->i3cdev->dev);
+
+	ACQUIRE(pm_runtime_active_try_enabled, pm)(&st->i3cdev->dev);
+	ret = ACQUIRE_ERR(pm_runtime_active_try_enabled, &pm);
 	if (ret)
 		return ret;
 
 	ret = ad4062_set_operation_mode(st, st->mode);
 	if (ret)
-		goto out_mode_error;
+		return ret;
 
 	/* CONV_READ requires read to trigger first sample. */
 	struct i3c_priv_xfer t[2] = {
@@ -809,13 +813,10 @@ static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
 
 	ret = i3c_device_do_priv_xfers(st->i3cdev, t, st->gpo_irq[1] ? 2 : 1);
 	if (ret)
-		goto out_mode_error;
+		return ret;
+
+	pm_runtime_get_noresume(&st->i3cdev->dev);
 	return 0;
-
-out_mode_error:
-	pm_runtime_put_autosuspend(&st->i3cdev->dev);
-
-	return ret;
 }
 
 static int ad4062_triggered_buffer_predisable(struct iio_dev *indio_dev)
@@ -988,7 +989,9 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to request i3c ibi\n");
 
-	INIT_WORK(&st->trig_conv, ad4062_trigger_work);
+	ret = devm_work_autocancel(dev, &st->trig_conv, ad4062_trigger_work);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(dev, indio_dev);
 }
