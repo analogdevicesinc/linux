@@ -255,8 +255,6 @@ struct dw_mci_dma_ops {
 	void (*exit)(struct dw_mci *host);
 };
 
-struct dma_pdata;
-
 /* Board platform data */
 struct dw_mci_board {
 	unsigned int bus_hz; /* Clock speed at the cclk_in pad */
@@ -276,7 +274,6 @@ struct dw_mci_board {
 
 	struct reset_control *rstc;
 	struct dw_mci_dma_ops *dma_ops;
-	struct dma_pdata *data;
 };
 
 /* Support for longer data read timeout */
