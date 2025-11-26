@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
 #include <linux/crc32.h>
+#include <linux/vmalloc.h>
 
 #include <linux/clk-provider.h>
 #include <linux/clk.h>
@@ -216,6 +217,7 @@ struct ad9088_phy {
 	struct axiadc_chip_info chip_info;
 	struct bin_attribute pfilt;
 	struct bin_attribute cfir;
+	struct bin_attribute cal_data;
 	struct gpio_chip gpiochip;
 
 	struct gpio_desc *rx1_en_gpio;
@@ -289,6 +291,7 @@ struct ad9088_phy {
 	bool fnco_dual_modulus_mode_en;
 	bool cnco_dual_modulus_mode_en;
 	bool sniffer_en;
+	bool cal_data_loaded_from_fw;
 
 	struct iio_channel      *iio_adf4030;
 	struct iio_channel      *iio_adf4382;
@@ -308,6 +311,15 @@ struct ad9088_phy {
 
 	u8 loopback_mode[ADI_APOLLO_NUM_SIDES];
 	u8 lb1_blend[ADI_APOLLO_NUM_SIDES];
+
+	u8 *nvm_adc_cal;
+	u8 *adc_cal;
+	size_t adc_cal_len;
+
+	/* Calibration restore buffer for multi-write accumulation */
+	u8 *cal_restore_buf;
+	size_t cal_restore_size;
+	size_t cal_restore_received;
 
 	/* Pre-computed IIO channel to hardware block mapping (indexed by chan->address) */
 	struct ad9088_chan_map rx_chan_map[MAX_NUM_CHANNELIZER];
@@ -365,3 +377,40 @@ ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev, uintptr_t private,
 				 const struct iio_chan_spec *chan, char *buf);
 ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 				  const struct iio_chan_spec *chan, const char *buf, size_t len);
+
+/* Calibration data format */
+#define AD9088_CAL_MAGIC	0x41443930  /* "AD90" */
+#define AD9088_CAL_VERSION	2
+
+struct ad9088_cal_header {
+	u32 magic;			/* Magic number for validation */
+	u32 version;			/* File format version */
+	u32 chip_id;			/* Chip ID (0x9084 or 0x9088) */
+	u8  is_8t8r;			/* 1 = 8T8R, 0 = 4T4R */
+	u8  num_adcs;			/* Number of ADCs */
+	u8  num_serdes_rx;		/* Number of SERDES RX 12-packs */
+	u8  num_clk_cond;		/* Number of clock conditioning sides */
+	u8  reserved[4];		/* Reserved for future use */
+
+	/* Offsets to each section (from start of file) */
+	u32 adc_cal_offset;		/* Offset to ADC calibration data */
+	u32 serdes_rx_cal_offset;	/* Offset to SERDES RX calibration data */
+	u32 clk_cond_cal_offset;	/* Offset to clock conditioning cal data */
+
+	/* Sizes of each section */
+	u32 adc_cal_size;		/* Total size of all ADC cal data */
+	u32 serdes_rx_cal_size;		/* Total size of all SERDES RX cal data */
+	u32 clk_cond_cal_size;		/* Total size of all clock conditioning cal data */
+
+	u32 total_size;			/* Total file size including CRC */
+	u32 reserved2[4];		/* Reserved for future use */
+} __packed;
+
+int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len);
+int ad9088_cal_restore(struct ad9088_phy *phy, const u8 *buf, size_t len);
+int ad9088_cal_load_from_firmware(struct ad9088_phy *phy);
+ssize_t ad9088_cal_data_read(struct file *filp, struct kobject *kobj,
+			     struct bin_attribute *bin_attr,
+			     char *buf, loff_t off, size_t count);
+ssize_t ad9088_cal_data_write(struct file *filp, struct kobject *kobj,
+			      struct bin_attribute *bin_attr, char *buf, loff_t off, size_t count);

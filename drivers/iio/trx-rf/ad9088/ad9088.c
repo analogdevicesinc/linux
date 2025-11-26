@@ -4088,7 +4088,18 @@ static int ad9088_post_iio_register(struct iio_dev *indio_dev)
 	phy->cfir.write = ad9088_cfir_bin_write;
 	phy->cfir.size = 4096;
 
-	return device_create_bin_file(&indio_dev->dev, &phy->cfir);
+	ret = device_create_bin_file(&indio_dev->dev, &phy->cfir);
+	if (ret)
+		return ret;
+
+	sysfs_bin_attr_init(&phy->cal_data);
+	phy->cal_data.attr.name = "calibration_data";
+	phy->cal_data.attr.mode = 0600;  /* Read and write */
+	phy->cal_data.read = ad9088_cal_data_read;
+	phy->cal_data.write = ad9088_cal_data_write;
+	phy->cal_data.size = 0;  /* Dynamic size */
+
+	return device_create_bin_file(&indio_dev->dev, &phy->cal_data);
 }
 
 static char *ad9088_label_writer(struct ad9088_phy *phy, const struct iio_chan_spec *chan)
@@ -4443,6 +4454,16 @@ static int ad9088_setup(struct ad9088_phy *phy)
 	if (ret)
 		return dev_err_probe(&spi->dev, ret,
 				     "Error displaying version info. This may indicate device clock is incorrect\n");
+
+	ret = adi_apollo_device_chip_id_get(&phy->ad9088, &phy->chip_id);
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "chip_id failed\n");
+
+	/* Load calibration data from firmware if specified in device tree */
+	ret = ad9088_cal_load_from_firmware(phy);
+	if (ret)
+		return dev_err_probe(&spi->dev, ret,
+				     "Failed to load calibration data from firmware\n");
 
 	if (phy->cddc_sample_delay_en) {
 		ret = adi_apollo_bmem_cddc_delay_sample_config(device, ADI_APOLLO_BMEM_ALL,
@@ -5004,10 +5025,6 @@ static int ad9088_probe(struct spi_device *spi)
 		ad9088_reg_test(&phy->ad9088);
 		return ret;
 	}
-
-	ret = adi_apollo_device_chip_id_get(&phy->ad9088, &phy->chip_id);
-	if (ret < 0)
-		return dev_err_probe(&spi->dev, ret, "chip_id failed\n");
 
 	conv->id = phy->chip_id.prod_id;
 	conv->chip_info = &phy->chip_info;
