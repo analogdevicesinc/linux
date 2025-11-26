@@ -109,7 +109,7 @@ static int ad9088_fft_sniffer_request(struct ad9088_fft_sniffer_state *st)
 static int ad9088_fft_sniffer_data_read(struct ad9088_fft_sniffer_state *st, adi_apollo_sniffer_param_t *config)
 {
 	adi_apollo_device_t *device = &st->phy->ad9088;
-	adi_apollo_sniffer_fft_data_t fft_data;
+	adi_apollo_sniffer_fft_data_t *fft_data = &st->phy->fft_data;
 	u8 fft_done = 0;
 	bool iq_mode;
 	int ret, i, j;
@@ -141,7 +141,7 @@ static int ad9088_fft_sniffer_data_read(struct ad9088_fft_sniffer_state *st, adi
 	}
 
 	/* Read FFT data using new API */
-	ret = adi_apollo_sniffer_fft_data_get(device, st->side_sel, config, &fft_data);
+	ret = adi_apollo_sniffer_fft_data_get(device, st->side_sel, config, fft_data);
 	if (ret) {
 		dev_err(st->dev, "Failed to get FFT data: %d\n", ret);
 		return ret;
@@ -150,20 +150,20 @@ static int ad9088_fft_sniffer_data_read(struct ad9088_fft_sniffer_state *st, adi
 	iq_mode = config->pgm.sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE;
 
 	/* Push data to IIO buffer */
-	for (i = 0; i < fft_data.valid_data_length; i++) {
+	for (i = 0; i < fft_data->valid_data_length; i++) {
 		j = 0;
 
 		if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_SI_INDEX))
-			st->buffer[j++] = iq_mode ? i : fft_data.bin_q_data[i];
+			st->buffer[j++] = iq_mode ? i : fft_data->bin_q_data[i];
 
 		if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_I_INDEX))
-			st->buffer[j++] = fft_data.mag_i_data[i];
+			st->buffer[j++] = fft_data->mag_i_data[i];
 
 		if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_Q_INDEX))
-			st->buffer[j++] = fft_data.bin_q_data[i];
+			st->buffer[j++] = fft_data->bin_q_data[i];
 
 		if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_MAGN_INDEX))
-			st->buffer[j++] = fft_data.mag_i_data[i];
+			st->buffer[j++] = fft_data->mag_i_data[i];
 
 		iio_push_to_buffers(st->indio_dev, st->buffer);
 	}
@@ -617,7 +617,7 @@ static void ad9088_fft_sniffer_sync_work_func(struct work_struct *work)
 {
 	struct ad9088_fft_sniffer_state *st =
 		container_of(work, struct ad9088_fft_sniffer_state, sync_work.work);
-	adi_apollo_sniffer_fft_data_t fft_data;
+	adi_apollo_sniffer_fft_data_t *fft_data = &st->phy->fft_data;
 	bool iq_mode;
 	int ret, i, j;
 
@@ -641,7 +641,7 @@ static void ad9088_fft_sniffer_sync_work_func(struct work_struct *work)
 	} else {
 		/* Polling mode: use complete data_get API */
 		ret = adi_apollo_sniffer_data_get(&st->phy->ad9088, st->side_sel,
-						  &st->sniffer_config_hw, &fft_data);
+						  &st->sniffer_config_hw, fft_data);
 		if (ret) {
 			dev_err(st->dev, "Failed to get FFT data (polling): %d\n", ret);
 			goto requeue;
@@ -650,20 +650,20 @@ static void ad9088_fft_sniffer_sync_work_func(struct work_struct *work)
 		iq_mode = st->sniffer_config_hw.pgm.sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE;
 
 		/* Push data to IIO buffer */
-		for (i = 0; i < fft_data.valid_data_length; i++) {
+		for (i = 0; i < fft_data->valid_data_length; i++) {
 			j = 0;
 
 			if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_SI_INDEX))
-				st->buffer[j++] = iq_mode ? i : fft_data.bin_q_data[i];
+				st->buffer[j++] = iq_mode ? i : fft_data->bin_q_data[i];
 
 			if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_I_INDEX))
-				st->buffer[j++] = fft_data.mag_i_data[i];
+				st->buffer[j++] = fft_data->mag_i_data[i];
 
 			if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_Q_INDEX))
-				st->buffer[j++] = fft_data.bin_q_data[i];
+				st->buffer[j++] = fft_data->bin_q_data[i];
 
 			if (st->indio_dev->active_scan_mask[0] & BIT(AD9088_FFT_SNIFFER_MAGN_INDEX))
-				st->buffer[j++] = fft_data.mag_i_data[i];
+				st->buffer[j++] = fft_data->mag_i_data[i];
 
 			iio_push_to_buffers(st->indio_dev, st->buffer);
 		}

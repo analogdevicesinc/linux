@@ -24,7 +24,7 @@
 static int ad9088_read_gpio_hop_array(struct device *dev, const char *propname,
 				      int8_t *array, size_t count)
 {
-	u32 tmp[count];
+	u32 tmp[ADI_APOLLO_GPIO_HOP_PROFILE_BIT_NUMBER]; /* max number */
 	int ret, i;
 
 	/* Initialize all to NONE (-1) */
