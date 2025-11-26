@@ -267,6 +267,7 @@ static int ad9088_jesd204_setup_stage1(struct jesd204_dev *jdev,
 	adi_apollo_device_t *device = &phy->ad9088;
 	u32 adc_cal_chans = device->dev_info.is_8t8r ? ADI_APOLLO_ADC_ALL : ADI_APOLLO_ADC_ALL_4T4R;
 	u32 n_adc = device->dev_info.is_8t8r ? ADI_APOLLO_ADC_ALL : ADI_APOLLO_ADC_ALL_4T4R;
+	adi_apollo_sysclock_cond_cfg_e cc_cal_cfg;
 	adi_apollo_init_cal_cfg_e init_cal_cfg;
 	u16 jrx_phase_adjust;
 	u8 is_adc_nvm_fused;
@@ -284,7 +285,16 @@ static int ad9088_jesd204_setup_stage1(struct jesd204_dev *jdev,
 		return ret;
 	}
 
-	ret = adi_apollo_cfg_clk_cond_cal_cfg_set(device, SYSCLKCONDITIONING_ENABLED);
+	if (phy->cal_data_loaded_from_fw) {
+		cc_cal_cfg = SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER;
+		dev_info(dev, "Run clock conditioning cal WARMBOOT from USER ...\n");
+	} else {
+		cc_cal_cfg = SYSCLKCONDITIONING_ENABLED;
+		dev_info(dev, "Run clock conditioning cal (can take up to %d secs)...\n",
+			 ADI_APOLLO_SYSCLK_COND_CENTER_MAX_TO);
+	}
+
+	ret = adi_apollo_cfg_clk_cond_cal_cfg_set(device, cc_cal_cfg);
 	if (ret) {
 		dev_err(dev, "Error in adi_apollo_cfg_clk_cond_cal_cfg_set %d\n", ret);
 		return ret;
@@ -333,19 +343,25 @@ static int ad9088_jesd204_setup_stage1(struct jesd204_dev *jdev,
 	}
 
 	/* ADC calibration */
-	ret = adi_apollo_hal_bf_get(device, BF_ADC_NVM_CALDATA_FUSED_INFO, &is_adc_nvm_fused, 1);
-	if (ret != API_CMS_ERROR_OK) {
-		dev_err(dev, "Error reading ADC NVM fused info %d\n", ret);
-		return ret;
+	if (!phy->cal_data_loaded_from_fw) {
+		ret = adi_apollo_hal_bf_get(device, BF_ADC_NVM_CALDATA_FUSED_INFO,
+					    &is_adc_nvm_fused, 1);
+		if (ret != API_CMS_ERROR_OK) {
+			dev_err(dev, "Error reading ADC NVM fused info %d\n", ret);
+			return ret;
+		}
+
+		if (is_adc_nvm_fused)
+			init_cal_cfg = ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_NVM;
+		else
+			init_cal_cfg = ADI_APOLLO_INIT_CAL_ENABLED;
+
+		dev_info(dev, "Run ADC cal from %s (can take up to 100 secs)...\n",
+			 is_adc_nvm_fused ? "NVM" : "scratch");
+	} else {
+		dev_info(dev, "Run ADC CAL WARMBOOT from USER\n");
+		init_cal_cfg = ADI_APOLLO_INIT_CAL_DISABLED_WARMBOOT_FROM_USER;
 	}
-
-	if (is_adc_nvm_fused)
-		init_cal_cfg = ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_NVM;
-	else
-		init_cal_cfg = ADI_APOLLO_INIT_CAL_ENABLED;
-
-	dev_info(dev, "Run ADC cal from %s (can take up to 100 secs)...\n",
-		 is_adc_nvm_fused ? "NVM" : "scratch");
 
 	ret = adi_apollo_adc_init_cal_start(device, adc_cal_chans, init_cal_cfg);
 	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_adc_init_cal_start");
@@ -448,12 +464,19 @@ static int ad9088_jesd204_clks_enable(struct jesd204_dev *jdev,
 
 	if (lnk->is_transmit && reason == JESD204_STATE_OP_REASON_INIT &&
 	    phy->profile.jrx[0].common_link_cfg.lane_rate_kHz > 8000000) {
-		dev_info(dev, "%s: SERDES JRx cal Rate %u kBps ...\n",
-			 ad9088_fsm_links_to_str[lnk->link_id],
-			 phy->profile.jrx[0].common_link_cfg.lane_rate_kHz);
+		adi_apollo_init_cal_cfg_e init_cal;
 
-		ret = adi_apollo_serdes_jrx_init_cal(&phy->ad9088, serdes,
-						     ADI_APOLLO_INIT_CAL_ENABLED);
+		dev_info(dev, "%s: SERDES JRx cal Rate %u kBps via %s ...\n",
+			 ad9088_fsm_links_to_str[lnk->link_id],
+			 phy->profile.jrx[0].common_link_cfg.lane_rate_kHz,
+			 phy->cal_data_loaded_from_fw ? "WARMBOOT_FROM_USER" : "INIT_CAL");
+
+		if (phy->cal_data_loaded_from_fw)
+			init_cal = ADI_APOLLO_INIT_CAL_DISABLED_WARMBOOT_FROM_USER;
+		else
+			init_cal = ADI_APOLLO_INIT_CAL_ENABLED;
+
+		ret = adi_apollo_serdes_jrx_init_cal(&phy->ad9088, serdes, init_cal);
 		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_serdes_jrx_init_cal");
 		if (ret)
 			return ret;
