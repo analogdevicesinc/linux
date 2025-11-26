@@ -259,18 +259,17 @@ static const struct ad4062_chip_info ad4062_chip_info = {
 	.max_avg = AD4062_MAX_AVG,
 };
 
-static ssize_t ad4062_events_frequency_show(struct device *dev,
-					    struct device_attribute *attr,
-					    char *buf)
+static ssize_t sampling_frequency_show(struct device *dev,
+				       struct device_attribute *attr, char *buf)
 {
 	struct ad4062_state *st = iio_priv(dev_to_iio_dev(dev));
 
 	return sysfs_emit(buf, "%d\n", ad4062_conversion_freqs[st->events_frequency]);
 }
 
-static ssize_t ad4062_events_frequency_store(struct device *dev,
-					     struct device_attribute *attr,
-					     const char *buf, size_t len)
+static ssize_t sampling_frequency_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t len)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad4062_state *st = iio_priv(indio_dev);
@@ -293,11 +292,10 @@ static ssize_t ad4062_events_frequency_store(struct device *dev,
 
 out_release:
 	iio_device_release_direct(indio_dev);
-	return ret ? ret : len;
+	return ret ?: len;
 }
 
-static IIO_DEVICE_ATTR(sampling_frequency, 0644, ad4062_events_frequency_show,
-		       ad4062_events_frequency_store, 0);
+static IIO_DEVICE_ATTR_RW(sampling_frequency, 0);
 
 static ssize_t sampling_frequency_available_show(struct device *dev,
 						 struct device_attribute *attr,
@@ -555,12 +553,12 @@ static void ad4062_ibi_handler(struct i3c_device *i3cdev,
 						    IIO_EV_TYPE_THRESH,
 						    IIO_EV_DIR_EITHER),
 			       iio_get_time_ns(st->indio_dev));
-	} else {
-		if (iio_buffer_enabled(st->indio_dev))
-			iio_trigger_poll_nested(st->trigger);
-		else
-			complete(&st->completion);
+		return;
 	}
+	if (iio_buffer_enabled(st->indio_dev))
+		iio_trigger_poll_nested(st->trigger);
+	else
+		complete(&st->completion);
 }
 
 static void ad4062_trigger_work(struct work_struct *work)
@@ -935,14 +933,9 @@ out_release:
 	return ret;
 }
 
-static int ad4062_monitor_mode_enable(struct ad4062_state *st, bool enable)
+static int ad4062_monitor_mode_enable(struct ad4062_state *st)
 {
-	int ret = 0;
-
-	if (!enable) {
-		pm_runtime_put_autosuspend(&st->i3cdev->dev);
-		return 0;
-	}
+	int ret;
 
 	ACQUIRE(pm_runtime_active_try_enabled, pm)(&st->i3cdev->dev);
 	ret = ACQUIRE_ERR(pm_runtime_active_try_enabled, &pm);
@@ -958,6 +951,12 @@ static int ad4062_monitor_mode_enable(struct ad4062_state *st, bool enable)
 		return ret;
 
 	pm_runtime_get_noresume(&st->i3cdev->dev);
+	return 0;
+}
+
+static int ad4062_monitor_mode_disable(struct ad4062_state *st)
+{
+	pm_runtime_put_autosuspend(&st->i3cdev->dev);
 	return 0;
 }
 
@@ -982,14 +981,16 @@ static int ad4062_write_event_config(struct iio_dev *indio_dev,
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	if (st->wait_event == state) {
+	if (st->wait_event == state)
 		ret = 0;
+	else if (state)
+		ret = ad4062_monitor_mode_enable(st);
+	else
+		ret = ad4062_monitor_mode_disable(st);
+	if (ret)
 		goto out_release;
-	}
 
-	ret = ad4062_monitor_mode_enable(st, state);
-	if (!ret)
-		st->wait_event = state;
+	st->wait_event = state;
 
 out_release:
 	iio_device_release_direct(indio_dev);
@@ -1060,7 +1061,7 @@ static int ad4062_read_event_value(struct iio_dev *indio_dev,
 
 out_release:
 	iio_device_release_direct(indio_dev);
-	return ret ? ret : IIO_VAL_INT;
+	return ret ?: IIO_VAL_INT;
 }
 
 static int __ad4062_write_event_info_value(struct ad4062_state *st,
@@ -1068,7 +1069,7 @@ static int __ad4062_write_event_info_value(struct ad4062_state *st,
 {
 	u8 reg;
 
-	if (val > 2047 || val < -2048)
+	if (val != sign_extend32(val, 11))
 		return -EINVAL;
 	if (dir == IIO_EV_DIR_RISING)
 		reg = AD4062_REG_MAX_LIMIT;
@@ -1085,7 +1086,7 @@ static int __ad4062_write_event_info_hysteresis(struct ad4062_state *st,
 {
 	u8 reg;
 
-	if (val >= BIT(7))
+	if (val & ~GENMASK(6,0))
 		return -EINVAL;
 	if (dir == IIO_EV_DIR_RISING)
 		reg = AD4062_REG_MAX_HYST;
