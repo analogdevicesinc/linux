@@ -21,8 +21,7 @@ allOf:
 
 properties:
   compatible:
-    enum:
-      - adi,spi3
+    const: adi,spi3
 
   reg:
     maxItems: 1
@@ -52,23 +51,6 @@ properties:
       - const: rx
       - const: tx
 
-patternProperties:
-  "^[a-zA-Z][a-zA-Z0-9,+\\-._]{0,63}@[0-9a-f]+$":
-    type: object
-    # SPI slave nodes must be children of the SPI master node and can
-    # contain the following properties.
-    properties:
-      adi,enable-dma:
-        description: |
-          Use DMA for data transfers to/from SPI controller.
-      adi,open-drain-mode:
-        description: |
-          Enable ODM - Open Drain Mode for all output pins.
-      adi,psse:
-        description: |
-          Enable PSSE - Controls signalling of MODF error.
-    additionalProperties: false
-
 required:
   - compatible
   - reg
@@ -90,15 +72,15 @@ examples:
       interrupts = <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>;
       clocks = <&adi_spi_v3_clk>;
       clock-names = "spi";
-      dmas = <&pdma 0>, <&pdma 1>;
-      dma-names = "tx", "rx";
+      dmas = <&pdma 1>, <&pdma 0>;
+      dma-names = "rx", "tx";
       pinctrl-names = "default";
       pinctrl-0 = <&spi3_default>;
       cs-gpios = <0>, <&gpa 13 GPIO_ACTIVE_LOW>;
       status = "disabled";
 
-      spidev@0 {
-        compatible = "rohm,dh2228fv";
+      flash@0 {
+        compatible = "jedec,spi-nor";
         reg = <0>;
         spi-max-frequency = <4000000>;
         spi-cpol;
@@ -107,12 +89,4 @@ examples:
         adi,open-drain-mode;
         adi,psse;
       };
-
-      spidev@1 {
-        compatible = "rohm,dh2228fv";
-        reg = <1>;
-        spi-max-frequency = <4000000>;
-      };
     };
-
-...
