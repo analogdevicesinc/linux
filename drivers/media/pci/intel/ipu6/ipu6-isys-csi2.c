@@ -457,6 +457,8 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 		return ret;
 	}
 
+	list_add(&av->csi2_entry, &csi2->av_head);
+
 	ret = ipu6_isys_start_stream_firmware(av, &bl);
 	if (ret) {
 		dev_err(sd->dev, "start stream of firmware failed\n");
@@ -493,6 +495,7 @@ err_stop_stream_firmware:
 	ipu6_isys_close_streaming_firmware(av);
 
 err_return_buffers:
+	list_del(&av->csi2_entry);
 	ipu6_isys_buffer_list_queue(&bl, IPU6_ISYS_BUFFER_LIST_FL_INCOMING, 0);
 
 	return ret;
@@ -529,6 +532,8 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 	v4l2_subdev_disable_streams(remote_sd, remote_pad->index, sink_streams);
 
 	ipu6_isys_close_streaming_firmware(av);
+
+	list_del(&av->csi2_entry);
 
 	return 0;
 }
@@ -675,6 +680,7 @@ int ipu6_isys_csi2_init(struct ipu6_isys_csi2 *csi2,
 	if (ret)
 		goto fail;
 
+	INIT_LIST_HEAD(&csi2->av_head);
 	csi2->asd.source = IPU6_FW_ISYS_STREAM_SRC_CSI2_PORT0 + index;
 	csi2->asd.supported_codes = csi2_supported_codes;
 	snprintf(csi2->asd.sd.name, sizeof(csi2->asd.sd.name),

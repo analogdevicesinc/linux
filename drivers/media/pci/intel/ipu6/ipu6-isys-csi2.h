@@ -41,6 +41,7 @@ struct ipu6_isys_csi2 {
 	struct ipu6_isys_subdev asd;
 	struct ipu6_isys *isys;
 	struct ipu6_isys_video av[NR_OF_CSI2_SRC_PADS];
+	struct list_head av_head;
 
 	void __iomem *base;
 	u32 receiver_errors;
