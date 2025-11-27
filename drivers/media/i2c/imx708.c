@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <media/mipi-csi2.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-event.h>
@@ -127,6 +128,9 @@ MODULE_PARM_DESC(qbc_adjust, "Quad Bayer broken line correction strength [0,2-5]
 #define IMX708_EMBEDDED_LINE_WIDTH (5 * 5760)
 #define IMX708_NUM_EMBEDDED_LINES 1
 
+#define IMX708_STREAM_IMAGE  0
+#define IMX708_STREAM_EDATA  1
+
 enum pad_types {
 	IMAGE_PAD,
 	METADATA_PAD,
@@ -188,6 +192,9 @@ struct imx708_mode {
 
 	/* Quad Bayer Re-mosaic flag */
 	bool remosaic;
+
+	/* MIPI Data Type */
+	u8 dt;
 };
 
 /* Default PDAF pixel correction gains */
@@ -693,7 +700,8 @@ static const struct imx708_mode supported_modes_10bit_no_hdr[] = {
 		.exposure_lines_min = 8,
 		.exposure_lines_step = 1,
 		.hdr = false,
-		.remosaic = true
+		.remosaic = true,
+		.dt = MIPI_CSI2_DT_RAW10,
 	},
 	{
 		/* regular 2x2 binned. */
@@ -716,7 +724,8 @@ static const struct imx708_mode supported_modes_10bit_no_hdr[] = {
 		.exposure_lines_min = 4,
 		.exposure_lines_step = 2,
 		.hdr = false,
-		.remosaic = false
+		.remosaic = false,
+		.dt = MIPI_CSI2_DT_RAW10,
 	},
 	{
 		/* 2x2 binned and cropped for 720p. */
@@ -739,7 +748,8 @@ static const struct imx708_mode supported_modes_10bit_no_hdr[] = {
 		.exposure_lines_min = 4,
 		.exposure_lines_step = 2,
 		.hdr = false,
-		.remosaic = false
+		.remosaic = false,
+		.dt = MIPI_CSI2_DT_RAW10,
 	},
 };
 
@@ -765,7 +775,8 @@ static const struct imx708_mode supported_modes_10bit_hdr[] = {
 		.exposure_lines_min = 8 * IMX708_HDR_EXPOSURE_RATIO * IMX708_HDR_EXPOSURE_RATIO,
 		.exposure_lines_step = 2 * IMX708_HDR_EXPOSURE_RATIO * IMX708_HDR_EXPOSURE_RATIO,
 		.hdr = true,
-		.remosaic = false
+		.remosaic = false,
+		.dt = MIPI_CSI2_DT_RAW10,
 	}
 };
 
@@ -1752,6 +1763,30 @@ static int imx708_identify_module(struct imx708 *imx708)
 	return 0;
 }
 
+static int imx708_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				 struct v4l2_mbus_frame_desc *fd)
+{
+	struct imx708 *sensor = to_imx708(sd);
+
+	if (pad >= NUM_PADS)
+		return -EINVAL;
+
+	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+	fd->num_entries = 2;
+
+	fd->entry[0].pixelcode = imx708_get_format_code(sensor);
+	fd->entry[0].stream = IMX708_STREAM_IMAGE;
+	fd->entry[0].bus.csi2.vc = 0;
+	fd->entry[0].bus.csi2.dt = sensor->mode->dt;
+
+	fd->entry[1].pixelcode = MEDIA_BUS_FMT_CCS_EMBEDDED;
+	fd->entry[1].stream = IMX708_STREAM_EDATA;
+	fd->entry[1].bus.csi2.vc = 0;
+	fd->entry[1].bus.csi2.dt = MIPI_CSI2_DT_EMBEDDED_8B;
+
+	return 0;
+}
+
 static const struct v4l2_subdev_core_ops imx708_core_ops = {
 	.subscribe_event = v4l2_ctrl_subdev_subscribe_event,
 	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
@@ -1767,6 +1802,7 @@ static const struct v4l2_subdev_pad_ops imx708_pad_ops = {
 	.set_fmt = imx708_set_pad_format,
 	.get_selection = imx708_get_selection,
 	.enum_frame_size = imx708_enum_frame_size,
+	.get_frame_desc = imx708_get_frame_desc,
 };
 
 static const struct v4l2_subdev_ops imx708_subdev_ops = {
