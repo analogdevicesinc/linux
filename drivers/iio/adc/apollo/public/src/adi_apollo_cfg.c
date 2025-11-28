@@ -264,7 +264,7 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_set(adi_apollo_device_t *device, const
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device, i,
                 ADI_APOLLO_SERDES_RX_CAL_OBJ_SIZE, ADI_APOLLO_SERDES_RX_CAL_OBJ_OFFSET,
-                ADI_APOLLO_CPU_1_FW_SERDES_RX_OBJ_PTR, ADI_APOLLO_CPU_1_FW_SERDES_RX_SIZE_PTR,
+                ADI_APOLLO_CPU_0_FW_SERDES_RX_OBJ_PTR, ADI_APOLLO_CPU_0_FW_SERDES_RX_SIZE_PTR,
                 &size_bytes, &address);
 
             ADI_APOLLO_ERROR_RETURN(err);
@@ -418,7 +418,7 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_get(adi_apollo_device_t* device, const
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device, i,
                 ADI_APOLLO_SERDES_RX_CAL_OBJ_SIZE, ADI_APOLLO_SERDES_RX_CAL_OBJ_OFFSET,
-                ADI_APOLLO_CPU_1_FW_SERDES_RX_OBJ_PTR, ADI_APOLLO_CPU_1_FW_SERDES_RX_SIZE_PTR,
+                ADI_APOLLO_CPU_0_FW_SERDES_RX_OBJ_PTR, ADI_APOLLO_CPU_0_FW_SERDES_RX_SIZE_PTR,
                 &size_bytes, &address);
             ADI_APOLLO_ERROR_RETURN(err);
 
@@ -528,7 +528,7 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_len_get(adi_apollo_device_t* device, u
     /* Get the cal data size in byes. Same length for all ADC instances */
     err = cal_data_len_get(device,
         ADI_APOLLO_SERDES_RX_CAL_OBJ_OFFSET,
-        ADI_APOLLO_CPU_1_FW_SERDES_RX_SIZE_PTR,
+        ADI_APOLLO_CPU_0_FW_SERDES_RX_SIZE_PTR,
         len);
 
     /* Add 32-bit checksum */

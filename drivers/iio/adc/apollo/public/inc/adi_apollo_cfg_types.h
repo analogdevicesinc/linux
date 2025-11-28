@@ -72,9 +72,9 @@
 #define ADI_APOLLO_CPU_1_FW_DAC_TX_OBJ_PTR              (0x21000540U)         /*!< DAC Tx object pointer */
 #define ADI_APOLLO_CPU_1_FW_DAC_TX_SIZE_PTR             (0x21000544U)         /*!< DAC Tx size pointer */
 #define ADI_APOLLO_CPU_1_FW_DAC_TX_VERSION_PTR          (0x21000548U)         /*!< DAC Tx version pointer */
-#define ADI_APOLLO_CPU_1_FW_SERDES_RX_OBJ_PTR           (0x2100054CU)         /*!< Serdes Rx object pointer */
-#define ADI_APOLLO_CPU_1_FW_SERDES_RX_SIZE_PTR          (0x21000550U)         /*!< Serdes Rx size pointer */
-#define ADI_APOLLO_CPU_1_FW_SERDES_RX_VERSION_PTR       (0x21000554U)         /*!< Serdes Rx version pointer */
+#define ADI_APOLLO_CPU_0_FW_SERDES_RX_OBJ_PTR           (0x20000224U)         /*!< Serdes Rx object pointer */
+#define ADI_APOLLO_CPU_0_FW_SERDES_RX_SIZE_PTR          (0x20000228U)         /*!< Serdes Rx size pointer */
+#define ADI_APOLLO_CPU_0_FW_SERDES_RX_VERSION_PTR       (0x2000022CU)         /*!< Serdes Rx version pointer */
 #define ADI_APOLLO_CPU_1_FW_SERDES_TX_OBJ_PTR           (0x21000558U)         /*!< Serdes Tx object pointer */
 #define ADI_APOLLO_CPU_1_FW_SERDES_TX_SIZE_PTR          (0x2100055CU)         /*!< Serdes Tx size pointer */
 #define ADI_APOLLO_CPU_1_FW_SERDES_TX_VERSION_PTR       (0x21000560U)         /*!< Serdes Tx version pointer */
