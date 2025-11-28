@@ -235,7 +235,7 @@ static int ad4062_set_oversampling_ratio(struct ad4062_state *st, unsigned int v
 		if (ret)
 			return ret;
 	}
-	st->oversamp_ratio = BIT(val);
+	st->oversamp_ratio = val;
 
 	return 0;
 }
@@ -258,12 +258,17 @@ static int ad4062_get_oversampling_ratio(struct ad4062_state *st,
 	return ret;
 }
 
-static int ad4062_calc_sampling_frequency(int fosc, unsigned int n_avg)
+static int ad4062_calc_sampling_frequency(int fosc, unsigned int oversamp_ratio)
 {
 	/* See datasheet page 31 */
-	u64 duration = div_u64((u64)(n_avg - 1) * NSEC_PER_SEC, fosc) + AD4062_TCONV_NS;
+	u32 n_avg = BIT(oversamp_ratio) - 1;
+	u32 period = NSEC_PER_SEC / fosc;
 
-	return DIV_ROUND_UP_ULL(NSEC_PER_SEC, duration);
+	/* Result is less than 1 Hz */
+	if (n_avg >= fosc)
+		return 1;
+
+	return NSEC_PER_SEC / (n_avg * period + AD4062_TCONV_NS);
 }
 
 static int ad4062_populate_sampling_frequency(struct ad4062_state *st)
@@ -495,7 +500,7 @@ static int ad4062_read_avail(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 		*vals = st->samp_freqs;
-		*len = st->oversamp_ratio == 1 ? 1 : ARRAY_SIZE(ad4062_conversion_freqs);
+		*len = st->oversamp_ratio ? ARRAY_SIZE(ad4062_conversion_freqs) : 1;
 		*type = IIO_VAL_INT;
 
 		return IIO_AVAIL_LIST;
@@ -793,7 +798,7 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 	st->mode = AD4062_SAMPLE_MODE;
 	st->chip = chip;
 	st->sampling_frequency = 0;
-	st->oversamp_ratio = BIT(0);
+	st->oversamp_ratio = 0;
 	st->indio_dev = indio_dev;
 	st->reg_addr_conv = AD4062_REG_CONV_TRIGGER;
 
