@@ -396,7 +396,6 @@ static void adi_sdhci_hw_reset(struct sdhci_host *host)
  */
 static int adi_sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
-	int err = 0;
 	unsigned int tuning_count = 0;
 	bool hs400_tuning;
 
@@ -415,7 +414,6 @@ static int adi_sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
 	switch (host->timing) {
 	/* HS400 tuning is done in HS200 mode */
 	case MMC_TIMING_MMC_HS400:
-		err = -EINVAL;
 		goto out;
 
 	case MMC_TIMING_MMC_HS200:
