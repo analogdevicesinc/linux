@@ -648,12 +648,9 @@ void ipu6_isys_configure_stream_watermark(struct ipu6_isys_video *av,
 	struct ipu6_isys_csi2 *csi2 = NULL;
 	struct isys_iwake_watermark *iwake_watermark = &isys->iwake_watermark;
 	struct device *dev = &isys->adev->auxdev.dev;
-	struct v4l2_mbus_framefmt format;
 	struct v4l2_subdev *esd;
 	struct v4l2_control hb = { .id = V4L2_CID_HBLANK, .value = 0 };
-	unsigned int bpp, lanes;
-	s64 link_freq = 0;
-	u64 pixel_rate = 0;
+	s64 link_freq;
 	int ret;
 
 	esd = media_entity_to_v4l2_subdev(source);
@@ -671,28 +668,26 @@ void ipu6_isys_configure_stream_watermark(struct ipu6_isys_video *av,
 
 	csi2 = ipu6_isys_subdev_to_csi2(av->stream->asd);
 	link_freq = ipu6_isys_csi2_get_link_freq(csi2);
-	if (link_freq > 0) {
-		struct v4l2_subdev_state *state =
-			v4l2_subdev_lock_and_get_active_state(&csi2->asd.sd);
-
-		lanes = csi2->nlanes;
-		format = *v4l2_subdev_state_get_format(state, 0,
-						       av->source_stream);
-		bpp = ipu6_isys_mbus_code_to_bpp(format.code);
-		pixel_rate = mul_u64_u32_div(link_freq, lanes * 2, bpp);
-
-		v4l2_subdev_unlock_state(state);
-	}
-
-	av->watermark.pixel_rate = pixel_rate;
-
-	if (!pixel_rate) {
+	if (link_freq <= 0) {
 		mutex_lock(&iwake_watermark->mutex);
 		iwake_watermark->force_iwake_disable = true;
 		mutex_unlock(&iwake_watermark->mutex);
-		dev_warn(dev, "unexpected pixel_rate from %s, disable iwake.\n",
+		dev_warn(dev, "unexpected link_freq from %s, disable iwake\n",
 			 source->name);
+		return;
 	}
+
+	struct v4l2_subdev_state *state;
+	struct v4l2_mbus_framefmt *format;
+	unsigned int bpp;
+
+	state = v4l2_subdev_lock_and_get_active_state(&csi2->asd.sd);
+	format = v4l2_subdev_state_get_format(state, 0, av->source_stream);
+	bpp = ipu6_isys_mbus_code_to_bpp(format->code);
+	v4l2_subdev_unlock_state(state);
+
+	av->watermark.pixel_rate = mul_u64_u32_div(link_freq, csi2->nlanes * 2,
+						   bpp);
 }
 
 static void calculate_stream_datarate(struct ipu6_isys_video *av)
