@@ -615,10 +615,7 @@ static int adrv906x_phy_parse_message(struct genl_info *info, u32 *dev_id, u32 *
 
 static int __pll_cfg_done_recv(struct sk_buff *skb, struct genl_info *info)
 {
-	struct adrv906x_serdes *serdes;
 	struct adrv906x_pll *pll;
-	struct phy_device *phydev;
-	struct net_device *netdev;
 	u32 dev_id, speed;
 	int ret;
 
@@ -632,16 +629,6 @@ static int __pll_cfg_done_recv(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	pll = adrv906x_pll_instance_get(dev_id);
-
-	if (adrv906x_serdes_instance_get(2 * pll->dev_id))
-		serdes = adrv906x_serdes_instance_get(2 * pll->dev_id);
-	else
-		serdes = adrv906x_serdes_instance_get(2 * pll->dev_id + 1);
-
-	phydev = serdes->phydev;
-	netdev = phydev->attached_dev;
-
-	adrv906x_eth_cmn_serdes_reset(netdev);
 	adrv906x_phy_fsm_trigger_transition(&pll->fsm, PLL_EVT_CFG_DONE);
 
 	return 0;
@@ -905,7 +892,13 @@ static void __sd_pwr_down(void *param)
 	serdes->rx_path_en(phydev, false);
 	serdes->tx_path_en(phydev, false);
 	phy_trigger_machine(phydev);
-	adrv906x_eth_cmn_ser_pwr_down(netdev);
+
+	/* adrv906x_eth_cmn_ser_pwr_down(netdev);
+	 * This call was intentionally disabled because the serializer circuit can degrade
+	 * over time if powered down. As a workaround, we keep the serializer powered after
+	 * an administrative link-down event to reduce aging effects.
+	 */
+
 	adrv906x_eth_cmn_deser_pwr_down(netdev);
 }
 

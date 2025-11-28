@@ -11,7 +11,6 @@
 #include "adrv906x-net.h"
 
 void adrv906x_eth_cmn_pll_reset(struct net_device *ndev);
-void adrv906x_eth_cmn_serdes_reset(struct net_device *ndev);
 void adrv906x_eth_cmn_ser_tx_sync_trigger(struct net_device *ndev);
 void adrv906x_eth_cmn_ser_pwr_down(struct net_device *ndev);
 void adrv906x_eth_cmn_ser_pwr_up_and_reset(struct net_device *ndev);

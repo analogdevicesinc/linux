@@ -88,14 +88,9 @@ void adrv906x_eth_cmn_pll_reset(struct net_device *ndev)
 	mutex_unlock(&eth_if->mtx);
 }
 
-void adrv906x_eth_cmn_serdes_reset(struct net_device *ndev)
+static void adrv906x_eth_cmn_serdes_4pack_reset(void __iomem *regs)
 {
-	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
-	void __iomem *regs = eth_if->emac_cmn_regs;
 	unsigned int val;
-
-	mutex_lock(&eth_if->mtx);
 
 	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
 
@@ -120,8 +115,6 @@ void adrv906x_eth_cmn_serdes_reset(struct net_device *ndev)
 	val |= EMAC_CMN_RXDES_DIG_RESET_N_0 |
 	       EMAC_CMN_RXDES_DIG_RESET_N_1;
 	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
-
-	mutex_unlock(&eth_if->mtx);
 }
 
 void adrv906x_eth_cmn_ser_tx_sync_trigger(struct net_device *ndev)
@@ -326,6 +319,8 @@ void adrv906x_eth_cmn_init(void __iomem *regs, bool switch_enabled, bool macsec_
 
 	iowrite32(val1, regs + EMAC_CMN_DIGITAL_CTRL0);
 	iowrite32(val2, regs + EMAC_CMN_DIGITAL_CTRL3);
+
+	adrv906x_eth_cmn_serdes_4pack_reset(regs);
 }
 
 void adrv906x_cmn_pcs_link_drop_cnt_clear(struct adrv906x_eth_if *adrv906x_eth)
