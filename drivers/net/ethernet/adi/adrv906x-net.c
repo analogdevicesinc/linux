@@ -1137,9 +1137,11 @@ static void adrv906x_eth_remove(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < MAX_NETDEV_NUM; i++) {
-		adrv906x_ndma_remove(eth_if->adrv906x_dev[i]->ndma_dev);
-		if (es->enabled)
-			break;
+		if (eth_if->adrv906x_dev[i]->ndma_dev) {
+			adrv906x_ndma_remove(eth_if->adrv906x_dev[i]->ndma_dev);
+			if (es->enabled)
+				break;
+		}
 	}
 
 	adrv906x_mdio_unregister(eth_if);
