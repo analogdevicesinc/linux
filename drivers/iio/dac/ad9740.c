@@ -4,6 +4,21 @@
  * 8/10/12/14-Bit, 210 MSPS Digital-to-Analog Converters
  *
  * Copyright 2025 Analog Devices Inc.
+ *
+ * MSB Alignment Requirements:
+ * The AD974x family DACs expect MSB-aligned data in their internal 14-bit bus.
+ * This driver handles the alignment by configuring the IIO scan_type.shift field
+ * to indicate how many bits the data should be shifted left.
+ *
+ * Data Format per Device:
+ * - AD9748 (8-bit):  Bits [15:8] of 16-bit word → DAC bits [13:6], shift=8
+ * - AD9740 (10-bit): Bits [15:6] of 16-bit word → DAC bits [13:4], shift=6
+ * - AD9742 (12-bit): Bits [15:4] of 16-bit word → DAC bits [13:2], shift=4
+ * - AD9744 (14-bit): Bits [13:0] of 16-bit word → DAC bits [13:0], shift=0
+ *
+ * Note: AD9744 extracts bits[13:0] directly, not bits[15:2] as the formula
+ * (16 - resolution) would suggest. Userspace should provide data in the
+ * lower 14 bits for AD9744, and MSB-aligned for other variants.
  */
 
 #include <linux/delay.h>
@@ -119,15 +134,26 @@ static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
 		dev_info(st->dev, "Configuring data format: offset binary\n");
 	}
 
-	dev_info(st->dev, "Setting backend data format (%u-bit in 16-bit container)\n",
+	/*
+	 * AD974x DACs expect data aligned in a 14-bit internal bus:
+	 * - AD9748 (8-bit):  Data from bits [15:8] → DAC [13:6], shift=8
+	 * - AD9740 (10-bit): Data from bits [15:6] → DAC [13:4], shift=6
+	 * - AD9742 (12-bit): Data from bits [15:4] → DAC [13:2], shift=4
+	 * - AD9744 (14-bit): Data from bits [13:0] → DAC [13:0], shift=0
+	 *
+	 * The IIO framework handles this via the .shift field in scan_type.
+	 * AD9744 is special: it extracts lower 14 bits directly (no MSB alignment).
+	 */
+	dev_info(st->dev, "Setting backend data format (%u-bit MSB-aligned in 16-bit container)\n",
 		 st->chip_info->resolution);
-	/* Configure data format: N-bit in 16-bit container */
+
+	/* Configure data format: N-bit MSB-aligned in 16-bit container */
 	ret = iio_backend_data_format_set(st->back, 0, &fmt);
 	if (ret) {
 		dev_err(st->dev, "Failed to set data format: %d\n", ret);
 		goto err_unlock;
 	}
-	dev_info(st->dev, "Data format configured successfully\n");
+	dev_info(st->dev, "Data format configured successfully (MSB-aligned)\n");
 
 	/* Enable data streaming from DMA to DAC core */
 	dev_info(st->dev, "Enabling backend data stream\n");
@@ -276,9 +302,34 @@ static const struct iio_chan_spec_ext_info ad9740_ext_info[] = {
 
 static int ad9740_setup(struct ad9740_state *st)
 {
+	struct iio_backend_data_fmt fmt = {
+		.sign_extend = false,
+		.enable = true,
+	};
 	int ret;
 
 	dev_info(st->dev, "Starting %s setup\n", st->chip_info->name);
+
+	/*
+	 * Configure data format based on DT setting.
+	 * This must be done at probe time so both DMA and DDS modes work.
+	 * The DDS (CORDIC) always outputs signed (2's complement) data,
+	 * so the backend needs to know whether to convert it to unsigned
+	 * (offset binary) for the DAC.
+	 */
+	if (st->twos_complement) {
+		fmt.type = IIO_BACKEND_TWOS_COMPLEMENT;
+		dev_info(st->dev, "Configuring data format: 2's complement (signed DAC)\n");
+	} else {
+		fmt.type = IIO_BACKEND_OFFSET_BINARY;
+		dev_info(st->dev, "Configuring data format: offset binary (unsigned DAC)\n");
+	}
+
+	ret = iio_backend_data_format_set(st->back, 0, &fmt);
+	if (ret) {
+		dev_err(st->dev, "Failed to set data format: %d\n", ret);
+		return ret;
+	}
 
 	/* Set data source to external (from DMA) */
 	dev_info(st->dev, "Initializing data source to DMA mode\n");
@@ -303,7 +354,7 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 	.predisable = ad9740_buffer_predisable,
 };
 
-#define AD974X_CHANNEL(ch, bits) { \
+#define AD974X_CHANNEL(ch, bits, shft) { \
 	.type = IIO_ALTVOLTAGE, \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
 	.output = 1, \
@@ -314,24 +365,25 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 		.sign = 'u', \
 		.realbits = (bits), \
 		.storagebits = 16, \
+		.shift = (shft), \
 		.endianness = IIO_BE, \
 	} \
 }
 
 static const struct iio_chan_spec ad9748_channels[] = {
-	AD974X_CHANNEL(0, 8),
+	AD974X_CHANNEL(0, 8, 8),   /* 8-bit: shift=8, data in bits[15:8] */
 };
 
 static const struct iio_chan_spec ad9740_channels[] = {
-	AD974X_CHANNEL(0, 10),
+	AD974X_CHANNEL(0, 10, 6),  /* 10-bit: shift=6, data in bits[15:6] */
 };
 
 static const struct iio_chan_spec ad9742_channels[] = {
-	AD974X_CHANNEL(0, 12),
+	AD974X_CHANNEL(0, 12, 4),  /* 12-bit: shift=4, data in bits[15:4] */
 };
 
 static const struct iio_chan_spec ad9744_channels[] = {
-	AD974X_CHANNEL(0, 14),
+	AD974X_CHANNEL(0, 14, 0),  /* 14-bit: shift=0, data in bits[13:0] */
 };
 
 static const struct iio_info ad9740_info = {
@@ -569,6 +621,6 @@ static struct platform_driver ad9740_driver = {
 module_platform_driver(ad9740_driver);
 
 MODULE_AUTHOR("Analog Devices Inc.");
-MODULE_DESCRIPTION("Analog Devices AD9740/AD9742/AD9744/AD9748 DAC Driver");
+MODULE_DESCRIPTION("Analog Devices AD9740/AD9742/AD9744/AD9748 DAC Driver with MSB Alignment");
 MODULE_LICENSE("GPL");
 MODULE_IMPORT_NS(IIO_BACKEND);
