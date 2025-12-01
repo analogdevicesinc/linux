@@ -199,6 +199,29 @@ struct ad9088_debugfs_entry {
 	u8 cmd;
 };
 
+/**
+ * struct ad9088_chan_map - IIO channel to hardware block mapping
+ * @fddc_num: FDDC number (0-7 per side)
+ * @fddc_mask: FDDC bitmask (ADI_APOLLO_FDDC_Ax or ADI_APOLLO_FDDC_Bx)
+ * @cddc_num: CDDC number (0-3 per side for 8T8R, 0-1 for 4T4R)
+ * @cddc_mask: CDDC bitmask (ADI_APOLLO_CNCO_Ax or ADI_APOLLO_CNCO_Bx)
+ * @adcdac_num: ADC/DAC number (0-3 per side)
+ * @adcdac_mask: ADC/DAC bitmask (ADI_APOLLO_ADC_Ax or ADI_APOLLO_DAC_Ax)
+ * @side: Chip side (0=A, 1=B)
+ *
+ * Pre-computed mapping from IIO channel to hardware blocks.
+ * Derived from profile mux configuration at init time.
+ */
+struct ad9088_chan_map {
+	u8 fddc_num;
+	u32 fddc_mask;
+	u8 cddc_num;
+	u32 cddc_mask;
+	u8 adcdac_num;
+	u32 adcdac_mask;
+	u8 side;
+};
+
 struct ad9088_phy {
 	struct spi_device *spi;
 	struct jesd204_dev *jdev;
@@ -316,6 +339,10 @@ struct ad9088_phy {
 	u8 *cal_restore_buf;
 	size_t cal_restore_size;
 	size_t cal_restore_received;
+
+	/* Pre-computed IIO channel to hardware block mapping (indexed by chan->address) */
+	struct ad9088_chan_map rx_chan_map[MAX_NUM_CHANNELIZER];
+	struct ad9088_chan_map tx_chan_map[MAX_NUM_CHANNELIZER];
 };
 
 extern int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
@@ -330,6 +357,16 @@ extern int32_t adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy,
 extern void ad9088_iiochan_to_fddc_cddc(struct ad9088_phy *phy, const struct iio_chan_spec *chan,
 										u8 *fddc_num, u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
 										u8 *side);
+extern void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
+						     const struct iio_chan_spec *chan,
+						     u8 *fddc_num, u32 *fddc_mask,
+						     u8 *cddc_num, u32 *cddc_mask,
+						     u8 *adcdac_num, u32 *adcdac_mask,
+						     u8 *side);
+
+extern const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
+						  const struct iio_chan_spec *chan);
+
 extern ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev,
 										uintptr_t private,
 										const struct iio_chan_spec *chan, char *buf);

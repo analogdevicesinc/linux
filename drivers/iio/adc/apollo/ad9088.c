@@ -586,47 +586,361 @@ static int ad9088_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return 0;
 }
 
+/**
+ * ad9088_iiochan_to_fddc_cddc_from_profile - Map IIO channel to FDDC/CDDC/ADC/DAC using profile mux config
+ * @phy: Pointer to the ad9088_phy structure
+ * @chan: IIO channel specification
+ * @fddc_num: Output - FDDC number (0-7 per side)
+ * @fddc_mask: Output - FDDC bitmask (ADI_APOLLO_FNCO_Ax or ADI_APOLLO_FNCO_Bx)
+ * @cddc_num: Output - CDDC number (0-3 per side for 8T8R, 0-1 for 4T4R)
+ * @cddc_mask: Output - CDDC bitmask (ADI_APOLLO_CNCO_Ax or ADI_APOLLO_CNCO_Bx)
+ * @adcdac_num: Output - ADC/DAC number (0-3 per side)
+ * @adcdac_mask: Output - ADC/DAC bitmask (ADI_APOLLO_ADC_Ax or ADI_APOLLO_DAC_Ax)
+ * @side: Output - Chip side (0=A, 1=B)
+ *
+ * This function derives the FDDC, CDDC, and ADC/DAC mapping from the profile's
+ * mux configuration rather than using hardcoded values.
+ *
+ * For RX path:
+ *   - MUX3 (sample_xbar_sel[]) in JTX config maps each virtual converter (IIO channel)
+ *     to its FDDC source (RX0-RX7). The enum value encodes: RXn_BAND_x_DATA_[I|Q]
+ *   - MUX2 (mux2_fddc_input_sel[]) maps CDDC to FDDC
+ *   - MUX0 (mux0_out_adc_sel[]) maps ADC to crossbar output (CDDC)
+ *
+ * For TX path:
+ *   - MUX3 (sample_xbar_sel[]) in JRX config maps virtual converters to FDUCs
+ *   - fduc_cduc_summer[] maps FDUCs to CDUCs
+ *   - MUX0 (mux0_sel[]) maps CDUC output to DAC
+ *
+ * MUX3 sample_xbar_sel encoding for RX (adi_apollo_jesd_frm_sample_xbar_select_e):
+ *   Value = RXn * 4 + BAND * 2 + (Q ? 1 : 0)
+ *   FDDC = Value / 2 (strips I/Q bit)
+ *
+ * MUX2 (mux2_fddc_input_sel) 8T8R encoding (3-bit value):
+ *   For entry[i] controlling FDDC[i] and FDDC[i+4]:
+ *   - 0: C0->F[i], C2->F[i+4]    - 1: C2->F[i], C0->F[i+4]
+ *   - 2: C0->F[i], C0->F[i+4]    - 3: C2->F[i], C2->F[i+4]
+ *   - 4: C1->F[i], C3->F[i+4]    - 5: C3->F[i], C1->F[i+4]
+ *   - 6: C1->F[i], C1->F[i+4]    - 7: C3->F[i], C3->F[i+4]
+ */
+void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
+					     const struct iio_chan_spec *chan,
+					     u8 *fddc_num, u32 *fddc_mask,
+					     u8 *cddc_num, u32 *cddc_mask,
+					     u8 *adcdac_num, u32 *adcdac_mask,
+					     u8 *side)
+{
+	/* FDDC masks indexed by FDDC number (0-7) and side */
+	static const u32 fddc_masks[ADI_APOLLO_NUM_SIDES][8] = {
+		{ ADI_APOLLO_FDDC_A0, ADI_APOLLO_FDDC_A1, ADI_APOLLO_FDDC_A2, ADI_APOLLO_FDDC_A3,
+		  ADI_APOLLO_FDDC_A4, ADI_APOLLO_FDDC_A5, ADI_APOLLO_FDDC_A6, ADI_APOLLO_FDDC_A7 },
+		{ ADI_APOLLO_FDDC_B0, ADI_APOLLO_FDDC_B1, ADI_APOLLO_FDDC_B2, ADI_APOLLO_FDDC_B3,
+		  ADI_APOLLO_FDDC_B4, ADI_APOLLO_FDDC_B5, ADI_APOLLO_FDDC_B6, ADI_APOLLO_FDDC_B7 },
+	};
+	/* CDDC masks indexed by CDDC number (0-3) and side */
+	static const u32 cddc_masks_all[ADI_APOLLO_NUM_SIDES][4] = {
+		{ ADI_APOLLO_CNCO_A0, ADI_APOLLO_CNCO_A1,
+		  ADI_APOLLO_CNCO_A2, ADI_APOLLO_CNCO_A3 },
+		{ ADI_APOLLO_CNCO_B0, ADI_APOLLO_CNCO_B1,
+		  ADI_APOLLO_CNCO_B2, ADI_APOLLO_CNCO_B3 },
+	};
+	/* ADC masks indexed by ADC number (0-3) and side */
+	static const u32 adc_masks[ADI_APOLLO_NUM_SIDES][4] = {
+		{ ADI_APOLLO_ADC_A0, ADI_APOLLO_ADC_A1,
+		  ADI_APOLLO_ADC_A2, ADI_APOLLO_ADC_A3 },
+		{ ADI_APOLLO_ADC_B0, ADI_APOLLO_ADC_B1,
+		  ADI_APOLLO_ADC_B2, ADI_APOLLO_ADC_B3 },
+	};
+	/* DAC masks indexed by DAC number (0-3) and side */
+	static const u32 dac_masks[ADI_APOLLO_NUM_SIDES][4] = {
+		{ ADI_APOLLO_DAC_A0, ADI_APOLLO_DAC_A1,
+		  ADI_APOLLO_DAC_A2, ADI_APOLLO_DAC_A3 },
+		{ ADI_APOLLO_DAC_B0, ADI_APOLLO_DAC_B1,
+		  ADI_APOLLO_DAC_B2, ADI_APOLLO_DAC_B3 },
+	};
+	bool is_8t8r = phy->profile.profile_cfg.is_8t8r;
+	u8 local_side;
+	u8 local_fddc_num;
+	u8 local_cddc_num;
+	u8 local_adcdac_num;
+
+	if (chan->output) {
+		/* TX path: Use JRX sample_xbar_sel and fduc_cduc_summer */
+		const adi_apollo_jesd_rx_link_cfg_t *jrx_link;
+		const adi_apollo_txpath_misc_t *tx_mux;
+		adi_apollo_jesd_dfrm_sample_xbar_select_e xbar_sel;
+		u8 fduc_bit;
+		int i, num_cducs;
+		int xbar_idx;
+		int m_side_a;
+
+		/*
+		 * For TX, IIO channel maps to virtual converter index.
+		 * chan->address is the raw virtual converter index (M index).
+		 * The sample_xbar_sel tells us which FDUC this converter uses.
+		 *
+		 * xbar_sel encoding: TXn_BAND_x_DATA_[I|Q]
+		 *   Value = TXn * 4 + BAND * 2 + (Q ? 1 : 0)
+		 *   FDUC_num = Value / 4 (for TX0-TX7)
+		 */
+		m_side_a = phy->profile.jrx[ADI_APOLLO_SIDE_IDX_A].rx_link_cfg[0].m_minus1 + 1;
+		xbar_idx = chan->address; /* Virtual converter index */
+
+		if (xbar_idx < m_side_a) {
+			local_side = ADI_APOLLO_SIDE_IDX_A;
+			jrx_link = &phy->profile.jrx[ADI_APOLLO_SIDE_IDX_A].rx_link_cfg[0];
+		} else {
+			/* Channel is on side B */
+			local_side = ADI_APOLLO_SIDE_IDX_B;
+			jrx_link = &phy->profile.jrx[ADI_APOLLO_SIDE_IDX_B].rx_link_cfg[0];
+			xbar_idx -= m_side_a;
+		}
+
+		if (xbar_idx >= ADI_APOLLO_JESD_MAX_FRM_SAMPLE_XBAR_IDX) {
+			dev_err(&phy->spi->dev,
+				"ERROR: TX xbar_idx %d out of range", xbar_idx);
+			return;
+		}
+
+		xbar_sel = jrx_link->sample_xbar_sel[xbar_idx];
+
+		dev_dbg(&phy->spi->dev,
+			"TX chan %d addr %lu: m_side_a=%d xbar_idx=%d xbar_sel=%d",
+			chan->channel, chan->address, m_side_a, xbar_idx, xbar_sel);
+
+		/*
+		 * Extract FDUC number from xbar_sel.
+		 * xbar_sel encoding: TXn_BAND_x_DATA_[I|Q]
+		 *   Value = TXn * 4 + BAND * 2 + (Q ? 1 : 0)
+		 * FDUC = xbar_sel / 2 (strips I/Q bit, keeps TXn and BAND)
+		 *   BAND_0 -> even FDUC, BAND_1 -> odd FDUC
+		 */
+		if (xbar_sel <= ADI_APOLLO_JESD_DFRM_SPLXBAR_LAST_VALID)
+			local_fddc_num = xbar_sel / 2;
+		else
+			local_fddc_num = 0;
+
+		/* Now find which CDUC this FDUC feeds using fduc_cduc_summer */
+		tx_mux = &phy->profile.tx_path[local_side].tx_mux_summer_xbar;
+		fduc_bit = 1 << local_fddc_num;
+		local_cddc_num = 0;
+		num_cducs = is_8t8r ? 4 : ADI_APOLLO_CDDCS_PER_SIDE;
+
+		for (i = 0; i < num_cducs; i++) {
+			if (tx_mux->fduc_cduc_summer[i] & fduc_bit) {
+				local_cddc_num = i;
+				break;
+			}
+		}
+
+		/*
+		 * Determine DAC from mux0_sel.
+		 * mux0_sel[cddc_num] tells us which DAC this CDUC output goes to.
+		 * For 4T4R: mux0_sel values 0-1 map to DAC0-DAC1
+		 * For 8T8R: mux0_sel values 0-3 map to DAC0-DAC3
+		 */
+		local_adcdac_num = tx_mux->mux0_sel[local_cddc_num] & 0x03;
+	} else {
+		/* RX path: Use JTX sample_xbar_sel and mux2_fddc_input_sel */
+		const adi_apollo_jesd_tx_link_cfg_t *jtx_link;
+		const adi_apollo_rxpath_misc_t *rx_mux;
+		adi_apollo_jesd_frm_sample_xbar_select_e xbar_sel;
+		adi_apollo_rx_mux2_sel_e mux2_sel;
+		u8 fddc_idx;
+		bool is_upper_fddc;
+		int xbar_idx;
+		int m_side_a;
+
+		/*
+		 * For RX, IIO channel maps to virtual converter index.
+		 * chan->address is the raw virtual converter index (M index).
+		 * The sample_xbar_sel tells us which FDDC this converter uses.
+		 */
+		m_side_a = phy->profile.jtx[ADI_APOLLO_SIDE_IDX_A].tx_link_cfg[0].m_minus1 + 1;
+		xbar_idx = chan->address; /* Virtual converter index */
+
+		if (xbar_idx < m_side_a) {
+			local_side = ADI_APOLLO_SIDE_IDX_A;
+			jtx_link = &phy->profile.jtx[ADI_APOLLO_SIDE_IDX_A].tx_link_cfg[0];
+		} else {
+			/* Channel is on side B */
+			local_side = ADI_APOLLO_SIDE_IDX_B;
+			jtx_link = &phy->profile.jtx[ADI_APOLLO_SIDE_IDX_B].tx_link_cfg[0];
+			xbar_idx -= m_side_a;
+		}
+
+		if (xbar_idx >= ADI_APOLLO_JESD_MAX_FRM_SAMPLE_XBAR_IDX) {
+			dev_err(&phy->spi->dev,
+				"ERROR: RX xbar_idx %d out of range", xbar_idx);
+			return;
+		}
+
+		xbar_sel = jtx_link->sample_xbar_sel[xbar_idx];
+
+		dev_dbg(&phy->spi->dev,
+			"RX chan %d addr %lu: m_side_a=%d xbar_idx=%d xbar_sel=%d",
+			chan->channel, chan->address, m_side_a, xbar_idx, xbar_sel);
+
+		/*
+		 * Extract FDDC number from xbar_sel.
+		 * xbar_sel encoding: RXn_BAND_x_DATA_[I|Q]
+		 *   Value = RXn * 4 + BAND * 2 + (Q ? 1 : 0)
+		 * FDDC = xbar_sel / 2 (strips I/Q bit, keeps RXn and BAND)
+		 *   BAND_0 -> even FDDC, BAND_1 -> odd FDDC
+		 * Values 32+ are ORX paths, handle separately if needed.
+		 */
+		if (xbar_sel <= ADI_APOLLO_JESD_FRM_SPLXBAR_LAST_VALID_NO_INT)
+			local_fddc_num = xbar_sel / 2;
+		else
+			local_fddc_num = 0; /* Default for ORX or invalid */
+
+		/* Now determine CDDC from mux2_fddc_input_sel */
+		rx_mux = &phy->profile.rx_path[local_side].rx_mux_splitter_xbar;
+
+		if (is_8t8r) {
+			/* FDDC 0-3 are "lower", FDDC 4-7 are "upper" */
+			is_upper_fddc = (local_fddc_num >= 4);
+			fddc_idx = is_upper_fddc ? (local_fddc_num - 4) : local_fddc_num;
+		} else {
+			is_upper_fddc = false;
+			fddc_idx = local_fddc_num;
+		}
+
+		if (fddc_idx >= ADI_APOLLO_RX_MUX2_NUM) {
+			dev_err(&phy->spi->dev,
+				"ERROR: fddc_idx %d >= ADI_APOLLO_RX_MUX2_NUM", fddc_idx);
+			return;
+		}
+
+		mux2_sel = rx_mux->mux2_fddc_input_sel[fddc_idx];
+
+		/* Decode mux2_sel to determine CDDC */
+		if (is_8t8r) {
+			if (!is_upper_fddc) {
+				/* Lower FDDC (0-3) */
+				switch (mux2_sel & 0x07) {
+				case 0: case 2:
+					local_cddc_num = 0;
+					break;
+				case 1: case 3:
+					local_cddc_num = 2;
+					break;
+				case 4: case 6:
+					local_cddc_num = 1;
+					break;
+				case 5: case 7:
+					local_cddc_num = 3;
+					break;
+				default:
+					local_cddc_num = 0;
+					break;
+				}
+			} else {
+				/* Upper FDDC (4-7) */
+				switch (mux2_sel & 0x07) {
+				case 0: case 3:
+					local_cddc_num = 2;
+					break;
+				case 1: case 2:
+					local_cddc_num = 0;
+					break;
+				case 4: case 7:
+					local_cddc_num = 3;
+					break;
+				case 5: case 6:
+					local_cddc_num = 1;
+					break;
+				default:
+					local_cddc_num = 0;
+					break;
+				}
+			}
+		} else {
+			/* 4T4R: mux2_sel 0-3 = CDDC0, 4-7 = CDDC1 */
+			local_cddc_num = (mux2_sel >= 4) ? 1 : 0;
+		}
+
+		/*
+		 * Determine ADC from mux0_out_adc_sel.
+		 * mux0_out_adc_sel[cddc_num] tells us which ADC feeds this CDDC.
+		 * For 4T4R: Values 0,1 select between ADC0 and ADC1
+		 * For 8T8R: Values 0-3 select ADC0-ADC3
+		 *
+		 * 4T4R encoding (adi_apollo_rx_mux0_sel_e):
+		 *   CB_OUT_0: 0=ADC0, 1=ADC1
+		 *   CB_OUT_1: 0=ADC1, 1=ADC0
+		 * 8T8R encoding:
+		 *   0=ADC0, 1=ADC2, 2=ADC1, 3=ADC3
+		 */
+		if (is_8t8r) {
+			/* 8T8R: mux0_out_adc_sel directly gives ADC with swapped bit encoding */
+			static const u8 mux0_to_adc_8t8r[] = {0, 2, 1, 3};
+			u8 mux0_val = rx_mux->mux0_out_adc_sel[local_cddc_num] & 0x03;
+			local_adcdac_num = mux0_to_adc_8t8r[mux0_val];
+		} else {
+			/* 4T4R: CB_OUT_0 and CB_OUT_1 have opposite default mappings */
+			u8 mux0_val = rx_mux->mux0_out_adc_sel[local_cddc_num] & 0x01;
+			if (local_cddc_num == 0)
+				local_adcdac_num = mux0_val; /* 0=ADC0, 1=ADC1 */
+			else
+				local_adcdac_num = mux0_val ? 0 : 1; /* 0=ADC1, 1=ADC0 */
+		}
+	}
+
+	*side = local_side;
+	*fddc_num = local_fddc_num;
+	*fddc_mask = fddc_masks[local_side][local_fddc_num];
+	*cddc_num = local_cddc_num;
+	*cddc_mask = cddc_masks_all[local_side][local_cddc_num];
+	*adcdac_num = local_adcdac_num;
+	if (chan->output)
+		*adcdac_mask = dac_masks[local_side][local_adcdac_num];
+	else
+		*adcdac_mask = adc_masks[local_side][local_adcdac_num];
+
+	dev_info(&phy->spi->dev,
+		"%s_voltage%d(addr=%lu): Side-%c fddc=%d cddc=%d %s=%d (%s, mux-based)",
+		chan->output ? "out" : "in", chan->channel, chan->address, local_side ? 'B' : 'A',
+		*fddc_num, *cddc_num, chan->output ? "dac" : "adc", *adcdac_num,
+		is_8t8r ? "8T8R" : "4T4R");
+
+}
+/**
+ * ad9088_get_chan_map - Get pre-computed channel mapping for an IIO channel
+ * @phy: Pointer to the ad9088_phy structure
+ * @chan: IIO channel specification
+ *
+ * Returns pointer to the pre-computed channel mapping structure.
+ * Must be called after ad9088_init_chan_map().
+ */
+const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
+						  const struct iio_chan_spec *chan)
+{
+	if (chan->address >= MAX_NUM_CHANNELIZER)
+		return NULL;
+
+	if (chan->output)
+		return &phy->tx_chan_map[chan->address];
+	else
+		return &phy->rx_chan_map[chan->address];
+}
+
 void ad9088_iiochan_to_fddc_cddc(struct ad9088_phy *phy, const struct iio_chan_spec *chan,
 				 u8 *fddc_num, u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
 				 u8 *side)
 {
-	const u32 cncos[] = {ADI_APOLLO_CNCO_A0, ADI_APOLLO_CNCO_A1,
-			     ADI_APOLLO_CNCO_B0, ADI_APOLLO_CNCO_B1
-			    };
-	const u32 rx_fncos[] = {ADI_APOLLO_FNCO_A0, ADI_APOLLO_FNCO_A2,
-				ADI_APOLLO_FNCO_B0, ADI_APOLLO_FNCO_B2
-			       };
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 
-	const u32 tx_fncos[] = {ADI_APOLLO_FNCO_A0, ADI_APOLLO_FNCO_A1,
-				ADI_APOLLO_FNCO_B0, ADI_APOLLO_FNCO_B1
-			       };
-
-	if (chan->channel >= ARRAY_SIZE(cncos)) {
-		dev_err(&phy->spi->dev,
-			"ERROR: %s_voltage%d: >= 4",
-			chan->output ? "out" : "in", chan->channel);
+	if (!map) {
+		dev_err(&phy->spi->dev, "Invalid channel address %lu", chan->address);
 		return;
 	}
 
-	*fddc_mask = chan->output ? tx_fncos[chan->channel] : rx_fncos[chan->channel];
-	*cddc_mask = cncos[chan->channel];
-
-	if (*cddc_mask > ADI_APOLLO_CNCO_A3)
-		*cddc_num = ilog2(*cddc_mask >> 4);
-	else
-		*cddc_num = ilog2(*cddc_mask);
-
-	if (*fddc_mask > ADI_APOLLO_FNCO_A7)
-		*fddc_num = ilog2(*fddc_mask >> 8);
-	else
-		*fddc_num = ilog2(*fddc_mask);
-
-	*side = chan->channel > 1 ? 1 : 0;
-
-	dev_dbg(&phy->spi->dev,
-		"%s_voltage%d: Side-%c fddc_num=%d fddc_mask=%X cddc_num=%d cddc_mask=%X",
-		chan->output ? "out" : "in", chan->channel, *side ? 'B' : 'A',
-		*fddc_num, *fddc_mask, *cddc_num, *cddc_mask);
+	*fddc_num = map->fddc_num;
+	*fddc_mask = map->fddc_mask;
+	*cddc_num = map->cddc_num;
+	*cddc_mask = map->cddc_mask;
+	*side = map->side;
 }
 
 static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
@@ -4924,20 +5238,37 @@ static int ad9088_post_iio_register(struct iio_dev *indio_dev)
 
 static char *ad9088_label_writer(struct ad9088_phy *phy, const struct iio_chan_spec *chan)
 {
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
+	u8 adcdac_num, cddc_num, fddc_num, side;
+	u32 adcdac_mask, cddc_mask, fddc_mask;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num, &fddc_mask, &cddc_num, &cddc_mask, &side);
+	ad9088_iiochan_to_fddc_cddc_from_profile(phy, chan, &fddc_num, &fddc_mask, &cddc_num,
+						&cddc_mask, &adcdac_num, &adcdac_mask, &side);
 
 	if (chan->output) {
+		phy->tx_chan_map[chan->address].fddc_num = fddc_num;
+		phy->tx_chan_map[chan->address].cddc_num = cddc_num;
+		phy->tx_chan_map[chan->address].adcdac_num = adcdac_num;
+		phy->tx_chan_map[chan->address].cddc_mask = cddc_mask;
+		phy->tx_chan_map[chan->address].fddc_mask = fddc_mask;
+		phy->tx_chan_map[chan->address].adcdac_mask = adcdac_mask;
+		phy->tx_chan_map[chan->address].side = side;
+
 		snprintf(phy->tx_chan_labels[chan->channel], sizeof(phy->tx_chan_labels[0]),
-			 "Side-%c:FDUC%u->CDUC%u->DAC%u", side ? 'B' : 'A', fddc_num, cddc_num, cddc_num);
+			 "Side-%c:FDUC%u->CDUC%u->DAC%u", side ? 'B' : 'A', fddc_num, cddc_num, adcdac_num);
 
 		return phy->tx_chan_labels[chan->channel];
 	}
 
+	phy->rx_chan_map[chan->address].fddc_num = fddc_num;
+	phy->rx_chan_map[chan->address].cddc_num = cddc_num;
+	phy->rx_chan_map[chan->address].adcdac_num = adcdac_num;
+	phy->rx_chan_map[chan->address].cddc_mask = cddc_mask;
+	phy->rx_chan_map[chan->address].fddc_mask = fddc_mask;
+	phy->rx_chan_map[chan->address].adcdac_mask = adcdac_mask;
+	phy->rx_chan_map[chan->address].side = side;
+
 	snprintf(phy->rx_chan_labels[chan->channel], sizeof(phy->rx_chan_labels[0]),
-		 "Side-%c:FDDC%u->CDDC%u->ADC%u", side ? 'B' : 'A', fddc_num, cddc_num, cddc_num);
+		 "Side-%c:FDDC%u->CDDC%u->ADC%u", side ? 'B' : 'A', fddc_num, cddc_num, adcdac_num);
 
 	return phy->rx_chan_labels[chan->channel];
 }
@@ -5014,6 +5345,7 @@ static int ad9088_setup_chip_info_tbl(struct ad9088_phy *phy,
 		phy->chip_info.channel[c].channel2 =
 			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
 		phy->chip_info.channel[c].scan_index = -1;
+		phy->chip_info.channel[c].address = i;
 		phy->chip_info.channel[c].info_mask_shared_by_type =
 			BIT(IIO_CHAN_INFO_SAMP_FREQ);
 
@@ -6798,8 +7130,8 @@ static int ad9088_probe(struct spi_device *spi)
 
 		// ret = adi_apollo_device_chip_id_get(&phy->ad9088, &phy->chip_id);
 		// if (ret < 0) {
-		// 	dev_err(&spi->dev, "chip_id failed (%d)\n", ret);
-		// 	break;
+		//	dev_err(&spi->dev, "chip_id failed (%d)\n", ret);
+		//	break;
 		// }
 
 		conv->id = phy->chip_id.prod_id;
