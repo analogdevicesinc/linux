@@ -210,6 +210,7 @@ struct adf41513_chip_info {
 struct adf41513_data {
 	u64 power_up_frequency_hz;
 	u64 freq_resolution_uhz;
+	u32 phase_resync_period_ns;
 	u32 charge_pump_voltage_mv;
 	u32 lock_detect_count;
 
@@ -274,6 +275,16 @@ struct adf41513_state {
 	 * transfer buffers live in their own cache lines.
 	 */
 	__be32 buf __aligned(IIO_DMA_MINALIGN);
+};
+
+static const u16 adf41513_ld_window_p1ns[] = {
+	9, 12, 16, 17, 21, 28, 29, 35,			/* 0 - 7 */
+	43, 47, 49, 52, 70, 79, 115			/* 8 - 14 */
+};
+
+static const u8 adf41513_ldp_bias[] = {
+	0xC, 0xD, 0xE, 0x8, 0x9, 0x4, 0xA, 0x5,		/* 0 - 7 */
+	0x0, 0x6, 0xB, 0x1, 0x2, 0x7, 0x3		/* 8 - 14 */
 };
 
 static const char * const adf41513_muxout_modes[] = {
@@ -664,9 +675,85 @@ static int adf41513_calc_pll_settings(struct adf41513_state *st,
 	return 0;
 }
 
+static void adf41513_set_bleed_val(struct adf41513_state *st)
+{
+	u32 bleed_value;
+
+	if (st->data.phase_detector_polarity)
+		bleed_value = 90;
+	else
+		bleed_value = 144;
+
+	bleed_value *= 1 + FIELD_GET(ADF41513_REG5_CP_CURRENT_MSK,
+				     st->regs[ADF41513_REG5]);
+	bleed_value = div64_u64(st->settings.pfd_frequency_uhz * bleed_value,
+				1600ULL * HZ_PER_MHZ * MICROHZ_PER_HZ);
+
+	st->regs[ADF41513_REG6] &= ~ADF41513_REG6_BLEED_CURRENT_MSK;
+	st->regs[ADF41513_REG6] |= FIELD_PREP(ADF41513_REG6_BLEED_CURRENT_MSK,
+					      bleed_value);
+}
+
+static void adf41513_set_ld_window(struct adf41513_state *st)
+{
+	/*
+	 * The ideal lock detector window size is halfway between the max
+	 * window, set by the phase comparison period t_PFD = (1 / f_PFD),
+	 * and the minimum is set by (I_BLEED/I_CP) × t_PFD
+	 */
+	u16 ld_window_p1ns = div64_u64(10ULL * NANO * MICROHZ_PER_HZ,
+				       st->settings.pfd_frequency_uhz << 1);
+	u8 ld_idx, ldp, ld_bias;
+
+	if (st->settings.mode != ADF41513_MODE_INTEGER_N) {
+		/* account for bleed current (deduced from eq.6 and eq.7) */
+		if (st->data.phase_detector_polarity)
+			ld_window_p1ns += 4;
+		else
+			ld_window_p1ns += 6;
+	}
+
+	ld_idx = find_closest(ld_window_p1ns, adf41513_ld_window_p1ns,
+			      ARRAY_SIZE(adf41513_ld_window_p1ns));
+	ldp = (adf41513_ldp_bias[ld_idx] >> 2) & 0x3;
+	ld_bias = adf41513_ldp_bias[ld_idx] & 0x3;
+
+	st->regs[ADF41513_REG6] &= ~ADF41513_REG6_LDP_MSK;
+	st->regs[ADF41513_REG6] |= FIELD_PREP(ADF41513_REG6_LDP_MSK, ldp);
+	st->regs[ADF41513_REG9] &= ~ADF41513_REG9_LD_BIAS_MSK;
+	st->regs[ADF41513_REG9] |= FIELD_PREP(ADF41513_REG9_LD_BIAS_MSK, ld_bias);
+}
+
+static void adf41513_set_phase_resync(struct adf41513_state *st)
+{
+	u32 total_div, clk1_div, clk2_div;
+
+	if (!st->data.phase_resync_period_ns)
+		return;
+
+	/* Assuming both clock dividers hold similar values */
+	total_div = mul_u64_u64_div_u64(st->settings.pfd_frequency_uhz,
+					st->data.phase_resync_period_ns,
+					1ULL * MICRO * NANO);
+	clk1_div = clamp(int_sqrt(total_div), 1,
+			 ADF41513_MAX_CLK_DIVIDER);
+	clk2_div = clamp(DIV_ROUND_CLOSEST(total_div, clk1_div), 1,
+			 ADF41513_MAX_CLK_DIVIDER);
+
+	st->regs[ADF41513_REG5] &= ~ADF41513_REG5_CLK1_DIV_MSK;
+	st->regs[ADF41513_REG5] |= FIELD_PREP(ADF41513_REG5_CLK1_DIV_MSK, clk1_div);
+	st->regs[ADF41513_REG7] &= ~ADF41513_REG7_CLK2_DIV_MSK;
+	st->regs[ADF41513_REG7] |= FIELD_PREP(ADF41513_REG7_CLK2_DIV_MSK, clk2_div);
+
+	/* enable phase resync */
+	st->regs[ADF41513_REG7] |= ADF41513_REG7_CLK_DIV_MODE_MSK;
+}
+
 static int adf41513_set_frequency(struct adf41513_state *st, u64 freq_uhz, u16 sync_mask)
 {
 	struct adf41513_pll_settings result;
+	bool pfd_change = false;
+	bool mode_change = false;
 	int ret;
 
 	/* calculate pll settings candidate */
@@ -675,6 +762,8 @@ static int adf41513_set_frequency(struct adf41513_state *st, u64 freq_uhz, u16 s
 		return ret;
 
 	/* apply computed results to pll settings */
+	pfd_change = st->settings.pfd_frequency_uhz != result.pfd_frequency_uhz;
+	mode_change = st->settings.mode != result.mode;
 	memcpy(&st->settings, &result, sizeof(struct adf41513_pll_settings));
 
 	dev_dbg(&st->spi->dev,
@@ -725,6 +814,14 @@ static int adf41513_set_frequency(struct adf41513_state *st, u64 freq_uhz, u16 s
 		st->regs[ADF41513_REG6] &= ~ADF41513_REG6_INT_MODE_MSK;
 		st->regs[ADF41513_REG6] |= ADF41513_REG6_BLEED_ENABLE_MSK;
 	}
+
+	if (pfd_change) {
+		adf41513_set_bleed_val(st);
+		adf41513_set_phase_resync(st);
+	}
+
+	if (pfd_change || mode_change)
+		adf41513_set_ld_window(st);
 
 	return adf41513_sync_config(st, sync_mask | ADF41513_SYNC_REG0);
 }
@@ -1060,6 +1157,11 @@ static int adf41513_parse_fw(struct adf41513_state *st)
 						    adf41513_muxout_modes,
 						    ARRAY_SIZE(adf41513_muxout_modes));
 	st->data.muxout_select = ret >= 0 ? ret : ADF41513_MUXOUT_TRISTATE;
+
+	st->data.phase_resync_period_ns = 0;
+	ret = device_property_read_u32(dev, "adi,phase-resync-period-ns", &tmp);
+	if (!ret)
+		st->data.phase_resync_period_ns = tmp;
 
 	/* muxout logic level: default 3v3 */
 	st->data.muxout_1v8_en = device_property_read_bool(dev, "adi,muxout-level-1v8-enable");
