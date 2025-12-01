@@ -321,14 +321,8 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 				.addr = 0x58,
 				.mask = BIT(0),
 			},
-			.irq1_func = {
-				.addr = 0x5e,
-				.mask = BIT(5),
-			},
-			.irq2_func = {
-				.addr = 0x5f,
-				.mask = BIT(5),
-			},
+			.irq1_func = 0x5e,
+			.irq2_func = 0x5f,
 			.hla = {
 				.addr = 0x12,
 				.mask = BIT(5),
@@ -387,6 +381,7 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 						.addr = 0x5b,
 						.mask = GENMASK(5, 0),
 					},
+					.enable_mask = BIT(5),
 					.status = {
 						.addr = 0x1b,
 						.mask = BIT(3),
@@ -493,14 +488,8 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 				.addr = 0x58,
 				.mask = BIT(0),
 			},
-			.irq1_func = {
-				.addr = 0x5e,
-				.mask = BIT(5),
-			},
-			.irq2_func = {
-				.addr = 0x5f,
-				.mask = BIT(5),
-			},
+			.irq1_func = 0x5e,
+			.irq2_func = 0x5f,
 			.hla = {
 				.addr = 0x12,
 				.mask = BIT(5),
@@ -559,6 +548,7 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 						.addr = 0x5b,
 						.mask = GENMASK(5, 0),
 					},
+					.enable_mask = BIT(5),
 					.status = {
 						.addr = 0x1b,
 						.mask = BIT(3),
@@ -695,14 +685,8 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 				.addr = 0x58,
 				.mask = BIT(0),
 			},
-			.irq1_func = {
-				.addr = 0x5e,
-				.mask = BIT(5),
-			},
-			.irq2_func = {
-				.addr = 0x5f,
-				.mask = BIT(5),
-			},
+			.irq1_func = 0x5e,
+			.irq2_func = 0x5f,
 			.hla = {
 				.addr = 0x12,
 				.mask = BIT(5),
@@ -802,6 +786,7 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 						.addr = 0x5b,
 						.mask = GENMASK(5, 0),
 					},
+					.enable_mask = BIT(5),
 					.status = {
 						.addr = 0x1b,
 						.mask = BIT(3),
@@ -950,14 +935,8 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 				.addr = 0x56,
 				.mask = BIT(6),
 			},
-			.irq1_func = {
-				.addr = 0x5e,
-				.mask = BIT(5),
-			},
-			.irq2_func = {
-				.addr = 0x5f,
-				.mask = BIT(5),
-			},
+			.irq1_func = 0x5e,
+			.irq2_func = 0x5f,
 			.hla = {
 				.addr = 0x12,
 				.mask = BIT(5),
@@ -1045,6 +1024,7 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 						.addr = 0x5b,
 						.mask = GENMASK(5, 0),
 					},
+					.enable_mask = BIT(5),
 					.status = {
 						.addr = 0x1b,
 						.mask = BIT(3),
@@ -1169,14 +1149,8 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 				.addr = 0x56,
 				.mask = BIT(6),
 			},
-			.irq1_func = {
-				.addr = 0x5e,
-				.mask = BIT(5),
-			},
-			.irq2_func = {
-				.addr = 0x5f,
-				.mask = BIT(5),
-			},
+			.irq1_func = 0x5e,
+			.irq2_func = 0x5f,
 			.hla = {
 				.addr = 0x12,
 				.mask = BIT(5),
@@ -1232,6 +1206,7 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 						.addr = 0x5b,
 						.mask = GENMASK(5, 0),
 					},
+					.enable_mask = BIT(5),
 					.status = {
 						.addr = 0x1b,
 						.mask = BIT(3),
@@ -1350,14 +1325,8 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 				.addr = 0x56,
 				.mask = BIT(0),
 			},
-			.irq1_func = {
-				.addr = 0x5e,
-				.mask = BIT(5),
-			},
-			.irq2_func = {
-				.addr = 0x5f,
-				.mask = BIT(5),
-			},
+			.irq1_func = 0x5e,
+			.irq2_func = 0x5f,
 			.hla = {
 				.addr = 0x03,
 				.mask = BIT(4),
@@ -1444,6 +1413,7 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 						.addr = 0x5b,
 						.mask = GENMASK(5, 0),
 					},
+					.enable_mask = BIT(5),
 					.status = {
 						.addr = 0x45,
 						.mask = BIT(3),
@@ -1904,10 +1874,11 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 static int st_lsm6dsx_event_setup(struct st_lsm6dsx_hw *hw, bool state)
 {
 	const struct st_lsm6dsx_reg *reg;
+	const struct st_lsm6dsx_event_src *src;
 	unsigned int data;
 	int err;
 
-	if (!hw->settings->irq_config.irq1_func.addr)
+	if (!hw->irq_routing)
 		return -ENOTSUPP;
 
 	reg = &hw->settings->event_settings.enable_reg;
@@ -1920,9 +1891,10 @@ static int st_lsm6dsx_event_setup(struct st_lsm6dsx_hw *hw, bool state)
 	}
 
 	/* Enable wakeup interrupt */
-	data = ST_LSM6DSX_SHIFT_VAL(state, hw->irq_routing->mask);
-	return st_lsm6dsx_update_bits_locked(hw, hw->irq_routing->addr,
-					     hw->irq_routing->mask, data);
+	src = &hw->settings->event_settings.sources[ST_LSM6DSX_EVENT_WAKEUP];
+	data = ST_LSM6DSX_SHIFT_VAL(state, src->enable_mask);
+	return st_lsm6dsx_update_bits_locked(hw, hw->irq_routing,
+					     src->enable_mask, data);
 }
 
 static int st_lsm6dsx_read_event(struct iio_dev *iio_dev,
@@ -2176,11 +2148,11 @@ st_lsm6dsx_get_drdy_reg(struct st_lsm6dsx_hw *hw,
 
 	switch (drdy_pin) {
 	case 1:
-		hw->irq_routing = &hw->settings->irq_config.irq1_func;
+		hw->irq_routing = hw->settings->irq_config.irq1_func;
 		*drdy_reg = &hw->settings->irq_config.irq1;
 		break;
 	case 2:
-		hw->irq_routing = &hw->settings->irq_config.irq2_func;
+		hw->irq_routing = hw->settings->irq_config.irq2_func;
 		*drdy_reg = &hw->settings->irq_config.irq2;
 		break;
 	default:
