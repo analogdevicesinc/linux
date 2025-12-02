@@ -14,6 +14,9 @@
 #include <linux/hashtable.h>
 #include <linux/rculist.h>
 #include <linux/etherdevice.h>
+#include <linux/workqueue.h>
+#include <linux/jiffies.h>
+
 
 #define NDMA_MAC_HASH_BITS                 6  /* 2^6 = 64 buckets */
 #define NDMA_MAX_MACS                      16
@@ -62,7 +65,7 @@
 #define NDMA_RX_NAPI_POLL_WEIGHT           (NDMA_RX_RING_SIZE / 2)
 
 /* default timestamp timeout delay */
-#define NDMA_TX_TS_DELAY 0x17fa5
+#define NDMA_TX_TS_DELAY 0x2ff4a
 
 enum adrv906x_ndma_chan_type {
 	NDMA_TX_CHANNEL,
@@ -71,7 +74,7 @@ enum adrv906x_ndma_chan_type {
 };
 
 typedef void (*ndma_pkt_callback)(struct sk_buff *skb, unsigned int port_id,
-				  struct timespec64 ts, void *cb_param);
+				  struct timespec64 *ts, void *cb_param);
 
 typedef void (*ndma_flood_callback)(struct net_device *ndev, u64 mac_addr, int portid);
 
@@ -127,8 +130,10 @@ struct adrv906x_ndma_chan {
 	ndma_pkt_callback status_cb_fn;
 	void *status_cb_param;
 	spinlock_t lock; /* protects struct and register access */
-	unsigned char expected_seq_num;
+	unsigned char exp_seq_num;
 	unsigned char seq_num;
+	unsigned char ptp_exp_seq_num;
+	unsigned char ptp_seq_num;
 
 	/* TX DMA channel related fields */
 	void __iomem *tx_dma_base;
@@ -144,8 +149,12 @@ struct adrv906x_ndma_chan {
 	unsigned int tx_head;   /* Next entry in tx ring to give a new buffer */
 	unsigned int tx_frames_waiting;
 	unsigned int tx_frames_pending;
-	unsigned int tx_retry_count;
-	struct hrtimer tx_frames_timer;
+	bool tx_block_timestamp_req_port0;
+	bool tx_block_timestamp_req_port1;
+	unsigned int tx_timestamp_timeout_cnt_port0;
+	unsigned int tx_timestamp_timeout_cnt_port1;
+	struct workqueue_struct *tx_wq;
+	struct delayed_work tx_frames_timer;
 
 	/* RX DMA channel related fields */
 	void __iomem *rx_dma_base;
@@ -199,7 +208,6 @@ int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 			struct device_node *ndma_np, struct adrv906x_ndma_dev *ndma_dev,
 			bool switch_enabled);
 void adrv906x_ndma_remove(struct adrv906x_ndma_dev *ndma_dev);
-void adrv906x_ndma_set_ptp_mode(struct adrv906x_ndma_dev *ndma_dev, u32 ptp_mode);
 void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_pkt_callback tx_cb_fn,
 			ndma_pkt_callback rx_cb_fn, void *cb_param, ndma_flood_callback flood_cb_fn,
 			bool loopback_mode);

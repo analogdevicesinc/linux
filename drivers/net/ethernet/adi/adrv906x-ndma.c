@@ -200,9 +200,12 @@
 #define DMA_FETCHING_DESC(x)    ((x)& DMA_DESC_FETCH)
 #define DMA_XFER_DATA(x)        ((x)& DMA_DATA_XFER)
 
-#define NDMA_TX_PACKET_LIST_TIMEOUT  ms_to_ktime(10)
-#define NDMA_TX_PACKET_MAX_RETRIES   32
-#define NDMA_TX_MAX_SEQNUM           16
+#define NDMA_TX_PACKET_LIST_TIMEOUT_MS              100
+#define NDMA_TX_PTP_MAX_SEQNUM                      8
+#define NDMA_TX_PTP_MIN_SEQNUM                      1
+#define NDMA_TX_MAX_SEQNUM                          255
+#define NDMA_TX_MIN_SEQNUM                          (NDMA_TX_PTP_MAX_SEQNUM + 1)
+#define NDMA_TX_TSTAMP_TIMEOUT_CNT_THRESHOLD        1
 
 DEFINE_SPINLOCK(ndma_reset_lock);
 
@@ -411,12 +414,14 @@ static void adrv906x_dma_tx_start(struct adrv906x_ndma_chan *ndma_ch)
 {
 	dma_addr_t desc_addr;
 
-	hrtimer_start(&ndma_ch->tx_frames_timer, NDMA_TX_PACKET_LIST_TIMEOUT, HRTIMER_MODE_REL);
 	desc_addr = ndma_ch->tx_ring_dma + sizeof(struct dma_desc) * ndma_ch->tx_tail;
 	iowrite32(0, ndma_ch->tx_dma_base + DMA_CFG);
 	iowrite32(desc_addr, ndma_ch->tx_dma_base + DMA_NEXT_DESC);
 	iowrite32(ndma_ch->tx_ring[ndma_ch->tx_tail].cfg | DMAFLOW_LIST,
 		  ndma_ch->tx_dma_base + DMA_CFG);
+
+	queue_delayed_work(ndma_ch->tx_wq, &ndma_ch->tx_frames_timer,
+			   msecs_to_jiffies(NDMA_TX_PACKET_LIST_TIMEOUT_MS));
 }
 
 static irqreturn_t adrv906x_dma_rx_done_irq_handler(int irq, void *ctx)
@@ -530,7 +535,7 @@ static void adrv906x_ndma_set_tx_timeout_value(struct adrv906x_ndma_dev *ndma_de
 	iowrite32(val, tx_chan->ctrl_base + NDMA_TX_TIMEOUT_VALUE);
 }
 
-void adrv906x_ndma_set_ptp_mode(struct adrv906x_ndma_dev *ndma_dev, u32 mode)
+static void adrv906x_ndma_set_ptp_mode(struct adrv906x_ndma_dev *ndma_dev, u32 mode)
 {
 	struct adrv906x_ndma_reset *reset = &ndma_dev->reset;
 	unsigned int val;
@@ -920,7 +925,9 @@ static void adrv906x_dma_tx_prep_desc_list(struct adrv906x_ndma_chan *ndma_ch)
 		num_of_desc--;
 		descs_processed++;
 
-		/* Defer transmission of the next packet until the status for the PTP packet is received */
+		/* Defer transmission of the next packet until the status
+		 * for the PTP packet is received
+		 */
 		if (FIELD_GET(NDMA_TX_HDR_SOF_FR_PTP, skb->data[0]))
 			break;
 	}
@@ -987,29 +994,27 @@ static void adrv906x_ndma_rx_free_data_wu_list(struct list_head *data_wu_list, i
 	}
 }
 
-/* Invoked when the NDMA transmit channel enters freeze mode - possible after
+/* Invoked when the NDMA transmit channel enters freeze state - possible after
  * a link toggle. This handler performs the following recovery steps:
  *
  * 1. Release all buffers owned by the driver that contain packets pending transmission.
  * 2. Execute four consecutive NDMA TX resets.
  * 3. Restore the NDMA TX configuration to its initial state.
  */
-static enum hrtimer_restart adrv906x_ndma_tx_recovery_handler(struct hrtimer *timer)
+static void adrv906x_ndma_tx_recovery_handler(struct work_struct *work)
 {
 	struct adrv906x_ndma_chan *ndma_ch =
-		container_of(timer, struct adrv906x_ndma_chan, tx_frames_timer);
+		container_of(to_delayed_work(work), struct adrv906x_ndma_chan, tx_frames_timer);
 	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
 	struct device *dev = ndma_dev->dev;
-	struct timespec64 ts = { 0, 0 };
-	unsigned int size, num_frames;
 	struct sk_buff *skb;
 	unsigned long flags;
 	unsigned char port;
+	unsigned int size;
 	dma_addr_t addr;
 	int i;
 
 	spin_lock_irqsave(&ndma_ch->lock, flags);
-	ndma_ch->tx_retry_count = 0;
 	ndma_ch->stats.tx.recovery_count++;
 
 	adrv906x_ndma_disable_all_event(ndma_ch);
@@ -1022,8 +1027,7 @@ static enum hrtimer_restart adrv906x_ndma_tx_recovery_handler(struct hrtimer *ti
 	for (i = 0; i < 4; i++)
 		adrv906x_ndma_reset_tx(ndma_dev);
 
-	num_frames = ndma_ch->tx_frames_waiting + ndma_ch->tx_frames_pending;
-	while (num_frames--) {
+	while (ndma_ch->tx_frames_pending) {
 		skb = ndma_ch->tx_buffs[ndma_ch->tx_tail];
 		port = FIELD_GET(NDMA_TX_HDR_SOF_PORT_ID, skb->data[0]);
 		addr = ndma_ch->tx_ring[ndma_ch->tx_tail].start;
@@ -1033,15 +1037,17 @@ static enum hrtimer_restart adrv906x_ndma_tx_recovery_handler(struct hrtimer *ti
 
 		ndma_ch->tx_buffs[ndma_ch->tx_tail] = NULL;
 		ndma_ch->tx_tail = (ndma_ch->tx_tail + 1) % NDMA_TX_RING_SIZE;
-		ndma_ch->status_cb_fn(skb, port, ts, ndma_ch->status_cb_param);
-	}
 
-	ndma_ch->tx_frames_pending = 0;
-	ndma_ch->tx_frames_waiting = 0;
-	ndma_ch->rx_head = 0;
-	ndma_ch->rx_tail = 0;
-	ndma_ch->tx_head = 0;
-	ndma_ch->tx_tail = 0;
+		if (FIELD_GET(NDMA_TX_HDR_SOF_FR_PTP, skb->data[0]))
+			ndma_ch->ptp_exp_seq_num = (ndma_ch->ptp_exp_seq_num < NDMA_TX_PTP_MAX_SEQNUM) ?
+						   ndma_ch->ptp_exp_seq_num + 1 : NDMA_TX_PTP_MIN_SEQNUM;
+		else
+			ndma_ch->exp_seq_num = (ndma_ch->exp_seq_num < NDMA_TX_MAX_SEQNUM) ?
+					       ndma_ch->exp_seq_num + 1 : NDMA_TX_MIN_SEQNUM;
+
+		ndma_ch->status_cb_fn(skb, port, NULL, ndma_ch->status_cb_param);
+		ndma_ch->tx_frames_pending--;
+	}
 
 	adrv906x_ndma_enable_events(ndma_ch, NDMA_TX_ERROR_EVENTS);
 	adrv906x_ndma_set_frame_size(ndma_dev);
@@ -1056,9 +1062,12 @@ static enum hrtimer_restart adrv906x_ndma_tx_recovery_handler(struct hrtimer *ti
 
 	adrv906x_ndma_chan_enable(ndma_ch);
 
-	spin_unlock_irqrestore(&ndma_ch->lock, flags);
+	if (ndma_ch->tx_frames_waiting) {
+		adrv906x_dma_tx_prep_desc_list(ndma_ch);
+		adrv906x_dma_tx_start(ndma_ch);
+	}
 
-	return HRTIMER_NORESTART;
+	spin_unlock_irqrestore(&ndma_ch->lock, flags);
 }
 
 static int adrv906x_ndma_device_init(struct adrv906x_ndma_dev *ndma_dev, struct device_node *np)
@@ -1067,6 +1076,7 @@ static int adrv906x_ndma_device_init(struct adrv906x_ndma_dev *ndma_dev, struct 
 	struct adrv906x_ndma_chan *rx_chan = &ndma_dev->rx_chan;
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
 	unsigned int reg, len;
+	char wq_name[32];
 	int ret;
 
 	/* Config TX  */
@@ -1119,18 +1129,22 @@ static int adrv906x_ndma_device_init(struct adrv906x_ndma_dev *ndma_dev, struct 
 	spin_lock_init(&ndma_dev->lock);
 	spin_lock_init(&tx_chan->lock);
 	spin_lock_init(&rx_chan->lock);
-	hrtimer_init(&tx_chan->tx_frames_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	tx_chan->tx_frames_timer.function = adrv906x_ndma_tx_recovery_handler;
 
+	snprintf(wq_name, sizeof(wq_name), "adrv906x_ndma_tx_wq_%s", dev_name(dev));
+	tx_chan->tx_wq = alloc_workqueue(wq_name, WQ_HIGHPRI | WQ_UNBOUND, 0);
+	if (!tx_chan->tx_wq)
+		return -ENOMEM;
+
+	INIT_DELAYED_WORK(&tx_chan->tx_frames_timer, adrv906x_ndma_tx_recovery_handler);
 	INIT_DELAYED_WORK(&ndma_dev->update_stats, adrv906x_ndma_get_frame_drop_stats);
 
 	return ret;
 }
 
 static void adrv906x_ndma_add_tx_header(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff *skb,
-					unsigned char seq_num, unsigned char port,
-					bool hw_tstamp_req, bool dsa_en)
+					unsigned char port, bool hw_tstamp_req, bool dsa_en)
 {
+	struct adrv906x_ndma_chan *ndma_ch = &ndma_dev->tx_chan;
 	unsigned int frame_len;
 	unsigned char *hdr;
 
@@ -1141,7 +1155,7 @@ static void adrv906x_ndma_add_tx_header(struct adrv906x_ndma_dev *ndma_dev, stru
 		 | FIELD_PREP(NDMA_TX_HDR_SOF_FR_PTP, hw_tstamp_req)
 		 | FIELD_PREP(NDMA_TX_HDR_SOF_PORT_ID, port)
 		 | FIELD_PREP(NDMA_TX_HDR_SOF_DSA_EN, dsa_en);
-	hdr[1] = seq_num;
+	hdr[1] = hw_tstamp_req ? ndma_ch->ptp_seq_num : ndma_ch->seq_num;
 	hdr[2] = frame_len & 0xff;
 	hdr[3] = (frame_len >> 8) & 0xff;
 	hdr[4] = 0;
@@ -1159,14 +1173,17 @@ static void adrv906x_ndma_reset(struct adrv906x_ndma_dev *ndma_dev)
 	adrv906x_ndma_reset_tx(ndma_dev);
 
 	spin_lock_irqsave(&tx_chan->lock, flags);
-	tx_chan->expected_seq_num = 1;
-	tx_chan->seq_num = 1;
+	tx_chan->exp_seq_num = NDMA_TX_MIN_SEQNUM;
+	tx_chan->seq_num = NDMA_TX_MIN_SEQNUM;
+	tx_chan->ptp_exp_seq_num = NDMA_TX_PTP_MIN_SEQNUM;
+	tx_chan->ptp_seq_num = NDMA_TX_PTP_MIN_SEQNUM;
+
 	spin_unlock_irqrestore(&tx_chan->lock, flags);
 
 	adrv906x_ndma_reset_rx(ndma_dev);
 
 	spin_lock_irqsave(&rx_chan->lock, flags);
-	rx_chan->expected_seq_num = 0;
+	rx_chan->exp_seq_num = 0;
 	spin_unlock_irqrestore(&rx_chan->lock, flags);
 }
 
@@ -1377,9 +1394,14 @@ void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_pkt_callback tx
 		tx_chan->tx_tail = 0;
 		tx_chan->tx_frames_waiting = 0;
 		tx_chan->tx_frames_pending = 0;
+		tx_chan->exp_seq_num = NDMA_TX_MIN_SEQNUM;
+		tx_chan->seq_num = NDMA_TX_MIN_SEQNUM;
+		tx_chan->ptp_exp_seq_num = NDMA_TX_PTP_MIN_SEQNUM;
+		tx_chan->ptp_seq_num = NDMA_TX_PTP_MIN_SEQNUM;
 		adrv906x_dma_rx_start(tx_chan);
 		napi_enable(&tx_chan->napi);
 
+		rx_chan->exp_seq_num = 0;
 		rx_chan->status_cb_fn = rx_cb_fn;
 		rx_chan->status_cb_param = cb_param;
 		rx_chan->rx_head = 0;
@@ -1389,6 +1411,7 @@ void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_pkt_callback tx
 		adrv906x_dma_rx_start(rx_chan);
 		napi_enable(&rx_chan->napi);
 
+		adrv906x_ndma_set_ptp_mode(ndma_dev, NDMA_PTP_MODE_1);
 		adrv906x_ndma_enable_irqs(ndma_dev,
 					  NDMA_RX_DMA_ERR_IRQ |
 					  NDMA_RX_DMA_DONE_IRQ |
@@ -1420,7 +1443,6 @@ static void adrv906x_ndma_stop(struct kref *ref)
 	struct adrv906x_ndma_chan *rx_chan = &ndma_dev->rx_chan;
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
 	struct device *dev = ndma_dev->dev;
-	struct timespec64 ts = { 0, 0 };
 	struct sk_buff *skb;
 	dma_addr_t addr;
 	unsigned long flags;
@@ -1468,7 +1490,7 @@ static void adrv906x_ndma_stop(struct kref *ref)
 
 		tx_chan->tx_buffs[tx_chan->tx_tail] = NULL;
 		tx_chan->tx_tail = (tx_chan->tx_tail + 1) % NDMA_TX_RING_SIZE;
-		tx_chan->status_cb_fn(skb, port, ts, tx_chan->status_cb_param);
+		tx_chan->status_cb_fn(skb, port, NULL, tx_chan->status_cb_param);
 	}
 	tx_chan->tx_frames_pending = 0;
 	tx_chan->tx_frames_waiting = 0;
@@ -1539,14 +1561,14 @@ static int adrv906x_ndma_parse_rx_status_header(struct adrv906x_ndma_chan *ndma_
 		}
 	} else {
 		/* If no error, check and update sequence number */
-		if (status_hdr[1] != ndma_ch->expected_seq_num) {
+		if (status_hdr[1] != ndma_ch->exp_seq_num) {
 			dev_dbg(dev, "frame seq number mismatch, exp:0x%x recv:0x%x",
-				ndma_ch->expected_seq_num, status_hdr[1]);
+				ndma_ch->exp_seq_num, status_hdr[1]);
 			stats->rx.seqnumb_mismatch_errors++;
-			ndma_ch->expected_seq_num = status_hdr[1];
+			ndma_ch->exp_seq_num = status_hdr[1];
 			ret = NDMA_RX_SEQNUM_MISMATCH_ERROR;
 		}
-		ndma_ch->expected_seq_num++;
+		ndma_ch->exp_seq_num++;
 	}
 
 	return ret;
@@ -1636,61 +1658,72 @@ static bool adrv906x_ndma_mac_filter_match(struct adrv906x_ndma_dev *ndma_dev,
 	return true;
 }
 
-static void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_ch,
+static void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *rx_chan,
 					       struct sk_buff *skb, int budget)
 {
-	union adrv906x_ndma_chan_stats *stats = &ndma_ch->stats;
-	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
+	union adrv906x_ndma_chan_stats *stats = &rx_chan->stats;
+	struct adrv906x_ndma_dev *ndma_dev = rx_chan->parent;
+	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
 	unsigned int port_id = 0, frame_size = 0, hdr_type;
 	struct device *dev = ndma_dev->dev;
 	struct timespec64 ts = { 0, 0 };
 	struct sk_buff *pktbuf;
+	unsigned long flags;
 	int ret;
 
 	hdr_type = FIELD_GET(NDMA_HDR_TYPE_MASK, skb->data[0]);
 
 	switch (hdr_type) {
 	case NDMA_RX_HDR_TYPE_STATUS:
-		if (list_empty(&ndma_ch->rx_data_wu_list)) {
+		if (list_empty(&rx_chan->rx_data_wu_list)) {
 			dev_dbg(dev, "status received without preceding data work units");
 		} else {
-			ret = adrv906x_ndma_parse_rx_status_header(ndma_ch, skb->data, &ts,
+			ret = adrv906x_ndma_parse_rx_status_header(rx_chan, skb->data, &ts,
 								   &port_id, &frame_size);
 
 			if (ret == NDMA_NO_ERROR || ret == NDMA_RX_SEQNUM_MISMATCH_ERROR ||
 			    unlikely(ndma_dev->loopback_en)) {
 				if (adrv906x_ndma_mac_filter_match(ndma_dev, port_id)) {
-					pktbuf = adrv906x_ndma_rx_build_linear_pkt_buf(&ndma_ch->rx_data_wu_list,
+					pktbuf = adrv906x_ndma_rx_build_linear_pkt_buf(&rx_chan->rx_data_wu_list,
 										       frame_size);
-					if (pktbuf)
-						ndma_ch->status_cb_fn(pktbuf, port_id, ts,
-								      ndma_ch->status_cb_param);
+					if (pktbuf) {
+						rx_chan->status_cb_fn(pktbuf, port_id, &ts,
+								      rx_chan->status_cb_param);
+
+						spin_lock_irqsave(&tx_chan->lock, flags);
+						if (port_id == 0)
+							tx_chan->tx_block_timestamp_req_port0 = false;
+						else
+							tx_chan->tx_block_timestamp_req_port1 = false;
+
+						spin_unlock_irqrestore(&tx_chan->lock, flags);
+					}
 				}
 			}
 		}
-		adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list, budget);
+		adrv906x_ndma_rx_free_data_wu_list(&rx_chan->rx_data_wu_list, budget);
 		napi_consume_skb(skb, budget); /* Free skb with status WU */
 		break;
 	case NDMA_RX_HDR_TYPE_DATA:
 		if (FIELD_GET(NDMA_RX_HDR_TYPE_DATA_SOF, skb->data[0])) {
-			if (!list_empty(&ndma_ch->rx_data_wu_list)) {
+			if (!list_empty(&rx_chan->rx_data_wu_list)) {
 				dev_dbg(dev, "no status received for previous data work units");
-				adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list,
+				adrv906x_ndma_rx_free_data_wu_list(&rx_chan->rx_data_wu_list,
 								   budget);
 			}
-			list_add_tail(&skb->list, &ndma_ch->rx_data_wu_list);
+			list_add_tail(&skb->list, &rx_chan->rx_data_wu_list);
 		} else {
-			if (list_empty(&ndma_ch->rx_data_wu_list)) {
+			if (list_empty(&rx_chan->rx_data_wu_list)) {
 				dev_dbg(dev, "start of frame not detected");
 				napi_consume_skb(skb, budget);
 			} else {
-				list_add_tail(&skb->list, &ndma_ch->rx_data_wu_list);
+				list_add_tail(&skb->list, &rx_chan->rx_data_wu_list);
 			}
 		}
 		break;
 	default:
 		dev_dbg(dev, "incorrect wu header detected");
-		adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list, budget);
+		adrv906x_ndma_rx_free_data_wu_list(&rx_chan->rx_data_wu_list, budget);
 		napi_consume_skb(skb, budget);
 		stats->rx.wu_header_errors++;
 	}
@@ -1714,18 +1747,6 @@ static int adrv906x_ndma_parse_tx_status_header(struct adrv906x_ndma_chan *ndma_
 		ret = NDMA_TX_STATUS_HEADER_ERROR;
 	} else {
 		get_ts_from_status(status_hdr, ts);
-
-		if (status_hdr[1] != ndma_ch->expected_seq_num) {
-			dev_dbg(dev, "frame seq number mismatch, exp:0x%x recv:0x%x",
-				ndma_ch->expected_seq_num, status_hdr[1]);
-			stats->tx.seqnumb_mismatch_errors++;
-			/* If seq number mismatch, update it to new value */
-			ndma_ch->expected_seq_num = status_hdr[1];
-			ret = NDMA_TX_SEQNUM_MISMATCH_ERROR;
-		}
-
-		ndma_ch->expected_seq_num = (ndma_ch->expected_seq_num < NDMA_TX_MAX_SEQNUM) ?
-					    ndma_ch->expected_seq_num + 1 : 1;
 
 		if (NDMA_TX_HDR_STATUS_FR_ERR & status_hdr[0]) {
 			if (adrv906x_ndma_chan_enabled(ndma_ch) &&
@@ -1760,6 +1781,35 @@ static int adrv906x_ndma_parse_tx_status_header(struct adrv906x_ndma_chan *ndma_
 				}
 			}
 		}
+
+		if (ret == NDMA_TX_TSTAMP_TIMEOUT_ERROR || !is_timestamp_all_zero(status_hdr)) {
+			/* If a timestamp timeout occurs or the timestamp is non-zero,
+			 * this indicates a PTP packet, so we need to verify its sequence number.
+			 */
+			if (status_hdr[1] != ndma_ch->ptp_exp_seq_num) {
+				dev_dbg(dev, "tx ptp pkt seq number mismatch, exp:0x%x recv:0x%x",
+					ndma_ch->ptp_exp_seq_num, status_hdr[1]);
+				stats->tx.seqnumb_mismatch_errors++;
+				ndma_ch->ptp_exp_seq_num = status_hdr[1];
+				if (ret != NDMA_TX_TSTAMP_TIMEOUT_ERROR)
+					ret = NDMA_TX_SEQNUM_MISMATCH_ERROR;
+			}
+
+			ndma_ch->ptp_exp_seq_num = (ndma_ch->ptp_exp_seq_num < NDMA_TX_PTP_MAX_SEQNUM) ?
+						   ndma_ch->ptp_exp_seq_num + 1 : NDMA_TX_PTP_MIN_SEQNUM;
+		} else {
+			/* Validate sequence number for non-PTP packets */
+			if (status_hdr[1] != ndma_ch->exp_seq_num) {
+				dev_dbg(dev, "tx pkt seq number mismatch, exp:0x%x recv:0x%x",
+					ndma_ch->exp_seq_num, status_hdr[1]);
+				stats->tx.seqnumb_mismatch_errors++;
+				ndma_ch->exp_seq_num = status_hdr[1];
+				ret = NDMA_TX_SEQNUM_MISMATCH_ERROR;
+			}
+
+			ndma_ch->exp_seq_num = (ndma_ch->exp_seq_num < NDMA_TX_MAX_SEQNUM) ?
+					       ndma_ch->exp_seq_num + 1 : NDMA_TX_MIN_SEQNUM;
+		}
 	}
 
 	stats->tx.pending_work_units = ndma_ch->tx_frames_pending;
@@ -1776,46 +1826,54 @@ static int adrv906x_ndma_process_tx_status(struct adrv906x_ndma_chan *ndma_ch,
 	struct device *dev = ndma_dev->dev;
 	struct dma_desc *tx_ring = ndma_ch->tx_ring;
 	struct timespec64 ts = { 0, 0 };
+	bool invalid_ts = false;
 	struct sk_buff *skb;
 	dma_addr_t addr;
 	unsigned int size;
 	unsigned char port;
 	int ret;
 
-	skb = ndma_ch->tx_buffs[ndma_ch->tx_tail];
-	port = FIELD_GET(NDMA_TX_HDR_SOF_PORT_ID, skb->data[0]);
-	addr = tx_ring[ndma_ch->tx_tail].start;
-	size = tx_ring[ndma_ch->tx_tail].xcnt * tx_ring[ndma_ch->tx_tail].xmod;
-
 	ret = adrv906x_ndma_parse_tx_status_header(ndma_ch, status, &ts);
-	if (ret == NDMA_TX_TSTAMP_TIMEOUT_ERROR) {
-		if (ndma_ch->tx_retry_count++ < NDMA_TX_PACKET_MAX_RETRIES) {
-			/* Update sequence number, then resend the packet */
-			ndma_ch->tx_frames_waiting++;
-			ndma_ch->seq_num = (ndma_ch->seq_num < NDMA_TX_MAX_SEQNUM) ?
-					   ndma_ch->seq_num + 1 : 1;
-			skb->data[1] = ndma_ch->seq_num;
-			dma_sync_single_for_device(dev, addr, size, DMA_TO_DEVICE);
-		} else {
-			ndma_ch->tx_retry_count = 0;
-		}
-	} else {
-		dma_unmap_single(dev, addr, size, DMA_TO_DEVICE);
-		ndma_ch->tx_buffs[ndma_ch->tx_tail] = NULL;
-		ndma_ch->tx_tail = (ndma_ch->tx_tail + 1) % NDMA_TX_RING_SIZE;
-		ndma_ch->status_cb_fn(skb, port, ts, ndma_ch->status_cb_param);
-	}
-
-	/* Reset retry counter if timestamp is valid */
-	if (ts.tv_sec != 0 || ts.tv_nsec != 0)
-		ndma_ch->tx_retry_count = 0;
-
 	/* Re-enable ndma channel after error */
 	if (ret)
 		adrv906x_ndma_chan_enable(ndma_ch);
 
+	skb = ndma_ch->tx_buffs[ndma_ch->tx_tail];
+	port = FIELD_GET(NDMA_TX_HDR_SOF_PORT_ID, skb->data[0]);
+	addr = tx_ring[ndma_ch->tx_tail].start;
+	size = tx_ring[ndma_ch->tx_tail].xcnt * tx_ring[ndma_ch->tx_tail].xmod;
+	dma_unmap_single(dev, addr, size, DMA_TO_DEVICE);
+
+	/* After two timestamp timeouts in a row, block new timestamp requests.
+	 * This usually happens after a link drop, and the hardware is sensitive
+	 * to this condition. Keep blocking until RX traffic is detected.
+	 */
+	if (ret == NDMA_TX_TSTAMP_TIMEOUT_ERROR) {
+		if (port == 0 &&
+		    ++ndma_ch->tx_timestamp_timeout_cnt_port0 > NDMA_TX_TSTAMP_TIMEOUT_CNT_THRESHOLD)
+			ndma_ch->tx_block_timestamp_req_port0 = true;
+		else if (port == 1 &&
+			 ++ndma_ch->tx_timestamp_timeout_cnt_port1 > NDMA_TX_TSTAMP_TIMEOUT_CNT_THRESHOLD)
+			ndma_ch->tx_block_timestamp_req_port1 = true;
+
+		invalid_ts = true;
+	} else if (ts.tv_sec != 0 || ts.tv_nsec != 0) {
+		/* The first timestamp after a series of timeouts is not valid */
+		if (port == 0 && ndma_ch->tx_timestamp_timeout_cnt_port0 > 0) {
+			ndma_ch->tx_timestamp_timeout_cnt_port0 = 0;
+			invalid_ts = true;
+		} else if (port == 1 && ndma_ch->tx_timestamp_timeout_cnt_port1 > 0) {
+			ndma_ch->tx_timestamp_timeout_cnt_port1 = 0;
+			invalid_ts = true;
+		}
+	}
+
+	ndma_ch->tx_buffs[ndma_ch->tx_tail] = NULL;
+	ndma_ch->tx_tail = (ndma_ch->tx_tail + 1) % NDMA_TX_RING_SIZE;
+	ndma_ch->status_cb_fn(skb, port, invalid_ts ? NULL : &ts, ndma_ch->status_cb_param);
+
 	if (--ndma_ch->tx_frames_pending == 0) {
-		hrtimer_cancel(&ndma_ch->tx_frames_timer);
+		cancel_delayed_work(&ndma_ch->tx_frames_timer);
 
 		if (ndma_ch->tx_frames_waiting) {
 			adrv906x_dma_tx_prep_desc_list(ndma_ch);
@@ -1864,7 +1922,11 @@ int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff 
 		skb_put(skb, needed_tailroom);
 	}
 
-	adrv906x_ndma_add_tx_header(ndma_dev, skb, ndma_ch->seq_num, port, hw_tstamp_req, dsa_en);
+	if ((ndma_ch->tx_block_timestamp_req_port0 && port == 0) ||
+	    (ndma_ch->tx_block_timestamp_req_port1 && port == 1))
+		hw_tstamp_req = false;
+
+	adrv906x_ndma_add_tx_header(ndma_dev, skb, port, hw_tstamp_req, dsa_en);
 
 	size = ALIGN(skb->len, 8);
 	addr = dma_map_single(dev, skb->data, size, DMA_TO_DEVICE);
@@ -1899,8 +1961,13 @@ int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff 
 		ndma_ch->tx_head = (ndma_ch->tx_head + 1) % NDMA_TX_RING_SIZE;
 	}
 	ndma_ch->tx_frames_waiting++;
-	ndma_ch->seq_num = (ndma_ch->seq_num < NDMA_TX_MAX_SEQNUM) ?
-			   ndma_ch->seq_num + 1 : 1;
+
+	if (hw_tstamp_req)
+		ndma_ch->ptp_seq_num = (ndma_ch->ptp_seq_num < NDMA_TX_PTP_MAX_SEQNUM) ?
+				       ndma_ch->ptp_seq_num + 1 : NDMA_TX_PTP_MIN_SEQNUM;
+	else
+		ndma_ch->seq_num = (ndma_ch->seq_num < NDMA_TX_MAX_SEQNUM) ?
+				   ndma_ch->seq_num + 1 : NDMA_TX_MIN_SEQNUM;
 
 	if (!ndma_ch->tx_frames_pending) {
 		adrv906x_dma_tx_prep_desc_list(ndma_ch);
@@ -2231,12 +2298,19 @@ int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 
 void adrv906x_ndma_remove(struct adrv906x_ndma_dev *ndma_dev)
 {
+	struct adrv906x_ndma_chan *rx_chan = &ndma_dev->rx_chan;
+	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
+
 	adrv906x_ndma_clear_mac_table(ndma_dev);
 
 	if (ndma_dev->flood_mitigate_supported)
 		sysfs_remove_group(&ndma_dev->dev->kobj, &ndma_dev->attr_group);
 
-	adrv906x_ndma_chan_disable(&ndma_dev->tx_chan);
-	adrv906x_ndma_chan_disable(&ndma_dev->rx_chan);
+	cancel_delayed_work_sync(&tx_chan->tx_frames_timer);
+	if (tx_chan->tx_wq)
+		destroy_workqueue(tx_chan->tx_wq);
+
+	adrv906x_ndma_chan_disable(tx_chan);
+	adrv906x_ndma_chan_disable(rx_chan);
 	of_platform_device_destroy(ndma_dev->dev, NULL);
 }

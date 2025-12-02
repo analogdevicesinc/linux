@@ -131,14 +131,17 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 	struct adrv906x_mac *mac = &adrv906x_dev->mac;
 	struct adrv906x_tsu *tsu = &adrv906x_dev->tsu;
 	struct phy_device *phydev = ndev->phydev;
+	unsigned long flags;
 	u32 val;
 
 	if (adrv906x_dev->link == phydev->link)
 		return;
 
+	spin_lock_irqsave(&adrv906x_dev->lock, flags);
 	adrv906x_dev->link = phydev->link;
+	spin_unlock_irqrestore(&adrv906x_dev->lock, flags);
 
-	if (phydev->link) {
+	if (adrv906x_dev->link) {
 		adrv906x_tsu_set_speed(tsu, phydev->speed);
 		adrv906x_eth_cmn_recovered_clk_config(adrv906x_dev);
 		adrv906x_mac_set_path(mac, true);
@@ -192,43 +195,56 @@ static int adrv906x_eth_phy_connect(struct net_device *ndev, struct device_node 
 	return 0;
 }
 
-static void __add_tx_hw_tstamp(struct sk_buff *skb, struct timespec64 ts)
+static void __add_tx_hw_tstamp(struct sk_buff *skb, struct timespec64 *ts)
 {
 	struct skb_shared_hwtstamps shhwtstamps;
 
 	if (skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS) {
-		memset(&shhwtstamps, 0, sizeof(shhwtstamps));
-		shhwtstamps.hwtstamp = ktime_set(ts.tv_sec, ts.tv_nsec);
-		skb_tstamp_tx(skb, &shhwtstamps);
+		if (ts) {
+			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
+			shhwtstamps.hwtstamp = ktime_set(ts->tv_sec, ts->tv_nsec);
+			skb_tstamp_tx(skb, &shhwtstamps);
+		} else {
+			skb_tstamp_tx(skb, NULL);
+		}
 	}
 }
 
-static void __add_rx_hw_tstamp(struct sk_buff *skb, struct timespec64 ts)
+static void __add_rx_hw_tstamp(struct sk_buff *skb, struct timespec64 *ts)
 {
 	struct skb_shared_hwtstamps *hwtstamps;
 
 	hwtstamps = skb_hwtstamps(skb);
-	hwtstamps->hwtstamp = ktime_set(ts.tv_sec, ts.tv_nsec);
+	hwtstamps->hwtstamp = ktime_set(ts->tv_sec, ts->tv_nsec);
 }
 
 static void adrv906x_eth_tx_callback(struct sk_buff *skb, unsigned int port_id,
-				     struct timespec64 ts, void *cb_param)
+				     struct timespec64 *ts, void *cb_param)
 {
 	struct net_device *ndev = (struct net_device *)cb_param;
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct adrv906x_eth_if *adrv906x_eth = adrv906x_dev->parent;
+	bool wake_needed = false;
 	unsigned long flags;
 
 	adrv906x_dev = adrv906x_eth->adrv906x_dev[port_id];
 	ndev = adrv906x_dev->ndev;
 
 	spin_lock_irqsave(&adrv906x_dev->lock, flags);
-	if (--adrv906x_dev->tx_frames_pending < adrv906x_eth->tx_max_frames_pending)
-		netif_wake_queue(ndev);
+	if (adrv906x_dev->tx_frames_pending > 0)
+		adrv906x_dev->tx_frames_pending--;
+
+	if (adrv906x_dev->tx_frames_pending < adrv906x_eth->tx_max_frames_pending &&
+	    adrv906x_dev->link)
+		wake_needed = true;
 	spin_unlock_irqrestore(&adrv906x_dev->lock, flags);
 
-	if (ts.tv_sec != 0 || ts.tv_nsec != 0)
-		adrv906x_tsu_compensate_tx_tstamp(&adrv906x_dev->tsu, &ts);
+	if (wake_needed && netif_queue_stopped(ndev) && netif_carrier_ok(ndev))
+		netif_wake_queue(ndev);
+
+	if (ts)
+		adrv906x_tsu_compensate_tx_tstamp(&adrv906x_dev->tsu, ts);
+
 	__add_tx_hw_tstamp(skb, ts);
 
 	dev_kfree_skb(skb);
@@ -240,15 +256,18 @@ static int adrv906x_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
+	bool hw_tstamp_req, dsa_en, stop_needed = false;
 	int port = adrv906x_dev->port;
-	bool hw_tstamp_req, dsa_en;
 	unsigned long flags;
 	int ret;
 
 	spin_lock_irqsave(&adrv906x_dev->lock, flags);
 	if (++adrv906x_dev->tx_frames_pending >= eth_if->tx_max_frames_pending)
-		netif_stop_queue(ndev);
+		stop_needed = true;
 	spin_unlock_irqrestore(&adrv906x_dev->lock, flags);
+
+	if (stop_needed && netif_carrier_ok(ndev))
+		netif_stop_queue(ndev);
 
 	hw_tstamp_req = (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ? 1 : 0;
 	if (hw_tstamp_req)
@@ -285,7 +304,7 @@ static void __skb_pvid_pop(struct net_device *ndev, struct sk_buff *skb)
 }
 
 static void adrv906x_eth_rx_callback(struct sk_buff *skb, unsigned int port_id,
-				     struct timespec64 ts, void *cb_param)
+				     struct timespec64 *ts, void *cb_param)
 {
 	struct net_device *ndev = (struct net_device *)cb_param;
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
@@ -403,10 +422,7 @@ static int adrv906x_get_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *ifr)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
-	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	struct hwtstamp_config config;
-	u32 ptp_mode;
 
 	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
 		return -EFAULT;
@@ -442,9 +458,6 @@ static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 	case HWTSTAMP_FILTER_ALL:
 		/* time stamp any incoming packet */
 		config.rx_filter = HWTSTAMP_FILTER_ALL;
-
-		ptp_mode = eth_if->ethswitch.enabled ? NDMA_PTP_MODE_1 : NDMA_PTP_MODE_4;
-		adrv906x_ndma_set_ptp_mode(ndma_dev, ptp_mode);
 
 		break;
 	default:

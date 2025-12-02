@@ -99,6 +99,7 @@ static const char adrv906x_gstrings_stats_names[][ETH_GSTRING_LEN] = {
 	"ndma_tx_done_work_unit",
 	"ndma_tx_data_dma_error",
 	"ndma_tx_status_dma_error",
+	"ndma_tx_recovery_count",
 	"switch_port0_pkt_fltr_rx",
 	"switch_port0_bytes_fltr_rx",
 	"switch_port0_pkt_buf_ovfl",
@@ -426,40 +427,41 @@ static void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_s
 	data[58] = ndma_tx_stats->tx.done_work_units;
 	data[59] = ndma_tx_stats->tx.data_dma_errors;
 	data[60] = ndma_tx_stats->tx.status_dma_errors;
+	data[61] = ndma_tx_stats->tx.recovery_count;
 
 	for (i = 0; i < SWITCH_MAX_PORT_NUM; i++) {
-		data[i * SWITCH_PORT_STATS_NUM + 61] = es->port_stats[i].pkt_fltr_rx;
-		data[i * SWITCH_PORT_STATS_NUM + 62] = es->port_stats[i].bytes_fltr_rx;
-		data[i * SWITCH_PORT_STATS_NUM + 63] = es->port_stats[i].pkt_buf_ovfl;
-		data[i * SWITCH_PORT_STATS_NUM + 64] = es->port_stats[i].bytes_buf_ovfl;
-		data[i * SWITCH_PORT_STATS_NUM + 65] = es->port_stats[i].pkt_err;
-		data[i * SWITCH_PORT_STATS_NUM + 66] = es->port_stats[i].bytes_err;
-		data[i * SWITCH_PORT_STATS_NUM + 67] = es->port_stats[i].drop_pkt_tx;
-		data[i * SWITCH_PORT_STATS_NUM + 68] = es->port_stats[i].ipv0_pkt_voq_nqn;
-		data[i * SWITCH_PORT_STATS_NUM + 69] = es->port_stats[i].ipv1_pkt_voq_nqn;
-		data[i * SWITCH_PORT_STATS_NUM + 70] = es->port_stats[i].ipv0_bytes_voq_nqn;
-		data[i * SWITCH_PORT_STATS_NUM + 71] = es->port_stats[i].ipv1_bytes_voq_nqn;
-		data[i * SWITCH_PORT_STATS_NUM + 72] = es->port_stats[i].ipv0_pkt_voq_dqn;
-		data[i * SWITCH_PORT_STATS_NUM + 73] = es->port_stats[i].ipv1_pkt_voq_dqn;
-		data[i * SWITCH_PORT_STATS_NUM + 74] = es->port_stats[i].ipv0_bytes_voq_dqn;
-		data[i * SWITCH_PORT_STATS_NUM + 75] = es->port_stats[i].ipv1_bytes_voq_dqn;
-		data[i * SWITCH_PORT_STATS_NUM + 76] = es->port_stats[i].ipv0_pkt_voq_dropn;
-		data[i * SWITCH_PORT_STATS_NUM + 77] = es->port_stats[i].ipv1_pkt_voq_dropn;
-		data[i * SWITCH_PORT_STATS_NUM + 78] = es->port_stats[i].ipv0_bytes_voq_dropn;
-		data[i * SWITCH_PORT_STATS_NUM + 79] = es->port_stats[i].ipv1_bytes_voq_dropn;
-		data[i * SWITCH_PORT_STATS_NUM + 80] = es->port_stats[i].ucast_pkt_rx;
-		data[i * SWITCH_PORT_STATS_NUM + 81] = es->port_stats[i].ucast_bytes_rx;
-		data[i * SWITCH_PORT_STATS_NUM + 82] = es->port_stats[i].ucast_pkt_tx;
-		data[i * SWITCH_PORT_STATS_NUM + 83] = es->port_stats[i].ucast_bytes_tx;
-		data[i * SWITCH_PORT_STATS_NUM + 84] = es->port_stats[i].mcast_pkt_rx;
-		data[i * SWITCH_PORT_STATS_NUM + 85] = es->port_stats[i].mcast_bytes_rx;
-		data[i * SWITCH_PORT_STATS_NUM + 86] = es->port_stats[i].mcast_pkt_tx;
-		data[i * SWITCH_PORT_STATS_NUM + 87] = es->port_stats[i].mcast_bytes_tx;
-		data[i * SWITCH_PORT_STATS_NUM + 88] = es->port_stats[i].bcast_pkt_rx;
-		data[i * SWITCH_PORT_STATS_NUM + 89] = es->port_stats[i].bcast_bytes_rx;
-		data[i * SWITCH_PORT_STATS_NUM + 90] = es->port_stats[i].bcast_pkt_tx;
-		data[i * SWITCH_PORT_STATS_NUM + 91] = es->port_stats[i].bcast_bytes_tx;
-		data[i * SWITCH_PORT_STATS_NUM + 92] = es->port_stats[i].crd_buffer_drop;
+		data[i * SWITCH_PORT_STATS_NUM + 62] = es->port_stats[i].pkt_fltr_rx;
+		data[i * SWITCH_PORT_STATS_NUM + 63] = es->port_stats[i].bytes_fltr_rx;
+		data[i * SWITCH_PORT_STATS_NUM + 64] = es->port_stats[i].pkt_buf_ovfl;
+		data[i * SWITCH_PORT_STATS_NUM + 65] = es->port_stats[i].bytes_buf_ovfl;
+		data[i * SWITCH_PORT_STATS_NUM + 66] = es->port_stats[i].pkt_err;
+		data[i * SWITCH_PORT_STATS_NUM + 67] = es->port_stats[i].bytes_err;
+		data[i * SWITCH_PORT_STATS_NUM + 68] = es->port_stats[i].drop_pkt_tx;
+		data[i * SWITCH_PORT_STATS_NUM + 69] = es->port_stats[i].ipv0_pkt_voq_nqn;
+		data[i * SWITCH_PORT_STATS_NUM + 70] = es->port_stats[i].ipv1_pkt_voq_nqn;
+		data[i * SWITCH_PORT_STATS_NUM + 71] = es->port_stats[i].ipv0_bytes_voq_nqn;
+		data[i * SWITCH_PORT_STATS_NUM + 72] = es->port_stats[i].ipv1_bytes_voq_nqn;
+		data[i * SWITCH_PORT_STATS_NUM + 73] = es->port_stats[i].ipv0_pkt_voq_dqn;
+		data[i * SWITCH_PORT_STATS_NUM + 74] = es->port_stats[i].ipv1_pkt_voq_dqn;
+		data[i * SWITCH_PORT_STATS_NUM + 75] = es->port_stats[i].ipv0_bytes_voq_dqn;
+		data[i * SWITCH_PORT_STATS_NUM + 76] = es->port_stats[i].ipv1_bytes_voq_dqn;
+		data[i * SWITCH_PORT_STATS_NUM + 77] = es->port_stats[i].ipv0_pkt_voq_dropn;
+		data[i * SWITCH_PORT_STATS_NUM + 78] = es->port_stats[i].ipv1_pkt_voq_dropn;
+		data[i * SWITCH_PORT_STATS_NUM + 79] = es->port_stats[i].ipv0_bytes_voq_dropn;
+		data[i * SWITCH_PORT_STATS_NUM + 80] = es->port_stats[i].ipv1_bytes_voq_dropn;
+		data[i * SWITCH_PORT_STATS_NUM + 81] = es->port_stats[i].ucast_pkt_rx;
+		data[i * SWITCH_PORT_STATS_NUM + 82] = es->port_stats[i].ucast_bytes_rx;
+		data[i * SWITCH_PORT_STATS_NUM + 83] = es->port_stats[i].ucast_pkt_tx;
+		data[i * SWITCH_PORT_STATS_NUM + 84] = es->port_stats[i].ucast_bytes_tx;
+		data[i * SWITCH_PORT_STATS_NUM + 85] = es->port_stats[i].mcast_pkt_rx;
+		data[i * SWITCH_PORT_STATS_NUM + 86] = es->port_stats[i].mcast_bytes_rx;
+		data[i * SWITCH_PORT_STATS_NUM + 87] = es->port_stats[i].mcast_pkt_tx;
+		data[i * SWITCH_PORT_STATS_NUM + 88] = es->port_stats[i].mcast_bytes_tx;
+		data[i * SWITCH_PORT_STATS_NUM + 89] = es->port_stats[i].bcast_pkt_rx;
+		data[i * SWITCH_PORT_STATS_NUM + 90] = es->port_stats[i].bcast_bytes_rx;
+		data[i * SWITCH_PORT_STATS_NUM + 91] = es->port_stats[i].bcast_pkt_tx;
+		data[i * SWITCH_PORT_STATS_NUM + 92] = es->port_stats[i].bcast_bytes_tx;
+		data[i * SWITCH_PORT_STATS_NUM + 93] = es->port_stats[i].crd_buffer_drop;
 	}
 }
 
@@ -799,13 +801,13 @@ out:
 }
 
 static void adrv906x_ndma_loopback_tx_callback(struct sk_buff *skb, unsigned int port_id,
-					       struct timespec64 ts, void *cb_param)
+					       struct timespec64 *ts, void *cb_param)
 {
 	dev_kfree_skb(skb);
 }
 
 static void adrv906x_ndma_loopback_rx_callback(struct sk_buff *skb, unsigned int port_id,
-					       struct timespec64 ts, void *cb_param)
+					       struct timespec64 *ts, void *cb_param)
 {
 	struct adrv906x_test_priv *tpriv = (struct adrv906x_test_priv *)cb_param;
 	struct net_device *ndev = tpriv->ndev;
