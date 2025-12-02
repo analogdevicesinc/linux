@@ -7,8 +7,8 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: Analog Devices System Event Controller for SC5XX processor family
 
 maintainers:
-  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
-  - Greg Malysa <greg.malysa@timesys.com>
+  - Arturs Artamonovs <arturs.artamonovs@analog.com>
+  - Utsav Agarwal <Utsav.Agarwal@analog.com>
 
 description: |
   This is the interrupt controller for the SHARC cores on the SC5XX family.
@@ -22,11 +22,11 @@ properties:
     maxItems: 1
 
   "adi,rcu":
-    maxItems: 1
+    $ref: /schemas/types.yaml#/definitions/phandle
     description: "Associated reset control unit"
 
   "adi,sharc-cores":
-    maxItems: 1
+    $ref: /schemas/types.yaml#/definitions/uint32
     description: "Number of SHARC cores available"
 
 required:
@@ -44,5 +44,4 @@ examples:
       reg = <0x31089000 0x1000>;
       adi,rcu = <&rcu>;
       adi,sharc-cores = <2>;
-      status = "okay";
     };
