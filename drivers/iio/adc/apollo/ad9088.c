@@ -911,7 +911,8 @@ void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
  * @chan: IIO channel specification
  *
  * Returns pointer to the pre-computed channel mapping structure.
- * Must be called after ad9088_init_chan_map().
+ * The channel maps are populated during ad9088_label_writer() which is
+ * called from ad9088_setup_chip_info_tbl() at probe time.
  */
 const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
 						  const struct iio_chan_spec *chan)
@@ -948,18 +949,19 @@ static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
 				   adi_apollo_cfir_sel_e *cfir_sel,
 				   adi_apollo_cfir_dp_sel *dp_sel)
 {
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map) {
+		dev_err(&phy->spi->dev, "Invalid channel address %lu", chan->address);
+		return;
+	}
 
 	if (chan->output)
 		*terminal = ADI_APOLLO_TX;
 	else
 		*terminal = ADI_APOLLO_RX;
 
-	switch (fddc_mask) {
+	switch (map->fddc_mask) {
 	case ADI_APOLLO_FDDC_A0:
 		*cfir_sel = ADI_APOLLO_CFIR_A0;
 		*dp_sel = ADI_APOLLO_CFIR_DP_0;
@@ -993,13 +995,13 @@ static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
 		*dp_sel = ADI_APOLLO_CFIR_DP_1;
 		break;
 	default:
-		dev_err(&phy->spi->dev, "Unhandled FDDC number 0x%X\n", fddc_mask);
+		dev_err(&phy->spi->dev, "Unhandled FDDC number 0x%X\n", map->fddc_mask);
 	}
 
 	dev_dbg(&phy->spi->dev,
 		"%s_voltage%d: Side-%c fddc_mask=%X terminal=%s, cfir_sel=%u dp_sel=%u\n",
-		chan->output ? "out" : "in", chan->channel, side ? 'B' : 'A',
-		fddc_mask, *terminal ? "TX" : "RX", *cfir_sel, *dp_sel);
+		chan->output ? "out" : "in", chan->channel, map->side ? 'B' : 'A',
+		map->fddc_mask, *terminal ? "TX" : "RX", *cfir_sel, *dp_sel);
 }
 
 #define AD9088_MAX_CLK_NAME 79
@@ -1146,17 +1148,16 @@ static int ad9088_testmode_write(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 	adi_apollo_rx_tmode_res_e res;
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
 	int ret = 0;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	guard(mutex)(&phy->lock);
 
-	switch (phy->profile.rx_path[side].rx_dformat[0].res) {
+	switch (phy->profile.rx_path[map->side].rx_dformat[0].res) {
 	case ADI_APOLLO_RX_DFORMAT_RES_16B:
 		res = ADI_APOLLO_RX_TMODE_RES_16B;
 		break;
@@ -1174,12 +1175,12 @@ static int ad9088_testmode_write(struct iio_dev *indio_dev,
 		break;
 	default:
 		dev_warn(&phy->spi->dev, "Unsupported tmode resolution %d\n",
-			phy->profile.rx_path[side].rx_dformat[0].res);
+			phy->profile.rx_path[map->side].rx_dformat[0].res);
 		res = ADI_APOLLO_RX_TMODE_RES_12B;
 	}
 
 	ret = adi_apollo_tmode_config_set(&phy->ad9088,
-					  side ? ADI_APOLLO_LINK_B0 : ADI_APOLLO_LINK_A0,
+					  map->side ? ADI_APOLLO_LINK_B0 : ADI_APOLLO_LINK_A0,
 					  item ? 0xFF : 0, item, res);
 
 	if (!ret)
@@ -1243,16 +1244,16 @@ static int ad9088_nyquist_zone_read(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask, nz;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	u32 nz;
 	int ret;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	guard(mutex)(&phy->lock);
 
-	ret = adi_apollo_adc_nyquist_zone_get(&phy->ad9088, cddc_mask, &nz);
+	ret = adi_apollo_adc_nyquist_zone_get(&phy->ad9088, map->adcdac_mask, &nz);
 	if (ret < 0) {
 		dev_err(&phy->spi->dev, "Error reading nyquist zone: %d\n", ret);
 		return -EFAULT;
@@ -1272,15 +1273,14 @@ static int ad9088_nyquist_zone_write(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	guard(mutex)(&phy->lock);
 
-	return adi_apollo_adc_nyquist_zone_set(&phy->ad9088, cddc_mask, item + 1);
+	return adi_apollo_adc_nyquist_zone_set(&phy->ad9088, map->adcdac_mask, item + 1);
 }
 
 static const char *const ad9088_adc_nyquist_zones[] = {
@@ -1300,16 +1300,16 @@ static int ad9088_sampling_mode_read(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 	adi_apollo_mailbox_resp_get_adc_slice_modes_t slice_modes;
-	u8 cddc_num, fddc_num, side, adc_idx;
-	u32 cddc_mask, fddc_mask;
+	u8 adc_idx;
 	int ret;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	/* Calculate ADC index: A0-A3 = 0-3, B0-B3 = 4-7 */
-	adc_idx = side * ADI_APOLLO_ADC_PER_SIDE_NUM + cddc_num;
+	adc_idx = map->side * ADI_APOLLO_ADC_PER_SIDE_NUM + map->adcdac_num;
 
 	guard(mutex)(&phy->lock);
 
@@ -1321,7 +1321,7 @@ static int ad9088_sampling_mode_read(struct iio_dev *indio_dev,
 
 	if (slice_modes.adc_slice_mode[adc_idx] == ADI_APOLLO_ADC_MODE_DISABLED) {
 		dev_err(&phy->spi->dev, "ADC%c%d is disabled\n",
-			side ? 'B' : 'A', cddc_num);
+			map->side ? 'B' : 'A', map->adcdac_num);
 		return -ENODEV;
 	}
 
@@ -1334,20 +1334,16 @@ static int ad9088_sampling_mode_write(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 	adi_apollo_mailbox_resp_get_adc_slice_modes_t slice_modes;
-	u8 cddc_num, fddc_num, side, adc_idx;
-	u32 cddc_mask, fddc_mask;
-	adi_apollo_blk_sel_t adc_mask;
+	u8 adc_idx;
 	int ret;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	/* Calculate ADC index: A0-A3 = 0-3, B0-B3 = 4-7 */
-	adc_idx = side * ADI_APOLLO_ADC_PER_SIDE_NUM + cddc_num;
-
-	/* Use correct base address for side A or B */
-	adc_mask = (side ? ADI_APOLLO_ADC_B0 : ADI_APOLLO_ADC_A0) << cddc_num;
+	adc_idx = map->side * ADI_APOLLO_ADC_PER_SIDE_NUM + map->adcdac_num;
 
 	guard(mutex)(&phy->lock);
 
@@ -1362,20 +1358,20 @@ static int ad9088_sampling_mode_write(struct iio_dev *indio_dev,
 		return 0; /* Already in requested mode */
 
 	/* Execute mode switch sequence */
-	ret = adi_apollo_adc_mode_switch_prepare(&phy->ad9088, adc_mask);
+	ret = adi_apollo_adc_mode_switch_prepare(&phy->ad9088, map->adcdac_mask);
 	if (ret < 0) {
 		dev_err(&phy->spi->dev, "Mode switch prepare failed: %d\n", ret);
 		return ret;
 	}
 
-	ret = adi_apollo_adc_mode_switch_execute(&phy->ad9088, adc_mask,
+	ret = adi_apollo_adc_mode_switch_execute(&phy->ad9088, map->adcdac_mask,
 						 ADI_APOLLO_ADC_MODE_SWITCH_BY_COMMAND);
 	if (ret < 0) {
 		dev_err(&phy->spi->dev, "Mode switch execute failed: %d\n", ret);
 		return ret;
 	}
 
-	ret = adi_apollo_adc_mode_switch_restore(&phy->ad9088, adc_mask, 1);
+	ret = adi_apollo_adc_mode_switch_restore(&phy->ad9088, map->adcdac_mask, 1);
 	if (ret < 0) {
 		dev_err(&phy->spi->dev, "Mode switch restore failed: %d\n", ret);
 		return ret;
@@ -1425,125 +1421,125 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 	long long val;
 	u64 range, f;
-	u8 cddc_num, fddc_num, side, enable;
-	u32 cddc_mask, fddc_mask;
-	int /*i,*/ ret = -EINVAL;
+	u8 enable;
+	int ret = -EINVAL;
 	u32 cddc_dcm;
 	adi_apollo_invsinc_inspect_t invsinc_inspect;
 	adi_apollo_terminal_e terminal;
 	adi_apollo_cfir_sel_e cfir_sel;
 	adi_apollo_cfir_dp_sel dp_sel;
 
-	guard(mutex)(&phy->lock);
+	if (!map)
+		return -EINVAL;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	guard(mutex)(&phy->lock);
 
 	switch (private) {
 	case CDDC_NCO_FREQ:
 		if (chan->output) {
-			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
-			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc,
-							phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_a,
-							phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc,
+							phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_a,
+							phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
 		} else {
-			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
-			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc,
-						       phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_a,
-						       phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc,
+						       phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_a,
+						       phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
 		}
 		break;
 	case FDDC_NCO_FREQ:
 		if (chan->output) {
 			u32 cddc_dcm;
 
-			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[side].tx_cduc[cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
+			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
 			do_div(f, cddc_dcm);
 
 			ret = adi_ad9088_calc_nco_freq(phy, f,
-						 phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc,
-						 phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_a,
-						 phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_b,
+						 phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_phase_inc,
+						 phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_phase_inc_frac_a,
+						 phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_phase_inc_frac_b,
 						 48, &val);
 		} else {
 			u32 cddc_dcm;
 
-			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[side].rx_cddc[cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
+			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
 			do_div(f, cddc_dcm);
 			ret = adi_ad9088_calc_nco_freq(phy, f,
-						 phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc,
-						 phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_a,
-						 phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_b,
+						 phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc,
+						 phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc_frac_a,
+						 phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc_frac_b,
 						 48, &val);
 		}
 		break;
 	case CDDC_NCO_FREQ_AVAIL:
 		if (chan->output)
-			range = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_config[side].dac_sampling_rate_Hz, 2);
+			range = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_config[map->side].dac_sampling_rate_Hz, 2);
 		else
-			range = DIV_ROUND_CLOSEST_ULL(phy->profile.adc_config[side].adc_sampling_rate_Hz, 2);
+			range = DIV_ROUND_CLOSEST_ULL(phy->profile.adc_config[map->side].adc_sampling_rate_Hz, 2);
 
 		return sprintf(buf, "[%lld 1 %lld]\n", -1 * range, range);
 	case FDDC_NCO_FREQ_AVAIL:
 		if (chan->output) {
-			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[side].tx_cduc[cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
+			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
 
 		} else {
-			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[side].rx_cddc[cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
+			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
 		}
 
 		range = DIV_ROUND_CLOSEST_ULL(f, cddc_dcm * 2);
 		return sprintf(buf, "[%lld 1 %lld]\n", -1 * range, range);
 	case CDDC_NCO_PHASE:
-		val = phy->cnco_phase[chan->output][side][cddc_num];
+		val = phy->cnco_phase[chan->output][map->side][map->cddc_num];
 		ret = 0;
 		break;
 	case FDDC_NCO_PHASE:
-		val = phy->fnco_phase[chan->output][side][fddc_num];
+		val = phy->fnco_phase[chan->output][map->side][map->fddc_num];
 		ret = 0;
 		break;
 	case CDDC_TB1_6DB_GAIN:
-		ret = adi_apollo_cddc_gain_enable_get(&phy->ad9088, cddc_mask, ADI_APOLLO_CDDC_GAIN_TB1, &enable);
+		ret = adi_apollo_cddc_gain_enable_get(&phy->ad9088, map->cddc_mask, ADI_APOLLO_CDDC_GAIN_TB1, &enable);
 		val = !!enable;
 		break;
 	case CDDC_HB1_6DB_GAIN:
-		ret = adi_apollo_cddc_gain_enable_get(&phy->ad9088, cddc_mask, ADI_APOLLO_CDDC_GAIN_HB1, &enable);
+		ret = adi_apollo_cddc_gain_enable_get(&phy->ad9088, map->cddc_mask, ADI_APOLLO_CDDC_GAIN_HB1, &enable);
 		val = !!enable;
 		break;
 	case FDDC_6DB_GAIN:
-		ret = adi_apollo_fddc_gain_enable_get(&phy->ad9088, fddc_mask, &enable);
+		ret = adi_apollo_fddc_gain_enable_get(&phy->ad9088, map->fddc_mask, &enable);
 		val = !!enable;
 		break;
 	case CDDC_TEST_TONE_EN:
-		val = phy->cnco_test_tone_en[chan->output][side][cddc_num];
+		val = phy->cnco_test_tone_en[chan->output][map->side][map->cddc_num];
 		ret = 0;
 		break;
 	case FDDC_TEST_TONE_EN:
-		val = phy->fnco_test_tone_en[chan->output][side][fddc_num];
+		val = phy->fnco_test_tone_en[chan->output][map->side][map->fddc_num];
 		ret = 0;
 		break;
 	case CDDC_TEST_TONE_OFFSET:
-		val = phy->cnco_test_tone_offset[chan->output][side][cddc_num];
+		val = phy->cnco_test_tone_offset[chan->output][map->side][map->cddc_num];
 		return ad9088_iio_val_to_str(buf, chan->output ? 0x1FFF : 0x7FF, val);
 	case FDDC_TEST_TONE_OFFSET:
-		val = phy->fnco_test_tone_offset[chan->output][side][fddc_num];
+		val = phy->fnco_test_tone_offset[chan->output][map->side][map->fddc_num];
 		return ad9088_iio_val_to_str(buf, chan->output ? 0x7FFF : 0x1FFF, val);
 	case TRX_CONVERTER_RATE:
 		if (chan->output)
-			val = phy->profile.dac_config[side].dac_sampling_rate_Hz;
+			val = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
 		else
-			val = phy->profile.adc_config[side].adc_sampling_rate_Hz;
+			val = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
 
 		ret = 0;
 		break;
 	case DAC_INVSINC_EN:
-		ret = adi_apollo_invsinc_inspect(&phy->ad9088, ADI_APOLLO_CDUC_IDX2B(side, cddc_num), &invsinc_inspect);
+		ret = adi_apollo_invsinc_inspect(&phy->ad9088, ADI_APOLLO_CDUC_IDX2B(map->side, map->cddc_num), &invsinc_inspect);
 		val = !!invsinc_inspect.invsinc_en;
 		break;
 	case CFIR_PROFILE_SEL:
@@ -1557,11 +1553,11 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 		ret = 0;
 		break;
 	case BMEM_CDDC_DELAY:
-		val = phy->cddc_sample_delay[side][cddc_num];
+		val = phy->cddc_sample_delay[map->side][map->cddc_num];
 		ret = 0;
 		break;
 	case BMEM_FDDC_DELAY:
-		val = phy->fddc_sample_delay[side][fddc_num];
+		val = phy->fddc_sample_delay[map->side][map->fddc_num];
 		ret = 0;
 		break;
 	default:
@@ -1581,11 +1577,10 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 	long long readin;
 	bool enable;
 	int ret, readin_32;
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
 	s32 val32, tmp;
 	u32 cddc_dcm;
 	s64 val64;
@@ -1594,10 +1589,10 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 	adi_apollo_cfir_sel_e cfir_sel;
 	adi_apollo_cfir_dp_sel dp_sel;
 
-	guard(mutex)(&phy->lock);
+	if (!map)
+		return -EINVAL;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	guard(mutex)(&phy->lock);
 
 	switch (private) {
 	case CDDC_NCO_FREQ:
@@ -1606,30 +1601,30 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 
 		if (chan->output)
-			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
 		else
-			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
 
 
 		ret = adi_ad9088_calc_nco_ftw(phy, f, readin, 1, 32, &ftw, &frac_a, &frac_b);
 		if (ret)
 			return ret;
 
-		ret = adi_apollo_cnco_ftw_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, cddc_mask, 0, 1, (u32) ftw);
+		ret = adi_apollo_cnco_ftw_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, map->cddc_mask, 0, 1, (u32) ftw);
 		if (ret)
 			return ret;
 
-		ret = adi_apollo_cnco_mod_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, cddc_mask, (u32) frac_a, (u32) frac_b);
+		ret = adi_apollo_cnco_mod_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, map->cddc_mask, (u32) frac_a, (u32) frac_b);
 
 		if (!ret) {
 			if (chan->output) {
-				phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc = ftw;
-				phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
-				phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+				phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc = ftw;
+				phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+				phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
 			} else {
-				phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc = ftw;
-				phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
-				phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+				phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc = ftw;
+				phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+				phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
 			}
 		}
 
@@ -1640,11 +1635,11 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 
 		if (chan->output) {
-			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[side].tx_cduc[cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.dac_config[side].dac_sampling_rate_Hz;
+			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
 		} else {
-			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[side].rx_cddc[cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.adc_config[side].adc_sampling_rate_Hz;
+			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
 		}
 
 		ret = adi_ad9088_calc_nco_ftw(phy, f, readin, cddc_dcm, 48, &ftw, &frac_a, &frac_b);
@@ -1653,22 +1648,22 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 
 		adi_apollo_fine_nco_main_pgm_t config = {
 			.main_phase_inc = ftw,
-			.main_phase_offset = div_s64(phy->fnco_phase[chan->output][side][fddc_num] * 14073748835533, 18000LL),
+			.main_phase_offset = div_s64(phy->fnco_phase[chan->output][map->side][map->fddc_num] * 14073748835533, 18000LL),
 			.drc_phase_inc_frac_a = frac_a,
 			.drc_phase_inc_frac_b = frac_b,
 		};
 
-		ret = adi_apollo_fnco_main_pgm(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, fddc_mask, &config);
+		ret = adi_apollo_fnco_main_pgm(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, map->fddc_mask, &config);
 
 		if (!ret) {
 			if (chan->output) {
-				phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc = ftw;
-				phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
-				phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+				phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_phase_inc = ftw;
+				phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+				phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
 			} else {
-				phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc = ftw;
-				phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
-				phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+				phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc = ftw;
+				phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+				phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
 			}
 		}
 		break;
@@ -1682,9 +1677,9 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 
 		ret = adi_apollo_cnco_pow_set(&phy->ad9088,
 					      chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
-					      cddc_mask, 0, 1, val32);
+					      map->cddc_mask, 0, 1, val32);
 		if (!ret)
-			phy->cnco_phase[chan->output][side][cddc_num] = readin;
+			phy->cnco_phase[chan->output][map->side][map->cddc_num] = readin;
 		else
 			ret = -EFAULT;
 		break;
@@ -1699,10 +1694,10 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		ret = adi_apollo_fnco_main_phase_offset_set(
 			      &phy->ad9088,
 			      chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
-			      fddc_mask,
+			      map->fddc_mask,
 			      val64);
 		if (!ret)
-			phy->fnco_phase[chan->output][side][fddc_num] = readin;
+			phy->fnco_phase[chan->output][map->side][map->fddc_num] = readin;
 		else
 			ret = -EFAULT;
 		break;
@@ -1710,7 +1705,7 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
-		ret = adi_apollo_cddc_gain_enable_set(&phy->ad9088, cddc_mask, ADI_APOLLO_CDDC_GAIN_TB1, enable);
+		ret = adi_apollo_cddc_gain_enable_set(&phy->ad9088, map->cddc_mask, ADI_APOLLO_CDDC_GAIN_TB1, enable);
 		if (ret)
 			return ret;
 		break;
@@ -1718,7 +1713,7 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
-		ret = adi_apollo_cddc_gain_enable_set(&phy->ad9088, cddc_mask, ADI_APOLLO_CDDC_GAIN_HB1, enable);
+		ret = adi_apollo_cddc_gain_enable_set(&phy->ad9088, map->cddc_mask, ADI_APOLLO_CDDC_GAIN_HB1, enable);
 		if (ret)
 			return ret;
 		break;
@@ -1727,7 +1722,7 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 		ret = adi_apollo_fddc_gain_enable_set(
-			      &phy->ad9088, fddc_mask, enable);
+			      &phy->ad9088, map->fddc_mask, enable);
 		if (ret)
 			return ret;
 		break;
@@ -1737,15 +1732,15 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 
 		if (chan->output)
-			tmp = phy->profile.tx_path[side].tx_cduc[cddc_num].nco[0].nco_if_mode;
+			tmp = phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_if_mode;
 		else
-			tmp = phy->profile.rx_path[side].rx_cddc[cddc_num].nco[0].nco_if_mode;
+			tmp = phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_if_mode;
 
 		ret = adi_apollo_cnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
-					       cddc_mask, enable ? ADI_APOLLO_MXR_TEST_MODE : tmp);
+					       map->cddc_mask, enable ? ADI_APOLLO_MXR_TEST_MODE : tmp);
 
 		if (!ret)
-			phy->cnco_test_tone_en[chan->output][side][cddc_num] = enable;
+			phy->cnco_test_tone_en[chan->output][map->side][map->cddc_num] = enable;
 		break;
 	case FDDC_TEST_TONE_EN:
 		ret = kstrtobool(buf, &enable);
@@ -1753,14 +1748,14 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 
 		if (chan->output)
-			tmp = phy->profile.tx_path[side].tx_fduc[fddc_num].nco[0].nco_if_mode;
+			tmp = phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_if_mode;
 		else
-			tmp = phy->profile.rx_path[side].rx_fddc[fddc_num].nco[0].nco_if_mode;
+			tmp = phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_if_mode;
 
 		ret = adi_apollo_fnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
-					       fddc_mask, enable ? ADI_APOLLO_MXR_TEST_MODE : tmp);
+					       map->fddc_mask, enable ? ADI_APOLLO_MXR_TEST_MODE : tmp);
 		if (!ret)
-			phy->fnco_test_tone_en[chan->output][side][fddc_num] = enable;
+			phy->fnco_test_tone_en[chan->output][map->side][map->fddc_num] = enable;
 		break;
 	case CDDC_TEST_TONE_OFFSET:
 		ret = ad9088_iio_str_to_val(buf, 0, chan->output ? 0x1FFF : 0x7FF, &readin_32);
@@ -1768,9 +1763,9 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 
 		ret = adi_apollo_cnco_test_mode_val_set(&phy->ad9088,
-							chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, cddc_mask, readin_32);
+							chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, map->cddc_mask, readin_32);
 		if (!ret)
-			phy->cnco_test_tone_offset[chan->output][side][cddc_num] = readin_32;
+			phy->cnco_test_tone_offset[chan->output][map->side][map->cddc_num] = readin_32;
 
 		break;
 	case FDDC_TEST_TONE_OFFSET:
@@ -1779,15 +1774,15 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 
 		ret = adi_apollo_fnco_test_mode_val_set(&phy->ad9088,
-							chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, fddc_mask, readin_32);
+							chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX, map->fddc_mask, readin_32);
 		if (!ret)
-			phy->fnco_test_tone_offset[chan->output][side][fddc_num] = readin_32;
+			phy->fnco_test_tone_offset[chan->output][map->side][map->fddc_num] = readin_32;
 		break;
 	case DAC_INVSINC_EN:
 		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
-		ret = adi_apollo_tx_inv_sinc_configure(&phy->ad9088, side, cddc_num, enable);
+		ret = adi_apollo_tx_inv_sinc_configure(&phy->ad9088, map->side, map->cddc_num, enable);
 		break;
 	case CFIR_PROFILE_SEL:
 		ret = kstrtoll(buf, 10, &readin);
@@ -1821,12 +1816,12 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 		readin = clamp_t(long long, readin, 0, 4095);
 
-		ret = adi_apollo_bmem_cddc_delay_sample_set(&phy->ad9088, cddc_mask, readin);
+		ret = adi_apollo_bmem_cddc_delay_sample_set(&phy->ad9088, map->cddc_mask, readin);
 		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_bmem_cddc_delay_sample_set");
 		if (ret)
 			return ret;
 
-		phy->cddc_sample_delay[side][cddc_num] = readin;
+		phy->cddc_sample_delay[map->side][map->cddc_num] = readin;
 		break;
 	case BMEM_FDDC_DELAY:
 		if (!phy->fddc_sample_delay_en) {
@@ -1840,12 +1835,12 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 
 		readin = clamp_t(long long, readin, 0, 255);
 
-		ret = adi_apollo_bmem_fddc_delay_sample_set(&phy->ad9088, fddc_mask, readin);
+		ret = adi_apollo_bmem_fddc_delay_sample_set(&phy->ad9088, map->fddc_mask, readin);
 		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_bmem_fddc_delay_sample_set");
 		if (ret)
 			return ret;
 
-		phy->fddc_sample_delay[side][fddc_num] = readin;
+		phy->fddc_sample_delay[map->side][map->fddc_num] = readin;
 		break;
 	default:
 		ret = -EINVAL;
@@ -2060,13 +2055,12 @@ static int ad9088_loopback_mode_read(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
-	return phy->loopback_mode[side];
+	return phy->loopback_mode[map->side];
 }
 
 static int ad9088_loopback_mode_write(struct iio_dev *indio_dev,
@@ -2075,33 +2069,32 @@ static int ad9088_loopback_mode_write(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 	int ret = 0;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	guard(mutex)(&phy->lock);
 
-	ad9088_device_loopback_disable(phy, side);
+	ad9088_device_loopback_disable(phy, map->side);
 	switch (item) {
 	case ADI_APOLLO_LOOPBACK_NONE:
 		break;
 	case ADI_APOLLO_LOOPBACK_0:
-		ret = ad9088_assert_fs(phy, side);
+		ret = ad9088_assert_fs(phy, map->side);
 		if (ret)
 			return ret;
-		ret = ad9088_device_loopback0(phy, side);
+		ret = ad9088_device_loopback0(phy, map->side);
 		break;
 	case ADI_APOLLO_LOOPBACK_1:
-		ret = ad9088_device_loopback1(phy, side);
+		ret = ad9088_device_loopback1(phy, map->side);
 		break;
 	case ADI_APOLLO_LOOPBACK_2:
-		ret = ad9088_device_loopback2(phy, side);
+		ret = ad9088_device_loopback2(phy, map->side);
 		break;
 	case ADI_APOLLO_LOOPBACK_3:
-		ret = ad9088_device_loopback3(phy, side);
+		ret = ad9088_device_loopback3(phy, map->side);
 		break;
 	default:
 		ret = -EINVAL;
@@ -2135,15 +2128,15 @@ static int ad9088_cnco_mixer_mode_read(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	u8 cddc_num, fddc_num, side, mode;
-	u32 cddc_mask, fddc_mask;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	u8 mode;
 	int ret;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	ret = adi_apollo_hal_bf_get(&phy->ad9088,
-		BF_DRC_IF_MODE_TXRX_COARSE_NCO_INFO(chan->output ? calc_tx_cnco_base(cddc_num) : calc_rx_cnco_base(cddc_num)),
+		BF_DRC_IF_MODE_TXRX_COARSE_NCO_INFO(chan->output ? calc_tx_cnco_base(map->cddc_num) : calc_rx_cnco_base(map->cddc_num)),
 		&mode, 1);
 	if (ret)
 		return ret;
@@ -2157,19 +2150,15 @@ static int ad9088_cnco_mixer_mode_write(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
-	int ret = 0;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	guard(mutex)(&phy->lock);
 
 	return adi_apollo_cnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
-					cddc_mask, item);
-
-	return ret;
+					map->cddc_mask, item);
 }
 
 static int ad9088_fnco_mixer_mode_read(struct iio_dev *indio_dev,
@@ -2177,15 +2166,15 @@ static int ad9088_fnco_mixer_mode_read(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	u8 cddc_num, fddc_num, side, mode;
-	u32 cddc_mask, fddc_mask;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	u8 mode;
 	int ret;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	ret = adi_apollo_hal_bf_get(&phy->ad9088,
-		BF_DRC_IF_MODE_TXRX_FINE_NCO_INFO(chan->output ? calc_tx_fnco_base(fddc_num) : calc_rx_fnco_base(fddc_num)),
+		BF_DRC_IF_MODE_TXRX_FINE_NCO_INFO(chan->output ? calc_tx_fnco_base(map->fddc_num) : calc_rx_fnco_base(map->fddc_num)),
 		&mode, 1);
 	if (ret)
 		return ret;
@@ -2199,19 +2188,15 @@ static int ad9088_fnco_mixer_mode_write(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
-	int ret = 0;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	guard(mutex)(&phy->lock);
 
 	return adi_apollo_fnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
-					fddc_mask, item);
-
-	return ret;
+					map->fddc_mask, item);
 }
 
 static const char *const ad9088_mixer_modes[] = {
@@ -2741,14 +2726,14 @@ static int ad9088_read_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 	adi_apollo_device_tmu_data_t tmu_data;
-	u8 cddc_num, fddc_num, side, dir;
-	u32 cddc_mask, fddc_mask;
+	u8 dir;
 	u64 freq;
 	int ret;
 
-	ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
-				    &fddc_mask, &cddc_num, &cddc_mask, &side);
+	if (!map)
+		return -EINVAL;
 
 	guard(mutex)(&phy->lock);
 
@@ -2766,9 +2751,9 @@ static int ad9088_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT_64;
 	case IIO_CHAN_INFO_ENABLE:
 		if (chan->output)
-			*val = !!(phy->tx_en_mask & cddc_mask);
+			*val = !!(phy->tx_en_mask & map->adcdac_mask);
 		else
-			*val = !!(phy->rx_en_mask & cddc_mask);
+			*val = !!(phy->rx_en_mask & map->adcdac_mask);
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
@@ -2791,8 +2776,7 @@ static int ad9088_write_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
-	u8 cddc_num, fddc_num, side;
-	u32 cddc_mask, fddc_mask;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 	int ret;
 
 	guard(mutex)(&phy->lock);
@@ -2812,7 +2796,8 @@ static int ad9088_write_raw(struct iio_dev *indio_dev,
 
 	case IIO_CHAN_INFO_ENABLE:
 
-		ad9088_iiochan_to_fddc_cddc(phy, chan, &fddc_num, &fddc_mask, &cddc_num, &cddc_mask, &side);
+		if (!map)
+			return -EINVAL;
 
 		if (chan->output) {
 			adi_apollo_txen_pwrup_ctrl_t txen_config = {
@@ -2823,16 +2808,16 @@ static int ad9088_write_raw(struct iio_dev *indio_dev,
 			};
 
 			/* Enable Tx blocks - enable/disable via spi */
-			ret = adi_apollo_txen_pwrup_ctrl_set(&phy->ad9088, cddc_mask, &txen_config);
+			ret = adi_apollo_txen_pwrup_ctrl_set(&phy->ad9088, map->adcdac_mask, &txen_config);
 			if (ret) {
 				dev_err(&phy->spi->dev, "Error activating Tx blocks(%d)\n", ret);
 				return ret;
 			}
 
 			if (val)
-				phy->tx_en_mask |= cddc_mask;
+				phy->tx_en_mask |= map->adcdac_mask;
 			else
-				phy->tx_en_mask &= ~cddc_mask;
+				phy->tx_en_mask &= ~map->adcdac_mask;
 
 		} else {
 			adi_apollo_rxen_pwrup_ctrl_t rxen_config = {
@@ -2843,15 +2828,15 @@ static int ad9088_write_raw(struct iio_dev *indio_dev,
 			};
 
 			/* Enable Rx blocks - enable/disable via spi */
-			ret = adi_apollo_rxen_pwrup_ctrl_set(&phy->ad9088, cddc_mask, &rxen_config);
+			ret = adi_apollo_rxen_pwrup_ctrl_set(&phy->ad9088, map->adcdac_mask, &rxen_config);
 			if (ret) {
 				dev_err(&phy->spi->dev, "Error activating Rx blocks (%d)\n", ret);
 				return ret;
 			}
 			if (val)
-				phy->rx_en_mask |= cddc_mask;
+				phy->rx_en_mask |= map->adcdac_mask;
 			else
-				phy->rx_en_mask &= ~cddc_mask;
+				phy->rx_en_mask &= ~map->adcdac_mask;
 		}
 		break;
 	default:
