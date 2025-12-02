@@ -1303,8 +1303,18 @@ static int adrv906x_ndma_add_mac(struct adrv906x_ndma_dev *ndma_dev, const u8 *m
 		return -ENOMEM;
 
 	memcpy(entry->mac, mac, ETH_ALEN);
-	hash_add_rcu(ndma_dev->mac_table, &entry->hnode, adrv906x_ndma_mac_hash(mac));
-	ndma_dev->mac_count++;
+
+	spin_lock(&ndma_dev->lock);
+	if (ndma_dev->mac_count < NDMA_MAX_MACS) {
+		hash_add_rcu(ndma_dev->mac_table, &entry->hnode, adrv906x_ndma_mac_hash(mac));
+		ndma_dev->mac_count++;
+	} else {
+		kfree(entry);
+		spin_unlock(&ndma_dev->lock);
+		return -ENOMEM;
+	}
+	spin_unlock(&ndma_dev->lock);
+
 	return 0;
 }
 
@@ -1315,12 +1325,15 @@ static int adrv906x_ndma_remove_mac(struct adrv906x_ndma_dev *ndma_dev, const u8
 
 	hash_for_each_possible_rcu(ndma_dev->mac_table, entry, hnode, key) {
 		if (ether_addr_equal(entry->mac, mac)) {
+			spin_lock(&ndma_dev->lock);
 			hash_del_rcu(&entry->hnode);
 			kfree_rcu(entry, rcu);
 			ndma_dev->mac_count--;
+			spin_unlock(&ndma_dev->lock);
 			return 0;
 		}
 	}
+
 	return -ENOENT;
 }
 
@@ -1429,12 +1442,14 @@ void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_pkt_callback tx
 	if (!loopback_mode) {
 		ndev = (struct net_device *)cb_param;
 		ndma_dev->ndev = ndev;
-		/* Add the net device MAC address to the MAC filter list */
-		adrv906x_ndma_add_mac(ndma_dev, ndev->dev_addr);
 	}
 
 	mod_delayed_work(system_long_wq, &ndma_dev->update_stats, msecs_to_jiffies(1000));
 	spin_unlock_irqrestore(&ndma_dev->lock, flags0);
+
+	/* Add the net device MAC address to the MAC filter list */
+	if (!loopback_mode)
+		adrv906x_ndma_add_mac(ndma_dev, ndev->dev_addr);
 }
 
 static void adrv906x_ndma_stop(struct kref *ref)
@@ -1502,15 +1517,10 @@ static void adrv906x_ndma_stop(struct kref *ref)
 
 void adrv906x_ndma_close(struct adrv906x_ndma_dev *ndma_dev, struct net_device *ndev)
 {
-	unsigned long flags;
-
 	kref_put(&ndma_dev->refcount, adrv906x_ndma_stop);
 
-	if (!ndma_dev->loopback_en) {
-		spin_lock_irqsave(&ndma_dev->lock, flags);
+	if (!ndma_dev->loopback_en)
 		adrv906x_ndma_remove_mac(ndma_dev, ndev->dev_addr);
-		spin_unlock_irqrestore(&ndma_dev->lock, flags);
-	}
 }
 
 static int adrv906x_ndma_parse_rx_status_header(struct adrv906x_ndma_chan *ndma_ch,
@@ -2165,12 +2175,7 @@ static ssize_t adrv906x_ndma_mac_add_store(struct device *dev,
 	if (adrv906x_ndma_mac_exists_in_table(ndma, mac))
 		return -EEXIST;
 
-	spin_lock(&ndma->lock);
-	if (ndma->mac_count >= NDMA_MAX_MACS)
-		ret = -ENOMEM;
-	else
-		ret = adrv906x_ndma_add_mac(ndma, mac);
-	spin_unlock(&ndma->lock);
+	ret = adrv906x_ndma_add_mac(ndma, mac);
 
 	return ret ? ret : count;
 }
@@ -2187,9 +2192,7 @@ static ssize_t adrv906x_ndma_mac_remove_store(struct device *dev,
 	if (!mac_pton(buf, mac))
 		return -EINVAL;
 
-	spin_lock(&ndma->lock);
 	ret = adrv906x_ndma_remove_mac(ndma, mac);
-	spin_unlock(&ndma->lock);
 
 	return ret ? ret : count;
 }
