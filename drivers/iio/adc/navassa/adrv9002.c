@@ -3449,10 +3449,9 @@ static int adrv9002_digital_init(const struct adrv9002_rf_phy *phy)
 	return api_call(phy, adi_adrv9001_arm_StartStatus_Check, 5000000);
 }
 
-static u64 adrv9002_get_init_carrier(const struct adrv9002_chan *c)
+static int adrv9002_get_init_carrier(const struct adrv9002_chan *c, u64 *carrier)
 {
 	const struct adrv9002_rf_phy *phy = chan_to_phy(c);
-	u64 lo_freq;
 
 	if (!c->ext_lo) {
 		/* If no external LO, keep the same values as before */
@@ -3462,37 +3461,36 @@ static u64 adrv9002_get_init_carrier(const struct adrv9002_chan *c)
 			 * mode, the carrier needs to be in the given range.
 			 */
 			if (c->carrier)
-				lo_freq = c->carrier;
+				*carrier = c->carrier;
 			else
-				lo_freq = 2400000000ULL;
+				*carrier = 2400000000ULL;
 
 			if (!phy->port_switch.enable || phy->port_switch.manualRxPortSwitch)
-				return lo_freq;
+				return 0;
 
-			if (ADRV9002_PORT_SWITCH_IN_RANGE(&phy->port_switch, lo_freq))
-				return lo_freq;
+			if (ADRV9002_PORT_SWITCH_IN_RANGE(&phy->port_switch, *carrier))
+				return 0;
 
 			dev_dbg(&phy->spi->dev, "RX%u LO(%llu) not in allowed range, Using(%llu)\n",
-				c->number, lo_freq, phy->port_switch.maxFreqPortA_Hz);
+				c->number, *carrier, phy->port_switch.maxFreqPortA_Hz);
 			/* just choose one valid value */
-			return phy->port_switch.maxFreqPortA_Hz;
+			*carrier = phy->port_switch.maxFreqPortA_Hz;
+			return 0;
 		}
 
-		if (c->carrier)
-			return c->carrier;
-
-		return 2450000000ULL;
+		*carrier = c->carrier ?: 2450000000ULL;
+		return 0;
 	}
 
-	lo_freq = DIV_ROUND_CLOSEST_ULL(clk_get_rate_scaled(c->ext_lo->clk, &c->ext_lo->scale),
-					c->ext_lo->divider);
+	*carrier = DIV_ROUND_CLOSEST_ULL(clk_get_rate_scaled(c->ext_lo->clk, &c->ext_lo->scale),
+					 c->ext_lo->divider);
 	/* if we have an external LO which does not fit in the port switch ranges just error out */
 	if (!phy->port_switch.enable || phy->port_switch.manualRxPortSwitch ||
-	    ADRV9002_PORT_SWITCH_IN_RANGE(&phy->port_switch, lo_freq))
-		return lo_freq;
+	    ADRV9002_PORT_SWITCH_IN_RANGE(&phy->port_switch, *carrier))
+		return 0;
 
 	dev_err(&phy->spi->dev, "Port Switch enabled and RX%u LO(%llu) not in allowed range\n",
-		c->number, lo_freq);
+		c->number, *carrier);
 
 	return -EINVAL;
 }
@@ -3595,7 +3593,10 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 		if (ret)
 			return ret;
 
-		carrier.carrierFrequency_Hz = adrv9002_get_init_carrier(c);
+		ret = adrv9002_get_init_carrier(c, &carrier.carrierFrequency_Hz);
+		if (ret)
+			return ret;
+
 		ret = api_call(phy, adi_adrv9001_Radio_Carrier_Configure,
 			       c->port, c->number, &carrier);
 		if (ret)
