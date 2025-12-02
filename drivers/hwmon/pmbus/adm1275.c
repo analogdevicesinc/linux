@@ -15,7 +15,11 @@
 #include <linux/i2c.h>
 #include <linux/bitops.h>
 #include <linux/bitfield.h>
+#include <linux/hwmon-sysfs.h>
+#include <linux/jiffies.h>
 #include <linux/log2.h>
+#include <linux/math64.h>
+#include <linux/mutex.h>
 #include "pmbus.h"
 
 enum chips { adm1075, adm1272, adm1273, adm1275, adm1276, adm1278, adm1281, adm1293, adm1294 };
@@ -72,6 +76,7 @@ enum chips { adm1075, adm1272, adm1273, adm1275, adm1276, adm1278, adm1281, adm1
 #define ADM1075_VAUX_UV_WARN_LIMIT	0xdf
 #define ADM1293_IOUT_MIN		0xe3
 #define ADM1293_PIN_MIN			0xe4
+#define ADM1273_READ_EIN_EXT		0xdc
 #define ADM1075_VAUX_STATUS		0xf6
 
 #define ADM1075_VAUX_OV_WARN		BIT(7)
@@ -101,6 +106,12 @@ struct adm1275_data {
 	bool have_pin_max;
 	bool have_temp_max;
 	bool have_power_sampling;
+	struct mutex energy_mutex;	/* protects energy reads */
+	u64 energy_accumulator;		/* accumulated energy in microjoules */
+	u64 prev_energy_combined;	/* rollover[15:0] << 23 | energy_raw[22:0] */
+	u32 prev_sample_count;
+	unsigned long prev_jiffies;
+	bool energy_initialized;
 	struct pmbus_driver_info info;
 };
 
@@ -476,6 +487,181 @@ static int adm1275_read_byte_data(struct i2c_client *client, int page, int reg)
 	return ret;
 }
 
+/*
+ * ADM1273 EIN_EXT register format (8 bytes):
+ *   SAMPLE_COUNT [63:40]: 24-bit number of power samples
+ *   ROLLOVER_EXT [39:24]: 16-bit rollover counter (increments at 0x7FFFFF)
+ *   ENERGY_EXT [23:0]: 24-bit energy accumulator in direct format (MSB always 0)
+ *
+ * The energy accumulator wraps at 0x7FFFFF and increments ROLLOVER_EXT.
+ * Since energy_raw MSB is always 0, combine: rollover[15:0] << 23 | energy_raw[22:0]
+ * This gives us a 39-bit combined counter for simple delta calculation.
+ *
+ * Energy formula (from ADI application note):
+ *   Total Energy (J) = ΔEnergy Count × Energy LSB
+ *   Energy LSB = (Voltage LSB × Current LSB) / Sample Rate
+ *   Sample Rate = ΔSample Counter / ΔTime(s)
+ *
+ * Which simplifies to:
+ *   Energy (J) = ΔEnergy Count × Voltage LSB × Current LSB × ΔTime / ΔSample Counter
+ */
+static ssize_t adm1273_energy_show(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev->parent);
+	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
+	struct adm1275_data *data = to_adm1275_data(info);
+	u8 ein_ext[8];
+	u32 sample_count, energy_raw, sample_delta;
+	u16 rollover;
+	u64 energy_combined, energy_delta;
+	unsigned long now, time_delta_ms;
+	u64 energy_uj;
+	int ret;
+
+	mutex_lock(&data->energy_mutex);
+
+	now = jiffies;
+
+	ret = i2c_smbus_read_block_data(client, ADM1273_READ_EIN_EXT, ein_ext);
+	if (ret < 0) {
+		mutex_unlock(&data->energy_mutex);
+		return ret;
+	}
+	if (ret != 8) {
+		mutex_unlock(&data->energy_mutex);
+		return -EIO;
+	}
+
+	/* Parse the 8-byte response - LSB first */
+	energy_raw = ein_ext[0] | (ein_ext[1] << 8) | (ein_ext[2] << 16);
+	rollover = ein_ext[3] | (ein_ext[4] << 8);
+	sample_count = ein_ext[5] | (ein_ext[6] << 8) | (ein_ext[7] << 16);
+
+	/*
+	 * Combine rollover and energy_raw into single value.
+	 * energy_raw MSB (bit 23) is always 0, so we can use it.
+	 * Combined: rollover[15:0] << 23 | energy_raw[22:0]
+	 */
+	energy_combined = ((u64)rollover << 23) | (energy_raw & 0x7FFFFF);
+
+	if (!data->energy_initialized) {
+		data->prev_energy_combined = energy_combined;
+		data->prev_sample_count = sample_count;
+		data->prev_jiffies = now;
+		data->energy_initialized = true;
+		data->energy_accumulator = 0;
+		mutex_unlock(&data->energy_mutex);
+		return sysfs_emit(buf, "0\n");
+	}
+
+	/* Calculate energy delta (handles wrap of 39-bit combined value) */
+	if (energy_combined >= data->prev_energy_combined)
+		energy_delta = energy_combined - data->prev_energy_combined;
+	else
+		energy_delta = (1ULL << 39) - data->prev_energy_combined + energy_combined;
+
+	/* Calculate sample count delta (handles 24-bit wrap) */
+	if (sample_count >= data->prev_sample_count)
+		sample_delta = sample_count - data->prev_sample_count;
+	else
+		sample_delta = (1 << 24) - data->prev_sample_count + sample_count;
+
+	/* Calculate time delta in milliseconds */
+	time_delta_ms = jiffies_to_msecs(now - data->prev_jiffies);
+
+	data->prev_energy_combined = energy_combined;
+	data->prev_sample_count = sample_count;
+	data->prev_jiffies = now;
+
+	/* Avoid division by zero */
+	if (sample_delta == 0 || time_delta_ms == 0) {
+		mutex_unlock(&data->energy_mutex);
+		return sysfs_emit(buf, "%llu\n", data->energy_accumulator);
+	}
+
+	/*
+	 * Energy formula:
+	 *   Energy (J) = ΔEnergy Count × Voltage LSB × Current LSB × ΔTime / ΔSample Counter
+	 *
+	 * Voltage LSB and Current LSB come from the PMBus coefficients.
+	 * For direct format: actual = (raw - b) / m * 10^(-R)
+	 * So LSB = 1/m * 10^(-R)
+	 *
+	 * Voltage: m = info->m[PSC_VOLTAGE_IN], R = info->R[PSC_VOLTAGE_IN]
+	 * Current: m = info->m[PSC_CURRENT_OUT], R = info->R[PSC_CURRENT_OUT]
+	 *
+	 * Energy LSB = (1/m_v * 10^-Rv) × (1/m_i * 10^-Ri) / sample_rate
+	 *            = 10^(-Rv-Ri) / (m_v × m_i × sample_rate)
+	 *
+	 * Energy (J) = ΔEnergy × 10^(-Rv-Ri) × ΔTime / (m_v × m_i × ΔSamples)
+	 *
+	 * For microjoules, multiply by 1e6:
+	 * Energy (µJ) = ΔEnergy × 10^(6-Rv-Ri) × ΔTime_ms / (m_v × m_i × ΔSamples × 1000)
+	 *
+	 * To avoid overflow with large energy_delta or time_delta_ms, use
+	 * mul_u64_u64_div_u64() which handles 128-bit intermediate results:
+	 *   Step 1: temp = (energy_delta × scale_factor) / (m_v × m_i)
+	 *   Step 2: energy_uj = (temp × time_delta_ms) / (sample_delta × 1000)
+	 */
+	{
+		s64 Rv = info->R[PSC_VOLTAGE_IN];
+		s64 Ri = info->R[PSC_CURRENT_OUT];
+		s64 mv = info->m[PSC_VOLTAGE_IN];
+		s64 mi = info->m[PSC_CURRENT_OUT];
+		s64 scale_exp = 6 - Rv - Ri;  /* exponent for 10^(6-Rv-Ri) */
+		u64 scale_factor;
+		u64 temp;
+
+		/* Calculate 10^scale_exp (scale_exp typically 6-(-2)-(-1) = 9) */
+		scale_factor = 1;
+		while (scale_exp > 0) {
+			scale_factor *= 10;
+			scale_exp--;
+		}
+		while (scale_exp < 0) {
+			scale_factor /= 10;
+			scale_exp++;
+		}
+
+		/*
+		 * Use mul_u64_u64_div_u64() to avoid overflow.
+		 * This function computes (a * b) / c using 128-bit intermediate.
+		 */
+		temp = mul_u64_u64_div_u64(energy_delta, scale_factor, (u64)mv * mi);
+		energy_uj = mul_u64_u64_div_u64(temp, time_delta_ms,
+						(u64)sample_delta * 1000);
+	}
+
+	data->energy_accumulator += energy_uj;
+
+	mutex_unlock(&data->energy_mutex);
+
+	return sysfs_emit(buf, "%llu\n", data->energy_accumulator);
+}
+
+static ssize_t energy1_input_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	return adm1273_energy_show(dev, attr, buf);
+}
+
+static DEVICE_ATTR_RO(energy1_input);
+
+static struct attribute *adm1273_attrs[] = {
+	&dev_attr_energy1_input.attr,
+	NULL,
+};
+
+static const struct attribute_group adm1273_group = {
+	.attrs = adm1273_attrs,
+};
+
+static const struct attribute_group *adm1273_groups[] = {
+	&adm1273_group,
+	NULL,
+};
+
 static const struct i2c_device_id adm1275_id[] = {
 	{ "adm1075", adm1075 },
 	{ "adm1272", adm1272 },
@@ -657,6 +843,11 @@ static int adm1275_probe(struct i2c_client *client)
 			break;
 		}
 		tindex = 8;
+
+		if (data->id == adm1273) {
+			mutex_init(&data->energy_mutex);
+			info->groups = adm1273_groups;
+		}
 
 		info->func[0] |= PMBUS_HAVE_PIN | PMBUS_HAVE_STATUS_INPUT |
 			PMBUS_HAVE_VOUT | PMBUS_HAVE_STATUS_VOUT |
