@@ -898,10 +898,11 @@ void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 	else
 		*adcdac_mask = adc_masks[local_side][local_adcdac_num];
 
-	dev_info(&phy->spi->dev,
-		"%s_voltage%d(addr=%lu): Side-%c fddc=%d cddc=%d %s=%d (%s, mux-based)",
+	dev_dbg(&phy->spi->dev,
+		"%s_voltage%d(addr=%lu): Side-%c fddc=%d(0x%04X) cddc=%d(0x%02X) %s=%d(0x%02X) (%s, mux-based)",
 		chan->output ? "out" : "in", chan->channel, chan->address, local_side ? 'B' : 'A',
-		*fddc_num, *cddc_num, chan->output ? "dac" : "adc", *adcdac_num,
+		*fddc_num, *fddc_mask, *cddc_num, *cddc_mask,
+		chan->output ? "dac" : "adc", *adcdac_num, *adcdac_mask,
 		is_8t8r ? "8T8R" : "4T4R");
 
 }
