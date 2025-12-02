@@ -64,16 +64,6 @@ struct ipu6_isys_stream {
 	u8 vc;
 };
 
-struct video_stream_watermark {
-	u32 width;
-	u32 height;
-	u32 hblank;
-	u32 frame_rate;
-	u64 pixel_rate;
-	u64 stream_data_rate;
-	struct list_head stream_node;
-};
-
 struct ipu6_isys_video {
 	struct ipu6_isys_queue aq;
 	struct list_head csi2_entry;
@@ -87,7 +77,6 @@ struct ipu6_isys_video {
 	struct ipu6_isys_csi2 *csi2;
 	struct ipu6_isys_stream *stream;
 	unsigned int streaming;
-	struct video_stream_watermark watermark;
 	u32 source_stream;
 	u8 vc;
 	u8 dt;
@@ -120,10 +109,6 @@ struct ipu6_isys_stream *
 ipu6_isys_query_stream_by_handle(struct ipu6_isys *isys, u8 stream_handle);
 struct ipu6_isys_stream *
 ipu6_isys_query_stream_by_source(struct ipu6_isys *isys, int source, u8 vc);
-
-void ipu6_isys_configure_stream_watermark(struct ipu6_isys_video *av,
-					  struct media_entity *source);
-void ipu6_isys_update_stream_watermark(struct ipu6_isys_video *av, bool state);
 
 u32 ipu6_isys_get_format(struct ipu6_isys_video *av);
 u32 ipu6_isys_get_data_size(struct ipu6_isys_video *av);

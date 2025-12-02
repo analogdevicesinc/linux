@@ -231,6 +231,79 @@ void ipu6_isys_csi2_error(struct ipu6_isys_csi2 *csi2)
 	}
 }
 
+static void ipu6_isys_csi2_setup_watermark(struct ipu6_isys_csi2 *csi2,
+					   struct v4l2_subdev_state *csi2_state,
+					   struct v4l2_subdev *remote_sd)
+{
+	struct device *dev = &csi2->isys->adev->auxdev.dev;
+	struct v4l2_control hb = { .id = V4L2_CID_HBLANK, .value = 0 };
+	struct v4l2_subdev_route *route;
+	u32 max_stream_data_rate = 0, hblank = 0;
+	s64 link_freq;
+	int ret;
+
+	if (IS_IPU7(csi2->asd.isys->adev->isp))
+		return;
+
+	ret = v4l2_g_ctrl(remote_sd->ctrl_handler, &hb);
+	if (!ret)
+		hblank = max(0, hb.value);
+
+	link_freq = ipu6_isys_csi2_get_link_freq(csi2);
+	if (link_freq <= 0) {
+		csi2->watermark.force_iwake_disable = true;
+		dev_warn(dev, "unexpected link_freq %lld (source %s)\n",
+			 link_freq, remote_sd->entity.name);
+		ipu6_isys_update_watermark_setting(csi2->isys);
+		return;
+	}
+
+	for_each_active_route(&csi2_state->routing, route) {
+		struct v4l2_mbus_framefmt *fmt;
+
+		fmt = v4l2_subdev_state_get_format(csi2_state, CSI2_PAD_SINK,
+						   route->sink_stream);
+		if (WARN_ON(!fmt))
+			continue;
+
+		u32 bpp = ipu6_isys_mbus_code_to_bpp(fmt->code);
+		u64 pixel_rate = mul_u64_u32_div(link_freq, csi2->nlanes * 2,
+						 bpp);
+		u32 pixels_per_line = fmt->width + hblank;
+		u64 line_time_ns = div_u64(pixels_per_line * NSEC_PER_SEC,
+					   pixel_rate);
+		u32 bytes_per_line = fmt->width * bpp / 8;
+		u32 pages_per_line =
+			DIV_ROUND_UP(bytes_per_line,
+				     csi2->isys->pdata->ipdata->sram_gran_size);
+		u32 pb_bytes_per_line =
+			pages_per_line << csi2->isys->pdata->ipdata->sram_gran_shift;
+		u64 stream_data_rate =
+			div64_u64(pb_bytes_per_line * 1000, line_time_ns);
+
+		dev_dbg(dev, "stream %u:%u -> %u:%u data rate %lld\n",
+			route->sink_pad, route->sink_stream, route->source_pad,
+			route->source_stream, stream_data_rate);
+
+		max_stream_data_rate = max(max_stream_data_rate,
+					   stream_data_rate);
+	}
+
+	csi2->watermark.stream_data_rate = max_stream_data_rate;
+
+	ipu6_isys_update_watermark_setting(csi2->isys);
+}
+
+static void ipu6_isys_csi2_clear_watermark(struct ipu6_isys_csi2 *csi2)
+{
+	if (IS_IPU7(csi2->asd.isys->adev->isp))
+		return;
+
+	csi2->watermark.force_iwake_disable = false;
+	csi2->watermark.stream_data_rate = 0;
+	ipu6_isys_update_watermark_setting(csi2->isys);
+}
+
 static void ipu6_isys_csi2_stream_disable(struct ipu6_isys_csi2 *csi2)
 {
 	struct ipu6_isys *isys = csi2->isys;
@@ -561,6 +634,11 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 	if (ret <= 0)
 		return ret;
 
+	remote_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
+	remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
+
+	ipu6_isys_csi2_setup_watermark(csi2, state, remote_sd);
+
 	ret = ipu6_isys_start_stream_firmware(av, &bl);
 	if (ret) {
 		dev_err(sd->dev, "start stream of firmware failed\n");
@@ -573,9 +651,6 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 		if (ret)
 			goto err_stop_stream_firmware;
 	}
-
-	remote_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
-	remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
 
 	ret = v4l2_subdev_enable_streams(remote_sd, remote_pad->index,
 					 csi2->stream_ids);
@@ -597,6 +672,7 @@ err_stop_stream_firmware:
 	ipu6_isys_close_streaming_firmware(av);
 
 err_return_buffers:
+	ipu6_isys_csi2_clear_watermark(csi2);
 	csi2->stream_ids &= ~sink_streams;
 	list_del(&av->csi2_entry);
 	ipu6_isys_buffer_list_queue(&bl, IPU6_ISYS_BUFFER_LIST_FL_INCOMING, 0);
@@ -646,6 +722,8 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 				    csi2->stream_ids);
 
 	ipu6_isys_close_streaming_firmware(av);
+
+	ipu6_isys_csi2_clear_watermark(csi2);
 
 out_del_csi2_entry:
 	list_del(&av->csi2_entry);

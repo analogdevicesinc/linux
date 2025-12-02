@@ -473,52 +473,47 @@ static void enable_iwake(struct ipu6_isys *isys, bool enable)
 	mutex_unlock(&iwake_watermark->mutex);
 }
 
-void update_watermark_setting(struct ipu6_isys *isys)
+void ipu6_isys_update_watermark_setting(struct ipu6_isys *isys)
 {
-	struct isys_iwake_watermark *iwake_watermark = &isys->iwake_watermark;
 	u32 iwake_threshold, iwake_critical_threshold, page_num;
 	struct device *dev = &isys->adev->auxdev.dev;
 	u32 calc_fill_time_us = 0, ltr = 0, did = 0;
-	struct video_stream_watermark *p_watermark;
 	enum ltr_did_type ltr_did_type;
-	struct list_head *stream_node;
 	u64 isys_pb_datarate_mbs = 0;
 	u32 mem_open_threshold = 0;
 	struct ltr_did ltrdid;
 	u64 threshold_bytes;
 	u32 max_sram_size;
 	u32 shift;
+	bool force_iwake_disable = false;
+
+	lockdep_assert_held(&isys->stream_mutex);
 
 	shift = isys->pdata->ipdata->sram_gran_shift;
 	max_sram_size = isys->pdata->ipdata->max_sram_size;
 
-	mutex_lock(&iwake_watermark->mutex);
-	if (iwake_watermark->force_iwake_disable) {
+	for (unsigned int i = 0; i < isys->pdata->ipdata->csi2.nports; i++) {
+		isys_pb_datarate_mbs +=
+			isys->csi2[i].watermark.stream_data_rate;
+		force_iwake_disable |=
+			isys->csi2[i].watermark.force_iwake_disable;
+	}
+
+	if (force_iwake_disable) {
+		dev_dbg(dev, "watermark: forcing iwake disabled\n");
 		set_iwake_ltrdid(isys, 0, 0, LTR_IWAKE_OFF);
 		set_iwake_register(isys, GDA_IRQ_CRITICAL_THRESHOLD_INDEX,
 				   CRITICAL_THRESHOLD_IWAKE_DISABLE);
-		goto unlock_exit;
+		return;
 	}
-
-	if (list_empty(&iwake_watermark->video_list)) {
-		isys_pb_datarate_mbs = 0;
-	} else {
-		list_for_each(stream_node, &iwake_watermark->video_list) {
-			p_watermark = list_entry(stream_node,
-						 struct video_stream_watermark,
-						 stream_node);
-			isys_pb_datarate_mbs += p_watermark->stream_data_rate;
-		}
-	}
-	mutex_unlock(&iwake_watermark->mutex);
 
 	if (!isys_pb_datarate_mbs) {
+		dev_dbg(dev, "watermark: disabled iwake\n");
 		enable_iwake(isys, false);
 		set_iwake_ltrdid(isys, 0, 0, LTR_IWAKE_OFF);
-		mutex_lock(&iwake_watermark->mutex);
 		set_iwake_register(isys, GDA_IRQ_CRITICAL_THRESHOLD_INDEX,
 				   CRITICAL_THRESHOLD_IWAKE_DISABLE);
-		goto unlock_exit;
+		return;
 	}
 
 	enable_iwake(isys, true);
@@ -553,7 +548,6 @@ void update_watermark_setting(struct ipu6_isys *isys)
 	iwake_threshold = max_t(u32, 1, threshold_bytes >> shift);
 	iwake_threshold = min_t(u32, iwake_threshold, max_sram_size);
 
-	mutex_lock(&iwake_watermark->mutex);
 	if (isys->pdata->ipdata->enhanced_iwake) {
 		set_iwake_register(isys, GDA_IWAKE_THRESHOLD_INDEX,
 				   DEFAULT_IWAKE_THRESHOLD);
@@ -575,7 +569,7 @@ void update_watermark_setting(struct ipu6_isys *isys)
 	iwake_critical_threshold = iwake_threshold +
 		(IS_PIXEL_BUFFER_PAGES - iwake_threshold) / 2;
 
-	dev_dbg(dev, "threshold: %u critical: %u\n", iwake_threshold,
+	dev_dbg(dev, "watermark: threshold: %u critical: %u\n", iwake_threshold,
 		iwake_critical_threshold);
 
 	set_iwake_register(isys, GDA_IRQ_CRITICAL_THRESHOLD_INDEX,
@@ -585,8 +579,6 @@ void update_watermark_setting(struct ipu6_isys *isys)
 	       isys->adev->isp->base + REG_PKGC_PMON_CFG);
 	writel(VAL_PKGC_PMON_CFG_START,
 	       isys->adev->isp->base + REG_PKGC_PMON_CFG);
-unlock_exit:
-	mutex_unlock(&iwake_watermark->mutex);
 }
 
 static void isys_iwake_watermark_init(struct ipu6_isys *isys)
