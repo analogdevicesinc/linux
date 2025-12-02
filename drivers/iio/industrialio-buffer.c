@@ -2490,6 +2490,8 @@ static int __iio_buffer_alloc_sysfs_and_mask(struct iio_buffer *buffer,
 
 			if (channels[i].scan_index < 0)
 				continue;
+			if (channels[i].buffer_index >= 0 && channels[i].buffer_index != index)
+				continue;
 
 			if (channels[i].has_ext_scan_type) {
 				int j;

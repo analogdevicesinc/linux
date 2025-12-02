@@ -1351,35 +1351,35 @@ pfirBuffer_t pfirBuffer = {
 				  -6053, 6719, 26117, 6719, -6053, 4399, -2655,
 				  1247, -346, -71, 167, -119, 46 }
 	},
-		.pfirRxMagLowTiaHighSR_RX1 = {
+	.pfirRxMagLowTiaHighSR_RX1 = {
 		.numCoeff = 21,
 		.padding = { 0 },
 		.coefficients = { -42, 190, -114, -505, 335, 1348, -578, -3432,
 				  182, 10652, 16696, 10652, 182, -3432, -578, 1348,
 				  335, -505, -114, 190, -42 } },
-		.pfirRxMagHighTiaHighSR_RX1 = {
+	.pfirRxMagHighTiaHighSR_RX1 = {
 		.numCoeff = 21,
 		.padding = { 0 },
 		.coefficients = { -14, -41, 358, -1108, 2089, -2509, 1271, 2122,
 				  -6535, 7788, 25920, 7788, -6535, 2122, 1271, -2509,
 				  2089, -1108, 358, -41, -14 } },
-		.pfirRxMagLowTia_RXNB = {
+	.pfirRxMagLowTia_RXNB = {
 		.numCoeff = 21,
 		.padding = { 0 },
 		.coefficients = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32768,
 				  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-		.pfirRxMagHighTia_RXNB = {
+	.pfirRxMagHighTia_RXNB = {
 		.numCoeff = 21,
 		.padding = { 0 },
 		.coefficients = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32768,
 				  0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-		.pfirTxMagComp1 = {
+	.pfirTxMagComp1 = {
 		.numCoeff = 21,
 		.padding = { 0 },
 		.coefficients = { 75, -428, 1308, -2630, 3528, -2391, -2094, 9140,
 				  -13748, 8104, 31044, 8104, -13748, 9140, -2094, -2391,
 				  3528, -2630, 1308, -428, 75 } },
-		.pfirTxMagComp2 = {
+	.pfirTxMagComp2 = {
 		.numCoeff = 21,
 		.padding = { 0 },
 		.coefficients = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32768,

@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9104
+ *
+ * hdl_project: <adrv9104/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev1.0.dts"
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 { /* HPC0 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* HPC0_IIC */
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+/ {
+	fpga_axi {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx1_dma: dma-controller@84A30000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A30000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		rx2_dma: dma-controller@84A40000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A40000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		tx1_dma: dma-controller@84A50000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A50000 0x10000>;
+			#dma-cells = <1>;
+			dma-coherent;
+			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+		};
+
+		axi_adrv9002_core_rx1: axi-adc@84A00000 {
+			compatible = "adi,axi-adc-10.0.a";
+			reg = <0x84A00000 0x1000>;
+			clocks = <&zynqmp_clk 0>;
+			dmas = <&rx1_dma 0>;
+			dma-names = "rx";
+			#io-backend-cells = <0>;
+		};
+
+		axi_adrv9002_core_rx2: axi-adc@84A01000 {
+			compatible = "adi,axi-adc-10.0.a";
+			reg = <0x84A01000 0x1000>;
+			clocks = <&zynqmp_clk 71>;
+			dmas = <&rx2_dma 0>;
+			dma-names = "rx";
+			#io-backend-cells = <0>;
+		};
+
+		axi_adrv9002_core_tx1: axi-dac@84A02000 {
+			compatible = "adi,axi-dac-9.1.b";
+			reg = <0x84A02000 0x2000>;
+			clocks = <&zynqmp_clk 71>;
+			clock-names = "s_axi_aclk";
+			dmas = <&tx1_dma 0>;
+			dma-names = "tx";
+			#io-backend-cells = <0>;
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+
+	};
+
+	clocks {
+		adrv9002_clkin: clock@0 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <38400000>;
+			clock-output-names = "adrv9002_ext_refclk";
+			#clock-cells = <0>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	adrv9104: rf@0 {
+		compatible = "adi,adrv9104";
+		reg = <0>;
+
+		spi-max-frequency = <5000000>;
+
+		clocks = <&adrv9002_clkin>;
+		io-backends = <&axi_adrv9002_core_rx1>, <&axi_adrv9002_core_rx2>, <&axi_adrv9002_core_tx1>;
+		io-backend-names = "rx1-backend", "rx2-backend", "tx-backend";
+
+		reset-gpios = <&gpio 132 GPIO_ACTIVE_LOW>;
+	};
+};

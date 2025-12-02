@@ -203,6 +203,9 @@ struct iio_scan_type {
  *			channel then this is it. If modified is set then the
  *			value here specifies the modifier.
  * @address:		Driver specific identifier.
+ * @buffer_index:	Bind the channel to only one buffer. Set it to -1 to
+ *			have the channel in any buffer.
+ *			This is used for channels that are not in the buffer.
  * @scan_index:		Monotonic index to give ordering in scans when read
  *			from a buffer.
  * @scan_type:		struct describing the scan type - mutually exclusive
@@ -263,6 +266,7 @@ struct iio_chan_spec {
 	int			channel2;
 	unsigned long		address;
 	int			scan_index;
+	int			buffer_index;
 	union {
 		struct iio_scan_type scan_type;
 		struct {

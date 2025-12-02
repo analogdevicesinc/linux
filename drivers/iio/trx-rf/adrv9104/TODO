@@ -1,0 +1,9 @@
+* Support External LO and VCO (with calibration);
+* Support ORx;
+* Support DPD (may need help with testing);
+* Interface tunning;
+* Support Enablement delays;
+* AUXADC and AUXDAC;
+* DGPIOs and AGPIOs (evaluate using gpiochip this time);
+* External LNA support;
+
