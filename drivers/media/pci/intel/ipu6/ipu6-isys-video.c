@@ -657,8 +657,6 @@ void ipu6_isys_configure_stream_watermark(struct ipu6_isys_video *av,
 
 	av->watermark.width = ipu6_isys_get_frame_width(av);
 	av->watermark.height = ipu6_isys_get_frame_height(av);
-	av->watermark.sram_gran_shift = isys->pdata->ipdata->sram_gran_shift;
-	av->watermark.sram_gran_size = isys->pdata->ipdata->sram_gran_size;
 
 	ret = v4l2_g_ctrl(esd->ctrl_handler, &hb);
 	if (!ret && hb.value >= 0)
@@ -697,17 +695,15 @@ static void calculate_stream_datarate(struct ipu6_isys_video *av)
 		ipu6_isys_get_isys_format(ipu6_isys_get_format(av), 0);
 	u32 pages_per_line, pb_bytes_per_line, pixels_per_line, bytes_per_line;
 	u64 line_time_ns, stream_data_rate;
-	u16 shift, size;
-
-	shift = watermark->sram_gran_shift;
-	size = watermark->sram_gran_size;
 
 	pixels_per_line = watermark->width + watermark->hblank;
 	line_time_ns =  div_u64(pixels_per_line * NSEC_PER_SEC,
 				watermark->pixel_rate);
 	bytes_per_line = watermark->width * pfmt->bpp / 8;
-	pages_per_line = DIV_ROUND_UP(bytes_per_line, size);
-	pb_bytes_per_line = pages_per_line << shift;
+	pages_per_line = DIV_ROUND_UP(bytes_per_line,
+				      av->isys->pdata->ipdata->sram_gran_size);
+	pb_bytes_per_line =
+		pages_per_line << av->isys->pdata->ipdata->sram_gran_shift;
 	stream_data_rate = div64_u64(pb_bytes_per_line * 1000, line_time_ns);
 
 	watermark->stream_data_rate = stream_data_rate;

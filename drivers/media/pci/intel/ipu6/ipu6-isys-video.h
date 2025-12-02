@@ -73,8 +73,6 @@ struct video_stream_watermark {
 	u32 frame_rate;
 	u64 pixel_rate;
 	u64 stream_data_rate;
-	u16 sram_gran_shift;
-	u16 sram_gran_size;
 	struct list_head stream_node;
 };
 
