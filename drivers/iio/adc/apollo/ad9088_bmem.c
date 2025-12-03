@@ -32,7 +32,7 @@
 #define TIMEOUT_US 100000
 #define POLL_DELAY_US 10
 
-#define MAX_NUM_CHANNELS 4
+#define MAX_NUM_CHANNELS 8	/* 4 per side for 8T8R */
 
 struct ad9088_bmem_state {
 	struct device		*dev;
@@ -58,7 +58,7 @@ struct ad9088_bmem_state {
 	adi_apollo_bmem_capture_t capture_config;
 
 	/* Per-channel buffers for captured data */
-	__le32 *channel_buffers[4];  /* One buffer per channel */
+	__le32 *channel_buffers[MAX_NUM_CHANNELS];  /* One buffer per channel */
 
 	/* Scan buffer for pushing to IIO (interleaved samples + timestamp) */
 	u8 scan_data[ALIGN(MAX_NUM_CHANNELS * sizeof(u16), sizeof(s64)) + sizeof(s64)] __aligned(IIO_DMA_MINALIGN);
@@ -67,20 +67,32 @@ struct ad9088_bmem_state {
 	unsigned long		active_channels;
 };
 
-static adi_apollo_bmem_sel_e ad9088_channel_to_bmem(int channel)
+static adi_apollo_bmem_sel_e ad9088_channel_to_bmem(int channel, bool is_8t8r)
 {
-	switch (channel) {
-	case 0:
-		return ADI_APOLLO_BMEM_A0;
-	case 1:
-		return ADI_APOLLO_BMEM_A1;
-	case 2:
-		return ADI_APOLLO_BMEM_B0;
-	case 3:
-		return ADI_APOLLO_BMEM_B1;
-	default:
-		return ADI_APOLLO_BMEM_A0;
+	/*
+	 * 8T8R: channels 0-3 are Side A (A0-A3), channels 4-7 are Side B (B0-B3)
+	 * 4T4R: channels 0-1 are Side A (A0-A1), channels 2-3 are Side B (B0-B1)
+	 */
+	static const adi_apollo_bmem_sel_e bmem_map_8t8r[] = {
+		ADI_APOLLO_BMEM_A0, ADI_APOLLO_BMEM_A1,
+		ADI_APOLLO_BMEM_A2, ADI_APOLLO_BMEM_A3,
+		ADI_APOLLO_BMEM_B0, ADI_APOLLO_BMEM_B1,
+		ADI_APOLLO_BMEM_B2, ADI_APOLLO_BMEM_B3,
+	};
+	static const adi_apollo_bmem_sel_e bmem_map_4t4r[] = {
+		ADI_APOLLO_BMEM_A0, ADI_APOLLO_BMEM_A1,
+		ADI_APOLLO_BMEM_B0, ADI_APOLLO_BMEM_B1,
+	};
+
+	if (is_8t8r) {
+		if (channel >= 0 && channel < ARRAY_SIZE(bmem_map_8t8r))
+			return bmem_map_8t8r[channel];
+	} else {
+		if (channel >= 0 && channel < ARRAY_SIZE(bmem_map_4t4r))
+			return bmem_map_4t4r[channel];
 	}
+
+	return ADI_APOLLO_BMEM_A0;
 }
 
 static uint32_t calc_bmem_sram_base(int32_t bmem_index)
@@ -246,7 +258,8 @@ static int ad9088_bmem_read_samples(struct ad9088_bmem_state *st)
 
 	/* Step 1: Read from each enabled channel/BMEM into separate buffers */
 	for_each_set_bit(ch, &st->active_channels, st->indio_dev->num_channels) {
-		adi_apollo_blk_sel_t bmem = ad9088_channel_to_bmem(ch);
+		bool is_8t8r = st->phy->ad9088.dev_info.is_8t8r;
+		adi_apollo_blk_sel_t bmem = ad9088_channel_to_bmem(ch, is_8t8r);
 
 		dev_dbg(st->dev, "Reading channel %d (BMEM 0x%x)\n", ch, bmem);
 		num_enabled++;
@@ -327,14 +340,19 @@ static int ad9088_bmem_read_raw(struct iio_dev *indio_dev,
 				int *val, int *val2, long mask)
 {
 	struct ad9088_bmem_state *st = iio_priv(indio_dev);
+	bool is_8t8r = st->phy->ad9088.dev_info.is_8t8r;
+	int side;
 	int ret = 0;
 	u64 freq;
 
 	guard(mutex)(&st->phy->lock);
 
+	/* Determine side: 8T8R has 4 channels per side, 4T4R has 2 per side */
+	side = is_8t8r ? (chan->channel >= 4) : (chan->channel >= 2);
+
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		freq = st->phy->profile.adc_config[chan->channel > 1].adc_sampling_rate_Hz;
+		freq = st->phy->profile.adc_config[side].adc_sampling_rate_Hz;
 		*val = lower_32_bits(freq);
 		*val2 = upper_32_bits(freq);
 		ret = IIO_VAL_INT_64;
@@ -401,9 +419,10 @@ static ssize_t ad9088_bmem_ext_info_write(struct iio_dev *indio_dev,
 					  const char *buf, size_t len)
 {
 	struct ad9088_bmem_state *st = iio_priv(indio_dev);
+	bool is_8t8r = st->phy->ad9088.dev_info.is_8t8r;
 	long long readin;
 	int ret, ch = chan->channel;
-	u32 bmem_sel = ad9088_channel_to_bmem(ch);
+	u32 bmem_sel = ad9088_channel_to_bmem(ch, is_8t8r);
 	char *token, *buf_copy;
 	int count = 0;
 
@@ -589,66 +608,18 @@ static struct iio_chan_spec_ext_info ad9088_bmem_ext_info[] = {
 	{},
 };
 
-static const struct iio_chan_spec ad9088_bmem_channels[] = {
-	{
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = ad9088_bmem_ext_info,
-		.indexed = 1,
-		.channel = 0,
-		.scan_index = 0,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.shift = 0,
-			.endianness = IIO_LE,
-		},
-	},
-	{
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = ad9088_bmem_ext_info,
-		.indexed = 1,
-		.channel = 1,
-		.scan_index = 1,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.shift = 0,
-			.endianness = IIO_LE,
-		},
-	},
-	{
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = ad9088_bmem_ext_info,
-		.indexed = 1,
-		.channel = 2,
-		.scan_index = 2,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.shift = 0,
-			.endianness = IIO_LE,
-		},
-	},
-	{
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = ad9088_bmem_ext_info,
-		.indexed = 1,
-		.channel = 3,
-		.scan_index = 3,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.shift = 0,
-			.endianness = IIO_LE,
-		},
+/* Channel template for dynamic channel allocation */
+static const struct iio_chan_spec ad9088_bmem_channel_template = {
+	.type = IIO_VOLTAGE,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.ext_info = ad9088_bmem_ext_info,
+	.indexed = 1,
+	.scan_type = {
+		.sign = 's',
+		.realbits = 16,
+		.storagebits = 16,
+		.shift = 0,
+		.endianness = IIO_LE,
 	},
 };
 
@@ -686,6 +657,7 @@ static int ad9088_bmem_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad9088_bmem_state *st = iio_priv(indio_dev);
 	struct ad9088_phy *phy = st->phy;
+	bool is_8t8r = phy->ad9088.dev_info.is_8t8r;
 	adi_apollo_blk_sel_t bmem_mask = 0;
 	int ret, i;
 
@@ -704,7 +676,7 @@ static int ad9088_bmem_buffer_postenable(struct iio_dev *indio_dev)
 	st->active_channels = *indio_dev->active_scan_mask;
 
 	for_each_set_bit(i, &st->active_channels, indio_dev->num_channels) {
-		bmem_mask |= ad9088_channel_to_bmem(i);
+		bmem_mask |= ad9088_channel_to_bmem(i, is_8t8r);
 	}
 
 	if (bmem_mask == 0) {
@@ -776,6 +748,9 @@ int ad9088_bmem_probe(struct ad9088_phy *phy)
 	struct iio_dev *indio_dev;
 	struct ad9088_bmem_state *st;
 	struct device *dev = &phy->spi->dev;
+	struct iio_chan_spec *channels;
+	bool is_8t8r = phy->ad9088.dev_info.is_8t8r;
+	int num_channels = is_8t8r ? 8 : 4;
 	int ret, i;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
@@ -796,7 +771,7 @@ int ad9088_bmem_probe(struct ad9088_phy *phy)
 	st->start_addr = 0;
 
 	/* Initialize delay configurations for each channel */
-	for (i = 0; i < MAX_NUM_CHANNELS; i++) {
+	for (i = 0; i < num_channels; i++) {
 		st->delay_sample[i] = 0;
 
 		/* Initialize delay_sample_config */
@@ -822,17 +797,31 @@ int ad9088_bmem_probe(struct ad9088_phy *phy)
 	INIT_DELAYED_WORK(&st->capture_work, ad9088_bmem_capture_work_func);
 
 	/* Allocate per-channel buffers for captured samples */
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < num_channels; i++) {
 		st->channel_buffers[i] = devm_kzalloc(dev, AD9088_BMEM_SRAM_SIZE_BYTES, GFP_KERNEL);
 		if (!st->channel_buffers[i])
 			return -ENOMEM;
 	}
 
+	/* Dynamically allocate channels based on 8T8R/4T4R mode */
+	channels = devm_kcalloc(dev, num_channels, sizeof(*channels), GFP_KERNEL);
+	if (!channels)
+		return -ENOMEM;
+
+	for (i = 0; i < num_channels; i++) {
+		channels[i] = ad9088_bmem_channel_template;
+		channels[i].channel = i;
+		channels[i].scan_index = i;
+	}
+
 	indio_dev->info = &ad9088_bmem_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = ad9088_bmem_channels;
-	indio_dev->num_channels = ARRAY_SIZE(ad9088_bmem_channels);
+	indio_dev->channels = channels;
+	indio_dev->num_channels = num_channels;
 	indio_dev->name = "ad9088-bmem";
+
+	dev_info(dev, "BMEM sniffer: %d channels (%s mode)\n",
+		 num_channels, is_8t8r ? "8T8R" : "4T4R");
 
 	ret = devm_iio_kfifo_buffer_setup_ext(dev, indio_dev, &ad9088_bmem_buffer_ops, NULL);
 	if (ret)
