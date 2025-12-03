@@ -62,38 +62,6 @@ struct ipu6_bus_device;
 #define IPU6EP_MTL_LTR_VALUE			1023
 #define IPU6EP_MTL_MIN_MEMOPEN_TH		0xc
 
-struct ltr_did {
-	union {
-		u32 value;
-		struct {
-			u8 val0;
-			u8 val1;
-			u8 val2;
-			u8 val3;
-		} bits;
-	} lut_ltr;
-	union {
-		u32 value;
-		struct {
-			u8 th0;
-			u8 th1;
-			u8 th2;
-			u8 th3;
-		} bits;
-	} lut_fill_time;
-};
-
-struct isys_iwake_watermark {
-	bool iwake_enabled;
-	bool force_iwake_disable;
-	u32 iwake_threshold;
-	u64 isys_pixelbuffer_datarate;
-	struct ltr_did ltrdid;
-	struct mutex mutex; /* protect whole struct */
-	struct ipu6_isys *isys;
-	struct list_head video_list;
-};
-
 struct ipu6_isys_csi2_config {
 	u32 nlanes;
 	u32 port;
@@ -144,6 +112,7 @@ struct ipu6_isys {
 	bool need_reset;
 	bool icache_prefetch;
 	bool csi2_cse_ipc_not_supported;
+	bool iwake_watermark_enabled;
 	unsigned int ref_count;
 	unsigned int stream_opened;
 	unsigned int sensor_type;
@@ -165,7 +134,6 @@ struct ipu6_isys {
 	struct list_head framebuflist;
 	struct list_head framebuflist_fw;
 	struct v4l2_async_notifier notifier;
-	struct isys_iwake_watermark iwake_watermark;
 };
 
 struct isys_fw_msgs {
