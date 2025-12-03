@@ -6,7 +6,7 @@
  * Copyright 2025 Analog Devices Inc.
  *
  * MSB Alignment Requirements:
- * The AD974x family DACs expect MSB-aligned data in their internal 14-bit bus.
+ * The AD9740 family DACs expect MSB-aligned data in their internal 14-bit bus.
  * This driver handles the alignment by configuring the IIO scan_type.shift field
  * to indicate how many bits the data should be shifted left.
  *
@@ -30,7 +30,7 @@
 #include <linux/property.h>
 
 /*
- * AD974x family has no configuration registers - they are simple parallel DACs.
+ * AD9740 family has no configuration registers - they are simple parallel DACs.
  * All configuration is done via the AXI DAC IP core in the FPGA.
  */
 
@@ -135,7 +135,7 @@ static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
 	}
 
 	/*
-	 * AD974x DACs expect data aligned in a 14-bit internal bus:
+	 * AD9740 DACs expect data aligned in a 14-bit internal bus:
 	 * - AD9748 (8-bit):  Data from bits [15:8] → DAC [13:6], shift=8
 	 * - AD9740 (10-bit): Data from bits [15:6] → DAC [13:4], shift=6
 	 * - AD9742 (12-bit): Data from bits [15:4] → DAC [13:2], shift=4
@@ -340,7 +340,7 @@ static int ad9740_setup(struct ad9740_state *st)
 	}
 
 	/*
-	 * AD974x family has no software-configurable registers.
+	 * AD9740 family has no software-configurable registers.
 	 * Hardware configuration (full-scale current, references, etc.)
 	 * is done via external analog components on the board.
 	 */
@@ -354,7 +354,7 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 	.predisable = ad9740_buffer_predisable,
 };
 
-#define AD974X_CHANNEL(ch, bits, shft) { \
+#define AD9740_CHANNEL(ch, bits, shft) { \
 	.type = IIO_ALTVOLTAGE, \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
 	.output = 1, \
@@ -371,19 +371,19 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 }
 
 static const struct iio_chan_spec ad9748_channels[] = {
-	AD974X_CHANNEL(0, 8, 8),   /* 8-bit: shift=8, data in bits[15:8] */
+	AD9740_CHANNEL(0, 8, 8),   /* 8-bit: shift=8, data in bits[15:8] */
 };
 
 static const struct iio_chan_spec ad9740_channels[] = {
-	AD974X_CHANNEL(0, 10, 6),  /* 10-bit: shift=6, data in bits[15:6] */
+	AD9740_CHANNEL(0, 10, 6),  /* 10-bit: shift=6, data in bits[15:6] */
 };
 
 static const struct iio_chan_spec ad9742_channels[] = {
-	AD974X_CHANNEL(0, 12, 4),  /* 12-bit: shift=4, data in bits[15:4] */
+	AD9740_CHANNEL(0, 12, 4),  /* 12-bit: shift=4, data in bits[15:4] */
 };
 
 static const struct iio_chan_spec ad9744_channels[] = {
-	AD974X_CHANNEL(0, 14, 0),  /* 14-bit: shift=0, data in bits[13:0] */
+	AD9740_CHANNEL(0, 14, 0),  /* 14-bit: shift=0, data in bits[13:0] */
 };
 
 static const struct iio_info ad9740_info = {
@@ -453,8 +453,8 @@ static int ad9740_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "Data format: %s\n",
 		 st->twos_complement ? "2's complement" : "offset binary");
 
-	/* Get IIO backend (AXI_AD974X DAC core) */
-	dev_info(&pdev->dev, "Getting IIO backend (AXI_AD974X)\n");
+	/* Get IIO backend (AXI_AD9740 DAC core) */
+	dev_info(&pdev->dev, "Getting IIO backend (AXI_AD9740)\n");
 	st->back = devm_iio_backend_get(&pdev->dev, NULL);
 	if (IS_ERR(st->back))
 		return dev_err_probe(&pdev->dev, PTR_ERR(st->back),
