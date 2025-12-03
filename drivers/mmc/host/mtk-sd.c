@@ -203,9 +203,10 @@
 #define SDC_CFG_DTOC            GENMASK(31, 24)	/* RW */
 
 /* SDC_STS mask */
-#define SDC_STS_SDCBUSY         BIT(0)	/* RW */
-#define SDC_STS_CMDBUSY         BIT(1)	/* RW */
-#define SDC_STS_SWR_COMPL       BIT(31)	/* RW */
+#define SDC_STS_SDCBUSY			BIT(0)  /* RW */
+#define SDC_STS_CMDBUSY			BIT(1)  /* RW */
+#define SDC_STS_SPM_RESOURCE_RELEASE	BIT(3)  /* RW */
+#define SDC_STS_SWR_COMPL		BIT(31) /* RW */
 
 /* SDC_ADV_CFG0 mask */
 #define SDC_DAT1_IRQ_TRIGGER	BIT(19)	/* RW */
@@ -448,6 +449,7 @@ struct mtk_mmc_compatible {
 	bool use_internal_cd;
 	bool support_new_tx;
 	bool support_new_rx;
+	bool support_spm_res_release;
 };
 
 struct msdc_tune_para {
@@ -3296,6 +3298,10 @@ static int msdc_runtime_suspend(struct device *dev)
 
 		__msdc_enable_sdio_irq(host, 0);
 	}
+
+	if (host->dev_comp->support_spm_res_release)
+		sdr_set_bits(host->base + SDC_STS, SDC_STS_SPM_RESOURCE_RELEASE);
+
 	msdc_gate_clock(host);
 	return 0;
 }
