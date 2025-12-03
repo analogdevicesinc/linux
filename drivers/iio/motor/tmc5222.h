@@ -1,0 +1,211 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * TMC5222/TMC5221 Stepper Motor Controller Driver
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+#ifndef _TMC5222_H_
+#define _TMC5222_H_
+
+#include <linux/regmap.h>
+#include <linux/device.h>
+#include <linux/gpio/consumer.h>
+
+/* TMC5222/TMC5221 Configuration Registers */ //-> Catch device attributes from here
+#define TMC5222_GCONF			0x00
+#define TMC5222_GSTAT			0x01
+#define TMC5222_NODECONF		0x03
+#define TMC5222_IOIN			0x04
+#define TMC5222_DRVCONF			0x05
+#define TMC5222_GLOBALSCALER		0x06
+#define TMC5222_DIAG_CONF		0x07
+
+#define TMC5222_EN_PWM_MODE_MASK	BIT(0)
+#define TMC5222_SD_MASK			BIT(7)
+#define TMC5222_DIRECT_MODE_MASK	BIT(6)
+#define TMC5222_STOP_ENABLE_MASK	BIT(4)
+
+#define TMC5222_FS_GAIN_MASK		GENMASK(3, 2)
+#define TMC5222_FS_SENSE_MASK		GENMASK(1, 0)
+
+#define TMC5222_GLOBALSCALER_A_MASK	GENMASK(7, 0)
+#define TMC5222_GLOBALSCALER_B_MASK	GENMASK(15, 8)
+
+#define TMC5222_DIAG1_INVPP_MASK	BIT(31)
+#define TMC5222_DIAG1_NOD_PP_MASK	BIT(30)
+#define TMC5222_DIAG0_INVPP_MASK	BIT(29)
+#define TMC5222_DIAG0_NOD_PP_MASK	BIT(28)
+
+#define TMC5222_DIAG1_POS_REACH_MASK	BIT(27)
+#define TMC5222_DIAG0_STALL_MASK	BIT(3)
+
+/* IOIN register fields */
+#define TMC5222_IOIN_EXT_CLK_MASK	GENMASK(24, 23)
+
+/* Clock frequency constants */
+#define TMC5222_INTERNAL_CLOCK_HZ	125000000	/* 125 MHz */
+#define TMC5222_QUIESCENT_CLOCK_HZ	609000		/* 609 kHz */
+
+/* TMC5222/TMC5221 Microstep Look-Up Table */ //-> Device attributes are optional here
+#define TMC5222_MSLUT(x)		(0x08 + (x))
+#define TMC5222_MSLUT_START		0x10
+#define TMC5222_MSLUT_SEL		0x11
+
+/* TMC5222/TMC5221 Position Compare */
+#define TMC5222_X_COMPARE		0x12
+#define TMC5222_X_COMPAR_REPEAT		0x13
+
+/* TMC5222/TMC5221 Velocity Dependent Configuration Registers */
+#define TMC5222_IHOLD_IRUN		0x14
+#define TMC5222_TPOWERDOWN		0x15
+#define TMC5222_TSTEP			0x16
+#define TMC5222_TPWMTHRS		0x17
+#define TMC5222_TCOOLTHRS		0x18
+#define TMC5222_THIGH			0x19
+
+#define TMC5222_IHOLD_MASK		GENMASK(4, 0)
+#define TMC5222_IRUN_MASK		GENMASK(12, 8)
+#define TMC5222_IHOLDDELAY_MASK		GENMASK(19, 16)
+#define TMC5222_IRUNDELAY_MASK		GENMASK(27, 24)
+
+/* TMC5222/TMC5221 Ramp Generator Registers */
+#define TMC5222_RAMPMODE		0x1A
+#define TMC5222_XACTUAL			0x1B
+#define TMC5222_VACTUAL			0x1C
+#define TMC5222_AACTUAL			0x1D
+#define TMC5222_VSTART			0x1E
+#define TMC5222_A1			0x1F
+#define TMC5222_V1			0x20
+#define TMC5222_A2			0x21
+#define TMC5222_V2			0x22
+#define TMC5222_AMAX			0x23
+#define TMC5222_VMAX			0x24
+#define TMC5222_DMAX			0x25
+#define TMC5222_D2			0x26
+#define TMC5222_D1			0x27
+#define TMC5222_VSTOP			0x28
+#define TMC5222_TZEROWAIT		0x29
+#define TMC5222_TVMAX			0x2A
+#define TMC5222_XTARGET			0x2B
+
+/* TMC5222/TMC5221 Ramp Generator Driver Feature Control Registers */
+#define TMC5222_VDCMIN			0x2C
+#define TMC5222_SW_MODE			0x2D
+#define TMC5222_RAMP_STAT		0x2E
+#define TMC5222_XLATCH			0x2F
+
+#define TMC5222_EVENT_STOP_SG_MASK	BIT(6)
+#define TMC5222_EVENT_POS_REACH_MASK	BIT(7)
+
+/* CHOPCONF register fields */
+#define TMC5222_CHOPCONF_MRES_MASK	GENMASK(27, 24)
+
+/* GSTAT register fields */
+#define TMC5222_GSTAT_RESET		BIT(0)
+#define TMC5222_GSTAT_DRV_ERR		BIT(1)
+
+/* PWMCONF register fields */
+#define TMC5222_PWMCONF_FREEWHEEL_MASK	GENMASK(21, 20)
+#define TMC5222_PWMCONF_FREQ_MASK	GENMASK(17, 16)
+
+/* Microstep resolution values */
+#define TMC5222_MRES_256		0
+#define TMC5222_MRES_128		1
+#define TMC5222_MRES_64			2
+#define TMC5222_MRES_32			3
+#define TMC5222_MRES_16			4
+#define TMC5222_MRES_8			5
+#define TMC5222_MRES_4			6
+#define TMC5222_MRES_2			7
+#define TMC5222_MRES_1			8
+
+/* TMC5222/TMC5221 Encoder Registers */
+#define TMC5222_X_BEMF			0x30
+#define TMC5222_BEMF_CONF		0x31
+#define TMC5222_BEMF_DEVIATION		0x32
+#define TMC5222_VIRTUAL_STOPL		0x33
+#define TMC5222_VIRTUAL_STOPR		0x34
+#define TMC5222_X_BEMF_LATCH		0x35
+
+/* Motor Driver Registers */
+#define TMC5222_MSCNT			0x36
+#define TMC5222_MSCURACT		0x37
+#define TMC5222_CHOPCONF		0x38
+#define TMC5222_COOLCONF		0x39
+#define TMC5222_DCCTRL			0x3A
+#define TMC5222_DRV_STATUS		0x3B
+#define TMC5222_PWMCONF			0x3C
+#define TMC5222_PWM_SCALE		0x3D
+#define TMC5222_PWM_AUTO		0x3E
+#define TMC5222_SG4_THRS		0x3F
+#define TMC5222_SG4_RESULT		0x40
+#define TMC5222_SG4_IND			0x41
+#define TMC5222_SG_PREWARN_CONF		0x42
+#define TMC5222_OTP_MODE		0x7D
+
+#define TMC5222_TOFF_MASK		GENMASK(3, 0)
+#define TMC5222_TBL_MASK		GENMASK(16, 15)
+#define TMC5222_HSTRT_TFD210_MASK	GENMASK(6, 4)
+#define TMC5222_HEND_OFFSET_MASK	GENMASK(10, 7)
+#define TMC5222_VHIGHCHM_MASK		BIT(19)
+#define TMC5222_VHIGHFS_MASK		BIT(18)
+#define TMC5222_DRV_EN_SW_MASK		BIT(9)
+
+/* COOLCONF register fields */
+#define TMC5222_SGT_MASK		GENMASK(22, 16)
+#define TMC5222_SG_STOP_MASK		BIT(10)
+
+/* SG4_THRS register fields */
+#define TMC5222_SG4_THRS_MASK		GENMASK(8, 0)
+
+/* CHOPCONF register fields - extended */
+#define TMC5222_CHM_MASK		BIT(14)
+
+/* PWMCONF register fields - extended */
+#define TMC5222_PWM_DIS_REG_STST_MASK	BIT(23)
+#define TMC5222_PWM_MEAS_SD_ENABLE_MASK	BIT(22)
+
+/* DRV_STATUS register fields */
+#define TMC5222_DRV_STATUS_STST		BIT(31)
+#define TMC5222_DRV_STATUS_OLB		BIT(30)
+#define TMC5222_DRV_STATUS_OLA		BIT(29)
+#define TMC5222_DRV_STATUS_S2GB		BIT(28)
+#define TMC5222_DRV_STATUS_S2GA		BIT(27)
+#define TMC5222_DRV_STATUS_OTPW		BIT(26)
+#define TMC5222_DRV_STATUS_OT		BIT(25)
+#define TMC5222_DRV_STATUS_STALLGUARD	BIT(24)
+#define TMC5222_DRV_STATUS_FSACTIVE	BIT(15)
+#define TMC5222_DRV_STATUS_STEALTHCHOP	BIT(14)
+#define TMC5222_DRV_STATUS_S2VSB	BIT(13)
+#define TMC5222_DRV_STATUS_S2VSA	BIT(12)
+
+/* Ramp mode */
+enum tmc5222_rampmode {
+	TMC5222_RAMPMODE_POSITION,
+	TMC5222_RAMPMODE_POSITIVE_VELOCITY,
+	TMC5222_RAMPMODE_NEGATIVE_VELOCITY,
+	TMC5222_RAMPMODE_HOLD,
+};
+
+/* PWM freewheel mode */
+enum tmc5222_pwm_freewheel {
+	TMC5222_FREEWHEEL_NORMAL,
+	TMC5222_FREEWHEEL_FREEWHEEL,
+	TMC5222_FREEWHEEL_COILSHORT_LS,
+	TMC5222_FREEWHEEL_COILSHORT_HS,
+};
+
+/* PWM frequency */
+enum tmc5222_pwm_freq {
+	TMC5222_PWM_FREQ_2_1024,
+	TMC5222_PWM_FREQ_2_683,
+	TMC5222_PWM_FREQ_2_512,
+	TMC5222_PWM_FREQ_2_410,
+};
+
+/* Core driver functions */
+int tmc5222_probe_common(struct device *dev, struct regmap *regmap);
+void tmc5222_remove_common(struct device *dev);
+
+#endif /* _TMC5222_H_ */

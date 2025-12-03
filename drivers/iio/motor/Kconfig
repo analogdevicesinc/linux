@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Motor controller drivers
+#
+
+menu "Motor controllers"
+
+config TMC5222_CORE
+	tristate
+	select REGMAP
+
+config TMC5222_I2C
+	tristate "TMC5222 I2C Interface"
+	depends on I2C
+	select REGMAP_I2C
+	select TMC5222_CORE
+	help
+	  Say Y here to enable support for the Trinamic TMC5222 dual stepper
+	  motor controller with I2C interface.
+
+	  The TMC5222 is a dual-axis stepper motor controller/driver IC with
+	  integrated motion controller and drivers for up to 2A per coil.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called tmc5222-i2c.
+
+config TMC5221_SPI
+	tristate "TMC5221 SPI Interface"
+	depends on SPI_MASTER
+	select REGMAP_SPI
+	select TMC5222_CORE
+	help
+	  Say Y here to enable support for the Trinamic TMC5221 dual stepper
+	  motor controller with SPI interface.
+
+	  The TMC5221 is a dual-axis stepper motor controller/driver IC with
+	  integrated motion controller and drivers for up to 2A per coil.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called tmc5221-spi.
+
+endmenu

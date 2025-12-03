@@ -317,6 +317,8 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-sense.dtbo \
 	rpi-sense-v2.dtbo \
 	rpi-tv.dtbo \
+	rpi-tmc5221.dtbo \
+	rpi-tmc5222.dtbo \
 	rra-digidac1-wm8741-audio.dtbo \
 	sainsmart18.dtbo \
 	sc16is750-i2c.dtbo \
@@ -374,6 +376,8 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	tinylcd35.dtbo \
 	tpm-slb9670.dtbo \
 	tpm-slb9673.dtbo \
+	rpi-tmc5221.dtbo \
+	rpi-tmc5222.dtbo \
 	uart0.dtbo \
 	uart0-pi5.dtbo \
 	uart1.dtbo \

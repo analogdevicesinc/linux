@@ -7,6 +7,7 @@ obj-$(CONFIG_IIO) += industrialio.o
 industrialio-y := industrialio-core.o industrialio-event.o inkern.o
 industrialio-$(CONFIG_IIO_BUFFER) += industrialio-buffer.o
 industrialio-$(CONFIG_IIO_TRIGGER) += industrialio-trigger.o
+industrialio-$(CONFIG_ACPI) += industrialio-acpi.o
 
 obj-$(CONFIG_IIO_CONFIGFS) += industrialio-configfs.o
 obj-$(CONFIG_IIO_GTS_HELPER) += industrialio-gts-helper.o
@@ -37,6 +38,7 @@ obj-y += jesd204/
 obj-y += light/
 obj-y += logic/
 obj-y += magnetometer/
+obj-y += motor/
 obj-y += multiplexer/
 obj-y += regmap/
 obj-y += orientation/

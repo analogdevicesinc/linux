@@ -210,4 +210,5 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD8460
 	imply MAX77541_ADC
 	imply ADF4030
-
+	imply TMC5222_I2C
+	imply TMC5222_CORE
