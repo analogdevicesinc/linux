@@ -3310,7 +3310,7 @@ static int adrv9025_probe(struct spi_device *spi)
 	phy->spi_device_id = id;
 	phy->dev_clk = clk;
 	phy->jdev = jdev;
-	phy->agcConfig = kzalloc(sizeof(adi_adrv9025_AgcCfg_t), GFP_KERNEL);
+	phy->agcConfig = devm_kzalloc(&spi->dev, sizeof(adi_adrv9025_AgcCfg_t), GFP_KERNEL);
 	if (!(phy->agcConfig))
 		return -ENOMEM;
 	phy->dpdModelConfig = devm_kzalloc(&spi->dev, sizeof(adi_adrv9025_DpdModelConfig_v2_t), GFP_KERNEL);
