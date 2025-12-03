@@ -1,0 +1,365 @@
+/*
+ * Device Tree Example for Skyworks Si5391A Clock Generator
+ *
+ * This file provides various examples of how to configure and use
+ * the Si5391A clock generator in a device tree.
+ */
+
+/dts-v1/;
+
+/ {
+	/* Example 1: Basic configuration with crystal input */
+	example1 {
+		/* Define a 48MHz reference crystal */
+		ref48: ref48M {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <48000000>;
+		};
+
+		i2c@12345678 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			si5391a_basic: clock-generator@74 {
+				compatible = "skyworks,si5391a";
+				reg = <0x74>;
+				#clock-cells = <1>;
+
+				/* Use 48MHz crystal as input */
+				clocks = <&ref48>;
+				clock-names = "xtal";
+
+				/* Configure PLL for 14GHz VCO */
+				/* VCO = 48MHz * (14000/48) = 14GHz */
+				skyworks,pll-m-num = <14000>;
+				skyworks,pll-m-den = <48>;
+			};
+		};
+	};
+
+	/* Example 2: Multiple input clocks configuration */
+	example2 {
+		/* External reference clocks */
+		clk_in0: clock-in0 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <100000000>; /* 100MHz */
+		};
+
+		clk_in1: clock-in1 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <125000000>; /* 125MHz */
+		};
+
+		ref_xtal: crystal {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <25000000>; /* 25MHz */
+		};
+
+		i2c@12345678 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			si5391a_multi: clock-generator@74 {
+				compatible = "skyworks,si5391a";
+				reg = <0x74>;
+				#clock-cells = <1>;
+
+				/* Multiple input sources */
+				clocks = <&clk_in0>, <&clk_in1>, <&ref_xtal>;
+				clock-names = "in0", "in1", "xtal";
+
+				/* Use external clock on XA/XB pins */
+				skyworks,xaxb-ext-clk;
+			};
+		};
+	};
+
+	/* Example 3: Detailed output configuration */
+	example3 {
+		ref50: ref50M {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <50000000>;
+		};
+
+		i2c@12345678 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			si5391a_detailed: clock-generator@74 {
+				compatible = "skyworks,si5391a";
+				reg = <0x74>;
+				#clock-cells = <1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				clocks = <&ref50>;
+				clock-names = "xtal";
+
+				skyworks,pll-m-num = <14000>;
+				skyworks,pll-m-den = <50>;
+				skyworks,iovdd-33; /* 3.3V I2C logic */
+
+				/* OUT0: 156.25MHz LVPECL */
+				out@0 {
+					reg = <0>;
+					skyworks,format = <1>;      /* Differential */
+					skyworks,common-mode = <5>; /* LVPECL levels */
+					skyworks,amplitude = <7>;
+					always-on;
+				};
+
+				/* OUT1: 125MHz LVDS */
+				out@1 {
+					reg = <1>;
+					skyworks,format = <1>;      /* Differential */
+					skyworks,common-mode = <3>; /* LVDS levels */
+					skyworks,amplitude = <3>;
+				};
+
+				/* OUT2: 25MHz LVCMOS */
+				out@2 {
+					reg = <2>;
+					skyworks,format = <4>;      /* LVCMOS */
+					skyworks,amplitude = <15>;  /* 3.3V swing */
+				};
+
+				/* OUT3: 100MHz HCSL */
+				out@3 {
+					reg = <3>;
+					skyworks,format = <2>;      /* Low-power */
+					skyworks,common-mode = <11>; /* HCSL levels */
+					skyworks,amplitude = <3>;
+				};
+
+				/* OUT8: 200MHz LVDS for FMC+ */
+				out@8 {
+					reg = <8>;
+					skyworks,format = <1>;
+					skyworks,common-mode = <3>;
+					skyworks,amplitude = <3>;
+					always-on;
+				};
+
+				/* OUT9: 100MHz LVDS for FMC+ */
+				out@9 {
+					reg = <9>;
+					skyworks,format = <1>;
+					skyworks,common-mode = <3>;
+					skyworks,amplitude = <3>;
+					always-on;
+				};
+			};
+		};
+	};
+
+	/* Example 4: Consumer devices using Si5391A clocks */
+	example4 {
+		/* Ethernet PHY using 125MHz clock */
+		ethernet-phy@0 {
+			compatible = "ethernet-phy";
+			reg = <0>;
+			clocks = <&si5391a_detailed 1>;
+			clock-names = "refclk";
+			assigned-clocks = <&si5391a_detailed 1>;
+			assigned-clock-rates = <125000000>;
+		};
+
+		/* FPGA using 200MHz and 100MHz clocks */
+		fpga@1 {
+			compatible = "fpga-device";
+			reg = <1>;
+			clocks = <&si5391a_detailed 8>, <&si5391a_detailed 9>;
+			clock-names = "clk_200", "clk_100";
+			assigned-clocks = <&si5391a_detailed 8>,
+					  <&si5391a_detailed 9>;
+			assigned-clock-rates = <200000000>, <100000000>;
+		};
+
+		/* PCIe controller using 100MHz reference */
+		pcie@2 {
+			compatible = "pcie-controller";
+			reg = <2>;
+			clocks = <&si5391a_detailed 3>;
+			clock-names = "pcie_refclk";
+			assigned-clocks = <&si5391a_detailed 3>;
+			assigned-clock-rates = <100000000>;
+		};
+
+		/* Video transmitter using 148.5MHz pixel clock */
+		hdmi-tx@3 {
+			compatible = "hdmi-transmitter";
+			reg = <3>;
+			clocks = <&si5391a_detailed 0>;
+			clock-names = "pixel_clk";
+			assigned-clocks = <&si5391a_detailed 0>;
+			assigned-clock-rates = <148500000>;
+		};
+	};
+
+	/* Example 5: Power supply configuration */
+	example5 {
+		/* Voltage regulators */
+		vdd_1v8: regulator-1v8 {
+			compatible = "regulator-fixed";
+			regulator-name = "VDD_1V8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		vdda_1v8: regulator-1v8a {
+			compatible = "regulator-fixed";
+			regulator-name = "VDDA_1V8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		vdds_3v3: regulator-3v3 {
+			compatible = "regulator-fixed";
+			regulator-name = "VDDS_3V3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		vddo_3v3: regulator-3v3-out {
+			compatible = "regulator-fixed";
+			regulator-name = "VDDO_3V3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		vddo_1v8: regulator-1v8-out {
+			compatible = "regulator-fixed";
+			regulator-name = "VDDO_1V8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		i2c@12345678 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			si5391a_powered: clock-generator@74 {
+				compatible = "skyworks,si5391a";
+				reg = <0x74>;
+				#clock-cells = <1>;
+
+				/* Power supplies */
+				vdd-supply = <&vdd_1v8>;
+				vdda-supply = <&vdda_1v8>;
+				vdds-supply = <&vdds_3v3>;
+
+				/* Individual output supplies */
+				vddo0-supply = <&vddo_3v3>;
+				vddo1-supply = <&vddo_3v3>;
+				vddo2-supply = <&vddo_3v3>;
+				vddo3-supply = <&vddo_1v8>;
+				vddo4-supply = <&vddo_1v8>;
+				vddo5-supply = <&vddo_1v8>;
+				vddo6-supply = <&vddo_3v3>;
+				vddo7-supply = <&vddo_3v3>;
+				vddo8-supply = <&vddo_3v3>;
+				vddo9-supply = <&vddo_3v3>;
+
+				clocks = <&ref50>;
+				clock-names = "xtal";
+
+				skyworks,pll-m-num = <14000>;
+				skyworks,pll-m-den = <50>;
+			};
+		};
+	};
+
+	/* Example 6: Interrupt configuration */
+	example6 {
+		interrupt-controller@0 {
+			compatible = "interrupt-controller";
+			#interrupt-cells = <2>;
+			interrupt-controller;
+
+			i2c@12345678 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				si5391a_irq: clock-generator@74 {
+					compatible = "skyworks,si5391a";
+					reg = <0x74>;
+					#clock-cells = <1>;
+
+					clocks = <&ref48>;
+					clock-names = "xtal";
+
+					/* Interrupt on loss of lock */
+					interrupt-parent = <&gpio1>;
+					interrupts = <10 IRQ_TYPE_LEVEL_LOW>;
+
+					skyworks,pll-m-num = <14000>;
+					skyworks,pll-m-den = <48>;
+				};
+			};
+		};
+	};
+
+	/* Example 7: Xilinx Zynq UltraScale+ with AD9081 */
+	example7_zynqmp {
+		/* This example shows Si5391A configuration for
+		 * Zynq UltraScale+ with AD9081 on FMC+
+		 */
+		zynqmp_i2c: i2c@ff030000 {
+			compatible = "cdns,i2c-r1p14";
+			reg = <0xff030000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			si5391a_ad9081: clock-generator@74 {
+				compatible = "skyworks,si5391a";
+				reg = <0x74>;
+				#clock-cells = <1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				/* 100MHz reference from PS */
+				clocks = <&clk100>;
+				clock-names = "xtal";
+
+				skyworks,pll-m-num = <14000>;
+				skyworks,pll-m-den = <100>;
+				skyworks,iovdd-33;
+
+				/* OUT8: 200MHz for AD9081 device clock */
+				out@8 {
+					reg = <8>;
+					skyworks,format = <1>;  /* LVDS */
+					skyworks,common-mode = <3>;
+					skyworks,amplitude = <3>;
+					always-on;
+				};
+
+				/* OUT9: 100MHz for AD9081 SYSREF */
+				out@9 {
+					reg = <9>;
+					skyworks,format = <1>;  /* LVDS */
+					skyworks,common-mode = <3>;
+					skyworks,amplitude = <3>;
+					always-on;
+				};
+			};
+		};
+
+		/* AD9081 using Si5391A clocks */
+		ad9081: adc@0 {
+			compatible = "adi,ad9081";
+			reg = <0>;
+			clocks = <&si5391a_ad9081 8>, <&si5391a_ad9081 9>;
+			clock-names = "dev_clk", "sysref_clk";
+			assigned-clocks = <&si5391a_ad9081 8>,
+					  <&si5391a_ad9081 9>;
+			assigned-clock-rates = <200000000>,
+					       <100000000>;
+		};
+	};
+};

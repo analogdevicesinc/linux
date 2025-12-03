@@ -137,6 +137,17 @@ config COMMON_CLK_SI5351
 	  This driver supports Silicon Labs 5351A/B/C programmable clock
 	  generators.
 
+config COMMON_CLK_SI5391A
+	tristate "Clock driver for Skyworks Si5391A"
+	depends on I2C
+	depends on OF
+	select REGMAP_I2C
+	help
+	  This driver supports the Skyworks Si5391A programmable clock
+	  generator. The Si5391A can generate up to 10 output clocks
+	  from a single input reference. The driver supports runtime
+	  frequency configuration and multiple input clock sources.
+
 config COMMON_CLK_SI514
 	tristate "Clock driver for SiLabs 514 devices"
 	depends on I2C

@@ -24,27 +24,35 @@
 				reg = <0x50>;
 			};
 
-			pca9543-mux@70 {
-				compatible = "nxp,pca9543";
+			eeprom@53 {
+				compatible = "st,24c128", "atmel,24c128";
+				reg = <0x53>;
+			};
+
+			/* HPC1 - FMC+ Crossover Cable */
+			/* Si5391A Clock Generator on FMC+ crossover ribbon cable */
+			// 1_1_1_0_1_A1_A0 = 0x74 to 0x77, but A1A0 are missing R18,R20 to be connected to +3.3V_B
+			si5341_refclk: clock-generator@74 {
+				compatible = "silabs,si5341";
+				reg = <0x74>;  /* I2C address */
+
+				#clock-cells = <1>;
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x70>;
-				vdd-supply = <&p3v3>;
+				clocks = <&ref48>;
+				clock-names = "xtal";
+				clock-output-names = "si5341-out8-200mhz";
 
-				i2c@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <0>;
-
-					si570_refclk: clock-generator@5d {
-						#clock-cells = <0>;
-						compatible = "silabs,si570";
-						temperature-stability = <50>;
-						reg = <0x5d>;
-						factory-fout = <156250000>;
-						clock-frequency = <200000000>;
-						clock-output-names = "si570";
-					};
+				silabs,pll-m-num = <14400>; /* PLL at 14.0 GHz */
+				silabs,pll-m-den = <48>;
+				silabs,reprogram; /* Chips are not programmed, always reset */
+				out@8 {
+					reg = <8>;
+					silabs,format = <1>; /* LVDS 1v8 */
+					silabs,common-mode = <13>;
+					silabs,amplitude = <3>;
+					clock-frequency = <200000000>;
+					always-on;
 				};
 			};
 		};
@@ -52,16 +60,6 @@
 };
 
 / {
-	p3v3: regulator-p3v3 {
-		compatible = "regulator-fixed";
-		regulator-name = "p3v3";
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-	};
-
-
 	clocks {
 		rx_out_clk_div2_100: clock@0 {
 			#clock-cells = <0>;
@@ -86,6 +84,13 @@
 			compatible = "fixed-clock";
 			clock-frequency = <3200000000>;
 			clock-output-names = "fixed_3200";
+		};
+
+		ref54: clock@3 {
+		    #clock-cells = <0>;
+		    compatible = "fixed-clock";
+		    clock-frequency = <54000000>;  /* 54 MHz */
+		    clock-output-names = "ref54";
 		};
 	};
 
@@ -176,7 +181,7 @@
 			#size-cells = <0>;
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
-
+			// 0 - means i'm using output (1 - means synthesizer), and 8 is out8 <&si5341_refclk 0 8>
 			clocks = <&si570_refclk>, <&rx_out_clk_div2_100>;
 			clock-names = "conv", "div40";
 
@@ -192,7 +197,7 @@
 			#size-cells = <0>;
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84b60000 0x1000>;
-
+			// 0 - means i'm using output (1 - means synthesizer), and 8 is out8
 			clocks = <&si570_refclk>, <&tx_out_clk_div2_100>;
 			clock-names = "conv", "div40";
 
