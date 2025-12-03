@@ -79,7 +79,7 @@
 				reg = <0>;
 				spi-max-frequency = <1000000>;
 
-				vref-supply = <&vref>;
+				vref-supply = <&vref_regulator>;
 				reset-gpios = <&gpio0 86 1>;
 				clocks = <&ad7768_mclk>;
 				clock-names = "mclk";
