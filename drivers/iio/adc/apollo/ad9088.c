@@ -5276,6 +5276,9 @@ static int ad9088_setup_chip_info_tbl(struct ad9088_phy *phy,
 		return -ENOMEM;
 
 	for (c = 0, i = 0; i < (m * phy->multidevice_instance_count); i++, c++) {
+		s8 remap_idx = phy->rx_iio_to_phy_remap[i];
+		int scan_idx;
+
 		phy->chip_info.channel[c].type = IIO_VOLTAGE;
 		phy->chip_info.channel[c].output = 0;
 		phy->chip_info.channel[c].indexed = 1;
@@ -5284,7 +5287,18 @@ static int ad9088_setup_chip_info_tbl(struct ad9088_phy *phy,
 		phy->chip_info.channel[c].channel2 =
 			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
 
-		phy->chip_info.channel[c].scan_index = buffer_capable ? i : -1;
+		/*
+		 * Apply IIO-to-PHY remapping to scan_index for lane swap compensation.
+		 * When remap is configured, the scan_index (DMA buffer position) is
+		 * remapped so that the IIO channel's data buffer matches the physical
+		 * channel that its control attributes operate on.
+		 */
+		if (remap_idx >= 0 && remap_idx < MAX_NUM_CHANNELIZER)
+			scan_idx = remap_idx;
+		else
+			scan_idx = i;
+
+		phy->chip_info.channel[c].scan_index = buffer_capable ? scan_idx : -1;
 
 		if (phy->side_b_use_own_tpl_en &&
 		    (i >= ((phy->profile.jtx[0].tx_link_cfg[0].m_minus1 + 1) *

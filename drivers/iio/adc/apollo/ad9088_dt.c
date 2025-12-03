@@ -188,6 +188,25 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 
 	ad9088_jesd_lane_setup(phy);
 
+	/*
+	 * IIO channel scan_index remapping for lane swap compensation.
+	 * When FPGA lane routing causes DMA buffer positions to not match
+	 * the physical channel order, use this array to remap scan_index.
+	 * Value at index i specifies which DMA buffer position IIO channel i
+	 * should read from. A value of -1 means no remapping (identity).
+	 *
+	 * Example: If sides are swapped (Side B data in DMA pos 0-3,
+	 * Side A data in DMA pos 4-7):
+	 *   adi,rx-iio-to-phy-remap = /bits/ 8 <4 5 6 7 0 1 2 3>;
+	 */
+	memset(phy->rx_iio_to_phy_remap, -1, sizeof(phy->rx_iio_to_phy_remap));
+
+	ret = of_property_read_variable_u8_array(node, "adi,rx-iio-to-phy-remap",
+						 (u8 *)phy->rx_iio_to_phy_remap,
+						 1, MAX_NUM_CHANNELIZER);
+	if (ret > 0)
+		dev_info(dev, "RX IIO-to-PHY channel remap: %d entries\n", ret);
+
 	found = of_property_read_bool(node, "adi,dformat-ddc-dither-en");
 	if (found) {
 		phy->profile.rx_path[0].rx_dformat[0].ddc_dither_en = found;

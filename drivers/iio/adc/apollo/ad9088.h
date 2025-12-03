@@ -343,6 +343,15 @@ struct ad9088_phy {
 	/* Pre-computed IIO channel to hardware block mapping (indexed by chan->address) */
 	struct ad9088_chan_map rx_chan_map[MAX_NUM_CHANNELIZER];
 	struct ad9088_chan_map tx_chan_map[MAX_NUM_CHANNELIZER];
+
+	/*
+	 * RX IIO channel scan_index remapping for lane swap compensation.
+	 * When FPGA lane routing causes DMA buffer positions to not match
+	 * the physical channel order, use this array to remap scan_index.
+	 * Value at index i specifies which DMA buffer position IIO channel i
+	 * should read from. A value of -1 means no remapping (identity).
+	 */
+	s8 rx_iio_to_phy_remap[MAX_NUM_CHANNELIZER];
 };
 
 extern int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
