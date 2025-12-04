@@ -1309,7 +1309,7 @@ static int ad4062_gpio_get(struct gpio_chip *gc, unsigned int offset)
 	else
 		reg_val = FIELD_GET(AD4062_REG_GP_CONF_MODE_MSK_0, reg_val);
 
-	return reg_val == AD4062_GP_STATIC_HIGH ? 1 : 0;
+	return reg_val == AD4062_GP_STATIC_HIGH;
 }
 
 static void ad4062_gpio_disable(void *data)
@@ -1331,10 +1331,8 @@ static int ad4062_gpio_init_valid_mask(struct gpio_chip *gc,
 
 	bitmap_zero(valid_mask, ngpios);
 
-	if (!st->gpo_irq[0])
-		*valid_mask |= BIT(0);
-	if (!st->gpo_irq[1])
-		*valid_mask |= BIT(1);
+	for (unsigned int i = 0; i < ARRAY_SIZE(st->gpo_irq); i++)
+		__assign_bit(i, valid_mask, !st->gpo_irq[i]);
 
 	return 0;
 }
