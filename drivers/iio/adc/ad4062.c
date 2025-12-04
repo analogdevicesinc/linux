@@ -126,7 +126,7 @@ static const struct iio_scan_type ad4062_scan_type_16_s[] = {
 	},
 };
 
-static const int ad4062_conversion_freqs[] = {
+static const unsigned int ad4062_conversion_freqs[] = {
 	2000000, 1000000, 300000, 100000,	/*  0 -  3 */
 	33300, 10000, 3000, 500,		/*  4 -  7 */
 	333, 250, 200, 166,			/*  8 - 11 */
@@ -143,7 +143,7 @@ struct ad4062_state {
 	struct i3c_device *i3cdev;
 	struct regmap *regmap;
 	int vref_uV;
-	int samp_freqs[ARRAY_SIZE(ad4062_conversion_freqs)];
+	unsigned int samp_freqs[ARRAY_SIZE(ad4062_conversion_freqs)];
 	union {
 		__be32 be32;
 		__be16 be16;
@@ -258,17 +258,17 @@ static int ad4062_get_oversampling_ratio(struct ad4062_state *st,
 	return ret;
 }
 
-static int ad4062_calc_sampling_frequency(int fosc, unsigned int oversamp_ratio)
+static int ad4062_calc_sampling_frequency(unsigned int fosc, unsigned int oversamp_ratio)
 {
-	/* See datasheet page 31 */
+	/* From datasheet p.31: (n_avg - 1)/fosc + tconv */
 	u32 n_avg = BIT(oversamp_ratio) - 1;
-	u32 period = NSEC_PER_SEC / fosc;
+	u32 period_ns = NSEC_PER_SEC / fosc;
 
 	/* Result is less than 1 Hz */
 	if (n_avg >= fosc)
 		return 1;
 
-	return NSEC_PER_SEC / (n_avg * period + AD4062_TCONV_NS);
+	return NSEC_PER_SEC / (n_avg * period_ns + AD4062_TCONV_NS);
 }
 
 static int ad4062_populate_sampling_frequency(struct ad4062_state *st)
@@ -359,7 +359,7 @@ static int ad4062_soft_reset(struct ad4062_state *st)
 	if (ret)
 		return ret;
 
-	/* Wait AD4062 treset time */
+	/* Wait AD4062 treset time, datasheet p8 */
 	ndelay(60);
 
 	return 0;
@@ -477,8 +477,8 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 }
 
 static const int ad4062_oversampling_avail[] = {
-	BIT(0), BIT(1), BIT(2), BIT(3), BIT(4), BIT(5), BIT(6), BIT(7), BIT(8),
-	BIT(9), BIT(10), BIT(11), BIT(12),
+	1, 2, 4, 8, 16, 32, 64, 128,		/*  0 -  7 */
+	256, 512, 1024, 2048, 4096,		/*  8 - 12 */
 };
 
 static int ad4062_read_avail(struct iio_dev *indio_dev,
@@ -544,20 +544,18 @@ static int ad4062_get_chan_calibscale(struct ad4062_state *st, int *val, int *va
 static int ad4062_set_chan_calibscale(struct ad4062_state *st, int gain_int,
 				      int gain_frac)
 {
-	u32 gain;
+	/* Divide numerator and denumerator by known great common divider */
+	const u32 mon_val = AD4062_MON_VAL_MIDDLE_POINT / 64;
+	const u32 micro = MICRO / 64;
+	const u32 gain_fp = gain_int * MICRO + gain_frac;
+	const u32 reg_val = DIV_ROUND_CLOSEST(gain_fp * mon_val, micro);
 	int ret;
 
-	if (gain_int < 0 || gain_frac < 0)
+	/* Checks if the gain is in range and the value fits the field */
+	if (gain_int < 0 || gain_int > 1 || reg_val > BIT(16) - 1)
 		return -EINVAL;
 
-	gain = gain_int * MICRO + gain_frac;
-	if (gain > 1999970)
-		return -EINVAL;
-
-	put_unaligned_be16(DIV_ROUND_CLOSEST_ULL((u64)gain * AD4062_MON_VAL_MIDDLE_POINT,
-						 MICRO),
-			   st->buf.bytes);
-
+	put_unaligned_be16(reg_val, st->buf.bytes);
 	ret = regmap_bulk_write(st->regmap, AD4062_REG_MON_VAL,
 				&st->buf.be16, sizeof(st->buf.be16));
 	if (ret)
