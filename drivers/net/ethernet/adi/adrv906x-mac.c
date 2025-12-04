@@ -11,6 +11,8 @@
 #include <net/rtnetlink.h>
 #include "adrv906x-mac.h"
 
+#define ADRV906X_MAC_LINK_TEST_RETRIES 5
+
 void adrv906x_mac_promiscuous_mode_en(struct adrv906x_mac *mac)
 {
 	void __iomem *emac_rx = mac->emac_rx;
@@ -150,21 +152,21 @@ static void adrv906x_mac_update_general_stats(void __iomem *base,
 	gs->pkts_1519tox_octets += val;
 }
 
-static void adrv906x_mac_update_hw_stats(struct work_struct *work)
+static void adrv906x_mac_update_tx_stats(struct adrv906x_mac *mac)
 {
-	struct adrv906x_mac *mac = container_of(work, struct adrv906x_mac, update_stats.work);
 	unsigned int val;
 
-	rtnl_lock();
-	val = ioread32(mac->xmac + MAC_GENERAL_CONTROL);
-	val |= TX_STATS_SNAPSHOT_BIT | RX_STATS_SNAPSHOT_BIT;
-	iowrite32(val, mac->xmac + MAC_GENERAL_CONTROL);
 	val = ioread32(mac->emac_tx + MAC_TX_STAT_UNDERFLOW);
 	mac->hw_stats_tx.underflow += val;
 	val = ioread32(mac->emac_tx + MAC_TX_STAT_PADDED);
 	mac->hw_stats_tx.padded += val;
-	adrv906x_mac_update_general_stats(mac->emac_tx,
-					  &mac->hw_stats_tx.general_stats);
+
+	adrv906x_mac_update_general_stats(mac->emac_tx, &mac->hw_stats_tx.general_stats);
+}
+
+static void adrv906x_mac_update_rx_stats(struct adrv906x_mac *mac)
+{
+	unsigned int val;
 
 	val = ioread32(mac->emac_rx + MAC_RX_STAT_OVERFLOW);
 	mac->hw_stats_rx.overflow += val;
@@ -180,11 +182,58 @@ static void adrv906x_mac_update_hw_stats(struct work_struct *work)
 	mac->hw_stats_rx.mac_framing_error += val;
 	val = ioread32(mac->emac_rx + MAC_RX_STAT_RS_FRAMING_ERROR);
 	mac->hw_stats_rx.rs_framing_error += val;
-	adrv906x_mac_update_general_stats(mac->emac_rx,
-					  &mac->hw_stats_rx.general_stats);
+
+	adrv906x_mac_update_general_stats(mac->emac_rx, &mac->hw_stats_rx.general_stats);
+}
+
+static void adrv906x_mac_update_hw_stats(struct adrv906x_mac *mac)
+{
+	unsigned int val;
+
+	rtnl_lock();
+
+	val = ioread32(mac->xmac + MAC_GENERAL_CONTROL);
+	val |= TX_STATS_SNAPSHOT_BIT | RX_STATS_SNAPSHOT_BIT;
+	iowrite32(val, mac->xmac + MAC_GENERAL_CONTROL);
+
+	adrv906x_mac_update_tx_stats(mac);
+	adrv906x_mac_update_rx_stats(mac);
+
 	rtnl_unlock();
+}
+
+static void adrv906x_mac_stats_work(struct work_struct *work)
+{
+	struct adrv906x_mac *mac = container_of(work, struct adrv906x_mac, update_stats.work);
+
+	adrv906x_mac_update_hw_stats(mac);
 
 	mod_delayed_work(system_long_wq, &mac->update_stats, msecs_to_jiffies(1000));
+}
+
+bool adrv906x_mac_link_stable(struct adrv906x_mac *mac)
+{
+	bool prev_stable = false;
+	u64 rs0, rs1;
+	int i = 0;
+
+	adrv906x_mac_update_hw_stats(mac);
+	rs0 = 0;
+	rs1 = mac->hw_stats_rx.rs_framing_error;
+
+	do {
+		usleep_range(1000, 2000);
+
+		prev_stable = rs0 == rs1;
+		rs0 = rs1;
+		adrv906x_mac_update_hw_stats(mac);
+		rs1 = mac->hw_stats_rx.rs_framing_error;
+
+		i++;
+	} while (i < ADRV906X_MAC_LINK_TEST_RETRIES &&
+		 (rs0 != rs1 || !prev_stable));
+
+	return rs0 == rs1 && prev_stable;
 }
 
 void adrv906x_mac_cleanup(struct adrv906x_mac *mac)
@@ -203,7 +252,7 @@ int adrv906x_mac_init(struct adrv906x_mac *mac, unsigned int size)
 	adrv906x_mac_tx_path_dis(mac);
 	adrv906x_mac_rx_path_dis(mac);
 
-	INIT_DELAYED_WORK(&mac->update_stats, adrv906x_mac_update_hw_stats);
+	INIT_DELAYED_WORK(&mac->update_stats, adrv906x_mac_stats_work);
 	mod_delayed_work(system_long_wq, &mac->update_stats, msecs_to_jiffies(1000));
 
 	return 0;

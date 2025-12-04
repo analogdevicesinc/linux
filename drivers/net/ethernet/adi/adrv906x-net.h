@@ -48,6 +48,7 @@ struct adrv906x_eth_dev {
 	struct adrv906x_eth_if *parent;
 	struct rtnl_link_stats64 rtnl_stats;
 	int tx_frames_pending;
+	int intf_recovery_resets;
 	spinlock_t lock; /* protects struct access */
 };
 
@@ -58,7 +59,7 @@ struct adrv906x_eth_if {
 	struct mii_bus *mdio; /* saved for cleanup */
 	void __iomem *emac_cmn_regs;
 	int tx_max_frames_pending;
-	struct mutex mtx; /* protects regs access*/
+	struct mutex mtx; /* protects regs access */
 	u32 recovered_clk_div_10g;
 	u32 recovered_clk_div_25g;
 };

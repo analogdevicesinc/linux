@@ -151,6 +151,13 @@ static void adrv906x_phy_tx_path_enable(struct phy_device *phydev, bool enable)
 			       ADRV906X_PCS_GENERAL_PATH_RESET, !enable);
 }
 
+void adrv906x_phy_pcs_reset_rx(struct phy_device *phydev)
+{
+	adrv906x_phy_rx_path_enable(phydev, false);
+	udelay(1);
+	adrv906x_phy_rx_path_enable(phydev, true);
+}
+
 static int adrv906x_phy_suspend(struct phy_device *phydev)
 {
 	adrv906x_phy_rx_path_enable(phydev, false);

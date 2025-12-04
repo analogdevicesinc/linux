@@ -142,6 +142,12 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 	spin_unlock_irqrestore(&adrv906x_dev->lock, flags);
 
 	if (adrv906x_dev->link) {
+		if (!adrv906x_mac_link_stable(mac)) {
+			adrv906x_phy_pcs_reset_rx(phydev);
+			adrv906x_dev->intf_recovery_resets++;
+			return;
+		}
+
 		adrv906x_tsu_set_speed(tsu, phydev->speed);
 		adrv906x_eth_cmn_recovered_clk_config(adrv906x_dev);
 		adrv906x_mac_set_path(mac, true);
