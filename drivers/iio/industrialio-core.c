@@ -2049,7 +2049,9 @@ int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 		fwnode = dev_fwnode(indio_dev->dev.parent);
 	device_set_node(&indio_dev->dev, fwnode);
 
-	fwnode_property_read_string(fwnode, "label", &indio_dev->label);
+	/* Only read label from firmware if driver hasn't set one */
+	if (!indio_dev->label)
+		fwnode_property_read_string(fwnode, "label", &indio_dev->label);
 
 	ret = iio_check_unique_scan_index(indio_dev);
 	if (ret < 0)
