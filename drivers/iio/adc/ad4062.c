@@ -90,6 +90,8 @@
 #define AD4062_GP_INTR		0x1
 #define AD4062_GP_DRDY		0x2
 
+#define AD4062_LIMIT_BITS	11
+
 #define AD4062_INTR_EN_NEITHER	0x0
 #define AD4062_INTR_EN_EITHER	0x3
 
@@ -1013,7 +1015,8 @@ static int __ad4062_read_event_info_value(struct ad4062_state *st,
 	if (ret)
 		return ret;
 
-	*val = sign_extend32(get_unaligned_be16(st->buf.bytes), 11);
+	*val = sign_extend32(get_unaligned_be16(st->buf.bytes),
+			     AD4062_LIMIT_BITS - 1);
 
 	return 0;
 }
@@ -1069,7 +1072,7 @@ static int __ad4062_write_event_info_value(struct ad4062_state *st,
 {
 	u8 reg;
 
-	if (val != sign_extend32(val, 11))
+	if (val != sign_extend32(val, AD4062_LIMIT_BITS - 1))
 		return -EINVAL;
 	if (dir == IIO_EV_DIR_RISING)
 		reg = AD4062_REG_MAX_LIMIT;
@@ -1086,7 +1089,7 @@ static int __ad4062_write_event_info_hysteresis(struct ad4062_state *st,
 {
 	u8 reg;
 
-	if (val & ~GENMASK(6,0))
+	if (val > BIT(7) - 1)
 		return -EINVAL;
 	if (dir == IIO_EV_DIR_RISING)
 		reg = AD4062_REG_MAX_HYST;
