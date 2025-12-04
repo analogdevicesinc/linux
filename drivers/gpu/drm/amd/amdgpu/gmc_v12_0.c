@@ -668,7 +668,7 @@ static int gmc_v12_0_early_init(struct amdgpu_ip_block *ip_block)
 		adev->gmc.private_aperture_end =
 			adev->gmc.private_aperture_start + (4ULL << 30) - 1;
 
-	adev->gmc.noretry_flags = AMDGPU_VM_NORETRY_FLAGS_TF;
+	adev->gmc.noretry_flags = AMDGPU_VM_NORETRY_FLAGS_GFX12;
 
 	return 0;
 }
