@@ -327,11 +327,11 @@ static const struct attribute_group ad4062_event_attribute_group = {
 
 static int ad4062_set_oversampling_ratio(struct ad4062_state *st, unsigned int val)
 {
-	const u32 _max = GENMASK(st->chip->max_avg, 0);
+	const u32 _max = GENMASK(st->chip->max_avg, 0)  + 1;
 	const u32 _min = 1;
 	int ret;
-
-	if (in_range(val, _min, _max))
+	printk("Requested2 value %d max %d \n", val, _max);
+	if (!in_range(val, _min, _max))
 		return -EINVAL;
 
 	/* 1 disables oversampling */
@@ -340,11 +340,12 @@ static int ad4062_set_oversampling_ratio(struct ad4062_state *st, unsigned int v
 		st->mode = AD4062_SAMPLE_MODE;
 	} else {
 		st->mode = AD4062_BURST_AVERAGING_MODE;
+		printk("wrinting %d\n", val - 1);
 		ret = regmap_write(st->regmap, AD4062_REG_AVG_CONFIG, val - 1);
 		if (ret)
 			return ret;
 	}
-	st->oversamp_ratio = BIT(val);
+	st->oversamp_ratio = val;
 
 	return 0;
 }
@@ -352,22 +353,32 @@ static int ad4062_set_oversampling_ratio(struct ad4062_state *st, unsigned int v
 static int ad4062_get_oversampling_ratio(struct ad4062_state *st,
 					 unsigned int *val)
 {
-	int buf;
+	int ret, buf;
 
 	if (st->mode == AD4062_SAMPLE_MODE) {
 		*val = 1;
 		return 0;
 	}
 
-	return regmap_read(st->regmap, AD4062_REG_AVG_CONFIG, &buf);
+	ret = regmap_read(st->regmap, AD4062_REG_AVG_CONFIG, &buf);
+	if (ret)
+		return ret;
+
+	*val = BIT(buf + 1);
+	return ret;
 }
 
-static int ad4062_calc_sampling_frequency(int fosc, unsigned int n_avg)
+static int ad4062_calc_sampling_frequency(int fosc, unsigned int oversamp_ratio)
 {
 	/* See datasheet page 31 */
-	u64 duration = div_u64((u64)(n_avg - 1) * NSEC_PER_SEC, fosc) + AD4062_TCONV_NS;
+	u32 period = NSEC_PER_SEC / fosc;
+	u32 n_avg = BIT(oversamp_ratio) - 1;
 
-	return DIV_ROUND_UP_ULL(NSEC_PER_SEC, duration);
+	/* Result is less than 1 Hz */
+	if (n_avg >= fosc)
+		return 1;
+
+	return NSEC_PER_SEC / (n_avg * period + AD4062_TCONV_NS);
 }
 
 static int ad4062_populate_sampling_frequency(struct ad4062_state *st)
@@ -730,7 +741,7 @@ static int ad4062_read_avail(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 		*vals = st->samp_freqs;
-		*len = st->oversamp_ratio == 1 ? 1 : ARRAY_SIZE(ad4062_conversion_freqs);
+		*len = st->oversamp_ratio ? ARRAY_SIZE(ad4062_conversion_freqs) : 1;
 		*type = IIO_VAL_INT;
 
 		return IIO_AVAIL_LIST;
@@ -774,19 +785,18 @@ static int ad4062_get_chan_calibscale(struct ad4062_state *st, int *val, int *va
 static int ad4062_set_chan_calibscale(struct ad4062_state *st, int gain_int,
 				      int gain_frac)
 {
-	u32 gain;
+	const u32 mon_val = AD4062_MON_VAL_MIDDLE_POINT / 64;
+	const u32 div = MICRO / 64;
+	const u32 gain = gain_int * MICRO + gain_frac;
 	int ret;
 
 	if (gain_int < 0 || gain_frac < 0)
 		return -EINVAL;
 
-	gain = gain_int * MICRO + gain_frac;
 	if (gain > 1999970)
 		return -EINVAL;
 
-	put_unaligned_be16(DIV_ROUND_CLOSEST_ULL((u64)gain * AD4062_MON_VAL_MIDDLE_POINT,
-						 MICRO),
-			   st->buf.bytes);
+	put_unaligned_be16(DIV_ROUND_CLOSEST(gain * mon_val, div), st->buf.bytes);
 
 	ret = regmap_bulk_write(st->regmap, AD4062_REG_MON_VAL,
 				&st->buf.be16, sizeof(st->buf.be16));
@@ -1426,7 +1436,7 @@ static int ad4062_probe(struct i3c_device *i3cdev)
 	st->chip = chip;
 	st->sampling_frequency = 0;
 	st->events_frequency = 0;
-	st->oversamp_ratio = BIT(0);
+	st->oversamp_ratio = 0;
 	st->indio_dev = indio_dev;
 
 	indio_dev->modes = INDIO_DIRECT_MODE;
