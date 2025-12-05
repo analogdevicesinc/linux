@@ -200,6 +200,8 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 	 * Value at index i specifies which DMA buffer position IIO channel i
 	 * should read from. A value of -1 means no remapping (identity).
 	 *
+	 * Array covers: channelizers * 2 (I/Q) * multidevice_instance_count (max 4)
+	 *
 	 * Example: If sides are swapped (Side B data in DMA pos 0-3,
 	 * Side A data in DMA pos 4-7):
 	 *   adi,rx-iio-to-phy-remap = /bits/ 8 <4 5 6 7 0 1 2 3>;
@@ -208,7 +210,7 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 
 	ret = of_property_read_variable_u8_array(node, "adi,rx-iio-to-phy-remap",
 						 (u8 *)phy->rx_iio_to_phy_remap,
-						 1, MAX_NUM_CHANNELIZER);
+						 1, MAX_NUM_REMAP_CHANNELS);
 	if (ret > 0)
 		dev_info(dev, "RX IIO-to-PHY channel remap: %d entries\n", ret);
 

@@ -5268,20 +5268,28 @@ static char *ad9088_label_writer(struct ad9088_phy *phy, const struct iio_chan_s
 static int ad9088_setup_chip_info_tbl(struct ad9088_phy *phy,
 				      bool complex_rx, bool complex_tx, bool buffer_capable)
 {
-	int i, c, m, s, l;
+	struct device *dev = &phy->spi->dev;
+	int i, c, m, s, l, total_rx_channels;
 
 	for (m = 0, s = 0; s < ADI_APOLLO_NUM_SIDES; s++)
 		for (l = 0; l < ADI_APOLLO_JESD_LINKS; l++)
 			if (phy->profile.jtx[s].tx_link_cfg[l].link_in_use)
 				m += phy->profile.jtx[s].tx_link_cfg[l].m_minus1 + 1;
 
-	phy->rx_labels = devm_kcalloc(&phy->spi->dev,
-				      m * phy->multidevice_instance_count,
+	total_rx_channels = m * phy->multidevice_instance_count;
+
+	if (total_rx_channels > MAX_NUM_REMAP_CHANNELS) {
+		dev_err(dev, "Too many RX channels (%d > %d)\n",
+			total_rx_channels, MAX_NUM_REMAP_CHANNELS);
+		return -EINVAL;
+	}
+
+	phy->rx_labels = devm_kcalloc(dev, total_rx_channels,
 				      sizeof(*phy->rx_labels), GFP_KERNEL);
 	if (!phy->rx_labels)
 		return -ENOMEM;
 
-	for (c = 0, i = 0; i < (m * phy->multidevice_instance_count); i++, c++) {
+	for (c = 0, i = 0; i < total_rx_channels; i++, c++) {
 		s8 remap_idx = phy->rx_iio_to_phy_remap[i];
 		int scan_idx;
 
@@ -5299,7 +5307,7 @@ static int ad9088_setup_chip_info_tbl(struct ad9088_phy *phy,
 		 * remapped so that the IIO channel's data buffer matches the physical
 		 * channel that its control attributes operate on.
 		 */
-		if (remap_idx >= 0 && remap_idx < MAX_NUM_CHANNELIZER)
+		if (remap_idx >= 0 && remap_idx < total_rx_channels)
 			scan_idx = remap_idx;
 		else
 			scan_idx = i;

@@ -350,8 +350,11 @@ struct ad9088_phy {
 	 * the physical channel order, use this array to remap scan_index.
 	 * Value at index i specifies which DMA buffer position IIO channel i
 	 * should read from. A value of -1 means no remapping (identity).
+	 *
+	 * Array size: MAX_NUM_CHANNELIZER * 2 (I/Q) * max multidevice_instance_count (4)
 	 */
-	s8 rx_iio_to_phy_remap[MAX_NUM_CHANNELIZER];
+#define MAX_NUM_REMAP_CHANNELS	(MAX_NUM_CHANNELIZER * 2 * 4)
+	s8 rx_iio_to_phy_remap[MAX_NUM_REMAP_CHANNELS];
 
 	/* Device label from DT for sub-device naming */
 	const char *device_label;
