@@ -3112,13 +3112,15 @@ end:
 	return ret;
 }
 
-static int ad9088_mcs_tracking_cal_setup(adi_apollo_device_t *device, u16 mcs_track_decimation,
+static int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u16 mcs_track_decimation,
 					 bool initialize_track_cal)
 {
+	adi_apollo_device_t *device = &phy->ad9088;
 	int ret;
 
 	// Set MCS tracking cal decimation for more precise TDC measurements.
 	ret = adi_apollo_mcs_cal_tracking_decimation_set(device, mcs_track_decimation);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_tracking_decimation_set");
 	if (ret)
 		return ret;
 
@@ -3126,23 +3128,27 @@ static int ad9088_mcs_tracking_cal_setup(adi_apollo_device_t *device, u16 mcs_tr
 	 * and external SYSREF may be customized to align with hardware setup
 	 */
 	ret = adi_apollo_mcs_cal_parameter_set(device, MCS_ADF4382_TRACK_TARGET_0_INT32, 0);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_parameter_set");
 	if (ret)
 		return ret;
 
 	if (device->dev_info.is_dual_clk) {
 		ret = adi_apollo_mcs_cal_parameter_set(device, MCS_ADF4382_TRACK_TARGET_1_INT32, 0);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_parameter_set");
 		if (ret)
 			return ret;
 	}
 
 	// Enable MCS Tracking Cal. Tracking decimation needs to be updated before this API call.
 	ret = adi_apollo_mcs_cal_tracking_enable(device, 1);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_tracking_enable");
 	if (ret)
 		return ret;
 
 	// Initialize MCS Tracking Cal if not done by device profile or mcs_cal_config struct (i.e. cal_config.track_initialize = 1).
 	if (initialize_track_cal) {
 		ret = adi_apollo_mcs_cal_tracking_initialize_set(device);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_tracking_initialize_set");
 		if (ret)
 			return ret;
 	}
@@ -3264,7 +3270,7 @@ static ssize_t ad9088_phy_store(struct device *dev,
 		if (ret < 0)
 			break;
 		if (bres)
-			ret = ad9088_mcs_tracking_cal_setup(device, 1023, 1);
+			ret = ad9088_mcs_tracking_cal_setup(phy, 1023, 1);
 
 		break;
 	case AD9088_MCS_FG_TRACK_CAL_RUN:
@@ -6150,11 +6156,14 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
-	if (reason != JESD204_STATE_OP_REASON_INIT)
-		return JESD204_STATE_CHANGE_DONE;
-
 	if (!phy->iio_adf4030 || !phy->iio_adf4382) {
 		dev_info(dev, "Skipping MCS calibration\n");
+		return JESD204_STATE_CHANGE_DONE;
+	}
+
+	if (reason != JESD204_STATE_OP_REASON_INIT) {
+		adi_apollo_mcs_cal_bg_tracking_abort(device);
+		adi_apollo_mcs_cal_tracking_enable(device, 0);
 		return JESD204_STATE_CHANGE_DONE;
 	}
 
@@ -6311,7 +6320,7 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 
 	dev_info(dev, "MCS Initcal Status: %s\n", ret ? "Failed" : "Passed");
 
-	ret = ad9088_mcs_tracking_cal_setup(device, 1023, 1);
+	ret = ad9088_mcs_tracking_cal_setup(phy, 1023, 1);
 	if (ret) {
 		dev_err(dev, "Failed to setup MCS tracking cal\n");
 		return ret;
@@ -6374,6 +6383,14 @@ static int ad9088_jesd204_post_setup_stage2(struct jesd204_dev *jdev,
 	if (reason != JESD204_STATE_OP_REASON_INIT) {
 		adi_apollo_clk_mcs_trig_sync_enable(device, 0);
 		adi_apollo_clk_mcs_trig_reset_disable(device);
+
+		if (!IS_ERR_OR_NULL(phy->iio_adf4030) && jesd204_dev_is_top(jdev) &&
+		    phy->aion_background_serial_alignment_en) {
+			ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_adf4030,
+								"background_serial_alignment_en", 0);
+			if (ret < 0)
+				dev_err(dev, "Failed to disable adf4030 background_serial_alignment_en\n");
+		}
 
 		return JESD204_STATE_CHANGE_DONE;
 	}
