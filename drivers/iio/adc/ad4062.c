@@ -94,6 +94,8 @@
 #define AD4062_GP_STATIC_LOW	0x5
 #define AD4062_GP_STATIC_HIGH	0x6
 
+#define AD4062_LIMIT_BITS	11
+
 #define AD4062_INTR_EN_NEITHER	0x0
 #define AD4062_INTR_EN_EITHER	0x3
 
@@ -147,7 +149,7 @@ static const struct iio_scan_type ad4062_scan_type_16_s[] = {
 	},
 };
 
-static const int ad4062_conversion_freqs[] = {
+static const unsigned int ad4062_conversion_freqs[] = {
 	2000000, 1000000, 300000, 100000,	/*  0 -  3 */
 	33300, 10000, 3000, 500,		/*  4 -  7 */
 	333, 250, 200, 166,			/*  8 - 11 */
@@ -166,7 +168,7 @@ struct ad4062_state {
 	struct regmap *regmap;
 	bool wait_event;
 	int vref_uV;
-	int samp_freqs[ARRAY_SIZE(ad4062_conversion_freqs)];
+	unsigned int samp_freqs[ARRAY_SIZE(ad4062_conversion_freqs)];
 	bool gpo_irq[2];
 	union {
 		__be32 be32;
@@ -330,7 +332,7 @@ static int ad4062_set_oversampling_ratio(struct ad4062_state *st, unsigned int v
 	const u32 _max = GENMASK(st->chip->max_avg, 0)  + 1;
 	const u32 _min = 1;
 	int ret;
-	printk("Requested2 value %d max %d \n", val, _max);
+
 	if (!in_range(val, _min, _max))
 		return -EINVAL;
 
@@ -340,7 +342,6 @@ static int ad4062_set_oversampling_ratio(struct ad4062_state *st, unsigned int v
 		st->mode = AD4062_SAMPLE_MODE;
 	} else {
 		st->mode = AD4062_BURST_AVERAGING_MODE;
-		printk("wrinting %d\n", val - 1);
 		ret = regmap_write(st->regmap, AD4062_REG_AVG_CONFIG, val - 1);
 		if (ret)
 			return ret;
@@ -368,17 +369,17 @@ static int ad4062_get_oversampling_ratio(struct ad4062_state *st,
 	return ret;
 }
 
-static int ad4062_calc_sampling_frequency(int fosc, unsigned int oversamp_ratio)
+static int ad4062_calc_sampling_frequency(unsigned int fosc, unsigned int oversamp_ratio)
 {
-	/* See datasheet page 31 */
-	u32 period = NSEC_PER_SEC / fosc;
+	/* From datasheet p.31: (n_avg - 1)/fosc + tconv */
 	u32 n_avg = BIT(oversamp_ratio) - 1;
+	u32 period_ns = NSEC_PER_SEC / fosc;
 
 	/* Result is less than 1 Hz */
 	if (n_avg >= fosc)
 		return 1;
 
-	return NSEC_PER_SEC / (n_avg * period + AD4062_TCONV_NS);
+	return NSEC_PER_SEC / (n_avg * period_ns + AD4062_TCONV_NS);
 }
 
 static int ad4062_populate_sampling_frequency(struct ad4062_state *st)
@@ -469,7 +470,7 @@ static int ad4062_soft_reset(struct ad4062_state *st)
 	if (ret)
 		return ret;
 
-	/* Wait AD4062 treset time */
+	/* Wait AD4062 treset time, datasheet p8 */
 	ndelay(60);
 
 	return 0;
@@ -718,8 +719,8 @@ static int ad4062_request_trigger(struct iio_dev *indio_dev)
 }
 
 static const int ad4062_oversampling_avail[] = {
-	BIT(0), BIT(1), BIT(2), BIT(3), BIT(4), BIT(5), BIT(6), BIT(7), BIT(8),
-	BIT(9), BIT(10), BIT(11), BIT(12),
+	1, 2, 4, 8, 16, 32, 64, 128,		/*  0 -  7 */
+	256, 512, 1024, 2048, 4096,		/*  8 - 12 */
 };
 
 static int ad4062_read_avail(struct iio_dev *indio_dev,
@@ -785,19 +786,18 @@ static int ad4062_get_chan_calibscale(struct ad4062_state *st, int *val, int *va
 static int ad4062_set_chan_calibscale(struct ad4062_state *st, int gain_int,
 				      int gain_frac)
 {
+	/* Divide numerator and denumerator by known great common divider */
 	const u32 mon_val = AD4062_MON_VAL_MIDDLE_POINT / 64;
-	const u32 div = MICRO / 64;
-	const u32 gain = gain_int * MICRO + gain_frac;
+	const u32 micro = MICRO / 64;
+	const u32 gain_fp = gain_int * MICRO + gain_frac;
+	const u32 reg_val = DIV_ROUND_CLOSEST(gain_fp * mon_val, micro);
 	int ret;
 
-	if (gain_int < 0 || gain_frac < 0)
+	/* Checks if the gain is in range and the value fits the field */
+	if (gain_int < 0 || gain_int > 1 || reg_val > BIT(16) - 1)
 		return -EINVAL;
 
-	if (gain > 1999970)
-		return -EINVAL;
-
-	put_unaligned_be16(DIV_ROUND_CLOSEST(gain * mon_val, div), st->buf.bytes);
-
+	put_unaligned_be16(reg_val, st->buf.bytes);
 	ret = regmap_bulk_write(st->regmap, AD4062_REG_MON_VAL,
 				&st->buf.be16, sizeof(st->buf.be16));
 	if (ret)
@@ -1025,7 +1025,8 @@ static int __ad4062_read_event_info_value(struct ad4062_state *st,
 	if (ret)
 		return ret;
 
-	*val = sign_extend32(get_unaligned_be16(st->buf.bytes), 11);
+	*val = sign_extend32(get_unaligned_be16(st->buf.bytes),
+			     AD4062_LIMIT_BITS - 1);
 
 	return 0;
 }
@@ -1098,7 +1099,7 @@ static int __ad4062_write_event_info_hysteresis(struct ad4062_state *st,
 {
 	u8 reg;
 
-	if (val & ~GENMASK(6,0))
+	if (val > BIT(7) - 1)
 		return -EINVAL;
 	if (dir == IIO_EV_DIR_RISING)
 		reg = AD4062_REG_MAX_HYST;
@@ -1307,14 +1308,14 @@ static int ad4062_gpio_get(struct gpio_chip *gc, unsigned int offset)
 
 	ret = regmap_read(st->regmap, AD4062_REG_GP_CONF, &reg_val);
 	if (ret)
-		return -ENODEV;
+		return ret;
 
 	if (offset)
 		reg_val = FIELD_GET(AD4062_REG_GP_CONF_MODE_MSK_1, reg_val);
 	else
 		reg_val = FIELD_GET(AD4062_REG_GP_CONF_MODE_MSK_0, reg_val);
 
-	return reg_val == AD4062_GP_STATIC_HIGH ? 1 : 0;
+	return reg_val == AD4062_GP_STATIC_HIGH;
 }
 
 static void ad4062_gpio_disable(void *data)
@@ -1336,10 +1337,8 @@ static int ad4062_gpio_init_valid_mask(struct gpio_chip *gc,
 
 	bitmap_zero(valid_mask, ngpios);
 
-	if (!st->gpo_irq[0])
-		*valid_mask |= BIT(0);
-	if (!st->gpo_irq[1])
-		*valid_mask |= BIT(1);
+	for (unsigned int i = 0; i < ARRAY_SIZE(st->gpo_irq); i++)
+		__assign_bit(i, valid_mask, !st->gpo_irq[i]);
 
 	return 0;
 }
