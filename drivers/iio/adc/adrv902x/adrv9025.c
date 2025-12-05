@@ -631,7 +631,23 @@ static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, 0644,
 		       adrv9025_phy_store,
 		       adrv9025_JESD204_FSM_CTRL);
 
-static struct attribute *adrv9025_phy_attributes[] = {
+static struct attribute *adrv9026_phy_attributes[] = {
+	&iio_dev_attr_calibrate.dev_attr.attr,
+	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_mask.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_resume.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_ctrl.dev_attr.attr,
+	NULL,
+};
+
+static struct attribute *adrv9029_phy_attributes[] = {
 	&iio_dev_attr_calibrate.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
@@ -650,8 +666,12 @@ static struct attribute *adrv9025_phy_attributes[] = {
 	NULL,
 };
 
-static const struct attribute_group adrv9025_phy_attribute_group = {
-	.attrs = adrv9025_phy_attributes,
+static struct attribute_group adrv9026_phy_attribute_group = {
+	.attrs = adrv9026_phy_attributes,
+};
+
+static struct attribute_group adrv9029_phy_attribute_group = {
+	.attrs = adrv9029_phy_attributes,
 };
 
 static int adrv9025_phy_reg_access(struct iio_dev *indio_dev, u32 reg,
@@ -1183,7 +1203,14 @@ static const struct iio_chan_spec_ext_info adrv9025_phy_obs2_rx_ext_info[] = {
 	{},
 };
 
-static struct iio_chan_spec_ext_info adrv9025_phy_tx_ext_info[] = {
+static struct iio_chan_spec_ext_info adrv9026_phy_tx_ext_info[] = {
+	_ADRV9025_EXT_TX_INFO("quadrature_tracking_en", TX_QEC),
+	_ADRV9025_EXT_TX_INFO("lo_leakage_tracking_en", TX_LOL),
+	_ADRV9025_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
+	{},
+};
+
+static struct iio_chan_spec_ext_info adrv9029_phy_tx_ext_info[] = {
 	_ADRV9025_EXT_TX_INFO("quadrature_tracking_en", TX_QEC),
 	_ADRV9025_EXT_TX_INFO("lo_leakage_tracking_en", TX_LOL),
 	_ADRV9025_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
@@ -1475,7 +1502,7 @@ out:
 	return ret;
 }
 
-static const struct iio_chan_spec adrv9025_phy_chan[] = {
+static const struct iio_chan_spec adrv9026_phy_chan[] = {
 	{
 		/* LO1 */
 		.type = IIO_ALTVOLTAGE,
@@ -1512,7 +1539,7 @@ static const struct iio_chan_spec adrv9025_phy_chan[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
 				      BIT(IIO_CHAN_INFO_ENABLE),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = adrv9025_phy_tx_ext_info,
+		.ext_info = adrv9026_phy_tx_ext_info,
 	},
 	{
 		/* RX1 */
@@ -1533,7 +1560,7 @@ static const struct iio_chan_spec adrv9025_phy_chan[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
 				      BIT(IIO_CHAN_INFO_ENABLE),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = adrv9025_phy_tx_ext_info,
+		.ext_info = adrv9026_phy_tx_ext_info,
 	},
 	{
 		/* RX2 */
@@ -1554,7 +1581,7 @@ static const struct iio_chan_spec adrv9025_phy_chan[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
 				      BIT(IIO_CHAN_INFO_ENABLE),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = adrv9025_phy_tx_ext_info,
+		.ext_info = adrv9026_phy_tx_ext_info,
 	},
 	{
 		/* RX3 */
@@ -1575,7 +1602,7 @@ static const struct iio_chan_spec adrv9025_phy_chan[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
 				      BIT(IIO_CHAN_INFO_ENABLE),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = adrv9025_phy_tx_ext_info,
+		.ext_info = adrv9026_phy_tx_ext_info,
 	},
 	{
 		/* RX4 */
@@ -1615,11 +1642,158 @@ static const struct iio_chan_spec adrv9025_phy_chan[] = {
 	},
 };
 
-static const struct iio_info adrv9025_phy_info = {
+static const struct iio_chan_spec adrv9029_phy_chan[] = {
+	{
+		/* LO1 */
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 0,
+		.extend_name = "LO1",
+		.ext_info = adrv9025_phy_ext_lo_info,
+	},
+	{
+		/* LO2 */
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 1,
+		.extend_name = "LO2",
+		.ext_info = adrv9025_phy_ext_lo_info,
+	},
+	{
+		/* LO2 */
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 2,
+		.extend_name = "AUX_LO",
+		.ext_info = adrv9025_phy_ext_auxlo_info,
+	},
+	{
+		/* TX1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_TX1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9029_phy_tx_ext_info,
+	},
+	{
+		/* RX1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_RX1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9025_phy_rx_ext_info,
+	},
+	{
+		/* TX2 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_TX2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9029_phy_tx_ext_info,
+	},
+	{
+		/* RX2 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_RX2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9025_phy_rx_ext_info,
+	},
+	{
+		/* TX3 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_TX3,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9029_phy_tx_ext_info,
+	},
+	{
+		/* RX3 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_RX3,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9025_phy_rx_ext_info,
+	},
+	{
+		/* TX4 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_TX4,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9029_phy_tx_ext_info,
+	},
+	{
+		/* RX4 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_RX4,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9025_phy_rx_ext_info,
+	},
+	{
+		/* RX Sniffer/Observation */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_OBS_RX1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9025_phy_obs1_rx_ext_info,
+	},
+	{
+		/* RX Sniffer/Observation */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_OBS_RX2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9025_phy_obs2_rx_ext_info,
+	},
+	{
+		.type = IIO_TEMP,
+		.indexed = 1,
+		.channel = 0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+	},
+};
+
+static const struct iio_info adrv9026_phy_info = {
 	.read_raw = &adrv9025_phy_read_raw,
 	.write_raw = &adrv9025_phy_write_raw,
 	.debugfs_reg_access = &adrv9025_phy_reg_access,
-	.attrs = &adrv9025_phy_attribute_group,
+	.attrs = &adrv9026_phy_attribute_group,
+};
+
+static const struct iio_info adrv9029_phy_info = {
+	.read_raw = &adrv9025_phy_read_raw,
+	.write_raw = &adrv9025_phy_write_raw,
+	.debugfs_reg_access = &adrv9025_phy_reg_access,
+	.attrs = &adrv9029_phy_attribute_group,
 };
 
 static ssize_t adrv9025_rx_qec_status_read(struct adrv9025_rf_phy *phy,
@@ -2068,10 +2242,13 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 	adrv9025_add_debugfs_entry(phy, "tx1_lol_status", DBGFS_TX1_LOL_STATUS);
 	adrv9025_add_debugfs_entry(phy, "tx2_lol_status", DBGFS_TX2_LOL_STATUS);
 	adrv9025_add_debugfs_entry(phy, "tx3_lol_status", DBGFS_TX3_LOL_STATUS);
-	adrv9025_add_debugfs_entry(phy, "tx0_dpd_status", DBGFS_TX0_DPD_STATUS);
-	adrv9025_add_debugfs_entry(phy, "tx1_dpd_status", DBGFS_TX1_DPD_STATUS);
-	adrv9025_add_debugfs_entry(phy, "tx2_dpd_status", DBGFS_TX2_DPD_STATUS);
-	adrv9025_add_debugfs_entry(phy, "tx3_dpd_status", DBGFS_TX3_DPD_STATUS);
+
+	if (phy->spi_device_id == ID_ADRV9025 || phy->spi_device_id == ID_ADRV9029) {
+		adrv9025_add_debugfs_entry(phy, "tx0_dpd_status", DBGFS_TX0_DPD_STATUS);
+		adrv9025_add_debugfs_entry(phy, "tx1_dpd_status", DBGFS_TX1_DPD_STATUS);
+		adrv9025_add_debugfs_entry(phy, "tx2_dpd_status", DBGFS_TX2_DPD_STATUS);
+		adrv9025_add_debugfs_entry(phy, "tx3_dpd_status", DBGFS_TX3_DPD_STATUS);
+	}
 
 	for (i = 0; i < phy->adrv9025_debugfs_entry_index; i++) {
 		if (phy->adrv9025_debugfs_entry_index > DBGFS_BIST_TONE)
@@ -2082,18 +2259,19 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 				    &adrv9025_debugfs_reg_fops);
 	}
 
-	/* Create seqfile-based debugfs entries for each TX channel */
-	for (i = 0; i < ADRV9025_NUMBER_OF_TX_CHANNELS; i++) {
-		char attr[64];
+	if (phy->spi_device_id == ID_ADRV9025 || phy->spi_device_id == ID_ADRV9029) {
+		for (i = 0; i < ADRV9025_NUMBER_OF_TX_CHANNELS; i++) {
+			char attr[64];
 
-		phy->tx_chan_ctx[i].phy = phy;
-		phy->tx_chan_ctx[i].channel = i;
+			phy->tx_chan_ctx[i].phy = phy;
+			phy->tx_chan_ctx[i].channel = i;
 
-		sprintf(attr, "tx%d_advanced_dpd_status", i);
-		debugfs_create_file(attr, 0444,
-				    iio_get_debugfs_dentry(indio_dev),
-				    &phy->tx_chan_ctx[i],
-				    &adrv9025_tx_advanced_dpd_status_fops);
+			sprintf(attr, "tx%d_advanced_dpd_status", i);
+			debugfs_create_file(attr, 0444,
+					    iio_get_debugfs_dentry(indio_dev),
+					    &phy->tx_chan_ctx[i],
+					    &adrv9025_tx_advanced_dpd_status_fops);
+		}
 	}
 
 	return 0;
@@ -3537,11 +3715,15 @@ static int adrv9025_probe(struct spi_device *spi)
 
 	switch (id) {
 	case ID_ADRV9025:
-	case ID_ADRV9026:
 	case ID_ADRV9029:
-		indio_dev->info = &adrv9025_phy_info;
-		indio_dev->channels = adrv9025_phy_chan;
-		indio_dev->num_channels = ARRAY_SIZE(adrv9025_phy_chan);
+		indio_dev->info = &adrv9029_phy_info;
+		indio_dev->channels = adrv9029_phy_chan;
+		indio_dev->num_channels = ARRAY_SIZE(adrv9029_phy_chan);
+		break;
+	case ID_ADRV9026:
+		indio_dev->info = &adrv9026_phy_info;
+		indio_dev->channels = adrv9026_phy_chan;
+		indio_dev->num_channels = ARRAY_SIZE(adrv9026_phy_chan);
 		break;
 	default:
 		ret = -EINVAL;
@@ -3573,9 +3755,11 @@ static int adrv9025_probe(struct spi_device *spi)
 		}
 	}
 
-	ret = adrv9025_bin_attr_add(&indio_dev->dev, adrv9025_bin_attributes);
-	if (ret)
-		goto out_iio_device_unregister;
+	if (id == ID_ADRV9025 || id == ID_ADRV9029) {
+		ret = adrv9025_bin_attr_add(&indio_dev->dev, adrv9025_bin_attributes);
+		if (ret)
+			goto out_iio_device_unregister;
+	}
 
 	adi_adrv9025_ApiVersionGet(phy->madDevice, &apiVersion);
 	adi_adrv9025_Shutdown(phy->madDevice);
