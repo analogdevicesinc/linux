@@ -51,6 +51,10 @@
 #define SYSREF_CLK_MHz		(6250000)
 #endif
 
+#ifndef ADF4382_FREQ_Hz
+#define ADF4382_FREQ_Hz		(12800000000) /* 12.8 GHz */
+#endif
+
 #define ONCHIP_PLL_LOW_FREQ	(400 * MHz)
 #define EXT_VCO_FREQ		(2000 * MHz)
 
@@ -807,6 +811,7 @@
 		reg = <0>;
 		spi-max-frequency = <1000000>;
 		adi,output-power-value = <4>;
+		adi,power-up-frequency = /bits/ 64 <ADF4382_FREQ_Hz>;
 		adi,cmos-3v3;
 		clocks = <&ltc6953 0>;
 		clock-names = "ref_clk";
@@ -821,6 +826,7 @@
 		reg = <1>;
 		spi-max-frequency = <1000000>;
 		adi,output-power-value = <5>;
+		adi,power-up-frequency = /bits/ 64 <ADF4382_FREQ_Hz>;
 		adi,cmos-3v3;
 		clocks = <&ltc6953 3>;
 		clock-names = "ref_clk";
@@ -835,6 +841,7 @@
 		reg = <2>;
 		spi-max-frequency = <1000000>;
 		adi,output-power-value = <5>;
+		adi,power-up-frequency = /bits/ 64 <ADF4382_FREQ_Hz>;
 		adi,cmos-3v3;
 		clocks = <&ltc6953 2>;
 		clock-names = "ref_clk";
@@ -849,6 +856,7 @@
 		reg = <3>;
 		spi-max-frequency = <1000000>;
 		adi,output-power-value = <4>;
+		adi,power-up-frequency = /bits/ 64 <ADF4382_FREQ_Hz>;
 		adi,cmos-3v3;
 		clocks = <&ltc6953 1>;
 		clock-names = "ref_clk";
@@ -1069,7 +1077,7 @@
 		compatible = "adi,ad9084";
 		reg = <0>;
 		spi-max-frequency = <5000000>;
-		label = "ad9084_0";
+		label = "axi-ad9084-rx0";
 
 		gpio-controller;
 		#gpio-cells = <2>;
