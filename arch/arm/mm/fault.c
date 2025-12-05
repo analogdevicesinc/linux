@@ -261,6 +261,70 @@ static inline bool ttbr0_usermode_access_allowed(struct pt_regs *regs)
 }
 #endif
 
+/*
+ * Handle a vmalloc fault, copying the non-leaf page table entries from
+ * init_mm.pgd. Any kernel context can trigger this, so we must not sleep
+ * or enable interrupts. Having two CPUs execute this for the same page is
+ * no problem, we'll just copy the same data twice.
+ *
+ * Returns false on failure.
+ */
+static bool __kprobes __maybe_unused vmalloc_fault(unsigned long addr)
+{
+	unsigned int index;
+	pgd_t *pgd, *pgd_k;
+	p4d_t *p4d, *p4d_k;
+	pud_t *pud, *pud_k;
+	pmd_t *pmd, *pmd_k;
+
+	index = pgd_index(addr);
+
+	pgd = cpu_get_pgd() + index;
+	pgd_k = init_mm.pgd + index;
+
+	p4d = p4d_offset(pgd, addr);
+	p4d_k = p4d_offset(pgd_k, addr);
+
+	if (p4d_none(*p4d_k))
+		return false;
+	if (!p4d_present(*p4d))
+		set_p4d(p4d, *p4d_k);
+
+	pud = pud_offset(p4d, addr);
+	pud_k = pud_offset(p4d_k, addr);
+
+	if (pud_none(*pud_k))
+		return false;
+	if (!pud_present(*pud))
+		set_pud(pud, *pud_k);
+
+	pmd = pmd_offset(pud, addr);
+	pmd_k = pmd_offset(pud_k, addr);
+
+#ifdef CONFIG_ARM_LPAE
+	/*
+	 * Only one hardware entry per PMD with LPAE.
+	 */
+	index = 0;
+#else
+	/*
+	 * On ARM one Linux PGD entry contains two hardware entries (see page
+	 * tables layout in pgtable.h). We normally guarantee that we always
+	 * fill both L1 entries. But create_mapping() doesn't follow the rule.
+	 * It can create inidividual L1 entries, so here we have to call
+	 * pmd_none() check for the entry really corresponded to address, not
+	 * for the first of pair.
+	 */
+	index = (addr >> SECTION_SHIFT) & 1;
+#endif
+	if (pmd_none(pmd_k[index]))
+		return false;
+
+	copy_pmd(pmd, pmd_k);
+
+	return true;
+}
+
 static int __kprobes
 do_kernel_address_page_fault(struct mm_struct *mm, unsigned long addr,
 			     unsigned int fsr, struct pt_regs *regs)
@@ -496,10 +560,9 @@ do_page_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
  * directly to do_kernel_address_page_fault() to handle.
  *
  * Otherwise, we're probably faulting in the vmalloc() area, so try to fix
- * that up. Note that we must not take any locks or enable interrupts in
- * this case.
+ * that up via vmalloc_fault().
  *
- * If vmalloc() fixup fails, that means the non-leaf page tables did not
+ * If vmalloc_fault() fails, that means the non-leaf page tables did not
  * contain an entry for this address, so handle this via
  * do_kernel_address_page_fault().
  */
@@ -508,65 +571,12 @@ static int __kprobes
 do_translation_fault(unsigned long addr, unsigned int fsr,
 		     struct pt_regs *regs)
 {
-	unsigned int index;
-	pgd_t *pgd, *pgd_k;
-	p4d_t *p4d, *p4d_k;
-	pud_t *pud, *pud_k;
-	pmd_t *pmd, *pmd_k;
-
 	if (addr < TASK_SIZE)
 		return do_page_fault(addr, fsr, regs);
 
-	if (user_mode(regs))
-		goto bad_area;
+	if (!user_mode(regs) && vmalloc_fault(addr))
+		return 0;
 
-	index = pgd_index(addr);
-
-	pgd = cpu_get_pgd() + index;
-	pgd_k = init_mm.pgd + index;
-
-	p4d = p4d_offset(pgd, addr);
-	p4d_k = p4d_offset(pgd_k, addr);
-
-	if (p4d_none(*p4d_k))
-		goto bad_area;
-	if (!p4d_present(*p4d))
-		set_p4d(p4d, *p4d_k);
-
-	pud = pud_offset(p4d, addr);
-	pud_k = pud_offset(p4d_k, addr);
-
-	if (pud_none(*pud_k))
-		goto bad_area;
-	if (!pud_present(*pud))
-		set_pud(pud, *pud_k);
-
-	pmd = pmd_offset(pud, addr);
-	pmd_k = pmd_offset(pud_k, addr);
-
-#ifdef CONFIG_ARM_LPAE
-	/*
-	 * Only one hardware entry per PMD with LPAE.
-	 */
-	index = 0;
-#else
-	/*
-	 * On ARM one Linux PGD entry contains two hardware entries (see page
-	 * tables layout in pgtable.h). We normally guarantee that we always
-	 * fill both L1 entries. But create_mapping() doesn't follow the rule.
-	 * It can create inidividual L1 entries, so here we have to call
-	 * pmd_none() check for the entry really corresponded to address, not
-	 * for the first of pair.
-	 */
-	index = (addr >> SECTION_SHIFT) & 1;
-#endif
-	if (pmd_none(pmd_k[index]))
-		goto bad_area;
-
-	copy_pmd(pmd, pmd_k);
-	return 0;
-
-bad_area:
 	do_kernel_address_page_fault(current->mm, addr, fsr, regs);
 
 	return 0;
