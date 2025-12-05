@@ -1457,7 +1457,7 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 	struct adrv903x_debugfs_entry *entry = file->private_data;
 	struct adrv903x_rf_phy *phy = entry->phy;
 	adi_adrv903x_FrmTestDataCfg_t frm_test_data;
-	adi_adrv903x_TxTestNcoConfig_t txNcoConfig;
+	adi_adrv903x_TxTestNcoConfig_t txNcoConfig = { 0 };
 	u32 val2, val3, val4;
 	s64 val;
 	char buf[80];
@@ -1524,17 +1524,22 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 		entry->val = val;
 		return count;
 	case DBGFS_BIST_TONE:
-		if (ret > 3)
+
+		if (ret > 4)
 			return -EINVAL;
 
-		txNcoConfig.chanSelect = ADI_ADRV903X_TX7;
-		txNcoConfig.enable = val;
+		/* Channel select: val = 0-7 for TX0-TX7 */
+		if (val > 7)
+			val = 7;
+		txNcoConfig.chanSelect = ADI_ADRV903X_TX0 << val;
+
+		txNcoConfig.enable = val2;
 		txNcoConfig.ncoSelect = ADI_ADRV903X_TX_TEST_NCO_0;
-		txNcoConfig.frequencyKhz = val2;
-		if (ret == 3) {
-			if (val3 > 8)
-				val3  = 8;
-			txNcoConfig.attenCtrl = val3;
+		txNcoConfig.frequencyKhz = val3;
+		if (ret >= 4) {
+			if (val4 > 8)
+				val4  = 8;
+			txNcoConfig.attenCtrl = val4;
 		} else {
 			txNcoConfig.attenCtrl = ADI_ADRV903X_TX_TEST_NCO_ATTEN_0DB;
 		}
