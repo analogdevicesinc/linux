@@ -60,9 +60,36 @@
 	}
 
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
-	[ID_ADRV9025] =
-		{
+	[ID_ADRV9025] = {
 			.name = "ADRV9025",
+			.max_rate = 245760000,
+			.max_testmode = 0,
+			.num_channels = 8,
+			.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
+			.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
+			.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
+			.channel[3] = AIM_CHAN(1, IIO_MOD_Q, 3, 16, 'S'),
+			.channel[4] = AIM_CHAN(2, IIO_MOD_I, 4, 16, 'S'),
+			.channel[5] = AIM_CHAN(2, IIO_MOD_Q, 5, 16, 'S'),
+			.channel[6] = AIM_CHAN(3, IIO_MOD_I, 6, 16, 'S'),
+			.channel[7] = AIM_CHAN(3, IIO_MOD_Q, 7, 16, 'S'),
+		},
+	[ID_ADRV9026] = {
+			.name = "ADRV9026",
+			.max_rate = 245760000,
+			.max_testmode = 0,
+			.num_channels = 8,
+			.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
+			.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
+			.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
+			.channel[3] = AIM_CHAN(1, IIO_MOD_Q, 3, 16, 'S'),
+			.channel[4] = AIM_CHAN(2, IIO_MOD_I, 4, 16, 'S'),
+			.channel[5] = AIM_CHAN(2, IIO_MOD_Q, 5, 16, 'S'),
+			.channel[6] = AIM_CHAN(3, IIO_MOD_I, 6, 16, 'S'),
+			.channel[7] = AIM_CHAN(3, IIO_MOD_Q, 7, 16, 'S'),
+		},
+	[ID_ADRV9029] = {
+			.name = "ADRV9029",
 			.max_rate = 245760000,
 			.max_testmode = 0,
 			.num_channels = 8,
