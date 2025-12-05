@@ -352,6 +352,9 @@ struct ad9088_phy {
 	 * should read from. A value of -1 means no remapping (identity).
 	 */
 	s8 rx_iio_to_phy_remap[MAX_NUM_CHANNELIZER];
+
+	/* Device label from DT for sub-device naming */
+	const char *device_label;
 };
 
 extern int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,

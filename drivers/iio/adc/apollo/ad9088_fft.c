@@ -29,6 +29,11 @@
 #define AD9088_FFT_SNIFFER_MAGN_INDEX 3
 #define AD9088_FFT_SNIFFER_CHAN_MAX 4
 
+/*
+ * Available scan masks - only include maximal masks (no subsets).
+ * IIO core will automatically select the smallest superset of requested channels.
+ * Subset masks would generate "Never used" warnings during probe.
+ */
 static const unsigned long ad9088_fft_sniffer_available_scan_masks[] = {
 	BIT(AD9088_FFT_SNIFFER_SI_INDEX) | BIT(AD9088_FFT_SNIFFER_I_INDEX) | BIT(AD9088_FFT_SNIFFER_Q_INDEX),
 	BIT(AD9088_FFT_SNIFFER_SI_INDEX) | BIT(AD9088_FFT_SNIFFER_MAGN_INDEX),
@@ -710,6 +715,23 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 	case ADI_APOLLO_SIDE_A:
 		irq_name = "fft_done_A";
 		indio_dev->name = "ad9088-fft-sniffer-A";
+		if (phy->device_label) {
+			const char *label = phy->device_label;
+			const char *name;
+
+			/* Strip common "axi-ad9084-" or "axi-ad9088-" prefix */
+			if (strncmp(label, "axi-ad9084-", 11) == 0)
+				label += 11;
+			else if (strncmp(label, "axi-ad9088-", 11) == 0)
+				label += 11;
+
+			name = devm_kasprintf(dev, GFP_KERNEL,
+					      "%s-fft-sniffer-A", label);
+			if (name) {
+				indio_dev->name = name;
+				indio_dev->label = name;
+			}
+		}
 		gpio_func = ADI_APOLLO_FUNC_FFT_DONE_A;
 		st->side_sel = ADI_APOLLO_SNIFFER_A;
 		st->regmap_base = RX_SPECTRUM_SNIFFER_RX_SLICE_0_RX_DIGITAL0;
@@ -722,6 +744,23 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 	case ADI_APOLLO_SIDE_B:
 		irq_name = "fft_done_B";
 		indio_dev->name = "ad9088-fft-sniffer-B";
+		if (phy->device_label) {
+			const char *label = phy->device_label;
+			const char *name;
+
+			/* Strip common "axi-ad9084-" or "axi-ad9088-" prefix */
+			if (strncmp(label, "axi-ad9084-", 11) == 0)
+				label += 11;
+			else if (strncmp(label, "axi-ad9088-", 11) == 0)
+				label += 11;
+
+			name = devm_kasprintf(dev, GFP_KERNEL,
+					      "%s-fft-sniffer-B", label);
+			if (name) {
+				indio_dev->name = name;
+				indio_dev->label = name;
+			}
+		}
 		gpio_func = ADI_APOLLO_FUNC_FFT_DONE_B;
 		st->side_sel = ADI_APOLLO_SNIFFER_B;
 		st->regmap_base = RX_SPECTRUM_SNIFFER_RX_SLICE_0_RX_DIGITAL1;

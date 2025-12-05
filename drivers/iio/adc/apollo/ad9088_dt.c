@@ -130,6 +130,11 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 
 	phy->spi_3wire_en = of_property_read_bool(node, "adi,spi-3wire-enable");
 
+	/* Parse device label for sub-device naming (bmem, fft-sniffer) */
+	ret = of_property_read_string(node, "label", &phy->device_label);
+	if (ret)
+		phy->device_label = NULL;
+
 	ret = of_property_read_string(node, "adi,device-profile-fw-name", &name);
 	if (!ret) {
 		ret = request_firmware(&phy->fw, name, dev);

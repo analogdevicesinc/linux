@@ -818,10 +818,27 @@ int ad9088_bmem_probe(struct ad9088_phy *phy)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = channels;
 	indio_dev->num_channels = num_channels;
-	indio_dev->name = "ad9088-bmem";
 
-	dev_info(dev, "BMEM sniffer: %d channels (%s mode)\n",
-		 num_channels, is_8t8r ? "8T8R" : "4T4R");
+	indio_dev->name = "ad9088-bmem";
+	if (phy->device_label) {
+		const char *label = phy->device_label;
+		const char *name;
+
+		/* Strip common "axi-ad9084-" or "axi-ad9088-" prefix for shorter labels */
+		if (strncmp(label, "axi-ad9084-", 11) == 0)
+			label += 11;
+		else if (strncmp(label, "axi-ad9088-", 11) == 0)
+			label += 11;
+
+		name = devm_kasprintf(dev, GFP_KERNEL, "%s-bmem", label);
+		if (name) {
+			indio_dev->name = name;
+			indio_dev->label = name;
+		}
+	}
+
+	dev_info(dev, "%s: %d channels (%s mode)\n",
+		 indio_dev->name, num_channels, is_8t8r ? "8T8R" : "4T4R");
 
 	ret = devm_iio_kfifo_buffer_setup_ext(dev, indio_dev, &ad9088_bmem_buffer_ops, NULL);
 	if (ret)
