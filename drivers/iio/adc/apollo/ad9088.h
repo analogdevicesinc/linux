@@ -461,3 +461,6 @@ int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u16 mcs_track_decimati
 				  u16 initialize_track_cal);
 int ad9088_mcs_init_cal_status_print(struct ad9088_phy *phy, char *buf,
 				     adi_apollo_mcs_cal_init_status_t *status);
+int ad9088_mcs_track_cal_status_print(struct ad9088_phy *phy, char *buf,
+				      adi_apollo_mcs_cal_status_t *cal_status,
+				      u8 print_full_state);
