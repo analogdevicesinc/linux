@@ -37,7 +37,7 @@ static int adrv906x_switch_wait_for_mae_ready(struct adrv906x_eth_switch *es)
 			return 0;
 
 		wait_count--;
-		usleep_range(1, 2);
+		udelay(1);
 	}
 	return -ETIMEDOUT;
 }

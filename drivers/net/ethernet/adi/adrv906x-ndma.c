@@ -412,6 +412,7 @@ static void adrv906x_dma_rx_start(struct adrv906x_ndma_chan *ndma_ch)
 
 static void adrv906x_dma_tx_start(struct adrv906x_ndma_chan *ndma_ch)
 {
+	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
 	dma_addr_t desc_addr;
 
 	desc_addr = ndma_ch->tx_ring_dma + sizeof(struct dma_desc) * ndma_ch->tx_tail;
@@ -420,7 +421,7 @@ static void adrv906x_dma_tx_start(struct adrv906x_ndma_chan *ndma_ch)
 	iowrite32(ndma_ch->tx_ring[ndma_ch->tx_tail].cfg | DMAFLOW_LIST,
 		  ndma_ch->tx_dma_base + DMA_CFG);
 
-	queue_delayed_work(ndma_ch->tx_wq, &ndma_ch->tx_frames_timer,
+	queue_delayed_work(ndma_dev->wq, &ndma_ch->tx_frames_timeout_work,
 			   msecs_to_jiffies(NDMA_TX_PACKET_LIST_TIMEOUT_MS));
 }
 
@@ -994,6 +995,32 @@ static void adrv906x_ndma_rx_free_data_wu_list(struct list_head *data_wu_list, i
 	}
 }
 
+static void adrv906x_ndma_rx_flood_evt_handler(struct work_struct *work)
+{
+	struct adrv906x_ndma_chan *ndma_ch =
+		container_of(work, struct adrv906x_ndma_chan, rx_flood_mitigate_work);
+	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
+	struct adrv906x_ndma_flood_evt *evt;
+	unsigned long flags;
+
+	while (true) {
+		spin_lock_irqsave(&ndma_ch->lock, flags);
+		if (list_empty(&ndma_ch->rx_flood_evt_list)) {
+			spin_unlock_irqrestore(&ndma_ch->lock, flags);
+			break;
+		}
+		evt = list_first_entry(&ndma_ch->rx_flood_evt_list,
+				       struct adrv906x_ndma_flood_evt, node);
+		list_del(&evt->node);
+		spin_unlock_irqrestore(&ndma_ch->lock, flags);
+
+		if (ndma_dev->flood_cb_fn)
+			ndma_dev->flood_cb_fn(ndma_dev->ndev, evt->mac, evt->port_id);
+
+		kfree(evt);
+	}
+}
+
 /* Invoked when the NDMA transmit channel enters freeze state - possible after
  * a link toggle. This handler performs the following recovery steps:
  *
@@ -1004,7 +1031,7 @@ static void adrv906x_ndma_rx_free_data_wu_list(struct list_head *data_wu_list, i
 static void adrv906x_ndma_tx_recovery_handler(struct work_struct *work)
 {
 	struct adrv906x_ndma_chan *ndma_ch =
-		container_of(to_delayed_work(work), struct adrv906x_ndma_chan, tx_frames_timer);
+		container_of(to_delayed_work(work), struct adrv906x_ndma_chan, tx_frames_timeout_work);
 	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
 	struct device *dev = ndma_dev->dev;
 	struct sk_buff *skb;
@@ -1130,12 +1157,13 @@ static int adrv906x_ndma_device_init(struct adrv906x_ndma_dev *ndma_dev, struct 
 	spin_lock_init(&tx_chan->lock);
 	spin_lock_init(&rx_chan->lock);
 
-	snprintf(wq_name, sizeof(wq_name), "adrv906x_ndma_tx_wq_%s", dev_name(dev));
-	tx_chan->tx_wq = alloc_workqueue(wq_name, WQ_HIGHPRI | WQ_UNBOUND, 0);
-	if (!tx_chan->tx_wq)
+	snprintf(wq_name, sizeof(wq_name), "adrv906x_ndma_wq_%s", dev_name(dev));
+	ndma_dev->wq = alloc_workqueue(wq_name, WQ_HIGHPRI | WQ_UNBOUND, 0);
+	if (!ndma_dev->wq)
 		return -ENOMEM;
 
-	INIT_DELAYED_WORK(&tx_chan->tx_frames_timer, adrv906x_ndma_tx_recovery_handler);
+	INIT_WORK(&rx_chan->rx_flood_mitigate_work, adrv906x_ndma_rx_flood_evt_handler);
+	INIT_DELAYED_WORK(&tx_chan->tx_frames_timeout_work, adrv906x_ndma_tx_recovery_handler);
 	INIT_DELAYED_WORK(&ndma_dev->update_stats, adrv906x_ndma_get_frame_drop_stats);
 
 	return ret;
@@ -1658,11 +1686,19 @@ static bool adrv906x_ndma_mac_filter_match(struct adrv906x_ndma_dev *ndma_dev,
 	    !is_multicast_ether_addr(eth->h_dest)) {
 		mac = ether_addr_to_u64(eth->h_dest);
 
-		if (ndma_dev->flood_cb_fn)
-			ndma_dev->flood_cb_fn(ndma_dev->ndev, mac, port_id);
+		if (ndma_dev->flood_cb_fn) {
+			struct adrv906x_ndma_flood_evt *evt;
 
+			evt = kmalloc(sizeof(*evt), GFP_ATOMIC);
+			if (evt) {
+				evt->mac = mac;
+				evt->port_id = port_id;
+
+				list_add_tail(&evt->node, &ndma_ch->rx_flood_evt_list);
+				queue_work(ndma_dev->wq, &ndma_ch->rx_flood_mitigate_work);
+			}
+		}
 		ndma_ch->stats.rx.flooded_frame_count++;
-
 		return false;
 	}
 	return true;
@@ -1883,7 +1919,7 @@ static int adrv906x_ndma_process_tx_status(struct adrv906x_ndma_chan *ndma_ch,
 	ndma_ch->status_cb_fn(skb, port, invalid_ts ? NULL : &ts, ndma_ch->status_cb_param);
 
 	if (--ndma_ch->tx_frames_pending == 0) {
-		cancel_delayed_work(&ndma_ch->tx_frames_timer);
+		cancel_delayed_work(&ndma_ch->tx_frames_timeout_work);
 
 		if (ndma_ch->tx_frames_waiting) {
 			adrv906x_dma_tx_prep_desc_list(ndma_ch);
@@ -2253,6 +2289,7 @@ int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 		return ret;
 
 	INIT_LIST_HEAD(&rx_chan->rx_data_wu_list);
+	INIT_LIST_HEAD(&rx_chan->rx_flood_evt_list);
 
 	dev_set_threaded(ndev, true);
 	netif_napi_add_weight(ndev, &rx_chan->napi,
@@ -2309,9 +2346,10 @@ void adrv906x_ndma_remove(struct adrv906x_ndma_dev *ndma_dev)
 	if (ndma_dev->flood_mitigate_supported)
 		sysfs_remove_group(&ndma_dev->dev->kobj, &ndma_dev->attr_group);
 
-	cancel_delayed_work_sync(&tx_chan->tx_frames_timer);
-	if (tx_chan->tx_wq)
-		destroy_workqueue(tx_chan->tx_wq);
+	cancel_delayed_work_sync(&tx_chan->tx_frames_timeout_work);
+	cancel_work_sync(&rx_chan->rx_flood_mitigate_work);
+	if (ndma_dev->wq)
+		destroy_workqueue(ndma_dev->wq);
 
 	adrv906x_ndma_chan_disable(tx_chan);
 	adrv906x_ndma_chan_disable(rx_chan);

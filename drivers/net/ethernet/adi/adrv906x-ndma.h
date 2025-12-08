@@ -153,8 +153,7 @@ struct adrv906x_ndma_chan {
 	bool tx_block_timestamp_req_port1;
 	unsigned int tx_timestamp_timeout_cnt_port0;
 	unsigned int tx_timestamp_timeout_cnt_port1;
-	struct workqueue_struct *tx_wq;
-	struct delayed_work tx_frames_timer;
+	struct delayed_work tx_frames_timeout_work;
 
 	/* RX DMA channel related fields */
 	void __iomem *rx_dma_base;
@@ -167,6 +166,8 @@ struct adrv906x_ndma_chan {
 	unsigned int rx_tail;   /* Next entry in rx ring to read */
 	unsigned int rx_head;   /* Next entry in rx ring to give a new buffer */
 	unsigned int rx_free;   /* Number of free RX buffers */
+	struct work_struct rx_flood_mitigate_work;
+	struct list_head rx_flood_evt_list;
 	struct napi_struct napi;
 };
 
@@ -174,6 +175,12 @@ struct adrv906x_ndma_mac_entry {
 	u8 mac[ETH_ALEN];
 	struct hlist_node hnode;
 	struct rcu_head rcu;
+};
+
+struct adrv906x_ndma_flood_evt {
+	u64 mac;
+	int port_id;
+	struct list_head node;
 };
 
 struct adrv906x_ndma_dev {
@@ -188,6 +195,7 @@ struct adrv906x_ndma_dev {
 	bool enabled;
 	struct kref refcount;
 	spinlock_t lock; /* protects struct and stats access */
+	struct workqueue_struct *wq;
 	bool loopback_en;
 	bool flood_mitigate_en;
 	bool flood_mitigate_supported;
