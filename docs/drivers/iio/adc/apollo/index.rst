@@ -923,11 +923,28 @@ and the fft properties are exposed as properties and debug properties.
 - ``mode``: Spectrum output mode during data capture, affects both IQ and
   Magnitude modes.
 
-  | ``normal``: Normal mode.
-  | ``instant``: Instantaneous/Debug IQ mode.
+  | ``normal``: Normal mode - uses averaging when alpha_factor is set.
+  | ``instant``: Instantaneous/Debug mode - captures single snapshot.
   | Default: ``instant``
 
 - ``mode_available``: Returns all valid spectrum output modes.
+
+- ``adc_select``: Select which ADC input to use for the FFT sniffer.
+
+  | ``adc0``: ADC 0 (available on 4T4R and 8T8R)
+  | ``adc1``: ADC 1 (available on 4T4R and 8T8R)
+  | ``adc2``: ADC 2 (8T8R only)
+  | ``adc3``: ADC 3 (8T8R only)
+  | Default: ``adc0``
+
+- ``adc_select_available``: Returns all valid ADC selections for the device.
+
+Debugfs Attributes
+++++++++++++++++++
+
+Advanced configuration is available through debugfs. These attributes allow
+fine-tuning of the FFT sniffer behavior and are primarily intended for
+debugging and development.
 
 .. shell::
 
@@ -940,7 +957,9 @@ and the fft properties are exposed as properties and debug properties.
     continuous_mode       low_power_enable   window_enable
     delay_capture_ms      max_threshold
 
-- ``adc``: ADC to configure and use the feature.
+**Initialization Parameters:**
+
+- ``adc``: ADC to configure and use for FFT capture. This is a bitmask value.
 
   | Default: ``ADI_APOLLO_ADC_0``
 
@@ -964,7 +983,7 @@ and the fft properties are exposed as properties and debug properties.
   | ``1``: Select Real FFT.
   | Default: ``0``
 
-- ``max_threshold``: Maximum threshold for comparison with magnitude Output
+- ``max_threshold``: Maximum threshold for comparison with magnitude output
   from FFT Engine. Same as the device property.
 
   | Default: ``255``
@@ -975,6 +994,8 @@ and the fft properties are exposed as properties and debug properties.
 
   | Default: ``0``
   | Range: ``0-255``
+
+**FFT Processing Parameters:**
 
 - ``sort_enable``: Incoming magnitude data is sorted from least to greatest
   before it is stored. When sorting is disabled, magnitude data is left
@@ -1028,6 +1049,8 @@ and the fft properties are exposed as properties and debug properties.
   | ``1``: Enable.
   | Default: ``1``
 
+**Averaging and Signal Processing:**
+
 - ``alpha_factor``: Exponential averaging is enabled by setting the
   alpha_factor between 1 and 8 and disabled when set to 0. The alpha factor
   sets :math:`\alpha` in the equation
@@ -1037,10 +1060,12 @@ and the fft properties are exposed as properties and debug properties.
   averaging is only available in single mode and magnitude mode.
 
   | ``0``: Disable.
-  | ``1``: Enable.
+  | ``1-8``: Enable with specified alpha value.
   | Default: ``0``
 
-- ``run_fft_engine_background``: Set to 1 for GPIO control, to skip writting
+**Capture Control:**
+
+- ``run_fft_engine_background``: Set to 1 for GPIO control, to skip writing
   the ``fft_enable`` register.
 
   | ``0``: Disable.
@@ -1052,9 +1077,180 @@ and the fft properties are exposed as properties and debug properties.
   | Default: ``100``
   | Unit: ``ms``
 
-- ``adc_sampling_rate_Hz``: Read the ADC sampling rate
+- ``adc_sampling_rate_Hz``: Read the ADC sampling rate (read-only).
 
 The acquired data is pushed to the device's IIO buffer.
+
+Feature Availability by Mode
+++++++++++++++++++++++++++++
+
+The following table shows which features are available in each sniffer mode:
+
+.. list-table:: FFT Sniffer Feature Matrix
+   :header-rows: 1
+   :widths: 30 15 15 15 15
+
+   * - Feature
+     - Normal Mag
+     - Instant Mag
+     - Normal IQ
+     - Instant IQ
+   * - ``sort_enable``
+     - ✓
+     - ✓
+     - ✗
+     - ✗
+   * - ``continuous_mode``
+     - ✓
+     - ✗
+     - ✗
+     - ✗
+   * - ``alpha_factor`` (averaging)
+     - ✓
+     - ✗
+     - ✗
+     - ✗
+   * - ``bottom_fft_enable``
+     - ✓
+     - ✓
+     - ✓
+     - ✓
+   * - ``window_enable``
+     - ✓
+     - ✓
+     - ✓
+     - ✓
+   * - ``dither_enable``
+     - ✓
+     - ✓
+     - ✓
+     - ✓
+   * - ``low_power_enable``
+     - ✓
+     - ✓
+     - ✓
+     - ✓
+   * - Threshold detection
+     - ✓
+     - ✓
+     - ✗
+     - ✗
+   * - FFT bins output
+     - 256
+     - 256
+     - 512
+     - 512
+
+Modes of Operation
+++++++++++++++++++
+
+The spectrum sniffer supports four distinct modes of operation, determined by
+the combination of ``mode`` setting and channel selection (IQ vs Magnitude):
+
+**Magnitude Modes** (enable ``in_magn0_en`` channel):
+
+1. **Normal Magnitude** (``mode=normal``): Captures magnitude spectrum with
+   optional exponential averaging (when ``alpha_factor`` > 0), sorting
+   (``sort_enable=1``), and continuous capture (``continuous_mode=1``).
+   Best for ongoing spectrum monitoring.
+
+2. **Instant Magnitude** (``mode=instant``): Single-shot magnitude capture
+   without averaging. Best for quick snapshots of spectrum state.
+
+**IQ Modes** (enable ``in_voltage0_i_en`` and ``in_voltage0_q_en`` channels):
+
+3. **Normal IQ** (``mode=normal``): Captures complex I/Q FFT data. Sorting,
+   continuous mode, and exponential averaging are not available in IQ mode.
+   Best for detailed spectral analysis requiring phase information.
+
+4. **Instant IQ** (``mode=instant``): Single-shot complex I/Q capture.
+   Best for debug and calibration purposes.
+
+.. note::
+
+   The mode is automatically determined based on which channels are enabled
+   in ``scan_elements/``. Enabling the magnitude channel selects magnitude
+   mode, while enabling I/Q channels selects IQ mode.
+
+IIO Channels
+++++++++++++
+
+The FFT sniffer exposes the following IIO channels:
+
+- ``in_index``: FFT bin index (0-255 for real mode, 0-511 for complex mode)
+- ``in_voltage0_i``: In-phase (I) FFT data for IQ mode
+- ``in_voltage0_q``: Quadrature (Q) FFT data for IQ mode
+- ``in_magn0``: Magnitude FFT data for magnitude mode
+
+**Channel Scan Masks** - valid combinations:
+
+- Index + I + Q: For IQ mode captures (``in_index_en=1``, ``in_voltage0_i_en=1``,
+  ``in_voltage0_q_en=1``)
+- Index + Magnitude: For magnitude mode captures (``in_index_en=1``,
+  ``in_magn0_en=1``)
+
+Data Format
++++++++++++
+
+**Magnitude Mode** (real FFT, 256 bins):
+
+Each sample contains:
+
+- Bin index (9 bits unsigned, 0-255)
+- Magnitude value (9 bits unsigned)
+
+**IQ Mode** (complex FFT, 512 bins):
+
+Each sample contains:
+
+- Bin index (9 bits unsigned, 0-511)
+- I data (9 bits signed)
+- Q data (9 bits signed)
+
+All values are packed into 16-bit little-endian format.
+
+Example Usage
++++++++++++++
+
+**Capture Magnitude Spectrum:**
+
+.. shell::
+
+   # Configure for magnitude mode with sorting
+   $cd /sys/bus/iio/devices/iio:device6
+   $echo normal > mode
+   $echo 1 > /sys/kernel/debug/iio/iio:device6/sort_enable
+
+   # Enable magnitude channels
+   $echo 1 > scan_elements/in_index_en
+   $echo 1 > scan_elements/in_magn0_en
+
+   # Configure and enable buffer
+   $echo 256 > buffer0/length
+   $echo 1 > buffer0/enable
+
+   # Capture data
+   $cat /dev/iio:device6 | head -c 1024 > spectrum.bin
+
+**Capture IQ Spectrum:**
+
+.. shell::
+
+   # Configure for IQ mode
+   $cd /sys/bus/iio/devices/iio:device6
+   $echo instant > mode
+
+   # Enable IQ channels
+   $echo 1 > scan_elements/in_index_en
+   $echo 1 > scan_elements/in_voltage0_i_en
+   $echo 1 > scan_elements/in_voltage0_q_en
+
+   # Configure and enable buffer
+   $echo 512 > buffer0/length
+   $echo 1 > buffer0/enable
+
+   # Capture data
+   $cat /dev/iio:device6 | head -c 3072 > iq_spectrum.bin
 
 .. _apollo ffh:
 
@@ -1255,6 +1451,8 @@ Change protocol to use, HSCI (1) or SPI (0):
    $cat hsci_enable
     1
 
+.. _calibration data management:
+
 Calibration Data Management
 ----------------------------
 
@@ -1350,7 +1548,7 @@ firmware property to your device tree:
 .. code:: dts
 
    &spi0 {
-       ad9088@0 {
+       trx0_ad9084: ad9088@ {
            compatible = "adi,ad9088";
            reg = <0>;
            spi-max-frequency = <10000000>;
