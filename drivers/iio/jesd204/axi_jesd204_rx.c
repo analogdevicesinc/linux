@@ -107,9 +107,11 @@ struct axi_jesd204_rx {
 	struct clk *lane_clk;
 
 	/* Versal specific gpios */
+	struct gpio_desc *reset_lcpll;
 	struct gpio_desc *reset_pll_datapath_gpio;
 	struct gpio_desc *reset_datapath_gpio;
 	struct gpio_desc *reset_done_gpio;
+	struct gpio_desc *reset_cpll_done_gpio;
 };
 
 enum {
@@ -988,6 +990,16 @@ static int axi_jesd204_rx_jesd204_clks_enable(struct jesd204_dev *jdev,
 		}
 	}
 
+	/*
+		After the reference clock is enabled, the cplls have to be reset
+		to lock properly. This gpios shoud only be defined if the system
+		is running with the RX only datapath.
+	*/
+	ret = axi_jesd_ext_reset(dev, "rx_cpll", jesd->reset_lcpll,
+							 jesd->reset_cpll_done_gpio);
+	if (ret)
+		return ret;
+
 	ret = axi_jesd_ext_reset(dev, "rx_pll_datapath", jesd->reset_pll_datapath_gpio,
 							 jesd->reset_done_gpio);
 	if (ret)
@@ -1208,6 +1220,11 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	jesd->reset_lcpll = devm_gpiod_get_optional(&pdev->dev,
+		"lcpll-reset", GPIOD_OUT_LOW);
+	if (IS_ERR(jesd->reset_lcpll))
+		return PTR_ERR(jesd->reset_lcpll);
+
 	jesd->reset_pll_datapath_gpio = devm_gpiod_get_optional(&pdev->dev,
 		"pll-datapath-reset", GPIOD_OUT_LOW);
 	if (IS_ERR(jesd->reset_pll_datapath_gpio))
@@ -1222,6 +1239,11 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 		"reset-done", GPIOD_IN);
 	if (IS_ERR(jesd->reset_done_gpio))
 		return PTR_ERR(jesd->reset_done_gpio);
+
+	jesd->reset_cpll_done_gpio = devm_gpiod_get_optional(&pdev->dev,
+		"lcpll-reset-done", GPIOD_IN);
+	if (IS_ERR(jesd->reset_cpll_done_gpio))
+		return PTR_ERR(jesd->reset_cpll_done_gpio);
 
 	jesd->axi_clk = devm_clk_get_enabled(&pdev->dev, "s_axi_aclk");
 	if (IS_ERR(jesd->axi_clk))
