@@ -19,24 +19,22 @@
 #include "../cf_axi_adc.h"
 
 /*
- * Calibration File Format
- * =======================
+ * Calibration File Format (Version 2)
+ * ====================================
  *
  * The calibration data is organized as follows:
  *
- * +--------------------+
- * | Header (64 bytes)  |  <- Fixed size header with magic, version, metadata
- * +--------------------+
- * | ADC Cal Data       |  <- All ADC channels, both sequential and random modes
- * +--------------------+
- * | DAC Cal Data       |  <- All DAC channels
- * +--------------------+
- * | SERDES RX Cal Data |  <- All SERDES RX 12-packs
- * +--------------------+
- * | SERDES TX Cal Data |  <- All SERDES TX 12-packs
- * +--------------------+
- * | CRC32 (4 bytes)    |  <- Checksum of entire file excluding this field
- * +--------------------+
+ * +------------------------+
+ * | Header (64 bytes)      |  <- Fixed size header with magic, version, metadata
+ * +------------------------+
+ * | ADC Cal Data           |  <- All ADC channels, both sequential and random modes
+ * +------------------------+
+ * | SERDES RX Cal Data     |  <- All SERDES RX 12-packs
+ * +------------------------+
+ * | Clock Cond Cal Data    |  <- Clock conditioning cal for both sides
+ * +------------------------+
+ * | CRC32 (4 bytes)        |  <- Checksum of entire file excluding this field
+ * +------------------------+
  *
  * Note: Header structure and constants are defined in ad9088.h
  */
@@ -54,12 +52,12 @@ int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len)
 	struct ad9088_cal_header *hdr;
 	adi_apollo_device_t *device = &phy->ad9088;
 	u8 *ptr, *cal_buf;
-	u32 adc_len_per_mode = 0, adc_len_per_chan, dac_len, serdes_rx_len, serdes_tx_len;
+	u32 adc_len_per_mode = 0, adc_len_per_chan, serdes_rx_len, clk_cond_len;
 	u32 total_size, current_offset;
 	u32 crc;
 	int ret, i, mode;
-	u16 adc_cal_chans, dac_cal_chans;
-	u8 num_adcs, num_dacs;
+	u16 adc_cal_chans;
+	u8 num_adcs;
 	u16 serdes_jrx_enabled_mask = 0;
 	adi_apollo_serdes_bgcal_state_t serdes_state[ADI_APOLLO_NUM_JRX_SERDES_12PACKS];
 	adi_apollo_mailbox_resp_update_cal_data_crc_t crc_resp;
@@ -68,9 +66,7 @@ int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len)
 
 	/* Determine device configuration */
 	adc_cal_chans = device->dev_info.is_8t8r ? ADI_APOLLO_ADC_ALL : ADI_APOLLO_ADC_ALL_4T4R;
-	dac_cal_chans = device->dev_info.is_8t8r ? ADI_APOLLO_DAC_ALL : ADI_APOLLO_DAC_ALL_4T4R;
 	num_adcs = device->dev_info.is_8t8r ? 8 : 4;
-	num_dacs = device->dev_info.is_8t8r ? 8 : 4;
 
 	/* Query which SERDES JRX packs are enabled */
 	ret = adi_apollo_serdes_jrx_bgcal_state_get(device, ADI_APOLLO_TXRX_SERDES_12PACK_ALL,
@@ -104,37 +100,29 @@ int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len)
 
 	adc_len_per_mode = adc_len_per_chan * num_adcs;  /* Total for one mode (seq or random) */
 
-	ret = adi_apollo_cfg_dac_cal_data_len_get(device, &dac_len);
-	if (ret) {
-		dev_err(&phy->spi->dev, "Failed to get DAC cal data length: %d\n", ret);
-		return -EFAULT;
-	}
-
 	ret = adi_apollo_cfg_serdes_rx_cal_data_len_get(device, &serdes_rx_len);
 	if (ret) {
 		dev_err(&phy->spi->dev, "Failed to get SERDES RX cal data length: %d\n", ret);
 		return -EFAULT;
 	}
 
-	ret = adi_apollo_cfg_serdes_tx_cal_data_len_get(device, &serdes_tx_len);
+	ret = adi_apollo_cfg_clk_cond_cal_data_len_get(device, &clk_cond_len);
 	if (ret) {
-		dev_err(&phy->spi->dev, "Failed to get SERDES TX cal data length: %d\n", ret);
+		dev_err(&phy->spi->dev, "Failed to get clock conditioning cal data length: %d\n", ret);
 		return -EFAULT;
 	}
 
 	/* Calculate total size:
 	 * - Header
 	 * - ADC cal data (2 modes * num_adcs * size_per_adc)
-	 * - DAC cal data (num_dacs * size_per_dac)
 	 * - SERDES RX cal data (num_serdes_rx * size_per_serdes)
-	 * - SERDES TX cal data (num_serdes_tx * size_per_serdes)
+	 * - Clock conditioning cal data (2 sides * size_per_side)
 	 * - CRC32
 	 */
 	total_size = sizeof(struct ad9088_cal_header) +
 		     (adc_len_per_mode * 2) +  /* 2 modes: sequential and random */
-		     (dac_len * num_dacs) +
 		     (serdes_rx_len * ADI_APOLLO_NUM_JTX_SERDES_12PACKS) +
-		     (serdes_tx_len * ADI_APOLLO_NUM_JRX_SERDES_12PACKS) +
+		     (clk_cond_len * ADI_APOLLO_NUM_SIDES) +
 		     sizeof(u32);  /* CRC32 */
 
 	/* Allocate buffer */
@@ -151,9 +139,8 @@ int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len)
 	hdr->chip_id = phy->chip_id.chip_type;
 	hdr->is_8t8r = device->dev_info.is_8t8r;
 	hdr->num_adcs = num_adcs;
-	hdr->num_dacs = num_dacs;
 	hdr->num_serdes_rx = ADI_APOLLO_NUM_JTX_SERDES_12PACKS;
-	hdr->num_serdes_tx = ADI_APOLLO_NUM_JRX_SERDES_12PACKS;
+	hdr->num_clk_cond = ADI_APOLLO_NUM_SIDES;
 	hdr->total_size = total_size;
 
 	/* Set up section offsets and sizes */
@@ -163,16 +150,12 @@ int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len)
 	hdr->adc_cal_size = adc_len_per_mode * 2;
 	current_offset += hdr->adc_cal_size;
 
-	hdr->dac_cal_offset = current_offset;
-	hdr->dac_cal_size = dac_len * num_dacs;
-	current_offset += hdr->dac_cal_size;
-
 	hdr->serdes_rx_cal_offset = current_offset;
 	hdr->serdes_rx_cal_size = serdes_rx_len * ADI_APOLLO_NUM_JTX_SERDES_12PACKS;
 	current_offset += hdr->serdes_rx_cal_size;
 
-	hdr->serdes_tx_cal_offset = current_offset;
-	hdr->serdes_tx_cal_size = serdes_tx_len * ADI_APOLLO_NUM_JRX_SERDES_12PACKS;
+	hdr->clk_cond_cal_offset = current_offset;
+	hdr->clk_cond_cal_size = clk_cond_len * ADI_APOLLO_NUM_SIDES;
 
 	ptr += sizeof(struct ad9088_cal_header);
 
@@ -253,22 +236,6 @@ int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len)
 			dev_warn(&phy->spi->dev, "Failed to unfreeze SERDES JRX bgcal: %d\n", ret);
 	}
 
-	/* Read DAC calibration data */
-	dev_dbg(&phy->spi->dev, "Reading DAC calibration data...\n");
-	for (i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-		if (dac_cal_chans & (ADI_APOLLO_DAC_A0 << i)) {
-			ret = adi_apollo_cfg_dac_cal_data_get(device,
-				ADI_APOLLO_DAC_A0 << i, ptr, dac_len);
-			if (ret) {
-				dev_err(&phy->spi->dev,
-					"Failed to get DAC%d cal data: %d\n", i, ret);
-				kfree(cal_buf);
-				return -EFAULT;
-			}
-			ptr += dac_len;
-		}
-	}
-
 	/* Read SERDES RX calibration data */
 	dev_dbg(&phy->spi->dev, "Reading SERDES RX calibration data...\n");
 	for (i = 0; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i++) {
@@ -283,18 +250,19 @@ int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len)
 		ptr += serdes_rx_len;
 	}
 
-	/* Read SERDES TX calibration data */
-	dev_dbg(&phy->spi->dev, "Reading SERDES TX calibration data...\n");
-	for (i = 0; i < ADI_APOLLO_NUM_JRX_SERDES_12PACKS; i++) {
-		ret = adi_apollo_cfg_serdes_tx_cal_data_get(device,
-			ADI_APOLLO_TXRX_SERDES_12PACK_A << i, ptr, serdes_tx_len);
+	/* Read clock conditioning calibration data */
+	dev_dbg(&phy->spi->dev, "Reading clock conditioning calibration data...\n");
+	for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
+		ret = adi_apollo_cfg_clk_cond_cal_data_get(device,
+			ADI_APOLLO_SIDE_A << i, ptr, clk_cond_len);
 		if (ret) {
 			dev_err(&phy->spi->dev,
-				"Failed to get SERDES TX%d cal data: %d\n", i, ret);
+				"Failed to get clock conditioning Side %c cal data: %d\n",
+				'A' + i, ret);
 			kfree(cal_buf);
 			return -EFAULT;
 		}
-		ptr += serdes_tx_len;
+		ptr += clk_cond_len;
 	}
 
 	/* Calculate and append CRC32 of everything except the CRC itself */
@@ -303,9 +271,9 @@ int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len)
 	memcpy(ptr, &crc, sizeof(u32));
 
 	dev_info(&phy->spi->dev,
-		 "Calibration data saved: %u bytes (ADC: %u, DAC: %u, SERDES RX: %u, SERDES TX: %u)\n",
-		 total_size, hdr->adc_cal_size, hdr->dac_cal_size,
-		 hdr->serdes_rx_cal_size, hdr->serdes_tx_cal_size);
+		 "Calibration data saved: %u bytes (ADC: %u, SERDES RX: %u, Clk Cond: %u)\n",
+		 total_size, hdr->adc_cal_size, hdr->serdes_rx_cal_size,
+		 hdr->clk_cond_cal_size);
 
 	*buf = cal_buf;
 	*len = total_size;
@@ -327,9 +295,9 @@ int ad9088_cal_restore(struct ad9088_phy *phy, const u8 *buf, size_t len)
 	adi_apollo_device_t *device = &phy->ad9088;
 	const u8 *ptr;
 	u32 crc, crc_calc;
-	u32 adc_len_per_chan, dac_len, serdes_rx_len, serdes_tx_len;
+	u32 adc_len_per_chan, serdes_rx_len, clk_cond_len;
 	int ret, i, mode;
-	u16 adc_cal_chans, dac_cal_chans;
+	u16 adc_cal_chans;
 	u16 serdes_jrx_enabled_mask = 0;
 	adi_apollo_serdes_bgcal_state_t serdes_state[ADI_APOLLO_NUM_JRX_SERDES_12PACKS];
 
@@ -397,7 +365,6 @@ int ad9088_cal_restore(struct ad9088_phy *phy, const u8 *buf, size_t len)
 
 	/* Determine device configuration */
 	adc_cal_chans = device->dev_info.is_8t8r ? ADI_APOLLO_ADC_ALL : ADI_APOLLO_ADC_ALL_4T4R;
-	dac_cal_chans = device->dev_info.is_8t8r ? ADI_APOLLO_DAC_ALL : ADI_APOLLO_DAC_ALL_4T4R;
 
 	/* Query which SERDES JRX packs are enabled */
 	ret = adi_apollo_serdes_jrx_bgcal_state_get(device, ADI_APOLLO_TXRX_SERDES_12PACK_ALL,
@@ -429,21 +396,15 @@ int ad9088_cal_restore(struct ad9088_phy *phy, const u8 *buf, size_t len)
 		return -EFAULT;
 	}
 
-	ret = adi_apollo_cfg_dac_cal_data_len_get(device, &dac_len);
-	if (ret) {
-		dev_err(&phy->spi->dev, "Failed to get DAC cal data length: %d\n", ret);
-		return -EFAULT;
-	}
-
 	ret = adi_apollo_cfg_serdes_rx_cal_data_len_get(device, &serdes_rx_len);
 	if (ret) {
 		dev_err(&phy->spi->dev, "Failed to get SERDES RX cal data length: %d\n", ret);
 		return -EFAULT;
 	}
 
-	ret = adi_apollo_cfg_serdes_tx_cal_data_len_get(device, &serdes_tx_len);
+	ret = adi_apollo_cfg_clk_cond_cal_data_len_get(device, &clk_cond_len);
 	if (ret) {
-		dev_err(&phy->spi->dev, "Failed to get SERDES TX cal data length: %d\n", ret);
+		dev_err(&phy->spi->dev, "Failed to get clock conditioning cal data length: %d\n", ret);
 		return -EFAULT;
 	}
 
@@ -459,28 +420,10 @@ int ad9088_cal_restore(struct ad9088_phy *phy, const u8 *buf, size_t len)
 					dev_err(&phy->spi->dev,
 						"Failed to set ADC%d mode%d cal data: %d\n",
 						i, mode, ret);
-					// /* Unfreeze bgcal before returning */
-					// adi_apollo_adc_bgcal_unfreeze(device, adc_cal_chans);
 					return -EFAULT;
 				}
 				ptr += adc_len_per_chan;
 			}
-		}
-	}
-
-	/* Restore DAC calibration data */
-	dev_dbg(&phy->spi->dev, "Restoring DAC calibration data...\n");
-	ptr = buf + hdr->dac_cal_offset;
-	for (i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-		if (dac_cal_chans & (ADI_APOLLO_DAC_A0 << i)) {
-			ret = adi_apollo_cfg_dac_cal_data_set(device,
-				ADI_APOLLO_DAC_A0 << i, (u8 *)ptr, dac_len);
-			if (ret) {
-				dev_err(&phy->spi->dev,
-					"Failed to set DAC%d cal data: %d\n", i, ret);
-				return -EFAULT;
-			}
-			ptr += dac_len;
 		}
 	}
 
@@ -498,18 +441,19 @@ int ad9088_cal_restore(struct ad9088_phy *phy, const u8 *buf, size_t len)
 		ptr += serdes_rx_len;
 	}
 
-	/* Restore SERDES TX calibration data */
-	dev_dbg(&phy->spi->dev, "Restoring SERDES TX calibration data...\n");
-	ptr = buf + hdr->serdes_tx_cal_offset;
-	for (i = 0; i < ADI_APOLLO_NUM_JRX_SERDES_12PACKS; i++) {
-		ret = adi_apollo_cfg_serdes_tx_cal_data_set(device,
-			ADI_APOLLO_TXRX_SERDES_12PACK_A << i, (u8 *)ptr, serdes_tx_len);
+	/* Restore clock conditioning calibration data */
+	dev_dbg(&phy->spi->dev, "Restoring clock conditioning calibration data...\n");
+	ptr = buf + hdr->clk_cond_cal_offset;
+	for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
+		ret = adi_apollo_cfg_clk_cond_cal_data_set(device,
+			ADI_APOLLO_SIDE_A << i, (u8 *)ptr, clk_cond_len);
 		if (ret) {
 			dev_err(&phy->spi->dev,
-				"Failed to set SERDES TX%d cal data: %d\n", i, ret);
+				"Failed to set clock conditioning Side %c cal data: %d\n",
+				'A' + i, ret);
 			return -EFAULT;
 		}
-		ptr += serdes_tx_len;
+		ptr += clk_cond_len;
 	}
 
 	dev_dbg(&phy->spi->dev, "Calibration data restored successfully\n");

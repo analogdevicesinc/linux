@@ -1258,7 +1258,7 @@ The AD9088 driver provides a comprehensive calibration data management system th
 Overview
 ~~~~~~~~
 
-During normal device initialization, the AD9088 performs extensive calibration of ADCs, DACs, and SERDES transceivers. This process can take considerable time. The calibration data management feature allows you to:
+During normal device initialization, the AD9088 performs extensive calibration of ADCs, SERDES transceivers, and clock conditioning. This process can take considerable time. The calibration data management feature allows you to:
 
 * Save all calibration data to a binary file
 * Restore calibration data from file during driver probe
@@ -1271,9 +1271,8 @@ Calibration Data Components
 The calibration system saves the following data:
 
 * **ADC Calibration**: Sequential and random mode calibration for all ADCs
-* **DAC Calibration**: Calibration data for all DACs
 * **SERDES RX Calibration**: Calibration for all SERDES RX 12-packs
-* **SERDES TX Calibration**: Calibration for all SERDES TX 12-packs
+* **Clock Conditioning Calibration**: Clock conditioning calibration for both sides
 
 File Format
 ~~~~~~~~~~~
@@ -1281,7 +1280,7 @@ File Format
 Calibration data is stored in a structured binary format with:
 
 * **Magic Number**: ``0x41443930`` ("AD90") for file identification
-* **Version**: Format version (currently 1)
+* **Version**: Format version (currently 2)
 * **Device Metadata**: Chip ID (AD9084/AD9088) and configuration (4T4R/8T8R)
 * **Section Headers**: Offsets and sizes for each calibration component
 * **CRC32 Checksum**: Data integrity validation
@@ -1311,7 +1310,7 @@ The save operation:
 
 1. Freezes ADC and SERDES background calibration
 2. Updates firmware CRC
-3. Reads all calibration data (ADC, DAC, SERDES RX/TX)
+3. Reads all calibration data (ADC, SERDES RX, Clock Conditioning)
 4. Builds binary file with header and CRC32
 5. Unfreezes background calibration
 
@@ -1539,24 +1538,22 @@ Successful save output:
    ad9088 spi1.0: Reading ADC calibration data...
    ad9088 spi1.0: Unfreezing ADC background calibration...
    ad9088 spi1.0: Unfreezing SERDES JRX background calibration...
-   ad9088 spi1.0: Reading DAC calibration data...
    ad9088 spi1.0: Reading SERDES RX calibration data...
-   ad9088 spi1.0: Reading SERDES TX calibration data...
-   ad9088 spi1.0: Calibration data saved: 61908 bytes (ADC: 58624, DAC: 1440, SERDES RX: 1760, SERDES TX: 16)
+   ad9088 spi1.0: Reading clock conditioning calibration data...
+   ad9088 spi1.0: Calibration data saved: 60708 bytes (ADC: 58624, SERDES RX: 1760, Clk Cond: 240)
 
 
 Successful restore output:
 
 .. code:: text
 
-   ad9088 spi1.0: Starting calibration restore: 61908 bytes expected
+   ad9088 spi1.0: Starting calibration restore: 60708 bytes expected
    ad9088 spi1.0: All calibration data received, restoring...
    ad9088 spi1.0: Restoring calibration data...
    ad9088 spi1.0: SERDES JRX enabled mask: 0x0003
    ad9088 spi1.0: Restoring ADC calibration data...
-   ad9088 spi1.0: Restoring DAC calibration data...
    ad9088 spi1.0: Restoring SERDES RX calibration data...
-   ad9088 spi1.0: Restoring SERDES TX calibration data...
+   ad9088 spi1.0: Restoring clock conditioning calibration data...
    ad9088 spi1.0: Calibration data restored successfully
 
 

@@ -23,7 +23,7 @@
 
 /* Magic number for AD9088 calibration files */
 #define AD9088_CAL_MAGIC    0x41443930  /* "AD90" */
-#define AD9088_CAL_VERSION  1
+#define AD9088_CAL_VERSION  2
 
 /* Chip IDs */
 #define CHIPID_AD9084 0x9084
@@ -31,8 +31,8 @@
 
 /* Number of devices */
 #define ADI_APOLLO_NUM_ADC_CAL_MODES           2
-#define ADI_APOLLO_NUM_JRX_SERDES_12PACKS      4
 #define ADI_APOLLO_NUM_JTX_SERDES_12PACKS      4
+#define ADI_APOLLO_NUM_SIDES                   2
 
 /* Calibration file header structure (must match kernel driver) */
 struct ad9088_cal_header {
@@ -41,25 +41,22 @@ struct ad9088_cal_header {
 	uint32_t chip_id;		/* Chip ID (0x9084 or 0x9088) */
 	uint8_t  is_8t8r;		/* 1 = 8T8R, 0 = 4T4R */
 	uint8_t  num_adcs;		/* Number of ADCs */
-	uint8_t  num_dacs;		/* Number of DACs */
 	uint8_t  num_serdes_rx;		/* Number of SERDES RX 12-packs */
-	uint8_t  num_serdes_tx;		/* Number of SERDES TX 12-packs */
-	uint8_t  reserved1[3];		/* Padding to 4-byte boundary */
+	uint8_t  num_clk_cond;		/* Number of clock conditioning sides */
+	uint8_t  reserved1[4];		/* Reserved for future use */
 
 	/* Section offsets from start of file */
 	uint32_t adc_cal_offset;	/* Offset to ADC cal data */
-	uint32_t dac_cal_offset;	/* Offset to DAC cal data */
 	uint32_t serdes_rx_cal_offset;	/* Offset to SERDES RX cal data */
-	uint32_t serdes_tx_cal_offset;	/* Offset to SERDES TX cal data */
+	uint32_t clk_cond_cal_offset;	/* Offset to clock conditioning cal data */
 
 	/* Section sizes */
 	uint32_t adc_cal_size;		/* Total size of all ADC cal data */
-	uint32_t dac_cal_size;		/* Total size of all DAC cal data */
 	uint32_t serdes_rx_cal_size;	/* Total size of all SERDES RX cal data */
-	uint32_t serdes_tx_cal_size;	/* Total size of all SERDES TX cal data */
+	uint32_t clk_cond_cal_size;	/* Total size of all clock conditioning cal data */
 
 	uint32_t total_size;		/* Total file size including CRC */
-	uint32_t reserved2[2];		/* Reserved for future use */
+	uint32_t reserved2[4];		/* Reserved for future use */
 } __attribute__((packed));
 
 static const char *chip_id_to_string(uint32_t chip_id)
@@ -98,9 +95,8 @@ static void print_header(const struct ad9088_cal_header *hdr)
 	       hdr->is_8t8r ? "8T8R (8 TX, 8 RX)" : "4T4R (4 TX, 4 RX)");
 
 	printf("Number of ADCs:      %u\n", hdr->num_adcs);
-	printf("Number of DACs:      %u\n", hdr->num_dacs);
 	printf("Number of SERDES RX: %u\n", hdr->num_serdes_rx);
-	printf("Number of SERDES TX: %u\n", hdr->num_serdes_tx);
+	printf("Number of Clk Cond:  %u\n", hdr->num_clk_cond);
 
 	printf("\n=== Calibration Sections ===\n\n");
 
@@ -114,14 +110,6 @@ static void print_header(const struct ad9088_cal_header *hdr)
 		printf("  Per ADC:  %u bytes\n", per_adc);
 	}
 
-	printf("\nDAC Calibration:\n");
-	printf("  Offset: 0x%08X (%u bytes)\n", hdr->dac_cal_offset, hdr->dac_cal_offset);
-	printf("  Size:   0x%08X (%u bytes)\n", hdr->dac_cal_size, hdr->dac_cal_size);
-	if (hdr->num_dacs > 0 && hdr->dac_cal_size > 0) {
-		uint32_t per_dac = hdr->dac_cal_size / hdr->num_dacs;
-		printf("  Per DAC:  %u bytes\n", per_dac);
-	}
-
 	printf("\nSERDES RX Calibration:\n");
 	printf("  Offset: 0x%08X (%u bytes)\n", hdr->serdes_rx_cal_offset, hdr->serdes_rx_cal_offset);
 	printf("  Size:   0x%08X (%u bytes)\n", hdr->serdes_rx_cal_size, hdr->serdes_rx_cal_size);
@@ -130,12 +118,12 @@ static void print_header(const struct ad9088_cal_header *hdr)
 		printf("  Per Pack: %u bytes\n", per_serdes);
 	}
 
-	printf("\nSERDES TX Calibration:\n");
-	printf("  Offset: 0x%08X (%u bytes)\n", hdr->serdes_tx_cal_offset, hdr->serdes_tx_cal_offset);
-	printf("  Size:   0x%08X (%u bytes)\n", hdr->serdes_tx_cal_size, hdr->serdes_tx_cal_size);
-	if (hdr->num_serdes_tx > 0 && hdr->serdes_tx_cal_size > 0) {
-		uint32_t per_serdes = hdr->serdes_tx_cal_size / hdr->num_serdes_tx;
-		printf("  Per Pack: %u bytes\n", per_serdes);
+	printf("\nClock Conditioning Calibration:\n");
+	printf("  Offset: 0x%08X (%u bytes)\n", hdr->clk_cond_cal_offset, hdr->clk_cond_cal_offset);
+	printf("  Size:   0x%08X (%u bytes)\n", hdr->clk_cond_cal_size, hdr->clk_cond_cal_size);
+	if (hdr->num_clk_cond > 0 && hdr->clk_cond_cal_size > 0) {
+		uint32_t per_side = hdr->clk_cond_cal_size / hdr->num_clk_cond;
+		printf("  Per Side: %u bytes\n", per_side);
 	}
 
 	printf("\nTotal Size:          0x%08X (%u bytes)\n",
@@ -300,16 +288,6 @@ out_print_header:
 					      "ADC Chan/Mode");
 		}
 
-		/* DAC calibration */
-		if (hdr->dac_cal_size > 0 && hdr->dac_cal_offset < file_size) {
-			print_section_summary("DAC Calibration Data",
-					      data + hdr->dac_cal_offset,
-					      hdr->dac_cal_offset,
-					      hdr->dac_cal_size,
-					      hdr->num_dacs,
-					      "DAC");
-		}
-
 		/* SERDES RX calibration */
 		if (hdr->serdes_rx_cal_size > 0 && hdr->serdes_rx_cal_offset < file_size) {
 			print_section_summary("SERDES RX Calibration Data",
@@ -320,14 +298,14 @@ out_print_header:
 					      "SERDES RX Pack");
 		}
 
-		/* SERDES TX calibration */
-		if (hdr->serdes_tx_cal_size > 0 && hdr->serdes_tx_cal_offset < file_size) {
-			print_section_summary("SERDES TX Calibration Data",
-					      data + hdr->serdes_tx_cal_offset,
-					      hdr->serdes_tx_cal_offset,
-					      hdr->serdes_tx_cal_size,
-					      hdr->num_serdes_tx,
-					      "SERDES TX Pack");
+		/* Clock conditioning calibration */
+		if (hdr->clk_cond_cal_size > 0 && hdr->clk_cond_cal_offset < file_size) {
+			print_section_summary("Clock Conditioning Calibration Data",
+					      data + hdr->clk_cond_cal_offset,
+					      hdr->clk_cond_cal_offset,
+					      hdr->clk_cond_cal_size,
+					      hdr->num_clk_cond,
+					      "Clk Cond Side");
 		}
 	}
 

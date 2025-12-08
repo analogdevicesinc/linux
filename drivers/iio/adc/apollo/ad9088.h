@@ -397,7 +397,7 @@ int ad9088_bmem_probe(struct ad9088_phy *phy);
 
 /* Calibration data format */
 #define AD9088_CAL_MAGIC	0x41443930  /* "AD90" */
-#define AD9088_CAL_VERSION	1
+#define AD9088_CAL_VERSION	2
 
 struct ad9088_cal_header {
 	u32 magic;			/* Magic number for validation */
@@ -405,25 +405,22 @@ struct ad9088_cal_header {
 	u32 chip_id;			/* Chip ID (0x9084 or 0x9088) */
 	u8  is_8t8r;			/* 1 = 8T8R, 0 = 4T4R */
 	u8  num_adcs;			/* Number of ADCs */
-	u8  num_dacs;			/* Number of DACs */
 	u8  num_serdes_rx;		/* Number of SERDES RX 12-packs */
-	u8  num_serdes_tx;		/* Number of SERDES TX 12-packs */
-	u8  reserved[3];		/* Reserved for future use */
+	u8  num_clk_cond;		/* Number of clock conditioning sides */
+	u8  reserved[4];		/* Reserved for future use */
 
 	/* Offsets to each section (from start of file) */
 	u32 adc_cal_offset;		/* Offset to ADC calibration data */
-	u32 dac_cal_offset;		/* Offset to DAC calibration data */
 	u32 serdes_rx_cal_offset;	/* Offset to SERDES RX calibration data */
-	u32 serdes_tx_cal_offset;	/* Offset to SERDES TX calibration data */
+	u32 clk_cond_cal_offset;	/* Offset to clock conditioning cal data */
 
 	/* Sizes of each section */
 	u32 adc_cal_size;		/* Total size of all ADC cal data */
-	u32 dac_cal_size;		/* Total size of all DAC cal data */
 	u32 serdes_rx_cal_size;		/* Total size of all SERDES RX cal data */
-	u32 serdes_tx_cal_size;		/* Total size of all SERDES TX cal data */
+	u32 clk_cond_cal_size;		/* Total size of all clock conditioning cal data */
 
 	u32 total_size;			/* Total file size including CRC */
-	u32 reserved2[2];		/* Reserved for future use */
+	u32 reserved2[4];		/* Reserved for future use */
 } __packed;
 
 int ad9088_cal_save(struct ad9088_phy *phy, u8 **buf, size_t *len);
