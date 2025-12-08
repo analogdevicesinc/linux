@@ -3262,8 +3262,10 @@ static ssize_t ad9088_phy_store(struct device *dev,
 		ret = kstrtobool(buf, &bres);
 		if (ret < 0)
 			break;
-		if (bres)
+		if (bres) {
 			ret = adi_apollo_mcs_cal_init_run(device);
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_init_run");
+		}
 		break;
 	case AD9088_MCS_TRACK_CAL_SETUP:
 		ret = kstrtobool(buf, &bres);
@@ -3277,18 +3279,22 @@ static ssize_t ad9088_phy_store(struct device *dev,
 		ret = kstrtobool(buf, &bres);
 		if (ret < 0)
 			break;
-		if (bres)
+		if (bres) {
 			ret = adi_apollo_mcs_cal_fg_tracking_run(device);
-
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_fg_tracking_run");
+		}
 		break;
 	case AD9088_MCS_BG_TRACK_CAL_RUN:
 		ret = kstrtobool(buf, &bres);
 		if (ret < 0)
 			break;
-		if (bres)
+		if (bres) {
 			ret = adi_apollo_mcs_cal_bg_tracking_run(device);
-		else
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_run");
+		} else {
 			ret = adi_apollo_mcs_cal_bg_tracking_abort(device);
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_abort");
+		}
 
 		if (!ret)
 			phy->mcs_cal_bg_tracking_run = bres;
@@ -3305,10 +3311,13 @@ static ssize_t ad9088_phy_store(struct device *dev,
 			break;
 		}
 
-		if (bres)
+		if (bres) {
 			ret = adi_apollo_mcs_cal_bg_tracking_freeze(device);
-		else
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_freeze");
+		} else {
 			ret = adi_apollo_mcs_cal_bg_tracking_unfreeze(device);
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_unfreeze");
+		}
 
 		if (!ret)
 			phy->mcs_cal_bg_tracking_freeze = bres;
@@ -3717,10 +3726,9 @@ static int ad9088_status_show(struct seq_file *file, void *offset)
 
 	for (l = 0; l < ARRAY_SIZE(links_to_inspect); l++) {
 		ret = adi_apollo_jrx_link_inspect(device, links_to_inspect[l], &jrx_status);
-		if (ret) {
-			dev_err(&phy->spi->dev, "Error from adi_apollo_jrx_link_inspect() %d", ret);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_jrx_link_inspect");
+		if (ret)
 			return ret;
-		}
 
 		if (!jrx_status.np_minus1)
 			continue;
@@ -3760,10 +3768,9 @@ static int ad9088_status_show(struct seq_file *file, void *offset)
 
 	for (l = 0; l < ARRAY_SIZE(links_to_inspect); l++) {
 		ret = adi_apollo_jtx_link_inspect(device, links_to_inspect[l], &jtx_status);
-		if (ret) {
-			dev_err(&phy->spi->dev, "Error from adi_apollo_jtx_link_inspect() %d", ret);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_jtx_link_inspect");
+		if (ret)
 			return ret;
-		}
 
 		if (!jtx_status.np_minus1)
 			continue;
@@ -4607,9 +4614,7 @@ static int ad9088_dbg(struct ad9088_phy *phy, int val, int val2, int val3, int v
 	case 4:
 		/* Datapath reset */
 		ret = adi_apollo_serdes_jrx_cal(&phy->ad9088);
-		if (ret != API_CMS_ERROR_OK)
-			pr_err("Error from adi_apollo_serdes_jrx_cal() %d\n", ret);
-
+		ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_serdes_jrx_cal");
 		break;
 	case 5:
 		adi_apollo_txmisc_dp_reset(device, ADI_APOLLO_SIDE_ALL, 1);
