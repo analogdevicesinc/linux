@@ -5881,6 +5881,7 @@ static int ad9088_jesd204_setup_stage1(struct jesd204_dev *jdev,
 	struct ad9088_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9088_phy *phy = priv->phy;
 	adi_apollo_device_t *device = &phy->ad9088;
+	adi_apollo_sysclock_cond_cfg_e cc_cal_cfg;
 	int ret;
 	u16 jrx_phase_adjust;
 
@@ -5897,14 +5898,24 @@ static int ad9088_jesd204_setup_stage1(struct jesd204_dev *jdev,
 		return ret;
 	}
 
-	if (1) {
+	if (phy->cal_data_loaded_from_fw) {
+		cc_cal_cfg = SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER;
+		dev_info(dev, "Run clock conditioning cal WARMBOOT from USER ...\n");
+	} else {
+		cc_cal_cfg = SYSCLKCONDITIONING_ENABLED;
 		dev_info(dev, "Run clock conditioning cal (can take up to %d secs)...\n", ADI_APOLLO_SYSCLK_COND_CENTER_MAX_TO);
-		ret = adi_apollo_sysclk_cond_cal(device);
-		if (ret) {
-			dev_err(dev, "Error in adi_apollo_sysclk_cond_cal %d\n", ret);
-			return ret;
-		}
 	}
+
+	ret = adi_apollo_cfg_clk_cond_cal_cfg_set(device, cc_cal_cfg);
+	if (ret) {
+		dev_err(dev, "Error in adi_apollo_cfg_clk_cond_cal_cfg_set %d\n", ret);
+		return ret;
+	}
+
+	ret = adi_apollo_sysclk_cond_cal(device);
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_sysclk_cond_cal");
+	if (ret)
+			return ret;
 
 	/* Inspect the Apollo JRx and JTx link config */
 	ret = ad9088_inspect_jrx_link_all(phy);
