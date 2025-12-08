@@ -511,7 +511,7 @@ static ssize_t adm1273_energy_show(struct device *dev,
 	struct i2c_client *client = to_i2c_client(dev->parent);
 	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
 	struct adm1275_data *data = to_adm1275_data(info);
-	u8 ein_ext[8];
+	u8 ein_ext[9]; /* 1 count byte + 8 data bytes */
 	u32 sample_count, energy_raw, sample_delta;
 	u16 rollover;
 	u64 energy_combined, energy_delta;
@@ -523,20 +523,21 @@ static ssize_t adm1273_energy_show(struct device *dev,
 
 	now = jiffies;
 
-	ret = i2c_smbus_read_block_data(client, ADM1273_READ_EIN_EXT, ein_ext);
+	ret = i2c_smbus_read_i2c_block_data(client, ADM1273_READ_EIN_EXT, 9,
+					    ein_ext);
 	if (ret < 0) {
 		mutex_unlock(&data->energy_mutex);
 		return ret;
 	}
-	if (ret != 8) {
+	if (ret != 9 || ein_ext[0] != 8) {
 		mutex_unlock(&data->energy_mutex);
 		return -EIO;
 	}
 
-	/* Parse the 8-byte response - LSB first */
-	energy_raw = ein_ext[0] | (ein_ext[1] << 8) | (ein_ext[2] << 16);
-	rollover = ein_ext[3] | (ein_ext[4] << 8);
-	sample_count = ein_ext[5] | (ein_ext[6] << 8) | (ein_ext[7] << 16);
+	/* Parse the 8-byte response after count byte - LSB first */
+	energy_raw = ein_ext[1] | (ein_ext[2] << 8) | (ein_ext[3] << 16);
+	rollover = ein_ext[4] | (ein_ext[5] << 8);
+	sample_count = ein_ext[6] | (ein_ext[7] << 8) | (ein_ext[8] << 16);
 
 	/*
 	 * Combine rollover and energy_raw into single value.
@@ -707,29 +708,33 @@ static int adm1275_probe(struct i2c_client *client)
 	int tindex = -1;
 	u32 shunt;
 	u32 avg;
+	dev_err(&client->dev, "entered probe, functionality %x\n", i2c_get_functionality(client->adapter));
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_READ_BYTE_DATA
-				     | I2C_FUNC_SMBUS_BLOCK_DATA))
+				     | I2C_FUNC_SMBUS_READ_I2C_BLOCK))
 		return -ENODEV;
 
-	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_ID, block_buffer);
+	ret = i2c_smbus_read_i2c_block_data(client, PMBUS_MFR_ID, 1 + 3,
+					    block_buffer);
 	if (ret < 0) {
 		dev_err(&client->dev, "Failed to read Manufacturer ID\n");
 		return ret;
 	}
-	if (ret != 3 || strncmp(block_buffer, "ADI", 3)) {
+	if (ret != 4 || block_buffer[0] != 3 ||
+	    strncmp(&block_buffer[1], "ADI", 3)) {
 		dev_err(&client->dev, "Unsupported Manufacturer ID\n");
 		return -ENODEV;
 	}
 
-	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, block_buffer);
+	ret = i2c_smbus_read_i2c_block_data(client, PMBUS_MFR_MODEL, 1 + 10,
+					    block_buffer);
 	if (ret < 0) {
 		dev_err(&client->dev, "Failed to read Manufacturer Model\n");
 		return ret;
 	}
 	for (mid = adm1275_id; mid->name[0]; mid++) {
-		if (!strncasecmp(mid->name, block_buffer, strlen(mid->name)))
+		if (!strncasecmp(mid->name, &block_buffer[1], strlen(mid->name)))
 			break;
 	}
 	if (!mid->name[0]) {
