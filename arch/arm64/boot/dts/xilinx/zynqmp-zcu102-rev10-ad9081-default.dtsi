@@ -27,22 +27,22 @@
 			/* HPC1 - FMC+ Crossover Cable */
 			/* Si5391A Clock Generator on FMC+ crossover ribbon cable */
 			// 1_1_1_0_1_A1_A0 = 0x74 to 0x77, but A1A0 are missing R18,R20 to be connected to +3.3V_B
-			si5341_refclk: clock-generator@74 {
-				compatible = "silabs,si5341";
-				reg = <0x74>;  /* I2C address */
+			si5391_refclk: clock-generator@77 {
+				compatible = "silabs,si5391";
+				reg = <0x77>;  /* I2C address */
 
 				#clock-cells = <2>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 				clocks = <&ref48>;
 				clock-names = "xtal";
-				clock-output-names = "si5341_ref";
+				clock-output-names = "si5391_ref";
 
 				//silabs,pll-m-num = <14400>; /* PLL at 14.0 GHz */
 				//silabs,pll-m-den = <48>;
 				//silabs,reprogram; /* Chips are not programmed, always reset */
 				//silabs,xaxb-ext-clk; /*When present, indicates that the XA/XB pins are used in EXTCLK (external reference clock) rather than XTAL (crystal) mode.*/
-				si5341_out8: out@8 {
+				si5391_out8: out@8 {
 					reg = <8>;
 					//silabs,format = <1>; /* LVDS 1v8 */
 					//silabs,common-mode = <13>;
@@ -185,8 +185,8 @@
 			#size-cells = <0>;
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
-			// 0 - means i'm using output (1 - means synthesizer), and 8 is out8 <&si5341_refclk 0 8>
-			clocks = <&si5341_refclk 0 8>, <&rx_out_clk_div2_100>;
+			// 0 - means i'm using output (1 - means synthesizer), and 8 is out8 <&si5391_refclk 0 8>
+			clocks = <&si5391_refclk 0 8>, <&rx_out_clk_div2_100>;
 			clock-names = "conv", "div40";
 
 			#clock-cells = <1>;
@@ -202,7 +202,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84b60000 0x1000>;
 			// 0 - means i'm using output (1 - means synthesizer), and 8 is out8
-			clocks = <&si5341_refclk 0 8>, <&tx_out_clk_div2_100>;
+			clocks = <&si5391_refclk 0 8>, <&tx_out_clk_div2_100>;
 			clock-names = "conv", "div40";
 
 			#clock-cells = <1>;
