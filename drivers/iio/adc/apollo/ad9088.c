@@ -5496,10 +5496,9 @@ static int32_t ad9088_inspect_jrx_link_all(struct ad9088_phy *phy)
 
 	for (l = 0; l < ARRAY_SIZE(links_to_inspect); l++) {
 		err = adi_apollo_jrx_link_inspect(device, links_to_inspect[l], &jrx_status);
-		if (err != API_CMS_ERROR_OK) {
-			dev_err(&phy->spi->dev, "Error from adi_apollo_jrx_link_inspect() %d", err);
+		err = ad9088_check_apollo_error(&phy->spi->dev, err, "adi_apollo_jrx_link_inspect");
+		if (err)
 			return err;
-		}
 
 		dev_info(&phy->spi->dev, "JRX ADI_APOLLO_LINK_%s: L=%2d M=%2d F=%2d S=%2d Np=%2d CS=%2d link_en= %-8s\n",
 			 links_to_inspect_str[l],
@@ -5532,10 +5531,9 @@ static int32_t ad9088_inspect_jtx_link_all(struct ad9088_phy *phy)
 
 	for (l = 0; l < ARRAY_SIZE(links_to_inspect); l++) {
 		err = adi_apollo_jtx_link_inspect(device, links_to_inspect[l], &jtx_status);
-		if (err != API_CMS_ERROR_OK) {
-			dev_err(&phy->spi->dev, "Error from adi_apollo_jtx_link_inspect() %d", err);
+		err = ad9088_check_apollo_error(&phy->spi->dev, err, "adi_apollo_jtx_link_inspect");
+		if (err)
 			return err;
-		}
 
 		dev_info(&phy->spi->dev, "JTX ADI_APOLLO_LINK_%s: L=%2d M=%2d F=%2d S=%2d Np=%2d CS=%2d link_en= %-8s\n",
 			 links_to_inspect_str[l],
@@ -5565,10 +5563,9 @@ static int ad9088_setup(struct ad9088_phy *phy)
 			return ret;
 
 	ret = adi_apollo_startup_execute(device, profile, ADI_APOLLO_STARTUP_SEQ_DEFAULT);
-	if (ret) {
-		dev_err(&spi->dev, "adi_apollo_startup_execute error (%d)\n", ret);
+	ret = ad9088_check_apollo_error(&spi->dev, ret, "adi_apollo_startup_execute");
+	if (ret)
 		return ret;
-	}
 
 	/* Display API and Firmware revision */
 	ret = ad9088_version_info(phy);
@@ -5580,10 +5577,9 @@ static int ad9088_setup(struct ad9088_phy *phy)
 	}
 
 	ret = adi_apollo_device_chip_id_get(&phy->ad9088, &phy->chip_id);
-	if (ret < 0) {
-		dev_err(&spi->dev, "chip_id failed (%d)\n", ret);
+	ret = ad9088_check_apollo_error(&spi->dev, ret, "adi_apollo_device_chip_id_get");
+	if (ret)
 		return ret;
-	}
 
 	/* Load calibration data from firmware if specified in device tree */
 	ret = ad9088_cal_load_from_firmware(phy);
@@ -5616,6 +5612,7 @@ static int ad9088_setup(struct ad9088_phy *phy)
 
 	if (phy->sniffer_en) {
 		ret = adi_apollo_sniffer_enable_set(device, ADI_APOLLO_SIDE_ALL, ADI_APOLLO_ENABLE);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_sniffer_enable_set");
 		if (ret)
 			return ret;
 	}
@@ -5972,10 +5969,9 @@ static int ad9088_jesd204_setup_stage1(struct jesd204_dev *jdev,
 		}
 
 		ret = adi_apollo_adc_init_cal_start(device, adc_cal_chans, init_cal_cfg);
-		if (ret) {
-			dev_err(dev, "Error in adi_apollo_adc_init_cal_start %d\n", ret);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_adc_init_cal_start");
+		if (ret)
 			return ret;
-		}
 	}
 
 	return JESD204_STATE_CHANGE_DONE;
@@ -5992,10 +5988,9 @@ static int ad9088_jesd204_setup_stage2(struct jesd204_dev *jdev,
 
 	if (reason == JESD204_STATE_OP_REASON_INIT) {
 		ret = adi_apollo_adc_init_cal_complete(device, device->dev_info.is_8t8r ? ADI_APOLLO_ADC_ALL : ADI_APOLLO_ADC_ALL_4T4R);
-		if (ret) {
-			dev_err(dev, "Error in adi_apollo_adc_init_cal_complete %d\n", ret);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_adc_init_cal_complete");
+		if (ret)
 			return ret;
-		}
 
 		ret = adi_apollo_adc_nyquist_zone_set(device, device->dev_info.is_8t8r ? ADI_APOLLO_ADC_ALL : ADI_APOLLO_ADC_ALL_4T4R,
 						phy->rx_nyquist_zone);
@@ -6059,10 +6054,9 @@ static int ad9088_jesd204_clks_enable(struct jesd204_dev *jdev,
 	if (lnk->is_transmit && (reason == JESD204_STATE_OP_REASON_UNINIT) &&
 	    phy->profile.jrx[0].common_link_cfg.lane_rate_kHz > 16000000) {
 		ret = adi_apollo_serdes_jrx_bgcal_freeze(&phy->ad9088, serdes);
-		if (ret) {
-			dev_err(dev, "Error from adi_apollo_serdes_jrx_bgcal_freeze() %d\n", ret);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_serdes_jrx_bgcal_freeze");
+		if (ret)
 			return ret;
-		}
 		dev_dbg(dev, "%s: SERDES JRx bg cal freeze\n", ad9088_fsm_links_to_str[lnk->link_id]);
 	}
 
@@ -6080,10 +6074,9 @@ static int ad9088_jesd204_clks_enable(struct jesd204_dev *jdev,
 
 		if (phy->profile.jrx[0].common_link_cfg.lane_rate_kHz > 16000000) {
 			ret = adi_apollo_serdes_jrx_bgcal_unfreeze(&phy->ad9088, serdes);
-			if (ret) {
-				dev_err(dev, "Error from adi_apollo_serdes_jrx_bgcal_unfreeze() %d\n", ret);
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_serdes_jrx_bgcal_unfreeze");
+			if (ret)
 				return ret;
-			}
 			dev_dbg(dev, "%s: SERDES JRx bg cal unfreeze\n", ad9088_fsm_links_to_str[lnk->link_id]);
 		}
 	}
@@ -6091,9 +6084,9 @@ static int ad9088_jesd204_clks_enable(struct jesd204_dev *jdev,
 	if (!lnk->is_transmit) {
 		ret = adi_apollo_jtx_link_enable_set(&phy->ad9088, ad9088_to_link(lnk->link_id),
 						     reason == JESD204_STATE_OP_REASON_INIT);
-		if (ret != 0)
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_jtx_link_enable_set");
+		if (ret)
 			return ret;
-
 	}
 
 	return JESD204_STATE_CHANGE_DONE;
@@ -6115,7 +6108,8 @@ static int ad9088_jesd204_link_enable(struct jesd204_dev *jdev,
 		ret = adi_apollo_jrx_link_enable_set(&phy->ad9088,
 						     ad9088_to_link(lnk->link_id),
 						     reason == JESD204_STATE_OP_REASON_INIT);
-		if (ret != 0)
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_jrx_link_enable_set");
+		if (ret)
 			return ret;
 	}
 
@@ -6324,16 +6318,14 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 	}
 
 	ret = adi_apollo_mcs_cal_init_run(device);
-	if (ret) {
-		dev_err(dev, "Failed to run MCS init cal\n");
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_init_run");
+	if (ret)
 		return ret;
-	}
 
 	ret = adi_apollo_mcs_cal_init_status_get(device, &init_cal_status);
-	if (ret) {
-		dev_err(dev, "Failed to get MCS init cal status\n");
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_init_status_get");
+	if (ret)
 		return ret;
-	}
 
 	ret = ad9088_mcs_init_cal_validate(phy, &init_cal_status);
 
@@ -6358,24 +6350,22 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 	}
 
 	ret = adi_apollo_mcs_cal_fg_tracking_run(device);
-	if (ret) {
-		dev_err(dev, "Failed to run MCS tracking cal\n");
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_fg_tracking_run");
+	if (ret)
 		return ret;
-	}
+
 	ret = adi_apollo_mcs_cal_bg_tracking_run(device);
-	if (ret) {
-		dev_err(dev, "Failed to run MCS tracking cal\n");
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_run");
+	if (ret)
 		return ret;
-	}
 
 	phy->mcs_cal_bg_tracking_run = true;
 
 	if (__is_defined(DEBUG)) {
 		ret = adi_apollo_mcs_cal_init_status_get(device, &init_cal_status);
-		if (ret) {
-			dev_err(dev, "Failed to get MCS init cal status\n");
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_init_status_get");
+		if (ret)
 			return ret;
-		}
 		ret = ad9088_mcs_init_cal_status_print(phy, phy->dbuf, &init_cal_status);
 		if (ret <= 0) {
 			dev_err(dev, "Failed to print MCS init cal status\n");
