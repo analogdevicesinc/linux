@@ -3462,6 +3462,7 @@ static ssize_t ad9088_phy_show(struct device *dev,
 		break;
 	case AD9088_MCS_CAL_RUN:
 		ret = adi_apollo_mcs_cal_init_status_get(device, &init_cal_status);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_init_status_get");
 		if (ret)
 			break;
 
@@ -3470,6 +3471,7 @@ static ssize_t ad9088_phy_show(struct device *dev,
 		break;
 	case AD9088_MCS_INIT_CAL_STATUS:
 		ret = adi_apollo_mcs_cal_init_status_get(device, &init_cal_status);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_init_status_get");
 		if (ret)
 			break;
 		ret = ad9088_mcs_init_cal_status_print(phy, buf, &init_cal_status);
@@ -3481,22 +3483,25 @@ static ssize_t ad9088_phy_show(struct device *dev,
 		}
 
 		if (!phy->mcs_cal_bg_tracking_freeze) {
-			// Halt Tracking calibration to pull data from FW.
+			/* Halt Tracking calibration to pull data from FW. */
 			ret = adi_apollo_mcs_cal_bg_tracking_freeze(device);
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_freeze");
 			if (ret)
 				break;
 		}
 
-		// Get tracking calibration status info.
+		/* Get tracking calibration status info. */
 		ret = adi_apollo_mcs_cal_tracking_status_get(device, &tracking_cal_status);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_tracking_status_get");
 		if (ret)
 			break;
 
 		len = ad9088_mcs_track_cal_status_print(phy, buf, &tracking_cal_status, 1);
 
 		if (!phy->mcs_cal_bg_tracking_freeze) {
-			// Resume Tracking calibration.
+			/* Resume Tracking calibration. */
 			ret = adi_apollo_mcs_cal_bg_tracking_unfreeze(device);
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_unfreeze");
 			if (ret)
 				break;
 		}
@@ -4741,50 +4746,40 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 
 			if (phy->profile.jrx[0].common_link_cfg.lane_rate_kHz > 16000000) {
 				ret = adi_apollo_serdes_jrx_bgcal_freeze(&phy->ad9088, ad9088_jrx_serdes_en_mask(phy));
-				if (ret) {
-					dev_err(&phy->spi->dev, "Error from adi_apollo_serdes_jrx_bgcal_freeze() %d\n", ret);
+				ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_serdes_jrx_bgcal_freeze");
+				if (ret)
 					return ret;
-				}
 			}
 
 			ret = adi_apollo_serdes_jrx_horiz_eye_sweep(&phy->ad9088, lane, prbs);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev,
-					"JRX horizontal eye_sweep lane%u failed (%d)", lane, ret);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_serdes_jrx_horiz_eye_sweep");
+			if (ret)
 				return ret;
-			}
 
 			msleep(duration); /* FIXME: Don't think this does anything */
 
 			ret = adi_apollo_serdes_jrx_horiz_eye_sweep_resp_get(&phy->ad9088, lane, &horz_resp);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev,
-					"JRX horizontal eye_sweep lane%u failed (%d)", lane, ret);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_serdes_jrx_horiz_eye_sweep_resp_get");
+			if (ret)
 				return ret;
-			}
 
 			ret = adi_apollo_serdes_jrx_vert_eye_sweep(&phy->ad9088, lane);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev,
-					"JRX vertical eye_sweep lane%u failed (%d)", lane, ret);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_serdes_jrx_vert_eye_sweep");
+			if (ret)
 				return ret;
-			}
 
 			msleep(duration); /* FIXME: Don't think this does anything */
 
 			ret = adi_apollo_serdes_jrx_vert_eye_sweep_resp_get(&phy->ad9088, lane, &vert_resp);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev,
-					"JRX vertical eye_sweep lane%u failed (%d)", lane, ret);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_serdes_jrx_vert_eye_sweep_resp_get");
+			if (ret)
 				return ret;
-			}
 
 			if (phy->profile.jrx[0].common_link_cfg.lane_rate_kHz > 16000000) {
 				ret = adi_apollo_serdes_jrx_bgcal_unfreeze(&phy->ad9088, ad9088_jrx_serdes_en_mask(phy));
-				if (ret) {
-					dev_err(&phy->spi->dev, "Error from adi_apollo_serdes_jrx_bgcal_unfreeze() %d\n", ret);
+				ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_serdes_jrx_bgcal_unfreeze");
+				if (ret)
 					return ret;
-				}
 			}
 
 			len = snprintf(phy->dbuf, sizeof(phy->dbuf),
