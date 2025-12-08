@@ -46,6 +46,8 @@
 #define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_B1_B0            179
 #define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_B3_B2            180
 
+#define APOLLO_WARMBOOT_CFG_SYSCLK_CONDITIONING             182
+
 #define ADI_APOLLO_SERDES_RX_NUM_BRIDGING_CALS              196
 
 #define ADI_APOLLO_DAC_CAL_OBJ_SIZE                         24
@@ -97,6 +99,17 @@ typedef enum
     ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_NVM,     /*!< Run Init Calibration - start with calibration data from NVM  */
     ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_USER,    /*!< Run Init Calibration - start with calibration data from USER */
 } adi_apollo_init_cal_cfg_e;
+
+/*!
+ * \brief Enumeration of Clock Conditioning Configurations
+ */
+typedef enum
+{
+    SYSCLKCONDITIONING_ENABLED                     = 0,       /* Run clock conditioning calibration */
+    SYSCLKCONDITIONING_DISABLED                    = 1,       /* No clock conditioning calibration */
+    SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER  = 2,       /* Run clock conditioning calibration - start with cal data from user */
+    SYSCLKCONDITIONING_DISABLED_WARMBOOT_FROM_USER = 3,       /* No clock conditioning calibration - start with cal data from user */
+} adi_apollo_sysclock_cond_cfg_e;
 
 #endif /* __ADI_APOLLO_CFG_TYPES_H__ */
 
