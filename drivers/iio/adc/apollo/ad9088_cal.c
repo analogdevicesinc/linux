@@ -492,7 +492,7 @@ int ad9088_cal_load_from_firmware(struct ad9088_phy *phy)
 
 	dev_dbg(dev, "Loading calibration data from firmware: %s\n", name);
 
-	/* Request the firmware file */
+	/* Request the firmware file - availability was already checked in ad9088_parse_dt() */
 	ret = request_firmware(&fw, name, dev);
 	if (ret) {
 		dev_err(dev, "Failed to load calibration firmware '%s': %d\n", name, ret);

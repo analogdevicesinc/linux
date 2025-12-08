@@ -128,17 +128,30 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 	const char *name;
 	bool found;
 
-	phy->spi_3wire_en = of_property_read_bool(node, "adi,spi-3wire-enable");
+	/* Check if calibration firmware is available - defer probe if not yet accessible */
+	ret = of_property_read_string(node, "adi,device-calibration-data-name", &name);
+	if (!ret) {
+		const struct firmware *fw;
 
-	/* Parse device label for sub-device naming (bmem, fft-sniffer) */
-	ret = of_property_read_string(node, "label", &phy->device_label);
-	if (ret)
-		phy->device_label = NULL;
+		ret = firmware_request_nowarn(&fw, name, dev);
+		if (ret == -ENOENT) {
+			dev_dbg(dev, "Calibration firmware '%s' not available yet, deferring probe\n", name);
+			return -EPROBE_DEFER;
+		} else if (ret) {
+			dev_err(dev, "Failed to load calibration firmware '%s': %d\n", name, ret);
+			return ret;
+		}
+		/* Firmware is available, release it - will be loaded later in ad9088_cal_load_from_firmware() */
+		release_firmware(fw);
+	}
 
 	ret = of_property_read_string(node, "adi,device-profile-fw-name", &name);
 	if (!ret) {
-		ret = request_firmware(&phy->fw, name, dev);
-		if (ret) {
+		ret = firmware_request_nowarn(&phy->fw, name, dev);
+		if (ret == -ENOENT) {
+			dev_dbg(dev, "Profile firmware '%s' not available yet, deferring probe\n", name);
+			return -EPROBE_DEFER;
+		} else if (ret) {
 			dev_err(dev, "request_firmware() failed with %d\n", ret);
 			return ret;
 		}
@@ -153,6 +166,13 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 			return -EINVAL;
 		}
 	}
+
+	phy->spi_3wire_en = of_property_read_bool(node, "adi,spi-3wire-enable");
+
+	/* Parse device label for sub-device naming (bmem, fft-sniffer) */
+	ret = of_property_read_string(node, "label", &phy->device_label);
+	if (ret)
+		phy->device_label = NULL;
 
 	phy->complex_rx = !of_property_read_bool(node, "adi,rx-real-channel-en");
 	phy->complex_tx = !of_property_read_bool(node, "adi,tx-real-channel-en");
