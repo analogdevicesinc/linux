@@ -993,6 +993,7 @@ of_clk_si5341_get(struct of_phandle_args *clkspec, void *_data)
 
 static int si5341_probe_chip_id(struct clk_si5341 *data)
 {
+	pr_err("\n si5341: %s: 1: probing chip id\n", __FUNCTION__);
 	int err;
 	u8 reg[4];
 	u16 model;
@@ -1005,6 +1006,7 @@ static int si5341_probe_chip_id(struct clk_si5341 *data)
 	}
 
 	model = get_unaligned_le16(reg);
+	pr_err("\n si5341: %s: 2: model=%x\n", __FUNCTION__, model);
 
 	dev_info(&data->i2c_client->dev, "Chip: %x Grade: %u Rev: %u\n",
 		 model, reg[2], reg[3]);
@@ -1021,6 +1023,8 @@ static int si5341_probe_chip_id(struct clk_si5341 *data)
 		data->num_synth = SI5341_NUM_SYNTH;
 		data->reg_output_offset = si5341_reg_output_offset;
 		data->reg_rdiv_offset = si5341_reg_rdiv_offset;
+		pr_err("\n si5341: %s: 3: max num outputs=%d, num synth=%d, reg output offset=%d. reg rdiv offset=%d\n",
+				__FUNCTION__, data->num_outputs, data->num_synth, data->reg_output_offset, data->reg_rdiv_offset);
 		break;
 	case 0x5342:
 		data->num_outputs = SI5342_MAX_NUM_OUTPUTS;
@@ -1550,6 +1554,7 @@ static const struct attribute *si5341_attributes[] = {
 
 static int si5341_probe(struct i2c_client *client)
 {
+	pr_err("\n si5341: %s: entering probe\n", __FUNCTION__);
 	struct clk_si5341 *data;
 	struct clk_init_data init;
 	struct clk *input;
@@ -1561,46 +1566,58 @@ static int si5341_probe(struct i2c_client *client)
 	bool initialization_required;
 	u32 status;
 
+	pr_err("\n si5341: %s: %d: before allocating\n", __FUNCTION__, __LINE__);
 	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
 	data->i2c_client = client;
 
+	pr_err("\n si5341: %s: %d: before waiting device to be ready\n", __FUNCTION__, __LINE__);
 	/* Must be done before otherwise touching hardware */
 	err = si5341_wait_device_ready(client);
 	if (err)
 		return err;
 
+	pr_err("\n si5341: %s: %d: after device ready (%d)\n", __FUNCTION__, __LINE__, err);
 	for (i = 0; i < SI5341_NUM_INPUTS; ++i) {
 		input = devm_clk_get(&client->dev, si5341_input_clock_names[i]);
+		pr_err("\n si5341: %s: %d: num input i=%d\n", __FUNCTION__, __LINE__, i);
 		if (IS_ERR(input)) {
-			if (PTR_ERR(input) == -EPROBE_DEFER)
+			if (PTR_ERR(input) == -EPROBE_DEFER) {
+				pr_err("\n si5341: %s: %d: num input i=%d probe defer\n", __FUNCTION__, __LINE__, i);
 				return -EPROBE_DEFER;
+			}
 			data->input_clk_name[i] = si5341_input_clock_names[i];
+			pr_err("\n si5341: %s: %d: num input i=%d ERROR input clk name=%s\n", __FUNCTION__, __LINE__, i, data->input_clk_name[i]);
 		} else {
 			data->input_clk[i] = input;
 			data->input_clk_name[i] = __clk_get_name(input);
+			pr_err("\n si5341: %s: %d: num input i=%d input clk name=%s\n", __FUNCTION__, __LINE__, i, data->input_clk_name[i]);
 		}
 	}
 
 	for (i = 0; i < SI5341_MAX_NUM_OUTPUTS; ++i) {
 		char reg_name[10];
+		pr_err("\n si5341: %s: %d: num output i=%d\n", __FUNCTION__, __LINE__, i);
 
 		snprintf(reg_name, sizeof(reg_name), "vddo%d", i);
 		data->clk[i].vddo_reg = devm_regulator_get_optional(
 			&client->dev, reg_name);
+		pr_err("\n si5341: %s: %d: num output i=%d reg_name=%s\n", __FUNCTION__, __LINE__, i, reg_name);
 		if (IS_ERR(data->clk[i].vddo_reg)) {
 			err = PTR_ERR(data->clk[i].vddo_reg);
 			data->clk[i].vddo_reg = NULL;
+			pr_err("\n si5341: %s: %d: num output i=%d reg_name=%s ERROR\n", __FUNCTION__, __LINE__, i, reg_name);
 			if (err == -ENODEV)
 				continue;
 			goto cleanup;
 		} else {
 			err = regulator_enable(data->clk[i].vddo_reg);
+			pr_err("\n si5341: %s: %d: num output i=%d reg_name=%s regulator enable\n", __FUNCTION__, __LINE__, i, reg_name);
 			if (err) {
 				dev_err(&client->dev,
-					"failed to enable %s regulator: %d\n",
+					"si5341: failed to enable %s regulator: %d\n",
 					reg_name, err);
 				data->clk[i].vddo_reg = NULL;
 				goto cleanup;
@@ -1609,41 +1626,58 @@ static int si5341_probe(struct i2c_client *client)
 	}
 
 	err = si5341_dt_parse_dt(data, config);
-	if (err)
+	if (err) {
+		pr_err("\n si5341: %s: %d: parse dt error\n", __FUNCTION__, __LINE__);
 		goto cleanup;
+	}
+	pr_err("\n si5341: %s: %d: parse dt ok\n", __FUNCTION__, __LINE__);
 
 	if (of_property_read_string(client->dev.of_node, "clock-output-names",
-			&init.name))
+			&init.name)) {
 		init.name = client->dev.of_node->name;
+		pr_err("\n si5341: %s: %d: read OK clock-output-names, init.name=%s\n", __FUNCTION__, __LINE__, init.name);
+	}
 	root_clock_name = init.name;
+	pr_err("\n si5341: %s: %d: root_clock_name=%s\n", __FUNCTION__, __LINE__, root_clock_name);
 
 	data->regmap = devm_regmap_init_i2c(client, &si5341_regmap_config);
 	if (IS_ERR(data->regmap)) {
+		pr_err("\n si5341: %s: %d: root_clock_name=%s\n", __FUNCTION__, __LINE__, root_clock_name);
 		err = PTR_ERR(data->regmap);
 		goto cleanup;
 	}
 
+	pr_err("\n si5341: %s: %d: before i2c_set_clientdata\n", __FUNCTION__, __LINE__);
 	i2c_set_clientdata(client, data);
+	pr_err("\n si5341: %s: %d: after i2c_set_clientdata\n", __FUNCTION__, __LINE__);
 
 	err = si5341_probe_chip_id(data);
+	pr_err("\n si5341: %s: %d: after probe chip id\n", __FUNCTION__, __LINE__);
 	if (err < 0)
 		goto cleanup;
 
 	if (of_property_read_bool(client->dev.of_node, "silabs,reprogram")) {
 		initialization_required = true;
+		pr_err("\n si5341: %s: %d: initialization required\n", __FUNCTION__, __LINE__);
 	} else {
 		err = si5341_is_programmed_already(data);
-		if (err < 0)
+		if (err < 0) {
+			pr_err("\n si5341: %s: %d: not programmed\n", __FUNCTION__, __LINE__);
 			goto cleanup;
+		}
+		pr_err("\n si5341: %s: %d: programmed\n", __FUNCTION__, __LINE__);
 
 		initialization_required = !err;
 	}
 	data->xaxb_ext_clk = of_property_read_bool(client->dev.of_node,
 						   "silabs,xaxb-ext-clk");
+	pr_err("\n si5341: %s: %d: set xaxb-ext-clk=%d\n", __FUNCTION__, __LINE__, data->xaxb_ext_clk);
 	data->iovdd_33 = of_property_read_bool(client->dev.of_node,
 					       "silabs,iovdd-33");
+	pr_err("\n si5341: %s: %d: set iovdd-33=%d\n", __FUNCTION__, __LINE__, data->iovdd_33);
 
 	if (initialization_required) {
+		pr_err("\n si5341: %s: %d: entered required initialization\n", __FUNCTION__, __LINE__);
 		/* Populate the regmap cache in preparation for "cache only" */
 		err = si5341_read_settings(data);
 		if (err < 0)
@@ -1669,14 +1703,19 @@ static int si5341_probe(struct i2c_client *client)
 
 	/* Input must be up and running at this point */
 	err = si5341_clk_select_active_input(data);
-	if (err < 0)
+	if (err < 0) {
+		pr_err("\n si5341: %s: %d: ERROR clk select active input\n", __FUNCTION__, __LINE__);
 		goto cleanup;
+	}
 
 	if (initialization_required) {
 		/* PLL configuration is required */
 		err = si5341_initialize_pll(data);
-		if (err < 0)
+		if (err < 0) {
+			pr_err("\n si5341: %s: %d: ERROR clk select active input\n", __FUNCTION__, __LINE__);
 			goto cleanup;
+		}
+		pr_err("\n si5341: %s: %d: initialization done\n", __FUNCTION__, __LINE__);
 	}
 
 	/* Register the PLL */
@@ -1691,6 +1730,7 @@ static int si5341_probe(struct i2c_client *client)
 		dev_err(&client->dev, "clock registration failed\n");
 		goto cleanup;
 	}
+	pr_err("\n si5341: %s: %d: clock registration done\n", __FUNCTION__, __LINE__);
 
 	init.num_parents = 1;
 	init.parent_names = &root_clock_name;
@@ -1712,6 +1752,7 @@ static int si5341_probe(struct i2c_client *client)
 				"synth N%u registration failed\n", i);
 			goto free_clk_names;
 		}
+		pr_err("\n si5341: %s: %d: input clock registration done i=%d\n", __FUNCTION__, __LINE__, i);
 	}
 
 	init.num_parents = data->num_synth;
@@ -1749,6 +1790,7 @@ static int si5341_probe(struct i2c_client *client)
 		}
 		if (config[i].always_on)
 			clk_prepare(data->clk[i].hw.clk);
+		pr_err("\n si5341: %s: %d: output clock registration done i=%d\n", __FUNCTION__, __LINE__, i);
 	}
 
 	err = devm_of_clk_add_hw_provider(&client->dev, of_clk_si5341_get,
@@ -1757,6 +1799,7 @@ static int si5341_probe(struct i2c_client *client)
 		dev_err(&client->dev, "unable to add clk provider\n");
 		goto free_clk_names;
 	}
+	pr_err("\n si5341: %s: %d: added clock provider\n", __FUNCTION__, __LINE__);
 
 	if (initialization_required) {
 		/* Synchronize */
@@ -1768,6 +1811,7 @@ static int si5341_probe(struct i2c_client *client)
 		err = si5341_finalize_defaults(data);
 		if (err < 0)
 			goto free_clk_names;
+		pr_err("\n si5341: %s: %d: initialization done\n", __FUNCTION__, __LINE__);
 	}
 
 	/* wait for device to report input clock present and PLL lock */
@@ -1775,16 +1819,20 @@ static int si5341_probe(struct i2c_client *client)
 		!(status & (SI5341_STATUS_LOSREF | SI5341_STATUS_LOL)),
 	       10000, 250000);
 	if (err) {
+		pr_err("\n si5341: %s: %d: error waiting for input clock or pll lock\n", __FUNCTION__, __LINE__);
 		dev_err(&client->dev, "Error waiting for input clock or PLL lock\n");
 		goto free_clk_names;
 	}
+	pr_err("\n si5341: %s: %d: waiting done\n", __FUNCTION__, __LINE__);
 
 	/* clear sticky alarm bits from initialization */
 	err = regmap_write(data->regmap, SI5341_STATUS_STICKY, 0);
 	if (err) {
+		pr_err("\n si5341: %s: %d: error unable to clear sticky status\n", __FUNCTION__, __LINE__);
 		dev_err(&client->dev, "unable to clear sticky status\n");
 		goto free_clk_names;
 	}
+	pr_err("\n si5341: %s: %d: cleared sticky status\n", __FUNCTION__, __LINE__);
 
 	err = sysfs_create_files(&client->dev.kobj, si5341_attributes);
 	if (err)
