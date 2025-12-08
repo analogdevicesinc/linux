@@ -437,3 +437,27 @@ ssize_t ad9088_cal_data_write(struct file *filp, struct kobject *kobj,
 int ad9088_debugfs_register(struct iio_dev *indio_dev);
 int ad9088_status_show(struct seq_file *file, void *offset);
 void ad9088_print_sysref_phase(struct ad9088_phy *phy);
+
+/* JESD204 FSM interface (ad9088_jesd204_fsm.c) */
+extern const struct jesd204_dev_data jesd204_ad9088_init;
+
+/* Helper functions used by JESD204 FSM (ad9088.c) */
+extern const char *const ad9088_fsm_links_to_str[];
+u8 ad9088_to_link(u8 linkid);
+int ad9088_check_apollo_error(struct device *dev, int ret, const char *func_name);
+int ad9088_inspect_jrx_link_all(struct ad9088_phy *phy);
+int ad9088_inspect_jtx_link_all(struct ad9088_phy *phy);
+void ad9088_print_link_phase(struct ad9088_phy *phy, struct jesd204_link *lnk);
+int ad9088_jesd_tx_link_status_print(struct ad9088_phy *phy, struct jesd204_link *lnk, int retry);
+int ad9088_jesd_rx_link_status_print(struct ad9088_phy *phy, struct jesd204_link *lnk, int retry);
+int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
+				      const char *ext_name, long long val);
+int ad9088_mcs_init_cal_setup(struct ad9088_phy *phy);
+int ad9088_delta_t_measurement_set(struct ad9088_phy *phy, u32 mode);
+int ad9088_delta_t_measurement_get(struct ad9088_phy *phy, u32 mode, s64 *apollo_delta_t);
+int ad9088_mcs_init_cal_validate(struct ad9088_phy *phy,
+				 adi_apollo_mcs_cal_init_status_t *init_cal_status);
+int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u16 mcs_track_decimation,
+				  u16 initialize_track_cal);
+int ad9088_mcs_init_cal_status_print(struct ad9088_phy *phy, char *buf,
+				     adi_apollo_mcs_cal_init_status_t *status);
