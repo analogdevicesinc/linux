@@ -268,7 +268,7 @@
 &i2c2 {
 	status = "okay";
 
-	ssw0: gpio@21 {
+	som_gpio_expander: gpio@21 {
 		compatible = "microchip,mcp23017";
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -353,7 +353,7 @@
 };
 
 &mmc0 {
-	/* wp-en-pin = <&ssw0 ? GPIO_ACTIVE_LOW>;	 SD_WP_EN */
+	/* wp-en-pin = <&som_gpio_expander ? GPIO_ACTIVE_LOW>;	 SD_WP_EN */
 	bus-width = <4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc0_8bgrp>;
