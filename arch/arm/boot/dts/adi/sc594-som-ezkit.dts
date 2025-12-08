@@ -25,7 +25,7 @@
 };
 
 &i2c2 {
-	ssw1: gpio@22 {
+	crr_gpio_expander: gpio@22 {
 		compatible = "microchip,mcp23017";
 		gpio-controller;
 		#gpio-cells = <2>;
