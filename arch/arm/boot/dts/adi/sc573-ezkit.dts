@@ -58,22 +58,22 @@
 	scb {
 		button0: button@0 {
 			compatible = "adi,button-led";
-//			en-pins = <&ssw1 2 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON1_EN */
-//			          <&ssw1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
+//			en-pins = <&gpio_expander1 2 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON1_EN */
+//			          <&gpio_expander1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
 //			button_gpio = <40>;
 //			led_gpio = <77>;
 		};
 		button1: button@1 {
 			compatible = "adi,button-led";
-//			en-pins = <&ssw1 1 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON2_EN */
-//			          <&ssw1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
+//			en-pins = <&gpio_expander1 1 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON2_EN */
+//			          <&gpio_expander1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
 //			button_gpio = <41>;
 //			led_gpio = <9>;
 		};
 		button2: button@2 {
 			compatible = "adi,button-led";
-//			en-pins = <&ssw1 0 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON3_EN */
-//			          <&ssw1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
+//			en-pins = <&gpio_expander1 0 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON3_EN */
+//			          <&gpio_expander1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
 //			button_gpio = <42>;
 //			led_gpio = <65>;
 		};
@@ -205,7 +205,7 @@
 &i2c0 {
 	status = "okay";
 
-	ssw0: gpio@0x21 {
+	gpio_expander0: gpio@0x21 {
 		compatible = "microchip,mcp23017";
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -297,7 +297,7 @@
 
 	};
 
-	ssw1: gpio@0x22 {
+	gpio_expander1: gpio@0x22 {
 		compatible = "microchip,mcp23017";
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -477,7 +477,7 @@
 };
 
 &mmc0 {
-	wp-en-pin = <&ssw0 11 GPIO_ACTIVE_LOW>;	/* SD_WP_EN */
+	wp-en-pin = <&gpio_expander0 11 GPIO_ACTIVE_LOW>;	/* SD_WP_EN */
 	bus-width = <4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc0_default>;
