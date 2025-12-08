@@ -47,11 +47,16 @@ API to connect the device to the Linux Kernel subsystems.
 
 Linux Driver
 
-* :git-linux:`ad9088.c <drivers/iio/adc/apollo/ad9088.c>`
-* :git-linux:`ad9088.h <drivers/iio/adc/apollo/ad9088.h>`
-* :git-linux:`ad9088_dt.c <drivers/iio/adc/apollo/ad9088_dt.c>`
-* :git-linux:`ad9088_fft.c <drivers/iio/adc/apollo/ad9088_fft.c>`
+* :git-linux:`ad9088.c <drivers/iio/adc/apollo/ad9088.c>` - Main driver
+* :git-linux:`ad9088.h <drivers/iio/adc/apollo/ad9088.h>` - Driver header
+* :git-linux:`ad9088_dt.c <drivers/iio/adc/apollo/ad9088_dt.c>` - Device tree parsing
+* :git-linux:`ad9088_bmem.c <drivers/iio/adc/apollo/ad9088_bmem.c>` - Buffer memory interface
 * :git-linux:`ad9088_cal.c <drivers/iio/adc/apollo/ad9088_cal.c>` - Calibration save/restore
+* :git-linux:`ad9088_debugfs.c <drivers/iio/adc/apollo/ad9088_debugfs.c>` - Debugfs interface
+* :git-linux:`ad9088_fft.c <drivers/iio/adc/apollo/ad9088_fft.c>` - FFT sniffer support
+* :git-linux:`ad9088_ffh.c <drivers/iio/adc/apollo/ad9088_ffh.c>` - Fast frequency hopping
+* :git-linux:`ad9088_jesd204_fsm.c <drivers/iio/adc/apollo/ad9088_jesd204_fsm.c>` - JESD204 FSM callbacks
+* :git-linux:`ad9088_mcs.c <drivers/iio/adc/apollo/ad9088_mcs.c>` - MCS calibration
 * :git-linux:`ad9088_cal_dump.c <drivers/iio/adc/apollo/tools/ad9088_cal_dump.c>` - Calibration dump tool
 
 API:
