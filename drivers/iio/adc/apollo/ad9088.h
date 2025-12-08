@@ -432,3 +432,8 @@ ssize_t ad9088_cal_data_read(struct file *filp, struct kobject *kobj,
 ssize_t ad9088_cal_data_write(struct file *filp, struct kobject *kobj,
 			      struct bin_attribute *bin_attr,
 			      char *buf, loff_t off, size_t count);
+
+/* Debugfs interface (ad9088_debugfs.c) */
+int ad9088_debugfs_register(struct iio_dev *indio_dev);
+int ad9088_status_show(struct seq_file *file, void *offset);
+void ad9088_print_sysref_phase(struct ad9088_phy *phy);
