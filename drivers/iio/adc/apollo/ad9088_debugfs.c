@@ -38,6 +38,13 @@ enum ad9088_debugfs_cmd {
 	DBGFS_MCS_TRACK_STATUS,
 	DBGFS_MCS_INIT_CAL_STATUS,
 	DBGFS_MCS_TRACK_CAL_VALIDATE,
+	/* FSRC commands */
+	DBGFS_FSRC_CONFIGURE_RX,
+	DBGFS_FSRC_CONFIGURE_TX,
+	DBGFS_FSRC_TX_RECONFIG_SPI,
+	DBGFS_FSRC_TX_RECONFIG_GPIO,
+	DBGFS_FSRC_RX_RECONFIG_SPI,
+	DBGFS_FSRC_RX_RECONFIG_GPIO,
 };
 
 static const u8 lanes_all[] = {
@@ -392,6 +399,15 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			/* Write-only attributes, return 0 on read */
 			val = 0;
 			break;
+		case DBGFS_FSRC_CONFIGURE_RX:
+		case DBGFS_FSRC_CONFIGURE_TX:
+		case DBGFS_FSRC_TX_RECONFIG_SPI:
+		case DBGFS_FSRC_TX_RECONFIG_GPIO:
+		case DBGFS_FSRC_RX_RECONFIG_SPI:
+		case DBGFS_FSRC_RX_RECONFIG_GPIO:
+			/* Write-only attributes, return 0 on read */
+			val = 0;
+			break;
 		default:
 			val = entry->val;
 		}
@@ -675,6 +691,73 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 	case DBGFS_MCS_INIT_CAL_STATUS:
 		/* Read-only attributes */
 		return -EINVAL;
+	/* FSRC commands */
+	case DBGFS_FSRC_CONFIGURE_RX:
+		if (ret < 2) {
+			dev_err(&phy->spi->dev, "Attribute requires 2 arguments <N> <M>\n");
+			return -EINVAL;
+		}
+		if (!phy->iio_axi_fsrc) {
+			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
+			return -ENODEV;
+		}
+		ret = ad9088_fsrc_configure_rx(phy, val, val2);
+		break;
+	case DBGFS_FSRC_CONFIGURE_TX:
+		if (ret < 4) {
+			dev_err(&phy->spi->dev, "Attribute requires 2 arguments <N> <M>\n");
+			return -EINVAL;
+		}
+		if (!phy->iio_axi_fsrc) {
+			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
+			return -ENODEV;
+		}
+		ret = ad9088_fsrc_configure_tx(phy, val, val2);
+		break;
+	case DBGFS_FSRC_TX_RECONFIG_SPI:
+		if (!val)
+			break;
+		if (!phy->iio_axi_fsrc) {
+			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
+			return -ENODEV;
+		}
+		ret = ad9088_fsrc_tx_reconfig_sequence_spi(phy);
+		break;
+	case DBGFS_FSRC_TX_RECONFIG_GPIO:
+		if (!val)
+			break;
+		if (!phy->iio_axi_fsrc) {
+			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
+			return -ENODEV;
+		}
+		if (!phy->fsrc_gpio_trig_routed) {
+			dev_err(&phy->spi->dev, "FSRC GPIO trigger routing not present (missing adi,fsrc-gpio-trig in DT)\n");
+			return -EINVAL;
+		}
+		ret = ad9088_fsrc_tx_reconfig_sequence_gpio(phy);
+		break;
+	case DBGFS_FSRC_RX_RECONFIG_SPI:
+		if (!val)
+			break;
+		if (!phy->iio_axi_fsrc) {
+			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
+			return -ENODEV;
+		}
+		ret = ad9088_fsrc_rx_reconfig_sequence_spi(phy);
+		break;
+	case DBGFS_FSRC_RX_RECONFIG_GPIO:
+		if (!val)
+			break;
+		if (!phy->iio_axi_fsrc) {
+			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
+			return -ENODEV;
+		}
+		if (!phy->fsrc_gpio_trig_routed) {
+			dev_err(&phy->spi->dev, "FSRC GPIO trigger routing not present (missing adi,fsrc-gpio-trig in DT)\n");
+			return -EINVAL;
+		}
+		ret = ad9088_fsrc_rx_reconfig_sequence_gpio(phy);
+		break;
 	default:
 		break;
 	}
@@ -797,6 +880,20 @@ int ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "mcs_init_cal_status", DBGFS_MCS_INIT_CAL_STATUS);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "mcs_track_cal_validate", DBGFS_MCS_TRACK_CAL_VALIDATE);
+
+	/* FSRC entries */
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_configure_rx", DBGFS_FSRC_CONFIGURE_RX);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_configure_tx", DBGFS_FSRC_CONFIGURE_TX);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_tx_reconfig_spi", DBGFS_FSRC_TX_RECONFIG_SPI);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_tx_reconfig_gpio", DBGFS_FSRC_TX_RECONFIG_GPIO);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_rx_reconfig_spi", DBGFS_FSRC_RX_RECONFIG_SPI);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_rx_reconfig_gpio", DBGFS_FSRC_RX_RECONFIG_GPIO);
 
 	for (i = 0; i < phy->ad9088_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,

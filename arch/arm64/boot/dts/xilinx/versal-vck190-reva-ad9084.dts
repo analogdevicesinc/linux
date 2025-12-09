@@ -428,7 +428,7 @@
 			compatible = "adi,axi-fsrc-sequencer";
 			reg = <0xa4540000 0x10000>;
 
-			trig-gpios = <&axi_gpio 26 GPIO_ACTIVE_HIGH>; // 58-32 offset
+			trig-req-gpios = <&axi_gpio 26 GPIO_ACTIVE_HIGH>;
 			fsrc-topology = <&axi_fsrc_tx &axi_fsrc_rx>;
 			#io-channel-cells = <1>;
 		};
@@ -705,6 +705,9 @@
 
 		reset-gpios = <&axi_gpio 30 0>;
 		//adi,gpio-exports = /bits/ 8 <15 16 17 18 19 20 21 22 23>; // <block, hop>
+
+		/* Indicate FPGA sequencer trig_out to Apollo GPIO trigger pins */
+		adi,fsrc-gpio-trig;
 
 #if WITH_AION
 #if WITH_FSRC

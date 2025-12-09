@@ -57,6 +57,7 @@ Linux Driver
 * :git-linux:`ad9088_ffh.c <drivers/iio/adc/apollo/ad9088_ffh.c>` - Fast frequency hopping
 * :git-linux:`ad9088_jesd204_fsm.c <drivers/iio/adc/apollo/ad9088_jesd204_fsm.c>` - JESD204 FSM callbacks
 * :git-linux:`ad9088_mcs.c <drivers/iio/adc/apollo/ad9088_mcs.c>` - MCS calibration
+* :git-linux:`ad9088_fsrc.c <drivers/iio/adc/apollo/ad9088_fsrc.c>` - FSRC (Fractional Sample Rate Converter) support
 * :git-linux:`ad9088_cal_dump.c <drivers/iio/adc/apollo/tools/ad9088_cal_dump.c>` - Calibration dump tool
 
 API:
@@ -118,6 +119,16 @@ These are drivers that are connected to or is a dependency of ``ad9088.c``.
   * Documentation:
 
     * :dokuwiki:`JESD204B/C AXI_ADXCVR Highspeed Transceivers Linux Driver <resources/tools-software/linux-drivers/jesd204/axi_adxcvr>`
+
+* FPGA FSRC Sequencer driver
+
+  * Sources:
+
+    * :git-linux:`drivers/iio/jesd204/axi_fsrc_sequencer.c`
+
+  * HDL:
+
+    * :git-hdl:`library/axi_fsrc`
 
 .. Add cfir pfir to docs
 
@@ -2687,4 +2698,109 @@ Calibration-related source files:
 * :git-linux:`ad9088_cal.h <drivers/iio/adc/apollo/ad9088.h>` - Calibration data structures
 * :git-linux:`ad9088_cal_dump.c <drivers/iio/adc/apollo/tools/ad9088_cal_dump.c>` - Calibration dump tool
 
+.. _apollo fsrc:
+
+Fractional Sample Rate Converter (FSRC)
+---------------------------------------
+
+The Fractional Sample Rate Converter (FSRC) enables dynamic sample rate changes
+while maintaining the JESD204C link at a constant rate. This feature allows the
+AD9088 to switch between different baseband data rates without link
+reinitialization, which is critical for applications requiring fast frequency
+hopping, bandwidth switching, or multi-mode operation.
+
+Overview
+~~~~~~~~
+
+The FSRC works in conjunction with the Digital Down Converters (DDC) and Digital
+Up Converters (DUC) to provide arbitrary sampling ratio:
+
+The FSRC inserts or removes "invalid" samples (-FS) to achieve fractional rate
+conversion, allowing the ratio N/M where 1.0 ≤ N/M < 2.0. These invalid samples
+are marked and handled by the rate-match FIFO.
+
+Architecture
+~~~~~~~~~~~~
+
+The FSRC implementation consists of two components:
+
+1. **Apollo (AD9088) Side** - ``ad9088_fsrc.c``:
+
+   * Configures internal FSRC blocks (RX/TX)
+   * Manages dynamic reconfiguration sequences
+   * Controls rate-match FIFO
+
+2. **FPGA Side** - ``axi_fsrc_sequencer`` driver:
+
+   * Manages invalid sample insertion (HW mode)
+   * Controls SYSREF-aligned sequences
+   * Provides trigger and timing control
+   * Exposes IIO channels for coordination
+
+The two components communicate via IIO channels using the standard IIO
+consumer/provider interface.
+
+Device Tree Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To enable FSRC support, reference the FPGA FSRC sequencer in the AD9088 device
+tree node using the ``io-channels`` property:
+
+.. code:: dts
+
+   axi_fsrc_sequencer: axi-fsrc-sequencer@a4080000 {
+       compatible = "adi,axi-fsrc-sequencer";
+       reg = <0x0 0xa4080000 0x0 0x10000>;
+
+       #io-channel-cells = <1>;
+
+       /* Optional: trigger request GPIO */
+       trig-req-gpios = <&gpio 54 GPIO_ACTIVE_HIGH>;
+   };
+
+   trx0_ad9088: ad9088@0 {
+       compatible = "adi,ad9088";
+       /* ... other properties ... */
+
+       /* Reference FSRC sequencer */
+       io-channels = <&adf4030 5>, <&adf4382 0>, <&axi_fsrc_sequencer 0>;
+       io-channel-names = "bsync", "clk", "fsrc";
+   };
+
+If the ``fsrc`` io-channel is not present, the driver initializes normally but
+FSRC will not be available.
+
+Debugfs Interface
+~~~~~~~~~~~~~~~~~
+
+The FSRC is controlled through debugfs attributes located at
+``/sys/kernel/debug/iio/iio:deviceX/``. This is the primary user interface for
+FSRC configuration and operation.
+
+Attributes
+^^^^^^^^^^
+
+::
+
+   fsrc_configure_rx
+   fsrc_configure_tx
+   fsrc_inspect
+   fsrc_rx_reconfig_gpio
+   fsrc_rx_reconfig_spi
+   fsrc_tx_reconfig_gpio
+   fsrc_tx_reconfig_spi
+
+FSRC Ratio Constraints
+~~~~~~~~~~~~~~~~~~~~~~
+
+The FSRC N/M ratio must satisfy: **1.0 ≤ N/M < 2.0**
+
+* N=100, M=99 -> Ratio=1.0101
+* N=15625, M=12288 -> Ratio=1.2716
+* N=3125, M=1872 -> Ratio=1.6695
+
+The link data rate must be faster than the reconfigured data rate:
+
+* **RX**: ``(cddc_dcm * fddc_dcm) >= link_total_decimation``
+* **TX**: ``(cduc_interp * fduc_interp) >= link_total_interpolation``
 

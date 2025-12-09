@@ -118,6 +118,37 @@ static int ad9088_jesd_lane_setup(struct ad9088_phy *phy)
 	return 0;
 }
 
+static int ad9088_fsrc_setup(struct ad9088_phy *phy)
+{
+	if (!phy->iio_axi_fsrc)
+		return 0;
+
+	dev_info(&phy->spi->dev, "FSRC support enabled, writing 1x mode\n");
+
+	/*
+	 * Default 1x value from python example at
+	 * public/inc/adi_apollo_fsrc.h@adi_apollo_fsrc_rate_set
+	 **/
+	for (u8 i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
+		for (u8 j = 0; j < ADI_APOLLO_FSRCS_PER_SIDE; j++) {
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_int = BIT(48);
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_int = BIT(48);
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_a = 0;
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_a = 0;
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_b = 1;
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_b = 1;
+			phy->profile.rx_path[i].rx_fsrc[j].gain_reduction = BIT(12) - 1;
+			phy->profile.tx_path[i].tx_fsrc[j].gain_reduction = BIT(12) - 1;
+			phy->profile.rx_path[i].rx_fsrc[j].mode_1x = true;
+			phy->profile.tx_path[i].tx_fsrc[j].mode_1x = true;
+			phy->profile.rx_path[i].rx_fsrc[j].enable = true;
+			phy->profile.tx_path[i].tx_fsrc[j].enable = true;
+		}
+	}
+
+	return 0;
+}
+
 int ad9088_parse_dt(struct ad9088_phy *phy)
 {
 	struct device *dev = &phy->spi->dev;
@@ -250,6 +281,8 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 		phy->profile.rx_path[1].rx_dformat[0].ddc_dither_en = found;
 		phy->profile.rx_path[1].rx_dformat[1].ddc_dither_en = found;
 	}
+
+	ad9088_fsrc_setup(phy);
 
 	ret = of_property_read_u32(node, "adi,subclass", &val);
 	if (!ret) {

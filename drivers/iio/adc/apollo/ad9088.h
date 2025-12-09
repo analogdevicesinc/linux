@@ -260,10 +260,11 @@ struct ad9088_phy {
 	bool mcs_cal_bg_tracking_freeze;
 	bool cddc_sample_delay_en;
 	bool fddc_sample_delay_en;
+	bool fsrc_gpio_trig_routed;
 	u32 multidevice_instance_count;
 	u16 mcs_track_decimation;
 
-	struct ad9088_debugfs_entry debugfs_entry[32];
+	struct ad9088_debugfs_entry debugfs_entry[34];
 	u32 ad9088_debugfs_entry_index;
 
 	const char **rx_labels;
@@ -305,6 +306,7 @@ struct ad9088_phy {
 
 	struct iio_channel      *iio_adf4030;
 	struct iio_channel      *iio_adf4382;
+	struct iio_channel      *iio_axi_fsrc;
 
 	adi_apollo_fw_provider_t fw_provider;
 	union ad9088_ffh ffh;
@@ -387,6 +389,21 @@ extern int ad9088_check_apollo_error(struct device *dev, int ret,
 				     const char *api_name);
 
 int ad9088_bmem_probe(struct ad9088_phy *phy);
+
+/* FSRC (Fractional Sample Rate Converter) support - ad9088_fsrc.c */
+int ad9088_fsrc_init(struct ad9088_phy *phy);
+int ad9088_fsrc_inspect(struct ad9088_phy *phy);
+int ad9088_fsrc_tx_enable(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_rx_enable(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_tx_active(struct ad9088_phy *phy, bool active);
+int ad9088_fsrc_tx_ratio_set(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
+int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
+int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
+int ad9088_fsrc_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy);
+int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy);
+int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy);
+int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy);
 
 /* Calibration data format */
 #define AD9088_CAL_MAGIC	0x41443930  /* "AD90" */
