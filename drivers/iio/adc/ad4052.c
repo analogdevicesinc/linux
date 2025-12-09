@@ -179,6 +179,7 @@ struct ad4052_state {
 	int drdy_irq;
 	int vio_uV;
 	int vref_uV;
+	unsigned int samp_freqs[ARRAY_SIZE(ad4052_conversion_freqs)];
 	bool gpo_irq[2];
 	u16 sampling_frequency;
 	u16 events_frequency;
@@ -301,8 +302,10 @@ static int ad4052_conversion_frequency_set(struct ad4052_state *st, u8 val)
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_RAW) |				\
 				    BIT(IIO_CHAN_INFO_SCALE) |				\
 				    BIT(IIO_CHAN_INFO_CALIBSCALE) |			\
-				    BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),		\
-	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),	\
+				    BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO) |		\
+				    BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO) |	\
+					      BIT(IIO_CHAN_INFO_SAMP_FREQ),		\
 	.indexed = 1,									\
 	.channel = 0,									\
 	.event_spec = ad4052_events,							\
@@ -485,6 +488,39 @@ static int ad4052_calc_sampling_frequency(unsigned int fosc, unsigned int oversa
 		return 1;
 
 	return NSEC_PER_SEC / (n_avg * period_ns + AD4052_TCONV_NS);
+}
+
+static int ad4052_populate_sampling_frequency(struct ad4052_state *st)
+{
+	for (u8 i = 0; i < ARRAY_SIZE(ad4052_conversion_freqs); i++)
+		st->samp_freqs[i] =
+			ad4052_calc_sampling_frequency(ad4052_conversion_freqs[i],
+						       st->oversamp_ratio);
+	return 0;
+}
+
+static int ad4052_get_sampling_frequency(struct ad4052_state *st, int *val)
+{
+	int freq = ad4052_conversion_freqs[st->sampling_frequency];
+
+	*val = ad4052_calc_sampling_frequency(freq, st->oversamp_ratio);
+	return 0;
+}
+
+static int ad4052_set_sampling_frequency(struct ad4052_state *st, int val, int val2)
+{
+	int ret;
+
+	if (val2 != 0)
+		return -EINVAL;
+
+	ret = ad4052_populate_sampling_frequency(st);
+	if (ret)
+		return ret;
+
+	st->sampling_frequency = find_closest_descending(val, st->samp_freqs,
+							 ARRAY_SIZE(ad4052_conversion_freqs));
+	return 0;
 }
 
 static int ad4052_update_xfer_raw(struct iio_dev *indio_dev,
@@ -717,10 +753,22 @@ static int ad4052_read_avail(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan, const int **vals,
 			     int *type, int *len, long mask)
 {
+	struct ad4052_state *st = iio_priv(indio_dev);
+	int ret;
+
 	switch (mask) {
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		*vals = ad4052_oversampling_avail;
 		*len = ARRAY_SIZE(ad4052_oversampling_avail);
+		*type = IIO_VAL_INT;
+
+		return IIO_AVAIL_LIST;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		ret = ad4052_populate_sampling_frequency(st);
+		if (ret)
+			return ret;
+		*vals = st->samp_freqs;
+		*len = st->oversamp_ratio ? ARRAY_SIZE(ad4052_conversion_freqs) : 1;
 		*type = IIO_VAL_INT;
 
 		return IIO_AVAIL_LIST;
@@ -729,10 +777,14 @@ static int ad4052_read_avail(struct iio_dev *indio_dev,
 	}
 }
 
-static int ad4052_set_samp_freq(struct ad4052_state *st, unsigned int freq)
+static int ad4052_set_sampling_frequency_offload(struct ad4052_state *st, int val,
+						 int val2)
 {
 	unsigned int max_samp_freq;
 	const u32 start = 1;
+
+	if (val2 != 0)
+		return -EINVAL;
 
 	if (!in_range(freq, start, AD4052_MAX_RATE(st->chip->grade)))
 		return -EINVAL;
@@ -746,9 +798,8 @@ static int ad4052_set_samp_freq(struct ad4052_state *st, unsigned int freq)
 	return pwm_apply_might_sleep(st->cnv_pwm, &st->pwm_st);
 }
 
-static int ad4052_get_samp_freq(struct iio_dev *indio_dev,
-				int *val,
-				int *val2)
+static int ad4052_get_sampling_frequency_offload(struct iio_dev *indio_dev,
+						 int *val, int *val2)
 {
 	struct ad4052_state *st = iio_priv(indio_dev);
 	struct pwm_state pwm_st;
@@ -925,7 +976,11 @@ static int ad4052_read_raw(struct iio_dev *indio_dev,
 		return ad4052_get_chan_scale(indio_dev, val, val2);
 
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		return ad4052_get_samp_freq(indio_dev, val, val2);
+		if (st->offload_trigger)
+			return ad4052_get_sampling_frequency_offload(indio_dev,
+								     val, val2);
+		else
+			return ad4052_get_sampling_frequency(st, val);
 	}
 
 	if (!iio_device_claim_direct(indio_dev))
@@ -963,7 +1018,10 @@ static int ad4052_write_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		return ad4052_set_samp_freq(st, val);
+		if (st->offload_trigger)
+			return ad4052_set_sampling_frequency_offload(st, val, val2);
+		else
+			return ad4052_set_sampling_frequency(st, val, val2);
 	}
 
 	if (!iio_device_claim_direct(indio_dev))
