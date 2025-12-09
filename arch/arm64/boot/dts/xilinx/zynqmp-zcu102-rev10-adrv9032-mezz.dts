@@ -321,9 +321,9 @@
 };
 
 &trx0_adrv903x {
-	reset-gpios = <&gpio 134 0>; // TBD
+	reset-gpios = <&gpio 141 0>; // 63
 };
 
 &clk0_hmc7044 {
-	reset-gpios = <&gpio 147 0>; // TBD
+	reset-gpios = <&gpio 140 0>; // 62
 };
