@@ -934,10 +934,7 @@ static void ipu6_fw_isys_prepare_buf_set(struct isys_fw_msgs *msg,
 	set->send_irq_eof = 0;
 	set->send_resp_eof = 0;
 
-	if (stream->streaming)
-		set->send_irq_capture_ack = 0;
-	else
-		set->send_irq_capture_ack = 1;
+	set->send_irq_capture_ack = 1;
 	set->send_irq_capture_done = 0;
 
 	set->send_resp_capture_ack = 1;

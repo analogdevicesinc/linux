@@ -54,7 +54,6 @@ struct ipu6_isys_stream {
 
 	int nr_queues;	/* Number of capture queues */
 	int nr_streaming;
-	int streaming;	/* Has streaming been really started? */
 	struct list_head queues;
 	struct completion stream_open_completion;
 	struct completion stream_close_completion;
