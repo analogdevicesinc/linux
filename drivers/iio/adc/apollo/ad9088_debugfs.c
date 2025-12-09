@@ -25,6 +25,18 @@ enum ad9088_debugfs_cmd {
 	DBGFS_JTX_LANE_DRIVE_SWING,
 	DBGFS_JTX_LANE_PRE_EMPHASIS,
 	DBGFS_JTX_LANE_POST_EMPHASIS,
+	/* MCS calibration commands */
+	DBGFS_MCS_INIT,
+	DBGFS_MCS_DT0_MEASUREMENT,
+	DBGFS_MCS_DT1_MEASUREMENT,
+	DBGFS_MCS_DT_RESTORE,
+	DBGFS_MCS_CAL_RUN,
+	DBGFS_MCS_TRACK_CAL_SETUP,
+	DBGFS_MCS_FG_TRACK_CAL_RUN,
+	DBGFS_MCS_BG_TRACK_CAL_RUN,
+	DBGFS_MCS_BG_TRACK_CAL_FREEZE,
+	DBGFS_MCS_TRACK_STATUS,
+	DBGFS_MCS_INIT_CAL_STATUS,
 };
 
 static const u8 lanes_all[] = {
@@ -301,6 +313,79 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 				val = 0;
 			}
 			break;
+		case DBGFS_MCS_DT0_MEASUREMENT:
+			ret = ad9088_delta_t_measurement_get(phy, 0, &entry->delta_t);
+			if (!ret)
+				len = snprintf(phy->dbuf, sizeof(phy->dbuf), "%lld\n", entry->delta_t);
+			break;
+		case DBGFS_MCS_DT1_MEASUREMENT:
+			ret = ad9088_delta_t_measurement_get(phy, 1, &entry->delta_t);
+			if (!ret)
+				len = snprintf(phy->dbuf, sizeof(phy->dbuf), "%lld\n", entry->delta_t);
+			break;
+		case DBGFS_MCS_BG_TRACK_CAL_RUN:
+			val = phy->mcs_cal_bg_tracking_run;
+			break;
+		case DBGFS_MCS_BG_TRACK_CAL_FREEZE:
+			val = phy->mcs_cal_bg_tracking_freeze;
+			break;
+		case DBGFS_MCS_CAL_RUN: {
+			adi_apollo_mcs_cal_init_status_t init_cal_status = {{0}};
+
+			ret = adi_apollo_mcs_cal_init_status_get(&phy->ad9088, &init_cal_status);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_init_status_get");
+			if (ret)
+				break;
+			ret = ad9088_mcs_init_cal_validate(phy, &init_cal_status);
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "%s\n", ret ? "Failed" : "Passed");
+			ret = 0; /* Don't propagate validation failure as read error */
+			break;
+		}
+		case DBGFS_MCS_INIT_CAL_STATUS: {
+			adi_apollo_mcs_cal_init_status_t init_cal_status = {{0}};
+
+			ret = adi_apollo_mcs_cal_init_status_get(&phy->ad9088, &init_cal_status);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_init_status_get");
+			if (ret)
+				break;
+			len = ad9088_mcs_init_cal_status_print(phy, phy->dbuf, &init_cal_status);
+			break;
+		}
+		case DBGFS_MCS_TRACK_STATUS: {
+			adi_apollo_mcs_cal_status_t tracking_cal_status = {{0}};
+
+			if (!phy->mcs_cal_bg_tracking_run) {
+				len = snprintf(phy->dbuf, sizeof(phy->dbuf), "BG tracking not running\n");
+				break;
+			}
+
+			if (!phy->mcs_cal_bg_tracking_freeze) {
+				ret = adi_apollo_mcs_cal_bg_tracking_freeze(&phy->ad9088);
+				ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_bg_tracking_freeze");
+				if (ret)
+					break;
+			}
+
+			ret = adi_apollo_mcs_cal_tracking_status_get(&phy->ad9088, &tracking_cal_status);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_tracking_status_get");
+			if (ret)
+				break;
+
+			len = ad9088_mcs_track_cal_status_print(phy, phy->dbuf, &tracking_cal_status, 1);
+
+			if (!phy->mcs_cal_bg_tracking_freeze) {
+				ret = adi_apollo_mcs_cal_bg_tracking_unfreeze(&phy->ad9088);
+				ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_bg_tracking_unfreeze");
+			}
+			break;
+		}
+		case DBGFS_MCS_INIT:
+		case DBGFS_MCS_DT_RESTORE:
+		case DBGFS_MCS_TRACK_CAL_SETUP:
+		case DBGFS_MCS_FG_TRACK_CAL_RUN:
+			/* Write-only attributes, return 0 on read */
+			val = 0;
+			break;
 		default:
 			val = entry->val;
 		}
@@ -521,6 +606,69 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		dev_info(&phy->spi->dev, "JTX Lane Post Emphasis Set sides: 0x%X lane: %d emphasis: %d (%d)\n", (u32)val, val2, val3,
 			 ret);
 		break;
+	/* MCS calibration commands */
+	case DBGFS_MCS_INIT:
+		if (val)
+			ret = ad9088_mcs_init_cal_setup(phy);
+		break;
+	case DBGFS_MCS_DT0_MEASUREMENT:
+		if (val)
+			ret = ad9088_delta_t_measurement_set(phy, 0);
+		break;
+	case DBGFS_MCS_DT1_MEASUREMENT:
+		if (val)
+			ret = ad9088_delta_t_measurement_set(phy, 1);
+		break;
+	case DBGFS_MCS_DT_RESTORE:
+		if (val)
+			ret = ad9088_delta_t_measurement_set(phy, 2);
+		break;
+	case DBGFS_MCS_CAL_RUN:
+		if (val) {
+			ret = adi_apollo_mcs_cal_init_run(&phy->ad9088);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_init_run");
+		}
+		break;
+	case DBGFS_MCS_TRACK_CAL_SETUP:
+		if (val)
+			ret = ad9088_mcs_tracking_cal_setup(phy, 1023, 1);
+		break;
+	case DBGFS_MCS_FG_TRACK_CAL_RUN:
+		if (val) {
+			ret = adi_apollo_mcs_cal_fg_tracking_run(&phy->ad9088);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_fg_tracking_run");
+		}
+		break;
+	case DBGFS_MCS_BG_TRACK_CAL_RUN:
+		if (val) {
+			ret = adi_apollo_mcs_cal_bg_tracking_run(&phy->ad9088);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_bg_tracking_run");
+		} else {
+			ret = adi_apollo_mcs_cal_bg_tracking_abort(&phy->ad9088);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_bg_tracking_abort");
+		}
+		if (!ret)
+			phy->mcs_cal_bg_tracking_run = !!val;
+		break;
+	case DBGFS_MCS_BG_TRACK_CAL_FREEZE:
+		if (!phy->mcs_cal_bg_tracking_run) {
+			dev_err(&phy->spi->dev, "MCS BG Tracking Cal not running.\n");
+			return -EFAULT;
+		}
+		if (val) {
+			ret = adi_apollo_mcs_cal_bg_tracking_freeze(&phy->ad9088);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_bg_tracking_freeze");
+		} else {
+			ret = adi_apollo_mcs_cal_bg_tracking_unfreeze(&phy->ad9088);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_bg_tracking_unfreeze");
+		}
+		if (!ret)
+			phy->mcs_cal_bg_tracking_freeze = !!val;
+		break;
+	case DBGFS_MCS_TRACK_STATUS:
+	case DBGFS_MCS_INIT_CAL_STATUS:
+		/* Read-only attributes */
+		return -EINVAL;
 	default:
 		break;
 	}
@@ -617,6 +765,30 @@ int ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "jtx_lane_pre_emphasis", DBGFS_JTX_LANE_PRE_EMPHASIS);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "jtx_lane_post_emphasis", DBGFS_JTX_LANE_POST_EMPHASIS);
+
+	/* MCS calibration entries */
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_init", DBGFS_MCS_INIT);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_dt0_measurement", DBGFS_MCS_DT0_MEASUREMENT);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_dt1_measurement", DBGFS_MCS_DT1_MEASUREMENT);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_dt_restore", DBGFS_MCS_DT_RESTORE);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_cal_run", DBGFS_MCS_CAL_RUN);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_track_cal_setup", DBGFS_MCS_TRACK_CAL_SETUP);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_fg_track_cal_run", DBGFS_MCS_FG_TRACK_CAL_RUN);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_bg_track_cal_run", DBGFS_MCS_BG_TRACK_CAL_RUN);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_bg_track_cal_freeze", DBGFS_MCS_BG_TRACK_CAL_FREEZE);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_track_status", DBGFS_MCS_TRACK_STATUS);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_init_cal_status", DBGFS_MCS_INIT_CAL_STATUS);
 
 	for (i = 0; i < phy->ad9088_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,

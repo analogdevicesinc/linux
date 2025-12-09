@@ -2855,7 +2855,6 @@ static ssize_t ad9088_phy_store(struct device *dev,
 	adi_apollo_side_select_e side;
 	unsigned long res;
 	adi_apollo_sides_e side_index;
-	bool bres;
 	bool enable;
 	int ret = 0;
 	u16 addr = (u32)this_attr->address & 0xFF;
@@ -2916,100 +2915,6 @@ static ssize_t ad9088_phy_store(struct device *dev,
 		}
 
 		break;
-	case AD9088_MCS_INIT:
-		ret = kstrtobool(buf, &bres);
-		if (ret < 0)
-			break;
-		if (bres)
-			ret = ad9088_mcs_init_cal_setup(phy);
-
-		break;
-	case AD9088_DT0_MEASUREMENT:
-		ret = kstrtobool(buf, &bres);
-		if (ret < 0)
-			break;
-		if (bres)
-			ret = ad9088_delta_t_measurement_set(phy, 0);
-		break;
-	case AD9088_DT1_MEASUREMENT:
-		ret = kstrtobool(buf, &bres);
-		if (ret < 0)
-			break;
-		if (bres)
-			ret = ad9088_delta_t_measurement_set(phy, 1);
-		break;
-	case AD9088_DT_MEASUREMENT_RESTORE:
-		ret = kstrtobool(buf, &bres);
-		if (ret < 0)
-			break;
-		if (bres)
-			ret = ad9088_delta_t_measurement_set(phy, 2);
-		break;
-	case AD9088_MCS_CAL_RUN:
-		ret = kstrtobool(buf, &bres);
-		if (ret < 0)
-			break;
-		if (bres) {
-			ret = adi_apollo_mcs_cal_init_run(device);
-			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_init_run");
-		}
-		break;
-	case AD9088_MCS_TRACK_CAL_SETUP:
-		ret = kstrtobool(buf, &bres);
-		if (ret < 0)
-			break;
-		if (bres)
-			ret = ad9088_mcs_tracking_cal_setup(phy, 1023, 1);
-
-		break;
-	case AD9088_MCS_FG_TRACK_CAL_RUN:
-		ret = kstrtobool(buf, &bres);
-		if (ret < 0)
-			break;
-		if (bres) {
-			ret = adi_apollo_mcs_cal_fg_tracking_run(device);
-			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_fg_tracking_run");
-		}
-		break;
-	case AD9088_MCS_BG_TRACK_CAL_RUN:
-		ret = kstrtobool(buf, &bres);
-		if (ret < 0)
-			break;
-		if (bres) {
-			ret = adi_apollo_mcs_cal_bg_tracking_run(device);
-			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_run");
-		} else {
-			ret = adi_apollo_mcs_cal_bg_tracking_abort(device);
-			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_abort");
-		}
-
-		if (!ret)
-			phy->mcs_cal_bg_tracking_run = bres;
-
-		break;
-	case AD9088_MCS_BG_TRACK_CAL_FREEZE:
-		ret = kstrtobool(buf, &bres);
-		if (ret < 0)
-			break;
-
-		if (!phy->mcs_cal_bg_tracking_run) {
-			dev_err(&phy->spi->dev, "MCS BG Tracking Cal not running.\n");
-			ret = -EFAULT;
-			break;
-		}
-
-		if (bres) {
-			ret = adi_apollo_mcs_cal_bg_tracking_freeze(device);
-			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_freeze");
-		} else {
-			ret = adi_apollo_mcs_cal_bg_tracking_unfreeze(device);
-			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_unfreeze");
-		}
-
-		if (!ret)
-			phy->mcs_cal_bg_tracking_freeze = bres;
-
-		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -3027,11 +2932,7 @@ static ssize_t ad9088_phy_show(struct device *dev,
 	struct ad9088_phy *phy = conv->phy;
 	struct jesd204_dev *jdev = phy->jdev;
 	struct jesd204_link *links[4];
-	adi_apollo_device_t *device = &phy->ad9088;
-	adi_apollo_mcs_cal_init_status_t init_cal_status = {{0}};
-	adi_apollo_mcs_cal_status_t tracking_cal_status = {{0}};
-	s64 delta;
-	int i, err, num_links, len;
+	int i, err, num_links;
 	bool paused;
 	int ret = 0;
 
@@ -3127,73 +3028,6 @@ static ssize_t ad9088_phy_show(struct device *dev,
 
 		ret = sprintf(buf, "%d\n", phy->is_initialized);
 		break;
-	case AD9088_DT0_MEASUREMENT:
-		ret = ad9088_delta_t_measurement_get(phy, 0, &delta);
-		ret = sprintf(buf, "%lld\n", delta);
-		break;
-	case AD9088_DT1_MEASUREMENT:
-		ret = ad9088_delta_t_measurement_get(phy, 1, &delta);
-		ret = sprintf(buf, "%lld\n", delta);
-		break;
-	case AD9088_DT_MEASUREMENT_RESTORE:
-	case AD9088_MCS_TRACK_CAL_SETUP:
-	case AD9088_MCS_FG_TRACK_CAL_RUN:
-	case AD9088_MCS_INIT:
-		ret = 0;
-		break;
-	case AD9088_MCS_BG_TRACK_CAL_RUN:
-		ret = sprintf(buf, "%d\n", phy->mcs_cal_bg_tracking_run);
-		break;
-	case AD9088_MCS_BG_TRACK_CAL_FREEZE:
-		ret = sprintf(buf, "%d\n", phy->mcs_cal_bg_tracking_freeze);
-		break;
-	case AD9088_MCS_CAL_RUN:
-		ret = adi_apollo_mcs_cal_init_status_get(device, &init_cal_status);
-		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_init_status_get");
-		if (ret)
-			break;
-
-		ret = ad9088_mcs_init_cal_validate(phy, &init_cal_status);
-		ret = sprintf(buf, "%s\n", ret ? "Failed" : "Passed");
-		break;
-	case AD9088_MCS_INIT_CAL_STATUS:
-		ret = adi_apollo_mcs_cal_init_status_get(device, &init_cal_status);
-		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_init_status_get");
-		if (ret)
-			break;
-		ret = ad9088_mcs_init_cal_status_print(phy, buf, &init_cal_status);
-		break;
-	case AD9088_MCS_TRACK_STATUS:
-		if (!phy->mcs_cal_bg_tracking_run) {
-			ret = -ENOTSUPP;
-			break;
-		}
-
-		if (!phy->mcs_cal_bg_tracking_freeze) {
-			/* Halt Tracking calibration to pull data from FW. */
-			ret = adi_apollo_mcs_cal_bg_tracking_freeze(device);
-			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_freeze");
-			if (ret)
-				break;
-		}
-
-		/* Get tracking calibration status info. */
-		ret = adi_apollo_mcs_cal_tracking_status_get(device, &tracking_cal_status);
-		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_tracking_status_get");
-		if (ret)
-			break;
-
-		len = ad9088_mcs_track_cal_status_print(phy, buf, &tracking_cal_status, 1);
-
-		if (!phy->mcs_cal_bg_tracking_freeze) {
-			/* Resume Tracking calibration. */
-			ret = adi_apollo_mcs_cal_bg_tracking_unfreeze(device);
-			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_unfreeze");
-			if (ret)
-				break;
-		}
-		ret = len;
-		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -3238,61 +3072,6 @@ static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, 0644,
 		       ad9088_phy_store,
 		       AD9088_JESD204_FSM_CTRL);
 
-static IIO_DEVICE_ATTR(mcs_init, 0644,
-		       ad9088_phy_show,
-		       ad9088_phy_store,
-		       AD9088_MCS_INIT);
-
-static IIO_DEVICE_ATTR(mcs_dt0_measurement, 0644,
-		       ad9088_phy_show,
-		       ad9088_phy_store,
-		       AD9088_DT0_MEASUREMENT);
-
-static IIO_DEVICE_ATTR(mcs_dt1_measurement, 0644,
-		       ad9088_phy_show,
-		       ad9088_phy_store,
-		       AD9088_DT1_MEASUREMENT);
-
-static IIO_DEVICE_ATTR(mcs_dt1_restore, 0644,
-		       ad9088_phy_show,
-		       ad9088_phy_store,
-		       AD9088_DT_MEASUREMENT_RESTORE);
-
-static IIO_DEVICE_ATTR(mcs_cal_run, 0644,
-		       ad9088_phy_show,
-		       ad9088_phy_store,
-		       AD9088_MCS_CAL_RUN);
-
-static IIO_DEVICE_ATTR(mcs_tracking_init, 0644,
-		       ad9088_phy_show,
-		       ad9088_phy_store,
-		       AD9088_MCS_TRACK_CAL_SETUP);
-
-static IIO_DEVICE_ATTR(mcs_fg_tacking_cal_run, 0644,
-		       ad9088_phy_show,
-		       ad9088_phy_store,
-		       AD9088_MCS_FG_TRACK_CAL_RUN);
-
-static IIO_DEVICE_ATTR(mcs_bg_tacking_cal_run, 0644,
-		       ad9088_phy_show,
-		       ad9088_phy_store,
-		       AD9088_MCS_BG_TRACK_CAL_RUN);
-
-static IIO_DEVICE_ATTR(mcs_bg_tacking_cal_freeze, 0644,
-		       ad9088_phy_show,
-		       ad9088_phy_store,
-		       AD9088_MCS_BG_TRACK_CAL_FREEZE);
-
-static IIO_DEVICE_ATTR(mcs_tracking_status, 0444,
-		       ad9088_phy_show,
-		       NULL,
-		       AD9088_MCS_TRACK_STATUS);
-
-static IIO_DEVICE_ATTR(mcs_init_cal_status, 0444,
-		       ad9088_phy_show,
-		       NULL,
-		       AD9088_MCS_INIT_CAL_STATUS);
-
 /**
  * ad9088_phy_attributes - Array of sysfs attributes for the AD9088 PHY driver
  *
@@ -3331,17 +3110,6 @@ static struct attribute *ad9088_phy_attributes[] = {
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_resume.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_ctrl.dev_attr.attr,
-	&iio_dev_attr_mcs_init.dev_attr.attr,
-	&iio_dev_attr_mcs_dt0_measurement.dev_attr.attr,
-	&iio_dev_attr_mcs_dt1_measurement.dev_attr.attr,
-	&iio_dev_attr_mcs_dt1_restore.dev_attr.attr,
-	&iio_dev_attr_mcs_cal_run.dev_attr.attr,
-	&iio_dev_attr_mcs_tracking_init.dev_attr.attr,
-	&iio_dev_attr_mcs_fg_tacking_cal_run.dev_attr.attr,
-	&iio_dev_attr_mcs_bg_tacking_cal_run.dev_attr.attr,
-	&iio_dev_attr_mcs_bg_tacking_cal_freeze.dev_attr.attr,
-	&iio_dev_attr_mcs_tracking_status.dev_attr.attr,
-	&iio_dev_attr_mcs_init_cal_status.dev_attr.attr,
 	NULL,
 };
 

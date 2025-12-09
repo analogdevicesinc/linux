@@ -127,17 +127,6 @@ enum ad9088_iio_dev_attr {
 	AD9088_JESD204_FSM_STATE,
 	AD9088_JESD204_FSM_RESUME,
 	AD9088_JESD204_FSM_CTRL,
-	AD9088_MCS_INIT,
-	AD9088_DT0_MEASUREMENT,
-	AD9088_DT1_MEASUREMENT,
-	AD9088_DT_MEASUREMENT_RESTORE,
-	AD9088_MCS_CAL_RUN,
-	AD9088_MCS_TRACK_CAL_SETUP,
-	AD9088_MCS_FG_TRACK_CAL_RUN,
-	AD9088_MCS_BG_TRACK_CAL_RUN,
-	AD9088_MCS_BG_TRACK_CAL_FREEZE,
-	AD9088_MCS_TRACK_STATUS,
-	AD9088_MCS_INIT_CAL_STATUS,
 	AD9088_LOOPBACK_MODE_SIDE_A,
 	AD9088_LOOPBACK_MODE_SIDE_B,
 	AD9088_LOOPBACK1_BLEND_SIDE_A,
@@ -195,6 +184,7 @@ struct ad9088_debugfs_entry {
 	const char *propname;
 	void *out_value;
 	u32 val;
+	s64 delta_t;
 	u8 size;
 	u8 cmd;
 };
@@ -272,7 +262,7 @@ struct ad9088_phy {
 	bool fddc_sample_delay_en;
 	u32 multidevice_instance_count;
 
-	struct ad9088_debugfs_entry debugfs_entry[20];
+	struct ad9088_debugfs_entry debugfs_entry[32];
 	u32 ad9088_debugfs_entry_index;
 
 	const char **rx_labels;
