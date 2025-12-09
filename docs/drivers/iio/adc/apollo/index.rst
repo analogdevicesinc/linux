@@ -390,6 +390,7 @@ You can go to the device folder using:
        total 0
        drwxr-xr-x 2 root root    0 Feb 11 15:17 buffer
        drwxr-xr-x 2 root root    0 Feb 11 15:17 buffer0
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 calibration_data
        --w------- 1 root root 4096 Feb 11 15:17 cfir_config
        -r--r--r-- 1 root root 4096 Feb 11 15:17 dev
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_temp0_input
@@ -397,39 +398,71 @@ You can go to the device folder using:
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_cfir_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_cfir_profile_sel
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_6db_digital_gain_en
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_bmem_sample_delay
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_nco_frequency
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_nco_frequency_available
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_nco_mixer_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_nco_phase
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_channel_nco_test_tone_scale
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_en
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_ffh_cnco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_ffh_cnco_index
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_ffh_cnco_mode
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_ffh_cnco_select
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_ffh_fnco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_ffh_fnco_index
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_ffh_fnco_mode
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_ffh_fnco_select
        -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_label
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_loopback
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_bmem_sample_delay
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_hb1_6db_digital_gain_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_nco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_nco_mixer_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_nco_phase
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_nco_test_tone_scale
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_main_tb1_6db_digital_gain_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_nyquist_zone
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_sampling_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_i_test_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_cfir_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_cfir_profile_sel
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_6db_digital_gain_en
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_bmem_sample_delay
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_nco_frequency
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_nco_frequency_available
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_nco_mixer_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_nco_phase
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_channel_nco_test_tone_scale
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_en
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_ffh_cnco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_ffh_cnco_index
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_ffh_cnco_mode
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_ffh_cnco_select
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_ffh_fnco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_ffh_fnco_index
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_ffh_fnco_mode
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_ffh_fnco_select
        -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_label
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_loopback
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_bmem_sample_delay
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_hb1_6db_digital_gain_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_nco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_nco_mixer_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_nco_phase
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_nco_test_tone_scale
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_main_tb1_6db_digital_gain_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_nyquist_zone
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_sampling_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage0_q_test_mode
        ...
        -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_adc_frequency
+       -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_channel_nco_frequency_available
+       -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_channel_nco_mixer_mode_available
        -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_loopback_available
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_main_nco_frequency_available
+       -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_main_nco_mixer_mode_available
        -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_nyquist_zone_available
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_sampling_frequency
+       -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_sampling_mode_available
        -r--r--r-- 1 root root 4096 Feb 11 15:17 in_voltage_test_mode_available
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 jesd204_fsm_ctrl
        -r--r--r-- 1 root root 4096 Feb 11 15:17 jesd204_fsm_error
@@ -444,35 +477,55 @@ You can go to the device folder using:
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_cfir_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_cfir_profile_sel
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_frequency
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_gain_scale
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_mixer_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_phase
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_test_tone_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_channel_nco_test_tone_scale
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_en
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_ffh_cnco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_ffh_cnco_index
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_ffh_cnco_mode
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_ffh_cnco_select
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_ffh_fnco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_ffh_fnco_index
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_ffh_fnco_mode
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_ffh_fnco_select
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_invsinc_en
        -r--r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_label
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_main_nco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_main_nco_mixer_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_main_nco_phase
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_main_nco_test_tone_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_main_nco_test_tone_scale
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_cfir_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_cfir_profile_sel
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_frequency
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_gain_scale
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_mixer_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_phase
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_test_tone_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_channel_nco_test_tone_scale
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_en
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_ffh_cnco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_ffh_cnco_index
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_ffh_cnco_mode
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_ffh_cnco_select
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_ffh_fnco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_ffh_fnco_index
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_ffh_fnco_mode
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_ffh_fnco_select
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_invsinc_en
        -r--r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_label
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_main_nco_frequency
+       -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_main_nco_mixer_mode
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_main_nco_phase
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_main_nco_test_tone_en
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_q_main_nco_test_tone_scale
        ...
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_channel_nco_frequency_available
+       -r--r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_channel_nco_mixer_mode_available
        -r--r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_dac_frequency
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_main_nco_frequency_available
+       -r--r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_main_nco_mixer_mode_available
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage_sampling_frequency
        --w------- 1 root root 4096 Feb 11 15:17 pfilt_config
        drwxr-xr-x 2 root root    0 Feb 11 15:17 power
@@ -679,6 +732,110 @@ Range is: :math:`0 ≤ Gain ≤ 1.999 (−∞ dB < dBGain ≤ +6.018 dB)`
    $echo 0.707 > out_voltage0_i_channel_nco_gain_scale
    $cat out_voltage0_i_channel_nco_gain_scale
     0.707
+
+NCO Mixer Mode
+^^^^^^^^^^^^^^
+
+What: ``[in|out]_voltageX_[i|q]_[main|channel]_nco_mixer_mode``
+
+Configures the NCO mixer mode for the main (CDDC/CDUC) or channel (FDDC/FDUC)
+data path. The mixer mode controls how the NCO frequency is applied to the
+signal.
+
+Available modes can be read from the ``[in|out]_voltage_[main|channel]_nco_mixer_mode_available``
+attribute:
+
+* ``var_IF``: Variable IF mode (default)
+* ``zero_IF``: Zero IF mode
+* ``fs/4_IF``: Fs/4 IF mode
+* ``test_tone``: Test tone mode
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $cat in_voltage_main_nco_mixer_mode_available
+    var_IF zero_IF fs/4_IF test_tone
+   $echo var_IF > in_voltage0_i_main_nco_mixer_mode
+   $cat in_voltage0_i_main_nco_mixer_mode
+    var_IF
+
+NCO Test Tone
+^^^^^^^^^^^^^
+
+What: ``[in|out]_voltageX_[i|q]_[main|channel]_nco_test_tone_scale``
+
+Sets the NCO test tone scale for path testing. The test tone scale controls
+the amplitude of the internally generated test tone. The value is a floating
+point scale factor.
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 0.5 > in_voltage0_i_main_nco_test_tone_scale
+   $cat in_voltage0_i_main_nco_test_tone_scale
+    0.500000000
+
+BMEM Sample Delay
+^^^^^^^^^^^^^^^^^
+
+What: ``in_voltageX_[i|q]_[main|channel]_bmem_sample_delay``
+
+Sets the buffer memory (BMEM) sample delay for the main (CDDC) or channel
+(FDDC) data path. This delay is used to align data paths when capturing
+samples to the buffer memory.
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 10 > in_voltage0_i_main_bmem_sample_delay
+   $cat in_voltage0_i_main_bmem_sample_delay
+    10
+
+Sampling Mode
+^^^^^^^^^^^^^
+
+What: ``in_voltageX_[i|q]_sampling_mode``
+
+Configures the RX channel sampling mode. Available modes can be read from
+the ``in_voltage_sampling_mode_available`` attribute:
+
+* ``random``: Random sampling mode (default)
+* ``sequential``: Sequential sampling mode
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $cat in_voltage_sampling_mode_available
+    random sequential
+   $echo random > in_voltage0_i_sampling_mode
+   $cat in_voltage0_i_sampling_mode
+    random
+
+Temperature Sensor
+^^^^^^^^^^^^^^^^^^
+
+What: ``in_temp0_input``, ``in_temp0_label``
+
+The AD9088 includes an internal temperature sensor. The temperature can be
+read in millidegrees Celsius via the ``in_temp0_input`` attribute. The
+``in_temp0_label`` attribute provides the channel data path label.
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $cat in_temp0_label
+    Side-A:FDDC0->CDDC0->ADC0
+   $cat in_temp0_input
+    53000
+
+Calibration Data
+^^^^^^^^^^^^^^^^
+
+What: ``calibration_data``
+
+The ``calibration_data`` attribute provides access to the device calibration
+data. This can be used to save and restore calibration across power cycles.
+See :ref:`calibration data management` for detailed usage.
 
 PFIR
 ^^^^
@@ -1324,6 +1481,53 @@ For example:
 
    /sys/bus/iio/devices/iio:device8
    $echo 1 > out_voltage0_i_ffh_fnco_mode
+
+Rx FFH FNCO
++++++++++++
+
+The RX path also supports Fast Frequency Hopping. The user configures the
+NCO FFH frequency by writing the index (0 to 31) to
+``in_voltageX_[i|q]_ffh_fnco_index`` followed by the frequency value to
+``in_voltageX_[i|q]_ffh_fnco_frequency``, for example:
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 1 > in_voltage0_i_ffh_fnco_index
+   $echo 500000000 > in_voltage0_i_ffh_fnco_frequency
+
+Then hop to the desired frequency writing the index to
+``in_voltageX_[i|q]_ffh_fnco_select``, and write -1 to disable the feature:
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 1 > in_voltage0_i_ffh_fnco_select
+
+The trigger mode is configured via ``in_voltageX_[i|q]_ffh_fnco_mode``.
+
+Rx FFH CNCO
++++++++++++
+
+The user configures the coarse NCO FFH frequency by writing the index (0 to 31) to
+``in_voltageX_[i|q]_ffh_cnco_index`` followed by the frequency value to
+``in_voltageX_[i|q]_ffh_cnco_frequency``:
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 1 > in_voltage0_i_ffh_cnco_index
+   $echo 1000000000 > in_voltage0_i_ffh_cnco_frequency
+
+Then hop to the desired frequency writing the index to
+``in_voltageX_[i|q]_ffh_cnco_select``:
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $echo 1 > in_voltage0_i_ffh_cnco_select
+
+The trigger mode is configured via ``in_voltageX_[i|q]_ffh_cnco_mode``.
 
 .. _apollo gpio:
 
