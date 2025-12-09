@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/clock/skyworks,si5391a.yaml#
+$id: http://devicetree.org/schemas/clock/skyworks,si5391.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Skyworks Si5391A Clock Generator
+title: Silicon Labs Si5391 Clock Generator
 
 maintainers:
   - Linux Kernel Developer <linux-clk@vger.kernel.org>
 
 description: |
-  The Si5391A is a programmable I2C clock generator with up to 10 output
+  The Si5391 is a programmable I2C clock generator with up to 10 output
   clocks. The chip contains a PLL that generates a high-frequency VCO
   clock which is then divided down to produce the output clocks.
 
@@ -26,7 +26,7 @@ description: |
 
 properties:
   compatible:
-    const: skyworks,si5391a
+    const: skyworks,si5391
 
   reg:
     maxItems: 1
@@ -136,7 +136,7 @@ patternProperties:
         maximum: 15
         description: |
           Output common mode voltage setting.
-          See Si5391A reference manual for specific values.
+          See Si5391 reference manual for specific values.
 
       skyworks,amplitude:
         $ref: /schemas/types.yaml#/definitions/uint32
@@ -144,7 +144,7 @@ patternProperties:
         maximum: 15
         description: |
           Output amplitude setting.
-          See Si5391A reference manual for specific values.
+          See Si5391 reference manual for specific values.
 
       skyworks,disable-high:
         type: boolean
@@ -174,7 +174,7 @@ additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/si5391a.h>
+    #include <dt-bindings/clock/si5391.h>
 
     /* 48MHz reference crystal */
     ref48: ref48M {
@@ -187,9 +187,9 @@ examples:
         #address-cells = <1>;
         #size-cells = <0>;
 
-        si5391a: clock-generator@74 {
-            compatible = "skyworks,si5391a";
-            reg = <0x74>;
+        si5391: clock-generator@77 {
+            compatible = "silabs,si5391";
+            reg = <0x77>;
             #clock-cells = <1>;
             #address-cells = <1>;
             #size-cells = <0>;
@@ -223,9 +223,9 @@ examples:
 
     /* Example of a consumer device using OUT8 */
     some-device {
-        clocks = <&si5391a 8>;
+        clocks = <&si5391 8>;
         clock-names = "refclk";
-        assigned-clocks = <&si5391a 8>;
+        assigned-clocks = <&si5391 8>;
         assigned-clock-rates = <200000000>;
     };
 ...
