@@ -526,6 +526,98 @@ static int axi_fsrc_ctrl_transmit_set(void *arg, u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(axi_fsrc_ctrl_transmit_fops, NULL,
 			 axi_fsrc_ctrl_transmit_set, "0x%08llx\n");
 
+static int axi_fsrc_ext_trig_enable_get(void *arg, u64 *val)
+{
+	struct axi_fsrc *st = arg;
+	u32 reg_val;
+
+	if (!st->addr[AXI_FSRC_CTRL])
+		return -ENODEV;
+
+	reg_val = axi_fsrc_read(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_4);
+	*val = FIELD_GET(REG_SEQ_EXT_TRIG_EN, reg_val);
+	return 0;
+}
+
+static int axi_fsrc_ext_trig_enable_set(void *arg, u64 val)
+{
+	struct axi_fsrc *st = arg;
+
+	if (!st->addr[AXI_FSRC_CTRL])
+		return -ENODEV;
+
+	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_4,
+			REG_SEQ_EXT_TRIG_EN,
+			FIELD_PREP(REG_SEQ_EXT_TRIG_EN, !!val));
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(axi_fsrc_ext_trig_en_fops,
+			 axi_fsrc_ext_trig_enable_get,
+			 axi_fsrc_ext_trig_enable_set, "%llu\n");
+
+static int axi_fsrc_seq_enable_get(void *arg, u64 *val)
+{
+	struct axi_fsrc *st = arg;
+	u32 reg_val;
+
+	if (!st->addr[AXI_FSRC_CTRL])
+		return -ENODEV;
+
+	reg_val = axi_fsrc_read(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_3);
+	*val = FIELD_GET(REG_SEQ_EN, reg_val);
+	return 0;
+}
+
+static int axi_fsrc_seq_enable_set(void *arg, u64 val)
+{
+	struct axi_fsrc *st = arg;
+
+	if (!st->addr[AXI_FSRC_CTRL])
+		return -ENODEV;
+
+	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_3,
+			REG_SEQ_EN,
+			FIELD_PREP(REG_SEQ_EN, !!val));
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(axi_fsrc_seq_enable_fops,
+			 axi_fsrc_seq_enable_get,
+			 axi_fsrc_seq_enable_set, "%llu\n");
+
+static int axi_fsrc_seq_start_set(void *arg, u64 val)
+{
+	struct axi_fsrc *st = arg;
+
+	if (!st->addr[AXI_FSRC_CTRL])
+		return -ENODEV;
+
+	if (val) {
+		axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_3,
+				REG_SEQ_START, REG_SEQ_START);
+	}
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(axi_fsrc_seq_start_fops, NULL,
+			 axi_fsrc_seq_start_set, "%llu\n");
+
+static int axi_fsrc_trigger_pulse_set(void *arg, u64 val)
+{
+	struct axi_fsrc *st = arg;
+
+	if (!st->trig_req_gpio)
+		return -ENODEV;
+
+	if (val) {
+		/* Trigger the sequencer */
+		gpiod_set_value(st->trig_req_gpio, 1);
+		msleep(1);
+		gpiod_set_value(st->trig_req_gpio, 0);
+	}
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(axi_fsrc_trigger_pulse_fops, NULL,
+			 axi_fsrc_trigger_pulse_set, "%llu\n");
+
 static int axi_fsrc_sequencer_probe(struct platform_device *pdev)
 {
 	const struct axi_fsrc_sequencer_info *info;
@@ -605,6 +697,14 @@ static int axi_fsrc_sequencer_probe(struct platform_device *pdev)
 				    &axi_fsrc_accum_set_val_fops);
 		debugfs_create_file("ctrl_transmit", 0244, d, st,
 				    &axi_fsrc_ctrl_transmit_fops);
+		debugfs_create_file("ext_trig_enable", 0644, d, st,
+				    &axi_fsrc_ext_trig_en_fops);
+		debugfs_create_file("seq_enable", 0644, d, st,
+				    &axi_fsrc_seq_enable_fops);
+		debugfs_create_file("seq_start", 0244, d, st,
+				    &axi_fsrc_seq_start_fops);
+		debugfs_create_file("trigger_pulse", 0244, d, st,
+				    &axi_fsrc_trigger_pulse_fops);
 	}
 
 	return 0;
