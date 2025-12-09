@@ -74,26 +74,31 @@
 #define AD4052_REG_MIN_SAMPLE				0x45
 #define AD4052_MAX_REG					AD4052_REG_MIN_SAMPLE
 
+#define AD4052_MON_VAL_MIDDLE_POINT	0x8000
+
 #define AD4052_SPI_VENDOR	0x0456
 
 #define AD4052_2MSPS		0
 #define AD4052_500KSPS		1
+
 #define AD4052_SOFT_RESET	0x81
-#define AD4050_MAX_AVG		0x7
-#define AD4052_MAX_AVG		0xB
+
 #define AD4052_MAX_RATE(x)	((x) == AD4052_500KSPS ? 500000 : 2000000)
 #define AD4052_FS_OFFSET(g)	((g) == AD4052_500KSPS ? 2 : 0)
 #define AD4052_FS(g)		(&ad4052_conversion_freqs[AD4052_FS_OFFSET(g)])
 #define AD4052_FS_LEN(g)	(ARRAY_SIZE(ad4052_conversion_freqs) - (AD4052_FS_OFFSET(g)))
-#define AD4052_MON_VAL_MAX_GAIN		1999970
-#define AD4052_MON_VAL_MIDDLE_POINT	0x8000
+
 #define AD4052_GP_DISABLED	0x0
 #define AD4052_GP_INTR		0x1
 #define AD4052_GP_DRDY		0x2
 #define AD4052_GP_STATIC_LOW	0x5
 #define AD4052_GP_STATIC_HIGH	0x6
+
+#define AD4052_LIMIT_BITS	11
+
 #define AD4052_INTR_EN_NEITHER	0x0
 #define AD4052_INTR_EN_EITHER	0x3
+
 #define AD4052_TCONV_NS		270
 #define AD4052_T_CNVH_NS	10
 #define AD4052_SPI_MAX_ADC_XFER_SPEED(x)	((x) >= 3300000 ? 83333333 : 58823529)
@@ -110,7 +115,7 @@ struct ad4052_chip_info {
 	const struct iio_chan_spec channels[1];
 	const char *name;
 	u16 prod_id;
-	u8 max_avg;
+	u16 avg_max;
 	u8 grade;
 };
 
@@ -122,14 +127,14 @@ enum {
 static const struct iio_scan_type ad4052_scan_type_12_s[] = {
 	[AD4052_SCAN_TYPE_SAMPLE] = {
 		.sign = 's',
-		.realbits = 16,
-		.storagebits = 32,
+		.realbits = 12,
+		.storagebits = 16,
 		.endianness = IIO_BE,
 	},
 	[AD4052_SCAN_TYPE_BURST_AVG] = {
 		.sign = 's',
-		.realbits = 16,
-		.storagebits = 32,
+		.realbits = 14,
+		.storagebits = 16,
 		.endianness = IIO_BE,
 	},
 };
@@ -138,7 +143,7 @@ static const struct iio_scan_type ad4052_scan_type_16_s[] = {
 	[AD4052_SCAN_TYPE_SAMPLE] = {
 		.sign = 's',
 		.realbits = 16,
-		.storagebits = 32,
+		.storagebits = 16,
 		.endianness = IIO_BE,
 	},
 	[AD4052_SCAN_TYPE_BURST_AVG] = {
@@ -149,7 +154,7 @@ static const struct iio_scan_type ad4052_scan_type_16_s[] = {
 	},
 };
 
-static const int ad4052_conversion_freqs[] = {
+static const unsigned int ad4052_conversion_freqs[] = {
 	2000000, 1000000, 300000, 100000,	/*  0 -  3 */
 	33300, 10000, 3000, 500,		/*  4 -  7 */
 	333, 250, 200, 166,			/*  8 - 11 */
@@ -170,22 +175,22 @@ struct ad4052_state {
 	struct gpio_desc *cnv_gp;
 	struct completion completion;
 	struct regmap *regmap;
-	u16 events_frequency;
 	bool wait_event;
 	int drdy_irq;
-	int vio_uv;
-	int vref_uv;
-	int samp_freqs[ARRAY_SIZE(ad4052_conversion_freqs)];
-	u8 oversamp_ratio;
+	int vio_uV;
+	int vref_uV;
+	unsigned int samp_freqs[ARRAY_SIZE(ad4052_conversion_freqs)];
 	bool gpo_irq[2];
+	u16 sampling_frequency;
+	u16 events_frequency;
+	u8 oversamp_ratio;
+	u8 reg_tx[4];
+	u8 reg_rx[4];
 	union {
 		__be32 be32;
 		__be16 be16;
 		u8 bytes[4];
 	} buf __aligned(IIO_DMA_MINALIGN);
-	u8 reg_tx[4];
-	u8 reg_rx[4];
-	u8 buf_reset_pattern[18];
 };
 
 static int ad4052_spi_read(void *context, const void *reg, size_t reg_size,
@@ -298,6 +303,7 @@ static int ad4052_conversion_frequency_set(struct ad4052_state *st, u8 val)
 				    BIT(IIO_CHAN_INFO_SCALE) |				\
 				    BIT(IIO_CHAN_INFO_CALIBSCALE) |			\
 				    BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),		\
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
 	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),	\
 	.indexed = 1,									\
 	.channel = 0,									\
@@ -330,7 +336,7 @@ static const struct ad4052_chip_info ad4050_chip_info = {
 	.channels = { AD4052_CHAN(12) },
 	.offload_channels = AD4052_OFFLOAD_CHAN(12),
 	.prod_id = 0x70,
-	.max_avg = AD4050_MAX_AVG,
+	.avg_max = 256,
 	.grade = AD4052_2MSPS,
 };
 
@@ -339,7 +345,7 @@ static const struct ad4052_chip_info ad4052_chip_info = {
 	.channels = { AD4052_CHAN(16) },
 	.offload_channels = AD4052_OFFLOAD_CHAN(16),
 	.prod_id = 0x72,
-	.max_avg = AD4052_MAX_AVG,
+	.avg_max = 4096,
 	.grade = AD4052_2MSPS,
 };
 
@@ -348,7 +354,7 @@ static const struct ad4052_chip_info ad4056_chip_info = {
 	.channels = { AD4052_CHAN(12) },
 	.offload_channels = AD4052_OFFLOAD_CHAN(12),
 	.prod_id = 0x76,
-	.max_avg = AD4050_MAX_AVG,
+	.avg_max = 256,
 	.grade = AD4052_500KSPS,
 };
 
@@ -357,49 +363,52 @@ static const struct ad4052_chip_info ad4058_chip_info = {
 	.channels = { AD4052_CHAN(16) },
 	.offload_channels = AD4052_OFFLOAD_CHAN(16),
 	.prod_id = 0x78,
-	.max_avg = AD4052_MAX_AVG,
+	.avg_max = 4096,
 	.grade = AD4052_500KSPS,
 };
 
-static ssize_t ad4052_events_frequency_show(struct device *dev,
-					    struct device_attribute *attr,
-					    char *buf)
+static ssize_t sampling_frequency_show(struct device *dev,
+				       struct device_attribute *attr, char *buf)
 {
 	struct ad4052_state *st = iio_priv(dev_to_iio_dev(dev));
 
 	return sysfs_emit(buf, "%d\n", ad4052_conversion_freqs[st->events_frequency]);
 }
 
-static ssize_t ad4052_events_frequency_store(struct device *dev,
-					     struct device_attribute *attr,
-					     const char *buf, size_t len)
+static int sampling_frequency_store_dispatch(struct iio_dev *indio_dev,
+					     const char *buf)
 {
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad4052_state *st = iio_priv(indio_dev);
 	int val, ret;
 
-	if (!iio_device_claim_direct(indio_dev))
+	if (st->wait_event)
 		return -EBUSY;
-	if (st->wait_event) {
-		ret = -EBUSY;
-		goto out_release;
-	}
 
 	ret = kstrtoint(buf, 10, &val);
-	if (ret < 0)
-		goto out_release;
+	if (ret)
+		return ret;
 
 	st->events_frequency = find_closest_descending(val, ad4052_conversion_freqs,
 						       ARRAY_SIZE(ad4052_conversion_freqs));
-	ret = 0;
-
-out_release:
-	iio_device_release_direct(indio_dev);
-	return ret ? : len;
+	return 0;
 }
 
-static IIO_DEVICE_ATTR(sampling_frequency, 0644, ad4052_events_frequency_show,
-		       ad4052_events_frequency_store, 0);
+static ssize_t sampling_frequency_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	int ret;
+
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
+
+	ret = sampling_frequency_store_dispatch(indio_dev, buf);
+	iio_device_release_direct(indio_dev);
+	return ret ?: len;
+}
+
+static IIO_DEVICE_ATTR_RW(sampling_frequency, 0);
 
 static ssize_t sampling_frequency_available_show(struct device *dev,
 						 struct device_attribute *attr,
@@ -426,8 +435,95 @@ static const struct attribute_group ad4052_event_attribute_group = {
 	.attrs = ad4052_event_attributes,
 };
 
+static int ad4052_set_oversampling_ratio(struct ad4052_state *st, int val, int val2)
+{
+	const u32 _max = st->chip->avg_max;
+	const u32 _min = 1;
+	int ret;
+
+	if (!in_range(val, _min, _max) || val2 != 0)
+		return -EINVAL;
+
+	/* 1 disables oversampling */
+	val = ilog2(val);
+	if (val == 0) {
+		st->mode = AD4052_SAMPLE_MODE;
+	} else {
+		st->mode = AD4052_BURST_AVERAGING_MODE;
+		ret = regmap_write(st->regmap, AD4052_REG_AVG_CONFIG, val - 1);
+		if (ret)
+			return ret;
+	}
+	st->oversamp_ratio = val;
+
+	return 0;
+}
+
+static int ad4052_get_oversampling_ratio(struct ad4052_state *st, int *val)
+{
+	int ret, buf;
+
+	if (st->mode == AD4052_SAMPLE_MODE) {
+		*val = 1;
+		return 0;
+	}
+
+	ret = regmap_read(st->regmap, AD4052_REG_AVG_CONFIG, &buf);
+	if (ret)
+		return ret;
+
+	*val = BIT(buf + 1);
+	return 0;
+}
+
+static int ad4052_calc_sampling_frequency(unsigned int fosc, unsigned int oversamp_ratio)
+{
+	/* From datasheet p.31: (n_avg - 1)/fosc + tconv */
+	u32 n_avg = BIT(oversamp_ratio) - 1;
+	u32 period_ns = NSEC_PER_SEC / fosc;
+
+	/* Result is less than 1 Hz */
+	if (n_avg >= fosc)
+		return 1;
+
+	return NSEC_PER_SEC / (n_avg * period_ns + AD4052_TCONV_NS);
+}
+
+static int ad4052_populate_sampling_frequency(struct ad4052_state *st)
+{
+	for (u8 i = 0; i < ARRAY_SIZE(ad4052_conversion_freqs); i++)
+		st->samp_freqs[i] =
+			ad4052_calc_sampling_frequency(ad4052_conversion_freqs[i],
+						       st->oversamp_ratio);
+	return 0;
+}
+
+static int ad4052_get_sampling_frequency(struct ad4052_state *st, int *val)
+{
+	int freq = ad4052_conversion_freqs[st->sampling_frequency];
+
+	*val = ad4052_calc_sampling_frequency(freq, st->oversamp_ratio);
+	return 0;
+}
+
+static int ad4052_set_sampling_frequency(struct ad4052_state *st, int val, int val2)
+{
+	int ret;
+
+	if (val2 != 0)
+		return -EINVAL;
+
+	ret = ad4052_populate_sampling_frequency(st);
+	if (ret)
+		return ret;
+
+	st->sampling_frequency = find_closest_descending(val, st->samp_freqs,
+							 ARRAY_SIZE(ad4052_conversion_freqs));
+	return 0;
+}
+
 static int ad4052_update_xfer_raw(struct iio_dev *indio_dev,
-				   struct iio_chan_spec const *chan)
+				  struct iio_chan_spec const *chan)
 {
 	struct ad4052_state *st = iio_priv(indio_dev);
 	const struct iio_scan_type *scan_type;
@@ -440,7 +536,7 @@ static int ad4052_update_xfer_raw(struct iio_dev *indio_dev,
 	xfer->rx_buf = st->buf.bytes;
 	xfer->bits_per_word = scan_type->realbits;
 	xfer->len = scan_type->realbits == 24 ? 4 : 2;
-	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uv);
+	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uV);
 
 	return 0;
 }
@@ -459,7 +555,7 @@ static int ad4052_update_xfer_offload(struct iio_dev *indio_dev,
 	xfer->bits_per_word = scan_type->realbits;
 	xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 	xfer->len = spi_bpw_to_bytes(scan_type->realbits);
-	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vref_uv);
+	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vref_uV);
 
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
 	st->offload_msg.offload = st->offload;
@@ -467,43 +563,9 @@ static int ad4052_update_xfer_offload(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int ad4052_set_oversampling_ratio(struct ad4052_state *st, unsigned int val)
-{
-	int ret;
-
-	if (val < 1 || val > BIT(st->chip->max_avg + 1))
-		return -EINVAL;
-
-	/* 1 disables oversampling */
-	val = ilog2(val);
-	if (val == 0) {
-		st->mode = AD4052_SAMPLE_MODE;
-	} else {
-		st->mode = AD4052_BURST_AVERAGING_MODE;
-		ret = regmap_write(st->regmap, AD4052_REG_AVG_CONFIG, val - 1);
-		if (ret)
-			return ret;
-	}
-	st->oversamp_ratio = BIT(val);
-
-	return 0;
-}
-
-static int ad4052_get_oversampling_ratio(struct ad4052_state *st,
-					 unsigned int *val)
-{
-	int buf;
-
-	if (st->mode == AD4052_SAMPLE_MODE) {
-		*val = 1;
-		return 0;
-	}
-
-	return regmap_read(st->regmap, AD4052_REG_AVG_CONFIG, &buf);
-}
-
 static int ad4052_check_ids(struct ad4052_state *st)
 {
+	struct device *dev = &st->spi->dev;
 	int ret;
 	u16 val;
 
@@ -512,32 +574,22 @@ static int ad4052_check_ids(struct ad4052_state *st)
 	if (ret)
 		return ret;
 
-	val = get_unaligned_be16(st->buf.bytes);
+	val = be16_to_cpu(st->buf.be16);
 	if (val != st->chip->prod_id)
-		dev_warn(&st->spi->dev,
-			 "Production ID x%x does not match known values", val);
+		dev_warn(dev, "Production ID x%x does not match known values", val);
 
 	ret = regmap_bulk_read(st->regmap, AD4052_REG_VENDOR_H,
 			       &st->buf.be16, sizeof(st->buf.be16));
 	if (ret)
 		return ret;
 
-	val = get_unaligned_be16(st->buf.bytes);
+	val = be16_to_cpu(st->buf.be16);
 	if (val != AD4052_SPI_VENDOR) {
-		dev_err(&st->spi->dev,
-			"Vendor ID x%x does not match expected value\n", val);
+		dev_err(dev, "Vendor ID x%x does not match expected value\n", val);
 		return -ENODEV;
 	}
 
 	return 0;
-}
-
-static int ad4052_exit_command(struct ad4052_state *st)
-{
-	struct spi_device *spi = st->spi;
-	const u8 val = 0xA8;
-
-	return spi_write_then_read(spi, &val, 1, NULL, 0);
 }
 
 static int ad4052_set_operation_mode(struct ad4052_state *st,
@@ -546,7 +598,7 @@ static int ad4052_set_operation_mode(struct ad4052_state *st,
 	int ret;
 
 	if (mode == AD4052_BURST_AVERAGING_MODE) {
-		ret = ad4052_conversion_frequency_set(st, st->events_frequency);
+		ret = ad4052_conversion_frequency_set(st, st->sampling_frequency);
 		if (ret)
 			return ret;
 	}
@@ -560,17 +612,6 @@ static int ad4052_set_operation_mode(struct ad4052_state *st,
 			    AD4052_REG_MODE_SET_ENTER_ADC);
 }
 
-static int ad4052_set_sampling_freq(struct ad4052_state *st, unsigned int freq)
-{
-	const u32 start = 1;
-
-	if (!in_range(freq, start, AD4052_MAX_RATE(st->chip->grade)))
-		return -EINVAL;
-
-	st->pwm_st.period = DIV_ROUND_UP_ULL(NSEC_PER_SEC, freq);
-	return pwm_apply_might_sleep(st->cnv_pwm, &st->pwm_st);
-}
-
 static int ad4052_soft_reset(struct ad4052_state *st)
 {
 	u8 val = AD4052_SOFT_RESET;
@@ -580,8 +621,8 @@ static int ad4052_soft_reset(struct ad4052_state *st)
 	if (ret)
 		return ret;
 
-	/* Wait AD4052 treset time */
-	fsleep(5000);
+	/* Wait AD4052 treset time, datasheet p8 */
+	ndelay(60);
 
 	return 0;
 }
@@ -592,18 +633,17 @@ static int ad4052_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	struct ad4052_state *st = iio_priv(indio_dev);
 	const struct iio_scan_type *scan_type;
 	int ret;
-	u8 val;
 
 	scan_type = iio_get_current_scan_type(indio_dev, chan);
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	val = FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_0, AD4052_GP_INTR) |
-	      FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_1, AD4052_GP_DRDY);
-
 	ret = regmap_update_bits(st->regmap, AD4052_REG_GP_CONF,
-				 AD4052_REG_GP_CONF_MODE_MSK_1 | AD4052_REG_GP_CONF_MODE_MSK_0,
-				 val);
+				 AD4052_REG_GP_CONF_MODE_MSK_1,
+				 FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_0,
+					    AD4052_GP_INTR) |
+				 FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_1,
+					    AD4052_GP_DRDY));
 	if (ret)
 		return ret;
 
@@ -627,15 +667,16 @@ static int ad4052_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	if (ret)
 		return ret;
 
-	val = FIELD_PREP(AD4052_REG_INTR_CONF_EN_MSK_0, AD4052_INTR_EN_EITHER) |
-	      FIELD_PREP(AD4052_REG_INTR_CONF_EN_MSK_1, AD4052_INTR_EN_NEITHER);
 	ret = regmap_update_bits(st->regmap, AD4052_REG_INTR_CONF,
-				  AD4052_REG_INTR_CONF_EN_MSK_0 | AD4052_REG_INTR_CONF_EN_MSK_1,
-				  val);
+				 AD4052_REG_INTR_CONF_EN_MSK_1,
+				 FIELD_PREP(AD4052_REG_INTR_CONF_EN_MSK_0,
+					    AD4052_INTR_EN_EITHER) |
+				 FIELD_PREP(AD4052_REG_INTR_CONF_EN_MSK_1,
+					    AD4052_INTR_EN_NEITHER));
 	if (ret)
 		return ret;
 
-	put_unaligned_be16(AD4052_MON_VAL_MIDDLE_POINT, st->buf.bytes);
+	st->buf.be16 = cpu_to_be16(AD4052_MON_VAL_MIDDLE_POINT);
 	return regmap_bulk_write(st->regmap, AD4052_REG_MON_VAL,
 				 &st->buf.be16, sizeof(st->buf.be16));
 }
@@ -668,9 +709,10 @@ static int ad4052_request_irq(struct iio_dev *indio_dev)
 	int ret;
 
 	ret = fwnode_irq_get_byname(dev_fwnode(&st->spi->dev), "gp0");
-	if (ret == -EPROBE_DEFER) {
+	if (ret == -EPROBE_DEFER)
 		return ret;
-	} else if (ret < 0) {
+
+	if (ret < 0) {
 		st->gpo_irq[0] = false;
 	} else {
 		st->gpo_irq[0] = true;
@@ -683,30 +725,36 @@ static int ad4052_request_irq(struct iio_dev *indio_dev)
 	}
 
 	ret = fwnode_irq_get_byname(dev_fwnode(&st->spi->dev), "gp1");
-	if (ret == -EPROBE_DEFER) {
+	if (ret == -EPROBE_DEFER)
 		return ret;
-	} else if (ret < 0) {
+	if (ret < 0) {
 		st->gpo_irq[1] = false;
-	} else {
-		st->gpo_irq[1] = true;
-		ret = devm_request_threaded_irq(dev, ret,
-						ad4052_irq_handler_drdy,
-						NULL, IRQF_ONESHOT, indio_dev->name,
-						indio_dev);
-		st->drdy_irq = ret;
+		return 0;
 	}
+	st->gpo_irq[1] = true;
+	ret = devm_request_threaded_irq(dev, ret,
+					ad4052_irq_handler_drdy,
+					NULL, IRQF_ONESHOT, indio_dev->name,
+					indio_dev);
+	if (ret < 0)
+		return ret;
+	st->drdy_irq = ret;
 
 	return 0;
 }
 
 static const int ad4052_oversampling_avail[] = {
-	1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+	1, 2, 4, 8, 16, 32, 64, 128,		/*  0 -  7 */
+	256, 512, 1024, 2048, 4096,		/*  8 - 12 */
 };
 
 static int ad4052_read_avail(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan, const int **vals,
 			     int *type, int *len, long mask)
 {
+	struct ad4052_state *st = iio_priv(indio_dev);
+	int ret;
+
 	switch (mask) {
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		*vals = ad4052_oversampling_avail;
@@ -714,9 +762,29 @@ static int ad4052_read_avail(struct iio_dev *indio_dev,
 		*type = IIO_VAL_INT;
 
 		return IIO_AVAIL_LIST;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		ret = ad4052_populate_sampling_frequency(st);
+		if (ret)
+			return ret;
+		*vals = st->samp_freqs;
+		*len = st->oversamp_ratio ? ARRAY_SIZE(ad4052_conversion_freqs) : 1;
+		*type = IIO_VAL_INT;
+
+		return IIO_AVAIL_LIST;
 	default:
 		return -EINVAL;
 	}
+}
+
+static int ad4052_set_samp_freq(struct ad4052_state *st, unsigned int freq)
+{
+	const u32 start = 1;
+
+	if (!in_range(freq, start, AD4052_MAX_RATE(st->chip->grade)))
+		return -EINVAL;
+
+	st->pwm_st.period = DIV_ROUND_UP_ULL(NSEC_PER_SEC, freq);
+	return pwm_apply_might_sleep(st->cnv_pwm, &st->pwm_st);
 }
 
 static int ad4052_get_samp_freq(struct iio_dev *indio_dev,
@@ -747,7 +815,7 @@ static int ad4052_get_chan_scale(struct iio_dev *indio_dev, int *val, int *val2)
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	*val = (st->vref_uv * 2) / MILLI;
+	*val = (st->vref_uV * 2) / (MICRO / MILLI);
 
 	*val2 = scan_type->realbits - 1; /* signed */
 
@@ -756,7 +824,6 @@ static int ad4052_get_chan_scale(struct iio_dev *indio_dev, int *val, int *val2)
 
 static int ad4052_get_chan_calibscale(struct ad4052_state *st, int *val, int *val2)
 {
-	u16 gain;
 	int ret;
 
 	ret = regmap_bulk_read(st->regmap, AD4052_REG_MON_VAL,
@@ -764,43 +831,46 @@ static int ad4052_get_chan_calibscale(struct ad4052_state *st, int *val, int *va
 	if (ret)
 		return ret;
 
-	gain = get_unaligned_be16(st->buf.bytes);
-
 	/* From datasheet: code out = code in × mon_val/0x8000 */
-	*val = gain / AD4052_MON_VAL_MIDDLE_POINT;
-	*val2 = mul_u64_u32_div(gain % AD4052_MON_VAL_MIDDLE_POINT, NANO,
-				AD4052_MON_VAL_MIDDLE_POINT);
+	*val = be16_to_cpu(st->buf.be16) * 2;
+	*val2 = 16;
 
-	return IIO_VAL_INT_PLUS_NANO;
+	return IIO_VAL_FRACTIONAL_LOG2;
 }
 
-static int ad4052_set_chan_calibscale(struct ad4052_state *st, int gain_int, int gain_frac)
+static int ad4052_set_chan_calibscale(struct ad4052_state *st, int gain_int,
+				      int gain_frac)
 {
-	u64 gain;
+	/* Divide numerator and denumerator by known great common divider */
+	const u32 mon_val = AD4052_MON_VAL_MIDDLE_POINT / 64;
+	const u32 micro = MICRO / 64;
+	const u32 gain_fp = gain_int * MICRO + gain_frac;
+	const u32 reg_val = DIV_ROUND_CLOSEST(gain_fp * mon_val, micro);
 	int ret;
 
-	if (gain_int < 0 || gain_frac < 0)
+	/* Checks if the gain is in range and the value fits the field */
+	if (gain_int < 0 || gain_int > 1 || reg_val > BIT(16) - 1)
 		return -EINVAL;
 
-	gain = mul_u32_u32(gain_int, MICRO) + gain_frac;
-
-	if (gain > AD4052_MON_VAL_MAX_GAIN)
-		return -EINVAL;
-
-	put_unaligned_be16(DIV_ROUND_CLOSEST_ULL(gain * AD4052_MON_VAL_MIDDLE_POINT,
-						 MICRO),
-			   st->buf.bytes);
-
+	st->buf.be16 = cpu_to_be16(reg_val);
 	ret = regmap_bulk_write(st->regmap, AD4052_REG_MON_VAL,
 				&st->buf.be16, sizeof(st->buf.be16));
 	if (ret)
 		return ret;
 
-	/* Enable scale if gain is not one. */
+	/* Enable scale if gain is not equal to one */
 	return regmap_update_bits(st->regmap, AD4052_REG_ADC_CONFIG,
 				  AD4052_REG_ADC_CONFIG_SCALE_EN_MSK,
 				  FIELD_PREP(AD4052_REG_ADC_CONFIG_SCALE_EN_MSK,
 					     !(gain_int == 1 && gain_frac == 0)));
+}
+
+static int ad4052_exit_command(struct ad4052_state *st)
+{
+	struct spi_device *spi = st->spi;
+	const u8 val = 0xA8;
+
+	return spi_write_then_read(spi, &val, 1, NULL, 0);
 }
 
 static int __ad4052_read_chan_raw(struct ad4052_state *st, int *val)
@@ -866,6 +936,9 @@ static int ad4052_read_chan_raw(struct ad4052_state *st, int *val)
 static int ad4052_read_raw_dispatch(struct ad4052_state *st, int *val, int *val2,
 				    long info)
 {
+	if (st->wait_event)
+		return -EBUSY;
+
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		return ad4052_read_chan_raw(st, val);
@@ -875,6 +948,9 @@ static int ad4052_read_raw_dispatch(struct ad4052_state *st, int *val, int *val2
 
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		return ad4052_get_oversampling_ratio(st, val);
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad4052_get_sampling_frequency(st, val);
 
 	default:
 		return -EINVAL;
@@ -897,27 +973,27 @@ static int ad4052_read_raw(struct iio_dev *indio_dev,
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	if (st->wait_event) {
-		ret = -EBUSY;
-		goto out_release;
-	}
 
 	ret = ad4052_read_raw_dispatch(st, val, val2, info);
-
-out_release:
 	iio_device_release_direct(indio_dev);
-	return ret ? ret : IIO_VAL_INT;
+	return ret ?: IIO_VAL_INT;
 }
 
 static int ad4052_write_raw_dispatch(struct ad4052_state *st, int val, int val2,
 				     long info)
 {
+	if (st->wait_event)
+		return -EBUSY;
+
 	switch (info) {
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
-		return ad4052_set_oversampling_ratio(st, val);
+		return ad4052_set_oversampling_ratio(st, val, val2);
 
 	case IIO_CHAN_INFO_CALIBSCALE:
 		return ad4052_set_chan_calibscale(st, val, val2);
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad4052_set_sampling_frequency(st, val, val2);
 
 	default:
 		return -EINVAL;
@@ -933,34 +1009,23 @@ static int ad4052_write_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		return ad4052_set_sampling_freq(st, val);
+		return ad4052_set_samp_freq(st, val);
 	}
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	if (st->wait_event) {
-		ret = -EBUSY;
-		goto out_release;
-	}
 
 	ret = ad4052_write_raw_dispatch(st, val, val2, info);
-
-out_release:
 	iio_device_release_direct(indio_dev);
 	return ret;
 }
 
-static int ad4052_monitor_mode_enable(struct ad4052_state *st, bool enable)
+static int pm_ad4052_monitor_mode_enable(struct ad4052_state *st)
 {
 	int ret;
 
-	if (!enable) {
-		pm_runtime_put_autosuspend(&st->spi->dev);
-		return 0;
-	}
-
-	ACQUIRE(pm_runtime_active_try_enabled, pm)(&st->spi->dev);
-	ret = ACQUIRE_ERR(pm_runtime_active_try_enabled, &pm);
+	PM_RUNTIME_ACQUIRE(&st->spi->dev, pm);
+	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
 
@@ -968,11 +1033,24 @@ static int ad4052_monitor_mode_enable(struct ad4052_state *st, bool enable)
 	if (ret)
 		return ret;
 
-	ret = ad4052_set_operation_mode(st, AD4052_MONITOR_MODE);
+	return ad4052_set_operation_mode(st, AD4052_MONITOR_MODE);
+}
+
+static int ad4052_monitor_mode_enable(struct ad4052_state *st)
+{
+	int ret;
+
+	ret = pm_ad4052_monitor_mode_enable(st);
 	if (ret)
 		return ret;
 
 	pm_runtime_get_noresume(&st->spi->dev);
+	return 0;
+}
+
+static int ad4052_monitor_mode_disable(struct ad4052_state *st)
+{
+	pm_runtime_put_autosuspend(&st->spi->dev);
 	return 0;
 }
 
@@ -986,27 +1064,37 @@ static int ad4052_read_event_config(struct iio_dev *indio_dev,
 	return st->wait_event;
 }
 
+static int ad4052_write_event_config_dispatch(struct iio_dev *indio_dev,
+					      bool state)
+{
+	struct ad4052_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (st->wait_event == state)
+		ret = 0;
+	else if (state)
+		ret = ad4052_monitor_mode_enable(st);
+	else
+		ret = ad4052_monitor_mode_disable(st);
+	if (ret)
+		return ret;
+
+	st->wait_event = state;
+	return 0;
+}
+
 static int ad4052_write_event_config(struct iio_dev *indio_dev,
 				     const struct iio_chan_spec *chan,
 				     enum iio_event_type type,
 				     enum iio_event_direction dir,
 				     bool state)
 {
-	struct ad4052_state *st = iio_priv(indio_dev);
 	int ret;
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	if (st->wait_event == state) {
-		ret = 0;
-		goto out_release;
-	}
 
-	ret = ad4052_monitor_mode_enable(st, state);
-	if (!ret)
-		st->wait_event = state;
-
-out_release:
+	ret = ad4052_write_event_config_dispatch(indio_dev, state);
 	iio_device_release_direct(indio_dev);
 	return ret;
 }
@@ -1027,7 +1115,7 @@ static int __ad4052_read_event_info_value(struct ad4052_state *st,
 	if (ret)
 		return ret;
 
-	*val = sign_extend32(get_unaligned_be16(st->buf.bytes), 11);
+	*val = sign_extend32(be16_to_cpu(st->buf.be16), AD4052_LIMIT_BITS - 1);
 
 	return 0;
 }
@@ -1044,6 +1132,25 @@ static int __ad4052_read_event_info_hysteresis(struct ad4052_state *st,
 	return regmap_read(st->regmap, reg, val);
 }
 
+static int ad4052_read_event_config_dispatch(struct iio_dev *indio_dev,
+					     enum iio_event_direction dir,
+					     enum iio_event_info info, int *val)
+{
+	struct ad4052_state *st = iio_priv(indio_dev);
+
+	if (st->wait_event)
+		return -EBUSY;
+
+	switch (info) {
+	case IIO_EV_INFO_VALUE:
+		return __ad4052_read_event_info_value(st, dir, val);
+	case IIO_EV_INFO_HYSTERESIS:
+		return __ad4052_read_event_info_hysteresis(st, dir, val);
+	default:
+		return -EINVAL;
+	}
+}
+
 static int ad4052_read_event_value(struct iio_dev *indio_dev,
 				   const struct iio_chan_spec *chan,
 				   enum iio_event_type type,
@@ -1051,31 +1158,14 @@ static int ad4052_read_event_value(struct iio_dev *indio_dev,
 				   enum iio_event_info info, int *val,
 				   int *val2)
 {
-	struct ad4052_state *st = iio_priv(indio_dev);
 	int ret;
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	if (st->wait_event) {
-		ret = -EBUSY;
-		goto out_release;
-	}
 
-	switch (info) {
-	case IIO_EV_INFO_VALUE:
-		ret = __ad4052_read_event_info_value(st, dir, val);
-		break;
-	case IIO_EV_INFO_HYSTERESIS:
-		ret = __ad4052_read_event_info_hysteresis(st, dir, val);
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-
-out_release:
+	ret = ad4052_read_event_config_dispatch(indio_dev, dir, info, val);
 	iio_device_release_direct(indio_dev);
-	return ret ? ret : IIO_VAL_INT;
+	return ret ?: IIO_VAL_INT;
 }
 
 static int __ad4052_write_event_info_value(struct ad4052_state *st,
@@ -1083,13 +1173,13 @@ static int __ad4052_write_event_info_value(struct ad4052_state *st,
 {
 	u8 reg;
 
-	if (val > 2047 || val < -2048)
+	if (val != sign_extend32(val, AD4052_LIMIT_BITS - 1))
 		return -EINVAL;
 	if (dir == IIO_EV_DIR_RISING)
 		reg = AD4052_REG_MAX_LIMIT;
 	else
 		reg = AD4052_REG_MIN_LIMIT;
-	put_unaligned_be16(val, st->buf.bytes);
+	st->buf.be16 = cpu_to_be16(val);
 
 	return regmap_bulk_write(st->regmap, reg, &st->buf.be16,
 				 sizeof(st->buf.be16));
@@ -1100,7 +1190,7 @@ static int __ad4052_write_event_info_hysteresis(struct ad4052_state *st,
 {
 	u8 reg;
 
-	if (val >= BIT(7))
+	if (val > BIT(7) - 1)
 		return -EINVAL;
 	if (dir == IIO_EV_DIR_RISING)
 		reg = AD4052_REG_MAX_HYST;
@@ -1110,6 +1200,31 @@ static int __ad4052_write_event_info_hysteresis(struct ad4052_state *st,
 	return regmap_write(st->regmap, reg, val);
 }
 
+static int ad4052_write_event_value_dispatch(struct iio_dev *indio_dev,
+					     enum iio_event_type type,
+					     enum iio_event_direction dir,
+					     enum iio_event_info info, int val)
+{
+	struct ad4052_state *st = iio_priv(indio_dev);
+
+	if (st->wait_event)
+		return -EBUSY;
+
+	switch (type) {
+	case IIO_EV_TYPE_THRESH:
+		switch (info) {
+		case IIO_EV_INFO_VALUE:
+			return __ad4052_write_event_info_value(st, dir, val);
+		case IIO_EV_INFO_HYSTERESIS:
+			return __ad4052_write_event_info_hysteresis(st, dir, val);
+		default:
+			return -EINVAL;
+		}
+	default:
+		return -EINVAL;
+	}
+}
+
 static int ad4052_write_event_value(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan,
 				    enum iio_event_type type,
@@ -1117,41 +1232,17 @@ static int ad4052_write_event_value(struct iio_dev *indio_dev,
 				    enum iio_event_info info, int val,
 				    int val2)
 {
-	struct ad4052_state *st = iio_priv(indio_dev);
 	int ret;
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
-	if (st->wait_event) {
-		ret = -EBUSY;
-		goto out_release;
-	}
 
-	switch (type) {
-	case IIO_EV_TYPE_THRESH:
-		switch (info) {
-		case IIO_EV_INFO_VALUE:
-			ret = __ad4052_write_event_info_value(st, dir, val);
-			break;
-		case IIO_EV_INFO_HYSTERESIS:
-			ret = __ad4052_write_event_info_hysteresis(st, dir, val);
-			break;
-		default:
-			ret = -EINVAL;
-			break;
-		}
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-
-out_release:
+	ret = ad4052_write_event_value_dispatch(indio_dev, type, dir, info, val);
 	iio_device_release_direct(indio_dev);
 	return ret;
 }
 
-static int ad4052_offload_buffer_postenable(struct iio_dev *indio_dev)
+static int pm_ad4052_triggered_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4052_state *st = iio_priv(indio_dev);
 	struct spi_offload_trigger_config config = {
@@ -1159,13 +1250,13 @@ static int ad4052_offload_buffer_postenable(struct iio_dev *indio_dev)
 	};
 	int ret;
 
-	if (st->wait_event)
-		return -EBUSY;
-
-	ACQUIRE(pm_runtime_active_try_enabled, pm)(&st->spi->dev);
-	ret = ACQUIRE_ERR(pm_runtime_active_try_enabled, &pm);
+	PM_RUNTIME_ACQUIRE(&st->spi->dev, pm);
+	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
+
+	if (st->wait_event)
+		return -EBUSY;
 
 	ret = ad4052_set_operation_mode(st, st->mode);
 	if (ret)
@@ -1206,12 +1297,26 @@ out_xfer_error:
 	ad4052_exit_command(st);
 
 	return ret;
+
+
+}
+
+static int ad4052_offload_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad4052_state *st = iio_priv(indio_dev);
+	int ret;
+
+	ret = pm_ad4052_triggered_buffer_postenable(indio_dev);
+	if (ret)
+		return ret;
+
+	pm_runtime_get_noresume(&st->spi->dev);
+	return 0;
 }
 
 static int ad4052_offload_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4052_state *st = iio_priv(indio_dev);
-	int ret;
 
 	st->pwm_st.enabled = false;
 	pwm_apply_might_sleep(st->cnv_pwm, &st->pwm_st);
@@ -1219,13 +1324,12 @@ static int ad4052_offload_buffer_predisable(struct iio_dev *indio_dev)
 	spi_offload_trigger_disable(st->offload, st->offload_trigger);
 	spi_unoptimize_message(&st->offload_msg);
 
-	ret = ad4052_exit_command(st);
+	ad4052_exit_command(st);
 
 	if (st->drdy_irq)
 		enable_irq(st->drdy_irq);
-	pm_runtime_mark_last_busy(&st->spi->dev);
-	pm_runtime_put_autosuspend(&st->spi->dev);
 
+	pm_runtime_put_autosuspend(&st->spi->dev);
 	return 0;
 }
 
@@ -1238,14 +1342,11 @@ static int ad4052_debugfs_reg_access(struct iio_dev *indio_dev, unsigned int reg
 				     unsigned int writeval, unsigned int *readval)
 {
 	struct ad4052_state *st = iio_priv(indio_dev);
-	int ret;
 
 	if (readval)
-		ret = regmap_read(st->regmap, reg, readval);
+		return regmap_read(st->regmap, reg, readval);
 	else
-		ret = regmap_write(st->regmap, reg, writeval);
-
-	return ret;
+		return regmap_write(st->regmap, reg, writeval);
 }
 
 static int ad4052_get_current_scan_type(const struct iio_dev *indio_dev,
@@ -1281,6 +1382,37 @@ static const struct regmap_config ad4052_regmap_config = {
 	.read_flag_mask = BIT(7),
 	.can_sleep = true,
 };
+
+static int ad4052_regulators_get(struct ad4052_state *st, bool *ref_sel)
+{
+	struct device *dev = &st->spi->dev;
+	int ret;
+
+	st->vio_uV = devm_regulator_get_enable_read_voltage(dev, "vio");
+	if (st->vio_uV)
+		return dev_err_probe(dev, st->vio_uV,
+				     "Failed to enable and read vio voltage\n");
+
+	st->vref_uV = devm_regulator_get_enable_read_voltage(dev, "ref");
+	*ref_sel = st->vref_uV == -ENODEV;
+	if (st->vref_uV < 0 && !*ref_sel)
+		return dev_err_probe(dev, st->vref_uV,
+				     "Failed to enable and read ref voltage\n");
+
+	if (*ref_sel) {
+		st->vref_uV = devm_regulator_get_enable_read_voltage(dev, "vdd");
+		if (st->vref_uV < 0)
+			return dev_err_probe(dev, st->vref_uV,
+					     "Failed to enable and read vdd voltage\n");
+	} else {
+		ret = devm_regulator_get_enable(dev, "vdd");
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "Failed to enable vdd regulator\n");
+	}
+
+	return 0;
+}
 
 static const struct spi_offload_config ad4052_offload_config = {
 	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER |
@@ -1379,35 +1511,6 @@ out_error:
 	of_node_put(np);
 	return ret;
 }
-static int ad4052_regulators_get(struct ad4052_state *st, bool *ref_sel)
-{
-	struct device *dev = &st->spi->dev;
-	int ret;
-
-	st->vio_uv = devm_regulator_get_enable_read_voltage(dev, "vio");
-	if (st->vio_uv < 0  && st->vio_uv != -ENODEV)
-		return dev_err_probe(dev, st->vio_uv,
-				     "Failed to enable and read vio voltage\n");
-
-	st->vref_uv = devm_regulator_get_enable_read_voltage(dev, "ref");
-	*ref_sel = st->vref_uv == -ENODEV;
-	if (st->vref_uv < 0 && st->vref_uv != -ENODEV) {
-		return dev_err_probe(dev, st->vref_uv,
-				     "Failed to enable and read ref voltage\n");
-	} else if (st->vref_uv == -ENODEV) {
-		st->vref_uv = devm_regulator_get_enable_read_voltage(dev, "vdd");
-		if (st->vref_uv < 0)
-			return dev_err_probe(dev, st->vref_uv,
-					     "Failed to enable and read vdd voltage\n");
-	} else {
-		ret = devm_regulator_get_enable(dev, "vdd");
-		if (ret)
-			return dev_err_probe(dev, ret,
-					     "Failed to enable vdd regulator\n");
-	}
-
-	return 0;
-}
 
 static int ad4052_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
 {
@@ -1418,9 +1521,6 @@ static int ad4052_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
 {
 	struct ad4052_state *st = gpiochip_get_data(gc);
 	unsigned int reg_val = value ? AD4052_GP_STATIC_HIGH : AD4052_GP_STATIC_LOW;
-
-	if (st->gpo_irq[offset])
-		return -ENODEV;
 
 	if (offset)
 		return regmap_update_bits(st->regmap, AD4052_REG_GP_CONF,
@@ -1440,17 +1540,14 @@ static int ad4052_gpio_get(struct gpio_chip *gc, unsigned int offset)
 
 	ret = regmap_read(st->regmap, AD4052_REG_GP_CONF, &reg_val);
 	if (ret)
-		return 0;
-
-	if (st->gpo_irq[offset])
-		return -ENODEV;
+		return ret;
 
 	if (offset)
 		reg_val = FIELD_GET(AD4052_REG_GP_CONF_MODE_MSK_1, reg_val);
 	else
 		reg_val = FIELD_GET(AD4052_REG_GP_CONF_MODE_MSK_0, reg_val);
 
-	return reg_val == AD4052_GP_STATIC_HIGH ? 1 : 0;
+	return reg_val == AD4052_GP_STATIC_HIGH;
 }
 
 static void ad4052_gpio_disable(void *data)
@@ -1472,10 +1569,8 @@ static int ad4052_gpio_init_valid_mask(struct gpio_chip *gc,
 
 	bitmap_zero(valid_mask, ngpios);
 
-	if (!st->gpo_irq[0])
-		set_bit(0, valid_mask);
-	if (!st->gpo_irq[1])
-		set_bit(1, valid_mask);
+	for (unsigned int i = 0; i < ARRAY_SIZE(st->gpo_irq); i++)
+		__assign_bit(i, valid_mask, !st->gpo_irq[i]);
 
 	return 0;
 }
@@ -1487,8 +1582,7 @@ static int ad4052_gpio_init(struct ad4052_state *st)
 	u8 val, mask;
 	int ret;
 
-	if ((st->gpo_irq[0] && st->gpo_irq[1]) ||
-	    !device_property_read_bool(dev, "gpio-controller"))
+	if (!device_property_read_bool(dev, "gpio-controller"))
 		return 0;
 
 	gc = devm_kzalloc(dev, sizeof(*gc), GFP_KERNEL);
@@ -1570,9 +1664,9 @@ static int ad4052_probe(struct spi_device *spi)
 	st->mode = AD4052_SAMPLE_MODE;
 	st->wait_event = false;
 	st->chip = chip;
+	st->sampling_frequency = 0;
 	st->events_frequency = AD4052_FS_OFFSET(st->chip->grade);
-	st->oversamp_ratio = BIT(0);
-
+	st->oversamp_ratio = 0;
 	st->cnv_gp = devm_gpiod_get_optional(dev, "cnv", GPIOD_OUT_LOW);
 	if (IS_ERR(st->cnv_gp))
 		return dev_err_probe(dev, PTR_ERR(st->cnv_gp),
@@ -1657,12 +1751,13 @@ static int ad4052_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	fsleep(4000);
+	/* Wait device functional blocks to power up */
+	fsleep(3 * USEC_PER_MSEC);
 	return 0;
 }
 
-static DEFINE_RUNTIME_DEV_PM_OPS(ad4052_pm_ops, ad4052_runtime_suspend,
-				 ad4052_runtime_resume, NULL);
+static DEFINE_RUNTIME_DEV_PM_OPS(ad4052_pm_ops,
+				 ad4052_runtime_suspend, ad4052_runtime_resume, NULL);
 
 static const struct spi_device_id ad4052_id_table[] = {
 	{"ad4050", (kernel_ulong_t)&ad4050_chip_info },
