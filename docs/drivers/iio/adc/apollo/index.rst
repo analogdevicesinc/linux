@@ -439,16 +439,6 @@ You can go to the device folder using:
        -r--r--r-- 1 root root 4096 Feb 11 15:17 loopback1_blend_available
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 loopback1_blend_side_a
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 loopback1_blend_side_b
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_bg_tacking_cal_run
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_cal_run
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_dt0_measurement
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_dt1_measurement
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_dt1_restore
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_fg_tacking_cal_run
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_init
-       -r--r--r-- 1 root root 4096 Feb 11 15:17 mcs_init_cal_status
-       -rw-r--r-- 1 root root 4096 Feb 11 15:17 mcs_tracking_init
-       -r--r--r-- 1 root root 4096 Feb 11 15:17 mcs_tracking_status
        -r--r--r-- 1 root root 4096 Feb 11 15:17 name
        lrwxrwxrwx 1 root root    0 Feb 11 15:17 of_node -> ../../../../../firmware/devicetree/base/fpga-axi@0/axi-ad9084-rx-hpc@a4a10000
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 out_voltage0_i_cfir_en
@@ -1450,6 +1440,170 @@ Change protocol to use, HSCI (1) or SPI (0):
    $echo 1 > hsci_enable
    $cat hsci_enable
     1
+
+MCS Calibration
+^^^^^^^^^^^^^^^
+
+Multi-Chip Synchronization (MCS) calibration is used for synchronizing multiple
+AD9088 devices. MCS calibration is performed automatically by the driver during
+initialization when the ``io-channels`` property with ``bsync`` and ``clk``
+channel references are defined in the Apollo device tree node:
+
+.. code:: dts
+
+   trx0_ad9084: ad9088@0 {
+       compatible = "adi,ad9088";
+       /* ... other properties ... */
+       io-channels = <&adf4030 5>, <&adf4382 0>;
+       io-channel-names = "bsync", "clk";
+   };
+
+When these io-channels are configured, the driver automatically performs:
+
+1. MCS initialization and delta-T measurements
+2. Initial MCS calibration
+3. Background tracking calibration setup and execution
+
+For manual control or debugging, MCS calibration attributes are also available
+through debugfs.
+
+**Available debugfs attributes:**
+
+.. shell::
+   :no-path:
+
+   $ls /sys/kernel/debug/iio/iio:device8/mcs_*
+    mcs_bg_track_cal_freeze  mcs_dt1_measurement    mcs_init
+    mcs_bg_track_cal_run     mcs_dt_restore         mcs_init_cal_status
+    mcs_cal_run              mcs_fg_track_cal_run   mcs_track_cal_setup
+    mcs_dt0_measurement      mcs_track_status
+
+**Delta-T Measurement:**
+
+- ``mcs_dt0_measurement``: Trigger delta-T0 measurement. Write ``1`` to run.
+  Read returns the measured delta-T value in picoseconds.
+
+- ``mcs_dt1_measurement``: Trigger delta-T1 measurement. Write ``1`` to run.
+  Read returns the measured delta-T value in picoseconds.
+
+- ``mcs_dt_restore``: Restore delta-T measurement. Write ``1`` to restore.
+
+**Initial Calibration:**
+
+- ``mcs_init``: Initialize MCS calibration. Write ``1`` to setup.
+
+- ``mcs_cal_run``: Run MCS initial calibration. Write ``1`` to execute.
+  Read returns ``Passed`` or ``Failed`` based on calibration status.
+
+- ``mcs_init_cal_status``: Read-only. Returns detailed initial calibration
+  status including per-side ADC and phase correction results.
+
+**Tracking Calibration:**
+
+- ``mcs_track_cal_setup``: Setup tracking calibration. Write ``1`` to configure.
+
+- ``mcs_fg_track_cal_run``: Run foreground tracking calibration. Write ``1`` to
+  execute. Foreground calibration runs once and blocks until complete.
+
+- ``mcs_bg_track_cal_run``: Control background tracking calibration.
+  Write ``1`` to start, ``0`` to abort. Read returns current run state.
+
+- ``mcs_bg_track_cal_freeze``: Freeze/unfreeze background tracking calibration.
+  Write ``1`` to freeze, ``0`` to unfreeze. Read returns current freeze state.
+  Only valid when background tracking is running.
+
+- ``mcs_track_status``: Read-only. Returns tracking calibration status including
+  iteration count, phase errors, and per-ADC correction values.
+
+**Manual MCS Calibration Sequence:**
+
+When MCS is not automatically configured via device tree io-channels, the full
+MCS calibration sequence requires coordination between the Apollo device, the
+ADF4030 SYSREF generator, and the ADF4382 clock source. The sequence involves
+delta-T measurements to calculate path delay and phase compensation.
+
+.. warning::
+
+   The BSYNC signal direction must be carefully managed to avoid bus contention.
+   Both Apollo and ADF4030 can drive this signal. The ``apollo_sysref_X_output_enable``
+   attribute controls the direction: when enabled (1), ADF4030 drives BSYNC to Apollo;
+   when disabled (0), Apollo drives BSYNC back to ADF4030 for the return path
+   measurement. Failure to sequence this correctly may result in signal contention
+   and incorrect measurements.
+
+The following example shows the complete MCS sequence for a single Apollo device
+(device index 0). In a multi-device system, repeat this sequence for each device.
+
+.. code:: shell
+
+   # Set paths for Apollo, ADF4030, and ADF4382
+   APOLLO=/sys/kernel/debug/iio/iio:deviceX
+   ADF4030=/sys/bus/iio/devices/iio:deviceY
+   ADF4382=/sys/bus/iio/devices/iio:deviceZ
+
+   # Step 1: Enable SYSREF output and initialize MCS
+   echo 1 > $ADF4030/apollo_sysref_0_output_enable
+   echo 1 > $APOLLO/mcs_init
+
+   # Step 2: Delta-T0 measurement (with SYSREF enabled)
+   echo 1 > $APOLLO/mcs_dt0_measurement
+   apollo_delta_t0=$(cat $APOLLO/mcs_dt0_measurement)
+   adf4030_delta_t0=$(cat $ADF4030/apollo_sysref_0_phase)
+
+   # Step 3: Disable SYSREF output for Delta-T1 measurement
+   echo 0 > $ADF4030/apollo_sysref_0_output_enable
+
+   # Step 4: Delta-T1 measurement (Apollo driving BSYNC back to ADF4030)
+   echo 1 > $APOLLO/mcs_dt1_measurement
+   apollo_delta_t1=$(cat $APOLLO/mcs_dt1_measurement)
+   adf4030_delta_t1=$(cat $ADF4030/apollo_sysref_0_phase)
+
+   # Step 5: Restore delta-T state
+   echo 1 > $APOLLO/mcs_dt_restore
+
+   # Step 6: Calculate path delay (values in femtoseconds)
+   # bsync_period = 1e15 / sysref_frequency
+   # calc_delay = (adf4030_delta_t0 - adf4030_delta_t1) - (apollo_delta_t1 - apollo_delta_t0)
+   # round_trip_delay = (calc_delay + bsync_period) % bsync_period
+   # path_delay = round_trip_delay / 2
+
+   # Step 7: Re-enable SYSREF and apply phase compensation
+   echo 1 > $ADF4030/apollo_sysref_0_output_enable
+   echo -$path_delay > $ADF4030/apollo_sysref_0_phase
+
+   # Step 8: Run MCS initial calibration
+   echo 1 > $APOLLO/mcs_cal_run
+   cat $APOLLO/mcs_cal_run  # Should show "Passed"
+
+   # Step 9: Setup tracking calibration
+   echo 1 > $APOLLO/mcs_track_cal_setup
+
+   # Step 10: Configure ADF4382 auto-align
+   echo 1 > $ADF4382/out_altvoltage0_en_auto_align
+   echo -250 > $ADF4382/out_altvoltage0_phase
+
+   # Step 11: Run foreground tracking calibration, then start background tracking
+   echo 1 > $APOLLO/mcs_fg_track_cal_run
+   echo 1 > $APOLLO/mcs_bg_track_cal_run
+
+   # Step 12: Verify calibration status
+   cat $APOLLO/mcs_init_cal_status
+   cat $APOLLO/mcs_track_status
+
+**Checking Calibration Status:**
+
+.. shell::
+   :no-path:
+
+   $cat mcs_init_cal_status
+   $cat mcs_track_status
+
+**Stopping Background Tracking Calibration:**
+
+.. shell::
+   :no-path:
+
+   $echo 0 > mcs_bg_track_cal_run
 
 .. _calibration data management:
 
