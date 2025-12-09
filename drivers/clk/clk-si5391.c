@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Driver for Silicon Labs Si5340, Si5341, Si5342, Si5344 and Si5345
+ * Driver for Silicon Labs Si5341 and Si5391
  * Copyright (C) 2019 Topic Embedded Products
  * Author: Mike Looijmans <mike.looijmans@topic.nl>
  *
  * The Si5341 has 10 outputs and 5 synthesizers.
- * The Si5340 is a smaller version of the Si5341 with only 4 outputs.
  * The Si5345 is similar to the Si5341, with the addition of fractional input
  * dividers and automatic input selection.
- * The Si5342 and Si5344 are smaller versions of the Si5345.
  */
 
 #include <linux/clk.h>
@@ -26,18 +24,10 @@
 #define SI5341_NUM_INPUTS 4
 #define SI5391_NUM_INPUTS 4
 
-#define SI5340_MAX_NUM_OUTPUTS 4
 #define SI5341_MAX_NUM_OUTPUTS 10
-#define SI5342_MAX_NUM_OUTPUTS 2
-#define SI5344_MAX_NUM_OUTPUTS 4
-#define SI5345_MAX_NUM_OUTPUTS 10
 #define SI5391_MAX_NUM_OUTPUTS 12
 
-#define SI5340_NUM_SYNTH 4
 #define SI5341_NUM_SYNTH 5
-#define SI5342_NUM_SYNTH 2
-#define SI5344_NUM_SYNTH 4
-#define SI5345_NUM_SYNTH 5
 #define SI5391_NUM_SYNTH 5
 
 /* Range of the synthesizer fractional divider */
@@ -180,7 +170,6 @@ static const char * const si5341_input_clock_names[] = {
 };
 
 /* Output configuration registers 0..9 are not quite logically organized */
-/* Also for si5345 */
 static const u16 si5341_reg_output_offset[] = {
 	0x0108,
 	0x010D,
@@ -207,14 +196,6 @@ static const u16 si5391_reg_output_offset[] = {
 	0x0130,
 	0x0135,
 	0x013A,
-};
-
-/* for si5340, si5342 and si5344 */
-static const u16 si5340_reg_output_offset[] = {
-	0x0112,
-	0x0117,
-	0x0126,
-	0x012B,
 };
 
 /* The location of the R divider registers */
@@ -245,12 +226,6 @@ static const u16 si5391_reg_rdiv_offset[] = {
 	0x0262,
 	0x0265,
 	0x0268,
-};
-static const u16 si5340_reg_rdiv_offset[] = {
-	0x0250,
-	0x0253,
-	0x025C,
-	0x025F,
 };
 
 /*
@@ -1318,39 +1293,15 @@ static int si5341_probe_chip_id(struct clk_si5341 *data)
 	dev_info(&data->i2c_client->dev, "Chip: %x Grade: %u Rev: %u\n",
 		 model, reg[2], reg[3]);
 
+	//case 0x5341:
+	//	data->num_outputs = SI5341_MAX_NUM_OUTPUTS;
+	//	data->num_synth = SI5341_NUM_SYNTH;
+	//	data->reg_output_offset = si5341_reg_output_offset;
+	//	data->reg_rdiv_offset = si5341_reg_rdiv_offset;
+	//	pr_err("\n si5341: %s: 3: max num outputs=%d, num synth=%d, reg output offset=%d. reg rdiv offset=%d\n",
+	//			__FUNCTION__, data->num_outputs, data->num_synth, data->reg_output_offset, data->reg_rdiv_offset);
+	//	break;
 	switch (model) {
-	case 0x5340:
-		data->num_outputs = SI5340_MAX_NUM_OUTPUTS;
-		data->num_synth = SI5340_NUM_SYNTH;
-		data->reg_output_offset = si5340_reg_output_offset;
-		data->reg_rdiv_offset = si5340_reg_rdiv_offset;
-		break;
-	case 0x5341:
-		data->num_outputs = SI5341_MAX_NUM_OUTPUTS;
-		data->num_synth = SI5341_NUM_SYNTH;
-		data->reg_output_offset = si5341_reg_output_offset;
-		data->reg_rdiv_offset = si5341_reg_rdiv_offset;
-		pr_err("\n si5341: %s: 3: max num outputs=%d, num synth=%d, reg output offset=%d. reg rdiv offset=%d\n",
-				__FUNCTION__, data->num_outputs, data->num_synth, data->reg_output_offset, data->reg_rdiv_offset);
-		break;
-	case 0x5342:
-		data->num_outputs = SI5342_MAX_NUM_OUTPUTS;
-		data->num_synth = SI5342_NUM_SYNTH;
-		data->reg_output_offset = si5340_reg_output_offset;
-		data->reg_rdiv_offset = si5340_reg_rdiv_offset;
-		break;
-	case 0x5344:
-		data->num_outputs = SI5344_MAX_NUM_OUTPUTS;
-		data->num_synth = SI5344_NUM_SYNTH;
-		data->reg_output_offset = si5340_reg_output_offset;
-		data->reg_rdiv_offset = si5340_reg_rdiv_offset;
-		break;
-	case 0x5345:
-		data->num_outputs = SI5345_MAX_NUM_OUTPUTS;
-		data->num_synth = SI5345_NUM_SYNTH;
-		data->reg_output_offset = si5341_reg_output_offset;
-		data->reg_rdiv_offset = si5341_reg_rdiv_offset;
-		break;
 	case 0x5391:
 		data->num_outputs = SI5391_MAX_NUM_OUTPUTS;
 		data->num_synth = SI5391_NUM_SYNTH;
@@ -1441,11 +1392,6 @@ static const struct si5341_reg_default si5341_preamble[] = {
 	{ 0x0B4E, 0x1A },
 };
 
-static const struct si5341_reg_default si5345_preamble[] = {
-	{ 0x0B25, 0x00 },
-	{ 0x0540, 0x01 },
-};
-
 static int si5341_send_preamble(struct clk_si5341 *data)
 {
 	int res;
@@ -1462,10 +1408,7 @@ static int si5341_send_preamble(struct clk_si5341 *data)
 		return res;
 
 	/* The si5342..si5345 require a different preamble */
-	if (data->chip_id > 0x5341 && data->chip_id != 0x5391)
-		res = si5341_write_multiple(data,
-			si5345_preamble, ARRAY_SIZE(si5345_preamble));
-	else
+	if (data->chip_id == 0x5341 || data->chip_id == 0x5391)
 		res = si5341_write_multiple(data,
 			si5341_preamble, ARRAY_SIZE(si5341_preamble));
 	if (res < 0)
@@ -1497,13 +1440,6 @@ static int si5341_finalize_defaults(struct clk_si5341 *data)
 	res = regmap_write(data->regmap, SI5341_SOFT_RST, 0x01);
 	if (res < 0)
 		return res;
-
-	/* The si5342..si5345 have an additional post-amble */
-	if (data->chip_id > 0x5341 && data->chip_id != 0x5391) {
-		res = regmap_write(data->regmap, 0x540, 0x0);
-		if (res < 0)
-			return res;
-	}
 
 	/* Datasheet does not explain these nameless registers */
 	res = regmap_write(data->regmap, 0xB24, revision < 2 ? 0xDB : 0xC3);
@@ -2182,22 +2118,14 @@ static void si5341_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id si5341_id[] = {
-	{ "si5340", 0 },
 	{ "si5341", 1 },
-	{ "si5342", 2 },
-	{ "si5344", 4 },
-	{ "si5345", 5 },
 	{ "si5391", 6 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, si5341_id);
 
 static const struct of_device_id clk_si5341_of_match[] = {
-	{ .compatible = "silabs,si5340" },
 	{ .compatible = "silabs,si5341" },
-	{ .compatible = "silabs,si5342" },
-	{ .compatible = "silabs,si5344" },
-	{ .compatible = "silabs,si5345" },
 	{ .compatible = "silabs,si5391" },
 	{ }
 };
