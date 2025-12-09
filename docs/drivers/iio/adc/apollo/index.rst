@@ -1580,20 +1580,26 @@ Or from user space through `gpiod <https://git.kernel.org/pub/scm/libs/libgpiod/
 Debug system
 ^^^^^^^^^^^^
 
-An additional debug provided through debugfs:
+An additional debug interface is provided through debugfs:
 
 .. shell::
 
    $cd /sys/kernel/debug/iio/iio\:device8 ; pwd
     /sys/kernel/debug/iio/iio:device8
+   $ls
+    api_version                 jrx_phase_adjust_calc       mcs_fg_track_cal_run
+    bist_2d_eyescan_jrx         jtx_lane_drive_swing        mcs_init
+    bist_prbs_error_counters_jrx jtx_lane_post_emphasis     mcs_init_cal_status
+    bist_prbs_select_jrx        jtx_lane_pre_emphasis       mcs_track_cal_setup
+    bist_prbs_select_jtx        mcs_bg_track_cal_freeze     mcs_track_status
+    chip_version                mcs_bg_track_cal_run        misc
+    clk_pwr_stat                mcs_cal_run                 pseudorandom_err_check
+    die_id                      mcs_dt0_measurement         status
+    direct_reg_access           mcs_dt1_measurement         temperature_status
+    hsci_enable                 mcs_dt_restore              uuid
 
-Read API version:
-
-.. shell::
-   :no-path:
-
-   $cat api_version
-    0.4.40
+JESD204 Link Status
+^^^^^^^^^^^^^^^^^^^
 
 Get link statuses:
 
@@ -1634,16 +1640,22 @@ Get link statuses:
     JTX ADI_APOLLO_LINK_B0: JESD204C Subclass=1 L=4 M=4 F=2 S=1 Np=16 CS=0 link_en=Enabled
         PLL locked, PHASE established, MODE valid
 
-Change protocol to use, HSCI (1) or SPI (0):
+Communication Protocol
+^^^^^^^^^^^^^^^^^^^^^^
+
+- ``hsci_enable``: Select communication protocol for register access.
+
+  | ``0``: SPI protocol
+  | ``1``: HSCI protocol (High-Speed Communication Interface)
 
 .. shell::
    :no-path:
 
    $cat hsci_enable
-    0
-   $echo 1 > hsci_enable
-   $cat hsci_enable
     1
+   $echo 0 > hsci_enable
+   $cat hsci_enable
+    0
 
 MCS Calibration
 ^^^^^^^^^^^^^^^
@@ -1808,6 +1820,272 @@ The following example shows the complete MCS sequence for a single Apollo device
    :no-path:
 
    $echo 0 > mcs_bg_track_cal_run
+
+Device Information
+^^^^^^^^^^^^^^^^^^
+
+Attributes for reading device identification and version information.
+
+- ``api_version``: Read the Apollo API version.
+
+  .. shell::
+     :no-path:
+
+     $cat api_version
+      1.10.0
+
+- ``chip_version``: Read chip version, revision, and grade.
+
+  .. shell::
+     :no-path:
+
+     $cat chip_version
+      AD9084 Rev. 4 Grade 3
+
+- ``die_id``: Read the die identification number.
+
+  .. shell::
+     :no-path:
+
+     $cat die_id
+      DieID 9
+
+- ``uuid``: Read the unique device identifier (128-bit).
+
+  .. shell::
+     :no-path:
+
+     $cat uuid
+      334d0b28248a328c8e4abc27eb592153
+
+Temperature Monitoring
+^^^^^^^^^^^^^^^^^^^^^^
+
+- ``temperature_status``: Read detailed temperature measurements from all
+  on-chip thermal sensors.
+
+  .. shell::
+     :no-path:
+
+     $cat temperature_status
+      TMU (deg C): serdes_pll=47 mpu_a=52 mpu_b=53 adc_a=58 clk_a=51 adc_b=61 clk_b=53 clk_c=51 (avg: 53, avg mask: 0x01fe)
+
+  The output shows temperatures in degrees Celsius for:
+
+  * ``serdes_pll``: SERDES PLL temperature
+  * ``mpu_a/mpu_b``: Microprocessor unit A/B temperatures
+  * ``adc_a/adc_b``: ADC A/B temperatures
+  * ``clk_a/clk_b/clk_c``: Clock domain temperatures
+  * ``avg``: Averaged temperature
+  * ``avg mask``: Bitmask indicating which sensors are included in the average
+
+Clock Power Status
+^^^^^^^^^^^^^^^^^^
+
+- ``clk_pwr_stat``: Read clock input power detection status.
+
+  .. shell::
+     :no-path:
+
+     $cat clk_pwr_stat
+      Clock input power detection A: GOOD
+      Clock input power detection B: UNUSED
+
+  Status values: ``GOOD``, ``UNUSED``, or power-related status indicators.
+
+JESD204 BIST (Built-In Self-Test)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The BIST subsystem provides PRBS (Pseudo-Random Binary Sequence) testing
+for JESD204 link integrity verification.
+
+**PRBS Pattern Selection:**
+
+- ``bist_prbs_select_jrx``: Select PRBS pattern for JRX (receive) testing.
+  Write the PRBS polynomial order to enable, or 0 to disable.
+
+  | ``0``: Disable PRBS checker
+  | ``7``: PRBS7 pattern
+  | ``9``: PRBS9 pattern
+  | ``15``: PRBS15 pattern
+  | ``31``: PRBS31 pattern
+
+  .. shell::
+     :no-path:
+
+     # Enable PRBS7 checker
+     $echo 7 > bist_prbs_select_jrx
+     # Disable PRBS checker
+     $echo 0 > bist_prbs_select_jrx
+
+- ``bist_prbs_select_jtx``: Select PRBS pattern for JTX (transmit) testing.
+  Write the PRBS polynomial order to enable, or 0 to disable.
+
+  | ``0``: Disable PRBS generator
+  | ``7``: PRBS7 pattern
+  | ``9``: PRBS9 pattern
+  | ``15``: PRBS15 pattern
+  | ``31``: PRBS31 pattern
+
+  .. shell::
+     :no-path:
+
+     # Enable PRBS31 generator
+     $echo 31 > bist_prbs_select_jtx
+
+**PRBS Error Counters:**
+
+- ``bist_prbs_error_counters_jrx``: Read PRBS error counters for all JRX lanes.
+  Shows errors/total for each active lane. Read-only.
+
+  .. shell::
+     :no-path:
+
+     $cat bist_prbs_error_counters_jrx
+      A: lane-5 0/0
+      A: lane-1 0/0
+      A: lane-3 0/0
+      A: lane-7 0/0
+      B: lane-1 0/0
+      B: lane-7 0/0
+      B: lane-10 0/0
+      B: lane-3 0/0
+
+**JESD Eye Scan:**
+
+- ``bist_2d_eyescan_jrx``: Trigger a 2D eye scan for JRX SERDES lanes.
+  Write lane parameters to initiate the scan; read returns eye diagram data.
+
+  Write format: ``<lane> [prbs] [duration_ms]``
+
+  | ``lane``: Physical lane number (0-23, where 0-11 is side A, 12-23 is side B)
+  | ``prbs``: PRBS pattern (7, 9, 15, or 31). Default: 7
+  | ``duration_ms``: Measurement duration in milliseconds. Default: 10
+
+  .. shell::
+     :no-path:
+
+     # Scan lane 1 with PRBS7
+     $echo 1 > bist_2d_eyescan_jrx
+     # Scan lane 5 with PRBS31 and 100ms duration
+     $echo "5 31 100" > bist_2d_eyescan_jrx
+     $cat bist_2d_eyescan_jrx
+      # lane 5 spo_steps 16 rate 24750000 spo_left 12 spo_right 12 version 1
+      -16,100,-100
+      -15,104,-104
+      ...
+
+JTX Lane Configuration
+^^^^^^^^^^^^^^^^^^^^^^
+
+Configure JESD204 transmit lane signal integrity parameters. Each attribute
+takes three space-separated values: ``<link_side_mask> <lane> <value>``.
+
+**Link side mask values:**
+
+| ``1``: Side A only (ADI_APOLLO_LINK_SIDE_A)
+| ``4``: Side B only (ADI_APOLLO_LINK_SIDE_B)
+| ``5``: Both sides (ADI_APOLLO_LINK_SIDE_ALL)
+
+**Lane number:** Physical lane index 0-11 (per side).
+
+- ``jtx_lane_drive_swing``: Set the output drive swing level for JTX lanes.
+
+  | ``0``: 1000 mV swing (ADI_APOLLO_SER_SWING_1000)
+  | ``1``: 850 mV swing (ADI_APOLLO_SER_SWING_850)
+  | ``2``: 750 mV swing (ADI_APOLLO_SER_SWING_750)
+  | ``3``: 500 mV swing (ADI_APOLLO_SER_SWING_500)
+
+  .. shell::
+     :no-path:
+
+     # Set lane 3 on both sides to 850mV swing
+     $echo "5 3 1" > jtx_lane_drive_swing
+
+- ``jtx_lane_pre_emphasis``: Set pre-emphasis for JTX lanes to compensate
+  for high-frequency signal loss.
+
+  | ``0``: 0 dB pre-emphasis (ADI_APOLLO_SER_PRE_EMP_0DB)
+  | ``1``: 3 dB pre-emphasis (ADI_APOLLO_SER_PRE_EMP_3DB)
+  | ``2``: 6 dB pre-emphasis (ADI_APOLLO_SER_PRE_EMP_6DB)
+
+  .. shell::
+     :no-path:
+
+     # Set lane 5 on side A to 3dB pre-emphasis
+     $echo "1 5 1" > jtx_lane_pre_emphasis
+
+- ``jtx_lane_post_emphasis``: Set post-emphasis (de-emphasis) for JTX lanes.
+
+  | ``0``: 0 dB post-emphasis (ADI_APOLLO_SER_POST_EMP_0DB)
+  | ``1``: 3 dB post-emphasis (ADI_APOLLO_SER_POST_EMP_3DB)
+  | ``2``: 6 dB post-emphasis (ADI_APOLLO_SER_POST_EMP_6DB)
+  | ``3``: 9 dB post-emphasis (ADI_APOLLO_SER_POST_EMP_9DB)
+  | ``4``: 12 dB post-emphasis (ADI_APOLLO_SER_POST_EMP_12DB)
+
+  .. shell::
+     :no-path:
+
+     # Set lane 7 on side B to 6dB post-emphasis
+     $echo "4 7 2" > jtx_lane_post_emphasis
+
+JRX Phase Adjustment
+^^^^^^^^^^^^^^^^^^^^
+
+- ``jrx_phase_adjust_calc``: Trigger JRX phase adjustment calculation for
+  JESD204 link synchronization. Write any value to trigger calculation;
+  read returns the calculated phase adjustment value.
+
+Pseudorandom Error Check
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+- ``pseudorandom_err_check``: Read the pseudorandom number (PN) sequence
+  checker status for all digital channels. Used to verify data path integrity.
+
+  .. shell::
+     :no-path:
+
+     $cat pseudorandom_err_check
+      CH0 : PN9 : Out of Sync : PN Error
+      CH1 : PN9 : Out of Sync : PN Error
+      CH2 : PN9 : Out of Sync : PN Error
+      CH3 : PN9 : Out of Sync : PN Error
+      CH4 : PN9 : Out of Sync : PN Error
+      CH5 : PN9 : Out of Sync : PN Error
+      CH6 : PN9 : Out of Sync : PN Error
+      CH7 : PN9 : Out of Sync : PN Error
+      CH8 : UNDEF : In Sync : PN Error
+      CH9 : UNDEF : In Sync : PN Error
+      CH10 : UNDEF : In Sync : PN Error
+      CH11 : UNDEF : In Sync : PN Error
+      CH12 : UNDEF : In Sync : PN Error
+      CH13 : UNDEF : In Sync : PN Error
+      CH14 : UNDEF : In Sync : PN Error
+      CH15 : UNDEF : In Sync : PN Error
+      CH16 : UNDEF : In Sync : PN Error
+
+  Each line shows:
+
+  * Channel number (CHx)
+  * PN sequence type (PN9, PN23, UNDEF, etc.)
+  * Sync status (In Sync / Out of Sync)
+  * Error status (PN Error / OK)
+
+Miscellaneous
+^^^^^^^^^^^^^
+
+- ``misc``: General-purpose miscellaneous register for debug operations.
+
+- ``direct_reg_access``: Standard IIO debugfs attribute for direct SPI
+  register read/write access. Useful for low-level debugging.
+
+  .. shell::
+     :no-path:
+
+     # Read register 0xF0
+     $echo 0xF0 > direct_reg_access
+     $cat direct_reg_access
+      0xF0
 
 .. _calibration data management:
 
