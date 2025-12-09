@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/edac/adi,adrv906x-ddrc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADI ADRV906X EDAC
+
+maintainers:
+  - Xin Xu <xin.xu@analog.com>
+
+description: Binding for ADRV906X EDAC Interface Using SMC Calls
+
+properties:
+  compatible:
+    items:
+      - const: adi,adrv906x-ddrc
+
+  reg:
+    items:
+      - description: ddr_ctl base register address and range
+
+  panic_on_ue:
+    type: boolean
+    description: reboot system on UE DDR ECC error if this node exists
+
+  interrupts:
+    items:
+      - description: CE interrupt
+      - description: UE interrupt
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    mc: memory-controller@202b0000 {
+        compatible = "adi,adrv906x-ddrc";
+        reg = <0x202b0000 0x30000>;
+        panic_on_ue;
+        interrupt-parent = <&gic>;
+        interrupts = <0 143 0x4>, <0 145 0x4>;
+    };

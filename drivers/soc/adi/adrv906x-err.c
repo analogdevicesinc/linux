@@ -45,9 +45,9 @@ static int reset_cause;
 
 static int wr_reset_cause(enum reset_cause_t cause)
 {
-	void *io;
+	void __iomem *io;
 
-	io = memremap(A55_SYS_CFG + SCRATCH_NS + RESET_CAUSE_NS_OFFSET, SZ_4K, MEMREMAP_WT);
+	io = (void __iomem *)memremap(A55_SYS_CFG + SCRATCH_NS + RESET_CAUSE_NS_OFFSET, SZ_4K, MEMREMAP_WT);
 
 	if (!io) {
 		pr_err("Unable to map to virtual address\n");
@@ -61,9 +61,9 @@ static int wr_reset_cause(enum reset_cause_t cause)
 
 static int rd_reset_cause(void)
 {
-	void *io;
+	void __iomem *io;
 
-	io = memremap(A55_SYS_CFG + SCRATCH_NS + RESET_CAUSE_NS_OFFSET, SZ_4K, MEMREMAP_WT);
+	io = (void __iomem *)memremap(A55_SYS_CFG + SCRATCH_NS + RESET_CAUSE_NS_OFFSET, SZ_4K, MEMREMAP_WT);
 
 	if (!io) {
 		pr_err("Unable to map to virtual address\n");
@@ -77,6 +77,8 @@ static int plat_panic_handler(struct notifier_block *nb, unsigned long reason, v
 {
 	if (strcmp(arg, "dm-verity device corrupted") == 0)
 		wr_reset_cause(IMG_VERIFY_FAIL);
+	else if (strcmp(arg, "uncorrectable dram ecc error") == 0)
+		wr_reset_cause(DRAM_ECC_ERROR);
 	else
 		wr_reset_cause(OTHER_RESET_CAUSE);
 

@@ -564,5 +564,16 @@ config EDAC_VERSAL
 	  Support injecting both correctable and uncorrectable errors
 	  for debugging purposes.
 
+config EDAC_ADRV906X
+	tristate "ADI ADRV906X DDR Memory Controller"
+	depends on ARCH_ADRV906X
+	help
+	  Support for error detection and correction on the ADI ADRV906X DDR
+	  memory controller (based on Synopsys DDR memory controller).
+
+	  Report both single bit errors (CE) and double bit errors (UE).
+	  Support injecting both correctable and uncorrectable errors
+	  for debugging purposes.
+
 
 endif # EDAC
