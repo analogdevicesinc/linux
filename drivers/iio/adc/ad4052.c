@@ -416,11 +416,13 @@ static ssize_t sampling_frequency_available_show(struct device *dev,
 						 char *buf)
 {
 	struct ad4052_state *st = iio_priv(dev_to_iio_dev(dev));
+	const u8 offset = AD4052_FS_OFFSET(st->chip->grade);
+	const u8 len = AD4052_FS_LEN(st->chip->grade);
 	int ret = 0;
 
-	for (u8 i = AD4052_FS_OFFSET(st->chip->grade); i < AD4052_FS_LEN(st->chip->grade); i++)
+	for (u8 i = offset; i < offset + len; i++)
 		ret += sysfs_emit_at(buf, ret, "%d%s", ad4052_conversion_freqs[i],
-				     i != (AD4052_FS_LEN(st->chip->grade) - 1) ? " " : "\n");
+				     i != (offset + len - 1) ? " " : "\n");
 	return ret;
 }
 
@@ -556,7 +558,7 @@ static int ad4052_update_xfer_offload(struct iio_dev *indio_dev,
 	xfer->bits_per_word = scan_type->realbits;
 	xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 	xfer->len = spi_bpw_to_bytes(scan_type->realbits);
-	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vref_uV);
+	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uV);
 
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
 	st->offload_msg.offload = st->offload;
@@ -786,15 +788,15 @@ static int ad4052_set_sampling_frequency_offload(struct ad4052_state *st, int va
 	if (val2 != 0)
 		return -EINVAL;
 
-	if (!in_range(freq, start, AD4052_MAX_RATE(st->chip->grade)))
+	if (!in_range(val, start, AD4052_MAX_RATE(st->chip->grade)))
 		return -EINVAL;
 
 	max_samp_freq = ad4052_calc_sampling_frequency(AD4052_MAX_RATE(st->chip->grade),
 						       st->oversamp_ratio);
-	if (freq > max_samp_freq)
+	if (val > max_samp_freq)
 		return -EINVAL;
 
-	st->pwm_st.period = DIV_ROUND_UP_ULL(NSEC_PER_SEC, freq);
+	st->pwm_st.period = DIV_ROUND_UP_ULL(NSEC_PER_SEC, val);
 	return pwm_apply_might_sleep(st->cnv_pwm, &st->pwm_st);
 }
 
