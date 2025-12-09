@@ -50,6 +50,7 @@ struct ipu6_isys_csi2 {
 	u32 legacy_irq_mask;
 	unsigned int phy_mode;
 	u32 streaming_vc;
+	u64 stream_ids;
 };
 
 struct ipu6_isys_csi2_timing {
