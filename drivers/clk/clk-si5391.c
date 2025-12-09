@@ -1266,7 +1266,7 @@ static int si5391_probe_chip_id(struct clk_si5391 *data)
 		data->num_synth = SI5391_NUM_SYNTH;
 		data->reg_output_offset = si5391_reg_output_offset;
 		data->reg_rdiv_offset = si5391_reg_rdiv_offset;
-		pr_err("\n si5391: %s: max num outputs=%d, num synth=%d, reg output offset=%d. reg rdiv offset=%d\n",
+		pr_err("\n si5391: %s: max num outputs=%d, num synth=%d, reg output offset=%p. reg rdiv offset=%p\n",
 				__FUNCTION__, data->num_outputs, data->num_synth, data->reg_output_offset, data->reg_rdiv_offset);
 		break;
 	default:
@@ -1872,10 +1872,10 @@ static int si5391_probe(struct i2c_client *client)
 	} else {
 		err = si5391_is_programmed_already(data);
 		if (err < 0) {
-			pr_err("\n si5391: %s: %d: not programmed\n", __FUNCTION__, __LINE__);
+			pr_err("\n si5391: %s: %d: not reprogrammed\n", __FUNCTION__, __LINE__);
 			goto cleanup;
 		}
-		pr_err("\n si5391: %s: %d: programmed\n", __FUNCTION__, __LINE__);
+		pr_err("\n si5391: %s: %d: reprogrammed\n", __FUNCTION__, __LINE__);
 
 		initialization_required = !err;
 	}
@@ -1925,10 +1925,11 @@ static int si5391_probe(struct i2c_client *client)
 			pr_err("\n si5391: %s: %d: ERROR clk select active input\n", __FUNCTION__, __LINE__);
 			goto cleanup;
 		}
-		pr_err("\n si5391: %s: %d: initialization done\n", __FUNCTION__, __LINE__);
+		pr_err("\n si5391: %s: %d: pll configuration done\n", __FUNCTION__, __LINE__);
 	}
 
 	/* Register the PLL */
+	pr_err("\n si5391: %s: %d: init.name=%s\n", __FUNCTION__, __LINE__, init.name);
 	init.parent_names = data->input_clk_name;
 	init.num_parents = SI5391_NUM_INPUTS;
 	init.ops = &si5391_clk_ops;
@@ -1942,34 +1943,46 @@ static int si5391_probe(struct i2c_client *client)
 	}
 	pr_err("\n si5391: %s: %d: clock registration done\n", __FUNCTION__, __LINE__);
 
+	/* Clear init pointer after registration - critical to avoid conflicts */
+	data->hw.init = NULL;
+
 	init.num_parents = 1;
 	init.parent_names = &root_clock_name;
 	init.ops = &si5391_synth_clk_ops;
+	init.flags = 0;
+	pr_err("\n si5391: %s: %d: data->num_synth=%d\n", __FUNCTION__, __LINE__, data->num_synth);
 	for (i = 0; i < data->num_synth; ++i) {
 		synth_clock_names[i] = devm_kasprintf(&client->dev, GFP_KERNEL,
-				"%s.N%u", client->dev.of_node->name, i);
+				"%s_N%u", client->dev.of_node->name, i);
 		if (!synth_clock_names[i]) {
 			err = -ENOMEM;
 			goto free_clk_names;
 		}
+		pr_err("\n si5391: %s: %d: synth[%d] name='%s', parent='%s', node_name='%s'\n",
+			__FUNCTION__, __LINE__, i, synth_clock_names[i], root_clock_name, client->dev.of_node->name);
 		init.name = synth_clock_names[i];
 		data->synth[i].index = i;
 		data->synth[i].data = data;
 		data->synth[i].hw.init = &init;
+		pr_err("\n si5391: %s: %d: About to register synth[%d], init.name=%s, hw=%p\n",
+			__FUNCTION__, __LINE__, i, init.name, &data->synth[i].hw);
 		err = devm_clk_hw_register(&client->dev, &data->synth[i].hw);
 		if (err) {
 			dev_err(&client->dev,
 				"synth N%u registration failed\n", i);
 			goto free_clk_names;
 		}
+		/* Clear init pointer after registration */
+		data->synth[i].hw.init = NULL;
 		pr_err("\n si5391: %s: %d: input clock registration done i=%d\n", __FUNCTION__, __LINE__, i);
 	}
 
 	init.num_parents = data->num_synth;
 	init.parent_names = synth_clock_names;
 	init.ops = &si5391_output_clk_ops;
+	pr_err("\n si5391: %s: %d: data->num_outputs=%d\n", __FUNCTION__, __LINE__, data->num_outputs);
 	for (i = 0; i < data->num_outputs; ++i) {
-		init.name = kasprintf(GFP_KERNEL, "%s.%d",
+		init.name = kasprintf(GFP_KERNEL, "%s_out%d",
 			client->dev.of_node->name, i);
 		if (!init.name) {
 			err = -ENOMEM;
@@ -1998,6 +2011,8 @@ static int si5391_probe(struct i2c_client *client)
 				"output %u registration failed\n", i);
 			goto free_clk_names;
 		}
+		/* Clear init pointer after registration */
+		data->clk[i].hw.init = NULL;
 		if (config[i].always_on)
 			clk_prepare(data->clk[i].hw.clk);
 		pr_err("\n si5391: %s: %d: output clock registration done i=%d\n", __FUNCTION__, __LINE__, i);
@@ -2021,7 +2036,7 @@ static int si5391_probe(struct i2c_client *client)
 		err = si5391_finalize_defaults(data);
 		if (err < 0)
 			goto free_clk_names;
-		pr_err("\n si5391: %s: %d: initialization done\n", __FUNCTION__, __LINE__);
+		pr_err("\n si5391: %s: %d: initialization sync done\n", __FUNCTION__, __LINE__);
 	}
 
 	/* wait for device to report input clock present and PLL lock */

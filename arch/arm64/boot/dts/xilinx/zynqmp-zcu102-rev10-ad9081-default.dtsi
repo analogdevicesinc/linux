@@ -34,12 +34,12 @@
 				#clock-cells = <2>;
 				#address-cells = <1>;
 				#size-cells = <0>;
-				clocks = <&ref48>;
+				clocks = <&ref54>;
 				clock-names = "xtal";
-				clock-output-names = "si5391_ref";
+				clock-output-names = "si5391";
 
-				//silabs,pll-m-num = <14400>; /* PLL at 14.0 GHz */
-				//silabs,pll-m-den = <48>;
+				silabs,pll-m-num = <7000>; /* PLL at 14.0 GHz with 54MHz input */
+				silabs,pll-m-den = <27>;    /* 54MHz * (7000/27) = 14.0 GHz */
 				//silabs,reprogram; /* Chips are not programmed, always reset */
 				//silabs,xaxb-ext-clk; /*When present, indicates that the XA/XB pins are used in EXTCLK (external reference clock) rather than XTAL (crystal) mode.*/
 				si5391_out8: out@8 {
@@ -95,7 +95,6 @@
 			clock-frequency = <200000000>;
 			clock-output-names = "fixed_200";
 		};
-
 	};
 
 	fpga_axi: fpga-axi@0 {
