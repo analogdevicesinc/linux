@@ -1529,6 +1529,176 @@ Then hop to the desired frequency writing the index to
 
 The trigger mode is configured via ``in_voltageX_[i|q]_ffh_cnco_mode``.
 
+.. _apollo bmem:
+
+Buffer Memory (BMEM) Interface
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The AD9088 contains on-chip buffer memory (BMEM) that can be used for data
+capture and playback. The driver exposes a separate IIO device for BMEM
+operations, named ``ad9088-bmem`` (or with a device-specific label suffix).
+
+**Overview:**
+
+* 128KB SRAM per BMEM instance (32K 32-bit words)
+* 8 BMEM instances in 8T8R mode (A0-A3, B0-B3), 4 in 4T4R mode (A0-A1, B0-B1)
+* Supports sample delay configuration for data path alignment
+* Supports frequency hopping delay profiles
+
+**IIO Device Registration:**
+
+The BMEM interface registers as a separate IIO device with channels corresponding
+to each ADC path:
+
+* 8T8R mode: 8 channels (0-3 for Side A, 4-7 for Side B)
+* 4T4R mode: 4 channels (0-1 for Side A, 2-3 for Side B)
+
+.. shell::
+
+   $ls /sys/bus/iio/devices/
+    iio:device8    # Main AD9088 device
+    iio:device9    # BMEM device (ad9088-bmem or <label>-bmem)
+
+**Channel Attributes:**
+
+Each BMEM channel exposes the following sysfs attributes:
+
+.. shell::
+
+   $ls /sys/bus/iio/devices/iio:device9/
+    buffer/
+    in_voltage0_delay_hop_array
+    in_voltage0_delay_hop_parity_check_en
+    in_voltage0_delay_hop_sel_mode
+    in_voltage0_delay_hop_trig_sclr_en
+    in_voltage0_delay_sample
+    in_voltage0_delay_sample_config_value
+    in_voltage0_delay_sample_parity_check_en
+    in_voltage0_delay_start
+    in_voltage0_sampling_frequency
+    ...
+    scan_elements/
+
+BMEM Channel Attributes
++++++++++++++++++++++++
+
+**Sample Delay Configuration:**
+
+- ``in_voltageX_delay_sample``: Set the sample delay value directly. This is a
+  simplified interface for setting the delay without other configuration options.
+
+  | Range: 0-65535 (16-bit)
+  | Default: 0
+
+  .. shell::
+     :no-path:
+
+     # Set 100 sample delay on channel 0
+     $echo 100 > in_voltage0_delay_sample
+     $cat in_voltage0_delay_sample
+      100
+
+- ``in_voltageX_delay_sample_config_value``: Set the sample delay value through
+  the full configuration structure. Updates the delay and applies parity settings.
+
+  | Range: 0-65535 (16-bit)
+  | Default: 0
+
+- ``in_voltageX_delay_sample_parity_check_en``: Enable or disable parity checking
+  for sample delay mode.
+
+  | ``0``: Disable parity check
+  | ``1``: Enable parity check (default)
+
+**Frequency Hopping Delay Configuration:**
+
+For fast frequency hopping applications, BMEM supports 4 delay profiles that
+can be cycled through or selected via GPIO.
+
+- ``in_voltageX_delay_hop_array``: Configure all 4 delay hop profiles at once.
+  Write 4 space-separated values (one per profile).
+
+  | Format: ``<delay0> <delay1> <delay2> <delay3>``
+  | Range per value: 0-65535 (16-bit)
+  | Default: ``0 0 0 0``
+
+  .. shell::
+     :no-path:
+
+     # Set hop delay profiles: 0, 100, 200, 300
+     $echo "0 100 200 300" > in_voltage0_delay_hop_array
+     $cat in_voltage0_delay_hop_array
+      0 100 200 300
+
+- ``in_voltageX_delay_hop_sel_mode``: Select how hop profiles are chosen.
+
+  | ``0``: Cycle through profiles sequentially (0→1→2→3→0...)
+  | ``1``: GPIO selects next profile
+  | Default: 0
+
+- ``in_voltageX_delay_hop_trig_sclr_en``: Enable trigger mode self-clear.
+  When enabled, the trigger automatically clears after activation.
+
+  | ``0``: Disable self-clear
+  | ``1``: Enable self-clear (default)
+
+- ``in_voltageX_delay_hop_parity_check_en``: Enable or disable parity checking
+  for hop delay mode.
+
+  | ``0``: Disable parity check
+  | ``1``: Enable parity check (default)
+
+- ``in_voltageX_delay_start``: Trigger the delay operation for this channel's
+  BMEM. Write ``1`` to start the delay operation. Read always returns ``0``.
+
+  .. shell::
+     :no-path:
+
+     # Trigger delay start on channel 0
+     $echo 1 > in_voltage0_delay_start
+
+**Sampling Frequency:**
+
+- ``in_voltageX_sampling_frequency``: Read the ADC sampling rate for this
+  channel (read-only). Value is in Hz.
+
+  .. shell::
+     :no-path:
+
+     $cat in_voltage0_sampling_frequency
+      2949120000
+
+BMEM Buffer Operations
+++++++++++++++++++++++
+
+The BMEM device supports IIO buffer operations for capturing ADC samples.
+
+**Enabling Capture:**
+
+.. shell::
+   :no-path:
+
+   # Enable channels for capture
+   $echo 1 > /sys/bus/iio/devices/iio:device9/scan_elements/in_voltage0_en
+   $echo 1 > /sys/bus/iio/devices/iio:device9/scan_elements/in_voltage1_en
+
+   # Set buffer length (samples per channel)
+   $echo 8192 > /sys/bus/iio/devices/iio:device9/buffer/length
+
+   # Enable buffer to start capture
+   $echo 1 > /sys/bus/iio/devices/iio:device9/buffer/enable
+
+   # Read captured data
+   $cat /dev/iio:device9 > captured_data.bin
+
+   # Disable buffer
+   $echo 0 > /sys/bus/iio/devices/iio:device9/buffer/enable
+
+**Data Format:**
+
+Captured samples are 16-bit signed values in little-endian format. When multiple
+channels are enabled, samples are interleaved in channel order.
+
 .. _apollo gpio:
 
 GPIOs & GPIO chip
