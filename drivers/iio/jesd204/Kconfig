@@ -10,6 +10,12 @@ config AXI_ADXCVR
 	depends on COMMON_CLK
 	select XILINX_TRANSCEIVER
 
+config AXI_FSRC_SEQUENCER
+	tristate "Analog Devices AXI FSRC Sequencer Support"
+	help
+	  This driver allows to inject and remove invalid frames
+	  from a stream.
+
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
 	depends on COMMON_CLK
