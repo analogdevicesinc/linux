@@ -468,10 +468,23 @@ static int ad5791_offload_setup(struct iio_dev *indio_dev)
 	return devm_spi_optimize_message(&spi->dev, st->spi, &st->offload_msg);
 }
 
+static int ad5791_debugfs_reg_access(struct iio_dev *indio_dev,
+				     unsigned int reg, unsigned int writeval,
+				     unsigned int *readval)
+{
+	struct ad5791_state *st = iio_priv(indio_dev);
+
+	if (readval)
+		return ad5791_spi_read(st, reg, readval);
+
+	return ad5791_spi_write(st, reg, writeval);
+}
+
 static const struct iio_info ad5791_info = {
 	.read_raw = &ad5791_read_raw,
 	.write_raw = &ad5791_write_raw,
 	.write_raw_get_fmt = &ad5791_write_raw_get_fmt,
+	.debugfs_reg_access = ad5791_debugfs_reg_access,
 };
 
 static const struct spi_offload_config ad5791_offload_config = {
