@@ -19,6 +19,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/math.h>
+#include <linux/debugfs.h>
 
 #define REG_SCRATCH				0x08
 
@@ -206,6 +207,7 @@ static ssize_t axi_fsrc_ext_read(struct iio_dev *indio_dev,
 			if (!st->addr[AXI_FSRC_TX])
 				return -ENODEV;
 			return sprintf(buf, "%x\n", st->tx_active);
+
 		case AXI_FSRC_TX_RATIO_SET:
 			return sprintf(buf, "%u %u\n", st->n, st->m);
 		default:
@@ -304,15 +306,14 @@ static int axi_fsrc_write_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
-static int axi_fsrc_debugfs_reg_access(struct iio_dev *indio_dev,
-				       unsigned reg, unsigned writeval,
-				       unsigned *readval)
+static int axi_fsrc_debugfs_reg_access(struct iio_dev *indio_dev, unsigned reg,
+				       unsigned writeval, unsigned *readval)
 {
 	struct axi_fsrc *st = iio_priv(indio_dev);
 	u8 addr = reg >> 16;
 
-	reg &= GENMASK(15,0);
-	if (addr > ARRAY_SIZE(st->addr) || (reg & GENMASK(1,0)))
+	reg &= GENMASK(15, 0);
+	if (addr > ARRAY_SIZE(st->addr) || (reg & GENMASK(1, 0)))
 		return -EINVAL;
 	if (!st->addr[addr])
 		return -ENODEV;
@@ -447,6 +448,80 @@ static int axi_fsrc_init(struct axi_fsrc *st)
 	return 0;
 }
 
+static int axi_fsrc_accum_add_val_get(void *arg, u64 *val)
+{
+	struct axi_fsrc *st = arg;
+	u32 val_l, val_h;
+
+	if (!st->addr[AXI_FSRC_TX])
+		return -ENODEV;
+
+	val_l = axi_fsrc_read(st->addr[AXI_FSRC_TX], REG_ACCUM_ADD_VAL_L);
+	val_h = axi_fsrc_read(st->addr[AXI_FSRC_TX], REG_ACCUM_ADD_VAL_H);
+	*val = ((u64)val_h << 32) | val_l;
+
+	return 0;
+}
+
+static int axi_fsrc_accum_add_val_set(void *arg, u64 val)
+{
+	struct axi_fsrc *st = arg;
+
+	if (!st->addr[AXI_FSRC_TX])
+		return -ENODEV;
+
+	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_ADD_VAL_L, (u32)val);
+	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_ADD_VAL_H, val >> 32);
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(axi_fsrc_accum_add_val_fops, axi_fsrc_accum_add_val_get,
+			 axi_fsrc_accum_add_val_set, "0x%016llx\n");
+
+static int axi_fsrc_accum_set_val_get(void *arg, u64 *val)
+{
+	struct axi_fsrc *st = arg;
+	u32 val_l, val_h;
+
+	if (!st->addr[AXI_FSRC_TX])
+		return -ENODEV;
+
+	val_l = axi_fsrc_read(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_L);
+	val_h = axi_fsrc_read(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_H);
+	*val = ((u64)val_h << 32) | val_l;
+
+	return 0;
+}
+
+static int axi_fsrc_accum_set_val_set(void *arg, u64 val)
+{
+	struct axi_fsrc *st = arg;
+
+	if (!st->addr[AXI_FSRC_TX])
+		return -ENODEV;
+
+	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_L, (u32)val);
+	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_H, val >> 32);
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(axi_fsrc_accum_set_val_fops, axi_fsrc_accum_set_val_get,
+			 axi_fsrc_accum_set_val_set, "0x%016llx\n");
+
+static int axi_fsrc_ctrl_transmit_set(void *arg, u64 val)
+{
+	struct axi_fsrc *st = arg;
+
+	if (!st->addr[AXI_FSRC_TX])
+		return -ENODEV;
+
+	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CTRL_TRANSMIT, (u32)val);
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(axi_fsrc_ctrl_transmit_fops, NULL,
+			 axi_fsrc_ctrl_transmit_set, "0x%08llx\n");
+
 static int axi_fsrc_sequencer_probe(struct platform_device *pdev)
 {
 	const struct axi_fsrc_sequencer_info *info;
@@ -512,7 +587,23 @@ static int axi_fsrc_sequencer_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	return devm_iio_device_register(&pdev->dev, indio_dev);;
+	platform_set_drvdata(pdev, indio_dev);
+
+	ret = devm_iio_device_register(&pdev->dev, indio_dev);
+	if (ret)
+		return ret;
+
+	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
+	if (d) {
+		debugfs_create_file("accum_add_val", 0644, d, st,
+				    &axi_fsrc_accum_add_val_fops);
+		debugfs_create_file("accum_set_val", 0644, d, st,
+				    &axi_fsrc_accum_set_val_fops);
+		debugfs_create_file("ctrl_transmit", 0244, d, st,
+				    &axi_fsrc_ctrl_transmit_fops);
+	}
+
+	return 0;
 }
 
 static struct platform_driver axi_fsrc_sequencer = {
@@ -524,6 +615,6 @@ static struct platform_driver axi_fsrc_sequencer = {
 };
 module_platform_driver(axi_fsrc_sequencer);
 
-MODULE_AUTHOR("Me <me@analog.com>");
+MODULE_AUTHOR("Jorge Marques <jorge.marques@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AXI FSRC Sequencer device driver");
 MODULE_LICENSE("GPL v2");
