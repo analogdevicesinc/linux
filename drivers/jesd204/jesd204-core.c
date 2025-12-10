@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/property.h>
 #include <linux/slab.h>
@@ -725,6 +726,7 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 
 		jdev = &jdev_top->jdev;
 
+		mutex_init(&jdev_top->fsm_lock);
 		jdev_top->topo_id = topo_id;
 		jdev_top->num_links = ret;
 		for (i = 0; i < jdev_top->num_links; i++)
@@ -1177,6 +1179,7 @@ static void jesd204_of_unregister_devices(void)
 		}
 		jdev_top = jesd204_dev_top_dev(jdev);
 		list_del(&jdev_top->entry);
+		mutex_destroy(&jdev_top->fsm_lock);
 		kfree(jdev_top);
 		jesd204_topologies_count--;
 	}
