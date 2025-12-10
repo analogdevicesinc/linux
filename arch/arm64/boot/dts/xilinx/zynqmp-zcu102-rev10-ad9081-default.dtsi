@@ -38,8 +38,8 @@
 				clock-names = "xtal";
 				clock-output-names = "si5391";
 
-				silabs,pll-m-num = <7000>; /* PLL at 14.0 GHz with 54MHz input */
-				silabs,pll-m-den = <27>;    /* 54MHz * (7000/27) = 14.0 GHz */
+				silabs,pll-m-num = <8000>; /* PLL at 14.4 GHz with 54MHz input */
+				silabs,pll-m-den = <30>;    /* 54MHz * (8000/30) = 14.4 GHz = 266.666... ratio */
 				//silabs,reprogram; /* Chips are not programmed, always reset */
 				//silabs,xaxb-ext-clk; /*When present, indicates that the XA/XB pins are used in EXTCLK (external reference clock) rather than XTAL (crystal) mode.*/
 				/*
@@ -52,8 +52,8 @@
 				 * OUT5 is index 6
 				 * OUT6 is index 7
 				 * OUT7 is index 8
-				 * OUT8 is index 9
-				 * OUT9 is index 10
+				 * OUT8 is index 9 - FMCB
+				 * OUT9 is index 10 - FMCA
 				 * OUT9A is index 11
 				 */
 				si5391_out8: out@9 {
@@ -198,7 +198,7 @@
 			#size-cells = <0>;
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
-			// 0 - means i'm using output (1 - means synthesizer), and 8 is out8 <&si5391_refclk 0 8>
+			// 0 - means i'm using output (1 - means synthesizer), and 9 is out8 <&si5391_refclk 0 9>
 			clocks = <&si5391_refclk 0 9>, <&rx_out_clk_div2_100>;
 			clock-names = "conv", "div40";
 
@@ -214,7 +214,7 @@
 			#size-cells = <0>;
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84b60000 0x1000>;
-			// 0 - means i'm using output (1 - means synthesizer), and 8 is out8
+			// 0 - means i'm using output (1 - means synthesizer), and 9 is out8
 			clocks = <&si5391_refclk 0 9>, <&tx_out_clk_div2_100>;
 			clock-names = "conv", "div40";
 
