@@ -57,9 +57,9 @@ ad9088_drv-y += public/src/adi_apollo_startup.o
 
 obj-$(CONFIG_AD9088) += ad9088_drv.o
 
-ccflags-y += -I$(srctree)/$(src)/public/inc/ \
-	-I$(srctree)/$(src)/private/inc/ \
-	-I$(srctree)/$(src)/adi_inc/ \
-	-I$(srctree)/$(src)/adi_utils/inc/
+ccflags-y += -I$(src)/public/inc/ \
+	-I$(src)/private/inc/ \
+	-I$(src)/adi_inc/ \
+	-I$(src)/adi_utils/inc/
 
-ccflags-y += -DB0 -I$(srctree)/$(src)/private/inc/bitfields/b0/
+ccflags-y += -DB0 -I$(src)/private/inc/bitfields/b0/
