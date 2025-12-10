@@ -14,6 +14,13 @@
 
 #define JESD204_FSM_BUSY	BIT(0)
 
+/*
+ * Internal error code used to signal that the current FSM state doesn't match
+ * the expected state during validation. This is distinct from standard errno
+ * values to allow special handling (e.g., skipping states during resume).
+ * The value 9000 is chosen to be well outside the range of standard errno
+ * values (typically 1-4095) to avoid conflicts.
+ */
 #define EINVALID_STATE		9000
 
 typedef int (*jesd204_fsm_cb)(struct jesd204_dev *jdev,
