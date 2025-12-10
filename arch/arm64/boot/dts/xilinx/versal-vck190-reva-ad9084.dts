@@ -14,8 +14,8 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/jesd204/adxcvr.h>
 
-#define WITH_AXI_AION_TRIG 0
-#define WITH_FSRC 0
+#define WITH_AXI_AION_TRIG 1
+#define WITH_FSRC 1
 
 #define fmc_spi spi0
 
