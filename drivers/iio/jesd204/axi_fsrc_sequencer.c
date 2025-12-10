@@ -82,8 +82,8 @@ struct axi_fsrc {
 	bool tx_enable;
 	bool tx_active;
 	u8 accum_width;
-	u8 m;
-	u8 n;
+	u32 m;
+	u32 n;
 	u8 en_mask;
 };
 
@@ -163,6 +163,9 @@ static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u64 n, const u64 m)
 	const u64 one_fixed = 1ULL << st->accum_width;
 	const u64 ratio_fixed = mul_u64_u64_div_u64(one_fixed, n, m);
 
+	if (m > BIT(32) - 1 || n > BIT(32) - 1)
+		return -EINVAL;
+
 	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CONV_MASK, (u32)REG_CONV_MASK_MASK);
 	for (int i = 0; i <= 15; i++) {
 		val = ((~ratio_fixed + 1) + (i * ratio_fixed));
@@ -223,7 +226,7 @@ static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
 				  const char *buf, size_t len)
 {
 	struct axi_fsrc *st = iio_priv(indio_dev);
-	u32 n = 0, m = 0;
+	unsigned int n = 0, m = 0;
 	bool enable;
 	int size, ret = 0;
 
