@@ -141,6 +141,11 @@ bool jesd204_link_get_paused(const struct jesd204_link *lnk)
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_paused);
 
+/**
+ * jesd204_device_count_get() - Get the total number of registered JESD204 devices
+ *
+ * Return: The current count of registered JESD204 devices in the framework.
+ */
 int jesd204_device_count_get(void)
 {
 	return jesd204_device_count;
@@ -433,6 +438,19 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_lmfc_lemc_rate);
 
+/**
+ * jesd204_dev_get_topology_top_dev() - Get the top-level device for a JESD204 topology
+ * @jdev: Pointer to a JESD204 device within the topology
+ *
+ * This function finds and returns the top-level device (typically ADC, DAC,
+ * or transceiver) for the JESD204 topology that contains the given device.
+ * If the device itself is a top-level device, it returns that directly.
+ * Otherwise, it searches through all topologies to find where this device
+ * has connections.
+ *
+ * Return: Pointer to the top-level jesd204_dev_top structure, or NULL if
+ *         the device doesn't belong to any topology.
+ */
 struct jesd204_dev_top *jesd204_dev_get_topology_top_dev(struct jesd204_dev *jdev)
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
@@ -627,6 +645,17 @@ static void __jesd204_printk(const char *level, const struct jesd204_dev *jdev,
 			vaf);
 }
 
+/**
+ * jesd204_printk() - Print a kernel message for a JESD204 device
+ * @level: Kernel log level string (e.g., KERN_ERR, KERN_INFO)
+ * @jdev: Pointer to the JESD204 device structure (may be NULL)
+ * @fmt: printf-style format string
+ * @...: Arguments for the format string
+ *
+ * This function prints a kernel message with JESD204 device context.
+ * It handles NULL device pointers gracefully and includes device tree
+ * node information when available.
+ */
 void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
 		    const char *fmt, ...)
 {
