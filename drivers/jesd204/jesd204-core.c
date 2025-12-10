@@ -436,16 +436,25 @@ EXPORT_SYMBOL_GPL(jesd204_link_get_lmfc_lemc_rate);
 struct jesd204_dev_top *jesd204_dev_get_topology_top_dev(struct jesd204_dev *jdev)
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
+	struct jesd204_dev_top *found = NULL;
 
 	if (jdev_top)
 		return jdev_top;
 
-	/* FIXME: enforce that one jdev object can only be in one topology */
 	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
 		if (!jesd204_dev_has_con_in_topology(jdev, jdev_top))
 			continue;
-		return jdev_top;
+		if (found) {
+			jesd204_warn(jdev,
+				     "Device belongs to multiple topologies (%d, %d); using first\n",
+				     found->topo_id, jdev_top->topo_id);
+			break;
+		}
+		found = jdev_top;
 	}
+
+	if (found)
+		return found;
 
 	jesd204_warn(jdev, "Device isn't a top-device, nor does it belong to topology with top-device\n");
 
