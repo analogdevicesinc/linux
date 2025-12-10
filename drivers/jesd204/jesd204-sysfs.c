@@ -212,7 +212,7 @@ static ssize_t jesd204_con_printf(struct jesd204_dev *jdev,
 
 static char *str_cut_from_chr(char *s, char c)
 {
-	char *ptr = strchr(s, '_');
+	char *ptr = strchr(s, c);
 
 	if (!ptr)
 		return NULL;
