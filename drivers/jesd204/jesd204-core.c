@@ -664,6 +664,30 @@ static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
 	return 0;
 }
 
+static void jesd204_dev_free_links(struct jesd204_dev_top *jdev_top)
+{
+	unsigned int i;
+
+	if (jdev_top->active_links) {
+		for (i = 0; i < jdev_top->num_links; i++) {
+			/* Only free if not from init_links (static allocation) */
+			if (!jdev_top->init_links ||
+			    !jdev_top->init_links[i].lane_ids)
+				kfree(jdev_top->active_links[i].link.lane_ids);
+		}
+		kfree(jdev_top->active_links);
+	}
+
+	if (jdev_top->staged_links) {
+		for (i = 0; i < jdev_top->num_links; i++) {
+			if (!jdev_top->init_links ||
+			    !jdev_top->init_links[i].lane_ids)
+				kfree(jdev_top->staged_links[i].link.lane_ids);
+		}
+		kfree(jdev_top->staged_links);
+	}
+}
+
 static int jesd204_dev_init_stop_states(struct jesd204_dev *jdev,
 					struct device_node *np)
 {
@@ -1179,6 +1203,7 @@ static void jesd204_of_unregister_devices(void)
 		}
 		jdev_top = jesd204_dev_top_dev(jdev);
 		list_del(&jdev_top->entry);
+		jesd204_dev_free_links(jdev_top);
 		mutex_destroy(&jdev_top->fsm_lock);
 		kfree(jdev_top);
 		jesd204_topologies_count--;
