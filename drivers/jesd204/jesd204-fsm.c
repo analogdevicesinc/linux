@@ -1179,6 +1179,9 @@ static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 
 	jesd204_fsm_handle_stop_state(jdev, link_idx, fsm_data);
 
+	if (!jdev->dev_data)
+		return JESD204_STATE_CHANGE_DONE;
+
 	state_op = &jdev->dev_data->state_ops[it->table[0].op];
 
 	if (fsm_data->rollback)
