@@ -321,7 +321,8 @@ static ssize_t jesd204_show_store_int(u64 *val, size_t usize,
 				      size_t count, bool store, bool is_signed)
 {
 	u64 val1 = 0;
-	int ret, max;
+	u64 max;
+	int ret;
 
 	if (!store) {
 		memcpy(&val1, val, usize);
@@ -331,7 +332,7 @@ static ssize_t jesd204_show_store_int(u64 *val, size_t usize,
 	}
 
 	if (is_signed)
-		ret = kstrtoll(rbuf, 0, &val1);
+		ret = kstrtoll(rbuf, 0, (s64 *)&val1);
 	else
 		ret = kstrtoull(rbuf, 0, &val1);
 	if (ret)
@@ -339,13 +340,13 @@ static ssize_t jesd204_show_store_int(u64 *val, size_t usize,
 
 	switch (usize) {
 	case 1:
-		max = 0xff;
+		max = U8_MAX;
 		break;
 	case 2:
-		max = 0xffff;
+		max = U16_MAX;
 		break;
 	case 4:
-		max = 0xffffffff;
+		max = U32_MAX;
 		break;
 	case 8:
 		max = 0;
