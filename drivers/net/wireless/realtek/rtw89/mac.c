@@ -1441,6 +1441,23 @@ void rtw89_mac_notify_wake(struct rtw89_dev *rtwdev)
 	rtw89_mac_send_rpwm(rtwdev, state, true);
 }
 
+static void rtw89_mac_power_switch_boot_mode(struct rtw89_dev *rtwdev)
+{
+	u32 boot_mode;
+
+	if (rtwdev->hci.type != RTW89_HCI_TYPE_USB)
+		return;
+
+	boot_mode = rtw89_read32_mask(rtwdev, R_AX_GPIO_MUXCFG, B_AX_BOOT_MODE);
+	if (!boot_mode)
+		return;
+
+	rtw89_write32_clr(rtwdev, R_AX_SYS_PW_CTRL, B_AX_APFN_ONMAC);
+	rtw89_write32_clr(rtwdev, R_AX_SYS_STATUS1, B_AX_AUTO_WLPON);
+	rtw89_write32_clr(rtwdev, R_AX_GPIO_MUXCFG, B_AX_BOOT_MODE);
+	rtw89_write32_clr(rtwdev, R_AX_RSV_CTRL, B_AX_R_DIS_PRST);
+}
+
 static int rtw89_mac_power_switch(struct rtw89_dev *rtwdev, bool on)
 {
 #define PWR_ACT 1
@@ -1449,6 +1466,8 @@ static int rtw89_mac_power_switch(struct rtw89_dev *rtwdev, bool on)
 	int (*cfg_func)(struct rtw89_dev *rtwdev);
 	int ret;
 	u8 val;
+
+	rtw89_mac_power_switch_boot_mode(rtwdev);
 
 	if (on) {
 		cfg_seq = chip->pwr_on_seq;
@@ -5513,12 +5532,11 @@ void rtw89_mac_c2h_handle(struct rtw89_dev *rtwdev, struct sk_buff *skb,
 	case RTW89_MAC_C2H_CLASS_FWDBG:
 		return;
 	default:
-		rtw89_info(rtwdev, "MAC c2h class %d not support\n", class);
-		return;
+		break;
 	}
 	if (!handler) {
-		rtw89_info(rtwdev, "MAC c2h class %d func %d not support\n", class,
-			   func);
+		rtw89_info_once(rtwdev, "MAC c2h class %d func %d not support\n",
+				class, func);
 		return;
 	}
 	handler(rtwdev, skb, len);

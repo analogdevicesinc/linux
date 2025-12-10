@@ -174,8 +174,10 @@ static int data_reloc_print_warning_inode(u64 inum, u64 offset, u64 num_bytes,
 		return ret;
 	}
 	ret = paths_from_inode(inum, ipath);
-	if (ret < 0)
+	if (ret < 0) {
+		btrfs_put_root(local_root);
 		goto err;
+	}
 
 	/*
 	 * We deliberately ignore the bit ipath might have been too small to
@@ -3174,9 +3176,10 @@ int btrfs_finish_one_ordered(struct btrfs_ordered_extent *ordered_extent)
 		goto out;
 	}
 
-	if (btrfs_is_zoned(fs_info))
-		btrfs_zone_finish_endio(fs_info, ordered_extent->disk_bytenr,
-					ordered_extent->disk_num_bytes);
+	ret = btrfs_zone_finish_endio(fs_info, ordered_extent->disk_bytenr,
+				      ordered_extent->disk_num_bytes);
+	if (ret)
+		goto out;
 
 	if (test_bit(BTRFS_ORDERED_TRUNCATED, &ordered_extent->flags)) {
 		truncated = true;
@@ -5634,7 +5637,17 @@ static void btrfs_del_inode_from_root(struct btrfs_inode *inode)
 	bool empty = false;
 
 	xa_lock(&root->inodes);
-	entry = __xa_erase(&root->inodes, btrfs_ino(inode));
+	/*
+	 * This btrfs_inode is being freed and has already been unhashed at this
+	 * point. It's possible that another btrfs_inode has already been
+	 * allocated for the same inode and inserted itself into the root, so
+	 * don't delete it in that case.
+	 *
+	 * Note that this shouldn't need to allocate memory, so the gfp flags
+	 * don't really matter.
+	 */
+	entry = __xa_cmpxchg(&root->inodes, btrfs_ino(inode), inode, NULL,
+			     GFP_ATOMIC);
 	if (entry == inode)
 		empty = xa_empty(&root->inodes);
 	xa_unlock(&root->inodes);
@@ -7767,6 +7780,7 @@ struct inode *btrfs_alloc_inode(struct super_block *sb)
 	ei->last_sub_trans = 0;
 	ei->logged_trans = 0;
 	ei->delalloc_bytes = 0;
+	/* new_delalloc_bytes and last_dir_index_offset are in a union. */
 	ei->new_delalloc_bytes = 0;
 	ei->defrag_bytes = 0;
 	ei->disk_i_size = 0;

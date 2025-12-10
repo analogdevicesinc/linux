@@ -3406,9 +3406,12 @@ struct rtw89_phy_rate_pattern {
 	bool enable;
 };
 
+#define RTW89_TX_WAIT_WORK_TIMEOUT msecs_to_jiffies(500)
 struct rtw89_tx_wait_info {
 	struct rcu_head rcu_head;
+	struct list_head list;
 	struct completion completion;
+	struct sk_buff *skb;
 	bool tx_done;
 };
 
@@ -4388,17 +4391,23 @@ struct rtw89_completion_data {
 	u8 buf[RTW89_COMPLETION_BUF_SIZE];
 };
 
-struct rtw89_wait_info {
-	atomic_t cond;
+struct rtw89_wait_response {
+	struct rcu_head rcu_head;
 	struct completion completion;
 	struct rtw89_completion_data data;
+};
+
+struct rtw89_wait_info {
+	atomic_t cond;
+	struct rtw89_completion_data data;
+	struct rtw89_wait_response __rcu *resp;
 };
 
 #define RTW89_WAIT_FOR_COND_TIMEOUT msecs_to_jiffies(100)
 
 static inline void rtw89_init_wait(struct rtw89_wait_info *wait)
 {
-	init_completion(&wait->completion);
+	rcu_assign_pointer(wait->resp, NULL);
 	atomic_set(&wait->cond, RTW89_WAIT_COND_IDLE);
 }
 
@@ -5539,6 +5548,9 @@ struct rtw89_dev {
 	/* used to protect rpwm */
 	spinlock_t rpwm_lock;
 
+	struct list_head tx_waits;
+	struct wiphy_delayed_work tx_wait_work;
+
 	struct rtw89_cam_info cam_info;
 
 	struct sk_buff_head c2h_queue;
@@ -5735,6 +5747,26 @@ u8 rtw89_sta_link_inst_get_index(struct rtw89_sta_link *rtwsta_link)
 	return rtwsta_link - rtwsta->links_inst;
 }
 
+static inline void rtw89_tx_wait_release(struct rtw89_tx_wait_info *wait)
+{
+	dev_kfree_skb_any(wait->skb);
+	kfree_rcu(wait, rcu_head);
+}
+
+static inline void rtw89_tx_wait_list_clear(struct rtw89_dev *rtwdev)
+{
+	struct rtw89_tx_wait_info *wait, *tmp;
+
+	lockdep_assert_wiphy(rtwdev->hw->wiphy);
+
+	list_for_each_entry_safe(wait, tmp, &rtwdev->tx_waits, list) {
+		if (!completion_done(&wait->completion))
+			continue;
+		list_del(&wait->list);
+		rtw89_tx_wait_release(wait);
+	}
+}
+
 static inline int rtw89_hci_tx_write(struct rtw89_dev *rtwdev,
 				     struct rtw89_core_tx_request *tx_req)
 {
@@ -5744,6 +5776,7 @@ static inline int rtw89_hci_tx_write(struct rtw89_dev *rtwdev,
 static inline void rtw89_hci_reset(struct rtw89_dev *rtwdev)
 {
 	rtwdev->hci.ops->reset(rtwdev);
+	rtw89_tx_wait_list_clear(rtwdev);
 }
 
 static inline int rtw89_hci_start(struct rtw89_dev *rtwdev)
@@ -6745,11 +6778,12 @@ static inline struct sk_buff *rtw89_alloc_skb_for_rx(struct rtw89_dev *rtwdev,
 	return dev_alloc_skb(length);
 }
 
-static inline void rtw89_core_tx_wait_complete(struct rtw89_dev *rtwdev,
+static inline bool rtw89_core_tx_wait_complete(struct rtw89_dev *rtwdev,
 					       struct rtw89_tx_skb_data *skb_data,
 					       bool tx_done)
 {
 	struct rtw89_tx_wait_info *wait;
+	bool ret = false;
 
 	rcu_read_lock();
 
@@ -6757,11 +6791,14 @@ static inline void rtw89_core_tx_wait_complete(struct rtw89_dev *rtwdev,
 	if (!wait)
 		goto out;
 
+	ret = true;
 	wait->tx_done = tx_done;
-	complete(&wait->completion);
+	/* Don't access skb anymore after completion */
+	complete_all(&wait->completion);
 
 out:
 	rcu_read_unlock();
+	return ret;
 }
 
 static inline bool rtw89_is_mlo_1_1(struct rtw89_dev *rtwdev)
@@ -6787,12 +6824,14 @@ static inline bool rtw89_is_rtl885xb(struct rtw89_dev *rtwdev)
 }
 
 int rtw89_core_tx_write(struct rtw89_dev *rtwdev, struct ieee80211_vif *vif,
-			struct ieee80211_sta *sta, struct sk_buff *skb, int *qsel);
+			struct ieee80211_sta *sta, struct sk_buff *skb, int *qsel,
+			struct rtw89_tx_wait_info *wait);
 int rtw89_h2c_tx(struct rtw89_dev *rtwdev,
 		 struct sk_buff *skb, bool fwdl);
 void rtw89_core_tx_kick_off(struct rtw89_dev *rtwdev, u8 qsel);
 int rtw89_core_tx_kick_off_and_wait(struct rtw89_dev *rtwdev, struct sk_buff *skb,
-				    int qsel, unsigned int timeout);
+				    struct rtw89_tx_wait_info *wait, int qsel,
+				    unsigned int timeout);
 void rtw89_core_fill_txdesc(struct rtw89_dev *rtwdev,
 			    struct rtw89_tx_desc_info *desc_info,
 			    void *txdesc);

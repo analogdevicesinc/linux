@@ -368,6 +368,8 @@ struct ext4_io_submit {
 #define EXT4_MAX_BLOCKS(size, offset, blkbits) \
 	((EXT4_BLOCK_ALIGN(size + offset, blkbits) >> blkbits) - (offset >> \
 								  blkbits))
+#define EXT4_B_TO_LBLK(inode, offset) \
+	(round_up((offset), i_blocksize(inode)) >> (inode)->i_blkbits)
 
 /* Translate a block number to a cluster number */
 #define EXT4_B2C(sbi, blk)	((blk) >> (sbi)->s_cluster_bits)
@@ -1821,7 +1823,8 @@ static inline int ext4_valid_inum(struct super_block *sb, unsigned long ino)
  */
 enum {
 	EXT4_MF_MNTDIR_SAMPLED,
-	EXT4_MF_FC_INELIGIBLE	/* Fast commit ineligible */
+	EXT4_MF_FC_INELIGIBLE,	/* Fast commit ineligible */
+	EXT4_MF_JOURNAL_DESTROY	/* Journal is in process of destroying */
 };
 
 static inline void ext4_set_mount_flag(struct super_block *sb, int bit)
@@ -1965,6 +1968,16 @@ static inline bool ext4_verity_in_progress(struct inode *inode)
 }
 
 #define NEXT_ORPHAN(inode) EXT4_I(inode)->i_dtime
+
+/*
+ * Check whether the inode is tracked as orphan (either in orphan file or
+ * orphan list).
+ */
+static inline bool ext4_inode_orphan_tracked(struct inode *inode)
+{
+	return ext4_test_inode_state(inode, EXT4_STATE_ORPHAN_FILE) ||
+		!list_empty(&EXT4_I(inode)->i_orphan);
+}
 
 /*
  * Codes for operating systems
@@ -3094,6 +3107,8 @@ extern struct buffer_head *ext4_sb_bread(struct super_block *sb,
 					 sector_t block, blk_opf_t op_flags);
 extern struct buffer_head *ext4_sb_bread_unmovable(struct super_block *sb,
 						   sector_t block);
+extern struct buffer_head *ext4_sb_bread_nofail(struct super_block *sb,
+						sector_t block);
 extern void ext4_read_bh_nowait(struct buffer_head *bh, blk_opf_t op_flags,
 				bh_end_io_t *end_io, bool simu_fail);
 extern int ext4_read_bh(struct buffer_head *bh, blk_opf_t op_flags,

@@ -711,6 +711,8 @@ nfs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 	struct inode *inode = d_inode(dentry);
 	struct nfs_fattr *fattr;
 	int error = 0;
+	kuid_t task_uid = current_fsuid();
+	kuid_t owner_uid = inode->i_uid;
 
 	nfs_inc_stats(inode, NFSIOS_VFSSETATTR);
 
@@ -732,9 +734,11 @@ nfs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 	if (nfs_have_delegated_mtime(inode) && attr->ia_valid & ATTR_MTIME) {
 		spin_lock(&inode->i_lock);
 		if (attr->ia_valid & ATTR_MTIME_SET) {
-			nfs_set_timestamps_to_ts(inode, attr);
-			attr->ia_valid &= ~(ATTR_MTIME|ATTR_MTIME_SET|
+			if (uid_eq(task_uid, owner_uid)) {
+				nfs_set_timestamps_to_ts(inode, attr);
+				attr->ia_valid &= ~(ATTR_MTIME|ATTR_MTIME_SET|
 						ATTR_ATIME|ATTR_ATIME_SET);
+			}
 		} else {
 			nfs_update_timestamps(inode, attr->ia_valid);
 			attr->ia_valid &= ~(ATTR_MTIME|ATTR_ATIME);
@@ -744,10 +748,12 @@ nfs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 		   attr->ia_valid & ATTR_ATIME &&
 		   !(attr->ia_valid & ATTR_MTIME)) {
 		if (attr->ia_valid & ATTR_ATIME_SET) {
-			spin_lock(&inode->i_lock);
-			nfs_set_timestamps_to_ts(inode, attr);
-			spin_unlock(&inode->i_lock);
-			attr->ia_valid &= ~(ATTR_ATIME|ATTR_ATIME_SET);
+			if (uid_eq(task_uid, owner_uid)) {
+				spin_lock(&inode->i_lock);
+				nfs_set_timestamps_to_ts(inode, attr);
+				spin_unlock(&inode->i_lock);
+				attr->ia_valid &= ~(ATTR_ATIME|ATTR_ATIME_SET);
+			}
 		} else {
 			nfs_update_delegated_atime(inode);
 			attr->ia_valid &= ~ATTR_ATIME;
@@ -761,8 +767,10 @@ nfs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 	trace_nfs_setattr_enter(inode);
 
 	/* Write all dirty data */
-	if (S_ISREG(inode->i_mode))
+	if (S_ISREG(inode->i_mode)) {
+		nfs_file_block_o_direct(NFS_I(inode));
 		nfs_sync_inode(inode);
+	}
 
 	fattr = nfs_alloc_fattr_with_label(NFS_SERVER(inode));
 	if (fattr == NULL) {

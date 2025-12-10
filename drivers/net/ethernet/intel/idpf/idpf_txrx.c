@@ -15,8 +15,28 @@ struct idpf_tx_stash {
 #define idpf_tx_buf_compl_tag(buf)	(*(u32 *)&(buf)->priv)
 LIBETH_SQE_CHECK_PRIV(u32);
 
-static bool idpf_chk_linearize(struct sk_buff *skb, unsigned int max_bufs,
-			       unsigned int count);
+/**
+ * idpf_chk_linearize - Check if skb exceeds max descriptors per packet
+ * @skb: send buffer
+ * @max_bufs: maximum scatter gather buffers for single packet
+ * @count: number of buffers this packet needs
+ *
+ * Make sure we don't exceed maximum scatter gather buffers for a single
+ * packet.
+ * TSO case has been handled earlier from idpf_features_check().
+ */
+static bool idpf_chk_linearize(const struct sk_buff *skb,
+			       unsigned int max_bufs,
+			       unsigned int count)
+{
+	if (likely(count <= max_bufs))
+		return false;
+
+	if (skb_is_gso(skb))
+		return false;
+
+	return true;
+}
 
 /**
  * idpf_buf_lifo_push - push a buffer pointer onto stack
@@ -2575,111 +2595,6 @@ int idpf_tso(struct sk_buff *skb, struct idpf_tx_offload_params *off)
 	return 1;
 }
 
-/**
- * __idpf_chk_linearize - Check skb is not using too many buffers
- * @skb: send buffer
- * @max_bufs: maximum number of buffers
- *
- * For TSO we need to count the TSO header and segment payload separately.  As
- * such we need to check cases where we have max_bufs-1 fragments or more as we
- * can potentially require max_bufs+1 DMA transactions, 1 for the TSO header, 1
- * for the segment payload in the first descriptor, and another max_buf-1 for
- * the fragments.
- */
-static bool __idpf_chk_linearize(struct sk_buff *skb, unsigned int max_bufs)
-{
-	const struct skb_shared_info *shinfo = skb_shinfo(skb);
-	const skb_frag_t *frag, *stale;
-	int nr_frags, sum;
-
-	/* no need to check if number of frags is less than max_bufs - 1 */
-	nr_frags = shinfo->nr_frags;
-	if (nr_frags < (max_bufs - 1))
-		return false;
-
-	/* We need to walk through the list and validate that each group
-	 * of max_bufs-2 fragments totals at least gso_size.
-	 */
-	nr_frags -= max_bufs - 2;
-	frag = &shinfo->frags[0];
-
-	/* Initialize size to the negative value of gso_size minus 1.  We use
-	 * this as the worst case scenario in which the frag ahead of us only
-	 * provides one byte which is why we are limited to max_bufs-2
-	 * descriptors for a single transmit as the header and previous
-	 * fragment are already consuming 2 descriptors.
-	 */
-	sum = 1 - shinfo->gso_size;
-
-	/* Add size of frags 0 through 4 to create our initial sum */
-	sum += skb_frag_size(frag++);
-	sum += skb_frag_size(frag++);
-	sum += skb_frag_size(frag++);
-	sum += skb_frag_size(frag++);
-	sum += skb_frag_size(frag++);
-
-	/* Walk through fragments adding latest fragment, testing it, and
-	 * then removing stale fragments from the sum.
-	 */
-	for (stale = &shinfo->frags[0];; stale++) {
-		int stale_size = skb_frag_size(stale);
-
-		sum += skb_frag_size(frag++);
-
-		/* The stale fragment may present us with a smaller
-		 * descriptor than the actual fragment size. To account
-		 * for that we need to remove all the data on the front and
-		 * figure out what the remainder would be in the last
-		 * descriptor associated with the fragment.
-		 */
-		if (stale_size > IDPF_TX_MAX_DESC_DATA) {
-			int align_pad = -(skb_frag_off(stale)) &
-					(IDPF_TX_MAX_READ_REQ_SIZE - 1);
-
-			sum -= align_pad;
-			stale_size -= align_pad;
-
-			do {
-				sum -= IDPF_TX_MAX_DESC_DATA_ALIGNED;
-				stale_size -= IDPF_TX_MAX_DESC_DATA_ALIGNED;
-			} while (stale_size > IDPF_TX_MAX_DESC_DATA);
-		}
-
-		/* if sum is negative we failed to make sufficient progress */
-		if (sum < 0)
-			return true;
-
-		if (!nr_frags--)
-			break;
-
-		sum -= stale_size;
-	}
-
-	return false;
-}
-
-/**
- * idpf_chk_linearize - Check if skb exceeds max descriptors per packet
- * @skb: send buffer
- * @max_bufs: maximum scatter gather buffers for single packet
- * @count: number of buffers this packet needs
- *
- * Make sure we don't exceed maximum scatter gather buffers for a single
- * packet. We have to do some special checking around the boundary (max_bufs-1)
- * if TSO is on since we need count the TSO header and payload separately.
- * E.g.: a packet with 7 fragments can require 9 DMA transactions; 1 for TSO
- * header, 1 for segment payload, and then 7 for the fragments.
- */
-static bool idpf_chk_linearize(struct sk_buff *skb, unsigned int max_bufs,
-			       unsigned int count)
-{
-	if (likely(count < max_bufs))
-		return false;
-	if (skb_is_gso(skb))
-		return __idpf_chk_linearize(skb, max_bufs);
-
-	return count > max_bufs;
-}
 
 /**
  * idpf_tx_splitq_get_ctx_desc - grab next desc and update buffer ring
@@ -3216,17 +3131,13 @@ static int idpf_rx_splitq_clean(struct idpf_rx_queue *rxq, int budget)
 		/* get the Rx desc from Rx queue based on 'next_to_clean' */
 		rx_desc = &rxq->rx[ntc].flex_adv_nic_3_wb;
 
-		/* This memory barrier is needed to keep us from reading
-		 * any other fields out of the rx_desc
-		 */
-		dma_rmb();
-
 		/* if the descriptor isn't done, no work yet to do */
 		gen_id = le16_get_bits(rx_desc->pktlen_gen_bufq_id,
 				       VIRTCHNL2_RX_FLEX_DESC_ADV_GEN_M);
-
 		if (idpf_queue_has(GEN_CHK, rxq) != gen_id)
 			break;
+
+		dma_rmb();
 
 		rxdid = FIELD_GET(VIRTCHNL2_RX_FLEX_DESC_ADV_RXDID_M,
 				  rx_desc->rxdid_ucast);
@@ -4190,9 +4101,13 @@ static void idpf_vport_intr_napi_add_all(struct idpf_vport *vport)
 int idpf_vport_intr_alloc(struct idpf_vport *vport)
 {
 	u16 txqs_per_vector, rxqs_per_vector, bufqs_per_vector;
+	struct idpf_vport_user_config_data *user_config;
 	struct idpf_q_vector *q_vector;
+	struct idpf_q_coalesce *q_coal;
 	u32 complqs_per_vector, v_idx;
+	u16 idx = vport->idx;
 
+	user_config = &vport->adapter->vport_config[idx]->user_config;
 	vport->q_vectors = kcalloc(vport->num_q_vectors,
 				   sizeof(struct idpf_q_vector), GFP_KERNEL);
 	if (!vport->q_vectors)
@@ -4210,14 +4125,15 @@ int idpf_vport_intr_alloc(struct idpf_vport *vport)
 
 	for (v_idx = 0; v_idx < vport->num_q_vectors; v_idx++) {
 		q_vector = &vport->q_vectors[v_idx];
+		q_coal = &user_config->q_coalesce[v_idx];
 		q_vector->vport = vport;
 
-		q_vector->tx_itr_value = IDPF_ITR_TX_DEF;
-		q_vector->tx_intr_mode = IDPF_ITR_DYNAMIC;
+		q_vector->tx_itr_value = q_coal->tx_coalesce_usecs;
+		q_vector->tx_intr_mode = q_coal->tx_intr_mode;
 		q_vector->tx_itr_idx = VIRTCHNL2_ITR_IDX_1;
 
-		q_vector->rx_itr_value = IDPF_ITR_RX_DEF;
-		q_vector->rx_intr_mode = IDPF_ITR_DYNAMIC;
+		q_vector->rx_itr_value = q_coal->rx_coalesce_usecs;
+		q_vector->rx_intr_mode = q_coal->rx_intr_mode;
 		q_vector->rx_itr_idx = VIRTCHNL2_ITR_IDX_0;
 
 		if (!zalloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL))

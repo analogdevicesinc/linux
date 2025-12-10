@@ -287,6 +287,9 @@ void dcn401_init_hw(struct dc *dc)
 		 */
 		struct dc_link *link = dc->links[i];
 
+		if (link->ep_type != DISPLAY_ENDPOINT_PHY)
+			continue;
+
 		link->link_enc->funcs->hw_init(link->link_enc);
 
 		/* Check for enabled DIG to identify enabled display */
@@ -1015,6 +1018,8 @@ void dcn401_enable_stream(struct pipe_ctx *pipe_ctx)
 					link_enc->transmitter - TRANSMITTER_UNIPHY_A);
 		}
 	}
+
+	link_hwss->setup_stream_attribute(pipe_ctx);
 
 	if (dc->res_pool->dccg->funcs->set_pixel_rate_div) {
 		dc->res_pool->dccg->funcs->set_pixel_rate_div(

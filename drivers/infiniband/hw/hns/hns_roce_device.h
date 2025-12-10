@@ -217,6 +217,7 @@ struct hns_roce_ucontext {
 	struct mutex		page_mutex;
 	struct hns_user_mmap_entry *db_mmap_entry;
 	u32			config;
+	u8 cq_bank_id;
 };
 
 struct hns_roce_pd {
@@ -505,6 +506,7 @@ struct hns_roce_cq_table {
 	struct hns_roce_hem_table	table;
 	struct hns_roce_bank bank[HNS_ROCE_CQ_BANK_NUM];
 	struct mutex			bank_mutex;
+	u32 ctx_num[HNS_ROCE_CQ_BANK_NUM];
 };
 
 struct hns_roce_srq_table {
@@ -856,6 +858,7 @@ struct hns_roce_caps {
 	u16		default_ceq_arm_st;
 	u8		cong_cap;
 	enum hns_roce_cong_type default_cong_type;
+	u32             max_ack_req_msg_len;
 };
 
 enum hns_roce_device_state {
@@ -1302,5 +1305,7 @@ hns_roce_user_mmap_entry_insert(struct ib_ucontext *ucontext, u64 address,
 				size_t length,
 				enum hns_roce_mmap_type mmap_type);
 bool check_sl_valid(struct hns_roce_dev *hr_dev, u8 sl);
+void hns_roce_put_cq_bankid_for_uctx(struct hns_roce_ucontext *uctx);
+void hns_roce_get_cq_bankid_for_uctx(struct hns_roce_ucontext *uctx);
 
 #endif /* _HNS_ROCE_DEVICE_H */

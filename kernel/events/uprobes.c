@@ -114,7 +114,7 @@ struct xol_area {
 
 static void uprobe_warn(struct task_struct *t, const char *msg)
 {
-	pr_warn("uprobe: %s:%d failed to %s\n", current->comm, current->pid, msg);
+	pr_warn("uprobe: %s:%d failed to %s\n", t->comm, t->pid, msg);
 }
 
 /*
@@ -2337,6 +2337,13 @@ static void handle_swbp(struct pt_regs *regs)
 		goto out;
 
 	handler_chain(uprobe, regs);
+
+	/*
+	 * If user decided to take execution elsewhere, it makes little sense
+	 * to execute the original instruction, so let's skip it.
+	 */
+	if (instruction_pointer(regs) != bp_vaddr)
+		goto out;
 
 	if (arch_uprobe_skip_sstep(&uprobe->arch, regs))
 		goto out;
