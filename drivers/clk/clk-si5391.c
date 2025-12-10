@@ -319,17 +319,17 @@ static const struct si5391_reg_default si5391_reg_defaults[] = {
 	{ 0x022D, 0x00 },
 	{ 0x022E, 0x00 },
 	{ 0x022F, 0x00 },
-	/* PLL configuration */
-	{ 0x0235, 0x00 },
-	{ 0x0236, 0x00 },
-	{ 0x0237, 0x00 },
-	{ 0x0238, 0x00 },
-	{ 0x0239, 0xC8 },
-	{ 0x023A, 0x00 },
-	{ 0x023B, 0x00 },
-	{ 0x023C, 0x00 },
-	{ 0x023D, 0x00 },
-	{ 0x023E, 0xC0 },
+	/* PLL configuration - M = 266.666... for 14.4 GHz VCO */
+	{ 0x0235, 0x00 },  /* M_NUM byte 0 (LSB) */
+	{ 0x0236, 0x00 },  /* M_NUM byte 1 */
+	{ 0x0237, 0x00 },  /* M_NUM byte 2 */
+	{ 0x0238, 0x00 },  /* M_NUM byte 3 */
+	{ 0x0239, 0xC8 },  /* M_NUM byte 4 (bits 32-39) */
+	{ 0x023A, 0x00 },  /* M_NUM byte 5 (bits 40-43) */
+	{ 0x023B, 0x00 },  /* M_DEN byte 0 (LSB) */
+	{ 0x023C, 0x00 },  /* M_DEN byte 1 */
+	{ 0x023D, 0x00 },  /* M_DEN byte 2 */
+	{ 0x023E, 0xC0 },  /* M_DEN byte 3 (MSB) */
 	/* R dividers */
 	{ 0x0247, 0x00 },
 	{ 0x0248, 0x00 },
@@ -376,18 +376,18 @@ static const struct si5391_reg_default si5391_reg_defaults[] = {
 	{ 0x0270, 0x00 },
 	{ 0x0271, 0x00 },
 	{ 0x0272, 0x00 },
-	/* N dividers */
-	{ 0x0302, 0x00 },
+	/* N dividers - N0 = 18 for 800 MHz */
+	{ 0x0302, 0x00 },  /* N0_NUM LSB */
 	{ 0x0303, 0x00 },
 	{ 0x0304, 0x00 },
 	{ 0x0305, 0x00 },
-	{ 0x0306, 0x09 },
-	{ 0x0307, 0x00 },
-	{ 0x0308, 0x00 },
+	{ 0x0306, 0x09 },  /* N0_NUM byte 4 (bits 32-39) */
+	{ 0x0307, 0x00 },  /* N0_NUM byte 5 (bits 40-43) */
+	{ 0x0308, 0x00 },  /* N0_DEN LSB */
 	{ 0x0309, 0x00 },
 	{ 0x030A, 0x00 },
-	{ 0x030B, 0x80 },
-	{ 0x030C, 0x00 },
+	{ 0x030B, 0x80 },  /* N0_DEN MSB */
+	{ 0x030C, 0x00 },  /* N0_UPDATE */
 	{ 0x030D, 0x00 },
 	{ 0x030E, 0x00 },
 	{ 0x030F, 0x00 },
@@ -1483,6 +1483,7 @@ static int si5391_initialize_pll(struct clk_si5391 *data)
 		m_den = clk_get_rate(data->input_clk[sel]) / 10;
 		m_num = 1400000000;
 	}
+	pr_err("\n si5391: %s: %d: m_num=%d, m_den=%d\n", __FUNCTION__, __LINE__, m_num, m_den);
 
 	return si5391_encode_44_32(data->regmap,
 			SI5391_PLL_M_NUM, m_num, m_den);
@@ -1774,12 +1775,12 @@ static int si5391_probe(struct i2c_client *client)
 
 	if (initialization_required) {
 		/* PLL configuration is required */
-		err = si5391_initialize_pll(data);
-		if (err < 0) {
-			pr_err("\n si5391: %s: %d: ERROR clk select active input\n", __FUNCTION__, __LINE__);
-			goto cleanup;
-		}
-		pr_err("\n si5391: %s: %d: pll configuration done\n", __FUNCTION__, __LINE__);
+		//err = si5391_initialize_pll(data);
+		//if (err < 0) {
+		//	pr_err("\n si5391: %s: %d: ERROR clk select active input\n", __FUNCTION__, __LINE__);
+		//	goto cleanup;
+		//}
+		pr_err("\n si5391: %s: %d: using default pll configuration with values calculated by ClockBuilder Pro\n", __FUNCTION__, __LINE__);
 	}
 
 	/* Register the PLL */
