@@ -1299,10 +1299,6 @@ static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
 
 	ret1 = 0;
 	ret = 0;
-	/**
-	 * FIXME: the handle_busy_flags logic needs re-visit, we should lock
-	 * here and unlock after the loop is done
-	 */
 	while (!jesd204_fsm_table_end(&it->table[0], rollback, jdev->fsm_rb_to_init)) {
 		it->table = table;
 
@@ -1413,6 +1409,8 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 	if (!jdev_top)
 		return -EFAULT;
 
+	mutex_lock(&jdev_top->fsm_lock);
+
 	memset(&data, 0, sizeof(data));
 	data.fsm_change_cb = jesd204_fsm_table_entry_cb;
 	data.fsm_complete_cb = jesd204_fsm_table_entry_done;
@@ -1441,6 +1439,8 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 		jesd204_err(jdev, "FSM completed with error %d\n", ret);
 
 	jesd204_fsm_run_finished_cb(jdev, jdev_top, link_idx, handle_busy_flags);
+
+	mutex_unlock(&jdev_top->fsm_lock);
 
 	return ret;
 }
