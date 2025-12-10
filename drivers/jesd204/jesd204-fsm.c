@@ -318,7 +318,7 @@ static int jesd204_fsm_propagate_rollback_cb_outputs(struct jesd204_dev *jdev_it
 static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 					      struct jesd204_fsm_data *fsm_data)
 {
-	int i, ret;
+	int i, ret = 0;
 
 	if (fsm_data->link_idx != JESD204_LINKS_ALL)
 		return jesd204_fsm_handle_con_cb(jdev_it, NULL,
@@ -330,7 +330,6 @@ static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 		if (ret)
 			break;
 	}
-	/* FIXME: error message here? */
 
 	return ret;
 }
