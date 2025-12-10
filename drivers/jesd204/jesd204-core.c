@@ -958,8 +958,10 @@ static int jesd204_of_create_devices(void)
 
 	for_each_node_with_property(np, "jesd204-device") {
 		jdev = jesd204_dev_alloc(np);
-		if (IS_ERR(jdev))
+		if (IS_ERR(jdev)) {
+			of_node_put(np);
 			return PTR_ERR(jdev);
+		}
 	}
 
 	list_for_each_entry(jdev, &jesd204_device_list, entry) {
