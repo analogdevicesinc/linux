@@ -320,9 +320,9 @@
 		};
 
 #if WITH_AXI_AION_TRIG
-		axi_aion_trig: axi_aion_trig@bc900000 {
+		axi_aion_trig: axi_aion_trig@bc600000 {
 			compatible = "adi,axi-aion-trig-1.0.a";
-			reg = <0xbc900000 0x1000>;
+			reg = <0xbc600000 0x1000>;
 			clocks = <&hmc7044 8>;
 			clock-names = "device_clk";
 
