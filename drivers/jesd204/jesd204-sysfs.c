@@ -308,6 +308,7 @@ static ssize_t jesd204_con_show(struct device *dev,
 			rc = jesd204_con_printf(e->jdev, ptr1, con, buf);
 			break;
 		}
+		iter_idx++;
 	}
 
 out:
