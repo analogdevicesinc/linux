@@ -377,6 +377,10 @@ static int __jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
 static int __jesd204_fsm_propagate_rollback_cb(struct jesd204_dev *jdev,
 					       struct jesd204_fsm_data *data)
 {
+	jesd204_dbg(jdev, "Rolling back from state %s to %s\n",
+		    jesd204_state_str(data->cur_state),
+		    jesd204_state_str(data->nxt_state));
+
 	jesd204_fsm_propagate_rollback_cb_top_level(jdev, data);
 	jesd204_fsm_propagate_rollback_cb_outputs(jdev, data);
 	jesd204_fsm_propagate_rollback_cb_inputs(jdev, data);
