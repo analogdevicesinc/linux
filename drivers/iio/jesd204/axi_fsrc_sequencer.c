@@ -85,6 +85,7 @@ struct axi_fsrc {
 	u32 m;
 	u32 n;
 	u8 en_mask;
+	struct dentry *debugfs;
 };
 
 enum {
@@ -119,7 +120,8 @@ static int axi_fsrc_rx_enable(struct axi_fsrc *st, bool en)
 {
 	if (!st->addr[AXI_FSRC_RX])
 		return -ENODEV;
-	axi_fsrc_write(st->addr[AXI_FSRC_RX], REG_RX_ENABLE, FIELD_PREP(REG_RX_ENABLE_ENABLE, en));
+	axi_fsrc_write(st->addr[AXI_FSRC_RX], REG_RX_ENABLE,
+		       FIELD_PREP(REG_RX_ENABLE_ENABLE, en));
 
 	return 0;
 }
@@ -185,10 +187,8 @@ static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u64 n, const u64 m)
 	return 0;
 }
 
-static ssize_t axi_fsrc_ext_read(struct iio_dev *indio_dev,
-				 uintptr_t private,
-				 const struct iio_chan_spec *chan,
-				 char *buf)
+static ssize_t axi_fsrc_ext_read(struct iio_dev *indio_dev, uintptr_t private,
+				 const struct iio_chan_spec *chan, char *buf)
 {
 	struct axi_fsrc *st = iio_priv(indio_dev);
 	unsigned long val = 0;
@@ -221,8 +221,7 @@ static ssize_t axi_fsrc_ext_read(struct iio_dev *indio_dev,
 	unreachable();
 }
 
-static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
-				  uintptr_t private,
+static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev, uintptr_t private,
 				  const struct iio_chan_spec *chan,
 				  const char *buf, size_t len)
 {
@@ -295,17 +294,15 @@ static const struct iio_chan_spec axi_fsrc_chan = {
  * REVISIT: upstream these methods are now optional.
  */
 static int axi_fsrc_read_raw(struct iio_dev *indio_dev,
-			    struct iio_chan_spec const *chan,
-			    int *val,
-			    int *val2,
-			    long mask)
+			     struct iio_chan_spec const *chan, int *val,
+			     int *val2, long mask)
 {
 	return -EINVAL;
 }
 
 static int axi_fsrc_write_raw(struct iio_dev *indio_dev,
-			     struct iio_chan_spec const *chan,
-			     int val, int val2, long mask)
+			      struct iio_chan_spec const *chan, int val,
+			      int val2, long mask)
 {
 	return -EINVAL;
 }
@@ -338,7 +335,7 @@ static const struct iio_info axi_fsrc_info = {
 
 /* Match table for of_platform binding */
 static const struct of_device_id axi_fsrc_sequencer_of_match[] = {
-	{ .compatible = "adi,axi-fsrc-sequencer", .data = &platform_bus_type},
+	{ .compatible = "adi,axi-fsrc-sequencer", .data = &platform_bus_type },
 	{ /* end of list */ }
 };
 MODULE_DEVICE_TABLE(of, axi_fsrc_sequencer_of_match);
@@ -351,7 +348,7 @@ static int axi_fsrc_sequencer_add_to_topology(struct device *dev,
 	const char tx_a[] = "adi,fsrc_tx_a";
 	const char rx[] = "adi,fsrc_rx";
 	const char tx[] = "adi,fsrc_tx";
-	const char *props[4] = {rx, tx, rx_a, tx_a};
+	const char *props[4] = { rx, tx, rx_a, tx_a };
 	bool matched = 0;
 	u32 reg[2];
 	int ret;
@@ -365,16 +362,17 @@ static int axi_fsrc_sequencer_add_to_topology(struct device *dev,
 			if (st->en_mask & BIT(i)) {
 				dev_err(&st->dev,
 					"index %d in fscr topology already allocated by %p",
-					i, st->addr[i+1]);
+					i, st->addr[i + 1]);
 				return -ENOENT;
 			}
 			if (!devm_request_mem_region(dev, reg[0], reg[1],
-						  dev_name(&st->dev))) {
-				dev_err(&st->dev, "request_mem_region failed\n");
+						     dev_name(&st->dev))) {
+				dev_err(&st->dev,
+					"request_mem_region failed\n");
 				return -ENOMEM;
 			}
-			st->addr[i+1] = devm_ioremap(dev, reg[0], reg[1]);
-			if (!st->addr[i+1]) {
+			st->addr[i + 1] = devm_ioremap(dev, reg[0], reg[1]);
+			if (!st->addr[i + 1]) {
 				dev_err(&st->dev, "ioremap failed\n");
 				return -ENOMEM;
 			}
@@ -641,7 +639,7 @@ static int axi_fsrc_sequencer_probe(struct platform_device *pdev)
 	indio_dev->num_channels = 1;
 	indio_dev->name = "axi_fsrc";
 
-	for (int i = 0 ; i < ARRAY_SIZE(st->addr); i++)
+	for (int i = 0; i < ARRAY_SIZE(st->addr); i++)
 		st->addr[i] = NULL;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -658,7 +656,7 @@ static int axi_fsrc_sequencer_probe(struct platform_device *pdev)
 	st->tx_active = false;
 	st->en_mask = 0;
 
-	for (int i = 0 ; ; i++) {
+	for (int i = 0;; i++) {
 		np_ = of_parse_phandle(np, "fsrc-topology", i);
 		if (!np_)
 			break;
