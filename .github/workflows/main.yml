@@ -15,6 +15,7 @@ jobs:
     with:
       branch: adi-6.12.0
     if: ${{ github.repository_owner == 'analogdevicesinc' }}
+
   cherry_pick_rpi:
     uses: analogdevicesinc/linux/.github/workflows/cherry-pick.yml@ci
     secrets: inherit
@@ -47,3 +48,16 @@ jobs:
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
+
+  migrate_main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Mirror to xlnx-main
+        run: |
+          git push origin HEAD:xlnx-main --force
