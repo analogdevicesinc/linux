@@ -438,5 +438,7 @@ void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
 	jesd204_printk(KERN_NOTICE, dev, fmt, ##__VA_ARGS__)
 #define jesd204_info(dev, fmt, ...)					\
 	jesd204_printk(KERN_INFO, dev, fmt, ##__VA_ARGS__)
+#define jesd204_dbg(dev, fmt, ...)					\
+	jesd204_printk(KERN_DEBUG, dev, fmt, ##__VA_ARGS__)
 
 #endif
