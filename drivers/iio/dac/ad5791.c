@@ -129,6 +129,9 @@ static int ad5791_spi_write(struct ad5791_state *st, u8 addr, u32 val)
 			      AD5791_ADDR(addr) |
 			      (val & AD5791_DAC_MASK));
 
+	dev_info(&st->spi->dev, "%s: tx: 0x%02X%02X%02X\n",
+		 __func__, st->data[0].d8[1], st->data[0].d8[2], st->data[0].d8[3]);
+
 	return spi_write(st->spi, &st->data[0].d8[1], 3);
 }
 
@@ -151,11 +154,18 @@ static int ad5791_spi_read(struct ad5791_state *st, u8 addr, u32 *val)
 
 	st->data[0].d32 = cpu_to_be32(AD5791_CMD_READ |
 			      AD5791_ADDR(addr));
+	//put_unaligned_be24(AD5791_CMD_READ | AD5791_ADDR(addr), st->data[0].d32);
+	dev_info(&st->spi->dev, "%s: tx: 0x%02X%02X%02X\n",
+		 __func__, st->data[0].d8[1], st->data[0].d8[2], st->data[0].d8[3]);
 	st->data[1].d32 = cpu_to_be32(AD5791_ADDR(AD5791_ADDR_NOOP));
+	//put_unaligned_be24(AD5791_ADDR(AD5791_ADDR_NOOP), st->data[1].d32);
 
 	ret = spi_sync_transfer(st->spi, xfers, ARRAY_SIZE(xfers));
 
 	*val = be32_to_cpu(st->data[2].d32);
+	dev_info(&st->spi->dev, "%s: rx: 0x%02X%02X%02X\n",
+		 __func__, st->data[2].d8[1], st->data[2].d8[2], st->data[2].d8[3]);
+	//*val = get_unaligned_be24(st->data[2].d32);
 
 	return ret;
 }
