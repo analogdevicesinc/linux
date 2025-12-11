@@ -27,7 +27,7 @@ _file () {
 
 check_checkpatch() {
 	export step_name="checkpatch"
-	local strategy=${strategy:-commit}
+	local strategy=${1:-commit} # or per file
 	local mail=
 	local fail=0
 	local warn=0
