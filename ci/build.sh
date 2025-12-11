@@ -151,7 +151,30 @@ check_dt_binding_check() {
 
 	python3.13 -m venv ~/venv
         source ~/venv/bin/activate
-        pip3.13 install dtschema yamllint --upgrade
+	# REVISIT
+	# Our main, rpi are broken with >= 2025.12, maybe just too old LTS, maybe an actual problem.
+	# Freeze for now, but eventually pinpoint the cause.
+	# E.g.,
+	#  make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="Documentation/devicetree/bindings/iio/adc/adi,ad4695.yaml"
+	#    SCHEMA  Documentation/devicetree/bindings/processed-schema.json
+	#  Traceback (most recent call last):
+	#    File "/home/me/.local/share/venv/dt/bin/dt-mk-schema", line 8, in <module>
+	#      sys.exit(main())
+	#               ~~~~^^
+	#    File "/home/me/.local/share/venv/dt/lib64/python3.13/site-packages/dtschema/mk_schema.py", line 28, in main
+	#      schemas = dtschema.DTValidator(args.schemas).schemas
+	#                ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+	#    File "/home/me/.local/share/venv/dt/lib64/python3.13/site-packages/dtschema/validator.py", line 399, in __init__
+	#      self.make_property_type_cache()
+	#      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+	#    File "/home/me/.local/share/venv/dt/lib64/python3.13/site-packages/dtschema/validator.py", line 524, in make_property_type_cache
+	#      self.check_duplicate_property_types()
+	#      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+	#    File "/home/me/.local/share/venv/dt/lib64/python3.13/site-packages/dtschema/validator.py", line 518, in check_duplicate_property_types
+	#      print(f"{self.schemas[sch_id]['$filename']}: {p}: multiple incompatible types: {v['type']}", file=sys.stderr)
+	#               ~~~~~~~~~~~~^^^^^^^^
+	#  KeyError: 'http://devicetree.org/schemas/crypto/fsl,sec-v4.0.yaml#'
+        pip3.13 install dtschema==2025.08 yamllint --upgrade
 
 	[[ -z "$files" ]] && return 0
 	while read file; do
