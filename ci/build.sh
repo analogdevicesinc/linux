@@ -1065,10 +1065,12 @@ set_arch () {
 }
 
 set_step_warn () {
+	[[ -z "$GITHUB_ENV" ]] && return
 	echo ; echo "step_warn_$1=true" >> "$GITHUB_ENV"
 }
 
 set_step_fail () {
+	[[ -z "$GITHUB_ENV" ]] && return
 	echo ; echo "step_fail_$1=true" >> "$GITHUB_ENV"
 }
 
