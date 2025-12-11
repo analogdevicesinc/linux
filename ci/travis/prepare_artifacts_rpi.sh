@@ -118,4 +118,25 @@ artifacts_swdownloads() {
                 -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 }
 
+#upload artifacts to Cloudsmith
+artifacts_cloudsmith() {
+	artifacts_structure
+	cd ${SOURCE_DIRECTORY}/${timestamp}
+	mv ./32bit/rpi_modules_32bit.tar.gz ./
+	mv ./64bit/rpi_modules_64bit.tar.gz ./
+	tar -C ${PWD}/32bit -czvf rpi_latest_boot_32bit.tar.gz .
+	tar -C ${PWD}/64bit -czvf rpi_latest_boot_64bit.tar.gz .
+	rm -r ./32bit
+	rm -r ./64bit
+
+	python3 ${BUILD_SOURCESDIRECTORY}/wiki-scripts/utils/cloudsmith_utils/upload_to_cloudsmith.py \
+					--repo="sdg-linux-rpi" \
+					--version="linux_rpi/${BUILD_SOURCEBRANCHNAME}/${timestamp}/" \
+					--local_path="${SOURCE_DIRECTORY}/${timestamp}" \
+					--tags="git_sha-${GIT_SHA};timestamp_${timestamp}" \
+					--token="${CLOUDSMITH_API_KEY}" \
+					--log_file="upload_to_cloudsmith.log" \
+					--no_rel_path
+}
+
 artifacts_${1}
