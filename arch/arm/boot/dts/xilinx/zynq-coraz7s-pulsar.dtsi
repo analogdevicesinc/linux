@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices Single-channel PulSAR devices
+ * Analog Devices Single-channel PulSAR series, AD4000 series, and similar devices
  *
  * hdl_project: <pulsar_adc/coraz7s>
  * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
