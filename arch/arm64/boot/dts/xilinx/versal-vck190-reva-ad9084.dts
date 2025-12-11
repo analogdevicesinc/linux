@@ -700,6 +700,8 @@
 
 		/* Indicate FPGA sequencer trig_out to Apollo GPIO trigger pins */
 		adi,fsrc-gpio-trig;
+		adi,rx-fsrc-enable;
+		adi,tx-fsrc-enable;
 
 #if WITH_AION
 #if WITH_FSRC
