@@ -88,8 +88,7 @@
 #define MAX9296A_MIPI_PHY18			(0x342)
 #define MAX9296A_MIPI_PHY18_CSI2_TX_PKT_CNT(x)	(GENMASK(3, 0) << (4 * (x)))
 
-#define MAX9296A_MIPI_PHY20			(0x342)
-#define MAX9296A_MIPI_PHY20_PHY_PKT_CNT(x)	(GENMASK(3, 0) << (4 * (x)))
+#define MAX9296A_MIPI_PHY20(x)			(0x344 + (x))
 
 #define MAX9296A_MIPI_TX3(x)			(0x403 + (x) * 0x40)
 #define MAX9296A_MIPI_TX3_DESKEW_INIT_8X32K	FIELD_PREP(GENMASK(2, 0), 0b001)
@@ -303,12 +302,11 @@ static int max9296a_log_phy_status(struct max_des *des,
 	pr_info("%s: \tcsi2_pkt_cnt: %lu\n", name,
 		field_get(MAX9296A_MIPI_PHY18_CSI2_TX_PKT_CNT(index), val));
 
-	ret = regmap_read(priv->regmap, MAX9296A_MIPI_PHY20, &val);
+	ret = regmap_read(priv->regmap, MAX9296A_MIPI_PHY20(index), &val);
 	if (ret)
 		return ret;
 
-	pr_info("%s: \tphy_pkt_cnt: %lu\n", name,
-		field_get(MAX9296A_MIPI_PHY20_PHY_PKT_CNT(index), val));
+	pr_info("%s: \tphy_pkt_cnt: %u\n", name, val);
 
 	return 0;
 }
