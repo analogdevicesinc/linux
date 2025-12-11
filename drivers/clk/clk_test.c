@@ -241,8 +241,8 @@ static void clk_test_get_rate(struct kunit *test)
  * Test that, after a call to clk_set_rate(), the rate returned by
  * clk_get_rate() matches.
  *
- * This assumes that clk_ops.determine_rate or clk_ops.round_rate won't
- * modify the requested rate, which is our case in clk_dummy_rate_ops.
+ * This assumes that clk_ops.determine_rate won't modify the requested rate,
+ * which is our case in clk_dummy_rate_ops.
  */
 static void clk_test_set_get_rate(struct kunit *test)
 {
@@ -266,8 +266,8 @@ static void clk_test_set_get_rate(struct kunit *test)
  * Test that, after several calls to clk_set_rate(), the rate returned
  * by clk_get_rate() matches the last one.
  *
- * This assumes that clk_ops.determine_rate or clk_ops.round_rate won't
- * modify the requested rate, which is our case in clk_dummy_rate_ops.
+ * This assumes that clk_ops.determine_rate won't modify the requested rate,
+ * which is our case in clk_dummy_rate_ops.
  */
 static void clk_test_set_set_get_rate(struct kunit *test)
 {
@@ -1675,8 +1675,8 @@ static void clk_range_test_set_range_set_round_rate_consistent_higher(struct kun
  * call to clk_set_rate_range(), the rate will be raised to match the
  * new minimum.
  *
- * This assumes that clk_ops.determine_rate or clk_ops.round_rate won't
- * modify the requested rate, which is our case in clk_dummy_rate_ops.
+ * This assumes that clk_ops.determine_rate won't modify the requested rate,
+ * which is our case in clk_dummy_rate_ops.
  */
 static void clk_range_test_set_range_get_rate_raised(struct kunit *test)
 {
@@ -1707,8 +1707,8 @@ static void clk_range_test_set_range_get_rate_raised(struct kunit *test)
  * call to clk_set_rate_range(), the rate will be lowered to match the
  * new maximum.
  *
- * This assumes that clk_ops.determine_rate or clk_ops.round_rate won't
- * modify the requested rate, which is our case in clk_dummy_rate_ops.
+ * This assumes that clk_ops.determine_rate won't modify the requested rate,
+ * which is our case in clk_dummy_rate_ops.
  */
 static void clk_range_test_set_range_get_rate_lowered(struct kunit *test)
 {
