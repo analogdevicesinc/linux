@@ -3,11 +3,19 @@ trigger:
 - rpi-6.6.y
 - rpi-6.12.y
 - staging-rpi/*
+- test_rpi_upload
 
 pr:
 - rpi-6.1.y
 - rpi-6.6.y
 - rpi-6.12.y
+
+resources:
+  repositories:
+    - repository: wiki-scripts
+      type: github
+      name: analogdevicesinc/wiki-scripts
+      endpoint: analogdevicesinc
 
 stages:
 - stage: Builds
@@ -79,43 +87,64 @@ stages:
     SOURCE_DIRECTORY: $(Build.SourcesDirectory)/bin
     KEY_FILE: $(key.secureFilePath)
   jobs:
-  - job: Push_to_SWDownloads
-    condition: and(
-       succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
-       )
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-      - task: DownloadPipelineArtifact@2
-        inputs:
-          path: $(Build.SourcesDirectory)/bin
-      - task: DownloadSecureFile@1
-        name: key
-        displayName: 'Download rsa key'
-        inputs:
-          secureFile: 'id_rsa'
-      - bash: ./ci/travis/prepare_artifacts_rpi.sh swdownloads
-        env:
-          DEST_SERVER: $(SERVER_ADDRESS)
-        displayName: "Push to SWDownloads"
-  - job: Push_to_Artifactory
-    condition: and(
-       succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
-       )
+  # - job: Push_to_SWDownloads
+  #   condition: and(
+  #      succeeded(),
+  #      or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
+  #         eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
+  #      )
+  #   pool:
+  #     vmImage: 'ubuntu-latest'
+  #   steps:
+  #     - task: DownloadPipelineArtifact@2
+  #       inputs:
+  #         path: $(Build.SourcesDirectory)/bin
+  #     - task: DownloadSecureFile@1
+  #       name: key
+  #       displayName: 'Download rsa key'
+  #       inputs:
+  #         secureFile: 'id_rsa'
+  #     - bash: ./ci/travis/prepare_artifacts_rpi.sh swdownloads
+  #       env:
+  #         DEST_SERVER: $(SERVER_ADDRESS)
+  #       displayName: "Push to SWDownloads"
+  # - job: Push_to_Artifactory
+  #   condition: and(
+  #      succeeded(),
+  #      or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
+  #         eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
+  #      )
+  #   pool:
+  #     name: Default
+  #     demands:
+  #       - agent.name -equals linux-rpi
+  #   steps:
+  #     - task: DownloadPipelineArtifact@2
+  #       inputs:
+  #         path: $(Build.SourcesDirectory)/bin
+  #     - bash: ./ci/travis/prepare_artifacts_rpi.sh artifactory
+  #       env:
+  #         ARTIFACTORY_PATH: $(PATH)
+  #         ARTIFACTORY_TOKEN: $(TOKEN)
+  #       displayName: "Push to Artifactory"
+
+  - job: Push_to_Cloudsmith
+    condition: succeeded()
     pool:
       name: Default
       demands:
         - agent.name -equals linux-rpi
     steps:
+      - checkout: self
+        fetchDepth: 1
+        clean: true
+      - checkout: wiki-scripts
+        fetchDepth: 1
+        clean: true
       - task: DownloadPipelineArtifact@2
         inputs:
           path: $(Build.SourcesDirectory)/bin
-      - bash: ./ci/travis/prepare_artifacts_rpi.sh artifactory
+      - bash: $(Build.SourcesDirectory)/linux/ci/travis/prepare_artifacts_rpi.sh cloudsmith
         env:
-          ARTIFACTORY_PATH: $(PATH)
-          ARTIFACTORY_TOKEN: $(TOKEN)
-        displayName: "Push to Artifactory"
+           CLOUDSMITH_API_KEY: $(CLOUDSMITH_API_KEY)
+        displayName: "Push to Cloudsmith"
