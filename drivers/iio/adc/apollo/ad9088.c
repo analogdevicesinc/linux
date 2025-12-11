@@ -4900,11 +4900,6 @@ static int ad9088_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	/* Initialize FSRC support (optional) */
-	ret = ad9088_fsrc_init(phy);
-	if (ret)
-		return ret;
-
 	mutex_init(&phy->lock);
 
 	ret = ad9088_parse_dt(phy);

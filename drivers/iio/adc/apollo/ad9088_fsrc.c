@@ -300,18 +300,10 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 
 	dev_dbg(&phy->spi->dev, "Starting TX FSRC GPIO reconfig sequence\n");
 
-	/* Enable FPGA sequencer external trigger mode */
-	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-						 "ext_trig_enable", 1);
-	if (ret < 0) {
-		dev_err(&phy->spi->dev, "Failed to enable ext trigger: %d\n", ret);
-		return ret;
-	}
-
 	/* FPGA sends all invalid samples (stop sending valid data) */
 	ret = ad9088_axi_fsrc_enable(phy, true);
 	if (ret)
-		goto cleanup;
+		return ret;
 
 	/* Wait for invalids to flow */
 	usleep_range(10000, 11000);
@@ -321,7 +313,7 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
 					"adi_apollo_jtx_force_invalids_set");
 	if (ret)
-		goto cleanup;
+		return ret;
 
 	/* Wait for invalids to propagate through the system */
 	usleep_range(1000000, 1100000);  /* 1000ms */
@@ -331,15 +323,11 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
 					"adi_apollo_clk_mcs_trig_sync_enable");
 	if (ret)
-		goto cleanup;
+		return ret;
 
-	/* Trigger FPGA sequencer to start the SYSREF-based sequence
-	 * This can be done via:
-	 * 1. External GPIO pulse (user-triggered)
-	 * 2. Register write (seq_start bit) as fallback
-	 */
+	/* Trigger FPGA sequencer to start the SYSREF-based sequence */
 	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-						 "seq_start", 1);
+						"seq_start", 1);
 	if (ret < 0) {
 		dev_warn(&phy->spi->dev,
 			 "Failed to trigger sequencer via reg: %d. "
@@ -358,12 +346,12 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
 					"adi_apollo_clk_mcs_trig_sync_enable clear");
 	if (ret)
-		goto cleanup;
+		return ret;
 
 	/* Resume FPGA TX - send valid and invalid samples */
 	ret = ad9088_axi_fsrc_active(phy, true);
 	if (ret)
-		goto cleanup;
+		return ret;
 
 	/* Wait for samples to flow - needed for rmfifo status to clear */
 	usleep_range(100, 200);
@@ -374,12 +362,7 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
 					"adi_apollo_jrx_rm_fifo_reset");
 	if (ret)
-		goto cleanup;
-
-cleanup:
-	/* Disable FPGA sequencer external trigger mode */
-	ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-					   "ext_trig_enable", 0);
+		return ret;
 
 	if (!ret)
 		dev_dbg(&phy->spi->dev, "TX FSRC GPIO reconfig sequence complete\n");
@@ -481,13 +464,9 @@ int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 	if (ret)
 		return ret;
 
-	/* Trigger FPGA sequencer to start the SYSREF-based sequence
-	 * This can be done via:
-	 * 1. External GPIO pulse (user-triggered)
-	 * 2. Register write (seq_start bit) as fallback
-	 */
+	/* Trigger FPGA sequencer to start the SYSREF-based sequence */
 	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-						 "seq_start", 1);
+						"seq_start", 1);
 	if (ret < 0) {
 		dev_warn(&phy->spi->dev,
 			 "Failed to trigger sequencer via reg: %d. "
@@ -521,31 +500,4 @@ int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 
 	dev_dbg(&phy->spi->dev, "RX FSRC GPIO reconfig sequence complete\n");
 	return ret;
-}
-
-/**
- * ad9088_fsrc_init - Initialize FSRC support
- * @phy: AD9088 device instance
- *
- * Returns: 0 on success
- */
-int ad9088_fsrc_init(struct ad9088_phy *phy)
-{
-	int i;
-
-	// If further inits are needed ...
-	if (phy->iio_axi_fsrc)
-		dev_info(&phy->spi->dev, "FSRC support enabled\n");
-
-	/* Log profile FSRC configuration to verify enable/bypass status */
-	for (i = 0; i < ADI_APOLLO_FSRCS_PER_SIDE; i++) {
-		dev_info(&phy->spi->dev, "Profile RX FSRC[%d]: enable=%d mode_1x=%d\n",
-			 i, phy->profile.rx_path[0].rx_fsrc[i].enable,
-			 phy->profile.rx_path[0].rx_fsrc[i].mode_1x);
-		dev_info(&phy->spi->dev, "Profile TX FSRC[%d]: enable=%d mode_1x=%d\n",
-			 i, phy->profile.tx_path[0].tx_fsrc[i].enable,
-			 phy->profile.tx_path[0].tx_fsrc[i].mode_1x);
-	}
-
-	return 0;
 }

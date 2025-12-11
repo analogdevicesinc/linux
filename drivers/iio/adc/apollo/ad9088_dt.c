@@ -118,6 +118,28 @@ static int ad9088_jesd_lane_setup(struct ad9088_phy *phy)
 	return 0;
 }
 
+static int ad9088_fsrc_setup(struct ad9088_phy *phy)
+{
+	struct device *dev = &phy->spi->dev;
+
+	if (!phy->iio_axi_fsrc)
+		return 0;
+
+	dev_info(&phy->spi->dev, "FSRC support enabled\n");
+
+	for (u8 i = 0; i < ADI_APOLLO_FSRCS_PER_SIDE; i++) {
+		phy->profile.rx_path[0].rx_fsrc[i].enable = true;
+		phy->profile.rx_path[1].rx_fsrc[i].enable = true;
+	}
+
+	for (u8 i = 0; i < ADI_APOLLO_FSRCS_PER_SIDE; i++) {
+		phy->profile.tx_path[0].tx_fsrc[i].enable = true;
+		phy->profile.tx_path[1].tx_fsrc[i].enable = true;
+	}
+
+	return 0;
+}
+
 int ad9088_parse_dt(struct ad9088_phy *phy)
 {
 	struct device *dev = &phy->spi->dev;
@@ -242,26 +264,7 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 		phy->profile.rx_path[1].rx_dformat[1].ddc_dither_en = found;
 	}
 
-	/* Patch FSRC enable state from device tree if specified */
-	found = of_property_read_bool(node, "adi,rx-fsrc-enable");
-	if (found) {
-		int i;
-		for (i = 0; i < ADI_APOLLO_FSRCS_PER_SIDE; i++) {
-			phy->profile.rx_path[0].rx_fsrc[i].enable = true;
-			phy->profile.rx_path[1].rx_fsrc[i].enable = true;
-		}
-		dev_info(dev, "RX FSRC enabled via device tree\n");
-	}
-
-	found = of_property_read_bool(node, "adi,tx-fsrc-enable");
-	if (found) {
-		int i;
-		for (i = 0; i < ADI_APOLLO_FSRCS_PER_SIDE; i++) {
-			phy->profile.tx_path[0].tx_fsrc[i].enable = true;
-			phy->profile.tx_path[1].tx_fsrc[i].enable = true;
-		}
-		dev_info(dev, "TX FSRC enabled via device tree\n");
-	}
+	ad9088_fsrc_setup(phy);
 
 	ret = of_property_read_u32(node, "adi,subclass", &val);
 	if (!ret) {
