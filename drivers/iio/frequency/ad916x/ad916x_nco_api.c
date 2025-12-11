@@ -74,12 +74,12 @@ static int ad916x_nco_set_configure_main(ad916x_handle_t *h,
 		uint64_t tmp_ah, tmp_al, tmp_bh, tmp_bl, tmp_fh, tmp_fl;
 		/* Modulus NCO mode */
 
-		gcd = adi_api_utils_gcd(carrier_freq_hz, h->dac_freq_hz);
+		gcd = ad916x_api_utils_gcd(carrier_freq_hz, h->dac_freq_hz);
 		M = DIV64_U64(carrier_freq_hz, gcd);
 		N = DIV64_U64(h->dac_freq_hz, gcd);
 
 		if (M > INT16_MAX) {
-			uint64_t mask = U64MSB;
+			uint64_t mask = AD916X_U64MSB;
 			int i = 0;
 			while (((mask & M) == 0) && (mask != 1)) {
 				mask >>= 1;
@@ -91,13 +91,13 @@ static int ad916x_nco_set_configure_main(ad916x_handle_t *h,
 			int_part = DIV64_U64(M*(ADI_POW2_48), N);
 		}
 
-		adi_api_utils_mult_128(M, ADI_POW2_48, &tmp_ah, &tmp_al);
-		adi_api_utils_mult_128(N, int_part, &tmp_bh, &tmp_bl);
-		adi_api_utils_subt_128(tmp_ah, tmp_al, tmp_bh, tmp_bl, &tmp_fh, &tmp_fl);
+		ad916x_api_utils_mult_128(M, ADI_POW2_48, &tmp_ah, &tmp_al);
+		ad916x_api_utils_mult_128(N, int_part, &tmp_bh, &tmp_bl);
+		ad916x_api_utils_subt_128(tmp_ah, tmp_al, tmp_bh, tmp_bl, &tmp_fh, &tmp_fl);
 		frac_part_a = tmp_fl;
 		frac_part_b = N;
 
-		gcd = adi_api_utils_gcd(frac_part_a, frac_part_b);
+		gcd = ad916x_api_utils_gcd(frac_part_a, frac_part_b);
 		frac_part_a = DIV64_U64(frac_part_a, gcd);
 		frac_part_b = DIV64_U64(frac_part_b, gcd);
 
@@ -144,8 +144,8 @@ static int ad916x_nco_calc_freq_int_main(ad916x_handle_t *h, uint64_t int_part,
 										int64_t *carrier_freq_hz)
 {
 	uint64_t tmpa_lo, tmpa_hi;
-	adi_api_utils_mult_128(int_part, h->dac_freq_hz, &tmpa_hi, &tmpa_lo);
-	adi_api_utils_div_128(tmpa_hi, tmpa_lo, 0, ADI_POW2_48, &tmpa_hi, &tmpa_lo);
+	ad916x_api_utils_mult_128(int_part, h->dac_freq_hz, &tmpa_hi, &tmpa_lo);
+	ad916x_api_utils_div_128(tmpa_hi, tmpa_lo, 0, ADI_POW2_48, &tmpa_hi, &tmpa_lo);
 	*carrier_freq_hz = tmpa_lo;
 	return API_ERROR_OK;
 }
@@ -156,11 +156,11 @@ static int ad916x_nco_calc_freq_fract_main(ad916x_handle_t *h,
 {
 	uint64_t tmpa_lo, tmpa_hi;
 	uint64_t tmpb_lo, tmpb_hi;
-	adi_api_utils_mult_128(int_part, h->dac_freq_hz, &tmpa_hi, &tmpa_lo);
-	adi_api_utils_mult_128(frac_part_a, h->dac_freq_hz, &tmpb_hi, &tmpb_lo);
-	adi_api_utils_div_128(tmpb_hi, tmpb_lo, 0, frac_part_b, &tmpb_hi, &tmpb_lo);
-	adi_api_utils_add_128(tmpa_hi, tmpa_lo, tmpb_hi, tmpb_lo, &tmpa_hi, &tmpa_lo);
-	adi_api_utils_div_128(tmpa_hi, tmpa_lo, 0, ADI_POW2_48, &tmpa_hi, &tmpa_lo);
+	ad916x_api_utils_mult_128(int_part, h->dac_freq_hz, &tmpa_hi, &tmpa_lo);
+	ad916x_api_utils_mult_128(frac_part_a, h->dac_freq_hz, &tmpb_hi, &tmpb_lo);
+	ad916x_api_utils_div_128(tmpb_hi, tmpb_lo, 0, frac_part_b, &tmpb_hi, &tmpb_lo);
+	ad916x_api_utils_add_128(tmpa_hi, tmpa_lo, tmpb_hi, tmpb_lo, &tmpa_hi, &tmpa_lo);
+	ad916x_api_utils_div_128(tmpa_hi, tmpa_lo, 0, ADI_POW2_48, &tmpa_hi, &tmpa_lo);
 	*carrier_freq_hz = tmpa_lo;
 	return API_ERROR_OK;
 }
