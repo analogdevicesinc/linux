@@ -27,19 +27,27 @@ _file () {
 
 check_checkpatch() {
 	export step_name="checkpatch"
+	local strategy=${strategy:-commit}
 	local mail=
 	local fail=0
 	local warn=0
+	local _base_sha
+	local _suppress
 
 	echo "$step_name on range $base_sha..$head_sha"
+
+	[[ "$strategy" == "commit" ]] && commits=$(git rev-list $base_sha..$head_sha --reverse) || commits=$head_sha
+	_base_sha=$base_sha # for strategy file
 
 	python3.13 -m venv ~/venv
         source ~/venv/bin/activate
         pip3.13 install ply GitPython --upgrade
 
 	# The output is not properly captured with --git
-	for commit in $(git rev-list $base_sha..$head_sha --reverse); do
-		git --no-pager show --format="%h %s" "$commit" --name-only
+	for commit in $commits; do
+		[[ "$strategy" == "commit" ]] && _base_sha=$commit~
+		git --no-pager log --oneline $_base_sha..$commit
+		local flags
 		# Skip empty commits, assume cover letter
 		# and those only touching non-upstream directories .github ci and docs
 		# A treeless (--filter=tree:0) fetch could be done to fetch
@@ -48,12 +56,16 @@ check_checkpatch() {
 		# SHA references in the commit message, with may not even apply
 		# if the commit is from upstream. Instead, just delegate to the
 		# user to double check the referenced SHA.
-		local files=$(git diff --diff-filter=ACM --no-renames --name-only $commit~..$commit | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
+		local files=$(git diff --diff-filter=ACM --no-renames --name-only "$_base_sha..$commit" | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
 		if [[ -z "$files" ]]; then
 			echo "empty, skipped"
 			continue
+		else
+			echo $files
 		fi
-		mail=$(scripts/checkpatch.pl --git "$commit" \
+
+		[[ "$strategy" == "commit" ]] && flags="--git $commit" || flags="-- $files"
+		mail=$(scripts/checkpatch.pl \
 			--strict \
 			--ignore FILE_PATH_CHANGES \
 			--ignore LONG_LINE \
@@ -61,7 +73,8 @@ check_checkpatch() {
 			--ignore LONG_LINE_COMMENT \
 			--ignore PARENTHESIS_ALIGNMENT \
 			--ignore CAMELCASE \
-			--ignore UNDOCUMENTED_DT_STRING)
+			--ignore UNDOCUMENTED_DT_STRING \
+			$flags )
 
 		found=0
 		msg=
@@ -70,7 +83,7 @@ check_checkpatch() {
 		do
 			if [[ "$row" =~ ^total: ]]; then
 				echo -e "\e[1m$row\e[0m"
-				break
+				[[ "$strategy" == "commit" ]] && break || _suppress=1
 			fi
 
 			# Additional parsing is needed
@@ -92,7 +105,6 @@ check_checkpatch() {
 
 					# Get line-number
 					line=${list[3]}
-					echo $row
 				else
 					msg=${msg}${row}$_n
 					if [[ -z $row ]]; then
@@ -118,7 +130,9 @@ check_checkpatch() {
 			elif [[ "$row" =~ ^CHECK: ]]; then
 				type="warning"
 			fi
-			if [[ "$row" =~ ^(CHECK|WARNING|ERROR): ]]; then
+			if [[ "$_suppress" == "1" ]]; then
+				[[ "$row" =~ ^---- ]] && _suppress=0
+			elif [[ "$row" =~ ^(CHECK|WARNING|ERROR): ]]; then
 				msg=$(echo "$row" | sed -E  's/^(CHECK|WARNING|ERROR): //')$_n
 				# Suppress some cases:
 				if [[ "$row" =~ ^"WARNING: Unknown commit id" ]]; then
