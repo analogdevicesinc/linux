@@ -105,6 +105,7 @@ check_checkpatch() {
 
 					# Get line-number
 					line=${list[3]}
+					_echo_ci $row
 				else
 					msg=${msg}${row}$_n
 					if [[ -z $row ]]; then
@@ -1085,6 +1086,11 @@ _set_step_fail () {
 		set_step_fail "$step_name"
 		unset step_name
 	fi
+}
+
+_echo_ci () {
+	[[ "$GITHUB_ACTIONS" != "true" ]] && return
+	echo "$@"
 }
 
 trap '_set_step_fail' ERR
