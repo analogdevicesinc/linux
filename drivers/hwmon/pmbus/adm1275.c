@@ -119,6 +119,7 @@ struct adm1275_data {
 	/* Periodic energy sampling */
 	struct i2c_client *client;	/* for workqueue access */
 	struct delayed_work energy_work;
+	u64 power_average;		/* average power in microwatts */
 	struct pmbus_driver_info info;
 };
 
@@ -622,6 +623,7 @@ static int adm1273_read_energy_locked(struct adm1275_data *data)
 	}
 
 	data->energy_accumulator += energy_uj;
+	data->power_average = div64_u64(energy_uj * 1000, time_delta_ms);
 
 	return 0;
 }
@@ -663,8 +665,21 @@ static ssize_t energy1_input_show(struct device *dev,
 
 static DEVICE_ATTR_RO(energy1_input);
 
+static ssize_t power1_average_show(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev->parent);
+	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
+	struct adm1275_data *data = to_adm1275_data(info);
+
+	guard(mutex)(&data->energy_mutex);
+	return sysfs_emit(buf, "%llu\n", data->power_average);
+}
+static DEVICE_ATTR_RO(power1_average);
+
 static struct attribute *adm1273_attrs[] = {
 	&dev_attr_energy1_input.attr,
+	&dev_attr_power1_average.attr,
 	NULL,
 };
 
