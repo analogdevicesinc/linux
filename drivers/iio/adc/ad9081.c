@@ -548,10 +548,10 @@ static int ad9081_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	if (reg & 0x40000000) { /* CBUS Access */
 		if (readval == NULL)
 			return adi_ad9081_device_cbusjrx_register_set(&phy->ad9081,
-				reg & 0xFF, writeval, (reg >> 8) & 0x7);
+				reg & 0xFF, writeval, (reg >> 8) & 0xFF);
 
 		ret = adi_ad9081_device_cbusjrx_register_get(&phy->ad9081,
-			reg & 0xFF, &val, (reg >> 8) & 0x7);
+			reg & 0xFF, &val, (reg >> 8) & 0xFF);
 		if (ret < 0)
 			return ret;
 	} else {
