@@ -19,7 +19,9 @@
 #include <linux/jiffies.h>
 #include <linux/log2.h>
 #include <linux/math64.h>
+#include <linux/cleanup.h>
 #include <linux/mutex.h>
+#include <linux/workqueue.h>
 #include "pmbus.h"
 
 enum chips { adm1075, adm1272, adm1273, adm1275, adm1276, adm1278, adm1281, adm1293, adm1294 };
@@ -94,6 +96,8 @@ enum chips { adm1075, adm1272, adm1273, adm1275, adm1276, adm1278, adm1281, adm1
 #define ADM1278_VI_AVG_MASK		GENMASK(ADM1278_VI_AVG_SHIFT + 2, \
 						ADM1278_VI_AVG_SHIFT)
 
+#define ADM1273_ENERGY_POLL_MS		20000	/* 20 seconds */
+
 struct adm1275_data {
 	int id;
 	bool have_oc_fault;
@@ -112,6 +116,9 @@ struct adm1275_data {
 	u32 prev_sample_count;
 	unsigned long prev_jiffies;
 	bool energy_initialized;
+	/* Periodic energy sampling */
+	struct i2c_client *client;	/* for workqueue access */
+	struct delayed_work energy_work;
 	struct pmbus_driver_info info;
 };
 
@@ -505,12 +512,16 @@ static int adm1275_read_byte_data(struct i2c_client *client, int page, int reg)
  * Which simplifies to:
  *   Energy (J) = ΔEnergy Count × Voltage LSB × Current LSB × ΔTime / ΔSample Counter
  */
-static ssize_t adm1273_energy_show(struct device *dev,
-				   struct device_attribute *attr, char *buf)
+
+/*
+ * Read EIN_EXT and update energy accumulator and power average.
+ * Must be called with energy_mutex held.
+ * Returns 0 on success, negative error code on failure.
+ */
+static int adm1273_read_energy_locked(struct adm1275_data *data)
 {
-	struct i2c_client *client = to_i2c_client(dev->parent);
-	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
-	struct adm1275_data *data = to_adm1275_data(info);
+	struct i2c_client *client = data->client;
+	const struct pmbus_driver_info *info = &data->info;
 	u8 ein_ext[9]; /* 1 count byte + 8 data bytes */
 	u32 sample_count, energy_raw, sample_delta;
 	u16 rollover;
@@ -519,20 +530,14 @@ static ssize_t adm1273_energy_show(struct device *dev,
 	u64 energy_uj;
 	int ret;
 
-	mutex_lock(&data->energy_mutex);
-
 	now = jiffies;
 
 	ret = i2c_smbus_read_i2c_block_data(client, ADM1273_READ_EIN_EXT, 9,
 					    ein_ext);
-	if (ret < 0) {
-		mutex_unlock(&data->energy_mutex);
+	if (ret < 0)
 		return ret;
-	}
-	if (ret != 9 || ein_ext[0] != 8) {
-		mutex_unlock(&data->energy_mutex);
+	if (ret != 9 || ein_ext[0] != 8)
 		return -EIO;
-	}
 
 	/* Parse the 8-byte response after count byte - LSB first */
 	energy_raw = ein_ext[1] | (ein_ext[2] << 8) | (ein_ext[3] << 16);
@@ -552,8 +557,7 @@ static ssize_t adm1273_energy_show(struct device *dev,
 		data->prev_jiffies = now;
 		data->energy_initialized = true;
 		data->energy_accumulator = 0;
-		mutex_unlock(&data->energy_mutex);
-		return sysfs_emit(buf, "0\n");
+		return 0;
 	}
 
 	/* Calculate energy delta (handles wrap of 39-bit combined value) */
@@ -576,34 +580,17 @@ static ssize_t adm1273_energy_show(struct device *dev,
 	data->prev_jiffies = now;
 
 	/* Avoid division by zero */
-	if (sample_delta == 0 || time_delta_ms == 0) {
-		mutex_unlock(&data->energy_mutex);
-		return sysfs_emit(buf, "%llu\n", data->energy_accumulator);
-	}
+	if (sample_delta == 0 || time_delta_ms == 0)
+		return 0;
 
 	/*
 	 * Energy formula:
 	 *   Energy (J) = ΔEnergy Count × Voltage LSB × Current LSB × ΔTime / ΔSample Counter
 	 *
-	 * Voltage LSB and Current LSB come from the PMBus coefficients.
-	 * For direct format: actual = (raw - b) / m * 10^(-R)
-	 * So LSB = 1/m * 10^(-R)
-	 *
-	 * Voltage: m = info->m[PSC_VOLTAGE_IN], R = info->R[PSC_VOLTAGE_IN]
-	 * Current: m = info->m[PSC_CURRENT_OUT], R = info->R[PSC_CURRENT_OUT]
-	 *
-	 * Energy LSB = (1/m_v * 10^-Rv) × (1/m_i * 10^-Ri) / sample_rate
-	 *            = 10^(-Rv-Ri) / (m_v × m_i × sample_rate)
-	 *
-	 * Energy (J) = ΔEnergy × 10^(-Rv-Ri) × ΔTime / (m_v × m_i × ΔSamples)
-	 *
 	 * For microjoules, multiply by 1e6:
 	 * Energy (µJ) = ΔEnergy × 10^(6-Rv-Ri) × ΔTime_ms / (m_v × m_i × ΔSamples × 1000)
 	 *
-	 * To avoid overflow with large energy_delta or time_delta_ms, use
-	 * mul_u64_u64_div_u64() which handles 128-bit intermediate results:
-	 *   Step 1: temp = (energy_delta × scale_factor) / (m_v × m_i)
-	 *   Step 2: energy_uj = (temp × time_delta_ms) / (sample_delta × 1000)
+	 * To avoid overflow, use mul_u64_u64_div_u64() for 128-bit intermediate.
 	 */
 	{
 		s64 Rv = info->R[PSC_VOLTAGE_IN];
@@ -636,7 +623,34 @@ static ssize_t adm1273_energy_show(struct device *dev,
 
 	data->energy_accumulator += energy_uj;
 
-	mutex_unlock(&data->energy_mutex);
+	return 0;
+}
+
+static void adm1273_energy_work_fn(struct work_struct *work)
+{
+	struct adm1275_data *data = container_of(work, struct adm1275_data,
+						 energy_work.work);
+
+	guard(mutex)(&data->energy_mutex);
+	adm1273_read_energy_locked(data);
+	schedule_delayed_work(&data->energy_work,
+			      msecs_to_jiffies(ADM1273_ENERGY_POLL_MS));
+}
+
+static ssize_t adm1273_energy_show(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev->parent);
+	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
+	struct adm1275_data *data = to_adm1275_data(info);
+	int ret;
+
+	guard(mutex)(&data->energy_mutex);
+
+	/* Always trigger I2C read to get latest energy value */
+	ret = adm1273_read_energy_locked(data);
+	if (ret < 0)
+		return ret;
 
 	return sysfs_emit(buf, "%llu\n", data->energy_accumulator);
 }
@@ -708,7 +722,6 @@ static int adm1275_probe(struct i2c_client *client)
 	int tindex = -1;
 	u32 shunt;
 	u32 avg;
-	dev_err(&client->dev, "entered probe, functionality %x\n", i2c_get_functionality(client->adapter));
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_READ_BYTE_DATA
@@ -849,10 +862,13 @@ static int adm1275_probe(struct i2c_client *client)
 		}
 		tindex = 8;
 
-		if (data->id == adm1273) {
-			mutex_init(&data->energy_mutex);
-			info->groups = adm1273_groups;
-		}
+		mutex_init(&data->energy_mutex);
+		INIT_DELAYED_WORK(&data->energy_work, adm1273_energy_work_fn);
+		data->client = client;
+		info->groups = adm1273_groups;
+		/* Start periodic energy polling */
+		schedule_delayed_work(&data->energy_work,
+				      msecs_to_jiffies(ADM1273_ENERGY_POLL_MS));
 
 		info->func[0] |= PMBUS_HAVE_PIN | PMBUS_HAVE_STATUS_INPUT |
 			PMBUS_HAVE_VOUT | PMBUS_HAVE_STATUS_VOUT |
@@ -1051,11 +1067,22 @@ static int adm1275_probe(struct i2c_client *client)
 	return pmbus_do_probe(client, info);
 }
 
+static void adm1275_remove(struct i2c_client *client)
+{
+	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
+	struct adm1275_data *data = to_adm1275_data(info);
+
+	/* Cancel any pending energy work for ADM1272/ADM1273 */
+	if (data->id == adm1272 || data->id == adm1273)
+		cancel_delayed_work_sync(&data->energy_work);
+}
+
 static struct i2c_driver adm1275_driver = {
 	.driver = {
 		   .name = "adm1275",
 		   },
 	.probe_new = adm1275_probe,
+	.remove = adm1275_remove,
 	.id_table = adm1275_id,
 };
 
