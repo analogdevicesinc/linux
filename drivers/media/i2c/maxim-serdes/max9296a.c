@@ -489,7 +489,7 @@ static int max9296a_init_phy(struct max_des *des, struct max_des_phy *phy)
 		return ret;
 
 	/* Set DPLL frequency. */
-	ret = regmap_update_bits(priv->regmap, MAX9296A_BACKTOP22(index),
+	ret = regmap_update_bits(priv->regmap, MAX9296A_BACKTOP22(hw_index),
 				 MAX9296A_BACKTOP22_PHY_CSI_TX_DPLL,
 				 FIELD_PREP(MAX9296A_BACKTOP22_PHY_CSI_TX_DPLL,
 					    div_u64(dpll_freq, 100000000)));
@@ -497,7 +497,7 @@ static int max9296a_init_phy(struct max_des *des, struct max_des_phy *phy)
 		return ret;
 
 	/* Enable DPLL frequency. */
-	ret = regmap_set_bits(priv->regmap, MAX9296A_BACKTOP22(index),
+	ret = regmap_set_bits(priv->regmap, MAX9296A_BACKTOP22(hw_index),
 			      MAX9296A_BACKTOP22_PHY_CSI_TX_DPLL_EN);
 	if (ret)
 		return ret;
