@@ -77,9 +77,6 @@ the operations defined in clk-provider.h::
 		void		(*disable_unused)(struct clk_hw *hw);
 		unsigned long	(*recalc_rate)(struct clk_hw *hw,
 						unsigned long parent_rate);
-		long		(*round_rate)(struct clk_hw *hw,
-						unsigned long rate,
-						unsigned long *parent_rate);
 		int		(*determine_rate)(struct clk_hw *hw,
 						  struct clk_rate_request *req);
 		int		(*set_parent)(struct clk_hw *hw, u8 index);
@@ -220,9 +217,7 @@ optional or must be evaluated on a case-by-case basis.
    +----------------+------+-------------+---------------+-------------+------+
    |.recalc_rate    |      | y           |               |             |      |
    +----------------+------+-------------+---------------+-------------+------+
-   |.round_rate     |      | y [1]_      |               |             |      |
-   +----------------+------+-------------+---------------+-------------+------+
-   |.determine_rate |      | y [1]_      |               |             |      |
+   |.determine_rate |      | y           |               |             |      |
    +----------------+------+-------------+---------------+-------------+------+
    |.set_rate       |      | y           |               |             |      |
    +----------------+------+-------------+---------------+-------------+------+
@@ -237,8 +232,6 @@ optional or must be evaluated on a case-by-case basis.
    +----------------+------+-------------+---------------+-------------+------+
    |.init           |      |             |               |             |      |
    +----------------+------+-------------+---------------+-------------+------+
-
-.. [1] either one of round_rate or determine_rate is required.
 
 Finally, register your clock at run-time with a hardware-specific
 registration function.  This function simply populates struct clk_foo's
