@@ -1,0 +1,17 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -I. -Idrivers/iio/adc/apollo/public/inc
+TARGET = profile_inspect
+SRC = profile_inspect.c
+
+all: $(TARGET)
+
+$(TARGET): $(SRC)
+	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
+
+clean:
+	rm -f $(TARGET)
+
+run: $(TARGET)
+	./$(TARGET) firmware/204C_M4_L4_NP16_20p0_4x4.bin
+
+.PHONY: all clean run
