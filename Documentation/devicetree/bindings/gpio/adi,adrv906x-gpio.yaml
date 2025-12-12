@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gpio/adi,adrv906x-gpio.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADRV906x SoC GPIO Controller
+
+maintainers:
+  - Woodrow Barlow <woodrow.barlow@analog.com>
+
+description:
+  Bindings for Analog Device Inc. ADRV906x SoC GPIO Controller.
+
+properties:
+  compatible:
+    const: adi,adrv906x-gpio
+
+  reg:
+    maxItems: 1
+    description:
+      Physical base address and length of the GPIO controller register
+      block.
+
+  "#gpio-cells":
+    const: 2
+    description:
+      See gpio.yaml in this directory for a description of the GPIO cells.
+
+  gpio-controller:
+    type: boolean
+    description:
+      Indicates that this node is a GPIO controller.
+
+  ngpios:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Number of GPIO lines (0..n-1).
+    minimum: 1
+
+  pintmux:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    maxItems: 1
+    description:
+      Base address of the pin interrupt mux associated with the GPIO
+      controller.
+
+required:
+  - compatible
+  - reg
+  - "#gpio-cells"
+  - gpio-controller
+  - ngpios
+  - pintmux
+
+additionalProperties: false
+
+examples:
+  - |
+    gpio1: gpio@2021b000 {
+      compatible = "adi,adrv906x-gpio";
+      reg = <0x2021b000 0x1000>;
+      pintmux = <0x20102200>;
+      gpio-controller;
+      #gpio-cells = <2>;
+      ngpios = <64>;
+    };
+
+...
