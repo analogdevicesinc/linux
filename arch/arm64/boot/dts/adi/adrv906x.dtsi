@@ -159,7 +159,7 @@
 	};
 
 	/* Definition of primary and secondary regions
-	 * Secondary regions are only intended for a special use-case (dual-tile 
+	 * Secondary regions are only intended for a special use-case (dual-tile
 	 * with no Linux on secondary, but DDR installed in secondary)
 	 */
 
@@ -182,9 +182,9 @@
 	/* Reserved memory regions
 	 * 1) U-boot will enable secondary regions only for the special use-case.
 	 *    They are intentionally left disabled by default.
-	 * 2) DDR base address (primary and secondary) is computed and 
+	 * 2) DDR base address (primary and secondary) is computed and
 	 *    populated by U-boot. This value is intentionally left blank
-	 * 3) The size of each region is explicitly defined, except for the 
+	 * 3) The size of each region is explicitly defined, except for the
 	 *    secondary DDR region. U-boot will populate the whole secondary DDR
 	 *    region
 	 */
@@ -792,7 +792,6 @@
 						  "rx_dma_done", "rx_dma_error";
 		interrupt-ctrl = <&ndma0_interrupt_ctrl>;
 	};
-
 
 	ndma1: ndma@NDMA_1_TX_BASE_UADDR {
 		id = <1>;

@@ -228,23 +228,23 @@
 };
 
 /*
- * GPIO Pin mapping: 
- * 
+ * GPIO Pin mapping:
+ *
  * Pin 0-6:     SD
  * Pins 7-17:	RFFE
- * Pins 20-21: 	I2C
+ * Pins 20-21:	I2C
  * Pins 22-23:	Stream processor fault handling
  * Pins 24-27:	UART0
- * Pins 28-29: 	UART1
- * Pins 30-31: 	UART4
+ * Pins 28-29:	UART1
+ * Pins 30-31:	UART4
  * Pin 32:		GPINT0
- * Pin 33: 		Debug satellite board clk
- * Pins 34-38: 	JTAG M4
+ * Pin 33:		Debug satellite board clk
+ * Pins 34-38:	JTAG M4
  * Pin 42:		SPI_MASTER0_SELB_1_PIN or TRACE_D0_PIN
- * Pin 43: 		TRACE_D1
+ * Pin 43:		TRACE_D1
  * Pin 44:		TRACE_D2
- * Pin 45: 		ONE_PPS_CLK_OUTPUT_SE
- * Pin 46: 		TRACE_D3
+ * Pin 45:		ONE_PPS_CLK_OUTPUT_SE
+ * Pin 46:		TRACE_D3
  * Pin 47:		PWM_13
  * Pin 51:		Board pushbutton
  * Pin 54:		GNSS
@@ -253,11 +253,11 @@
  * Pins 60-64:  JTAG A5
  * Pin 65:		QSFP Interface
  * Pins 66-73:  Debug Out Signals
- * Pins 74-77: 	Gpio LEDs
- * Pins 78-84: 	QSPI
+ * Pins 74-77:	Gpio LEDs
+ * Pins 78-84:	QSPI
  * Pins 85-100: EMAC
  * Pin 101:		GPINT_INTERRUPT_INPUT_SECONDARY_TO_PRIMARY
- * Pin 102: 	A55_GPIO_S_102_PIN (reboot/shutdown signal to ADM12366)
+ * Pin 102:	A55_GPIO_S_102_PIN (reboot/shutdown signal to ADM12366)
  */
 &pinctrl_hog {
 	adi,pins = <
