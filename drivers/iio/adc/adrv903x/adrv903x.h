@@ -85,6 +85,7 @@ enum adrv903x_iio_voltage_out {
 
 enum adrv903x_device_id {
 	ID_ADRV9032 = 0x01,
+	ID_ADRV9032R = 0x02,
 };
 
 // struct adrv903x_rf_phy;

@@ -83,6 +83,17 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 			.channel[14] = AIM_CHAN(7, IIO_MOD_I, 14, 16, 'S'),
 			.channel[15] = AIM_CHAN(7, IIO_MOD_Q, 15, 16, 'S'),
 		},
+	[ID_ADRV9032R] =
+		{
+			.name = "ADRV9032R",
+			.max_rate = 245760000,
+			.max_testmode = 0,
+			.num_channels = 4,
+			.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
+			.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
+			.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
+			.channel[3] = AIM_CHAN(1, IIO_MOD_Q, 3, 16, 'S'),
+		},
 };
 
 static int adrv903x_read_raw(struct iio_dev *indio_dev,

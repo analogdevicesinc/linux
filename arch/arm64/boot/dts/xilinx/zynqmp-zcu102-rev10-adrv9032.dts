@@ -88,7 +88,7 @@
 			adi,extended-name = "DEV_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <2>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 			//adi,output-dis;
 		};
@@ -135,7 +135,7 @@
 	};
 
 	trx0_adrv903x: adrv903x-phy@0 {
-		compatible = "adrv9032";
+		compatible = "adrv9032r";
 		reg = <0>;
 
 		#address-cells = <1>;
@@ -164,7 +164,7 @@
 			<&axi_adrv903x_rx_jesd 0 FRAMER0_LINK_RX>,
 			<&axi_adrv903x_core_tx 0 DEFRAMER0_LINK_TX>;
 
-		adi,device-config-name = "ADRV9030_DeviceProfileTest.bin";
+		adi,device-config-name = "ADRV9030_DeviceProfileTest_M4.bin";
 		adi,arm-firmware-name = "ADRV9030_FW.bin";
 		adi,stream-firmware-name = "ADRV9030_stream_image.bin";
 		adi,rx-gaintable-names = "ADRV9030_RxGainTable.csv";

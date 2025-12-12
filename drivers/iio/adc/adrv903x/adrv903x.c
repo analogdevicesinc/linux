@@ -1383,7 +1383,95 @@ static const struct iio_chan_spec adrv903x_phy_chan[] = {
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 		.ext_info = adrv903x_phy_obs_rx_ext_info,
 	},
+	{
+		/* RX Sniffer/Observation */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_OBS_RX2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv903x_phy_obs_rx_ext_info,
+	},
+	{
+		.type = IIO_TEMP,
+		.indexed = 1,
+		.channel = 0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+	},
+};
 
+static const struct iio_chan_spec adrv903x_phy_chan_2t2r[] = {
+	{
+		/* LO1 */
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 0,
+		.extend_name = "LO1",
+		.ext_info = adrv903x_phy_ext_lo_info,
+	},
+	{
+		/* LO2 */
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 1,
+		.extend_name = "LO2",
+		.ext_info = adrv903x_phy_ext_lo_info,
+	},
+	{
+		/* TX1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_TX1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv903x_phy_tx_ext_info,
+	},
+	{
+		/* RX1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_RX1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv903x_phy_rx_ext_info,
+	},
+	{
+		/* TX2 - mapped to TX4 hardware channel (output 3) */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_TX4,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv903x_phy_tx_ext_info,
+	},
+	{
+		/* RX2 - mapped to RX4 hardware channel (input 3) */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_RX4,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv903x_phy_rx_ext_info,
+	},
+	{
+		/* RX Sniffer/Observation */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_OBS_RX1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				      BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv903x_phy_obs_rx_ext_info,
+	},
 	{
 		/* RX Sniffer/Observation */
 		.type = IIO_VOLTAGE,
@@ -2383,26 +2471,28 @@ static int adrv903x_jesd204_post_running_stage(struct jesd204_dev *jdev,
 	clk_set_rate(phy->clks[OBS_SAMPL_CLK], phy->orx_iqRate_kHz * 1000);
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], phy->tx_iqRate_kHz * 1000);
 
+	pr_err("TESTING 0x%x\n", phy->palauDevice->devStateInfo.initializedChannels);
+
 	// Tx enabled only if EN toggles
-	ret = adi_adrv903x_RxTxEnableSet(phy->palauDevice, 0x00, 0x00,
-		ADI_ADRV903X_RX_MASK_ALL, ADI_ADRV903X_RX_MASK_ALL,
-		ADI_ADRV903X_TXALL, ADI_ADRV903X_TXALL);
+	ret = adi_adrv903x_RxTxEnableSet(phy->palauDevice, ADI_ADRV903X_ORX0 | ADI_ADRV903X_ORX1, ADI_ADRV903X_ORX0 | ADI_ADRV903X_ORX1,
+		ADI_ADRV903X_RX0 | ADI_ADRV903X_RX4, ADI_ADRV903X_RX0 | ADI_ADRV903X_RX4,
+		ADI_ADRV903X_TX0 | ADI_ADRV903X_TX4, ADI_ADRV903X_TX0 | ADI_ADRV903X_TX4);
 	if (ret)
 		return adrv903x_dev_err(phy);
 
-	ret = adi_adrv903x_RxTxEnableSet(phy->palauDevice, 0x00, 0x00,
-		0x00, 0x00,
-		ADI_ADRV903X_TXALL, 0x00);
+	ret = adi_adrv903x_RxTxEnableSet(phy->palauDevice, ADI_ADRV903X_ORX0 | ADI_ADRV903X_ORX1, 0x00,
+		ADI_ADRV903X_RX0 | ADI_ADRV903X_RX4, 0x00,
+		ADI_ADRV903X_TX0 | ADI_ADRV903X_TX4, 0x00);
 	if (ret)
 		return adrv903x_dev_err(phy);
 
-	ret = adi_adrv903x_RxTxEnableSet(phy->palauDevice, 0x00, 0x00,
-		ADI_ADRV903X_RX_MASK_ALL, ADI_ADRV903X_RX_MASK_ALL,
-		ADI_ADRV903X_TXALL, ADI_ADRV903X_TXALL);
+	ret = adi_adrv903x_RxTxEnableSet(phy->palauDevice, ADI_ADRV903X_ORX0 | ADI_ADRV903X_ORX1, ADI_ADRV903X_ORX0 | ADI_ADRV903X_ORX1,
+		ADI_ADRV903X_RX0 | ADI_ADRV903X_RX4, ADI_ADRV903X_RX0 | ADI_ADRV903X_RX4,
+		ADI_ADRV903X_TX0 | ADI_ADRV903X_TX4, ADI_ADRV903X_TX0 | ADI_ADRV903X_TX4);
 	if (ret)
 		return adrv903x_dev_err(phy);
 
-	txAttenuation[0].txChannelMask = ADI_ADRV903X_TXALL;
+	txAttenuation[0].txChannelMask = ADI_ADRV903X_TX0 | ADI_ADRV903X_TX4;
 	txAttenuation[0].txAttenuation_mdB = 6000;
 	ret = adi_adrv903x_TxAttenSet(phy->palauDevice, txAttenuation, 1);
 	if (ret)
@@ -2716,6 +2806,11 @@ static int adrv903x_probe(struct spi_device *spi)
 		indio_dev->channels = adrv903x_phy_chan;
 		indio_dev->num_channels = ARRAY_SIZE(adrv903x_phy_chan);
 		break;
+	case ID_ADRV9032R:
+		indio_dev->info = &adrv903x_phy_info;
+		indio_dev->channels = adrv903x_phy_chan_2t2r;
+		indio_dev->num_channels = ARRAY_SIZE(adrv903x_phy_chan_2t2r);
+		break;
 	default:
 		ret = -EINVAL;
 		goto out_clk_del_provider;
@@ -2773,12 +2868,14 @@ static void adrv903x_remove(struct spi_device *spi)
 
 static const struct spi_device_id adrv903x_id[] = {
 	{ "adrv9032", ID_ADRV9032 },
+	{ "adrv9032r", ID_ADRV9032R },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, adrv903x_id);
 
 static const struct of_device_id adrv903x_of_match[] = {
 	{ .compatible = "adi,adrv9032" },
+	{ .compatible = "adi,adrv9032r" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, adrv903x_of_match);
