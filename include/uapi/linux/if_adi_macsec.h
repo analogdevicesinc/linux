@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
-// -----------------------------------------------------------------------------
-// Comcores ApS (R) all rights reserved.
-//
-// *****************************************************************************
+/* SPDX-License-Identifier: GPL-2.0+ */
+/*
+ * Copyright (c) 2025, Analog Devices Incorporated, All Rights Reserved
+ */
+
 #ifndef _UAPI_CCO_MACSEC_H
 #define _UAPI_CCO_MACSEC_H
 
