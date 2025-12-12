@@ -762,7 +762,7 @@ static int adrv906x_test_near_end_loopback_test(struct net_device *ndev)
 	int ret;
 
 	if (es->enabled)
-		adrv906x_switch_reset_soft(es);
+		adrv906x_cmn_switch_ports_reset(es);
 	adrv906x_mac_set_path(mac, true);
 
 	if (dev_state) {
@@ -796,7 +796,7 @@ out:
 	phy_suspend(phydev);
 	if (es->enabled) {
 		adrv906x_switch_port_enable(es, adrv906x_dev->port, false);
-		adrv906x_switch_reset_soft(es);
+		adrv906x_switch_port_reset(es);
 	}
 
 	return ret;

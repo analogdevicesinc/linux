@@ -18,6 +18,7 @@
 #include <linux/bitfield.h>
 #include <net/rtnetlink.h>
 #include "adrv906x-switch.h"
+#include "adrv906x-cmn.h"
 
 #define SWITCH_RECOVERY_NONE 0
 #define SWITCH_RECOVERY_VID  1
@@ -105,14 +106,14 @@ static struct vlan_cfg_list *adrv906x_switch_vlan_find(struct adrv906x_eth_switc
 {
 	struct vlan_cfg_list *vcl;
 
-	mutex_lock(&es->vlan_cfg_list_lock);
+	mutex_lock(&es->lock);
 	list_for_each_entry(vcl, &es->vlan_cfg_list, list) {
 		if (vcl->vlan_id == vid) {
-			mutex_unlock(&es->vlan_cfg_list_lock);
+			mutex_unlock(&es->lock);
 			return vcl;
 		}
 	}
-	mutex_unlock(&es->vlan_cfg_list_lock);
+	mutex_unlock(&es->lock);
 
 	return NULL;
 }
@@ -136,9 +137,9 @@ int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 			return -ENOMEM;
 
 		vcl->vlan_id = vid;
-		mutex_lock(&es->vlan_cfg_list_lock);
+		mutex_lock(&es->lock);
 		list_add(&vcl->list, &es->vlan_cfg_list);
-		mutex_unlock(&es->vlan_cfg_list_lock);
+		mutex_unlock(&es->lock);
 	}
 
 	mask = BIT(port);
@@ -180,9 +181,9 @@ int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 		if (mask) {
 			vcl->port_mask = mask;
 		} else {
-			mutex_lock(&es->vlan_cfg_list_lock);
+			mutex_lock(&es->lock);
 			list_del(&vcl->list);
-			mutex_unlock(&es->vlan_cfg_list_lock);
+			mutex_unlock(&es->lock);
 			devm_kfree(&es->pdev->dev, vcl);
 		}
 	}
@@ -452,7 +453,7 @@ static ssize_t port_vlan_ctrl_show(struct device *dev,
 	char_cnt += sprintf(buf + char_cnt, "\n");
 	char_cnt += sprintf(buf + char_cnt, "%-8s%-4s\n", "vid", "port");
 
-	mutex_lock(&es->vlan_cfg_list_lock);
+	mutex_lock(&es->lock);
 	list_for_each_entry(vcl, &es->vlan_cfg_list, list) {
 		char_cnt += sprintf(buf + char_cnt, "%-5d%-3s", vcl->vlan_id, ":");
 		for (i = 0; i < 3; i++) {
@@ -467,21 +468,9 @@ static ssize_t port_vlan_ctrl_show(struct device *dev,
 			break;
 		}
 	}
-	mutex_unlock(&es->vlan_cfg_list_lock);
+	mutex_unlock(&es->lock);
 
 	return char_cnt;
-}
-
-void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es)
-{
-	int ret;
-
-	iowrite32(SWITCH_ALL_EX_MAE, es->reg_switch + SWITCH_SOFT_RESET);
-	iowrite32(0, es->reg_switch + SWITCH_SOFT_RESET);
-
-	ret = adrv906x_switch_wait_for_mae_ready(es);
-	if (ret)
-		dev_err(&es->pdev->dev, "reset of internal switch failed");
 }
 
 void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es)
@@ -491,23 +480,82 @@ void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es)
 			sysfs_remove_group(&es->pdev->dev.kobj, &es->attr_group);
 }
 
-static irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
+static bool adrv906x_switch_port_enabled(struct adrv906x_eth_switch *es, int portid)
 {
-	struct adrv906x_eth_switch *es = (struct adrv906x_eth_switch *)dev_id;
-	int ret;
+	u32 val;
+
+	if (portid >= SWITCH_MAX_PORT_NUM)
+		return false;
+
+	val = ioread32(es->switch_port[portid].reg + SWITCH_PORT_CFG_PORT);
+	if (val & SWITCH_PORT_CFG_PORT_EN)
+		return true;
+	else
+		return false;
+}
+
+static int __adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled)
+{
+	u32 val;
+
+	if (portid >= SWITCH_MAX_PORT_NUM)
+		return -EINVAL;
+
+	val = ioread32(es->switch_port[portid].reg + SWITCH_PORT_CFG_PORT);
+	if (enabled)
+		val |= SWITCH_PORT_CFG_PORT_EN;
+	else
+		val &= ~SWITCH_PORT_CFG_PORT_EN;
+	iowrite32(val, es->switch_port[portid].reg + SWITCH_PORT_CFG_PORT);
+
+	return 0;
+}
+
+int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
+{
+	u32 port_mask = 0;
+	int portid, ret;
 
 	ret = es->isr_pre_args.func(es->isr_pre_args.arg);
 	if (ret)
-		return IRQ_NONE;
+		return ret;
 
 	usleep_range(1000, 1100);
-	adrv906x_switch_reset_soft(es);
+
+	mutex_lock(&es->lock);
+	/* Enable all switch ports before reset */
+	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
+		if (!adrv906x_switch_port_enabled(es, portid)) {
+			port_mask |= BIT(portid);
+			__adrv906x_switch_port_enable(es, portid, true);
+		}
+	}
+
+	adrv906x_cmn_switch_ports_reset(es);
+
+	/* Restore switch ports state */
+	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++)
+		if (port_mask & BIT(portid))
+			__adrv906x_switch_port_enable(es, portid, false);
+	mutex_unlock(&es->lock);
 
 	/* Wake up recovery thread to restore VLAN membership */
 	es->wait_cmd_flag = SWITCH_RECOVERY_VID;
 	wake_up_interruptible(&es->recovery_wq);
 
 	ret = es->isr_post_args.func(es->isr_post_args.arg);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
+{
+	struct adrv906x_eth_switch *es = (struct adrv906x_eth_switch *)dev_id;
+	int ret;
+
+	ret = adrv906x_switch_port_reset(es);
 	if (ret)
 		return IRQ_NONE;
 
@@ -601,17 +649,9 @@ static void adrv906x_switch_update_hw_stats(struct work_struct *work)
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled)
 {
-	u32 val;
-
-	if (portid >= SWITCH_MAX_PORT_NUM)
-		return -EINVAL;
-
-	val = ioread32(es->switch_port[portid].reg + SWITCH_PORT_CFG_PORT);
-	if (enabled)
-		val |= SWITCH_PORT_CFG_PORT_EN;
-	else
-		val &= ~SWITCH_PORT_CFG_PORT_EN;
-	iowrite32(val, es->switch_port[portid].reg + SWITCH_PORT_CFG_PORT);
+	mutex_lock(&es->lock);
+	__adrv906x_switch_port_enable(es, portid, enabled);
+	mutex_unlock(&es->lock);
 
 	return 0;
 }
@@ -682,7 +722,7 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 	}
 
 	INIT_LIST_HEAD(&es->vlan_cfg_list);
-	mutex_init(&es->vlan_cfg_list_lock);
+	mutex_init(&es->lock);
 	es->attr_group.attrs = NULL;
 
 	/* get switch device register address */
@@ -769,13 +809,13 @@ static void adrv906x_switch_vlan_membership_recovery(struct adrv906x_eth_switch 
 	struct device *dev = &es->pdev->dev;
 	int ret;
 
-	mutex_lock(&es->vlan_cfg_list_lock);
+	mutex_lock(&es->lock);
 	list_for_each_entry(vcl, &es->vlan_cfg_list, list) {
 		ret = adrv906x_switch_vlan_match_action_sync(es, vcl->port_mask, vcl->vlan_id);
 		if (ret)
 			dev_warn(dev, "failed recoverying vlan %d", vcl->vlan_id);
 	}
-	mutex_unlock(&es->vlan_cfg_list_lock);
+	mutex_unlock(&es->lock);
 }
 
 static int adrv906x_switch_recovery(void *data)

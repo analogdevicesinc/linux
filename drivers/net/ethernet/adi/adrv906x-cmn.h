@@ -26,5 +26,5 @@ ssize_t adrv906x_cmn_recovered_clock_output_set(struct device *dev, const char *
 ssize_t adrv906x_cmn_recovered_clock_output_get(struct device *dev, char *buf);
 void adrv906x_cmn_set_mac_loopback(struct adrv906x_eth_dev *adrv906x_dev, bool enable);
 void adrv906x_cmn_set_phy_loopback(struct adrv906x_eth_dev *adrv906x_dev, bool enable);
-
+void adrv906x_cmn_switch_ports_reset(struct adrv906x_eth_switch *es);
 #endif /* __ADRV906X_CMN_H__ */

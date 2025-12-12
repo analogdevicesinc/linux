@@ -169,7 +169,7 @@ struct adrv906x_eth_switch {
 	unsigned int pcp_regen_val;
 	struct switch_port switch_port[SWITCH_MAX_PORT_NUM];
 	struct list_head vlan_cfg_list;
-	struct mutex vlan_cfg_list_lock; /* VLan cfg list lock */
+	struct mutex lock; /* Protect data structures and hardware access functions */
 	struct device_attribute port_vlan_ctrl_attr;
 	struct attribute_group attr_group;
 	void __iomem *reg_match_action;
@@ -195,7 +195,6 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 			  int (*isr_pre_func)(void *), int (*isr_post_func)(void *), void *isr_arg);
 int adrv906x_switch_init(struct adrv906x_eth_switch *es);
 void adrv906x_switch_set_mae_age_time(struct adrv906x_eth_switch *es, u8 data);
-void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es);
 void adrv906x_switch_cleanup(struct adrv906x_eth_switch *es);
 void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es);
 int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u16 vid);
@@ -204,5 +203,6 @@ int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid);
 int adrv906x_switch_vlan_del_cpuport(struct adrv906x_eth_switch *es, u16 vid);
 int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, int portid,
 				  bool is_static);
+int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es);
 
 #endif /* __ADRV906X_SWITCH_H__ */

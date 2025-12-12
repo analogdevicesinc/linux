@@ -477,3 +477,21 @@ void adrv906x_cmn_set_mac_loopback(struct adrv906x_eth_dev *adrv906x_dev, bool e
 	}
 	mutex_unlock(&eth_if->mtx);
 }
+
+void adrv906x_cmn_switch_ports_reset(struct adrv906x_eth_switch *es)
+{
+	struct adrv906x_eth_if *eth_if = container_of(es, struct adrv906x_eth_if, ethswitch);
+	void __iomem *regs;
+	u32 val, bit_mask;
+
+	regs = eth_if->emac_cmn_regs;
+	bit_mask = EMAC_CMN_SW_PORT0_EN | EMAC_CMN_SW_PORT1_EN | EMAC_CMN_SW_PORT2_EN;
+
+	mutex_lock(&eth_if->mtx);
+	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
+	val &= ~bit_mask;
+	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL0);
+	val |= bit_mask;
+	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL0);
+	mutex_unlock(&eth_if->mtx);
+}
