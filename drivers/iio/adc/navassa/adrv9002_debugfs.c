@@ -1564,6 +1564,32 @@ static void adrv9002_debugfs_dpd_config_create(struct adrv9002_tx_chan *tx, stru
 	debugfs_create_u32(attr, 0600, d, &tx->dpd->captureDelay_us);
 }
 
+static const char * const pll_str[] = { "pll_lo1", "pll_lo2", "pll_aux" };
+
+static void adrv9002_debugfs_pll_config_create(struct adrv9002_rf_phy *phy, struct dentry *d)
+{
+	int pll;
+	char attr[64];
+	struct adrv9002_pll_config *pll_config;
+	const char *pll_name;
+
+	for (pll = 0; pll < ADRV9002_NUM_PLL_CFGS; pll++) {
+		pll_config = &phy->pll_configs[pll];
+		pll_name = pll_str[pll];
+
+		sprintf(attr, "%s_calibration_mode", pll_name);
+		debugfs_create_u32(attr, 0600, d, &pll_config->pll_config.pllCalibration);
+		sprintf(attr, "%s_power", pll_name);
+		debugfs_create_u32(attr, 0600, d, &pll_config->pll_config.pllPower);
+		sprintf(attr, "%s_loop_bandwidth_khz", pll_name);
+		debugfs_create_u16(attr, 0600, d, &pll_config->pll_loop_filter.loopBandwidth_kHz);
+		sprintf(attr, "%s_phase_margin_deg", pll_name);
+		debugfs_create_u8(attr, 0600, d, &pll_config->pll_loop_filter.phaseMargin_degrees);
+		sprintf(attr, "%s_power_scale", pll_name);
+		debugfs_create_u8(attr, 0600, d, &pll_config->pll_loop_filter.powerScale);
+	}
+}
+
 void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 {
 	int chan;
@@ -1744,4 +1770,5 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 
 	adrv9002_debugfs_fh_config_create(phy, d);
 	adrv9002_debugfs_gpio_config_create(phy, d);
+	adrv9002_debugfs_pll_config_create(phy, d);
 }
