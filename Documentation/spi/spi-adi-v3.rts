@@ -52,13 +52,13 @@ struct adi_spi_device {
 	u32 control;
 };
 
-o dma: Field informs the driver to leverage DMA mode when transferring data to/from the SPI controller. 
+o dma: Field informs the driver to leverage DMA mode when transferring data to/from the SPI controller.
 o control: Field is  used to enable ODM (Open Drain Mode for all output pins) and PSSE (Controls signalling of
 MODF error) - see the "3.1.2 SPI_CONTROL" section of "SPI3_specification.pdf".
 
 4.4) DMA and PIO I/O Support
 The adi_spi driver supports both DMA and  PIO message transfers. PIO is the default mode of operation. Set the "dma"
-flag in the "adi_spi_device" structure to enable DMA mode. 
+flag in the "adi_spi_device" structure to enable DMA mode.
 
 4.5) Device-tree support.
 Please see the following document:
