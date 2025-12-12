@@ -57,7 +57,7 @@ properties:
 
   adi,pps-in-pulse-width-ms:
     description:
-      The expected pulse width of the input PPS signal in milliseconds. 
+      The expected pulse width of the input PPS signal in milliseconds.
       Range is 0 to 1000 ms.
 
   adrv906x-tod:
