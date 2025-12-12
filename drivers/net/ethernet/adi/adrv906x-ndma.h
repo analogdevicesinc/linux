@@ -61,7 +61,7 @@
 
 #define NDMA_TX_RING_SIZE                  32
 #define NDMA_TX_NAPI_POLL_WEIGHT           (NDMA_TX_RING_SIZE / 2)
-#define NDMA_RX_RING_SIZE                  128
+#define NDMA_RX_RING_SIZE                  64
 #define NDMA_RX_NAPI_POLL_WEIGHT           (NDMA_RX_RING_SIZE / 2)
 
 /* default timestamp timeout delay */

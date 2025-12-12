@@ -200,7 +200,7 @@
 #define DMA_FETCHING_DESC(x)    ((x)& DMA_DESC_FETCH)
 #define DMA_XFER_DATA(x)        ((x)& DMA_DATA_XFER)
 
-#define NDMA_TX_PACKET_LIST_TIMEOUT_MS              100
+#define NDMA_TX_PACKET_LIST_TIMEOUT_MS              500
 #define NDMA_TX_PTP_MAX_SEQNUM                      8
 #define NDMA_TX_PTP_MIN_SEQNUM                      1
 #define NDMA_TX_MAX_SEQNUM                          255
