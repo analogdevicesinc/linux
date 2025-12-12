@@ -1,5 +1,21 @@
-# SPDX-License-Identifier: GPL-2.0-only
 #!/bin/bash -e
+# Note: Not using -u because SYSTEM_PULLREQUEST_* vars are unset (not empty) on branch builds.
+#       Not using -o pipefail because grep returns exit 1 on no match (used in dtb copy loop).
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Required environment variables:
+#   SOURCE_DIRECTORY      - Directory containing build artifacts (set in azure-pipelines.yml)
+#   CLOUDSMITH_API_KEY    - Cloudsmith API token (secret, passed via env: in pipeline)
+#
+# Azure DevOps auto-provided variables:
+#   BUILD_SOURCEVERSION      - Commit SHA for the build
+#   BUILD_SOURCEBRANCH       - Full branch ref (e.g., refs/heads/main)
+#   BUILD_SOURCEBRANCHNAME   - Short branch name
+#
+# PR-only variables (set only for pull request builds):
+#   SYSTEM_PULLREQUEST_SOURCECOMMITID   - PR source commit SHA
+#   SYSTEM_PULLREQUEST_TARGETBRANCH     - PR target branch
+#   SYSTEM_PULLREQUEST_PULLREQUESTNUMBER - PR number
 
 TIMESTAMP=$(date +%Y_%m_%d-%H_%M_%S)
 # For PRs, Azure makes a merge commit (HEAD) because of the shallow copy option
