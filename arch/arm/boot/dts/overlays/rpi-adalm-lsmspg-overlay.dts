@@ -167,7 +167,7 @@
 				};
 				channel@3 {
 					reg = <3>;
-					label = "AD5593R_GPI_CH_4";
+					label = "AD5593R_GPI_CH_6";
 				};
 
 				channel@4 {
