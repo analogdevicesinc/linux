@@ -111,6 +111,20 @@
 		};
 	};
 
+	gpio_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&gpio 133 0>;
+		label = "gpio_control";
+
+		channel@0 {
+			reg = <0>;
+			label = "rstb";
+		};
+	};
+
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
