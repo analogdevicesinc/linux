@@ -258,6 +258,7 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 	clk_div = -1;
 	word_len = -1;
 
+	dev_info(&spi_engine->ctrl->dev, "%s\n", __func__);
 	spi_engine_program_add_cmd(p, dry,
 		SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CONFIG,
 			spi_engine_get_config(spi)));
@@ -299,6 +300,10 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 			spi_engine_gen_sleep(p, dry, spi_engine,
 					     xfer->word_delay, clk_div, xfer);
 	}
+	unsigned int i;
+	for (i = 0; i < p->length; i++)
+		dev_info(&spi_engine->ctrl->dev, "%s: instruction: 0x%04X\n",
+			 __func__, p->instructions[i]);
 
 	return 0;
 }
@@ -343,6 +348,7 @@ int legacy_spi_engine_offload_load_msg(struct spi_device *spi,
 
 	msg->spi = spi;
 
+	dev_info(&spi_engine->ctrl->dev, "%s\n", __func__);
 	p_dry.length = 0;
 	spi_engine_compile_message(spi_engine, msg, true, &p_dry);
 
@@ -464,6 +470,8 @@ static void spi_engine_read_buff(struct spi_engine *spi_engine, uint8_t m)
 		for (j = 0; j < bytes_len; j++)
 			buf[j] = val >> (8 * j);
 		buf += bytes_len;
+		dev_info(&spi_engine->ctrl->dev, "%s: offset: 0x%08X, val: 0x%08X\n",
+			 __func__, SPI_ENGINE_REG_SDI_DATA_FIFO, val);
 	}
 
 	spi_engine->rx_buf += i;
@@ -481,6 +489,8 @@ static void spi_engine_write_buff(struct spi_engine *spi_engine, uint8_t m)
 	for (i = 0; i < (m * bytes_len); i += bytes_len) {
 		for (j = 0; j < bytes_len; j++)
 			val |= spi_engine->tx_buf[i + j] << (word_len - 8 * (j + 1));
+		dev_info(&spi_engine->ctrl->dev, "%s: offset: 0x%08X, val: 0x%08X\n",
+			 __func__, SPI_ENGINE_REG_SDO_DATA_FIFO, val);
 		writel_relaxed(val, addr);
 		val = 0;
 	}
@@ -493,6 +503,7 @@ static bool spi_engine_write_tx_fifo(struct spi_engine *spi_engine)
 	unsigned int n, m;
 
 	n = readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SDO_FIFO_ROOM);
+	dev_info(&spi_engine->ctrl->dev, "%s: \n", __func__);
 	while (n && spi_engine->tx_length) {
 		m = min(n, spi_engine->tx_length);
 		spi_engine_write_buff(spi_engine, m);
@@ -617,6 +628,7 @@ static int spi_engine_transfer_one_message(struct spi_controller *host,
 	unsigned long flags;
 	size_t size;
 
+	dev_info(&spi_engine->ctrl->dev, "%s: \n", __func__);
 	del_timer_sync(&spi_engine->watchdog_timer);
 
 	p_dry.length = 0;
