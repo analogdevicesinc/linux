@@ -64,6 +64,16 @@
 					clock-frequency = <200000000>;
 					always-on;
 				};
+
+				/* 100MHz for VCK190 */
+				si5391_out8: out@9 {
+					reg = <9>;
+					//silabs,format = <1>; /* LVDS 1v8 */
+					//silabs,common-mode = <13>;
+					//silabs,amplitude = <3>;
+					clock-frequency = <100000000>;
+					always-on;
+				};
 			};
 		};
 	};
