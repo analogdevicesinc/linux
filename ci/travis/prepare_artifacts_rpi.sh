@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 #!/bin/bash -e
 
-timestamp=$(date +%Y_%m_%d-%H_%M)
+timestamp=2025_12_16-12_02
 GIT_SHA=$(git rev-parse --short HEAD)
 GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${GIT_SHA} | sed -e "s/ \|\:/-/g")
 
@@ -120,23 +120,23 @@ artifacts_swdownloads() {
 
 #upload artifacts to Cloudsmith
 artifacts_cloudsmith() {
-	artifacts_structure
-	(
-		cd ${SOURCE_DIRECTORY}/${timestamp}
-		mv ./32bit/rpi_modules_32bit.tar.gz ./rpi_modules_32bit.tar.gz
-		mv ./64bit/rpi_modules_64bit.tar.gz ./rpi_modules_64bit.tar.gz
-		tar -C ${PWD}/32bit -czvf rpi_latest_boot_32bit.tar.gz *
-		tar -C ${PWD}/64bit -czvf rpi_latest_boot_64bit.tar.gz *
-		rm -r ./32bit
-		rm -r ./64bit
-	)
+	# artifacts_structure
+	# cd ${SOURCE_DIRECTORY}/${timestamp}
+	# mv ./32bit/rpi_modules_32bit.tar.gz ./
+	# mv ./64bit/rpi_modules_64bit.tar.gz ./
+	# tar -C ${PWD}/32bit -czvf rpi_latest_boot_32bit.tar.gz .
+	# tar -C ${PWD}/64bit -czvf rpi_latest_boot_64bit.tar.gz .
+	# rm -r ./32bit
+	# rm -r ./64bit
+	echo "Uploading artifacts to Cloudsmith...${CLOUDSMITH_API_KEY}" >> upload_to_cloudsmith.txt
 	python3 ${BUILD_SOURCESDIRECTORY}/wiki-scripts/utils/cloudsmith_utils/upload_to_cloudsmith.py \
 					--repo="sdg-linux-rpi" \
 					--version="linux_rpi/${BUILD_SOURCEBRANCHNAME}/${timestamp}/" \
 					--local_path="${SOURCE_DIRECTORY}/${timestamp}" \
 					--tags="git_sha-${GIT_SHA};timestamp_${timestamp}" \
 					--token="${CLOUDSMITH_API_KEY}" \
-					--log_file="upload_to_cloudsmith.log"
+					--log_file="upload_to_cloudsmith.log" \
+					--no_rel_path
 }
 
 artifacts_${1}

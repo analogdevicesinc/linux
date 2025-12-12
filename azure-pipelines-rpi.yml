@@ -18,71 +18,71 @@ resources:
       endpoint: analogdevicesinc
 
 stages:
-- stage: Builds
-  jobs:
-  - job: BuildDockerized
-    timeoutInMinutes: 90
-    strategy:
-      matrix:
-        bcm2709_arm_adi:
-          DEFCONFIG: adi_bcm2709_defconfig
-          ARCH: arm
-          IMAGE: zImage
-          artifactName: 'adi_bcm2709_arm_defconfig'
-        bcm2711_arm_adi:
-          DEFCONFIG: adi_bcm2711_defconfig
-          ARCH: arm
-          IMAGE: zImage
-          artifactName: 'adi_bcm2711_arm_defconfig'
-        bcmrpi_arm_adi:
-          DEFCONFIG: adi_bcmrpi_defconfig
-          ARCH: arm
-          IMAGE: zImage
-          artifactName: 'adi_bcmrpi_arm_defconfig'
-        bcm2711_arm64_adi:
-          DEFCONFIG: adi_bcm2711_defconfig
-          ARCH: arm64
-          IMAGE: Image
-          artifactName: 'adi_bcm2711_arm64_defconfig'
-        bcm2712_arm64_adi:
-          DEFCONFIG: adi_bcm2712_defconfig
-          ARCH: arm64
-          IMAGE: Image
-          artifactName: 'adi_bcm2712_arm64_defconfig'
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - checkout: self
-      fetchDepth: 1
-      clean: true
-    - script: ./ci/travis/run-build-docker.sh
-      displayName: "Build test for '$(DEFCONFIG)'"
-    - script: |
-        cd $(Build.ArtifactStagingDirectory)
-        tar -C /home/vsts/work/1/s/modules/lib/modules/./ -cvf /home/vsts/work/1/a/rpi_modules.tar.gz .
-      displayName: 'Copy modules'
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts'
-        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/overlays/?(*.dtb|*.dtbo)'
-        targetFolder: '$(Build.ArtifactStagingDirectory)'
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot'
-        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/$(IMAGE)'
-        targetFolder: '$(Build.ArtifactStagingDirectory)'
-    - task: CopyFiles@2
-      inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/broadcom'
-        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/broadcom/?(*.dtb)'
-        targetFolder: '$(Build.ArtifactStagingDirectory)'
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifactName: '$(artifactName)'
+# - stage: Builds
+#   jobs:
+  # - job: BuildDockerized
+  #   timeoutInMinutes: 90
+  #   strategy:
+  #     matrix:
+  #       bcm2709_arm_adi:
+  #         DEFCONFIG: adi_bcm2709_defconfig
+  #         ARCH: arm
+  #         IMAGE: zImage
+  #         artifactName: 'adi_bcm2709_arm_defconfig'
+  #       bcm2711_arm_adi:
+  #         DEFCONFIG: adi_bcm2711_defconfig
+  #         ARCH: arm
+  #         IMAGE: zImage
+  #         artifactName: 'adi_bcm2711_arm_defconfig'
+  #       bcmrpi_arm_adi:
+  #         DEFCONFIG: adi_bcmrpi_defconfig
+  #         ARCH: arm
+  #         IMAGE: zImage
+  #         artifactName: 'adi_bcmrpi_arm_defconfig'
+  #       bcm2711_arm64_adi:
+  #         DEFCONFIG: adi_bcm2711_defconfig
+  #         ARCH: arm64
+  #         IMAGE: Image
+  #         artifactName: 'adi_bcm2711_arm64_defconfig'
+  #       bcm2712_arm64_adi:
+  #         DEFCONFIG: adi_bcm2712_defconfig
+  #         ARCH: arm64
+  #         IMAGE: Image
+  #         artifactName: 'adi_bcm2712_arm64_defconfig'
+  #   pool:
+  #     vmImage: 'ubuntu-latest'
+  #   steps:
+  #   - checkout: self
+  #     fetchDepth: 1
+  #     clean: true
+  #   - script: ./ci/travis/run-build-docker.sh
+  #     displayName: "Build test for '$(DEFCONFIG)'"
+  #   - script: |
+  #       cd $(Build.ArtifactStagingDirectory)
+  #       tar -C /home/vsts/work/1/s/modules/lib/modules/./ -cvf /home/vsts/work/1/a/rpi_modules.tar.gz .
+  #     displayName: 'Copy modules'
+  #   - task: CopyFiles@2
+  #     inputs:
+  #       sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts'
+  #       contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/overlays/?(*.dtb|*.dtbo)'
+  #       targetFolder: '$(Build.ArtifactStagingDirectory)'
+  #   - task: CopyFiles@2
+  #     inputs:
+  #       sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot'
+  #       contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/$(IMAGE)'
+  #       targetFolder: '$(Build.ArtifactStagingDirectory)'
+  #   - task: CopyFiles@2
+  #     inputs:
+  #       sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/broadcom'
+  #       contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/broadcom/?(*.dtb)'
+  #       targetFolder: '$(Build.ArtifactStagingDirectory)'
+  #   - task: PublishPipelineArtifact@1
+  #     inputs:
+  #       targetPath: '$(Build.ArtifactStagingDirectory)'
+  #       artifactName: '$(artifactName)'
 
 - stage: PushArtifacts
-  dependsOn: Builds
+  #dependsOn: Builds
   variables:
     SOURCE_DIRECTORY: $(Build.SourcesDirectory)/bin
     KEY_FILE: $(key.secureFilePath)
@@ -129,7 +129,7 @@ stages:
   #       displayName: "Push to Artifactory"
 
   - job: Push_to_Cloudsmith
-    condition: succeeded()
+    #condition: succeeded()
     pool:
       name: Default
       demands:

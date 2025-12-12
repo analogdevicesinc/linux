@@ -180,7 +180,7 @@ build_default() {
 	[ -d /docker_build_dir ] && git config --global --add safe.directory /docker_build_dir
 
 	make ${DEFCONFIG}
-	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi-.* \
+	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/test_rpi_.* \
 		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging-rpi ]]; then
 		echo "Rpi build"
     		make -j$NUM_JOBS $IMAGE modules dtbs
