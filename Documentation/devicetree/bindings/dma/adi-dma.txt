@@ -18,11 +18,11 @@ Required properties:
     interrupt-names: list of interrupt names
 Optional properties:
 - dde-descriptor-mode : this is optionally specified for a dma channel. A dma channel with this
-                        property runs in descriptor list mode. otherwise the dma channel 
+                        property runs in descriptor list mode. otherwise the dma channel
                         runs in register based mode.
 - dde-sync-bit-disable: disable the DDE sync bit for a dma channel. A sync bit is used to synchronize
                         work unit transitions.
-                
+
 Example (DMA):
 
     sport0_dma_cluster: dma@0x31022000 {
