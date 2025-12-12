@@ -34,7 +34,7 @@ o Bus driver - low-level interface that is used to communicate with the I2C bus
 o Chip driver - the interface between other device drivers and the I2C bus driver
 The I2C bus driver is a low-level interface that is used to interface with the I2C bus. This driver is invoked by the
 I2C chip driver, and it is not exposed to the user space. The Linux kernel contains a core I2C module that is used by
-the chip driver to access the bus driver to transfer data over the I2C bus. 
+the chip driver to access the bus driver to transfer data over the I2C bus.
 
 This document focuses on the bus driver provided by Analog Devices, product developer needs to provide an implementation
 of the chip driver to connect a specific I2C slave device to applications running under Linux.
@@ -45,18 +45,18 @@ a core I2C module that is used by the chip driver to access the I2C bus driver t
 chip driver uses a standard kernel space API that is provided in the Linux kernel to access the core I2C module. The
 standard I2C kernel functions are documented in the files available under Documentation/i2c in the kernel source tree.
 
-4.3) Driver Features 
-The I2C driver supports the following features: 
+4.3) Driver Features
+The I2C driver supports the following features:
 o Compatibility with the I2C bus standard
 o Bit rates from 21Kbps to 400 Kbps
-o Power management features by suspending and resuming I2C. 
+o Power management features by suspending and resuming I2C.
 o 7-bit addressing (note: 10-bit address mode is not supported due to some patent issue)
 o I2C master mode of operation (note: driver does not support the slave mode)
 o Interrupt-driven data transfer
 
 4.4) I2C bus driver software operation
-The I2C bus driver is described by a structure called i2c_adapter. The most important field in this structure is 
-struct i2c_algorithm 
+The I2C bus driver is described by a structure called i2c_adapter. The most important field in this structure is
+struct i2c_algorithm
 *algo . This field is a pointer to the i2c_algorithm structure that describes how data is transferred over the I2C
 bus.*
 The algorithm structure contains a pointer to a function that is called whenever the I2C chip driver wants to
