@@ -3538,26 +3538,36 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 	int chan;
 	u8 channel_mask = (phy->curr_profile->tx.txInitChannelMask |
 			   phy->curr_profile->rx.rxInitChannelMask) & 0xFF;
-	struct adi_adrv9001_PllLoopFilterCfg pll_loop_filter = {
-		.effectiveLoopBandwidth_kHz = 0,
-		.loopBandwidth_kHz = 300,
-		.phaseMargin_degrees = 60,
-		.powerScale = 5
-	};
 	struct adi_adrv9001_Carrier carrier = {0};
 
 	ret = api_call(phy, adi_adrv9001_Radio_PllLoopFilter_Set,
-		       ADI_ADRV9001_PLL_LO1, &pll_loop_filter);
+		       ADI_ADRV9001_PLL_LO1,
+		       &phy->pll_configs[ADI_ADRV9001_PLL_LO1].pll_loop_filter);
+	if (ret)
+		return ret;
+
+	ret = api_call(phy, adi_adrv9001_Radio_Pll_Configure,
+		       ADI_ADRV9001_PLL_LO1,
+		       &phy->pll_configs[ADI_ADRV9001_PLL_LO1].pll_config);
 	if (ret)
 		return ret;
 
 	ret = api_call(phy, adi_adrv9001_Radio_PllLoopFilter_Set,
-		       ADI_ADRV9001_PLL_LO2, &pll_loop_filter);
+		       ADI_ADRV9001_PLL_LO2,
+		       &phy->pll_configs[ADI_ADRV9001_PLL_LO2].pll_loop_filter);
 	if (ret)
 		return ret;
 
+	ret = api_call(phy, adi_adrv9001_Radio_Pll_Configure,
+		       ADI_ADRV9001_PLL_LO2,
+		       &phy->pll_configs[ADI_ADRV9001_PLL_LO2].pll_config);
+	if (ret)
+		return ret;
+
+	/* Aux PLL does not have a adi_adrv9001_Radio_Pll_Configure call in SDK */
 	ret = api_call(phy, adi_adrv9001_Radio_PllLoopFilter_Set,
-		       ADI_ADRV9001_PLL_AUX, &pll_loop_filter);
+		       ADI_ADRV9001_PLL_AUX,
+		       &phy->pll_configs[ADI_ADRV9001_PLL_AUX].pll_loop_filter);
 	if (ret)
 		return ret;
 

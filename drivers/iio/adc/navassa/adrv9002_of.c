@@ -1276,6 +1276,90 @@ static int adrv9002_parse_gpios_dt(struct adrv9002_rf_phy *phy, const struct dev
 	return 0;
 }
 
+static int adrv9002_parse_plls_dt(struct adrv9002_rf_phy *phy, const struct device_node *node)
+{
+	struct device *dev = &phy->spi->dev;
+	int ret, idx = 0;
+
+	/*
+	 * Configuration needs valid values. Set defaults for all PLLs here in case any DT nodes
+	 * are not provided or out of range
+	 */
+	for (idx = 0; idx < ADRV9002_NUM_PLL_CFGS; idx++) {
+		phy->pll_configs[idx].pll_config.pllCalibration = ADI_ADRV9001_PLL_CALIBRATION_NORMAL;
+		phy->pll_configs[idx].pll_config.pllPower = ADI_ADRV9001_PLL_POWER_LOW;
+		phy->pll_configs[idx].pll_loop_filter.effectiveLoopBandwidth_kHz = 0;
+		phy->pll_configs[idx].pll_loop_filter.loopBandwidth_kHz = 300;
+		phy->pll_configs[idx].pll_loop_filter.phaseMargin_degrees = 60;
+		phy->pll_configs[idx].pll_loop_filter.powerScale = 5;
+	}
+
+	struct device_node *of_plls __free(device_node) = of_get_child_by_name(node, "adi,plls");
+	if (!of_plls)
+		return 0;
+
+	for_each_available_child_of_node_scoped(of_plls, child) {
+		u32 pll;
+		struct adrv9002_pll_config *pll_config;
+
+#define ADRV9002_OF_PLL_OPTIONAL(key, def, min, max, val)	\
+	ADRV9002_OF_U32_GET_VALIDATE(&phy->spi->dev, child, key, def, \
+				     min, max, val, false)
+
+		ret = of_property_read_u32(child, "reg", &pll);
+		if (ret) {
+			dev_err(dev, "No reg property defined for pll\n");
+			return ret;
+		}
+
+		if (pll >= ADRV9002_NUM_PLL_CFGS) {
+			dev_err(dev, "Invalid PLL number: %d\n", pll);
+			return -EINVAL;
+		}
+
+		pll_config = &phy->pll_configs[pll];
+
+		/*
+		 * AUX PLL doesn't use the pll_config struct, just the loop filter.
+		 * Skip un-used checks and sets here.
+		 */
+		if (pll != ADI_ADRV9001_PLL_AUX) {
+			ret = ADRV9002_OF_PLL_OPTIONAL("adi,calibration-mode",
+						       ADI_ADRV9001_PLL_CALIBRATION_NORMAL,
+						       ADI_ADRV9001_PLL_CALIBRATION_NORMAL,
+						       ADI_ADRV9001_PLL_CALIBRATION_FAST,
+						       pll_config->pll_config.pllCalibration);
+			if (ret)
+				return ret;
+
+			ret = ADRV9002_OF_PLL_OPTIONAL("adi,power",
+						       ADI_ADRV9001_PLL_POWER_LOW,
+						       ADI_ADRV9001_PLL_POWER_LOW,
+						       ADI_ADRV9001_PLL_POWER_HIGH,
+						       pll_config->pll_config.pllPower);
+			if (ret)
+				return ret;
+		}
+
+		ret = ADRV9002_OF_PLL_OPTIONAL("adi,loop-bw-khz", 300, 50, 1500,
+					       pll_config->pll_loop_filter.loopBandwidth_kHz);
+		if (ret)
+			return ret;
+
+		ret = ADRV9002_OF_PLL_OPTIONAL("adi,phase-margin-deg", 60, 40, 85,
+					       pll_config->pll_loop_filter.phaseMargin_degrees);
+		if (ret)
+			return ret;
+
+		ret = ADRV9002_OF_PLL_OPTIONAL("adi,power-scale", 5, 0, 10,
+					       pll_config->pll_loop_filter.powerScale);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int adrv9002_parse_channels_dt(struct adrv9002_rf_phy *phy, const struct device_node *node)
 {
 	struct device *dev = &phy->spi->dev;
@@ -1357,6 +1441,10 @@ int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 		return ret;
 
 	ret = adrv9002_parse_gpios_dt(phy, parent);
+	if (ret)
+		return ret;
+
+	ret = adrv9002_parse_plls_dt(phy, parent);
 	if (ret)
 		return ret;
 
