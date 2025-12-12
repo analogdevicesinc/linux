@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Overlay for TMC5222 Stepper Motor Controller (I2C)
+ *
+ * Copyright 2025 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2711";
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	tmc5222@60 {
+		compatible = "adi,tmc5222";
+		reg = <0x60>;
+		status = "okay";
+
+		drv-en-gpios = <&gpio 5 0>;
+		sleep-gpios = <&gpio 6 0>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <13 1>,  /* GPIO13, falling edge (IRQ_TYPE_EDGE_FALLING = 1) */
+			     <19 1>;  /* GPIO19, falling edge (IRQ_TYPE_EDGE_FALLING = 1) */
+		interrupt-names = "stallguard", "pos_reached";
+
+		/* Current control */
+		adi,current-run = <31>;
+		adi,current-hold = <8>;
+		adi,irundelay = <4>;
+		adi,iholddelay = <1>;
+
+		/* Driver configuration */
+		adi,fs-gain = <1>;
+		adi,fs-sense = <1>;
+		adi,global-scaler = <231>;
+		adi,tpowerdown = <10>;
+
+		/* Chopper configuration */
+		adi,toff = <3>;
+		adi,tbl = <2>;
+
+		/* PWM configuration */
+		adi,pwm-freewheel = <0>; /* 0 = NORMAL */
+		adi,pwm-freq = <0>; /* 0 = 2/1024*fclk */
+
+		/* StallGuard configuration */
+		adi,sgt = <0>; /* StallGuard2 threshold: -64 to +63, 0 = default */
+		adi,sgt4 = <0>; /* StallGuard4 threshold: 0 to 511 (9-bit), 0 = default */
+
+		/* Microstep and motor configuration */
+		adi,microstep-res = <0>; /* 0 = 256 microsteps */
+		adi,step-angle-millidegrees = <1800>; /* 1.8 degrees */
+
+		/* Initial target position */
+		adi,xtarget = <51200>;
+
+		/* Ramp parameters for position control */
+		adi,vstart = <0>;
+		adi,a1 = <10000>;
+		adi,v1 = <100000>;
+		adi,a2 = <50000>;
+		adi,v2 = <300000>;
+		adi,amax = <100000>;
+		adi,vmax = <500000>;
+		adi,dmax = <2000>;
+		adi,d2 = <1600>;
+		adi,d1 = <1000>;
+		adi,vstop = <10>;
+	};
+};
