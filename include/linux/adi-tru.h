@@ -1,8 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Analog Devices Trigger Routing Unit (TRU) driver
- *
- * Copyright 2022 Analog Devices Inc.
+ * Copyright (c) 2022, Analog Devices Incorporated, All Rights Reserved
  */
 
 #ifndef ADI_TRU_H
