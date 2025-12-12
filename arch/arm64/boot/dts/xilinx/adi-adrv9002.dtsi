@@ -91,5 +91,29 @@
 				adi,fh-hop-tx-ports = <ADRV9002_TX_2>;
 			};
 		};
+
+		/* PLL Configuration Properties */
+		adi,plls {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* LO1 PLL */
+			pll@0 {
+				reg = <0>;
+				adi,calibration-mode = <ADRV9002_PLL_CAL_NORMAL>;
+				adi,power = <ADRV9002_PLL_POWER_LOW>;
+				adi,loop-bw-khz = <300>;
+				adi,phase-margin-deg = <60>;
+			};
+
+			/* LO2 PLL */
+			pll@1 {
+				reg = <1>;
+				adi,calibration-mode = <ADRV9002_PLL_CAL_NORMAL>;
+				adi,power = <ADRV9002_PLL_POWER_LOW>;
+				adi,loop-bw-khz = <300>;
+				adi,phase-margin-deg = <60>;
+			};
+		};
 	};
 };
