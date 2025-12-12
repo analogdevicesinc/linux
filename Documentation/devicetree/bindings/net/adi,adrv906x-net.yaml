@@ -72,7 +72,7 @@ properties:
             $ref: /schemas/types.yaml#/definitions/phandle
             description: Physical base address for MACSec instance
           interrupts:
-            description: macsecX interrupt. Do only populate macsec1 when the 
+            description: macsecX interrupt. Do only populate macsec1 when the
               switch is enabled!
           interrupt-names:
             items:
@@ -321,7 +321,7 @@ examples:
     #define OIF_0_RX_CTRL_UADDR           2B103040
     #define EMAC_RECOVERED_CLK_CTRL_UADDR 20102D00
     #define NDMA_0_TX_BASE_UADDR          20216000
-    
+
     #define NDMA_DMA_ERR_INTR_GATED_0         210
     #define NDMA_DMA_ERR_INTR_GATED_1         211
     #define NDMA_DMA_DONE_INTR_GATED_0        214
@@ -344,7 +344,7 @@ examples:
       ethernet-ports {
       #address-cells = <1>;
       #size-cells = <1>;
-    
+
       port@0 {
           id = <0>;
           reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>,
@@ -404,7 +404,7 @@ examples:
 
       eth_switch@EMAC_SW_BASE_UADDR {
       #address-cells = <1>;
-      #size-cells = <1>;  
+      #size-cells = <1>;
       reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
         interrupt-names = "switch_error_0", "switch_error_1";
         interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>,
