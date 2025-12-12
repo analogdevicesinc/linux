@@ -421,6 +421,7 @@ static int ad5791_buffer_preenable(struct iio_dev *indio_dev)
 	if (st->pwr_down)
 		return -EINVAL;
 
+	dev_info(&st->spi->dev, "%s: \n", __func__);
 	return spi_offload_trigger_enable(st->offload, st->offload_trigger,
 					 &config);
 }
@@ -429,6 +430,7 @@ static int ad5791_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct ad5791_state *st = iio_priv(indio_dev);
 
+	dev_info(&st->spi->dev, "%s: \n", __func__);
 	spi_offload_trigger_disable(st->offload, st->offload_trigger);
 
 	return 0;
