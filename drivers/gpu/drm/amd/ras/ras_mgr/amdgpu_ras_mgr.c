@@ -32,6 +32,7 @@
 #include "amdgpu_ras_eeprom_i2c.h"
 #include "amdgpu_ras_mp1_v13_0.h"
 #include "amdgpu_ras_nbio_v7_9.h"
+#include "amdgpu_ras_mce.h"
 
 #define MAX_SOCKET_NUM_PER_HIVE		8
 #define MAX_AID_NUM_PER_SOCKET		4
@@ -364,6 +365,7 @@ static int amdgpu_ras_mgr_sw_init(struct amdgpu_ip_block *ip_block)
 		goto err2;
 	}
 	amdgpu_ras_mgr_init_event_mgr(ras_mgr->ras_core);
+	amdgpu_ras_mce_sw_init(adev);
 
 	if (amdgpu_sriov_vf(adev)) {
 		ret = amdgpu_virt_ras_sw_init(adev);
@@ -404,6 +406,7 @@ static int amdgpu_ras_mgr_sw_fini(struct amdgpu_ip_block *ip_block)
 	if (amdgpu_sriov_vf(adev))
 		amdgpu_virt_ras_sw_fini(adev);
 
+	amdgpu_ras_mce_sw_fini(adev);
 	amdgpu_ras_process_fini(adev);
 	ras_core_sw_fini(ras_mgr->ras_core);
 	ras_core_destroy(ras_mgr->ras_core);
@@ -438,6 +441,8 @@ static int amdgpu_ras_mgr_hw_init(struct amdgpu_ip_block *ip_block)
 		return ret;
 	}
 
+	amdgpu_ras_mce_hw_init(adev);
+
 	ras_mgr->ras_is_ready = true;
 
 	amdgpu_enable_uniras(adev, true);
@@ -463,6 +468,7 @@ static int amdgpu_ras_mgr_hw_fini(struct amdgpu_ip_block *ip_block)
 	else
 		ras_core_hw_fini(ras_mgr->ras_core);
 
+	amdgpu_ras_mce_hw_fini(adev);
 	ras_mgr->ras_is_ready = false;
 
 	return 0;
