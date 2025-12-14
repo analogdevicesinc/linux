@@ -2386,10 +2386,10 @@ void xa_destroy(struct xarray *xa)
 	unsigned long flags;
 	void *entry;
 
-	xas.xa_node = NULL;
 	xas_lock_irqsave(&xas, flags);
 	entry = xa_head_locked(xa);
 	RCU_INIT_POINTER(xa->xa_head, NULL);
+	xas.xa_node = NULL;
 	xas_init_marks(&xas);
 	if (xa_zero_busy(xa))
 		xa_mark_clear(xa, XA_FREE_MARK);
