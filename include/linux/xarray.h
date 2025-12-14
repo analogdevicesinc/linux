@@ -1185,8 +1185,9 @@ struct xa_node {
 
 void xa_dump(const struct xarray *);
 void xa_dump_node(const struct xa_node *);
+void xa_dump_index(unsigned long index, unsigned int shift);
 
-#ifdef XA_DEBUG
+#ifdef CONFIG_DEBUG_XARRAY
 #define XA_BUG_ON(xa, x) do {					\
 		if (x) {					\
 			xa_dump(xa);				\

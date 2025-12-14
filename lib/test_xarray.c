@@ -15,7 +15,7 @@ static unsigned int tests_passed;
 static const unsigned int order_limit =
 		IS_ENABLED(CONFIG_XARRAY_MULTI) ? BITS_PER_LONG : 1;
 
-#ifndef XA_DEBUG
+#ifndef CONFIG_DEBUG_XARRAY
 # ifdef __KERNEL__
 void xa_dump(const struct xarray *xa) { }
 # endif
