@@ -11,36 +11,9 @@ maintainers:
   - Utsav Agarwal <Utsav.Agarwal@analog.com>
 
 description: |
-  Describes device tree binding for adi rpmsg driver
-  required when rpmsg communication is needed and remote core isn't
-  started by adi,remoteproc.
-  The size of vdev-vring specifies how many message buffers are allocated
-  for tx and rx (combined) overriding the default number specified in
-  MAX_RPMSG_NUM_BUFS. The memory-region size must match (or be larger) selected
-  number of messages times MAX_RPMSG_BUF_SIZE (default 512).
-  E.g. for 1024 message buffers (512 for rx and 512 for tx):
-    vdev-vring size = 0x0000a000
-    memory-region size = 0x00080000
-
-  Selection table for MAX_RPMSG_BUF_SIZE=512 (default):
-
-  rpmsg   |            |
-  buffers | vdev-vring | memory-region
-  ---------------------------------
-      256 | 0x00004000 | 0x00020000
-      512 | 0x00006000 | 0x00040000
-     1024 | 0x0000a000 | 0x00080000
-     2048 | 0x00010000 | 0x00100000
-     4096 | 0x0001e000 | 0x00200000
-     8192 | 0x00038000 | 0x00400000
-    16384 | 0x0006c000 | 0x00800000
-    32768 | 0x000d4000 | 0x01000000
-    65536 | 0x001a4000 | 0x02000000
-   131072 | 0x00344000 | 0x04000000
-   262144 | 0x00684000 | 0x08000000
-   524288 | 0x00d04000 | 0x10000000
-  1048576 | 0x01a04000 | 0x20000000
-  2097152 | 0x03404000 | 0x40000000
+  This rpmsg driver, used when the firmware loaded before Linux Kernel
+  starts. Allocates memmory according rpmsg message max settings
+  both for vrings and buffer.
 
 properties:
   compatible:
@@ -76,13 +49,13 @@ properties:
 
   vdev-vring:
     $ref: /schemas/types.yaml#/definitions/phandle
-    description: |
+    description:
       phandle to reserved memory region for rpmsg vdev0vrings,
       if not specified allocates buffer from DMA pool.
 
   memory-region:
     maxItems: 1
-    description: |
+    description:
       phandle to reserved memory for rpmsg message buffers,
       if not specified allocates buffer from DMA pool.
 

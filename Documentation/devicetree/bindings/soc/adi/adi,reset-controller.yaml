@@ -25,11 +25,13 @@ properties:
   adi,sharc-min:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: Minimum valid SHARC core ID/count
-    minimum: 0
+    minimum: 1
+    maximum: 2
 
   adi,sharc-max:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: Maximum valid SHARC core ID/count
+    minimum: 1
     maximum: 2
 
 required:
