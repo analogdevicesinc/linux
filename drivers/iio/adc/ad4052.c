@@ -10,7 +10,7 @@
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/gpio/consumer.h>
+#include <linux/gpio/driver.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/events.h>
@@ -32,6 +32,7 @@
 #include <linux/types.h>
 #include <linux/units.h>
 #include <linux/unaligned.h>
+#include <linux/util_macros.h>
 #include <dt-bindings/iio/adc/adi,ad4052.h>
 
 #define AD4052_REG_INTERFACE_CONFIG_A			0x00
@@ -44,6 +45,7 @@
 #define AD4052_REG_VENDOR_H				0x0D
 #define AD4052_REG_STREAM_MODE				0x0E
 #define AD4052_REG_INTERFACE_STATUS			0x11
+#define     AD4052_REG_INTERFACE_STATUS_NOT_RDY		BIT(7)
 #define AD4052_REG_MODE_SET				0x20
 #define     AD4052_REG_MODE_SET_ENTER_ADC		BIT(0)
 #define AD4052_REG_ADC_MODES				0x21
@@ -128,14 +130,14 @@ static const struct iio_scan_type ad4052_scan_type_12_s[] = {
 	[AD4052_SCAN_TYPE_SAMPLE] = {
 		.sign = 's',
 		.realbits = 12,
-		.storagebits = 16,
-		.endianness = IIO_BE,
+		.storagebits = 32,
+		.endianness = IIO_CPU,
 	},
 	[AD4052_SCAN_TYPE_BURST_AVG] = {
 		.sign = 's',
 		.realbits = 14,
-		.storagebits = 16,
-		.endianness = IIO_BE,
+		.storagebits = 32,
+		.endianness = IIO_CPU,
 	},
 };
 
@@ -143,14 +145,14 @@ static const struct iio_scan_type ad4052_scan_type_16_s[] = {
 	[AD4052_SCAN_TYPE_SAMPLE] = {
 		.sign = 's',
 		.realbits = 16,
-		.storagebits = 16,
-		.endianness = IIO_BE,
+		.storagebits = 32,
+		.endianness = IIO_CPU,
 	},
 	[AD4052_SCAN_TYPE_BURST_AVG] = {
 		.sign = 's',
 		.realbits = 24,
 		.storagebits = 32,
-		.endianness = IIO_BE,
+		.endianness = IIO_CPU,
 	},
 };
 
@@ -539,8 +541,8 @@ static int ad4052_update_xfer_raw(struct iio_dev *indio_dev,
 		return PTR_ERR(scan_type);
 
 	xfer->rx_buf = st->buf.bytes;
-	xfer->bits_per_word = scan_type->realbits;
-	xfer->len = scan_type->realbits == 24 ? 4 : 2;
+	xfer->bits_per_word = roundup_pow_of_two(scan_type->realbits); /* + SE_BITS */
+	xfer->len = spi_bpw_to_bytes(scan_type->realbits);
 	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uV);
 
 	return 0;
@@ -557,7 +559,7 @@ static int ad4052_update_xfer_offload(struct iio_dev *indio_dev,
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	xfer->bits_per_word = scan_type->realbits;
+	xfer->bits_per_word = roundup_pow_of_two(scan_type->realbits); /* + SE_BITS */
 	xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 	xfer->len = spi_bpw_to_bytes(scan_type->realbits);
 	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uV);
@@ -581,7 +583,7 @@ static int ad4052_check_ids(struct ad4052_state *st)
 
 	val = be16_to_cpu(st->buf.be16);
 	if (val != st->chip->prod_id)
-		dev_warn(dev, "Production ID x%x does not match known values", val);
+		dev_warn(dev, "Production ID x%x does not match expected value", val);
 
 	ret = regmap_bulk_read(st->regmap, AD4052_REG_VENDOR_H,
 			       &st->buf.be16, sizeof(st->buf.be16));
@@ -680,10 +682,14 @@ static int ad4052_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 					    AD4052_INTR_EN_NEITHER));
 	if (ret)
 		return ret;
-
 	st->buf.be16 = cpu_to_be16(AD4052_MON_VAL_MIDDLE_POINT);
-	return regmap_bulk_write(st->regmap, AD4052_REG_MON_VAL,
-				 &st->buf.be16, sizeof(st->buf.be16));
+	ret = regmap_bulk_write(st->regmap, AD4052_REG_MON_VAL,
+				&st->buf.be16, sizeof(st->buf.be16));
+	if (ret)
+		return ret;
+
+	return regmap_write(st->regmap, AD4052_REG_INTERFACE_STATUS,
+			    AD4052_REG_INTERFACE_STATUS_NOT_RDY);
 }
 
 static irqreturn_t ad4052_irq_handler_thresh(int irq, void *private)
@@ -742,7 +748,7 @@ static int ad4052_request_irq(struct iio_dev *indio_dev)
 	return devm_request_threaded_irq(dev, st->drdy_irq,
 					ad4052_irq_handler_drdy,
 					NULL, IRQF_ONESHOT, indio_dev->name,
-					indio_dev);
+					st);
 }
 
 static const int ad4052_oversampling_avail[] = {
@@ -761,6 +767,8 @@ static int ad4052_read_avail(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		*vals = ad4052_oversampling_avail;
 		*len = ARRAY_SIZE(ad4052_oversampling_avail);
+		if (st->chip->avg_max == 256)
+			*len -= 4;
 		*type = IIO_VAL_INT;
 
 		return IIO_AVAIL_LIST;
@@ -890,7 +898,7 @@ static int ad4052_read_chan_raw(struct ad4052_state *st, int *val)
 	struct spi_transfer t_cnv = {};
 	int ret;
 
-	PM_RUNTIME_ACQUIRE(&st->i3cdev->dev, pm);
+	PM_RUNTIME_ACQUIRE(&st->spi->dev, pm);
 	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
@@ -926,9 +934,9 @@ static int ad4052_read_chan_raw(struct ad4052_state *st, int *val)
 		return ret;
 
 	if (st->xfer.len == 2)
-		*val = sign_extend32(get_unaligned_be16(st->buf.bytes), 15);
+		*val = sign_extend32(st->buf.be16, 15);
 	else
-		*val = sign_extend32(get_unaligned_be32(st->buf.bytes), 23);
+		*val = sign_extend32(st->buf.be32, 23);
 
 	return ad4052_exit_command(st);
 }
@@ -1053,7 +1061,8 @@ static int ad4052_monitor_mode_enable(struct ad4052_state *st)
 static int ad4052_monitor_mode_disable(struct ad4052_state *st)
 {
 	pm_runtime_put_autosuspend(&st->spi->dev);
-	return 0;
+
+	return ad4052_exit_command(st);
 }
 
 static int ad4052_read_event_config(struct iio_dev *indio_dev,
@@ -1286,7 +1295,6 @@ static int pm_ad4052_triggered_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		goto out_pwm_error;
 
-	pm_runtime_get_noresume(&st->spi->dev);
 	return 0;
 
 out_pwm_error:
