@@ -86,6 +86,8 @@
 
 #define AD4062_I3C_VENDOR	0x0177
 #define AD4062_SOFT_RESET	0x81
+#define AD4060_PROD_ID		0x7A
+#define AD4062_PROD_ID		0x7C
 
 #define AD4062_GP_DISABLED	0x0
 #define AD4062_GP_INTR		0x1
@@ -93,7 +95,7 @@
 #define AD4062_GP_STATIC_LOW	0x5
 #define AD4062_GP_STATIC_HIGH	0x6
 
-#define AD4062_LIMIT_BITS	11
+#define AD4062_LIMIT_BITS	12
 
 #define AD4062_INTR_EN_NEITHER	0x0
 #define AD4062_INTR_EN_EITHER	0x3
@@ -137,12 +139,12 @@ static const struct iio_scan_type ad4062_scan_type_16_s[] = {
 	[AD4062_SCAN_TYPE_SAMPLE] = {
 		.sign = 's',
 		.realbits = 16,
-		.storagebits = 32,
+		.storagebits = 16,
 		.endianness = IIO_BE,
 	},
 	[AD4062_SCAN_TYPE_BURST_AVG] = {
 		.sign = 's',
-		.realbits = 24,
+		.realbits = 20,
 		.storagebits = 32,
 		.endianness = IIO_BE,
 	},
@@ -172,7 +174,8 @@ struct ad4062_state {
 	u16 sampling_frequency;
 	u16 events_frequency;
 	u8 oversamp_ratio;
-	u8 reg_addr_conv;
+	u8 conv_sizeof;
+	u8 conv_addr;
 	union {
 		__be32 be32;
 		__be16 be16;
@@ -225,12 +228,6 @@ static const struct iio_event_spec ad4062_events[] = {
 	},
 };
 
-static int ad4062_conversion_frequency_set(struct ad4062_state *st, u8 val)
-{
-	return regmap_write(st->regmap, AD4062_REG_TIMER_CONFIG,
-			    FIELD_PREP(AD4062_REG_TIMER_CONFIG_FS_MASK, val));
-}
-
 #define AD4062_CHAN(bits) {								\
 	.type = IIO_VOLTAGE,								\
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_RAW) |				\
@@ -252,14 +249,14 @@ static int ad4062_conversion_frequency_set(struct ad4062_state *st, u8 val)
 static const struct ad4062_chip_info ad4060_chip_info = {
 	.name = "ad4060",
 	.channels = { AD4062_CHAN(12) },
-	.prod_id = 0x7A,
+	.prod_id = AD4060_PROD_ID,
 	.avg_max = 256,
 };
 
 static const struct ad4062_chip_info ad4062_chip_info = {
 	.name = "ad4062",
 	.channels = { AD4062_CHAN(16) },
-	.prod_id = 0x7C,
+	.prod_id = AD4062_PROD_ID,
 	.avg_max = 4096,
 };
 
@@ -398,7 +395,7 @@ static int ad4062_get_sampling_frequency(struct ad4062_state *st, int *val)
 	int freq = ad4062_conversion_freqs[st->sampling_frequency];
 
 	*val = ad4062_calc_sampling_frequency(freq, st->oversamp_ratio);
-	return 0;
+	return IIO_VAL_INT;
 }
 
 static int ad4062_set_sampling_frequency(struct ad4062_state *st, int val, int val2)
@@ -412,8 +409,9 @@ static int ad4062_set_sampling_frequency(struct ad4062_state *st, int val, int v
 	if (ret)
 		return ret;
 
-	st->sampling_frequency = find_closest_descending(val, st->samp_freqs,
-							 ARRAY_SIZE(ad4062_conversion_freqs));
+	st->sampling_frequency =
+		find_closest_descending(val, st->samp_freqs,
+					ARRAY_SIZE(ad4062_conversion_freqs));
 	return 0;
 }
 
@@ -446,21 +444,38 @@ static int ad4062_check_ids(struct ad4062_state *st)
 	return 0;
 }
 
+static int ad4062_conversion_frequency_set(struct ad4062_state *st, u8 val)
+{
+	return regmap_write(st->regmap, AD4062_REG_TIMER_CONFIG,
+			    FIELD_PREP(AD4062_REG_TIMER_CONFIG_FS_MASK, val));
+}
+
 static int ad4062_set_operation_mode(struct ad4062_state *st,
 				     enum ad4062_operation_mode mode)
 {
+	const unsigned int samp_freq = mode == AD4062_MONITOR_MODE ?
+				       st->events_frequency : st->sampling_frequency;
 	int ret;
 
-	if (mode == AD4062_BURST_AVERAGING_MODE) {
-		ret = ad4062_conversion_frequency_set(st, st->sampling_frequency);
-		if (ret)
-			return ret;
-	}
+	ret = ad4062_conversion_frequency_set(st, samp_freq);
+	if (ret)
+		return ret;
 
 	ret = regmap_update_bits(st->regmap, AD4062_REG_ADC_MODES,
 				 AD4062_REG_ADC_MODES_MODE_MSK, mode);
 	if (ret)
 		return ret;
+
+	if (mode == AD4062_MONITOR_MODE) {
+		/* Change address pointer to enter monitor mode */
+		struct i3c_priv_xfer xfer_trigger = {
+			.data.out = &st->conv_addr,
+			.len = sizeof(st->conv_addr),
+			.rnw = false,
+		};
+		st->conv_addr = AD4062_REG_CONV_TRIGGER_32BITS;
+		return i3c_device_do_priv_xfers(st->i3cdev, &xfer_trigger, 1);
+	}
 
 	return regmap_write(st->regmap, AD4062_REG_MODE_SET,
 			    AD4062_REG_MODE_SET_ENTER_ADC);
@@ -493,9 +508,14 @@ static int ad4062_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 		return PTR_ERR(scan_type);
 
 	ret = regmap_update_bits(st->regmap, AD4062_REG_GP_CONF,
-				 AD4062_REG_GP_CONF_MODE_MSK_1,
+				 AD4062_REG_GP_CONF_MODE_MSK_0,
 				 FIELD_PREP(AD4062_REG_GP_CONF_MODE_MSK_0,
-					    AD4062_GP_INTR) |
+					    AD4062_GP_INTR));
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, AD4062_REG_GP_CONF,
+				 AD4062_REG_GP_CONF_MODE_MSK_1,
 				 FIELD_PREP(AD4062_REG_GP_CONF_MODE_MSK_1,
 					    AD4062_GP_DRDY));
 	if (ret)
@@ -514,9 +534,14 @@ static int ad4062_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 		return ret;
 
 	ret = regmap_update_bits(st->regmap, AD4062_REG_INTR_CONF,
-				 AD4062_REG_INTR_CONF_EN_MSK_1,
+				 AD4062_REG_INTR_CONF_EN_MSK_0,
 				 FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_0,
-					    AD4062_INTR_EN_EITHER) |
+					    AD4062_INTR_EN_EITHER));
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, AD4062_REG_INTR_CONF,
+				 AD4062_REG_INTR_CONF_EN_MSK_1,
 				 FIELD_PREP(AD4062_REG_INTR_CONF_EN_MSK_1,
 					    AD4062_INTR_EN_NEITHER));
 	if (ret)
@@ -576,28 +601,24 @@ static void ad4062_trigger_work(struct work_struct *work)
 {
 	struct ad4062_state *st =
 		container_of(work, struct ad4062_state, trig_conv);
-	const bool is_32b = st->chip->prod_id == 0x7C;
-	const size_t _sizeof = is_32b ? sizeof(st->buf.be32) : sizeof(st->buf.be16);
 	int ret;
 
 	/*
 	 * Read current conversion, if at reg CONV_READ, stop bit triggers
 	 * next sample and does not need writing the address.
 	 */
-	struct i3c_priv_xfer t[2] = {
-		{
-			.data.in = &st->buf.be32,
-			.len = _sizeof,
-			.rnw = true,
-		},
-		{
-			.data.out = &st->reg_addr_conv,
-			.len = sizeof(st->reg_addr_conv),
-			.rnw = false,
-		},
+	struct i3c_priv_xfer xfer_sample = {
+		.data.in = &st->buf.be32,
+		.len = st->conv_sizeof,
+		.rnw = true,
+	};
+	struct i3c_priv_xfer xfer_trigger = {
+		.data.out = &st->conv_addr,
+		.len = sizeof(st->conv_addr),
+		.rnw = false,
 	};
 
-	ret = i3c_device_do_priv_xfers(st->i3cdev, &t[0], 1);
+	ret = i3c_device_do_priv_xfers(st->i3cdev, &xfer_sample, 1);
 	if (ret)
 		return;
 
@@ -606,7 +627,7 @@ static void ad4062_trigger_work(struct work_struct *work)
 	if (st->gpo_irq[1])
 		return;
 
-	i3c_device_do_priv_xfers(st->i3cdev, &t[1], 1);
+	i3c_device_do_priv_xfers(st->i3cdev, &xfer_trigger, 1);
 }
 
 static irqreturn_t ad4062_poll_handler(int irq, void *p)
@@ -692,15 +713,12 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 
 	if (ret < 0) {
 		st->gpo_irq[1] = false;
-		st->reg_addr_conv = st->chip->prod_id == 0x7C ? AD4062_REG_CONV_TRIGGER_32BITS :
-								AD4062_REG_CONV_TRIGGER_16BITS;
 		return regmap_update_bits(st->regmap, AD4062_REG_ADC_IBI_EN,
 					  AD4062_REG_ADC_IBI_EN_CONV_TRIGGER,
 					  AD4062_REG_ADC_IBI_EN_CONV_TRIGGER);
 	}
 	st->gpo_irq[1] = true;
-	st->reg_addr_conv = st->chip->prod_id == 0x7C ? AD4062_REG_CONV_READ_32BITS :
-							AD4062_REG_CONV_READ_16BITS;
+
 	return devm_request_threaded_irq(dev, ret,
 					 ad4062_irq_handler_drdy,
 					 NULL, IRQF_ONESHOT, indio_dev->name,
@@ -751,6 +769,7 @@ static int ad4062_read_avail(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		*vals = ad4062_oversampling_avail;
 		*len = ARRAY_SIZE(ad4062_oversampling_avail);
+		*len -= st->chip->avg_max == 256 ? 4 : 0;
 		*type = IIO_VAL_INT;
 
 		return IIO_AVAIL_LIST;
@@ -773,13 +792,16 @@ static int ad4062_get_chan_scale(struct iio_dev *indio_dev, int *val, int *val2)
 	struct ad4062_state *st = iio_priv(indio_dev);
 	const struct iio_scan_type *scan_type;
 
+	/*
+	 * In burt averaging mode the averaging filter accumulates resulting
+	 * in a sample with increased precision.
+	 */
 	scan_type = iio_get_current_scan_type(indio_dev, st->chip->channels);
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	*val = (st->vref_uV * 2) / (MICRO / MILLI);
-
-	*val2 = scan_type->realbits - 1; /* signed */
+	*val = (st->vref_uV * 2) / (MICRO / MILLI); /* signed */
+	*val2 = scan_type->realbits - 1;
 
 	return IIO_VAL_FRACTIONAL_LOG2;
 }
@@ -829,22 +851,18 @@ static int ad4062_set_chan_calibscale(struct ad4062_state *st, int gain_int,
 
 static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 {
-	int ret;
 	struct i3c_device *i3cdev = st->i3cdev;
-	const bool is_32b = st->chip->prod_id == 0x7C;
-	const size_t _sizeof = is_32b ? sizeof(st->buf.be32) : sizeof(st->buf.be16);
-	struct i3c_priv_xfer xfer_sample[] = {
-		{
-			.data.out = &st->reg_addr_conv,
-			.len = sizeof(st->reg_addr_conv),
-			.rnw = false,
-		},
-		{
-			.data.in = &st->buf.be32,
-			.len = _sizeof,
-			.rnw = true,
-		}
+	struct i3c_priv_xfer xfer_trigger = {
+		.data.out = &st->conv_addr,
+		.len = sizeof(st->conv_addr),
+		.rnw = false,
 	};
+	struct i3c_priv_xfer xfer_sample = {
+		.data.in = &st->buf.be32,
+		.len = sizeof(st->buf.be32),
+		.rnw = true,
+	};
+	int ret;
 
 	ret = pm_runtime_resume_and_get(&st->i3cdev->dev);
 	if (ret)
@@ -855,8 +873,9 @@ static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 		goto out_suspend;
 
 	reinit_completion(&st->completion);
-	/* Change address pointer (and read if CONV_READ) to trigger conversion. */
-	ret = i3c_device_do_priv_xfers(i3cdev, xfer_sample, st->gpo_irq[1] ? 2 : 1);
+	/* Change address pointer to trigger conversion */
+	st->conv_addr = AD4062_REG_CONV_TRIGGER_32BITS;
+	ret = i3c_device_do_priv_xfers(i3cdev, &xfer_trigger, 1);
 	if (ret)
 		goto out_suspend;
 	/*
@@ -870,12 +889,13 @@ static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 		goto out_suspend;
 	}
 
-	ret = i3c_device_do_priv_xfers(i3cdev, &xfer_sample[1], 1);
+	ret = i3c_device_do_priv_xfers(i3cdev, &xfer_sample, 1);
 	if (ret)
 		goto out_suspend;
-	*val = is_32b ? be32_to_cpu(st->buf.be32) : be16_to_cpu(st->buf.be16);
+	*val = be32_to_cpu(st->buf.be32);
 
 out_suspend:
+	pm_runtime_mark_last_busy(&st->i3cdev->dev);
 	pm_runtime_put_autosuspend(&st->i3cdev->dev);
 	return ret;
 }
@@ -896,9 +916,6 @@ static int ad4062_read_raw_dispatch(struct ad4062_state *st,
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		return ad4062_get_oversampling_ratio(st, val);
 
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		return ad4062_get_sampling_frequency(st, val);
-
 	default:
 		return -EINVAL;
 	}
@@ -911,8 +928,13 @@ static int ad4062_read_raw(struct iio_dev *indio_dev,
 	struct ad4062_state *st = iio_priv(indio_dev);
 	int ret;
 
-	if (info == IIO_CHAN_INFO_SCALE)
+	switch (info) {
+	case IIO_CHAN_INFO_SCALE:
 		return ad4062_get_chan_scale(indio_dev, val, val2);
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad4062_get_sampling_frequency(st, val);
+	}
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
@@ -935,9 +957,6 @@ static int ad4062_write_raw_dispatch(struct ad4062_state *st, int val, int val2,
 	case IIO_CHAN_INFO_CALIBSCALE:
 		return ad4062_set_chan_calibscale(st, val, val2);
 
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		return ad4062_set_sampling_frequency(st, val, val2);
-
 	default:
 		return -EINVAL;
 	}
@@ -949,6 +968,11 @@ static int ad4062_write_raw(struct iio_dev *indio_dev,
 {
 	struct ad4062_state *st = iio_priv(indio_dev);
 	int ret;
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad4062_set_sampling_frequency(st, val, val2);
+	}
 
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
@@ -966,12 +990,9 @@ static int pm_ad4062_monitor_mode_enable(struct ad4062_state *st)
 	if (ret)
 		goto out_suspend;
 
-	ret = ad4062_conversion_frequency_set(st, st->events_frequency);
-	if (ret)
-		goto out_suspend;
-
 	ret = ad4062_set_operation_mode(st, AD4062_MONITOR_MODE);
 out_suspend:
+	pm_runtime_mark_last_busy(&st->i3cdev->dev);
 	pm_runtime_put_autosuspend(&st->i3cdev->dev);
 	return ret;
 }
@@ -990,6 +1011,7 @@ static int ad4062_monitor_mode_enable(struct ad4062_state *st)
 
 static int ad4062_monitor_mode_disable(struct ad4062_state *st)
 {
+	pm_runtime_mark_last_busy(&st->i3cdev->dev);
 	pm_runtime_put_autosuspend(&st->i3cdev->dev);
 	return 0;
 }
@@ -1182,6 +1204,28 @@ static int ad4062_write_event_value(struct iio_dev *indio_dev,
 	return ret;
 }
 
+/*
+ * The AD4062 in burst averaging mode increases realbits from 16-bits to
+ * 20-bits, increasing the storagebits from 16-bits to 32-bits.
+ */
+static inline size_t ad4062_sizeof_storagebits(struct ad4062_state *st)
+{
+	const struct iio_scan_type *scan_type =
+		iio_get_current_scan_type(st->indio_dev, st->chip->channels);
+
+	return BITS_TO_BYTES(scan_type->storagebits);
+}
+
+/* Read registers only with realbits (no sign extension bytes) */
+static inline size_t ad4062_get_conv_addr(struct ad4062_state *st, size_t _sizeof)
+{
+	if (st->gpo_irq[1])
+		return _sizeof == sizeof(u32) ? AD4062_REG_CONV_READ_32BITS :
+						AD4062_REG_CONV_READ_16BITS;
+	return _sizeof == sizeof(u32) ? AD4062_REG_CONV_TRIGGER_32BITS :
+					AD4062_REG_CONV_TRIGGER_16BITS;
+}
+
 static int pm_ad4062_triggered_buffer_postenable(struct ad4062_state *st)
 {
 	int ret;
@@ -1199,11 +1243,13 @@ static int pm_ad4062_triggered_buffer_postenable(struct ad4062_state *st)
 	if (ret)
 		goto out_suspend;
 
+	st->conv_sizeof = ad4062_sizeof_storagebits(st);
+	st->conv_addr = ad4062_get_conv_addr(st, st->conv_sizeof);
 	/* CONV_READ requires read to trigger first sample. */
 	struct i3c_priv_xfer xfer_sample[2] = {
 		{
-			.data.out = &st->reg_addr_conv,
-			.len = sizeof(st->reg_addr_conv),
+			.data.out = &st->conv_addr,
+			.len = sizeof(st->conv_addr),
 			.rnw = false,
 		},
 		{
@@ -1216,6 +1262,7 @@ static int pm_ad4062_triggered_buffer_postenable(struct ad4062_state *st)
 	ret = i3c_device_do_priv_xfers(st->i3cdev, xfer_sample,
 				       st->gpo_irq[1] ? 2 : 1);
 out_suspend:
+	pm_runtime_mark_last_busy(&st->i3cdev->dev);
 	pm_runtime_put_autosuspend(&st->i3cdev->dev);
 	return ret;
 }
@@ -1237,6 +1284,7 @@ static int ad4062_triggered_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4062_state *st = iio_priv(indio_dev);
 
+	pm_runtime_mark_last_busy(&st->i3cdev->dev);
 	pm_runtime_put_autosuspend(&st->i3cdev->dev);
 	return 0;
 }
@@ -1436,8 +1484,8 @@ static int ad4062_gpio_init(struct ad4062_state *st)
 }
 
 static const struct i3c_device_id ad4062_id_table[] = {
-	I3C_DEVICE(AD4062_I3C_VENDOR, ad4060_chip_info.prod_id, &ad4060_chip_info),
-	I3C_DEVICE(AD4062_I3C_VENDOR, ad4062_chip_info.prod_id, &ad4062_chip_info),
+	I3C_DEVICE(AD4062_I3C_VENDOR, AD4060_PROD_ID, &ad4060_chip_info),
+	I3C_DEVICE(AD4062_I3C_VENDOR, AD4062_PROD_ID, &ad4062_chip_info),
 	{ }
 };
 MODULE_DEVICE_TABLE(i3c, ad4062_id_table);
