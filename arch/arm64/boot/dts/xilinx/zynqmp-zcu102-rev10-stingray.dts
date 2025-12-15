@@ -371,7 +371,21 @@
 };
 
 &axi_data_offload_tx {
+	adi,bypass;
 	/delete-property/ adi,oneshot;
+};
+
+&axi_data_offload_rx {
+	adi,bypass;
+	/delete-property/ adi,oneshot;
+};
+
+&rx_dma {
+	/delete-property/ dma-coherent;
+};
+
+&tx_dma {
+	/delete-property/ dma-coherent;
 };
 
 &iio_axi_tdd_0 {
