@@ -32,6 +32,9 @@
 #define ADMX_REG_SET_SIGNAL_TYPE		0x05C //holds the type of the set signal
 #define ADMX_REG_SOFT_RESET			0x064
 #define ADMX_REG_PROFILE_ID			0x068 //this register holds the ID for a specific profile
+#define ADMX_AMPLITUDE_SECONDARY  0x080
+#define ADMX_FREQUENCY_SECONDARY_L  0x84
+#define ADMX_FREQUENCY_SECONDARY_H  0x88
 
 /* Control Register Bits */
 #define ADMX_CONTROL_TASK_ID_MASK		GENMASK(15, 8)
@@ -87,9 +90,9 @@ static const struct regmap_config admx_regmap_config = {
 	.val_bits = 32,
 	.read_flag_mask = 0x03,
 	.write_flag_mask = 0x02,
-	.pad_bits = 40,
+	.pad_bits = 48,
 	.reg_format_endian = REGMAP_ENDIAN_BIG,
-	.val_format_endian = REGMAP_ENDIAN_BIG,
+	.val_format_endian = REGMAP_ENDIAN_LITTLE,
 	.max_register = 0x3F4,
 };
 
@@ -319,13 +322,12 @@ static int admx_write_raw(struct iio_dev *indio_dev,
 		dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - input val=%d (current state=%d)\n", val, st->output_enabled);
 		if (val) {
 			dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - enabling output...\n");
-			// /* Validate parameters first */
-			// ret = admx_validate_params(st);
-			// if (ret)
-			// 	break;
-
+			/* Validate parameters first */
+			ret = admx_validate_params(st);
+			if (ret)
+				break;
 			/* Start signal generation */
-			dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - setting task GENERATE_SIGNAL (0x%02x)\n", ADMX_TASK_GENERATE_SIGNAL);
+			//dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - setting task GENERATE_SIGNAL (0x%02x)\n", ADMX_TASK_GENERATE_SIGNAL);
 			ret = admx_set_task(st, ADMX_TASK_GENERATE_SIGNAL);
 			if (!ret) {
 				st->output_enabled = true;
@@ -507,22 +509,27 @@ static int admx_init(struct admx_state *st)
 	unsigned int val;
 	int ret = 0;
 
-	//Set default values
-	st->amplitude_uvrms = 1000000; //1 Vrms
-	st->frequency_uhz = 1000000000; //1 kHz
-	st->signal_type = ADMX_SIGNAL_TYPE_SINE;
-	st->output_enabled = true;
-
+	//Wait for module to be ready
+	ret = admx_wait_ready(st, 120000); //2 min
+	if (ret) {
+		dev_err(&st->spi->dev, "Module not ready\n");
+		return ret;
+	}
 	//Read module ID
 	ret = regmap_read(st->regmap, ADMX_REG_MODULE_ID, &val);
 	if (ret){
 		dev_err(&st->spi->dev, "Failed to read Module ID\n");
         return ret;
 	}
-
 	dev_info(&st->spi->dev, "Module ID: 0x%08x\n", val);
 
-	/* Program hardware registers with defaults */
+	//Set default values
+	st->amplitude_uvrms = 1000000; //1 Vrms
+	st->frequency_uhz = 1000000000; //1 kHz
+	st->signal_type = ADMX_SIGNAL_TYPE_SINE;
+	st->output_enabled = false;
+
+	// Program hardware registers with defaults
 	ret = regmap_write(st->regmap, ADMX_REG_SET_SIGNAL_TYPE,
 		st->signal_type);
 	if (ret)
@@ -545,8 +552,215 @@ static int admx_init(struct admx_state *st)
 
 	dev_info(&st->spi->dev, "ADMX: defaults set (amp=%u uVrms, freq=%llu uHz, type=%d)\n",
 	st->amplitude_uvrms, st->frequency_uhz, st->signal_type);
+	//return 0;
 
-	return 0;
+	/* Step 1 */
+	ret = regmap_write(st->regmap, ADMX_REG_PROFILE_ID, 0x0000000E);
+	if (ret) {
+		dev_err(&st->spi->dev, "ADMX_REG_PROFILE_ID failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_REG_PROFILE_ID, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 1 ADMX_REG_PROFILE_ID failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 1 ADMX_REG_PROFILE_ID(0x068) = 0x%08x (expected 0x0000000E)\n", val);
+	/* Step 2 */
+	ret = regmap_write(st->regmap, 0x104, 0x3);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg 0x104 failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, 0x104, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 2 Reg 0x104 failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 2 Reg 0x104 = 0x%08x (expected 0x3)\n", val);
+	/* Step 3 */
+	ret = regmap_write(st->regmap, ADMX_REG_SET_AMPLITUDE_PRIMARY, 0xF4240);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_REG_SET_AMPLITUDE_PRIMARY failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_REG_SET_AMPLITUDE_PRIMARY, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 3 ADMX_REG_SET_AMPLITUDE_PRIMARY failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 3 Reg ADMX_REG_SET_AMPLITUDE_PRIMARY = 0x%08x (expected 0xF4240)\n", val);
+	/* Step 4 */
+	ret = regmap_write(st->regmap, ADMX_AMPLITUDE_SECONDARY, 0x3D090);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_AMPLITUDE_SECONDARY failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_AMPLITUDE_SECONDARY, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 4 ADMX_AMPLITUDE_SECONDARY failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 4 Reg ADMX_AMPLITUDE_SECONDARY = 0x%08x (expected 0x3D090)\n", val);
+	/* Step 5 */
+	ret = regmap_write(st->regmap, ADMX_REG_SET_FREQUENCY_PRIMARY_L, 0x3B9ACA00);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_REG_SET_FREQUENCY_PRIMARY_L failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_REG_SET_FREQUENCY_PRIMARY_L, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 5 Reg ADMX_REG_SET_FREQUENCY_PRIMARY_L failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 5 Reg ADMX_REG_SET_FREQUENCY_PRIMARY_L = 0x%08x (expected 0x3B9ACA00)\n", val);
+	/* Step 6 */
+	ret = regmap_write(st->regmap, ADMX_REG_SET_FREQUENCY_PRIMARY_H, 0x0);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_REG_SET_FREQUENCY_PRIMARY_H failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_REG_SET_FREQUENCY_PRIMARY_H, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 6 Reg ADMX_REG_SET_FREQUENCY_PRIMARY_H failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 6 Reg ADMX_REG_SET_FREQUENCY_PRIMARY_H = 0x%08x (expected 0x0)\n", val);
+	/* Step 7 */
+	ret = regmap_write(st->regmap, ADMX_FREQUENCY_SECONDARY_L, 0xA13B8600);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_FREQUENCY_SECONDARY_L failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_FREQUENCY_SECONDARY_L, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 7 Reg ADMX_FREQUENCY_SECONDARY_L failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 7 Reg ADMX_FREQUENCY_SECONDARY_L = 0x%08x (expected 0xA13B8600)\n", val);
+	/* Step 8 */
+	ret = regmap_write(st->regmap, ADMX_FREQUENCY_SECONDARY_H, 0x01);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_FREQUENCY_SECONDARY_H failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_FREQUENCY_SECONDARY_H, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 8 Reg ADMX_FREQUENCY_SECONDARY_H failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 8 Reg ADMX_FREQUENCY_SECONDARY_H = 0x%08x (expected 0x01)\n", val);
+	/* Step 9 */
+	ret = regmap_write(st->regmap, ADMX_REG_SET_CYCLE_COUNT, 0xFFFFFFFF);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_REG_SET_CYCLE_COUNT failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_REG_SET_CYCLE_COUNT, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 9 Reg ADMX_REG_SET_CYCLE_COUNT failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 9 Reg ADMX_REG_SET_CYCLE_COUNT = 0x%08x (expected 0xFFFFFFFF)\n", val);
+	/* Step 10 */
+	ret = regmap_write(st->regmap, 0x50, 0x2710);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg 0x50 failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, 0x50, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 10 Reg 0x50 failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 10 Reg 0x50 = 0x%08x (expected 0x2710)\n", val);
+	/* Step 11 */
+	ret = regmap_write(st->regmap, 0x54, 0x40420F00);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg 0x54 failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, 0x54, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 11 Reg 0x54 failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 11 Reg 0x54 = 0x%08x (expected 0x40420F00)\n", val);
+	/* Step 12 */
+	ret = regmap_write(st->regmap, 0x58, 0x0);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg 0x58 failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, 0x58, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 12 Reg 0x58 failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 12 Reg 0x58 = 0x%08x (expected 0x0)\n", val);
+	/* Step 13 */
+	ret = regmap_write(st->regmap, ADMX_REG_SET_SIGNAL_TYPE, 0x0);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_REG_SET_SIGNAL_TYPE failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, 0x104, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 13 Reg ADMX_REG_SET_SIGNAL_TYPE failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 13 Reg ADMX_REG_SET_SIGNAL_TYPE = 0x%08x (expected 0x0)\n", val);
+	/* Step 14
+	ret = regmap_write(st->regmap, ADMX_REG_STATUS, 0x03);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_REG_STATUS failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_REG_STATUS, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 14 Reg ADMX_REG_STATUS failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 14 Reg ADMX_REG_STATUS = 0x%08x (expected 0x03)\n", val);
+	Step 15 */
+	ret = regmap_write(st->regmap, ADMX_REG_CONTROL, 0x05);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_REG_CONTROL failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_REG_CONTROL, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 15 Reg ADMX_REG_CONTROL failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 15 Reg ADMX_REG_CONTROL = 0x%08x (expected 0x05)\n", val);
+	/* Step 16 */
+	ret = regmap_write(st->regmap, ADMX_REG_CONTROL, 0x400);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_REG_CONTROL failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_REG_CONTROL, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 16 Reg ADMX_REG_CONTROL failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 16 Reg ADMX_REG_CONTROL = 0x%08x (expected 0x400)\n", val);
+	/* Step 17 */
+	ret = regmap_write(st->regmap, ADMX_REG_CONTROL, 0x401);
+	if (ret) {
+		dev_err(&st->spi->dev, "Reg ADMX_REG_CONTROL failed: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_read(st->regmap, ADMX_REG_CONTROL, &val);
+	if (ret) {
+		dev_err(&st->spi->dev, "Step 17 Reg ADMX_REG_CONTROL failed: %d\n", ret);
+		return ret;
+	}
+	dev_info(&st->spi->dev, "Step 17 Reg ADMX_REG_CONTROL = 0x%08x (expected 0x401)\n", val);
+
+    dev_info(&st->spi->dev, "ADMX init sequence completed.\n");
+    return 0;
 }
 
 static int admx_probe(struct spi_device *spi)

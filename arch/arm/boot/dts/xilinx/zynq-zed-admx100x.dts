@@ -22,11 +22,11 @@
 				   <&gpio0 91 GPIO_ACTIVE_HIGH>,
                    <&gpio0 86 GPIO_ACTIVE_HIGH>;
 		out-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>,
-                    <&gpio0 89 GPIO_ACTIVE_HIGH>,
+                    <&gpio0 89 GPIO_ACTIVE_LOW>, //EN
 					<&gpio0 92 GPIO_ACTIVE_HIGH>,
 					<&gpio0 94 GPIO_ACTIVE_HIGH>,
 					<&gpio0 93 GPIO_ACTIVE_HIGH>;
-
+				    //<&gpio0 87 GPIO_ACTIVE_HIGH>; //Reset
 		channel@0 {
 			reg = <0>;
 			label = "admx100x_ready";
@@ -59,6 +59,10 @@
 			reg = <7>;
 			label = "admx100x_dac_ldac";
 		};
+		/*channel@8 {
+			reg = <8>;
+			label = "admx100x_reset";
+		};*/
 	};
 };
 
@@ -70,7 +74,7 @@
 	 admx100x: adc@0 {
 		 compatible = "adi,admx1002";
 		 reg = <0>;
-		 reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+		 reset-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
 		 spi-max-frequency = <20000000>;
 	};
 };
