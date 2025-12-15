@@ -139,6 +139,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_MAX98371
 	imply SND_SOC_MAX98504
 	imply SND_SOC_MAX98520
+	imply SND_SOC_MAX98522
 	imply SND_SOC_MAX9867
 	imply SND_SOC_MAX98925
 	imply SND_SOC_MAX98926
@@ -1292,6 +1293,10 @@ config SND_SOC_MAX98520
 	  8KHz to 192KHz.
 
 	  To compile this driver as a module, choose M here.
+
+config SND_SOC_MAX98522
+        tristate "Analog Devices MAX98522 Speaker Amplifier"
+        depends on I2C
 
 config SND_SOC_MAX98363
 	tristate "Analog Devices MAX98363 Soundwire Speaker Amplifier"

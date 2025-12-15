@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/adi,max98522.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Maxim Integrated MAX98522 Speaker Amplifier
+
+maintainers:
+  - Mingu Hwang <mingu.hwang@analog.com>
+
+properties:
+  compatible:
+    const: adi,max98522
+
+  reg:
+    maxItems: 1
+    description: I2C address of the device.
+
+  reset-gpios:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    i2c {
+      #address-cells = <1>;
+      #size-cells = <0>;
+      max98522: amplifier@38 {
+        compatible = "adi,max98522";
+        reg = <0x38>;
+        reset-gpios = <&gpio 9 GPIO_ACTIVE_LOW>;
+      };
+    };
+
