@@ -166,6 +166,13 @@
 	 ADRV9002_GP_MASK_TX_DP_TRANSMIT_ERROR |		\
 	 ADRV9002_GP_MASK_RX_DP_RECEIVE_ERROR)
 
+/*
+ * For frequency hopping enabled profiles, do not include the PLL lock interrupt as these will
+ * cause excessive IRQs due to the constant PLL retuning
+ */
+#define ADRV9002_IRQ_MASK_FFH	\
+	(ADRV9002_IRQ_MASK & ~(ADRV9002_GP_MASK_RF_SYNTH_LOCK | ADRV9002_GP_MASK_RF2_SYNTH_LOCK))
+
 #define ADRV9002_RX_BIT_START		(ffs(ADI_ADRV9001_RX1) - 1)
 #define ADRV9002_TX_BIT_START		(ffs(ADI_ADRV9001_TX1) - 1)
 #define ADRV9002_ORX_BIT_START		(ffs(ADI_ADRV9001_ORX1) - 1)
@@ -3709,7 +3716,10 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 		return ret;
 
 	/* unmask IRQs */
-	ret = api_call(phy, adi_adrv9001_gpio_GpIntMask_Set, ~ADRV9002_IRQ_MASK);
+	if (phy->curr_profile->sysConfig.fhModeOn)
+		ret = api_call(phy, adi_adrv9001_gpio_GpIntMask_Set, ~ADRV9002_IRQ_MASK_FFH);
+	else
+		ret = api_call(phy, adi_adrv9001_gpio_GpIntMask_Set, ~ADRV9002_IRQ_MASK);
 	if (ret)
 		return ret;
 
