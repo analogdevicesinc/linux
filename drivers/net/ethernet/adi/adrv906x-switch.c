@@ -20,8 +20,8 @@
 #include "adrv906x-switch.h"
 #include "adrv906x-cmn.h"
 
-#define SWITCH_RECOVERY_NONE 0
-#define SWITCH_RECOVERY_VID  1
+#define SWITCH_RECOVERY_NONE         0
+#define SWITCH_RECOVERY_VID          BIT(0)
 
 static struct attribute *adrv906x_switch_attrs[4] = { NULL, NULL, NULL, NULL };
 
@@ -515,6 +515,7 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 {
 	u32 port_mask = 0;
 	int portid, ret;
+	unsigned long flags;
 
 	ret = es->isr_pre_args.func(es->isr_pre_args.arg);
 	if (ret)
@@ -540,7 +541,9 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 	mutex_unlock(&es->lock);
 
 	/* Wake up recovery thread to restore VLAN membership */
-	es->wait_cmd_flag = SWITCH_RECOVERY_VID;
+	spin_lock_irqsave(&es->cmd_flag_lock, flags);
+	es->wait_cmd_flag |= SWITCH_RECOVERY_VID;
+	spin_unlock_irqrestore(&es->cmd_flag_lock, flags);
 	wake_up_interruptible(&es->recovery_wq);
 
 	ret = es->isr_post_args.func(es->isr_post_args.arg);
@@ -822,16 +825,20 @@ static int adrv906x_switch_recovery(void *data)
 {
 	struct adrv906x_eth_switch *es = (struct adrv906x_eth_switch *)data;
 	struct device *dev = &es->pdev->dev;
+	unsigned long flags;
 
 	while (true) {
 		wait_event_interruptible(es->recovery_wq, es->wait_cmd_flag != SWITCH_RECOVERY_NONE);
-		if (es->wait_cmd_flag == SWITCH_RECOVERY_VID) {
-			dev_info(dev, "setting vlan membership after soft reset");
+		dev_dbg(dev, "switch recovery cmd 0x%x", es->wait_cmd_flag);
+		if (es->wait_cmd_flag & SWITCH_RECOVERY_VID) {
+			spin_lock_irqsave(&es->cmd_flag_lock, flags);
+			es->wait_cmd_flag &= ~SWITCH_RECOVERY_VID;
+			spin_unlock_irqrestore(&es->cmd_flag_lock, flags);
+			dev_info(dev, "restore vlan membership after switch reset");
 			rtnl_lock();
 			adrv906x_switch_vlan_membership_recovery(es);
 			rtnl_unlock();
 		}
-		es->wait_cmd_flag = SWITCH_RECOVERY_NONE;
 	}
 
 	return 0;
@@ -889,6 +896,7 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	INIT_DELAYED_WORK(&es->update_stats, adrv906x_switch_update_hw_stats);
 	mod_delayed_work(system_long_wq, &es->update_stats, msecs_to_jiffies(1000));
 
+	spin_lock_init(&es->cmd_flag_lock);
 	init_waitqueue_head(&es->recovery_wq);
 	es->wait_cmd_flag = SWITCH_RECOVERY_NONE;
 	es->recovery_task = kthread_create(adrv906x_switch_recovery, (void *)es,

@@ -185,6 +185,7 @@ struct adrv906x_eth_switch {
 	wait_queue_head_t recovery_wq;
 	u16 wait_cmd_flag;
 	struct task_struct *recovery_task;
+	spinlock_t cmd_flag_lock; /* protect waitqueue cmd flag */
 };
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
