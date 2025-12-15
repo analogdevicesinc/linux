@@ -121,6 +121,8 @@ properties:
       - const: clk_ahb
       - const: gate
 
+  dma-coherent: true
+
   interrupts:
     minItems: 1
     maxItems: 2
