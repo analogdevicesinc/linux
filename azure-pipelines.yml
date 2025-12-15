@@ -187,7 +187,7 @@ stages:
           name: PushArtifacts
           displayName: "Push to Artifactory"
     - job: Publish_to_Cloudsmith
-      timeoutInMinutes: 90
+      timeoutInMinutes: 300
       pool:
         name: Default
         demands:
