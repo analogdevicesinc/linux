@@ -169,7 +169,8 @@ struct adrv906x_eth_switch {
 	unsigned int pcp_regen_val;
 	struct switch_port switch_port[SWITCH_MAX_PORT_NUM];
 	struct list_head vlan_cfg_list;
-	struct mutex lock; /* Protect data structures and hardware access functions */
+	struct mutex lock;      /* protect data structures */
+	spinlock_t hw_lock;     /* protect hw access */
 	struct device_attribute port_vlan_ctrl_attr;
 	struct attribute_group attr_group;
 	void __iomem *reg_match_action;

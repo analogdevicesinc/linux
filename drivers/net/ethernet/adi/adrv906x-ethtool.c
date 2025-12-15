@@ -365,6 +365,8 @@ static void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_s
 	struct adrv906x_mac_tx_stats *mac_tx_stats = &adrv906x_dev->mac.hw_stats_tx;
 	int i;
 
+	rtnl_lock();
+
 	adrv906x_ndma_update_frame_drop_stats(adrv906x_dev->ndma_dev);
 
 	data[0] = mac_rx_stats->general_stats.drop_events;
@@ -465,6 +467,8 @@ static void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_s
 		data[i * SWITCH_PORT_STATS_NUM + 93] = es->port_stats[i].bcast_bytes_tx;
 		data[i * SWITCH_PORT_STATS_NUM + 94] = es->port_stats[i].crd_buffer_drop;
 	}
+
+	rtnl_unlock();
 }
 
 static const struct ethtool_rmon_hist_range adrv906x_ethtool_rmon_ranges[] = {

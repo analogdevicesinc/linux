@@ -45,9 +45,11 @@ static int adrv906x_switch_wait_for_mae_ready(struct adrv906x_eth_switch *es)
 
 static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es, u32 mask, u32 vid)
 {
+	unsigned long flags;
 	u32 val;
 	int ret;
 
+	spin_lock_irqsave(&es->hw_lock, flags);
 	ret = adrv906x_switch_wait_for_mae_ready(es);
 	if (ret) {
 		dev_err(&es->pdev->dev, "vlan add timeout");
@@ -60,6 +62,7 @@ static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es
 	val = FIELD_PREP(SWITCH_MAS_OP_CTRL_OPCODE_MASK, SWITCH_MAS_OP_CTRL_VLAN_ADD) |
 	      SWITCH_MAS_OP_CTRL_TRIGGER;
 	iowrite32(val, es->reg_match_action + SWITCH_MAS_OP_CTRL);
+	spin_unlock_irqrestore(&es->hw_lock, flags);
 
 	return 0;
 }
@@ -272,6 +275,7 @@ int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, 
 				  bool is_static)
 {
 	u32 val, mac_addr_hi, mac_addr_lo;
+	unsigned long flags;
 	int ret;
 
 	if (portid >= SWITCH_MAX_PORT_NUM)
@@ -286,6 +290,7 @@ int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, 
 	mac_addr_hi = FIELD_GET(0xFFFFFFFF0000, mac_addr);
 	mac_addr_lo = FIELD_GET(0xFFFF, mac_addr);
 
+	spin_lock_irqsave(&es->hw_lock, flags);
 	iowrite32(BIT(portid), es->reg_match_action + SWITCH_MAS_PORT_MASK1);
 	iowrite32(mac_addr_hi, es->reg_match_action + SWITCH_MAS_FDB_MAC_INSERT_1);
 	val = FIELD_PREP(SWITCH_INSERT_MAC_ADDR_LOW_MASK, mac_addr_lo) |
@@ -294,6 +299,7 @@ int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, 
 	val = FIELD_PREP(SWITCH_MAS_OP_CTRL_OPCODE_MASK, SWITCH_MAS_OP_CTRL_MAC_INSERT) |
 	      SWITCH_MAS_OP_CTRL_TRIGGER;
 	iowrite32(val, es->reg_match_action + SWITCH_MAS_OP_CTRL);
+	spin_unlock_irqrestore(&es->hw_lock, flags);
 
 	return 0;
 }
@@ -480,7 +486,7 @@ void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es)
 			sysfs_remove_group(&es->pdev->dev.kobj, &es->attr_group);
 }
 
-static bool adrv906x_switch_port_enabled(struct adrv906x_eth_switch *es, int portid)
+static bool __adrv906x_switch_port_enabled(struct adrv906x_eth_switch *es, int portid)
 {
 	u32 val;
 
@@ -523,10 +529,10 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 
 	usleep_range(1000, 1100);
 
-	mutex_lock(&es->lock);
+	spin_lock_irqsave(&es->hw_lock, flags);
 	/* Enable all switch ports before reset */
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
-		if (!adrv906x_switch_port_enabled(es, portid)) {
+		if (!__adrv906x_switch_port_enabled(es, portid)) {
 			port_mask |= BIT(portid);
 			__adrv906x_switch_port_enable(es, portid, true);
 		}
@@ -538,7 +544,7 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++)
 		if (port_mask & BIT(portid))
 			__adrv906x_switch_port_enable(es, portid, false);
-	mutex_unlock(&es->lock);
+	spin_unlock_irqrestore(&es->hw_lock, flags);
 
 	/* Wake up recovery thread to restore VLAN membership */
 	spin_lock_irqsave(&es->cmd_flag_lock, flags);
@@ -652,9 +658,11 @@ static void adrv906x_switch_update_hw_stats(struct work_struct *work)
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled)
 {
-	mutex_lock(&es->lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&es->hw_lock, flags);
 	__adrv906x_switch_port_enable(es, portid, enabled);
-	mutex_unlock(&es->lock);
+	spin_unlock_irqrestore(&es->hw_lock, flags);
 
 	return 0;
 }
@@ -835,9 +843,7 @@ static int adrv906x_switch_recovery(void *data)
 			es->wait_cmd_flag &= ~SWITCH_RECOVERY_VID;
 			spin_unlock_irqrestore(&es->cmd_flag_lock, flags);
 			dev_info(dev, "restore vlan membership after switch reset");
-			rtnl_lock();
 			adrv906x_switch_vlan_membership_recovery(es);
-			rtnl_unlock();
 		}
 	}
 
