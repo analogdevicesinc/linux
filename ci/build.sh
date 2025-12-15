@@ -442,7 +442,7 @@ compile_devicetree() {
 	echo "compiling devicetrees"
 
 	touch $tmp_log_file
-	make -i $dtb_files -j$(nproc) 2>&1 | \
+	make DTC_FLAGS=-@ -i $dtb_files -j$(nproc) 2>&1 | \
 	(while IFS= read -r row; do
 		echo $row
 		if [[ "$row" =~ $regex0 ]]; then
@@ -514,7 +514,7 @@ compile_many_devicetrees() {
 	for ARCH in $ARCHS; do
 		dts_files_=$(echo $dts_files | tr ' ' '\n' | grep ^arch/$ARCH/ | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/')
 		ARCH=$ARCH make allnoconfig
-		ARCH=$ARCH make -k -j$(nproc) $dts_files_ || err=$?
+		ARCH=$ARCH make -k -j$(nproc) DTC_FLAGS=-@ $dts_files_ || err=$?
 	done
 
 	return $err
