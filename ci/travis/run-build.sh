@@ -183,7 +183,7 @@ build_default() {
 	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi-.* \
 		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging-rpi ]]; then
 		echo "Rpi build"
-    		make -j$NUM_JOBS $IMAGE modules dtbs
+		make -j$NUM_JOBS DTC_FLAGS=-@ $IMAGE modules dtbs
 		make INSTALL_MOD_PATH="${PWD}/modules" modules_install
 	else
     		echo "Normal build"
@@ -256,7 +256,7 @@ build_microblaze() {
 		dtb_file+=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\.dts\\g')
 
 		echo "######### Building: $dtb_file"
-		ARCH=microblaze make ${dtb_file} -j$NUM_JOBS || err=1
+		ARCH=microblaze make DTC_FLAGS=-@ ${dtb_file} -j$NUM_JOBS || err=1
 	done
 
 	if [ "$err" = "0" ] ; then
@@ -340,7 +340,7 @@ build_dtb_build_test() {
 		if [ ! -f arch/$arch/boot/dts/Makefile ] ; then
 			touch arch/$arch/boot/dts/Makefile
 		fi
-		ARCH=$arch make ${dtb_file} -j$NUM_JOBS || err=1
+		ARCH=$arch make DTC_FLAGS=-@ ${dtb_file} -j$NUM_JOBS || err=1
 	done
 
 	if [ "$err" = "0" ] ; then
