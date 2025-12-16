@@ -1603,9 +1603,9 @@ static void __dw_mci_enable_sdio_irq(struct dw_mci_slot *slot, int enb)
 	/* Enable/disable Slot Specific SDIO interrupt */
 	int_mask = mci_readl(host, INTMASK);
 	if (enb)
-		int_mask |= SDMMC_INT_SDIO(slot->sdio_id);
+		int_mask |= SDMMC_INT_SDIO(host->sdio_irq);
 	else
-		int_mask &= ~SDMMC_INT_SDIO(slot->sdio_id);
+		int_mask &= ~SDMMC_INT_SDIO(host->sdio_irq);
 	mci_writel(host, INTMASK, int_mask);
 
 	spin_unlock_irqrestore(&host->irq_lock, irqflags);
@@ -2828,9 +2828,9 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 			dw_mci_handle_cd(host);
 		}
 
-		if (pending & SDMMC_INT_SDIO(slot->sdio_id)) {
+		if (pending & SDMMC_INT_SDIO(host->sdio_irq)) {
 			mci_writel(host, RINTSTS,
-				   SDMMC_INT_SDIO(slot->sdio_id));
+				   SDMMC_INT_SDIO(host->sdio_irq));
 			__dw_mci_enable_sdio_irq(slot, 0);
 			sdio_signal_irq(host->mmc);
 		}
@@ -2927,7 +2927,6 @@ static int dw_mci_init_slot(struct dw_mci *host)
 		return -ENOMEM;
 
 	slot = mmc_priv(mmc);
-	slot->sdio_id = host->sdio_id0;
 	host->mmc = mmc;
 	slot->host = host;
 	host->slot = slot;

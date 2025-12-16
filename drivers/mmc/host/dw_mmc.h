@@ -123,7 +123,7 @@ struct dw_mci_dma_slave {
  * @quirks: Set of quirks that apply to specific versions of the IP.
  * @irq_flags: The flags to be passed to request_irq.
  * @irq: The irq value to be passed to request_irq.
- * @sdio_id0: Number of slot0 in the SDIO interrupt registers.
+ * @sdio_irq: SDIO interrupt bit in interrupt registers.
  * @cmd11_timer: Timer for SD3.0 voltage switch over scheme.
  * @cto_timer: Timer for broken command transfer over scheme.
  * @dto_timer: Timer for broken data transfer over scheme.
@@ -233,7 +233,7 @@ struct dw_mci {
 	unsigned long		irq_flags; /* IRQ flags */
 	int			irq;
 
-	int			sdio_id0;
+	int			sdio_irq;
 
 	struct timer_list       cmd11_timer;
 	struct timer_list       cto_timer;
@@ -562,7 +562,6 @@ static inline int dw_mci_runtime_resume(struct device *device) { return -EOPNOTS
  * @clock: Clock rate configured by set_ios(). Protected by host->lock.
  * @__clk_old: The last clock value that was requested from core.
  *	Keeping track of this helps us to avoid spamming the console.
- * @sdio_id: Number of this slot in the SDIO interrupt registers.
  */
 struct dw_mci_slot {
 	struct dw_mci		*host;
@@ -572,8 +571,6 @@ struct dw_mci_slot {
 
 	unsigned int		clock;
 	unsigned int		__clk_old;
-
-	int			sdio_id;
 };
 
 /**
