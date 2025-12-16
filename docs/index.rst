@@ -7,6 +7,7 @@ Linux documentation.
 .. toctree::
    :maxdepth: 1
 
+   getting_started
    iio/index
    contribute
    ci
