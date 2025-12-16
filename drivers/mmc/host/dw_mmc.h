@@ -130,6 +130,8 @@ struct dw_mci_dma_slave {
  * @mmc: The mmc_host representing this dw_mci.
  * @flags: Random state bits associated with the host.
  * @ctype: Card type for this host.
+ * @clock: Clock rate configured by set_ios(). Protected by host->lock.
+ * @clk_old: The last clock value that was requested from core.
  *
  * Locking
  * =======
@@ -251,6 +253,8 @@ struct dw_mci {
 #define DW_MMC_CARD_NO_USE_HOLD 3
 #define DW_MMC_CARD_NEEDS_POLL	4
 	u32			ctype;
+	unsigned int		clock;
+	unsigned int		clk_old;
 };
 
 /* DMA ops for Internal/External DMAC interface */
@@ -559,8 +563,6 @@ static inline int dw_mci_runtime_resume(struct device *device) { return -EOPNOTS
  *	processed, or NULL when the slot is idle.
  * @queue_node: List node for placing this node in the @queue list of
  *	&struct dw_mci.
- * @clock: Clock rate configured by set_ios(). Protected by host->lock.
- * @__clk_old: The last clock value that was requested from core.
  *	Keeping track of this helps us to avoid spamming the console.
  */
 struct dw_mci_slot {
@@ -568,9 +570,6 @@ struct dw_mci_slot {
 
 	struct mmc_request	*mrq;
 	struct list_head	queue_node;
-
-	unsigned int		clock;
-	unsigned int		__clk_old;
 };
 
 /**
