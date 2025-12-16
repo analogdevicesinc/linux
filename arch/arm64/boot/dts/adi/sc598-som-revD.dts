@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2025 Analog Devices Incorporated
+ * Author: Ozan Durgut <ozan.durgut@analog.com>
+ */
+
+/dts-v1/;
+
+#include "sc598-som.dtsi"
+
+&i2c2 {
+	som_gpio_expander: mcp23018@20 {
+		compatible = "microchip,mcp23018";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		bootph-pre-ram;
+		drive-pullups;
+
+		led-ds1 {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "led1-en";
+			bootph-pre-ram;
+		};
+
+		led-ds2 {
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "led-ds2";
+			bootph-pre-ram;
+		};
+
+		led-ds3 {
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "led-ds3";
+			bootph-pre-ram;
+		};
+
+		som-flash-d2d3 {
+			gpio-hog;
+			gpios = <3 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "som-flash-d2d3-en";
+			bootph-pre-ram;
+		};
+
+		som-flash-cs {
+			gpio-hog;
+			gpios = <4 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "som-flash-cs-en";
+			bootph-pre-ram;
+		};
+
+		uart0 {
+			gpio-hog;
+			gpios = <5 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "uart0-en";
+			bootph-pre-ram;
+		};
+
+		uart0-flow-en {
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "uart0-flow-en";
+			bootph-pre-ram;
+		};
+
+		som-emmc {
+			gpio-hog;
+			gpios = <8 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "som-emmc-en";
+			bootph-pre-ram;
+		};
+
+		crr-sdcard {
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "crr-sdcard-en";
+			bootph-pre-ram;
+		};
+	};
+};
+
+&spi2 {
+	som_flash: is25lp512@1 {
+		compatible = "jedec,spi-nor", "is25lp512";
+		reg = <1>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <25000000>;
+		bootph-pre-ram;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qspi_0@0 {
+				label = "U-Boot SPL";
+				reg = <0x00000000 0x00040000>;
+			};
+
+			qspi_1@40000 {
+				label = "U-Boot Proper";
+				reg = <0x00040000 0x000C0000>;
+			};
+
+			qspi_2@100000 {
+				label = "U-Boot Environment";
+				reg = <0x00100000 0x00020000>;
+			};
+
+			qspi_3@120000 {
+				label = "FIT Image";
+				reg = <0x00120000 0x00600000>;
+			};
+
+			qspi_4@720000 {
+				label = "JFFS2 Formatted RFS";
+				reg = <0x00720000 0x038E0000>;
+			};
+		};
+	};
+};
