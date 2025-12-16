@@ -64,7 +64,7 @@
 			led_gpio = <50>;
 		};
 
-		core1-rproc@0x28240000 {
+		core1-rproc@28240000 {
 			compatible = "adi,remoteproc";
 			reg = <0x28240000 0x160000>,
 					<0x20080000 0x40000>;
@@ -80,7 +80,7 @@
 			adi,tru-master-id = <97>; /* trigger master SOFT4 */
 		};
 
-		core2-rproc@0x28a40000 {
+		core2-rproc@28a40000 {
 			compatible = "adi,remoteproc";
 			reg = <0x28a40000 0x160000>,
 					<0x20080000 0x40000>;
@@ -179,7 +179,7 @@
 &i2c0 {
 	status = "okay";
 
-	adau1761: adau1761@0x38{
+	adau1761: adau1761@38{
 		compatible = "adi,adau1761";
 		reg = <0x38>;
 	};
