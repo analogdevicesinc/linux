@@ -65,7 +65,7 @@ static int dw_mci_starfive_execute_tuning(struct dw_mci_slot *slot,
 		dw_mci_starfive_set_sample_phase(host, smpl_phase);
 		mci_writel(host, RINTSTS, ALL_INT_CLR);
 
-		ret = mmc_send_tuning(slot->mmc, opcode, NULL);
+		ret = mmc_send_tuning(host->mmc, opcode, NULL);
 
 		if (!ret && smpl_raise < 0) {
 			smpl_raise = smpl_phase;

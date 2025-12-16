@@ -368,7 +368,7 @@ static int dw_mci_hi3660_execute_tuning(struct dw_mci_slot *slot, u32 opcode)
 {
 	int i = 0;
 	struct dw_mci *host = slot->host;
-	struct mmc_host *mmc = slot->mmc;
+	struct mmc_host *mmc = host->mmc;
 	int smpl_phase = 0;
 	u32 tuning_sample_flag = 0;
 	int best_clksmpl = 0;

@@ -72,7 +72,7 @@ static int dw_mci_hi3798cv200_execute_tuning(struct dw_mci_slot *slot,
 		clk_set_phase(priv->sample_clk, degrees[i]);
 		mci_writel(host, RINTSTS, ALL_INT_CLR);
 
-		err = mmc_send_tuning(slot->mmc, opcode, NULL);
+		err = mmc_send_tuning(host->mmc, opcode, NULL);
 		if (!err)
 			found = 1;
 

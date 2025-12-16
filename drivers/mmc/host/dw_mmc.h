@@ -127,6 +127,7 @@ struct dw_mci_dma_slave {
  * @cmd11_timer: Timer for SD3.0 voltage switch over scheme.
  * @cto_timer: Timer for broken command transfer over scheme.
  * @dto_timer: Timer for broken data transfer over scheme.
+ * @mmc: The mmc_host representing this dw_mci.
  *
  * Locking
  * =======
@@ -240,6 +241,7 @@ struct dw_mci {
 	struct fault_attr	fail_data_crc;
 	struct hrtimer		fault_timer;
 #endif
+	struct mmc_host		*mmc;
 };
 
 /* DMA ops for Internal/External DMAC interface */
@@ -543,7 +545,6 @@ static inline int dw_mci_runtime_resume(struct device *device) { return -EOPNOTS
 
 /**
  * struct dw_mci_slot - MMC slot state
- * @mmc: The mmc_host representing this slot.
  * @host: The MMC controller this slot is using.
  * @ctype: Card type for this slot.
  * @mrq: mmc_request currently being processed or waiting to be
@@ -558,7 +559,6 @@ static inline int dw_mci_runtime_resume(struct device *device) { return -EOPNOTS
  * @sdio_id: Number of this slot in the SDIO interrupt registers.
  */
 struct dw_mci_slot {
-	struct mmc_host		*mmc;
 	struct dw_mci		*host;
 
 	u32			ctype;

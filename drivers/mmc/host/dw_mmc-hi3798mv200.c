@@ -115,7 +115,7 @@ static int dw_mci_hi3798mv200_execute_tuning_mix_mode(struct dw_mci_slot *slot,
 		 *
 		 * Treat edge(flip) found as an error too.
 		 */
-		err = mmc_send_tuning(slot->mmc, opcode, NULL);
+		err = mmc_send_tuning(host->mmc, opcode, NULL);
 		regval = mci_readl(host, TUNING_CTRL);
 		if (err || (regval & SDMMC_TUNING_FIND_EDGE))
 			err = 1;
