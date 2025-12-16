@@ -96,7 +96,6 @@ struct dw_mci_dma_slave {
  * @completed_events: Bitmask of events which the state machine has
  *	processed.
  * @state: BH work state.
- * @queue: List of slots waiting for access to the controller.
  * @bus_hz: The rate of @mck in Hz. This forms the basis for MMC bus
  *	rate and timeout calculations.
  * @current_speed: Configured rate of the controller.
@@ -136,12 +135,12 @@ struct dw_mci_dma_slave {
  * Locking
  * =======
  *
- * @lock is a softirq-safe spinlock protecting @queue as well as
+ * @lock is a softirq-safe spinlock protecting as well as
  * @slot, @mrq and @state. These must always be updated
  * at the same time while holding @lock.
  * The @mrq field of struct dw_mci_slot is also protected by @lock,
  * and must always be written at the same time as the slot is added to
- * @queue.
+ * @host.
  *
  * @irq_lock is an irq-safe spinlock protecting the INTMASK register
  * to allow the interrupt handler to modify it directly.  Held for only long
@@ -203,7 +202,6 @@ struct dw_mci {
 	unsigned long		pending_events;
 	unsigned long		completed_events;
 	enum dw_mci_state	state;
-	struct list_head	queue;
 
 	u32			bus_hz;
 	u32			current_speed;
@@ -560,14 +558,11 @@ static inline int dw_mci_runtime_resume(struct device *device) { return -EOPNOTS
  * struct dw_mci_slot - MMC slot state
  * @host: The MMC controller this slot is using.
  *	processed, or NULL when the slot is idle.
- * @queue_node: List node for placing this node in the @queue list of
  *	&struct dw_mci.
  *	Keeping track of this helps us to avoid spamming the console.
  */
 struct dw_mci_slot {
 	struct dw_mci		*host;
-
-	struct list_head	queue_node;
 };
 
 /**
