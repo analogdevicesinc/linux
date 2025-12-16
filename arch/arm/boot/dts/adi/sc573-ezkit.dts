@@ -78,7 +78,7 @@
 //			led_gpio = <65>;
 		};
 
-		core1-rproc@0x3108C000 {
+		core1-rproc@3108C000 {
 			compatible = "adi,remoteproc";
 			reg = <0x28240000 0x2000>,
 			      <0x20000000 0x200000>;
@@ -95,7 +95,7 @@
 			status = "okay";
 		};
 
-		core2-rproc@0x3108C000 {
+		core2-rproc@3108C000 {
 			compatible = "adi,remoteproc";
 			reg = <0x28A40000 0x2000>,
 			      <0x20000000 0x200000>;
@@ -205,7 +205,7 @@
 &i2c0 {
 	status = "okay";
 
-	gpio_expander0: gpio@0x21 {
+	gpio_expander0: gpio@21 {
 		compatible = "microchip,mcp23017";
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -297,7 +297,7 @@
 
 	};
 
-	gpio_expander1: gpio@0x22 {
+	gpio_expander1: gpio@22 {
 		compatible = "microchip,mcp23017";
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -389,12 +389,12 @@
 
 	};
 
-	adau1979: adau1979@0x11 {
+	adau1979: adau1979@11 {
 		compatible = "adi,adau1977";
 		reg = <0x11>;
 	};
 
-	adau1962: adau1962@0x4 {
+	adau1962: adau1962@4 {
 		compatible = "adi,adau1962";
 		reg = <0x4>;
 		reset-gpios = <&gpa 6 GPIO_ACTIVE_LOW>;
