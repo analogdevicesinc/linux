@@ -55,7 +55,7 @@ static int ad9088_axi_fsrc_active(struct ad9088_phy *phy, bool active)
 	}
 
 	dev_dbg(&phy->spi->dev, "TX FSRC transmission %s\n",
-		active ? "started" : "stopped (sending invalids)");
+		active ? "started" : "stopped (-FS stream)");
 	return 0;
 }
 
@@ -64,8 +64,8 @@ static int ad9088_axi_fsrc_active(struct ad9088_phy *phy, bool active)
  * @phy: AD9088 device instance
  * @fsrc_n: FSRC N value
  * @fsrc_m: FSRC M value
- * @cddc_dcm: CDDC decimation ratio
- * @fddc_dcm: FDDC decimation ratio
+ * @cddc_dcm: CDDC decimation ratio (to drop)
+ * @fddc_dcm: FDDC decimation ratio (to drop)
  *
  * Configures the RX FSRC ratio and DDC (Digital Down Converter) settings.
  * Based on apollo_rx_fsrc_configure() from fullchip_fsrc_dr.c
@@ -77,40 +77,13 @@ int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 			     adi_apollo_fddc_ratio_e fddc_dcm)
 {
 	int ret;
-	bool mode_1x = (fsrc_n == fsrc_m);
 
-	dev_dbg(&phy->spi->dev,
-		"Configuring RX FSRC: N=%u M=%u CDDC=%d FDDC=%d mode_1x=%d\n",
-		fsrc_n, fsrc_m, cddc_dcm, fddc_dcm, mode_1x);
+	dev_dbg(&phy->spi->dev, "Configuring RX FSRC: N=%u M=%u\n", fsrc_n, fsrc_m);
 
-	/* Setup the FSRC ratio to be applied on trigger (reconfig) */
-	if (!mode_1x) {
-		ret = adi_apollo_fsrc_ratio_set(&phy->ad9088, ADI_APOLLO_RX,
-						ADI_APOLLO_FSRC_ALL, fsrc_n, fsrc_m);
-		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-						"adi_apollo_fsrc_ratio_set");
-		if (ret)
-			return ret;
-	}
-
-	ret = adi_apollo_fsrc_mode_1x_enable_set(&phy->ad9088, ADI_APOLLO_RX,
-						 ADI_APOLLO_FSRC_ALL, mode_1x);
+	ret = adi_apollo_fsrc_ratio_set(&phy->ad9088, ADI_APOLLO_RX, ADI_APOLLO_FSRC_ALL,
+					fsrc_n, fsrc_m);
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_fsrc_mode_1x_enable_set");
-	if (ret)
-		return ret;
-
-	/* Set the CDDC decimation to be applied on trigger (reconfig) */
-	ret = adi_apollo_cddc_dcm_set(&phy->ad9088, ADI_APOLLO_CDDC_ALL, cddc_dcm);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_cddc_dcm_set");
-	if (ret)
-		return ret;
-
-	/* Set the FDDC decimation to be applied on trigger (reconfig) */
-	ret = adi_apollo_fddc_dcm_set(&phy->ad9088, ADI_APOLLO_FDDC_ALL, fddc_dcm);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_fddc_dcm_set");
+					"adi_apollo_fsrc_ratio_set");
 	if (ret)
 		return ret;
 
@@ -123,8 +96,8 @@ int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
  * @phy: AD9088 device instance
  * @fsrc_n: FSRC N value
  * @fsrc_m: FSRC M value
- * @cduc_interp: CDUC interpolation ratio
- * @fduc_interp: FDUC interpolation ratio
+ * @cduc_interp: CDUC interpolation ratio (to drop)
+ * @fduc_interp: FDUC interpolation ratio (to drop)
  *
  * Configures the TX FSRC ratio and DUC (Digital Up Converter) settings.
  * Based on apollo_tx_fsrc_configure() from fullchip_fsrc_dr.c
@@ -135,13 +108,10 @@ int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 			     adi_apollo_coarse_duc_dcm_e cduc_interp,
 			     adi_apollo_fduc_ratio_e fduc_interp)
 {
-	bool mode_1x = (fsrc_n == fsrc_m);
 	char ratio_str[64];
 	int ret;
 
-	dev_dbg(&phy->spi->dev,
-		"Configuring TX FSRC: N=%u M=%u CDUC=%d FDUC=%d mode_1x=%d\n",
-		fsrc_n, fsrc_m, cduc_interp, fduc_interp, mode_1x);
+	dev_dbg(&phy->spi->dev, "Configuring TX FSRC: N=%u M=%u\n", fsrc_n, fsrc_m);
 
 
 	if (!phy->iio_axi_fsrc) {
@@ -158,37 +128,11 @@ int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 			fsrc_n, fsrc_m, ret);
 		return ret;
 	}
-
-	/* Setup the FSRC ratio to be applied on trigger (reconfig) */
-	if (!mode_1x) {
-		ret = adi_apollo_fsrc_ratio_set(&phy->ad9088, ADI_APOLLO_TX,
-						ADI_APOLLO_FSRC_ALL, fsrc_n, fsrc_m);
-		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-						"adi_apollo_fsrc_ratio_set");
-		if (ret)
-			return ret;
-	}
-
-	ret = adi_apollo_fsrc_mode_1x_enable_set(&phy->ad9088, ADI_APOLLO_TX,
-						 ADI_APOLLO_FSRC_ALL, mode_1x);
+	/* Similar to public/inc/adi_apollo_fsrc.h@adi_apollo_fsrc_rate_set python example */
+	ret = adi_apollo_fsrc_ratio_set(&phy->ad9088, ADI_APOLLO_TX, ADI_APOLLO_FSRC_ALL,
+					fsrc_n, fsrc_m);
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_fsrc_mode_1x_enable_set");
-	if (ret)
-		return ret;
-
-	/* Set the CDUC interpolation to be applied on trigger (reconfig) */
-	ret = adi_apollo_cduc_interp_set(&phy->ad9088, ADI_APOLLO_CDUC_ALL,
-					 cduc_interp);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_cduc_interp_set");
-	if (ret)
-		return ret;
-
-	/* Set the FDUC interpolation to be applied on trigger (reconfig) */
-	ret = adi_apollo_fduc_interp_set(&phy->ad9088, ADI_APOLLO_FDUC_ALL,
-					 fduc_interp);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_fduc_interp_set");
+					"adi_apollo_fsrc_ratio_set");
 	if (ret)
 		return ret;
 
@@ -245,9 +189,7 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy)
 	if (ret)
 		return ret;
 
-	/* Execute manual dynamic reconfig - applies new FSRC ratio/CDUC/FDUC configuration
-	 * Note: FSRC blocks are already enabled by profile. This only applies new settings.
-	 */
+	/* Execute manual dynamic reconfig. */
 	ret = adi_apollo_clk_mcs_man_reconfig_sync(&phy->ad9088);
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
 					"adi_apollo_clk_mcs_man_reconfig_sync");
@@ -473,14 +415,14 @@ int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 			 "Use external GPIO trigger instead.\n", ret);
 	}
 
-	/* Wait for sequencer to complete
+	/*
+	 * Wait for sequencer to complete
 	 * Timing: first_trig_cnt (1002) + margin = ~1050 SYSREF cycles
 	 * At typical SYSREF of 4MHz: 1050 * 250ns = 262.5us
-	 * Add margin for safety
 	 */
 	usleep_range(500, 1000);  /* 500us */
 
-	/* Clear Apollo trigger sync (not self-clearing) */
+	/* Clear Apollo trigger sync */
 	ret = adi_apollo_clk_mcs_trig_sync_enable(&phy->ad9088, 0);
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
 					"adi_apollo_clk_mcs_trig_sync_enable clear");

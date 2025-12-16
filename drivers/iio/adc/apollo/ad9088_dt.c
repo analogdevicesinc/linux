@@ -120,21 +120,30 @@ static int ad9088_jesd_lane_setup(struct ad9088_phy *phy)
 
 static int ad9088_fsrc_setup(struct ad9088_phy *phy)
 {
-	struct device *dev = &phy->spi->dev;
-
 	if (!phy->iio_axi_fsrc)
 		return 0;
 
-	dev_info(&phy->spi->dev, "FSRC support enabled\n");
+	dev_info(&phy->spi->dev, "FSRC support enabled, writing 1x mode\n");
 
-	for (u8 i = 0; i < ADI_APOLLO_FSRCS_PER_SIDE; i++) {
-		phy->profile.rx_path[0].rx_fsrc[i].enable = true;
-		phy->profile.rx_path[1].rx_fsrc[i].enable = true;
-	}
-
-	for (u8 i = 0; i < ADI_APOLLO_FSRCS_PER_SIDE; i++) {
-		phy->profile.tx_path[0].tx_fsrc[i].enable = true;
-		phy->profile.tx_path[1].tx_fsrc[i].enable = true;
+	/*
+	 * Default 1x value from python example at
+	 * public/inc/adi_apollo_fsrc.h@adi_apollo_fsrc_rate_set
+	 **/
+	for (u8 i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
+		for (u8 j = 0; j < ADI_APOLLO_FSRCS_PER_SIDE; j++) {
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_int = BIT(48);
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_int = BIT(48);
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_a = 0;
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_a = 0;
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_b = 1;
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_b = 1;
+			phy->profile.rx_path[i].rx_fsrc[j].gain_reduction = BIT(12) - 1;
+			phy->profile.tx_path[i].tx_fsrc[j].gain_reduction = BIT(12) - 1;
+			phy->profile.rx_path[i].rx_fsrc[j].mode_1x = true;
+			phy->profile.tx_path[i].tx_fsrc[j].mode_1x = true;
+			phy->profile.rx_path[i].rx_fsrc[j].enable = true;
+			phy->profile.tx_path[i].tx_fsrc[j].enable = true;
+		}
 	}
 
 	return 0;
