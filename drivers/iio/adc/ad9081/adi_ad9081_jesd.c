@@ -929,9 +929,7 @@ int32_t adi_ad9081_jesd_rx_ctle_filter_set(adi_ad9081_device_t *device,
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
 	AD9081_INVALID_PARAM_RETURN(
-		ctle_filter < 1 ||
-		ctle_filter >
-			4) /*Range 1-4 corresponding CTLE cutoff frequency to channel insertion loss*/
+		ctle_filter > 4) /*Range 0-4 corresponding CTLE cutoff frequency to channel insertion loss*/
 
 	err = adi_ad9081_hal_cbusjrx_reg_set(
 		device, 0xfd, (1 << ctle_filter) - 1,
