@@ -108,7 +108,7 @@ static int dw_mci_req_show(struct seq_file *s, void *v)
 
 	/* Make sure we get a consistent snapshot */
 	spin_lock_bh(&slot->host->lock);
-	mrq = slot->mrq;
+	mrq = slot->host->mrq;
 
 	if (mrq) {
 		cmd = mrq->cmd;
@@ -1260,7 +1260,7 @@ static void __dw_mci_start_request(struct dw_mci *host,
 	struct mmc_data	*data;
 	u32 cmdflags;
 
-	mrq = slot->mrq;
+	mrq = host->mrq;
 
 	host->mrq = mrq;
 
@@ -1316,7 +1316,7 @@ static void __dw_mci_start_request(struct dw_mci *host,
 static void dw_mci_start_request(struct dw_mci *host,
 				 struct dw_mci_slot *slot)
 {
-	struct mmc_request *mrq = slot->mrq;
+	struct mmc_request *mrq = host->mrq;
 	struct mmc_command *cmd;
 
 	cmd = mrq->sbc ? mrq->sbc : mrq->cmd;
@@ -1330,7 +1330,7 @@ static void dw_mci_queue_request(struct dw_mci *host, struct dw_mci_slot *slot,
 	dev_vdbg(&host->mmc->class_dev, "queue request: state=%d\n",
 		 host->state);
 
-	slot->mrq = mrq;
+	host->mrq = mrq;
 
 	if (host->state == STATE_WAITING_CMD11_DONE) {
 		dev_warn(&host->mmc->class_dev,
@@ -1356,7 +1356,7 @@ static void dw_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	struct dw_mci_slot *slot = mmc_priv(mmc);
 	struct dw_mci *host = slot->host;
 
-	WARN_ON(slot->mrq);
+	WARN_ON(host->mrq);
 
 	/*
 	 * The check for card presence and queueing of the request must be
@@ -1816,7 +1816,6 @@ static void dw_mci_request_end(struct dw_mci *host, struct mmc_request *mrq)
 
 	WARN_ON(host->cmd || host->data);
 
-	host->slot->mrq = NULL;
 	host->mrq = NULL;
 	if (!list_empty(&host->queue)) {
 		slot = list_entry(host->queue.next,
