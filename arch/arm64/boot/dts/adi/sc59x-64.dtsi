@@ -467,7 +467,7 @@
 			clock-names = "sclk";
 		};
 
-		watchdog@0x31008000 {
+		watchdog@31008000 {
 			compatible = "adi,watchdog";
 			reg = <0x31008000 0x10>;
 			timeout-sec = <30>;
@@ -475,7 +475,7 @@
 			clock-names = "adi-watchdog";
 		};
 
-		spi0: spi@0x3102e000 {
+		spi0: spi@3102e000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,spi3";
@@ -486,7 +486,7 @@
 			status = "disabled";
 		};
 
-		spi1: spi@0x3102f000 {
+		spi1: spi@3102f000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,spi3";
@@ -499,7 +499,7 @@
 			status = "disabled";
 		};
 
-		spi2: spi@0x31030000 {
+		spi2: spi@31030000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,spi3";
@@ -512,7 +512,7 @@
 			status = "disabled";
 		};
 
-		spi3: spi@0x31031000 {
+		spi3: spi@31031000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,spi3";
@@ -540,7 +540,7 @@
 			status = "disabled";
 		};
 
-		emac0: ethernet@0x31040000 {
+		emac0: ethernet@31040000 {
 			compatible = "adi,dwmac", "snps,dwmac-4.20a", "snps,dwmac-5.20a";
 			reg = <0x31040000 0x2000>;
 			interrupt-parent = <&gic>;
@@ -557,7 +557,7 @@
 			status = "disabled";
 		};
 
-		emac1: ethernet@0x31042000 {
+		emac1: ethernet@31042000 {
 			compatible = "adi,dwmac", "snps,dwmac-4.20a", "snps,dwmac-5.20a";
 			reg = <0x31042000 0x2000>;
 			interrupt-parent = <&gic>;
@@ -600,7 +600,7 @@
 			adi,port-sizes = <16 16 16 16 16 16 16 16 7>;
 		};
 
-		sru_ctrl_dai0: sru-ctrl-dai0@0x310C9000 {
+		sru_ctrl_dai0: sru-ctrl-dai0@310C9000 {
 			compatible = "adi,adsp-sru-ctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -609,7 +609,7 @@
 			status = "disabled";
 		};
 
-		sru_ctrl_dai1: sru-ctrl-dai1@0x310CA000 {
+		sru_ctrl_dai1: sru-ctrl-dai1@310CA000 {
 			compatible = "adi,adsp-sru-ctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -711,7 +711,7 @@
 			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		gpa: gport@0x31004000 {
+		gpa: gport@31004000 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -1055,7 +1055,7 @@
 //			spu_securep_id = <115>;
 //		};
 
-		sport0_dma_cluster: dma@0x31022000 {
+		sport0_dma_cluster: dma@31022000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31022000 0x1000>;
 			status = "okay";
@@ -1080,7 +1080,7 @@
 			};
 		};
 
-		sport4_dma_cluster: dma@0x31023000 {
+		sport4_dma_cluster: dma@31023000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31023000 0x1000>;
 			status = "okay";
@@ -1105,7 +1105,7 @@
 			};
 		};
 
-		spi_cluster: dma@0x3102d000 {
+		spi_cluster: dma@3102d000 {
 			compatible = "adi,dma-controller";
 			reg = <0x3102d000 0x1000>;
 			status = "okay";
@@ -1177,7 +1177,7 @@
 
 		};
 
-		crc_cluster: dma@0x310a7000 {
+		crc_cluster: dma@310a7000 {
 			compatible = "adi,dma-controller";
 			reg = <0x310a7000 0x1000>;
 			status = "okay";
@@ -1200,7 +1200,7 @@
 			};
 		};
 
-		dma_cluster2: dma@0x31026000 {
+		dma_cluster2: dma@31026000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31026000 0x1000>;
 			status = "okay";
@@ -1271,7 +1271,7 @@
 			};
 		};
 
-		mdma: dma@0x3109a000 {
+		mdma: dma@3109a000 {
 			compatible = "adi,mdma-controller";
 			reg = <0x3109a000 0x1000>;
 			status = "okay";
@@ -1289,7 +1289,7 @@
 			};
 		};
 
-		trng: rng@0x310D0000 {
+		trng: rng@310D0000 {
 			compatible = "adi,sc5xx-trng";
 			reg = <0x310D0000 0x74>, <0x310D8000 0x14>;
 			interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH>;
