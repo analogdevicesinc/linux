@@ -2625,7 +2625,8 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 		return jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
 	case 20:
-		return adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1, 0, 1);
+		return adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1,
+			phy->ad9081.serdes_info.des_settings.boost_mask, 1);
 	default:
 		return -EINVAL;
 	}
@@ -4987,7 +4988,8 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 			dev_info(dev, "running jesd_rx_calibrate_204c, LR %lu kbps",
 				phy->jrx_link_tx[0].lane_rate_kbps);
 
-			ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1, 0, 1);
+			ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1,
+				phy->ad9081.serdes_info.des_settings.boost_mask, 1);
 			if (ret < 0)
 				return ret;
 
