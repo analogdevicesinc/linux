@@ -304,7 +304,7 @@ static u32 dw_mci_prepare_command(struct mmc_host *mmc, struct mmc_command *cmd)
 			cmdr |= SDMMC_CMD_DAT_WR;
 	}
 
-	if (!test_bit(DW_MMC_CARD_NO_USE_HOLD, &slot->flags))
+	if (!test_bit(DW_MMC_CARD_NO_USE_HOLD, &host->flags))
 		cmdr |= SDMMC_CMD_USE_HOLD_REG;
 
 	return cmdr;
@@ -343,7 +343,7 @@ static u32 dw_mci_prep_stop_abort(struct dw_mci *host, struct mmc_command *cmd)
 	cmdr = stop->opcode | SDMMC_CMD_STOP |
 		SDMMC_CMD_RESP_CRC | SDMMC_CMD_RESP_EXP;
 
-	if (!test_bit(DW_MMC_CARD_NO_USE_HOLD, &host->slot->flags))
+	if (!test_bit(DW_MMC_CARD_NO_USE_HOLD, &host->flags))
 		cmdr |= SDMMC_CMD_USE_HOLD_REG;
 
 	return cmdr;
@@ -896,7 +896,7 @@ static int dw_mci_get_cd(struct mmc_host *mmc)
 				|| !mmc_card_is_removable(mmc))) {
 		present = 1;
 
-		if (!test_bit(DW_MMC_CARD_PRESENT, &slot->flags)) {
+		if (!test_bit(DW_MMC_CARD_PRESENT, &host->flags)) {
 			if (mmc->caps & MMC_CAP_NEEDS_POLL) {
 				dev_info(&mmc->class_dev,
 					"card is polling.\n");
@@ -904,7 +904,7 @@ static int dw_mci_get_cd(struct mmc_host *mmc)
 				dev_info(&mmc->class_dev,
 					"card is non-removable.\n");
 			}
-			set_bit(DW_MMC_CARD_PRESENT, &slot->flags);
+			set_bit(DW_MMC_CARD_PRESENT, &host->flags);
 		}
 
 		return present;
@@ -915,10 +915,10 @@ static int dw_mci_get_cd(struct mmc_host *mmc)
 			== 0 ? 1 : 0;
 
 	spin_lock_bh(&host->lock);
-	if (present && !test_and_set_bit(DW_MMC_CARD_PRESENT, &slot->flags))
+	if (present && !test_and_set_bit(DW_MMC_CARD_PRESENT, &host->flags))
 		dev_dbg(&mmc->class_dev, "card is present\n");
 	else if (!present &&
-			!test_and_clear_bit(DW_MMC_CARD_PRESENT, &slot->flags))
+			!test_and_clear_bit(DW_MMC_CARD_PRESENT, &host->flags))
 		dev_dbg(&mmc->class_dev, "card is not present\n");
 	spin_unlock_bh(&host->lock);
 
@@ -1168,7 +1168,7 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 		div = (host->bus_hz != clock) ? DIV_ROUND_UP(div, 2) : 0;
 
 		if ((clock != slot->__clk_old &&
-			!test_bit(DW_MMC_CARD_NEEDS_POLL, &slot->flags)) ||
+			!test_bit(DW_MMC_CARD_NEEDS_POLL, &host->flags)) ||
 			force_clkinit) {
 			/* Silent the verbose log if calling from PM context */
 			if (!force_clkinit)
@@ -1184,7 +1184,7 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 			 */
 			if (host->mmc->caps & MMC_CAP_NEEDS_POLL &&
 					host->mmc->f_min == clock)
-				set_bit(DW_MMC_CARD_NEEDS_POLL, &slot->flags);
+				set_bit(DW_MMC_CARD_NEEDS_POLL, &host->flags);
 		}
 
 		/* disable clock */
@@ -1202,7 +1202,7 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 
 		/* enable clock; only low power if no SDIO */
 		clk_en_a = SDMMC_CLKEN_ENABLE << slot->id;
-		if (!test_bit(DW_MMC_CARD_NO_LOW_PWR, &slot->flags))
+		if (!test_bit(DW_MMC_CARD_NO_LOW_PWR, &host->flags))
 			clk_en_a |= SDMMC_CLKEN_LOW_PWR << slot->id;
 		mci_writel(host, CLKENA, clk_en_a);
 
@@ -1280,7 +1280,7 @@ static void __dw_mci_start_request(struct dw_mci *host,
 	cmdflags = dw_mci_prepare_command(host->mmc, cmd);
 
 	/* this is the first command, send the initialization clock */
-	if (test_and_clear_bit(DW_MMC_CARD_NEED_INIT, &slot->flags))
+	if (test_and_clear_bit(DW_MMC_CARD_NEED_INIT, &host->flags))
 		cmdflags |= SDMMC_CMD_INIT;
 
 	if (data) {
@@ -1425,7 +1425,7 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			dev_err(slot->host->dev, "failed to enable vmmc regulator\n");
 			return;
 		}
-		set_bit(DW_MMC_CARD_NEED_INIT, &slot->flags);
+		set_bit(DW_MMC_CARD_NEED_INIT, &slot->host->flags);
 		regs = mci_readl(slot->host, PWREN);
 		regs |= (1 << slot->id);
 		mci_writel(slot->host, PWREN, regs);
@@ -1578,10 +1578,10 @@ static void dw_mci_prepare_sdio_irq(struct dw_mci_slot *slot, bool prepare)
 
 	clk_en_a_old = mci_readl(host, CLKENA);
 	if (prepare) {
-		set_bit(DW_MMC_CARD_NO_LOW_PWR, &slot->flags);
+		set_bit(DW_MMC_CARD_NO_LOW_PWR, &host->flags);
 		clk_en_a = clk_en_a_old & ~clken_low_pwr;
 	} else {
-		clear_bit(DW_MMC_CARD_NO_LOW_PWR, &slot->flags);
+		clear_bit(DW_MMC_CARD_NO_LOW_PWR, &host->flags);
 		clk_en_a = clk_en_a_old | clken_low_pwr;
 	}
 
