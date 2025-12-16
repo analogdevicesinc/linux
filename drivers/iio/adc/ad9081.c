@@ -3987,6 +3987,43 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 		debugfs_create_u8("adi,direct-loopback-mode-dac-adc-mapping",
 			0644, iio_get_debugfs_dentry(indio_dev),
 			&phy->direct_lb_map);
+
+		/* JRX (deserializer) settings */
+		debugfs_create_u8("adi,jrx-lane-invert-mask", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.invert_mask);
+		debugfs_create_u8("adi,jrx-lane-boost-mask", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.boost_mask);
+		debugfs_create_u8("adi,jrx-ctle-filter-lane0", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.ctle_filter[0]);
+		debugfs_create_u8("adi,jrx-ctle-filter-lane1", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.ctle_filter[1]);
+		debugfs_create_u8("adi,jrx-ctle-filter-lane2", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.ctle_filter[2]);
+		debugfs_create_u8("adi,jrx-ctle-filter-lane3", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.ctle_filter[3]);
+		debugfs_create_u8("adi,jrx-ctle-filter-lane4", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.ctle_filter[4]);
+		debugfs_create_u8("adi,jrx-ctle-filter-lane5", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.ctle_filter[5]);
+		debugfs_create_u8("adi,jrx-ctle-filter-lane6", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.ctle_filter[6]);
+		debugfs_create_u8("adi,jrx-ctle-filter-lane7", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.des_settings.ctle_filter[7]);
+
+		/* JTX (serializer) settings */
+		debugfs_create_u8("adi,jtx-lane-invert-mask", 0644,
+			iio_get_debugfs_dentry(indio_dev),
+			&phy->ad9081.serdes_info.ser_settings.invert_mask);
 	}
 
 	sysfs_bin_attr_init(&phy->bin);
