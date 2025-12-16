@@ -192,22 +192,22 @@ stages:
         name: Default
         demands:
           - agent.name -equals linux_default
-      condition: or(
-          and(
-            startsWith(variables['Build.SourceBranch'], 'refs/pull/'),
-            ne(variables['SYSTEM.PULLREQUEST.ISFORK'], 'true'),
-            or(
-              eq(variables['System.PullRequest.TargetBranch'], 'main'),
-              eq(variables['System.PullRequest.TargetBranch'], 'next_stable'),
-              startsWith(variables['System.PullRequest.TargetBranch'], '202')
-            )
-          ),
-          or(
-            eq(variables['Build.SourceBranch'], 'refs/heads/main'),
-            eq(variables['Build.SourceBranch'], 'refs/heads/next_stable'),
-            startsWith(variables['Build.SourceBranch'], 'refs/heads/202')
-          )
-        )
+      # condition: or(
+      #     and(
+      #       startsWith(variables['Build.SourceBranch'], 'refs/pull/'),
+      #       ne(variables['SYSTEM.PULLREQUEST.ISFORK'], 'true'),
+      #       or(
+      #         eq(variables['System.PullRequest.TargetBranch'], 'main'),
+      #         eq(variables['System.PullRequest.TargetBranch'], 'next_stable'),
+      #         startsWith(variables['System.PullRequest.TargetBranch'], '202')
+      #       )
+      #     ),
+      #     or(
+      #       eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+      #       eq(variables['Build.SourceBranch'], 'refs/heads/next_stable'),
+      #       startsWith(variables['Build.SourceBranch'], 'refs/heads/202')
+      #     )
+      #   )
       steps:
         - checkout: self
           fetchDepth: 1
@@ -215,6 +215,7 @@ stages:
         - checkout: wiki-scripts
           fetchDepth: 1
           clean: true
+          ref: ci/test-new-flags-cloudsmith-upload
         - task: DownloadPipelineArtifact@2
           inputs:
             path: $(Build.SourcesDirectory)/bin
