@@ -1,5 +1,5 @@
-User guide
-==========
+Contribution guidelines
+=======================
 
 This page serves the purpose of providing pointers and a brief introduction to
 contributing to the Linux Kernel, using the tools available as well as wrappers
