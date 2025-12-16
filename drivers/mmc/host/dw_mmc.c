@@ -282,7 +282,7 @@ static u32 dw_mci_prepare_command(struct mmc_host *mmc, struct mmc_command *cmd)
 		 * until the voltage change is all done.
 		 */
 		clk_en_a = mci_readl(host, CLKENA);
-		clk_en_a &= ~(SDMMC_CLKEN_LOW_PWR << slot->id);
+		clk_en_a &= ~SDMMC_CLKEN_LOW_PWR;
 		mci_writel(host, CLKENA, clk_en_a);
 		mci_send_cmd(slot, SDMMC_CMD_UPD_CLK |
 			     SDMMC_CMD_PRV_DAT_WAIT, 0);
@@ -911,7 +911,7 @@ static int dw_mci_get_cd(struct mmc_host *mmc)
 	} else if (gpio_cd >= 0)
 		present = gpio_cd;
 	else
-		present = (mci_readl(slot->host, CDETECT) & (1 << slot->id))
+		present = (mci_readl(slot->host, CDETECT) & BIT(0))
 			== 0 ? 1 : 0;
 
 	spin_lock_bh(&host->lock);
@@ -1173,8 +1173,8 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 			/* Silent the verbose log if calling from PM context */
 			if (!force_clkinit)
 				dev_info(&host->mmc->class_dev,
-					 "Bus speed (slot %d) = %dHz (slot req %dHz, actual %dHZ div = %d)\n",
-					 slot->id, host->bus_hz, clock,
+					 "Bus speed = %dHz (slot req %dHz, actual %dHZ div = %d)\n",
+					 host->bus_hz, clock,
 					 div ? ((host->bus_hz / div) >> 1) :
 					 host->bus_hz, div);
 
@@ -1201,9 +1201,9 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 		mci_send_cmd(slot, sdmmc_cmd_bits, 0);
 
 		/* enable clock; only low power if no SDIO */
-		clk_en_a = SDMMC_CLKEN_ENABLE << slot->id;
+		clk_en_a = SDMMC_CLKEN_ENABLE;
 		if (!test_bit(DW_MMC_CARD_NO_LOW_PWR, &host->flags))
-			clk_en_a |= SDMMC_CLKEN_LOW_PWR << slot->id;
+			clk_en_a |= SDMMC_CLKEN_LOW_PWR;
 		mci_writel(host, CLKENA, clk_en_a);
 
 		/* inform CIU */
@@ -1218,7 +1218,7 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 	host->current_speed = clock;
 
 	/* Set the current slot bus width */
-	mci_writel(host, CTYPE, (slot->ctype << slot->id));
+	mci_writel(host, CTYPE, host->ctype);
 }
 
 static void dw_mci_set_data_timeout(struct dw_mci *host,
@@ -1386,14 +1386,14 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	switch (ios->bus_width) {
 	case MMC_BUS_WIDTH_4:
-		slot->ctype = SDMMC_CTYPE_4BIT;
+		slot->host->ctype = SDMMC_CTYPE_4BIT;
 		break;
 	case MMC_BUS_WIDTH_8:
-		slot->ctype = SDMMC_CTYPE_8BIT;
+		slot->host->ctype = SDMMC_CTYPE_8BIT;
 		break;
 	default:
 		/* set default 1 bit mode */
-		slot->ctype = SDMMC_CTYPE_1BIT;
+		slot->host->ctype = SDMMC_CTYPE_1BIT;
 	}
 
 	regs = mci_readl(slot->host, UHS_REG);
@@ -1402,9 +1402,9 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (ios->timing == MMC_TIMING_MMC_DDR52 ||
 	    ios->timing == MMC_TIMING_UHS_DDR50 ||
 	    ios->timing == MMC_TIMING_MMC_HS400)
-		regs |= ((0x1 << slot->id) << 16);
+		regs |= BIT(16);
 	else
-		regs &= ~((0x1 << slot->id) << 16);
+		regs &= ~BIT(16);
 
 	mci_writel(slot->host, UHS_REG, regs);
 	slot->host->timing = ios->timing;
@@ -1427,7 +1427,7 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 		set_bit(DW_MMC_CARD_NEED_INIT, &slot->host->flags);
 		regs = mci_readl(slot->host, PWREN);
-		regs |= (1 << slot->id);
+		regs |= BIT(0);
 		mci_writel(slot->host, PWREN, regs);
 		break;
 	case MMC_POWER_ON:
@@ -1446,7 +1446,7 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		mmc_regulator_disable_vqmmc(mmc);
 
 		regs = mci_readl(slot->host, PWREN);
-		regs &= ~(1 << slot->id);
+		regs &= ~BIT(0);
 		mci_writel(slot->host, PWREN, regs);
 		/* Reset our state machine after powering off */
 		dw_mci_ctrl_reset(slot->host, SDMMC_CTRL_ALL_RESET_FLAGS);
@@ -1479,7 +1479,7 @@ static int dw_mci_switch_voltage(struct mmc_host *mmc, struct mmc_ios *ios)
 	struct dw_mci *host = slot->host;
 	const struct dw_mci_drv_data *drv_data = host->drv_data;
 	u32 uhs;
-	u32 v18 = SDMMC_UHS_18V << slot->id;
+	u32 v18 = SDMMC_UHS_18V;
 	int ret;
 
 	if (drv_data && drv_data->switch_voltage)
@@ -1521,7 +1521,7 @@ static int dw_mci_get_ro(struct mmc_host *mmc)
 		read_only = gpio_ro;
 	else
 		read_only =
-			mci_readl(slot->host, WRTPRT) & (1 << slot->id) ? 1 : 0;
+			mci_readl(slot->host, WRTPRT) & BIT(0) ? 1 : 0;
 
 	dev_dbg(&mmc->class_dev, "card is %s\n",
 		read_only ? "read-only" : "read-write");
@@ -1555,10 +1555,10 @@ static void dw_mci_hw_reset(struct mmc_host *mmc)
 	 * tRSTH >= 1us:   RST_n high period
 	 */
 	reset = mci_readl(host, RST_N);
-	reset &= ~(SDMMC_RST_HWACTIVE << slot->id);
+	reset &= ~SDMMC_RST_HWACTIVE;
 	mci_writel(host, RST_N, reset);
 	usleep_range(1, 2);
-	reset |= SDMMC_RST_HWACTIVE << slot->id;
+	reset |= SDMMC_RST_HWACTIVE;
 	mci_writel(host, RST_N, reset);
 	usleep_range(200, 300);
 }
@@ -1566,7 +1566,7 @@ static void dw_mci_hw_reset(struct mmc_host *mmc)
 static void dw_mci_prepare_sdio_irq(struct dw_mci_slot *slot, bool prepare)
 {
 	struct dw_mci *host = slot->host;
-	const u32 clken_low_pwr = SDMMC_CLKEN_LOW_PWR << slot->id;
+	const u32 clken_low_pwr = SDMMC_CLKEN_LOW_PWR;
 	u32 clk_en_a_old;
 	u32 clk_en_a;
 
@@ -2927,8 +2927,7 @@ static int dw_mci_init_slot(struct dw_mci *host)
 		return -ENOMEM;
 
 	slot = mmc_priv(mmc);
-	slot->id = 0;
-	slot->sdio_id = host->sdio_id0 + slot->id;
+	slot->sdio_id = host->sdio_id0;
 	host->mmc = mmc;
 	slot->host = host;
 	host->slot = slot;
