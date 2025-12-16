@@ -126,7 +126,7 @@ set_cloudsmith_version_path
 # This script is called from azure-pipelines.yml after setting the CLOUDSMITH_API_KEY secret variable
 # so we can use it directly here
 # Upload to Cloudsmith done using upload_to_cloudsmith.py script from wiki-scripts repo
-python3 ../wiki-scripts/utils/cloudsmith_utils/upload_to_cloudsmith.py \
+python3 ./utils/cloudsmith_utils/upload_to_cloudsmith.py \
         --repo="${CLOUDSMITH_REPO}" \
         --version="${SERVER_PATH}" \
         --local_path="${TIMESTAMP}" \
