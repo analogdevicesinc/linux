@@ -18,14 +18,14 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		in-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>,
-				   <&gpio0 91 GPIO_ACTIVE_HIGH>,
-                   <&gpio0 86 GPIO_ACTIVE_HIGH>;
-		out-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>,
+		in-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>,//READY
+				   <&gpio0 91 GPIO_ACTIVE_HIGH>, //valid
+                   <&gpio0 86 GPIO_ACTIVE_HIGH>; //ot
+		out-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>,//sync_mode
                     <&gpio0 89 GPIO_ACTIVE_LOW>, //EN
-					<&gpio0 92 GPIO_ACTIVE_HIGH>,
-					<&gpio0 94 GPIO_ACTIVE_HIGH>,
-					<&gpio0 93 GPIO_ACTIVE_HIGH>;
+					<&gpio0 92 GPIO_ACTIVE_HIGH>,//cal
+					<&gpio0 94 GPIO_ACTIVE_HIGH>,//trig
+					<&gpio0 93 GPIO_ACTIVE_HIGH>; //dac_ldac
 				    //<&gpio0 87 GPIO_ACTIVE_HIGH>; //Reset
 		channel@0 {
 			reg = <0>;
@@ -74,7 +74,7 @@
 	 admx100x: adc@0 {
 		 compatible = "adi,admx1002";
 		 reg = <0>;
-		 reset-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+		 reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
 		 spi-max-frequency = <20000000>;
 	};
 };

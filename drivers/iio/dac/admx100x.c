@@ -15,9 +15,13 @@
 #include <linux/bitfield.h>
 #include <linux/kstrtox.h>
 #include <linux/math64.h>
+#include <linux/gpio/consumer.h>
+#include <linux/iopoll.h>
+
 
 /* Register Definitions */
 #define ADMX_REG_CONTROL			0x000 // Some of the control bits are auto-cleared.
+#define ADMX_STATUS_READY_STATUS         BIT(2)
 #define ADMX_REG_STATUS				0x004 // this register provides info of the status of the module
 #define ADMX_REG_VERSION_NUMBERS		0x008
 #define ADMX_REG_MODULE_ID			0x00C
@@ -62,7 +66,7 @@
 
 /* Signal Types */
 #define ADMX_SIGNAL_TYPE_SINE			0x0
-#define ADMX_SIGNAL_TYPE_DC			0x1
+#define ADMX_SIGNAL_TYPE_DC			    0x1
 #define ADMX_SIGNAL_TYPE_IMD			0x5
 
 /* Constants */
@@ -75,7 +79,8 @@ struct admx_state {
 	struct spi_device *spi;
 	struct regmap *regmap;
 	struct mutex lock;
-	struct gpio_desc *reset_gpio;
+	struct gpio_desc *gpio_reset;
+	struct gpio_desc *gpio_ready;
 	u32 amplitude_uvrms;
 	u64 frequency_uhz;
 	u8 signal_type;
@@ -170,43 +175,40 @@ static int admx_set_task(struct admx_state *st, u8 task_id)
 }
 
 static int admx_read_raw(struct iio_dev *indio_dev,
-		struct iio_chan_spec const *chan,
-		int *val, int *val2, long mask)
+			struct iio_chan_spec const *chan,
+			int *val, int *val2, long mask)
 {
-struct admx_state *st = iio_priv(indio_dev);
-int ret;
+	struct admx_state *st = iio_priv(indio_dev);
+	int ret;
 
-mutex_lock(&st->lock);
+	mutex_lock(&st->lock);
 
-switch (mask) {
-case IIO_CHAN_INFO_FREQUENCY:
-   /* Convert from µHz to Hz.mHz */
-   /**val = st->frequency_uhz / 1000000;
-   *val2 = (st->frequency_uhz % 1000000) / 1000;*/
+	switch (mask) {
+	case IIO_CHAN_INFO_FREQUENCY:
+		/* Convert from µHz to Hz.mHz */
+		u64 f_uhz = st->frequency_uhz;
+		u32 rem_uhz;
+		*val = div_u64_rem(f_uhz, 1000000, &rem_uhz);
+		*val2 = rem_uhz / 1000;
+		ret = IIO_VAL_INT_PLUS_MICRO;
+		dev_info(&st->spi->dev, "ADMX: READ_FREQUENCY =%llu uHz, returned=%d.%06d Hz\n",
+		st->frequency_uhz, *val, *val2);
+		ret = IIO_VAL_INT_PLUS_MICRO;
+		break;
 
-   u64 f_uhz = st->frequency_uhz;
-	  u32 rem_uhz;
-   *val = div_u64_rem(f_uhz, 1000000, &rem_uhz); /* partea int in Hz */
-   *val2 = rem_uhz / 1000;                       /* partea fractionara in mHz */
+	case IIO_CHAN_INFO_SCALE:
+		/* Convert from µVrms to Vrms */
+		*val = st->amplitude_uvrms / 1000000;
+		*val2 = st->amplitude_uvrms % 1000000;
+		dev_info(&st->spi->dev, "ADMX: READ SCALE=%u uVrms, returned=%d.%06d Vrms\n",
+			st->amplitude_uvrms, *val, *val2);
+		ret = IIO_VAL_INT_PLUS_MICRO;
+		break;
 
-   dev_info(&st->spi->dev, "ADMX: READ_FREQUENCY - internal=%llu uHz, returned=%d.%06d Hz\n",
-	   st->frequency_uhz, *val, *val2);
-   ret = IIO_VAL_INT_PLUS_MICRO;
-   break;
-
-case IIO_CHAN_INFO_SCALE:
-   /* Convert from µVrms to Vrms */
-   *val = st->amplitude_uvrms / 1000000;
-   *val2 = st->amplitude_uvrms % 1000000;
-   dev_info(&st->spi->dev, "ADMX: READ_AMPLITUDE - internal=%u uVrms, returned=%d.%06d Vrms\n",
-	   st->amplitude_uvrms, *val, *val2);
-   ret = IIO_VAL_INT_PLUS_MICRO;
-   break;
-
-case IIO_CHAN_INFO_ENABLE:
+	case IIO_CHAN_INFO_ENABLE:
 		*val = st->output_enabled;
-		dev_info(&st->spi->dev, "ADMX: READ_ENABLE - returned=%d\n", *val);
 		ret = IIO_VAL_INT;
+		dev_info(&st->spi->dev, "ADMX: READ ENABLE =%d\n", *val);
 		break;
 
 	default:
@@ -220,21 +222,18 @@ case IIO_CHAN_INFO_ENABLE:
 static int admx_stop_output(struct admx_state *st)
 {
 	int ret;
-
 	dev_info(&st->spi->dev, "ADMX: stop_output - clearing TASK_CONTROL bit in CONTROL reg 0x%03x\n",
 		ADMX_REG_CONTROL);
 	ret = regmap_update_bits(st->regmap, ADMX_REG_CONTROL,
 				  ADMX_CONTROL_TASK_CONTROL, 0);
 	if (ret)
 		dev_err(&st->spi->dev, "ADMX: stop_output - failed to stop (ret=%d)\n", ret);
-
 	return ret;
 }
 
-
 static int admx_write_raw(struct iio_dev *indio_dev,
-			  struct iio_chan_spec const *chan,
-			  int val, int val2, long mask)
+		struct iio_chan_spec const *chan,
+		int val, int val2, long mask)
 {
 	struct admx_state *st = iio_priv(indio_dev);
 	u64 frequency;
@@ -245,108 +244,133 @@ static int admx_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
-		/* Convert from Hz.mHz to µHz */
-		dev_info(&st->spi->dev, "ADMX: WRITE_FREQUENCY - input val=%d val2=%d\n", val, val2);
-		frequency = (u64)val * 1000000 + val2 * 1000;
-		dev_info(&st->spi->dev, "ADMX: WRITE_FREQUENCY - converted to %llu uHz (range: %u - %llu)\n",
-			frequency, ADMX_FREQUENCY_MIN_UHZ, ADMX_FREQUENCY_MAX_UHZ);
-
-		if (frequency < ADMX_FREQUENCY_MIN_UHZ ||
-		    frequency > ADMX_FREQUENCY_MAX_UHZ) {
-			dev_err(&st->spi->dev, "ADMX: WRITE_FREQUENCY - INVALID range!\n");
-			ret = -EINVAL;
-			break;
-		}
-		/* Write frequency registers (64-bit value) */
-		dev_info(&st->spi->dev, "ADMX: WRITE_FREQUENCY - writing L=0x%08x to reg 0x%03x\n",
-			(u32)(frequency & 0xFFFFFFFF), ADMX_REG_SET_FREQUENCY_PRIMARY_L);
-		ret = regmap_write(st->regmap, ADMX_REG_SET_FREQUENCY_PRIMARY_L,
-				   frequency & 0xFFFFFFFF);
-		if (ret) {
-			dev_err(&st->spi->dev, "ADMX: WRITE_FREQUENCY - failed to write L register (ret=%d)\n", ret);
-			break;
-		}
-
-		dev_info(&st->spi->dev, "ADMX: WRITE_FREQUENCY - writing H=0x%08x to reg 0x%03x\n",
-			(u32)(frequency >> 32), ADMX_REG_SET_FREQUENCY_PRIMARY_H);
-		ret = regmap_write(st->regmap, ADMX_REG_SET_FREQUENCY_PRIMARY_H,
-				   frequency >> 32);
-		if (ret) {
-			dev_err(&st->spi->dev, "ADMX: WRITE_FREQUENCY - failed to write H register (ret=%d)\n", ret);
-			break;
-		}
-		st->frequency_uhz = frequency;
-
-		dev_info(&st->spi->dev,
-			"ADMX: Frequency set to %llu uHz\n",
-     		st->frequency_uhz);
+	/* Convert from Hz.mHz to µHz */
+	frequency = (u64)val * 1000000 + val2 * 1000;
+	dev_info(&st->spi->dev, "ADMX: WRITE_FREQUENCY - converted to %llu uHz (range: %u - %llu)\n",
+	frequency, ADMX_FREQUENCY_MIN_UHZ, ADMX_FREQUENCY_MAX_UHZ);
+	if (frequency < ADMX_FREQUENCY_MIN_UHZ ||
+		frequency > ADMX_FREQUENCY_MAX_UHZ) {
+		dev_err(&st->spi->dev, "ADMX: WRITE_FREQUENCY - INVALID range!\n");
+		ret = -EINVAL;
 		break;
+	}
+	/* Write frequency registers (64-bit value) */
+	dev_info(&st->spi->dev, "ADMX: WRITE_FREQUENCY - writing L=0x%08x to reg 0x%03x\n",
+	(u32)(frequency & 0xFFFFFFFF), ADMX_REG_SET_FREQUENCY_PRIMARY_L);
+	ret = regmap_write(st->regmap, ADMX_REG_SET_FREQUENCY_PRIMARY_L,
+			frequency & 0xFFFFFFFF);
+	if (ret) {
+	dev_err(&st->spi->dev, "ADMX: WRITE_FREQUENCY - failed to write L register (ret=%d)\n", ret);
+		break;
+	}
+
+	dev_info(&st->spi->dev, "ADMX: WRITE_FREQUENCY - writing H=0x%08x to reg 0x%03x\n",
+	(u32)(frequency >> 32), ADMX_REG_SET_FREQUENCY_PRIMARY_H);
+	ret = regmap_write(st->regmap, ADMX_REG_SET_FREQUENCY_PRIMARY_H,
+			frequency >> 32);
+	if (ret) {
+		dev_err(&st->spi->dev, "ADMX: WRITE_FREQUENCY - failed to write H register (ret=%d)\n", ret);
+		break;
+	}
+	st->frequency_uhz = frequency;
+	dev_info(&st->spi->dev, "ADMX: Frequency set to %llu uHz\n",st->frequency_uhz);
+	break;
 
 	case IIO_CHAN_INFO_SCALE:
-		/* Convert from Vrms to µVrms */
-		dev_info(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - input val=%d val2=%d\n", val, val2);
-		amplitude = val * 1000000 + val2;
-		dev_info(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - converted to %u uVrms (max: %u)\n",
-			amplitude, ADMX_AMPLITUDE_MAX_UV);
+	/* Convert from Vrms to µVrms */
+	dev_info(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - input val=%d val2=%d\n", val, val2);
+	amplitude = val * 1000000 + val2;
+	dev_info(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - converted to %u uVrms (max: %u)\n",
+	amplitude, ADMX_AMPLITUDE_MAX_UV);
 
-		// if (amplitude < ADMX_AMPLITUDE_MIN_UV ||
-		//     amplitude > ADMX_AMPLITUDE_MAX_UV) {
-		// 	ret = -EINVAL;
-		// 	break;
-		// }
-
-		if (amplitude > ADMX_AMPLITUDE_MAX_UV) {
-			dev_err(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - INVALID range!\n");
-			ret = -EINVAL;
-			break;
-		}
-
-		dev_info(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - writing 0x%08x to reg 0x%03x\n",
-			amplitude, ADMX_REG_SET_AMPLITUDE_PRIMARY);
-		ret = regmap_write(st->regmap, ADMX_REG_SET_AMPLITUDE_PRIMARY,
-				   amplitude);
-		if (ret) {
-			dev_err(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - failed to write register (ret=%d)\n", ret);
-			break;
-		}
-
-		st->amplitude_uvrms = amplitude;
-
-		dev_info(&st->spi->dev,
-			"ADMX: Amplitude set to %u uVrms\n",
-			st->amplitude_uvrms);
-
+	// if (amplitude < ADMX_AMPLITUDE_MIN_UV ||
+	//     amplitude > ADMX_AMPLITUDE_MAX_UV) {
+	// 	ret = -EINVAL;
+	// 	break;
+	// }
+	if (amplitude > ADMX_AMPLITUDE_MAX_UV) {
+		dev_err(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - INVALID range!\n");
+		ret = -EINVAL;
 		break;
+	}
+	dev_info(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - writing 0x%08x to reg 0x%03x\n",
+	amplitude, ADMX_REG_SET_AMPLITUDE_PRIMARY);
+	ret = regmap_write(st->regmap, ADMX_REG_SET_AMPLITUDE_PRIMARY,
+			amplitude);
+	if (ret) {
+		dev_err(&st->spi->dev, "ADMX: WRITE_AMPLITUDE - failed to write register (ret=%d)\n", ret);
+		break;
+	}
+	st->amplitude_uvrms = amplitude;
+	dev_info(&st->spi->dev, "ADMX: Amplitude set to %u uVrms\n", st->amplitude_uvrms);
+	break;
 
 	case IIO_CHAN_INFO_ENABLE:
-		dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - input val=%d (current state=%d)\n", val, st->output_enabled);
-		if (val) {
-			dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - enabling output...\n");
-			/* Validate parameters first */
-			ret = admx_validate_params(st);
-			if (ret)
-				break;
-			/* Start signal generation */
-			//dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - setting task GENERATE_SIGNAL (0x%02x)\n", ADMX_TASK_GENERATE_SIGNAL);
+	dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - input val=%d (current state=%d)\n", val, st->output_enabled);
+	if (val) {
+		dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - enabling output.\n");
+	ret = regmap_write(st->regmap, ADMX_REG_SET_SIGNAL_TYPE, 0);
+	if (ret) {
+		dev_err(&st->spi->dev, "ADMX: WRITE_ENABLE - failed to set SIGNAL_TYPE (ret=%d)\n", ret);
+		break;
+	}
+	/* Validate parameters first */
+	ret = admx_validate_params(st);
+	if (ret)
+		break;
+	/* Start: task GENERATE_SIGNAL */
+	ret = admx_set_task(st, ADMX_TASK_GENERATE_SIGNAL);
+	if (ret) {
+		dev_err(&st->spi->dev, "ADMX: Failed to enable output (ret=%d)\n", ret);
+		break;
+	}
+	/* --- (D) Confirmare start: poll pe STATUS.SIGNAL_OUTPUT_STATUS --- */
+	{
+		unsigned int status;
+		ret = regmap_read_poll_timeout(st->regmap, ADMX_REG_STATUS, status,
+				!!(status & ADMX_STATUS_SIGNAL_OUTPUT),
+				1000 /*us*/, 100000 /*us*/);
+		if (ret) {
+			/* --- (E) Retry scurt: VALIDATE + GENERATE din nou --- */
+			dev_warn(&st->spi->dev,
+					"ADMX: start not asserted (STATUS=0x%08x) – revalidate & retry\n", status);
+
+			/* VALIDATE auto-clear (UG p.36–37) */
+			regmap_update_bits(st->regmap, ADMX_REG_CONTROL,
+							ADMX_CONTROL_VALIDATE, ADMX_CONTROL_VALIDATE);
+
 			ret = admx_set_task(st, ADMX_TASK_GENERATE_SIGNAL);
-			if (!ret) {
-				st->output_enabled = true;
-				dev_info(&st->spi->dev, "ADMX: Output ENABLED successfully\n");
-			} else {
-				dev_err(&st->spi->dev, "ADMX: Failed to enable output (ret=%d)\n", ret);
+			if (ret) {
+				dev_err(&st->spi->dev, "ADMX: retry start failed (ret=%d)\n", ret);
+				break;
 			}
-		} else {
-			dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - disabling output...\n");
-			ret = admx_stop_output(st);
-			if (!ret) {
+
+			ret = regmap_read_poll_timeout(st->regmap, ADMX_REG_STATUS, status,
+					!!(status & ADMX_STATUS_SIGNAL_OUTPUT),
+					1000 /*us*/, 100000 /*us*/);
+			if (ret) {
+				dev_err(&st->spi->dev,
+						"ADMX: start failed – STATUS=0x%08x\n", status);
 				st->output_enabled = false;
-				dev_info(&st->spi->dev, "ADMX: Output DISABLED successfully\n");
-			} else {
-				dev_err(&st->spi->dev, "ADMX: Failed to disable output (ret=%d)\n", ret);
+				ret = -EIO;
+				break;
 			}
 		}
-		break;
+	}
 
+	st->output_enabled = true;
+	dev_info(&st->spi->dev, "ADMX: Output ENABLED successfully\n");
+	} else {
+	dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - disabling output...\n");
+	ret = admx_stop_output(st);
+	if (!ret) {
+		st->output_enabled = false;
+		dev_info(&st->spi->dev, "ADMX: Output DISABLED successfully\n");
+	} else {
+		dev_err(&st->spi->dev, "ADMX: Failed to disable output (ret=%d)\n", ret);
+	}
+	}
+	break;
 	default:
 		ret = -EINVAL;
 	}
@@ -354,6 +378,34 @@ static int admx_write_raw(struct iio_dev *indio_dev,
 	mutex_unlock(&st->lock);
 	return ret;
 }
+/* Start signal generation */
+//dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - setting task GENERATE_SIGNAL (0x%02x)\n", ADMX_TASK_GENERATE_SIGNAL);
+// 	ret = admx_set_task(st, ADMX_TASK_GENERATE_SIGNAL);
+// 	if (!ret) {
+// 		st->output_enabled = true;
+// 		dev_info(&st->spi->dev, "ADMX: Output ENABLED successfully\n");
+// 	} else {
+// 		dev_err(&st->spi->dev, "ADMX: Failed to enable output (ret=%d)\n", ret);
+// 	}
+// 	} else {
+// 	dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - disabling output...\n");
+// 	ret = admx_stop_output(st);
+// 	if (!ret) {
+// 		st->output_enabled = false;
+// 		dev_info(&st->spi->dev, "ADMX: Output DISABLED successfully\n");
+// 	} else {
+// 		dev_err(&st->spi->dev, "ADMX: Failed to disable output (ret=%d)\n", ret);
+// 	}
+// 	}
+// 	break;
+
+// 	default:
+// 		ret = -EINVAL;
+// 	}
+
+// 	mutex_unlock(&st->lock);
+// 	return ret;
+// }
 
 static ssize_t admx_signal_type_show(struct device *dev,
 				     struct device_attribute *attr,
@@ -443,7 +495,6 @@ static ssize_t admx_calibrate_store(struct device *dev,
 		mutex_unlock(&st->lock);
 		return ret;
 	}
-
 	/* Wait for calibration to complete (up to 2 minutes) */
 	ret = admx_wait_ready(st, 120000);
 
@@ -763,10 +814,115 @@ static int admx_init(struct admx_state *st)
     return 0;
 }
 
+static int admx_read_status(struct regmap *map)
+{
+    unsigned int status;
+    int ret = regmap_read(map, ADMX_REG_STATUS, &status);
+    if (ret)
+        return ret;
+    return status;
+}
+
+static int admx_post_reset_fixup(struct admx_state *st)
+{
+    int ret;
+    unsigned int status;
+
+    /* 1) Impune un SIGNAL_TYPE valid. Simplu: SINE=0 */
+    ret = regmap_write(st->regmap, ADMX_REG_SET_SIGNAL_TYPE, 0);
+    if (ret) {
+        dev_err(&st->spi->dev, "ADMX: fixup - write SIGNAL_TYPE failed (ret=%d)\n", ret);
+        return ret;
+    }
+
+    /* 2) Rulează VALIDATE ca în UG (actualizează Generated_* și validitățile) */
+    ret = regmap_update_bits(st->regmap, ADMX_REG_CONTROL,
+                             ADMX_CONTROL_VALIDATE, ADMX_CONTROL_VALIDATE);
+    if (ret) {
+        dev_err(&st->spi->dev, "ADMX: fixup - CONTROL.VALIDATE write failed (ret=%d)\n", ret);
+        return ret;
+    }
+
+    /* 3) Citește STATUS și verifică validitățile */
+    ret = regmap_read(st->regmap, ADMX_REG_STATUS, &status);
+    if (ret) {
+        dev_err(&st->spi->dev, "ADMX: fixup - STATUS read failed (ret=%d)\n", ret);
+        return ret;
+    }
+
+    if (!(status & ADMX_STATUS_AMPLITUDE_VALID) ||
+        !(status & ADMX_STATUS_FREQUENCY_VALID) ||
+        !(status & ADMX_STATUS_SIGNAL_CYCLE_VALID)) {
+        dev_warn(&st->spi->dev, "ADMX: fixup - params invalid after reset (STATUS=0x%08x)\n", status);
+        /* nu facem hard-fail; doar logăm */
+    } else {
+        dev_info(&st->spi->dev, "ADMX: fixup - params valid (STATUS=0x%08x)\n", status);
+    }
+    return 0;
+}
+
+/* reset hardware minimal (stil ADI) */
+static int admx_hw_reset(struct admx_state *st)
+{
+    int ret, val;
+
+    /* 1) Obține GPIO-uri (optional) din DT */
+    if (!st->gpio_reset) {
+        st->gpio_reset = devm_gpiod_get_optional(&st->spi->dev, "reset", GPIOD_OUT_LOW);
+        if (IS_ERR(st->gpio_reset))
+            return dev_err_probe(&st->spi->dev, PTR_ERR(st->gpio_reset), "ADMX: reset gpio get failed");
+    }
+    if (!st->gpio_ready) {
+        st->gpio_ready = devm_gpiod_get_optional(&st->spi->dev, "ready", GPIOD_IN);
+        if (IS_ERR(st->gpio_ready))
+            st->gpio_ready = NULL;
+    }
+
+    dev_info(&st->spi->dev, "ADMX: HW reset - toggling reset/en pin\n");
+
+    /* 2) Toggling simplu: LOW -> 10..20us -> HIGH (ca în AD3552R) */
+    if (st->gpio_reset) {
+        gpiod_set_value_cansleep(st->gpio_reset, 1);
+        msleep(1000);
+        gpiod_set_value_cansleep(st->gpio_reset, 0);
+		msleep(8000);
+    } else {
+        dev_warn(&st->spi->dev, "ADMX: no reset gpio; please add 'reset-gpios' in DT");
+        return -ENODEV;
+    }
+    /* 3) Poll READY (GPIO dacă există, altfel STATUS.READY_STATUS) */
+    if (st->gpio_ready) {
+        ret = readx_poll_timeout(gpiod_get_value_cansleep, st->gpio_ready, val,
+                                 val == 1, 5000 /*us*/, 5000000 /*us*/);
+        if (ret) {
+            dev_err(&st->spi->dev, "ADMX: HW reset - READY GPIO timeout");
+            return ret;
+        }
+    } else {
+        struct regmap *map = st->regmap;
+        ret = readx_poll_timeout(admx_read_status, map, val,
+                                 !!(val & ADMX_STATUS_READY_STATUS),
+                                 5000 /*us*/, 5000000 /*us*/);
+        if (ret) {
+            dev_err(&st->spi->dev, "ADMX: HW reset - STATUS READY timeout");
+            return ret;
+        }
+    }
+    /* 4) Curăță cache/flaguri locale */
+    st->output_enabled = 0;
+	//admx_post_reset_fixup(st);
+	regmap_update_bits(st->regmap, ADMX_REG_SET_SIGNAL_TYPE, 0xF, 0x0); /* Sine */
+	regmap_update_bits(st->regmap, ADMX_REG_CONTROL,
+					ADMX_CONTROL_VALIDATE, ADMX_CONTROL_VALIDATE);
+    dev_info(&st->spi->dev, "ADMX: HW reset complete\n");
+    return 0;
+}
+
 static int admx_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct admx_state *st;
+	//struct gpio_desc *reset_gpio;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -780,6 +936,22 @@ static int admx_probe(struct spi_device *spi)
 	st->regmap = devm_regmap_init_spi(spi, &admx_regmap_config);
 	if (IS_ERR(st->regmap))
 		return PTR_ERR(st->regmap);
+	// reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	// gpiod_set_value(reset_gpio, 0);
+	// fsleep(1000);
+	// gpiod_set_value(reset_gpio, 1);
+	// fsleep(3000);
+	// if (reset_gpio) {
+	// 	/* ASSERT reset */
+    //     gpiod_set_value_cansleep(reset_gpio, 1);
+    //     usleep_range(2000, 4000);    /* ~2 ms */
+    //     /* DEASSERT reset */
+    //     gpiod_set_value_cansleep(reset_gpio, 0);
+    //     usleep_range(5000, 8000);
+    // }
+	ret = admx_hw_reset(st);
+	if (ret)
+		return ret;
 
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
