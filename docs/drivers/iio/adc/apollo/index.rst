@@ -1439,7 +1439,7 @@ for example:
 Tx FFH CNCO
 +++++++++++
 
-The user configures the NCO FFH frequency by writing the index (0 to 31) to
+The user configures the NCO FFH frequency by writing the index (0 to 15) to
 ``out_voltageX_[i|q]_ffh_cnco_index`` followed by the frequency value to
 ``out_voltageX_[i|q]_ffh_cnco_frequency``, for example:
 
