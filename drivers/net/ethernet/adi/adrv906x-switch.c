@@ -53,6 +53,7 @@ static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es
 	ret = adrv906x_switch_wait_for_mae_ready(es);
 	if (ret) {
 		dev_err(&es->pdev->dev, "vlan add timeout");
+		spin_unlock_irqrestore(&es->hw_lock, flags);
 		return ret;
 	}
 
@@ -281,16 +282,17 @@ int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, 
 	if (portid >= SWITCH_MAX_PORT_NUM)
 		return -EINVAL;
 
+	spin_lock_irqsave(&es->hw_lock, flags);
 	ret = adrv906x_switch_wait_for_mae_ready(es);
 	if (ret) {
 		dev_err(&es->pdev->dev, "fdb entry add timeout");
+		spin_unlock_irqrestore(&es->hw_lock, flags);
 		return ret;
 	}
 
 	mac_addr_hi = FIELD_GET(0xFFFFFFFF0000, mac_addr);
 	mac_addr_lo = FIELD_GET(0xFFFF, mac_addr);
 
-	spin_lock_irqsave(&es->hw_lock, flags);
 	iowrite32(BIT(portid), es->reg_match_action + SWITCH_MAS_PORT_MASK1);
 	iowrite32(mac_addr_hi, es->reg_match_action + SWITCH_MAS_FDB_MAC_INSERT_1);
 	val = FIELD_PREP(SWITCH_INSERT_MAC_ADDR_LOW_MASK, mac_addr_lo) |
