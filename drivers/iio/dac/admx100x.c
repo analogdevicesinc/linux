@@ -345,21 +345,22 @@ static int admx_write_raw(struct iio_dev *indio_dev,
 				break;
 			}
 
-			ret = regmap_read_poll_timeout(st->regmap, ADMX_REG_STATUS, status,
-					!!(status & ADMX_STATUS_SIGNAL_OUTPUT),
-					1000 /*us*/, 100000 /*us*/);
-			if (ret) {
-				dev_err(&st->spi->dev,
-						"ADMX: start failed – STATUS=0x%08x\n", status);
-				st->output_enabled = false;
-				ret = -EIO;
-				break;
-			}
+			// ret = regmap_read_poll_timeout(st->regmap, ADMX_REG_STATUS, status,
+			// 		!!(status & ADMX_STATUS_SIGNAL_OUTPUT),
+			// 		1000 /*us*/, 100000 /*us*/);
+			// if (ret) {
+			// 	dev_err(&st->spi->dev,
+			// 			"ADMX: start failed – STATUS=0x%08x\n", status);
+			// 	st->output_enabled = false;
+			// 	ret = -EIO;
+			// 	break;
+			// }
 		}
 	}
 
 	st->output_enabled = true;
 	dev_info(&st->spi->dev, "ADMX: Output ENABLED successfully\n");
+
 	} else {
 	dev_info(&st->spi->dev, "ADMX: WRITE_ENABLE - disabling output...\n");
 	ret = admx_stop_output(st);
@@ -371,6 +372,7 @@ static int admx_write_raw(struct iio_dev *indio_dev,
 	}
 	}
 	break;
+
 	default:
 		ret = -EINVAL;
 	}
@@ -823,49 +825,48 @@ static int admx_read_status(struct regmap *map)
     return status;
 }
 
-static int admx_post_reset_fixup(struct admx_state *st)
-{
-    int ret;
-    unsigned int status;
+// static int admx_post_reset_fixup(struct admx_state *st)
+// {
+//     int ret;
+//     unsigned int status;
 
-    /* 1) Impune un SIGNAL_TYPE valid. Simplu: SINE=0 */
-    ret = regmap_write(st->regmap, ADMX_REG_SET_SIGNAL_TYPE, 0);
-    if (ret) {
-        dev_err(&st->spi->dev, "ADMX: fixup - write SIGNAL_TYPE failed (ret=%d)\n", ret);
-        return ret;
-    }
+//     /* 1) Impune un SIGNAL_TYPE valid. Simplu: SINE=0 */
+//     ret = regmap_write(st->regmap, ADMX_REG_SET_SIGNAL_TYPE, 0);
+//     if (ret) {
+//         dev_err(&st->spi->dev, "ADMX: fixup - write SIGNAL_TYPE failed (ret=%d)\n", ret);
+//         return ret;
+//     }
 
-    /* 2) Rulează VALIDATE ca în UG (actualizează Generated_* și validitățile) */
-    ret = regmap_update_bits(st->regmap, ADMX_REG_CONTROL,
-                             ADMX_CONTROL_VALIDATE, ADMX_CONTROL_VALIDATE);
-    if (ret) {
-        dev_err(&st->spi->dev, "ADMX: fixup - CONTROL.VALIDATE write failed (ret=%d)\n", ret);
-        return ret;
-    }
+//     /* 2) Rulează VALIDATE ca în UG (actualizează Generated_* și validitățile) */
+//     ret = regmap_update_bits(st->regmap, ADMX_REG_CONTROL,
+//                              ADMX_CONTROL_VALIDATE, ADMX_CONTROL_VALIDATE);
+//     if (ret) {
+//         dev_err(&st->spi->dev, "ADMX: fixup - CONTROL.VALIDATE write failed (ret=%d)\n", ret);
+//         return ret;
+//     }
 
-    /* 3) Citește STATUS și verifică validitățile */
-    ret = regmap_read(st->regmap, ADMX_REG_STATUS, &status);
-    if (ret) {
-        dev_err(&st->spi->dev, "ADMX: fixup - STATUS read failed (ret=%d)\n", ret);
-        return ret;
-    }
+//     /* 3) Citește STATUS și verifică validitățile */
+//     ret = regmap_read(st->regmap, ADMX_REG_STATUS, &status);
+//     if (ret) {
+//         dev_err(&st->spi->dev, "ADMX: fixup - STATUS read failed (ret=%d)\n", ret);
+//         return ret;
+//     }
 
-    if (!(status & ADMX_STATUS_AMPLITUDE_VALID) ||
-        !(status & ADMX_STATUS_FREQUENCY_VALID) ||
-        !(status & ADMX_STATUS_SIGNAL_CYCLE_VALID)) {
-        dev_warn(&st->spi->dev, "ADMX: fixup - params invalid after reset (STATUS=0x%08x)\n", status);
-        /* nu facem hard-fail; doar logăm */
-    } else {
-        dev_info(&st->spi->dev, "ADMX: fixup - params valid (STATUS=0x%08x)\n", status);
-    }
-    return 0;
-}
+//     if (!(status & ADMX_STATUS_AMPLITUDE_VALID) ||
+//         !(status & ADMX_STATUS_FREQUENCY_VALID) ||
+//         !(status & ADMX_STATUS_SIGNAL_CYCLE_VALID)) {
+//         dev_warn(&st->spi->dev, "ADMX: fixup - params invalid after reset (STATUS=0x%08x)\n", status);
+//         /* nu facem hard-fail; doar logăm */
+//     } else {
+//         dev_info(&st->spi->dev, "ADMX: fixup - params valid (STATUS=0x%08x)\n", status);
+//     }
 
-/* reset hardware minimal (stil ADI) */
+//     return 0;
+// }
+
 static int admx_hw_reset(struct admx_state *st)
 {
     int ret, val;
-
     /* 1) Obține GPIO-uri (optional) din DT */
     if (!st->gpio_reset) {
         st->gpio_reset = devm_gpiod_get_optional(&st->spi->dev, "reset", GPIOD_OUT_LOW);
@@ -880,7 +881,7 @@ static int admx_hw_reset(struct admx_state *st)
 
     dev_info(&st->spi->dev, "ADMX: HW reset - toggling reset/en pin\n");
 
-    /* 2) Toggling simplu: LOW -> 10..20us -> HIGH (ca în AD3552R) */
+    /* 2) Toggling simplu: LOW -> 10..20us -> HIGH*/
     if (st->gpio_reset) {
         gpiod_set_value_cansleep(st->gpio_reset, 1);
         msleep(1000);
@@ -890,6 +891,7 @@ static int admx_hw_reset(struct admx_state *st)
         dev_warn(&st->spi->dev, "ADMX: no reset gpio; please add 'reset-gpios' in DT");
         return -ENODEV;
     }
+
     /* 3) Poll READY (GPIO dacă există, altfel STATUS.READY_STATUS) */
     if (st->gpio_ready) {
         ret = readx_poll_timeout(gpiod_get_value_cansleep, st->gpio_ready, val,
@@ -908,10 +910,10 @@ static int admx_hw_reset(struct admx_state *st)
             return ret;
         }
     }
-    /* 4) Curăță cache/flaguri locale */
+    /* 4) Curăta cache/flaguri locale */
     st->output_enabled = 0;
 	//admx_post_reset_fixup(st);
-	regmap_update_bits(st->regmap, ADMX_REG_SET_SIGNAL_TYPE, 0xF, 0x0); /* Sine */
+	regmap_update_bits(st->regmap, ADMX_REG_SET_SIGNAL_TYPE, 0xF, 0x0);
 	regmap_update_bits(st->regmap, ADMX_REG_CONTROL,
 					ADMX_CONTROL_VALIDATE, ADMX_CONTROL_VALIDATE);
     dev_info(&st->spi->dev, "ADMX: HW reset complete\n");
