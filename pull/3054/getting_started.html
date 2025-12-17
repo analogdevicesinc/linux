@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta content="The Linux kernel in this repository is the Linux kernel from Xilinx together with drivers &amp; patches applied from Analog Devices." name="description" />
 
-    <title>Description &#8212; Linux Drivers  documentation</title>
+    <title>Getting Started &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
     <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=31a9e0ba" />
     <script async="async" src="_static/app.umd.js?v=3a4867e9"></script>
@@ -94,12 +94,15 @@
         </div>
         <nav>
           <ul>
-<li><a class="reference internal" href="#">Description</a></li>
+<li><a class="reference internal" href="#">Getting Started</a><ul>
+<li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#how-to-build">How to build</a></li>
 <li><a class="reference internal" href="#release-branches">Release branches</a></li>
 <li><a class="reference internal" href="#rebased-branches">Rebased branches</a></li>
 <li><a class="reference internal" href="#raspberry-pi-branches">Raspberry Pi branches</a></li>
 <li><a class="reference internal" href="#intel-altera-branches">Intel/Altera branches</a></li>
+</ul>
+</li>
 </ul>
 
         </nav>
@@ -127,12 +130,7 @@ Content on this topic
 <div class="toc-tree">
   <html>
   <body><ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Description</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#how-to-build">How to build</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#release-branches">Release branches</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#rebased-branches">Rebased branches</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#raspberry-pi-branches">Raspberry Pi branches</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#intel-altera-branches">Intel/Altera branches</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Getting Started</a></li>
 <li class="toctree-l1"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1"/><div class="collapse"><a class="reference internal" href="iio/index.html">Industrial I/O</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul>
 <li class="toctree-l2"><a class="reference internal" href="iio/iio_devbuf.html">Industrial IIO device buffers</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio/ad3552r.html">AD3552R driver</a></li>
@@ -167,8 +165,10 @@ Content on this topic
 </div>
           <div class="body" role="main">
             
-  <section id="description">
-<span id="getting-started"></span><h1>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h1>
+  <section id="getting-started">
+<span id="id1"></span><h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
 <p>The Linux kernel in this repository is the <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx" target="_blank">Linux kernel from Xilinx</a> together with drivers &amp; patches
 applied from Analog Devices.</p>
 <p>Details about the drivers that are of interest and supported by this repository
@@ -183,11 +183,11 @@ still available and should be in-sync with current master. That branch used to
 be the old master branch.</p>
 </section>
 <section id="how-to-build">
-<h1>How to build<a class="headerlink" href="#how-to-build" title="Link to this heading"></a></h1>
+<h2>How to build<a class="headerlink" href="#how-to-build" title="Link to this heading"></a></h2>
 <p>For build instructions <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers-all#building_the_adi_linux_kernel" target="_blank">check the wiki</a>.</p>
 </section>
 <section id="release-branches">
-<h1>Release branches<a class="headerlink" href="#release-branches" title="Link to this heading"></a></h1>
+<h2>Release branches<a class="headerlink" href="#release-branches" title="Link to this heading"></a></h2>
 <p>All release branches have the <code class="docutils literal notranslate"><span class="pre">[YEAR]_R[NUM]</span></code> format. There are some special
 release branches sometimes (like <code class="docutils literal notranslate"><span class="pre">2014_R2_altera</span></code>, because it wasn’t always
 possible to match the Linux repo between Xilinx &amp; Intel/Altera.</p>
@@ -200,7 +200,7 @@ toolchains, but in the official SD-card images provided, they will use the
 toolchains from Vivado/Quartus.</p>
 </section>
 <section id="rebased-branches">
-<h1>Rebased branches<a class="headerlink" href="#rebased-branches" title="Link to this heading"></a></h1>
+<h2>Rebased branches<a class="headerlink" href="#rebased-branches" title="Link to this heading"></a></h2>
 <p>Starting with branch <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/adi-4.9.0" target="_blank">adi-4.9.0</a> there are rebased
 branches. They’re typically rebased branches from Xilinx with the ADI patches
 on top so that it’s easier to identify patches that are not yet upstreamed.</p>
@@ -219,7 +219,7 @@ master. At the time of writing it is 5.10 so that <a class="icon git reference e
 rebased branch and master (<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">diff</span> <span class="pre">master</span> <span class="pre">adi-5.10.0</span></code>) must be NULL.</p>
 </section>
 <section id="raspberry-pi-branches">
-<h1>Raspberry Pi branches<a class="headerlink" href="#raspberry-pi-branches" title="Link to this heading"></a></h1>
+<h2>Raspberry Pi branches<a class="headerlink" href="#raspberry-pi-branches" title="Link to this heading"></a></h2>
 <p>These provide a kernel that is good to run on a Raspberry Pi board. All the
 drivers present in the master branch should be automatically cherry-picked into
 the latest rpi branch.</p>
@@ -229,7 +229,7 @@ kernel version in master is 5.10 so that the correspondent latest rpi branch is
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/rpi-5.10.y" target="_blank">rpi-5.10.y</a>.</p>
 </section>
 <section id="intel-altera-branches">
-<h1>Intel/Altera branches<a class="headerlink" href="#intel-altera-branches" title="Link to this heading"></a></h1>
+<h2>Intel/Altera branches<a class="headerlink" href="#intel-altera-branches" title="Link to this heading"></a></h2>
 <p>Because the kernel versions that Intel/Altera were usually not in sync with
 Xilinx’s, <code class="docutils literal notranslate"><span class="pre">altera-*</span></code> branches were created:</p>
 <ul class="simple">
@@ -245,6 +245,7 @@ existing, since Intel/Altera seems to keep in sync their kernel version with
 more recent non-LTS kernels. Typically the releases/references that are
 provided for these boards should already be in the mainline kernel, so these
 branches should no longer be needed.</p>
+</section>
 </section>
 
 

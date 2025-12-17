@@ -1,7 +1,10 @@
 .. _getting_started:
 
+Getting Started
+===============
+
 Description
-===========
+-----------
 
 The Linux kernel in this repository is the `Linux kernel from Xilinx
 <https://github.com/Xilinx/linux-xlnx>`__ together with drivers & patches
@@ -25,13 +28,13 @@ still available and should be in-sync with current master. That branch used to
 be the old master branch.
 
 How to build
-============
+------------
 
 For build instructions :dokuwiki:`check the wiki
 <resources/tools-software/linux-drivers-all#building_the_adi_linux_kernel>`.
 
 Release branches
-================
+----------------
 
 All release branches have the ``[YEAR]_R[NUM]`` format. There are some special
 release branches sometimes (like ``2014_R2_altera``, because it wasn't always
@@ -47,7 +50,7 @@ toolchains, but in the official SD-card images provided, they will use the
 toolchains from Vivado/Quartus.
 
 Rebased branches
-================
+----------------
 
 Starting with branch :git-linux:`adi-4.9.0 <tree/adi-4.9.0>` there are rebased
 branches. They're typically rebased branches from Xilinx with the ADI patches
@@ -72,7 +75,7 @@ master. At the time of writing it is 5.10 so that :git-linux:`adi-5.10.0
 rebased branch and master (``git diff master adi-5.10.0``) must be NULL.
 
 Raspberry Pi branches
-=====================
+---------------------
 
 These provide a kernel that is good to run on a Raspberry Pi board. All the
 drivers present in the master branch should be automatically cherry-picked into
@@ -84,7 +87,7 @@ kernel version in master is 5.10 so that the correspondent latest rpi branch is
 :git-linux:`rpi-5.10.y <tree/rpi-5.10.y>`.
 
 Intel/Altera branches
-=====================
+---------------------
 
 Because the kernel versions that Intel/Altera were usually not in sync with
 Xilinx's, ``altera-*`` branches were created:
