@@ -3,6 +3,13 @@ variables:
 - name: isMain
   value: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
 
+resources:
+  repositories:
+    - repository: wiki-scripts
+      type: github
+      name: analogdevicesinc/wiki-scripts
+      endpoint: analogdevicesinc
+
 trigger:
 - main
 - next_stable
@@ -141,6 +148,9 @@ stages:
     variables:
       SOURCE_DIRECTORY: $(Build.SourcesDirectory)/bin
     jobs:
+    # Condition for publishing artifacts (same for Push_to_Artifactory and Publish_to_Cloudsmith):
+    # - PRs (non-fork) targeting: main, next_stable, or 202* release branches
+    # - Direct pushes to: main, next_stable, or 202* release branches
     - job: Push_to_Artifactory
       timeoutInMinutes: 90
       pool:
@@ -176,7 +186,43 @@ stages:
             ARTIFACTORY_TOKEN: $(ART_TOKEN)
           name: PushArtifacts
           displayName: "Push to Artifactory"
-
+    - job: Publish_to_Cloudsmith
+      timeoutInMinutes: 120
+      pool:
+        name: Default
+        demands:
+          - agent.name -equals linux_default
+      condition: or(
+          and(
+            startsWith(variables['Build.SourceBranch'], 'refs/pull/'),
+            ne(variables['SYSTEM.PULLREQUEST.ISFORK'], 'true'),
+            or(
+              eq(variables['System.PullRequest.TargetBranch'], 'main'),
+              eq(variables['System.PullRequest.TargetBranch'], 'next_stable'),
+              startsWith(variables['System.PullRequest.TargetBranch'], '202')
+            )
+          ),
+          or(
+            eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+            eq(variables['Build.SourceBranch'], 'refs/heads/next_stable'),
+            startsWith(variables['Build.SourceBranch'], 'refs/heads/202')
+          )
+        )
+      steps:
+        - checkout: self
+          fetchDepth: 1
+          clean: true
+        - checkout: wiki-scripts
+          fetchDepth: 1
+          clean: true
+        - task: DownloadPipelineArtifact@2
+          inputs:
+            path: $(Build.SourcesDirectory)/bin
+        - bash: bash $(Build.SourcesDirectory)/linux/ci/travis/prepare_artifacts_for_cloudsmith.sh
+          env:
+            CLOUDSMITH_API_KEY: $(CLOUDSMITH_API_KEY)
+          name: PushArtifacts
+          displayName: "Push to Cloudsmith"
   - stage: TestHarness
     dependsOn: PushArtifacts
     condition: succeeded()
