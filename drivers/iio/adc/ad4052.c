@@ -150,7 +150,7 @@ static const struct iio_scan_type ad4052_scan_type_16_s[] = {
 	},
 	[AD4052_SCAN_TYPE_BURST_AVG] = {
 		.sign = 's',
-		.realbits = 24,
+		.realbits = 20,
 		.storagebits = 32,
 		.endianness = IIO_CPU,
 	},
@@ -599,16 +599,22 @@ static int ad4052_check_ids(struct ad4052_state *st)
 	return 0;
 }
 
+static int ad4052_conversion_frequency_set(struct ad4052_state *st, u8 val)
+{
+	return regmap_write(st->regmap, AD4052_REG_TIMER_CONFIG,
+			    FIELD_PREP(AD4052_REG_TIMER_CONFIG_FS_MASK, val));
+}
+
 static int ad4052_set_operation_mode(struct ad4052_state *st,
 				     enum ad4052_operation_mode mode)
 {
+	const unsigned int samp_freq = mode == AD4052_MONITOR_MODE ?
+				       st->events_frequency : st->sampling_frequency;
 	int ret;
 
-	if (mode == AD4052_BURST_AVERAGING_MODE) {
-		ret = ad4052_conversion_frequency_set(st, st->sampling_frequency);
-		if (ret)
-			return ret;
-	}
+	ret = ad4052_conversion_frequency_set(st, samp_freq);
+	if (ret)
+		return ret;
 
 	ret = regmap_update_bits(st->regmap, AD4052_REG_ADC_MODES,
 				 AD4052_REG_ADC_MODES_MODE_MSK, mode);
@@ -677,11 +683,18 @@ static int ad4052_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *c
 	ret = regmap_update_bits(st->regmap, AD4052_REG_INTR_CONF,
 				 AD4052_REG_INTR_CONF_EN_MSK_1,
 				 FIELD_PREP(AD4052_REG_INTR_CONF_EN_MSK_0,
-					    AD4052_INTR_EN_EITHER) |
+					    AD4052_INTR_EN_NEITHER));
+
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, AD4052_REG_INTR_CONF,
+				 AD4052_REG_INTR_CONF_EN_MSK_1,
 				 FIELD_PREP(AD4052_REG_INTR_CONF_EN_MSK_1,
 					    AD4052_INTR_EN_NEITHER));
 	if (ret)
 		return ret;
+
 	st->buf.be16 = cpu_to_be16(AD4052_MON_VAL_MIDDLE_POINT);
 	ret = regmap_bulk_write(st->regmap, AD4052_REG_MON_VAL,
 				&st->buf.be16, sizeof(st->buf.be16));
@@ -767,8 +780,7 @@ static int ad4052_read_avail(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		*vals = ad4052_oversampling_avail;
 		*len = ARRAY_SIZE(ad4052_oversampling_avail);
-		if (st->chip->avg_max == 256)
-			*len -= 4;
+		*len -= st->chip->avg_max == 256 ? 4 : 0;
 		*type = IIO_VAL_INT;
 
 		return IIO_AVAIL_LIST;
@@ -830,13 +842,16 @@ static int ad4052_get_chan_scale(struct iio_dev *indio_dev, int *val, int *val2)
 	struct ad4052_state *st = iio_priv(indio_dev);
 	const struct iio_scan_type *scan_type;
 
+	/*
+	 * In burt averaging mode the averaging filter accumulates resulting
+	 * in a sample with increased precision.
+	 */
 	scan_type = iio_get_current_scan_type(indio_dev, st->chip->channels);
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	*val = (st->vref_uV * 2) / (MICRO / MILLI);
-
-	*val2 = scan_type->realbits - 1; /* signed */
+	*val = (st->vref_uV * 2) / (MICRO / MILLI); /* signed */
+	*val2 = scan_type->realbits - 1;
 
 	return IIO_VAL_FRACTIONAL_LOG2;
 }
