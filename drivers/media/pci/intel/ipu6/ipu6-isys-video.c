@@ -432,24 +432,6 @@ unlock:
 	return ret;
 }
 
-static void get_stream_opened(struct ipu6_isys *isys)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&isys->streams_lock, flags);
-	isys->stream_opened++;
-	spin_unlock_irqrestore(&isys->streams_lock, flags);
-}
-
-static void put_stream_opened(struct ipu6_isys *isys)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&isys->streams_lock, flags);
-	isys->stream_opened--;
-	spin_unlock_irqrestore(&isys->streams_lock, flags);
-}
-
 int ipu6_isys_fw_pins_prepare(struct ipu6_isys_stream *stream,
 			      struct v4l2_mbus_frame_desc *desc,
 			      int (*fw_pin_cfg)(struct ipu6_isys_video *av,
@@ -527,8 +509,6 @@ int ipu6_isys_start_stream_firmware(struct ipu6_isys_stream *stream,
 		return ret;
 	}
 
-	get_stream_opened(stream->isys);
-
 	tout = wait_for_completion_timeout(&stream->stream_open_completion,
 					   IPU6_FW_CALL_TIMEOUT_JIFFIES);
 
@@ -536,21 +516,19 @@ int ipu6_isys_start_stream_firmware(struct ipu6_isys_stream *stream,
 
 	if (!tout) {
 		dev_err(dev, "stream open time out\n");
-		ret = -ETIMEDOUT;
-		goto out_put_stream_opened;
+		return -ETIMEDOUT;
 	}
 	if (stream->error) {
 		dev_err(dev, "stream open error: %d\n", stream->error);
-		ret = -EIO;
-		goto out_put_stream_opened;
+		return -EIO;
 	}
 	dev_dbg(dev, "start stream: open complete\n");
 
 	msg = ipu6_get_fw_msg_buf(stream);
 	if (!msg) {
-		ret = -ENOMEM;
-		goto out_put_stream_opened;
+		return -ENOMEM;
 	}
+
 	fw_ops->prepare_buf_set(msg, stream, bl);
 	ipu6_isys_buffer_list_queue(bl, IPU6_ISYS_BUFFER_LIST_FL_ACTIVE, 0);
 
@@ -585,7 +563,7 @@ out_stream_close:
 	retout = fw_ops->stream_close(stream->isys, stream->stream_handle);
 	if (retout < 0) {
 		dev_dbg(dev, "can't close stream (%d)\n", retout);
-		goto out_put_stream_opened;
+		return retout;
 	}
 
 	tout = wait_for_completion_timeout(&stream->stream_close_completion,
@@ -596,9 +574,6 @@ out_stream_close:
 		dev_err(dev, "stream close error: %d\n", stream->error);
 	else
 		dev_dbg(dev, "stream close complete\n");
-
-out_put_stream_opened:
-	put_stream_opened(stream->isys);
 
 	return ret;
 }
@@ -652,8 +627,6 @@ void ipu6_isys_close_stream_firmware(struct ipu6_isys_stream *stream)
 		dev_warn(dev, "stream close error: %d\n", stream->error);
 	else
 		dev_dbg(dev, "close stream: complete\n");
-
-	put_stream_opened(stream->isys);
 
 	scoped_guard(spinlock_irqsave, &stream->isys->power_lock) {
 		stream->isys->streams_by_handle[stream->stream_handle] = NULL;

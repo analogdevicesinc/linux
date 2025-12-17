@@ -114,7 +114,6 @@ struct ipu6_isys {
 	bool csi2_cse_ipc_not_supported;
 	bool iwake_watermark_enabled;
 	unsigned int ref_count;
-	unsigned int stream_opened;
 	unsigned int sensor_type;
 
 	struct mutex mutex;
