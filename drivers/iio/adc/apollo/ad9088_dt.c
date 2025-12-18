@@ -120,30 +120,70 @@ static int ad9088_jesd_lane_setup(struct ad9088_phy *phy)
 
 static int ad9088_fsrc_setup(struct ad9088_phy *phy)
 {
-	if (!phy->iio_axi_fsrc)
+	u64 rate_int, rate_frac_a, rate_frac_b, gain_reduction;
+	char ratio_str[64];
+	int n = 1562;
+	int m = 1228;
+	int ret;
+
+	if (!phy->iio_axi_fsrc) {
+		/**
+		 * At adi_apollo_*x_fsrc_configure:
+		 * adi_apollo_fsrc_pgm_t.fsrc_bypass = adi_apollo_fsrc_cfg_t.enable
+		 */
+		for (u8 i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
+			for (u8 j = 0; j < ADI_APOLLO_FSRCS_PER_SIDE; j++) {
+				phy->profile.rx_path[i].rx_fsrc[j].enable = false;
+				phy->profile.tx_path[i].tx_fsrc[j].enable = false;
+			}
+		}
+
+		dev_info(&phy->spi->dev, "No AXI FSRC instantiated, FSRC set to bypass\n");
 		return 0;
+	}
 
-	dev_info(&phy->spi->dev, "FSRC support enabled\n");
+	dev_info(&phy->spi->dev, "AXI FSRC instantiated, FSRC support enabled, set to default\n");
 
-	/*
-	 * Default 1x value from python example at
+	/**
+	 * Python example at
 	 * public/inc/adi_apollo_fsrc.h@adi_apollo_fsrc_rate_set
-	 **/
+	 * Example values (n, m):
+	 *
+	 *            fsrc_rate_int   fsrc_rate_frac_a fsrc_rate_frac_b gain_reduction
+	 * 1     1:   BIT(48)         0x0              BIT(0)           BIT(12)-1
+	 * 1562 1228: 0xc9428a5341e2  0x186            0x30d            0xc94
+	 */
+	ret = adi_api_utils_ratio_decomposition(m, n, 48, &rate_int, &rate_frac_a, &rate_frac_b);
+	if (ret != API_CMS_ERROR_OK) {
+		dev_err(&phy->spi->dev, "Failed to calculate FSRC ratio: %d\n", ret);
+		return ret;
+	}
+	gain_reduction = adi_api_utils_div_floor_u64(4096ull * m, n);
+
+	dev_info(&phy->spi->dev, "Setting FSRC profile: n=%d m=%d (rate_int=0x%llx frac_a=0x%llx frac_b=0x%llx gain=0x%llx)\n",
+		 n, m, rate_int, rate_frac_a, rate_frac_b, gain_reduction);
+
 	for (u8 i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
 		for (u8 j = 0; j < ADI_APOLLO_FSRCS_PER_SIDE; j++) {
-			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_int = BIT(48);
-			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_int = BIT(48);
-			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_a = 0;
-			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_a = 0;
-			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_b = 1;
-			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_b = 1;
-			phy->profile.rx_path[i].rx_fsrc[j].gain_reduction = BIT(12) - 1;
-			phy->profile.tx_path[i].tx_fsrc[j].gain_reduction = BIT(12) - 1;
-			phy->profile.rx_path[i].rx_fsrc[j].mode_1x = true;
-			phy->profile.tx_path[i].tx_fsrc[j].mode_1x = true;
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_int = rate_int;
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_int = rate_int;
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_a = rate_frac_a;
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_a = rate_frac_a;
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_b = rate_frac_b;
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_b = rate_frac_b;
+			phy->profile.rx_path[i].rx_fsrc[j].gain_reduction = gain_reduction;
+			phy->profile.tx_path[i].tx_fsrc[j].gain_reduction = gain_reduction;
+			phy->profile.rx_path[i].rx_fsrc[j].mode_1x = (m == n);
+			phy->profile.tx_path[i].tx_fsrc[j].mode_1x = (m == n);
 			phy->profile.rx_path[i].rx_fsrc[j].enable = true;
 			phy->profile.tx_path[i].tx_fsrc[j].enable = true;
 		}
+	}
+
+	if (m != 0 && n != 0) {
+		snprintf(ratio_str, sizeof(ratio_str), "%u %u", n, m);
+		ret = iio_write_channel_ext_info(phy->iio_axi_fsrc, "tx_ratio_set",
+						  ratio_str, strlen(ratio_str) + 1);
 	}
 
 	return 0;
