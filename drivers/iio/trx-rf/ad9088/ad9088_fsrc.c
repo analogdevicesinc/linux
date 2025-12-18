@@ -443,3 +443,76 @@ int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 	dev_dbg(&phy->spi->dev, "RX FSRC GPIO reconfig sequence complete\n");
 	return ret;
 }
+
+static ssize_t ad9088_fsrc_print_block(char *buf, size_t size, ssize_t offset,
+				       const char *name, const adi_apollo_fsrc_inspect_t *fsrc)
+{
+	ssize_t len = offset;
+
+	len += snprintf(buf + len, size - len, "  %s:\n", name);
+	len += snprintf(buf + len, size - len, "    enable:           %d\n", fsrc->dp_cfg.enable);
+	len += snprintf(buf + len, size - len, "    mode_1x:          %d\n", fsrc->dp_cfg.mode_1x);
+	len += snprintf(buf + len, size - len, "    fsrc_bypass:      %d\n", fsrc->fsrc_bypass);
+	len += snprintf(buf + len, size - len, "    fsrc_rate_int:    0x%llx\n", fsrc->dp_cfg.fsrc_rate_int);
+	len += snprintf(buf + len, size - len, "    fsrc_rate_frac_a: 0x%llx\n", fsrc->dp_cfg.fsrc_rate_frac_a);
+	len += snprintf(buf + len, size - len, "    fsrc_rate_frac_b: 0x%llx\n", fsrc->dp_cfg.fsrc_rate_frac_b);
+	len += snprintf(buf + len, size - len, "    gain_reduction:   0x%x\n", fsrc->dp_cfg.gain_reduction);
+	len += snprintf(buf + len, size - len, "    fsrc_delay:       0x%x\n", fsrc->dp_cfg.fsrc_delay);
+
+	return len;
+}
+
+/**
+ * ad9088_fsrc_inspect - Inspect FSRC
+ * @phy: AD9088 device instance
+ *
+ * Reads and displays all FSRC block configuration (N, M, rate_int, rate_frac)
+ * for both RX and TX paths across all FSRC blocks (A0, A1, B0, B1).
+ *
+ * Returns: Length on success, 0 otherwise
+ */
+int ad9088_fsrc_inspect(struct ad9088_phy *phy)
+{
+	adi_apollo_fsrc_inspect_t fsrc[2][ADI_APOLLO_FSRC_NUM]; /* [0]=RX, [1]=TX */
+	const u16 fsrcs[] = { ADI_APOLLO_FSRC_A0, ADI_APOLLO_FSRC_A1,
+			      ADI_APOLLO_FSRC_B0, ADI_APOLLO_FSRC_B1 };
+	const char *fsrc_names[] = { "A0", "A1", "B0", "B1" };
+	const struct {
+		adi_apollo_terminal_e terminal;
+		const char *name;
+	} terminals[] = {
+		{ ADI_APOLLO_RX, "Rx" },
+		{ ADI_APOLLO_TX, "Tx" }
+	};
+	ssize_t len = 0;
+	int ret, i, t;
+
+	/* Inspect all FSRC blocks for both RX and TX */
+	for (t = 0; t < ARRAY_SIZE(terminals); t++) {
+		for (i = 0; i < ADI_APOLLO_FSRC_NUM; i++) {
+			ret = adi_apollo_fsrc_inspect(&phy->ad9088,
+						      terminals[t].terminal,
+						      fsrcs[i], &fsrc[t][i]);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+							"adi_apollo_fsrc_inspect");
+			if (ret)
+				return 0;
+		}
+	}
+
+	/* Print tree-style output */
+	for (t = 0; t < ARRAY_SIZE(terminals); t++) {
+		len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+				"%s FSRC:\n", terminals[t].name);
+		for (i = 0; i < ADI_APOLLO_FSRC_NUM; i++) {
+			len = ad9088_fsrc_print_block(phy->dbuf, sizeof(phy->dbuf),
+						      len, fsrc_names[i], &fsrc[t][i]);
+		}
+		len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "\n");
+	}
+
+	len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+			"Note: FSRC ratio = (fsrc_rate_int + fsrc_rate_frac_a/fsrc_rate_frac_b) / 2^48\n");
+
+	return len;
+}
