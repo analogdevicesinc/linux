@@ -69,6 +69,12 @@ properties:
     minimum: 0
     maximum: 88200
 
+  adi,cmos-3v3-enable:
+    description:
+      When set the CMOS output level is 3.3V. This applies to SPI
+      MUXOUT, and IRQB.(Default is 1.8V)
+    type: boolean
+
   clock-output-names:
     description: Names of the clock outputs.
     minItems: 1
