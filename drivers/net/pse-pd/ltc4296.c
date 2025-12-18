@@ -410,7 +410,7 @@ static u8 get_CRC(u8* buf)
 	return crc;
 }
 
-void write_bit(struct ltc4296_port_data *port, u8 bit)
+static void write_bit(struct ltc4296_port_data *port, u8 bit)
 {
 	gpiod_set_value(port->sccpo, 1);
 
@@ -429,7 +429,7 @@ void write_bit(struct ltc4296_port_data *port, u8 bit)
 	return;
 }
 
-void transmit_byte(struct ltc4296_port_data *port, u8 tx_byte)
+static void transmit_byte(struct ltc4296_port_data *port, u8 tx_byte)
 {
 	u8 bit_pos = 0;
 	while (bit_pos < 8)
@@ -441,7 +441,7 @@ void transmit_byte(struct ltc4296_port_data *port, u8 tx_byte)
 	return;
 }
 
-u8 read_bit(struct ltc4296_port_data *port)
+static u8 read_bit(struct ltc4296_port_data *port)
 {
 	u8 bit;
 
@@ -460,7 +460,7 @@ u8 read_bit(struct ltc4296_port_data *port)
 	return bit;
 }
 
-void receive_response(struct ltc4296_port_data *port, u8* buf)
+static void receive_response(struct ltc4296_port_data *port, u8* buf)
 {
 	volatile u8 rx_byte = 0;
 	volatile u8 bytes_rxd=0;
@@ -489,10 +489,8 @@ void receive_response(struct ltc4296_port_data *port, u8* buf)
 	return;
 }
 
-enum adi_ltc_result sccp_reset_pulse(struct ltc4296_port_data *port)
+static enum adi_ltc_result sccp_reset_pulse(struct ltc4296_port_data *port)
 {
-	u8 level=0;
-	//u32 i=0,j,k;
 	enum adi_ltc_result ret= ADI_LTC_SCCP_PD_PRESENT;
 	uint8_t sccpi_val;
 
@@ -500,7 +498,7 @@ enum adi_ltc_result sccp_reset_pulse(struct ltc4296_port_data *port)
 
 	/* check if the line is high before reset pulse */
 	if(!sccpi_val){
-		printk("Port %d: SCCPI line is not high before reset pulse\n", port->port_num);
+		pr_err("Port %d: SCCPI line is not high before reset pulse\n", port->port_num);
 		return ADI_LTC_SCCP_PD_LINE_NOT_HIGH;
 	}
 
@@ -511,9 +509,8 @@ enum adi_ltc_result sccp_reset_pulse(struct ltc4296_port_data *port)
 
 	sccpi_val = gpiod_get_value(port->sccpi);
 
-	if(sccpi_val)
-	{
-		printk("Port %d: SCCPI line is not low\n", port->port_num);
+	if(sccpi_val){
+		pr_err("Port %d: SCCPI line is not low\n", port->port_num);
 
 		/* release because fet must be pulling down against stronger source than a classification v source */
 		gpiod_set_value(port->sccpo, 0);
@@ -537,7 +534,7 @@ enum adi_ltc_result sccp_reset_pulse(struct ltc4296_port_data *port)
 	return ret;
 }
 
-enum adi_ltc_result sccp_read_write_pd(struct ltc4296_port_data *port, u8 addr, u8 cmd, u8* buf)
+static enum adi_ltc_result sccp_read_write_pd(struct ltc4296_port_data *port, u8 addr, u8 cmd, u8* buf)
 {
 	enum adi_ltc_result ret;
 
@@ -559,7 +556,7 @@ enum adi_ltc_result sccp_read_write_pd(struct ltc4296_port_data *port, u8 addr, 
 	/* Check if the received data from PD is valid */
 	if (get_CRC(buf) != buf[2] )
 	{
-		printk("PD CRC Error, CRC is 0x%x \n\r", buf[2]);
+		pr_err("PD CRC Error, CRC is 0x%x \n\r", buf[2]);
 		return ADI_LTC_SCCP_PD_CRC_FAILED; /* Wrong CRC*/
 	}
 	return ADI_LTC_SCCP_PD_PRESENT;
@@ -908,7 +905,6 @@ static int ltc4296_port_disable(struct ltc4296_state *st, enum ltc4296_port port
 		return -EINVAL;
 
 	ret = ltc4296_get_port_addr(port_no, LTC_PORT_CFG0, &port_addr);
-	printk("Port disable addr: %x\n", port_addr);
 	if (ret)
 		return ret;
 	/* Write 0 to disable port */
@@ -1300,8 +1296,6 @@ static int ltc4296_init(struct ltc4296_state *st)
 	int ret;
 	u16 value;
 
-	printk(KERN_ERR "LTC4296: Initializing LTC4296\n");
-
 	ret = ltc4296_reset(st);
 	if (ret)
 		return ret;
@@ -1314,62 +1308,10 @@ static int ltc4296_init(struct ltc4296_state *st)
 	if (ret)
 		return ret;
 
-	printk("LTC4296: Unlock key: 0x%x\n", value);
-
 	if (value != LTC4296_UNLOCK_KEY) {
 		dev_err_probe(&st->spi->dev, -EINVAL, "Device locked. Write Access is disabled (%d)\n", value);
 		return -EINVAL;
 	}
-
-	printk("Device unlocked.\n");
-
-	// ret = ltc4296_port_prebias(st, LTC_PORT0, LTC_CFG_APL_MODE);
-	// if (ret)
-	// 	return ret;
-
-	// ret = ltc4296_port_en(st, LTC_PORT0);
-	// if (ret)
-	// 	return ret;
-
-	// fsleep(10000);
-
-	// ltc4296_port_prebias(st, LTC_PORT1, LTC_CFG_APL_MODE);
-	// if (ret)
-	// 	return ret;
-
-	// ltc4296_port_en(st, LTC_PORT1);
-	// if (ret)
-	// 	return ret;
-
-	// fsleep(10000);
-
-	// ret = ltc4296_port_prebias(st, LTC_PORT2, LTC_CFG_APL_MODE);
-	// if (ret)
-	// 	return ret;
-
-	// ret = ltc4296_port_en(st, LTC_PORT2);
-	// if (ret)
-	// 	return ret;
-
-	// fsleep(10000);
-
-	// ret = ltc4296_port_prebias(st, LTC_PORT3, LTC_CFG_APL_MODE);
-	// if (ret)
-	// 	return ret;
-
-	// ret = ltc4296_port_en(st, LTC_PORT3);
-	// if (ret)
-	// 	return ret;
-
-	// fsleep(10000);
-
-	// ret = ltc4296_port_prebias(st, LTC_PORT4, LTC_CFG_APL_MODE);
-	// if (ret)
-	// 	return ret;
-
-	// ret = ltc4296_port_en(st, LTC_PORT4);
-	// if (ret)
-	// 	return ret;
 
 	return 0;
 }
@@ -1564,7 +1506,7 @@ static int ltc4296_do_sccp(struct ltc4296_state *st, uint32_t port)
 	} else if (port_status == LTC_PORT_DISABLED) {
 		ret = ltc4296_spi_write(st, LTC4296_REG_GADCCFG, 0x0);
 		if (ret){
-			printk("ltc4296_spi_write() error %d %d\n", ret, __LINE__);
+			pr_err("Global ADC config error %d %d\n", ret, __LINE__);
 			goto err;
 		}
 
@@ -1572,7 +1514,7 @@ static int ltc4296_do_sccp(struct ltc4296_state *st, uint32_t port)
 
 		ret = ltc4296_set_gadc_vin(st);
 		if (ret){
-			printk("ltc4296_set_gadc_vin() error %d %d\n", ret, __LINE__);
+			pr_err("Global ADC Vin set error %d %d\n", ret, __LINE__);
 			goto err;
 		}
 
@@ -1580,19 +1522,19 @@ static int ltc4296_do_sccp(struct ltc4296_state *st, uint32_t port)
 
 		ret = ltc4296_read_gadc(st, &adc_val);
 		if (ret){
-			printk("ltc4296_read_gadc() error %d %d\n", ret, __LINE__);
+			pr_err("Global ADC read error %d %d\n", ret, __LINE__);
 			goto err;
 		}
 
 		pse_power_class = st->port_data[port].port_type - LTC4296_PORT_SCCP_CLASS_10;
 
-		printk("Port %d ADC read (%d) - power class %d\n", port, adc_val, pse_power_class);
-		printk("Range %d - %d\n", ltc4296_spoe_vol_range_mv[pse_power_class][LTC4296_VMIN],
-		       ltc4296_spoe_vol_range_mv[pse_power_class][LTC4296_VMAX]);
+		// pr_info("Port %d ADC read (%d) - power class %d\n", port, adc_val, pse_power_class);
+		// pr_info("Range %d - %d\n", ltc4296_spoe_vol_range_mv[pse_power_class][LTC4296_VMIN],
+		//        ltc4296_spoe_vol_range_mv[pse_power_class][LTC4296_VMAX]);
 
 		ret = ltc4296_is_vin_valid(st, adc_val, pse_power_class, &valid_adc_read);
 		if (ret){
-			printk("ltc4296_is_vin_valid() error %d %d\n", ret, __LINE__);
+			pr_err("ltc4296_is_vin_valid() error %d %d\n", ret, __LINE__);
 			goto err;
 		}
 
@@ -1607,13 +1549,13 @@ static int ltc4296_do_sccp(struct ltc4296_state *st, uint32_t port)
 
 		ret = ltc4296_port_prebias(st, port, LTC_CFG_SCCP_MODE);
 		if (ret){
-			printk("ltc4296_port_prebias() error %d %d\n", ret, __LINE__);
+			pr_err("ltc4296_port_prebias() error %d %d\n", ret, __LINE__);
 			goto err;
 		}
 
 		ret = ltc4296_port_en_and_classification(st, port);
 		if (ret){
-			printk("ltc4296_port_en_and_classification() error %d %d\n", ret, __LINE__);
+			pr_err("ltc4296_port_en_and_classification() error %d %d\n", ret, __LINE__);
 			goto err;
 		}
 
@@ -1621,7 +1563,7 @@ static int ltc4296_do_sccp(struct ltc4296_state *st, uint32_t port)
 
 		ret = ltc4296_read_port_status(st, port, &raw_port_status);
 		if (ret){
-			printk("ltc4296_read_port_status() error %d %d\n", ret, __LINE__);
+			pr_err("ltc4296_read_port_status() error %d %d\n", ret, __LINE__);
 			goto err;
 		}
 
@@ -1642,13 +1584,13 @@ static int ltc4296_do_sccp(struct ltc4296_state *st, uint32_t port)
 
 				ret = ltc4296_set_port_mfvs(st, port);
 				if (ret){
-					printk("ltc4296_set_port_mfvs() error %d %d\n", ret, __LINE__);
+					pr_err("ltc4296_set_port_mfvs() error %d %d\n", ret, __LINE__);
 					goto err;
 				}
 
 				ret = ltc4296_set_port_pwr(st, port);
 				if (ret){
-					printk("ltc4296_set_port_pwr() error %d %d\n", ret, __LINE__);
+					pr_err("ltc4296_set_port_pwr() error %d %d\n", ret, __LINE__);
 					goto err;
 				}
 
@@ -1656,19 +1598,19 @@ static int ltc4296_do_sccp(struct ltc4296_state *st, uint32_t port)
 
 				ret = ltc4296_port_pwr_available(st, port);
 				if (ret){
-					printk("ltc4296_port_pwr_available() error %d %d\n", ret, __LINE__);
+					pr_err("ltc4296_port_pwr_available() error %d %d\n", ret, __LINE__);
 					goto err;
 				}
 
 				ret = ltc4296_set_gadc_vout(st, port);
 				if (ret){
-					printk("ltc4296_set_gadc_vout() error %d %d\n", ret, __LINE__);
+					pr_err("ltc4296_set_gadc_vout() error %d %d\n", ret, __LINE__);
 					goto err;
 				}
 
-				printk("SCCP complete on port %d\n", port);
+				pr_info("SCCP complete on port %d\n", port);
 			} else {
-				printk("PD not present on port %d\n", port);
+				// pr_info("PD not present on port %d\n", port);
 
 				ret = ltc4296_port_disable(st, port);
 				if (ret)
@@ -1727,7 +1669,7 @@ static int ltc4296_parse_port_cfg(struct device *dev, struct ltc4296_state *st)
 
 			ret = fwnode_property_read_u32(sub_port_node, "reg", &reg);
 			if (ret){
-				printk(KERN_ERR "Error reading reg property\n");
+				pr_err("Error reading reg property\n");
 				return ret;
 			}
 
@@ -1739,7 +1681,7 @@ static int ltc4296_parse_port_cfg(struct device *dev, struct ltc4296_state *st)
 									 "adi,sccpi");
 
 			if (IS_ERR(st->port_data[reg].sccpi)){
-				printk(KERN_ERR "Error getting sccpi\n");
+				pr_err("Error getting sccpi\n");
 				return PTR_ERR(st->port_data[reg].sccpi);
 			}
 
@@ -1749,7 +1691,7 @@ static int ltc4296_parse_port_cfg(struct device *dev, struct ltc4296_state *st)
 									 GPIOD_OUT_LOW,
 									 "adi,sccpo");
 			if (IS_ERR(st->port_data[reg].sccpo)){
-				printk(KERN_ERR "Error getting sccpo\n");
+				pr_err("Error getting sccpo\n");
 				return PTR_ERR(st->port_data[reg].sccpo);
 			}
 
@@ -1856,7 +1798,7 @@ static int ltc4296_pi_enable(struct pse_controller_dev *pcdev, int id)
 	struct ltc4296_state *st = container_of(pcdev, struct ltc4296_state, pse_dev);
 	int ret;
 
-	printk("Port %d enabled\n", id);
+	pr_info("Port %d enabled\n", id);
 
 	// ret = ltc4296_port_prebias(st, id, LTC_CFG_APL_MODE);
 	// if (ret)
@@ -1874,15 +1816,7 @@ static int ltc4296_pi_disable(struct pse_controller_dev *pcdev, int id)
 	struct ltc4296_state *st = container_of(pcdev, struct ltc4296_state, pse_dev);
 	int ret;
 
-	printk("Port %d disabled\n", id);
-
-	// ret = ltc4296_port_prebias(st, id, LTC_CFG_APL_MODE);
-	// if (ret)
-	// 	return ret;
-
-	// ret = ltc4296_port_en(st, id);
-	// if (ret)
-	// 	return ret;
+	pr_info("Port %d disabled\n", id);
 
 	return 0;
 }
@@ -1904,18 +1838,6 @@ static void ltc4296_disable_ports(void *data)
 		ltc4296_port_dis(st, i);
 }
 
-static int ltc4296_read_global_events(struct ltc4296_state *st)
-{
-	int ret;
-	u16 reg_val;
-
-	reg_val = gpiod_get_value(st->wakeup);
-
-	printk("Wakeup GPIO value: %d\n", reg_val);
-
-	return 0;
-}
- 
 static int ltc4296_pd_polling_thread(void *data)
 {
 	struct ltc4296_state *st = data;
@@ -1923,12 +1845,6 @@ static int ltc4296_pd_polling_thread(void *data)
 	int ret;
 
 	while(likely(!kthread_should_stop())){
-		// ltc4296_read_global_events(st);
-
-		// for (int i = 0; i < LTC4296_MAX_PORTS; i++){
-		// 	ltc4296_get_port_status(st, i, &port_status);
-		// 	printk("Port %d status: %d\n", i, port_status);
-		// }
 
 		for (int i = 0; i < LTC4296_MAX_PORTS; i++) {
 			switch(st->port_data[i].port_type){
@@ -1942,7 +1858,7 @@ static int ltc4296_pd_polling_thread(void *data)
 				ret = ltc4296_do_sccp(st, i);
 				mutex_unlock(&st->lock);
 				if (ret){
-					printk(KERN_WARNING "Error doing SCCP on port %d\n", i);
+					pr_warn("Error doing SCCP on port %d\n", i);
 					continue;
 				}
 			default:
@@ -1963,8 +1879,6 @@ static int ltc4296_probe(struct spi_device *spi)
 	struct device *hwmon_dev;
 	int ret;
 
-	printk(KERN_ERR "Probing ltc4296\n");
-
 	st = devm_kzalloc(&spi->dev, sizeof(*st), GFP_KERNEL);
 	if (!st)
 		return -ENOMEM;
@@ -1973,13 +1887,13 @@ static int ltc4296_probe(struct spi_device *spi)
 
 	ret = ltc4296_parse_port_cfg(&st->spi->dev, st);
 	if (ret){
-		printk(KERN_ERR "Error parsing port cfg\n");
+		pr_err("Error parsing port cfg\n");
 		return ret;
 	}
 
 	ret = ltc4296_init(st);
 	if (ret){
-		printk(KERN_ERR "ltc4296 init return value: %d", ret);
+		pr_err("ltc4296 init return value: %d", ret);
 		return ret;
 	}
 
@@ -2000,12 +1914,6 @@ static int ltc4296_probe(struct spi_device *spi)
 	ret = devm_pse_controller_register(&spi->dev, &st->pse_dev);
 	if (ret)
 		return dev_err_probe(&spi->dev, ret, "Failed to register PSE controller\n");
-
-	// st->wakeup = devm_gpiod_get_optional(&st->spi->dev,
-	// 				     "wakeup", GPIOD_IN);
-	// if (IS_ERR(st->wakeup))
-	// 	return dev_err_probe(&spi->dev, PTR_ERR(st->wakeup),
-	// 			     "Failed to get wakeup GPIO\n");
 
 	for (int i = 0; i < LTC4296_MAX_PORTS; i++) {
 		switch (st->port_data[i].port_type) {
@@ -2056,18 +1964,12 @@ static int ltc4296_probe(struct spi_device *spi)
 		return dev_err_probe(&spi->dev, PTR_ERR(st->hwmon_dev),
 				"Failed to register hwmon device\n");
 
-	printk("------------------------------------------------------\n");
-
 	return 0;
-
-
-	// return PTR_ERR_OR_ZERO(hwmon_dev);
 }
 
 static void ltc4296_unregister(struct spi_device *spi)
 {
-	printk(KERN_ERR "Unregistering ltc4296\n");
-	printk(KERN_ERR "Unregistering ltc4296\n");
+
 }
 
 static const struct spi_device_id ltc4296_id[] = {

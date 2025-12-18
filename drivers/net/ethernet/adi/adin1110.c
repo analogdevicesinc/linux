@@ -1586,7 +1586,7 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 
 		ret = device_get_ethdev_address(dev, netdev);
 		if (ret < 0)
-			return ret;
+			eth_hw_addr_random(netdev);
 
 		netdev->irq = priv->spidev->irq;
 		INIT_WORK(&port_priv->tx_work, adin1110_tx_work);
