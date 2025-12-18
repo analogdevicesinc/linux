@@ -45,6 +45,7 @@ enum ad9088_debugfs_cmd {
 	DBGFS_FSRC_TX_RECONFIG_GPIO,
 	DBGFS_FSRC_RX_RECONFIG_SPI,
 	DBGFS_FSRC_RX_RECONFIG_GPIO,
+	DBGFS_FSRC_INSPECT,
 };
 
 static const u8 lanes_all[] = {
@@ -408,6 +409,9 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			/* Write-only attributes, return 0 on read */
 			val = 0;
 			break;
+		case DBGFS_FSRC_INSPECT:
+			len = ad9088_fsrc_inspect(phy);
+			break;
 		default:
 			val = entry->val;
 		}
@@ -758,6 +762,9 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		}
 		ret = ad9088_fsrc_rx_reconfig_sequence_gpio(phy);
 		break;
+	case DBGFS_FSRC_INSPECT:
+		/* Read-only attribute */
+		return -EINVAL;
 	default:
 		break;
 	}
@@ -894,6 +901,8 @@ int ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "fsrc_rx_reconfig_spi", DBGFS_FSRC_RX_RECONFIG_SPI);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "fsrc_rx_reconfig_gpio", DBGFS_FSRC_RX_RECONFIG_GPIO);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_inspect", DBGFS_FSRC_INSPECT);
 
 	for (i = 0; i < phy->ad9088_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
