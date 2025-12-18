@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084 RevC
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9084
+ * https://wiki.analog.com/resources/eval/user-guides/ad9084_fmca_ebz/ad9084_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9084_fmca_ebz/vpk180>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+#define DEVICE_PROFILE_NAME     "204C_M4_L1_NP16_20p0_16x4.bin"
+
+#include "versal-vpk180-reva-ad9084.dts"

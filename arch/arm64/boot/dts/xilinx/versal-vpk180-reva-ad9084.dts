@@ -10,7 +10,9 @@
 
 #define fmc_spi spi0
 
+#ifndef DEVICE_PROFILE_NAME
 #define DEVICE_PROFILE_NAME	"204C_M4_L4_NP16_20p0_4x4.bin"
+#endif
 
 /* RX path */
 #define AD9084_RX_LANERATE_KHZ	20625000
