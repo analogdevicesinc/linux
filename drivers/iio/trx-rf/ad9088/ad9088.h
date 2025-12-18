@@ -261,7 +261,7 @@ struct ad9088_phy {
 	u32 mcs_track_decimation;
 	u32 mcs_track_win;
 
-	struct ad9088_debugfs_entry debugfs_entry[38];
+	struct ad9088_debugfs_entry debugfs_entry[39];
 	u32 ad9088_debugfs_entry_index;
 
 	const char **rx_labels;
@@ -406,6 +406,7 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
 int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable);
 int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
 int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_inspect(struct ad9088_phy *phy);
 
 /* Calibration data format */
 #define AD9088_CAL_MAGIC	0x41443930  /* "AD90" */
