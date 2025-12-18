@@ -1,5 +1,5 @@
 /*
- * Device tree for ADI sc573-ezkit board
+ * Device tree for ADI sc573-ezlite board
  *
  * Copyright 2014 - 2018 Analog Devices Inc.
  *
@@ -19,8 +19,8 @@
 #include "sc57x.dtsi"
 
 / {
-	model = "ADI sc573-ezkit";
-	compatible = "adi,sc573-ezkit", "adi,sc57x";
+	model = "ADI sc573-ezlite";
+	compatible = "adi,sc573-ezlite", "adi,sc57x";
 
 	aliases {
 		/* serial2 = &uart2; */
