@@ -33,6 +33,7 @@ check_checkpatch() {
 	local warn=0
 	local _base_sha
 	local _suppress
+	local api_match="(public/include|public/src|private/include|private/src|navassa/common|adrv902x/common|adrv903x/common|adrv903x/platforms)/"
 
 	echo "$step_name on range $base_sha..$head_sha"
 
@@ -48,7 +49,10 @@ check_checkpatch() {
 		[[ "$strategy" == "commit" ]] && _base_sha=$commit~
 		git --no-pager log --oneline $_base_sha..$commit
 		local flags
-		# Skip empty commits, assume cover letter
+		# Skip:
+		# * empty commits, assume cover letter
+		# * matching api|API in title, assume api update
+		#
 		# and those only touching non-upstream directories .github ci and docs
 		# A treeless (--filter=tree:0) fetch could be done to fetch
 		# full commit message history before running checkpatch, but
@@ -56,6 +60,10 @@ check_checkpatch() {
 		# SHA references in the commit message, with may not even apply
 		# if the commit is from upstream. Instead, just delegate to the
 		# user to double check the referenced SHA.
+		if git --no-pager show -s --format=%s $commit | grep -qE "(API|api)" ; then
+			echo "::warning ::$step_name: API|api in commit $commit title skipped, ensure only API files are in this commit."
+			continue
+		fi
 		local files=$(git diff --diff-filter=ACM --no-renames --name-only "$_base_sha..$commit" | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
 		if [[ -z "$files" ]]; then
 			echo "empty, skipped"
@@ -97,7 +105,7 @@ check_checkpatch() {
 					# Get file-name after removing spaces.
 					file=$(echo ${list[2]} | xargs)
 					# Downgrade from API-looking paths
-					if grep -qE '(public/include|public/src|private/include|private/src)/' <<< "$file"; then
+					if grep -qE "$api_match" <<< "$file"; then
 						type="note"
 					fi
 					[[ "$type" == "error" ]] && fail=1
