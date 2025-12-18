@@ -11,6 +11,7 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/gpio/consumer.h>
+#include <linux/iio/backend.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/log2.h>
@@ -264,6 +265,7 @@ struct ad9910_data {
 
 struct ad9910_state {
 	struct spi_device *spi;
+	struct iio_backend *back;
 	struct clk *refclk;
 
 	struct gpio_desc *gpio_powerdown;
@@ -1879,6 +1881,11 @@ static int ad9910_probe(struct spi_device *spi)
 	if (ret < 0)
 		return dev_err_probe(&spi->dev, ret, "device setup failed\n");
 
+	st->back = devm_iio_backend_get(&spi->dev, NULL);
+	if (IS_ERR(st->back))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->back),
+				     "failed to get iio backend\n");
+
 	ret = devm_add_action_or_reset(&spi->dev, ad9910_power_down, st);
 	if (ret)
 		return dev_err_probe(&spi->dev, ret, "failed to add power down action\n");
@@ -1911,3 +1918,4 @@ module_spi_driver(ad9910_driver);
 MODULE_AUTHOR("Rodrigo Alencar <rodrigo.alencar@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD9910 DDS driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS("IIO_BACKEND");
