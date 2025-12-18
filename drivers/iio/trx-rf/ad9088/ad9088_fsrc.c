@@ -19,7 +19,7 @@ static int ad9088_axi_fsrc_enable(struct ad9088_phy *phy, bool enable)
 	}
 
 	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-						"tx_enable", enable ? 1 : 0);
+						"tx_enable", enable);
 	if (ret < 0) {
 		dev_err(&phy->spi->dev, "Failed to %s TX FSRC: %d\n",
 			enable ? "enable" : "disable", ret);
@@ -47,7 +47,7 @@ static int ad9088_axi_fsrc_active(struct ad9088_phy *phy, bool active)
 	}
 
 	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-						"tx_active", active ? 1 : 0);
+						"tx_active", active);
 	if (ret < 0) {
 		dev_err(&phy->spi->dev, "Failed to set TX FSRC active=%d: %d\n",
 			active, ret);
@@ -129,14 +129,15 @@ int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 		return -ENODEV;
 	}
 
-	snprintf(ratio_str, sizeof(ratio_str), "%u %u", fsrc_n, fsrc_m);
-
-	ret = iio_write_channel_ext_info(phy->iio_axi_fsrc, "tx_ratio_set",
-					  ratio_str, strlen(ratio_str) + 1);
-	if (ret < 0) {
-		dev_err(&phy->spi->dev, "Failed to set TX FSRC ratio %u/%u: %d\n",
-			fsrc_n, fsrc_m, ret);
-		return ret;
+	if (fsrc_m != 0 && fsrc_n != 0) {
+		snprintf(ratio_str, sizeof(ratio_str), "%u %u", fsrc_n, fsrc_m);
+		ret = iio_write_channel_ext_info(phy->iio_axi_fsrc, "tx_ratio_set",
+						  ratio_str, strlen(ratio_str) + 1);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "Failed to set TX FSRC ratio %u/%u: %d\n",
+				fsrc_n, fsrc_m, ret);
+			return ret;
+		}
 	}
 	/* Similar to public/inc/adi_apollo_fsrc.h@adi_apollo_fsrc_rate_set python example */
 	ret = adi_apollo_fsrc_mode_1x_enable_set(&phy->ad9088, ADI_APOLLO_TX, ADI_APOLLO_FSRC_ALL,
@@ -164,6 +165,7 @@ int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 /**
  * ad9088_fsrc_tx_reconfig_sequence_spi - Execute TX FSRC dynamic reconfig via SPI trigger
  * @phy: AD9088 device instance
+ * @enable: Enable AXI FSRC side
  *
  * Executes the TX-only FSRC dynamic reconfiguration sequence using SPI/regmap trigger.
  *
@@ -187,7 +189,7 @@ int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy)
+int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
 {
 	int ret;
 
@@ -196,7 +198,7 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy)
 	/* FPGA TX sends all invalid samples (stop sending valid data)
 	 * TX Path: FPGA adds invalids → Apollo FSRC TX removes invalids → clean DAC output
 	 */
-	ret = ad9088_axi_fsrc_enable(phy, true);
+	ret = ad9088_axi_fsrc_enable(phy, enable);
 	if (ret)
 		return ret;
 
@@ -218,9 +220,11 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy)
 		return ret;
 
 	/* Resume FPGA TX - sends valid and invalid samples at new rate */
-	ret = ad9088_axi_fsrc_active(phy, true);
-	if (ret)
-		return ret;
+	if (enable) {
+		ret = ad9088_axi_fsrc_active(phy, 1);
+		if (ret)
+			return ret;
+	}
 
 	/* Allow samples to flow - needed for RMFIFO status to clear */
 	usleep_range(100, 200);
@@ -240,6 +244,7 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy)
 /**
  * ad9088_fsrc_tx_reconfig_sequence_gpio - Execute TX FSRC GPIO-triggered reconfig
  * @phy: AD9088 device instance
+ * @enable: Enable AXI FSRC side
  *
  * Executes TX-only GPIO-triggered FSRC dynamic reconfiguration sequence:
  * 1. Enable FPGA sequencer external trigger mode
@@ -257,14 +262,14 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy)
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy)
+int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable)
 {
 	int ret;
 
 	dev_dbg(&phy->spi->dev, "Starting TX FSRC GPIO reconfig sequence\n");
 
 	/* FPGA sends all invalid samples (stop sending valid data) */
-	ret = ad9088_axi_fsrc_enable(phy, true);
+	ret = ad9088_axi_fsrc_enable(phy, enable);
 	if (ret)
 		return ret;
 
@@ -312,9 +317,11 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 		return ret;
 
 	/* Resume FPGA TX - send valid and invalid samples */
-	ret = ad9088_axi_fsrc_active(phy, true);
-	if (ret)
-		return ret;
+	if (enable) {
+		ret = ad9088_axi_fsrc_active(phy, 1);
+		if (ret)
+			return ret;
+	}
 
 	/* Wait for samples to flow - needed for rmfifo status to clear */
 	usleep_range(100, 200);
@@ -336,6 +343,7 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 /**
  * ad9088_fsrc_rx_reconfig_sequence_spi - Execute RX FSRC dynamic reconfig via SPI trigger
  * @phy: AD9088 device instance
+ * @enable: Enable AXI FSRC side
  *
  * Executes the RX-only FSRC dynamic reconfiguration sequence using SPI/regmap trigger.
  *
@@ -355,7 +363,7 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy)
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy)
+int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
 {
 	int ret;
 
@@ -395,6 +403,7 @@ int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy)
 /**
  * ad9088_fsrc_rx_reconfig_sequence_gpio - Execute RX FSRC GPIO-triggered reconfig
  * @phy: AD9088 device instance
+ * @enable: Enable AXI FSRC side
  *
  * Executes RX-only GPIO-triggered FSRC dynamic reconfiguration sequence:
  * 1. Enable Apollo trigger sync (wait for GPIO trigger)
@@ -414,7 +423,7 @@ int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy)
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy)
+int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable)
 {
 	int ret;
 
@@ -429,7 +438,7 @@ int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy)
 
 	/* Trigger FPGA sequencer to start the SYSREF-based sequence */
 	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-						"seq_start", 1);
+						"seq_start", enable);
 	if (ret < 0) {
 		dev_warn(&phy->spi->dev,
 			 "Failed to trigger sequencer via reg: %d. "
