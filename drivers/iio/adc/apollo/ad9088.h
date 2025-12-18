@@ -399,10 +399,10 @@ int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 			     adi_apollo_coarse_duc_dcm_e cduc_interp,
 			     adi_apollo_fduc_ratio_e fduc_interp);
-int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy);
-int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy);
-int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy);
-int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy);
+int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable);
 int ad9088_fsrc_inspect(struct ad9088_phy *phy);
 
 /* Calibration data format */
