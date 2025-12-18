@@ -26,6 +26,8 @@ COPY install-compilers.sh .
 RUN chmod +x install-compilers.sh ; ./install-compilers.sh
 COPY install-extra.sh .
 RUN chmod +x install-extra.sh ; ./install-extra.sh
+COPY install-buildroot.sh .
+RUN chmod +x install-buildroot.sh ; ./install-buildroot.sh
 
 RUN mkdir -p /usr/local/bin
 WORKDIR /usr/local/bin
