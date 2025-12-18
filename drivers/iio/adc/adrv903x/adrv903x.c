@@ -2734,7 +2734,6 @@ static int adrv903x_probe(struct spi_device *spi)
 		dev_warn(&spi->dev, "%s: failed to register debugfs", __func__);
 
 	adi_adrv903x_ApiVersionGet(phy->palauDevice, &apiVersion);
-	adi_adrv903x_HwClose(phy->palauDevice);
 
 	dev_info(&spi->dev,
 		 "%s Rev %d, API version: %u.%u.%u.%u found",
@@ -2743,9 +2742,23 @@ static int adrv903x_probe(struct spi_device *spi)
 		 apiVersion.majorVer, apiVersion.minorVer,
 		 apiVersion.maintenanceVer, apiVersion.buildVer);
 
-	ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
-	if (ret)
-		goto out_iio_device_unregister;
+	ret = adi_adrv903x_HwReset(phy->palauDevice);
+
+	ret = adi_adrv903x_PreMcsInit(phy->palauDevice, &deviceInitStruct,
+			 &phy->trxBinaryInfoPtr);
+	if (ret != ADI_ADRV903X_ERR_ACT_NONE) {
+		pr_err("ERROR adi_adrv903x_PreMcsInit failed in %s at line %d.\n", __func__,
+		       __LINE__);
+	}
+
+	ret = adi_adrv903x_PreMcsInit_NonBroadcast(phy->palauDevice,
+			 &deviceInitStruct);
+	if (ret != ADI_ADRV903X_ERR_ACT_NONE) {
+		pr_err("ERROR adi_adrv903x_PreMcsInit_NonBroadcast failed in %s at line %d.\n",
+		       __func__, __LINE__);
+	}
+
+	pr_err("TESTING ADRV903X successfully probed\n");
 
 	return 0;
 
