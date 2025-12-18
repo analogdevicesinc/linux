@@ -80,9 +80,6 @@ struct sensor_async_sd {
  * @media_dev: Media device
  * @v4l2_dev: V4L2 device
  * @adev: ISYS bus device
- * @power: Is ISYS powered on or not?
- * @isr_bits: Which bits does the ISR handle?
- * @power_lock: Serialise access to power (power state in general)
  * @csi2_rx_ctrl_cached: cached shared value between all CSI2 receivers
  * @streams_lock: serialise access to streams
  * @streams: streams per firmware stream ID
@@ -99,8 +96,6 @@ struct ipu6_isys {
 	struct v4l2_device v4l2_dev;
 	struct ipu6_bus_device *adev;
 
-	int power;
-	spinlock_t power_lock;
 	u32 isr_csi2_bits;
 	u32 csi2_rx_ctrl_cached;
 	spinlock_t streams_lock;
