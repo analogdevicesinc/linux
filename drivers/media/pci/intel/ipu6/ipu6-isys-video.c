@@ -628,7 +628,7 @@ void ipu6_isys_close_stream_firmware(struct ipu6_isys_stream *stream)
 	else
 		dev_dbg(dev, "close stream: complete\n");
 
-	scoped_guard(spinlock_irqsave, &stream->isys->power_lock) {
+	scoped_guard(spinlock_irqsave, &stream->isys->streams_lock) {
 		stream->isys->streams_by_handle[stream->stream_handle] = NULL;
 		csi2->streams_by_vc[stream->vc] = NULL;
 	}
@@ -695,9 +695,8 @@ ipu6_isys_alloc_stream_firmware(struct ipu6_isys_csi2 *csi2,
 	stream->asd = &csi2->asd;
 	stream->vc = vc;
 
-	scoped_guard(spinlock_irqsave, &stream->isys->power_lock) {
-		stream->isys->streams_by_handle[stream->stream_handle] =
-			stream;
+	scoped_guard(spinlock_irqsave, &stream->isys->streams_lock) {
+		stream->isys->streams_by_handle[stream->stream_handle] = stream;
 		csi2->streams_by_vc[stream->vc] = stream;
 	}
 

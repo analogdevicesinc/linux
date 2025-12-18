@@ -556,6 +556,8 @@ int ipu6_isys_isr_one(struct ipu6_bus_device *adev)
 			"FW error resp error %d, details %d\n",
 			resp->error_info.error, resp->error_info.error_details);
 
+	guard(spinlock_irqsave)(&isys->streams_lock);
+
 	if (resp->stream_handle >= IPU6_ISYS_MAX_STREAMS) {
 		dev_err(&adev->auxdev.dev, "bad stream handle %u\n",
 			resp->stream_handle);
@@ -670,17 +672,23 @@ static void ipu6_isys_csi2_isr(struct ipu6_isys_csi2 *csi2)
 	writel(status, csi2->base + CSI_PORT_REG_BASE_IRQ_CSI_SYNC +
 	       CSI_PORT_REG_BASE_IRQ_CLEAR_OFFSET);
 
-	for (i = 0; i < NR_OF_CSI2_VC; i++) {
-		if (status & IPU_CSI_RX_IRQ_FS_VC(i)) {
-			stream = csi2->streams_by_vc[i];
-			if (stream)
-				ipu6_isys_csi2_sof_event_by_stream(stream);
-		}
+	scoped_guard(spinlock, &csi2->isys->streams_lock) {
+		for (i = 0; i < NR_OF_CSI2_VC; i++) {
+			if (status & IPU_CSI_RX_IRQ_FS_VC(i)) {
+				stream = csi2->streams_by_vc[i];
+				if (!stream)
+					continue;
 
-		if (status & IPU_CSI_RX_IRQ_FE_VC(i)) {
-			stream = csi2->streams_by_vc[i];
-			if (stream)
+				ipu6_isys_csi2_sof_event_by_stream(stream);
+			}
+
+			if (status & IPU_CSI_RX_IRQ_FE_VC(i)) {
+				stream = csi2->streams_by_vc[i];
+				if (!stream)
+					continue;
+
 				ipu6_isys_csi2_eof_event_by_stream(stream);
+			}
 		}
 	}
 }

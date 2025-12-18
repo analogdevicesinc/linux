@@ -549,6 +549,7 @@ static int ipu7_isys_isr_one(struct ipu6_bus_device *adev)
 	struct ipu7_fw_isys_msg_err err_info;
 	struct isys_fw_msgs *isys_fw_msg;
 	struct ipu7_insys_resp *resp;
+	unsigned long flags;
 	u64 ts;
 
 	if (!isys->fwctx)
@@ -596,8 +597,10 @@ static int ipu7_isys_isr_one(struct ipu6_bus_device *adev)
 	if (resp->stream_id >= IPU7_ISYS_MAX_STREAMS) {
 		dev_err(dev, "bad stream handle %u\n",
 			resp->stream_id);
-		goto leave;
+		goto leave_nounlock;
 	}
+
+	spin_lock_irqsave(&isys->streams_lock, flags);
 
 	stream = resp->stream_id < IPU6_ISYS_MAX_STREAMS ?
 		isys->streams_by_handle[resp->stream_id] : NULL;
@@ -681,6 +684,9 @@ static int ipu7_isys_isr_one(struct ipu6_bus_device *adev)
 	}
 
 leave:
+	spin_unlock_irqrestore(&isys->streams_lock, flags);
+
+leave_nounlock:
 	ipu7_fw_isys_put_resp(isys);
 
 	return 0;
