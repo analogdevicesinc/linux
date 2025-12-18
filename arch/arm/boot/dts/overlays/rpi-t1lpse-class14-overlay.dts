@@ -13,7 +13,7 @@
 #include <dt-bindings/net/pse-pd/adi,ltc4296.h>
 
 / {
-	compatible = "brcm,bcm2711";
+	compatible = "brcm,bcm2711", "brcm,bcm2712";
 };
 
 &spidev0 {
@@ -22,6 +22,18 @@
 
 &spidev1 {
 	status = "disabled";
+};
+
+&gpio {
+	spi1_pinctrl: spi1_pinctrl {
+		brcm,pins = <19 20 21>;
+		brcm,function = <3>;
+	};
+
+	spi1_cs_pinctrl: spi1_cs_pinctrl {
+		brcm,pins = <16>;
+		brcm,function = <1>; /* output */
+	};
 };
 
 &spi0 {
@@ -39,7 +51,6 @@
 
 		interrupt-parent = <&gpio>;
 		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
-		mac-address = [ CA 2F B7 10 23 63 ];
 
 		adi,spi-crc;
 
@@ -55,18 +66,18 @@
 	};
 };
 
-&spi6_cs_pins {
-	brcm,pins = <16>;
-	brcm,function = <1>; /* output */
-};
+// &spi6_cs_pins {
+// 	brcm,pins = <16>;
+// 	brcm,function = <1>; /* output */
+// };
 
-&spi6 {
+&spi1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
 
 	pinctrl-names = "default";
-	pinctrl-0 = <&spi6_pins>, <&spi6_cs_pins>;
+	pinctrl-0 = <&spi1_pinctrl>, <&spi1_cs_pinctrl>;
 	cs-gpios = <&gpio 16 1>;
 
 	ltc4296: ltc4296@0 {
@@ -75,23 +86,21 @@
 
 		spi-max-frequency = <500000>;
 
-		wakeup-gpio = <&gpio 7 GPIO_ACTIVE_HIGH>;
-
 		ports {
 			port@2 {
 				reg = <0x2>;
-				adi,port-type = <LTC4296_PORT_SCCP_CLASS_12>;
+				adi,port-type = <LTC4296_PORT_SCCP_CLASS_14>;
 				adi,sccpo-gpio = <&gpio 23 GPIO_ACTIVE_HIGH>;
 				adi,sccpi-gpio = <&gpio 22 GPIO_ACTIVE_HIGH>;
-				adi,hs-resistor = <250>;
+				adi,hs-resistor = <270>;
 			};
 
 			port@3 {
 				reg = <0x3>;
-				adi,port-type = <LTC4296_PORT_SCCP_CLASS_12>;
+				adi,port-type = <LTC4296_PORT_SCCP_CLASS_14>;
 				adi,sccpo-gpio = <&gpio 18 GPIO_ACTIVE_HIGH>;
 				adi,sccpi-gpio = <&gpio 17 GPIO_ACTIVE_HIGH>;
-				adi,hs-resistor = <250>;
+				adi,hs-resistor = <270>;
 			};
 		};
 	};
