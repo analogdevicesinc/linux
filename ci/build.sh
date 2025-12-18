@@ -106,7 +106,7 @@ check_checkpatch() {
 					file=$(echo ${list[2]} | xargs)
 					# Downgrade from API-looking paths
 					if grep -qE "$api_match" <<< "$file"; then
-						type="note"
+						type="notice"
 					fi
 					[[ "$type" == "error" ]] && fail=1
 					[[ "$type" == "warning" ]] && warn=1
