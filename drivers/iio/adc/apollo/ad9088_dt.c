@@ -123,7 +123,7 @@ static int ad9088_fsrc_setup(struct ad9088_phy *phy)
 	if (!phy->iio_axi_fsrc)
 		return 0;
 
-	dev_info(&phy->spi->dev, "FSRC support enabled, writing 1x mode\n");
+	dev_info(&phy->spi->dev, "FSRC support enabled\n");
 
 	/*
 	 * Default 1x value from python example at

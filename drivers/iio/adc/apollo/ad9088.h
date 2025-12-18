@@ -403,6 +403,7 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy);
 int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy);
 int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy);
 int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy);
+int ad9088_fsrc_inspect(struct ad9088_phy *phy);
 
 /* Calibration data format */
 #define AD9088_CAL_MAGIC	0x41443930  /* "AD90" */
