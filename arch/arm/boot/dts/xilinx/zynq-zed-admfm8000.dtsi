@@ -1,0 +1,132 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2025 Analog Devices Inc. */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
+
+/ {
+	dds_clkin: clock-1ghz {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <1000000000>; // 1GHz
+	};
+
+	dds_reg_3v3: dds-reg-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "dds-3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	dds_reg_1v8: dds-reg-1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "dds-1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	pll_clkin: pll-clock {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <50000000>; // 50MHz
+	};
+
+	pll_reg_3v3: pll-reg-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "pll-3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	att_reg_3v3: att-reg-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "att-3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+};
+
+&fpga_axi {
+	/*
+	tx_dma: dmac@7c480000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c480000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 54 4>;
+		clocks = <&clkc 16>; // fclk1
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma_channel: dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <128>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+	*/
+
+	dds_backend: ad9910_axi@43c00000 {
+		compatible = "adi,ad9910-axi";
+		reg = <0x43c00000 0x10000>;
+		//dmas = <&tx_dma 0>;
+		//dma-names = "tx";
+		//clocks = <&axi_clk>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	ad9910@0 {
+		compatible = "adi,ad9910";
+		reg = <0>;
+		avdd18-supply = <&dds_reg_1v8>;
+		avdd33-supply = <&dds_reg_3v3>;
+		dvdd18-supply = <&dds_reg_1v8>;
+		dvdd-io33-supply = <&dds_reg_3v3>;
+		spi-max-frequency = <1000000>;
+		clocks = <&dds_clkin>;
+		powerdown-gpios = <&gpio0 96 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio0 92 GPIO_ACTIVE_HIGH>,
+			      <&gpio0 100 GPIO_ACTIVE_HIGH>;
+		update-gpios = <&gpio0 93 GPIO_ACTIVE_HIGH>;
+		profile-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>,
+				<&gpio0 89 GPIO_ACTIVE_HIGH>,
+				<&gpio0 88 GPIO_ACTIVE_HIGH>;
+		io-backends = <&dds_backend>;
+	};
+
+	adf41513@1 {
+		compatible = "adi,adf41513";
+		reg = <1>;
+		avdd1-supply = <&pll_reg_3v3>;
+		avdd2-supply = <&pll_reg_3v3>;
+		avdd3-supply = <&pll_reg_3v3>;
+		avdd4-supply = <&pll_reg_3v3>;
+		avdd5-supply = <&pll_reg_3v3>;
+		vp-supply = <&pll_reg_3v3>;
+		spi-max-frequency = <1000000>;
+		clocks = <&pll_clkin>;
+		enable-gpios = <&gpio0 101 GPIO_ACTIVE_HIGH>;
+		lock-detect-gpios = <&gpio0 102 GPIO_ACTIVE_HIGH>;
+		adi,charge-pump-current-microamp = <4800>;
+		adi,power-up-frequency = /bits/ 64 <1600000000>; /* 1.6 GHz */
+	};
+
+	adrf5730@2 {
+		compatible = "adi,adrf5730";
+		reg = <2>;
+		vcc-supply = <&att_reg_3v3>;
+		spi-max-frequency = <1000000>;
+	};
+};
