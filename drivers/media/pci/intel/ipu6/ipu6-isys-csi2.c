@@ -11,6 +11,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/minmax.h>
+#include <linux/pm_runtime.h>
 #include <linux/sprintf.h>
 #include <linux/string_choices.h>
 
@@ -632,6 +633,10 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 	if (ret < 0)
 		goto err_av_del;
 
+	ret = pm_runtime_resume_and_get(sd->dev);
+	if (ret < 0)
+		goto err_del_av;
+
 	ipu6_isys_csi2_setup_watermark(csi2, state, remote_sd);
 
 	stream = ipu6_isys_alloc_stream_firmware(csi2, state, &desc, vc);
@@ -685,6 +690,9 @@ err_free_stream_firmware:
 
 err_clear_watermark:
 	ipu6_isys_csi2_clear_watermark(csi2);
+	pm_runtime_put(sd->dev);
+
+err_del_av:
 	ipu6_isys_csi2_streaming_change(asd, state, pad, &desc, NULL, false);
 	csi2->stream_ids &= ~sink_streams;
 err_av_del:
@@ -748,6 +756,8 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 	ipu6_isys_free_stream_firmware(stream);
 
 	ipu6_isys_csi2_clear_watermark(csi2);
+
+	pm_runtime_put(sd->dev);
 
 out_del_csi2_entry:
 	list_del(&av->csi2_entry);

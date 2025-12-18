@@ -89,7 +89,6 @@ struct sensor_async_sd {
  * @fwctx: fw communication layer context pointer
  * @phy_termcal_val: the termination calibration value, only used for DWC PHY
  * @need_reset: Isys requires d0i0->i3 transition
- * @ref_count: total number of callers fw open
  * @mutex: serialise access isys video open/release related operations
  * @stream_mutex: serialise stream start and stop, queueing requests
  * @pdata: platform data pointer
@@ -113,7 +112,6 @@ struct ipu6_isys {
 	bool icache_prefetch;
 	bool csi2_cse_ipc_not_supported;
 	bool iwake_watermark_enabled;
-	unsigned int ref_count;
 	unsigned int sensor_type;
 
 	struct mutex mutex;
