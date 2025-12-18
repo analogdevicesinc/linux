@@ -4609,11 +4609,12 @@ static int ad9088_reg_test(adi_apollo_device_t *device)
 
 static irqreturn_t ad9088_irq_handler(int irq, void *p)
 {
-	struct axiadc_converter *conv = p;
-	struct ad9088_phy *phy = conv->phy;
-	u64 status64;
+	//struct axiadc_converter *conv = p;
+	//struct ad9088_phy *phy = conv->phy;
+	//u64 status64;
 
-	dev_err(&phy->spi->dev, "DAC IRQ status 0x%llX\n", status64);
+	//adi_ad9088_dac_irqs_status_get(&phy->ad9088, &status64);
+	//dev_err(&phy->spi->dev, "DAC IRQ status 0x%llX\n", status64);
 
 	return IRQ_HANDLED;
 }
