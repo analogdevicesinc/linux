@@ -697,7 +697,7 @@ int iio_backend_interface_type_get(struct iio_backend *back,
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(iio_backend_interface_type_get, "IIO_BACKEND");
+EXPORT_SYMBOL_NS_GPL(iio_backend_interface_type_get, IIO_BACKEND);
 
 /**
  * iio_backend_extend_chan_spec - Extend an IIO channel
