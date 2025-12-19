@@ -70,6 +70,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD9208
 	imply AD9081
 	imply AD9083
+	imply AD9213
 	imply AD9361
 	imply AD9361_EXT_BAND_CONTROL
 	imply AD9371
