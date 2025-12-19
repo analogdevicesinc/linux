@@ -370,8 +370,23 @@
 	};
 };
 
-&axi_data_offload_tx {
-	/delete-property/ adi,oneshot;
+
+ &axi_data_offload_tx {
+ 	adi,bypass;
+	adi,oneshot-disable;
+ };
+
+ &axi_data_offload_rx {
+ 	adi,bypass;
+	adi,oneshot-disable;
+ };
+
+&rx_dma {
+	/delete-property/ dma-coherent;
+};
+
+&tx_dma {
+	/delete-property/ dma-coherent;
 };
 
 &iio_axi_tdd_0 {
