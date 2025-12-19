@@ -69,6 +69,9 @@ struct ad9528_channel_spec {
  * @pll2_n2_div: PLL2 N2 divider, range 1..256.
  * @pll2_vco_div_m1: VCO1 divider, range 3..5.
  * @pll2_bypass_en: Bypass PLL2.
+ * @pll2_calib_divs_workaround_en: Enable workaround for missing calibration
+ *	dividers (18, 19, 23, 27). When enabled, calibration uses doubled N2/R1
+ *	values, then applies actual values post-calibration.
  * @rpole2: PLL2 loop filter Rpole resistor value.
  * @rzero: PLL2 loop filter Rzero resistor value.
  * @cpole1: PLL2 loop filter Cpole capacitor value.
@@ -128,6 +131,7 @@ struct ad9528_platform_data {
 	unsigned char			pll2_n2_div;
 	unsigned char			pll2_vco_div_m1; /* 3..5 */
 	bool				pll2_bypass_en;
+	bool				pll2_calib_divs_workaround_en;
 
 	/* Loop Filter PLL2 */
 	unsigned char			rpole2;

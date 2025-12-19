@@ -6,6 +6,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -368,6 +369,11 @@ static int ad9528_poll(struct iio_dev *indio_dev,
 			&& --timeout)
 		msleep(1);
 
+	if (!timeout)
+		dev_err(&indio_dev->dev, 
+			"Timeout polling addr=0x%x mask=0x%x data=0x%x\n",
+			addr, mask, data);
+
 	return timeout ? 0 : -ETIMEDOUT;
 }
 
@@ -692,6 +698,55 @@ static bool ad9528_pll2_valid_calib_div(unsigned int div)
 	return true;
 }
 
+static int ad9528_pll2_status_show(struct seq_file *s, void *ignored)
+{
+	struct iio_dev *indio_dev = s->private;
+	struct ad9528_state *st = iio_priv(indio_dev);
+	struct ad9528_platform_data *pdata = st->pdata;
+	unsigned long vco_freq, pfd_freq, pll2_freq, sysref_freq;
+	unsigned int m1, n2, r1, calib_div;
+	bool doubler;
+
+	if (pdata->pll2_bypass_en) {
+		seq_puts(s, "PLL2 bypassed\n");
+		return 0;
+	}
+
+	m1 = pdata->pll2_vco_div_m1;
+	n2 = pdata->pll2_n2_div;
+	r1 = pdata->pll2_r1_div;
+	doubler = pdata->pll2_freq_doubler_en;
+	calib_div = m1 * n2;
+
+	/* PLL2 output frequency (VCO / M1) */
+	pll2_freq = st->vco_out_freq[AD9528_VCO];
+
+	/* VCO frequency = PLL2 output * M1 */
+	vco_freq = pll2_freq * m1;
+
+	/* PFD frequency = VCXO * (doubler ? 2 : 1) / R1 */
+	pfd_freq = pdata->vcxo_freq * (doubler ? 2 : 1) / r1;
+
+	/* SYSREF frequency */
+	sysref_freq = st->vco_out_freq[AD9528_SYSREF];
+
+	seq_printf(s, "VCO Frequency:   %lu Hz\n", vco_freq);
+	seq_printf(s, "PFD Frequency:   %lu Hz\n", pfd_freq);
+	seq_printf(s, "PLL2 Frequency:  %lu Hz\n", pll2_freq);
+	seq_printf(s, "SYSREF Frequency: %lu Hz\n", sysref_freq);
+	seq_printf(s, "M1 (VCO Divider): %u\n", m1);
+	seq_printf(s, "N2 Divider:      %u\n", n2);
+	seq_printf(s, "R1 Divider:      %u\n", r1);
+	seq_printf(s, "Freq Doubler:    %s\n", doubler ? "enabled" : "disabled");
+	seq_printf(s, "Calib Divider:   %u (%s)\n", calib_div,
+		   ad9528_pll2_valid_calib_div(calib_div) ? "valid" : "INVALID");
+	seq_printf(s, "VCO Calib Workaround: %s\n",
+		   pdata->pll2_calib_divs_workaround_en ? "enabled" : "disabled");
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(ad9528_pll2_status);
+
 static int ad9528_calc_dividers(unsigned int vcxo_freq, unsigned int m1_freq,
 	struct ad9528_platform_data *pdata)
 {
@@ -730,10 +785,22 @@ static int ad9528_calc_dividers(unsigned int vcxo_freq, unsigned int m1_freq,
 
 	fpfd = vcxo_freq * (pdata->pll2_freq_doubler_en ? 2 : 1) / r1[0];
 
-	while (fpfd > 275000 || !ad9528_pll2_valid_calib_div(n2[0] * m1)) {
-		fpfd /= 2;
-		n2[0] *= 2;
-		r1[0] *= 2;
+	/*
+	 * When the calibration workaround is enabled, skip the calibration
+	 * divider check - only limit based on PFD frequency.
+	 */
+	if (pdata->pll2_calib_divs_workaround_en) {
+		while (fpfd > 275000) {
+			fpfd /= 2;
+			n2[0] *= 2;
+			r1[0] *= 2;
+		}
+	} else {
+		while (fpfd > 275000 || !ad9528_pll2_valid_calib_div(n2[0] * m1)) {
+			fpfd /= 2;
+			n2[0] *= 2;
+			r1[0] *= 2;
+		}
 	}
 
 	pdata->pll2_r1_div = r1[0];
@@ -911,6 +978,9 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	unsigned long active_mask = 0, ignoresync_mask = 0;
 	unsigned vco_freq, vco_ctrl = 0, sysref_ctrl, stat_en_mask = 0;
 	unsigned int pll2_ndiv, pll2_ndiv_a_cnt, pll2_ndiv_b_cnt;
+	unsigned int calib_n2_div, calib_r1_div, calib_ndiv;
+	unsigned int calib_ndiv_a_cnt, calib_ndiv_b_cnt;
+	bool use_calib_workaround = false;
 	int ret, i;
 
 	ret = ad9528_write(indio_dev, AD9528_SERIAL_PORT_CONFIG,
@@ -1014,10 +1084,38 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 
 	pll2_ndiv = pdata->pll2_vco_div_m1 * pdata->pll2_n2_div;
 	if (!ad9528_pll2_valid_calib_div(pll2_ndiv)) {
-		dev_err(&st->spi->dev,
-			"Feedback calibration divider value (%d) out of range\n",
-			pll2_ndiv);
-		return -EINVAL;
+		if (pdata->pll2_calib_divs_workaround_en) {
+			/*
+			 * Workaround for missing calibration dividers (18, 19, 23, 27):
+			 * Double N2 and R1 for calibration (keeps VCO freq the same),
+			 * then apply actual values post-calibration.
+			 */
+			calib_n2_div = pdata->pll2_n2_div * 2;
+			calib_r1_div = pdata->pll2_r1_div * 2;
+			calib_ndiv = pdata->pll2_vco_div_m1 * calib_n2_div;
+
+			if (calib_n2_div > 256 || calib_r1_div > 31 ||
+			    !ad9528_pll2_valid_calib_div(calib_ndiv)) {
+				dev_err(&st->spi->dev,
+					"Calibration workaround failed: doubled values invalid (N2=%u, R1=%u, ndiv=%u)\n",
+					calib_n2_div, calib_r1_div, calib_ndiv);
+				return -EINVAL;
+			}
+
+			use_calib_workaround = true;
+			calib_ndiv_a_cnt = calib_ndiv % 4;
+			calib_ndiv_b_cnt = calib_ndiv / 4;
+
+			dev_info(&st->spi->dev,
+				 "Using calibration workaround: calib N2=%u, R1=%u (actual N2=%u, R1=%u)\n",
+				 calib_n2_div, calib_r1_div,
+				 pdata->pll2_n2_div, pdata->pll2_r1_div);
+		} else {
+			dev_err(&st->spi->dev,
+				"Feedback calibration divider value (%d) out of range\n",
+				pll2_ndiv);
+			return -EINVAL;
+		}
 	}
 
 	pll2_ndiv_a_cnt = pll2_ndiv % 4;
@@ -1029,9 +1127,12 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
+	/* Use calibration dividers if workaround is active, actual values otherwise */
 	ret = ad9528_write(indio_dev, AD9528_PLL2_FEEDBACK_DIVIDER_AB,
-		AD9528_PLL2_FB_NDIV_A_CNT(pll2_ndiv_a_cnt) |
-		AD9528_PLL2_FB_NDIV_B_CNT(pll2_ndiv_b_cnt));
+		AD9528_PLL2_FB_NDIV_A_CNT(use_calib_workaround ?
+					 calib_ndiv_a_cnt : pll2_ndiv_a_cnt) |
+		AD9528_PLL2_FB_NDIV_B_CNT(use_calib_workaround ?
+					 calib_ndiv_b_cnt : pll2_ndiv_b_cnt));
 	if (ret < 0)
 		return ret;
 
@@ -1046,8 +1147,13 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 			   (pdata->pll2_freq_doubler_en ? 2 : 1) * pll2_ndiv,
 			    pdata->pll2_r1_div);
 
-	vco_ctrl = AD_IF(pll2_freq_doubler_en || pdata->pll2_r1_div != 1,
-				AD9528_PLL2_DOUBLER_R1_EN);
+	/*
+	 * Use calibration R1 for vco_ctrl during calibration when workaround
+	 * is active, since calib_r1_div may differ from pdata->pll2_r1_div.
+	 */
+	vco_ctrl = AD_IF(pll2_freq_doubler_en ||
+			 (use_calib_workaround ? calib_r1_div : pdata->pll2_r1_div) != 1,
+			 AD9528_PLL2_DOUBLER_R1_EN);
 	ret = ad9528_write(indio_dev, AD9528_PLL2_VCO_CTRL, vco_ctrl);
 	if (ret < 0)
 		return ret;
@@ -1072,13 +1178,16 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	st->vco_out_freq[AD9528_SYSREF] = st->sysref_src_pll2 /
 					  pdata->sysref_k_div;
 
+	/* Use calibration dividers if workaround is active, actual values otherwise */
 	ret = ad9528_write(indio_dev, AD9528_PLL2_R1_DIVIDER,
-		AD9528_PLL2_R1_DIV(pdata->pll2_r1_div));
+		AD9528_PLL2_R1_DIV(use_calib_workaround ?
+				  calib_r1_div : pdata->pll2_r1_div));
 	if (ret < 0)
 		return ret;
 
 	ret = ad9528_write(indio_dev, AD9528_PLL2_N2_DIVIDER,
-		AD9528_PLL2_N2_DIV(pdata->pll2_n2_div));
+		AD9528_PLL2_N2_DIV(use_calib_workaround ?
+				  calib_n2_div : pdata->pll2_n2_div));
 	if (ret < 0)
 		return ret;
 
@@ -1188,6 +1297,40 @@ pll2_bypassed:
 				AD9528_IS_CALIBRATING, 0);
 		if (ret < 0)
 			return ret;
+
+		/*
+		 * Workaround post-calibration: apply the actual N2 and R1 values
+		 * now that VCO calibration is complete.
+		 */
+		if (use_calib_workaround) {
+			// ret = ad9528_write(indio_dev, AD9528_PLL2_FEEDBACK_DIVIDER_AB,
+			// 	AD9528_PLL2_FB_NDIV_A_CNT(pll2_ndiv_a_cnt) |
+			// 	AD9528_PLL2_FB_NDIV_B_CNT(pll2_ndiv_b_cnt));
+			// if (ret < 0)
+			// 	return ret;
+
+			ret = ad9528_write(indio_dev, AD9528_PLL2_R1_DIVIDER,
+				AD9528_PLL2_R1_DIV(pdata->pll2_r1_div));
+			if (ret < 0)
+				return ret;
+
+			ret = ad9528_write(indio_dev, AD9528_PLL2_N2_DIVIDER,
+				AD9528_PLL2_N2_DIV(pdata->pll2_n2_div));
+			if (ret < 0)
+				return ret;
+
+			/* Update vco_ctrl with actual R1 value */
+			vco_ctrl = AD_IF(pll2_freq_doubler_en || pdata->pll2_r1_div != 1,
+					 AD9528_PLL2_DOUBLER_R1_EN);
+			ret = ad9528_write(indio_dev, AD9528_PLL2_VCO_CTRL, vco_ctrl);
+			if (ret < 0)
+				return ret;
+
+			ret = ad9528_io_update(indio_dev);
+			if (ret < 0)
+				return ret;
+
+		}
 	}
 
 	sysref_ctrl |= AD9528_SYSREF_PATTERN_REQ;
@@ -1548,6 +1691,10 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,pll2-charge-pump-current-nA",
 			     &pdata->pll2_charge_pump_current_nA);
 
+	pdata->pll2_bypass_en = of_property_read_bool(np, "adi,pll2-bypass-enable");
+	pdata->pll2_calib_divs_workaround_en =
+		of_property_read_bool(np, "adi,workaround-missing-calibration-dividers");
+
 	ret = of_property_read_u32(np, "adi,pll2-m1-frequency", &tmp);
 	if (ret == 0) {
 		ret = ad9528_calc_dividers(pdata->vcxo_freq, tmp, pdata);
@@ -1568,7 +1715,6 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 		of_property_read_u32(np, "adi,pll2-vco-div-m1", &tmp);
 		pdata->pll2_vco_div_m1 = tmp;
 	}
-	pdata->pll2_bypass_en = of_property_read_bool(np, "adi,pll2-bypass-enable");
 
 	/* Loop Filter PLL2 */
 
@@ -1746,6 +1892,10 @@ static int ad9528_probe(struct spi_device *spi)
 	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret)
 		return ret;
+
+	debugfs_create_file("pll2_status", 0444,
+			    iio_get_debugfs_dentry(indio_dev),
+			    indio_dev, &ad9528_pll2_status_fops);
 
 	return devm_jesd204_fsm_start(&spi->dev, st->jdev, JESD204_LINKS_ALL);
 }
