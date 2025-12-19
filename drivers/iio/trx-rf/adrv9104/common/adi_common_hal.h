@@ -26,39 +26,42 @@ extern "C" {
  * \addtogroup common_hal "ADI Common HAL"
  * The Common HAL consists of function pointers which must be implemented by the user, such that the device API(s) can
  * call said functions to interact with the chip without having to worry about hardware details.
- * 
+ *
  * @{
  */
 
 /**
  * \brief Perform a blocking wait for the specified length of time
- * 
+ *
  * \param[in] devHalCfg     User-defined context variable
  * \param[in] time_us       The length of time to wait, denoted in microseconds (us)
- * 
+ *
  * \returns 0 to indicate success, negative values to indicate error. Specific error codes are defined by the user
  * implementation and are simply returned by API functions.
  */
-extern int32_t(*adi_common_hal_Wait_us)(void *devHalCfg, uint32_t time_us);
+extern int32_t(*adi_adrv910x_common_hal_Wait_us)(void *devHalCfg, uint32_t time_us);
 
 /**
  * \brief Write a message to the log with the specified level
- * 
+ *
  * \param[in] devHalCfg     User-defined context variable
  * \param[in] formatStr     Log message string optionally containing format specifiers which will be replaced by the
  * values specified in the additional arguments list argp
  * \param[in] argp          Variable argument list containing values with which to replace format specifiers in formatStr
- * 
+ *
  * \returns 0 to indicate success, negative values to indicate error. Specific error codes are defined by the user
  * implementation and are simply returned by API functions.
  */
-extern int32_t(*adi_common_hal_LogWrite)(void *devHalCfg, uint32_t logLevel, const char *formatStr, va_list argp);
+extern int32_t(*adi_adrv910x_common_hal_LogWrite)(void *devHalCfg, uint32_t logLevel, const char *formatStr, va_list argp);
 
 /** \addtogroup adi_hal_log_levels "Logging Levels"
  * Log levels increase in severity numerically. When a given level is used, events logged with a log level at least as
  * severe (greater than or equal to) as the set level should be published. Less severe events can be ignored.
  * @{
  */
+
+#define adi_common_hal_LogWrite		adi_adrv910x_common_hal_LogWrite
+#define adi_common_hal_Wait_us		adi_adrv910x_common_hal_Wait_us
 
 #ifndef ADI_COMPILED_LOGLEVEL
 /**
