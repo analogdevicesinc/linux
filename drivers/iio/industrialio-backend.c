@@ -664,7 +664,10 @@ ssize_t iio_backend_ext_info_set(struct iio_dev *indio_dev, uintptr_t private,
 {
 	struct iio_backend *back;
 
-	back = iio_backend_from_indio_dev_parent(indio_dev->dev.parent);
+	if (indio_dev->info->get_iio_backend)
+		back = indio_dev->info->get_iio_backend(indio_dev, private, chan);
+	else
+		back = iio_backend_from_indio_dev_parent(indio_dev->dev.parent);
 	if (IS_ERR(back))
 		return PTR_ERR(back);
 
