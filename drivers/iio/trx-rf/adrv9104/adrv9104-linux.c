@@ -162,7 +162,6 @@ int (*adi_adrv910x_hal_close)(void *dev_hal) = adrv9104_hw_close;
 int (*adi_adrv910x_hal_spi_write)(void *dev_hal, const u8 *tx, u32 len) = adrv9104_spi_write;
 int (*adi_adrv910x_hal_spi_read)(void *dev_hal, const u8 *tx, u8 *rx, u32 len) = adrv9104_spi_read;
 int (*adi_adrv910x_hal_resetbPin_set)(void *dev_hal, u8 pin_level) = adrv9104_hw_reset;
-
-int (*adi_common_hal_LogWrite)(void *dev_hal, u32 log_level, const char *comment,
-			       va_list argp) = adrv9104_log_write;
-int (*adi_common_hal_Wait_us)(void *dev_hal, u32 time_us) = adrv9104_wait_us;
+int (*adi_adrv910x_common_hal_LogWrite)(void *dev_hal, u32 log_level, const char *comment,
+					va_list argp) = adrv9104_log_write;
+int (*adi_adrv910x_common_hal_Wait_us)(void *dev_hal, u32 time_us) = adrv9104_wait_us;
