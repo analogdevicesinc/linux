@@ -365,6 +365,7 @@ int adrv9104_fw_parse(struct adrv9104_rf_phy *phy)
 	if (ret)
 		return ret;
 
+	static_assert(ARRAY_SIZE(adrv9104_rx_fw_node) == ARRAY_SIZE(phy->rx_channels));
 	for (i = 0; i < ARRAY_SIZE(adrv9104_rx_fw_node); i++) {
 		ret = adrv9104_parse_rx_chan(phy, &phy->rx_channels[i], adrv9104_rx_fw_node[i]);
 		if (ret)

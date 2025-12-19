@@ -5,6 +5,7 @@
  * Copyright 2025 Analog Devices Inc.
  */
 #include "linux/dev_printk.h"
+#include "linux/iio/types.h"
 #include <linux/array_size.h>
 #include <linux/bitmap.h>
 #include <linux/bits.h>
@@ -99,19 +100,21 @@ int __adrv9104_dev_err(struct adrv9104_rf_phy *phy, const char *function, int li
 }
 
 static struct adrv9104_chan *adrv9104_get_rf_chan_from_iio(struct adrv9104_rf_phy *phy,
-							   const struct iio_chan_spec *chan_spec)
+							   const struct iio_chan_spec *iio_chan)
 {
 	struct adrv9104_chan *chan;
 
-	lockdep_assert_held(&phy->lock);
+	if (iio_chan->type != IIO_VOLTAGE)
+		return ERR_PTR(-EINVAL);
 
-	if (chan_spec->output)
+	if (iio_chan->output && iio_chan->channel == ADRV9104_IIO_TX)
 		chan = &phy->tx_channel.channel;
-	else if (chan_spec->channel < ADRV9104_IIO_RX_MAX)
-		chan = &phy->rx_channels[chan_spec->channel].channel;
+	else if (!iio_chan->output && iio_chan->channel < ADRV9104_IIO_RX_MAX)
+		chan = &phy->rx_channels[iio_chan->channel].channel;
 	else
 		return ERR_PTR(-ENOENT);
 
+	lockdep_assert_held(&phy->lock);
 	if (!chan->enabled)
 		return ERR_PTR(-ENODEV);
 
@@ -122,6 +125,7 @@ int adrv9104_channel_to_state_cache(struct adrv9104_rf_phy *phy, const struct ad
 				    adi_adrv910x_ChannelState_e state,
 				    adi_adrv910x_ChannelState_e *curr)
 {
+	enum adi_adrv910x_ChannelEnableMode pin_mode;
 	adi_adrv910x_ChannelState_e curr_state;
 	int ret;
 
@@ -140,6 +144,35 @@ int adrv9104_channel_to_state_cache(struct adrv9104_rf_phy *phy, const struct ad
 
 	if (curr)
 		*curr = curr_state;
+
+	/*
+	 * Check if pin mode is enabled. If so, still allow to control the radio state if we are
+	 * in control of the enable GPIO. Also note that in pin mode we can only move between
+	 * primed and rf_enabled so error out if we try to move to calibrated.
+	 */
+	ret = adrv9104_api_call(phy, adi_adrv910x_Radio_ChannelEnableMode_Get, chan->port,
+				chan->number, &pin_mode);
+	if (ret)
+		return ret;
+
+	if (pin_mode == ADI_ADRV910X_PIN_MODE) {
+		if (!chan->ensm) {
+			dev_err(phy->dev,
+				"Can't change ensm state! Pin mode enabled and no enable pin for p:%u c:%u\n",
+				chan->port, chan->number);
+			return -EPERM;
+		}
+
+		if (state == ADI_ADRV910X_CHANNEL_CALIBRATED) {
+			dev_err(phy->dev,
+				"Cannot move p:%u, c:%u to calibrated in pin mode! Use SPI mode instead.\n",
+				chan->port, chan->number);
+			return -EINVAL;
+		}
+
+		gpiod_set_value_cansleep(chan->ensm, state == ADI_ADRV910X_CHANNEL_RF_ENABLED);
+		return 0;
+	}
 
 	switch (state) {
 	case ADI_ADRV910X_CHANNEL_CALIBRATED:
@@ -600,7 +633,6 @@ static ssize_t adrv9104_rssi_get(struct adrv9104_rf_phy *phy,
 	if (ret)
 		return ret;
 
-	dev_info(phy->dev, "RSSI: %u\n", rssi_mdB);
 	return sysfs_emit(buf, "%u.%03u dB\n", rssi_mdB / 1000, rssi_mdB % 1000);
 }
 
@@ -680,6 +712,10 @@ static ssize_t adrv9104_track_cals_set(struct adrv9104_rf_phy *phy,
 	if (IS_ERR(chan))
 		return PTR_ERR(chan);
 
+	ret = kstrtobool(buf, &enable);
+	if (ret)
+		return ret;
+
 	ret = adrv9104_api_call(phy, adi_adrv910x_cals_Tracking_Get, &track_calls);
 	if (ret)
 		return ret;
@@ -690,10 +726,6 @@ static ssize_t adrv9104_track_cals_set(struct adrv9104_rf_phy *phy,
 		if (ret)
 			return ret;
 	}
-
-	ret = kstrtobool(buf, &enable);
-	if (ret)
-		return ret;
 
 	if (enable)
 		track_calls.chanTrackingCalMask[chan->idx] |= mask;
@@ -799,42 +831,13 @@ static int adrv9104_set_ensm_mode(struct iio_dev *indio_dev,
 				  const struct iio_chan_spec *iio_chan, u32 mode)
 {
 	struct adrv9104_rf_phy *phy = iio_priv(indio_dev);
-	enum adi_adrv910x_ChannelEnableMode pin_mode;
 	struct adrv9104_chan *chan;
-	int ret;
 
 	guard(mutex)(&phy->lock);
 
 	chan = adrv9104_get_rf_chan_from_iio(phy, iio_chan);
 	if (IS_ERR(chan))
 		return PTR_ERR(chan);
-
-	ret = adrv9104_api_call(phy, adi_adrv910x_Radio_ChannelEnableMode_Get, chan->port,
-				chan->number, &pin_mode);
-	if (ret)
-		return ret;
-
-	/*
-	 * Still allow to control the radio state if the enable mode is set to pin
-	 * and if we are in control of that GPIO. Also note that in pin mode we can
-	 * only move between primed and rf_enabled.
-	 */
-	if (pin_mode == ADI_ADRV910X_PIN_MODE) {
-		if (!chan->ensm) {
-			dev_err(phy->dev, "Enable pin not set for port(%u), chan(%u)\n",
-				chan->port, chan->number);
-			return -EPERM;
-		}
-
-		if (mode + 1 == ADI_ADRV910X_CHANNEL_CALIBRATED) {
-			dev_err(phy->dev, "Cannot move port(%u), chan(%u) to calibrated in pin mode\n",
-				chan->port, chan->number);
-			return -EINVAL;
-		}
-
-		gpiod_set_value_cansleep(chan->ensm, mode - 1);
-		return 0;
-	}
 
 	return adrv9104_channel_to_state(phy, chan, mode + 1);
 }
@@ -1092,6 +1095,7 @@ static const struct iio_chan_spec_ext_info adrv9104_phy_tx_ext_info[] = {
 	.modified = 1,						\
 	.channel = idx,						\
 	.channel2 = _mod,					\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 	.scan_index = _si,					\
 	.buffer_index = _buf_idx,				\
 	.scan_type = {						\
@@ -1650,6 +1654,12 @@ static int adrv9104_probe(struct spi_device *spi)
 	if (!phy->iio_chans)
 		return -ENOMEM;
 
+	indio_dev->name = "adrv9104";
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->info = &adrv9104_phy_info;
+	indio_dev->channels = phy->iio_chans;
+	indio_dev->num_channels = ARRAY_SIZE(adrv9104_phy_chan);
+
 	for (c = 0; c < ARRAY_SIZE(phy->rx_channels); c++) {
 		phy->channels[c] = &phy->rx_channels[c].channel;
 		phy->rx_channels[c].channel.idx = c;
@@ -1668,12 +1678,15 @@ static int adrv9104_probe(struct spi_device *spi)
 	phy->channels[ADRV9104_TX] = &phy->tx_channel.channel;
 	phy->tx_channel.channel.port = ADI_TX;
 
-	ret = adrv9104_backend_get(phy, &phy->tx_channel.channel, indio_dev,
-				   &phy->iio_chans[10]);
+	ret = adrv9104_backend_get(phy, &phy->tx_channel.channel, indio_dev, &phy->iio_chans[10]);
 	if (ret)
 		return ret;
 
-	ret = adrv9104_backend_get_tx_ref_clock_and_ssi_type(phy);
+	ret = adrv9104_backend_get_ssi_type(phy);
+	if (ret)
+		return ret;
+
+	ret = adrv9104_backend_get_tx_ref_clock(phy);
 	if (ret)
 		return ret;
 
@@ -1690,12 +1703,6 @@ static int adrv9104_probe(struct spi_device *spi)
 	ret = __adrv9104_init(phy);
 	if (ret)
 		return ret;
-
-	indio_dev->name = "adrv9104";
-	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->info = &adrv9104_phy_info;
-	indio_dev->channels = phy->iio_chans;
-	indio_dev->num_channels = ARRAY_SIZE(adrv9104_phy_chan);
 
 	ret = devm_mutex_init(phy->dev, &phy->lock);
 	if (ret)

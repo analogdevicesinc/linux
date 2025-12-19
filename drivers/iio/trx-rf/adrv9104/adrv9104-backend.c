@@ -19,6 +19,7 @@
 #define   ADRV9104_BACK_IS_CMOS_MSK		BIT(7)
 #define   ADRV9104_BACK_TX_REF_CLK_MSK		GENMASK(11, 10)
 #define ADRV9104_BACK_RX_REG_CTRL		0x44
+#define   ADRV9104_BACK_R1_MODE_MSK		BIT(2)
 #define ADRV9104_BACK_TX_REG_CTRL2		0x48
 #define   ADRV9104_BACK_SSI_N_LANES_MSK		GENMASK(12, 8)
 #define   ADRV9104_BACK_SSI_N_DDR_MSK		BIT(16)
@@ -59,6 +60,9 @@ static int adrv9104_backend_channel_set(struct iio_dev *indio_dev, const struct 
 		 * is index 1. Take care that if we do add support for rx2tx this will not hold
 		 * true!
 		 */
+		dev_info(indio_dev->dev.parent, "Handle chan: %u, port: %u, scan: %u, enable:%u\n",
+			 chan->idx, chan->port, bit, enable);
+
 		if (enable) {
 			if (chan->port == ADI_RX) {
 				ret = iio_backend_chan_enable(chan->back, bit % 2);
@@ -190,37 +194,49 @@ static const struct iio_buffer_setup_ops adrv9104_rx_buffer_ops[] = {
 	}
 };
 
-static int adrv9104_backend_set_ssi_type(struct adrv9104_rf_phy *phy, struct adrv9104_chan *chan,
-					 ssiNumLane_e n_lanes, bool ddr_en)
+static int adrv9104_backend_set_ssi_type(struct adrv9104_rf_phy *phy, struct adrv9104_chan *chan)
 {
 	unsigned int val, reg, divider;
+	ssiNumLane_e n_lanes;
+	bool ddr_en;
 	int ret;
 
-	if (chan->port == ADI_TX)
+	if (chan->port == ADI_TX) {
+		n_lanes = phy->profile.txConfig[chan->idx].txSsiConfig.numLaneSel;
+		ddr_en = phy->profile.txConfig[chan->idx].txSsiConfig.ddrEn;
 		reg = ADRV9104_BACK_TX_REG_CTRL2;
-	else
+	} else {
+		n_lanes = phy->profile.rxConfig[chan->idx].rxSsiConfig.numLaneSel;
+		ddr_en = phy->profile.rxConfig[chan->idx].rxSsiConfig.ddrEn;
 		reg = ADRV9104_BACK_RX_REG_CTRL;
+	}
+
+	ret = iio_backend_reg_read(chan->back, ADRV9104_BACK_REG_STATUS1, &val);
+	if (ret)
+		return ret;
+
+	val &= ~(ADRV9104_BACK_SSI_N_LANES_MSK | ADRV9104_BACK_SSI_N_DDR_MSK);
 
 	switch (n_lanes) {
 	case SSI_1_LANE:
-		val = FIELD_PREP(ADRV9104_BACK_SSI_N_LANES_MSK, 1);
+		val |= FIELD_PREP(ADRV9104_BACK_SSI_N_LANES_MSK, 1);
 		break;
 	case SSI_2_LANE:
 		if (phy->ssi_type == SSI_TYPE_CMOS)
 			return -EINVAL;
-		val = FIELD_PREP(ADRV9104_BACK_SSI_N_LANES_MSK, 2);
+		val |= FIELD_PREP(ADRV9104_BACK_SSI_N_LANES_MSK, 2);
 		break;
 	case SSI_4_LANE:
 		if (phy->ssi_type != SSI_TYPE_CMOS)
 			return -EINVAL;
-		val = FIELD_PREP(ADRV9104_BACK_SSI_N_LANES_MSK, 4);
+		val |= FIELD_PREP(ADRV9104_BACK_SSI_N_LANES_MSK, 4);
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	if (ddr_en && phy->ssi_type == SSI_TYPE_CMOS)
-		val |= FIELD_PREP(ADRV9104_BACK_SSI_N_DDR_MSK, 1);
+	if (phy->ssi_type == SSI_TYPE_CMOS)
+		val |= FIELD_PREP(ADRV9104_BACK_SSI_N_DDR_MSK, ddr_en);
 
 	ret = iio_backend_reg_write(chan->back, reg, val);
 	if (ret)
@@ -267,7 +283,9 @@ int adrv9104_backend_get(struct adrv9104_rf_phy *phy, struct adrv9104_chan *chan
 		return ret;
 
 	if (chan->port == ADI_RX)
-		return 0;
+		/* For now just go with split mode */
+		return iio_backend_reg_write(chan->back, ADRV9104_BACK_RX_REG_CTRL,
+					     FIELD_PREP(ADRV9104_BACK_R1_MODE_MSK, 1));
 
 	/* Position for ADRV9104_TX_DDS_CHAN() channels */
 	ret = iio_backend_extend_chan_spec(chan->back, dds_base_chan);
@@ -281,7 +299,7 @@ static const char * const adrv9104_tx_clk[ADRV9104_TX_REF_CLK_MAX] = {
 	"OWN REF", "RX1 REF", "RX2 REF"
 };
 
-int adrv9104_backend_get_tx_ref_clock_and_ssi_type(struct adrv9104_rf_phy *phy)
+int adrv9104_backend_get_tx_ref_clock(struct adrv9104_rf_phy *phy)
 {
 	struct adrv9104_tx *tx = &phy->tx_channel;
 	unsigned int val;
@@ -292,14 +310,28 @@ int adrv9104_backend_get_tx_ref_clock_and_ssi_type(struct adrv9104_rf_phy *phy)
 	if (ret)
 		return ret;
 
-	phy->ssi_type = FIELD_GET(ADRV9104_BACK_IS_CMOS_MSK, val) ? SSI_TYPE_CMOS : SSI_TYPE_LVDS;
-
 	tx->tx_ref_clock = FIELD_GET(ADRV9104_BACK_TX_REF_CLK_MSK, val);
 	if (tx->tx_ref_clock > ADRV9104_TX_REF_CLK_RX2)
 		return dev_err_probe(phy->dev, -EINVAL, "Got Invalid TX ref clock(%u) from HW\n",
 				     tx->tx_ref_clock);
 
 	dev_dbg(phy->dev, "Tx SSI clk driven by %s\n", adrv9104_tx_clk[tx->tx_ref_clock]);
+	return 0;
+}
+
+int adrv9104_backend_get_ssi_type(struct adrv9104_rf_phy *phy)
+{
+	struct adrv9104_rx *rx = &phy->rx_channels[0];
+	enum iio_backend_interface_type type;
+	int ret;
+
+	/* the ssi type is the same on all ports so just get it for one */
+	ret = iio_backend_interface_type_get(rx->channel.back, &type);
+	if (ret)
+		return ret;
+
+	phy->ssi_type = type == IIO_BACKEND_INTERFACE_SERIAL_CMOS ? SSI_TYPE_CMOS : SSI_TYPE_LVDS;
+
 	return 0;
 }
 
@@ -315,8 +347,6 @@ struct iio_backend *adrv9104_backend_get_from_chan(struct iio_dev *indio_dev,
 
 int adrv9104_backend_cfg(struct adrv9104_rf_phy *phy, struct adrv9104_chan *chan)
 {
-	ssiNumLane_e n_lanes;
-	bool ddr_en;
 	int ret;
 
 	if (chan->port == ADI_TX) {
@@ -327,13 +357,7 @@ int adrv9104_backend_cfg(struct adrv9104_rf_phy *phy, struct adrv9104_chan *chan
 		ret = iio_backend_set_sampling_freq(chan->back, ADRV9104_TX_DDS_Q, chan->rate);
 		if (ret)
 			return ret;
-
-		n_lanes = phy->profile.txConfig[chan->idx].txSsiConfig.numLaneSel;
-		ddr_en = phy->profile.txConfig[chan->idx].txSsiConfig.ddrEn;
-	} else {
-		n_lanes = phy->profile.rxConfig[chan->idx].rxSsiConfig.numLaneSel;
-		ddr_en = phy->profile.rxConfig[chan->idx].rxSsiConfig.ddrEn;
 	}
 
-	return adrv9104_backend_set_ssi_type(phy, chan, n_lanes, ddr_en);
+	return adrv9104_backend_set_ssi_type(phy, chan);
 }

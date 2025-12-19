@@ -17,6 +17,7 @@ struct iio_dev;
 #include "adi_adrv910x_common_types.h"
 #include "adi_adrv910x_radio_types.h"
 #include "adi_adrv910x_rx_types.h"
+#include "adi_adrv910x_ssi_types.h"
 #include "adi_adrv910x_types.h"
 #include "adrv9104-linux.h"
 
@@ -170,6 +171,9 @@ struct adrv9104_rf_phy {
 	struct adrv9104_rx rx_channels[ADRV9104_RX_MAX];
 	struct adrv9104_tx tx_channel;
 	struct adrv9104_hal_cfg	hal;
+#ifdef CONFIG_DEBUG_FS
+	struct adi_adrv910x_SsiCalibrationCfg ssi_delays;
+#endif
 	/* Protect against concurrent accesses to the device */
 	struct mutex lock;
 	ssiType_e ssi_type;
