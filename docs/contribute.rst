@@ -138,7 +138,7 @@ When submitting dt-bindings, you must check:
 .. shell::
 
    ~/linux
-   $make dt_binding_chec CONFIG_DTC=y DT_CHECKER_FLAGS=-m  DT_SCHEMA_FILES="./path/to/.yaml"
+   $make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m  DT_SCHEMA_FILES="./path/to/.yaml"
 
 For warnings and erros and resolve accordingly.
 
