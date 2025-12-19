@@ -22,6 +22,7 @@
 
 #define SWITCH_RECOVERY_NONE         0
 #define SWITCH_RECOVERY_VID          BIT(0)
+#define SWITCH_RECOVERY_FDB          BIT(1)
 
 static struct attribute *adrv906x_switch_attrs[4] = { NULL, NULL, NULL, NULL };
 
@@ -270,6 +271,28 @@ static void adrv906x_switch_ipv_mapping_set(struct adrv906x_eth_switch *es, u32 
 	es->pcp_ipv_mapping = pcpmap;
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++)
 		iowrite32(pcpmap, es->switch_port[portid].reg + SWITCH_PORT_PCP2IPV);
+}
+
+static int adrv906x_switch_flush_fdb(struct adrv906x_eth_switch *es)
+{
+	unsigned long flags;
+	u32 val;
+	int ret;
+
+	spin_lock_irqsave(&es->hw_lock, flags);
+	ret = adrv906x_switch_wait_for_mae_ready(es);
+	if (ret) {
+		dev_err(&es->pdev->dev, "fdb flush timeout");
+		spin_unlock_irqrestore(&es->hw_lock, flags);
+		return ret;
+	}
+
+	val = FIELD_PREP(SWITCH_MAS_OP_CTRL_OPCODE_MASK, SWITCH_MAS_OP_CTRL_MAC_TABLE_HARD_FLUSH) |
+	      SWITCH_MAS_OP_CTRL_TRIGGER;
+	iowrite32(val, es->reg_match_action + SWITCH_MAS_OP_CTRL);
+	spin_unlock_irqrestore(&es->hw_lock, flags);
+
+	return 0;
 }
 
 int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, int portid,
@@ -550,7 +573,7 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 
 	/* Wake up recovery thread to restore VLAN membership */
 	spin_lock_irqsave(&es->cmd_flag_lock, flags);
-	es->wait_cmd_flag |= SWITCH_RECOVERY_VID;
+	es->wait_cmd_flag |= SWITCH_RECOVERY_VID | SWITCH_RECOVERY_FDB;
 	spin_unlock_irqrestore(&es->cmd_flag_lock, flags);
 	wake_up_interruptible(&es->recovery_wq);
 
@@ -847,6 +870,14 @@ static int adrv906x_switch_recovery(void *data)
 			dev_info(dev, "restore vlan membership after switch reset");
 			adrv906x_switch_vlan_membership_recovery(es);
 		}
+		if (es->wait_cmd_flag & SWITCH_RECOVERY_FDB) {
+			spin_lock_irqsave(&es->cmd_flag_lock, flags);
+			es->wait_cmd_flag &= ~SWITCH_RECOVERY_FDB;
+			spin_unlock_irqrestore(&es->cmd_flag_lock, flags);
+			dev_info(dev, "restore fdb after switch reset");
+			adrv906x_switch_flush_fdb(es);
+			adrv906x_switch_packet_trapping_set(es);
+		}
 	}
 
 	return 0;
@@ -857,6 +888,7 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	int portid, i, ret;
 	struct device *dev = &es->pdev->dev;
 
+	adrv906x_switch_flush_fdb(es);
 	adrv906x_switch_dsa_tx_enable(es, false);
 	adrv906x_switch_dsa_rx_enable(es, true);
 	adrv906x_switch_pcp_regen_set(es, SWITCH_PCP_REGEN_VAL);
