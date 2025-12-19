@@ -1421,11 +1421,21 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 	int ret;
 
 	if (entry->cmd == DBGFS_BIST_TONE_GET) {
+		u32 orxchan = 0, rxchan = 0, txchan = 0;
 		int i;
+		int tx_enabled;
 
 		len = snprintf(buf, sizeof(buf), "BIST Tone Configuration:\n\n");
 
 		mutex_lock(&phy->lock);
+
+		/* Get TX channel enable status */
+		ret = adi_adrv903x_RxTxEnableGet(phy->palauDevice, &orxchan, &rxchan, &txchan);
+		if (ret) {
+			mutex_unlock(&phy->lock);
+			dev_err(&phy->spi->dev, "Failed to get RxTx enable status: %d\n", ret);
+			return -EIO;
+		}
 
 		/* Loop through all channels 0-7 */
 		for (i = 0; i < 8; i++) {
@@ -1440,12 +1450,16 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 				return -EIO;
 			}
 
+			/* Check if this TX channel is enabled */
+			tx_enabled = !!(txchan & (ADI_ADRV903X_TX0 << i));
+
 			/* Append this channel's info to buffer */
 			len += snprintf(buf + len, sizeof(buf) - len,
-				"Ch%d 0x%02x\n"
+				"Ch%d 0x%02x TxEn:%d\n"
 				" En %u, NCO %u, %d kHz, %u deg, %u (%d dB)\n\n",
 				i,
 				txRbConfig.chanSelect,
+				tx_enabled,
 				txRbConfig.enabled,
 				txRbConfig.ncoSelect,
 				txRbConfig.frequencyKhz,
@@ -2556,9 +2570,15 @@ static const struct jesd204_dev_data jesd204_adrv903x_init = {
 
 static int adrv903x_probe(struct spi_device *spi)
 {
+	adi_adrv903x_TrackingCalibrationMask_e trackingCal = (adi_adrv903x_TrackingCalibrationMask_e) 0U;
+	adi_adrv903x_InitCalibrations_e currentInitCalMask = (adi_adrv903x_InitCalibrations_e) 0U;
 	adi_adrv903x_ExtractInitDataOutput_e checkExtractInitData =
 		ADI_ADRV903X_EXTRACT_INIT_DATA_NOT_POPULATED;
+	static adi_adrv903x_InitCalStatus_t initCalStatus;
 	struct device_node *np = spi->dev.of_node;
+	const uint32_t ALL_CHANNELS_MASK = 0xFFU;
+	adi_adrv903x_TxAtten_t txAttenuation[1];
+	const uint32_t NUM_TRACKING_CALS = 7U;
 	adi_common_ErrData_t* errData = NULL;
 	struct adrv903x_jesd204_priv *priv;
 	adi_adrv903x_Version_t apiVersion;
@@ -2567,8 +2587,13 @@ static int adrv903x_probe(struct spi_device *spi)
 	struct jesd204_dev *jdev;
 	struct clk *clk = NULL;
 	const char *name;
-	int ret, i;
+	int ret, i, j;
 	u32 val;
+
+	const uint32_t trackingCalMask = (uint32_t)(ADI_ADRV903X_TC_RX_ADC_MASK     |
+						ADI_ADRV903X_TC_ORX_ADC_MASK    |
+						ADI_ADRV903X_TC_TX_LB_ADC_MASK  |
+						ADI_ADRV903X_TC_TX_SERDES_MASK);
 
 	int id = spi_get_device_id(spi)->driver_data;
 
@@ -2832,6 +2857,51 @@ static int adrv903x_probe(struct spi_device *spi)
 		ADI_ADRV903X_TXALL, ADI_ADRV903X_TXALL);
 	if (ret)
 		return adrv903x_dev_err(phy);
+
+		txAttenuation[0].txChannelMask = ADI_ADRV903X_TXALL;
+	txAttenuation[0].txAttenuation_mdB = 6000;
+	ret = adi_adrv903x_TxAttenSet(phy->palauDevice, txAttenuation, 1);
+	if (ret)
+		return adrv903x_dev_err(phy);
+
+	memset(&initCalStatus, 0, sizeof(adi_adrv903x_InitCalStatus_t));
+
+	ret = adi_adrv903x_InitCalsDetailedStatusGet(phy->palauDevice, &initCalStatus);
+	if (ret)
+		return adrv903x_dev_err(phy);
+
+	for (i = 0U; i < NUM_TRACKING_CALS; ++i)
+	{
+		trackingCal = (adi_adrv903x_TrackingCalibrationMask_e) (1U << i);
+
+		if (((uint32_t)trackingCal & trackingCalMask) == 0U)
+		{
+			/* Tracking Cal not configured to run */
+			continue;
+		}
+
+		/* Check if the Current Tracking Cal was initially run */
+		currentInitCalMask = drv_cals_TrackingCalConvert(trackingCal);
+
+		for (j = 0U; j < ADI_ADRV903X_MAX_CHANNELS; ++j)
+		{
+			if ((initCalStatus.calsSincePowerUp[j] & currentInitCalMask) == 0U)
+			{
+				/* Tracking Cal was already run */
+				continue;
+			}
+		}
+
+		ret = adi_adrv903x_TrackingCalsEnableSet(phy->palauDevice,
+							trackingCal,
+							ALL_CHANNELS_MASK,
+							ADI_ADRV903X_TRACKING_CAL_ENABLE);
+		if (ret)
+			return adrv903x_dev_err(phy);
+	}
+
+	phy->is_initialized = 1;
+	adrv903x_info(phy);
 
 	pr_err("TESTING ADRV903X successfully probed\n");
 
