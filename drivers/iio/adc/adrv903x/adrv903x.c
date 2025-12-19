@@ -1413,10 +1413,57 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 				     size_t count, loff_t *ppos)
 {
 	struct adrv903x_debugfs_entry *entry = file->private_data;
+	struct adrv903x_rf_phy *phy = entry->phy;
+	adi_adrv903x_TxTestNcoConfigReadbackResp_t txRbConfig = { 0 };
 	char buf[700];
 	u64 val = 0;
 	ssize_t len = 0;
 	int ret;
+
+	if (entry->cmd == DBGFS_BIST_TONE_GET) {
+		int i;
+
+		len = snprintf(buf, sizeof(buf), "BIST Tone Configuration:\n\n");
+
+		mutex_lock(&phy->lock);
+
+		/* Loop through all channels 0-7 */
+		for (i = 0; i < 8; i++) {
+			/* Set which channel to query */
+			txRbConfig.chanSelect = ADI_ADRV903X_TX0 << i;
+
+			/* Query this channel's configuration */
+			ret = adi_adrv903x_TxTestToneGet(phy->palauDevice, &txRbConfig);
+			if (ret) {
+				mutex_unlock(&phy->lock);
+				dev_err(&phy->spi->dev, "Failed to get BIST tone config for channel %d: %d\n", i, ret);
+				return -EIO;
+			}
+
+			/* Append this channel's info to buffer */
+			len += snprintf(buf + len, sizeof(buf) - len,
+				"Ch%d 0x%02x\n"
+				" En %u, NCO %u, %d kHz, %u deg, %u (%d dB)\n\n",
+				i,
+				txRbConfig.chanSelect,
+				txRbConfig.enabled,
+				txRbConfig.ncoSelect,
+				txRbConfig.frequencyKhz,
+				txRbConfig.phase,
+				txRbConfig.attenCtrl,
+				txRbConfig.attenCtrl * 6);
+
+			/* Check if buffer is getting full */
+			if (len >= sizeof(buf) - 100) {
+				len += snprintf(buf + len, sizeof(buf) - len,
+					"... (buffer full, remaining channels truncated)\n");
+				break;
+			}
+		}
+
+		mutex_unlock(&phy->lock);
+		return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+	}
 
 	if (entry->out_value) {
 		switch (entry->size) {
@@ -1621,12 +1668,21 @@ static int adrv903x_register_debugfs(struct iio_dev *indio_dev)
 	adrv903x_add_debugfs_entry(phy, "bist_framer_1_loopback",
 				   DBGFS_BIST_FRAMER_1_LOOPBACK);
 	adrv903x_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	adrv903x_add_debugfs_entry(phy, "bist_tone_get", DBGFS_BIST_TONE_GET);
 
-	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++)
-		d = debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
-					iio_get_debugfs_dentry(indio_dev),
-					&phy->debugfs_entry[i],
-					&adrv903x_debugfs_reg_fops);
+	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++) {
+		/* bist_tone_get is read-only */
+		if (phy->debugfs_entry[i].cmd == DBGFS_BIST_TONE_GET)
+			d = debugfs_create_file(phy->debugfs_entry[i].propname, 0444,
+						iio_get_debugfs_dentry(indio_dev),
+						&phy->debugfs_entry[i],
+						&adrv903x_debugfs_reg_fops);
+		else
+			d = debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
+						iio_get_debugfs_dentry(indio_dev),
+						&phy->debugfs_entry[i],
+						&adrv903x_debugfs_reg_fops);
+	}
 	return 0;
 }
 
@@ -2757,6 +2813,25 @@ static int adrv903x_probe(struct spi_device *spi)
 		pr_err("ERROR adi_adrv903x_PreMcsInit_NonBroadcast failed in %s at line %d.\n",
 		       __func__, __LINE__);
 	}
+
+		// Tx enabled only if EN toggles
+	ret = adi_adrv903x_RxTxEnableSet(phy->palauDevice, 0x00, 0x00,
+		ADI_ADRV903X_RX_MASK_ALL, ADI_ADRV903X_RX_MASK_ALL,
+		ADI_ADRV903X_TXALL, ADI_ADRV903X_TXALL);
+	if (ret)
+		return adrv903x_dev_err(phy);
+
+	ret = adi_adrv903x_RxTxEnableSet(phy->palauDevice, 0x00, 0x00,
+		0x00, 0x00,
+		ADI_ADRV903X_TXALL, 0x00);
+	if (ret)
+		return adrv903x_dev_err(phy);
+
+	ret = adi_adrv903x_RxTxEnableSet(phy->palauDevice, 0x00, 0x00,
+		ADI_ADRV903X_RX_MASK_ALL, ADI_ADRV903X_RX_MASK_ALL,
+		ADI_ADRV903X_TXALL, ADI_ADRV903X_TXALL);
+	if (ret)
+		return adrv903x_dev_err(phy);
 
 	pr_err("TESTING ADRV903X successfully probed\n");
 
