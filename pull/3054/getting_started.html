@@ -169,45 +169,50 @@ Content on this topic
 <span id="id1"></span><h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>The Linux kernel in this repository is the <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx" target="_blank">Linux kernel from Xilinx</a> together with drivers &amp; patches
-applied from Analog Devices.</p>
+<p>The Linux kernel in this repository is the
+<a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx" target="_blank">Linux kernel from Xilinx</a>
+together with drivers &amp; patches applied from Analog Devices.</p>
 <p>Details about the drivers that are of interest and supported by this repository
-can be found on the <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers-all" target="_blank">Analog Devices wiki</a>. This readme focuses on details
-specific to how this code is structured/organized, how it was derived, etc.</p>
-<p>The current main is based on <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx/tree/xilinx-v2024.1" target="_blank">xilinx v2024.1</a>. For details
-about the merge see commit <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/commit/d31fa3135dbef8bf186a7c42fd87b3eedd8446e9" target="_blank">d31fa3135dbef8bf186a7c42fd87b3eedd8446e9</a> (Merge tag <code class="docutils literal notranslate"><span class="pre">xilinx-v2024.1</span></code>
-of <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx.git" target="_blank">https://github.com/Xilinx/linux-xlnx.git</a>). In this Xilinx release, the
-current version of upstream Linux is <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.6" target="_blank">Linux 6.6</a>.</p>
-<p>For legacy reasons, the <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/xcomm_zynq" target="_blank">xcomm_zynq</a> branch is
-still available and should be in-sync with current master. That branch used to
-be the old master branch.</p>
+can be found on the
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers-all" target="_blank">Analog Devices wiki</a>.
+This readme focuses on details specific to how this code is
+structured/organized, how it was derived, etc.</p>
+<p>The current main is based on <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx/tree/xilinx-v2025.1" target="_blank">xilinx v2025.1</a>.
+For details about the merge see commit
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/commit/3b1f15dc5c4de92663059705d6f1cb6fc87d4470" target="_blank">3b1f15dc5c4d</a>
+(Merge tag <code class="docutils literal notranslate"><span class="pre">xilinx-v2025.1</span></code> of <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx.git" target="_blank">https://github.com/Xilinx/linux-xlnx.git</a>).
+In this Xilinx release, the current version of upstream Linux is
+<a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.12" target="_blank">Linux 6.12</a>.</p>
 </section>
 <section id="how-to-build">
 <h2>How to build<a class="headerlink" href="#how-to-build" title="Link to this heading"></a></h2>
-<p>For build instructions <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers-all#building_the_adi_linux_kernel" target="_blank">check the wiki</a>.</p>
+<p>For build instructions
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers-all#building_the_adi_linux_kernel" target="_blank">check the wiki</a>.</p>
 </section>
 <section id="release-branches">
 <h2>Release branches<a class="headerlink" href="#release-branches" title="Link to this heading"></a></h2>
 <p>All release branches have the <code class="docutils literal notranslate"><span class="pre">[YEAR]_R[NUM]</span></code> format. There are some special
 release branches sometimes (like <code class="docutils literal notranslate"><span class="pre">2014_R2_altera</span></code>, because it wasn’t always
 possible to match the Linux repo between Xilinx &amp; Intel/Altera.</p>
-<p>Each release is matched with a release from the <a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/" target="_blank">HDL repo</a>. The
+<p>Each release is matched with a release from the <a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/tree/main/" target="_blank">HDL repo</a>. The
 branching name/model for the HDL repo differs a bit from the one in this repo,
 but the matching should be obvious. Therefore, each kernel in the release
 branches is be built using the toolchains from a specific version of Vivado &amp;
-Quartus. A matching of these can be found <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/docs/releases" target="_blank">on the wiki</a>. Release branches can be built using other GCC
-toolchains, but in the official SD-card images provided, they will use the
-toolchains from Vivado/Quartus.</p>
+Quartus. A matching of these can be found at <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/user_guide/releases.html#releases" target="_blank" title="(in HDL)"><span>Releases</span></a>.
+Release branches can be built using other GCC toolchains, but in the official
+SD-card images provided, they will use the toolchains from Vivado/Quartus.</p>
 </section>
 <section id="rebased-branches">
 <h2>Rebased branches<a class="headerlink" href="#rebased-branches" title="Link to this heading"></a></h2>
-<p>Starting with branch <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/adi-4.9.0" target="_blank">adi-4.9.0</a> there are rebased
-branches. They’re typically rebased branches from Xilinx with the ADI patches
-on top so that it’s easier to identify patches that are not yet upstreamed.</p>
-<p>For <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/adi-4.9.0" target="_blank">adi-4.9.0</a> the base was branch
+<p>Starting with <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adi-4.9.0/" target="_blank">ADI Linux repository’s branch adi-4.9.0</a> there are rebased branches. They’re
+typically rebased branches from Xilinx with the ADI patches on top so that it’s
+easier to identify patches that are not yet upstreamed.</p>
+<p>For <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adi-4.9.0/" target="_blank">ADI Linux repository’s branch adi-4.9.0</a> the base was branch
 <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx/tree/xlnx_rebase_v4.9" target="_blank">xlnx_rebase_v4.9</a>
-at commit <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/commit/d45e196f59364e9f5eafe46027a7d2af349083974" target="_blank">d45e196f59364e9f5eafe46027a7d2af349083974</a>
-in the ADI repo and commit <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx/commit/45e196f59364e9f5eafe46027a7d2af349083974" target="_blank">45e196f59364e9f5eafe46027a7d2af349083974</a>
+at commit
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/commit/e5c22c2179cfbec584d2c540d40a0c3d7a20770c" target="_blank">e5c22c2179cf</a>
+in the ADI repo and commit
+<a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx/commit/45e196f59364e9f5eafe46027a7d2af349083974" target="_blank">45e196f59364</a>
 in the Xilinx repo. All ADI patches &amp; drivers up to a specific point in time
 were cherry-picked to that branch from master. Note that since the
 <code class="docutils literal notranslate"><span class="pre">adi-4.9.0</span></code> branch is the first rebased branch, it’s not particularly the
@@ -215,8 +220,8 @@ best rebase that could have been done, but it should provide some patches that
 are somewhat reasonable to take and apply on top of an upstream 4.9 kernel
 after some polishing.</p>
 <p>The latest rebased branch depends on the current linux version supported in
-master. At the time of writing it is 5.10 so that <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/adi-5.10.0" target="_blank">adi-5.10.0</a> is the latest. Also note that a diff between the latest
-rebased branch and master (<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">diff</span> <span class="pre">master</span> <span class="pre">adi-5.10.0</span></code>) must be NULL.</p>
+master. Also note that a diff between the latest rebased branch and <cite>xlnx-main</cite>
+(e.g., <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">diff</span> <span class="pre">xlnx-main</span> <span class="pre">adi-6.12.0</span></code>) must be NULL.</p>
 </section>
 <section id="raspberry-pi-branches">
 <h2>Raspberry Pi branches<a class="headerlink" href="#raspberry-pi-branches" title="Link to this heading"></a></h2>
@@ -224,27 +229,26 @@ rebased branch and master (<code class="docutils literal notranslate"><span clas
 drivers present in the master branch should be automatically cherry-picked into
 the latest rpi branch.</p>
 <p>As in the rebased branches, the latest rpi branch should be in accordance with
-the current kernel version supported in master. At the time of writing, the
-kernel version in master is 5.10 so that the correspondent latest rpi branch is
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/rpi-5.10.y" target="_blank">rpi-5.10.y</a>.</p>
+the current kernel version supported in master..</p>
 </section>
 <section id="intel-altera-branches">
 <h2>Intel/Altera branches<a class="headerlink" href="#intel-altera-branches" title="Link to this heading"></a></h2>
 <p>Because the kernel versions that Intel/Altera were usually not in sync with
 Xilinx’s, <code class="docutils literal notranslate"><span class="pre">altera-*</span></code> branches were created:</p>
 <ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/altera_4.0" target="_blank">altera_4.0</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/altera_4.4" target="_blank">altera_4.4</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/altera_4.6" target="_blank">altera_4.6</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tree/altera_4.9" target="_blank">altera_4.9</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.0/" target="_blank">altera_4.0</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.4/" target="_blank">altera_4.4</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.6/" target="_blank">altera_4.6</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.9/" target="_blank">altera_4.9</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.14/" target="_blank">altera_4.14</a></p></li>
 </ul>
-<p>These branches are derived from the <a class="icon link reference external" href="https://github.com/altera-opensource/linux-socfpga" target="_blank">Intel/Altera linux kernel repo</a>, together with some
-merged versions of old master branches.</p>
-<p>The hope is that with the upcoming Linux 4.19, these branches would stop
-existing, since Intel/Altera seems to keep in sync their kernel version with
-more recent non-LTS kernels. Typically the releases/references that are
-provided for these boards should already be in the mainline kernel, so these
-branches should no longer be needed.</p>
+<p>These branches are derived from the
+<a class="icon link reference external" href="https://github.com/altera-opensource/linux-socfpga" target="_blank">Intel/Altera linux kernel repo</a>,
+together with some merged versions of old master branches.</p>
+<p>These branches would stop existing, since Intel/Altera seems to keep in sync
+their kernel version with more recent non-LTS kernels. Typically the
+releases/references that are provided for these boards should already be in the
+mainline kernel, so these branches should no longer be needed.</p>
 </section>
 </section>
 
