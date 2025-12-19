@@ -26,6 +26,10 @@ source_suffix = '.rst'
 
 # -- External docs configuration ----------------------------------------------
 
+interref_repos = [
+    'hdl',
+]
+
 intersphinx_mapping = {
     'upstream': ('https://docs.kernel.org', None),
     'b4': ('https://b4.docs.kernel.org/en/latest', None),
