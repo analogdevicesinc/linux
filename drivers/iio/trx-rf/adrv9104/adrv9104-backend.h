@@ -23,7 +23,7 @@ struct iio_backend *adrv9104_backend_get_from_chan(struct iio_dev *indio_dev,
 						   uintptr_t private,
 						   const struct iio_chan_spec *chan);
 
-int adrv9104_backend_cfg(struct adrv9104_rf_phy *phy, struct adrv9104_chan *chan);
+int adrv9104_backend_setup(struct adrv9104_rf_phy *phy, struct adrv9104_chan *chan);
 int adrv9104_backend_get_tx_ref_clock(struct adrv9104_rf_phy *phy);
 int adrv9104_backend_get_ssi_type(struct adrv9104_rf_phy *phy);
 

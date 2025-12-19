@@ -1588,6 +1588,7 @@ static int __adrv9104_init(struct adrv9104_rf_phy *phy)
 	int ret;
 
 	adrv9104_cleanup(phy);
+
 	/* Disable all the cores as it might interfere with init calibrations */
 	adrv9104_for_each_chan(phy, chan)
 		adrv9104_backend_disable(chan->back);
@@ -1597,7 +1598,7 @@ static int __adrv9104_init(struct adrv9104_rf_phy *phy)
 		goto err;
 
 	adrv9104_for_each_enabled_chan(phy, chan) {
-		ret = adrv9104_backend_cfg(phy, chan);
+		ret = adrv9104_backend_setup(phy, chan);
 		if (ret)
 			return ret;
 
@@ -1648,6 +1649,10 @@ static int adrv9104_probe(struct spi_device *spi)
 	phy->dev = &spi->dev;
 	phy->phy_dev.common.devHalInfo = &phy->hal;
 	phy->hal.spi = spi;
+
+	phy->hal.reset_gpio = devm_gpiod_get_optional(phy->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->hal.reset_gpio))
+		return PTR_ERR(phy->hal.reset_gpio);
 
 	phy->iio_chans = devm_kmemdup(phy->dev, adrv9104_phy_chan, sizeof(adrv9104_phy_chan),
 				      GFP_KERNEL);

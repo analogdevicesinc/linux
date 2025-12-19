@@ -24,18 +24,16 @@ static int adrv9104_fwnode_read_validate_u32(const struct device *dev,
 	*val = def;
 	ret = fwnode_property_read_u32(fwnode, key, val);
 	if (ret) {
-		if (mandatory || ret != -EINVAL) {
+		if (mandatory || ret != -EINVAL)
 			return dev_err_probe(dev, ret, "Failed to get %s prop: %pfwP, ret=%d\n",
 					     mandatory ? "mandatory" : "", fwnode, ret);
-		}
 
 		return 0;
 	}
 
-	if (*val < min || *val > max) {
+	if (*val < min || *val > max)
 		return dev_err_probe(dev, -EINVAL, "Value(%d) for %pfwP out of range [%d, %d]\n",
 				     *val, fwnode, min, max);
-	}
 
 	return 0;
 }
@@ -354,10 +352,6 @@ int adrv9104_fw_parse(struct adrv9104_rf_phy *phy)
 {
 	unsigned int i;
 	int ret;
-
-	phy->hal.reset_gpio = devm_gpiod_get_optional(phy->dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(phy->hal.reset_gpio))
-		return PTR_ERR(phy->hal.reset_gpio);
 
 	phy->rerun_calls = device_property_read_bool(phy->dev, "adi,rerun-calls-on-lo-retune");
 
