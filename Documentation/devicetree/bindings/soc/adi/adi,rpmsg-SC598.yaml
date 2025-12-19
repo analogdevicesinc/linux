@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/adi/adi,rpmsg-SC598.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices RPMSG Driver for SC5XX processor family
+
+maintainers:
+  - Arturs Artamonovs <arturs.artamonovs@analog.com>
+  - Utsav Agarwal <Utsav.Agarwal@analog.com>
+
+description: |
+  This rpmsg driver, used when the firmware loaded before Linux Kernel
+  starts. Allocates memmory according rpmsg message max settings
+  both for vrings and buffer.
+
+properties:
+  compatible:
+    enum:
+      - adi,rpmsg-SC598
+
+  reg:
+    maxItems: 1
+
+  core-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: SHARC core number
+
+  adi,rcu:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: phandle to Remote Control Unit
+
+  adi,rsc-table:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: phandle to resource table memory region shared with SHARC core
+
+  adi,tru:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: phandle to Trigger Routing Unit for ICC interrupts
+
+  interrupts:
+    maxItems: 1
+    description: ICC interrupt for rpmsg communication
+
+  adi,tru-master-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: ICC interrupt number to notify remote core
+
+  vdev-vring:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      phandle to reserved memory region for rpmsg vdev0vrings,
+      if not specified allocates buffer from DMA pool.
+
+  memory-region:
+    maxItems: 1
+    description:
+      phandle to reserved memory for rpmsg message buffers,
+      if not specified allocates buffer from DMA pool.
+
+
+required:
+  - compatible
+  - core-id
+  - adi,rcu
+  - adi,rsc-table
+  - adi,tru
+  - interrupts
+  - adi,tru-master-id
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    reserved-memory {
+      #address-cells = <1>;
+      #size-cells = <1>;
+      ranges;
+
+      vdev0vrings: vdev0vring0@20080000 {
+        reg = <0x20080000 0x4000>;
+        no-map;
+      };
+
+      vdev0buffer: vdev0buffer@20084000 {
+        compatible = "shared-dma-pool";
+        reg = <0x20084000 0x20000>;
+        no-map;
+      };
+    };
+
+    rcu: rcu@3108c000 {
+      compatible = "adi,reset-controller";
+      reg = <0x3108c000 0x1000>;
+      adi,sharc-min = <1>;
+      adi,sharc-max = <2>;
+    };
+
+    tru: tru@3108a000 {
+      compatible = "adi,trigger-routing-unit";
+      reg = <0x3108a000 0x1000>;
+      adi,max-master-id = <182>;
+      adi,max-slave-id = <187>;
+    };
+
+    rsc_tbl0: rsc-tbl@20081000 {
+      reg = <0x20081000 0x1000>;
+    };
+
+    core0-rpmsg@28240000 {
+      compatible = "adi,rpmsg-SC598";
+      reg = <0x28240000 0x1000>;
+      core-id = <1>;
+      adi,rcu = <&rcu>;
+      adi,rsc-table = <&rsc_tbl0>;
+      interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>;
+      adi,tru = <&tru>;
+      adi,tru-master-id = <135>;
+      vdev-vring = <&vdev0vrings>;
+      memory-region = <&vdev0buffer>;
+    };
