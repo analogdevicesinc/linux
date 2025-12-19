@@ -191,6 +191,7 @@ struct jesd204_link_opaque {
  *			cb_ref on the jesd204_link_opaque struct, but each link
  *			increments/decrements it, to group transitions of multiple
  *			JESD204 links
+ * @fsm_lock		mutex to serialize FSM state transitions
  * @topo_id		topology ID for this device (and top-level device)
  *			(connections should match against this)
  * @link_ids		JESD204 link IDs for this top-level device
@@ -211,6 +212,7 @@ struct jesd204_dev_top {
 
 	struct jesd204_fsm_data		*fsm_data;
 	struct kref			cb_ref;
+	struct mutex			fsm_lock;
 
 	int				topo_id;
 	unsigned int			link_ids[JESD204_MAX_LINKS];

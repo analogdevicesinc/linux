@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/property.h>
 #include <linux/slab.h>
@@ -140,6 +141,11 @@ bool jesd204_link_get_paused(const struct jesd204_link *lnk)
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_paused);
 
+/**
+ * jesd204_device_count_get() - Get the total number of registered JESD204 devices
+ *
+ * Return: The current count of registered JESD204 devices in the framework.
+ */
 int jesd204_device_count_get(void)
 {
 	return jesd204_device_count;
@@ -432,19 +438,41 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_lmfc_lemc_rate);
 
+/**
+ * jesd204_dev_get_topology_top_dev() - Get the top-level device for a JESD204 topology
+ * @jdev: Pointer to a JESD204 device within the topology
+ *
+ * This function finds and returns the top-level device (typically ADC, DAC,
+ * or transceiver) for the JESD204 topology that contains the given device.
+ * If the device itself is a top-level device, it returns that directly.
+ * Otherwise, it searches through all topologies to find where this device
+ * has connections.
+ *
+ * Return: Pointer to the top-level jesd204_dev_top structure, or NULL if
+ *         the device doesn't belong to any topology.
+ */
 struct jesd204_dev_top *jesd204_dev_get_topology_top_dev(struct jesd204_dev *jdev)
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
+	struct jesd204_dev_top *found = NULL;
 
 	if (jdev_top)
 		return jdev_top;
 
-	/* FIXME: enforce that one jdev object can only be in one topology */
 	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
 		if (!jesd204_dev_has_con_in_topology(jdev, jdev_top))
 			continue;
-		return jdev_top;
+		if (found) {
+			jesd204_warn(jdev,
+				     "Device belongs to multiple topologies (%d, %d); using first\n",
+				     found->topo_id, jdev_top->topo_id);
+			break;
+		}
+		found = jdev_top;
 	}
+
+	if (found)
+		return found;
 
 	jesd204_warn(jdev, "Device isn't a top-device, nor does it belong to topology with top-device\n");
 
@@ -617,6 +645,17 @@ static void __jesd204_printk(const char *level, const struct jesd204_dev *jdev,
 			vaf);
 }
 
+/**
+ * jesd204_printk() - Print a kernel message for a JESD204 device
+ * @level: Kernel log level string (e.g., KERN_ERR, KERN_INFO)
+ * @jdev: Pointer to the JESD204 device structure (may be NULL)
+ * @fmt: printf-style format string
+ * @...: Arguments for the format string
+ *
+ * This function prints a kernel message with JESD204 device context.
+ * It handles NULL device pointers gracefully and includes device tree
+ * node information when available.
+ */
 void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
 		    const char *fmt, ...)
 {
@@ -661,6 +700,30 @@ static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
 	jdev_top->staged_links = links;
 
 	return 0;
+}
+
+static void jesd204_dev_free_links(struct jesd204_dev_top *jdev_top)
+{
+	unsigned int i;
+
+	if (jdev_top->active_links) {
+		for (i = 0; i < jdev_top->num_links; i++) {
+			/* Only free if not from init_links (static allocation) */
+			if (!jdev_top->init_links ||
+			    !jdev_top->init_links[i].lane_ids)
+				kfree(jdev_top->active_links[i].link.lane_ids);
+		}
+		kfree(jdev_top->active_links);
+	}
+
+	if (jdev_top->staged_links) {
+		for (i = 0; i < jdev_top->num_links; i++) {
+			if (!jdev_top->init_links ||
+			    !jdev_top->init_links[i].lane_ids)
+				kfree(jdev_top->staged_links[i].link.lane_ids);
+		}
+		kfree(jdev_top->staged_links);
+	}
 }
 
 static int jesd204_dev_init_stop_states(struct jesd204_dev *jdev,
@@ -725,6 +788,7 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 
 		jdev = &jdev_top->jdev;
 
+		mutex_init(&jdev_top->fsm_lock);
 		jdev_top->topo_id = topo_id;
 		jdev_top->num_links = ret;
 		for (i = 0; i < jdev_top->num_links; i++)
@@ -923,8 +987,10 @@ static int jesd204_of_create_devices(void)
 
 	for_each_node_with_property(np, "jesd204-device") {
 		jdev = jesd204_dev_alloc(np);
-		if (IS_ERR(jdev))
+		if (IS_ERR(jdev)) {
+			of_node_put(np);
 			return PTR_ERR(jdev);
+		}
 	}
 
 	list_for_each_entry(jdev, &jesd204_device_list, entry) {
@@ -1177,6 +1243,8 @@ static void jesd204_of_unregister_devices(void)
 		}
 		jdev_top = jesd204_dev_top_dev(jdev);
 		list_del(&jdev_top->entry);
+		jesd204_dev_free_links(jdev_top);
+		mutex_destroy(&jdev_top->fsm_lock);
 		kfree(jdev_top);
 		jesd204_topologies_count--;
 	}

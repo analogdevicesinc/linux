@@ -14,6 +14,13 @@
 
 #define JESD204_FSM_BUSY	BIT(0)
 
+/*
+ * Internal error code used to signal that the current FSM state doesn't match
+ * the expected state during validation. This is distinct from standard errno
+ * values to allow special handling (e.g., skipping states during resume).
+ * The value 9000 is chosen to be well outside the range of standard errno
+ * values (typically 1-4095) to avoid conflicts.
+ */
 #define EINVALID_STATE		9000
 
 typedef int (*jesd204_fsm_cb)(struct jesd204_dev *jdev,
@@ -318,7 +325,7 @@ static int jesd204_fsm_propagate_rollback_cb_outputs(struct jesd204_dev *jdev_it
 static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 					      struct jesd204_fsm_data *fsm_data)
 {
-	int i, ret;
+	int i, ret = 0;
 
 	if (fsm_data->link_idx != JESD204_LINKS_ALL)
 		return jesd204_fsm_handle_con_cb(jdev_it, NULL,
@@ -330,7 +337,6 @@ static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 		if (ret)
 			break;
 	}
-	/* FIXME: error message here? */
 
 	return ret;
 }
@@ -371,6 +377,10 @@ static int __jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
 static int __jesd204_fsm_propagate_rollback_cb(struct jesd204_dev *jdev,
 					       struct jesd204_fsm_data *data)
 {
+	jesd204_dbg(jdev, "Rolling back from state %s to %s\n",
+		    jesd204_state_str(data->cur_state),
+		    jesd204_state_str(data->nxt_state));
+
 	jesd204_fsm_propagate_rollback_cb_top_level(jdev, data);
 	jesd204_fsm_propagate_rollback_cb_outputs(jdev, data);
 	jesd204_fsm_propagate_rollback_cb_inputs(jdev, data);
@@ -1180,6 +1190,9 @@ static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 
 	jesd204_fsm_handle_stop_state(jdev, link_idx, fsm_data);
 
+	if (!jdev->dev_data)
+		return JESD204_STATE_CHANGE_DONE;
+
 	state_op = &jdev->dev_data->state_ops[it->table[0].op];
 
 	if (fsm_data->rollback)
@@ -1300,10 +1313,6 @@ static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
 
 	ret1 = 0;
 	ret = 0;
-	/**
-	 * FIXME: the handle_busy_flags logic needs re-visit, we should lock
-	 * here and unlock after the loop is done
-	 */
 	while (!jesd204_fsm_table_end(&it->table[0], rollback, jdev->fsm_rb_to_init)) {
 		it->table = table;
 
@@ -1414,6 +1423,8 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 	if (!jdev_top)
 		return -EFAULT;
 
+	mutex_lock(&jdev_top->fsm_lock);
+
 	memset(&data, 0, sizeof(data));
 	data.fsm_change_cb = jesd204_fsm_table_entry_cb;
 	data.fsm_complete_cb = jesd204_fsm_table_entry_done;
@@ -1442,6 +1453,8 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 		jesd204_err(jdev, "FSM completed with error %d\n", ret);
 
 	jesd204_fsm_run_finished_cb(jdev, jdev_top, link_idx, handle_busy_flags);
+
+	mutex_unlock(&jdev_top->fsm_lock);
 
 	return ret;
 }
