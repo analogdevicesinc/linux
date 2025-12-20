@@ -3258,6 +3258,23 @@ static void dw_mci_enable_cd(struct dw_mci *host)
 	}
 }
 
+struct dw_mci *dw_mci_alloc_host(struct device *dev)
+{
+	struct mmc_host *mmc;
+	struct dw_mci *host;
+
+	mmc = devm_mmc_alloc_host(dev, sizeof(struct dw_mci));
+	if (!mmc)
+		return ERR_PTR(-ENOMEM);
+
+	host = mmc_priv(mmc);
+	host->mmc = mmc;
+	host->dev = dev;
+
+	return host;
+}
+EXPORT_SYMBOL(dw_mci_alloc_host);
+
 int dw_mci_probe(struct dw_mci *host)
 {
 	const struct dw_mci_drv_data *drv_data = host->drv_data;

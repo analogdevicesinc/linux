@@ -544,6 +544,7 @@ static inline void mci_fifo_l_writeq(void __iomem *addr, u64 value)
 #define __raw_readq(__reg) (*(volatile u64 __force *)(__reg))
 #endif
 
+extern struct dw_mci *dw_mci_alloc_host(struct device *device);
 extern int dw_mci_probe(struct dw_mci *host);
 extern void dw_mci_remove(struct dw_mci *host);
 #ifdef CONFIG_PM
