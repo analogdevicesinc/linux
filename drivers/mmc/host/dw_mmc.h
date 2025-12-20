@@ -57,7 +57,7 @@ struct dw_mci_dma_slave {
 };
 
 /**
- * struct dw_mci - MMC controller state shared between all slots
+ * struct dw_mci - MMC controller state
  * @lock: Spinlock protecting the queue and associated data.
  * @irq_lock: Spinlock protecting the INTMASK setting.
  * @regs: Pointer to MMIO registers.
@@ -108,7 +108,6 @@ struct dw_mci_dma_slave {
  * @priv: Implementation defined private data.
  * @biu_clk: Pointer to bus interface unit clock instance.
  * @ciu_clk: Pointer to card interface unit clock instance.
- * @slot: Slots sharing this MMC controller.
  * @fifo_depth: depth of FIFO.
  * @data_addr_override: override fifo reg offset with this value.
  * @wm_aligned: force fifo watermark equal with data length in PIO mode.
@@ -136,11 +135,8 @@ struct dw_mci_dma_slave {
  * =======
  *
  * @lock is a softirq-safe spinlock protecting as well as
- * @slot, @mrq and @state. These must always be updated
+ * @mrq and @state. These must always be updated
  * at the same time while holding @lock.
- * The @mrq field of struct dw_mci_slot is also protected by @lock,
- * and must always be written at the same time as the slot is added to
- * @host.
  *
  * @irq_lock is an irq-safe spinlock protecting the INTMASK register
  * to allow the interrupt handler to modify it directly.  Held for only long
@@ -554,17 +550,6 @@ extern int dw_mci_runtime_resume(struct device *device);
 static inline int dw_mci_runtime_suspend(struct device *device) { return -EOPNOTSUPP; }
 static inline int dw_mci_runtime_resume(struct device *device) { return -EOPNOTSUPP; }
 #endif
-
-/**
- * struct dw_mci_slot - MMC slot state
- * @host: The MMC controller this slot is using.
- *	processed, or NULL when the slot is idle.
- *	&struct dw_mci.
- *	Keeping track of this helps us to avoid spamming the console.
- */
-struct dw_mci_slot {
-	struct dw_mci		*host;
-};
 
 /**
  * dw_mci driver data - dw-mshc implementation specific driver data.

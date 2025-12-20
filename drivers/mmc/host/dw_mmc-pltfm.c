@@ -33,16 +33,15 @@ int dw_mci_pltfm_register(struct platform_device *pdev,
 	struct dw_mci *host;
 	struct resource	*regs;
 
-	host = devm_kzalloc(&pdev->dev, sizeof(struct dw_mci), GFP_KERNEL);
-	if (!host)
-		return -ENOMEM;
+	host = dw_mci_alloc_host(&pdev->dev);
+	if (IS_ERR(host))
+		return PTR_ERR(host);
 
 	host->irq = platform_get_irq(pdev, 0);
 	if (host->irq < 0)
 		return host->irq;
 
 	host->drv_data = drv_data;
-	host->dev = &pdev->dev;
 	host->irq_flags = 0;
 	host->pdata = pdev->dev.platform_data;
 

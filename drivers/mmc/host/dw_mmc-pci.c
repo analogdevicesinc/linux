@@ -41,13 +41,12 @@ static int dw_mci_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		return ret;
 
-	host = devm_kzalloc(&pdev->dev, sizeof(struct dw_mci), GFP_KERNEL);
-	if (!host)
-		return -ENOMEM;
+	host = dw_mci_alloc_host(&pdev->dev);
+	if (IS_ERR(host))
+		return PTR_ERR(host);
 
 	host->irq = pdev->irq;
 	host->irq_flags = IRQF_SHARED;
-	host->dev = &pdev->dev;
 	host->pdata = &pci_board_data;
 
 	ret = pcim_iomap_regions(pdev, 1 << PCI_BAR_NO, pci_name(pdev));
