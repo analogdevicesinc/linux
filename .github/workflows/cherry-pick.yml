@@ -12,8 +12,8 @@ on:
     outputs:
       fail:
         value: ${{ jobs.cherry_pick.outputs.fail }}
-      warn:
-        value: ${{ jobs.cherry_pick.outputs.warn }}
+      summary:
+        value: ${{ jobs.build.outputs.summary }}
 
 permissions:
   contents: write
@@ -28,7 +28,7 @@ jobs:
 
     outputs:
       fail: ${{ steps.assert.outputs.fail }}
-      warn: ${{ steps.assert.outputs.warn }}
+      summary: ${{ steps.assert.outputs.summary }}
 
     steps:
     - uses: analogdevicesinc/doctools/checkout@action
@@ -69,4 +69,4 @@ jobs:
       id: assert
       run: |
         source ./ci/runner_env.sh
-        export_labels
+        export_job_summary

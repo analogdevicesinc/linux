@@ -19,10 +19,12 @@ on:
         type: boolean
         default: true
     outputs:
-      fail:
-        value: ${{ jobs.build.outputs.fail }}
-      warn:
-        value: ${{ jobs.build.outputs.warn }}
+      fail: # DEPRECATED
+        value: ${{ jobs.checks.outputs.fail }}
+      warn: # DEPRECATED
+        value: ${{ jobs.checks.outputs.warn }}
+      summary:
+        value: ${{ jobs.build.outputs.summary }}
 
 env:
   run_id: ${{ github.run_id }}
@@ -38,8 +40,9 @@ jobs:
       LLVM_VERSION: 19
 
     outputs:
-      fail: ${{ steps.assert.outputs.fail }}
-      warn: ${{ steps.assert.outputs.warn }}
+      fail: ${{ steps.assert.outputs.fail }} # DEPRECATED
+      warn: ${{ steps.assert.outputs.warn }} # DEPRECATED
+      summary: ${{ steps.assert.outputs.summary }}
 
     steps:
     - uses: analogdevicesinc/doctools/checkout@action
@@ -234,4 +237,4 @@ jobs:
       id: assert
       run: |
         source ./ci/runner_env.sh
-        export_labels
+        export_job_summary
