@@ -39,15 +39,13 @@ jobs:
     steps:
       - name: Assert checks
         env:
-          job_warn_cherry_pick_adi: ${{needs.cherry_pick_adi.outputs.warn}}
-          job_warn_cherry_pick_rpi: ${{needs.cherry_pick_rpi.outputs.warn}}
-          job_fail_cherry_pick_adi: ${{needs.cherry_pick_adi.outputs.fail}}
-          job_fail_cherry_pick_rpi: ${{needs.cherry_pick_rpi.outputs.fail}}
+          job_cherry_pick_adi: ${{ needs.cherry_pick_adi.outputs.summary }}
+          job_cherry_pick_rpi: ${{ needs.cherry_pick_rpi.outputs.summary }}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
-          assert_labels
+          assert_job_summary
 
   migrate_main:
     runs-on: ubuntu-latest
