@@ -171,6 +171,17 @@ jobs:
       arch: "arm"
       defconfig: "adi_versal_defconfig"
       auto_from_range: false
+  build_gcc_microblaze_adi_mb_defconfig:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "microblaze"
+      defconfig: "adi_mb_defconfig"
+      auto_from_range: false
   compile_devicetrees:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@ci
@@ -198,6 +209,7 @@ jobs:
       - build_gcc_arm_zynq_m2k_defconfig
       - build_gcc_aarch64_adi_zynqmp_defconfig
       - build_gcc_arm_adi_versal_defconfig
+      - build_gcc_microblaze_adi_mb_defconfig
       - compile_devicetrees
     steps:
       - name: Assert
@@ -208,6 +220,7 @@ jobs:
           job_warn_build_gcc_arm_zynq_m2k_defconfig: ${{needs.build_gcc_arm_zynq_m2k_defconfig.outputs.warn}}
           job_warn_build_gcc_aarch64_adi_zynqmp_defconfig: ${{needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.warn}}
           job_warn_build_gcc_arm_adi_versal_defconfig: ${{needs.build_gcc_arm_adi_versal_defconfig.outputs.warn}}
+          job_warn_build_gcc_microblaze_adi_mb_defconfig: ${{needs.build_gcc_microblaze_adi_mb_defconfig.outputs.warn}}
           job_warn_compile_devicetrees: ${{needs.compile_devicetrees.outputs.warn}}
           job_fail_build_gcc_arm_zynq_xcomm_adv7511_defconfig: ${{needs.build_gcc_arm_zynq_xcomm_adv7511_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_socfpga_adi_defconfig: ${{needs.build_gcc_arm_socfpga_adi_defconfig.outputs.fail}}
@@ -215,6 +228,7 @@ jobs:
           job_fail_build_gcc_arm_zynq_m2k_defconfig: ${{needs.build_gcc_arm_zynq_m2k_defconfig.outputs.fail}}
           job_fail_build_gcc_aarch64_adi_zynqmp_defconfig: ${{needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_adi_versal_defconfig: ${{needs.build_gcc_arm_adi_versal_defconfig.outputs.fail}}
+          job_fail_build_gcc_microblaze_adi_mb_defconfig: ${{needs.build_gcc_microblaze_adi_mb_defconfig.outputs.fail}}
           job_fail_compile_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
@@ -240,4 +254,5 @@ jobs:
         zynq_m2k_defconfig-*
         zynq_pluto_defconfig-*
         zynq_xcomm_adv7511_defconfig-*
+        adi_mb_defconfig-*
         dtb-*
