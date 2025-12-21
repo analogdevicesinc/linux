@@ -32,7 +32,7 @@ env:
 jobs:
   build:
     timeout-minutes: 7200
-    runs-on: [self-hosted, repo-only, v3]
+    runs-on: [self-hosted, repo-only, v4]
     continue-on-error: true
 
     env:
