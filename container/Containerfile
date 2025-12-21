@@ -1,6 +1,6 @@
 FROM opensuse/leap:16.0
 
-ENV runner_labels=repo-only,v3
+ENV runner_labels=repo-only,v4
 ARG runner_version=2.328.0
 ARG runner_version_sha=01066fad3a2893e63e6ca880ae3a1fad5bf9329d60e77ee15f2b97c148c3cd4e
 ARG bashrc=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/ci/bashrc
@@ -22,10 +22,14 @@ RUN curl -o actions-runner.tar.gz -L https://github.com/actions/runner/releases/
 USER root
 COPY install-deps.sh .
 RUN chmod +x install-deps.sh ; ./install-deps.sh
+COPY install-utils.sh .
+RUN chmod +x install-utils.sh ; ./install-utils.sh
 COPY install-compilers.sh .
 RUN chmod +x install-compilers.sh ; ./install-compilers.sh
 COPY install-extra.sh .
 RUN chmod +x install-extra.sh ; ./install-extra.sh
+COPY set-alternatives.sh .
+RUN chmod +x set-alternatives.sh ; ./set-alternatives.sh
 
 RUN mkdir -p /usr/local/bin
 WORKDIR /usr/local/bin
