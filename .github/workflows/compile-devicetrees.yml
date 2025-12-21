@@ -24,7 +24,7 @@ env:
 jobs:
   build:
     timeout-minutes: 7200
-    runs-on: [self-hosted, repo-only, v3]
+    runs-on: [self-hosted, repo-only, v4]
 
     env:
       GCC_VERSION: 13
