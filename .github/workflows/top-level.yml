@@ -75,21 +75,17 @@ jobs:
     steps:
       - name: Assert
         env:
-          job_warn_checks: ${{needs.checks.outputs.warn}}
-          job_warn_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.warn}}
-          job_warn_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.warn}}
-          job_warn_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.warn}}
-          job_warn_build_gcc_arm: ${{needs.build_gcc_arm.outputs.warn}}
-          job_fail_checks: ${{needs.checks.outputs.fail}}
-          job_fail_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.fail}}
-          job_fail_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.fail}}
-          job_fail_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.fail}}
-          job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
+          job_checks: ${{ needs.checks.outputs.summary }}
+          job_build_gcc_x86_64: ${{ needs.build_gcc_x86_64.outputs.summary }}
+          job_build_llvm_x86_64: ${{ needs.build_llvm_x86_64.outputs.summary }}
+          job_build_gcc_aarch64: ${{ needs.build_gcc_aarch64.outputs.summary }}
+          job_build_gcc_arm: ${{ needs.build_gcc_arm.outputs.summary }}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
-          assert_labels
+          assert_job_summary
+
   deploy_cloudsmith_checks:
     needs: [assert_checks]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
@@ -214,27 +210,20 @@ jobs:
     steps:
       - name: Assert
         env:
-          job_warn_build_gcc_arm_zynq_xcomm_adv7511_defconfig: ${{needs.build_gcc_arm_zynq_xcomm_adv7511_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_socfpga_adi_defconfig: ${{needs.build_gcc_arm_socfpga_adi_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_zynq_pluto_defconfig: ${{needs.build_gcc_arm_zynq_pluto_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_zynq_m2k_defconfig: ${{needs.build_gcc_arm_zynq_m2k_defconfig.outputs.warn}}
-          job_warn_build_gcc_aarch64_adi_zynqmp_defconfig: ${{needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_adi_versal_defconfig: ${{needs.build_gcc_arm_adi_versal_defconfig.outputs.warn}}
-          job_warn_build_gcc_microblaze_adi_mb_defconfig: ${{needs.build_gcc_microblaze_adi_mb_defconfig.outputs.warn}}
-          job_warn_compile_devicetrees: ${{needs.compile_devicetrees.outputs.warn}}
-          job_fail_build_gcc_arm_zynq_xcomm_adv7511_defconfig: ${{needs.build_gcc_arm_zynq_xcomm_adv7511_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_socfpga_adi_defconfig: ${{needs.build_gcc_arm_socfpga_adi_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_zynq_pluto_defconfig: ${{needs.build_gcc_arm_zynq_pluto_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_zynq_m2k_defconfig: ${{needs.build_gcc_arm_zynq_m2k_defconfig.outputs.fail}}
-          job_fail_build_gcc_aarch64_adi_zynqmp_defconfig: ${{needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_adi_versal_defconfig: ${{needs.build_gcc_arm_adi_versal_defconfig.outputs.fail}}
-          job_fail_build_gcc_microblaze_adi_mb_defconfig: ${{needs.build_gcc_microblaze_adi_mb_defconfig.outputs.fail}}
-          job_fail_compile_devicetrees: ${{needs.compile_devicetrees.outputs.fail}}
+          job_build_gcc_arm_zynq_xcomm_adv7511_defconfig: ${{ needs.build_gcc_arm_zynq_xcomm_adv7511_defconfig.outputs.summary }}
+          job_build_gcc_arm_socfpga_adi_defconfig: ${{ needs.build_gcc_arm_socfpga_adi_defconfig.outputs.summary }}
+          job_build_gcc_arm_zynq_pluto_defconfig: ${{ needs.build_gcc_arm_zynq_pluto_defconfig.outputs.summary }}
+          job_build_gcc_arm_zynq_m2k_defconfig: ${{ needs.build_gcc_arm_zynq_m2k_defconfig.outputs.summary }}
+          job_build_gcc_aarch64_adi_zynqmp_defconfig: ${{ needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.summary }}
+          job_build_gcc_arm_adi_versal_defconfig: ${{ needs.build_gcc_arm_adi_versal_defconfig.outputs.summary }}
+          job_build_gcc_microblaze_adi_mb_defconfig: ${{ needs.build_gcc_microblaze_adi_mb_defconfig.outputs.summary }}
+          job_compile_devicetrees: ${{ needs.compile_devicetrees.outputs.summary }}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
-          assert_labels
+          assert_job_summary
+
   deploy_cloudsmith_build:
     needs: [assert_build]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
