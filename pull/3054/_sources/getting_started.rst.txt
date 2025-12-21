@@ -76,7 +76,7 @@ drivers present in the master branch should be automatically cherry-picked into
 the latest rpi branch.
 
 As in the rebased branches, the latest rpi branch should be in accordance with
-the current kernel version supported in master..
+the current kernel version supported in master.
 
 Intel/Altera branches
 ---------------------
