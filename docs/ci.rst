@@ -289,7 +289,7 @@ To build the container image, use your favorite container engine from the
     * ci
       main
    $alias container=podman # or docker, ...
-   $container build --tag adi/linux:v3 container
+   $container build --tag adi/linux:v4 container
 
 You may want to build the container in a host, where you have all your tools installed,
 and then deploy to a server.
@@ -301,7 +301,7 @@ In this case, export the image and then import on the server:
    :group: host
 
    ~/linux
-   $container save -o adi-linux.tar adi/linux:v3
+   $container save -o adi-linux.tar adi/linux:v4
    $scp adi-linux.tar server:/tmp/
 
 .. shell::
@@ -320,7 +320,7 @@ Or if you are feeling adventurous:
    :group: host
 
    ~/linux
-   $container save adi/linux:v3 | ssh server "cat - | podman load"
+   $container save adi/linux:v4 | ssh server "cat - | podman load"
 
 .. _interactive-run:
 
@@ -337,7 +337,7 @@ You can use it to compile/runs checks using persistent cache, for example:
 .. shell::
 
    ~/linux
-   $cr adi/linux:v3
+   $cr adi/linux:v4
    $set_arch gcc_aarch64
     ARCH=arm64
     CXX=gcc-14
@@ -365,7 +365,7 @@ Or:
 .. shell::
 
    ~/linux
-   $cr adi/linux:v3
+   $cr adi/linux:v4
    $base_sha=@~2
    $check_checkpatch
     checkpatch on range @~6..@
@@ -384,7 +384,7 @@ Remember to replace ``container_engine`` variable with your preferred container 
    .. shell::
 
       ~/linux
-      $cr adi/linux:v3
+      $cr adi/linux:v4
        Remote 'public' matches 'analogdevicesinc', and has branch 'ci'.
        Fetch (y/n)? y
        Fetching branch 'ci'...
@@ -473,7 +473,7 @@ is ignored and a new one is requested.
    $    --secret public_linux_org_repository,type=env,target=org_repository \
    $    --secret public_linux_runner_token,type=env,target=runner_token \
    $    --env runner_labels=v1,big_cpu \
-   $    adi/linux:v3
+   $    adi/linux:v4
 
 .. collapsible:: Docker alternative
 
@@ -488,7 +488,7 @@ is ignored and a new one is requested.
       $    --env public_linux_org_repository=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_org_repository.gpg) \
       $    --env public_linux_runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_runner_token.gpg) \
       $    --env runner_labels=v1,big_cpu \
-      $    localhost/adi/linux:v3
+      $    localhost/adi/linux:v4
 
 The environment variable runner_labels (comma-separated), set the runner labels.
 If not provided on the Containerfile as ``ENV runner_labels=<labels,>`` or as argument
@@ -532,7 +532,7 @@ Below is a suggested systemd service at *~/.config/systemd/user/container-public
              --memory-swap=20g \
              --memory=16g \
              --cpus=4 \
-             -d adi/linux:v3 top
+             -d adi/linux:v4 top
    ExecStop=/bin/sh -c "/bin/podman stop -t 300 $(cat %t/%n-cid) && /bin/podman rm $(cat %t/%n-cid)"
    ExecStopPost=/bin/rm %t/%n-pid %t/%n-cid
    TimeoutStopSec=600
@@ -565,7 +565,7 @@ Below is a suggested systemd service at *~/.config/systemd/user/container-public
                 --memory=16g \
                 --cpus=4 \
                 --log-driver=journald \
-                -d localhost/adi/linux:v3 top"
+                -d localhost/adi/linux:v4 top"
       RemainAfterExit=yes
       ExecStop=/bin/sh -c "/bin/docker stop -t 300 $(cat %t/%n-cid) && /bin/docker rm $(cat %t/%n-cid)"
       ExecStopPost=/bin/rm %t/%n-cid
