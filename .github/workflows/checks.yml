@@ -3,25 +3,25 @@ name: Checks
 on:
   workflow_call:
     inputs:
-      # deprecated: not used
-      ref_branch:
+      ref_branch: # DEPRECATED
         required: false
         type: string
       strategy:
         required: false
         type: string
         default: "commit" # when supported, or "file"
-      skip_checkpatch:
-      # deprecated: not used
+      skip_checkpatch: # DEPRECATED
         type: boolean
         default: false
     outputs:
       fatal:
         value: ${{ jobs.checks.outputs.fatal}}
-      fail:
+      fail: # DEPRECATED
         value: ${{ jobs.checks.outputs.fail }}
-      warn:
+      warn: # DEPRECATED
         value: ${{ jobs.checks.outputs.warn }}
+      summary:
+        value: ${{ jobs.build.outputs.summary }}
 
 jobs:
   checks:
@@ -31,8 +31,9 @@ jobs:
 
     outputs:
       fatal: ${{ steps.assert.outputs.fatal }}
-      fail: ${{ steps.assert.outputs.fail }}
-      warn: ${{ steps.assert.outputs.warn }}
+      fail: ${{ steps.assert.outputs.fail }} # DEPRECATED
+      warn: ${{ steps.assert.outputs.warn }} # DEPRECATED
+      summary: ${{ steps.assert.outputs.summary }}
 
     steps:
     - uses: analogdevicesinc/doctools/checkout@action
@@ -116,5 +117,4 @@ jobs:
       run: |
         echo "fatal=$fatal" >> "$GITHUB_OUTPUT"
         source ./ci/runner_env.sh
-        export_labels
-
+        export_job_summary
