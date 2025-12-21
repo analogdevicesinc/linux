@@ -3,9 +3,9 @@
 
 set -e
 
-# linux headers_install
+# linux patch headers_install
 zypper install -y --no-recommends \
-    rsync
+    xxd rsync
 
 # linux checks
 zypper install -y --no-recommends \

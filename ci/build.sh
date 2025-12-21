@@ -528,6 +528,57 @@ compile_many_devicetrees() {
 	return $err
 }
 
+prepare_compile_kernel() {
+	if [[ "$ARCH" == "microblaze" ]]; then
+		wget https://swdownloads.analog.com/cse/microblaze/rootfs/rootfs.cpio.gz -O rootfs.cpio.gz
+		# Create 'empty' devicetree.
+		printf "/dts-v1/;\n\n/ { };\n" > arch/$ARCH/boot/dts/generic.dts
+	elif [[ "$ARCH" == "nios2" ]]; then
+		wget https://swdownloads.analog.com/cse/nios2/rootfs/rootfs.cpio.gz -O arch/nios2/boot/rootfs.cpio.gz
+		printf "/dts-v1/;\n\n/ { };\n" > arch/$ARCH/boot/dts/devicetree.dts
+	fi
+}
+
+_get_make_kernel_flags() {
+	if [[ "$ARCH" == "microblaze" ]]; then
+		# AMD Xilinx Microblaze
+		# Embeds the dtb into the image, but always at the same offset
+		# and length. Therefore, downstream patch the dtb. The only
+		# other diff is the GNU Build ID at 0xf51460, and that's ok to
+		# not patch.
+		echo "simpleImage.generic"
+	elif [[ "$ARCH" == "arm" ]]; then
+		if [[ "$DEFCONFIG" == "socfpga_adi_defconfig" ]]; then
+			# Altera
+			echo "zImage UIMAGE_LOADADDR=0x8000"
+		elif [[ "$DEFCONFIG" =~ bcmrpi|bcm2709 ]]; then
+			# Raspberry Pi
+			echo "zImage"
+		else
+			# AMD Xilinx Zynq
+			echo "uImage UIMAGE_LOADADDR=0x8000"
+		fi
+	elif [[ "$ARCH" == "arm64" ]]; then
+		if [[ "$DEFCONFIG" =~ bcm2711|bcm2712 ]]; then
+			# Raspberry Pi
+			echo "Image.gz"
+		else
+			# AMD Xilinx ZynqMP
+			echo "Image UIMAGE_LOADADDR=0x8000"
+		fi
+	elif [[ "$ARCH" == "x86" ]]; then
+		echo "bzImage"
+	else
+		echo "Image"
+	fi
+}
+
+_export_kernel_name() {
+	local kernel=${make_flags%% *}
+	[[ "$ARCH" == "microblaze" ]] && kernel="$kernel.strip"
+	[[ -n "$GITHUB_ENV" ]] && echo "KERNEL=$kernel" >> "$GITHUB_ENV"
+}
+
 compile_kernel() {
 	export step_name="kernel"
 	local tmp_log_file=/dev/shm/$run_id.ci_compile_kernel.log
@@ -536,6 +587,7 @@ compile_kernel() {
 	local fail=0
 	local warn=0
 	local msg=
+	local make_flags=$(_get_make_kernel_flags)
 
 	# At this step, we only problem match if it exits with an error code
 	# because we don't want duplicated errors/warnings on sparse,
@@ -547,7 +599,7 @@ compile_kernel() {
 
 	echo > $tmp_log_file
 	yes n 2>/dev/null | \
-		make -j$(nproc) 2>&1 | \
+		make -j$(nproc) $make_flags modules 2>&1 | \
 		(while IFS= read -r row; do
 		echo $row
 		if [[ "$row" =~ $regex ]]; then
@@ -597,6 +649,7 @@ compile_kernel() {
 
 	python3.13 scripts/clang-tools/gen_compile_commands.py
 
+	_export_kernel_name
 	_set_step_warn $warn
 	return $fail
 }
@@ -614,7 +667,7 @@ compile_kernel_sparse() {
 	[[ -z "$files" ]] && return 0
 	touch $files
 	yes n 2>/dev/null | \
-		make -j$(nproc) C=1 $EXTRA_FLAGS 2>&1 | \
+		make -j$(nproc) C=1 2>&1 | \
 		(while IFS= read -r row; do
 		if [[ "$row" =~ $regex ]]; then
 			if [[ "$found" == "1" ]]; then
@@ -698,7 +751,7 @@ compile_kernel_smatch() {
 	fi
 
 	yes n 2>/dev/null | \
-		make -j$(nproc) C=1 CHECK="smatch -p=kernel" $EXTRA_FLAGS | \
+		make -j$(nproc) C=1 CHECK="smatch -p=kernel" | \
 		(while IFS= read -r row; do
 		if [[ "$row" =~ $regex ]]; then
 
@@ -1019,7 +1072,7 @@ auto_set_kconfig() {
 set_arch () {
 	local version_gcc=13
 	local version_llvm=19
-	local arch_gcc=("gcc_arm" "gcc_aarch64" "gcc_x86")
+	local arch_gcc=("gcc_arm", "gcc_microblaze", "gcc_aarch64" "gcc_x86")
 	local arch_llvm=("llvm_x86")
 	local arch=( "${arch_llvm[@]}" "${arch_gcc[@]}")
 	local fail=false
@@ -1037,11 +1090,15 @@ set_arch () {
 			export CXX=gcc-$version_gcc
 			case $1 in
 				gcc_arm)
-					export CROSS_COMPILE=arm-suse-linux-gnueabi-
+					export CROSS_COMPILE=arm-linux-
 					export ARCH=arm
 					;;
+				gcc_microblaze)
+					export CROSS_COMPILE=microblazeel-linux-
+					export ARCH=microblaze
+					;;
 				gcc_aarch64)
-					export CROSS_COMPILE=aarch64-suse-linux-
+					export CROSS_COMPILE=aarch64-linux-
 					export ARCH=arm64
 					;;
 				gcc_x86)

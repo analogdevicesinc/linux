@@ -100,9 +100,13 @@ jobs:
         fi
 
         if [[ "${{ inputs.arch }}" == "arm" ]]; then
-          echo "CROSS_COMPILE=arm-suse-linux-gnueabi-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE=arm-linux-" >> $GITHUB_ENV
+        elif [[ "${{ inputs.arch }}" == "microblaze" ]]; then
+          echo "CROSS_COMPILE=microblazeel-linux-" >> $GITHUB_ENV
+        elif [[ "${{ inputs.arch }}" == "nios2" ]]; then
+          echo "CROSS_COMPILE=nios2-linux-" >> $GITHUB_ENV
         elif [[ "${{ inputs.arch }}" == "arm64" ]]; then
-          echo "CROSS_COMPILE=aarch64-suse-linux-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE=aarch64-linux-" >> $GITHUB_ENV
         fi
         echo "ARCH=${{ inputs.arch }}" >> $GITHUB_ENV
         echo "DEFCONFIG=${{ inputs.defconfig }}" >> $GITHUB_ENV
@@ -135,6 +139,11 @@ jobs:
         source ./ci/build.sh
         compile_devicetree
 
+    - name: Get compile auxiliar files
+      run: |
+        source ./ci/build.sh
+        prepare_compile_kernel
+
     - name: Compile kernel
       run: |
         source ./ci/build.sh
@@ -148,7 +157,7 @@ jobs:
         kversion=$(cat ./include/config/kernel.release)
         mkdir -p dist/usr/lib/modules/$kversion ; (cd $_ ; touch modules.order modules.builtin modules.builtin.modinfo)
         make INSTALL_MOD_PATH=dist modules_install
-        (cd dist ; find . -type l -delete)
+        (cd dist ; find . -type l -delete ; rm -r ./usr)
         mkdir -p dist-headers
         if command -v rsync ; then
           make INSTALL_HDR_PATH=dist-headers/usr headers_install
@@ -157,9 +166,10 @@ jobs:
 
         cp defconfig dist
         mkdir -p dist/boot
-        cp arch/$ARCH/boot/*Image dist/boot
+        cp arch/$ARCH/boot/$KERNEL dist/boot
 
-        echo "kernel_release=$kversion" > dist/context.txt
+        echo "kernel=$KERNEL" > dist/context.txt
+        echo "kernel_release=$kversion" >> dist/context.txt
         echo "kernel_defconfig=${{ inputs.defconfig }}" >> dist/context.txt
         echo "compiler_name=${{ inputs.compiler }}" >> dist/context.txt
         echo "compiler_version=${{ env.compiler_version }}" >> dist/context.txt
