@@ -3,13 +3,14 @@
 
 set -e
 
-# linux headers_install
+# linux patch headers_install
 zypper install -y --no-recommends \
-    rsync
+	xxd rsync
 
 # linux checks
 zypper install -y --no-recommends \
-    sqlite3-devel
+	sparse coccinelle ocaml ocaml-findlib cppcheck \
+	sqlite3-devel
 
 git clone https://repo.or.cz/smatch.git smatch --depth=1
 cd smatch

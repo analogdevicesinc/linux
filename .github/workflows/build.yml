@@ -100,9 +100,9 @@ jobs:
         fi
 
         if [[ "${{ inputs.arch }}" == "arm" ]]; then
-          echo "CROSS_COMPILE=arm-suse-linux-gnueabi-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE=arm-linux-" >> $GITHUB_ENV
         elif [[ "${{ inputs.arch }}" == "arm64" ]]; then
-          echo "CROSS_COMPILE=aarch64-suse-linux-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE=aarch64-linux-" >> $GITHUB_ENV
         fi
         echo "ARCH=${{ inputs.arch }}" >> $GITHUB_ENV
         echo "DEFCONFIG=${{ inputs.defconfig }}" >> $GITHUB_ENV
@@ -159,7 +159,7 @@ jobs:
         mkdir -p dist/boot
         cp arch/$ARCH/boot/*Image dist/boot
 
-        echo "kernel_release=$kversion" > dist/context.txt
+        echo "kernel_release=$kversion" >> dist/context.txt
         echo "kernel_defconfig=${{ inputs.defconfig }}" >> dist/context.txt
         echo "compiler_name=${{ inputs.compiler }}" >> dist/context.txt
         echo "compiler_version=${{ env.compiler_version }}" >> dist/context.txt

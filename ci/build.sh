@@ -614,7 +614,7 @@ compile_kernel_sparse() {
 	[[ -z "$files" ]] && return 0
 	touch $files
 	yes n 2>/dev/null | \
-		make -j$(nproc) C=1 $EXTRA_FLAGS 2>&1 | \
+		make -j$(nproc) C=1 2>&1 | \
 		(while IFS= read -r row; do
 		if [[ "$row" =~ $regex ]]; then
 			if [[ "$found" == "1" ]]; then
@@ -698,7 +698,7 @@ compile_kernel_smatch() {
 	fi
 
 	yes n 2>/dev/null | \
-		make -j$(nproc) C=1 CHECK="smatch -p=kernel" $EXTRA_FLAGS | \
+		make -j$(nproc) C=1 CHECK="smatch -p=kernel" | \
 		(while IFS= read -r row; do
 		if [[ "$row" =~ $regex ]]; then
 
@@ -1019,7 +1019,7 @@ auto_set_kconfig() {
 set_arch () {
 	local version_gcc=13
 	local version_llvm=19
-	local arch_gcc=("gcc_arm" "gcc_aarch64" "gcc_x86")
+	local arch_gcc=("gcc_arm", "gcc_aarch64" "gcc_x86")
 	local arch_llvm=("llvm_x86")
 	local arch=( "${arch_llvm[@]}" "${arch_gcc[@]}")
 	local fail=false
@@ -1037,11 +1037,11 @@ set_arch () {
 			export CXX=gcc-$version_gcc
 			case $1 in
 				gcc_arm)
-					export CROSS_COMPILE=arm-suse-linux-gnueabi-
+					export CROSS_COMPILE=arm-linux-
 					export ARCH=arm
 					;;
 				gcc_aarch64)
-					export CROSS_COMPILE=aarch64-suse-linux-
+					export CROSS_COMPILE=aarch64-linux-
 					export ARCH=arm64
 					;;
 				gcc_x86)
