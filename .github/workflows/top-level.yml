@@ -178,6 +178,17 @@ jobs:
       arch: "microblaze"
       defconfig: "adi_mb_defconfig"
       auto_from_range: false
+  build_gcc_nios2_adi_nios2_defconfig:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "nios2"
+      defconfig: "adi_nios2_defconfig"
+      auto_from_range: false
   compile_devicetrees:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@ci
@@ -206,6 +217,7 @@ jobs:
       - build_gcc_aarch64_adi_zynqmp_defconfig
       - build_gcc_arm_adi_versal_defconfig
       - build_gcc_microblaze_adi_mb_defconfig
+      - build_gcc_nios2_adi_nios2_defconfig
       - compile_devicetrees
     steps:
       - name: Assert
@@ -217,6 +229,7 @@ jobs:
           job_build_gcc_aarch64_adi_zynqmp_defconfig: ${{ needs.build_gcc_aarch64_adi_zynqmp_defconfig.outputs.summary }}
           job_build_gcc_arm_adi_versal_defconfig: ${{ needs.build_gcc_arm_adi_versal_defconfig.outputs.summary }}
           job_build_gcc_microblaze_adi_mb_defconfig: ${{ needs.build_gcc_microblaze_adi_mb_defconfig.outputs.summary }}
+          job_build_gcc_nios2_adi_nios2_defconfig: ${{ needs.build_gcc_nios2_adi_nios2_defconfig.outputs.summary }}
           job_compile_devicetrees: ${{ needs.compile_devicetrees.outputs.summary }}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
@@ -244,4 +257,5 @@ jobs:
         zynq_pluto_defconfig-*
         zynq_xcomm_adv7511_defconfig-*
         adi_mb_defconfig-*
+        adi_nios2_defconfig-*
         dtb-*
