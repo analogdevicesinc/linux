@@ -31,7 +31,7 @@
 };
 
 &i2c2 {
-	gpio_expander: adp5588@30 {
+	crr_gpio_expander: adp5588@30 {
 		compatible = "adi,adp5588-gpio";
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -102,7 +102,7 @@
 		};
 	};
 
-	adau1372: adau1372@0x3c {
+	adau1372: adau1372@3c {
 		compatible = "adi,adau1372";
 		reg = <0x3c>;
 		clock-names = "mclk";

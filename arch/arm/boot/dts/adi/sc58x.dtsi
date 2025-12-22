@@ -109,7 +109,7 @@
 		clock-output-names = "sys_clkin1";
 	};
 
-	clk: clocks@0x3108d000 {
+	clk: clocks@3108d000 {
 		compatible = "adi,sc58x-clocks";
 		reg = <0x3108d000 0x1000>,
 			<0x3108e000 0x1000>,
@@ -120,7 +120,7 @@
 		status = "okay";
 	};
 
-	gptimers: gptimers@0x31001000 {
+	gptimers: gptimers@31001000 {
 		compatible = "adi,sc5xx-gptimers";
 		reg = <0x31001000 0x200>;
 		clocks = <&clk ADSP_SC58X_CLK_CGU0_SCLK0>;
@@ -241,7 +241,7 @@
 			status = "disabled";
 		};
 
-		rcu: rcu@0x3108B000 {
+		rcu: rcu@3108B000 {
 			compatible = "adi,reset-controller";
 			reg = <0x3108B000 0x1000>;
 			adi,sharc-min = <1>;
@@ -250,7 +250,7 @@
 			status = "okay";
 		};
 
-		sec: sec@0x31089000 {
+		sec: sec@31089000 {
 			compatible = "adi,system-event-controller";
 			reg = <0x31089000 0x1000>;
 			adi,rcu = <&rcu>;
@@ -258,7 +258,7 @@
 			status = "okay";
 		};
 
-		tru: tru@0x3108a000 {
+		tru: tru@3108a000 {
 			compatible = "adi,trigger-routing-unit";
 			reg = <0x3108a000 0x1000>;
 			adi,max-master-id = <139>;
@@ -266,7 +266,7 @@
 			status = "okay";
 		};
 
-		rtc0: rtc@0x310C8000 {
+		rtc0: rtc@310C8000 {
 			compatible = "adi,rtc2";
 			reg = <0x310C8000 0x100>;
 			interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
@@ -274,7 +274,7 @@
 			status = "disabled";
 		};
 
-		uart0: uart@0x31003000 {
+		uart0: uart@31003000 {
 			compatible = "adi,uart4";
 			reg = <0x31003000 0x40>;
 			dmas = <&dma_cluster2 20>, <&dma_cluster2 21>;
@@ -289,7 +289,7 @@
 			status = "disabled";
 		};
 
-		uart1: uart@0x31003400 {
+		uart1: uart@31003400 {
 			compatible = "adi,uart4";
 			reg = <0x31003400 0x40>;
 			dmas = <&dma_cluster2 34>, <&dma_cluster2 35>;
@@ -304,7 +304,7 @@
 			status = "disabled";
 		};
 
-		uart2: uart@0x31003800 {
+		uart2: uart@31003800 {
 			compatible = "adi,uart4";
 			reg = <0x31003800 0x40>;
 			dmas = <&dma_cluster2 37>, <&dma_cluster2 38>;
@@ -319,7 +319,7 @@
 			status = "disabled";
 		};
 
-		can0: can@0x31000200 {
+		can0: can@31000200 {
 			compatible = "adi,can";
 			reg = <0x31000200 0x5FF>;
 			interrupt-parent = <&gic>;
@@ -329,7 +329,7 @@
 			status = "disabled";
 		};
 
-		can1: can@0x31000a00 {
+		can1: can@31000a00 {
 			compatible = "adi,can";
 			reg = <0x31000a00 0x5FF>;
 			interrupt-parent = <&gic>;
@@ -339,7 +339,7 @@
 			status = "disabled";
 		};
 
-		i2c0: twi@0x31001400 {
+		i2c0: twi@31001400 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
@@ -351,7 +351,7 @@
 			status = "disabled";
 		};
 
-		i2c1: twi@0x31001500 {
+		i2c1: twi@31001500 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
@@ -363,7 +363,7 @@
 			status = "disabled";
 		};
 
-		i2c2: twi@0x31001600 {
+		i2c2: twi@31001600 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
@@ -403,7 +403,7 @@
 			status = "disabled";
 		};
 
-		watchdog@0x31008000 {
+		watchdog@31008000 {
 			compatible = "adi,watchdog";
 			reg = <0x31008000 0x10>;
 			timeout-sec = <30>;
@@ -411,7 +411,7 @@
 			clock-names = "adi-watchdog";
 		};
 
-		spi0: spi@0x31042000 {
+		spi0: spi@31042000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,spi3";
@@ -424,7 +424,7 @@
 			status = "disabled";
 		};
 
-		spi1: spi@0x31043000 {
+		spi1: spi@31043000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,spi3";
@@ -437,7 +437,7 @@
 			status = "disabled";
 		};
 
-		spi2: spi@0x31044000 {
+		spi2: spi@31044000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,spi3";
@@ -450,7 +450,7 @@
 			status = "disabled";
 		};
 
-		emac0: ethernet@0x3100C000 {
+		emac0: ethernet@3100C000 {
 			compatible = "adi,dwmac", "snps,dwmac-3.710", "snps,dwmac";
 			reg = <0x3100C000 0x2000>;
 			interrupt-parent = <&gic>;
@@ -466,7 +466,7 @@
 			status = "disabled";
 		};
 
-		emac1: ethernet@0x3100E000 {
+		emac1: ethernet@3100E000 {
 			compatible = "adi,dwmac", "snps,dwmac-3.710", "snps,dwmac";
 			reg = <0x3100E000 0x2000>;
 			interrupt-parent = <&gic>;
@@ -481,7 +481,7 @@
 			status = "disabled";
 		};
 
-		crc0: crc@0x31001200 {
+		crc0: crc@31001200 {
 			compatible = "adi,hmac-crc";
 			reg = <0x31001200 0xFF>;
 			interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
@@ -490,7 +490,7 @@
 			status = "disabled";
 		};
 
-		crc1: crc@0x31001300 {
+		crc1: crc@31001300 {
 			compatible = "adi,hmac-crc";
 			reg = <0x31001300 0xFF>;
 			interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
@@ -499,7 +499,7 @@
 			status = "disabled";
 		};
 
-		pinctrl0: pinctrl@0x31004400 {
+		pinctrl0: pinctrl@31004400 {
 			compatible = "adi,adsp-pinctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -509,7 +509,7 @@
 			adi,no-pull-up-down;
 		};
 
-		sru_ctrl_dai0: sru-ctrl-dai0@0x310C9000 {
+		sru_ctrl_dai0: sru-ctrl-dai0@310C9000 {
 			compatible = "adi,adsp-sru-ctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -518,7 +518,7 @@
 			status = "disabled";
 		};
 
-		sru_ctrl_dai1: sru-ctrl-dai1@0x310CB000 {
+		sru_ctrl_dai1: sru-ctrl-dai1@310CB000 {
 			compatible = "adi,adsp-sru-ctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -527,7 +527,7 @@
 			status = "disabled";
 		};
 
-		mmc0: mmc@0x31010000 {
+		mmc0: mmc@31010000 {
 			compatible = "snps,dw-mshc";
 			reg = <0x31010000 0xFFF>;
 			interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>;
@@ -558,43 +558,43 @@
 			status = "disabled";
 		};
 
-		pint0: pint@0x31005000 {
+		pint0: pint@31005000 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005000 0xFF>;
 			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		pint1: pint@0x31005100 {
+		pint1: pint@31005100 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005100 0xFF>;
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		pint2: pint@0x31005200 {
+		pint2: pint@31005200 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005200 0xFF>;
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		pint3: pint@0x31005300 {
+		pint3: pint@31005300 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005300 0xFF>;
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		pint4: pint@0x31005400 {
+		pint4: pint@31005400 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005400 0xFF>;
 			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		pint5: pint@0x31005500 {
+		pint5: pint@31005500 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005500 0xFF>;
 			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		gpa: gport@0x31004000 {
+		gpa: gport@31004000 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -604,7 +604,7 @@
 			adi,gpio-base = <0>;
 		};
 
-		gpb: gport@0x31004080 {
+		gpb: gport@31004080 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -614,7 +614,7 @@
 			adi,gpio-base = <16>;
 		};
 
-		gpc: gport@0x31004100 {
+		gpc: gport@31004100 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -624,7 +624,7 @@
 			adi,gpio-base = <32>;
 		};
 
-		gpd: gport@0x31004180 {
+		gpd: gport@31004180 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -634,7 +634,7 @@
 			adi,gpio-base = <48>;
 		};
 
-		gpe: gport@0x31004200 {
+		gpe: gport@31004200 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -644,7 +644,7 @@
 			adi,gpio-base = <64>;
 		};
 
-		gpf: gport@0x31004280 {
+		gpf: gport@31004280 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -654,7 +654,7 @@
 			adi,gpio-base = <80>;
 		};
 
-		gpg: gport@0x31004300 {
+		gpg: gport@31004300 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -1031,7 +1031,7 @@
 		};
 */
 
-		spi_cluster: dma@0x31046000 {
+		spi_cluster: dma@31046000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31046000 0x1000>;
 			status = "okay";
@@ -1086,7 +1086,7 @@
 			};
 		};
 
-		sport_dma_cluster: dma@0x31024000 {
+		sport_dma_cluster: dma@31024000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31024000 0x1000>;
 			status = "okay";
@@ -1111,7 +1111,7 @@
 			};
 		};
 
-		sport0_dma_cluster: dma@0x31022000 {
+		sport0_dma_cluster: dma@31022000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31022000 0x1000>;
 			status = "okay";
@@ -1136,7 +1136,7 @@
 			};
 		};
 
-		dma_cluster2: dma@0x31026000 {
+		dma_cluster2: dma@31026000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31026000 0x1000>;
 			status = "okay";
@@ -1191,7 +1191,7 @@
 			};
 		};
 
-		mdma: dma@0x3109a000 {
+		mdma: dma@3109a000 {
 			compatible = "adi,mdma-controller";
 			reg = <0x3109a000 0x1000>;
 			status = "okay";
@@ -1209,7 +1209,7 @@
 			};
 		};
 
-		trng: rng@0x310D0000 {
+		trng: rng@310D0000 {
 			compatible = "adi,sc5xx-trng";
 			reg = <0x310D0000 0x74>, <0x310D8000 0x14>;
 			interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>;
