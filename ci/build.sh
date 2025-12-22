@@ -1069,10 +1069,23 @@ auto_set_kconfig() {
 	return 0
 }
 
+_set_arch () {
+	local arch_gcc=("gcc_arm" "gcc_microblaze" "gcc_nios2" "gcc_aarch64" "gcc_x86")
+	local arch_llvm=("llvm_x86")
+
+	local cur=${COMP_WORDS[COMP_CWORD]}
+	local opts="${arch_gcc[*]} ${arch_llvm[*]}"
+
+	COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+
+	return 0
+}
+complete -F _set_arch set_arch
+
 set_arch () {
 	local version_gcc=13
 	local version_llvm=19
-	local arch_gcc=("gcc_arm", "gcc_microblaze", "gcc_aarch64" "gcc_x86")
+	local arch_gcc=("gcc_arm" "gcc_microblaze" "gcc_nios2" "gcc_aarch64" "gcc_x86")
 	local arch_llvm=("llvm_x86")
 	local arch=( "${arch_llvm[@]}" "${arch_gcc[@]}")
 	local fail=false
@@ -1096,6 +1109,10 @@ set_arch () {
 				gcc_microblaze)
 					export CROSS_COMPILE=microblazeel-linux-
 					export ARCH=microblaze
+					;;
+				gcc_nios2)
+					export CROSS_COMPILE=nios2-linux-
+					export ARCH=nios2
 					;;
 				gcc_aarch64)
 					export CROSS_COMPILE=aarch64-linux-
