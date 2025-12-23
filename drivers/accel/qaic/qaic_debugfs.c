@@ -263,8 +263,9 @@ static void qaic_bootlog_mhi_dl_xfer_cb(struct mhi_device *mhi_dev, struct mhi_r
 {
 	struct qaic_device *qdev = dev_get_drvdata(&mhi_dev->dev);
 	struct bootlog_msg *msg = mhi_result->buf_addr;
+	int status = mhi_result->transaction_status;
 
-	if (mhi_result->transaction_status) {
+	if (status && status != -EOVERFLOW) {
 		devm_kfree(&qdev->pdev->dev, msg);
 		return;
 	}
