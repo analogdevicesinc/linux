@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Machine entries for the sc573 ezkit
+ * Machine entries for the sc573 ezlite
  *
  * (C) Copyright 2022 - Analog Devices, Inc.
  *
@@ -59,7 +59,7 @@ static void __init sc57x_init(void)
 	sc5xx_init_ethernet();
 }
 
-DT_MACHINE_START(SC57X_DT, "SC57x-EZKIT (Device Tree Support)")
+DT_MACHINE_START(SC57X_DT, "SC57x-EZLITE (Device Tree Support)")
 	.l2c_aux_val = 0,
 	.l2c_aux_mask = ~0,
 	.init_early	= sc57x_init_early,
