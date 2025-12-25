@@ -63,9 +63,9 @@ config ARCH_SC57X
 	help
 		This enables support for ADI ADSP SC-57x SoCs
 
-config	MACH_SC573_EZKIT
-	bool "ADI SC573 EZKIT board"
+config	MACH_SC573_EZLITE
+	bool "ADI SC573 EZLITE board"
 	depends on ARCH_SC57X
 	help
 		Say 'Y' here if you want your kernel to run on the ADI
-		SC573-EZKIT board.
+		SC573-EZLITE board.
