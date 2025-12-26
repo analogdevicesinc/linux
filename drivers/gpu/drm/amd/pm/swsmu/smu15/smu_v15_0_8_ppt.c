@@ -63,6 +63,8 @@
 	for ((stack_idx) = 0; (umc_mask); \
 	     (umc_mask) >>= 4, (stack_idx)++) \
 
+#define NUM_JPEG_RINGS_FW	10
+
 #define to_amdgpu_device(x) (container_of(x, struct amdgpu_device, pm.smu_i2c))
 
 #define SMU_15_0_8_FEA_MAP(smu_feature, smu_15_0_8_feature)                    \
@@ -1593,6 +1595,81 @@ static ssize_t smu_v15_0_8_get_temp_metrics(struct smu_context *smu,
 	}
 }
 
+static ssize_t smu_v15_0_8_get_xcp_metrics(struct smu_context *smu, int xcp_id,
+					   void *table)
+{
+	struct smu_table_context *smu_table = &smu->smu_table;
+	const u8 num_jpeg_rings = NUM_JPEG_RINGS_FW;
+	struct smu_v15_0_8_partition_metrics *xcp_metrics;
+	MetricsTable_t *metrics;
+	struct amdgpu_device *adev = smu->adev;
+	int ret, inst, i, j, k, idx;
+	struct amdgpu_xcp *xcp;
+	u32 inst_mask;
+
+	if (!table)
+		return sizeof(*xcp_metrics);
+
+	for_each_xcp(adev->xcp_mgr, xcp, i) {
+		if (xcp->id == xcp_id)
+			break;
+	}
+	if (i == adev->xcp_mgr->num_xcps)
+		return -EINVAL;
+
+	xcp_metrics = (struct smu_v15_0_8_partition_metrics *)table;
+	smu_v15_0_8_partition_metrics_init(xcp_metrics, 1, 1);
+
+	ret = smu_v15_0_8_get_metrics_table_internal(smu, 1, NULL);
+	if (ret)
+		return ret;
+
+	metrics = (MetricsTable_t *)smu_table->metrics_table;
+
+	amdgpu_xcp_get_inst_details(xcp, AMDGPU_XCP_VCN, &inst_mask);
+	idx = 0;
+	for_each_inst(k, inst_mask) {
+		/* Both JPEG and VCN has same instances */
+		inst = GET_INST(VCN, k);
+		for (j = 0; j < num_jpeg_rings; ++j) {
+			xcp_metrics->jpeg_busy[(idx * num_jpeg_rings) + j] =
+				SMUQ10_ROUND(metrics->JpegBusy[(inst * num_jpeg_rings) + j]);
+		}
+		xcp_metrics->vcn_busy[idx] =
+			SMUQ10_ROUND(metrics->VcnBusy[inst]);
+
+		xcp_metrics->current_vclk[idx] = SMUQ10_ROUND(metrics->VclkFrequency[inst]);
+		xcp_metrics->current_dclk[idx] = SMUQ10_ROUND(metrics->DclkFrequency[inst]);
+
+		idx++;
+	}
+
+	amdgpu_xcp_get_inst_details(xcp, AMDGPU_XCP_GFX, &inst_mask);
+	idx = 0;
+	for_each_inst(k, inst_mask) {
+		inst = GET_INST(GC, k);
+		xcp_metrics->current_gfxclk[idx] =
+			SMUQ10_ROUND(metrics->GfxclkFrequency[inst]);
+
+		xcp_metrics->gfx_busy_inst[idx] = SMUQ10_ROUND(metrics->GfxBusy[inst]);
+		xcp_metrics->gfx_busy_acc[idx] = SMUQ10_ROUND(metrics->GfxBusyAcc[inst]);
+		xcp_metrics->gfx_below_host_limit_ppt_acc[idx] =
+			SMUQ10_ROUND(metrics->GfxclkBelowHostLimitPptAcc[inst]);
+		xcp_metrics->gfx_below_host_limit_thm_acc[idx] =
+			SMUQ10_ROUND(metrics->GfxclkBelowHostLimitThmAcc[inst]);
+		xcp_metrics->gfx_low_utilization_acc[idx] =
+			SMUQ10_ROUND(metrics->GfxclkLowUtilizationAcc[inst]);
+		xcp_metrics->gfx_below_host_limit_total_acc[idx] =
+			SMUQ10_ROUND(metrics->GfxclkBelowHostLimitTotalAcc[inst]);
+		idx++;
+	}
+
+	xcp_metrics->accumulation_counter = metrics->AccumulationCounter;
+	xcp_metrics->firmware_timestamp = metrics->Timestamp;
+
+	return sizeof(*xcp_metrics);
+}
+
 static ssize_t smu_v15_0_8_get_gpu_metrics(struct smu_context *smu, void **table)
 {
 	struct smu_table_context *smu_table = &smu->smu_table;
@@ -2222,6 +2299,7 @@ static const struct pptable_funcs smu_v15_0_8_ppt_funcs = {
 	.get_pp_feature_mask = smu_cmn_get_pp_feature_mask,
 	.wait_for_event = smu_v15_0_wait_for_event,
 	.get_pm_metrics = smu_v15_0_8_get_pm_metrics,
+	.get_xcp_metrics = smu_v15_0_8_get_xcp_metrics,
 	.mode2_reset = smu_v15_0_8_mode2_reset,
 	.get_dpm_ultimate_freq = smu_v15_0_8_get_dpm_ultimate_freq,
 	.get_gpu_metrics = smu_v15_0_8_get_gpu_metrics,
