@@ -11,10 +11,6 @@
 	#size-cells = <2>;
 	compatible = "canaan,kendryte-k230";
 
-	aliases {
-		serial0 = &uart0;
-	};
-
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -75,7 +71,7 @@
 		ranges;
 
 		plic: interrupt-controller@f00000000 {
-			compatible = "canaan,k230-plic" ,"thead,c900-plic";
+			compatible = "canaan,k230-plic", "thead,c900-plic";
 			reg = <0xf 0x00000000 0x0 0x04000000>;
 			interrupts-extended = <&cpu0_intc 11>, <&cpu0_intc 9>;
 			interrupt-controller;

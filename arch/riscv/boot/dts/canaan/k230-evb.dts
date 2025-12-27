@@ -9,6 +9,10 @@
 	model = "Kendryte K230 EVB";
 	compatible = "canaan,k230-usip-lp3-evb", "canaan,kendryte-k230";
 
+	aliases {
+		serial0 = &uart0;
+	};
+
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
