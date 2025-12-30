@@ -503,7 +503,6 @@ int amdgpu_dm_crtc_configure_crc_source(struct drm_crtc *crtc,
 {
 	struct amdgpu_device *adev = drm_to_adev(crtc->dev);
 	struct dc_stream_state *stream_state = dm_crtc_state->stream;
-	struct amdgpu_dm_connector *aconnector = NULL;
 	bool enable = amdgpu_dm_is_valid_crc_source(source);
 	int ret = 0;
 	enum crc_poly_mode crc_poly_mode = CRC_POLY_MODE_16;
@@ -512,21 +511,17 @@ int amdgpu_dm_crtc_configure_crc_source(struct drm_crtc *crtc,
 	if (!stream_state)
 		return -EINVAL;
 
-	/* Get connector from stream */
-	aconnector = (struct amdgpu_dm_connector *)stream_state->dm_stream_context;
-
 	mutex_lock(&adev->dm.dc_lock);
 
-
+	/* Notify power module about CRC window active to disable PSR/Replay
+	 * Power module will check caps internally and skip if not supported
+	 */
 	if (enable) {
-		/* For PSR1, check that the panel has exited PSR */
-		if (stream_state->link->psr_settings.psr_version < DC_PSR_VERSION_SU_1)
-			amdgpu_dm_psr_wait_disable(stream_state);
+		amdgpu_dm_psr_set_event(&adev->dm, stream_state, true,
+			psr_event_crc_window_active, true);
 
-		/* Set flag to disallow enter replay when CRC source is enabled */
-		if (aconnector)
-			aconnector->disallow_edp_enter_replay = true;
-		amdgpu_dm_replay_disable(stream_state);
+		amdgpu_dm_replay_set_event(&adev->dm, stream_state, true,
+			replay_event_crc_window_active, true);
 	}
 
 	/* CRC polynomial selection only support for DCN3.6+ except DCN4.0.1 */
@@ -559,11 +554,15 @@ int amdgpu_dm_crtc_configure_crc_source(struct drm_crtc *crtc,
 	}
 
 	if (!enable) {
-		/* Clear flag to allow enter replay when CRC source is disabled */
-		if (aconnector)
-			aconnector->disallow_edp_enter_replay = false;
-	}
+		/* Notify power module about CRC window inactive to re-enable PSR/Replay
+		 * Power module will check caps internally and skip if not supported
+		 */
+		amdgpu_dm_psr_set_event(&adev->dm, stream_state, false,
+			psr_event_crc_window_active, false);
 
+		amdgpu_dm_replay_set_event(&adev->dm, stream_state, false,
+			replay_event_crc_window_active, false);
+	}
 unlock:
 	mutex_unlock(&adev->dm.dc_lock);
 
@@ -760,10 +759,13 @@ void amdgpu_dm_crtc_handle_crc_irq(struct drm_crtc *crtc)
 	uint32_t crcs[3];
 	unsigned long flags;
 
-	if (crtc == NULL)
+	if (!crtc || !crtc->state || !crtc->dev)
 		return;
 
 	crtc_state = to_dm_crtc_state(crtc->state);
+	if (!crtc_state->stream)
+		return;
+
 	stream_state = crtc_state->stream;
 	acrtc = to_amdgpu_crtc(crtc);
 	drm_dev = crtc->dev;

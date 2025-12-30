@@ -33,6 +33,7 @@
 #include "amdgpu_dm.h"
 #include "amdgpu_dm_debugfs.h"
 #include "amdgpu_dm_replay.h"
+#include "amdgpu_dm_psr.h"
 #include "dm_helpers.h"
 #include "dmub/dmub_srv.h"
 #include "resource.h"
@@ -3300,10 +3301,25 @@ static int disallow_edp_enter_psr_get(void *data, u64 *val)
 static int disallow_edp_enter_psr_set(void *data, u64 val)
 {
 	struct amdgpu_dm_connector *aconnector = data;
+	struct dc_link *link = aconnector->dc_link;
 
-	aconnector->disallow_edp_enter_psr = val ? true : false;
+	aconnector->disallow_edp_enter_psr = (val != 0);
+
+	/* eDP PSR enable / disable is happened during mode change in power module.
+	 * Only psr_settings.psr_version is used to decide whether PSR is enabled or not.
+	 * So here we only update psr_version based on debugfs setting.
+	 * If disallow_edp_enter_psr is true, set psr_version to unsupported;
+	 * if disallow_edp_enter_psr is false, set psr_version based on sink capability.
+	 */
+	if (aconnector->disallow_edp_enter_psr)
+		link->psr_settings.psr_version = DC_PSR_VERSION_UNSUPPORTED;
+	else if (aconnector->psr_caps.psr_version == 1)
+		link->psr_settings.psr_version = DC_PSR_VERSION_1;
+	else if (aconnector->psr_caps.psr_version == 2)
+		link->psr_settings.psr_version = DC_PSR_VERSION_SU_1;
 	return 0;
 }
+
 
 /* check if kernel disallow eDP enter replay state
  * cat /sys/kernel/debug/dri/0/eDP-X/disallow_edp_enter_replay
@@ -3346,10 +3362,26 @@ static int disallow_edp_enter_replay_get(void *data, u64 *val)
 static int disallow_edp_enter_replay_set(void *data, u64 val)
 {
 	struct amdgpu_dm_connector *aconnector = data;
+	struct dc_link *link = aconnector->dc_link;
 
-	aconnector->disallow_edp_enter_replay = val ? true : false;
+	aconnector->disallow_edp_enter_replay = (val != 0);
+
+	/* eDP replay enable / disable is happened during mode change in power module.
+	 * Only replay_settings.config.replay_supported is used to decide whether
+	 * replay is enabled or not. So here we only update replay_supported based on
+	 * debugfs setting.
+	 * If disallow_edp_enter_replay is true, set replay_supported to false.
+	 * if disallow_edp_enter_replay is false, set replay_supported back based on
+	 * sink replay capability.
+	 */
+	if (aconnector->disallow_edp_enter_replay)
+		link->replay_settings.config.replay_supported = false;
+	else
+		link->replay_settings.config.replay_supported =
+			link->replay_settings.config.replay_cap_support;
 	return 0;
 }
+
 
 static int dmub_trace_mask_set(void *data, u64 val)
 {
@@ -3485,6 +3517,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(disallow_edp_enter_replay_fops,
 
 DEFINE_DEBUGFS_ATTRIBUTE(ips_residency_cntl_fops, ips_residency_cntl_get,
 			   ips_residency_cntl_set, "%llu\n");
+
 DEFINE_SHOW_ATTRIBUTE(current_backlight);
 DEFINE_SHOW_ATTRIBUTE(target_backlight);
 DEFINE_SHOW_ATTRIBUTE(ips_status);
@@ -3855,28 +3888,35 @@ DEFINE_DEBUGFS_ATTRIBUTE(crc_win_y_end_fops, crc_win_y_end_get,
 static int crc_win_update_set(void *data, u64 val)
 {
 	struct drm_crtc *crtc = data;
-	struct amdgpu_crtc *acrtc;
+	struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
 	struct amdgpu_device *adev = drm_to_adev(crtc->dev);
 
 	if (val) {
-		acrtc = to_amdgpu_crtc(crtc);
 		mutex_lock(&adev->dm.dc_lock);
-		/* PSR may write to OTG CRC window control register,
-		 * so close it before starting secure_display.
+		/* PSR Replay may write to OTG CRC window control register,
+		 * so inactive it before starting secure_display by sending disable event.
 		 */
-		amdgpu_dm_psr_disable(acrtc->dm_irq_params.stream, true);
+		amdgpu_dm_psr_set_event(&adev->dm, acrtc->dm_irq_params.stream, true,
+			psr_event_crc_window_active, true);
+		amdgpu_dm_replay_set_event(&adev->dm, acrtc->dm_irq_params.stream, true,
+			replay_event_crc_window_active, true);
 
 		spin_lock_irq(&adev_to_drm(adev)->event_lock);
-
 		acrtc->dm_irq_params.window_param[0].enable = true;
 		acrtc->dm_irq_params.window_param[0].update_win = true;
 		acrtc->dm_irq_params.window_param[0].skip_frame_cnt = 0;
 		acrtc->dm_irq_params.crc_window_activated = true;
-
 		spin_unlock_irq(&adev_to_drm(adev)->event_lock);
 		mutex_unlock(&adev->dm.dc_lock);
+	} else {
+		/* Clear disable events to allow PSR/Replay to active */
+		mutex_lock(&adev->dm.dc_lock);
+		amdgpu_dm_psr_set_event(&adev->dm, acrtc->dm_irq_params.stream, false,
+			psr_event_crc_window_active, false);
+		amdgpu_dm_replay_set_event(&adev->dm, acrtc->dm_irq_params.stream, false,
+			replay_event_crc_window_active, false);
+		mutex_unlock(&adev->dm.dc_lock);
 	}
-
 	return 0;
 }
 
