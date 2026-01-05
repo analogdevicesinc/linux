@@ -9769,16 +9769,26 @@ static void nfs4_layoutreturn_done(struct rpc_task *task, void *calldata)
 	if (!nfs41_sequence_process(task, &lrp->res.seq_res))
 		return;
 
-	if (task->tk_rpc_status == -ETIMEDOUT) {
-		lrp->rpc_status = -EAGAIN;
-		lrp->res.lrs_present = 0;
-		return;
-	}
-	/*
-	 * Was there an RPC level error? Assume the call succeeded,
-	 * and that we need to release the layout
-	 */
-	if (task->tk_rpc_status != 0 && RPC_WAS_SENT(task)) {
+	if (task->tk_rpc_status < 0) {
+		switch (task->tk_rpc_status) {
+		case -EACCES:
+		case -EIO:
+		case -EKEYEXPIRED:
+		case -ERESTARTSYS:
+		case -EINTR:
+			lrp->rpc_status = 0;
+			break;
+		case -ENETDOWN:
+		case -ENETUNREACH:
+			if (task->tk_flags & RPC_TASK_NETUNREACH_FATAL)
+				lrp->rpc_status = 0;
+			else
+				lrp->rpc_status = -EAGAIN;
+			break;
+		default:
+			lrp->rpc_status = -EAGAIN;
+			break;
+		}
 		lrp->res.lrs_present = 0;
 		return;
 	}
