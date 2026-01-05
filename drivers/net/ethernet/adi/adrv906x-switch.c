@@ -229,16 +229,32 @@ int adrv906x_switch_vlan_del_cpuport(struct adrv906x_eth_switch *es, u16 vid)
 
 static int adrv906x_switch_pvid_set(struct adrv906x_eth_switch *es, u16 pvid)
 {
+	struct vlan_cfg_list *vcl;
 	int portid, ret;
 	u32 val;
 
 	if (pvid == 0 || pvid >= VLAN_N_VID - 1)
 		return -EINVAL;
 
+	vcl = adrv906x_switch_vlan_find(es, pvid);
+	if (vcl) {
+		dev_err(&es->pdev->dev, "cannot set pvid %u, already used", pvid);
+		return -EINVAL;
+	}
+
+	mutex_lock(&es->lock);
+	ret = adrv906x_switch_vlan_match_action_sync(es, SWITCH_PVID_PORT_MASK, pvid);
+	if (ret)
+		goto unlock_out;
+	ret = adrv906x_switch_vlan_match_action_sync(es, 0, es->pvid);
+unlock_out:
+	mutex_unlock(&es->lock);
+	if (ret) {
+		dev_err(&es->pdev->dev, "pvid set timed out");
+		return ret;
+	}
+
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
-		ret = adrv906x_switch_vlan_add(es, portid, pvid);
-		if (ret)
-			return ret;
 		val = ioread32(es->switch_port[portid].reg + SWITCH_PORT_CFG_VLAN);
 		val &= ~SWITCH_PORT_PVID_MASK;
 		val |= pvid;
@@ -856,10 +872,19 @@ static void adrv906x_switch_vlan_membership_recovery(struct adrv906x_eth_switch 
 	int ret;
 
 	mutex_lock(&es->lock);
+	if (es->pvid != SWITCH_PVID) {
+		ret = adrv906x_switch_vlan_match_action_sync(es, 0, SWITCH_PVID);
+		if (ret)
+			dev_warn(dev, "failed clearing vlan %d during recovery", SWITCH_PVID);
+		ret = adrv906x_switch_vlan_match_action_sync(es, SWITCH_PVID_PORT_MASK, es->pvid);
+		if (ret)
+			dev_warn(dev, "failed recovering pvid %d during recovery", SWITCH_PVID);
+	}
+
 	list_for_each_entry(vcl, &es->vlan_cfg_list, list) {
 		ret = adrv906x_switch_vlan_match_action_sync(es, vcl->port_mask, vcl->vlan_id);
 		if (ret)
-			dev_warn(dev, "failed recoverying vlan %d", vcl->vlan_id);
+			dev_warn(dev, "failed recovering vlan %d", vcl->vlan_id);
 	}
 	mutex_unlock(&es->lock);
 }
@@ -915,10 +940,12 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	}
 
 	adrv906x_switch_set_mae_age_time(es, AGE_TIME_5MIN_25G);
-	ret = adrv906x_switch_pvid_set(es, es->pvid);
-	ret = adrv906x_switch_pvid_set(es, SWITCH_PVID);
-	if (ret)
-		return ret;
+	if (es->pvid != SWITCH_PVID) {
+		ret = adrv906x_switch_pvid_set(es, es->pvid);
+		if (ret)
+			return ret;
+	}
+
 	ret = adrv906x_switch_packet_trapping_set(es);
 	if (ret)
 		return ret;

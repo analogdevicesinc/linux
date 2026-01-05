@@ -98,6 +98,7 @@
 #define SWITCH_PCP_REGEN_VAL                            0x77000000
 #define SWITCH_PCP_IPV_MAPPING                          0x10000000
 #define SWITCH_PVID                                     1
+#define SWITCH_PVID_PORT_MASK                           0b111
 
 #define EAPOL_MAC_ADDR                                  0x0180c2000003
 #define ESMC_MAC_ADDR                                   0x0180c2000002
