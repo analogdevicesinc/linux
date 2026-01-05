@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2022 ~ 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2026, Analog Devices Incorporated, All Rights Reserved
  *
  * The sysfs file I/O for user space application to set/get configs such as:
  *  -config:[all, 6:0]
@@ -54,14 +54,12 @@ struct adrv906x_pinctrl_driver {
 	int mux_sel;
 };
 
-typedef enum {
-	CONFIG			= 0,
-	DRIVE_STRENGTH		= 1,
-	SCHMITT_TRIG_ENABLE	= 2,
-	PIN_PULL_ENABLEMENT	= 3,
-	PIN_PULL_UP_ENABLE	= 4,
-	MUX_SEL			= 5
-} store_type_t;
+#define CONFIG			0
+#define DRIVE_STRENGTH		1
+#define SCHMITT_TRIG_ENABLE	2
+#define PIN_PULL_ENABLEMENT	3
+#define PIN_PULL_UP_ENABLE	4
+#define MUX_SEL			5
 
 struct adrv906x_pinconf_state {
 	struct pinctrl *p;
@@ -70,7 +68,8 @@ struct adrv906x_pinconf_state {
 
 static int pin;
 
-static int adrv906x_pinctrl_get_config_direct(const char *dev_name, unsigned pin, unsigned long *configs, size_t nconfigs)
+static int adrv906x_pinctrl_get_config_direct(const char *dev_name, unsigned int pin,
+	unsigned long *configs, size_t nconfigs)
 {
 	const struct pinconf_ops *ops;
 	int ret;
@@ -84,7 +83,7 @@ static int adrv906x_pinctrl_get_config_direct(const char *dev_name, unsigned pin
 	ops = pctldev->desc->confops;
 	if (!ops || !ops->pin_config_set) {
 		mutex_unlock(&pctldev->mutex);
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	ret = ops->pin_config_get(pctldev, pin, configs);
@@ -93,7 +92,8 @@ static int adrv906x_pinctrl_get_config_direct(const char *dev_name, unsigned pin
 	return ret;
 }
 
-static int adrv906x_pinctrl_set_config_direct(const char *dev_name, unsigned pin, unsigned long *configs, size_t nconfigs)
+static int adrv906x_pinctrl_set_config_direct(const char *dev_name, unsigned int pin,
+	unsigned long *configs, size_t nconfigs)
 {
 	const struct pinconf_ops *ops;
 	int ret;
@@ -107,7 +107,7 @@ static int adrv906x_pinctrl_set_config_direct(const char *dev_name, unsigned pin
 	ops = pctldev->desc->confops;
 	if (!ops || !ops->pin_config_set) {
 		mutex_unlock(&pctldev->mutex);
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	ret = ops->pin_config_set(pctldev, pin, configs, nconfigs);
@@ -116,7 +116,7 @@ static int adrv906x_pinctrl_set_config_direct(const char *dev_name, unsigned pin
 	return ret;
 }
 
-static ssize_t adrv906x_pinctrl_common_store(struct device *dev, const char *buf, size_t count, store_type_t st)
+static ssize_t adrv906x_pinctrl_common_store(struct device *dev, const char *buf, size_t count, int st)
 {
 	int result = 0, scan_count = 0, config_val;
 	struct adi_pin_mio conf = { 0 };
@@ -127,73 +127,74 @@ static ssize_t adrv906x_pinctrl_common_store(struct device *dev, const char *buf
 		return -EIO;
 
 	scan_count = sscanf(buf, "%d", &config_val);
-	if (scan_count == 1) {
-		conf.input_pin = pin;
-		result = adrv906x_pinctrl_get_config_direct(dev_name(dev), pin, (unsigned long *)&conf, 1);
-		if (result) {
-			pr_err("getting config failed\n");
-			return -EIO;
-		}
-
-		switch (st) {
-		case CONFIG:
-			conf.config = (unsigned long)config_val;
-			break;
-		case DRIVE_STRENGTH:
-			conf.config &= (~ADI_CONFIG_DRIVE_STRENGTH_MASK);
-			conf.config |= config_val & ADI_CONFIG_DRIVE_STRENGTH_MASK;
-			break;
-		case SCHMITT_TRIG_ENABLE:
-			conf.config &= (~ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK);
-			if (config_val & 0x1)
-				conf.config |= ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK;
-			break;
-		case PIN_PULL_ENABLEMENT:
-			conf.config &= (~ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK);
-			if (config_val & 0x1)
-				conf.config |= ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK;
-			break;
-		case PIN_PULL_UP_ENABLE:
-			conf.config &= (~ADI_CONFIG_PULLUP_ENABLE_MASK);
-			if (config_val & 0x1)
-				conf.config |= ADI_CONFIG_PULLUP_ENABLE_MASK;
-			break;
-		case MUX_SEL:
-			conf.mux_sel = config_val & ADI_CONFIG_MUX_SEL_MASK;
-			break;
-		}
-
-		result = adrv906x_pinctrl_set_config_direct(dev_name(dev), pin, (unsigned long *)&conf, 1);
-		if (result == 0) {
-			switch (st) {
-			case CONFIG:
-				adrv906x_pinctrl_drv->config = config_val;
-				break;
-			case DRIVE_STRENGTH:
-				adrv906x_pinctrl_drv->drive_strength = config_val & ADI_CONFIG_DRIVE_STRENGTH_MASK;
-				break;
-			case SCHMITT_TRIG_ENABLE:
-				adrv906x_pinctrl_drv->schmitt_trig_enable = config_val & 0x1;
-				break;
-			case PIN_PULL_ENABLEMENT:
-				adrv906x_pinctrl_drv->pin_pull_enablement = config_val & 0x1;
-				break;
-			case PIN_PULL_UP_ENABLE:
-				adrv906x_pinctrl_drv->pin_pull_up_enable = config_val & 0x1;
-				break;
-			case MUX_SEL:
-				adrv906x_pinctrl_drv->mux_sel = config_val & ADI_CONFIG_MUX_SEL_MASK;
-				break;
-			}
-			return count;
-		} else {
-			pr_err("Set pinconfig failed!\n");
-			return -EIO;
-		}
-	} else {
+	if (scan_count != 1) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
+
+	conf.input_pin = pin;
+	result = adrv906x_pinctrl_get_config_direct(dev_name(dev), pin, (unsigned long *)&conf, 1);
+	if (result) {
+		pr_err("getting config failed\n");
+		return -EIO;
+	}
+
+	switch (st) {
+	case CONFIG:
+		conf.config = (unsigned long)config_val;
+		break;
+	case DRIVE_STRENGTH:
+		conf.config &= (~ADI_CONFIG_DRIVE_STRENGTH_MASK);
+		conf.config |= config_val & ADI_CONFIG_DRIVE_STRENGTH_MASK;
+		break;
+	case SCHMITT_TRIG_ENABLE:
+		conf.config &= (~ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK);
+		if (config_val & 0x1)
+			conf.config |= ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK;
+		break;
+	case PIN_PULL_ENABLEMENT:
+		conf.config &= (~ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK);
+		if (config_val & 0x1)
+			conf.config |= ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK;
+		break;
+	case PIN_PULL_UP_ENABLE:
+		conf.config &= (~ADI_CONFIG_PULLUP_ENABLE_MASK);
+		if (config_val & 0x1)
+			conf.config |= ADI_CONFIG_PULLUP_ENABLE_MASK;
+		break;
+	case MUX_SEL:
+		conf.mux_sel = config_val & ADI_CONFIG_MUX_SEL_MASK;
+		break;
+	}
+
+	result = adrv906x_pinctrl_set_config_direct(dev_name(dev), pin, (unsigned long *)&conf, 1);
+	if (result) {
+		pr_err("Set pinconfig failed!\n");
+		return -EIO;
+	}
+
+	switch (st) {
+	case CONFIG:
+		adrv906x_pinctrl_drv->config = config_val;
+		break;
+	case DRIVE_STRENGTH:
+		adrv906x_pinctrl_drv->drive_strength = config_val & ADI_CONFIG_DRIVE_STRENGTH_MASK;
+		break;
+	case SCHMITT_TRIG_ENABLE:
+		adrv906x_pinctrl_drv->schmitt_trig_enable = config_val & 0x1;
+		break;
+	case PIN_PULL_ENABLEMENT:
+		adrv906x_pinctrl_drv->pin_pull_enablement = config_val & 0x1;
+		break;
+	case PIN_PULL_UP_ENABLE:
+		adrv906x_pinctrl_drv->pin_pull_up_enable = config_val & 0x1;
+		break;
+	case MUX_SEL:
+		adrv906x_pinctrl_drv->mux_sel = config_val & ADI_CONFIG_MUX_SEL_MASK;
+		break;
+	}
+
+	return count;
 }
 
 static ssize_t adrv906x_pinctrl_drive_strength_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -242,7 +243,7 @@ static ssize_t adrv906x_pinctrl_pin_store(struct device *dev, struct device_attr
 }
 
 #define ADRV906X_DEVICE_ATTR(_name) \
-	DEVICE_ATTR(_name, S_IRUGO | S_IWUSR, adrv906x_pinctrl_ ## _name ## _show, adrv906x_pinctrl_ ## _name ## _store)
+	DEVICE_ATTR(_name, 0644, adrv906x_pinctrl_ ## _name ## _show, adrv906x_pinctrl_ ## _name ## _store)
 static ADRV906X_DEVICE_ATTR(drive_strength);
 static ADRV906X_DEVICE_ATTR(pin);
 
@@ -394,7 +395,7 @@ static void adi_adrv906x_pinctrl_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver adi_adrv906x_pinctrl_driver = {
-	.driver				={
+	.driver = {
 		.name			= "adrv906x-pinctrl",
 		.of_match_table		= of_match_ptr(adi_adrv906x_pinctrl_of_match),
 		.suppress_bind_attrs	= true,
@@ -411,5 +412,5 @@ static int __init adi_adrv906x_pinctrl_init(void)
 arch_initcall(adi_adrv906x_pinctrl_init);
 
 MODULE_AUTHOR("Howard Massey <Howard.Massey@analog.com>");
-MODULE_DESCRIPTION("ADI ADRV906X pinctrl driver");
-MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("ADI ADRV906x pinctrl driver");
+MODULE_LICENSE("GPL");
