@@ -3,7 +3,7 @@
  * ADI Driver for Synopsys DesignWare Cores Mobile Storage Host Controller
  * It is based on sdhci-of-dwcmshc.c
  *
- * Copyright (c) 2023, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2026, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/clk.h>
@@ -156,8 +156,8 @@ static void dwcmshc_set_uhs_signaling(struct sdhci_host *host,
 	ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 	/* Select Bus Speed Mode for host */
 	ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
-	if ((timing == MMC_TIMING_MMC_HS200) ||
-	    (timing == MMC_TIMING_UHS_SDR104))
+	if (timing == MMC_TIMING_MMC_HS200 ||
+	    timing == MMC_TIMING_UHS_SDR104)
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
 	else if (timing == MMC_TIMING_UHS_SDR12)
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR12;
@@ -190,8 +190,8 @@ static void adi_sdhci_fix_rx_clock_glitch(struct sdhci_host *host, u8 hs_timing)
 	reg = sdhci_readl(host, SDHCI_VENDOR1_AT_CTRL_R_OFF);
 	reg &= ~(SDHCI_VENDOR1_POST_CHANGE_DLY | SDHCI_VENDOR1_TUNE_CLK_STOP_EN);
 	/* This configuration helps to fix this issue (verified in RTL and GLS simulations) */
-	if ((hs_timing == MMC_TIMING_MMC_HS400) ||
-	    (hs_timing == MMC_TIMING_MMC_HS200))
+	if (hs_timing == MMC_TIMING_MMC_HS400 ||
+	    hs_timing == MMC_TIMING_MMC_HS200)
 		reg |= (POST_CHANGE_DLY_LESS_4_CYCLES << POST_CHANGE_DLY_OFF);
 	else
 		reg |= (POST_CHANGE_DLY_LESS_4_CYCLES << POST_CHANGE_DLY_OFF) |
@@ -461,6 +461,7 @@ static int adi_sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
 	/* Reduce frequency to HS frequency */
 	if (host->flags & SDHCI_HS400_TUNING) {
 		struct mmc_ios *ios = &host->mmc->ios;
+
 		host->mmc->ios.clock = 52000000;
 		sdhci_set_ios(host->mmc, ios);
 	}
@@ -756,4 +757,4 @@ static struct platform_driver sdhci_dwcmshc_driver = {
 module_platform_driver(sdhci_dwcmshc_driver);
 
 MODULE_DESCRIPTION("ADI SDHCI platform driver for Synopsys DWC MSHC");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
