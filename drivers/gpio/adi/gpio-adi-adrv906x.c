@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2023, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2026, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/bits.h>
@@ -25,8 +25,8 @@
 
 #define ADI_ADRV906X_MAX_GPIOS (ADI_ADRV906X_MAX_GPIO_PER_INST * ADI_ADRV906X_GPIO_NUM_INSTS)
 
-#define ADI_ADRV906X_GET_GPIO_INST_NUM(pin)               (pin / ADI_ADRV906X_MAX_GPIO_PER_INST)
-#define ADI_ADRV906X_GET_GPIO_INST_BIT_MASK(pin)  (0x1 << (pin % ADI_ADRV906X_MAX_GPIO_PER_INST))
+#define ADI_ADRV906X_GET_GPIO_INST_NUM(pin)               ((pin) / ADI_ADRV906X_MAX_GPIO_PER_INST)
+#define ADI_ADRV906X_GET_GPIO_INST_BIT_MASK(pin)  (0x1 << ((pin) % ADI_ADRV906X_MAX_GPIO_PER_INST))
 
 #define ADI_ADRV906X_GPIO_INST_0_OFFSET   (0x800U)
 #define ADI_ADRV906X_GPIO_INST_1_OFFSET   (0x900U)
@@ -50,7 +50,7 @@
 #define GPIO_PIN_STATE_LOW      0
 #define GPIO_PIN_STATE_HIGH     1
 
-static uint32_t adrv906x_gpio_inst_base_addr[ADI_ADRV906X_GPIO_NUM_INSTS] = {
+static u32 adrv906x_gpio_inst_base_addr[ADI_ADRV906X_GPIO_NUM_INSTS] = {
 	ADI_ADRV906X_GPIO_INST_0_OFFSET,
 	ADI_ADRV906X_GPIO_INST_1_OFFSET,
 	ADI_ADRV906X_GPIO_INST_2_OFFSET,
@@ -75,7 +75,7 @@ struct adi_adrv906x_gpio {
 	struct gpio_chip chip;
 	void __iomem *base_addr;
 	const struct adi_adrv906x_platform_data *p_data;
-	uint32_t pintmux_addr;
+	u32 pintmux_addr;
 
 	// For interrupt-controller
 	struct irq_chip irq;
@@ -93,10 +93,11 @@ struct adi_adrv906x_gpio {
  */
 static int adi_adrv906x_gpio_get_direction(struct gpio_chip *chip, unsigned int pin)
 {
-	uint32_t reg;
+	u32 reg;
 	struct adi_adrv906x_gpio *gpio = gpiochip_get_data(chip);
 
-	reg = ioread32(gpio->base_addr + ADI_ADRV906X_GPIO_DIR_CONTROL_BASE + (pin * sizeof(uint32_t)));
+	reg = ioread32(gpio->base_addr + ADI_ADRV906X_GPIO_DIR_CONTROL_BASE +
+		       (pin * sizeof(uint32_t)));
 
 	if (reg & GPIO_DIR_CONTROL_OE_BIT_MASK)
 		return GPIO_LINE_DIRECTION_OUT;
@@ -117,7 +118,8 @@ static int adi_adrv906x_gpio_direction_input(struct gpio_chip *chip, unsigned in
 {
 	struct adi_adrv906x_gpio *gpio = gpiochip_get_data(chip);
 
-	iowrite32(GPIO_DIR_CONTROL_IE_BIT_MASK, gpio->base_addr + ADI_ADRV906X_GPIO_DIR_CONTROL_BASE + (pin * sizeof(uint32_t)));
+	iowrite32(GPIO_DIR_CONTROL_IE_BIT_MASK,
+		  gpio->base_addr + ADI_ADRV906X_GPIO_DIR_CONTROL_BASE + (pin * sizeof(uint32_t)));
 
 	return 0;
 }
@@ -133,18 +135,20 @@ static int adi_adrv906x_gpio_direction_input(struct gpio_chip *chip, unsigned in
  */
 static int adi_adrv906x_gpio_get(struct gpio_chip *chip, unsigned int pin)
 {
-	uint32_t reg;
+	u32 reg;
 	struct adi_adrv906x_gpio *gpio = gpiochip_get_data(chip);
-	uint32_t gpio_inst_number = ADI_ADRV906X_GET_GPIO_INST_NUM(pin);
-	uint32_t gpio_inst_bit_mask = ADI_ADRV906X_GET_GPIO_INST_BIT_MASK(pin);
+	u32 gpio_inst_number = ADI_ADRV906X_GET_GPIO_INST_NUM(pin);
+	u32 gpio_inst_bit_mask = ADI_ADRV906X_GET_GPIO_INST_BIT_MASK(pin);
 
 	/* if pin is input, read value from the read register, else write register */
 	int ret = adi_adrv906x_gpio_get_direction(chip, pin);
 
 	if (ret == GPIO_LINE_DIRECTION_IN)
-		reg = ioread32(gpio->base_addr + adrv906x_gpio_inst_base_addr[gpio_inst_number] + ADI_ADRV906X_GPIO_READ_OFFSET);
+		reg = ioread32(gpio->base_addr + adrv906x_gpio_inst_base_addr[gpio_inst_number] +
+			       ADI_ADRV906X_GPIO_READ_OFFSET);
 	else
-		reg = ioread32(gpio->base_addr + adrv906x_gpio_inst_base_addr[gpio_inst_number] + ADI_ADRV906X_GPIO_WRITE_OFFSET);
+		reg = ioread32(gpio->base_addr + adrv906x_gpio_inst_base_addr[gpio_inst_number] +
+			       ADI_ADRV906X_GPIO_WRITE_OFFSET);
 
 	if (gpio_inst_bit_mask & reg)
 		return GPIO_PIN_STATE_HIGH;
@@ -158,21 +162,23 @@ static int adi_adrv906x_gpio_get(struct gpio_chip *chip, unsigned int pin)
  * @pin:	gpio pin number within the device
  * @state:	value used to modify the state of the specified pin
  *
- * This function calculates the register offset based on the given pin number and sets the state of a
- * gpio pin to the specified value. The state is either 0 or non-zero.
+ * This function calculates the register offset based on the given pin number and sets the state of
+ * a gpio pin to the specified value. The state is either 0 or non-zero.
  */
 static void adi_adrv906x_gpio_set(struct gpio_chip *chip, unsigned int pin, int state)
 {
 	struct adi_adrv906x_gpio *gpio = gpiochip_get_data(chip);
-	uint32_t gpio_inst_number = ADI_ADRV906X_GET_GPIO_INST_NUM(pin);
-	uint32_t gpio_inst_bit_mask = ADI_ADRV906X_GET_GPIO_INST_BIT_MASK(pin);
+	u32 gpio_inst_number = ADI_ADRV906X_GET_GPIO_INST_NUM(pin);
+	u32 gpio_inst_bit_mask = ADI_ADRV906X_GET_GPIO_INST_BIT_MASK(pin);
 
 	if (state)
-		iowrite32(gpio_inst_bit_mask, gpio->base_addr + adrv906x_gpio_inst_base_addr[gpio_inst_number] + ADI_ADRV906X_GPIO_SET_OFFSET);
+		iowrite32(gpio_inst_bit_mask, gpio->base_addr +
+			  adrv906x_gpio_inst_base_addr[gpio_inst_number] +
+			  ADI_ADRV906X_GPIO_SET_OFFSET);
 	else
-		iowrite32(gpio_inst_bit_mask, gpio->base_addr + adrv906x_gpio_inst_base_addr[gpio_inst_number] + ADI_ADRV906X_GPIO_CLEAR_OFFSET);
-
-	return;
+		iowrite32(gpio_inst_bit_mask, gpio->base_addr +
+			  adrv906x_gpio_inst_base_addr[gpio_inst_number] +
+			  ADI_ADRV906X_GPIO_CLEAR_OFFSET);
 }
 
 /**
@@ -200,7 +206,8 @@ static int adi_adrv906x_gpio_direction_output(struct gpio_chip *chip,
 	/*
 	 * Setup pin as output
 	 */
-	iowrite32(GPIO_DIR_CONTROL_OE_BIT_MASK, gpio->base_addr + ADI_ADRV906X_GPIO_DIR_CONTROL_BASE + (pin * sizeof(uint32_t)));
+	iowrite32(GPIO_DIR_CONTROL_OE_BIT_MASK,
+		  gpio->base_addr + ADI_ADRV906X_GPIO_DIR_CONTROL_BASE + (pin * sizeof(uint32_t)));
 
 	return 0;
 }
@@ -208,19 +215,24 @@ static int adi_adrv906x_gpio_direction_output(struct gpio_chip *chip,
 /**
  * adi_adrv906x_gpio_irq_convert_to_supported_type
  * - GIC supports LEVEL_HIGH and EDGE_RISING interrupts.
- * - Our trasmutter can manage both edge and level interrupts, and allows inverting the polarity of both types.
+ * - Our trasmutter can manage both edge and level interrupts, and allows inverting the polarity of
+ * both types.
  * - We here adapt the requested type to match those supported by GIC.
- * - Note that IRQ_TYPE_NONE is used to skip the configuration of the hardware in some drivers, we transform it to level high.
+ * - Note that IRQ_TYPE_NONE is used to skip the configuration of the hardware in some drivers, we
+ * transform it to level high.
  * @requested_type: IRQ type requested bo be configured
  * @supported_type: IRQ type to be used
  * @polarity:       polarity for the supported_type IRQ
  * Returns 0 on success
  */
-static int adi_adrv906x_gpio_irq_convert_to_supported_type(unsigned int requested_type, unsigned int *supported_type, bool *polarity)
+static int adi_adrv906x_gpio_irq_convert_to_supported_type(unsigned int requested_type,
+							   unsigned int *supported_type,
+							   bool *polarity)
 {
 	bool pol;
 
-	if (!supported_type) return -EINVAL;
+	if (!supported_type)
+		return -EINVAL;
 
 	switch (requested_type) {
 	case IRQ_TYPE_EDGE_RISING:
@@ -237,27 +249,29 @@ static int adi_adrv906x_gpio_irq_convert_to_supported_type(unsigned int requeste
 		pol = false;
 		break;
 	case IRQ_TYPE_EDGE_BOTH:
-		printk(KERN_INFO "adi-adrv906x-gpio: requested IRQ_TYPE_EDGE_BOTH. Forced to IRQ_TYPE_EDGE_RISING\n");
+		pr_info("adi-adrv906x-gpio: requested IRQ_TYPE_EDGE_BOTH. Forced to IRQ_TYPE_EDGE_RISING");
 		*supported_type = IRQ_TYPE_EDGE_RISING;
 		pol = true;
 		break;
 	case IRQ_TYPE_NONE:
-		printk(KERN_INFO "adi-adrv906x-gpio: requested IRQ_TYPE_NONE. Forced to IRQ_TYPE_LEVEL_HIGH\n");
+		pr_info("adi-adrv906x-gpio: requested IRQ_TYPE_NONE. Forced to IRQ_TYPE_LEVEL_HIGH");
 		*supported_type = IRQ_TYPE_LEVEL_HIGH;
 		pol = true;
 		break;
 	default:
-		printk(KERN_ERR "adi-adrv906x-gpio: Unknown requested irq type: %i\n", requested_type);
+		pr_err("adi-adrv906x-gpio: Unknown requested irq type: %i", requested_type);
 		return -EINVAL;
 	}
 
-	if (polarity) *polarity = pol;
+	if (polarity)
+		*polarity = pol;
 
 	return 0;
 }
 
 /**
- * adi_adrv906x_gpio_child_to_parent_hwirq - Look up the parent hardware irq from a child hardware irq
+ * adi_adrv906x_gpio_child_to_parent_hwirq - Look up the parent hardware irq from a child hardware
+ * irq
  * @gc:          gpio_chip pointer
  * @child:       GPIO index 0..ngpio-1
  * @child_type:  IRQ type (such as IRQ_TYPE_*)
@@ -276,7 +290,8 @@ static int adi_adrv906x_gpio_child_to_parent_hwirq(struct gpio_chip *gc,
 	unsigned int irq_num;
 
 	if (adi_adrv906x_gpio_irq_convert_to_supported_type(child_type, &type, &polarity) != 0) {
-		printk(KERN_ERR "adi-adrv906x-gpio: Cannot find supported irq type for requested type %u)\n", child_type);
+		dev_err(gc->parent, "adi-adrv906x-gpio: Cannot find supported irq type for requested type %u)",
+			child_type);
 		return -EINVAL;
 	}
 
@@ -285,13 +300,14 @@ static int adi_adrv906x_gpio_child_to_parent_hwirq(struct gpio_chip *gc,
 		*parent_type = type;
 		return 0;
 	}
-	printk(KERN_ERR "adi-adrv906x-gpio: pintmux_map failed (child irq number: %u)\n", child);
+	dev_err(gc->parent, "adi-adrv906x-gpio: pintmux_map failed (child irq number: %u)", child);
 
 	return -EINVAL;
 }
 
 /**
- * adi_adrv906x_gpio_populate_parent_alloc_arg - Allocates and populates the specific struct for the parent's IRQ domain
+ * adi_adrv906x_gpio_populate_parent_alloc_arg - Allocates and populates the specific struct for
+ * the parent's IRQ domain
  * @chip:         gpio_chip pointer
  * @parent_hwirq: parent IRQ number
  * @parent_type:  IRQ type (such as IRQ_TYPE_*)
@@ -346,7 +362,8 @@ static int adi_adrv906x_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 	unsigned int supported_type;
 
 	if (adi_adrv906x_gpio_irq_convert_to_supported_type(type, &supported_type, NULL) != 0) {
-		printk(KERN_ERR "adi-adrv906x-gpio: Cannot find supported irq type for requested type %u)\n", type);
+		pr_err("adi-adrv906x-gpio: Cannot find supported irq type for requested type %u)",
+		       type);
 		return -EINVAL;
 	}
 
@@ -354,7 +371,8 @@ static int adi_adrv906x_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 }
 
 /**
- * adi_adrv906x_gpio_irq_shutdown - Shutdowns the IRQ, unmapping the gpio from the tf-a pintmux service
+ * adi_adrv906x_gpio_irq_shutdown - Shutdowns the IRQ, unmapping the gpio from the tf-a pintmux
+ * service
  * @d: irq_data pointer
  */
 static void adi_adrv906x_gpio_irq_shutdown(struct irq_data *d)
@@ -365,7 +383,7 @@ static void adi_adrv906x_gpio_irq_shutdown(struct irq_data *d)
 
 	gpiochip_unlock_as_irq(gc, gpionum);
 	if (!adi_adrv906x_pintmux_unmap(gpionum, gpio->pintmux_addr))
-		printk(KERN_ERR "adi-adrv906x-gpio: pintmux_unmap failed (child irq number: %u)\n", gpionum);
+		pr_err("adi-adrv906x-gpio: pintmux_unmap failed (child irq number: %u)", gpionum);
 }
 
 static const struct adi_adrv906x_platform_data adi_adrv906x_gpio_def = {
@@ -383,7 +401,7 @@ static int adi_adrv906x_gpio_probe(struct platform_device *pdev)
 	struct adi_adrv906x_gpio *gpio;
 	struct gpio_chip *chip;
 	const struct of_device_id *match;
-	uint32_t ngpio = 0U;
+	u32 ngpio = 0U;
 
 	gpio = devm_kzalloc(&pdev->dev, sizeof(*gpio), GFP_KERNEL);
 	if (!gpio)
@@ -467,7 +485,7 @@ static int adi_adrv906x_gpio_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	printk(KERN_INFO "adi_adrv906x_gpio_probe :: SUCCESS \n");
+	dev_info(&pdev->dev, "%s :: SUCCESS", __func__);
 
 	return 0;
 }
@@ -484,6 +502,6 @@ static struct platform_driver adi_adrv906x_gpio_driver = {
 
 module_platform_driver(adi_adrv906x_gpio_driver);
 
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("ADI ADRV906X GPIO driver");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("ADI ADRV906x GPIO driver");
 MODULE_AUTHOR("Analog Devices Inc.");

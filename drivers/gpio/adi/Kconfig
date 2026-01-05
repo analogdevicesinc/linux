@@ -6,4 +6,15 @@ config GPIO_ADI_ADRV906X
 	default PINCTRL_ADI_ADRV906X
 	select GPIOLIB_IRQCHIP
 	help
-	  Say yes here to add support for ADI's ADRV906x SoC GPIO controller.
+	  This option enables GPIO (General Purpose Input/Output) controller
+	  support for Analog Devices ADRV906x System-on-Chip platforms. The
+	  GPIO controller provides configurable I/O pins that can be used for
+	  various digital signal operations including input sensing, output
+	  control, and interrupt generation.
+
+	  This driver also includes IRQ chip support for GPIO-based interrupts,
+	  allowing GPIO pins to be used as interrupt sources.
+
+	  Say Y here if you are building a kernel for ADRV906x hardware and
+	  need GPIO functionality.
+	  If unsure, say N.
