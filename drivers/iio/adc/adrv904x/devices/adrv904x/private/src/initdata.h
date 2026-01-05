@@ -1,7 +1,6 @@
 /**
 * Copyright 2015 - 2021 Analog Devices Inc.
-* Released under the ADRV904X API license, for more information
-* see the "LICENSE.pdf" file in this zip file.
+* Released under the ADRV904X API license.
 */
 
 /**
