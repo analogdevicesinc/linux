@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2026, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/module.h>
@@ -43,7 +43,7 @@
 #define ETH1G_REFCLK_REFPATH_PD                 0 /* BIT(17) */
 #define ETH1G_REFCLK_DEFAULT_VAL                ETH1G_REFCLK_REFPATH_PD
 
-#define HZ_TO_MHZ(freq)                         (freq * 1000 * 1000)
+#define HZ_TO_MHZ(freq)                         ((freq) * 1000 * 1000)
 #define CLK_2_5MHZ                              HZ_TO_MHZ(2.5)
 #define CLK_25MHZ                               HZ_TO_MHZ(25)
 #define CLK_50MHZ                               HZ_TO_MHZ(50)
@@ -51,7 +51,7 @@
 
 struct adrv906x_priv_data {
 	struct stmmac_priv *stm_priv;
-	uint32_t base_clk_speed;
+	u32 base_clk_speed;
 	void __iomem *clk_div_base;
 	phy_interface_t phy_interface;
 };
@@ -65,38 +65,43 @@ static int adrv906x_dwmac_set_clk_dividers(void *priv, unsigned int speed, bool 
 	struct adrv906x_priv_data *adrv_priv = (struct adrv906x_priv_data *)priv;
 	ulong rate;
 	u32 reg;
-	uint32_t osc_div;
-	uint32_t rmii_div;
+	u32 osc_div;
+	u32 rmii_div;
 
 	/* Required clock freq depends on the link speed */
 	switch (speed) {
-	case SPEED_10:   rate = CLK_2_5MHZ; break;
-	case SPEED_100:  rate = CLK_25MHZ; break;
-	case SPEED_1000: rate = CLK_125MHZ; break;
-	default: pr_err("Invalid link speed"); return -1;
+	case SPEED_10:
+		rate = CLK_2_5MHZ; break;
+	case SPEED_100:
+		rate = CLK_25MHZ; break;
+	case SPEED_1000:
+		rate = CLK_125MHZ; break;
+	default:
+		dev_err(adrv_priv->stm_priv->device, "invalid link speed: %u\n", speed);
+		return -1;
 	}
 
 	/* Sanity checks */
-	if (((adrv_priv->base_clk_speed) % rate) != 0) {
-		pr_err("Unable to get MAC clock");
+	if ((adrv_priv->base_clk_speed % rate) != 0) {
+		dev_err(adrv_priv->stm_priv->device, "unable to get MAC clock");
 		return -1;
 	}
 
-	if ((adrv_priv->phy_interface == PHY_INTERFACE_MODE_RMII) &&
-	    ((adrv_priv->base_clk_speed % CLK_50MHZ) != 0)) {
-		pr_err("Unable to get RMII PHY clock (50 MHz)");
+	if (adrv_priv->phy_interface == PHY_INTERFACE_MODE_RMII &&
+	    adrv_priv->base_clk_speed % CLK_50MHZ != 0) {
+		dev_err(adrv_priv->stm_priv->device, "unable to get RMII PHY clock (50 MHz)");
 		return -1;
 	}
 
-	if ((adrv_priv->phy_interface == PHY_INTERFACE_MODE_RMII) &&
-	    (speed == SPEED_1000)) {
-		pr_err("RMII does not support 1000 Mbs");
+	if (adrv_priv->phy_interface == PHY_INTERFACE_MODE_RMII &&
+	    speed == SPEED_1000) {
+		dev_err(adrv_priv->stm_priv->device, "RMII does not support 1000 Mbps");
 		return -1;
 	}
 
-	if ((adrv_priv->phy_interface != PHY_INTERFACE_MODE_RMII) &&
-	    (adrv_priv->phy_interface != PHY_INTERFACE_MODE_RGMII)) {
-		pr_err("MAC-PHY Interface (%d) not supported", adrv_priv->phy_interface);
+	if (adrv_priv->phy_interface != PHY_INTERFACE_MODE_RMII &&
+	    adrv_priv->phy_interface != PHY_INTERFACE_MODE_RGMII) {
+		dev_err(adrv_priv->stm_priv->device, "MAC-PHY interface (%d) not supported", adrv_priv->phy_interface);
 		return -1;
 	}
 
@@ -106,8 +111,8 @@ static int adrv906x_dwmac_set_clk_dividers(void *priv, unsigned int speed, bool 
 		 * (ie 250MHz)  |-> RMII_CLK_DIV (2.5|25 MHz) -> Tx_clk and Rx_clk to GMAC
 		 *                  (based on PHY link 10|100)
 		 */
-		osc_div = (adrv_priv->base_clk_speed / CLK_50MHZ) - 1;
-		rmii_div = ((adrv_priv->base_clk_speed) / (rate)) - 1;
+		osc_div = adrv_priv->base_clk_speed / CLK_50MHZ - 1;
+		rmii_div = adrv_priv->base_clk_speed / rate - 1;
 	} else if (adrv_priv->phy_interface == PHY_INTERFACE_MODE_RGMII) {
 		/*
 		 * input_clk     -> OSC_CLK_DIV (2.5|25|125 MHz) -> Tx_clk to PHY and Tx_clk to GMAC
@@ -117,7 +122,7 @@ static int adrv906x_dwmac_set_clk_dividers(void *priv, unsigned int speed, bool 
 		 * Note: RMII_CLK_DIV does not apply
 		 * Note: PHY core clock is provided by a crystal circuitry
 		 */
-		osc_div = ((adrv_priv->base_clk_speed) / rate) - 1;
+		osc_div = adrv_priv->base_clk_speed / rate - 1;
 		rmii_div = 0;
 	}
 
@@ -146,14 +151,14 @@ static int adrv906x_dwmac_set_clk_dividers(void *priv, unsigned int speed, bool 
 	 *       the 50 MHz PHY core clock (RMII case)
 	 */
 	if (!force_reconfig && adrv_priv->phy_interface == PHY_INTERFACE_MODE_RMII) {
-		uint32_t curr_osc_div;
-		uint32_t curr_rmii_div;
+		u32 curr_osc_div;
+		u32 curr_rmii_div;
 
 		reg = ioread32(adrv_priv->clk_div_base);
 		curr_osc_div = (reg & EMAC_1G_OSC_CLK_DIV_MASK) >> EMAC_1G_OSC_CLK_DIV_OFF;
 		curr_rmii_div = (reg & EMAC_1G_CLK_DIV_MASK) >> EMAC_1G_CLK_DIV_OFF;
 
-		if ((osc_div == curr_osc_div) && (rmii_div == curr_rmii_div))
+		if (osc_div == curr_osc_div && rmii_div == curr_rmii_div)
 			return 0;
 	}
 
@@ -171,8 +176,8 @@ static int adrv906x_dwmac_set_clk_dividers(void *priv, unsigned int speed, bool 
 		reg |= EMAC_1G_PHY_INTF_SEL_I_RGMII << EMAC_1G_PHY_INTF_SEL_I_OFF;
 	}
 	reg &= ~(EMAC_1G_OSC_CLK_DIV_MASK | EMAC_1G_CLK_DIV_MASK);
-	reg |= (osc_div << EMAC_1G_OSC_CLK_DIV_OFF) |
-	       (rmii_div << EMAC_1G_CLK_DIV_OFF);
+	reg |= osc_div << EMAC_1G_OSC_CLK_DIV_OFF |
+	       rmii_div << EMAC_1G_CLK_DIV_OFF;
 	iowrite32(reg, adrv_priv->clk_div_base);
 
 	/* Re-enable clock */
@@ -283,7 +288,6 @@ static int adrv906x_dwmac_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-
 	adrv_priv->phy_interface = plat_dat->phy_interface;
 	/* Configure clock distribution (depends on the phy interface type).
 	 * Enable Link-speed-related clocks to arbitrary value
@@ -328,5 +332,5 @@ static struct platform_driver dwmac_adrv906x_driver = {
 };
 module_platform_driver(dwmac_adrv906x_driver);
 
-MODULE_DESCRIPTION("ADRV906X 1G dwmac driver");
-MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("ADRV906x 1G dwmac driver");
+MODULE_LICENSE("GPL");
