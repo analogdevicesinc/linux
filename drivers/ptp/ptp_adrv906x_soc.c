@@ -38,7 +38,7 @@ struct phc_pll_i2c_attr {
 struct adrv906x_hw_pll {
 	long scaled_ppm;
 	struct phc_pll_i2c_attr pll_i2c;
-	spinlock_t reg_lock;
+	spinlock_t reg_lock; /* hw access lock */
 	struct phc_pll_ops pll_ops;
 };
 
@@ -55,8 +55,8 @@ struct adrv906x_phc_pll {
 
 #define ADDR_NCO0_CENTER_FREQ_CNT               7
 
-#define ADRV906X_PHC_NCO_FREQ_TO_HZ(freq)           (freq >> 40)
-#define ADRV906X_PHC_PPB_TO_PPT(ppb)                (ppb * 1000)
+#define ADRV906X_PHC_NCO_FREQ_TO_HZ(freq)           ((freq) >> 40)
+#define ADRV906X_PHC_PPB_TO_PPT(ppb)                ((ppb) * 1000)
 
 static int adrv906x_pll_i2c_read(struct adrv906x_hw_pll *hw_pll, u16 addr, u8 *buffer, size_t len)
 {
