@@ -89,7 +89,6 @@
 #define SDHCI_DEFAULT_CCLK_DC_HS400              (0x8U)
 #define SDHCI_DEFAULT_DRIVE_STRENGTH_OHM         (50)
 
-
 /* PHY powergood timeout value */
 #define SDHCI_PHY_TIMEOUT_100_MS                 (100U)
 
@@ -177,7 +176,7 @@ static int adi_sdhci_phy_set_delay(struct phy *phy, u8 hs_timing)
 	u8 u8_aux;
 
 	/* PHY instance 1 Delay Lines  */
-	if ((hs_timing == MMC_TIMING_MMC_HS400) || (hs_timing == MMC_TIMING_MMC_HS200)) {
+	if (hs_timing == MMC_TIMING_MMC_HS400 || hs_timing == MMC_TIMING_MMC_HS200) {
 		dl0 = SDHCI_PHY_0_DL_0_INPSEL_IDL1_IN;
 		dl1 = SDHCI_PHY_0_DL_1_INPSEL_IDL1_IN;
 		dl2 = SDHCI_PHY_0_DL_2_INPSEL_IDL1_IN;
@@ -228,7 +227,7 @@ static int adi_sdhci_phy_config_dll(struct phy *phy, bool enable)
 	u8 u8_val;
 	u8 timeout;
 
-	if (enable == false) {
+	if (!enable) {
 		/* DLL configuration (PHY instance 2) */
 
 		/* Disable DLL */
@@ -352,7 +351,8 @@ static int adi_sdhci_phy_init(struct phy *phy)
 
 	/* Wait max 100ms for the PHY Powergood to be 1. As per JEDEC Spec v5.1,
 	 * supply power-up time for SDHCI operating at 1.8V is 25ms, but we give
-	 * more time for the PHY to powerup. */
+	 * more time for the PHY to powerup.
+	 */
 	timeout = SDHCI_PHY_TIMEOUT_100_MS;
 	while (0U == (adi_sdhci_phy_readl(adi_phy, SDHCI_PHY_CNFG_R_OFF) & SDHCI_PHY_POWERGOOD_BM)) {
 		if (timeout-- > 0) {
@@ -406,6 +406,7 @@ static int adi_sdhci_phy_configure(struct phy *phy, union phy_configure_opts *op
 
 	return err;
 }
+
 static const struct phy_ops adi_sdhci_phy_ops = {
 	.init		= adi_sdhci_phy_init,
 	.configure	= adi_sdhci_phy_configure,
