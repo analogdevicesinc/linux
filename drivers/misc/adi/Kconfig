@@ -6,5 +6,12 @@ config ADI_SRAM_MMAP
 	depends on ARM64 || COMPILE_TEST
 	default ARCH_ADRV906X
 	help
-	  Enable the mmap driver for ADI on chip SRAM.
+	  This option enables the memory mapping (mmap) driver for Analog
+	  Devices (ADI) on-chip SRAM on ARM64 platforms. This driver allows
+	  user-space applications to directly access the on-chip SRAM through
+	  memory-mapped I/O, which is useful for high-performance data transfer
+	  and low-latency applications.
+
+	  Say Y here if you need user-space access to ADI on-chip SRAM.
+	  If unsure, say N.
 

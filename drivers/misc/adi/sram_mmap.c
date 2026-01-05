@@ -33,7 +33,7 @@ struct adi_sram_mmap {
 	struct reserved_mem *rmem;
 };
 
-struct address_space_operations sram_aops = {
+const struct address_space_operations sram_aops = {
 	.dirty_folio	= noop_dirty_folio,
 };
 
@@ -137,10 +137,8 @@ static int adi_sram_mmap_probe(struct platform_device *pdev)
 		set_page_count(page + i, 1);
 
 	sram = devm_kzalloc(dev, sizeof(*sram), GFP_KERNEL);
-	if (!sram) {
-		dev_err(dev, "Unable to allocate sram device data\n");
+	if (!sram)
 		return -ENOMEM;
-	}
 
 	sram->dev = dev;
 	sram->start = page;
@@ -154,7 +152,7 @@ static int adi_sram_mmap_probe(struct platform_device *pdev)
 
 	ret = misc_register(&sram->miscdev);
 	if (ret < 0)
-		dev_err(dev, "Faied to register sram mmap misc device\n");
+		dev_err(dev, "Failed to register sram mmap misc device\n");
 
 	return ret;
 }
@@ -208,8 +206,9 @@ static int __init rmem_sram_setup(struct reserved_mem *rmem)
 		&rmem->base, (unsigned long)(rmem->size / SZ_1K));
 	return 0;
 }
-RESERVEDMEM_OF_DECLARE(adi_sram, "adi,sram-access", rmem_sram_setup);
 
+RESERVEDMEM_OF_DECLARE(adi_sram, "adi,sram-access", rmem_sram_setup);
 module_platform_driver(adi_sram_mmap_driver);
 MODULE_DESCRIPTION("SRAM mmap misc driver for ADI processor on-chip memory");
 MODULE_LICENSE("GPL");
+
