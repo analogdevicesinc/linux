@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2026, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/iio/iio.h>
@@ -13,7 +13,6 @@
 #include <linux/jiffies.h>
 #include <linux/clk.h>
 
-
 #define PWM_CONTROL_REG                 0x40
 #define PWM_CLK_DIV_REG                 0x44
 #define PWM_AVRG_READY_REG              0x48
@@ -22,7 +21,7 @@
 
 struct adi_pwm_dac {
 	void __iomem *base;
-	struct mutex lock;
+	struct mutex lock; /* hw access lock */
 	unsigned long input_clk_rate;
 	u32 iovdd_microvolt;
 	u32 gpio_max_frequency;
@@ -115,8 +114,8 @@ static int adi_pwm_dac_write_raw(struct iio_dev *indio_dev,
 		timenow = jiffies;
 		do
 			reg = readl(dac->base + PWM_AVRG_READY_REG);
-		while ((1UL & (reg >> chan->channel)) == 0
-		       && time_before(jiffies, timenow + HZ));
+		while ((1UL & (reg >> chan->channel)) == 0 &&
+		       time_before(jiffies, timenow + HZ));
 
 		if ((1UL & (reg >> chan->channel)) == 0)
 			return -EBUSY;
@@ -160,7 +159,6 @@ static const struct iio_info adi_pwm_dac_info = {
 	.read_raw	= adi_pwm_dac_read_raw,
 	.write_raw	= adi_pwm_dac_write_raw
 };
-
 
 static int adi_pwm_dac_probe(struct platform_device *pdev)
 {
@@ -260,4 +258,4 @@ module_platform_driver(adi_pwm_dac_driver);
 
 MODULE_DESCRIPTION("Analog Devices PWM DAC driver");
 MODULE_AUTHOR("Jie Zhang <jie.zhang@analog.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
