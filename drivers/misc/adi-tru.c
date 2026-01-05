@@ -2,7 +2,7 @@
 /*
  * Analog Devices Trigger Routing Unit (TRU) driver
  *
- * Copyright 2022 Analog Devices Inc.
+ * Copyright 2026 Analog Devices Inc.
  */
 
 #include <linux/io.h>
@@ -13,7 +13,6 @@
 #include <linux/mutex.h>
 #include <linux/list.h>
 #include <linux/adi-tru.h>
-
 
 #define TRU_SSR0                        0x0
 #define TRU_MTR                         0x7e0
@@ -30,10 +29,8 @@
 
 #define TRU_SSR_LOCK                    0x80000000
 
-
 static LIST_HEAD(tru_list);
 static DEFINE_MUTEX(tru_list_lock);
-
 
 /* Get TRU device by its alias ID */
 struct adi_tru *adi_tru_get(u32 alias_id)
@@ -47,6 +44,7 @@ struct adi_tru *adi_tru_get(u32 alias_id)
 			return tru;
 		}
 	}
+
 	mutex_unlock(&tru_list_lock);
 
 	return NULL;
@@ -343,13 +341,13 @@ static ssize_t ssr_store(struct device *dev, struct device_attribute *attr,
 		return -EINVAL;
 	target = value;
 
-	if (sscanf(buf, "%d", &value) != 1)
+	if (kstrtoint(buf, 0, &value) != 0)
 		return -EINVAL;
 	if (value < 0)
 		return -EINVAL;
 	source = value;
 
-	if (strstr(buf, "locked") != NULL)
+	if (!strstr(buf, "locked"))
 		locked = true;
 
 	err = adi_tru_connect_source_to_target(tru, source, target, locked);
@@ -386,7 +384,7 @@ static int adi_tru_probe(struct platform_device *pdev)
 	id = of_alias_get_id(np, "tru");
 	if (id < 0) {
 		dev_err(tru->dev,
-			"The alias of tru node should be truN");
+			"The alias of tru node should be tru<number>");
 		return id;
 	}
 	tru->alias_id = id;
@@ -448,7 +446,6 @@ static int adi_tru_probe(struct platform_device *pdev)
 	list_add_tail(&tru->node, &tru_list);
 	mutex_unlock(&tru_list_lock);
 
-
 	/* Create sysfs interface files */
 
 	ret = sysfs_create_group(&dev->kobj, &tru_attribute_group);
@@ -458,25 +455,25 @@ static int adi_tru_probe(struct platform_device *pdev)
 	ssr_dev_attrs =
 		devm_kcalloc(dev, tru->last_target_id + 1,
 			     sizeof(struct device_attribute), GFP_KERNEL);
-	if (ssr_dev_attrs == NULL)
+	if (!ssr_dev_attrs)
 		return -ENOMEM;
 
 	ssr_attrs =
 		devm_kcalloc(dev, tru->last_target_id + 2,
 			     sizeof(struct attribute *), GFP_KERNEL);
-	if (ssr_attrs == NULL)
+	if (!ssr_attrs)
 		return -ENOMEM;
 
 	for (i = 0; i <= tru->last_target_id; i++) {
 		char *name;
 
 		name = devm_kasprintf(dev, GFP_KERNEL, "ssr%d", i);
-		if (name == NULL)
+		if (!name)
 			return -ENOMEM;
 
 		sysfs_attr_init(&ssr_dev_attrs[i].attr);
 		ssr_dev_attrs[i].attr.name = name;
-		ssr_dev_attrs[i].attr.mode = S_IRUGO | S_IWUSR;
+		ssr_dev_attrs[i].attr.mode = 0644;
 		ssr_dev_attrs[i].show = ssr_show;
 		ssr_dev_attrs[i].store = ssr_store;
 
@@ -524,4 +521,4 @@ static struct platform_driver adi_tru_driver = {
 module_platform_driver(adi_tru_driver);
 
 MODULE_DESCRIPTION("Analog Devices Trigger Routing Unit (TRU) driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

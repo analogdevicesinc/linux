@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (c) 2022, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2026, Analog Devices Incorporated, All Rights Reserved
  */
 
 #ifndef ADI_TRU_H
@@ -11,7 +11,7 @@
 struct adi_tru {
 	struct device *dev;
 	void __iomem *base;
-	struct mutex lock;
+	struct mutex lock; /* struct access lock */
 	u32 last_source_id;
 	u32 last_target_id;
 	u32 alias_id;
