@@ -135,6 +135,11 @@ int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 	if (vid == 0 || vid >= VLAN_N_VID - 1)
 		return -EINVAL;
 
+	if (vid == es->pvid) {
+		dev_info(&es->pdev->dev, "cannot add pvid %u to a port", vid);
+		return -EINVAL;
+	}
+
 	vcl = adrv906x_switch_vlan_find(es, vid);
 	if (!vcl) {
 		vcl = devm_kzalloc(&es->pdev->dev, sizeof(*vcl), GFP_ATOMIC);
@@ -171,6 +176,11 @@ int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 
 	if (vid == 0 || vid >= VLAN_N_VID - 1)
 		return -EINVAL;
+
+	if (vid == es->pvid) {
+		dev_info(&es->pdev->dev, "cannot remove pvid %u from port %u", vid, port);
+		return -EINVAL;
+	}
 
 	vcl = adrv906x_switch_vlan_find(es, vid);
 	if (!vcl)
