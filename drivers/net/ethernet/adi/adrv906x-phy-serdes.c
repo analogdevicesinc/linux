@@ -1099,13 +1099,13 @@ static void __pll_check_actv_lnks(void *param)
 	struct adrv906x_pll *pll = container_of(fsm, struct adrv906x_pll, fsm);
 	int event = PLL_EVT_UNKNOWN;
 
-	if ((atomic_read(&fsm->state) == PLL_ST_LNK0_10G_REQ
-	     || atomic_read(&fsm->state) == PLL_ST_LNK0_25G_REQ)
-	    && adrv906x_serdes_disabled(2 * pll->dev_id + 1))
+	if ((atomic_read(&fsm->state) == PLL_ST_LNK0_10G_REQ ||
+	     atomic_read(&fsm->state) == PLL_ST_LNK0_25G_REQ) &&
+		adrv906x_serdes_disabled(2 * pll->dev_id + 1))
 		event = PLL_EVT_LNK1_DOWN;
-	else if ((atomic_read(&fsm->state) == PLL_ST_LNK1_10G_REQ
-		  || atomic_read(&fsm->state) == PLL_ST_LNK1_25G_REQ)
-		 && adrv906x_serdes_disabled(2 * pll->dev_id))
+	else if ((atomic_read(&fsm->state) == PLL_ST_LNK1_10G_REQ ||
+		  atomic_read(&fsm->state) == PLL_ST_LNK1_25G_REQ) &&
+		 adrv906x_serdes_disabled(2 * pll->dev_id))
 		event = PLL_EVT_LNK0_DOWN;
 
 	adrv906x_phy_fsm_trigger_transition(fsm, event);

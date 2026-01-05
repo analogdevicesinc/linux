@@ -7,8 +7,8 @@
 #include <net/sock.h>
 
 static u32  default_txsc_pn_thr = 0xff000000;   module_param(default_txsc_pn_thr, uint, 0644);
-static u32  debug_max_framesize = 0;            module_param(debug_max_framesize, uint, 0644);
-static bool debug_xpn = false;                  module_param(debug_xpn, bool, 0644);
+static u32  debug_max_framesize;                module_param(debug_max_framesize, uint, 0644);
+static bool debug_xpn;                          module_param(debug_xpn, bool, 0644);
 
 // Find the SecY index from the provided ctx->secy pointer and netdev_priv(ctx->netdev) secy_array.
 static bool get_secy(struct macsec_context *ctx, u32 *secy_index)
@@ -46,9 +46,8 @@ static u32 count_secy(struct net_device *netdev)
 	u32 cnt = 0;
 
 	for (i = 0; i < macsec_priv->capabilities.no_of_secys && i < CCO_MACSEC_SECY_MAX; ++i)
-		if (macsec_priv->secy_array[i]) {
+		if (macsec_priv->secy_array[i])
 			cnt++;
-		}
 	return cnt;
 }
 
@@ -131,7 +130,7 @@ static void write_secy_txsc(struct net_device *netdev,
 			  (validate_frames << SECY_CONFIG_RX_CONFIG_VALIDATEFRAMES_WR_SHIFT));
 	cco_macsec_reg_wr(netdev, SECY_CONFIG_BASE_ADDR + SECY_CONFIG_RX_REPLAYWINDOW_WR_BASE_ADDR,
 			  disable ? 0 : secy->replay_window);
-	if (secy->key_len == (128/8)) {
+	if (secy->key_len == (128 / 8)) {
 		if (!secy->xpn)
 			val = 0; // 0x0: AES-GCM-128
 		else
@@ -159,11 +158,11 @@ static void write_secy_txsc(struct net_device *netdev,
 
 	// Configure the Tx-SC registers:
 	cco_macsec_reg_wr(netdev, TRANSMITSC_BASE_ADDR + TRANSMITSC_TX_SC_SCI_0_WR_BASE_ADDR,
-			  disable ? 0 : ((((u8*)&secy->sci)[4] << 24) | (((u8*)&secy->sci)[5] << 16) |
-					 (((u8*)&secy->sci)[6] <<  8) | ((u8*)&secy->sci)[7]));
+			  disable ? 0 : ((((u8 *)&secy->sci)[4] << 24) | (((u8 *)&secy->sci)[5] << 16) |
+					 (((u8 *)&secy->sci)[6] <<  8) | ((u8 *)&secy->sci)[7]));
 	cco_macsec_reg_wr(netdev, TRANSMITSC_BASE_ADDR + TRANSMITSC_TX_SC_SCI_1_WR_BASE_ADDR,
-			  disable ? 0 : ((((u8*)&secy->sci)[0] << 24) | (((u8*)&secy->sci)[1] << 16) |
-					 (((u8*)&secy->sci)[2] <<  8) | ((u8*)&secy->sci)[3]));
+			  disable ? 0 : ((((u8 *)&secy->sci)[0] << 24) | (((u8 *)&secy->sci)[1] << 16) |
+					 (((u8 *)&secy->sci)[2] <<  8) | ((u8 *)&secy->sci)[3]));
 	if ((sa_enabled & (0x10 << secy->tx_sc.encoding_sa)) && !disable) {
 		cco_macsec_reg_wr(netdev, TRANSMITSC_BASE_ADDR + TRANSMITSC_TX_SC_TRANSMITSC_CFG_BASE_ADDR,
 				  ((1 << secy->tx_sc.encoding_sa) << TRANSMITSC_TX_SC_TRANSMITSC_CFG_ENABLETRANSMIT_SA_WR_SHIFT));
@@ -195,11 +194,11 @@ static int cco_macsec_add_secy(struct macsec_context *ctx)
 	} else if (!(macsec_priv->capabilities.available_ciphersuites &
 		     (CCO_CS_AES_GCM_128 | CCO_CS_AES_GCM_256)))
 		return -EOPNOTSUPP;
-	if ((secy->key_len == (128/8)) &&
+	if ((secy->key_len == (128 / 8)) &&
 	    !(macsec_priv->capabilities.available_ciphersuites &
 	      (CCO_CS_AES_GCM_128 | CCO_CS_AES_GCM_XPN_128)))
 		return -EOPNOTSUPP;
-	if ((secy->key_len == (256/8)) &&
+	if ((secy->key_len == (256 / 8)) &&
 	    !(macsec_priv->capabilities.available_ciphersuites &
 	      (CCO_CS_AES_GCM_256 | CCO_CS_AES_GCM_XPN_256)))
 		return -EOPNOTSUPP;
@@ -210,13 +209,11 @@ static int cco_macsec_add_secy(struct macsec_context *ctx)
 	if (!get_free_secy(ctx, &secy_index))
 		return -ENOSPC;
 
-	// netdev_info(ctx->netdev, "%s\n", __func__);
-
 	secy_cnt = count_secy(ctx->netdev);
 	if (secy_cnt == 0) {
 		val = cco_macsec_reg_rd(ctx->netdev, MACSEC_CORE_BASE_ADDR + MACSEC_CORE_GENERAL_CTRL_BASE_ADDR);
 		cco_macsec_reg_wr(ctx->netdev, MACSEC_CORE_BASE_ADDR + MACSEC_CORE_GENERAL_CTRL_BASE_ADDR,
-				val | MACSEC_CORE_GENERAL_CTRL_MACSEC_EN_MASK);
+				  val | MACSEC_CORE_GENERAL_CTRL_MACSEC_EN_MASK);
 	}
 	memset(&macsec_priv->dev_stats[secy_index], 0, sizeof(macsec_priv->dev_stats[secy_index]));
 	memset(&macsec_priv->txsc_stats[secy_index], 0, sizeof(macsec_priv->txsc_stats[secy_index]));
@@ -253,10 +250,10 @@ static int cco_macsec_upd_secy(struct macsec_context *ctx)
 	if (secy->xpn &&
 	    (macsec_priv->capabilities.available_ciphersuites & (CCO_CS_AES_GCM_XPN_128 | CCO_CS_AES_GCM_XPN_256)) == 0)
 		return -EOPNOTSUPP;
-	if (secy->key_len == (128/8) &&
+	if (secy->key_len == (128 / 8) &&
 	    (macsec_priv->capabilities.available_ciphersuites & (CCO_CS_AES_GCM_128 | CCO_CS_AES_GCM_XPN_128)) == 0)
 		return -EOPNOTSUPP;
-	if (secy->key_len == (256/8) &&
+	if (secy->key_len == (256 / 8) &&
 	    (macsec_priv->capabilities.available_ciphersuites & (CCO_CS_AES_GCM_256 | CCO_CS_AES_GCM_XPN_256)) == 0)
 		return -EOPNOTSUPP;
 	if (secy->icv_len != macsec_priv->capabilities.ICVLength)
@@ -265,8 +262,6 @@ static int cco_macsec_upd_secy(struct macsec_context *ctx)
 		return -EINVAL;
 	if (!secy->netdev)
 		return EINVAL;
-
-	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	vlan_in_clear = macsec_priv->secy_vlan_in_clear[secy_index];
 	conf_offs = macsec_priv->secy_confidentiality_offs[secy_index];
@@ -282,11 +277,11 @@ static void write_rxsc(struct net_device *netdev,
 {
 	// Configure the Rx-SC registers:
 	cco_macsec_reg_wr(netdev, RECEIVESC_BASE_ADDR + RECEIVESC_RX_SC_SCI_0_WR_BASE_ADDR,
-			  disable ? 0 : ((((u8*)&rx_sc->sci)[4] << 24) | (((u8*)&rx_sc->sci)[5] << 16) |
-					 (((u8*)&rx_sc->sci)[6] <<  8) | ((u8*)&rx_sc->sci)[7]));
+			  disable ? 0 : ((((u8 *)&rx_sc->sci)[4] << 24) | (((u8 *)&rx_sc->sci)[5] << 16) |
+					 (((u8 *)&rx_sc->sci)[6] <<  8) | ((u8 *)&rx_sc->sci)[7]));
 	cco_macsec_reg_wr(netdev, RECEIVESC_BASE_ADDR + RECEIVESC_RX_SC_SCI_1_WR_BASE_ADDR,
-			  disable ? 0 : ((((u8*)&rx_sc->sci)[0] << 24) | (((u8*)&rx_sc->sci)[1] << 16) |
-					 (((u8*)&rx_sc->sci)[2] <<  8) | ((u8*)&rx_sc->sci)[3]));
+			  disable ? 0 : ((((u8 *)&rx_sc->sci)[0] << 24) | (((u8 *)&rx_sc->sci)[1] << 16) |
+					 (((u8 *)&rx_sc->sci)[2] <<  8) | ((u8 *)&rx_sc->sci)[3]));
 	cco_macsec_reg_wr(netdev, RECEIVESC_BASE_ADDR + RECEIVESC_RX_SC_CTRL_BASE_ADDR,
 			  RECEIVESC_RX_SC_CTRL_WR_TRIGGER_MASK        |
 			  (peer_index << RECEIVESC_RX_SC_CTRL_PEER_INDEX_SHIFT) |
@@ -393,8 +388,6 @@ static int cco_macsec_del_secy(struct macsec_context *ctx)
 	if (!find_secy(ctx, &secy_index))
 		return -EINVAL;
 
-	// netdev_info(ctx->netdev, "%s\n", __func__);
-
 	write_secy_txsc(ctx->netdev, secy, secy_index, 1, 0, 0, 0);
 
 	// Delete any Rx-SCs (and Rx-SA's):
@@ -437,7 +430,7 @@ static int cco_macsec_del_secy(struct macsec_context *ctx)
 	if (secy_cnt == 0) {
 		val = cco_macsec_reg_rd(ctx->netdev, MACSEC_CORE_BASE_ADDR + MACSEC_CORE_GENERAL_CTRL_BASE_ADDR);
 		cco_macsec_reg_wr(ctx->netdev, MACSEC_CORE_BASE_ADDR + MACSEC_CORE_GENERAL_CTRL_BASE_ADDR,
-				val & ~MACSEC_CORE_GENERAL_CTRL_MACSEC_EN_MASK);
+				  val & ~MACSEC_CORE_GENERAL_CTRL_MACSEC_EN_MASK);
 	}
 	return 0;
 }
@@ -455,8 +448,6 @@ static int cco_macsec_add_rxsc(struct macsec_context *ctx)
 	// check that a new Rx-SC can be added:
 	if (!get_free_rxsc(ctx, secy_index, &peer_index))
 		return -ENOSPC;
-
-	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	memset(&macsec_priv->rxsc_stats[secy_index][peer_index], 0, sizeof(macsec_priv->rxsc_stats[secy_index][peer_index]));
 
@@ -486,8 +477,6 @@ static int cco_macsec_upd_rxsc(struct macsec_context *ctx)
 	if (!find_rxsc(macsec_priv, rx_sc, secy_index, &peer_index))
 		return -EINVAL;
 
-	// netdev_info(ctx->netdev, "%s\n", __func__);
-
 	// update the Rx-SC registers:
 	write_rxsc(ctx->netdev, rx_sc, secy_index, peer_index, disable);
 	if (disable)
@@ -511,8 +500,6 @@ static int cco_macsec_del_rxsc(struct macsec_context *ctx)
 	// get the peer_index:
 	if (!find_rxsc(macsec_priv, rx_sc, secy_index, &peer_index))
 		return -EINVAL;
-
-	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	clear_rxsc(ctx, macsec_priv, rx_sc, secy_index, peer_index);
 	return 0;
@@ -552,14 +539,13 @@ static int cco_macsec_add_rxsa(struct macsec_context *ctx)
 		// not found and no room for a new
 		return -ENOSPC;
 
-	// netdev_info(ctx->netdev, "%s\n", __func__);
-
 	if (!(macsec_priv->key_use[key_index] & CCO_MACSEC_KEY_RX)) {
 		u8 key_tx = (macsec_priv->key_use[key_index] & CCO_MACSEC_KEY_TX) ? 1 : 0;
+
 		macsec_priv->key_use[key_index] |= CCO_MACSEC_KEY_RX;
 		memcpy(macsec_priv->key_id_table[key_index], ctx->sa.rx_sa->key.id, MACSEC_KEYID_LEN);
 		// Configure the Rx-SA key:
-		if (ctx->secy->key_len == (128/8)) {
+		if (ctx->secy->key_len == (128 / 8)) {
 			cco_macsec_reg_wr(ctx->netdev, CIPHERSUITE_BASE_ADDR + CIPHERSUITE_CS_SAK_0_BASE_ADDR,
 					  (ctx->sa.key[12] << 24) | (ctx->sa.key[13] << 16) |
 					  (ctx->sa.key[14] << 8) | ctx->sa.key[15]);
@@ -653,9 +639,9 @@ static int cco_macsec_add_rxsa(struct macsec_context *ctx)
 		macsec_priv->rxsa_ext[secy_index][peer_index][ctx->sa.assoc_num].createdTime;
 	macsec_priv->rxsa_ext[secy_index][peer_index][ctx->sa.assoc_num].stoppedTime =
 		macsec_priv->rxsa_ext[secy_index][peer_index][ctx->sa.assoc_num].createdTime;
-	if (disable)
+	if (disable) {
 		macsec_priv->sa_enabled[secy_index][peer_index] &= ~(1 << ctx->sa.assoc_num);
-	else {
+	} else {
 		if ((macsec_priv->sa_enabled[secy_index][peer_index] & 0x0f) == 0)
 			// first Rx-SA to become active, so Rx-SC is now active:
 			macsec_priv->rxsc_ext[secy_index][peer_index].startedTime = jiffies;
@@ -695,8 +681,6 @@ static int cco_macsec_upd_rxsa(struct macsec_context *ctx)
 	}
 	if (key_index < 0)
 		return -EINVAL;
-
-	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	isEnabled = (macsec_priv->sa_enabled[secy_index][peer_index] >> ctx->sa.assoc_num) & 1;
 
@@ -802,8 +786,6 @@ static int cco_macsec_del_rxsa(struct macsec_context *ctx)
 	if (key_index < 0)
 		return -EINVAL;
 
-	// netdev_info(ctx->netdev, "%s\n", __func__);
-
 	enable_mask = macsec_priv->sa_enabled[secy_index][peer_index] & 0x0f;
 	clear_rxsa(ctx, macsec_priv, secy_index, peer_index, ctx->sa.assoc_num, key_index);
 	if (enable_mask && (macsec_priv->sa_enabled[secy_index][peer_index] & 0x0f) == 0)
@@ -842,14 +824,13 @@ static int cco_macsec_add_txsa(struct macsec_context *ctx)
 		// not found and no room for a new
 		return -ENOSPC;
 
-	// netdev_info(ctx->netdev, "%s\n", __func__);
-
 	if (!(macsec_priv->key_use[key_index] & CCO_MACSEC_KEY_TX)) {
 		u8 key_rx = (macsec_priv->key_use[key_index] & CCO_MACSEC_KEY_RX) ? 1 : 0;
+
 		macsec_priv->key_use[key_index] |= CCO_MACSEC_KEY_TX;
 		memcpy(macsec_priv->key_id_table[key_index], ctx->sa.tx_sa->key.id, MACSEC_KEYID_LEN);
 		// Configure the Tx-SA key:
-		if (ctx->secy->key_len == (128/8)) {
+		if (ctx->secy->key_len == (128 / 8)) {
 			cco_macsec_reg_wr(ctx->netdev, CIPHERSUITE_BASE_ADDR + CIPHERSUITE_CS_SAK_0_BASE_ADDR,
 					  (ctx->sa.key[12] << 24) | (ctx->sa.key[13] << 16) |
 					  (ctx->sa.key[14] << 8) | ctx->sa.key[15]);
@@ -933,9 +914,9 @@ static int cco_macsec_add_txsa(struct macsec_context *ctx)
 		macsec_priv->txsa_ext[secy_index][ctx->sa.assoc_num].createdTime;
 	macsec_priv->txsa_ext[secy_index][ctx->sa.assoc_num].stoppedTime =
 		macsec_priv->txsa_ext[secy_index][ctx->sa.assoc_num].createdTime;
-	if (disable)
+	if (disable) {
 		macsec_priv->sa_enabled[secy_index][0] &= ~(0x10 << ctx->sa.assoc_num);
-	else {
+	} else {
 		macsec_priv->sa_enabled[secy_index][0] |= (0x10 << ctx->sa.assoc_num);
 		if (ctx->secy->tx_sc.encoding_sa == ctx->sa.assoc_num) {
 			// Tx-SA used by Tx-SC becomes active, so Tx-SC is now active:
@@ -975,8 +956,6 @@ static int cco_macsec_upd_txsa(struct macsec_context *ctx)
 	if (key_index < 0)
 		return -EINVAL;
 
-	// netdev_info(ctx->netdev, "%s\n", __func__);
-
 	isEnabled = (macsec_priv->sa_enabled[secy_index][0] >> (ctx->sa.assoc_num + 4)) & 1;
 
 	if (isEnabled) {
@@ -1014,7 +993,7 @@ static int cco_macsec_upd_txsa(struct macsec_context *ctx)
 			cco_macsec_reg_wr(ctx->netdev, TRANSMITSA_BASE_ADDR + TRANSMITSA_TX_SA_CTRL_BASE_ADDR,
 					  (secy_index << TRANSMITSA_TX_SA_CTRL_SECY_INDEX_SHIFT) |
 					  TRANSMITSA_TX_SA_CTRL_WR_TRIGGER_MASK);
-        }
+		}
 	} else {
 		// currently disabled
 		if (!disable) {
@@ -1070,8 +1049,6 @@ static int cco_macsec_del_txsa(struct macsec_context *ctx)
 	}
 	if (key_index < 0)
 		return -EINVAL;
-
-	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	enable_mask = macsec_priv->sa_enabled[secy_index][0] & 0xf0;
 	clear_txsa(ctx, macsec_priv, secy_index, ctx->sa.assoc_num, key_index);
@@ -1389,8 +1366,6 @@ static int cco_macsec_dev_stop(struct macsec_context *ctx)
 
 	if (!get_secy(ctx, &secy_index))
 		return -EINVAL;
-
-	// netdev_info(ctx->netdev, "%s\n", __func__);
 
 	if (macsec_priv->secy_stopped[secy_index] == 0) {
 		// 1. Delete the SecY and Tx SC registers:
@@ -2753,7 +2728,7 @@ done:
 	return skb->len;
 }
 
-static void get_macsec_capabilities(struct net_device *netdev, struct cco_macsec_capabilities* p)
+static void get_macsec_capabilities(struct net_device *netdev, struct cco_macsec_capabilities *p)
 {
 	u32 val, msb;
 
@@ -2819,7 +2794,7 @@ int cco_macsec_init(struct net_device *dev)
 	netdev_info(dev, "%s: Probe MACsec device: id=0x%08x version=0x%08x\n", __func__, id, ver);
 	// only major version must match for driver to work:
 	if (id != CCO_MACSEC_IP_ID ||
-		(ver & MACSEC_CORE_IP_VERSION_MAJOR_MASK) != (CCO_MACSEC_MAJOR_VER << MACSEC_CORE_IP_VERSION_MAJOR_SHIFT)) {
+	    (ver & MACSEC_CORE_IP_VERSION_MAJOR_MASK) != (CCO_MACSEC_MAJOR_VER << MACSEC_CORE_IP_VERSION_MAJOR_SHIFT)) {
 		netdev_warn(dev, "%s MACsec device not supported IP_ID=0x%08x version=0x%08x\n", __func__, id, ver);
 		return -1;
 	}
@@ -2867,6 +2842,7 @@ void cco_macsec_exit(struct net_device *dev)
 void cco_macsec_commonport_status_update(struct net_device *netdev, u8 operational, u8 enabled)
 {
 	u32 secy_cnt = count_secy(netdev);
+
 	cco_macsec_reg_wr(netdev, MACSEC_CORE_BASE_ADDR + MACSEC_CORE_GENERAL_CTRL_BASE_ADDR,
 			  (secy_cnt ? MACSEC_CORE_GENERAL_CTRL_MACSEC_EN_MASK : 0)                             |
 			  ((operational ? 1 : 0) << MACSEC_CORE_GENERAL_CTRL_COMMONPORT_MAC_OPERATIONAL_SHIFT) |
@@ -2883,7 +2859,6 @@ irqreturn_t cco_macsec_isr(int irq, void *dev_id)
 	u32 regval;
 	u8 sa_ix, vlan_in_clear, conf_offs;
 	u32 secy_index;
-
 
 	regval = cco_macsec_reg_rd(dev, MACSEC_CORE_BASE_ADDR + MACSEC_CORE_INTERRUPT_BASE_ADDR);
 	// identify which SecY(s)/Tx SA's is near PN exhaustion:

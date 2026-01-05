@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (c) 2023-2025, Analog Devices Incorporated, All Rights Reserved
  */
- 
+
 #ifndef _CCO_MACSEC_H_
 #define _CCO_MACSEC_H_
 
@@ -85,10 +85,10 @@ struct cco_macsec_priv {
 };
 
 // provided by the Ethernet device driver module:
-struct cco_macsec_priv* cco_macsec_get_priv(struct net_device *netdev);
+struct cco_macsec_priv *cco_macsec_get_priv(struct net_device *netdev);
 void cco_macsec_reg_wr(struct net_device *netdev, unsigned long addr, u32 value);
 u32  cco_macsec_reg_rd(struct net_device *netdev, unsigned long addr);
-void cco_macsec_max_framesize_get(struct net_device *netdev, u32* max_framesize);
+void cco_macsec_max_framesize_get(struct net_device *netdev, u32 *max_framesize);
 
 // called from the Ethernet device driver module:
 int cco_macsec_init(struct net_device *dev);

@@ -373,7 +373,7 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 
 	orig = cmdstr;
 
-	strncpy(cmdstr, buf, cnt);
+	strscpy(cmdstr, buf, cnt);
 	cmdstr[cnt] = '\0';
 	ret = adrv906x_get_attr_cmd_tokens(cmdstr, tokens);
 	if (ret)
