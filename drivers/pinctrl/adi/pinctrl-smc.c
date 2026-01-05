@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2022 ~ 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2026, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/err.h>
@@ -179,7 +179,6 @@ int adi_pinconf_set_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 		      config_bitfield,
 		      ipctl->phys_addr, 0, &res);
 
-
 	/*
 	 *  The SMC call return status is present in res.a0,
 	 *     the pinctrl TFA Handler is present in res.a1
@@ -192,4 +191,4 @@ int adi_pinconf_set_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 
 MODULE_AUTHOR("Howard Massey <Howard.Massey@analog.com>");
 MODULE_DESCRIPTION("ADI common SMC pinctrl driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

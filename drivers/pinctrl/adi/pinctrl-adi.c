@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2022, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2026, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/err.h>
@@ -26,8 +26,7 @@
 #include "../pinmux.h"
 #include "pinctrl-adi.h"
 
-static inline const struct group_desc *adi_pinctrl_find_group_by_name(
-	struct pinctrl_dev *pctldev,
+static inline const struct group_desc *adi_pinctrl_find_group_by_name(struct pinctrl_dev *pctldev,
 	const char *name)
 {
 	const struct group_desc *grp = NULL;
@@ -159,7 +158,7 @@ static void adi_pinctrl_parse_pin(struct adi_pinctrl *ipctl,
 	struct adi_pin_mio *pin_mio = &pin->conf.mio;
 	struct adi_pin_reg *pin_reg;
 	const __be32 *list = *list_p;
-	uint32_t pin_num, mux_reg, conf_reg;
+	u32 pin_num, mux_reg, conf_reg;
 
 	pin_num = be32_to_cpu(*list++);
 	mux_reg = be32_to_cpu(*list++);
@@ -190,7 +189,6 @@ static int adi_pinconf_get(struct pinctrl_dev *pctldev,
 	 */
 	return info->adi_pinconf_get(pctldev, pin_id, config);
 }
-
 
 static int adi_pinconf_set(struct pinctrl_dev *pctldev,
 			   unsigned int pin_id, unsigned long *configs,
@@ -438,7 +436,7 @@ static int adi_pinctrl_probe_dt(struct platform_device *pdev,
 	} else {
 		pctl->num_groups = 0;
 		for_each_child_of_node(np, child)
-		pctl->num_groups += of_get_child_count(child);
+			pctl->num_groups += of_get_child_count(child);
 	}
 
 	if (flat_funcs) {
@@ -446,7 +444,7 @@ static int adi_pinctrl_probe_dt(struct platform_device *pdev,
 	} else {
 		i = 0;
 		for_each_child_of_node(np, child)
-		adi_pinctrl_parse_functions(child, ipctl, i++);
+			adi_pinctrl_parse_functions(child, ipctl, i++);
 	}
 
 	return 0;
@@ -536,4 +534,4 @@ EXPORT_SYMBOL_GPL(adi_pinctrl_pm_ops);
 
 MODULE_AUTHOR("Howard Massey <Howard.Massey@analog.com>");
 MODULE_DESCRIPTION("ADI pinctrl driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

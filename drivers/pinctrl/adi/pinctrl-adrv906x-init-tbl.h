@@ -1,7 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (c) 2025, Analog Devices Incorporated, All Rights Reserved
- *
- * SPDX-License-Identifier: GPL-2.0+
+ * Copyright (c) 2026, Analog Devices Incorporated, All Rights Reserved
  */
 
 #ifndef __DRIVERS_PINCTRL_ADRV906X_INIT_TBL_H

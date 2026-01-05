@@ -56,9 +56,9 @@ struct adi_pin {
  * @conf_reg: config register
  */
 struct adi_pin_reg {
-	uint32_t pin_num;
-	uint32_t mux_reg;
-	uint32_t conf_reg;
+	u32 pin_num;
+	u32 mux_reg;
+	u32 conf_reg;
 };
 
 /**
@@ -77,7 +77,7 @@ struct adi_pinctrl {
 	const struct adi_pinctrl_soc_info *info;
 	struct adi_pin_reg *pin_regs;
 	unsigned int group_index;
-	struct mutex mutex;
+	struct mutex mutex; /* protect pctl struct access */
 	phys_addr_t phys_addr;
 };
 
