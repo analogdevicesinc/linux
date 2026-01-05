@@ -49,7 +49,7 @@ static int wr_reset_cause(enum reset_cause_t cause)
 
 	io = memremap(A55_SYS_CFG + SCRATCH_NS + RESET_CAUSE_NS_OFFSET, SZ_4K, MEMREMAP_WT);
 
-	if (io == NULL) {
+	if (!io) {
 		pr_err("Unable to map to virtual address\n");
 		return 0;
 	}
@@ -65,7 +65,7 @@ static int rd_reset_cause(void)
 
 	io = memremap(A55_SYS_CFG + SCRATCH_NS + RESET_CAUSE_NS_OFFSET, SZ_4K, MEMREMAP_WT);
 
-	if (io == NULL) {
+	if (!io) {
 		pr_err("Unable to map to virtual address\n");
 		return 0;
 	}
@@ -154,4 +154,4 @@ module_init(err_handler_init);
 module_exit(err_handler_exit);
 
 MODULE_AUTHOR("Analog Devices, Inc.");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

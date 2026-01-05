@@ -9,5 +9,4 @@
 #define A55_SYS_CFG     0x20100000
 #define SCRATCH_NS      0x80000
 
-
 #endif /* __ADI_ADRV906X_STATUS_REG_H__ */

@@ -70,4 +70,4 @@ module_init(reboot_mode_handler_init);
 module_exit(reboot_mode_handler_exit);
 
 MODULE_AUTHOR("Analog Devices, Inc.");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

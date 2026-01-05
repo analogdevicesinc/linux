@@ -5,4 +5,9 @@ config SOC_ADRV906X
     depends on (ARCH_ADRV906X || COMPILE_TEST)
     default ARCH_ADRV906X
     help
-        Say yes here to add support for ADI ADRV906X SoC
+        This option enables support for the Analog Devices ADRV906x
+        System-on-Chip (SoC) platform designed for advanced cellular
+        communications applications.
+
+        Say Y here if you are building a kernel for ADRV906X hardware.
+        If unsure, say N.
