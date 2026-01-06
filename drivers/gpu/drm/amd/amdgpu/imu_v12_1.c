@@ -140,16 +140,12 @@ static int imu_v12_1_switch_compute_partition(struct amdgpu_device *adev,
 	int ret;
 
 	if (adev->psp.funcs) {
-		/*TODO: revisit asp interface once it's avaialble */
-		ret = psp_spatial_partition(&adev->psp,
-					    NUM_XCC(adev->gfx.xcc_mask) /
-						    num_xccs_per_xcp);
+		ret = psp_spatial_partition(&adev->psp, compute_partition_mode);
 		if (ret)
 			return ret;
 	}
 
 	adev->gfx.num_xcc_per_xcp = num_xccs_per_xcp;
-
 	return 0;
 }
 
