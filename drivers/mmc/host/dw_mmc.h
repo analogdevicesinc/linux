@@ -43,8 +43,6 @@ enum dw_mci_cookie {
 	COOKIE_MAPPED,		/* mapped by prepare_data() of dwmmc */
 };
 
-struct mmc_data;
-
 enum {
 	TRANS_MODE_PIO = 0,
 	TRANS_MODE_IDMAC,
