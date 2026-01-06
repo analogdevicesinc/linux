@@ -103,7 +103,6 @@ struct dw_mci_dma_slave {
  * @fifoth_val: The value of FIFOTH register.
  * @verid: Denote Version ID.
  * @dev: Device associated with the MMC controller.
- * @pdata: Platform data associated with the MMC controller.
  * @drv_data: Driver specific data for identified variant of the controller
  * @priv: Implementation defined private data.
  * @biu_clk: Pointer to bus interface unit clock instance.
@@ -208,7 +207,6 @@ struct dw_mci {
 	u32			fifoth_val;
 	u16			verid;
 	struct device		*dev;
-	struct dw_mci_board	*pdata;
 	const struct dw_mci_drv_data	*drv_data;
 	void			*priv;
 	struct clk		*biu_clk;
@@ -266,11 +264,6 @@ struct dw_mci_dma_ops {
 	void (*stop)(struct dw_mci *host);
 	void (*cleanup)(struct dw_mci *host);
 	void (*exit)(struct dw_mci *host);
-};
-
-/* Board platform data */
-struct dw_mci_board {
-	u32 caps;	/* Capabilities */
 };
 
 /* Support for longer data read timeout */

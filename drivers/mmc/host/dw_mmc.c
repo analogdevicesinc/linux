@@ -2837,9 +2837,6 @@ static int dw_mci_init_host_caps(struct dw_mci *host)
 	struct mmc_host *mmc = host->mmc;
 	int ctrl_id;
 
-	if (host->pdata->caps)
-		mmc->caps = host->pdata->caps;
-
 	if (drv_data)
 		mmc->caps |= drv_data->common_caps;
 
@@ -3152,54 +3149,43 @@ exit:
 	spin_unlock_irqrestore(&host->irq_lock, irqflags);
 }
 
-#ifdef CONFIG_OF
-static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
+static int dw_mci_parse_dt(struct dw_mci *host)
 {
-	struct dw_mci_board *pdata;
 	struct device *dev = host->dev;
 	const struct dw_mci_drv_data *drv_data = host->drv_data;
 	int ret;
 	u32 clock_frequency;
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
-		return ERR_PTR(-ENOMEM);
-
 	/* find reset controller when exist */
 	host->rstc = devm_reset_control_get_optional_exclusive(dev, "reset");
 	if (IS_ERR(host->rstc))
-		return ERR_CAST(host->rstc);
+		return PTR_ERR(host->rstc);
 
-	if (device_property_read_u32(dev, "fifo-depth", &host->fifo_depth))
+	if (!host->fifo_depth && device_property_read_u32(dev, "fifo-depth", &host->fifo_depth))
 		dev_info(dev,
 			 "fifo-depth property not found, using value of FIFOTH register as default\n");
 
-	device_property_read_u32(dev, "card-detect-delay",
-				 &host->detect_delay_ms);
+	if (!host->detect_delay_ms)
+		device_property_read_u32(dev, "card-detect-delay",
+					 &host->detect_delay_ms);
 
-	device_property_read_u32(dev, "data-addr", &host->data_addr_override);
+	if (!host->data_addr_override)
+		device_property_read_u32(dev, "data-addr", &host->data_addr_override);
 
 	if (device_property_present(dev, "fifo-watermark-aligned"))
 		host->wm_aligned = true;
 
-	if (!device_property_read_u32(dev, "clock-frequency", &clock_frequency))
+	if (!host->bus_hz && !device_property_read_u32(dev, "clock-frequency", &clock_frequency))
 		host->bus_hz = clock_frequency;
 
 	if (drv_data && drv_data->parse_dt) {
 		ret = drv_data->parse_dt(host);
 		if (ret)
-			return ERR_PTR(ret);
+			return ret;
 	}
 
-	return pdata;
+	return 0;
 }
-
-#else /* CONFIG_OF */
-static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
-{
-	return ERR_PTR(-EINVAL);
-}
-#endif /* CONFIG_OF */
 
 static void dw_mci_enable_cd(struct dw_mci *host)
 {
@@ -3245,12 +3231,9 @@ int dw_mci_probe(struct dw_mci *host)
 	int width, i, ret = 0;
 	u32 fifo_size;
 
-	if (!host->pdata) {
-		host->pdata = dw_mci_parse_dt(host);
-		if (IS_ERR(host->pdata))
-			return dev_err_probe(host->dev, PTR_ERR(host->pdata),
-					     "platform data not available\n");
-	}
+	ret = dw_mci_parse_dt(host);
+	if (ret)
+		return dev_err_probe(host->dev, ret, "parse dt failed\n");
 
 	host->biu_clk = devm_clk_get(host->dev, "biu");
 	if (IS_ERR(host->biu_clk)) {
