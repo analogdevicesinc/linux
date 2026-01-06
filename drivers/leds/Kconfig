@@ -931,6 +931,16 @@ config LEDS_LM36274
 	  Say Y to enable the LM36274 LED driver for TI LMU devices.
 	  This supports the LED device LM36274.
 
+config LEDS_LTC3220
+	tristate "LED Driver for LTC3220/LTC3220-1"
+	depends on I2C && LEDS_CLASS
+	help
+	  If you have an 18-Channel LED Driver connected to LTC3220, or LTC3220-1
+	  say Y here to enable this driver.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called ltc3220.
+
 config LEDS_TPS6105X
 	tristate "LED support for TI TPS6105X"
 	depends on LEDS_CLASS
