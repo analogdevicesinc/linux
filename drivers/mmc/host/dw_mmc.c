@@ -3524,8 +3524,11 @@ int dw_mci_runtime_resume(struct device *dev)
 		goto err;
 	}
 
-	if (host->use_dma && host->dma_ops->init)
-		host->dma_ops->init(host);
+	if (host->use_dma && host->dma_ops->init) {
+		ret = host->dma_ops->init(host);
+		if (ret)
+			return ret;
+	}
 
 	/*
 	 * Restore the initial value at FIFOTH register
