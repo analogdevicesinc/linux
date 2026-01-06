@@ -133,16 +133,62 @@ static int imu_v12_1_load_microcode(struct amdgpu_device *adev)
 	return 0;
 }
 
+#define regGFX_IMU_PARTITION_SWITCH		0x5f8c
+#define regGFX_IMU_PARTITION_SWITCH_BASE_IDX	1
+#define GFX_IMU_PARTITION_SWITCH__PARTITION_MODE__SHIFT		0x0
+#define GFX_IMU_PARTITION_SWITCH__TOTAL_XCCS_IN_XCP__SHIFT	0x2
+#define GFX_IMU_PARTITION_SWITCH__VIRTUAL_XCC_ID__SHIFT		0x9
+#define GFX_IMU_PARTITION_SWITCH__PHYSICAL_XCC_MASK__SHIFT	0x10
+#define GFX_IMU_PARTITION_SWITCH__PARTITION_MODE_MASK		0x00000003L
+#define GFX_IMU_PARTITION_SWITCH__TOTAL_XCCS_IN_XCP_MASK	0x0000003CL
+#define GFX_IMU_PARTITION_SWITCH__VIRTUAL_XCC_ID_MASK		0x00000E00L
+#define GFX_IMU_PARTITION_SWITCH__PHYSICAL_XCC_MASK_MASK	0x00FF0000L
+
 static int imu_v12_1_switch_compute_partition(struct amdgpu_device *adev,
 					      int num_xccs_per_xcp,
 					      int compute_partition_mode)
 {
-	int ret;
+	int ret, i, num_xcc;
+	u32 tmp = 0;
 
 	if (adev->psp.funcs) {
 		ret = psp_spatial_partition(&adev->psp, compute_partition_mode);
 		if (ret)
 			return ret;
+	} else {
+		num_xcc = NUM_XCC(adev->gfx.xcc_mask);
+		/* 00 - SPX; 01 - DPX; 10 - QPX; 11 - CPX */
+		switch (compute_partition_mode) {
+		case AMDGPU_SPX_PARTITION_MODE:
+			compute_partition_mode = 0;
+			break;
+		case AMDGPU_DPX_PARTITION_MODE:
+			compute_partition_mode = 1;
+			break;
+		case AMDGPU_QPX_PARTITION_MODE:
+			compute_partition_mode = 2;
+			break;
+		case AMDGPU_CPX_PARTITION_MODE:
+			compute_partition_mode = 3;
+			break;
+		default:
+			dev_err(adev->dev, "Invalid compute partition mode\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < num_xcc; i++) {
+			tmp = REG_SET_FIELD(tmp, GFX_IMU_PARTITION_SWITCH,
+					    PARTITION_MODE, compute_partition_mode);
+			tmp = REG_SET_FIELD(tmp, GFX_IMU_PARTITION_SWITCH,
+					    TOTAL_XCCS_IN_XCP, num_xccs_per_xcp);
+			tmp = REG_SET_FIELD(tmp, GFX_IMU_PARTITION_SWITCH,
+					    VIRTUAL_XCC_ID, i % num_xccs_per_xcp);
+			tmp = REG_SET_FIELD(tmp, GFX_IMU_PARTITION_SWITCH,
+					    PHYSICAL_XCC_MASK, adev->gfx.xcc_mask);
+			WREG32_SOC15(GC, GET_INST(GC, i),
+				     regGFX_IMU_PARTITION_SWITCH, tmp);
+		}
+		ret = 0;
 	}
 
 	adev->gfx.num_xcc_per_xcp = num_xccs_per_xcp;
