@@ -78,7 +78,7 @@ struct dw_mci_dma_slave {
  * @dma_64bit_address: Whether DMA supports 64-bit address mode or not.
  * @sg_dma: Bus address of DMA buffer.
  * @sg_cpu: Virtual address of DMA buffer.
- * @dma_ops: Pointer to platform-specific DMA callbacks.
+ * @dma_ops: Pointer to DMA callbacks.
  * @cmd_status: Snapshot of SR taken upon completion of the current
  * @ring_size: Buffer size for idma descriptors.
  *	command. Only valid when EVENT_CMD_COMPLETE is pending.
@@ -280,7 +280,6 @@ struct dw_mci_board {
 	u32 detect_delay_ms;
 
 	struct reset_control *rstc;
-	struct dw_mci_dma_ops *dma_ops;
 };
 
 /* Support for longer data read timeout */

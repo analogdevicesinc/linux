@@ -3366,7 +3366,6 @@ int dw_mci_probe(struct dw_mci *host)
 		goto err_clk_ciu;
 	}
 
-	host->dma_ops = host->pdata->dma_ops;
 	dw_mci_init_dma(host);
 
 	/* Clear the interrupts for the host controller */
