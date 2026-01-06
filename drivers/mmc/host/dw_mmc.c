@@ -40,8 +40,6 @@
 				 SDMMC_INT_RESP_ERR | SDMMC_INT_HLE)
 #define DW_MCI_ERROR_FLAGS	(DW_MCI_DATA_ERROR_FLAGS | \
 				 DW_MCI_CMD_ERROR_FLAGS)
-#define DW_MCI_SEND_STATUS	1
-#define DW_MCI_RECV_STATUS	2
 #define DW_MCI_DMA_THRESHOLD	16
 
 #define DW_MCI_FREQ_MAX	200000000	/* unit: HZ */
@@ -1085,9 +1083,9 @@ static void dw_mci_submit_data(struct dw_mci *host, struct mmc_data *data)
 	host->data = data;
 
 	if (data->flags & MMC_DATA_READ)
-		host->dir_status = DW_MCI_RECV_STATUS;
+		host->dir_status = MMC_DATA_READ;
 	else
-		host->dir_status = DW_MCI_SEND_STATUS;
+		host->dir_status = MMC_DATA_WRITE;
 
 	dw_mci_ctrl_thld(host, data);
 
@@ -1853,7 +1851,7 @@ static int dw_mci_data_complete(struct dw_mci *host, struct mmc_data *data)
 			data->error = -EILSEQ;
 		} else if (status & SDMMC_INT_EBE) {
 			if (host->dir_status ==
-				DW_MCI_SEND_STATUS) {
+				MMC_DATA_WRITE) {
 				/*
 				 * No data CRC status was returned.
 				 * The number of bytes transferred
@@ -1862,7 +1860,7 @@ static int dw_mci_data_complete(struct dw_mci *host, struct mmc_data *data)
 				data->bytes_xfered = 0;
 				data->error = -ETIMEDOUT;
 			} else if (host->dir_status ==
-					DW_MCI_RECV_STATUS) {
+					MMC_DATA_READ) {
 				data->error = -EILSEQ;
 			}
 		} else {
@@ -2007,7 +2005,7 @@ static void dw_mci_work_func(struct work_struct *t)
 				 * avoids races and keeps things simple.
 				 */
 				if (err != -ETIMEDOUT &&
-				    host->dir_status == DW_MCI_RECV_STATUS) {
+				    host->dir_status == MMC_DATA_READ) {
 					state = STATE_SENDING_DATA;
 					continue;
 				}
@@ -2051,7 +2049,7 @@ static void dw_mci_work_func(struct work_struct *t)
 				 * If all data-related interrupts don't come
 				 * within the given time in reading data state.
 				 */
-				if (host->dir_status == DW_MCI_RECV_STATUS)
+				if (host->dir_status == MMC_DATA_READ)
 					dw_mci_set_drto(host);
 				break;
 			}
@@ -2091,7 +2089,7 @@ static void dw_mci_work_func(struct work_struct *t)
 				 * interrupt doesn't come within the given time.
 				 * in reading data state.
 				 */
-				if (host->dir_status == DW_MCI_RECV_STATUS)
+				if (host->dir_status == MMC_DATA_READ)
 					dw_mci_set_drto(host);
 				break;
 			}
@@ -2759,7 +2757,7 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 			if (!host->data_status)
 				host->data_status = pending;
 			smp_wmb(); /* drain writebuffer */
-			if (host->dir_status == DW_MCI_RECV_STATUS) {
+			if (host->dir_status == MMC_DATA_READ) {
 				if (host->sg != NULL)
 					dw_mci_read_data_pio(host, true);
 			}
@@ -2771,13 +2769,13 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 
 		if (pending & SDMMC_INT_RXDR) {
 			mci_writel(host, RINTSTS, SDMMC_INT_RXDR);
-			if (host->dir_status == DW_MCI_RECV_STATUS && host->sg)
+			if (host->dir_status == MMC_DATA_READ && host->sg)
 				dw_mci_read_data_pio(host, false);
 		}
 
 		if (pending & SDMMC_INT_TXDR) {
 			mci_writel(host, RINTSTS, SDMMC_INT_TXDR);
-			if (host->dir_status == DW_MCI_SEND_STATUS && host->sg)
+			if (host->dir_status == MMC_DATA_WRITE && host->sg)
 				dw_mci_write_data_pio(host);
 		}
 
