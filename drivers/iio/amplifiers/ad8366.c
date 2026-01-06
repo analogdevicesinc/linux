@@ -17,6 +17,7 @@
  * Copyright 2012-2026 Analog Devices Inc.
  */
 
+#include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -164,7 +165,8 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 	int ret;
 	int code, gain = 0;
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
+
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		code = st->ch[chan->channel];
@@ -210,7 +212,6 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&st->lock);
 
 	return ret;
 };
@@ -267,7 +268,8 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 		break;
 	}
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
+
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		st->ch[chan->channel] = code;
@@ -276,7 +278,6 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -336,9 +337,12 @@ static int ad8366_probe(struct spi_device *spi)
 	}
 
 	spi_set_drvdata(spi, indio_dev);
-	mutex_init(&st->lock);
 	st->spi = spi;
 	st->type = spi_get_device_id(spi)->driver_data;
+
+	ret = devm_mutex_init(&spi->dev, &st->lock);
+	if (ret)
+		return ret;
 
 	switch (st->type) {
 	case ID_AD8366:
