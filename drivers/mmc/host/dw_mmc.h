@@ -399,7 +399,6 @@ struct dw_mci_board {
 #define SDMMC_INT_CMD_DONE		BIT(2)
 #define SDMMC_INT_RESP_ERR		BIT(1)
 #define SDMMC_INT_CD			BIT(0)
-#define SDMMC_INT_ERROR			0xbfc2
 /* Command register defines */
 #define SDMMC_CMD_START			BIT(31)
 #define SDMMC_CMD_USE_HOLD_REG	BIT(29)
