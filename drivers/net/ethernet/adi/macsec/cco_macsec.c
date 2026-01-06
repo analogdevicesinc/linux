@@ -205,7 +205,7 @@ static int cco_macsec_add_secy(struct macsec_context *ctx)
 	if (secy->icv_len != macsec_priv->capabilities.ICVLength)
 		return -EOPNOTSUPP;
 	if (!secy->netdev)
-		return EINVAL;
+		return -EINVAL;
 	if (!get_free_secy(ctx, &secy_index))
 		return -ENOSPC;
 
@@ -261,7 +261,7 @@ static int cco_macsec_upd_secy(struct macsec_context *ctx)
 	if (!find_secy(ctx, &secy_index))
 		return -EINVAL;
 	if (!secy->netdev)
-		return EINVAL;
+		return -EINVAL;
 
 	vlan_in_clear = macsec_priv->secy_vlan_in_clear[secy_index];
 	conf_offs = macsec_priv->secy_confidentiality_offs[secy_index];
