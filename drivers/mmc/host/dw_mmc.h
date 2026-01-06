@@ -488,32 +488,7 @@ static inline void mci_fifo_l_writeq(void __iomem *addr, u64 value)
 #define mci_writel(dev, reg, value)			\
 	writel_relaxed((value), (dev)->regs + SDMMC_##reg)
 
-/* 16-bit FIFO access macros */
-#define mci_readw(dev, reg)			\
-	readw_relaxed((dev)->regs + SDMMC_##reg)
-#define mci_writew(dev, reg, value)			\
-	writew_relaxed((value), (dev)->regs + SDMMC_##reg)
-
-/* 64-bit FIFO access macros */
-#ifdef readq
-#define mci_readq(dev, reg)			\
-	readq_relaxed((dev)->regs + SDMMC_##reg)
-#define mci_writeq(dev, reg, value)			\
-	writeq_relaxed((value), (dev)->regs + SDMMC_##reg)
-#else
-/*
- * Dummy readq implementation for architectures that don't define it.
- *
- * We would assume that none of these architectures would configure
- * the IP block with a 64bit FIFO width, so this code will never be
- * executed on those machines. Defining these macros here keeps the
- * rest of the code free from ifdefs.
- */
-#define mci_readq(dev, reg)			\
-	(*(volatile u64 __force *)((dev)->regs + SDMMC_##reg))
-#define mci_writeq(dev, reg, value)			\
-	(*(volatile u64 __force *)((dev)->regs + SDMMC_##reg) = (value))
-
+#ifndef readq
 #define __raw_writeq(__value, __reg) \
 	(*(volatile u64 __force *)(__reg) = (__value))
 #define __raw_readq(__reg) (*(volatile u64 __force *)(__reg))
