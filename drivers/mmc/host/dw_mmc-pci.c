@@ -10,13 +10,13 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/pci.h>
+#include <linux/pci-epf.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include "dw_mmc.h"
 
-#define PCI_BAR_NO 2
 #define SYNOPSYS_DW_MCI_VENDOR_ID 0x700
 #define SYNOPSYS_DW_MCI_DEVICE_ID 0x1107
 /* Defining the Capabilities */
@@ -49,11 +49,9 @@ static int dw_mci_pci_probe(struct pci_dev *pdev,
 	host->bus_hz = 33 * 1000 * 1000;
 	host->drv_data = &pci_drv_data;
 
-	ret = pcim_iomap_regions(pdev, 1 << PCI_BAR_NO, pci_name(pdev));
-	if (ret)
-		return ret;
-
-	host->regs = pcim_iomap_table(pdev)[PCI_BAR_NO];
+	host->regs = pcim_iomap_region(pdev, BAR_2, pci_name(pdev));
+	if (IS_ERR(host->regs))
+		return PTR_ERR(host->regs);
 
 	pci_set_master(pdev);
 
