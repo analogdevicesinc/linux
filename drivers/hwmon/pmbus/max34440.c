@@ -9,9 +9,12 @@
 #include <linux/bitops.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
+#include <linux/device.h>
+#include <linux/firmware.h>
 #include "pmbus.h"
 
 enum chips {
@@ -53,14 +56,208 @@ enum chips {
 #define MAX34451_MFR_CHANNEL_CONFIG	0xe4
 #define MAX34451_MFR_CHANNEL_CONFIG_SEL_MASK	0x3f
 
+#define MAX34451_MFR_CRC		0xFE
+
+#define to_max34440_data(x)  container_of(x, struct max34440_data, info)
+
 struct max34440_data {
 	int id;
 	struct pmbus_driver_info info;
+	struct mutex lock; /* Protects access to device during firmware load */
 	u8 iout_oc_warn_limit;
 	u8 iout_oc_fault_limit;
 };
 
-#define to_max34440_data(x)  container_of(x, struct max34440_data, info)
+static int ascii_to_hex(uint8_t c)
+{
+	if (c >= '0' && c <= '9')
+		return (uint8_t)(c - '0');
+
+	if (c >= 'A' && c <= 'F')
+		return (uint8_t)(c - 'A' + 10);
+
+	if (c >= 'a' && c <= 'f')
+		return (uint8_t)(c - 'a' + 10);
+
+	return 0;
+}
+
+static ssize_t _read_crc(struct device *dev, struct device_attribute *attr,
+			char *buf, uint8_t type)
+{
+	struct i2c_client *client = to_i2c_client(dev->parent);
+	int ret;
+
+	ret = i2c_smbus_write_word_data(client, MAX34451_MFR_CRC, type);
+	if (ret < 0)
+		return ret;
+
+	ret = i2c_smbus_read_word_data(client, MAX34451_MFR_CRC);
+	if (ret < 0)
+		return ret;
+
+	return snprintf(buf, PAGE_SIZE, "0x%02X\n", ret);
+}
+
+static ssize_t main_flash_crc_show(struct device *dev, struct device_attribute *attr,
+				   char *buf)
+{
+	return _read_crc(dev, attr, buf, 0);
+}
+
+static ssize_t backup_flash_crc_show(struct device *dev, struct device_attribute *attr,
+				     char *buf)
+{
+	return _read_crc(dev, attr, buf, 1);
+}
+
+static ssize_t ram_crc_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
+{
+	return _read_crc(dev, attr, buf, 2);
+}
+
+static ssize_t program_memory_store(struct device *dev, struct device_attribute *attr,
+				  const char *buf, size_t len)
+{
+	struct i2c_client *client = to_i2c_client(dev->parent);
+	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
+	struct max34440_data *data = to_max34440_data(info);
+	const struct firmware *fw;
+	u16 data_word;
+	u8 address;
+	u8 byte_count = 0;
+	u8 bytes[9];
+	const u8 *ptr;
+	char *fw_path;
+	int ret;
+	int i;
+	int count;
+	int dest_count = 0;
+	int data_len;
+
+	mutex_lock(&data->lock);
+
+	fw_path = kstrdup(buf, GFP_ATOMIC);
+	if (!fw_path)
+		return -EINVAL;
+
+	fw_path = strim(fw_path);
+
+	if (len < 1)
+		return -EINVAL;
+
+	ret = request_firmware(&fw, fw_path, dev);
+
+	if (ret < 0 || !fw->data || fw->size <= 0) {
+		dev_err(dev, "Failed to get hex file: %d\n", ret);
+		return ret;
+	}
+	ptr = fw->data;
+
+	/* Parse Hex file to an array without the address and checksum */
+	for (count = 0; count < fw->size; count++) {
+		if (ptr[count] == ':') {
+			data_len = (ascii_to_hex(ptr[count + 1]) << 4)
+				   | ascii_to_hex(ptr[count + 2]);
+			if (data_len != 0) {
+				memmove((u8 *)(ptr + dest_count), ptr + count + 9, data_len * 2);
+				dest_count = dest_count + data_len * 2;
+			}
+		}
+	}
+
+	/* Send data to the device */
+	for (count = 0; count < dest_count; count += 2) {
+		ret = 0;
+
+		data_len = ascii_to_hex(ptr[count]) << 4 | ascii_to_hex(ptr[count + 1]);
+		count += 2;
+
+		address = ascii_to_hex(ptr[count]) << 4 | ascii_to_hex(ptr[count + 1]);
+		count += 2;
+
+		switch (data_len) {
+		case 1:
+		{
+			bytes[0] = (ascii_to_hex(ptr[count]) << 4) | ascii_to_hex(ptr[(count + 1)]);
+			ret = i2c_smbus_write_byte_data(client, address, bytes[0]);
+			if (ret < 0)
+				ret = i2c_smbus_write_byte_data(client, address, bytes[0]);
+
+			if (address != 00)
+				byte_count++;
+			break;
+		}
+		case 2:
+		{
+			bytes[0] = (ascii_to_hex(ptr[count]) << 4) | ascii_to_hex(ptr[count + 1]);
+			bytes[1] = (ascii_to_hex(ptr[count + 2]) << 4) | ascii_to_hex(ptr[count + 3]);
+			data_word = (bytes[1] << 8) | bytes[0];
+
+			ret = i2c_smbus_write_word_data(client, address, data_word);
+			if (ret < 0)
+				ret = i2c_smbus_write_word_data(client, address, data_word);
+
+			count += (data_len * 2) - 2;
+			byte_count += 2;
+			break;
+		}
+		case 4:
+		case 8:
+		{
+			for (i = 0; i < data_len; i++) {
+				bytes[i + 1] = (ascii_to_hex(ptr[count + i * 2]) << 4)
+					       | ascii_to_hex(ptr[(count + i * 2) + 1]);
+			}
+
+			bytes[0] = address;
+			ret = i2c_master_send(client, bytes, data_len + 1);
+			if (ret < 0)
+				ret = i2c_master_send(client, bytes, data_len + 1);
+
+			count += (data_len * 2) - 2;
+			byte_count += data_len;
+			break;
+		}
+		default:
+			break;
+		}
+
+		if (ret < 0)
+			dev_err(dev, "Configuration File Register Write Error, Addr: 0x%X", address);
+
+		if ((count + 9) > fw->size)
+			break;
+	}
+
+	release_firmware(fw);
+	kfree(fw_path);
+
+	return len;
+}
+
+static DEVICE_ATTR_WO(program_memory);
+static DEVICE_ATTR_RO(main_flash_crc);
+static DEVICE_ATTR_RO(backup_flash_crc);
+static DEVICE_ATTR_RO(ram_crc);
+
+static struct attribute *max34451_attributes[] = {
+	&dev_attr_program_memory.attr,
+	&dev_attr_main_flash_crc.attr,
+	&dev_attr_backup_flash_crc.attr,
+	&dev_attr_ram_crc.attr,
+	NULL
+};
+
+static struct attribute_group max34451_attr_group = {
+	.attrs = max34451_attributes,
+};
+
+static const struct attribute_group *dev_attr_groups[] = {
+	&max34451_attr_group,
+	NULL,
+};
 
 static const struct i2c_device_id max34440_id[];
 
@@ -269,6 +466,7 @@ static int max34451_set_supported_funcs(struct i2c_client *client,
 		data->info.R[PSC_CURRENT_IN] = 2;
 		data->iout_oc_fault_limit = PMBUS_IOUT_OC_FAULT_LIMIT;
 		data->iout_oc_warn_limit = PMBUS_IOUT_OC_WARN_LIMIT;
+		data->info.groups = dev_attr_groups;
 	}
 
 	for (page = 0; page < 16; page++) {
@@ -612,6 +810,9 @@ static int max34440_probe(struct i2c_client *client)
 			    GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
+
+	devm_mutex_init(&client->dev, &data->lock);
+
 	data->id = i2c_match_id(max34440_id, client)->driver_data;
 	data->info = max34440_info[data->id];
 	data->iout_oc_fault_limit = MAX34440_IOUT_OC_FAULT_LIMIT;
