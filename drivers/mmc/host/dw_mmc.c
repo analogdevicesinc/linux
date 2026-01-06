@@ -3440,7 +3440,6 @@ void dw_mci_remove(struct dw_mci *host)
 }
 EXPORT_SYMBOL(dw_mci_remove);
 
-#ifdef CONFIG_PM
 int dw_mci_runtime_suspend(struct device *dev)
 {
 	struct dw_mci *host = dev_get_drvdata(dev);
@@ -3526,7 +3525,6 @@ err:
 	return ret;
 }
 EXPORT_SYMBOL(dw_mci_runtime_resume);
-#endif /* CONFIG_PM */
 
 static int __init dw_mci_init(void)
 {

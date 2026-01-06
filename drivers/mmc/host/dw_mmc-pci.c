@@ -16,6 +16,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include "dw_mmc.h"
+#include "dw_mmc-pltfm.h"
 
 #define SYNOPSYS_DW_MCI_VENDOR_ID 0x700
 #define SYNOPSYS_DW_MCI_DEVICE_ID 0x1107
@@ -71,11 +72,6 @@ static void dw_mci_pci_remove(struct pci_dev *pdev)
 	dw_mci_remove(host);
 }
 
-static const struct dev_pm_ops dw_mci_pci_dev_pm_ops = {
-	SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
-	RUNTIME_PM_OPS(dw_mci_runtime_suspend, dw_mci_runtime_resume, NULL)
-};
-
 static const struct pci_device_id dw_mci_pci_id[] = {
 	{ PCI_DEVICE(SYNOPSYS_DW_MCI_VENDOR_ID, SYNOPSYS_DW_MCI_DEVICE_ID) },
 	{}
@@ -88,7 +84,7 @@ static struct pci_driver dw_mci_pci_driver = {
 	.probe		= dw_mci_pci_probe,
 	.remove		= dw_mci_pci_remove,
 	.driver		=	{
-		.pm =   pm_ptr(&dw_mci_pci_dev_pm_ops),
+		.pm =   pm_ptr(&dw_mci_pltfm_pmops),
 	},
 };
 
