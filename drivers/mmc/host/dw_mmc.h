@@ -271,12 +271,6 @@ struct dw_mci_board {
 	unsigned int bus_hz; /* Clock speed at the cclk_in pad */
 
 	u32 caps;	/* Capabilities */
-	/*
-	 * Override fifo depth. If 0, autodetect it from the FIFOTH register,
-	 * but note that this may not be reliable after a bootloader has used
-	 * it.
-	 */
-	unsigned int fifo_depth;
 
 	/* delay in mS before detecting cards after interrupt */
 	u32 detect_delay_ms;

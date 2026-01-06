@@ -3170,7 +3170,7 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 	if (IS_ERR(host->rstc))
 		return ERR_CAST(host->rstc);
 
-	if (device_property_read_u32(dev, "fifo-depth", &pdata->fifo_depth))
+	if (device_property_read_u32(dev, "fifo-depth", &host->fifo_depth))
 		dev_info(dev,
 			 "fifo-depth property not found, using value of FIFOTH register as default\n");
 
@@ -3373,7 +3373,7 @@ int dw_mci_probe(struct dw_mci *host)
 	 * FIFO threshold settings  RxMark  = fifo_size / 2 - 1,
 	 *                          Tx Mark = fifo_size / 2 DMA Size = 8
 	 */
-	if (!host->pdata->fifo_depth) {
+	if (!host->fifo_depth) {
 		/*
 		 * Power-on value of RX_WMark is FIFO_DEPTH-1, but this may
 		 * have been overwritten by the bootloader, just like we're
@@ -3383,7 +3383,7 @@ int dw_mci_probe(struct dw_mci *host)
 		fifo_size = mci_readl(host, FIFOTH);
 		fifo_size = 1 + ((fifo_size >> 16) & 0xfff);
 	} else {
-		fifo_size = host->pdata->fifo_depth;
+		fifo_size = host->fifo_depth;
 	}
 	host->fifo_depth = fifo_size;
 	host->fifoth_val =
