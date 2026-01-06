@@ -240,11 +240,10 @@ struct dw_mci {
 #endif
 	struct mmc_host		*mmc;
 	unsigned long		flags;
-#define DW_MMC_CARD_PRESENT	0
-#define DW_MMC_CARD_NEED_INIT	1
-#define DW_MMC_CARD_NO_LOW_PWR	2
-#define DW_MMC_CARD_NO_USE_HOLD 3
-#define DW_MMC_CARD_NEEDS_POLL	4
+#define DW_MMC_CARD_NEED_INIT	0
+#define DW_MMC_CARD_NO_LOW_PWR	1
+#define DW_MMC_CARD_NO_USE_HOLD 2
+#define DW_MMC_CARD_NEEDS_POLL	3
 	u32			ctype;
 	unsigned int		clock;
 	unsigned int		clk_old;
