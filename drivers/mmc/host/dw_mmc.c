@@ -2840,9 +2840,6 @@ static int dw_mci_init_host_caps(struct dw_mci *host)
 	if (host->pdata->caps)
 		mmc->caps = host->pdata->caps;
 
-	if (host->pdata->pm_caps)
-		mmc->pm_caps = host->pdata->pm_caps;
-
 	if (drv_data)
 		mmc->caps |= drv_data->common_caps;
 
@@ -2862,9 +2859,6 @@ static int dw_mci_init_host_caps(struct dw_mci *host)
 		}
 		mmc->caps |= drv_data->caps[ctrl_id];
 	}
-
-	if (host->pdata->caps2)
-		mmc->caps2 = host->pdata->caps2;
 
 	/* if host has set a minimum_freq, we should respect it */
 	if (host->minimum_speed)
