@@ -1,0 +1,131 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/leds/leds-ltc3220.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices LTC3220 LED Drivers
+
+maintainers:
+  - Edelweise Escala <edelweise.escala@analog.com>
+
+description: Bindings for the Analog Devices LTC3220 18 channel LED Drivers.
+
+  For more product information please see the link below
+    https://www.analog.com/en/products/ltc3220.html
+
+properties:
+  compatible:
+    enum:
+      - adi,ltc3220
+      - adi,ltc3220-1
+
+  reg:
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  reset-gpios:
+    maxItems: 1
+    description: GPIO attached to the chip's reset pin
+
+  adi,force-cpo-level:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: Forces the Charge Pump Output to a specified multiplier.
+    enum:
+      - "0" # Auto(default) - Automatically selects optimal charge pump mode
+      - "1.5"
+      - "2"
+      - "1"
+    default: "0"
+
+  adi,quick-write:
+    type: boolean
+    description: If present, LED 1 output becomes a master control that
+      simultaneously updates all 18 LED outputs using the hardware's quick-write
+      mode. When enabled, led@1 must be defined in the device tree to provide
+      the control interface, even if no physical LED is connected to the D1
+      output pin. When disabled or not present, LED 1 operates as a normal
+      independent LED output.
+
+patternProperties:
+  "^led@([1-9]|1[0-8])$":
+    type: object
+    $ref: /schemas/leds/common.yaml#
+    unevaluatedProperties: false
+    properties:
+      reg:
+        description: Output channel for the LED (1-18 maps to LED outputs D1-D18).
+        minimum: 1
+        maximum: 18
+
+    required:
+      - reg
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/leds/common.h>
+
+    i2c {
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       led-controller@1c {
+             compatible = "adi,ltc3220";
+             reg = <0x1c>;
+             #address-cells = <1>;
+             #size-cells = <0>;
+             reset-gpios = <&gpio 17 GPIO_ACTIVE_LOW>;
+             adi,force-cpo-level = "0";
+             adi,quick-write;
+
+             led@1 {
+                 reg = <1>;
+                 function = LED_FUNCTION_INDICATOR;
+                 function-enumerator = <1>;
+             };
+
+             led@2 {
+                 reg = <2>;
+                 function = LED_FUNCTION_INDICATOR;
+                 function-enumerator = <2>;
+             };
+
+             led@3 {
+                 reg = <3>;
+                 function = LED_FUNCTION_INDICATOR;
+                 function-enumerator = <3>;
+             };
+
+             led@4 {
+                 reg = <4>;
+                 function = LED_FUNCTION_INDICATOR;
+                 function-enumerator = <4>;
+             };
+
+             led@5 {
+                 reg = <5>;
+                 function = LED_FUNCTION_INDICATOR;
+                 function-enumerator = <5>;
+             };
+
+             led@6 {
+                 reg = <6>;
+                 function = LED_FUNCTION_INDICATOR;
+                 function-enumerator = <6>;
+             };
+        };
+    };
+
+...
