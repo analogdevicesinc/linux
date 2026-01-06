@@ -43,6 +43,7 @@ struct ad8366_state {
 	struct regulator	*reg;
 	struct mutex            lock; /* protect sensor state */
 	struct gpio_desc	*reset_gpio;
+	struct gpio_desc	*enable_gpio;
 	unsigned char		ch[2];
 	enum ad8366_type	type;
 	const struct ad8366_info *info;
@@ -281,6 +282,13 @@ static int ad8366_probe(struct spi_device *spi)
 			ret = PTR_ERR(st->reset_gpio);
 			goto error_disable_reg;
 		}
+
+		st->enable_gpio = devm_gpiod_get_optional(&spi->dev, "enable", GPIOD_OUT_HIGH);
+		if (IS_ERR(st->enable_gpio)) {
+			ret = PTR_ERR(st->enable_gpio);
+			goto error_disable_reg;
+		}
+
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
 		break;
