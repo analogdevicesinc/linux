@@ -3183,7 +3183,7 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 		host->wm_aligned = true;
 
 	if (!device_property_read_u32(dev, "clock-frequency", &clock_frequency))
-		pdata->bus_hz = clock_frequency;
+		host->bus_hz = clock_frequency;
 
 	if (drv_data && drv_data->parse_dt) {
 		ret = drv_data->parse_dt(host);
@@ -3273,8 +3273,6 @@ int dw_mci_probe(struct dw_mci *host)
 		ret = PTR_ERR(host->ciu_clk);
 		if (ret == -EPROBE_DEFER)
 			goto err_clk_biu;
-
-		host->bus_hz = host->pdata->bus_hz;
 	} else {
 		ret = clk_prepare_enable(host->ciu_clk);
 		if (ret) {
@@ -3282,12 +3280,12 @@ int dw_mci_probe(struct dw_mci *host)
 			goto err_clk_biu;
 		}
 
-		if (host->pdata->bus_hz) {
-			ret = clk_set_rate(host->ciu_clk, host->pdata->bus_hz);
+		if (host->bus_hz) {
+			ret = clk_set_rate(host->ciu_clk, host->bus_hz);
 			if (ret)
 				dev_warn(host->dev,
 					 "Unable to set bus rate to %uHz\n",
-					 host->pdata->bus_hz);
+					 host->bus_hz);
 		}
 		host->bus_hz = clk_get_rate(host->ciu_clk);
 	}

@@ -26,7 +26,6 @@
 
 static struct dw_mci_board pci_board_data = {
 	.caps				= DW_MCI_CAPABILITIES,
-	.bus_hz				= 33 * 1000 * 1000,
 };
 
 static int dw_mci_pci_probe(struct pci_dev *pdev,
@@ -48,6 +47,7 @@ static int dw_mci_pci_probe(struct pci_dev *pdev,
 	host->pdata = &pci_board_data;
 	host->fifo_depth = 32;
 	host->detect_delay_ms = 200;
+	host->bus_hz = 33 * 1000 * 1000;
 
 	ret = pcim_iomap_regions(pdev, 1 << PCI_BAR_NO, pci_name(pdev));
 	if (ret)
