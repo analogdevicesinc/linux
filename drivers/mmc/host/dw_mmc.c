@@ -2688,7 +2688,7 @@ static void dw_mci_cmd_interrupt(struct dw_mci *host, u32 status)
 static void dw_mci_handle_cd(struct dw_mci *host)
 {
 	mmc_detect_change(host->mmc,
-		msecs_to_jiffies(host->pdata->detect_delay_ms));
+		msecs_to_jiffies(host->detect_delay_ms));
 }
 
 static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
@@ -3175,7 +3175,7 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 			 "fifo-depth property not found, using value of FIFOTH register as default\n");
 
 	device_property_read_u32(dev, "card-detect-delay",
-				 &pdata->detect_delay_ms);
+				 &host->detect_delay_ms);
 
 	device_property_read_u32(dev, "data-addr", &host->data_addr_override);
 
