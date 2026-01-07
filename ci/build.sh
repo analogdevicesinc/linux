@@ -87,6 +87,7 @@ check_checkpatch() {
 			--ignore PARENTHESIS_ALIGNMENT \
 			--ignore CAMELCASE \
 			--ignore UNDOCUMENTED_DT_STRING \
+			--ignore UNKNOWN_COMMIT_ID \
 			--git $commit \
 			$flags )
 
@@ -147,13 +148,7 @@ check_checkpatch() {
 			fi
 			if [[ "$row" =~ ^(CHECK|WARNING|ERROR): ]]; then
 				msg=$(echo "$row" | sed -E  's/^(CHECK|WARNING|ERROR): //')$_n
-				# Suppress some cases:
-				if [[ "$row" =~ ^"WARNING: Unknown commit id" ]]; then
-					# Checkpatch may want to look back beyond fetched commits.
-					echo $row
-				else
-					found=1
-				fi
+				found=1
 				file=
 				line=
 			else
