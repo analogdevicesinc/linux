@@ -17,7 +17,6 @@
 #include <linux/workqueue.h>
 #include <linux/jiffies.h>
 
-
 #define NDMA_MAC_HASH_BITS                 6  /* 2^6 = 64 buckets */
 #define NDMA_MAX_MACS                      16
 

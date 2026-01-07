@@ -1727,26 +1727,29 @@ static void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *rx_cha
 			ret = adrv906x_ndma_parse_rx_status_header(rx_chan, skb->data, &ts,
 								   &port_id, &frame_size);
 
-			if (ret == NDMA_NO_ERROR || ret == NDMA_RX_SEQNUM_MISMATCH_ERROR ||
-			    unlikely(ndma_dev->loopback_en)) {
-				if (adrv906x_ndma_mac_filter_match(ndma_dev, port_id)) {
-					pktbuf = adrv906x_ndma_rx_build_linear_pkt_buf(&rx_chan->rx_data_wu_list,
-										       frame_size);
-					if (pktbuf) {
-						rx_chan->status_cb_fn(pktbuf, port_id, &ts,
-								      rx_chan->status_cb_param);
+			if (ret != NDMA_NO_ERROR && ret != NDMA_RX_SEQNUM_MISMATCH_ERROR &&
+			    unlikely(!ndma_dev->loopback_en))
+				goto consume;
 
-						spin_lock_irqsave(&tx_chan->lock, flags);
-						if (port_id == 0)
-							tx_chan->tx_block_timestamp_req_port0 = false;
-						else
-							tx_chan->tx_block_timestamp_req_port1 = false;
+			if (!adrv906x_ndma_mac_filter_match(ndma_dev, port_id))
+				goto consume;
 
-						spin_unlock_irqrestore(&tx_chan->lock, flags);
-					}
-				}
-			}
+			pktbuf = adrv906x_ndma_rx_build_linear_pkt_buf(&rx_chan->rx_data_wu_list,
+								       frame_size);
+			if (!pktbuf)
+				goto consume;
+
+			rx_chan->status_cb_fn(pktbuf, port_id, &ts,
+					      rx_chan->status_cb_param);
+
+			spin_lock_irqsave(&tx_chan->lock, flags);
+			if (port_id == 0)
+				tx_chan->tx_block_timestamp_req_port0 = false;
+			else
+				tx_chan->tx_block_timestamp_req_port1 = false;
+			spin_unlock_irqrestore(&tx_chan->lock, flags);
 		}
+consume:
 		adrv906x_ndma_rx_free_data_wu_list(&rx_chan->rx_data_wu_list, budget);
 		napi_consume_skb(skb, budget); /* Free skb with status WU */
 		break;
