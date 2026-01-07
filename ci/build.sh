@@ -31,14 +31,20 @@ check_checkpatch() {
 	local mail=
 	local fail=0
 	local warn=0
-	local _base_sha
-	local _suppress
 	local api_match="(public/include|public/src|private/include|private/src|navassa/common|adrv902x/common|adrv903x/common|adrv903x/platforms)/"
+	local tmp_branch_name=$(git symbolic-ref --short HEAD)-$RANDOM
 
 	echo "$step_name on range $base_sha..$head_sha"
 
-	[[ "$strategy" == "commit" ]] && commits=$(git rev-list $base_sha..$head_sha --reverse) || commits=$head_sha
-	_base_sha=$base_sha # for strategy file
+	if [[ "$strategy" == "file" ]]; then
+		# To still only check the changes, squash the range in a single commit
+		git switch -c $tmp_branch_name 1>/dev/null
+		git reset --soft $base_sha
+		git commit -m "[TEMP] check: Squashed range" -m "Signed-off-by: CSE CI <cse-ci-notifications@analog.com>"
+
+		[[ "$GITHUB_ACTIONS" != "true" ]] && echo "Attention! At temp branch '$tmp_branch_name'. If you cancel (Ctrl+C), also revert with 'git switch -'"
+	fi
+	[[ "$strategy" == "commit" ]] && commits=$(git rev-list $base_sha..$head_sha --reverse) || commits=$(git rev-parse @)
 
 	python3.13 -m venv ~/venv
         source ~/venv/bin/activate
@@ -46,8 +52,7 @@ check_checkpatch() {
 
 	# The output is not properly captured with --git
 	for commit in $commits; do
-		[[ "$strategy" == "commit" ]] && _base_sha=$commit~
-		git --no-pager log --oneline $_base_sha..$commit
+		git --no-pager log --oneline $commit~..$commit
 		local flags
 		# Skip:
 		# * empty commits, assume cover letter
@@ -64,7 +69,7 @@ check_checkpatch() {
 			echo "::warning ::$step_name: API|api in commit $commit title skipped, ensure only API files are in this commit."
 			continue
 		fi
-		local files=$(git diff --diff-filter=ACM --no-renames --name-only "$_base_sha..$commit" | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
+		local files=$(git diff --diff-filter=ACM --no-renames --name-only "$commit~..$commit" | grep -v ^ci | grep -v ^.github | grep -v ^docs || true)
 		if [[ -z "$files" ]]; then
 			echo "empty, skipped"
 			continue
@@ -72,7 +77,7 @@ check_checkpatch() {
 			echo $files
 		fi
 
-		[[ "$strategy" == "commit" ]] && flags="--git $commit" || flags="-- $files"
+		[[ "$strategy" == "file" ]] && flags="--ignore COMMIT_MESSAGE" || flags=""
 		mail=$(scripts/checkpatch.pl \
 			--strict \
 			--ignore FILE_PATH_CHANGES \
@@ -82,6 +87,7 @@ check_checkpatch() {
 			--ignore PARENTHESIS_ALIGNMENT \
 			--ignore CAMELCASE \
 			--ignore UNDOCUMENTED_DT_STRING \
+			--git $commit \
 			$flags )
 
 		found=0
@@ -91,7 +97,7 @@ check_checkpatch() {
 		do
 			if [[ "$row" =~ ^total: ]]; then
 				echo -e "\e[1m$row\e[0m"
-				[[ "$strategy" == "commit" ]] && break || _suppress=1
+				break
 			fi
 
 			# Additional parsing is needed
@@ -139,9 +145,7 @@ check_checkpatch() {
 			elif [[ "$row" =~ ^CHECK: ]]; then
 				type="warning"
 			fi
-			if [[ "$_suppress" == "1" ]]; then
-				[[ "$row" =~ ^---- ]] && _suppress=0
-			elif [[ "$row" =~ ^(CHECK|WARNING|ERROR): ]]; then
+			if [[ "$row" =~ ^(CHECK|WARNING|ERROR): ]]; then
 				msg=$(echo "$row" | sed -E  's/^(CHECK|WARNING|ERROR): //')$_n
 				# Suppress some cases:
 				if [[ "$row" =~ ^"WARNING: Unknown commit id" ]]; then
@@ -160,6 +164,8 @@ check_checkpatch() {
 
 		done <<< "$mail"
 	done
+
+	[[ "$strategy" == "file" ]] && (git switch - 1>/dev/null; git branch -D $tmp_branch_name)
 
 	_set_step_warn $warn
 	return $fail
