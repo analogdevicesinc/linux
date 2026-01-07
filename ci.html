@@ -8,12 +8,12 @@
 
     <title>Continuous integration &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=85dade36" />
-    <script async="async" src="_static/app.umd.js?v=3a4867e9"></script>
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=5d595293" />
+    <script async="async" src="_static/app.umd.js?v=62fc6850"></script>
     <link rel="icon" href="_static/icon.svg"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="User guide" href="user-guide.html" />
+    <link rel="prev" title="Contribution guidelines" href="contribute.html" />
    
   
   
@@ -141,6 +141,7 @@ Content on this topic
 <div class="toc-tree">
   <html>
   <body><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1"/><div class="collapse"><a class="reference internal" href="iio/index.html">Industrial I/O</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul>
 <li class="toctree-l2"><a class="reference internal" href="iio/iio_devbuf.html">Industrial IIO device buffers</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio/ad3552r.html">AD3552R driver</a></li>
@@ -157,7 +158,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="iio/apollo.html">AD9088 driver</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="user-guide.html">User guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribution guidelines</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Continuous integration</a></li>
 </ul>
 </body>
@@ -743,10 +744,7 @@ drivers/iio/adc/ad9081.c
 <span id="podman-run"></span><h3>Self-hosted runner<a class="headerlink" href="#self-hosted-runner" title="Link to this heading"></a></h3>
 <p>To host your <a class="icon link reference external" href="https://github.com/actions/runner" target="_blank">GitHub Actions Runner</a>,
 set up your secrets (<code class="docutils literal notranslate"><span class="pre">podman</span></code> only):</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># e.g. analogdevicesinc/linux</span>
+<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># e.g. analogdevicesinc/linux</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
@@ -755,10 +753,7 @@ set up your secrets (<code class="docutils literal notranslate"><span class="pre
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">printf</span><span class="w"> </span>ORG_REPOSITORY<span class="w"> </span><span class="p">|</span><span class="w"> </span>podman<span class="w"> </span>secret<span class="w"> </span>create<span class="w"> </span>public_linux_org_repository<span class="w"> </span>-
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># e.g. MyVerYSecRunnerToken</span>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># e.g. MyVerYSecRunnerToken</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
@@ -935,7 +930,7 @@ systemctl<span class="w"> </span>--user<span class="w"> </span>start<span class=
           </div>
               <div class="related">
                 &nbsp;
-    <a href="user-guide.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">User guide</a>
+    <a href="contribute.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">Contribution guidelines</a>
     <div></div>
               </div>
           

@@ -1,5 +1,5 @@
-User guide
-==========
+Contribution guidelines
+=======================
 
 This page serves the purpose of providing pointers and a brief introduction to
 contributing to the Linux Kernel, using the tools available as well as wrappers
@@ -138,7 +138,7 @@ When submitting dt-bindings, you must check:
 .. shell::
 
    ~/linux
-   $make dt_binding_chec CONFIG_DTC=y DT_CHECKER_FLAGS=-m  DT_SCHEMA_FILES="./path/to/.yaml"
+   $make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m  DT_SCHEMA_FILES="./path/to/.yaml"
 
 For warnings and erros and resolve accordingly.
 

@@ -7,8 +7,9 @@ Linux documentation.
 .. toctree::
    :maxdepth: 1
 
+   getting_started
    iio/index
-   user-guide
+   contribute
    ci
 
 This documentation contains information only about this and the device drivers

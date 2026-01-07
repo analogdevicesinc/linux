@@ -6,10 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta content="This page serves the purpose of providing pointers and a brief introduction to contributing to the Linux Kernel, using the tools available as well as wrappers maintained by Analog Devices Inc." name="description" />
 
-    <title>User guide &#8212; Linux Drivers  documentation</title>
+    <title>Contribution guidelines &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=85dade36" />
-    <script async="async" src="_static/app.umd.js?v=3a4867e9"></script>
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=5d595293" />
+    <script async="async" src="_static/app.umd.js?v=62fc6850"></script>
     <link rel="icon" href="_static/icon.svg"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -94,7 +94,7 @@
         </div>
         <nav>
           <ul>
-<li><a class="reference internal" href="#">User guide</a><ul>
+<li><a class="reference internal" href="#">Contribution guidelines</a><ul>
 <li><a class="reference internal" href="#code-checkers">Code checkers</a><ul>
 <li><a class="reference internal" href="#checkpatch">Checkpatch</a></li>
 <li><a class="reference internal" href="#sparse-and-smatch">Sparse and smatch</a></li>
@@ -137,6 +137,7 @@ Content on this topic
 <div class="toc-tree">
   <html>
   <body><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1"/><div class="collapse"><a class="reference internal" href="iio/index.html">Industrial I/O</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul>
 <li class="toctree-l2"><a class="reference internal" href="iio/iio_devbuf.html">Industrial IIO device buffers</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio/ad3552r.html">AD3552R driver</a></li>
@@ -153,7 +154,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="iio/apollo.html">AD9088 driver</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">User guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Contribution guidelines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ci.html">Continuous integration</a></li>
 </ul>
 </body>
@@ -171,8 +172,8 @@ Content on this topic
 </div>
           <div class="body" role="main">
             
-  <section id="user-guide">
-<h1>User guide<a class="headerlink" href="#user-guide" title="Link to this heading"></a></h1>
+  <section id="contribution-guidelines">
+<h1>Contribution guidelines<a class="headerlink" href="#contribution-guidelines" title="Link to this heading"></a></h1>
 <p>This page serves the purpose of providing pointers and a brief introduction to
 contributing to the Linux Kernel, using the tools available as well as wrappers
 maintained by Analog Devices Inc.</p>
@@ -190,7 +191,7 @@ they can be run with one command using a standard configuration. The checkers
 supported by build.sh are as follows.</p>
 <section id="checkpatch">
 <h3>Checkpatch<a class="headerlink" href="#checkpatch" title="Link to this heading"></a></h3>
-<p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/checkpatch.html" target="_blank" title="(in The Linux Kernel v6.18.0-rc1)"><span>Checkpatch</span></a>
+<p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/checkpatch.html" target="_blank" title="(in The Linux Kernel v6.19.0-rc4)"><span>Checkpatch</span></a>
 (<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/scripts/checkpatch.pl" target="_blank">scripts/checkpatch.pl</a>) is a perl script which checks for trivial
 style violations in patches and optionally corrects them. Checkpatch can also
 be run on file contexts and without the kernel tree.</p>
@@ -222,7 +223,7 @@ be run on file contexts and without the kernel tree.</p>
 </section>
 <section id="sparse-and-smatch">
 <h3>Sparse and smatch<a class="headerlink" href="#sparse-and-smatch" title="Link to this heading"></a></h3>
-<p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/sparse.html" target="_blank" title="(in The Linux Kernel v6.18.0-rc1)"><span>Sparse</span></a> is a semantic checker for C programs;
+<p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/sparse.html" target="_blank" title="(in The Linux Kernel v6.19.0-rc4)"><span>Sparse</span></a> is a semantic checker for C programs;
 it can be used to find a number of potential problems with kernel code.
 Usage:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -281,7 +282,7 @@ for the <code class="docutils literal notranslate"><span class="pre">.c</span></
 <section id="devicetree">
 <h2>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h2>
 <p>The “Open Firmware Device Tree”, or simply
-<a class="icon link reference external" href="https://docs.kernel.org/devicetree/usage-model.html" target="_blank" title="(in The Linux Kernel v6.18.0-rc1)"><span class="xref std std-doc">Devicetree</span></a> (DT), is a data
+<a class="icon link reference external" href="https://docs.kernel.org/devicetree/usage-model.html" target="_blank" title="(in The Linux Kernel v6.19.0-rc4)"><span class="xref std std-doc">Devicetree</span></a> (DT), is a data
 structure and language for describing hardware. More specifically, it is a
 description of hardware that is readable by an operating system so that the
 operating system doesn’t need to hard code details of the machine.</p>
@@ -293,7 +294,7 @@ device, using the protopytes provided by the
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>dt_binding_chec<span class="w"> </span><span class="nv">CONFIG_DTC</span><span class="o">=</span>y<span class="w"> </span><span class="nv">DT_CHECKER_FLAGS</span><span class="o">=</span>-m<span class="w">  </span><span class="nv">DT_SCHEMA_FILES</span><span class="o">=</span><span class="s2">&quot;./path/to/.yaml&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>dt_binding_check<span class="w"> </span><span class="nv">CONFIG_DTC</span><span class="o">=</span>y<span class="w"> </span><span class="nv">DT_CHECKER_FLAGS</span><span class="o">=</span>-m<span class="w">  </span><span class="nv">DT_SCHEMA_FILES</span><span class="o">=</span><span class="s2">&quot;./path/to/.yaml&quot;</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>For warnings and erros and resolve accordingly.</p>
@@ -321,10 +322,10 @@ interfaces (networking, storage, input, etc.), and various device-oriented
 modules (IIO, USB, SPI, etc.). Each subsystem encapsulates its own APIs,
 conventions, and lifecycle, helping maintain modularity and clarity. For an
 up-to-date map of these subsystems and their interfaces, see
-<a class="icon link reference external" href="https://docs.kernel.org/subsystem-apis.html" target="_blank" title="(in The Linux Kernel v6.18.0-rc1)"><span>Kernel subsystem documentation</span></a>.</p>
+<a class="icon link reference external" href="https://docs.kernel.org/subsystem-apis.html" target="_blank" title="(in The Linux Kernel v6.19.0-rc4)"><span>Kernel subsystem documentation</span></a>.</p>
 <section id="iio-subsytem">
 <h3>IIO Subsytem<a class="headerlink" href="#iio-subsytem" title="Link to this heading"></a></h3>
-<p>The <a class="icon link reference external" href="https://docs.kernel.org/driver-api/iio/intro.html" target="_blank" title="(in The Linux Kernel v6.18.0-rc1)"><span class="xref std std-doc">Industrial I/O subsystem</span></a> is
+<p>The <a class="icon link reference external" href="https://docs.kernel.org/driver-api/iio/intro.html" target="_blank" title="(in The Linux Kernel v6.19.0-rc4)"><span class="xref std std-doc">Industrial I/O subsystem</span></a> is
 intended to provide support for devices that in some senses are analog to
 digital or digital to analog converters (ADCs, DACs). Devices that fall into
 this category are: ADCs, accelerometers, gyros, IMUs, capacitance to digital
@@ -336,7 +337,7 @@ I2C.</p>
 subsystems. Hwmon is very much directed at low sample rate sensors used in
 applications such as fan speed control and temperature measurement.</p>
 <p>To continuous capture data based on a trigger source,
-<a class="icon link reference external" href="https://docs.kernel.org/iio/iio_devbuf.html" target="_blank" title="(in The Linux Kernel v6.18.0-rc1)"><span>Industrial IIO device buffers</span></a> are used.</p>
+<a class="icon link reference external" href="https://docs.kernel.org/iio/iio_devbuf.html" target="_blank" title="(in The Linux Kernel v6.19.0-rc4)"><span>Industrial IIO device buffers</span></a> are used.</p>
 </section>
 </section>
 </section>
