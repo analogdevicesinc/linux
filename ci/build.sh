@@ -528,6 +528,38 @@ compile_many_devicetrees() {
 	return $err
 }
 
+_get_make_kernel_flags() {
+	if [[ "$ARCH" == "arm" ]]; then
+		if [[ "$DEFCONFIG" == "socfpga_adi_defconfig" ]]; then
+			# Altera
+			echo "zImage UIMAGE_LOADADDR=0x8000"
+		elif [[ "$DEFCONFIG" =~ bcmrpi|bcm2709 ]]; then
+			# Raspberry Pi
+			echo "zImage"
+		else
+			# AMD Xilinx Zynq
+			echo "uImage UIMAGE_LOADADDR=0x8000"
+		fi
+	elif [[ "$ARCH" == "arm64" ]]; then
+		if [[ "$DEFCONFIG" =~ bcm2711|bcm2712 ]]; then
+			# Raspberry Pi
+			echo "Image.gz"
+		else
+			# AMD Xilinx ZynqMP
+			echo "Image UIMAGE_LOADADDR=0x8000"
+		fi
+	elif [[ "$ARCH" == "x86" ]]; then
+		echo "bzImage"
+	else
+		echo "Image"
+	fi
+}
+
+_export_kernel_name() {
+	local kernel=${make_flags%% *}
+	[[ "$GITHUB_ACTIONS" == "true" ]] && [[ -n "$GITHUB_ENV" ]] && echo "KERNEL=$kernel" >> "$GITHUB_ENV"
+}
+
 compile_kernel() {
 	export step_name="kernel"
 	local tmp_log_file=/dev/shm/$run_id.ci_compile_kernel.log
@@ -536,6 +568,7 @@ compile_kernel() {
 	local fail=0
 	local warn=0
 	local msg=
+	local make_flags=$(_get_make_kernel_flags)
 
 	# At this step, we only problem match if it exits with an error code
 	# because we don't want duplicated errors/warnings on sparse,
@@ -547,7 +580,7 @@ compile_kernel() {
 
 	echo > $tmp_log_file
 	yes n 2>/dev/null | \
-		make -j$(nproc) 2>&1 | \
+		make -j$(nproc) $make_flags modules 2>&1 | \
 		(while IFS= read -r row; do
 		echo $row
 		if [[ "$row" =~ $regex ]]; then
@@ -597,6 +630,7 @@ compile_kernel() {
 
 	python3.13 scripts/clang-tools/gen_compile_commands.py
 
+	_export_kernel_name
 	_set_step_warn $warn
 	return $fail
 }
