@@ -101,6 +101,10 @@ jobs:
 
         if [[ "${{ inputs.arch }}" == "arm" ]]; then
           echo "CROSS_COMPILE=arm-linux-" >> $GITHUB_ENV
+        elif [[ "${{ inputs.arch }}" == "microblaze" ]]; then
+          echo "CROSS_COMPILE=microblazeel-linux-" >> $GITHUB_ENV
+        elif [[ "${{ inputs.arch }}" == "nios2" ]]; then
+          echo "CROSS_COMPILE=nios2-linux-" >> $GITHUB_ENV
         elif [[ "${{ inputs.arch }}" == "arm64" ]]; then
           echo "CROSS_COMPILE=aarch64-linux-" >> $GITHUB_ENV
         fi
@@ -134,6 +138,11 @@ jobs:
       run: |
         source ./ci/build.sh
         compile_devicetree
+
+    - name: Get compile auxiliar files
+      run: |
+        source ./ci/build.sh
+        prepare_compile_kernel
 
     - name: Compile kernel
       run: |
