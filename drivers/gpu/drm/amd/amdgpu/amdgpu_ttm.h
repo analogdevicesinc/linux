@@ -185,8 +185,8 @@ void amdgpu_ttm_unmark_vram_reserved(struct amdgpu_device *adev,
 
 int amdgpu_ttm_init(struct amdgpu_device *adev);
 void amdgpu_ttm_fini(struct amdgpu_device *adev);
-void amdgpu_ttm_set_buffer_funcs_status(struct amdgpu_device *adev,
-					bool enable);
+void amdgpu_ttm_enable_buffer_funcs(struct amdgpu_device *adev);
+void amdgpu_ttm_disable_buffer_funcs(struct amdgpu_device *adev);
 int amdgpu_copy_buffer(struct amdgpu_device *adev,
 		       struct amdgpu_ttm_buffer_entity *entity,
 		       uint64_t src_offset,
