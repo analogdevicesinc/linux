@@ -23,6 +23,7 @@
 /*
  */
 
+#include <linux/acpi.h>
 #include <linux/dmi.h>
 #include <linux/hid.h>
 #include <linux/module.h>
@@ -55,6 +56,16 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
 #define ROG_ALLY_REPORT_SIZE 64
 #define ROG_ALLY_X_MIN_MCU 313
 #define ROG_ALLY_MIN_MCU 319
+
+/* Spurious HID codes sent by QUIRK_ROG_NKEY_KEYBOARD devices */
+#define ASUS_SPURIOUS_CODE_0XEA 0xea
+#define ASUS_SPURIOUS_CODE_0XEC 0xec
+#define ASUS_SPURIOUS_CODE_0X02 0x02
+#define ASUS_SPURIOUS_CODE_0X8A 0x8a
+#define ASUS_SPURIOUS_CODE_0X9E 0x9e
+
+/* Special key codes */
+#define ASUS_FAN_CTRL_KEY_CODE 0xae
 
 #define SUPPORT_KBD_BACKLIGHT BIT(0)
 
@@ -313,10 +324,33 @@ static int asus_e1239t_event(struct asus_drvdata *drvdat, u8 *data, int size)
 	return 0;
 }
 
+/*
+ * Send events to asus-wmi driver for handling special keys
+ */
+static int asus_wmi_send_event(struct asus_drvdata *drvdata, u8 code)
+{
+	int err;
+	u32 retval;
+
+	err = asus_wmi_evaluate_method(ASUS_WMI_METHODID_DEVS,
+				       ASUS_WMI_METHODID_NOTIF, code, &retval);
+	if (err) {
+		pr_warn("Failed to notify asus-wmi: %d\n", err);
+		return err;
+	}
+
+	if (retval != 0) {
+		pr_warn("Failed to notify asus-wmi (retval): 0x%x\n", retval);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static int asus_event(struct hid_device *hdev, struct hid_field *field,
 		      struct hid_usage *usage, __s32 value)
 {
-	if ((usage->hid & HID_USAGE_PAGE) == 0xff310000 &&
+	if ((usage->hid & HID_USAGE_PAGE) == HID_UP_ASUSVENDOR &&
 	    (usage->hid & HID_USAGE) != 0x00 &&
 	    (usage->hid & HID_USAGE) != 0xff && !usage->type) {
 		hid_warn(hdev, "Unmapped Asus vendor usagepage code 0x%02x\n",
@@ -347,6 +381,43 @@ static int asus_raw_event(struct hid_device *hdev,
 	if (report->id == FEATURE_KBD_LED_REPORT_ID1 || report->id == FEATURE_KBD_LED_REPORT_ID2)
 		return -1;
 	if (drvdata->quirks & QUIRK_ROG_NKEY_KEYBOARD) {
+		if (report->id == FEATURE_KBD_REPORT_ID) {
+			/*
+			 * Fn+F5 fan control key - try to send WMI event to toggle fan mode.
+			 * If successful, block the event from reaching userspace.
+			 * If asus-wmi is unavailable or the call fails, let the event
+			 * pass to userspace so it can implement its own fan control.
+			 */
+			if (data[1] == ASUS_FAN_CTRL_KEY_CODE) {
+				int ret = asus_wmi_send_event(drvdata, ASUS_FAN_CTRL_KEY_CODE);
+
+				if (ret == 0) {
+					/* Successfully handled by asus-wmi, block event */
+					return -1;
+				}
+
+				/*
+				 * Warn if asus-wmi failed (but not if it's unavailable).
+				 * Let the event reach userspace in all failure cases.
+				 */
+				if (ret != -ENODEV)
+					hid_warn(hdev, "Failed to notify asus-wmi: %d\n", ret);
+			}
+
+			/*
+			 * ASUS ROG laptops send these codes during normal operation
+			 * with no discernable reason. Filter them out to avoid
+			 * unmapped warning messages.
+			 */
+			if (data[1] == ASUS_SPURIOUS_CODE_0XEA ||
+			    data[1] == ASUS_SPURIOUS_CODE_0XEC ||
+			    data[1] == ASUS_SPURIOUS_CODE_0X02 ||
+			    data[1] == ASUS_SPURIOUS_CODE_0X8A ||
+			    data[1] == ASUS_SPURIOUS_CODE_0X9E) {
+				return -1;
+			}
+		}
+
 		/*
 		 * G713 and G733 send these codes on some keypresses, depending on
 		 * the key pressed it can trigger a shutdown event if not caught.
