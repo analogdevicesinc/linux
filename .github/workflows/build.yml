@@ -157,8 +157,9 @@ jobs:
 
         cp defconfig dist
         mkdir -p dist/boot
-        cp arch/$ARCH/boot/*Image dist/boot
+        cp arch/$ARCH/boot/$KERNEL dist/boot
 
+        echo "kernel=$KERNEL" > dist/context.txt
         echo "kernel_release=$kversion" >> dist/context.txt
         echo "kernel_defconfig=${{ inputs.defconfig }}" >> dist/context.txt
         echo "compiler_name=${{ inputs.compiler }}" >> dist/context.txt
