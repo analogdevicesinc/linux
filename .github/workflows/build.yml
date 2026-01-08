@@ -148,7 +148,7 @@ jobs:
         kversion=$(cat ./include/config/kernel.release)
         mkdir -p dist/usr/lib/modules/$kversion ; (cd $_ ; touch modules.order modules.builtin modules.builtin.modinfo)
         make INSTALL_MOD_PATH=dist modules_install
-        (cd dist ; find . -type l -delete)
+        (cd dist ; find . -type l -delete ; rm -r ./usr)
         mkdir -p dist-headers
         if command -v rsync ; then
           make INSTALL_HDR_PATH=dist-headers/usr headers_install
