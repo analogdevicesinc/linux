@@ -528,8 +528,32 @@ compile_many_devicetrees() {
 	return $err
 }
 
+prepare_compile_kernel() {
+	if [[ "$ARCH" == "microblaze" ]]; then
+		wget https://swdownloads.analog.com/cse/microblaze/rootfs/rootfs.cpio.gz -O rootfs.cpio.gz
+		# Create 'empty' devicetree.
+		printf "/dts-v1/;\n\n/ { };\n" > arch/$ARCH/boot/dts/generic.dts
+	elif [[ "$ARCH" == "nios2" ]]; then
+		wget https://swdownloads.analog.com/cse/nios2/rootfs/rootfs.cpio.gz -O arch/nios2/boot/rootfs.cpio.gz
+		printf "/dts-v1/;\n\n/ { };\n" > arch/$ARCH/boot/dts/devicetree.dts
+	fi
+}
+
 _get_make_kernel_flags() {
-	if [[ "$ARCH" == "arm" ]]; then
+	if [[ "$ARCH" == "microblaze" ]]; then
+		# AMD Xilinx Microblaze
+		# Embeds the dtb into the image, but always at the same offset
+		# and length. Therefore, downstream patch the dtb. The only
+		# other diff is the GNU Build ID at 0xf51460, and that's ok to
+		# not patch.
+		echo "simpleImage.generic"
+	elif [[ "$ARCH" == "nios2" ]]; then
+		# Altera Nios2
+		# Similar to Microblaze, but patching the dtb requires decompressing
+		# first. The offsets are: gzip input length: 0x4060 , vm_linux: 0x4064
+		# dtb (after decompressed): 0x543420
+		echo "zImage"
+	elif [[ "$ARCH" == "arm" ]]; then
 		if [[ "$DEFCONFIG" == "socfpga_adi_defconfig" ]]; then
 			# Altera
 			echo "zImage UIMAGE_LOADADDR=0x8000"
@@ -557,6 +581,7 @@ _get_make_kernel_flags() {
 
 _export_kernel_name() {
 	local kernel=${make_flags%% *}
+	[[ "$ARCH" == "microblaze" ]] && kernel="$kernel.strip"
 	[[ "$GITHUB_ACTIONS" == "true" ]] && [[ -n "$GITHUB_ENV" ]] && echo "KERNEL=$kernel" >> "$GITHUB_ENV"
 }
 
@@ -1053,7 +1078,7 @@ auto_set_kconfig() {
 set_arch () {
 	local version_gcc=13
 	local version_llvm=19
-	local arch_gcc=("gcc_arm", "gcc_aarch64" "gcc_x86")
+	local arch_gcc=("gcc_arm" "gcc_microblaze" "gcc_nios2" "gcc_aarch64" "gcc_x86")
 	local arch_llvm=("llvm_x86")
 	local arch=( "${arch_llvm[@]}" "${arch_gcc[@]}")
 	local fail=false
@@ -1073,6 +1098,14 @@ set_arch () {
 				gcc_arm)
 					export CROSS_COMPILE=arm-linux-
 					export ARCH=arm
+					;;
+				gcc_microblaze)
+					export CROSS_COMPILE=microblazeel-linux-
+					export ARCH=microblaze
+					;;
+				gcc_nios2)
+					export CROSS_COMPILE=nios2-linux-
+					export ARCH=nios2
 					;;
 				gcc_aarch64)
 					export CROSS_COMPILE=aarch64-linux-

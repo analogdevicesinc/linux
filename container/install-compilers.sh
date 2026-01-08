@@ -25,6 +25,16 @@ install_gcc (){
 mkdir /opt/gcc
 
 install_gcc \
+	"microblazeel" \
+	"$version" \
+	"2468c298089873e4d86026b84ca68e46b4802413639a55f2db1c6aba181d66d6"
+
+install_gcc \
+	"nios2" \
+	"$version" \
+	"db7a12e0b22037f3aad01cd126b5f1bfe7dc514e37f8c484eb587b861f20fbcd"
+
+install_gcc \
 	"armv7-eabihf" \
 	"$version" \
 	"608263bc9dc3eadf0962ddb1165f1c2291001190f9927dee47d464e26374462c" \
