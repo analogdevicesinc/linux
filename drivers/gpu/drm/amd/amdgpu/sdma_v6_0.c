@@ -1313,7 +1313,6 @@ static int sdma_v6_0_early_init(struct amdgpu_ip_block *ip_block)
 		return r;
 
 	sdma_v6_0_set_ring_funcs(adev);
-	sdma_v6_0_set_buffer_funcs(adev);
 	amdgpu_sdma_set_vm_pte_scheds(adev, &sdma_v6_0_vm_pte_funcs);
 	sdma_v6_0_set_irq_funcs(adev);
 	sdma_v6_0_set_mqd_funcs(adev);
@@ -1477,6 +1476,7 @@ static int sdma_v6_0_hw_init(struct amdgpu_ip_block *ip_block)
 	r = sdma_v6_0_start(adev);
 	if (r)
 		return r;
+	sdma_v6_0_set_buffer_funcs(adev);
 
 	return sdma_v6_0_set_userq_trap_interrupts(adev, true);
 }

@@ -1560,7 +1560,7 @@ static int amdgpu_ttm_access_memory_sdma(struct ttm_buffer_object *bo,
 	if (!adev->mman.sdma_access_ptr)
 		return -EACCES;
 
-	if (!drm_dev_enter(adev_to_drm(adev), &idx))
+	if (!adev->mman.buffer_funcs_enabled || !drm_dev_enter(adev_to_drm(adev), &idx))
 		return -ENODEV;
 
 	if (write)
@@ -2300,8 +2300,7 @@ void amdgpu_ttm_set_buffer_funcs_status(struct amdgpu_device *adev, bool enable)
 	if (enable) {
 		struct drm_gpu_scheduler *sched;
 
-		if (!adev->mman.num_buffer_funcs_scheds ||
-		    !adev->mman.buffer_funcs_scheds[0]->ready) {
+		if (!adev->mman.num_buffer_funcs_scheds) {
 			dev_warn(adev->dev, "Not enabling DMA transfers for in kernel use");
 			return;
 		}
@@ -2683,16 +2682,26 @@ void amdgpu_sdma_set_buffer_funcs_scheds(struct amdgpu_device *adev,
 {
 	struct drm_gpu_scheduler *sched;
 	struct amdgpu_vmhub *hub;
-	int i;
+	int i, n;
 
 	adev->mman.buffer_funcs = buffer_funcs;
 
-	for (i = 0; i < adev->sdma.num_instances; i++) {
+	for (i = 0, n = 0; i < adev->sdma.num_instances; i++) {
 		if (adev->sdma.has_page_queue)
 			sched = &adev->sdma.instance[i].page.sched;
 		else
 			sched = &adev->sdma.instance[i].ring.sched;
-		adev->mman.buffer_funcs_scheds[i] = sched;
+
+		if (!sched->ready)
+			continue;
+
+		adev->mman.buffer_funcs_scheds[n++] = sched;
+	}
+
+	if (n == 0) {
+		adev->mman.num_buffer_funcs_scheds = 0;
+		drm_warn(&adev->ddev, "No working sdma ring available\n");
+		return;
 	}
 
 	/* Navi1x's workaround requires us to limit to a single SDMA sched
@@ -2700,7 +2709,7 @@ void amdgpu_sdma_set_buffer_funcs_scheds(struct amdgpu_device *adev,
 	 */
 	hub = &adev->vmhub[AMDGPU_GFXHUB(0)];
 	adev->mman.num_buffer_funcs_scheds = hub->sdma_invalidation_workaround ?
-		1 : adev->sdma.num_instances;
+		1 : n;
 }
 
 #if defined(CONFIG_DEBUG_FS)
