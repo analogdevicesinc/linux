@@ -129,6 +129,7 @@ enum ras_notify_event {
 	RAS_EVENT_ID__RESET_VF,
 	RAS_EVENT_ID__RAS_EVENT_PROC_BEGIN,
 	RAS_EVENT_ID__RAS_EVENT_PROC_END,
+	RAS_EVENT_ID__UPDATE_ACA_DATA,
 };
 
 enum ras_gpu_status {

@@ -149,6 +149,10 @@ static int amdgpu_ras_sys_event_notifier(struct ras_core_context *ras_core,
 	case RAS_EVENT_ID__RAS_EVENT_PROC_END:
 		ret = amdgpu_ras_process_end(ras_core->dev);
 		break;
+	case RAS_EVENT_ID__UPDATE_ACA_DATA:
+		/* TBD: ACA error detected */
+		ret = 0;
+		break;
 	default:
 		RAS_DEV_WARN(ras_core->dev, "Invalid ras notify event:%d\n", event_id);
 		break;

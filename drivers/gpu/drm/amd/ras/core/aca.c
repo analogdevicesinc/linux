@@ -406,6 +406,9 @@ static int aca_banks_update(struct ras_core_context *ras_core,
 	}
 	ras_log_ring_destroy_batch_tag(ras_core, batch_tag);
 
+	if (!ret)
+		ras_core_event_notify(ras_core,
+			RAS_EVENT_ID__UPDATE_ACA_DATA, NULL);
 out:
 	mutex_unlock(&ras_core->ras_aca.bank_op_lock);
 	return ret;
