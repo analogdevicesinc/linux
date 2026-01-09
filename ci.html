@@ -9,7 +9,7 @@
     <title>Continuous integration &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
     <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=5d595293" />
-    <script async="async" src="_static/app.umd.js?v=62fc6850"></script>
+    <script async="async" src="_static/app.umd.js?v=46a18818"></script>
     <link rel="icon" href="_static/icon.svg"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -499,7 +499,7 @@ sudo<span class="w"> </span>mount<span class="w"> </span>~/.local/share/containe
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>build<span class="w"> </span>--tag<span class="w"> </span>adi/linux:v3<span class="w"> </span>container
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>build<span class="w"> </span>--tag<span class="w"> </span>adi/linux:v4<span class="w"> </span>container
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>You may want to build the container in a host, where you have all your tools installed,
@@ -508,7 +508,7 @@ In this case, export the image and then import on the server:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>-o<span class="w"> </span>adi-linux.tar<span class="w"> </span>adi/linux:v3
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>-o<span class="w"> </span>adi-linux.tar<span class="w"> </span>adi/linux:v4
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
@@ -527,7 +527,7 @@ In this case, export the image and then import on the server:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>adi/linux:v3<span class="w"> </span><span class="p">|</span><span class="w"> </span>ssh<span class="w"> </span>server<span class="w"> </span><span class="s2">&quot;cat - | podman load&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>container<span class="w"> </span>save<span class="w"> </span>adi/linux:v4<span class="w"> </span><span class="p">|</span><span class="w"> </span>ssh<span class="w"> </span>server<span class="w"> </span><span class="s2">&quot;cat - | podman load&quot;</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></section>
@@ -541,7 +541,7 @@ same scripts used by the continuous integration.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v3
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v4
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -595,7 +595,7 @@ By default, it is set to <code class="docutils literal notranslate"><span class=
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v3
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v4
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -622,12 +622,12 @@ total: 0 errors, 0 warnings, 0 checks, 179 lines checked
 <div class="clear-left"></div></div></div><p>Significantly speeding up interactive testing.
 Remember to replace <code class="docutils literal notranslate"><span class="pre">container_engine</span></code> variable with your preferred container engine.</p>
 <div><div class="collapsible docutils container">
-<input class="collapsible_input" id="101b59081eebdd047c1683671e006471f5f619ca" name="101b59081eebdd047c1683671e006471f5f619ca" type="checkbox"></input><label for="101b59081eebdd047c1683671e006471f5f619ca"><p>First usage output example.</p>
+<input class="collapsible_input" id="b858c5a5e3625f6e51233e69163136bd7382139f" name="b858c5a5e3625f6e51233e69163136bd7382139f" type="checkbox"></input><label for="b858c5a5e3625f6e51233e69163136bd7382139f"><p>First usage output example.</p>
 <div class="icon"></div></label><div class="collapsible_content docutils container">
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v3
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:v4
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>Remote &#39;public&#39; matches &#39;analogdevicesinc&#39;, and has branch &#39;ci&#39;.
@@ -772,11 +772,11 @@ is ignored and a new one is requested.</p>
 <span class="w">    </span>--secret<span class="w"> </span>public_linux_org_repository,type<span class="o">=</span>env,target<span class="o">=</span>org_repository<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--secret<span class="w"> </span>public_linux_runner_token,type<span class="o">=</span>env,target<span class="o">=</span>runner_token<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>v1,big_cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>adi/linux:v3
+<span class="w">    </span>adi/linux:v4
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><div><div class="collapsible docutils container">
-<input class="collapsible_input" id="2bba38a7921a981a89c149e1ff2b07e024ea70e7" name="2bba38a7921a981a89c149e1ff2b07e024ea70e7" type="checkbox"></input><label for="2bba38a7921a981a89c149e1ff2b07e024ea70e7"><p>Docker alternative</p>
+<input class="collapsible_input" id="9dd33c50f2dd48b3036394e0cf7c4bcb15316f9a" name="9dd33c50f2dd48b3036394e0cf7c4bcb15316f9a" type="checkbox"></input><label for="9dd33c50f2dd48b3036394e0cf7c4bcb15316f9a"><p>Docker alternative</p>
 <div class="icon"></div></label><div class="collapsible_content docutils container">
 <p><code class="docutils literal notranslate"><span class="pre">docker</span></code> does <strong>not</strong> have a built-in keyring, instead you pass directly
 to <code class="docutils literal notranslate"><span class="pre">run</span></code> command. <span class="red">Consider hardening strategies to mitigate risks</span>,
@@ -788,7 +788,7 @@ like using another keyring as below.</p>
 <span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_org_repository</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_org_repository.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_runner_token</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_runner_token.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>v1,big_cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>localhost/adi/linux:v3
+<span class="w">    </span>localhost/adi/linux:v4
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></div>
@@ -828,7 +828,7 @@ systemd services, instead of for example, container compose solutions.</p>
 <span class="w">          </span><span class="s">--memory-swap=20g </span>\
 <span class="w">          </span><span class="s">--memory=16g </span>\
 <span class="w">          </span><span class="s">--cpus=4 </span>\
-<span class="w">          </span><span class="s">-d adi/linux:v3 top</span>
+<span class="w">          </span><span class="s">-d adi/linux:v4 top</span>
 <span class="na">ExecStop</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/podman stop -t 300 $(cat %t/%n-cid) &amp;&amp; /bin/podman rm $(cat %t/%n-cid)&quot;</span>
 <span class="na">ExecStopPost</span><span class="o">=</span><span class="s">/bin/rm %t/%n-pid %t/%n-cid</span>
 <span class="na">TimeoutStopSec</span><span class="o">=</span><span class="s">600</span>
@@ -840,7 +840,7 @@ systemd services, instead of for example, container compose solutions.</p>
 </pre></div>
 </div>
 <div><div class="collapsible docutils container">
-<input class="collapsible_input" id="d3ea954a2c556a9e4733b074d41448cf46480782" name="d3ea954a2c556a9e4733b074d41448cf46480782" type="checkbox"></input><label for="d3ea954a2c556a9e4733b074d41448cf46480782"><p>Docker alternative</p>
+<input class="collapsible_input" id="58a416ba1609d10d5291f55b4f462c4a2a0fa402" name="58a416ba1609d10d5291f55b4f462c4a2a0fa402" type="checkbox"></input><label for="58a416ba1609d10d5291f55b4f462c4a2a0fa402"><p>Docker alternative</p>
 <div class="icon"></div></label><div class="collapsible_content docutils container">
 <div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
 <span class="na">Description</span><span class="o">=</span><span class="s">container public linux ci %i</span>
@@ -861,7 +861,7 @@ systemd services, instead of for example, container compose solutions.</p>
 <span class="w">          </span><span class="s">--memory=16g </span>\
 <span class="w">          </span><span class="s">--cpus=4 </span>\
 <span class="w">          </span><span class="s">--log-driver=journald </span>\
-<span class="w">          </span><span class="s">-d localhost/adi/linux:v3 top&quot;</span>
+<span class="w">          </span><span class="s">-d localhost/adi/linux:v4 top&quot;</span>
 <span class="na">RemainAfterExit</span><span class="o">=</span><span class="s">yes</span>
 <span class="na">ExecStop</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/docker stop -t 300 $(cat %t/%n-cid) &amp;&amp; /bin/docker rm $(cat %t/%n-cid)&quot;</span>
 <span class="na">ExecStopPost</span><span class="o">=</span><span class="s">/bin/rm %t/%n-cid</span>
