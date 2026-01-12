@@ -22,33 +22,33 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
 		ranges = <0 0 0 0xffffffff>;
-		
-		rx_dma: dma-controller@84A30000 { 
+
+		rx_dma: dma-controller@84A30000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x84A30000 0x10000>;
 			#dma-cells = <1>;
 			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 		};
-		
+
 		cf_ad9467_core_0: cf-ad9467-core-lpc@84A00000 {
 			compatible = "adi,axi-adc-10.0.a", "adi,axi-ad9467-1.0";
 			reg = <0x84A00000 0x10000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
-			
+
 			spibus-connected = <&adc_ad9467>;
 		};
-		
+
 		axi_sysid_0: axi-sysid-0@85000000 {
-		   compatible = "adi,axi-sysid-1.00.a";
-		   reg = <0x85000000 0x10000>;
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
 		};
 	};
 };
 
 &spi0 {
-   status = "okay";
+	status = "okay";
 };
 
 &i2c1 {
@@ -57,12 +57,11 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0>;
-			
+
 			eeprom@50 {
 				compatible = "at24,24c02";
 				reg = <0x50>;
 			};
-			
 		};
 	};
 };
