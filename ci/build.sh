@@ -1180,7 +1180,7 @@ set_step_fail () {
 }
 
 _set_step_warn () {
-	if [[ "$1" == "1" ]]; then
+	if [[ "$1" == "1" ]] || [[ "$1" == "true" ]] ; then
 		set_step_warn "$step_name"
 	fi
 }
