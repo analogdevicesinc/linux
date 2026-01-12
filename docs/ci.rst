@@ -41,6 +41,11 @@ provided (``mirror_ci/<remote-name>/<branch>``):
   | https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git/log/?h=testing
 * | ``mirror_ci/lee/mfd/for-mfd-next``: MFD Subsystem Tree - Next and Fixes
   | https://git.kernel.org/pub/scm/linux/kernel/git/lee/mfd.git/log/?h=for-mfd-next
+* | ``mirror_ci/groeck/linux-staging/hwmon-next``: HWMON Subsystem - Staging
+  | https://git.kernel.org/pub/scm/linux/kernel/git/groeck/linux-staging.git/log/?h=hwmon-next
+
+To reduce the load on ``kernel.org``, clone from mirrors such as
+https://kernel.googlesource.com/pub/scm/linux/kernel/git/.
 
 When upstreaming a driver, target the pull-request against the mirror.
 
