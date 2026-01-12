@@ -23,15 +23,15 @@ RUN ./externals/node24/bin/node ./externals/node24/lib/node_modules/npm/bin/npm-
 RUN rm -r ../.npm ./externals/node*_alpine
 
 USER root
-COPY install-deps.sh .
+COPY container/install-deps.sh .
 RUN chmod +x install-deps.sh ; ./install-deps.sh
-COPY install-utils.sh .
+COPY container/install-utils.sh .
 RUN chmod +x install-utils.sh ; ./install-utils.sh
-COPY install-compilers.sh .
+COPY container/install-compilers.sh .
 RUN chmod +x install-compilers.sh ; ./install-compilers.sh
-COPY install-extra.sh .
+COPY container/install-extra.sh .
 RUN chmod +x install-extra.sh ; ./install-extra.sh
-COPY set-alternatives.sh .
+COPY container/set-alternatives.sh .
 RUN chmod +x set-alternatives.sh ; ./set-alternatives.sh
 
 RUN mkdir -p /usr/local/bin
