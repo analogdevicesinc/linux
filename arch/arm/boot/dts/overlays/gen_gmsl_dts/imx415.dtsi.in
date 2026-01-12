@@ -1,0 +1,52 @@
+{% set reset_pin = cam_cfg.reset_pin | d(0) %}
+{% set cam_label = ser_label ~ "_cam_" ~ cam_idx %}
+{% set inck_label = ser_label ~ "_cam_" ~ cam_idx ~ "_inlk" %}
+{% set cam_out_label = cam_label ~ "_out" %}
+{% set cam_out_remote_label = ser_in_label_x(cam_idx) %}
+
+&{/} {
+	{{inck_label}}: {{inck_label}} {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&{{ser_i2c_label()}} {
+	{{cam_label}}: imx415@1a {
+		compatible = "sony,imx415";
+		reg = <0x1a>;
+
+		reset-gpios = <&{{ser_label}} {{reset_pin}} 1>;
+
+		clocks = <&{{inck_label}}>;
+		clock-names = "inck";
+
+		rotation = <180>;
+		orientation = <2>;
+
+		port {
+			{{cam_out_label}}: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <360000000>;
+				remote-endpoint = <&{{cam_out_remote_label}}>;
+			};
+		};
+	};
+};
+
+&{{ser_label}} {
+	ports {
+		port@{{cam_idx}} {
+			reg = <0>;
+
+			{{cam_out_remote_label}}: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <360000000>;
+				remote-endpoint = <&{{cam_out_label}}>;
+			};
+		};
+	};
+};
