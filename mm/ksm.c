@@ -3171,6 +3171,7 @@ again:
 		struct anon_vma *anon_vma = rmap_item->anon_vma;
 		struct anon_vma_chain *vmac;
 		struct vm_area_struct *vma;
+		unsigned long addr;
 
 		cond_resched();
 		if (!anon_vma_trylock_read(anon_vma)) {
@@ -3180,15 +3181,15 @@ again:
 			}
 			anon_vma_lock_read(anon_vma);
 		}
+
+		/* Ignore the stable/unstable/sqnr flags */
+		addr = rmap_item->address & PAGE_MASK;
+
 		anon_vma_interval_tree_foreach(vmac, &anon_vma->rb_root,
 					       0, ULONG_MAX) {
-			unsigned long addr;
 
 			cond_resched();
 			vma = vmac->vma;
-
-			/* Ignore the stable/unstable/sqnr flags */
-			addr = rmap_item->address & PAGE_MASK;
 
 			if (addr < vma->vm_start || addr >= vma->vm_end)
 				continue;
