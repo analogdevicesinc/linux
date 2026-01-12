@@ -2594,7 +2594,7 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 		pll->num_parents = init[i].num_parents;
 		pll->parents = init[i].parent_hws;
 
-		if (!pll->slew_rate_limit_ps) {
+		if (pll->slew_rate_limit_ps) {
 			regval = cpu_to_le32(pll->slew_rate_limit_ps);
 			ret = regmap_bulk_write(st->regmap, AD9545_DPLLX_SLEW_RATE(i), &regval, 4);
 			if (ret < 0)
