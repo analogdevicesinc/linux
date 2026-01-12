@@ -31,6 +31,7 @@ check_checkpatch() {
 	local mail=
 	local fail=0
 	local warn=0
+	local ignored=
 	local api_match="(public/include|public/src|private/include|private/src|navassa/common|adrv902x/common|adrv903x/common|adrv903x/platforms)/"
 	local tmp_branch_name=$(git symbolic-ref --short HEAD)-$RANDOM
 
@@ -118,8 +119,6 @@ check_checkpatch() {
 					if grep -qE "$api_match" <<< "$file"; then
 						type="notice"
 					fi
-					[[ "$type" == "error" ]] && fail=1
-					[[ "$type" == "warning" ]] && warn=1
 
 					# Get line-number
 					line=${list[3]}
@@ -132,7 +131,17 @@ check_checkpatch() {
 							file=$(git show --name-only --pretty=format: $commit | head -n 1)
 							echo "::$type file=$(_file "$file"),line=0::$step_name: $msg"
 						else
-							echo "::$type file=$(_file "$file"),line=$line::$step_name: $msg"
+							# Ignore some cases:
+							prefix=
+							if [[ "$msg" =~ ^"Macros with complex values should be enclosed in parentheses" ]] &&
+							   [[ "$file" =~ "/dt-bindings/" ]]; then
+								prefix=ignored
+								((ignored++))
+							else
+								[[ "$type" == "error" ]] && fail=1
+								[[ "$type" == "warning" ]] && warn=1
+							fi
+							echo "$prefix::$type file=$(_file "$file"),line=$line::$step_name: $msg"
 						fi
 						found=0
 						file=
@@ -161,6 +170,7 @@ check_checkpatch() {
 			fi
 
 		done <<< "$mail"
+		echo "       of those, $ignored were ignored"
 	done
 
 	[[ "$strategy" == "file" ]] && (git switch - 1>/dev/null; git branch -D $tmp_branch_name)
