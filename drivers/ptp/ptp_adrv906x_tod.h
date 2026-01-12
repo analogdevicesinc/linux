@@ -132,9 +132,12 @@ int adrv906x_tod_register_pll(struct ptp_clock_info *pll_caps);
 	iowrite32(value, (tod)->regs + (offset))
 #define ADRV906X_REG_WRITE_DUAL(tod, offset, value) \
 	do { \
-		iowrite32((value), (tod)->regs + (offset)); \
-		if ((tod)->sec_regs) { \
-			iowrite32((value), (tod)->sec_regs + (offset)); \
+		u32 _v = (value); \
+		u32 _o = (offset); \
+		struct adrv906x_tod *_t = (tod); \
+		iowrite32(_v, (_t)->regs + (_o)); \
+		if ((_t)->sec_regs) { \
+			iowrite32(_v, (_t)->sec_regs + (_o)); \
 		} \
 	} while (0)
 #define ADRV906X_REG_READ(tod, offset) \
