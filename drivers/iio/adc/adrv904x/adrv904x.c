@@ -1046,8 +1046,22 @@ static int adrv904x_phy_read_raw(struct iio_dev *indio_dev,
 		if (chan->output)
 			*val = clk_get_rate(phy->clks[TX_SAMPL_CLK]);
 		else
-			*val = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
-
+			switch (chan->channel) {
+			case CHAN_RX1:
+			case CHAN_RX2:
+			case CHAN_RX3:
+			case CHAN_RX4:
+			case CHAN_RX5:
+			case CHAN_RX6:
+			case CHAN_RX7:
+			case CHAN_RX8:
+				*val = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+				break;
+			case CHAN_OBS_RX1:
+			case CHAN_OBS_RX2:
+				*val = clk_get_rate(phy->clks[OBS_SAMPL_CLK]);
+				break;
+			}
 		ret = IIO_VAL_INT;
 		break;
 	case IIO_CHAN_INFO_PROCESSED:
@@ -1655,8 +1669,14 @@ static int adrv904x_clk_register(struct adrv904x_rf_phy *phy, const char *name,
 
 	switch (source) {
 	case RX_SAMPL_CLK:
+		phy->rx_iqRate_kHz = phy->kororDevice->initExtract.rx.rxChannelCfg[0].rxDdc0OutputRate_kHz;
 		init.ops = &bb_clk_ops;
 		clk_priv->rate = phy->rx_iqRate_kHz;
+		break;
+	case OBS_SAMPL_CLK:
+		phy->orx_iqRate_kHz = phy->kororDevice->initExtract.jesdSetting.framerSetting[1].iqRate_kHz;
+		init.ops = &bb_clk_ops;
+		clk_priv->rate = phy->orx_iqRate_kHz;
 		break;
 	case TX_SAMPL_CLK:
 		{
@@ -1891,9 +1911,11 @@ static int adrv904x_jesd204_link_init(struct jesd204_dev *jdev,
 
 		priv->link[lnk->link_id].source_id = source_id;
 		priv->link[lnk->link_id].is_framer = true;
-		phy->rx_iqRate_kHz  =
-			phy->kororDevice->initExtract.jesdSetting.framerSetting[source_id - 1].iqRate_kHz;
 		rate = phy->kororDevice->initExtract.jesdSetting.framerSetting[source_id - 1].iqRate_kHz;
+		if (lnk->link_id == FRAMER0_LINK_RX)
+			phy->rx_iqRate_kHz = rate;
+		if (lnk->link_id == FRAMER1_LINK_RX)
+			phy->orx_iqRate_kHz = rate;
 		lnk->num_lanes =
 			hweight8(phy->kororDevice->initExtract.jesdSetting.framerSetting[source_id - 1].serialLaneEnabled);
 		lnk->num_converters =
@@ -2316,10 +2338,12 @@ static int adrv904x_jesd204_post_running_stage(struct jesd204_dev *jdev,
 	struct adrv904x_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	static adi_adrv904x_InitCalStatus_t initCalStatus;
 	struct device *dev = jesd204_dev_to_device(jdev);
-	const u32 ALL_CHANNELS_MASK = 0xFFU;
+	u32 tx_mask = 0, rx_mask = 0, orx_mask = 0;
 	struct adrv904x_rf_phy *phy = priv->phy;
 	adi_adrv904x_TxAtten_t txAttenuation[1];
+	const u32 ALL_CHANNELS_MASK = 0xFFU;
 	const u32 NUM_TRACKING_CALS = 7U;
+	u32 init_chans = 0;
 	u8 i, j;
 	int ret;
 
@@ -2337,25 +2361,41 @@ static int adrv904x_jesd204_post_running_stage(struct jesd204_dev *jdev,
 	}
 
 	clk_set_rate(phy->clks[RX_SAMPL_CLK], phy->rx_iqRate_kHz * 1000);
+	clk_set_rate(phy->clks[OBS_SAMPL_CLK], phy->orx_iqRate_kHz * 1000);
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], phy->tx_iqRate_kHz * 1000);
 
-	// Tx enabled only if EN toggles
-	ret = adi_adrv904x_RxTxEnableSet(phy->kororDevice, 0x00, 0x00,
-					 ADI_ADRV904X_RX_MASK_ALL,
-					 ADI_ADRV904X_RX_MASK_ALL,
-					 ADI_ADRV904X_TXALL, ADI_ADRV904X_TXALL);
+	init_chans = phy->kororDevice->devStateInfo.initializedChannels;
+
+	for (i = 0; i < ADI_ADRV904X_MAX_TXCHANNELS; i++) {
+		if (init_chans & (1 << (i + ADI_ADRV904X_TX_INITIALIZED_CH_OFFSET)))
+			tx_mask |= (ADI_ADRV904X_TX0 << i);
+	}
+
+	for (i = 0; i < ADI_ADRV904X_MAX_RX_ONLY; i++) {
+		if (init_chans & (1 << (i)))
+			rx_mask |= (ADI_ADRV904X_RX0 << i);
+	}
+
+	for (i = 0; i < ADI_ADRV904X_MAX_ORX_ONLY; i++) {
+		if (init_chans & (1 << (i + ADI_ADRV904X_MAX_TXCHANNELS)))
+			orx_mask |= (ADI_ADRV904X_ORX0 << i);
+	}
+
+	dev_info(dev, "Initialized RF channels: 0x%x (TX: 0x%x, RX: 0x%x, ORX: 0x%x)\n",
+		 init_chans, tx_mask, rx_mask, orx_mask);
+
+	ret = adi_adrv904x_RxTxEnableSet(phy->kororDevice, orx_mask, orx_mask,
+					 rx_mask, rx_mask, tx_mask, tx_mask);
 	if (ret)
 		return adrv904x_dev_err(phy);
 
-	ret = adi_adrv904x_RxTxEnableSet(phy->kororDevice, 0x00, 0x00, 0x00,
-					 0x00, ADI_ADRV904X_TXALL, 0x00);
+	ret = adi_adrv904x_RxTxEnableSet(phy->kororDevice, orx_mask, 0x00,
+					 rx_mask, 0x00, tx_mask, 0x00);
 	if (ret)
 		return adrv904x_dev_err(phy);
 
-	ret = adi_adrv904x_RxTxEnableSet(phy->kororDevice, 0x00, 0x00,
-					 ADI_ADRV904X_RX_MASK_ALL,
-					 ADI_ADRV904X_RX_MASK_ALL,
-					 ADI_ADRV904X_TXALL, ADI_ADRV904X_TXALL);
+	ret = adi_adrv904x_RxTxEnableSet(phy->kororDevice, orx_mask, orx_mask,
+					 rx_mask, rx_mask, tx_mask, tx_mask);
 	if (ret)
 		return adrv904x_dev_err(phy);
 
@@ -2639,6 +2679,10 @@ static int adrv904x_probe(struct spi_device *spi)
 	adrv904x_clk_register(phy, "-rx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
 			      RX_SAMPL_CLK);
+
+	adrv904x_clk_register(phy, "-obs_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
+			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+			      OBS_SAMPL_CLK);
 
 	adrv904x_clk_register(phy, "-tx_sampl_clk", __clk_get_name(phy->dev_clk), NULL,
 			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
