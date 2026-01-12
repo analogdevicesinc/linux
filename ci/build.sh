@@ -77,7 +77,10 @@ check_checkpatch() {
 			echo $files
 		fi
 
-		[[ "$strategy" == "file" ]] && flags="--ignore COMMIT_MESSAGE" || flags=""
+		[[ "$strategy" == "file" ]] && flags=" \
+			--ignore COMMIT_MESSAGE \
+			--ignore DT_SPLIT_BINDING_PATCH \
+		" || flags=""
 		mail=$(scripts/checkpatch.pl \
 			--strict \
 			--ignore FILE_PATH_CHANGES \
