@@ -3172,6 +3172,7 @@ again:
 		struct anon_vma_chain *vmac;
 		struct vm_area_struct *vma;
 		unsigned long addr;
+		pgoff_t pgoff_start, pgoff_end;
 
 		cond_resched();
 		if (!anon_vma_trylock_read(anon_vma)) {
@@ -3185,8 +3186,11 @@ again:
 		/* Ignore the stable/unstable/sqnr flags */
 		addr = rmap_item->address & PAGE_MASK;
 
+		pgoff_start = rmap_item->address >> PAGE_SHIFT;
+		pgoff_end = pgoff_start + folio_nr_pages(folio) - 1;
+
 		anon_vma_interval_tree_foreach(vmac, &anon_vma->rb_root,
-					       0, ULONG_MAX) {
+					       pgoff_start, pgoff_end) {
 
 			cond_resched();
 			vma = vmac->vma;
