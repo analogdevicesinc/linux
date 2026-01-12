@@ -18,6 +18,7 @@ install_gcc (){
 	    tar xf gcc.tar.xz
 	mv $arch--$version /opt/gcc/$arch
 	(cd /opt/gcc/$arch/bin && for f in *-13.3.0; do ln -s "/opt/gcc/$arch/bin/$f" "${f/13.3.0/13}"; done)
+	(cd /opt/gcc/$arch/lib && rm -rf python3.* libpython3.* )
 	ln -s /opt/gcc/$arch/bin/$arch_alt-* /usr/local/bin/
 	rm gcc.tar.xz
 }
