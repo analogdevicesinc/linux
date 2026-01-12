@@ -95,6 +95,7 @@ check_checkpatch() {
 			--git $commit \
 			$flags )
 
+		ignored=0
 		found=0
 		msg=
 
@@ -134,7 +135,8 @@ check_checkpatch() {
 							# Ignore some cases:
 							prefix=
 							if [[ "$msg" =~ ^"Macros with complex values should be enclosed in parentheses" ]] &&
-							   [[ "$file" =~ "/dt-bindings/" ]]; then
+							   [[ "$file" =~ "/dt-bindings/" ]] ||
+							   [[ "$file" =~ "/boot/dts/" ]]; then
 								prefix=ignored
 								((ignored++))
 							else
