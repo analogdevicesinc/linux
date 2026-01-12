@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 
+#include <media/mipi-csi2.h>
 #include <media/v4l2-cci.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fwnode.h>
@@ -45,6 +46,8 @@
 #define IMX415_BCWAIT_TIME	  CCI_REG16_LE(0x3008)
 #define IMX415_CPWAIT_TIME	  CCI_REG16_LE(0x300a)
 #define IMX415_WINMODE		  CCI_REG8(0x301c)
+#define IMX415_HADD		  CCI_REG8(0x3020)
+#define IMX415_VADD		  CCI_REG8(0x3021)
 #define IMX415_ADDMODE		  CCI_REG8(0x3022)
 #define IMX415_REVERSE		  CCI_REG8(0x3030)
 #define IMX415_HREVERSE_SHIFT	  (0)
@@ -64,6 +67,8 @@
 #define IMX415_AGAIN_MIN	  0
 #define IMX415_AGAIN_MAX	  100
 #define IMX415_AGAIN_STEP	  1
+#define IMX415_DIG_CLP_VSTAET	  CCI_REG8(0x30d9)
+#define IMX415_DIG_VLP_VNUM	  CCI_REG8(0x30da)
 #define IMX415_BLKLEVEL		  CCI_REG16_LE(0x30e2)
 #define IMX415_BLKLEVEL_DEFAULT	  50
 #define IMX415_TPG_EN_DUOUT	  CCI_REG8(0x30e4)
@@ -95,6 +100,16 @@
 #define IMX415_THSEXIT		  CCI_REG16_LE(0x4026)
 #define IMX415_TLPX		  CCI_REG16_LE(0x4028)
 #define IMX415_INCKSEL7		  CCI_REG8(0x4074)
+
+/* Window cropping mode registers */
+#define IMX415_PIX_HST		  CCI_REG16_LE(0x3040)
+#define IMX415_PIX_HWIDTH	  CCI_REG16_LE(0x3042)
+#define IMX415_PIX_VST		  CCI_REG16_LE(0x3044)
+#define IMX415_PIX_VWIDTH	  CCI_REG16_LE(0x3046)
+
+/* 1920x1080 cropped resolution */
+#define IMX415_1080P_WIDTH	  1920
+#define IMX415_1080P_HEIGHT	  1080
 
 static const char *const imx415_supply_names[] = {
 	"dvdd",
@@ -148,7 +163,7 @@ static const struct imx415_clk_params imx415_clk_params[] = {
 		.regs[7] = { IMX415_INCKSEL5, 0x24 },
 		.regs[8] = { IMX415_INCKSEL6, 0x0 },
 		.regs[9] = { IMX415_INCKSEL7, 0x1 },
-		.regs[10] = { IMX415_TXCLKESC_FREQ, 0x0984 },
+		.regs[10] = { IMX415_TXCLKESC_FREQ, 0x0948 },
 	},
 	{
 		.lane_rate = 594000000UL,
@@ -491,6 +506,20 @@ static const struct cci_reg_sequence imx415_linkrate_891mbps[] = {
 	{ IMX415_TLPX, 0x002F },
 };
 
+/*
+ * 1920x1080 cropping mode registers (center crop from 3864x2192)
+ * This provides a 2x zoom effect using window cropping mode.
+ * Extracted from Sigmastar IMX415 driver.
+ */
+static const struct cci_reg_sequence imx415_1080p_crop_regs[] = {
+	/* Enable binning 2/2 */
+	{ IMX415_HADD, 0x01 }, /* Horizontal binning */
+	{ IMX415_VADD, 0x01 }, /* Vertical binning */
+	{ IMX415_ADDMODE, 0x01 }, /* Enable binning 2/2 */
+	{ IMX415_DIG_CLP_VSTAET, 0x02 }, /* 2/2 Binning */
+	{ IMX415_DIG_VLP_VNUM, 0x01 }, /* 2/2 Binning */
+};
+
 struct imx415_mode_reg_list {
 	u32 num_of_regs;
 	const struct cci_reg_sequence *regs;
@@ -498,14 +527,21 @@ struct imx415_mode_reg_list {
 
 struct imx415_mode {
 	u64 lane_rate;
-	u32 hmax_min[2];
+	u32 width;
+	u32 height;
+	u32 hmax_min[2];	/* [0] = 2 lanes, [1] = 4 lanes */
 	struct imx415_mode_reg_list reg_list;
+	/* Optional resolution-specific registers (cropping, binning, etc.) */
+	struct imx415_mode_reg_list res_regs;
 };
 
 /* mode configs */
 static const struct imx415_mode supported_modes[] = {
+	/* Full resolution modes (3864x2192) */
 	{
 		.lane_rate = 720000000,
+		.width = IMX415_PIXEL_ARRAY_WIDTH,
+		.height = IMX415_PIXEL_ARRAY_HEIGHT,
 		.hmax_min = { 2032, 1066 },
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_720mbps),
@@ -514,6 +550,8 @@ static const struct imx415_mode supported_modes[] = {
 	},
 	{
 		.lane_rate = 1440000000,
+		.width = IMX415_PIXEL_ARRAY_WIDTH,
+		.height = IMX415_PIXEL_ARRAY_HEIGHT,
 		.hmax_min = { 1066, 533 },
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_1440mbps),
@@ -522,10 +560,27 @@ static const struct imx415_mode supported_modes[] = {
 	},
 	{
 		.lane_rate = 891000000,
+		.width = IMX415_PIXEL_ARRAY_WIDTH,
+		.height = IMX415_PIXEL_ARRAY_HEIGHT,
 		.hmax_min = { 1100, 550 },
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_891mbps),
 			.regs = imx415_linkrate_891mbps,
+		},
+	},
+	/* 1920x1080 cropped modes */
+	{
+		.lane_rate = 891000000,
+		.width = IMX415_1080P_WIDTH,
+		.height = IMX415_1080P_HEIGHT,
+		.hmax_min = { 2200, 1100 },
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(imx415_linkrate_891mbps),
+			.regs = imx415_linkrate_891mbps,
+		},
+		.res_regs = {
+			.num_of_regs = ARRAY_SIZE(imx415_1080p_crop_regs),
+			.regs = imx415_1080p_crop_regs,
 		},
 	},
 };
@@ -560,8 +615,6 @@ struct imx415 {
 	struct media_pad pad;
 
 	struct v4l2_ctrl_handler ctrls;
-	struct v4l2_ctrl *vblank;
-	struct v4l2_ctrl *hblank;
 	struct v4l2_ctrl *hflip;
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *exposure;
@@ -585,6 +638,8 @@ static const struct cci_reg_sequence imx415_init_table[] = {
 	/* output VSYNC on XVS and low on XHS */
 	{ IMX415_OUTSEL, 0x22 },
 	{ IMX415_DRV, 0x00 },
+	/* Frame timing */
+	{ IMX415_VMAX, 0x8CA },
 
 	/* SONY magic registers */
 	{ CCI_REG8(0x32D4), 0x21 },
@@ -693,45 +748,16 @@ static int imx415_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct imx415 *sensor = container_of(ctrl->handler, struct imx415,
 					     ctrls);
-	const struct v4l2_mbus_framefmt *format;
-	struct v4l2_subdev_state *state;
-	u32 exposure_max;
-	unsigned int vmax;
 	unsigned int flip;
 	int ret;
-
-	state = v4l2_subdev_get_locked_active_state(&sensor->subdev);
-	format = v4l2_subdev_state_get_format(state, 0);
-
-	if (ctrl->id == V4L2_CID_VBLANK) {
-		exposure_max = format->height + ctrl->val -
-			       IMX415_EXPOSURE_OFFSET;
-		__v4l2_ctrl_modify_range(sensor->exposure,
-					 sensor->exposure->minimum,
-					 exposure_max, sensor->exposure->step,
-					 sensor->exposure->default_value);
-	}
 
 	if (!pm_runtime_get_if_in_use(sensor->dev))
 		return 0;
 
 	switch (ctrl->id) {
-	case V4L2_CID_VBLANK:
-		ret = cci_write(sensor->regmap, IMX415_VMAX,
-				format->height + ctrl->val, NULL);
-		if (ret)
-			return ret;
-		/*
-		 * Deliberately fall through as exposure is set based on VMAX
-		 * which has just changed.
-		 */
-		fallthrough;
 	case V4L2_CID_EXPOSURE:
-		/* clamp the exposure value to VMAX. */
-		vmax = format->height + sensor->vblank->cur.val;
-		ctrl->val = min_t(int, ctrl->val, vmax);
 		ret = cci_write(sensor->regmap, IMX415_SHR0,
-				vmax - ctrl->val, NULL);
+				ctrl->val, NULL);
 		break;
 
 	case V4L2_CID_ANALOGUE_GAIN:
@@ -750,12 +776,6 @@ static int imx415_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_TEST_PATTERN:
 		ret = imx415_set_testpattern(sensor, ctrl->val);
 		break;
-
-	case V4L2_CID_HBLANK:
-		return cci_write(sensor->regmap, IMX415_HMAX,
-				 (format->width + ctrl->val) /
-						IMX415_HMAX_MULTIPLIER,
-				 NULL);
 
 	default:
 		ret = -EINVAL;
@@ -776,10 +796,7 @@ static int imx415_ctrls_init(struct imx415 *sensor)
 	struct v4l2_fwnode_device_properties props;
 	struct v4l2_ctrl *ctrl;
 	u64 lane_rate = supported_modes[sensor->cur_mode].lane_rate;
-	u32 exposure_max = IMX415_PIXEL_ARRAY_HEIGHT +
-			   IMX415_PIXEL_ARRAY_VBLANK -
-			   IMX415_EXPOSURE_OFFSET;
-	u32 hblank_min, hblank_max;
+	u32 exposure_max = 0x8CA - 4; /* VMAX - 4 */
 	unsigned int i;
 	int ret;
 
@@ -808,28 +825,13 @@ static int imx415_ctrls_init(struct imx415 *sensor)
 		ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	sensor->exposure = v4l2_ctrl_new_std(&sensor->ctrls, &imx415_ctrl_ops,
-					     V4L2_CID_EXPOSURE, 4,
-					     exposure_max, 1, exposure_max);
+					     V4L2_CID_EXPOSURE, IMX415_EXPOSURE_OFFSET,
+					     exposure_max, 1, 102);
 
 	v4l2_ctrl_new_std(&sensor->ctrls, &imx415_ctrl_ops,
 			  V4L2_CID_ANALOGUE_GAIN, IMX415_AGAIN_MIN,
 			  IMX415_AGAIN_MAX, IMX415_AGAIN_STEP,
 			  IMX415_AGAIN_MIN);
-
-	hblank_min = (supported_modes[sensor->cur_mode].hmax_min[sensor->num_data_lanes == 2 ? 0 : 1] *
-		      IMX415_HMAX_MULTIPLIER) - IMX415_PIXEL_ARRAY_WIDTH;
-	hblank_max = (IMX415_HMAX_MAX * IMX415_HMAX_MULTIPLIER) -
-		     IMX415_PIXEL_ARRAY_WIDTH;
-	ctrl = v4l2_ctrl_new_std(&sensor->ctrls, &imx415_ctrl_ops,
-				 V4L2_CID_HBLANK, hblank_min,
-				 hblank_max, IMX415_HMAX_MULTIPLIER,
-				 hblank_min);
-
-	sensor->vblank = v4l2_ctrl_new_std(&sensor->ctrls, &imx415_ctrl_ops,
-					   V4L2_CID_VBLANK,
-					   IMX415_PIXEL_ARRAY_VBLANK,
-					   IMX415_VMAX_MAX - IMX415_PIXEL_ARRAY_HEIGHT,
-					   1, IMX415_PIXEL_ARRAY_VBLANK);
 
 	v4l2_ctrl_new_std(&sensor->ctrls, NULL, V4L2_CID_PIXEL_RATE,
 			  sensor->pixel_rate, sensor->pixel_rate, 1,
@@ -861,6 +863,7 @@ static int imx415_ctrls_init(struct imx415 *sensor)
 
 static int imx415_set_mode(struct imx415 *sensor, int mode)
 {
+	unsigned int hmax;
 	int ret = 0;
 
 	if (mode >= ARRAY_SIZE(supported_modes)) {
@@ -868,20 +871,34 @@ static int imx415_set_mode(struct imx415 *sensor, int mode)
 		return -EINVAL;
 	}
 
+	/* Apply link rate / CSI timing registers */
 	cci_multi_reg_write(sensor->regmap,
 			    supported_modes[mode].reg_list.regs,
 			    supported_modes[mode].reg_list.num_of_regs,
 			    &ret);
 
+	/* Apply resolution-specific registers (cropping, binning, etc.) */
+	if (supported_modes[mode].res_regs.num_of_regs > 0) {
+		cci_multi_reg_write(sensor->regmap,
+				    supported_modes[mode].res_regs.regs,
+				    supported_modes[mode].res_regs.num_of_regs,
+				    &ret);
+	}
+
+	/* Apply clock configuration registers */
 	cci_multi_reg_write(sensor->regmap,
 			    sensor->clk_params->regs,
 			    IMX415_NUM_CLK_PARAM_REGS,
 			    &ret);
 
-	ret = cci_write(sensor->regmap, IMX415_LANEMODE,
-			sensor->num_data_lanes == 2 ? IMX415_LANEMODE_2 :
-						      IMX415_LANEMODE_4,
-			NULL);
+	/* Set HMAX based on lane configuration */
+	hmax = supported_modes[mode].hmax_min[sensor->num_data_lanes == 2 ? 0 : 1];
+	cci_write(sensor->regmap, IMX415_HMAX, hmax, &ret);
+
+	cci_write(sensor->regmap, IMX415_LANEMODE,
+		  sensor->num_data_lanes == 2 ? IMX415_LANEMODE_2 :
+						IMX415_LANEMODE_4,
+		  &ret);
 
 	return ret;
 }
@@ -924,8 +941,17 @@ static int imx415_stream_on(struct imx415 *sensor)
 	int ret;
 
 	ret = imx415_wakeup(sensor);
-	return cci_write(sensor->regmap, IMX415_XMSTA,
+	if (ret)
+		return ret;
+
+	ret = cci_write(sensor->regmap, IMX415_XMSTA,
 			 IMX415_XMSTA_START, &ret);
+	if (ret)
+		return ret;
+
+	msleep(300);
+
+	return 0;
 }
 
 static int imx415_stream_off(struct imx415 *sensor)
@@ -1000,6 +1026,15 @@ static int imx415_enum_mbus_code(struct v4l2_subdev *sd,
 	return 0;
 }
 
+/* Unique resolutions available (for frame size enumeration) */
+static const struct {
+	u32 width;
+	u32 height;
+} imx415_resolutions[] = {
+	{ IMX415_PIXEL_ARRAY_WIDTH, IMX415_PIXEL_ARRAY_HEIGHT },  /* 3864x2192 */
+	{ IMX415_1080P_WIDTH, IMX415_1080P_HEIGHT },              /* 1920x1080 */
+};
+
 static int imx415_enum_frame_size(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_state *state,
 				  struct v4l2_subdev_frame_size_enum *fse)
@@ -1008,26 +1043,88 @@ static int imx415_enum_frame_size(struct v4l2_subdev *sd,
 
 	format = v4l2_subdev_state_get_format(state, fse->pad);
 
-	if (fse->index > 0 || fse->code != format->code)
+	if (fse->index >= ARRAY_SIZE(imx415_resolutions) ||
+	    fse->code != format->code)
 		return -EINVAL;
 
-	fse->min_width = IMX415_PIXEL_ARRAY_WIDTH;
+	fse->min_width = imx415_resolutions[fse->index].width;
 	fse->max_width = fse->min_width;
-	fse->min_height = IMX415_PIXEL_ARRAY_HEIGHT;
+	fse->min_height = imx415_resolutions[fse->index].height;
 	fse->max_height = fse->min_height;
 	return 0;
+}
+
+/*
+ * Find a mode matching the requested resolution and current lane rate.
+ * Returns the mode index or -1 if not found.
+ */
+static int imx415_find_mode(struct imx415 *sensor, u32 width, u32 height)
+{
+	u64 lane_rate = supported_modes[sensor->cur_mode].lane_rate;
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
+		if (supported_modes[i].lane_rate == lane_rate &&
+		    supported_modes[i].width == width &&
+		    supported_modes[i].height == height)
+			return i;
+	}
+
+	return -1;
+}
+
+/*
+ * Find the closest supported resolution to the requested one.
+ */
+static void imx415_find_best_resolution(u32 req_width, u32 req_height,
+					u32 *width, u32 *height)
+{
+	unsigned int i;
+	u32 best_width = imx415_resolutions[0].width;
+	u32 best_height = imx415_resolutions[0].height;
+	u32 min_diff = UINT_MAX;
+
+	for (i = 0; i < ARRAY_SIZE(imx415_resolutions); i++) {
+		u32 diff = abs((int)imx415_resolutions[i].width - (int)req_width) +
+			   abs((int)imx415_resolutions[i].height - (int)req_height);
+		if (diff < min_diff) {
+			min_diff = diff;
+			best_width = imx415_resolutions[i].width;
+			best_height = imx415_resolutions[i].height;
+		}
+	}
+
+	*width = best_width;
+	*height = best_height;
 }
 
 static int imx415_set_format(struct v4l2_subdev *sd,
 			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_format *fmt)
 {
+	struct imx415 *sensor = to_imx415(sd);
 	struct v4l2_mbus_framefmt *format;
+	u32 width, height;
+	int mode;
+
+	/* Find the closest supported resolution */
+	imx415_find_best_resolution(fmt->format.width, fmt->format.height,
+				    &width, &height);
+
+	/* Find a mode matching this resolution and our lane rate */
+	mode = imx415_find_mode(sensor, width, height);
+	if (mode < 0) {
+		/* Fall back to full resolution if no matching mode found */
+		width = IMX415_PIXEL_ARRAY_WIDTH;
+		height = IMX415_PIXEL_ARRAY_HEIGHT;
+	} else if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
+		sensor->cur_mode = mode;
+	}
 
 	format = v4l2_subdev_state_get_format(state, fmt->pad);
 
-	format->width = fmt->format.width;
-	format->height = fmt->format.height;
+	format->width = width;
+	format->height = height;
 	format->code = MEDIA_BUS_FMT_SGBRG10_1X10;
 	format->field = V4L2_FIELD_NONE;
 	format->colorspace = V4L2_COLORSPACE_RAW;
@@ -1061,10 +1158,11 @@ static int imx415_get_selection(struct v4l2_subdev *sd,
 static int imx415_init_state(struct v4l2_subdev *sd,
 			     struct v4l2_subdev_state *state)
 {
+	struct imx415 *sensor = to_imx415(sd);
 	struct v4l2_subdev_format format = {
 		.format = {
-			.width = IMX415_PIXEL_ARRAY_WIDTH,
-			.height = IMX415_PIXEL_ARRAY_HEIGHT,
+			.width = supported_modes[sensor->cur_mode].width,
+			.height = supported_modes[sensor->cur_mode].height,
 		},
 	};
 
@@ -1072,6 +1170,72 @@ static int imx415_init_state(struct v4l2_subdev *sd,
 
 	return 0;
 }
+
+static int imx415_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				 struct v4l2_mbus_frame_desc *fd)
+{
+	if (pad >= 1)
+		return -EINVAL;
+
+	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+	fd->num_entries = 1;
+
+	fd->entry[0].pixelcode = MEDIA_BUS_FMT_SGBRG10_1X10;
+	fd->entry[0].stream = 0;
+	fd->entry[0].bus.csi2.vc = 0;
+	fd->entry[0].bus.csi2.dt = MIPI_CSI2_DT_RAW10;
+
+	return 0;
+}
+
+
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+static int imx415_g_register(struct v4l2_subdev *sd,
+			     struct v4l2_dbg_register *reg)
+{
+	struct imx415 *sensor = to_imx415(sd);
+	u64 val;
+	int ret;
+
+	ret = pm_runtime_resume_and_get(sensor->dev);
+	if (ret < 0)
+		return ret;
+
+	ret = cci_read(sensor->regmap, CCI_REG8(reg->reg), &val, NULL);
+	reg->val = val;
+	reg->size = 1;
+
+	pm_runtime_mark_last_busy(sensor->dev);
+	pm_runtime_put_autosuspend(sensor->dev);
+
+	return ret;
+}
+
+static int imx415_s_register(struct v4l2_subdev *sd,
+			     const struct v4l2_dbg_register *reg)
+{
+	struct imx415 *sensor = to_imx415(sd);
+	int ret;
+
+	ret = pm_runtime_resume_and_get(sensor->dev);
+	if (ret < 0)
+		return ret;
+
+	ret = cci_write(sensor->regmap, CCI_REG8(reg->reg), reg->val, NULL);
+
+	pm_runtime_mark_last_busy(sensor->dev);
+	pm_runtime_put_autosuspend(sensor->dev);
+
+	return ret;
+}
+#endif
+
+static const struct v4l2_subdev_core_ops imx415_subdev_core_ops = {
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+	.g_register = imx415_g_register,
+	.s_register = imx415_s_register,
+#endif
+};
 
 static const struct v4l2_subdev_video_ops imx415_subdev_video_ops = {
 	.s_stream = imx415_s_stream,
@@ -1083,9 +1247,11 @@ static const struct v4l2_subdev_pad_ops imx415_subdev_pad_ops = {
 	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = imx415_set_format,
 	.get_selection = imx415_get_selection,
+	.get_frame_desc = imx415_get_frame_desc,
 };
 
 static const struct v4l2_subdev_ops imx415_subdev_ops = {
+	.core = &imx415_subdev_core_ops,
 	.video = &imx415_subdev_video_ops,
 	.pad = &imx415_subdev_pad_ops,
 };
