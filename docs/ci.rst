@@ -44,6 +44,13 @@ provided (``mirror_ci/<remote-name>/<branch>``):
 
 When upstreaming a driver, target the pull-request against the mirror.
 
+.. attention::
+
+   Do **not** base your work on the head of the ``mirror_ci/*``, it is
+   frequently force pushed either by upstream (they are testing branches after
+   all). Instead, find a common stable base, for example the previous tag such
+   as `v6.19-rc1 <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&id=8f0b4cce4481fb22653697cced8d0d04027cb1e8>`__
+
 All of them are mirrors from the links shown with a single commit on top
 that includes the CI workflows, :git-linux:`as simple as <ci:.github/workflows/mirror.yml>`:
 
