@@ -33,12 +33,14 @@ In these sections there are instructions to bring-up your own continuous integra
 either to run locally, in a self-hosted runner or even in a cluster.
 
 Beyond the linear history ``main`` branch, the following upstream mirrors are
-provided (``mirror/<remote-name>/<branch>``):
+provided (``mirror_ci/<remote-name>/<branch>``):
 
-* | ``mirror/next/linux-next/master``: Patches aimed at the next kernel merge window
+* | ``mirror_ci/next/linux-next/master``: Patches aimed at the next kernel merge window
   | https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/log/?h=master
-* | ``mirror/jic23/iio/testing``: Linux IIO Subsystem (Cameron's branch)
+* | ``mirror_ci/jic23/iio/testing``: Linux IIO Subsystem (Cameron's branch)
   | https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git/log/?h=testing
+* | ``mirror_ci/lee/mfd/for-mfd-next``: MFD Subsystem Tree - Next and Fixes
+  | https://git.kernel.org/pub/scm/linux/kernel/git/lee/mfd.git/log/?h=for-mfd-next
 
 When upstreaming a driver, target the pull-request against the mirror.
 
