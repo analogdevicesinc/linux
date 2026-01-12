@@ -288,7 +288,7 @@ static void adi_spi_dma_terminate(struct adi_spi_controller *drv_data)
 	dmaengine_terminate_sync(drv_data->ctlr->dma_rx);
 }
 
-/* Caculate the SPI_CLOCK register value based on input HZ */
+/* Calculate the SPI_CLOCK register value based on input HZ */
 static u32 hz_to_spi_clock(u32 sclk, u32 speed_hz)
 {
 	u32 spi_clock = DIV_ROUND_UP(sclk, speed_hz);
@@ -932,4 +932,4 @@ module_platform_driver(adi_spi_driver);
 
 MODULE_DESCRIPTION("Analog Devices SPI3 controller driver");
 MODULE_AUTHOR("Scott Jiang <Scott.Jiang.Linux@gmail.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
