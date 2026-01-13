@@ -6,6 +6,7 @@ ARG runner_version_sha=5fcc01bd546ba5c3f1291c2803658ebd3cedb3836489eda3be357d41b
 ARG bashrc=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/ci/bashrc
 ARG entrypoint_sh=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/ci/entrypoint.sh
 
+RUN zypper update -y
 RUN zypper install -y --no-recommends \
     tar gzip curl jq libicu coreutils
 
