@@ -152,6 +152,7 @@ enum ad9081_debugfs_cmd {
 	DBGFS_BIST_PRBS_JTX,
 	DBGFS_DEV_API_INFO,
 	DBGFS_DEV_CHIP_INFO,
+	DBGFS_JESD_RX_RECAL_204C,
 	DBGFS_ENTRY_MAX,
 };
 
@@ -2624,9 +2625,6 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
 		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 		return jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
-	case 20:
-		return adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1,
-			phy->ad9081.serdes_info.des_settings.boost_mask, 1);
 	default:
 		return -EINVAL;
 	}
@@ -3870,6 +3868,64 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 		entry->val = val3 << 16 | (val2 & 0xFF) << 8 | (val & 0xFF);
 
 		return count;
+	case DBGFS_JESD_RX_RECAL_204C: {
+		adi_ad9081_jrx_fg_cal_result_t fg_cal_res;
+
+		if (val != 1)
+			return -EINVAL;
+
+		if (phy->jrx_link_tx[0].jesd_param.jesd_jesdv != JESD204_VERSION_C)
+			return -ENOTSUPP;
+
+		if (phy->jrx_link_tx[0].lane_rate_kbps <=
+		    (AD9081_JESDRX_204C_CAL_THRESH / 1000))
+			return -ERANGE;
+
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			ad9081_link_sel(phy->jrx_link_tx), 1);
+		if (ret != 0)
+			return ret;
+
+		dev_info(&phy->spi->dev, "running jesd_rx_calibrate_204c, LR %lu kbps",
+			phy->jrx_link_tx[0].lane_rate_kbps);
+
+		ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1,
+			phy->ad9081.serdes_info.des_settings.boost_mask, 1);
+		if (ret < 0)
+			return ret;
+
+		ret = adi_ad9081_jesd_rx_calibrate_204c_status_get(
+			&phy->ad9081, &fg_cal_res);
+		if (ret < 0)
+			return ret;
+
+		if (!fg_cal_res.status) {
+			dev_err(&phy->spi->dev, "jesd_rx_calibrate_204c failed, failed lane mask 0x%02x\n",
+				fg_cal_res.failed_mask);
+		} else {
+			dev_info(&phy->spi->dev, "jesd_rx_calibrate_204c success, goodness %u, SPO L %u, SPO R %u\n",
+				fg_cal_res.goodness,
+				fg_cal_res.spo_left,
+				fg_cal_res.spo_right);
+		}
+
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			ad9081_link_sel(phy->jrx_link_tx), 0);
+		if (ret != 0)
+			return ret;
+
+		msleep(10);
+
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			ad9081_link_sel(phy->jrx_link_tx), 1);
+		if (ret != 0)
+			return ret;
+
+		if (!fg_cal_res.status)
+			return -EFAULT;
+
+		return count;
+	}
 	case DBGFS_BIST_JRX_SPO_SWEEP:
 		if (ret < 2)
 			return -EINVAL;
@@ -3973,6 +4029,8 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 			"api_version", DBGFS_DEV_API_INFO);
 		ad9081_add_debugfs_entry(indio_dev,
 			"chip_version", DBGFS_DEV_CHIP_INFO);
+		ad9081_add_debugfs_entry(indio_dev,
+			"jesd_rx_recalibrate_204c", DBGFS_JESD_RX_RECAL_204C);
 
 		for (i = 0; i < phy->ad9081_debugfs_entry_index; i++)
 			debugfs_create_file( phy->debugfs_entry[i].propname, 0644,
