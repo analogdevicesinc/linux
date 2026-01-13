@@ -2612,6 +2612,7 @@ static int ad9081_setup(struct spi_device *spi)
 static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 {
 	dev_dbg(&phy->spi->dev, "%s:%d\n", __func__, step);
+	int ret, ret2;
 
 	switch (step & 0xFF) {
 	case 8:
@@ -2627,6 +2628,23 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 	case 20:
 		return adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1,
 			phy->ad9081.serdes_info.des_settings.boost_mask, 1);
+	case 21:
+		ret2 = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1,
+			phy->ad9081.serdes_info.des_settings.boost_mask, 1);
+
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			ad9081_link_sel(phy->jrx_link_tx), 0);
+		if (ret != 0)
+			return ret;
+
+		mdelay(10);
+
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			ad9081_link_sel(phy->jrx_link_tx), 1);
+		if (ret != 0)
+			return ret;
+
+		return ret2;
 	default:
 		return -EINVAL;
 	}
