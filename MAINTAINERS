@@ -2022,6 +2022,11 @@ M:	Utsav Agarwal <utsav.agarwal@analog.com>
 M:	Vasileios Bimpikas <vasileios.bimpikas@analog.com>
 L:	linux@analog.com
 S:	Maintained
+F:	Documentation/devicetree/bindings/soc/adi/adi,pads-system-config.yaml
+F:	Documentation/devicetree/bindings/soc/adi/adi,reset-controller.yaml
+F:	Documentation/devicetree/bindings/soc/adi/adi,rpmsg-SC598.yaml
+F:	Documentation/devicetree/bindings/soc/adi/adi,system-event-controller.yaml
+F:	Documentation/devicetree/bindings/soc/adi/adi,trigger-routing-unit.yaml
 F:	Documentation/devicetree/bindings/clock/adi,sc5xx-clocks.yaml
 F:	Documentation/devicetree/bindings/usb/adi,musb.yaml
 F:	arch/arm/boot/dts/adi/*
