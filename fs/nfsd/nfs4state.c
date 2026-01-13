@@ -5536,13 +5536,15 @@ nfsd_break_deleg_cb(struct file_lease *fl)
 static bool nfsd_breaker_owns_lease(struct file_lease *fl)
 {
 	struct nfs4_delegation *dl = fl->c.flc_owner;
+	struct nfsd_thread_local_info *ntli;
 	struct svc_rqst *rqst;
 	struct nfs4_client *clp;
 
 	rqst = nfsd_current_rqst();
 	if (!nfsd_v4client(rqst))
 		return false;
-	clp = *(rqst->rq_lease_breaker);
+	ntli = rqst->rq_private;
+	clp = *ntli->ntli_lease_breaker;
 	return dl->dl_stid.sc_client == clp;
 }
 
@@ -9354,13 +9356,14 @@ __be32
 nfsd4_deleg_getattr_conflict(struct svc_rqst *rqstp, struct dentry *dentry,
 			     struct nfs4_delegation **pdp)
 {
-	__be32 status;
 	struct nfsd_net *nn = net_generic(SVC_NET(rqstp), nfsd_net_id);
+	struct nfsd_thread_local_info *ntli = rqstp->rq_private;
 	struct file_lock_context *ctx;
 	struct nfs4_delegation *dp = NULL;
 	struct file_lease *fl;
 	struct nfs4_cb_fattr *ncf;
 	struct inode *inode = d_inode(dentry);
+	__be32 status;
 
 	ctx = locks_inode_context(inode);
 	if (!ctx)
@@ -9381,7 +9384,7 @@ nfsd4_deleg_getattr_conflict(struct svc_rqst *rqstp, struct dentry *dentry,
 		break;
 	}
 	if (dp == NULL || dp == NON_NFSD_LEASE ||
-	    dp->dl_recall.cb_clp == *(rqstp->rq_lease_breaker)) {
+	    dp->dl_recall.cb_clp == *(ntli->ntli_lease_breaker)) {
 		spin_unlock(&ctx->flc_lock);
 		if (dp == NON_NFSD_LEASE) {
 			status = nfserrno(nfsd_open_break_lease(inode,

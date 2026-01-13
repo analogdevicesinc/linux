@@ -886,6 +886,7 @@ nfsd(void *vrqstp)
 	struct svc_xprt *perm_sock = list_entry(rqstp->rq_server->sv_permsocks.next, typeof(struct svc_xprt), xpt_list);
 	struct net *net = perm_sock->xpt_net;
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
+	struct nfsd_thread_local_info ntli = { };
 	bool have_mutex = false;
 
 	/* At this point, the thread shares current->fs
@@ -899,6 +900,10 @@ nfsd(void *vrqstp)
 	atomic_inc(&nfsd_th_cnt);
 
 	set_freezable();
+
+	/* use dynamic allocation if ntli should ever become large */
+	static_assert(sizeof(struct nfsd_thread_local_info) < 256);
+	rqstp->rq_private = &ntli;
 
 	/*
 	 * The main request loop
