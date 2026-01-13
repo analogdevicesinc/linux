@@ -2598,6 +2598,7 @@ nfsd4_opnum_in_range(struct nfsd4_compoundargs *argp, struct nfsd4_op *op)
 static bool
 nfsd4_decode_compound(struct nfsd4_compoundargs *argp)
 {
+	struct nfsd_thread_local_info *ntli = argp->rqstp->rq_private;
 	struct nfsd4_op *op;
 	bool cachethis = false;
 	int auth_slack= argp->rqstp->rq_auth_slack;
@@ -2690,7 +2691,7 @@ nfsd4_decode_compound(struct nfsd4_compoundargs *argp)
 	if (argp->minorversion)
 		cachethis = false;
 	svc_reserve_auth(argp->rqstp, max_reply + readbytes);
-	argp->rqstp->rq_cachetype = cachethis ? RC_REPLBUFF : RC_NOCACHE;
+	ntli->ntli_cachetype = cachethis ? RC_REPLBUFF : RC_NOCACHE;
 
 	argp->splice_ok = nfsd_read_splice_ok(argp->rqstp);
 	if (readcount > 1 || max_reply > PAGE_SIZE - auth_slack)
