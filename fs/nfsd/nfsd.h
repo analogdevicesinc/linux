@@ -84,6 +84,7 @@ extern const struct seq_operations nfs_exports_op;
 
 struct nfsd_thread_local_info {
 	struct nfs4_client	**ntli_lease_breaker;
+	int			ntli_cachetype;
 };
 
 /*
