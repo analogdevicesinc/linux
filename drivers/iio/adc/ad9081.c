@@ -3252,6 +3252,217 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 	return 0;
 }
 
+/*
+ * Debug assistance registers as documented in UG-1578 page 280:
+ * "NEED ANALOG DEVICES DEBUG ASSISTANCE"
+ *
+ * This function reads and pretty-prints all registers needed for
+ * ADI debug support. Some registers are paged per JESD link.
+ */
+static int ad9081_debug_assist_show(struct seq_file *file, void *offset)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(file->private);
+	struct ad9081_phy *phy = conv->phy;
+	bool is_dual_jrx, is_dual_jtx;
+	u8 val, lane_vals[8];
+	int ret, i, link;
+
+	guard(mutex)(&conv->lock);
+
+	is_dual_jrx = ad9081_link_is_dual(phy->jrx_link_tx);
+	is_dual_jtx = ad9081_link_is_dual(phy->jtx_link_rx);
+
+	seq_puts(file, "=== AD9081 Debug Assistance Registers ===\n");
+	seq_puts(file, "(UG-1578 page 280: NEED ANALOG DEVICES DEBUG ASSISTANCE)\n\n");
+
+	/* Non-paged registers: Clock and PLL related */
+	seq_puts(file, "--- Misc Configuration ---\n");
+
+	ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x01fa, &val);
+	if (!ret)
+		seq_printf(file, "Reg 0x01FA[5:0] = 0x%02X\n", val & 0x3F);
+
+	ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x01fb, &val);
+	if (!ret) {
+		seq_printf(file, "Reg 0x01FB[7:4] = 0x%X\n", (val >> 4) & 0xF);
+		seq_printf(file, "Reg 0x01FB[3:0] = 0x%X\n", val & 0xF);
+	}
+
+	/* DDC Configuration - paged per CDDC */
+	for (i = 0; i < MAX_NUM_MAIN_DATAPATHS; i++) {
+		seq_printf(file, "\n--- DDC Configuration (CDDC %d) ---\n", i);
+
+		ret = adi_ad9081_adc_ddc_coarse_select_set(&phy->ad9081,
+			AD9081_ADC_CDDC_0 << i);
+		if (ret)
+			continue;
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0282, &val);
+		if (!ret) {
+			seq_printf(file, "COARSE_DEC_CTRL (0x0282) COARSE_MXR_IF[7:6]  = %u\n", (val >> 6) & 0x3);
+			seq_printf(file, "COARSE_DEC_CTRL (0x0282) COARSE_GAIN[5]      = %u\n", (val >> 5) & 0x1);
+			seq_printf(file, "COARSE_DEC_CTRL (0x0282) COARSE_C2R_EN[4]    = %u\n", (val >> 4) & 0x1);
+			seq_printf(file, "COARSE_DEC_CTRL (0x0282) COARSE_DEC_SEL[3:0] = %u\n", val & 0xF);
+		}
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0283, &val);
+		if (!ret) {
+			seq_printf(file, "FINE_DEC_CTRL (0x0283) FINE_MXR_IF[7:6]    = %u\n", (val >> 6) & 0x3);
+			seq_printf(file, "FINE_DEC_CTRL (0x0283) FINE_GAIN[5]        = %u\n", (val >> 5) & 0x1);
+			seq_printf(file, "FINE_DEC_CTRL (0x0283) FINE_C2R_EN[4]      = %u\n", (val >> 4) & 0x1);
+			seq_printf(file, "FINE_DEC_CTRL (0x0283) FINE_DEC_SEL[2:0]   = %u\n", val & 0x7);
+		}
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0284, &val);
+		if (!ret)
+			seq_printf(file, "DDC_OVERALL_DECIM (0x0284) = %u\n", val);
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0289, &val);
+		if (!ret)
+			seq_printf(file, "CHIP_DECIMATION_RATIO (0x0289) = %u\n", val);
+	}
+
+	/* JRX (JESD204 RX - device receives from FPGA) - Paged registers */
+	for (link = 0; link < (is_dual_jrx ? 2 : 1); link++) {
+		seq_printf(file, "\n--- JRX Link %d Registers ---\n", link);
+
+		ret = adi_ad9081_jesd_rx_link_select_set(&phy->ad9081,
+			link == 0 ? AD9081_LINK_0 : AD9081_LINK_1);
+		if (ret)
+			continue;
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0722, &val);
+		if (!ret)
+			seq_printf(file, "PLL_STATUS (0x0722) = 0x%02X\n", val);
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x05AD, &val);
+		if (!ret)
+			seq_printf(file, "LANE_FIFO_FULL (0x05AD) = 0x%02X\n", val);
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x05AE, &val);
+		if (!ret)
+			seq_printf(file, "LANE_FIFO_EMPTY (0x05AE) = 0x%02X\n", val);
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x04a0, &val);
+		if (!ret)
+			seq_printf(file, "JRX_TPL_0 (0x04A0) JRX_TPL_CFG_INVALID[0] = %u\n", val & 0x1);
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x04c0, &val);
+		if (!ret)
+			seq_printf(file, "JRX_DL_204B_2 (0x04C0) JRX_DL_204B_ENABLE[5] = %u\n", (val >> 5) & 0x1);
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x055e, &val);
+		if (!ret) {
+			seq_printf(file, "JRX_DL_204C_0 (0x055E) JRX_DL_204C_ENABLE[7] = %u\n", (val >> 7) & 0x1);
+			seq_printf(file, "JRX_DL_204C_0 (0x055E) JRX_DL_204C_STATE[6:4] = %u %s\n", (val >> 4) & 0x7,
+				   ((val >> 4) & 0x7) == 6 ? "(link up)" : "(EXPECTED 6)");
+		}
+
+		/* Per-lane registers 0x058D-0x0594: JRX_CORE_2_LANEn */
+		seq_puts(file, "JRX_CORE_2_LANEn (0x058D-0x0594):\n");
+		for (i = 0; i < 8; i++) {
+			ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x058d + i, &lane_vals[i]);
+		}
+		seq_puts(file, "  Lane:                    ");
+		for (i = 0; i < 8; i++)
+			seq_printf(file, " %d  ", i);
+		seq_puts(file, "\n  JRX_LINK_LANE_INVERSE[6]:");
+		for (i = 0; i < 8; i++)
+			seq_printf(file, " %u  ", (lane_vals[i] >> 6) & 0x1);
+		seq_puts(file, "\n  JRX_SRC_LANEn[4:0]:      ");
+		for (i = 0; i < 8; i++)
+			seq_printf(file, "%2u  ", lane_vals[i] & 0x1F);
+		seq_puts(file, "\n");
+
+		/* Per-lane registers 0x056B-0x0572: JRX_DL_204C_5_LANEn */
+		seq_puts(file, "JRX_DL_204C_5_LANEn (0x056B-0x0572):\n");
+		for (i = 0; i < 8; i++) {
+			ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x056b + i, &lane_vals[i]);
+		}
+		seq_puts(file, "  Lane:                    ");
+		for (i = 0; i < 8; i++)
+			seq_printf(file, " %d  ", i);
+		seq_puts(file, "\n  JRX_DL_204C_MB_ERR_CNT[3:0]:");
+		for (i = 0; i < 8; i++)
+			seq_printf(file, "%2u  ", lane_vals[i] & 0xF);
+		seq_puts(file, "\n");
+
+		/* Per-lane registers 0x0574-0x057B: JRX_DL_204C_6_LANEn */
+		seq_puts(file, "JRX_DL_204C_6_LANEn (0x0574-0x057B):\n");
+		for (i = 0; i < 8; i++) {
+			ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0574 + i, &lane_vals[i]);
+		}
+		seq_puts(file, "  Lane:                    ");
+		for (i = 0; i < 8; i++)
+			seq_printf(file, " %d  ", i);
+		seq_puts(file, "\n  JRX_DL_204C_SH_ERR_CNT[5:0]:");
+		for (i = 0; i < 8; i++)
+			seq_printf(file, "%2u  ", lane_vals[i] & 0x3F);
+		seq_puts(file, "\n");
+	}
+
+	/* JTX (JESD204 TX - device transmits to FPGA) - Paged registers */
+	for (link = 0; link < (is_dual_jtx ? 2 : 1); link++) {
+		seq_printf(file, "\n--- JTX Link %d Registers ---\n", link);
+
+		ret = adi_ad9081_hal_reg_set(&phy->ad9081, 0x001A,
+			link == 0 ? AD9081_LINK_0 : AD9081_LINK_1);
+		if (ret)
+			continue;
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0636, &val);
+		if (!ret) {
+			seq_printf(file, "JTX_TPL_6 (0x0636) JTX_TPL_SYSREF_MASK[5] = %u\n", (val >> 5) & 0x1);
+			seq_printf(file, "JTX_TPL_6 (0x0636) JTX_TPL_INVALID_CFG[0] = %u\n", val & 0x1);
+		}
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0611, &val);
+		if (!ret)
+			seq_printf(file, "JTX_CORE_1 (0x0611) JTX_LINK_204C_SEL[5:4] = %u (%s)\n",
+				   (val >> 4) & 0x3,
+				   ((val >> 4) & 0x3) == 0 ? "204B" :
+				   ((val >> 4) & 0x3) == 1 ? "204C" : "invalid");
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0702, &val);
+		if (!ret) {
+			seq_printf(file, "JTX_QUICK_CFG (0x0702) JTX_MODE[4:0] = %u\n", val & 0x1F);
+			seq_printf(file, "JTX_QUICK_CFG (0x0702) [5] = %u\n", (val >> 5) & 0x1);
+			seq_printf(file, "JTX_QUICK_CFG (0x0702) [6] = %u\n", (val >> 6) & 0x1);
+			seq_printf(file, "JTX_QUICK_CFG (0x0702) JTX_MODE_S_SEL[7:6] = %u\n", (val >> 6) & 0x3);
+		}
+	}
+
+	/* Serializer PHY registers (not paged) */
+	seq_puts(file, "\n--- Serializer PHY (LCPLL) Registers ---\n");
+
+	ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0727, &val);
+	if (!ret)
+		seq_printf(file, "LCPLL_REF_CLK_DIV1_REG (0x0727) = 0x%02X\n", val);
+
+	ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x0729, &val);
+	if (!ret)
+		seq_printf(file, "LCPLL_REG (0x0729) = 0x%02X\n", val);
+
+	ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x072a, &val);
+	if (!ret)
+		seq_printf(file, "LCPLL_REG (0x072A) = 0x%02X\n", val);
+
+	ret = adi_ad9081_hal_reg_get(&phy->ad9081, 0x072d, &val);
+	if (!ret)
+		seq_printf(file, "LCPLL_REG (0x072D) = 0x%02X\n", val);
+
+	/* CBUS PLL register 0xBC read via indirect access (0x0740/0x0742) */
+	seq_puts(file, "\n--- CBUS PLL Register 0xBC (via 0x0742) ---\n");
+	ret = adi_ad9081_hal_cbuspll_reg_get(&phy->ad9081, 0xbc, &val);
+	if (!ret)
+		seq_printf(file, "CBUS PLL Reg 0xBC = 0x%02X\n", val);
+	else
+		seq_puts(file, "Failed to read CBUS PLL Reg 0xBC\n");
+	seq_puts(file, "\n=== End Debug Assistance ===\n");
+
+	return 0;
+}
+
 static void ad9081_work_func(struct work_struct *work)
 {
 	u8 status;
@@ -3956,6 +4167,10 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 		debugfs_create_devm_seqfile(&conv->spi->dev, "status",
 					    iio_get_debugfs_dentry(indio_dev),
 					    ad9081_status_show);
+
+		debugfs_create_devm_seqfile(&conv->spi->dev, "adi_debug_assist",
+					    iio_get_debugfs_dentry(indio_dev),
+					    ad9081_debug_assist_show);
 
 		ad9081_add_debugfs_entry(indio_dev,
 			"bist_prbs_select_jrx", DBGFS_BIST_PRBS_JRX);
