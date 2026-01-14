@@ -22,23 +22,15 @@ properties:
   reg:
     maxItems: 1
 
-  adi,sharc-min:
-    $ref: /schemas/types.yaml#/definitions/uint32
-    description: Minimum valid SHARC core ID/count
-    minimum: 1
-    maximum: 2
+  adi,sharc-core-ids:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description: List of SHARC core id's
 
-  adi,sharc-max:
-    $ref: /schemas/types.yaml#/definitions/uint32
-    description: Maximum valid SHARC core ID/count
-    minimum: 1
-    maximum: 2
 
 required:
   - compatible
   - reg
-  - adi,sharc-min
-  - adi,sharc-max
+  - adi,sharc-core-ids
 
 additionalProperties: false
 
@@ -47,6 +39,5 @@ examples:
     rcu: rcu@3108c000 {
       compatible = "adi,reset-controller";
       reg = <0x3108c000 0x1000>;
-      adi,sharc-min = <1>;
-      adi,sharc-max = <2>;
+      adi,sharc-core-ids = <1 2>;
     };

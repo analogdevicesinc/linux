@@ -1,13 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Driver for Analog Devices Reset Control Unit
  *
- * (C) Copyright 2022 - Analog Devices, Inc.
- *
- * Written and/or maintained by Timesys Corporation
- *
- * Author: Greg Malysa <greg.malysa@timesys.com>
- * Contact: Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+ * (C) Copyright 2022-2026 - Analog Devices, Inc.
  */
 
 #include <linux/bits.h>
@@ -22,18 +17,19 @@
 #include <linux/types.h>
 
 #include <linux/soc/adi/rcu.h>
-#include "sec.h"
+#include <linux/soc/adi/sec.h>
 
 #define ADI_RCU_REBOOT_PRIORITY		255
 #define ADI_RCU_CORE_INIT_TIMEOUT	msecs_to_jiffies(2000)
+#define ADI_RCU_CORE_NUM		4
+
 
 struct adi_rcu {
 	struct notifier_block reboot_notifier;
 	void __iomem *ioaddr;
 	struct device *dev;
 	struct adi_sec *sec;
-	int sharc_min_coreid;
-	int sharc_max_coreid;
+	unsigned int sharc_core_ids[ADI_RCU_CORE_NUM];
 };
 
 static struct adi_rcu *to_adi_rcu(struct notifier_block *nb)
@@ -51,7 +47,6 @@ void adi_rcu_writel(u32 val, struct adi_rcu *rcu, int offset)
 {
 	writel(val, rcu->ioaddr + offset);
 }
-
 EXPORT_SYMBOL(adi_rcu_writel);
 
 void adi_rcu_msg_set(struct adi_rcu *rcu, u32 bits)
@@ -91,14 +86,12 @@ cleanup:
 	of_node_put(rcu_node);
 	return ret;
 }
-
 EXPORT_SYMBOL(get_adi_rcu_from_node);
 
 void put_adi_rcu(struct adi_rcu *rcu)
 {
 	put_device(rcu->dev);
 }
-
 EXPORT_SYMBOL(put_adi_rcu);
 
 void adi_rcu_set_sec(struct adi_rcu *rcu, struct adi_sec *sec)
@@ -109,12 +102,10 @@ void adi_rcu_set_sec(struct adi_rcu *rcu, struct adi_sec *sec)
 // API for other drivers to interact with RCU
 int adi_rcu_check_coreid_valid(struct adi_rcu *rcu, int coreid)
 {
-	if (coreid < rcu->sharc_min_coreid
-	    || coreid > rcu->sharc_max_coreid)
+	if (!rcu->sharc_core_ids[coreid])
 		return -EINVAL;
 	return 0;
 }
-
 EXPORT_SYMBOL(adi_rcu_check_coreid_valid);
 
 int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
@@ -161,7 +152,6 @@ int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
 
 	return 0;
 }
-
 EXPORT_SYMBOL(adi_rcu_reset_core);
 
 int adi_rcu_start_core(struct adi_rcu *rcu, int coreid)
@@ -180,7 +170,6 @@ int adi_rcu_start_core(struct adi_rcu *rcu, int coreid)
 
 	return 0;
 }
-
 EXPORT_SYMBOL(adi_rcu_start_core);
 
 int adi_rcu_is_core_idle(struct adi_rcu *rcu, int coreid)
@@ -192,7 +181,6 @@ int adi_rcu_is_core_idle(struct adi_rcu *rcu, int coreid)
 	return !!(adi_rcu_readl(rcu, ADI_RCU_REG_MSG) &
 		  (RCU0_MSG_C0IDLE << coreid));
 }
-
 EXPORT_SYMBOL(adi_rcu_is_core_idle);
 
 int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
@@ -241,7 +229,6 @@ int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
 	adi_rcu_msg_clear(rcu, RCU0_MSG_C1ACTIVATE << (coreid - 1));
 	return 0;
 }
-
 EXPORT_SYMBOL(adi_rcu_stop_core);
 
 static int adi_rcu_reboot(struct notifier_block *nb, unsigned long mode,
@@ -264,33 +251,34 @@ static int adi_rcu_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct adi_rcu *adi_rcu = NULL;
-	struct resource *res;
 	void __iomem *base;
 	int ret;
+	int count;
+	int i;
 
 	adi_rcu = devm_kzalloc(dev, sizeof(*adi_rcu), GFP_KERNEL);
 	if (!adi_rcu)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(dev, "Cannot get RCU base address\n");
-		return -ENODEV;
-	}
-
-	base = devm_ioremap(dev, res->start, resource_size(res));
+	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base)) {
 		dev_err(dev, "Cannot map RCU base address\n");
 		return PTR_ERR(base);
 	}
 
-	if (of_property_read_u32
-	    (np, "adi,sharc-min", &adi_rcu->sharc_min_coreid))
-		adi_rcu->sharc_min_coreid = 1;
+	count = of_property_count_u32_elems(np, "adi,sharc-core-ids");
+	if (count > ADI_RCU_CORE_NUM) {
+		dev_err(dev, "Too many cores specified\n");
+		return -EINVAL;
+	}
+	memset32(adi_rcu->sharc_core_ids, 0, count);
+	ret = of_property_read_u32_array(np, "adi,sharc-core-ids", adi_rcu->sharc_core_ids, ADI_RCU_CORE_NUM);
 
-	if (of_property_read_u32
-	    (np, "adi,sharc-max", &adi_rcu->sharc_max_coreid))
-		adi_rcu->sharc_max_coreid = 2;
+	if (ret)
+		return -EINVAL;
+
+	for (i = 0; i < count; i++)
+		adi_rcu->sharc_core_ids[i] = 1;
 
 	adi_rcu->ioaddr = base;
 	adi_rcu->dev = dev;
@@ -323,7 +311,6 @@ static const struct of_device_id adi_rcu_match[] = {
 	{.compatible = "adi,reset-controller" },
 	{ }
 };
-
 MODULE_DEVICE_TABLE(of, adi_rcu_match);
 
 static struct platform_driver adi_rcu_driver = {

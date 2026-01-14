@@ -2,4 +2,4 @@
 
 # todo modularize with kconfigs
 
-obj-y := rcu.o sec.o icc.o
+obj-y := sec.o icc.o
