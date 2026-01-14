@@ -199,7 +199,7 @@ void free_all_swap_pages(int swap)
 		ext = rb_entry(node, struct swsusp_extent, node);
 		rb_erase(node, &swsusp_extents);
 
-		for (offset = ext->start; offset < ext->end; offset++)
+		for (offset = ext->start; offset <= ext->end; offset++)
 			swap_free_hibernation_slot(swp_entry(swap, offset));
 
 		kfree(ext);
