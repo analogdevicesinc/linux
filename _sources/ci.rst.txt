@@ -33,14 +33,23 @@ In these sections there are instructions to bring-up your own continuous integra
 either to run locally, in a self-hosted runner or even in a cluster.
 
 Beyond the linear history ``main`` branch, the following upstream mirrors are
-provided (``mirror/<remote-name>/<branch>``):
+provided (``mirror_ci/<remote-name>/<branch>``):
 
-* | ``mirror/next/linux-next/master``: Patches aimed at the next kernel merge window
+* | ``mirror_ci/next/linux-next/master``: Patches aimed at the next kernel merge window
   | https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/log/?h=master
-* | ``mirror/jic23/iio/testing``: Linux IIO Subsystem (Cameron's branch)
+* | ``mirror_ci/jic23/iio/testing``: Linux IIO Subsystem (Cameron's branch)
   | https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git/log/?h=testing
+* | ``mirror_ci/lee/mfd/for-mfd-next``: MFD Subsystem Tree - Next and Fixes
+  | https://git.kernel.org/pub/scm/linux/kernel/git/lee/mfd.git/log/?h=for-mfd-next
 
 When upstreaming a driver, target the pull-request against the mirror.
+
+.. attention::
+
+   Do **not** base your work on the head of the ``mirror_ci/*``, it is
+   frequently force pushed either by upstream (they are testing branches after
+   all). Instead, find a common stable base, for example the previous tag such
+   as `v6.19-rc1 <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&id=8f0b4cce4481fb22653697cced8d0d04027cb1e8>`__
 
 All of them are mirrors from the links shown with a single commit on top
 that includes the CI workflows, :git-linux:`as simple as <ci:.github/workflows/mirror.yml>`:

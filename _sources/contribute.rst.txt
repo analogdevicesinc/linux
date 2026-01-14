@@ -175,6 +175,16 @@ conventions, and lifecycle, helping maintain modularity and clarity. For an
 up-to-date map of these subsystems and their interfaces, see
 :external+upstream:doc:`subsystem-apis`.
 
+When developing for a particular subsystem, look for the appropriate git tree
+in the :git-linux:`MAINTAINERS` file to work on. Development branches may be
+force pushed. It is reasonable to base you work on top of the current latest
+tag, such as `v6.19-rc1
+<https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&id=8f0b4cce4481fb22653697cced8d0d04027cb1e8>`__
+or near it, this avoids unnecessary merge commits when pulling changes.
+
+For some subsystems, CI/CD is automatically applied to developemnt branches as
+described at :ref:`ci`.
+
 IIO Subsytem
 ~~~~~~~~~~~~
 

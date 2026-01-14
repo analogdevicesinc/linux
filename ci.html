@@ -200,20 +200,32 @@ cron
 <p>In these sections there are instructions to bring-up your own continuous integration,
 either to run locally, in a self-hosted runner or even in a cluster.</p>
 <p>Beyond the linear history <code class="docutils literal notranslate"><span class="pre">main</span></code> branch, the following upstream mirrors are
-provided (<code class="docutils literal notranslate"><span class="pre">mirror/&lt;remote-name&gt;/&lt;branch&gt;</span></code>):</p>
+provided (<code class="docutils literal notranslate"><span class="pre">mirror_ci/&lt;remote-name&gt;/&lt;branch&gt;</span></code>):</p>
 <ul>
 <li><div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">mirror/next/linux-next/master</span></code>: Patches aimed at the next kernel merge window</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">mirror_ci/next/linux-next/master</span></code>: Patches aimed at the next kernel merge window</div>
 <div class="line"><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/log/?h=master" target="_blank">https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/log/?h=master</a></div>
 </div>
 </li>
 <li><div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">mirror/jic23/iio/testing</span></code>: Linux IIO Subsystem (Cameron’s branch)</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">mirror_ci/jic23/iio/testing</span></code>: Linux IIO Subsystem (Cameron’s branch)</div>
 <div class="line"><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git/log/?h=testing" target="_blank">https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git/log/?h=testing</a></div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">mirror_ci/lee/mfd/for-mfd-next</span></code>: MFD Subsystem Tree - Next and Fixes</div>
+<div class="line"><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/lee/mfd.git/log/?h=for-mfd-next" target="_blank">https://git.kernel.org/pub/scm/linux/kernel/git/lee/mfd.git/log/?h=for-mfd-next</a></div>
 </div>
 </li>
 </ul>
 <p>When upstreaming a driver, target the pull-request against the mirror.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Do <strong>not</strong> base your work on the head of the <code class="docutils literal notranslate"><span class="pre">mirror_ci/*</span></code>, it is
+frequently force pushed either by upstream (they are testing branches after
+all). Instead, find a common stable base, for example the previous tag such
+as <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&amp;id=8f0b4cce4481fb22653697cced8d0d04027cb1e8" target="_blank">v6.19-rc1</a></p>
+</div>
 <p>All of them are mirrors from the links shown with a single commit on top
 that includes the CI workflows, <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/.github/workflows/mirror.yml" target="_blank">as simple as</a>:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
