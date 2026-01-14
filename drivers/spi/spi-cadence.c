@@ -728,6 +728,7 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	ctlr->transfer_one = cdns_transfer_one;
 	ctlr->unprepare_transfer_hardware = cdns_unprepare_transfer_hardware;
 	ctlr->mode_bits = SPI_CPOL | SPI_CPHA;
+	ctlr->flags = SPI_CONTROLLER_MUST_TX;
 	ctlr->bits_per_word_mask = SPI_BPW_MASK(8);
 
 	if (of_device_is_compatible(pdev->dev.of_node, "cix,sky1-spi-r1p6"))
