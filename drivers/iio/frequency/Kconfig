@@ -40,6 +40,23 @@ config AD9910
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad9910.
 
+config AD9910_AXI
+	tristate "Analog Devices AD9910 AXI Backend driver"
+	depends on AD9910 && (MICROBLAZE || NIOS2 || ARCH_ZYNQ ||\
+		   ARCH_ZYNQMP || ARCH_INTEL_SOCFPGA || COMPILE_TEST)
+	depends on RESET_CONTROLLER
+	select IIO_BUFFER
+	select IIO_BUFFER_HW_CONSUMER
+	select IIO_BUFFER_DMAENGINE
+	select REGMAP_MMIO
+	help
+	  Say yes here to build support for the AXI Backend Driver for the
+	  Analog Devices AD9910 DDS. The IP core is used to drive control pins
+	  and interface with the parallel data port of the AD9910 device.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad9910-axi.
+
 endmenu
 
 #
