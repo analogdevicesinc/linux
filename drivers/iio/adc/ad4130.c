@@ -4,6 +4,8 @@
  * Author: Cosmin Tanislav <cosmin.tanislav@analog.com>
  */
 
+#include "linux/completion.h"
+#include "linux/types.h"
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -29,6 +31,9 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/kfifo_buf.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/trigger.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
 
 #define AD4130_NAME				"ad4130"
 
@@ -39,6 +44,7 @@
 #define AD4130_ADC_CONTROL_REG			0x01
 #define AD4130_ADC_CONTROL_BIPOLAR_MASK		BIT(14)
 #define AD4130_ADC_CONTROL_INT_REF_VAL_MASK	BIT(13)
+#define AD4130_ADC_CONTROL_CONT_READ_MASK	BIT(11)
 #define AD4130_INT_REF_2_5V			2500000
 #define AD4130_INT_REF_1_25V			1250000
 #define AD4130_ADC_CONTROL_CSB_EN_MASK		BIT(9)
@@ -124,6 +130,28 @@
 
 #define AD4130_INVALID_SLOT			-1
 
+static const unsigned int ad4129_reg_size[] = {
+	[AD4130_STATUS_REG] = 1,
+	[AD4130_ADC_CONTROL_REG] = 2,
+	[AD4130_DATA_REG] = 2,
+	[AD4130_IO_CONTROL_REG] = 2,
+	[AD4130_VBIAS_REG] = 2,
+	[AD4130_ID_REG] = 1,
+	[AD4130_ERROR_REG] = 2,
+	[AD4130_ERROR_EN_REG] = 2,
+	[AD4130_MCLK_COUNT_REG] = 1,
+	[AD4130_CHANNEL_X_REG(0) ... AD4130_CHANNEL_X_REG(AD4130_MAX_CHANNELS - 1)] = 3,
+	[AD4130_CONFIG_X_REG(0) ... AD4130_CONFIG_X_REG(AD4130_MAX_SETUPS - 1)] = 2,
+	[AD4130_FILTER_X_REG(0) ... AD4130_FILTER_X_REG(AD4130_MAX_SETUPS - 1)] = 3,
+	[AD4130_OFFSET_X_REG(0) ... AD4130_OFFSET_X_REG(AD4130_MAX_SETUPS - 1)] = 2,
+	[AD4130_GAIN_X_REG(0) ... AD4130_GAIN_X_REG(AD4130_MAX_SETUPS - 1)] = 2,
+	[AD4130_MISC_REG] = 2,
+	[AD4130_FIFO_CONTROL_REG] = 3,
+	[AD4130_FIFO_STATUS_REG] = 1,
+	[AD4130_FIFO_THRESHOLD_REG] = 3,
+	[AD4130_FIFO_DATA_REG] = 2,
+};
+
 static const unsigned int ad4130_reg_size[] = {
 	[AD4130_STATUS_REG] = 1,
 	[AD4130_ADC_CONTROL_REG] = 2,
@@ -144,6 +172,24 @@ static const unsigned int ad4130_reg_size[] = {
 	[AD4130_FIFO_STATUS_REG] = 1,
 	[AD4130_FIFO_THRESHOLD_REG] = 3,
 	[AD4130_FIFO_DATA_REG] = 3,
+};
+
+static const unsigned int ad4131_reg_size[] = {
+	[AD4130_STATUS_REG] = 1,
+	[AD4130_ADC_CONTROL_REG] = 2,
+	[AD4130_DATA_REG] = 2,
+	[AD4130_IO_CONTROL_REG] = 2,
+	[AD4130_VBIAS_REG] = 2,
+	[AD4130_ID_REG] = 1,
+	[AD4130_ERROR_REG] = 2,
+	[AD4130_ERROR_EN_REG] = 2,
+	[AD4130_MCLK_COUNT_REG] = 1,
+	[AD4130_CHANNEL_X_REG(0) ... AD4130_CHANNEL_X_REG(AD4130_MAX_CHANNELS - 1)] = 3,
+	[AD4130_CONFIG_X_REG(0) ... AD4130_CONFIG_X_REG(AD4130_MAX_SETUPS - 1)] = 2,
+	[AD4130_FILTER_X_REG(0) ... AD4130_FILTER_X_REG(AD4130_MAX_SETUPS - 1)] = 3,
+	[AD4130_OFFSET_X_REG(0) ... AD4130_OFFSET_X_REG(AD4130_MAX_SETUPS - 1)] = 2,
+	[AD4130_GAIN_X_REG(0) ... AD4130_GAIN_X_REG(AD4130_MAX_SETUPS - 1)] = 2,
+	[AD4130_MISC_REG] = 2,
 };
 
 enum ad4130_int_ref_val {
@@ -222,6 +268,15 @@ enum ad4130_pin_function {
 	AD4130_PIN_FN_EXCITATION = BIT(2),
 	AD4130_PIN_FN_VBIAS = BIT(3),
 };
+struct ad413x_chip_info {
+	unsigned int num_channels;
+	const struct iio_chan_spec *channels;
+	const struct iio_info *info;
+	bool has_fifo;
+	const unsigned int *reg_size;
+	const unsigned int reg_size_length;
+	const char *name;
+};
 
 /*
  * If you make adaptations in this struct, you most likely also have to adapt
@@ -264,6 +319,7 @@ struct ad4130_filter_config {
 };
 
 struct ad4130_state {
+	const struct ad413x_chip_info	*chip_info;
 	struct regmap			*regmap;
 	struct spi_device		*spi;
 	struct clk			*mclk;
@@ -293,6 +349,7 @@ struct ad4130_state {
 	u32			mclk_sel;
 	bool			int_ref_en;
 	bool			bipolar;
+	bool			buffer_wait_for_irq;
 
 	unsigned int		num_enabled_channels;
 	unsigned int		effective_watermark;
@@ -300,6 +357,9 @@ struct ad4130_state {
 
 	struct spi_message	fifo_msg;
 	struct spi_transfer	fifo_xfer[2];
+
+	/* Triggered buffer support for AD4131-8 */
+	struct iio_trigger	*trig;
 
 	/*
 	 * DMA (thus cache coherency maintenance) requires any transfer
@@ -314,6 +374,12 @@ struct ad4130_state {
 	u8			fifo_tx_buf[2];
 	u8			fifo_rx_buf[AD4130_FIFO_SIZE *
 					    AD4130_FIFO_MAX_SAMPLE_SIZE];
+
+	/* Triggered buffer data structure */
+	struct {
+		u32 channels[AD4130_MAX_CHANNELS];
+		s64 timestamp;
+	} scan __aligned(8);
 };
 
 static const char * const ad4130_int_pin_names[] = {
@@ -393,10 +459,10 @@ static const char * const ad4130_filter_modes_str[] = {
 static int ad4130_get_reg_size(struct ad4130_state *st, unsigned int reg,
 			       unsigned int *size)
 {
-	if (reg >= ARRAY_SIZE(ad4130_reg_size))
+	if (reg >= st->chip_info->reg_size_length)
 		return -EINVAL;
 
-	*size = ad4130_reg_size[reg];
+	*size = st->chip_info->reg_size[reg];
 
 	return 0;
 }
@@ -587,10 +653,48 @@ static irqreturn_t ad4130_irq_handler(int irq, void *private)
 	struct iio_dev *indio_dev = private;
 	struct ad4130_state *st = iio_priv(indio_dev);
 
-	if (iio_buffer_enabled(indio_dev))
-		ad4130_push_fifo_data(indio_dev);
-	else
+	if (iio_buffer_enabled(indio_dev)) {
+		if (st->chip_info->has_fifo)
+			ad4130_push_fifo_data(indio_dev);
+		else if (st->buffer_wait_for_irq)
+			complete(&st->completion);	
+		else
+			iio_trigger_poll(st->trig);
+	} else {
 		complete(&st->completion);
+	}
+
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t ad4130_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct ad4130_state *st = iio_priv(indio_dev);
+	unsigned int data_reg_size = ad4130_data_reg_size(st);
+	unsigned int num_en_chn = bitmap_weight(indio_dev->active_scan_mask,
+						iio_get_masklength(indio_dev));
+	int ret;
+
+	mutex_lock(&st->lock);
+
+	struct spi_transfer xfer = {
+		.rx_buf = st->scan.channels,
+		.len = data_reg_size * num_en_chn,
+	};
+
+	ret = spi_sync_transfer(st->spi, &xfer, 1);
+	if (ret < 0)
+		goto err_unlock;
+
+	iio_push_to_buffers_with_timestamp(indio_dev, &st->scan,
+					   iio_get_time_ns(indio_dev));
+
+err_unlock:
+	iio_trigger_notify_done(indio_dev->trig);
+	mutex_unlock(&st->lock);
 
 	return IRQ_HANDLED;
 }
@@ -1279,6 +1383,41 @@ static const struct iio_info ad4130_info = {
 	.debugfs_reg_access = ad4130_reg_access,
 };
 
+static const struct iio_info ad4131_info = {
+	.read_raw = ad4130_read_raw,
+	.read_avail = ad4130_read_avail,
+	.write_raw_get_fmt = ad4130_write_raw_get_fmt,
+	.write_raw = ad4130_write_raw,
+	.update_scan_mode = ad4130_update_scan_mode,
+	.debugfs_reg_access = ad4130_reg_access,
+};
+
+static const struct ad413x_chip_info ad4129_8_chip_info = {
+	.num_channels = 16,
+	.has_fifo = true,
+	.name = "ad4129-8",
+	.info = &ad4130_info,
+	.reg_size = ad4129_reg_size,
+	.reg_size_length = ARRAY_SIZE(ad4129_reg_size),
+};
+
+static const struct ad413x_chip_info ad4130_chip_info = {
+	.num_channels = 16,
+	.has_fifo = true,
+	.name = "ad4130-8",
+	.info = &ad4130_info,
+	.reg_size = ad4130_reg_size,
+	.reg_size_length = ARRAY_SIZE(ad4130_reg_size),
+};
+
+static const struct ad413x_chip_info ad4131_8_chip_info = {
+	.num_channels = 16,
+	.name = "ad4131-8",
+	.info = &ad4131_info,
+	.reg_size = ad4131_reg_size,
+	.reg_size_length = ARRAY_SIZE(ad4131_reg_size),
+};
+
 static int ad4130_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4130_state *st = iio_priv(indio_dev);
@@ -1286,44 +1425,79 @@ static int ad4130_buffer_postenable(struct iio_dev *indio_dev)
 
 	guard(mutex)(&st->lock);
 
-	ret = ad4130_set_watermark_interrupt_en(st, true);
+	if (st->chip_info->has_fifo) {
+		ret = ad4130_set_watermark_interrupt_en(st, true);
+		if (ret)
+			return ret;
+
+		ret = irq_set_irq_type(st->spi->irq, st->inv_irq_trigger);
+		if (ret)
+			return ret;
+
+		ret = ad4130_set_fifo_mode(st, AD4130_FIFO_MODE_WM);
+		if (ret)
+			return ret;
+	}
+
+	ret = ad4130_set_mode(st, AD4130_MODE_CONTINUOUS);
 	if (ret)
 		return ret;
 
-	ret = irq_set_irq_type(st->spi->irq, st->inv_irq_trigger);
-	if (ret)
-		return ret;
+	if (!st->chip_info->has_fifo) {
+		ret = regmap_update_bits(st->regmap, AD4130_ADC_CONTROL_REG,
+					 AD4130_ADC_CONTROL_CONT_READ_MASK,
+					 FIELD_PREP(AD4130_ADC_CONTROL_CONT_READ_MASK, 1));
+		if (ret)
+			return ret;
+	}
 
-	ret = ad4130_set_fifo_mode(st, AD4130_FIFO_MODE_WM);
-	if (ret)
-		return ret;
-
-	return ad4130_set_mode(st, AD4130_MODE_CONTINUOUS);
+	return 0;
 }
 
 static int ad4130_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4130_state *st = iio_priv(indio_dev);
 	unsigned int i;
+	uint32_t temp;
 	int ret;
 
 	guard(mutex)(&st->lock);
+
+	if(!st->chip_info->has_fifo) {
+		temp = 0x42;
+		reinit_completion(&st->completion);
+
+		st->buffer_wait_for_irq = true;
+		/* Wait for next interrupt with timeout */
+		ret = wait_for_completion_timeout(&st->completion, msecs_to_jiffies(1000));
+		st->buffer_wait_for_irq = false;
+		if (!ret) {
+			dev_warn(&st->spi->dev, "Timeout waiting for interrupt before exit command\n");
+		}
+
+		/* Perform a read data command to exit continuous read mode (0x42) */
+		ret = spi_write(st->spi, &temp, 1);
+		if (ret)
+			return ret;
+	}
 
 	ret = ad4130_set_mode(st, AD4130_MODE_IDLE);
 	if (ret)
 		return ret;
 
-	ret = irq_set_irq_type(st->spi->irq, st->irq_trigger);
-	if (ret)
-		return ret;
+	if (st->chip_info->has_fifo) {
+		ret = irq_set_irq_type(st->spi->irq, st->irq_trigger);
+		if (ret)
+			return ret;
 
-	ret = ad4130_set_fifo_mode(st, AD4130_FIFO_MODE_DISABLED);
-	if (ret)
-		return ret;
+		ret = ad4130_set_fifo_mode(st, AD4130_FIFO_MODE_DISABLED);
+		if (ret)
+			return ret;
 
-	ret = ad4130_set_watermark_interrupt_en(st, false);
-	if (ret)
-		return ret;
+		ret = ad4130_set_watermark_interrupt_en(st, false);
+		if (ret)
+			return ret;
+	}
 
 	/*
 	 * update_scan_mode() is not called in the disable path, disable all
@@ -1341,6 +1515,7 @@ static int ad4130_buffer_predisable(struct iio_dev *indio_dev)
 static const struct iio_buffer_setup_ops ad4130_buffer_ops = {
 	.postenable = ad4130_buffer_postenable,
 	.predisable = ad4130_buffer_predisable,
+	// .postdisable = ad4130_buffer_postdisable,
 };
 
 static ssize_t hwfifo_watermark_show(struct device *dev,
@@ -1397,6 +1572,34 @@ static const struct iio_dev_attr *ad4130_fifo_attributes[] = {
 	&iio_dev_attr_hwfifo_enabled,
 	NULL
 };
+
+static const struct iio_trigger_ops ad4130_trigger_ops = {
+	.validate_device = iio_trigger_validate_own_device,
+};
+
+static int ad4130_triggered_buffer_setup(struct iio_dev *indio_dev)
+{
+	struct ad4130_state *st = iio_priv(indio_dev);
+	int ret;
+
+	st->trig = devm_iio_trigger_alloc(indio_dev->dev.parent, "%s-dev%d",
+					  indio_dev->name, iio_device_id(indio_dev));
+	if (!st->trig)
+		return -ENOMEM;
+
+	st->trig->ops = &ad4130_trigger_ops;
+	iio_trigger_set_drvdata(st->trig, indio_dev);
+	ret = devm_iio_trigger_register(indio_dev->dev.parent, st->trig);
+	if (ret)
+		return ret;
+
+	indio_dev->trig = iio_trigger_get(st->trig);
+
+	return devm_iio_triggered_buffer_setup(indio_dev->dev.parent, indio_dev,
+					       &iio_pollfunc_store_time,
+					       &ad4130_trigger_handler,
+					       &ad4130_buffer_ops);
+}
 
 static int _ad4130_find_table_index(const unsigned int *tbl, size_t len,
 				    unsigned int val)
@@ -1920,15 +2123,17 @@ static int ad4130_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	ret = regmap_clear_bits(st->regmap, AD4130_FIFO_CONTROL_REG,
-				AD4130_FIFO_CONTROL_HEADER_MASK);
-	if (ret)
-		return ret;
+	if (st->chip_info->has_fifo) {
+		ret = regmap_clear_bits(st->regmap, AD4130_FIFO_CONTROL_REG,
+					AD4130_FIFO_CONTROL_HEADER_MASK);
+		if (ret)
+			return ret;
 
-	/* FIFO watermark interrupt starts out as enabled, disable it. */
-	ret = ad4130_set_watermark_interrupt_en(st, false);
-	if (ret)
-		return ret;
+		/* FIFO watermark interrupt starts out as enabled, disable it. */
+		ret = ad4130_set_watermark_interrupt_en(st, false);
+		if (ret)
+			return ret;
+	}
 
 	/* Setup channels. */
 	for (i = 0; i < indio_dev->num_channels; i++) {
@@ -1982,26 +2187,36 @@ static int ad4130_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 
+	if (spi->controller->mode_bits & SPI_MOSI_IDLE_HIGH) {
+		spi->mode |= SPI_MOSI_IDLE_HIGH;
+		ret = spi_setup(spi);
+		if (ret < 0)
+			return ret;
+	}
+
+	st->chip_info = device_get_match_data(dev);
 	memset(st->reset_buf, 0xff, sizeof(st->reset_buf));
 	init_completion(&st->completion);
 	mutex_init(&st->lock);
 	st->spi = spi;
 
-	/*
-	 * Xfer:   [ XFR1 ] [         XFR2         ]
-	 * Master:  0x7D N   ......................
-	 * Slave:   ......   DATA1 DATA2 ... DATAN
-	 */
-	st->fifo_tx_buf[0] = AD4130_COMMS_READ_MASK | AD4130_FIFO_DATA_REG;
-	st->fifo_xfer[0].tx_buf = st->fifo_tx_buf;
-	st->fifo_xfer[0].len = sizeof(st->fifo_tx_buf);
-	st->fifo_xfer[1].rx_buf = st->fifo_rx_buf;
-	spi_message_init_with_transfers(&st->fifo_msg, st->fifo_xfer,
-					ARRAY_SIZE(st->fifo_xfer));
+	if (st->chip_info->has_fifo) {
+		/*
+		 * Xfer:   [ XFR1 ] [         XFR2         ]
+		 * Master:  0x7D N   ......................
+		 * Slave:   ......   DATA1 DATA2 ... DATAN
+		 */
+		st->fifo_tx_buf[0] = AD4130_COMMS_READ_MASK | AD4130_FIFO_DATA_REG;
+		st->fifo_xfer[0].tx_buf = st->fifo_tx_buf;
+		st->fifo_xfer[0].len = sizeof(st->fifo_tx_buf);
+		st->fifo_xfer[1].rx_buf = st->fifo_rx_buf;
+		spi_message_init_with_transfers(&st->fifo_msg, st->fifo_xfer,
+						ARRAY_SIZE(st->fifo_xfer));
+	}
 
-	indio_dev->name = AD4130_NAME;
+	indio_dev->name = st->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->info = &ad4130_info;
+	indio_dev->info = st->chip_info->info;
 
 	st->regmap = devm_regmap_init(dev, NULL, st, &ad4130_regmap_config);
 	if (IS_ERR(st->regmap))
@@ -2058,9 +2273,14 @@ static int ad4130_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_iio_kfifo_buffer_setup_ext(dev, indio_dev,
-					      &ad4130_buffer_ops,
-					      ad4130_fifo_attributes);
+	if (st->chip_info->has_fifo) {
+		ret = devm_iio_kfifo_buffer_setup_ext(dev, indio_dev,
+						      &ad4130_buffer_ops,
+						      ad4130_fifo_attributes);
+	} else {
+		ret = ad4130_triggered_buffer_setup(indio_dev);
+	}
+
 	if (ret)
 		return ret;
 
@@ -2070,33 +2290,43 @@ static int ad4130_probe(struct spi_device *spi)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to request irq\n");
 
-	/*
-	 * When the chip enters FIFO mode, IRQ polarity is inverted.
-	 * When the chip exits FIFO mode, IRQ polarity returns to normal.
-	 * See datasheet pages: 65, FIFO Watermark Interrupt section,
-	 * and 71, Bit Descriptions for STATUS Register, RDYB.
-	 * Cache the normal and inverted IRQ triggers to set them when
-	 * entering and exiting FIFO mode.
-	 */
-	st->irq_trigger = irq_get_trigger_type(spi->irq);
-	if (st->irq_trigger & IRQF_TRIGGER_RISING)
-		st->inv_irq_trigger = IRQF_TRIGGER_FALLING;
-	else if (st->irq_trigger & IRQF_TRIGGER_FALLING)
-		st->inv_irq_trigger = IRQF_TRIGGER_RISING;
-	else
-		return dev_err_probe(dev, -EINVAL, "Invalid irq flags: %u\n",
-				     st->irq_trigger);
+	if (st->chip_info->has_fifo) {
+		/*
+		 * When the chip enters FIFO mode, IRQ polarity is inverted.
+		 * When the chip exits FIFO mode, IRQ polarity returns to normal.
+		 * See datasheet pages: 65, FIFO Watermark Interrupt section,
+		 * and 71, Bit Descriptions for STATUS Register, RDYB.
+		 * Cache the normal and inverted IRQ triggers to set them when
+		 * entering and exiting FIFO mode.
+		 */
+		st->irq_trigger = irq_get_trigger_type(spi->irq);
+		if (st->irq_trigger & IRQF_TRIGGER_RISING)
+			st->inv_irq_trigger = IRQF_TRIGGER_FALLING;
+		else if (st->irq_trigger & IRQF_TRIGGER_FALLING)
+			st->inv_irq_trigger = IRQF_TRIGGER_RISING;
+		else
+			return dev_err_probe(dev, -EINVAL, "Invalid irq flags: %u\n",
+					     st->irq_trigger);
+	}
 
 	return devm_iio_device_register(dev, indio_dev);
 }
 
 static const struct of_device_id ad4130_of_match[] = {
-	{
-		.compatible = "adi,ad4130",
-	},
+	{ .compatible = "adi,ad4129-8", .data = &ad4129_8_chip_info },
+	{ .compatible = "adi,ad4130", .data = &ad4130_chip_info },
+	{ .compatible = "adi,ad4131-8", .data = &ad4131_8_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad4130_of_match);
+
+static const struct spi_device_id ad4130_id_table[] = {
+	{ "adi,ad4129-8", (kernel_ulong_t)&ad4129_8_chip_info },
+	{ "adi,ad4130", (kernel_ulong_t)&ad4130_chip_info },
+	{ "adi,ad4131-8", (kernel_ulong_t)&ad4131_8_chip_info },
+	{ }
+};
+MODULE_DEVICE_TABLE(spi, ad4130_id_table);
 
 static struct spi_driver ad4130_driver = {
 	.driver = {
@@ -2104,6 +2334,7 @@ static struct spi_driver ad4130_driver = {
 		.of_match_table = ad4130_of_match,
 	},
 	.probe = ad4130_probe,
+	.id_table = ad4130_id_table,
 };
 module_spi_driver(ad4130_driver);
 
