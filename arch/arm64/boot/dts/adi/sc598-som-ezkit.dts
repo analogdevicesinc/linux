@@ -91,7 +91,7 @@
 
 		pushbutton {
 			gpio-hog;
-			gpios = <1 GPIO_ACTIVE_HIGH>;
+			gpios = <1 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "pushbutton-en";
 		};
@@ -133,7 +133,7 @@
 
 		octal {
 			gpio-hog;
-			gpios = <8 GPIO_ACTIVE_HIGH>;
+			gpios = <8 GPIO_ACTIVE_LOW>;
 			output-low;
 			line-name = "octal-spi-cs-en";
 		};
@@ -184,7 +184,7 @@
 
 		gige-reset {
 			gpio-hog;
-			gpios = <15 GPIO_ACTIVE_HIGH>;
+			gpios = <15 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "gige-reset";
 		};

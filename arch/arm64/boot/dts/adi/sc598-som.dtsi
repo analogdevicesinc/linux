@@ -273,21 +273,21 @@
 
 		led1 {
 			gpio-hog;
-			gpios = <0 GPIO_ACTIVE_HIGH>;
+			gpios = <0 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "led1-en";
 		};
 
 		led2 {
 			gpio-hog;
-			gpios = <1 GPIO_ACTIVE_HIGH>;
+			gpios = <1 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "led2-en";
 		};
 
 		led3 {
 			gpio-hog;
-			gpios = <2 GPIO_ACTIVE_HIGH>;
+			gpios = <2 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "led3-en";
 		};
