@@ -1011,11 +1011,13 @@ assert_compiled () {
 		abs_file=$(realpath .)/$file
 		compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
 			      .command" compile_commands.json)
-		if [[ -z "$compile_cmd" ]] && [[ "$file" == "arch/$ARCH/"* ]]; then
-			echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation."
-			fail=1
-		fi
 
+		[[ -n "$compile_cmd" ]] && continue
+		if [[ ! "$file" == "arch/$ARCH/"* ]]; then
+			echo "Not compiled, but targets a different architecture." ; continue
+		fi
+		echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation."
+		fail=1
 	done <<< "$files"
 
 	if [[ "$fail" == "true" ]]; then
