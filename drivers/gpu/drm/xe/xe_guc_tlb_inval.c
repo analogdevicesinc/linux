@@ -6,15 +6,19 @@
 #include "abi/guc_actions_abi.h"
 
 #include "xe_device.h"
+#include "xe_exec_queue.h"
+#include "xe_exec_queue_types.h"
 #include "xe_gt_stats.h"
 #include "xe_gt_types.h"
 #include "xe_guc.h"
 #include "xe_guc_ct.h"
+#include "xe_guc_exec_queue_types.h"
 #include "xe_guc_tlb_inval.h"
 #include "xe_force_wake.h"
 #include "xe_mmio.h"
 #include "xe_sa.h"
 #include "xe_tlb_inval.h"
+#include "xe_vm.h"
 
 #include "regs/xe_guc_regs.h"
 
@@ -156,9 +160,15 @@ static int send_tlb_inval_ppgtt(struct xe_guc *guc, u32 seqno, u64 start,
 {
 #define MAX_TLB_INVALIDATION_LEN	7
 	struct xe_gt *gt = guc_to_gt(guc);
+	struct xe_device *xe = guc_to_xe(guc);
 	u32 action[MAX_TLB_INVALIDATION_LEN];
 	u64 length = end - start;
 	int len = 0, err;
+
+	xe_gt_assert(gt, (type == XE_GUC_TLB_INVAL_PAGE_SELECTIVE &&
+			  !xe->info.has_ctx_tlb_inval) ||
+		     (type == XE_GUC_TLB_INVAL_PAGE_SELECTIVE_CTX &&
+		      xe->info.has_ctx_tlb_inval));
 
 	action[len++] = XE_GUC_ACTION_TLB_INVALIDATION;
 	action[len++] = !prl_sa ? seqno : TLB_INVALIDATION_SEQNO_INVALID;
@@ -168,9 +178,11 @@ static int send_tlb_inval_ppgtt(struct xe_guc *guc, u32 seqno, u64 start,
 	} else {
 		u64 normalize_len = normalize_invalidation_range(gt, &start,
 								 &end);
+		bool need_flush = !prl_sa &&
+			seqno != TLB_INVALIDATION_SEQNO_INVALID;
 
 		/* Flush on NULL case, Media is not required to modify flush due to no PPC so NOP */
-		action[len++] = MAKE_INVAL_OP_FLUSH(type, !prl_sa);
+		action[len++] = MAKE_INVAL_OP_FLUSH(type, need_flush);
 		action[len++] = id;
 		action[len++] = lower_32_bits(start);
 		action[len++] = upper_32_bits(start);
@@ -181,8 +193,10 @@ static int send_tlb_inval_ppgtt(struct xe_guc *guc, u32 seqno, u64 start,
 #undef MAX_TLB_INVALIDATION_LEN
 
 	err = send_tlb_inval(guc, action, len);
-	if (!err && prl_sa)
+	if (!err && prl_sa) {
+		xe_gt_assert(gt, seqno != TLB_INVALIDATION_SEQNO_INVALID);
 		err = send_page_reclaim(guc, seqno, xe_sa_bo_gpu_addr(prl_sa));
+	}
 	return err;
 }
 
@@ -199,6 +213,114 @@ static int send_tlb_inval_asid_ppgtt(struct xe_tlb_inval *tlb_inval, u32 seqno,
 
 	return send_tlb_inval_ppgtt(guc, seqno, start, end, asid,
 				    XE_GUC_TLB_INVAL_PAGE_SELECTIVE, prl_sa);
+}
+
+static int send_tlb_inval_ctx_ppgtt(struct xe_tlb_inval *tlb_inval, u32 seqno,
+				    u64 start, u64 end, u32 asid,
+				    struct drm_suballoc *prl_sa)
+{
+	struct xe_guc *guc = tlb_inval->private;
+	struct xe_device *xe = guc_to_xe(guc);
+	struct xe_exec_queue *q, *next, *last_q = NULL;
+	struct xe_vm *vm;
+	LIST_HEAD(tlb_inval_list);
+	int err = 0, id = guc_to_gt(guc)->info.id;
+
+	lockdep_assert_held(&tlb_inval->seqno_lock);
+
+	if (xe->info.force_execlist)
+		return -ECANCELED;
+
+	vm = xe_device_asid_to_vm(xe, asid);
+	if (IS_ERR(vm))
+		return PTR_ERR(vm);
+
+	down_read(&vm->exec_queues.lock);
+
+	/*
+	 * XXX: Randomly picking a threshold for now. This will need to be
+	 * tuned based on expected UMD queue counts and performance profiling.
+	 */
+#define EXEC_QUEUE_COUNT_FULL_THRESHOLD	8
+	if (vm->exec_queues.count[id] >= EXEC_QUEUE_COUNT_FULL_THRESHOLD) {
+		u32 action[] = {
+			XE_GUC_ACTION_TLB_INVALIDATION,
+			seqno,
+			MAKE_INVAL_OP(XE_GUC_TLB_INVAL_FULL),
+		};
+
+		err = send_tlb_inval(guc, action, ARRAY_SIZE(action));
+		goto err_unlock;
+	}
+#undef EXEC_QUEUE_COUNT_FULL_THRESHOLD
+
+	/*
+	 * Move exec queues to a temporary list to issue invalidations. The exec
+	 * queue must active and a reference must be taken to prevent concurrent
+	 * deregistrations.
+	 *
+	 * List modification is safe because we hold 'vm->exec_queues.lock' for
+	 * reading, which prevents external modifications. Using a per-GT list
+	 * is also safe since 'tlb_inval->seqno_lock' ensures no other GT users
+	 * can enter this code path.
+	 */
+	list_for_each_entry_safe(q, next, &vm->exec_queues.list[id],
+				 vm_exec_queue_link) {
+		if (q->ops->active(q) && xe_exec_queue_get_unless_zero(q)) {
+			last_q = q;
+			list_move_tail(&q->vm_exec_queue_link, &tlb_inval_list);
+		}
+	}
+
+	if (!last_q) {
+		/*
+		 * We can't break fence ordering for TLB invalidation jobs, if
+		 * TLB invalidations are inflight issue a dummy invalidation to
+		 * maintain ordering. Nor can we move safely the seqno_recv when
+		 * returning -ECANCELED if TLB invalidations are in flight. Use
+		 * GGTT invalidation as dummy invalidation given ASID
+		 * invalidations are unsupported here.
+		 */
+		if (xe_tlb_inval_idle(tlb_inval))
+			err = -ECANCELED;
+		else
+			err = send_tlb_inval_ggtt(tlb_inval, seqno);
+		goto err_unlock;
+	}
+
+	list_for_each_entry_safe(q, next, &tlb_inval_list, vm_exec_queue_link) {
+		struct drm_suballoc *__prl_sa = NULL;
+		int __seqno = TLB_INVALIDATION_SEQNO_INVALID;
+		u32 type = XE_GUC_TLB_INVAL_PAGE_SELECTIVE_CTX;
+
+		xe_assert(xe, q->vm == vm);
+
+		if (err)
+			goto unref;
+
+		if (last_q == q) {
+			__prl_sa = prl_sa;
+			__seqno = seqno;
+		}
+
+		err = send_tlb_inval_ppgtt(guc, __seqno, start, end,
+					   q->guc->id, type, __prl_sa);
+
+unref:
+		/*
+		 * Must always return exec queue to original list / drop
+		 * reference
+		 */
+		list_move_tail(&q->vm_exec_queue_link,
+			       &vm->exec_queues.list[id]);
+		xe_exec_queue_put(q);
+	}
+
+err_unlock:
+	up_read(&vm->exec_queues.lock);
+	xe_vm_put(vm);
+
+	return err;
 }
 
 static bool tlb_inval_initialized(struct xe_tlb_inval *tlb_inval)
@@ -228,10 +350,19 @@ static long tlb_inval_timeout_delay(struct xe_tlb_inval *tlb_inval)
 	return hw_tlb_timeout + 2 * delay;
 }
 
-static const struct xe_tlb_inval_ops guc_tlb_inval_ops = {
+static const struct xe_tlb_inval_ops guc_tlb_inval_asid_ops = {
 	.all = send_tlb_inval_all,
 	.ggtt = send_tlb_inval_ggtt,
 	.ppgtt = send_tlb_inval_asid_ppgtt,
+	.initialized = tlb_inval_initialized,
+	.flush = tlb_inval_flush,
+	.timeout_delay = tlb_inval_timeout_delay,
+};
+
+static const struct xe_tlb_inval_ops guc_tlb_inval_ctx_ops = {
+	.ggtt = send_tlb_inval_ggtt,
+	.all = send_tlb_inval_all,
+	.ppgtt = send_tlb_inval_ctx_ppgtt,
 	.initialized = tlb_inval_initialized,
 	.flush = tlb_inval_flush,
 	.timeout_delay = tlb_inval_timeout_delay,
@@ -248,8 +379,14 @@ static const struct xe_tlb_inval_ops guc_tlb_inval_ops = {
 void xe_guc_tlb_inval_init_early(struct xe_guc *guc,
 				 struct xe_tlb_inval *tlb_inval)
 {
+	struct xe_device *xe = guc_to_xe(guc);
+
 	tlb_inval->private = guc;
-	tlb_inval->ops = &guc_tlb_inval_ops;
+
+	if (xe->info.has_ctx_tlb_inval)
+		tlb_inval->ops = &guc_tlb_inval_ctx_ops;
+	else
+		tlb_inval->ops = &guc_tlb_inval_asid_ops;
 }
 
 /**
