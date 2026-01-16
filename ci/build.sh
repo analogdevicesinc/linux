@@ -257,9 +257,7 @@ check_coccicheck() {
 
 	echo "$step_name on range $base_sha..$head_sha"
 
-	if [[ -z "$ARCH" ]]; then
-		ARCH=x86
-	fi
+	[[ -z "$ARCH" ]] && ARCH=x86
 
 	coccis=$(ls scripts/coccinelle/**/*.cocci)
 	[[ -z "$coccis" ]] && return 0
@@ -1001,6 +999,8 @@ assert_compiled () {
 		return 1
 	fi
 
+	[[ -z "$ARCH" ]] && ARCH=x86
+
 	# Allows deadcode
 	if [[ -f $exceptions_file ]]; then
 		files=$(comm -13 <(sort $exceptions_file) <(echo $files | tr ' ' '\n' | sort))
@@ -1011,7 +1011,7 @@ assert_compiled () {
 		abs_file=$(realpath .)/$file
 		compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
 			      .command" compile_commands.json)
-		if [[ -z "$compile_cmd" ]]; then
+		if [[ -z "$compile_cmd" ]] && [[ "$file" == "arch/$ARCH/"* ]]; then
 			echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation."
 			fail=1
 		fi
