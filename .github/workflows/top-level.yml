@@ -88,7 +88,7 @@ jobs:
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_job_summary
-  build_gcc_arm_sc573-ezkit_defconfig:
+  build_gcc_arm_sc573-ezlite_defconfig:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
@@ -97,7 +97,7 @@ jobs:
     with:
       compiler: "gcc"
       arch: "arm"
-      defconfig: "sc573-ezkit_defconfig"
+      defconfig: "sc573-ezlite_defconfig"
       auto_from_range: false
   build_gcc_arm_sc589-mini_defconfig:
     needs: [assert_checks]
@@ -159,7 +159,7 @@ jobs:
     permissions:
       contents: read
     needs:
-      - build_gcc_arm_sc573-ezkit_defconfig
+      - build_gcc_arm_sc573-ezlite_defconfig
       - build_gcc_arm_sc589-mini_defconfig
       - build_gcc_arm_sc594-som-ezkit_defconfig
       - build_gcc_arm_sc594-som-ezlite_defconfig
@@ -168,7 +168,7 @@ jobs:
     steps:
       - name: Assert
         env:
-          job_build_gcc_arm_sc573-ezkit_defconfig: ${{ needs.build_gcc_arm_sc573-ezkit_defconfig.outputs.summary }}
+          job_build_gcc_arm_sc573-ezlite_defconfig: ${{ needs.build_gcc_arm_sc573-ezlite_defconfig.outputs.summary }}
           job_build_gcc_arm_sc589-mini_defconfig: ${{ needs.build_gcc_arm_sc589-mini_defconfig.outputs.summary }}
           job_build_gcc_arm_sc594-som-ezkit_defconfig: ${{ needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.summary }}
           job_build_gcc_arm_sc594-som-ezlite_defconfig: ${{ needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.summary }}
