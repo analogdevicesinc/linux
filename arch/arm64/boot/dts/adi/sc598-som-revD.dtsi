@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2025 Analog Devices Incorporated
+ */
+
+/dts-v1/;
+
+#include "sc598-som.dtsi"
+
+&i2c2 {
+	som_gpio_expander: mcp23018@20 {
+		compatible = "microchip,mcp23018";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		drive-pullups;
+
+		led-ds1 {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "led1-en";
+		};
+
+		led-ds2 {
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "led-ds2";
+		};
+
+		led-ds3 {
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "led-ds3";
+		};
+
+		som-flash-d2d3 {
+			gpio-hog;
+			gpios = <3 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "som-flash-d2d3-en";
+		};
+
+		som-flash-cs {
+			gpio-hog;
+			gpios = <4 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "som-flash-cs-en";
+		};
+
+		uart0 {
+			gpio-hog;
+			gpios = <5 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "uart0-en";
+		};
+
+		uart0-flow-en {
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "uart0-flow-en";
+		};
+
+		som-emmc {
+			gpio-hog;
+			gpios = <8 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "som-emmc-en";
+		};
+
+		crr-sdcard {
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "crr-sdcard-en";
+		};
+	};
+};
+
+&spi2 {
+	som_flash: is25lp512@0 {
+		compatible = "jedec,spi-nor", "is25lp512";
+		reg = <0>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <25000000>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qspi_0@0 {
+				label = "u-boot-spl";
+				reg = <0x00000000 0x00040000>;
+			};
+
+			qspi_1@40000 {
+				label = "u-boot";
+				reg = <0x00040000 0x000C0000>;
+			};
+
+			qspi_2@100000 {
+				label = "dtb";
+				reg = <0x00100000 0x00010000>;
+			};
+
+			qspi_3@110000 {
+				label = "kernel";
+				reg = <0x00110000 0x02000000>;
+			};
+
+			qspi_4@2110000 {
+				label = "rootfs";
+				reg = <0x02110000 0x01EF0000>;
+			};
+		};
+	};
+};
