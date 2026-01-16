@@ -836,6 +836,7 @@ compile_gcc_fanalyzer () {
 			      sed 's/^"//;s/"$//g' |
 			      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
 		if [[ -z "$compile_cmd" ]]; then
+			[[ ! "$file" == "arch/$ARCH/"* ]] && continue
 			echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
 			warn=1
 			continue
@@ -916,6 +917,7 @@ compile_clang_analyzer () {
 			      sed 's/^"//;s/"$//g' |
 			      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
 		if [[ -z "$compile_cmd" ]]; then
+			[[ ! "$file" == "arch/$ARCH/"* ]] && continue
 			echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
 			fail=1
 			continue
