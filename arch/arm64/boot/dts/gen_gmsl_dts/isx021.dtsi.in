@@ -1,0 +1,46 @@
+{% set reset_pin = cam_cfg.reset_pin | d(8) %}
+{% set cam_label = ser_label ~ "_cam_" ~ cam_idx %}
+{% set cam_out_label = cam_label ~ "_out" %}
+{% set cam_out_remote_label = ser_in_label_x(cam_idx) %}
+
+&{{ser_i2c_label()}} {
+	{{cam_label}}: isx021@1a {
+		compatible = "sony,isx021";
+		reg = <0x1a>;
+
+		reset-gpios = <&{{ser_label}} {{reset_pin}} 1>;
+
+		clocks = <&{{ser_label}}>;
+		clock-names = "xclk";
+
+		assigned-clocks = <&{{ser_label}}>;
+		assigned-clock-rates = <25000000>;
+
+		rotation = <180>;
+		orientation = <2>;
+
+		port {
+			{{cam_out_label}}: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <360000000>;
+				remote-endpoint = <&{{cam_out_remote_label}}>;
+			};
+		};
+	};
+};
+
+&{{ser_label}} {
+	ports {
+		port@{{cam_idx}} {
+			reg = <0>;
+
+			{{cam_out_remote_label}}: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <360000000>;
+				remote-endpoint = <&{{cam_out_label}}>;
+			};
+		};
+	};
+};
