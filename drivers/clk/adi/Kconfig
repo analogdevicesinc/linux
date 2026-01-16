@@ -2,9 +2,9 @@
 config COMMON_CLK_ADI_SC57X
 	bool "ADI SC573 clock driver"
 	help
-	  This enables the ADI SC573-ezkit clock driver. The driver provides
-	  support for the clock controller on the ADI SC573-ezkit SoC.
-	  If you are using the ADI SC573-ezkit SoC, say Y here.
+	  This enables the ADI SC573-ezlite clock driver. The driver provides
+	  support for the clock controller on the ADI SC573-ezlite SoC.
+	  If you are using the ADI SC573-ezlite SoC, say Y here.
 	  If unsure, say N.
 
 config COMMON_CLK_ADI_SC58X
