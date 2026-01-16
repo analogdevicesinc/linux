@@ -87,14 +87,14 @@ jobs:
             https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
-  build_gcc_arm_sc573-ezkit_defconfig:
+  build_gcc_arm_sc573-ezlite_defconfig:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     with:
       compiler: "gcc"
       arch: "arm"
-      defconfig: "sc573-ezkit_defconfig"
+      defconfig: "sc573-ezlite_defconfig"
       auto_from_range: false
   build_gcc_arm_sc589-mini_defconfig:
     needs: [assert_checks]
@@ -144,7 +144,7 @@ jobs:
   assert_build_adsp:
     runs-on: [self-hosted, repo-only]
     needs:
-      - build_gcc_arm_sc573-ezkit_defconfig
+      - build_gcc_arm_sc573-ezlite_defconfig
       - build_gcc_arm_sc589-mini_defconfig
       - build_gcc_arm_sc594-som-ezkit_defconfig
       - build_gcc_arm_sc594-som-ezlite_defconfig
@@ -153,13 +153,13 @@ jobs:
     steps:
       - name: Assert
         env:
-          job_warn_build_gcc_arm_sc573-ezkit_defconfig: ${{needs.build_gcc_arm_sc573-ezkit_defconfig.outputs.warn}}
+          job_warn_build_gcc_arm_sc573-ezlite_defconfig: ${{needs.build_gcc_arm_sc573-ezlite_defconfig.outputs.warn}}
           job_warn_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.warn}}
           job_warn_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.warn}}
           job_warn_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.warn}}
           job_warn_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.warn}}
           job_warn_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.warn}}
-          job_fail_build_gcc_arm_sc573-ezkit_defconfig: ${{needs.build_gcc_arm_sc573-ezkit_defconfig.outputs.fail}}
+          job_fail_build_gcc_arm_sc573-ezlite_defconfig: ${{needs.build_gcc_arm_sc573-ezlite_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.fail}}
           job_fail_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.fail}}
