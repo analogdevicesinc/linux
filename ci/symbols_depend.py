@@ -112,7 +112,7 @@ def find_symbol_block(symbol, kconfig_path):
     return ''.join(block) if block else None
 
 
-def filter_symbols(symbols):
+def filter_symbols(symbols, allow=None):
     """
     Remove architecture symbols.
     """
@@ -120,8 +120,8 @@ def filter_symbols(symbols):
              'XTENSA']
     return {sym
             for sym in symbols
-            if not sym.startswith('ARCH_') and sym not in archs
-            and not sym.startswith('CPU_')}
+            if sym is not allow or (not sym.startswith('ARCH_') and sym not in
+            archs and not sym.startswith('CPU_'))}
 
 
 def extract_tristate(kconfig_path, symbol, symbol_block):
@@ -180,7 +180,7 @@ def extract_dependencies(symbol_block, if_blocks):
     return deps
 
 
-def get_symbol_dependencies(symbol, path_to_kconfig_dir):
+def get_symbol_dependencies(symbol, path_to_kconfig_dir, allowlist):
     kconfig_file = path.join(path_to_kconfig_dir, 'Kconfig')
     if_blocks = track_if_blocks(symbol, kconfig_file)
     block = find_symbol_block(symbol, kconfig_file)
@@ -192,7 +192,8 @@ def get_symbol_dependencies(symbol, path_to_kconfig_dir):
     deps = []
     deps.extend(extract_tristate(kconfig_file, symbol, block))
     deps.extend(extract_dependencies(block, if_blocks))
-    return filter_symbols(deps)
+    # If is an immediate depend of an ARCH_ symbol, allow to be enabled
+    return filter_symbols(deps, symbol if symbol in allowlist else None)
 
 
 def get_top_level_kconfig(symbol):
@@ -206,17 +207,17 @@ def get_top_level_kconfig(symbol):
     return kconfig if found else None
 
 
-def resolve_tree(symbol, path):
+def resolve_tree(symbol, path, allowlist):
     global max_recursion
 
     max_recursion = max_recursion - 1
-    deps = get_symbol_dependencies(symbol, path)
+    deps = get_symbol_dependencies(symbol, path, allowlist)
     for s in deps:
         if s not in deps_:
             kconfig = get_top_level_kconfig(s)
             if kconfig:
                 if max_recursion:
-                    resolve_tree(s, kconfig)
+                    resolve_tree(s, kconfig, allowlist)
                 deps_.add(s)
 
 
@@ -387,11 +388,12 @@ def main():
     print("Symbols of touched files:", file=stderr)
     print(symbols_, file=stderr)
     generate_map()
+    allow_list=symbols_.copy()
     for s in symbols_:
         if s not in deps_:
             kconfig = get_top_level_kconfig(s)
             if kconfig and max_recursion:
-                resolve_tree(s, kconfig)
+                resolve_tree(s, kconfig, allow_list)
             deps_.add(s)
 
     if not max_recursion:
