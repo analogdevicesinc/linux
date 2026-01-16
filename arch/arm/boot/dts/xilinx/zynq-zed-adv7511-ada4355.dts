@@ -60,6 +60,14 @@
 
 		spibus-connected = <&adc_ada4355>;
 	};
+
+	/* TDD Controller for LiDAR timing control */
+	axi_tdd: axi-tdd@44a40000 {
+		compatible = "adi,axi-tdd";
+		reg = <0x44a40000 0x10000>;
+		clocks = <&clkc 15>, <&ada4355_fixed_clock>;
+		clock-names = "s_axi_aclk", "intf_clk";
+	};
 };
 
 &spi0 {
