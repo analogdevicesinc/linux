@@ -1529,10 +1529,23 @@ struct xe_vm *xe_vm_create(struct xe_device *xe, u32 flags, struct xe_file *xef)
 	INIT_WORK(&vm->destroy_work, vm_destroy_work_func);
 
 	INIT_LIST_HEAD(&vm->preempt.exec_queues);
+	for (id = 0; id < XE_MAX_TILES_PER_DEVICE * XE_MAX_GT_PER_TILE; ++id)
+		INIT_LIST_HEAD(&vm->exec_queues.list[id]);
 	if (flags & XE_VM_FLAG_FAULT_MODE)
 		vm->preempt.min_run_period_ms = xe->min_run_period_pf_ms;
 	else
 		vm->preempt.min_run_period_ms = xe->min_run_period_lr_ms;
+
+	init_rwsem(&vm->exec_queues.lock);
+	if (IS_ENABLED(CONFIG_PROVE_LOCKING)) {
+		fs_reclaim_acquire(GFP_KERNEL);
+		might_lock(&vm->exec_queues.lock);
+		fs_reclaim_release(GFP_KERNEL);
+
+		down_read(&vm->exec_queues.lock);
+		might_lock(&xe_root_mmio_gt(xe)->uc.guc.ct.lock);
+		up_read(&vm->exec_queues.lock);
+	}
 
 	for_each_tile(tile, xe, id)
 		xe_range_fence_tree_init(&vm->rftree[id]);
@@ -4569,3 +4582,52 @@ int xe_vm_alloc_cpu_addr_mirror_vma(struct xe_vm *vm, uint64_t start, uint64_t r
 	return xe_vm_alloc_vma(vm, &map_req, false);
 }
 
+/**
+ * xe_vm_add_exec_queue() - Add exec queue to VM
+ * @vm: The VM.
+ * @q: The exec_queue
+ *
+ * Add exec queue to VM, skipped if the device does not have context based TLB
+ * invalidations.
+ */
+void xe_vm_add_exec_queue(struct xe_vm *vm, struct xe_exec_queue *q)
+{
+	struct xe_device *xe = vm->xe;
+
+	/* User VMs and queues only */
+	xe_assert(xe, !(q->flags & EXEC_QUEUE_FLAG_KERNEL));
+	xe_assert(xe, !(q->flags & EXEC_QUEUE_FLAG_PERMANENT));
+	xe_assert(xe, !(q->flags & EXEC_QUEUE_FLAG_VM));
+	xe_assert(xe, !(q->flags & EXEC_QUEUE_FLAG_MIGRATE));
+	xe_assert(xe, vm->xef);
+	xe_assert(xe, vm == q->vm);
+
+	if (!xe->info.has_ctx_tlb_inval)
+		return;
+
+	down_write(&vm->exec_queues.lock);
+	list_add(&q->vm_exec_queue_link, &vm->exec_queues.list[q->gt->info.id]);
+	++vm->exec_queues.count[q->gt->info.id];
+	up_write(&vm->exec_queues.lock);
+}
+
+/**
+ * xe_vm_remove_exec_queue() - Remove exec queue from VM
+ * @vm: The VM.
+ * @q: The exec_queue
+ *
+ * Remove exec queue from VM, skipped if the device does not have context based
+ * TLB invalidations.
+ */
+void xe_vm_remove_exec_queue(struct xe_vm *vm, struct xe_exec_queue *q)
+{
+	if (!vm->xe->info.has_ctx_tlb_inval)
+		return;
+
+	down_write(&vm->exec_queues.lock);
+	if (!list_empty(&q->vm_exec_queue_link)) {
+		list_del(&q->vm_exec_queue_link);
+		--vm->exec_queues.count[q->gt->info.id];
+	}
+	up_write(&vm->exec_queues.lock);
+}
