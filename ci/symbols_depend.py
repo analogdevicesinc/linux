@@ -115,6 +115,7 @@ def find_symbol_block(symbol, kconfig_path):
 def filter_symbols(symbols, allow=None):
     """
     Remove architecture symbols.
+    Improve: use arch/*/Kconfig.platforms for a proper list
     """
     archs = ['ARM', 'ARM64', 'M68K', 'RISCV', 'SUPERH', 'X86', 'X86_32',
              'XTENSA']
