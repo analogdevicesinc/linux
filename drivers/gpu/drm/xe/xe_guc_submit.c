@@ -556,6 +556,72 @@ static void xe_guc_exec_queue_trigger_cleanup(struct xe_exec_queue *q)
 	xe_sched_tdr_queue_imm(&q->guc->sched);
 }
 
+static void xe_guc_exec_queue_group_stop(struct xe_exec_queue *q)
+{
+	struct xe_exec_queue *primary = xe_exec_queue_multi_queue_primary(q);
+	struct xe_exec_queue_group *group = q->multi_queue.group;
+	struct xe_exec_queue *eq, *next;
+	LIST_HEAD(tmp);
+
+	xe_gt_assert(guc_to_gt(exec_queue_to_guc(q)),
+		     xe_exec_queue_is_multi_queue(q));
+
+	mutex_lock(&group->list_lock);
+
+	/*
+	 * Stop all future queues being from executing while group is stopped.
+	 */
+	group->stopped = true;
+
+	list_for_each_entry_safe(eq, next, &group->list, multi_queue.link)
+		/*
+		 * Refcount prevents an attempted removal from &group->list,
+		 * temporary list allows safe iteration after dropping
+		 * &group->list_lock.
+		 */
+		if (xe_exec_queue_get_unless_zero(eq))
+			list_move_tail(&eq->multi_queue.link, &tmp);
+
+	mutex_unlock(&group->list_lock);
+
+	/* We cannot stop under list lock without getting inversions */
+	xe_sched_submission_stop(&primary->guc->sched);
+	list_for_each_entry(eq, &tmp, multi_queue.link)
+		xe_sched_submission_stop(&eq->guc->sched);
+
+	mutex_lock(&group->list_lock);
+	list_for_each_entry_safe(eq, next, &tmp, multi_queue.link) {
+		/*
+		 * Corner where we got banned while stopping and not on
+		 * &group->list
+		 */
+		if (READ_ONCE(group->banned))
+			xe_guc_exec_queue_trigger_cleanup(eq);
+
+		list_move_tail(&eq->multi_queue.link, &group->list);
+		xe_exec_queue_put(eq);
+	}
+	mutex_unlock(&group->list_lock);
+}
+
+static void xe_guc_exec_queue_group_start(struct xe_exec_queue *q)
+{
+	struct xe_exec_queue *primary = xe_exec_queue_multi_queue_primary(q);
+	struct xe_exec_queue_group *group = q->multi_queue.group;
+	struct xe_exec_queue *eq;
+
+	xe_gt_assert(guc_to_gt(exec_queue_to_guc(q)),
+		     xe_exec_queue_is_multi_queue(q));
+
+	xe_sched_submission_start(&primary->guc->sched);
+
+	mutex_lock(&group->list_lock);
+	group->stopped = false;
+	list_for_each_entry(eq, &group->list, multi_queue.link)
+		xe_sched_submission_start(&eq->guc->sched);
+	mutex_unlock(&group->list_lock);
+}
+
 static void xe_guc_exec_queue_group_trigger_cleanup(struct xe_exec_queue *q)
 {
 	struct xe_exec_queue *primary = xe_exec_queue_multi_queue_primary(q);
@@ -1414,7 +1480,7 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
 {
 	struct xe_sched_job *job = to_xe_sched_job(drm_job);
 	struct drm_sched_job *tmp_job;
-	struct xe_exec_queue *q = job->q;
+	struct xe_exec_queue *q = job->q, *primary;
 	struct xe_gpu_scheduler *sched = &q->guc->sched;
 	struct xe_guc *guc = exec_queue_to_guc(q);
 	const char *process_name = "no process";
@@ -1424,6 +1490,8 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
 	bool wedged = false, skip_timeout_check;
 
 	xe_gt_assert(guc_to_gt(guc), !exec_queue_destroyed(q));
+
+	primary = xe_exec_queue_multi_queue_primary(q);
 
 	/*
 	 * TDR has fired before free job worker. Common if exec queue
@@ -1436,7 +1504,10 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
 		return DRM_GPU_SCHED_STAT_NO_HANG;
 
 	/* Kill the run_job entry point */
-	xe_sched_submission_stop(sched);
+	if (xe_exec_queue_is_multi_queue(q))
+		xe_guc_exec_queue_group_stop(q);
+	else
+		xe_sched_submission_stop(sched);
 
 	/* Must check all state after stopping scheduler */
 	skip_timeout_check = exec_queue_reset(q) ||
@@ -1450,14 +1521,6 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
 	/* LR jobs can only get here if queue has been killed or hit an error */
 	if (xe_exec_queue_is_lr(q))
 		xe_gt_assert(guc_to_gt(guc), skip_timeout_check);
-
-	/*
-	 * FIXME: In multi-queue scenario, the TDR must ensure that the whole
-	 * multi-queue group is off the HW before signaling the fences to avoid
-	 * possible memory corruptions. This means disabling scheduling on the
-	 * primary queue before or during the secondary queue's TDR. Need to
-	 * implement this in least obtrusive way.
-	 */
 
 	/*
 	 * If devcoredump not captured and GuC capture for the job is not ready
@@ -1485,10 +1548,11 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
 	set_exec_queue_banned(q);
 
 	/* Kick job / queue off hardware */
-	if (!wedged && (exec_queue_enabled(q) || exec_queue_pending_disable(q))) {
+	if (!wedged && (exec_queue_enabled(primary) ||
+			exec_queue_pending_disable(primary))) {
 		int ret;
 
-		if (exec_queue_reset(q))
+		if (exec_queue_reset(primary))
 			err = -EIO;
 
 		if (xe_uc_fw_is_running(&guc->fw)) {
@@ -1497,8 +1561,8 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
 			 * modifying state
 			 */
 			ret = wait_event_timeout(guc->ct.wq,
-						 (!exec_queue_pending_enable(q) &&
-						  !exec_queue_pending_disable(q)) ||
+						 (!exec_queue_pending_enable(primary) &&
+						  !exec_queue_pending_disable(primary)) ||
 						 xe_guc_read_stopped(guc) ||
 						 vf_recovery(guc), HZ * 5);
 			if (vf_recovery(guc))
@@ -1506,7 +1570,7 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
 			if (!ret || xe_guc_read_stopped(guc))
 				goto trigger_reset;
 
-			disable_scheduling(q, skip_timeout_check);
+			disable_scheduling(primary, skip_timeout_check);
 		}
 
 		/*
@@ -1520,7 +1584,7 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
 		smp_rmb();
 		ret = wait_event_timeout(guc->ct.wq,
 					 !xe_uc_fw_is_running(&guc->fw) ||
-					 !exec_queue_pending_disable(q) ||
+					 !exec_queue_pending_disable(primary) ||
 					 xe_guc_read_stopped(guc) ||
 					 vf_recovery(guc), HZ * 5);
 		if (vf_recovery(guc))
@@ -1530,11 +1594,11 @@ trigger_reset:
 			if (!ret)
 				xe_gt_warn(guc_to_gt(guc),
 					   "Schedule disable failed to respond, guc_id=%d",
-					   q->guc->id);
-			xe_devcoredump(q, job,
+					   primary->guc->id);
+			xe_devcoredump(primary, job,
 				       "Schedule disable failed to respond, guc_id=%d, ret=%d, guc_read=%d",
-				       q->guc->id, ret, xe_guc_read_stopped(guc));
-			xe_gt_reset_async(q->gt);
+				       primary->guc->id, ret, xe_guc_read_stopped(guc));
+			xe_gt_reset_async(primary->gt);
 			xe_sched_tdr_queue_imm(sched);
 			goto rearm;
 		}
@@ -1580,12 +1644,13 @@ trigger_reset:
 	drm_sched_for_each_pending_job(tmp_job, &sched->base, NULL)
 		xe_sched_job_set_error(to_xe_sched_job(tmp_job), -ECANCELED);
 
-	xe_sched_submission_start(sched);
-
-	if (xe_exec_queue_is_multi_queue(q))
+	if (xe_exec_queue_is_multi_queue(q)) {
+		xe_guc_exec_queue_group_start(q);
 		xe_guc_exec_queue_group_trigger_cleanup(q);
-	else
+	} else {
+		xe_sched_submission_start(sched);
 		xe_guc_exec_queue_trigger_cleanup(q);
+	}
 
 	/*
 	 * We want the job added back to the pending list so it gets freed; this
@@ -1599,7 +1664,10 @@ rearm:
 	 * but there is not currently an easy way to do in DRM scheduler. With
 	 * some thought, do this in a follow up.
 	 */
-	xe_sched_submission_start(sched);
+	if (xe_exec_queue_is_multi_queue(q))
+		xe_guc_exec_queue_group_start(q);
+	else
+		xe_sched_submission_start(sched);
 handle_vf_resume:
 	return DRM_GPU_SCHED_STAT_NO_HANG;
 }
@@ -1965,6 +2033,8 @@ static int guc_exec_queue_init(struct xe_exec_queue *q)
 
 		INIT_LIST_HEAD(&q->multi_queue.link);
 		mutex_lock(&group->list_lock);
+		if (group->stopped)
+			WRITE_ONCE(q->guc->sched.base.pause_submit, true);
 		list_add_tail(&q->multi_queue.link, &group->list);
 		mutex_unlock(&group->list_lock);
 	}

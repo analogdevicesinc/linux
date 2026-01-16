@@ -66,6 +66,8 @@ struct xe_exec_queue_group {
 	bool sync_pending;
 	/** @banned: Group banned */
 	bool banned;
+	/** @stopped: Group is stopped, protected by list_lock */
+	bool stopped;
 };
 
 /**
