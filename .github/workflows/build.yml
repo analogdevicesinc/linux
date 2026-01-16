@@ -20,9 +20,9 @@ on:
         default: true
     outputs:
       fail: # DEPRECATED
-        value: ${{ jobs.checks.outputs.fail }}
+        value: ${{ jobs.build.outputs.fail }}
       warn: # DEPRECATED
-        value: ${{ jobs.checks.outputs.warn }}
+        value: ${{ jobs.build.outputs.warn }}
       summary:
         value: ${{ jobs.build.outputs.summary }}
 
