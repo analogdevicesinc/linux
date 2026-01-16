@@ -150,19 +150,15 @@ static u64 normalize_invalidation_range(struct xe_gt *gt, u64 *start, u64 *end)
  */
 #define MAX_RANGE_TLB_INVALIDATION_LENGTH (rounddown_pow_of_two(ULONG_MAX))
 
-static int send_tlb_inval_asid_ppgtt(struct xe_tlb_inval *tlb_inval, u32 seqno,
-				     u64 start, u64 end, u32 asid,
-				     struct drm_suballoc *prl_sa)
+static int send_tlb_inval_ppgtt(struct xe_guc *guc, u32 seqno, u64 start,
+				u64 end, u32 id, u32 type,
+				struct drm_suballoc *prl_sa)
 {
 #define MAX_TLB_INVALIDATION_LEN	7
-	struct xe_guc *guc = tlb_inval->private;
 	struct xe_gt *gt = guc_to_gt(guc);
 	u32 action[MAX_TLB_INVALIDATION_LEN];
 	u64 length = end - start;
 	int len = 0, err;
-
-	if (guc_to_xe(guc)->info.force_execlist)
-		return -ECANCELED;
 
 	action[len++] = XE_GUC_ACTION_TLB_INVALIDATION;
 	action[len++] = !prl_sa ? seqno : TLB_INVALIDATION_SEQNO_INVALID;
@@ -174,19 +170,35 @@ static int send_tlb_inval_asid_ppgtt(struct xe_tlb_inval *tlb_inval, u32 seqno,
 								 &end);
 
 		/* Flush on NULL case, Media is not required to modify flush due to no PPC so NOP */
-		action[len++] = MAKE_INVAL_OP_FLUSH(XE_GUC_TLB_INVAL_PAGE_SELECTIVE, !prl_sa);
-		action[len++] = asid;
+		action[len++] = MAKE_INVAL_OP_FLUSH(type, !prl_sa);
+		action[len++] = id;
 		action[len++] = lower_32_bits(start);
 		action[len++] = upper_32_bits(start);
 		action[len++] = ilog2(normalize_len) - ilog2(SZ_4K);
 	}
 
 	xe_gt_assert(gt, len <= MAX_TLB_INVALIDATION_LEN);
+#undef MAX_TLB_INVALIDATION_LEN
 
 	err = send_tlb_inval(guc, action, len);
 	if (!err && prl_sa)
 		err = send_page_reclaim(guc, seqno, xe_sa_bo_gpu_addr(prl_sa));
 	return err;
+}
+
+static int send_tlb_inval_asid_ppgtt(struct xe_tlb_inval *tlb_inval, u32 seqno,
+				     u64 start, u64 end, u32 asid,
+				     struct drm_suballoc *prl_sa)
+{
+	struct xe_guc *guc = tlb_inval->private;
+
+	lockdep_assert_held(&tlb_inval->seqno_lock);
+
+	if (guc_to_xe(guc)->info.force_execlist)
+		return -ECANCELED;
+
+	return send_tlb_inval_ppgtt(guc, seqno, start, end, asid,
+				    XE_GUC_TLB_INVAL_PAGE_SELECTIVE, prl_sa);
 }
 
 static bool tlb_inval_initialized(struct xe_tlb_inval *tlb_inval)
