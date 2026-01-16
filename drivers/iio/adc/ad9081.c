@@ -2201,6 +2201,10 @@ static int ad9081_setup_tx(struct spi_device *spi)
 	adi_ad9081_dac_irqs_status_get(&phy->ad9081, &status64);
 	dev_dbg(&spi->dev, "DAC IRQ status 0x%llX\n", status64);
 
+	adi_ad9081_jesd_rx_link_select_set(&phy->ad9081, AD9081_LINK_ALL);
+	adi_ad9081_hal_reg_set(&phy->ad9081,REG_JRX_204C_IRQ_ADDR, 0x0F);
+
+
 	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->dac_frequency_hz,
 			phy->tx_main_interp * phy->tx_chan_interp);
 	clk_set_rate_scaled(phy->clks[TX_SAMPL_CLK], sample_rate,
@@ -2842,6 +2846,9 @@ static ssize_t ad9081_phy_store(struct device *dev,
 
 	guard(mutex)(&conv->lock);
 
+	dev_dbg(&phy->spi->dev, "%s: attr address=0x%lx\n",
+		__func__, (u32)this_attr->address & 0xFF);
+
 	switch ((u32)this_attr->address & 0xFF) {
 	case AD9081_LOOPBACK_MODE:
 		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
@@ -3210,9 +3217,9 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(file->private);
 	struct ad9081_phy *phy = conv->phy;
-	int ret, l;
+	int ret, l, i;
 	u16 stat;
-	u8 vals[3];
+	u8 vals[9];
 
 	guard(mutex)(&conv->lock);
 
@@ -3264,6 +3271,46 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 				stat & BIT(5) ? "locked" : "unlocked",
 				stat & BIT(6) ? "established" : "lost",
 				stat & BIT(7) ? "invalid" : "valid");
+		}
+	}
+
+	/* JRX 204C per-lane error counters */
+	if (!phy->tx_disable &&
+	    phy->jrx_link_tx[0].jesd_param.jesd_jesdv == JESD204_VERSION_C) {
+		adi_ad9081_jesd_rx_link_select_set(&phy->ad9081, AD9081_LINK_0);
+		for (i = 0; i < phy->jrx_link_tx[0].jesd_param.jesd_l; i++) {
+			adi_ad9081_hal_reg_get(&phy->ad9081, 0x562 + i, &vals[0]);
+			adi_ad9081_hal_reg_get(&phy->ad9081, 0x56b + i, &vals[1]);
+			adi_ad9081_hal_reg_get(&phy->ad9081, 0x574 + i, &vals[2]);
+			adi_ad9081_hal_reg_get(&phy->ad9081, 0x57c + i, &vals[3]);
+			adi_ad9081_hal_reg_get(&phy->ad9081, 0x584 + i, &vals[4]);
+			seq_printf(file,
+				"JRX Link0 Lane%d: Skew %u, MB_ERR_CNT %u, SH_ERR_CNT %u, EMB_ERR_CNT %u, CRC_ERR_CNT %u\n",
+				i,
+				(vals[0] & 0xFF) | ((vals[1] & 0x80) << 1),
+				vals[1] & 0x0F,
+				vals[2] & 0x3F,
+				vals[3],
+				vals[4]);
+		}
+
+		if (ad9081_link_is_dual(phy->jrx_link_tx)) {
+			adi_ad9081_jesd_rx_link_select_set(&phy->ad9081, AD9081_LINK_1);
+			for (i = 0; i < phy->jrx_link_tx[1].jesd_param.jesd_l; i++) {
+				adi_ad9081_hal_reg_get(&phy->ad9081, 0x562 + i, &vals[0]);
+				adi_ad9081_hal_reg_get(&phy->ad9081, 0x56b + i, &vals[1]);
+				adi_ad9081_hal_reg_get(&phy->ad9081, 0x574 + i, &vals[2]);
+				adi_ad9081_hal_reg_get(&phy->ad9081, 0x57c + i, &vals[3]);
+				adi_ad9081_hal_reg_get(&phy->ad9081, 0x584 + i, &vals[4]);
+				seq_printf(file,
+					"JRX Link1 Lane%d: Skew %u, MB_ERR_CNT %u, SH_ERR_CNT %u, EMB_ERR_CNT %u, CRC_ERR_CNT %u\n",
+					i,
+					(vals[0] & 0xFF) | ((vals[1] & 0x80) << 1),
+					vals[1] & 0x0F,
+					vals[2] & 0x3F,
+					vals[3],
+					vals[4]);
+			}
 		}
 	}
 
@@ -4008,6 +4055,9 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 	ret = sscanf(buf, "%lli %i %i %i", &val, &val2, &val3, &val4);
 	if (ret < 1)
 		return -EINVAL;
+
+	dev_dbg(&phy->spi->dev, "debugfs write cmd=%d args=%d val=%lli val2=%i val3=%i val4=%i\n",
+		entry->cmd, ret, val, val2, val3, val4);
 
 	switch (entry->cmd) {
 	case DBGFS_BIST_PRBS_JRX:
