@@ -9,6 +9,13 @@ pr:
 - rpi-6.6.y
 - rpi-6.12.y
 
+resources:
+  repositories:
+    - repository: wiki-scripts
+      type: github
+      name: analogdevicesinc/wiki-scripts
+      endpoint: analogdevicesinc
+
 stages:
 - stage: Builds
   jobs:
@@ -119,3 +126,24 @@ stages:
           ARTIFACTORY_PATH: $(PATH)
           ARTIFACTORY_TOKEN: $(TOKEN)
         displayName: "Push to Artifactory"
+
+  - job: Push_to_Cloudsmith
+    condition: succeeded()
+    pool:
+      name: Default
+      demands:
+        - agent.name -equals linux-rpi
+    steps:
+      - checkout: self
+        fetchDepth: 1
+        clean: true
+      - checkout: wiki-scripts
+        fetchDepth: 1
+        clean: true
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          path: $(Build.SourcesDirectory)/bin
+      - bash: $(Build.SourcesDirectory)/linux/ci/travis/prepare_artifacts_rpi.sh cloudsmith
+        env:
+           CLOUDSMITH_API_KEY: $(CLOUDSMITH_API_KEY)
+        displayName: "Push to Cloudsmith"
