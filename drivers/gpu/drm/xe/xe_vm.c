@@ -1653,7 +1653,7 @@ struct xe_vm *xe_vm_create(struct xe_device *xe, u32 flags, struct xe_file *xef)
 		down_write(&xe->usm.lock);
 		err = xa_alloc_cyclic(&xe->usm.asid_to_vm, &asid, vm,
 				      XA_LIMIT(1, XE_MAX_ASID - 1),
-				      &xe->usm.next_asid, GFP_KERNEL);
+				      &xe->usm.next_asid, GFP_NOWAIT);
 		up_write(&xe->usm.lock);
 		if (err < 0)
 			goto err_close;
