@@ -4,6 +4,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/reset/canaan,k230-rst.h>
 #include "k230-pinctrl.h"
 
 /dts-v1/;
@@ -87,6 +88,12 @@
 			interrupts-extended = <&cpu0_intc 3>, <&cpu0_intc 7>;
 		};
 
+		rst: reset-controller@91101000 {
+			compatible = "canaan,k230-rst";
+			reg = <0x0 0x91101000 0x0 0x1000>;
+			#reset-cells = <1>;
+		};
+
 		pinctrl: pinctrl@91105000 {
 			compatible = "canaan,k230-pinctrl";
 			reg = <0x0 0x91105000 0x0 0x100>;
@@ -99,6 +106,7 @@
 			interrupts = <16 IRQ_TYPE_LEVEL_HIGH>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
+			resets = <&rst RST_UART0>;
 			status = "disabled";
 		};
 
@@ -109,6 +117,7 @@
 			interrupts = <17 IRQ_TYPE_LEVEL_HIGH>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
+			resets = <&rst RST_UART1>;
 			status = "disabled";
 		};
 
@@ -119,6 +128,7 @@
 			interrupts = <18 IRQ_TYPE_LEVEL_HIGH>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
+			resets = <&rst RST_UART2>;
 			status = "disabled";
 		};
 
@@ -129,6 +139,7 @@
 			interrupts = <19 IRQ_TYPE_LEVEL_HIGH>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
+			resets = <&rst RST_UART3>;
 			status = "disabled";
 		};
 
@@ -139,6 +150,7 @@
 			interrupts = <20 IRQ_TYPE_LEVEL_HIGH>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
+			resets = <&rst RST_UART4>;
 			status = "disabled";
 		};
 	};
