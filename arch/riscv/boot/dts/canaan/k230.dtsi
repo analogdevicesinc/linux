@@ -21,9 +21,9 @@
 			compatible = "thead,c908", "riscv";
 			device_type = "cpu";
 			reg = <0>;
-			riscv,isa = "rv64imafdcv_zicbom_zicbop_zicboz_zfh_zba_zbb_zbc_zbs_zvfh_svpbmt";
+			riscv,isa = "rv64imafdcbv_zicbom_zicbop_zicboz_zicntr_zicsr_zifencei_zihpm_zfh_zba_zbb_zbc_zbs_zvfh_svpbmt";
 			riscv,isa-base = "rv64i";
-			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "v", "zicbom",
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "b", "v", "zicbom",
 					       "zicbop", "zicboz", "zicntr", "zicsr", "zifencei",
 					       "zihpm", "zfh", "zba", "zbb", "zbc", "zbs", "zvfh",
 					       "svpbmt";
