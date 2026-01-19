@@ -273,6 +273,51 @@ const struct nfsd4_layout_ops bl_layout_ops = {
 #endif /* CONFIG_NFSD_BLOCKLAYOUT */
 
 #ifdef CONFIG_NFSD_SCSILAYOUT
+
+#define NFSD_MDS_PR_FENCED	XA_MARK_0
+
+/*
+ * Clear the fence flag if the device already has an entry. This occurs
+ * when a client re-registers after a previous fence, allowing new
+ * layouts for this device.
+ *
+ * Insert only on first registration. This bounds cl_dev_fences to the
+ * count of devices this client has accessed, preventing unbounded growth.
+ */
+static inline int nfsd4_scsi_fence_insert(struct nfs4_client *clp,
+					  dev_t device)
+{
+	struct xarray *xa = &clp->cl_dev_fences;
+	int ret;
+
+	xa_lock(xa);
+	ret = __xa_insert(xa, device, XA_ZERO_ENTRY, GFP_KERNEL);
+	if (ret == -EBUSY) {
+		__xa_clear_mark(xa, device, NFSD_MDS_PR_FENCED);
+		ret = 0;
+	}
+	xa_unlock(xa);
+	return ret;
+}
+
+static inline bool nfsd4_scsi_fence_set(struct nfs4_client *clp, dev_t device)
+{
+	struct xarray *xa = &clp->cl_dev_fences;
+	bool skip;
+
+	xa_lock(xa);
+	skip = xa_get_mark(xa, device, NFSD_MDS_PR_FENCED);
+	if (!skip)
+		__xa_set_mark(xa, device, NFSD_MDS_PR_FENCED);
+	xa_unlock(xa);
+	return skip;
+}
+
+static inline void nfsd4_scsi_fence_clear(struct nfs4_client *clp, dev_t device)
+{
+	xa_clear_mark(&clp->cl_dev_fences, device, NFSD_MDS_PR_FENCED);
+}
+
 #define NFSD_MDS_PR_KEY		0x0100000000000000ULL
 
 /*
@@ -342,6 +387,10 @@ nfsd4_block_get_device_info_scsi(struct super_block *sb,
 		goto out_free_dev;
 	}
 
+	ret = nfsd4_scsi_fence_insert(clp, sb->s_bdev->bd_dev);
+	if (ret < 0)
+		goto out_free_dev;
+
 	ret = ops->pr_register(sb->s_bdev, 0, NFSD_MDS_PR_KEY, true);
 	if (ret) {
 		pr_err("pNFS: failed to register key for device %s.\n",
@@ -401,9 +450,32 @@ nfsd4_scsi_fence_client(struct nfs4_layout_stateid *ls, struct nfsd_file *file)
 	struct block_device *bdev = file->nf_file->f_path.mnt->mnt_sb->s_bdev;
 	int status;
 
+	if (nfsd4_scsi_fence_set(clp, bdev->bd_dev))
+		return;
+
 	status = bdev->bd_disk->fops->pr_ops->pr_preempt(bdev, NFSD_MDS_PR_KEY,
 			nfsd4_scsi_pr_key(clp),
 			PR_EXCLUSIVE_ACCESS_REG_ONLY, true);
+	/*
+	 * Reset to allow retry only when the command could not have
+	 * reached the device. Negative status means a local error
+	 * (e.g., -ENOMEM) prevented the command from being sent.
+	 * PR_STS_PATH_FAILED, PR_STS_PATH_FAST_FAILED, and
+	 * PR_STS_RETRY_PATH_FAILURE indicate transport path failures
+	 * before device delivery.
+	 *
+	 * For all other errors, the command may have reached the device
+	 * and the preempt may have succeeded. Avoid resetting, since
+	 * retrying a successful preempt returns PR_STS_IOERR or
+	 * PR_STS_RESERVATION_CONFLICT, which would cause an infinite
+	 * retry loop.
+	 */
+	if (status < 0 ||
+	    status == PR_STS_PATH_FAILED ||
+	    status == PR_STS_PATH_FAST_FAILED ||
+	    status == PR_STS_RETRY_PATH_FAILURE)
+		nfsd4_scsi_fence_clear(clp, bdev->bd_dev);
+
 	trace_nfsd_pnfs_fence(clp, bdev->bd_disk->disk_name, status);
 }
 

@@ -527,6 +527,9 @@ struct nfs4_client {
 
 	struct nfsd4_cb_recall_any	*cl_ra;
 	time64_t		cl_ra_time;
+#ifdef CONFIG_NFSD_SCSILAYOUT
+	struct xarray		cl_dev_fences;
+#endif
 };
 
 /* struct nfs4_client_reset
