@@ -2383,6 +2383,9 @@ static struct nfs4_client *alloc_client(struct xdr_netobj name,
 #ifdef CONFIG_NFSD_PNFS
 	INIT_LIST_HEAD(&clp->cl_lo_states);
 #endif
+#ifdef CONFIG_NFSD_SCSILAYOUT
+	xa_init(&clp->cl_dev_fences);
+#endif
 	INIT_LIST_HEAD(&clp->async_copies);
 	spin_lock_init(&clp->async_lock);
 	spin_lock_init(&clp->cl_lock);
@@ -2544,6 +2547,9 @@ __destroy_client(struct nfs4_client *clp)
 		svc_xprt_put(clp->cl_cb_conn.cb_xprt);
 	atomic_add_unless(&nn->nfs4_client_count, -1, 0);
 	nfsd4_dec_courtesy_client_count(nn, clp);
+#ifdef CONFIG_NFSD_SCSILAYOUT
+	xa_destroy(&clp->cl_dev_fences);
+#endif
 	free_client(clp);
 	wake_up_all(&expiry_wq);
 }
