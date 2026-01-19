@@ -190,32 +190,37 @@ static bool mmc5633_is_support_hdr(struct mmc5633_data *data)
 	if (!data->i3cdev)
 		return false;
 
+#ifdef CONFIG_I3C
 	return i3c_device_get_supported_xfer_mode(data->i3cdev) & BIT(I3C_HDR_DDR);
+#else
+	return false;
+#endif
 }
 
 static int mmc5633_read_measurement(struct mmc5633_data *data, int address, void *buf, size_t sz)
 {
 	struct device *dev = regmap_get_device(data->regmap);
 	u8 data_cmd[2], status[2];
-	unsigned int val, ready;
+	unsigned int val;
+	unsigned int ready __maybe_unused;
 	int ret;
 
 	if (mmc5633_is_support_hdr(data)) {
-		struct i3c_xfer xfers_wr_cmd[] = {
+		struct i3c_xfer xfers_wr_cmd[] __maybe_unused = {
 			{
 				.cmd = 0x3b,
 				.len = 2,
 				.data.out = data_cmd,
 			}
 		};
-		struct i3c_xfer xfers_rd_sta_cmd[] = {
+		struct i3c_xfer xfers_rd_sta_cmd[] __maybe_unused = {
 			{
 				.cmd = 0x23 | BIT(7), /* RDSTA CMD */
 				.len = 2,
 				.data.in = status,
 			},
 		};
-		struct i3c_xfer xfers_rd_data_cmd[] = {
+		struct i3c_xfer xfers_rd_data_cmd[] __maybe_unused = {
 			{
 				.cmd = 0x22 | BIT(7), /* RDLONG CMD */
 				.len = sz,
@@ -227,19 +232,27 @@ static int mmc5633_read_measurement(struct mmc5633_data *data, int address, void
 		data_cmd[1] = (address == MMC5633_TEMPERATURE) ?
 			      MMC5633_HDR_CTRL0_MEAS_T : MMC5633_HDR_CTRL0_MEAS_M;
 
+#ifdef CONFIG_I3C
 		ret = i3c_device_do_xfers(data->i3cdev, xfers_wr_cmd,
 					  ARRAY_SIZE(xfers_wr_cmd), I3C_HDR_DDR);
+#else
+		return -EOPNOTSUPP;
+#endif
 		if (ret < 0)
 			return ret;
 
 		ready = (address == MMC5633_TEMPERATURE) ?
 			MMC5633_STATUS1_MEAS_T_DONE_BIT : MMC5633_STATUS1_MEAS_M_DONE_BIT;
+#ifdef CONFIG_I3C
 		ret = read_poll_timeout(i3c_device_do_xfers, val,
 					val || (status[0] & ready),
 					10 * USEC_PER_MSEC,
 					100 * 10 * USEC_PER_MSEC, 0,
 					data->i3cdev, xfers_rd_sta_cmd,
 					ARRAY_SIZE(xfers_rd_sta_cmd), I3C_HDR_DDR);
+#else
+		ret = -EOPNOTSUPP;
+#endif
 		if (ret) {
 			dev_err(dev, "data not ready\n");
 			return ret;
@@ -248,8 +261,12 @@ static int mmc5633_read_measurement(struct mmc5633_data *data, int address, void
 			dev_err(dev, "i3c transfer error\n");
 			return val;
 		}
+#ifdef CONFIG_I3C
 		return i3c_device_do_xfers(data->i3cdev, xfers_rd_data_cmd,
 					   ARRAY_SIZE(xfers_rd_data_cmd), I3C_HDR_DDR);
+#else
+		return -EOPNOTSUPP;
+#endif
 	}
 
 	/* Fallback to use SDR/I2C mode */
