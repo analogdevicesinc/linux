@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pinctrl/adi,sc5xx-pinctrl.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Pinmuxing Control for SC5XX Processor Family
+
+maintainers:
+  - Arturs Artamonovs <arturs.artamonovs@analog.com>
+  - Utsav Agarwal <Utsav.Agarwal@analog.com>
+
+description: |
+  Pinmuxing Control Driver for Configuring Processor Pins/Pads
+
+properties:
+  compatible:
+    enum:
+      - adi,sc5xx-pinctrl
+  reg:
+    maxItems: 1
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 1
+
+  "adi,port-sizes":
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    maxItems: 9
+    description: Space delimited integer list denoting number of pins per port
+      Ports A-I exist, so this is up to 9 items long
+
+  "adi,no-drive-strength":
+    type: boolean
+    description: Indicate missing drive strength registers
+
+  "adi,no-pull-up-down":
+    type: boolean
+    description: Indicate missing pull up/down enable registers
+
+patternProperties:
+  '-pins$':
+    type: object
+    additionalProperties: false
+
+    properties:
+      pins:
+        type: object
+        description: |
+          A pinctrl node should contain a pin property, specifying the actual
+          pins to use.
+
+        properties:
+          pinmux:
+            $ref: /schemas/types.yaml#/definitions/uint32-array
+            description: |
+              pinmux is used to specify which of the available functionalities
+              for a given pin are actually used.
+
+        additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - "#address-cells"
+  - "#size-cells"
+  - adi,port-sizes
+
+additionalProperties: false
+
+examples:
+  - |
+    pinctrl@31004600 {
+      compatible = "adi,sc5xx-pinctrl";
+      #address-cells = <1>;
+      #size-cells = <1>;
+      reg = <0x31004600 0x400>;
+      adi,port-sizes = <16 16 16 16 16 16 16 16 7>;
+    };
+
