@@ -2743,9 +2743,35 @@ static int adrv903x_probe(struct spi_device *spi)
 		 apiVersion.majorVer, apiVersion.minorVer,
 		 apiVersion.maintenanceVer, apiVersion.buildVer);
 
-	ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
-	if (ret)
-		goto out_iio_device_unregister;
+	ret = adrv903x_jesd204_device_init(phy->jdev,
+					   JESD204_STATE_OP_REASON_INIT);
+	if (ret != JESD204_STATE_CHANGE_DONE)
+		pr_err("TESTING ERROR adrv903x_jesd204_device_init failed\n");
+
+	ret = adrv903x_jesd204_link_pre_setup(phy->jdev,
+					      JESD204_STATE_OP_REASON_INIT);
+	if (ret != JESD204_STATE_CHANGE_DONE)
+		pr_err("TESTING ERROR adrv903x_jesd204_link_pre_setup failed\n");
+
+	ret = adrv903x_jesd204_link_setup(phy->jdev,
+					  JESD204_STATE_OP_REASON_INIT);
+	if (ret != JESD204_STATE_CHANGE_DONE)
+		pr_err("TESTING ERROR adrv903x_jesd204_link_setup failed\n");
+
+	ret = adrv903x_jesd204_setup_stage1(phy->jdev,
+					    JESD204_STATE_OP_REASON_INIT);
+	if (ret != JESD204_STATE_CHANGE_DONE)
+		pr_err("TESTING ERROR adrv903x_jesd204_setup_stage1 failed\n");
+
+	ret = adrv903x_jesd204_setup_stage2(phy->jdev,
+					    JESD204_STATE_OP_REASON_INIT);
+	if (ret != JESD204_STATE_CHANGE_DONE)
+		pr_err("TESTING ERROR adrv903x_jesd204_setup_stage2 failed\n");
+
+	ret = adrv903x_jesd204_post_running_stage(phy->jdev,
+						  JESD204_STATE_OP_REASON_INIT);
+	if (ret != JESD204_STATE_CHANGE_DONE)
+		pr_err("TESTING ERROR adrv903x_jesd204_post_running_stage failed\n");
 
 	return 0;
 
