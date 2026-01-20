@@ -524,12 +524,12 @@ static int ad4062_set_chan_calibscale(struct ad4062_state *st, int gain_int,
 static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 {
 	struct i3c_device *i3cdev = st->i3cdev;
-	struct i3c_priv_xfer xfer_trigger = {
+	struct i3c_xfer xfer_trigger = {
 		.data.out = &st->conv_addr,
 		.len = sizeof(st->conv_addr),
 		.rnw = false,
 	};
-	struct i3c_priv_xfer xfer_sample = {
+	struct i3c_xfer xfer_sample = {
 		.data.in = &st->buf.be32,
 		.len = sizeof(st->buf.be32),
 		.rnw = true,
@@ -548,7 +548,7 @@ static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 	reinit_completion(&st->completion);
 	/* Change address pointer to trigger conversion */
 	st->conv_addr = AD4062_REG_CONV_TRIGGER_32BITS;
-	ret = i3c_device_do_priv_xfers(i3cdev, &xfer_trigger, 1);
+	ret = i3c_device_do_xfers(i3cdev, &xfer_trigger, 1, I3C_SDR);
 	if (ret)
 		return ret;
 	/*
@@ -560,7 +560,7 @@ static int ad4062_read_chan_raw(struct ad4062_state *st, int *val)
 	if (!ret)
 		return -ETIMEDOUT;
 
-	ret = i3c_device_do_priv_xfers(i3cdev, &xfer_sample, 1);
+	ret = i3c_device_do_xfers(i3cdev, &xfer_sample, 1, I3C_SDR);
 	if (ret)
 		return ret;
 	*val = be32_to_cpu(st->buf.be32);
