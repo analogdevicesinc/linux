@@ -134,9 +134,9 @@ check_checkpatch() {
 						else
 							# Ignore some cases:
 							prefix=
-							if [[ "$msg" =~ ^"Macros with complex values should be enclosed in parentheses" ]] &&
-							   [[ "$file" =~ "/dt-bindings/" ]] ||
-							   [[ "$file" =~ "/boot/dts/" ]]; then
+							if [[ "$msg" =~ ^"Macros with complex values should be enclosed in parentheses" &&
+							    ( "$file" =~ "/dt-bindings/" ||
+							      "$file" =~ "/boot/dts/" ) ]]; then
 								prefix=ignored
 								((ignored++))
 							else
