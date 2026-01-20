@@ -1,0 +1,428 @@
+/dts-v1/;
+/plugin/;
+
+#include "vu11p-ad9084-vpx-revb.dtso"
+
+&rfpc_one_bit_adc_dac {
+	status = "okay";
+	label = "nyx_controls";
+
+	out-gpios = <&axi_gpio_1 33 0>, <&axi_gpio_1 34 0>,
+		    <&axi_gpio_1 35 0>, <&axi_gpio_1 36 0>,
+		    <&axi_gpio_1 37 0>, <&axi_gpio_1 38 0>,
+		    <&axi_gpio_1 39 0>, <&axi_gpio_1 40 0>,
+		    <&axi_gpio_1 41 0>, <&axi_gpio_1 42 0>,
+		    <&axi_gpio_1 43 0>, <&axi_gpio_1 44 0>,
+		    <&axi_gpio_1 45 0>, <&axi_gpio_1 46 0>,
+		    <&axi_gpio_1 47 0>, <&axi_gpio_1 48 0>,
+		    <&axi_gpio_1 49 0>, <&axi_gpio_1 50 0>,
+		    <&axi_gpio_1 51 0>, <&axi_gpio_1 52 0>,
+		    <&axi_gpio_1 53 0>, <&axi_gpio_1 54 0>,
+		    <&axi_gpio_1 55 0>, <&axi_gpio_1 56 0>,
+		    <&axi_gpio_1 57 0>, <&axi_gpio_1 58 0>,
+		    <&axi_gpio_1 59 0>, <&axi_gpio_1 60 0>,
+		    <&axi_gpio_1 61 0>, <&axi_gpio_1 62 0>,
+		    <&axi_gpio_1 63 0>, <&axi_gpio_2 0 0>,
+		    <&axi_gpio_2 1 0>, <&axi_gpio_2 2 0>,
+		    <&axi_gpio_2 3 0>, <&axi_gpio_2 4 0>,
+		    <&axi_gpio_2 5 0>, <&axi_gpio_2 6 0>,
+		    <&axi_gpio_2 7 0>, <&axi_gpio_2 8 0>,
+		    <&axi_gpio_2 9 0>, <&axi_gpio_2 10 0>,
+		    <&axi_gpio_2 11 0>, <&axi_gpio_2 12 0>,
+		    <&axi_gpio_2 13 0>, <&axi_gpio_2 14 0>,
+		    <&axi_gpio_2 15 0>, <&axi_gpio_2 16 0>,
+		    <&axi_gpio_2 17 0>, <&axi_gpio_2 18 0>,
+		    <&axi_gpio_2 19 0>, <&axi_gpio_2 20 0>,
+		    <&axi_gpio_2 21 0>, <&axi_gpio_2 22 0>,
+		    <&axi_gpio_2 23 0>, <&axi_gpio_2 24 0>,
+		    <&axi_gpio_2 25 0>, <&axi_gpio_2 26 0>,
+		    <&axi_gpio_2 27 0>, <&axi_gpio_2 28 0>,
+		    <&axi_gpio_2 29 0>, <&axi_gpio_2 30 0>,
+		    <&axi_gpio_2 31 0>, <&axi_gpio_2 32 0>,
+		    <&axi_gpio_2 33 0>, <&axi_gpio_2 34 0>,
+		    <&axi_gpio_2 35 0>, <&axi_gpio_2 36 0>,
+		    <&axi_gpio_2 37 0>, <&axi_gpio_2 38 0>,
+		    <&axi_gpio_2 39 0>, <&axi_gpio_2 40 0>,
+		    <&axi_gpio_2 41 0>, <&axi_gpio_2 42 0>,
+		    <&axi_gpio_2 43 0>, <&axi_gpio_2 44 0>;
+
+	channel@0 {
+		reg = <0>;
+		label = "tx3_filter_ctrl_0"; //axi_gpio_1 33
+	};
+
+	channel@1 {
+		reg = <1>;
+		label = "tx3_filter_ctrl_1"; //axi_gpio_1 34
+	};
+
+	channel@2 {
+		reg = <2>;
+		label = "tx2_filter_ctrl_0"; //axi_gpio_1 35
+	};
+
+	channel@3 {
+		reg = <3>;
+		label = "tx2_filter_ctrl_1"; //axi_gpio_1 36
+	};
+
+	channel@4 {
+		reg = <4>;
+		label = "tx1_filter_ctrl_0"; //axi_gpio_1 37
+	};
+
+	channel@5 {
+		reg = <5>;
+		label = "tx1_filter_ctrl_1"; //axi_gpio_1 38
+	};
+
+	channel@6 {
+		reg = <6>;
+		label = "tx0_filter_ctrl_0"; //axi_gpio_1 39
+	};
+
+	channel@7 {
+		reg = <7>;
+		label = "tx0_filter_ctrl_1"; //axi_gpio_1 40
+	};
+
+	channel@8 {
+		reg = <8>;
+		label = "rx3_filter_ctrl_0"; //axi_gpio_1 41
+	};
+
+	channel@9 {
+		reg = <9>;
+		label = "rx3_filter_ctrl_1"; //axi_gpio_1 42
+	};
+
+	channel@10 {
+		reg = <10>;
+		label = "rx2_filter_ctrl_0"; //axi_gpio_1 43
+	};
+
+	channel@11 {
+		reg = <11>;
+		label = "rx2_filter_ctrl_1"; //axi_gpio_1 44
+	};
+
+	channel@12 {
+		reg = <12>;
+		label = "rx1_filter_ctrl_0"; //axi_gpio_1 45
+	};
+
+	channel@13 {
+		reg = <13>;
+		label = "rx1_filter_ctrl_1"; //axi_gpio_1 46
+	};
+
+	channel@14 {
+		reg = <14>;
+		label = "rx0_filter_ctrl_0"; //axi_gpio_1 47
+	};
+
+	channel@15 {
+		reg = <15>;
+		label = "rx0_filter_ctrl_1"; //axi_gpio_1 48
+	};
+
+	channel@16 {
+		reg = <16>;
+		label = "tx0_dsa_0"; //axi_gpio_1 49
+	};
+
+	channel@17 {
+		reg = <17>;
+		label = "tx0_dsa_1"; //axi_gpio_1 50
+	};
+
+	channel@18 {
+		reg = <18>;
+		label = "tx0_dsa_2"; //axi_gpio_1 51
+	};
+
+	channel@19 {
+		reg = <19>;
+		label = "tx0_dsa_3"; //axi_gpio_1 52
+	};
+
+	channel@20 {
+		reg = <20>;
+		label = "tx0_dsa_4"; //axi_gpio_1 53
+	};
+
+	channel@21 {
+		reg = <21>;
+		label = "tx0_dsa_5"; //axi_gpio_1 54
+	};
+
+	channel@22 {
+		reg = <22>;
+		label = "tx1_dsa_0"; //axi_gpio_1 55
+	};
+
+	channel@23 {
+		reg = <23>;
+		label = "tx1_dsa_1"; //axi_gpio_1 56
+	};
+
+	channel@24 {
+		reg = <24>;
+		label = "tx1_dsa_2"; //axi_gpio_1 57
+	};
+
+	channel@25 {
+		reg = <25>;
+		label = "tx1_dsa_3"; //axi_gpio_1 58
+	};
+
+	channel@26 {
+		reg = <26>;
+		label = "tx1_dsa_4"; //axi_gpio_1 59
+	};
+
+	channel@27 {
+		reg = <27>;
+		label = "tx1_dsa_5"; //axi_gpio_1 60
+	};
+
+	channel@28 {
+		reg = <28>;
+		label = "tx2_dsa_0"; //axi_gpio_1 61
+	};
+
+	channel@29 {
+		reg = <29>;
+		label = "tx2_dsa_1"; //axi_gpio_1 62
+	};
+
+	channel@30 {
+		reg = <30>;
+		label = "tx2_dsa_2"; //axi_gpio_1 63
+	};
+
+	channel@31 {
+		reg = <31>;
+		label = "tx2_dsa_3"; //axi_gpio_2 0
+	};
+
+	channel@32 {
+		reg = <32>;
+		label = "tx2_dsa_4"; //axi_gpio_2 1
+	};
+
+	channel@33 {
+		reg = <33>;
+		label = "tx2_dsa_5"; //axi_gpio_2 2
+	};
+
+	channel@34 {
+		reg = <34>;
+		label = "tx3_dsa_0"; //axi_gpio_2 3
+	};
+
+	channel@35 {
+		reg = <35>;
+		label = "tx3_dsa_1"; //axi_gpio_2 4
+	};
+
+	channel@36 {
+		reg = <36>;
+		label = "tx3_dsa_2"; //axi_gpio_2 5
+	};
+
+	channel@37 {
+		reg = <37>;
+		label = "tx3_dsa_3"; //axi_gpio_2 6
+	};
+
+	channel@38 {
+		reg = <38>;
+		label = "tx3_dsa_4"; //axi_gpio_2 7
+	};
+
+	channel@39 {
+		reg = <39>;
+		label = "tx3_dsa_5"; //axi_gpio_2 8
+	};
+
+	channel@40 {
+		reg = <40>;
+		label = "rx0_dsa_0"; //axi_gpio_2 9
+	};
+
+	channel@41 {
+		reg = <41>;
+		label = "rx0_dsa_1"; //axi_gpio_2 10
+	};
+
+	channel@42 {
+		reg = <42>;
+		label = "rx0_dsa_2"; //axi_gpio_2 11
+	};
+
+	channel@43 {
+		reg = <43>;
+		label = "rx0_dsa_3"; //axi_gpio_2 12
+	};
+
+	channel@44 {
+		reg = <44>;
+		label = "rx0_dsa_4"; //axi_gpio_2 13
+	};
+
+	channel@45 {
+		reg = <45>;
+		label = "rx0_dsa_5"; //axi_gpio_2 14
+	};
+
+	channel@46 {
+		reg = <46>;
+		label = "rx1_dsa_0"; //axi_gpio_2 15
+	};
+
+	channel@47 {
+		reg = <47>;
+		label = "rx1_dsa_1"; //axi_gpio_2 16
+	};
+
+	channel@48 {
+		reg = <48>;
+		label = "rx1_dsa_2"; //axi_gpio_2 17
+	};
+
+	channel@49 {
+		reg = <49>;
+		label = "rx1_dsa_3"; //axi_gpio_2 18
+	};
+
+	channel@50 {
+		reg = <50>;
+		label = "rx1_dsa_4"; //axi_gpio_2 19
+	};
+
+	channel@51 {
+		reg = <51>;
+		label = "rx1_dsa_5"; //axi_gpio_2 20
+	};
+
+	channel@52 {
+		reg = <52>;
+		label = "rx2_dsa_0"; //axi_gpio_2 21
+	};
+
+	channel@53 {
+		reg = <53>;
+		label = "rx2_dsa_1"; //axi_gpio_2 22
+	};
+
+	channel@54 {
+		reg = <54>;
+		label = "rx2_dsa_2"; //axi_gpio_2 23
+	};
+
+	channel@55 {
+		reg = <55>;
+		label = "rx2_dsa_3"; //axi_gpio_2 24
+	};
+
+	channel@56 {
+		reg = <56>;
+		label = "rx2_dsa_4"; //axi_gpio_2 25
+	};
+
+	channel@57 {
+		reg = <57>;
+		label = "rx2_dsa_5"; //axi_gpio_2 26
+	};
+
+	channel@58 {
+		reg = <58>;
+		label = "rx3_dsa_0"; //axi_gpio_2 27
+	};
+
+	channel@59 {
+		reg = <59>;
+		label = "rx3_dsa_1"; //axi_gpio_2 28
+	};
+
+	channel@60 {
+		reg = <60>;
+		label = "rx3_dsa_2"; //axi_gpio_2 29
+	};
+
+	channel@61 {
+		reg = <61>;
+		label = "rx3_dsa_3"; //axi_gpio_2 30
+	};
+
+	channel@62 {
+		reg = <62>;
+		label = "rx3_dsa_4"; //axi_gpio_2 31
+	};
+
+	channel@63 {
+		reg = <63>;
+		label = "rx3_dsa_5"; //axi_gpio_2 32
+	};
+
+	channel@64 {
+		reg = <64>;
+		label = "tx_enable_0"; //axi_gpio_2 33
+	};
+
+	channel@65 {
+		reg = <65>;
+		label = "tx_enable_1"; //axi_gpio_2 34
+	};
+
+	channel@66 {
+		reg = <66>;
+		label = "tx_enable_2"; //axi_gpio_2 35
+	};
+
+	channel@67 {
+		reg = <67>;
+		label = "tx_enable_3"; //axi_gpio_2 36
+	};
+
+	channel@68 {
+		reg = <68>;
+		label = "rx_enable_0"; //axi_gpio_2 37
+	};
+
+	channel@69 {
+		reg = <69>;
+		label = "rx_enable_1"; //axi_gpio_2 38
+	};
+
+	channel@70 {
+		reg = <70>;
+		label = "rx_enable_2"; //axi_gpio_2 39
+	};
+
+	channel@71 {
+		reg = <71>;
+		label = "rx_enable_3"; //axi_gpio_2 40
+	};
+
+	channel@72 {
+		reg = <72>;
+		label = "rx_amp_bypass_1"; //axi_gpio_2 41
+	};
+
+	channel@73 {
+		reg = <73>;
+		label = "rx_amp_bypass_2"; //axi_gpio_2 42
+	};
+
+	channel@74 {
+		reg = <74>;
+		label = "rx_amp_bypass_3"; //axi_gpio_2 43
+	};
+
+	channel@75 {
+		reg = <75>;
+		label = "rx_amp_bypass_4"; //axi_gpio_2 44
+	};
+};

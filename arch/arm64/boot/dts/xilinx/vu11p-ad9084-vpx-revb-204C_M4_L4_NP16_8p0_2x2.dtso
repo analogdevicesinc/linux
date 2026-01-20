@@ -4,35 +4,20 @@
 #include <dt-bindings/iio/adc/adi,ad9088.h>
 #include <dt-bindings/jesd204/adxcvr.h>
 
-#ifndef DEVICE_PROFILE_NAME
-#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP16_2p5_4x2.bin"
-#endif
+// Parameters for AD9084 device profile
+#define DEVICE_PROFILE_NAME	"id01_uc47_ffsom_8G.bin"
 
-#ifndef OUT_CLK_SELECT
 #define OUT_CLK_SELECT		XCVR_PROGDIV_CLK
-#endif
 
-#ifndef ASYNM_A_B_MODE
 #define ASYNM_A_B_MODE		1
-#endif
 
-#ifndef HSCI_ENABLE
-#define HSCI_ENABLE		1
-#endif
+#define HSCI_ENABLE		0
 
-#ifndef WITH_AION
-#define WITH_AION		1
-#endif
+#define WITH_AION		0
 
-#ifndef VU11_FIRMWARE_NAME
 #define VU11_FIRMWARE_NAME	"vu11p.bin"
-#endif
 
-#ifdef WITH_AION
-#define JESD_SUBCLASS 1
-#else
 #define JESD_SUBCLASS 0
-#endif
 
 &vu11p_fpga_region {
 	#address-cells = <2>;
@@ -54,10 +39,10 @@
 		compatible = "fixed-clock";
 	};
 
-	clkin_62p5: clock@2 {
+	clkin_8000: clock@2 {
 		#clock-cells = <0>;
-		clock-frequency = <62500000>;
-		clock-output-names = "clkin_div2_ref";
+		clock-frequency = <8000000000>;
+		clock-output-names = "apollo_sample_clock";
 		compatible = "fixed-clock";
 	};
 
@@ -80,33 +65,6 @@
 		reg = <0x0 0x88160000 0x0 0x1000>;
 		xlnx,kind-of-intr = <0xffe0385>;
 		xlnx,num-intr-inputs = <19>;
-	};
-
-	adf4382_spi: spi@88000000 {
-		bits-per-word = <8>;
-		compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
-		fifo-size = <16>;
-		interrupt-names = "ip2intc_irpt";
-		interrupt-parent = <&axi_intc_0>;
-		interrupts = <8 0>;
-		num-cs = <0x1>;
-		reg = <0x0 0x88000000 0x0 0x1000>;
-		xlnx,num-ss-bits = <0x1>;
-		xlnx,spi-mode = <0>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-		adf4382: adf4382@0 {
-			#clock-cells = <1>;
-			compatible = "adi,adf4382";
-			reg = <0>;
-			spi-max-frequency = <1000000>;
-			clocks = <&clkin_62p5>;
-			clock-names = "ref_clk";
-			adi,ref-doubler-enable;
-			clock-output-names = "adf4382_out_clk";
-			adi,power-up-frequency = /bits/ 64 <20000000000>;
-		};
 	};
 
 	ltc6952_spi: spi@881a0000 {
@@ -165,26 +123,10 @@
 				adi,analog-delay = <0>;
 			};
 #endif /* WITH_AION */
-			// channel@1 {
-			//	reg = <1>;
-			//	adi,extended-name = "Aurora RF GTH";
-			//	adi,divider = <6>;
-			//	adi,digital-delay = <0>;
-			//	adi,analog-delay = <0>;
-			// };
-			// channel@2 {
-			// 	reg = <2>;
-			// 	adi,extended-name = "Apollo PLL REF CLK";
-			// 	adi,divider = <6>;
-			// 	adi,digital-delay = <0>;
-			// 	adi,analog-delay = <0>;
-			// 	adi,sysref-mode = <0>;
-			// 	adi,jesd204-sysref-chan;
-			// };
 			channel@3 {
 				reg = <3>;
-				adi,extended-name = "VUP Core CLK";
-				adi,divider = <8>;
+				adi,extended-name = "VUP Core CLK"; // adsy1100_AD9084_RX_device_clk
+				adi,divider = <10>;
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
 			};
@@ -192,7 +134,7 @@
 			channel@4 {
 				reg = <4>;
 				adi,extended-name = "VUP JESD SYSREF";
-				adi,divider = <768>;
+				adi,divider = <1280>;
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
 				adi,sysref-mode = <0>;
@@ -201,7 +143,7 @@
 			channel@5 {
 				reg = <5>;
 				adi,extended-name = "Apollo SYSREF";
-				adi,divider = <768>;
+				adi,divider = <1280>;
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
 				adi,sysref-mode = <0>;
@@ -210,39 +152,18 @@
 #endif /* !WITH_AION */
 			channel@6 {
 				reg = <6>;
-				adi,extended-name = "JESD REF CLK 1";
-				adi,divider = <4>;
+				adi,extended-name = "JESD REF CLK 1"; // adsy1100_AD9084_RX_ref_clk
+				adi,divider = <10>;
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
 			};
 			channel@7 {
 				reg = <7>;
-				adi,extended-name = "JESD REF CLK 2";
-				adi,divider = <4>;
+				adi,extended-name = "JESD REF CLK 2"; // adsy1100_AD9084_RX_ref_clk
+				adi,divider = <10>;
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
 			};
-			// channel@8 {
-			//	reg = <8>;
-			//	adi,extended-name = "REF CLL RFPC";
-			//	adi,divider = <6>;
-			//	adi,digital-delay = <0>;
-			//	adi,analog-delay = <0>;
-			// };
-			// channel@9 {
-			//	reg = <9>;
-			//	adi,extended-name = "SYNC RFPC";
-			//	adi,divider = <6>;
-			//	adi,digital-delay = <0>;
-			//	adi,analog-delay = <0>;
-			// };
-			// channel@10 {
-			//	reg = <10>;
-			//	adi,extended-name = "Auroro RF GTY";
-			//	adi,divider = <6>;
-			//	adi,digital-delay = <0>;
-			//	adi,analog-delay = <0>;
-			// };
 		};
 
 		ltc6948: ltc6948@1 {
@@ -556,16 +477,12 @@
 			spi-max-frequency = <5000000>;
 
 			/* Clocks */
-			clocks = <&adf4382 0>;
+			clocks = <&clkin_8000 0>;
 			clock-names = "dev_clk";
 			dev_clk-clock-scales = <1 10>;
 
 			clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 			#clock-cells = <1>;
-
-			// interrupt-names = "fft_done_A", "fft_done_B";
-			// interrupt-parent = <&axi_gpio>;
-			// interrupts = <17 1 18 1>;
 
 #if HSCI_ENABLE
 			adi,axi-hsci-connected = <&axi_hsci>;
