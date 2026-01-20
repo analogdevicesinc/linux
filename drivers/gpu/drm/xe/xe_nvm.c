@@ -133,11 +133,9 @@ int xe_nvm_init(struct xe_device *xe)
 	if (WARN_ON(xe->nvm))
 		return -EFAULT;
 
-	xe->nvm = kzalloc(sizeof(*nvm), GFP_KERNEL);
-	if (!xe->nvm)
+	nvm = kzalloc(sizeof(*nvm), GFP_KERNEL);
+	if (!nvm)
 		return -ENOMEM;
-
-	nvm = xe->nvm;
 
 	nvm->writable_override = xe_nvm_writable_override(xe);
 	nvm->non_posted_erase = xe_nvm_non_posted_erase(xe);
@@ -165,7 +163,6 @@ int xe_nvm_init(struct xe_device *xe)
 	if (ret) {
 		drm_err(&xe->drm, "xe-nvm aux init failed %d\n", ret);
 		kfree(nvm);
-		xe->nvm = NULL;
 		return ret;
 	}
 
@@ -173,8 +170,9 @@ int xe_nvm_init(struct xe_device *xe)
 	if (ret) {
 		drm_err(&xe->drm, "xe-nvm aux add failed %d\n", ret);
 		auxiliary_device_uninit(aux_dev);
-		xe->nvm = NULL;
 		return ret;
 	}
+
+	xe->nvm = nvm;
 	return devm_add_action_or_reset(xe->drm.dev, xe_nvm_fini, xe);
 }
