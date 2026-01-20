@@ -17,11 +17,6 @@
  */
 static DEFINE_SPINLOCK(balloon_pages_lock);
 
-static struct balloon_dev_info *balloon_page_device(struct page *page)
-{
-	return (struct balloon_dev_info *)page_private(page);
-}
-
 /*
  * balloon_page_insert - insert a page into the balloon's page list and make
  *			 the page->private assignment accordingly.
@@ -232,6 +227,10 @@ struct page *balloon_page_dequeue(struct balloon_dev_info *b_dev_info)
 EXPORT_SYMBOL_GPL(balloon_page_dequeue);
 
 #ifdef CONFIG_BALLOON_COMPACTION
+static struct balloon_dev_info *balloon_page_device(struct page *page)
+{
+	return (struct balloon_dev_info *)page_private(page);
+}
 
 static bool balloon_page_isolate(struct page *page, isolate_mode_t mode)
 
