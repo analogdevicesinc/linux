@@ -438,6 +438,8 @@ struct tegra_pmc_soc {
  * @wake_cntrl_level_map: Bitmap to hold wake levels to be programmed in
  *     cntrl register associated with each wake during system suspend.
  * @syscore: syscore suspend/resume callbacks
+ * @wake_work: IRQ worker to retrigger wake interrupts on resume
+ * @wake_status: wake IRQ status at resume, cached for IRQ worker
  */
 struct tegra_pmc {
 	struct device *dev;
