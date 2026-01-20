@@ -2777,6 +2777,8 @@ bool smb2_should_replay(struct cifs_tcon *tcon,
 		return false;
 
 	if (tcon->retry || (*pretries)++ < tcon->ses->server->retrans) {
+		if (!(*pcur_sleep))
+			(*pcur_sleep) = 1;
 		msleep(*pcur_sleep);
 		(*pcur_sleep) = ((*pcur_sleep) << 1);
 		if ((*pcur_sleep) > CIFS_MAX_SLEEP)
