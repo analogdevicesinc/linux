@@ -450,18 +450,18 @@ static void ad4062_trigger_work(struct work_struct *work)
 	 * Read current conversion, if at reg CONV_READ, stop bit triggers
 	 * next sample and does not need writing the address.
 	 */
-	struct i3c_priv_xfer xfer_sample = {
+	struct i3c_xfer xfer_sample = {
 		.data.in = &st->buf.be32,
 		.len = st->conv_sizeof,
 		.rnw = true,
 	};
-	struct i3c_priv_xfer xfer_trigger = {
+	struct i3c_xfer xfer_trigger = {
 		.data.out = &st->conv_addr,
 		.len = sizeof(st->conv_addr),
 		.rnw = false,
 	};
 
-	ret = i3c_device_do_priv_xfers(st->i3cdev, &xfer_sample, 1);
+	ret = i3c_device_do_xfers(st->i3cdev, &xfer_sample, 1, I3C_SDR);
 	if (ret)
 		return;
 
@@ -470,7 +470,7 @@ static void ad4062_trigger_work(struct work_struct *work)
 	if (st->gpo_irq[1])
 		return;
 
-	i3c_device_do_priv_xfers(st->i3cdev, &xfer_trigger, 1);
+	i3c_device_do_xfers(st->i3cdev, &xfer_trigger, 1, I3C_SDR);
 }
 
 static irqreturn_t ad4062_poll_handler(int irq, void *p)
@@ -832,7 +832,7 @@ static int pm_ad4062_triggered_buffer_postenable(struct ad4062_state *st)
 	st->conv_sizeof = ad4062_sizeof_storagebits(st);
 	st->conv_addr = ad4062_get_conv_addr(st, st->conv_sizeof);
 	/* CONV_READ requires read to trigger first sample. */
-	struct i3c_priv_xfer xfer_sample[2] = {
+	struct i3c_xfer xfer_sample[2] = {
 		{
 			.data.out = &st->conv_addr,
 			.len = sizeof(st->conv_addr),
@@ -845,8 +845,8 @@ static int pm_ad4062_triggered_buffer_postenable(struct ad4062_state *st)
 		}
 	};
 
-	return i3c_device_do_priv_xfers(st->i3cdev, xfer_sample,
-					st->gpo_irq[1] ? 2 : 1);
+	return i3c_device_do_xfers(st->i3cdev, xfer_sample,
+				   st->gpo_irq[1] ? 2 : 1, I3C_SDR);
 }
 
 static int ad4062_triggered_buffer_postenable(struct iio_dev *indio_dev)
