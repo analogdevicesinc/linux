@@ -464,13 +464,13 @@ static int ad4062_set_operation_mode(struct ad4062_state *st,
 
 	if (mode == AD4062_MONITOR_MODE) {
 		/* Change address pointer to enter monitor mode */
-		struct i3c_priv_xfer xfer_trigger = {
+		struct i3c_xfer xfer_trigger = {
 			.data.out = &st->conv_addr,
 			.len = sizeof(st->conv_addr),
 			.rnw = false,
 		};
 		st->conv_addr = AD4062_REG_CONV_TRIGGER_32BITS;
-		return i3c_device_do_priv_xfers(st->i3cdev, &xfer_trigger, 1);
+		return i3c_device_do_xfers(st->i3cdev, &xfer_trigger, 1, I3C_SDR);
 	}
 
 	return regmap_write(st->regmap, AD4062_REG_MODE_SET,
