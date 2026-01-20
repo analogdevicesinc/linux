@@ -233,12 +233,8 @@ static SURVIVABILITY_ATTR_RO(fdo_mode, FDO_INFO);
 static void xe_survivability_mode_fini(void *arg)
 {
 	struct xe_device *xe = arg;
-	struct xe_survivability *survivability = &xe->survivability;
 	struct pci_dev *pdev = to_pci_dev(xe->drm.dev);
 	struct device *dev = &pdev->dev;
-
-	if (survivability->fdo_mode)
-		xe_nvm_fini(xe);
 
 	device_remove_file(dev, &dev_attr_survivability_mode);
 }
