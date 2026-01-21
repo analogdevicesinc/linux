@@ -225,8 +225,43 @@ int iio_backend_read_raw(struct iio_backend *back,
 int iio_backend_extend_chan_spec(struct iio_backend *back,
 				 struct iio_chan_spec *chan);
 void *iio_backend_get_priv(const struct iio_backend *conv);
-struct iio_backend *devm_iio_backend_get(struct device *dev, const char *name);
+
+struct iio_backend *__devm_iio_backend_get_ext(struct device *dev,
+					       const char *name,
+					       bool optional);
+
 struct iio_backend *devm_iio_backend_get_by_index(struct device *dev, unsigned int index);
+
+/**
+ * devm_iio_backend_get() - Device managed backend device get
+ * @dev: Consumer device for the backend
+ * @name: Backend name
+ *
+ * RETURNS:
+ * A backend pointer, negative error pointer otherwise.
+ */
+static inline struct iio_backend *
+__must_check devm_iio_backend_get(struct device *dev, const char *name)
+{
+	return __devm_iio_backend_get_ext(dev, name, false);
+}
+
+/**
+ * devm_iio_backend_get_optional() - Optional device managed backend device get
+ * @dev: Consumer device for the backend
+ * @name: Backend name
+ *
+ * RETURNS:
+ * A backend pointer, NULL if the backend device is not found, negative error
+ * pointer otherwise.
+ */
+static inline struct iio_backend *
+__must_check devm_iio_backend_get_optional(struct device *dev,
+					   const char *name)
+{
+	return __devm_iio_backend_get_ext(dev, name, true);
+}
+
 struct iio_backend *devm_iio_backend_fwnode_get(struct device *dev,
 						const char *name,
 						struct fwnode_handle *fwnode);
