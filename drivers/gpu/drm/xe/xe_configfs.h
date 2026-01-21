@@ -8,7 +8,7 @@
 #include <linux/limits.h>
 #include <linux/types.h>
 
-#include <xe_hw_engine_types.h>
+#include "xe_hw_engine_types.h"
 
 struct pci_dev;
 
