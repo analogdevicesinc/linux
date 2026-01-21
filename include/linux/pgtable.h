@@ -1629,7 +1629,6 @@ void arch_sync_kernel_mappings(unsigned long start, unsigned long end);
 #define FIRST_USER_ADDRESS	0UL
 #endif
 
-
 /*
  * No-op macros that just return the current protection value. Defined here
  * because these macros can be used even if CONFIG_MMU is not defined.
