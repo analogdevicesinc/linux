@@ -92,6 +92,8 @@
 				 NDMA_RX_FRAME_DROPPED_ERR_EVENT)
 #define NDMA_RX_STATUS_EVENTS   (NDMA_RX_STATUS_WR_EVENT | \
 				 NDMA_RX_WORKUNIT_COMPLETE_EVENT)
+#define NDMA_RX_FRAME_SIZE_DISABLED_MAX            0xFFFF
+#define NDMA_RX_FRAME_SIZE_DISABLED_MIN            0
 
 #define NDMA_INTR_CTRL_TX                          0x00
 #define   NDMA_INTR_CTRL_TX_DMA_ERR_EN             BIT(4)
@@ -520,8 +522,8 @@ static void adrv906x_ndma_set_frame_size(struct adrv906x_ndma_dev *ndma_dev)
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
 	unsigned int val;
 
-	val = FIELD_PREP(NDMA_RX_MIN_FRAME_SIZE, NDMA_RX_MIN_FRAME_SIZE_VALUE)
-	      | FIELD_PREP(NDMA_RX_MAX_FRAME_SIZE, NDMA_MAX_FRAME_SIZE_VALUE);
+	val = FIELD_PREP(NDMA_RX_MIN_FRAME_SIZE, NDMA_RX_FRAME_SIZE_DISABLED_MIN)
+	      | FIELD_PREP(NDMA_RX_MAX_FRAME_SIZE, NDMA_RX_FRAME_SIZE_DISABLED_MAX);
 	iowrite32(val, rx_chan->ctrl_base + NDMA_RX_FRAME_SIZE);
 
 	val = FIELD_PREP(NDMA_TX_MIN_FRAME_SIZE, NDMA_TX_MIN_FRAME_SIZE_VALUE)
@@ -1634,7 +1636,7 @@ static struct sk_buff *adrv906x_ndma_rx_build_linear_pkt_buf(struct list_head *d
 	struct list_head *pos;
 	unsigned int length;
 
-	if (frame_size > NDMA_MAX_FRAME_SIZE_VALUE)
+	if (frame_size > NDMA_MAX_FRAME_SIZE_VALUE || frame_size < NDMA_RX_MIN_FRAME_SIZE_VALUE)
 		goto out;
 
 	if (adrv906x_ndma_rx_validate_data_wu_list(data_wu_list, frame_size))
