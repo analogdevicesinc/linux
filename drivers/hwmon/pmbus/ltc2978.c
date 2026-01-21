@@ -26,8 +26,8 @@ enum chips {
 	lt7170, lt7171, ltc3880, ltc3882, ltc3883, ltc3884, ltc3886, ltc3887,
 	ltc3889, ltc7132, ltc7841, ltc7880,
 	/* Modules */
-	ltm2987, ltm4664, ltm4675, ltm4676, ltm4677, ltm4678, ltm4680, ltm4686,
-	ltm4700,
+	ltm2987, ltm4664, ltm4675, ltm4676, ltm4677, ltm4678, ltm4680, ltm4681,
+	ltm4682, ltm4686, ltm4700,
 };
 
 /* Common for all chips */
@@ -46,12 +46,12 @@ enum chips {
 #define LTC2974_MFR_IOUT_PEAK		0xd7
 #define LTC2974_MFR_IOUT_MIN		0xd8
 
-/* LTC3880, LTC3882, LTC3883, LTC3887, LTM4675, LTM4676, LTC7132 */
+/* LTC3880, LTC3882, LTC3883, LTC3887, LTM4675, LTM4676, LTC7132, LTM4681 and LTM4682 */
 #define LTC3880_MFR_IOUT_PEAK		0xd7
 #define LTC3880_MFR_CLEAR_PEAKS		0xe3
-#define LTC3880_MFR_TEMPERATURE2_PEAK	0xf4
+#define LTC3880_MFR_TEMPERATURE2_PEAK	0xf4 	/* Undocumented on LTM4682 */
 
-/* LTC3883, LTC3884, LTC3886, LTC3889, LTC7132, LTC7841 and LTC7880 */
+/* LTC3883, LTC3884, LTC3886, LTC3889, LTC7132, LTC7841, LTC7880, LTM4681, and LTM4682 */
 #define LTC3883_MFR_IIN_PEAK		0xe1
 
 /* LTC2975 only */
@@ -96,6 +96,8 @@ enum chips {
 #define LTM4678_ID_REV1			0x4100
 #define LTM4678_ID_REV2			0x4110
 #define LTM4680_ID			0x4140
+#define LTM4681_ID			0x4140
+#define LTM4682_ID			0x4180
 #define LTM4686_ID			0x4770
 #define LTM4700_ID			0x4130
 
@@ -562,6 +564,8 @@ static const struct i2c_device_id ltc2978_id[] = {
 	{"ltm4677", ltm4677},
 	{"ltm4678", ltm4678},
 	{"ltm4680", ltm4680},
+	{"ltm4681", ltm4681},
+	{"ltm4682", ltm4682},
 	{"ltm4686", ltm4686},
 	{"ltm4700", ltm4700},
 	{}
@@ -696,8 +700,10 @@ static int ltc2978_get_id(struct i2c_client *client)
 		return ltm4677;
 	else if (chip_id == LTM4678_ID_REV1 || chip_id == LTM4678_ID_REV2)
 		return ltm4678;
-	else if (chip_id == LTM4680_ID)
+	else if (chip_id == LTM4680_ID || chip_id == LTM4681_ID)
 		return ltm4680;
+	else if (chip_id == LTM4682_ID)
+		return ltm4682;
 	else if (chip_id == LTM4686_ID)
 		return ltm4686;
 	else if (chip_id == LTM4700_ID)
@@ -880,6 +886,7 @@ static int ltc2978_probe(struct i2c_client *client)
 	case ltm4664:
 	case ltm4678:
 	case ltm4680:
+	case ltm4682:
 	case ltm4700:
 		data->features |= FEAT_CLEAR_PEAKS | FEAT_NEEDS_POLLING;
 		info->read_word_data = ltc3883_read_word_data;
@@ -969,6 +976,8 @@ static const struct of_device_id ltc2978_of_match[] = {
 	{ .compatible = "lltc,ltm4677" },
 	{ .compatible = "lltc,ltm4678" },
 	{ .compatible = "lltc,ltm4680" },
+	{ .compatible = "lltc,ltm4681" },
+	{ .compatible = "lltc,ltm4682" },
 	{ .compatible = "lltc,ltm4686" },
 	{ .compatible = "lltc,ltm4700" },
 	{ }
