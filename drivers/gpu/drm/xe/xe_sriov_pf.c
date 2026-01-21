@@ -22,7 +22,7 @@
 
 static bool wanted_admin_only(struct xe_device *xe)
 {
-	return !xe->info.probe_display;
+	return xe_configfs_admin_only_pf(to_pci_dev(xe->drm.dev));
 }
 
 static unsigned int wanted_max_vfs(struct xe_device *xe)
