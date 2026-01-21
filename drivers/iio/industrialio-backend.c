@@ -921,16 +921,21 @@ EXPORT_SYMBOL_NS_GPL(iio_backend_data_transfer_addr, IIO_BACKEND);
 
 static struct iio_backend *__devm_iio_backend_fwnode_get_by_index(struct device *dev,
 								  struct fwnode_handle *fwnode,
-								  unsigned int index)
+								  unsigned int index,
+								  bool optional)
 {
 	struct fwnode_handle *fwnode_back;
 	struct iio_backend *back;
 	int ret;
 
 	fwnode_back = fwnode_find_reference(fwnode, "io-backends", index);
-	if (IS_ERR(fwnode_back))
+	if (IS_ERR(fwnode_back)) {
+		if (optional && PTR_ERR(fwnode_back) == -ENOENT)
+			return NULL;
+
 		return dev_err_cast_probe(dev, fwnode_back,
 					  "Cannot get Firmware reference\n");
+	}
 
 	guard(mutex)(&iio_back_lock);
 	list_for_each_entry(back, &iio_back_list, entry) {
@@ -952,7 +957,8 @@ static struct iio_backend *__devm_iio_backend_fwnode_get_by_index(struct device 
 }
 
 static struct iio_backend *__devm_iio_backend_fwnode_get(struct device *dev, const char *name,
-							 struct fwnode_handle *fwnode)
+							 struct fwnode_handle *fwnode,
+							 bool optional)
 {
 	unsigned int index;
 	int ret;
@@ -966,24 +972,26 @@ static struct iio_backend *__devm_iio_backend_fwnode_get(struct device *dev, con
 		index = 0;
 	}
 
-	return __devm_iio_backend_fwnode_get_by_index(dev, fwnode, index);
+	return __devm_iio_backend_fwnode_get_by_index(dev, fwnode, index, optional);
 }
 
 /**
- * devm_iio_backend_get - Device managed backend device get
+ * __devm_iio_backend_get_ext() - Device managed backend device get
  * @dev: Consumer device for the backend
  * @name: Backend name
+ * @optional: Whether the backend is optional or not
  *
  * Get's the backend associated with @dev.
  *
  * RETURNS:
  * A backend pointer, negative error pointer otherwise.
  */
-struct iio_backend *devm_iio_backend_get(struct device *dev, const char *name)
+struct iio_backend *__devm_iio_backend_get_ext(struct device *dev,
+					       const char *name, bool optional)
 {
-	return __devm_iio_backend_fwnode_get(dev, name, dev_fwnode(dev));
+	return __devm_iio_backend_fwnode_get(dev, name, dev_fwnode(dev), optional);
 }
-EXPORT_SYMBOL_NS_GPL(devm_iio_backend_get, IIO_BACKEND);
+EXPORT_SYMBOL_NS_GPL(__devm_iio_backend_get_ext, IIO_BACKEND);
 
 /**
  * devm_iio_backend_get_by_index - Device managed backend device get by index
@@ -997,7 +1005,7 @@ EXPORT_SYMBOL_NS_GPL(devm_iio_backend_get, IIO_BACKEND);
  */
 struct iio_backend *devm_iio_backend_get_by_index(struct device *dev, unsigned int index)
 {
-	return __devm_iio_backend_fwnode_get_by_index(dev, dev_fwnode(dev), index);
+	return __devm_iio_backend_fwnode_get_by_index(dev, dev_fwnode(dev), index, false);
 }
 EXPORT_SYMBOL_NS_GPL(devm_iio_backend_get_by_index, IIO_BACKEND);
 
@@ -1016,7 +1024,7 @@ struct iio_backend *devm_iio_backend_fwnode_get(struct device *dev,
 						const char *name,
 						struct fwnode_handle *fwnode)
 {
-	return __devm_iio_backend_fwnode_get(dev, name, fwnode);
+	return __devm_iio_backend_fwnode_get(dev, name, fwnode, false);
 }
 EXPORT_SYMBOL_NS_GPL(devm_iio_backend_fwnode_get, IIO_BACKEND);
 
