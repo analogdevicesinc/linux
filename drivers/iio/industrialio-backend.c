@@ -1006,9 +1006,14 @@ static struct iio_backend *__devm_iio_backend_fwnode_get_by_index(struct device 
 
 	struct fwnode_handle *fwnode_back __free(fwnode_handle) =
 		fwnode_find_reference(fwnode, "io-backends", index);
-	if (IS_ERR(fwnode_back))
+	if (IS_ERR(fwnode_back)) {
+		/* not described in firmware, let the caller decide what to do */
+		if (PTR_ERR(fwnode_back) == -ENOENT)
+			return ERR_CAST(fwnode_back);
+
 		return dev_err_cast_probe(dev, fwnode_back,
 					  "Cannot get Firmware reference\n");
+	}
 
 	guard(mutex)(&iio_back_lock);
 	list_for_each_entry(back, &iio_back_list, entry) {
@@ -1035,8 +1040,10 @@ static struct iio_backend *__devm_iio_backend_fwnode_get(struct device *dev, con
 
 	if (name) {
 		ret = device_property_match_string(dev, "io-backend-names", name);
-		if (ret < 0)
+		if (ret == -EILSEQ)
 			return ERR_PTR(ret);
+		if (ret < 0)
+			return ERR_PTR(-ENOENT);
 		index = ret;
 	} else {
 		index = 0;
@@ -1060,6 +1067,31 @@ struct iio_backend *devm_iio_backend_get(struct device *dev, const char *name)
 	return __devm_iio_backend_fwnode_get(dev, name, dev_fwnode(dev));
 }
 EXPORT_SYMBOL_NS_GPL(devm_iio_backend_get, "IIO_BACKEND");
+
+/**
+ * devm_iio_backend_get_optional - Optional device managed backend device get
+ * @dev: Consumer device for the backend
+ * @name: Backend name
+ *
+ * Gets the backend associated with @dev. A backend not described in firmware,
+ * i.e., the io-backends property is not present or @name is not listed in
+ * the io-backend-names property, is not treated as an error.
+ *
+ * RETURNS:
+ * A backend pointer, NULL if the backend is not described in firmware,
+ * negative error pointer otherwise.
+ */
+struct iio_backend *devm_iio_backend_get_optional(struct device *dev,
+						  const char *name)
+{
+	struct iio_backend *back = devm_iio_backend_get(dev, name);
+
+	if (IS_ERR(back) && PTR_ERR(back) == -ENOENT)
+		return NULL;
+
+	return back;
+}
+EXPORT_SYMBOL_NS_GPL(devm_iio_backend_get_optional, "IIO_BACKEND");
 
 /**
  * devm_iio_backend_get_by_index - Device managed backend device get by index
