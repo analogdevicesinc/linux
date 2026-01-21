@@ -254,7 +254,7 @@ int32_t adi_apollo_fsrc_ratio_set(adi_apollo_device_t* device, adi_apollo_termin
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
-    ADI_APOLLO_INVALID_PARAM_RETURN( (!(m > 0)) || (n == m) || (n / m >= 2) );
+    ADI_APOLLO_INVALID_PARAM_RETURN((m == 0) || (n == m) || (n / m != 1));
     ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
 
     err = adi_api_utils_ratio_decomposition(m, n, 48, &rate_int, &rate_frac_a, &rate_frac_b);
