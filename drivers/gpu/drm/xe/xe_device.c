@@ -26,6 +26,7 @@
 #include "xe_bo.h"
 #include "xe_bo_evict.h"
 #include "xe_debugfs.h"
+#include "xe_defaults.h"
 #include "xe_devcoredump.h"
 #include "xe_device_sysfs.h"
 #include "xe_dma_buf.h"
@@ -743,7 +744,7 @@ int xe_device_probe_early(struct xe_device *xe)
 	assert_lmem_ready(xe);
 
 	xe->wedged.mode = xe_device_validate_wedged_mode(xe, xe_modparam.wedged_mode) ?
-			  XE_WEDGED_MODE_DEFAULT : xe_modparam.wedged_mode;
+			  XE_DEFAULT_WEDGED_MODE : xe_modparam.wedged_mode;
 	drm_dbg(&xe->drm, "wedged_mode: setting mode (%u) %s\n",
 		xe->wedged.mode, xe_wedged_mode_to_string(xe->wedged.mode));
 
