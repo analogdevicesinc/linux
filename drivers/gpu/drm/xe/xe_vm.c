@@ -1474,6 +1474,20 @@ static void xe_vm_pt_destroy(struct xe_vm *vm)
 	}
 }
 
+static void xe_vm_init_prove_locking(struct xe_device *xe, struct xe_vm *vm)
+{
+	if (!IS_ENABLED(CONFIG_PROVE_LOCKING))
+		return;
+
+	fs_reclaim_acquire(GFP_KERNEL);
+	might_lock(&vm->exec_queues.lock);
+	fs_reclaim_release(GFP_KERNEL);
+
+	down_read(&vm->exec_queues.lock);
+	might_lock(&xe_root_mmio_gt(xe)->uc.guc.ct.lock);
+	up_read(&vm->exec_queues.lock);
+}
+
 struct xe_vm *xe_vm_create(struct xe_device *xe, u32 flags, struct xe_file *xef)
 {
 	struct drm_gem_object *vm_resv_obj;
@@ -1537,15 +1551,7 @@ struct xe_vm *xe_vm_create(struct xe_device *xe, u32 flags, struct xe_file *xef)
 		vm->preempt.min_run_period_ms = xe->min_run_period_lr_ms;
 
 	init_rwsem(&vm->exec_queues.lock);
-	if (IS_ENABLED(CONFIG_PROVE_LOCKING)) {
-		fs_reclaim_acquire(GFP_KERNEL);
-		might_lock(&vm->exec_queues.lock);
-		fs_reclaim_release(GFP_KERNEL);
-
-		down_read(&vm->exec_queues.lock);
-		might_lock(&xe_root_mmio_gt(xe)->uc.guc.ct.lock);
-		up_read(&vm->exec_queues.lock);
-	}
+	xe_vm_init_prove_locking(xe, vm);
 
 	for_each_tile(tile, xe, id)
 		xe_range_fence_tree_init(&vm->rftree[id]);
