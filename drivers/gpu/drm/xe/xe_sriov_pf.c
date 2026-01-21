@@ -22,9 +22,7 @@
 
 static unsigned int wanted_max_vfs(struct xe_device *xe)
 {
-	if (IS_ENABLED(CONFIG_CONFIGFS_FS))
-		return xe_configfs_get_max_vfs(to_pci_dev(xe->drm.dev));
-	return xe_modparam.max_vfs;
+	return xe_configfs_get_max_vfs(to_pci_dev(xe->drm.dev));
 }
 
 static int pf_reduce_totalvfs(struct xe_device *xe, int limit)

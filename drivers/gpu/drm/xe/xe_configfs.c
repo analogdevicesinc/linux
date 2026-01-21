@@ -15,6 +15,7 @@
 
 #include "instructions/xe_mi_commands.h"
 #include "xe_configfs.h"
+#include "xe_defaults.h"
 #include "xe_gt_types.h"
 #include "xe_hw_engine_types.h"
 #include "xe_module.h"
@@ -280,7 +281,7 @@ static const struct xe_config_device device_defaults = {
 	.survivability_mode = false,
 	.enable_psmi = false,
 	.sriov = {
-		.max_vfs = UINT_MAX,
+		.max_vfs = XE_DEFAULT_MAX_VFS,
 	},
 };
 
