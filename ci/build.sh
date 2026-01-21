@@ -49,7 +49,8 @@ check_checkpatch() {
 
 	python3.13 -m venv ~/venv
         source ~/venv/bin/activate
-        pip3.13 install ply GitPython --upgrade
+	python3.13 -m ensurepip --upgrade
+        pip3 install ply GitPython --upgrade
 
 	# The output is not properly captured with --git
 	for commit in $commits; do
@@ -190,6 +191,7 @@ check_dt_binding_check() {
 
 	python3.13 -m venv ~/venv
         source ~/venv/bin/activate
+	python3.13 -m ensurepip --upgrade
 	# REVISIT
 	# Our main, rpi are broken with >= 2025.12, maybe just too old LTS, maybe an actual problem.
 	# Freeze for now, but eventually pinpoint the cause.
@@ -213,7 +215,7 @@ check_dt_binding_check() {
 	#      print(f"{self.schemas[sch_id]['$filename']}: {p}: multiple incompatible types: {v['type']}", file=sys.stderr)
 	#               ~~~~~~~~~~~~^^^^^^^^
 	#  KeyError: 'http://devicetree.org/schemas/crypto/fsl,sec-v4.0.yaml#'
-        pip3.13 install dtschema==2025.08 yamllint --upgrade
+        pip3 install dtschema==2025.08 yamllint --upgrade
 
 	[[ -z "$files" ]] && return 0
 	while read file; do
