@@ -88,6 +88,7 @@ union shortname_store {
 
 #define d_lock	d_lockref.lock
 #define d_iname d_shortname.string
+struct completion_list;
 
 struct dentry {
 	/* RCU lookup touched fields */
@@ -122,12 +123,23 @@ struct dentry {
 	struct hlist_node d_sib;	/* child of parent list */
 	struct hlist_head d_children;	/* our children */
 	/*
-	 * d_alias and d_rcu can share memory
+	 * the following members can share memory - their uses are
+	 * mutually exclusive.
 	 */
 	union {
-		struct hlist_node d_alias;	/* inode alias list */
-		struct hlist_bl_node d_in_lookup_hash;	/* only for in-lookup ones */
+		/* positives: inode alias list */
+		struct hlist_node d_alias;
+		/* in-lookup ones (all negative, live): hash chain */
+		struct hlist_bl_node d_in_lookup_hash;
+		/* killed ones: (already negative) used to schedule freeing */
 	 	struct rcu_head d_rcu;
+		/*
+		 * live non-in-lookup negatives: used if shrink_dcache_tree()
+		 * races with eviction by another thread and needs to wait for
+		 * this dentry to get killed .  Remains NULL for almost all
+		 * negative dentries.
+		 */
+		struct completion_list *waiters;
 	};
 };
 
