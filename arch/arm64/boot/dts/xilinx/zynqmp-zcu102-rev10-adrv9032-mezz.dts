@@ -35,7 +35,7 @@
 
 		//adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
 
-		adi,pll1-clkin-frequencies = <122880000 0 0 0>;
+		adi,pll1-clkin-frequencies = <0 0 0 0>;
 		adi,vcxo-frequency = <122880000>;
 
 		adi,pll1-ref-prio-ctrl = <0xE4>; /* prefer CLKIN0 -> CLKIN1 -> CLKIN2 -> CLKIN3 */
@@ -47,11 +47,11 @@
 
 		adi,pll2-output-frequency = <2949120000>;
 
-		adi,sysref-timer-divider = <128>;
+		adi,sysref-timer-divider = <1024>;
 		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_8_PULSE>;
 
-		adi,clkin0-buffer-mode  = <0x07>;
-		adi,clkin1-buffer-mode  = <0x07>;
+		adi,clkin0-buffer-mode  = <0x06>;
+		adi,clkin1-buffer-mode  = <0x06>;
 		adi,oscin-buffer-mode = <0x15>;
 
 		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
@@ -73,8 +73,10 @@
 		hmc7044_c1: channel@1 {
 			reg = <1>;
 			adi,extended-name = "DEV_SYSREF";
-			adi,divider = <6>;
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,divider = <3072>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
 			adi,jesd204-sysref-chan;
 		};
 		hmc7044_c6: channel@6 {
@@ -105,7 +107,7 @@
 		#size-cells = <0>;
 
 		/* SPI Setup */
-		spi-max-frequency = <25000000>;
+		spi-max-frequency = <20000000>;
 
 		interrupt-parent = <&gpio>;
 		interrupts = <134 IRQ_TYPE_EDGE_RISING>; /* adrv903x_gpint1 - CHECK */
@@ -322,9 +324,9 @@
 };
 
 &trx0_adrv903x {
-	reset-gpios = <&gpio 141 0>; // 63
+	reset-gpios = <&gpio 134 0>; // 56
 };
 
 &clk0_hmc7044 {
-	reset-gpios = <&gpio 140 0>; // 62
+	reset-gpios = <&gpio 147 0>; // 69
 };
