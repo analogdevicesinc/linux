@@ -53,6 +53,40 @@ enum adrv903x_iio_dev_attr {
 	ADRV903X_JESD204_FSM_CTRL,
 };
 
+/**
+ * adrv903x_hmc7044_request_sysref - Request SYSREF pulse via direct SPI access
+ * @hmc_spi: SPI device for HMC7044
+ *
+ * This function mimics hmc7044_jesd204_sysref() by directly toggling the
+ * HMC7044_PULSE_GEN_REQ bit in HMC7044_REG_REQ_MODE_0 register via SPI.
+ *
+ * Returns 0 on success, negative error code on failure.
+ */
+static int adrv903x_hmc7044_request_sysref(struct spi_device *hmc_spi)
+{
+	u8 write_buf[3];
+	int ret;
+
+	if (!hmc_spi)
+		return -EINVAL;
+
+	/* Write to HMC7044_REG_REQ_MODE_0 (0x0001) with HMC7044_PULSE_GEN_REQ (bit 2) set */
+	write_buf[0] = 0x00;  // Address MSB
+	write_buf[1] = 0x01;  // Address LSB (REQ_MODE_0 register)
+	write_buf[2] = 0x04;  // Data: bit 2 set (PULSE_GEN_REQ)
+
+	ret = spi_write(hmc_spi, write_buf, 3);
+	if (ret < 0)
+		return ret;
+
+	/* Clear the bit (toggle complete) */
+	write_buf[2] = 0x00;  // Data: bit 2 cleared
+
+	ret = spi_write(hmc_spi, write_buf, 3);
+
+	return ret;
+}
+
 static int __adrv903x_dev_err(struct adrv903x_rf_phy *phy, const char *function,
 			      const int line)
 {
@@ -2758,10 +2792,52 @@ static int adrv903x_probe(struct spi_device *spi)
 	if (ret != JESD204_STATE_CHANGE_DONE)
 		pr_err("TESTING ERROR adrv903x_jesd204_link_setup failed\n");
 
-	ret = adrv903x_jesd204_setup_stage1(phy->jdev,
-					    JESD204_STATE_OP_REASON_INIT);
-	if (ret != JESD204_STATE_CHANGE_DONE)
-		pr_err("TESTING ERROR adrv903x_jesd204_setup_stage1 failed\n");
+	/* Get the HMC7044 device (chipselect 1) */
+	struct device_node *hmc_node;
+	struct device *hmc_dev;
+	struct spi_device *hmc_spi = NULL;
+	struct iio_dev *hmc_indio_dev = NULL;
+
+	hmc_node = of_parse_phandle(np, "clocks", 0);
+	if (hmc_node) {
+		hmc_dev = bus_find_device_by_of_node(&spi_bus_type, hmc_node);
+		of_node_put(hmc_node);
+
+		if (hmc_dev) {
+			hmc_spi = to_spi_device(hmc_dev);
+			hmc_indio_dev = dev_get_drvdata(hmc_dev);
+		}
+	}
+
+	if (!hmc_spi)
+		dev_warn(&spi->dev, "Failed to find HMC7044 device\n");
+	else
+		put_device(hmc_dev);
+
+	u32 mcsStatus;
+	/* This loop will send SysRef pulses up to 255 times unless MCS status achieved before. */
+	for (i = 0; i < 255; i++) {
+		ret = adi_adrv903x_MultichipSyncStatusGet(phy->palauDevice,
+							  &mcsStatus);
+		if (ret)
+			return adrv903x_dev_err(phy);
+
+		if ((mcsStatus & 0x01) == 0x01)
+			break;
+
+		ret = adrv903x_hmc7044_request_sysref(hmc_spi);
+		if (ret)
+			dev_warn(&spi->dev,
+				 "Failed to request SYSREF from HMC7044: %d\n", ret);
+	}
+
+	if (mcsStatus != 0x01) {
+		dev_err(&phy->spi->dev,
+			"%s:%d Unexpected MCS sync status (0x%X)",
+			__func__, __LINE__, mcsStatus);
+
+		return adrv903x_dev_err(phy);
+	}
 
 	ret = adrv903x_jesd204_setup_stage2(phy->jdev,
 					    JESD204_STATE_OP_REASON_INIT);
