@@ -1,0 +1,50 @@
+name: Build documentation
+
+on:
+  push:
+    branches:
+      - ci
+    paths:
+      - 'docs/**'
+  pull_request:
+    paths:
+      - 'docs/**'
+
+jobs:
+  build-doc:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@action
+
+    - name: Install pip packages
+      run: |
+        python3 -m venv ~/venv
+        source ~/venv/bin/activate
+        pip3 install -r docs/requirements.txt --upgrade
+
+    - name: Build doc
+      working-directory: docs
+      run: |
+        source ~/venv/bin/activate
+        make html SPHINXOPTS='-W --keep-going'
+
+    - name: Store the generated doc
+      uses: actions/upload-artifact@v4
+      with:
+        name: html
+        path: docs/_build/html
+
+  deploy-doc:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: write
+    needs: build-doc
+
+    steps:
+    - uses: analogdevicesinc/doctools/gh-pages-deploy@action
+      with:
+        name: html
+
