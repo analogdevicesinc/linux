@@ -128,24 +128,19 @@ static int ad9088_fsrc_setup(struct ad9088_phy *phy)
 	/*
 	 * Default 1x value from python example at
 	 * public/inc/adi_apollo_fsrc.h@adi_apollo_fsrc_rate_set
-	 * Common values (n, m):
-	 *
-	 *            fsrc_rate_int   fsrc_rate_frac_a fsrc_rate_frac_b gain_reduction
-	 * 1     1:   BIT(48)         0x0              BIT(0)           BIT(12)-1
-	 * 1562 1228: 0xc9428a5341e2  0x186            0x30d            0xc94
 	 **/
 	for (u8 i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
 		for (u8 j = 0; j < ADI_APOLLO_FSRCS_PER_SIDE; j++) {
-			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_int = 0xc9428a5341e2;
-			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_int = 0xc9428a5341e2;
-			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_a = 0x186;
-			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_a = 0x186;
-			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_b = 0x30d;
-			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_b = 0x30d;
-			phy->profile.rx_path[i].rx_fsrc[j].gain_reduction = 0xc94;
-			phy->profile.tx_path[i].tx_fsrc[j].gain_reduction = 0xc94;
-			phy->profile.rx_path[i].rx_fsrc[j].mode_1x = false;
-			phy->profile.tx_path[i].tx_fsrc[j].mode_1x = false;
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_int = BIT(48);
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_int = BIT(48);
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_a = 0;
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_a = 0;
+			phy->profile.rx_path[i].rx_fsrc[j].fsrc_rate_frac_b = 1;
+			phy->profile.tx_path[i].tx_fsrc[j].fsrc_rate_frac_b = 1;
+			phy->profile.rx_path[i].rx_fsrc[j].gain_reduction = BIT(12) - 1;
+			phy->profile.tx_path[i].tx_fsrc[j].gain_reduction = BIT(12) - 1;
+			phy->profile.rx_path[i].rx_fsrc[j].mode_1x = true;
+			phy->profile.tx_path[i].tx_fsrc[j].mode_1x = true;
 			phy->profile.rx_path[i].rx_fsrc[j].enable = true;
 			phy->profile.tx_path[i].tx_fsrc[j].enable = true;
 		}
