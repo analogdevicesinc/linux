@@ -18,6 +18,9 @@ description: |
   service a wide variety of precision, wide bandwidth data acquisition
   applications.
 
+  The AD4880 is a dual-channel variant with two independent ADC channels,
+  each with its own SPI configuration interface.
+
   https://www.analog.com/media/en/technical-documentation/data-sheets/ad4080.pdf
 
 $ref: /schemas/spi/spi-peripheral-props.yaml#
@@ -31,9 +34,17 @@ properties:
       - adi,ad4084
       - adi,ad4086
       - adi,ad4087
+      - adi,ad4880
 
   reg:
     maxItems: 1
+
+  adi,aux-spi-cs:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Chip select for the auxiliary SPI interface used by multi-channel
+      devices like AD4880. Each additional channel beyond the first requires
+      its own SPI configuration interface on a separate chip select.
 
   spi-max-frequency:
     description: Configuration of the SPI bus.
@@ -57,7 +68,8 @@ properties:
   vrefin-supply: true
 
   io-backends:
-    maxItems: 1
+    minItems: 1
+    maxItems: 2
 
   adi,lvds-cnv-enable:
     description: Enable the LVDS signal type on the CNV pin. Default is CMOS.
@@ -78,6 +90,23 @@ required:
   - vdd33-supply
   - vrefin-supply
 
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: adi,ad4880
+    then:
+      properties:
+        io-backends:
+          minItems: 2
+      required:
+        - adi,aux-spi-cs
+    else:
+      properties:
+        io-backends:
+          maxItems: 1
+
 additionalProperties: false
 
 examples:
@@ -96,6 +125,24 @@ examples:
           clocks = <&cnv>;
           clock-names = "cnv";
           io-backends = <&iio_backend>;
+        };
+    };
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        adc@0 {
+          compatible = "adi,ad4880";
+          reg = <0>;
+          adi,aux-spi-cs = <1>;
+          spi-max-frequency = <10000000>;
+          vdd33-supply = <&vdd33>;
+          vddldo-supply = <&vddldo>;
+          vrefin-supply = <&vrefin>;
+          clocks = <&cnv>;
+          clock-names = "cnv";
+          io-backends = <&iio_backend_cha>, <&iio_backend_chb>;
         };
     };
 ...
