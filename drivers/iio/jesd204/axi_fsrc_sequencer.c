@@ -58,7 +58,7 @@
 #define REG_ACCUM_ADD_VAL_L			0x1c
 #define REG_ACCUM_ADD_VAL_H			0x20
 #define REG_ACCUM_SET_VAL_ADDR			0x24
-#define   REG_ACCUM_SET_VAL_ADDR_(x)		FIELD_PREP(GENMASK(3, 0), (x))
+#define   REG_ACCUM_SET_VAL_ADDR_(x)		FIELD_PREP(GENMASK(5, 0), (x))
 #define REG_ACCUM_SET_VAL_L			0x28
 #define REG_ACCUM_SET_VAL_H			0x2c
 #define REG_ACCUM_WIDTH				0x30
@@ -167,7 +167,8 @@ static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u64 n, const u64 m)
 		return -EINVAL;
 
 	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CONV_MASK, (u32)REG_CONV_MASK_MASK);
-	for (int i = 0; i <= 15; i++) {
+	// max_num_samples = max((number of channels * samples per channel) - 1)
+	for (int i = 0; i < 64; i++) {
 		val = ((~ratio_fixed + 1) + (i * ratio_fixed));
 		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_L, val);
 		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_H, val >> 32);
