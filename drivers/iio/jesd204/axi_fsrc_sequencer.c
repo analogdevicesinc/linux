@@ -257,7 +257,7 @@ static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
 			ret = axi_fsrc_tx_active(st, enable);
 			break;
 		case AXI_FSRC_TX_RATIO_SET:
-			if ((m == 0) || (n < m) || (n / m >= 2))
+			if ((m == 0) || (n / m != 1))
 				return -EINVAL;
 			axi_fsrc_tx_set_ratio(st, n, m);
 			break;
