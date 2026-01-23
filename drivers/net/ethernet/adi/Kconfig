@@ -32,6 +32,7 @@ config NET_ADRV906X
     tristate "ADRV906x Ethernet support"
     depends on (ARCH_ADRV906X || COMPILE_TEST) && HAS_DMA
     depends on INET
+    depends on PTP_1588_CLOCK_ADRV906X
     select LED_TRIGGER_PHY
     select LEDS_TRIGGERS
     select LEDS_CLASS
