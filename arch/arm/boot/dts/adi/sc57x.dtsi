@@ -242,8 +242,7 @@
 		rcu: rcu@3108B000 {
 			compatible = "adi,reset-controller";
 			reg = <0x3108C000 0x1000>;
-			adi,sharc-min = <1>;
-			adi,sharc-max = <2>;
+			adi,sharc-core-ids = <1 2>;
 			adi,enable-reboot;
 			status = "okay";
 		};

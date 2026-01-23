@@ -22,7 +22,7 @@
 #include <linux/spinlock.h>
 
 #include <linux/soc/adi/rcu.h>
-#include "sec.h"
+#include <linux/soc/adi/sec.h>
 
 struct adi_sec {
 	void __iomem *ioaddr;
