@@ -46,7 +46,7 @@ EXPORT_SYMBOL(__mmap_lock_do_trace_released);
 #ifdef CONFIG_MMU
 #ifdef CONFIG_PER_VMA_LOCK
 
-/* State shared across __vma_[enter, exit]_exclusive_locked(). */
+/* State shared across __vma_[start, end]_exclude_readers. */
 struct vma_exclude_readers_state {
 	/* Input parameters. */
 	struct vm_area_struct *vma;
@@ -100,7 +100,7 @@ static unsigned int get_target_refcnt(struct vma_exclude_readers_state *ves)
  *
  * If ves->state is set to something other than TASK_UNINTERRUPTIBLE, the
  * function may also return -EINTR to indicate a fatal signal was received while
- * waiting.
+ * waiting.  Otherwise, the function returns 0.
  */
 static int __vma_start_exclude_readers(struct vma_exclude_readers_state *ves)
 {
