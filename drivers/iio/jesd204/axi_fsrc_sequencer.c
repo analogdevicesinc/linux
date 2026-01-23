@@ -163,7 +163,7 @@ static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u64 n, const u64 m)
 {
 	u64 val;
 	const u64 one_fixed = 1ULL << st->accum_width;
-	const u64 ratio_fixed = mul_u64_u64_div_u64(one_fixed, n, m);
+	const u64 ratio_fixed = mul_u64_u64_div_u64(one_fixed, m, n);
 
 	if (m > BIT(32) - 1 || n > BIT(32) - 1)
 		return -EINVAL;
