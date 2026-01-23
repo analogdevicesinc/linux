@@ -5869,7 +5869,7 @@ static struct file *__shmem_file_setup(struct vfsmount *mnt, const char *name,
  *	checks are provided at the key or shm level rather than the inode.
  * @name: name for dentry (to be seen in /proc/<pid>/maps)
  * @size: size to be set for the file
- * @vma_flags: VMA_NORESERVE_BIT suppresses pre-accounting of the entire object size
+ * @flags: VMA_NORESERVE_BIT suppresses pre-accounting of the entire object size
  */
 struct file *shmem_kernel_file_setup(const char *name, loff_t size,
 				     vma_flags_t flags)
@@ -5882,7 +5882,7 @@ EXPORT_SYMBOL_GPL(shmem_kernel_file_setup);
  * shmem_file_setup - get an unlinked file living in tmpfs
  * @name: name for dentry (to be seen in /proc/<pid>/maps)
  * @size: size to be set for the file
- * @flags: VM_NORESERVE suppresses pre-accounting of the entire object size
+ * @flags: VMA_NORESERVE_BIT suppresses pre-accounting of the entire object size
  */
 struct file *shmem_file_setup(const char *name, loff_t size, vma_flags_t flags)
 {
