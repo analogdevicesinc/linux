@@ -1471,7 +1471,7 @@ static void nfs_clear_verifier_file(struct inode *inode)
 	struct dentry *alias;
 	struct inode *dir;
 
-	hlist_for_each_entry(alias, &inode->i_dentry, d_u.d_alias) {
+	for_each_alias(alias, inode) {
 		spin_lock(&alias->d_lock);
 		dir = d_inode_rcu(alias->d_parent);
 		if (!dir ||

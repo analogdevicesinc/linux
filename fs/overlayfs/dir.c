@@ -904,7 +904,7 @@ static void ovl_drop_nlink(struct dentry *dentry)
 
 	/* Try to find another, hashed alias */
 	spin_lock(&inode->i_lock);
-	hlist_for_each_entry(alias, &inode->i_dentry, d_u.d_alias) {
+	for_each_alias(alias, inode) {
 		if (alias != dentry && !d_unhashed(alias))
 			break;
 	}
