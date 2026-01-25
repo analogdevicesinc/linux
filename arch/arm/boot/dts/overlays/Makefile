@@ -295,6 +295,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-ad5770r.dtbo \
 	rpi-ad5791.dtbo \
 	rpi-adt7420.dtbo \
+	rpi-adin1140.dtbo \
 	rpi-backlight.dtbo \
 	rpi-codeczero.dtbo \
 	rpi-cn0504.dtbo \

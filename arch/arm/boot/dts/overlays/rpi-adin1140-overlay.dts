@@ -1,0 +1,37 @@
+/*
+ * Devicetree overlay for ADIN1140 10BASE-T1L Ethernet PHY
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2712";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	adin1140@0 {
+		compatible = "adi,adin1140";
+		reg = <0>;
+		spi-max-frequency = <23000000>;
+		interrupt-parent = <&gpio>;
+		interrupts = <6 0x2>; /* 0x2 - falling edge trigger, 0x8 - active low level-sensitive */
+		pinctrl-names = "default";
+		pinctrl-0 = <&adin1140_pins>;
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&gpio {
+	adin1140_pins: adin1140_pins {
+		brcm,pins = <6>;           /* GPIO 6 (INT) */
+		brcm,function = <0>;       /* GPIO 6 as input */
+		brcm,pull = <2>;
+	};
+};
