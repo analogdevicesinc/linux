@@ -560,6 +560,9 @@ static int oa_tc6_mdiobus_register(struct oa_tc6 *tc6)
 
 static void oa_tc6_mdiobus_unregister(struct oa_tc6 *tc6)
 {
+	if (!tc6->mdiobus)
+		return;
+
 	mdiobus_unregister(tc6->mdiobus);
 	mdiobus_free(tc6->mdiobus);
 }
@@ -570,8 +573,8 @@ static int oa_tc6_phy_init(struct oa_tc6 *tc6)
 
 	ret = oa_tc6_check_phy_reg_direct_access_capability(tc6);
 	if (ret) {
-		netdev_err(tc6->netdev,
-			   "Direct PHY register access is not supported by the MAC-PHY\n");
+		netdev_warn(tc6->netdev,
+			    "Direct PHY register access is not supported by the MAC-PHY\n");
 		return ret;
 	}
 
@@ -604,7 +607,9 @@ static int oa_tc6_phy_init(struct oa_tc6 *tc6)
 
 static void oa_tc6_phy_exit(struct oa_tc6 *tc6)
 {
-	phy_disconnect(tc6->phydev);
+	if (tc6->phydev)
+		phy_disconnect(tc6->phydev);
+
 	oa_tc6_mdiobus_unregister(tc6);
 }
 
@@ -1354,9 +1359,8 @@ struct oa_tc6 *oa_tc6_init(struct spi_device *spi, struct net_device *netdev)
 
 	ret = oa_tc6_phy_init(tc6);
 	if (ret) {
-		dev_err(&tc6->spi->dev,
-			"MAC internal PHY initialization failed: %d\n", ret);
-		return NULL;
+		dev_warn(&tc6->spi->dev,
+			 "MAC internal PHY initialization failed: %d\n", ret);
 	}
 
 	ret = oa_tc6_enable_data_transfer(tc6);
