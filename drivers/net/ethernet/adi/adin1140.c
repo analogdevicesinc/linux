@@ -14,6 +14,7 @@
 #include <linux/etherdevice.h>
 #include <linux/delay.h>
 #include <linux/oa_tc6.h>
+#include <linux/debugfs.h>
 
 struct adin1140_priv {
 	struct net_device *netdev;
@@ -21,6 +22,9 @@ struct adin1140_priv {
 	struct oa_tc6 *tc6;
 	struct phy_device *phydev;
 	struct mii_bus *mdiobus;
+
+	struct dentry *debug_dir;
+	u32 reg_addr;
 };
 
 #define MMS_REG(m, r)	((((m) & GENMASK(3, 0)) << 16) | ((r) & GENMASK(15, 0)))
@@ -454,6 +458,100 @@ static void adin1140_phy_unregister(struct adin1140_priv *priv)
 	phy_disconnect(priv->phydev);
 }
 
+static ssize_t adin1140_reg_addr_read(struct file *file, char __user *userbuf,
+				      size_t count, loff_t *ppos)
+{
+	struct adin1140_priv *priv = file->private_data;
+	char buf[12];
+	size_t len;
+
+	len = snprintf(buf, sizeof(buf), "0x%X\n", priv->reg_addr);
+
+	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+
+static ssize_t adin1140_reg_addr_write(struct file *file,
+				       const char __user *userbuf, size_t count,
+				       loff_t *ppos)
+{
+	struct adin1140_priv *priv = file->private_data;
+	u32 reg_addr;
+	int ret;
+
+	ret = kstrtouint_from_user(userbuf, count, 16, &reg_addr);
+	if (ret)
+		return ret;
+
+	priv->reg_addr = reg_addr;
+
+	return count;
+}
+
+static const struct file_operations adin1140_reg_addr_ops = {
+	.open = simple_open,
+	.read = adin1140_reg_addr_read,
+	.write = adin1140_reg_addr_write,
+	.llseek = default_llseek,
+	.owner = THIS_MODULE,
+};
+
+static ssize_t adin1140_reg_read(struct file *file, char __user *userbuf,
+				 size_t count, loff_t *ppos)
+{
+	struct adin1140_priv *priv = file->private_data;
+	char buf[12];
+	u32 reg_val;
+	size_t len;
+	int ret;
+
+	ret = oa_tc6_read_register(priv->tc6, priv->reg_addr, &reg_val);
+	if (ret)
+		return ret;
+
+	len = snprintf(buf, sizeof(buf), "0x%X\n", reg_val);
+
+	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+
+static ssize_t adin1140_reg_write(struct file *file, const char __user *userbuf,
+				  size_t count, loff_t *ppos)
+{
+	struct adin1140_priv *priv = file->private_data;
+	u32 reg_val;
+	int ret;
+
+	ret = kstrtouint_from_user(userbuf, count, 16, &reg_val);
+	if (ret)
+		return ret;
+
+	ret = oa_tc6_write_register(priv->tc6, priv->reg_addr, reg_val);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static const struct file_operations adin1140_reg_value_ops = {
+	.open = simple_open,
+	.read = adin1140_reg_read,
+	.write = adin1140_reg_write,
+	.llseek = default_llseek,
+	.owner = THIS_MODULE,
+};
+
+static void adin1140_debugfs_init(struct adin1140_priv *priv)
+{
+	priv->debug_dir = debugfs_create_dir("adin1140_debug", NULL);
+
+	if (!IS_ENABLED(CONFIG_DEBUG_FS))
+		return;
+
+	debugfs_create_file("reg_address", 0600, priv->debug_dir, priv,
+			    &adin1140_reg_addr_ops);
+	debugfs_create_file("reg_value", 0600, priv->debug_dir, priv,
+			    &adin1140_reg_value_ops);
+}
+
 static int adin1140_probe(struct spi_device *spi)
 {
 	struct net_device *netdev;
@@ -498,7 +596,9 @@ static int adin1140_probe(struct spi_device *spi)
 		goto free_phy;
 	}
 
-        return 0;
+	adin1140_debugfs_init(priv);
+
+	return 0;
 
 free_phy:
 	adin1140_phy_unregister(priv);
@@ -511,6 +611,9 @@ oa_tc6_exit:
 static void adin1140_remove(struct spi_device *spi)
 {
 	struct adin1140_priv *priv = spi_get_drvdata(spi);
+
+	if (IS_ENABLED(CONFIG_DEBUG_FS))
+		debugfs_remove(priv->debug_dir);
 
 	oa_tc6_exit(priv->tc6);
 	adin1140_phy_unregister(priv);
