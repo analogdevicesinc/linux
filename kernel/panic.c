@@ -76,7 +76,6 @@ EXPORT_SYMBOL_GPL(panic_timeout);
 unsigned long panic_print;
 
 static int panic_force_cpu = -1;
-static char *panic_force_buf;
 
 ATOMIC_NOTIFIER_HEAD(panic_notifier_list);
 
@@ -307,6 +306,8 @@ atomic_t panic_cpu = ATOMIC_INIT(PANIC_CPU_INVALID);
 atomic_t panic_redirect_cpu = ATOMIC_INIT(PANIC_CPU_INVALID);
 
 #if defined(CONFIG_SMP) && defined(CONFIG_CRASH_DUMP)
+static char *panic_force_buf;
+
 static int __init panic_force_cpu_setup(char *str)
 {
 	int cpu;
