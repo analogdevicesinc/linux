@@ -1023,7 +1023,7 @@ struct vm_area_struct {
 	 *
 	 * > VM_REFCNT_EXCLUDE_READERS_FLAG + 1 - A thread is either
 	 * write-locking or detaching a VMA is waiting on readers to
-	 * exit. IMPORTANT - as above, no ruther readers can increment the
+	 * exit. IMPORTANT - as above, no further readers can increment the
 	 * reference count.
 	 *
 	 * NOTE: Unstable RCU readers are allowed to read this.
