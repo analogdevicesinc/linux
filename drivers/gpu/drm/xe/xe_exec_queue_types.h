@@ -161,8 +161,13 @@ struct xe_exec_queue {
 		struct xe_exec_queue_group *group;
 		/** @multi_queue.link: Link into group's secondary queues list */
 		struct list_head link;
-		/** @multi_queue.priority: Queue priority within the multi-queue group */
+		/**
+		 * @multi_queue.priority: Queue priority within the multi-queue group.
+		 * It is protected by @multi_queue.lock.
+		 */
 		enum xe_multi_queue_priority priority;
+		/** @multi_queue.lock: Lock for protecting certain members */
+		spinlock_t lock;
 		/** @multi_queue.pos: Position of queue within the multi-queue group */
 		u8 pos;
 		/** @multi_queue.valid: Queue belongs to a multi queue group */

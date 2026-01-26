@@ -804,6 +804,7 @@ static void xe_guc_exec_queue_group_cgp_sync(struct xe_guc *guc,
 {
 	struct xe_exec_queue_group *group = q->multi_queue.group;
 	struct xe_device *xe = guc_to_xe(guc);
+	enum xe_multi_queue_priority priority;
 	long ret;
 
 	/*
@@ -827,7 +828,10 @@ static void xe_guc_exec_queue_group_cgp_sync(struct xe_guc *guc,
 		return;
 	}
 
-	xe_lrc_set_multi_queue_priority(q->lrc[0], q->multi_queue.priority);
+	scoped_guard(spinlock, &q->multi_queue.lock)
+		priority = q->multi_queue.priority;
+
+	xe_lrc_set_multi_queue_priority(q->lrc[0], priority);
 	xe_guc_exec_queue_group_cgp_update(xe, q);
 
 	WRITE_ONCE(group->sync_pending, true);
@@ -2181,15 +2185,22 @@ static int guc_exec_queue_set_multi_queue_priority(struct xe_exec_queue *q,
 
 	xe_gt_assert(guc_to_gt(exec_queue_to_guc(q)), xe_exec_queue_is_multi_queue(q));
 
-	if (q->multi_queue.priority == priority ||
-	    exec_queue_killed_or_banned_or_wedged(q))
+	if (exec_queue_killed_or_banned_or_wedged(q))
 		return 0;
 
 	msg = kmalloc(sizeof(*msg), GFP_KERNEL);
 	if (!msg)
 		return -ENOMEM;
 
-	q->multi_queue.priority = priority;
+	scoped_guard(spinlock, &q->multi_queue.lock) {
+		if (q->multi_queue.priority == priority) {
+			kfree(msg);
+			return 0;
+		}
+
+		q->multi_queue.priority = priority;
+	}
+
 	guc_exec_queue_add_msg(q, msg, SET_MULTI_QUEUE_PRIORITY);
 
 	return 0;
