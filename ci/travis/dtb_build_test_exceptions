@@ -147,6 +147,10 @@ arch/arm64/boot/dts/xilinx/versal-net-vn-x-b2197-00-revA.dts
 arch/arm64/boot/dts/xilinx/versal-emb-plus-ve2302-revA.dts
 arch/arm64/boot/dts/xilinx/versal-net-vn-x-b2197-01-revA.dts
 
+# Microblaze
+
+arch/microblaze/boot/dts/vcu118_ad9084.dts
+
 # Anything belonging to ADI, goes here
 
 # These are projects that are old, and were probably once on the SD-card image

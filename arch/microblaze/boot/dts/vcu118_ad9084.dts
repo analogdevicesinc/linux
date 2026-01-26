@@ -6,6 +6,7 @@
  *
  * hdl_project: <ad9084_fmca_ebz/vcu118>
  * board_revision: <>
+ * is_template: true
  *
  * Copyright (C) 2025 Analog Devices Inc.
  */
