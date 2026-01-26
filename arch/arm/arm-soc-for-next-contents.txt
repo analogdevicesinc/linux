@@ -12,7 +12,7 @@ soc/dt
 	rockchip/dt32
 		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-dts32-1
 	rockchip/dt64
-		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-dts64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-dts64-1
 	nuvoton/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-6.20-devicetree-0
 	aspeed/dt
@@ -21,6 +21,29 @@ soc/dt
 		https://github.com/vzapolskiy/linux-lpc32xx tags/lpc32xx-dt-for-6.20
 	apple/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-6.20
+	renesas/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dt-bindings-for-v6.20-tag1
+	renesas/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v6.20-tag2
+	arm64/dt-cleanup
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt64-cleanup-6.20
+	samsung/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-6.20
+	patch
+		ARM: dts: nuvoton: Minor whitespace cleanup
+		ARM: dts: samsung: Drop s3c6400.dtsi
+	tegra/dt32
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.20-arm-dt
+	tegra/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.20-arm64-dt
+	zynqmp/dt
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-dt-for-6.20
+	qcom/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-6.20
+	qcom/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-6.20
+	imx/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt-6.20
 
 soc/drivers
 	renesas/drivers
