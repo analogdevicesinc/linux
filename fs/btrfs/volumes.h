@@ -892,6 +892,11 @@ const u8 *btrfs_sb_fsid_ptr(const struct btrfs_super_block *sb);
 int btrfs_update_device(struct btrfs_trans_handle *trans, struct btrfs_device *device);
 void btrfs_chunk_map_device_clear_bits(struct btrfs_chunk_map *map, unsigned int bits);
 
+bool btrfs_first_pending_extent(struct btrfs_device *device, u64 start, u64 len,
+				u64 *pending_start, u64 *pending_end);
+bool btrfs_find_hole_in_pending_extents(struct btrfs_device *device,
+					u64 *start, u64 *len, u64 min_hole_size);
+
 #ifdef CONFIG_BTRFS_FS_RUN_SANITY_TESTS
 struct btrfs_io_context *alloc_btrfs_io_context(struct btrfs_fs_info *fs_info,
 						u64 logical, u16 total_stripes);
