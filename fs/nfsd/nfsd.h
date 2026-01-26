@@ -160,6 +160,7 @@ static inline void nfsd_debugfs_exit(void) {}
 #endif
 
 extern bool nfsd_disable_splice_read __read_mostly;
+extern bool nfsd_delegts_enabled __read_mostly;
 
 enum {
 	/* Any new NFSD_IO enum value must be added at the end */
