@@ -527,7 +527,7 @@ compile_many_devicetrees() {
 		return 1
 	fi
 	if [[ -z "$DTS_FILES" ]]; then
-		echo "::error ::$step_name: DTS_FILES glob rules are not set."
+		echo "::error ::$step_name: DTS_FILES list is not set."
 		return 1
 	fi
 
@@ -535,6 +535,7 @@ compile_many_devicetrees() {
 	if [[ -f $exceptions_file ]]; then
 		dts_files=$(comm -13 <(sort $exceptions_file) <(echo $dts_files | tr ' ' '\n' | sort))
 	fi
+	dts_files=$(grep -LE  "^[[:space:]]*\*[[:space:]]*is_template:[[:space:]]*true" $dts_files)
 	for ARCH in $ARCHS; do
 		dts_files_=$(echo $dts_files | tr ' ' '\n' | grep ^arch/$ARCH/ | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/')
 		ARCH=$ARCH make allnoconfig
