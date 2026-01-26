@@ -47,9 +47,9 @@ check_checkpatch() {
 	fi
 	[[ "$strategy" == "commit" ]] && commits=$(git rev-list $base_sha..$head_sha --reverse) || commits=$(git rev-parse @)
 
-	python3.13 -m venv ~/venv
+	python3 -m venv ~/venv
         source ~/venv/bin/activate
-	python3.13 -m ensurepip --upgrade
+	python3 -m ensurepip --upgrade
         pip3 install ply GitPython --upgrade
 
 	# The output is not properly captured with --git
@@ -189,9 +189,9 @@ check_dt_binding_check() {
 
 	echo "$step_name on range $base_sha..$head_sha"
 
-	python3.13 -m venv ~/venv
+	python3 -m venv ~/venv
         source ~/venv/bin/activate
-	python3.13 -m ensurepip --upgrade
+	python3 -m ensurepip --upgrade
 	# REVISIT
 	# Our main, rpi are broken with >= 2025.12, maybe just too old LTS, maybe an actual problem.
 	# Freeze for now, but eventually pinpoint the cause.
@@ -675,7 +675,7 @@ compile_kernel() {
 	fi
 	rm $tmp_log_file
 
-	python3.13 scripts/clang-tools/gen_compile_commands.py
+	python3 scripts/clang-tools/gen_compile_commands.py
 
 	_export_kernel_name
 	_set_step_warn $warn
@@ -1081,7 +1081,7 @@ auto_set_kconfig() {
 	done <<< "$c_files"
 
 	local k_symbols=$(echo "$k_blocks" | awk -f $CI_WORKTREE/ci/touched_kconfig.awk)
-	symbols=$(python3.13 $CI_WORKTREE/ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
+	symbols=$(python3 $CI_WORKTREE/ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
 	for sym in $symbols; do
 		scripts/config -e $sym
 	done
