@@ -435,6 +435,7 @@ compile_devicetree() {
 
 	dts_files+=\ $(echo "$files" | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
 	dts_files=$(echo $dts_files | xargs)
+	dts_files=$(grep -LE  "\*[[:space:]]*is_template:[[:space:]]*true" $dts_files)
 	if [[ -z "$dts_files" ]]; then
 		echo "no dts on range, skipped"
 		return $err
