@@ -435,7 +435,7 @@ compile_devicetree() {
 
 	dts_files+=\ $(echo "$files" | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
 	dts_files=$(echo $dts_files | xargs)
-	dts_files=$(grep -LE  "\*[[:space:]]*is_template:[[:space:]]*true" $dts_files)
+	dts_files=$(grep -LE  "\*[[:space:]]*is_template:[[:space:]]*true" $dts_files || true)
 	if [[ -z "$dts_files" ]]; then
 		echo "no dts on range, skipped"
 		return $err
@@ -536,7 +536,7 @@ compile_many_devicetrees() {
 	if [[ -f $exceptions_file ]]; then
 		dts_files=$(comm -13 <(sort $exceptions_file) <(echo $dts_files | tr ' ' '\n' | sort))
 	fi
-	dts_files=$(grep -LE  "\*[[:space:]]*is_template:[[:space:]]*true" $dts_files)
+	dts_files=$(grep -LE  "\*[[:space:]]*is_template:[[:space:]]*true" $dts_files || true)
 	for ARCH in $ARCHS; do
 		dts_files_=$(echo $dts_files | tr ' ' '\n' | grep ^arch/$ARCH/ | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/')
 		ARCH=$ARCH make allnoconfig
