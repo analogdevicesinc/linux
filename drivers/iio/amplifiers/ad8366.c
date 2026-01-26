@@ -5,10 +5,16 @@
  *   AD8366 Dual-Digital Variable Gain Amplifier (VGA)
  *   ADA4961 BiCMOS RF Digital Gain Amplifier (DGA)
  *   ADL5240 Digitally controlled variable gain amplifier (VGA)
+ *   ADRF5720: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator, 9 kHz to 40 GHz
+ *   ADRF5730: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
+ *   ADRF5731: 2 dB LSB, 4-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
+ *   HMC271A: 1dB LSB 5-Bit Digital Attenuator SMT, 0.7 - 3.7 GHz
  *   HMC792A 0.25 dB LSB GaAs MMIC 6-Bit Digital Attenuator
+ *   HMC1018A: 1.0 dB LSB GaAs MMIC 5-BIT DIGITAL ATTENUATOR, 0.1 - 30 GHz
+ *   HMC1019A: 0.5 dB LSB GaAs MMIC 5-BIT DIGITAL ATTENUATOR, 0.1 - 30 GHz
  *   HMC1119 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator
  *
- * Copyright 2012-2019 Analog Devices Inc.
+ * Copyright 2012-2026 Analog Devices Inc.
  */
 
 #include <linux/bitrev.h>
@@ -61,6 +67,20 @@ static size_t ad8366_pack_code(const unsigned char *code, size_t num_channels,
 	return sizeof(__be16);
 }
 
+static size_t adrf5731_pack_code(const unsigned char *code, size_t num_channels,
+				 unsigned char *data)
+{
+	data[0] = code[0] << 2;
+	return 1;
+}
+
+static size_t hmc271_pack_code(const unsigned char *code, size_t num_channels,
+			       unsigned char *data)
+{
+	data[0] = bitrev8(code[0]) >> 3;
+	return 1;
+}
+
 static const struct ad8366_info ad8366_chip_info = {
 	.name = "ad8366",
 	.gain_min = 4500,
@@ -86,11 +106,61 @@ static const struct ad8366_info adl5240_chip_info = {
 	.num_channels = 1,
 };
 
+static const struct ad8366_info adrf5720_chip_info = {
+	.name = "adrf5720",
+	.gain_min = -31500,
+	.gain_max = 0,
+	.gain_step = -500,
+	.num_channels = 1,
+};
+
+static const struct ad8366_info adrf5730_chip_info = {
+	.name = "adrf5730",
+	.gain_min = -31500,
+	.gain_max = 0,
+	.gain_step = -500,
+	.num_channels = 1,
+};
+
+static const struct ad8366_info adrf5731_chip_info = {
+	.name = "adrf5731",
+	.gain_min = -30000,
+	.gain_max = 0,
+	.gain_step = -2000,
+	.num_channels = 1,
+	.pack_code = adrf5731_pack_code,
+};
+
+static const struct ad8366_info hmc271_chip_info = {
+	.name = "hmc271a",
+	.gain_min = -31000,
+	.gain_max = 0,
+	.gain_step = 1000,
+	.num_channels = 1,
+	.pack_code = hmc271_pack_code,
+};
+
 static const struct ad8366_info hmc792_chip_info = {
 	.name = "hmc792a",
 	.gain_min = -15750,
 	.gain_max = 0,
 	.gain_step = 250,
+	.num_channels = 1,
+};
+
+static const struct ad8366_info hmc1018_chip_info = {
+	.name = "hmc1018a",
+	.gain_min = -31000,
+	.gain_max = 0,
+	.gain_step = 1000,
+	.num_channels = 1,
+};
+
+static const struct ad8366_info hmc1019_chip_info = {
+	.name = "hmc1019a",
+	.gain_min = -15500,
+	.gain_max = 0,
+	.gain_step = 500,
 	.num_channels = 1,
 };
 
@@ -267,7 +337,13 @@ static const struct spi_device_id ad8366_id[] = {
 	{ "ad8366", (kernel_ulong_t)&ad8366_chip_info },
 	{ "ada4961", (kernel_ulong_t)&ada4961_chip_info },
 	{ "adl5240", (kernel_ulong_t)&adl5240_chip_info },
+	{ "adrf5720", (kernel_ulong_t)&adrf5720_chip_info },
+	{ "adrf5730", (kernel_ulong_t)&adrf5730_chip_info },
+	{ "adrf5731", (kernel_ulong_t)&adrf5731_chip_info },
+	{ "hmc271a", (kernel_ulong_t)&hmc271_chip_info },
 	{ "hmc792a", (kernel_ulong_t)&hmc792_chip_info },
+	{ "hmc1018a", (kernel_ulong_t)&hmc1018_chip_info },
+	{ "hmc1019a", (kernel_ulong_t)&hmc1019_chip_info },
 	{ "hmc1119", (kernel_ulong_t)&hmc1119_chip_info },
 	{ }
 };
@@ -277,7 +353,13 @@ static const struct of_device_id ad8366_of_match[] = {
 	{ .compatible = "adi,ad8366", .data = &ad8366_chip_info },
 	{ .compatible = "adi,ada4961", .data = &ada4961_chip_info },
 	{ .compatible = "adi,adl5240", .data = &adl5240_chip_info },
+	{ .compatible = "adi,adrf5720", .data = &adrf5720_chip_info },
+	{ .compatible = "adi,adrf5730", .data = &adrf5730_chip_info },
+	{ .compatible = "adi,adrf5731", .data = &adrf5731_chip_info },
+	{ .compatible = "adi,hmc271a", .data = &hmc271_chip_info },
 	{ .compatible = "adi,hmc792a", .data = &hmc792_chip_info },
+	{ .compatible = "adi,hmc1018a", .data = &hmc1018_chip_info },
+	{ .compatible = "adi,hmc1019a", .data = &hmc1019_chip_info },
 	{ .compatible = "adi,hmc1119", .data = &hmc1119_chip_info },
 	{ }
 };
