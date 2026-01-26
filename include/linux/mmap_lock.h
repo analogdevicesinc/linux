@@ -272,8 +272,6 @@ static inline unsigned int __vma_raw_mm_seqnum(struct vm_area_struct *vma)
  * write lock is held.
  *
  * Returns true if write-locked, otherwise false.
- *
- * Note that mm_lock_seq is updated only if the VMA is NOT write-locked.
  */
 static inline bool __is_vma_write_locked(struct vm_area_struct *vma)
 {
@@ -284,8 +282,7 @@ static inline bool __is_vma_write_locked(struct vm_area_struct *vma)
 	return vma->vm_lock_seq == __vma_raw_mm_seqnum(vma);
 }
 
-int __vma_start_write(struct vm_area_struct *vma, unsigned int mm_lock_seq,
-		int state);
+int __vma_start_write(struct vm_area_struct *vma, int state);
 
 /*
  * Begin writing to a VMA.
@@ -297,7 +294,7 @@ static inline void vma_start_write(struct vm_area_struct *vma)
 	if (__is_vma_write_locked(vma))
 		return;
 
-	__vma_start_write(vma, __vma_raw_mm_seqnum(vma), TASK_UNINTERRUPTIBLE);
+	__vma_start_write(vma, TASK_UNINTERRUPTIBLE);
 }
 
 /**
@@ -319,7 +316,7 @@ int vma_start_write_killable(struct vm_area_struct *vma)
 	if (__is_vma_write_locked(vma))
 		return 0;
 
-	return __vma_start_write(vma, __vma_raw_mm_seqnum(vma), TASK_KILLABLE);
+	return __vma_start_write(vma, TASK_KILLABLE);
 }
 
 static inline void vma_assert_write_locked(struct vm_area_struct *vma)
