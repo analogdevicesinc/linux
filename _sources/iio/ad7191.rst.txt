@@ -1,1 +1,0 @@
-.. include:: ../../Documentation/iio/ad7191.rst
