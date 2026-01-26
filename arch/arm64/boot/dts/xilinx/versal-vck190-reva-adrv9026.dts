@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9026
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9025
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025
+ *
+ * hdl_project: <adrv9026/vck190>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020-2026 Analog Devices Inc.
+ */
+
+#include "versal-vck190-reva-adrv9025.dts"
+
+&trx0_adrv9025 {
+	compatible = "adi,adrv9026";
+};
