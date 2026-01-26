@@ -26,7 +26,7 @@ static FILE *outf;
 
 static int cpu_model;
 static int cpu_stepping;
-static int extended_family;
+static int cpu_family;
 
 #define MAX_CPUS_IN_ONE_REQ 512
 static short max_target_cpus;
@@ -158,7 +158,7 @@ int is_icx_platform(void)
 
 static int is_dmr_plus_platform(void)
 {
-	if (extended_family == 0x04)
+	if (cpu_family == 19)
 		return 1;
 
 	return 0;
@@ -167,13 +167,14 @@ static int is_dmr_plus_platform(void)
 static int update_cpu_model(void)
 {
 	unsigned int ebx, ecx, edx;
-	unsigned int fms, family;
+	unsigned int fms;
 
 	__cpuid(1, fms, ebx, ecx, edx);
-	family = (fms >> 8) & 0xf;
-	extended_family = (fms >> 20) & 0x0f;
+	cpu_family = (fms >> 8) & 0xf;
+	if (cpu_family == 0xf)
+		cpu_family += (fms >> 20) & 0xff;
 	cpu_model = (fms >> 4) & 0xf;
-	if (family == 6 || family == 0xf)
+	if (cpu_family == 6 || cpu_family == 0xf)
 		cpu_model += ((fms >> 16) & 0xf) << 4;
 
 	cpu_stepping = fms & 0xf;
