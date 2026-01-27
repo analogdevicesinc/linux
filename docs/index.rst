@@ -11,6 +11,7 @@ Linux documentation.
    iio/index
    contribute
    ci
+   mainline
 
 This documentation contains information only about this and the device drivers
 it includes.
