@@ -20,27 +20,27 @@
 #define fmc_spi axi_spi
 
 #ifndef DEVICE_PROFILE_NAME
-#error "DEVICE_PROFILE_NAME must be defined"
+#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP16_20p0_4x4.bin"
 #endif
 
 #ifndef OUT_CLK_SELECT
-#error "OUT_CLK_SELECT must be defined"
+#define OUT_CLK_SELECT		XCVR_PROGDIV_CLK
 #endif
 
 #ifndef SYS_CLK_SELECT
-#error "SYS_CLK_SELECT must be defined"
+#define SYS_CLK_SELECT		XCVR_QPLL
 #endif
 
 #ifndef HMC7044_PLL2_FREQ
-#error "HMC7044_PLL2_FREQ must be defined"
+#define HMC7044_PLL2_FREQ	(2500000000) // 2.5 GHz (2150...3200 MHz range)
 #endif
 
 #if WITH_AION
 #ifndef SYSREF_CLK_MHz
-#error "SYSREF_CLK_MHz must be defined"
+#define SYSREF_CLK_MHz		(10000000)
 #endif
 #ifndef AION_VCO_FREQ_HZ
-#error "AION_VCO_FREQ_HZ must be defined"
+#define AION_VCO_FREQ_HZ	(2500000000) // 2.5 GHz (2375...2625 MHz range)
 #endif
 #define JESD_SUBCLASS 1
 #else
