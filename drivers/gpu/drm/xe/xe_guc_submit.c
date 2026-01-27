@@ -1049,10 +1049,7 @@ try_again:
 				return -ENODEV;
 			}
 
-			msleep(sleep_period_ms);
-			sleep_total_ms += sleep_period_ms;
-			if (sleep_period_ms < 64)
-				sleep_period_ms <<= 1;
+			sleep_total_ms += xe_sleep_exponential_ms(&sleep_period_ms, 64);
 			goto try_again;
 		}
 	}
