@@ -9,6 +9,22 @@
 
 #include <linux/module.h>
 #include <linux/cpufreq.h>
+#include <linux/init.h>
+
+
+static int __init sc589_cpufreq_init(void)
+{
+
+	return 0;
+}
+module_init(sc589_cpufreq_init);
+
+static void __exit sc589_cpufreq_exit(void)
+{
+
+	return;
+}
+module_exit(sc589_cpufreq_exit);
 
 MODULE_AUTHOR("Qasim Ijaz <Qasim.Ijaz@analog.com>");
 MODULE_DESCRIPTION("CPUFreq driver for Analog Devices ADSP-SC589");
