@@ -1400,6 +1400,9 @@ int xe_guc_auth_huc(struct xe_guc *guc, u32 rsa_addr)
 	return xe_guc_ct_send_block(&guc->ct, action, ARRAY_SIZE(action));
 }
 
+#define MAX_RETRIES_ON_FLR	2
+#define MIN_SLEEP_MS_ON_FLR	256
+
 int xe_guc_mmio_send_recv(struct xe_guc *guc, const u32 *request,
 			  u32 len, u32 *response_buf)
 {
@@ -1410,7 +1413,7 @@ int xe_guc_mmio_send_recv(struct xe_guc *guc, const u32 *request,
 		MED_VF_SW_FLAG(0) : VF_SW_FLAG(0);
 	const u32 LAST_INDEX = VF_SW_FLAG_COUNT - 1;
 	unsigned int sleep_period_ms = 1;
-	bool lost = false;
+	unsigned int lost = 0;
 	u32 header;
 	int ret;
 	int i;
@@ -1446,9 +1449,14 @@ retry:
 			     50000, &header, false);
 	if (ret) {
 		/* scratch registers might be cleared during FLR, try once more */
-		if (!header && !lost) {
+		if (!header) {
+			if (++lost > MAX_RETRIES_ON_FLR) {
+				xe_gt_err(gt, "GuC mmio request %#x: lost, too many retries %u\n",
+					  request[0], lost);
+				return -ENOLINK;
+			}
 			xe_gt_dbg(gt, "GuC mmio request %#x: lost, trying again\n", request[0]);
-			lost = true;
+			xe_sleep_relaxed_ms(MIN_SLEEP_MS_ON_FLR);
 			goto retry;
 		}
 timeout:
