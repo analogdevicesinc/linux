@@ -1,5 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084-EBZ
+ *
+ * hdl_project: <ad9084_ebz/vck190>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
 /dts-v1/;
-/* hdl: */
 
 #include "versal-vck190-rev1.1.dts"
 #include <dt-bindings/iio/adc/adi,ad9088.h>
