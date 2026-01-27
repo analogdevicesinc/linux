@@ -32,6 +32,7 @@
 #include "xe_guc_tlb_inval.h"
 #include "xe_map.h"
 #include "xe_pm.h"
+#include "xe_sleep.h"
 #include "xe_sriov_vf.h"
 #include "xe_trace_guc.h"
 
@@ -1101,7 +1102,8 @@ static int dequeue_one_g2h(struct xe_guc_ct *ct);
  */
 static bool guc_ct_send_wait_for_retry(struct xe_guc_ct *ct, u32 len,
 				       u32 g2h_len, struct g2h_fence *g2h_fence,
-				       unsigned int *sleep_period_ms)
+				       unsigned int *sleep_period_ms,
+				       unsigned int *sleep_total_ms)
 {
 	struct xe_device *xe = ct_to_xe(ct);
 
@@ -1115,15 +1117,14 @@ static bool guc_ct_send_wait_for_retry(struct xe_guc_ct *ct, u32 len,
 	if (!h2g_has_room(ct, len + GUC_CTB_HDR_LEN)) {
 		struct guc_ctb *h2g = &ct->ctbs.h2g;
 
-		if (*sleep_period_ms == 1024)
+		if (*sleep_total_ms > 1000)
 			return false;
 
 		trace_xe_guc_ct_h2g_flow_control(xe, h2g->info.head, h2g->info.tail,
 						 h2g->info.size,
 						 h2g->info.space,
 						 len + GUC_CTB_HDR_LEN);
-		msleep(*sleep_period_ms);
-		*sleep_period_ms <<= 1;
+		xe_sleep_exponential_ms(sleep_period_ms, 64);
 	} else {
 		struct xe_device *xe = ct_to_xe(ct);
 		struct guc_ctb *g2h = &ct->ctbs.g2h;
@@ -1161,6 +1162,7 @@ static int guc_ct_send_locked(struct xe_guc_ct *ct, const u32 *action, u32 len,
 {
 	struct xe_gt *gt = ct_to_gt(ct);
 	unsigned int sleep_period_ms = 1;
+	unsigned int sleep_total_ms = 0;
 	int ret;
 
 	xe_gt_assert(gt, !g2h_len || !g2h_fence);
@@ -1173,7 +1175,7 @@ try_again:
 
 	if (unlikely(ret == -EBUSY)) {
 		if (!guc_ct_send_wait_for_retry(ct, len, g2h_len, g2h_fence,
-						&sleep_period_ms))
+						&sleep_period_ms, &sleep_total_ms))
 			goto broken;
 		goto try_again;
 	}
