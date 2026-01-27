@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="The Linux kernel in this repository is the Linux kernel from Xilinx together with drivers &amp; patches applied from Analog Devices." name="description" />
+
+    <title>Getting Started &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=5d595293" />
+    <script async="async" src="_static/app.umd.js?v=46a18818"></script>
+    <link rel="icon" href="_static/icon.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Industrial I/O" href="iio/index.html" />
+    <link rel="prev" title="Analog Devices Linux" href="index.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs" tabindex="0">Docs</label>
+        
+        <a id="logo" href="index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="./index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">Getting Started</a><ul>
+<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#how-to-build">How to build</a></li>
+<li><a class="reference internal" href="#release-branches">Release branches</a></li>
+<li><a class="reference internal" href="#rebased-branches">Rebased branches</a></li>
+<li><a class="reference internal" href="#raspberry-pi-branches">Raspberry Pi branches</a></li>
+<li><a class="reference internal" href="#intel-altera-branches">Intel/Altera branches</a></li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="./index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <html>
+  <body><ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Getting Started</a></li>
+<li class="toctree-l1"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1"/><div class="collapse"><a class="reference internal" href="iio/index.html">Industrial I/O</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l2"><a class="reference internal" href="iio/apollo.html">AD9088 driver</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mainline.html">ADI Linux version support</a></li>
+</ul>
+</body>
+</html>
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb empty"><ol></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="getting-started">
+<span id="id1"></span><h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The Linux kernel in this repository is the
+<a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx" target="_blank">Linux kernel from Xilinx</a>
+together with drivers &amp; patches applied from Analog Devices.</p>
+<p>Details about the drivers that are of interest and supported by this repository
+can be found on the
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers-all" target="_blank">Analog Devices wiki</a>.
+This readme focuses on details specific to how this code is
+structured/organized, how it was derived, etc.</p>
+<p>The current main is based on <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx/tree/xilinx-v2025.1" target="_blank">xilinx v2025.1</a>.
+For details about the merge see commit
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/commit/3b1f15dc5c4de92663059705d6f1cb6fc87d4470" target="_blank">3b1f15dc5c4d</a>
+(Merge tag <code class="docutils literal notranslate"><span class="pre">xilinx-v2025.1</span></code> of <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx.git" target="_blank">https://github.com/Xilinx/linux-xlnx.git</a>).
+In this Xilinx release, the current version of upstream Linux is
+<a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.12" target="_blank">Linux 6.12</a>.</p>
+</section>
+<section id="how-to-build">
+<h2>How to build<a class="headerlink" href="#how-to-build" title="Link to this heading"></a></h2>
+<p>For build instructions
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers-all#building_the_adi_linux_kernel" target="_blank">check the wiki</a>.</p>
+</section>
+<section id="release-branches">
+<h2>Release branches<a class="headerlink" href="#release-branches" title="Link to this heading"></a></h2>
+<p>All release branches have the <code class="docutils literal notranslate"><span class="pre">[YEAR]_R[NUM]</span></code> format. There are some special
+release branches sometimes (like <code class="docutils literal notranslate"><span class="pre">2014_R2_altera</span></code>, because it wasn’t always
+possible to match the Linux repo between Xilinx &amp; Intel/Altera.</p>
+<p>Each release is matched with a release from the <a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/tree/main/" target="_blank">HDL repo</a>. The
+branching name/model for the HDL repo differs a bit from the one in this repo,
+but the matching should be obvious. Therefore, each kernel in the release
+branches is be built using the toolchains from a specific version of Vivado &amp;
+Quartus. A matching of these can be found at <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/user_guide/releases.html#releases" target="_blank" title="(in HDL)"><span>Releases</span></a>.
+Release branches can be built using other GCC toolchains, but in the official
+SD-card images provided, they will use the toolchains from Vivado/Quartus.</p>
+</section>
+<section id="rebased-branches">
+<h2>Rebased branches<a class="headerlink" href="#rebased-branches" title="Link to this heading"></a></h2>
+<p>Starting with <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adi-4.9.0/" target="_blank">ADI Linux repository’s branch adi-4.9.0</a> there are rebased branches. They’re
+typically rebased branches from Xilinx with the ADI patches on top so that it’s
+easier to identify patches that are not yet upstreamed.</p>
+<p>For <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adi-4.9.0/" target="_blank">ADI Linux repository’s branch adi-4.9.0</a> the base was branch
+<a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx/tree/xlnx_rebase_v4.9" target="_blank">xlnx_rebase_v4.9</a>
+at commit
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/commit/e5c22c2179cfbec584d2c540d40a0c3d7a20770c" target="_blank">e5c22c2179cf</a>
+in the ADI repo and commit
+<a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx/commit/45e196f59364e9f5eafe46027a7d2af349083974" target="_blank">45e196f59364</a>
+in the Xilinx repo. All ADI patches &amp; drivers up to a specific point in time
+were cherry-picked to that branch from master. Note that since the
+<code class="docutils literal notranslate"><span class="pre">adi-4.9.0</span></code> branch is the first rebased branch, it’s not particularly the
+best rebase that could have been done, but it should provide some patches that
+are somewhat reasonable to take and apply on top of an upstream 4.9 kernel
+after some polishing.</p>
+<p>The latest rebased branch depends on the current linux version supported in
+master. Also note that a diff between the latest rebased branch and <cite>xlnx-main</cite>
+(e.g., <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">diff</span> <span class="pre">xlnx-main</span> <span class="pre">adi-6.12.0</span></code>) must be NULL.</p>
+</section>
+<section id="raspberry-pi-branches">
+<h2>Raspberry Pi branches<a class="headerlink" href="#raspberry-pi-branches" title="Link to this heading"></a></h2>
+<p>These provide a kernel that is good to run on a Raspberry Pi board. All the
+drivers present in the master branch should be automatically cherry-picked into
+the latest rpi branch.</p>
+<p>As in the rebased branches, the latest rpi branch should be in accordance with
+the current kernel version supported in master.</p>
+</section>
+<section id="intel-altera-branches">
+<h2>Intel/Altera branches<a class="headerlink" href="#intel-altera-branches" title="Link to this heading"></a></h2>
+<p>Because the kernel versions that Intel/Altera were usually not in sync with
+Xilinx’s, <code class="docutils literal notranslate"><span class="pre">altera-*</span></code> branches were created:</p>
+<ul class="simple">
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.0/" target="_blank">altera_4.0</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.4/" target="_blank">altera_4.4</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.6/" target="_blank">altera_4.6</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.9/" target="_blank">altera_4.9</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/altera_4.14/" target="_blank">altera_4.14</a></p></li>
+</ul>
+<p>These branches are derived from the
+<a class="icon link reference external" href="https://github.com/altera-opensource/linux-socfpga" target="_blank">Intel/Altera linux kernel repo</a>,
+together with some merged versions of old master branches.</p>
+<p>These branches would stop existing, since Intel/Altera seems to keep in sync
+their kernel version with more recent non-LTS kernels. Typically the
+releases/references that are provided for these boards should already be in the
+mainline kernel, so these branches should no longer be needed.</p>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="index.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">Analog Devices Linux</a>
+    <a href="iio/index.html" title="Next document (Alt+Shift+RightArrow)" class="next">Industrial I/O</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

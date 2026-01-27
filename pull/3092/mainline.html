@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="There are three types of Linux kernel releases:" name="description" />
+
+    <title>ADI Linux version support &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=5d595293" />
+    <script async="async" src="_static/app.umd.js?v=46a18818"></script>
+    <link rel="icon" href="_static/icon.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Continuous integration" href="ci.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs" tabindex="0">Docs</label>
+        
+        <a id="logo" href="index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="./index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">ADI Linux version support</a><ul>
+<li><a class="reference internal" href="#mainline-linux-versions">Mainline Linux versions</a></li>
+<li><a class="reference internal" href="#adi-support">ADI support</a></li>
+<li><a class="reference internal" href="#cve">CVE</a><ul>
+<li><a class="reference internal" href="#mainline">Mainline</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="./index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <html>
+  <body><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1"/><div class="collapse"><a class="reference internal" href="iio/index.html">Industrial I/O</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l2"><a class="reference internal" href="iio/apollo.html">AD9088 driver</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ci.html">Continuous integration</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ADI Linux version support</a></li>
+</ul>
+</body>
+</html>
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb empty"><ol></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="adi-linux-version-support">
+<h1>ADI Linux version support<a class="headerlink" href="#adi-linux-version-support" title="Link to this heading"></a></h1>
+<section id="mainline-linux-versions">
+<h2>Mainline Linux versions<a class="headerlink" href="#mainline-linux-versions" title="Link to this heading"></a></h2>
+<p>There are three types of Linux kernel releases:</p>
+<ul class="simple">
+<li><p>Major releases (e.g. 6.0, 6.1, 6.2)</p></li>
+<li><p>Long-term support (LTS) releases (e.g. 6.1, 6.6, 6.12)</p></li>
+<li><p>Stable releases (e.g. 6.12.0, 6.12.1, …, 6.12.66)</p></li>
+</ul>
+<p>Additionally, the Civil Infrastructure Platform (CIP) continues to maintain LTS
+releases once mainline support ends. <a class="footnote-reference brackets" href="#cip" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> This is done to meet industrial grade
+requirements.</p>
+<p>The latest releases are listed on <a class="icon link reference external" href="https://www.kernel.org/" target="_blank">kernel.org</a>. The <a class="icon link reference external" href="https://en.wikipedia.org/wiki/Linux_kernel_version_history" target="_blank">Linux kernel version
+history</a> article on Wikipedia provides helpful diagrams for understanding the
+various Linux kernel releases. For example, the following diagram shows all
+6.x.y releases:</p>
+<img alt="https://upload.wikimedia.org/wikipedia/en/timeline/l6dviz7g7u8sv3g7eoysel7pp7vcxoq.png" src="https://upload.wikimedia.org/wikipedia/en/timeline/l6dviz7g7u8sv3g7eoysel7pp7vcxoq.png" />
+</section>
+<section id="adi-support">
+<h2>ADI support<a class="headerlink" href="#adi-support" title="Link to this heading"></a></h2>
+<p>All ADI changes are intented to be eventually applied upstream in the mainline
+Linux kernel. That process can take some time. Therefore the changes are
+maintained in the ADI tree on Github.</p>
+<p>ADI follows a similar approach to that taken by mainline. It attempts to
+maintain ADI changes on top of the latest LTS release and update those changes
+with every new LTS release. That process makes it easier to upstream those
+changes into the mainline kernel.</p>
+<p>ADI can also apply those changes to older LTS releases by backporting changes,
+but that is not done automatically given the burden of supporting multiple LTS
+versions.</p>
+</section>
+<section id="cve">
+<h2>CVE<a class="headerlink" href="#cve" title="Link to this heading"></a></h2>
+<p>ADI addresses upstream CVEs by applying our changes onto newer stable releases,
+which include fixes. Only CVEs targeting ADI changes will be applied in the ADI
+tree.</p>
+<section id="mainline">
+<h3>Mainline<a class="headerlink" href="#mainline" title="Link to this heading"></a></h3>
+<p>On February 13, 2024 kernel.org was added as a CVE Numbering Authority, giving
+the Linux development community more control over how CVEs are issued.
+<a class="footnote-reference brackets" href="#cna-announcement" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a> Greg K-H provided context to that announcement in his blog
+post, <a class="icon link reference external" href="http://www.kroah.com/log/blog/2024/02/13/linux-is-a-cna/" target="_blank">Linux is a CNA</a>, and it was covered by LWN in <a class="icon link reference external" href="https://lwn.net/Articles/961978/" target="_blank">A turning point for CVE
+numbers</a>.</p>
+<blockquote class="pull-quote">
+<div><p>Nobody who relies on backporting fixes to a non-mainline kernel will be able
+to keep up with this CVE stream. Any company that is using CVE numbers to
+select kernel patches is going to have to rethink its processes.</p>
+<p>… distributors will simply fall back on shipping the stable kernel updates
+which, almost by definition, will contain fixes for every known CVE number.</p>
+</div></blockquote>
+<p>CVEs for the Linux kernel are announced on the <a class="icon link reference external" href="https://lore.kernel.org/linux-cve-announce/" target="_blank">linux-cve-announce mailing
+list</a> and stored in the <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/security/vulns.git/" target="_blank">security/vulns git repository</a>, along with a set of
+scripts to parse the data.</p>
+<hr class="docutils" />
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="cip" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p><a class="icon link reference external" href="https://wiki.linuxfoundation.org/civilinfrastructureplatform/cipkernelmaintenance" target="_blank">https://wiki.linuxfoundation.org/civilinfrastructureplatform/cipkernelmaintenance</a></p>
+</aside>
+<aside class="footnote brackets" id="cna-announcement" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
+<p><a class="icon link reference external" href="https://www.cve.org/Media/News/item/news/2024/02/13/kernel-org-Added-as-CNA" target="_blank">https://www.cve.org/Media/News/item/news/2024/02/13/kernel-org-Added-as-CNA</a></p>
+</aside>
+</aside>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="ci.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">Continuous integration</a>
+    <div></div>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>
