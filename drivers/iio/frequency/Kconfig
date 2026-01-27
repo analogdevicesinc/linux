@@ -11,6 +11,16 @@ menu "Frequency Synthesizers DDS/PLL"
 
 menu "Clock Generator/Distribution"
 
+config AD9508
+	tristate "Analog Devices AD9508 Clock Fanout Buffer"
+	depends on SPI && COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices AD9508 SPI Clock
+	  Fanout Buffer with Output Dividers and Delay Adjust.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad9508.
+
 config AD9523
 	tristate "Analog Devices AD9523 Low Jitter Clock Generator"
 	depends on SPI
