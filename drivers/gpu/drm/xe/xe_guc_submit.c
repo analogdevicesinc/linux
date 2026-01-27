@@ -8,9 +8,7 @@
 #include <linux/bitfield.h>
 #include <linux/bitmap.h>
 #include <linux/circ_buf.h>
-#include <linux/delay.h>
 #include <linux/dma-fence-array.h>
-#include <linux/math64.h>
 
 #include <drm/drm_managed.h>
 
@@ -42,6 +40,7 @@
 #include "xe_pm.h"
 #include "xe_ring_ops_types.h"
 #include "xe_sched_job.h"
+#include "xe_sleep.h"
 #include "xe_trace.h"
 #include "xe_uc_fw.h"
 #include "xe_vm.h"
@@ -1032,24 +1031,6 @@ static u32 wq_space_until_wrap(struct xe_exec_queue *q)
 	return (WQ_SIZE - q->guc->wqi_tail);
 }
 
-static inline void relaxed_ms_sleep(unsigned int delay_ms)
-{
-	unsigned long min_us, max_us;
-
-	if (!delay_ms)
-		return;
-
-	if (delay_ms > 20) {
-		msleep(delay_ms);
-		return;
-	}
-
-	min_us = mul_u32_u32(delay_ms, 1000);
-	max_us = min_us + 500;
-
-	usleep_range(min_us, max_us);
-}
-
 static int wq_wait_for_space(struct xe_exec_queue *q, u32 wqi_size)
 {
 	struct xe_guc *guc = exec_queue_to_guc(q);
@@ -1834,7 +1815,7 @@ static void __guc_exec_queue_process_msg_suspend(struct xe_sched_msg *msg)
 				since_resume_ms;
 
 			if (wait_ms > 0 && q->guc->resume_time)
-				relaxed_ms_sleep(wait_ms);
+				xe_sleep_relaxed_ms(wait_ms);
 
 			set_exec_queue_suspended(q);
 			disable_scheduling(q, false);
