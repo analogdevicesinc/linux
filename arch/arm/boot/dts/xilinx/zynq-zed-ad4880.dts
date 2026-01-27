@@ -1,0 +1,209 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+#include "zynq-zed.dts"
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/frequency/ad9508.h>
+
+/ {
+	clocks {
+		axi_clk: clock@0 {
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "axi-clk";
+			#clock-cells = <0>;
+		};
+	};
+
+	vdd33: regulator-vdd33 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <7250000>;
+		regulator-max-microvolt = <7250000>;
+		regulator-always-on;
+	};
+
+	vdd11: regulator-vdd11 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	vddldo: regulator-vddldo {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
+
+	iovdd: regulator-iovdd {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	vrefin: regulator-vrefin {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		rx_dma: rx-dmac@44a30000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x44A30000 0x10000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		iio_backend_cha: axi_adc@44a00000 {
+			compatible = "adi,axi-ad408x";
+			reg = <0x44A00000 0x10000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			clocks = <&axi_clk>;
+			spibus-connected = <&adc_ad4880>;
+		};
+
+		iio_backend_chb: axi_adc@44a10000 {
+			compatible = "adi,axi-ad408x";
+			reg = <0x44A10000 0x10000>;
+			clocks = <&axi_clk>;
+			spibus-connected = <&adc_ad4880>;
+		};
+	};
+
+	adf4350_clkin: adf4350_clkin {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+
+	adf4350_clkout: adf4350_clkout {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <400000000>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	adc_ad4880: adc_ad4880@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad4880";
+		reg = <0>, <1>;
+		spi-max-frequency = <10000000>;
+		clocks = <&clk0_ad9508 2>;
+		clock-names = "cnv";
+		adi,lvds-cnv-enable;
+		adi,num-lanes = <1>;
+		vdd33-supply = <&vdd33>;
+		vdd11-supply = <&vdd11>;
+		vddldo-supply = <&vddldo>;
+		iovdd-supply = <&iovdd>;
+		vrefin-supply = <&vrefin>;
+		io-backends = <&iio_backend_cha>, <&iio_backend_chb>;
+	};
+};
+
+
+&spi1 {
+	status = "okay";
+
+	adf4350: adf4350@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,adf4350";
+		reg = <1>;
+		spi-max-frequency = <10000000>;
+		clocks = <&adf4350_clkin>;
+		clock-names = "clkin";
+		adi,reference-div-factor = <1>;
+		adi,channel-spacing = <100000>;
+		adi,lock-detect-function-integer-n-enable;
+		adi,anti-backlash-3ns-enable;
+		adi,muxout-select = <6>;
+		adi,power-up-frequency = <400000000>;
+		adi,phase-detector-polarity-positive-enable;
+		adi,charge-pump-current = <5000>;
+		adi,output-power = <1>;
+	};
+
+	clk0_ad9508: ad9508@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9508";
+		reg = <0>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&adf4350_clkout>;
+
+		spi-max-frequency = <10000000>;
+		clock-output-names = "ad9508-1_out0", "ad9508-1_out1", "ad9508-1_out2", "ad9508-1_out3";
+		sync-gpios = <&gpio0 93 0>;
+
+		ad9508_0_c0:channel@0 {
+			reg = <0>;
+			adi,extended-name = "CNV_B";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_25)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <10>;
+		};
+
+		ad9508_0_c1:channel@1 {
+			reg = <1>;
+			adi,extended-name = "CLK_B";
+			adi,driver-mode = <(DRIVER_PHASE_INVERTING | DRIVER_MODE_LVDS_1_25)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+		};
+
+		ad9508_0_c2:channel@2 {
+			reg = <2>;
+			adi,extended-name = "CNV_A";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_25)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <10>;
+		};
+
+		ad9508_0_c3:channel@3 {
+			reg = <3>;
+			adi,extended-name = "CLK_A";
+			adi,driver-mode = <(DRIVER_PHASE_INVERTING | DRIVER_MODE_LVDS_1_25)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+		};
+
+	};
+};
