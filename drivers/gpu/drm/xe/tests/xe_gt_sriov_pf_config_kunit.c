@@ -15,7 +15,7 @@
 static void pf_set_admin_mode(struct xe_device *xe, bool enable)
 {
 	/* should match logic of xe_sriov_pf_admin_only() */
-	xe->info.probe_display = !enable;
+	xe->sriov.pf.admin_only = enable;
 	KUNIT_EXPECT_EQ(kunit_get_current_test(), enable, xe_sriov_pf_admin_only(xe));
 }
 
