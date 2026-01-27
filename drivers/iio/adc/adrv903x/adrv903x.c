@@ -1447,10 +1447,43 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 				     size_t count, loff_t *ppos)
 {
 	struct adrv903x_debugfs_entry *entry = file->private_data;
+	struct adrv903x_rf_phy *phy = entry->phy;
 	char buf[700];
 	u64 val = 0;
 	ssize_t len = 0;
 	int ret;
+
+	/* Handle RX data capture read specially */
+	if (entry->cmd == DBGFS_RX_DATA_CAPTURE) {
+		char *out_buf;
+		size_t buf_size, pos = 0;
+		u32 i;
+		ssize_t result;
+
+		mutex_lock(&phy->lock);
+		if (!phy->rx_capture_data || !phy->rx_capture_len) {
+			mutex_unlock(&phy->lock);
+			return -ENODATA;
+		}
+
+		/* Allocate buffer: up to 12 chars per value (including space/newline) */
+		buf_size = phy->rx_capture_len * 12 + 1;
+		out_buf = kvzalloc(buf_size, GFP_KERNEL);
+		if (!out_buf) {
+			mutex_unlock(&phy->lock);
+			return -ENOMEM;
+		}
+
+		for (i = 0; i < phy->rx_capture_len && pos < buf_size - 12; i++)
+			pos += scnprintf(out_buf + pos, buf_size - pos, "%u\n",
+					 phy->rx_capture_data[i]);
+
+		mutex_unlock(&phy->lock);
+
+		result = simple_read_from_buffer(userbuf, count, ppos, out_buf, pos);
+		kvfree(out_buf);
+		return result;
+	}
 
 	if (entry->out_value) {
 		switch (entry->size) {
@@ -1587,6 +1620,59 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 		entry->val = val;
 		return count;
 
+	case DBGFS_RX_DATA_CAPTURE:
+		/*
+		 * RX/ORx Data Capture at DDC0
+		 * Usage: echo "<channel> <capture_length>" > rx_data_capture
+		 * channel: 0-7 for RX0-RX7, 8-9 for ORX0-ORX1
+		 * capture_length: capture size in samples (e.g., 1024, 2048, 4096, etc.)
+		 */
+		if (ret < 2)
+			return -EINVAL;
+
+		/* Channel select: val = 0-7 for RX0-RX7, 8-9 for ORX0-ORX1 */
+		if (val > 9)
+			return -EINVAL;
+
+		{
+			adi_adrv903x_RxChannels_e channelSelect;
+			u32 *captureData;
+			u32 captureLength = val2;
+
+			if (val < 8)
+				channelSelect = ADI_ADRV903X_RX0 << val;
+			else
+				channelSelect = ADI_ADRV903X_ORX0 << (val - 8);
+
+			captureData = kvzalloc(captureLength * sizeof(u32), GFP_KERNEL);
+			if (!captureData)
+				return -ENOMEM;
+
+			mutex_lock(&phy->lock);
+			ret = adi_adrv903x_RxOrxDataCaptureStart(phy->palauDevice,
+								 channelSelect,
+								 ADI_ADRV903X_CAPTURE_LOC_DDC0,
+								 captureData,
+								 captureLength,
+								 0, /* trigger = 0 (immediate) */
+								 1000000); /* timeout 1 second */
+
+			if (ret) {
+				mutex_unlock(&phy->lock);
+				kvfree(captureData);
+				return adrv903x_dev_err(phy);
+			}
+
+			/* Store captured data for reading */
+			kvfree(phy->rx_capture_data);
+			phy->rx_capture_data = captureData;
+			phy->rx_capture_len = captureLength;
+			mutex_unlock(&phy->lock);
+		}
+
+		entry->val = val;
+		return count;
+
 	default:
 		break;
 	}
@@ -1655,6 +1741,7 @@ static int adrv903x_register_debugfs(struct iio_dev *indio_dev)
 	adrv903x_add_debugfs_entry(phy, "bist_framer_1_loopback",
 				   DBGFS_BIST_FRAMER_1_LOOPBACK);
 	adrv903x_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	adrv903x_add_debugfs_entry(phy, "rx_data_capture", DBGFS_RX_DATA_CAPTURE);
 
 	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++)
 		d = debugfs_create_file(phy->debugfs_entry[i].propname, 0644,

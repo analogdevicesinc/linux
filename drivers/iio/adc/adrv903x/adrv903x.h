@@ -39,6 +39,7 @@ enum debugfs_cmd {
 	DBGFS_BIST_FRAMER_0_LOOPBACK,
 	DBGFS_BIST_FRAMER_1_LOOPBACK,
 	DBGFS_BIST_TONE,
+	DBGFS_RX_DATA_CAPTURE,
 };
 
 enum adrv903x_rx_ext_info {
@@ -152,6 +153,10 @@ struct adrv903x_rf_phy {
 
 	bool is_initialized;
 	int spi_device_id;
+
+	/* RX/ORx data capture storage */
+	u32 *rx_capture_data;
+	u32 rx_capture_len;
 };
 
 int adrv903x_hdl_loopback(struct adrv903x_rf_phy *phy, bool enable);
