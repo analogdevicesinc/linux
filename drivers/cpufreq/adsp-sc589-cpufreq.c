@@ -7,7 +7,8 @@
  * Author: Qasim Ijaz <Qasim.Ijaz@analog.com>
  */
 
-
+#include <linux/module.h>
+#include <linux/cpufreq.h>
 
 MODULE_AUTHOR("Qasim Ijaz <Qasim.Ijaz@analog.com>");
 MODULE_DESCRIPTION("CPUFreq driver for Analog Devices ADSP-SC589");
