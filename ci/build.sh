@@ -435,7 +435,6 @@ compile_devicetree() {
 
 	dts_files+=\ $(echo "$files" | grep ^arch/$ARCH/boot/dts/ | grep dts$ || true)
 	dts_files=$(echo $dts_files | xargs)
-	[[ -n "$dts_files" ]] && dts_files=$(grep -LE  "\*[[:space:]]*is_template:[[:space:]]*true" $dts_files || true)
 	if [[ -z "$dts_files" ]]; then
 		echo "no dts to compile on range, skipped"
 		return 0
@@ -536,7 +535,6 @@ compile_many_devicetrees() {
 	if [[ -f $exceptions_file ]]; then
 		dts_files=$(comm -13 <(sort $exceptions_file) <(echo $dts_files | tr ' ' '\n' | sort))
 	fi
-	[[ -n "$dts_files" ]] && dts_files=$(grep -LE  "\*[[:space:]]*is_template:[[:space:]]*true" $dts_files || true)
 	if [[ -z "$dts_files" ]]; then
 		echo "no dts to compile, skipped"
 		return 0
