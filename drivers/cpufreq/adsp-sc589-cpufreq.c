@@ -11,6 +11,11 @@
 #include <linux/cpufreq.h>
 #include <linux/init.h>
 
+static struct cpufreq_frequency_table sc589_freq_table[] = {
+	{.flags = 0, .driver_data = 0, .frequency = 0},
+	{.flags = 0, .driver_data = 0, .frequency = 0},
+	{.flags = 0, .driver_data = 0, .frequency = CPUFREQ_TABLE_END},
+};
 
 static int __init sc589_cpufreq_init(void)
 {
