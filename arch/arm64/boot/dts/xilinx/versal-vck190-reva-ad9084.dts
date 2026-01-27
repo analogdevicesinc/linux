@@ -1,7 +1,5 @@
 /dts-v1/;
-/* hdl:
- * is_template: true
- */
+/* hdl: */
 
 #include "versal-vck190-rev1.1.dts"
 #include <dt-bindings/iio/adc/adi,ad9088.h>
