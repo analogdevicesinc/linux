@@ -1,3 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084-EBZ
+ *
+ * hdl_project: <ad9084_ebz/vpk180>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "versal-vpk180-revA.dts"
