@@ -1327,15 +1327,3 @@ static inline void vma_set_file(struct vm_area_struct *vma, struct file *file)
 	swap(vma->vm_file, file);
 	fput(file);
 }
-
-struct unmap_desc {
-	struct  ma_state *mas;        /* the maple state point to the first vma */
-	struct vm_area_struct *first; /* The first vma */
-	unsigned long pg_start;       /* The first pagetable address to free (floor) */
-	unsigned long pg_end;         /* The last pagetable address to free (ceiling) */
-	unsigned long vma_start;      /* The min vma address */
-	unsigned long vma_end;        /* The max vma address */
-	unsigned long tree_end;       /* Maximum for the vma tree search */
-	unsigned long tree_reset;     /* Where to reset the vma tree walk */
-	bool mm_wr_locked;            /* If the mmap write lock is held */
-};
