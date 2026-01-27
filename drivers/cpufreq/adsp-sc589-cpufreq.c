@@ -8,6 +8,7 @@
  */
 
 
-MODULE_LICENSE("GPL");
+
 MODULE_AUTHOR("Qasim Ijaz <Qasim.Ijaz@analog.com>");
 MODULE_DESCRIPTION("CPUFreq driver for Analog Devices ADSP-SC589");
+MODULE_LICENSE("GPL");
