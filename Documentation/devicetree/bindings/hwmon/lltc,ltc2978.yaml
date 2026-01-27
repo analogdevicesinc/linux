@@ -37,6 +37,8 @@ properties:
       - lltc,ltm4677
       - lltc,ltm4678
       - lltc,ltm4680
+      - lltc,ltm4681
+      - lltc,ltm4682
       - lltc,ltm4686
       - lltc,ltm4700
 
@@ -60,6 +62,7 @@ properties:
       * ltm4664 : vout0 - vout1
       * ltm4675, ltm4676, ltm4677, ltm4678 : vout0 - vout1
       * ltm4680, ltm4686 : vout0 - vout1
+      * ltm4681, ltm4682 : vout0 - vout1
       * ltm4700 : vout0 - vout1
 
     patternProperties:
