@@ -165,7 +165,8 @@ extern int ata_scsi_user_scan(struct Scsi_Host *shost, unsigned int channel,
 void ata_scsi_sdev_config(struct scsi_device *sdev);
 int ata_scsi_dev_config(struct scsi_device *sdev, struct queue_limits *lim,
 		struct ata_device *dev);
-int __ata_scsi_queuecmd(struct scsi_cmnd *scmd, struct ata_device *dev);
+enum scsi_qc_status __ata_scsi_queuecmd(struct scsi_cmnd *scmd,
+					struct ata_device *dev);
 void ata_scsi_deferred_qc_work(struct work_struct *work);
 void ata_scsi_requeue_deferred_qc(struct ata_port *ap);
 
