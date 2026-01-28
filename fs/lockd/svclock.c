@@ -29,7 +29,8 @@
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/svc_xprt.h>
 #include <linux/lockd/nlm.h>
-#include <linux/lockd/lockd.h>
+
+#include "lockd.h"
 
 #define NLMDBG_FACILITY		NLMDBG_SVCLOCK
 

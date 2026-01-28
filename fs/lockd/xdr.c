@@ -15,12 +15,11 @@
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/svc.h>
 #include <linux/sunrpc/stats.h>
-#include <linux/lockd/lockd.h>
 
 #include <uapi/linux/nfs2.h>
 
+#include "lockd.h"
 #include "svcxdr.h"
-
 
 static inline loff_t
 s32_to_loff_t(__s32 offset)
