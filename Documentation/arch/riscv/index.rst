@@ -14,6 +14,8 @@ RISC-V architecture
     uabi
     vector
     cmodx
+    zicfilp
+    zicfiss
 
     features
 
