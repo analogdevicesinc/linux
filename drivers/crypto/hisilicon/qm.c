@@ -2002,7 +2002,38 @@ static void hisi_qm_unset_hw_reset(struct hisi_qp *qp)
 	*addr = 0;
 }
 
-static struct hisi_qp *qm_create_qp_nolock(struct hisi_qm *qm, u8 alg_type)
+static struct hisi_qp *find_shareable_qp(struct hisi_qm *qm, u8 alg_type, bool is_in_kernel)
+{
+	struct device *dev = &qm->pdev->dev;
+	struct hisi_qp *share_qp = NULL;
+	struct hisi_qp *qp;
+	u32 ref_count = ~0;
+	int i;
+
+	if (!is_in_kernel)
+		goto queues_busy;
+
+	for (i = 0; i < qm->qp_num; i++) {
+		qp = &qm->qp_array[i];
+		if (qp->is_in_kernel && qp->alg_type == alg_type && qp->ref_count < ref_count) {
+			ref_count = qp->ref_count;
+			share_qp = qp;
+		}
+	}
+
+	if (share_qp) {
+		share_qp->ref_count++;
+		return share_qp;
+	}
+
+queues_busy:
+	dev_info_ratelimited(dev, "All %u queues of QM are busy and no shareable queue\n",
+			     qm->qp_num);
+	atomic64_inc(&qm->debug.dfx.create_qp_err_cnt);
+	return ERR_PTR(-EBUSY);
+}
+
+static struct hisi_qp *qm_create_qp_nolock(struct hisi_qm *qm, u8 alg_type, bool is_in_kernel)
 {
 	struct device *dev = &qm->pdev->dev;
 	struct hisi_qp *qp;
@@ -2013,12 +2044,9 @@ static struct hisi_qp *qm_create_qp_nolock(struct hisi_qm *qm, u8 alg_type)
 		return ERR_PTR(-EPERM);
 	}
 
-	if (qm->qp_in_used == qm->qp_num) {
-		dev_info_ratelimited(dev, "All %u queues of QM are busy!\n",
-				     qm->qp_num);
-		atomic64_inc(&qm->debug.dfx.create_qp_err_cnt);
-		return ERR_PTR(-EBUSY);
-	}
+	/* Try to find a shareable queue when all queues are busy */
+	if (qm->qp_in_used == qm->qp_num)
+		return find_shareable_qp(qm, alg_type, is_in_kernel);
 
 	qp_id = idr_alloc_cyclic(&qm->qp_idr, NULL, 0, qm->qp_num, GFP_ATOMIC);
 	if (qp_id < 0) {
@@ -2034,10 +2062,10 @@ static struct hisi_qp *qm_create_qp_nolock(struct hisi_qm *qm, u8 alg_type)
 
 	qp->event_cb = NULL;
 	qp->req_cb = NULL;
-	qp->qp_id = qp_id;
 	qp->alg_type = alg_type;
-	qp->is_in_kernel = true;
+	qp->is_in_kernel = is_in_kernel;
 	qm->qp_in_used++;
+	qp->ref_count = 1;
 
 	return qp;
 }
@@ -2059,7 +2087,7 @@ static struct hisi_qp *hisi_qm_create_qp(struct hisi_qm *qm, u8 alg_type)
 		return ERR_PTR(ret);
 
 	down_write(&qm->qps_lock);
-	qp = qm_create_qp_nolock(qm, alg_type);
+	qp = qm_create_qp_nolock(qm, alg_type, false);
 	up_write(&qm->qps_lock);
 
 	if (IS_ERR(qp))
@@ -2219,6 +2247,7 @@ static void qp_stop_fail_cb(struct hisi_qp *qp)
 	for (i = 0; i < qp_used; i++) {
 		pos = (i + cur_head) % sq_depth;
 		qp->req_cb(qp, qp->sqe + (u32)(qm->sqe_size * pos));
+		qm_cq_head_update(qp);
 		atomic_dec(&qp->qp_status.used);
 	}
 }
@@ -2368,25 +2397,33 @@ EXPORT_SYMBOL_GPL(hisi_qm_stop_qp);
 int hisi_qp_send(struct hisi_qp *qp, const void *msg)
 {
 	struct hisi_qp_status *qp_status = &qp->qp_status;
-	u16 sq_tail = qp_status->sq_tail;
-	u16 sq_tail_next = (sq_tail + 1) % qp->sq_depth;
-	void *sqe = qm_get_avail_sqe(qp);
+	u16 sq_tail, sq_tail_next;
+	void *sqe;
 
+	spin_lock_bh(&qp->qp_lock);
 	if (unlikely(atomic_read(&qp->qp_status.flags) == QP_STOP ||
 		     atomic_read(&qp->qm->status.flags) == QM_STOP ||
 		     qp->is_resetting)) {
+		spin_unlock_bh(&qp->qp_lock);
 		dev_info_ratelimited(&qp->qm->pdev->dev, "QP is stopped or resetting\n");
 		return -EAGAIN;
 	}
 
-	if (!sqe)
+	sqe = qm_get_avail_sqe(qp);
+	if (!sqe) {
+		spin_unlock_bh(&qp->qp_lock);
 		return -EBUSY;
+	}
 
+	sq_tail = qp_status->sq_tail;
+	sq_tail_next = (sq_tail + 1) % qp->sq_depth;
 	memcpy(sqe, msg, qp->qm->sqe_size);
+	qp->msg[sq_tail] = msg;
 
 	qm_db(qp->qm, qp->qp_id, QM_DOORBELL_CMD_SQ, sq_tail_next, 0);
 	atomic_inc(&qp->qp_status.used);
 	qp_status->sq_tail = sq_tail_next;
+	spin_unlock_bh(&qp->qp_lock);
 
 	return 0;
 }
@@ -2449,7 +2486,6 @@ static int hisi_qm_uacce_get_queue(struct uacce_device *uacce,
 	qp->uacce_q = q;
 	qp->event_cb = qm_qp_event_notifier;
 	qp->pasid = arg;
-	qp->is_in_kernel = false;
 
 	return 0;
 }
@@ -2919,12 +2955,13 @@ EXPORT_SYMBOL_GPL(hisi_qm_wait_task_finish);
 static void hisi_qp_memory_uninit(struct hisi_qm *qm, int num)
 {
 	struct device *dev = &qm->pdev->dev;
-	struct qm_dma *qdma;
+	struct hisi_qp *qp;
 	int i;
 
 	for (i = num - 1; i >= 0; i--) {
-		qdma = &qm->qp_array[i].qdma;
-		dma_free_coherent(dev, qdma->size, qdma->va, qdma->dma);
+		qp = &qm->qp_array[i];
+		dma_free_coherent(dev, qp->qdma.size, qp->qdma.va, qp->qdma.dma);
+		kfree(qp->msg);
 		kfree(qm->poll_data[i].qp_finish_id);
 	}
 
@@ -2946,10 +2983,14 @@ static int hisi_qp_memory_init(struct hisi_qm *qm, size_t dma_size, int id,
 		return -ENOMEM;
 
 	qp = &qm->qp_array[id];
+	qp->msg = kmalloc_array(sq_depth, sizeof(void *), GFP_KERNEL);
+	if (!qp->msg)
+		goto err_free_qp_finish_id;
+
 	qp->qdma.va = dma_alloc_coherent(dev, dma_size, &qp->qdma.dma,
 					 GFP_KERNEL);
 	if (!qp->qdma.va)
-		goto err_free_qp_finish_id;
+		goto err_free_qp_msg;
 
 	qp->sqe = qp->qdma.va;
 	qp->sqe_dma = qp->qdma.dma;
@@ -2961,8 +3002,14 @@ static int hisi_qp_memory_init(struct hisi_qm *qm, size_t dma_size, int id,
 	qp->qm = qm;
 	qp->qp_id = id;
 
+	spin_lock_init(&qp->qp_lock);
+	spin_lock_init(&qp->backlog.lock);
+	INIT_LIST_HEAD(&qp->backlog.list);
+
 	return 0;
 
+err_free_qp_msg:
+	kfree(qp->msg);
 err_free_qp_finish_id:
 	kfree(qm->poll_data[id].qp_finish_id);
 	return ret;
@@ -3533,6 +3580,17 @@ void hisi_qm_dev_err_uninit(struct hisi_qm *qm)
 }
 EXPORT_SYMBOL_GPL(hisi_qm_dev_err_uninit);
 
+static void qm_release_qp_nolock(struct hisi_qp *qp)
+{
+	struct hisi_qm *qm = qp->qm;
+
+	if (--qp->ref_count)
+		return;
+
+	qm->qp_in_used--;
+	idr_remove(&qm->qp_idr, qp->qp_id);
+}
+
 /**
  * hisi_qm_free_qps() - free multiple queue pairs.
  * @qps: The queue pairs need to be freed.
@@ -3545,10 +3603,33 @@ void hisi_qm_free_qps(struct hisi_qp **qps, int qp_num)
 	if (!qps || qp_num <= 0)
 		return;
 
-	for (i = qp_num - 1; i >= 0; i--)
-		hisi_qm_release_qp(qps[i]);
+	down_write(&qps[0]->qm->qps_lock);
+
+	for (i = qp_num - 1; i >= 0; i--) {
+		if (qps[i]->ref_count == 1)
+			qm_stop_qp_nolock(qps[i]);
+
+		qm_release_qp_nolock(qps[i]);
+	}
+
+	up_write(&qps[0]->qm->qps_lock);
+	qm_pm_put_sync(qps[0]->qm);
 }
 EXPORT_SYMBOL_GPL(hisi_qm_free_qps);
+
+static void qm_insert_sorted(struct list_head *head, struct hisi_qm_resource *res)
+{
+	struct hisi_qm_resource *tmp;
+	struct list_head *n = head;
+
+	list_for_each_entry(tmp, head, list) {
+		if (res->distance < tmp->distance) {
+			n = &tmp->list;
+			break;
+		}
+	}
+	list_add_tail(&res->list, n);
+}
 
 static void free_list(struct list_head *head)
 {
@@ -3560,14 +3641,57 @@ static void free_list(struct list_head *head)
 	}
 }
 
+static int qm_get_and_start_qp(struct hisi_qm *qm, int qp_num, struct hisi_qp **qps, u8 *alg_type)
+{
+	int i, ret;
+
+	ret = qm_pm_get_sync(qm);
+	if (ret)
+		return ret;
+
+	down_write(&qm->qps_lock);
+	for (i = 0; i < qp_num; i++) {
+		qps[i] = qm_create_qp_nolock(qm, alg_type[i], true);
+		if (IS_ERR(qps[i])) {
+			ret = -ENODEV;
+			goto stop_and_free;
+		}
+
+		if (qps[i]->ref_count != 1)
+			continue;
+
+		ret = qm_start_qp_nolock(qps[i], 0);
+		if (ret) {
+			qm_release_qp_nolock(qps[i]);
+			goto stop_and_free;
+		}
+	}
+	up_write(&qm->qps_lock);
+
+	return 0;
+
+stop_and_free:
+	for (i--; i >= 0; i--) {
+		if (qps[i]->ref_count == 1)
+			qm_stop_qp_nolock(qps[i]);
+
+		qm_release_qp_nolock(qps[i]);
+	}
+	up_write(&qm->qps_lock);
+	qm_pm_put_sync(qm);
+
+	return ret;
+}
+
 static int hisi_qm_sort_devices(int node, struct list_head *head,
 				struct hisi_qm_list *qm_list)
 {
-	struct hisi_qm_resource *res, *tmp;
+	struct hisi_qm_resource *res;
 	struct hisi_qm *qm;
-	struct list_head *n;
 	struct device *dev;
 	int dev_node;
+	LIST_HEAD(non_full_list);
+	LIST_HEAD(full_list);
 
 	list_for_each_entry(qm, &qm_list->list, list) {
 		dev = &qm->pdev->dev;
@@ -3582,15 +3706,15 @@ static int hisi_qm_sort_devices(int node, struct list_head *head,
 
 		res->qm = qm;
 		res->distance = node_distance(dev_node, node);
-		n = head;
-		list_for_each_entry(tmp, head, list) {
-			if (res->distance < tmp->distance) {
-				n = &tmp->list;
-				break;
-			}
-		}
-		list_add_tail(&res->list, n);
+
+		if (qm->qp_in_used == qm->qp_num)
+			qm_insert_sorted(&full_list, res);
+		else
+			qm_insert_sorted(&non_full_list, res);
 	}
+
+	list_splice_tail(&non_full_list, head);
+	list_splice_tail(&full_list, head);
 
 	return 0;
 }
@@ -3608,12 +3732,11 @@ static int hisi_qm_sort_devices(int node, struct list_head *head,
  * not meet the requirements will return error.
  */
 int hisi_qm_alloc_qps_node(struct hisi_qm_list *qm_list, int qp_num,
-			   u8 alg_type, int node, struct hisi_qp **qps)
+			   u8 *alg_type, int node, struct hisi_qp **qps)
 {
 	struct hisi_qm_resource *tmp;
 	int ret = -ENODEV;
 	LIST_HEAD(head);
-	int i;
 
 	if (!qps || !qm_list || qp_num <= 0)
 		return -EINVAL;
@@ -3625,24 +3748,15 @@ int hisi_qm_alloc_qps_node(struct hisi_qm_list *qm_list, int qp_num,
 	}
 
 	list_for_each_entry(tmp, &head, list) {
-		for (i = 0; i < qp_num; i++) {
-			qps[i] = hisi_qm_create_qp(tmp->qm, alg_type);
-			if (IS_ERR(qps[i])) {
-				hisi_qm_free_qps(qps, i);
-				break;
-			}
-		}
-
-		if (i == qp_num) {
-			ret = 0;
+		ret = qm_get_and_start_qp(tmp->qm, qp_num, qps, alg_type);
+		if (!ret)
 			break;
-		}
 	}
 
 	mutex_unlock(&qm_list->lock);
 	if (ret)
-		pr_info("Failed to create qps, node[%d], alg[%u], qp[%d]!\n",
-			node, alg_type, qp_num);
+		pr_info("Failed to create qps, node[%d], qp[%d]!\n",
+			node, qp_num);
 
 err:
 	free_list(&head);
