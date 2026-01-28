@@ -1,0 +1,513 @@
+.. SPDX-License-Identifier: GPL-2.0
+
+==============
+TMC5222 driver
+==============
+
+This driver supports the Trinamic TMC5222 and TMC5221 stepper motor controllers
+on I2C bus.
+
+1. Supported devices
+====================
+
+* `TMC5222 <https://www.analog.com/TMC5222>`_
+* `TMC5221 <https://www.analog.com/TMC5221>`_
+
+The TMC5222 and TMC5221 are stepper motor controller and driver ICs with
+serial communication interfaces (I2C for TMC5222, SPI for TMC5221). They
+include a motion controller with a 6-point ramp generator for target
+positioning and support up to 256 microsteps per full step.
+
+Supported operating modes:
+
+- StealthChop2: voltage-controlled PWM mode
+- SpreadCycle: cycle-by-cycle current control chopper mode
+- StallGuard2/StallGuard4: sensorless stall detection
+- CoolStep: load-adaptive current control
+
+2. Device attributes
+====================
+
+The TMC5222 driver exposes motor control through IIO channels for velocity,
+acceleration, and position. The driver operates in two modes:
+
+- **Velocity mode**: Direct velocity control with configurable acceleration
+- **Position mode**: Automatic positioning using the 6-point ramp generator
+
+Each IIO device has a device folder under ``/sys/bus/iio/devices/iio:deviceX``,
+where X is the IIO index of the device.
+
+IIO Channel attributes
+----------------------
+
++-------------------------+------------------------------------------------------------+
+| Channel attribute       | Description                                                |
++-------------------------+------------------------------------------------------------+
+| in_anglvel_raw          | Read/write motor velocity (signed, -4194304 to 4194303).   |
+|                         | Positive = forward, negative = reverse.                    |
+|                         | Writing switches the motor to velocity mode.               |
++-------------------------+------------------------------------------------------------+
+| in_anglvel_scale        | Scale factor: raw * scale = degrees/second.                |
++-------------------------+------------------------------------------------------------+
+| in_accel_raw            | Read/write acceleration (AMAX register value).             |
++-------------------------+------------------------------------------------------------+
+| in_accel_scale          | Scale factor: raw * scale = degrees/second squared.        |
++-------------------------+------------------------------------------------------------+
+| in_angl_raw             | Read/write absolute rotor position in microsteps           |
+|                         | (signed 32-bit). Writing switches to position mode and     |
+|                         | moves the motor to the target position.                    |
++-------------------------+------------------------------------------------------------+
+| in_angl_scale           | Scale factor: raw * scale = degrees.                       |
++-------------------------+------------------------------------------------------------+
+| en                      | Motor enable (0=off, 1=on). Controls the DRV_EN GPIO.      |
++-------------------------+------------------------------------------------------------+
+
+Velocity threshold attributes
+-----------------------------
+
++-------------------------+------------------------------------------------------------+
+| Attribute               | Description                                                |
++-------------------------+------------------------------------------------------------+
+| sc2_vel_thrs            | StealthChop2 threshold (degrees/second).                   |
+|                         | Below threshold: silent StealthChop2 mode.                 |
+|                         | Above threshold: SpreadCycle mode.                         |
+|                         | Write 0 to disable StealthChop2.                           |
++-------------------------+------------------------------------------------------------+
+| cool_vel_thrs           | CoolStep velocity threshold (degrees/second).              |
+|                         | Sets the minimum velocity for StallGuard operation.        |
+|                         | StallGuard is only active when motor runs faster than      |
+|                         | this threshold. Write 0 to disable.                        |
++-------------------------+------------------------------------------------------------+
+| fullstep_vel_thrs       | Fullstep threshold (degrees/second).                       |
+|                         | Switch to fullstep mode above this velocity.               |
+|                         | Write 0 to disable.                                        |
++-------------------------+------------------------------------------------------------+
+
+Event attributes
+----------------
+
+The driver supports IIO events for stall detection and position-reached
+notifications. Event attributes are found in the ``events/`` subdirectory.
+
++-------------------------------------------+--------------------------------------------+
+| Event attribute                           | Description                                |
++-------------------------------------------+--------------------------------------------+
+| in_anglvel_thresh_adaptive_either_en      | Enable/disable StallGuard stop (0/1).      |
+|                                           | When enabled, motor stops on stall         |
+|                                           | detection.                                 |
++-------------------------------------------+--------------------------------------------+
+| in_angl_thresh_adaptive_either_en         | Enable/disable StallGuard stop on position |
+|                                           | channel (0/1).                             |
++-------------------------------------------+--------------------------------------------+
+| in_angl_change_either_en                  | Enable/disable position-reached event      |
+|                                           | (0/1).                                     |
++-------------------------------------------+--------------------------------------------+
+
+Debugfs attributes
+------------------
+
+The following debug files are available under
+``/sys/kernel/debug/iio/iio:deviceX/``:
+
+drv_status
+   Decoded driver status showing standstill, faults, StealthChop/SpreadCycle
+   state, and diagnostic flags.
+
+general_status
+   Raw GSTAT register value.
+
+direct_reg_access
+   Direct register read/write interface for debugging.
+
+Channels processed values
+-------------------------
+
+A channel value can be read from its _raw attribute. The value returned is the
+raw value as reported by the device. To get the processed value of the channel,
+apply the following formula:
+
+.. code-block:: bash
+
+   processed value = _raw * _scale
+
+The TMC5222 driver offers data for 3 types of channels:
+
++-------------------------+---------------------------+
+| Channel type            | Measurement unit          |
++-------------------------+---------------------------+
+| Angular velocity        | Degrees per second        |
++-------------------------+---------------------------+
+| Acceleration            | Degrees per second squared|
++-------------------------+---------------------------+
+| Position (angle)        | Degrees                   |
++-------------------------+---------------------------+
+
+3. Usage examples
+=================
+
+Enable motor
+------------
+
+.. code-block:: bash
+
+   echo 1 > /sys/bus/iio/devices/iio:device0/en
+
+Velocity mode (forward)
+-----------------------
+
+.. code-block:: bash
+
+   echo 100000 > /sys/bus/iio/devices/iio:device0/in_anglvel_raw
+
+Velocity mode (reverse)
+-----------------------
+
+.. code-block:: bash
+
+   echo -100000 > /sys/bus/iio/devices/iio:device0/in_anglvel_raw
+
+Position mode
+-------------
+
+Move to 1 revolution (51200 microsteps at 256 microsteps per full step with a
+1.8 degree step angle motor):
+
+.. code-block:: bash
+
+   echo 51200 > /sys/bus/iio/devices/iio:device0/in_angl_raw
+
+Read current position
+---------------------
+
+.. code-block:: bash
+
+   cat /sys/bus/iio/devices/iio:device0/in_angl_raw
+
+Enable silent mode (StealthChop2)
+---------------------------------
+
+Enable StealthChop2 mode below 200 degrees/second:
+
+.. code-block:: bash
+
+   echo 200 > /sys/bus/iio/devices/iio:device0/sc2_vel_thrs
+
+Check driver status
+-------------------
+
+::
+
+   cat /sys/kernel/debug/iio/iio:device0/drv_status
+
+Example output::
+
+   status: 0x80000000
+   standstill: 1
+   open_load_b: 0
+   open_load_a: 0
+   short_to_ground_b: 0
+   short_to_ground_a: 0
+   overtemperature_warning: 0
+   overtemperature: 0
+   stallguard: 0
+   fullstep_active: 0
+   stealthchop_active: 0
+   short_to_supply_b: 0
+   short_to_supply_a: 0
+
+Enable StallGuard stop
+----------------------
+
+Configure CoolStep velocity threshold and enable stall detection:
+
+.. code-block:: bash
+
+   # Set minimum velocity for StallGuard operation
+   echo 50 > /sys/bus/iio/devices/iio:device0/cool_vel_thrs
+
+   # Enable StallGuard stop event
+   echo 1 > /sys/bus/iio/devices/iio:device0/events/in_anglvel_thresh_adaptive_either_en
+
+Disable motor
+-------------
+
+.. code-block:: bash
+
+   echo 0 > /sys/bus/iio/devices/iio:device0/en
+
+4. Device tree configuration
+============================
+
+The TMC5222 requires specific device tree configuration for proper operation.
+Below are the key properties:
+
+Required properties
+-------------------
+
+- ``compatible``: Must be "adi,tmc5222" or "adi,tmc5221"
+- ``reg``: I2C address (typically 0x60)
+- ``drv-en-gpios``: GPIO for driver enable control
+- ``sleep-gpios``: GPIO for sleep/reset control
+
+Current control properties
+--------------------------
+
++-------------------------+------------------------------------------------------------+
+| Property                | Description                                                |
++-------------------------+------------------------------------------------------------+
+| adi,current-run         | Run current (0-31, default: 31).                           |
++-------------------------+------------------------------------------------------------+
+| adi,current-hold        | Hold current (0-31, default: 8).                           |
++-------------------------+------------------------------------------------------------+
+| adi,irundelay           | Standstill to run delay (0-15, default: 4).                |
++-------------------------+------------------------------------------------------------+
+| adi,iholddelay          | Run to hold delay (0-15, default: 1).                      |
++-------------------------+------------------------------------------------------------+
+
+Current scaling properties
+--------------------------
+
++-------------------------+------------------------------------------------------------+
+| Property                | Description                                                |
++-------------------------+------------------------------------------------------------+
+| adi,fs-gain             | Sense amplifier gain (0=0.5x, 1=1x, 2=2x, 3=4x,            |
+|                         | default: 1).                                               |
++-------------------------+------------------------------------------------------------+
+| adi,fs-sense            | Sense voltage (0=50mV, 1=100mV, 2=150mV, 3=200mV,          |
+|                         | default: 1).                                               |
++-------------------------+------------------------------------------------------------+
+| adi,global-scaler       | Current scaler (0-255, 0=max current, default: 0).         |
++-------------------------+------------------------------------------------------------+
+| adi,tpowerdown          | Power-down delay (0-255, default: 10).                     |
++-------------------------+------------------------------------------------------------+
+
+Chopper configuration properties
+--------------------------------
+
++-------------------------+------------------------------------------------------------+
+| Property                | Description                                                |
++-------------------------+------------------------------------------------------------+
+| adi,toff                | Off-time (0-15, 0=disabled, default: 3).                   |
++-------------------------+------------------------------------------------------------+
+| adi,tbl                 | Blank time (0=16ns, 1=24ns, 2=36ns, 3=54ns, default: 2).   |
++-------------------------+------------------------------------------------------------+
+
+PWM configuration properties
+----------------------------
+
++-------------------------+------------------------------------------------------------+
+| Property                | Description                                                |
++-------------------------+------------------------------------------------------------+
+| adi,pwm-freewheel       | Freewheel mode (0=normal, 1=freewheel, 2=LS short,         |
+|                         | 3=HS short).                                               |
++-------------------------+------------------------------------------------------------+
+| adi,pwm-freq            | PWM frequency (0=244kHz, 1=366kHz, 2=488kHz, 3=610kHz      |
+|                         | at 125MHz clock).                                          |
++-------------------------+------------------------------------------------------------+
+
+StallGuard configuration properties
+-----------------------------------
+
++-------------------------+------------------------------------------------------------+
+| Property                | Description                                                |
++-------------------------+------------------------------------------------------------+
+| adi,sgt                 | StallGuard2 threshold (-64 to +63, default: 0).            |
++-------------------------+------------------------------------------------------------+
+| adi,sgt4                | StallGuard4 threshold (0-511, default: 0).                 |
++-------------------------+------------------------------------------------------------+
+
+Motor configuration properties
+------------------------------
+
++-----------------------------------+----------------------------------------------------+
+| Property                          | Description                                        |
++-----------------------------------+----------------------------------------------------+
+| adi,microstep-res                 | Microstep resolution (0=256, 1=128, 2=64, 3=32,    |
+|                                   | 4=16, 5=8, 6=4, 7=2, 8=1).                         |
++-----------------------------------+----------------------------------------------------+
+| adi,step-angle-millidegrees       | Motor step angle in millidegrees                   |
+|                                   | (1800=1.8 degrees, 900=0.9 degrees, default: 1800).|
++-----------------------------------+----------------------------------------------------+
+
+Ramp generator properties
+-------------------------
+
++-------------------------+------------------------------------------------------------+
+| Property                | Description                                                |
++-------------------------+------------------------------------------------------------+
+| adi,vstart              | Start velocity (default: 0).                               |
++-------------------------+------------------------------------------------------------+
+| adi,a1                  | First acceleration (default: 10000).                       |
++-------------------------+------------------------------------------------------------+
+| adi,v1                  | First velocity (default: 100000).                          |
++-------------------------+------------------------------------------------------------+
+| adi,a2                  | Second acceleration (default: 30000).                      |
++-------------------------+------------------------------------------------------------+
+| adi,v2                  | Second velocity (default: 300000).                         |
++-------------------------+------------------------------------------------------------+
+| adi,amax                | Maximum acceleration (default: 100000).                    |
++-------------------------+------------------------------------------------------------+
+| adi,vmax                | Maximum velocity (default: 500000).                        |
++-------------------------+------------------------------------------------------------+
+| adi,dmax                | Maximum deceleration (default: 2000).                      |
++-------------------------+------------------------------------------------------------+
+| adi,d2                  | Second deceleration (default: 1600).                       |
++-------------------------+------------------------------------------------------------+
+| adi,d1                  | First deceleration (default: 1000).                        |
++-------------------------+------------------------------------------------------------+
+| adi,vstop               | Stop velocity (default: 10).                               |
++-------------------------+------------------------------------------------------------+
+| adi,xtarget             | Initial target position (default: 0).                      |
++-------------------------+------------------------------------------------------------+
+
+Clock configuration
+-------------------
+
++-------------------------+------------------------------------------------------------+
+| Property                | Description                                                |
++-------------------------+------------------------------------------------------------+
+| ext-clock               | External clock frequency in Hz (required if using          |
+|                         | external clock source).                                    |
++-------------------------+------------------------------------------------------------+
+
+Interrupt configuration
+-----------------------
+
++-------------------------+------------------------------------------------------------+
+| Property                | Description                                                |
++-------------------------+------------------------------------------------------------+
+| interrupts              | GPIO interrupt specifications for stallguard and           |
+|                         | position-reached events.                                   |
++-------------------------+------------------------------------------------------------+
+| interrupt-names         | Must be "stallguard" and/or "pos_reached".                 |
++-------------------------+------------------------------------------------------------+
+
+Example device tree overlay
+---------------------------
+
+.. code-block:: dts
+
+   /dts-v1/;
+   /plugin/;
+
+   / {
+       compatible = "brcm,bcm2711";
+   };
+
+   &i2c1 {
+       status = "okay";
+       clock-frequency = <400000>;
+
+       tmc5222@60 {
+           compatible = "adi,tmc5222";
+           reg = <0x60>;
+           status = "okay";
+
+           drv-en-gpios = <&gpio 5 0>;
+           sleep-gpios = <&gpio 6 0>;
+
+           interrupt-parent = <&gpio>;
+           interrupts = <13 1>,  /* GPIO13, falling edge */
+                        <19 1>;  /* GPIO19, falling edge */
+           interrupt-names = "stallguard", "pos_reached";
+
+           /* Current control */
+           current-run = <31>;
+           current-hold = <8>;
+           adi,irundelay = <4>;
+           adi,iholddelay = <1>;
+
+           /* Driver configuration */
+           adi,fs-gain = <1>;
+           adi,fs-sense = <1>;
+           adi,global-scaler = <231>;
+           adi,tpowerdown = <10>;
+
+           /* Chopper configuration */
+           adi,toff = <3>;
+           adi,tbl = <2>;
+
+           /* PWM configuration */
+           pwm-freewheel = <0>;
+           pwm-freq = <0>;
+
+           /* StallGuard configuration */
+           adi,sgt = <0>;
+           adi,sgt4 = <0>;
+
+           /* Microstep and motor configuration */
+           microstep-res = <0>;
+           step-angle-millidegrees = <1800>;
+
+           /* Initial target position */
+           adi,xtarget = <51200>;
+
+           /* Ramp parameters */
+           adi,vstart = <0>;
+           adi,a1 = <10000>;
+           adi,v1 = <100000>;
+           adi,a2 = <50000>;
+           adi,v2 = <300000>;
+           adi,amax = <100000>;
+           adi,vmax = <500000>;
+           adi,dmax = <2000>;
+           adi,d2 = <1600>;
+           adi,d1 = <1000>;
+           adi,vstop = <10>;
+       };
+   };
+
+5. Operating modes
+==================
+
+StealthChop2 mode
+-----------------
+
+StealthChop2 provides extremely quiet motor operation through voltage PWM
+control. It is ideal for low-velocity applications where noise is a concern.
+
+To enable StealthChop2 below a certain velocity threshold:
+
+.. code-block:: bash
+
+   echo 200 > /sys/bus/iio/devices/iio:device0/sc2_vel_thrs
+
+The motor will use StealthChop2 when running below 200 degrees/second and
+automatically switch to SpreadCycle above that threshold.
+
+SpreadCycle mode
+----------------
+
+SpreadCycle is a high-performance chopper mode that provides precise current
+control at higher velocities. It is automatically enabled when the motor
+velocity exceeds the StealthChop2 threshold.
+
+StallGuard
+----------
+
+StallGuard provides sensorless stall detection by monitoring the motor's
+back-EMF. When a stall is detected, the motor can automatically stop to prevent
+damage or skipped steps.
+
+To use StallGuard:
+
+1. Set the CoolStep velocity threshold (StallGuard is only active above this
+   velocity):
+
+   .. code-block:: bash
+
+      echo 50 > /sys/bus/iio/devices/iio:device0/cool_vel_thrs
+
+2. Enable the StallGuard stop event:
+
+   .. code-block:: bash
+
+      echo 1 > /sys/bus/iio/devices/iio:device0/events/in_anglvel_thresh_adaptive_either_en
+
+3. Monitor for stall events using the IIO event interface.
+
+6. IIO Interfacing Tools
+========================
+
+See ``Documentation/iio/iio_tools.rst`` for the description of the available IIO
+interfacing tools.

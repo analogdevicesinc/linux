@@ -1656,6 +1656,9 @@ L:	linux-iio@vger.kernel.org
 S:	Supported
 W:	https://ez.analog.com/linux-software-drivers
 F:	Documentation/devicetree/bindings/iio/motor/adi,tmc5222.yaml
+F:	Documentation/iio/tmc5222.rst
+F:	drivers/iio/motor/tmc5222.h
+F:	drivers/iio/motor/tmc5222-core.c
 
 ANALOG DEVICES INC ASOC CODEC DRIVERS
 M:	Lars-Peter Clausen <lars@metafoo.de>

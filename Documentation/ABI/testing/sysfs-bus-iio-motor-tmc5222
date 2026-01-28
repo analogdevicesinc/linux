@@ -1,0 +1,27 @@
+What:		/sys/bus/iio/devices/iio:deviceX/sc2_vel_thrs
+KernelVersion:	6.19
+Contact:	linux-iio@vger.kernel.org
+Description:
+		StealthChop2 velocity threshold in degrees per second. When the
+		motor velocity is below this threshold, the driver uses
+		StealthChop2 (voltage PWM) mode for quiet operation. Above this
+		threshold, SpreadCycle mode is used. Writing 0 disables
+		StealthChop2.
+
+What:		/sys/bus/iio/devices/iio:deviceX/cool_vel_thrs
+KernelVersion:	6.19
+Contact:	linux-iio@vger.kernel.org
+Description:
+		CoolStep/StallGuard velocity threshold in degrees per second.
+		StallGuard load measurement and CoolStep current regulation are
+		only active when the motor velocity is above this threshold.
+		Writing 0 disables CoolStep and StallGuard.
+
+What:		/sys/bus/iio/devices/iio:deviceX/fullstep_vel_thrs
+KernelVersion:	6.19
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Fullstep velocity threshold in degrees per second. When the motor
+		velocity exceeds this threshold, the driver switches to fullstep
+		operation for maximum torque at high velocities. Writing 0
+		disables automatic fullstep switching.
