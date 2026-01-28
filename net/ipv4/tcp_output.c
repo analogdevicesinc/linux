@@ -1432,6 +1432,41 @@ static void tcp_update_skb_after_send(struct sock *sk, struct sk_buff *skb,
 	list_move_tail(&skb->tcp_tsorted_anchor, &tp->tsorted_sent_queue);
 }
 
+/* Snapshot the current delivery information in the skb, to generate
+ * a rate sample later when the skb is (s)acked in tcp_rate_skb_delivered().
+ */
+static void tcp_rate_skb_sent(struct sock *sk, struct sk_buff *skb)
+{
+	struct tcp_sock *tp = tcp_sk(sk);
+
+	 /* In general we need to start delivery rate samples from the
+	  * time we received the most recent ACK, to ensure we include
+	  * the full time the network needs to deliver all in-flight
+	  * packets. If there are no packets in flight yet, then we
+	  * know that any ACKs after now indicate that the network was
+	  * able to deliver those packets completely in the sampling
+	  * interval between now and the next ACK.
+	  *
+	  * Note that we use packets_out instead of tcp_packets_in_flight(tp)
+	  * because the latter is a guess based on RTO and loss-marking
+	  * heuristics. We don't want spurious RTOs or loss markings to cause
+	  * a spuriously small time interval, causing a spuriously high
+	  * bandwidth estimate.
+	  */
+	if (!tp->packets_out) {
+		u64 tstamp_us = tcp_skb_timestamp_us(skb);
+
+		tp->first_tx_mstamp  = tstamp_us;
+		tp->delivered_mstamp = tstamp_us;
+	}
+
+	TCP_SKB_CB(skb)->tx.first_tx_mstamp	= tp->first_tx_mstamp;
+	TCP_SKB_CB(skb)->tx.delivered_mstamp	= tp->delivered_mstamp;
+	TCP_SKB_CB(skb)->tx.delivered		= tp->delivered;
+	TCP_SKB_CB(skb)->tx.delivered_ce	= tp->delivered_ce;
+	TCP_SKB_CB(skb)->tx.is_app_limited	= tp->app_limited ? 1 : 0;
+}
+
 INDIRECT_CALLABLE_DECLARE(int ip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl));
 INDIRECT_CALLABLE_DECLARE(int inet6_csk_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl));
 INDIRECT_CALLABLE_DECLARE(void tcp_v4_send_check(struct sock *sk, struct sk_buff *skb));
@@ -3730,33 +3765,6 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
 	if (rearm_timer)
 		tcp_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
 				     inet_csk(sk)->icsk_rto, true);
-}
-
-/* We allow to exceed memory limits for FIN packets to expedite
- * connection tear down and (memory) recovery.
- * Otherwise tcp_send_fin() could be tempted to either delay FIN
- * or even be forced to close flow without any FIN.
- * In general, we want to allow one skb per socket to avoid hangs
- * with edge trigger epoll()
- */
-void sk_forced_mem_schedule(struct sock *sk, int size)
-{
-	int delta, amt;
-
-	delta = size - sk->sk_forward_alloc;
-	if (delta <= 0)
-		return;
-
-	amt = sk_mem_pages(delta);
-	sk_forward_alloc_add(sk, amt << PAGE_SHIFT);
-
-	if (mem_cgroup_sk_enabled(sk))
-		mem_cgroup_sk_charge(sk, amt, gfp_memcg_charge() | __GFP_NOFAIL);
-
-	if (sk->sk_bypass_prot_mem)
-		return;
-
-	sk_memory_allocated_add(sk, amt);
 }
 
 /* Send a FIN. The caller locks the socket for us.

@@ -82,19 +82,16 @@
 #define		FCR_TXPEN		(1 << 5)
 #define		FCR_TXPF		(1 << 6)
 #define		FCR_TXP0		(1 << 7)
-/* Eeprom & Phy Control Reg */
+/* Eeprom Control Reg */
 #define	SR_EPCR		0x0B
 #define		EPCR_ERRE		(1 << 0)
 #define		EPCR_ERPRW		(1 << 1)
 #define		EPCR_ERPRR		(1 << 2)
-#define		EPCR_EPOS		(1 << 3)
 #define		EPCR_WEP		(1 << 4)
-/* Eeprom & Phy Address Reg */
+/* Eeprom Address Reg */
 #define	SR_EPAR		0x0C
 #define		EPAR_EROA		(0x3F << 0)
-#define		EPAR_PHY_ADR_MASK	(0x03 << 6)
-#define		EPAR_PHY_ADR		(0x01 << 6)
-/* Eeprom &	Phy Data Reg */
+/* Eeprom Data Reg */
 #define	SR_EPDR		0x0D	/* 0x0D ~ 0x0E for Data Reg Low & High */
 /* Wakeup Control Reg */
 #define	SR_WCR			0x0F
@@ -153,13 +150,13 @@
 
 /* Register access commands and flags */
 #define	SR_RD_REGS		0x00
-#define	SR_WR_REGS		0x01
-#define	SR_WR_REG		0x03
+#define	SR_WR_MULTIPLE_REGS	0x01
+#define	SR_WR_SINGLE_REG	0x03
 #define	SR_REQ_RD_REG	(USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE)
 #define	SR_REQ_WR_REG	(USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE)
 
 /* parameters */
-#define	SR_SHARE_TIMEOUT	1000
+#define	SR_EEPROM_TIMEOUT	1000
 #define	SR_EEPROM_LEN		256
 #define	SR_MCAST_SIZE		8
 #define	SR_MCAST_ADDR_FLAG	0x80
