@@ -1119,7 +1119,7 @@ Kernel parameters
 			It will be ignored when crashkernel=X,high is not used
 			or memory reserved is below 4G.
 	crashkernel=size[KMG],cma
-			[KNL, X86, ppc] Reserve additional crash kernel memory from
+			[KNL, X86, RISCV, ppc] Reserve additional crash kernel memory from
 			CMA. This reservation is usable by the first system's
 			userspace memory and kernel movable allocations (memory
 			balloon, zswap). Pages allocated from this memory range
@@ -4787,6 +4787,21 @@ Kernel parameters
 
 	panic_on_warn=1	panic() instead of WARN().  Useful to cause kdump
 			on a WARN().
+
+	panic_force_cpu=
+			[KNL,SMP] Force panic handling to execute on a specific CPU.
+			Format: <cpu number>
+			Some platforms require panic handling to occur on a
+			specific CPU for the crash kernel to function correctly.
+			This can be due to firmware limitations, interrupt routing
+			constraints, or platform-specific requirements where only
+			a particular CPU can safely enter the crash kernel.
+			When set, panic() will redirect execution to the specified
+			CPU before proceeding with the normal panic and kexec flow.
+			If the target CPU is offline or unavailable, panic proceeds
+			on the current CPU.
+			This option should only be used for systems with the above
+			constraints as it might cause the panic operation to be less reliable.
 
 	panic_print=	Bitmask for printing system info when panic happens.
 			User can chose combination of the following bits:
