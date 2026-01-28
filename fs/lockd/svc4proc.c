@@ -530,7 +530,7 @@ struct nlm_void			{ int dummy; };
 #define	St	1					/* status */
 #define	Rg	4					/* range (offset + length) */
 
-const struct svc_procedure nlmsvc_procedures4[24] = {
+static const struct svc_procedure nlm4svc_procedures[24] = {
 	[NLMPROC_NULL] = {
 		.pc_func = nlm4svc_proc_null,
 		.pc_decode = nlm4svc_decode_void,
@@ -771,4 +771,25 @@ const struct svc_procedure nlmsvc_procedures4[24] = {
 		.pc_xdrressize = St,
 		.pc_name = "FREE_ALL",
 	},
+};
+
+/*
+ * Storage requirements for XDR arguments and results
+ */
+union nlm4svc_xdrstore {
+	struct nlm_args			args;
+	struct nlm_res			res;
+	struct nlm_reboot		reboot;
+};
+
+static DEFINE_PER_CPU_ALIGNED(unsigned long,
+			      nlm4svc_call_counters[ARRAY_SIZE(nlm4svc_procedures)]);
+
+const struct svc_version nlmsvc_version4 = {
+	.vs_vers	= 4,
+	.vs_nproc	= ARRAY_SIZE(nlm4svc_procedures),
+	.vs_proc	= nlm4svc_procedures,
+	.vs_count	= nlm4svc_call_counters,
+	.vs_dispatch	= nlmsvc_dispatch,
+	.vs_xdrsize	= sizeof(union nlm4svc_xdrstore),
 };

@@ -221,9 +221,10 @@ struct nlm_block {
  * Global variables
  */
 extern const struct rpc_program	nlm_program;
-extern const struct svc_procedure nlmsvc_procedures[24];
+extern const struct svc_version nlmsvc_version1;
+extern const struct svc_version nlmsvc_version3;
 #ifdef CONFIG_LOCKD_V4
-extern const struct svc_procedure nlmsvc_procedures4[24];
+extern const struct svc_version nlmsvc_version4;
 #endif
 extern int			nlmsvc_grace_period;
 extern unsigned long		nlm_timeout;
@@ -318,6 +319,7 @@ void		  nlmsvc_traverse_blocks(struct nlm_host *, struct nlm_file *,
 void		  nlmsvc_grant_reply(struct nlm_cookie *, __be32);
 void		  nlmsvc_release_call(struct nlm_rqst *);
 void		  nlmsvc_locks_init_private(struct file_lock *, struct nlm_host *, pid_t);
+int		  nlmsvc_dispatch(struct svc_rqst *rqstp);
 
 /*
  * File handling for the server personality
