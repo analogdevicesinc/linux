@@ -32,7 +32,7 @@ check_checkpatch() {
 	local fail=0
 	local warn=0
 	local ignored=
-	local api_match="(public/include|public/src|private/include|private/src|navassa/common|adrv902x/common|adrv903x/common|adrv903x/platforms)/"
+	local api_match="(public/include|public/src|private/include|private/src|iio/adc/.*/common|iio/adc/.*/platforms)/"
 	local tmp_branch_name=$(git symbolic-ref --short HEAD)-$RANDOM
 
 	echo "$step_name on range $base_sha..$head_sha"
