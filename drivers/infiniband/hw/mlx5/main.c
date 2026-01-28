@@ -561,12 +561,20 @@ static int mlx5_query_port_roce(struct ib_device *device, u32 port_num,
 	 * of an error it will still be zeroed out.
 	 * Use native port in case of reps
 	 */
-	if (dev->is_rep)
-		err = mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_EN,
-					   1, 0);
-	else
-		err = mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_EN,
-					   mdev_port_num, 0);
+	if (dev->is_rep) {
+		struct mlx5_eswitch_rep *rep;
+
+		rep = dev->port[port_num - 1].rep;
+		if (rep) {
+			mdev = mlx5_eswitch_get_core_dev(rep->esw);
+			WARN_ON(!mdev);
+		}
+		mdev_port_num = 1;
+	}
+
+	err = mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_EN,
+				   mdev_port_num, 0);
+
 	if (err)
 		goto out;
 	ext = !!MLX5_GET_ETH_PROTO(ptys_reg, out, true, eth_proto_capability);
@@ -1579,6 +1587,129 @@ static int mlx5_ib_rep_query_pkey(struct ib_device *ibdev, u32 port, u16 index,
 	 */
 	*pkey = 0xffff;
 	return 0;
+}
+
+static int mlx5_ib_query_port_speed_from_port(struct mlx5_ib_dev *dev,
+					      u32 port_num, u64 *speed)
+{
+	struct ib_port_speed_info speed_info;
+	struct ib_port_attr attr = {};
+	int err;
+
+	err = mlx5_ib_query_port(&dev->ib_dev, port_num, &attr);
+	if (err)
+		return err;
+
+	if (attr.state == IB_PORT_DOWN) {
+		*speed = 0;
+		return 0;
+	}
+
+	err = ib_port_attr_to_speed_info(&attr, &speed_info);
+	if (err)
+		return err;
+
+	*speed = speed_info.rate;
+	return 0;
+}
+
+static int mlx5_ib_query_port_speed_from_vport(struct mlx5_core_dev *mdev,
+					       u8 op_mod, u16 vport,
+					       u8 other_vport, u64 *speed,
+					       struct mlx5_ib_dev *dev,
+					       u32 port_num)
+{
+	u32 max_tx_speed;
+	int err;
+
+	err = mlx5_query_vport_max_tx_speed(mdev, op_mod, vport, other_vport,
+					    &max_tx_speed);
+	if (err)
+		return err;
+
+	if (max_tx_speed == 0)
+		/* Value 0 indicates field not supported, fallback */
+		return mlx5_ib_query_port_speed_from_port(dev, port_num,
+							  speed);
+
+	*speed = max_tx_speed;
+	return 0;
+}
+
+static int mlx5_ib_query_port_speed_from_bond(struct mlx5_ib_dev *dev,
+					      u32 port_num, u64 *speed)
+{
+	struct mlx5_core_dev *mdev = dev->mdev;
+	u32 bond_speed;
+	int err;
+
+	err = mlx5_lag_query_bond_speed(mdev, &bond_speed);
+	if (err)
+		return err;
+
+	*speed = bond_speed / MLX5_MAX_TX_SPEED_UNIT;
+
+	return 0;
+}
+
+static int mlx5_ib_query_port_speed_non_rep(struct mlx5_ib_dev *dev,
+					    u32 port_num, u64 *speed)
+{
+	u16 op_mod = MLX5_VPORT_STATE_OP_MOD_VNIC_VPORT;
+
+	if (mlx5_lag_is_roce(dev->mdev))
+		return mlx5_ib_query_port_speed_from_bond(dev, port_num,
+							  speed);
+
+	return mlx5_ib_query_port_speed_from_vport(dev->mdev, op_mod, 0, false,
+						   speed, dev, port_num);
+}
+
+static int mlx5_ib_query_port_speed_rep(struct mlx5_ib_dev *dev, u32 port_num,
+					u64 *speed)
+{
+	struct mlx5_eswitch_rep *rep;
+	struct mlx5_core_dev *mdev;
+	u16 op_mod;
+
+	if (!dev->port[port_num - 1].rep) {
+		mlx5_ib_warn(dev, "Representor doesn't exist for port %u\n",
+			     port_num);
+		return -EINVAL;
+	}
+
+	rep = dev->port[port_num - 1].rep;
+	mdev = mlx5_eswitch_get_core_dev(rep->esw);
+	if (!mdev)
+		return -ENODEV;
+
+	if (rep->vport == MLX5_VPORT_UPLINK) {
+		if (mlx5_lag_is_sriov(mdev))
+			return mlx5_ib_query_port_speed_from_bond(dev,
+								  port_num,
+								  speed);
+
+		return mlx5_ib_query_port_speed_from_port(dev, port_num,
+							  speed);
+	}
+
+	op_mod = MLX5_VPORT_STATE_OP_MOD_ESW_VPORT;
+	return mlx5_ib_query_port_speed_from_vport(dev->mdev, op_mod,
+						   rep->vport, true, speed, dev,
+						   port_num);
+}
+
+int mlx5_ib_query_port_speed(struct ib_device *ibdev, u32 port_num, u64 *speed)
+{
+	struct mlx5_ib_dev *dev = to_mdev(ibdev);
+
+	if (mlx5_ib_port_link_layer(ibdev, port_num) ==
+	    IB_LINK_LAYER_INFINIBAND || mlx5_core_mp_enabled(dev->mdev))
+		return mlx5_ib_query_port_speed_from_port(dev, port_num, speed);
+	else if (!dev->is_rep)
+		return mlx5_ib_query_port_speed_non_rep(dev, port_num, speed);
+	else
+		return mlx5_ib_query_port_speed_rep(dev, port_num, speed);
 }
 
 static int mlx5_ib_query_gid(struct ib_device *ibdev, u32 port, int index,
@@ -2838,6 +2969,14 @@ static int handle_port_change(struct mlx5_ib_dev *ibdev, struct mlx5_eqe *eqe,
 	case MLX5_PORT_CHANGE_SUBTYPE_ACTIVE:
 	case MLX5_PORT_CHANGE_SUBTYPE_DOWN:
 	case MLX5_PORT_CHANGE_SUBTYPE_INITIALIZED:
+		if (ibdev->ib_active) {
+			struct ib_event speed_event = {};
+
+			speed_event.device = &ibdev->ib_dev;
+			speed_event.event = IB_EVENT_DEVICE_SPEED_CHANGE;
+			ib_dispatch_event(&speed_event);
+		}
+
 		/* In RoCE, port up/down events are handled in
 		 * mlx5_netdev_event().
 		 */
@@ -2878,7 +3017,6 @@ static void mlx5_ib_handle_event(struct work_struct *_work)
 		container_of(_work, struct mlx5_ib_event_work, work);
 	struct mlx5_ib_dev *ibdev;
 	struct ib_event ibev;
-	bool fatal = false;
 
 	if (work->is_slave) {
 		ibdev = mlx5_ib_get_ibdev_from_mpi(work->mpi);
@@ -2889,12 +3027,6 @@ static void mlx5_ib_handle_event(struct work_struct *_work)
 	}
 
 	switch (work->event) {
-	case MLX5_DEV_EVENT_SYS_ERROR:
-		ibev.event = IB_EVENT_DEVICE_FATAL;
-		mlx5_ib_handle_internal_error(ibdev);
-		ibev.element.port_num  = (u8)(unsigned long)work->param;
-		fatal = true;
-		break;
 	case MLX5_EVENT_TYPE_PORT_CHANGE:
 		if (handle_port_change(ibdev, work->param, &ibev))
 			goto out;
@@ -2916,8 +3048,6 @@ static void mlx5_ib_handle_event(struct work_struct *_work)
 	if (ibdev->ib_active)
 		ib_dispatch_event(&ibev);
 
-	if (fatal)
-		ibdev->ib_active = false;
 out:
 	kfree(work);
 }
@@ -2959,6 +3089,66 @@ static int mlx5_ib_event_slave_port(struct notifier_block *nb,
 	queue_work(mlx5_ib_event_wq, &work->work);
 
 	return NOTIFY_OK;
+}
+
+static void mlx5_ib_handle_sys_error_event(struct work_struct *_work)
+{
+	struct mlx5_ib_event_work *work =
+		container_of(_work, struct mlx5_ib_event_work, work);
+	struct mlx5_ib_dev *ibdev = work->dev;
+	struct ib_event ibev;
+
+	ibev.event = IB_EVENT_DEVICE_FATAL;
+	mlx5_ib_handle_internal_error(ibdev);
+	ibev.element.port_num = (u8)(unsigned long)work->param;
+	ibev.device = &ibdev->ib_dev;
+
+	if (!rdma_is_port_valid(&ibdev->ib_dev, ibev.element.port_num)) {
+		mlx5_ib_warn(ibdev, "warning: event on port %d\n",  ibev.element.port_num);
+		goto out;
+	}
+
+	if (ibdev->ib_active)
+		ib_dispatch_event(&ibev);
+
+	ibdev->ib_active = false;
+out:
+	kfree(work);
+}
+
+static int mlx5_ib_sys_error_event(struct notifier_block *nb,
+				   unsigned long event, void *param)
+{
+	struct mlx5_ib_event_work *work;
+
+	if (event != MLX5_DEV_EVENT_SYS_ERROR)
+		return NOTIFY_DONE;
+
+	work = kmalloc(sizeof(*work), GFP_ATOMIC);
+	if (!work)
+		return NOTIFY_DONE;
+
+	INIT_WORK(&work->work, mlx5_ib_handle_sys_error_event);
+	work->dev = container_of(nb, struct mlx5_ib_dev, sys_error_events);
+	work->is_slave = false;
+	work->param = param;
+	work->event = event;
+
+	queue_work(mlx5_ib_event_wq, &work->work);
+
+	return NOTIFY_OK;
+}
+
+static int mlx5_ib_stage_sys_error_notifier_init(struct mlx5_ib_dev *dev)
+{
+	dev->sys_error_events.notifier_call = mlx5_ib_sys_error_event;
+	mlx5_notifier_register(dev->mdev, &dev->sys_error_events);
+	return 0;
+}
+
+static void mlx5_ib_stage_sys_error_notifier_cleanup(struct mlx5_ib_dev *dev)
+{
+	mlx5_notifier_unregister(dev->mdev, &dev->sys_error_events);
 }
 
 static int mlx5_ib_get_plane_num(struct mlx5_core_dev *mdev, u8 *num_plane)
@@ -4297,6 +4487,7 @@ static const struct ib_device_ops mlx5_ib_dev_ops = {
 	.query_device = mlx5_ib_query_device,
 	.query_gid = mlx5_ib_query_gid,
 	.query_pkey = mlx5_ib_query_pkey,
+	.query_port_speed = mlx5_ib_query_port_speed,
 	.query_qp = mlx5_ib_query_qp,
 	.query_srq = mlx5_ib_query_srq,
 	.query_ucontext = mlx5_ib_query_ucontext,
@@ -4466,12 +4657,16 @@ static int mlx5_ib_stage_caps_init(struct mlx5_ib_dev *dev)
 	    MLX5_HCA_CAP_2_GENERAL_OBJECT_TYPES_RDMA_CTRL) {
 		err = mlx5_ib_init_ucaps(dev);
 		if (err)
-			return err;
+			goto err_ucaps;
 	}
 
 	dev->ib_dev.use_cq_dim = true;
 
 	return 0;
+
+err_ucaps:
+	bitmap_free(dev->var_table.bitmap);
+	return err;
 }
 
 static const struct ib_device_ops mlx5_ib_dev_port_ops = {
@@ -4807,6 +5002,9 @@ static const struct mlx5_ib_profile pf_profile = {
 	STAGE_CREATE(MLX5_IB_STAGE_WHITELIST_UID,
 		     mlx5_ib_devx_init,
 		     mlx5_ib_devx_cleanup),
+	STAGE_CREATE(MLX5_IB_STAGE_SYS_ERROR_NOTIFIER,
+		     mlx5_ib_stage_sys_error_notifier_init,
+		     mlx5_ib_stage_sys_error_notifier_cleanup),
 	STAGE_CREATE(MLX5_IB_STAGE_IB_REG,
 		     mlx5_ib_stage_ib_reg_init,
 		     mlx5_ib_stage_ib_reg_cleanup),
@@ -4864,6 +5062,9 @@ const struct mlx5_ib_profile raw_eth_profile = {
 	STAGE_CREATE(MLX5_IB_STAGE_WHITELIST_UID,
 		     mlx5_ib_devx_init,
 		     mlx5_ib_devx_cleanup),
+	STAGE_CREATE(MLX5_IB_STAGE_SYS_ERROR_NOTIFIER,
+		     mlx5_ib_stage_sys_error_notifier_init,
+		     mlx5_ib_stage_sys_error_notifier_cleanup),
 	STAGE_CREATE(MLX5_IB_STAGE_IB_REG,
 		     mlx5_ib_stage_ib_reg_init,
 		     mlx5_ib_stage_ib_reg_cleanup),

@@ -573,7 +573,7 @@ void irdma_cleanup_pending_cqp_op(struct irdma_pci_f *rf)
 	}
 }
 
-static int irdma_get_timeout_threshold(struct irdma_sc_dev *dev)
+int irdma_get_timeout_threshold(struct irdma_sc_dev *dev)
 {
 	u16 time_s = dev->vc_caps.cqp_timeout_s;
 
@@ -830,7 +830,8 @@ void irdma_cq_rem_ref(struct ib_cq *ibcq)
 		return;
 	}
 
-	iwdev->rf->cq_table[iwcq->cq_num] = NULL;
+	/* May be asynchronously sampled by CEQ ISR without holding tbl lock. */
+	WRITE_ONCE(iwdev->rf->cq_table[iwcq->cq_num], NULL);
 	spin_unlock_irqrestore(&iwdev->rf->cqtable_lock, flags);
 	complete(&iwcq->free_cq);
 }
