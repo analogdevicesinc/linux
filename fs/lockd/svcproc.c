@@ -25,7 +25,7 @@ static inline __be32 cast_status(__be32 status)
 	case nlm_lck_denied_nolocks:
 	case nlm_lck_blocked:
 	case nlm_lck_denied_grace_period:
-	case nlm_drop_reply:
+	case nlm__int__drop_reply:
 		break;
 	case nlm4_deadlock:
 		status = nlm_lck_denied;
@@ -122,12 +122,13 @@ __nlmsvc_proc_test(struct svc_rqst *rqstp, struct nlm_res *resp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlmsvc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now check for conflicting locks */
 	resp->status = cast_status(nlmsvc_testlock(rqstp, file, host,
 						   &argp->lock, &resp->lock));
-	if (resp->status == nlm_drop_reply)
+	if (resp->status == nlm__int__drop_reply)
 		rc = rpc_drop_reply;
 	else
 		dprintk("lockd: TEST          status %d vers %d\n",
@@ -159,13 +160,14 @@ __nlmsvc_proc_lock(struct svc_rqst *rqstp, struct nlm_res *resp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlmsvc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now try to lock the file */
 	resp->status = cast_status(nlmsvc_lock(rqstp, file, host, &argp->lock,
 					       argp->block, &argp->cookie,
 					       argp->reclaim));
-	if (resp->status == nlm_drop_reply)
+	if (resp->status == nlm__int__drop_reply)
 		rc = rpc_drop_reply;
 	else
 		dprintk("lockd: LOCK         status %d\n", ntohl(resp->status));
@@ -202,7 +204,8 @@ __nlmsvc_proc_cancel(struct svc_rqst *rqstp, struct nlm_res *resp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlmsvc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Try to cancel request. */
 	resp->status = cast_status(nlmsvc_cancel_blocked(net, file, &argp->lock));
@@ -243,7 +246,8 @@ __nlmsvc_proc_unlock(struct svc_rqst *rqstp, struct nlm_res *resp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlmsvc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now try to remove the lock */
 	resp->status = cast_status(nlmsvc_unlock(net, file, &argp->lock));
@@ -400,7 +404,8 @@ nlmsvc_proc_share(struct svc_rqst *rqstp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlmsvc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now try to create the share */
 	resp->status = cast_status(nlmsvc_share_file(host, file, argp));
@@ -435,7 +440,8 @@ nlmsvc_proc_unshare(struct svc_rqst *rqstp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlmsvc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now try to unshare the file */
 	resp->status = cast_status(nlmsvc_unshare_file(host, file, argp));

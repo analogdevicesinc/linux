@@ -39,6 +39,12 @@
 #define LOCKD_DFLT_TIMEO	10
 
 /*
+ * Internal-use status codes, not to be placed on the wire.
+ * Version handlers translate these to appropriate wire values.
+ */
+#define nlm__int__drop_reply	cpu_to_be32(30000)
+
+/*
  * Lockd host handle (used both by the client and server personality).
  */
 struct nlm_host {

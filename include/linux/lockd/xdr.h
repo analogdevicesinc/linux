@@ -33,8 +33,6 @@ struct svc_rqst;
 #define	nlm_lck_blocked		cpu_to_be32(NLM_LCK_BLOCKED)
 #define	nlm_lck_denied_grace_period	cpu_to_be32(NLM_LCK_DENIED_GRACE_PERIOD)
 
-#define nlm_drop_reply		cpu_to_be32(30000)
-
 /* Lock info passed via NLM */
 struct nlm_lock {
 	char *			caller;
