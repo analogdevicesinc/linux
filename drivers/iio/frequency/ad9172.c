@@ -141,7 +141,7 @@ static int ad9172_link_status_get(struct ad9172_state *st, unsigned long lane_ra
 			i, link_status.good_checksum_stat);
 		dev_info(dev, "Link%d init_lane_sync_stat: %x\n",
 			i, link_status.init_lane_sync_stat);
-		dev_info(dev, "Link%d %d lanes @ %lu kBps\n",
+		dev_info(dev, "Link%d %d lanes @ %lu kbps\n",
 			i, st->appJesdConfig.jesd_L, lane_rate_kHz);
 
 		if (hweight8(link_status.code_grp_sync_stat) != st->appJesdConfig.jesd_L ||
@@ -179,7 +179,7 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 {
 	ad917x_handle_t *ad917x_h = &st->dac_h;
 	int ret;
-	u8 dac_mask, chan_mask;
+	u8 dac_mask = AD917X_DAC_NONE, ch_mask;
 
 	if (st->jesd_dual_link_mode || st->interpolation == 1)
 		dac_mask = AD917X_DAC0 | AD917X_DAC1;
@@ -187,8 +187,8 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 		dac_mask = AD917X_DAC0;
 
 	if (st->interpolation > 1) {
-		chan_mask = GENMASK(st->appJesdConfig.jesd_M / 2, 0);
-		ret = ad917x_set_page_idx(ad917x_h, AD917X_DAC_NONE, chan_mask);
+		ch_mask = GENMASK(st->appJesdConfig.jesd_M / 2, 0);
+		ret = ad917x_set_page_idx(ad917x_h, AD917X_DAC_NONE, ch_mask);
 		if (ret)
 			return ret;
 
@@ -196,9 +196,14 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 		if (ret)
 			return ret;
 
-		st->nco_main_enable = dac_mask;
+		if (st->nco_main_enable)
+			dac_mask = st->nco_main_enable;
+		else
+			st->nco_main_enable = dac_mask;
 
-		ad917x_nco_enable(ad917x_h, st->nco_main_enable, 0);
+		ret = ad917x_nco_enable(ad917x_h, dac_mask, st->nco_channel_enable);
+		if (ret)
+			return ret;
 	}
 
 	ret = ad917x_set_page_idx(ad917x_h, dac_mask, AD917X_CH_NONE);
@@ -1040,10 +1045,22 @@ static int ad9172_jesd204_link_enable(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct ad9172_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9172_state *st = priv->st;
+	u8 dac_mask;
 	int ret;
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		 __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (st->jesd_dual_link_mode || st->interpolation == 1)
+		dac_mask = AD917X_DAC0 | AD917X_DAC1;
+	else
+		dac_mask = AD917X_DAC0;
+
+	ret = ad917x_nco_phase_align(&st->dac_h, dac_mask);
+	if (ret != 0) {
+		dev_err(dev, "Failed to arm NCO phase alignment (%d)\n", ret);
+		return ret;
+	}
 
 	ad917x_jesd_set_sysref_enable(&st->dac_h, !!st->jesd_subclass);
 
