@@ -12,6 +12,8 @@
 #include "xe_gt_types.h"
 #include "xe_sriov.h"
 
+struct xe_vm;
+
 static inline struct xe_device *to_xe_device(const struct drm_device *dev)
 {
 	return container_of(dev, struct xe_device, drm);
@@ -59,13 +61,6 @@ static inline struct xe_tile *xe_device_get_root_tile(struct xe_device *xe)
 {
 	return &xe->tiles[0];
 }
-
-/*
- * Highest GT/tile count for any platform.  Used only for memory allocation
- * sizing.  Any logic looping over GTs or mapping userspace GT IDs into GT
- * structures should use the per-platform xe->info.max_gt_per_tile instead.
- */
-#define XE_MAX_GT_PER_TILE 2
 
 static inline struct xe_gt *xe_device_get_gt(struct xe_device *xe, u8 gt_id)
 {
@@ -203,6 +198,8 @@ void xe_file_put(struct xe_file *xef);
 int xe_is_injection_active(void);
 
 bool xe_is_xe_file(const struct file *file);
+
+struct xe_vm *xe_device_asid_to_vm(struct xe_device *xe, u32 asid);
 
 /*
  * Occasionally it is seen that the G2H worker starts running after a delay of more than

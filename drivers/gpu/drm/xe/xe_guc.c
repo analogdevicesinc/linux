@@ -668,6 +668,13 @@ static void guc_fini_hw(void *arg)
 	guc_g2g_fini(guc);
 }
 
+static void vf_guc_fini_hw(void *arg)
+{
+	struct xe_guc *guc = arg;
+
+	xe_gt_sriov_vf_reset(guc_to_gt(guc));
+}
+
 /**
  * xe_guc_comm_init_early - early initialization of GuC communication
  * @guc: the &xe_guc to initialize
@@ -772,6 +779,10 @@ int xe_guc_init(struct xe_guc *guc)
 		xe->info.has_page_reclaim_hw_assist = false;
 
 	if (IS_SRIOV_VF(xe)) {
+		ret = devm_add_action_or_reset(xe->drm.dev, vf_guc_fini_hw, guc);
+		if (ret)
+			goto out;
+
 		ret = xe_guc_ct_init(&guc->ct);
 		if (ret)
 			goto out;
