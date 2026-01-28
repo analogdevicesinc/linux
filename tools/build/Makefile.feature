@@ -71,7 +71,7 @@ FEATURE_TESTS_BASIC :=                  \
         gettid				\
         glibc                           \
         libbfd                          \
-        libbfd-buildid			\
+	libbfd-threadsafe		\
         libelf                          \
         libelf-getphdrnum               \
         libelf-gelf_getnote             \

@@ -34,6 +34,7 @@
 #include "util.h"
 #include "clockid.h"
 #include "util/sample.h"
+#include "util/time-utils.h"
 
 #ifdef HAVE_LIBTRACEEVENT
 #include <event-parse.h>
@@ -91,9 +92,14 @@ struct convert {
 	struct perf_tool	tool;
 	struct ctf_writer	writer;
 
+	struct perf_time_interval *ptime_range;
+	int range_size;
+	int range_num;
+
 	u64			events_size;
 	u64			events_count;
 	u64			non_sample_count;
+	u64			skipped;
 
 	/* Ordered events configured queue size. */
 	u64			queue_size;
@@ -810,6 +816,11 @@ static int process_sample_event(const struct perf_tool *tool,
 
 	if (WARN_ONCE(!priv, "Failed to setup all events.\n"))
 		return 0;
+
+	if (perf_time__ranges_skip_sample(c->ptime_range, c->range_num, sample->time)) {
+		++c->skipped;
+		return 0;
+	}
 
 	event_class = priv->event_class;
 
@@ -1644,6 +1655,15 @@ int bt_convert__perf2ctf(const char *input, const char *path,
 	if (IS_ERR(session))
 		return PTR_ERR(session);
 
+	if (opts->time_str) {
+		err = perf_time__parse_for_ranges(opts->time_str, session,
+						  &c.ptime_range,
+						  &c.range_size,
+						  &c.range_num);
+		if (err < 0)
+			goto free_session;
+	}
+
 	/* CTF writer */
 	if (ctf_writer__init(cw, path, session, opts->tod))
 		goto free_session;
@@ -1673,12 +1693,10 @@ int bt_convert__perf2ctf(const char *input, const char *path,
 	else
 		pr_err("Error during conversion.\n");
 
-	fprintf(stderr,
-		"[ perf data convert: Converted '%s' into CTF data '%s' ]\n",
+	fprintf(stderr,	"[ perf data convert: Converted '%s' into CTF data '%s' ]\n",
 		data.path, path);
 
-	fprintf(stderr,
-		"[ perf data convert: Converted and wrote %.3f MB (%" PRIu64 " samples",
+	fprintf(stderr,	"[ perf data convert: Converted and wrote %.3f MB (%" PRIu64 " samples",
 		(double) c.events_size / 1024.0 / 1024.0,
 		c.events_count);
 
@@ -1686,6 +1704,14 @@ int bt_convert__perf2ctf(const char *input, const char *path,
 		fprintf(stderr, ") ]\n");
 	else
 		fprintf(stderr, ", %" PRIu64 " non-samples) ]\n", c.non_sample_count);
+
+	if (c.skipped) {
+		fprintf(stderr,	"[ perf data convert: Skipped %" PRIu64 " samples ]\n",
+			c.skipped);
+	}
+
+	if (c.ptime_range)
+		zfree(&c.ptime_range);
 
 	cleanup_events(session);
 	perf_session__delete(session);
@@ -1696,6 +1722,9 @@ int bt_convert__perf2ctf(const char *input, const char *path,
 free_writer:
 	ctf_writer__cleanup(cw);
 free_session:
+	if (c.ptime_range)
+		zfree(&c.ptime_range);
+
 	perf_session__delete(session);
 	pr_err("Error during conversion setup.\n");
 	return err;
