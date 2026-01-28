@@ -413,6 +413,31 @@ static inline int nlm_compare_locks(const struct file_lock *fl1,
 	     &&(fl1->c.flc_type  == fl2->c.flc_type || fl2->c.flc_type == F_UNLCK);
 }
 
+/**
+ * lockd_set_file_lock_range4 - set the byte range of a file_lock
+ * @fl: file_lock whose length fields are to be initialized
+ * @off: starting offset of the lock, in bytes
+ * @len: length of the byte range, in bytes, or zero
+ *
+ * The NLMv4 protocol represents lock byte ranges as (start, length),
+ * where length zero means "lock to end of file." The kernel's file_lock
+ * structure uses (start, end) representation. Convert from NLMv4 format
+ * to file_lock format, clamping the starting offset and treating
+ * arithmetic overflow as "lock to EOF."
+ */
+static inline void
+lockd_set_file_lock_range4(struct file_lock *fl, u64 off, u64 len)
+{
+	u64 clamped_off = (off > OFFSET_MAX) ? OFFSET_MAX : off;
+	s64 end = clamped_off + len - 1;
+
+	fl->fl_start = clamped_off;
+	if (len == 0 || end < 0)
+		fl->fl_end = OFFSET_MAX;
+	else
+		fl->fl_end = end;
+}
+
 extern const struct lock_manager_operations nlmsvc_lock_operations;
 
 #endif /* _LOCKD_LOCKD_H */
