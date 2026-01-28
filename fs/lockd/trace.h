@@ -8,7 +8,8 @@
 #include <linux/tracepoint.h>
 #include <linux/crc32.h>
 #include <linux/nfs.h>
-#include <linux/lockd/lockd.h>
+
+#include "lockd.h"
 
 #ifdef CONFIG_LOCKD_V4
 #define NLM_STATUS_LIST					\
