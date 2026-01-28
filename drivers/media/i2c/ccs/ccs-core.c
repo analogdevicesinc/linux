@@ -2082,7 +2082,9 @@ static int ccs_post_streamoff(struct v4l2_subdev *subdev)
 	struct ccs_sensor *sensor = to_ccs_sensor(subdev);
 	struct i2c_client *client = v4l2_get_subdevdata(&sensor->src->sd);
 
-	return pm_runtime_put(&client->dev);
+	pm_runtime_put(&client->dev);
+
+	return 0;
 }
 
 static const struct ccs_csi_data_format
