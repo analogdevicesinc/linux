@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * linux/include/linux/lockd/xdr.h
- *
  * XDR types for the NLM protocol
  *
  * Copyright (C) 1996 Olaf Kirch <okir@monad.swb.de>
  */
 
-#ifndef LOCKD_XDR_H
-#define LOCKD_XDR_H
+#ifndef _LOCKD_XDR_H
+#define _LOCKD_XDR_H
 
 #include <linux/fs.h>
 #include <linux/filelock.h>
@@ -110,4 +108,4 @@ bool	nlmsvc_encode_res(struct svc_rqst *rqstp, struct xdr_stream *xdr);
 bool	nlmsvc_encode_void(struct svc_rqst *rqstp, struct xdr_stream *xdr);
 bool	nlmsvc_encode_shareres(struct svc_rqst *rqstp, struct xdr_stream *xdr);
 
-#endif /* LOCKD_XDR_H */
+#endif /* _LOCKD_XDR_H */

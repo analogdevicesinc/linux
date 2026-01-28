@@ -15,7 +15,7 @@
 #include <linux/refcount.h>
 #include <linux/utsname.h>
 #include <linux/lockd/bind.h>
-#include <linux/lockd/xdr.h>
+#include "xdr.h"
 #include <linux/sunrpc/debug.h>
 #include <linux/sunrpc/svc.h>
 
