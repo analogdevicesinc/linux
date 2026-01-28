@@ -621,49 +621,24 @@ landlock_find_rule(const struct landlock_ruleset *const ruleset,
  * request are empty).
  */
 bool landlock_unmask_layers(const struct landlock_rule *const rule,
-			    const access_mask_t access_request,
-			    layer_mask_t (*const layer_masks)[],
-			    const size_t masks_array_size)
+			    struct layer_access_masks *masks)
 {
-	size_t layer_level;
-
-	if (!access_request || !layer_masks)
+	if (!masks)
 		return true;
 	if (!rule)
 		return false;
 
-	/*
-	 * An access is granted if, for each policy layer, at least one rule
-	 * encountered on the pathwalk grants the requested access,
-	 * regardless of its position in the layer stack.  We must then check
-	 * the remaining layers for each inode, from the first added layer to
-	 * the last one.  When there is multiple requested accesses, for each
-	 * policy layer, the full set of requested accesses may not be granted
-	 * by only one rule, but by the union (binary OR) of multiple rules.
-	 * E.g. /a/b <execute> + /a <read> => /a/b <execute + read>
-	 */
-	for (layer_level = 0; layer_level < rule->num_layers; layer_level++) {
-		const struct landlock_layer *const layer =
-			&rule->layers[layer_level];
-		const layer_mask_t layer_bit = BIT_ULL(layer->level - 1);
-		const unsigned long access_req = access_request;
-		unsigned long access_bit;
-		bool is_empty;
+	for (int i = 0; i < rule->num_layers; i++) {
+		const struct landlock_layer *l = &rule->layers[i];
 
-		/*
-		 * Records in @layer_masks which layer grants access to each requested
-		 * access: bit cleared if the related layer grants access.
-		 */
-		is_empty = true;
-		for_each_set_bit(access_bit, &access_req, masks_array_size) {
-			if (layer->access & BIT_ULL(access_bit))
-				(*layer_masks)[access_bit] &= ~layer_bit;
-			is_empty = is_empty && !(*layer_masks)[access_bit];
-		}
-		if (is_empty)
-			return true;
+		masks->access[l->level - 1] &= ~l->access;
 	}
-	return false;
+
+	for (int i = 0; i < LANDLOCK_MAX_NUM_LAYERS; i++) {
+		if (masks->access[i])
+			return false;
+	}
+	return true;
 }
 
 typedef access_mask_t
@@ -678,8 +653,7 @@ get_access_mask_t(const struct landlock_ruleset *const ruleset,
  *
  * @domain: The domain that defines the current restrictions.
  * @access_request: The requested access rights to check.
- * @layer_masks: It must contain %LANDLOCK_NUM_ACCESS_FS or
- * %LANDLOCK_NUM_ACCESS_NET elements according to @key_type.
+ * @masks: Layer access masks to populate.
  * @key_type: The key type to switch between access masks of different types.
  *
  * Returns: An access mask where each access right bit is set which is handled
@@ -688,23 +662,20 @@ get_access_mask_t(const struct landlock_ruleset *const ruleset,
 access_mask_t
 landlock_init_layer_masks(const struct landlock_ruleset *const domain,
 			  const access_mask_t access_request,
-			  layer_mask_t (*const layer_masks)[],
+			  struct layer_access_masks *masks,
 			  const enum landlock_key_type key_type)
 {
 	access_mask_t handled_accesses = 0;
-	size_t layer_level, num_access;
 	get_access_mask_t *get_access_mask;
 
 	switch (key_type) {
 	case LANDLOCK_KEY_INODE:
 		get_access_mask = landlock_get_fs_access_mask;
-		num_access = LANDLOCK_NUM_ACCESS_FS;
 		break;
 
 #if IS_ENABLED(CONFIG_INET)
 	case LANDLOCK_KEY_NET_PORT:
 		get_access_mask = landlock_get_net_access_mask;
-		num_access = LANDLOCK_NUM_ACCESS_NET;
 		break;
 #endif /* IS_ENABLED(CONFIG_INET) */
 
@@ -713,27 +684,18 @@ landlock_init_layer_masks(const struct landlock_ruleset *const domain,
 		return 0;
 	}
 
-	memset(layer_masks, 0,
-	       array_size(sizeof((*layer_masks)[0]), num_access));
-
 	/* An empty access request can happen because of O_WRONLY | O_RDWR. */
 	if (!access_request)
 		return 0;
 
-	/* Saves all handled accesses per layer. */
-	for (layer_level = 0; layer_level < domain->num_layers; layer_level++) {
-		const unsigned long access_req = access_request;
-		const access_mask_t access_mask =
-			get_access_mask(domain, layer_level);
-		unsigned long access_bit;
+	for (int i = 0; i < domain->num_layers; i++) {
+		const access_mask_t handled = get_access_mask(domain, i);
 
-		for_each_set_bit(access_bit, &access_req, num_access) {
-			if (BIT_ULL(access_bit) & access_mask) {
-				(*layer_masks)[access_bit] |=
-					BIT_ULL(layer_level);
-				handled_accesses |= BIT_ULL(access_bit);
-			}
-		}
+		masks->access[i] = access_request & handled;
+		handled_accesses |= masks->access[i];
 	}
+	for (int i = domain->num_layers; i < LANDLOCK_MAX_NUM_LAYERS; i++)
+		masks->access[i] = 0;
+
 	return handled_accesses;
 }

@@ -8,7 +8,7 @@ Landlock: unprivileged access control
 =====================================
 
 :Author: Mickaël Salaün
-:Date: March 2025
+:Date: December 2025
 
 The goal of Landlock is to enable restriction of ambient rights (e.g. global
 filesystem or network access) for a set of processes.  Because Landlock
@@ -40,8 +40,8 @@ Filesystem rules
     and the related filesystem actions are defined with
     `filesystem access rights`.
 
-Network rules (since ABI v4)
-    For these rules, the object is a TCP port,
+Network rules (since ABI v4 for TCP and v8 for UDP)
+    For these rules, the object is a TCP or UDP port,
     and the related actions are defined with `network access rights`.
 
 Defining and enforcing a security policy
@@ -49,11 +49,11 @@ Defining and enforcing a security policy
 
 We first need to define the ruleset that will contain our rules.
 
-For this example, the ruleset will contain rules that only allow filesystem
-read actions and establish a specific TCP connection. Filesystem write
-actions and other TCP actions will be denied.
+For this example, the ruleset will contain rules that only allow some
+filesystem read actions and some specific UDP and TCP accesses. Filesystem
+write actions and other TCP/UDP actions will be denied.
 
-The ruleset then needs to handle both these kinds of actions.  This is
+The ruleset then needs to handle all these kinds of actions.  This is
 required for backward and forward compatibility (i.e. the kernel and user
 space may not know each other's supported restrictions), hence the need
 to be explicit about the denied-by-default access rights.
@@ -80,10 +80,14 @@ to be explicit about the denied-by-default access rights.
             LANDLOCK_ACCESS_FS_IOCTL_DEV,
         .handled_access_net =
             LANDLOCK_ACCESS_NET_BIND_TCP |
-            LANDLOCK_ACCESS_NET_CONNECT_TCP,
+            LANDLOCK_ACCESS_NET_CONNECT_TCP |
+            LANDLOCK_ACCESS_NET_BIND_UDP |
+            LANDLOCK_ACCESS_NET_CONNECT_UDP |
+            LANDLOCK_ACCESS_NET_SENDTO_UDP,
         .scoped =
             LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET |
-            LANDLOCK_SCOPE_SIGNAL,
+            LANDLOCK_SCOPE_SIGNAL |
+            LANDLOCK_SCOPE_PATHNAME_UNIX_SOCKET,
     };
 
 Because we may not know which kernel version an application will be executed
@@ -127,6 +131,17 @@ version, and only use the available subset of access rights:
         /* Removes LANDLOCK_SCOPE_* for ABI < 6 */
         ruleset_attr.scoped &= ~(LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET |
                                  LANDLOCK_SCOPE_SIGNAL);
+        __attribute__((fallthrough));
+    case 7:
+        /* Removes LANDLOCK_SCOPE_PATHNAME_UNIX_SOCKET for ABI < 8 */
+        ruleset_attr.scoped &= ~LANDLOCK_SCOPE_PATHNAME_UNIX_SOCKET;
+        __attribute__((fallthrough));
+    case 8:
+        /* Removes LANDLOCK_ACCESS_*_UDP for ABI < 9 */
+        ruleset_attr.handled_access_net &=
+            ~(LANDLOCK_ACCESS_NET_BIND_UDP |
+              LANDLOCK_ACCESS_NET_CONNECT_UDP |
+              LANDLOCK_ACCESS_NET_SENDTO_UDP);
     }
 
 This enables the creation of an inclusive ruleset that will contain our rules.
@@ -175,26 +190,53 @@ descriptor.
 
 It may also be required to create rules following the same logic as explained
 for the ruleset creation, by filtering access rights according to the Landlock
-ABI version.  In this example, this is not required because all of the requested
-``allowed_access`` rights are already available in ABI 1.
+ABI version.  So far, this was not required because all of the requested
+``allowed_access`` rights have always been available, from ABI 1.
 
-For network access-control, we can add a set of rules that allow to use a port
-number for a specific action: HTTPS connections.
+For network access-control, we will add a set of rules to allow DNS
+queries, which requires both UDP and TCP. For TCP, we need to allow
+outbound connections to port 53, which can be handled and granted starting
+with ABI 4:
 
 .. code-block:: c
 
-    struct landlock_net_port_attr net_port = {
-        .allowed_access = LANDLOCK_ACCESS_NET_CONNECT_TCP,
-        .port = 443,
-    };
+    if (ruleset_attr.handled_access_net & LANDLOCK_ACCESS_NET_CONNECT_TCP) {
+        struct landlock_net_port_attr net_port = {
+            .allowed_access = LANDLOCK_ACCESS_NET_CONNECT_TCP,
+            .port = 53,
+        };
 
-    err = landlock_add_rule(ruleset_fd, LANDLOCK_RULE_NET_PORT,
-                            &net_port, 0);
+        err = landlock_add_rule(ruleset_fd, LANDLOCK_RULE_NET_PORT,
+                                &net_port, 0);
+
+We also need to be able to send UDP datagrams to port 53: we don't know if
+the client will call e.g. :manpage:`sendto(2)` with an explicit destination
+address, or :manpage:`connect(2)` then e.g. :manpage:`send(2)`, so we
+allow both. Note that granting ``LANDLOCK_ACCESS_NET_BIND_UDP`` is not
+necessary here because the client's socket will be automatically bound to
+an ephemeral port by the kernel.  Also note that we need to handle both
+``LANDLOCK_ACCESS_NET_CONNECT_UDP`` and ``LANDLOCK_ACCESS_NET_SENDTO_UDP``
+to effectively block sending UDP datagrams to arbitrary ports.
+
+.. code-block:: c
+
+    if ((ruleset_attr.handled_access_net & (LANDLOCK_ACCESS_NET_CONNECT_UDP |
+                                            LANDLOCK_ACCESS_NET_SENDTO_UDP)) ==
+                                           (LANDLOCK_ACCESS_NET_CONNECT_UDP |
+                                            LANDLOCK_ACCESS_NET_SENDTO_UDP)) {
+        struct landlock_net_port_attr net_port = {
+            .allowed_access = LANDLOCK_ACCESS_NET_CONNECT_UDP |
+                              LANDLOCK_ACCESS_NET_SENDTO_UDP,
+            .port = 53,
+        };
+
+        err = landlock_add_rule(ruleset_fd, LANDLOCK_RULE_NET_PORT,
+                                &net_port, 0);
 
 The next step is to restrict the current thread from gaining more privileges
 (e.g. through a SUID binary).  We now have a ruleset with the first rule
 allowing read access to ``/usr`` while denying all other handled accesses for
-the filesystem, and a second rule allowing HTTPS connections.
+the filesystem, and two more rules allowing DNS queries.
 
 .. code-block:: c
 
@@ -328,10 +370,15 @@ The operations which can be scoped are:
     This limits the sending of signals to target processes which run within the
     same or a nested Landlock domain.
 
-``LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET``
-    This limits the set of abstract :manpage:`unix(7)` sockets to which we can
-    :manpage:`connect(2)` to socket addresses which were created by a process in
-    the same or a nested Landlock domain.
+``LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET`` and ``LANDLOCK_SCOPE_PATHNAME_UNIX_SOCKET``
+    This limits the set of :manpage:`unix(7)` sockets to which we can
+    :manpage:`connect(2)` to socket addresses which were created by a
+    process in the same or a nested Landlock domain.
+    ``LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET`` applies to abstract sockets,
+    and ``LANDLOCK_SCOPE_PATHNAME_UNIX_SOCKET`` applies to pathname
+    sockets.  Even though pathname sockets are represented in the
+    filesystem, Landlock filesystem rules do not currently control access
+    to them.
 
     A :manpage:`sendto(2)` on a non-connected datagram socket is treated as if
     it were doing an implicit :manpage:`connect(2)` and will be blocked if the
@@ -604,6 +651,43 @@ Landlock audit events with the ``LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF``,
 sys_landlock_restrict_self().  See Documentation/admin-guide/LSM/landlock.rst
 for more details on audit.
 
+Pathname UNIX socket (ABI < 8)
+------------------------------
+
+Starting with the Landlock ABI version 8, it is possible to restrict
+connections to a pathname (non-abstract) :manpage:`unix(7)` socket by
+setting ``LANDLOCK_SCOPE_PATHNAME_UNIX_SOCKET`` to the ``scoped`` ruleset
+attribute.  This works the same way as the abstract socket scoping.
+
+This allows sandboxing applications using only Landlock to protect against
+bypasses relying on connecting to Unix sockets of other services running
+under the same user.  These services typically assume that any process
+capable of connecting to a local Unix socket, or connecting with the
+expected user credentials, is trusted.  Without this protection, sandbox
+escapes may be possible, especially when running in a standard desktop
+environment, such as by using systemd-run, or sockets exposed by other
+common applications.
+
+Thread synchronization (ABI < 9)
+--------------------------------
+
+Starting with the Landlock ABI version 9, it is now possible to
+enforce Landlock rulesets across all threads of the calling process
+using the ``LANDLOCK_RESTRICT_SELF_TSYNC`` flag passed to
+sys_landlock_restrict_self().
+
+UDP networking (ABI < 9)
+------------------------
+
+Starting with the Landlock ABI version 9, it is possible to restrict
+setting the local/remote ports of UDP sockets to specific values. Restrictions
+are now enforced at :manpage:`bind(2)` time with the new
+``LANDLOCK_ACCESS_NET_BIND_UDP`` access right, and at :manpage:`connect(2)`
+time with ``LANDLOCK_ACCESS_NET_CONNECT_UDP``. Finally,
+``LANDLOCK_ACCESS_NET_SENDTO_UDP`` also restricts sending datagrams with
+an explicit destination address (e.g. with :manpage:`sendmsg(2)`) to only some
+specific remote ports.
+
 .. _kernel_support:
 
 Kernel support
@@ -666,10 +750,10 @@ the boot loader.
 Network support
 ---------------
 
-To be able to explicitly allow TCP operations (e.g., adding a network rule with
-``LANDLOCK_ACCESS_NET_BIND_TCP``), the kernel must support TCP
+To be able to explicitly allow TCP or UDP operations (e.g., adding a network rule with
+``LANDLOCK_ACCESS_NET_BIND_TCP``), the kernel must support the TCP/IP protocol suite
 (``CONFIG_INET=y``).  Otherwise, sys_landlock_add_rule() returns an
-``EAFNOSUPPORT`` error, which can safely be ignored because this kind of TCP
+``EAFNOSUPPORT`` error, which can safely be ignored because this kind of TCP or UDP
 operation is already not possible.
 
 Questions and answers

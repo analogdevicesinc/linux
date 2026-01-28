@@ -301,15 +301,25 @@ landlock_get_scope_mask(const struct landlock_ruleset *const ruleset,
 	return ruleset->access_masks[layer_level].scope;
 }
 
+/**
+ * struct layer_accesses - A boolean matrix of layers and access rights
+ *
+ * This has a bit for each combination of layer numbers and access rights.
+ * During access checks, it is used to represent the access rights for each
+ * layer which still need to be fulfilled.  When all bits are 0, the access
+ * request is considered to be fulfilled.
+ */
+struct layer_access_masks {
+	access_mask_t access[LANDLOCK_MAX_NUM_LAYERS];
+};
+
 bool landlock_unmask_layers(const struct landlock_rule *const rule,
-			    const access_mask_t access_request,
-			    layer_mask_t (*const layer_masks)[],
-			    const size_t masks_array_size);
+			    struct layer_access_masks *masks);
 
 access_mask_t
 landlock_init_layer_masks(const struct landlock_ruleset *const domain,
 			  const access_mask_t access_request,
-			  layer_mask_t (*const layer_masks)[],
+			  struct layer_access_masks *masks,
 			  const enum landlock_key_type key_type);
 
 #endif /* _SECURITY_LANDLOCK_RULESET_H */
