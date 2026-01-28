@@ -22,9 +22,6 @@
 #include <linux/utsname.h>
 #include <linux/lockd/bind.h>
 #include <linux/lockd/xdr.h>
-#ifdef CONFIG_LOCKD_V4
-#include <linux/lockd/xdr4.h>
-#endif
 #include <linux/lockd/debug.h>
 #include <linux/sunrpc/svc.h>
 
@@ -234,6 +231,10 @@ void		  nlmclnt_recovery(struct nlm_host *);
 int		  nlmclnt_reclaim(struct nlm_host *, struct file_lock *,
 				  struct nlm_rqst *);
 void		  nlmclnt_next_cookie(struct nlm_cookie *);
+
+#ifdef CONFIG_LOCKD_V4
+extern const struct rpc_version nlm_version4;
+#endif
 
 /*
  * Host cache

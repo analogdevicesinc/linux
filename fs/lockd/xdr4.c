@@ -19,6 +19,7 @@
 #include <linux/lockd/lockd.h>
 
 #include "svcxdr.h"
+#include "xdr4.h"
 
 static inline s64
 loff_t_to_s64(loff_t offset)
