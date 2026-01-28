@@ -8,7 +8,7 @@ import logging
 
 from argparse import Namespace
 from lark import logger
-from lark.exceptions import UnexpectedInput
+from lark.exceptions import VisitError
 
 from generators.source_top import XdrSourceTopGenerator
 from generators.enum import XdrEnumGenerator
@@ -22,7 +22,9 @@ from xdr_ast import transform_parse_tree, _RpcProgram, Specification
 from xdr_ast import _XdrAst, _XdrEnum, _XdrPointer
 from xdr_ast import _XdrStruct, _XdrTypedef, _XdrUnion
 
-from xdr_parse import xdr_parser, set_xdr_annotate
+from xdr_parse import xdr_parser, set_xdr_annotate, set_xdr_enum_validation
+from xdr_parse import make_error_handler, XdrParseError
+from xdr_parse import handle_transform_error
 
 logger.setLevel(logging.INFO)
 
@@ -92,20 +94,25 @@ def generate_client_source(filename: str, root: Specification, language: str) ->
     # cel: todo: client needs PROC macros
 
 
-def handle_parse_error(e: UnexpectedInput) -> bool:
-    """Simple parse error reporting, no recovery attempted"""
-    print(e)
-    return True
-
-
 def subcmd(args: Namespace) -> int:
     """Generate encoder and decoder functions"""
 
     set_xdr_annotate(args.annotate)
+    set_xdr_enum_validation(not args.no_enum_validation)
     parser = xdr_parser()
     with open(args.filename, encoding="utf-8") as f:
-        parse_tree = parser.parse(f.read(), on_error=handle_parse_error)
-        ast = transform_parse_tree(parse_tree)
+        source = f.read()
+        try:
+            parse_tree = parser.parse(
+                source, on_error=make_error_handler(source, args.filename)
+            )
+        except XdrParseError:
+            return 1
+        try:
+            ast = transform_parse_tree(parse_tree)
+        except VisitError as e:
+            handle_transform_error(e, source, args.filename)
+            return 1
         match args.peer:
             case "server":
                 generate_server_source(args.filename, ast, args.language)
