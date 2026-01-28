@@ -729,7 +729,7 @@ svm_migrate_vma_to_ram(struct kfd_node *node, struct svm_range *prange,
 	migrate.start = start;
 	migrate.end = end;
 	migrate.pgmap_owner = SVM_ADEV_PGMAP_OWNER(adev);
-	if (adev->gmc.xgmi.connected_to_cpu)
+	if (adev->kfd.pgmap.type == MEMORY_DEVICE_COHERENT)
 		migrate.flags = MIGRATE_VMA_SELECT_DEVICE_COHERENT;
 	else
 		migrate.flags = MIGRATE_VMA_SELECT_DEVICE_PRIVATE;
@@ -1063,7 +1063,8 @@ int kgd2kfd_init_zone_device(struct amdgpu_device *adev)
 	 * should remove reserved size
 	 */
 	size = ALIGN(adev->gmc.real_vram_size, 2ULL << 20);
-	if (adev->gmc.xgmi.connected_to_cpu) {
+	if (adev->gmc.xgmi.connected_to_cpu &&
+	    amdgpu_ip_version(adev, GC_HWIP, 0) != IP_VERSION(12, 1, 0)) {
 		pgmap->range.start = adev->gmc.aper_base;
 		pgmap->range.end = adev->gmc.aper_base + adev->gmc.aper_size - 1;
 		pgmap->type = MEMORY_DEVICE_COHERENT;
