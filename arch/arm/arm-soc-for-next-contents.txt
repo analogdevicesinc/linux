@@ -1,0 +1,101 @@
+soc/arm
+
+soc/dt
+	broadcom/dt
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.19/devicetree-arm64
+	aspeed/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.20-devicetree-0
+	renesas/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v6.20-tag1
+	juno/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/juno-updates-7.0
+	rockchip/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-dts32-1
+	rockchip/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-dts64-1
+	nuvoton/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-6.20-devicetree-0
+	aspeed/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.20-devicetree-1
+	nxp-lpc/dt
+		https://github.com/vzapolskiy/linux-lpc32xx tags/lpc32xx-dt-for-6.20
+	apple/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-6.20
+	renesas/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dt-bindings-for-v6.20-tag1
+	renesas/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v6.20-tag2
+	arm64/dt-cleanup
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt64-cleanup-6.20
+	samsung/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-6.20
+	patch
+		ARM: dts: nuvoton: Minor whitespace cleanup
+		ARM: dts: samsung: Drop s3c6400.dtsi
+	tegra/dt32
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.20-arm-dt
+	tegra/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.20-arm64-dt
+	zynqmp/dt
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-dt-for-6.20
+	qcom/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-6.20
+	qcom/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-6.20
+	imx/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt-6.20
+
+soc/drivers
+	renesas/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v6.20-tag1
+	firmware/ffa
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/ffa-updates-7.0
+	firmware/scmi
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-7.0
+	renesas/drivers-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v6.20-tag2
+	firmware/qcomtee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/qcomtee-fixes-for-6.20
+	firmware/optee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/optee-update-for-6.20
+	firmware/tee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-bus-callback-for-6.20
+	firmware/amdtee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/amdtee-update-for-6.20
+	firmware/tee-sysfs
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-sysfs-for-6.20
+	samsung/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-6.20
+	tegra/pmc-driver
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.20-soc
+	xilinx/drivers
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-soc-for-6.20
+	imx/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-drivers-6.20
+	ti/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-driver-soc-for-v6.20
+	qcom/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-6.20
+
+soc/defconfig
+	patch
+		ARM: defconfig: move entries
+		ARM: defconfig: turn off CONFIG_EXPERT
+
+soc/late
+
+arm/fixes
+	patch
+		Revert "arm64: tegra: Add interconnect properties for Tegra210"
+		MAINTAINERS: update email address for Yixun Lan
+	<no branch> (94ad504e67cd3be94fa1b2fed0cb87da0d8f9396)
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-6.19
+	rockchip/fixes
+		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.19-rockchip-dtsfixes1
+	patch
+		MAINTAINERS: Add Andrew as M: to ARM/NUVOTON NPCM ARCHITECTURE
+	<no branch> (70b8c45d8621c4d77b5659270e9a26ce7b1123cf)
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm-6.19-fixes-0
+	<no branch> (1f6ca557088eb96c8c554f853eb7c60862f8a0a8)
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-fixes-for-6.19
+
