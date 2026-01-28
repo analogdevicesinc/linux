@@ -17,6 +17,30 @@ static struct cpufreq_frequency_table sc589_freq_table[] = {
 	{.flags = 0, .driver_data = 0, .frequency = CPUFREQ_TABLE_END},
 };
 
+
+static int sc589_init(struct cpufreq_policy *policy)
+{
+        return 0;
+}
+
+static int sc589_target_index(struct cpufreq_policy *policy, unsigned int index)
+{
+	return 0;
+}
+
+static unsigned int sc589_get(unsigned int cpu)
+{
+	return 0;
+}
+
+static struct cpufreq_driver sc589_cpufreq_driver = {
+	.name = "sc589-cpufreq",
+	.init = sc589_init,
+	.verify = cpufreq_generic_frequency_table_verify,
+	.target_index = sc589_target_index,
+	.get = sc589_get,
+};
+
 static int __init sc589_cpufreq_init(void)
 {
 
@@ -30,6 +54,7 @@ static void __exit sc589_cpufreq_exit(void)
 	return;
 }
 module_exit(sc589_cpufreq_exit);
+
 
 MODULE_AUTHOR("Qasim Ijaz <Qasim.Ijaz@analog.com>");
 MODULE_DESCRIPTION("CPUFreq driver for Analog Devices ADSP-SC589");
