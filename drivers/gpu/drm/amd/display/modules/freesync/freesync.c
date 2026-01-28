@@ -147,7 +147,7 @@ unsigned int mod_freesync_calc_v_total_from_refresh(
 			((unsigned int)(div64_u64((1000000000ULL * 1000000),
 					refresh_in_uhz)));
 
-	if (MICRO_HZ_TO_HZ(refresh_in_uhz) <= stream->timing.min_refresh_in_uhz) {
+	if (refresh_in_uhz <= stream->timing.min_refresh_in_uhz) {
 		/* When the target refresh rate is the minimum panel refresh rate,
 		 * round down the vtotal value to avoid stretching vblank over
 		 * panel's vtotal boundary.
@@ -226,8 +226,8 @@ static void update_v_total_for_static_ramp(
 	unsigned int target_duration_in_us =
 			calc_duration_in_us_from_refresh_in_uhz(
 				in_out_vrr->fixed.target_refresh_in_uhz);
-	bool ramp_direction_is_up = (current_duration_in_us >
-				target_duration_in_us) ? true : false;
+	bool ramp_direction_is_up = current_duration_in_us >
+				target_duration_in_us;
 
 	/* Calculate ratio between new and current frame duration with 3 digit */
 	unsigned int frame_duration_ratio = div64_u64(1000000,
@@ -1259,6 +1259,17 @@ void mod_freesync_handle_v_update(struct mod_freesync *mod_freesync,
 				in_out_vrr->fixed.ramping_active) {
 		update_v_total_for_static_ramp(
 				core_freesync, stream, in_out_vrr);
+	}
+
+	/*
+	 * If VRR is inactive, set vtotal min and max to nominal vtotal
+	 */
+	 if (in_out_vrr->state == VRR_STATE_INACTIVE) {
+		in_out_vrr->adjust.v_total_min =
+			mod_freesync_calc_v_total_from_refresh(stream,
+				in_out_vrr->max_refresh_in_uhz);
+		in_out_vrr->adjust.v_total_max = in_out_vrr->adjust.v_total_min;
+		return;
 	}
 }
 

@@ -17,6 +17,7 @@
 #define HBG_PCU_CACHE_LINE_SIZE		32
 #define HBG_TX_TIMEOUT_BUF_LEN		1024
 #define HBG_RX_DESCR			0x01
+#define HBG_NO_PHY			0xFF
 
 #define HBG_PACKET_HEAD_SIZE	((HBG_RX_SKIP1 + HBG_RX_SKIP2 + \
 				  HBG_RX_DESCR) * HBG_PCU_CACHE_LINE_SIZE)
@@ -258,6 +259,7 @@ struct hbg_stats {
 	u64 tx_dma_err_cnt;
 
 	u64 np_link_fail_cnt;
+	u64 reset_fail_cnt;
 };
 
 struct hbg_priv {

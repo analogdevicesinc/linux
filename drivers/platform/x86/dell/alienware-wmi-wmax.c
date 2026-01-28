@@ -90,18 +90,34 @@ static struct awcc_quirks empty_quirks;
 
 static const struct dmi_system_id awcc_dmi_table[] __initconst = {
 	{
-		.ident = "Alienware Area-51m R2",
+		.ident = "Alienware 16 Aurora",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware Area-51m R2"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware 16 Aurora"),
+		},
+		.driver_data = &g_series_quirks,
+	},
+	{
+		.ident = "Alienware Area-51m",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware Area-51m"),
 		},
 		.driver_data = &generic_quirks,
 	},
 	{
-		.ident = "Alienware m15 R7",
+		.ident = "Alienware m15",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware m15 R7"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware m15"),
+		},
+		.driver_data = &generic_quirks,
+	},
+	{
+		.ident = "Alienware m16 R1 AMD",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware m16 R1 AMD"),
 		},
 		.driver_data = &generic_quirks,
 	},
@@ -114,14 +130,6 @@ static const struct dmi_system_id awcc_dmi_table[] __initconst = {
 		.driver_data = &g_series_quirks,
 	},
 	{
-		.ident = "Alienware m16 R1 AMD",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware m16 R1 AMD"),
-		},
-		.driver_data = &generic_quirks,
-	},
-	{
 		.ident = "Alienware m16 R2",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
@@ -130,109 +138,70 @@ static const struct dmi_system_id awcc_dmi_table[] __initconst = {
 		.driver_data = &generic_quirks,
 	},
 	{
-		.ident = "Alienware m17 R5",
+		.ident = "Alienware m17",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware m17 R5 AMD"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware m17"),
 		},
 		.driver_data = &generic_quirks,
 	},
 	{
-		.ident = "Alienware m18 R2",
+		.ident = "Alienware m18",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware m18 R2"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware m18"),
 		},
 		.driver_data = &generic_quirks,
 	},
 	{
-		.ident = "Alienware x15 R1",
+		.ident = "Alienware x15",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware x15 R1"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware x15"),
 		},
 		.driver_data = &generic_quirks,
 	},
 	{
-		.ident = "Alienware x15 R2",
+		.ident = "Alienware x17",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware x15 R2"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware x17"),
 		},
 		.driver_data = &generic_quirks,
 	},
 	{
-		.ident = "Alienware x17 R2",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware x17 R2"),
-		},
-		.driver_data = &generic_quirks,
-	},
-	{
-		.ident = "Dell Inc. G15 5510",
+		.ident = "Dell Inc. G15",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Dell G15 5510"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Dell G15"),
 		},
 		.driver_data = &g_series_quirks,
 	},
 	{
-		.ident = "Dell Inc. G15 5511",
+		.ident = "Dell Inc. G16",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Dell G15 5511"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Dell G16"),
 		},
 		.driver_data = &g_series_quirks,
 	},
 	{
-		.ident = "Dell Inc. G15 5515",
+		.ident = "Dell Inc. G3",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Dell G15 5515"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "G3"),
 		},
 		.driver_data = &g_series_quirks,
 	},
 	{
-		.ident = "Dell Inc. G16 7630",
+		.ident = "Dell Inc. G5",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Dell G16 7630"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "G5"),
 		},
 		.driver_data = &g_series_quirks,
 	},
-	{
-		.ident = "Dell Inc. G3 3500",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "G3 3500"),
-		},
-		.driver_data = &g_series_quirks,
-	},
-	{
-		.ident = "Dell Inc. G3 3590",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "G3 3590"),
-		},
-		.driver_data = &g_series_quirks,
-	},
-	{
-		.ident = "Dell Inc. G5 5500",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "G5 5500"),
-		},
-		.driver_data = &g_series_quirks,
-	},
-	{
-		.ident = "Dell Inc. G5 5505",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "G5 5505"),
-		},
-		.driver_data = &g_series_quirks,
-	},
+	{}
 };
 
 enum AWCC_GET_FAN_SENSORS_OPERATIONS {
@@ -273,7 +242,27 @@ enum AWCC_SPECIAL_THERMAL_CODES {
 
 enum AWCC_TEMP_SENSOR_TYPES {
 	AWCC_TEMP_SENSOR_CPU			= 0x01,
+	AWCC_TEMP_SENSOR_FRONT			= 0x03,
 	AWCC_TEMP_SENSOR_GPU			= 0x06,
+};
+
+enum AWCC_FAN_TYPES {
+	AWCC_FAN_CPU_1				= 0x32,
+	AWCC_FAN_GPU_1				= 0x33,
+	AWCC_FAN_PCI				= 0x34,
+	AWCC_FAN_MID				= 0x35,
+	AWCC_FAN_TOP_1				= 0x36,
+	AWCC_FAN_SIDE				= 0x37,
+	AWCC_FAN_U2_1				= 0x38,
+	AWCC_FAN_U2_2				= 0x39,
+	AWCC_FAN_FRONT_1			= 0x3A,
+	AWCC_FAN_CPU_2				= 0x3B,
+	AWCC_FAN_GPU_2				= 0x3C,
+	AWCC_FAN_TOP_2				= 0x3D,
+	AWCC_FAN_TOP_3				= 0x3E,
+	AWCC_FAN_FRONT_2			= 0x3F,
+	AWCC_FAN_BOTTOM_1			= 0x40,
+	AWCC_FAN_BOTTOM_2			= 0x41,
 };
 
 enum awcc_thermal_profile {
@@ -314,7 +303,6 @@ struct wmax_u32_args {
 
 struct awcc_fan_data {
 	unsigned long auto_channels_temp;
-	const char *label;
 	u32 min_rpm;
 	u32 max_rpm;
 	u8 suspend_cache;
@@ -896,6 +884,9 @@ static int awcc_hwmon_read_string(struct device *dev, enum hwmon_sensor_types ty
 		case AWCC_TEMP_SENSOR_CPU:
 			*str = "CPU";
 			break;
+		case AWCC_TEMP_SENSOR_FRONT:
+			*str = "Front";
+			break;
 		case AWCC_TEMP_SENSOR_GPU:
 			*str = "GPU";
 			break;
@@ -906,7 +897,46 @@ static int awcc_hwmon_read_string(struct device *dev, enum hwmon_sensor_types ty
 
 		break;
 	case hwmon_fan:
-		*str = priv->fan_data[channel]->label;
+		switch (priv->fan_data[channel]->id) {
+		case AWCC_FAN_CPU_1:
+		case AWCC_FAN_CPU_2:
+			*str = "CPU Fan";
+			break;
+		case AWCC_FAN_GPU_1:
+		case AWCC_FAN_GPU_2:
+			*str = "GPU Fan";
+			break;
+		case AWCC_FAN_PCI:
+			*str = "PCI Fan";
+			break;
+		case AWCC_FAN_MID:
+			*str = "Mid Fan";
+			break;
+		case AWCC_FAN_TOP_1:
+		case AWCC_FAN_TOP_2:
+		case AWCC_FAN_TOP_3:
+			*str = "Top Fan";
+			break;
+		case AWCC_FAN_SIDE:
+			*str = "Side Fan";
+			break;
+		case AWCC_FAN_U2_1:
+		case AWCC_FAN_U2_2:
+			*str = "U.2 Fan";
+			break;
+		case AWCC_FAN_FRONT_1:
+		case AWCC_FAN_FRONT_2:
+			*str = "Front Fan";
+			break;
+		case AWCC_FAN_BOTTOM_1:
+		case AWCC_FAN_BOTTOM_2:
+			*str = "Bottom Fan";
+			break;
+		default:
+			*str = "Unknown Fan";
+			break;
+		}
+
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -1051,40 +1081,6 @@ static int awcc_hwmon_temps_init(struct wmi_device *wdev)
 	return 0;
 }
 
-static char *awcc_get_fan_label(unsigned long *fan_temps)
-{
-	unsigned int temp_count = bitmap_weight(fan_temps, AWCC_ID_BITMAP_SIZE);
-	char *label;
-	u8 temp_id;
-
-	switch (temp_count) {
-	case 0:
-		label = "Independent Fan";
-		break;
-	case 1:
-		temp_id = find_first_bit(fan_temps, AWCC_ID_BITMAP_SIZE);
-
-		switch (temp_id) {
-		case AWCC_TEMP_SENSOR_CPU:
-			label = "Processor Fan";
-			break;
-		case AWCC_TEMP_SENSOR_GPU:
-			label = "Video Fan";
-			break;
-		default:
-			label = "Unknown Fan";
-			break;
-		}
-
-		break;
-	default:
-		label = "Shared Fan";
-		break;
-	}
-
-	return label;
-}
-
 static int awcc_hwmon_fans_init(struct wmi_device *wdev)
 {
 	struct awcc_priv *priv = dev_get_drvdata(&wdev->dev);
@@ -1138,7 +1134,6 @@ static int awcc_hwmon_fans_init(struct wmi_device *wdev)
 		fan_data->id = id;
 		fan_data->min_rpm = min_rpm;
 		fan_data->max_rpm = max_rpm;
-		fan_data->label = awcc_get_fan_label(fan_temps);
 		bitmap_gather(gather, fan_temps, priv->temp_sensors, AWCC_ID_BITMAP_SIZE);
 		bitmap_copy(&fan_data->auto_channels_temp, gather, BITS_PER_LONG);
 		priv->fan_data[i] = fan_data;
@@ -1596,7 +1591,7 @@ static int wmax_wmi_probe(struct wmi_device *wdev, const void *context)
 
 static int wmax_wmi_suspend(struct device *dev)
 {
-	if (awcc->hwmon)
+	if (awcc && awcc->hwmon)
 		awcc_hwmon_suspend(dev);
 
 	return 0;
@@ -1604,7 +1599,7 @@ static int wmax_wmi_suspend(struct device *dev)
 
 static int wmax_wmi_resume(struct device *dev)
 {
-	if (awcc->hwmon)
+	if (awcc && awcc->hwmon)
 		awcc_hwmon_resume(dev);
 
 	return 0;

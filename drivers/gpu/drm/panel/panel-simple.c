@@ -1305,6 +1305,30 @@ static const struct panel_desc auo_g190ean01 = {
 	.connector_type = DRM_MODE_CONNECTOR_LVDS,
 };
 
+static const struct display_timing auo_p238han01_timings = {
+	.pixelclock = { 107400000, 142400000, 180000000 },
+	.hactive = { 1920, 1920, 1920 },
+	.hfront_porch = { 30, 70, 650 },
+	.hback_porch = { 30, 70, 650 },
+	.hsync_len = { 20, 40, 136 },
+	.vactive = { 1080, 1080, 1080 },
+	.vfront_porch = { 5, 19, 318 },
+	.vback_porch = { 5, 19, 318 },
+	.vsync_len = { 4, 12, 120 },
+};
+
+static const struct panel_desc auo_p238han01 = {
+	.timings = &auo_p238han01_timings,
+	.num_timings = 1,
+	.bpc = 8,
+	.size = {
+		.width = 527,
+		.height = 296,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,
+	.connector_type = DRM_MODE_CONNECTOR_LVDS,
+};
+
 static const struct display_timing auo_p320hvn03_timings = {
 	.pixelclock = { 106000000, 148500000, 164000000 },
 	.hactive = { 1920, 1920, 1920 },
@@ -3692,6 +3716,29 @@ static const struct panel_desc olimex_lcd_olinuxino_43ts = {
 	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
 };
 
+static const struct drm_display_mode olimex_lcd_olinuxino_5cts_mode = {
+	.clock = 33300,
+	.hdisplay = 800,
+	.hsync_start = 800 + 210,
+	.hsync_end = 800 + 210 + 20,
+	.htotal = 800 + 210 + 20 + 26,
+	.vdisplay = 480,
+	.vsync_start = 480 + 22,
+	.vsync_end = 480 + 22 + 10,
+	.vtotal = 480 + 22 + 10 + 13,
+};
+
+static const struct panel_desc olimex_lcd_olinuxino_5cts = {
+	.modes = &olimex_lcd_olinuxino_5cts_mode,
+	.num_modes = 1,
+	.size = {
+		.width = 154,
+		.height = 86,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+};
+
+
 static const struct display_timing ontat_kd50g21_40nt_a1_timing = {
 	.pixelclock = { 30000000, 30000000, 50000000 },
 	.hactive = { 800, 800, 800 },
@@ -4976,6 +5023,9 @@ static const struct of_device_id platform_of_match[] = {
 		.compatible = "auo,g190ean01",
 		.data = &auo_g190ean01,
 	}, {
+		.compatible = "auo,p238han01",
+		.data = &auo_p238han01,
+	}, {
 		.compatible = "auo,p320hvn03",
 		.data = &auo_p320hvn03,
 	}, {
@@ -5251,6 +5301,9 @@ static const struct of_device_id platform_of_match[] = {
 	}, {
 		.compatible = "olimex,lcd-olinuxino-43-ts",
 		.data = &olimex_lcd_olinuxino_43ts,
+	}, {
+		.compatible = "olimex,lcd-olinuxino-5-cts",
+		.data = &olimex_lcd_olinuxino_5cts,
 	}, {
 		.compatible = "ontat,kd50g21-40nt-a1",
 		.data = &ontat_kd50g21_40nt_a1,

@@ -11,14 +11,17 @@
 #include <drm/drm_modeset_helper.h>
 
 #include "i915_drv.h"
-#include "intel_atomic_plane.h"
+#include "i915_utils.h"
 #include "intel_bo.h"
 #include "intel_display.h"
+#include "intel_display_core.h"
 #include "intel_display_types.h"
 #include "intel_dpt.h"
 #include "intel_fb.h"
 #include "intel_fb_bo.h"
 #include "intel_frontbuffer.h"
+#include "intel_panic.h"
+#include "intel_plane.h"
 
 #define check_array_bounds(display, a, i) drm_WARN_ON((display)->drm, (i) >= ARRAY_SIZE(a))
 
@@ -421,21 +424,22 @@ unsigned int intel_fb_modifier_to_tiling(u64 fb_modifier)
 
 /**
  * intel_fb_get_format_info: Get a modifier specific format information
- * @cmd: FB add command structure
+ * @pixel_format: pixel format
+ * @modifier: modifier
  *
  * Returns:
- * Returns the format information for @cmd->pixel_format specific to @cmd->modifier[0],
+ * Returns the format information for @pixel_format specific to @modifier,
  * or %NULL if the modifier doesn't override the format.
  */
 const struct drm_format_info *
-intel_fb_get_format_info(const struct drm_mode_fb_cmd2 *cmd)
+intel_fb_get_format_info(u32 pixel_format, u64 modifier)
 {
-	const struct intel_modifier_desc *md = lookup_modifier_or_null(cmd->modifier[0]);
+	const struct intel_modifier_desc *md = lookup_modifier_or_null(modifier);
 
 	if (!md || !md->formats)
 		return NULL;
 
-	return lookup_format_info(md->formats, md->format_count, cmd->pixel_format);
+	return lookup_format_info(md->formats, md->format_count, pixel_format);
 }
 
 static bool plane_caps_contain_any(u8 caps, u8 mask)
@@ -1285,10 +1289,10 @@ bool intel_fb_needs_pot_stride_remap(const struct intel_framebuffer *fb)
 
 bool intel_plane_uses_fence(const struct intel_plane_state *plane_state)
 {
+	struct intel_display *display = to_intel_display(plane_state);
 	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
-	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 
-	return DISPLAY_VER(dev_priv) < 4 ||
+	return DISPLAY_VER(display) < 4 ||
 		(plane->fbc && !plane_state->no_fbc_reason &&
 		 plane_state->view.gtt.type == I915_GTT_VIEW_NORMAL);
 }
@@ -2109,10 +2113,11 @@ static void intel_user_framebuffer_destroy(struct drm_framebuffer *fb)
 	if (intel_fb_uses_dpt(fb))
 		intel_dpt_destroy(intel_fb->dpt_vm);
 
-	intel_frontbuffer_put(intel_fb->frontbuffer);
-
 	intel_fb_bo_framebuffer_fini(intel_fb_bo(fb));
 
+	intel_frontbuffer_put(intel_fb->frontbuffer);
+
+	kfree(intel_fb->panic);
 	kfree(intel_fb);
 }
 
@@ -2205,23 +2210,32 @@ static const struct drm_framebuffer_funcs intel_fb_funcs = {
 
 int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 			   struct drm_gem_object *obj,
+			   const struct drm_format_info *info,
 			   struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct intel_display *display = to_intel_display(obj->dev);
 	struct drm_framebuffer *fb = &intel_fb->base;
 	u32 max_stride;
-	int ret = -EINVAL;
+	int ret;
 	int i;
 
-	ret = intel_fb_bo_framebuffer_init(fb, obj, mode_cmd);
-	if (ret)
-		return ret;
+	intel_fb->panic = intel_panic_alloc();
+	if (!intel_fb->panic)
+		return -ENOMEM;
 
+	/*
+	 * intel_frontbuffer_get() must be done before
+	 * intel_fb_bo_framebuffer_init() to avoid set_tiling vs. addfb race.
+	 */
 	intel_fb->frontbuffer = intel_frontbuffer_get(obj);
 	if (!intel_fb->frontbuffer) {
 		ret = -ENOMEM;
-		goto err;
+		goto err_free_panic;
 	}
+
+	ret = intel_fb_bo_framebuffer_init(fb, obj, mode_cmd);
+	if (ret)
+		goto err_frontbuffer_put;
 
 	ret = -EINVAL;
 	if (!drm_any_plane_has_format(display->drm,
@@ -2230,7 +2244,7 @@ int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 		drm_dbg_kms(display->drm,
 			    "unsupported pixel format %p4cc / modifier 0x%llx\n",
 			    &mode_cmd->pixel_format, mode_cmd->modifier[0]);
-		goto err_frontbuffer_put;
+		goto err_bo_framebuffer_fini;
 	}
 
 	max_stride = intel_fb_max_stride(display, mode_cmd->pixel_format,
@@ -2241,7 +2255,7 @@ int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 			    mode_cmd->modifier[0] != DRM_FORMAT_MOD_LINEAR ?
 			    "tiled" : "linear",
 			    mode_cmd->pitches[0], max_stride);
-		goto err_frontbuffer_put;
+		goto err_bo_framebuffer_fini;
 	}
 
 	/* FIXME need to adjust LINOFF/TILEOFF accordingly. */
@@ -2249,17 +2263,17 @@ int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 		drm_dbg_kms(display->drm,
 			    "plane 0 offset (0x%08x) must be 0\n",
 			    mode_cmd->offsets[0]);
-		goto err_frontbuffer_put;
+		goto err_bo_framebuffer_fini;
 	}
 
-	drm_helper_mode_fill_fb_struct(display->drm, fb, mode_cmd);
+	drm_helper_mode_fill_fb_struct(display->drm, fb, info, mode_cmd);
 
 	for (i = 0; i < fb->format->num_planes; i++) {
 		unsigned int stride_alignment;
 
 		if (mode_cmd->handles[i] != mode_cmd->handles[0]) {
 			drm_dbg_kms(display->drm, "bad plane %d handle\n", i);
-			goto err_frontbuffer_put;
+			goto err_bo_framebuffer_fini;
 		}
 
 		stride_alignment = intel_fb_stride_alignment(fb, i);
@@ -2267,7 +2281,7 @@ int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 			drm_dbg_kms(display->drm,
 				    "plane %d pitch (%d) must be at least %u byte aligned\n",
 				    i, fb->pitches[i], stride_alignment);
-			goto err_frontbuffer_put;
+			goto err_bo_framebuffer_fini;
 		}
 
 		if (intel_fb_is_gen12_ccs_aux_plane(fb, i)) {
@@ -2277,7 +2291,7 @@ int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 				drm_dbg_kms(display->drm,
 					    "ccs aux plane %d pitch (%d) must be %d\n",
 					    i, fb->pitches[i], ccs_aux_stride);
-				goto err_frontbuffer_put;
+				goto err_bo_framebuffer_fini;
 			}
 		}
 
@@ -2286,7 +2300,7 @@ int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 
 	ret = intel_fill_fb_info(display, intel_fb);
 	if (ret)
-		goto err_frontbuffer_put;
+		goto err_bo_framebuffer_fini;
 
 	if (intel_fb_uses_dpt(fb)) {
 		struct i915_address_space *vm;
@@ -2312,16 +2326,20 @@ int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 err_free_dpt:
 	if (intel_fb_uses_dpt(fb))
 		intel_dpt_destroy(intel_fb->dpt_vm);
+err_bo_framebuffer_fini:
+	intel_fb_bo_framebuffer_fini(obj);
 err_frontbuffer_put:
 	intel_frontbuffer_put(intel_fb->frontbuffer);
-err:
-	intel_fb_bo_framebuffer_fini(obj);
+err_free_panic:
+	kfree(intel_fb->panic);
+
 	return ret;
 }
 
 struct drm_framebuffer *
 intel_user_framebuffer_create(struct drm_device *dev,
 			      struct drm_file *filp,
+			      const struct drm_format_info *info,
 			      const struct drm_mode_fb_cmd2 *user_mode_cmd)
 {
 	struct drm_framebuffer *fb;
@@ -2332,24 +2350,36 @@ intel_user_framebuffer_create(struct drm_device *dev,
 	if (IS_ERR(obj))
 		return ERR_CAST(obj);
 
-	fb = intel_framebuffer_create(obj, &mode_cmd);
+	fb = intel_framebuffer_create(obj, info, &mode_cmd);
 	drm_gem_object_put(obj);
 
 	return fb;
 }
 
+struct intel_framebuffer *intel_framebuffer_alloc(void)
+{
+	struct intel_framebuffer *intel_fb;
+
+	intel_fb = kzalloc(sizeof(*intel_fb), GFP_KERNEL);
+	if (!intel_fb)
+		return NULL;
+
+	return intel_fb;
+}
+
 struct drm_framebuffer *
 intel_framebuffer_create(struct drm_gem_object *obj,
+			 const struct drm_format_info *info,
 			 struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct intel_framebuffer *intel_fb;
 	int ret;
 
-	intel_fb = kzalloc(sizeof(*intel_fb), GFP_KERNEL);
+	intel_fb = intel_framebuffer_alloc();
 	if (!intel_fb)
 		return ERR_PTR(-ENOMEM);
 
-	ret = intel_framebuffer_init(intel_fb, obj, mode_cmd);
+	ret = intel_framebuffer_init(intel_fb, obj, info, mode_cmd);
 	if (ret)
 		goto err;
 

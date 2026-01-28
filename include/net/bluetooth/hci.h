@@ -434,6 +434,7 @@ enum {
 	HCI_USER_CHANNEL,
 	HCI_EXT_CONFIGURED,
 	HCI_LE_ADV,
+	HCI_LE_ADV_0,
 	HCI_LE_PER_ADV,
 	HCI_LE_SCAN,
 	HCI_SSP_ENABLED,
@@ -488,6 +489,7 @@ enum {
 #define HCI_AUTO_OFF_TIMEOUT	msecs_to_jiffies(2000)	/* 2 seconds */
 #define HCI_ACL_CONN_TIMEOUT	msecs_to_jiffies(20000)	/* 20 seconds */
 #define HCI_LE_CONN_TIMEOUT	msecs_to_jiffies(20000)	/* 20 seconds */
+#define HCI_ISO_TX_TIMEOUT	usecs_to_jiffies(0x7fffff) /* 8388607 usecs */
 
 /* HCI data types */
 #define HCI_COMMAND_PKT		0x01
@@ -562,6 +564,7 @@ enum {
 #define LE_LINK		0x80
 #define CIS_LINK	0x82
 #define BIS_LINK	0x83
+#define PA_LINK		0x84
 #define INVALID_LINK	0xff
 
 /* LMP features */
@@ -2634,6 +2637,7 @@ struct hci_ev_le_conn_complete {
 #define LE_EXT_ADV_DIRECT_IND		0x0004
 #define LE_EXT_ADV_SCAN_RSP		0x0008
 #define LE_EXT_ADV_LEGACY_PDU		0x0010
+#define LE_EXT_ADV_DATA_STATUS_MASK	0x0060
 #define LE_EXT_ADV_EVT_TYPE_MASK	0x007f
 
 #define ADDR_LE_DEV_PUBLIC		0x00
@@ -2779,6 +2783,11 @@ struct hci_ev_le_per_adv_report {
 	__u8     data[];
 } __packed;
 
+#define HCI_EV_LE_PA_SYNC_LOST		0x10
+struct hci_ev_le_pa_sync_lost {
+	__le16 handle;
+} __packed;
+
 #define LE_PA_DATA_COMPLETE	0x00
 #define LE_PA_DATA_MORE_TO_COME	0x01
 #define LE_PA_DATA_TRUNCATED	0x02
@@ -2837,7 +2846,7 @@ struct hci_evt_le_create_big_complete {
 } __packed;
 
 #define HCI_EVT_LE_BIG_SYNC_ESTABLISHED 0x1d
-struct hci_evt_le_big_sync_estabilished {
+struct hci_evt_le_big_sync_established {
 	__u8    status;
 	__u8    handle;
 	__u8    latency[3];
@@ -2849,6 +2858,12 @@ struct hci_evt_le_big_sync_estabilished {
 	__le16  interval;
 	__u8    num_bis;
 	__le16  bis[];
+} __packed;
+
+#define HCI_EVT_LE_BIG_SYNC_LOST 0x1e
+struct hci_evt_le_big_sync_lost {
+	__u8    handle;
+	__u8    reason;
 } __packed;
 
 #define HCI_EVT_LE_BIG_INFO_ADV_REPORT	0x22

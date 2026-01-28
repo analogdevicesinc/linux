@@ -65,6 +65,8 @@ enum xe_uc_fw_type {
  * struct xe_uc_fw_version - Version for XE micro controller firmware
  */
 struct xe_uc_fw_version {
+	/** @branch: branch version of the FW (not always available) */
+	u16 branch;
 	/** @major: major version of the FW */
 	u16 major;
 	/** @minor: minor version of the FW */
@@ -145,6 +147,9 @@ struct xe_uc_fw {
 
 	/** @private_data_size: size of private data found in uC css header */
 	u32 private_data_size;
+
+	/** @build_type: Firmware build type (see CSS_UKERNEL_INFO_BUILDTYPE for definitions) */
+	u32 build_type;
 };
 
 #endif

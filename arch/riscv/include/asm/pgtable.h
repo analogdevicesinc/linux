@@ -111,7 +111,7 @@
 
 #endif
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <asm/page.h>
 #include <asm/tlbflush.h>
@@ -203,6 +203,7 @@ extern struct pt_alloc_ops pt_ops __meminitdata;
 
 #define PAGE_TABLE		__pgprot(_PAGE_TABLE)
 
+#define _PAGE_KERNEL_NC ((_PAGE_KERNEL & ~_PAGE_MTMASK) | _PAGE_NOCACHE)
 #define _PAGE_IOREMAP	((_PAGE_KERNEL & ~_PAGE_MTMASK) | _PAGE_IO)
 #define PAGE_KERNEL_IO		__pgprot(_PAGE_IOREMAP)
 
@@ -409,13 +410,6 @@ static inline int pte_special(pte_t pte)
 	return pte_val(pte) & _PAGE_SPECIAL;
 }
 
-#ifdef CONFIG_ARCH_HAS_PTE_DEVMAP
-static inline int pte_devmap(pte_t pte)
-{
-	return pte_val(pte) & _PAGE_DEVMAP;
-}
-#endif
-
 /* static inline pte_t pte_rdprotect(pte_t pte) */
 
 static inline pte_t pte_wrprotect(pte_t pte)
@@ -455,11 +449,6 @@ static inline pte_t pte_mkold(pte_t pte)
 static inline pte_t pte_mkspecial(pte_t pte)
 {
 	return __pte(pte_val(pte) | _PAGE_SPECIAL);
-}
-
-static inline pte_t pte_mkdevmap(pte_t pte)
-{
-	return __pte(pte_val(pte) | _PAGE_DEVMAP);
 }
 
 static inline pte_t pte_mkhuge(pte_t pte)
@@ -665,6 +654,8 @@ static inline pgprot_t pgprot_writecombine(pgprot_t _prot)
 	return __pgprot(prot);
 }
 
+#define pgprot_dmacoherent pgprot_writecombine
+
 /*
  * Both Svade and Svadu control the hardware behavior when the PTE A/D bits need to be set. By
  * default the M-mode firmware enables the hardware updating scheme when only Svadu is present in
@@ -788,11 +779,6 @@ static inline pmd_t pmd_mkclean(pmd_t pmd)
 static inline pmd_t pmd_mkdirty(pmd_t pmd)
 {
 	return pte_pmd(pte_mkdirty(pmd_pte(pmd)));
-}
-
-static inline pmd_t pmd_mkdevmap(pmd_t pmd)
-{
-	return pte_pmd(pte_mkdevmap(pmd_pte(pmd)));
 }
 
 #ifdef CONFIG_ARCH_SUPPORTS_PMD_PFNMAP
@@ -946,11 +932,6 @@ static inline pud_t pud_mkhuge(pud_t pud)
 	return pud;
 }
 
-static inline pud_t pud_mkdevmap(pud_t pud)
-{
-	return pte_pud(pte_mkdevmap(pud_pte(pud)));
-}
-
 static inline int pudp_set_access_flags(struct vm_area_struct *vma,
 					unsigned long address, pud_t *pudp,
 					pud_t entry, int dirty)
@@ -962,6 +943,23 @@ static inline int pudp_test_and_clear_young(struct vm_area_struct *vma,
 					    unsigned long address, pud_t *pudp)
 {
 	return ptep_test_and_clear_young(vma, address, (pte_t *)pudp);
+}
+
+#define __HAVE_ARCH_PUDP_HUGE_GET_AND_CLEAR
+static inline pud_t pudp_huge_get_and_clear(struct mm_struct *mm,
+					    unsigned long address,  pud_t *pudp)
+{
+#ifdef CONFIG_SMP
+	pud_t pud = __pud(xchg(&pudp->pud, 0));
+#else
+	pud_t pud = *pudp;
+
+	pud_clear(pudp);
+#endif
+
+	page_table_check_pud_clear(mm, pud);
+
+	return pud;
 }
 
 static inline int pud_young(pud_t pud)
@@ -1140,6 +1138,6 @@ extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
 	WARN_ON_ONCE(pgd_present(*pgdp) && !pgd_same(*pgdp, pgd)); \
 	set_pgd(pgdp, pgd); \
 })
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 
 #endif /* _ASM_RISCV_PGTABLE_H */

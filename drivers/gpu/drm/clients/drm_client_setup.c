@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 
+#include <linux/export.h>
+
 #include <drm/clients/drm_client_setup.h>
 #include <drm/drm_device.h>
+#include <drm/drm_drv.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_print.h>
 
@@ -10,8 +13,8 @@
 static char drm_client_default[16] = CONFIG_DRM_CLIENT_DEFAULT;
 module_param_string(active, drm_client_default, sizeof(drm_client_default), 0444);
 MODULE_PARM_DESC(active,
-		 "Choose which drm client to start, default is"
-		 CONFIG_DRM_CLIENT_DEFAULT "]");
+		 "Choose which drm client to start, default is "
+		 CONFIG_DRM_CLIENT_DEFAULT);
 
 /**
  * drm_client_setup() - Setup in-kernel DRM clients
@@ -31,6 +34,10 @@ MODULE_PARM_DESC(active,
  */
 void drm_client_setup(struct drm_device *dev, const struct drm_format_info *format)
 {
+	if (!drm_core_check_feature(dev, DRIVER_MODESET)) {
+		drm_dbg(dev, "driver does not support mode-setting, skipping DRM clients\n");
+		return;
+	}
 
 #ifdef CONFIG_DRM_FBDEV_EMULATION
 	if (!strcmp(drm_client_default, "fbdev")) {

@@ -366,7 +366,7 @@ fail:
 static void readahead_cache(struct inode *inode)
 {
 	struct file_ra_state ra;
-	unsigned long last_index;
+	pgoff_t last_index;
 
 	file_ra_state_init(&ra, inode->i_mapping);
 	last_index = (i_size_read(inode) - 1) >> PAGE_SHIFT;
@@ -968,8 +968,8 @@ int load_free_space_cache(struct btrfs_block_group *block_group)
 	path = btrfs_alloc_path();
 	if (!path)
 		return 0;
-	path->search_commit_root = 1;
-	path->skip_locking = 1;
+	path->search_commit_root = true;
+	path->skip_locking = true;
 
 	/*
 	 * We must pass a path with search_commit_root set to btrfs_iget in
@@ -2282,7 +2282,7 @@ static bool use_bitmap(struct btrfs_free_space_ctl *ctl,
 		 * If this block group has some small extents we don't want to
 		 * use up all of our free slots in the cache with them, we want
 		 * to reserve them to larger extents, however if we have plenty
-		 * of cache left then go ahead an dadd them, no sense in adding
+		 * of cache left then go ahead and add them, no sense in adding
 		 * the overhead of a bitmap if we don't have to.
 		 */
 		if (info->bytes <= fs_info->sectorsize * 8) {
@@ -3192,7 +3192,7 @@ static u64 btrfs_alloc_from_bitmap(struct btrfs_block_group *block_group,
 				   u64 *max_extent_size)
 {
 	struct btrfs_free_space_ctl *ctl = block_group->free_space_ctl;
-	int err;
+	int ret2;
 	u64 search_start = cluster->window_start;
 	u64 search_bytes = bytes;
 	u64 ret = 0;
@@ -3200,8 +3200,8 @@ static u64 btrfs_alloc_from_bitmap(struct btrfs_block_group *block_group,
 	search_start = min_start;
 	search_bytes = bytes;
 
-	err = search_bitmap(ctl, entry, &search_start, &search_bytes, true);
-	if (err) {
+	ret2 = search_bitmap(ctl, entry, &search_start, &search_bytes, true);
+	if (ret2) {
 		*max_extent_size = max(get_max_extent_size(entry),
 				       *max_extent_size);
 		return 0;
@@ -3656,7 +3656,7 @@ static int do_trimming(struct btrfs_block_group *block_group,
 	struct btrfs_fs_info *fs_info = block_group->fs_info;
 	struct btrfs_free_space_ctl *ctl = block_group->free_space_ctl;
 	int ret;
-	int update = 0;
+	bool bg_ro;
 	const u64 end = start + bytes;
 	const u64 reserved_end = reserved_start + reserved_bytes;
 	enum btrfs_trim_state trim_state = BTRFS_TRIM_STATE_UNTRIMMED;
@@ -3664,12 +3664,14 @@ static int do_trimming(struct btrfs_block_group *block_group,
 
 	spin_lock(&space_info->lock);
 	spin_lock(&block_group->lock);
-	if (!block_group->ro) {
+	bg_ro = block_group->ro;
+	if (!bg_ro) {
 		block_group->reserved += reserved_bytes;
+		spin_unlock(&block_group->lock);
 		space_info->bytes_reserved += reserved_bytes;
-		update = 1;
+	} else {
+		spin_unlock(&block_group->lock);
 	}
-	spin_unlock(&block_group->lock);
 	spin_unlock(&space_info->lock);
 
 	ret = btrfs_discard_extent(fs_info, start, bytes, &trimmed);
@@ -3690,14 +3692,16 @@ static int do_trimming(struct btrfs_block_group *block_group,
 	list_del(&trim_entry->list);
 	mutex_unlock(&ctl->cache_writeout_mutex);
 
-	if (update) {
+	if (!bg_ro) {
 		spin_lock(&space_info->lock);
 		spin_lock(&block_group->lock);
-		if (block_group->ro)
-			space_info->bytes_readonly += reserved_bytes;
+		bg_ro = block_group->ro;
 		block_group->reserved -= reserved_bytes;
-		space_info->bytes_reserved -= reserved_bytes;
 		spin_unlock(&block_group->lock);
+
+		space_info->bytes_reserved -= reserved_bytes;
+		if (bg_ro)
+			space_info->bytes_readonly += reserved_bytes;
 		spin_unlock(&space_info->lock);
 	}
 
@@ -3829,7 +3833,7 @@ out_unlock:
 
 /*
  * If we break out of trimming a bitmap prematurely, we should reset the
- * trimming bit.  In a rather contrieved case, it's possible to race here so
+ * trimming bit.  In a rather contrived case, it's possible to race here so
  * reset the state to BTRFS_TRIM_STATE_UNTRIMMED.
  *
  * start = start of bitmap
@@ -4142,7 +4146,7 @@ int btrfs_set_free_space_cache_v1_active(struct btrfs_fs_info *fs_info, bool act
 	if (!active) {
 		set_bit(BTRFS_FS_CLEANUP_SPACE_CACHE_V1, &fs_info->flags);
 		ret = cleanup_free_space_cache_v1(fs_info, trans);
-		if (ret) {
+		if (unlikely(ret)) {
 			btrfs_abort_transaction(trans, ret);
 			btrfs_end_transaction(trans);
 			goto out;

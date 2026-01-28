@@ -854,7 +854,7 @@ struct kfd_process *kfd_create_process(struct task_struct *thread)
 	 */
 	mutex_lock(&kfd_processes_mutex);
 
-	if (kfd_is_locked()) {
+	if (kfd_is_locked(NULL)) {
 		pr_debug("KFD is locked! Cannot create process");
 		process = ERR_PTR(-EINVAL);
 		goto out;
@@ -1087,6 +1087,8 @@ static void kfd_process_destroy_pdds(struct kfd_process *p)
 			pm_runtime_put_autosuspend(adev_to_drm(pdd->dev->adev)->dev);
 			pdd->runtime_inuse = false;
 		}
+
+		atomic_dec(&pdd->dev->kfd->kfd_processes_count);
 
 		kfree(pdd);
 		p->pdds[i] = NULL;
@@ -1648,6 +1650,8 @@ struct kfd_process_device *kfd_create_process_device_data(struct kfd_node *dev,
 
 	/* Init idr used for memory handle translation */
 	idr_init(&pdd->alloc_idr);
+
+	atomic_inc(&dev->kfd->kfd_processes_count);
 
 	return pdd;
 }

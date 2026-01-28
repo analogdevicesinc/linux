@@ -47,7 +47,6 @@ void iwl_mvm_te_clear_data(struct iwl_mvm *mvm,
 
 static void iwl_mvm_cleanup_roc(struct iwl_mvm *mvm)
 {
-	struct ieee80211_vif *bss_vif = iwl_mvm_get_bss_vif(mvm);
 	struct ieee80211_vif *vif = mvm->p2p_device_vif;
 
 	lockdep_assert_held(&mvm->mutex);
@@ -125,8 +124,6 @@ static void iwl_mvm_cleanup_roc(struct iwl_mvm *mvm)
 			iwl_mvm_rm_aux_sta(mvm);
 	}
 
-	if (!IS_ERR_OR_NULL(bss_vif))
-		iwl_mvm_unblock_esr(mvm, bss_vif, IWL_MVM_ESR_BLOCKED_ROC);
 	mutex_unlock(&mvm->mutex);
 }
 
@@ -466,7 +463,7 @@ static int iwl_mvm_aux_roc_te_handle_notif(struct iwl_mvm *mvm,
 	if (!aux_roc_te) /* Not a Aux ROC time event */
 		return -EINVAL;
 
-	iwl_mvm_te_check_trigger(mvm, notif, te_data);
+	iwl_mvm_te_check_trigger(mvm, notif, aux_roc_te);
 
 	IWL_DEBUG_TE(mvm,
 		     "Aux ROC time event notification  - UID = 0x%x action %d (error = %d)\n",
@@ -478,14 +475,14 @@ static int iwl_mvm_aux_roc_te_handle_notif(struct iwl_mvm *mvm,
 		/* End TE, notify mac80211 */
 		ieee80211_remain_on_channel_expired(mvm->hw);
 		iwl_mvm_roc_finished(mvm); /* flush aux queue */
-		list_del(&te_data->list); /* remove from list */
-		te_data->running = false;
-		te_data->vif = NULL;
-		te_data->uid = 0;
-		te_data->id = TE_MAX;
+		list_del(&aux_roc_te->list); /* remove from list */
+		aux_roc_te->running = false;
+		aux_roc_te->vif = NULL;
+		aux_roc_te->uid = 0;
+		aux_roc_te->id = TE_MAX;
 	} else if (le32_to_cpu(notif->action) == TE_V2_NOTIF_HOST_EVENT_START) {
 		set_bit(IWL_MVM_STATUS_ROC_AUX_RUNNING, &mvm->status);
-		te_data->running = true;
+		aux_roc_te->running = true;
 		ieee80211_ready_on_channel(mvm->hw); /* Start TE */
 	} else {
 		IWL_DEBUG_TE(mvm,
@@ -958,39 +955,18 @@ void iwl_mvm_rx_session_protect_notif(struct iwl_mvm *mvm,
 {
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
 	struct iwl_session_prot_notif *notif = (void *)pkt->data;
-	unsigned int ver =
-		iwl_fw_lookup_notif_ver(mvm->fw, MAC_CONF_GROUP,
-					SESSION_PROTECTION_NOTIF, 2);
 	int id = le32_to_cpu(notif->mac_link_id);
 	struct ieee80211_vif *vif;
 	struct iwl_mvm_vif *mvmvif;
-	unsigned int notif_link_id;
 
 	rcu_read_lock();
 
-	if (ver <= 2) {
-		vif = iwl_mvm_rcu_dereference_vif_id(mvm, id, true);
-	} else {
-		struct ieee80211_bss_conf *link_conf =
-			iwl_mvm_rcu_fw_link_id_to_link_conf(mvm, id, true);
-
-		if (!link_conf)
-			goto out_unlock;
-
-		notif_link_id = link_conf->link_id;
-		vif = link_conf->vif;
-	}
-
+	/* note we use link ID == MAC ID */
+	vif = iwl_mvm_rcu_dereference_vif_id(mvm, id, true);
 	if (!vif)
 		goto out_unlock;
 
 	mvmvif = iwl_mvm_vif_from_mac80211(vif);
-
-	if (WARN(ver > 2 && mvmvif->time_event_data.link_id >= 0 &&
-		 mvmvif->time_event_data.link_id != notif_link_id,
-		 "SESSION_PROTECTION_NOTIF was received for link %u, while the current time event is on link %u\n",
-		 notif_link_id, mvmvif->time_event_data.link_id))
-		goto out_unlock;
 
 	/* The vif is not a P2P_DEVICE, maintain its time_event_data */
 	if (vif->type != NL80211_IFTYPE_P2P_DEVICE) {

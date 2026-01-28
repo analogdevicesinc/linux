@@ -11,6 +11,7 @@
 #include "wx_type.h"
 #include "wx_lib.h"
 #include "wx_sriov.h"
+#include "wx_vf.h"
 #include "wx_hw.h"
 
 static int wx_phy_read_reg_mdi(struct mii_bus *bus, int phy_addr, int devnum, int regnum)
@@ -123,6 +124,11 @@ static void wx_intr_disable(struct wx *wx, u64 qmask)
 void wx_intr_enable(struct wx *wx, u64 qmask)
 {
 	u32 mask;
+
+	if (wx->pdev->is_virtfn) {
+		wr32(wx, WX_VXIMC, qmask);
+		return;
+	}
 
 	mask = (qmask & U32_MAX);
 	if (mask)
@@ -1107,7 +1113,7 @@ static int wx_write_uc_addr_list(struct net_device *netdev, int pool)
  *  by the MO field of the MCSTCTRL. The MO field is set during initialization
  *  to mc_filter_type.
  **/
-static u32 wx_mta_vector(struct wx *wx, u8 *mc_addr)
+u32 wx_mta_vector(struct wx *wx, u8 *mc_addr)
 {
 	u32 vector = 0;
 
@@ -1827,7 +1833,7 @@ void wx_disable_rx_queue(struct wx *wx, struct wx_ring *ring)
 }
 EXPORT_SYMBOL(wx_disable_rx_queue);
 
-static void wx_enable_rx_queue(struct wx *wx, struct wx_ring *ring)
+void wx_enable_rx_queue(struct wx *wx, struct wx_ring *ring)
 {
 	u8 reg_idx = ring->reg_idx;
 	u32 rxdctl;
@@ -1843,6 +1849,7 @@ static void wx_enable_rx_queue(struct wx *wx, struct wx_ring *ring)
 		       reg_idx);
 	}
 }
+EXPORT_SYMBOL(wx_enable_rx_queue);
 
 static void wx_configure_srrctl(struct wx *wx,
 				struct wx_ring *rx_ring)
@@ -1991,8 +1998,17 @@ static void wx_restore_vlan(struct wx *wx)
 		wx_vlan_rx_add_vid(wx->netdev, htons(ETH_P_8021Q), vid);
 }
 
-static void wx_store_reta(struct wx *wx)
+u32 wx_rss_indir_tbl_entries(struct wx *wx)
 {
+	if (test_bit(WX_FLAG_SRIOV_ENABLED, wx->flags))
+		return 64;
+	else
+		return 128;
+}
+
+void wx_store_reta(struct wx *wx)
+{
+	u32 reta_entries = wx_rss_indir_tbl_entries(wx);
 	u8 *indir_tbl = wx->rss_indir_tbl;
 	u32 reta = 0;
 	u32 i;
@@ -2000,43 +2016,108 @@ static void wx_store_reta(struct wx *wx)
 	/* Fill out the redirection table as follows:
 	 *  - 8 bit wide entries containing 4 bit RSS index
 	 */
-	for (i = 0; i < WX_MAX_RETA_ENTRIES; i++) {
+	for (i = 0; i < reta_entries; i++) {
 		reta |= indir_tbl[i] << (i & 0x3) * 8;
 		if ((i & 3) == 3) {
-			wr32(wx, WX_RDB_RSSTBL(i >> 2), reta);
+			if (test_bit(WX_FLAG_SRIOV_ENABLED, wx->flags) &&
+			    test_bit(WX_FLAG_MULTI_64_FUNC, wx->flags))
+				wr32(wx, WX_RDB_VMRSSTBL(i >> 2, wx->num_vfs), reta);
+			else
+				wr32(wx, WX_RDB_RSSTBL(i >> 2), reta);
 			reta = 0;
 		}
 	}
 }
 
+void wx_store_rsskey(struct wx *wx)
+{
+	u32 key_size = WX_RSS_KEY_SIZE / 4;
+	u32 i;
+
+	if (test_bit(WX_FLAG_SRIOV_ENABLED, wx->flags) &&
+	    test_bit(WX_FLAG_MULTI_64_FUNC, wx->flags)) {
+		for (i = 0; i < key_size; i++)
+			wr32(wx, WX_RDB_VMRSSRK(i, wx->num_vfs),
+			     wx->rss_key[i]);
+	} else {
+		for (i = 0; i < key_size; i++)
+			wr32(wx, WX_RDB_RSSRK(i), wx->rss_key[i]);
+	}
+}
+
 static void wx_setup_reta(struct wx *wx)
 {
-	u16 rss_i = wx->ring_feature[RING_F_RSS].indices;
-	u32 random_key_size = WX_RSS_KEY_SIZE / 4;
-	u32 i, j;
-
-	if (test_bit(WX_FLAG_SRIOV_ENABLED, wx->flags)) {
-		if (wx->mac.type == wx_mac_em)
-			rss_i = 1;
-		else
-			rss_i = rss_i < 4 ? 4 : rss_i;
-	}
-
 	/* Fill out hash function seeds */
-	for (i = 0; i < random_key_size; i++)
-		wr32(wx, WX_RDB_RSSRK(i), wx->rss_key[i]);
+	wx_store_rsskey(wx);
 
 	/* Fill out redirection table */
-	memset(wx->rss_indir_tbl, 0, sizeof(wx->rss_indir_tbl));
+	if (!netif_is_rxfh_configured(wx->netdev)) {
+		u16 rss_i = wx->ring_feature[RING_F_RSS].indices;
+		u32 reta_entries = wx_rss_indir_tbl_entries(wx);
+		u32 i, j;
 
-	for (i = 0, j = 0; i < WX_MAX_RETA_ENTRIES; i++, j++) {
-		if (j == rss_i)
-			j = 0;
+		memset(wx->rss_indir_tbl, 0, sizeof(wx->rss_indir_tbl));
 
-		wx->rss_indir_tbl[i] = j;
+		if (test_bit(WX_FLAG_SRIOV_ENABLED, wx->flags)) {
+			if (test_bit(WX_FLAG_MULTI_64_FUNC, wx->flags))
+				rss_i = rss_i < 2 ? 2 : rss_i;
+			else
+				rss_i = 1;
+		}
+
+		for (i = 0, j = 0; i < reta_entries; i++, j++) {
+			if (j == rss_i)
+				j = 0;
+
+			wx->rss_indir_tbl[i] = j;
+		}
 	}
 
 	wx_store_reta(wx);
+}
+
+void wx_config_rss_field(struct wx *wx)
+{
+	u32 rss_field;
+
+	if (test_bit(WX_FLAG_SRIOV_ENABLED, wx->flags) &&
+	    test_bit(WX_FLAG_MULTI_64_FUNC, wx->flags)) {
+		rss_field = rd32(wx, WX_RDB_PL_CFG(wx->num_vfs));
+		rss_field &= ~WX_RDB_PL_CFG_RSS_MASK;
+		rss_field |= FIELD_PREP(WX_RDB_PL_CFG_RSS_MASK, wx->rss_flags);
+		wr32(wx, WX_RDB_PL_CFG(wx->num_vfs), rss_field);
+
+		/* Enable global RSS and multiple RSS to make the RSS
+		 * field of each pool take effect.
+		 */
+		wr32m(wx, WX_RDB_RA_CTL,
+		      WX_RDB_RA_CTL_MULTI_RSS | WX_RDB_RA_CTL_RSS_EN,
+		      WX_RDB_RA_CTL_MULTI_RSS | WX_RDB_RA_CTL_RSS_EN);
+	} else {
+		rss_field = rd32(wx, WX_RDB_RA_CTL);
+		rss_field &= ~WX_RDB_RA_CTL_RSS_MASK;
+		rss_field |= FIELD_PREP(WX_RDB_RA_CTL_RSS_MASK, wx->rss_flags);
+		wr32(wx, WX_RDB_RA_CTL, rss_field);
+	}
+}
+
+void wx_enable_rss(struct wx *wx, bool enable)
+{
+	if (test_bit(WX_FLAG_SRIOV_ENABLED, wx->flags) &&
+	    test_bit(WX_FLAG_MULTI_64_FUNC, wx->flags)) {
+		if (enable)
+			wr32m(wx, WX_RDB_PL_CFG(wx->num_vfs),
+			      WX_RDB_PL_CFG_RSS_EN, WX_RDB_PL_CFG_RSS_EN);
+		else
+			wr32m(wx, WX_RDB_PL_CFG(wx->num_vfs),
+			      WX_RDB_PL_CFG_RSS_EN, 0);
+	} else {
+		if (enable)
+			wr32m(wx, WX_RDB_RA_CTL, WX_RDB_RA_CTL_RSS_EN,
+			      WX_RDB_RA_CTL_RSS_EN);
+		else
+			wr32m(wx, WX_RDB_RA_CTL, WX_RDB_RA_CTL_RSS_EN, 0);
+	}
 }
 
 #define WX_RDB_RSS_PL_2		FIELD_PREP(GENMASK(31, 29), 1)
@@ -2069,31 +2150,12 @@ static void wx_setup_psrtype(struct wx *wx)
 
 static void wx_setup_mrqc(struct wx *wx)
 {
-	u32 rss_field = 0;
-
-	/* VT, and RSS do not coexist at the same time */
-	if (test_bit(WX_FLAG_VMDQ_ENABLED, wx->flags))
-		return;
-
 	/* Disable indicating checksum in descriptor, enables RSS hash */
 	wr32m(wx, WX_PSR_CTL, WX_PSR_CTL_PCSD, WX_PSR_CTL_PCSD);
 
-	/* Perform hash on these packet types */
-	rss_field = WX_RDB_RA_CTL_RSS_IPV4 |
-		    WX_RDB_RA_CTL_RSS_IPV4_TCP |
-		    WX_RDB_RA_CTL_RSS_IPV4_UDP |
-		    WX_RDB_RA_CTL_RSS_IPV6 |
-		    WX_RDB_RA_CTL_RSS_IPV6_TCP |
-		    WX_RDB_RA_CTL_RSS_IPV6_UDP;
-
-	netdev_rss_key_fill(wx->rss_key, sizeof(wx->rss_key));
-
+	wx_config_rss_field(wx);
+	wx_enable_rss(wx, wx->rss_enabled);
 	wx_setup_reta(wx);
-
-	if (wx->rss_enabled)
-		rss_field |= WX_RDB_RA_CTL_RSS_EN;
-
-	wr32(wx, WX_RDB_RA_CTL, rss_field);
 }
 
 /**
@@ -2365,9 +2427,11 @@ int wx_sw_init(struct wx *wx)
 	wx->oem_svid = pdev->subsystem_vendor;
 	wx->oem_ssid = pdev->subsystem_device;
 	wx->bus.device = PCI_SLOT(pdev->devfn);
-	wx->bus.func = PCI_FUNC(pdev->devfn);
+	wx->bus.func = FIELD_GET(WX_CFG_PORT_ST_LANID,
+				 rd32(wx, WX_CFG_PORT_ST));
 
-	if (wx->oem_svid == PCI_VENDOR_ID_WANGXUN) {
+	if (wx->oem_svid == PCI_VENDOR_ID_WANGXUN ||
+	    pdev->is_virtfn) {
 		wx->subsystem_vendor_id = pdev->subsystem_vendor;
 		wx->subsystem_device_id = pdev->subsystem_device;
 	} else {
@@ -2385,6 +2449,8 @@ int wx_sw_init(struct wx *wx)
 		wx_err(wx, "rss key allocation failed\n");
 		return err;
 	}
+	wx->rss_flags = WX_RSS_FIELD_IPV4 | WX_RSS_FIELD_IPV4_TCP |
+			WX_RSS_FIELD_IPV6 | WX_RSS_FIELD_IPV6_TCP;
 
 	wx->mac_table = kcalloc(wx->mac.num_rar_entries,
 				sizeof(struct wx_mac_addr),

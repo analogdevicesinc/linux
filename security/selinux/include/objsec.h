@@ -26,6 +26,7 @@
 #include <linux/lsm_hooks.h>
 #include <linux/msg.h>
 #include <net/net_namespace.h>
+#include <linux/bpf.h>
 #include "flask.h"
 #include "avc.h"
 
@@ -36,21 +37,33 @@ struct avdc_entry {
 	bool permissive; /* AVC permissive flag */
 };
 
-struct task_security_struct {
+struct cred_security_struct {
 	u32 osid; /* SID prior to last execve */
 	u32 sid; /* current SID */
 	u32 exec_sid; /* exec SID */
 	u32 create_sid; /* fscreate SID */
 	u32 keycreate_sid; /* keycreate SID */
 	u32 sockcreate_sid; /* fscreate SID */
+} __randomize_layout;
+
+struct task_security_struct {
 #define TSEC_AVDC_DIR_SIZE (1 << 2)
 	struct {
 		u32 sid; /* current SID for cached entries */
 		u32 seqno; /* AVC sequence number */
 		unsigned int dir_spot; /* dir cache index to check first */
 		struct avdc_entry dir[TSEC_AVDC_DIR_SIZE]; /* dir entries */
+		bool permissive_neveraudit; /* permissive and neveraudit */
 	} avdcache;
 } __randomize_layout;
+
+static inline bool task_avdcache_permnoaudit(struct task_security_struct *tsec,
+					     u32 sid)
+{
+	return (tsec->avdcache.permissive_neveraudit &&
+		sid == tsec->avdcache.sid &&
+		tsec->avdcache.seqno == avc_policy_seqno());
+}
 
 enum label_initialized {
 	LABEL_INVALID, /* invalid or not initialized */
@@ -163,9 +176,15 @@ struct perf_event_security_struct {
 };
 
 extern struct lsm_blob_sizes selinux_blob_sizes;
-static inline struct task_security_struct *selinux_cred(const struct cred *cred)
+static inline struct cred_security_struct *selinux_cred(const struct cred *cred)
 {
 	return cred->security + selinux_blob_sizes.lbs_cred;
+}
+
+static inline struct task_security_struct *
+selinux_task(const struct task_struct *task)
+{
+	return task->security + selinux_blob_sizes.lbs_task;
 }
 
 static inline struct file_security_struct *selinux_file(const struct file *file)
@@ -198,9 +217,9 @@ selinux_ipc(const struct kern_ipc_perm *ipc)
  */
 static inline u32 current_sid(void)
 {
-	const struct task_security_struct *tsec = selinux_cred(current_cred());
+	const struct cred_security_struct *crsec = selinux_cred(current_cred());
 
-	return tsec->sid;
+	return crsec->sid;
 }
 
 static inline struct superblock_security_struct *
@@ -237,4 +256,23 @@ selinux_perf_event(void *perf_event)
 	return perf_event + selinux_blob_sizes.lbs_perf_event;
 }
 
+#ifdef CONFIG_BPF_SYSCALL
+static inline struct bpf_security_struct *
+selinux_bpf_map_security(struct bpf_map *map)
+{
+	return map->security + selinux_blob_sizes.lbs_bpf_map;
+}
+
+static inline struct bpf_security_struct *
+selinux_bpf_prog_security(struct bpf_prog *prog)
+{
+	return prog->aux->security + selinux_blob_sizes.lbs_bpf_prog;
+}
+
+static inline struct bpf_security_struct *
+selinux_bpf_token_security(struct bpf_token *token)
+{
+	return token->security + selinux_blob_sizes.lbs_bpf_token;
+}
+#endif /* CONFIG_BPF_SYSCALL */
 #endif /* _SELINUX_OBJSEC_H_ */

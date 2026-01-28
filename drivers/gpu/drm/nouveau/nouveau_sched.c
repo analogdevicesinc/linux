@@ -87,7 +87,8 @@ nouveau_job_init(struct nouveau_job *job,
 	}
 
 	ret = drm_sched_job_init(&job->base, &sched->entity,
-				 args->credits, NULL);
+				 args->credits, NULL,
+				 job->file_priv->client_id);
 	if (ret)
 		goto err_free_chains;
 
@@ -370,7 +371,7 @@ nouveau_sched_timedout_job(struct drm_sched_job *sched_job)
 {
 	struct drm_gpu_scheduler *sched = sched_job->sched;
 	struct nouveau_job *job = to_nouveau_job(sched_job);
-	enum drm_gpu_sched_stat stat = DRM_GPU_SCHED_STAT_NOMINAL;
+	enum drm_gpu_sched_stat stat = DRM_GPU_SCHED_STAT_RESET;
 
 	drm_sched_stop(sched, sched_job);
 
@@ -481,6 +482,17 @@ nouveau_sched_create(struct nouveau_sched **psched, struct nouveau_drm *drm,
 	return 0;
 }
 
+static bool
+nouveau_sched_job_list_empty(struct nouveau_sched *sched)
+{
+	bool empty;
+
+	spin_lock(&sched->job.list.lock);
+	empty = list_empty(&sched->job.list.head);
+	spin_unlock(&sched->job.list.lock);
+
+	return empty;
+}
 
 static void
 nouveau_sched_fini(struct nouveau_sched *sched)
@@ -488,8 +500,7 @@ nouveau_sched_fini(struct nouveau_sched *sched)
 	struct drm_gpu_scheduler *drm_sched = &sched->base;
 	struct drm_sched_entity *entity = &sched->entity;
 
-	rmb(); /* for list_empty to work without lock */
-	wait_event(sched->job.wq, list_empty(&sched->job.list.head));
+	wait_event(sched->job.wq, nouveau_sched_job_list_empty(sched));
 
 	drm_sched_entity_fini(entity);
 	drm_sched_fini(drm_sched);

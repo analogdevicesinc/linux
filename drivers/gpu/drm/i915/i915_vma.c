@@ -1595,8 +1595,20 @@ err_unlock:
 err_vma_res:
 	i915_vma_resource_free(vma_res);
 err_fence:
-	if (work)
-		dma_fence_work_commit_imm(&work->base);
+	if (work) {
+		/*
+		 * When pinning VMA to GGTT on CHV or BXT with VTD enabled,
+		 * commit VMA binding asynchronously to avoid risk of lock
+		 * inversion among reservation_ww locks held here and
+		 * cpu_hotplug_lock acquired from stop_machine(), which we
+		 * wrap around GGTT updates when running in those environments.
+		 */
+		if (i915_vma_is_ggtt(vma) &&
+		    intel_vm_no_concurrent_access_wa(vma->vm->i915))
+			dma_fence_work_commit(&work->base);
+		else
+			dma_fence_work_commit_imm(&work->base);
+	}
 err_rpm:
 	intel_runtime_pm_put(&vma->vm->i915->runtime_pm, wakeref);
 
@@ -1604,6 +1616,26 @@ err_rpm:
 		dma_fence_put(moving);
 
 	i915_vma_put_pages(vma);
+	return err;
+}
+
+int i915_vma_pin(struct i915_vma *vma, u64 size, u64 alignment, u64 flags)
+{
+	struct i915_gem_ww_ctx ww;
+	int err;
+
+	i915_gem_ww_ctx_init(&ww, true);
+retry:
+	err = i915_gem_object_lock(vma->obj, &ww);
+	if (!err)
+		err = i915_vma_pin_ww(vma, &ww, size, alignment, flags);
+	if (err == -EDEADLK) {
+		err = i915_gem_ww_ctx_backoff(&ww);
+		if (!err)
+			goto retry;
+	}
+	i915_gem_ww_ctx_fini(&ww);
+
 	return err;
 }
 

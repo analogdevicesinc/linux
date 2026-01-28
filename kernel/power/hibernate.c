@@ -80,6 +80,17 @@ static const struct platform_hibernation_ops *hibernation_ops;
 
 static atomic_t hibernate_atomic = ATOMIC_INIT(1);
 
+#ifdef CONFIG_SUSPEND
+/**
+ * pm_hibernation_mode_is_suspend - Check if hibernation has been set to suspend
+ */
+bool pm_hibernation_mode_is_suspend(void)
+{
+	return hibernation_mode == HIBERNATION_SUSPEND;
+}
+EXPORT_SYMBOL_GPL(pm_hibernation_mode_is_suspend);
+#endif
+
 bool hibernate_acquire(void)
 {
 	return atomic_add_unless(&hibernate_atomic, -1, 0);
@@ -381,6 +392,23 @@ static int create_image(int platform_mode)
 	return error;
 }
 
+static void shrink_shmem_memory(void)
+{
+	struct sysinfo info;
+	unsigned long nr_shmem_pages, nr_freed_pages;
+
+	si_meminfo(&info);
+	nr_shmem_pages = info.sharedram; /* current page count used for shmem */
+	/*
+	 * The intent is to reclaim all shmem pages. Though shrink_all_memory() can
+	 * only reclaim about half of them, it's enough for creating the hibernation
+	 * image.
+	 */
+	nr_freed_pages = shrink_all_memory(nr_shmem_pages);
+	pr_debug("requested to reclaim %lu shmem pages, actually freed %lu pages\n",
+			nr_shmem_pages, nr_freed_pages);
+}
+
 /**
  * hibernation_snapshot - Quiesce devices and create a hibernation image.
  * @platform_mode: If set, use platform driver to prepare for the transition.
@@ -422,7 +450,17 @@ int hibernation_snapshot(int platform_mode)
 		goto Thaw;
 	}
 
+	/*
+	 * Device drivers may move lots of data to shmem in dpm_prepare(). The shmem
+	 * pages will use lots of system memory, causing hibernation image creation
+	 * fail due to insufficient free memory.
+	 * This call is to force flush the shmem pages to swap disk and reclaim
+	 * the system memory so that image creation can succeed.
+	 */
+	shrink_shmem_memory();
+
 	console_suspend_all();
+	pm_restrict_gfp_mask();
 
 	error = dpm_suspend(PMSG_FREEZE);
 
@@ -669,18 +707,11 @@ static void power_down(void)
 #ifdef CONFIG_SUSPEND
 	if (hibernation_mode == HIBERNATION_SUSPEND) {
 		error = suspend_devices_and_enter(mem_sleep_current);
-		if (error) {
-			hibernation_mode = hibernation_ops ?
-						HIBERNATION_PLATFORM :
-						HIBERNATION_SHUTDOWN;
-		} else {
-			/* Restore swap signature. */
-			error = swsusp_unmark();
-			if (error)
-				pr_err("Swap will be unusable! Try swapon -a.\n");
+		if (!error)
+			goto exit;
 
-			return;
-		}
+		hibernation_mode = hibernation_ops ? HIBERNATION_PLATFORM :
+						     HIBERNATION_SHUTDOWN;
 	}
 #endif
 
@@ -691,10 +722,9 @@ static void power_down(void)
 	case HIBERNATION_PLATFORM:
 		error = hibernation_platform_enter();
 		if (error == -EAGAIN || error == -EBUSY) {
-			swsusp_unmark();
 			events_check_enabled = false;
 			pr_info("Wakeup event detected during hibernation, rolling back.\n");
-			return;
+			goto exit;
 		}
 		fallthrough;
 	case HIBERNATION_SHUTDOWN:
@@ -713,6 +743,12 @@ static void power_down(void)
 	pr_crit("Power down manually\n");
 	while (1)
 		cpu_relax();
+
+exit:
+	/* Restore swap signature. */
+	error = swsusp_unmark();
+	if (error)
+		pr_err("Swap will be unusable! Try swapon -a.\n");
 }
 
 static int load_image_and_restore(void)
@@ -785,8 +821,7 @@ int hibernate(void)
 		goto Restore;
 
 	ksys_sync_helper();
-	if (filesystem_freeze_enabled)
-		filesystems_freeze();
+	filesystems_freeze(filesystem_freeze_enabled);
 
 	error = freeze_processes();
 	if (error)
@@ -892,8 +927,7 @@ int hibernate_quiet_exec(int (*func)(void *data), void *data)
 	if (error)
 		goto restore;
 
-	if (filesystem_freeze_enabled)
-		filesystems_freeze();
+	filesystems_freeze(filesystem_freeze_enabled);
 
 	error = freeze_processes();
 	if (error)
@@ -1043,8 +1077,7 @@ static int software_resume(void)
 	if (error)
 		goto Restore;
 
-	if (filesystem_freeze_enabled)
-		filesystems_freeze();
+	filesystems_freeze(filesystem_freeze_enabled);
 
 	pm_pr_dbg("Preparing processes for hibernation restore.\n");
 	error = freeze_processes();

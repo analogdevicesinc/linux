@@ -6529,7 +6529,7 @@ static noinline_for_stack void dml_prefetch_check(struct display_mode_lib_st *mo
 				mode_lib->ms.TotImmediateFlipBytes = 0;
 				for (k = 0; k <= mode_lib->ms.num_active_planes - 1; k++) {
 					if (!(mode_lib->ms.policy.ImmediateFlipRequirement[k] == dml_immediate_flip_not_required)) {
-						mode_lib->ms.TotImmediateFlipBytes = mode_lib->ms.TotImmediateFlipBytes + mode_lib->ms.NoOfDPP[j][k] * mode_lib->ms.PDEAndMetaPTEBytesPerFrame[j][k] + mode_lib->ms.MetaRowBytes[j][k];
+						mode_lib->ms.TotImmediateFlipBytes = mode_lib->ms.TotImmediateFlipBytes + mode_lib->ms.NoOfDPP[j][k] * (mode_lib->ms.PDEAndMetaPTEBytesPerFrame[j][k] + mode_lib->ms.MetaRowBytes[j][k]);
 						if (mode_lib->ms.use_one_row_for_frame_flip[j][k]) {
 							mode_lib->ms.TotImmediateFlipBytes = mode_lib->ms.TotImmediateFlipBytes + mode_lib->ms.NoOfDPP[j][k] * (2 * mode_lib->ms.DPTEBytesPerRow[j][k]);
 						} else {
@@ -10189,7 +10189,7 @@ dml_uint_t dml_mode_support_ex(struct dml_mode_support_ex_params_st *in_out_para
 	result = mode_support_pwr_states(&in_out_params->out_lowest_state_idx,
 		in_out_params->mode_lib,
 		in_out_params->in_display_cfg,
-		0,
+		in_out_params->in_start_state_idx,
 		in_out_params->mode_lib->states.num_states - 1);
 
 	if (result)

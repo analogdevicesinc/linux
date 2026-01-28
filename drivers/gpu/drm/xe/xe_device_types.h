@@ -10,34 +10,37 @@
 
 #include <drm/drm_device.h>
 #include <drm/drm_file.h>
-#include <drm/drm_pagemap.h>
 #include <drm/ttm/ttm_device.h>
 
 #include "xe_devcoredump_types.h"
 #include "xe_heci_gsc.h"
+#include "xe_late_bind_fw_types.h"
 #include "xe_lmtt_types.h"
 #include "xe_memirq_types.h"
 #include "xe_oa_types.h"
 #include "xe_platform_types.h"
 #include "xe_pmu_types.h"
 #include "xe_pt_types.h"
+#include "xe_sriov_pf_types.h"
 #include "xe_sriov_types.h"
+#include "xe_sriov_vf_types.h"
+#include "xe_sriov_vf_ccs_types.h"
 #include "xe_step_types.h"
 #include "xe_survivability_mode_types.h"
-#include "xe_ttm_vram_mgr_types.h"
+#include "xe_validation.h"
 
 #if IS_ENABLED(CONFIG_DRM_XE_DEBUG)
 #define TEST_VM_OPS_ERROR
 #endif
 
-#if IS_ENABLED(CONFIG_DRM_XE_DISPLAY)
-#include "intel_display_core.h"
-#include "intel_display_device.h"
-#endif
-
+struct dram_info;
+struct intel_display;
+struct intel_dg_nvm_dev;
 struct xe_ggtt;
+struct xe_i2c;
 struct xe_pat_ops;
 struct xe_pxp;
+struct xe_vram_region;
 
 #define XE_BO_INVALID_OFFSET	LONG_MAX
 
@@ -69,61 +72,6 @@ struct xe_pxp;
 	_Generic(tile__,								\
 		 const struct xe_tile * : (const struct xe_device *)((tile__)->xe),	\
 		 struct xe_tile * : (tile__)->xe)
-
-/**
- * struct xe_vram_region - memory region structure
- * This is used to describe a memory region in xe
- * device, such as HBM memory or CXL extension memory.
- */
-struct xe_vram_region {
-	/** @io_start: IO start address of this VRAM instance */
-	resource_size_t io_start;
-	/**
-	 * @io_size: IO size of this VRAM instance
-	 *
-	 * This represents how much of this VRAM we can access
-	 * via the CPU through the VRAM BAR. This can be smaller
-	 * than @usable_size, in which case only part of VRAM is CPU
-	 * accessible (typically the first 256M). This
-	 * configuration is known as small-bar.
-	 */
-	resource_size_t io_size;
-	/** @dpa_base: This memory regions's DPA (device physical address) base */
-	resource_size_t dpa_base;
-	/**
-	 * @usable_size: usable size of VRAM
-	 *
-	 * Usable size of VRAM excluding reserved portions
-	 * (e.g stolen mem)
-	 */
-	resource_size_t usable_size;
-	/**
-	 * @actual_physical_size: Actual VRAM size
-	 *
-	 * Actual VRAM size including reserved portions
-	 * (e.g stolen mem)
-	 */
-	resource_size_t actual_physical_size;
-	/** @mapping: pointer to VRAM mappable space */
-	void __iomem *mapping;
-	/** @ttm: VRAM TTM manager */
-	struct xe_ttm_vram_mgr ttm;
-#if IS_ENABLED(CONFIG_DRM_XE_DEVMEM_MIRROR)
-	/** @pagemap: Used to remap device memory as ZONE_DEVICE */
-	struct dev_pagemap pagemap;
-	/**
-	 * @dpagemap: The struct drm_pagemap of the ZONE_DEVICE memory
-	 * pages of this tile.
-	 */
-	struct drm_pagemap dpagemap;
-	/**
-	 * @hpa_base: base host physical address
-	 *
-	 * This is generated when remap device memory as ZONE_DEVICE
-	 */
-	resource_size_t hpa_base;
-#endif
-};
 
 /**
  * struct xe_mmio - register mmio structure
@@ -215,7 +163,7 @@ struct xe_tile {
 		 * Although VRAM is associated with a specific tile, it can
 		 * still be accessed by all tiles' GTs.
 		 */
-		struct xe_vram_region vram;
+		struct xe_vram_region *vram;
 
 		/** @mem.ggtt: Global graphics translation table */
 		struct xe_ggtt *ggtt;
@@ -243,6 +191,9 @@ struct xe_tile {
 	/** @memirq: Memory Based Interrupts. */
 	struct xe_memirq memirq;
 
+	/** @csc_hw_error_work: worker to report CSC HW errors */
+	struct work_struct csc_hw_error_work;
+
 	/** @pcode: tile's PCODE */
 	struct {
 		/** @pcode.lock: protecting tile's PCODE mailbox data */
@@ -254,6 +205,9 @@ struct xe_tile {
 
 	/** @sysfs: sysfs' kobj used by xe_tile_sysfs */
 	struct kobject *sysfs;
+
+	/** @debugfs: debugfs directory associated with this tile */
+	struct dentry *debugfs;
 };
 
 /**
@@ -296,6 +250,8 @@ struct xe_device {
 		u8 vram_flags;
 		/** @info.tile_count: Number of tiles */
 		u8 tile_count;
+		/** @info.max_gt_per_tile: Number of GT IDs allocated to each tile */
+		u8 max_gt_per_tile;
 		/** @info.gt_count: Total number of GTs for entire device */
 		u8 gt_count;
 		/** @info.vm_max_level: Max VM level */
@@ -319,10 +275,14 @@ struct xe_device {
 		u8 has_fan_control:1;
 		/** @info.has_flat_ccs: Whether flat CCS metadata is used */
 		u8 has_flat_ccs:1;
+		/** @info.has_gsc_nvm: Device has gsc non-volatile memory */
+		u8 has_gsc_nvm:1;
 		/** @info.has_heci_cscfi: device has heci cscfi */
 		u8 has_heci_cscfi:1;
 		/** @info.has_heci_gscfi: device has heci gscfi */
 		u8 has_heci_gscfi:1;
+		/** @info.has_late_bind: Device has firmware late binding support */
+		u8 has_late_bind:1;
 		/** @info.has_llc: Device has a shared CPU+GPU last level cache */
 		u8 has_llc:1;
 		/** @info.has_mbx_power_limits: Device has support to manage power limits using
@@ -331,8 +291,8 @@ struct xe_device {
 		u8 has_mbx_power_limits:1;
 		/** @info.has_pxp: Device has PXP support */
 		u8 has_pxp:1;
-		/** @info.has_range_tlb_invalidation: Has range based TLB invalidations */
-		u8 has_range_tlb_invalidation:1;
+		/** @info.has_range_tlb_inval: Has range based TLB invalidations */
+		u8 has_range_tlb_inval:1;
 		/** @info.has_sriov: Supports SR-IOV */
 		u8 has_sriov:1;
 		/** @info.has_usm: Device has unified shared memory support */
@@ -359,6 +319,19 @@ struct xe_device {
 		/** @info.skip_pcode: skip access to PCODE uC */
 		u8 skip_pcode:1;
 	} info;
+
+	/** @wa_active: keep track of active workarounds */
+	struct {
+		/** @wa_active.oob: bitmap with active OOB workarounds */
+		unsigned long *oob;
+
+		/**
+		 * @wa_active.oob_initialized: Mark oob as initialized to help detecting misuse
+		 * of XE_DEVICE_WA() - it can only be called on initialization after
+		 * Device OOB WAs have been processed.
+		 */
+		bool oob_initialized;
+	} wa_active;
 
 	/** @survivability: survivability information for device */
 	struct xe_survivability survivability;
@@ -394,7 +367,7 @@ struct xe_device {
 	/** @mem: memory info for device */
 	struct {
 		/** @mem.vram: VRAM info for device */
-		struct xe_vram_region vram;
+		struct xe_vram_region *vram;
 		/** @mem.sys_mgr: system TTM manager */
 		struct ttm_resource_manager sys_mgr;
 		/** @mem.sys_mgr: system memory shrinker. */
@@ -406,10 +379,12 @@ struct xe_device {
 		/** @sriov.__mode: SR-IOV mode (Don't access directly!) */
 		enum xe_sriov_mode __mode;
 
-		/** @sriov.pf: PF specific data */
-		struct xe_device_pf pf;
-		/** @sriov.vf: VF specific data */
-		struct xe_device_vf vf;
+		union {
+			/** @sriov.pf: PF specific data */
+			struct xe_device_pf pf;
+			/** @sriov.vf: VF specific data */
+			struct xe_device_vf vf;
+		};
 
 		/** @sriov.wq: workqueue used by the virtualization workers */
 		struct workqueue_struct *wq;
@@ -456,7 +431,7 @@ struct xe_device {
 	/** @ordered_wq: used to serialize compute mode resume */
 	struct workqueue_struct *ordered_wq;
 
-	/** @unordered_wq: used to serialize unordered work, mostly display */
+	/** @unordered_wq: used to serialize unordered work */
 	struct workqueue_struct *unordered_wq;
 
 	/** @destroy_wq: used to serialize user destroy work, like queue */
@@ -502,6 +477,10 @@ struct xe_device {
 		const struct xe_pat_table_entry *table;
 		/** @pat.n_entries: Number of PAT entries */
 		int n_entries;
+		/** @pat.ats_entry: PAT entry for PCIe ATS responses */
+		const struct xe_pat_table_entry *pat_ats;
+		/** @pat.pta_entry: PAT entry for page table accesses */
+		const struct xe_pat_table_entry *pat_pta;
 		u32 idx[__XE_CACHE_LEVEL_COUNT];
 	} pat;
 
@@ -529,6 +508,12 @@ struct xe_device {
 
 	/** @pm_notifier: Our PM notifier to perform actions in response to various PM events. */
 	struct notifier_block pm_notifier;
+	/** @pm_block: Completion to block validating tasks on suspend / hibernate prepare */
+	struct completion pm_block;
+	/** @rebind_resume_list: List of wq items to kick on resume. */
+	struct list_head rebind_resume_list;
+	/** @rebind_resume_lock: Lock to protect the rebind_resume_list */
+	struct mutex rebind_resume_lock;
 
 	/** @pmt: Support the PMT driver callback interface */
 	struct {
@@ -548,6 +533,12 @@ struct xe_device {
 	/** @heci_gsc: graphics security controller */
 	struct xe_heci_gsc heci_gsc;
 
+	/** @nvm: discrete graphics non-volatile memory */
+	struct intel_dg_nvm_dev *nvm;
+
+	/** @late_bind: xe mei late bind interface */
+	struct xe_late_bind late_bind;
+
 	/** @oa: oa observation subsystem */
 	struct xe_oa oa;
 
@@ -563,6 +554,8 @@ struct xe_device {
 		atomic_t flag;
 		/** @wedged.mode: Mode controlled by kernel parameter and debugfs */
 		int mode;
+		/** @wedged.method: Recovery method to be sent in the drm device wedged uevent */
+		unsigned long method;
 	} wedged;
 
 	/** @bo_device: Struct to control async free of BOs */
@@ -576,12 +569,43 @@ struct xe_device {
 	/** @pmu: performance monitoring unit */
 	struct xe_pmu pmu;
 
+	/** @i2c: I2C host controller */
+	struct xe_i2c *i2c;
+
+	/** @atomic_svm_timeslice_ms: Atomic SVM fault timeslice MS */
+	u32 atomic_svm_timeslice_ms;
+
 #ifdef TEST_VM_OPS_ERROR
 	/**
 	 * @vm_inject_error_position: inject errors at different places in VM
 	 * bind IOCTL based on this value
 	 */
 	u8 vm_inject_error_position;
+#endif
+
+#if IS_ENABLED(CONFIG_TRACE_GPU_MEM)
+	/**
+	 * @global_total_pages: global GPU page usage tracked for gpu_mem
+	 * tracepoints
+	 */
+	atomic64_t global_total_pages;
+#endif
+	/** @val: The domain for exhaustive eviction, which is currently per device. */
+	struct xe_validation_device val;
+
+	/** @psmi: GPU debugging via additional validation HW */
+	struct {
+		/** @psmi.capture_obj: PSMI buffer for VRAM */
+		struct xe_bo *capture_obj[XE_MAX_TILES_PER_DEVICE + 1];
+		/** @psmi.region_mask: Mask of valid memory regions */
+		u8 region_mask;
+	} psmi;
+
+#if IS_ENABLED(CONFIG_DRM_XE_KUNIT_TEST)
+	/** @g2g_test_array: for testing G2G communications */
+	u32 *g2g_test_array;
+	/** @g2g_test_count: for testing G2G communications */
+	atomic_t g2g_test_count;
 #endif
 
 	/* private: */
@@ -593,27 +617,9 @@ struct xe_device {
 	 * drm_i915_private during build. After cleanup these should go away,
 	 * migrating to the right sub-structs
 	 */
-	struct intel_display display;
+	struct intel_display *display;
 
-	struct dram_info {
-		bool wm_lv_0_adjust_needed;
-		u8 num_channels;
-		bool symmetric_memory;
-		enum intel_dram_type {
-			INTEL_DRAM_UNKNOWN,
-			INTEL_DRAM_DDR3,
-			INTEL_DRAM_DDR4,
-			INTEL_DRAM_LPDDR3,
-			INTEL_DRAM_LPDDR4,
-			INTEL_DRAM_DDR5,
-			INTEL_DRAM_LPDDR5,
-			INTEL_DRAM_GDDR,
-			INTEL_DRAM_GDDR_ECC,
-			__INTEL_DRAM_TYPE_MAX,
-		} type;
-		u8 num_qgv_points;
-		u8 num_psf_gv_points;
-	} dram_info;
+	const struct dram_info *dram_info;
 
 	/*
 	 * edram size in MB.
@@ -635,7 +641,6 @@ struct xe_device {
 	struct {
 		unsigned int hpll_freq;
 		unsigned int czclk_freq;
-		unsigned int fsb_freq, mem_freq, is_ddr3;
 	};
 #endif
 };

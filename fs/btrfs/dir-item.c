@@ -9,6 +9,7 @@
 #include "transaction.h"
 #include "accessors.h"
 #include "dir-item.h"
+#include "delayed-inode.h"
 
 /*
  * insert a name into a directory, doing overflow properly if there is a hash
@@ -111,7 +112,7 @@ int btrfs_insert_dir_item(struct btrfs_trans_handle *trans,
 	int ret = 0;
 	int ret2 = 0;
 	struct btrfs_root *root = dir->root;
-	struct btrfs_path *path;
+	BTRFS_PATH_AUTO_FREE(path);
 	struct btrfs_dir_item *dir_item;
 	struct extent_buffer *leaf;
 	unsigned long name_ptr;
@@ -163,7 +164,6 @@ second_insert:
 	ret2 = btrfs_insert_delayed_dir_index(trans, name->name, name->len, dir,
 					      &disk_key, type, index);
 out_free:
-	btrfs_free_path(path);
 	if (ret)
 		return ret;
 	if (ret2)
@@ -227,7 +227,7 @@ struct btrfs_dir_item *btrfs_lookup_dir_item(struct btrfs_trans_handle *trans,
 	return di;
 }
 
-int btrfs_check_dir_item_collision(struct btrfs_root *root, u64 dir,
+int btrfs_check_dir_item_collision(struct btrfs_root *root, u64 dir_ino,
 				   const struct fscrypt_str *name)
 {
 	int ret;
@@ -242,7 +242,7 @@ int btrfs_check_dir_item_collision(struct btrfs_root *root, u64 dir,
 	if (!path)
 		return -ENOMEM;
 
-	key.objectid = dir;
+	key.objectid = dir_ino;
 	key.type = BTRFS_DIR_ITEM_KEY;
 	key.offset = btrfs_name_hash(name->name, name->len);
 

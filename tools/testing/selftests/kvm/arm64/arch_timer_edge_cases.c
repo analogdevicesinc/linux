@@ -862,25 +862,6 @@ static uint32_t next_pcpu(void)
 	return next;
 }
 
-static void migrate_self(uint32_t new_pcpu)
-{
-	int ret;
-	cpu_set_t cpuset;
-	pthread_t thread;
-
-	thread = pthread_self();
-
-	CPU_ZERO(&cpuset);
-	CPU_SET(new_pcpu, &cpuset);
-
-	pr_debug("Migrating from %u to %u\n", sched_getcpu(), new_pcpu);
-
-	ret = pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset);
-
-	TEST_ASSERT(ret == 0, "Failed to migrate to pCPU: %u; ret: %d\n",
-		    new_pcpu, ret);
-}
-
 static void kvm_set_cntxct(struct kvm_vcpu *vcpu, uint64_t cnt,
 			   enum arch_timer timer)
 {
@@ -907,7 +888,7 @@ static void handle_sync(struct kvm_vcpu *vcpu, struct ucall *uc)
 		sched_yield();
 		break;
 	case USERSPACE_MIGRATE_SELF:
-		migrate_self(next_pcpu());
+		pin_self_to_cpu(next_pcpu());
 		break;
 	default:
 		break;
@@ -919,7 +900,7 @@ static void test_run(struct kvm_vm *vm, struct kvm_vcpu *vcpu)
 	struct ucall uc;
 
 	/* Start on CPU 0 */
-	migrate_self(0);
+	pin_self_to_cpu(0);
 
 	while (true) {
 		vcpu_run(vcpu);
@@ -943,18 +924,14 @@ static void test_run(struct kvm_vm *vm, struct kvm_vcpu *vcpu)
 
 static void test_init_timer_irq(struct kvm_vm *vm, struct kvm_vcpu *vcpu)
 {
-	vcpu_device_attr_get(vcpu, KVM_ARM_VCPU_TIMER_CTRL,
-			     KVM_ARM_VCPU_TIMER_IRQ_PTIMER, &ptimer_irq);
-	vcpu_device_attr_get(vcpu, KVM_ARM_VCPU_TIMER_CTRL,
-			     KVM_ARM_VCPU_TIMER_IRQ_VTIMER, &vtimer_irq);
+	ptimer_irq = vcpu_get_ptimer_irq(vcpu);
+	vtimer_irq = vcpu_get_vtimer_irq(vcpu);
 
 	sync_global_to_guest(vm, ptimer_irq);
 	sync_global_to_guest(vm, vtimer_irq);
 
 	pr_debug("ptimer_irq: %d; vtimer_irq: %d\n", ptimer_irq, vtimer_irq);
 }
-
-static int gic_fd;
 
 static void test_vm_create(struct kvm_vm **vm, struct kvm_vcpu **vcpu,
 			   enum arch_timer timer)
@@ -970,8 +947,6 @@ static void test_vm_create(struct kvm_vm **vm, struct kvm_vcpu **vcpu,
 	vcpu_args_set(*vcpu, 1, timer);
 
 	test_init_timer_irq(*vm, *vcpu);
-	gic_fd = vgic_v3_setup(*vm, 1, 64);
-	__TEST_REQUIRE(gic_fd >= 0, "Failed to create vgic-v3");
 
 	sync_global_to_guest(*vm, test_args);
 	sync_global_to_guest(*vm, CVAL_MAX);
@@ -980,7 +955,6 @@ static void test_vm_create(struct kvm_vm **vm, struct kvm_vcpu **vcpu,
 
 static void test_vm_cleanup(struct kvm_vm *vm)
 {
-	close(gic_fd);
 	kvm_vm_free(vm);
 }
 
@@ -1046,7 +1020,7 @@ static void set_counter_defaults(void)
 {
 	const uint64_t MIN_ROLLOVER_SECS = 40ULL * 365 * 24 * 3600;
 	uint64_t freq = read_sysreg(CNTFRQ_EL0);
-	uint64_t width = ilog2(MIN_ROLLOVER_SECS * freq);
+	int width = ilog2(MIN_ROLLOVER_SECS * freq);
 
 	width = clamp(width, 56, 64);
 	CVAL_MAX = GENMASK_ULL(width - 1, 0);
@@ -1060,6 +1034,8 @@ int main(int argc, char *argv[])
 
 	/* Tell stdout not to buffer its content */
 	setbuf(stdout, NULL);
+
+	TEST_REQUIRE(kvm_supports_vgic_v3());
 
 	if (!parse_args(argc, argv))
 		exit(KSFT_SKIP);

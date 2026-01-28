@@ -599,12 +599,12 @@ int setup_arg_pages(struct linux_binprm *bprm,
 		    unsigned long stack_top,
 		    int executable_stack)
 {
-	unsigned long ret;
+	int ret;
 	unsigned long stack_shift;
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma = bprm->vma;
 	struct vm_area_struct *prev = NULL;
-	unsigned long vm_flags;
+	vm_flags_t vm_flags;
 	unsigned long stack_base;
 	unsigned long stack_size;
 	unsigned long stack_expand;
@@ -1515,7 +1515,7 @@ static void check_unsafe_exec(struct linux_binprm *bprm)
 	 * state is protected by cred_guard_mutex we hold.
 	 */
 	n_fs = 1;
-	spin_lock(&p->fs->lock);
+	read_seqlock_excl(&p->fs->seq);
 	rcu_read_lock();
 	for_other_threads(p, t) {
 		if (t->fs == p->fs)
@@ -1528,7 +1528,7 @@ static void check_unsafe_exec(struct linux_binprm *bprm)
 		bprm->unsafe |= LSM_UNSAFE_SHARE;
 	else
 		p->fs->in_exec = 1;
-	spin_unlock(&p->fs->lock);
+	read_sequnlock_excl(&p->fs->seq);
 }
 
 static void bprm_fill_uid(struct linux_binprm *bprm, struct file *file)
@@ -1999,7 +1999,7 @@ void set_dumpable(struct mm_struct *mm, int value)
 	if (WARN_ON((unsigned)value > SUID_DUMP_ROOT))
 		return;
 
-	set_mask_bits(&mm->flags, MMF_DUMPABLE_MASK, value);
+	__mm_flags_set_mask_dumpable(mm, value);
 }
 
 SYSCALL_DEFINE3(execve,
@@ -2048,7 +2048,7 @@ static int proc_dointvec_minmax_coredump(const struct ctl_table *table, int writ
 {
 	int error = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
-	if (!error)
+	if (!error && write)
 		validate_coredump_safety();
 	return error;
 }

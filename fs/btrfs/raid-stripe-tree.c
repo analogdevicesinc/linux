@@ -19,7 +19,7 @@ static int btrfs_partially_delete_raid_extent(struct btrfs_trans_handle *trans,
 					       u64 newlen, u64 frontpad)
 {
 	struct btrfs_root *stripe_root = trans->fs_info->stripe_root;
-	struct btrfs_stripe_extent *extent, *newitem;
+	struct btrfs_stripe_extent *extent, AUTO_KFREE(newitem);
 	struct extent_buffer *leaf;
 	int slot;
 	size_t item_size;
@@ -53,21 +53,17 @@ static int btrfs_partially_delete_raid_extent(struct btrfs_trans_handle *trans,
 
 	ret = btrfs_del_item(trans, stripe_root, path);
 	if (ret)
-		goto out;
+		return ret;
 
 	btrfs_release_path(path);
-	ret = btrfs_insert_item(trans, stripe_root, &newkey, newitem, item_size);
-
-out:
-	kfree(newitem);
-	return ret;
+	return btrfs_insert_item(trans, stripe_root, &newkey, newitem, item_size);
 }
 
 int btrfs_delete_raid_extent(struct btrfs_trans_handle *trans, u64 start, u64 length)
 {
 	struct btrfs_fs_info *fs_info = trans->fs_info;
 	struct btrfs_root *stripe_root = fs_info->stripe_root;
-	struct btrfs_path *path;
+	BTRFS_PATH_AUTO_FREE(path);
 	struct btrfs_key key;
 	struct extent_buffer *leaf;
 	u64 found_start;
@@ -260,7 +256,6 @@ int btrfs_delete_raid_extent(struct btrfs_trans_handle *trans, u64 start, u64 le
 		btrfs_release_path(path);
 	}
 
-	btrfs_free_path(path);
 	return ret;
 }
 
@@ -269,7 +264,7 @@ static int update_raid_extent_item(struct btrfs_trans_handle *trans,
 				   struct btrfs_stripe_extent *stripe_extent,
 				   const size_t item_size)
 {
-	struct btrfs_path *path;
+	BTRFS_PATH_AUTO_FREE(path);
 	struct extent_buffer *leaf;
 	int ret;
 	int slot;
@@ -288,7 +283,6 @@ static int update_raid_extent_item(struct btrfs_trans_handle *trans,
 
 	write_extent_buffer(leaf, stripe_extent, btrfs_item_ptr_offset(leaf, slot),
 			    item_size);
-	btrfs_free_path(path);
 
 	return ret;
 }
@@ -301,12 +295,12 @@ int btrfs_insert_one_raid_extent(struct btrfs_trans_handle *trans,
 	struct btrfs_key stripe_key;
 	struct btrfs_root *stripe_root = fs_info->stripe_root;
 	const int num_stripes = btrfs_bg_type_to_factor(bioc->map_type);
-	struct btrfs_stripe_extent *stripe_extent;
+	struct btrfs_stripe_extent AUTO_KFREE(stripe_extent);
 	const size_t item_size = struct_size(stripe_extent, strides, num_stripes);
 	int ret;
 
 	stripe_extent = kzalloc(item_size, GFP_NOFS);
-	if (!stripe_extent) {
+	if (!unlikely(stripe_extent)) {
 		btrfs_abort_transaction(trans, -ENOMEM);
 		btrfs_end_transaction(trans);
 		return -ENOMEM;
@@ -329,13 +323,14 @@ int btrfs_insert_one_raid_extent(struct btrfs_trans_handle *trans,
 
 	ret = btrfs_insert_item(trans, stripe_root, &stripe_key, stripe_extent,
 				item_size);
-	if (ret == -EEXIST)
+	if (ret == -EEXIST) {
 		ret = update_raid_extent_item(trans, &stripe_key, stripe_extent,
 					      item_size);
-	if (ret)
+		if (ret)
+			btrfs_abort_transaction(trans, ret);
+	} else if (ret) {
 		btrfs_abort_transaction(trans, ret);
-
-	kfree(stripe_extent);
+	}
 
 	return ret;
 }
@@ -373,7 +368,7 @@ int btrfs_get_raid_extent_offset(struct btrfs_fs_info *fs_info,
 	struct btrfs_stripe_extent *stripe_extent;
 	struct btrfs_key stripe_key;
 	struct btrfs_key found_key;
-	struct btrfs_path *path;
+	BTRFS_PATH_AUTO_FREE(path);
 	struct extent_buffer *leaf;
 	const u64 end = logical + *length;
 	int num_stripes;
@@ -393,13 +388,13 @@ int btrfs_get_raid_extent_offset(struct btrfs_fs_info *fs_info,
 		return -ENOMEM;
 
 	if (stripe->rst_search_commit_root) {
-		path->skip_locking = 1;
-		path->search_commit_root = 1;
+		path->skip_locking = true;
+		path->search_commit_root = true;
 	}
 
 	ret = btrfs_search_slot(NULL, stripe_root, &stripe_key, path, 0, 0);
 	if (ret < 0)
-		goto free_path;
+		return ret;
 	if (ret) {
 		if (path->slots[0] != 0)
 			path->slots[0]--;
@@ -456,8 +451,7 @@ int btrfs_get_raid_extent_offset(struct btrfs_fs_info *fs_info,
 		trace_btrfs_get_raid_extent_offset(fs_info, logical, *length,
 						   stripe->physical, devid);
 
-		ret = 0;
-		goto free_path;
+		return 0;
 	}
 
 	/* If we're here, we haven't found the requested devid in the stripe. */
@@ -471,8 +465,6 @@ out:
 			  logical, logical + *length, stripe->dev->devid,
 			  btrfs_bg_type_to_raid_name(map_type));
 	}
-free_path:
-	btrfs_free_path(path);
 
 	return ret;
 }

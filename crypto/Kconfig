@@ -344,14 +344,6 @@ config CRYPTO_ECRDSA
 	  One of the Russian cryptographic standard algorithms (called GOST
 	  algorithms). Only signature verification is implemented.
 
-config CRYPTO_CURVE25519
-	tristate "Curve25519"
-	select CRYPTO_KPP
-	select CRYPTO_LIB_CURVE25519_GENERIC
-	select CRYPTO_LIB_CURVE25519_INTERNAL
-	help
-	  Curve25519 elliptic curve (RFC7748)
-
 endmenu
 
 menu "Block ciphers"
@@ -609,6 +601,7 @@ menu "Length-preserving ciphers and modes"
 config CRYPTO_ADIANTUM
 	tristate "Adiantum"
 	select CRYPTO_CHACHA20
+	select CRYPTO_LIB_POLY1305
 	select CRYPTO_LIB_POLY1305_GENERIC
 	select CRYPTO_NHPOLY1305
 	select CRYPTO_MANAGER
@@ -647,7 +640,6 @@ config CRYPTO_ARC4
 config CRYPTO_CHACHA20
 	tristate "ChaCha"
 	select CRYPTO_LIB_CHACHA
-	select CRYPTO_LIB_CHACHA_GENERIC
 	select CRYPTO_SKCIPHER
 	help
 	  The ChaCha20, XChaCha20, and XChaCha12 stream cipher algorithms
@@ -770,6 +762,7 @@ config CRYPTO_XTS
 config CRYPTO_NHPOLY1305
 	tristate
 	select CRYPTO_HASH
+	select CRYPTO_LIB_POLY1305
 	select CRYPTO_LIB_POLY1305_GENERIC
 
 endmenu
@@ -938,8 +931,9 @@ config CRYPTO_MD4
 config CRYPTO_MD5
 	tristate "MD5"
 	select CRYPTO_HASH
+	select CRYPTO_LIB_MD5
 	help
-	  MD5 message digest algorithm (RFC1321)
+	  MD5 message digest algorithm (RFC1321), including HMAC support.
 
 config CRYPTO_MICHAEL_MIC
 	tristate "Michael MIC"
@@ -986,15 +980,16 @@ config CRYPTO_SHA1
 	select CRYPTO_HASH
 	select CRYPTO_LIB_SHA1
 	help
-	  SHA-1 secure hash algorithm (FIPS 180, ISO/IEC 10118-3)
+	  SHA-1 secure hash algorithm (FIPS 180, ISO/IEC 10118-3), including
+	  HMAC support.
 
 config CRYPTO_SHA256
 	tristate "SHA-224 and SHA-256"
 	select CRYPTO_HASH
 	select CRYPTO_LIB_SHA256
-	select CRYPTO_LIB_SHA256_GENERIC
 	help
-	  SHA-224 and SHA-256 secure hash algorithms (FIPS 180, ISO/IEC 10118-3)
+	  SHA-224 and SHA-256 secure hash algorithms (FIPS 180, ISO/IEC
+	  10118-3), including HMAC support.
 
 	  This is required for IPsec AH (XFRM_AH) and IPsec ESP (XFRM_ESP).
 	  Used by the btrfs filesystem, Ceph, NFS, and SMB.
@@ -1002,8 +997,10 @@ config CRYPTO_SHA256
 config CRYPTO_SHA512
 	tristate "SHA-384 and SHA-512"
 	select CRYPTO_HASH
+	select CRYPTO_LIB_SHA512
 	help
-	  SHA-384 and SHA-512 secure hash algorithms (FIPS 180, ISO/IEC 10118-3)
+	  SHA-384 and SHA-512 secure hash algorithms (FIPS 180, ISO/IEC
+	  10118-3), including HMAC support.
 
 config CRYPTO_SHA3
 	tristate "SHA-3"
@@ -1419,9 +1416,6 @@ config CRYPTO_USER_API_ENABLE_OBSOLETE
 	  only useful for userspace clients that still rely on them.
 
 endmenu
-
-config CRYPTO_HASH_INFO
-	bool
 
 if !KMSAN # avoid false positives from assembly
 if ARM

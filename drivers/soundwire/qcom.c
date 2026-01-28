@@ -924,10 +924,7 @@ static enum sdw_command_response qcom_swrm_xfer_msg(struct sdw_bus *bus,
 
 	if (msg->flags == SDW_MSG_FLAG_READ) {
 		for (i = 0; i < msg->len;) {
-			if ((msg->len - i) < QCOM_SWRM_MAX_RD_LEN)
-				len = msg->len - i;
-			else
-				len = QCOM_SWRM_MAX_RD_LEN;
+			len = min(msg->len - i, QCOM_SWRM_MAX_RD_LEN);
 
 			ret = qcom_swrm_cmd_fifo_rd_cmd(ctrl, msg->dev_num,
 							msg->addr + i, len,
@@ -1622,9 +1619,9 @@ static int qcom_swrm_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_master_add;
 
-	dev_info(dev, "Qualcomm Soundwire controller v%x.%x.%x Registered\n",
-		 (ctrl->version >> 24) & 0xff, (ctrl->version >> 16) & 0xff,
-		 ctrl->version & 0xffff);
+	dev_dbg(dev, "Qualcomm Soundwire controller v%x.%x.%x registered\n",
+		(ctrl->version >> 24) & 0xff, (ctrl->version >> 16) & 0xff,
+		ctrl->version & 0xffff);
 
 	pm_runtime_set_autosuspend_delay(dev, 3000);
 	pm_runtime_use_autosuspend(dev);

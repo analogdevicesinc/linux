@@ -2761,7 +2761,7 @@ static void e1000e_vlan_filter_disable(struct e1000_adapter *adapter)
 		rctl &= ~(E1000_RCTL_VFE | E1000_RCTL_CFIEN);
 		ew32(RCTL, rctl);
 
-		if (adapter->mng_vlan_id != (u16)E1000_MNG_VLAN_NONE) {
+		if (adapter->mng_vlan_id != E1000_MNG_VLAN_NONE) {
 			e1000_vlan_rx_kill_vid(netdev, htons(ETH_P_8021Q),
 					       adapter->mng_vlan_id);
 			adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
@@ -2828,7 +2828,7 @@ static void e1000_update_mng_vlan(struct e1000_adapter *adapter)
 		adapter->mng_vlan_id = vid;
 	}
 
-	if ((old_vid != (u16)E1000_MNG_VLAN_NONE) && (vid != old_vid))
+	if (old_vid != E1000_MNG_VLAN_NONE && vid != old_vid)
 		e1000_vlan_rx_kill_vid(netdev, htons(ETH_P_8021Q), old_vid);
 }
 
@@ -4436,7 +4436,7 @@ u64 e1000e_read_systim(struct e1000_adapter *adapter,
  * e1000e_cyclecounter_read - read raw cycle counter (used by time counter)
  * @cc: cyclecounter structure
  **/
-static u64 e1000e_cyclecounter_read(const struct cyclecounter *cc)
+static u64 e1000e_cyclecounter_read(struct cyclecounter *cc)
 {
 	struct e1000_adapter *adapter = container_of(cc, struct e1000_adapter,
 						     cc);

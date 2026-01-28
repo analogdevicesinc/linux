@@ -17,6 +17,7 @@
 #include "internal.h"
 #include "pnfs.h"
 #include "netns.h"
+#include "nfs4trace.h"
 
 #define NFSDBG_FACILITY		NFSDBG_PNFS
 
@@ -808,8 +809,11 @@ static int _nfs4_pnfs_v3_ds_connect(struct nfs_server *mds_srv,
 				 unsigned int retrans)
 {
 	struct nfs_client *clp = ERR_PTR(-EIO);
+	struct nfs_client *mds_clp = mds_srv->nfs_client;
+	enum xprtsec_policies xprtsec_policy = mds_clp->cl_xprtsec.policy;
 	struct nfs4_pnfs_ds_addr *da;
 	unsigned long connect_timeout = timeo * (retrans + 1) * HZ / 10;
+	int ds_proto;
 	int status = 0;
 
 	dprintk("--> %s DS %s\n", __func__, ds->ds_remotestr);
@@ -833,27 +837,28 @@ static int _nfs4_pnfs_v3_ds_connect(struct nfs_server *mds_srv,
 				.xprtsec = clp->cl_xprtsec,
 			};
 
-			if (da->da_transport != clp->cl_proto &&
-			    clp->cl_proto != XPRT_TRANSPORT_TCP_TLS)
-				continue;
-			if (da->da_transport == XPRT_TRANSPORT_TCP &&
-			    mds_srv->nfs_client->cl_proto == XPRT_TRANSPORT_TCP_TLS)
+			if (xprt_args.ident == XPRT_TRANSPORT_TCP &&
+			    clp->cl_proto == XPRT_TRANSPORT_TCP_TLS)
 				xprt_args.ident = XPRT_TRANSPORT_TCP_TLS;
 
-			if (da->da_addr.ss_family != clp->cl_addr.ss_family)
+			if (xprt_args.ident != clp->cl_proto)
+				continue;
+			if (xprt_args.dstaddr->sa_family !=
+			    clp->cl_addr.ss_family)
 				continue;
 			/* Add this address as an alias */
 			rpc_clnt_add_xprt(clp->cl_rpcclient, &xprt_args,
-					rpc_clnt_test_and_add_xprt, NULL);
+					  rpc_clnt_test_and_add_xprt, NULL);
 			continue;
 		}
-		if (da->da_transport == XPRT_TRANSPORT_TCP &&
-		    mds_srv->nfs_client->cl_proto == XPRT_TRANSPORT_TCP_TLS)
-			da->da_transport = XPRT_TRANSPORT_TCP_TLS;
-		clp = get_v3_ds_connect(mds_srv,
-				&da->da_addr,
-				da->da_addrlen, da->da_transport,
-				timeo, retrans);
+
+		ds_proto = da->da_transport;
+		if (ds_proto == XPRT_TRANSPORT_TCP &&
+		    xprtsec_policy != RPC_XPRTSEC_NONE)
+			ds_proto = XPRT_TRANSPORT_TCP_TLS;
+
+		clp = get_v3_ds_connect(mds_srv, &da->da_addr, da->da_addrlen,
+					ds_proto, timeo, retrans);
 		if (IS_ERR(clp))
 			continue;
 		clp->cl_rpcclient->cl_softerr = 0;
@@ -879,7 +884,10 @@ static int _nfs4_pnfs_v4_ds_connect(struct nfs_server *mds_srv,
 				 u32 minor_version)
 {
 	struct nfs_client *clp = ERR_PTR(-EIO);
+	struct nfs_client *mds_clp = mds_srv->nfs_client;
+	enum xprtsec_policies xprtsec_policy = mds_clp->cl_xprtsec.policy;
 	struct nfs4_pnfs_ds_addr *da;
+	int ds_proto;
 	int status = 0;
 
 	dprintk("--> %s DS %s\n", __func__, ds->ds_remotestr);
@@ -907,12 +915,8 @@ static int _nfs4_pnfs_v4_ds_connect(struct nfs_server *mds_srv,
 				.data = &xprtdata,
 			};
 
-			if (da->da_transport != clp->cl_proto &&
-					clp->cl_proto != XPRT_TRANSPORT_TCP_TLS)
-				continue;
-			if (da->da_transport == XPRT_TRANSPORT_TCP &&
-				mds_srv->nfs_client->cl_proto ==
-					XPRT_TRANSPORT_TCP_TLS) {
+			if (xprt_args.ident == XPRT_TRANSPORT_TCP &&
+			    clp->cl_proto == XPRT_TRANSPORT_TCP_TLS) {
 				struct sockaddr *addr =
 					(struct sockaddr *)&da->da_addr;
 				struct sockaddr_in *sin =
@@ -943,7 +947,10 @@ static int _nfs4_pnfs_v4_ds_connect(struct nfs_server *mds_srv,
 				xprt_args.ident = XPRT_TRANSPORT_TCP_TLS;
 				xprt_args.servername = servername;
 			}
-			if (da->da_addr.ss_family != clp->cl_addr.ss_family)
+			if (xprt_args.ident != clp->cl_proto)
+				continue;
+			if (xprt_args.dstaddr->sa_family !=
+			    clp->cl_addr.ss_family)
 				continue;
 
 			/**
@@ -957,15 +964,14 @@ static int _nfs4_pnfs_v4_ds_connect(struct nfs_server *mds_srv,
 			if (xprtdata.cred)
 				put_cred(xprtdata.cred);
 		} else {
-			if (da->da_transport == XPRT_TRANSPORT_TCP &&
-				mds_srv->nfs_client->cl_proto ==
-					XPRT_TRANSPORT_TCP_TLS)
-				da->da_transport = XPRT_TRANSPORT_TCP_TLS;
-			clp = nfs4_set_ds_client(mds_srv,
-						&da->da_addr,
-						da->da_addrlen,
-						da->da_transport, timeo,
-						retrans, minor_version);
+			ds_proto = da->da_transport;
+			if (ds_proto == XPRT_TRANSPORT_TCP &&
+			    xprtsec_policy != RPC_XPRTSEC_NONE)
+				ds_proto = XPRT_TRANSPORT_TCP_TLS;
+
+			clp = nfs4_set_ds_client(mds_srv, &da->da_addr,
+						 da->da_addrlen, ds_proto,
+						 timeo, retrans, minor_version);
 			if (IS_ERR(clp))
 				continue;
 
@@ -976,7 +982,6 @@ static int _nfs4_pnfs_v4_ds_connect(struct nfs_server *mds_srv,
 				clp = ERR_PTR(-EIO);
 				continue;
 			}
-
 		}
 	}
 
@@ -1007,8 +1012,10 @@ int nfs4_pnfs_ds_connect(struct nfs_server *mds_srv, struct nfs4_pnfs_ds *ds,
 		err = nfs4_wait_ds_connect(ds);
 		if (err || ds->ds_clp)
 			goto out;
-		if (nfs4_test_deviceid_unavailable(devid))
-			return -ENODEV;
+		if (nfs4_test_deviceid_unavailable(devid)) {
+			err = -ENODEV;
+			goto out;
+		}
 	} while (test_and_set_bit(NFS4DS_CONNECTING, &ds->ds_state) != 0);
 
 	if (ds->ds_clp)
@@ -1038,11 +1045,12 @@ out:
 		if (!ds->ds_clp || !nfs_client_init_is_complete(ds->ds_clp)) {
 			WARN_ON_ONCE(ds->ds_clp ||
 				!nfs4_test_deviceid_unavailable(devid));
-			return -EINVAL;
-		}
-		err = nfs_client_init_status(ds->ds_clp);
+			err = -EINVAL;
+		} else
+			err = nfs_client_init_status(ds->ds_clp);
 	}
 
+	trace_pnfs_ds_connect(ds->ds_remotestr, err);
 	return err;
 }
 EXPORT_SYMBOL_GPL(nfs4_pnfs_ds_connect);

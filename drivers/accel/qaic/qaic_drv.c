@@ -29,6 +29,7 @@
 #include "mhi_controller.h"
 #include "qaic.h"
 #include "qaic_debugfs.h"
+#include "qaic_ras.h"
 #include "qaic_timesync.h"
 #include "sahara.h"
 
@@ -453,6 +454,9 @@ static struct qaic_device *create_qdev(struct pci_dev *pdev,
 			return NULL;
 		init_waitqueue_head(&qdev->dbc[i].dbc_release);
 		INIT_LIST_HEAD(&qdev->dbc[i].bo_lists);
+		ret = drmm_mutex_init(drm, &qdev->dbc[i].req_lock);
+		if (ret)
+			return NULL;
 	}
 
 	return qdev;
@@ -695,6 +699,10 @@ static int __init qaic_init(void)
 	if (ret)
 		pr_debug("qaic: qaic_bootlog_register failed %d\n", ret);
 
+	ret = qaic_ras_register();
+	if (ret)
+		pr_debug("qaic: qaic_ras_register failed %d\n", ret);
+
 	return 0;
 
 free_mhi:
@@ -722,6 +730,7 @@ static void __exit qaic_exit(void)
 	 * reinitializing the link_up state after the cleanup is done.
 	 */
 	link_up = true;
+	qaic_ras_unregister();
 	qaic_bootlog_unregister();
 	qaic_timesync_deinit();
 	sahara_unregister();

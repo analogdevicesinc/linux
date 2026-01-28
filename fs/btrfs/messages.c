@@ -18,11 +18,13 @@ static const char fs_state_chars[] = {
 	[BTRFS_FS_STATE_REMOUNTING]		= 'M',
 	[BTRFS_FS_STATE_RO]			= 0,
 	[BTRFS_FS_STATE_TRANS_ABORTED]		= 'A',
+	[BTRFS_FS_STATE_LOG_REPLAY_ABORTED]	= 'O',
 	[BTRFS_FS_STATE_DEV_REPLACING]		= 'R',
 	[BTRFS_FS_STATE_DUMMY_FS_INFO]		= 0,
 	[BTRFS_FS_STATE_NO_DATA_CSUMS]		= 'C',
 	[BTRFS_FS_STATE_SKIP_META_CSUMS]	= 'S',
 	[BTRFS_FS_STATE_LOG_CLEANUP_ERROR]	= 'L',
+	[BTRFS_FS_STATE_EMERGENCY_SHUTDOWN]	= 'E',
 };
 
 static void btrfs_state_to_string(const struct btrfs_fs_info *info, char *buf)

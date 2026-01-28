@@ -47,7 +47,7 @@
 
 #include "dcn10/dcn10_resource.h"
 
-#include "link.h"
+#include "link_service.h"
 
 #include "dce/dce_abm.h"
 #include "dce/dce_audio.h"
@@ -1413,6 +1413,8 @@ static bool dcn303_resource_construct(
 
 	for (i = 0; i < dc->caps.max_planes; ++i)
 		dc->caps.planes[i] = plane_cap;
+
+	dc->caps.max_odm_combine_factor = 4;
 
 	dc->cap_funcs = cap_funcs;
 

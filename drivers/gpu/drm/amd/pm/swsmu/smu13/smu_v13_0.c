@@ -288,7 +288,8 @@ int smu_v13_0_check_fw_version(struct smu_context *smu)
 	 * Considering above, we just leave user a verbal message instead
 	 * of halt driver loading.
 	 */
-	if (if_version != smu->smc_driver_if_version) {
+	if (smu->smc_driver_if_version != SMU_IGNORE_IF_VERSION &&
+	    if_version != smu->smc_driver_if_version) {
 		dev_info(adev->dev, "smu driver if version = 0x%08x, smu fw if version = 0x%08x, "
 			 "smu fw program = %d, smu fw version = 0x%08x (%d.%d.%d)\n",
 			 smu->smc_driver_if_version, if_version,
@@ -2386,7 +2387,8 @@ int smu_v13_0_update_pcie_parameters(struct smu_context *smu,
 				&dpm_context->dpm_tables.pcie_table;
 	int num_of_levels = pcie_table->num_of_link_levels;
 	uint32_t smu_pcie_arg;
-	int ret, i;
+	int ret = 0;
+	int i;
 
 	if (!num_of_levels)
 		return 0;
@@ -2402,30 +2404,38 @@ int smu_v13_0_update_pcie_parameters(struct smu_context *smu,
 		for (i = 0; i < num_of_levels; i++) {
 			pcie_table->pcie_gen[i] = pcie_gen_cap;
 			pcie_table->pcie_lane[i] = pcie_width_cap;
+			smu_pcie_arg = i << 16;
+			smu_pcie_arg |= pcie_table->pcie_gen[i] << 8;
+			smu_pcie_arg |= pcie_table->pcie_lane[i];
+
+			ret = smu_cmn_send_smc_msg_with_param(smu,
+								SMU_MSG_OverridePcieParameters,
+								smu_pcie_arg,
+								NULL);
+			if (ret)
+				break;
 		}
 	} else {
 		for (i = 0; i < num_of_levels; i++) {
-			if (pcie_table->pcie_gen[i] > pcie_gen_cap)
+			if (pcie_table->pcie_gen[i] > pcie_gen_cap ||
+				pcie_table->pcie_lane[i] > pcie_width_cap) {
 				pcie_table->pcie_gen[i] = pcie_gen_cap;
-			if (pcie_table->pcie_lane[i] > pcie_width_cap)
 				pcie_table->pcie_lane[i] = pcie_width_cap;
+				smu_pcie_arg = i << 16;
+				smu_pcie_arg |= pcie_table->pcie_gen[i] << 8;
+				smu_pcie_arg |= pcie_table->pcie_lane[i];
+
+				ret = smu_cmn_send_smc_msg_with_param(smu,
+									SMU_MSG_OverridePcieParameters,
+									smu_pcie_arg,
+									NULL);
+				if (ret)
+					break;
+			}
 		}
 	}
 
-	for (i = 0; i < num_of_levels; i++) {
-		smu_pcie_arg = i << 16;
-		smu_pcie_arg |= pcie_table->pcie_gen[i] << 8;
-		smu_pcie_arg |= pcie_table->pcie_lane[i];
-
-		ret = smu_cmn_send_smc_msg_with_param(smu,
-						      SMU_MSG_OverridePcieParameters,
-						      smu_pcie_arg,
-						      NULL);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
+	return ret;
 }
 
 int smu_v13_0_disable_pmfw_state(struct smu_context *smu)

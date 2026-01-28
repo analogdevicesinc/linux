@@ -217,6 +217,7 @@ struct hns_roce_ucontext {
 	struct mutex		page_mutex;
 	struct hns_user_mmap_entry *db_mmap_entry;
 	u32			config;
+	u8 cq_bank_id;
 };
 
 struct hns_roce_pd {
@@ -314,16 +315,6 @@ struct hns_roce_mtr {
 	struct ib_umem		*umem; /* user space buffer */
 	struct hns_roce_buf	*kmem; /* kernel space buffer */
 	struct hns_roce_hem_cfg  hem_cfg; /* config for hardware addressing */
-};
-
-struct hns_roce_mw {
-	struct ib_mw		ibmw;
-	u32			pdn;
-	u32			rkey;
-	int			enabled; /* MW's active status */
-	u32			pbl_hop_num;
-	u32			pbl_ba_pg_sz;
-	u32			pbl_buf_pg_sz;
 };
 
 struct hns_roce_mr {
@@ -505,6 +496,7 @@ struct hns_roce_cq_table {
 	struct hns_roce_hem_table	table;
 	struct hns_roce_bank bank[HNS_ROCE_CQ_BANK_NUM];
 	struct mutex			bank_mutex;
+	u32 ctx_num[HNS_ROCE_CQ_BANK_NUM];
 };
 
 struct hns_roce_srq_table {
@@ -856,6 +848,7 @@ struct hns_roce_caps {
 	u16		default_ceq_arm_st;
 	u8		cong_cap;
 	enum hns_roce_cong_type default_cong_type;
+	u32             max_ack_req_msg_len;
 };
 
 enum hns_roce_device_state {
@@ -933,7 +926,6 @@ struct hns_roce_hw {
 				struct hns_roce_mr *mr, int flags,
 				void *mb_buf);
 	int (*frmr_write_mtpt)(void *mb_buf, struct hns_roce_mr *mr);
-	int (*mw_write_mtpt)(void *mb_buf, struct hns_roce_mw *mw);
 	void (*write_cqc)(struct hns_roce_dev *hr_dev,
 			  struct hns_roce_cq *hr_cq, void *mb_buf, u64 *mtts,
 			  dma_addr_t dma_handle);
@@ -1076,11 +1068,6 @@ static inline struct hns_roce_ah *to_hr_ah(struct ib_ah *ibah)
 static inline struct hns_roce_mr *to_hr_mr(struct ib_mr *ibmr)
 {
 	return container_of(ibmr, struct hns_roce_mr, ibmr);
-}
-
-static inline struct hns_roce_mw *to_hr_mw(struct ib_mw *ibmw)
-{
-	return container_of(ibmw, struct hns_roce_mw, ibmw);
 }
 
 static inline struct hns_roce_qp *to_hr_qp(struct ib_qp *ibqp)
@@ -1234,6 +1221,7 @@ int hns_roce_dealloc_pd(struct ib_pd *pd, struct ib_udata *udata);
 struct ib_mr *hns_roce_get_dma_mr(struct ib_pd *pd, int acc);
 struct ib_mr *hns_roce_reg_user_mr(struct ib_pd *pd, u64 start, u64 length,
 				   u64 virt_addr, int access_flags,
+				   struct ib_dmah *dmah,
 				   struct ib_udata *udata);
 struct ib_mr *hns_roce_rereg_user_mr(struct ib_mr *mr, int flags, u64 start,
 				     u64 length, u64 virt_addr,
@@ -1245,9 +1233,6 @@ int hns_roce_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg, int sg_nents,
 		       unsigned int *sg_offset);
 int hns_roce_dereg_mr(struct ib_mr *ibmr, struct ib_udata *udata);
 unsigned long key_to_hw_index(u32 key);
-
-int hns_roce_alloc_mw(struct ib_mw *mw, struct ib_udata *udata);
-int hns_roce_dealloc_mw(struct ib_mw *ibmw);
 
 void hns_roce_buf_free(struct hns_roce_dev *hr_dev, struct hns_roce_buf *buf);
 struct hns_roce_buf *hns_roce_buf_alloc(struct hns_roce_dev *hr_dev, u32 size,
@@ -1322,5 +1307,7 @@ hns_roce_user_mmap_entry_insert(struct ib_ucontext *ucontext, u64 address,
 				size_t length,
 				enum hns_roce_mmap_type mmap_type);
 bool check_sl_valid(struct hns_roce_dev *hr_dev, u8 sl);
+void hns_roce_put_cq_bankid_for_uctx(struct hns_roce_ucontext *uctx);
+void hns_roce_get_cq_bankid_for_uctx(struct hns_roce_ucontext *uctx);
 
 #endif /* _HNS_ROCE_DEVICE_H */

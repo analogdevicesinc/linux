@@ -261,7 +261,7 @@ static int hostfs_show_options(struct seq_file *seq, struct dentry *root)
 static const struct super_operations hostfs_sbops = {
 	.alloc_inode	= hostfs_alloc_inode,
 	.free_inode	= hostfs_free_inode,
-	.drop_inode	= generic_delete_inode,
+	.drop_inode	= inode_just_drop,
 	.evict_inode	= hostfs_evict_inode,
 	.statfs		= hostfs_statfs,
 	.show_options	= hostfs_show_options,
@@ -382,7 +382,7 @@ static const struct file_operations hostfs_file_fops = {
 	.splice_write	= iter_file_splice_write,
 	.read_iter	= generic_file_read_iter,
 	.write_iter	= generic_file_write_iter,
-	.mmap		= generic_file_mmap,
+	.mmap_prepare	= generic_file_mmap_prepare,
 	.open		= hostfs_open,
 	.release	= hostfs_file_release,
 	.fsync		= hostfs_fsync,
@@ -445,7 +445,8 @@ static int hostfs_read_folio(struct file *file, struct folio *folio)
 	return ret;
 }
 
-static int hostfs_write_begin(struct file *file, struct address_space *mapping,
+static int hostfs_write_begin(const struct kiocb *iocb,
+			      struct address_space *mapping,
 			      loff_t pos, unsigned len,
 			      struct folio **foliop, void **fsdata)
 {
@@ -458,7 +459,8 @@ static int hostfs_write_begin(struct file *file, struct address_space *mapping,
 	return 0;
 }
 
-static int hostfs_write_end(struct file *file, struct address_space *mapping,
+static int hostfs_write_end(const struct kiocb *iocb,
+			    struct address_space *mapping,
 			    loff_t pos, unsigned len, unsigned copied,
 			    struct folio *folio, void *fsdata)
 {
@@ -468,7 +470,7 @@ static int hostfs_write_end(struct file *file, struct address_space *mapping,
 	int err;
 
 	buffer = kmap_local_folio(folio, from);
-	err = write_file(FILE_HOSTFS_I(file)->fd, &pos, buffer, copied);
+	err = write_file(FILE_HOSTFS_I(iocb->ki_filp)->fd, &pos, buffer, copied);
 	kunmap_local(buffer);
 
 	if (!folio_test_uptodate(folio) && err == folio_size(folio))
@@ -933,7 +935,7 @@ static int hostfs_fill_super(struct super_block *sb, struct fs_context *fc)
 	sb->s_blocksize_bits = 10;
 	sb->s_magic = HOSTFS_SUPER_MAGIC;
 	sb->s_op = &hostfs_sbops;
-	sb->s_d_op = &simple_dentry_operations;
+	sb->s_d_flags = DCACHE_DONTCACHE;
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
 	err = super_setup_bdi(sb);
 	if (err)
@@ -977,7 +979,7 @@ static int hostfs_parse_param(struct fs_context *fc, struct fs_parameter *param)
 {
 	struct hostfs_fs_info *fsi = fc->s_fs_info;
 	struct fs_parse_result result;
-	char *host_root;
+	char *host_root, *tmp_root;
 	int opt;
 
 	opt = fs_parse(fc, hostfs_param_specs, param, &result);
@@ -988,11 +990,13 @@ static int hostfs_parse_param(struct fs_context *fc, struct fs_parameter *param)
 	case Opt_hostfs:
 		host_root = param->string;
 		if (!*host_root)
-			host_root = "";
-		fsi->host_root_path =
-			kasprintf(GFP_KERNEL, "%s/%s", root_ino, host_root);
-		if (fsi->host_root_path == NULL)
+			break;
+		tmp_root = kasprintf(GFP_KERNEL, "%s%s",
+				     fsi->host_root_path, host_root);
+		if (!tmp_root)
 			return -ENOMEM;
+		kfree(fsi->host_root_path);
+		fsi->host_root_path = tmp_root;
 		break;
 	}
 
@@ -1002,17 +1006,17 @@ static int hostfs_parse_param(struct fs_context *fc, struct fs_parameter *param)
 static int hostfs_parse_monolithic(struct fs_context *fc, void *data)
 {
 	struct hostfs_fs_info *fsi = fc->s_fs_info;
-	char *host_root = (char *)data;
+	char *tmp_root, *host_root = (char *)data;
 
 	/* NULL is printed as '(null)' by printf(): avoid that. */
 	if (host_root == NULL)
-		host_root = "";
+		return 0;
 
-	fsi->host_root_path =
-		kasprintf(GFP_KERNEL, "%s/%s", root_ino, host_root);
-	if (fsi->host_root_path == NULL)
+	tmp_root = kasprintf(GFP_KERNEL, "%s%s", fsi->host_root_path, host_root);
+	if (!tmp_root)
 		return -ENOMEM;
-
+	kfree(fsi->host_root_path);
+	fsi->host_root_path = tmp_root;
 	return 0;
 }
 
@@ -1047,6 +1051,11 @@ static int hostfs_init_fs_context(struct fs_context *fc)
 	if (!fsi)
 		return -ENOMEM;
 
+	fsi->host_root_path = kasprintf(GFP_KERNEL, "%s/", root_ino);
+	if (!fsi->host_root_path) {
+		kfree(fsi);
+		return -ENOMEM;
+	}
 	fc->s_fs_info = fsi;
 	fc->ops = &hostfs_context_ops;
 	return 0;

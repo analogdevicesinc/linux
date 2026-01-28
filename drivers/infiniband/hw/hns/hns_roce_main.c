@@ -425,6 +425,8 @@ static int hns_roce_alloc_ucontext(struct ib_ucontext *uctx,
 	if (ret)
 		goto error_fail_copy_to_udata;
 
+	hns_roce_get_cq_bankid_for_uctx(context);
+
 	return 0;
 
 error_fail_copy_to_udata:
@@ -446,6 +448,8 @@ static void hns_roce_dealloc_ucontext(struct ib_ucontext *ibcontext)
 {
 	struct hns_roce_ucontext *context = to_hr_ucontext(ibcontext);
 	struct hns_roce_dev *hr_dev = to_hr_dev(ibcontext->device);
+
+	hns_roce_put_cq_bankid_for_uctx(context);
 
 	if (hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_CQ_RECORD_DB ||
 	    hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_QP_RECORD_DB)
@@ -672,13 +676,6 @@ static const struct ib_device_ops hns_roce_dev_mr_ops = {
 	.rereg_user_mr = hns_roce_rereg_user_mr,
 };
 
-static const struct ib_device_ops hns_roce_dev_mw_ops = {
-	.alloc_mw = hns_roce_alloc_mw,
-	.dealloc_mw = hns_roce_dealloc_mw,
-
-	INIT_RDMA_OBJ_SIZE(ib_mw, hns_roce_mw, ibmw),
-};
-
 static const struct ib_device_ops hns_roce_dev_frmr_ops = {
 	.alloc_mr = hns_roce_alloc_mr,
 	.map_mr_sg = hns_roce_map_mr_sg,
@@ -731,9 +728,6 @@ static int hns_roce_register_device(struct hns_roce_dev *hr_dev)
 
 	if (hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_REREG_MR)
 		ib_set_device_ops(ib_dev, &hns_roce_dev_mr_ops);
-
-	if (hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_MW)
-		ib_set_device_ops(ib_dev, &hns_roce_dev_mw_ops);
 
 	if (hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_FRMR)
 		ib_set_device_ops(ib_dev, &hns_roce_dev_frmr_ops);
@@ -947,10 +941,7 @@ err_unmap_dmpt:
 static void hns_roce_teardown_hca(struct hns_roce_dev *hr_dev)
 {
 	hns_roce_cleanup_bitmap(hr_dev);
-
-	if (hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_CQ_RECORD_DB ||
-	    hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_QP_RECORD_DB)
-		mutex_destroy(&hr_dev->pgdir_mutex);
+	mutex_destroy(&hr_dev->pgdir_mutex);
 }
 
 /**
@@ -965,11 +956,11 @@ static int hns_roce_setup_hca(struct hns_roce_dev *hr_dev)
 
 	spin_lock_init(&hr_dev->sm_lock);
 
-	if (hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_CQ_RECORD_DB ||
-	    hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_QP_RECORD_DB) {
-		INIT_LIST_HEAD(&hr_dev->pgdir_list);
-		mutex_init(&hr_dev->pgdir_mutex);
-	}
+	INIT_LIST_HEAD(&hr_dev->qp_list);
+	spin_lock_init(&hr_dev->qp_list_lock);
+
+	INIT_LIST_HEAD(&hr_dev->pgdir_list);
+	mutex_init(&hr_dev->pgdir_mutex);
 
 	hns_roce_init_uar_table(hr_dev);
 
@@ -1001,9 +992,7 @@ static int hns_roce_setup_hca(struct hns_roce_dev *hr_dev)
 
 err_uar_table_free:
 	ida_destroy(&hr_dev->uar_ida.ida);
-	if (hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_CQ_RECORD_DB ||
-	    hr_dev->caps.flags & HNS_ROCE_CAP_FLAG_QP_RECORD_DB)
-		mutex_destroy(&hr_dev->pgdir_mutex);
+	mutex_destroy(&hr_dev->pgdir_mutex);
 
 	return ret;
 }
@@ -1131,9 +1120,6 @@ int hns_roce_init(struct hns_roce_dev *hr_dev)
 			goto error_failed_engine_init;
 		}
 	}
-
-	INIT_LIST_HEAD(&hr_dev->qp_list);
-	spin_lock_init(&hr_dev->qp_list_lock);
 
 	ret = hns_roce_register_device(hr_dev);
 	if (ret)

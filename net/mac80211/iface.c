@@ -107,6 +107,7 @@ static u32 __ieee80211_recalc_idle(struct ieee80211_local *local,
 {
 	bool working, scanning, active;
 	unsigned int led_trig_start = 0, led_trig_stop = 0;
+	struct ieee80211_sub_if_data *iter;
 
 	lockdep_assert_wiphy(local->hw.wiphy);
 
@@ -116,6 +117,14 @@ static u32 __ieee80211_recalc_idle(struct ieee80211_local *local,
 
 	working = !local->ops->remain_on_channel &&
 		  !list_empty(&local->roc_list);
+
+	list_for_each_entry(iter, &local->interfaces, list) {
+		if (iter->vif.type == NL80211_IFTYPE_NAN &&
+		    iter->u.nan.started) {
+			working = true;
+			break;
+		}
+	}
 
 	scanning = test_bit(SCAN_SW_SCANNING, &local->scanning) ||
 		   test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning);
@@ -146,7 +155,7 @@ void ieee80211_recalc_idle(struct ieee80211_local *local)
 {
 	u32 change = __ieee80211_recalc_idle(local, false);
 	if (change)
-		ieee80211_hw_config(local, change);
+		ieee80211_hw_config(local, -1, change);
 }
 
 static int ieee80211_verify_mac(struct ieee80211_sub_if_data *sdata, u8 *addr,
@@ -214,6 +223,10 @@ static int ieee80211_can_powered_addr_change(struct ieee80211_sub_if_data *sdata
 	if (netif_carrier_ok(sdata->dev))
 		return -EBUSY;
 
+	/* if any stations are set known (so they know this vif too), reject */
+	if (sta_info_get_by_idx(sdata, 0))
+		return -EBUSY;
+
 	/* First check no ROC work is happening on this iface */
 	list_for_each_entry(roc, &local->roc_list, list) {
 		if (roc->sdata != sdata)
@@ -233,12 +246,16 @@ static int ieee80211_can_powered_addr_change(struct ieee80211_sub_if_data *sdata
 			ret = -EBUSY;
 	}
 
+	/*
+	 * More interface types could be added here but changing the
+	 * address while powered makes the most sense in client modes.
+	 */
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_P2P_CLIENT:
-		/* More interface types could be added here but changing the
-		 * address while powered makes the most sense in client modes.
-		 */
+		/* refuse while connecting */
+		if (sdata->u.mgd.auth_data || sdata->u.mgd.assoc_data)
+			return -EBUSY;
 		break;
 	default:
 		ret = -EOPNOTSUPP;
@@ -611,10 +628,6 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata, bool going_do
 
 		spin_unlock_bh(&sdata->u.nan.func_lock);
 		break;
-	case NL80211_IFTYPE_P2P_DEVICE:
-		/* relies on synchronize_rcu() below */
-		RCU_INIT_POINTER(local->p2p_sdata, NULL);
-		fallthrough;
 	default:
 		wiphy_work_cancel(sdata->local->hw.wiphy, &sdata->work);
 		/*
@@ -726,7 +739,7 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata, bool going_do
 
 	/* do after stop to avoid reconfiguring when we stop anyway */
 	ieee80211_configure_filter(local);
-	ieee80211_hw_config(local, hw_reconf_flags);
+	ieee80211_hw_config(local, -1, hw_reconf_flags);
 
 	if (local->virt_monitors == local->open_count)
 		ieee80211_add_virtual_monitor(local);
@@ -1405,6 +1418,7 @@ int ieee80211_do_open(struct wireless_dev *wdev, bool coming_up)
 		ieee80211_recalc_idle(local);
 
 		netif_carrier_on(dev);
+		list_add_tail_rcu(&sdata->u.mntr.list, &local->mon_list);
 		break;
 	default:
 		if (coming_up) {
@@ -1468,17 +1482,6 @@ int ieee80211_do_open(struct wireless_dev *wdev, bool coming_up)
 			sdata->vif.type != NL80211_IFTYPE_STATION);
 	}
 
-	switch (sdata->vif.type) {
-	case NL80211_IFTYPE_P2P_DEVICE:
-		rcu_assign_pointer(local->p2p_sdata, sdata);
-		break;
-	case NL80211_IFTYPE_MONITOR:
-		list_add_tail_rcu(&sdata->u.mntr.list, &local->mon_list);
-		break;
-	default:
-		break;
-	}
-
 	/*
 	 * set_multicast_list will be invoked by the networking core
 	 * which will check whether any increments here were done in
@@ -1493,7 +1496,7 @@ int ieee80211_do_open(struct wireless_dev *wdev, bool coming_up)
 	if (local->open_count == 1)
 		ieee80211_hw_conf_init(local);
 	else if (hw_reconf_flags)
-		ieee80211_hw_config(local, hw_reconf_flags);
+		ieee80211_hw_config(local, -1, hw_reconf_flags);
 
 	ieee80211_recalc_ps(local);
 
@@ -1555,6 +1558,35 @@ static void ieee80211_iface_process_skb(struct ieee80211_local *local,
 				WARN_ON(1);
 				break;
 			}
+		}
+	} else if (ieee80211_is_action(mgmt->frame_control) &&
+		   mgmt->u.action.category == WLAN_CATEGORY_HT) {
+		switch (mgmt->u.action.u.ht_smps.action) {
+		case WLAN_HT_ACTION_NOTIFY_CHANWIDTH: {
+			u8 chanwidth = mgmt->u.action.u.ht_notify_cw.chanwidth;
+			struct ieee80211_rx_status *status;
+			struct link_sta_info *link_sta;
+			struct sta_info *sta;
+
+			sta = sta_info_get_bss(sdata, mgmt->sa);
+			if (!sta)
+				break;
+
+			status = IEEE80211_SKB_RXCB(skb);
+			if (!status->link_valid)
+				link_sta = &sta->deflink;
+			else
+				link_sta = rcu_dereference_protected(sta->link[status->link_id],
+							lockdep_is_held(&local->hw.wiphy->mtx));
+			if (link_sta)
+				ieee80211_ht_handle_chanwidth_notif(local, sdata, sta,
+								    link_sta, chanwidth,
+								    status->band);
+			break;
+		}
+		default:
+			WARN_ON(1);
+			break;
 		}
 	} else if (ieee80211_is_action(mgmt->frame_control) &&
 		   mgmt->u.action.category == WLAN_CATEGORY_VHT) {

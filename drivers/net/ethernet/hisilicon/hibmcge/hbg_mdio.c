@@ -2,6 +2,7 @@
 // Copyright (c) 2024 Hisilicon Limited.
 
 #include <linux/phy.h>
+#include <linux/phy_fixed.h>
 #include <linux/rtnetlink.h>
 #include "hbg_common.h"
 #include "hbg_hw.h"
@@ -229,6 +230,39 @@ void hbg_phy_stop(struct hbg_priv *priv)
 	phy_stop(priv->mac.phydev);
 }
 
+static void hbg_fixed_phy_uninit(void *data)
+{
+	fixed_phy_unregister((struct phy_device *)data);
+}
+
+static int hbg_fixed_phy_init(struct hbg_priv *priv)
+{
+	struct fixed_phy_status hbg_fixed_phy_status = {
+		.link = 1,
+		.speed = SPEED_1000,
+		.duplex = DUPLEX_FULL,
+		.pause = 1,
+		.asym_pause = 1,
+	};
+	struct device *dev = &priv->pdev->dev;
+	struct phy_device *phydev;
+	int ret;
+
+	phydev = fixed_phy_register(&hbg_fixed_phy_status, NULL);
+	if (IS_ERR(phydev)) {
+		dev_err_probe(dev, PTR_ERR(phydev),
+			      "failed to register fixed PHY device\n");
+		return PTR_ERR(phydev);
+	}
+
+	ret = devm_add_action_or_reset(dev, hbg_fixed_phy_uninit, phydev);
+	if (ret)
+		return ret;
+
+	priv->mac.phydev = phydev;
+	return hbg_phy_connect(priv);
+}
+
 int hbg_mdio_init(struct hbg_priv *priv)
 {
 	struct device *dev = &priv->pdev->dev;
@@ -238,10 +272,12 @@ int hbg_mdio_init(struct hbg_priv *priv)
 	int ret;
 
 	mac->phy_addr = priv->dev_specs.phy_addr;
+	if (mac->phy_addr == HBG_NO_PHY)
+		return hbg_fixed_phy_init(priv);
+
 	mdio_bus = devm_mdiobus_alloc(dev);
 	if (!mdio_bus)
-		return dev_err_probe(dev, -ENOMEM,
-				     "failed to alloc MDIO bus\n");
+		return -ENOMEM;
 
 	mdio_bus->parent = dev;
 	mdio_bus->priv = priv;

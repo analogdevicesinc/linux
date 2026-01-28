@@ -418,6 +418,12 @@ static inline int hibernate_quiet_exec(int (*func)(void *data), void *data) {
 }
 #endif /* CONFIG_HIBERNATION */
 
+#if defined(CONFIG_HIBERNATION) && defined(CONFIG_SUSPEND)
+bool pm_hibernation_mode_is_suspend(void);
+#else
+static inline bool pm_hibernation_mode_is_suspend(void) { return false; }
+#endif
+
 int arch_resume_nosmt(void);
 
 #ifdef CONFIG_HIBERNATION_SNAPSHOT_DEV
@@ -478,6 +484,7 @@ extern unsigned int lock_system_sleep(void);
 extern void unlock_system_sleep(unsigned int);
 
 extern bool pm_sleep_transition_in_progress(void);
+bool pm_hibernate_is_recovering(void);
 
 #else /* !CONFIG_PM_SLEEP */
 
@@ -511,6 +518,7 @@ static inline unsigned int lock_system_sleep(void) { return 0; }
 static inline void unlock_system_sleep(unsigned int flags) {}
 
 static inline bool pm_sleep_transition_in_progress(void) { return false; }
+static inline bool pm_hibernate_is_recovering(void) { return false; }
 
 #endif /* !CONFIG_PM_SLEEP */
 

@@ -290,7 +290,7 @@ static int afs_parse_source(struct fs_context *fc, struct fs_parameter *param)
 	/* lookup the cell record */
 	if (cellname) {
 		cell = afs_lookup_cell(ctx->net, cellname, cellnamesz,
-				       NULL, false,
+				       NULL, AFS_LOOKUP_CELL_DIRECT_MOUNT,
 				       afs_cell_trace_use_lookup_mount);
 		if (IS_ERR(cell)) {
 			pr_err("kAFS: unable to lookup cell '%*.*s'\n",
@@ -483,9 +483,9 @@ static int afs_fill_super(struct super_block *sb, struct afs_fs_context *ctx)
 		goto error;
 
 	if (as->dyn_root) {
-		sb->s_d_op = &afs_dynroot_dentry_operations;
+		set_default_d_op(sb, &afs_dynroot_dentry_operations);
 	} else {
-		sb->s_d_op = &afs_fs_dentry_operations;
+		set_default_d_op(sb, &afs_fs_dentry_operations);
 		rcu_assign_pointer(as->volume->sb, sb);
 	}
 

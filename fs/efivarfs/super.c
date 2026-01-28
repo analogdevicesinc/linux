@@ -127,7 +127,7 @@ static int efivarfs_unfreeze_fs(struct super_block *sb);
 
 static const struct super_operations efivarfs_ops = {
 	.statfs = efivarfs_statfs,
-	.drop_inode = generic_delete_inode,
+	.drop_inode = inode_just_drop,
 	.alloc_inode = efivarfs_alloc_inode,
 	.free_inode = efivarfs_free_inode,
 	.show_options = efivarfs_show_options,
@@ -151,6 +151,10 @@ static int efivarfs_d_compare(const struct dentry *dentry,
 			      const struct qstr *name)
 {
 	int guid = len - EFI_VARIABLE_GUID_LEN;
+
+	/* Parallel lookups may produce a temporary invalid filename */
+	if (guid <= 0)
+		return 1;
 
 	if (name->len != len)
 		return 1;
@@ -183,7 +187,6 @@ static int efivarfs_d_hash(const struct dentry *dentry, struct qstr *qstr)
 static const struct dentry_operations efivarfs_d_ops = {
 	.d_compare = efivarfs_d_compare,
 	.d_hash = efivarfs_d_hash,
-	.d_delete = always_delete_dentry,
 };
 
 static struct dentry *efivarfs_alloc_dentry(struct dentry *parent, char *name)
@@ -350,7 +353,8 @@ static int efivarfs_fill_super(struct super_block *sb, struct fs_context *fc)
 	sb->s_blocksize_bits    = PAGE_SHIFT;
 	sb->s_magic             = EFIVARFS_MAGIC;
 	sb->s_op                = &efivarfs_ops;
-	sb->s_d_op		= &efivarfs_d_ops;
+	set_default_d_op(sb, &efivarfs_d_ops);
+	sb->s_d_flags |= DCACHE_DONTCACHE;
 	sb->s_time_gran         = 1;
 
 	if (!efivar_supports_writes())
@@ -529,6 +533,7 @@ static struct file_system_type efivarfs_type = {
 	.init_fs_context = efivarfs_init_fs_context,
 	.kill_sb = efivarfs_kill_sb,
 	.parameters = efivarfs_parameters,
+	.fs_flags = FS_POWER_FREEZE,
 };
 
 static __init int efivarfs_init(void)

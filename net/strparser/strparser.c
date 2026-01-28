@@ -238,7 +238,7 @@ static int __strp_recv(read_descriptor_t *desc, struct sk_buff *orig_skb,
 				strp_parser_err(strp, -EMSGSIZE, desc);
 				break;
 			} else if (len <= (ssize_t)head->len -
-					  skb->len - stm->strp.offset) {
+					  (ssize_t)skb->len - stm->strp.offset) {
 				/* Length must be into new skb (and also
 				 * greater than zero)
 				 */
@@ -333,7 +333,7 @@ static int strp_recv(read_descriptor_t *desc, struct sk_buff *orig_skb,
 	struct strparser *strp = (struct strparser *)desc->arg.data;
 
 	return __strp_recv(desc, orig_skb, orig_offset, orig_len,
-			   strp->sk->sk_rcvbuf, strp->sk->sk_rcvtimeo);
+			   strp->sk->sk_rcvbuf, READ_ONCE(strp->sk->sk_rcvtimeo));
 }
 
 static int default_read_sock_done(struct strparser *strp, int err)

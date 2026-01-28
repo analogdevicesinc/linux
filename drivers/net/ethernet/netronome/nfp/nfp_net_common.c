@@ -2394,8 +2394,7 @@ static int nfp_udp_tunnel_sync(struct net_device *netdev, unsigned int table)
 
 static const struct udp_tunnel_nic_info nfp_udp_tunnels = {
 	.sync_table     = nfp_udp_tunnel_sync,
-	.flags          = UDP_TUNNEL_NIC_INFO_MAY_SLEEP |
-			  UDP_TUNNEL_NIC_INFO_OPEN_ONLY,
+	.flags          = UDP_TUNNEL_NIC_INFO_OPEN_ONLY,
 	.tables         = {
 		{
 			.n_entries      = NFP_NET_N_VXLAN_PORTS,
@@ -2558,14 +2557,16 @@ nfp_net_alloc(struct pci_dev *pdev, const struct nfp_dev_info *dev_info,
 	err = nfp_net_tlv_caps_parse(&nn->pdev->dev, nn->dp.ctrl_bar,
 				     &nn->tlv_caps);
 	if (err)
-		goto err_free_nn;
+		goto err_free_xsk_pools;
 
 	err = nfp_ccm_mbox_alloc(nn);
 	if (err)
-		goto err_free_nn;
+		goto err_free_xsk_pools;
 
 	return nn;
 
+err_free_xsk_pools:
+	kfree(nn->dp.xsk_pools);
 err_free_nn:
 	if (nn->dp.netdev)
 		free_netdev(nn->dp.netdev);

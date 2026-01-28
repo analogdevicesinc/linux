@@ -6,7 +6,6 @@
 
 #include <linux/bug.h>
 #include <linux/cpu_pm.h>
-#include <linux/entry-kvm.h>
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/kvm_host.h>
@@ -170,10 +169,6 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 	if (ret)
 		return ret;
 
-	ret = pkvm_init_host_vm(kvm);
-	if (ret)
-		goto err_unshare_kvm;
-
 	if (!zalloc_cpumask_var(&kvm->arch.supported_cpus, GFP_KERNEL_ACCOUNT)) {
 		ret = -ENOMEM;
 		goto err_unshare_kvm;
@@ -183,6 +178,16 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 	ret = kvm_init_stage2_mmu(kvm, &kvm->arch.mmu, type);
 	if (ret)
 		goto err_free_cpumask;
+
+	if (is_protected_kvm_enabled()) {
+		/*
+		 * If any failures occur after this is successful, make sure to
+		 * call __pkvm_unreserve_vm to unreserve the VM in hyp.
+		 */
+		ret = pkvm_init_host_vm(kvm);
+		if (ret)
+			goto err_free_cpumask;
+	}
 
 	kvm_vgic_early_init(kvm);
 
@@ -408,6 +413,13 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 	case KVM_CAP_ARM_SUPPORTED_REG_MASK_RANGES:
 		r = BIT(0);
 		break;
+	case KVM_CAP_ARM_CACHEABLE_PFNMAP_SUPPORTED:
+		if (!kvm)
+			r = -EINVAL;
+		else
+			r = kvm_supports_cacheable_pfnmap();
+		break;
+
 	default:
 		r = 0;
 	}
@@ -521,7 +533,7 @@ static void vcpu_set_pauth_traps(struct kvm_vcpu *vcpu)
 		 * Either we're running an L2 guest, and the API/APK bits come
 		 * from L1's HCR_EL2, or API/APK are both set.
 		 */
-		if (unlikely(vcpu_has_nv(vcpu) && !is_hyp_ctxt(vcpu))) {
+		if (unlikely(is_nested_ctxt(vcpu))) {
 			u64 val;
 
 			val = __vcpu_sys_reg(vcpu, HCR_EL2);
@@ -612,6 +624,7 @@ nommu:
 	kvm_timer_vcpu_load(vcpu);
 	kvm_vgic_load(vcpu);
 	kvm_vcpu_load_debug(vcpu);
+	kvm_vcpu_load_fgt(vcpu);
 	if (has_vhe())
 		kvm_vcpu_load_vhe(vcpu);
 	kvm_arch_vcpu_load_fp(vcpu);
@@ -740,7 +753,8 @@ int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
  */
 int kvm_arch_vcpu_runnable(struct kvm_vcpu *v)
 {
-	bool irq_lines = *vcpu_hcr(v) & (HCR_VI | HCR_VF);
+	bool irq_lines = *vcpu_hcr(v) & (HCR_VI | HCR_VF | HCR_VSE);
+
 	return ((irq_lines || kvm_vgic_vcpu_pending_irq(v))
 		&& !kvm_arm_vcpu_stopped(v) && !v->arch.pause);
 }
@@ -1169,7 +1183,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		/*
 		 * Check conditions before entering the guest
 		 */
-		ret = xfer_to_guest_mode_handle_work(vcpu);
+		ret = kvm_xfer_to_guest_mode_handle_work(vcpu);
 		if (!ret)
 			ret = 1;
 
@@ -1182,6 +1196,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		 * non-preemptible context.
 		 */
 		preempt_disable();
+
+		kvm_nested_flush_hwstate(vcpu);
 
 		if (kvm_vcpu_has_pmu(vcpu))
 			kvm_pmu_flush_hwstate(vcpu);
@@ -1281,6 +1297,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 
 		/* Exit types that need handling before we can be preempted */
 		handle_exit_early(vcpu, ret);
+
+		kvm_nested_sync_hwstate(vcpu);
 
 		preempt_enable();
 
@@ -1777,6 +1795,9 @@ long kvm_arch_vcpu_ioctl(struct file *filp,
 	case KVM_GET_VCPU_EVENTS: {
 		struct kvm_vcpu_events events;
 
+		if (!kvm_vcpu_initialized(vcpu))
+			return -ENOEXEC;
+
 		if (kvm_arm_vcpu_get_events(vcpu, &events))
 			return -EINVAL;
 
@@ -1787,6 +1808,9 @@ long kvm_arch_vcpu_ioctl(struct file *filp,
 	}
 	case KVM_SET_VCPU_EVENTS: {
 		struct kvm_vcpu_events events;
+
+		if (!kvm_vcpu_initialized(vcpu))
+			return -ENOEXEC;
 
 		if (copy_from_user(&events, argp, sizeof(events)))
 			return -EFAULT;
@@ -2101,8 +2125,10 @@ static void cpu_hyp_init_features(void)
 {
 	cpu_set_hyp_vector();
 
-	if (is_kernel_in_hyp_mode())
+	if (is_kernel_in_hyp_mode()) {
 		kvm_timer_init_vhe();
+		kvm_debug_init_vhe();
+	}
 
 	if (vgic_present)
 		kvm_vgic_init_cpu_hardware();
@@ -2303,8 +2329,9 @@ static int __init init_subsystems(void)
 	}
 
 	if (kvm_mode == KVM_MODE_NV &&
-	   !(vgic_present && kvm_vgic_global_state.type == VGIC_V3)) {
-		kvm_err("NV support requires GICv3, giving up\n");
+		!(vgic_present && (kvm_vgic_global_state.type == VGIC_V3 ||
+				   kvm_vgic_global_state.has_gcie_v3_compat))) {
+		kvm_err("NV support requires GICv3 or GICv5 with legacy support, giving up\n");
 		err = -EINVAL;
 		goto out;
 	}
@@ -2396,12 +2423,12 @@ static u64 get_hyp_id_aa64pfr0_el1(void)
 	 */
 	u64 val = read_sanitised_ftr_reg(SYS_ID_AA64PFR0_EL1);
 
-	val &= ~(ARM64_FEATURE_MASK(ID_AA64PFR0_EL1_CSV2) |
-		 ARM64_FEATURE_MASK(ID_AA64PFR0_EL1_CSV3));
+	val &= ~(ID_AA64PFR0_EL1_CSV2 |
+		 ID_AA64PFR0_EL1_CSV3);
 
-	val |= FIELD_PREP(ARM64_FEATURE_MASK(ID_AA64PFR0_EL1_CSV2),
+	val |= FIELD_PREP(ID_AA64PFR0_EL1_CSV2,
 			  arm64_get_spectre_v2_state() == SPECTRE_UNAFFECTED);
-	val |= FIELD_PREP(ARM64_FEATURE_MASK(ID_AA64PFR0_EL1_CSV3),
+	val |= FIELD_PREP(ID_AA64PFR0_EL1_CSV3,
 			  arm64_get_meltdown_state() == SPECTRE_UNAFFECTED);
 
 	return val;
@@ -2765,19 +2792,15 @@ void kvm_arch_irq_bypass_del_producer(struct irq_bypass_consumer *cons,
 	kvm_vgic_v4_unset_forwarding(irqfd->kvm, prod->irq);
 }
 
-bool kvm_arch_irqfd_route_changed(struct kvm_kernel_irq_routing_entry *old,
-				  struct kvm_kernel_irq_routing_entry *new)
+void kvm_arch_update_irqfd_routing(struct kvm_kernel_irqfd *irqfd,
+				   struct kvm_kernel_irq_routing_entry *old,
+				   struct kvm_kernel_irq_routing_entry *new)
 {
-	if (old->type != KVM_IRQ_ROUTING_MSI ||
-	    new->type != KVM_IRQ_ROUTING_MSI)
-		return true;
+	if (old->type == KVM_IRQ_ROUTING_MSI &&
+	    new->type == KVM_IRQ_ROUTING_MSI &&
+	    !memcmp(&old->msi, &new->msi, sizeof(new->msi)))
+		return;
 
-	return memcmp(&old->msi, &new->msi, sizeof(new->msi));
-}
-
-int kvm_arch_update_irqfd_routing(struct kvm *kvm, unsigned int host_irq,
-				  uint32_t guest_irq, bool set)
-{
 	/*
 	 * Remapping the vLPI requires taking the its_lock mutex to resolve
 	 * the new translation. We're in spinlock land at this point, so no
@@ -2785,7 +2808,7 @@ int kvm_arch_update_irqfd_routing(struct kvm *kvm, unsigned int host_irq,
 	 *
 	 * Unmap the vLPI and fall back to software LPI injection.
 	 */
-	return kvm_vgic_v4_unset_forwarding(kvm, host_irq);
+	return kvm_vgic_v4_unset_forwarding(irqfd->kvm, irqfd->producer->irq);
 }
 
 void kvm_arch_irq_bypass_stop(struct irq_bypass_consumer *cons)
