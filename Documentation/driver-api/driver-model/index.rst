@@ -14,3 +14,4 @@ Driver Model
    overview
    platform
    porting
+   revocable
