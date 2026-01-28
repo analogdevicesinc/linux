@@ -486,15 +486,7 @@ static int fsl_lpspi_setup_transfer(struct spi_controller *controller,
 		fsl_lpspi->tx = fsl_lpspi_buf_tx_u32;
 	}
 
-	/*
-	 * t->len is 'unsigned' and txfifosize and watermrk is 'u8', force
-	 * type cast is inevitable. When len > 255, len will be truncated in min_t(),
-	 * it caused wrong watermark set. 'unsigned int' is as the designated type
-	 * for min_t() to avoid truncation.
-	 */
-	fsl_lpspi->watermark = min_t(unsigned int,
-				     fsl_lpspi->txfifosize,
-				     t->len);
+	fsl_lpspi->watermark = min(fsl_lpspi->txfifosize, t->len);
 
 	if (fsl_lpspi_can_dma(controller, spi, t))
 		fsl_lpspi->usedma = true;
@@ -957,7 +949,6 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 	controller->unprepare_transfer_hardware = lpspi_unprepare_xfer_hardware;
 	controller->mode_bits = SPI_CPOL | SPI_CPHA | SPI_CS_HIGH;
 	controller->flags = SPI_CONTROLLER_MUST_RX | SPI_CONTROLLER_MUST_TX;
-	controller->dev.of_node = pdev->dev.of_node;
 	controller->bus_num = pdev->id;
 	controller->num_chipselect = num_cs;
 	controller->target_abort = fsl_lpspi_target_abort;
