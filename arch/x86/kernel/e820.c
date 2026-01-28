@@ -1176,15 +1176,18 @@ __init void e820__reserve_resources_late(void)
 	u32 idx;
 	struct resource *res;
 
-	/*
-	 * Register device address regions listed in the E820 map,
-	 * these can be claimed by device drivers later on:
-	 */
-	res = e820_res;
-	for (idx = 0; idx < e820_table->nr_entries; idx++) {
-		if (!res->parent && res->end)
+	for (idx = 0, res = e820_res; idx < e820_table->nr_entries; idx++, res++) {
+		/* skip added or uninitialized resources */
+		if (res->parent || !res->end)
+			continue;
+
+		/* set aside soft-reserved resources for driver consideration */
+		if (res->desc == IORES_DESC_SOFT_RESERVED) {
+			insert_resource_expand_to_fit(&soft_reserve_resource, res);
+		} else {
+			/* publish the rest immediately */
 			insert_resource_expand_to_fit(&iomem_resource, res);
-		res++;
+		}
 	}
 
 	/*
