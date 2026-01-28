@@ -879,7 +879,7 @@ static bool try_to_unlazy(struct nameidata *nd)
 {
 	struct dentry *parent = nd->path.dentry;
 
-	BUG_ON(!(nd->flags & LOOKUP_RCU));
+	VFS_BUG_ON(!(nd->flags & LOOKUP_RCU));
 
 	if (unlikely(nd->flags & LOOKUP_CACHED)) {
 		drop_links(nd);
@@ -919,7 +919,8 @@ out:
 static bool try_to_unlazy_next(struct nameidata *nd, struct dentry *dentry)
 {
 	int res;
-	BUG_ON(!(nd->flags & LOOKUP_RCU));
+
+	VFS_BUG_ON(!(nd->flags & LOOKUP_RCU));
 
 	if (unlikely(nd->flags & LOOKUP_CACHED)) {
 		drop_links(nd);
@@ -1630,9 +1631,6 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path)
 {
 	struct dentry *dentry = path->dentry;
 	unsigned int flags = dentry->d_flags;
-
-	if (likely(!(flags & DCACHE_MANAGED_DENTRY)))
-		return true;
 
 	if (unlikely(nd->flags & LOOKUP_NO_XDEV))
 		return false;
@@ -3613,7 +3611,7 @@ EXPORT_SYMBOL(__check_sticky);
  * 11. We don't allow removal of NFS sillyrenamed files; it's handled by
  *     nfs_async_unlink().
  */
-static int may_delete(struct mnt_idmap *idmap, struct inode *dir,
+int may_delete_dentry(struct mnt_idmap *idmap, struct inode *dir,
 		      struct dentry *victim, bool isdir)
 {
 	struct inode *inode = d_backing_inode(victim);
@@ -3655,6 +3653,7 @@ static int may_delete(struct mnt_idmap *idmap, struct inode *dir,
 		return -EBUSY;
 	return 0;
 }
+EXPORT_SYMBOL(may_delete_dentry);
 
 /*	Check whether we can create an object with dentry child in directory
  *  dir.
@@ -3665,8 +3664,8 @@ static int may_delete(struct mnt_idmap *idmap, struct inode *dir,
  *  4. We should have write and exec permissions on dir
  *  5. We can't do it if dir is immutable (done in permission())
  */
-static inline int may_create(struct mnt_idmap *idmap,
-			     struct inode *dir, struct dentry *child)
+int may_create_dentry(struct mnt_idmap *idmap,
+		      struct inode *dir, struct dentry *child)
 {
 	audit_inode_child(dir, child, AUDIT_TYPE_CHILD_CREATE);
 	if (child->d_inode)
@@ -3678,6 +3677,7 @@ static inline int may_create(struct mnt_idmap *idmap,
 
 	return inode_permission(idmap, dir, MAY_WRITE | MAY_EXEC);
 }
+EXPORT_SYMBOL(may_create_dentry);
 
 // p1 != p2, both are on the same filesystem, ->s_vfs_rename_mutex is held
 static struct dentry *lock_two_directories(struct dentry *p1, struct dentry *p2)
@@ -4124,7 +4124,7 @@ int vfs_create(struct mnt_idmap *idmap, struct dentry *dentry, umode_t mode,
 	struct inode *dir = d_inode(dentry->d_parent);
 	int error;
 
-	error = may_create(idmap, dir, dentry);
+	error = may_create_dentry(idmap, dir, dentry);
 	if (error)
 		return error;
 
@@ -4150,7 +4150,7 @@ int vfs_mkobj(struct dentry *dentry, umode_t mode,
 		void *arg)
 {
 	struct inode *dir = dentry->d_parent->d_inode;
-	int error = may_create(&nop_mnt_idmap, dir, dentry);
+	int error = may_create_dentry(&nop_mnt_idmap, dir, dentry);
 	if (error)
 		return error;
 
@@ -4288,19 +4288,16 @@ static int may_o_create(struct mnt_idmap *idmap,
  *
  * Returns an error code otherwise.
  */
-static struct dentry *atomic_open(struct nameidata *nd, struct dentry *dentry,
+static struct dentry *atomic_open(const struct path *path, struct dentry *dentry,
 				  struct file *file,
 				  int open_flag, umode_t mode)
 {
 	struct dentry *const DENTRY_NOT_SET = (void *) -1UL;
-	struct inode *dir =  nd->path.dentry->d_inode;
+	struct inode *dir =  path->dentry->d_inode;
 	int error;
 
-	if (nd->flags & LOOKUP_DIRECTORY)
-		open_flag |= O_DIRECTORY;
-
 	file->__f_path.dentry = DENTRY_NOT_SET;
-	file->__f_path.mnt = nd->path.mnt;
+	file->__f_path.mnt = path->mnt;
 	error = dir->i_op->atomic_open(dir, dentry, file,
 				       open_to_namei_flags(open_flag), mode);
 	d_lookup_done(dentry);
@@ -4412,7 +4409,9 @@ static struct dentry *lookup_open(struct nameidata *nd, struct file *file,
 	if (create_error)
 		open_flag &= ~O_CREAT;
 	if (dir_inode->i_op->atomic_open) {
-		dentry = atomic_open(nd, dentry, file, open_flag, mode);
+		if (nd->flags & LOOKUP_DIRECTORY)
+			open_flag |= O_DIRECTORY;
+		dentry = atomic_open(&nd->path, dentry, file, open_flag, mode);
 		if (unlikely(create_error) && dentry == ERR_PTR(-ENOENT))
 			dentry = ERR_PTR(create_error);
 		return dentry;
@@ -4946,6 +4945,73 @@ inline struct dentry *start_creating_user_path(
 }
 EXPORT_SYMBOL(start_creating_user_path);
 
+/**
+ * dentry_create - Create and open a file
+ * @path: path to create
+ * @flags: O\_ flags
+ * @mode: mode bits for new file
+ * @cred: credentials to use
+ *
+ * Caller must hold the parent directory's lock, and have prepared
+ * a negative dentry, placed in @path->dentry, for the new file.
+ *
+ * Caller sets @path->mnt to the vfsmount of the filesystem where
+ * the new file is to be created. The parent directory and the
+ * negative dentry must reside on the same filesystem instance.
+ *
+ * On success, returns a ``struct file *``. Otherwise an ERR_PTR
+ * is returned.
+ */
+struct file *dentry_create(struct path *path, int flags, umode_t mode,
+			   const struct cred *cred)
+{
+	struct file *file __free(fput) = NULL;
+	struct dentry *dentry = path->dentry;
+	struct dentry *dir = dentry->d_parent;
+	struct inode *dir_inode = d_inode(dir);
+	struct mnt_idmap *idmap;
+	int error, create_error;
+
+	file = alloc_empty_file(flags, cred);
+	if (IS_ERR(file))
+		return file;
+
+	idmap = mnt_idmap(path->mnt);
+
+	if (dir_inode->i_op->atomic_open) {
+		path->dentry = dir;
+		mode = vfs_prepare_mode(idmap, dir_inode, mode, S_IALLUGO, S_IFREG);
+
+		create_error = may_o_create(idmap, path, dentry, mode);
+		if (create_error)
+			flags &= ~O_CREAT;
+
+		dentry = atomic_open(path, dentry, file, flags, mode);
+		error = PTR_ERR_OR_ZERO(dentry);
+
+		if (unlikely(create_error) && error == -ENOENT)
+			error = create_error;
+
+		if (!error) {
+			if (file->f_mode & FMODE_CREATED)
+				fsnotify_create(dir->d_inode, dentry);
+			if (file->f_mode & FMODE_OPENED)
+				fsnotify_open(file);
+		}
+
+		path->dentry = dentry;
+
+	} else {
+		error = vfs_create(mnt_idmap(path->mnt), path->dentry, mode, NULL);
+		if (!error)
+			error = vfs_open(path, file);
+	}
+	if (unlikely(error))
+		return ERR_PTR(error);
+
+	return no_free_ptr(file);
+}
+EXPORT_SYMBOL(dentry_create);
 
 /**
  * vfs_mknod - create device node or file
@@ -4969,7 +5035,7 @@ int vfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
 	      struct delegated_inode *delegated_inode)
 {
 	bool is_whiteout = S_ISCHR(mode) && dev == WHITEOUT_DEV;
-	int error = may_create(idmap, dir, dentry);
+	int error = may_create_dentry(idmap, dir, dentry);
 
 	if (error)
 		return error;
@@ -5115,7 +5181,7 @@ struct dentry *vfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 	unsigned max_links = dir->i_sb->s_max_links;
 	struct dentry *de;
 
-	error = may_create(idmap, dir, dentry);
+	error = may_create_dentry(idmap, dir, dentry);
 	if (error)
 		goto err;
 
@@ -5218,7 +5284,7 @@ SYSCALL_DEFINE2(mkdir, const char __user *, pathname, umode_t, mode)
 int vfs_rmdir(struct mnt_idmap *idmap, struct inode *dir,
 	      struct dentry *dentry, struct delegated_inode *delegated_inode)
 {
-	int error = may_delete(idmap, dir, dentry, 1);
+	int error = may_delete_dentry(idmap, dir, dentry, true);
 
 	if (error)
 		return error;
@@ -5353,7 +5419,7 @@ int vfs_unlink(struct mnt_idmap *idmap, struct inode *dir,
 	       struct dentry *dentry, struct delegated_inode *delegated_inode)
 {
 	struct inode *target = dentry->d_inode;
-	int error = may_delete(idmap, dir, dentry, 0);
+	int error = may_delete_dentry(idmap, dir, dentry, false);
 
 	if (error)
 		return error;
@@ -5505,7 +5571,7 @@ int vfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
 {
 	int error;
 
-	error = may_create(idmap, dir, dentry);
+	error = may_create_dentry(idmap, dir, dentry);
 	if (error)
 		return error;
 
@@ -5613,7 +5679,7 @@ int vfs_link(struct dentry *old_dentry, struct mnt_idmap *idmap,
 	if (!inode)
 		return -ENOENT;
 
-	error = may_create(idmap, dir, new_dentry);
+	error = may_create_dentry(idmap, dir, new_dentry);
 	if (error)
 		return error;
 
@@ -5825,21 +5891,21 @@ int vfs_rename(struct renamedata *rd)
 	if (source == target)
 		return 0;
 
-	error = may_delete(rd->mnt_idmap, old_dir, old_dentry, is_dir);
+	error = may_delete_dentry(rd->mnt_idmap, old_dir, old_dentry, is_dir);
 	if (error)
 		return error;
 
 	if (!target) {
-		error = may_create(rd->mnt_idmap, new_dir, new_dentry);
+		error = may_create_dentry(rd->mnt_idmap, new_dir, new_dentry);
 	} else {
 		new_is_dir = d_is_dir(new_dentry);
 
 		if (!(flags & RENAME_EXCHANGE))
-			error = may_delete(rd->mnt_idmap, new_dir,
-					   new_dentry, is_dir);
+			error = may_delete_dentry(rd->mnt_idmap, new_dir,
+						  new_dentry, is_dir);
 		else
-			error = may_delete(rd->mnt_idmap, new_dir,
-					   new_dentry, new_is_dir);
+			error = may_delete_dentry(rd->mnt_idmap, new_dir,
+						  new_dentry, new_is_dir);
 	}
 	if (error)
 		return error;

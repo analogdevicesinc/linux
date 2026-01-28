@@ -44,7 +44,6 @@ extern void __init chrdev_init(void);
 /*
  * fs_context.c
  */
-extern const struct fs_context_operations legacy_fs_context_ops;
 extern int parse_monolithic_mount_data(struct fs_context *, void *);
 extern void vfs_clean_context(struct fs_context *fc);
 extern int finish_clean_context(struct fs_context *fc);
@@ -90,6 +89,7 @@ extern bool may_mount(void);
 int path_mount(const char *dev_name, const struct path *path,
 		const char *type_page, unsigned long flags, void *data_page);
 int path_umount(const struct path *path, int flags);
+int path_pivot_root(struct path *new, struct path *old);
 
 int show_path(struct seq_file *m, struct dentry *root);
 
@@ -214,7 +214,8 @@ bool in_group_or_capable(struct mnt_idmap *idmap,
 /*
  * fs-writeback.c
  */
-extern long get_nr_dirty_inodes(void);
+long get_nr_dirty_inodes(void);
+bool sync_lazytime(struct inode *inode);
 
 /*
  * dcache.c
@@ -247,6 +248,7 @@ extern void mnt_pin_kill(struct mount *m);
  */
 extern const struct dentry_operations ns_dentry_operations;
 int open_namespace(struct ns_common *ns);
+struct file *open_namespace_file(struct ns_common *ns);
 
 /*
  * fs/stat.c:
