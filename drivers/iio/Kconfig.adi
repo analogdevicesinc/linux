@@ -229,4 +229,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADF4382
 	imply AXI_AION_TRIG
 	imply AD9088
+	imply TMC5222_I2C if I2C
+	imply TMC5221_SPI if SPI
+	imply TMC5222_CORE
 
