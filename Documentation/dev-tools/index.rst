@@ -39,11 +39,3 @@ Documentation/process/debugging/index.rst
    autofdo
    propeller
    container
-
-
-.. only::  subproject and html
-
-   Indices
-   =======
-
-   * :ref:`genindex`

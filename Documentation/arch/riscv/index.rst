@@ -18,10 +18,3 @@ RISC-V architecture
     zicfiss
 
     features
-
-.. only::  subproject and html
-
-   Indices
-   =======
-
-   * :ref:`genindex`

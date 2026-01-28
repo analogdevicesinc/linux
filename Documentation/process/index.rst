@@ -69,6 +69,8 @@ beyond).
    management-style
    researcher-guidelines
    conclave
+   generated-content
+   coding-assistants
 
 Dealing with bugs
 -----------------
@@ -109,10 +111,3 @@ developers:
 
    kernel-docs
    deprecated
-
-.. only::  subproject and html
-
-   Indices
-   =======
-
-   * :ref:`genindex`

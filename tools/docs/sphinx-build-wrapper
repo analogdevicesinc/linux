@@ -119,16 +119,17 @@ class SphinxBuilder:
 
         return path
 
-    def check_rust(self):
+    def check_rust(self, sphinxdirs):
         """
         Checks if Rust is enabled
         """
-        self.rustdoc = False
-
         config = os.path.join(self.srctree, ".config")
 
+        if not {'.', 'rust'}.intersection(sphinxdirs):
+            return False
+
         if not os.path.isfile(config):
-            return
+            return False
 
         re_rust = re.compile(r"CONFIG_RUST=(m|y)")
 
@@ -136,11 +137,13 @@ class SphinxBuilder:
             with open(config, "r", encoding="utf-8") as fp:
                 for line in fp:
                     if re_rust.match(line):
-                        self.rustdoc = True
-                        return
+                        return True
 
         except OSError as e:
             print(f"Failed to open {config}", file=sys.stderr)
+            return False
+
+        return False
 
     def get_sphinx_extra_opts(self, n_jobs):
         """
@@ -246,7 +249,7 @@ class SphinxBuilder:
         #
         self.sphinxbuild = os.environ.get("SPHINXBUILD", "sphinx-build")
         self.kerneldoc = self.get_path(os.environ.get("KERNELDOC",
-                                                      "scripts/kernel-doc.py"))
+                                                      "tools/docs/kernel-doc"))
         self.builddir = self.get_path(builddir, use_cwd=True, abs_path=True)
 
         #
@@ -258,8 +261,6 @@ class SphinxBuilder:
         self.env = os.environ.copy()
 
         self.get_sphinx_extra_opts(n_jobs)
-
-        self.check_rust()
 
         #
         # If venv command line argument is specified, run Sphinx from venv
@@ -351,23 +352,6 @@ class SphinxBuilder:
                 shutil.copy2(css, static_dir)
             except (OSError, IOError) as e:
                 print(f"Warning: Failed to copy CSS: {e}", file=sys.stderr)
-
-        if self.rustdoc:
-            print("Building rust docs")
-            if "MAKE" in self.env:
-                cmd = [self.env["MAKE"]]
-            else:
-                cmd = ["make", "LLVM=1"]
-
-            cmd += [ "rustdoc"]
-            if self.verbose:
-                print(" ".join(cmd))
-
-            try:
-                subprocess.run(cmd, check=True)
-            except subprocess.CalledProcessError as e:
-                print(f"Ignored errors when building rustdoc: {e}. Is RUST enabled?",
-                      file=sys.stderr)
 
     def build_pdf_file(self, latex_cmd, from_dir, path):
         """Builds a single pdf file using latex_cmd"""
@@ -689,29 +673,8 @@ class SphinxBuilder:
         if kerneldoc.startswith(self.srctree):
             kerneldoc = os.path.relpath(kerneldoc, self.srctree)
 
-        args = [ "-b", builder, "-c", docs_dir ]
-
-        if builder == "latex":
-            if not paper:
-                paper = PAPER[1]
-
-            args.extend(["-D", f"latex_elements.papersize={paper}paper"])
-
-        if self.rustdoc:
-            args.extend(["-t", "rustdoc"])
-
         if not sphinxdirs:
             sphinxdirs = os.environ.get("SPHINXDIRS", ".")
-
-        #
-        # The sphinx-build tool has a bug: internally, it tries to set
-        # locale with locale.setlocale(locale.LC_ALL, ''). This causes a
-        # crash if language is not set. Detect and fix it.
-        #
-        try:
-            locale.setlocale(locale.LC_ALL, '')
-        except locale.Error:
-            self.env["LC_ALL"] = "C"
 
         #
         # sphinxdirs can be a list or a whitespace-separated string
@@ -722,6 +685,28 @@ class SphinxBuilder:
                 sphinxdirs_list += sphinxdir
             else:
                 sphinxdirs_list += sphinxdir.split()
+
+        args = [ "-b", builder, "-c", docs_dir ]
+
+        if builder == "latex":
+            if not paper:
+                paper = PAPER[1]
+
+            args.extend(["-D", f"latex_elements.papersize={paper}paper"])
+
+        rustdoc = self.check_rust(sphinxdirs_list)
+        if rustdoc:
+            args.extend(["-t", "rustdoc"])
+
+        #
+        # The sphinx-build tool has a bug: internally, it tries to set
+        # locale with locale.setlocale(locale.LC_ALL, ''). This causes a
+        # crash if language is not set. Detect and fix it.
+        #
+        try:
+            locale.setlocale(locale.LC_ALL, '')
+        except locale.Error:
+            self.env["LC_ALL"] = "C"
 
         #
         # Step 1:  Build each directory in separate.
@@ -750,7 +735,6 @@ class SphinxBuilder:
 
             build_args = args + [
                 "-d", doctree_dir,
-                "-D", f"kerneldoc_bin={kerneldoc}",
                 "-D", f"version={self.kernelversion}",
                 "-D", f"release={self.kernelrelease}",
                 "-D", f"kerneldoc_srctree={self.srctree}",
@@ -785,6 +769,23 @@ class SphinxBuilder:
             self.handle_pdf(output_dirs, deny_vf)
         elif target == "infodocs":
             self.handle_info(output_dirs)
+
+        if rustdoc and target in ["htmldocs", "epubdocs"]:
+            print("Building rust docs")
+            if "MAKE" in self.env:
+                cmd = [self.env["MAKE"]]
+            else:
+                cmd = ["make", "LLVM=1"]
+
+            cmd += [ "rustdoc"]
+            if self.verbose:
+                print(" ".join(cmd))
+
+            try:
+                subprocess.run(cmd, check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Ignored errors when building rustdoc: {e}. Is RUST enabled?",
+                      file=sys.stderr)
 
 def jobs_type(value):
     """
