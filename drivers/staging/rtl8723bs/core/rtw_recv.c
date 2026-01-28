@@ -501,7 +501,7 @@ static union recv_frame *portctrl(struct adapter *adapter, union recv_frame *pre
 {
 	u8 *psta_addr = NULL;
 	u8 *ptr;
-	uint  auth_alg;
+	unsigned int auth_alg;
 	struct recv_frame_hdr *pfhdr;
 	struct sta_info *psta;
 	struct sta_priv *pstapriv;
@@ -2034,9 +2034,6 @@ static int recv_indicatepkt_reorder(struct adapter *padapter, union recv_frame *
 			retval = amsdu_to_msdu(padapter, prframe);
 
 			preorder_ctrl->indicate_seq = (preorder_ctrl->indicate_seq + 1)%4096;
-
-			if (retval != _SUCCESS) {
-			}
 
 			return retval;
 		}

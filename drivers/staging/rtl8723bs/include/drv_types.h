@@ -156,14 +156,10 @@ struct registry_priv {
 	u8 notch_filter;
 
 	/* define for tx power adjust */
-	u8 RegEnableTxPowerLimit;
-	u8 RegEnableTxPowerByRate;
-	u8 RegPowerBase;
-	u8 RegPwrTblSel;
-	s8	TxBBSwing_2G;
-	u8 AmplifierType_2G;
-	u8 bEn_RFE;
-	u8 RFE_Type;
+	u8 reg_enable_tx_power_limit;
+	u8 reg_enable_tx_power_by_rate;
+	u8 reg_power_base;
+	u8 reg_pwr_tbl_sel;
 	u8  check_fw_ps;
 
 	u8 qos_opt_enable;

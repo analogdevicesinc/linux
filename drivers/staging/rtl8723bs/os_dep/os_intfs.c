@@ -259,13 +259,10 @@ static void loadparam(struct adapter *padapter, struct net_device *pnetdev)
 
 	registry_par->notch_filter = (u8)rtw_notch_filter;
 
-	registry_par->RegEnableTxPowerLimit = (u8)rtw_tx_pwr_lmt_enable;
-	registry_par->RegEnableTxPowerByRate = (u8)rtw_tx_pwr_by_rate;
+	registry_par->reg_enable_tx_power_limit = (u8)rtw_tx_pwr_lmt_enable;
+	registry_par->reg_enable_tx_power_by_rate = (u8)rtw_tx_pwr_by_rate;
 
-	registry_par->RegPowerBase = 14;
-	registry_par->TxBBSwing_2G = 0xFF;
-	registry_par->bEn_RFE = 1;
-	registry_par->RFE_Type = 64;
+	registry_par->reg_power_base = 14;
 
 	registry_par->qos_opt_enable = (u8)rtw_qos_opt_enable;
 
@@ -553,7 +550,6 @@ static void rtw_init_default_value(struct adapter *padapter)
 	padapter->fix_rate = 0xFF;
 	padapter->driver_ampdu_spacing = 0xFF;
 	padapter->driver_rx_ampdu_factor =  0xFF;
-
 }
 
 struct dvobj_priv *devobj_init(void)
@@ -898,7 +894,6 @@ void rtw_ips_pwr_down(struct adapter *padapter)
 
 void rtw_ips_dev_unload(struct adapter *padapter)
 {
-
 	if (!padapter->bSurpriseRemoved)
 		rtw_hal_deinit(padapter);
 }
@@ -934,14 +929,6 @@ static int netdev_close(struct net_device *pnetdev)
 	padapter->net_closed = true;
 	padapter->netif_up = false;
 
-/*if (!padapter->hw_init_completed)
-	{
-
-		padapter->bDriverStopped = true;
-
-		rtw_dev_unload(padapter);
-	}
-	else*/
 	if (pwrctl->rf_pwrstate == rf_on) {
 		/* s1. */
 		if (pnetdev) {
@@ -980,7 +967,6 @@ void rtw_dev_unload(struct adapter *padapter)
 	u8 cnt = 0;
 
 	if (padapter->bup) {
-
 		padapter->bDriverStopped = true;
 		if (padapter->xmitpriv.ack_tx)
 			rtw_ack_tx_done(&padapter->xmitpriv, RTW_SCTX_DONE_DRV_STOP);
@@ -1022,7 +1008,6 @@ void rtw_dev_unload(struct adapter *padapter)
 		}
 
 		padapter->bup = false;
-
 	}
 }
 
