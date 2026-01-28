@@ -14,6 +14,8 @@
 #include <linux/lockd/share.h>
 #include <linux/sunrpc/svc_xprt.h>
 
+#include "xdr4.h"
+
 #define NLMDBG_FACILITY		NLMDBG_CLIENT
 
 /*
