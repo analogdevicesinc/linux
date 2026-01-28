@@ -13,6 +13,7 @@
 #include "filetable.h"
 #include "sqpoll.h"
 #include "fdinfo.h"
+#include "io_uring.h"
 #include "cancel.h"
 #include "rsrc.h"
 #include "opdef.h"
@@ -242,6 +243,104 @@ static void __io_uring_show_fdinfo(struct io_ring_ctx *ctx, struct seq_file *m)
 	}
 	spin_unlock(&ctx->completion_lock);
 	napi_show_fdinfo(ctx, m);
+}
+
+static void io_uring_dump_req(const char *prefix, struct io_kiocb *req)
+{
+	pr_warn("%s: op=%s, flags=0x%llx, user_data=%llu, refs=%d, poll_refs=%d, task=%d, cancel_seq=%d/%d, tw=%ps\n",
+		prefix, io_uring_get_opcode(req->opcode),
+		(unsigned long long)req->flags, req->cqe.user_data,
+		atomic_read(&req->refs), atomic_read(&req->poll_refs),
+		req->tctx ? req->tctx->task->pid : -1,
+		req->work.cancel_seq, req->cancel_seq_set,
+		req->io_task_work.func);
+}
+
+static void io_uring_dump_llist(const char *name, struct llist_head *list)
+{
+	struct io_kiocb *req;
+
+	if (llist_empty(list))
+		return;
+
+	pr_warn("  %s:\n", name);
+	llist_for_each_entry(req, list->first, io_task_work.node)
+		io_uring_dump_req("    req", req);
+}
+
+static void io_uring_dump_task_works(struct task_struct *task)
+{
+	struct callback_head *cb;
+
+	for (cb = READ_ONCE(task->task_works); cb; cb = cb->next)
+		pr_warn("      task_work: %ps\n", cb->func);
+}
+
+/*
+ * Dump pending requests and ring state for debugging stuck rings.
+ * Called with uring_lock held.
+ */
+__cold void io_uring_dump_reqs(struct io_ring_ctx *ctx, const char *prefix)
+{
+	struct io_defer_entry *de;
+	struct io_overflow_cqe *ocqe;
+	struct io_hash_bucket *hb;
+	struct io_kiocb *req;
+	unsigned int i, count;
+
+	lockdep_assert_held(&ctx->uring_lock);
+
+	pr_warn("%s: ring %p, flags=0x%x\n", prefix, ctx, ctx->flags);
+
+	/* Ring state */
+	if (ctx->rings) {
+		struct io_rings *r = ctx->rings;
+
+		pr_warn("  SQ: head=%u, tail=%u (cached_head=%u)\n",
+			READ_ONCE(r->sq.head), READ_ONCE(r->sq.tail),
+			ctx->cached_sq_head);
+		pr_warn("  CQ: head=%u, tail=%u (cached_tail=%u)\n",
+			READ_ONCE(r->cq.head), READ_ONCE(r->cq.tail),
+			ctx->cached_cq_tail);
+	}
+
+	/* Allocated requests */
+	pr_warn("  nr_req_allocated: %u\n", ctx->nr_req_allocated);
+	pr_warn("  cancel_seq: %d\n", atomic_read(&ctx->cancel_seq));
+
+	/* Poll requests in cancel_table */
+	pr_warn("  PollList:\n");
+	for (i = 0; i < (1U << ctx->cancel_table.hash_bits); i++) {
+		hb = &ctx->cancel_table.hbs[i];
+		hlist_for_each_entry(req, &hb->list, hash_node) {
+			struct task_struct *task = req->tctx ? req->tctx->task : NULL;
+
+			io_uring_dump_req("    poll", req);
+			if (task && task_work_pending(task))
+				io_uring_dump_task_works(task);
+		}
+	}
+
+	/* Local task_work (DEFER_TASKRUN) */
+	io_uring_dump_llist("work_llist", &ctx->work_llist);
+	io_uring_dump_llist("retry_llist", &ctx->retry_llist);
+	io_uring_dump_llist("fallback_llist", &ctx->fallback_llist);
+
+	/* Deferred requests */
+	if (!list_empty(&ctx->defer_list)) {
+		pr_warn("  defer_list:\n");
+		list_for_each_entry(de, &ctx->defer_list, list)
+			io_uring_dump_req("    req", de->req);
+	}
+
+	/* Overflow */
+	count = 0;
+	spin_lock(&ctx->completion_lock);
+	list_for_each_entry(ocqe, &ctx->cq_overflow_list, list)
+		count++;
+	spin_unlock(&ctx->completion_lock);
+	if (count)
+		pr_warn("  cq_overflow_list: %u CQEs\n", count);
 }
 
 /*
