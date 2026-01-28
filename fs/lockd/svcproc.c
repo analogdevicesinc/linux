@@ -17,32 +17,30 @@
 #define NLMDBG_FACILITY		NLMDBG_CLIENT
 
 #ifdef CONFIG_LOCKD_V4
-static __be32
-cast_to_nlm(__be32 status, u32 vers)
+static inline __be32 cast_status(__be32 status)
 {
-	/* Note: status is assumed to be in network byte order !!! */
-	if (vers != 4){
-		switch (status) {
-		case nlm_granted:
-		case nlm_lck_denied:
-		case nlm_lck_denied_nolocks:
-		case nlm_lck_blocked:
-		case nlm_lck_denied_grace_period:
-		case nlm_drop_reply:
-			break;
-		case nlm4_deadlock:
-			status = nlm_lck_denied;
-			break;
-		default:
-			status = nlm_lck_denied_nolocks;
-		}
+	switch (status) {
+	case nlm_granted:
+	case nlm_lck_denied:
+	case nlm_lck_denied_nolocks:
+	case nlm_lck_blocked:
+	case nlm_lck_denied_grace_period:
+	case nlm_drop_reply:
+		break;
+	case nlm4_deadlock:
+		status = nlm_lck_denied;
+		break;
+	default:
+		status = nlm_lck_denied_nolocks;
 	}
 
-	return (status);
+	return status;
 }
-#define	cast_status(status) (cast_to_nlm(status, rqstp->rq_vers))
 #else
-#define cast_status(status) (status)
+static inline __be32 cast_status(__be32 status)
+{
+	return status;
+}
 #endif
 
 /*
