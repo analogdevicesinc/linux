@@ -57,6 +57,7 @@ struct nlmclnt_initdata {
 extern struct nlm_host *nlmclnt_init(const struct nlmclnt_initdata *nlm_init);
 extern void	nlmclnt_done(struct nlm_host *host);
 extern struct rpc_clnt *nlmclnt_rpc_clnt(struct nlm_host *host);
+extern void	nlmclnt_shutdown_rpc_clnt(struct nlm_host *host);
 
 /*
  * NLM client operations provide a means to modify RPC processing of NLM
