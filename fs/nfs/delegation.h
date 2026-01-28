@@ -26,18 +26,17 @@ struct nfs_delegation {
 	unsigned long flags;
 	refcount_t refcount;
 	spinlock_t lock;
+	struct list_head entry;
 	struct rcu_head rcu;
 };
 
 enum {
 	NFS_DELEGATION_NEED_RECLAIM = 0,
-	NFS_DELEGATION_RETURN,
 	NFS_DELEGATION_RETURN_IF_CLOSED,
 	NFS_DELEGATION_REFERENCED,
 	NFS_DELEGATION_RETURNING,
 	NFS_DELEGATION_REVOKED,
 	NFS_DELEGATION_TEST_EXPIRED,
-	NFS_DELEGATION_INODE_FREEING,
 	NFS_DELEGATION_RETURN_DELAYED,
 	NFS_DELEGATION_DELEGTIME,
 };
@@ -81,6 +80,7 @@ bool nfs4_copy_delegation_stateid(struct inode *inode, fmode_t flags, nfs4_state
 bool nfs4_refresh_delegation_stateid(nfs4_stateid *dst, struct inode *inode);
 
 struct nfs_delegation *nfs4_get_valid_delegation(const struct inode *inode);
+void nfs_put_delegation(struct nfs_delegation *delegation);
 void nfs_mark_delegation_referenced(struct nfs_delegation *delegation);
 int nfs4_have_delegation(struct inode *inode, fmode_t type, int flags);
 int nfs4_check_delegation(struct inode *inode, fmode_t type);
