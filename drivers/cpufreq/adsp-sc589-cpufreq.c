@@ -43,15 +43,13 @@ static struct cpufreq_driver sc589_cpufreq_driver = {
 
 static int __init sc589_cpufreq_init(void)
 {
-
-	return 0;
+	return cpufreq_register_driver(&sc589_cpufreq_driver);
 }
 module_init(sc589_cpufreq_init);
 
 static void __exit sc589_cpufreq_exit(void)
 {
-
-	return;
+	cpufreq_unregister_driver(&sc589_cpufreq_driver);
 }
 module_exit(sc589_cpufreq_exit);
 
