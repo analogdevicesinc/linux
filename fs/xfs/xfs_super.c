@@ -4,7 +4,7 @@
  * All Rights Reserved.
  */
 
-#include "xfs.h"
+#include "xfs_platform.h"
 #include "xfs_shared.h"
 #include "xfs_format.h"
 #include "xfs_log_format.h"
@@ -1835,8 +1835,6 @@ xfs_fs_fill_super(
 			error = -ENOSYS;
 			goto out_free_sb;
 		}
-
-		xfs_warn_experimental(mp, XFS_EXPERIMENTAL_LBS);
 	}
 
 	/* Ensure this filesystem fits in the page cache limits */
@@ -1922,8 +1920,6 @@ xfs_fs_fill_super(
 			goto out_filestream_unmount;
 		}
 		xfs_warn_experimental(mp, XFS_EXPERIMENTAL_ZONED);
-	} else if (xfs_has_metadir(mp)) {
-		xfs_warn_experimental(mp, XFS_EXPERIMENTAL_METADIR);
 	}
 
 	if (xfs_has_reflink(mp)) {
