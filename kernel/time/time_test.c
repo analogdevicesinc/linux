@@ -2,14 +2,7 @@
 
 #include <kunit/test.h>
 #include <linux/time.h>
-
-/*
- * Traditional implementation of leap year evaluation.
- */
-static bool is_leap(long year)
-{
-	return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-}
+#include <linux/rtc.h>
 
 /*
  * Gets the last day of a month.
@@ -17,7 +10,7 @@ static bool is_leap(long year)
 static int last_day_of_month(long year, int month)
 {
 	if (month == 2)
-		return 28 + is_leap(year);
+		return 28 + is_leap_year(year);
 	if (month == 4 || month == 6 || month == 9 || month == 11)
 		return 30;
 	return 31;

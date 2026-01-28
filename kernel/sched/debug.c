@@ -172,18 +172,12 @@ static const struct file_operations sched_feat_fops = {
 static ssize_t sched_scaling_write(struct file *filp, const char __user *ubuf,
 				   size_t cnt, loff_t *ppos)
 {
-	char buf[16];
 	unsigned int scaling;
+	int ret;
 
-	if (cnt > 15)
-		cnt = 15;
-
-	if (copy_from_user(&buf, ubuf, cnt))
-		return -EFAULT;
-	buf[cnt] = '\0';
-
-	if (kstrtouint(buf, 10, &scaling))
-		return -EINVAL;
+	ret = kstrtouint_from_user(ubuf, cnt, 10, &scaling);
+	if (ret)
+		return ret;
 
 	if (scaling >= SCHED_TUNABLESCALING_END)
 		return -EINVAL;
@@ -243,7 +237,7 @@ static ssize_t sched_dynamic_write(struct file *filp, const char __user *ubuf,
 
 static int sched_dynamic_show(struct seq_file *m, void *v)
 {
-	int i = IS_ENABLED(CONFIG_PREEMPT_RT) * 2;
+	int i = (IS_ENABLED(CONFIG_PREEMPT_RT) || IS_ENABLED(CONFIG_ARCH_HAS_PREEMPT_LAZY)) * 2;
 	int j;
 
 	/* Count entries in NULL terminated preempt_modes */
