@@ -1197,13 +1197,13 @@ static uint32_t convert_cc_to_ns(uint32_t val_cc, uint32_t clkToJesdRatioLog2, u
 
     /* Cast to uint64_t to prevent overflow of 32bit reg after multiplication */
     uint64_t calc = (uint64_t)val_cc;
-    
+
     /* Scale by 2 for rounding purposes */
     calc = calc << 1u;
 
     /* Scale to ns per hsdigclk cc */
     calc *= (1000000u >> clkToJesdRatioLog2);
-    calc /= jesdFrequency_kHz;
+    calc = ADI_LIBRARY_DIV_U64(calc, jesdFrequency_kHz);
 
     /* Complete rounding  operation */
     calc += 1u;
@@ -1438,7 +1438,7 @@ static uint32_t resourceShareDelay( adi_adrv904x_Device_t* const                
             max_carr_period = (max_carr_period > (int64_t) prms->clkPeriod[i]) ? max_carr_period : (int64_t)prms->clkPeriod[i] ;
         }
     }
-    int32_t max_slots = max_carr_period / jesdClkPeriod;
+    int32_t max_slots = (int32_t)ADI_LIBRARY_DIV64_S64(max_carr_period, jesdClkPeriod);
     
     for (int32_t i = 0; i < max_slots; i++)
     {
@@ -1478,8 +1478,8 @@ static uint32_t resourceShareDelay( adi_adrv904x_Device_t* const                
     {
         if ((all_carr_enable & (1 << i)) > 0)
         {
-            carr_arrival_slot[i] = ((int32_t)(prms->dlyPrev[i] - prms->dlyPrev[first_carr_num]) / jesdClkPeriod) % max_slots;
-            slot_step_size = prms->clkPeriod[i] / jesdClkPeriod;
+            carr_arrival_slot[i] = (int32_t)ADI_LIBRARY_DIV_S64((int32_t)(prms->dlyPrev[i] - prms->dlyPrev[first_carr_num]), jesdClkPeriod) % max_slots;
+            slot_step_size = (int32_t)ADI_LIBRARY_DIV_U64(prms->clkPeriod[i], jesdClkPeriod);
         }
         else
         {
@@ -3279,10 +3279,10 @@ static adi_adrv904x_ErrAction_e adrv904x_CalculateCducDelayMatch(   adi_adrv904x
                 uint64_t tmp_lat = carrierConfigsIn->carriers[i].absLatencyOverride_ns;
                 tmp_lat *= max_hsdigclk_kHz;
                 tmp_lat <<= 1u;
-                tmp_lat /= 1000000;
+                tmp_lat = ADI_LIBRARY_DIV_U64(tmp_lat, 1000000);
                 tmp_lat += 1u;
                 tmp_lat >>= 1u;
-                
+
                 uint16_t custom_target_cc = (uint16_t)(tmp_lat);
 
                 if (custom_target_cc == 0)
@@ -3551,10 +3551,10 @@ static adi_adrv904x_ErrAction_e adrv904x_CalculateCddcDelayMatch(   adi_adrv904x
             uint64_t tmp_lat = carrierConfigsIn->carriers[i].absLatencyOverride_ns;
             tmp_lat *= max_hsdigclk_kHz;
             tmp_lat <<= 1u;
-            tmp_lat /= 1000000;
+            tmp_lat = ADI_LIBRARY_DIV_U64(tmp_lat, 1000000);
             tmp_lat += 1u;
             tmp_lat >>= 1u;
-                
+
             uint16_t custom_target_cc = (uint16_t)(tmp_lat);
 
             if (custom_target_cc == 0)
