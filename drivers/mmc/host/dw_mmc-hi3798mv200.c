@@ -74,25 +74,24 @@ static void dw_mci_hi3798mv200_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 	}
 }
 
-static inline int dw_mci_hi3798mv200_enable_tuning(struct dw_mci_slot *slot)
+static inline int dw_mci_hi3798mv200_enable_tuning(struct dw_mci *host)
 {
-	struct dw_mci_hi3798mv200_priv *priv = slot->host->priv;
+	struct dw_mci_hi3798mv200_priv *priv = host->priv;
 
 	return regmap_clear_bits(priv->crg_reg, priv->sap_dll_offset, SAP_DLL_CTRL_DLLMODE);
 }
 
-static inline int dw_mci_hi3798mv200_disable_tuning(struct dw_mci_slot *slot)
+static inline int dw_mci_hi3798mv200_disable_tuning(struct dw_mci *host)
 {
-	struct dw_mci_hi3798mv200_priv *priv = slot->host->priv;
+	struct dw_mci_hi3798mv200_priv *priv = host->priv;
 
 	return regmap_set_bits(priv->crg_reg, priv->sap_dll_offset, SAP_DLL_CTRL_DLLMODE);
 }
 
-static int dw_mci_hi3798mv200_execute_tuning_mix_mode(struct dw_mci_slot *slot,
+static int dw_mci_hi3798mv200_execute_tuning_mix_mode(struct dw_mci *host,
 					     u32 opcode)
 {
 	static const int degrees[] = { 0, 45, 90, 135, 180, 225, 270, 315 };
-	struct dw_mci *host = slot->host;
 	struct dw_mci_hi3798mv200_priv *priv = host->priv;
 	int raise_point = -1, fall_point = -1, mid;
 	int err, prev_err = -1;
@@ -101,7 +100,7 @@ static int dw_mci_hi3798mv200_execute_tuning_mix_mode(struct dw_mci_slot *slot,
 	int i;
 	int ret;
 
-	ret = dw_mci_hi3798mv200_enable_tuning(slot);
+	ret = dw_mci_hi3798mv200_enable_tuning(host);
 	if (ret < 0)
 		return ret;
 
@@ -115,7 +114,7 @@ static int dw_mci_hi3798mv200_execute_tuning_mix_mode(struct dw_mci_slot *slot,
 		 *
 		 * Treat edge(flip) found as an error too.
 		 */
-		err = mmc_send_tuning(slot->mmc, opcode, NULL);
+		err = mmc_send_tuning(host->mmc, opcode, NULL);
 		regval = mci_readl(host, TUNING_CTRL);
 		if (err || (regval & SDMMC_TUNING_FIND_EDGE))
 			err = 1;
@@ -136,7 +135,7 @@ static int dw_mci_hi3798mv200_execute_tuning_mix_mode(struct dw_mci_slot *slot,
 	}
 
 tuning_out:
-	ret = dw_mci_hi3798mv200_disable_tuning(slot);
+	ret = dw_mci_hi3798mv200_disable_tuning(host);
 	if (ret < 0)
 		return ret;
 
