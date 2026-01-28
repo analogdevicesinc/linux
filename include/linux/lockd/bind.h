@@ -21,6 +21,7 @@
 struct svc_rqst;
 struct rpc_task;
 struct rpc_clnt;
+struct super_block;
 
 /*
  * This is the set of functions for lockd->nfsd communication
@@ -79,5 +80,11 @@ struct nlmclnt_operations {
 extern int	nlmclnt_proc(struct nlm_host *host, int cmd, struct file_lock *fl, void *data);
 extern int	lockd_up(struct net *net, const struct cred *cred);
 extern void	lockd_down(struct net *net);
+
+/*
+ * Cluster failover support
+ */
+int nlmsvc_unlock_all_by_sb(struct super_block *sb);
+int nlmsvc_unlock_all_by_ip(struct sockaddr *server_addr);
 
 #endif /* LINUX_LOCKD_BIND_H */
