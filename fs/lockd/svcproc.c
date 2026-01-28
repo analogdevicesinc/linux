@@ -27,7 +27,7 @@ static inline __be32 cast_status(__be32 status)
 	case nlm_lck_denied_grace_period:
 	case nlm__int__drop_reply:
 		break;
-	case nlm4_deadlock:
+	case nlm__int__deadlock:
 		status = nlm_lck_denied;
 		break;
 	default:
@@ -39,6 +39,8 @@ static inline __be32 cast_status(__be32 status)
 #else
 static inline __be32 cast_status(__be32 status)
 {
+	if (status == nlm__int__deadlock)
+		status = nlm_lck_denied;
 	return status;
 }
 #endif

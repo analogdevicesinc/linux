@@ -148,10 +148,16 @@ __nlm4svc_proc_lock(struct svc_rqst *rqstp, struct nlm_res *resp)
 	resp->status = nlmsvc_lock(rqstp, file, host, &argp->lock,
 					argp->block, &argp->cookie,
 					argp->reclaim);
-	if (resp->status == nlm__int__drop_reply)
+	switch (resp->status) {
+	case nlm__int__drop_reply:
 		rc = rpc_drop_reply;
-	else
+		break;
+	case nlm__int__deadlock:
+		resp->status = nlm4_deadlock;
+		fallthrough;
+	default:
 		dprintk("lockd: LOCK         status %d\n", ntohl(resp->status));
+	}
 
 	nlmsvc_release_lockowner(&argp->lock);
 	nlmsvc_release_host(host);

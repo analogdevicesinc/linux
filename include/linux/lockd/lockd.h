@@ -43,6 +43,7 @@
  * Version handlers translate these to appropriate wire values.
  */
 #define nlm__int__drop_reply	cpu_to_be32(30000)
+#define nlm__int__deadlock	cpu_to_be32(30001)
 
 /*
  * Lockd host handle (used both by the client and server personality).
