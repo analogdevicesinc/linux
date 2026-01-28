@@ -65,7 +65,7 @@ extern void cma_reserve_pages_on_error(struct cma *cma);
 #ifdef CONFIG_DMA_CMA
 extern bool cma_skip_dt_default_reserved_mem(void);
 #else
-static bool cma_skip_dt_default_reserved_mem(void)
+static inline bool cma_skip_dt_default_reserved_mem(void)
 {
 	return false;
 }
