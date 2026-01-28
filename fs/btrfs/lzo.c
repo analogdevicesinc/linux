@@ -310,23 +310,43 @@ out:
 	return ret;
 }
 
+static struct folio *get_current_folio(struct compressed_bio *cb, struct folio_iter *fi,
+				       u32 *cur_folio_index, u32 cur_in)
+{
+	struct btrfs_fs_info *fs_info = cb_to_fs_info(cb);
+	const u32 min_folio_shift = PAGE_SHIFT + fs_info->block_min_order;
+
+	ASSERT(cur_folio_index);
+
+	/* Need to switch to the next folio. */
+	if (cur_in >> min_folio_shift != *cur_folio_index) {
+		/* We can only do the switch one folio a time. */
+		ASSERT(cur_in >> min_folio_shift == *cur_folio_index + 1);
+
+		bio_next_folio(fi, &cb->bbio.bio);
+		(*cur_folio_index)++;
+	}
+	return fi->folio;
+}
+
 /*
  * Copy the compressed segment payload into @dest.
  *
  * For the payload there will be no padding, just need to do page switching.
  */
 static void copy_compressed_segment(struct compressed_bio *cb,
+				    struct folio_iter *fi, u32 *cur_folio_index,
 				    char *dest, u32 len, u32 *cur_in)
 {
-	struct btrfs_fs_info *fs_info = cb_to_fs_info(cb);
-	const u32 min_folio_shift = PAGE_SHIFT + fs_info->block_min_order;
 	u32 orig_in = *cur_in;
 
 	while (*cur_in < orig_in + len) {
-		struct folio *cur_folio = cb->compressed_folios[*cur_in >> min_folio_shift];
-		u32 copy_len = min_t(u32, orig_in + len - *cur_in,
-				     folio_size(cur_folio) - offset_in_folio(cur_folio, *cur_in));
+		struct folio *cur_folio = get_current_folio(cb, fi, cur_folio_index, *cur_in);
+		u32 copy_len;
 
+		ASSERT(cur_folio);
+		copy_len = min_t(u32, orig_in + len - *cur_in,
+				 folio_size(cur_folio) - offset_in_folio(cur_folio, *cur_in));
 		ASSERT(copy_len);
 
 		memcpy_from_folio(dest + *cur_in - orig_in, cur_folio,
@@ -341,7 +361,7 @@ int lzo_decompress_bio(struct list_head *ws, struct compressed_bio *cb)
 	struct workspace *workspace = list_entry(ws, struct workspace, list);
 	const struct btrfs_fs_info *fs_info = cb->bbio.inode->root->fs_info;
 	const u32 sectorsize = fs_info->sectorsize;
-	const u32 min_folio_shift = PAGE_SHIFT + fs_info->block_min_order;
+	struct folio_iter fi;
 	char *kaddr;
 	int ret;
 	/* Compressed data length, can be unaligned */
@@ -350,8 +370,15 @@ int lzo_decompress_bio(struct list_head *ws, struct compressed_bio *cb)
 	u32 cur_in = 0;
 	/* Bytes decompressed so far */
 	u32 cur_out = 0;
+	/* The current folio index number inside the bio. */
+	u32 cur_folio_index = 0;
 
-	kaddr = kmap_local_folio(cb->compressed_folios[0], 0);
+	bio_first_folio(&fi, &cb->bbio.bio, 0);
+	/* There must be a compressed folio and matches the sectorsize. */
+	if (unlikely(!fi.folio))
+		return -EINVAL;
+	ASSERT(folio_size(fi.folio) == sectorsize);
+	kaddr = kmap_local_folio(fi.folio, 0);
 	len_in = read_compress_length(kaddr);
 	kunmap_local(kaddr);
 	cur_in += LZO_LEN;
@@ -388,7 +415,7 @@ int lzo_decompress_bio(struct list_head *ws, struct compressed_bio *cb)
 		 */
 		ASSERT(cur_in / sectorsize ==
 		       (cur_in + LZO_LEN - 1) / sectorsize);
-		cur_folio = cb->compressed_folios[cur_in >> min_folio_shift];
+		cur_folio = get_current_folio(cb, &fi, &cur_folio_index, cur_in);
 		ASSERT(cur_folio);
 		kaddr = kmap_local_folio(cur_folio, 0);
 		seg_len = read_compress_length(kaddr + offset_in_folio(cur_folio, cur_in));
@@ -410,7 +437,8 @@ int lzo_decompress_bio(struct list_head *ws, struct compressed_bio *cb)
 		}
 
 		/* Copy the compressed segment payload into workspace */
-		copy_compressed_segment(cb, workspace->cbuf, seg_len, &cur_in);
+		copy_compressed_segment(cb, &fi, &cur_folio_index, workspace->cbuf,
+					seg_len, &cur_in);
 
 		/* Decompress the data */
 		ret = lzo1x_decompress_safe(workspace->cbuf, seg_len,
@@ -456,7 +484,7 @@ int lzo_decompress(struct list_head *ws, const u8 *data_in,
 	size_t in_len;
 	size_t out_len;
 	size_t max_segment_len = workspace_buf_length(fs_info);
-	int ret = 0;
+	int ret;
 
 	if (unlikely(srclen < LZO_LEN || srclen > max_segment_len + LZO_LEN * 2))
 		return -EUCLEAN;
@@ -467,10 +495,8 @@ int lzo_decompress(struct list_head *ws, const u8 *data_in,
 	data_in += LZO_LEN;
 
 	in_len = read_compress_length(data_in);
-	if (unlikely(in_len != srclen - LZO_LEN * 2)) {
-		ret = -EUCLEAN;
-		goto out;
-	}
+	if (unlikely(in_len != srclen - LZO_LEN * 2))
+		return -EUCLEAN;
 	data_in += LZO_LEN;
 
 	out_len = sectorsize;
@@ -482,19 +508,18 @@ int lzo_decompress(struct list_head *ws, const u8 *data_in,
 		"lzo decompression failed, error %d root %llu inode %llu offset %llu",
 			  ret, btrfs_root_id(inode->root), btrfs_ino(inode),
 			  folio_pos(dest_folio));
-		ret = -EIO;
-		goto out;
+		return -EIO;
 	}
 
 	ASSERT(out_len <= sectorsize);
 	memcpy_to_folio(dest_folio, dest_pgoff, workspace->buf, out_len);
 	/* Early end, considered as an error. */
 	if (unlikely(out_len < destlen)) {
-		ret = -EIO;
 		folio_zero_range(dest_folio, dest_pgoff + out_len, destlen - out_len);
+		return -EIO;
 	}
-out:
-	return ret;
+
+	return 0;
 }
 
 const struct btrfs_compress_levels  btrfs_lzo_compress = {
