@@ -398,9 +398,11 @@ static int adrv906x_get_attr_cmd_tokens(char *inpstr, char *tokens[])
 		return -EINVAL;
 
 	for (i = 0 ; i < needed ; i++) {
-		do
+		do {
 			token = strsep(&cmdstr, " ");
-		while (!strlen(token) && cmdstr[0] != '\0');
+			if (!token)
+				return -EINVAL;
+		} while (!strlen(token) && cmdstr[0] != '\0');
 
 		if (!strlen(token))
 			return -EINVAL;
@@ -430,6 +432,7 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 		return -ENOMEM;
 
 	orig = cmdstr;
+	memset(tokens, 0, sizeof(tokens));
 
 	strscpy(cmdstr, buf, cnt);
 	cmdstr[cnt] = '\0';
@@ -967,8 +970,13 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	__SWITCH_ATTR_RW(port_vlan_ctrl);
 	adrv906x_switch_attrs[0] = &es->port_vlan_ctrl_attr.attr;
 	es->attr_group.attrs = adrv906x_switch_attrs;
-	if (es->vlan_enabled)
+	if (es->vlan_enabled) {
 		ret = sysfs_create_group(&es->pdev->dev.kobj, &es->attr_group);
+		if (ret) {
+			dev_err(dev, "Failed to create sysfs group\n");
+			return ret;
+		}
+	}
 
 	INIT_DELAYED_WORK(&es->update_stats, adrv906x_switch_update_hw_stats);
 	mod_delayed_work(system_long_wq, &es->update_stats, msecs_to_jiffies(1000));
