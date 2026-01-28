@@ -129,6 +129,7 @@ struct jesd204_dev {
 	bool				fsm_inited;
 	bool				fsm_rb_to_init;
 	bool				is_top;
+	bool				unregistered;
 
 	bool				is_sysref_provider;
 	bool				is_sec_sysref_provider;
