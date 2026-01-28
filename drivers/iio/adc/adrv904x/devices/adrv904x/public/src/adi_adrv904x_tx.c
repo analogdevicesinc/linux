@@ -97,7 +97,7 @@ static const txAttenGetFnPtr_t txAttenChanS0S1GetFnPtrs[ADI_ADRV904X_MAX_TXCHANN
     { adrv904x_Core_Tx7AttenS0_BfGet, adrv904x_Core_Tx7AttenS1_BfGet },        
 };
 
-static const txAttenUpdateFnPtr_t txAttenChanS0S1UpdateFnPtrs[ADI_ADRV904X_MAX_TXCHANNELS][2] = 
+static const txAttenUpdateFnPtr_t txAttenChanS0S1UpdateFnPtrs[ADI_ADRV904X_MAX_TXCHANNELS][2] =
 {
     { adrv904x_Core_Tx0AttenUpdateS0_BfSet, adrv904x_Core_Tx0AttenUpdateS1_BfSet },
     { adrv904x_Core_Tx1AttenUpdateS0_BfSet, adrv904x_Core_Tx1AttenUpdateS1_BfSet },
@@ -108,6 +108,22 @@ static const txAttenUpdateFnPtr_t txAttenChanS0S1UpdateFnPtrs[ADI_ADRV904X_MAX_T
     { adrv904x_Core_Tx6AttenUpdateS0_BfSet, adrv904x_Core_Tx6AttenUpdateS1_BfSet },
     { adrv904x_Core_Tx7AttenUpdateS0_BfSet, adrv904x_Core_Tx7AttenUpdateS1_BfSet },
 };
+
+static inline uint16_t scale_with_squared_ratio(uint16_t value, uint32_t numerator, uint32_t denominator)
+{
+    uint64_t result;
+    unsigned long g, num_reduced, denom_reduced;
+
+    g = ADI_LIBRARY_GCD(numerator, denominator);
+    num_reduced = numerator / g;
+    denom_reduced = denominator / g;
+
+    result = (uint64_t)value * num_reduced * num_reduced;
+    result = ADI_LIBRARY_DIV_U64(result, (uint32_t)(denom_reduced * denom_reduced));
+
+    return (uint16_t)result;
+}
+
 ADI_API adi_adrv904x_ErrAction_e  adi_adrv904x_TxAttenTableRead(adi_adrv904x_Device_t* const device,
                                                                 const adi_adrv904x_TxChannels_e txChannel,
                                                                 const uint32_t txAttenIndexOffset,
@@ -645,7 +661,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxAttenSet(adi_adrv904x_Device_t* 
                         *     Tnew = 65535 * pow(10, (10 * log10(Ttarget/65535) + 20 * log10(digAtten/4095)) / 10)
                         * This simplifies to: Tnew = Ttarget * pow(digAtten/4095, 2)
                         */
-                        peakThreshold = (uint16_t)(((uint64_t)peakThreshold * (uint64_t)(digAtten * digAtten)) / (uint64_t)(MIN_DIG_ATTEN * MIN_DIG_ATTEN));
+                        peakThreshold = scale_with_squared_ratio(peakThreshold, digAtten, MIN_DIG_ATTEN);
                         recoveryAction = adrv904x_PaProtectionPeakThresholdSet(device, NULL, txBaseAddr, peakThreshold);
                         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
                         {
@@ -656,7 +672,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxAttenSet(adi_adrv904x_Device_t* 
                     if (device->devStateInfo.txPowerMonitorState[chanId].avgPowerEnable != 0)
                     {
                         avgThreshold = device->devStateInfo.txPowerMonitorState[chanId].avgThreshold;
-                        avgThreshold = (uint16_t)(((uint64_t)avgThreshold * (uint64_t)(digAtten * digAtten)) / (uint64_t)(MIN_DIG_ATTEN * MIN_DIG_ATTEN));
+                        avgThreshold = scale_with_squared_ratio(avgThreshold, digAtten, MIN_DIG_ATTEN);
                         recoveryAction = adrv904x_PaProtectionAverageThresholdSet(device, NULL, txBaseAddr, avgThreshold);
                         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
                         {
@@ -2325,8 +2341,8 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxPowerMonitorCfgSet(adi_adrv904x_
                  *     Tnew = 65535 * pow(10, (10 * log10(Ttarget/65535) + 20 * log10(digAtten/4095)) / 10)
                  * This simplifies to: Tnew = Ttarget * pow(digAtten/4095, 2)
                  */
-                peakThreshold = (uint16_t)(((uint64_t)peakThreshold * (uint64_t)(digAtten * digAtten)) / (uint64_t)(MIN_DIG_ATTEN * MIN_DIG_ATTEN));
-                avgThreshold = (uint16_t)(((uint64_t)avgThreshold * (uint64_t)(digAtten * digAtten)) / (uint64_t)(MIN_DIG_ATTEN * MIN_DIG_ATTEN));
+                peakThreshold = scale_with_squared_ratio(peakThreshold, digAtten, MIN_DIG_ATTEN);
+                avgThreshold = scale_with_squared_ratio(avgThreshold, digAtten, MIN_DIG_ATTEN);
 
                 /* Peak Pre Threshold must be set to (peakThreshold/2) / 2^(16-9) to adjust bus width */
                 peakPreThreShold = peakThreshold >> 8;
@@ -3658,9 +3674,9 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxPowerMonitorStatusGet(adi_adrv90
         goto cleanup;
     }
 
-    powerMonitorStatus->peakErrorPower = (uint16_t)(((uint64_t)powerMonitorStatus->peakErrorPower * (uint64_t)(MIN_DIG_ATTEN * MIN_DIG_ATTEN)) / (uint64_t)(digAtten * digAtten));
-    powerMonitorStatus->avgErrorPower = (uint16_t)(((uint64_t)powerMonitorStatus->avgErrorPower * (uint64_t)(MIN_DIG_ATTEN * MIN_DIG_ATTEN)) / (uint64_t)(digAtten * digAtten));
-    powerMonitorStatus->avgPower = (uint16_t)(((uint64_t)powerMonitorStatus->avgPower * (uint64_t)(MIN_DIG_ATTEN * MIN_DIG_ATTEN)) / (uint64_t)(digAtten * digAtten));
+    powerMonitorStatus->peakErrorPower = scale_with_squared_ratio(powerMonitorStatus->peakErrorPower, MIN_DIG_ATTEN, digAtten);
+    powerMonitorStatus->avgErrorPower = scale_with_squared_ratio(powerMonitorStatus->avgErrorPower, MIN_DIG_ATTEN, digAtten);
+    powerMonitorStatus->avgPower = scale_with_squared_ratio(powerMonitorStatus->avgPower, MIN_DIG_ATTEN, digAtten);
 
     /* Read back current active digital attenuation, and use that to adjust peak power value, which is constantly updating */
     recoveryAction = txAttenReadbackUpdateFnPtrs[chanIdx](device, NULL, ADRV904X_BF_DIGITAL_CORE_SPI_ONLY_REGS, 1U);
@@ -3681,7 +3697,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxPowerMonitorStatusGet(adi_adrv90
         ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Error while finding digAtten");
         goto cleanup;
     }
-    powerMonitorStatus->peakPower = (uint16_t)(((uint64_t)powerMonitorStatus->peakPower * (uint64_t)(MIN_DIG_ATTEN * MIN_DIG_ATTEN)) / (uint64_t)(digAtten * digAtten));
+    powerMonitorStatus->peakPower = scale_with_squared_ratio(powerMonitorStatus->peakPower, MIN_DIG_ATTEN, digAtten);
 
     recoveryAction = adrv904x_TxFuncs_PaProtectionAprEn_BfGet(device,
                                                               NULL,

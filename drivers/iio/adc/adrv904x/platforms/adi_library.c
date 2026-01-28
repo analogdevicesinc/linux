@@ -9,6 +9,7 @@
 *
 * ADRV904X API Version: 2.15.0.5
 */
+
 #include "adi_library.h"
 
 ADI_API void* adi_library_memset(void* dst, int c, size_t len)
@@ -236,7 +237,7 @@ ADI_API int32_t adi_library_linearToMillidBVolt(uint32_t val, uint32_t scale)
     return (1000 * 20 * ((uint64_t)intlog10(val) - intlog10(scale))) >> 24U;
 }
 
-#define COMPUTE(n, d) if (neg) {a *= d; a /= n;} else {a *= n; a /= d;};
+#define COMPUTE(n, d) if (neg) {a *= d; a = ADI_LIBRARY_DIV_U64(a, n);} else {a *= n; a = ADI_LIBRARY_DIV_U64(a, d);};
 ADI_API int32_t adi_library_millidBVoltToLinear(int32_t millidB, uint32_t scale)
 {
     unsigned neg = 0;
@@ -327,8 +328,8 @@ static bool adi_library_scaledIntToFp(int64_t scaledInt, unsigned scale, unsigne
         scaledIntUnsigned = (uint64_t)-scaledInt;
     }
 
-    uint64_t integer = scaledIntUnsigned / scale;
-    uint64_t fraction = scaledIntUnsigned % scale;
+    uint64_t integer = ADI_LIBRARY_DIV64_U64(scaledIntUnsigned, scale);
+    uint64_t fraction = scaledIntUnsigned - (integer * scale);
 
     /* Deal with integer part of number (if any) */
     if (integer != 0u)
