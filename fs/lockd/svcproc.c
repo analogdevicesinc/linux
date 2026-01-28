@@ -555,7 +555,7 @@ struct nlm_void			{ int dummy; };
 #define	No	(1+1024/4)			/* Net Obj */
 #define	Rg	2				/* range - offset + size */
 
-const struct svc_procedure nlmsvc_procedures[24] = {
+static const struct svc_procedure nlmsvc_procedures[24] = {
 	[NLMPROC_NULL] = {
 		.pc_func = nlmsvc_proc_null,
 		.pc_decode = nlmsvc_decode_void,
@@ -796,4 +796,40 @@ const struct svc_procedure nlmsvc_procedures[24] = {
 		.pc_xdrressize = 0,
 		.pc_name = "FREE_ALL",
 	},
+};
+
+/*
+ * Storage requirements for XDR arguments and results
+ */
+union nlmsvc_xdrstore {
+	struct nlm_args			args;
+	struct nlm_res			res;
+	struct nlm_reboot		reboot;
+};
+
+/*
+ * NLMv1 defines only procedures 1 - 15. Linux lockd also implements
+ * procedures 0 (NULL) and 16 (SM_NOTIFY).
+ */
+static DEFINE_PER_CPU_ALIGNED(unsigned long, nlm1svc_call_counters[17]);
+
+const struct svc_version nlmsvc_version1 = {
+	.vs_vers	= 1,
+	.vs_nproc	= 17,
+	.vs_proc	= nlmsvc_procedures,
+	.vs_count	= nlm1svc_call_counters,
+	.vs_dispatch	= nlmsvc_dispatch,
+	.vs_xdrsize	= sizeof(union nlmsvc_xdrstore),
+};
+
+static DEFINE_PER_CPU_ALIGNED(unsigned long,
+			      nlm3svc_call_counters[ARRAY_SIZE(nlmsvc_procedures)]);
+
+const struct svc_version nlmsvc_version3 = {
+	.vs_vers	= 3,
+	.vs_nproc	= ARRAY_SIZE(nlmsvc_procedures),
+	.vs_proc	= nlmsvc_procedures,
+	.vs_count	= nlm3svc_call_counters,
+	.vs_dispatch	= nlmsvc_dispatch,
+	.vs_xdrsize	= sizeof(union nlmsvc_xdrstore),
 };
