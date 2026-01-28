@@ -8,7 +8,7 @@ import logging
 
 from argparse import Namespace
 from lark import logger
-from lark.exceptions import UnexpectedInput
+from lark.exceptions import VisitError
 
 from generators.constant import XdrConstantGenerator
 from generators.enum import XdrEnumGenerator
@@ -24,6 +24,8 @@ from xdr_ast import transform_parse_tree, _RpcProgram, Specification
 from xdr_ast import _XdrConstant, _XdrEnum, _XdrPointer
 from xdr_ast import _XdrTypedef, _XdrStruct, _XdrUnion
 from xdr_parse import xdr_parser, set_xdr_annotate
+from xdr_parse import make_error_handler, XdrParseError
+from xdr_parse import handle_transform_error
 
 logger.setLevel(logging.INFO)
 
@@ -50,20 +52,24 @@ def emit_header_declarations(
         gen.emit_declaration(definition.value)
 
 
-def handle_parse_error(e: UnexpectedInput) -> bool:
-    """Simple parse error reporting, no recovery attempted"""
-    print(e)
-    return True
-
-
 def subcmd(args: Namespace) -> int:
     """Generate definitions and declarations"""
 
     set_xdr_annotate(args.annotate)
     parser = xdr_parser()
     with open(args.filename, encoding="utf-8") as f:
-        parse_tree = parser.parse(f.read(), on_error=handle_parse_error)
-        ast = transform_parse_tree(parse_tree)
+        source = f.read()
+        try:
+            parse_tree = parser.parse(
+                source, on_error=make_error_handler(source, args.filename)
+            )
+        except XdrParseError:
+            return 1
+        try:
+            ast = transform_parse_tree(parse_tree)
+        except VisitError as e:
+            handle_transform_error(e, source, args.filename)
+            return 1
 
         gen = XdrHeaderTopGenerator(args.language, args.peer)
         gen.emit_declaration(args.filename, ast)

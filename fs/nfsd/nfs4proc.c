@@ -81,8 +81,8 @@ static u32 nfsd41_ex_attrmask[] = {
 };
 
 static __be32
-check_attr_support(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
-		   u32 *bmval, u32 *writable)
+check_attr_support(struct nfsd4_compound_state *cstate, u32 *bmval,
+		   u32 *writable)
 {
 	struct dentry *dentry = cstate->current_fh.fh_dentry;
 	struct svc_export *exp = cstate->current_fh.fh_export;
@@ -103,21 +103,25 @@ check_attr_support(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 }
 
 static __be32
-nfsd4_check_open_attributes(struct svc_rqst *rqstp,
-	struct nfsd4_compound_state *cstate, struct nfsd4_open *open)
+nfsd4_check_open_attributes(struct nfsd4_compound_state *cstate,
+			    struct nfsd4_open *open)
 {
 	__be32 status = nfs_ok;
 
-	if (open->op_create == NFS4_OPEN_CREATE) {
-		if (open->op_createmode == NFS4_CREATE_UNCHECKED
-		    || open->op_createmode == NFS4_CREATE_GUARDED)
-			status = check_attr_support(rqstp, cstate,
-					open->op_bmval, nfsd_attrmask);
-		else if (open->op_createmode == NFS4_CREATE_EXCLUSIVE4_1)
-			status = check_attr_support(rqstp, cstate,
-					open->op_bmval, nfsd41_ex_attrmask);
-	}
+	if (open->op_create != NFS4_OPEN_CREATE)
+		return status;
 
+	switch (open->op_createmode) {
+	case NFS4_CREATE_UNCHECKED:
+	case NFS4_CREATE_GUARDED:
+		status = check_attr_support(cstate, open->op_bmval,
+					    nfsd_attrmask);
+		break;
+	case NFS4_CREATE_EXCLUSIVE4_1:
+		status = check_attr_support(cstate, open->op_bmval,
+					    nfsd41_ex_attrmask);
+		break;
+	}
 	return status;
 }
 
@@ -194,7 +198,7 @@ static inline bool nfsd4_create_is_exclusive(int createmode)
 }
 
 static __be32
-nfsd4_vfs_create(struct svc_fh *fhp, struct dentry *child,
+nfsd4_vfs_create(struct svc_fh *fhp, struct dentry **child,
 		 struct nfsd4_open *open)
 {
 	struct file *filp;
@@ -202,6 +206,9 @@ nfsd4_vfs_create(struct svc_fh *fhp, struct dentry *child,
 	int oflags;
 
 	oflags = O_CREAT | O_LARGEFILE;
+	if (nfsd4_create_is_exclusive(open->op_createmode))
+		oflags |= O_EXCL;
+
 	switch (open->op_share_access & NFS4_SHARE_ACCESS_BOTH) {
 	case NFS4_SHARE_ACCESS_WRITE:
 		oflags |= O_WRONLY;
@@ -214,9 +221,11 @@ nfsd4_vfs_create(struct svc_fh *fhp, struct dentry *child,
 	}
 
 	path.mnt = fhp->fh_export->ex_path.mnt;
-	path.dentry = child;
+	path.dentry = *child;
 	filp = dentry_create(&path, oflags, open->op_iattr.ia_mode,
 			     current_cred());
+	*child = path.dentry;
+
 	if (IS_ERR(filp))
 		return nfserrno(PTR_ERR(filp));
 
@@ -350,7 +359,7 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	status = fh_fill_pre_attrs(fhp);
 	if (status != nfs_ok)
 		goto out;
-	status = nfsd4_vfs_create(fhp, child, open);
+	status = nfsd4_vfs_create(fhp, &child, open);
 	if (status != nfs_ok)
 		goto out;
 	open->op_created = true;
@@ -579,7 +588,7 @@ nfsd4_open(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 		goto out;
 	}
 
-	status = nfsd4_check_open_attributes(rqstp, cstate, open);
+	status = nfsd4_check_open_attributes(cstate, open);
 	if (status)
 		goto out;
 
@@ -791,8 +800,7 @@ nfsd4_create(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 	if (status)
 		return status;
 
-	status = check_attr_support(rqstp, cstate, create->cr_bmval,
-				    nfsd_attrmask);
+	status = check_attr_support(cstate, create->cr_bmval, nfsd_attrmask);
 	if (status)
 		return status;
 
@@ -1212,8 +1220,7 @@ nfsd4_setattr(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 		return nfserrno(err);
 	status = nfs_ok;
 
-	status = check_attr_support(rqstp, cstate, setattr->sa_bmval,
-				    nfsd_attrmask);
+	status = check_attr_support(cstate, setattr->sa_bmval, nfsd_attrmask);
 	if (status)
 		goto out;
 
@@ -2266,7 +2273,7 @@ _nfsd4_verify(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 	if (status)
 		return status;
 
-	status = check_attr_support(rqstp, cstate, verify->ve_bmval, NULL);
+	status = check_attr_support(cstate, verify->ve_bmval, NULL);
 	if (status)
 		return status;
 
@@ -3011,8 +3018,6 @@ encode_op:
 	BUG_ON(cstate->replay_owner);
 out:
 	cstate->status = status;
-	/* Reset deferral mechanism for RPC deferrals */
-	set_bit(RQ_USEDEFERRAL, &rqstp->rq_flags);
 	return rpc_success;
 }
 

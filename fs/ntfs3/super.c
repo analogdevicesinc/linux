@@ -58,9 +58,9 @@
 #include <linux/buffer_head.h>
 #include <linux/exportfs.h>
 #include <linux/fs.h>
-#include <linux/fs_struct.h>
 #include <linux/fs_context.h>
 #include <linux/fs_parser.h>
+#include <linux/fs_struct.h>
 #include <linux/log2.h>
 #include <linux/minmax.h>
 #include <linux/module.h>
@@ -674,7 +674,7 @@ static noinline void ntfs3_put_sbi(struct ntfs_sb_info *sbi)
 		sbi->volume.ni = NULL;
 	}
 
-	ntfs_update_mftmirr(sbi, 0);
+	ntfs_update_mftmirr(sbi);
 
 	indx_clear(&sbi->security.index_sii);
 	indx_clear(&sbi->security.index_sdh);
@@ -705,9 +705,7 @@ static void ntfs_put_super(struct super_block *sb)
 	ntfs_set_state(sbi, NTFS_DIRTY_CLEAR);
 
 	if (sbi->options) {
-		unload_nls(sbi->options->nls);
-		kfree(sbi->options->nls_name);
-		kfree(sbi->options);
+		put_mount_options(sbi->options);
 		sbi->options = NULL;
 	}
 
@@ -823,7 +821,12 @@ static int ntfs_sync_fs(struct super_block *sb, int wait)
 	if (!err)
 		ntfs_set_state(sbi, NTFS_DIRTY_CLEAR);
 
-	ntfs_update_mftmirr(sbi, wait);
+	ntfs_update_mftmirr(sbi);
+
+	if (wait) {
+		sync_blockdev(sb->s_bdev);
+		blkdev_issue_flush(sb->s_bdev);
+	}
 
 	return err;
 }
@@ -1253,7 +1256,6 @@ static int ntfs_fill_super(struct super_block *sb, struct fs_context *fc)
 		}
 	}
 	sbi->options = options;
-	fc->fs_private = NULL;
 	sb->s_flags |= SB_NODIRATIME;
 	sb->s_magic = 0x7366746e; // "ntfs"
 	sb->s_op = &ntfs_sops;
@@ -1652,9 +1654,7 @@ load_root:
 		 */
 		struct buffer_head *bh0 = sb_getblk(sb, 0);
 		if (bh0) {
-			if (buffer_locked(bh0))
-				__wait_on_buffer(bh0);
-
+			wait_on_buffer(bh0);
 			lock_buffer(bh0);
 			memcpy(bh0->b_data, boot2, sizeof(*boot2));
 			set_buffer_uptodate(bh0);
@@ -1679,9 +1679,7 @@ put_inode_out:
 out:
 	/* sbi->options == options */
 	if (options) {
-		unload_nls(options->nls);
-		kfree(options->nls_name);
-		kfree(options);
+		put_mount_options(sbi->options);
 		sbi->options = NULL;
 	}
 

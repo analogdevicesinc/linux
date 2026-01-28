@@ -1495,7 +1495,7 @@ static int gfs2_rename(struct inode *odir, struct dentry *odentry,
 	unsigned int num_gh;
 	int dir_rename = 0;
 	struct gfs2_diradd da = { .nr_blocks = 0, .save_loc = 0, };
-	unsigned int x;
+	unsigned int retries = 0, x;
 	int error;
 
 	gfs2_holder_mark_uninitialized(&r_gh);
@@ -1545,12 +1545,17 @@ static int gfs2_rename(struct inode *odir, struct dentry *odentry,
 		num_gh++;
 	}
 
+again:
 	for (x = 0; x < num_gh; x++) {
 		error = gfs2_glock_nq(ghs + x);
 		if (error)
 			goto out_gunlock;
 	}
-	error = gfs2_glock_async_wait(num_gh, ghs);
+	error = gfs2_glock_async_wait(num_gh, ghs, retries);
+	if (error == -ESTALE) {
+		retries++;
+		goto again;
+	}
 	if (error)
 		goto out_gunlock;
 
@@ -1739,7 +1744,7 @@ static int gfs2_exchange(struct inode *odir, struct dentry *odentry,
 	struct gfs2_sbd *sdp = GFS2_SB(odir);
 	struct gfs2_holder ghs[4], r_gh;
 	unsigned int num_gh;
-	unsigned int x;
+	unsigned int retries = 0, x;
 	umode_t old_mode = oip->i_inode.i_mode;
 	umode_t new_mode = nip->i_inode.i_mode;
 	int error;
@@ -1783,13 +1788,18 @@ static int gfs2_exchange(struct inode *odir, struct dentry *odentry,
 	gfs2_holder_init(nip->i_gl, LM_ST_EXCLUSIVE, GL_ASYNC, ghs + num_gh);
 	num_gh++;
 
+again:
 	for (x = 0; x < num_gh; x++) {
 		error = gfs2_glock_nq(ghs + x);
 		if (error)
 			goto out_gunlock;
 	}
 
-	error = gfs2_glock_async_wait(num_gh, ghs);
+	error = gfs2_glock_async_wait(num_gh, ghs, retries);
+	if (error == -ESTALE) {
+		retries++;
+		goto again;
+	}
 	if (error)
 		goto out_gunlock;
 
@@ -2242,12 +2252,16 @@ loff_t gfs2_seek_hole(struct file *file, loff_t offset)
 	return vfs_setpos(file, ret, inode->i_sb->s_maxbytes);
 }
 
-static int gfs2_update_time(struct inode *inode, int flags)
+static int gfs2_update_time(struct inode *inode, enum fs_update_time type,
+		unsigned int flags)
 {
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_glock *gl = ip->i_gl;
 	struct gfs2_holder *gh;
 	int error;
+
+	if (flags & IOCB_NOWAIT)
+		return -EAGAIN;
 
 	gh = gfs2_glock_is_locked_by_me(gl);
 	if (gh && gl->gl_state != LM_ST_EXCLUSIVE) {
@@ -2257,8 +2271,7 @@ static int gfs2_update_time(struct inode *inode, int flags)
 		if (error)
 			return error;
 	}
-	generic_update_time(inode, flags);
-	return 0;
+	return generic_update_time(inode, type, flags);
 }
 
 static const struct inode_operations gfs2_file_iops = {

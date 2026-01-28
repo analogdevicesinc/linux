@@ -34,6 +34,8 @@ def xdr_quadlen(val: str) -> int:
 symbolic_widths = {
     "void": ["XDR_void"],
     "bool": ["XDR_bool"],
+    "short": ["XDR_short"],
+    "unsigned_short": ["XDR_unsigned_short"],
     "int": ["XDR_int"],
     "unsigned_int": ["XDR_unsigned_int"],
     "long": ["XDR_long"],
@@ -48,6 +50,8 @@ symbolic_widths = {
 max_widths = {
     "void": 0,
     "bool": 1,
+    "short": 1,
+    "unsigned_short": 1,
     "int": 1,
     "unsigned_int": 1,
     "long": 1,
@@ -326,8 +330,6 @@ class _XdrEnum(_XdrAst):
     """An XDR enum definition"""
 
     name: str
-    minimum: int
-    maximum: int
     enumerators: List[_XdrEnumerator]
 
     def max_width(self) -> int:
@@ -568,8 +570,6 @@ class ParseToAst(Transformer):
         value = children[1].value
         return _XdrConstant(name, value)
 
-    # cel: Python can compute a min() and max() for the enumerator values
-    #      so that the generated code can perform proper range checking.
     def enum(self, children):
         """Instantiate one _XdrEnum object"""
         enum_name = children[0].symbol
@@ -583,7 +583,7 @@ class ParseToAst(Transformer):
             enumerators.append(_XdrEnumerator(name, value))
             i = i + 2
 
-        return _XdrEnum(enum_name, 0, 0, enumerators)
+        return _XdrEnum(enum_name, enumerators)
 
     def fixed_length_opaque(self, children):
         """Instantiate one _XdrFixedLengthOpaque declaration object"""
