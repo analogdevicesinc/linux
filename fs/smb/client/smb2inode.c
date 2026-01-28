@@ -13,7 +13,6 @@
 #include <linux/pagemap.h>
 #include <asm/div64.h>
 #include "cifsfs.h"
-#include "cifspdu.h"
 #include "cifsglob.h"
 #include "cifsproto.h"
 #include "cifs_debug.h"
@@ -24,6 +23,7 @@
 #include "smb2proto.h"
 #include "cached_dir.h"
 #include "../common/smb2status.h"
+#include "../common/smbfsctl.h"
 
 static struct reparse_data_buffer *reparse_buf_ptr(struct kvec *iov)
 {
