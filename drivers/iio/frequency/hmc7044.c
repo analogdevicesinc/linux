@@ -937,6 +937,13 @@ static int hmc7044_info(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static void hcm7044_clk_del_provider(void *dev)
+{
+	struct spi_device *spi = dev;
+
+	of_clk_del_provider(spi->dev.of_node);
+}
+
 static int hmc7044_setup(struct iio_dev *indio_dev)
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
@@ -1404,16 +1411,13 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	return of_clk_add_provider(hmc->spi->dev.of_node,
-				   of_clk_src_onecell_get,
-				   &hmc->clk_data);
-}
+	ret = of_clk_add_provider(hmc->spi->dev.of_node,
+				  of_clk_src_onecell_get,
+				  &hmc->clk_data);
+	if (ret)
+		return ret;
 
-static void hcm7044_clk_del_provider(void *dev)
-{
-	struct spi_device *spi = dev;
-
-	of_clk_del_provider(spi->dev.of_node);
+	return devm_add_action_or_reset(&hmc->spi->dev, hcm7044_clk_del_provider, hmc->spi);
 }
 
 static int hmc7043_setup(struct iio_dev *indio_dev)
@@ -1614,7 +1618,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 static int hmc7044_parse_dt(struct device *dev,
 			    struct hmc7044 *hmc)
 {
-	struct device_node *np = dev->of_node, *chan_np;
+	struct device_node *np = dev->of_node;
 	unsigned int cnt = 0;
 	int ret;
 	u32 tmp;
@@ -1787,7 +1791,7 @@ static int hmc7044_parse_dt(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	for_each_child_of_node(np, chan_np)
+	for_each_child_of_node_scoped(np, chan_np)
 		hmc->num_channels++;
 	if (hmc->num_channels > HMC7044_NUM_CHAN)
 		return -EINVAL;
@@ -1798,7 +1802,7 @@ static int hmc7044_parse_dt(struct device *dev,
 	if (!hmc->channels)
 		return -ENOMEM;
 
-	for_each_child_of_node(np, chan_np) {
+	for_each_child_of_node_scoped(np, chan_np) {
 		hmc->channels[cnt].num = cnt;
 		of_property_read_u32(chan_np, "reg",
 				     &hmc->channels[cnt].num);
