@@ -71,7 +71,7 @@ nlm_fopen(struct svc_rqst *rqstp, struct nfs_fh *f, struct file **filp,
 		 * to callback when the delegation is returned but might
 		 * not have a proper lock request to block on.
 		 */
-		return nlm_drop_reply;
+		return nlm__int__drop_reply;
 	case nfserr_stale:
 		return nlm_stale_fh;
 	default:
