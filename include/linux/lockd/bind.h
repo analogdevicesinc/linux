@@ -26,11 +26,9 @@ struct rpc_clnt;
  * This is the set of functions for lockd->nfsd communication
  */
 struct nlmsvc_binding {
-	__be32			(*fopen)(struct svc_rqst *,
-						struct nfs_fh *,
-						struct file **,
-						int mode);
-	void			(*fclose)(struct file *);
+	int		(*fopen)(struct svc_rqst *rqstp, struct nfs_fh *f,
+				 struct file **filp, int flags);
+	void		(*fclose)(struct file *filp);
 };
 
 extern const struct nlmsvc_binding *nlmsvc_ops;
