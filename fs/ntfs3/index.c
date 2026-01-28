@@ -252,9 +252,7 @@ static int bmp_buf_get(struct ntfs_index *indx, struct ntfs_inode *ni,
 
 	bbuf->bh = bh;
 
-	if (buffer_locked(bh))
-		__wait_on_buffer(bh);
-
+	wait_on_buffer(bh);
 	lock_buffer(bh);
 
 	sb = sbi->sb;
@@ -1028,17 +1026,18 @@ static int indx_write(struct ntfs_index *indx, struct ntfs_inode *ni,
 }
 
 /*
- * indx_read
+ * indx_read_ra
  *
  * If ntfs_readdir calls this function
  * inode is shared locked and no ni_lock.
  * Use rw_semaphore for read/write access to alloc_run.
  */
-int indx_read(struct ntfs_index *indx, struct ntfs_inode *ni, CLST vbn,
-	      struct indx_node **node)
+int indx_read_ra(struct ntfs_index *indx, struct ntfs_inode *ni, CLST vbn,
+		 struct indx_node **node, struct file_ra_state *ra)
 {
 	int err;
 	struct INDEX_BUFFER *ib;
+	struct ntfs_sb_info *sbi = ni->mi.sbi;
 	struct runs_tree *run = &indx->alloc_run;
 	struct rw_semaphore *lock = &indx->run_lock;
 	u64 vbo = (u64)vbn << indx->vbn2vbo_bits;
@@ -1064,7 +1063,7 @@ int indx_read(struct ntfs_index *indx, struct ntfs_inode *ni, CLST vbn,
 	}
 
 	down_read(lock);
-	err = ntfs_read_bh(ni->mi.sbi, run, vbo, &ib->rhdr, bytes, &in->nb);
+	err = ntfs_read_bh_ra(sbi, run, vbo, &ib->rhdr, bytes, &in->nb, ra);
 	up_read(lock);
 	if (!err)
 		goto ok;
@@ -1084,7 +1083,7 @@ int indx_read(struct ntfs_index *indx, struct ntfs_inode *ni, CLST vbn,
 		goto out;
 
 	down_read(lock);
-	err = ntfs_read_bh(ni->mi.sbi, run, vbo, &ib->rhdr, bytes, &in->nb);
+	err = ntfs_read_bh_ra(sbi, run, vbo, &ib->rhdr, bytes, &in->nb, ra);
 	up_read(lock);
 	if (err == -E_NTFS_FIXUP)
 		goto ok;
@@ -1100,7 +1099,7 @@ ok:
 	}
 
 	if (err == -E_NTFS_FIXUP) {
-		ntfs_write_bh(ni->mi.sbi, &ib->rhdr, &in->nb, 0);
+		ntfs_write_bh(sbi, &ib->rhdr, &in->nb, 0);
 		err = 0;
 	}
 
@@ -1190,7 +1189,12 @@ int indx_find(struct ntfs_index *indx, struct ntfs_inode *ni,
 			return -EINVAL;
 		}
 
-		fnd_push(fnd, node, e);
+		err = fnd_push(fnd, node, e);
+
+		if (err) {
+			put_indx_node(node);
+			return err;
+		}
 	}
 
 	*entry = e;
@@ -1998,6 +2002,7 @@ int indx_insert_entry(struct ntfs_index *indx, struct ntfs_inode *ni,
 					      fnd->level - 1, fnd);
 	}
 
+	indx->version += 1;
 out:
 	fnd_put(fnd_a);
 out1:
@@ -2645,6 +2650,7 @@ int indx_delete_entry(struct ntfs_index *indx, struct ntfs_inode *ni,
 		mi->dirty = true;
 	}
 
+	indx->version += 1;
 out:
 	fnd_put(fnd2);
 out1:

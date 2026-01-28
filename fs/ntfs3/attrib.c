@@ -166,6 +166,12 @@ int attr_allocate_clusters(struct ntfs_sb_info *sbi, struct runs_tree *run,
 			continue;
 		}
 
+		if (err == -ENOSPC && new_len && vcn - vcn0) {
+			/* Keep already allocated clusters. */
+			*alen = vcn - vcn0;
+			return 0;
+		}
+
 		if (err)
 			goto out;
 
@@ -448,8 +454,10 @@ again:
 
 	is_ext = is_attr_ext(attr_b);
 	align = sbi->cluster_size;
-	if (is_ext)
+	if (is_ext) {
 		align <<= attr_b->nres.c_unit;
+		keep_prealloc = false;
+	}
 
 	old_valid = le64_to_cpu(attr_b->nres.valid_size);
 	old_size = le64_to_cpu(attr_b->nres.data_size);
@@ -884,7 +892,7 @@ bad_inode:
  *  - new allocated clusters are zeroed via blkdev_issue_zeroout.
  */
 int attr_data_get_block(struct ntfs_inode *ni, CLST vcn, CLST clen, CLST *lcn,
-			CLST *len, bool *new, bool zero)
+			CLST *len, bool *new, bool zero, void **res)
 {
 	int err = 0;
 	struct runs_tree *run = &ni->file.run;
@@ -901,6 +909,8 @@ int attr_data_get_block(struct ntfs_inode *ni, CLST vcn, CLST clen, CLST *lcn,
 
 	if (new)
 		*new = false;
+	if (res)
+		*res = NULL;
 
 	/* Try to find in cache. */
 	down_read(&ni->file.run_lock);
@@ -937,8 +947,15 @@ int attr_data_get_block(struct ntfs_inode *ni, CLST vcn, CLST clen, CLST *lcn,
 	}
 
 	if (!attr_b->non_res) {
+		u32 data_size = le32_to_cpu(attr_b->res.data_size);
 		*lcn = RESIDENT_LCN;
-		*len = 1;
+		*len = data_size;
+		if (res && data_size) {
+			*res = kmemdup(resident_data(attr_b), data_size,
+				       GFP_KERNEL);
+			if (!*res)
+				err = -ENOMEM;
+		}
 		goto out;
 	}
 
@@ -948,7 +965,7 @@ int attr_data_get_block(struct ntfs_inode *ni, CLST vcn, CLST clen, CLST *lcn,
 			err = -EINVAL;
 		} else {
 			*len = 1;
-			*lcn = SPARSE_LCN;
+			*lcn = EOF_LCN;
 		}
 		goto out;
 	}
@@ -1026,7 +1043,8 @@ int attr_data_get_block(struct ntfs_inode *ni, CLST vcn, CLST clen, CLST *lcn,
 		to_alloc = ((vcn0 + clen + clst_per_frame - 1) & cmask) - vcn;
 		if (fr < clst_per_frame)
 			fr = clst_per_frame;
-		zero = true;
+		if (vcn != vcn0)
+			zero = true;
 
 		/* Check if 'vcn' and 'vcn0' in different attribute segments. */
 		if (vcn < svcn || evcn1 <= vcn) {
@@ -1242,33 +1260,6 @@ undo1:
 	goto out;
 }
 
-int attr_data_read_resident(struct ntfs_inode *ni, struct folio *folio)
-{
-	u64 vbo;
-	struct ATTRIB *attr;
-	u32 data_size;
-	size_t len;
-
-	attr = ni_find_attr(ni, NULL, NULL, ATTR_DATA, NULL, 0, NULL, NULL);
-	if (!attr)
-		return -EINVAL;
-
-	if (attr->non_res)
-		return E_NTFS_NONRESIDENT;
-
-	vbo = folio->index << PAGE_SHIFT;
-	data_size = le32_to_cpu(attr->res.data_size);
-	if (vbo > data_size)
-		len = 0;
-	else
-		len = min(data_size - vbo, folio_size(folio));
-
-	folio_fill_tail(folio, 0, resident_data(attr) + vbo, len);
-	folio_mark_uptodate(folio);
-
-	return 0;
-}
-
 int attr_data_write_resident(struct ntfs_inode *ni, struct folio *folio)
 {
 	u64 vbo;
@@ -1285,7 +1276,7 @@ int attr_data_write_resident(struct ntfs_inode *ni, struct folio *folio)
 		return E_NTFS_NONRESIDENT;
 	}
 
-	vbo = folio->index << PAGE_SHIFT;
+	vbo = folio_pos(folio);
 	data_size = le32_to_cpu(attr->res.data_size);
 	if (vbo < data_size) {
 		char *data = resident_data(attr);
@@ -1354,19 +1345,27 @@ int attr_load_runs_range(struct ntfs_inode *ni, enum ATTR_TYPE type,
 	CLST vcn;
 	CLST vcn_last = (to - 1) >> cluster_bits;
 	CLST lcn, clen;
-	int err;
+	int err = 0;
+	int retry = 0;
 
 	for (vcn = from >> cluster_bits; vcn <= vcn_last; vcn += clen) {
-		if (!run_lookup_entry(run, vcn, &lcn, &clen, NULL)) {
-			err = attr_load_runs_vcn(ni, type, name, name_len, run,
-						 vcn);
-			if (err)
-				return err;
-			clen = 0; /* Next run_lookup_entry(vcn) must be success. */
+		if (run_lookup_entry(run, vcn, &lcn, &clen, NULL)) {
+			retry = 0;
+			continue;
 		}
+		if (retry) {
+			err = -EINVAL;
+			break;
+		}
+		err = attr_load_runs_vcn(ni, type, name, name_len, run, vcn);
+		if (err)
+			break;
+
+		clen = 0; /* Next run_lookup_entry(vcn) must be success. */
+		retry++;
 	}
 
-	return 0;
+	return err;
 }
 
 #ifdef CONFIG_NTFS3_LZX_XPRESS
