@@ -1146,6 +1146,7 @@ impl Thread {
         transaction: &DArc<Transaction>,
     ) -> bool {
         if let Ok(transaction) = &reply {
+            crate::trace::trace_transaction(true, transaction, Some(&self.task));
             transaction.set_outstanding(&mut self.process.inner.lock());
         }
 
