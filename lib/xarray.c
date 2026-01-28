@@ -368,7 +368,7 @@ static void *xas_alloc(struct xa_state *xas, unsigned int shift)
 		return NULL;
 
 	if (node) {
-		xas->xa_alloc = NULL;
+		xas->xa_alloc = rcu_dereference_raw(node->parent);
 	} else {
 		gfp_t gfp = GFP_NOWAIT;
 
@@ -2386,10 +2386,10 @@ void xa_destroy(struct xarray *xa)
 	unsigned long flags;
 	void *entry;
 
-	xas.xa_node = NULL;
 	xas_lock_irqsave(&xas, flags);
 	entry = xa_head_locked(xa);
 	RCU_INIT_POINTER(xa->xa_head, NULL);
+	xas.xa_node = NULL;
 	xas_init_marks(&xas);
 	if (xa_zero_busy(xa))
 		xa_mark_clear(xa, XA_FREE_MARK);
@@ -2400,7 +2400,7 @@ void xa_destroy(struct xarray *xa)
 }
 EXPORT_SYMBOL(xa_destroy);
 
-#ifdef XA_DEBUG
+#ifdef CONFIG_DEBUG_XARRAY
 void xa_dump_node(const struct xa_node *node)
 {
 	unsigned i, j;
@@ -2422,6 +2422,7 @@ void xa_dump_node(const struct xa_node *node)
 			pr_cont(" %lx", node->marks[i][j]);
 	pr_cont("\n");
 }
+EXPORT_SYMBOL(xa_dump_node);
 
 void xa_dump_index(unsigned long index, unsigned int shift)
 {
@@ -2433,7 +2434,8 @@ void xa_dump_index(unsigned long index, unsigned int shift)
 		pr_info("%lu-%lu: ", index, index | ((1UL << shift) - 1));
 }
 
-void xa_dump_entry(const void *entry, unsigned long index, unsigned long shift)
+static void xa_dump_entry(const void *entry, unsigned long index,
+		unsigned long shift)
 {
 	if (!entry)
 		return;
@@ -2478,4 +2480,5 @@ void xa_dump(const struct xarray *xa)
 		shift = xa_to_node(entry)->shift + XA_CHUNK_SHIFT;
 	xa_dump_entry(entry, 0, shift);
 }
+EXPORT_SYMBOL(xa_dump);
 #endif
