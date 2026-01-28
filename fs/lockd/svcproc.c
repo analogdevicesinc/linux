@@ -39,8 +39,20 @@ static inline __be32 cast_status(__be32 status)
 #else
 static inline __be32 cast_status(__be32 status)
 {
-	if (status == nlm__int__deadlock)
+	switch (status) {
+	case nlm__int__deadlock:
 		status = nlm_lck_denied;
+		break;
+	case nlm__int__stale_fh:
+	case nlm__int__failed:
+		status = nlm_lck_denied_nolocks;
+		break;
+	default:
+		if (be32_to_cpu(status) >= 30000)
+			pr_warn_once("lockd: unhandled internal status %u\n",
+				     be32_to_cpu(status));
+		break;
+	}
 	return status;
 }
 #endif

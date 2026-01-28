@@ -44,6 +44,8 @@
  */
 #define nlm__int__drop_reply	cpu_to_be32(30000)
 #define nlm__int__deadlock	cpu_to_be32(30001)
+#define nlm__int__stale_fh	cpu_to_be32(30002)
+#define nlm__int__failed	cpu_to_be32(30003)
 
 /*
  * Lockd host handle (used both by the client and server personality).

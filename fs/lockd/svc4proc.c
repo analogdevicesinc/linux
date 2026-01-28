@@ -73,9 +73,21 @@ nlm4svc_retrieve_args(struct svc_rqst *rqstp, struct nlm_args *argp,
 
 no_locks:
 	nlmsvc_release_host(host);
- 	if (error)
-		return error;	
-	return nlm_lck_denied_nolocks;
+	switch (error) {
+	case nlm_granted:
+		return nlm_lck_denied_nolocks;
+	case nlm__int__stale_fh:
+		return nlm4_stale_fh;
+	case nlm__int__failed:
+		return nlm4_failed;
+	default:
+		if (be32_to_cpu(error) >= 30000) {
+			pr_warn_once("lockd: unhandled internal status %u\n",
+				     be32_to_cpu(error));
+			return nlm4_failed;
+		}
+		return error;
+	}
 }
 
 /*
