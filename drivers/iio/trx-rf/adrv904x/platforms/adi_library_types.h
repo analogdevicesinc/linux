@@ -20,6 +20,8 @@
 #include <linux/slab.h>
 #include <linux/time.h>
 #include <linux/fs.h>
+#include <linux/math64.h>
+#include <linux/gcd.h>
 typedef time64_t time_t;
 #define INT16_MAX                                       S16_MAX
 #define INT16_MIN                                       S16_MIN
@@ -159,6 +161,31 @@ typedef time64_t time_t;
 /* ctype.h */
 #define ADI_LIBRARY_TOUPPER                             toupper
 #define ADI_LIBRARY_TOLOWER                             tolower
+
+/* math64.h */
+#ifdef __KERNEL__
+#define ADI_LIBRARY_DIV_U64                             div_u64
+#define ADI_LIBRARY_DIV64_U64                           div64_u64
+#define ADI_LIBRARY_DIV_S64                             div_s64
+#define ADI_LIBRARY_DIV64_S64                           div64_s64
+#define ADI_LIBRARY_GCD                                 gcd
+#else
+#define ADI_LIBRARY_DIV_U64(dividend, divisor)          ((dividend) / (divisor))
+#define ADI_LIBRARY_DIV64_U64(dividend, divisor)        ((dividend) / (divisor))
+#define ADI_LIBRARY_DIV_S64(dividend, divisor)          ((dividend) / (divisor))
+#define ADI_LIBRARY_DIV64_S64(dividend, divisor)        ((dividend) / (divisor))
+/* Simple GCD implementation for non-kernel builds */
+static inline unsigned long adi_library_gcd(unsigned long a, unsigned long b)
+{
+    while (b != 0) {
+        unsigned long t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+#define ADI_LIBRARY_GCD                                 adi_library_gcd
+#endif
 
 
 /* When ADI_PLATFORM_LARGE_VARS_ON_HEAP is defined, the memory per function frame is limited to 2k,
