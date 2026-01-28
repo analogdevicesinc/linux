@@ -16,10 +16,11 @@
 #include <linux/sunrpc/svc.h>
 #include <linux/sunrpc/addr.h>
 #include <linux/lockd/lockd.h>
-#include <linux/lockd/share.h>
 #include <linux/module.h>
 #include <linux/mount.h>
 #include <uapi/linux/nfs2.h>
+
+#include "share.h"
 
 #define NLMDBG_FACILITY		NLMDBG_SVCSUBS
 

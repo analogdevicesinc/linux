@@ -11,8 +11,9 @@
 #include <linux/types.h>
 #include <linux/time.h>
 #include <linux/lockd/lockd.h>
-#include <linux/lockd/share.h>
 #include <linux/sunrpc/svc_xprt.h>
+
+#include "share.h"
 
 #define NLMDBG_FACILITY		NLMDBG_CLIENT
 
