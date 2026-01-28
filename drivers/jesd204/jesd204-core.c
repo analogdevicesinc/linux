@@ -706,24 +706,23 @@ static void jesd204_dev_free_links(struct jesd204_dev_top *jdev_top)
 {
 	unsigned int i;
 
+	if (!jdev_top)
+		return;
+
+	/* Free lane_ids for each link */
 	if (jdev_top->active_links) {
 		for (i = 0; i < jdev_top->num_links; i++) {
-			/* Only free if not from init_links (static allocation) */
+			/* Only free if not using static init_links lane_ids */
 			if (!jdev_top->init_links ||
 			    !jdev_top->init_links[i].lane_ids)
 				kfree(jdev_top->active_links[i].link.lane_ids);
 		}
 		kfree(jdev_top->active_links);
+		jdev_top->active_links = NULL;
 	}
 
-	if (jdev_top->staged_links) {
-		for (i = 0; i < jdev_top->num_links; i++) {
-			if (!jdev_top->init_links ||
-			    !jdev_top->init_links[i].lane_ids)
-				kfree(jdev_top->staged_links[i].link.lane_ids);
-		}
-		kfree(jdev_top->staged_links);
-	}
+	kfree(jdev_top->staged_links);
+	jdev_top->staged_links = NULL;
 }
 
 static int jesd204_dev_init_stop_states(struct jesd204_dev *jdev,
@@ -1215,6 +1214,7 @@ static void jesd204_dev_destroy_cons(struct jesd204_dev *jdev)
 	struct jesd204_dev_list_entry *e, *e1;
 
 	kfree(jdev->inputs);
+	jdev->inputs = NULL;
 
 	list_for_each_entry_safe(c, c1, &jdev->outputs, entry) {
 		list_del(&c->entry);
@@ -1235,6 +1235,7 @@ static void jesd204_of_unregister_devices(void)
 		jesd204_dev_unregister(jdev);
 		jesd204_dev_destroy_cons(jdev);
 		of_node_put(jdev->np);
+		ida_simple_remove(&jesd204_ida, jdev->id);
 		list_del(&jdev->entry);
 		jesd204_device_count--;
 		if (!jdev->is_top) {
@@ -1248,6 +1249,9 @@ static void jesd204_of_unregister_devices(void)
 		kfree(jdev_top);
 		jesd204_topologies_count--;
 	}
+
+	/* Reset connection ID counter for next overlay load */
+	jesd204_con_id_counter = 0;
 }
 
 /**
@@ -1265,6 +1269,14 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	if (IS_ERR_OR_NULL(jdev))
 		return;
 
+	/* Check if already unregistered to avoid double cleanup */
+	if (jdev->unregistered)
+		return;
+
+	pr_debug("Unregistering JESD204 device %pOF\n", jdev->np);
+
+	jdev->unregistered = true;
+
 	jesd204_dev_destroy_sysfs(jdev);
 
 	if (jdev->dev.parent)
@@ -1274,7 +1286,8 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	jesd204_fsm_stop(jdev, JESD204_LINKS_ALL);
 	jdev->fsm_rb_to_init = false;
 
-	memset(&jdev->dev, 0, sizeof(jdev->dev));
+	jdev->dev.parent = NULL;
+	jdev->dev_data = NULL;
 	jdev->fsm_inited = false;
 }
 
@@ -1386,9 +1399,9 @@ static int of_jesd204_notify(struct notifier_block *nb,
 		return NOTIFY_OK;
 	case OF_OVERLAY_PRE_REMOVE:
 		pr_debug("%s OF_OVERLAY_PRE_REMOVE\n", __func__);
-
-		if (jesd204_device_count)
-			return notifier_from_errno(-EOPNOTSUPP);
+		return NOTIFY_OK;
+	case OF_OVERLAY_POST_REMOVE:
+		jesd204_of_unregister_devices();
 
 		return NOTIFY_OK;
 	default:
