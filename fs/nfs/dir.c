@@ -1490,7 +1490,7 @@ static void nfs_clear_verifier_directory(struct inode *dir)
 	if (hlist_empty(&dir->i_dentry))
 		return;
 	this_parent =
-		hlist_entry(dir->i_dentry.first, struct dentry, d_u.d_alias);
+		hlist_entry(dir->i_dentry.first, struct dentry, d_alias);
 
 	spin_lock(&this_parent->d_lock);
 	nfs_unset_verifier_delegated(&this_parent->d_time);

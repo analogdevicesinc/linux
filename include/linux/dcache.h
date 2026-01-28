@@ -128,7 +128,7 @@ struct dentry {
 		struct hlist_node d_alias;	/* inode alias list */
 		struct hlist_bl_node d_in_lookup_hash;	/* only for in-lookup ones */
 	 	struct rcu_head d_rcu;
-	} d_u;
+	};
 };
 
 /*
@@ -617,6 +617,6 @@ void d_make_discardable(struct dentry *dentry);
 
 /* inode->i_lock must be held over that */
 #define for_each_alias(dentry, inode) \
-	hlist_for_each_entry(dentry, &(inode)->i_dentry, d_u.d_alias)
+	hlist_for_each_entry(dentry, &(inode)->i_dentry, d_alias)
 
 #endif	/* __LINUX_DCACHE_H */

@@ -4608,7 +4608,7 @@ static struct dentry* d_find_primary(struct inode *inode)
 		goto out_unlock;
 
 	if (S_ISDIR(inode->i_mode)) {
-		alias = hlist_entry(inode->i_dentry.first, struct dentry, d_u.d_alias);
+		alias = hlist_entry(inode->i_dentry.first, struct dentry, d_alias);
 		if (!IS_ROOT(alias))
 			dn = dget(alias);
 		goto out_unlock;
