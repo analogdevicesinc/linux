@@ -809,13 +809,15 @@ The ABIs are designed to be used for user space applications development,
 rather than human beings' fingers.  Human users are recommended to use such
 user space tools.  One such Python-written user space tool is available at
 Github (https://github.com/damonitor/damo), Pypi
-(https://pypistats.org/packages/damo), and Fedora
-(https://packages.fedoraproject.org/pkgs/python-damo/damo/).
+(https://pypistats.org/packages/damo), and multiple distros
+(https://repology.org/project/damo/versions).
 
 Currently, one module for this type, namely 'DAMON sysfs interface' is
 available.  Please refer to the ABI :ref:`doc <sysfs_interface>` for details of
 the interfaces.
 
+
+.. _damon_modules_special_purpose:
 
 Special-Purpose Access-aware Kernel Modules
 -------------------------------------------
@@ -834,5 +836,18 @@ To support such cases, yet more DAMON API user kernel modules that provide more
 simple and optimized user space interfaces are available.  Currently, two
 modules for proactive reclamation and LRU lists manipulation are provided.  For
 more detail, please read the usage documents for those
-(:doc:`/admin-guide/mm/damon/reclaim` and
+(:doc:`/admin-guide/mm/damon/stat`, :doc:`/admin-guide/mm/damon/reclaim` and
 :doc:`/admin-guide/mm/damon/lru_sort`).
+
+
+Sample DAMON Modules
+--------------------
+
+DAMON modules that provides example DAMON kernel API usages.
+
+kernel programmers can build their own special or general purpose DAMON modules
+using DAMON kernel API.  To help them easily understand how DAMON kernel API
+can be used, a few sample modules are provided under ``samples/damon/`` of the
+linux source tree.  Please note that these modules are not developed for being
+used on real products, but only for showing how DAMON kernel API can be used in
+simple ways.

@@ -982,7 +982,7 @@ static long shmem_free_swap(struct address_space *mapping,
 	xas_unlock_irq(&xas);
 
 	if (nr_pages)
-		free_swap_and_cache_nr(radix_to_swp_entry(radswap), nr_pages);
+		swap_put_entries_direct(radix_to_swp_entry(radswap), nr_pages);
 
 	return nr_pages;
 }
@@ -1690,7 +1690,7 @@ try_split:
 			spin_unlock(&shmem_swaplist_lock);
 		}
 
-		swap_shmem_alloc(folio->swap, nr_pages);
+		folio_dup_swap(folio, NULL);
 		shmem_delete_from_page_cache(folio, swp_to_radix_entry(folio->swap));
 
 		BUG_ON(folio_mapped(folio));
@@ -1711,7 +1711,7 @@ try_split:
 		/* Swap entry might be erased by racing shmem_free_swap() */
 		if (!error) {
 			shmem_recalc_inode(inode, 0, -nr_pages);
-			swap_free_nr(folio->swap, nr_pages);
+			folio_put_swap(folio, NULL);
 		}
 
 		/*
@@ -2037,10 +2037,9 @@ static struct folio *shmem_swap_alloc_folio(struct inode *inode,
 		swp_entry_t entry, int order, gfp_t gfp)
 {
 	struct shmem_inode_info *info = SHMEM_I(inode);
+	struct folio *new, *swapcache;
 	int nr_pages = 1 << order;
-	struct folio *new;
 	gfp_t alloc_gfp;
-	void *shadow;
 
 	/*
 	 * We have arrived here because our zones are constrained, so don't
@@ -2080,34 +2079,19 @@ retry:
 		goto fallback;
 	}
 
-	/*
-	 * Prevent parallel swapin from proceeding with the swap cache flag.
-	 *
-	 * Of course there is another possible concurrent scenario as well,
-	 * that is to say, the swap cache flag of a large folio has already
-	 * been set by swapcache_prepare(), while another thread may have
-	 * already split the large swap entry stored in the shmem mapping.
-	 * In this case, shmem_add_to_page_cache() will help identify the
-	 * concurrent swapin and return -EEXIST.
-	 */
-	if (swapcache_prepare(entry, nr_pages)) {
+	swapcache = swapin_folio(entry, new);
+	if (swapcache != new) {
 		folio_put(new);
-		new = ERR_PTR(-EEXIST);
-		/* Try smaller folio to avoid cache conflict */
-		goto fallback;
+		if (!swapcache) {
+			/*
+			 * The new folio is charged already, swapin can
+			 * only fail due to another raced swapin.
+			 */
+			new = ERR_PTR(-EEXIST);
+			goto fallback;
+		}
 	}
-
-	__folio_set_locked(new);
-	__folio_set_swapbacked(new);
-	new->swap = entry;
-
-	memcg1_swapin(entry, nr_pages);
-	shadow = swap_cache_get_shadow(entry);
-	if (shadow)
-		workingset_refault(new, shadow);
-	folio_add_lru(new);
-	swap_read_folio(new, NULL);
-	return new;
+	return swapcache;
 fallback:
 	/* Order 0 swapin failed, nothing to fallback to, abort */
 	if (!order)
@@ -2197,8 +2181,7 @@ static int shmem_replace_folio(struct folio **foliop, gfp_t gfp,
 }
 
 static void shmem_set_folio_swapin_error(struct inode *inode, pgoff_t index,
-					 struct folio *folio, swp_entry_t swap,
-					 bool skip_swapcache)
+					 struct folio *folio, swp_entry_t swap)
 {
 	struct address_space *mapping = inode->i_mapping;
 	swp_entry_t swapin_error;
@@ -2214,15 +2197,14 @@ static void shmem_set_folio_swapin_error(struct inode *inode, pgoff_t index,
 
 	nr_pages = folio_nr_pages(folio);
 	folio_wait_writeback(folio);
-	if (!skip_swapcache)
-		swap_cache_del_folio(folio);
+	folio_put_swap(folio, NULL);
+	swap_cache_del_folio(folio);
 	/*
 	 * Don't treat swapin error folio as alloced. Otherwise inode->i_blocks
 	 * won't be 0 when inode is released and thus trigger WARN_ON(i_blocks)
 	 * in shmem_evict_inode().
 	 */
 	shmem_recalc_inode(inode, -nr_pages, -nr_pages);
-	swap_free_nr(swap, nr_pages);
 }
 
 static int shmem_split_large_entry(struct inode *inode, pgoff_t index,
@@ -2315,7 +2297,6 @@ static int shmem_swapin_folio(struct inode *inode, pgoff_t index,
 	softleaf_t index_entry;
 	struct swap_info_struct *si;
 	struct folio *folio = NULL;
-	bool skip_swapcache = false;
 	int error, nr_pages, order;
 	pgoff_t offset;
 
@@ -2358,7 +2339,6 @@ static int shmem_swapin_folio(struct inode *inode, pgoff_t index,
 				folio = NULL;
 				goto failed;
 			}
-			skip_swapcache = true;
 		} else {
 			/* Cached swapin only supports order 0 folio */
 			folio = shmem_swapin_cluster(swap, gfp, info, index);
@@ -2414,9 +2394,8 @@ static int shmem_swapin_folio(struct inode *inode, pgoff_t index,
 	 * and swap cache folios are never partially freed.
 	 */
 	folio_lock(folio);
-	if ((!skip_swapcache && !folio_test_swapcache(folio)) ||
-	    shmem_confirm_swap(mapping, index, swap) < 0 ||
-	    folio->swap.val != swap.val) {
+	if (!folio_matches_swap_entry(folio, swap) ||
+	    shmem_confirm_swap(mapping, index, swap) < 0) {
 		error = -EEXIST;
 		goto unlock;
 	}
@@ -2448,14 +2427,9 @@ static int shmem_swapin_folio(struct inode *inode, pgoff_t index,
 	if (sgp == SGP_WRITE)
 		folio_mark_accessed(folio);
 
-	if (skip_swapcache) {
-		folio->swap.val = 0;
-		swapcache_clear(si, swap, nr_pages);
-	} else {
-		swap_cache_del_folio(folio);
-	}
+	folio_put_swap(folio, NULL);
+	swap_cache_del_folio(folio);
 	folio_mark_dirty(folio);
-	swap_free_nr(swap, nr_pages);
 	put_swap_device(si);
 
 	*foliop = folio;
@@ -2464,14 +2438,11 @@ failed:
 	if (shmem_confirm_swap(mapping, index, swap) < 0)
 		error = -EEXIST;
 	if (error == -EIO)
-		shmem_set_folio_swapin_error(inode, index, folio, swap,
-					     skip_swapcache);
+		shmem_set_folio_swapin_error(inode, index, folio, swap);
 unlock:
 	if (folio)
 		folio_unlock(folio);
 failed_nolock:
-	if (skip_swapcache)
-		swapcache_clear(si, folio->swap, folio_nr_pages(folio));
 	if (folio)
 		folio_put(folio);
 	put_swap_device(si);
@@ -3086,9 +3057,9 @@ static struct offset_ctx *shmem_get_offset_ctx(struct inode *inode)
 }
 
 static struct inode *__shmem_get_inode(struct mnt_idmap *idmap,
-					     struct super_block *sb,
-					     struct inode *dir, umode_t mode,
-					     dev_t dev, unsigned long flags)
+				       struct super_block *sb,
+				       struct inode *dir, umode_t mode,
+				       dev_t dev, vma_flags_t flags)
 {
 	struct inode *inode;
 	struct shmem_inode_info *info;
@@ -3116,7 +3087,8 @@ static struct inode *__shmem_get_inode(struct mnt_idmap *idmap,
 	spin_lock_init(&info->lock);
 	atomic_set(&info->stop_eviction, 0);
 	info->seals = F_SEAL_SEAL;
-	info->flags = (flags & VM_NORESERVE) ? SHMEM_F_NORESERVE : 0;
+	info->flags = vma_flags_test(&flags, VMA_NORESERVE_BIT)
+		? SHMEM_F_NORESERVE : 0;
 	info->i_crtime = inode_get_mtime(inode);
 	info->fsflags = (dir == NULL) ? 0 :
 		SHMEM_I(dir)->fsflags & SHMEM_FL_INHERITED;
@@ -3169,7 +3141,7 @@ static struct inode *__shmem_get_inode(struct mnt_idmap *idmap,
 #ifdef CONFIG_TMPFS_QUOTA
 static struct inode *shmem_get_inode(struct mnt_idmap *idmap,
 				     struct super_block *sb, struct inode *dir,
-				     umode_t mode, dev_t dev, unsigned long flags)
+				     umode_t mode, dev_t dev, vma_flags_t flags)
 {
 	int err;
 	struct inode *inode;
@@ -3195,9 +3167,9 @@ errout:
 	return ERR_PTR(err);
 }
 #else
-static inline struct inode *shmem_get_inode(struct mnt_idmap *idmap,
+static struct inode *shmem_get_inode(struct mnt_idmap *idmap,
 				     struct super_block *sb, struct inode *dir,
-				     umode_t mode, dev_t dev, unsigned long flags)
+				     umode_t mode, dev_t dev, vma_flags_t flags)
 {
 	return __shmem_get_inode(idmap, sb, dir, mode, dev, flags);
 }
@@ -3904,7 +3876,8 @@ shmem_mknod(struct mnt_idmap *idmap, struct inode *dir,
 	if (!generic_ci_validate_strict_name(dir, &dentry->d_name))
 		return -EINVAL;
 
-	inode = shmem_get_inode(idmap, dir->i_sb, dir, mode, dev, VM_NORESERVE);
+	inode = shmem_get_inode(idmap, dir->i_sb, dir, mode, dev,
+				mk_vma_flags(VMA_NORESERVE_BIT));
 	if (IS_ERR(inode))
 		return PTR_ERR(inode);
 
@@ -3939,7 +3912,8 @@ shmem_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
 	struct inode *inode;
 	int error;
 
-	inode = shmem_get_inode(idmap, dir->i_sb, dir, mode, 0, VM_NORESERVE);
+	inode = shmem_get_inode(idmap, dir->i_sb, dir, mode, 0,
+				mk_vma_flags(VMA_NORESERVE_BIT));
 	if (IS_ERR(inode)) {
 		error = PTR_ERR(inode);
 		goto err_out;
@@ -4136,7 +4110,7 @@ static int shmem_symlink(struct mnt_idmap *idmap, struct inode *dir,
 		return -ENAMETOOLONG;
 
 	inode = shmem_get_inode(idmap, dir->i_sb, dir, S_IFLNK | 0777, 0,
-				VM_NORESERVE);
+				mk_vma_flags(VMA_NORESERVE_BIT));
 	if (IS_ERR(inode))
 		return PTR_ERR(inode);
 
@@ -5137,7 +5111,8 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
 #endif /* CONFIG_TMPFS_QUOTA */
 
 	inode = shmem_get_inode(&nop_mnt_idmap, sb, NULL,
-				S_IFDIR | sbinfo->mode, 0, VM_NORESERVE);
+				S_IFDIR | sbinfo->mode, 0,
+				mk_vma_flags(VMA_NORESERVE_BIT));
 	if (IS_ERR(inode)) {
 		error = PTR_ERR(inode);
 		goto failed;
@@ -5837,7 +5812,7 @@ static inline void shmem_unacct_size(unsigned long flags, loff_t size)
 
 static inline struct inode *shmem_get_inode(struct mnt_idmap *idmap,
 				struct super_block *sb, struct inode *dir,
-				umode_t mode, dev_t dev, unsigned long flags)
+				umode_t mode, dev_t dev, vma_flags_t flags)
 {
 	struct inode *inode = ramfs_get_inode(sb, dir, mode, dev);
 	return inode ? inode : ERR_PTR(-ENOSPC);
@@ -5848,10 +5823,11 @@ static inline struct inode *shmem_get_inode(struct mnt_idmap *idmap,
 /* common code */
 
 static struct file *__shmem_file_setup(struct vfsmount *mnt, const char *name,
-				       loff_t size, unsigned long vm_flags,
+				       loff_t size, vma_flags_t flags,
 				       unsigned int i_flags)
 {
-	unsigned long flags = (vm_flags & VM_NORESERVE) ? SHMEM_F_NORESERVE : 0;
+	const unsigned long shmem_flags =
+		vma_flags_test(&flags, VMA_NORESERVE_BIT) ? SHMEM_F_NORESERVE : 0;
 	struct inode *inode;
 	struct file *res;
 
@@ -5864,13 +5840,13 @@ static struct file *__shmem_file_setup(struct vfsmount *mnt, const char *name,
 	if (is_idmapped_mnt(mnt))
 		return ERR_PTR(-EINVAL);
 
-	if (shmem_acct_size(flags, size))
+	if (shmem_acct_size(shmem_flags, size))
 		return ERR_PTR(-ENOMEM);
 
 	inode = shmem_get_inode(&nop_mnt_idmap, mnt->mnt_sb, NULL,
-				S_IFREG | S_IRWXUGO, 0, vm_flags);
+				S_IFREG | S_IRWXUGO, 0, flags);
 	if (IS_ERR(inode)) {
-		shmem_unacct_size(flags, size);
+		shmem_unacct_size(shmem_flags, size);
 		return ERR_CAST(inode);
 	}
 	inode->i_flags |= i_flags;
@@ -5893,9 +5869,10 @@ static struct file *__shmem_file_setup(struct vfsmount *mnt, const char *name,
  *	checks are provided at the key or shm level rather than the inode.
  * @name: name for dentry (to be seen in /proc/<pid>/maps)
  * @size: size to be set for the file
- * @flags: VM_NORESERVE suppresses pre-accounting of the entire object size
+ * @flags: VMA_NORESERVE_BIT suppresses pre-accounting of the entire object size
  */
-struct file *shmem_kernel_file_setup(const char *name, loff_t size, unsigned long flags)
+struct file *shmem_kernel_file_setup(const char *name, loff_t size,
+				     vma_flags_t flags)
 {
 	return __shmem_file_setup(shm_mnt, name, size, flags, S_PRIVATE);
 }
@@ -5905,9 +5882,9 @@ EXPORT_SYMBOL_GPL(shmem_kernel_file_setup);
  * shmem_file_setup - get an unlinked file living in tmpfs
  * @name: name for dentry (to be seen in /proc/<pid>/maps)
  * @size: size to be set for the file
- * @flags: VM_NORESERVE suppresses pre-accounting of the entire object size
+ * @flags: VMA_NORESERVE_BIT suppresses pre-accounting of the entire object size
  */
-struct file *shmem_file_setup(const char *name, loff_t size, unsigned long flags)
+struct file *shmem_file_setup(const char *name, loff_t size, vma_flags_t flags)
 {
 	return __shmem_file_setup(shm_mnt, name, size, flags, 0);
 }
@@ -5918,16 +5895,17 @@ EXPORT_SYMBOL_GPL(shmem_file_setup);
  * @mnt: the tmpfs mount where the file will be created
  * @name: name for dentry (to be seen in /proc/<pid>/maps)
  * @size: size to be set for the file
- * @flags: VM_NORESERVE suppresses pre-accounting of the entire object size
+ * @flags: VMA_NORESERVE_BIT suppresses pre-accounting of the entire object size
  */
 struct file *shmem_file_setup_with_mnt(struct vfsmount *mnt, const char *name,
-				       loff_t size, unsigned long flags)
+				       loff_t size, vma_flags_t flags)
 {
 	return __shmem_file_setup(mnt, name, size, flags, 0);
 }
 EXPORT_SYMBOL_GPL(shmem_file_setup_with_mnt);
 
-static struct file *__shmem_zero_setup(unsigned long start, unsigned long end, vm_flags_t vm_flags)
+static struct file *__shmem_zero_setup(unsigned long start, unsigned long end,
+		vma_flags_t flags)
 {
 	loff_t size = end - start;
 
@@ -5937,7 +5915,7 @@ static struct file *__shmem_zero_setup(unsigned long start, unsigned long end, v
 	 * accessible to the user through its mapping, use S_PRIVATE flag to
 	 * bypass file security, in the same way as shmem_kernel_file_setup().
 	 */
-	return shmem_kernel_file_setup("dev/zero", size, vm_flags);
+	return shmem_kernel_file_setup("dev/zero", size, flags);
 }
 
 /**
@@ -5947,7 +5925,7 @@ static struct file *__shmem_zero_setup(unsigned long start, unsigned long end, v
  */
 int shmem_zero_setup(struct vm_area_struct *vma)
 {
-	struct file *file = __shmem_zero_setup(vma->vm_start, vma->vm_end, vma->vm_flags);
+	struct file *file = __shmem_zero_setup(vma->vm_start, vma->vm_end, vma->flags);
 
 	if (IS_ERR(file))
 		return PTR_ERR(file);
@@ -5968,7 +5946,7 @@ int shmem_zero_setup(struct vm_area_struct *vma)
  */
 int shmem_zero_setup_desc(struct vm_area_desc *desc)
 {
-	struct file *file = __shmem_zero_setup(desc->start, desc->end, desc->vm_flags);
+	struct file *file = __shmem_zero_setup(desc->start, desc->end, desc->vma_flags);
 
 	if (IS_ERR(file))
 		return PTR_ERR(file);
