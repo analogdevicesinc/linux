@@ -468,6 +468,8 @@ static int axi_data_offload_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(st->of_node, "adi,oneshot"))
 		axi_data_offload_ctrl_oneshot(st, true);
+	else
+		axi_data_offload_ctrl_oneshot(st, false);
 
 	if (of_property_read_bool(st->of_node, "adi,bypass"))
 		axi_data_offload_ctrl_bypass(st, true);
