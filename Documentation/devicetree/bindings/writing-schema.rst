@@ -214,9 +214,17 @@ binding schema. All of the DT binding documents can be validated using the
 
     make dt_binding_check
 
+Or to validate a single schema and its example::
+
+    make sram/sram.yaml
+
 In order to perform validation of DT source files, use the ``dtbs_check`` target::
 
     make dtbs_check
+
+Or to validate a single DTB target::
+
+    make CHECK_DTBS=y arm/fvp-base-revc.dtb
 
 Note that ``dtbs_check`` will skip any binding schema files with errors. It is
 necessary to use ``dt_binding_check`` to get all the validation errors in the
@@ -226,10 +234,10 @@ It is possible to run both in a single command::
 
     make dt_binding_check dtbs_check
 
-It is also possible to run checks with a subset of matching schema files by
-setting the ``DT_SCHEMA_FILES`` variable to 1 or more specific schema files or
-patterns (partial match of a fixed string). Each file or pattern should be
-separated by ':'.
+It is also possible to combine running the above commands with a subset of
+matching schema files by setting the ``DT_SCHEMA_FILES`` variable to 1 or more
+specific schema files or patterns (partial match of a fixed string). Each file
+or pattern should be separated by ':'.
 
 ::
 

@@ -7,5 +7,7 @@ obj-$(CONFIG_KVM) += kvm/
 
 obj-$(CONFIG_ARCH_SUPPORTS_KEXEC_PURGATORY) += purgatory/
 
+subdir-y += boot/dts
+
 # for cleaning
 subdir- += boot

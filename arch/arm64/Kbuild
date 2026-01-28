@@ -9,5 +9,7 @@ obj-$(CONFIG_XEN)	+= xen/
 obj-$(subst m,y,$(CONFIG_HYPERV))	+= hyperv/
 obj-$(CONFIG_CRYPTO)	+= crypto/
 
+subdir-y += boot/dts
+
 # for cleaning
 subdir- += boot

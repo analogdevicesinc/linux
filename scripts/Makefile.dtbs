@@ -24,6 +24,7 @@ multi-dtb-y     := $(addprefix $(obj)/, $(multi-dtb-y))
 real-dtb-y      := $(addprefix $(obj)/, $(real-dtb-y))
 
 always-y        += $(dtb-y)
+
 targets         += $(real-dtb-y)
 
 # dtbs-list
@@ -105,7 +106,6 @@ ifeq ($(findstring 1,$(KBUILD_EXTRA_WARN)),)
 DTC_FLAGS += -Wno-unit_address_vs_reg \
              -Wno-avoid_unnecessary_addr_size \
              -Wno-alias_paths \
-             -Wno-graph_child_address \
              -Wno-interrupt_map \
              -Wno-simple_bus_reg
 else
