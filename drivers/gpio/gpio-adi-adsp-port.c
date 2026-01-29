@@ -50,7 +50,7 @@ static int adsp_gpio_direction_output(struct gpio_chip *chip, unsigned int offse
 	return 0;
 }
 
-static void adsp_gpio_set_value(struct gpio_chip *chip, unsigned int offset, int value)
+static int adsp_gpio_set_value(struct gpio_chip *chip, unsigned int offset, int value)
 {
 	struct adsp_gpio_port *port = to_adsp_gpio_port(chip);
 
@@ -73,6 +73,8 @@ static void adsp_gpio_set_value(struct gpio_chip *chip, unsigned int offset, int
 		else
 			__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DATA_CLEAR);
 	}
+
+	return 0;
 }
 
 static int adsp_gpio_get_value(struct gpio_chip *chip, unsigned int offset)
