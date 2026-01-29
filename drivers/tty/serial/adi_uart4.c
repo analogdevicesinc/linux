@@ -734,7 +734,7 @@ static void adi_uart4_serial_shutdown(struct uart_port *port)
 				DMA_TO_DEVICE);
 		dmam_free_coherent(uart->dev, UART_XMIT_SIZE,
 				uart->rx_dma_buf.buf, uart->rx_dma_phy);
-		del_timer(&uart->rx_dma_timer);
+		timer_delete(&uart->rx_dma_timer);
 	}
 
 	clk_disable_unprepare(uart->clk);
