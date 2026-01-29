@@ -29,7 +29,7 @@
 #define ADI_TWI_BUSY_TIMEOUT          50
 
 /*
- * ADI SPI registers layout
+ * ADI TWI registers layout
  */
 #define ADI_TWI_CLKDIV              0x00
 
@@ -69,6 +69,8 @@
 #define   MCOMP                     BIT(4)              /* Master Transfer Complete */
 
 #define ADI_TWI_FIFOCTL             0x28
+#define   XMTFLUSH                  BIT(0)              /* Transmit Buffer Flush */
+#define   RCVFLUSH                  BIT(1)              /* Receive Buffer Flush */
 
 #define ADI_TWI_FIFOSTAT            0x2c
 #define   XMTSTAT                   0x0003              /* Transmit FIFO Status                  */
@@ -127,24 +129,26 @@ static void i2c_adi_twi_handle_interrupt(struct adi_twi_dev *priv,
 	}
 
 	if (twi_int_status & RCVSERV) {
+		/* Receive next data */
 		while (priv->msg_buf_remaining &&
 		       (ioread16(priv->base + ADI_TWI_FIFOSTAT) & RCVSTAT)) {
-			/* Receive next data */
 			*priv->msg_buf++ = ioread16(priv->base + ADI_TWI_RXDATA8);
 			priv->msg_buf_remaining--;
-		}
 
-		if (!priv->msg_buf_remaining && priv->manual_stop) {
-			val = ioread16(priv->base + ADI_TWI_MSTRCTL) | STOP;
-			iowrite16(val, priv->base + ADI_TWI_MSTRCTL);
+			/* For manual stop mode, issue STOP condition when one byte remains */
+			if (priv->msg_buf_remaining == 1 && priv->manual_stop) {
+				val = ioread16(priv->base + ADI_TWI_MSTRCTL) | STOP;
+				iowrite16(val, priv->base + ADI_TWI_MSTRCTL);
+			}
 		}
 	}
 
 	if (twi_int_status & MERR) {
 		i2c_adi_twi_master_init(priv);
 
-		/* If it is a quick transfer, only address without data,
-		 * not an err, return 1.
+		/* For I2C quick transfers (address only, no data) with DNAK,
+		 * treat as success if this is not the last message. Return 1
+		 * to indicate successful completion.
 		 */
 		if (!priv->last_msg &&
 		    !priv->msg_buf &&
@@ -166,9 +170,9 @@ static void i2c_adi_twi_handle_interrupt(struct adi_twi_dev *priv,
 			priv->result = -EIO;
 		}
 
-		/* Faulty slave devices, may drive SDA low after a transfer
-		 * finishes. To release the bus this code generates up to 9
-		 * extra clocks until SDA is released.
+		/* Faulty slave devices may drive SDA low after a transfer
+		 * finishes. To release the bus, generate up to 9 extra clock
+		 * pulses until SDA is released (standard I2C bus recovery).
 		 */
 		if (ioread16(priv->base + ADI_TWI_MSTRSTAT) & SDASEN) {
 			int cnt = 9;
@@ -264,10 +268,10 @@ static int i2c_adi_twi_xfer_msg(struct adi_twi_dev *priv,
 	/* Set Transmit device address */
 	iowrite16(msg->addr, priv->base + ADI_TWI_MSTRADDR);
 
-	/* FIFO Initiation. Data in FIFO should be
-	 * discarded before start a new operation.
+	/* Flush FIFO buffers to discard any residual data
+	 * before starting a new transfer operation.
 	 */
-	iowrite16(0x3, priv->base + ADI_TWI_FIFOCTL);
+	iowrite16(XMTFLUSH | RCVFLUSH, priv->base + ADI_TWI_FIFOCTL);
 	iowrite16(0, priv->base + ADI_TWI_FIFOCTL);
 
 	if (!(msg->flags & I2C_M_RD)) {
@@ -323,13 +327,22 @@ static int i2c_adi_twi_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 {
 	struct adi_twi_dev *priv = i2c_get_adapdata(adap);
 	int i, ret;
+	u16 val;
 
 	if (!(ioread16(priv->base + ADI_TWI_CTL) & TWI_ENA))
 		return -ENXIO;
 
 	ret = i2c_adi_twi_check_bus_status(priv);
-	if (ret)
-		return ret;
+	if (ret) {
+		/* Clear the bus busy status */
+		val = ioread16(priv->base + ADI_TWI_CTL);
+		iowrite16(val, priv->base + ADI_TWI_CTL);
+		iowrite16(val | TWI_ENA, priv->base + ADI_TWI_CTL);
+
+		ret = i2c_adi_twi_check_bus_status(priv);
+		if (ret)
+			return ret;
+	}
 
 	/* Clear interrupt stat */
 	iowrite16(MCOMP | MERR | XMTSERV | RCVSERV, priv->base + ADI_TWI_ISTAT);
@@ -496,13 +509,13 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 		goto out_error;
 	}
 
-	/* Set TWI internal clock as 10MHz */
-	clk_prepare_enable(priv->sclk);
+	ret = clk_prepare_enable(priv->sclk);
 	if (ret) {
 		dev_err(&pdev->dev, "cannot enable sclk");
 		goto out_error;
 	}
 
+	/* Configure TWI internal clock prescaler to ~10MHz from system clock */
 	val = ((clk_get_rate(priv->sclk) / 1000 / 1000 + 5) / 10) & 0x7F;
 	iowrite16(val, priv->base + ADI_TWI_CTL);
 
@@ -512,7 +525,7 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 	 */
 	clkhilow = ((10 * 1000 / priv->twi_clk) + 1) / 2;
 
-	/* Set Twi interface clock as specified */
+	/* Set TWI interface SCL clock frequency as specified */
 	val = (clkhilow << 8) | clkhilow;
 	iowrite16(val, priv->base + ADI_TWI_CLKDIV);
 
