@@ -188,10 +188,6 @@ stages:
           displayName: "Push to Artifactory"
     - job: Publish_to_Cloudsmith
       timeoutInMinutes: 120
-      pool:
-        name: Default
-        demands:
-          - agent.name -equals linux_default
       condition: or(
           and(
             startsWith(variables['Build.SourceBranch'], 'refs/pull/'),
