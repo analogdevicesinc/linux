@@ -86,6 +86,7 @@ Optional properties hmc7044:
 			pulse generator.
 	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
 	- adi,clkin1-vco-in-enable: CLKIN1 input is used for external VCO.
+	- adi,pll2-pfd-invert-enable: Inverts the polarity of PLL2's PFD
 	- adi,rf-reseeder-disable: Disables RF reseed for SYSREF.
 
 Optional properties hmc7043:
