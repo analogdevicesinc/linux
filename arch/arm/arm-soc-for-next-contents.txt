@@ -1,0 +1,176 @@
+soc/arm
+	at91/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-6.20
+	omap/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v6.20/soc-signed
+
+soc/dt
+	broadcom/dt
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.19/devicetree-arm64
+	aspeed-dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.20-devicetree-0
+	renesas/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v6.20-tag1
+	juno/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/juno-updates-7.0
+	rockchip/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-dts32-1
+	rockchip/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-dts64-1
+	nuvoton/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-6.20-devicetree-0
+	aspeed/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-6.20-devicetree-1
+	nxp-lpc/dt
+		https://github.com/vzapolskiy/linux-lpc32xx tags/lpc32xx-dt-for-6.20
+	apple/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-6.20
+	renesas/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dt-bindings-for-v6.20-tag1
+	renesas/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v6.20-tag2
+	arm64/dt-cleanup
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt64-cleanup-6.20
+	samsung/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-6.20
+	patch
+		ARM: dts: nuvoton: Minor whitespace cleanup
+		ARM: dts: samsung: Drop s3c6400.dtsi
+	tegra/dt32
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.20-arm-dt
+	tegra/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.20-arm64-dt
+	zynqmp/dt
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-dt-for-6.20
+	qcom/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-6.20
+	qcom/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-6.20
+	imx/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt-6.20
+	tegra/dt-bindings-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.20-dt-bindings-v2
+	imx/dt-bindings
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-bindings-6.20
+	imx/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt64-6.20
+	stm32/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/atorgue/stm32 tags/stm32-dt-for-v6.20-1
+	<no branch> (f16ae81b80ca4e721f4c4ed1f28390115f7721eb)
+		https://github.com/sophgo/linux tags/riscv-sophgo-dt-for-v6.20
+	broadcom/dt32
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.20/devicetree
+	broadcom/dt64
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-6.20/devicetree-arm64
+	samsung/dt64-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-6.20-2
+	spacemit/dt
+		https://github.com/spacemit-com/linux tags/spacemit-dt-for-6.20-1
+	amlogic/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-arm64-dt-for-v6.20
+	amlogic/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-arm-dt-for-v6.20
+	sunxi/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-6.20
+	omap/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v6.20/dt-signed
+	mediatek/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts64-for-v6.20
+	mvebu/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-6.20-1
+	cix/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/peter.chen/cix tags/cix-dt-v6.20-rc1
+	at91/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-6.20
+	cix/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/peter.chen/cix tags/cix-dt-binding-v6.20-rc1
+	rockchip/dt-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-dts32-2
+	rockchip/dt64-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-dts64-2
+	qcom/dt64-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-6.20-2
+	qcom/dt32-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-6.20-2
+	patch
+		dt-bindings: arm: realtek: Add Kent Soc family compatibles
+		arm64: dts: realtek: Add Kent SoC and EVB device trees
+	riscv/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v6.20
+
+soc/drivers
+	renesas/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v6.20-tag1
+	firmware/ffa
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/ffa-updates-7.0
+	firmware/scmi
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-7.0
+	renesas/drivers-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v6.20-tag2
+	firmware/qcomtee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/qcomtee-fixes-for-6.20
+	firmware/optee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/optee-update-for-6.20
+	firmware/tee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-bus-callback-for-6.20
+	firmware/amdtee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/amdtee-update-for-6.20
+	firmware/tee-sysfs
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-sysfs-for-6.20
+	samsung/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-6.20
+	tegra/pmc-driver
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-6.20-soc
+	xilinx/drivers
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-soc-for-6.20
+	imx/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-drivers-6.20
+	ti/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-driver-soc-for-v6.20
+	qcom/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-6.20
+	apple/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-drivers-6.20
+	mediatek/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-soc-for-v6.20
+	omap/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v6.20/drivers-signed
+	amlogic/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-drivers-for-v6.20
+	drivers/memory
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-mem-ctrl tags/memory-controller-drv-6.20
+	drivers/reset
+		https://git.pengutronix.de/git/pza/linux tags/reset-for-v6.20
+
+soc/defconfig
+	patch
+		ARM: defconfig: move entries
+		ARM: defconfig: turn off CONFIG_EXPERT
+	renesas/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v6.20-tag1
+	apple/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-defconfig-6.20
+	xilinx/defconfig
+		https://github.com/Xilinx/linux-xlnx tags/xilinx-defconfig-for-6.20
+	qcom/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-6.20
+	imx/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-defconfig-6.20
+	ti/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-config-for-v6.20
+	patch
+		riscv: defconfig: spacemit: k3: enable clock support
+	mediatek/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-defconfig-for-v6.20
+
+soc/late
+
+arm/fixes
+	<no branch> (473dd9ecb3fd139ffebd6f7a9f73fb73d85fe2aa)
+		https://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-maintainers-6.20
+	patch
+		MAINTAINERS: Add myself as maintainer of hisi_soc_hha
+		MAINTAINERS: Change Sudeep Holla's email address
+	<no branch> (f2090ebdb59d0546cbd7b55d9dd63a77133efc03)
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-fixes-for-6.19
+
