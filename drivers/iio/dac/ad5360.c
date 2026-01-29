@@ -206,14 +206,10 @@ static int ad5360_write_unlocked(struct iio_dev *indio_dev,
 static int ad5360_write(struct iio_dev *indio_dev, unsigned int cmd,
 	unsigned int addr, unsigned int val, unsigned int shift)
 {
-	int ret;
 	struct ad5360_state *st = iio_priv(indio_dev);
 
-	mutex_lock(&st->lock);
-	ret = ad5360_write_unlocked(indio_dev, cmd, addr, val, shift);
-	mutex_unlock(&st->lock);
-
-	return ret;
+	guard(mutex)(&st->lock);
+	return ad5360_write_unlocked(indio_dev, cmd, addr, val, shift);
 }
 
 static int ad5360_read(struct iio_dev *indio_dev, unsigned int type,
@@ -232,7 +228,7 @@ static int ad5360_read(struct iio_dev *indio_dev, unsigned int type,
 		},
 	};
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
 
 	st->data[0].d32 = cpu_to_be32(AD5360_CMD(AD5360_CMD_SPECIAL_FUNCTION) |
 		AD5360_ADDR(AD5360_REG_SF_READBACK) |
@@ -240,12 +236,10 @@ static int ad5360_read(struct iio_dev *indio_dev, unsigned int type,
 		AD5360_READBACK_ADDR(addr));
 
 	ret = spi_sync_transfer(st->spi, t, ARRAY_SIZE(t));
-	if (ret >= 0)
-		ret = be32_to_cpu(st->data[1].d32) & 0xffff;
+	if (ret < 0)
+		return ret;
 
-	mutex_unlock(&st->lock);
-
-	return ret;
+	return be32_to_cpu(st->data[1].d32) & 0xffff;
 }
 
 static ssize_t ad5360_read_dac_powerdown(struct device *dev,
@@ -262,19 +256,14 @@ static int ad5360_update_ctrl(struct iio_dev *indio_dev, unsigned int set,
 	unsigned int clr)
 {
 	struct ad5360_state *st = iio_priv(indio_dev);
-	int ret;
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
 
 	st->ctrl |= set;
 	st->ctrl &= ~clr;
 
-	ret = ad5360_write_unlocked(indio_dev, AD5360_CMD_SPECIAL_FUNCTION,
-			AD5360_REG_SF_CTRL, st->ctrl, 0);
-
-	mutex_unlock(&st->lock);
-
-	return ret;
+	return ad5360_write_unlocked(indio_dev, AD5360_CMD_SPECIAL_FUNCTION,
+				     AD5360_REG_SF_CTRL, st->ctrl, 0);
 }
 
 static ssize_t ad5360_write_dac_powerdown(struct device *dev,
