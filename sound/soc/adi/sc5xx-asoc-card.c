@@ -69,26 +69,26 @@ static int sc5xx_adau1372_hw_params(struct snd_pcm_substream *substream,
 	case 2: /* Stereo I2S mode */
 		fmt =	SND_SOC_DAIFMT_I2S |
 			SND_SOC_DAIFMT_NB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		break;
 	case 1: /* TDM mode */
 		fmt =	SND_SOC_DAIFMT_DSP_A |
 			SND_SOC_DAIFMT_IB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		slots = 16;
 		rx_mask = 0x1;
 		break;
 	case 4: /* TDM mode */
 		fmt =	SND_SOC_DAIFMT_DSP_A |
 			SND_SOC_DAIFMT_IB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		slots = 4;
 		rx_mask = 0xf;
 		break;
 	case 8: /* TDM mode */
 		fmt =	SND_SOC_DAIFMT_DSP_A |
 			SND_SOC_DAIFMT_IB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		slots = 8;
 		rx_mask = 0xff;
 		break;
@@ -139,26 +139,26 @@ static int sc5xx_adau1962_hw_params(struct snd_pcm_substream *substream,
 	case 2: /* Stereo I2S mode */
 		fmt =	SND_SOC_DAIFMT_I2S |
 			SND_SOC_DAIFMT_NB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		break;
 	case 1: /* TDM mode */
 		fmt =	SND_SOC_DAIFMT_DSP_A |
 			SND_SOC_DAIFMT_IB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		slots = 16;
 		rx_mask = 0x1;
 		break;
 	case 4: /* TDM mode */
 		fmt =	SND_SOC_DAIFMT_DSP_A |
 			SND_SOC_DAIFMT_IB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		slots = 4;
 		rx_mask = 0xf;
 		break;
 	case 8: /* TDM mode */
 		fmt =	SND_SOC_DAIFMT_DSP_A |
 			SND_SOC_DAIFMT_IB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		slots = 8;
 		rx_mask = 0xff;
 		break;
@@ -213,19 +213,19 @@ static int sc5xx_adau1979_hw_params(struct snd_pcm_substream *substream,
 	case 2: /* Stereo I2S mode */
 		fmt =	SND_SOC_DAIFMT_I2S |
 			SND_SOC_DAIFMT_NB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		break;
 	case 1: /* TDM mode */
 		fmt =	SND_SOC_DAIFMT_DSP_A |
 			SND_SOC_DAIFMT_IB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		slots = 16;
 		rx_mask = 0x1;
 		break;
 	case 4: /* TDM mode */
 		fmt =	SND_SOC_DAIFMT_DSP_A |
 			SND_SOC_DAIFMT_IB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		slots = 4;
 		rx_mask = 0xf;
 		break;
@@ -269,7 +269,7 @@ static int sam_adau1761_hw_params(struct snd_pcm_substream *substream,
 	case 2: /* Stereo I2S mode */
 		fmt =	SND_SOC_DAIFMT_I2S |
 			SND_SOC_DAIFMT_NB_NF |
-			SND_SOC_DAIFMT_CBM_CFM;
+			SND_SOC_DAIFMT_CBP_CFP;
 		break;
 	default:
 		return -EINVAL;
@@ -467,7 +467,7 @@ static struct snd_soc_dai_link sc5xx_snd_soc_dai_links[] = {
 		.platforms = sc5xx_platform_component,
 		.num_platforms = ARRAY_SIZE(sc5xx_platform_component),
 		.ops = &sc5xx_adau1761_ops,
-		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBM_CFM,
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBP_CFP,
 	},
 #endif
 };
