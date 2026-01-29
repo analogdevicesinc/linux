@@ -25,6 +25,15 @@ static struct bus_type jesd204_bus_type = {
 	.name = "jesd204",
 };
 
+static void jesd204_dev_release(struct device *dev)
+{
+	/* jdev memory is managed separately; nothing to free here */
+}
+
+static const struct device_type jesd204_dev_type = {
+	.release = jesd204_dev_release,
+};
+
 static LIST_HEAD(jesd204_device_list);
 static LIST_HEAD(jesd204_topologies);
 
@@ -1189,6 +1198,9 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	if (jesd204_dyn_dt_change)
 		return ERR_PTR(-EPROBE_DEFER);
 
+	if (jdev->unregistered)
+		jdev->unregistered = false;
+
 	ret = jesd204_dev_init_links_data(dev, jdev, init);
 	if (ret)
 		return ERR_PTR(ret);
@@ -1198,6 +1210,7 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	jdev->dev.parent = dev;
 	jdev->dev_data = init;
 	jdev->dev.bus = &jesd204_bus_type;
+	jdev->dev.type = &jesd204_dev_type;
 	device_initialize(&jdev->dev);
 	dev_set_name(&jdev->dev, "jesd204:%d", jdev->id);
 
@@ -1223,7 +1236,7 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	return jdev;
 
 err_device_del:
-	device_del(&jdev->dev);
+	device_unregister(&jdev->dev);
 err_uninit_device:
 	memset(&jdev->dev, 0, sizeof(jdev->dev));
 
@@ -1301,14 +1314,15 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 
 	jesd204_dev_destroy_sysfs(jdev);
 
-	if (jdev->dev.parent)
-		device_del(&jdev->dev);
+	if (jdev->dev.parent) {
+		device_unregister(&jdev->dev);
+		memset(&jdev->dev, 0, sizeof(jdev->dev));
+	}
 
 	jdev->fsm_rb_to_init = true;
 	jesd204_fsm_stop(jdev, JESD204_LINKS_ALL);
 	jdev->fsm_rb_to_init = false;
 
-	jdev->dev.parent = NULL;
 	jdev->dev_data = NULL;
 	jdev->fsm_inited = false;
 }
