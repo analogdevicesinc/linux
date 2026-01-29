@@ -110,7 +110,7 @@ MODULE_DEVICE_TABLE(of, dwmac_adi_match);
 
 static struct platform_driver dwmac_adi_driver = {
 	.probe  = dwmac_adi_probe,
-	.remove_new = stmmac_pltfr_remove,
+	.remove = stmmac_pltfr_remove,
 	.driver = {
 		.name           = "adi-dwmac",
 		.pm		= &stmmac_pltfr_pm_ops,
