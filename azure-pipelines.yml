@@ -188,10 +188,6 @@ stages:
           displayName: "Push to Artifactory"
     - job: Publish_to_Cloudsmith
       timeoutInMinutes: 120
-      pool:
-        name: Default
-        demands:
-          - agent.name -equals linux_default
       condition: or(
           and(
             startsWith(variables['Build.SourceBranch'], 'refs/pull/'),
@@ -218,6 +214,10 @@ stages:
         - task: DownloadPipelineArtifact@2
           inputs:
             path: $(Build.SourcesDirectory)/bin
+        - bash: |
+            python3 -m pip install --upgrade pip
+            pip3 install cloudsmith-cli
+          displayName: "Install Cloudsmith CLI"
         - bash: bash $(Build.SourcesDirectory)/linux/ci/travis/prepare_artifacts_for_cloudsmith.sh
           env:
             CLOUDSMITH_API_KEY: $(CLOUDSMITH_API_KEY)
