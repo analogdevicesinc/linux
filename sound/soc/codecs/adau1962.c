@@ -544,10 +544,10 @@ static int adau1962_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	int ret;
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBS_CFS:
+	case SND_SOC_DAIFMT_CBC_CFC:
 		adau1962->master = false;
 		break;
-	case SND_SOC_DAIFMT_CBM_CFM:
+	case SND_SOC_DAIFMT_CBP_CFP:
 		ctrl1 |= ADAU1962_DAC_CTRL1_MASTER;
 		adau1962->master = true;
 		break;
