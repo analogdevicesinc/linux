@@ -125,7 +125,7 @@ static void primelockdep(struct xe_tlb_inval *tlb_inval)
 }
 
 /**
- * xe_gt_tlb_inval_init - Initialize TLB invalidation state
+ * xe_gt_tlb_inval_init_early() - Initialize TLB invalidation state
  * @gt: GT structure
  *
  * Initialize TLB invalidation state, purely software initialization, should
