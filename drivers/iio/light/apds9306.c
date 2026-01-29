@@ -1176,7 +1176,7 @@ static int apds9306_init_iio_gts(struct apds9306_data *data)
 
 static void apds9306_powerdown(void *ptr)
 {
-	struct apds9306_data *data = (struct apds9306_data *)ptr;
+	struct apds9306_data *data = ptr;
 	struct apds9306_regfields *rf = &data->rf;
 	int ret;
 
