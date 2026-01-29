@@ -302,8 +302,8 @@ To build the container image, use your favorite container engine from the
    $git branch
     * ci
       main
-   $alias container=podman # or docker, ...
-   $container build --tag adi/linux:latest container
+   # or docker, ...
+   $podman build --tag adi/linux:latest container
 
 You may want to build the container in a host, where you have all your tools installed,
 and then deploy to a server.
@@ -315,7 +315,7 @@ In this case, export the image and then import on the server:
    :group: host
 
    ~/linux
-   $container save -o adi-linux.tar adi/linux:latest
+   $podman save -o adi-linux.tar adi/linux:latest
    $scp adi-linux.tar server:/tmp/
 
 .. shell::
@@ -324,7 +324,7 @@ In this case, export the image and then import on the server:
    :group: server
 
    /tmp
-   $container load -i adi-linux.tar
+   $podman load -i adi-linux.tar
 
 Or if you are feeling adventurous:
 
@@ -334,7 +334,7 @@ Or if you are feeling adventurous:
    :group: host
 
    ~/linux
-   $container save adi/linux:latest | ssh server "cat - | podman load"
+   $podman save adi/linux:latest | ssh server "cat - | podman load"
 
 .. _interactive-run:
 
