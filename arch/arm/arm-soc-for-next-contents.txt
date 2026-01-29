@@ -97,6 +97,9 @@ soc/dt
 		arm64: dts: realtek: Add Kent SoC and EVB device trees
 	riscv/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v6.20
+	ti/k3
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-dt-for-v6.20
+		contains ti/fixes
 
 soc/drivers
 	renesas/drivers
@@ -141,6 +144,10 @@ soc/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-mem-ctrl tags/memory-controller-drv-6.20
 	drivers/reset
 		https://git.pengutronix.de/git/pza/linux tags/reset-for-v6.20
+	mvebu/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-arm-6.20-1
+	rockchip/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v6.20-rockchip-drivers1
 
 soc/defconfig
 	patch
