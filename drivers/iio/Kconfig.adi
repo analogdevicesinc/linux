@@ -106,6 +106,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD5592R_BASE
 	imply AD5592R
 	imply AD5593R
+	imply AD5706R
 	imply AD5755
 	imply AD5758
 	imply AD5761
