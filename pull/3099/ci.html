@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="Continuous deployment pipeline and instructions to set up a self-hosted GitHub Actions runner using Podman or Docker and systemd without root." name="description" />
+
+    <title>Continuous integration &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=5d595293" />
+    <script async="async" src="_static/app.umd.js?v=46a18818"></script>
+    <link rel="icon" href="_static/icon.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Contribution guidelines" href="contribute.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs" tabindex="0">Docs</label>
+        
+        <a id="logo" href="index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="./index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">Continuous integration</a><ul>
+<li><a class="reference internal" href="#features">Features</a><ul>
+<li><a class="reference internal" href="#warning-and-error-handling">Warning and error handling</a></li>
+<li><a class="reference internal" href="#checking-steps-description">Checking steps description</a></li>
+<li><a class="reference internal" href="#defconfigs">Defconfigs</a></li>
+<li><a class="reference internal" href="#source-code-manipulation">Source code manipulation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#setting-up-and-running">Setting up and running</a><ul>
+<li><a class="reference internal" href="#configure-podman">Configure podman</a><ul>
+<li><a class="reference internal" href="#network-users-partitions">Network users &amp; partitions</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#build-the-container-image">Build the container image</a></li>
+<li><a class="reference internal" href="#interactive-run">Interactive run</a></li>
+<li><a class="reference internal" href="#self-hosted-runner">Self-hosted runner</a></li>
+<li><a class="reference internal" href="#self-hosted-cluster">Self-hosted cluster</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="./index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <html>
+  <body><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1"/><div class="collapse"><a class="reference internal" href="iio/index.html">Industrial I/O</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l2"><a class="reference internal" href="iio/apollo.html">AD9088 driver</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Continuous integration</a></li>
+</ul>
+</body>
+</html>
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb empty"><ol></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="continuous-integration">
+<span id="ci"></span><h1>Continuous integration<a class="headerlink" href="#continuous-integration" title="Link to this heading"></a></h1>
+<p>Linux has a continuous deployment integration pipeline that works as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>push (main)
+pull-request
+┌──────┐    ┌───────────────┐    ┌──────┐
+│Checks├─#─►│Build Kernel * ├─#─►│Assert│
+└──────┘    └───────────────┘ ▲  └──────┘
+┌────────────────┐            │
+│Build Kernel arm├────────────┘
+└────────────────┘
+┌─────────┐    ┌──────────┐
+│Build Doc├─?─►│Deploy Doc│
+└─────────┘    └──────────┘
+-----------------------------------------
+cron
+┌──────────────┐
+│Update mirrors│
+└──────────────┘
+</pre></div>
+</div>
+<p>In these sections there are instructions to bring-up your own continuous integration,
+either to run locally, in a self-hosted runner or even in a cluster.</p>
+<p>Beyond the linear history <code class="docutils literal notranslate"><span class="pre">main</span></code> branch, the following upstream mirrors are
+provided (<code class="docutils literal notranslate"><span class="pre">mirror_ci/&lt;remote-name&gt;/&lt;branch&gt;</span></code>):</p>
+<ul>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">mirror_ci/next/linux-next/master</span></code>: Patches aimed at the next kernel merge window</div>
+<div class="line"><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/log/?h=master" target="_blank">https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/log/?h=master</a></div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">mirror_ci/jic23/iio/testing</span></code>: Linux IIO Subsystem (Cameron’s branch)</div>
+<div class="line"><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git/log/?h=testing" target="_blank">https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git/log/?h=testing</a></div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">mirror_ci/lee/mfd/for-mfd-next</span></code>: MFD Subsystem Tree - Next and Fixes</div>
+<div class="line"><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/lee/mfd.git/log/?h=for-mfd-next" target="_blank">https://git.kernel.org/pub/scm/linux/kernel/git/lee/mfd.git/log/?h=for-mfd-next</a></div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">mirror_ci/groeck/linux-staging/hwmon-next</span></code>: HWMON Subsystem - Staging</div>
+<div class="line"><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/groeck/linux-staging.git/log/?h=hwmon-next" target="_blank">https://git.kernel.org/pub/scm/linux/kernel/git/groeck/linux-staging.git/log/?h=hwmon-next</a></div>
+</div>
+</li>
+</ul>
+<p>To reduce the load on <code class="docutils literal notranslate"><span class="pre">kernel.org</span></code>, clone from mirrors such as
+<a class="icon link reference external" href="https://kernel.googlesource.com/pub/scm/linux/kernel/git/" target="_blank">https://kernel.googlesource.com/pub/scm/linux/kernel/git/</a>.</p>
+<p>When upstreaming a driver, target the pull-request against the mirror.</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Do <strong>not</strong> base your work on the head of the <code class="docutils literal notranslate"><span class="pre">mirror_ci/*</span></code>, it is
+frequently force pushed either by upstream (they are testing branches after
+all). Instead, find a common stable base, for example the previous tag such
+as <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&amp;id=8f0b4cce4481fb22653697cced8d0d04027cb1e8" target="_blank">v6.19-rc1</a></p>
+</div>
+<p>All of them are mirrors from the links shown with a single commit on top
+that includes the CI workflows, <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/.github/workflows/mirror.yml" target="_blank">as simple as</a>:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>checkout<span class="w"> </span>origin/main<span class="w"> </span>--<span class="w"> </span>.github
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>checkout<span class="w"> </span>origin/main<span class="w"> </span>--<span class="w"> </span>ci
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>-f<span class="w"> </span>.github<span class="w"> </span>ci
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;ci: Patch workflows&quot;</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;CI generated commit&quot;</span><span class="w"> </span>-s
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>The cron job is set to update the branches at the end of every day.</p>
+<section id="features">
+<h2>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h2>
+<p>The continuous integration has some features that are described in this section.</p>
+<section id="warning-and-error-handling">
+<h3>Warning and error handling<a class="headerlink" href="#warning-and-error-handling" title="Link to this heading"></a></h3>
+<p>Each tool will have its own outputs and the standard to consider something
+an error, a warning or something else.
+So the workflows separate the steps outputs into steps events named
+<code class="docutils literal notranslate"><span class="pre">fail</span></code>, and <code class="docutils literal notranslate"><span class="pre">warn</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fail</span></code>: Indicates that a warning or error deemed strict was raised, and
+or what the method that must succeed returns. Will fail the step if not
+captured (<code class="docutils literal notranslate"><span class="pre">||</span> <span class="pre">true</span></code>). The CI allows some steps to fail, in order to
+collect all failures and assert the job at the end.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">warn</span></code>: Indicates that a warning or error non-deemed strict was raised.
+Is collected at the assert job and <strong>does not</strong> end the run with failure.</p></li>
+</ul>
+<p>When <code class="docutils literal notranslate"><span class="pre">continue-on-error:</span> <span class="pre">true</span></code> is used at the job level, the following
+topology rules must be followed based on the immediate downstream step:</p>
+<ul>
+<li><p>If downstream is an assert job, the ci already fails on <code class="docutils literal notranslate"><span class="pre">step_fail_*</span></code>, so a
+<code class="docutils literal notranslate"><span class="pre">failure()</span></code> step should just set <code class="docutils literal notranslate"><span class="pre">set_step_fail</span> <span class="pre">&quot;assert_state&quot;</span></code>, as well
+the job-scoped <code class="docutils literal notranslate"><span class="pre">fatal=true</span></code> environment variable.</p></li>
+<li><p>If downstream is an regular job, the job must export an <code class="docutils literal notranslate"><span class="pre">fail=$fail</span></code> output,
+to be used alongside the <code class="docutils literal notranslate"><span class="pre">needs</span></code> rule, for example:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">build_gcc_aarch64</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">needs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">checks</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">needs.checks.outputs.fatal != &#39;true&#39;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+<p>These rules ensure that the downstream jobs do not run on fatal errors.
+Optional steps may also set <code class="docutils literal notranslate"><span class="pre">fatal</span></code> job-scoped environment variable, if taking
+care of calling <code class="docutils literal notranslate"><span class="pre">set_step_fail</span></code>.</p>
+</section>
+<section id="checking-steps-description">
+<h3>Checking steps description<a class="headerlink" href="#checking-steps-description" title="Link to this heading"></a></h3>
+<p>The purpose of the continuous integrations is to run all the latest and greatest
+code checkers.
+To reduce noise, the checkers are run on the commit range or changed files only,
+when possible.</p>
+<p>The checkers are, followed by which step event they raise:</p>
+<ul>
+<li><p>Check job:</p>
+<ul>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">checkpatch</span></code>: runs on every commit of the commit range.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">fail</span></code>: <code class="docutils literal notranslate"><span class="pre">error</span></code> logged</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">warn</span></code>: <code class="docutils literal notranslate"><span class="pre">warning</span></code> logged</div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">coccicheck</span></code>: every coccifile is applied on every changed <em>.c</em> file, using <code class="docutils literal notranslate"><span class="pre">spatch</span></code>.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">warn</span></code>: <code class="docutils literal notranslate"><span class="pre">warning</span></code> logged</div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">dt_binding_check</span></code>: on every changed <em>.yaml</em> file.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">warn</span></code>: <code class="docutils literal notranslate"><span class="pre">warning</span></code> logged</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">fail</span></code>: contain file name or dts example return error code</div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">cppcheck</span></code>: runs on every changed file.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">fail</span></code>: <code class="docutils literal notranslate"><span class="pre">error</span></code> logged</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">warn</span></code>: <code class="docutils literal notranslate"><span class="pre">warning</span></code> logged</div>
+</div>
+</li>
+</ul>
+</li>
+<li><p>Build matrix job:</p>
+<ul>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">defconfig</span></code>: generate the defconfig.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">err</span></code>: returned error code</div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">make</span></code>: compile kernel at head commit.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">err</span></code>: returned error code</div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">assert</span> <span class="pre">compiled</span></code>: check if touched <em>.c</em> have been compiled.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">fail</span></code>: <em>.o</em> file not found for touched <em>.c</em> file</div>
+</div>
+</li>
+</ul>
+</li>
+<li><p>Build matrix job with checks:</p>
+<ul>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">sparse</span></code>: the changed files are touched and recompiled with <code class="docutils literal notranslate"><span class="pre">C=1</span></code>.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">fail</span></code>: <code class="docutils literal notranslate"><span class="pre">error</span></code> logged</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">warn</span></code>: <code class="docutils literal notranslate"><span class="pre">warning</span></code> logged</div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">gcc</span> <span class="pre">fanalyzer</span></code>: the changed files are recompiled appending the <code class="docutils literal notranslate"><span class="pre">-fanalyzer</span></code> flag.</div>
+<div class="line">It uses the <em>compile_commands.json</em> file to extract the correct compilation flags.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">fail</span></code>: <code class="docutils literal notranslate"><span class="pre">error</span></code> or <code class="docutils literal notranslate"><span class="pre">warning</span></code> logged</div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">smatch</span></code>: the changed files are touched and recompiled with <code class="docutils literal notranslate"><span class="pre">C=1</span> <span class="pre">CHECK=&quot;smatch</span> <span class="pre">-p=kernel&quot;</span></code>.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">fail</span></code>: <code class="docutils literal notranslate"><span class="pre">error</span></code> logged</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">warn</span></code>: <code class="docutils literal notranslate"><span class="pre">warning</span></code> logged</div>
+</div>
+</li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="defconfigs">
+<h3>Defconfigs<a class="headerlink" href="#defconfigs" title="Link to this heading"></a></h3>
+<p>If the defconfig of a target doesn’t exist, it falls back to the default configuration
+of that architecture.</p>
+<p>A “temporary” commit can be used to manipulate the defconfigs for faster build times.</p>
+</section>
+<section id="source-code-manipulation">
+<h3>Source code manipulation<a class="headerlink" href="#source-code-manipulation" title="Link to this heading"></a></h3>
+<p>Cocci and bash scripts at <code class="docutils literal notranslate"><span class="pre">ci/prerun</span></code> are executed right after the <code class="docutils literal notranslate"><span class="pre">.config</span></code> is generated
+and before it is saved and the kernel compiled.
+For the check job, they are applied right after checkout.
+It allows manipulating the source code depending on the run conditions, and can be used
+as “adapters” when targeting multiple branches, architecture, and so on.</p>
+<p>Each cocci/bash is executed taking each touched file as the argument,
+so ensure to filter on the scripts themselves which file they manipulate.
+Cocci files are applied only to <code class="docutils literal notranslate"><span class="pre">.c</span></code> files.</p>
+<p>Here is a simple example that changes a method argument type:</p>
+<div class="literal-block-wrapper docutils container" id="id2">
+<div class="code-block-caption"><span class="caption-text">backport.cocci</span><a class="headerlink" href="#id2" title="Link to this code"></a></div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">@</span> <span class="n">change_arg_type</span> <span class="o">@</span>
+<span class="n">identifier</span> <span class="n">func</span> <span class="o">=</span> <span class="n">adc_write_event_config</span><span class="p">;</span>
+<span class="n">identifier</span> <span class="n">arg</span><span class="p">;</span>
+<span class="nb">type</span> <span class="n">T</span> <span class="o">=</span> <span class="n">enum</span> <span class="n">iio_event_direction</span><span class="p">;</span>
+<span class="o">@@</span>
+
+<span class="n">func</span><span class="p">(</span><span class="o">...</span><span class="p">,</span>
+<span class="o">-</span> <span class="n">T</span> <span class="n">arg</span>
+<span class="o">+</span> <span class="n">enum</span> <span class="n">iio_event_direction_ex</span> <span class="n">arg</span>
+<span class="p">,</span> <span class="o">...</span> <span class="p">)</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+<section id="setting-up-and-running">
+<h2>Setting up and running<a class="headerlink" href="#setting-up-and-running" title="Link to this heading"></a></h2>
+<p>In this section there are instructions to bring-up your own continuous integration,
+either to run locally, in a self-hosted runner or even in a cluster.</p>
+<p>The container engine you use, like as <code class="docutils literal notranslate"><span class="pre">podman</span></code> or <code class="docutils literal notranslate"><span class="pre">docker</span></code>, is up to you.
+Limited instructions for each are provided in this section, you should consult
+their source documentation for detailed information.</p>
+<section id="configure-podman">
+<span id="conf-podman"></span><h3>Configure podman<a class="headerlink" href="#configure-podman" title="Link to this heading"></a></h3>
+<p>Below are suggested instructions for setting up <code class="docutils literal notranslate"><span class="pre">podman</span></code> on a Linux environment,
+if you wish to use it as your container engine. If you already use something else
+like <code class="docutils literal notranslate"><span class="pre">docker</span></code>, <strong>keep it</strong> and skip this section.</p>
+<p>Adjust to your preference as needed, and skip the steps marked in <span class="green">green</span>
+if not using WSL2.</p>
+<p>Install <code class="docutils literal notranslate"><span class="pre">podman</span></code> from your package manager.</p>
+<p><span class="green">Ensure cgroup v2 on wsl2’s .wslconfig:</span></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">wsl2</span><span class="p">]</span>
+<span class="n">kernelCommandLine</span> <span class="o">=</span> <span class="n">cgroup_no_v1</span><span class="o">=</span><span class="nb">all</span> <span class="n">systemd</span><span class="o">.</span><span class="n">unified_cgroup_hierarchy</span><span class="o">=</span><span class="mi">1</span>
+</pre></div>
+</div>
+<p><span class="green">Restart wsl2.</span></p>
+<p>Enable <code class="docutils literal notranslate"><span class="pre">podman</span></code> service for your user.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>--user<span class="w"> </span>podman.socket
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>systemctl<span class="w"> </span>start<span class="w"> </span>--user<span class="w"> </span>podman.socket
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Set the <code class="docutils literal notranslate"><span class="pre">DOCKER_HOST</span></code> variable on your <em>~/.bashrc</em>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DOCKER_HOST</span><span class="o">=</span>unix://<span class="nv">$XDG_RUNTIME_DIR</span>/podman/podman.sock
+</pre></div>
+</div>
+<section id="network-users-partitions">
+<span id="podman-sssd"></span><h4>Network users &amp; partitions<a class="headerlink" href="#network-users-partitions" title="Link to this heading"></a></h4>
+<p>Podman default configuration expects a local user to be able to create a user
+namespace where multiple IDs are mapped and a compatible partition to use as
+the storage location <code class="docutils literal notranslate"><span class="pre">graphRoot</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ideal solution is to create a local <strong>non-root</strong> user and storage
+location. Podman processes should then be started under this user UID.</p>
+</div>
+<p>Network systems using solutions such as <a class="icon link reference external" href="https://sssd.io/" target="_blank">SSSD</a> do not
+append the user to the system (is not listed in <code class="docutils literal notranslate"><span class="pre">/etc/subuid</span></code>), so automatic
+user namespace is not possible. To be compatible with this configuration, a
+single UID within a user space needs to be used, achieved with the
+<code class="docutils literal notranslate"><span class="pre">ignore_chown_errors</span></code> parameter.</p>
+<p>Normally these systems also mount an network file system (nfs) as the home folder,
+which is also not supported.
+In this case, the <code class="docutils literal notranslate"><span class="pre">graphRoot</span></code> location needs to be set to somewhere else
+(an easy test location is <code class="docutils literal notranslate"><span class="pre">/tmp</span></code>).</p>
+<p>This is an example of <em>~/.config/containers/storage.conf</em> to support such
+environments:</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="k">[storage]</span>
+<span class="na">driver</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;overlay&quot;</span>
+<span class="c1"># Set to a path in a non-nfs partition</span>
+<span class="na">graphRoot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;/tmp&quot;</span>
+
+<span class="k">[storage.options.overlay]</span>
+<span class="c1"># Single UID</span>
+<span class="na">ignore_chown_errors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</pre></div>
+</div>
+<p>Ensure apply with <code class="docutils literal notranslate"><span class="pre">podman</span> <span class="pre">system</span> <span class="pre">migrate</span></code> and see the changed settings with
+<code class="docutils literal notranslate"><span class="pre">podman</span> <span class="pre">info</span></code>.</p>
+<p>An alternative mitigation for nfs is to create a xfs disk image and mount, but
+since mount requires a root permission it is unlikely to be helpful for most
+users:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>truncate<span class="w"> </span>-s<span class="w"> </span>100g<span class="w"> </span>~/.local/share/containers-xfs.img
+mkfs.xfs<span class="w"> </span>-m<span class="w"> </span><span class="nv">reflink</span><span class="o">=</span><span class="m">1</span><span class="w">  </span>~/.local/share/containers-xfs.img<span class="w"> </span>-m<span class="w"> </span><span class="nv">bigtime</span><span class="o">=</span><span class="m">1</span>,inobtcount<span class="o">=</span><span class="m">1</span><span class="w"> </span>-i<span class="w"> </span><span class="nv">nrext64</span><span class="o">=</span><span class="m">0</span>
+sudo<span class="w"> </span>mount<span class="w"> </span>~/.local/share/containers-xfs.img<span class="w"> </span>~/.local/share/containers
+</pre></div>
+</div>
+</section>
+</section>
+<section id="build-the-container-image">
+<span id="image-podman"></span><h3>Build the container image<a class="headerlink" href="#build-the-container-image" title="Link to this heading"></a></h3>
+<p>To build the container image, use your favorite container engine from the
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/" target="_blank">ci branch</a>:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/linux
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>branch
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>* ci
+  main
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># or docker, ...</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>build<span class="w"> </span>--tag<span class="w"> </span>adi/linux:latest<span class="w"> </span>container
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>You may want to build the container in a host, where you have all your tools installed,
+and then deploy to a server.
+In this case, export the image and then import on the server:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>save<span class="w"> </span>-o<span class="w"> </span>adi-linux.tar<span class="w"> </span>adi/linux:latest
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>scp<span class="w"> </span>adi-linux.tar<span class="w"> </span>server:/tmp/
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>admin@server:/tmp$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>load<span class="w"> </span>-i<span class="w"> </span>adi-linux.tar
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Or if you are feeling adventurous:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>save<span class="w"> </span>adi/linux:latest<span class="w"> </span><span class="p">|</span><span class="w"> </span>ssh<span class="w"> </span>server<span class="w"> </span><span class="s2">&quot;cat - | podman load&quot;</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="interactive-run">
+<span id="id1"></span><h3>Interactive run<a class="headerlink" href="#interactive-run" title="Link to this heading"></a></h3>
+<p>The <a class="icon git reference external" href="https://github.com/analogdevicesinc/doctools/tree/main/ci/scripts/container-run.sh" target="_blank">container-run.sh</a> is a
+suggested container command to interactive login into an image, mounting the
+provided path and preparting the <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/" target="_blank">_ci</a> worktree to leverage the
+same scripts used by the continuous integration.</p>
+<p>You can use it to compile/runs checks using persistent cache, for example:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:latest
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>set_arch<span class="w"> </span>gcc_aarch64
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>ARCH=arm64
+CXX=gcc-14
+CROSS_COMPILE=aarch64-suse-linux-
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>adi_ci_defconfig
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>#
+# configuration written to .config
+#
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>-j<span class="k">$(</span>nproc<span class="k">)</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>UPD     include/generated/compile.h
+CALL    scripts/checksyscalls.sh
+CC      init/version.o
+AR      init/built-in.a
+[ ... ]
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">exit</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The enviroment variables <code class="docutils literal notranslate"><span class="pre">base_sha</span></code> and <code class="docutils literal notranslate"><span class="pre">head_sha</span></code> define the range of
+commits the steps are run against, adjust it to match your series.
+By default, it is set to <code class="docutils literal notranslate"><span class="pre">&#64;~6..&#64;</span></code>.</p>
+</div>
+<p>Or:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux:latest
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">base_sha</span><span class="o">=</span>@~2
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>check_checkpatch
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>checkpatch on range @~6..@
+Collecting ply
+Downloading ply-3.11-py
+[...]
+Documentation/hwmon/adp1050.rst
+drivers/hwmon/pmbus/adp1050.c
+total: 0 errors, 0 warnings, 0 checks, 179 lines checked
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Significantly speeding up interactive testing.
+Remember to replace <code class="docutils literal notranslate"><span class="pre">container_engine</span></code> variable with your preferred container engine.</p>
+<div><div class="collapsible docutils container">
+<input class="collapsible_input" id="378f78dafe1d1c481c8b19428469cf99d2152a9b" name="378f78dafe1d1c481c8b19428469cf99d2152a9b" type="checkbox"></input><label for="378f78dafe1d1c481c8b19428469cf99d2152a9b"><p>First usage output example.</p>
+<div class="icon"></div></label><div class="collapsible_content docutils container">
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>Remote &#39;public&#39; matches &#39;analogdevicesinc&#39;, and has branch &#39;ci&#39;.
+Fetch (y/n)? y
+Fetching branch &#39;ci&#39;...
+Fetched CI branch to &#39;_ci&#39;.
+
+To clean-up, use:
+  git worktree remove _ci
+
+Keep it up to date as well with git pull.
+
+Sourced methods from &#39;/mnt/wsl/data/repos/linux-factory/ci/_ci/ci/build.sh&#39;:
+check_checkpatch                compile_many_devicetrees        assert_compiled
+check_dt_binding_check          compile_kernel                  apply_prerun
+check_coccicheck                compile_kernel_sparse           auto_set_kconfig
+check_license                   compile_kernel_smatch           set_arch
+check_assert_defconfigs         compile_gcc_fanalyzer           set_step_warn
+compile_devicetree              compile_clang_analyzer          set_step_fail
+The git commit range was set to:
+$base_sha..$head_sha: @~6..@
+Adjust &#39;$base_sha&#39; and &#39;$head_sha&#39; to your work range.
+Directory: /mnt/wsl/data/repos/linux-factory/main
+Mon Oct 13 09:53:55 UTC 2025
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>set_arch
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>Missing architecture, usage:
+  set_arch &lt;arch&gt;
+Available architectures:
+  llvm_x86 gcc_arm gcc_aarch64 gcc_x86
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>set_arch<span class="w"> </span>gcc_arm
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>CXX=gcc-13
+ARCH=arm
+CROSS_COMPILE=arm-suse-linux-gnueabi-
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">base_sha</span><span class="o">=</span>@~3
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>auto_set_kconfig
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>auto_set_kconfig on range @~3..@
+Symbols of touched files:
+{&#39;SENSORS_ADP1050&#39;, &#39;AD9081&#39;}
+Resolved symbols:
+{&#39;HWMON&#39;, &#39;I2C&#39;, &#39;SPI&#39;, &#39;AD9081&#39;, &#39;PMBUS&#39;, &#39;HAS_IOMEM&#39;, &#39;IIO&#39;, &#39;SENSORS_ADP1050&#39;}
+#
+# configuration written to .config
+#
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>compile_kernel
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>kernel
+SYNC include/config/auto.conf
+UPD include/generated/compile.h
+CALL scripts/checksyscalls.sh
+CC init/version.o
+AR init/built-in.a
+UPD kernel/config_data
+GZIP kernel/config_data.gz
+CC [M] kernel/configs.o
+CC [M] drivers/hwmon/pmbus/pmbus_core.o
+[..]
+OBJCOPY arch/arm/boot/zImage
+Kernel: arch/arm/boot/zImage is ready
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>assert_compiled
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>assert_compiled were compiled on range @~3..@
+drivers/hwmon/pmbus/adp1050.c
+drivers/iio/adc/ad9081.c
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></div>
+</div>
+</div></section>
+<section id="self-hosted-runner">
+<span id="podman-run"></span><h3>Self-hosted runner<a class="headerlink" href="#self-hosted-runner" title="Link to this heading"></a></h3>
+<p>To host your <a class="icon link reference external" href="https://github.com/actions/runner" target="_blank">GitHub Actions Runner</a>,
+set up your secrets (<code class="docutils literal notranslate"><span class="pre">podman</span></code> only):</p>
+<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># e.g. analogdevicesinc/linux</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">printf</span><span class="w"> </span>ORG_REPOSITORY<span class="w"> </span><span class="p">|</span><span class="w"> </span>podman<span class="w"> </span>secret<span class="w"> </span>create<span class="w"> </span>public_linux_org_repository<span class="w"> </span>-
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># e.g. MyVerYSecRunnerToken</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">printf</span><span class="w"> </span>RUNNER_TOKEN<span class="w"> </span><span class="p">|</span><span class="w"> </span>podman<span class="w"> </span>secret<span class="w"> </span>create<span class="w"> </span>public_linux_runner_token<span class="w"> </span>-
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>The runner token is obtained from the GUI at <code class="docutils literal notranslate"><span class="pre">https://github.com/&lt;org&gt;/&lt;repository&gt;/settings/actions/runners/new</span></code>.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">github_token</span></code> from <a class="reference internal" href="#cluster-podman"><span class="std std-ref">Self-hosted cluster</span></a> is set, the runner_token
+is ignored and a new one is requested.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--secret<span class="w"> </span>public_linux_org_repository,type<span class="o">=</span>env,target<span class="o">=</span>org_repository<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--secret<span class="w"> </span>public_linux_runner_token,type<span class="o">=</span>env,target<span class="o">=</span>runner_token<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>v1,big_cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>adi/linux
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><div><div class="collapsible docutils container">
+<input class="collapsible_input" id="95bf972b3ee532c70a47dc3a8f4e839322bff141" name="95bf972b3ee532c70a47dc3a8f4e839322bff141" type="checkbox"></input><label for="95bf972b3ee532c70a47dc3a8f4e839322bff141"><p>Docker alternative</p>
+<div class="icon"></div></label><div class="collapsible_content docutils container">
+<p><code class="docutils literal notranslate"><span class="pre">docker</span></code> does <strong>not</strong> have a built-in keyring, instead you pass directly
+to <code class="docutils literal notranslate"><span class="pre">run</span></code> command. <span class="red">Consider hardening strategies to mitigate risks</span>,
+like using another keyring as below.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_org_repository</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_org_repository.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_runner_token</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_runner_token.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>v1,big_cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>localhost/adi/linux
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></div>
+</div>
+</div><p>The environment variable runner_labels (comma-separated), set the runner labels.
+If not provided on the Containerfile as <code class="docutils literal notranslate"><span class="pre">ENV</span> <span class="pre">runner_labels=&lt;labels,&gt;</span></code> or as argument
+<code class="docutils literal notranslate"><span class="pre">--env</span> <span class="pre">runner_labels=&lt;labels,&gt;</span></code>, it defaults to <code class="docutils literal notranslate"><span class="pre">v1</span></code>.
+Most of the time, you want to use the Containerfile-set environment variable.</p>
+<p>If you are in an environment as described in <a class="reference internal" href="#podman-sssd"><span class="std std-ref">Network users &amp; partitions</span></a>, append these flags
+to every <code class="docutils literal notranslate"><span class="pre">podman</span> <span class="pre">run</span></code> command:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--user</span> <span class="pre">root</span></code>: due to <code class="docutils literal notranslate"><span class="pre">ignore_chown_errors</span></code> allowing a single user mapping,
+this user is root (0). Please note that this the container’s root user and in
+most images is the only available user.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--env</span> <span class="pre">RUNNER_ALLOW_RUNASROOT=1</span></code>: suppresses the GitHub Action runner “Must
+not run with sudo”. Again, is the container’s root.</p></li>
+</ul>
+</section>
+<section id="self-hosted-cluster">
+<span id="cluster-podman"></span><h3>Self-hosted cluster<a class="headerlink" href="#self-hosted-cluster" title="Link to this heading"></a></h3>
+<p>To host a cluster of self-hosted runners, the recommended approach is to use
+systemd services, instead of for example, container compose solutions.</p>
+<p>Below is a suggested systemd service at <em>~/.config/systemd/user/container-public-linux&#64;.service</em>.</p>
+<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
+<span class="na">Description</span><span class="o">=</span><span class="s">container public linux ci %i</span>
+<span class="na">Wants</span><span class="o">=</span><span class="s">network-online.target</span>
+
+<span class="k">[Service]</span>
+<span class="na">Restart</span><span class="o">=</span><span class="s">on-success</span>
+<span class="na">ExecStart</span><span class="o">=</span><span class="s">/bin/podman run </span>\
+<span class="w">          </span><span class="s">--env name_label=%H-%i </span>\
+<span class="w">          </span><span class="s">--secret public_linux_org_repository,type=env,target=org_repository </span>\
+<span class="w">          </span><span class="s">--secret public_linux_runner_token,type=env,target=runner_token </span>\
+<span class="w">          </span><span class="s">--conmon-pidfile %t/%n-pid --cidfile %t/%n-cid </span>\
+<span class="w">          </span><span class="s">--entrypoint=&quot;/usr/local/bin/entrypoint.sh&quot; </span>\
+<span class="w">          </span><span class="s">--label &quot;io.containers.autoupdate=local&quot; </span>\
+<span class="w">          </span><span class="s">--name=public_linux_%i </span>\
+<span class="w">          </span><span class="s">-d adi/linux:latest top</span>
+<span class="na">ExecStop</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/podman stop -t 300 $(cat %t/%n-cid) &amp;&amp; /bin/podman rm $(cat %t/%n-cid)&quot;</span>
+<span class="na">ExecStopPost</span><span class="o">=</span><span class="s">/bin/rm %t/%n-pid %t/%n-cid</span>
+<span class="na">TimeoutStopSec</span><span class="o">=</span><span class="s">600</span>
+<span class="na">Type</span><span class="o">=</span><span class="s">forking</span>
+<span class="na">PIDFile</span><span class="o">=</span><span class="s">%t/%n-pid</span>
+
+<span class="k">[Install]</span>
+<span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
+</pre></div>
+</div>
+<p>Other tuning options include:</p>
+<ul class="simple">
+<li><p><cite>–memory-swap=20g</cite>: Limit SWAP usage.</p></li>
+<li><p><cite>–memory=16g</cite>: Limit RAM usage.</p></li>
+<li><p><cite>–cpus=4</cite>: Limit number of CPUs.</p></li>
+</ul>
+<div><div class="collapsible docutils container">
+<input class="collapsible_input" id="e7f4ecc086041d9e98d44d529755898644477d49" name="e7f4ecc086041d9e98d44d529755898644477d49" type="checkbox"></input><label for="e7f4ecc086041d9e98d44d529755898644477d49"><p>Docker alternative</p>
+<div class="icon"></div></label><div class="collapsible_content docutils container">
+<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
+<span class="na">Description</span><span class="o">=</span><span class="s">container public linux ci %i</span>
+<span class="na">Requires</span><span class="o">=</span><span class="s">gpg-passphrase.service</span>
+<span class="na">Wants</span><span class="o">=</span><span class="s">network-online.target</span>
+<span class="na">After</span><span class="o">=</span><span class="s">docker.service</span>
+
+<span class="k">[Service]</span>
+<span class="na">Restart</span><span class="o">=</span><span class="s">on-success</span>
+<span class="na">ExecStart</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/docker run </span>\
+<span class="w">          </span><span class="s">--env name_label=%H-%i </span>\
+<span class="w">          </span><span class="s">--env org_repository=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_org_repository.gpg) </span>\
+<span class="w">          </span><span class="s">--env runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_runner_token.gpg) </span>\
+<span class="w">          </span><span class="s">--cidfile %t/%n-cid </span>\
+<span class="w">          </span><span class="s">--entrypoint=&quot;/usr/local/bin/entrypoint.sh&quot; </span>\
+<span class="w">          </span><span class="s">--label &quot;io.containers.autoupdate=local&quot; </span>\
+<span class="w">          </span><span class="s">--name=public_linux_%i </span>\
+<span class="w">          </span><span class="s">--memory-swap=20g </span>\
+<span class="w">          </span><span class="s">--memory=16g </span>\
+<span class="w">          </span><span class="s">--cpus=4 </span>\
+<span class="w">          </span><span class="s">--log-driver=journald </span>\
+<span class="w">          </span><span class="s">-d localhost/adi/linux:latest top&quot;</span>
+<span class="na">RemainAfterExit</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">ExecStop</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/docker stop -t 300 $(cat %t/%n-cid) &amp;&amp; /bin/docker rm $(cat %t/%n-cid)&quot;</span>
+<span class="na">ExecStopPost</span><span class="o">=</span><span class="s">/bin/rm %t/%n-cid</span>
+<span class="na">TimeoutStopSec</span><span class="o">=</span><span class="s">600</span>
+<span class="na">Type</span><span class="o">=</span><span class="s">forking</span>
+
+<span class="k">[Install]</span>
+<span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div><p>Remember to <code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">--user</span> <span class="pre">daemon-reload</span></code> after modifying.
+With <a class="icon link reference external" href="https://docs.podman.io/en/latest/markdown/podman-auto-update.1.html" target="_blank">autoupdate</a>,
+if the image-digest of the container and local storage differ,
+the local image is considered to be newer and the systemd unit gets restarted.</p>
+<p>Tune the limit flags for your needs.
+The <code class="docutils literal notranslate"><span class="pre">--cpus</span></code> flag requires a kernel with <code class="docutils literal notranslate"><span class="pre">CONFIG_CFS_BANDWIDTH</span></code> enabled.
+You can check with <code class="docutils literal notranslate"><span class="pre">zgrep</span> <span class="pre">CONFIG_CFS_BANDWIDTH=</span> <span class="pre">/proc/config.gz</span></code>.</p>
+<p>Instead of passing <code class="docutils literal notranslate"><span class="pre">runner_token</span></code>, you can also pass a <code class="docutils literal notranslate"><span class="pre">github_token</span></code> to
+generate the <code class="docutils literal notranslate"><span class="pre">runner_token</span></code> on demand. Using the <code class="docutils literal notranslate"><span class="pre">github_token</span></code> is the
+recommended approach because during clean-up the original runner_token may have
+expired already.</p>
+<p>Alternatively, you can mount a FIFO to <code class="docutils literal notranslate"><span class="pre">/var/run/secrets/runner_token</span></code> to
+generate a token just in time, without ever passing the github_token to the
+container (scripts not provided).</p>
+<p>However, please note, just like the GitHub Actions generated <code class="docutils literal notranslate"><span class="pre">GITHUB_TOKEN</span></code>,
+the path <code class="docutils literal notranslate"><span class="pre">/run/secrets/runner_token</span></code> can be read by workflows, while the
+previous option is removed from the environment prior executing the GitHub
+Actions runtime.</p>
+<p>The order of precedence for authentication token is:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">github_token</span></code>: environment variable.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">runner_token</span></code>: plain text or FIFO at <em>/run/secrets/runner_token</em>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">runner_token</span></code>: environment variable.</p></li>
+</ol>
+<p>Please understand the security implications and ensure the token secrecy,
+by for example, require manual approval for running workflows PRs from
+third party sources and don’t relax <code class="docutils literal notranslate"><span class="pre">runner</span></code> user permissions.</p>
+<p>The required GitHub Fine-Grained token permission should be set as follows:</p>
+<p>For <a class="icon link reference external" href="https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-a-registration-token-for-a-repository--fine-grained-access-tokens" target="_blank">repository runner</a>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">administration:write</span></code>: “Administration” repository permissions (write).</p></li>
+</ul>
+<p>For <a class="icon link reference external" href="https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-a-registration-token-for-an-organization" target="_blank">org runner</a>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">organization_self_hosted_runners:write</span></code>: “Self-hosted runners” organization permissions (write).</p></li>
+<li><p>The user needs to be an org-level admin.</p></li>
+</ul>
+<p>Then update the systemd service.</p>
+<p>Enable and start the service</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>systemctl<span class="w"> </span>--user<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>container-public-linux@0.service
+systemctl<span class="w"> </span>--user<span class="w"> </span>start<span class="w"> </span>container-public-linux@0.service
+</pre></div>
+</div>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>User services are terminated on logout, unless you define
+<code class="docutils literal notranslate"><span class="pre">loginctl</span> <span class="pre">enable-linger</span> <span class="pre">&lt;your-user&gt;</span></code> first.</p>
+</div>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="contribute.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">Contribution guidelines</a>
+    <div></div>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>
