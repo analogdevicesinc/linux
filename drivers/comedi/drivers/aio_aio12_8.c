@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * aio_aio12_8.c
- * Driver for Access I/O Products PC-104 AIO12-8 Analog I/O Board
+ * Driver for ACCES I/O Products PC-104 AIO12-8 Analog I/O Board
  * Copyright (C) 2006 C&C Technologies, Inc.
  */
 
 /*
  * Driver: aio_aio12_8
- * Description: Access I/O Products PC-104 AIO12-8 Analog I/O Board
+ * Description: ACCES I/O Products PC-104 AIO12-8 Analog I/O Board
  * Author: Pablo Mejia <pablo.mejia@cctechnol.com>
- * Devices: [Access I/O] PC-104 AIO12-8 (aio_aio12_8),
- *   [Access I/O] PC-104 AI12-8 (aio_ai12_8),
- *   [Access I/O] PC-104 AO12-4 (aio_ao12_4)
+ * Devices: [ACCES I/O] PC-104 AIO12-8 (aio_aio12_8),
+ *   [ACCES I/O] PC-104 AI12-8 (aio_ai12_8),
+ *   [ACCES I/O] PC-104 AO12-4 (aio_ao12_4)
  * Status: experimental
  *
  * Configuration Options:
@@ -273,5 +273,5 @@ static struct comedi_driver aio_aio12_8_driver = {
 module_comedi_driver(aio_aio12_8_driver);
 
 MODULE_AUTHOR("Comedi https://www.comedi.org");
-MODULE_DESCRIPTION("Comedi driver for Access I/O AIO12-8 Analog I/O Board");
+MODULE_DESCRIPTION("Comedi driver for ACCES I/O AIO12-8 Analog I/O Board");
 MODULE_LICENSE("GPL");

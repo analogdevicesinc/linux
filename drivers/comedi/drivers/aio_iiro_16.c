@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * aio_iiro_16.c
- * Comedi driver for Access I/O Products 104-IIRO-16 board
+ * Comedi driver for ACCES I/O Products 104-IIRO-16 board
  * Copyright (C) 2006 C&C Technologies, Inc.
  */
 
 /*
  * Driver: aio_iiro_16
- * Description: Access I/O Products PC/104 Isolated Input/Relay Output Board
+ * Description: ACCES I/O Products PC/104 Isolated Input/Relay Output Board
  * Author: Zachary Ware <zach.ware@cctechnol.com>
- * Devices: [Access I/O] 104-IIRO-16 (aio_iiro_16)
+ * Devices: [ACCES I/O] 104-IIRO-16 (aio_iiro_16)
  * Status: experimental
  *
  * Configuration Options:
@@ -232,5 +232,5 @@ static struct comedi_driver aio_iiro_16_driver = {
 module_comedi_driver(aio_iiro_16_driver);
 
 MODULE_AUTHOR("Comedi https://www.comedi.org");
-MODULE_DESCRIPTION("Comedi driver for Access I/O Products 104-IIRO-16 board");
+MODULE_DESCRIPTION("Comedi driver for ACCES I/O Products 104-IIRO-16 board");
 MODULE_LICENSE("GPL");
