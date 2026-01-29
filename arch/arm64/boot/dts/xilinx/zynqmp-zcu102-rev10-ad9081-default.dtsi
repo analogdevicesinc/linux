@@ -81,24 +81,6 @@
 
 / {
 	clocks {
-		rx_out_clk_div2_100: clock@0 {
-			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
-			clocks = <&axi_ad9081_adxcvr_rx 1>;
-			clock-div = <2>;
-			clock-mult = <1>;
-			clock-output-names = "rx_out_clk_div2_100";
-		};
-
-		tx_out_clk_div2_100: clock@1 {
-			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
-			clocks = <&axi_ad9081_adxcvr_tx 1>;
-			clock-div = <2>;
-			clock-mult = <1>;
-			clock-output-names = "tx_out_clk_div2_100";
-		};
-
 		fixed_3200: clock@2 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
@@ -113,11 +95,11 @@
 		    clock-output-names = "ref54";
 		};
 
-		fixed_200: clock@4 {
+		fixed_100: clock@4 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <200000000>;
-			clock-output-names = "fixed_200";
+			clock-frequency = <100000000>;
+			clock-output-names = "fixed_100";
 		};
 	};
 
@@ -187,7 +169,7 @@
 
 			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&rx_out_clk_div2_100>, <&rx_out_clk_div2_100>, <&axi_ad9081_adxcvr_rx 0>;
+			clocks = <&zynqmp_clk 71>, <&fixed_100>, <&fixed_100>, <&axi_ad9081_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -203,7 +185,7 @@
 
 			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&tx_out_clk_div2_100>, <&tx_out_clk_div2_100>, <&axi_ad9081_adxcvr_tx 0>;
+			clocks = <&zynqmp_clk 71>, <&fixed_100>, <&fixed_100>, <&axi_ad9081_adxcvr_tx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -223,7 +205,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
 			// 0 - means i'm using output (1 - means synthesizer), and 10 is out9 <&si5391_refclk 0 10>
-			clocks = <&si5391_refclk 0 10>, <&rx_out_clk_div2_100>;
+			clocks = <&si5391_refclk 0 10>, <&fixed_100>;
 			clock-names = "conv", "div40";
 
 			#clock-cells = <1>;
@@ -239,7 +221,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84b60000 0x1000>;
 			// 0 - means i'm using output (1 - means synthesizer), and 10 is out9
-			clocks = <&si5391_refclk 0 10>, <&tx_out_clk_div2_100>;
+			clocks = <&si5391_refclk 0 10>, <&fixed_100>;
 			clock-names = "conv", "div40";
 
 			#clock-cells = <1>;
