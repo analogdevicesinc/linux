@@ -737,7 +737,7 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return PTR_ERR(sclk);
 	}
 
-	controller = devm_spi_alloc_master(dev, sizeof(*drv_data));
+	controller = devm_spi_alloc_host(dev, sizeof(*drv_data));
 	if (!controller) {
 		dev_err(dev, "can not alloc spi_controller\n");
 		return -ENOMEM;
