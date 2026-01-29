@@ -1,6 +1,6 @@
 FROM opensuse/leap:16.0
 
-ENV runner_labels=repo-only,v4
+ENV version=v4
 ARG runner_version=2.331.0
 ARG runner_version_sha=5fcc01bd546ba5c3f1291c2803658ebd3cedb3836489eda3be357d41bfcf28a7
 ARG bashrc=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/ci/bashrc
@@ -54,5 +54,5 @@ WORKDIR /home/runner
 RUN curl -o .bashrc -L ${bashrc} ; \
     chmod +x .bashrc
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/bin/bash"]
 
