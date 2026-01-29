@@ -126,6 +126,11 @@
 #define HMC7044_REG_PLL2_N_MSB		0x0036
 #define HMC7044_N2_MSB(x)		(((x) & 0xff00) >> 8)
 
+#define HMC7044_REG_PLL2_PFD_CTRL	0x0038
+#define HMC7044_PFD_UP_EN		BIT(4)
+#define HMC7044_PFD_DOWN_EN		BIT(3)
+#define HMC7044_PFD_POLARITY		BIT(0)
+
 #define HMC7044_REG_OSCOUT_PATH		0x0039
 #define HMC7044_REG_OSCOUT_DRIVER_0	0x003A
 #define HMC7044_REG_OSCOUT_DRIVER_1	0x003B
@@ -308,6 +313,7 @@ struct hmc7044 {
 	bool				pll1_ref_autorevert_en;
 	bool				clkin0_rfsync_en;
 	bool				clkin1_vcoin_en;
+	bool				pll2_pfd_invert_en;
 	bool				high_performance_mode_clock_dist_en;
 	bool				rf_reseeder_en;
 	bool				oscout_path_en;
@@ -1141,6 +1147,12 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		return ret;
 
 	/* Program PLL2 */
+	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_PFD_CTRL,
+			HMC7044_PFD_UP_EN | HMC7044_PFD_DOWN_EN |
+			(hmc->pll2_pfd_invert_en ? HMC7044_PFD_POLARITY : 0));
+	if (ret)
+		return ret;
+
 	ret = hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
 			(hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
 			HMC7044_VCO_SEL(vco_sel) |
@@ -1700,6 +1712,11 @@ static int hmc7044_parse_dt(struct device *dev,
 
 		hmc->clkin1_vcoin_en =
 			of_property_read_bool(np, "adi,clkin1-vco-in-enable");
+		hmc->pll2_pfd_invert_en =
+			of_property_read_bool(np, "adi,pll2-pfd-invert-enable");
+
+		if (hmc->pll2_pfd_invert_en && !hmc->clkin1_vcoin_en)
+			dev_warn(dev, "PLL2 PFD inverted using internal VCO.\n");
 
 		hmc->ignore_vco_limits = of_property_read_bool(np, "adi,ignore-vco-limits");
 		hmc->sync_through_pll2_force_r2_eq_1 =
