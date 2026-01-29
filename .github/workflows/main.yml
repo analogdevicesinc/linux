@@ -1,0 +1,61 @@
+name: Maintenance
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  cherry_pick_adi:
+    uses: analogdevicesinc/linux/.github/workflows/cherry-pick.yml@ci
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write
+    with:
+      branch: adi-6.12.0
+    if: ${{ github.repository_owner == 'analogdevicesinc' }}
+
+  cherry_pick_rpi:
+    uses: analogdevicesinc/linux/.github/workflows/cherry-pick.yml@ci
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write
+    with:
+      branch: rpi-6.12.y
+      filter: |
+        .github/*
+    if: ${{ github.repository_owner == 'analogdevicesinc' }}
+
+  assert:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
+    needs:
+      - cherry_pick_adi
+      - cherry_pick_rpi
+
+    steps:
+      - name: Assert checks
+        env:
+          job_cherry_pick_adi: ${{ needs.cherry_pick_adi.outputs.summary }}
+          job_cherry_pick_rpi: ${{ needs.cherry_pick_rpi.outputs.summary }}
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
+          source ./runner_env.sh
+          assert_job_summary
+
+  migrate_main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Mirror to xlnx-main
+        run: |
+          git push origin HEAD:xlnx-main --force
