@@ -238,13 +238,11 @@ err_clk_disable:
 	return ret;
 }
 
-static int axi_spdif_dev_remove(struct platform_device *pdev)
+static void axi_spdif_dev_remove(struct platform_device *pdev)
 {
 	struct axi_spdif *spdif = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(spdif->clk);
-
-	return 0;
 }
 
 static const struct of_device_id axi_spdif_of_match[] = {
