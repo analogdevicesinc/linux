@@ -871,6 +871,13 @@ static struct clk *ad9528_clk_register(struct iio_dev *indio_dev, unsigned num,
 	return clk;
 }
 
+static void ad9528_clk_del_provider(void *data)
+{
+	struct device_node *np = data;
+
+	of_clk_del_provider(np);
+}
+
 static int ad9528_clks_register(struct iio_dev *indio_dev)
 {
 	struct ad9528_state *st = iio_priv(indio_dev);
@@ -900,7 +907,7 @@ static int ad9528_clks_register(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	return 0;
+	return devm_add_action_or_reset(&st->spi->dev, ad9528_clk_del_provider, np);
 }
 
 static int ad9528_setup(struct iio_dev *indio_dev)
@@ -1449,7 +1456,7 @@ static const struct jesd204_dev_data jesd204_ad9528_init = {
 #ifdef CONFIG_OF
 static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 {
-	struct device_node *np = dev->of_node, *chan_np;
+	struct device_node *np = dev->of_node;
 	struct ad9528_platform_data *pdata;
 	struct ad9528_channel_spec *chan;
 	unsigned int tmp, cnt = 0;
@@ -1600,7 +1607,7 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 
 	strncpy(&pdata->name[0], np->name, SPI_NAME_SIZE - 1);
 
-	for_each_child_of_node(np, chan_np)
+	for_each_child_of_node_scoped(np, chan_np)
 		cnt++;
 
 	pdata->num_channels = cnt;
@@ -1609,7 +1616,7 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 		return NULL;
 
 	cnt = 0;
-	for_each_child_of_node(np, chan_np) {
+	for_each_child_of_node_scoped(np, chan_np) {
 		ret = of_property_read_u32(chan_np, "reg",
 				     &pdata->channels[cnt].channel_num);
 		if (ret) {
