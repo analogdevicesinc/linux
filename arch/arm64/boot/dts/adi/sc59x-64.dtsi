@@ -1,0 +1,189 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2021-2024 - Analog Devices Inc.
+ * Author: Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+ */
+
+#include <dt-bindings/clock/adi-sc5xx-clock.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "ADI 64-bit SC59X";
+	compatible = "adi,sc59x-64";
+
+	interrupt-parent = <&gic>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen { };
+
+	cpus {
+		#address-cells = <0x2>;
+		#size-cells = <0x0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0 0x0>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0xdeadbeef>;
+			clocks = <&clk_cgu0 ADSP_CLK_ARM>, <&clk_cgu0 ADSP_CLK_DDR>;
+		};
+	};
+
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+	};
+
+	gic: interrupt-controller@31200000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		reg = <0x31200000 0x40000>, /* GIC Dist */
+		      <0x31240000 0x40000>; /* GICR */
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* Physical Secure */
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>, /* Physical Non-Secure */
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>, /* Virtual */
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>; /* Hypervisor */
+	};
+
+	clocks {
+		sys_clkin0: sys_clkin0 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <25000000>;
+		};
+
+		sys_clkin1: sys_clkin1 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <25000000>;
+		};
+		clk_dummy: clk_dummy {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <0>;
+		};
+	};
+
+	clk_cgu0: clocks@3108d000 {
+		compatible = "adi,sc598-cgu0";
+		reg = <0x3108d000 0x1000>;
+		#clock-cells = <1>;
+		clocks = <&sys_clkin0>, <&sys_clkin1>;
+		clock-names = "sys_clkin0", "sys_clkin1";
+		status = "okay";
+	};
+
+	clk_cgu1: clocks@3108e000 {
+		compatible = "adi,sc598-cgu1";
+		reg = <0x3108e000 0x1000>;
+		#clock-cells = <1>;
+		clocks = <&sys_clkin0>, <&sys_clkin1>;
+		clock-names = "sys_clkin0", "sys_clkin1";
+		status = "okay";
+	};
+
+	clk_cdu: clocks@3108f000 {
+		compatible = "adi,sc598-cdu";
+		reg = <0x3108f000 0x1000>;
+		#clock-cells = <1>;
+		clocks = <&clk_dummy>;
+		clock-names = "clk_dummy";
+		status = "okay";
+	};
+
+	clk_ddr_pll: clocks@310a9000 {
+		compatible = "adi,sc598-pll";
+		reg = <0x310a9000 0x1000>;
+		#clock-cells = <1>;
+		clocks = <&clk_dummy>;
+		clock-names = "clk_dummy";
+		status = "okay";
+	};
+
+	soc: soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		rcu: rcu@3108c000 {
+			compatible = "adi,sc5xx-reset";
+			reg = <0x3108c000 0x1000>;
+			#reset-cells = <0>;
+			status = "okay";
+		};
+
+		uart0: serial@31003000 {
+			compatible = "adi,sc5xx-uart";
+			reg = <0x31003000 0x40>;
+			clocks = <&clk_cgu0 ADSP_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			interrupt-parent = <&gic>;
+			interrupt-names = "tx", "rx", "status";
+			interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
+			adi,use-edbo;
+			status = "disabled";
+		};
+
+		uart1: serial@31003400 {
+			compatible = "adi,sc5xx-uart";
+			reg = <0x31003400 0x40>;
+			clocks = <&clk_cgu0 ADSP_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			interrupt-parent = <&gic>;
+			interrupt-names = "tx", "rx", "status";
+			interrupts = <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
+			adi,use-edbo;
+			status = "disabled";
+		};
+
+		uart2: serial@31003800 {
+			compatible = "adi,sc5xx-uart";
+			reg = <0x31003800 0x40>;
+			clocks = <&clk_cgu0 ADSP_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			interrupt-parent = <&gic>;
+			interrupt-names = "tx", "rx", "status";
+			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>;
+			adi,use-edbo;
+			status = "disabled";
+		};
+
+		uart3: serial@31003c00 {
+			compatible = "adi,sc5xx-uart";
+			reg = <0x31003C00 0x40>;
+			clocks = <&clk_cgu0 ADSP_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			interrupt-parent = <&gic>;
+			interrupt-names = "tx", "rx", "status";
+			interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>;
+			adi,use-edbo;
+			status = "disabled";
+		};
+
+		pinctrl0: pinctrl@31004600 {
+			compatible = "adi,sc5xx-pinctrl";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x31004600 0x400>;
+			adi,port-sizes = <16 16 16 16 16 16 16 16 7>;
+		};
+	};
+};

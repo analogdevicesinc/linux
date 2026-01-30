@@ -472,6 +472,17 @@ config PINCTRL_ROCKCHIP
 	help
           This support pinctrl and GPIO driver for Rockchip SoCs.
 
+config PINCTRL_SC5XX
+	bool "ADSP-SC5XX pinctrl driver"
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	depends on OF
+	select PINMUX
+	select GPIOLIB
+	select GENERIC_PINCONF
+	help
+	  Say Y here to enable the ADSP-SC5XX pinctrl driver. This is required for
+	  correct peripheral functionality on the SoC.
+
 config PINCTRL_SCMI
 	tristate "Pinctrl driver using SCMI protocol interface"
 	depends on ARM_SCMI_PROTOCOL || COMPILE_TEST
