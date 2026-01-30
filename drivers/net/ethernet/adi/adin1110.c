@@ -150,6 +150,7 @@ struct adin1110_port_priv {
 struct adin1110_priv {
 	struct mutex			lock; /* protect spi */
 	spinlock_t			state_lock; /* protect RX mode */
+	spinlock_t			tx_space_lock; /* protect tx_space */
 	struct mii_bus			*mii_bus;
 	struct spi_device		*spidev;
 	bool				append_crc;
@@ -601,8 +602,12 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 	if (ret < 0)
 		goto out;
 
+	spin_lock_bh(&priv->tx_space_lock);
 	/* TX FIFO space is expressed in half-words */
 	priv->tx_space = 2 * val;
+	if (priv->tx_space > 0 && ret >= 0)
+		adin1110_wake_queues(priv);
+	spin_unlock_bh(&priv->tx_space_lock);
 
 	for (i = 0; i < priv->cfg->ports_nr; i++) {
 		if (adin1110_port_rx_ready(priv->ports[i], status1))
@@ -616,9 +621,6 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 
 out:
 	mutex_unlock(&priv->lock);
-
-	if (priv->tx_space > 0 && ret >= 0)
-		adin1110_wake_queues(priv);
 
 	return IRQ_HANDLED;
 }
@@ -993,6 +995,8 @@ static netdev_tx_t adin1110_start_xmit(struct sk_buff *skb, struct net_device *d
 	u32 tx_space_needed;
 
 	tx_space_needed = skb->len + ADIN1110_FRAME_HEADER_LEN + ADIN1110_INTERNAL_SIZE_HEADER_LEN;
+
+	spin_lock(&priv->tx_space_lock);
 	if (tx_space_needed > priv->tx_space) {
 		netif_stop_queue(dev);
 		netdev_ret = NETDEV_TX_BUSY;
@@ -1000,6 +1004,7 @@ static netdev_tx_t adin1110_start_xmit(struct sk_buff *skb, struct net_device *d
 		priv->tx_space -= tx_space_needed;
 		skb_queue_tail(&port_priv->txq, skb);
 	}
+	spin_unlock(&priv->tx_space_lock);
 
 	schedule_work(&port_priv->tx_work);
 
@@ -1659,6 +1664,7 @@ static int adin1110_probe(struct spi_device *spi)
 
 	mutex_init(&priv->lock);
 	spin_lock_init(&priv->state_lock);
+	spin_lock_init(&priv->tx_space_lock);
 
 	/* use of CRC on control and data transactions is pin dependent */
 	priv->append_crc = device_property_read_bool(dev, "adi,spi-crc");
