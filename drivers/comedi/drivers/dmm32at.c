@@ -572,11 +572,27 @@ static int dmm32at_attach(struct comedi_device *dev,
 			  struct comedi_devconfig *it)
 {
 	struct comedi_subdevice *s;
+	unsigned int iobase = it->options[0];
 	int ret;
 
-	ret = comedi_request_region(dev, it->options[0], 0x10);
-	if (ret)
-		return ret;
+	switch (iobase) {
+	case 0x100:
+	case 0x140:
+	case 0x180:
+	case 0x200:
+	case 0x280:
+	case 0x300:
+	case 0x340:
+	case 0x380:
+		ret = comedi_request_region(dev, iobase, 0x10);
+		if (ret)
+			return ret;
+		break;
+	default:
+		dev_err(dev->class_dev, "unsupported base address %#x\n",
+			iobase);
+		return -EINVAL;
+	}
 
 	ret = dmm32at_reset(dev);
 	if (ret) {
