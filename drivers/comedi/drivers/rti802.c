@@ -72,7 +72,8 @@ static int rti802_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	int i;
 	int ret;
 
-	ret = comedi_request_region(dev, it->options[0], 0x04);
+	ret = comedi_check_request_region(dev, it->options[0], 0x04,
+					  0, 0x3ff, 4);
 	if (ret)
 		return ret;
 
