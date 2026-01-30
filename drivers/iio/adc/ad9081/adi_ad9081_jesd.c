@@ -860,6 +860,85 @@ int32_t adi_ad9081_jesd_rx_calibrate_204c(adi_ad9081_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
+int32_t adi_ad9081_jesd_rx_calibrate_204c_lane_status_get(adi_ad9081_device_t *device,
+							uint8_t physical_lane,
+							adi_ad9081_jrx_fg_cal_result_t *res)
+{
+	int32_t err;
+	uint8_t reg8[3];
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_INVALID_PARAM_RETURN(physical_lane > 7);
+
+	if (device->dev_info.dev_rev != 3) { /* r2 */
+		return API_CMS_ERROR_NOT_SUPPORTED;
+	}
+
+	err = adi_ad9081_hal_reg_get(device, 0x21e0 + (3 * physical_lane), &reg8[0]);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_get(device, 0x21e1 + (3 * physical_lane), &reg8[1]);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_get(device, 0x21e2 + (3 * physical_lane), &reg8[2]);
+	AD9081_ERROR_RETURN(err);
+
+	res->status = (reg8[0] & 0x7) == 0x7;
+	res->failed_mask = res->status ? 0 : (1 << physical_lane);
+	res->goodness =  ((reg8[0] & 0xE0) << 3) | reg8[1];
+	res->spo_left = reg8[2] >> 4;
+	res->spo_right = reg8[2] & 0xF;
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_jesd_rx_calibrate_204c_status_get(adi_ad9081_device_t *device,
+							 adi_ad9081_jrx_fg_cal_result_t *res)
+{
+	int32_t err, lane;
+	uint16_t min_goodness = 0xFFFF;
+	uint8_t lanes, min_spo_left = 0xFF, min_spo_right = 0xFF;
+	adi_ad9081_jrx_fg_cal_result_t lane_res;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	err = adi_ad9081_hal_reg_get(device, REG_PHY_PD_ADDR, &lanes); /* not paged */
+	AD9081_ERROR_RETURN(err);
+
+	if (lanes == 0xFF) {
+		err = adi_ad9081_hal_log_write(device, ADI_CMS_LOG_ERR, "no active lanes");
+		AD9081_ERROR_RETURN(err);
+
+		return API_CMS_ERROR_ERROR;
+	}
+
+	res->status = 1;
+	res->failed_mask = 0;
+
+	for (lane = 0; lane < 8; lane++) {
+		if (lanes & (1u << lane))
+			continue;
+
+		err = adi_ad9081_jesd_rx_calibrate_204c_lane_status_get(device, lane, &lane_res);
+		AD9081_ERROR_RETURN(err);
+
+		if (!lane_res.status) {
+			res->status = 0;
+			res->failed_mask |= (1u << lane);
+			err = adi_ad9081_hal_log_write(device, ADI_CMS_LOG_ERR, "lane %u fg cal failed", lane);
+			AD9081_ERROR_RETURN(err);
+			continue;
+		}
+
+		min_goodness = MIN(min_goodness, lane_res.goodness);
+		min_spo_left = MIN(min_spo_left, lane_res.spo_left);
+		min_spo_right = MIN(min_spo_right, lane_res.spo_right);
+	}
+
+	res->goodness = min_goodness;
+	res->spo_left = min_spo_left;
+	res->spo_right = min_spo_right;
+
+	return API_CMS_ERROR_OK;
+}
+
 int32_t adi_ad9081_jesd_rx_load_cbus_table(adi_ad9081_device_t *device,
 					   adi_ad9081_deser_mode_e deser_mode)
 {

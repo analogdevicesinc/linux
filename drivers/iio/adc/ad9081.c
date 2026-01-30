@@ -5017,6 +5017,8 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 			phy->jrx_link_tx[0].lane_cal_rate_kbps !=
 			phy->jrx_link_tx[0].lane_rate_kbps) {
 
+			adi_ad9081_jrx_fg_cal_result_t fg_cal_res;
+
 			ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
 				ad9081_link_sel(phy->jrx_link_tx), 1);
 			if (ret != 0)
@@ -5029,6 +5031,22 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 				phy->ad9081.serdes_info.des_settings.boost_mask, 1);
 			if (ret < 0)
 				return ret;
+
+			ret = adi_ad9081_jesd_rx_calibrate_204c_status_get(
+				&phy->ad9081, &fg_cal_res);
+			if (ret < 0)
+				return ret;
+
+			if (!fg_cal_res.status) {
+				dev_err(dev, "jesd_rx_calibrate_204c failed, failed lane mask 0x%02x\n",
+					fg_cal_res.failed_mask);
+				return -EFAULT;
+			} else {
+				dev_info(dev, "jesd_rx_calibrate_204c success, goodness %u, SPO L %u, SPO R %u\n",
+					fg_cal_res.goodness,
+					fg_cal_res.spo_left,
+					fg_cal_res.spo_right);
+			}
 
 			ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
 				ad9081_link_sel(phy->jrx_link_tx), 0);
