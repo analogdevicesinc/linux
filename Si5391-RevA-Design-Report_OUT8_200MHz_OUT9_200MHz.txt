@@ -1,0 +1,581 @@
+Overview
+========
+
+Part:               Si5391ABCD Rev A
+Project File:       C:\workspace\fisiere\kairos\si5391_clockbuilder\Si5391-RevA-Project.slabtimeproj
+Design ID:          <none>
+Created By:         ClockBuilder Pro v4.17 [2025-11-06]
+Timestamp:          2026-01-30 14:39:04 GMT+02:00
+
+Design Rule Check
+=================
+
+Errors:
+- No errors
+
+Warnings:
+- No warnings
+
+Notes:
+- With the selected configuration, a Si5391P grade device would have lower
+  jitter
+
+Device Grade
+============
+Maximum Output Frequency: 200 MHz
+Frequency Synthesis Mode: Integer
+Frequency Plan Grade:     D
+Minimum Base OPN:         Si5391D*
+
+Base       Output Clock         Supported Frequency Synthesis Modes
+OPN Grade  Frequency Range      (Typical Jitter)
+---------  -------------------  --------------------------------------------
+Si5391A    100 Hz to 1.028 GHz  Integer (< 100 fs) and fractional (< 150 fs)
+Si5391B    100 Hz to 350 MHz    "
+Si5391C    100 Hz to 1.028 GHz  Integer only (< 100 fs)
+Si5391D*   100 Hz to 350 MHz    "
+
+* Based on your calculated frequency plan, a Si5391D grade device is
+sufficient for your design. For more in-system configuration flexibility
+(higher frequencies and/or to enable fractional synthesis), consider
+selecting device grade Si5391A when specifying an ordering part number (OPN)
+for your application. See the datasheet Ordering Guide for more information.
+
+Design
+======
+Host Interface:
+   I/O Power Supply: VDD (Core)
+   SPI Mode: 4-Wire
+   I2C Address Range: 116d to 119d / 0x74 to 0x77 (selected via A0/A1 pins)
+
+Inputs:
+   XAXB: 54 MHz
+         Crystal Mode
+    IN0: Unused
+    IN1: Unused
+    IN2: Unused
+  FB_IN: Unused
+
+Outputs:
+  OUT0A: Unused
+   OUT0: Unused
+   OUT1: Unused
+   OUT2: Unused
+   OUT3: Unused
+   OUT4: Unused
+   OUT5: Unused
+   OUT6: Unused
+   OUT7: Unused
+   OUT8: 200 MHz
+         Enabled, LVDS 1.8 V
+   OUT9: 200 MHz
+         Enabled, LVDS 1.8 V
+  OUT9A: Unused
+
+Frequency Plan
+==============
+
+Priority: maximize the number of low jitter outputs
+
+Fpfd = 54 MHz
+Fvco = 14.4 GHz
+Fms0 = 400 MHz
+
+P dividers:
+   P0  = Unused
+   P1  = Unused
+   P2  = Unused
+   P3  = Unused
+   Pxaxb = 1
+
+M = 266.6666666666666666... [ 266 + 2/3 ]
+N dividers:
+   N0:
+      Value: 36
+      OUT8: 200 MHz
+      OUT9: 200 MHz
+   N1:
+      Unused
+   N2:
+      Unused
+   N3:
+      Unused
+   N4:
+      Unused
+
+R dividers:
+   R0A = Unused
+   R0 = Unused
+   R1 = Unused
+   R2 = Unused
+   R3 = Unused
+   R4 = Unused
+   R5 = Unused
+   R6 = Unused
+   R7 = Unused
+   R8 = 2
+   R9 = 2
+   R9A = Unused
+
+Dividers listed above show effective values. These values are translated to register settings by ClockBuilder Pro. For the actual register values, see below. Refer to the Family Reference Manual for information on registers related to frequency plan.
+
+Digitally Controlled Oscillator (DCO)
+=====================================
+Mode: FINC/FDEC
+
+N0: DCO Disabled
+
+N1: DCO Disabled
+
+N2: DCO Disabled
+
+N3: DCO Disabled
+
+N4: DCO Disabled
+
+Input/Output Skew Control
+=========================
+N0: 36
+
+   OUT8  200 MHz
+   OUT9  200 MHz
+
+   Desired Dynamic Skew Step:  ±0.000 ps
+   Actual Dynamic Skew Step:   ±0 ps
+   N0_PHASE_STEP:                 0x0 0d
+   N0_PHASE_COUNT:                0x0 0d
+
+   Use N0_PHASE_INC and N0_PHASE_DEC to perform phase step.
+
+N1 Not Used
+
+N2 Not Used
+
+N3 Not Used
+
+N4 Not Used
+
+Estimated Power & Junction Temperature
+======================================
+Assumptions:
+
+VDD:      1.8 V
+Ta:       25 °C
+Theta-JA: 18.30 °C/W (JEDEC Board with 2 m/s airflow)
+
+                              Overall  On Chip
+Condition                     Power    Power    Ta    Tj
+----------------------------  -------  -------  ----  ----
+Typical Ta, Voltage, Current  607 mW   595 mW   25 C  35 C
+
+                                  -----------------------
+                                          Typical        
+                                  -----------------------
+                                  Voltage  Current  Power
+       Output  Frequency  Format    (V)     (mA)    (mW) 
+       ------  ---------  ------  -------  -------  -----
+VDD                                  1.80       99    177
+VDDA                                 3.30      113    372
+VDDO0  OUT0A      Unused        
+       OUT0       Unused        
+VDDO1  OUT1       Unused        
+VDDO2  OUT2       Unused        
+VDDO3  OUT3       Unused        
+VDDO4  OUT4       Unused        
+VDDO5  OUT5       Unused        
+VDDO6  OUT6       Unused        
+VDDO7  OUT7       Unused        
+VDDO8  OUT8      200 MHz    LVDS     1.80       16     29
+VDDO9  OUT9      200 MHz    LVDS     1.80       16     29
+       OUT9A      Unused        
+                                  -------  -------  -----
+                                     1.80      130    235
+                                     3.30      113    372
+                                  -------  -------  -----
+                                    Total             607
+                                  -------  -------  -----
+
+Note:
+
+- Tj is junction temperature. Tj must be less than 125 °C (on Si5391 Revision
+  A) for device to comply with datasheet specifications. Tj = Ta +
+  Theta_JA*On_Chip_Power.
+- Overall power includes on-chip power dissipation and adds differential load
+  power dissipation to estimate total power requirements.
+- Above are estimates only: power and temperature should be measured on your
+  PCB.
+- Selection of appropriate Theta-JA is required for most accurate estimate.
+  Ideally, select 'User Specified Theta-JA' and enter a Theta-JA value based
+  on the thermal properties of your PCB.
+
+Settings
+========
+
+Location      Setting Name         Decimal Value      Hex Value        
+------------  -------------------  -----------------  -----------------
+0x0006[23:0]  TOOL_VERSION         0                  0x000000         
+0x000B[6:0]   I2C_ADDR             116                0x74             
+0x0017[0]     SYSINCAL_INTR_MSK    0                  0x0              
+0x0017[1]     LOSXAXB_INTR_MSK     0                  0x0              
+0x0017[2]     LOSREF_INTR_MSK      0                  0x0              
+0x0017[3]     LOL_INTR_MSK         0                  0x0              
+0x0017[5]     SMB_TMOUT_INTR_MSK   0                  0x0              
+0x0018[3:0]   LOSIN_INTR_MSK       15                 0x0F             
+0x0021[0]     IN_SEL_REGCTRL       1                  0x1              
+0x0021[2:1]   IN_SEL               3                  0x3              
+0x0022[1]     OE                   0                  0x0              
+0x002B[3]     SPI_3WIRE            0                  0x0              
+0x002B[5]     AUTO_NDIV_UPDATE     0                  0x0              
+0x002C[3:0]   LOS_EN               0                  0x0              
+0x002C[4]     LOSXAXB_DIS          0                  0x0              
+0x002D[1:0]   LOS0_VAL_TIME        0                  0x0              
+0x002D[3:2]   LOS1_VAL_TIME        0                  0x0              
+0x002D[5:4]   LOS2_VAL_TIME        0                  0x0              
+0x002D[7:6]   LOS3_VAL_TIME        0                  0x0              
+0x002E[15:0]  LOS0_TRG_THR         0                  0x0000           
+0x0030[15:0]  LOS1_TRG_THR         0                  0x0000           
+0x0032[15:0]  LOS2_TRG_THR         0                  0x0000           
+0x0034[15:0]  LOS3_TRG_THR         0                  0x0000           
+0x0036[15:0]  LOS0_CLR_THR         0                  0x0000           
+0x0038[15:0]  LOS1_CLR_THR         0                  0x0000           
+0x003A[15:0]  LOS2_CLR_THR         0                  0x0000           
+0x003C[15:0]  LOS3_CLR_THR         0                  0x0000           
+0x0041[4:0]   LOS0_DIV_SEL         0                  0x00             
+0x0042[4:0]   LOS1_DIV_SEL         0                  0x00             
+0x0043[4:0]   LOS2_DIV_SEL         0                  0x00             
+0x0044[4:0]   LOS3_DIV_SEL         0                  0x00             
+0x009E[7:4]   LOL_SET_THR          0                  0x0              
+0x0102[0]     OUTALL_DISABLE_LOW   1                  0x1              
+0x0103[0]     OUT0A_PDN            1                  0x1              
+0x0103[1]     OUT0A_OE             0                  0x0              
+0x0103[2]     OUT0A_RDIV_FORCE2    0                  0x0              
+0x0104[2:0]   OUT0A_FORMAT         1                  0x1              
+0x0104[3]     OUT0A_SYNC_EN        1                  0x1              
+0x0104[5:4]   OUT0A_DIS_STATE      0                  0x0              
+0x0104[7:6]   OUT0A_CMOS_DRV       0                  0x0              
+0x0105[3:0]   OUT0A_CM             11                 0x0B             
+0x0105[6:4]   OUT0A_AMPL           3                  0x3              
+0x0106[2:0]   OUT0A_MUX_SEL        0                  0x0              
+0x0106[5:4]   OUT0A_VDD_SEL        2                  0x2              
+0x0106[3]     OUT0A_VDD_SEL_EN     1                  0x1              
+0x0106[7:6]   OUT0A_INV            0                  0x0              
+0x0108[0]     OUT0_PDN             1                  0x1              
+0x0108[1]     OUT0_OE              0                  0x0              
+0x0108[2]     OUT0_RDIV_FORCE2     0                  0x0              
+0x0109[2:0]   OUT0_FORMAT          1                  0x1              
+0x0109[3]     OUT0_SYNC_EN         1                  0x1              
+0x0109[5:4]   OUT0_DIS_STATE       0                  0x0              
+0x0109[7:6]   OUT0_CMOS_DRV        0                  0x0              
+0x010A[3:0]   OUT0_CM              11                 0x0B             
+0x010A[6:4]   OUT0_AMPL            3                  0x3              
+0x010B[2:0]   OUT0_MUX_SEL         0                  0x0              
+0x010B[5:4]   OUT0_VDD_SEL         2                  0x2              
+0x010B[3]     OUT0_VDD_SEL_EN      1                  0x1              
+0x010B[7:6]   OUT0_INV             0                  0x0              
+0x010D[0]     OUT1_PDN             1                  0x1              
+0x010D[1]     OUT1_OE              0                  0x0              
+0x010D[2]     OUT1_RDIV_FORCE2     0                  0x0              
+0x010E[2:0]   OUT1_FORMAT          1                  0x1              
+0x010E[3]     OUT1_SYNC_EN         1                  0x1              
+0x010E[5:4]   OUT1_DIS_STATE       0                  0x0              
+0x010E[7:6]   OUT1_CMOS_DRV        0                  0x0              
+0x010F[3:0]   OUT1_CM              11                 0x0B             
+0x010F[6:4]   OUT1_AMPL            3                  0x3              
+0x0110[2:0]   OUT1_MUX_SEL         0                  0x0              
+0x0110[5:4]   OUT1_VDD_SEL         2                  0x2              
+0x0110[3]     OUT1_VDD_SEL_EN      1                  0x1              
+0x0110[7:6]   OUT1_INV             0                  0x0              
+0x0112[0]     OUT2_PDN             1                  0x1              
+0x0112[1]     OUT2_OE              0                  0x0              
+0x0112[2]     OUT2_RDIV_FORCE2     0                  0x0              
+0x0113[2:0]   OUT2_FORMAT          1                  0x1              
+0x0113[3]     OUT2_SYNC_EN         1                  0x1              
+0x0113[5:4]   OUT2_DIS_STATE       0                  0x0              
+0x0113[7:6]   OUT2_CMOS_DRV        0                  0x0              
+0x0114[3:0]   OUT2_CM              11                 0x0B             
+0x0114[6:4]   OUT2_AMPL            3                  0x3              
+0x0115[2:0]   OUT2_MUX_SEL         0                  0x0              
+0x0115[5:4]   OUT2_VDD_SEL         2                  0x2              
+0x0115[3]     OUT2_VDD_SEL_EN      1                  0x1              
+0x0115[7:6]   OUT2_INV             0                  0x0              
+0x0117[0]     OUT3_PDN             1                  0x1              
+0x0117[1]     OUT3_OE              0                  0x0              
+0x0117[2]     OUT3_RDIV_FORCE2     0                  0x0              
+0x0118[2:0]   OUT3_FORMAT          1                  0x1              
+0x0118[3]     OUT3_SYNC_EN         1                  0x1              
+0x0118[5:4]   OUT3_DIS_STATE       0                  0x0              
+0x0118[7:6]   OUT3_CMOS_DRV        0                  0x0              
+0x0119[3:0]   OUT3_CM              11                 0x0B             
+0x0119[6:4]   OUT3_AMPL            3                  0x3              
+0x011A[2:0]   OUT3_MUX_SEL         0                  0x0              
+0x011A[5:4]   OUT3_VDD_SEL         2                  0x2              
+0x011A[3]     OUT3_VDD_SEL_EN      1                  0x1              
+0x011A[7:6]   OUT3_INV             0                  0x0              
+0x011C[0]     OUT4_PDN             1                  0x1              
+0x011C[1]     OUT4_OE              0                  0x0              
+0x011C[2]     OUT4_RDIV_FORCE2     0                  0x0              
+0x011D[2:0]   OUT4_FORMAT          1                  0x1              
+0x011D[3]     OUT4_SYNC_EN         1                  0x1              
+0x011D[5:4]   OUT4_DIS_STATE       0                  0x0              
+0x011D[7:6]   OUT4_CMOS_DRV        0                  0x0              
+0x011E[3:0]   OUT4_CM              11                 0x0B             
+0x011E[6:4]   OUT4_AMPL            3                  0x3              
+0x011F[2:0]   OUT4_MUX_SEL         0                  0x0              
+0x011F[5:4]   OUT4_VDD_SEL         2                  0x2              
+0x011F[3]     OUT4_VDD_SEL_EN      1                  0x1              
+0x011F[7:6]   OUT4_INV             0                  0x0              
+0x0121[0]     OUT5_PDN             1                  0x1              
+0x0121[1]     OUT5_OE              0                  0x0              
+0x0121[2]     OUT5_RDIV_FORCE2     0                  0x0              
+0x0122[2:0]   OUT5_FORMAT          1                  0x1              
+0x0122[3]     OUT5_SYNC_EN         1                  0x1              
+0x0122[5:4]   OUT5_DIS_STATE       0                  0x0              
+0x0122[7:6]   OUT5_CMOS_DRV        0                  0x0              
+0x0123[3:0]   OUT5_CM              11                 0x0B             
+0x0123[6:4]   OUT5_AMPL            3                  0x3              
+0x0124[2:0]   OUT5_MUX_SEL         0                  0x0              
+0x0124[5:4]   OUT5_VDD_SEL         2                  0x2              
+0x0124[3]     OUT5_VDD_SEL_EN      1                  0x1              
+0x0124[7:6]   OUT5_INV             0                  0x0              
+0x0126[0]     OUT6_PDN             1                  0x1              
+0x0126[1]     OUT6_OE              0                  0x0              
+0x0126[2]     OUT6_RDIV_FORCE2     0                  0x0              
+0x0127[2:0]   OUT6_FORMAT          1                  0x1              
+0x0127[3]     OUT6_SYNC_EN         1                  0x1              
+0x0127[5:4]   OUT6_DIS_STATE       0                  0x0              
+0x0127[7:6]   OUT6_CMOS_DRV        0                  0x0              
+0x0128[3:0]   OUT6_CM              11                 0x0B             
+0x0128[6:4]   OUT6_AMPL            3                  0x3              
+0x0129[2:0]   OUT6_MUX_SEL         0                  0x0              
+0x0129[5:4]   OUT6_VDD_SEL         2                  0x2              
+0x0129[3]     OUT6_VDD_SEL_EN      1                  0x1              
+0x0129[7:6]   OUT6_INV             0                  0x0              
+0x012B[0]     OUT7_PDN             1                  0x1              
+0x012B[1]     OUT7_OE              0                  0x0              
+0x012B[2]     OUT7_RDIV_FORCE2     0                  0x0              
+0x012C[2:0]   OUT7_FORMAT          1                  0x1              
+0x012C[3]     OUT7_SYNC_EN         1                  0x1              
+0x012C[5:4]   OUT7_DIS_STATE       0                  0x0              
+0x012C[7:6]   OUT7_CMOS_DRV        0                  0x0              
+0x012D[3:0]   OUT7_CM              11                 0x0B             
+0x012D[6:4]   OUT7_AMPL            3                  0x3              
+0x012E[2:0]   OUT7_MUX_SEL         0                  0x0              
+0x012E[5:4]   OUT7_VDD_SEL         2                  0x2              
+0x012E[3]     OUT7_VDD_SEL_EN      1                  0x1              
+0x012E[7:6]   OUT7_INV             0                  0x0              
+0x0130[0]     OUT8_PDN             0                  0x0              
+0x0130[1]     OUT8_OE              1                  0x1              
+0x0130[2]     OUT8_RDIV_FORCE2     1                  0x1              
+0x0131[2:0]   OUT8_FORMAT          1                  0x1              
+0x0131[3]     OUT8_SYNC_EN         1                  0x1              
+0x0131[5:4]   OUT8_DIS_STATE       0                  0x0              
+0x0131[7:6]   OUT8_CMOS_DRV        0                  0x0              
+0x0132[3:0]   OUT8_CM              14                 0x0E             
+0x0132[6:4]   OUT8_AMPL            3                  0x3              
+0x0133[2:0]   OUT8_MUX_SEL         0                  0x0              
+0x0133[5:4]   OUT8_VDD_SEL         1                  0x1              
+0x0133[3]     OUT8_VDD_SEL_EN      1                  0x1              
+0x0133[7:6]   OUT8_INV             0                  0x0              
+0x0135[0]     OUT9_PDN             0                  0x0              
+0x0135[1]     OUT9_OE              1                  0x1              
+0x0135[2]     OUT9_RDIV_FORCE2     1                  0x1              
+0x0136[2:0]   OUT9_FORMAT          1                  0x1              
+0x0136[3]     OUT9_SYNC_EN         1                  0x1              
+0x0136[5:4]   OUT9_DIS_STATE       0                  0x0              
+0x0136[7:6]   OUT9_CMOS_DRV        0                  0x0              
+0x0137[3:0]   OUT9_CM              14                 0x0E             
+0x0137[6:4]   OUT9_AMPL            3                  0x3              
+0x0138[2:0]   OUT9_MUX_SEL         0                  0x0              
+0x0138[5:4]   OUT9_VDD_SEL         1                  0x1              
+0x0138[3]     OUT9_VDD_SEL_EN      1                  0x1              
+0x0138[7:6]   OUT9_INV             0                  0x0              
+0x013A[0]     OUT9A_PDN            1                  0x1              
+0x013A[1]     OUT9A_OE             0                  0x0              
+0x013A[2]     OUT9A_RDIV_FORCE2    0                  0x0              
+0x013B[2:0]   OUT9A_FORMAT         1                  0x1              
+0x013B[3]     OUT9A_SYNC_EN        1                  0x1              
+0x013B[5:4]   OUT9A_DIS_STATE      0                  0x0              
+0x013B[7:6]   OUT9A_CMOS_DRV       0                  0x0              
+0x013C[3:0]   OUT9A_CM             11                 0x0B             
+0x013C[6:4]   OUT9A_AMPL           3                  0x3              
+0x013D[2:0]   OUT9A_MUX_SEL        0                  0x0              
+0x013D[5:4]   OUT9A_VDD_SEL        2                  0x2              
+0x013D[3]     OUT9A_VDD_SEL_EN     1                  0x1              
+0x013D[7:6]   OUT9A_INV            0                  0x0              
+0x013F[11:0]  OUTX_ALWAYS_ON       0                  0x000            
+0x0141[5]     OUT_DIS_LOL_MSK      0                  0x0              
+0x0141[7]     OUT_DIS_MSK_LOS_PFD  0                  0x0              
+0x0206[1:0]   PXAXB                0                  0x0              
+0x0208[47:0]  P0                   0                  0x000000000000   
+0x020E[31:0]  P0_SET               0                  0x00000000       
+0x0212[47:0]  P1                   0                  0x000000000000   
+0x0218[31:0]  P1_SET               0                  0x00000000       
+0x021C[47:0]  P2                   0                  0x000000000000   
+0x0222[31:0]  P2_SET               0                  0x00000000       
+0x0226[47:0]  P3                   0                  0x000000000000   
+0x022C[31:0]  P3_SET               0                  0x00000000       
+0x0235[43:0]  M_NUM                858993459200       0x0C800000000    
+0x023B[31:0]  M_DEN                3221225472         0x0C0000000      
+0x0247[23:0]  R0A_REG              0                  0x000000         
+0x024A[23:0]  R0_REG               0                  0x000000         
+0x024D[23:0]  R1_REG               0                  0x000000         
+0x0250[23:0]  R2_REG               0                  0x000000         
+0x0253[23:0]  R3_REG               0                  0x000000         
+0x0256[23:0]  R4_REG               0                  0x000000         
+0x0259[23:0]  R5_REG               0                  0x000000         
+0x025C[23:0]  R6_REG               0                  0x000000         
+0x025F[23:0]  R7_REG               0                  0x000000         
+0x0262[23:0]  R8_REG               0                  0x000000         
+0x0265[23:0]  R9_REG               0                  0x000000         
+0x0268[23:0]  R9A_REG              0                  0x000000         
+0x026B[7:0]   DESIGN_ID0           0                  0x00             
+0x026C[7:0]   DESIGN_ID1           0                  0x00             
+0x026D[7:0]   DESIGN_ID2           0                  0x00             
+0x026E[7:0]   DESIGN_ID3           0                  0x00             
+0x026F[7:0]   DESIGN_ID4           0                  0x00             
+0x0270[7:0]   DESIGN_ID5           0                  0x00             
+0x0271[7:0]   DESIGN_ID6           0                  0x00             
+0x0272[7:0]   DESIGN_ID7           0                  0x00             
+0x0302[43:0]  N0_NUM               77309411328        0x01200000000    
+0x0308[31:0]  N0_DEN               2147483648         0x080000000      
+0x030C[0]     N0_UPDATE            0                  0x0              
+0x030D[43:0]  N1_NUM               0                  0x00000000000    
+0x0313[31:0]  N1_DEN               0                  0x00000000       
+0x0317[0]     N1_UPDATE            0                  0x0              
+0x0318[43:0]  N2_NUM               0                  0x00000000000    
+0x031E[31:0]  N2_DEN               0                  0x00000000       
+0x0322[0]     N2_UPDATE            0                  0x0              
+0x0323[43:0]  N3_NUM               0                  0x00000000000    
+0x0329[31:0]  N3_DEN               0                  0x00000000       
+0x032D[0]     N3_UPDATE            0                  0x0              
+0x032E[43:0]  N4_NUM               0                  0x00000000000    
+0x0334[31:0]  N4_DEN               0                  0x00000000       
+0x0338[0]     N4_UPDATE            0                  0x0              
+0x0338[1]     N_UPDATE             0                  0x0              
+0x0339[4:0]   N_FSTEP_MSK          31                 0x1F             
+0x033B[43:0]  N0_FSTEPW            0                  0x00000000000    
+0x0341[43:0]  N1_FSTEPW            0                  0x00000000000    
+0x0347[43:0]  N2_FSTEPW            0                  0x00000000000    
+0x034D[43:0]  N3_FSTEPW            0                  0x00000000000    
+0x0353[43:0]  N4_FSTEPW            0                  0x00000000000    
+0x0359[15:0]  N0_DELAY             0                  0x0000           
+0x035B[15:0]  N1_DELAY             0                  0x0000           
+0x035D[15:0]  N2_DELAY             0                  0x0000           
+0x035F[15:0]  N3_DELAY             0                  0x0000           
+0x0361[15:0]  N4_DELAY             0                  0x0000           
+0x0802[15:0]  FIXREGSA0            0                  0x0000           
+0x0804[7:0]   FIXREGSD0            0                  0x00             
+0x0805[15:0]  FIXREGSA1            0                  0x0000           
+0x0807[7:0]   FIXREGSD1            0                  0x00             
+0x0808[15:0]  FIXREGSA2            0                  0x0000           
+0x080A[7:0]   FIXREGSD2            0                  0x00             
+0x080B[15:0]  FIXREGSA3            0                  0x0000           
+0x080D[7:0]   FIXREGSD3            0                  0x00             
+0x080E[15:0]  FIXREGSA4            0                  0x0000           
+0x0810[7:0]   FIXREGSD4            0                  0x00             
+0x0811[15:0]  FIXREGSA5            0                  0x0000           
+0x0813[7:0]   FIXREGSD5            0                  0x00             
+0x0814[15:0]  FIXREGSA6            0                  0x0000           
+0x0816[7:0]   FIXREGSD6            0                  0x00             
+0x0817[15:0]  FIXREGSA7            0                  0x0000           
+0x0819[7:0]   FIXREGSD7            0                  0x00             
+0x081A[15:0]  FIXREGSA8            0                  0x0000           
+0x081C[7:0]   FIXREGSD8            0                  0x00             
+0x081D[15:0]  FIXREGSA9            0                  0x0000           
+0x081F[7:0]   FIXREGSD9            0                  0x00             
+0x0820[15:0]  FIXREGSA10           0                  0x0000           
+0x0822[7:0]   FIXREGSD10           0                  0x00             
+0x0823[15:0]  FIXREGSA11           0                  0x0000           
+0x0825[7:0]   FIXREGSD11           0                  0x00             
+0x0826[15:0]  FIXREGSA12           0                  0x0000           
+0x0828[7:0]   FIXREGSD12           0                  0x00             
+0x0829[15:0]  FIXREGSA13           0                  0x0000           
+0x082B[7:0]   FIXREGSD13           0                  0x00             
+0x082C[15:0]  FIXREGSA14           0                  0x0000           
+0x082E[7:0]   FIXREGSD14           0                  0x00             
+0x082F[15:0]  FIXREGSA15           0                  0x0000           
+0x0831[7:0]   FIXREGSD15           0                  0x00             
+0x0832[15:0]  FIXREGSA16           0                  0x0000           
+0x0834[7:0]   FIXREGSD16           0                  0x00             
+0x0835[15:0]  FIXREGSA17           0                  0x0000           
+0x0837[7:0]   FIXREGSD17           0                  0x00             
+0x0838[15:0]  FIXREGSA18           0                  0x0000           
+0x083A[7:0]   FIXREGSD18           0                  0x00             
+0x083B[15:0]  FIXREGSA19           0                  0x0000           
+0x083D[7:0]   FIXREGSD19           0                  0x00             
+0x083E[15:0]  FIXREGSA20           0                  0x0000           
+0x0840[7:0]   FIXREGSD20           0                  0x00             
+0x0841[15:0]  FIXREGSA21           0                  0x0000           
+0x0843[7:0]   FIXREGSD21           0                  0x00             
+0x0844[15:0]  FIXREGSA22           0                  0x0000           
+0x0846[7:0]   FIXREGSD22           0                  0x00             
+0x0847[15:0]  FIXREGSA23           0                  0x0000           
+0x0849[7:0]   FIXREGSD23           0                  0x00             
+0x084A[15:0]  FIXREGSA24           0                  0x0000           
+0x084C[7:0]   FIXREGSD24           0                  0x00             
+0x084D[15:0]  FIXREGSA25           0                  0x0000           
+0x084F[7:0]   FIXREGSD25           0                  0x00             
+0x0850[15:0]  FIXREGSA26           0                  0x0000           
+0x0852[7:0]   FIXREGSD26           0                  0x00             
+0x0853[15:0]  FIXREGSA27           0                  0x0000           
+0x0855[7:0]   FIXREGSD27           0                  0x00             
+0x0856[15:0]  FIXREGSA28           0                  0x0000           
+0x0858[7:0]   FIXREGSD28           0                  0x00             
+0x0859[15:0]  FIXREGSA29           0                  0x0000           
+0x085B[7:0]   FIXREGSD29           0                  0x00             
+0x085C[15:0]  FIXREGSA30           0                  0x0000           
+0x085E[7:0]   FIXREGSD30           0                  0x00             
+0x085F[15:0]  FIXREGSA31           0                  0x0000           
+0x0861[7:0]   FIXREGSD31           0                  0x00             
+0x090E[0]     XAXB_EXTCLK_EN       0                  0x0              
+0x090E[1]     XAXB_PDNB            1                  0x1              
+0x091C[2:0]   ZDM_EN               4                  0x4              
+0x0943[0]     IO_VDD_SEL           0                  0x0              
+0x0949[3:0]   IN_EN                0                  0x0              
+0x0949[7:4]   IN_PULSED_CMOS_EN    0                  0x0              
+0x094A[7:4]   INX_TO_PFD_EN        0                  0x0              
+0x094E[11:0]  REFCLK_HYS_SEL       585                0x249            
+0x094F[7:4]   IN_CMOS_USE1P8       15                 0x0F             
+0x095E[0]     M_INTEGER            0                  0x0              
+0x0A02[4:0]   N_ADD_0P5            0                  0x00             
+0x0A03[4:0]   N_CLK_TO_OUTX_EN     1                  0x01             
+0x0A04[4:0]   N_PIBYP              1                  0x01             
+0x0A05[4:0]   N_PDNB               1                  0x01             
+0x0A14[3]     N0_HIGH_FREQ         0                  0x0              
+0x0A1A[3]     N1_HIGH_FREQ         0                  0x0              
+0x0A20[3]     N2_HIGH_FREQ         0                  0x0              
+0x0A26[3]     N3_HIGH_FREQ         0                  0x0              
+0x0A2C[3]     N4_HIGH_FREQ         0                  0x0              
+0x0A38[7:0]   N0_PHASE_STEP        0                  0x00             
+0x0A39[15:0]  N0_PHASE_COUNT       0                  0x0000           
+0x0A3C[7:0]   N1_PHASE_STEP        0                  0x00             
+0x0A3D[15:0]  N1_PHASE_COUNT       0                  0x0000           
+0x0A40[7:0]   N2_PHASE_STEP        0                  0x00             
+0x0A41[15:0]  N2_PHASE_COUNT       0                  0x0000           
+0x0A44[7:0]   N3_PHASE_STEP        0                  0x00             
+0x0A45[15:0]  N3_PHASE_COUNT       0                  0x0000           
+0x0A48[7:0]   N4_PHASE_STEP        0                  0x00             
+0x0A49[15:0]  N4_PHASE_COUNT       0                  0x0000           
+0x0A4C[7:0]   N0_IODELAY_STEP      0                  0x00             
+0x0A4D[15:0]  N0_IODELAY_COUNT     0                  0x0000           
+0x0A4F[0]     N0_IODELAY_INC       0                  0x0              
+0x0A4F[1]     N0_IODELAY_DEC       0                  0x0              
+0x0A50[7:0]   N1_IODELAY_STEP      0                  0x00             
+0x0A51[15:0]  N1_IODELAY_COUNT     0                  0x0000           
+0x0A53[0]     N1_IODELAY_INC       0                  0x0              
+0x0A53[1]     N1_IODELAY_DEC       0                  0x0              
+0x0A54[7:0]   N2_IODELAY_STEP      0                  0x00             
+0x0A55[15:0]  N2_IODELAY_COUNT     0                  0x0000           
+0x0A57[0]     N2_IODELAY_INC       0                  0x0              
+0x0A57[1]     N2_IODELAY_DEC       0                  0x0              
+0x0A58[7:0]   N3_IODELAY_STEP      0                  0x00             
+0x0A59[15:0]  N3_IODELAY_COUNT     0                  0x0000           
+0x0A5B[0]     N3_IODELAY_INC       0                  0x0              
+0x0A5B[1]     N3_IODELAY_DEC       0                  0x0              
+0x0A5C[7:0]   N4_IODELAY_STEP      0                  0x00             
+0x0A5D[15:0]  N4_IODELAY_COUNT     0                  0x0000           
+0x0A5F[0]     N4_IODELAY_INC       0                  0x0              
+0x0A5F[1]     N4_IODELAY_DEC       0                  0x0              
+0x0B44[3:0]   PDIV_ENB             15                 0x0F             
+0x0B4A[4:0]   N_CLK_DIS            30                 0x1E             
+0x0B57[11:0]  VCO_RESET_CALCODE    240                0x0F0
