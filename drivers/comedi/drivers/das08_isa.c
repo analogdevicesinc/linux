@@ -167,7 +167,8 @@ static int das08_isa_attach(struct comedi_device *dev,
 	if (!devpriv)
 		return -ENOMEM;
 
-	ret = comedi_request_region(dev, it->options[0], board->iosize);
+	ret = comedi_check_request_region(dev, it->options[0], board->iosize,
+					  0, 0x3ff, board->iosize);
 	if (ret)
 		return ret;
 
