@@ -167,7 +167,8 @@ static int aio_iiro_16_attach(struct comedi_device *dev,
 	struct comedi_subdevice *s;
 	int ret;
 
-	ret = comedi_request_region(dev, it->options[0], 0x8);
+	ret = comedi_check_request_region(dev, it->options[0], 0x8,
+					  0x100, 0x3ff, 0x8);
 	if (ret)
 		return ret;
 
