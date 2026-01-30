@@ -243,7 +243,7 @@ static int admv4420_calc_parameters(struct admv4420_state *st)
 		st->n_counter.n_counter = 1;
 	}
 	if (!sol_found)
-		return -1;
+		return -EINVAL;
 
 	st->n_counter.int_val = div_u64_rem(st->n_counter.n_counter, 10, &st->n_counter.frac_val);
 	st->n_counter.mod_val = 10;
