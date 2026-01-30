@@ -146,7 +146,7 @@ MODULE_DEVICE_TABLE(of, adi_sram_mmap_of_match);
 
 static struct platform_driver adi_sram_mmap_driver = {
 	.probe = adi_sram_mmap_probe,
-	.remove_new = adi_sram_mmap_remove,
+	.remove = adi_sram_mmap_remove,
 	.driver = {
 		.name = SRAM_MMAP_DRV_NAME,
 		.of_match_table = of_match_ptr(adi_sram_mmap_of_match),
