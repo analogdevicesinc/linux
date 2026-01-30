@@ -933,23 +933,41 @@ int comedi_load_firmware(struct comedi_device *dev,
 EXPORT_SYMBOL_GPL(comedi_load_firmware);
 
 /**
- * __comedi_request_region() - Request an I/O region for a legacy driver
+ * __comedi_check_request_region() - Request an I/O region for a legacy driver
  * @dev: COMEDI device.
  * @start: Base address of the I/O region.
  * @len: Length of the I/O region.
+ * @minstart: Minimum allowed start address of region.
+ * @maxend: Maximum allowed region end address of region.
+ * @minalign: Required alignment for base address.
  *
  * Requests the specified I/O port region which must start at a non-zero
- * address.
+ * address, must fall within specified bounds, and must be correctly aligned.
  *
  * Returns 0 on success, -EINVAL if @start is 0, or -EIO if the request
  * fails.
  */
-int __comedi_request_region(struct comedi_device *dev,
-			    unsigned long start, unsigned long len)
+int __comedi_check_request_region(struct comedi_device *dev,
+				  unsigned long start, unsigned long len,
+				  unsigned long minstart, unsigned long maxend,
+				  unsigned long minalign)
 {
 	if (!start) {
 		dev_warn(dev->class_dev,
 			 "%s: a I/O base address must be specified\n",
+			 dev->board_name);
+		return -EINVAL;
+	}
+
+	if (start < minstart || start > maxend || maxend - start < len - 1) {
+		dev_warn(dev->class_dev,
+			 "%s: I/O base address or length out of range\n",
+			 dev->board_name);
+		return -EINVAL;
+	}
+	if (!IS_ALIGNED(start, minalign)) {
+		dev_warn(dev->class_dev,
+			 "%s: I/O base address not correctly aligned\n",
 			 dev->board_name);
 		return -EINVAL;
 	}
@@ -962,16 +980,19 @@ int __comedi_request_region(struct comedi_device *dev,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(__comedi_request_region);
+EXPORT_SYMBOL_GPL(__comedi_check_request_region);
 
 /**
- * comedi_request_region() - Request an I/O region for a legacy driver
+ * comedi_check_request_region() - Request an I/O region for a legacy driver
  * @dev: COMEDI device.
  * @start: Base address of the I/O region.
  * @len: Length of the I/O region.
+ * @minstart: Minimum allowed start address of region.
+ * @maxend: Maximum allowed region end address of region.
+ * @minalign: Required alignment for base address.
  *
  * Requests the specified I/O port region which must start at a non-zero
- * address.
+ * address, must fall within specified bounds, and must be correctly aligned.
  *
  * On success, @dev->iobase is set to the base address of the region and
  * @dev->iolen is set to its length.
@@ -979,12 +1000,15 @@ EXPORT_SYMBOL_GPL(__comedi_request_region);
  * Returns 0 on success, -EINVAL if @start is 0, or -EIO if the request
  * fails.
  */
-int comedi_request_region(struct comedi_device *dev,
-			  unsigned long start, unsigned long len)
+int comedi_check_request_region(struct comedi_device *dev,
+				unsigned long start, unsigned long len,
+				unsigned long minstart, unsigned long maxend,
+				unsigned long minalign)
 {
 	int ret;
 
-	ret = __comedi_request_region(dev, start, len);
+	ret = __comedi_check_request_region(dev, start, len, minstart, maxend,
+					    minalign);
 	if (ret == 0) {
 		dev->iobase = start;
 		dev->iolen = len;
@@ -992,7 +1016,7 @@ int comedi_request_region(struct comedi_device *dev,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(comedi_request_region);
+EXPORT_SYMBOL_GPL(comedi_check_request_region);
 
 /**
  * comedi_legacy_detach() - A generic (*detach) function for legacy drivers
