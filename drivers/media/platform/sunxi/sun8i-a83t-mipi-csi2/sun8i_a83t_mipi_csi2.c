@@ -388,6 +388,7 @@ sun8i_a83t_mipi_csi2_enum_mbus_code(struct v4l2_subdev *subdev,
 }
 
 static int sun8i_a83t_mipi_csi2_set_fmt(struct v4l2_subdev *subdev,
+					const struct v4l2_subdev_client_info *ci,
 					struct v4l2_subdev_state *state,
 					struct v4l2_subdev_format *format)
 {

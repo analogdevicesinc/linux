@@ -416,6 +416,7 @@ static void imx471_update_pad_format(struct imx471 *sensor,
 }
 
 static int imx471_set_pad_format(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
@@ -455,6 +456,7 @@ static int imx471_set_pad_format(struct v4l2_subdev *sd,
 }
 
 static int imx471_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -494,7 +496,7 @@ static int imx471_init_state(struct v4l2_subdev *sd,
 		},
 	};
 
-	return imx471_set_pad_format(sd, sd_state, &fmt);
+	return imx471_set_pad_format(sd, NULL, sd_state, &fmt);
 }
 
 static int imx471_identify_module(struct imx471 *sensor)

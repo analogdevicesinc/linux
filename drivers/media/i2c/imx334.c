@@ -821,6 +821,7 @@ static int imx334_get_pad_format(struct v4l2_subdev *sd,
 }
 
 static int imx334_set_pad_format(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
@@ -872,7 +873,7 @@ static int imx334_init_state(struct v4l2_subdev *sd,
 				 ~(imx334->link_freq_bitmap),
 				 __ffs(imx334->link_freq_bitmap));
 
-	return imx334_set_pad_format(sd, sd_state, &fmt);
+	return imx334_set_pad_format(sd, NULL, sd_state, &fmt);
 }
 
 static int imx334_set_framefmt(struct imx334 *imx334)

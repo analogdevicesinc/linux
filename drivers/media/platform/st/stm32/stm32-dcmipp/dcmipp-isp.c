@@ -133,6 +133,7 @@ static int dcmipp_isp_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static int dcmipp_isp_set_fmt(struct v4l2_subdev *sd,
+			      const struct v4l2_subdev_client_info *ci,
 			      struct v4l2_subdev_state *state,
 			      struct v4l2_subdev_format *fmt)
 {
@@ -205,6 +206,7 @@ static void dcmipp_isp_adjust_crop(struct v4l2_rect *r,
 }
 
 static int dcmipp_isp_set_selection(struct v4l2_subdev *sd,
+				    const struct v4l2_subdev_client_info *ci,
 				    struct v4l2_subdev_state *state,
 				    struct v4l2_subdev_selection *s)
 {

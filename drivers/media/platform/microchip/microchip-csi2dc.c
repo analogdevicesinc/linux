@@ -244,6 +244,7 @@ static int csi2dc_get_fmt(struct v4l2_subdev *csi2dc_sd,
 }
 
 static int csi2dc_set_fmt(struct v4l2_subdev *csi2dc_sd,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *req_fmt)
 {

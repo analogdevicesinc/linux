@@ -480,6 +480,7 @@ static void hm1246_update_pad_format(struct hm1246 *hm1246,
 }
 
 static int hm1246_set_format(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_format *fmt)
 {
@@ -503,6 +504,7 @@ static int hm1246_set_format(struct v4l2_subdev *sd,
 }
 
 static int hm1246_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -551,7 +553,7 @@ static int hm1246_init_state(struct v4l2_subdev *sd,
 		},
 	};
 
-	hm1246_set_format(sd, state, &fmt);
+	hm1246_set_format(sd, NULL, state, &fmt);
 
 	return 0;
 }

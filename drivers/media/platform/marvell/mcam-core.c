@@ -1024,7 +1024,7 @@ static int mcam_cam_configure(struct mcam_camera *cam)
 	v4l2_fill_mbus_format(&format.format, &cam->pix_format, cam->mbus_code);
 	ret = sensor_call(cam, core, init, 0);
 	if (ret == 0)
-		ret = sensor_call(cam, pad, set_fmt, NULL, &format);
+		ret = sensor_call(cam, pad, set_fmt, NULL, NULL, &format);
 	/*
 	 * OV7670 does weird things if flip is set *before* format...
 	 */
@@ -1363,7 +1363,7 @@ static int mcam_vidioc_try_fmt_vid_cap(struct file *filp, void *priv,
 	f = mcam_find_format(pix->pixelformat);
 	pix->pixelformat = f->pixelformat;
 	v4l2_fill_mbus_format(&format.format, pix, f->mbus_code);
-	ret = sensor_call(cam, pad, set_fmt, &pad_state, &format);
+	ret = sensor_call(cam, pad, set_fmt, NULL, &pad_state, &format);
 	v4l2_fill_pix_format(pix, &format.format);
 	pix->bytesperline = pix->width * f->bpp;
 	switch (f->pixelformat) {

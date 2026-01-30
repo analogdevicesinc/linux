@@ -2924,7 +2924,7 @@ static void pvr2_subdev_update(struct pvr2_hdw *hdw)
 		format.format.code = MEDIA_BUS_FMT_FIXED;
 		pvr2_trace(PVR2_TRACE_CHIPS, "subdev v4l2 set_size(%dx%d)",
 			   format.format.width, format.format.height);
-		v4l2_device_call_all(&hdw->v4l2_dev, 0, pad, set_fmt,
+		v4l2_device_call_all(&hdw->v4l2_dev, 0, pad, set_fmt, NULL,
 				     NULL, &format);
 	}
 

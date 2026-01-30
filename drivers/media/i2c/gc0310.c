@@ -365,6 +365,7 @@ static void gc0310_fill_format(struct v4l2_mbus_framefmt *fmt)
 }
 
 static int gc0310_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_selection *sel)
 {

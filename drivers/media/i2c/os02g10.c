@@ -534,6 +534,7 @@ static int os02g10_disable_streams(struct v4l2_subdev *sd,
 }
 
 static int os02g10_get_selection(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_selection *sel)
 {
@@ -586,6 +587,7 @@ static int os02g10_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static int os02g10_set_pad_format(struct v4l2_subdev *sd,
+				  const struct v4l2_subdev_client_info *ci,
 				  struct v4l2_subdev_state *sd_state,
 				  struct v4l2_subdev_format *fmt)
 {
@@ -632,7 +634,7 @@ static int os02g10_init_state(struct v4l2_subdev *sd,
 		},
 	};
 
-	return os02g10_set_pad_format(sd, state, &fmt);
+	return os02g10_set_pad_format(sd, NULL, state, &fmt);
 }
 
 static const struct v4l2_subdev_video_ops os02g10_video_ops = {

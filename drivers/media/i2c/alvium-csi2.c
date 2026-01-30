@@ -1887,6 +1887,7 @@ static int alvium_init_state(struct v4l2_subdev *sd,
 }
 
 static int alvium_set_fmt(struct v4l2_subdev *sd,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *format)
 {
@@ -1922,6 +1923,7 @@ static int alvium_set_fmt(struct v4l2_subdev *sd,
 }
 
 static int alvium_set_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -1957,6 +1959,7 @@ static int alvium_set_selection(struct v4l2_subdev *sd,
 }
 
 static int alvium_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {

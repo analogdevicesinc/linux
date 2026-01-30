@@ -609,7 +609,7 @@ static int isi_try_fmt(struct atmel_isi *isi, struct v4l2_format *f,
 
 	isi_try_fse(isi, isi_fmt, &pad_state);
 
-	ret = v4l2_subdev_call(isi->entity.subdev, pad, set_fmt,
+	ret = v4l2_subdev_call(isi->entity.subdev, pad, set_fmt, NULL,
 			       &pad_state, &format);
 	if (ret < 0)
 		return ret;
@@ -641,7 +641,7 @@ static int isi_set_fmt(struct atmel_isi *isi, struct v4l2_format *f)
 	v4l2_fill_mbus_format(&format.format, &f->fmt.pix,
 			      current_fmt->mbus_code);
 	ret = v4l2_subdev_call(isi->entity.subdev, pad,
-			       set_fmt, NULL, &format);
+			       set_fmt, NULL, NULL, &format);
 	if (ret < 0)
 		return ret;
 

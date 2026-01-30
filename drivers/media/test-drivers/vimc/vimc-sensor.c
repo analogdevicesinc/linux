@@ -150,6 +150,7 @@ static u32 vimc_calc_vblank(u32 width, u32 height,
 }
 
 static int vimc_sensor_set_fmt(struct v4l2_subdev *sd,
+			       const struct v4l2_subdev_client_info *ci,
 			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_format *fmt)
 {

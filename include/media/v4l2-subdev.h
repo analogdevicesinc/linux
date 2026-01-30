@@ -755,11 +755,14 @@ struct v4l2_subdev_client_info {
  *
  * @get_fmt: callback for VIDIOC_SUBDEV_G_FMT() ioctl handler code.
  *
- * @set_fmt: callback for VIDIOC_SUBDEV_S_FMT() ioctl handler code.
+ * @set_fmt: callback for VIDIOC_SUBDEV_S_FMT() ioctl handler code. The ci
+ *	     pointer may be NULL for in-kernel calls.
  *
  * @get_selection: callback for VIDIOC_SUBDEV_G_SELECTION() ioctl handler code.
+ *		   The ci pointer may be NULL for in-kernel calls.
  *
  * @set_selection: callback for VIDIOC_SUBDEV_S_SELECTION() ioctl handler code.
+ *		   The ci pointer may be NULL for in-kernel calls.
  *
  * @get_frame_interval: callback for VIDIOC_SUBDEV_G_FRAME_INTERVAL()
  *			ioctl handler code.
@@ -854,12 +857,15 @@ struct v4l2_subdev_pad_ops {
 		       struct v4l2_subdev_state *state,
 		       struct v4l2_subdev_format *format);
 	int (*set_fmt)(struct v4l2_subdev *sd,
+		       const struct v4l2_subdev_client_info *ci,
 		       struct v4l2_subdev_state *state,
 		       struct v4l2_subdev_format *format);
 	int (*get_selection)(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_selection *sel);
 	int (*set_selection)(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_selection *sel);
 	int (*get_frame_interval)(struct v4l2_subdev *sd,
