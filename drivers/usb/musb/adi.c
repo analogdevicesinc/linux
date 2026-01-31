@@ -414,7 +414,7 @@ MODULE_DEVICE_TABLE(of, adi_musb_match);
 
 static struct platform_driver adi_musb_driver = {
 	.probe = adi_musb_probe,
-	.remove_new = adi_musb_remove,
+	.remove = adi_musb_remove,
 	.driver = {
 		   .name = "musb-adi",
 		   .of_match_table = adi_musb_match,
