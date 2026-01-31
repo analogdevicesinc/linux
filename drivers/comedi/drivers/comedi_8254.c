@@ -724,17 +724,6 @@ struct comedi_8254 *comedi_8254_mm_alloc(void __iomem *mmio,
 }
 EXPORT_SYMBOL_GPL(comedi_8254_mm_alloc);
 
-static int __init comedi_8254_module_init(void)
-{
-	return 0;
-}
-module_init(comedi_8254_module_init);
-
-static void __exit comedi_8254_module_exit(void)
-{
-}
-module_exit(comedi_8254_module_exit);
-
 MODULE_AUTHOR("H Hartley Sweeten <hsweeten@visionengravers.com>");
 MODULE_DESCRIPTION("Comedi: Generic 8254 timer/counter support");
 MODULE_LICENSE("GPL");

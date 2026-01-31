@@ -249,17 +249,6 @@ void comedi_isadma_free(struct comedi_isadma *dma)
 }
 EXPORT_SYMBOL_GPL(comedi_isadma_free);
 
-static int __init comedi_isadma_init(void)
-{
-	return 0;
-}
-module_init(comedi_isadma_init);
-
-static void __exit comedi_isadma_exit(void)
-{
-}
-module_exit(comedi_isadma_exit);
-
 MODULE_AUTHOR("H Hartley Sweeten <hsweeten@visionengravers.com>");
 MODULE_DESCRIPTION("Comedi ISA DMA support");
 MODULE_LICENSE("GPL");

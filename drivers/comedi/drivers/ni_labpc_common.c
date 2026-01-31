@@ -1357,17 +1357,6 @@ void labpc_common_detach(struct comedi_device *dev)
 }
 EXPORT_SYMBOL_GPL(labpc_common_detach);
 
-static int __init labpc_common_init(void)
-{
-	return 0;
-}
-module_init(labpc_common_init);
-
-static void __exit labpc_common_exit(void)
-{
-}
-module_exit(labpc_common_exit);
-
 MODULE_AUTHOR("Comedi https://www.comedi.org");
 MODULE_DESCRIPTION("Comedi helper for ni_labpc, ni_labpc_pci, ni_labpc_cs");
 MODULE_LICENSE("GPL");

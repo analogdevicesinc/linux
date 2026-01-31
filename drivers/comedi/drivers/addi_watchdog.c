@@ -124,17 +124,6 @@ int addi_watchdog_init(struct comedi_subdevice *s, unsigned long iobase)
 }
 EXPORT_SYMBOL_GPL(addi_watchdog_init);
 
-static int __init addi_watchdog_module_init(void)
-{
-	return 0;
-}
-module_init(addi_watchdog_module_init);
-
-static void __exit addi_watchdog_module_exit(void)
-{
-}
-module_exit(addi_watchdog_module_exit);
-
 MODULE_DESCRIPTION("ADDI-DATA Watchdog subdevice");
 MODULE_AUTHOR("H Hartley Sweeten <hsweeten@visionengravers.com>");
 MODULE_LICENSE("GPL");
