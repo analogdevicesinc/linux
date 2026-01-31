@@ -1107,15 +1107,3 @@ void nec7210_locking_iomem_write_byte(struct nec7210_priv *priv, u8 data,
 	spin_unlock_irqrestore(&priv->register_page_lock, flags);
 }
 EXPORT_SYMBOL(nec7210_locking_iomem_write_byte);
-
-static int __init nec7210_init_module(void)
-{
-	return 0;
-}
-
-static void __exit nec7210_exit_module(void)
-{
-}
-
-module_init(nec7210_init_module);
-module_exit(nec7210_exit_module);
