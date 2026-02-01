@@ -67,6 +67,8 @@ static int mei_csc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (!mdev)
 		return -ENOMEM;
 
+	mdev->read_fws_need_resume = true;
+
 	hw = to_me_hw(mdev);
 
 	/*
