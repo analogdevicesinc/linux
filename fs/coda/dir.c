@@ -449,8 +449,6 @@ static int coda_dentry_revalidate(struct inode *dir, const struct qstr *name,
 	inode = d_inode(de);
 	if (!inode || is_root_inode(inode))
 		goto out;
-	if (is_bad_inode(inode))
-		goto bad;
 
 	cii = ITOC(d_inode(de));
 	if (!(cii->c_flags & (C_PURGE | C_FLUSH)))
@@ -470,7 +468,6 @@ static int coda_dentry_revalidate(struct inode *dir, const struct qstr *name,
 	spin_lock(&cii->c_lock);
 	cii->c_flags &= ~(C_VATTR | C_PURGE | C_FLUSH);
 	spin_unlock(&cii->c_lock);
-bad:
 	return 0;
 out:
 	return 1;
@@ -489,7 +486,7 @@ static int coda_dentry_delete(const struct dentry * dentry)
 		return 0;
 
 	inode = d_inode(dentry);
-	if (!inode || is_bad_inode(inode))
+	if (!inode)
 		return 1;
 
 	cii = ITOC(inode);
