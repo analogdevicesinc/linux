@@ -23,6 +23,7 @@
 #include "client.h"
 #include "hw-me-regs.h"
 #include "hw-me.h"
+#include "mei-trace.h"
 
 /* mei_pci_tbl - PCI Device ID Table */
 static const struct pci_device_id mei_me_pci_tbl[] = {
@@ -145,11 +146,14 @@ static inline void mei_me_set_pm_domain(struct mei_device *dev) {}
 static inline void mei_me_unset_pm_domain(struct mei_device *dev) {}
 #endif /* CONFIG_PM */
 
-static int mei_me_read_fws(const struct mei_device *dev, int where, u32 *val)
+static int mei_me_read_fws(const struct mei_device *dev, int where, const char *name, u32 *val)
 {
 	struct pci_dev *pdev = to_pci_dev(dev->parent);
+	int ret;
 
-	return pci_read_config_dword(pdev, where, val);
+	ret = pci_read_config_dword(pdev, where, val);
+	trace_mei_pci_cfg_read(&dev->dev, name, where, *val);
+	return ret;
 }
 
 /**

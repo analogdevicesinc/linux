@@ -215,11 +215,8 @@ static int mei_me_fw_status(struct mei_device *dev,
 
 	fw_status->count = fw_src->count;
 	for (i = 0; i < fw_src->count && i < MEI_FW_STATUS_MAX; i++) {
-		ret = hw->read_fws(dev, fw_src->status[i],
+		ret = hw->read_fws(dev, fw_src->status[i], "PCI_CFG_HFS_X",
 				   &fw_status->status[i]);
-		trace_mei_pci_cfg_read(&dev->dev, "PCI_CFG_HFS_X",
-				       fw_src->status[i],
-				       fw_status->status[i]);
 		if (ret)
 			return ret;
 	}
@@ -250,8 +247,7 @@ static int mei_me_hw_config(struct mei_device *dev)
 	hw->hbuf_depth = (hcsr & H_CBD) >> 24;
 
 	reg = 0;
-	hw->read_fws(dev, PCI_CFG_HFS_1, &reg);
-	trace_mei_pci_cfg_read(&dev->dev, "PCI_CFG_HFS_1", PCI_CFG_HFS_1, reg);
+	hw->read_fws(dev, PCI_CFG_HFS_1, "PCI_CFG_HFS_1", &reg);
 	hw->d0i3_supported =
 		((reg & PCI_CFG_HFS_1_D0I3_MSK) == PCI_CFG_HFS_1_D0I3_MSK);
 
@@ -446,8 +442,7 @@ static void mei_gsc_pxp_check(struct mei_device *dev)
 	if (!kind_is_gsc(dev) && !kind_is_gscfi(dev))
 		return;
 
-	hw->read_fws(dev, PCI_CFG_HFS_5, &fwsts5);
-	trace_mei_pci_cfg_read(&dev->dev, "PCI_CFG_HFS_5", PCI_CFG_HFS_5, fwsts5);
+	hw->read_fws(dev, PCI_CFG_HFS_5, "PCI_CFG_HFS_5", &fwsts5);
 
 	if ((fwsts5 & GSC_CFG_HFS_5_BOOT_TYPE_MSK) == GSC_CFG_HFS_5_BOOT_TYPE_PXP) {
 		if (dev->gsc_reset_to_pxp == MEI_DEV_RESET_TO_PXP_DEFAULT)

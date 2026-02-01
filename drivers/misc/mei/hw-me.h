@@ -56,7 +56,7 @@ struct mei_me_hw {
 	enum mei_pg_state pg_state;
 	bool d0i3_supported;
 	u8 hbuf_depth;
-	int (*read_fws)(const struct mei_device *dev, int where, u32 *val);
+	int (*read_fws)(const struct mei_device *dev, int where, const char *name, u32 *val);
 	/* polling */
 	struct task_struct *polling_thread;
 	wait_queue_head_t wait_active;
