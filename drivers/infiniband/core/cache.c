@@ -32,6 +32,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#define pr_fmt(fmt) "infiniband: " fmt
 
 #include <linux/if_vlan.h>
 #include <linux/errno.h>
@@ -126,6 +127,7 @@ struct ib_gid_table {
 static struct ib_gid_table_entry_trace_buffer {
 	struct ib_gid_table_entry *entry; // no-ref
 	struct net_device *ndev; // no-ref
+	bool registered;
 	atomic_t count;
 	int nr_entries;
 	unsigned long entries[20];
@@ -144,7 +146,8 @@ void dump_ib_gid_table_entry_trace_buffer(const struct net_device *ndev)
 			continue;
 		count = atomic_read(&ptr->count);
 		balance += count;
-		pr_info("Call trace for %s@%p %+d at\n", ndev->name, ptr->entry, count);
+		printk(KERN_INFO "Call trace for %s@%p %+d %sat\n", ndev->name, ptr->entry, count,
+			ptr->registered ? "" : "!NETREG_REGISTERED ");
 		stack_trace_print(ptr->entries, ptr->nr_entries, 4);
 	}
 	if (!ib_gid_table_entry_trace_buffer_exhausted)
@@ -174,6 +177,7 @@ static void save_ib_gid_table_entry_trace_buffer(struct ib_gid_table_entry *entr
 	unsigned long entries[ARRAY_SIZE(ptr->entries)];
 	unsigned long nr_entries;
 	int i;
+	bool registered;
 
 	if (!delta) {
 		for (i = 0; i < IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE; i++)
@@ -185,11 +189,13 @@ static void save_ib_gid_table_entry_trace_buffer(struct ib_gid_table_entry *entr
 		return;
 	if (in_nmi())
 		return;
+	registered = ndev->reg_state == NETREG_REGISTERED;
 	nr_entries = stack_trace_save(entries, ARRAY_SIZE(ptr->entries), 1);
 	nr_entries = trim_netdev_trace(entries, nr_entries);
 	for (i = 0; i < IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE; i++) {
 		ptr = &ib_gid_table_entry_trace_buffer[i];
 		if (ptr->entry == entry && ptr->nr_entries == nr_entries &&
+		    ptr->registered == registered &&
 		    !memcmp(ptr->entries, entries, nr_entries * sizeof(unsigned long))) {
 			atomic_add(delta, &ptr->count);
 			return;
@@ -199,6 +205,7 @@ static void save_ib_gid_table_entry_trace_buffer(struct ib_gid_table_entry *entr
 		ptr = &ib_gid_table_entry_trace_buffer[i];
 		if (!ptr->entry && !cmpxchg(&ptr->entry, NULL, entry)) {
 			ptr->ndev = ndev;
+			ptr->registered = registered;
 			atomic_set(&ptr->count, delta);
 			ptr->nr_entries = nr_entries;
 			memmove(ptr->entries, entries, nr_entries * sizeof(unsigned long));

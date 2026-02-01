@@ -30,6 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#define pr_fmt(fmt) "infiniband: " fmt
 
 #include <linux/module.h>
 #include <linux/string.h>
@@ -1412,6 +1413,29 @@ out:
 	up_read(&devices_rwsem);
 }
 
+static int ib_check_netdev_state(struct ib_device *device, const char *id)
+{
+	struct ib_port_data *pdata;
+	u32 port;
+	struct net_device *ndev = NULL;
+	int ret = 0;
+
+	rcu_read_lock();
+	pdata = READ_ONCE(device->port_data);
+	if (pdata) {
+		rdma_for_each_port(device, port) {
+			ndev = rcu_dereference(pdata[port].netdev);
+			if (ndev && ndev->reg_state != NETREG_REGISTERED) {
+				pr_info("%s: netdev %s is no longer registered.\n", id, ndev->name);
+				ret = -ENODEV;
+				break;
+			}
+		}
+	}
+	rcu_read_unlock();
+	return ret;
+}
+
 /**
  * ib_register_device - Register an IB device with IB core
  * @device: Device to register
@@ -1484,7 +1508,9 @@ int ib_register_device(struct ib_device *device, const char *name,
 		goto dev_cleanup;
 	}
 
+	ib_check_netdev_state(device, "before enable_device_and_get()");
 	ret = enable_device_and_get(device);
+	ib_check_netdev_state(device, "after enable_device_and_get()");
 	if (ret) {
 		void (*dealloc_fn)(struct ib_device *);
 
@@ -1664,7 +1690,13 @@ static void ib_unregister_work(struct work_struct *work)
 	struct ib_device *ib_dev =
 		container_of(work, struct ib_device, unregistration_work);
 
+	if (IS_ENABLED(CONFIG_NET_DEV_REFCNT_TRACKER))
+		pr_info("netdevice_event(NETDEV_UNREGISTER) ib_dev=%p (%d)(%s) start\n",
+			ib_dev, refcount_read(&ib_dev->refcount), ib_dev->name);
 	__ib_unregister_device(ib_dev);
+	if (IS_ENABLED(CONFIG_NET_DEV_REFCNT_TRACKER))
+		pr_info("netdevice_event(NETDEV_UNREGISTER) ib_dev=%p (%d)(%s) end\n",
+			ib_dev, refcount_read(&ib_dev->refcount), ib_dev->name);
 	put_device(&ib_dev->dev);
 }
 
@@ -1712,6 +1744,7 @@ static int rdma_dev_change_netns(struct ib_device *device, struct net *cur_net,
 		ret = -ENODEV;
 		goto out;
 	}
+	ib_check_netdev_state(device, "inside rdma_dev_change_netns()");
 
 	kobject_uevent(&device->dev.kobj, KOBJ_REMOVE);
 	disable_device(device);
@@ -2181,7 +2214,7 @@ int ib_query_port(struct ib_device *device,
 }
 EXPORT_SYMBOL(ib_query_port);
 
-static void add_ndev_hash(struct ib_port_data *pdata)
+static void add_ndev_hash(struct ib_device *ib_dev, struct ib_port_data *pdata)
 {
 	unsigned long flags;
 
@@ -2198,9 +2231,15 @@ static void add_ndev_hash(struct ib_port_data *pdata)
 		synchronize_rcu();
 		spin_lock_irqsave(&ndev_hash_lock, flags);
 	}
-	if (pdata->netdev)
+	if (pdata->netdev) {
 		hash_add_rcu(ndev_hash, &pdata->ndev_hash_link,
 			     (uintptr_t)pdata->netdev);
+		if (IS_ENABLED(CONFIG_NET_DEV_REFCNT_TRACKER))
+			pr_info("Added to hash: ib_dev=%p (%d)(%s) ndev=%p (%d)(%s)\n",
+				ib_dev, refcount_read(&ib_dev->refcount), ib_dev->name,
+				pdata->netdev, netdev_refcnt_read(pdata->netdev),
+				pdata->netdev->name);
+	}
 	spin_unlock_irqrestore(&ndev_hash_lock, flags);
 }
 
@@ -2253,7 +2292,7 @@ int ib_device_set_netdev(struct ib_device *ib_dev, struct net_device *ndev,
 	netdev_hold(ndev, &pdata->netdev_tracker, GFP_ATOMIC);
 	spin_unlock_irqrestore(&pdata->netdev_lock, flags);
 
-	add_ndev_hash(pdata);
+	add_ndev_hash(ib_dev, pdata);
 
 	/* Make sure that the device is registered before we send events */
 	if (xa_load(&devices, ib_dev->index) != ib_dev)
@@ -2285,6 +2324,10 @@ static void free_netdevs(struct ib_device *ib_dev)
 			spin_lock(&ndev_hash_lock);
 			hash_del_rcu(&pdata->ndev_hash_link);
 			spin_unlock(&ndev_hash_lock);
+			if (IS_ENABLED(CONFIG_NET_DEV_REFCNT_TRACKER))
+				pr_info("Removed from hash: ib_dev=%p (%d)(%s) ndev=%p (%d)(%s)\n",
+					ib_dev, refcount_read(&ib_dev->refcount), ib_dev->name,
+					ndev, netdev_refcnt_read(ndev), ndev->name);
 
 			/*
 			 * If this is the last dev_put there is still a
