@@ -104,6 +104,7 @@ static inline bool mei_me_hw_use_polling(const struct mei_me_hw *hw)
  *                         SPS firmware exclusion.
  * @MEI_ME_GSC_CFG:        Graphics System Controller
  * @MEI_ME_GSCFI_CFG:      Graphics System Controller Firmware Interface
+ * @MEI_ME_CSC_CFG:        Chassis System Controller Firmware Interface
  * @MEI_ME_NUM_CFG:        Upper Sentinel.
  */
 enum mei_cfg_idx {
@@ -124,6 +125,7 @@ enum mei_cfg_idx {
 	MEI_ME_PCH15_SPS_CFG,
 	MEI_ME_GSC_CFG,
 	MEI_ME_GSCFI_CFG,
+	MEI_ME_CSC_CFG,
 	MEI_ME_NUM_CFG,
 };
 

@@ -58,6 +58,17 @@ config INTEL_MEI_GSC
 	  tasks such as graphics card firmware update and security
 	  tasks.
 
+config INTEL_MEI_CSC
+	tristate "Intel MEI CSC embedded device"
+	depends on INTEL_MEI_ME
+	help
+	  Intel PCI driver for the chassis controller embedded in Intel graphics devices.
+
+	  An MEI device here called CSC can be embedded in discrete
+	  Intel graphics devices, to support a range of chassis
+	  tasks such as graphics card firmware update and security
+	  tasks.
+
 config INTEL_MEI_VSC_HW
 	tristate "Intel visual sensing controller device transport driver"
 	depends on ACPI && SPI

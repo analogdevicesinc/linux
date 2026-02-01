@@ -224,6 +224,15 @@ static int mei_me_fw_status(struct mei_device *dev,
 	return 0;
 }
 
+static bool mei_csc_pg_blocked(struct mei_device *dev)
+{
+	struct mei_me_hw *hw = to_me_hw(dev);
+	u32 reg = 0;
+
+	hw->read_fws(dev, PCI_CFG_HFS_2, "PCI_CFG_HFS_2", &reg);
+	return (reg & PCI_CFG_HFS_2_D3_BLOCK) == PCI_CFG_HFS_2_D3_BLOCK;
+}
+
 /**
  * mei_me_hw_config - configure hw dependent settings
  *
@@ -1206,6 +1215,7 @@ static int mei_me_hw_reset(struct mei_device *dev, bool intr_enable)
 				return ret;
 		} else {
 			hw->pg_state = MEI_PG_OFF;
+			dev->pg_blocked = mei_csc_pg_blocked(dev);
 		}
 	}
 
@@ -1294,6 +1304,7 @@ irqreturn_t mei_me_irq_thread_handler(int irq, void *dev_id)
 {
 	struct mei_device *dev = (struct mei_device *) dev_id;
 	struct list_head cmpl_list;
+	bool pg_blocked;
 	s32 slots;
 	u32 hcsr;
 	int rets = 0;
@@ -1351,6 +1362,14 @@ irqreturn_t mei_me_irq_thread_handler(int irq, void *dev_id)
 		}
 		goto end;
 	}
+
+	pg_blocked = mei_csc_pg_blocked(dev);
+	if (pg_blocked && !dev->pg_blocked) /* PG block requested */
+		pm_request_resume(&dev->dev);
+	else if (!pg_blocked && dev->pg_blocked) /* PG block lifted */
+		pm_request_autosuspend(&dev->dev);
+	dev->pg_blocked = pg_blocked;
+
 	/* check slots available for reading */
 	slots = mei_count_full_read_slots(dev);
 	while (slots > 0) {
@@ -1726,6 +1745,13 @@ static const struct mei_cfg mei_me_gscfi_cfg = {
 	MEI_CFG_FW_VER_SUPP,
 };
 
+/* Chassis System Controller Firmware Interface */
+static const struct mei_cfg mei_me_csc_cfg = {
+	MEI_CFG_TYPE_GSCFI,
+	MEI_CFG_PCH8_HFS,
+	MEI_CFG_FW_VER_SUPP,
+};
+
 /*
  * mei_cfg_list - A list of platform platform specific configurations.
  * Note: has to be synchronized with  enum mei_cfg_idx.
@@ -1748,6 +1774,7 @@ static const struct mei_cfg *const mei_cfg_list[] = {
 	[MEI_ME_PCH15_SPS_CFG] = &mei_me_pch15_sps_cfg,
 	[MEI_ME_GSC_CFG] = &mei_me_gsc_cfg,
 	[MEI_ME_GSCFI_CFG] = &mei_me_gscfi_cfg,
+	[MEI_ME_CSC_CFG] = &mei_me_csc_cfg,
 };
 
 const struct mei_cfg *mei_me_get_cfg(kernel_ulong_t idx)

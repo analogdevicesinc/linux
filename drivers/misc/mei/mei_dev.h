@@ -490,6 +490,7 @@ struct mei_dev_timeouts {
  * @timer_work  : MEI timer delayed work (timeouts)
  *
  * @recvd_hw_ready : hw ready message received flag
+ * @pg_blocked  : low power mode is not allowed
  *
  * @wait_hw_ready : wait queue for receive HW ready message form FW
  * @wait_pg     : wait queue for receive PG message from FW
@@ -575,6 +576,8 @@ struct mei_device {
 	struct delayed_work timer_work;
 
 	bool recvd_hw_ready;
+	bool pg_blocked;
+
 	/*
 	 * waiting queue for receive message from FW
 	 */
