@@ -246,6 +246,7 @@ static inline void j1939_session_list_unlock(struct j1939_priv *priv)
 void j1939_session_get(struct j1939_session *session)
 {
 	kref_get(&session->kref);
+	save_priv_trace_buffer(session->priv, 1);
 }
 
 /* session completion functions */
@@ -296,6 +297,7 @@ static void __j1939_session_release(struct kref *kref)
 
 void j1939_session_put(struct j1939_session *session)
 {
+	save_priv_trace_buffer(session->priv, -1);
 	kref_put(&session->kref, __j1939_session_release);
 }
 
@@ -1499,6 +1501,7 @@ static struct j1939_session *j1939_session_new(struct j1939_priv *priv,
 	INIT_LIST_HEAD(&session->active_session_list_entry);
 	INIT_LIST_HEAD(&session->sk_session_queue_entry);
 	kref_init(&session->kref);
+	save_priv_trace_buffer(priv, 1);
 
 	j1939_priv_get(priv);
 	session->priv = priv;
