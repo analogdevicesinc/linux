@@ -479,18 +479,12 @@ out:
  */
 static int coda_dentry_delete(const struct dentry * dentry)
 {
-	struct inode *inode;
-	struct coda_inode_info *cii;
+	struct inode *inode = d_inode(dentry);
 
-	if (d_really_is_negative(dentry)) 
+	if (!inode)
 		return 0;
 
-	inode = d_inode(dentry);
-	if (!inode)
-		return 1;
-
-	cii = ITOC(inode);
-	if (cii->c_flags & C_PURGE)
+	if (ITOC(inode)->c_flags & C_PURGE)
 		return 1;
 
 	return 0;
