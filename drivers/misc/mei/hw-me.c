@@ -1505,10 +1505,11 @@ static bool mei_me_fw_type_nm(const struct pci_dev *pdev)
 {
 	u32 reg;
 	unsigned int devfn;
+	int ret;
 
 	devfn = PCI_DEVFN(PCI_SLOT(pdev->devfn), 0);
-	pci_bus_read_config_dword(pdev->bus, devfn, PCI_CFG_HFS_2, &reg);
-	trace_mei_pci_cfg_read(&pdev->dev, "PCI_CFG_HFS_2", PCI_CFG_HFS_2, reg);
+	ret = pci_bus_read_config_dword(pdev->bus, devfn, PCI_CFG_HFS_2, &reg);
+	trace_mei_pci_cfg_read(&pdev->dev, "PCI_CFG_HFS_2", PCI_CFG_HFS_2, reg, ret);
 	/* make sure that bit 9 (NM) is up and bit 10 (DM) is down */
 	return (reg & 0x600) == 0x200;
 }
@@ -1531,10 +1532,11 @@ static bool mei_me_fw_type_sps_4(const struct pci_dev *pdev)
 {
 	u32 reg;
 	unsigned int devfn;
+	int ret;
 
 	devfn = PCI_DEVFN(PCI_SLOT(pdev->devfn), 0);
-	pci_bus_read_config_dword(pdev->bus, devfn, PCI_CFG_HFS_1, &reg);
-	trace_mei_pci_cfg_read(&pdev->dev, "PCI_CFG_HFS_1", PCI_CFG_HFS_1, reg);
+	ret = pci_bus_read_config_dword(pdev->bus, devfn, PCI_CFG_HFS_1, &reg);
+	trace_mei_pci_cfg_read(&pdev->dev, "PCI_CFG_HFS_1", PCI_CFG_HFS_1, reg, ret);
 	return (reg & PCI_CFG_HFS_1_OPMODE_MSK) == PCI_CFG_HFS_1_OPMODE_SPS;
 }
 
@@ -1556,10 +1558,11 @@ static bool mei_me_fw_type_sps_ign(const struct pci_dev *pdev)
 	u32 reg;
 	u32 fw_type;
 	unsigned int devfn;
+	int ret;
 
 	devfn = PCI_DEVFN(PCI_SLOT(pdev->devfn), 0);
-	pci_bus_read_config_dword(pdev->bus, devfn, PCI_CFG_HFS_3, &reg);
-	trace_mei_pci_cfg_read(&pdev->dev, "PCI_CFG_HFS_3", PCI_CFG_HFS_3, reg);
+	ret = pci_bus_read_config_dword(pdev->bus, devfn, PCI_CFG_HFS_3, &reg);
+	trace_mei_pci_cfg_read(&pdev->dev, "PCI_CFG_HFS_3", PCI_CFG_HFS_3, reg, ret);
 	fw_type = (reg & PCI_CFG_HFS_3_FW_SKU_MSK);
 
 	dev_dbg(&pdev->dev, "fw type is %d\n", fw_type);

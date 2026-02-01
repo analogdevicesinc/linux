@@ -651,7 +651,7 @@ static int mei_txe_fw_status(struct mei_device *dev,
 					    &fw_status->status[i]);
 		trace_mei_pci_cfg_read(&dev->dev, "PCI_CFG_HSF_X",
 				       fw_src->status[i],
-				       fw_status->status[i]);
+				       fw_status->status[i], ret);
 		if (ret)
 			return ret;
 	}

@@ -152,7 +152,7 @@ static int mei_me_read_fws(const struct mei_device *dev, int where, const char *
 	int ret;
 
 	ret = pci_read_config_dword(pdev, where, val);
-	trace_mei_pci_cfg_read(&dev->dev, name, where, *val);
+	trace_mei_pci_cfg_read(&dev->dev, name, where, *val, ret);
 	return ret;
 }
 
