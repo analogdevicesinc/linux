@@ -653,7 +653,7 @@ static int mei_txe_fw_status(struct mei_device *dev,
 				       fw_src->status[i],
 				       fw_status->status[i], ret);
 		if (ret)
-			return ret;
+			return pcibios_err_to_errno(ret);
 	}
 
 	return 0;
