@@ -46,6 +46,12 @@
 #include "mad_priv.h"
 #include "restrack.h"
 
+#ifdef CONFIG_NET_DEV_REFCNT_TRACKER
+void dump_ib_gid_table_entry_trace_buffer(const struct net_device *ndev);
+#else
+static inline void dump_ib_gid_table_entry_trace_buffer(const struct net_device *ndev) { };
+#endif
+
 /* Total number of ports combined across all struct ib_devices's */
 #define RDMA_MAX_PORTS 8192
 

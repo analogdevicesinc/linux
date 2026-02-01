@@ -121,6 +121,98 @@ struct ib_gid_table {
 	u32				default_gid_indices;
 };
 
+#ifdef CONFIG_NET_DEV_REFCNT_TRACKER
+#define IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE 1024
+static struct ib_gid_table_entry_trace_buffer {
+	struct ib_gid_table_entry *entry; // no-ref
+	struct net_device *ndev; // no-ref
+	atomic_t count;
+	int nr_entries;
+	unsigned long entries[20];
+} ib_gid_table_entry_trace_buffer[IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE];
+static bool ib_gid_table_entry_trace_buffer_exhausted;
+
+void dump_ib_gid_table_entry_trace_buffer(const struct net_device *ndev)
+{
+	struct ib_gid_table_entry_trace_buffer *ptr;
+	int count, balance = 0;
+	int i;
+
+	for (i = 0; i < IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE; i++) {
+		ptr = &ib_gid_table_entry_trace_buffer[i];
+		if (!ptr->entry || ptr->ndev != ndev)
+			continue;
+		count = atomic_read(&ptr->count);
+		balance += count;
+		pr_info("Call trace for %s@%p %+d at\n", ndev->name, ptr->entry, count);
+		stack_trace_print(ptr->entries, ptr->nr_entries, 4);
+	}
+	if (!ib_gid_table_entry_trace_buffer_exhausted)
+		pr_info("balance for %s@ib_gid_table_entry is %d\n", ndev->name, balance);
+	else
+		pr_info("balance for %s@ib_gid_table_entry is unknown\n", ndev->name);
+}
+
+static void erase_ib_gid_table_entry_trace_buffer(struct ib_gid_table_entry *entry)
+{
+	int i, balance = 0;
+
+	for (i = 0; i < IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE; i++)
+		if (ib_gid_table_entry_trace_buffer[i].entry == entry)
+			balance += atomic_read(&ib_gid_table_entry_trace_buffer[i].count);
+	if (balance)
+		return;
+	for (i = 0; i < IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE; i++)
+		if (ib_gid_table_entry_trace_buffer[i].entry == entry)
+			ib_gid_table_entry_trace_buffer[i].entry = NULL;
+}
+
+static void save_ib_gid_table_entry_trace_buffer(struct ib_gid_table_entry *entry,
+						 struct net_device *ndev, int delta)
+{
+	struct ib_gid_table_entry_trace_buffer *ptr;
+	unsigned long entries[ARRAY_SIZE(ptr->entries)];
+	unsigned long nr_entries;
+	int i;
+
+	if (!delta) {
+		for (i = 0; i < IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE; i++)
+			if (ib_gid_table_entry_trace_buffer[i].entry == entry)
+				ib_gid_table_entry_trace_buffer[i].entry = NULL;
+		delta = 1;
+	}
+	if (!ndev)
+		return;
+	if (in_nmi())
+		return;
+	nr_entries = stack_trace_save(entries, ARRAY_SIZE(ptr->entries), 1);
+	nr_entries = trim_netdev_trace(entries, nr_entries);
+	for (i = 0; i < IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE; i++) {
+		ptr = &ib_gid_table_entry_trace_buffer[i];
+		if (ptr->entry == entry && ptr->nr_entries == nr_entries &&
+		    !memcmp(ptr->entries, entries, nr_entries * sizeof(unsigned long))) {
+			atomic_add(delta, &ptr->count);
+			return;
+		}
+	}
+	for (i = 0; i < IB_GID_TABLE_ENTRY_TRACE_BUFFER_SIZE; i++) {
+		ptr = &ib_gid_table_entry_trace_buffer[i];
+		if (!ptr->entry && !cmpxchg(&ptr->entry, NULL, entry)) {
+			ptr->ndev = ndev;
+			atomic_set(&ptr->count, delta);
+			ptr->nr_entries = nr_entries;
+			memmove(ptr->entries, entries, nr_entries * sizeof(unsigned long));
+			return;
+		}
+	}
+	ib_gid_table_entry_trace_buffer_exhausted = true;
+}
+#else
+static inline void erase_ib_gid_table_entry_trace_buffer(struct ib_gid_table_entry *entry) { };
+static inline void save_ib_gid_table_entry_trace_buffer(struct ib_gid_table_entry *entry,
+							struct net_device *ndev, int delta) { };
+#endif
+
 static void dispatch_gid_change_event(struct ib_device *ib_dev, u32 port)
 {
 	struct ib_event event;
@@ -256,8 +348,11 @@ static void free_gid_entry_locked(struct ib_gid_table_entry *entry)
 	/* Now this index is ready to be allocated */
 	write_unlock_irq(&table->rwlock);
 
-	if (entry->ndev_storage)
+	if (entry->ndev_storage) {
+		save_ib_gid_table_entry_trace_buffer(entry, entry->ndev_storage->ndev, -1);
 		call_rcu(&entry->ndev_storage->rcu_head, put_gid_ndev);
+	}
+	erase_ib_gid_table_entry_trace_buffer(entry);
 	kfree(entry);
 }
 
@@ -312,6 +407,7 @@ alloc_gid_entry(const struct ib_gid_attr *attr)
 		entry->ndev_storage->ndev = ndev;
 	}
 	kref_init(&entry->kref);
+	save_ib_gid_table_entry_trace_buffer(entry, ndev, 0);
 	memcpy(&entry->attr, attr, sizeof(*attr));
 	INIT_WORK(&entry->del_work, free_gid_work);
 	entry->state = GID_TABLE_ENTRY_INVALID;
@@ -336,15 +432,21 @@ static void store_gid_entry(struct ib_gid_table *table,
 static void get_gid_entry(struct ib_gid_table_entry *entry)
 {
 	kref_get(&entry->kref);
+	save_ib_gid_table_entry_trace_buffer(entry, entry->ndev_storage ?
+					     entry->ndev_storage->ndev : NULL, 1);
 }
 
 static void put_gid_entry(struct ib_gid_table_entry *entry)
 {
+	save_ib_gid_table_entry_trace_buffer(entry, entry->ndev_storage ?
+					     entry->ndev_storage->ndev : NULL, -1);
 	kref_put(&entry->kref, schedule_free_gid);
 }
 
 static void put_gid_entry_locked(struct ib_gid_table_entry *entry)
 {
+	save_ib_gid_table_entry_trace_buffer(entry, entry->ndev_storage ?
+					     entry->ndev_storage->ndev : NULL, -1);
 	kref_put(&entry->kref, free_gid_entry);
 }
 
@@ -407,6 +509,7 @@ static void del_gid(struct ib_device *ib_dev, u32 port,
 	if (ndev_storage) {
 		entry->ndev_storage = NULL;
 		rcu_assign_pointer(entry->attr.ndev, NULL);
+		save_ib_gid_table_entry_trace_buffer(entry, ndev_storage->ndev, -1);
 		call_rcu(&ndev_storage->rcu_head, put_gid_ndev);
 	}
 

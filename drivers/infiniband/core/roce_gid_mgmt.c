@@ -776,6 +776,9 @@ static int netdevice_event(struct notifier_block *this, unsigned long event,
 	struct net_device *ndev = netdev_notifier_info_to_dev(ptr);
 	struct netdev_event_work_cmd cmds[ROCE_NETDEV_CALLBACK_SZ] = { {NULL} };
 
+	if (event == NETDEV_DEBUG_UNREGISTER)
+		dump_ib_gid_table_entry_trace_buffer(ndev);
+
 	if (ndev->type != ARPHRD_ETHER)
 		return NOTIFY_DONE;
 
