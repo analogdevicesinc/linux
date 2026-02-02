@@ -188,7 +188,6 @@ struct ad4080_state {
 	 */
 	struct mutex			lock;
 	unsigned int			num_lanes;
-	unsigned int			dec_rate;
 	unsigned long			clk_rate;
 	enum ad4080_filter_type		filter_type;
 	bool				lvds_cnv_en;
