@@ -176,7 +176,6 @@ struct ad9467_state {
 	struct clk *clk;
 	/* used for debugfs */
 	struct ad9467_chan_test_mode *chan_test;
-	unsigned int output_mode;
 	unsigned int (*scales)[2];
 	/*
 	 * Times 2 because we may also invert the signal polarity and run the
