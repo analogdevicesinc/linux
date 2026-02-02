@@ -581,7 +581,7 @@
 		};
 	};
 
-	i2c0: twi@I2C_0_BASE_UADDR {
+	i2c0: i2c@I2C_0_BASE_UADDR {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,twi";
@@ -594,7 +594,7 @@
 		status = "disabled";
 	};
 
-	i2c1: twi@I2C_1_BASE_UADDR {
+	i2c1: i2c@I2C_1_BASE_UADDR {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,twi";
@@ -607,7 +607,7 @@
 		status = "disabled";
 	};
 
-	i2c2: twi@I2C_2_BASE_UADDR {
+	i2c2: i2c@I2C_2_BASE_UADDR {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,twi";
@@ -620,7 +620,7 @@
 		status = "disabled";
 	};
 
-	i2c3: twi@I2C_3_BASE_UADDR {
+	i2c3: i2c@I2C_3_BASE_UADDR {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,twi";
@@ -633,7 +633,7 @@
 		status = "disabled";
 	};
 
-	i2c4: twi@I2C_4_BASE_UADDR {
+	i2c4: i2c@I2C_4_BASE_UADDR {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,twi";
@@ -646,7 +646,7 @@
 		status = "disabled";
 	};
 
-	i2c5: twi@I2C_5_BASE_UADDR {
+	i2c5: i2c@I2C_5_BASE_UADDR {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,twi";
@@ -659,7 +659,7 @@
 		status = "disabled";
 	};
 
-	i2c6: twi@I2C_6_BASE_UADDR {
+	i2c6: i2c@I2C_6_BASE_UADDR {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,twi";
@@ -672,7 +672,7 @@
 		status = "disabled";
 	};
 
-	i2c7: twi@I2C_7_BASE_UADDR {
+	i2c7: i2c@I2C_7_BASE_UADDR {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,twi";

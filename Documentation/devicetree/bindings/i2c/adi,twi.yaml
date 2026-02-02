@@ -9,16 +9,12 @@ title: Analog Devices Inter IC (I2C) controller
 maintainers:
   - Slawomir Kulig <slawomir.kulig@analog.com>
 
+allOf:
+  - $ref: /schemas/i2c/i2c-controller.yaml#
+
 properties:
   compatible:
-    enum:
-      - adi,twi
-
-  "#address-cells":
-    const: 1
-
-  "#size-cells":
-    const: 0
+    const: adi,twi
 
   reg:
     maxItems: 1
@@ -40,16 +36,18 @@ properties:
     minimum: 21
     maximum: 400
 
+  msg-delay-us:
+    description: Optional delay in microseconds to enforce a minimum bus free
+                 time (tBUF) between the STOP condition and the next START
+                 condition. If not specified, no additional delay is applied.
+
 required:
   - compatible
-  - "#address-cells"
-  - "#size-cells"
   - reg
   - interrupts
-  - clock-khz
   - clocks
 
-additionalProperties: false
+unevaluatedProperties: false
 
 examples:
   - |
@@ -58,7 +56,7 @@ examples:
     #define I2C_0_BASE          0x20760000
     #define I2C_IRQ_S2F_PIPED_0 149
 
-    i2c0: twi@I2C_0_BASE_UADDR {
+    i2c0: i2c@I2C_0_BASE_UADDR {
         #address-cells = <1>;
         #size-cells = <0>;
         compatible = "adi,twi";

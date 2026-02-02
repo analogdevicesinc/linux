@@ -35,6 +35,7 @@
 
 #define ADI_TWI_CTL                 0x04
 #define   TWI_ENA                   BIT(7)              /* TWI Enable */
+#define   TWI_PRESCALE              GENMASK(6, 0)       /* TWI Internal Clock Prescaler */
 
 #define ADI_TWI_SLVCTL              0x08
 #define ADI_TWI_SLVSTAT             0x0c
@@ -43,7 +44,7 @@
 #define ADI_TWI_MSTRCTL             0x14
 #define   SCLOVR                    BIT(15)             /* Serial Clock Override */
 #define   SDAOVR                    BIT(14)             /* Serial Data Override */
-#define   RSTART                    BIT(5)              /* Repeat Start or Stop* At End Of Transfer */
+#define   RSTART                    BIT(5)              /* Repeat Start */
 #define   DCNT                      GENMASK(13, 6)      /* Data Transfer Count */
 #define   STOP                      BIT(4)              /* Issue Stop Condition */
 #define   FAST                      BIT(3)              /* Use Fast Mode Timing Specs */
@@ -57,7 +58,7 @@
 #define   BUFRDERR                  BIT(4)              /* Buffer Read Error */
 #define   DNAK                      BIT(3)              /* Data Not Acknowledged */
 #define   ANAK                      BIT(2)              /* Address Not Acknowledged */
-#define   LOSTARB                   BIT(1)              /* Lost Arbitration Indicator (Xfer Aborted) */
+#define   LOSTARB                   BIT(1)              /* Lost Arbitration (Xfer Aborted) */
 
 #define ADI_TWI_MSTRADDR            0x1c
 #define ADI_TWI_ISTAT               0x20
@@ -86,7 +87,7 @@ struct adi_twi_dev {
 	struct device *dev;
 	void __iomem *base;
 	int irq;
-	spinlock_t lock;
+	spinlock_t lock; /* Protects interrupt handler */
 	u8 *msg_buf;
 	int msg_buf_remaining;
 	bool manual_stop;
@@ -98,6 +99,7 @@ struct adi_twi_dev {
 	u16 saved_clkdiv;
 	u16 saved_control;
 	struct clk *sclk;
+	unsigned int msg_delay_us;
 };
 
 static void i2c_adi_twi_master_init(struct adi_twi_dev *priv)
@@ -358,6 +360,9 @@ static int i2c_adi_twi_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 			return ret;
 	}
 
+	if (priv->msg_delay_us)
+		udelay(priv->msg_delay_us);
+
 	i2c_adi_twi_master_init(priv);
 
 	return num;
@@ -445,7 +450,6 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 	struct adi_twi_dev *priv;
 	struct i2c_adapter *adap;
 	struct resource *res;
-	const struct of_device_id *match;
 	struct device_node *node = pdev->dev.of_node;
 	unsigned int clkhilow;
 	int ret;
@@ -458,12 +462,14 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 
 	spin_lock_init(&priv->lock);
 
-	match = of_match_device(of_match_ptr(adi_twi_of_match), &pdev->dev);
-	if (match) {
-		if (of_property_read_u32(node, "clock-khz", &priv->twi_clk))
-			priv->twi_clk = 50;
-	} else {
-		priv->twi_clk = CONFIG_I2C_ADI_TWI_CLK_KHZ;
+	/* Set defaults */
+	priv->twi_clk = CONFIG_I2C_ADI_TWI_CLK_KHZ;
+	priv->msg_delay_us = 0;
+
+	/* Override with device tree if present */
+	if (node) {
+		of_property_read_u32(node, "clock-khz", &priv->twi_clk);
+		of_property_read_u32(node, "msg-delay-us", &priv->msg_delay_us);
 	}
 
 	priv->sclk = devm_clk_get(&pdev->dev, NULL);
@@ -516,7 +522,7 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 	}
 
 	/* Configure TWI internal clock prescaler to ~10MHz from system clock */
-	val = ((clk_get_rate(priv->sclk) / 1000 / 1000 + 5) / 10) & 0x7F;
+	val = FIELD_PREP(TWI_PRESCALE, (clk_get_rate(priv->sclk) / 1000 / 1000 + 5) / 10);
 	iowrite16(val, priv->base + ADI_TWI_CTL);
 
 	/*
