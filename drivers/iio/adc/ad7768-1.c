@@ -309,7 +309,6 @@ struct ad7768_state {
 	unsigned int vcm_output_sel;
 	struct clk *mclk;
 	unsigned int mclk_freq;
-	unsigned int mclk_div;
 	unsigned int oversampling_ratio;
 	enum ad7768_filter_type filter_type;
 	unsigned int samp_freq;
