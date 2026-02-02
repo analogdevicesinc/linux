@@ -245,7 +245,6 @@ struct gp2ap020a00f_data {
 	struct iio_trigger *trig;
 	struct regmap *regmap;
 	unsigned int thresh_val[4];
-	u8 debug_reg_addr;
 	struct irq_work work;
 	wait_queue_head_t data_ready_queue;
 };
