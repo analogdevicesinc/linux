@@ -122,7 +122,7 @@ enum desc_state {
 };
 
 #define _DATA_SIZE(sz_bits)	(1UL << (sz_bits))
-#define _DESCS_COUNT(ct_bits)	(1U << (ct_bits))
+#define _DESCS_COUNT(ct_bits)	(1UL << (ct_bits))
 #define DESC_SV_BITS		BITS_PER_LONG
 #define DESC_FLAGS_SHIFT	(DESC_SV_BITS - 2)
 #define DESC_FLAGS_MASK		(3UL << DESC_FLAGS_SHIFT)
