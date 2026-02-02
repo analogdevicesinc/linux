@@ -55,7 +55,6 @@ struct nau7802_state {
 	struct mutex		data_lock;
 	u32			vref_mv;
 	u32			conversion_count;
-	u32			min_conversions;
 	u8			sample_rate;
 	u32			scale_avail[8];
 	struct completion	value_ok;
