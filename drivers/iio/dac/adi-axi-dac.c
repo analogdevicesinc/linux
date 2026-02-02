@@ -114,7 +114,6 @@ struct axi_dac_state {
 	const struct axi_dac_info *info;
 	u64 dac_clk;
 	u32 reg_config;
-	bool int_tone;
 	int dac_clk_rate;
 };
 
