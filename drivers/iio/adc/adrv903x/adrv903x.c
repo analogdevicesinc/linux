@@ -31,10 +31,6 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/iio.h>
 
-#include <linux/clk-provider.h>
-#include <linux/clkdev.h>
-#include <linux/clk.h>
-
 #include <linux/jesd204/jesd204.h>
 
 #include <dt-bindings/iio/adc/adi,adrv903x.h>
@@ -2935,6 +2931,8 @@ static int adrv903x_probe(struct spi_device *spi)
 						  JESD204_STATE_OP_REASON_INIT);
 	if (ret != JESD204_STATE_CHANGE_DONE)
 		pr_err("TESTING ERROR adrv903x_jesd204_post_running_stage failed\n");
+
+	adrv903x_ramc_probe(phy);
 
 	return 0;
 

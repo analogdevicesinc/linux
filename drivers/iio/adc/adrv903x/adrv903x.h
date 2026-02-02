@@ -27,6 +27,10 @@
 #include "adi_adrv903x_tx.h"
 #include "adi_platform.h"
 
+#include <linux/clk-provider.h>
+#include <linux/clk.h>
+#include <linux/clkdev.h>
+
 #define MIN_GAIN_mdB 0
 #define MAX_RX_GAIN_mdB 32000
 #define MAX_OBS_RX_GAIN_mdB 32000
@@ -158,6 +162,8 @@ struct adrv903x_rf_phy {
 	u32 *rx_capture_data;
 	u32 rx_capture_len;
 };
+
+int adrv903x_ramc_probe(struct adrv903x_rf_phy *phy);
 
 int adrv903x_hdl_loopback(struct adrv903x_rf_phy *phy, bool enable);
 int adrv903x_register_axi_converter(struct adrv903x_rf_phy *phy);
