@@ -152,7 +152,6 @@ struct ad7793_chip_info {
 
 struct ad7793_state {
 	const struct ad7793_chip_info	*chip_info;
-	u16				int_vref_mv;
 	u16				mode;
 	u16				conf;
 	u32				scale_avail[8][2];
