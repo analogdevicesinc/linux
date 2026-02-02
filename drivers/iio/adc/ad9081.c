@@ -153,6 +153,8 @@ enum ad9081_debugfs_cmd {
 	DBGFS_DEV_API_INFO,
 	DBGFS_DEV_CHIP_INFO,
 	DBGFS_JESD_RX_RECAL_204C,
+	DBGFS_JRX_LMFC_DELAY_LINK0,
+	DBGFS_JRX_LMFC_DELAY_LINK1,
 	DBGFS_ENTRY_MAX,
 };
 
@@ -3741,6 +3743,12 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "AD%X Rev. %u Grade %u\n",
 				conv->id, phy->chip_id.dev_revision, phy->chip_id.prod_grade);
 			break;
+		case DBGFS_JRX_LMFC_DELAY_LINK0:
+			val = phy->jrx_link_tx[0].jrx_tpl_phase_adjust;
+			break;
+		case DBGFS_JRX_LMFC_DELAY_LINK1:
+			val = phy->jrx_link_tx[1].jrx_tpl_phase_adjust;
+			break;
 		default:
 			val = entry->val;
 		}
@@ -3948,6 +3956,26 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 		entry->val = lv << 16 | rv;
 
 		return count;
+	case DBGFS_JRX_LMFC_DELAY_LINK0:
+		if (ret < 1)
+			return -EINVAL;
+
+		phy->jrx_link_tx[0].jrx_tpl_phase_adjust = val;
+		ret = adi_ad9081_jesd_rx_lmfc_delay_set(&phy->ad9081, AD9081_LINK_0, val);
+		if (ret)
+			return ret;
+
+		return count;
+	case DBGFS_JRX_LMFC_DELAY_LINK1:
+		if (ret < 1)
+			return -EINVAL;
+
+		phy->jrx_link_tx[1].jrx_tpl_phase_adjust = val;
+		ret = adi_ad9081_jesd_rx_lmfc_delay_set(&phy->ad9081, AD9081_LINK_1, val);
+		if (ret)
+			return ret;
+
+		return count;
 	default:
 		break;
 	}
@@ -4031,6 +4059,10 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 			"chip_version", DBGFS_DEV_CHIP_INFO);
 		ad9081_add_debugfs_entry(indio_dev,
 			"jesd_rx_recalibrate_204c", DBGFS_JESD_RX_RECAL_204C);
+		ad9081_add_debugfs_entry(indio_dev,
+			"adi,tpl-phase-adjust-link0", DBGFS_JRX_LMFC_DELAY_LINK0);
+		ad9081_add_debugfs_entry(indio_dev,
+			"adi,tpl-phase-adjust-link1", DBGFS_JRX_LMFC_DELAY_LINK1);
 
 		for (i = 0; i < phy->ad9081_debugfs_entry_index; i++)
 			debugfs_create_file( phy->debugfs_entry[i].propname, 0644,
