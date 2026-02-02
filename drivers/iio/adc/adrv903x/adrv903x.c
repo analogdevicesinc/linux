@@ -31,10 +31,6 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/iio.h>
 
-#include <linux/clk-provider.h>
-#include <linux/clkdev.h>
-#include <linux/clk.h>
-
 #include <linux/jesd204/jesd204.h>
 
 #include <dt-bindings/iio/adc/adi,adrv903x.h>
@@ -2833,6 +2829,8 @@ static int adrv903x_probe(struct spi_device *spi)
 	ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
 	if (ret)
 		goto out_iio_device_unregister;
+
+	adrv903x_ramc_probe(phy);
 
 	return 0;
 

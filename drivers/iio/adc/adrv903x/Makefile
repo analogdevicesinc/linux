@@ -1,54 +1,54 @@
-SRCS = devices/adrv903x/private/src/adrv903x_tx.c \
-	devices/adrv903x/private/src/adrv903x_reg_addr_macros.c \
-	devices/adrv903x/private/src/adrv903x_binloader.c \
-	devices/adrv903x/private/src/adrv903x_cpu.c \
-	devices/adrv903x/private/src/adrv903x_shared_resource_manager.c \
-	devices/adrv903x/private/src/adrv903x_agc.c \
-	devices/adrv903x/private/src/adrv903x_rx.c \
-	devices/adrv903x/private/src/adrv903x_radioctrl.c \
-	devices/adrv903x/private/src/adrv903x_datainterface.c \
-	devices/adrv903x/private/src/adrv903x_struct_endian.c \
-	devices/adrv903x/private/src/adrv903x_gpio.c \
-	devices/adrv903x/private/src/adrv903x_init.c \
-	devices/adrv903x/private/bf/adrv903x_bf_serdes_rxdig_phy_regmap_core1p2.c \
-	devices/adrv903x/private/bf/adrv903x_bf_actrl_orx_west_regmap.c \
-	devices/adrv903x/private/bf/adrv903x_bf_streamproc.c \
-	devices/adrv903x/private/bf/adrv903x_bf_rx_ddc.c \
-	devices/adrv903x/private/bf/adrv903x_bf_jrx_link.c \
-	devices/adrv903x/private/bf/adrv903x_bf_core.c \
-	devices/adrv903x/private/bf/adrv903x_bf_orx_dig.c \
-	devices/adrv903x/private/bf/adrv903x_bf_rx_dig.c \
-	devices/adrv903x/private/bf/adrv903x_bf_tx_datapath.c \
-	devices/adrv903x/private/bf/adrv903x_bf_tx_funcs.c \
-	devices/adrv903x/private/bf/adrv903x_bf_tdr_dpath_top.c \
-	devices/adrv903x/private/bf/adrv903x_bf_pll_mem_map.c \
-	devices/adrv903x/private/bf/adrv903x_bf_serdes_rxdig_8pack_regmap_core1p2.c \
-	devices/adrv903x/private/bf/adrv903x_bf_serdes_txdig_phy_regmap_core1p2.c \
-	devices/adrv903x/private/bf/adrv903x_bf_jtx_link.c \
-	devices/adrv903x/private/bf/adrv903x_bf_rx_funcs.c \
-	devices/adrv903x/private/bf/adrv903x_bf_jesd_common.c \
-	devices/adrv903x/private/bf/adrv903x_bf_tx_dig.c \
-	devices/adrv903x/public/src/adi_adrv903x_error.c \
-	devices/adrv903x/public/src/adi_adrv903x_tx.c \
-	devices/adrv903x/public/src/adi_adrv903x_hal.c \
-	devices/adrv903x/public/src/adi_adrv903x_cals.c \
-	devices/adrv903x/public/src/adi_adrv903x_gpio.c \
-	devices/adrv903x/public/src/adi_adrv903x_radioctrl.c \
-	devices/adrv903x/public/src/adi_adrv903x_cpu.c \
-	devices/adrv903x/public/src/adi_adrv903x_datainterface.c \
-	devices/adrv903x/public/src/adi_adrv903x_agc.c \
-	devices/adrv903x/public/src/adi_adrv903x_rx.c \
-	devices/adrv903x/public/src/adi_adrv903x_core.c \
-	devices/adrv903x/public/src/adi_adrv903x_utilities.c \
-	common/adi_logging/adi_common_log.c \
-	common/adi_error/adi_common_error.c \
-	common/adi_hal/adi_common_hal.c \
-	platforms/linux_platform.c \
-	platforms/adi_library.c \
-	platforms/adi_platform.c \
-	initdata.c\
-	adrv903x.c \
-	adrv903x_conv.c
+adrv903x_drv-y = adrv903x.o
+adrv903x_drv-y += adrv903x_conv.o adrv903x_ramc.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_tx.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_reg_addr_macros.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_binloader.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_cpu.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_shared_resource_manager.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_agc.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_rx.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_radioctrl.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_datainterface.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_struct_endian.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_gpio.o
+adrv903x_drv-y += devices/adrv903x/private/src/adrv903x_init.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_serdes_rxdig_phy_regmap_core1p2.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_actrl_orx_west_regmap.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_streamproc.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_rx_ddc.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_jrx_link.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_core.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_orx_dig.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_rx_dig.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_tx_datapath.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_tx_funcs.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_tdr_dpath_top.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_pll_mem_map.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_serdes_rxdig_8pack_regmap_core1p2.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_serdes_txdig_phy_regmap_core1p2.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_jtx_link.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_rx_funcs.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_jesd_common.o
+adrv903x_drv-y += devices/adrv903x/private/bf/adrv903x_bf_tx_dig.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_error.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_tx.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_hal.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_cals.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_gpio.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_radioctrl.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_cpu.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_datainterface.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_agc.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_rx.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_core.o
+adrv903x_drv-y += devices/adrv903x/public/src/adi_adrv903x_utilities.o
+adrv903x_drv-y += common/adi_logging/adi_common_log.o
+adrv903x_drv-y += common/adi_error/adi_common_error.o
+adrv903x_drv-y += common/adi_hal/adi_common_hal.o
+adrv903x_drv-y += platforms/linux_platform.o
+adrv903x_drv-y += platforms/adi_library.o
+adrv903x_drv-y += platforms/adi_platform.o
+adrv903x_drv-y += initdata.o
 
 ccflags-y += -I$(srctree)/$(src)/devices/adrv903x/private/include/ \
 	-I$(srctree)/$(src)/devices/adrv903x/public/include/  \
@@ -67,6 +67,4 @@ ccflags-y += -I$(srctree)/$(src)/devices/adrv903x/private/include/ \
 	-DADRV903X_BITFIELD_VALUE_CHECK=0 \
 	-Wno-error=missing-prototypes
 
-adrv903x_drv-y := $(SRCS:.c=.o)
 obj-$(CONFIG_ADRV903X) += adrv903x_drv.o
-
