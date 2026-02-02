@@ -1822,3 +1822,46 @@ void dcn35_disable_link_output(struct dc_link *link,
 
 	dc->link_srv->dp_trace_source_sequence(link, DPCD_SOURCE_SEQ_AFTER_DISABLE_LINK_PHY);
 }
+
+void dcn35_dmub_hw_control_lock(struct dc *dc, struct dc_state *context, bool lock)
+{
+	/* use always for now */
+	union dmub_inbox0_cmd_lock_hw hw_lock_cmd = { 0 };
+
+	if (!dc->ctx || !dc->ctx->dmub_srv)
+		return;
+
+	/* if not support inbox0 lock, would not use inbox0 lock mechanism  */
+	if (!dc->ctx->dmub_srv->dmub->meta_info.feature_bits.bits.inbox0_lock_support)
+		return;
+
+	if (!dc_dmub_srv_is_cursor_offload_enabled(dc) &&
+		!dmub_hw_lock_mgr_does_context_require_lock(dc, context))
+		return;
+
+	hw_lock_cmd.bits.command_code = DMUB_INBOX0_CMD__HW_LOCK;
+	hw_lock_cmd.bits.hw_lock_client = HW_LOCK_CLIENT_DRIVER;
+	hw_lock_cmd.bits.lock = lock;
+	hw_lock_cmd.bits.should_release = !lock;
+	dmub_hw_lock_mgr_inbox0_cmd(dc->ctx->dmub_srv, hw_lock_cmd);
+}
+
+void dcn35_dmub_hw_control_lock_fast(union block_sequence_params *params)
+{
+	struct dc *dc = params->dmub_hw_control_lock_fast_params.dc;
+	bool lock = params->dmub_hw_control_lock_fast_params.lock;
+
+	/* if not support inbox0 lock, would not use inbox0 lock mechanism  */
+	if (!dc->ctx->dmub_srv->dmub->meta_info.feature_bits.bits.inbox0_lock_support)
+		return;
+
+	if (params->dmub_hw_control_lock_fast_params.is_required) {
+		union dmub_inbox0_cmd_lock_hw hw_lock_cmd = { 0 };
+
+		hw_lock_cmd.bits.command_code = DMUB_INBOX0_CMD__HW_LOCK;
+		hw_lock_cmd.bits.hw_lock_client = HW_LOCK_CLIENT_DRIVER;
+		hw_lock_cmd.bits.lock = lock;
+		hw_lock_cmd.bits.should_release = !lock;
+		dmub_hw_lock_mgr_inbox0_cmd(dc->ctx->dmub_srv, hw_lock_cmd);
+	}
+}

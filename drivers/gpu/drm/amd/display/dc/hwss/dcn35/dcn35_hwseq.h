@@ -27,6 +27,8 @@
 #ifndef __DC_HWSS_DCN35_H__
 #define __DC_HWSS_DCN35_H__
 
+#include "inc/core_types.h"
+#include "dc.h"
 #include "hw_sequencer_private.h"
 
 struct dc;
@@ -115,5 +117,7 @@ void dcn35_program_cursor_offload_now(struct dc *dc, const struct pipe_ctx *pipe
 void dcn35_disable_link_output(struct dc_link *link,
 		const struct link_resource *link_res,
 		enum signal_type signal);
+void dcn35_dmub_hw_control_lock(struct dc *dc, struct dc_state *context, bool lock);
+void dcn35_dmub_hw_control_lock_fast(union block_sequence_params *params);
 
 #endif /* __DC_HWSS_DCN35_H__ */
