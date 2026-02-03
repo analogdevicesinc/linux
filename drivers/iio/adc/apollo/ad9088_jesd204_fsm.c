@@ -688,8 +688,12 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 		return ret;
 
 	ret = ad9088_mcs_init_cal_validate(phy, &init_cal_status);
+	if (ret) {
+		dev_err(dev, "MCS Initcal Status: Failed\n");
+		return ret;
+	}
 
-	dev_info(dev, "MCS Initcal Status: %s\n", ret ? "Failed" : "Passed");
+	dev_info(dev, "MCS Initcal Status: Passed\n");
 
 	ret = ad9088_mcs_tracking_cal_setup(phy, 1023, 1);
 	if (ret) {
