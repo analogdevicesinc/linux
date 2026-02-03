@@ -707,12 +707,6 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 		return ret;
 	}
 
-	ret = iio_write_channel_attribute(phy->iio_adf4382, 250, 0, IIO_CHAN_INFO_PHASE);
-	if (ret < 0) {
-		dev_err(dev, "Failed to set adf4382 phase\n");
-		return ret;
-	}
-
 	ret = adi_apollo_mcs_cal_fg_tracking_run(device);
 	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_fg_tracking_run");
 	if (ret)
