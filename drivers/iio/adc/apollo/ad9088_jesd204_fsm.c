@@ -646,11 +646,41 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 
 	calc_delay = (adf4030_delta_t0 - adf4030_delta_t1) - (apollo_delta_t1 - apollo_delta_t0);
 	dev_dbg(dev, "calc_delay %lld fs\n", calc_delay);
+
+	/*
+	 * Sanity check: calc_delay magnitude should be within reasonable bounds.
+	 * If it exceeds 2x the BSYNC period, this may indicate measurement issues.
+	 */
+	if (calc_delay < -2 * (s64)bsync_out_period_fs ||
+	    calc_delay > 2 * (s64)bsync_out_period_fs)
+		dev_warn(dev,
+			 "calc_delay %lld fs exceeds 2x BSYNC period (%llu fs). Check ToF measurements.\n",
+			 calc_delay, bsync_out_period_fs);
+
 	div64_u64_rem(calc_delay + bsync_out_period_fs, bsync_out_period_fs, &round_trip_delay);
 	dev_dbg(dev, "round_trip_delay %lld fs\n", round_trip_delay);
 	path_delay = round_trip_delay >> 1;
 
 	dev_info(dev, "Total BSYNC path delay %lld fs\n", path_delay);
+
+	/*
+	 * Sanity check: path_delay should be a reasonable fraction of the period.
+	 * Typical cable delays are in the nanosecond range. Values very close to
+	 * 0 or half the period may indicate measurement or hardware issues.
+	 */
+	{
+		s64 max_expected_delay = bsync_out_period_fs / 2;
+		s64 min_reasonable = bsync_out_period_fs / 20;  /* 5% of period */
+
+		if (path_delay < min_reasonable)
+			dev_warn(dev,
+				 "Path delay %lld fs is very small (< 5%% of period). Verify hardware setup.\n",
+				 path_delay);
+		else if (path_delay > max_expected_delay - min_reasonable)
+			dev_warn(dev,
+				 "Path delay %lld fs is near maximum (%lld fs). Verify hardware setup.\n",
+				 path_delay, max_expected_delay);
+	}
 
 	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_adf4030, "output_enable", 1);
 	if (ret < 0) {
