@@ -352,6 +352,8 @@ struct ad9088_phy {
 
 extern int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
 										     const char *ext_name, long long val);
+extern int ad9088_iio_read_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
+					    const char *ext_name, long long *val);
 extern int ad9088_parse_dt(struct ad9088_phy *phy);
 extern int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel);
 extern int ad9088_ffh_probe(struct ad9088_phy *phy);
@@ -454,3 +456,4 @@ int ad9088_mcs_init_cal_status_print(struct ad9088_phy *phy, char *buf,
 int ad9088_mcs_track_cal_status_print(struct ad9088_phy *phy, char *buf,
 				      adi_apollo_mcs_cal_status_t *cal_status,
 				      u8 print_full_state);
+int ad9088_mcs_tracking_cal_validate(struct ad9088_phy *phy, char *buf, size_t buf_size);

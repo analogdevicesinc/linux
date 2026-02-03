@@ -4513,6 +4513,34 @@ int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel
 	return 0;
 }
 
+int ad9088_iio_read_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
+				     const char *ext_name, long long *val)
+{
+	ssize_t size;
+	char *str;
+	int ret;
+
+	str = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!str)
+		return -ENOMEM;
+
+	size = iio_read_channel_ext_info(chan, ext_name, str);
+	if (size < 0) {
+		dev_err(&phy->spi->dev, "%s: Failed to read channel ext info\n", __func__);
+		kfree(str);
+		return size;
+	}
+
+	ret = kstrtoll(str, 10, val);
+	kfree(str);
+	if (ret) {
+		dev_err(&phy->spi->dev, "%s: Failed to parse value\n", __func__);
+		return ret;
+	}
+
+	return 0;
+}
+
 
 static int ad9088_reg_test(adi_apollo_device_t *device)
 {
