@@ -219,26 +219,75 @@ int ad9088_mcs_init_cal_validate(struct ad9088_phy *phy,
 
 	adi_apollo_device_t *device = &phy->ad9088;
 	u64 dev_clk_hz = (u64)phy->profile.clk_cfg.dev_clk_freq_kHz * 1000;
-
-	/* External and Internal Time Difference must be within +/- 0.4 clock cycles */
 	u32 post_cal_init_sysref_diff_cycles;
-	u64 int_sysref_align_diff = abs(cal_status->data.diff_C_After_femtoseconds -
-					cal_status->data.recommended_offset_C_femtoseconds);
-	post_cal_init_sysref_diff_cycles = div64_u64(int_sysref_align_diff * dev_clk_hz, 1000000000000ULL);
+	u64 int_sysref_align_diff;
+	bool is_locked;
 
-	if (post_cal_init_sysref_diff_cycles > 400) {
-		adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR,
-					 "Time difference between internal and External SysRefs is too large: %u.%02u\n",
-					 post_cal_init_sysref_diff_cycles / 1000, post_cal_init_sysref_diff_cycles % 1000);
-		ret = -EFAULT;
-		goto end;
-	}
+	/*
+	 * External and Internal Time Difference must be within +/- 0.4 clock cycles.
+	 * In dual clock mode, check both A and B sides; in single clock mode, check center.
+	 */
+	if (device->dev_info.is_dual_clk) {
+		/* Check side A alignment */
+		int_sysref_align_diff = abs(cal_status->data.diff_A_After_femtoseconds -
+					    cal_status->data.recommended_offset_A_femtoseconds);
+		post_cal_init_sysref_diff_cycles = div64_u64(int_sysref_align_diff * dev_clk_hz,
+							     1000000000000ULL);
+		if (post_cal_init_sysref_diff_cycles > 400) {
+			adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR,
+						 "Side A: Time difference too large: %u.%02u cycles\n",
+						 post_cal_init_sysref_diff_cycles / 1000,
+						 post_cal_init_sysref_diff_cycles % 1000);
+			ret = -EFAULT;
+			goto end;
+		}
 
-	/* Check if sysref is locked */
-	if (cal_status->data.is_C_Locked != 1) {
-		adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "MCS Init Cal did not lock SysRefs.\n");
-		ret = -EFAULT;
-		goto end;
+		/* Check side B alignment */
+		int_sysref_align_diff = abs(cal_status->data.diff_B_After_femtoseconds -
+					    cal_status->data.recommended_offset_B_femtoseconds);
+		post_cal_init_sysref_diff_cycles = div64_u64(int_sysref_align_diff * dev_clk_hz,
+							     1000000000000ULL);
+		if (post_cal_init_sysref_diff_cycles > 400) {
+			adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR,
+						 "Side B: Time difference too large: %u.%02u cycles\n",
+						 post_cal_init_sysref_diff_cycles / 1000,
+						 post_cal_init_sysref_diff_cycles % 1000);
+			ret = -EFAULT;
+			goto end;
+		}
+
+		/* Check lock status - require at least one side locked */
+		is_locked = cal_status->data.is_A_Locked || cal_status->data.is_B_Locked;
+		if (!is_locked) {
+			adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR,
+						 "MCS Init Cal did not lock SysRefs (A=%d, B=%d).\n",
+						 cal_status->data.is_A_Locked,
+						 cal_status->data.is_B_Locked);
+			ret = -EFAULT;
+			goto end;
+		}
+	} else {
+		/* Single clock mode - check center */
+		int_sysref_align_diff = abs(cal_status->data.diff_C_After_femtoseconds -
+					    cal_status->data.recommended_offset_C_femtoseconds);
+		post_cal_init_sysref_diff_cycles = div64_u64(int_sysref_align_diff * dev_clk_hz,
+							     1000000000000ULL);
+		if (post_cal_init_sysref_diff_cycles > 400) {
+			adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR,
+						 "Time difference between internal and External SysRefs is too large: %u.%02u\n",
+						 post_cal_init_sysref_diff_cycles / 1000,
+						 post_cal_init_sysref_diff_cycles % 1000);
+			ret = -EFAULT;
+			goto end;
+		}
+
+		/* Check if sysref is locked */
+		if (cal_status->data.is_C_Locked != 1) {
+			adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR,
+						 "MCS Init Cal did not lock SysRefs.\n");
+			ret = -EFAULT;
+			goto end;
+		}
 	}
 
 	/* Check for Cal errors */
