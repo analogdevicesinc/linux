@@ -597,6 +597,8 @@ static int axi_aion_jesd204_opt_setup_stage1(struct jesd204_dev *jdev,
 	}
 	adf4030_phase = (s64)((((u64)val2) << 32) | (u32)val);
 
+	dev_info(dev, "FPGA BSYNC ToF measured phase: %lld fs\n", adf4030_phase);
+
 	ret = regmap_set_bits(st->regmap, AION_CONTROL_REG,
 			      AION_CONTROL_DISABLE_INTERNAL_BSYNC_MASK);
 	if (ret) {
