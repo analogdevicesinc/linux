@@ -695,7 +695,7 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 
 	dev_info(dev, "MCS Initcal Status: Passed\n");
 
-	ret = ad9088_mcs_tracking_cal_setup(phy, 1023, 1);
+	ret = ad9088_mcs_tracking_cal_setup(phy, phy->mcs_track_decimation, 1);
 	if (ret) {
 		dev_err(dev, "Failed to setup MCS tracking cal\n");
 		return ret;

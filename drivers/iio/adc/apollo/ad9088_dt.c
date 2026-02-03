@@ -191,6 +191,15 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 	of_property_read_u32(node, "adi,multidevice-instance-count",
 			     &phy->multidevice_instance_count);
 
+	/*
+	 * MCS tracking calibration TDC decimation rate. A larger value improves
+	 * precision at the expense of longer TDC measurement time. For gapped
+	 * periodic SYSREF, keep below 32768. Default: 1023.
+	 */
+	phy->mcs_track_decimation = 1023;
+	of_property_read_u16(node, "adi,mcs-track-decimation",
+			     &phy->mcs_track_decimation);
+
 	phy->trig_sync_en = of_property_read_bool(node, "adi,trigger-sync-en");
 
 	phy->standalone = of_property_read_bool(node, "adi,standalone-enable");

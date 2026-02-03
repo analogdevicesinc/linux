@@ -261,6 +261,7 @@ struct ad9088_phy {
 	bool cddc_sample_delay_en;
 	bool fddc_sample_delay_en;
 	u32 multidevice_instance_count;
+	u16 mcs_track_decimation;
 
 	struct ad9088_debugfs_entry debugfs_entry[32];
 	u32 ad9088_debugfs_entry_index;
