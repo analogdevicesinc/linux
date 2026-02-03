@@ -180,6 +180,22 @@ Trigger
 If the option is enabled and no trigger is provided, the synchronization will
 time out.
 
+Multi-Chip Synchronization (MCS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``adi,mcs-track-decimation``: TDC decimation rate for MCS tracking calibration.
+  A larger value improves precision at the expense of longer TDC measurement time.
+  For systems using gapped periodic SYSREF, keep this value below 32768.
+  Default: 1023. Type: u16.
+
+  .. code:: dts
+
+     trx0_ad9084: ad9088@0 {
+         compatible = "adi,ad9088";
+         /* ... other properties ... */
+         adi,mcs-track-decimation = /bits/ 16 <1023>;
+     };
+
 Topology
 ~~~~~~~~
 
@@ -1831,9 +1847,13 @@ MCS Calibration
 ^^^^^^^^^^^^^^^
 
 Multi-Chip Synchronization (MCS) calibration is used for synchronizing multiple
-AD9088 devices. MCS calibration is performed automatically by the driver during
-initialization when the ``io-channels`` property with ``bsync`` and ``clk``
-channel references are defined in the Apollo device tree node:
+AD9088 devices to achieve ±10ps alignment accuracy. The MCS flow uses BSYNC
+Time-of-Flight (ToF) measurements to compensate for path delays between the
+ADF4030 precision synchronizer and each Apollo device.
+
+MCS calibration is performed automatically by the driver during initialization
+when the ``io-channels`` property with ``bsync`` and ``clk`` channel references
+are defined in the Apollo device tree node:
 
 .. code:: dts
 
@@ -1842,13 +1862,58 @@ channel references are defined in the Apollo device tree node:
        /* ... other properties ... */
        io-channels = <&adf4030 5>, <&adf4382 0>;
        io-channel-names = "bsync", "clk";
+
+       /* Optional: TDC decimation rate (default: 1023) */
+       adi,mcs-track-decimation = /bits/ 16 <1023>;
    };
 
-When these io-channels are configured, the driver automatically performs:
+**Automatic MCS Flow (per UG-2300):**
 
-1. MCS initialization and delta-T measurements
-2. Initial MCS calibration
-3. Background tracking calibration setup and execution
+When io-channels are configured, the driver automatically performs:
+
+1. **BSYNC Time-of-Flight Measurement**: Measures round-trip path delay between
+   ADF4030 and Apollo using delta-T0 and delta-T1 measurements.
+
+2. **Path Delay Compensation**: Calculates and applies negative phase offset to
+   the ADF4030 output channel to compensate for cable and PCB trace delays.
+
+3. **MCS Init Calibration**: Aligns internal SYSREF to external SYSREF within
+   ±0.4 clock cycles. The driver validates the calibration and returns an error
+   if alignment fails.
+
+4. **Tracking Calibration Setup**: Configures the TDC decimation rate (from
+   device tree or default 1023) and enables tracking.
+
+5. **ADF4382 Auto-Align**: Enables the ADF4382's automatic phase alignment
+   feature for continuous synchronization.
+
+6. **Foreground Tracking Calibration**: Runs initial tracking calibration to
+   establish baseline phase correction values.
+
+7. **Background Tracking Calibration**: Starts continuous background tracking
+   to maintain synchronization over time and temperature.
+
+.. note::
+
+   **Dual Clock Mode Limitation**: MCS tracking calibration is only supported
+   in single clock mode due to hardware limitations. In dual clock mode, the
+   driver performs MCS init calibration for both A-side and B-side, but skips
+   tracking calibration.
+
+**Driver Validation and Warnings:**
+
+The driver performs several validation checks during MCS calibration:
+
+- **MCS Init Cal Failure**: If init calibration fails (SYSREF not locked or
+  alignment outside tolerance), the driver returns an error and stops the
+  JESD204 state machine.
+
+- **Trigger Phase Margin**: Warns if trigger phase is outside 25%-75% of the
+  SYSREF period, which may cause ±1 cycle latency jitter.
+
+- **Path Delay Sanity Check**: Warns if calculated path delay is very small
+  (<5% of period) or near maximum (>45% of period), indicating potential
+  hardware issues.
 
 For manual control or debugging, MCS calibration attributes are also available
 through debugfs.
@@ -1862,7 +1927,7 @@ through debugfs.
     mcs_bg_track_cal_freeze  mcs_dt1_measurement    mcs_init
     mcs_bg_track_cal_run     mcs_dt_restore         mcs_init_cal_status
     mcs_cal_run              mcs_fg_track_cal_run   mcs_track_cal_setup
-    mcs_dt0_measurement      mcs_track_status
+    mcs_dt0_measurement      mcs_track_cal_validate mcs_track_status
 
 **Delta-T Measurement:**
 
@@ -1900,6 +1965,21 @@ through debugfs.
 
 - ``mcs_track_status``: Read-only. Returns tracking calibration status including
   iteration count, phase errors, and per-ADC correction values.
+
+- ``mcs_track_cal_validate``: Read-only. Validates that MCS tracking calibration
+  values in Apollo firmware match the ADF4382 hardware bleed current values.
+  Use this to verify that tracking calibration is maintaining synchronization.
+
+  .. shell::
+     :no-path:
+
+     $cat mcs_track_cal_validate
+      MCS Tracking Cal Validation:
+        ADF4382 HW:  bleed_pol=0 coarse=5 fine=128
+        Apollo FW:   bleed_pol=0 coarse=5 fine=128
+        Status:      SYNCHRONIZED
+
+  If values don't match, check for hardware issues or tracking calibration faults.
 
 **Manual MCS Calibration Sequence:**
 
@@ -1961,12 +2041,12 @@ The following example shows the complete MCS sequence for a single Apollo device
    echo 1 > $APOLLO/mcs_cal_run
    cat $APOLLO/mcs_cal_run  # Should show "Passed"
 
-   # Step 9: Setup tracking calibration
+   # Step 9: Setup tracking calibration (single clock mode only)
    echo 1 > $APOLLO/mcs_track_cal_setup
 
-   # Step 10: Configure ADF4382 auto-align
+   # Step 10: Enable ADF4382 auto-align for automatic phase adjustment
+   # Note: No explicit phase value is set - auto-align handles this automatically
    echo 1 > $ADF4382/out_altvoltage0_en_auto_align
-   echo -250 > $ADF4382/out_altvoltage0_phase
 
    # Step 11: Run foreground tracking calibration, then start background tracking
    echo 1 > $APOLLO/mcs_fg_track_cal_run
@@ -1975,6 +2055,9 @@ The following example shows the complete MCS sequence for a single Apollo device
    # Step 12: Verify calibration status
    cat $APOLLO/mcs_init_cal_status
    cat $APOLLO/mcs_track_status
+
+   # Step 13: (Optional) Validate tracking cal synchronicity
+   cat $APOLLO/mcs_track_cal_validate
 
 **Checking Calibration Status:**
 
