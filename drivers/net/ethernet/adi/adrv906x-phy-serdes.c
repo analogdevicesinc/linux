@@ -702,8 +702,8 @@ static int __sd_app_heartbeat_recv(struct sk_buff *skb, struct genl_info *info)
 			 msecs_to_jiffies(APP_HEARTBEAT_TIMEOUT_MS));
 
 	if (data & ADRV906X_PHY_APP_START_IND_MSK) {
-		// adrv906x_phy_fsm_trigger_transition(&pll0->fsm, PLL_EVT_APP_INACT);
-		// adrv906x_phy_fsm_trigger_transition(&pll1->fsm, PLL_EVT_APP_INACT);
+		adrv906x_phy_fsm_trigger_transition(&pll0->fsm, PLL_EVT_APP_INACT);
+		adrv906x_phy_fsm_trigger_transition(&pll1->fsm, PLL_EVT_APP_INACT);
 		adrv906x_phy_fsm_trigger_transition(&serdes0->fsm, SD_EVT_APP_INACT);
 		adrv906x_phy_fsm_trigger_transition(&serdes1->fsm, SD_EVT_APP_INACT);
 		adrv906x_phy_fsm_trigger_transition(&serdes2->fsm, SD_EVT_APP_INACT);
@@ -791,7 +791,6 @@ static int __sd_deser_signal_ok_recv(struct sk_buff *skb, struct genl_info *info
 {
 	struct adrv906x_serdes *serdes;
 	struct phy_device *phydev;
-	struct net_device *netdev;
 	u32 dev_id, speed;
 	int ret;
 
@@ -809,7 +808,6 @@ static int __sd_deser_signal_ok_recv(struct sk_buff *skb, struct genl_info *info
 
 	serdes = adrv906x_serdes_instance_get(dev_id);
 	phydev = serdes->phydev;
-	netdev = phydev->attached_dev;
 
 	/* Reset PCS RX/TX data path */
 	serdes->rx_path_en(phydev, false);
@@ -825,8 +823,6 @@ static int __sd_deser_signal_ok_recv(struct sk_buff *skb, struct genl_info *info
 static int __sd_app_pwr_down_rdy_recv(struct sk_buff *skb, struct genl_info *info)
 {
 	struct adrv906x_serdes *serdes;
-	struct phy_device *phydev;
-	struct net_device *netdev;
 	u32 dev_id, speed;
 	int ret;
 
@@ -843,9 +839,6 @@ static int __sd_app_pwr_down_rdy_recv(struct sk_buff *skb, struct genl_info *inf
 		return -EINVAL;
 
 	serdes = adrv906x_serdes_instance_get(dev_id);
-	phydev = serdes->phydev;
-	netdev = phydev->attached_dev;
-
 	adrv906x_phy_fsm_trigger_transition(&serdes->fsm, SD_EVT_PWR_DOWN_DONE);
 
 	return 0;
@@ -855,7 +848,6 @@ static int __sd_deser_los_detected_recv(struct sk_buff *skb, struct genl_info *i
 {
 	struct adrv906x_serdes *serdes;
 	struct phy_device *phydev;
-	struct net_device *netdev;
 	u32 dev_id, speed;
 	int ret;
 
@@ -873,7 +865,6 @@ static int __sd_deser_los_detected_recv(struct sk_buff *skb, struct genl_info *i
 
 	serdes = adrv906x_serdes_instance_get(dev_id);
 	phydev = serdes->phydev;
-	netdev = phydev->attached_dev;
 	serdes->rx_path_en(phydev, false);
 	phy_trigger_machine(phydev);
 
@@ -996,10 +987,8 @@ static void __do_nothing(void *param)
 int adrv906x_serdes_lnk_up_req(struct phy_device *phydev)
 {
 	struct adrv906x_serdes *serdes;
-	struct net_device *netdev;
 	int dev_id = phydev->mdio.addr;
 
-	netdev = phydev->attached_dev;
 	serdes = adrv906x_serdes_instance_get(dev_id);
 	if (!serdes)
 		return -EINVAL;

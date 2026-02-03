@@ -598,6 +598,11 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++)
 		if (port_mask & BIT(portid))
 			__adrv906x_switch_port_enable(es, portid, false);
+
+	/* Soft reset */
+	iowrite32(SWITCH_ALL_EX_MAE, es->reg_switch + SWITCH_SOFT_RESET);
+	iowrite32(0, es->reg_switch + SWITCH_SOFT_RESET);
+
 	spin_unlock_irqrestore(&es->hw_lock, flags);
 
 	/* Wake up recovery thread to restore VLAN membership */
@@ -973,7 +978,7 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	if (es->vlan_enabled) {
 		ret = sysfs_create_group(&es->pdev->dev.kobj, &es->attr_group);
 		if (ret) {
-			dev_err(dev, "Failed to create sysfs group\n");
+			dev_err(dev, "Failed to create sysfs group");
 			return ret;
 		}
 	}
