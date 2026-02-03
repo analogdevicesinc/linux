@@ -19,6 +19,7 @@
 #include <linux/of.h>
 
 #include <linux/fpga/adi-axi-common.h>
+#include <linux/iio/logic/axi_aion_trig.h>
 
 #define AXI_AION_IIO_DRIVER_NAME "axi_aion_trig"
 
