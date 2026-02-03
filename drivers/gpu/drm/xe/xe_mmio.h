@@ -37,11 +37,6 @@ static inline u32 xe_mmio_adjusted_addr(const struct xe_mmio *mmio, u32 addr)
 	return addr;
 }
 
-static inline struct xe_mmio *xe_root_tile_mmio(struct xe_device *xe)
-{
-	return &xe->tiles[0].mmio;
-}
-
 #ifdef CONFIG_PCI_IOV
 void xe_mmio_init_vf_view(struct xe_mmio *mmio, const struct xe_mmio *base, unsigned int vfid);
 #endif
