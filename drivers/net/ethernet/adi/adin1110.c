@@ -1006,7 +1006,8 @@ static netdev_tx_t adin1110_start_xmit(struct sk_buff *skb, struct net_device *d
 	}
 	spin_unlock(&priv->tx_space_lock);
 
-	schedule_work(&port_priv->tx_work);
+	if (netdev_ret == NETDEV_TX_OK)
+		schedule_work(&port_priv->tx_work);
 
 	return netdev_ret;
 }
