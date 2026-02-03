@@ -880,6 +880,27 @@ static int ad9088_jesd204_post_setup_stage4(struct jesd204_dev *jdev,
 		dev_info(dev, "Trigger Phase %d (ideal %u) period %u fs\n", phase,
 			 phy->profile.mcs_cfg.internal_sysref_prd_digclk_cycles_center / 2, period_fs);
 
+		/*
+		 * Validate trigger phase is within safe margin. Per UG-2300:
+		 * "The user is recommended to maintain the trigger phase close to
+		 * internal_sysref_prd_digclk_cycles/2. If the trigger is too close
+		 * to the rising edge of the internal SYSREF, the jitter on the
+		 * trigger path may cause the latency varying +/-1 internal SYSREF
+		 * clock cycle."
+		 *
+		 * Use 25%-75% of period as safe range (centered around ideal 50%).
+		 */
+		{
+			u16 period = phy->profile.mcs_cfg.internal_sysref_prd_digclk_cycles_center;
+			u16 margin_low = period / 4;
+			u16 margin_high = (period * 3) / 4;
+
+			if (phase < margin_low || phase > margin_high)
+				dev_warn(dev,
+					 "Trigger phase %u outside safe margin [%u, %u]. Risk of +/-1 SYSREF cycle latency jitter.\n",
+					 phase, margin_low, margin_high);
+		}
+
 		ret = adi_apollo_clk_mcs_trig_sync_enable(device, 0);
 		if (ret) {
 			dev_err(dev, "Error in adi_apollo_clk_mcs_trig_sync_enable %d\n", ret);
