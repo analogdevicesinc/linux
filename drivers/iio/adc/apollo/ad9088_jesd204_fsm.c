@@ -648,6 +648,16 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 	dev_dbg(dev, "calc_delay %lld fs\n", calc_delay);
 
 	/*
+	 * Negative calc_delay is valid - it means the BSYNC signal arrived at
+	 * Apollo before completing a full round trip from ADF4030's perspective.
+	 * The modulo arithmetic below handles wrapping correctly.
+	 */
+	if (calc_delay < 0)
+		dev_dbg(dev,
+			"calc_delay is negative (%lld fs), will wrap by adding period (%llu fs)\n",
+			calc_delay, bsync_out_period_fs);
+
+	/*
 	 * Sanity check: calc_delay magnitude should be within reasonable bounds.
 	 * If it exceeds 2x the BSYNC period, this may indicate measurement issues.
 	 */
