@@ -139,6 +139,8 @@ enum psp_reg_prog_id {
 #define PSP_WAITREG_CHANGED BIT(0) /* check if the value has changed */
 #define PSP_WAITREG_NOVERBOSE BIT(1) /* No error verbose */
 
+struct amdgpu_psp_irq_mgr;
+
 struct psp_funcs {
 	int (*init_microcode)(struct psp_context *psp);
 	int (*wait_for_bootloader)(struct psp_context *psp);
@@ -176,6 +178,8 @@ struct psp_funcs {
 				   enum psp_reg_prog_id id);
 	int (*get_fw_type)(struct amdgpu_firmware_info *ucode,
 			enum psp_gfx_fw_type *type);
+	int (*register_irq_handler)(struct amdgpu_psp_irq_mgr *mgr,
+				    struct amdgpu_irq_src *irq_src);
 };
 
 struct ta_funcs {
@@ -384,6 +388,37 @@ struct psp_ptl_perf_req {
 	uint32_t pref_format2;
 };
 
+/**
+ * typedef amdgpu_psp_irq_handler_fn - callback for a registered PSP event id
+ * @mgr: IRQ manager
+ * @entry: copy of the IH entry that triggered this event
+ */
+typedef void (*amdgpu_psp_irq_handler_fn)(struct amdgpu_psp_irq_mgr *mgr,
+					  u32 event_id,
+					  struct amdgpu_iv_entry *entry);
+
+/**
+ * struct amdgpu_psp_irq_handler - statically allocated handler node
+ *
+ * Callers define these statically; a single instance can be shared across
+ * multiple devices.  Indexed in &amdgpu_psp_irq_mgr.irq_bh_handlers by @event_id.
+ */
+struct amdgpu_psp_irq_handler {
+	u32				event_id;
+	amdgpu_psp_irq_handler_fn	callback;
+};
+
+/**
+ * struct amdgpu_psp_irq_mgr - deferred dispatch for PSP-driven IH events
+ *
+ * The xarray's own lock serializes handler lookup against registration.
+ */
+struct amdgpu_psp_irq_mgr {
+	struct psp_context		*psp;
+	struct amdgpu_irq_src		irq_src;
+	struct xarray			irq_bh_handlers;
+};
+
 struct psp_context {
 	struct amdgpu_device		*adev;
 	struct psp_ring			km_ring;
@@ -474,6 +509,7 @@ struct psp_context {
 	char				*vbflash_tmp_buf;
 	size_t				vbflash_image_size;
 	bool				vbflash_done;
+	struct amdgpu_psp_irq_mgr	irq_mgr;
 #if defined(CONFIG_DEBUG_FS)
 	struct spirom_bo *spirom_dump_trip;
 #endif
@@ -662,5 +698,12 @@ int amdgpu_psp_get_fw_type(struct amdgpu_firmware_info *ucode,
 			   enum psp_gfx_fw_type *type);
 int psp_set_mmhub_eco_sec_level(struct amdgpu_device *adev);
 int psp_init_rl_microcode(struct psp_context *psp, const char *chip_name);
+
+void amdgpu_psp_irq_mgr_dispatch(struct amdgpu_psp_irq_mgr *mgr,
+				 struct amdgpu_iv_entry *entry);
+int amdgpu_psp_irq_mgr_register(
+	struct amdgpu_psp_irq_mgr *mgr,
+	const struct amdgpu_psp_irq_handler *handlers, int count,
+	const struct amdgpu_psp_irq_handler *default_handler);
 
 #endif

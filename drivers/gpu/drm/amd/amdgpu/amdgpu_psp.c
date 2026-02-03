@@ -48,6 +48,8 @@
 
 #define AMD_VBIOS_FILE_MAX_SIZE_B      (1024*1024*16)
 
+#define PSP_IRQ_DEFAULT_HANDLER_ID 0xFFFFFFFF
+
 static int psp_load_smu_fw(struct psp_context *psp);
 static int psp_rap_terminate(struct psp_context *psp);
 static int psp_securedisplay_terminate(struct psp_context *psp);
@@ -461,6 +463,128 @@ static bool psp_get_runtime_db_entry(struct amdgpu_device *adev,
 	return ret;
 }
 
+static int psp_register_irq_handler(struct amdgpu_psp_irq_mgr *mgr)
+{
+	struct psp_context *psp = mgr->psp;
+
+	if (!psp->funcs->register_irq_handler)
+		return 0;
+	return psp->funcs->register_irq_handler(mgr, &mgr->irq_src);
+}
+
+static int psp_irq_enable(struct psp_context *psp)
+{
+	if (!psp->irq_mgr.irq_src.funcs)
+		return 0;
+	dev_info(psp->adev->dev, "psp interrupt enabled");
+	return amdgpu_irq_get(psp->adev, &psp->irq_mgr.irq_src, 0);
+}
+
+static int psp_irq_disable(struct psp_context *psp)
+{
+	if (!psp->irq_mgr.irq_src.funcs)
+		return 0;
+	return amdgpu_irq_put(psp->adev, &psp->irq_mgr.irq_src, 0);
+}
+
+/**
+ * amdgpu_psp_irq_mgr_dispatch() - run the registered handler for a PSP event
+ * @mgr: IRQ manager
+ * @entry: IH entry from the PSP soft ring
+ *
+ * Invokes the handler for the entry's event id (or the default handler) in
+ * process context. Call from the .process callback for PSP soft ring entries.
+ */
+void amdgpu_psp_irq_mgr_dispatch(struct amdgpu_psp_irq_mgr *mgr,
+				 struct amdgpu_iv_entry *entry)
+{
+	struct amdgpu_psp_irq_handler *h;
+	amdgpu_psp_irq_handler_fn cb;
+	u32 event_id = entry->src_data[0];
+
+	cb = NULL;
+	xa_lock(&mgr->irq_bh_handlers);
+	h = xa_load(&mgr->irq_bh_handlers, (unsigned long)event_id);
+	if (h) {
+		cb = h->callback;
+	} else {
+		h = xa_load(&mgr->irq_bh_handlers, PSP_IRQ_DEFAULT_HANDLER_ID);
+		if (h) {
+			cb = h->callback;
+		} else {
+			dev_dbg(mgr->psp->adev->dev,
+				"PSP event: no handler for event_id:%x\n",
+				event_id);
+			xa_unlock(&mgr->irq_bh_handlers);
+			return;
+		}
+	}
+	xa_unlock(&mgr->irq_bh_handlers);
+
+	if (cb)
+		cb(mgr, event_id, entry);
+}
+
+static void psp_irq_mgr_init(struct psp_context *psp)
+{
+	struct amdgpu_psp_irq_mgr *mgr = &psp->irq_mgr;
+	int ret;
+
+	mgr->psp = psp;
+	xa_init(&mgr->irq_bh_handlers);
+
+	ret = psp_register_irq_handler(mgr);
+	if (ret)
+		dev_dbg(psp->adev->dev, "Failed to register IRQ handler!\n");
+}
+
+static void psp_irq_mgr_fini(struct amdgpu_psp_irq_mgr *mgr)
+{
+	xa_destroy(&mgr->irq_bh_handlers);
+}
+
+/**
+ * amdgpu_psp_irq_mgr_register() - register PSP interrupt handlers by event id
+ * @mgr: PSP interrupt manager
+ * @handlers: per-event handlers, or NULL
+ * @count: number of @handlers
+ * @default_handler: fallback for unregistered event ids, or NULL
+ *
+ * Handlers must be statically allocated and stay valid until psp_irq_mgr_fini().
+ *
+ * Return: 0 on success, negative error from xa_insert (e.g. duplicate event_id).
+ */
+int amdgpu_psp_irq_mgr_register(
+	struct amdgpu_psp_irq_mgr *mgr,
+	const struct amdgpu_psp_irq_handler *handlers, int count,
+	const struct amdgpu_psp_irq_handler *default_handler)
+{
+	int ret, i;
+
+	if (handlers) {
+		for (i = 0; i < count; i++) {
+			ret = xa_insert(&mgr->irq_bh_handlers,
+					(unsigned long)handlers[i].event_id,
+					(void *)&handlers[i], GFP_KERNEL);
+			if (ret)
+				dev_dbg(mgr->psp->adev->dev,
+					"PSP IRQ: handler already registered for event_id:%x\n",
+					handlers[i].event_id);
+		}
+	}
+
+	if (default_handler) {
+		ret = xa_insert(&mgr->irq_bh_handlers,
+				PSP_IRQ_DEFAULT_HANDLER_ID,
+				(void *)default_handler, GFP_KERNEL);
+		if (ret)
+			dev_dbg(mgr->psp->adev->dev,
+				"PSP IRQ: handler already registered for default handler");
+	}
+
+	return ret;
+}
+
 static int psp_sw_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
@@ -559,7 +683,7 @@ static int psp_sw_init(struct amdgpu_ip_block *ip_block)
 	/* Space for extended data in the tail of the cmd_buf allocation */
 	psp->cmd_ext_resp_mc_addr = psp->cmd_resp_buf_mc_addr + sizeof(struct psp_gfx_cmd_resp);
 	psp->cmd_ext_resp_mem = psp->cmd_resp_buf_mem + 1;
-
+	psp_irq_mgr_init(psp);
 	return 0;
 
 failed2:
@@ -575,6 +699,8 @@ static int psp_sw_fini(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
 	struct psp_context *psp = &adev->psp;
+
+	psp_irq_mgr_fini(&psp->irq_mgr);
 
 	psp_memory_training_fini(psp);
 
@@ -3063,6 +3189,7 @@ static int psp_hw_start(struct psp_context *psp)
 		}
 	}
 
+	psp_irq_enable(psp);
 	ret = psp_ring_create(psp, PSP_RING_TYPE__KM);
 	if (ret) {
 		dev_err(adev->dev, "PSP create ring failed!\n");
@@ -3742,6 +3869,7 @@ static int psp_hw_fini(struct amdgpu_ip_block *ip_block)
 	psp_asd_terminate(psp);
 	psp_tmr_terminate(psp);
 
+	psp_irq_disable(psp);
 	psp_ring_destroy(psp, PSP_RING_TYPE__KM);
 
 	return 0;
@@ -3801,7 +3929,7 @@ static int psp_suspend(struct amdgpu_ip_block *ip_block)
 		dev_err(adev->dev, "Failed to terminate tmr\n");
 		goto out;
 	}
-
+	psp_irq_disable(psp);
 	ret = psp_ring_stop(psp, PSP_RING_TYPE__KM);
 	if (ret)
 		dev_err(adev->dev, "PSP ring stop failed\n");
