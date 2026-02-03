@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0-only)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/timer/adi,musb.yaml#
+$id: http://devicetree.org/schemas/usb/adi,musb.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Inventra USB Glue Layer for Analog Devices SC5XX Processors
@@ -32,18 +32,22 @@ properties:
 
   spu_securep_id:
     $ref: /schemas/types.yaml#/definitions/uint32
+    description: System Protection Unit peripheral ID
 
   mentor,multipoint:
     $ref: /schemas/types.yaml#/definitions/uint32
+    description: Indicate the musb controller supports multipoint with "1"
 
   mentor,num-eps:
     $ref: /schemas/types.yaml#/definitions/uint32
+    description: Number of endpoints supported including EP0
 
   mentor,ram-bits:
-    maxItems: 1
+    description: Address size of the RAM in bits
 
   mentor,power:
     $ref: /schemas/types.yaml#/definitions/uint32
+    description: Maximum power consumption in mA
 
   phys:
     maxItems: 1
@@ -65,6 +69,9 @@ additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
     usb0: usb@310c1000 {
       compatible = "adi,musb";
       reg = <0x310c1000 0x390>;
