@@ -637,7 +637,7 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		break;
 	case DBGFS_MCS_TRACK_CAL_SETUP:
 		if (val)
-			ret = ad9088_mcs_tracking_cal_setup(phy, 1023, 1);
+			ret = ad9088_mcs_tracking_cal_setup(phy, phy->mcs_track_decimation, 1);
 		break;
 	case DBGFS_MCS_FG_TRACK_CAL_RUN:
 		if (val) {
