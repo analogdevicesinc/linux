@@ -45,11 +45,6 @@ typedef unsigned long xe_dss_mask_t[BITS_TO_LONGS(XE_MAX_DSS_FUSE_BITS)];
 typedef unsigned long xe_eu_mask_t[BITS_TO_LONGS(XE_MAX_EU_FUSE_BITS)];
 typedef unsigned long xe_l3_bank_mask_t[BITS_TO_LONGS(XE_MAX_L3_BANK_MASK_BITS)];
 
-struct xe_mmio_range {
-	u32 start;
-	u32 end;
-};
-
 /*
  * The hardware has multiple kinds of multicast register ranges that need
  * special register steering (and future platforms are expected to add

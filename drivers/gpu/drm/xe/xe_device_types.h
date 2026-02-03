@@ -18,6 +18,7 @@
 #include "xe_lmtt_types.h"
 #include "xe_memirq_types.h"
 #include "xe_mert.h"
+#include "xe_mmio_types.h"
 #include "xe_oa_types.h"
 #include "xe_pagefault_types.h"
 #include "xe_platform_types.h"
@@ -99,45 +100,6 @@ enum xe_wedged_mode {
 	_Generic(tile__,								\
 		 const struct xe_tile * : (const struct xe_device *)((tile__)->xe),	\
 		 struct xe_tile * : (tile__)->xe)
-
-/**
- * struct xe_mmio - register mmio structure
- *
- * Represents an MMIO region that the CPU may use to access registers.  A
- * region may share its IO map with other regions (e.g., all GTs within a
- * tile share the same map with their parent tile, but represent different
- * subregions of the overall IO space).
- */
-struct xe_mmio {
-	/** @tile: Backpointer to tile, used for tracing */
-	struct xe_tile *tile;
-
-	/** @regs: Map used to access registers. */
-	void __iomem *regs;
-
-	/**
-	 * @sriov_vf_gt: Backpointer to GT.
-	 *
-	 * This pointer is only set for GT MMIO regions and only when running
-	 * as an SRIOV VF structure
-	 */
-	struct xe_gt *sriov_vf_gt;
-
-	/**
-	 * @regs_size: Length of the register region within the map.
-	 *
-	 * The size of the iomap set in *regs is generally larger than the
-	 * register mmio space since it includes unused regions and/or
-	 * non-register regions such as the GGTT PTEs.
-	 */
-	size_t regs_size;
-
-	/** @adj_limit: adjust MMIO address if address is below this value */
-	u32 adj_limit;
-
-	/** @adj_offset: offset to add to MMIO address when adjusting */
-	u32 adj_offset;
-};
 
 /**
  * struct xe_tile - hardware tile structure

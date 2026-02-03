@@ -6,7 +6,7 @@
 #ifndef _XE_MMIO_H_
 #define _XE_MMIO_H_
 
-#include "xe_gt_types.h"
+#include "xe_mmio_types.h"
 
 struct xe_device;
 struct xe_reg;
