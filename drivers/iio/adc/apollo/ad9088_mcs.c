@@ -307,3 +307,103 @@ int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u16 mcs_track_decimati
 
 	return 0;
 }
+
+/**
+ * ad9088_mcs_tracking_cal_validate - Validate MCS tracking calibration synchronicity
+ * @phy: AD9088 PHY structure
+ * @buf: Buffer to write validation results
+ * @buf_size: Size of the buffer
+ *
+ * Compares the ADF4382 bleed current values reported by Apollo's MCS tracking
+ * calibration with the actual hardware values read from ADF4382. This verifies
+ * that the tracking calibration is properly synchronized.
+ *
+ * Return: Number of bytes written to buf, or negative error code
+ */
+int ad9088_mcs_tracking_cal_validate(struct ad9088_phy *phy, char *buf, size_t buf_size)
+{
+	adi_apollo_mcs_cal_status_t tracking_cal_status = {{0}};
+	adi_apollo_device_t *device = &phy->ad9088;
+	struct device *dev = &phy->spi->dev;
+	long long hw_bleed_pol, hw_coarse_current, hw_fine_current;
+	u8 fw_bleed_pol, fw_coarse_current;
+	s16 fw_fine_current;
+	bool need_unfreeze = false;
+	int len = 0;
+	int ret;
+
+	if (!phy->iio_adf4382) {
+		len = scnprintf(buf, buf_size, "ADF4382 IIO channel not available\n");
+		return len;
+	}
+
+	if (!phy->mcs_cal_bg_tracking_run) {
+		len = scnprintf(buf, buf_size, "BG tracking not running\n");
+		return len;
+	}
+
+	/* Freeze tracking calibration to get consistent readings */
+	if (!phy->mcs_cal_bg_tracking_freeze) {
+		ret = adi_apollo_mcs_cal_bg_tracking_freeze(device);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_bg_tracking_freeze");
+		if (ret)
+			return ret;
+		need_unfreeze = true;
+	}
+
+	/* Get Apollo's tracking calibration status */
+	ret = adi_apollo_mcs_cal_tracking_status_get(device, &tracking_cal_status);
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_mcs_cal_tracking_status_get");
+	if (ret)
+		goto out_unfreeze;
+
+	/* Read ADF4382 hardware values via IIO ext_info */
+	ret = ad9088_iio_read_channel_ext_info(phy, phy->iio_adf4382, "bleed_pol", &hw_bleed_pol);
+	if (ret)
+		goto out_unfreeze;
+
+	ret = ad9088_iio_read_channel_ext_info(phy, phy->iio_adf4382, "coarse_current", &hw_coarse_current);
+	if (ret)
+		goto out_unfreeze;
+
+	ret = ad9088_iio_read_channel_ext_info(phy, phy->iio_adf4382, "fine_current", &hw_fine_current);
+	if (ret)
+		goto out_unfreeze;
+
+	/* Get firmware-reported values */
+	fw_bleed_pol = tracking_cal_status.mcs_tracking_cal_status.adf4382_specific_status[0].bleed_pol;
+	fw_coarse_current = tracking_cal_status.mcs_tracking_cal_status.adf4382_specific_status[0].current_coarse_value;
+	fw_fine_current = tracking_cal_status.mcs_tracking_cal_status.adf4382_specific_status[0].current_fine_value;
+
+	/* Compare and report results */
+	len = scnprintf(buf, buf_size,
+			"MCS Tracking Cal Validation:\n"
+			"  ADF4382 HW:  bleed_pol=%lld coarse=%lld fine=%lld\n"
+			"  Apollo FW:   bleed_pol=%u coarse=%u fine=%d\n"
+			"  Status:      %s\n",
+			hw_bleed_pol, hw_coarse_current, hw_fine_current,
+			fw_bleed_pol, fw_coarse_current, fw_fine_current,
+			(hw_bleed_pol == fw_bleed_pol &&
+			 hw_coarse_current == fw_coarse_current &&
+			 hw_fine_current == fw_fine_current) ? "SYNCHRONIZED" : "MISMATCH");
+
+	if (hw_bleed_pol != fw_bleed_pol)
+		dev_warn(dev, "MCS Tracking: bleed_pol mismatch HW=%lld FW=%u\n",
+			 hw_bleed_pol, fw_bleed_pol);
+
+	if (hw_coarse_current != fw_coarse_current)
+		dev_warn(dev, "MCS Tracking: coarse_current mismatch HW=%lld FW=%u\n",
+			 hw_coarse_current, fw_coarse_current);
+
+	if (hw_fine_current != fw_fine_current)
+		dev_warn(dev, "MCS Tracking: fine_current mismatch HW=%lld FW=%d\n",
+			 hw_fine_current, fw_fine_current);
+
+out_unfreeze:
+	if (need_unfreeze) {
+		int ret2 = adi_apollo_mcs_cal_bg_tracking_unfreeze(device);
+		ad9088_check_apollo_error(dev, ret2, "adi_apollo_mcs_cal_bg_tracking_unfreeze");
+	}
+
+	return ret < 0 ? ret : len;
+}

@@ -37,6 +37,7 @@ enum ad9088_debugfs_cmd {
 	DBGFS_MCS_BG_TRACK_CAL_FREEZE,
 	DBGFS_MCS_TRACK_STATUS,
 	DBGFS_MCS_INIT_CAL_STATUS,
+	DBGFS_MCS_TRACK_CAL_VALIDATE,
 };
 
 static const u8 lanes_all[] = {
@@ -379,6 +380,11 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			}
 			break;
 		}
+		case DBGFS_MCS_TRACK_CAL_VALIDATE:
+			ret = ad9088_mcs_tracking_cal_validate(phy, phy->dbuf, sizeof(phy->dbuf));
+			if (ret > 0)
+				len = ret;
+			break;
 		case DBGFS_MCS_INIT:
 		case DBGFS_MCS_DT_RESTORE:
 		case DBGFS_MCS_TRACK_CAL_SETUP:
@@ -789,6 +795,8 @@ int ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "mcs_track_status", DBGFS_MCS_TRACK_STATUS);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "mcs_init_cal_status", DBGFS_MCS_INIT_CAL_STATUS);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_track_cal_validate", DBGFS_MCS_TRACK_CAL_VALIDATE);
 
 	for (i = 0; i < phy->ad9088_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,

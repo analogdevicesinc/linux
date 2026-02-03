@@ -465,6 +465,9 @@
 enum {
 	ADF4382_FREQ,
 	ADF4382_EN_AUTO_ALIGN,
+	ADF4382_BLEED_POL,
+	ADF4382_COARSE_CURRENT,
+	ADF4382_FINE_CURRENT,
 };
 
 enum {
@@ -1444,6 +1447,35 @@ static ssize_t adf4382_read(struct iio_dev *indio_dev, uintptr_t private,
 			return ret;
 		return sysfs_emit(buf, "%lu\n",
 				  FIELD_GET(ADF4382_EN_AUTO_ALIGN_MSK, val));
+	case ADF4382_BLEED_POL:
+	case ADF4382_COARSE_CURRENT:
+	case ADF4382_FINE_CURRENT: {
+		u16 del_cnt = 0;
+		unsigned int tmp;
+
+		ret = regmap_read(st->regmap, 0x64, &tmp);
+		if (ret)
+			return ret;
+		del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_LSB_MSK, tmp);
+
+		ret = regmap_read(st->regmap, 0x65, &tmp);
+		if (ret)
+			return ret;
+		del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_MSB_MSK, tmp);
+
+		switch ((u32)private) {
+		case ADF4382_BLEED_POL:
+			val = FIELD_GET(ADF4382_DEL_CNT_BLEED_POL_MSK, del_cnt);
+			break;
+		case ADF4382_COARSE_CURRENT:
+			val = FIELD_GET(ADF4382_DEL_CNT_COARSE_MSK, del_cnt);
+			break;
+		case ADF4382_FINE_CURRENT:
+			val = FIELD_GET(ADF4382_DEL_CNT_FINE_MSK, del_cnt);
+			break;
+		}
+		return sysfs_emit(buf, "%u\n", val);
+	}
 	default:
 		return -EINVAL;
 	}
@@ -1465,6 +1497,9 @@ static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
 	 */
 	_ADF4382_EXT_INFO("frequency", IIO_SHARED_BY_TYPE, ADF4382_FREQ),
 	_ADF4382_EXT_INFO("en_auto_align", IIO_SHARED_BY_TYPE, ADF4382_EN_AUTO_ALIGN),
+	_ADF4382_EXT_INFO("bleed_pol", IIO_SHARED_BY_TYPE, ADF4382_BLEED_POL),
+	_ADF4382_EXT_INFO("coarse_current", IIO_SHARED_BY_TYPE, ADF4382_COARSE_CURRENT),
+	_ADF4382_EXT_INFO("fine_current", IIO_SHARED_BY_TYPE, ADF4382_FINE_CURRENT),
 	{ },
 };
 
