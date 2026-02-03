@@ -54,7 +54,7 @@ additionalProperties: false
 
 examples:
   - |
-    clk: clocks@0x3108d000 {
+    clocks@3108d000 {
       compatible = "adi,sc57x-clocks";
       reg = <0x3108d000 0x1000>,
             <0x3108e000 0x1000>,
@@ -66,7 +66,7 @@ examples:
     };
 
   - |
-    clk: clocks@0x3108d000 {
+    clocks@3108d000 {
       compatible = "adi,sc58x-clocks";
       reg = <0x3108d000 0x1000>,
             <0x3108e000 0x1000>,
@@ -78,7 +78,7 @@ examples:
     };
 
   - |
-    clk: clocks@0x3108d000 {
+    clocks@3108d000 {
       compatible = "adi,sc594-clocks";
       reg = <0x3108d000 0x1000>,
             <0x3108e000 0x1000>,
@@ -90,7 +90,7 @@ examples:
     };
 
   - |
-    clk: clocks@0x3108d000 {
+    clocks@3108d000 {
       compatible = "adi,sc598-clocks";
       reg = <0x3108d000 0x1000>,
             <0x3108e000 0x1000>,
