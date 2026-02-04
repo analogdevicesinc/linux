@@ -21,7 +21,7 @@ on:
       warn: # DEPRECATED
         value: ${{ jobs.checks.outputs.warn }}
       summary:
-        value: ${{ jobs.build.outputs.summary }}
+        value: ${{ jobs.checks.outputs.summary }}
 
 jobs:
   checks:
