@@ -456,16 +456,16 @@ struct xe_device *xe_device_create(struct pci_dev *pdev,
 			      xe->drm.anon_inode->i_mapping,
 			      xe->drm.vma_offset_manager, 0);
 	if (WARN_ON(err))
-		goto err;
+		return ERR_PTR(err);
 
 	xe_bo_dev_init(&xe->bo_device);
 	err = drmm_add_action_or_reset(&xe->drm, xe_device_destroy, NULL);
 	if (err)
-		goto err;
+		return ERR_PTR(err);
 
 	err = xe_shrinker_create(xe);
 	if (err)
-		goto err;
+		return ERR_PTR(err);
 
 	xe->info.devid = pdev->device;
 	xe->info.revid = pdev->revision;
@@ -475,7 +475,7 @@ struct xe_device *xe_device_create(struct pci_dev *pdev,
 
 	err = xe_irq_init(xe);
 	if (err)
-		goto err;
+		return ERR_PTR(err);
 
 	xe_validation_device_init(&xe->val);
 
@@ -485,7 +485,7 @@ struct xe_device *xe_device_create(struct pci_dev *pdev,
 
 	err = xe_pagemap_shrinker_create(xe);
 	if (err)
-		goto err;
+		return ERR_PTR(err);
 
 	xa_init_flags(&xe->usm.asid_to_vm, XA_FLAGS_ALLOC);
 
@@ -504,7 +504,7 @@ struct xe_device *xe_device_create(struct pci_dev *pdev,
 
 	err = xe_bo_pinned_init(xe);
 	if (err)
-		goto err;
+		return ERR_PTR(err);
 
 	xe->preempt_fence_wq = alloc_ordered_workqueue("xe-preempt-fence-wq",
 						       WQ_MEM_RECLAIM);
@@ -518,18 +518,14 @@ struct xe_device *xe_device_create(struct pci_dev *pdev,
 		 * drmm_add_action_or_reset register above
 		 */
 		drm_err(&xe->drm, "Failed to allocate xe workqueues\n");
-		err = -ENOMEM;
-		goto err;
+		return ERR_PTR(-ENOMEM);
 	}
 
 	err = drmm_mutex_init(&xe->drm, &xe->pmt.lock);
 	if (err)
-		goto err;
+		return ERR_PTR(err);
 
 	return xe;
-
-err:
-	return ERR_PTR(err);
 }
 ALLOW_ERROR_INJECTION(xe_device_create, ERRNO); /* See xe_pci_probe() */
 
