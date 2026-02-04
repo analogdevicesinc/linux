@@ -13,6 +13,7 @@
 #include "xe_gt_printk.h"
 #include "xe_guc.h"
 #include "xe_guc_ct.h"
+#include "xe_guc_pc.h"
 #include "xe_guc_rc.h"
 #include "xe_pm.h"
 
@@ -127,4 +128,33 @@ int xe_guc_rc_enable(struct xe_guc *guc)
 	}
 
 	return guc_action_setup_gucrc(guc, GUCRC_FIRMWARE_CONTROL);
+}
+
+/**
+ * xe_guc_rc_set_mode() - set new GUCRC mode
+ * @guc: Xe GuC instance
+ * @mode: new value of the mode.
+ *
+ * Function to set GuC RC mode to one of the enum values.
+ *
+ * Returns: 0 on success, negative error code on error
+ */
+int xe_guc_rc_set_mode(struct xe_guc *guc, enum slpc_gucrc_mode mode)
+{
+	guard(xe_pm_runtime_noresume)(guc_to_xe(guc));
+	return xe_guc_pc_action_set_param(&guc->pc, SLPC_PARAM_PWRGATE_RC_MODE, mode);
+}
+
+/**
+ * xe_guc_rc_unset_mode() - revert to default mode
+ * @guc: Xe GuC instance
+ *
+ * Function to revert GuC RC mode to platform defaults.
+ *
+ * Returns: 0 on success, negative error code on error
+ */
+int xe_guc_rc_unset_mode(struct xe_guc *guc)
+{
+	guard(xe_pm_runtime_noresume)(guc_to_xe(guc));
+	return xe_guc_pc_action_unset_param(&guc->pc, SLPC_PARAM_PWRGATE_RC_MODE);
 }
