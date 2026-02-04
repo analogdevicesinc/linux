@@ -1435,7 +1435,9 @@ free_edac_mc:
 static void mc_remove(struct platform_device *pdev)
 {
 	struct mem_ctl_info *mci = platform_get_drvdata(pdev);
+#ifdef CONFIG_EDAC_DEBUG
 	struct adrv906x_edac_priv *priv = mci->pvt_info;
+#endif
 
 #ifdef CONFIG_EDAC_DEBUG
 	if (priv->p_data->quirks & DDR_ECC_DATA_POISON_SUPPORT)
