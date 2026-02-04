@@ -61,6 +61,7 @@ config DWMAC_ADI
 	tristate "ADI DWMAC support"
 	default ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
 	depends on OF && (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST)
+	select ADI_SYSTEM_CONFIG
 	help
 	  Support for ethernet controller on SC5XX SOCs.
 
