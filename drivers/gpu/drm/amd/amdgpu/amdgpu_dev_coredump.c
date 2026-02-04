@@ -214,7 +214,9 @@ amdgpu_devcoredump_format(char *buffer, size_t count, struct amdgpu_coredump_inf
 	struct drm_print_iterator iter;
 	struct amdgpu_vm_fault_info *fault_info;
 	struct amdgpu_ip_block *ip_block;
-	int ver;
+	struct amdgpu_ring *ring;
+	int ver, i, j;
+	u32 ring_idx, off;
 
 	iter.data = buffer;
 	iter.offset = 0;
@@ -303,23 +305,25 @@ amdgpu_devcoredump_format(char *buffer, size_t count, struct amdgpu_coredump_inf
 
 	/* Add ring buffer information */
 	drm_printf(&p, "Ring buffer information\n");
-	for (int i = 0; i < coredump->adev->num_rings; i++) {
-		int j = 0;
-		struct amdgpu_ring *ring = coredump->adev->rings[i];
+	if (coredump->num_rings) {
+		for (i = 0; i < coredump->num_rings; i++) {
+			ring_idx = coredump->rings[i].ring_index;
+			ring = coredump->adev->rings[ring_idx];
+			off = coredump->rings[i].offset;
 
-		drm_printf(&p, "ring name: %s\n", ring->name);
-		drm_printf(&p, "Rptr: 0x%llx Wptr: 0x%llx RB mask: %x\n",
-			   amdgpu_ring_get_rptr(ring),
-			   amdgpu_ring_get_wptr(ring),
-			   ring->buf_mask);
-		drm_printf(&p, "Ring size in dwords: %d\n",
-			   ring->ring_size / 4);
-		drm_printf(&p, "Ring contents\n");
-		drm_printf(&p, "Offset \t Value\n");
+			drm_printf(&p, "ring name: %s\n", ring->name);
+			drm_printf(&p, "Rptr: 0x%llx Wptr: 0x%llx RB mask: %x\n",
+				   coredump->rings[i].rptr,
+				   coredump->rings[i].wptr,
+				   ring->buf_mask);
+			drm_printf(&p, "Ring size in dwords: %d\n",
+				ring->ring_size / 4);
+			drm_printf(&p, "Ring contents\n");
+			drm_printf(&p, "Offset \t Value\n");
 
-		while (j < ring->ring_size) {
-			drm_printf(&p, "0x%x \t 0x%x\n", j, ring->ring[j / 4]);
-			j += 4;
+			for (j = 0; j < ring->ring_size; j += 4)
+				drm_printf(&p, "0x%x \t 0x%x\n", j,
+					   coredump->rings_dw[off + j / 4]);
 		}
 	}
 
@@ -359,6 +363,8 @@ static void amdgpu_devcoredump_free(void *data)
 	struct amdgpu_coredump_info *coredump = data;
 
 	kvfree(coredump->formatted);
+	kvfree(coredump->rings);
+	kvfree(coredump->rings_dw);
 	kvfree(data);
 }
 
@@ -396,6 +402,9 @@ void amdgpu_coredump(struct amdgpu_device *adev, bool skip_vram_check,
 	struct drm_device *dev = adev_to_drm(adev);
 	struct amdgpu_coredump_info *coredump;
 	struct drm_sched_job *s_job;
+	u64 total_ring_size, ring_count;
+	struct amdgpu_ring *ring;
+	int i, off, idx;
 
 	/* No need to generate a new coredump if there's one in progress already. */
 	if (work_pending(&adev->coredump_work))
@@ -421,6 +430,47 @@ void amdgpu_coredump(struct amdgpu_device *adev, bool skip_vram_check,
 	if (job) {
 		s_job = &job->base;
 		coredump->ring = to_amdgpu_ring(s_job->sched);
+	}
+
+	/* Dump ring content if memory allocation succeeds. */
+	ring_count = 0;
+	total_ring_size = 0;
+	for (i = 0; i < adev->num_rings; i++) {
+		ring = adev->rings[i];
+
+		/* Only dump rings with unsignalled fences. */
+		if (atomic_read(&ring->fence_drv.last_seq) == ring->fence_drv.sync_seq &&
+		    coredump->ring != ring)
+			continue;
+
+		total_ring_size += ring->ring_size;
+		ring_count++;
+	}
+	coredump->rings_dw = kzalloc(total_ring_size, GFP_NOWAIT);
+	coredump->rings = kcalloc(ring_count, sizeof(struct amdgpu_coredump_ring), GFP_NOWAIT);
+	if (coredump->rings && coredump->rings_dw) {
+		for (i = 0, off = 0, idx = 0; i < adev->num_rings; i++) {
+			ring = adev->rings[i];
+
+			if (atomic_read(&ring->fence_drv.last_seq) == ring->fence_drv.sync_seq &&
+			    coredump->ring != ring)
+				continue;
+
+			coredump->rings[idx].ring_index = ring->idx;
+			coredump->rings[idx].rptr = amdgpu_ring_get_rptr(ring);
+			coredump->rings[idx].wptr = amdgpu_ring_get_wptr(ring);
+			coredump->rings[idx].offset = off;
+
+			memcpy(&coredump->rings_dw[off], ring->ring, ring->ring_size);
+			off += ring->ring_size;
+			idx++;
+		}
+		coredump->num_rings = idx;
+	} else {
+		kvfree(coredump->rings_dw);
+		kvfree(coredump->rings);
+		coredump->rings_dw = NULL;
+		coredump->rings = NULL;
 	}
 
 	coredump->adev = adev;
