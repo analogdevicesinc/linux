@@ -254,6 +254,11 @@ int xe_gt_idle_pg_print(struct xe_gt *gt, struct drm_printer *p)
 		drm_printf(p, "Media Samplers Power Gating Enabled: %s\n",
 			   str_yes_no(pg_enabled & MEDIA_SAMPLERS_POWERGATE_ENABLE));
 
+	if (gt->info.engine_mask & BIT(XE_HW_ENGINE_GSCCS0)) {
+		drm_printf(p, "GSC Power Gate Status: %s\n",
+			   str_up_down(pg_status & GSC_AWAKE_STATUS));
+	}
+
 	return 0;
 }
 
