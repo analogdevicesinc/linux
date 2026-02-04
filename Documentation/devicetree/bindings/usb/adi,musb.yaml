@@ -25,10 +25,12 @@ properties:
     maxItems: 1
 
   interrupts:
-    maxItems: 1
+    maxItems: 2
 
   interrupt-names:
-    maxItems: 1
+    items:
+      - const: mc
+      - const: dma
 
   spu_securep_id:
     $ref: /schemas/types.yaml#/definitions/uint32
