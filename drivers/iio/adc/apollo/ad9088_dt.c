@@ -284,6 +284,21 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 
 	}
 
+	/* ADF4382 clock align GPIO configuration - set defaults */
+	p->mcs_cfg.adf4382_cfg.clock_align_delay_adjust_gpio[0] = 16;
+	p->mcs_cfg.adf4382_cfg.clock_align_delay_adjust_gpio[1] = 0;
+	p->mcs_cfg.adf4382_cfg.clock_align_delay_strobe_gpio[0] = 15;
+	p->mcs_cfg.adf4382_cfg.clock_align_delay_strobe_gpio[1] = 0;
+
+	/* Allow device tree to override */
+	of_property_read_variable_u8_array(node, "adi,clock-align-delay-adjust-gpio-num",
+					   p->mcs_cfg.adf4382_cfg.clock_align_delay_adjust_gpio,
+					   1, ADI_APOLLO_NUM_ADF4382_GPIOS);
+
+	of_property_read_variable_u8_array(node, "adi,clock-align-delay-strobe-gpio-num",
+					   p->mcs_cfg.adf4382_cfg.clock_align_delay_strobe_gpio,
+					   1, ADI_APOLLO_NUM_ADF4382_GPIOS);
+
 	dev_dbg(dev, "Profile CRC32 %u\n", phy->profile.profile_checksum);
 	phy->profile.profile_checksum = crc32_be(0, (unsigned char const *)p, sizeof(*p) - sizeof(u32));
 	dev_dbg(dev, "Profile CRC32 %u\n", phy->profile.profile_checksum);

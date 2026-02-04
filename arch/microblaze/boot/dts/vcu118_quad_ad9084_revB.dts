@@ -1104,6 +1104,9 @@
 		adi,jtx-ser-pre-emphasis = <2>;
 		adi,jtx-ser-post-emphasis = <1>;
 
+		adi,clock-align-delay-adjust-gpio-num = /bits/ 8 <29 0>;
+		adi,clock-align-delay-strobe-gpio-num = /bits/ 8 <30 0>;
+
 		/* Clocks */
 		clocks = <&adf4382_0 0>;
 		clock-names = "dev_clk";
@@ -1176,6 +1179,9 @@
 		adi,jtx-ser-pre-emphasis = <2>;
 		adi,jtx-ser-post-emphasis = <1>;
 
+		adi,clock-align-delay-adjust-gpio-num = /bits/ 8 <29 0>;
+		adi,clock-align-delay-strobe-gpio-num = /bits/ 8 <30 0>;
+
 		/* Clocks */
 		clocks = <&adf4382_1 0>;
 		clock-names = "dev_clk";
@@ -1235,6 +1241,9 @@
 		adi,jtx-ser-amplitude = <0>;
 		adi,jtx-ser-pre-emphasis = <2>;
 		adi,jtx-ser-post-emphasis = <1>;
+
+		adi,clock-align-delay-adjust-gpio-num = /bits/ 8 <29 0>;
+		adi,clock-align-delay-strobe-gpio-num = /bits/ 8 <30 0>;
 
 		/* Clocks */
 		clocks = <&adf4382_2 0>;
@@ -1296,6 +1305,8 @@
 		adi,jtx-ser-pre-emphasis = <2>;
 		adi,jtx-ser-post-emphasis = <1>;
 
+		adi,clock-align-delay-adjust-gpio-num = /bits/ 8 <29 0>;
+		adi,clock-align-delay-strobe-gpio-num = /bits/ 8 <30 0>;
 
 		/* Clocks */
 		clocks = <&adf4382_3 0>;
