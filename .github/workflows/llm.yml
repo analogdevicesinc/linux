@@ -1,0 +1,257 @@
+name: LLM Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      base-sha:
+        required: false
+        type: string
+      head-sha:
+        required: false
+        type: string
+      run-id:
+        required: false
+        type: string
+      prompt:
+        required: false
+        type: string
+        default: ""
+      prompt-repository:
+        required: false
+        type: string
+        default: ""
+      model-small:
+        required: false
+        type: string
+        default: "@vertexai-global/anthropic.claude-haiku-4-5@20251001"
+      model-medium:
+        required: false
+        type: string
+        default: "@vertexai-global/anthropic.claude-sonnet-4-5@20250929"
+      model-large:
+        required: false
+        type: string
+        default: "@vertexai-global/anthropic.claude-opus-4-5@20251101"
+  workflow_call:
+    inputs:
+      base-sha:
+        required: false
+        type: string
+      head-sha:
+        required: false
+        type: string
+      run-id:
+        required: false
+        type: string
+      prompt:
+        required: false
+        type: string
+        default: ""
+      prompt-repository:
+        required: false
+        type: string
+        default: ""
+      model-small:
+        required: false
+        type: string
+        default: "@vertexai-global/anthropic.claude-haiku-4-5@20251001"
+      model-medium:
+        required: false
+        type: string
+        default: "@vertexai-global/anthropic.claude-sonnet-4-5@20250929"
+      model-large:
+        required: false
+        type: string
+        default: "@vertexai-global/anthropic.claude-opus-4-5@20251101"
+    secrets:
+      ANTHROPIC_CUSTOM_HEADERS:
+        required: false
+      ANTHROPIC_BASE_URL:
+        required: false
+      ANTHROPIC_AUTH_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  llm:
+    runs-on: [self-hosted, repo-only, v4]
+    permissions:
+      contents: read
+      checks: read
+
+    steps:
+    - name: Check if should run
+      env:
+        ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+      if: ${{ env.ANTHROPIC_AUTH_TOKEN != '' && env.ANTHROPIC_AUTH_TOKEN != ' ' }}
+      run: |
+        echo "LLM_AGENT_RUN=true" >> "$GITHUB_ENV"
+
+    - uses: analogdevicesinc/doctools/checkout@action
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      with:
+        base-sha: ${{ inputs.base-sha }}
+        head-sha: ${{ inputs.head-sha }}
+
+    - name: Get sources
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      run: |
+        ref="refs/heads/ci"
+        org_repo="${{ github.repository }}"
+        get_file () {
+          echo https://raw.githubusercontent.com/$org_repo/$ref/$1
+          curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
+              https://raw.githubusercontent.com/$org_repo/$ref/$1
+        }
+
+        mkdir -p ci
+        get_file ci/build.sh
+        get_file ci/symbols_depend.py
+        get_file ci/touched_kconfig.awk
+        get_file ci/extract_register_map.py
+
+    - uses: analogdevicesinc/doctools/gh-collect-annotations@action
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      with:
+        head-sha: ${{ github.event_name == 'workflow_dispatch' && inputs.head-sha || env.head_sha }}
+        run-id: ${{ github.event_name == 'workflow_dispatch' && inputs.run-id || github.run_id }}
+        repository: ${{ github.repository }}
+
+    - name: Get claude
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      run: |
+        export PATH="$HOME/.local/bin:$PATH"
+        command -v claude || curl -fsSL https://claude.ai/install.sh | bash -s 2.1.22
+
+    - name: Prepare prompt sources
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      run: |
+        prompt_file=$(mktemp --suffix=.md)
+        echo "prompt_file=$prompt_file" >> "$GITHUB_ENV"
+        summary_file=$(mktemp --suffix=.md)
+        echo "summary_file=$summary_file" >> "$GITHUB_ENV"
+        patches_path=$(mktemp -d)
+        echo "patches_path=$patches_path" >> "$GITHUB_ENV"
+
+    - name: Prepare prompt repository
+      if: ${{ env.LLM_AGENT_RUN == 'true' && inputs.prompt-repository != '' }}
+      run: |
+        git clone ${{ inputs.prompt-repository }} prompts-repository
+        script="$(find ./prompts-repository -name "claude-setup.sh" -type f | grep -v systemd | head -n 1)"
+        [[ -x "$script" ]] && "$script"
+
+    - name: Prepare tools
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      run: |
+        export PATH="$HOME/.local/bin:$PATH"
+        source ci/build.sh
+        venv_path=$(mktemp -d)
+        python3 -m venv $venv_path
+        source $venv_path/bin/activate
+        python3 -m ensurepip --upgrade
+
+        pip install adi-doctools[mcp] camelot-py
+        claude mcp add adoc $(which adoc-mcp)
+
+        echo "venv_path=$venv_path" >> "$GITHUB_ENV"
+
+    - name: Prepare tools
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      run: |
+        export PATH="$HOME/.local/bin:$PATH"
+        source ci/build.sh
+        venv_path=$(mktemp -d)
+        python3 -m venv $venv_path
+        source $venv_path/bin/activate
+        python3 -m ensurepip --upgrade
+
+        pip install adi-doctools[mcp]
+        claude mcp add adoc $(which adoc-mcp)
+
+        echo "venv_path=$venv_path" >> "$GITHUB_ENV"
+
+    - name: Prepare top prompt
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      run: |
+        # Prepare top prompt
+        echo -n "${{ inputs.prompt }}" > $prompt_file
+        [[ -s "$prompt_file" ]] || echo -n "
+          Run a deep Linux Kernel analysis on the commit range $base_sha..$head_sha.
+          You **must** read $annotations_file for the CI/CD notes, warnings, and errors.
+          You **must** write your final review in markdown at $summary_file as a GitHub Summary.
+          You shall suggest fixup commits (**must** use \`--fixup\`) to resolve issues,
+          if so, you **must** use \`git format-patch -o $patches_path\` to store the patches to
+          the $patches_path directory (**never** autosquash).
+          You are allowed to use tools and write. Your review should be based on the current
+          Kernel documentation at ./Documentation/ . Never says things you are unsure.
+          You have access to multi-architecture compilers and \`./ci/build.sh\`
+          contain multiple methods that run during the CI/CD that you can use to
+          replicate the CI/CD steps, for example, to compile for 'arm' a minimal
+          defconfig, do \`make mrproper ; set_arch gcc_arm ; auto_set_kconfig ; make \`.
+          In special, \`set_arch arm\` sets 'CXX=gcc-13 ARCH=arm CROSS_COMPILE=arm-linux-'.
+          You shall install pip packages to help you review, test and debug;
+          a venv is already active.
+          Do **not** review commits starting with "[TMP]", "[ADI]", ".github:" or "ci:",
+          they are not part of the series but to change the CI/CD or temporally change behaviour.
+          You **must** check the appropriate datasheets for devices drivers, always convert pdfs
+          before reading it, in particular, camelot-py is great to get the register map.
+          \`python3 -m  ci.extract_register_map ./datasheet.pdf\` extract register maps from datasheets,
+          should work on most cases, modify if needed.
+        " | sed ':a;N;$!ba;s/\n/ /g;s/  */ /g' > $prompt_file
+        cat $prompt_file
+
+    - name: Run claude
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      env:
+        ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
+        ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+        ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+        ANTHROPIC_MODEL: ${{ inputs.model-medium }}
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ inputs.model-small }}
+        ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ inputs.model-medium }}
+        ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ inputs.model-large }}
+      run: |
+        export PATH="$HOME/.local/bin:$PATH"
+        source $venv_path/bin/activate
+        source ci/build.sh
+
+        timeout 60m adoc llm "$prompt_file" || true
+
+    - name: Collect results
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      run: |
+        [[ -s "$summary_file" ]] && cat "$summary_file" >> $GITHUB_STEP_SUMMARY || true
+
+    - name: Store suggested patches
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      id: upload_patches
+      uses: actions/upload-artifact@v4
+      with:
+        name: llm-patches
+        path: ${{ env.patches_path }}
+        if-no-files-found: ignore
+
+    - name: Get artifact url of suggested patches
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      run: |
+        [[ -z "$(ls -A "$patches_path")" ]] && exit 0
+
+        # Requires upload-artifact@v4
+        url="${{ steps.upload_patches.outputs.artifact-url }}"
+        echo "## Suggested patches" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Suggested patches are provided at the [llm-patches]($url) artifact." >> $GITHUB_STEP_SUMMARY
+
+    - name: Clean-up
+      if: ${{ env.LLM_AGENT_RUN == 'true' && always() }}
+      run: |
+        rm -rf "$HOME/.claude"
+        rm -f $HOME/.claude.json
+        rm -f $HOME/.claude.*
+        [[ -d "./prompts-repository" ]] && rm -r ./prompts-repository
+        rm -f "$annotations_file" "$summary_file" "$prompt_file"
+        rm -rf "$patches_path"
+        rm -rf "$venv_path"
