@@ -9,6 +9,7 @@ config COMMON_CLK_ADI_SC57X
 
 config COMMON_CLK_ADI_SC58X
 	bool "ADI SC589 clock driver"
+	depends on ARCH_SC5XX || COMPILE_TEST
 	help
 	  This enables the ADI SC589 clock driver. The driver provides
 	  support for the clock controller on the ADI SC589 SoC.
