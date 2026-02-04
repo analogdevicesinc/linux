@@ -56,15 +56,6 @@ int dw_mci_pltfm_register(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(dw_mci_pltfm_register);
 
-const struct dev_pm_ops dw_mci_pltfm_pmops = {
-	SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
-	RUNTIME_PM_OPS(dw_mci_runtime_suspend,
-			   dw_mci_runtime_resume,
-			   NULL)
-};
-EXPORT_SYMBOL_GPL(dw_mci_pltfm_pmops);
-
 static int dw_mci_socfpga_priv_init(struct dw_mci *host)
 {
 	struct device_node *np = host->dev->of_node;

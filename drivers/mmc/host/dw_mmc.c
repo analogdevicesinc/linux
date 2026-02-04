@@ -3523,6 +3523,12 @@ err:
 }
 EXPORT_SYMBOL(dw_mci_runtime_resume);
 
+const struct dev_pm_ops dw_mci_pltfm_pmops = {
+	SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
+	RUNTIME_PM_OPS(dw_mci_runtime_suspend, dw_mci_runtime_resume, NULL)
+};
+EXPORT_SYMBOL_GPL(dw_mci_pltfm_pmops);
+
 static int __init dw_mci_init(void)
 {
 	pr_info("Synopsys Designware Multimedia Card Interface Driver\n");
