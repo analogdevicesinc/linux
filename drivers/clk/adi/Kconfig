@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config COMMON_CLK_ADI_SC57X
 	bool "ADI SC573 clock driver"
+	depends on ARCH_SC5XX || COMPILE_TEST
 	help
 	  This enables the ADI SC573-ezlite clock driver. The driver provides
 	  support for the clock controller on the ADI SC573-ezlite SoC.
