@@ -1461,34 +1461,27 @@ static int sca3000_probe(struct spi_device *spi)
 		return ret;
 
 	if (spi->irq) {
-		ret = request_threaded_irq(spi->irq,
-					   NULL,
-					   &sca3000_event_handler,
-					   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-					   "sca3000",
-					   indio_dev);
+		ret = devm_request_threaded_irq(dev, spi->irq, NULL,
+						&sca3000_event_handler,
+						IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+						"sca3000",
+						indio_dev);
 		if (ret)
 			return ret;
 	}
 	ret = sca3000_clean_setup(st);
 	if (ret)
-		goto error_free_irq;
+		return ret;
 
 	ret = sca3000_print_rev(indio_dev);
 	if (ret)
-		goto error_free_irq;
+		return ret;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto error_free_irq;
+		return ret;
 
 	return 0;
-
-error_free_irq:
-	if (spi->irq)
-		free_irq(spi->irq, indio_dev);
-
-	return ret;
 }
 
 static int sca3000_stop_all_interrupts(struct sca3000_state *st)
@@ -1518,8 +1511,6 @@ static void sca3000_remove(struct spi_device *spi)
 
 	/* Must ensure no interrupts can be generated after this! */
 	sca3000_stop_all_interrupts(st);
-	if (spi->irq)
-		free_irq(spi->irq, indio_dev);
 }
 
 static const struct spi_device_id sca3000_id[] = {
