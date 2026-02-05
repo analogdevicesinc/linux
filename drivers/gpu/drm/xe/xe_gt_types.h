@@ -144,6 +144,16 @@ struct xe_gt {
 		u8 id;
 		/** @info.has_indirect_ring_state: GT has indirect ring state support */
 		u8 has_indirect_ring_state:1;
+		/**
+		 * @info.num_geometry_xecore_fuse_regs: Number of 32b-bit fuse
+		 * registers the geometry XeCore mask spans.
+		 */
+		u8 num_geometry_xecore_fuse_regs;
+		/**
+		 * @info.num_compute_xecore_fuse_regs: Number of 32b-bit fuse
+		 * registers the compute XeCore mask spans.
+		 */
+		u8 num_compute_xecore_fuse_regs;
 	} info;
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)

@@ -66,6 +66,8 @@ struct xe_device_desc {
 struct xe_graphics_desc {
 	u64 hw_engine_mask;	/* hardware engines provided by graphics IP */
 	u16 multi_queue_engine_class_mask; /* bitmask of engine classes which support multi queue */
+	u8 num_geometry_xecore_fuse_regs;
+	u8 num_compute_xecore_fuse_regs;
 
 	u8 has_asid:1;
 	u8 has_atomic_enable_pte_bit:1;

@@ -52,6 +52,7 @@ __diag_ignore_all("-Woverride-init", "Allow field overrides in table");
 
 static const struct xe_graphics_desc graphics_xelp = {
 	.hw_engine_mask = BIT(XE_HW_ENGINE_RCS0) | BIT(XE_HW_ENGINE_BCS0),
+	.num_geometry_xecore_fuse_regs = 1,
 };
 
 #define XE_HP_FEATURES \
@@ -62,6 +63,8 @@ static const struct xe_graphics_desc graphics_xehpg = {
 		BIT(XE_HW_ENGINE_RCS0) | BIT(XE_HW_ENGINE_BCS0) |
 		BIT(XE_HW_ENGINE_CCS0) | BIT(XE_HW_ENGINE_CCS1) |
 		BIT(XE_HW_ENGINE_CCS2) | BIT(XE_HW_ENGINE_CCS3),
+	.num_geometry_xecore_fuse_regs = 1,
+	.num_compute_xecore_fuse_regs = 1,
 
 	XE_HP_FEATURES,
 };
@@ -81,12 +84,15 @@ static const struct xe_graphics_desc graphics_xehpc = {
 	.has_asid = 1,
 	.has_atomic_enable_pte_bit = 1,
 	.has_usm = 1,
+	.num_compute_xecore_fuse_regs = 2,
 };
 
 static const struct xe_graphics_desc graphics_xelpg = {
 	.hw_engine_mask =
 		BIT(XE_HW_ENGINE_RCS0) | BIT(XE_HW_ENGINE_BCS0) |
 		BIT(XE_HW_ENGINE_CCS0),
+	.num_geometry_xecore_fuse_regs = 1,
+	.num_compute_xecore_fuse_regs = 1,
 
 	XE_HP_FEATURES,
 };
@@ -104,6 +110,8 @@ static const struct xe_graphics_desc graphics_xelpg = {
 
 static const struct xe_graphics_desc graphics_xe2 = {
 	XE2_GFX_FEATURES,
+	.num_geometry_xecore_fuse_regs = 3,
+	.num_compute_xecore_fuse_regs = 3,
 };
 
 static const struct xe_graphics_desc graphics_xe3p_xpc = {
@@ -114,6 +122,8 @@ static const struct xe_graphics_desc graphics_xe3p_xpc = {
 		GENMASK(XE_HW_ENGINE_CCS3, XE_HW_ENGINE_CCS0),
 	.multi_queue_engine_class_mask = BIT(XE_ENGINE_CLASS_COPY) |
 					 BIT(XE_ENGINE_CLASS_COMPUTE),
+	.num_geometry_xecore_fuse_regs = 3,
+	.num_compute_xecore_fuse_regs = 3,
 };
 
 static const struct xe_media_desc media_xem = {
@@ -782,6 +792,8 @@ static struct xe_gt *alloc_primary_gt(struct xe_tile *tile,
 	gt->info.has_indirect_ring_state = graphics_desc->has_indirect_ring_state;
 	gt->info.multi_queue_engine_class_mask = graphics_desc->multi_queue_engine_class_mask;
 	gt->info.engine_mask = graphics_desc->hw_engine_mask;
+	gt->info.num_geometry_xecore_fuse_regs = graphics_desc->num_geometry_xecore_fuse_regs;
+	gt->info.num_compute_xecore_fuse_regs = graphics_desc->num_compute_xecore_fuse_regs;
 
 	/*
 	 * Before media version 13, the media IP was part of the primary GT
