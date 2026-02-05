@@ -1427,7 +1427,7 @@ static const struct iio_info sca3000_info = {
 	.write_event_config = &sca3000_write_event_config,
 };
 
-static int sca3000_stop_all_interrupts(struct sca3000_state *st)
+static void sca3000_stop_all_interrupts(struct sca3000_state *st)
 {
 	int ret;
 
@@ -1435,14 +1435,13 @@ static int sca3000_stop_all_interrupts(struct sca3000_state *st)
 	ret = sca3000_read_data_short(st, SCA3000_REG_INT_MASK_ADDR, 1);
 	if (ret)
 		goto error_ret;
-	ret = sca3000_write_reg(st, SCA3000_REG_INT_MASK_ADDR,
-				(st->rx[0] &
-				 ~(SCA3000_REG_INT_MASK_RING_THREE_QUARTER |
-				   SCA3000_REG_INT_MASK_RING_HALF |
-				   SCA3000_REG_INT_MASK_ALL_INTS)));
+	sca3000_write_reg(st, SCA3000_REG_INT_MASK_ADDR,
+			  (st->rx[0] &
+			   ~(SCA3000_REG_INT_MASK_RING_THREE_QUARTER |
+			     SCA3000_REG_INT_MASK_RING_HALF |
+			     SCA3000_REG_INT_MASK_ALL_INTS)));
 error_ret:
 	mutex_unlock(&st->lock);
-	return ret;
 }
 
 static int sca3000_probe(struct spi_device *spi)
