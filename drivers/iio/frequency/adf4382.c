@@ -877,7 +877,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	u16 n_int;
 	u8 div1;
 	u64 tmp;
-	u64 vco;
+	u64 vco = 0;
 	int ret;
 	u8 var;
 
