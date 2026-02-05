@@ -61,9 +61,9 @@
 #include "adi-fmcomms4.dtsi"
 
 &adc0_ad9364 {
-	en_agc-gpios = <&axi_gpio 12 8>;
-	sync-gpios = <&axi_gpio 13 8>;
-	reset-gpios = <&axi_gpio 14 8>;
-	enable-gpios = <&axi_gpio 15 8>;
-	txnrx-gpios = <&axi_gpio 16 8>;
+	en_agc-gpios = <&axi_gpio 44 8>;
+	sync-gpios = <&axi_gpio 45 8>;
+	reset-gpios = <&axi_gpio 46 8>;
+	enable-gpios = <&axi_gpio 47 8>;
+	txnrx-gpios = <&axi_gpio 48 8>;
 };
