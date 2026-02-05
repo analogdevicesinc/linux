@@ -950,8 +950,16 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
+	ret = regmap_update_bits(st->regmap, 0x30, ADF4382_MUTE_NCLK_MSK, 0xff);
+	if (ret)
+		return ret;
+
 	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
 				 FIELD_PREP(ADF4382_INT_MODE_MSK, int_mode));
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x30, ADF4382_MUTE_NCLK_MSK, 0);
 	if (ret)
 		return ret;
 
