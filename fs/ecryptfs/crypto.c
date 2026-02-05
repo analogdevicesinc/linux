@@ -1376,9 +1376,9 @@ ecryptfs_encrypt_filename(struct ecryptfs_filename *filename,
 			mount_crypt_stat, NULL,
 			filename->filename_size);
 		if (rc) {
-			printk(KERN_ERR "%s: Error attempting to get packet "
-			       "size for tag 72; rc = [%d]\n", __func__,
-			       rc);
+			ecryptfs_printk(KERN_ERR,
+				"Error attempting to get packet size for tag 70; rc = [%d]\n",
+				rc);
 			filename->encrypted_filename_size = 0;
 			goto out;
 		}
