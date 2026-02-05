@@ -792,7 +792,7 @@ static int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
 				 u32 *mod2_word)
 {
 	u32 channel_spacing;
-	u8 en_phase_resync;
+	int en_phase_resync;
 	u32 chsp_freq;
 	u32 mod2_tmp;
 	u32 mod2_max;
