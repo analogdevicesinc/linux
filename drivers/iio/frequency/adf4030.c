@@ -664,7 +664,10 @@ static int adf4030_core_die_temp_get(struct adf4030_state *st, int *die_temp)
 	if (ret)
 		return ret;
 
-	*die_temp = sign_extend32((st->vals[1] << 8) | st->vals[0], 8);
+	/* Temperature is sign-magnitude: 0x92 = magnitude, 0x93 bit 0 = sign */
+	*die_temp = st->vals[0];
+	if (st->vals[1] & BIT(0))
+		*die_temp = -*die_temp;
 
 	return 0;
 }
