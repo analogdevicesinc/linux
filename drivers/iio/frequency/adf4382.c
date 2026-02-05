@@ -873,7 +873,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	u8 dclk_div1;
 	u8 int_mode;
 	u8 en_bleed;
-	u8 ldwin_pw;
+	u8 ldwin_pw = 0;
 	u16 n_int;
 	u8 div1;
 	u64 tmp;
