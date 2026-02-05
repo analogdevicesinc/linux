@@ -99,6 +99,7 @@
 #define ADF4030_EN_ADC_MSK		BIT(0)
 #define ADF4030_EN_ADC_CLK_MSK		BIT(1)
 #define ADF4030_EN_ADC_CNV_MSK		BIT(2)
+#define ADF4030_RST_TDC_ERR_MSK	BIT(7)
 
 /* REG 0x72 */
 #define ADF4030_START_CNV	BIT(0)
@@ -395,6 +396,17 @@ static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
 
 	ret = regmap_set_bits(st->regmap, ADF4030_REG(0x11),
 			      ADF4030_MANUAL_MODE_MSK);
+	if (ret)
+		return ret;
+
+	/* Reset TDC error monitor before starting measurement */
+	ret = regmap_set_bits(st->regmap, ADF4030_REG(0x61),
+			      ADF4030_RST_TDC_ERR_MSK);
+	if (ret)
+		return ret;
+
+	ret = regmap_clear_bits(st->regmap, ADF4030_REG(0x61),
+				ADF4030_RST_TDC_ERR_MSK);
 	if (ret)
 		return ret;
 
