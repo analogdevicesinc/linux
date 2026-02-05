@@ -420,43 +420,41 @@ static struct aca_block *ras_aca_get_block_handle(struct ras_core_context *ras_c
 	return &ras_core->ras_aca.aca_blk[blk];
 }
 
-static int ras_aca_clear_block_ecc_count(struct ras_core_context *ras_core, u32 blk)
+static void __clear_block_socket_ecc_count(struct ras_core_context *ras_core,
+			enum ras_block_id blk, struct aca_socket_ecc *socket)
+{
+	struct aca_aid_ecc  *aid_ecc;
+	int aid, xcd;
+
+	for (aid = 0; aid < socket->aid_num; aid++) {
+		aid_ecc = &socket->aid[aid];
+		memset(&aid_ecc->ecc_err, 0, sizeof(aid_ecc->ecc_err));
+		if (blk == RAS_BLOCK_ID__GFX) {
+			for (xcd = 0; xcd < aid_ecc->xcd.xcd_num; xcd++)
+				memset(&aid_ecc->xcd.xcd[xcd],
+						0, sizeof(struct aca_xcd_ecc));
+		}
+	}
+}
+
+int ras_aca_clear_all_blocks_ecc_count(struct ras_core_context *ras_core)
 {
 	struct aca_block *aca_blk;
-	struct aca_aid_ecc  *aid_ecc;
-	int skt, aid, xcd;
+	enum ras_block_id blk;
+	int skt;
 
 	mutex_lock(&ras_core->ras_aca.aca_lock);
-	aca_blk = ras_aca_get_block_handle(ras_core, blk);
-	for (skt = 0; skt < aca_blk->ecc.socket_num_per_hive; skt++) {
-		for (aid = 0; aid < aca_blk->ecc.socket[skt].aid_num; aid++) {
-			aid_ecc = &aca_blk->ecc.socket[skt].aid[aid];
-			if (blk == RAS_BLOCK_ID__GFX) {
-				for (xcd = 0; xcd < aid_ecc->xcd.xcd_num; xcd++)
-					memset(&aid_ecc->xcd.xcd[xcd],
-						0, sizeof(struct aca_xcd_ecc));
-			} else {
-				memset(&aid_ecc->ecc_err, 0, sizeof(aid_ecc->ecc_err));
-			}
+	for (blk = RAS_BLOCK_ID__UMC; blk < RAS_BLOCK_ID__LAST; blk++) {
+		aca_blk = ras_aca_get_block_handle(ras_core, blk);
+		if (aca_blk) {
+			for (skt = 0; skt < aca_blk->ecc.socket_num_per_hive; skt++)
+				__clear_block_socket_ecc_count(ras_core,
+						blk, &aca_blk->ecc.socket[skt]);
 		}
 	}
 	mutex_unlock(&ras_core->ras_aca.aca_lock);
 
 	return 0;
-}
-
-int ras_aca_clear_all_blocks_ecc_count(struct ras_core_context *ras_core)
-{
-	enum ras_block_id blk;
-	int ret;
-
-	for (blk = RAS_BLOCK_ID__UMC; blk < RAS_BLOCK_ID__LAST; blk++) {
-		ret = ras_aca_clear_block_ecc_count(ras_core, blk);
-		if (ret)
-			break;
-	}
-
-	return ret;
 }
 
 int ras_aca_clear_block_new_ecc_count(struct ras_core_context *ras_core, u32 blk)
@@ -491,29 +489,6 @@ int ras_aca_clear_block_new_ecc_count(struct ras_core_context *ras_core, u32 blk
 	return 0;
 }
 
-static int ras_aca_get_block_each_aid_ecc_count(struct ras_core_context *ras_core,
-						u32 blk, u32 skt, u32 aid, u32 xcd,
-						struct aca_ecc_count *ecc_count)
-{
-	struct aca_block *aca_blk;
-	struct aca_ecc_count *ecc_err;
-
-	aca_blk = ras_aca_get_block_handle(ras_core, blk);
-	if (blk == RAS_BLOCK_ID__GFX)
-		ecc_err = &aca_blk->ecc.socket[skt].aid[aid].xcd.xcd[xcd].ecc_err;
-	else
-		ecc_err = &aca_blk->ecc.socket[skt].aid[aid].ecc_err;
-
-	ecc_count->new_ce_count = ecc_err->new_ce_count;
-	ecc_count->total_ce_count = ecc_err->total_ce_count;
-	ecc_count->new_ue_count = ecc_err->new_ue_count;
-	ecc_count->total_ue_count = ecc_err->total_ue_count;
-	ecc_count->new_de_count = ecc_err->new_de_count;
-	ecc_count->total_de_count = ecc_err->total_de_count;
-
-	return 0;
-}
-
 static inline void _add_ecc_count(struct aca_ecc_count *des, struct aca_ecc_count *src)
 {
 	des->new_ce_count += src->new_ce_count;
@@ -522,6 +497,25 @@ static inline void _add_ecc_count(struct aca_ecc_count *des, struct aca_ecc_coun
 	des->total_ue_count += src->total_ue_count;
 	des->new_de_count += src->new_de_count;
 	des->total_de_count += src->total_de_count;
+}
+
+static void __get_block_socket_ecc_count(struct ras_core_context *ras_core,
+		u32 blk, struct aca_socket_ecc *socket, struct aca_ecc_count *ecc_count)
+{
+	struct aca_aid_ecc *aid_ecc;
+	int aid, xcd;
+
+	for (aid = 0; aid < socket->aid_num; aid++) {
+		aid_ecc = &socket->aid[aid];
+
+		/* Add AID error count */
+		_add_ecc_count(ecc_count, &aid_ecc->ecc_err);
+		if (blk == RAS_BLOCK_ID__GFX) {
+			/* Add XCD error count */
+			for (xcd = 0; xcd < aid_ecc->xcd.xcd_num; xcd++)
+				_add_ecc_count(ecc_count, &aid_ecc->xcd.xcd[xcd].ecc_err);
+		}
+	}
 }
 
 static const struct ras_aca_ip_func *aca_get_ip_func(
@@ -544,10 +538,9 @@ int ras_aca_get_block_ecc_count(struct ras_core_context *ras_core,
 {
 	struct ras_ecc_count *err_data = (struct ras_ecc_count *)data;
 	struct aca_block *aca_blk;
-	int skt, aid, xcd;
-	struct aca_ecc_count ecc_xcd;
-	struct aca_ecc_count ecc_aid;
+	struct aca_ecc_count skt_ecc;
 	struct aca_ecc_count ecc;
+	u32 skt;
 
 	if (blk >= RAS_BLOCK_ID__LAST)
 		return -EINVAL;
@@ -559,32 +552,12 @@ int ras_aca_get_block_ecc_count(struct ras_core_context *ras_core,
 	memset(&ecc, 0, sizeof(ecc));
 
 	mutex_lock(&ras_core->ras_aca.aca_lock);
-	if (blk == RAS_BLOCK_ID__GFX) {
-		for (skt = 0; skt < aca_blk->ecc.socket_num_per_hive; skt++) {
-			for (aid = 0; aid < aca_blk->ecc.socket[skt].aid_num; aid++) {
-				memset(&ecc_aid, 0, sizeof(ecc_aid));
-				for (xcd = 0;
-				     xcd < aca_blk->ecc.socket[skt].aid[aid].xcd.xcd_num;
-				     xcd++) {
-					memset(&ecc_xcd, 0, sizeof(ecc_xcd));
-					if (ras_aca_get_block_each_aid_ecc_count(ras_core,
-							blk, skt, aid, xcd, &ecc_xcd))
-						continue;
-					_add_ecc_count(&ecc_aid, &ecc_xcd);
-				}
-				_add_ecc_count(&ecc, &ecc_aid);
-			}
-		}
-	} else {
-		for (skt = 0; skt < aca_blk->ecc.socket_num_per_hive; skt++) {
-			for (aid = 0; aid < aca_blk->ecc.socket[skt].aid_num; aid++) {
-				memset(&ecc_aid, 0, sizeof(ecc_aid));
-				if (ras_aca_get_block_each_aid_ecc_count(ras_core,
-						blk, skt, aid, 0, &ecc_aid))
-					continue;
-				_add_ecc_count(&ecc, &ecc_aid);
-			}
-		}
+	for (skt = 0; skt < aca_blk->ecc.socket_num_per_hive; skt++) {
+		memset(&skt_ecc, 0, sizeof(skt_ecc));
+		__get_block_socket_ecc_count(ras_core, blk,
+				&aca_blk->ecc.socket[skt], &skt_ecc);
+
+		_add_ecc_count(&ecc, &skt_ecc);
 	}
 
 	err_data->new_ce_count = ecc.new_ce_count;
