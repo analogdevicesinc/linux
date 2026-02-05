@@ -152,7 +152,7 @@ stages:
     # - PRs (non-fork) targeting: main, next_stable, or 202* release branches
     # - Direct pushes to: main, next_stable, or 202* release branches
     - job: Push_to_Artifactory
-      timeoutInMinutes: 90
+      timeoutInMinutes: 120
       pool:
         name: Default
         demands:
@@ -186,6 +186,15 @@ stages:
             ARTIFACTORY_TOKEN: $(ART_TOKEN)
           name: PushArtifacts
           displayName: "Push to Artifactory"
+        - bash: |
+            cd $(Build.SourcesDirectory)/bin
+            TIMESTAMP=$(PushArtifacts.TIMESTAMP)
+            if [ -d "$TIMESTAMP" ]; then
+              echo "Cleaning up artifact directory: $TIMESTAMP"
+              rm -rf "$TIMESTAMP"
+            fi
+          displayName: "Cleanup artifacts"
+          condition: always()
     - job: Publish_to_Cloudsmith
       timeoutInMinutes: 120
       condition: or(
@@ -223,6 +232,15 @@ stages:
             CLOUDSMITH_API_KEY: $(CLOUDSMITH_API_KEY)
           name: PushArtifacts
           displayName: "Push to Cloudsmith"
+        - bash: |
+            cd $(Build.SourcesDirectory)/bin
+            TIMESTAMP=$(PushArtifacts.TIMESTAMP)
+            if [ -d "$TIMESTAMP" ]; then
+              echo "Cleaning up artifact directory: $TIMESTAMP"
+              rm -rf "$TIMESTAMP"
+            fi
+          displayName: "Cleanup artifacts"
+          condition: always()
   - stage: TestHarness
     dependsOn: PushArtifacts
     condition: succeeded()
