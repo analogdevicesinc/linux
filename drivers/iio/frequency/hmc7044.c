@@ -2032,7 +2032,7 @@ static int hmc7044_lmfc_lemc_validate(struct hmc7044 *hmc, u64 dividend, u64 div
 	rem_u = hmc7044_get_rem(dividend, divisor + 1);
 
 
-	if ((rem_l > rem) && (rem_u > rem)) {
+	if ((rem_l >= rem) && (rem_u >= rem)) {
 		if (hmc->jdev_lmfc_lemc_gcd)
 			hmc->jdev_lmfc_lemc_gcd = min(hmc->jdev_lmfc_lemc_gcd, divisor);
 		else
