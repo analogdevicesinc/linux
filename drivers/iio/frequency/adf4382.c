@@ -1034,7 +1034,8 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(st->regmap, 0x31, ADF4382_DCLK_MODE_MSK, 0xff);
+	ret = regmap_update_bits(st->regmap, 0x31, ADF4382_DCLK_MODE_MSK,
+			 pfd_freq_hz > (11 * HZ_PER_MHZ) ? 0xff : 0);
 	if (ret)
 		return ret;
 
