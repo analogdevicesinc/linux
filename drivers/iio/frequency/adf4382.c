@@ -1426,7 +1426,6 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 		break;
 	case ADF4382_EN_AUTO_ALIGN:
 		st->auto_align_en = !!val;
-		regmap_update_bits(st->regmap, 0x20, ADF4382_EN_AUTOCAL_MSK , 0);
 		ret = adf4382_set_phase_adjust(st, 0);
 		break;
 	default:
