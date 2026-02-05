@@ -1308,7 +1308,8 @@ void xe_device_declare_wedged(struct xe_device *xe)
 		xe->needs_flr_on_fini = true;
 		drm_err(&xe->drm,
 			"CRITICAL: Xe has declared device %s as wedged.\n"
-			"IOCTLs and executions are blocked. Only a rebind may clear the failure\n"
+			"IOCTLs and executions are blocked.\n"
+			"For recovery procedure, refer to https://docs.kernel.org/gpu/drm-uapi.html#device-wedging\n"
 			"Please file a _new_ bug report at https://gitlab.freedesktop.org/drm/xe/kernel/issues/new\n",
 			dev_name(xe->drm.dev));
 	}
