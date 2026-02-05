@@ -117,6 +117,7 @@ enum iio_backend_filter_type {
  * @data_stream_enable: Enable data stream.
  * @data_stream_disable: Disable data stream.
  * @data_transfer_addr: Set data address.
+ * @scan_type_get: Get the current scan type index for a channel.
  **/
 struct iio_backend_ops {
 	int (*enable)(struct iio_backend *back);
@@ -173,6 +174,8 @@ struct iio_backend_ops {
 	int (*data_stream_enable)(struct iio_backend *back);
 	int (*data_stream_disable)(struct iio_backend *back);
 	int (*data_transfer_addr)(struct iio_backend *back, u32 address);
+	int (*scan_type_get)(struct iio_backend *back,
+			     const struct iio_chan_spec *chan);
 };
 
 /**
@@ -233,6 +236,8 @@ int iio_backend_oversampling_ratio_set(struct iio_backend *back,
 int iio_backend_read_raw(struct iio_backend *back,
 			 struct iio_chan_spec const *chan, int *val, int *val2,
 			 long mask);
+int iio_backend_scan_type_get(struct iio_backend *back,
+			      const struct iio_chan_spec *chan);
 int iio_backend_extend_chan_spec(struct iio_backend *back,
 				 struct iio_chan_spec *chan);
 void *iio_backend_get_priv(const struct iio_backend *conv);

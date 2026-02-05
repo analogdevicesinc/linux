@@ -933,6 +933,27 @@ int iio_backend_data_stream_disable(struct iio_backend *back)
 EXPORT_SYMBOL_NS_GPL(iio_backend_data_stream_disable, "IIO_BACKEND");
 
 /**
+ * iio_backend_scan_type_get - Get the channel scan type
+ * @back: Backend device
+ * @chan: Channel specification
+ *
+ * Backends that add buffering support might need to provide the scan type of
+ * a given channel. Frontends need to have all the possible scan types
+ * declared in their channel specification. This function is for the frontend
+ * to query the backend about the actual scan type that is supported or
+ * currently configured.
+ *
+ * RETURNS:
+ * scan_type index on success, negative error number on failure.
+ */
+int iio_backend_scan_type_get(struct iio_backend *back,
+			       const struct iio_chan_spec *chan)
+{
+	return iio_backend_op_call(back, scan_type_get, chan);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_scan_type_get, "IIO_BACKEND");
+
+/**
  * iio_backend_data_transfer_addr - Set data address.
  * @back: Backend device
  * @address: Data register address
