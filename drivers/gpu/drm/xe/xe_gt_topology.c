@@ -212,11 +212,13 @@ xe_gt_topology_init(struct xe_gt *gt)
 		XELP_GT_GEOMETRY_DSS_ENABLE,
 		XE2_GT_GEOMETRY_DSS_1,
 		XE2_GT_GEOMETRY_DSS_2,
+		XE3P_XPC_GT_GEOMETRY_DSS_3,
 	};
 	static const struct xe_reg compute_regs[] = {
 		XEHP_GT_COMPUTE_DSS_ENABLE,
 		XEHPC_GT_COMPUTE_DSS_ENABLE_EXT,
 		XE2_GT_COMPUTE_DSS_2,
+		XE3P_XPC_GT_COMPUTE_DSS_3,
 	};
 	struct drm_printer p;
 
