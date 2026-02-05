@@ -14,6 +14,7 @@ properties:
     enum:
       - rockchip,px30-otp
       - rockchip,rk3308-otp
+      - rockchip,rk3528-otp
       - rockchip,rk3562-otp
       - rockchip,rk3568-otp
       - rockchip,rk3576-otp
@@ -71,6 +72,30 @@ allOf:
         reset-names:
           items:
             - const: phy
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - rockchip,rk3528-otp
+    then:
+      properties:
+        clocks:
+          maxItems: 3
+        clock-names:
+          items:
+            - const: otp
+            - const: apb_pclk
+            - const: sbpi
+        resets:
+          minItems: 3
+          maxItems: 3
+        reset-names:
+          items:
+            - const: otp
+            - const: apb
+            - const: sbpi
 
   - if:
       properties:
