@@ -277,7 +277,7 @@ static int adf4030_compute_odiv(u32 vco_freq, u64 bsync_out_freq_uhz, u32 *odiv)
 	if (rem)
 		return -EINVAL;
 
-	if (*odiv > ADI_ADF4030_O_DIV_MAX)
+	if (*odiv < ADI_ADF4030_O_DIV_MIN || *odiv > ADI_ADF4030_O_DIV_MAX)
 		return -EINVAL;
 
 	return 0;
