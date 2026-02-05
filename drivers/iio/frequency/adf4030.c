@@ -551,7 +551,7 @@ static int adf4030_auto_align_delay(const struct adf4030_state *st, u32 channel,
 static int adf4030_auto_align_iteration_set(struct adf4030_state *st,
 					    u8 iter_number)
 {
-	if (iter_number > ADI_ADF4030_ALIGN_CYCLES_MAX_COUNT)
+	if (iter_number < 1 || iter_number > ADI_ADF4030_ALIGN_CYCLES_MAX_COUNT)
 		return -EINVAL;
 
 	return regmap_update_bits(st->regmap, ADF4030_REG(0x37),
