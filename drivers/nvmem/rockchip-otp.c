@@ -377,6 +377,10 @@ static const struct of_device_id rockchip_otp_match[] = {
 		.data = &px30_data,
 	},
 	{
+		.compatible = "rockchip,rk3562-otp",
+		.data = &rk3568_data,
+	},
+	{
 		.compatible = "rockchip,rk3568-otp",
 		.data = &rk3568_data,
 	},
