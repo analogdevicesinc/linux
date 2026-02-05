@@ -606,7 +606,7 @@ static int adf4030_auto_align_single_channel(const struct adf4030_state *st,
 			return ret;
 
 		dev_dbg(&st->spi->dev, "Auto-aligning channel %d to channel %d (try %u)\n",
-			channel, source_channel, retry - 3);
+			channel, source_channel, 4 - retry);
 
 		/* Wait for FSM to complete */
 		ret = regmap_read_poll_timeout(st->regmap, ADF4030_REG(0x8F),
