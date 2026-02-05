@@ -1952,7 +1952,6 @@ static int adf4382_init(struct adf4382_state *st)
 		return ret;
 
 	ret = regmap_write(st->regmap, 0x20,
-			   ADF4382_EN_AUTOCAL_MSK |
 			   FIELD_PREP(ADF4382_EN_RDBLR_MSK, st->ref_doubler_en) |
 			   FIELD_PREP(ADF4382_R_DIV_MSK, st->ref_div));
 	if (ret)
@@ -1963,8 +1962,13 @@ static int adf4382_init(struct adf4382_state *st)
 		return ret;
 
 	st->ref_freq_hz = clk_get_rate(st->clkin);
-	
+
 	ret = adf4382_set_defaults(st);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x20, ADF4382_EN_AUTOCAL_MSK,
+				 ADF4382_EN_AUTOCAL_MSK);
 	if (ret)
 		return ret;
 
