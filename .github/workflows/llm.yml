@@ -117,7 +117,7 @@ jobs:
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
       with:
         head-sha: ${{ github.event_name == 'workflow_dispatch' && inputs.head-sha || env.head_sha }}
-        run-id: ${{ github.event_name == 'workflow_dispatch' && inputs.run-id || github.run_id }}
+        run-id: ${{ inputs.run-id }}
         repository: ${{ github.repository }}
 
     - name: Get claude
