@@ -53,14 +53,148 @@ enum chips {
 #define MAX34451_MFR_CHANNEL_CONFIG	0xe4
 #define MAX34451_MFR_CHANNEL_CONFIG_SEL_MASK	0x3f
 
+#define MAX34451_MFR_CRC		0xFE
+
+#define to_max34440_data(x)  container_of(x, struct max34440_data, info)
+
 struct max34440_data {
 	int id;
 	struct pmbus_driver_info info;
 	u8 iout_oc_warn_limit;
 	u8 iout_oc_fault_limit;
+	struct dentry *debugfs;
 };
 
-#define to_max34440_data(x)  container_of(x, struct max34440_data, info)
+static ssize_t _read_crc(struct device *dev, struct device_attribute *attr,
+			char *buf, uint8_t type)
+{
+	struct i2c_client *client = to_i2c_client(dev->parent);
+	int ret;
+
+	ret = i2c_smbus_write_word_data(client, MAX34451_MFR_CRC, type);
+	if (ret < 0)
+		return ret;
+
+	ret = i2c_smbus_read_word_data(client, MAX34451_MFR_CRC);
+	if (ret < 0)
+		return ret;
+
+	return snprintf(buf, PAGE_SIZE, "0x%02X\n", ret);
+}
+
+static ssize_t main_flash_crc_show(struct device *dev, struct device_attribute *attr,
+				   char *buf)
+{
+	return _read_crc(dev, attr, buf, 0);
+}
+
+static ssize_t backup_flash_crc_show(struct device *dev, struct device_attribute *attr,
+				     char *buf)
+{
+	return _read_crc(dev, attr, buf, 1);
+}
+
+static ssize_t ram_crc_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
+{
+	return _read_crc(dev, attr, buf, 2);
+}
+
+static DEVICE_ATTR_RO(main_flash_crc);
+static DEVICE_ATTR_RO(backup_flash_crc);
+static DEVICE_ATTR_RO(ram_crc);
+
+static ssize_t direct_reg_write(struct file *file, const char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	struct i2c_client *client = file->private_data;
+	char kbuf[50];
+	char *token, *cur;
+	unsigned int val;
+	u8 reg;
+	u8 block_data[9];
+	u16 word_data;
+	int ret, num_bytes = 0;
+
+	if (!client)
+		return -ENODEV;
+
+	if (count == 0 || count >= sizeof(kbuf))
+		return -EINVAL;
+
+	if (copy_from_user(kbuf, buf, count))
+		return -EFAULT;
+
+	kbuf[count] = '\0';
+
+	cur = kbuf;
+
+	/* First token is register address */
+	token = strsep(&cur, " \t\n");
+	if (!token || kstrtouint(token, 0, &val))
+		return -EINVAL;
+	reg = val;
+
+	/* Remaining tokens are data bytes */
+	while ((token = strsep(&cur, " \t\n")) != NULL) {
+		if (*token == '\0')
+			continue;
+		if (kstrtouint(token, 0, &val))
+			return -EINVAL;
+		if (num_bytes >= sizeof(block_data))
+			return -EINVAL;
+		block_data[num_bytes++] = val;
+	}
+
+	if (num_bytes == 0)
+		return -EINVAL;
+
+	/* Write based on number of bytes, if it fails try one more time */
+	switch (num_bytes) {
+	case 1:
+		ret = i2c_smbus_write_byte_data(client, reg, block_data[0]);
+		if (ret < 0)
+			ret = i2c_smbus_write_byte_data(client, reg, block_data[0]);
+		break;
+	case 2:
+		word_data = (block_data[1] << 8) | block_data[0];
+		ret = i2c_smbus_write_word_data(client, reg, word_data);
+		if (ret < 0)
+			ret = i2c_smbus_write_word_data(client, reg, word_data);
+		break;
+	default:
+		ret = i2c_smbus_write_i2c_block_data(client, reg, num_bytes, block_data);
+		if (ret < 0)
+			ret = i2c_smbus_write_i2c_block_data(client, reg, num_bytes, block_data);
+	}
+
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+static const struct file_operations direct_reg_write_fops = {
+	.write = direct_reg_write,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
+static struct attribute *max34451_attributes[] = {
+	&dev_attr_main_flash_crc.attr,
+	&dev_attr_backup_flash_crc.attr,
+	&dev_attr_ram_crc.attr,
+	NULL
+};
+
+static struct attribute_group max34451_attr_group = {
+	.attrs = max34451_attributes,
+};
+
+static const struct attribute_group *dev_attr_groups[] = {
+	&max34451_attr_group,
+	NULL,
+};
 
 static const struct i2c_device_id max34440_id[];
 
@@ -606,6 +740,7 @@ static struct pmbus_driver_info max34440_info[] = {
 static int max34440_probe(struct i2c_client *client)
 {
 	struct max34440_data *data;
+	struct dentry *debugfs_dir;
 	int rv;
 
 	data = devm_kzalloc(&client->dev, sizeof(struct max34440_data),
@@ -625,6 +760,11 @@ static int max34440_probe(struct i2c_client *client)
 		data->iout_oc_fault_limit = PMBUS_IOUT_OC_FAULT_LIMIT;
 		data->iout_oc_warn_limit = PMBUS_IOUT_OC_WARN_LIMIT;
 	}
+
+	debugfs_dir = debugfs_create_dir(dev_name(&client->dev), NULL);
+	debugfs_create_file("direct_reg_write", 0200, debugfs_dir, 
+			    client, &direct_reg_write_fops);
+	data->debugfs = debugfs_dir;
 
 	return pmbus_do_probe(client, &data->info);
 }
