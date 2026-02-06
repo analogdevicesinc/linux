@@ -896,10 +896,12 @@ static irqreturn_t adi_dma_thread_handler(int irq, void *id)
 	spin_lock_irqsave(&channel->lock, flags);
 
 	if (channel->current_desc && channel->current_desc->cyclic) {
+		struct dmaengine_result result = channel->current_desc->result;
+
 		dmaengine_desc_get_callback(&channel->current_desc->tx, &cb);
 
 		spin_unlock_irqrestore(&channel->lock, flags);
-		dmaengine_desc_callback_invoke(&cb, &channel->current_desc->result);
+		dmaengine_desc_callback_invoke(&cb, &result);
 		return IRQ_HANDLED;
 	}
 
