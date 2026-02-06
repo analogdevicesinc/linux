@@ -158,21 +158,6 @@ jobs:
 
         echo "venv_path=$venv_path" >> "$GITHUB_ENV"
 
-    - name: Prepare tools
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      run: |
-        export PATH="$HOME/.local/bin:$PATH"
-        source ci/build.sh
-        venv_path=$(mktemp -d)
-        python3 -m venv $venv_path
-        source $venv_path/bin/activate
-        python3 -m ensurepip --upgrade
-
-        pip install adi-doctools[mcp]
-        claude mcp add adoc $(which adoc-mcp)
-
-        echo "venv_path=$venv_path" >> "$GITHUB_ENV"
-
     - name: Prepare top prompt
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
       run: |
