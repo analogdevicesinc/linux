@@ -124,7 +124,8 @@ static const struct xe_pat_table_entry xelpg_pat_table[] = {
  *   - no_promote:  0=promotable, 1=no promote
  *   - comp_en:     0=disable, 1=enable
  *   - l3clos:      L3 class of service (0-3)
- *   - l3_policy:   0=WB, 1=XD ("WB - Transient Display"), 3=UC
+ *   - l3_policy:   0=WB, 1=XD ("WB - Transient Display"),
+ *                  2=XA ("WB - Transient App" for Xe3p), 3=UC
  *   - l4_policy:   0=WB, 1=WT, 3=UC
  *   - coh_mode:    0=no snoop, 2=1-way coherent, 3=2-way coherent
  *
@@ -251,6 +252,44 @@ static const struct xe_pat_table_entry xe3p_xpc_pat_table[] = {
 	[29] = XE3P_XPC_PAT( 0, 3, 0, 0, 0 ),
 	[30] = XE3P_XPC_PAT( 0, 3, 0, 0, 2 ),
 	[31] = XE3P_XPC_PAT( 0, 3, 0, 0, 3 ),
+};
+
+static const struct xe_pat_table_entry xe3p_primary_pat_pta = XE2_PAT(0, 0, 0, 0, 0, 3);
+static const struct xe_pat_table_entry xe3p_media_pat_pta = XE2_PAT(0, 0, 0, 0, 0, 2);
+
+static const struct xe_pat_table_entry xe3p_lpg_pat_table[] = {
+	[ 0] = XE2_PAT( 0, 0, 0, 0, 3, 0 ),
+	[ 1] = XE2_PAT( 0, 0, 0, 0, 3, 2 ),
+	[ 2] = XE2_PAT( 0, 0, 0, 0, 3, 3 ),
+	[ 3] = XE2_PAT( 0, 0, 0, 3, 3, 0 ),
+	[ 4] = XE2_PAT( 0, 0, 0, 3, 0, 2 ),
+	[ 5] = XE2_PAT( 0, 0, 0, 3, 3, 2 ),
+	[ 6] = XE2_PAT( 1, 0, 0, 1, 3, 0 ),
+	[ 7] = XE2_PAT( 0, 0, 0, 3, 0, 3 ),
+	[ 8] = XE2_PAT( 0, 0, 0, 3, 0, 0 ),
+	[ 9] = XE2_PAT( 0, 1, 0, 0, 3, 0 ),
+	[10] = XE2_PAT( 0, 1, 0, 3, 0, 0 ),
+	[11] = XE2_PAT( 1, 1, 0, 1, 3, 0 ),
+	[12] = XE2_PAT( 0, 1, 0, 3, 3, 0 ),
+	[13] = XE2_PAT( 0, 0, 0, 0, 0, 0 ),
+	[14] = XE2_PAT( 0, 1, 0, 0, 0, 0 ),
+	[15] = XE2_PAT( 1, 1, 0, 1, 1, 0 ),
+	[16] = XE2_PAT( 0, 1, 0, 0, 3, 2 ),
+	/* 17 is reserved; leave set to all 0's */
+	[18] = XE2_PAT( 1, 0, 0, 2, 3, 0 ),
+	[19] = XE2_PAT( 1, 0, 0, 2, 3, 2 ),
+	[20] = XE2_PAT( 0, 0, 1, 0, 3, 0 ),
+	[21] = XE2_PAT( 0, 1, 1, 0, 3, 0 ),
+	[22] = XE2_PAT( 0, 0, 1, 0, 3, 2 ),
+	[23] = XE2_PAT( 0, 0, 1, 0, 3, 3 ),
+	[24] = XE2_PAT( 0, 0, 2, 0, 3, 0 ),
+	[25] = XE2_PAT( 0, 1, 2, 0, 3, 0 ),
+	[26] = XE2_PAT( 0, 0, 2, 0, 3, 2 ),
+	[27] = XE2_PAT( 0, 0, 2, 0, 3, 3 ),
+	[28] = XE2_PAT( 0, 0, 3, 0, 3, 0 ),
+	[29] = XE2_PAT( 0, 1, 3, 0, 3, 0 ),
+	[30] = XE2_PAT( 0, 0, 3, 0, 3, 2 ),
+	[31] = XE2_PAT( 0, 0, 3, 0, 3, 3 ),
 };
 
 u16 xe_pat_index_get_coh_mode(struct xe_device *xe, u16 pat_index)
@@ -508,6 +547,20 @@ void xe_pat_init_early(struct xe_device *xe)
 		xe->pat.idx[XE_CACHE_NONE] = 3;
 		xe->pat.idx[XE_CACHE_WT] = 3;	/* N/A (no display); use UC */
 		xe->pat.idx[XE_CACHE_WB] = 2;
+	} else if (GRAPHICS_VER(xe) == 35) {
+		xe->pat.ops = &xe2_pat_ops;
+		xe->pat.table = xe3p_lpg_pat_table;
+		xe->pat.pat_ats = &xe2_pat_ats;
+		if (!IS_DGFX(xe)) {
+			xe->pat.pat_primary_pta = &xe3p_primary_pat_pta;
+			xe->pat.pat_media_pta = &xe3p_media_pat_pta;
+		}
+		xe->pat.n_entries = ARRAY_SIZE(xe3p_lpg_pat_table);
+		xe->pat.idx[XE_CACHE_NONE] = 3;
+		xe->pat.idx[XE_CACHE_WT] = 15;
+		xe->pat.idx[XE_CACHE_WB] = 2;
+		xe->pat.idx[XE_CACHE_NONE_COMPRESSION] = 12;
+		xe->pat.idx[XE_CACHE_WB_COMPRESSION] = 16;
 	} else if (GRAPHICS_VER(xe) == 30 || GRAPHICS_VER(xe) == 20) {
 		xe->pat.ops = &xe2_pat_ops;
 		if (GRAPHICS_VER(xe) == 30) {
