@@ -69,9 +69,8 @@
 /**
  * struct xe_ggtt_node - A node in GGTT.
  *
- * This struct needs to be initialized (only-once) with xe_ggtt_node_init() before any node
- * insertion or reservation.
- * It will, then, be finalized by xe_ggtt_node_remove().
+ * This struct is allocated with xe_ggtt_insert_node(,_transform) or xe_ggtt_insert_bo(,_at).
+ * It will be deallocated using xe_ggtt_node_remove().
  */
 struct xe_ggtt_node {
 	/** @ggtt: Back pointer to xe_ggtt where this region will be inserted at */
@@ -458,6 +457,11 @@ static void xe_ggtt_initial_clear(struct xe_ggtt *ggtt)
 	mutex_unlock(&ggtt->lock);
 }
 
+static void ggtt_node_fini(struct xe_ggtt_node *node)
+{
+	kfree(node);
+}
+
 static void ggtt_node_remove(struct xe_ggtt_node *node)
 {
 	struct xe_ggtt *ggtt = node->ggtt;
@@ -483,7 +487,7 @@ static void ggtt_node_remove(struct xe_ggtt_node *node)
 	drm_dev_exit(idx);
 
 free_node:
-	xe_ggtt_node_fini(node);
+	ggtt_node_fini(node);
 }
 
 static void ggtt_node_remove_work_func(struct work_struct *work)
@@ -613,50 +617,14 @@ void xe_ggtt_shift_nodes(struct xe_ggtt *ggtt, u64 new_start)
 	WRITE_ONCE(ggtt->start, new_start);
 }
 
-static int xe_ggtt_node_insert_locked(struct xe_ggtt_node *node,
+static int xe_ggtt_insert_node_locked(struct xe_ggtt_node *node,
 				      u32 size, u32 align, u32 mm_flags)
 {
 	return drm_mm_insert_node_generic(&node->ggtt->mm, &node->base, size, align, 0,
 					  mm_flags);
 }
 
-/**
- * xe_ggtt_node_insert - Insert a &xe_ggtt_node into the GGTT
- * @node: the &xe_ggtt_node to be inserted
- * @size: size of the node
- * @align: alignment constrain of the node
- *
- * It cannot be called without first having called xe_ggtt_init() once.
- *
- * Return: 0 on success or a negative error code on failure.
- */
-int xe_ggtt_node_insert(struct xe_ggtt_node *node, u32 size, u32 align)
-{
-	int ret;
-
-	if (!node || !node->ggtt)
-		return -ENOENT;
-
-	mutex_lock(&node->ggtt->lock);
-	ret = xe_ggtt_node_insert_locked(node, size, align,
-					 DRM_MM_INSERT_HIGH);
-	mutex_unlock(&node->ggtt->lock);
-
-	return ret;
-}
-
-/**
- * xe_ggtt_node_init - Initialize %xe_ggtt_node struct
- * @ggtt: the &xe_ggtt where the new node will later be inserted/reserved.
- *
- * This function will allocate the struct %xe_ggtt_node and return its pointer.
- * This struct will then be freed after the node removal upon xe_ggtt_node_remove()
- * Having %xe_ggtt_node struct allocated doesn't mean that the node is already allocated
- * in GGTT. Only xe_ggtt_node_insert() will ensure the node is inserted or reserved in GGTT.
- *
- * Return: A pointer to %xe_ggtt_node struct on success. An ERR_PTR otherwise.
- **/
-struct xe_ggtt_node *xe_ggtt_node_init(struct xe_ggtt *ggtt)
+static struct xe_ggtt_node *ggtt_node_init(struct xe_ggtt *ggtt)
 {
 	struct xe_ggtt_node *node = kzalloc(sizeof(*node), GFP_NOFS);
 
@@ -670,16 +638,31 @@ struct xe_ggtt_node *xe_ggtt_node_init(struct xe_ggtt *ggtt)
 }
 
 /**
- * xe_ggtt_node_fini - Forcebly finalize %xe_ggtt_node struct
- * @node: the &xe_ggtt_node to be freed
+ * xe_ggtt_insert_node - Insert a &xe_ggtt_node into the GGTT
+ * @ggtt: the &xe_ggtt into which the node should be inserted.
+ * @size: size of the node
+ * @align: alignment constrain of the node
  *
- * If anything went wrong with either xe_ggtt_node_insert() and this @node is
- * not going to be reused, then this function needs to be called to free the
- * %xe_ggtt_node struct
- **/
-void xe_ggtt_node_fini(struct xe_ggtt_node *node)
+ * Return: &xe_ggtt_node on success or a ERR_PTR on failure.
+ */
+struct xe_ggtt_node *xe_ggtt_insert_node(struct xe_ggtt *ggtt, u32 size, u32 align)
 {
-	kfree(node);
+	struct xe_ggtt_node *node;
+	int ret;
+
+	node = ggtt_node_init(ggtt);
+	if (IS_ERR(node))
+		return node;
+
+	guard(mutex)(&ggtt->lock);
+	ret = xe_ggtt_insert_node_locked(node, size, align,
+					 DRM_MM_INSERT_HIGH);
+	if (ret) {
+		ggtt_node_fini(node);
+		return ERR_PTR(ret);
+	}
+
+	return node;
 }
 
 /**
@@ -767,7 +750,7 @@ void xe_ggtt_map_bo_unlocked(struct xe_ggtt *ggtt, struct xe_bo *bo)
 }
 
 /**
- * xe_ggtt_node_insert_transform - Insert a newly allocated &xe_ggtt_node into the GGTT
+ * xe_ggtt_insert_node_transform - Insert a newly allocated &xe_ggtt_node into the GGTT
  * @ggtt: the &xe_ggtt where the node will inserted/reserved.
  * @bo: The bo to be transformed
  * @pte_flags: The extra GGTT flags to add to mapping.
@@ -781,7 +764,7 @@ void xe_ggtt_map_bo_unlocked(struct xe_ggtt *ggtt, struct xe_bo *bo)
  *
  * Return: A pointer to %xe_ggtt_node struct on success. An ERR_PTR otherwise.
  */
-struct xe_ggtt_node *xe_ggtt_node_insert_transform(struct xe_ggtt *ggtt,
+struct xe_ggtt_node *xe_ggtt_insert_node_transform(struct xe_ggtt *ggtt,
 						   struct xe_bo *bo, u64 pte_flags,
 						   u64 size, u32 align,
 						   xe_ggtt_transform_cb transform, void *arg)
@@ -789,7 +772,7 @@ struct xe_ggtt_node *xe_ggtt_node_insert_transform(struct xe_ggtt *ggtt,
 	struct xe_ggtt_node *node;
 	int ret;
 
-	node = xe_ggtt_node_init(ggtt);
+	node = ggtt_node_init(ggtt);
 	if (IS_ERR(node))
 		return ERR_CAST(node);
 
@@ -798,7 +781,7 @@ struct xe_ggtt_node *xe_ggtt_node_insert_transform(struct xe_ggtt *ggtt,
 		goto err;
 	}
 
-	ret = xe_ggtt_node_insert_locked(node, size, align, 0);
+	ret = xe_ggtt_insert_node_locked(node, size, align, 0);
 	if (ret)
 		goto err_unlock;
 
@@ -813,7 +796,7 @@ struct xe_ggtt_node *xe_ggtt_node_insert_transform(struct xe_ggtt *ggtt,
 err_unlock:
 	mutex_unlock(&ggtt->lock);
 err:
-	xe_ggtt_node_fini(node);
+	ggtt_node_fini(node);
 	return ERR_PTR(ret);
 }
 
@@ -839,7 +822,7 @@ static int __xe_ggtt_insert_bo_at(struct xe_ggtt *ggtt, struct xe_bo *bo,
 
 	xe_pm_runtime_get_noresume(tile_to_xe(ggtt->tile));
 
-	bo->ggtt_node[tile_id] = xe_ggtt_node_init(ggtt);
+	bo->ggtt_node[tile_id] = ggtt_node_init(ggtt);
 	if (IS_ERR(bo->ggtt_node[tile_id])) {
 		err = PTR_ERR(bo->ggtt_node[tile_id]);
 		bo->ggtt_node[tile_id] = NULL;
@@ -870,7 +853,7 @@ static int __xe_ggtt_insert_bo_at(struct xe_ggtt *ggtt, struct xe_bo *bo,
 	err = drm_mm_insert_node_in_range(&ggtt->mm, &bo->ggtt_node[tile_id]->base,
 					  xe_bo_size(bo), alignment, 0, start, end, 0);
 	if (err) {
-		xe_ggtt_node_fini(bo->ggtt_node[tile_id]);
+		ggtt_node_fini(bo->ggtt_node[tile_id]);
 		bo->ggtt_node[tile_id] = NULL;
 	} else {
 		u16 cache_mode = bo->flags & XE_BO_FLAG_NEEDS_UC ? XE_CACHE_NONE : XE_CACHE_WB;
