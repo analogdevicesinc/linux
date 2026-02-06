@@ -100,7 +100,7 @@ jobs:
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
       run: |
         ref="refs/heads/ci"
-        org_repo="${{ github.repository }}"
+        org_repo="analogdevicesinc/linux"
         get_file () {
           echo https://raw.githubusercontent.com/$org_repo/$ref/$1
           curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
