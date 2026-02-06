@@ -285,8 +285,10 @@ static void program_pat(struct xe_gt *gt, const struct xe_pat_table_entry table[
 
 	if (xe->pat.pat_ats)
 		xe_mmio_write32(&gt->mmio, XE_REG(_PAT_ATS), xe->pat.pat_ats->value);
-	if (xe->pat.pat_pta)
-		xe_mmio_write32(&gt->mmio, XE_REG(_PAT_PTA), xe->pat.pat_pta->value);
+	if (xe->pat.pat_primary_pta && xe_gt_is_main_type(gt))
+		xe_mmio_write32(&gt->mmio, XE_REG(_PAT_PTA), xe->pat.pat_primary_pta->value);
+	if (xe->pat.pat_media_pta && xe_gt_is_media_type(gt))
+		xe_mmio_write32(&gt->mmio, XE_REG(_PAT_PTA), xe->pat.pat_media_pta->value);
 }
 
 static void program_pat_mcr(struct xe_gt *gt, const struct xe_pat_table_entry table[],
@@ -302,8 +304,10 @@ static void program_pat_mcr(struct xe_gt *gt, const struct xe_pat_table_entry ta
 
 	if (xe->pat.pat_ats)
 		xe_gt_mcr_multicast_write(gt, XE_REG_MCR(_PAT_ATS), xe->pat.pat_ats->value);
-	if (xe->pat.pat_pta)
-		xe_gt_mcr_multicast_write(gt, XE_REG_MCR(_PAT_PTA), xe->pat.pat_pta->value);
+	if (xe->pat.pat_primary_pta && xe_gt_is_main_type(gt))
+		xe_gt_mcr_multicast_write(gt, XE_REG_MCR(_PAT_PTA), xe->pat.pat_primary_pta->value);
+	if (xe->pat.pat_media_pta && xe_gt_is_media_type(gt))
+		xe_gt_mcr_multicast_write(gt, XE_REG_MCR(_PAT_PTA), xe->pat.pat_media_pta->value);
 }
 
 static int xelp_dump(struct xe_gt *gt, struct drm_printer *p)
@@ -498,7 +502,8 @@ void xe_pat_init_early(struct xe_device *xe)
 		xe->pat.ops = &xe3p_xpc_pat_ops;
 		xe->pat.table = xe3p_xpc_pat_table;
 		xe->pat.pat_ats = &xe3p_xpc_pat_ats;
-		xe->pat.pat_pta = &xe3p_xpc_pat_pta;
+		xe->pat.pat_primary_pta = &xe3p_xpc_pat_pta;
+		xe->pat.pat_media_pta = &xe3p_xpc_pat_pta;
 		xe->pat.n_entries = ARRAY_SIZE(xe3p_xpc_pat_table);
 		xe->pat.idx[XE_CACHE_NONE] = 3;
 		xe->pat.idx[XE_CACHE_WT] = 3;	/* N/A (no display); use UC */
@@ -512,8 +517,10 @@ void xe_pat_init_early(struct xe_device *xe)
 			xe->pat.table = xe2_pat_table;
 		}
 		xe->pat.pat_ats = &xe2_pat_ats;
-		if (IS_DGFX(xe))
-			xe->pat.pat_pta = &xe2_pat_pta;
+		if (IS_DGFX(xe)) {
+			xe->pat.pat_primary_pta = &xe2_pat_pta;
+			xe->pat.pat_media_pta = &xe2_pat_pta;
+		}
 
 		/* Wa_16023588340. XXX: Should use XE_WA */
 		if (GRAPHICS_VERx100(xe) == 2001)
@@ -617,6 +624,8 @@ int xe_pat_dump(struct xe_gt *gt, struct drm_printer *p)
 int xe_pat_dump_sw_config(struct xe_gt *gt, struct drm_printer *p)
 {
 	struct xe_device *xe = gt_to_xe(gt);
+	const struct xe_pat_table_entry *pta_entry = xe_gt_is_main_type(gt) ?
+		xe->pat.pat_primary_pta : xe->pat.pat_media_pta;
 	char label[PAT_LABEL_LEN];
 
 	if (!xe->pat.table || !xe->pat.n_entries)
@@ -640,8 +649,8 @@ int xe_pat_dump_sw_config(struct xe_gt *gt, struct drm_printer *p)
 		}
 	}
 
-	if (xe->pat.pat_pta) {
-		u32 pat = xe->pat.pat_pta->value;
+	if (pta_entry) {
+		u32 pat = pta_entry->value;
 
 		drm_printf(p, "Page Table Access:\n");
 		xe->pat.ops->entry_dump(p, "PTA_MODE", pat, false);

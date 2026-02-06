@@ -400,10 +400,12 @@ struct xe_device {
 		const struct xe_pat_table_entry *table;
 		/** @pat.n_entries: Number of PAT entries */
 		int n_entries;
-		/** @pat.ats_entry: PAT entry for PCIe ATS responses */
+		/** @pat.pat_ats: PAT entry for PCIe ATS responses */
 		const struct xe_pat_table_entry *pat_ats;
-		/** @pat.pta_entry: PAT entry for page table accesses */
-		const struct xe_pat_table_entry *pat_pta;
+		/** @pat.pat_primary_pta: primary GT PAT entry for page table accesses */
+		const struct xe_pat_table_entry *pat_primary_pta;
+		/** @pat.pat_media_pta: media GT PAT entry for page table accesses */
+		const struct xe_pat_table_entry *pat_media_pta;
 		u32 idx[__XE_CACHE_LEVEL_COUNT];
 	} pat;
 
