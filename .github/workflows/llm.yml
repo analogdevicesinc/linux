@@ -184,7 +184,8 @@ jobs:
           You **must** check the appropriate datasheets for devices drivers, always convert pdfs
           before reading it, in particular, camelot-py is great to get the register map.
           \`python3 -m  ci.extract_register_map ./datasheet.pdf\` extract register maps from datasheets,
-          should work on most cases, modify if needed.
+          should work on most cases, modify if needed. Tip: a sitemap with all pdfs, including the datasheets,
+          are available at https://www.analog.com/media/en/en-pdf-sitemap.xml
         " | sed ':a;N;$!ba;s/\n/ /g;s/  */ /g' > $prompt_file
         cat $prompt_file
 
