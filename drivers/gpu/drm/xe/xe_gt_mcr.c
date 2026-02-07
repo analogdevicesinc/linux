@@ -505,9 +505,6 @@ void xe_gt_mcr_init_early(struct xe_gt *gt)
 
 	spin_lock_init(&gt->mcr_lock);
 
-	if (IS_SRIOV_VF(xe))
-		return;
-
 	if (gt->info.type == XE_GT_TYPE_MEDIA) {
 		drm_WARN_ON(&xe->drm, MEDIA_VER(xe) < 13);
 
@@ -568,9 +565,6 @@ void xe_gt_mcr_init_early(struct xe_gt *gt)
  */
 void xe_gt_mcr_init(struct xe_gt *gt)
 {
-	if (IS_SRIOV_VF(gt_to_xe(gt)))
-		return;
-
 	/* Select non-terminated steering target for each type */
 	for (int i = 0; i < NUM_STEERING_TYPES; i++) {
 		gt->steering[i].initialized = true;
