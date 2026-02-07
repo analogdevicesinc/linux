@@ -270,3 +270,10 @@ config ARM_PXA2xx_CPUFREQ
 	  This add the CPUFreq driver support for Intel PXA2xx SOCs.
 
 	  If in doubt, say N.
+
+config SC589_CPUFREQ
+	tristate "Analog Devices ADSP-SC589 CPUfreq driver"
+	depends on ARCH_SC58X || COMPILE_TEST
+	default n
+	help
+	  This adds CPUFreq driver support for the Analog Devices ADSP-SC589
