@@ -94,6 +94,7 @@ static struct workqueue_struct *ib_unreg_wq;
 static DEFINE_XARRAY_FLAGS(devices, XA_FLAGS_ALLOC);
 static DECLARE_RWSEM(devices_rwsem);
 #define DEVICE_REGISTERED XA_MARK_1
+#define DEVICE_UNREGISTERING XA_MARK_2
 
 static u32 highest_client_id;
 #define CLIENT_REGISTERED XA_MARK_1
@@ -1303,6 +1304,7 @@ static void disable_device(struct ib_device *device)
 
 	down_write(&devices_rwsem);
 	xa_clear_mark(&devices, device->index, DEVICE_REGISTERED);
+	xa_set_mark(&devices, device->index, DEVICE_UNREGISTERING);
 	up_write(&devices_rwsem);
 
 	/*
@@ -1324,6 +1326,10 @@ static void disable_device(struct ib_device *device)
 	/* Pairs with refcount_set in enable_device */
 	ib_device_put(device);
 	wait_for_completion(&device->unreg_completion);
+
+	down_write(&devices_rwsem);
+	xa_clear_mark(&devices, device->index, DEVICE_UNREGISTERING);
+	up_write(&devices_rwsem);
 
 	/*
 	 * compat devices must be removed after device refcount drops to zero.
@@ -2470,6 +2476,7 @@ void ib_enum_roce_netdev(struct ib_device *ib_dev,
  * @filter_cookie: Cookie passed to filter
  * @cb: Callback to call for each found RoCE ports
  * @cookie: Cookie passed back to the callback
+ * @is_unregister: Whether this is NETDEV_UNREGISTER callback
  *
  * Enumerates all RoCE devices' physical ports which are related
  * to netdevices and calls callback() on each device for which
@@ -2478,7 +2485,7 @@ void ib_enum_roce_netdev(struct ib_device *ib_dev,
 void ib_enum_all_roce_netdevs(roce_netdev_filter filter,
 			      void *filter_cookie,
 			      roce_netdev_callback cb,
-			      void *cookie)
+			      void *cookie, bool is_unregister)
 {
 	struct ib_device *dev;
 	unsigned long index;
@@ -2486,6 +2493,9 @@ void ib_enum_all_roce_netdevs(roce_netdev_filter filter,
 	down_read(&devices_rwsem);
 	xa_for_each_marked (&devices, index, dev, DEVICE_REGISTERED)
 		ib_enum_roce_netdev(dev, filter, filter_cookie, cb, cookie);
+	if (is_unregister)
+		xa_for_each_marked(&devices, index, dev, DEVICE_UNREGISTERING)
+			ib_enum_roce_netdev(dev, filter, filter_cookie, cb, cookie);
 	up_read(&devices_rwsem);
 }
 

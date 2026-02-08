@@ -68,6 +68,7 @@ struct netdev_event_work_cmd {
 struct netdev_event_work {
 	struct work_struct		work;
 	struct netdev_event_work_cmd	cmds[ROCE_NETDEV_CALLBACK_SZ];
+	bool				is_unregister;
 };
 
 static const struct {
@@ -671,7 +672,8 @@ static void netdevice_event_work_handler(struct work_struct *_work)
 		ib_enum_all_roce_netdevs(work->cmds[i].filter,
 					 work->cmds[i].filter_ndev,
 					 work->cmds[i].cb,
-					 work->cmds[i].ndev);
+					 work->cmds[i].ndev,
+					 work->is_unregister);
 		dev_put(work->cmds[i].ndev);
 		dev_put(work->cmds[i].filter_ndev);
 	}
@@ -680,7 +682,7 @@ static void netdevice_event_work_handler(struct work_struct *_work)
 }
 
 static int netdevice_queue_work(struct netdev_event_work_cmd *cmds,
-				struct net_device *ndev)
+				struct net_device *ndev, bool is_unregister)
 {
 	unsigned int i;
 	struct netdev_event_work *ndev_work =
@@ -689,6 +691,7 @@ static int netdevice_queue_work(struct netdev_event_work_cmd *cmds,
 	if (!ndev_work)
 		return NOTIFY_DONE;
 
+	ndev_work->is_unregister = is_unregister;
 	memcpy(ndev_work->cmds, cmds, sizeof(ndev_work->cmds));
 	for (i = 0; i < ARRAY_SIZE(ndev_work->cmds) && ndev_work->cmds[i].cb; i++) {
 		if (!ndev_work->cmds[i].ndev)
@@ -846,7 +849,7 @@ static int netdevice_event(struct notifier_block *this, unsigned long event,
 		return NOTIFY_DONE;
 	}
 
-	return netdevice_queue_work(cmds, ndev);
+	return netdevice_queue_work(cmds, ndev, event == NETDEV_UNREGISTER);
 }
 
 static void update_gid_event_work_handler(struct work_struct *_work)
@@ -856,7 +859,7 @@ static void update_gid_event_work_handler(struct work_struct *_work)
 
 	ib_enum_all_roce_netdevs(is_eth_port_of_netdev_filter,
 				 work->gid_attr.ndev,
-				 callback_for_addr_gid_device_scan, work);
+				 callback_for_addr_gid_device_scan, work, false);
 
 	dev_put(work->gid_attr.ndev);
 	kfree(work);
