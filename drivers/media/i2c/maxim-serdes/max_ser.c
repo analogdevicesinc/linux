@@ -108,26 +108,51 @@ static const struct i2c_atr_ops max_ser_i2c_atr_ops = {
 
 static void max_ser_i2c_atr_deinit(struct max_ser_priv *priv)
 {
-	/* Deleting adapters that haven't been added does no harm. */
-	i2c_atr_del_adapter(priv->atr, 0);
+	unsigned int i;
+
+	for (i = 0; i < priv->ops->num_pipes; i++) {
+		struct max_ser_pipe *pipe = &priv->pipes[i]; 
+		/* Deleting adapters that haven't been added does no harm. */
+		i2c_atr_del_adapter(priv->atr, pipe->index);
+	}
 
 	i2c_atr_delete(priv->atr);
 }
 
 static int max_ser_i2c_atr_init(struct max_ser_priv *priv)
 {
+	unsigned int i;
+	int ret;
+
 	if (!i2c_check_functionality(priv->client->adapter,
 				     I2C_FUNC_SMBUS_WRITE_BYTE_DATA))
 		return -ENODEV;
-
+	
+	// create the atr using max number of pipes
 	priv->atr = i2c_atr_new(priv->client->adapter, priv->dev,
-				&max_ser_i2c_atr_ops, 1);
+				&max_ser_i2c_atr_ops, priv->ops->num_pipes);
+	
 	if (!priv->atr)
 		return -ENOMEM;
 
 	i2c_atr_set_driver_data(priv->atr, priv);
 
-	return i2c_atr_add_adapter(priv->atr, 0, NULL, NULL);
+	for (i = 0; i < priv->ops->num_pipes; i++) {
+		struct max_ser_pipe *pipe = &priv->pipes[i];
+
+		if (!pipe->enabled)
+			continue;
+
+		ret = i2c_atr_add_adapter(priv->atr, pipe->index, NULL, NULL);
+		if (ret)
+			goto err_add_adapters;
+	}
+
+	return 0;
+
+err_add_adapters:
+	max_ser_i2c_atr_deinit(priv);
+	return ret;
 }
 
 static int max_ser_update_pipe_dts(struct max_ser_priv *priv,
