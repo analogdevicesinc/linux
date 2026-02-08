@@ -996,7 +996,7 @@ static int max96724_init_pipe(struct max_des_priv *des_priv,
 	reg = 0xf0 + index / 2;
 	shift = 4 * (index % 2);
 	ret = max96724_update_bits(priv, reg, GENMASK(1, 0) << shift,
-				   pipe->stream_id << shift);
+			 0 << shift);
 	if (ret)
 		return ret;
 
