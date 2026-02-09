@@ -352,7 +352,6 @@ struct adrv906x_edac_priv {
 	u16 edac_cmd_flag;
 	struct task_struct *edac_task;
 	spinlock_t cmd_flag_lock; /* wait queue cmd access control */
-	bool panic_on_ue;
 #ifdef CONFIG_EDAC_DEBUG
 	ulong poison_addr;
 	u32 row_shift[18];
@@ -537,8 +536,8 @@ static irqreturn_t intr_handler_ue(int irq, void *dev_id)
 	priv = mci->pvt_info;
 	spin_lock_irqsave(&priv->cmd_flag_lock, flags);
 	priv->edac_cmd_flag |= EDAC_UE;
-	wake_up_interruptible(&priv->edac_wq);
 	spin_unlock_irqrestore(&priv->cmd_flag_lock, flags);
+	wake_up_interruptible(&priv->edac_wq);
 
 	return IRQ_HANDLED;
 }
@@ -1144,6 +1143,9 @@ static void edac_remove_sysfs_attributes(struct mem_ctl_info *mci)
 {
 	device_remove_file(&mci->dev, &dev_attr_inject_data_error);
 	device_remove_file(&mci->dev, &dev_attr_inject_data_poison);
+	device_remove_file(&mci->dev, &dev_attr_perf_mon_core_enable);
+	device_remove_file(&mci->dev, &dev_attr_perf_mon_core_data_sel);
+	device_remove_file(&mci->dev, &dev_attr_perf_monitor_data);
 }
 
 static void setup_row_address_map(struct adrv906x_edac_priv *priv, u32 *addrmap)
@@ -1297,17 +1299,13 @@ static int adrv906x_edac_thread(void *data)
 	struct mem_ctl_info *mci = (struct mem_ctl_info *)data;
 	struct adrv906x_edac_priv *priv = mci->pvt_info;
 	const struct adrv906x_platform_data *p_data;
-	bool panic_flag = false;
 	unsigned long flags;
 	int status;
 
 	p_data = priv->p_data;
 
-	while (true) {
+	while (!kthread_should_stop()) {
 		wait_event_interruptible(priv->edac_wq, priv->edac_cmd_flag != EDAC_NONE);
-
-		if (priv->edac_cmd_flag == EDAC_UE)
-			panic_flag = true;
 
 		spin_lock_irqsave(&priv->cmd_flag_lock, flags);
 		priv->edac_cmd_flag = EDAC_NONE;
@@ -1319,11 +1317,6 @@ static int adrv906x_edac_thread(void *data)
 		priv->ce_cnt += priv->stat.ce_cnt;
 		priv->ue_cnt += priv->stat.ue_cnt;
 		handle_error(mci, &priv->stat);
-
-		if (panic_flag && priv->panic_on_ue) {
-			panic_flag = false;
-			panic("uncorrectable dram ecc error");
-		}
 	}
 
 	return 0;
@@ -1341,8 +1334,6 @@ static int adrv906x_edac_thread(void *data)
 static int mc_probe(struct platform_device *pdev)
 {
 	const struct adrv906x_platform_data *p_data;
-	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
 	struct edac_mc_layer layers[2];
 	struct adrv906x_edac_priv *priv;
 	struct mem_ctl_info *mci;
@@ -1393,8 +1384,6 @@ static int mc_probe(struct platform_device *pdev)
 		goto free_edac_mc;
 	}
 
-	priv->panic_on_ue = of_property_read_bool(np, "panic_on_ue");
-
 #ifdef CONFIG_EDAC_DEBUG
 	rc = edac_create_sysfs_attributes(mci);
 	if (rc) {
@@ -1435,10 +1424,9 @@ free_edac_mc:
 static void mc_remove(struct platform_device *pdev)
 {
 	struct mem_ctl_info *mci = platform_get_drvdata(pdev);
-#ifdef CONFIG_EDAC_DEBUG
 	struct adrv906x_edac_priv *priv = mci->pvt_info;
-#endif
 
+	kthread_stop(priv->edac_task);
 #ifdef CONFIG_EDAC_DEBUG
 	if (priv->p_data->quirks & DDR_ECC_DATA_POISON_SUPPORT)
 		edac_remove_sysfs_attributes(mci);

@@ -293,7 +293,6 @@
 	mc: memory-controller@202b0000 {
 		compatible = "adi,adrv906x-ddrc";
 		reg = <0x202b0000 0x30000>;
-		panic_on_ue;
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_SPI ECC_CORRECTED_ERR_INTR IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI O_ECC_UNCORRECTED_ERR_INTR IRQ_TYPE_LEVEL_HIGH>;

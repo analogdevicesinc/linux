@@ -77,7 +77,7 @@ static int plat_panic_handler(struct notifier_block *nb, unsigned long reason, v
 {
 	if (strcmp(arg, "dm-verity device corrupted") == 0)
 		wr_reset_cause(IMG_VERIFY_FAIL);
-	else if (strcmp(arg, "uncorrectable dram ecc error") == 0)
+	else if (strstr(arg, "UE DDR ECC error"))
 		wr_reset_cause(DRAM_ECC_ERROR);
 	else
 		wr_reset_cause(OTHER_RESET_CAUSE);

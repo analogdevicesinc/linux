@@ -20,10 +20,6 @@ properties:
     items:
       - description: ddr_ctl base register address and range
 
-  panic_on_ue:
-    type: boolean
-    description: reboot system on UE DDR ECC error if this node exists
-
   interrupts:
     items:
       - description: CE interrupt
@@ -41,7 +37,6 @@ examples:
     mc: memory-controller@202b0000 {
         compatible = "adi,adrv906x-ddrc";
         reg = <0x202b0000 0x30000>;
-        panic_on_ue;
         interrupt-parent = <&gic>;
         interrupts = <0 143 0x4>, <0 145 0x4>;
     };
