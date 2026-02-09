@@ -740,6 +740,19 @@ config VIDEO_RJ54N1
 	  To compile this driver as a module, choose M here: the
 	  module will be called rj54n1.
 
+config VIDEO_RS_D457
+	tristate "RealSense D457 camera support"
+	depends on I2C && VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 driver for the RealSense
+	  D457 camera module.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called rs_d457.
+
 config VIDEO_S5C73M3
 	tristate "Samsung S5C73M3 sensor support"
 	depends on I2C && SPI && VIDEO_DEV
