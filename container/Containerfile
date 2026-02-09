@@ -34,10 +34,10 @@ COPY container/install-utils.sh .
 RUN chmod +x install-utils.sh ; ./install-utils.sh ; rm ./install-utils.sh
 COPY container/install-compilers.sh .
 RUN chmod +x install-compilers.sh ; ./install-compilers.sh ; rm ./install-compilers.sh
-COPY container/install-extra.sh .
-RUN chmod +x install-extra.sh ; ./install-extra.sh ; rm ./install-extra.sh
 COPY container/set-alternatives.sh .
 RUN chmod +x set-alternatives.sh ; ./set-alternatives.sh ; rm ./set-alternatives.sh
+COPY container/install-extra.sh .
+RUN chmod +x install-extra.sh ; ./install-extra.sh ; rm ./install-extra.sh
 
 RUN mkdir -p /usr/local/bin
 WORKDIR /usr/local/bin
