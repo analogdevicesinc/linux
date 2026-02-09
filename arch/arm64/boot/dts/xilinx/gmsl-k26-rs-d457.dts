@@ -1,0 +1,934 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/dts-v1/;
+/plugin/;
+
+#define GMSL_CAM_DS457
+// Number of used cameras per RealSense D457 instance
+#define GMSL_CAMERA_PER_DS457_MODULE 2
+// Number of RealSense D457 devices in the architecture
+#define GMSL_DEVS_DS457 1
+
+//GMSL defines
+#define GMSL_PHY	0x1
+
+#if (GMSL_CAMERA_PER_DS457_MODULE >= 1)
+#define GMSL_CAMERA_0
+#endif
+#if (GMSL_CAMERA_PER_DS457_MODULE >= 2) 
+#define GMSL_CAMERA_1
+#endif
+#if (GMSL_CAMERA_PER_DS457_MODULE >= 3)
+#define GMSL_CAMERA_2
+#endif
+#if (GMSL_CAMERA_PER_DS457_MODULE >= 4)
+#define GMSL_CAMERA_3
+#endif
+
+#define GMSL_SER_0_HEX_ADDR	0x41
+#define GMSL_SER_1_HEX_ADDR	0x42
+#define GMSL_SER_2_HEX_ADDR	0x43
+#define GMSL_SER_3_HEX_ADDR	0x44
+#define GMSL_SER_4_HEX_ADDR	0x41
+#define GMSL_SER_5_HEX_ADDR	0x42
+#define GMSL_SER_6_HEX_ADDR	0x43
+#define GMSL_SER_7_HEX_ADDR	0x44
+
+
+#ifdef GMSL_CAM_DS457
+#define GMSL_CAM_0_HEX_ADDR	0x11
+#define GMSL_CAM_1_HEX_ADDR	0x12
+#define GMSL_CAM_2_HEX_ADDR	0x13
+#define GMSL_CAM_3_HEX_ADDR	0x14
+#define GMSL_CAM_4_HEX_ADDR	0x15
+#define GMSL_CAM_5_HEX_ADDR	0x16
+#define GMSL_CAM_6_HEX_ADDR	0x17
+#define GMSL_CAM_7_HEX_ADDR	0x18
+#endif
+
+#ifdef GMSL_CAM_DS457
+#if (GMSL_CAMERA_PER_DS457_MODULE > 0)
+#define GMSL_CAM_0_DS457_FOR_I2C_ADDR_POOL 0x20
+#define GMSL_CAM_1_DS457_FOR_I2C_ADDR_POOL	0x21
+#define GMSL_CAM_2_DS457_FOR_I2C_ADDR_POOL	0x22
+#define GMSL_CAM_3_DS457_FOR_I2C_ADDR_POOL	0x23
+#endif
+#endif
+
+#define _CONCAT(a, b) a ## b
+#define CONCAT(a, b) _CONCAT(a, b)
+
+#define _STRINGIFY(a) # a
+#define STRINGIFY(a) _STRINGIFY(a)
+
+&{/} {
+	clk_24M: clk_24M {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+
+	pwm_clk: pwm_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+	};
+
+	reg_1_8V: regulator-1-8v {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		ranges = <0 0 0 0xffffffff>;
+		axi_iic_mipi: i2c@84a40000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-iic-2.1", "xlnx,xps-iic-2.00.a";
+			reg = <0x84a40000 0x1000>;
+			interrupts = <0 109 4>;
+		};
+
+#if (GMSL_CAMERA_PER_DS457_MODULE > 0)
+		gmsl_aggregator_0: gmsl_aggregator@0 {
+			compatible = "maxim,aggregator";
+			max,num-source-slots = <1>;
+			max,num-sink-slots = <GMSL_CAMERA_PER_DS457_MODULE>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					aggr_out0: endpoint {
+						remote-endpoint = <&mipi_csi_inmipi_csi2_rx_subsyst_0>;
+					};
+				};
+#if defined (GMSL_CAMERA_0)
+				port@1 {
+					reg = <1>;
+					csi_in0: endpoint {
+						remote-endpoint = <&deser_out0>;
+
+						data-lanes = <1 2 3 4>;
+					};
+				};
+#endif
+
+#if defined (GMSL_CAMERA_1) 
+				port@2 {
+					reg = <2>;
+					csi_in1: endpoint {
+						remote-endpoint = <&deser_out1>;
+						data-lanes = <1 2 3 4>;
+					};
+				};
+#endif
+#if defined (GMSL_CAMERA_2)
+				port@3 {
+					reg = <3>;
+					csi_in2: endpoint {
+						remote-endpoint = <&deser_out2>;
+						data-lanes = <1 2 3 4>;
+					};
+				};
+#endif
+#if defined (GMSL_CAMERA_3)
+				port@4 {
+					reg = <4>;
+					csi_in3: endpoint {
+						remote-endpoint = <&deser_out3>;
+						data-lanes = <1 2 3 4>;
+					};
+				};
+#endif
+			};
+		};
+#endif
+
+#if (GMSL_DEVS_DS457 > 4)
+		gmsl_aggregator_1: gmsl_aggregator@1 {
+			compatible = "maxim,aggregator";
+			max,num-source-slots = <1>;
+			max,num-sink-slots = <GMSL_CAMERA_PER_DS457_MODULE>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					aggr_out1: endpoint {
+						remote-endpoint = <&mipi_csi_inmipi_csi2_rx_subsyst_1>;
+					};
+				};
+#if defined (GMSL_CAMERA_4)
+				port@1 {
+					reg = <1>;
+					csi_in_20: endpoint {
+						remote-endpoint = <&deser_out_20>;
+						data-lanes = <1 2 3 4>;
+					};
+				};
+#endif
+#if defined (GMSL_CAMERA_5)
+				port@2 {
+					reg = <2>;
+					csi_in_21: endpoint {
+						remote-endpoint = <&deser_out_21>;
+						data-lanes = <1 2 3 4>;
+					};
+				};
+#endif
+#if defined (GMSL_CAMERA_6)
+				port@3 {
+					reg = <3>;
+					csi_in_22: endpoint {
+						remote-endpoint = <&deser_out_22>;
+						data-lanes = <1 2 3 4>;
+					};
+				};
+#endif
+#if defined (GMSL_CAMERA_7)
+				port@4 {
+					reg = <4>;
+					csi_in_23: endpoint {
+						remote-endpoint = <&deser_out_23>;
+						data-lanes = <1 2 3 4>;
+					};
+				};
+#endif
+			};
+		};
+#endif
+
+#if (GMSL_CAMERA_PER_DS457_MODULE > 0)
+		mipi_csi2_rx_subsyst_0: mipi_csi2_rx_subsystem@84a00000 {
+			clock-names = "lite_aclk", "dphy_clk_200M", "video_aclk";
+			clocks = <&zynqmp_clk 71>, <&misc_clk_0>, <&zynqmp_clk 71>;
+			compatible = "xlnx,mipi-csi2-rx-subsystem-5.2", "xlnx,mipi-csi2-rx-subsystem-5.0";
+			interrupt-names = "csirxss_csi_irq";
+			interrupt-parent = <&gic>;
+			interrupts = <0 111 4>;
+			xlnx,csi-pxl-format = <0x1E>;
+			video-reset-gpios = <&gpio 78 GPIO_ACTIVE_LOW>;
+			reg = <0x84a00000 0x2000>;
+			xlnx,axis-tdata-width = <32>;
+			xlnx,dphy-present ;
+			xlnx,max-lanes = <4>;
+			xlnx,ppc = <2>;
+			xlnx,vc = <4>;
+			xlnx,vfb ;
+			mipi_csi_portsmipi_csi2_rx_subsyst_0: ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				mipi_csi_port1mipi_csi2_rx_subsyst_0: port@1 {
+					/* Fill cfa-pattern=rggb for raw data types, other fields video-format and video-width user needs to fill */
+					reg = <1>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+					mipi_csirx_outmipi_csi2_rx_subsyst_0: endpoint {
+						//remote-endpoint = <&switch_in0>;
+						remote-endpoint = <&vcap_portswitch0>;
+					};
+				};
+				mipi_csi_port0mipi_csi2_rx_subsyst_0: port@0 {
+					/* Fill cfa-pattern=rggb for raw data types, other fields video-format,video-width user needs to fill */
+					/* User need to add something like remote-endpoint=<&out> under the node csiss_in:endpoint */
+					reg = <0>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+					mipi_csi_inmipi_csi2_rx_subsyst_0: endpoint {
+						remote-endpoint = <&aggr_out0>;
+						data-lanes = <1 2 3 4>;
+					};
+				};
+			};
+		};
+#endif
+
+#if (GMSL_DEVS_DS457 > 4)
+		mipi_csi2_rx_subsyst_1: mipi_csi2_rx_subsystem@84a20000 {
+			clock-names = "lite_aclk", "dphy_clk_200M", "video_aclk";
+			clocks = <&zynqmp_clk 71>, <&misc_clk_0>, <&zynqmp_clk 71>;
+			compatible = "xlnx,mipi-csi2-rx-subsystem-5.2", "xlnx,mipi-csi2-rx-subsystem-5.0";
+			interrupt-names = "csirxss_csi_irq";
+			interrupt-parent = <&gic>;
+			interrupts = <0 110 4>;
+			xlnx,csi-pxl-format = <0x1E>;
+			video-reset-gpios = <&gpio 78 GPIO_ACTIVE_LOW>;
+			reg = <0x84a20000 0x2000>;
+			xlnx,axis-tdata-width = <32>;
+			xlnx,dphy-present ;
+			xlnx,max-lanes = <4>;
+			xlnx,ppc = <2>;
+			xlnx,vc = <4>;
+			xlnx,vfb;
+			mipi_csi_portsmipi_csi2_rx_subsyst_1: ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				mipi_csi_port1mipi_csi2_rx_subsyst_1: port@1 {
+					/* Fill cfa-pattern=rggb for raw data types, other fields video-format and video-width user needs to fill */
+					reg = <1>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+					mipi_csirx_outmipi_csi2_rx_subsyst_1: endpoint {
+						remote-endpoint = <&vcap_portswitch1>;
+					};
+				};
+				mipi_csi_port0mipi_csi2_rx_subsyst_1: port@0 {
+					/* Fill cfa-pattern=rggb for raw data types, other fields video-format,video-width user needs to fill */
+					/* User need to add something like remote-endpoint=<&out> under the node csiss_in:endpoint */
+					reg = <0>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+					mipi_csi_inmipi_csi2_rx_subsyst_1: endpoint {
+						remote-endpoint = <&aggr_out1>;
+						data-lanes = <1 2 3 4>;
+					};
+				};
+			};
+		};
+#endif
+
+		axi_pwmgen: axi_pwmgen@80080000 {
+			compatible = "adi,axi-pwmgen";
+			reg = <0x80080000 0x1000>;
+            label = "pwm_out1";
+            #pwm-cells = <2>;
+            clocks = <&pwm_clk>;
+        	};
+
+		misc_clk_0: misc_clk_0 {
+			#clock-cells = <0>;
+			clock-frequency = <200000000>;
+			compatible = "fixed-clock";
+		};
+
+#if (GMSL_CAMERA_PER_DS457_MODULE > 0)
+		v_frmbuf_wr_0: v_frmbuf_wr@84a60000 {
+			#dma-cells = <1>;
+			clock-names = "ap_clk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,v-frmbuf-wr-2.4", "xlnx,axi-frmbuf-wr-v2.2";
+			interrupt-names = "interrupt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 94 4>;
+			reset-gpios = <&gpio 80 GPIO_ACTIVE_LOW>;
+			reg = <0x84a60000 0x10000>;
+			xlnx,dma-addr-width = <32>;
+			xlnx,max-height = <2160>;
+			xlnx,max-width = <3840>;
+			xlnx,pixels-per-clock = <4>;
+			xlnx,s-axi-ctrl-addr-width = <0x7>;
+			xlnx,s-axi-ctrl-data-width = <0x20>;
+			xlnx,vid-formats = "rgb888", "bgr888", "uyvy", "yuyv", "nv16";
+			xlnx,video-width = <8>;
+		};
+#endif
+
+#if (GMSL_DEVS_DS457 > 4)
+		v_frmbuf_wr_1: v_frmbuf_wr@84a80000 {
+			#dma-cells = <1>;
+			clock-names = "ap_clk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,v-frmbuf-wr-2.4", "xlnx,axi-frmbuf-wr-v2.2";
+			interrupt-names = "interrupt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 108 4>;
+			reset-gpios = <&gpio 81 GPIO_ACTIVE_LOW>;
+			reg = <0x84a80000 0x10000>;
+			xlnx,dma-addr-width = <32>;
+			xlnx,max-height = <2160>;
+			xlnx,max-width = <3840>;
+			xlnx,pixels-per-clock = <4>;
+			xlnx,s-axi-ctrl-addr-width = <0x7>;
+			xlnx,s-axi-ctrl-data-width = <0x20>;
+			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
+			xlnx,video-width = <8>;
+		};
+#endif
+
+#if (GMSL_CAMERA_PER_DS457_MODULE > 0)
+		vcap_mipi_csi2_rx_subsyst_0 {
+			compatible = "xlnx,video";
+			dma-names = "port0";
+			dmas = <&v_frmbuf_wr_0 0>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				vcap_port0: port@0 {
+					direction = "input";
+					reg = <0>;
+					vcap_portswitch0: endpoint {
+						remote-endpoint = <&mipi_csirx_outmipi_csi2_rx_subsyst_0>;
+					};
+				};
+			};
+		};
+#endif
+
+#if (GMSL_DEVS_DS457 > 4)
+		vcap_mipi_csi2_rx_subsyst_1 {
+			compatible = "xlnx,video";
+			dma-names = "port0";
+			dmas = <&v_frmbuf_wr_1 0>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				vcap_port00: port@1 {
+					direction = "input";
+					reg = <0>;
+					vcap_portswitch1: endpoint {
+						remote-endpoint = <&mipi_csirx_outmipi_csi2_rx_subsyst_1>;
+					};
+				};
+			};
+		};
+#endif
+	};
+};
+
+&axi_iic_mipi { 
+	i2c-mux@77 {
+		compatible = "nxp,pca9548"; /* u18 */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x77>;
+		reset-gpios = <&gpio 88 GPIO_ACTIVE_LOW>;
+#if (GMSL_CAMERA_PER_DS457_MODULE > 0)
+		i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+			deserializer: gmsl-deserializer@27 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "maxim,max96724";
+				reg = <0x27>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				pinctrl-0 = <&des1_mfp0_fsync0 &des1_mfp1_fsync1 &des1_mfp2_fsync2 &des1_mfp3_fsync3>;
+				pinctrl-names = "default";
+
+				pins {
+					des1_mfp0_fsync0: mfp0_fsync0 {
+						pins = "mfp0";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <1>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
+					};
+
+					des1_mfp1_fsync1: mfp1_fsync1 {
+						pins = "mfp1";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <1>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
+					};
+
+					des1_mfp2_fsync2: mfp2_fsync2 {
+						pins = "mfp2";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <1>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
+					};
+
+					des1_mfp3_fsync3: mfp3_fsync3 {
+						pins = "mfp3";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <1>;
+						maxim,gmsl-tx-id-d = <3>;
+					};
+				};
+			};
+		};
+#endif
+
+#if (GMSL_DEVS_DS457 > 4)
+		i2c@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+			deserializer_2: gmsl-deserializer@2e {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "maxim,max96724";
+				reg = <0x2e>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				pinctrl-0 = <&des2_mfp0_fsync0 &des2_mfp1_fsync1 &des2_mfp2_fsync2 &des2_mfp3_fsync3>;
+				pinctrl-names = "default";
+				pins {
+					des2_mfp0_fsync0: mfp0_fsync0 {
+						pins = "mfp0";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <1>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
+					};
+
+					des2_mfp1_fsync1: mfp1_fsync1 {
+						pins = "mfp1";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <1>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
+					};
+
+					des2_mfp2_fsync2: mfp2_fsync2 {
+						pins = "mfp2";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <1>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
+					};
+
+					des2_mfp3_fsync3: mfp3_fsync3 {
+						pins = "mfp3";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <1>;
+						maxim,gmsl-tx-id-d = <3>;
+					};
+				};
+			};
+		};
+#endif
+	};
+};
+
+#if (GMSL_CAMERA_PER_DS457_MODULE > 0)
+&deserializer {
+	phy@GMSL_PHY {
+		reg = <GMSL_PHY>;
+	};
+
+#if defined(GMSL_CAMERA_0)
+	#define DESER_CH_INDEX 0
+	#include "gmsl-deserializer-channel.dtsi"
+#endif
+
+#if defined(GMSL_CAMERA_1)
+	#define DESER_CH_INDEX 1
+
+	#include "gmsl-deserializer-channel.dtsi"
+#endif
+
+#if defined(GMSL_CAMERA_2)
+	#define DESER_CH_INDEX 2
+
+	#include "gmsl-deserializer-channel.dtsi"
+#endif
+
+#if defined(GMSL_CAMERA_3)
+	#define DESER_CH_INDEX 3
+
+	#include "gmsl-deserializer-channel.dtsi"
+#endif
+};
+#endif
+
+#if (GMSL_CAMERA_PER_DS457_MODULE > 0)
+&deserializer {
+	i2c-alias-pool = <
+		GMSL_SER_0_HEX_ADDR
+		GMSL_SER_1_HEX_ADDR
+		GMSL_SER_2_HEX_ADDR
+		GMSL_SER_3_HEX_ADDR
+	>;
+
+	i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		deserializer_i2c_0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			reg = <0>;
+		};
+	};
+};
+#endif
+
+#if (GMSL_CAMERA_PER_DS457_MODULE > 0)
+serializer_0_i2c_bus: &deserializer_i2c_0 {};
+#endif
+
+#if (GMSL_DEVS_DS457 == 1 && GMSL_CAMERA_PER_DS457_MODULE > 0)
+&serializer_0_i2c_bus {
+	serializer_0: gmsl-serializer@0x40 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "maxim,max9295a";
+		reg = <0x40>;
+
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		i2c-alias-pool = <
+			GMSL_CAM_0_HEX_ADDR
+			GMSL_CAM_1_HEX_ADDR
+			GMSL_CAM_2_HEX_ADDR
+			GMSL_CAM_3_HEX_ADDR
+		>;
+
+		i2c-atr {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			serializer_0_i2c_0: i2c@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				reg = <0>;
+			};
+		};
+
+		#if defined(GMSL_CAMERA_0)
+		pipe@0 {
+			reg = <0>;
+			max,phy-id = <0>;
+			max,stream-id = <0>;
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_1)
+		pipe@1 {
+			reg = <1>;
+			max,phy-id = <0>;
+			max,stream-id = <1>;
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_2)
+		pipe@2 {
+			reg = <2>;
+			max,phy-id = <0>;
+			max,stream-id = <2>;
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_3)
+		pipe@3 {
+			reg = <3>;
+			max,phy-id = <0>;
+			max,stream-id = <3>;
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_0)
+		channel@0 {
+			reg = <0>;
+			max,vc-id = <0>;
+			max,pipe-id = <0>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					ser_out0: endpoint {
+						remote-endpoint = <&deser_in0>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					ser_in0: endpoint {
+						remote-endpoint = <&cam_out0>;
+					};
+				};
+			};
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_1)
+		channel@1 {
+			reg = <1>;
+			max,pipe-id = <1>;
+			max,vc-id = <1>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					ser_out1: endpoint {
+						remote-endpoint = <&deser_in1>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					ser_in1: endpoint {
+						remote-endpoint = <&cam_out1>;
+					};
+				};
+			};
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_2)
+		channel@2 {
+			reg = <2>;
+			max,vc-id = <2>;
+			max,pipe-id = <2>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					ser_out2: endpoint {
+						remote-endpoint = <&deser_in2>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					ser_in2: endpoint {
+						remote-endpoint = <&cam_out2>;
+					};
+				};
+			};
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_3)
+		channel@3 {
+			reg = <3>;
+			max,vc-id = <3>;
+			max,pipe-id = <3>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					ser_out3: endpoint {
+						remote-endpoint = <&deser_in3>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					ser_in3: endpoint {
+						remote-endpoint = <&cam_out3>;
+					};
+				};
+			};
+		};
+		#endif
+	};
+};
+#endif
+
+#if (GMSL_DEVS_DS457 == 1 && GMSL_CAMERA_PER_DS457_MODULE > 0)
+	camera_0_i2c_bus: &serializer_0_i2c_0 {};
+#endif
+
+#if (GMSL_DEVS_DS457 == 1 && GMSL_CAMERA_PER_DS457_MODULE > 0)
+&camera_0_i2c_bus {
+	ds457: rs_ds457@0x10 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "intel,rs_d457";
+		reg = <0x10>;
+		clocks = <&clk_24M>;
+		clock-names = "xclk";
+		dvdd-supply = <&reg_1_8V>;
+
+		i2c-alias-pool = <
+			GMSL_CAM_0_DS457_FOR_I2C_ADDR_POOL
+			GMSL_CAM_1_DS457_FOR_I2C_ADDR_POOL
+			GMSL_CAM_2_DS457_FOR_I2C_ADDR_POOL
+			GMSL_CAM_3_DS457_FOR_I2C_ADDR_POOL
+		>;
+
+		#if defined(GMSL_CAMERA_0)
+		cam@0 {
+			reg = <0>;
+			ds457,cam-id = <0>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					cam_out0: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						remote-endpoint = <&ser_in0>;
+					};
+				};
+			};
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_1)
+		cam@1 {
+			reg = <1>;
+			ds457,cam-id = <1>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					cam_out1: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						remote-endpoint = <&ser_in1>;
+					};
+				};
+			};
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_2)
+		cam@2 {
+			reg = <2>;
+			ds457,cam-id = <2>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					cam_out2: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						remote-endpoint = <&ser_in2>;
+					};
+				};
+			};
+		};
+		#endif
+
+		#if defined(GMSL_CAMERA_3)
+		cam@3 {
+			reg = <3>;
+			ds457,cam-id = <3>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					cam_out3: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						remote-endpoint = <&ser_in3>;
+					};
+				};
+			};
+		};
+		#endif
+	};
+};
+#endif
+
+&sdhci0 {
+       status = "disabled";
+};
+
+&sdhci1 {
+       status = "okay";
+       disable-wp;
+};

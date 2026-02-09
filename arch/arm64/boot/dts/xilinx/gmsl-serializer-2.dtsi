@@ -1,0 +1,135 @@
+#ifndef SER_COMPAT
+#define SER_COMPAT "maxim,max96717"
+#endif
+
+#ifndef SER_HEX_REG
+#define SER_HEX_REG 0x40
+#endif
+
+#ifdef SER_INDEX
+#define SER_LABEL CONCAT(serializer_2_, SER_INDEX)
+#define SER_I2C_LABEL CONCAT(SER_LABEL, _i2c_0)
+#define SER_OUT_LABEL CONCAT(ser_out_2, SER_INDEX)
+#define SER_IN_LABEL CONCAT(ser_in_2, SER_INDEX)
+#define SER_OUT_REMOTE_LABEL CONCAT(deser_in_2, SER_INDEX)
+#define SER_IN_REMOTE_LABEL CONCAT(cam_out_2, SER_INDEX)
+#endif
+
+#if !defined(SER_LABEL)
+#error
+#endif
+
+#if !defined(SER_OUT_LABEL)
+#error
+#endif
+
+#if !defined(SER_IN_LABEL)
+#error
+#endif
+
+#if !defined(SER_OUT_REMOTE_LABEL)
+#error
+#endif
+
+#if !defined(SER_IN_REMOTE_LABEL)
+#error
+#endif
+
+SER_LABEL: gmsl-serializer@SER_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	compatible = SER_COMPAT;
+	reg = <SER_HEX_REG>;
+
+	gpio-controller;
+	#gpio-cells = <2>;
+
+#if defined(SER_I2C_ADDR_POLL_0)
+	i2c-alias-pool = <SER_I2C_ADDR_POLL_0>;
+#endif
+
+	i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		SER_I2C_LABEL: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			reg = <0>;
+		};
+	};
+
+	pipe@0 {
+		reg = <0>;
+
+		max,stream-id = <SER_INDEX>;
+	};
+
+	channel@0 {
+		reg = <0>;
+		
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				SER_OUT_LABEL: endpoint {
+					remote-endpoint = <&SER_OUT_REMOTE_LABEL>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				SER_IN_LABEL: endpoint {
+					remote-endpoint = <&SER_IN_REMOTE_LABEL>;
+				};
+			};
+		};
+	};
+
+#define SER_MFP0_WP_LABEL CONCAT(SER_LABEL, _mfp0)
+#define SER_MFP3_FSYNC_LABEL CONCAT(SER_LABEL, _mfp3_fsync) 
+#define SER_MFP4_RCLK_LABEL CONCAT(SER_LABEL, _mfp4_rclk)
+
+	pins {
+//		SER_MFP0_WP_LABEL: SER_MFP0_WP_LABEL {
+//			pins = "mfp0";
+//			function = "gpio";
+//			output-low;
+//		};
+
+		SER_MFP3_FSYNC_LABEL: SER_MFP3_FSYNC_LABEL {
+			pins = "mfp3";
+			function = "gpio";
+			bias-pull-up;
+			output-enable;
+			maxim,gmsl-rx = <1>;
+			maxim,gmsl-rx-id = <3>;
+		};
+
+		SER_MFP4_RCLK_LABEL: SER_MFP4_RCLK_LABEL {
+			pins = "mfp4";
+			function = "rclkout";
+			slew-rate = <0>;
+			maxim,rclkout-clock = <0>;
+		};
+	};
+};
+
+#undef SER_COMPAT
+#undef SER_HEX_REG
+#undef SER_INDEX
+#undef SER_LABEL
+#undef SER_OUT_LABEL
+#undef SER_IN_LABEL
+#undef SER_OUT_REMOTE_LABEL
+#undef SER_IN_REMOTE_LABEL
+#undef SER_MFP0_WP_LABEL
+#undef SER_MFP3_FSYNC_LABEL
+#undef SER_MFP4_RCLK_LABEL
+#undef SER_I2C_ADDR_POLL_0
