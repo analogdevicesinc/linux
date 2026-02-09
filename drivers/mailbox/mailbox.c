@@ -219,6 +219,29 @@ bool mbox_client_peek_data(struct mbox_chan *chan)
 EXPORT_SYMBOL_GPL(mbox_client_peek_data);
 
 /**
+ * mbox_chan_tx_slots_available - Query the number of available TX queue slots.
+ * @chan: Mailbox channel to query.
+ *
+ * Clients may call this to check how many messages can be queued via
+ * mbox_send_message() before the channel's TX queue is full. This helps
+ * clients avoid the -ENOBUFS error without needing to increase
+ * MBOX_TX_QUEUE_LEN.
+ * This can be called from atomic context.
+ *
+ * Return: Number of available slots in the channel's TX queue.
+ */
+unsigned int mbox_chan_tx_slots_available(struct mbox_chan *chan)
+{
+	unsigned int ret;
+
+	guard(spinlock_irqsave)(&chan->lock);
+	ret = MBOX_TX_QUEUE_LEN - chan->msg_count;
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mbox_chan_tx_slots_available);
+
+/**
  * mbox_send_message -	For client to submit a message to be
  *				sent to the remote.
  * @chan: Mailbox channel assigned to this client.
