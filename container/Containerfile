@@ -1,33 +1,21 @@
 FROM opensuse/leap:16.0
 
 ENV version=v4
-ARG runner_version=2.331.0
-ARG runner_version_sha=5fcc01bd546ba5c3f1291c2803658ebd3cedb3836489eda3be357d41bfcf28a7
-ARG runner_k8s_version=0.8.1
-ARG runner_k8s_version_sha=2c3c4526f8a8d517373a2a0daa6122d7887bdc465c54945c6d716db87d9d9b4f
 ARG bashrc=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/ci/bashrc
 ARG entrypoint_sh=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/ci/entrypoint.sh
+ARG git_defaults_sh=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/ci/git-defaults.sh
+ARG gh_actions_runner_sh=https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/ci/gh-actions-runner.sh
 
 RUN zypper update -y
 RUN zypper install -y --no-recommends \
     tar unzip gzip curl jq libicu coreutils
 
 RUN useradd -m runner
-
-USER runner
 WORKDIR /home/runner
 
-RUN curl -o actions-runner.tar.gz -L https://github.com/actions/runner/releases/download/v${runner_version}/actions-runner-linux-x64-${runner_version}.tar.gz && \
-    echo "${runner_version_sha} actions-runner.tar.gz" | sha256sum -c && \
-    tar xzf actions-runner.tar.gz && rm actions-runner.tar.gz
-RUN ./externals/node20/bin/node ./externals/node20/lib/node_modules/npm/bin/npm-cli.js --prefix ./externals/node20 -g update
-RUN ./externals/node24/bin/node ./externals/node24/lib/node_modules/npm/bin/npm-cli.js --prefix ./externals/node24 -g update
-RUN rm -r ./.npm ./externals/node*_alpine
-RUN curl -o actions-runner-k8s.zip -L https://github.com/actions/runner-container-hooks/releases/download/v${runner_k8s_version}/actions-runner-hooks-k8s-${runner_k8s_version}.zip && \
-    echo "${runner_k8s_version_sha} actions-runner-k8s.zip" | sha256sum -c && \
-    unzip actions-runner-k8s.zip && rm actions-runner-k8s.zip
+ADD ${gh_actions_runner_sh} .
+RUN bash ./gh-actions-runner.sh ; rm ./gh-actions-runner.sh
 
-USER root
 COPY container/install-deps.sh .
 RUN chmod +x install-deps.sh ; ./install-deps.sh ; rm ./install-deps.sh
 COPY container/install-utils.sh .
@@ -42,16 +30,10 @@ RUN chmod +x install-extra.sh ; ./install-extra.sh ; rm ./install-extra.sh
 RUN mkdir -p /usr/local/bin
 WORKDIR /usr/local/bin
 ADD ${entrypoint_sh} .
-RUN chmod +rx entrypoint.sh
+RUN chmod +rx ./entrypoint.sh
 
-RUN git config --add --system user.name "CSE CI" ; \
-    git config --add --system user.email "cse-ci-notifications@analog.com" ; \
-    git config --add --system init.defaultBranch  "__runner_init_branch" ; \
-    git config --add --system advice.mergeConflict false ; \
-    git config --add --system advice.detachedHead false ; \
-    git config --add --system fetch.prune true ; \
-    git config --add --system fetch.pruneTags true ; \
-    git config --add --system safe.directory '*'
+ADD ${git_defaults_sh} .
+RUN bash ./git-defaults.sh ; rm ./git-defaults.sh
 
 USER runner
 WORKDIR /home/runner
