@@ -1,0 +1,477 @@
+/*
+ * Device tree for ADI sc589-mini board
+ *
+ * Copyright 2014 - 2018 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2 or later.
+ *
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/pinctrl/adi-adsp.h>
+#include <dt-bindings/pinctrl/adi-adsp-sru.h>
+#include "sc58x.dtsi"
+
+/ {
+	model = "ADI sc589-mini";
+	compatible = "adi,sc589-mini", "adi,sc58x";
+
+	aliases {
+	};
+
+	memory@C3000000 {
+		device_type = "memory";
+		reg = <0xC3000000 0xF000000>;
+	};
+
+	reserved-memory {
+		vdev0vrings: vdev0vring0@200A0000 {
+			reg = <0x200A0000 0x4000>;
+			no-map;
+		};
+
+		vdev0buffer: vdev0buffer@200A4000 {
+			compatible = "shared-dma-pool";
+			reg = <0x200A4000 0xC000>;
+			no-map;
+		};
+
+		vdev1vrings: vdev0vring0@200B0000 {
+			reg = <0x200B0000 0x4000>;
+			no-map;
+		};
+
+		vdev1buffer: vdev0buffer@200B4000 {
+			compatible = "shared-dma-pool";
+			reg = <0x200B4000 0xC000>;
+			no-map;
+		};
+	};
+
+	scb {
+
+		button0: button@0 {
+			compatible = "adi,button-led";
+			button_gpio = <80>;
+			led_gpio = <49>;
+		};
+		button1: button@1 {
+			compatible = "adi,button-led";
+			button_gpio = <81>;
+			led_gpio = <50>;
+		};
+
+		core1-rproc@28240000 {
+			compatible = "adi,remoteproc";
+			reg = <0x28240000 0x160000>,
+					<0x20080000 0x40000>;
+			core-id = <1>;
+			core-irq = <76>;
+			firmware-name = "adi_adsp_core1_fw.ldr";
+			interrupts = <GIC_SPI 251 IRQ_TYPE_EDGE_RISING>;
+			adi,rcu = <&rcu>;
+			adi,l1-da = <0x240000 0x3a0000>;
+			adi,l2-da = <0x20080000 0x200C0000>;
+			adi,rsc-table = <&rsc_tbl0>;
+			adi,tru = <&tru>;
+			adi,tru-master-id = <97>; /* trigger master SOFT4 */
+		};
+
+		core2-rproc@28a40000 {
+			compatible = "adi,remoteproc";
+			reg = <0x28a40000 0x160000>,
+					<0x20080000 0x40000>;
+			core-id = <2>;
+			core-irq = <77>;
+			firmware-name = "adi_adsp_core2_fw.ldr";
+			interrupts = <GIC_SPI 251 IRQ_TYPE_EDGE_RISING>;
+			adi,rcu = <&rcu>;
+			adi,l1-da = <0x240000 0x3a0000>;
+			adi,l2-da = <0x20080000 0x200C0000>;
+			adi,rsc-table = <&rsc_tbl1>;
+			adi,tru = <&tru>;
+			adi,tru-master-id = <98>; /* trigger master SOFT5 */
+		};
+
+		sound {
+			compatible = "adi,sc5xx-asoc-card";
+			adi,cpu-dai = <&i2s0_sport0>;
+			adi,codec = <&adau1761>;
+		};
+	};
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_default>;
+	status = "okay";
+
+	cs-gpios = <&gpc 12 GPIO_ACTIVE_LOW>,
+				<&gpc 0 GPIO_ACTIVE_LOW>;
+
+	spidev@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <5000000>;
+		reg = <0>;
+	};
+};
+
+&spi2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi2_quad>;
+	status = "okay";
+
+	cs-gpios = <&gpc 6 GPIO_ACTIVE_LOW>;
+
+	flash: mt25ql512@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "micron,mt25ql512", "jedec,spi-nor";
+		spi-max-frequency = <5000000>;
+		reg = <0>;
+
+		partition@0 {
+			label = "uboot spl (spi)";
+			reg = <0x0 0x20000>;
+		};
+
+		partition@1 {
+			label = "uboot proper (spi)";
+			reg = <0x20000 0xb0000>;
+		};
+
+		partition@2 {
+			label = "uboot env";
+			reg = <0xd0000 0x10000>;
+		};
+
+		partition@3 {
+			label = "kernel (spi)";
+			reg = <0x00e0000 0x0800000>;
+		};
+
+		partition@4 {
+			label = "root file system (spi)";
+			reg = <0x08e0000 0x3720000>;
+		};
+	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_default>;
+	status = "okay";
+};
+
+&crc0 {
+	status = "okay";
+};
+
+&crc1 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+
+	adau1761: adau1761@38{
+		compatible = "adi,adau1761";
+		reg = <0x38>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2s0_sport0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sru_dai0>;
+	status = "okay";
+};
+
+&emac0 {
+	snps,reset-gpio = <&gpb 7 0>;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 10000 1000000>;
+	phy-handle = <&dp83867>;
+	phy-mode = "rgmii-id";
+	pinctrl-names = "default";
+	pinctrl-0 = <&eth0_default>;
+	status = "okay";
+	mdio0 {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dp83867: ethernet-phy@0 {
+			reg = <0>;
+			ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
+			ti,dp83867-rxctrl-strap-quirk;
+		};
+	};
+};
+
+&usb0_phy {
+	status = "okay";
+};
+
+&usb0 {
+	/* mode = <2>; Place OTG port into Device Mode */
+	/* mode = <1>; Place OTG port into Host Mode */
+	mode = <1>;
+	status = "okay";
+};
+
+&usb1_phy {
+	status = "okay";
+};
+
+&usb1 {
+	mode = <1>; /* Host port */
+	status = "okay";
+};
+
+&mmc0 {
+	bus-width = <4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc0_4bgrp>;
+	supports-highspeed;
+	status = "okay";
+};
+
+&sram_mmap {
+	status = "okay";
+};
+
+&sru_ctrl_dai0 {
+	status = "okay";
+
+	sru_dai0: sru_dai0_mux {
+		route {
+			sru-routing =
+				<DAI0_HIGH_F         DAI0_PBEN01_I>,  /* set DAI0_PIN01 for ADAU1761 DAC data as an output */
+				<DAI0_LOW_F          DAI0_PBEN02_I>,  /* set DAI0_PIN02 for ADAU1761 ADC data as an input */
+				<DAI0_LOW_F          DAI0_PBEN03_I>,  /* set DAI0_PIN03 for ADAU1761 CLK as an input */
+				<DAI0_LOW_F          DAI0_PBEN04_I>,  /* set DAI0_PIN04 for ADAU1761 FS as an input */
+
+				<DAI0_PB01_O_ABCDE   SPT0_AD0_I>,  /* DAI0_PIN01 to SPT0_AD0 */
+				<DAI0_PB03_O_ABCDE   SPT0_ACLK_I>, /* DAI0_PIN03 to SPT0_ACLK */
+				<DAI0_PB04_O_ABCDE   SPT0_AFS_I>,  /* DAI0_PIN04 to SPT0_AFS */
+
+				<DAI0_PB02_O_ABCDE   SPT0_BD0_I>,  /* DAI0_PIN02 to SPT0_BD0 */
+				<DAI0_PB03_O_ABCDE   SPT0_BCLK_I>, /* DAI0_PIN03 to SPT0_BCLK */
+				<DAI0_PB04_O_ABCDE   SPT0_BFS_I>;  /* DAI0_PIN04 to SPT0_BFS */
+		};
+	};
+};
+
+&sru_ctrl_dai1 {
+	status = "okay";
+};
+
+&tru {
+	rpmsg_to_a55: channel@0 {
+		adi,tru-master-id = <96>; /* trigger master SOFT3 */
+		adi,tru-slave-id = <87>; /* TRU0_IRQ3 */
+	};
+	rpmsg_to_sharc0: channel@1 {
+		adi,tru-master-id = <97>; /* trigger master SOFT4 */
+		adi,tru-slave-id = <91>; /* TRU0_IRQ7 */
+	};
+	rpmsg_to_sharc1: channel@2 {
+		adi,tru-master-id = <98>; /* trigger master SOFT5 */
+		adi,tru-slave-id = <95>; /* TRU0_IRQ11 */
+	};
+};
+
+&pinctrl0 {
+	uart0_default: uart0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C', 13, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('C', 14, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	uart0_hwflow: uart0_hwflow_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C', 13, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('C', 14, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('D', 0, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	spi0_default: spi0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C', 9, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 10, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('C', 11, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	spi1_default: spi1_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('E', 13, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 14, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('E', 15, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	spi2_quad: spi2_quad_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C', 1, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 3, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 5, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	eth0_default: eth0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('A', 0, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 1, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 3, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 5, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 6, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 8, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 9, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 10, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 11, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 12, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 13, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	mmc0_4bgrp: mmc0_4bgrp_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('F', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('F', 3, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('F', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('F', 5, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('F', 10, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('F', 11, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('F', 12, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	ppi0_8b: ppi0_8b_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('E', 1, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 3, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT1)>,
+				 <ADI_ADSP_PINMUX('E', 12, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 11, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 10, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 9, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 8, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 7, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 6, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 5, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	ppi0_16b: ppi0_16b_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('E', 1, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 3, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT1)>,
+				 <ADI_ADSP_PINMUX('E', 12, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 11, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 10, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 9, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 8, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 7, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 6, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 5, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 0, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 15, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 14, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 4, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 5, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 0, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 1, ADI_ADSP_PINFUNC_ALT2)>;
+		};
+	};
+	ppi0_24b: ppi0_24b_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('E', 1, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 3, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT1)>,
+				 <ADI_ADSP_PINMUX('E', 12, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 11, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 10, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 9, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 8, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 7, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 6, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 5, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 0, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 15, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 14, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 4, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 5, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 0, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 1, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 2, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 3, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('D', 13, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('D', 12, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('E', 13, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('E', 14, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('E', 15, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('D', 0, ADI_ADSP_PINFUNC_ALT1)>;
+		};
+	};
+	lp0_default: lp0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('D', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 3, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 5, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 6, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 7, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 8, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 9, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 10, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 11, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	lp1_default: lp1_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('B', 7, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 8, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 9, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 10, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 11, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 12, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 13, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 14, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 0, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 15, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	can0_default: can0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C', 7, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 8, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	can1_default: can1_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('B', 10, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 9, ADI_ADSP_PINFUNC_ALT2)>;
+		};
+	};
+};

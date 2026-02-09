@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/adi/adi,reset-controller.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Reset Controller for SC5XX processor family
+
+maintainers:
+  - Arturs Artamonovs <arturs.artamonovs@analog.com>
+  - Utsav Agarwal <Utsav.Agarwal@analog.com>
+
+description:
+  SHARC and ARM core reset control unit for starting/stopping/resetting
+  processors
+
+properties:
+  compatible:
+    enum:
+      - adi,reset-controller
+
+  reg:
+    maxItems: 1
+
+  adi,sharc-min:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Minimum valid SHARC core ID/count
+    minimum: 1
+    maximum: 2
+
+  adi,sharc-max:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Maximum valid SHARC core ID/count
+    minimum: 1
+    maximum: 2
+
+required:
+  - compatible
+  - reg
+  - adi,sharc-min
+  - adi,sharc-max
+
+additionalProperties: false
+
+examples:
+  - |
+    rcu: rcu@3108c000 {
+      compatible = "adi,reset-controller";
+      reg = <0x3108c000 0x1000>;
+      adi,sharc-min = <1>;
+      adi,sharc-max = <2>;
+    };

@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)-or-later
+menuconfig ARCH_SC5XX
+	bool "SC5xx SoCs (Cortex-A5-based)"
+	depends on ARCH_MULTI_V7
+	select ARM_GIC
+	select PINCTRL
+	select COUNTER
+	select GPIOLIB
+	select SERIAL_ADI_UART4
+	select ADI_ADSP_IRQ
+	select GPIO_ADI_ADSP_PORT
+	select COMMON_CLK
+	select GENERIC_IRQ_MULTI_HANDLER
+	select VFP
+	select NEON
+	select MIGHT_HAVE_CACHE_L2X0
+	select OF
+	select HAVE_CLK
+	select IRQ_DOMAIN
+	select SPARSE_IRQ
+	select GENERIC_CLOCKEVENTS
+	select PINCTRL_ADSP_SC5XX
+
+config ARCH_SC59X
+	bool "ADI SC59x SoCs (Cortex-A5-based)"
+	depends on ARCH_SC5XX || COMPILE_TEST
+	select COMMON_CLK_ADI_SC594
+	help
+		This enables support for 32-bit Cortex-A5-based ADI ADSP SC-59X
+		SoCs, like the SC594. It does not include the 64-bit Cortex-A55-based
+		SoCs (see ARCH_SC59X_64 for those).
+
+config  MACH_SC594_SOM
+	bool "ADI SC594-SOM board"
+	depends on ARCH_SC59X || COMPILE_TEST
+	select MIGHT_HAVE_PCI
+	select HIGHMEM
+	select HIGHPTE
+	help
+		Say 'Y' here if you want your kernel to run on the ADI
+		SC594-SOM-EZKIT or SC594-SOM-EZLITE board.
+
+config ARCH_SC58X
+	bool "ADI SC58x SoCs (Cortex-A5-based)"
+	depends on ARCH_SC5XX || COMPILE_TEST
+	select COMMON_CLK_ADI_SC58X
+	help
+		This enables support for 32-bit Cortex-A5-based ADI ADSP SC-58X
+		SoCs, like the SC589.
+
+config	MACH_SC589_MINI
+	bool "ADI sc589-mini board"
+	depends on ARCH_SC58X || COMPILE_TEST
+	select MIGHT_HAVE_PCI
+	help
+		Say 'Y' here if you want your kernel to run on the ADI
+		SC589-MINI board.
+
+config ARCH_SC57X
+	bool "ADI SC57x SoCs"
+	depends on ARCH_SC5XX || COMPILE_TEST
+	select COMMON_CLK_ADI_SC57X
+	help
+		This enables support for ADI ADSP SC-57x SoCs
+
+config	MACH_SC573_EZLITE
+	bool "ADI SC573 EZLITE board"
+	depends on ARCH_SC57X || COMPILE_TEST
+	help
+		Say 'Y' here if you want your kernel to run on the ADI
+		SC573-EZLITE board.

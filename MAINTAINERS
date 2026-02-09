@@ -2116,6 +2116,48 @@ F:	include/dt-bindings/reset/actions,*
 F:	include/linux/soc/actions/
 N:	owl
 
+ARM/ADI SoC Support
+M:	Arturs Artamonovs <arturs.artamonovs@analog.com>
+M:	Utsav Agarwal <utsav.agarwal@analog.com>
+M:	Vasileios Bimpikas <vasileios.bimpikas@analog.com>
+L:	linux@analog.com
+S:	Maintained
+F:	Documentation/devicetree/bindings/soc/adi/adi,pads-system-config.yaml
+F:	Documentation/devicetree/bindings/soc/adi/adi,reset-controller.yaml
+F:	Documentation/devicetree/bindings/soc/adi/adi,rpmsg-SC598.yaml
+F:	Documentation/devicetree/bindings/soc/adi/adi,system-event-controller.yaml
+F:	Documentation/devicetree/bindings/soc/adi/adi,trigger-routing-unit.yaml
+F:	Documentation/devicetree/bindings/clock/adi,sc5xx-clocks.yaml
+F:	Documentation/devicetree/bindings/usb/adi,musb.yaml
+F:	arch/arm/boot/dts/adi/*
+F:	arch/arm/configs/sc5*_defconfig
+F:	arch/arm/mach-sc5xx/
+F:	arch/arm64/boot/dts/adi/*
+F:	arch/arm64/configs/sc5*_defconfig
+F:	drivers/clk/adi/*
+F:	drivers/clocksource/timer-adi-adsp-sc5xx.c
+F:	drivers/dma/adi-dma.c
+F:	drivers/dma/adi-dma.h
+F:	drivers/gpio/gpio-adi-adsp-port.c
+F:	drivers/i2c/busses/i2c-adi-twi.c
+F:	drivers/irqchip/irq-adi-adsp.c
+F:	drivers/misc/adi/
+F:	drivers/net/ethernet/stmicro/stmmac/dwmac-adi.c
+F:	drivers/pinctrl/adi/
+F:	drivers/rpmsg/adi_rpmsg.c
+F:	drivers/soc/adi/
+F:	drivers/spi/spi-adi.c
+F:	drivers/tty/serial/adi_uart4.c
+F:	drivers/usb/musb/adi.c
+F:	drivers/usb/musb/adi.h
+F:	drivers/watchdog/adi_wdt.c
+F:	include/dt-bindings/clock/adi-sc5xx-clock.h
+F:	include/dt-bindings/pinctrl/adi-adsp-sru.h
+F:	include/dt-bindings/pinctrl/adi-adsp.h
+F:	include/linux/soc/adi/
+F:	include/sound/sc5xx-dai.h
+F:	sound/soc/adi/sc5xx*
+
 ARM/AIROHA SOC SUPPORT
 M:	Matthias Brugger <matthias.bgg@gmail.com>
 M:	AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>

@@ -1,0 +1,317 @@
+/*
+ * Copyright (c) 2021 Analog Devices Incorporated
+ * Author: Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+ */
+
+/dts-v1/;
+
+#include "sc598-som-revE.dtsi"
+
+/ {
+	model = "ADI 64-bit SC598 SOM EZ Kit";
+	compatible = "adi,sc598-som-ezkit", "adi,sc59x-64";
+
+	scb {
+		sound {
+			compatible = "adi,sc5xx-asoc-card";
+			adi,cpu-dai = <&i2s4>;
+			adi,codec = <&adau1962>, <&adau1979>;
+		};
+	};
+};
+
+&ospi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ospi_default>;
+
+	status = "disabled";
+
+	flash0: mx66lm1g45@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "mx66lm1g45", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <83333334>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+
+		cdns,read-delay = <4>;
+		cdns,tshsl-ns = <50>;
+		cdns,tsd2d-ns = <50>;
+		cdns,tchsh-ns = <4>;
+		cdns,tslch-ns = <4>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			ospi_0: partition@0 {
+				label = "U-Boot SPL";
+				reg = <0x0 0x40000>;
+			};
+
+			ospi_1: partition@1 {
+				label = "U-Boot Proper";
+				reg = <0x40000 0xC0000>;
+			};
+
+			ospi_2: partition@2 {
+				label = "U-Boot Environment";
+				reg = <0x100000 0x20000>;
+			};
+
+			ospi_3: partition@3 {
+				label = "FIT Image";
+				reg = <0x120000 0xF00000>;
+			};
+
+			ospi_4: partition@4 {
+				label = "JFFS2 Formatted RFS";
+				reg = <0x1020000 0xFE0000>;
+			};
+		};
+	};
+};
+
+&i2c2 {
+	crr_gpio_expander: gpio@22 {
+		compatible = "microchip,mcp23017";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x22>;
+		status = "okay";
+
+		eeprom {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "eeprom-en";
+		};
+
+		pushbutton {
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "pushbutton-en";
+		};
+
+		microsd {
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "microsd-spi";
+		};
+
+		ftdi {
+			gpio-hog;
+			gpios = <3 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "ftdi-usb-en";
+		};
+
+		can {
+			gpio-hog;
+			gpios = <4 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "can-en";
+		};
+
+		adau1962 {
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "adau1962-en";
+		};
+
+		adau1979 {
+			gpio-hog;
+			gpios = <7 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "adau1979-en";
+		};
+
+		octal {
+			gpio-hog;
+			gpios = <8 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "octal-spi-cs-en";
+		};
+
+		spdif-dig {
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-digital-en";
+		};
+
+		spdif-opt {
+			gpio-hog;
+			gpios = <10 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "spdif-optical-en";
+		};
+
+		audio-jack {
+			gpio-hog;
+			gpios = <11 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "audio-jack-sel";
+		};
+
+		mlb {
+			gpio-hog;
+			gpios = <12 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "mlb-en";
+		};
+
+		eth1 {
+			gpio-hog;
+			gpios = <13 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "eth1-en";
+		};
+
+		eth1-reset {
+			gpio-hog;
+			gpios = <14 GPIO_ACTIVE_LOW>;
+/* USB0 lines are shared with Eth1 so  Eth PHY must be held in reset
+   when using the USB */
+			output-high;
+			line-name = "eth1-reset";
+		};
+
+		gige-reset {
+			gpio-hog;
+			gpios = <15 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "gige-reset";
+		};
+	};
+
+	adau1979: adau1979@11 {
+		compatible = "adi,adau1979";
+		reg = <0x11>;
+	};
+
+	adau1962: adau1962@4 {
+		compatible = "adi,adau1962";
+		reg = <0x4>;
+		reset-gpios = <&crr_gpio_expander 5 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&emac0 {
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 200 500>;
+	phy-handle = <&dp83867>;
+	phy-mode = "rgmii-id";
+	pinctrl-names = "default";
+	pinctrl-0 = <&eth0_default>;
+	status = "okay";
+	snps,mtl-rx-config = <&emac0rxconfig>;
+	snps,mtl-tx-config = <&emac0txconfig>;
+
+	emac0txconfig: tx-config {
+		snps,tx-queues-to-use = <3>;
+
+		queue0 {
+			snps,dcb-algorithm;
+		};
+
+		queue1 {
+			snps,dcb-algorithm;
+		};
+
+		queue2 {
+			snps,dcb-algorithm;
+		};
+	};
+
+	emac0rxconfig: rx-config {
+		snps,rx-queues-to-use = <1>;
+
+		queue0 {
+			snps,dcb-algorithm;
+		};
+
+		queue1 {
+			snps,dcb-algorithm;
+		};
+
+		queue2 {
+			snps,dcb-algorithm;
+		};
+	};
+
+	mdio0 {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dp83867: ethernet-phy@0 {
+			reg = <0>;
+			ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
+			ti,dp83867-rxctrl-strap-quirk;
+		};
+	};
+};
+
+//&emac1 {
+//	phy-handle = <&dp83848>;
+//	phy-mode = "rmii";
+//	pinctrl-names = "default";
+//	pinctrl-0 = <&eth1_default>;
+//	status = "disabled";//
+
+//	mdio1 {
+//		compatible = "snps,dwmac-mdio";
+//		#address-cells = <1>;
+//		#size-cells = <0>;
+//		dp83848: ethernet-phy@1 {
+//			reg = <1>;
+//		};
+//	};//
+
+//};
+
+&i2s4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sru_dai1>;
+	status = "okay";
+};
+
+&sru_ctrl_dai1 {
+	status = "okay";
+
+	sru_dai1: sru_dai1_mux {
+		route {
+			sru-routing =
+				<DAI1_LOW_F          DAI1_PBEN05_I>,  /* set DAI1_PIN0B to input */
+				<DAI1_PB05_O_ABCDE   SPT4_ACLK_I>,    /* route DAI1_PIN0B to SPT4_ACLK */
+				<DAI1_LOW_F          DAI1_PBEN04_I>,  /* set DAI1_PIN04 to input */
+				<DAI1_PB04_O_ABCDE   SPT4_AFS_I>,     /* route DAI1_PIN04 to SPT4_AFS */
+				<DAI1_HIGH_F         DAI1_PBEN01_I>,  /* set DAI1_PIN01 to output */
+				<SPT4_AD0_O_BD       DAI1_PB01_I>,    /* route SPT4_AD0 to DAI1_PIN01 */
+				<DAI1_LOW_F          DAI1_PBEN12_I>,  /* set DAI1_PIN12 to input */
+				<DAI1_PB12_O_ABCDE   SPT4_BCLK_I>,    /* route DAI1_PIN12 to SPT4_BCLK */
+				<DAI1_LOW_F          DAI1_PBEN20_I>,  /* set DAI1_PIN20 to input */
+				<DAI1_PB20_O_ABCDE   SPT4_BFS_I>,     /* route DAI1_PIN20 to SPT4_BFS */
+				<DAI1_LOW_F          DAI1_PBEN06_I>,  /* set DAI1_PIN06 to input */
+				<DAI1_PB06_O_ABCDE   SPT4_BD0_I>;     /* route DAI1_PIN06 to SPT4_BD0 */
+		};
+	};
+};
+
+&pkte1 {
+	status = "okay";
+	mode = "arm";        /* autonomous ring mode */
+	/* mode = "tcm"; */  /* target command mode  */
+	/* mode = "dhm"; */  /* direct host mode     */
+};
+
+&crc0 {
+	status = "okay";
+};

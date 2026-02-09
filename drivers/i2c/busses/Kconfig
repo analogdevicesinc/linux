@@ -470,7 +470,7 @@ config I2C_AXXIA
 	  Say yes if you want to support the I2C bus on Axxia platforms.
 
 	  Please note that this controller is limited to transfers of maximum
-	  255 bytes in length. Any attempt to to a larger transfer will return
+	  255 bytes in length. Any attempt to a larger transfer will return
 	  an error.
 
 config I2C_BCM2835
@@ -517,6 +517,24 @@ config I2C_BRCMSTB
 	  I2C interface on the Broadcom Settop/DSL SoCs.
 
 	  If you do not need I2C interface, say N.
+
+config I2C_ADI_TWI
+     tristate "ADI TWI I2C support"
+     depends on BLACKFIN || ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+     depends on !BF561 && !BF531 && !BF532 && !BF533
+     help
+       This is the I2C bus driver for ADI on-chip TWI interface.
+
+       This driver can also be built as a module.  If so, the module
+       will be called i2c-adi-twi.
+
+config I2C_ADI_TWI_CLK_KHZ
+    int "ADI TWI I2C clock (kHz)"
+    depends on I2C_ADI_TWI
+    range 21 400
+    default 50
+    help
+      The unit of the TWI clock is kHz.
 
 config I2C_CADENCE
 	tristate "Cadence I2C Controller"

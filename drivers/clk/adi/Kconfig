@@ -1,29 +1,32 @@
-#
-# Analog Devices Clock Drivers
-#
-# When adding new entries keep the list in alphabetical order
-
-menu "Analog Devices Clock Drivers"
-
-config COMMON_CLK_AD9545
-	tristate
-
-config COMMON_CLK_AD9545_I2C
-	tristate "Analog Devices AD9545 via I2C"
-	depends on REGMAP_I2C
-	select COMMON_CLK_AD9545
+# SPDX-License-Identifier: GPL-2.0-only
+config COMMON_CLK_ADI_SC57X
+	bool "ADI SC573 clock driver"
 	help
-	  Say yes here to build support for Analog Devices AD9545
-	  Quad Input, 10-Output, Dual DPLL/IEEE 1588,
-	  1 pps Synchronizer and Jitter Cleaner via I2C
+	  This enables the ADI SC573-ezlite clock driver. The driver provides
+	  support for the clock controller on the ADI SC573-ezlite SoC.
+	  If you are using the ADI SC573-ezlite SoC, say Y here.
+	  If unsure, say N.
 
-config COMMON_CLK_AD9545_SPI
-	tristate "Analog Devices AD9545 via SPI"
-	depends on REGMAP_SPI
-	select COMMON_CLK_AD9545
+config COMMON_CLK_ADI_SC58X
+	bool "ADI SC589 clock driver"
 	help
-	  Say yes here to build support for Analog Devices AD9545
-	  Quad Input, 10-Output, Dual DPLL/IEEE 1588,
-	  1 pps Synchronizer and Jitter Cleaner via SPI
+	  This enables the ADI SC589 clock driver. The driver provides
+	  support for the clock controller on the ADI SC589 SoC.
+	  If you are using the ADI SC589 SoC, say Y here.
+	  If unsure, say N.
 
-endmenu
+config COMMON_CLK_ADI_SC594
+	bool "ADI SC594 clock driver"
+	help
+	  This enables the ADI SC594 clock driver. The driver provides
+	  support for the clock controller on the ADI SC594 SoC.
+	  If you are using the ADI SC594 SoC, say Y here.
+	  If unsure, say N.
+
+config COMMON_CLK_ADI_SC598
+	bool "ADI SC598 clock driver"
+	help
+	  This enables the ADI SC594 clock driver. The driver provides
+	  support for the clock controller on the ADI SC598 SoC.
+	  If you are using the ADI SC598 SoC, say Y here.
+	  If unsure, say N.

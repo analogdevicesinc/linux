@@ -20,8 +20,99 @@ config SND_SOC_ADI_AXI_SPDIF
 	help
 	  ASoC driver for the Analog Devices AXI-SPDIF softcore peripheral.
 
-config SND_SOC_ADRV936X_BOX
-	tristate "ADRV9361/ADRV9364 Box Audio Support"
-	depends on SND_SOC_ADI
-	select SND_SOC_TS3A227E
+config SND_SC5XX_PCM
+	tristate "SoC Audio for the ADI SC5XX chip"
+	depends on ARCH_SC57X || ARCH_SC58X || ARCH_SC59X || ARCH_SC59X_64
+	help
+	  Say Y or M if you want to add support for codecs attached to
+	  the SC5XX SPORT (synchronous serial ports) interface in I2S
+	  or TDM mode.
+	  You will also need to select the audio interfaces to support below.
+
+config SND_SOC_ADI_SC5XX_I2S
+	tristate
+	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	help
+	Describes the Digital Audio Interface format, which is physcally
+	built on the SPORT
+	Most audio devices on SC5xx requires this
+	Say Y or M if you want to enable this
+
+choice
+	prompt "SPORT data feed"
+	depends on SND_SC5XX_PCM
+	default SND_SC5XX_SPORT
+
+	config SND_SC5XX_SPORT
+		bool "Regular SPORT operation"
+		help
+		SPORT interface driver for SC5XX audio, audio data are sent and
+		received through the SPORT DMA buffers
+
+	config SND_SC5XX_SPORT_SHARC
+		bool "SHARC process SPORT data"
+		help
+		  Say Y if you want to process audio data in SHARC core,
+		  requires firmware with ICAP (Inter Core Audio Protocol)
+		  running on a SHARC core.
+		  SPORT DMA is configured and controlled by linux,
+		  DMA interrupt handed over to SHARC firmware.
+endchoice
+
+config SND_SC5XX_MACHINE
+	tristate
+	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	help
+	Describes the ASoC Machine driver for ADI SC5XX based boards
+	Audio devices on SC5xx requires this
+	Say Y or M if you want to enable this
+
+config SND_SC5XX_ADAU1761
+	tristate "Support for the ADAU1761 Machine driver on SHARC Audio board"
+	depends on SND_SC5XX_PCM && I2C
+	select SND_SC5XX_MACHINE
+	select SND_SOC_ADI_SC5XX_I2S
 	select SND_SOC_ADAU1761_I2C
+	help
+	Say Y if you want to add support for the Analog Devices ADAU1761
+        machine driver on the SHARC Audio board.
+
+config SND_SC5XX_ADAU1979
+	tristate "Support for the ADAU1979 Machine driver on SC5XX ezkit board"
+	depends on SND_SC5XX_PCM && I2C && (!SND_SC5XX_ADAU1761)
+	select SND_SC5XX_MACHINE
+	select SND_SOC_ADI_SC5XX_I2S
+	select SND_SOC_ADAU1977_I2C
+	help
+	Say Y if you want to add support for the Analog Devices ADAU1979
+        machine driver on the SC5XX ezkit board.
+
+config SND_SC5XX_ADAU1962
+	tristate "Support for the ADAU1962 Machine driver on SC5XX ezkit board"
+	depends on SND_SC5XX_PCM && I2C && (!SND_SC5XX_ADAU1761)
+	select SND_SC5XX_MACHINE
+	select SND_SOC_ADI_SC5XX_I2S
+	select SND_SOC_ADAU1962_I2C
+	help
+	Say Y if you want to add support for the Analog Devices ADAU1962
+        machine driver on the SC5XX ezkit board.
+
+config SND_SC5XX_ADAU1372
+	tristate "Support for the ADAU1372 Machine driver on SC5XX ezkit board"
+	depends on SND_SC5XX_PCM && I2C && (!SND_SC5XX_ADAU1761)
+	select SND_SC5XX_MACHINE
+	select SND_SOC_ADI_SC5XX_I2S
+	select SND_SOC_ADAU1372_I2C
+	help
+	Say Y if you want to add support for the Analog Devices ADAU1962
+        machine driver on the SC5XX ezkit board.
+
+config SND_SC5XX_SHARC_ALSA_CARD
+	tristate "SHARC-ALSA SoC Audio card for the ADI SC5XX chip"
+	depends on ADI_REMOTEPROC && RPMSG && (ARCH_SC57X || ARCH_SC58X || ARCH_SC59X || ARCH_SC59X_64)
+	help
+	  Virtual SHARC ASoC card driver. Creates a sound card for each "sharc-audio"
+	  rpmsg endpoint announced on a rpmsg channel. The driver is just
+	  a communication bridge between ASoC and SHARC firmware which controls
+	  I2S/SPORT, DMA, codecs and amplifiers. Supported number of channels,
+	  sample rates, and formats depends on features reported by SHARC firmware.

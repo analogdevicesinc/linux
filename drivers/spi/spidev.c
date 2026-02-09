@@ -75,7 +75,7 @@ struct spidev_data {
 
 	/* TX/RX buffers are NULL unless this device is open (users > 0) */
 	struct mutex		buf_lock;
-	unsigned		users;
+	unsigned int		users;
 	u8			*tx_buffer;
 	u8			*rx_buffer;
 	u32			speed_hz;
@@ -84,7 +84,7 @@ struct spidev_data {
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
-static unsigned bufsiz = 4096;
+static unsigned int bufsiz = 4096;
 module_param(bufsiz, uint, S_IRUGO);
 MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
 
@@ -208,13 +208,13 @@ spidev_write(struct file *filp, const char __user *buf,
 }
 
 static int spidev_message(struct spidev_data *spidev,
-		struct spi_ioc_transfer *u_xfers, unsigned n_xfers)
+		struct spi_ioc_transfer *u_xfers, unsigned int n_xfers)
 {
 	struct spi_message	msg;
 	struct spi_transfer	*k_xfers;
 	struct spi_transfer	*k_tmp;
 	struct spi_ioc_transfer *u_tmp;
-	unsigned		n, total, tx_total, rx_total;
+	unsigned int		n, total, tx_total, rx_total;
 	u8			*tx_buf, *rx_buf;
 	int			status = -EFAULT;
 
@@ -330,7 +330,7 @@ done:
 
 static struct spi_ioc_transfer *
 spidev_get_ioc_message(unsigned int cmd, struct spi_ioc_transfer __user *u_ioc,
-		unsigned *n_ioc)
+		unsigned int *n_ioc)
 {
 	u32	tmp;
 
@@ -359,7 +359,7 @@ spidev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct spi_device	*spi;
 	struct spi_controller	*ctlr;
 	u32			tmp;
-	unsigned		n_ioc;
+	unsigned int		n_ioc;
 	struct spi_ioc_transfer	*ioc;
 
 	/* Check type and command number */
@@ -525,7 +525,7 @@ spidev_compat_ioc_message(struct file *filp, unsigned int cmd,
 	int				retval = 0;
 	struct spidev_data		*spidev;
 	struct spi_device		*spi;
-	unsigned			n_ioc, n;
+	unsigned int			n_ioc, n;
 	struct spi_ioc_transfer		*ioc;
 
 	u_ioc = (struct spi_ioc_transfer __user *) compat_ptr(arg);
@@ -712,6 +712,7 @@ static const struct spi_device_id spidev_spi_ids[] = {
 	{ .name = "spi-authenta" },
 	{ .name = "em3581" },
 	{ .name = "si3210" },
+	{ .name = "generic-spidev" },
 	{},
 };
 MODULE_DEVICE_TABLE(spi, spidev_spi_ids);
@@ -743,6 +744,7 @@ static const struct of_device_id spidev_dt_ids[] = {
 	{ .compatible = "semtech,sx1301", .data = &spidev_of_check },
 	{ .compatible = "silabs,em3581", .data = &spidev_of_check },
 	{ .compatible = "silabs,si3210", .data = &spidev_of_check },
+	{ .compatible = "adi,generic-spidev", .data = &spidev_of_check },
 	{},
 };
 MODULE_DEVICE_TABLE(of, spidev_dt_ids);

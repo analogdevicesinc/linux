@@ -1,0 +1,183 @@
+/*
+ * Device tree for ADI sc594-som-ezlite board
+ *
+ * Copyright 2014 - 2020 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2 or later.
+ *
+ */
+
+/dts-v1/;
+
+#include "sc594-som.dtsi"
+
+/ {
+	model = "ADI sc594-som-ezlite";
+	compatible = "adi,sc594-som-ezlite", "adi,sc59x";
+
+	clocks {
+		compatible = "simple-bus";
+		mclk: mclk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <24576000>;
+			clock-output-names = "mclk";
+		};
+	};
+
+	scb {
+		sound {
+			compatible = "adi,sc5xx-asoc-card";
+			adi,cpu-dai = <&i2s0>;
+			adi,codec = <&adau1372>;
+		};
+	};
+};
+
+&i2c2 {
+	crr_gpio_expander: adp5588@30 {
+		compatible = "adi,adp5588-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x30>;
+		status = "okay";
+
+		usb-spi0 {
+			gpio-hog;
+			gpios = <8 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "usb_spi0_en";
+		};
+
+		usb-spi1 {
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "usb_spi1_en";
+		};
+
+		usb-qspi-en {
+			gpio-hog;
+			gpios = <10 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "usb_qspi_en";
+		};
+
+		usb-qspi-reset {
+			gpio-hog;
+			gpios = <11 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "usb_qspi_reset";
+		};
+
+		eth0-reset {
+			gpio-hog;
+			gpios = <12 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "eth0-reset";
+		};
+
+		adau1372-pwrdwn {
+			gpio-hog;
+			gpios = <13 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "adau1372_pwrdwn";
+		};
+
+		led1 {
+			gpio-hog;
+			gpios = <15 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "led1-en";
+		};
+
+		led2 {
+			gpio-hog;
+			gpios = <16 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "led2-en";
+		};
+
+		led3 {
+			gpio-hog;
+			gpios = <17 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "led3-en";
+		};
+	};
+
+	adau1372: adau1372@3c {
+		compatible = "adi,adau1372";
+		reg = <0x3c>;
+		clock-names = "mclk";
+		clocks = <&mclk>;
+	};
+
+};
+
+&emac0 {
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 200 500>;
+	phy-handle = <&adin1300>;
+	phy-mode = "rgmii-id";
+	pinctrl-names = "default";
+	pinctrl-0 = <&eth0_default>;
+	status = "okay";
+
+	mdio0 {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		adin1300: ethernet-phy@0 {
+			reg = <0>;
+		};
+	};
+};
+
+&emac1 {
+	status = "disabled";
+};
+
+&sru_ctrl_dai0 {
+	status = "okay";
+
+	sru_dai0: sru_dai0_mux {
+		route {
+			sru-routing =
+				/* 1362 TX LRCLK */
+				<DAI0_LOW_F           DAI0_PBEN01_I>,  /* set DAI0_PIN01 to input */
+				<DAI0_PB01_O_ABCDE    SPT0_AFS_I>,     /* route DAI0_PIN01 to SPT0_AFS */
+
+				/* 1363 TX BCLK */
+				<DAI0_LOW_F           DAI0_PBEN02_I>,  /* set DAI0_PIN02 to input */
+				<DAI0_PB02_O_ABCDE    SPT0_ACLK_I>,    /* route DAI0_PIN02 to SPT0_ACLK */
+
+				/* 1363 TX DAC_SDATA/MP0 */
+				<DAI0_HIGH_F          DAI0_PBEN03_I>,  /* set DAI0_PIN03 to output */
+				<SPT0_AD0_O_BD        DAI0_PB03_I>,    /* route SPT0_AD0 to DAI0_PIN03 */
+
+				/* 1362 RX LRCLK */
+				<DAI0_LOW_F           DAI0_PBEN01_I>,  /* set DAI0_PIN01 to input */
+				<DAI0_PB01_O_ABCDE    SPT0_BFS_I>,     /* route DAI0_PIN01 to SPT0_BFS */
+
+				/* 1363 RX BCLK */
+				<DAI0_LOW_F           DAI0_PBEN02_I>,  /* set DAI0_PIN02 to input */
+				<DAI0_PB02_O_ABCDE    SPT0_BCLK_I>,    /* route DAI0_PIN02 to SPT0_BCLK */
+
+				/* 1363 RX ADC_SDATA0/MP1 */
+				<DAI0_LOW_F           DAI0_PBEN04_I>,  /* set DAI0_PIN04 to input */
+				<DAI0_PB04_O_ABCDE    SPT0_BD0_I>,     /* route DAI0_PIN04 to SPT0_BD0 */
+
+				/* 1363 RX ADC_SDATA1/MP6 */
+				<DAI0_LOW_F           DAI0_PBEN05_I>,  /* set DAI0_PIN05 to input */
+				<DAI0_PB05_O_ABCDE    SPT0_BD1_I>;     /* route DAI0_PIN05 to SPT0_BD1 */
+		};
+	};
+};
+
+&i2s0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sru_dai0>;
+	status = "okay";
+};
+
