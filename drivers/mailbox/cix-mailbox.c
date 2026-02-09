@@ -403,7 +403,7 @@ static int cix_mbox_startup(struct mbox_chan *chan)
 	int index = cp->index, ret;
 	u32 val;
 
-	ret = request_irq(priv->irq, cix_mbox_isr, 0,
+	ret = request_irq(priv->irq, cix_mbox_isr, IRQF_NO_SUSPEND,
 			  dev_name(priv->dev), chan);
 	if (ret) {
 		dev_err(priv->dev, "Unable to acquire IRQ %d\n", priv->irq);
