@@ -124,7 +124,7 @@ jobs:
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
       run: |
         export PATH="$HOME/.local/bin:$PATH"
-        command -v claude || curl -fsSL https://claude.ai/install.sh | bash -s 2.1.22
+        command -v claude || curl -fsSL https://claude.ai/install.sh | bash -s 2.1.37
 
     - name: Prepare prompt sources
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
