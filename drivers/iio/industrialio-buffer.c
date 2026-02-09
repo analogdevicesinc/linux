@@ -384,18 +384,23 @@ int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
 {
 	unsigned int masklength = iio_get_masklength(indio_dev);
 
-	if (!masklength || buffer->scan_mask)
+	if (!masklength)
 		return 0;
 
-	buffer->scan_mask = bitmap_zalloc(masklength, GFP_KERNEL);
-	if (!buffer->scan_mask)
-		return -ENOMEM;
+	if (!buffer->scan_mask) {
+		buffer->scan_mask = bitmap_zalloc(masklength, GFP_KERNEL);
+		if (!buffer->scan_mask)
+			return -ENOMEM;
+	}
 
-	buffer->channel_mask = bitmap_zalloc(indio_dev->num_channels,
-					     GFP_KERNEL);
 	if (!buffer->channel_mask) {
-		bitmap_free(buffer->scan_mask);
-		return -ENOMEM;
+		buffer->channel_mask = bitmap_zalloc(indio_dev->num_channels,
+						     GFP_KERNEL);
+		if (!buffer->channel_mask) {
+			bitmap_free(buffer->scan_mask);
+			buffer->scan_mask = NULL;
+			return -ENOMEM;
+		}
 	}
 
 	return 0;
