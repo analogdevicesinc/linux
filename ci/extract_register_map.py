@@ -9,28 +9,124 @@ import sys
 def extract_register_map(pdf_path, output_md='register_map.md'):
 
     with open(output_md, 'w') as f:
+        register_pages = []
+
         with pdfplumber.open(pdf_path) as pdf:
             for i, page in enumerate(pdf.pages, 1):
                 text = page.extract_text() or ""
-                if 'register summary' in text.lower() and i > 10:
-                    print(f"Found register summary on page {i}")
+                lower_text = text.lower()
 
-                    tables = camelot.read_pdf(pdf_path, pages=str(i), flavor='lattice')
-                    if tables:
-                        f.write("## Register Summary\n\n")
+                if i <= 10:
+                    continue
 
-                        for table in tables:
-                            df = table.df
-                            if df.shape[0] > 10:
-                                print(f"  Extracted {df.shape[0]} registers")
+                score = 0
+                reason = ""
 
-                                if 'address' in str(df.iloc[0].values).lower():
-                                    df.columns = df.iloc[0]
-                                    df = df[1:]
+                import re
+                if re.search(r'table\s+\d+\.\s*register\s*(details|summary)', lower_text):
+                    score = 120
+                    reason = "Table N. Register Details/Summary"
 
-                                f.write(df.to_markdown(index=False))
-                                f.write("\n\n---\n\n")
-                    break
+                if 'register details' in lower_text and ('addr' in lower_text or 'bit' in lower_text):
+                    score = max(score, 110)
+                    reason = "register details"
+
+                if 'registry summary' in lower_text:
+                    score = max(score, 100)
+                    reason = "registry summary"
+
+                if 'address' in lower_text and 'name' in lower_text and 'type' in lower_text:
+                    score = max(score, 90)
+                    reason = "address+name+type columns"
+
+                if 'register summary' in lower_text and ('addr' in lower_text or '0x' in text):
+                    score = max(score, 80)
+                    reason = "register summary"
+
+                if 'register map' in lower_text and '0x' in text and 'see register' not in lower_text:
+                    score = max(score, 50)
+                    reason = "register map"
+
+                if score == 0 and '0x' in text and 'R/W' in text and 'addr' in lower_text:
+                    score = 40
+                    reason = "register continuation"
+
+                if score > 0:
+                    register_pages.append((i, score, reason))
+
+        if not register_pages:
+            print("No register pages found")
+        else:
+            register_pages.sort(key=lambda x: (-x[1], x[0]))  # Sort by score desc, then page number
+            start_page, start_score, start_reason = register_pages[0]
+            print(f"Found {start_reason} on page {start_page} (score: {start_score})")
+
+            register_pages.sort(key=lambda x: x[0])
+
+            all_pages = [start_page]
+            for page, score, reason in register_pages:
+                if page <= start_page:
+                    continue  # Skip pages before start
+                if page <= all_pages[-1] + 2 and score >= 40:
+                    all_pages.append(page)
+                elif score >= 80:
+                    all_pages.append(page)
+
+            if len(all_pages) > 1:
+                print(f"  Extracting from {len(all_pages)} pages: {all_pages[0]}-{all_pages[-1]}")
+
+            page_range = ','.join(str(p) for p in all_pages)
+
+            try:
+                lattice_tables = camelot.read_pdf(pdf_path, pages=page_range, flavor='lattice')
+            except:
+                lattice_tables = []
+
+            try:
+                stream_tables = camelot.read_pdf(pdf_path, pages=page_range, flavor='stream')
+            except:
+                stream_tables = []
+
+            lattice_rows = sum(t.df.shape[0] for t in lattice_tables if t.df.shape[0] >= 5)
+            stream_rows = sum(t.df.shape[0] for t in stream_tables if t.df.shape[0] >= 5)
+
+            if stream_rows > lattice_rows:
+                tables = stream_tables
+                mode = "stream"
+            else:
+                tables = lattice_tables
+                mode = "lattice"
+
+            extracted = False
+            total_rows = 0
+            if tables:
+                for table in tables:
+                    df = table.df
+                    if df.shape[0] >= 5:
+                        if not extracted:
+                            f.write("## Register Summary\n\n")
+                            extracted = True
+
+                        header_row = -1
+                        for i in range(min(5, df.shape[0])):
+                            row_text = str(df.iloc[i].values).lower()
+                            if ('addr' in row_text and 'name' in row_text) or \
+                               ('address' in row_text and 'name' in row_text) or \
+                               ('register' in row_text and 'bit' in row_text):
+                                header_row = i
+                                break
+
+                        if header_row >= 0:
+                            df = df[header_row:]
+                            df.columns = df.iloc[0]
+                            df = df[1:]
+
+                        total_rows += df.shape[0]
+                        f.write(df.to_markdown(index=False))
+                        f.write("\n\n---\n\n")
+
+            if total_rows > 0:
+                print(f"  Extracted {total_rows} register entries ({mode})")
 
         f.write("## Register Bit Field Details\n\n")
 
