@@ -55,6 +55,7 @@
 			interrupt-parent = <&gpio0>;
 			interrupts = <88 4>;
 			interrupt-names = "rdy";
+			rdy-gpio = <&gpio0 87 GPIO_ACTIVE_LOW>;
 			#io-channel-cells = <1>;
 
 			#address-cells = <1>;
