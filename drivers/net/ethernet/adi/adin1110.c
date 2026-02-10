@@ -608,7 +608,7 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 
 	/* clear IRQ sources */
 	adin1110_write_reg(priv, ADIN1110_STATUS0, ADIN1110_CLEAR_STATUS0);
-	adin1110_write_reg(priv, ADIN1110_STATUS1, priv->irq_mask);
+	adin1110_write_reg(priv, ADIN1110_STATUS1, status1);
 
 out:
 	mutex_unlock(&priv->lock);
