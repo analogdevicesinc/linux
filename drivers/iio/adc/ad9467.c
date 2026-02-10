@@ -925,7 +925,11 @@ static int __ad9467_update_clock(struct ad9467_state *st, long r_clk)
 		return ret;
 
 	guard(mutex)(&st->lock);
-	return ad9467_calibrate(st);
+
+	if (iio_backend_has_caps(st->back, IIO_BACKEND_CAP_CALIBRATION))
+		return ad9467_calibrate(st);
+
+	return 0;
 }
 
 static int ad9467_write_raw(struct iio_dev *indio_dev,
@@ -1131,12 +1135,15 @@ static ssize_t ad9467_chan_test_mode_read(struct file *file,
 		len = scnprintf(buf, sizeof(buf), "Running \"%s\" Test:\n\t",
 				ad9467_test_modes[chan->mode]);
 
-		ret = iio_backend_debugfs_print_chan_status(st->back, chan->idx,
-							    buf + len,
-							    sizeof(buf) - len);
-		if (ret < 0)
-			return ret;
-		len += ret;
+		if (iio_backend_has_caps(st->back, IIO_BACKEND_CAP_CALIBRATION)) {
+			ret = iio_backend_debugfs_print_chan_status(st->back,
+								    chan->idx,
+								    buf + len,
+								    sizeof(buf) - len);
+			if (ret < 0)
+				return ret;
+			len += ret;
+		}
 	} else if (chan->mode == AN877_ADC_TESTMODE_OFF) {
 		len = scnprintf(buf, sizeof(buf), "No test Running...\n");
 	} else {
@@ -1175,11 +1182,13 @@ static ssize_t ad9467_chan_test_mode_write(struct file *file,
 	if (mode == AN877_ADC_TESTMODE_OFF) {
 		unsigned int out_mode;
 
-		if (chan->mode == AN877_ADC_TESTMODE_PN9_SEQ ||
-		    chan->mode == AN877_ADC_TESTMODE_PN23_SEQ) {
-			ret = ad9467_backend_testmode_off(st, chan->idx);
-			if (ret)
-				return ret;
+		if (iio_backend_has_caps(st->back, IIO_BACKEND_CAP_CALIBRATION)) {
+			if (chan->mode == AN877_ADC_TESTMODE_PN9_SEQ ||
+			    chan->mode == AN877_ADC_TESTMODE_PN23_SEQ) {
+				ret = ad9467_backend_testmode_off(st, chan->idx);
+				if (ret)
+					return ret;
+			}
 		}
 
 		ret = ad9467_testmode_set(st, chan->idx, mode);
@@ -1205,16 +1214,18 @@ static ssize_t ad9467_chan_test_mode_write(struct file *file,
 			return ret;
 
 		/*  some patterns have a backend matching monitoring block */
-		if (mode == AN877_ADC_TESTMODE_PN9_SEQ) {
-			ret = ad9467_backend_testmode_on(st, chan->idx,
+		if (iio_backend_has_caps(st->back, IIO_BACKEND_CAP_CALIBRATION)) {
+			if (mode == AN877_ADC_TESTMODE_PN9_SEQ) {
+				ret = ad9467_backend_testmode_on(st, chan->idx,
 							 IIO_BACKEND_ADI_PRBS_9A);
-			if (ret)
-				return ret;
-		} else if (mode == AN877_ADC_TESTMODE_PN23_SEQ) {
-			ret = ad9467_backend_testmode_on(st, chan->idx,
+				if (ret)
+					return ret;
+			} else if (mode == AN877_ADC_TESTMODE_PN23_SEQ) {
+				ret = ad9467_backend_testmode_on(st, chan->idx,
 							 IIO_BACKEND_ADI_PRBS_23A);
-			if (ret)
-				return ret;
+				if (ret)
+					return ret;
+			}
 		}
 	}
 
@@ -1280,8 +1291,9 @@ static void ad9467_debugfs_init(struct iio_dev *indio_dev)
 	if (!st->chan_test)
 		return;
 
-	debugfs_create_file("calibration_table_dump", 0400, d, st,
-			    &ad9467_calib_table_fops);
+	if (iio_backend_has_caps(st->back, IIO_BACKEND_CAP_CALIBRATION))
+		debugfs_create_file("calibration_table_dump", 0400, d, st,
+				    &ad9467_calib_table_fops);
 
 	for (chan = 0; chan < st->info->num_channels; chan++) {
 		snprintf(attr_name, sizeof(attr_name), "in_voltage%u_test_mode",
@@ -1356,17 +1368,23 @@ static int ad9467_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_iio_backend_request_buffer(dev, st->back, indio_dev);
-	if (ret)
-		return ret;
+	if (iio_backend_has_caps(st->back, IIO_BACKEND_CAP_BUFFER)) {
+		ret = devm_iio_backend_request_buffer(dev, st->back, indio_dev);
+		if (ret)
+			return ret;
+	}
 
-	ret = devm_iio_backend_enable(dev, st->back);
-	if (ret)
-		return ret;
+	if (iio_backend_has_caps(st->back, IIO_BACKEND_CAP_ENABLE)) {
+		ret = devm_iio_backend_enable(dev, st->back);
+		if (ret)
+			return ret;
+	}
 
-	ret = ad9467_calibrate(st);
-	if (ret)
-		return ret;
+	if (iio_backend_has_caps(st->back, IIO_BACKEND_CAP_CALIBRATION)) {
+		ret = ad9467_calibrate(st);
+		if (ret)
+			return ret;
+	}
 
 	ret = devm_iio_device_register(dev, indio_dev);
 	if (ret)
