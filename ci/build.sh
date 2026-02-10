@@ -47,9 +47,11 @@ check_checkpatch() {
 	fi
 	[[ "$strategy" == "commit" ]] && commits=$(git rev-list $base_sha..$head_sha --reverse) || commits=$(git rev-parse @)
 
-	python3 -m venv ~/venv
-        source ~/venv/bin/activate
-	python3 -m ensurepip --upgrade
+	[[ -z "$VIRTUAL_ENV" ]] && {
+		python3 -m venv ~/venv
+		source ~/venv/bin/activate
+		python3 -m ensurepip --upgrade
+	}
         pip3 install ply GitPython --upgrade
 
 	# The output is not properly captured with --git
@@ -189,9 +191,11 @@ check_dt_binding_check() {
 
 	echo "$step_name on range $base_sha..$head_sha"
 
-	python3 -m venv ~/venv
-        source ~/venv/bin/activate
-	python3 -m ensurepip --upgrade
+	[[ -z "$VIRTUAL_ENV" ]] && {
+		python3 -m venv ~/venv
+		source ~/venv/bin/activate
+		python3 -m ensurepip --upgrade
+	}
 	# REVISIT
 	# Our main, rpi are broken with >= 2025.12, maybe just too old LTS, maybe an actual problem.
 	# Freeze for now, but eventually pinpoint the cause.
