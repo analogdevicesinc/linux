@@ -99,8 +99,9 @@ static int ds4424_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_RAW:
 		ret = ds4424_get_value(indio_dev, &regval, chan->channel);
 		if (ret < 0) {
-			pr_err("%s : ds4424_get_value returned %d\n",
-							__func__, ret);
+			dev_err_ratelimited(indio_dev->dev.parent,
+					    "Failed to read channel %d: %pe\n",
+					    chan->channel, ERR_PTR(ret));
 			return ret;
 		}
 
