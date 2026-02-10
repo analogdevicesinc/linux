@@ -1300,12 +1300,13 @@ static void ad9467_debugfs_init(struct iio_dev *indio_dev)
 
 static int ad9467_probe(struct spi_device *spi)
 {
+	struct device *dev = &spi->dev;
 	struct iio_dev *indio_dev;
 	struct ad9467_state *st;
 	unsigned int id;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
@@ -1320,16 +1321,15 @@ static int ad9467_probe(struct spi_device *spi)
 	if (AD9467_CAN_INVERT(st))
 		st->calib_map_size *= 2;
 
-	st->clk = devm_clk_get_enabled(&spi->dev, "adc-clk");
+	st->clk = devm_clk_get_enabled(dev, "adc-clk");
 	if (IS_ERR(st->clk))
 		return PTR_ERR(st->clk);
 
-	st->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
-						   GPIOD_OUT_LOW);
+	st->pwrdown_gpio = devm_gpiod_get_optional(dev, "powerdown", GPIOD_OUT_LOW);
 	if (IS_ERR(st->pwrdown_gpio))
 		return PTR_ERR(st->pwrdown_gpio);
 
-	ret = ad9467_reset(&spi->dev);
+	ret = ad9467_reset(dev);
 	if (ret)
 		return ret;
 
@@ -1339,7 +1339,7 @@ static int ad9467_probe(struct spi_device *spi)
 
 	id = ad9467_spi_read(st, AN877_ADC_REG_CHIP_ID);
 	if (id != st->info->id) {
-		dev_err(&spi->dev, "Mismatch CHIP_ID, got 0x%X, expected 0x%X\n",
+		dev_err(dev, "Mismatch CHIP_ID, got 0x%X, expected 0x%X\n",
 			id, st->info->id);
 		return -ENODEV;
 	}
@@ -1356,11 +1356,11 @@ static int ad9467_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_iio_backend_request_buffer(&spi->dev, st->back, indio_dev);
+	ret = devm_iio_backend_request_buffer(dev, st->back, indio_dev);
 	if (ret)
 		return ret;
 
-	ret = devm_iio_backend_enable(&spi->dev, st->back);
+	ret = devm_iio_backend_enable(dev, st->back);
 	if (ret)
 		return ret;
 
@@ -1368,7 +1368,7 @@ static int ad9467_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_iio_device_register(&spi->dev, indio_dev);
+	ret = devm_iio_device_register(dev, indio_dev);
 	if (ret)
 		return ret;
 
