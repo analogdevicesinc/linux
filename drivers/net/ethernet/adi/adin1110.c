@@ -373,20 +373,11 @@ static int adin1110_write_fifo(struct adin1110_port_priv *port_priv,
 	struct adin1110_priv *priv = port_priv->priv;
 	u32 header_len = ADIN1110_WR_HEADER_LEN;
 	__be16 frame_header;
-	int padding = 0;
 	int padded_len;
 	int round_len;
 	int ret;
 
-	/* Pad frame to 64 byte length,
-	 * MAC nor PHY will otherwise add the
-	 * required padding.
-	 * The FEC will be added by the MAC internally.
-	 */
-	if (txb->len + ADIN1110_FEC_LEN < 64)
-		padding = 64 - (txb->len + ADIN1110_FEC_LEN);
-
-	padded_len = txb->len + padding + ADIN1110_FRAME_HEADER_LEN;
+	padded_len = txb->len + ADIN1110_FRAME_HEADER_LEN;
 
 	round_len = adin1110_round_len(padded_len);
 	if (round_len < 0)
@@ -994,7 +985,11 @@ static netdev_tx_t adin1110_start_xmit(struct sk_buff *skb, struct net_device *d
 	netdev_tx_t netdev_ret = NETDEV_TX_OK;
 	u32 tx_space_needed;
 
-	tx_space_needed = skb->len + ADIN1110_FRAME_HEADER_LEN + ADIN1110_INTERNAL_SIZE_HEADER_LEN;
+	if (skb_put_padto(skb, ETH_ZLEN))
+		return NETDEV_TX_OK;
+
+	tx_space_needed = ALIGN(skb->len + ADIN1110_FRAME_HEADER_LEN, 4);
+	tx_space_needed += ADIN1110_INTERNAL_SIZE_HEADER_LEN;
 
 	spin_lock(&priv->tx_space_lock);
 	if (tx_space_needed > priv->tx_space) {
