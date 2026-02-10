@@ -12,6 +12,7 @@
 #include <linux/i2c.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/time64.h>
@@ -38,32 +39,51 @@
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
 }
 
+#define DS4424_CHANNEL_WITH_SCALE(chan) { \
+	.type = IIO_CURRENT, \
+	.indexed = 1, \
+	.output = 1, \
+	.channel = chan, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+			      BIT(IIO_CHAN_INFO_SCALE), \
+}
+
 struct ds4424_chip_info {
 	const char *name;
+	int vref_mV;
+	int scale_denom;
 	u8 result_mask;
 	u8 num_channels;
 };
 
 static const struct ds4424_chip_info ds4402_info = {
 	.name = "ds4402",
+	.vref_mV = 1230,
+	.scale_denom = 4,
 	.result_mask = DS4404_DAC_MASK,
 	.num_channels = DS4422_MAX_DAC_CHANNELS,
 };
 
 static const struct ds4424_chip_info ds4404_info = {
 	.name = "ds4404",
+	.vref_mV = 1230,
+	.scale_denom = 4,
 	.result_mask = DS4404_DAC_MASK,
 	.num_channels = DS4424_MAX_DAC_CHANNELS,
 };
 
 static const struct ds4424_chip_info ds4422_info = {
 	.name = "ds4422",
+	.vref_mV = 976,
+	.scale_denom = 16,
 	.result_mask = DS4424_DAC_MASK,
 	.num_channels = DS4422_MAX_DAC_CHANNELS,
 };
 
 static const struct ds4424_chip_info ds4424_info = {
 	.name = "ds4424",
+	.vref_mV = 976,
+	.scale_denom = 16,
 	.result_mask = DS4424_DAC_MASK,
 	.num_channels = DS4424_MAX_DAC_CHANNELS,
 };
@@ -72,6 +92,8 @@ struct ds4424_data {
 	struct regmap *regmap;
 	struct regulator *vcc_reg;
 	const struct ds4424_chip_info *chip_info;
+	u32 rfs_ohms[DS4424_MAX_DAC_CHANNELS];
+	bool has_rfs;
 };
 
 static const struct iio_chan_spec ds4424_channels[] = {
@@ -79,6 +101,13 @@ static const struct iio_chan_spec ds4424_channels[] = {
 	DS4424_CHANNEL(1),
 	DS4424_CHANNEL(2),
 	DS4424_CHANNEL(3),
+};
+
+static const struct iio_chan_spec ds4424_channels_with_scale[] = {
+	DS4424_CHANNEL_WITH_SCALE(0),
+	DS4424_CHANNEL_WITH_SCALE(1),
+	DS4424_CHANNEL_WITH_SCALE(2),
+	DS4424_CHANNEL_WITH_SCALE(3),
 };
 
 static const struct regmap_range ds44x2_ranges[] = {
@@ -173,6 +202,15 @@ static int ds4424_read_raw(struct iio_dev *indio_dev,
 			*val = -*val;
 
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SCALE:
+		if (!data->has_rfs)
+			return -EINVAL;
+
+		/* SCALE is mA/step: mV / Ohm = mA. */
+		*val = data->chip_info->vref_mV;
+		*val2 = data->rfs_ohms[chan->channel] *
+			data->chip_info->scale_denom;
+		return IIO_VAL_FRACTIONAL;
 
 	default:
 		return -EINVAL;
@@ -209,6 +247,39 @@ static int ds4424_write_raw(struct iio_dev *indio_dev,
 	default:
 		return -EINVAL;
 	}
+}
+
+static int ds4424_parse_rfs(struct i2c_client *client,
+			    struct ds4424_data *data,
+			    struct iio_dev *indio_dev)
+{
+	struct device *dev = &client->dev;
+	int count, ret;
+
+	if (!device_property_present(dev, "maxim,rfs-ohms"))
+		return 0;
+
+	count = device_property_count_u32(dev, "maxim,rfs-ohms");
+	if (count < 0)
+		return dev_err_probe(dev, count, "Failed to count maxim,rfs-ohms entries\n");
+	if (count != indio_dev->num_channels)
+		return dev_err_probe(dev, -EINVAL, "maxim,rfs-ohms must have %u entries\n",
+				     indio_dev->num_channels);
+
+	ret = device_property_read_u32_array(dev, "maxim,rfs-ohms",
+					     data->rfs_ohms,
+					     indio_dev->num_channels);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to read maxim,rfs-ohms property\n");
+
+	for (unsigned int i = 0; i < indio_dev->num_channels; i++) {
+		if (!data->rfs_ohms[i])
+			return dev_err_probe(dev, -EINVAL, "maxim,rfs-ohms entry %u is zero\n", i);
+	}
+
+	data->has_rfs = true;
+
+	return 0;
 }
 
 static int ds4424_suspend(struct device *dev)
@@ -290,13 +361,21 @@ static int ds4424_probe(struct i2c_client *client)
 	fsleep(1 * USEC_PER_MSEC);
 
 	indio_dev->num_channels = chip_info->num_channels;
-	indio_dev->channels = ds4424_channels;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ds4424_iio_info;
 
 	ret = ds4424_init_regmap(client, indio_dev);
 	if (ret)
 		goto fail;
+
+	ret = ds4424_parse_rfs(client, data, indio_dev);
+	if (ret)
+		goto fail;
+
+	if (data->has_rfs)
+		indio_dev->channels = ds4424_channels_with_scale;
+	else
+		indio_dev->channels = ds4424_channels;
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0) {
