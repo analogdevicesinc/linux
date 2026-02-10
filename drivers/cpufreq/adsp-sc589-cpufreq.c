@@ -11,16 +11,21 @@
 #include <linux/cpufreq.h>
 #include <linux/init.h>
 
-static struct cpufreq_frequency_table sc589_freq_table[] = {
-	{.flags = 0, .driver_data = 0, .frequency = 0},
-	{.flags = 0, .driver_data = 0, .frequency = 0},
-	{.flags = 0, .driver_data = 0, .frequency = CPUFREQ_TABLE_END},
-};
+#define CGU0_DIV_REG 0x3108D00C
+#define GCU0_CONTROL_REG 0x3108D000
+#define CGU0_STAT_REG 0x3108D008
 
+static struct cpufreq_frequency_table sc589_freq_table[] = {
+	{ .driver_data = 0, .frequency = 450000 },
+	{ .driver_data = 1, .frequency = 225000 },
+	{ .frequency = CPUFREQ_TABLE_END },
+};
 
 static int sc589_init(struct cpufreq_policy *policy)
 {
-        return 0;
+	policy->freq_table = sc589_freq_table;
+	policy->cur = 450000;
+	return 0;
 }
 
 static int sc589_target_index(struct cpufreq_policy *policy, unsigned int index)
@@ -30,7 +35,7 @@ static int sc589_target_index(struct cpufreq_policy *policy, unsigned int index)
 
 static unsigned int sc589_get(unsigned int cpu)
 {
-	return 0;
+	return 450000;
 }
 
 static struct cpufreq_driver sc589_cpufreq_driver = {
@@ -43,12 +48,14 @@ static struct cpufreq_driver sc589_cpufreq_driver = {
 
 static int __init sc589_cpufreq_init(void)
 {
+	pr_info("sc589-cpufreq loading...\n");
 	return cpufreq_register_driver(&sc589_cpufreq_driver);
 }
 module_init(sc589_cpufreq_init);
 
 static void __exit sc589_cpufreq_exit(void)
 {
+	pr_info("sc589-cpufreq exit...\n");
 	cpufreq_unregister_driver(&sc589_cpufreq_driver);
 }
 module_exit(sc589_cpufreq_exit);
