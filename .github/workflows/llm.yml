@@ -172,6 +172,8 @@ jobs:
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
       run: |
         # Prepare top prompt
+        source ci/build.sh
+        set_arch_available="$(set_arch | tail -1)"
         echo -n "${{ inputs.prompt }}" > $prompt_file
         [[ -s "$prompt_file" ]] || echo -n "
           Run a deep Linux Kernel analysis on the commit range $base_sha..$head_sha.
@@ -190,11 +192,23 @@ jobs:
           You have access to multi-architecture compilers and \`./ci/build.sh\`
           contain multiple methods that run during the CI/CD that you can use to
           replicate the CI/CD steps, for example, to compile for 'arm' a minimal
-          defconfig, do \`make mrproper ; set_arch gcc_arm ; auto_set_kconfig ; make \`.
-          In special, \`set_arch arm\` sets 'CXX=gcc-13 ARCH=arm CROSS_COMPILE=arm-linux-'.
+          defconfig, do
+          \`\`\`
+          \$ make mrproper
+          \$ set_arch gcc_arm
+             CXX=gcc-13
+             ARCH=arm
+             CROSS_COMPILE=arm-linux-
+          \$ auto_set_kconfig
+          \$ make
+          \`\`\`\
+          You must use the set_arch command, it properly sets the correct compilers for all
+          architectures, for example, \`set_arch gcc_aarch64\` sets \`CROSS_COMPILE=aarch64-linux-\`.
+          The available compilers are $set_arch_available
+
           You shall install pip packages to help you review, test and debug;
           a venv is already active.
-          The virtual enviroment includes $venv_packages.
+          The virtual environment includes $venv_packages.
           You shall upgrade/downgrade these packages if needed.
 
           Do **not** review commits starting with "[TMP]", "[ADI]", ".github:" or "ci:",
