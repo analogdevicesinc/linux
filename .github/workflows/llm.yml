@@ -153,10 +153,12 @@ jobs:
         source $venv_path/bin/activate
         python3 -m ensurepip --upgrade
 
-        pip install adi-doctools[mcp] camelot-py
+        venv_packages="adi-doctools[mcp] camelot-py dtschema==2025.08 yamllint ply GitPython"
+        pip install $venv_packages
         claude mcp add adoc $(which adoc-mcp)
 
         echo "venv_path=$venv_path" >> "$GITHUB_ENV"
+        echo "venv_packages=$venv_packages" >> "$GITHUB_ENV"
 
     - name: Prepare top prompt
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
@@ -165,13 +167,18 @@ jobs:
         echo -n "${{ inputs.prompt }}" > $prompt_file
         [[ -s "$prompt_file" ]] || echo -n "
           Run a deep Linux Kernel analysis on the commit range $base_sha..$head_sha.
+
           You **must** read $annotations_file for the CI/CD notes, warnings, and errors.
           You **must** write your final review in markdown at $summary_file as a GitHub Summary.
+
           You shall suggest fixup commits (**must** use \`--fixup\`) to resolve issues,
           if so, you **must** use \`git format-patch -o $patches_path\` to store the patches to
-          the $patches_path directory (**never** autosquash).
+          the $patches_path directory (**never** autosquash). You can create more than one fixup
+          commit for each commit.
+
           You are allowed to use tools and write. Your review should be based on the current
           Kernel documentation at ./Documentation/ . Never says things you are unsure.
+
           You have access to multi-architecture compilers and \`./ci/build.sh\`
           contain multiple methods that run during the CI/CD that you can use to
           replicate the CI/CD steps, for example, to compile for 'arm' a minimal
@@ -179,6 +186,9 @@ jobs:
           In special, \`set_arch arm\` sets 'CXX=gcc-13 ARCH=arm CROSS_COMPILE=arm-linux-'.
           You shall install pip packages to help you review, test and debug;
           a venv is already active.
+          The virtual enviroment includes $venv_packages.
+          You shall upgrade/downgrade these packages if needed.
+
           Do **not** review commits starting with "[TMP]", "[ADI]", ".github:" or "ci:",
           they are not part of the series but to change the CI/CD or temporally change behaviour.
           You **must** check the appropriate datasheets for devices drivers, always convert pdfs
