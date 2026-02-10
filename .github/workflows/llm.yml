@@ -16,6 +16,10 @@ on:
         required: false
         type: string
         default: ""
+      prompt-extra:
+        required: false
+        type: string
+        default: ""
       prompt-repository:
         required: false
         type: string
@@ -44,6 +48,10 @@ on:
         required: false
         type: string
       prompt:
+        required: false
+        type: string
+        default: ""
+      prompt-extra:
         required: false
         type: string
         default: ""
@@ -197,6 +205,7 @@ jobs:
           should work on most cases, modify if needed. Tip: a sitemap with all pdfs, including the datasheets,
           are available at https://www.analog.com/media/en/en-pdf-sitemap.xml
         " | sed ':a;N;$!ba;s/\n/ /g;s/  */ /g' > $prompt_file
+        echo "${{ inputs.prompt-extra }}" >> $prompt_file
         cat $prompt_file
 
     - name: Run claude
