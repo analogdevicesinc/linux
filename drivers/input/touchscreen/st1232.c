@@ -15,6 +15,7 @@
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
+#include <linux/input/touch-overlay.h>
 #include <linux/input/touchscreen.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
@@ -22,10 +23,13 @@
 #include <linux/pm_qos.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <linux/input/touch-overlay.h>
+#include <asm/byteorder.h>
 
 #define ST1232_TS_NAME	"st1232-ts"
 #define ST1633_TS_NAME	"st1633-ts"
+
+#define REG_FIRMWARE_VERSION	0x00
+#define REG_FIRMWARE_REVISION_3	0x0C
 
 #define REG_STATUS		0x01	/* Device Status | Error Code */
 
@@ -61,6 +65,8 @@ struct st1232_ts_data {
 	struct list_head touch_overlay_list;
 	int read_buf_len;
 	u8 *read_buf;
+	u8 fw_version;
+	u32 fw_revision;
 };
 
 static int st1232_ts_read_data(struct st1232_ts_data *ts, u8 reg,
@@ -108,6 +114,26 @@ static int st1232_ts_wait_ready(struct st1232_ts_data *ts)
 	}
 
 	return -ENXIO;
+}
+
+static int st1232_ts_read_fw_version(struct st1232_ts_data *ts,
+				     u8 *fw_version, u32 *fw_revision)
+{
+	int error;
+
+	/* select firmware version register */
+	error = st1232_ts_read_data(ts, REG_FIRMWARE_VERSION, 1);
+	if (error)
+		return error;
+	*fw_version = ts->read_buf[0];
+
+	/* select firmware revision register */
+	error = st1232_ts_read_data(ts, REG_FIRMWARE_REVISION_3, 4);
+	if (error)
+		return error;
+	*fw_revision = le32_to_cpup((__le32 *)ts->read_buf);
+
+	return 0;
 }
 
 static int st1232_ts_read_resolution(struct st1232_ts_data *ts, u16 *max_x,
@@ -298,6 +324,16 @@ static int st1232_ts_probe(struct i2c_client *client)
 	error = st1232_ts_wait_ready(ts);
 	if (error)
 		return error;
+
+	/* Read firmware version from the chip */
+	error = st1232_ts_read_fw_version(ts, &ts->fw_version, &ts->fw_revision);
+	if (error) {
+		dev_err(&client->dev,
+			"Failed to read firmware version: %d\n", error);
+		return error;
+	}
+	dev_dbg(&client->dev, "Detected firmware version %u, rev %08x\n",
+		ts->fw_version, ts->fw_revision);
 
 	if (ts->chip_info->have_z)
 		input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0,
