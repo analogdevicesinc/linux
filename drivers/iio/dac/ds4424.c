@@ -33,9 +33,19 @@
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
 }
 
-enum ds4424_device_ids {
-	ID_DS4422,
-	ID_DS4424,
+struct ds4424_chip_info {
+	const char *name;
+	u8 num_channels;
+};
+
+static const struct ds4424_chip_info ds4422_info = {
+	.name = "ds4422",
+	.num_channels = DS4422_MAX_DAC_CHANNELS,
+};
+
+static const struct ds4424_chip_info ds4424_info = {
+	.name = "ds4424",
+	.num_channels = DS4424_MAX_DAC_CHANNELS,
 };
 
 struct ds4424_data {
@@ -203,10 +213,14 @@ static const struct iio_info ds4424_iio_info = {
 
 static int ds4424_probe(struct i2c_client *client)
 {
-	const struct i2c_device_id *id = i2c_client_get_device_id(client);
+	const struct ds4424_chip_info *chip_info;
 	struct ds4424_data *data;
 	struct iio_dev *indio_dev;
 	int ret;
+
+	chip_info = i2c_get_match_data(client);
+	if (!chip_info)
+		return -ENODEV;
 
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (!indio_dev)
@@ -215,7 +229,7 @@ static int ds4424_probe(struct i2c_client *client)
 	data = iio_priv(indio_dev);
 	i2c_set_clientdata(client, indio_dev);
 	data->client = client;
-	indio_dev->name = id->name;
+	indio_dev->name = chip_info->name;
 
 	data->vcc_reg = devm_regulator_get(&client->dev, "vcc");
 	if (IS_ERR(data->vcc_reg))
@@ -235,20 +249,7 @@ static int ds4424_probe(struct i2c_client *client)
 	if (ret < 0)
 		goto fail;
 
-	switch (id->driver_data) {
-	case ID_DS4422:
-		indio_dev->num_channels = DS4422_MAX_DAC_CHANNELS;
-		break;
-	case ID_DS4424:
-		indio_dev->num_channels = DS4424_MAX_DAC_CHANNELS;
-		break;
-	default:
-		dev_err(&client->dev,
-				"ds4424: Invalid chip id.\n");
-		ret = -ENXIO;
-		goto fail;
-	}
-
+	indio_dev->num_channels = chip_info->num_channels;
 	indio_dev->channels = ds4424_channels;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ds4424_iio_info;
@@ -277,16 +278,16 @@ static void ds4424_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id ds4424_id[] = {
-	{ "ds4422", ID_DS4422 },
-	{ "ds4424", ID_DS4424 },
+	{ "ds4422", (kernel_ulong_t)&ds4422_info },
+	{ "ds4424", (kernel_ulong_t)&ds4424_info },
 	{ }
 };
 
 MODULE_DEVICE_TABLE(i2c, ds4424_id);
 
 static const struct of_device_id ds4424_of_match[] = {
-	{ .compatible = "maxim,ds4422" },
-	{ .compatible = "maxim,ds4424" },
+	{ .compatible = "maxim,ds4422", .data = &ds4422_info },
+	{ .compatible = "maxim,ds4424", .data = &ds4424_info },
 	{ }
 };
 
