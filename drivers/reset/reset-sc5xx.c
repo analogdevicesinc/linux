@@ -79,8 +79,10 @@ struct adi_rcu *get_adi_rcu_from_node(struct device *dev)
 	}
 
 	ret = dev_get_drvdata(&rcu_pdev->dev);
-	if (!ret)
+	if (!ret) {
+		put_device(&rcu_pdev->dev);
 		ret = ERR_PTR(-EPROBE_DEFER);
+	}
 
 cleanup:
 	of_node_put(rcu_node);
