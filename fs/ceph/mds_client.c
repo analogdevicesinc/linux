@@ -68,6 +68,21 @@ static void ceph_cap_reclaim_work(struct work_struct *work);
 
 static const struct ceph_connection_operations mds_con_ops;
 
+static void ceph_metric_bind_session(struct ceph_mds_client *mdsc,
+				     struct ceph_mds_session *session)
+{
+	struct ceph_mds_session *old;
+
+	if (!mdsc || !session || disable_send_metrics)
+		return;
+
+	old = mdsc->metric.session;
+	mdsc->metric.session = ceph_get_mds_session(session);
+	if (old)
+		ceph_put_mds_session(old);
+
+	metric_schedule_delayed(&mdsc->metric);
+}
 
 /*
  * mds reply parsing
@@ -4347,6 +4362,11 @@ skip_cap_auths:
 		}
 		mdsc->s_cap_auths_num = cap_auths_num;
 		mdsc->s_cap_auths = cap_auths;
+
+		session->s_features = features;
+		if (test_bit(CEPHFS_FEATURE_METRIC_COLLECT,
+			     &session->s_features))
+			ceph_metric_bind_session(mdsc, session);
 	}
 	if (op == CEPH_SESSION_CLOSE) {
 		ceph_get_mds_session(session);
@@ -4373,7 +4393,11 @@ skip_cap_auths:
 			pr_info_client(cl, "mds%d reconnect success\n",
 				       session->s_mds);
 
-		session->s_features = features;
+		if (test_bit(CEPHFS_FEATURE_SUBVOLUME_METRICS,
+			     &session->s_features))
+			ceph_subvolume_metrics_enable(&mdsc->subvol_metrics, true);
+		else
+			ceph_subvolume_metrics_enable(&mdsc->subvol_metrics, false);
 		if (session->s_state == CEPH_MDS_SESSION_OPEN) {
 			pr_notice_client(cl, "mds%d is already opened\n",
 					 session->s_mds);
@@ -5616,6 +5640,12 @@ int ceph_mdsc_init(struct ceph_fs_client *fsc)
 	err = ceph_metric_init(&mdsc->metric);
 	if (err)
 		goto err_mdsmap;
+	ceph_subvolume_metrics_init(&mdsc->subvol_metrics);
+	mutex_init(&mdsc->subvol_metrics_last_mutex);
+	mdsc->subvol_metrics_last = NULL;
+	mdsc->subvol_metrics_last_nr = 0;
+	mdsc->subvol_metrics_sent = 0;
+	mdsc->subvol_metrics_nonzero_sends = 0;
 
 	spin_lock_init(&mdsc->dentry_list_lock);
 	INIT_LIST_HEAD(&mdsc->dentry_leases);
@@ -6149,6 +6179,8 @@ void ceph_mdsc_destroy(struct ceph_fs_client *fsc)
 	ceph_mdsc_stop(mdsc);
 
 	ceph_metric_destroy(&mdsc->metric);
+	ceph_subvolume_metrics_destroy(&mdsc->subvol_metrics);
+	kfree(mdsc->subvol_metrics_last);
 
 	fsc->mdsc = NULL;
 	kfree(mdsc);

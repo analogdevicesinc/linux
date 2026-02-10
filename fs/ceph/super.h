@@ -179,6 +179,7 @@ struct ceph_fs_client {
 	struct dentry *debugfs_status;
 	struct dentry *debugfs_mds_sessions;
 	struct dentry *debugfs_metrics_dir;
+	struct dentry *debugfs_subvolume_metrics;
 #endif
 
 #ifdef CONFIG_CEPH_FSCACHE
