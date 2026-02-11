@@ -81,11 +81,11 @@
 
 / {
 	clocks {
-		fixed_3200: clock@2 {
+		fixed_400: clock@2 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <3200000000>;
-			clock-output-names = "fixed_3200";
+			clock-frequency = <400000000>;
+			clock-output-names = "fixed_400";
 		};
 
 		ref54: clock@3 {
@@ -149,7 +149,7 @@
 			reg = <0x84a10000 0x8000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
-			clocks = <&fixed_3200>;
+			clocks = <&fixed_400>;
 			clock-names = "sampl_clk";
 		};
 
@@ -158,7 +158,7 @@
 			reg = <0x84b10000 0x4000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
-			clocks = <&fixed_3200>;
+			clocks = <&fixed_400>;
 			clock-names = "sampl_clk";
 			adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 		};
@@ -195,7 +195,7 @@
 			adi,frames-per-multiframe = <256>;
 			adi,converter-resolution = <16>;
 			adi,bits-per-sample = <16>;
-			adi,converters-per-device = <1>;
+			adi,converters-per-device = <8>;
 			adi,control-bits-per-sample = <0>;
 		};
 
