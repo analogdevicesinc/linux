@@ -108,7 +108,7 @@ artifacts_structure
 set_artifactory_path
 python3 ../ci/travis/upload_to_artifactory.py \
         --base_path="${ARTIFACTORY_PATH}" \
-        --server_path="${SERVER_PATH}" \
+        --server_path="${SERVER_PATH}/${TIMESTAMP}" \
         --local_path="${TIMESTAMP}" \
         --props_level="2" \
         --properties="git_sha=${GIT_SHA};commit_date=${TIMESTAMP}" \
