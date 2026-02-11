@@ -13,7 +13,7 @@
 			status = "okay";
 
 			adt7420: adt7420@48 {
-				compatible = "adt7420";
+				compatible = "adi,adt7420";
 				reg = <0x48>;
 			};
 		};
