@@ -105,7 +105,7 @@ static struct cpufreq_driver sc589_cpufreq_driver = {
 
 static int __init sc589_cpufreq_init(void)
 {
-	pr_info("sc589-cpufreq loading...\n");
+	pr_info("sc589-cpufreq: loading...\n");
 	map_cgu_from_dt();
 	return cpufreq_register_driver(&sc589_cpufreq_driver);
 }
@@ -113,8 +113,10 @@ module_init(sc589_cpufreq_init);
 
 static void __exit sc589_cpufreq_exit(void)
 {
-	pr_info("sc589-cpufreq exit...\n");
 	cpufreq_unregister_driver(&sc589_cpufreq_driver);
+	if (cgu0_ctl)
+		iounmap(cgu0_ctl);
+	pr_info("sc589-cpufreq: exit...\n");
 }
 module_exit(sc589_cpufreq_exit);
 
