@@ -178,6 +178,8 @@ jobs:
         echo "compiler_version=${{ env.compiler_version }}" >> dist/context.txt
         echo "compiler_arch=${{ inputs.arch }}" >> dist/context.txt
         echo "git_sha=${GITHUB_SHA:0:12}" >> dist/context.txt
+        echo "git_sha_at=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%at)" >> dist/context.txt
+        echo "git_sha_ct=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%ct)" >> dist/context.txt
         [[ -d dist-headers/usr ]] && cp dist/context.txt dist-headers/context.txt || true
 
     - name: Assert state

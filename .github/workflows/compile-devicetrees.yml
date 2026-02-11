@@ -94,6 +94,8 @@ jobs:
         echo "compiler_name=${{ inputs.compiler }}" >> dist/context.txt
         echo "compiler_version=${{ env.compiler_version }}" >> dist/context.txt
         echo "git_sha=${GITHUB_SHA:0:12}" >> dist/context.txt
+        echo "git_sha_at=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%at)" >> dist/context.txt
+        echo "git_sha_ct=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%ct)" >> dist/context.txt
 
     - name: Store the distribution packages
       uses: actions/upload-artifact@v4
