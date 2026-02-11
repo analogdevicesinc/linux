@@ -218,6 +218,7 @@ struct adin1110_port_priv {
 	bool				ts_tx_en;
 	struct sk_buff			*ts_slots[ADIN_MAC_MAX_TS_SLOTS];
 	struct adin1110_cfg		*cfg;
+	struct hwtstamp_config		hwtstamp_config;
 };
 
 struct adin1110_priv {
@@ -484,15 +485,15 @@ static int adin1110_write_fifo(struct adin1110_port_priv *port_priv,
 	u16 val = 0;
 	int ret;
 
-	/* Pad frame to 64 byte length,
-	 * MAC nor PHY will otherwise add the
-	 * required padding.
-	 * The FEC will be added by the MAC internally.
-	 */
-	if (txb->len + ADIN1110_FEC_LEN < 64)
-		padding = 64 - (txb->len + ADIN1110_FEC_LEN);
+	// /* Pad frame to 64 byte length,
+	//  * MAC nor PHY will otherwise add the
+	//  * required padding.
+	//  * The FEC will be added by the MAC internally.
+	//  */
+	// if (txb->len + ADIN1110_FEC_LEN < 64)
+	// 	padding = 64 - (txb->len + ADIN1110_FEC_LEN);
 
-	padded_len = txb->len + padding + ADIN1110_FRAME_HEADER_LEN;
+	padded_len = txb->len + ADIN1110_FRAME_HEADER_LEN;
 
 	round_len = adin1110_round_len(padded_len);
 	if (round_len < 0)
@@ -517,8 +518,7 @@ static int adin1110_write_fifo(struct adin1110_port_priv *port_priv,
 
 	/* Request TX capture for this frame in previously assign HW slot. */
 	if (port_priv->ts_tx_en && (skb_shinfo(txb)->tx_flags & SKBTX_IN_PROGRESS))
-		val |= FIELD_PREP(ADIN1110_FRAME_HEADER_TS_SLOT,
-				  txb->cb[0] + 1);
+		val |= FIELD_PREP(ADIN1110_FRAME_HEADER_TS_SLOT, txb->cb[0] + 1);
 
 	frame_header = cpu_to_be16(val);
 	memcpy(&priv->data[header_len], &frame_header,
@@ -724,8 +724,11 @@ static int adin1110_read_tx_timestamp(struct adin1110_priv *priv,
 	ts.tv_nsec = val;
 
 	/* Check if there is a timestamp actually saved. */
-	if (!ts.tv_sec && !ts.tv_nsec)
-		return 0;
+	if (!ts.tv_sec && !ts.tv_nsec) {
+		dev_warn_ratelimited(&priv->spidev->dev,
+				     "TX timestamp is zero for slot %d\n", slot);
+		goto out;
+	}
 
 	shhwtstamps.hwtstamp = timespec64_to_ktime(ts);
 	skb_tstamp_tx(skb, &shhwtstamps);
@@ -735,17 +738,27 @@ out:
 	return ret;
 }
 
-static int adin1110_handle_tx_timestamps(struct adin1110_priv *priv, u32 status)
+static int adin1110_handle_tx_timestamps(struct adin1110_priv *priv,
+					  u32 status0, u32 status1)
 {
 	int port;
 	int slot;
 	int ret;
 
 	for (port = 0; port < priv->cfg->ports_nr; port++) {
-		if (!priv->ports[port]->ts_tx_en || !(status & ADIN1110_TX_RDY))
+		if (!priv->ports[port]->ts_tx_en)
 			continue;
 
 		for (slot = 0; slot < ADIN_MAC_MAX_TS_SLOTS; slot++) {
+			/* Check if timestamp is ready for this slot */
+			if (port == 0) {
+				if (!(status0 & ADIN1110_TTSCAXM_P1(slot)))
+					continue;
+			} else {
+				if (!(status1 & ADIN1110_TTSCAXM_P2(slot)))
+					continue;
+			}
+
 			ret = adin1110_read_tx_timestamp(priv, port, slot);
 			if (ret < 0)
 				return ret;
@@ -766,7 +779,7 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 
 	mutex_lock(&priv->lock);
 
-	ret = adin1110_read_reg(priv, ADIN1110_STATUS1, &status0);
+	ret = adin1110_read_reg(priv, ADIN1110_STATUS0, &status0);
 	if (ret < 0)
 		goto out;
 
@@ -778,7 +791,7 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 		dev_warn_ratelimited(&priv->spidev->dev,
 				     "SPI CRC error on write.\n");
 
-	ret = adin1110_handle_tx_timestamps(priv, status1);
+	ret = adin1110_handle_tx_timestamps(priv, status0, status1);
 	if (ret < 0)
 		goto out;
 
@@ -795,9 +808,9 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 					     ADIN1110_MAX_FRAMES_READ);
 	}
 
-	/* clear IRQ sources */
-	adin1110_write_reg(priv, ADIN1110_STATUS0, ADIN1110_CLEAR_STATUS0);
-	adin1110_write_reg(priv, ADIN1110_STATUS1, ADIN1110_CLEAR_STATUS1);
+	/* Clear only the IRQ sources we read at the beginning */
+	adin1110_write_reg(priv, ADIN1110_STATUS0, status0);
+	adin1110_write_reg(priv, ADIN1110_STATUS1, status1);
 
 out:
 	mutex_unlock(&priv->lock);
@@ -1044,9 +1057,9 @@ static int adin1110_hw_tx_timestamp_enable(struct adin1110_port_priv *port_priv)
 	struct adin1110_priv *priv = port_priv->priv;
 	int ret;
 
-	ret = adin1110_tx_ts_rdy_irq(port_priv, true);
-	if (ret < 0)
-		return ret;
+	// ret = adin1110_tx_ts_rdy_irq(port_priv, true);
+	// if (ret < 0)
+	// 	return ret;
 
 	port_priv->ts_tx_en = true;
 
@@ -1058,9 +1071,9 @@ static int adin1110_hw_tx_timestamp_disable(struct adin1110_port_priv *port_priv
 	struct adin1110_priv *priv = port_priv->priv;
 	int ret;
 
-	ret = adin1110_tx_ts_rdy_irq(port_priv, false);
-	if (ret < 0)
-		return ret;
+	// ret = adin1110_tx_ts_rdy_irq(port_priv, false);
+	// if (ret < 0)
+	// 	return ret;
 
 	port_priv->ts_tx_en = false;
 
@@ -1138,6 +1151,9 @@ static int adin1110_ioctl_hw_timestamp(struct net_device *netdev,
 	if (ret < 0)
 		return ret;
 
+	/* Store the configuration */
+	port_priv->hwtstamp_config = config;
+
 	if (copy_to_user(rq->ifr_data, &config, sizeof(config)))
 		return -EFAULT;
 
@@ -1152,8 +1168,14 @@ static int adin1110_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
 	if (!netif_running(netdev))
 		return -EINVAL;
 
-	if (priv->ptp_clock && cmd == SIOCSHWTSTAMP)
-		return adin1110_ioctl_hw_timestamp(netdev, rq);
+	if (priv->ptp_clock) {
+		if (cmd == SIOCSHWTSTAMP)
+			return adin1110_ioctl_hw_timestamp(netdev, rq);
+
+		if (cmd == SIOCGHWTSTAMP)
+			return copy_to_user(rq->ifr_data, &port_priv->hwtstamp_config,
+					    sizeof(port_priv->hwtstamp_config)) ? -EFAULT : 0;
+	}
 
 	return phy_do_ioctl(netdev, rq, cmd);
 }
@@ -1186,7 +1208,7 @@ static int adin1110_setup_rx_mode(struct adin1110_port_priv *port_priv)
 		return ret;
 
 	ret = adin1110_multicast_filter(port_priv, ADIN_MAC_MULTICAST_ADDR_SLOT,
-					!!(port_priv->flags & IFF_ALLMULTI));
+					1);
 	if (ret < 0)
 		return ret;
 
@@ -1271,6 +1293,10 @@ static int adin1110_net_open(struct net_device *net_dev)
 		netdev_err(net_dev, "Failed to enable chip IRQs: %d\n", ret);
 		goto out;
 	}
+
+	/* timestamp done interrupt */
+	val = GENMASK(10, 8);
+	ret = adin1110_write_reg(priv, ADIN1110_IMASK0, ~val);
 
 	ret = adin1110_read_reg(priv, ADIN1110_TX_SPACE, &val);
 	if (ret < 0) {
@@ -1380,6 +1406,8 @@ static void adin1110_assign_ts_slot(struct adin1110_port_priv *port_priv,
 			break;
 	}
 
+	i = 0;
+
 	/* This should not happen. Report that an error occurred. */
 	if (i == ADIN_MAC_MAX_TS_SLOTS) {
 		for (i = 0; i < ADIN_MAC_MAX_TS_SLOTS; i++) {
@@ -1410,8 +1438,21 @@ static netdev_tx_t adin1110_start_xmit(struct sk_buff *skb, struct net_device *d
 	struct adin1110_priv *priv = port_priv->priv;
 	netdev_tx_t netdev_ret = NETDEV_TX_OK;
 	u32 tx_space_needed;
+	u32 padded_space = 0;
 
-	tx_space_needed = skb->len + ADIN1110_FRAME_HEADER_LEN + ADIN1110_INTERNAL_SIZE_HEADER_LEN;
+	if (skb->len + ADIN1110_FRAME_HEADER_LEN < 64){
+		padded_space = skb->len + ADIN1110_FRAME_HEADER_LEN < 64;
+		pr_err("ADIN1110: initial frame len < 64 (%d)", padded_space);
+	}
+
+	if (skb_put_padto(skb, ETH_ZLEN))
+		return NETDEV_TX_OK;
+
+	tx_space_needed = skb->len + ADIN1110_FRAME_HEADER_LEN;
+	tx_space_needed = ALIGN(tx_space_needed, 4) + ADIN1110_INTERNAL_SIZE_HEADER_LEN;
+
+	if (padded_space)
+		pr_err("ADIN1110: padding %d -> %d\n", padded_space, tx_space_needed);
 	if (tx_space_needed > priv->tx_space) {
 		netif_stop_queue(dev);
 		netdev_ret = NETDEV_TX_BUSY;
@@ -1485,7 +1526,7 @@ static void adin1110_get_drvinfo(struct net_device *dev,
 	strscpy(di->bus_info, dev_name(dev->dev.parent), sizeof(di->bus_info));
 }
 
-static int adin1110_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
+static int adin1110_get_ts_info(struct net_device *dev, struct kernel_ethtool_ts_info *info)
 {
 	struct adin1110_port_priv *port_priv = netdev_priv(dev);
 	struct adin1110_priv *priv = port_priv->priv;
@@ -1763,6 +1804,7 @@ static int adin1110_port_attr_set(struct net_device *dev, const void *ctx,
 		return adin1110_port_attr_stp_state_set(port_priv,
 							attr->u.stp_state);
 	default:
+		pr_err("ADIN1110: pps not supported\n");
 		return -EOPNOTSUPP;
 	}
 }
@@ -2042,6 +2084,10 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 		INIT_WORK(&port_priv->rx_mode_work, adin1110_rx_mode_work);
 		skb_queue_head_init(&port_priv->txq);
 
+		/* Initialize hwtstamp config with default values (no timestamping) */
+		port_priv->hwtstamp_config.tx_type = HWTSTAMP_TX_OFF;
+		port_priv->hwtstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
+
 		netif_carrier_off(netdev);
 
 		netdev->if_port = IF_PORT_10BASET;
@@ -2106,7 +2152,7 @@ static int adin1110_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 	if (ret < 0)
 		goto out;
 
-	val = adjust_by_scaled_ppm(val, scaled_ppm);
+	val = adjust_by_scaled_ppm(0x85555555, scaled_ppm);
 	ret = adin1110_write_reg(priv, ADIN1110_MAC_TS_ADDEND, val);
 out:
 	mutex_unlock(&priv->lock);
@@ -2121,6 +2167,10 @@ static int adin1110_ptp_read_ts_capt(struct adin1110_priv *priv,
 	u32 val;
 	int ret;
 
+	gpiod_set_value(priv->ts_capt, 1);
+	udelay(1);
+	gpiod_set_value(priv->ts_capt, 0);
+
 	mutex_lock(&priv->lock);
 
 	if (sts)
@@ -2130,10 +2180,6 @@ static int adin1110_ptp_read_ts_capt(struct adin1110_priv *priv,
 		snap->mono = ktime_get_mono_fast_ns();
 		snap->real = ktime_get_real_fast_ns();
 	}
-
-	gpiod_set_value(priv->ts_capt, 1);
-	fsleep(1);
-	gpiod_set_value(priv->ts_capt, 0);
 
 	ret = adin1110_read_reg(priv, ADIN1110_MAC_TS_CAPT0, &val);
 	if (ret < 0)
@@ -2393,6 +2439,7 @@ static int adin1110_ptp_enable(struct ptp_clock_info *ptp,
 		return adin1110_enable_perout(priv, request->perout, on);
 	case PTP_CLK_REQ_PPS:
 	default:
+		pr_err("ADIN1110: unsupported request %d\n", request->type);
 		return -EOPNOTSUPP;
 	}
 }
@@ -2427,7 +2474,7 @@ static int adin1110_setup_ptp(struct adin1110_priv *priv)
 	snprintf(priv->ptp.name, PTP_CLOCK_NAME_LEN, "%s-%hhu-ptp",
 		 priv->cfg->name, priv->spidev->chip_select[0]);
 
-	priv->ptp.max_adj = 512000;
+	priv->ptp.max_adj = 50000000;
 	priv->ptp.n_ext_ts = 1;
 	priv->ptp.n_per_out = 1;
 	priv->ptp.n_pins = ADIN_MAC_MAX_PTP_PINS;
