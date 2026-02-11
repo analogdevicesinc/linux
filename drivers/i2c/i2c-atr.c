@@ -8,12 +8,12 @@
  * Originally based on i2c-mux.c
  */
 
+#include <linux/fwnode.h>
 #include <linux/i2c-atr.h>
 #include <linux/i2c.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
-#include <linux/property.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/lockdep.h>
@@ -257,6 +257,48 @@ i2c_atr_find_mapping_by_addr(struct i2c_atr_chan *chan, u16 addr)
 }
 
 static struct i2c_atr_alias_pair *
+i2c_atr_replace_mapping_by_addr(struct i2c_atr_chan *chan, u16 addr)
+{
+	struct i2c_atr *atr = chan->atr;
+	struct i2c_atr_alias_pair *c2a;
+	struct list_head *alias_pairs;
+	u16 alias;
+	int ret;
+
+	lockdep_assert_held(&chan->alias_pairs_lock);
+
+	alias_pairs = &chan->alias_pairs;
+
+	if (unlikely(list_empty(alias_pairs)))
+		return NULL;
+
+	list_for_each_entry_reverse(c2a, alias_pairs, node)
+		if (!c2a->fixed)
+			break;
+
+	if (c2a->fixed)
+		return NULL;
+
+	atr->ops->detach_addr(atr, chan->chan_id, c2a->addr);
+	c2a->addr = addr;
+
+	list_move(&c2a->node, alias_pairs);
+
+	alias = c2a->alias;
+
+	ret = atr->ops->attach_addr(atr, chan->chan_id, c2a->addr, c2a->alias);
+	if (ret) {
+		dev_err(atr->dev, "failed to attach 0x%02x on channel %d: err %d\n",
+			addr, chan->chan_id, ret);
+		i2c_atr_destroy_c2a(&c2a);
+		i2c_atr_release_alias(chan->alias_pool, alias);
+		return NULL;
+	}
+
+	return c2a;
+}
+
+static struct i2c_atr_alias_pair *
 i2c_atr_create_mapping_by_addr(struct i2c_atr_chan *chan, u16 addr)
 {
 	struct i2c_atr *atr = chan->atr;
@@ -290,52 +332,6 @@ err_del_c2a:
 err_release_alias:
 	i2c_atr_release_alias(chan->alias_pool, alias);
 	return NULL;
-}
-
-static struct i2c_atr_alias_pair *
-i2c_atr_replace_mapping_by_addr(struct i2c_atr_chan *chan, u16 addr)
-{
-	struct i2c_atr *atr = chan->atr;
-	struct i2c_atr_alias_pair *c2a;
-	struct list_head *alias_pairs;
-	bool found = false;
-	u16 alias;
-	int ret;
-
-	lockdep_assert_held(&chan->alias_pairs_lock);
-
-	alias_pairs = &chan->alias_pairs;
-
-	if (unlikely(list_empty(alias_pairs)))
-		return NULL;
-
-	list_for_each_entry_reverse(c2a, alias_pairs, node) {
-		if (!c2a->fixed) {
-			found = true;
-			break;
-		}
-	}
-
-	if (!found)
-		return NULL;
-
-	atr->ops->detach_addr(atr, chan->chan_id, c2a->addr);
-	c2a->addr = addr;
-
-	list_move(&c2a->node, alias_pairs);
-
-	alias = c2a->alias;
-
-	ret = atr->ops->attach_addr(atr, chan->chan_id, c2a->addr, c2a->alias);
-	if (ret) {
-		dev_err(atr->dev, "failed to attach 0x%02x on channel %d: err %d\n",
-			addr, chan->chan_id, ret);
-		i2c_atr_destroy_c2a(&c2a);
-		i2c_atr_release_alias(chan->alias_pool, alias);
-		return NULL;
-	}
-
-	return c2a;
 }
 
 static struct i2c_atr_alias_pair *
@@ -763,7 +759,7 @@ err_destroy_mutex:
 
 	return ERR_PTR(ret);
 }
-EXPORT_SYMBOL_NS_GPL(i2c_atr_new, I2C_ATR);
+EXPORT_SYMBOL_NS_GPL(i2c_atr_new, "I2C_ATR");
 
 void i2c_atr_delete(struct i2c_atr *atr)
 {
@@ -778,7 +774,7 @@ void i2c_atr_delete(struct i2c_atr *atr)
 	lockdep_unregister_key(&atr->lock_key);
 	kfree(atr);
 }
-EXPORT_SYMBOL_NS_GPL(i2c_atr_delete, I2C_ATR);
+EXPORT_SYMBOL_NS_GPL(i2c_atr_delete, "I2C_ATR");
 
 int i2c_atr_add_adapter(struct i2c_atr *atr, struct i2c_atr_adap_desc *desc)
 {
@@ -895,7 +891,7 @@ err_fwnode_put:
 	kfree(chan);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(i2c_atr_add_adapter, I2C_ATR);
+EXPORT_SYMBOL_NS_GPL(i2c_atr_add_adapter, "I2C_ATR");
 
 void i2c_atr_del_adapter(struct i2c_atr *atr, u32 chan_id)
 {
@@ -934,19 +930,19 @@ void i2c_atr_del_adapter(struct i2c_atr *atr, u32 chan_id)
 	kfree(chan->orig_addrs);
 	kfree(chan);
 }
-EXPORT_SYMBOL_NS_GPL(i2c_atr_del_adapter, I2C_ATR);
+EXPORT_SYMBOL_NS_GPL(i2c_atr_del_adapter, "I2C_ATR");
 
 void i2c_atr_set_driver_data(struct i2c_atr *atr, void *data)
 {
 	atr->priv = data;
 }
-EXPORT_SYMBOL_NS_GPL(i2c_atr_set_driver_data, I2C_ATR);
+EXPORT_SYMBOL_NS_GPL(i2c_atr_set_driver_data, "I2C_ATR");
 
 void *i2c_atr_get_driver_data(struct i2c_atr *atr)
 {
 	return atr->priv;
 }
-EXPORT_SYMBOL_NS_GPL(i2c_atr_get_driver_data, I2C_ATR);
+EXPORT_SYMBOL_NS_GPL(i2c_atr_get_driver_data, "I2C_ATR");
 
 MODULE_AUTHOR("Luca Ceresoli <luca.ceresoli@bootlin.com>");
 MODULE_AUTHOR("Tomi Valkeinen <tomi.valkeinen@ideasonboard.com>");
