@@ -213,3 +213,4 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADF4030
 	imply ADI_AXI_DAC
 	imply AD3530R
+	imply ADMX100X
