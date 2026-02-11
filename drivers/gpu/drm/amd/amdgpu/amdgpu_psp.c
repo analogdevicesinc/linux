@@ -833,6 +833,8 @@ static const char *psp_gfx_cmd_name(enum psp_gfx_cmd_id cmd_id)
 		return "NPS_MODE_CHANGE";
 	case GFX_CMD_ID_PERF_HW:
 		return "PERF MONITORING HW";
+	case GFX_CMD_ID_UAL_GET_INTERFACE_VER:
+		return "UAL_GET_INTERFACE_VER";
 	default:
 		return "UNKNOWN CMD";
 	}
@@ -1191,6 +1193,29 @@ static int psp_get_fw_reservation_info(struct psp_context *psp,
 	release_psp_cmd_buf(psp);
 
 	return 0;
+}
+
+int psp_ual_get_interface_version(struct psp_context *psp, uint32_t *intf_ver)
+{
+	struct psp_gfx_cmd_resp *cmd;
+	int ret;
+
+	cmd = acquire_psp_cmd_buf(psp);
+
+	cmd->cmd_id = GFX_CMD_ID_UAL_GET_INTERFACE_VER;
+
+	ret = psp_cmd_submit_buf(psp, NULL, cmd, psp->fence_buf_mc_addr);
+
+	if (!ret && !cmd->resp.status) {
+		*intf_ver = cmd->resp.uresp.get_intf_ver_ual.intf_ver;
+	} else if (!ret) {
+		pr_debug("ual_get_if_ver: PSP status %x\n", cmd->resp.status);
+		ret = -EINVAL;
+	}
+
+	release_psp_cmd_buf(psp);
+
+	return ret;
 }
 
 int psp_update_fw_reservation(struct psp_context *psp)
