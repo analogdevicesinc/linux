@@ -1051,7 +1051,7 @@ static int ad7173_setup(struct iio_dev *indio_dev)
 
 	ret = ad7173_calibrate_all(st, indio_dev);
 	if (ret)
-		return ret;
+		dev_warn(&st->sd.spi->dev, "calibration failed\n");
 
 	/* All channels are enabled by default after a reset */
 	return ad7173_disable_all(&st->sd);
