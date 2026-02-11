@@ -1657,6 +1657,9 @@ struct xe_vm *xe_vm_create(struct xe_device *xe, u32 flags, struct xe_file *xef)
 			if (!vm->pt_root[id])
 				continue;
 
+			if (!xef) /* Not from userspace */
+				create_flags |= EXEC_QUEUE_FLAG_KERNEL;
+
 			q = xe_exec_queue_create_bind(xe, tile, vm, create_flags, 0);
 			if (IS_ERR(q)) {
 				err = PTR_ERR(q);
