@@ -1,0 +1,80 @@
+name: Expand artifacts to cloudmsith
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        required: false
+        default: ${{ github.sha }}
+        type: string
+    secrets:
+      CLOUDSMITH_SERVICE_SLUG:
+        required: false
+      CLOUDSMITH_API_KEY:
+        required: false
+
+permissions:
+  id-token: write
+  contents: write
+  actions: read
+
+jobs:
+  expand-artifacts-to-cloudsmith:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+
+    steps:
+    - uses: analogdevicesinc/doctools/empty@action
+
+    - name: Prepare path
+      run: |
+        mkdir dist
+
+    - name: Get sources
+      run: |
+        ref="refs/heads/ci"
+        org_repo="analogdevicesinc/linux"
+        get_file () {
+          echo https://raw.githubusercontent.com/$org_repo/$ref/$1
+          curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
+              https://raw.githubusercontent.com/$org_repo/$ref/$1
+        }
+
+        mkdir -p ci
+        get_file ci/lib.sh
+        get_file ci/download_artifacts.sh
+        get_file ci/upload_to_cloudsmith_expanded.sh
+
+    - uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' && env.CLOUDSMITH_SERVICE_SLUG != ' ' }}
+      with:
+        oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
+        oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        oidc-auth-only: 'true'
+
+    - name: Cloudsmith API Key
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG == '' || env.CLOUDSMITH_SERVICE_SLUG == ' ' }}
+      run: |
+        CLOUDSMITH_API_KEY=$(echo "${{ secrets.CLOUDSMITH_API_KEY }}" | xargs)
+        echo "CLOUDSMITH_API_KEY=$CLOUDSMITH_API_KEY" >> "$GITHUB_ENV"
+
+    - name: Download artifacts
+      if: ${{ env.CLOUDSMITH_API_KEY != '' }}
+      run: |
+        source ci/download_artifacts.sh
+
+        download_artifacts "${{ inputs.sha }}" "adi/linux" "true" "$CLOUDSMITH_API_KEY"
+
+    - name: Upload artifacts
+      if: ${{ env.CLOUDSMITH_API_KEY != '' }}
+      run: |
+        source ci/upload_to_cloudsmith_expanded.sh
+
+        upload_to_cloudsmith_expanded "${{ inputs.sha }}" "adi/linux" "sdg-linux" "false" "$CLOUDSMITH_API_KEY"
