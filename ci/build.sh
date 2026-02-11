@@ -560,22 +560,35 @@ prepare_compile_kernel() {
 	elif [[ "$ARCH" == "nios2" ]]; then
 		wget https://swdownloads.analog.com/cse/nios2/rootfs/rootfs.cpio.gz -O arch/nios2/boot/rootfs.cpio.gz
 		printf "/dts-v1/;\n\n/ { };\n" > arch/$ARCH/boot/dts/devicetree.dts
+		# Allocate space for dtb
+		dtb_patch=$(mktemp)
+		cat <<EOF > $dtb_patch
+--- include/asm-generic/vmlinux.lds.h
++++ include/asm-generic/vmlinux.lds.h
+@@ -339,6 +339,7 @@
+ 	STRUCT_ALIGN();							\\
+ 	__dtb_start = .;						\\
+ 	KEEP(*(.dtb.init.rodata))					\\
++	. = __dtb_start + 0x10000;					\\
+ 	__dtb_end = .;
+ 
+ /*
+EOF
+		git apply -p0 $dtb_patch || true
+		rm $dtb_patch
 	fi
 }
 
 _get_make_kernel_flags() {
 	if [[ "$ARCH" == "microblaze" ]]; then
 		# AMD Xilinx Microblaze
-		# Embeds the dtb into the image, but always at the same offset
-		# and length. Therefore, downstream patch the dtb. The only
-		# other diff is the GNU Build ID at 0xf51460, and that's ok to
-		# not patch.
+		# Embeds the dtb into the image, but always at with the same content.
+		# Seek d00d feed + /dts-v1/;/ { };
 		echo "simpleImage.generic"
 	elif [[ "$ARCH" == "nios2" ]]; then
 		# Altera Nios2
 		# Similar to Microblaze, but patching the dtb requires decompressing
 		# first. The offsets are: gzip input length: 0x4060 , vm_linux: 0x4064
-		# dtb (after decompressed): 0x543420
 		echo "zImage"
 	elif [[ "$ARCH" == "arm" ]]; then
 		if [[ "$DEFCONFIG" == "socfpga_adi_defconfig" ]]; then
