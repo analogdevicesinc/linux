@@ -125,17 +125,19 @@ artifacts_structure
 set_cloudsmith_version_path
 # This script is called from azure-pipelines.yml after setting the CLOUDSMITH_API_KEY secret variable
 # so we can use it directly here
-# Upload to Cloudsmith done using upload_to_cloudsmith.py script from wiki-scripts repo
+# Upload to Cloudsmith using parallel upload script for faster performance
 
 echo "Uploading artifacts to Cloudsmith repo adi/${CLOUDSMITH_REPO} at path ${VERSION_PATH}/ ..."
+echo "Using parallel uploads with 10 workers..."
 
-python3 ../wiki-scripts/utils/cloudsmith_utils/upload_to_cloudsmith.py \
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "${SCRIPT_DIR}/upload_to_cloudsmith_parallel.py" \
         --repo="${CLOUDSMITH_REPO}" \
-        --version="${VERSION_PATH}" \
+        --version="${VERSION_PATH}/${TIMESTAMP}" \
         --local_path="${TIMESTAMP}" \
         --tags="git_sha-${GIT_SHA};timestamp_${TIMESTAMP}" \
         --token="${CLOUDSMITH_API_KEY}" \
-        --log_file="upload_to_cloudsmith.log"
+        --max_workers=10
 
 # Set these Azure env vars to be used later in the pipeline
 echo "##vso[task.setvariable variable=TIMESTAMP;isOutput=true]${TIMESTAMP}"
