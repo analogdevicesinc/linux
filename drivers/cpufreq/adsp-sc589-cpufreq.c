@@ -11,14 +11,17 @@
 #include <linux/cpufreq.h>
 #include <linux/init.h>
 #include <linux/of_address.h>
+#include <linux/iopoll.h>
 
-#define CGU0_DIV_REG 0x3108D00C
-#define GCU0_CONTROL_REG 0x3108D000
-#define CGU0_STAT_REG 0x3108D008
+#define CGU0_STAT_OFFSET 0x08
+#define CGU0_DIV_OFFSET	 0x0C
 
-#define CGU0_CLKSALGN BIT(3) 
-#define CGU0_CSEL_MASK 0x1F
-#define CGU0_UPDT BIT(10)
+#define CGU0_CLKSALGN	BIT(3) 
+#define CGU0_CSEL_MASK	0x1F
+#define CGU0_UPDT	BIT(30)
+
+#define STAT_POLL_SLEEP   10
+#define STAT_POLL_TIMEOUT 10000 
 
 void __iomem *cgu0_ctl;
 
@@ -47,15 +50,31 @@ static unsigned int sc589_get(unsigned int cpu)
 
 static int sc589_wait_clock_align(void)
 {
-	
-	return -ETIMEDOUT;		
+	u32 value;
+	return readl_poll_timeout(cgu0_ctl + CGU0_STAT_OFFSET,
+			   value, 
+			   !(value & CGU0_CLKSALGN),
+			   STAT_POLL_SLEEP,
+			   STAT_POLL_TIMEOUT);
 }
 
-/*static int sc589_set_divider(u32 div)
+static int sc589_set_divider(u32 div)
 {
-	
+	u32 csel_value;
+
+	if (sc589_wait_clock_align()) {
+		pr_err("timeout while waiting for clock alignment.\n");
+		return -ETIMEDOUT;
+	}
+
+	csel_value = readl(cgu0_ctl + CGU0_DIV_OFFSET);
+	csel_value &= ~CGU0_CSEL_MASK;
+	csel_value |= div;
+	csel_value |= CGU0_UPDT;
+	writel(csel_value, cgu0_ctl + CGU0_DIV_OFFSET);
+
 	return 0;
-}*/
+}
 
 static int map_cgu_from_dt(void)
 {
@@ -98,7 +117,6 @@ static void __exit sc589_cpufreq_exit(void)
 	cpufreq_unregister_driver(&sc589_cpufreq_driver);
 }
 module_exit(sc589_cpufreq_exit);
-
 
 MODULE_AUTHOR("Qasim Ijaz <Qasim.Ijaz@analog.com>");
 MODULE_DESCRIPTION("CPUFreq driver for Analog Devices ADSP-SC589");
