@@ -384,7 +384,7 @@ int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
 {
 	unsigned int masklength = iio_get_masklength(indio_dev);
 
-	if (!masklength || buffer->scan_mask)
+	if (!masklength || (buffer->scan_mask && buffer->channel_mask))
 		return 0;
 
 	buffer->scan_mask = bitmap_zalloc(masklength, GFP_KERNEL);
