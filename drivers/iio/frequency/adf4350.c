@@ -607,7 +607,7 @@ static int adf4350_probe(struct spi_device *spi)
 	if (dev_fwnode(&spi->dev)) {
 		pdata = adf4350_parse_dt(&spi->dev);
 		if (pdata == NULL)
-			return -EINVAL;
+			return -ENOMEM;
 	} else {
 		pdata = dev_get_platdata(&spi->dev);
 	}
