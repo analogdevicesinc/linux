@@ -33,7 +33,6 @@
 #define TEST_VM_OPS_ERROR
 #endif
 
-struct dram_info;
 struct drm_pagemap_shrinker;
 struct intel_display;
 struct intel_dg_nvm_dev;
