@@ -17,6 +17,7 @@ static void guc_ack_fault(struct xe_pagefault *pf, int err)
 	u32 pdata = FIELD_GET(PFD_PDATA_LO, pf->producer.msg[0]) |
 		(FIELD_GET(PFD_PDATA_HI, pf->producer.msg[1]) <<
 		 PFD_PDATA_HI_SHIFT);
+	u32 asid = FIELD_GET(PFD_ASID, pf->producer.msg[1]);
 	u32 action[] = {
 		XE_GUC_ACTION_PAGE_FAULT_RES_DESC,
 
@@ -24,7 +25,7 @@ static void guc_ack_fault(struct xe_pagefault *pf, int err)
 		FIELD_PREP(PFR_SUCCESS, !!err) |
 		FIELD_PREP(PFR_REPLY, PFR_ACCESS) |
 		FIELD_PREP(PFR_DESC_TYPE, FAULT_RESPONSE_DESC) |
-		FIELD_PREP(PFR_ASID, pf->consumer.asid),
+		FIELD_PREP(PFR_ASID, asid),
 
 		FIELD_PREP(PFR_VFID, vfid) |
 		FIELD_PREP(PFR_ENG_INSTANCE, engine_instance) |
