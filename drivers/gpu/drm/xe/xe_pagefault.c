@@ -164,7 +164,7 @@ static int xe_pagefault_service(struct xe_pagefault *pf)
 	bool atomic;
 
 	/* Producer flagged this fault to be nacked */
-	if (pf->consumer.fault_level == XE_PAGEFAULT_LEVEL_NACK)
+	if (pf->consumer.fault_type_level == XE_PAGEFAULT_TYPE_LEVEL_NACK)
 		return -EFAULT;
 
 	vm = xe_pagefault_asid_to_vm(xe, pf->consumer.asid);
@@ -225,17 +225,19 @@ static void xe_pagefault_print(struct xe_pagefault *pf)
 {
 	xe_gt_info(pf->gt, "\n\tASID: %d\n"
 		   "\tFaulted Address: 0x%08x%08x\n"
-		   "\tFaultType: %d\n"
+		   "\tFaultType: %lu\n"
 		   "\tAccessType: %d\n"
-		   "\tFaultLevel: %d\n"
+		   "\tFaultLevel: %lu\n"
 		   "\tEngineClass: %d %s\n"
 		   "\tEngineInstance: %d\n",
 		   pf->consumer.asid,
 		   upper_32_bits(pf->consumer.page_addr),
 		   lower_32_bits(pf->consumer.page_addr),
-		   pf->consumer.fault_type,
+		   FIELD_GET(XE_PAGEFAULT_TYPE_MASK,
+			     pf->consumer.fault_type_level),
 		   pf->consumer.access_type,
-		   pf->consumer.fault_level,
+		   FIELD_GET(XE_PAGEFAULT_LEVEL_MASK,
+			     pf->consumer.fault_type_level),
 		   pf->consumer.engine_class,
 		   xe_hw_engine_class_to_str(pf->consumer.engine_class),
 		   pf->consumer.engine_instance);

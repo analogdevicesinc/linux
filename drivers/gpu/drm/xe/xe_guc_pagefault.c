@@ -76,11 +76,14 @@ int xe_guc_pagefault_handler(struct xe_guc *guc, u32 *msg, u32 len)
 		 PFD_VIRTUAL_ADDR_LO_SHIFT);
 	pf.consumer.asid = FIELD_GET(PFD_ASID, msg[1]);
 	pf.consumer.access_type = FIELD_GET(PFD_ACCESS_TYPE, msg[2]);
-	pf.consumer.fault_type = FIELD_GET(PFD_FAULT_TYPE, msg[2]);
 	if (FIELD_GET(XE2_PFD_TRVA_FAULT, msg[0]))
-		pf.consumer.fault_level = XE_PAGEFAULT_LEVEL_NACK;
+		pf.consumer.fault_type_level = XE_PAGEFAULT_TYPE_LEVEL_NACK;
 	else
-		pf.consumer.fault_level = FIELD_GET(PFD_FAULT_LEVEL, msg[0]);
+		pf.consumer.fault_type_level =
+			FIELD_PREP(XE_PAGEFAULT_LEVEL_MASK,
+				   FIELD_GET(PFD_FAULT_LEVEL, msg[0])) |
+			FIELD_PREP(XE_PAGEFAULT_TYPE_MASK,
+				   FIELD_GET(PFD_FAULT_TYPE, msg[2]));
 	pf.consumer.engine_class = FIELD_GET(PFD_ENG_CLASS, msg[0]);
 	pf.consumer.engine_instance = FIELD_GET(PFD_ENG_INSTANCE, msg[0]);
 
