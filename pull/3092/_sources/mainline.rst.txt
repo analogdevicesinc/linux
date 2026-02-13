@@ -27,24 +27,30 @@ various Linux kernel releases. For example, the following diagram shows all
 ADI support
 -----------
 
+<<<<<<< Updated upstream
 All ADI changes are intended to be eventually applied upstream in the mainline
 Linux kernel. That process can take some time. Therefore the changes are
-maintained in the ADI tree on Github.
+maintained in the ADI tree on GitHub.
+=======
+All of our changes are intented to be eventually applied upstream in the
+mainline Linux kernel. That process can take some time. Therefore the changes
+are maintained in our tree on Github.
+>>>>>>> Stashed changes
 
-ADI follows a similar approach to that taken by mainline. It attempts to
-maintain ADI changes on top of the latest LTS release and update those changes
-with every new LTS release. That process makes it easier to upstream those
-changes into the mainline kernel.
+We follow a similar approach to that taken by mainline. We aim to maintain our
+changes on top of the latest LTS release and update those changes with every
+new LTS release. That process makes it easier to upstream those changes into
+the mainline kernel.
 
-ADI can also apply those changes to older LTS releases by backporting changes,
+We can also apply those changes to older LTS releases by backporting changes,
 but that is not done automatically given the burden of supporting multiple LTS
 versions.
 
 CVE
 ---
 
-ADI addresses upstream CVEs by applying our changes onto newer stable releases,
-which include fixes. Only CVEs targeting ADI changes will be applied in the ADI
+We addresse upstream CVEs by applying our changes onto newer stable releases,
+which include fixes. Only CVEs targeting our changes will be applied in our
 tree.
 
 Mainline
