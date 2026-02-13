@@ -33,6 +33,10 @@ jobs:
         curl -sO -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
         https://raw.githubusercontent.com/analogdevicesinc/wiki-scripts/main/utils/cloudsmith_utils/cloudsmith_helper.py
         
+        python3 -m venv ~/venv
+        source ~/venv/bin/activate
+        python3 -m ensurepip --upgrade
+        pip3 install requests
         python3 cloudsmith_helper.py \
           --repo sdg-linux \
           --method remove_item_from_location \
