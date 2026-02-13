@@ -2,6 +2,10 @@ on:
   pull_request:
     types: [closed]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   clean-cloudsmith:
     if: github.repository == 'analogdevicesinc/linux'
@@ -26,7 +30,9 @@ jobs:
         
     - name: Delete PR artifacts from Cloudsmith
       run: |
-        curl -sO https://raw.githubusercontent.com/analogdevicesinc/wiki-scripts/main/utils/cloudsmith_utils/cloudsmith_helper.py
+        curl -sO -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+        https://raw.githubusercontent.com/analogdevicesinc/wiki-scripts/main/utils/cloudsmith_utils/cloudsmith_helper.py
+        
         python cloudsmith_helper.py \
           --repo sdg-linux \
           --method remove_item_from_location \
