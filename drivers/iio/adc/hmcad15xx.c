@@ -42,9 +42,9 @@
 
 /*HMCAD15XX_LVDS_OUTPUT_MODE (0x53)*/
 #define HMCAD15XX_LVDS_OUTPUT_MODE_MSK			GENMASK(2, 0)
-#define HMCAD15XX_LVDS_OUTPUT_12BIT			0x0
-#define HMCAD15XX_LVDS_OUTPUT_14BIT			0x1
-#define HMCAD15XX_LVDS_OUTPUT_16BIT			0x2
+#define HMCAD15XX_LVDS_OUTPUT_8BIT			0x0
+#define HMCAD15XX_LVDS_OUTPUT_12BIT			0x1
+#define HMCAD15XX_LVDS_OUTPUT_14BIT			0x5
 #define HMCAD15XX_LVDS_OUTPUT_DUAL_8BIT			0x4
 
 /*HMCAD15XX_OPERATION_MODE (0x31)*/
@@ -97,9 +97,9 @@ enum hmcad15xx_input_select {
 };
 
 enum hmcad15xx_resolution {
-	RES_8BIT  = 0,
-	RES_12BIT = 2,
-	RES_14BIT = 3
+	RES_8BIT   = 0,
+	RES_12BIT  = 2,
+	RES_14BIT  = 1
 };
 static const int hmcad15xx_clk_div_value[] = {
 	[CLK_DIV_1]    = 1,
@@ -312,6 +312,49 @@ static IIO_DEVICE_ATTR(in_voltage_scale, 0644, hmcad15xx_scale, NULL, 0);
 
 
 
+/*
+ * Compute the actual sampling frequency based on resolution and channel count.
+ *
+ * From datasheet: LVDSbitrate = (FS / Nb) * N_lvds
+ * Rearranged:     FS = (LVDSbitrate * Nb) / N_lvds
+ *
+ * Where:
+ *   Nb = bits per LVDS lane: 8 (1ch), 4 (2ch), 2 (4ch)
+ *   N_lvds = output bits per sample: 8 (8-bit), 12 (12-bit), 16 (dual 8-bit)
+ *
+ * Since clk_div already accounts for channel count (1, 2, 4 for 1/2/4 ch),
+ * and LVDS uses DDR (data on both clock edges), the formula becomes:
+ *
+ *   FS = (2 * F_clk / clk_div) * (8 / N_lvds)
+ *
+ * Resolution factors (8 / N_lvds):
+ *   8-bit:      8/8  = 1    -> Fs = 2 * F_clk / clk_div
+ *   12-bit:     8/12 = 2/3  -> Fs = 2 * F_clk / clk_div * 2/3
+ *   Dual 8-bit: 8/16 = 1/2  -> Fs = 2 * F_clk / clk_div / 2
+ */
+static unsigned int hmcad15xx_get_sampling_freq(struct hmcad15xx_state *st)
+{
+	unsigned long clk_rate = clk_get_rate(st->clk);
+	unsigned int clk_div = hmcad15xx_clk_div_value[st->clk_div];
+	unsigned int base_freq;
+
+	/* DDR LVDS: data transferred on both clock edges */
+	base_freq = DIV_ROUND_CLOSEST(clk_rate * 2, clk_div);
+
+	switch (st->resolution) {
+	case RES_12BIT:
+		/* 12-bit mode: Fs = base_freq * 2/3 */
+		return DIV_ROUND_CLOSEST(base_freq * 2, 3);
+	case RES_14BIT:
+		/* Dual 8-bit mode (14-bit): Fs = base_freq / 2 */
+		return base_freq / 2;
+	case RES_8BIT:
+	default:
+		/* 8-bit mode: Fs = base_freq */
+		return base_freq;
+	}
+}
+
 static int hmcad15xx_read_raw(struct iio_dev *indio_dev,
 			   const struct iio_chan_spec *chan,
 			   int *val, int *val2, long info)
@@ -320,7 +363,7 @@ static int hmcad15xx_read_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = DIV_ROUND_CLOSEST(clk_get_rate(st->clk), (hmcad15xx_clk_div_value[st->clk_div]));
+		*val = hmcad15xx_get_sampling_freq(st);
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
@@ -367,112 +410,69 @@ static const struct iio_info hmcad15xx_info = {
 	.debugfs_reg_access = &hmcad15xx_reg_access,
 };
 
-#define HMCAD15XX_CHAN(index, bits, storage)				\
+#define HMCAD15XX_CHAN(_idx, _realbits, _storagebits, _shift)				\
 	{								\
 		.type = IIO_VOLTAGE,					\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
-		.address = index,					\
+		.address = _idx,					\
 		.indexed = 1,						\
-		.channel = index,					\
-		.scan_index = index,					\
+		.channel = _idx,					\
+		.scan_index = _idx,					\
 		.ext_info = hmcad15xx_ext_info,				\
 		.scan_type = {						\
 			.sign = 's',					\
-			.realbits = bits,				\
-			.storagebits = storage,				\
+			.realbits = _realbits,				\
+			.storagebits = _storagebits,		\
+			.shift = _shift,	\
 		},							\
 	}
 
-/* 8-bit mode: supports 1, 2, or 4 channels */
-static const struct axiadc_chip_info hmcad15xx_chip_info_8bit_1ch = {
-	.id = 0,
-	.name = "hmcad15xx_axi_adc",
-	.num_channels = 1,
-	.channel[0] = HMCAD15XX_CHAN(0, 8, 8),
-};
-
-static const struct axiadc_chip_info hmcad15xx_chip_info_8bit_2ch = {
-	.id = 0,
-	.name = "hmcad15xx_axi_adc",
-	.num_channels = 2,
-	.channel[0] = HMCAD15XX_CHAN(0, 8, 8),
-	.channel[1] = HMCAD15XX_CHAN(1, 8, 8),
-};
-
-static const struct axiadc_chip_info hmcad15xx_chip_info_8bit_4ch = {
+/*
+ * Chip info structures - always 4 channels to allow input source selection
+ * for all ADCs regardless of operating mode (single/dual/quad)
+ */
+static const struct axiadc_chip_info hmcad15xx_chip_info_8bit = {
 	.id = 0,
 	.name = "hmcad15xx_axi_adc",
 	.num_channels = 4,
-	.channel[0] = HMCAD15XX_CHAN(0, 8, 8),
-	.channel[1] = HMCAD15XX_CHAN(1, 8, 8),
-	.channel[2] = HMCAD15XX_CHAN(2, 8, 8),
-	.channel[3] = HMCAD15XX_CHAN(3, 8, 8),
+	.channel[0] = HMCAD15XX_CHAN(0, 8, 8, 0),
+	.channel[1] = HMCAD15XX_CHAN(1, 8, 8, 0),
+	.channel[2] = HMCAD15XX_CHAN(2, 8, 8, 0),
+	.channel[3] = HMCAD15XX_CHAN(3, 8, 8, 0),
 };
 
-/* 12-bit mode: supports 1, 2, or 4 channels */
-static const struct axiadc_chip_info hmcad15xx_chip_info_12bit_1ch = {
-	.id = 0,
-	.name = "hmcad15xx_axi_adc",
-	.num_channels = 1,
-	.channel[0] = HMCAD15XX_CHAN(0, 12, 16),
-};
-
-static const struct axiadc_chip_info hmcad15xx_chip_info_12bit_2ch = {
-	.id = 0,
-	.name = "hmcad15xx_axi_adc",
-	.num_channels = 2,
-	.channel[0] = HMCAD15XX_CHAN(0, 12, 16),
-	.channel[1] = HMCAD15XX_CHAN(1, 12, 16),
-};
-
-static const struct axiadc_chip_info hmcad15xx_chip_info_12bit_4ch = {
+static const struct axiadc_chip_info hmcad15xx_chip_info_12bit = {
 	.id = 0,
 	.name = "hmcad15xx_axi_adc",
 	.num_channels = 4,
-	.channel[0] = HMCAD15XX_CHAN(0, 12, 16),
-	.channel[1] = HMCAD15XX_CHAN(1, 12, 16),
-	.channel[2] = HMCAD15XX_CHAN(2, 12, 16),
-	.channel[3] = HMCAD15XX_CHAN(3, 12, 16),
+	.channel[0] = HMCAD15XX_CHAN(0, 12, 16, 4),
+	.channel[1] = HMCAD15XX_CHAN(1, 12, 16, 4),
+	.channel[2] = HMCAD15XX_CHAN(2, 12, 16, 4),
+	.channel[3] = HMCAD15XX_CHAN(3, 12, 16, 4),
 };
 
-/* 14-bit mode: supports 4 channels only (precision mode) */
-static const struct axiadc_chip_info hmcad15xx_chip_info_14bit_4ch = {
+static const struct axiadc_chip_info hmcad15xx_chip_info_14bit = {
 	.id = 0,
 	.name = "hmcad15xx_axi_adc",
 	.num_channels = 4,
-	.channel[0] = HMCAD15XX_CHAN(0, 14, 16),
-	.channel[1] = HMCAD15XX_CHAN(1, 14, 16),
-	.channel[2] = HMCAD15XX_CHAN(2, 14, 16),
-	.channel[3] = HMCAD15XX_CHAN(3, 14, 16),
+	.channel[0] = HMCAD15XX_CHAN(0, 14, 16, 2),
+	.channel[1] = HMCAD15XX_CHAN(1, 14, 16, 2),
+	.channel[2] = HMCAD15XX_CHAN(2, 14, 16, 2),
+	.channel[3] = HMCAD15XX_CHAN(3, 14, 16, 2),
 };
 
 static const struct axiadc_chip_info *hmcad15xx_get_chip_info(
-	enum hmcad15xx_resolution resolution, unsigned int num_channels)
+	enum hmcad15xx_resolution resolution)
 {
 	switch (resolution) {
 	case RES_14BIT:
-		if (num_channels == 4)
-			return &hmcad15xx_chip_info_14bit_4ch;
-		break;
+		return &hmcad15xx_chip_info_14bit;
 	case RES_12BIT:
-		if (num_channels == 1)
-			return &hmcad15xx_chip_info_12bit_1ch;
-		else if (num_channels == 2)
-			return &hmcad15xx_chip_info_12bit_2ch;
-		else if (num_channels == 4)
-			return &hmcad15xx_chip_info_12bit_4ch;
-		break;
+		return &hmcad15xx_chip_info_12bit;
 	case RES_8BIT:
 	default:
-		if (num_channels == 1)
-			return &hmcad15xx_chip_info_8bit_1ch;
-		else if (num_channels == 2)
-			return &hmcad15xx_chip_info_8bit_2ch;
-		else if (num_channels == 4)
-			return &hmcad15xx_chip_info_8bit_4ch;
-		break;
+		return &hmcad15xx_chip_info_8bit;
 	}
-	return NULL;
 }
 
 static const unsigned long hmcad15xx_available_scan_masks[]  = { 0xFF, 0x00 };
@@ -556,6 +556,9 @@ static int hmcad15xx_probe(struct spi_device *spi)
 
 	st->spi = spi;
 
+
+
+
 	/* Read number of channels (default: 1) */
 	st->en_channels = 1;
 	ret = device_property_read_u32(&spi->dev, "adi,num-channels",
@@ -587,14 +590,8 @@ static int hmcad15xx_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 
-	/* Get chip_info based on resolution and channel count */
-	st->chip_info = hmcad15xx_get_chip_info(st->resolution, st->en_channels);
-	if (!st->chip_info) {
-		dev_err(&spi->dev,
-			"Invalid resolution/channel combination: %u-bit with %u channels\n",
-			resolution_bits, st->en_channels);
-		return -EINVAL;
-	}
+	/* Get chip_info based on resolution (always 4 channels for input selection) */
+	st->chip_info = hmcad15xx_get_chip_info(st->resolution);
 
 	/* Read polarity mask */
 	ret = device_property_read_u32(&spi->dev, "adi,pol-mask",
@@ -617,40 +614,45 @@ static int hmcad15xx_probe(struct spi_device *spi)
 	if (IS_ERR(st->gpio_pd))
 		return PTR_ERR(st->gpio_pd);
 
+	/*
+	 * Reset sequence (datasheet page 9):
+	 * Both reset and power down cycle must be applied for correct start-up.
+	 */
 	if (st->gpio_reset) {
 		gpiod_set_value_cansleep(st->gpio_reset, 1);
-		fsleep(2);
+		fsleep(100);
 		gpiod_set_value_cansleep(st->gpio_reset, 0);
 		fsleep(100);
 	} else {
-		hmcad15xx_spi_reg_write(st,0x00,0x0001);
+		hmcad15xx_spi_reg_write(st, 0x00, 0x0001);
+		fsleep(100);
 	}
 
+	/*
+	 * Power down for configuration (datasheet page 9):
+	 * Configuration should be done while device is in power down mode.
+	 */
 	if (st->gpio_pd) {
-		fsleep(2);
 		gpiod_set_value_cansleep(st->gpio_pd, 1);
 		fsleep(1660);
 	} else {
-		hmcad15xx_spi_reg_write(st,0x0F,0x0200);
+		hmcad15xx_spi_reg_write(st, 0x0F, 0x0200);
+		fsleep(100);
 	}
 
 	ret = hmcad15xx_spi_reg_write(st, HMCAD15XX_PHASE_DDR, 0x00);
 
 	/*
-	 * Configure LVDS output mode based on resolution:
-	 * - 8-bit: 12-bit LVDS output (data is 8-bit, LVDS format is 12-bit)
-	 * - 12-bit: 12-bit LVDS output (default)
-	 * - 14-bit: 14-bit LVDS output (HDL sample_assembly expects this mode)
-	 *
-	 * Note: Datasheet page 10 suggests dual 8-bit mode (0x4) for precision mode,
-	 * but the HDL/sample_assembly is designed for 14-bit LVDS mode where each
-	 * ADC uses a single lane. Using dual 8-bit would require HDL changes.
+	 * Configure LVDS output mode based on resolution (register 0x53):
+	 * - 8-bit:  0x0 - max 1000/500/250 MSPS for 1/2/4 ch
+	 * - 12-bit: 0x1 - max 660/330/165 MSPS for 1/2/4 ch
+	 * - 14-bit: 0x4 - dual 8-bit LVDS, precision mode, max 105 MSPS
 	 */
 	switch (st->resolution) {
 	case RES_14BIT:
 		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_LVDS_OUTPUT_MODE,
 					       HMCAD15XX_LVDS_OUTPUT_MODE_MSK,
-					       HMCAD15XX_LVDS_OUTPUT_14BIT);
+					       HMCAD15XX_LVDS_OUTPUT_DUAL_8BIT);
 		break;
 	case RES_12BIT:
 		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_LVDS_OUTPUT_MODE,
@@ -661,72 +663,47 @@ static int hmcad15xx_probe(struct spi_device *spi)
 	default:
 		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_LVDS_OUTPUT_MODE,
 					       HMCAD15XX_LVDS_OUTPUT_MODE_MSK,
-					       HMCAD15XX_LVDS_OUTPUT_12BIT);
+					       HMCAD15XX_LVDS_OUTPUT_8BIT);
 		break;
 	}
 	if (ret < 0)
 		return ret;
 
-	/*
-	 * Configure operation mode:
-	 * - 14-bit: Set precision_mode bit, clock divide = 1
-	 * - 12-bit/8-bit: Clear precision_mode, set high_speed_mode and clock divide
-	 */
-	if (st->resolution == RES_14BIT) {
-		/* Precision mode: set bit 3, clear high_speed_mode, clk_divide = 0 (divide by 1)
-		 * Per datasheet page 10: Register 0x31 = 0x0008 for precision mode
+		/*
+		 * High speed mode configuration (12-bit or 8-bit):
+		 * From datasheet Table 29, register 0x31 values:
+		 *   Single channel: 0x0001 (high_speed=001, clk_div=0)
+		 *   Dual channel:   0x0102 (high_speed=010, clk_div=1)
+		 *   Quad channel:   0x0204 (high_speed=100, clk_div=2)
+		 *
+		 * high_speed_mode<2:0> = en_channels (1, 2, or 4)
+		 * clk_divide<1:0> = en_channels >> 1 (0, 1, or 2)
 		 */
-		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-					       HMCAD15XX_OPERATION_MODE_PRECISION_MSK,
-					       HMCAD15XX_OPERATION_MODE_PRECISION_MSK);
-		if (ret < 0)
-			return ret;
+		switch (st->en_channels) {
+		case 1:
+			/* Single channel: 0x0001 */
+			regval = 0x0001;
+			st->clk_div = CLK_DIV_1;
+			break;
+		case 2:
+			/* Dual channel: 0x0102 */
+			regval = 0x0102;
+			st->clk_div = CLK_DIV_2;
+			break;
+		case 4:
+		default:
+			/* Quad channel: 0x0204 */
+			regval = 0x0204;
+			st->clk_div = CLK_DIV_4;
+			break;
+		}
 
-		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-					       HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK,
-					       0);
-		if (ret < 0)
-			return ret;
+	ret = hmcad15xx_spi_reg_write(st, HMCAD15XX_OPERATION_MODE, regval);
 
-		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-					       HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK,
-					       HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(0));
-		st->clk_div = CLK_DIV_1;
-	} else {
-		/* High speed mode: clear precision_mode, set channel mode and clock divide */
-		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-					       HMCAD15XX_OPERATION_MODE_PRECISION_MSK,
-					       0);
-		if (ret < 0)
-			return ret;
 
-		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-					       HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK,
-					       HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(st->en_channels >> 1));
-		if (ret < 0)
-			return ret;
-
-		ret = hmcad15xx_spi_reg_read(st, HMCAD15XX_OPERATION_MODE, &regval);
-		if (ret < 0)
-			return ret;
-
-		clk_div = HMCAD15XX_CLK_DIVIDE_GET_CLK_DIVIDE(regval);
-		st->clk_div = clk_div;
-
-		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-					       HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK,
-					       st->en_channels);
-	}
-
-	if (st->gpio_pd) {
-		fsleep(2);
-		gpiod_set_value_cansleep(st->gpio_pd, 0);
-		fsleep(1660);
-	} else {
-		hmcad15xx_spi_reg_write(st,0x0F,0x0000);
-	}
-
-	/* Configure input selection: default all ADCs to input 4 (IP4/IN4) */
+	/* Configure input selection: default all ADCs to input 4 (IP4/IN4)
+	 * Must be configured during power down phase, before power up
+	 */
 	ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC1_ADC2,
 				       HMCAD15XX_INP_SEL_ADC1_MSK,
 				       HMCAD15XX_INP_1_3_SEL(3));
@@ -751,11 +728,24 @@ static int hmcad15xx_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
+	/* Configure BTC mode (binary two's complement) */
 	ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_BTC_MODE,
 				       HMCAD15XX_BTC_MODE_MSK,
 				       HMCAD15XX_BTC_SEL(1));
 	if (ret < 0)
 		return ret;
+
+	/*
+	 * Power up - exit power down mode
+	 * Datasheet page 9: startup time is approximately 1.6ms
+	 */
+	if (st->gpio_pd) {
+		gpiod_set_value_cansleep(st->gpio_pd, 0);
+		fsleep(2000);
+	} else {
+		hmcad15xx_spi_reg_write(st, 0x0F, 0x0000);
+		fsleep(2000);
+	}
 
 	mutex_init(&st->lock);
 

@@ -136,7 +136,7 @@
         // first ADC
 
         axi_adc1_hmcad15xx: axi_adc1_hmcad15xx@44A00000 {
-            compatible = "adi,axi-adc-10.0.a";
+            compatible = "adi,axi-adc-legacy-10.0.a";
             reg = <0x44A00000 0x10000>;
             dmas = <&rx1_dma 0>;
             dma-names = "rx";
@@ -167,11 +167,13 @@
         // second ADC
 
         axi_adc2_hmcad15xx: axi_adc2_hmcad15xx@44A60000{
-            compatible = "adi,axi-adc-10.0.a";
+            compatible = "adi,axi-adc-legacy-10.0.a";
             reg = <0x44A60000 0x10000>;
             dmas = <&rx2_dma 0>;
             dma-names = "rx";
             spibus-connected = <&hmcad15xx_2>;
+			clocks = <&clkc 16>;
+			#io-backend-cells = <0>;
         };
 
         rx2_dma: rx2_dma@44a90000 {
@@ -255,8 +257,8 @@
         clock-names = "clk";
         reset-gpios = <&gpio_exp 9 GPIO_ACTIVE_LOW>;
 		pd-gpios = <&gpio_exp 10 GPIO_ACTIVE_HIGH>;
-        adi,num-channels = <4>;
-		adi,resolution= <14>;
+        adi,num-channels = <1>;
+		adi,resolution= <12>;
         adi,pol-mask =<239>;
     };
 
@@ -267,8 +269,8 @@
         clock-names = "clk";
         reset-gpios = <&gpio_exp 8 GPIO_ACTIVE_LOW>;
         pd-gpios = <&gpio_exp 11 GPIO_ACTIVE_HIGH>;
-        adi,num-channels = <4>;
-		adi,resolution= <14>;
+        adi,num-channels = <1>;
+		adi,resolution= <12>;
         adi,pol-mask =<32>;
     };
 
