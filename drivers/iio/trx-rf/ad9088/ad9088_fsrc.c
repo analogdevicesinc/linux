@@ -9,7 +9,8 @@
 
 #include "ad9088.h"
 
-static int ad9088_axi_fsrc_enable(struct ad9088_phy *phy, bool enable)
+static int ad9088_axi_fsrc_enable(struct ad9088_phy *phy, bool enable,
+				  adi_apollo_terminal_e terminal)
 {
 	int ret;
 
@@ -19,10 +20,10 @@ static int ad9088_axi_fsrc_enable(struct ad9088_phy *phy, bool enable)
 	}
 
 	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-						"tx_enable", enable);
+						terminal == ADI_APOLLO_TX ? "tx_enable" : "rx_enable", enable);
 	if (ret < 0) {
-		dev_err(&phy->spi->dev, "Failed to %s TX FSRC: %d\n",
-			enable ? "enable" : "disable", ret);
+		dev_err(&phy->spi->dev, "Failed to %s %s FSRC: %d\n",
+			enable ? "enable" : "disable", terminal == ADI_APOLLO_TX ? "tx_enable" : "rx_enable", ret);
 		return ret;
 	}
 
@@ -31,13 +32,13 @@ static int ad9088_axi_fsrc_enable(struct ad9088_phy *phy, bool enable)
 }
 
 /**
- * ad9088_axi_fsrc_active - Start/stop TX FSRC transmission
+ * ad9088_axi_fsrc_tx_active - Start/stop TX transmission
  * @phy: AD9088 device instance
  * @active: true to start, false to stop (send invalids)
  *
  * Returns: 0 on success, negative error code on failure
  */
-static int ad9088_axi_fsrc_active(struct ad9088_phy *phy, bool active)
+static int ad9088_axi_fsrc_tx_active(struct ad9088_phy *phy, bool active)
 {
 	int ret;
 
@@ -64,17 +65,12 @@ static int ad9088_axi_fsrc_active(struct ad9088_phy *phy, bool active)
  * @phy: AD9088 device instance
  * @fsrc_n: FSRC N value
  * @fsrc_m: FSRC M value
- * @cddc_dcm: CDDC decimation ratio (to drop)
- * @fddc_dcm: FDDC decimation ratio (to drop)
  *
- * Configures the RX FSRC ratio and DDC (Digital Down Converter) settings.
  * Based on apollo_rx_fsrc_configure() from fullchip_fsrc_dr.c
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
-			     adi_apollo_coarse_ddc_dcm_e cddc_dcm,
-			     adi_apollo_fddc_ratio_e fddc_dcm)
+int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
 {
 	int ret;
 
@@ -88,6 +84,7 @@ int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 		return ret;
 
 	if (fsrc_m != fsrc_n) {
+
 		ret = adi_apollo_fsrc_ratio_set(&phy->ad9088, ADI_APOLLO_RX, ADI_APOLLO_FSRC_ALL,
 						fsrc_n, fsrc_m);
 		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
@@ -106,17 +103,12 @@ int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
  * @phy: AD9088 device instance
  * @fsrc_n: FSRC N value
  * @fsrc_m: FSRC M value
- * @cduc_interp: CDUC interpolation ratio (to drop)
- * @fduc_interp: FDUC interpolation ratio (to drop)
  *
- * Configures the TX FSRC ratio and DUC (Digital Up Converter) settings.
  * Based on apollo_tx_fsrc_configure() from fullchip_fsrc_dr.c
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
-			     adi_apollo_coarse_duc_dcm_e cduc_interp,
-			     adi_apollo_fduc_ratio_e fduc_interp)
+int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
 {
 	char ratio_str[64];
 	int ret;
@@ -163,42 +155,31 @@ int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 }
 
 /**
- * ad9088_fsrc_tx_reconfig_sequence_spi - Execute TX FSRC dynamic reconfig via SPI trigger
+ * ad9088_fsrc_reconfig_sequence_spi - Execute TX/RX FSRC dynamic reconfig via SPI trigger
  * @phy: AD9088 device instance
  * @enable: Enable AXI FSRC side
  *
- * Executes the TX-only FSRC dynamic reconfiguration sequence using SPI/regmap trigger.
- *
- * TX Path Invalid Sample Flow:
- *   FPGA TX FSRC → adds invalid samples (-FS)
- *   Apollo TX FSRC → removes invalid samples
- *   DAC → clean analog output
- *
- * Sequence:
- * 1. Stop FPGA TX (send only invalid samples)
- * 2. Wait for invalids to flow through JESD
- * 3. Enable trigger sync on Apollo
- * 4. Execute manual reconfig (SPI trigger - applies new ratio/CDUC/FDUC)
- * 5. Resume FPGA TX (send valid+invalid samples at new rate)
- * 6. Wait for samples to flow
- * 7. Reset rate-match FIFO
- *
- * Note: Apollo FSRC TX block is already enabled by profile. Reconfig only applies new settings.
+ * Executes both FSRC dynamic reconfiguration sequence using SPI/regmap trigger.
  *
  * Based on fpga_hw_fsrc_dr_seq_run() from fullchip_fsrc_dr.c
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
+int ad9088_fsrc_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
 {
 	int ret;
 
 	dev_dbg(&phy->spi->dev, "Starting TX FSRC SPI reconfig sequence\n");
 
-	/* FPGA TX sends all invalid samples (stop sending valid data)
+	/**
+	 * FPGA TX sends all invalid samples (stop sending valid data)
 	 * TX Path: FPGA adds invalids → Apollo FSRC TX removes invalids → clean DAC output
 	 */
-	ret = ad9088_axi_fsrc_enable(phy, enable);
+	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_TX);
+	if (ret)
+		return ret;
+
+	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_RX);
 	if (ret)
 		return ret;
 
@@ -221,7 +202,84 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
 
 	/* Resume FPGA TX - sends valid and invalid samples at new rate */
 	if (enable) {
-		ret = ad9088_axi_fsrc_active(phy, 1);
+		ret = ad9088_axi_fsrc_tx_active(phy, 1);
+		if (ret)
+			return ret;
+	}
+
+	/* Allow samples to flow - needed for RMFIFO status to clear */
+	usleep_range(100, 200);
+
+	/* Reset the rate-match FIFO to clear any full/empty status */
+	ret = adi_apollo_jrx_rm_fifo_reset(&phy->ad9088,
+					   ADI_APOLLO_LINK_A0 | ADI_APOLLO_LINK_B0);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					"adi_apollo_jrx_rm_fifo_reset");
+	if (ret)
+		return ret;
+
+	dev_dbg(&phy->spi->dev, "TX FSRC SPI reconfig sequence complete\n");
+	return 0;
+}
+
+/**
+ * ad9088_fsrc_tx_reconfig_sequence_spi - Execute TX FSRC dynamic reconfig via SPI trigger
+ * @phy: AD9088 device instance
+ * @enable: Enable AXI FSRC side
+ *
+ * Executes the TX-only FSRC dynamic reconfiguration sequence using SPI/regmap trigger.
+ *
+ * TX Path Invalid Sample Flow:
+ *   FPGA TX FSRC -> adds invalid samples (-FS)
+ *   Apollo TX FSRC -> removes invalid samples
+ *
+ * Sequence:
+ * 1. Stop FPGA TX (send only invalid samples)
+ * 2. Wait for invalids to flow through JESD
+ * 3. Enable trigger sync on Apollo
+ * 4. Execute manual reconfig (SPI trigger - applies new settings)
+ * 5. Resume FPGA TX (send valid+invalid samples at new rate)
+ * 6. Wait for samples to flow
+ * 7. Reset rate-match FIFO
+ *
+ * Based on fpga_hw_fsrc_dr_seq_run() from fullchip_fsrc_dr.c
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
+{
+	int ret;
+
+	dev_dbg(&phy->spi->dev, "Starting TX FSRC SPI reconfig sequence\n");
+
+	/**
+	 * FPGA TX sends all invalid samples (stop sending valid data)
+	 * TX Path: FPGA adds invalids → Apollo FSRC TX removes invalids → clean DAC output
+	 */
+	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_TX);
+	if (ret)
+		return ret;
+
+	/* Allow invalids to flow through JESD link */
+	usleep_range(10000, 11000);
+
+	/* Enable trigger sync - resync Tx digital blocks during reconfig */
+	ret = adi_apollo_clk_mcs_trig_reset_dsp_enable(&phy->ad9088);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					"adi_apollo_clk_mcs_trig_reset_dsp_enable");
+	if (ret)
+		return ret;
+
+	/* Execute manual dynamic reconfig. */
+	ret = adi_apollo_clk_mcs_man_reconfig_sync(&phy->ad9088);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					"adi_apollo_clk_mcs_man_reconfig_sync");
+	if (ret)
+		return ret;
+
+	/* Resume FPGA TX - sends valid and invalid samples at new rate */
+	if (enable) {
+		ret = ad9088_axi_fsrc_tx_active(phy, 1);
 		if (ret)
 			return ret;
 	}
@@ -269,7 +327,7 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable)
 	dev_dbg(&phy->spi->dev, "Starting TX FSRC GPIO reconfig sequence\n");
 
 	/* FPGA sends all invalid samples (stop sending valid data) */
-	ret = ad9088_axi_fsrc_enable(phy, enable);
+	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_TX);
 	if (ret)
 		return ret;
 
@@ -318,7 +376,7 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable)
 
 	/* Resume FPGA TX - send valid and invalid samples */
 	if (enable) {
-		ret = ad9088_axi_fsrc_active(phy, 1);
+		ret = ad9088_axi_fsrc_tx_active(phy, 1);
 		if (ret)
 			return ret;
 	}
@@ -348,18 +406,14 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable)
  * Executes the RX-only FSRC dynamic reconfiguration sequence using SPI/regmap trigger.
  *
  * RX Path Invalid Sample Flow:
- *   Apollo ADC → Apollo RX FSRC (adds invalid samples -FS)
- *   Apollo JRX → JESD RX Link → FPGA JRX
- *   FPGA RX FSRC (removes invalid samples) → DMA → clean digital data
+ *   Apollo ADC -> Apollo RX FSRC (adds invalid samples -FS)
+ *   FPGA RX FSRC (removes invalid samples)
  *
  * Sequence:
  * 1. Enable trigger sync on Apollo
  * 2. Execute manual reconfig (SPI trigger - applies new RX ratio/CDDC/FDDC)
  * 3. Wait for samples to flow
  * 4. Reset JRX rate-match FIFO
- *
- * Note: Apollo RX FSRC block is already enabled by profile. Reconfig only applies new settings.
- * The RX path is independent - no TX-side manipulation needed.
  *
  * Returns: 0 on success, negative error code on failure
  */
@@ -369,6 +423,11 @@ int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
 
 	dev_dbg(&phy->spi->dev, "Starting RX FSRC SPI reconfig sequence\n");
 
+	/* Enable RX FPGA, just removes -FS */
+	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_RX);
+	if (ret)
+		return ret;
+
 	/* Enable trigger sync - resync RX digital blocks during reconfig */
 	ret = adi_apollo_clk_mcs_trig_reset_dsp_enable(&phy->ad9088);
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
@@ -376,9 +435,7 @@ int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
 	if (ret)
 		return ret;
 
-	/* Execute manual dynamic reconfig - applies new RX FSRC ratio/CDDC/FDDC configuration
-	 * Note: RX FSRC blocks are already enabled by profile. This only applies new settings.
-	 */
+	/* Execute manual dynamic reconfig - applies new settings */
 	ret = adi_apollo_clk_mcs_man_reconfig_sync(&phy->ad9088);
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
 					"adi_apollo_clk_mcs_man_reconfig_sync");
@@ -415,11 +472,8 @@ int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
  * 7. Reset JRX rate-match FIFO
  *
  * RX Path Invalid Sample Flow:
- *   Apollo ADC → Apollo RX FSRC (adds invalid samples)
- *   Apollo JRX → JESD RX Link → FPGA JRX
- *   FPGA RX FSRC (removes invalid samples) → DMA → clean digital data
- *
- * Note: The RX path is independent - no TX-side manipulation needed.
+ *   Apollo ADC -> Apollo RX FSRC (adds invalid samples)
+ *   FPGA RX FSRC (removes invalid samples)
  *
  * Returns: 0 on success, negative error code on failure
  */
@@ -428,6 +482,11 @@ int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable)
 	int ret;
 
 	dev_dbg(&phy->spi->dev, "Starting RX FSRC GPIO reconfig sequence\n");
+
+	/* Enable RX FPGA, just removes -FS */
+	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_RX);
+	if (ret)
+		return ret;
 
 	/* Enable Apollo trigger sync - Apollo will wait for external GPIO trigger */
 	ret = adi_apollo_clk_mcs_trig_sync_enable(&phy->ad9088, 1);
