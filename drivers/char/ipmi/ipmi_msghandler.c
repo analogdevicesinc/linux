@@ -2398,6 +2398,9 @@ static int i_ipmi_request(struct ipmi_user     *user,
 			smi_msg->data_size, smi_msg->data);
 
 		rv = smi_send(intf, intf->handlers, smi_msg, priority);
+		if (rv != IPMI_CC_NO_ERROR)
+			/* smi_send() returns an IPMI err, return a Linux one. */
+			rv = -EIO;
 		if (rv && in_seq_table) {
 			/*
 			 * If it's in the sequence table, it will be
