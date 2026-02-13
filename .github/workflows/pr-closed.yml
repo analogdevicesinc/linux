@@ -40,5 +40,5 @@ jobs:
         python3 cloudsmith_helper.py \
           --repo sdg-linux \
           --method remove_item_from_location \
-          --package_version "^linux/PRs/.*/pr_${{ github.event.number }}/" \
+          --package_version "*/pr_${{ github.event.number }}/" \
           --package_name "*"
