@@ -93,4 +93,8 @@ ccflags-y += -I$(srctree)/$(src)/devices/adrv904x/private/include/ \
 	-DADI_ENABLE_DELAY_MATCHING_LOG_PRINTS=0 \
 	-DADI_ADRV904X_API_VERSION_RANGE_CHECK=0
 
+# Suppress warnings for vendor API files
+CFLAGS_devices/adrv904x/public/src/adi_adrv904x_cpu.o := -Wno-vla -Wno-frame-larger-than
+CFLAGS_devices/adrv904x/public/src/adi_adrv904x_cals.o := -Wno-frame-larger-than
+
 obj-$(CONFIG_ADRV904X) += adrv904x_drv.o
