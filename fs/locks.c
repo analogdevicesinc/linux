@@ -1534,6 +1534,7 @@ static void time_out_leases(struct inode *inode, struct list_head *dispose)
 {
 	struct file_lock_context *ctx = inode->i_flctx;
 	struct file_lease *fl, *tmp;
+	bool remove;
 
 	lockdep_assert_held(&ctx->flc_lock);
 
@@ -1541,8 +1542,19 @@ static void time_out_leases(struct inode *inode, struct list_head *dispose)
 		trace_time_out_leases(inode, fl);
 		if (past_time(fl->fl_downgrade_time))
 			lease_modify(fl, F_RDLCK, dispose);
-		if (past_time(fl->fl_break_time))
-			lease_modify(fl, F_UNLCK, dispose);
+
+		remove = true;
+		if (past_time(fl->fl_break_time)) {
+			/*
+			 * Consult the lease manager when a lease break times
+			 * out to determine whether the lease should be disposed
+			 * of.
+			 */
+			if (fl->fl_lmops && fl->fl_lmops->lm_breaker_timedout)
+				remove = fl->fl_lmops->lm_breaker_timedout(fl);
+			if (remove)
+				lease_modify(fl, F_UNLCK, dispose);
+		}
 	}
 }
 
@@ -1670,9 +1682,13 @@ int __break_lease(struct inode *inode, unsigned int flags)
 restart:
 	fl = list_first_entry(&ctx->flc_lease, struct file_lease, c.flc_list);
 	break_time = fl->fl_break_time;
-	if (break_time != 0)
-		break_time -= jiffies;
-	if (break_time == 0)
+	if (break_time != 0) {
+		if (time_after(jiffies, break_time)) {
+			fl->fl_break_time = jiffies + lease_break_time * HZ;
+			break_time = lease_break_time * HZ;
+		} else
+			break_time -= jiffies;
+	} else
 		break_time++;
 	locks_insert_block(&fl->c, &new_fl->c, leases_conflict);
 	trace_break_lease_block(inode, new_fl);

@@ -297,6 +297,7 @@ static inline int nfsd4_scsi_fence_insert(struct nfs4_client *clp,
 		ret = 0;
 	}
 	xa_unlock(xa);
+	clp->cl_fence_retry_warn = false;
 	return ret;
 }
 
@@ -443,15 +444,33 @@ nfsd4_scsi_proc_layoutcommit(struct inode *inode, struct svc_rqst *rqstp,
 	return nfsd4_block_commit_blocks(inode, lcp, iomaps, nr_iomaps);
 }
 
-static void
+/*
+ * Perform the fence operation to prevent the client from accessing the
+ * block device. If a fence operation is already in progress, wait for
+ * it to complete before checking the NFSD_MDS_PR_FENCED flag. Once the
+ * operation is complete, check the flag. If NFSD_MDS_PR_FENCED is set,
+ * update the layout stateid by setting the ls_fenced flag to indicate
+ * that the client has been fenced.
+ *
+ * The cl_fence_mutex ensures that the fence operation has been fully
+ * completed, rather than just in progress, when returning from this
+ * function.
+ *
+ * Return true if client was fenced otherwise return false.
+ */
+static bool
 nfsd4_scsi_fence_client(struct nfs4_layout_stateid *ls, struct nfsd_file *file)
 {
 	struct nfs4_client *clp = ls->ls_stid.sc_client;
 	struct block_device *bdev = file->nf_file->f_path.mnt->mnt_sb->s_bdev;
 	int status;
+	bool ret;
 
-	if (nfsd4_scsi_fence_set(clp, bdev->bd_dev))
-		return;
+	mutex_lock(&clp->cl_fence_mutex);
+	if (nfsd4_scsi_fence_set(clp, bdev->bd_dev)) {
+		mutex_unlock(&clp->cl_fence_mutex);
+		return true;
+	}
 
 	status = bdev->bd_disk->fops->pr_ops->pr_preempt(bdev, NFSD_MDS_PR_KEY,
 			nfsd4_scsi_pr_key(clp),
@@ -470,13 +489,22 @@ nfsd4_scsi_fence_client(struct nfs4_layout_stateid *ls, struct nfsd_file *file)
 	 * PR_STS_RESERVATION_CONFLICT, which would cause an infinite
 	 * retry loop.
 	 */
-	if (status < 0 ||
-	    status == PR_STS_PATH_FAILED ||
-	    status == PR_STS_PATH_FAST_FAILED ||
-	    status == PR_STS_RETRY_PATH_FAILURE)
+	switch (status) {
+	case 0:
+	case PR_STS_IOERR:
+	case PR_STS_RESERVATION_CONFLICT:
+		ret = true;
+		break;
+	default:
+		/* retry-able and other errors */
+		ret = false;
 		nfsd4_scsi_fence_clear(clp, bdev->bd_dev);
+		break;
+	}
+	mutex_unlock(&clp->cl_fence_mutex);
 
 	trace_nfsd_pnfs_fence(clp, bdev->bd_disk->disk_name, status);
+	return ret;
 }
 
 const struct nfsd4_layout_ops scsi_layout_ops = {
