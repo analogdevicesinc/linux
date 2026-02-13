@@ -27,15 +27,9 @@ various Linux kernel releases. For example, the following diagram shows all
 ADI support
 -----------
 
-<<<<<<< Updated upstream
-All ADI changes are intended to be eventually applied upstream in the mainline
-Linux kernel. That process can take some time. Therefore the changes are
-maintained in the ADI tree on GitHub.
-=======
-All of our changes are intented to be eventually applied upstream in the
+All of our changes are intended to be eventually applied upstream in the
 mainline Linux kernel. That process can take some time. Therefore the changes
-are maintained in our tree on Github.
->>>>>>> Stashed changes
+are maintained in our tree on GitHub.
 
 We follow a similar approach to that taken by mainline. We aim to maintain our
 changes on top of the latest LTS release and update those changes with every
