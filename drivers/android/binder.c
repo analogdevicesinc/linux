@@ -3117,7 +3117,7 @@ static void binder_transaction(struct binder_proc *proc,
 	t->start_time = t_start_time;
 	t->from_pid = proc->pid;
 	t->from_tid = thread->pid;
-	t->sender_euid = task_euid(proc->tsk);
+	t->sender_euid = current_euid();
 	t->code = tr->code;
 	t->flags = tr->flags;
 	t->priority = task_nice(current);
