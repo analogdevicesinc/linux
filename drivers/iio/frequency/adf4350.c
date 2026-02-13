@@ -424,8 +424,16 @@ static int adf4350_clk_is_enabled(struct clk_hw *hw)
 	return (st->regs[ADF4350_REG2] & ADF4350_REG2_POWER_DOWN_EN);
 }
 
+static long adf4350_clk_round_rate(struct clk_hw *hw,
+				   unsigned long rate,
+				   unsigned long *parent_rate)
+{
+	return rate;
+}
+
 static const struct clk_ops adf4350_clk_ops = {
 	.recalc_rate = adf4350_clk_recalc_rate,
+	.round_rate = adf4350_clk_round_rate,
 	.set_rate = adf4350_clk_set_rate,
 	.prepare = adf4350_clk_prepare,
 	.unprepare = adf4350_clk_unprepare,
