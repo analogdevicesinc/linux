@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (C) 2025 Analog Devices Inc. */
 /*
- * AD9744 Device Tree - 210 MHz Sample Rate
+ * AD9744 Device Tree - 250 MHz Sample Rate
  *
  * The ADF4351 PLL registers as a clock provider via #clock-cells.
  * The AXI DAC references it directly, so DDS frequency calculations
@@ -42,7 +42,7 @@
       clock-output-names = "adf4351_clkout";
 
       adi,channel-spacing = <10000>;
-      adi,power-up-frequency = <210000000>;
+      adi,power-up-frequency = <250000000>;
       adi,phase-detector-polarity-positive-enable;
       adi,charge-pump-current = <2500>;
       adi,output-power = <0>;
