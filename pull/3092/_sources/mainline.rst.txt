@@ -28,7 +28,7 @@ ADI support
 -----------
 
 All of our changes are intended to be eventually applied upstream in the
-mainline Linux kernel. That process can take some time. Therefore the changes
+mainline Linux kernel. That process can take some time. Therefore some changes
 are maintained in our tree on GitHub.
 
 We follow a similar approach to that taken by mainline. We aim to maintain our
@@ -43,9 +43,9 @@ versions.
 CVE
 ---
 
-We addresse upstream CVEs by applying our changes onto newer stable releases,
-which include fixes. Only CVEs targeting our changes will be applied in our
-tree.
+We address upstream CVEs by applying our changes onto the latest stable
+releases, which include fixes. Only CVEs targeting our changes will be applied
+in our tree.
 
 Mainline
 ^^^^^^^^
