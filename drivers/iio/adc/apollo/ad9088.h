@@ -117,6 +117,7 @@ enum {
 	FFH_CNCO_FREQUENCY,
 	FFH_CNCO_SELECT,
 	FFH_CNCO_MODE,
+	FFH_TRIG_PERIOD,
 	BMEM_CDDC_DELAY,
 	BMEM_FDDC_DELAY,
 };
@@ -162,12 +163,16 @@ struct _ad9088_ffh {
 		u8 select[ADI_APOLLO_NUM_SIDES*ADI_APOLLO_FNCO_NUM];
 		bool en[ADI_APOLLO_NUM_SIDES*ADI_APOLLO_FNCO_NUM];
         u8 mode[ADI_APOLLO_FNCO_PROFILE_NUM];
+		u64 trig_period;
+		u32 nco_phase_inc_words[ADI_APOLLO_FNCO_PROFILE_NUM];
 	} fnco;
 	struct {
 		u8 index[ADI_APOLLO_NUM_SIDES*ADI_APOLLO_CNCO_NUM];
 		u64 frequency[ADI_APOLLO_CNCO_PROFILE_NUM];
 		u8 select[ADI_APOLLO_NUM_SIDES*ADI_APOLLO_CNCO_NUM];
         u8 mode[ADI_APOLLO_CNCO_PROFILE_NUM];
+		u64 trig_period;
+		u32 nco_phase_inc_words[ADI_APOLLO_CNCO_PROFILE_NUM];
 	} cnco;
 };
 
