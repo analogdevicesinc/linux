@@ -764,12 +764,12 @@ static int max96717_gpio_get(struct gpio_chip *gc, unsigned int offset)
 	return pinconf_to_config_argument(config);
 }
 
-static int max96717_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
+static void max96717_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
 {
 	unsigned long config = pinconf_to_config_packed(PIN_CONFIG_OUTPUT, value);
 	struct max96717_priv *priv = gpiochip_get_data(gc);
 
-	return max96717_conf_pin_config_set_one(priv, offset, config);
+	max96717_conf_pin_config_set_one(priv, offset, config);
 }
 
 static unsigned int max96717_pipe_id(struct max96717_priv *priv,
@@ -1573,7 +1573,7 @@ static int max96717_gpiochip_probe(struct max96717_priv *priv)
 		.direction_input = max96717_gpio_direction_input,
 		.direction_output = max96717_gpio_direction_output,
 		.get = max96717_gpio_get,
-		.set_rv = max96717_gpio_set,
+		.set = max96717_gpio_set,
 	};
 
 	return devm_gpiochip_add_data(dev, &priv->gc, priv);

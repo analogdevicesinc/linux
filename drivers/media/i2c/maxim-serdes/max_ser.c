@@ -1870,7 +1870,7 @@ err_i2c_adapter_deinit:
 
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(max_ser_probe, "MAX_SERDES");
+EXPORT_SYMBOL_NS_GPL(max_ser_probe, MAX_SERDES);
 
 int max_ser_remove(struct max_ser *ser)
 {
@@ -1882,7 +1882,7 @@ int max_ser_remove(struct max_ser *ser)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(max_ser_remove, "MAX_SERDES");
+EXPORT_SYMBOL_NS_GPL(max_ser_remove, MAX_SERDES);
 
 int max_ser_set_double_bpps(struct v4l2_subdev *sd, u32 double_bpps)
 {

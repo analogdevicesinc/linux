@@ -388,7 +388,7 @@ int max_serdes_get_tpg_timings(const struct max_serdes_tpg_entry *entry,
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL_NS_GPL(max_serdes_get_tpg_timings, "MAX_SERDES");
+EXPORT_SYMBOL_NS_GPL(max_serdes_get_tpg_timings, MAX_SERDES);
 
 int max_serdes_validate_tpg_routing(struct v4l2_subdev_krouting *routing)
 {
