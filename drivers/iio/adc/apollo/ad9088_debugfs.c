@@ -59,6 +59,9 @@ enum ad9088_debugfs_cmd {
 	DBGFS_FDDC_DECIMATION,
 	DBGFS_CDUC_INTERPOLATION,
 	DBGFS_FDUC_INTERPOLATION,
+	/* JESD link inspection (includes NS parameter) */
+	DBGFS_JTX_INSPECT,
+	DBGFS_JRX_INSPECT,
 };
 
 static const u8 lanes_all[] = {
@@ -601,6 +604,78 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			}
 			break;
 		}
+		case DBGFS_JTX_INSPECT: {
+			/*
+			 * JTX (JESD TX - RX data path to FPGA) link inspection.
+			 * NS (Number of Samples) is the number of samples processed
+			 * per conv_clk period. NS can be 1, 2, 4, or 8.
+			 * NS is used in invalid sample insertion calculations:
+			 *   LINK_TOTAL_DEC*NS/8 = floor(link_rx_dec_ratio*NS/8)
+			 */
+			const u16 links[] = { ADI_APOLLO_LINK_A0, ADI_APOLLO_LINK_B0 };
+			const char *link_names[] = { "A0", "B0" };
+			adi_apollo_jesd_tx_inspect_t jtx_inspect;
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "JTX Link Configuration:\n");
+			for (i = 0; i < ARRAY_SIZE(links); i++) {
+				ret = adi_apollo_jtx_link_inspect(&phy->ad9088, links[i], &jtx_inspect);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_jtx_link_inspect(%s) failed (%d)",
+						link_names[i], ret);
+					break;
+				}
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+						"  Link %s:\n"
+						"    link_en=%u jesd_mode=%u ver=%s subclass=%u\n"
+						"    L=%u M=%u F=%u S=%u N=%u NP=%u K=%u CS=%u\n"
+						"    NS=%u (ns_minus1=%u)\n",
+						link_names[i],
+						jtx_inspect.link_en, jtx_inspect.jesd_mode,
+						jtx_inspect.ver ? "204C" : "204B", jtx_inspect.subclass,
+						jtx_inspect.l_minus1 + 1, jtx_inspect.m_minus1 + 1,
+						jtx_inspect.f_minus1 + 1, jtx_inspect.s_minus1 + 1,
+						jtx_inspect.n_minus1 + 1, jtx_inspect.np_minus1 + 1,
+						jtx_inspect.k_minus1 + 1, jtx_inspect.cs,
+						jtx_inspect.ns_minus1 + 1, jtx_inspect.ns_minus1);
+			}
+			break;
+		}
+		case DBGFS_JRX_INSPECT: {
+			/*
+			 * JRX (JESD RX - TX data path from FPGA) link inspection.
+			 * NS (Number of Samples) is the number of samples processed
+			 * per conv_clk period. NS can be 1, 2, 4, or 8.
+			 * NS is used in invalid sample insertion calculations:
+			 *   LINK_TOTAL_INTERP*NS/8 = floor(link_tx_interp_ratio*NS/8)
+			 */
+			const u16 links[] = { ADI_APOLLO_LINK_A0, ADI_APOLLO_LINK_B0 };
+			const char *link_names[] = { "A0", "B0" };
+			adi_apollo_jesd_rx_inspect_t jrx_inspect;
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "JRX Link Configuration:\n");
+			for (i = 0; i < ARRAY_SIZE(links); i++) {
+				ret = adi_apollo_jrx_link_inspect(&phy->ad9088, links[i], &jrx_inspect);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_jrx_link_inspect(%s) failed (%d)",
+						link_names[i], ret);
+					break;
+				}
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+						"  Link %s:\n"
+						"    link_en=%u jesd_mode=%u ver=%s subclass=%u\n"
+						"    L=%u M=%u F=%u S=%u N=%u NP=%u K=%u CS=%u\n"
+						"    NS=%u (ns_minus1=%u)\n",
+						link_names[i],
+						jrx_inspect.link_en, jrx_inspect.jesd_mode,
+						jrx_inspect.ver ? "204C" : "204B", jrx_inspect.subclass,
+						jrx_inspect.l_minus1 + 1, jrx_inspect.m_minus1 + 1,
+						jrx_inspect.f_minus1 + 1, jrx_inspect.s_minus1 + 1,
+						jrx_inspect.n_minus1 + 1, jrx_inspect.np_minus1 + 1,
+						jrx_inspect.k_minus1 + 1, jrx_inspect.cs,
+						jrx_inspect.ns_minus1 + 1, jrx_inspect.ns_minus1);
+			}
+			break;
+		}
 		default:
 			val = entry->val;
 		}
@@ -1118,6 +1193,12 @@ int ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "cduc_interpolation", DBGFS_CDUC_INTERPOLATION);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "fduc_interpolation", DBGFS_FDUC_INTERPOLATION);
+
+	/* JESD link inspection entries (includes NS parameter) */
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "jtx_inspect", DBGFS_JTX_INSPECT);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "jrx_inspect", DBGFS_JRX_INSPECT);
 
 	for (i = 0; i < phy->ad9088_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
