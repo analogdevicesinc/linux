@@ -301,4 +301,127 @@ uint32_t calc_fsrc_base(adi_apollo_terminal_e terminal, int32_t fsrc_index)
     else
         return tx_fsrc_regmap[fsrc_index];
 }
+
+int32_t adi_apollo_fsrc_overflow_status_get(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrc, uint8_t *status)
+{
+    int32_t err;
+    uint8_t i;
+    adi_apollo_blk_sel_t fsrc_temp;
+    uint32_t regmap_base_addr = 0;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
+    ADI_APOLLO_NULL_POINTER_RETURN(status);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(fsrc) != 1);
+    ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrc);
+
+    *status = 0;
+
+    for (i = 0; i < ADI_APOLLO_FSRC_NUM; i += 2) {
+        fsrc_temp = fsrc & ((ADI_APOLLO_FSRC_A0 << i) | (ADI_APOLLO_FSRC_A0 << (i + 1)));
+        if (fsrc_temp > 0) {
+            regmap_base_addr = calc_fsrc_base(terminal, i);
+
+            /* Read all overflow status bits at once from REG_FSRC_OVERFLOW (offset 0x20) */
+            err = adi_apollo_hal_reg_get(device, REG_FSRC_OVERFLOW_ADDR(regmap_base_addr), status);
+            ADI_APOLLO_ERROR_RETURN(err);
+        }
+    }
+
+    return API_CMS_ERROR_OK;
+}
+
+int32_t adi_apollo_fsrc_overflow_status_clear(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs)
+{
+    int32_t err;
+    uint8_t i;
+    adi_apollo_blk_sel_t fsrc;
+    uint32_t regmap_base_addr = 0;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
+    ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
+
+    for (i = 0; i < ADI_APOLLO_FSRC_NUM; i += 2) {
+        fsrc = fsrcs & ((ADI_APOLLO_FSRC_A0 << i) | (ADI_APOLLO_FSRC_A0 << (i + 1)));
+        if (fsrc > 0) {
+            regmap_base_addr = calc_fsrc_base(terminal, i);
+
+            /*
+             * TX FSRC uses gated AHB clock, requiring W1C + W0 sequence:
+             * 1. Write 0x00 first (ensure clean state)
+             * 2. Write 0x1F to set all clear bits
+             * 3. Write 0x00 to complete the clear
+             * RX can use same sequence for consistency.
+             */
+            err = adi_apollo_hal_reg_set(device, REG_FSRC_OVERFLOW_ADDR(regmap_base_addr), 0x00);
+            ADI_APOLLO_ERROR_RETURN(err);
+            err = adi_apollo_hal_reg_set(device, REG_FSRC_OVERFLOW_ADDR(regmap_base_addr), 0x1F);
+            ADI_APOLLO_ERROR_RETURN(err);
+            err = adi_apollo_hal_reg_set(device, REG_FSRC_OVERFLOW_ADDR(regmap_base_addr), 0x00);
+            ADI_APOLLO_ERROR_RETURN(err);
+        }
+    }
+
+    return API_CMS_ERROR_OK;
+}
+
+int32_t adi_apollo_fsrc_irq_enable_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint8_t enable)
+{
+    int32_t err;
+    uint8_t i;
+    adi_apollo_blk_sel_t fsrc;
+    uint32_t regmap_base_addr = 0;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
+    ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
+
+    /* Mask to valid bits (4 IRQ enable bits) */
+    enable &= 0x0F;
+
+    for (i = 0; i < ADI_APOLLO_FSRC_NUM; i += 2) {
+        fsrc = fsrcs & ((ADI_APOLLO_FSRC_A0 << i) | (ADI_APOLLO_FSRC_A0 << (i + 1)));
+        if (fsrc > 0) {
+            regmap_base_addr = calc_fsrc_base(terminal, i);
+
+            err = adi_apollo_hal_reg_set(device, REG_FSRC_IRQ_EN_ADDR(regmap_base_addr), enable);
+            ADI_APOLLO_ERROR_RETURN(err);
+        }
+    }
+
+    return API_CMS_ERROR_OK;
+}
+
+int32_t adi_apollo_fsrc_irq_enable_get(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrc, uint8_t *enable)
+{
+    int32_t err;
+    uint8_t i;
+    adi_apollo_blk_sel_t fsrc_temp;
+    uint32_t regmap_base_addr = 0;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
+    ADI_APOLLO_NULL_POINTER_RETURN(enable);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(fsrc) != 1);
+    ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrc);
+
+    *enable = 0;
+
+    for (i = 0; i < ADI_APOLLO_FSRC_NUM; i += 2) {
+        fsrc_temp = fsrc & ((ADI_APOLLO_FSRC_A0 << i) | (ADI_APOLLO_FSRC_A0 << (i + 1)));
+        if (fsrc_temp > 0) {
+            regmap_base_addr = calc_fsrc_base(terminal, i);
+
+            err = adi_apollo_hal_reg_get(device, REG_FSRC_IRQ_EN_ADDR(regmap_base_addr), enable);
+            ADI_APOLLO_ERROR_RETURN(err);
+        }
+    }
+
+    return API_CMS_ERROR_OK;
+}
 /*! @} */
