@@ -264,7 +264,7 @@ struct ad9088_phy {
 	u32 multidevice_instance_count;
 	u16 mcs_track_decimation;
 
-	struct ad9088_debugfs_entry debugfs_entry[35];
+	struct ad9088_debugfs_entry debugfs_entry[41];
 	u32 ad9088_debugfs_entry_index;
 
 	const char **rx_labels;

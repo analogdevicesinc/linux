@@ -44,6 +44,12 @@ enum ad9088_debugfs_cmd {
 	DBGFS_FSRC_TX_RECONFIG,
 	DBGFS_FSRC_RX_RECONFIG,
 	DBGFS_FSRC_INSPECT,
+	DBGFS_FSRC_OVERFLOW_STATUS_RX,
+	DBGFS_FSRC_OVERFLOW_STATUS_TX,
+	DBGFS_FSRC_OVERFLOW_CLEAR_RX,
+	DBGFS_FSRC_OVERFLOW_CLEAR_TX,
+	DBGFS_FSRC_IRQ_ENABLE_RX,
+	DBGFS_FSRC_IRQ_ENABLE_TX,
 };
 
 static const u8 lanes_all[] = {
@@ -408,6 +414,64 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 		case DBGFS_FSRC_INSPECT:
 			len = ad9088_fsrc_inspect(phy);
 			break;
+		case DBGFS_FSRC_OVERFLOW_STATUS_RX:
+		case DBGFS_FSRC_OVERFLOW_STATUS_TX: {
+			adi_apollo_terminal_e terminal = (entry->cmd == DBGFS_FSRC_OVERFLOW_STATUS_RX) ?
+							 ADI_APOLLO_RX : ADI_APOLLO_TX;
+			const u16 fsrcs[] = { ADI_APOLLO_FSRC_A0, ADI_APOLLO_FSRC_A1,
+					      ADI_APOLLO_FSRC_B0, ADI_APOLLO_FSRC_B1 };
+			const char *fsrc_names[] = { "A0", "A1", "B0", "B1" };
+			u8 status;
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf),
+				       "%s FSRC Overflow Status:\n", terminal == ADI_APOLLO_RX ? "RX" : "TX");
+			for (i = 0; i < ADI_APOLLO_FSRC_NUM; i++) {
+				ret = adi_apollo_fsrc_overflow_status_get(&phy->ad9088, terminal,
+									  fsrcs[i], &status);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_fsrc_overflow_status_get() failed (%d)", ret);
+					break;
+				}
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+						"  %s: 0x%02x (CH0_I:%d CH0_Q:%d CH1_I:%d CH1_Q:%d ALL:%d)\n",
+						fsrc_names[i], status,
+						(status >> 0) & 1, (status >> 1) & 1,
+						(status >> 2) & 1, (status >> 3) & 1,
+						(status >> 4) & 1);
+			}
+			break;
+		}
+		case DBGFS_FSRC_IRQ_ENABLE_RX:
+		case DBGFS_FSRC_IRQ_ENABLE_TX: {
+			adi_apollo_terminal_e terminal = (entry->cmd == DBGFS_FSRC_IRQ_ENABLE_RX) ?
+							 ADI_APOLLO_RX : ADI_APOLLO_TX;
+			const u16 fsrcs[] = { ADI_APOLLO_FSRC_A0, ADI_APOLLO_FSRC_A1,
+					      ADI_APOLLO_FSRC_B0, ADI_APOLLO_FSRC_B1 };
+			const char *fsrc_names[] = { "A0", "A1", "B0", "B1" };
+			u8 enable;
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf),
+				       "%s FSRC IRQ Enable:\n", terminal == ADI_APOLLO_RX ? "RX" : "TX");
+			for (i = 0; i < ADI_APOLLO_FSRC_NUM; i++) {
+				ret = adi_apollo_fsrc_irq_enable_get(&phy->ad9088, terminal,
+								     fsrcs[i], &enable);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_fsrc_irq_enable_get() failed (%d)", ret);
+					break;
+				}
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+						"  %s: 0x%02x (CH0_I:%d CH0_Q:%d CH1_I:%d CH1_Q:%d)\n",
+						fsrc_names[i], enable,
+						(enable >> 0) & 1, (enable >> 1) & 1,
+						(enable >> 2) & 1, (enable >> 3) & 1);
+			}
+			break;
+		}
+		case DBGFS_FSRC_OVERFLOW_CLEAR_RX:
+		case DBGFS_FSRC_OVERFLOW_CLEAR_TX:
+			/* Write-only attributes, return 0 on read */
+			val = 0;
+			break;
 		default:
 			val = entry->val;
 		}
@@ -733,8 +797,42 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		ret = ad9088_fsrc_rx_reconfig_sequence(phy, !!val);
 		break;
 	case DBGFS_FSRC_INSPECT:
-		/* Read-only attribute */
+	case DBGFS_FSRC_OVERFLOW_STATUS_RX:
+	case DBGFS_FSRC_OVERFLOW_STATUS_TX:
+		/* Read-only attributes */
 		return -EINVAL;
+	case DBGFS_FSRC_OVERFLOW_CLEAR_RX:
+		if (!val)
+			break;
+		ret = adi_apollo_fsrc_overflow_status_clear(&phy->ad9088, ADI_APOLLO_RX,
+							    ADI_APOLLO_FSRC_ALL);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_fsrc_overflow_status_clear RX");
+		break;
+	case DBGFS_FSRC_OVERFLOW_CLEAR_TX:
+		if (!val)
+			break;
+		/*
+		 * TX FSRC uses gated AHB clock - the clear function handles
+		 * the required W1C + W0 sequence automatically.
+		 */
+		ret = adi_apollo_fsrc_overflow_status_clear(&phy->ad9088, ADI_APOLLO_TX,
+							    ADI_APOLLO_FSRC_ALL);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_fsrc_overflow_status_clear TX");
+		break;
+	case DBGFS_FSRC_IRQ_ENABLE_RX:
+		ret = adi_apollo_fsrc_irq_enable_set(&phy->ad9088, ADI_APOLLO_RX,
+						     ADI_APOLLO_FSRC_ALL, val & 0xFF);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_fsrc_irq_enable_set RX");
+		break;
+	case DBGFS_FSRC_IRQ_ENABLE_TX:
+		ret = adi_apollo_fsrc_irq_enable_set(&phy->ad9088, ADI_APOLLO_TX,
+						     ADI_APOLLO_FSRC_ALL, val & 0xFF);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_fsrc_irq_enable_set TX");
+		break;
 	default:
 		break;
 	}
@@ -869,6 +967,18 @@ int ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "fsrc_rx_reconfig", DBGFS_FSRC_RX_RECONFIG);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "fsrc_inspect", DBGFS_FSRC_INSPECT);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_overflow_status_rx", DBGFS_FSRC_OVERFLOW_STATUS_RX);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_overflow_status_tx", DBGFS_FSRC_OVERFLOW_STATUS_TX);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_overflow_clear_rx", DBGFS_FSRC_OVERFLOW_CLEAR_RX);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_overflow_clear_tx", DBGFS_FSRC_OVERFLOW_CLEAR_TX);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_irq_enable_rx", DBGFS_FSRC_IRQ_ENABLE_RX);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_irq_enable_tx", DBGFS_FSRC_IRQ_ENABLE_TX);
 
 	for (i = 0; i < phy->ad9088_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
