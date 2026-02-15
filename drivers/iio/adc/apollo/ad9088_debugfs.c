@@ -6,6 +6,10 @@
  */
 
 #include "ad9088.h"
+#include "public/inc/adi_apollo_cddc.h"
+#include "public/inc/adi_apollo_fddc.h"
+#include "public/inc/adi_apollo_cduc.h"
+#include "public/inc/adi_apollo_fduc.h"
 
 enum ad9088_debugfs_cmd {
 	DBGFS_NONE,
@@ -50,6 +54,11 @@ enum ad9088_debugfs_cmd {
 	DBGFS_FSRC_OVERFLOW_CLEAR_TX,
 	DBGFS_FSRC_IRQ_ENABLE_RX,
 	DBGFS_FSRC_IRQ_ENABLE_TX,
+	/* DDC/DUC decimation/interpolation inspection */
+	DBGFS_CDDC_DECIMATION,
+	DBGFS_FDDC_DECIMATION,
+	DBGFS_CDUC_INTERPOLATION,
+	DBGFS_FDUC_INTERPOLATION,
 };
 
 static const u8 lanes_all[] = {
@@ -472,6 +481,126 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			/* Write-only attributes, return 0 on read */
 			val = 0;
 			break;
+		case DBGFS_CDDC_DECIMATION: {
+			const u8 cddcs[] = { ADI_APOLLO_CDDC_A0, ADI_APOLLO_CDDC_A1,
+					     ADI_APOLLO_CDDC_A2, ADI_APOLLO_CDDC_A3,
+					     ADI_APOLLO_CDDC_B0, ADI_APOLLO_CDDC_B1,
+					     ADI_APOLLO_CDDC_B2, ADI_APOLLO_CDDC_B3 };
+			const char *cddc_names[] = { "A0", "A1", "A2", "A3",
+						     "B0", "B1", "B2", "B3" };
+			adi_apollo_cddc_inspect_t cddc_inspect;
+			u32 dcm_val;
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "CDDC Decimation:\n");
+			for (i = 0; i < ADI_APOLLO_CDDC_NUM; i++) {
+				ret = adi_apollo_cddc_inspect(&phy->ad9088, cddcs[i], &cddc_inspect);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_cddc_inspect(%s) failed (%d)", cddc_names[i], ret);
+					break;
+				}
+				ret = adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, cddc_inspect.dp_cfg.drc_ratio, &dcm_val);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_cddc_dcm_bf_to_val(%s) failed (%d)", cddc_names[i], ret);
+					break;
+				}
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+						"  %s: decimation=%u (enum=0x%x)\n",
+						cddc_names[i], dcm_val, cddc_inspect.dp_cfg.drc_ratio);
+			}
+			break;
+		}
+		case DBGFS_FDDC_DECIMATION: {
+			const u16 fddcs[] = { ADI_APOLLO_FDDC_A0, ADI_APOLLO_FDDC_A1,
+					      ADI_APOLLO_FDDC_A2, ADI_APOLLO_FDDC_A3,
+					      ADI_APOLLO_FDDC_A4, ADI_APOLLO_FDDC_A5,
+					      ADI_APOLLO_FDDC_A6, ADI_APOLLO_FDDC_A7,
+					      ADI_APOLLO_FDDC_B0, ADI_APOLLO_FDDC_B1,
+					      ADI_APOLLO_FDDC_B2, ADI_APOLLO_FDDC_B3,
+					      ADI_APOLLO_FDDC_B4, ADI_APOLLO_FDDC_B5,
+					      ADI_APOLLO_FDDC_B6, ADI_APOLLO_FDDC_B7 };
+			const char *fddc_names[] = { "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7",
+						     "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7" };
+			adi_apollo_fddc_inspect_t fddc_inspect;
+			u32 dcm_val;
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "FDDC Decimation:\n");
+			for (i = 0; i < ADI_APOLLO_FDDC_NUM; i++) {
+				ret = adi_apollo_fddc_inspect(&phy->ad9088, fddcs[i], &fddc_inspect);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_fddc_inspect(%s) failed (%d)", fddc_names[i], ret);
+					break;
+				}
+				ret = adi_apollo_fddc_dcm_bf_to_val(&phy->ad9088, fddc_inspect.dp_cfg.drc_ratio, &dcm_val);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_fddc_dcm_bf_to_val(%s) failed (%d)", fddc_names[i], ret);
+					break;
+				}
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+						"  %s: decimation=%u (enum=0x%x)\n",
+						fddc_names[i], dcm_val, fddc_inspect.dp_cfg.drc_ratio);
+			}
+			break;
+		}
+		case DBGFS_CDUC_INTERPOLATION: {
+			const u8 cducs[] = { ADI_APOLLO_CDUC_A0, ADI_APOLLO_CDUC_A1,
+					     ADI_APOLLO_CDUC_A2, ADI_APOLLO_CDUC_A3,
+					     ADI_APOLLO_CDUC_B0, ADI_APOLLO_CDUC_B1,
+					     ADI_APOLLO_CDUC_B2, ADI_APOLLO_CDUC_B3 };
+			const char *cduc_names[] = { "A0", "A1", "A2", "A3",
+						     "B0", "B1", "B2", "B3" };
+			adi_apollo_cduc_inspect_t cduc_inspect;
+			u32 interp_val;
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "CDUC Interpolation:\n");
+			for (i = 0; i < ADI_APOLLO_CDUC_NUM; i++) {
+				ret = adi_apollo_cduc_inspect(&phy->ad9088, cducs[i], &cduc_inspect);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_cduc_inspect(%s) failed (%d)", cduc_names[i], ret);
+					break;
+				}
+				ret = adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, cduc_inspect.dp_cfg.drc_ratio, &interp_val);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_cduc_interp_bf_to_val(%s) failed (%d)", cduc_names[i], ret);
+					break;
+				}
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+						"  %s: interpolation=%u (enum=0x%x)\n",
+						cduc_names[i], interp_val, cduc_inspect.dp_cfg.drc_ratio);
+			}
+			break;
+		}
+		case DBGFS_FDUC_INTERPOLATION: {
+			const u16 fducs[] = { ADI_APOLLO_FDUC_A0, ADI_APOLLO_FDUC_A1,
+					      ADI_APOLLO_FDUC_A2, ADI_APOLLO_FDUC_A3,
+					      ADI_APOLLO_FDUC_A4, ADI_APOLLO_FDUC_A5,
+					      ADI_APOLLO_FDUC_A6, ADI_APOLLO_FDUC_A7,
+					      ADI_APOLLO_FDUC_B0, ADI_APOLLO_FDUC_B1,
+					      ADI_APOLLO_FDUC_B2, ADI_APOLLO_FDUC_B3,
+					      ADI_APOLLO_FDUC_B4, ADI_APOLLO_FDUC_B5,
+					      ADI_APOLLO_FDUC_B6, ADI_APOLLO_FDUC_B7 };
+			const char *fduc_names[] = { "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7",
+						     "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7" };
+			adi_apollo_fduc_inspect_t fduc_inspect;
+			u32 interp_val;
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "FDUC Interpolation:\n");
+			for (i = 0; i < ADI_APOLLO_FDUC_NUM; i++) {
+				ret = adi_apollo_fduc_inspect(&phy->ad9088, fducs[i], &fduc_inspect);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_fduc_inspect(%s) failed (%d)", fduc_names[i], ret);
+					break;
+				}
+				ret = adi_apollo_fduc_interp_bf_to_val(&phy->ad9088, fduc_inspect.dp_cfg.drc_ratio, &interp_val);
+				if (ret) {
+					dev_err(&phy->spi->dev, "adi_apollo_fduc_interp_bf_to_val(%s) failed (%d)", fduc_names[i], ret);
+					break;
+				}
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+						"  %s: interpolation=%u (enum=0x%x)\n",
+						fduc_names[i], interp_val, fduc_inspect.dp_cfg.drc_ratio);
+			}
+			break;
+		}
 		default:
 			val = entry->val;
 		}
@@ -979,6 +1108,16 @@ int ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "fsrc_irq_enable_rx", DBGFS_FSRC_IRQ_ENABLE_RX);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "fsrc_irq_enable_tx", DBGFS_FSRC_IRQ_ENABLE_TX);
+
+	/* DDC/DUC decimation/interpolation entries */
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "cddc_decimation", DBGFS_CDDC_DECIMATION);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fddc_decimation", DBGFS_FDDC_DECIMATION);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "cduc_interpolation", DBGFS_CDUC_INTERPOLATION);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fduc_interpolation", DBGFS_FDUC_INTERPOLATION);
 
 	for (i = 0; i < phy->ad9088_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
