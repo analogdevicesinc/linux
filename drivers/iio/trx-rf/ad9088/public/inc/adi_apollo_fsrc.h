@@ -141,6 +141,84 @@ int32_t adi_apollo_fsrc_ratio_set(adi_apollo_device_t* device, adi_apollo_termin
  */
 int32_t adi_apollo_fsrc_mode_1x_enable_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint8_t enable);
 
+/**
+ * \brief Get FSRC overflow status
+ *
+ * Reads the FSRC overflow status register. Status bits indicate overflow
+ * conditions in the FSRC filter stages.
+ *
+ * Status bit definitions (per FSRC block):
+ * - Bit 0: CH0 I-path overflow
+ * - Bit 1: CH0 Q-path overflow
+ * - Bit 2: CH1 I-path overflow
+ * - Bit 3: CH1 Q-path overflow
+ * - Bit 4: Any overflow (OR of bits 0-3)
+ *
+ * \param[in]  device    Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  terminal  Target terminal \ref adi_apollo_terminal_e
+ * \param[in]  fsrc      Target FSRC block (single block only)
+ * \param[out] status    Pointer to store overflow status (5 bits)
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_fsrc_overflow_status_get(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrc, uint8_t *status);
+
+/**
+ * \brief Clear FSRC overflow status
+ *
+ * Clears the FSRC overflow status register using W1C (Write-1-to-Clear).
+ *
+ * IMPORTANT: TX FSRC uses gated AHB clock. This requires a Write-1 followed
+ * by Write-0 sequence on the status register to properly clear the status.
+ * This function handles the sequence automatically.
+ *
+ * \param[in]  device    Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  terminal  Target terminal \ref adi_apollo_terminal_e
+ * \param[in]  fsrcs     Target FSRC blocks
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_fsrc_overflow_status_clear(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs);
+
+/**
+ * \brief Enable/disable FSRC overflow IRQs
+ *
+ * Configures the FSRC overflow interrupt enable register. When enabled,
+ * overflow conditions will generate IRQ signals.
+ *
+ * Enable bit definitions (per FSRC block):
+ * - Bit 0: Enable CH0 I-path overflow IRQ
+ * - Bit 1: Enable CH0 Q-path overflow IRQ
+ * - Bit 2: Enable CH1 I-path overflow IRQ
+ * - Bit 3: Enable CH1 Q-path overflow IRQ
+ *
+ * \param[in]  device    Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  terminal  Target terminal \ref adi_apollo_terminal_e
+ * \param[in]  fsrcs     Target FSRC blocks
+ * \param[in]  enable    IRQ enable mask (4 bits, or 0xF for all)
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_fsrc_irq_enable_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint8_t enable);
+
+/**
+ * \brief Get FSRC IRQ enable status
+ *
+ * Reads the FSRC overflow interrupt enable register.
+ *
+ * \param[in]  device    Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  terminal  Target terminal \ref adi_apollo_terminal_e
+ * \param[in]  fsrc      Target FSRC block (single block only)
+ * \param[out] enable    Pointer to store IRQ enable mask (4 bits)
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_fsrc_irq_enable_get(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrc, uint8_t *enable);
+
 #ifndef CLIENT_IGNORE
 
 #endif /* CLIENT_IGNORE*/
