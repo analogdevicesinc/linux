@@ -402,6 +402,17 @@
 //! ```
 //!
 //! [`Arc`]: kernel::sync::Arc
+// Implementation details
+//
+// The reasoning for adopting a handle based approach:
+// - If we explicitly drop the target of a timer callback in the timer callback, we
+//   may get a dangling reference.
+// - If the callback owns the last reference to the target, target may be dropped
+//   in non-sleepable context when the callback is finished.
+// - When dropping an object that is the target of an armed timer, we may drop
+//   fields accessed by the timer callback before we cancel the timer (drop order).
+//
+// By using a handle, we can make the handle own the callback target and avoid these problems.
 
 use super::{ClockId, Delta, Instant};
 use crate::{prelude::*, types::Opaque};
