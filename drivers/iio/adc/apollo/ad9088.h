@@ -400,10 +400,10 @@ int ad9088_fsrc_tx_ratio_set(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
 int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
 int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
 int ad9088_fsrc_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
-int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy);
-int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy);
-int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy);
-int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy);
+int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable);
 
 /* Calibration data format */
 #define AD9088_CAL_MAGIC	0x41443930  /* "AD90" */
