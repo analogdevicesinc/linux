@@ -261,7 +261,7 @@ struct ad9088_phy {
 	u32 mcs_track_decimation;
 	u32 mcs_track_win;
 
-	struct ad9088_debugfs_entry debugfs_entry[45];
+	struct ad9088_debugfs_entry debugfs_entry[47];
 	u32 ad9088_debugfs_entry_index;
 
 	const char **rx_labels;
