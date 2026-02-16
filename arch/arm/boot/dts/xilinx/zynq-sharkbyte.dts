@@ -289,7 +289,7 @@
         adi,mute-till-lock-enable;
 		adi,charge-pump-negative-bleed-enable;
 		adi,reference-differential-input-enable;
-		adi,power-up-frequency = /bits/ 64 <1000000000>;
+		adi,power-up-frequency = /bits/ 64 <990000000>;
 		adi,output-a-enable;
 		adi,output-b-enable;
 	};
