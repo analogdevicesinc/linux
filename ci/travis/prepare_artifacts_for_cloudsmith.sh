@@ -130,8 +130,7 @@ set_cloudsmith_version_path
 echo "Uploading artifacts to Cloudsmith repo adi/${CLOUDSMITH_REPO} at path ${VERSION_PATH}/ ..."
 echo "Using parallel uploads with 10 workers..."
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-python3 "${SCRIPT_DIR}/upload_to_cloudsmith_parallel.py" \
+python3 ../wiki-scripts/utils/cloudsmith_utils/upload_to_cloudsmith.py \
         --repo="${CLOUDSMITH_REPO}" \
         --version="${VERSION_PATH}/${TIMESTAMP}" \
         --local_path="${TIMESTAMP}" \
