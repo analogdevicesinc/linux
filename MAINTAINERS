@@ -13680,6 +13680,8 @@ M:	Alexis Czezar C Torreno <alexisczezar.torreno@analog.com>
 L:	linux-hwmon@vger.kernel.org
 S:	Supported
 F:	Documentation/devicetree/bindings/hwmon/adi,ltc4284.yaml
+F:	Documentation/hwmon/ltc4284.rst
+F:	drivers/hwmon/ltc4284.c
 
 LTC4286 HARDWARE MONITOR DRIVER
 M:	Delphine CC Chiu <Delphine_CC_Chiu@Wiwynn.com>

@@ -1,0 +1,211 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+Kernel driver ltc4284
+=====================
+
+Supported chips:
+
+  * Analog Devices LTC4284
+
+    Prefix: 'ltc4284'
+
+    Addresses scanned: - I2C 0x14 - 0x15
+
+    Datasheet:
+
+        https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4284.pdf
+
+Author:
+
+ * Carlos Jones Jr <carlosjr.jones@analog.com>
+ * Alexis Czezar C Torreno <alexisczezar.torreno@analog.com>
+
+Description
+-----------
+
+The LTC4284 is a high power negative voltage hot swap controller with energy
+monitor, designed for -48V distributed power systems supporting up to 2500W
+applications. The device drives two external N-channel MOSFETs to allow a board
+to be safely inserted and removed from a live backplane. The dual-gate,
+multi-mode drivers optimize the MOSFET safe operating area (SOA) for a variety
+of power levels.
+
+The LTC4284 features an I2C interface and onboard gear-shift ADC that allow
+monitoring of board current, voltage, power, energy, and fault status. The
+device supports four operation modes: single driver, parallel, high stress
+staged start, and low stress staged start modes. An included EEPROM provides
+black-box capturing and nonvolatile configuration of fault behavior.
+
+Sysfs entries
+-------------
+
+The following attributes are supported. Limits are read-write and all the other
+attributes are read-only.
+
+======================= ===============================================
+in0_input               Power voltage VPWR (mV)
+in0_min                 Minimum voltage threshold
+in0_max                 Maximum voltage threshold
+in0_lowest              Lowest measured voltage
+in0_highest             Highest measured voltage
+in0_reset_history       Write 1 to reset in0 history
+in0_lcrit_alarm         Undervoltage alarm
+in0_crit_alarm          Overvoltage alarm
+in0_label               Channel label (VPWR)
+
+in1_input               Differential voltage ADIN12 (mV)
+in1_min                 Minimum voltage threshold
+in1_max                 Maximum voltage threshold
+in1_lowest              Lowest measured voltage
+in1_highest             Highest measured voltage
+in1_reset_history       Write 1 to reset in1 history
+in1_label               Channel label (ADIN12)
+
+in2_input               Differential voltage ADIN34 (mV)
+in2_min                 Minimum voltage threshold
+in2_max                 Maximum voltage threshold
+in2_lowest              Lowest measured voltage
+in2_highest             Highest measured voltage
+in2_reset_history       Write 1 to reset in2 history
+in2_label               Channel label (ADIN34)
+
+in3_input               Single-ended voltage ADIN1 (mV)
+in3_min                 Minimum voltage threshold
+in3_max                 Maximum voltage threshold
+in3_lowest              Lowest measured voltage
+in3_highest             Highest measured voltage
+in3_reset_history       Write 1 to reset in3 history
+in3_label               Channel label (ADIN1)
+
+in4_input               Single-ended voltage ADIN2 (mV)
+in4_min                 Minimum voltage threshold
+in4_max                 Maximum voltage threshold
+in4_lowest              Lowest measured voltage
+in4_highest             Highest measured voltage
+in4_reset_history       Write 1 to reset in4 history
+in4_label               Channel label (ADIN2)
+
+in5_input               Single-ended voltage ADIN3 (mV)
+in5_min                 Minimum voltage threshold
+in5_max                 Maximum voltage threshold
+in5_lowest              Lowest measured voltage
+in5_highest             Highest measured voltage
+in5_reset_history       Write 1 to reset in5 history
+in5_label               Channel label (ADIN3)
+
+in6_input               Single-ended voltage ADIN4 (mV)
+in6_min                 Minimum voltage threshold
+in6_max                 Maximum voltage threshold
+in6_lowest              Lowest measured voltage
+in6_highest             Highest measured voltage
+in6_reset_history       Write 1 to reset in6 history
+in6_label               Channel label (ADIN4)
+
+in7_input               Differential voltage ADIO12 (mV)
+in7_min                 Minimum voltage threshold
+in7_max                 Maximum voltage threshold
+in7_lowest              Lowest measured voltage
+in7_highest             Highest measured voltage
+in7_reset_history       Write 1 to reset in7 history
+in7_label               Channel label (ADIO12)
+
+in8_input               Differential voltage ADIO34 (mV)
+in8_min                 Minimum voltage threshold
+in8_max                 Maximum voltage threshold
+in8_lowest              Lowest measured voltage
+in8_highest             Highest measured voltage
+in8_reset_history       Write 1 to reset in8 history
+in8_label               Channel label (ADIO34)
+
+in9_input               Configurable voltage ADIO1 (mV)
+in9_min                 Minimum voltage threshold
+in9_max                 Maximum voltage threshold
+in9_lowest              Lowest measured voltage
+in9_highest             Highest measured voltage
+in9_reset_history       Write 1 to reset in9 history
+in9_label               Channel label (ADIO1)
+
+in10_input              Configurable voltage ADIO2 (mV)
+in10_min                Minimum voltage threshold
+in10_max                Maximum voltage threshold
+in10_lowest             Lowest measured voltage
+in10_highest            Highest measured voltage
+in10_reset_history      Write 1 to reset in10 history
+in10_label              Channel label (ADIO2)
+
+in11_input              Configurable voltage ADIO3 (mV)
+in11_min                Minimum voltage threshold
+in11_max                Maximum voltage threshold
+in11_lowest             Lowest measured voltage
+in11_highest            Highest measured voltage
+in11_reset_history      Write 1 to reset in11 history
+in11_label              Channel label (ADIO3)
+
+in12_input              Configurable voltage ADIO4 (mV)
+in12_min                Minimum voltage threshold
+in12_max                Maximum voltage threshold
+in12_lowest             Lowest measured voltage
+in12_highest            Highest measured voltage
+in12_reset_history      Write 1 to reset in12 history
+in12_label              Channel label (ADIO4)
+
+curr1_input             Differential sense current (mA)
+curr1_min               Minimum current threshold
+curr1_max               Maximum current threshold
+curr1_lowest            Lowest measured current
+curr1_highest           Highest measured current
+curr1_reset_history     Write 1 to reset curr1 history
+curr1_crit_alarm        Overcurrent alarm
+curr1_label             Channel label (SENSE)
+
+curr2_input             First sense current SENSE1 (mA)
+curr2_lowest            Lowest measured current
+curr2_highest           Highest measured current
+curr2_reset_history     Write 1 to reset curr2 history
+curr2_label             Channel label (SENSE1)
+
+curr3_input             Second sense current SENSE2 (mA)
+curr3_lowest            Lowest measured current
+curr3_highest           Highest measured current
+curr3_reset_history     Write 1 to reset curr3 history
+curr3_label             Channel label (SENSE2)
+
+power1_input            Input power (µW)
+power1_min              Low power threshold
+power1_max              High power threshold
+power1_input_lowest     Historical minimum power
+power1_input_highest    Historical maximum power
+power1_reset_history    Write 1 to reset power1 history
+power1_label            Channel label (Power)
+
+energy1_input           Accumulated energy (µJ)
+energy1_enable          Enable/Disable energy accumulation
+energy1_label           Channel label (Energy)
+======================= ===============================================
+
+DebugFs entries
+---------------
+
+The chip also has a fault log register where failures can be logged. Hence,
+as these are logging events, we give access to them in debugfs. Note that
+even if some failure is detected in these logs, it does not necessarily mean
+that the failure is still present. These logs can be cleared by writing in
+the proper reset_history attribute.
+
+.. warning:: The debugfs interface is subject to change without notice
+             and is only available when the kernel is compiled with
+             ``CONFIG_DEBUG_FS`` defined.
+
+``/sys/kernel/debug/ltc4284-[device]/``
+contains the following attributes:
+
+======================== ==========================================
+in0_ov_fault_log         Set to 1 by an overvoltage fault occurring
+in0_uv_fault_log         Set to 1 by an undervoltage fault occurring
+curr1_oc_fault_log       Set to 1 by an overcurrent fault occurring
+fet_bad_fault_log        Set to 1 when a FET-BAD fault occurs
+fet_short_fault_log      Set to 1 when a FET-short fault is detected
+pgi_fault_log            Set to 1 by a power good input fault occurring
+power_failed_log         Set to 1 when power failed fault occurs
+ext_fault_log            Set to 1 by an external fault occurring
+======================== ==========================================
