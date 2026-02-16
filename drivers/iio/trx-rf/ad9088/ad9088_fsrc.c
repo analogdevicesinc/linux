@@ -512,7 +512,7 @@ int ad9088_fsrc_inspect(struct ad9088_phy *phy)
 	}
 
 	len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
-			"Note: FSRC ratio = (fsrc_rate_int + fsrc_rate_frac_a/fsrc_rate_frac_b) / 2^48\n");
+			"  FSRC ratio (N/M) = 2^48 / (fsrc_rate_int + fsrc_rate_frac_a/fsrc_rate_frac_b)\n");
 
 	return len;
 }
