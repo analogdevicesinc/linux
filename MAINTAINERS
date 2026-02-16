@@ -13648,6 +13648,15 @@ F:	Documentation/devicetree/bindings/hwmon/adi,ltc4282.yaml
 F:	Documentation/hwmon/ltc4282.rst
 F:	drivers/hwmon/ltc4282.c
 
+LTC4284 HARDWARE MONITOR DRIVER
+M:	Carlos Jones Jr <carlosjr.jones@analog.com>
+L:	linux-hwmon@vger.kernel.org
+S:	Supported
+W:	https://ez.analog.com/linux-software-drivers
+F:	Documentation/devicetree/bindings/hwmon/adi,ltc4284.yaml
+F:	Documentation/hwmon/ltc4284.rst
+F:	drivers/hwmon/ltc4284.c
+
 LTC4286 HARDWARE MONITOR DRIVER
 M:	Delphine CC Chiu <Delphine_CC_Chiu@Wiwynn.com>
 L:	linux-i2c@vger.kernel.org
