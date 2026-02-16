@@ -1,8 +1,10 @@
-
+// SPDX-License-Identifier: GPL-2.0
 /dts-v1/;
 /plugin/;
 
-/ {  
+#include "dt-bindings/iio/adc/adi,ad7768.h"
+
+/ {
 	fragment@0 {
 		target-path = "/";
 		__overlay__ {
@@ -84,6 +86,9 @@
 				clocks = <&ad7768_mclk>;
 				clock-names = "mclk";
 				adi,data-lines-number = <4>;
+				adi,common-mode-output-v = <AD7768_1P5_V>;
+				adi,vcm-power-down;
+				adi,power-mode = <AD7768_POWER_MODE_FAST>;
 
 				io-backends = <&iio_backend>;
 
@@ -92,18 +97,32 @@
 
 				channel@0 {
 					reg = <0>;
+					adi,ch-mode = <0>;
+					adi,prebuf-pos-en;
+					adi,refbuf-pos-en;
 				};
 
 				channel@1 {
 					reg = <1>;
+					adi,ch-mode = <0>;
+					adi,prebuf-pos-en;
+					adi,prebuf-neg-en;
+					adi,refbuf-pos-en;
+					adi,refbuf-neg-en;
 				};
 
 				channel@2 {
 					reg = <2>;
+					adi,ch-mode = <1>;
+					adi,prebuf-neg-en;
+					adi,refbuf-neg-en;
 				};
 
 				channel@3 {
 					reg = <3>;
+					adi,ch-mode = <1>;
+					adi,prebuf-pos-en;
+					adi,refbuf-pos-en;
 				};
 			};
 		};

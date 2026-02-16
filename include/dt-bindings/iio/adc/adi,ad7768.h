@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+
+#ifndef _DT_BINDINGS_ADI_AD7768_H
+#define _DT_BINDINGS_ADI_AD7768_H
+
+#define AD7768_AVDD1_AVSS_HALF_VOLT_V	0
+#define AD7768_1P25_V			1
+#define AD7768_1P5_V			2
+#define AD7768_2P14_V			3
+
+#define AD7768_POWER_MODE_LOW_POWER	0
+#define AD7768_POWER_MODE_MEDIAN	1
+#define AD7768_POWER_MODE_FAST		2
+
+#endif /* _DT_BINDINGS_ADI_AD7768_H */
