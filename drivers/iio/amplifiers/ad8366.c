@@ -30,6 +30,7 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
+#include <linux/reset.h>
 #include <linux/spi/spi.h>
 #include <linux/types.h>
 
@@ -57,7 +58,6 @@ struct ad8366_info {
 struct ad8366_state {
 	struct spi_device	*spi;
 	struct mutex            lock; /* protect sensor state */
-	struct gpio_desc	*reset_gpio;
 	struct gpio_desc	*enable_gpio;
 	unsigned char		ch[2];
 	enum ad8366_type	type;
@@ -322,6 +322,7 @@ static const struct iio_chan_spec ada4961_channels[] = {
 static int ad8366_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
+	struct reset_control *rstc;
 	struct iio_dev *indio_dev;
 	struct ad8366_state *st;
 	int ret;
@@ -366,11 +367,6 @@ static int ad8366_probe(struct spi_device *spi)
 	case ID_ADRF5731:
 	case ID_HMC1018:
 	case ID_HMC1019:
-		st->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
-		if (IS_ERR(st->reset_gpio))
-			return dev_err_probe(dev, PTR_ERR(st->reset_gpio),
-					     "Failed to get reset gpio\n");
-
 		st->enable_gpio = devm_gpiod_get(&spi->dev, "enable",
 			GPIOD_OUT_HIGH);
 
@@ -380,6 +376,15 @@ static int ad8366_probe(struct spi_device *spi)
 	default:
 		return dev_err_probe(dev, -EINVAL, "Invalid device ID\n");
 	}
+
+	rstc = devm_reset_control_get_optional_exclusive(dev, NULL);
+	if (IS_ERR(rstc))
+		return dev_err_probe(dev, PTR_ERR(rstc),
+				     "Failed to get reset controller\n");
+
+	ret = reset_control_deassert(rstc);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to deassert reset\n");
 
 	st->info = &ad8366_infos[st->type];
 	indio_dev->name = spi_get_device_id(spi)->name;
