@@ -73,7 +73,7 @@ static int sc589_set_divider(u32 div)
 	u32 csel_value;
 
 	if (sc589_wait_clock_align()) {
-		pr_err("timeout while waiting for clock alignment.\n");
+		pr_err("sc589-cpufreq: timeout while waiting for clock alignment.\n");
 		return -ETIMEDOUT;
 	}
 
@@ -90,7 +90,7 @@ static int map_cgu_from_dt(void)
 {
 	struct device_node *dn = of_find_compatible_node(NULL, NULL, "adi,sc58x-clocks");
 	if (!dn) {
-		pr_err("failed to find clock node in device tree.\n");
+		pr_err("sc589-cpufreq: failed to find clock node in device tree.\n");
 		return -ENODEV;
 	}
 
@@ -98,7 +98,7 @@ static int map_cgu_from_dt(void)
 	of_node_put(dn);
 
 	if (!cgu0_ctl) {
-		pr_err("failed to map CGU0 control register.\n");
+		pr_err("sc589-cpufreq: failed to map CGU0 control register.\n");
 		return -ENOMEM;
 	}
 
@@ -115,8 +115,13 @@ static struct cpufreq_driver sc589_cpufreq_driver = {
 
 static int __init sc589_cpufreq_init(void)
 {
+	int ret;
+
 	pr_info("sc589-cpufreq: loading...\n");
-	map_cgu_from_dt();
+	ret = map_cgu_from_dt();
+	if (ret)
+		return ret;
+
 	sc589_set_divider(8);
 	return cpufreq_register_driver(&sc589_cpufreq_driver);
 }
