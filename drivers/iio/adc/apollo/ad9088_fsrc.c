@@ -80,12 +80,14 @@ int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 
 	dev_dbg(&phy->spi->dev, "Configuring RX FSRC: N=%u M=%u\n", fsrc_n, fsrc_m);
 
-	if (fsrc_m == fsrc_n) {
-		ret = adi_apollo_fsrc_mode_1x_enable_set(&phy->ad9088, ADI_APOLLO_RX, ADI_APOLLO_FSRC_ALL,
-							 !!fsrc_m); // '0 0' to disable
-		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-						"adi_apollo_fsrc_mode_1x_enable_set");
-	} else {
+	ret = adi_apollo_fsrc_mode_1x_enable_set(&phy->ad9088, ADI_APOLLO_RX, ADI_APOLLO_FSRC_ALL,
+						 fsrc_m == fsrc_n);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					"adi_apollo_fsrc_mode_1x_enable_set");
+	if (ret)
+		return ret;
+
+	if (fsrc_m != fsrc_n) {
 		ret = adi_apollo_fsrc_ratio_set(&phy->ad9088, ADI_APOLLO_RX, ADI_APOLLO_FSRC_ALL,
 						fsrc_n, fsrc_m);
 		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
@@ -137,12 +139,15 @@ int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m,
 		return ret;
 	}
 	/* Similar to public/inc/adi_apollo_fsrc.h@adi_apollo_fsrc_rate_set python example */
-	if (fsrc_m == fsrc_n) {
-		ret = adi_apollo_fsrc_mode_1x_enable_set(&phy->ad9088, ADI_APOLLO_TX, ADI_APOLLO_FSRC_ALL,
-							 !!fsrc_m); // '0 0' to disable
-		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-						"adi_apollo_fsrc_mode_1x_enable_set");
-	} else {
+	ret = adi_apollo_fsrc_mode_1x_enable_set(&phy->ad9088, ADI_APOLLO_TX, ADI_APOLLO_FSRC_ALL,
+						 fsrc_m == fsrc_n);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					"adi_apollo_fsrc_mode_1x_enable_set");
+	if (ret)
+		return ret;
+
+
+	if (fsrc_m != fsrc_n) {
 		ret = adi_apollo_fsrc_ratio_set(&phy->ad9088, ADI_APOLLO_TX, ADI_APOLLO_FSRC_ALL,
 						fsrc_n, fsrc_m);
 		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
