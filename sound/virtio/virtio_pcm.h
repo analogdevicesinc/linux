@@ -37,7 +37,6 @@ struct virtio_pcm_msg;
  *             the device side at resume.
  * @msgs: Allocated I/O messages.
  * @nmsgs: Number of allocated I/O messages.
- * @msg_last_enqueued: Index of the last I/O message added to the virtqueue.
  * @msg_count: Number of pending I/O messages in the virtqueue.
  * @msg_empty: Notify when msg_count is zero.
  */
