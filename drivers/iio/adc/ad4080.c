@@ -127,10 +127,13 @@
 #define AD4080_SPI_READ						BIT(7)
 #define AD4080_CHIP_ID						0x0050
 #define AD4081_CHIP_ID						0x0051
+#define AD4082_CHIP_ID						0x0052
 #define AD4083_CHIP_ID						0x0053
 #define AD4084_CHIP_ID						0x0054
+#define AD4085_CHIP_ID						0x0055
 #define AD4086_CHIP_ID						0x0056
 #define AD4087_CHIP_ID						0x0057
+#define AD4088_CHIP_ID						0x0058
 
 #define AD4080_LVDS_CNV_CLK_CNT_MAX				7
 
@@ -442,13 +445,19 @@ static const struct iio_chan_spec ad4080_channel = AD4080_CHANNEL_DEFINE(20, 32)
 
 static const struct iio_chan_spec ad4081_channel = AD4080_CHANNEL_DEFINE(20, 32);
 
+static const struct iio_chan_spec ad4082_channel = AD4080_CHANNEL_DEFINE(20, 32);
+
 static const struct iio_chan_spec ad4083_channel = AD4080_CHANNEL_DEFINE(16, 16);
 
 static const struct iio_chan_spec ad4084_channel = AD4080_CHANNEL_DEFINE(16, 16);
 
+static const struct iio_chan_spec ad4085_channel = AD4080_CHANNEL_DEFINE(16, 16);
+
 static const struct iio_chan_spec ad4086_channel = AD4080_CHANNEL_DEFINE(14, 16);
 
 static const struct iio_chan_spec ad4087_channel = AD4080_CHANNEL_DEFINE(14, 16);
+
+static const struct iio_chan_spec ad4088_channel = AD4080_CHANNEL_DEFINE(14, 16);
 
 static const struct ad4080_chip_info ad4080_chip_info = {
 	.name = "ad4080",
@@ -468,6 +477,16 @@ static const struct ad4080_chip_info ad4081_chip_info = {
 	.num_channels = 1,
 	.channels = &ad4081_channel,
 	.lvds_cnv_clk_cnt_max = 2,
+};
+
+static const struct ad4080_chip_info ad4082_chip_info = {
+	.name = "ad4082",
+	.product_id = AD4082_CHIP_ID,
+	.scale_table = ad4080_scale_table,
+	.num_scales = ARRAY_SIZE(ad4080_scale_table),
+	.num_channels = 1,
+	.channels = &ad4082_channel,
+	.lvds_cnv_clk_cnt_max = 8,
 };
 
 static const struct ad4080_chip_info ad4083_chip_info = {
@@ -490,6 +509,16 @@ static const struct ad4080_chip_info ad4084_chip_info = {
 	.lvds_cnv_clk_cnt_max = 2,
 };
 
+static const struct ad4080_chip_info ad4085_chip_info = {
+	.name = "ad4085",
+	.product_id = AD4085_CHIP_ID,
+	.scale_table = ad4080_scale_table,
+	.num_scales = ARRAY_SIZE(ad4080_scale_table),
+	.num_channels = 1,
+	.channels = &ad4085_channel,
+	.lvds_cnv_clk_cnt_max = 8,
+};
+
 static const struct ad4080_chip_info ad4086_chip_info = {
 	.name = "ad4086",
 	.product_id = AD4086_CHIP_ID,
@@ -508,6 +537,16 @@ static const struct ad4080_chip_info ad4087_chip_info = {
 	.num_channels = 1,
 	.channels = &ad4087_channel,
 	.lvds_cnv_clk_cnt_max = 1,
+};
+
+static const struct ad4080_chip_info ad4088_chip_info = {
+	.name = "ad4088",
+	.product_id = AD4088_CHIP_ID,
+	.scale_table = ad4080_scale_table,
+	.num_scales = ARRAY_SIZE(ad4080_scale_table),
+	.num_channels = 1,
+	.channels = &ad4088_channel,
+	.lvds_cnv_clk_cnt_max = 8,
 };
 
 static int ad4080_setup(struct iio_dev *indio_dev)
@@ -666,10 +705,13 @@ static int ad4080_probe(struct spi_device *spi)
 static const struct spi_device_id ad4080_id[] = {
 	{ "ad4080", (kernel_ulong_t)&ad4080_chip_info },
 	{ "ad4081", (kernel_ulong_t)&ad4081_chip_info },
+	{ "ad4082", (kernel_ulong_t)&ad4082_chip_info },
 	{ "ad4083", (kernel_ulong_t)&ad4083_chip_info },
 	{ "ad4084", (kernel_ulong_t)&ad4084_chip_info },
+	{ "ad4085", (kernel_ulong_t)&ad4085_chip_info },
 	{ "ad4086", (kernel_ulong_t)&ad4086_chip_info },
 	{ "ad4087", (kernel_ulong_t)&ad4087_chip_info },
+	{ "ad4088", (kernel_ulong_t)&ad4088_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad4080_id);
@@ -677,10 +719,13 @@ MODULE_DEVICE_TABLE(spi, ad4080_id);
 static const struct of_device_id ad4080_of_match[] = {
 	{ .compatible = "adi,ad4080", &ad4080_chip_info },
 	{ .compatible = "adi,ad4081", &ad4081_chip_info },
+	{ .compatible = "adi,ad4082", &ad4082_chip_info },
 	{ .compatible = "adi,ad4083", &ad4083_chip_info },
 	{ .compatible = "adi,ad4084", &ad4084_chip_info },
+	{ .compatible = "adi,ad4085", &ad4085_chip_info },
 	{ .compatible = "adi,ad4086", &ad4086_chip_info },
 	{ .compatible = "adi,ad4087", &ad4087_chip_info },
+	{ .compatible = "adi,ad4088", &ad4088_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad4080_of_match);
