@@ -1157,9 +1157,13 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			(hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
 			HMC7044_VCO_SEL(vco_sel) |
 			HMC7044_SYSREF_TIMER_EN | HMC7044_PLL2_EN |
-			HMC7044_PLL1_EN);
+			(ref_en ? HMC7044_PLL1_EN : 0));
 	if (ret)
 		return ret;
+
+	if (!ref_en)
+		dev_info(&hmc->spi->dev,
+			 "PLL1 disabled, no valid CLKIN reference\n");
 
 	if (hmc->clkin1_vcoin_en) {
 		ret = hmc7044_write(indio_dev, HMC7044_REG_SYNC, HMC7044_SYNC_RETIME);
