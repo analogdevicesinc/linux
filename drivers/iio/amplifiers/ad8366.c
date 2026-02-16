@@ -58,7 +58,6 @@ struct ad8366_info {
 struct ad8366_state {
 	struct spi_device	*spi;
 	struct mutex            lock; /* protect sensor state */
-	struct gpio_desc	*enable_gpio;
 	unsigned char		ch[2];
 	enum ad8366_type	type;
 	struct ad8366_info	*info;
@@ -322,6 +321,7 @@ static const struct iio_chan_spec ada4961_channels[] = {
 static int ad8366_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
+	struct gpio_desc *enable_gpio;
 	struct reset_control *rstc;
 	struct iio_dev *indio_dev;
 	struct ad8366_state *st;
@@ -367,15 +367,17 @@ static int ad8366_probe(struct spi_device *spi)
 	case ID_ADRF5731:
 	case ID_HMC1018:
 	case ID_HMC1019:
-		st->enable_gpio = devm_gpiod_get(&spi->dev, "enable",
-			GPIOD_OUT_HIGH);
-
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
 		break;
 	default:
 		return dev_err_probe(dev, -EINVAL, "Invalid device ID\n");
 	}
+
+	enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(enable_gpio))
+		return dev_err_probe(dev, PTR_ERR(enable_gpio),
+				     "Failed to get enable GPIO\n");
 
 	rstc = devm_reset_control_get_optional_exclusive(dev, NULL);
 	if (IS_ERR(rstc))
