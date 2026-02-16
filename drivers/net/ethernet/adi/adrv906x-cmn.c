@@ -76,6 +76,15 @@ void adrv906x_eth_cmn_pll_reset(struct net_device *ndev)
 	void __iomem *regs = eth_if->emac_cmn_regs;
 	unsigned int val;
 
+	/*
+	 * Both front‑haul ports are now down. Wait 50 ms so the switch driver can
+	 * finish handling the link‑down events and complete any ongoing updates.
+	 * This ensures that no switch reconfiguration is in progress when we
+	 * reconfigure the PLL, avoiding issues that can occur if both are updated
+	 * at the same time.
+	 */
+	msleep(50);
+
 	mutex_lock(&eth_if->mtx);
 
 	val = ioread32(regs + EMAC_CMN_PLL_CTRL);

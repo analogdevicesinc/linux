@@ -13,6 +13,7 @@
 #include <linux/io.h>
 #include <linux/wait.h>
 #include <linux/kthread.h>
+#include <linux/if_vlan.h>
 
 #define SWITCH_MAX_PORT_NUM                             3
 #define NUM_DEFAULT_VIDS                                4
@@ -115,13 +116,6 @@ struct switch_pcp {
 	u8 pcp_express;
 };
 
-struct vlan_cfg_list {
-	struct list_head list;
-	u32 port_mask;
-	u16 vlan_id;
-	u8 pcp_val;
-};
-
 struct switch_isr_args {
 	int (*func)(void *arg);
 	void *arg;
@@ -169,7 +163,8 @@ struct adrv906x_eth_switch {
 	unsigned int pcp_ipv_mapping;
 	unsigned int pcp_regen_val;
 	struct switch_port switch_port[SWITCH_MAX_PORT_NUM];
-	struct list_head vlan_cfg_list;
+	u8 vlan_port_mask[VLAN_N_VID];
+	u8 port_enabled_mask;
 	struct mutex lock;      /* protect data structures */
 	spinlock_t hw_lock;     /* protect hw access */
 	struct device_attribute port_vlan_ctrl_attr;

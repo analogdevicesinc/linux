@@ -47,8 +47,21 @@ static int adrv906x_switch_wait_for_mae_ready(struct adrv906x_eth_switch *es)
 static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es, u32 mask, u32 vid)
 {
 	unsigned long flags;
+	u8 enabled_mask;
 	u32 val;
 	int ret;
+
+	/* Skip MAE update if all interfaces are down. The PLL may be
+	 * unlocked or undergoing reconfiguration, making register access
+	 * unreliable. The software state is preserved and will be synced
+	 * to MAE during recovery when interfaces come back up.
+	 */
+	spin_lock_irqsave(&es->hw_lock, flags);
+	enabled_mask = es->port_enabled_mask;
+	spin_unlock_irqrestore(&es->hw_lock, flags);
+
+	if (!(enabled_mask &  ~BIT(SWITCH_CPU_PORT)))
+		return 0;
 
 	spin_lock_irqsave(&es->hw_lock, flags);
 	ret = adrv906x_switch_wait_for_mae_ready(es);
@@ -107,25 +120,8 @@ static void adrv906x_switch_dsa_rx_enable(struct adrv906x_eth_switch *es, bool e
 	}
 }
 
-static struct vlan_cfg_list *adrv906x_switch_vlan_find(struct adrv906x_eth_switch *es, u16 vid)
-{
-	struct vlan_cfg_list *vcl;
-
-	mutex_lock(&es->lock);
-	list_for_each_entry(vcl, &es->vlan_cfg_list, list) {
-		if (vcl->vlan_id == vid) {
-			mutex_unlock(&es->lock);
-			return vcl;
-		}
-	}
-	mutex_unlock(&es->lock);
-
-	return NULL;
-}
-
 int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 {
-	struct vlan_cfg_list *vcl;
 	u32 mask;
 	int ret;
 
@@ -140,34 +136,24 @@ int adrv906x_switch_vlan_add(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 		return -EINVAL;
 	}
 
-	vcl = adrv906x_switch_vlan_find(es, vid);
-	if (!vcl) {
-		vcl = devm_kzalloc(&es->pdev->dev, sizeof(*vcl), GFP_ATOMIC);
-		if (!vcl)
-			return -ENOMEM;
-
-		vcl->vlan_id = vid;
-		mutex_lock(&es->lock);
-		list_add(&vcl->list, &es->vlan_cfg_list);
-		mutex_unlock(&es->lock);
-	}
-
+	mutex_lock(&es->lock);
 	mask = BIT(port);
-	if (!(vcl->port_mask & mask)) {
-		mask |= vcl->port_mask;
+	if (!(es->vlan_port_mask[vid] & mask)) {
+		mask |= es->vlan_port_mask[vid];
 		ret = adrv906x_switch_vlan_match_action_sync(es, mask, vid);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&es->lock);
 			return ret;
-
-		vcl->port_mask = mask;
+		}
+		es->vlan_port_mask[vid] = mask;
 	}
+	mutex_unlock(&es->lock);
 
 	return 0;
 }
 
 int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 {
-	struct vlan_cfg_list *vcl;
 	u32 mask;
 	int ret;
 
@@ -182,36 +168,26 @@ int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 		return -EINVAL;
 	}
 
-	vcl = adrv906x_switch_vlan_find(es, vid);
-	if (!vcl)
-		return -EINVAL;
-
+	mutex_lock(&es->lock);
 	mask = BIT(port);
-	if (vcl->port_mask & mask) {
-		mask = vcl->port_mask & ~mask;
+	if (es->vlan_port_mask[vid] & mask) {
+		mask = es->vlan_port_mask[vid] & ~mask;
 		ret = adrv906x_switch_vlan_match_action_sync(es, mask, vid);
-		if (ret)
-			return ret;
-
-		if (mask) {
-			vcl->port_mask = mask;
-		} else {
-			mutex_lock(&es->lock);
-			list_del(&vcl->list);
+		if (ret) {
 			mutex_unlock(&es->lock);
-			devm_kfree(&es->pdev->dev, vcl);
+			return ret;
 		}
+		es->vlan_port_mask[vid] = mask;
 	}
+	mutex_unlock(&es->lock);
 
 	return 0;
 }
 
 int adrv906x_switch_vlan_add_cpuport(struct adrv906x_eth_switch *es, u16 vid)
 {
-	struct vlan_cfg_list *vcl = adrv906x_switch_vlan_find(es, vid);
-
 	/* if host port is already configured for this vid, skip it */
-	if (vcl->port_mask >= BIT(SWITCH_CPU_PORT))
+	if (es->vlan_port_mask[vid] & BIT(SWITCH_CPU_PORT))
 		return 0;
 
 	return adrv906x_switch_vlan_add(es, SWITCH_CPU_PORT, vid);
@@ -219,25 +195,21 @@ int adrv906x_switch_vlan_add_cpuport(struct adrv906x_eth_switch *es, u16 vid)
 
 int adrv906x_switch_vlan_del_cpuport(struct adrv906x_eth_switch *es, u16 vid)
 {
-	struct vlan_cfg_list *vcl = adrv906x_switch_vlan_find(es, vid);
-
 	/* if another port is configured for this vid, don't remove vid from host port */
-	if (vcl->port_mask > BIT(SWITCH_CPU_PORT))
+	if (es->vlan_port_mask[vid] & ~BIT(SWITCH_CPU_PORT))
 		return 0;
 	return adrv906x_switch_vlan_del(es, SWITCH_CPU_PORT, vid);
 }
 
 static int adrv906x_switch_pvid_set(struct adrv906x_eth_switch *es, u16 pvid)
 {
-	struct vlan_cfg_list *vcl;
 	int portid, ret;
 	u32 val;
 
 	if (pvid == 0 || pvid >= VLAN_N_VID - 1)
 		return -EINVAL;
 
-	vcl = adrv906x_switch_vlan_find(es, pvid);
-	if (vcl) {
+	if (es->vlan_port_mask[pvid]) {
 		dev_err(&es->pdev->dev, "cannot set pvid %u, already used", pvid);
 		return -EINVAL;
 	}
@@ -326,10 +298,23 @@ int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, 
 {
 	u32 val, mac_addr_hi, mac_addr_lo;
 	unsigned long flags;
+	u8 enabled_mask;
 	int ret;
 
 	if (portid >= SWITCH_MAX_PORT_NUM)
 		return -EINVAL;
+
+	/* Skip MAE update if all interfaces are down. The PLL may be
+	 * unlocked or undergoing reconfiguration, making register access
+	 * unreliable. The software state is preserved and will be synced
+	 * to MAE during recovery when interfaces come back up.
+	 */
+	spin_lock_irqsave(&es->hw_lock, flags);
+	enabled_mask = es->port_enabled_mask;
+	spin_unlock_irqrestore(&es->hw_lock, flags);
+
+	if (!(enabled_mask &  ~BIT(SWITCH_CPU_PORT)))
+		return 0;
 
 	spin_lock_irqsave(&es->hw_lock, flags);
 	ret = adrv906x_switch_wait_for_mae_ready(es);
@@ -419,7 +404,7 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 {
 	struct adrv906x_eth_switch *es =
 		container_of(attr, struct adrv906x_eth_switch, port_vlan_ctrl_attr);
-	char *cmdstr, *orig;
+	char cmdstr[64];  /* Max input is 48 + null terminator */
 	char *tokens[4];
 	u16 port, vid;
 	int ret;
@@ -427,72 +412,45 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 	if (cnt < 6 || cnt > 48)
 		return -EINVAL;
 
-	cmdstr = kmalloc(cnt + 1, GFP_KERNEL);
-	if (!cmdstr)
-		return -ENOMEM;
-
-	orig = cmdstr;
 	memset(tokens, 0, sizeof(tokens));
-
-	strscpy(cmdstr, buf, cnt);
+	memcpy(cmdstr, buf, cnt);
 	cmdstr[cnt] = '\0';
+
 	ret = adrv906x_get_attr_cmd_tokens(cmdstr, tokens);
 	if (ret)
-		goto free_m;
+		return ret;
 
 	if (!strncmp(tokens[0], "vlan", 4)) {
 		ret = kstrtou16(tokens[2], 10, &vid);
 		if (ret)
-			goto free_m;
+			return ret;
 
 		ret = kstrtou16(tokens[3], 10, &port);
 		if (ret)
-			goto free_m;
+			return ret;
 
-		if (port >= SWITCH_MAX_PORT_NUM) {
-			ret = -EINVAL;
-			goto free_m;
-		}
+		if (port >= SWITCH_MAX_PORT_NUM)
+			return -EINVAL;
 
-		if (!strncmp(tokens[1], "add", 3)) {
-			rtnl_lock();
+		if (!strncmp(tokens[1], "add", 3))
 			ret = adrv906x_switch_vlan_add(es, port, vid);
-			rtnl_unlock();
-			if (ret)
-				goto free_m;
-
-			ret = cnt;
-		}
-
-		if (!strncmp(tokens[1], "del", 3)) {
-			rtnl_lock();
+		else if (!strncmp(tokens[1], "del", 3))
 			ret = adrv906x_switch_vlan_del(es, port, vid);
-			rtnl_unlock();
-			if (ret)
-				goto free_m;
+		else
+			ret = -EINVAL;
 
-			ret = cnt;
-		}
+		return ret ? ret : cnt;
 	} else if (!strncmp(tokens[0], "pvid", 4)) {
 		ret = kstrtou16(tokens[1], 10, &vid);
 		if (ret)
 			return ret;
 
-		rtnl_lock();
 		ret = adrv906x_switch_pvid_set(es, vid);
-		rtnl_unlock();
-		if (ret)
-			goto free_m;
 
-		ret = cnt;
-	} else {
-		return -EINVAL;
+		return ret ? ret : cnt;
 	}
 
-free_m:
-	kfree(orig);
-
-	return ret;
+	return -EINVAL;
 }
 
 static ssize_t port_vlan_ctrl_show(struct device *dev,
@@ -500,11 +458,10 @@ static ssize_t port_vlan_ctrl_show(struct device *dev,
 {
 	struct adrv906x_eth_switch *es =
 		container_of(attr, struct adrv906x_eth_switch, port_vlan_ctrl_attr);
-	struct vlan_cfg_list *vcl;
 	void __iomem *io;
 	int char_cnt;
+	int i, vid;
 	u32 reg;
-	int i;
 
 	io = es->switch_port[0].reg;
 	reg = ioread32(io + SWITCH_PORT_CFG_VLAN);
@@ -514,10 +471,12 @@ static ssize_t port_vlan_ctrl_show(struct device *dev,
 	char_cnt += sprintf(buf + char_cnt, "%-8s%-4s\n", "vid", "port");
 
 	mutex_lock(&es->lock);
-	list_for_each_entry(vcl, &es->vlan_cfg_list, list) {
-		char_cnt += sprintf(buf + char_cnt, "%-5d%-3s", vcl->vlan_id, ":");
+	for (vid = 0; vid < VLAN_N_VID; vid++) {
+		if (es->vlan_port_mask[vid] == 0)
+			continue;
+		char_cnt += sprintf(buf + char_cnt, "%-5d%-3s", vid, ":");
 		for (i = 0; i < 3; i++) {
-			if (vcl->port_mask & BIT(i))
+			if (es->vlan_port_mask[vid] & BIT(i))
 				char_cnt += sprintf(buf + char_cnt, "%-3d", i);
 			else
 				char_cnt += sprintf(buf + char_cnt, "   ");
@@ -719,8 +678,15 @@ int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool
 {
 	unsigned long flags;
 
+	if (portid >= SWITCH_MAX_PORT_NUM)
+		return -EINVAL;
+
 	spin_lock_irqsave(&es->hw_lock, flags);
 	__adrv906x_switch_port_enable(es, portid, enabled);
+	if (enabled)
+		es->port_enabled_mask |= BIT(portid);
+	else
+		es->port_enabled_mask &= ~BIT(portid);
 	spin_unlock_irqrestore(&es->hw_lock, flags);
 
 	return 0;
@@ -791,7 +757,6 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 		return -ENODEV;
 	}
 
-	INIT_LIST_HEAD(&es->vlan_cfg_list);
 	mutex_init(&es->lock);
 	es->attr_group.attrs = NULL;
 
@@ -875,9 +840,8 @@ void adrv906x_switch_cleanup(struct adrv906x_eth_switch *es)
 
 static void adrv906x_switch_vlan_membership_recovery(struct adrv906x_eth_switch *es)
 {
-	struct vlan_cfg_list *vcl = NULL;
 	struct device *dev = &es->pdev->dev;
-	int ret;
+	int ret, vid;
 
 	mutex_lock(&es->lock);
 	if (es->pvid != SWITCH_PVID) {
@@ -889,10 +853,12 @@ static void adrv906x_switch_vlan_membership_recovery(struct adrv906x_eth_switch 
 			dev_warn(dev, "failed recovering pvid %d during recovery", SWITCH_PVID);
 	}
 
-	list_for_each_entry(vcl, &es->vlan_cfg_list, list) {
-		ret = adrv906x_switch_vlan_match_action_sync(es, vcl->port_mask, vcl->vlan_id);
+	for (vid = 0; vid < VLAN_N_VID; vid++) {
+		if (es->vlan_port_mask[vid] == 0)
+			continue;
+		ret = adrv906x_switch_vlan_match_action_sync(es, es->vlan_port_mask[vid], vid);
 		if (ret)
-			dev_warn(dev, "failed recovering vlan %d", vcl->vlan_id);
+			dev_warn(dev, "failed recovering vlan %d", vid);
 	}
 	mutex_unlock(&es->lock);
 }

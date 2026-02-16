@@ -482,7 +482,7 @@ static int adrv906x_config_eth_recov_clk(struct device *dev,
 					 struct device_node *np)
 {
 	u32 reg, len;
-	void *ptr;
+	void __iomem *ptr;
 
 	if (of_property_read_u32_index(np, "reg", 0, &reg))
 		dev_err(dev, "dt: eth_recov_clk_np failed - skipping");
@@ -1001,14 +1001,17 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 
 		if (of_property_read_u32(macsec_np, "id", &macsec_num)) {
 			dev_err(dev, "dt: failed to retrieve macsec device id from device tree");
-			return -ENODEV;
+			ret = -ENODEV;
+			goto error_unregister_netdev;
 		}
 
 		if (!macsec[macsec_num]) {
 			macsec[macsec_num] = devm_kzalloc(dev, sizeof(struct adrv906x_macsec_priv),
 							  GFP_KERNEL);
-			if (!macsec[macsec_num])
-				return -ENOMEM;
+			if (!macsec[macsec_num]) {
+				ret = -ENOMEM;
+				goto error_unregister_netdev;
+			}
 
 			adrv906x_dev->macsec = macsec[macsec_num];
 			ret = adrv906x_macsec_probe(pdev, ndev, macsec_np,
@@ -1033,19 +1036,23 @@ no_macsec:
 		ndma_np = of_parse_phandle(port_np, "ndma-handle", 0);
 		if (!ndma_np) {
 			dev_err(dev, "dt: failed to retrieve ndma phandle from device tree");
-			return -ENODEV;
+			ret = -ENODEV;
+			goto error_unregister_netdev;
 		}
 
 		if (of_property_read_u32(ndma_np, "id", &ndma_num)) {
 			dev_err(dev, "dt: failed to retrieve ndma device id from device tree");
-			return -ENODEV;
+			ret = -ENODEV;
+			goto error_unregister_netdev;
 		}
 
 		if (!ndma_devs[ndma_num]) {
 			ndma_devs[ndma_num] = devm_kzalloc(dev, sizeof(struct adrv906x_ndma_dev),
 							   GFP_KERNEL);
-			if (!ndma_devs[ndma_num])
-				return -ENOMEM;
+			if (!ndma_devs[ndma_num]) {
+				ret = -ENOMEM;
+				goto error_unregister_netdev;
+			}
 
 			ret = adrv906x_ndma_probe(pdev, ndev, ndma_np,
 						  ndma_devs[ndma_num], eth_if->ethswitch.enabled);
@@ -1156,7 +1163,7 @@ static void adrv906x_eth_remove(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < MAX_NETDEV_NUM; i++) {
-		if (eth_if->adrv906x_dev[i]->ndma_dev) {
+		if (eth_if->adrv906x_dev[i] && eth_if->adrv906x_dev[i]->ndma_dev) {
 			adrv906x_ndma_remove(eth_if->adrv906x_dev[i]->ndma_dev);
 			if (es->enabled)
 				break;
