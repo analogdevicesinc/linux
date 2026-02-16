@@ -1141,9 +1141,13 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 				HMC7044_VCO_HIGH :
 				HMC7044_VCO_LOW) |
 				HMC7044_SYSREF_TIMER_EN | HMC7044_PLL2_EN |
-				HMC7044_PLL1_EN);
+				(ref_en ? HMC7044_PLL1_EN : 0));
 		if (ret)
 			return ret;
+
+		if (!ref_en)
+			dev_info(&hmc->spi->dev,
+				 "PLL1 disabled, no valid CLKIN reference\n");
 	}
 
 	if (hmc->pll2_cap_bank_sel != ~0) {
