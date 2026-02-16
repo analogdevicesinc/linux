@@ -704,7 +704,7 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		ret = ad9088_fsrc_configure_rx(phy, val, val2);
 		break;
 	case DBGFS_FSRC_CONFIGURE_TX:
-		if (ret < 4) {
+		if (ret < 2) {
 			dev_err(&phy->spi->dev, "Attribute requires 2 arguments <N> <M>\n");
 			return -EINVAL;
 		}
