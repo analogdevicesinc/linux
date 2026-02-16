@@ -1,0 +1,253 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+Kernel driver ltc4284
+=====================
+
+Supported chips:
+
+  * Analog Devices LTC4284
+
+    Prefix: 'ltc4284'
+
+    Addresses scanned: - I2C 0x10 - 0x17 (7-bit)
+    Addresses scanned: - I2C 0x20 - 0x2E with a step of 2 (8-bit)
+
+    Datasheet:
+
+        https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4284.pdf
+
+Author: Carlos Jones Jr <carlosjr.jones@analog.com>
+
+Description
+-----------
+
+The LTC4284 is a high power negative voltage hot swap controller with energy
+monitor, designed for -48V distributed power systems supporting up to 2500W
+applications. The device drives two external N-channel MOSFETs to allow a board
+to be safely inserted and removed from a live backplane. The dual-gate,
+multi-mode drivers optimize the MOSFET safe operating area (SOA) for a variety
+of power levels.
+
+The LTC4284 features an I2C interface and onboard gear-shift ADC that allow
+monitoring of board current, voltage, power, energy, and fault status. The
+device supports four operation modes: single driver, parallel, high stress
+staged start, and low stress staged start modes. An included EEPROM provides
+black-box capturing and nonvolatile configuration of fault behavior.
+
+Key features include:
+
+- Dual-gate MOSFET drivers with four configurable operation modes
+- Dual current sensing paths with independent sense resistors
+- 8-bit to 16-bit gear-shift ADC with 0.7% accuracy
+- Programmable current limit (15mV to 30mV sense voltage range)
+- Comprehensive voltage, current, power, and energy monitoring
+- SOA timer for MOSFET protection against overstresses
+- Selectable inrush control (dV/dt or current limit)
+- Input UV/OV protection with adjustable thresholds
+- I2C/SMBus interface with optional single-wire broadcast mode
+- Min/max measurement logging with alerts
+- Nonvolatile fault logging and configuration storage
+
+The LTC4284 is optimized for high power negative voltage applications in
+telecom infrastructure, data centers, and distributed power systems.
+
+I2C Address Configuration
+-------------------------
+
+The LTC4284 I2C address is configurable via the ADR1 and ADR0 pins:
+
+======= ======= ============ ============
+ADR1    ADR0    7-bit addr   8-bit addr
+======= ======= ============ ============
+L       L       0x10         0x20
+L       NC      0x11         0x22
+H       NC      0x12         0x24
+L       H       0x13         0x26
+NC      L       0x14         0x28
+NC      NC      0x15         0x2A
+H       H       0x16         0x2C
+NC      H       0x17         0x2E
+======= ======= ============ ============
+
+Special addresses:
+- 0x1F (0x3E): Mass write address
+- 0x0C (0x19): Alert response address
+
+Sysfs entries
+-------------
+
+The following attributes are supported. All attributes are read-only except
+reset_history attributes which are write-only.
+
+**Voltage Monitoring**
+
+======================= ===============================================
+in0_input               Power voltage VPWR (mV)
+                        Monitors voltage at RTNS or DRNS pin
+in0_lowest              Lowest measured VPWR voltage
+in0_highest             Highest measured VPWR voltage
+in0_reset_history       Write 1 to reset in0 history
+
+in1_input               Auxiliary differential voltage ADIN12 (mV)
+                        Voltage difference between ADIN2 and ADIN1
+in1_lowest              Lowest measured ADIN12 voltage
+in1_highest             Highest measured ADIN12 voltage
+in1_reset_history       Write 1 to reset in1 history
+
+in2_input               Auxiliary differential voltage ADIN34 (mV)
+                        Voltage difference between ADIN4 and ADIN3
+in2_lowest              Lowest measured ADIN34 voltage
+in2_highest             Highest measured ADIN34 voltage
+in2_reset_history       Write 1 to reset in2 history
+======================= ===============================================
+
+**Current Monitoring**
+
+======================= ===============================================
+curr1_input             Differential sense current (mA)
+                        Current measured across ADC+ and ADC- pins
+curr1_lowest            Lowest measured differential current
+curr1_highest           Highest measured differential current
+curr1_reset_history     Write 1 to reset curr1 history
+
+curr2_input             First current sense SENSE1 (mA)
+                        Current through first sense resistor
+curr2_lowest            Lowest measured SENSE1 current
+curr2_highest           Highest measured SENSE1 current
+curr2_reset_history     Write 1 to reset curr2 history
+
+curr3_input             Second current sense SENSE2 (mA)
+                        Current through second sense resistor
+curr3_lowest            Lowest measured SENSE2 current
+curr3_highest           Highest measured SENSE2 current
+curr3_reset_history     Write 1 to reset curr3 history
+======================= ===============================================
+
+**Power Monitoring**
+
+======================= ===============================================
+power1_input            Input power (µW)
+                        Calculated from current and voltage measurements
+power1_input_lowest     Lowest measured input power
+power1_input_highest    Highest measured input power
+power1_reset_history    Write 1 to reset power1 history
+======================= ===============================================
+
+Device Tree Configuration
+--------------------------
+
+The LTC4284 driver supports the following device tree properties:
+
+**Required Properties:**
+
+- ``compatible``: Must be "adi,ltc4284"
+- ``reg``: I2C address (0x10 to 0x17)
+- ``adi,rsense1-nano-ohms``: Value of first current sense resistor in nano-ohms
+
+**Optional Properties:**
+
+- ``adi,rsense2-nano-ohms``: Value of second current sense resistor in nano-ohms
+- ``adi,vin-mode-microvolt``: Input voltage mode (3300000, 5000000, 12000000, 24000000, 48000000)
+  Default: 48000000 (for -48V systems)
+- ``adi,operation-mode``: Operation mode string
+  - "single": Single driver mode
+  - "parallel": Parallel mode (default)
+  - "staged-high-stress": High stress staged start
+  - "staged-low-stress": Low stress staged start
+- ``adi,current-limit-sense-microvolt``: Current limit sense voltage (15000-30000)
+  Default: 25000
+- ``adi,inrush-control-mode``: Inrush control method
+  - "dvdt": dV/dt controlled startup
+  - "current-limit": Current limit controlled startup (default)
+- ``adi,overcurrent-retry``: Enable overcurrent auto-retry
+- ``adi,overvoltage-retry-disable``: Disable overvoltage auto-retry
+- ``adi,undervoltage-retry-disable``: Disable undervoltage auto-retry
+- ``adi,fault-log-enable``: Enable fault logging to EEPROM
+- ``adi,external-fault-enable``: Enable external fault monitoring
+- ``adi,power-good-timeout-ms``: Power good input timeout (256-1024)
+  Default: 512
+- ``adi,fet-bad-timeout-ms``: FET bad fault timeout (0-255)
+  Default: 255
+
+**Example Device Tree Entry:**
+
+.. code-block::
+
+    ltc4284@50 {
+        compatible = "adi,ltc4284";
+        reg = <0x15>;
+        adi,rsense1-nano-ohms = <500000>;     /* 0.5 mΩ */
+        adi,rsense2-nano-ohms = <330000>;     /* 0.33 mΩ */
+        adi,vin-mode-microvolt = <48000000>;  /* 48V mode */
+        adi,operation-mode = "parallel";
+        adi,current-limit-sense-microvolt = <25000>;
+        adi,inrush-control-mode = "current-limit";
+        adi,overcurrent-retry;
+        adi,fault-log-enable;
+    };
+
+Operation Modes
+---------------
+
+The LTC4284 supports four distinct operation modes for dual-gate control:
+
+**Single Mode (Mode 1):**
+Uses only GATE1 output. GATE2 remains off. Suitable for applications
+requiring single MOSFET control.
+
+**Parallel Mode (Mode 2):**
+Both GATE1 and GATE2 are driven together simultaneously. Provides
+lower on-resistance by paralleling MOSFETs. Recommended for high
+current applications.
+
+**High Stress Staged Start Mode (Mode 3):**
+GATE1 turns on first during startup, followed by GATE2 after a delay.
+Reduces initial stress but may cause higher power dissipation during
+the transition period.
+
+**Low Stress Staged Start Mode (Mode 4):**
+Optimized staging sequence that minimizes MOSFET stress during startup.
+GATE2 is enabled with precise timing to minimize power dissipation.
+
+Current Sensing
+---------------
+
+The LTC4284 provides three current measurement channels:
+
+1. **Differential Current (curr1):** Primary current measurement across
+   ADC+ and ADC- pins. This represents the total load current.
+
+2. **SENSE1 Current (curr2):** Current through the first sense resistor
+   between SENSE1+ and SENSE1- pins.
+
+3. **SENSE2 Current (curr3):** Current through the second sense resistor
+   between SENSE2+ and SENSE2- pins.
+
+The dual current sensing capability allows monitoring of individual MOSFET
+currents in parallel configurations or provides redundant current measurements
+for enhanced reliability.
+
+Accuracy and Resolution
+-----------------------
+
+- **Current Measurement Accuracy:** <3.3% (programmable current limit)
+- **Power Measurement Accuracy:** 0.7% (gear-shift ADC)
+- **ADC Resolution:** Configurable from 8-bit to 16-bit
+- **Voltage Monitoring:** Full-scale accuracy per voltage mode
+- **Current Limit Range:** 15mV to 30mV (1mV steps)
+
+Fault Protection
+----------------
+
+The LTC4284 provides comprehensive fault protection and logging:
+
+- **Overcurrent Protection:** Programmable current limiting with foldback
+- **Overvoltage/Undervoltage Protection:** Configurable thresholds
+- **FET Protection:** FET bad and FET short detection
+- **SOA Timer:** MOSFET safe operating area protection
+- **Power Good Monitoring:** Input/output power validation
+- **External Fault Input:** System-level fault integration
+- **Auto-Retry:** Configurable automatic fault recovery
+
+All fault conditions can be logged to EEPROM for post-fault analysis and
+are accessible via the fault status registers.
