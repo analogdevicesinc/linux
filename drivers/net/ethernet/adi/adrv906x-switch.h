@@ -165,8 +165,7 @@ struct adrv906x_eth_switch {
 	struct switch_port switch_port[SWITCH_MAX_PORT_NUM];
 	u8 vlan_port_mask[VLAN_N_VID];
 	u8 port_enabled_mask;
-	struct mutex lock;      /* protect data structures */
-	spinlock_t hw_lock;     /* protect hw access */
+	struct mutex lock;      /* protect data structures and hw access */
 	struct device_attribute port_vlan_ctrl_attr;
 	struct attribute_group attr_group;
 	void __iomem *reg_match_action;
@@ -188,7 +187,6 @@ struct adrv906x_eth_switch {
 };
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
-int adrv906x_switch_flood_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
 int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es,
 				  struct device_node *eth_switch_np);
 int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device *pdev,

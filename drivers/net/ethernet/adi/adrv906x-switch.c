@@ -46,8 +46,6 @@ static int adrv906x_switch_wait_for_mae_ready(struct adrv906x_eth_switch *es)
 
 static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es, u32 mask, u32 vid)
 {
-	unsigned long flags;
-	u8 enabled_mask;
 	u32 val;
 	int ret;
 
@@ -55,19 +53,15 @@ static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es
 	 * unlocked or undergoing reconfiguration, making register access
 	 * unreliable. The software state is preserved and will be synced
 	 * to MAE during recovery when interfaces come back up.
+	 *
+	 * Note: Caller must hold es->lock mutex when calling this function.
 	 */
-	spin_lock_irqsave(&es->hw_lock, flags);
-	enabled_mask = es->port_enabled_mask;
-	spin_unlock_irqrestore(&es->hw_lock, flags);
-
-	if (!(enabled_mask &  ~BIT(SWITCH_CPU_PORT)))
+	if (!(es->port_enabled_mask & ~BIT(SWITCH_CPU_PORT)))
 		return 0;
 
-	spin_lock_irqsave(&es->hw_lock, flags);
 	ret = adrv906x_switch_wait_for_mae_ready(es);
 	if (ret) {
 		dev_err(&es->pdev->dev, "vlan add timeout");
-		spin_unlock_irqrestore(&es->hw_lock, flags);
 		return ret;
 	}
 
@@ -76,7 +70,6 @@ static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es
 	val = FIELD_PREP(SWITCH_MAS_OP_CTRL_OPCODE_MASK, SWITCH_MAS_OP_CTRL_VLAN_ADD) |
 	      SWITCH_MAS_OP_CTRL_TRIGGER;
 	iowrite32(val, es->reg_match_action + SWITCH_MAS_OP_CTRL);
-	spin_unlock_irqrestore(&es->hw_lock, flags);
 
 	return 0;
 }
@@ -208,22 +201,21 @@ static int adrv906x_switch_pvid_set(struct adrv906x_eth_switch *es, u16 pvid)
 	if (pvid == 0 || pvid >= VLAN_N_VID - 1)
 		return -EINVAL;
 
+	mutex_lock(&es->lock);
 	if (es->vlan_port_mask[pvid]) {
 		dev_err(&es->pdev->dev, "cannot set pvid %u, already used", pvid);
+		mutex_unlock(&es->lock);
 		return -EINVAL;
 	}
 
-	mutex_lock(&es->lock);
 	ret = adrv906x_switch_vlan_match_action_sync(es, SWITCH_PVID_PORT_MASK, pvid);
-	if (ret)
-		goto unlock_out;
-	ret = adrv906x_switch_vlan_match_action_sync(es, 0, es->pvid);
-unlock_out:
-	mutex_unlock(&es->lock);
 	if (ret) {
 		dev_err(&es->pdev->dev, "pvid set timed out");
+		mutex_unlock(&es->lock);
 		return ret;
 	}
+
+	es->vlan_port_mask[pvid] = SWITCH_PVID_PORT_MASK;
 
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
 		val = ioread32(es->switch_port[portid].reg + SWITCH_PORT_CFG_VLAN);
@@ -231,6 +223,7 @@ unlock_out:
 		val |= pvid;
 		iowrite32(val, es->switch_port[portid].reg + SWITCH_PORT_CFG_VLAN);
 	}
+	mutex_unlock(&es->lock);
 
 	es->pvid = pvid;
 
@@ -272,22 +265,21 @@ static void adrv906x_switch_ipv_mapping_set(struct adrv906x_eth_switch *es, u32 
 
 static int adrv906x_switch_flush_fdb(struct adrv906x_eth_switch *es)
 {
-	unsigned long flags;
 	u32 val;
 	int ret;
 
-	spin_lock_irqsave(&es->hw_lock, flags);
+	mutex_lock(&es->lock);
 	ret = adrv906x_switch_wait_for_mae_ready(es);
 	if (ret) {
 		dev_err(&es->pdev->dev, "fdb flush timeout");
-		spin_unlock_irqrestore(&es->hw_lock, flags);
+		mutex_unlock(&es->lock);
 		return ret;
 	}
 
 	val = FIELD_PREP(SWITCH_MAS_OP_CTRL_OPCODE_MASK, SWITCH_MAS_OP_CTRL_MAC_TABLE_HARD_FLUSH) |
 	      SWITCH_MAS_OP_CTRL_TRIGGER;
 	iowrite32(val, es->reg_match_action + SWITCH_MAS_OP_CTRL);
-	spin_unlock_irqrestore(&es->hw_lock, flags);
+	mutex_unlock(&es->lock);
 
 	return 0;
 }
@@ -296,8 +288,6 @@ int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, 
 				  bool is_static)
 {
 	u32 val, mac_addr_hi, mac_addr_lo;
-	unsigned long flags;
-	u8 enabled_mask;
 	int ret;
 
 	if (portid >= SWITCH_MAX_PORT_NUM)
@@ -308,18 +298,17 @@ int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, 
 	 * unreliable. The software state is preserved and will be synced
 	 * to MAE during recovery when interfaces come back up.
 	 */
-	spin_lock_irqsave(&es->hw_lock, flags);
-	enabled_mask = es->port_enabled_mask;
-	spin_unlock_irqrestore(&es->hw_lock, flags);
+	mutex_lock(&es->lock);
 
-	if (!(enabled_mask &  ~BIT(SWITCH_CPU_PORT)))
+	if (!(es->port_enabled_mask & ~BIT(SWITCH_CPU_PORT))) {
+		mutex_unlock(&es->lock);
 		return 0;
+	}
 
-	spin_lock_irqsave(&es->hw_lock, flags);
 	ret = adrv906x_switch_wait_for_mae_ready(es);
 	if (ret) {
 		dev_err(&es->pdev->dev, "fdb entry add timeout");
-		spin_unlock_irqrestore(&es->hw_lock, flags);
+		mutex_unlock(&es->lock);
 		return ret;
 	}
 
@@ -334,7 +323,7 @@ int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, 
 	val = FIELD_PREP(SWITCH_MAS_OP_CTRL_OPCODE_MASK, SWITCH_MAS_OP_CTRL_MAC_INSERT) |
 	      SWITCH_MAS_OP_CTRL_TRIGGER;
 	iowrite32(val, es->reg_match_action + SWITCH_MAS_OP_CTRL);
-	spin_unlock_irqrestore(&es->hw_lock, flags);
+	mutex_unlock(&es->lock);
 
 	return 0;
 }
@@ -502,20 +491,6 @@ void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es)
 			sysfs_remove_group(&es->pdev->dev.kobj, &es->attr_group);
 }
 
-static bool __adrv906x_switch_port_enabled(struct adrv906x_eth_switch *es, int portid)
-{
-	u32 val;
-
-	if (portid >= SWITCH_MAX_PORT_NUM)
-		return false;
-
-	val = ioread32(es->switch_port[portid].reg + SWITCH_PORT_CFG_PORT);
-	if (val & SWITCH_PORT_CFG_PORT_EN)
-		return true;
-	else
-		return false;
-}
-
 static int __adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled)
 {
 	u32 val;
@@ -535,7 +510,6 @@ static int __adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int por
 
 int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 {
-	u32 port_mask = 0;
 	int portid, ret;
 	unsigned long flags;
 
@@ -548,27 +522,26 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 
 	usleep_range(1000, 1100);
 
-	spin_lock_irqsave(&es->hw_lock, flags);
-	/* Enable all switch ports before reset */
+	mutex_lock(&es->lock);
+	/* Temporarily enable all disabled ports for reset */
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
-		if (!__adrv906x_switch_port_enabled(es, portid)) {
-			port_mask |= BIT(portid);
+		if (!(es->port_enabled_mask & BIT(portid))) {
 			__adrv906x_switch_port_enable(es, portid, true);
 		}
 	}
 
 	adrv906x_cmn_switch_ports_reset(es);
 
-	/* Restore switch ports state */
+	/* Restore original port enabled/disabled state */
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++)
-		if (port_mask & BIT(portid))
+		if (!(es->port_enabled_mask & BIT(portid)))
 			__adrv906x_switch_port_enable(es, portid, false);
 
 	/* Soft reset */
 	iowrite32(SWITCH_ALL_EX_MAE, es->reg_switch + SWITCH_SOFT_RESET);
 	iowrite32(0, es->reg_switch + SWITCH_SOFT_RESET);
 
-	spin_unlock_irqrestore(&es->hw_lock, flags);
+	mutex_unlock(&es->lock);
 
 	/* Wake up recovery thread to restore VLAN membership */
 	spin_lock_irqsave(&es->cmd_flag_lock, flags);
@@ -693,37 +666,16 @@ static void adrv906x_switch_update_hw_stats(struct work_struct *work)
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled)
 {
-	unsigned long flags;
-
 	if (portid >= SWITCH_MAX_PORT_NUM)
 		return -EINVAL;
 
-	spin_lock_irqsave(&es->hw_lock, flags);
+	mutex_lock(&es->lock);
 	__adrv906x_switch_port_enable(es, portid, enabled);
 	if (enabled)
 		es->port_enabled_mask |= BIT(portid);
 	else
 		es->port_enabled_mask &= ~BIT(portid);
-	spin_unlock_irqrestore(&es->hw_lock, flags);
-
-	return 0;
-}
-
-int adrv906x_switch_flood_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled)
-{
-	u32 val, offset;
-
-	if (portid >= SWITCH_MAX_PORT_NUM)
-		return -EINVAL;
-
-	offset = portid > 31 ? SWITCH_MAS_FLOOD_MASK_2 : SWITCH_MAS_FLOOD_MASK_1;
-
-	val = ioread32(es->reg_match_action + offset);
-	if (enabled)
-		val |= BIT(portid);
-	else
-		val &= ~BIT(portid);
-	iowrite32(val, es->reg_match_action + offset);
+	mutex_unlock(&es->lock);
 
 	return 0;
 }
@@ -867,15 +819,6 @@ static void adrv906x_switch_vlan_membership_recovery(struct adrv906x_eth_switch 
 	int ret, vid;
 
 	mutex_lock(&es->lock);
-	if (es->pvid != SWITCH_PVID) {
-		ret = adrv906x_switch_vlan_match_action_sync(es, 0, SWITCH_PVID);
-		if (ret)
-			dev_warn(dev, "failed clearing vlan %d during recovery", SWITCH_PVID);
-		ret = adrv906x_switch_vlan_match_action_sync(es, SWITCH_PVID_PORT_MASK, es->pvid);
-		if (ret)
-			dev_warn(dev, "failed recovering pvid %d during recovery", SWITCH_PVID);
-	}
-
 	for (vid = 0; vid < VLAN_N_VID; vid++) {
 		if (es->vlan_port_mask[vid] == 0)
 			continue;
