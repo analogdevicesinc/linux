@@ -2518,5 +2518,5 @@ static void __exit qnoc_driver_exit(void)
 }
 module_exit(qnoc_driver_exit);
 
-MODULE_DESCRIPTION("GLYMUR NoC driver");
+MODULE_DESCRIPTION("Glymur NoC driver");
 MODULE_LICENSE("GPL");
