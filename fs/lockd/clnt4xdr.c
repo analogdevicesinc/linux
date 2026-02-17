@@ -18,8 +18,6 @@
 
 #include <uapi/linux/nfs3.h>
 
-#include "xdr4.h"
-
 #define NLMDBG_FACILITY		NLMDBG_XDR
 
 #if (NLMCLNT_OHSIZE > XDR_MAX_NETOBJ)

@@ -24,7 +24,6 @@
 
 #include "share.h"
 #include "nlm4xdr_gen.h"
-#include "xdr4.h"
 
 /*
  * Wrapper structures combine xdrgen types with legacy nlm_lock.

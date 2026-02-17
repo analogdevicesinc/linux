@@ -52,6 +52,13 @@
  */
 #define LOCKD_DFLT_TIMEO	10
 
+/* error codes new to NLMv4 */
+#define	nlm4_deadlock		cpu_to_be32(NLM_DEADLCK)
+#define	nlm4_rofs		cpu_to_be32(NLM_ROFS)
+#define	nlm4_stale_fh		cpu_to_be32(NLM_STALE_FH)
+#define	nlm4_fbig		cpu_to_be32(NLM_FBIG)
+#define	nlm4_failed		cpu_to_be32(NLM_FAILED)
+
 /*
  * Internal-use status codes, not to be placed on the wire.
  * Version handlers translate these to appropriate wire values.
