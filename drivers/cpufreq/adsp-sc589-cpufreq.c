@@ -19,7 +19,9 @@
 #define CGU0_STAT_OFFSET   0x08
 #define CGU0_DIV_OFFSET	   0x0C
 #define CGU0_CSEL_MASK	   0x1F
+#define CGU0_MSEL_MASK	   0x7F00
 
+#define CGU0_DF		   BIT(0)
 #define CGU0_CLKSALGN	   BIT(3) 
 #define CGU0_UPDT	   BIT(30)
 
@@ -58,7 +60,7 @@ static int sc589_target_index(struct cpufreq_policy *policy, unsigned int index)
 
 static unsigned int sc589_get(unsigned int cpu)
 {
-	return 450000;	
+	
 }
 
 static int sc589_wait_clock_align(void)
