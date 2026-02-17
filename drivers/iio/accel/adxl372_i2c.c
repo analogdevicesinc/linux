@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * ADXL372 3-Axis Digital Accelerometer I2C driver
+ * ADXL371/ADXL372 3-Axis Digital Accelerometer I2C driver
  *
  * Copyright 2018 Analog Devices Inc.
  */
@@ -20,10 +20,14 @@ static const struct regmap_config adxl372_regmap_config = {
 
 static int adxl372_i2c_probe(struct i2c_client *client)
 {
-	const struct i2c_device_id *id = i2c_client_get_device_id(client);
+	const struct adxl372_chip_info *chip_info;
 	struct regmap *regmap;
 	unsigned int regval;
 	int ret;
+
+	chip_info = i2c_get_match_data(client);
+	if (!chip_info)
+		return -ENODEV;
 
 	regmap = devm_regmap_init_i2c(client, &adxl372_regmap_config);
 	if (IS_ERR(regmap))
@@ -38,17 +42,19 @@ static int adxl372_i2c_probe(struct i2c_client *client)
 		dev_warn(&client->dev,
 		"I2C might not work properly with other devices on the bus");
 
-	return adxl372_probe(&client->dev, regmap, client->irq, id->name);
+	return adxl372_probe(&client->dev, regmap, client->irq, chip_info);
 }
 
 static const struct i2c_device_id adxl372_i2c_id[] = {
-	{ "adxl372" },
+	{ "adxl371", (kernel_ulong_t)&adxl371_chip_info },
+	{ "adxl372", (kernel_ulong_t)&adxl372_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, adxl372_i2c_id);
 
 static const struct of_device_id adxl372_of_match[] = {
-	{ .compatible = "adi,adxl372" },
+	{ .compatible = "adi,adxl371", .data = &adxl371_chip_info },
+	{ .compatible = "adi,adxl372", .data = &adxl372_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adxl372_of_match);
@@ -65,6 +71,6 @@ static struct i2c_driver adxl372_i2c_driver = {
 module_i2c_driver(adxl372_i2c_driver);
 
 MODULE_AUTHOR("Stefan Popa <stefan.popa@analog.com>");
-MODULE_DESCRIPTION("Analog Devices ADXL372 3-axis accelerometer I2C driver");
+MODULE_DESCRIPTION("Analog Devices ADXL371/ADXL372 3-axis accelerometer I2C driver");
 MODULE_LICENSE("GPL");
 MODULE_IMPORT_NS("IIO_ADXL372");
