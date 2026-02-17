@@ -173,7 +173,9 @@ struct adrv906x_eth_switch {
 	void __iomem *reg_switch;
 	u16 default_vids[NUM_DEFAULT_VIDS];
 	u16 pvid;
-	int err_irqs[2];
+	int err_irqs[SWITCH_MAX_PORT_NUM - 1];
+	atomic64_t err_irq_count[SWITCH_MAX_PORT_NUM - 1];
+	u64 port_reset_count;
 	struct switch_isr_args isr_pre_args;
 	struct switch_isr_args isr_post_args;
 	struct switch_port_stats port_stats[SWITCH_MAX_PORT_NUM];

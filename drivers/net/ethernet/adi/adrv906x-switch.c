@@ -72,7 +72,6 @@ static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es
 	}
 
 	iowrite32(mask, es->reg_match_action + SWITCH_MAS_PORT_MASK1);
-	iowrite32(0, es->reg_match_action + SWITCH_MAS_PORT_MASK2);
 	iowrite32(vid, es->reg_match_action + SWITCH_MAS_VLAN_ID);
 	val = FIELD_PREP(SWITCH_MAS_OP_CTRL_OPCODE_MASK, SWITCH_MAS_OP_CTRL_VLAN_ADD) |
 	      SWITCH_MAS_OP_CTRL_TRIGGER;
@@ -474,6 +473,14 @@ static ssize_t port_vlan_ctrl_show(struct device *dev,
 	for (vid = 0; vid < VLAN_N_VID; vid++) {
 		if (es->vlan_port_mask[vid] == 0)
 			continue;
+
+		/* Check space before writing: ~20 bytes per VLAN entry + 4 for "...\n" */
+		if (char_cnt + 24 >= PAGE_SIZE) {
+			if (char_cnt + 4 < PAGE_SIZE)
+				char_cnt += sprintf(buf + char_cnt, "...\n");
+			break;
+		}
+
 		char_cnt += sprintf(buf + char_cnt, "%-5d%-3s", vid, ":");
 		for (i = 0; i < 3; i++) {
 			if (es->vlan_port_mask[vid] & BIT(i))
@@ -482,10 +489,6 @@ static ssize_t port_vlan_ctrl_show(struct device *dev,
 				char_cnt += sprintf(buf + char_cnt, "   ");
 		}
 		char_cnt += sprintf(buf + char_cnt, "\n");
-		if (char_cnt + 16 >= PAGE_SIZE) {
-			sprintf(buf + char_cnt, "...\n");
-			break;
-		}
 	}
 	mutex_unlock(&es->lock);
 
@@ -536,6 +539,9 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 	int portid, ret;
 	unsigned long flags;
 
+	/* Track switch port reset count */
+	es->port_reset_count++;
+
 	ret = es->isr_pre_args.func(es->isr_pre_args.arg);
 	if (ret)
 		return ret;
@@ -581,6 +587,17 @@ static irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
 {
 	struct adrv906x_eth_switch *es = (struct adrv906x_eth_switch *)dev_id;
 	int ret;
+
+	/* Identify which port triggered the error IRQ */
+	if (es->err_irqs[0] == irq) {
+		atomic64_inc(&es->err_irq_count[0]);
+	} else if (es->err_irqs[1] == irq) {
+		atomic64_inc(&es->err_irq_count[1]);
+	} else {
+		dev_err(&es->pdev->dev, "unknown switch error irq %d (expected %d or %d)",
+			irq, es->err_irqs[0], es->err_irqs[1]);
+		return IRQ_NONE;
+	}
 
 	ret = adrv906x_switch_port_reset(es);
 	if (ret)
@@ -721,8 +738,10 @@ int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es, struct device_
 	for (i = 0; i < (SWITCH_MAX_PORT_NUM - 1); i++) {
 		snprintf(err_irq_name, ARRAY_SIZE(err_irq_name), "%s%d", "switch_error_", i);
 		ret = of_irq_get_byname(np, err_irq_name);
-		if (ret < 0)
+		if (ret < 0) {
 			dev_err(&es->pdev->dev, "failed to get switch[%d] error irq", i);
+			return ret;
+		}
 
 		es->err_irqs[i] = ret;
 
@@ -737,7 +756,7 @@ int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es, struct device_
 		}
 	}
 
-	return ret;
+	return 0;
 }
 
 int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device *pdev,
@@ -822,10 +841,10 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 
 	if (of_property_read_bool(eth_switch_np, "vlan_enabled")) {
 		es->vlan_enabled = true;
-		dev_info(dev, "VLAN is enabled");
+		dev_info(dev, "vlan is enabled");
 	} else {
 		es->vlan_enabled = false;
-		dev_info(dev, "VLAN is disabled");
+		dev_info(dev, "vlan is disabled");
 	}
 
 	es->enabled = true;
@@ -835,6 +854,10 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 
 void adrv906x_switch_cleanup(struct adrv906x_eth_switch *es)
 {
+	if (es->recovery_task) {
+		kthread_stop(es->recovery_task);
+		es->recovery_task = NULL;
+	}
 	cancel_delayed_work(&es->update_stats);
 }
 
@@ -869,8 +892,13 @@ static int adrv906x_switch_recovery(void *data)
 	struct device *dev = &es->pdev->dev;
 	unsigned long flags;
 
-	while (true) {
-		wait_event_interruptible(es->recovery_wq, es->wait_cmd_flag != SWITCH_RECOVERY_NONE);
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(es->recovery_wq,
+					 es->wait_cmd_flag != SWITCH_RECOVERY_NONE ||
+					 kthread_should_stop());
+
+		if (kthread_should_stop())
+			break;
 		dev_dbg(dev, "switch recovery cmd 0x%x", es->wait_cmd_flag);
 		if (es->wait_cmd_flag & SWITCH_RECOVERY_VID) {
 			spin_lock_irqsave(&es->cmd_flag_lock, flags);
@@ -944,7 +972,7 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	if (es->vlan_enabled) {
 		ret = sysfs_create_group(&es->pdev->dev.kobj, &es->attr_group);
 		if (ret) {
-			dev_err(dev, "Failed to create sysfs group");
+			dev_err(dev, "failed to create sysfs group");
 			return ret;
 		}
 	}
