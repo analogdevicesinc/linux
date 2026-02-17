@@ -433,7 +433,7 @@ static void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_s
 	data[60] = ndma_tx_stats->tx.data_dma_errors;
 	data[61] = ndma_tx_stats->tx.status_dma_errors;
 	data[62] = ndma_tx_stats->tx.recovery_count;
-	data[63] = es->port_reset_count;
+	data[63] = atomic64_read(&es->port_reset_count);
 
 	for (i = 0; i < SWITCH_MAX_PORT_NUM; i++) {
 		base_idx = 64 + i * (SWITCH_PORT_STATS_NUM + 1);

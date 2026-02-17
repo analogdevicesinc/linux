@@ -20,10 +20,6 @@
 #include "adrv906x-switch.h"
 #include "adrv906x-cmn.h"
 
-#define SWITCH_RECOVERY_NONE         0
-#define SWITCH_RECOVERY_VID          BIT(0)
-#define SWITCH_RECOVERY_FDB          BIT(1)
-
 static struct attribute *adrv906x_switch_attrs[4] = { NULL, NULL, NULL, NULL };
 
 static int adrv906x_switch_wait_for_mae_ready(struct adrv906x_eth_switch *es)
@@ -268,6 +264,10 @@ static int adrv906x_switch_flush_fdb(struct adrv906x_eth_switch *es)
 	u32 val;
 	int ret;
 
+	/* Check if new error occurred - abort recovery and start fresh */
+	if (atomic_read(&es->error_pending))
+		return -EINTR;
+
 	mutex_lock(&es->lock);
 	ret = adrv906x_switch_wait_for_mae_ready(es);
 	if (ret) {
@@ -299,7 +299,6 @@ int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, 
 	 * to MAE during recovery when interfaces come back up.
 	 */
 	mutex_lock(&es->lock);
-
 	if (!(es->port_enabled_mask & ~BIT(SWITCH_CPU_PORT))) {
 		mutex_unlock(&es->lock);
 		return 0;
@@ -333,6 +332,10 @@ static int adrv906x_switch_packet_trapping_set(struct adrv906x_eth_switch *es)
 	u32 val;
 	int ret;
 
+	/* Check if new error occurred - abort recovery and start fresh */
+	if (atomic_read(&es->error_pending))
+		return -EINTR;
+
 	/* Trap PTP messages from port 0 & 1 to port 2 */
 	val = SWITCH_PORT_TRAP_PTP_EN | FIELD_PREP(SWITCH_PORT_TRAP_DSTPORT_MASK, SWITCH_CPU_PORT);
 	iowrite32(val, es->switch_port[0].reg + SWITCH_PORT_TRAP_PTP);
@@ -341,10 +344,20 @@ static int adrv906x_switch_packet_trapping_set(struct adrv906x_eth_switch *es)
 	ret = adrv906x_switch_add_fdb_entry(es, EAPOL_MAC_ADDR, SWITCH_CPU_PORT, true);
 	if (ret)
 		return ret;
+
+	/* Check if new error occurred between FDB entries */
+	if (atomic_read(&es->error_pending))
+		return -EINTR;
+
 	ret = adrv906x_switch_add_fdb_entry(es, ESMC_MAC_ADDR, SWITCH_CPU_PORT, true);
 	if (ret)
 		return ret;
+
+	/* Check if new error occurred before optional PTP entry */
 	if (es->trap_ptp_fwd_en) {
+		if (atomic_read(&es->error_pending))
+			return -EINTR;
+
 		ret = adrv906x_switch_add_fdb_entry(es, PTP_FWD_ADDR, SWITCH_CPU_PORT, true);
 		if (ret)
 			return ret;
@@ -511,10 +524,9 @@ static int __adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int por
 int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 {
 	int portid, ret;
-	unsigned long flags;
 
 	/* Track switch port reset count */
-	es->port_reset_count++;
+	atomic64_inc(&es->port_reset_count);
 
 	ret = es->isr_pre_args.func(es->isr_pre_args.arg);
 	if (ret)
@@ -525,10 +537,12 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 	mutex_lock(&es->lock);
 	/* Temporarily enable all disabled ports for reset */
 	for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
-		if (!(es->port_enabled_mask & BIT(portid))) {
+		if (!(es->port_enabled_mask & BIT(portid)))
 			__adrv906x_switch_port_enable(es, portid, true);
-		}
 	}
+
+	/* Clear recovery flag before reset to group multiple error IRQs */
+	atomic_set(&es->error_pending, 0);
 
 	adrv906x_cmn_switch_ports_reset(es);
 
@@ -543,12 +557,6 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 
 	mutex_unlock(&es->lock);
 
-	/* Wake up recovery thread to restore VLAN membership */
-	spin_lock_irqsave(&es->cmd_flag_lock, flags);
-	es->wait_cmd_flag |= SWITCH_RECOVERY_VID | SWITCH_RECOVERY_FDB;
-	spin_unlock_irqrestore(&es->cmd_flag_lock, flags);
-	wake_up_interruptible(&es->recovery_wq);
-
 	ret = es->isr_post_args.func(es->isr_post_args.arg);
 	if (ret)
 		return ret;
@@ -559,7 +567,6 @@ int adrv906x_switch_port_reset(struct adrv906x_eth_switch *es)
 static irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
 {
 	struct adrv906x_eth_switch *es = (struct adrv906x_eth_switch *)dev_id;
-	int ret;
 
 	/* Identify which port triggered the error IRQ */
 	if (es->err_irqs[0] == irq) {
@@ -572,9 +579,9 @@ static irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
-	ret = adrv906x_switch_port_reset(es);
-	if (ret)
-		return IRQ_NONE;
+	/* Wake up recovery thread to handle port reset */
+	atomic_set(&es->error_pending, 1);
+	wake_up_interruptible(&es->recovery_wq);
 
 	return IRQ_HANDLED;
 }
@@ -697,10 +704,10 @@ int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es, struct device_
 
 		es->err_irqs[i] = ret;
 
-		ret = devm_request_threaded_irq(&es->pdev->dev, es->err_irqs[i],
-						NULL, adrv906x_switch_error_isr,
-						IRQF_SHARED | IRQF_ONESHOT,
-						dev_name(&es->pdev->dev), es);
+		ret = devm_request_irq(&es->pdev->dev, es->err_irqs[i],
+				       adrv906x_switch_error_isr,
+				       IRQF_SHARED,
+				       dev_name(&es->pdev->dev), es);
 		if (ret) {
 			dev_err(&es->pdev->dev, "failed to request switch[%d] error irq: %d",
 				i, es->err_irqs[i]);
@@ -813,50 +820,75 @@ void adrv906x_switch_cleanup(struct adrv906x_eth_switch *es)
 	cancel_delayed_work(&es->update_stats);
 }
 
-static void adrv906x_switch_vlan_membership_recovery(struct adrv906x_eth_switch *es)
+static int adrv906x_switch_vlan_membership_recovery(struct adrv906x_eth_switch *es)
 {
 	struct device *dev = &es->pdev->dev;
 	int ret, vid;
 
 	mutex_lock(&es->lock);
 	for (vid = 0; vid < VLAN_N_VID; vid++) {
+		/* Check if new error occurred - abort recovery and start fresh */
+		if (atomic_read(&es->error_pending)) {
+			mutex_unlock(&es->lock);
+			return -EINTR;
+		}
+
 		if (es->vlan_port_mask[vid] == 0)
 			continue;
 		ret = adrv906x_switch_vlan_match_action_sync(es, es->vlan_port_mask[vid], vid);
-		if (ret)
+		if (ret) {
 			dev_warn(dev, "failed recovering vlan %d", vid);
+			mutex_unlock(&es->lock);
+			return ret;
+		}
 	}
 	mutex_unlock(&es->lock);
+
+	return 0;
 }
 
-static int adrv906x_switch_recovery(void *data)
+static int adrv906x_switch_recovery_thread(void *data)
 {
 	struct adrv906x_eth_switch *es = (struct adrv906x_eth_switch *)data;
-	struct device *dev = &es->pdev->dev;
-	unsigned long flags;
+	struct device *dev __maybe_unused = &es->pdev->dev;
+	int ret;
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(es->recovery_wq,
-					 es->wait_cmd_flag != SWITCH_RECOVERY_NONE ||
+					 atomic_read(&es->error_pending) ||
 					 kthread_should_stop());
 
 		if (kthread_should_stop())
 			break;
-		dev_dbg(dev, "switch recovery cmd 0x%x", es->wait_cmd_flag);
-		if (es->wait_cmd_flag & SWITCH_RECOVERY_VID) {
-			spin_lock_irqsave(&es->cmd_flag_lock, flags);
-			es->wait_cmd_flag &= ~SWITCH_RECOVERY_VID;
-			spin_unlock_irqrestore(&es->cmd_flag_lock, flags);
-			dev_info(dev, "restore vlan membership after switch reset");
-			adrv906x_switch_vlan_membership_recovery(es);
+
+		/* Perform port reset */
+		dev_dbg(dev, "performing switch port reset");
+		ret = adrv906x_switch_port_reset(es);
+		if (ret) {
+			dev_dbg(dev, "switch port reset failed: %d", ret);
+			continue;
 		}
-		if (es->wait_cmd_flag & SWITCH_RECOVERY_FDB) {
-			spin_lock_irqsave(&es->cmd_flag_lock, flags);
-			es->wait_cmd_flag &= ~SWITCH_RECOVERY_FDB;
-			spin_unlock_irqrestore(&es->cmd_flag_lock, flags);
-			dev_info(dev, "restore fdb after switch reset");
-			adrv906x_switch_flush_fdb(es);
-			adrv906x_switch_packet_trapping_set(es);
+
+		/* Restore VLAN membership */
+		dev_dbg(dev, "restore vlan membership after switch reset");
+		ret = adrv906x_switch_vlan_membership_recovery(es);
+		if (ret) {
+			dev_dbg(dev, "vlan recovery interrupted, restarting recovery sequence");
+			continue;
+		}
+
+		/* Restore FDB */
+		dev_dbg(dev, "restore fdb after switch reset");
+		ret = adrv906x_switch_flush_fdb(es);
+		if (ret) {
+			dev_dbg(dev, "fdb flush interrupted, restarting recovery sequence");
+			continue;
+		}
+
+		ret = adrv906x_switch_packet_trapping_set(es);
+		if (ret) {
+			dev_dbg(dev, "packet trapping setup interrupted, restarting recovery sequence");
+			continue;
 		}
 	}
 
@@ -923,17 +955,18 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	INIT_DELAYED_WORK(&es->update_stats, adrv906x_switch_update_hw_stats);
 	mod_delayed_work(system_long_wq, &es->update_stats, msecs_to_jiffies(1000));
 
-	spin_lock_init(&es->cmd_flag_lock);
 	init_waitqueue_head(&es->recovery_wq);
-	es->wait_cmd_flag = SWITCH_RECOVERY_NONE;
-	es->recovery_task = kthread_create(adrv906x_switch_recovery, (void *)es,
+	atomic_set(&es->error_pending, 0);
+	es->recovery_task = kthread_create(adrv906x_switch_recovery_thread, (void *)es,
 					   "adrv906x_switch_recovery_thread");
-	if (es->recovery_task) {
-		dev_info(dev, "recovery thread created");
-		wake_up_process(es->recovery_task);
-	} else {
-		dev_info(dev, "recovery thread creation failed");
+	if (IS_ERR(es->recovery_task)) {
+		ret = PTR_ERR(es->recovery_task);
+		dev_err(dev, "failed to create switch error recovery thread: %d", ret);
+		es->recovery_task = NULL;
+		return ret;
 	}
+
+	wake_up_process(es->recovery_task);
 
 	return 0;
 }

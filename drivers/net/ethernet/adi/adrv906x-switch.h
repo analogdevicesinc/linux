@@ -174,16 +174,15 @@ struct adrv906x_eth_switch {
 	u16 pvid;
 	int err_irqs[SWITCH_MAX_PORT_NUM - 1];
 	atomic64_t err_irq_count[SWITCH_MAX_PORT_NUM - 1];
-	u64 port_reset_count;
+	atomic64_t port_reset_count;
 	struct switch_isr_args isr_pre_args;
 	struct switch_isr_args isr_post_args;
 	struct switch_port_stats port_stats[SWITCH_MAX_PORT_NUM];
 	struct delayed_work update_stats;
 	bool trap_ptp_fwd_en;
 	wait_queue_head_t recovery_wq;
-	u16 wait_cmd_flag;
+	atomic_t error_pending;
 	struct task_struct *recovery_task;
-	spinlock_t cmd_flag_lock; /* protect waitqueue cmd flag */
 };
 
 int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
