@@ -585,23 +585,6 @@ out:
 		rpc_drop_reply : rpc_success;
 }
 
-/*
- * GRANTED: A server calls us to tell that a process' lock request
- * was granted
- */
-static __be32
-__nlm4svc_proc_granted(struct svc_rqst *rqstp, struct nlm_res *resp)
-{
-	struct nlm_args *argp = rqstp->rq_argp;
-
-	resp->cookie = argp->cookie;
-
-	dprintk("lockd: GRANTED       called\n");
-	resp->status = nlmclnt_grant(svc_addr(rqstp), &argp->lock);
-	dprintk("lockd: GRANTED       status %d\n", ntohl(resp->status));
-	return rpc_success;
-}
-
 /**
  * nlm4svc_proc_granted - GRANTED: Server grants a previously blocked lock
  * @rqstp: RPC transaction context
@@ -932,19 +915,48 @@ static __be32 nlm4svc_proc_unlock_msg(struct svc_rqst *rqstp)
 				__nlm4svc_proc_unlock_msg);
 }
 
+static __be32
+__nlm4svc_proc_granted_msg(struct svc_rqst *rqstp, struct nlm_res *resp)
+{
+	struct nlm4_testargs_wrapper *argp = rqstp->rq_argp;
+
+	resp->status = nlm_lck_denied;
+	if (nlm4_netobj_to_cookie(&resp->cookie, &argp->xdrgen.cookie))
+		goto out;
+
+	if (nlm4_lock_to_nlm_lock(&argp->lock, &argp->xdrgen.alock))
+		goto out;
+
+	resp->status = nlmclnt_grant(svc_addr(rqstp), &argp->lock);
+
+out:
+	return rpc_success;
+}
+
+/**
+ * nlm4svc_proc_granted_msg - GRANTED_MSG: Blocked lock has been granted
+ * @rqstp: RPC transaction context
+ *
+ * Returns:
+ *   %rpc_success:		RPC executed successfully.
+ *   %rpc_system_err:		RPC execution failed.
+ *
+ * RPC synopsis:
+ *   void NLMPROC4_GRANTED_MSG(nlm4_testargs) = 10;
+ *
+ * The response to this request is delivered via the GRANTED_RES procedure.
+ */
 static __be32 nlm4svc_proc_granted_msg(struct svc_rqst *rqstp)
 {
-	struct nlm_args *argp = rqstp->rq_argp;
-	struct nlm_host	*host;
+	struct nlm4_testargs_wrapper *argp = rqstp->rq_argp;
+	struct nlm_host *host;
 
-	dprintk("lockd: GRANTED_MSG   called\n");
-
-	host = nlmsvc_lookup_host(rqstp, argp->lock.caller, argp->lock.len);
+	host = nlm4svc_lookup_host(rqstp, argp->xdrgen.alock.caller_name, false);
 	if (!host)
 		return rpc_system_err;
 
-	return nlm4svc_callback(rqstp, host, NLMPROC_GRANTED_RES,
-				__nlm4svc_proc_granted);
+	return nlm4svc_callback(rqstp, host, NLMPROC4_GRANTED_RES,
+				__nlm4svc_proc_granted_msg);
 }
 
 /*
@@ -1208,15 +1220,15 @@ static const struct svc_procedure nlm4svc_procedures[24] = {
 		.pc_xdrressize	= XDR_void,
 		.pc_name	= "UNLOCK_MSG",
 	},
-	[NLMPROC_GRANTED_MSG] = {
-		.pc_func = nlm4svc_proc_granted_msg,
-		.pc_decode = nlm4svc_decode_testargs,
-		.pc_encode = nlm4svc_encode_void,
-		.pc_argsize = sizeof(struct nlm_args),
-		.pc_argzero = sizeof(struct nlm_args),
-		.pc_ressize = sizeof(struct nlm_void),
-		.pc_xdrressize = St,
-		.pc_name = "GRANTED_MSG",
+	[NLMPROC4_GRANTED_MSG] = {
+		.pc_func	= nlm4svc_proc_granted_msg,
+		.pc_decode	= nlm4_svc_decode_nlm4_testargs,
+		.pc_encode	= nlm4_svc_encode_void,
+		.pc_argsize	= sizeof(struct nlm4_testargs_wrapper),
+		.pc_argzero	= 0,
+		.pc_ressize	= 0,
+		.pc_xdrressize	= XDR_void,
+		.pc_name	= "GRANTED_MSG",
 	},
 	[NLMPROC_TEST_RES] = {
 		.pc_func = nlm4svc_proc_null,
