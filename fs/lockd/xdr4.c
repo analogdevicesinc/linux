@@ -257,9 +257,6 @@ nlm4svc_decode_shareargs(struct svc_rqst *rqstp, struct xdr_stream *xdr)
 	struct nlm_args *argp = rqstp->rq_argp;
 	struct nlm_lock	*lock = &argp->lock;
 
-	locks_init_lock(&lock->fl);
-	lock->svid = ~(u32)0;
-
 	if (!svcxdr_decode_cookie(xdr, &argp->cookie))
 		return false;
 	if (!svcxdr_decode_string(xdr, &lock->caller, &lock->len))
