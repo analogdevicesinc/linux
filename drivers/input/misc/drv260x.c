@@ -9,6 +9,7 @@
 
 #include <linux/acpi.h>
 #include <linux/delay.h>
+#include <linux/device/devres.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
@@ -433,6 +434,13 @@ static const struct regmap_config drv260x_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+static void drv260x_power_off(void *data)
+{
+	struct drv260x_data *haptics = data;
+
+	regulator_disable(haptics->regulator);
+}
+
 static int drv260x_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -497,6 +505,16 @@ static int drv260x_probe(struct i2c_client *client)
 		dev_err(dev, "unable to get regulator, error: %d\n", error);
 		return error;
 	}
+
+	error = regulator_enable(haptics->regulator);
+	if (error) {
+		dev_err(dev, "Failed to enable regulator: %d\n", error);
+		return error;
+	}
+
+	error = devm_add_action_or_reset(dev, drv260x_power_off, haptics);
+	if (error)
+		return error;
 
 	haptics->enable_gpio = devm_gpiod_get_optional(dev, "enable",
 						       GPIOD_OUT_HIGH);
