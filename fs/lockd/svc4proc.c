@@ -13,7 +13,17 @@
 #include <linux/sunrpc/svc_xprt.h>
 
 #include "lockd.h"
+
+/*
+ * xdr.h defines SM_MAXSTRLEN and SM_PRIV_SIZE as macros.
+ * nlm4xdr_gen.h defines them as enum constants. Undefine the
+ * macros to allow the xdrgen enum definitions to be used.
+ */
+#undef SM_MAXSTRLEN
+#undef SM_PRIV_SIZE
+
 #include "share.h"
+#include "nlm4xdr_gen.h"
 #include "xdr4.h"
 
 #define NLMDBG_FACILITY		NLMDBG_CLIENT
@@ -92,13 +102,19 @@ no_locks:
 	}
 }
 
-/*
- * NULL: Test for presence of service
+/**
+ * nlm4svc_proc_null - NULL: Test for presence of service
+ * @rqstp: RPC transaction context
+ *
+ * Returns:
+ *   %rpc_success:		RPC executed successfully
+ *
+ * RPC synopsis:
+ *   void NLMPROC4_NULL(void) = 0;
  */
 static __be32
 nlm4svc_proc_null(struct svc_rqst *rqstp)
 {
-	dprintk("lockd: NULL          called\n");
 	return rpc_success;
 }
 
@@ -531,15 +547,15 @@ struct nlm_void			{ int dummy; };
 #define	Rg	4					/* range (offset + length) */
 
 static const struct svc_procedure nlm4svc_procedures[24] = {
-	[NLMPROC_NULL] = {
-		.pc_func = nlm4svc_proc_null,
-		.pc_decode = nlm4svc_decode_void,
-		.pc_encode = nlm4svc_encode_void,
-		.pc_argsize = sizeof(struct nlm_void),
-		.pc_argzero = sizeof(struct nlm_void),
-		.pc_ressize = sizeof(struct nlm_void),
-		.pc_xdrressize = St,
-		.pc_name = "NULL",
+	[NLMPROC4_NULL] = {
+		.pc_func	= nlm4svc_proc_null,
+		.pc_decode	= nlm4_svc_decode_void,
+		.pc_encode	= nlm4_svc_encode_void,
+		.pc_argsize	= XDR_void,
+		.pc_argzero	= 0,
+		.pc_ressize	= 0,
+		.pc_xdrressize	= XDR_void,
+		.pc_name	= "NULL",
 	},
 	[NLMPROC_TEST] = {
 		.pc_func = nlm4svc_proc_test,
