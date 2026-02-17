@@ -1483,8 +1483,8 @@ static int ad4630_probe(struct spi_device *spi)
 	st->regmap = devm_regmap_init(&spi->dev, &ad4630_regmap_bus, st,
 				      &ad4630_regmap_config);
 	if (IS_ERR(st->regmap))
-		dev_err_probe(&spi->dev,  PTR_ERR(st->regmap),
-			      "Failed to initialize regmap\n");
+		return dev_err_probe(&spi->dev, PTR_ERR(st->regmap),
+				     "Failed to initialize regmap\n");
 
 	ret = ad4630_regulators_get(st);
 	if (ret)
@@ -1494,8 +1494,8 @@ static int ad4630_probe(struct spi_device *spi)
 						      GPIOD_OUT_LOW);
 
 	if (IS_ERR(st->pga_gpios))
-		dev_err_probe(&spi->dev, PTR_ERR(st->pga_gpios),
-			      "Failed to get PGA GPIOs\n");
+		return dev_err_probe(&spi->dev, PTR_ERR(st->pga_gpios),
+				     "Failed to get PGA GPIOs\n");
 
 	ret = ad4630_reset(st);
 	if (ret)
