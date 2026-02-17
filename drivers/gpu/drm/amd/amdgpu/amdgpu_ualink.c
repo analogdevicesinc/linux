@@ -1283,6 +1283,37 @@ static void amdgpu_ualink_cleanup_exp_xa_node(struct kref *ref)
 
 static void amdgpu_ualink_cleanup_imp_xa_node(struct kref *ref)
 {
+	struct amdgpu_ualink_imp_xa_node *imp_xa_node;
+	struct amdgpu_device *adev;
+
+	imp_xa_node = container_of(ref, struct amdgpu_ualink_imp_xa_node,
+				   refcount);
+	adev = imp_xa_node->adev;
+
+	dev_dbg(adev->dev, "IMP-CLEANUP: Remove entry from XA for handle:%llx:%llx\n",
+		imp_xa_node->handle.handle_hi, imp_xa_node->handle.handle_lo);
+
+	/* Remove node from the Xarray */
+	if (!xa_erase(&adev->ualink.imp_xa, imp_xa_node->handle.handle_lo))
+		dev_err(adev->dev, "IMP-CLEANUP: Failed to find entry in XA for handle:%llx:%llx\n",
+			imp_xa_node->handle.handle_hi, imp_xa_node->handle.handle_lo);
+
+	if (imp_xa_node->npa_addr && imp_xa_node->size && imp_xa_node->dmabuf) {
+		dev_dbg(adev->dev,
+			"IMP-CLEANUP: dmabuf free for NPA:%llx handle:%llx:%llx, fc:%lu\n",
+			imp_xa_node->npa_addr, imp_xa_node->handle.handle_hi,
+			imp_xa_node->handle.handle_lo,
+			file_count(imp_xa_node->dmabuf->file));
+		dma_buf_put(imp_xa_node->dmabuf);
+		drm_gem_handle_delete(adev->ualink.client.file,
+				      imp_xa_node->gem_handle);
+
+	}
+
+	dev_dbg(adev->dev, "IMP-CLEANUP: Freeing XA entry for handle:%llx:%llx\n",
+		imp_xa_node->handle.handle_hi, imp_xa_node->handle.handle_lo);
+
+	kfree(imp_xa_node);
 }
 
 static int amdgpu_ualink_exp_xa_entry_get(struct amdgpu_ualink_exp_xa_node *exp_xa_node)
