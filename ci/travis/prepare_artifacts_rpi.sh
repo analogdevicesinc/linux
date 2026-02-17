@@ -70,11 +70,16 @@ artifacts_structure() {
 artifacts_artifactory() {
 	artifacts_structure
 	cd ${SOURCE_DIRECTORY}
-	python ../ci/travis/upload_to_artifactory.py --base_path="${ARTIFACTORY_PATH}" \
-		--server_path="linux_rpi/${BUILD_SOURCEBRANCHNAME}" --local_path="${timestamp}" \
-		--token="${ARTIFACTORY_TOKEN}" --log_file="upload_to_artifactory.log" \
+	python ../ci/travis/upload_to_artifactory_parallel.py \
+		--base_path="${ARTIFACTORY_PATH}" \
+		--server_path="linux_rpi/${BUILD_SOURCEBRANCHNAME}/${timestamp}" \
+		--local_path="${timestamp}" \
+		--token="${ARTIFACTORY_TOKEN}" \
+		--log_file="upload_to_artifactory.log" \
 		--properties="git_branch=$BUILD_SOURCEBRANCHNAME;git_sha=$GIT_SHA;git_sha_date=$GIT_SHA_DATE;" \
-		--props_level=3
+		--props_level=3 \
+		--max_workers=10
+
 }
 
 #archive artifacts and upload to SWDownloads
