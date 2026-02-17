@@ -74,6 +74,13 @@ struct nlm4_testres_wrapper {
 	struct nlm_lock			lock;
 };
 
+struct nlm4_shareargs_wrapper {
+	struct nlm4_shareargs		xdrgen;
+	struct nlm_lock			lock;
+};
+
+static_assert(offsetof(struct nlm4_shareargs_wrapper, xdrgen) == 0);
+
 static_assert(offsetof(struct nlm4_testres_wrapper, xdrgen) == 0);
 
 struct nlm4_res_wrapper {
@@ -82,6 +89,12 @@ struct nlm4_res_wrapper {
 };
 
 static_assert(offsetof(struct nlm4_res_wrapper, xdrgen) == 0);
+
+struct nlm4_shareres_wrapper {
+	struct nlm4_shareres		xdrgen;
+};
+
+static_assert(offsetof(struct nlm4_shareres_wrapper, xdrgen) == 0);
 
 static __be32
 nlm4_netobj_to_cookie(struct nlm_cookie *cookie, netobj *object)
@@ -1041,45 +1054,74 @@ static __be32 nlm4svc_proc_unused(struct svc_rqst *rqstp)
 	return rpc_proc_unavail;
 }
 
-/*
- * SHARE: create a DOS share or alter existing share.
+/**
+ * nlm4svc_proc_share - SHARE: Open a file using DOS file-sharing modes
+ * @rqstp: RPC transaction context
+ *
+ * Returns:
+ *   %rpc_success:		RPC executed successfully.
+ *   %rpc_drop_reply:		Do not send an RPC reply.
+ *
+ * RPC synopsis:
+ *   nlm4_shareres NLMPROC4_SHARE(nlm4_shareargs) = 20;
+ *
+ * Permissible procedure status codes:
+ *   %NLM4_GRANTED:		The requested share lock was granted.
+ *   %NLM4_DENIED:		The requested lock conflicted with existing
+ *				lock reservations for the file.
+ *   %NLM4_DENIED_GRACE_PERIOD:	The server has recently restarted and is
+ *				re-establishing existing locks, and is not
+ *				yet ready to accept normal service requests.
+ *
+ * The Linux NLM server implementation also returns:
+ *   %NLM4_DENIED_NOLOCKS:	A needed resource could not be allocated.
+ *   %NLM4_STALE_FH:		The request specified an invalid file handle.
+ *   %NLM4_FBIG:		The request specified a length or offset
+ *				that exceeds the range supported by the
+ *				server.
+ *   %NLM4_FAILED:		The request failed for an unspecified reason.
  */
-static __be32
-nlm4svc_proc_share(struct svc_rqst *rqstp)
+static __be32 nlm4svc_proc_share(struct svc_rqst *rqstp)
 {
-	struct nlm_args *argp = rqstp->rq_argp;
-	struct nlm_res *resp = rqstp->rq_resp;
+	struct nlm4_shareargs_wrapper *argp = rqstp->rq_argp;
+	struct nlm4_shareres_wrapper *resp = rqstp->rq_resp;
 	struct nlm_lock	*lock = &argp->lock;
-	struct nlm_host	*host;
-	struct nlm_file	*file;
+	struct nlm_host	*host = NULL;
+	struct nlm_file	*file = NULL;
+	struct nlm4_lock xdr_lock = {
+		.fh		= argp->xdrgen.share.fh,
+		.oh		= argp->xdrgen.share.oh,
+		.svid		= ~(u32)0,
+	};
 
-	dprintk("lockd: SHARE         called\n");
+	resp->xdrgen.cookie = argp->xdrgen.cookie;
 
-	resp->cookie = argp->cookie;
+	resp->xdrgen.stat = nlm_lck_denied_grace_period;
+	if (locks_in_grace(SVC_NET(rqstp)) && !argp->xdrgen.reclaim)
+		goto out;
 
-	/* Don't accept new lock requests during grace period */
-	if (locks_in_grace(SVC_NET(rqstp)) && !argp->reclaim) {
-		resp->status = nlm_lck_denied_grace_period;
-		return rpc_success;
-	}
+	resp->xdrgen.stat = nlm_lck_denied_nolocks;
+	host = nlm4svc_lookup_host(rqstp, argp->xdrgen.share.caller_name, true);
+	if (!host)
+		goto out;
 
-	/* Obtain client and file */
-	locks_init_lock(&lock->fl);
-	lock->svid = ~(u32)0;
-	resp->status = nlm4svc_retrieve_args(rqstp, argp, &host, &file);
-	if (resp->status)
-		return resp->status == nlm__int__drop_reply ?
-			rpc_drop_reply : rpc_success;
+	resp->xdrgen.stat = nlm4svc_lookup_file(rqstp, host, lock, &file,
+						&xdr_lock, F_RDLCK);
+	if (resp->xdrgen.stat)
+		goto out;
 
-	/* Now try to create the share */
-	resp->status = nlmsvc_share_file(host, file, &lock->oh,
-					 argp->fsm_access, argp->fsm_mode);
+	resp->xdrgen.stat = nlmsvc_share_file(host, file, &lock->oh,
+					      argp->xdrgen.share.access,
+					      argp->xdrgen.share.mode);
 
-	dprintk("lockd: SHARE         status %d\n", ntohl(resp->status));
 	nlmsvc_release_lockowner(lock);
+
+out:
+	if (file)
+		nlm_release_file(file);
 	nlmsvc_release_host(host);
-	nlm_release_file(file);
-	return rpc_success;
+	return resp->xdrgen.stat == nlm__int__drop_reply ?
+		rpc_drop_reply : rpc_success;
 }
 
 /*
@@ -1367,15 +1409,15 @@ static const struct svc_procedure nlm4svc_procedures[24] = {
 		.pc_xdrressize	= XDR_void,
 		.pc_name	= "UNUSED",
 	},
-	[NLMPROC_SHARE] = {
-		.pc_func = nlm4svc_proc_share,
-		.pc_decode = nlm4svc_decode_shareargs,
-		.pc_encode = nlm4svc_encode_shareres,
-		.pc_argsize = sizeof(struct nlm_args),
-		.pc_argzero = sizeof(struct nlm_args),
-		.pc_ressize = sizeof(struct nlm_res),
-		.pc_xdrressize = Ck+St+1,
-		.pc_name = "SHARE",
+	[NLMPROC4_SHARE] = {
+		.pc_func	= nlm4svc_proc_share,
+		.pc_decode	= nlm4_svc_decode_nlm4_shareargs,
+		.pc_encode	= nlm4_svc_encode_nlm4_shareres,
+		.pc_argsize	= sizeof(struct nlm4_shareargs_wrapper),
+		.pc_argzero	= 0,
+		.pc_ressize	= sizeof(struct nlm4_shareres_wrapper),
+		.pc_xdrressize	= NLM4_nlm4_shareres_sz,
+		.pc_name	= "SHARE",
 	},
 	[NLMPROC_UNSHARE] = {
 		.pc_func = nlm4svc_proc_unshare,
@@ -1418,8 +1460,10 @@ union nlm4svc_xdrstore {
 	struct nlm4_cancargs_wrapper	cancargs;
 	struct nlm4_unlockargs_wrapper	unlockargs;
 	struct nlm4_notifyargs_wrapper	notifyargs;
+	struct nlm4_shareargs_wrapper	shareargs;
 	struct nlm4_testres_wrapper	testres;
 	struct nlm4_res_wrapper		res;
+	struct nlm4_shareres_wrapper	shareres;
 	struct nlm_args			args;
 };
 
