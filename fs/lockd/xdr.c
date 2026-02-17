@@ -19,6 +19,7 @@
 #include <uapi/linux/nfs2.h>
 
 #include "lockd.h"
+#include "share.h"
 #include "svcxdr.h"
 
 static inline loff_t
@@ -274,7 +275,7 @@ nlmsvc_decode_shareargs(struct svc_rqst *rqstp, struct xdr_stream *xdr)
 
 	memset(lock, 0, sizeof(*lock));
 	locks_init_lock(&lock->fl);
-	lock->svid = ~(u32)0;
+	lock->svid = LOCKD_SHARE_SVID;
 
 	if (!svcxdr_decode_cookie(xdr, &argp->cookie))
 		return false;

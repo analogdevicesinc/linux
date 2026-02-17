@@ -985,7 +985,7 @@ static __be32 nlm4svc_proc_share(struct svc_rqst *rqstp)
 	struct nlm4_lock xdr_lock = {
 		.fh		= argp->xdrgen.share.fh,
 		.oh		= argp->xdrgen.share.oh,
-		.svid		= ~(u32)0,
+		.svid		= LOCKD_SHARE_SVID,
 	};
 
 	resp->xdrgen.cookie = argp->xdrgen.cookie;
@@ -1051,7 +1051,7 @@ static __be32 nlm4svc_proc_unshare(struct svc_rqst *rqstp)
 	struct nlm4_lock xdr_lock = {
 		.fh		= argp->xdrgen.share.fh,
 		.oh		= argp->xdrgen.share.oh,
-		.svid		= ~(u32)0,
+		.svid		= LOCKD_SHARE_SVID,
 	};
 	struct nlm_host	*host = NULL;
 	struct nlm_file	*file = NULL;

@@ -8,6 +8,9 @@
 #ifndef _LOCKD_SHARE_H
 #define _LOCKD_SHARE_H
 
+/* Synthetic svid for lockowner lookup during share operations */
+#define LOCKD_SHARE_SVID	(~(u32)0)
+
 /*
  * DOS share for a specific file
  */
