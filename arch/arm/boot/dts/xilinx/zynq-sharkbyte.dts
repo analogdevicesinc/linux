@@ -201,6 +201,14 @@
 	status = "disabled";
 };
 
+/* onboard emmc flash*/
+&sdhci1 {
+	status = "okay";
+	non-removable;
+	disable-wp;
+    bus-width = <4>;
+};
+
 &watchdog0 {
 	status = "okay";
 	reset-on-timeout;
