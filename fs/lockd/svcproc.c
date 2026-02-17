@@ -423,7 +423,9 @@ nlmsvc_proc_share(struct svc_rqst *rqstp)
 			rpc_drop_reply : rpc_success;
 
 	/* Now try to create the share */
-	resp->status = cast_status(nlmsvc_share_file(host, file, argp));
+	resp->status = cast_status(nlmsvc_share_file(host, file, &argp->lock.oh,
+						     argp->fsm_access,
+						     argp->fsm_mode));
 
 	dprintk("lockd: SHARE         status %d\n", ntohl(resp->status));
 	nlmsvc_release_lockowner(&argp->lock);
@@ -459,7 +461,8 @@ nlmsvc_proc_unshare(struct svc_rqst *rqstp)
 			rpc_drop_reply : rpc_success;
 
 	/* Now try to unshare the file */
-	resp->status = cast_status(nlmsvc_unshare_file(host, file, argp));
+	resp->status = cast_status(nlmsvc_unshare_file(host, file,
+						       &argp->lock.oh));
 
 	dprintk("lockd: UNSHARE       status %d\n", ntohl(resp->status));
 	nlmsvc_release_lockowner(&argp->lock);
