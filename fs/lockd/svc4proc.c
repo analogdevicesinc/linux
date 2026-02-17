@@ -69,6 +69,12 @@ struct nlm4_notifyargs_wrapper {
 
 static_assert(offsetof(struct nlm4_notifyargs_wrapper, xdrgen) == 0);
 
+struct nlm4_notify_wrapper {
+	struct nlm4_notify		xdrgen;
+};
+
+static_assert(offsetof(struct nlm4_notify_wrapper, xdrgen) == 0);
+
 struct nlm4_testres_wrapper {
 	struct nlm4_testres		xdrgen;
 	struct nlm_lock			lock;
@@ -189,80 +195,6 @@ nlm4svc_lookup_file(struct svc_rqst *rqstp, struct nlm_host *host,
 		return nlm_lck_denied_nolocks;
 
 	return nlm_granted;
-}
-
-/*
- * Obtain client and file from arguments
- */
-static __be32
-nlm4svc_retrieve_args(struct svc_rqst *rqstp, struct nlm_args *argp,
-			struct nlm_host **hostp, struct nlm_file **filp)
-{
-	struct nlm_host		*host = NULL;
-	struct nlm_file		*file = NULL;
-	struct nlm_lock		*lock = &argp->lock;
-	__be32			error = 0;
-
-	/* nfsd callbacks must have been installed for this procedure */
-	if (!nlmsvc_ops)
-		return nlm_lck_denied_nolocks;
-
-	if (lock->lock_start > OFFSET_MAX ||
-	    (lock->lock_len && ((lock->lock_len - 1) > (OFFSET_MAX - lock->lock_start))))
-		return nlm4_fbig;
-
-	/* Obtain host handle */
-	if (!(host = nlmsvc_lookup_host(rqstp, lock->caller, lock->len))
-	 || (argp->monitor && nsm_monitor(host) < 0))
-		goto no_locks;
-	*hostp = host;
-
-	/* Obtain file pointer. Not used by FREE_ALL call. */
-	if (filp != NULL) {
-		int mode = lock_to_openmode(&lock->fl);
-
-		lock->fl.c.flc_flags = FL_POSIX;
-
-		error = nlm_lookup_file(rqstp, &file, lock);
-		if (error)
-			goto no_locks;
-		*filp = file;
-
-		/* Set up the missing parts of the file_lock structure */
-		lock->fl.c.flc_file = file->f_file[mode];
-		lock->fl.c.flc_pid = current->tgid;
-		lock->fl.fl_start = (loff_t)lock->lock_start;
-		lock->fl.fl_end = lock->lock_len ?
-				   (loff_t)(lock->lock_start + lock->lock_len - 1) :
-				   OFFSET_MAX;
-		lock->fl.fl_lmops = &nlmsvc_lock_operations;
-		nlmsvc_locks_init_private(&lock->fl, host, (pid_t)lock->svid);
-		if (!lock->fl.c.flc_owner) {
-			/* lockowner allocation has failed */
-			nlmsvc_release_host(host);
-			return nlm_lck_denied_nolocks;
-		}
-	}
-
-	return 0;
-
-no_locks:
-	nlmsvc_release_host(host);
-	switch (error) {
-	case nlm_granted:
-		return nlm_lck_denied_nolocks;
-	case nlm__int__stale_fh:
-		return nlm4_stale_fh;
-	case nlm__int__failed:
-		return nlm4_failed;
-	default:
-		if (be32_to_cpu(error) >= 30000) {
-			pr_warn_once("lockd: unhandled internal status %u\n",
-				     be32_to_cpu(error));
-			return nlm4_failed;
-		}
-		return error;
-	}
 }
 
 /**
@@ -1191,21 +1123,30 @@ static __be32 nlm4svc_proc_nm_lock(struct svc_rqst *rqstp)
 	return nlm4svc_do_lock(rqstp, false);
 }
 
-/*
- * FREE_ALL: Release all locks and shares held by client
+/**
+ * nlm4svc_proc_free_all - FREE_ALL: Discard client's lock and share state
+ * @rqstp: RPC transaction context
+ *
+ * Returns:
+ *   %rpc_success:		RPC executed successfully.
+ *
+ * RPC synopsis:
+ *   void NLMPROC4_FREE_ALL(nlm4_notify) = 23;
  */
-static __be32
-nlm4svc_proc_free_all(struct svc_rqst *rqstp)
+static __be32 nlm4svc_proc_free_all(struct svc_rqst *rqstp)
 {
-	struct nlm_args *argp = rqstp->rq_argp;
+	struct nlm4_notify_wrapper *argp = rqstp->rq_argp;
 	struct nlm_host	*host;
 
-	/* Obtain client */
-	if (nlm4svc_retrieve_args(rqstp, argp, &host, NULL))
-		return rpc_success;
+	host = nlm4svc_lookup_host(rqstp, argp->xdrgen.name, false);
+	if (!host)
+		goto out;
 
 	nlmsvc_free_host_resources(host);
+
 	nlmsvc_release_host(host);
+
+out:
 	return rpc_success;
 }
 
@@ -1452,15 +1393,15 @@ static const struct svc_procedure nlm4svc_procedures[24] = {
 		.pc_xdrressize	= NLM4_nlm4_res_sz,
 		.pc_name	= "NM_LOCK",
 	},
-	[NLMPROC_FREE_ALL] = {
-		.pc_func = nlm4svc_proc_free_all,
-		.pc_decode = nlm4svc_decode_notify,
-		.pc_encode = nlm4svc_encode_void,
-		.pc_argsize = sizeof(struct nlm_args),
-		.pc_argzero = sizeof(struct nlm_args),
-		.pc_ressize = sizeof(struct nlm_void),
-		.pc_xdrressize = St,
-		.pc_name = "FREE_ALL",
+	[NLMPROC4_FREE_ALL] = {
+		.pc_func	= nlm4svc_proc_free_all,
+		.pc_decode	= nlm4_svc_decode_nlm4_notify,
+		.pc_encode	= nlm4_svc_encode_void,
+		.pc_argsize	= sizeof(struct nlm4_notify_wrapper),
+		.pc_argzero	= 0,
+		.pc_ressize	= 0,
+		.pc_xdrressize	= XDR_void,
+		.pc_name	= "FREE_ALL",
 	},
 };
 
@@ -1474,10 +1415,10 @@ union nlm4svc_xdrstore {
 	struct nlm4_unlockargs_wrapper	unlockargs;
 	struct nlm4_notifyargs_wrapper	notifyargs;
 	struct nlm4_shareargs_wrapper	shareargs;
+	struct nlm4_notify_wrapper	notify;
 	struct nlm4_testres_wrapper	testres;
 	struct nlm4_res_wrapper		res;
 	struct nlm4_shareres_wrapper	shareres;
-	struct nlm_args			args;
 };
 
 static DEFINE_PER_CPU_ALIGNED(unsigned long,
