@@ -147,3 +147,12 @@ stages:
         env:
            CLOUDSMITH_API_KEY: $(CLOUDSMITH_API_KEY)
         displayName: "Push to Cloudsmith"
+      - bash: |
+          cd $(Build.SourcesDirectory)/bin
+          TIMESTAMP=$(PushArtifacts.TIMESTAMP)
+          if [ -d "$TIMESTAMP" ]; then
+            echo "Cleaning up artifact directory: $TIMESTAMP"
+            rm -rf "$TIMESTAMP"
+          fi
+        displayName: "Cleanup artifacts"
+        condition: always()
