@@ -62,6 +62,13 @@ struct nlm4_unlockargs_wrapper {
 
 static_assert(offsetof(struct nlm4_unlockargs_wrapper, xdrgen) == 0);
 
+struct nlm4_notifyargs_wrapper {
+	struct nlm4_notifyargs		xdrgen;
+	struct nlm_reboot		reboot;
+};
+
+static_assert(offsetof(struct nlm4_notifyargs_wrapper, xdrgen) == 0);
+
 struct nlm4_testres_wrapper {
 	struct nlm4_testres		xdrgen;
 	struct nlm_lock			lock;
@@ -984,6 +991,44 @@ static __be32 nlm4svc_proc_granted_res(struct svc_rqst *rqstp)
 	return rpc_success;
 }
 
+/**
+ * nlm4svc_proc_sm_notify - SM_NOTIFY: Peer has rebooted
+ * @rqstp: RPC transaction context
+ *
+ * Returns:
+ *   %rpc_success:		RPC executed successfully.
+ *   %rpc_system_err:		RPC execution failed.
+ *
+ * The SM_NOTIFY procedure is a private callback from Linux statd and is
+ * not part of the official NLM protocol.
+ *
+ * RPC synopsis:
+ *   void NLMPROC4_SM_NOTIFY(nlm4_notifyargs) = 16;
+ */
+static __be32 nlm4svc_proc_sm_notify(struct svc_rqst *rqstp)
+{
+	struct nlm4_notifyargs_wrapper *argp = rqstp->rq_argp;
+	struct nlm_reboot *reboot = &argp->reboot;
+
+	if (!nlm_privileged_requester(rqstp)) {
+		char buf[RPC_MAX_ADDRBUFLEN];
+
+		pr_warn("lockd: rejected NSM callback from %s\n",
+			svc_print_addr(rqstp, buf, sizeof(buf)));
+		return rpc_system_err;
+	}
+
+	reboot->len = argp->xdrgen.notify.name.len;
+	reboot->mon = (char *)argp->xdrgen.notify.name.data;
+	reboot->state = argp->xdrgen.notify.state;
+	memcpy(&reboot->priv.data, argp->xdrgen.private,
+	       sizeof(reboot->priv.data));
+
+	nlm_host_rebooted(SVC_NET(rqstp), reboot);
+
+	return rpc_success;
+}
+
 /*
  * SHARE: create a DOS share or alter existing share.
  */
@@ -1085,27 +1130,6 @@ nlm4svc_proc_free_all(struct svc_rqst *rqstp)
 
 	nlmsvc_free_host_resources(host);
 	nlmsvc_release_host(host);
-	return rpc_success;
-}
-
-/*
- * SM_NOTIFY: private callback from statd (not part of official NLM proto)
- */
-static __be32
-nlm4svc_proc_sm_notify(struct svc_rqst *rqstp)
-{
-	struct nlm_reboot *argp = rqstp->rq_argp;
-
-	dprintk("lockd: SM_NOTIFY     called\n");
-
-	if (!nlm_privileged_requester(rqstp)) {
-		char buf[RPC_MAX_ADDRBUFLEN];
-		printk(KERN_WARNING "lockd: rejected NSM callback from %s\n",
-				svc_print_addr(rqstp, buf, sizeof(buf)));
-		return rpc_system_err;
-	}
-
-	nlm_host_rebooted(SVC_NET(rqstp), argp);
 	return rpc_success;
 }
 
@@ -1288,15 +1312,15 @@ static const struct svc_procedure nlm4svc_procedures[24] = {
 		.pc_xdrressize	= XDR_void,
 		.pc_name	= "GRANTED_RES",
 	},
-	[NLMPROC_NSM_NOTIFY] = {
-		.pc_func = nlm4svc_proc_sm_notify,
-		.pc_decode = nlm4svc_decode_reboot,
-		.pc_encode = nlm4svc_encode_void,
-		.pc_argsize = sizeof(struct nlm_reboot),
-		.pc_argzero = sizeof(struct nlm_reboot),
-		.pc_ressize = sizeof(struct nlm_void),
-		.pc_xdrressize = St,
-		.pc_name = "SM_NOTIFY",
+	[NLMPROC4_SM_NOTIFY] = {
+		.pc_func	= nlm4svc_proc_sm_notify,
+		.pc_decode	= nlm4_svc_decode_nlm4_notifyargs,
+		.pc_encode	= nlm4_svc_encode_void,
+		.pc_argsize	= sizeof(struct nlm4_notifyargs_wrapper),
+		.pc_argzero	= 0,
+		.pc_ressize	= 0,
+		.pc_xdrressize	= XDR_void,
+		.pc_name	= "SM_NOTIFY",
 	},
 	[17] = {
 		.pc_func = nlm4svc_proc_unused,
@@ -1378,10 +1402,10 @@ union nlm4svc_xdrstore {
 	struct nlm4_lockargs_wrapper	lockargs;
 	struct nlm4_cancargs_wrapper	cancargs;
 	struct nlm4_unlockargs_wrapper	unlockargs;
+	struct nlm4_notifyargs_wrapper	notifyargs;
 	struct nlm4_testres_wrapper	testres;
 	struct nlm4_res_wrapper		res;
 	struct nlm_args			args;
-	struct nlm_reboot		reboot;
 };
 
 static DEFINE_PER_CPU_ALIGNED(unsigned long,
