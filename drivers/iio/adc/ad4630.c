@@ -337,7 +337,7 @@ static int ad4630_get_avg_frame_len(struct iio_dev *dev, unsigned int *avg_len)
 out:
 	iio_device_release_direct_mode(dev);
 
-	return 0;
+	return ret;
 }
 
 static int ad4630_read_raw(struct iio_dev *indio_dev,
