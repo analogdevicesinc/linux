@@ -26,6 +26,7 @@
 #define TRANSITION_LATENCY 50000 /* nanoseconds, TODO: refine with timing/testing */
 
 static void __iomem *cgu0_ctl;
+static u32 sys_clkin_khz;
 
 static struct cpufreq_frequency_table sc589_freq_table[] = {
 	{ .driver_data = 0, .frequency = 450000 },
@@ -53,9 +54,11 @@ static int sc589_target_index(struct cpufreq_policy *policy, unsigned int index)
 	return 0;
 }
 
+// CCLK frequency = (SYS_CLKIN frequency / (DF+1)) * MSEL / CGU_DIV.CSEL
+
 static unsigned int sc589_get(unsigned int cpu)
 {
-	return 450000;
+	return 450000;	
 }
 
 static int sc589_wait_clock_align(void)
@@ -88,21 +91,44 @@ static int sc589_set_divider(u32 div)
 
 static int map_cgu_from_dt(void)
 {
-	struct device_node *dn = of_find_compatible_node(NULL, NULL, "adi,sc58x-clocks");
-	if (!dn) {
+	struct device_node *clk_np;
+	struct device_node *clkin_np;
+	int ret;
+
+	clk_np = of_find_compatible_node(NULL, NULL, "adi,sc58x-clocks");
+	if (!clk_np) {
 		pr_err("sc589-cpufreq: failed to find clock node in device tree.\n");
 		return -ENODEV;
 	}
 
-	cgu0_ctl = of_iomap(dn, 0);
-	of_node_put(dn);
-
-	if (!cgu0_ctl) {
-		pr_err("sc589-cpufreq: failed to map CGU0 control register.\n");
-		return -ENOMEM;
+	clkin_np = of_parse_phandle(clk_np, "clocks", 0);
+	if (!clkin_np) {
+		pr_err("sc589-cpufreq: failed to find sys_clkin0 phandle.\n");
+		ret = -ENODEV;
+		goto out_put_clk;
 	}
 
-	return 0;
+	ret = of_property_read_u32(clkin_np, "clock-frequency", &sys_clkin_khz);
+	if (ret) {
+		pr_err("sc589-cpufreq: failed to read sys_clkin0 frequency.\n");
+		goto out_put_clkin;
+	}
+	sys_clkin_khz /= 1000;
+
+	cgu0_ctl = of_iomap(clk_np, 0);
+	if (!cgu0_ctl) {
+		pr_err("sc589-cpufreq: failed to map CGU0 control register.\n");
+		ret = -ENOMEM;
+		goto out_put_clkin;
+	}
+
+	ret = 0;
+
+out_put_clkin:
+	of_node_put(clkin_np);
+out_put_clk:
+	of_node_put(clk_np);
+	return ret;
 }
 
 static struct cpufreq_driver sc589_cpufreq_driver = {
