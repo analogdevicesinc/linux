@@ -71,6 +71,7 @@ static_assert(offsetof(struct nlm4_testres_wrapper, xdrgen) == 0);
 
 struct nlm4_res_wrapper {
 	struct nlm4_res			xdrgen;
+	struct nlm_cookie		cookie;
 };
 
 static_assert(offsetof(struct nlm4_res_wrapper, xdrgen) == 0);
@@ -959,6 +960,30 @@ static __be32 nlm4svc_proc_granted_msg(struct svc_rqst *rqstp)
 				__nlm4svc_proc_granted_msg);
 }
 
+/**
+ * nlm4svc_proc_granted_res - GRANTED_RES: Lock Granted result
+ * @rqstp: RPC transaction context
+ *
+ * Returns:
+ *   %rpc_success:		RPC executed successfully.
+ *
+ * RPC synopsis:
+ *   void NLMPROC4_GRANTED_RES(nlm4_res) = 15;
+ */
+static __be32 nlm4svc_proc_granted_res(struct svc_rqst *rqstp)
+{
+	struct nlm4_res_wrapper *argp = rqstp->rq_argp;
+
+	if (!nlmsvc_ops)
+		return rpc_success;
+
+	if (nlm4_netobj_to_cookie(&argp->cookie, &argp->xdrgen.cookie))
+		return rpc_success;
+	nlmsvc_grant_reply(&argp->cookie, argp->xdrgen.stat.stat);
+
+	return rpc_success;
+}
+
 /*
  * SHARE: create a DOS share or alter existing share.
  */
@@ -1082,23 +1107,6 @@ nlm4svc_proc_sm_notify(struct svc_rqst *rqstp)
 
 	nlm_host_rebooted(SVC_NET(rqstp), argp);
 	return rpc_success;
-}
-
-/*
- * client sent a GRANTED_RES, let's remove the associated block
- */
-static __be32
-nlm4svc_proc_granted_res(struct svc_rqst *rqstp)
-{
-	struct nlm_res *argp = rqstp->rq_argp;
-
-        if (!nlmsvc_ops)
-                return rpc_success;
-
-        dprintk("lockd: GRANTED_RES   called\n");
-
-        nlmsvc_grant_reply(&argp->cookie, argp->status);
-        return rpc_success;
 }
 
 static __be32
@@ -1270,15 +1278,15 @@ static const struct svc_procedure nlm4svc_procedures[24] = {
 		.pc_xdrressize	= XDR_void,
 		.pc_name	= "UNLOCK_RES",
 	},
-	[NLMPROC_GRANTED_RES] = {
-		.pc_func = nlm4svc_proc_granted_res,
-		.pc_decode = nlm4svc_decode_res,
-		.pc_encode = nlm4svc_encode_void,
-		.pc_argsize = sizeof(struct nlm_res),
-		.pc_argzero = sizeof(struct nlm_res),
-		.pc_ressize = sizeof(struct nlm_void),
-		.pc_xdrressize = St,
-		.pc_name = "GRANTED_RES",
+	[NLMPROC4_GRANTED_RES] = {
+		.pc_func	= nlm4svc_proc_granted_res,
+		.pc_decode	= nlm4_svc_decode_nlm4_res,
+		.pc_encode	= nlm4_svc_encode_void,
+		.pc_argsize	= sizeof(struct nlm4_res_wrapper),
+		.pc_argzero	= 0,
+		.pc_ressize	= 0,
+		.pc_xdrressize	= XDR_void,
+		.pc_name	= "GRANTED_RES",
 	},
 	[NLMPROC_NSM_NOTIFY] = {
 		.pc_func = nlm4svc_proc_sm_notify,
