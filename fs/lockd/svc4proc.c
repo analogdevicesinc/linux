@@ -26,8 +26,6 @@
 #include "nlm4xdr_gen.h"
 #include "xdr4.h"
 
-#define NLMDBG_FACILITY		NLMDBG_CLIENT
-
 /*
  * Wrapper structures combine xdrgen types with legacy nlm_lock.
  * The xdrgen field must be first so the structure can be cast
@@ -1152,15 +1150,8 @@ out:
 
 
 /*
- * NLM Server procedures.
+ * NLMv4 Server procedures.
  */
-
-struct nlm_void			{ int dummy; };
-
-#define	Ck	(1+XDR_QUADLEN(NLM_MAXCOOKIELEN))	/* cookie */
-#define	No	(1+1024/4)				/* netobj */
-#define	St	1					/* status */
-#define	Rg	4					/* range (offset + length) */
 
 static const struct svc_procedure nlm4svc_procedures[24] = {
 	[NLMPROC4_NULL] = {
