@@ -7,14 +7,14 @@
  * Copyright:   (C) 2014 Texas Instruments, Inc.
  */
 
+#include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
-#include <linux/slab.h>
-#include <linux/delay.h>
-#include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
+#include <linux/slab.h>
 
 #include <dt-bindings/input/ti-drv260x.h>
 
