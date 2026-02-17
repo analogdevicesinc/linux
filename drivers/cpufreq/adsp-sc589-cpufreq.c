@@ -16,6 +16,7 @@
 #define STAT_POLL_SLEEP    10
 #define STAT_POLL_TIMEOUT  10000 
 
+#define CGU0_MSEL_SHIFT	   8
 #define CGU0_STAT_OFFSET   0x08
 #define CGU0_DIV_OFFSET	   0x0C
 
@@ -61,7 +62,22 @@ static int sc589_target_index(struct cpufreq_policy *policy, unsigned int index)
 
 static unsigned int sc589_get(unsigned int cpu)
 {
-		
+	u32 cgu_ctl, cgu_div;
+	u32 df_value, msel_value, csel_value;
+
+	cgu_ctl = readl(cgu0_ctl);
+	cgu_div = readl(cgu0_ctl + CGU0_DIV_OFFSET);
+
+	df_value = cgu_ctl & CGU0_DF;
+	msel_value = (cgu_ctl & CGU0_MSEL_MASK) >> 8;
+	csel_value = cgu_div & CGU0_CSEL_MASK;
+
+	if (msel_value == 0)
+		msel_value = 128;
+	if (csel_value == 0)
+		csel_value = 32;
+
+	return sys_clkin_khz / (df_value + 1) * msel_value / csel_value;
 }
 
 static int sc589_wait_clock_align(void)
