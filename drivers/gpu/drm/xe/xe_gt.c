@@ -33,6 +33,7 @@
 #include "xe_gt_printk.h"
 #include "xe_gt_sriov_pf.h"
 #include "xe_gt_sriov_vf.h"
+#include "xe_gt_stats.h"
 #include "xe_gt_sysfs.h"
 #include "xe_gt_topology.h"
 #include "xe_guc_exec_queue_types.h"
@@ -452,6 +453,10 @@ int xe_gt_init_early(struct xe_gt *gt)
 	xe_gt_mmio_init(gt);
 
 	err = xe_uc_init_noalloc(&gt->uc);
+	if (err)
+		return err;
+
+	err = xe_gt_stats_init(gt);
 	if (err)
 		return err;
 

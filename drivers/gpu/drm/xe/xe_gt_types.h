@@ -158,10 +158,7 @@ struct xe_gt {
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	/** @stats: GT stats */
-	struct {
-		/** @stats.counters: counters for various GT stats */
-		atomic64_t counters[__XE_GT_STATS_NUM_IDS];
-	} stats;
+	struct xe_gt_stats __percpu *stats;
 #endif
 
 	/**
