@@ -58,9 +58,9 @@ static void *squashfs_xz_comp_opts(struct squashfs_sb_info *msblk,
 		opts->dict_size = le32_to_cpu(comp_opts->dictionary_size);
 
 		/* the dictionary size should be 2^n or 2^n+2^(n+1) */
-		n = ffs(opts->dict_size) - 1;
-		if (opts->dict_size != (1 << n) && opts->dict_size != (1 << n) +
-						(1 << (n + 1))) {
+		n = ffs(opts->dict_size);
+		if (n-- == 0 || (opts->dict_size != (1 << n) &&
+				opts->dict_size != (1 << n) + (1 << (n + 1)))) {
 			err = -EIO;
 			goto out;
 		}
