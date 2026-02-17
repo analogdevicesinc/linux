@@ -658,7 +658,7 @@ static int adi_axi_tdd_init_sysfs(struct platform_device *pdev,
 		}
 	}
 
-	attr_group = devm_kzalloc(&pdev->dev, sizeof(attr_group), GFP_KERNEL);
+	attr_group = devm_kzalloc(&pdev->dev, sizeof(*attr_group), GFP_KERNEL);
 	if (!attr_group)
 		return -ENOMEM;
 
