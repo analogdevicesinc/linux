@@ -21,6 +21,7 @@
 #include "xe_gt_printk.h"
 #include "xe_gt_types.h"
 #include "xe_hw_engine_types.h"
+#include "xe_lrc.h"
 #include "xe_mmio.h"
 #include "xe_rtp_types.h"
 
@@ -238,6 +239,35 @@ void xe_reg_sr_readback_check(struct xe_reg_sr *sr,
 		u32 mask = entry->clr_bits | entry->set_bits;
 
 		if ((val & mask) != entry->set_bits)
+			drm_printf(p, "%#8lx & %#10x :: expected %#10x got %#10x\n",
+				   offset, mask, entry->set_bits, val & mask);
+	}
+}
+
+/**
+ * xe_reg_sr_lrc_check() - Check LRC for registers referenced in save/restore
+ *     entries and check whether the programming is in place.
+ * @sr: Save/restore entries
+ * @gt: GT to read register from
+ * @hwe: Hardware engine type to check LRC for
+ * @p: DRM printer to report discrepancies on
+ */
+void xe_reg_sr_lrc_check(struct xe_reg_sr *sr,
+			 struct xe_gt *gt,
+			 struct xe_hw_engine *hwe,
+			 struct drm_printer *p)
+{
+	struct xe_reg_sr_entry *entry;
+	unsigned long offset;
+
+	xa_for_each(&sr->xa, offset, entry) {
+		u32 val;
+		int ret = xe_lrc_lookup_default_reg_value(gt, hwe->class, offset, &val);
+		u32 mask = entry->clr_bits | entry->set_bits;
+
+		if (ret == -ENOENT)
+			drm_printf(p, "%#8lx :: not found in LRC for %s\n", offset, hwe->name);
+		else if ((val & mask) != entry->set_bits)
 			drm_printf(p, "%#8lx & %#10x :: expected %#10x got %#10x\n",
 				   offset, mask, entry->set_bits, val & mask);
 	}

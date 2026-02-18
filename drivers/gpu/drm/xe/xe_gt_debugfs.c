@@ -173,8 +173,8 @@ static int register_save_restore_check(struct xe_gt *gt, struct drm_printer *p)
 	xe_reg_sr_readback_check(&gt->reg_sr, gt, p);
 	for_each_hw_engine(hwe, gt, id)
 		xe_reg_sr_readback_check(&hwe->reg_sr, gt, p);
-
-	/* TODO: Check hwe->reg_lrc against contents of default_lrc. */
+	for_each_hw_engine(hwe, gt, id)
+		xe_reg_sr_lrc_check(&hwe->reg_lrc, gt, hwe, p);
 
 	return 0;
 }
