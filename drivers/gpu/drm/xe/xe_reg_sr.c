@@ -13,6 +13,7 @@
 #include <drm/drm_managed.h>
 #include <drm/drm_print.h>
 
+#include "xe_assert.h"
 #include "xe_device.h"
 #include "xe_device_types.h"
 #include "xe_force_wake.h"
@@ -169,8 +170,11 @@ void xe_reg_sr_apply_mmio(struct xe_reg_sr *sr, struct xe_gt *gt)
 	if (xa_empty(&sr->xa))
 		return;
 
-	if (IS_SRIOV_VF(gt_to_xe(gt)))
-		return;
+	/*
+	 * We don't process non-LRC reg_sr lists in VF, so they should have
+	 * been empty in the check above.
+	 */
+	xe_gt_assert(gt, !IS_SRIOV_VF(gt_to_xe(gt)));
 
 	xe_gt_dbg(gt, "Applying %s save-restore MMIOs\n", sr->name);
 
