@@ -96,6 +96,7 @@
 /* ADXL372_TIMING */
 #define ADXL372_TIMING_ODR_MSK			GENMASK_ULL(7, 5)
 #define ADXL372_TIMING_ODR_MODE(x)		(((x) & 0x7) << 5)
+#define ADXL372_TIMING_EXT_SYNC_MSK		BIT(0)
 
 /* ADXL372_FIFO_CTL */
 #define ADXL372_FIFO_CTL_FORMAT_MSK		GENMASK(5, 3)
@@ -239,7 +240,7 @@ const struct adxl372_chip_info adxl371_chip_info = {
 	.inact_time_scale_ms = 16,
 	.inact_time_scale_low_ms = 32,
 	.max_odr = ADXL372_ODR_6400HZ,
-	.has_fifo = false,
+	.has_fifo = true,
 };
 EXPORT_SYMBOL_NS_GPL(adxl371_chip_info, "IIO_ADXL372");
 
@@ -691,12 +692,48 @@ static irqreturn_t adxl372_trigger_handler(int irq, void  *p)
 		 */
 		fifo_entries -= st->fifo_set_size;
 
+		/*
+		 * ADXL371 silicon anomaly [er001]: In all FIFO modes,
+		 * data misalignment may occur — samples can be stored
+		 * as y,z,x or z,x,y instead of the expected x,y,z
+		 * order. Workaround: pause the ADC by switching to
+		 * external sync mode (without applying a trigger) before
+		 * reading, then clear and restore the FIFO afterwards.
+		 */
+		if (!strcmp(st->chip_info->name, "adxl371")) {
+			ret = regmap_set_bits(st->regmap, ADXL372_TIMING,
+					     ADXL372_TIMING_EXT_SYNC_MSK);
+			if (ret < 0)
+				goto err;
+		}
+
 		/* Read data from the FIFO */
 		ret = regmap_noinc_read(st->regmap, ADXL372_FIFO_DATA,
 					st->fifo_buf,
 					fifo_entries * sizeof(u16));
 		if (ret < 0)
 			goto err;
+
+		if (!strcmp(st->chip_info->name, "adxl371")) {
+			/* Clear FIFO by setting bypass mode */
+			ret = regmap_clear_bits(st->regmap, ADXL372_FIFO_CTL,
+						ADXL372_FIFO_CTL_MODE_MSK);
+			if (ret < 0)
+				goto err;
+
+			/* Restore original FIFO mode */
+			ret = regmap_update_bits(st->regmap, ADXL372_FIFO_CTL,
+						 ADXL372_FIFO_CTL_MODE_MSK,
+						 ADXL372_FIFO_CTL_MODE_MODE(st->fifo_mode));
+			if (ret < 0)
+				goto err;
+
+			/* Resume ADC by switching back to internal sync */
+			ret = regmap_clear_bits(st->regmap, ADXL372_TIMING,
+						ADXL372_TIMING_EXT_SYNC_MSK);
+			if (ret < 0)
+				goto err;
+		}
 
 		/* Each sample is 2 bytes */
 		for (i = 0; i < fifo_entries; i += st->fifo_set_size) {
