@@ -20,6 +20,9 @@
 #include "../../private/include/adrv903x_gpio.h"
 #define ADI_FILE    ADI_ADRV903X_FILE_PUBLIC_CPU
 
+/* Fixed-size buffer to avoid VLA (structure is 66 bytes = 17 words, use 32 for headroom) */
+#define MAX_HEALTH_STATUS_WORDS 32U
+
 static adi_adrv903x_ErrAction_e adrv903x_CpuStackPtrWrite(adi_adrv903x_Device_t* const    device,
                                                           const adi_adrv903x_CpuType_e    cpuType,
                                                           const uint32_t*                 buf);
@@ -1450,12 +1453,13 @@ cleanup:
     ADI_ADRV903X_API_EXIT(&device->common, recoveryAction);
 }
 
+#define BYTE_COUNT sizeof(adi_adrv903x_HealthMonitorCpuStatus_t)
+#define WORD_COUNT ((BYTE_COUNT + 3U) / 4U)
+
 ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HealthMonitorCpuStatusGet(adi_adrv903x_Device_t* const                    device,
                                                                         adi_adrv903x_HealthMonitorCpuStatus_t* const    healthMonitorStatus)
 {
         static const uint32_t CPU_HEALTH_STATUS_ADDR_MASK = 0xFFFFFFFFU;
-    const uint32_t BYTE_COUNT = sizeof(adi_adrv903x_HealthMonitorCpuStatus_t);
-    const uint32_t WORD_COUNT = ((BYTE_COUNT + 3U) / 4U);
     uint32_t readData[WORD_COUNT];
     ADI_LIBRARY_MEMSET(readData, 0, 4U * WORD_COUNT);
 
@@ -1467,6 +1471,14 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HealthMonitorCpuStatusGet(adi_adrv
     ADI_ADRV903X_NULL_DEVICE_PTR_RETURN(device);
     ADI_ADRV903X_API_ENTRY(&device->common);
     ADI_ADRV903X_NULL_PTR_REPORT_GOTO(&device->common, healthMonitorStatus, cleanup);
+
+    /* Verify buffer size assumption */
+    if (WORD_COUNT > MAX_HEALTH_STATUS_WORDS)
+    {
+        ADI_API_ERROR_REPORT(&device->common, ADI_ADRV903X_ERR_ACT_CHECK_PARAM, "Health status structure exceeds buffer size");
+        recoveryAction = ADI_ADRV903X_ERR_ACT_CHECK_PARAM;
+        goto cleanup;
+    }
 
     /* Clear memory for return data */
     ADI_LIBRARY_MEMSET(healthMonitorStatus, 0, sizeof(adi_adrv903x_HealthMonitorCpuStatus_t));
@@ -1510,6 +1522,8 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_HealthMonitorCpuStatusGet(adi_adrv
 cleanup:
     ADI_ADRV903X_API_EXIT(&device->common, recoveryAction);
 }
+#undef BYTE_COUNT
+#undef WORD_COUNT
 
 ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_CpuCheckException(adi_adrv903x_Device_t* const    device,
                                                                 uint32_t* const                 isException)
