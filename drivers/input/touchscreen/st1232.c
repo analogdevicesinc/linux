@@ -69,6 +69,34 @@ struct st1232_ts_data {
 	u32 fw_revision;
 };
 
+static ssize_t fw_version_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct st1232_ts_data *st1232_ts = i2c_get_clientdata(client);
+
+	return sysfs_emit(buf, "%u\n", st1232_ts->fw_version);
+}
+
+static ssize_t fw_revision_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct st1232_ts_data *st1232_ts = i2c_get_clientdata(client);
+
+	return sysfs_emit(buf, "%08x\n", st1232_ts->fw_revision);
+}
+
+static DEVICE_ATTR_RO(fw_version);
+static DEVICE_ATTR_RO(fw_revision);
+
+static struct attribute *st1232_attrs[] = {
+	&dev_attr_fw_version.attr,
+	&dev_attr_fw_revision.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(st1232);
+
 static int st1232_ts_read_data(struct st1232_ts_data *ts, u8 reg,
 			       unsigned int n)
 {
@@ -444,6 +472,7 @@ static struct i2c_driver st1232_ts_driver = {
 	.driver = {
 		.name	= ST1232_TS_NAME,
 		.of_match_table = st1232_ts_dt_ids,
+		.dev_groups	= st1232_groups,
 		.probe_type	= PROBE_PREFER_ASYNCHRONOUS,
 		.pm	= pm_sleep_ptr(&st1232_ts_pm_ops),
 	},
