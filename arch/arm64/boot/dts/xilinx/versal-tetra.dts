@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Xilinx Versal Tetra
+ *
+ * (C) Copyright 2026, Analog Devices Inc.
+ */
+
+#include "versal.dtsi"
+#include "versal-clk.dtsi"
+
+/ {
+	compatible = "xlnx,versal-tetra", "xlnx,versal";
+	model = "Xilinx Versal Tetra";
+
+	memory: memory@0 {
+		device_type = "memory";
+		reg = <0 0 0 0x80000000>;  /* 2GB */
+	};
+
+	chosen {
+		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait";
+		stdout-path = "serial1:115200";
+	};
+
+	aliases {
+		serial0 = &serial0;
+		serial1 = &serial1;
+		mmc0 = &sdhci0;
+		mmc1 = &sdhci1;
+	};
+};
+
+&serial0 {
+	status = "okay";
+};
+
+&serial1 {
+	status = "okay";
+};
+
+/* Enable SD card controllers */
+&sdhci0 {
+	status = "okay";
+	xlnx,mio-bank = <0>;
+	no-1-8-v;
+};
+
+&sdhci1 {
+	status = "okay";
+	xlnx,mio-bank = <1>;
+	no-1-8-v;
+};
+
+/* Disable PS Ethernet */
+&gem0 {
+	status = "disabled";
+};
+
+&gem1 {
+	status = "disabled";
+};
+
+/* Disable PL Ethernet (AXI Ethernet) */
+/ {
+	amba_pl: amba_pl {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "simple-bus";
+		ranges;
+
+		ethernet@a5e00000 {
+			status = "disabled";
+		};
+	};
+};
