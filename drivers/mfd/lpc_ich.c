@@ -45,6 +45,7 @@
 #include <linux/acpi.h>
 #include <linux/pci.h>
 #include <linux/pinctrl/pinctrl.h>
+#include <linux/property.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/lpc_ich.h>
 #include <linux/platform_data/itco_wdt.h>
@@ -125,11 +126,17 @@ static struct mfd_cell lpc_ich_wdt_cell = {
 	.ignore_resource_conflicts = true,
 };
 
+const struct software_node lpc_ich_gpio_swnode = {
+	.name = "gpio_ich",
+};
+EXPORT_SYMBOL_NS(lpc_ich_gpio_swnode, "LPC_ICH");
+
 static struct mfd_cell lpc_ich_gpio_cell = {
 	.name = "gpio_ich",
 	.num_resources = ARRAY_SIZE(gpio_ich_res),
 	.resources = gpio_ich_res,
 	.ignore_resource_conflicts = true,
+	.swnode = &lpc_ich_gpio_swnode,
 };
 
 #define INTEL_GPIO_RESOURCE_SIZE	0x1000
