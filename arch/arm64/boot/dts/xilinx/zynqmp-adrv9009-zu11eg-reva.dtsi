@@ -1381,7 +1381,13 @@
 			clock-names = "sampl_clk";
 			spibus-connected = <&trx0_adrv9009>;
 			adi,axi-pl-fifo-enable;
+                        adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 			plddrbypass-gpios = <&gpio 168 0>;
+		};
+
+		axi_data_offload_tx: axi-data-offload-0@9c410000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x0 0x9c410000 0x10000>;
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {
