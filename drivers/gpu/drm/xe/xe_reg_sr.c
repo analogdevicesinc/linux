@@ -208,3 +208,37 @@ void xe_reg_sr_dump(struct xe_reg_sr *sr, struct drm_printer *p)
 			   str_yes_no(entry->reg.masked),
 			   str_yes_no(entry->reg.mcr));
 }
+
+static u32 readback_reg(struct xe_gt *gt, struct xe_reg reg)
+{
+	struct xe_reg_mcr mcr_reg = to_xe_reg_mcr(reg);
+
+	if (reg.mcr)
+		return xe_gt_mcr_unicast_read_any(gt, mcr_reg);
+	else
+		return xe_mmio_read32(&gt->mmio, reg);
+}
+
+/**
+ * xe_reg_sr_readback_check() - Readback registers referenced in save/restore
+ *     entries and check whether the programming is in place.
+ * @sr: Save/restore entries
+ * @gt: GT to read register from
+ * @p: DRM printer to report discrepancies on
+ */
+void xe_reg_sr_readback_check(struct xe_reg_sr *sr,
+			      struct xe_gt *gt,
+			      struct drm_printer *p)
+{
+	struct xe_reg_sr_entry *entry;
+	unsigned long offset;
+
+	xa_for_each(&sr->xa, offset, entry) {
+		u32 val = readback_reg(gt, entry->reg);
+		u32 mask = entry->clr_bits | entry->set_bits;
+
+		if ((val & mask) != entry->set_bits)
+			drm_printf(p, "%#8lx & %#10x :: expected %#10x got %#10x\n",
+				   offset, mask, entry->set_bits, val & mask);
+	}
+}
