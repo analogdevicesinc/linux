@@ -33,6 +33,13 @@
 #include "../../public/include/adi_adrv903x_core.h"
 #include "../../private/bf/adrv903x_bf_core.h"
 
+/* Fixed-size buffers to avoid VLA in RxGainTableLoad */
+#define LINE_BUFFER_SIZE 128U
+#define HEADER_BUFFER_SIZE 16U
+
+/* Fixed-size buffer to avoid VLA in JrxRepairFileLoad */
+#define JRX_REPAIR_FILE_SIZE 41U
+
 
 
 #include "../../private/bf/adrv903x_bf_serdes_rxdig_8pack_regmap_core1p2.h"
@@ -449,8 +456,6 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_RxGainTableLoad(adi_adrv903x_Devic
                                                               const adi_adrv903x_RxGainTableInfo_t    rxGainTableInfo[],
                                                               const uint32_t                          rxGainTableArrSize)
 {
-        const uint8_t                   LINE_BUFFER_SIZE    = 128U;
-    const uint8_t                   HEADER_BUFFER_SIZE  = 16U;
     const uint8_t                   NUM_COLUMNS         = 5U;
     adi_adrv903x_ErrAction_e        recoveryAction      = ADI_ADRV903X_ERR_ACT_CHECK_PARAM;
     uint8_t                         arrayIndex          = 0U;
@@ -4439,14 +4444,12 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_JrxRepairFileLoad(adi_adrv903x_Dev
                                                                 const adi_adrv903x_JrxRepairBinaryInfo_t* const  fileInfo,
                                                                 adi_adrv903x_JrxRepairHistory_t* const           repairHistory)
 {
-        const uint32_t                  expectedFileSize  = 41U;
-
     adi_adrv903x_JrxRepairHistory_t repairHistoryRd;
     adi_adrv903x_ErrAction_e        recoveryAction    = ADI_ADRV903X_ERR_ACT_CHECK_PARAM;
     FILE*                           repairHistoryFile = NULL;
     uint32_t                        fileSize          = 0U;
     int16_t                         lastTempConvert   = 0;  /* Variable used to prevent truncation of 16 bit signed when parsing */
-    char                            fileBuf[expectedFileSize];
+    char                            fileBuf[JRX_REPAIR_FILE_SIZE];
 
     ADI_ADRV903X_NULL_DEVICE_PTR_RETURN(device);
 
@@ -4516,8 +4519,8 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_JrxRepairFileLoad(adi_adrv903x_Dev
         goto cleanup;
     }
 
-    ADI_LIBRARY_FREAD(&fileBuf, 1U, expectedFileSize, repairHistoryFile);
-    fileBuf[expectedFileSize - 1U] = '\0';
+    ADI_LIBRARY_FREAD(&fileBuf, 1U, JRX_REPAIR_FILE_SIZE, repairHistoryFile);
+    fileBuf[JRX_REPAIR_FILE_SIZE - 1U] = '\0';
 
     if (4U != sscanf(fileBuf, "%16d%8hhu%8hhu%8hhu", (int*)&lastTempConvert, (uint8_t*)&repairHistoryRd.badLaneMask, (uint8_t*)&repairHistoryRd.weakLaneMask, (uint8_t*)&repairHistoryRd.goodLaneMask))
     {
@@ -6709,9 +6712,7 @@ ADI_API adi_adrv903x_ErrAction_e adi_adrv903x_RxGainTableChecksumRead(adi_adrv90
                                                                       const adi_adrv903x_RxGainTableInfo_t* const  rxGainTableInfoPtr,
                                                                       uint32_t* const rxGainTableChecksum)
 {
-        adi_adrv903x_ErrAction_e    recoveryAction      = ADI_ADRV903X_ERR_ACT_CHECK_PARAM;
-    const uint8_t               LINE_BUFFER_SIZE    = 128U;
-    const uint8_t               HEADER_BUFFER_SIZE  = 16U;
+    adi_adrv903x_ErrAction_e    recoveryAction      = ADI_ADRV903X_ERR_ACT_CHECK_PARAM;
     const uint8_t               NUM_COLUMNS         = 5U;
     FILE*                       rxGainTableFilePtr  = NULL;
     char                        rxGainTableLineBuffer[LINE_BUFFER_SIZE];
