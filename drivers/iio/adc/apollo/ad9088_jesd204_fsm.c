@@ -955,16 +955,6 @@ static int ad9088_jesd204_post_setup_stage4(struct jesd204_dev *jdev,
 		return ret;
 	}
 
-	/* Apply fsrc defaults */
-	if (phy->iio_axi_fsrc) {
-		/* Only same config for all channels are supported, so just take the first */
-		ret = ad9088_fsrc_reconfig_sequence(phy, phy->profile.rx_path[0].rx_fsrc[0].enable);
-		if (ret) {
-			dev_err(dev, "Failed RX/TX FSRC reconfig sequence: %d\n", ret);
-		        return ret;
-		}
-	}
-
 	phy->is_initialized = true;
 
 	if (phy->hsci_disable_after_initial_configuration)

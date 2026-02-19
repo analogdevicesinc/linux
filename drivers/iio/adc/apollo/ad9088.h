@@ -399,7 +399,6 @@ int ad9088_fsrc_tx_active(struct ad9088_phy *phy, bool active);
 int ad9088_fsrc_tx_ratio_set(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
 int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
 int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
-int ad9088_fsrc_reconfig_sequence(struct ad9088_phy *phy, bool enable);
 int ad9088_fsrc_tx_reconfig_sequence(struct ad9088_phy *phy, bool enable);
 int ad9088_fsrc_rx_reconfig_sequence(struct ad9088_phy *phy, bool enable);
 int ad9088_fsrc_inspect(struct ad9088_phy *phy);
