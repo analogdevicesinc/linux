@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * ADXL372 3-Axis Digital Accelerometer I2C driver
+ * ADXL371/ADXL372 3-Axis Digital Accelerometer I2C driver
  *
  * Copyright 2018 Analog Devices Inc.
  */
@@ -46,12 +46,14 @@ static int adxl372_i2c_probe(struct i2c_client *client)
 }
 
 static const struct i2c_device_id adxl372_i2c_id[] = {
+	{ "adxl371", (kernel_ulong_t)&adxl371_chip_info },
 	{ "adxl372", (kernel_ulong_t)&adxl372_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, adxl372_i2c_id);
 
 static const struct of_device_id adxl372_of_match[] = {
+	{ .compatible = "adi,adxl371", .data = &adxl371_chip_info },
 	{ .compatible = "adi,adxl372", .data = &adxl372_chip_info },
 	{ }
 };
@@ -69,6 +71,7 @@ static struct i2c_driver adxl372_i2c_driver = {
 module_i2c_driver(adxl372_i2c_driver);
 
 MODULE_AUTHOR("Stefan Popa <stefan.popa@analog.com>");
-MODULE_DESCRIPTION("Analog Devices ADXL372 3-axis accelerometer I2C driver");
+MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com>");
+MODULE_DESCRIPTION("Analog Devices ADXL371/ADXL372 3-axis accelerometer I2C driver");
 MODULE_LICENSE("GPL");
 MODULE_IMPORT_NS("IIO_ADXL372");

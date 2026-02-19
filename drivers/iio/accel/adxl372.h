@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * ADXL372 3-Axis Digital Accelerometer
+ * ADXL371/ADXL372 3-Axis Digital Accelerometer
  *
  * Copyright 2018 Analog Devices Inc.
  */
@@ -19,8 +19,10 @@ struct adxl372_chip_info {
 	unsigned int inact_time_scale_ms;
 	unsigned int inact_time_scale_low_ms;
 	unsigned int max_odr;
+	bool fifo_supported;
 };
 
+extern const struct adxl372_chip_info adxl371_chip_info;
 extern const struct adxl372_chip_info adxl372_chip_info;
 
 int adxl372_probe(struct device *dev, struct regmap *regmap,
