@@ -84,8 +84,6 @@ extern int fs_lookup_param(struct fs_context *fc,
 
 extern int lookup_constant(const struct constant_table tbl[], const char *name, int not_found);
 
-extern const struct constant_table bool_names[];
-
 #ifdef CONFIG_VALIDATE_FS_PARSER
 extern bool fs_validate_description(const char *name,
 				    const struct fs_parameter_spec *desc);
