@@ -22,24 +22,28 @@ static const struct regmap_config adxl372_spi_regmap_config = {
 
 static int adxl372_spi_probe(struct spi_device *spi)
 {
-	const struct spi_device_id *id = spi_get_device_id(spi);
+	const struct adxl372_chip_info *chip_info;
 	struct regmap *regmap;
+
+	chip_info = spi_get_device_match_data(spi);
+	if (!chip_info)
+		return -ENODEV;
 
 	regmap = devm_regmap_init_spi(spi, &adxl372_spi_regmap_config);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	return adxl372_probe(&spi->dev, regmap, spi->irq, id->name);
+	return adxl372_probe(&spi->dev, regmap, spi->irq, chip_info);
 }
 
 static const struct spi_device_id adxl372_spi_id[] = {
-	{ "adxl372", 0 },
+	{ "adxl372", (kernel_ulong_t)&adxl372_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adxl372_spi_id);
 
 static const struct of_device_id adxl372_of_match[] = {
-	{ .compatible = "adi,adxl372" },
+	{ .compatible = "adi,adxl372", .data = &adxl372_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adxl372_of_match);

@@ -222,6 +222,18 @@ static const int adxl372_bw_freq_tbl[5] = {
 	200, 400, 800, 1600, 3200,
 };
 
+const struct adxl372_chip_info adxl372_chip_info = {
+	.name = "adxl372",
+	.samp_freq_tbl = adxl372_samp_freq_tbl,
+	.bw_freq_tbl = adxl372_bw_freq_tbl,
+	.act_time_scale_us = 3300,
+	.act_time_scale_low_us = 6600,
+	.inact_time_scale_ms = 13,
+	.inact_time_scale_low_ms = 26,
+	.max_odr = ADXL372_ODR_6400HZ,
+};
+EXPORT_SYMBOL_NS_GPL(adxl372_chip_info, "IIO_ADXL372");
+
 struct adxl372_axis_lookup {
 	unsigned int bits;
 	enum adxl372_fifo_format fifo_format;
@@ -279,6 +291,7 @@ static const struct iio_chan_spec adxl372_channels[] = {
 };
 
 struct adxl372_state {
+	const struct adxl372_chip_info	*chip_info;
 	int				irq;
 	struct device			*dev;
 	struct regmap			*regmap;
@@ -471,13 +484,14 @@ static int adxl372_set_activity_time_ms(struct adxl372_state *st,
 	int ret;
 
 	/*
-	 * 3.3 ms per code is the scale factor of the TIME_ACT register for
-	 * ODR = 6400 Hz. It is 6.6 ms per code for ODR = 3200 Hz and below.
+	 * The scale factor of the TIME_ACT register depends on the ODR.
+	 * A higher scale factor is used at the maximum ODR and a lower
+	 * one at all other rates.
 	 */
-	if (st->odr == ADXL372_ODR_6400HZ)
-		scale_factor = 3300;
+	if (st->odr == st->chip_info->max_odr)
+		scale_factor = st->chip_info->act_time_scale_us;
 	else
-		scale_factor = 6600;
+		scale_factor = st->chip_info->act_time_scale_low_us;
 
 	reg_val = DIV_ROUND_CLOSEST(act_time_ms * 1000, scale_factor);
 
@@ -501,13 +515,14 @@ static int adxl372_set_inactivity_time_ms(struct adxl372_state *st,
 	int ret;
 
 	/*
-	 * 13 ms per code is the scale factor of the TIME_INACT register for
-	 * ODR = 6400 Hz. It is 26 ms per code for ODR = 3200 Hz and below.
+	 * The scale factor of the TIME_INACT register depends on the ODR.
+	 * A higher scale factor is used at the maximum ODR and a lower
+	 * one at all other rates.
 	 */
-	if (st->odr == ADXL372_ODR_6400HZ)
-		scale_factor = 13;
+	if (st->odr == st->chip_info->max_odr)
+		scale_factor = st->chip_info->inact_time_scale_ms;
 	else
-		scale_factor = 26;
+		scale_factor = st->chip_info->inact_time_scale_low_ms;
 
 	res = DIV_ROUND_CLOSEST(inact_time_ms, scale_factor);
 	reg_val_h = (res >> 8) & 0xFF;
@@ -777,10 +792,10 @@ static int adxl372_read_raw(struct iio_dev *indio_dev,
 		*val2 = ADXL372_USCALE;
 		return IIO_VAL_INT_PLUS_MICRO;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = adxl372_samp_freq_tbl[st->odr];
+		*val = st->chip_info->samp_freq_tbl[st->odr];
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
-		*val = adxl372_bw_freq_tbl[st->bw];
+		*val = st->chip_info->bw_freq_tbl[st->bw];
 		return IIO_VAL_INT;
 	}
 
@@ -796,23 +811,17 @@ static int adxl372_write_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		odr_index = adxl372_find_closest_match(adxl372_samp_freq_tbl,
-					ARRAY_SIZE(adxl372_samp_freq_tbl),
-					val);
+		odr_index = adxl372_find_closest_match(st->chip_info->samp_freq_tbl,
+						       ARRAY_SIZE(adxl372_samp_freq_tbl),
+						       val);
 		ret = adxl372_set_odr(st, odr_index);
 		if (ret < 0)
 			return ret;
-		/*
-		 * The timer period depends on the ODR selected.
-		 * At 3200 Hz and below, it is 6.6 ms; at 6400 Hz, it is 3.3 ms
-		 */
+		/* Recalculate activity time as the timer period depends on ODR */
 		ret = adxl372_set_activity_time_ms(st, st->act_time_ms);
 		if (ret < 0)
 			return ret;
-		/*
-		 * The timer period depends on the ODR selected.
-		 * At 3200 Hz and below, it is 26 ms; at 6400 Hz, it is 13 ms
-		 */
+		/* Recalculate inactivity time as the timer period depends on ODR */
 		ret = adxl372_set_inactivity_time_ms(st, st->inact_time_ms);
 		if (ret < 0)
 			return ret;
@@ -825,9 +834,9 @@ static int adxl372_write_raw(struct iio_dev *indio_dev,
 
 		return ret;
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
-		bw_index = adxl372_find_closest_match(adxl372_bw_freq_tbl,
-					ARRAY_SIZE(adxl372_bw_freq_tbl),
-					val);
+		bw_index = adxl372_find_closest_match(st->chip_info->bw_freq_tbl,
+						      ARRAY_SIZE(adxl372_bw_freq_tbl),
+						      val);
 		return adxl372_set_bandwidth(st, bw_index);
 	default:
 		return -EINVAL;
@@ -968,7 +977,7 @@ static ssize_t adxl372_show_filter_freq_avail(struct device *dev,
 
 	for (i = 0; i <= st->odr; i++)
 		len += scnprintf(buf + len, PAGE_SIZE - len,
-				 "%d ", adxl372_bw_freq_tbl[i]);
+				 "%d ", st->chip_info->bw_freq_tbl[i]);
 
 	buf[len - 1] = '\n';
 
@@ -1142,12 +1151,31 @@ static const struct iio_trigger_ops adxl372_peak_data_trigger_ops = {
 	.set_trigger_state = adxl372_peak_dready_trig_set_state,
 };
 
-static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("400 800 1600 3200 6400");
+static ssize_t adxl372_show_samp_freq_avail(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct adxl372_state *st = iio_priv(indio_dev);
+	int i;
+	size_t len = 0;
+
+	for (i = 0; i < ARRAY_SIZE(adxl372_samp_freq_tbl); i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len,
+				 "%d ", st->chip_info->samp_freq_tbl[i]);
+
+	buf[len - 1] = '\n';
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(sampling_frequency_available,
+		       0444, adxl372_show_samp_freq_avail, NULL, 0);
 static IIO_DEVICE_ATTR(in_accel_filter_low_pass_3db_frequency_available,
 		       0444, adxl372_show_filter_freq_avail, NULL, 0);
 
 static struct attribute *adxl372_attributes[] = {
-	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
+	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
 	&iio_dev_attr_in_accel_filter_low_pass_3db_frequency_available.dev_attr.attr,
 	NULL,
 };
@@ -1176,7 +1204,7 @@ bool adxl372_readable_noinc_reg(struct device *dev, unsigned int reg)
 EXPORT_SYMBOL_NS_GPL(adxl372_readable_noinc_reg, "IIO_ADXL372");
 
 int adxl372_probe(struct device *dev, struct regmap *regmap,
-		  int irq, const char *name)
+		  int irq, const struct adxl372_chip_info *chip_info)
 {
 	struct iio_dev *indio_dev;
 	struct adxl372_state *st;
@@ -1192,13 +1220,14 @@ int adxl372_probe(struct device *dev, struct regmap *regmap,
 	st->dev = dev;
 	st->regmap = regmap;
 	st->irq = irq;
+	st->chip_info = chip_info;
 
 	mutex_init(&st->threshold_m);
 
 	indio_dev->channels = adxl372_channels;
 	indio_dev->num_channels = ARRAY_SIZE(adxl372_channels);
 	indio_dev->available_scan_masks = adxl372_channel_masks;
-	indio_dev->name = name;
+	indio_dev->name = chip_info->name;
 	indio_dev->info = &adxl372_info;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
 
