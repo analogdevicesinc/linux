@@ -701,7 +701,7 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
 			return -ENODEV;
 		}
-		ret = ad9088_fsrc_configure_rx(phy, val, val2);
+		ret = ad9088_fsrc_rx_configure(phy, val, val2);
 		break;
 	case DBGFS_FSRC_CONFIGURE_TX:
 		if (ret < 2) {
@@ -712,7 +712,7 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
 			return -ENODEV;
 		}
-		ret = ad9088_fsrc_configure_tx(phy, val, val2);
+		ret = ad9088_fsrc_tx_configure(phy, val, val2);
 		break;
 	case DBGFS_FSRC_TX_RECONFIG:
 		if (!val)

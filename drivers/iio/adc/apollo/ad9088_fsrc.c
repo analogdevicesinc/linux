@@ -70,7 +70,7 @@ static int ad9088_axi_fsrc_tx_active(struct ad9088_phy *phy, bool active)
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
+int ad9088_fsrc_rx_configure(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
 {
 	int ret;
 
@@ -108,7 +108,7 @@ int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
+int ad9088_fsrc_tx_configure(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
 {
 	char ratio_str[64];
 	int ret;
