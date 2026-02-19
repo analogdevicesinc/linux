@@ -58,7 +58,7 @@
 
 	scb {
 
-/* The button GPIO conflicts with OSPI0_D4 for this
+		/* The button GPIO conflicts with OSPI0_D4 for this
 		button0: button@0 {
 			compatible = "adi,button-led";
 			button_gpio = <48>; /* PD_00
@@ -184,18 +184,18 @@
 		};
 
 		qspi_2: partition@2 {
-			label = "U-Boot Environment";
-			reg = <0x100000 0x20000>;
+			label = "DTB";
+			reg = <0x00100000 0x00010000>;
 		};
 
 		qspi_3: partition@3 {
-			label = "FIT Image";
-			reg = <0x120000 0xF00000>;
+			label = "Kernel";
+			reg = <0x00110000 0xF00000>;
 		};
 
 		qspi_4: partition@4 {
-			label = "JFFS2 Formatted RFS";
-			reg = <0x1020000 0x2FE0000>;
+			label = "Rootfs";
+			reg = <0x1010000 0x02FF0000>;
 		};
 
 	};
@@ -240,18 +240,18 @@
 			};
 
 			ospi_2: partition@2 {
-				label = "U-Boot Environment";
-				reg = <0x100000 0x20000>;
+				label = "DTB";
+				reg = <0x100000 0x10000>;
 			};
 
 			ospi_3: partition@3 {
-				label = "FIT Image";
-				reg = <0x120000 0xF00000>;
+				label = "Kernel";
+				reg = <0x110000 0xF00000>;
 			};
 
 			ospi_4: partition@4 {
-				label = "JFFS2 Formatted RFS";
-				reg = <0x1020000 0xFE0000>;
+				label = "Rootfs";
+				reg = <0x01010000 0xFF0000>;
 			};
 		};
 	};
