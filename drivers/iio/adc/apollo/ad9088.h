@@ -260,7 +260,7 @@ struct ad9088_phy {
 	bool mcs_cal_bg_tracking_freeze;
 	bool cddc_sample_delay_en;
 	bool fddc_sample_delay_en;
-	bool fsrc_gpio_trig_routed;
+	bool fsrc_gpio_trig_en;
 	u32 multidevice_instance_count;
 	u16 mcs_track_decimation;
 
@@ -399,11 +399,9 @@ int ad9088_fsrc_tx_active(struct ad9088_phy *phy, bool active);
 int ad9088_fsrc_tx_ratio_set(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
 int ad9088_fsrc_configure_rx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
 int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
-int ad9088_fsrc_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
-int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
-int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable);
-int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable);
-int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_reconfig_sequence(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_tx_reconfig_sequence(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_rx_reconfig_sequence(struct ad9088_phy *phy, bool enable);
 int ad9088_fsrc_inspect(struct ad9088_phy *phy);
 
 /* Calibration data format */

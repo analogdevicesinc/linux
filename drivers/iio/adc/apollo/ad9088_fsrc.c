@@ -155,17 +155,65 @@ int ad9088_fsrc_configure_tx(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
 }
 
 /**
- * ad9088_fsrc_reconfig_sequence_spi - Execute TX/RX FSRC dynamic reconfig via SPI trigger
+ * ad9088_fsrc_trigger_reconfig_sequence - Execute FSRC dynamic reconfig
+ * @phy: AD9088 device instance
+ *
+ * Sequence:
+ * 1. Trigger FPGA sequencer (GPIO only)
+ * 2. FPGA sequencer counts SYSREFs and sends trigger to Apollo (GPIO only)
+ * 3. Apollo executes reconfig trigger
+ * 4. Clear Apollo trigger sync (GPIO only)
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+static int ad9088_fsrc_trigger_reconfig_sequence(struct ad9088_phy *phy)
+{
+	int ret;
+
+	if (phy->fsrc_gpio_trig_en) {
+		/* Trigger FPGA sequencer to start the SYSREF-based sequence */
+		ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
+							"seq_start", true);
+		if (ret < 0) {
+			dev_warn(&phy->spi->dev,
+				 "Failed to trigger sequencer via reg: %d. ", ret);
+		}
+
+		/*
+		 * Wait for sequencer to complete
+		 * Timing: first_trig_cnt (1002) + margin
+		 * SYSREF of 4MHz: 1050 * 250ns = 262.5us
+		 */
+		usleep_range(500, 1000);
+
+		/* Clear Apollo trigger sync */
+		ret = adi_apollo_clk_mcs_trig_sync_enable(&phy->ad9088, 0);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_clk_mcs_trig_sync_enable clear");
+		if (ret)
+			return ret;
+	} else {
+		/* Execute manual dynamic reconfig - applies new settings */
+		ret = adi_apollo_clk_mcs_man_reconfig_sync(&phy->ad9088);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_clk_mcs_man_reconfig_sync");
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * ad9088_fsrc_reconfig_sequence - Execute TX/RX FSRC dynamic reconfig
  * @phy: AD9088 device instance
  * @enable: Enable AXI FSRC side
- *
- * Executes both FSRC dynamic reconfiguration sequence using SPI/regmap trigger.
  *
  * Based on fpga_hw_fsrc_dr_seq_run() from fullchip_fsrc_dr.c
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
+int ad9088_fsrc_reconfig_sequence(struct ad9088_phy *phy, bool enable)
 {
 	int ret;
 
@@ -223,71 +271,48 @@ int ad9088_fsrc_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
 }
 
 /**
- * ad9088_fsrc_tx_reconfig_sequence_spi - Execute TX FSRC dynamic reconfig via SPI trigger
+ * ad9088_fsrc_rx_reconfig_sequence - Execute RX FSRC dynamic reconfig
  * @phy: AD9088 device instance
  * @enable: Enable AXI FSRC side
  *
- * Executes the TX-only FSRC dynamic reconfiguration sequence using SPI/regmap trigger.
- *
- * TX Path Invalid Sample Flow:
- *   FPGA TX FSRC -> adds invalid samples (-FS)
- *   Apollo TX FSRC -> removes invalid samples
- *
  * Sequence:
- * 1. Stop FPGA TX (send only invalid samples)
- * 2. Wait for invalids to flow through JESD
- * 3. Enable trigger sync on Apollo
- * 4. Execute manual reconfig (SPI trigger - applies new settings)
- * 5. Resume FPGA TX (send valid+invalid samples at new rate)
- * 6. Wait for samples to flow
- * 7. Reset rate-match FIFO
+ * 1. Enable trigger sync on Apollo
+ * 2. Do trigger procedure regmap or GPIO trigger.
+ * 3. Wait for samples to flow through RX path
+ * 4. Reset JRX rate-match FIFO
  *
- * Based on fpga_hw_fsrc_dr_seq_run() from fullchip_fsrc_dr.c
+ * RX Path Invalid Sample Flow:
+ *   Apollo ADC -> Apollo RX FSRC (adds invalid samples -FS)
+ *   FPGA RX FSRC (removes invalid samples)
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
+int ad9088_fsrc_rx_reconfig_sequence(struct ad9088_phy *phy, bool enable)
 {
 	int ret;
 
-	dev_dbg(&phy->spi->dev, "Starting TX FSRC SPI reconfig sequence\n");
+	dev_dbg(&phy->spi->dev, "Starting RX FSRC SPI reconfig sequence\n");
 
-	/**
-	 * FPGA TX sends all invalid samples (stop sending valid data)
-	 * TX Path: FPGA adds invalids → Apollo FSRC TX removes invalids → clean DAC output
-	 */
-	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_TX);
+	/* Enable RX FPGA, just removes -FS */
+	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_RX);
 	if (ret)
 		return ret;
 
-	/* Allow invalids to flow through JESD link */
-	usleep_range(10000, 11000);
-
-	/* Enable trigger sync - resync Tx digital blocks during reconfig */
+	/* Enable trigger sync - resync RX digital blocks during reconfig */
 	ret = adi_apollo_clk_mcs_trig_reset_dsp_enable(&phy->ad9088);
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
 					"adi_apollo_clk_mcs_trig_reset_dsp_enable");
 	if (ret)
 		return ret;
 
-	/* Execute manual dynamic reconfig. */
-	ret = adi_apollo_clk_mcs_man_reconfig_sync(&phy->ad9088);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_clk_mcs_man_reconfig_sync");
+	ret = ad9088_fsrc_trigger_reconfig_sequence(phy);
 	if (ret)
 		return ret;
 
-	/* Resume FPGA TX - sends valid and invalid samples at new rate */
-	if (enable) {
-		ret = ad9088_axi_fsrc_tx_active(phy, 1);
-		if (ret)
-			return ret;
-	}
-
-	/* Allow samples to flow - needed for RMFIFO status to clear */
+	/* Wait for samples to flow through RX path - needed for RMFIFO status to clear */
 	usleep_range(100, 200);
 
-	/* Reset the rate-match FIFO to clear any full/empty status */
+	/* Reset the JRX rate-match FIFO to clear any full/empty status from rate change */
 	ret = adi_apollo_jrx_rm_fifo_reset(&phy->ad9088,
 					   ADI_APOLLO_LINK_A0 | ADI_APOLLO_LINK_B0);
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
@@ -295,12 +320,12 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
 	if (ret)
 		return ret;
 
-	dev_dbg(&phy->spi->dev, "TX FSRC SPI reconfig sequence complete\n");
+	dev_dbg(&phy->spi->dev, "RX FSRC reconfig sequence complete\n");
 	return 0;
 }
 
 /**
- * ad9088_fsrc_tx_reconfig_sequence_gpio - Execute TX FSRC GPIO-triggered reconfig
+ * ad9088_fsrc_tx_reconfig_sequence - Execute TX FSRC GPIO-triggered reconfig
  * @phy: AD9088 device instance
  * @enable: Enable AXI FSRC side
  *
@@ -320,71 +345,59 @@ int ad9088_fsrc_tx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
  *
  * Returns: 0 on success, negative error code on failure
  */
-int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable)
+int ad9088_fsrc_tx_reconfig_sequence(struct ad9088_phy *phy, bool enable)
 {
 	int ret;
 
-	dev_dbg(&phy->spi->dev, "Starting TX FSRC GPIO reconfig sequence\n");
+	dev_dbg(&phy->spi->dev, "Starting TX FSRC reconfig sequence\n");
 
 	/* FPGA sends all invalid samples (stop sending valid data) */
 	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_TX);
 	if (ret)
 		return ret;
 
-	/* Wait for invalids to flow */
+	/* Allow invalids to flow through JESD link */
 	usleep_range(10000, 11000);
 
-	/* Apollo forces JTx invalids - TX will send only invalid samples */
-	ret = adi_apollo_jtx_force_invalids_set(&phy->ad9088, ADI_APOLLO_LINK_ALL, 1);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_jtx_force_invalids_set");
-	if (ret)
-		return ret;
+	if (phy->fsrc_gpio_trig_en) {
+		/* Apollo forces JTx invalids - TX will send only invalid samples */
+		ret = adi_apollo_jtx_force_invalids_set(&phy->ad9088, ADI_APOLLO_LINK_ALL, 1);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_jtx_force_invalids_set");
+		if (ret)
+			return ret;
 
-	/* Wait for invalids to propagate through the system */
-	usleep_range(1000000, 1100000);  /* 1000ms */
+		/* Wait for invalids to propagate through the system */
+		usleep_range(1000000, 1100000);  /* 1000ms */
 
-	/* Enable Apollo trigger sync - Apollo will wait for external GPIO trigger */
-	ret = adi_apollo_clk_mcs_trig_sync_enable(&phy->ad9088, 1);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_clk_mcs_trig_sync_enable");
-	if (ret)
-		return ret;
-
-	/* Trigger FPGA sequencer to start the SYSREF-based sequence */
-	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-						"seq_start", 1);
-	if (ret < 0) {
-		dev_warn(&phy->spi->dev,
-			 "Failed to trigger sequencer via reg: %d. "
-			 "Use external GPIO trigger instead.\n", ret);
+		ret = adi_apollo_clk_mcs_trig_sync_enable(&phy->ad9088, 1);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_clk_mcs_trig_sync_enable");
+		if (ret)
+			return ret;
+	} else {
+		ret = adi_apollo_clk_mcs_trig_reset_dsp_enable(&phy->ad9088);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_clk_mcs_trig_reset_dsp_enable");
+		if (ret)
+			return ret;
 	}
 
-	/* Wait for sequencer to complete
-	 * Timing: first_trig_cnt (1002) + margin = ~1050 SYSREF cycles
-	 * At typical SYSREF of 4MHz: 1050 * 250ns = 262.5us
-	 * Add margin for safety
-	 */
-	usleep_range(500, 1000);  /* 500us */
-
-	/* Clear Apollo trigger sync (not self-clearing) */
-	ret = adi_apollo_clk_mcs_trig_sync_enable(&phy->ad9088, 0);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_clk_mcs_trig_sync_enable clear");
+	ret = ad9088_fsrc_trigger_reconfig_sequence(phy);
 	if (ret)
 		return ret;
 
-	/* Resume FPGA TX - send valid and invalid samples */
+	/* Resume FPGA TX - sends valid and invalid samples at new rate */
 	if (enable) {
 		ret = ad9088_axi_fsrc_tx_active(phy, 1);
 		if (ret)
 			return ret;
 	}
 
-	/* Wait for samples to flow - needed for rmfifo status to clear */
+	/* Allow samples to flow - needed for RMFIFO status to clear */
 	usleep_range(100, 200);
 
-	/* Reset the rate-match FIFO */
+	/* Reset the rate-match FIFO to clear any full/empty status */
 	ret = adi_apollo_jrx_rm_fifo_reset(&phy->ad9088,
 					   ADI_APOLLO_LINK_A0 | ADI_APOLLO_LINK_B0);
 	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
@@ -392,146 +405,10 @@ int ad9088_fsrc_tx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable)
 	if (ret)
 		return ret;
 
-	if (!ret)
-		dev_dbg(&phy->spi->dev, "TX FSRC GPIO reconfig sequence complete\n");
-
-	return ret;
-}
-
-/**
- * ad9088_fsrc_rx_reconfig_sequence_spi - Execute RX FSRC dynamic reconfig via SPI trigger
- * @phy: AD9088 device instance
- * @enable: Enable AXI FSRC side
- *
- * Executes the RX-only FSRC dynamic reconfiguration sequence using SPI/regmap trigger.
- *
- * RX Path Invalid Sample Flow:
- *   Apollo ADC -> Apollo RX FSRC (adds invalid samples -FS)
- *   FPGA RX FSRC (removes invalid samples)
- *
- * Sequence:
- * 1. Enable trigger sync on Apollo
- * 2. Execute manual reconfig (SPI trigger - applies new RX ratio/CDDC/FDDC)
- * 3. Wait for samples to flow
- * 4. Reset JRX rate-match FIFO
- *
- * Returns: 0 on success, negative error code on failure
- */
-int ad9088_fsrc_rx_reconfig_sequence_spi(struct ad9088_phy *phy, bool enable)
-{
-	int ret;
-
-	dev_dbg(&phy->spi->dev, "Starting RX FSRC SPI reconfig sequence\n");
-
-	/* Enable RX FPGA, just removes -FS */
-	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_RX);
-	if (ret)
-		return ret;
-
-	/* Enable trigger sync - resync RX digital blocks during reconfig */
-	ret = adi_apollo_clk_mcs_trig_reset_dsp_enable(&phy->ad9088);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_clk_mcs_trig_reset_dsp_enable");
-	if (ret)
-		return ret;
-
-	/* Execute manual dynamic reconfig - applies new settings */
-	ret = adi_apollo_clk_mcs_man_reconfig_sync(&phy->ad9088);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_clk_mcs_man_reconfig_sync");
-	if (ret)
-		return ret;
-
-	/* Allow samples to flow through RX path - needed for RMFIFO status to clear */
-	usleep_range(100, 200);
-
-	/* Reset the JRX rate-match FIFO to clear any full/empty status from rate change */
-	ret = adi_apollo_jrx_rm_fifo_reset(&phy->ad9088,
-					   ADI_APOLLO_LINK_A0 | ADI_APOLLO_LINK_B0);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_jrx_rm_fifo_reset");
-	if (ret)
-		return ret;
-
-	dev_dbg(&phy->spi->dev, "RX FSRC SPI reconfig sequence complete\n");
+	dev_dbg(&phy->spi->dev, "TX FSRC reconfig sequence complete\n");
 	return 0;
 }
 
-/**
- * ad9088_fsrc_rx_reconfig_sequence_gpio - Execute RX FSRC GPIO-triggered reconfig
- * @phy: AD9088 device instance
- * @enable: Enable AXI FSRC side
- *
- * Executes RX-only GPIO-triggered FSRC dynamic reconfiguration sequence:
- * 1. Enable Apollo trigger sync (wait for GPIO trigger)
- * 2. Trigger FPGA sequencer (via register or external GPIO)
- * 3. FPGA sequencer counts SYSREFs and sends trigger to Apollo
- * 4. Apollo executes RX reconfig on trigger
- * 5. Clear Apollo trigger sync
- * 6. Wait for samples to flow through RX path
- * 7. Reset JRX rate-match FIFO
- *
- * RX Path Invalid Sample Flow:
- *   Apollo ADC -> Apollo RX FSRC (adds invalid samples)
- *   FPGA RX FSRC (removes invalid samples)
- *
- * Returns: 0 on success, negative error code on failure
- */
-int ad9088_fsrc_rx_reconfig_sequence_gpio(struct ad9088_phy *phy, bool enable)
-{
-	int ret;
-
-	dev_dbg(&phy->spi->dev, "Starting RX FSRC GPIO reconfig sequence\n");
-
-	/* Enable RX FPGA, just removes -FS */
-	ret = ad9088_axi_fsrc_enable(phy, enable, ADI_APOLLO_RX);
-	if (ret)
-		return ret;
-
-	/* Enable Apollo trigger sync - Apollo will wait for external GPIO trigger */
-	ret = adi_apollo_clk_mcs_trig_sync_enable(&phy->ad9088, 1);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_clk_mcs_trig_sync_enable");
-	if (ret)
-		return ret;
-
-	/* Trigger FPGA sequencer to start the SYSREF-based sequence */
-	ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
-						"seq_start", enable);
-	if (ret < 0) {
-		dev_warn(&phy->spi->dev,
-			 "Failed to trigger sequencer via reg: %d. "
-			 "Use external GPIO trigger instead.\n", ret);
-	}
-
-	/*
-	 * Wait for sequencer to complete
-	 * Timing: first_trig_cnt (1002) + margin = ~1050 SYSREF cycles
-	 * At typical SYSREF of 4MHz: 1050 * 250ns = 262.5us
-	 */
-	usleep_range(500, 1000);  /* 500us */
-
-	/* Clear Apollo trigger sync */
-	ret = adi_apollo_clk_mcs_trig_sync_enable(&phy->ad9088, 0);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_clk_mcs_trig_sync_enable clear");
-	if (ret)
-		return ret;
-
-	/* Wait for samples to flow through RX path - needed for RMFIFO status to clear */
-	usleep_range(100, 200);
-
-	/* Reset the JRX rate-match FIFO to clear any full/empty status from rate change */
-	ret = adi_apollo_jrx_rm_fifo_reset(&phy->ad9088,
-					   ADI_APOLLO_LINK_A0 | ADI_APOLLO_LINK_B0);
-	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					"adi_apollo_jrx_rm_fifo_reset");
-	if (ret)
-		return ret;
-
-	dev_dbg(&phy->spi->dev, "RX FSRC GPIO reconfig sequence complete\n");
-	return ret;
-}
 
 static ssize_t ad9088_fsrc_print_block(char *buf, size_t size, ssize_t offset,
 				       const char *name, const adi_apollo_fsrc_inspect_t *fsrc)

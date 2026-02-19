@@ -41,10 +41,8 @@ enum ad9088_debugfs_cmd {
 	/* FSRC commands */
 	DBGFS_FSRC_CONFIGURE_RX,
 	DBGFS_FSRC_CONFIGURE_TX,
-	DBGFS_FSRC_TX_RECONFIG_SPI,
-	DBGFS_FSRC_TX_RECONFIG_GPIO,
-	DBGFS_FSRC_RX_RECONFIG_SPI,
-	DBGFS_FSRC_RX_RECONFIG_GPIO,
+	DBGFS_FSRC_TX_RECONFIG,
+	DBGFS_FSRC_RX_RECONFIG,
 	DBGFS_FSRC_INSPECT,
 };
 
@@ -402,10 +400,8 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			break;
 		case DBGFS_FSRC_CONFIGURE_RX:
 		case DBGFS_FSRC_CONFIGURE_TX:
-		case DBGFS_FSRC_TX_RECONFIG_SPI:
-		case DBGFS_FSRC_TX_RECONFIG_GPIO:
-		case DBGFS_FSRC_RX_RECONFIG_SPI:
-		case DBGFS_FSRC_RX_RECONFIG_GPIO:
+		case DBGFS_FSRC_TX_RECONFIG:
+		case DBGFS_FSRC_RX_RECONFIG:
 			/* Write-only attributes, return 0 on read */
 			val = 0;
 			break;
@@ -718,49 +714,23 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		}
 		ret = ad9088_fsrc_configure_tx(phy, val, val2);
 		break;
-	case DBGFS_FSRC_TX_RECONFIG_SPI:
+	case DBGFS_FSRC_TX_RECONFIG:
 		if (!val)
 			break;
 		if (!phy->iio_axi_fsrc) {
 			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
 			return -ENODEV;
 		}
-		ret = ad9088_fsrc_tx_reconfig_sequence_spi(phy, !!val);
+		ret = ad9088_fsrc_tx_reconfig_sequence(phy, !!val);
 		break;
-	case DBGFS_FSRC_TX_RECONFIG_GPIO:
+	case DBGFS_FSRC_RX_RECONFIG:
 		if (!val)
 			break;
 		if (!phy->iio_axi_fsrc) {
 			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
 			return -ENODEV;
 		}
-		if (!phy->fsrc_gpio_trig_routed) {
-			dev_err(&phy->spi->dev, "FSRC GPIO trigger routing not present (missing adi,fsrc-gpio-trig in DT)\n");
-			return -EINVAL;
-		}
-		ret = ad9088_fsrc_tx_reconfig_sequence_gpio(phy, !!val);
-		break;
-	case DBGFS_FSRC_RX_RECONFIG_SPI:
-		if (!val)
-			break;
-		if (!phy->iio_axi_fsrc) {
-			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
-			return -ENODEV;
-		}
-		ret = ad9088_fsrc_rx_reconfig_sequence_spi(phy, !!val);
-		break;
-	case DBGFS_FSRC_RX_RECONFIG_GPIO:
-		if (!val)
-			break;
-		if (!phy->iio_axi_fsrc) {
-			dev_err(&phy->spi->dev, "No FPGA sequencer\n");
-			return -ENODEV;
-		}
-		if (!phy->fsrc_gpio_trig_routed) {
-			dev_err(&phy->spi->dev, "FSRC GPIO trigger routing not present (missing adi,fsrc-gpio-trig in DT)\n");
-			return -EINVAL;
-		}
-		ret = ad9088_fsrc_rx_reconfig_sequence_gpio(phy, !!val);
+		ret = ad9088_fsrc_rx_reconfig_sequence(phy, !!val);
 		break;
 	case DBGFS_FSRC_INSPECT:
 		/* Read-only attribute */
@@ -894,13 +864,9 @@ int ad9088_debugfs_register(struct iio_dev *indio_dev)
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "fsrc_configure_tx", DBGFS_FSRC_CONFIGURE_TX);
 	ad9088_add_debugfs_entry(phy, indio_dev,
-				 "fsrc_tx_reconfig_spi", DBGFS_FSRC_TX_RECONFIG_SPI);
+				 "fsrc_tx_reconfig", DBGFS_FSRC_TX_RECONFIG);
 	ad9088_add_debugfs_entry(phy, indio_dev,
-				 "fsrc_tx_reconfig_gpio", DBGFS_FSRC_TX_RECONFIG_GPIO);
-	ad9088_add_debugfs_entry(phy, indio_dev,
-				 "fsrc_rx_reconfig_spi", DBGFS_FSRC_RX_RECONFIG_SPI);
-	ad9088_add_debugfs_entry(phy, indio_dev,
-				 "fsrc_rx_reconfig_gpio", DBGFS_FSRC_RX_RECONFIG_GPIO);
+				 "fsrc_rx_reconfig", DBGFS_FSRC_RX_RECONFIG);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "fsrc_inspect", DBGFS_FSRC_INSPECT);
 
