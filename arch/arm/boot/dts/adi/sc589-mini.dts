@@ -136,27 +136,22 @@
 		reg = <0>;
 
 		partition@0 {
-			label = "uboot spl (spi)";
+			label = "u-boot spl";
 			reg = <0x0 0x20000>;
 		};
 
 		partition@1 {
-			label = "uboot proper (spi)";
+			label = "u-boot proper";
 			reg = <0x20000 0xb0000>;
 		};
 
 		partition@2 {
-			label = "uboot env";
-			reg = <0xd0000 0x10000>;
+			label = "kernel";
+			reg = <0x00d0000 0x810000>;
 		};
 
 		partition@3 {
-			label = "kernel (spi)";
-			reg = <0x00e0000 0x0800000>;
-		};
-
-		partition@4 {
-			label = "root file system (spi)";
+			label = "rootfs";
 			reg = <0x08e0000 0x3720000>;
 		};
 	};
