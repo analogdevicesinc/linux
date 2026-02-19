@@ -1442,6 +1442,9 @@ impl Process {
         }
     }
 
+    // #[export_name] is a temporary workaround so that ps output does not become unreadable from
+    // mangled symbol names.
+    #[export_name = "rust_binder_freeze"]
     pub(crate) fn ioctl_freeze(&self, info: &BinderFreezeInfo) -> Result {
         if info.enable == 0 {
             let msgs = self.prepare_freeze_messages()?;
