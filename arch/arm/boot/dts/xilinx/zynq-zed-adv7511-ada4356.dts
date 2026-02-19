@@ -15,6 +15,22 @@
 #include "zynq-zed-adv7511.dtsi"
 
 &fpga_axi {
+
+	fmc_i2c: i2c@41620000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x41620000 0x10000>;
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		ad7291@2f {
+			compatible = "adi,ad7291";
+			reg = <0x2f>;
+		};
+	};
+
 	rx_dma: rx-dmac@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44A30000 0x10000>;
@@ -44,6 +60,7 @@
 
 		spibus-connected = <&adc_ada4355>;
 	};
+
 };
 
 &spi0 {
@@ -65,7 +82,12 @@
 		#size-cells = <0>;
 		out-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>,
 			    <&gpio0 87 GPIO_ACTIVE_HIGH>,
-			    <&gpio0 88 GPIO_ACTIVE_HIGH>;
+			    <&gpio0 88 GPIO_ACTIVE_HIGH>,
+			    <&gpio0 90 GPIO_ACTIVE_HIGH>,
+			    <&gpio0 91 GPIO_ACTIVE_HIGH>,
+			    <&gpio0 92 GPIO_ACTIVE_HIGH>,
+			    <&gpio0 93 GPIO_ACTIVE_HIGH>,
+			    <&gpio0 95 GPIO_ACTIVE_HIGH>;
 
 		channel@0 {
 			reg = <0>;
@@ -77,7 +99,27 @@
 		};
 		channel@2 {
 			reg = <2>;
-			label = "FSEL";
+			label = "FSEL0";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "GSEL2";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "GPIO_TEST";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "GSEL3";
+		};
+		channel@6 {
+			reg = <6>;
+			label = "FSEL1";
+		};
+		channel@7 {
+			reg = <7>;
+			label = "VLOGIC";
 		};
 	};
 };
