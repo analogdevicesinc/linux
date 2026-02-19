@@ -27,6 +27,8 @@
 #define CGU0_CLKSALGN	   BIT(3) 
 #define CGU0_UPDT	   BIT(30)
 
+#define SC589_MAX_FREQ_KHZ 500000
+
 #define TRANSITION_LATENCY 50000 /* nanoseconds, TODO: refine with timing/testing */
 
 static void __iomem *cgu0_ctl;
@@ -60,12 +62,9 @@ static unsigned int sc589_get(unsigned int cpu)
 
 static int sc589_init(struct cpufreq_policy *policy)
 {
-       	//policy->policy = 
-	//policy->governors = 	
-	//policy->cpus = 
 	policy->cpuinfo.transition_latency = TRANSITION_LATENCY;
-	//policy->cpuinfo.min_freq =  
-	//policy->cpuinfo.max_freq = 
+	policy->cpuinfo.min_freq =  
+	policy->cpuinfo.max_freq = SC589_MAX_FREQ_KHZ; 
 	//policy->min = 
        	//policy->max = 
 	policy->freq_table = sc589_freq_table;
