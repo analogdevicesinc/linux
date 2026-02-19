@@ -174,28 +174,23 @@
 		/*adi,enable-dma;*/
 
 		qspi_0: partition@0 {
-			label = "U-Boot SPL";
+			label = "u-boot spl";
 			reg = <0x0 0x40000>;
 		};
 
 		qspi_1: partition@1 {
-			label = "U-Boot Proper";
-			reg = <0x40000 0xC0000>;
+			label = "u-boot proper";
+			reg = <0x40000 0xc0000>;
 		};
 
-		qspi_2: partition@2 {
-			label = "U-Boot Environment";
-			reg = <0x100000 0x20000>;
+		qspi_2: partition@3 {
+			label = "kernel";
+			reg = <0x00100000 0xf00000>;
 		};
 
-		qspi_3: partition@3 {
-			label = "FIT Image";
-			reg = <0x120000 0xF00000>;
-		};
-
-		qspi_4: partition@4 {
-			label = "JFFS2 Formatted RFS";
-			reg = <0x1020000 0x2FE0000>;
+		qspi_3: partition@4 {
+			label = "rootfs";
+			reg = <0x1000000 0x3000000>;
 		};
 
 	};
@@ -230,28 +225,23 @@
 			#size-cells = <1>;
 
 			ospi_0: partition@0 {
-				label = "U-Boot SPL";
+				label = "u-boot spl";
 				reg = <0x0 0x40000>;
 			};
 
 			ospi_1: partition@1 {
-				label = "U-Boot Proper";
-				reg = <0x40000 0xC0000>;
+				label = "u-boot proper";
+				reg = <0x40000 0xc0000>;
 			};
 
-			ospi_2: partition@2 {
-				label = "U-Boot Environment";
-				reg = <0x100000 0x20000>;
+			ospi_2: partition@3 {
+				label = "kernel";
+				reg = <0x100000 0xf00000>;
 			};
 
-			ospi_3: partition@3 {
-				label = "FIT Image";
-				reg = <0x120000 0xF00000>;
-			};
-
-			ospi_4: partition@4 {
-				label = "JFFS2 Formatted RFS";
-				reg = <0x1020000 0xFE0000>;
+			ospi_3: partition@4 {
+				label = "rootfs";
+				reg = <0x01000000 0x1000000>;
 			};
 		};
 	};

@@ -93,28 +93,23 @@
 			#size-cells = <1>;
 
 			qspi_0@0 {
-				label = "u-boot-spl";
-				reg = <0x00000000 0x00040000>;
+				label = "u-boot spl";
+				reg = <0x00000000 0x40000>;
 			};
 
 			qspi_1@40000 {
-				label = "u-boot";
-				reg = <0x00040000 0x000C0000>;
+				label = "u-boot proper";
+				reg = <0x00040000 0xc0000>;
 			};
 
 			qspi_2@100000 {
-				label = "dtb";
-				reg = <0x00100000 0x00010000>;
-			};
-
-			qspi_3@110000 {
 				label = "kernel";
-				reg = <0x00110000 0x02000000>;
+				reg = <0x00100000 0xf00000>;
 			};
 
-			qspi_4@2110000 {
+			qspi_3@1000000 {
 				label = "rootfs";
-				reg = <0x02110000 0x01EF0000>;
+				reg = <0x01000000 0x3000000>;
 			};
 		};
 	};
