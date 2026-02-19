@@ -68,5 +68,13 @@ ccflags-y += -I$(srctree)/$(src)/devices/adrv903x/private/include/ \
 	-DADRV903X_BITFIELD_VALUE_CHECK=0 \
 	-Wno-error=missing-prototypes
 
+# Suppress frame size warnings for vendor API files with large stack buffers
+CFLAGS_devices/adrv903x/public/src/adi_adrv903x_cpu.o := -Wframe-larger-than=2048
+CFLAGS_devices/adrv903x/public/src/adi_adrv903x_cals.o := -Wframe-larger-than=2048
+CFLAGS_devices/adrv903x/public/src/adi_adrv903x_utilities.o := -Wframe-larger-than=2048
+
+# Suppress format warnings for vendor error handling (uses C standard PRIx32 macros incompatible with printk)
+CFLAGS_common/adi_error/adi_common_error.o := -Wno-format
+
 obj-$(CONFIG_ADRV903X) += adrv903x_drv.o
 
