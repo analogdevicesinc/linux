@@ -15,22 +15,6 @@
 #include "zynq-zed-adv7511.dtsi"
 
 &fpga_axi {
-
-	fmc_i2c: i2c@41620000 {
-		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-		interrupt-parent = <&intc>;
-		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x41620000 0x10000>;
-
-		#size-cells = <0>;
-		#address-cells = <1>;
-
-		ad7291@2f {
-			compatible = "adi,ad7291";
-			reg = <0x2f>;
-		};
-	};
-
 	rx_dma: rx-dmac@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44A30000 0x10000>;
@@ -60,36 +44,6 @@
 
 		spibus-connected = <&adc_ada4355>;
 	};
-
-	/* TDD Controller for LiDAR timing control */
-	axi_tdd: axi-tdd@44a40000 {
-		compatible = "adi,axi-tdd";
-		reg = <0x44a40000 0x10000>;
-		clocks = <&clkc 15>, <&ada4355_fixed_clock>;
-		clock-names = "s_axi_aclk", "intf_clk";
-	};
-
-	/* IIO wrapper for TDD - makes sysfs attributes accessible via libiio */
-	iio_axi_tdd_0: iio-axi-tdd-0@0 {
-		compatible = "adi,iio-fake-platform-device";
-		adi,faked-dev = <&axi_tdd>;
-		adi,attribute-names =
-			"version", "core_id", "scratch", "magic",
-			"sync_soft", "sync_external", "sync_internal", "sync_reset",
-			"enable", "startup_delay_raw", "startup_delay_ms",
-			"burst_count", "frame_length_raw", "frame_length_ms",
-			"state", "internal_sync_period_raw", "internal_sync_period_ms",
-			"out_channel0_enable", "out_channel0_polarity",
-			"out_channel0_on_raw", "out_channel0_on_ms",
-			"out_channel0_off_raw", "out_channel0_off_ms",
-			"out_channel1_enable", "out_channel1_polarity",
-			"out_channel1_on_raw", "out_channel1_on_ms",
-			"out_channel1_off_raw", "out_channel1_off_ms",
-			"out_channel2_enable", "out_channel2_polarity",
-			"out_channel2_on_raw", "out_channel2_on_ms",
-			"out_channel2_off_raw", "out_channel2_off_ms";
-		label = "iio-axi-tdd-0";
-	};
 };
 
 &spi0 {
@@ -111,11 +65,7 @@
 		#size-cells = <0>;
 		out-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>,
 			    <&gpio0 87 GPIO_ACTIVE_HIGH>,
-			    <&gpio0 88 GPIO_ACTIVE_HIGH>,
-			    <&gpio0 90 GPIO_ACTIVE_HIGH>,
-			    <&gpio0 91 GPIO_ACTIVE_HIGH>,
-			    <&gpio0 92 GPIO_ACTIVE_HIGH>,
-			    <&gpio0 93 GPIO_ACTIVE_HIGH>;
+			    <&gpio0 88 GPIO_ACTIVE_HIGH>;
 
 		channel@0 {
 			reg = <0>;
@@ -127,23 +77,7 @@
 		};
 		channel@2 {
 			reg = <2>;
-			label = "FSEL0";
-		};
-		channel@3 {
-			reg = <3>;
-			label = "GSEL2";
-		};
-		channel@4 {
-			reg = <4>;
-			label = "GPIO_TEST";
-		};
-		channel@5 {
-			reg = <5>;
-			label = "GSEL3";
-		};
-		channel@6 {
-			reg = <6>;
-			label = "FSEL1";
+			label = "FSEL";
 		};
 	};
 };
