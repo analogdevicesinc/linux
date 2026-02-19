@@ -123,4 +123,86 @@
 			status = "okay";
 		};
 	};
+
+	/* ====== RPi5 Configuration (spi-gpio, 3-wire mode) ====== */
+
+	/* RPi5: Disable hardware SPI0 */
+	fragment@10 {
+		target = <&spi0>;
+		__dormant__ {
+			status = "disabled";
+		};
+	};
+
+	/* RPi5: SPI-GPIO bus with 3-wire mode */
+	fragment@11 {
+		target-path = "/";
+		__dormant__ {
+			spi_cn0511: spi-cn0511 {
+				compatible = "spi-gpio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				sck-gpios = <&gpio 11 0>;
+				mosi-gpios = <&gpio 10 0>;
+				cs-gpios = <&gpio 8 1>,
+					   <&gpio 7 1>,
+					   <&gpio 25 1>;
+				num-chipselects = <3>;
+
+				/* AD9166 DAC - 3-wire mode */
+				cn0511_ad9166_pi5: ad9166@0 {
+					compatible = "adi,ad9166";
+					reg = <0>;
+					spi-max-frequency = <1000000>;
+					spi-3wire;
+					clocks = <&cn0511_adf4372_pi5 0>;
+					clock-names = "dac_clk";
+					adi,standalone-probe;
+					adi,dc-test-en;
+					dac_clk-clock-scales = <1 10>;
+				};
+
+				/* ADF4372 PLL - 3-wire mode */
+				cn0511_adf4372_pi5: adf4372@1 {
+					compatible = "adi,adf4372";
+					reg = <1>;
+
+					#address-cells = <1>;
+					#clock-cells = <1>;
+					#size-cells = <0>;
+
+					spi-max-frequency = <1000000>;
+					spi-3wire;
+					clocks = <&adf4372_clkin>;
+					clock-names = "clkin";
+					clock-output-names = "clk-rf8", "clk-rfaux8",
+							     "clk-rf16";
+
+					adi,muxout-select = <1>;
+
+					channel@0 {
+						reg = <0>;
+						adi,power-up-frequency = /bits/ 64
+									<6000000000>;
+					};
+				};
+
+				/* AD9166-AMP - 3-wire mode */
+				cn0511_amp_pi5: ad9166-amp@2 {
+					compatible = "adi,ad9166-amp";
+					reg = <2>;
+					spi-3wire;
+					spi-max-frequency = <1000000>;
+				};
+			};
+		};
+	};
+
+	__overrides__ {
+		pi5 = <0>,"+10+11",
+		      <&dac0_ad9166>,"status=disabled",
+		      <&adf4372_clk>,"status=disabled",
+		      <&ad9166_amp>,"status=disabled";
+	};
 };
