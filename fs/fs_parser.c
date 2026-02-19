@@ -277,15 +277,6 @@ int fs_param_is_string(struct p_log *log, const struct fs_parameter_spec *p,
 }
 EXPORT_SYMBOL(fs_param_is_string);
 
-int fs_param_is_blob(struct p_log *log, const struct fs_parameter_spec *p,
-		     struct fs_parameter *param, struct fs_parse_result *result)
-{
-	if (param->type != fs_value_is_blob)
-		return fs_param_bad_value(log, param);
-	return 0;
-}
-EXPORT_SYMBOL(fs_param_is_blob);
-
 int fs_param_is_fd(struct p_log *log, const struct fs_parameter_spec *p,
 		  struct fs_parameter *param, struct fs_parse_result *result)
 {
