@@ -434,9 +434,11 @@ struct psp_context {
 	void				*fence_buf;
 
 	/* cmd buffer */
-	struct amdgpu_bo		*cmd_buf_bo;
-	uint64_t			cmd_buf_mc_addr;
-	struct psp_gfx_cmd_resp		*cmd_buf_mem;
+	struct amdgpu_bo		*cmd_resp_buf_bo;
+	uint64_t			cmd_resp_buf_mc_addr;
+	struct psp_gfx_cmd_resp		*cmd_resp_buf_mem;
+	uint64_t			cmd_ext_resp_mc_addr;
+	void				*cmd_ext_resp_mem;
 
 	/* fence value associated with cmd buffer */
 	atomic_t			fence_value;

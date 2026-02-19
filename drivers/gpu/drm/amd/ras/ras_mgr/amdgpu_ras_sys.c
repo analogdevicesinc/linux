@@ -234,10 +234,10 @@ static int amdgpu_ras_sys_get_gpu_mem(struct ras_core_context *ras_core,
 		gpu_mem->mem_mc_addr = psp_ring->ring_mem_mc_addr;
 		gpu_mem->mem_cpu_addr = psp_ring->ring_mem;
 	} else if (mem_type == GPU_MEM_TYPE_RAS_PSP_CMD) {
-		gpu_mem->mem_bo = psp->cmd_buf_bo;
+		gpu_mem->mem_bo = psp->cmd_resp_buf_bo;
 		gpu_mem->mem_size = PSP_CMD_BUFFER_SIZE;
-		gpu_mem->mem_mc_addr = psp->cmd_buf_mc_addr;
-		gpu_mem->mem_cpu_addr = psp->cmd_buf_mem;
+		gpu_mem->mem_mc_addr = psp->cmd_resp_buf_mc_addr;
+		gpu_mem->mem_cpu_addr = psp->cmd_resp_buf_mem;
 	} else if (mem_type == GPU_MEM_TYPE_RAS_PSP_FENCE) {
 		gpu_mem->mem_bo = psp->fence_buf_bo;
 		gpu_mem->mem_size = PSP_FENCE_BUFFER_SIZE;

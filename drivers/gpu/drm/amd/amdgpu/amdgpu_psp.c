@@ -551,10 +551,14 @@ static int psp_sw_init(struct amdgpu_ip_block *ip_block)
 	ret = amdgpu_bo_create_kernel(adev, PSP_CMD_BUFFER_SIZE, PAGE_SIZE,
 				      AMDGPU_GEM_DOMAIN_VRAM |
 				      AMDGPU_GEM_DOMAIN_GTT,
-				      &psp->cmd_buf_bo, &psp->cmd_buf_mc_addr,
-				      (void **)&psp->cmd_buf_mem);
+				      &psp->cmd_resp_buf_bo, &psp->cmd_resp_buf_mc_addr,
+				      (void **)&psp->cmd_resp_buf_mem);
 	if (ret)
 		goto failed2;
+
+	/* Space for extended data in the tail of the cmd_buf allocation */
+	psp->cmd_ext_resp_mc_addr = psp->cmd_resp_buf_mc_addr + sizeof(struct psp_gfx_cmd_resp);
+	psp->cmd_ext_resp_mem = psp->cmd_resp_buf_mem + 1;
 
 	return 0;
 
@@ -594,8 +598,8 @@ static int psp_sw_fini(struct amdgpu_ip_block *ip_block)
 			      &psp->fw_pri_mc_addr, &psp->fw_pri_buf);
 	amdgpu_bo_free_kernel(&psp->fence_buf_bo,
 			      &psp->fence_buf_mc_addr, &psp->fence_buf);
-	amdgpu_bo_free_kernel(&psp->cmd_buf_bo, &psp->cmd_buf_mc_addr,
-			      (void **)&psp->cmd_buf_mem);
+	amdgpu_bo_free_kernel(&psp->cmd_resp_buf_bo, &psp->cmd_resp_buf_mc_addr,
+			      (void **)&psp->cmd_resp_buf_mem);
 
 	return 0;
 }
@@ -704,7 +708,7 @@ static const char *psp_gfx_cmd_name(enum psp_gfx_cmd_id cmd_id)
 
 static bool psp_err_warn(struct psp_context *psp)
 {
-	struct psp_gfx_cmd_resp *cmd = psp->cmd_buf_mem;
+	struct psp_gfx_cmd_resp *cmd = psp->cmd_resp_buf_mem;
 
 	/* This response indicates reg list is already loaded */
 	if (amdgpu_ip_version(psp->adev, MP0_HWIP, 0) == IP_VERSION(13, 0, 2) &&
@@ -730,12 +734,12 @@ psp_cmd_submit_buf(struct psp_context *psp,
 	if (psp->adev->no_hw_access)
 		return 0;
 
-	memset(psp->cmd_buf_mem, 0, PSP_CMD_BUFFER_SIZE);
+	memset(psp->cmd_resp_buf_mem, 0, PSP_CMD_BUFFER_SIZE);
 
-	memcpy(psp->cmd_buf_mem, cmd, sizeof(struct psp_gfx_cmd_resp));
+	memcpy(psp->cmd_resp_buf_mem, cmd, sizeof(struct psp_gfx_cmd_resp));
 
 	index = atomic_inc_return(&psp->fence_value);
-	ret = psp_ring_cmd_submit(psp, psp->cmd_buf_mc_addr, fence_mc_addr, index);
+	ret = psp_ring_cmd_submit(psp, psp->cmd_resp_buf_mc_addr, fence_mc_addr, index);
 	if (ret) {
 		atomic_dec(&psp->fence_value);
 		goto exit;
@@ -758,10 +762,11 @@ psp_cmd_submit_buf(struct psp_context *psp,
 	}
 
 	/* We allow TEE_ERROR_NOT_SUPPORTED for VMR command and PSP_ERR_UNKNOWN_COMMAND in SRIOV */
-	skip_unsupport = (psp->cmd_buf_mem->resp.status == TEE_ERROR_NOT_SUPPORTED ||
-		psp->cmd_buf_mem->resp.status == PSP_ERR_UNKNOWN_COMMAND) && amdgpu_sriov_vf(psp->adev);
+	skip_unsupport = (psp->cmd_resp_buf_mem->resp.status == TEE_ERROR_NOT_SUPPORTED ||
+			  psp->cmd_resp_buf_mem->resp.status == PSP_ERR_UNKNOWN_COMMAND) &&
+			 amdgpu_sriov_vf(psp->adev);
 
-	memcpy(&cmd->resp, &psp->cmd_buf_mem->resp, sizeof(struct psp_gfx_resp));
+	memcpy(&cmd->resp, &psp->cmd_resp_buf_mem->resp, sizeof(struct psp_gfx_resp));
 
 	/* In some cases, psp response status is not 0 even there is no
 	 * problem while the command is submitted. Some version of PSP FW
@@ -770,7 +775,7 @@ psp_cmd_submit_buf(struct psp_context *psp,
 	 * during psp initialization to avoid breaking hw_init and it doesn't
 	 * return -EINVAL.
 	 */
-	if (!skip_unsupport && (psp->cmd_buf_mem->resp.status || !timeout) && !ras_intr) {
+	if (!skip_unsupport && (psp->cmd_resp_buf_mem->resp.status || !timeout) && !ras_intr) {
 		if (ucode)
 			dev_warn(psp->adev->dev,
 				 "failed to load ucode %s(0x%X) ",
@@ -779,9 +784,9 @@ psp_cmd_submit_buf(struct psp_context *psp,
 			dev_warn(
 				psp->adev->dev,
 				"psp gfx command %s(0x%X) failed and response status is (0x%X)\n",
-				psp_gfx_cmd_name(psp->cmd_buf_mem->cmd_id),
-				psp->cmd_buf_mem->cmd_id,
-				psp->cmd_buf_mem->resp.status);
+				psp_gfx_cmd_name(psp->cmd_resp_buf_mem->cmd_id),
+				psp->cmd_resp_buf_mem->cmd_id,
+				psp->cmd_resp_buf_mem->resp.status);
 		/* If any firmware (including CAP) load fails under SRIOV, it should
 		 * return failure to stop the VF from initializing.
 		 * Also return failure in case of timeout
@@ -793,8 +798,8 @@ psp_cmd_submit_buf(struct psp_context *psp,
 	}
 
 	if (ucode) {
-		ucode->tmr_mc_addr_lo = psp->cmd_buf_mem->resp.fw_addr_lo;
-		ucode->tmr_mc_addr_hi = psp->cmd_buf_mem->resp.fw_addr_hi;
+		ucode->tmr_mc_addr_lo = psp->cmd_resp_buf_mem->resp.fw_addr_lo;
+		ucode->tmr_mc_addr_hi = psp->cmd_resp_buf_mem->resp.fw_addr_hi;
 	}
 
 exit:
@@ -870,7 +875,7 @@ static int psp_load_toc(struct psp_context *psp,
 	ret = psp_cmd_submit_buf(psp, NULL, cmd,
 				 psp->fence_buf_mc_addr);
 	if (!ret)
-		*tmr_size = psp->cmd_buf_mem->resp.tmr_size;
+		*tmr_size = psp->cmd_resp_buf_mem->resp.tmr_size;
 
 	release_psp_cmd_buf(psp);
 
@@ -2264,7 +2269,7 @@ static int psp_ras_send_cmd(struct psp_context *psp,
 			memcpy(out, &ras_cmd->ras_status, sizeof(ras_cmd->ras_status));
 		break;
 	case TA_RAS_COMMAND__QUERY_ADDRESS:
-		if (ret || ras_cmd->ras_status || psp->cmd_buf_mem->resp.status)
+		if (ret || ras_cmd->ras_status || psp->cmd_resp_buf_mem->resp.status)
 			ret = -EINVAL;
 		else if (out)
 			memcpy(out,
@@ -2935,10 +2940,12 @@ static void psp_update_gpu_addresses(struct amdgpu_device *adev)
 {
 	struct psp_context *psp = &adev->psp;
 
-	if (psp->cmd_buf_bo && psp->cmd_buf_mem) {
+	if (psp->cmd_resp_buf_bo && psp->cmd_resp_buf_mem) {
 		psp->fw_pri_mc_addr = amdgpu_bo_fb_aper_addr(psp->fw_pri_bo);
 		psp->fence_buf_mc_addr = amdgpu_bo_fb_aper_addr(psp->fence_buf_bo);
-		psp->cmd_buf_mc_addr = amdgpu_bo_fb_aper_addr(psp->cmd_buf_bo);
+		psp->cmd_resp_buf_mc_addr = amdgpu_bo_fb_aper_addr(psp->cmd_resp_buf_bo);
+		psp->cmd_ext_resp_mc_addr = psp->cmd_resp_buf_mc_addr +
+					    sizeof(struct psp_gfx_cmd_resp);
 	}
 	if (adev->firmware.rbuf && psp->km_ring.ring_mem)
 		psp->km_ring.ring_mem_mc_addr = amdgpu_bo_fb_aper_addr(adev->firmware.rbuf);
