@@ -33,32 +33,10 @@ static void __iomem *cgu0_ctl;
 static u32 sys_clkin_khz;
 
 static struct cpufreq_frequency_table sc589_freq_table[] = {
-	{ .driver_data = 0, .frequency = 450000 },
-	{ .driver_data = 1, .frequency = 225000 },
+	{ .driver_data = 1, .frequency = 450000 },
+	{ .driver_data = 2, .frequency = 225000 },
 	{ .frequency = CPUFREQ_TABLE_END },
 };
-
-static int sc589_init(struct cpufreq_policy *policy)
-{
-       	//policy->policy = 
-	//policy->governors = 	
-	//policy->cpus = 
-	policy->cpuinfo.transition_latency = TRANSITION_LATENCY;
-	//policy->cpuinfo.min_freq =  
-	//policy->cpuinfo.max_freq = 
-	//policy->min = 
-       	//policy->max = 
-	policy->freq_table = sc589_freq_table;
-	policy->cur = 450000;
-	return 0;
-}
-
-static int sc589_target_index(struct cpufreq_policy *policy, unsigned int index)
-{
-	return 0;
-}
-
-// CCLK frequency = (SYS_CLKIN frequency / (DF+1)) * MSEL / CGU_DIV.CSEL
 
 static unsigned int sc589_get(unsigned int cpu)
 {
@@ -77,7 +55,22 @@ static unsigned int sc589_get(unsigned int cpu)
 	if (csel_value == 0)
 		csel_value = 32;
 
-	return sys_clkin_khz / (df_value + 1) * msel_value / csel_value;
+	return (sys_clkin_khz / (df_value + 1)) * msel_value / csel_value;
+}
+
+static int sc589_init(struct cpufreq_policy *policy)
+{
+       	//policy->policy = 
+	//policy->governors = 	
+	//policy->cpus = 
+	policy->cpuinfo.transition_latency = TRANSITION_LATENCY;
+	//policy->cpuinfo.min_freq =  
+	//policy->cpuinfo.max_freq = 
+	//policy->min = 
+       	//policy->max = 
+	policy->freq_table = sc589_freq_table;
+	policy->cur = sc589_get(policy->cpu);
+	return 0;
 }
 
 static int sc589_wait_clock_align(void)
@@ -106,6 +99,11 @@ static int sc589_set_divider(u32 div)
 	writel(csel_value, cgu0_ctl + CGU0_DIV_OFFSET);
 
 	return 0;
+}
+
+static int sc589_target_index(struct cpufreq_policy *policy, unsigned int index)
+{
+	return sc589_set_divider(policy->freq_table[index].driver_data);
 }
 
 static int map_cgu_from_dt(void)
@@ -167,7 +165,6 @@ static int __init sc589_cpufreq_init(void)
 	if (ret)
 		return ret;
 
-	sc589_set_divider(8);
 	return cpufreq_register_driver(&sc589_cpufreq_driver);
 }
 module_init(sc589_cpufreq_init);

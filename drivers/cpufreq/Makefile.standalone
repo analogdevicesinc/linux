@@ -1,0 +1,1 @@
+obj-m := adsp-sc589-cpufreq.o
