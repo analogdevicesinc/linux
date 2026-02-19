@@ -186,17 +186,17 @@
 		};
 
 		partition@2 {
-			label = "uboot env";
+			label = "DTB";
 			reg = <0xd0000 0x10000>;
 		};
 
 		partition@3 {
-			label = "kernel (spi)";
+			label = "Kernel";
 			reg = <0x00e0000 0x0600000>;
 		};
 
 		partition@4 {
-			label = "root file system (spi)";
+			label = "Rootfs";
 			reg = <0x06e0000 0x0920000>;
 		};
 	};
