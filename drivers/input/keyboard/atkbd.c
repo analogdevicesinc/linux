@@ -1110,6 +1110,12 @@ static int atkbd_get_keymap_from_fwnode(struct atkbd *atkbd)
 	for (i = 0; i < n; i++) {
 		scancode = SCANCODE(ptr[i]);
 		keycode = KEYCODE(ptr[i]);
+		if (scancode >= ATKBD_KEYMAP_SIZE) {
+			dev_warn(dev, "invalid scancode %#x in FW keymap entry %d\n",
+				 scancode, i);
+			kfree(ptr);
+			return -EINVAL;
+		}
 		atkbd->keycode[scancode] = keycode;
 	}
 
