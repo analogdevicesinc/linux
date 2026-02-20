@@ -366,7 +366,7 @@ static int fpc202_probe(struct i2c_client *client)
 			goto unregister_chans;
 		}
 
-		if (port_id > FPC202_NUM_PORTS) {
+		if (port_id >= FPC202_NUM_PORTS) {
 			dev_err(dev, "port ID %d is out of range!\n", port_id);
 			ret = -EINVAL;
 			goto unregister_chans;
