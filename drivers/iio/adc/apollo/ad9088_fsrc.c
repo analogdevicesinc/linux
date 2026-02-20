@@ -61,7 +61,7 @@ static int ad9088_axi_fsrc_tx_active(struct ad9088_phy *phy, bool active)
 }
 
 /**
- * ad9088_fsrc_configure_rx - Configure RX FSRC and data path
+ * ad9088_fsrc_rx_configure - Configure RX FSRC and data path
  * @phy: AD9088 device instance
  * @fsrc_n: FSRC N value
  * @fsrc_m: FSRC M value
@@ -99,7 +99,7 @@ int ad9088_fsrc_rx_configure(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
 }
 
 /**
- * ad9088_fsrc_configure_tx - Configure TX FSRC and data path
+ * ad9088_fsrc_tx_configure - Configure TX FSRC and data path
  * @phy: AD9088 device instance
  * @fsrc_n: FSRC N value
  * @fsrc_m: FSRC M value
