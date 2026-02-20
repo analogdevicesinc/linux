@@ -155,8 +155,6 @@ arch/arm64/boot/dts/xilinx/versal-net-vn-x-b2197-01-revA.dts
 
 arch/arm/boot/dts/xilinx/zynq-adrv9361-z7035-packrf.dts
 arch/arm/boot/dts/xilinx/zynq-adrv9364-z7020-packrf.dts
-arch/arm/boot/dts/xilinx/zynq-zc706-adv7511-ad9364-fmcomms4.dts
-arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad9364-fmcomms4.dts
 arch/arm/boot/dts/xilinx/zynq-microzed-cn0363.dts
 arch/arm/boot/dts/xilinx/zynq-coraz7s.dts
 arch/arm/boot/dts/xilinx/zynq-zc702-adv7511-adrv9363.dts
