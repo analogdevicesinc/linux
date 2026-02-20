@@ -3,7 +3,7 @@
 /plugin/;
 
 / {
-	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2712";
 
 	fragment@0 {
 		target-path = "/";
@@ -31,6 +31,8 @@
 				spi-max-frequency = <5000000>;
 				interrupts = <19 2>; // interrupt, Default to PMD-RPI-INTZ P1
 				interrupt-parent = <&gpio>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&ad7124_irq_pin>;
 				refin1-supply = <&vref>;
 
 				#address-cells = <1>;
@@ -93,8 +95,25 @@
 		};
 	};
 
+	fragment@4 {
+		target = <&gpio>;
+		__overlay__ {
+			ad7124_irq_pin: ad7124_irq_pin {
+				brcm,pins = <19>; /* default IRQ GPIO, matches interrupts */
+				brcm,function = <0>; /* input */
+				brcm,pull = <2>; /* pull-up */
+			};
+		};
+	};
+
 	__overrides__ {
+<<<<<<< HEAD
 			cs_pin	= <&ad7124>,"reg:0";
 			irq_gpio = <&ad7124>,"interrupts:0";
+=======
+		cs_pin	= <&ad7124>,"reg:0";
+		irq_gpio = <&ad7124>,"interrupts:0",
+			   <&ad7124_irq_pin>,"brcm,pins:0";
+>>>>>>> 023f55e7d355 (arm: dts: overlays: rpi-ad7124-8-all-diff: Fix IRQ edge detection on RPi5)
 	};
 };
