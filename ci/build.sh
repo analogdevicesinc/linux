@@ -84,10 +84,10 @@ check_checkpatch() {
 		[[ "$strategy" == "file" ]] && flags=" \
 			--ignore COMMIT_MESSAGE \
 			--ignore DT_SPLIT_BINDING_PATCH \
+			--ignore FILE_PATH_CHANGES \
 		" || flags=""
 		mail=$(scripts/checkpatch.pl \
 			--strict \
-			--ignore FILE_PATH_CHANGES \
 			--ignore LONG_LINE \
 			--ignore LONG_LINE_STRING \
 			--ignore LONG_LINE_COMMENT \
