@@ -66,7 +66,7 @@
 * 8(sp) stores the function return address (i.e. parent IP) that
 * can be accessed by &(fregs)->ra in tracing function.
 *
-* The other regs are saved at the respective localtion and accessed
+* The other regs are saved at the respective location and accessed
 * by the respective ftrace_regs member.
 *
 * Here is the layout of stack for your reference.
