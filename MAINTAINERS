@@ -6215,6 +6215,7 @@ F:	drivers/scsi/fnic/
 
 CISCO SCSI HBA DRIVER
 M:	Karan Tilak Kumar <kartilak@cisco.com>
+M:	Narsimhulu Musini <nmusini@cisco.com>
 M:	Sesidhar Baddela <sebaddel@cisco.com>
 L:	linux-scsi@vger.kernel.org
 S:	Supported
