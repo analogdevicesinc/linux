@@ -10,9 +10,11 @@
 
 #include <linux/types.h>
 #include <linux/time.h>
-#include <linux/lockd/lockd.h>
-#include <linux/lockd/share.h>
 #include <linux/sunrpc/svc_xprt.h>
+
+#include "lockd.h"
+#include "share.h"
+#include "xdr4.h"
 
 #define NLMDBG_FACILITY		NLMDBG_CLIENT
 
@@ -73,9 +75,21 @@ nlm4svc_retrieve_args(struct svc_rqst *rqstp, struct nlm_args *argp,
 
 no_locks:
 	nlmsvc_release_host(host);
- 	if (error)
-		return error;	
-	return nlm_lck_denied_nolocks;
+	switch (error) {
+	case nlm_granted:
+		return nlm_lck_denied_nolocks;
+	case nlm__int__stale_fh:
+		return nlm4_stale_fh;
+	case nlm__int__failed:
+		return nlm4_failed;
+	default:
+		if (be32_to_cpu(error) >= 30000) {
+			pr_warn_once("lockd: unhandled internal status %u\n",
+				     be32_to_cpu(error));
+			return nlm4_failed;
+		}
+		return error;
+	}
 }
 
 /*
@@ -104,12 +118,13 @@ __nlm4svc_proc_test(struct svc_rqst *rqstp, struct nlm_res *resp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlm4svc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now check for conflicting locks */
 	resp->status = nlmsvc_testlock(rqstp, file, host, &argp->lock,
 				       &resp->lock);
-	if (resp->status == nlm_drop_reply)
+	if (resp->status == nlm__int__drop_reply)
 		rc = rpc_drop_reply;
 	else
 		dprintk("lockd: TEST4        status %d\n", ntohl(resp->status));
@@ -140,16 +155,23 @@ __nlm4svc_proc_lock(struct svc_rqst *rqstp, struct nlm_res *resp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlm4svc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now try to lock the file */
 	resp->status = nlmsvc_lock(rqstp, file, host, &argp->lock,
 					argp->block, &argp->cookie,
 					argp->reclaim);
-	if (resp->status == nlm_drop_reply)
+	switch (resp->status) {
+	case nlm__int__drop_reply:
 		rc = rpc_drop_reply;
-	else
+		break;
+	case nlm__int__deadlock:
+		resp->status = nlm4_deadlock;
+		fallthrough;
+	default:
 		dprintk("lockd: LOCK         status %d\n", ntohl(resp->status));
+	}
 
 	nlmsvc_release_lockowner(&argp->lock);
 	nlmsvc_release_host(host);
@@ -182,7 +204,8 @@ __nlm4svc_proc_cancel(struct svc_rqst *rqstp, struct nlm_res *resp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlm4svc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Try to cancel request. */
 	resp->status = nlmsvc_cancel_blocked(SVC_NET(rqstp), file, &argp->lock);
@@ -222,7 +245,8 @@ __nlm4svc_proc_unlock(struct svc_rqst *rqstp, struct nlm_res *resp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlm4svc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now try to remove the lock */
 	resp->status = nlmsvc_unlock(SVC_NET(rqstp), file, &argp->lock);
@@ -369,7 +393,8 @@ nlm4svc_proc_share(struct svc_rqst *rqstp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlm4svc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now try to create the share */
 	resp->status = nlmsvc_share_file(host, file, argp);
@@ -404,7 +429,8 @@ nlm4svc_proc_unshare(struct svc_rqst *rqstp)
 
 	/* Obtain client and file */
 	if ((resp->status = nlm4svc_retrieve_args(rqstp, argp, &host, &file)))
-		return resp->status == nlm_drop_reply ? rpc_drop_reply :rpc_success;
+		return resp->status == nlm__int__drop_reply ?
+			rpc_drop_reply : rpc_success;
 
 	/* Now try to lock the file */
 	resp->status = nlmsvc_unshare_file(host, file, argp);
@@ -504,7 +530,7 @@ struct nlm_void			{ int dummy; };
 #define	St	1					/* status */
 #define	Rg	4					/* range (offset + length) */
 
-const struct svc_procedure nlmsvc_procedures4[24] = {
+static const struct svc_procedure nlm4svc_procedures[24] = {
 	[NLMPROC_NULL] = {
 		.pc_func = nlm4svc_proc_null,
 		.pc_decode = nlm4svc_decode_void,
@@ -745,4 +771,25 @@ const struct svc_procedure nlmsvc_procedures4[24] = {
 		.pc_xdrressize = St,
 		.pc_name = "FREE_ALL",
 	},
+};
+
+/*
+ * Storage requirements for XDR arguments and results
+ */
+union nlm4svc_xdrstore {
+	struct nlm_args			args;
+	struct nlm_res			res;
+	struct nlm_reboot		reboot;
+};
+
+static DEFINE_PER_CPU_ALIGNED(unsigned long,
+			      nlm4svc_call_counters[ARRAY_SIZE(nlm4svc_procedures)]);
+
+const struct svc_version nlmsvc_version4 = {
+	.vs_vers	= 4,
+	.vs_nproc	= ARRAY_SIZE(nlm4svc_procedures),
+	.vs_proc	= nlm4svc_procedures,
+	.vs_count	= nlm4svc_call_counters,
+	.vs_dispatch	= nlmsvc_dispatch,
+	.vs_xdrsize	= sizeof(union nlm4svc_xdrstore),
 };

@@ -134,11 +134,11 @@ static struct cache_head *sunrpc_cache_add_entry(struct cache_detail *detail,
 		return tmp;
 	}
 
+	cache_get(new);
 	hlist_add_head_rcu(&new->cache_list, head);
 	detail->entries++;
 	if (detail->nextcheck > new->expiry_time)
 		detail->nextcheck = new->expiry_time + 1;
-	cache_get(new);
 	spin_unlock(&detail->hash_lock);
 
 	if (freeme)
@@ -233,9 +233,9 @@ struct cache_head *sunrpc_cache_update(struct cache_detail *detail,
 
 	spin_lock(&detail->hash_lock);
 	cache_entry_update(detail, tmp, new);
-	hlist_add_head(&tmp->cache_list, &detail->hash_table[hash]);
-	detail->entries++;
 	cache_get(tmp);
+	hlist_add_head_rcu(&tmp->cache_list, &detail->hash_table[hash]);
+	detail->entries++;
 	cache_fresh_locked(tmp, new->expiry_time, detail);
 	cache_fresh_locked(old, 0, detail);
 	spin_unlock(&detail->hash_lock);
@@ -1362,18 +1362,14 @@ static void *__cache_seq_start(struct seq_file *m, loff_t *pos)
 	hlist_for_each_entry_rcu(ch, &cd->hash_table[hash], cache_list)
 		if (!entry--)
 			return ch;
-	n &= ~((1LL<<32) - 1);
-	do {
-		hash++;
-		n += 1LL<<32;
-	} while(hash < cd->hash_size &&
-		hlist_empty(&cd->hash_table[hash]));
-	if (hash >= cd->hash_size)
-		return NULL;
-	*pos = n+1;
-	return hlist_entry_safe(rcu_dereference_raw(
+	ch = NULL;
+	while (!ch && ++hash < cd->hash_size)
+		ch = hlist_entry_safe(rcu_dereference(
 				hlist_first_rcu(&cd->hash_table[hash])),
 				struct cache_head, cache_list);
+
+	*pos = ((long long)hash << 32) + 1;
+	return ch;
 }
 
 static void *cache_seq_next(struct seq_file *m, void *p, loff_t *pos)
@@ -1382,29 +1378,29 @@ static void *cache_seq_next(struct seq_file *m, void *p, loff_t *pos)
 	int hash = (*pos >> 32);
 	struct cache_detail *cd = m->private;
 
-	if (p == SEQ_START_TOKEN)
+	if (p == SEQ_START_TOKEN) {
 		hash = 0;
-	else if (ch->cache_list.next == NULL) {
-		hash++;
-		*pos += 1LL<<32;
-	} else {
-		++*pos;
-		return hlist_entry_safe(rcu_dereference_raw(
+		ch = NULL;
+	}
+	while (hash < cd->hash_size) {
+		if (ch)
+			ch = hlist_entry_safe(
+				rcu_dereference(
 					hlist_next_rcu(&ch->cache_list)),
-					struct cache_head, cache_list);
-	}
-	*pos &= ~((1LL<<32) - 1);
-	while (hash < cd->hash_size &&
-	       hlist_empty(&cd->hash_table[hash])) {
-		hash++;
-		*pos += 1LL<<32;
-	}
-	if (hash >= cd->hash_size)
-		return NULL;
-	++*pos;
-	return hlist_entry_safe(rcu_dereference_raw(
-				hlist_first_rcu(&cd->hash_table[hash])),
 				struct cache_head, cache_list);
+		else
+			ch = hlist_entry_safe(
+				rcu_dereference(
+					hlist_first_rcu(&cd->hash_table[hash])),
+				struct cache_head, cache_list);
+		if (ch) {
+			++*pos;
+			return ch;
+		}
+		hash++;
+		*pos = (long long)hash << 32;
+	}
+	return NULL;
 }
 
 void *cache_seq_start_rcu(struct seq_file *m, loff_t *pos)

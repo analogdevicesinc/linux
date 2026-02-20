@@ -13,9 +13,12 @@
 #include <linux/sunrpc/xdr.h>
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/stats.h>
-#include <linux/lockd/lockd.h>
+
+#include "lockd.h"
 
 #include <uapi/linux/nfs3.h>
+
+#include "xdr4.h"
 
 #define NLMDBG_FACILITY		NLMDBG_XDR
 
@@ -284,7 +287,7 @@ static int decode_nlm4_holder(struct xdr_stream *xdr, struct nlm_res *result)
 	fl->c.flc_type  = exclusive != 0 ? F_WRLCK : F_RDLCK;
 	p = xdr_decode_hyper(p, &l_offset);
 	xdr_decode_hyper(p, &l_len);
-	nlm4svc_set_file_lock_range(fl, l_offset, l_len);
+	lockd_set_file_lock_range4(fl, l_offset, l_len);
 	error = 0;
 out:
 	return error;
