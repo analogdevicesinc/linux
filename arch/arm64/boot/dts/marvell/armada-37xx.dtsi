@@ -396,7 +396,7 @@
 				marvell,usb-misc-reg = <&usb2_syscon>;
 				interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
 				phys = <&usb2_utmi_host_phy>;
-				phy-names = "usb2-utmi-host-phy";
+				phy-names = "usb";
 				status = "disabled";
 			};
 
