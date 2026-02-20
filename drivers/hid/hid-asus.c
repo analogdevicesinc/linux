@@ -966,6 +966,12 @@ static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
 		}
 	}
 
+	if (drvdata->quirks & QUIRK_HID_FN_LOCK) {
+		drvdata->fn_lock = true;
+		INIT_WORK(&drvdata->fn_lock_sync_work, asus_sync_fn_lock);
+		asus_kbd_set_fn_lock(hdev, true);
+	}
+
 	if (drvdata->tp) {
 		int ret;
 
