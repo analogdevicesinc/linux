@@ -846,7 +846,6 @@ static int ls2k2000_mmc_set_internal_dma(struct loongson2_mmc_host *host,
 	if (!host->sg_cpu)
 		return -ENOMEM;
 
-	memset(host->sg_cpu, 0, PAGE_SIZE);
 	return 0;
 }
 

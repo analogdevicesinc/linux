@@ -33,18 +33,16 @@ int dw_mci_pltfm_register(struct platform_device *pdev,
 	struct dw_mci *host;
 	struct resource	*regs;
 
-	host = devm_kzalloc(&pdev->dev, sizeof(struct dw_mci), GFP_KERNEL);
-	if (!host)
-		return -ENOMEM;
+	host = dw_mci_alloc_host(&pdev->dev);
+	if (IS_ERR(host))
+		return PTR_ERR(host);
 
 	host->irq = platform_get_irq(pdev, 0);
 	if (host->irq < 0)
 		return host->irq;
 
 	host->drv_data = drv_data;
-	host->dev = &pdev->dev;
 	host->irq_flags = 0;
-	host->pdata = pdev->dev.platform_data;
 
 	host->regs = devm_platform_get_and_ioremap_resource(pdev, 0, &regs);
 	if (IS_ERR(host->regs))
@@ -57,15 +55,6 @@ int dw_mci_pltfm_register(struct platform_device *pdev,
 	return dw_mci_probe(host);
 }
 EXPORT_SYMBOL_GPL(dw_mci_pltfm_register);
-
-const struct dev_pm_ops dw_mci_pltfm_pmops = {
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
-	SET_RUNTIME_PM_OPS(dw_mci_runtime_suspend,
-			   dw_mci_runtime_resume,
-			   NULL)
-};
-EXPORT_SYMBOL_GPL(dw_mci_pltfm_pmops);
 
 static int dw_mci_socfpga_priv_init(struct dw_mci *host)
 {

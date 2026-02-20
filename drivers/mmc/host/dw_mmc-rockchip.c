@@ -284,11 +284,10 @@ static void dw_mci_rk3288_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 #define TUNING_ITERATION_TO_PHASE(i, num_phases) \
 		(DIV_ROUND_UP((i) * 360, num_phases))
 
-static int dw_mci_rk3288_execute_tuning(struct dw_mci_slot *slot, u32 opcode)
+static int dw_mci_rk3288_execute_tuning(struct dw_mci *host, u32 opcode)
 {
-	struct dw_mci *host = slot->host;
 	struct dw_mci_rockchip_priv_data *priv = host->priv;
-	struct mmc_host *mmc = slot->mmc;
+	struct mmc_host *mmc = host->mmc;
 	int ret = 0;
 	int i;
 	bool v, prev_v = 0, first_v;
@@ -477,8 +476,8 @@ static int dw_mci_rockchip_init(struct dw_mci *host)
 	struct dw_mci_rockchip_priv_data *priv = host->priv;
 	int ret, i;
 
-	/* It is slot 8 on Rockchip SoCs */
-	host->sdio_id0 = 8;
+	/* SDIO irq is the 8th on Rockchip SoCs */
+	host->sdio_irq = 8;
 
 	if (of_device_is_compatible(host->dev->of_node, "rockchip,rk3288-dw-mshc")) {
 		host->bus_hz /= RK3288_CLKGEN_DIV;
