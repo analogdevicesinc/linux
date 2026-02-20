@@ -454,20 +454,18 @@ static int tusb320_typec_probe(struct i2c_client *client,
 	priv->port_type = priv->cap.type;
 
 	/* This goes into register 0x8 field CURRENT_MODE_ADVERTISE */
-	ret = fwnode_property_read_string(connector, "typec-power-opmode", &cap_str);
-	if (ret)
-		goto err_put;
+	if (!fwnode_property_read_string(connector, "typec-power-opmode",
+					 &cap_str)) {
+		ret = typec_find_pwr_opmode(cap_str);
+		if (ret < 0)
+			goto err_put;
+		priv->pwr_opmode = ret;
 
-	ret = typec_find_pwr_opmode(cap_str);
-	if (ret < 0)
-		goto err_put;
-
-	priv->pwr_opmode = ret;
-
-	/* Initialize the hardware with the devicetree settings. */
-	ret = tusb320_set_adv_pwr_mode(priv);
-	if (ret)
-		goto err_put;
+		/* Initialize the hardware with the devicetree settings. */
+		ret = tusb320_set_adv_pwr_mode(priv);
+		if (ret)
+			goto err_put;
+	}
 
 	priv->cap.revision		= USB_TYPEC_REV_1_1;
 	priv->cap.accessory[0]		= TYPEC_ACCESSORY_AUDIO;
