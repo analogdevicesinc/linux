@@ -15,7 +15,7 @@ static unsigned int tests_passed;
 static const unsigned int order_limit =
 		IS_ENABLED(CONFIG_XARRAY_MULTI) ? BITS_PER_LONG : 1;
 
-#ifndef XA_DEBUG
+#ifndef CONFIG_DEBUG_XARRAY
 # ifdef __KERNEL__
 void xa_dump(const struct xarray *xa) { }
 # endif
@@ -123,11 +123,12 @@ static noinline void check_xas_retry(struct xarray *xa)
 
 	rcu_read_lock();
 	XA_BUG_ON(xa, !xa_is_internal(xas_reload(&xas)));
-	xas.xa_node = XAS_RESTART;
+	xas_reset(&xas);
 	XA_BUG_ON(xa, xas_next_entry(&xas, ULONG_MAX) != xa_mk_value(0));
 	rcu_read_unlock();
 
 	/* Make sure we can iterate through retry entries */
+	xas_reset(&xas);
 	xas_lock(&xas);
 	xas_set(&xas, 0);
 	xas_store(&xas, XA_RETRY_ENTRY);
@@ -565,6 +566,7 @@ static noinline void check_xas_erase(struct xarray *xa)
 			xas_unlock(&xas);
 		} while (xas_nomem(&xas, GFP_KERNEL));
 
+		xas_reset(&xas);
 		xas_lock(&xas);
 		xas_store(&xas, NULL);
 
@@ -1759,6 +1761,7 @@ static noinline void check_create_range_5(struct xarray *xa,
 			xas_create_range(&xas);
 			xas_unlock(&xas);
 		} while (xas_nomem(&xas, GFP_KERNEL));
+		xas_reset(&xas);
 	}
 
 	xa_destroy(xa);
@@ -2035,6 +2038,7 @@ static noinline void check_workingset(struct xarray *xa, unsigned long index)
 
 	XA_BUG_ON(xa, list_empty(&shadow_nodes));
 
+	xas_reset(&xas);
 	xas_lock(&xas);
 	xas_next(&xas);
 	xas_store(&xas, &xas);
@@ -2127,8 +2131,8 @@ static noinline void check_xas_get_order(struct xarray *xa)
 				rcu_read_unlock();
 			}
 
-			xas_lock(&xas);
 			xas_set_order(&xas, i << order, order);
+			xas_lock(&xas);
 			xas_store(&xas, NULL);
 			xas_unlock(&xas);
 		}

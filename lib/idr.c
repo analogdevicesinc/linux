@@ -624,7 +624,6 @@ void ida_destroy(struct ida *ida)
 EXPORT_SYMBOL(ida_destroy);
 
 #ifndef __KERNEL__
-extern void xa_dump_index(unsigned long index, unsigned int shift);
 #define IDA_CHUNK_SHIFT		ilog2(IDA_BITMAP_BITS)
 
 static void ida_dump_entry(void *entry, unsigned long index)

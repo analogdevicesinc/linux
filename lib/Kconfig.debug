@@ -1878,6 +1878,14 @@ config DEBUG_CLOSURES
 	  interface to list them, which makes it possible to see asynchronous
 	  operations that get stuck.
 
+config DEBUG_XARRAY
+	bool "Debug XArray"
+	depends on DEBUG_KERNEL
+	help
+	  Enable XArray debugging information and extra validation.
+
+	  If unsure, say N.
+
 config DEBUG_MAPLE_TREE
 	bool "Debug maple trees"
 	depends on DEBUG_KERNEL
