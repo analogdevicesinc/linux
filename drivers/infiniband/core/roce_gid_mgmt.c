@@ -29,6 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#define pr_fmt(fmt) "infiniband: " fmt
 
 #include "core_priv.h"
 
@@ -67,6 +68,7 @@ struct netdev_event_work_cmd {
 struct netdev_event_work {
 	struct work_struct		work;
 	struct netdev_event_work_cmd	cmds[ROCE_NETDEV_CALLBACK_SZ];
+	bool				is_unregister;
 };
 
 static const struct {
@@ -438,6 +440,28 @@ static void del_netdev_ips(struct ib_device *ib_dev, u32 port,
 	ib_cache_gid_del_all_netdev_gids(ib_dev, port, cookie);
 }
 
+static void del_netdev_ips0(struct ib_device *ib_dev, u32 port,
+			    struct net_device *rdma_ndev, void *cookie)
+{
+	struct net_device *ndev = cookie;
+
+	if (IS_ENABLED(CONFIG_NET_DEV_REFCNT_TRACKER))
+		pr_info("netdevice_event(NETDEV_UNREGISTER) ib_dev=%p (%d)(%s) rdma_ndev=%p (%d)(%s) cookie=%p (%d)(%s) start\n",
+			ib_dev, ib_dev ? refcount_read(&ib_dev->refcount) : 0,
+			ib_dev ? ib_dev->name : "",
+			rdma_ndev, rdma_ndev ? netdev_refcnt_read(rdma_ndev) : 0,
+			rdma_ndev ? rdma_ndev->name : "",
+			ndev, ndev ? netdev_refcnt_read(ndev) : 0, ndev ? ndev->name : "");
+	ib_cache_gid_del_all_netdev_gids(ib_dev, port, ndev);
+	if (IS_ENABLED(CONFIG_NET_DEV_REFCNT_TRACKER))
+		pr_info("netdevice_event(NETDEV_UNREGISTER) ib_dev=%p (%d)(%s) rdma_ndev=%p (%d)(%s) cookie=%p (%d)(%s) end\n",
+			ib_dev, ib_dev ? refcount_read(&ib_dev->refcount) : 0,
+			ib_dev ? ib_dev->name : "",
+			rdma_ndev, rdma_ndev ? netdev_refcnt_read(rdma_ndev) : 0,
+			rdma_ndev ? rdma_ndev->name : "",
+			ndev, ndev ? netdev_refcnt_read(ndev) : 0, ndev ? ndev->name : "");
+}
+
 /**
  * del_default_gids - Delete default GIDs of the event/cookie netdevice
  * @ib_dev:	RDMA device pointer
@@ -648,7 +672,8 @@ static void netdevice_event_work_handler(struct work_struct *_work)
 		ib_enum_all_roce_netdevs(work->cmds[i].filter,
 					 work->cmds[i].filter_ndev,
 					 work->cmds[i].cb,
-					 work->cmds[i].ndev);
+					 work->cmds[i].ndev,
+					 work->is_unregister);
 		dev_put(work->cmds[i].ndev);
 		dev_put(work->cmds[i].filter_ndev);
 	}
@@ -657,7 +682,7 @@ static void netdevice_event_work_handler(struct work_struct *_work)
 }
 
 static int netdevice_queue_work(struct netdev_event_work_cmd *cmds,
-				struct net_device *ndev)
+				struct net_device *ndev, bool is_unregister)
 {
 	unsigned int i;
 	struct netdev_event_work *ndev_work =
@@ -666,6 +691,7 @@ static int netdevice_queue_work(struct netdev_event_work_cmd *cmds,
 	if (!ndev_work)
 		return NOTIFY_DONE;
 
+	ndev_work->is_unregister = is_unregister;
 	memcpy(ndev_work->cmds, cmds, sizeof(ndev_work->cmds));
 	for (i = 0; i < ARRAY_SIZE(ndev_work->cmds) && ndev_work->cmds[i].cb; i++) {
 		if (!ndev_work->cmds[i].ndev)
@@ -760,7 +786,7 @@ static int netdevice_event(struct notifier_block *this, unsigned long event,
 			   void *ptr)
 {
 	static const struct netdev_event_work_cmd del_cmd = {
-		.cb = del_netdev_ips, .filter = pass_all_filter};
+		.cb = del_netdev_ips0, .filter = pass_all_filter};
 	static const struct netdev_event_work_cmd
 			bonding_default_del_cmd_join = {
 				.cb	= del_netdev_default_ips_join,
@@ -775,6 +801,9 @@ static int netdevice_event(struct notifier_block *this, unsigned long event,
 		.cb = del_netdev_upper_ips, .filter = upper_device_filter};
 	struct net_device *ndev = netdev_notifier_info_to_dev(ptr);
 	struct netdev_event_work_cmd cmds[ROCE_NETDEV_CALLBACK_SZ] = { {NULL} };
+
+	if (event == NETDEV_DEBUG_UNREGISTER)
+		dump_ib_gid_table_entry_trace_buffer(ndev);
 
 	if (ndev->type != ARPHRD_ETHER)
 		return NOTIFY_DONE;
@@ -820,7 +849,7 @@ static int netdevice_event(struct notifier_block *this, unsigned long event,
 		return NOTIFY_DONE;
 	}
 
-	return netdevice_queue_work(cmds, ndev);
+	return netdevice_queue_work(cmds, ndev, event == NETDEV_UNREGISTER);
 }
 
 static void update_gid_event_work_handler(struct work_struct *_work)
@@ -830,7 +859,7 @@ static void update_gid_event_work_handler(struct work_struct *_work)
 
 	ib_enum_all_roce_netdevs(is_eth_port_of_netdev_filter,
 				 work->gid_attr.ndev,
-				 callback_for_addr_gid_device_scan, work);
+				 callback_for_addr_gid_device_scan, work, false);
 
 	dev_put(work->gid_attr.ndev);
 	kfree(work);
