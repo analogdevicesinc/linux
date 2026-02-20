@@ -37,7 +37,7 @@
 #include "dpp.h"
 #include "core_types.h"
 #include "set_mode_types.h"
-#include "virtual/virtual_stream_encoder.h"
+#include "dio/virtual/virtual_stream_encoder.h"
 #include "dpcd_defs.h"
 #include "link_enc_cfg.h"
 #include "link_service.h"
@@ -45,7 +45,7 @@
 #include "dc_state_priv.h"
 #include "dc_stream_priv.h"
 
-#include "virtual/virtual_link_hwss.h"
+#include "link/hwss/link_hwss_virtual.h"
 #include "link/hwss/link_hwss_dio.h"
 #include "link/hwss/link_hwss_dpia.h"
 #include "link/hwss/link_hwss_hpo_dp.h"
@@ -4434,6 +4434,7 @@ enum dc_status dc_validate_global_state(
 
 			if (dc->res_pool->funcs->patch_unknown_plane_state &&
 					pipe_ctx->plane_state &&
+					pipe_ctx->plane_state->tiling_info.gfxversion == DcGfxVersion9 &&
 					pipe_ctx->plane_state->tiling_info.gfx9.swizzle == DC_SW_UNKNOWN) {
 				result = dc->res_pool->funcs->patch_unknown_plane_state(pipe_ctx->plane_state);
 				if (result != DC_OK)
