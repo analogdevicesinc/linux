@@ -29,6 +29,14 @@ Linux has a continuous deployment integration pipeline that works as follows:
    │Update mirrors│
    └──────────────┘
 
+.. attention::
+
+   Before submitting anything upstream, you **must** evaluate your work
+   locally, including, but not exclusively, using :ref:`b4` :code:`b4 prep
+   --check`. The CI/CD contains a **broad** set of checks to fit most use
+   cases, and does not represent a definitive approval. See :ref:`contribute`
+   for a summary of the tools.
+
 In these sections there are instructions to bring-up your own continuous integration,
 either to run locally, in a self-hosted runner or even in a cluster.
 

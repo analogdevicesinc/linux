@@ -1,5 +1,13 @@
+.. _contribute:
+
 Contribution guidelines
 =======================
+
+.. attention::
+
+   Before submitting anything upstream, you **must** evaluate your work
+   locally, including, but not exclusively, using :ref:`b4`
+   :code:`b4 prep --check`.
 
 This page serves the purpose of providing pointers and a brief introduction to
 contributing to the Linux Kernel, using the tools available as well as wrappers
@@ -46,14 +54,6 @@ To run it as a low-budget `lsp server <https://en.wikipedia.org/wiki/Language_Se
 
    while true; do \
      scripts/checkpatch.pl --color=always drivers/power/supply/max77928_charger.c  \
-                           --strict \
-                           --ignore FILE_PATH_CHANGES \
-                           --ignore LONG_LINE \
-                           --ignore LONG_LINE_STRING \
-                           --ignore LONG_LINE_COMMENT \
-                           --ignore PARENTHESIS_ALIGNMENT \
-                           --ignore CAMELCASE \
-                           --ignore UNDOCUMENTED_DT_STRING \
                            --strict \ > /tmp/output ; clear ; cat /tmp/output ; \
    done
 
@@ -133,7 +133,7 @@ a custom devicetree will need to be written to describe a specific board or
 device, using the protopytes provided by the
 :git-linux:`Documentation/devicetree/bindings/**/*.yaml <Documentation/devicetree/bindings>` files.
 
-When submitting dt-bindings, you must check:
+When submitting dt-bindings, you **must** check:
 
 .. shell::
 
@@ -151,9 +151,15 @@ B4
 developers and maintainers to use a distributed development workflow that
 relies on patches and distribution lists for code contributions and review.
 
-Take some time to try it out, and understand how it simplies many tasks.
+Take some time to try it out, and understand how it simplify many tasks.
 B4 tools is not currently leveraged by continuous integration, and you
-must run it locally.
+**must** run it locally.
+
+.. caution::
+
+   Do **not** submit any upstream work before you are comfortable with the
+   tools. Learn about ``b4 send --reflect``, and, as rule of thumb for any tool,
+   look for ``--dry-run`` options.
 
 The section that you will most interested in is the
 :external+b4:doc:`contributor/overview`, where the contributor workflow is
