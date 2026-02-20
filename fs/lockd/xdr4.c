@@ -16,9 +16,10 @@
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/svc.h>
 #include <linux/sunrpc/stats.h>
-#include <linux/lockd/lockd.h>
 
+#include "lockd.h"
 #include "svcxdr.h"
+#include "xdr4.h"
 
 static inline s64
 loff_t_to_s64(loff_t offset)
@@ -31,17 +32,6 @@ loff_t_to_s64(loff_t offset)
 	else
 		res = offset;
 	return res;
-}
-
-void nlm4svc_set_file_lock_range(struct file_lock *fl, u64 off, u64 len)
-{
-	s64 end = off + len - 1;
-
-	fl->fl_start = off;
-	if (len == 0 || end < 0)
-		fl->fl_end = OFFSET_MAX;
-	else
-		fl->fl_end = end;
 }
 
 /*
@@ -90,7 +80,7 @@ svcxdr_decode_lock(struct xdr_stream *xdr, struct nlm_lock *lock)
 
 	locks_init_lock(fl);
 	fl->c.flc_type  = F_RDLCK;
-	nlm4svc_set_file_lock_range(fl, lock->lock_start, lock->lock_len);
+	lockd_set_file_lock_range4(fl, lock->lock_start, lock->lock_len);
 	return true;
 }
 

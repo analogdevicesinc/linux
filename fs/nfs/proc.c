@@ -41,6 +41,7 @@
 #include <linux/nfs2.h>
 #include <linux/nfs_fs.h>
 #include <linux/nfs_page.h>
+#include <linux/filelock.h>
 #include <linux/lockd/bind.h>
 #include <linux/freezer.h>
 #include "internal.h"

@@ -1,16 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * linux/include/linux/lockd/lockd.h
- *
- * General-purpose lockd include file.
- *
  * Copyright (C) 1996 Olaf Kirch <okir@monad.swb.de>
  */
 
-#ifndef LINUX_LOCKD_LOCKD_H
-#define LINUX_LOCKD_LOCKD_H
-
-/* XXX: a lot of this should really be under fs/lockd. */
+#ifndef _LOCKD_LOCKD_H
+#define _LOCKD_LOCKD_H
 
 #include <linux/exportfs.h>
 #include <linux/in.h>
@@ -20,13 +14,33 @@
 #include <linux/kref.h>
 #include <linux/refcount.h>
 #include <linux/utsname.h>
+#include "nlm.h"
 #include <linux/lockd/bind.h>
-#include <linux/lockd/xdr.h>
-#ifdef CONFIG_LOCKD_V4
-#include <linux/lockd/xdr4.h>
-#endif
-#include <linux/lockd/debug.h>
+#include "xdr.h"
+#include <linux/sunrpc/debug.h>
 #include <linux/sunrpc/svc.h>
+
+/*
+ * Enable lockd debugging.
+ * Requires CONFIG_SUNRPC_DEBUG.
+ */
+#undef ifdebug
+#if IS_ENABLED(CONFIG_SUNRPC_DEBUG)
+# define ifdebug(flag)		if (unlikely(nlm_debug & NLMDBG_##flag))
+#else
+# define ifdebug(flag)		if (0)
+#endif
+
+#define NLMDBG_SVC		0x0001
+#define NLMDBG_CLIENT		0x0002
+#define NLMDBG_CLNTLOCK		0x0004
+#define NLMDBG_SVCLOCK		0x0008
+#define NLMDBG_MONITOR		0x0010
+#define NLMDBG_CLNTSUBS		0x0020
+#define NLMDBG_SVCSUBS		0x0040
+#define NLMDBG_HOSTCACHE	0x0080
+#define NLMDBG_XDR		0x0100
+#define NLMDBG_ALL		0x7fff
 
 /*
  * Version string
@@ -37,6 +51,15 @@
  * Default timeout for RPC calls (seconds)
  */
 #define LOCKD_DFLT_TIMEO	10
+
+/*
+ * Internal-use status codes, not to be placed on the wire.
+ * Version handlers translate these to appropriate wire values.
+ */
+#define nlm__int__drop_reply	cpu_to_be32(30000)
+#define nlm__int__deadlock	cpu_to_be32(30001)
+#define nlm__int__stale_fh	cpu_to_be32(30002)
+#define nlm__int__failed	cpu_to_be32(30003)
 
 /*
  * Lockd host handle (used both by the client and server personality).
@@ -149,6 +172,8 @@ struct nlm_rqst {
 	void *	a_callback_data; /* sent to nlmclnt_operations callbacks */
 };
 
+struct nlm_share;
+
 /*
  * This struct describes a file held open by lockd on behalf of
  * an NFS client.
@@ -196,9 +221,10 @@ struct nlm_block {
  * Global variables
  */
 extern const struct rpc_program	nlm_program;
-extern const struct svc_procedure nlmsvc_procedures[24];
+extern const struct svc_version nlmsvc_version1;
+extern const struct svc_version nlmsvc_version3;
 #ifdef CONFIG_LOCKD_V4
-extern const struct svc_procedure nlmsvc_procedures4[24];
+extern const struct svc_version nlmsvc_version4;
 #endif
 extern int			nlmsvc_grace_period;
 extern unsigned long		nlm_timeout;
@@ -225,6 +251,10 @@ void		  nlmclnt_recovery(struct nlm_host *);
 int		  nlmclnt_reclaim(struct nlm_host *, struct file_lock *,
 				  struct nlm_rqst *);
 void		  nlmclnt_next_cookie(struct nlm_cookie *);
+
+#ifdef CONFIG_LOCKD_V4
+extern const struct rpc_version nlm_version4;
+#endif
 
 /*
  * Host cache
@@ -289,6 +319,7 @@ void		  nlmsvc_traverse_blocks(struct nlm_host *, struct nlm_file *,
 void		  nlmsvc_grant_reply(struct nlm_cookie *, __be32);
 void		  nlmsvc_release_call(struct nlm_rqst *);
 void		  nlmsvc_locks_init_private(struct file_lock *, struct nlm_host *, pid_t);
+int		  nlmsvc_dispatch(struct svc_rqst *rqstp);
 
 /*
  * File handling for the server personality
@@ -301,12 +332,6 @@ void		  nlmsvc_release_lockowner(struct nlm_lock *);
 void		  nlmsvc_mark_resources(struct net *);
 void		  nlmsvc_free_host_resources(struct nlm_host *);
 void		  nlmsvc_invalidate_all(void);
-
-/*
- * Cluster failover support
- */
-int           nlmsvc_unlock_all_by_sb(struct super_block *sb);
-int           nlmsvc_unlock_all_by_ip(struct sockaddr *server_addr);
 
 static inline struct file *nlmsvc_file_file(const struct nlm_file *file)
 {
@@ -390,6 +415,31 @@ static inline int nlm_compare_locks(const struct file_lock *fl1,
 	     &&(fl1->c.flc_type  == fl2->c.flc_type || fl2->c.flc_type == F_UNLCK);
 }
 
+/**
+ * lockd_set_file_lock_range4 - set the byte range of a file_lock
+ * @fl: file_lock whose length fields are to be initialized
+ * @off: starting offset of the lock, in bytes
+ * @len: length of the byte range, in bytes, or zero
+ *
+ * The NLMv4 protocol represents lock byte ranges as (start, length),
+ * where length zero means "lock to end of file." The kernel's file_lock
+ * structure uses (start, end) representation. Convert from NLMv4 format
+ * to file_lock format, clamping the starting offset and treating
+ * arithmetic overflow as "lock to EOF."
+ */
+static inline void
+lockd_set_file_lock_range4(struct file_lock *fl, u64 off, u64 len)
+{
+	u64 clamped_off = (off > OFFSET_MAX) ? OFFSET_MAX : off;
+	s64 end = clamped_off + len - 1;
+
+	fl->fl_start = clamped_off;
+	if (len == 0 || end < 0)
+		fl->fl_end = OFFSET_MAX;
+	else
+		fl->fl_end = end;
+}
+
 extern const struct lock_manager_operations nlmsvc_lock_operations;
 
-#endif /* LINUX_LOCKD_LOCKD_H */
+#endif /* _LOCKD_LOCKD_H */

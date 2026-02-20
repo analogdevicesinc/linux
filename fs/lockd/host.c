@@ -16,13 +16,13 @@
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/addr.h>
 #include <linux/sunrpc/svc.h>
-#include <linux/lockd/lockd.h>
 #include <linux/mutex.h>
 
 #include <linux/sunrpc/svc_xprt.h>
 
 #include <net/ipv6.h>
 
+#include "lockd.h"
 #include "netns.h"
 
 #define NLMDBG_FACILITY		NLMDBG_HOSTCACHE
@@ -305,6 +305,35 @@ void nlmclnt_release_host(struct nlm_host *host)
 		mutex_unlock(&nlm_host_mutex);
 	}
 }
+
+/* Callback for rpc_cancel_tasks() - matches all tasks for cancellation */
+static bool nlmclnt_match_all(const struct rpc_task *task, const void *data)
+{
+	return true;
+}
+
+/**
+ * nlmclnt_shutdown_rpc_clnt - safely shut down NLM client RPC operations
+ * @host: nlm_host to shut down
+ *
+ * Cancels outstanding RPC tasks and marks the client as shut down.
+ * Synchronizes with nlmclnt_release_host() via nlm_host_mutex to prevent
+ * races between shutdown and host destruction. Safe to call if h_rpcclnt
+ * is NULL or already shut down.
+ */
+void nlmclnt_shutdown_rpc_clnt(struct nlm_host *host)
+{
+	struct rpc_clnt *clnt;
+
+	mutex_lock(&nlm_host_mutex);
+	clnt = host->h_rpcclnt;
+	if (clnt) {
+		clnt->cl_shutdown = 1;
+		rpc_cancel_tasks(clnt, -EIO, nlmclnt_match_all, NULL);
+	}
+	mutex_unlock(&nlm_host_mutex);
+}
+EXPORT_SYMBOL_GPL(nlmclnt_shutdown_rpc_clnt);
 
 /**
  * nlmsvc_lookup_host - Find an NLM host handle matching a remote client

@@ -160,6 +160,7 @@ struct ubi_vid_io_buf {
  * struct ubi_wl_entry - wear-leveling entry.
  * @u.rb: link in the corresponding (free/used) RB-tree
  * @u.list: link in the protection queue
+ * @u: union of rb_node and list_head
  * @ec: erase counter
  * @pnum: physical eraseblock number
  *
@@ -282,6 +283,7 @@ struct ubi_eba_leb_desc {
  * @writers: number of users holding this volume in read-write mode
  * @exclusive: whether somebody holds this volume in exclusive mode
  * @metaonly: whether somebody is altering only meta data of this volume
+ * @is_dead: prevents taking a reference to the volume
  *
  * @reserved_pebs: how many physical eraseblocks are reserved for this volume
  * @vol_type: volume type (%UBI_DYNAMIC_VOLUME or %UBI_STATIC_VOLUME)
@@ -449,6 +451,7 @@ struct ubi_debug_info {
  *                @vol->eba_tbl.
  * @ref_count: count of references on the UBI device
  * @image_seq: image sequence number recorded on EC headers
+ * @is_dead: prevents taking a reference to the volume
  *
  * @rsvd_pebs: count of reserved physical eraseblocks
  * @avail_pebs: count of available physical eraseblocks
@@ -741,7 +744,7 @@ struct ubi_ainf_volume {
  * @highest_vol_id: highest volume ID
  * @is_empty: flag indicating whether the MTD device is empty or not
  * @force_full_scan: flag indicating whether we need to do a full scan and drop
-		     all existing Fastmap data structures
+ *		     all existing Fastmap data structures
  * @min_ec: lowest erase counter value
  * @max_ec: highest erase counter value
  * @max_sqnum: highest sequence number value
@@ -750,7 +753,7 @@ struct ubi_ainf_volume {
  * @ec_count: a temporary variable used when calculating @mean_ec
  * @aeb_slab_cache: slab cache for &struct ubi_ainf_peb objects
  * @ech: temporary EC header. Only available during scan
- * @vidh: temporary VID buffer. Only available during scan
+ * @vidb: temporary VID buffer. Only available during scan
  *
  * This data structure contains the result of attaching an MTD device and may
  * be used by other UBI sub-systems to build final UBI data structures, further
@@ -1090,7 +1093,7 @@ static inline void ubi_init_vid_buf(const struct ubi_device *ubi,
 }
 
 /**
- * ubi_init_vid_buf - Allocate a VID buffer
+ * ubi_alloc_vid_buf - Allocate a VID buffer
  * @ubi: the UBI device
  * @gfp_flags: GFP flags to use for the allocation
  */

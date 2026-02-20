@@ -76,6 +76,8 @@ static const stateid_t close_stateid = {
 
 static u64 current_sessionid = 1;
 
+bool nfsd_delegts_enabled __read_mostly = true;
+
 #define ZERO_STATEID(stateid) (!memcmp((stateid), &zero_stateid, sizeof(stateid_t)))
 #define ONE_STATEID(stateid)  (!memcmp((stateid), &one_stateid, sizeof(stateid_t)))
 #define CURRENT_STATEID(stateid) (!memcmp((stateid), &currentstateid, sizeof(stateid_t)))
@@ -2383,6 +2385,9 @@ static struct nfs4_client *alloc_client(struct xdr_netobj name,
 #ifdef CONFIG_NFSD_PNFS
 	INIT_LIST_HEAD(&clp->cl_lo_states);
 #endif
+#ifdef CONFIG_NFSD_SCSILAYOUT
+	xa_init(&clp->cl_dev_fences);
+#endif
 	INIT_LIST_HEAD(&clp->async_copies);
 	spin_lock_init(&clp->async_lock);
 	spin_lock_init(&clp->cl_lock);
@@ -2544,6 +2549,9 @@ __destroy_client(struct nfs4_client *clp)
 		svc_xprt_put(clp->cl_cb_conn.cb_xprt);
 	atomic_add_unless(&nn->nfs4_client_count, -1, 0);
 	nfsd4_dec_courtesy_client_count(nn, clp);
+#ifdef CONFIG_NFSD_SCSILAYOUT
+	xa_destroy(&clp->cl_dev_fences);
+#endif
 	free_client(clp);
 	wake_up_all(&expiry_wq);
 }
@@ -5536,13 +5544,15 @@ nfsd_break_deleg_cb(struct file_lease *fl)
 static bool nfsd_breaker_owns_lease(struct file_lease *fl)
 {
 	struct nfs4_delegation *dl = fl->c.flc_owner;
+	struct nfsd_thread_local_info *ntli;
 	struct svc_rqst *rqst;
 	struct nfs4_client *clp;
 
 	rqst = nfsd_current_rqst();
 	if (!nfsd_v4client(rqst))
 		return false;
-	clp = *(rqst->rq_lease_breaker);
+	ntli = rqst->rq_private;
+	clp = *ntli->ntli_lease_breaker;
 	return dl->dl_stid.sc_client == clp;
 }
 
@@ -6037,17 +6047,16 @@ nfsd4_verify_setuid_write(struct nfsd4_open *open, struct nfsd_file *nf)
 	return 0;
 }
 
-#ifdef CONFIG_NFSD_V4_DELEG_TIMESTAMPS
+/*
+ * Timestamp delegation was introduced in RFC7862. Runtime switch for disabling
+ * this feature is /sys/kernel/debug/nfsd/delegated_timestamps.
+ */
 static bool nfsd4_want_deleg_timestamps(const struct nfsd4_open *open)
 {
+	if (!nfsd_delegts_enabled)
+		return false;
 	return open->op_deleg_want & OPEN4_SHARE_ACCESS_WANT_DELEG_TIMESTAMPS;
 }
-#else /* CONFIG_NFSD_V4_DELEG_TIMESTAMPS */
-static bool nfsd4_want_deleg_timestamps(const struct nfsd4_open *open)
-{
-	return false;
-}
-#endif /* CONFIG NFSD_V4_DELEG_TIMESTAMPS */
 
 static struct nfs4_delegation *
 nfs4_set_delegation(struct nfsd4_open *open, struct nfs4_ol_stateid *stp,
@@ -9354,13 +9363,14 @@ __be32
 nfsd4_deleg_getattr_conflict(struct svc_rqst *rqstp, struct dentry *dentry,
 			     struct nfs4_delegation **pdp)
 {
-	__be32 status;
 	struct nfsd_net *nn = net_generic(SVC_NET(rqstp), nfsd_net_id);
+	struct nfsd_thread_local_info *ntli = rqstp->rq_private;
 	struct file_lock_context *ctx;
 	struct nfs4_delegation *dp = NULL;
 	struct file_lease *fl;
 	struct nfs4_cb_fattr *ncf;
 	struct inode *inode = d_inode(dentry);
+	__be32 status;
 
 	ctx = locks_inode_context(inode);
 	if (!ctx)
@@ -9381,7 +9391,7 @@ nfsd4_deleg_getattr_conflict(struct svc_rqst *rqstp, struct dentry *dentry,
 		break;
 	}
 	if (dp == NULL || dp == NON_NFSD_LEASE ||
-	    dp->dl_recall.cb_clp == *(rqstp->rq_lease_breaker)) {
+	    dp->dl_recall.cb_clp == *(ntli->ntli_lease_breaker)) {
 		spin_unlock(&ctx->flc_lock);
 		if (dp == NON_NFSD_LEASE) {
 			status = nfserrno(nfsd_open_break_lease(inode,

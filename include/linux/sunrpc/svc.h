@@ -175,6 +175,9 @@ static inline unsigned long svc_serv_maxpages(const struct svc_serv *serv)
 /*
  * The context of a single thread, including the request currently being
  * processed.
+ *
+ * RPC programs are free to use rq_private to stash thread-local information.
+ * The sunrpc layer will not access it.
  */
 struct svc_rqst {
 	struct list_head	rq_all;		/* all threads list */
@@ -215,7 +218,6 @@ struct svc_rqst {
 	u32			rq_vers;	/* program version */
 	u32			rq_proc;	/* procedure number */
 	u32			rq_prot;	/* IP protocol */
-	int			rq_cachetype;	/* catering to nfsd */
 	unsigned long		rq_flags;	/* flags field */
 	ktime_t			rq_qtime;	/* enqueue time */
 
@@ -251,7 +253,7 @@ struct svc_rqst {
 	unsigned long		bc_to_initval;
 	unsigned int		bc_to_retries;
 	unsigned int		rq_status_counter; /* RPC processing counter */
-	void			**rq_lease_breaker; /* The v4 client breaking a lease */
+	void			*rq_private;	/* For use by the service thread */
 };
 
 /* bits for rq_flags */
