@@ -40,8 +40,8 @@ enum ad9088_debugfs_cmd {
 	DBGFS_MCS_TRACK_DECIMATION,
 	DBGFS_MCS_TRACK_WIN,
 	/* FSRC commands */
-	DBGFS_FSRC_CONFIGURE_RX,
-	DBGFS_FSRC_CONFIGURE_TX,
+	DBGFS_FSRC_RX_CONFIGURE,
+	DBGFS_FSRC_TX_CONFIGURE,
 	DBGFS_FSRC_TX_RECONFIG,
 	DBGFS_FSRC_RX_RECONFIG,
 	DBGFS_FSRC_INSPECT,
@@ -440,8 +440,8 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			/* Write-only attributes, return 0 on read */
 			val = 0;
 			break;
-		case DBGFS_FSRC_CONFIGURE_RX:
-		case DBGFS_FSRC_CONFIGURE_TX:
+		case DBGFS_FSRC_RX_CONFIGURE:
+		case DBGFS_FSRC_TX_CONFIGURE:
 		case DBGFS_FSRC_TX_RECONFIG:
 		case DBGFS_FSRC_RX_RECONFIG:
 			/* Write-only attributes, return 0 on read */
@@ -777,7 +777,7 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		/* Read-only attributes */
 		return -EINVAL;
 	/* FSRC commands */
-	case DBGFS_FSRC_CONFIGURE_RX:
+	case DBGFS_FSRC_RX_CONFIGURE:
 		if (ret < 2) {
 			dev_err(&phy->spi->dev, "Attribute requires 2 arguments <N> <M>\n");
 			return -EINVAL;
@@ -788,7 +788,7 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		}
 		ret = ad9088_fsrc_rx_configure(phy, val, val2);
 		break;
-	case DBGFS_FSRC_CONFIGURE_TX:
+	case DBGFS_FSRC_TX_CONFIGURE:
 		if (ret < 2) {
 			dev_err(&phy->spi->dev, "Attribute requires 2 arguments <N> <M>\n");
 			return -EINVAL;
@@ -947,9 +947,9 @@ void ad9088_debugfs_register(struct iio_dev *indio_dev)
 
 	/* FSRC entries */
 	ad9088_add_debugfs_entry(phy, indio_dev,
-				 "fsrc_configure_rx", DBGFS_FSRC_CONFIGURE_RX);
+				 "fsrc_rx_configure", DBGFS_FSRC_RX_CONFIGURE);
 	ad9088_add_debugfs_entry(phy, indio_dev,
-				 "fsrc_configure_tx", DBGFS_FSRC_CONFIGURE_TX);
+				 "fsrc_tx_configure", DBGFS_FSRC_TX_CONFIGURE);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "fsrc_tx_reconfig", DBGFS_FSRC_TX_RECONFIG);
 	ad9088_add_debugfs_entry(phy, indio_dev,
