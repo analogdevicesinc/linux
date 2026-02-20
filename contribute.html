@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta content="This page serves the purpose of providing pointers and a brief introduction to contributing to the Linux Kernel, using the tools available as well as wrappers maintained by Analog Devices Inc." name="description" />
+<meta content="Before submitting anything upstream, you must evaluate your work locally, including, but not exclusively, using B4 b4 prep --check." name="description" />
 
     <title>Contribution guidelines &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
@@ -162,7 +162,13 @@ Content on this topic
           <div class="body" role="main">
             
   <section id="contribution-guidelines">
-<h1>Contribution guidelines<a class="headerlink" href="#contribution-guidelines" title="Link to this heading"></a></h1>
+<span id="contribute"></span><h1>Contribution guidelines<a class="headerlink" href="#contribution-guidelines" title="Link to this heading"></a></h1>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Before submitting anything upstream, you <strong>must</strong> evaluate your work
+locally, including, but not exclusively, using <a class="reference internal" href="#b4"><span class="std std-ref">B4</span></a>
+<code class="code docutils literal notranslate"><span class="pre">b4</span> <span class="pre">prep</span> <span class="pre">--check</span></code>.</p>
+</div>
 <p>This page serves the purpose of providing pointers and a brief introduction to
 contributing to the Linux Kernel, using the tools available as well as wrappers
 maintained by Analog Devices Inc.</p>
@@ -197,14 +203,6 @@ be run on file contexts and without the kernel tree.</p>
 <p>To run it as a low-budget <a class="icon link reference external" href="https://en.wikipedia.org/wiki/Language_Server_Protocol" target="_blank">lsp server</a>, do:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>scripts/checkpatch.pl<span class="w"> </span>--color<span class="o">=</span>always<span class="w"> </span>drivers/power/supply/max77928_charger.c<span class="w">  </span><span class="se">\</span>
-<span class="w">                        </span>--strict<span class="w"> </span><span class="se">\</span>
-<span class="w">                        </span>--ignore<span class="w"> </span>FILE_PATH_CHANGES<span class="w"> </span><span class="se">\</span>
-<span class="w">                        </span>--ignore<span class="w"> </span>LONG_LINE<span class="w"> </span><span class="se">\</span>
-<span class="w">                        </span>--ignore<span class="w"> </span>LONG_LINE_STRING<span class="w"> </span><span class="se">\</span>
-<span class="w">                        </span>--ignore<span class="w"> </span>LONG_LINE_COMMENT<span class="w"> </span><span class="se">\</span>
-<span class="w">                        </span>--ignore<span class="w"> </span>PARENTHESIS_ALIGNMENT<span class="w"> </span><span class="se">\</span>
-<span class="w">                        </span>--ignore<span class="w"> </span>CAMELCASE<span class="w"> </span><span class="se">\</span>
-<span class="w">                        </span>--ignore<span class="w"> </span>UNDOCUMENTED_DT_STRING<span class="w"> </span><span class="se">\</span>
 <span class="w">                        </span>--strict<span class="w"> </span><span class="se">\ </span>&gt;<span class="w"> </span>/tmp/output<span class="w"> </span><span class="p">;</span><span class="w"> </span>clear<span class="w"> </span><span class="p">;</span><span class="w"> </span>cat<span class="w"> </span>/tmp/output<span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="se">\</span>
 <span class="k">done</span>
 </pre></div>
@@ -279,7 +277,7 @@ operating system doesn’t need to hard code details of the machine.</p>
 a custom devicetree will need to be written to describe a specific board or
 device, using the protopytes provided by the
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings" target="_blank">Documentation/devicetree/bindings/**/*.yaml</a> files.</p>
-<p>When submitting dt-bindings, you must check:</p>
+<p>When submitting dt-bindings, you <strong>must</strong> check:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
@@ -293,9 +291,15 @@ device, using the protopytes provided by the
 <p><a class="icon link reference external" href="https://b4.docs.kernel.org/en/latest/index.html" target="_blank" title="(in B4 end-user docs)"><span class="xref std std-doc">B4</span></a> is a tool created to make it easier for project
 developers and maintainers to use a distributed development workflow that
 relies on patches and distribution lists for code contributions and review.</p>
-<p>Take some time to try it out, and understand how it simplies many tasks.
+<p>Take some time to try it out, and understand how it simplify many tasks.
 B4 tools is not currently leveraged by continuous integration, and you
-must run it locally.</p>
+<strong>must</strong> run it locally.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Do <strong>not</strong> submit any upstream work before you are comfortable with the
+tools. Learn about <code class="docutils literal notranslate"><span class="pre">b4</span> <span class="pre">send</span> <span class="pre">--reflect</span></code>, and, as rule of thumb for any tool,
+look for <code class="docutils literal notranslate"><span class="pre">--dry-run</span></code> options.</p>
+</div>
 <p>The section that you will most interested in is the
 <a class="icon link reference external" href="https://b4.docs.kernel.org/en/latest/contributor/overview.html" target="_blank" title="(in B4 end-user docs)"><span>Contributor overview</span></a>, where the contributor workflow is
 extensively detailed, as well as the tools to ease it, such as
