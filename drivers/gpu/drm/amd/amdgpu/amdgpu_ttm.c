@@ -1712,10 +1712,7 @@ static void amdgpu_ttm_init_fw_resv_region(struct amdgpu_device *adev)
 		reserve_size = max(reserve_size, (uint32_t)280 << 20);
 	else if (!adev->bios &&
 		 amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0)) {
-		if (hweight32(adev->aid_mask) == 1)
-			reserve_size = max(reserve_size, (uint32_t)128 << 20);
-		else
-			reserve_size = max(reserve_size, (uint32_t)144 << 20);
+		reserve_size = max(reserve_size, (uint32_t)150 << 20);
 	} else if (!reserve_size)
 		reserve_size = DISCOVERY_TMR_OFFSET;
 
