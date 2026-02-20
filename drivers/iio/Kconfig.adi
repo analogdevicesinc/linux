@@ -217,3 +217,4 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD7091R8
 	imply AD9739A
 	imply MAX22007
+	imply ADRV904X
