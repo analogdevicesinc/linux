@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/dac/adi,ad5413.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD5413 DAC
+
+description: |
+  Analog Devices AD5413 is a single-channel precision DAC supporting voltage
+  or current output modes with programmable slew-rate control.
+  The output mode is selected via the adi,chan-current-mode property.
+  Optional reset GPIO may be provided.
+
+maintainers:
+  - name: Bruce Tsao
+    email: bruce.tsao@analog.com
+
+properties:
+  compatible:
+    const: adi,ad5413
+
+  spi-max-frequency:
+    maximum: 50000000
+
+  reset-gpios:
+    maxItems: 1
+    description: Optional reset GPIO (active low).
+
+  avdd-supply:
+    description: Analog positive supply (AVDD)
+
+  dvdd-supply:
+    description: Digital positive supply (DVDD)
+
+  avss-supply:
+    description: Analog negative supply (AVSS)
+
+  adi,chan-current-mode:
+    type: boolean
+    description: Select current output mode. If absent, voltage mode is used.
+
+  adi,slew-time-us:
+    description: Output digital slew control time in microseconds
+    minimum: 0
+    maximum: 1000000
+    default: 0
+
+required:
+  - compatible
+  - avdd-supply
+  - dvdd-supply
+  - avss-supply
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        dac@0 {
+            compatible = "adi,ad5413";
+            reg = <0>;
+            spi-max-frequency = <1000000>;
+            reset-gpios = <&gpio 0 GPIO_ACTIVE_LOW>;
+            avdd-supply = <&avdd>;
+            dvdd-supply = <&dvdd>;
+            avss-supply = <&avss>;
+            adi,slew-time-us = <125>;
+        };
+    };
+
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        dac@0 {
+            compatible = "adi,ad5413";
+            reg = <0>;
+            spi-max-frequency = <1000000>;
+            avdd-supply = <&avdd>;
+            dvdd-supply = <&dvdd>;
+            avss-supply = <&avss>;
+
+            adi,chan-current-mode;
+        };
+    };
