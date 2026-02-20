@@ -321,6 +321,8 @@ static int cf_axi_get_parent_sampling_frequency(struct cf_axi_dds_state *st,
 		*freq = st->dac_clk = clk_get_rate_scaled(st->clk, &st->clkscale);
 	} else {
 		conv = to_converter(st->dev_spi);
+		if (IS_ERR(conv))
+			return PTR_ERR(conv);
 		if (!conv->get_data_clk)
 			return -ENODEV;
 
@@ -401,6 +403,8 @@ static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 		return 0;
 
 	conv = to_converter(st->dev_spi);
+	if (IS_ERR(conv))
+		return PTR_ERR(conv);
 	if (conv->get_fifo_status) {
 		/* Check FIFO status */
 		stat = conv->get_fifo_status(conv);
@@ -718,7 +722,9 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		if (chan->type == IIO_VOLTAGE) {
 			if (!st->standalone) {
 				conv = to_converter(st->dev_spi);
-				if (!conv->read_raw) {
+				if (IS_ERR(conv)) {
+					ret = PTR_ERR(conv);
+				} else if (!conv->read_raw) {
 					ret = -ENODEV;
 				} else {
 					ret = conv->read_raw(indio_dev, chan,
@@ -780,7 +786,9 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 	default:
 		if (!st->standalone) {
 			conv = to_converter(st->dev_spi);
-			if (!conv->read_raw) {
+			if (IS_ERR(conv)) {
+				ret = PTR_ERR(conv);
+			} else if (!conv->read_raw) {
 				ret = -ENODEV;
 			} else {
 				ret = conv->read_raw(indio_dev, chan,
@@ -1948,7 +1956,7 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 
 	if (!(reg & ADI_DDS_DISABLE)) {
 		for (i = 0; i < 2 * m; i++, c++) {
-			if (c > ARRAY_SIZE(st->chip_info_generated.channel))
+			if (c >= ARRAY_SIZE(st->chip_info_generated.channel))
 				return -EINVAL;
 			st->chip_info_generated.channel[c].type =
 				IIO_ALTVOLTAGE;
@@ -2175,6 +2183,13 @@ static const struct axidds_core_info adrv9025_1_00_a_info = {
 	.complex_modified = true,
 };
 
+static const struct axidds_core_info adrv903x_1_00_a_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.name = "ADRV903X",
+	.standalone = true,
+	.complex_modified = true,
+};
+
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
@@ -2248,6 +2263,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-adrv9025-tx-1.0",
 	    .data = &adrv9025_1_00_a_info,
+	}, {
+	    .compatible = "adi,axi-adrv903x-tx-1.0",
+	    .data = &adrv903x_1_00_a_info,
 	},
 	{ },
 };
