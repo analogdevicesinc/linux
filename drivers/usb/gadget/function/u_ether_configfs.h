@@ -19,6 +19,7 @@
 #include <linux/mutex.h>
 #include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
+#include <linux/hex.h>
 
 #define USB_ETHERNET_CONFIGFS_ITEM(_f_)					\
 	static void _f_##_attr_release(struct config_item *item)	\
