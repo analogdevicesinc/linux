@@ -834,7 +834,7 @@ int amdgpu_vm_flush(struct amdgpu_ring *ring, struct amdgpu_job *job,
 		amdgpu_gmc_emit_pasid_mapping(ring, job->vmid, job->pasid);
 
 	if (spm_update_needed && adev->gfx.rlc.funcs->update_spm_vmid)
-		adev->gfx.rlc.funcs->update_spm_vmid(adev, ring, job->vmid);
+		adev->gfx.rlc.funcs->update_spm_vmid(adev, ring->xcc_id, ring, job->vmid);
 
 	if (ring->funcs->emit_gds_switch &&
 	    gds_switch_needed) {
@@ -1069,9 +1069,7 @@ amdgpu_vm_tlb_flush(struct amdgpu_vm_update_params *params,
 	}
 
 	/* Prepare a TLB flush fence to be attached to PTs */
-	if (!params->unlocked &&
-	    /* SI doesn't support pasid or KIQ/MES */
-	    params->adev->family > AMDGPU_FAMILY_SI) {
+	if (!params->unlocked) {
 		amdgpu_vm_tlb_fence_create(params->adev, vm, fence);
 
 		/* Makes sure no PD/PT is freed before the flush */
@@ -2362,8 +2360,25 @@ void amdgpu_vm_adjust_size(struct amdgpu_device *adev, uint32_t min_vm_size,
 			   unsigned max_bits)
 {
 	unsigned int max_size = 1 << (max_bits - 30);
+	bool sys_5level_pgtable = false;
 	unsigned int vm_size;
 	uint64_t tmp;
+
+#ifdef CONFIG_X86_64
+	/*
+	 * Refer to function configure_5level_paging() for details.
+	 */
+	sys_5level_pgtable = (native_read_cr4() & X86_CR4_LA57);
+#endif
+
+	/*
+	 * If GPU supports 5-level page table, but system uses 4-level page table,
+	 * then use 4-level page table on GPU
+	 */
+	if (max_level == 4 && !sys_5level_pgtable) {
+		min_vm_size = 256 * 1024;
+		max_level = 3;
+	}
 
 	/* adjust vm size first */
 	if (amdgpu_vm_size != -1) {
@@ -2407,6 +2422,9 @@ void amdgpu_vm_adjust_size(struct amdgpu_device *adev, uint32_t min_vm_size,
 	tmp = DIV_ROUND_UP(fls64(tmp) - 1, 9) - 1;
 	adev->vm_manager.num_level = min_t(unsigned int, max_level, tmp);
 	switch (adev->vm_manager.num_level) {
+	case 4:
+		adev->vm_manager.root_level = AMDGPU_VM_PDB3;
+		break;
 	case 3:
 		adev->vm_manager.root_level = AMDGPU_VM_PDB2;
 		break;
@@ -2553,10 +2571,7 @@ void amdgpu_vm_set_task_info(struct amdgpu_vm *vm)
 	vm->task_info->task.pid = current->pid;
 	get_task_comm(vm->task_info->task.comm, current);
 
-	if (current->group_leader->mm != current->mm)
-		return;
-
-	vm->task_info->tgid = current->group_leader->pid;
+	vm->task_info->tgid = current->tgid;
 	get_task_comm(vm->task_info->process_name, current->group_leader);
 }
 

@@ -21,6 +21,7 @@
 #ifdef CONFIG_KEXEC_HANDOVER
 #include <linux/libfdt.h>
 #include <linux/kexec_handover.h>
+#include <linux/kho/abi/memblock.h>
 #endif /* CONFIG_KEXEC_HANDOVER */
 
 #include <asm/sections.h>
@@ -773,7 +774,7 @@ bool __init_memblock memblock_validate_numa_coverage(unsigned long threshold_byt
 	unsigned long start_pfn, end_pfn, mem_size_mb;
 	int nid, i;
 
-	/* calculate lose page */
+	/* calculate lost page */
 	for_each_mem_pfn_range(i, MAX_NUMNODES, &start_pfn, &end_pfn, &nid) {
 		if (!numa_valid_node(nid))
 			nr_pages += end_pfn - start_pfn;
@@ -2414,7 +2415,7 @@ EXPORT_SYMBOL_GPL(reserve_mem_find_by_name);
 
 /**
  * reserve_mem_release_by_name - Release reserved memory region with a given name
- * @name: The name that is attatched to a reserved memory region
+ * @name: The name that is attached to a reserved memory region
  *
  * Forcibly release the pages in the reserved memory region so that those memory
  * can be used as free memory. After released the reserved region size becomes 0.
@@ -2442,9 +2443,6 @@ int reserve_mem_release_by_name(const char *name)
 }
 
 #ifdef CONFIG_KEXEC_HANDOVER
-#define MEMBLOCK_KHO_FDT "memblock"
-#define MEMBLOCK_KHO_NODE_COMPATIBLE "memblock-v1"
-#define RESERVE_MEM_KHO_NODE_COMPATIBLE "reserve-mem-v1"
 
 static int __init reserved_mem_preserve(void)
 {

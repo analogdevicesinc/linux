@@ -114,7 +114,6 @@ static int nfs42_proc_fallocate(struct rpc_message *msg, struct file *filep,
 	exception.inode = inode;
 	exception.state = lock->open_context->state;
 
-	nfs_file_block_o_direct(NFS_I(inode));
 	err = nfs_sync_inode(inode);
 	if (err)
 		goto out;
@@ -138,13 +137,17 @@ int nfs42_proc_allocate(struct file *filep, loff_t offset, loff_t len)
 		.rpc_proc = &nfs4_procedures[NFSPROC4_CLNT_ALLOCATE],
 	};
 	struct inode *inode = file_inode(filep);
-	loff_t oldsize = i_size_read(inode);
+	loff_t oldsize;
 	int err;
 
 	if (!nfs_server_capable(inode, NFS_CAP_ALLOCATE))
 		return -EOPNOTSUPP;
 
-	inode_lock(inode);
+	err = nfs_start_io_write(inode);
+	if (err)
+		return err;
+
+	oldsize = i_size_read(inode);
 
 	err = nfs42_proc_fallocate(&msg, filep, offset, len);
 
@@ -155,7 +158,7 @@ int nfs42_proc_allocate(struct file *filep, loff_t offset, loff_t len)
 		NFS_SERVER(inode)->caps &= ~(NFS_CAP_ALLOCATE |
 					     NFS_CAP_ZERO_RANGE);
 
-	inode_unlock(inode);
+	nfs_end_io_write(inode);
 	return err;
 }
 
@@ -170,7 +173,9 @@ int nfs42_proc_deallocate(struct file *filep, loff_t offset, loff_t len)
 	if (!nfs_server_capable(inode, NFS_CAP_DEALLOCATE))
 		return -EOPNOTSUPP;
 
-	inode_lock(inode);
+	err = nfs_start_io_write(inode);
+	if (err)
+		return err;
 
 	err = nfs42_proc_fallocate(&msg, filep, offset, len);
 	if (err == 0)
@@ -179,7 +184,7 @@ int nfs42_proc_deallocate(struct file *filep, loff_t offset, loff_t len)
 		NFS_SERVER(inode)->caps &= ~(NFS_CAP_DEALLOCATE |
 					     NFS_CAP_ZERO_RANGE);
 
-	inode_unlock(inode);
+	nfs_end_io_write(inode);
 	return err;
 }
 
@@ -189,14 +194,17 @@ int nfs42_proc_zero_range(struct file *filep, loff_t offset, loff_t len)
 		.rpc_proc = &nfs4_procedures[NFSPROC4_CLNT_ZERO_RANGE],
 	};
 	struct inode *inode = file_inode(filep);
-	loff_t oldsize = i_size_read(inode);
+	loff_t oldsize;
 	int err;
 
 	if (!nfs_server_capable(inode, NFS_CAP_ZERO_RANGE))
 		return -EOPNOTSUPP;
 
-	inode_lock(inode);
+	err = nfs_start_io_write(inode);
+	if (err)
+		return err;
 
+	oldsize = i_size_read(inode);
 	err = nfs42_proc_fallocate(&msg, filep, offset, len);
 	if (err == 0) {
 		nfs_truncate_last_folio(inode->i_mapping, oldsize,
@@ -205,7 +213,7 @@ int nfs42_proc_zero_range(struct file *filep, loff_t offset, loff_t len)
 	} else if (err == -EOPNOTSUPP)
 		NFS_SERVER(inode)->caps &= ~NFS_CAP_ZERO_RANGE;
 
-	inode_unlock(inode);
+	nfs_end_io_write(inode);
 	return err;
 }
 
@@ -416,7 +424,7 @@ static ssize_t _nfs42_proc_copy(struct file *src,
 	struct nfs_server *src_server = NFS_SERVER(src_inode);
 	loff_t pos_src = args->src_pos;
 	loff_t pos_dst = args->dst_pos;
-	loff_t oldsize_dst = i_size_read(dst_inode);
+	loff_t oldsize_dst;
 	size_t count = args->count;
 	ssize_t status;
 
@@ -461,6 +469,7 @@ static ssize_t _nfs42_proc_copy(struct file *src,
 		&src_lock->open_context->state->flags);
 	set_bit(NFS_CLNT_DST_SSC_COPY_STATE,
 		&dst_lock->open_context->state->flags);
+	oldsize_dst = i_size_read(dst_inode);
 
 	status = nfs4_call_sync(dst_server->client, dst_server, &msg,
 				&args->seq_args, &res->seq_res, 0);
@@ -661,8 +670,8 @@ static int nfs42_do_offload_cancel_async(struct file *dst,
 	msg.rpc_argp = &data->args;
 	msg.rpc_resp = &data->res;
 	task_setup_data.callback_data = data;
-	nfs4_init_sequence(&data->args.osa_seq_args, &data->res.osr_seq_res,
-			   1, 0);
+	nfs4_init_sequence(dst_server->nfs_client, &data->args.osa_seq_args,
+			   &data->res.osr_seq_res, 1, 0);
 	task = rpc_run_task(&task_setup_data);
 	if (IS_ERR(task))
 		return PTR_ERR(task);
@@ -1063,7 +1072,8 @@ int nfs42_proc_layoutstats_generic(struct nfs_server *server,
 		nfs42_layoutstat_release(data);
 		return -EAGAIN;
 	}
-	nfs4_init_sequence(&data->args.seq_args, &data->res.seq_res, 0, 0);
+	nfs4_init_sequence(server->nfs_client, &data->args.seq_args,
+			   &data->res.seq_res, 0, 0);
 	task = rpc_run_task(&task_setup);
 	if (IS_ERR(task))
 		return PTR_ERR(task);
@@ -1201,6 +1211,7 @@ int nfs42_proc_layouterror(struct pnfs_layout_segment *lseg,
 		const struct nfs42_layout_error *errors, size_t n)
 {
 	struct inode *inode = lseg->pls_layout->plh_inode;
+	struct nfs_server *server = NFS_SERVER(inode);
 	struct nfs42_layouterror_data *data;
 	struct rpc_task *task;
 	struct rpc_message msg = {
@@ -1228,8 +1239,9 @@ int nfs42_proc_layouterror(struct pnfs_layout_segment *lseg,
 	msg.rpc_argp = &data->args;
 	msg.rpc_resp = &data->res;
 	task_setup.callback_data = data;
-	task_setup.rpc_client = NFS_SERVER(inode)->client;
-	nfs4_init_sequence(&data->args.seq_args, &data->res.seq_res, 0, 0);
+	task_setup.rpc_client = server->client;
+	nfs4_init_sequence(server->nfs_client, &data->args.seq_args,
+			   &data->res.seq_res, 0, 0);
 	task = rpc_run_task(&task_setup);
 	if (IS_ERR(task))
 		return PTR_ERR(task);

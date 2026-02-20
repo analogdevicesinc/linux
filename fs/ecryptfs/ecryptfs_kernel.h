@@ -21,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/fs_stack.h>
+#include <linux/hex.h>
 #include <linux/namei.h>
 #include <linux/scatterlist.h>
 #include <linux/hash.h>
@@ -359,7 +360,7 @@ struct ecryptfs_message {
 	/* Inherits from msg_ctx->index */
 	u32 index;
 	u32 data_len;
-	u8 data[];
+	u8 data[] __counted_by(data_len);
 };
 
 struct ecryptfs_msg_ctx {
