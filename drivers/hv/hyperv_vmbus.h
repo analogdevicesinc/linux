@@ -276,8 +276,9 @@ struct vmbus_connection {
 	struct list_head chn_list;
 	struct mutex channel_mutex;
 
-	/* Array of channels */
+	/* Array of channel pointers, indexed by relid */
 	struct vmbus_channel **channels;
+	u32 relid_hiwater;
 
 	/*
 	 * An offer message is handled first on the work_queue, and then

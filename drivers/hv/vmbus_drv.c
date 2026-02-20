@@ -1258,17 +1258,12 @@ static void vmbus_chan_sched(void *event_page_addr)
 		return;
 	event = (union hv_synic_event_flags *)event_page_addr + VMBUS_MESSAGE_SINT;
 
-	maxbits = HV_EVENT_FLAGS_COUNT;
+	maxbits = READ_ONCE(vmbus_connection.relid_hiwater) + 1;
 	recv_int_page = event->flags;
 
 	if (unlikely(!recv_int_page))
 		return;
 
-	/*
-	 * Suggested-by: Michael Kelley <mhklinux@outlook.com>
-	 * One possible optimization would be to keep track of the largest relID that's in use,
-	 * and only scan up to that relID.
-	 */
 	for_each_set_bit(relid, recv_int_page, maxbits) {
 		void (*callback_fn)(void *context);
 		struct vmbus_channel *channel;
