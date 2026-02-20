@@ -682,7 +682,12 @@ static int axi_dac_data_format_set(struct iio_backend *back, unsigned int ch,
 	struct axi_dac_state *st = iio_backend_get_priv(back);
 
 	switch (data->type) {
+	case IIO_BACKEND_OFFSET_BINARY:
 	case IIO_BACKEND_DATA_UNSIGNED:
+		/* Offset binary and unsigned are the same for DACs */
+		return regmap_set_bits(st->regmap, AXI_DAC_CNTRL_2_REG,
+				       AXI_DAC_CNTRL_2_UNSIGNED_DATA);
+	case IIO_BACKEND_TWOS_COMPLEMENT:
 		return regmap_clear_bits(st->regmap, AXI_DAC_CNTRL_2_REG,
 					 AXI_DAC_CNTRL_2_UNSIGNED_DATA);
 	default:
@@ -834,6 +839,10 @@ static const struct iio_backend_ops axi_dac_generic_ops = {
 	.ext_info_set = axi_dac_ext_info_set,
 	.ext_info_get = axi_dac_ext_info_get,
 	.data_source_set = axi_dac_data_source_set,
+	.data_source_get = axi_dac_data_source_get,
+	.data_format_set = axi_dac_data_format_set,
+	.data_stream_enable = axi_dac_data_stream_enable,
+	.data_stream_disable = axi_dac_data_stream_disable,
 	.set_sample_rate = axi_dac_set_sample_rate,
 	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_dac_reg_access),
 };
@@ -896,14 +905,20 @@ static int axi_dac_probe(struct platform_device *pdev)
 
 	if (st->info->has_dac_clk) {
 		struct clk *dac_clk;
+		unsigned long rate;
 
 		dac_clk = devm_clk_get_enabled(&pdev->dev, "dac_clk");
 		if (IS_ERR(dac_clk))
 			return dev_err_probe(&pdev->dev, PTR_ERR(dac_clk),
 					     "failed to get dac_clk clock\n");
 
+		rate = clk_get_rate(dac_clk);
 		/* We only care about the streaming mode rate */
-		st->dac_clk_rate = clk_get_rate(dac_clk) / 2;
+		st->dac_clk_rate = rate / 2;
+		/* Initialize DDS sample rate for frequency calculations */
+		st->dac_clk = rate;
+		dev_info(&pdev->dev, "DAC clock: %lu Hz, DDS sample rate: %llu Hz\n",
+			 rate, st->dac_clk);
 	}
 
 	base = devm_platform_ioremap_resource(pdev, 0);
@@ -1009,9 +1024,17 @@ static const struct axi_dac_info dac_ad3552r = {
 	.has_child_nodes = true,
 };
 
+static const struct axi_dac_info dac_ad9740 = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.backend_info = &axi_dac_generic,
+	.has_dac_clk = true,
+	.has_child_nodes = true,
+};
+
 static const struct of_device_id axi_dac_of_match[] = {
 	{ .compatible = "adi,axi-dac-9.1.b", .data = &dac_generic },
 	{ .compatible = "adi,axi-ad3552r", .data = &dac_ad3552r },
+	{ .compatible = "adi,axi-ad9740", .data = &dac_ad9740 },
 	{}
 };
 MODULE_DEVICE_TABLE(of, axi_dac_of_match);

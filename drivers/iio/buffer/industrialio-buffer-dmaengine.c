@@ -98,17 +98,25 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	}
 
 	if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
+		pr_info("iio_dmaengine_buffer_submit_block: Using CYCLIC mode, bytes=%u\n",
+			block->block.bytes_used);
 		desc = dmaengine_prep_dma_cyclic(dmaengine_buffer->chan,
 			block->phys_addr, block->block.bytes_used,
 			block->block.bytes_used, dma_dir, 0);
-		if (!desc)
+		if (!desc) {
+			pr_err("iio_dmaengine_buffer_submit_block: dmaengine_prep_dma_cyclic failed\n");
 			return -ENOMEM;
+		}
 	} else {
+		pr_info("iio_dmaengine_buffer_submit_block: Using SINGLE mode, bytes=%u\n",
+			block->block.bytes_used);
 		desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
 			block->phys_addr, block->block.bytes_used, dma_dir,
 			DMA_PREP_INTERRUPT);
-		if (!desc)
+		if (!desc) {
+			pr_err("iio_dmaengine_buffer_submit_block: dmaengine_prep_slave_single failed\n");
 			return -ENOMEM;
+		}
 
 		desc->callback_result = iio_dmaengine_buffer_block_done;
 		desc->callback_param = block;

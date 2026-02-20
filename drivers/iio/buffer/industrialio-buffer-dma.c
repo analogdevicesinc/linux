@@ -938,6 +938,11 @@ int iio_dma_buffer_enqueue_block(struct iio_buffer *buffer,
 	dma_block->block.bytes_used = block->bytes_used;
 	dma_block->block.flags = block->flags;
 
+	/* Debug: Print block enqueue info */
+	pr_info("iio_dma_buffer_enqueue_block: block_id=%u, bytes_used=%u, flags=0x%x (cyclic=%d)\n",
+		block->id, block->bytes_used, block->flags,
+		!!(block->flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC));
+
 	switch (dma_block->state) {
 	case IIO_BLOCK_STATE_DONE:
 		list_del_init(&dma_block->head);

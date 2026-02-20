@@ -293,10 +293,17 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	 * call, enable hw cyclic mode to avoid unnecessary interrupts.
 	 */
 	if (chan->hw_cyclic && desc->cyclic && !desc->vdesc.tx.callback) {
+		pr_info("axi_dmac_start_transfer: Cyclic transfer, hw_sg=%d, num_sgs=%u\n",
+			chan->hw_sg, desc->num_sgs);
 		if (chan->hw_sg)
 			desc->sg[desc->num_sgs - 1].hw->flags &= ~AXI_DMAC_HW_FLAG_IRQ;
-		else if (desc->num_sgs == 1)
+		else if (desc->num_sgs == 1) {
+			pr_info("axi_dmac_start_transfer: Setting HW_CYCLIC flag (num_sgs==1)\n");
 			flags |= AXI_DMAC_FLAG_CYCLIC;
+		} else {
+			pr_warn("axi_dmac_start_transfer: NOT setting HW_CYCLIC flag (num_sgs=%u > 1)\n",
+				desc->num_sgs);
+		}
 	}
 
 	if (chan->hw_partial_xfer)
@@ -747,6 +754,11 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 	num_periods = buf_len / period_len;
 	num_segments = DIV_ROUND_UP(period_len, chan->max_length);
 	num_sgs = num_periods * num_segments;
+
+	pr_info("axi_dmac_prep_dma_cyclic: buf_len=%zu, period_len=%zu, max_length=%u\n",
+		buf_len, period_len, chan->max_length);
+	pr_info("axi_dmac_prep_dma_cyclic: num_periods=%u, num_segments=%u, num_sgs=%u\n",
+		num_periods, num_segments, num_sgs);
 
 	desc = axi_dmac_alloc_desc(chan, num_sgs);
 	if (!desc)

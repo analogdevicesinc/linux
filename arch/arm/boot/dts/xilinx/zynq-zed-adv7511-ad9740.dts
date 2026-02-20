@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2025 Analog Devices Inc. */
+
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+
+	clocks {
+		adf4351_clkin: clock@1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <10000000>;
+			clock-output-names = "refclk";
+		};
+
+		adf4351_clkout: clock@2 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <210000000>;
+			clock-output-names = "adf4351_clkout";
+		};
+	};
+};
+
+&spi0 {
+    status="okay";
+
+   adf4351: adf4351@0 {
+      compatible = "adi,adf4351";
+      reg = <0>;
+
+      spi-max-frequency = <10000000>;
+
+      clocks = <&adf4351_clkin>;
+      clock-names = "clkin";
+
+      adi,channel-spacing = <10000>;
+      adi,power-up-frequency = <210000000>;
+      adi,phase-detector-polarity-positive-enable;
+      adi,charge-pump-current = <2500>;
+      adi,output-power = <0>;
+      adi,aux-output-enable;
+      adi,aux-output-power = <0>;
+      adi,muxout-select = <6>;
+    };
+  };
+
+&fpga_axi {
+
+	dac_tx_dma: dma-controller@44a40000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a40000 0x10000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
+	axi_dac: axi-ad9740@44a70000 {
+		compatible = "adi,axi-ad9740";
+		reg = <0x44a70000 0x1000>;
+		dmas = <&dac_tx_dma 0>;
+		dma-names = "tx";
+		#io-backend-cells = <0>;
+		clocks = <&clkc 15>, <&adf4351_clkout>;
+		clock-names = "s_axi_aclk", "dac_clk";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		dac@0 {
+			reg = <0>;
+			compatible = "adi,ad9740";
+			reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
+			io-backends = <&axi_dac>;
+			/* Data format: use offset binary (false) or 2's complement (true) */
+			/* adi,twos-complement; */
+		};
+	};
+};
