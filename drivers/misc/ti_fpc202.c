@@ -243,22 +243,14 @@ static void fpc202_detach_addr(struct i2c_atr *atr, u32 chan_id,
 			       u16 addr)
 {
 	struct fpc202_priv *priv = i2c_atr_get_driver_data(atr);
-	int dev_num, reg_mod, val;
+	int dev_num, val;
 
 	for (dev_num = 0; dev_num < 2; dev_num++) {
-		reg_mod = FPC202_REG_MOD_DEV(chan_id, dev_num);
-
 		mutex_lock(&priv->reg_dev_lock);
 
 		val = priv->addr_caches[chan_id][dev_num];
 
 		mutex_unlock(&priv->reg_dev_lock);
-
-		if (val < 0) {
-			dev_err(&priv->client->dev, "failed to read register 0x%x while detaching address 0x%02x\n",
-				reg_mod, addr);
-			return;
-		}
 
 		if (val == (addr & 0x7f)) {
 			fpc202_write_dev_addr(priv, chan_id, dev_num, FPC202_REG_DEV_INVALID);
