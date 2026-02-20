@@ -17,6 +17,7 @@ static void guc_ack_fault(struct xe_pagefault *pf, int err)
 	u32 pdata = FIELD_GET(PFD_PDATA_LO, pf->producer.msg[0]) |
 		(FIELD_GET(PFD_PDATA_HI, pf->producer.msg[1]) <<
 		 PFD_PDATA_HI_SHIFT);
+	u32 asid = FIELD_GET(PFD_ASID, pf->producer.msg[1]);
 	u32 action[] = {
 		XE_GUC_ACTION_PAGE_FAULT_RES_DESC,
 
@@ -24,7 +25,7 @@ static void guc_ack_fault(struct xe_pagefault *pf, int err)
 		FIELD_PREP(PFR_SUCCESS, !!err) |
 		FIELD_PREP(PFR_REPLY, PFR_ACCESS) |
 		FIELD_PREP(PFR_DESC_TYPE, FAULT_RESPONSE_DESC) |
-		FIELD_PREP(PFR_ASID, pf->consumer.asid),
+		FIELD_PREP(PFR_ASID, asid),
 
 		FIELD_PREP(PFR_VFID, vfid) |
 		FIELD_PREP(PFR_ENG_INSTANCE, engine_instance) |
@@ -76,11 +77,14 @@ int xe_guc_pagefault_handler(struct xe_guc *guc, u32 *msg, u32 len)
 		 PFD_VIRTUAL_ADDR_LO_SHIFT);
 	pf.consumer.asid = FIELD_GET(PFD_ASID, msg[1]);
 	pf.consumer.access_type = FIELD_GET(PFD_ACCESS_TYPE, msg[2]);
-	pf.consumer.fault_type = FIELD_GET(PFD_FAULT_TYPE, msg[2]);
 	if (FIELD_GET(XE2_PFD_TRVA_FAULT, msg[0]))
-		pf.consumer.fault_level = XE_PAGEFAULT_LEVEL_NACK;
+		pf.consumer.fault_type_level = XE_PAGEFAULT_TYPE_LEVEL_NACK;
 	else
-		pf.consumer.fault_level = FIELD_GET(PFD_FAULT_LEVEL, msg[0]);
+		pf.consumer.fault_type_level =
+			FIELD_PREP(XE_PAGEFAULT_LEVEL_MASK,
+				   FIELD_GET(PFD_FAULT_LEVEL, msg[0])) |
+			FIELD_PREP(XE_PAGEFAULT_TYPE_MASK,
+				   FIELD_GET(PFD_FAULT_TYPE, msg[2]));
 	pf.consumer.engine_class = FIELD_GET(PFD_ENG_CLASS, msg[0]);
 	pf.consumer.engine_instance = FIELD_GET(PFD_ENG_INSTANCE, msg[0]);
 

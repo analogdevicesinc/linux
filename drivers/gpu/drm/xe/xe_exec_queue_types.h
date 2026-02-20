@@ -66,6 +66,8 @@ struct xe_exec_queue_group {
 	bool sync_pending;
 	/** @banned: Group banned */
 	bool banned;
+	/** @stopped: Group is stopped, protected by list_lock */
+	bool stopped;
 };
 
 /**
@@ -159,8 +161,13 @@ struct xe_exec_queue {
 		struct xe_exec_queue_group *group;
 		/** @multi_queue.link: Link into group's secondary queues list */
 		struct list_head link;
-		/** @multi_queue.priority: Queue priority within the multi-queue group */
+		/**
+		 * @multi_queue.priority: Queue priority within the multi-queue group.
+		 * It is protected by @multi_queue.lock.
+		 */
 		enum xe_multi_queue_priority priority;
+		/** @multi_queue.lock: Lock for protecting certain members */
+		spinlock_t lock;
 		/** @multi_queue.pos: Position of queue within the multi-queue group */
 		u8 pos;
 		/** @multi_queue.valid: Queue belongs to a multi queue group */
@@ -210,6 +217,9 @@ struct xe_exec_queue {
 		 */
 		struct dma_fence *last_fence;
 	} tlb_inval[XE_EXEC_QUEUE_TLB_INVAL_COUNT];
+
+	/** @vm_exec_queue_link: Link to track exec queue within a VM's list of exec queues. */
+	struct list_head vm_exec_queue_link;
 
 	/** @pxp: PXP info tracking */
 	struct {
@@ -301,6 +311,8 @@ struct xe_exec_queue_ops {
 	void (*resume)(struct xe_exec_queue *q);
 	/** @reset_status: check exec queue reset status */
 	bool (*reset_status)(struct xe_exec_queue *q);
+	/** @active: check exec queue is active */
+	bool (*active)(struct xe_exec_queue *q);
 };
 
 #endif
