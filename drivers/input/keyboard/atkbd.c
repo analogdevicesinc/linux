@@ -1088,7 +1088,6 @@ static int atkbd_get_keymap_from_fwnode(struct atkbd *atkbd)
 {
 	struct device *dev = &atkbd->ps2dev.serio->dev;
 	int i, n;
-	u32 *ptr;
 	u16 scancode, keycode;
 
 	/* Parse "linux,keymap" property */
@@ -1096,13 +1095,12 @@ static int atkbd_get_keymap_from_fwnode(struct atkbd *atkbd)
 	if (n <= 0 || n > ATKBD_KEYMAP_SIZE)
 		return -ENXIO;
 
-	ptr = kcalloc(n, sizeof(u32), GFP_KERNEL);
+	u32 *ptr __free(kfree) = kcalloc(n, sizeof(*ptr), GFP_KERNEL);
 	if (!ptr)
 		return -ENOMEM;
 
 	if (device_property_read_u32_array(dev, "linux,keymap", ptr, n)) {
 		dev_err(dev, "problem parsing FW keymap property\n");
-		kfree(ptr);
 		return -EINVAL;
 	}
 
@@ -1113,13 +1111,11 @@ static int atkbd_get_keymap_from_fwnode(struct atkbd *atkbd)
 		if (scancode >= ATKBD_KEYMAP_SIZE) {
 			dev_warn(dev, "invalid scancode %#x in FW keymap entry %d\n",
 				 scancode, i);
-			kfree(ptr);
 			return -EINVAL;
 		}
 		atkbd->keycode[scancode] = keycode;
 	}
 
-	kfree(ptr);
 	return 0;
 }
 
