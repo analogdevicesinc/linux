@@ -2787,7 +2787,6 @@ int f2fs_encrypt_one_page(struct f2fs_io_info *fio)
 	struct inode *inode = fio_inode(fio);
 	struct folio *mfolio;
 	struct page *page;
-	gfp_t gfp_flags = GFP_NOFS;
 
 	if (!f2fs_encrypted_file(inode))
 		return 0;
@@ -2797,19 +2796,10 @@ int f2fs_encrypt_one_page(struct f2fs_io_info *fio)
 	if (fscrypt_inode_uses_inline_crypto(inode))
 		return 0;
 
-retry_encrypt:
 	fio->encrypted_page = fscrypt_encrypt_pagecache_blocks(page_folio(page),
-					PAGE_SIZE, 0, gfp_flags);
-	if (IS_ERR(fio->encrypted_page)) {
-		/* flush pending IOs and wait for a while in the ENOMEM case */
-		if (PTR_ERR(fio->encrypted_page) == -ENOMEM) {
-			f2fs_flush_merged_writes(fio->sbi);
-			memalloc_retry_wait(GFP_NOFS);
-			gfp_flags |= __GFP_NOFAIL;
-			goto retry_encrypt;
-		}
+					PAGE_SIZE, 0, GFP_NOFS);
+	if (IS_ERR(fio->encrypted_page))
 		return PTR_ERR(fio->encrypted_page);
-	}
 
 	mfolio = filemap_lock_folio(META_MAPPING(fio->sbi), fio->old_blkaddr);
 	if (!IS_ERR(mfolio)) {
