@@ -486,11 +486,9 @@ static void atkbd_receive_byte(struct ps2dev *ps2dev, u8 data)
 		return;
 	case ATKBD_RET_ACK:
 	case ATKBD_RET_NAK:
-		if (printk_ratelimit())
-			dev_warn(&serio->dev,
-				 "Spurious %s on %s. "
-				 "Some program might be trying to access hardware directly.\n",
-				 data == ATKBD_RET_ACK ? "ACK" : "NAK", serio->phys);
+		dev_warn_ratelimited(&serio->dev,
+				     "Spurious %s on %s. Some program might be trying to access hardware directly.\n",
+				     data == ATKBD_RET_ACK ? "ACK" : "NAK", serio->phys);
 		return;
 	case ATKBD_RET_ERR:
 		atkbd->err_count++;
