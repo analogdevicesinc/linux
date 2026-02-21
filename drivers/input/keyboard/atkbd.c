@@ -122,7 +122,7 @@ static const unsigned short atkbd_set3_keycode[ATKBD_KEYMAP_SIZE] = {
 	148,149,147,140
 };
 
-static const unsigned short atkbd_unxlate_table[128] = {
+static const u8 atkbd_unxlate_table[128] = {
           0,118, 22, 30, 38, 37, 46, 54, 61, 62, 70, 69, 78, 85,102, 13,
          21, 29, 36, 45, 44, 53, 60, 67, 68, 77, 84, 91, 90, 20, 28, 27,
          35, 43, 52, 51, 59, 66, 75, 76, 82, 14, 18, 93, 26, 34, 33, 42,
@@ -184,7 +184,7 @@ static const unsigned short atkbd_unxlate_table[128] = {
 
 static const struct {
 	unsigned short keycode;
-	unsigned char set2;
+	u8 set2;
 } atkbd_scroll_keys[] = {
 	{ ATKBD_SCR_1,     0xc5 },
 	{ ATKBD_SCR_2,     0x9d },
@@ -211,7 +211,7 @@ struct atkbd {
 	unsigned short id;
 	unsigned short keycode[ATKBD_KEYMAP_SIZE];
 	DECLARE_BITMAP(force_release_mask, ATKBD_KEYMAP_SIZE);
-	unsigned char set;
+	u8 set;
 	bool translated;
 	bool extra;
 	bool write;
@@ -221,7 +221,7 @@ struct atkbd {
 	bool enabled;
 
 	/* Accessed only from interrupt */
-	unsigned char emul;
+	u8 emul;
 	bool resend;
 	bool release;
 	unsigned long xl_bit;
@@ -337,7 +337,7 @@ static const struct attribute_group atkbd_attribute_group = {
 
 __ATTRIBUTE_GROUPS(atkbd_attribute);
 
-static const unsigned int xl_table[] = {
+static const u8 xl_table[] = {
 	ATKBD_RET_BAT, ATKBD_RET_ERR, ATKBD_RET_ACK,
 	ATKBD_RET_NAK, ATKBD_RET_HANJA, ATKBD_RET_HANGEUL,
 };
@@ -346,7 +346,7 @@ static const unsigned int xl_table[] = {
  * Checks if we should mangle the scancode to extract 'release' bit
  * in translated mode.
  */
-static bool atkbd_need_xlate(unsigned long xl_bit, unsigned char code)
+static bool atkbd_need_xlate(unsigned long xl_bit, u8 code)
 {
 	int i;
 
@@ -365,7 +365,7 @@ static bool atkbd_need_xlate(unsigned long xl_bit, unsigned char code)
  * between make/break pair of scancodes for select keys and PS/2
  * protocol responses.
  */
-static void atkbd_calculate_xl_bit(struct atkbd *atkbd, unsigned char code)
+static void atkbd_calculate_xl_bit(struct atkbd *atkbd, u8 code)
 {
 	int i;
 
@@ -587,7 +587,7 @@ static int atkbd_set_repeat_rate(struct atkbd *atkbd)
 		{ 250, 500, 750, 1000 };
 
 	struct input_dev *dev = atkbd->dev;
-	unsigned char param;
+	u8 param;
 	int i = 0, j = 0;
 
 	while (i < ARRAY_SIZE(period) - 1 && period[i] < dev->rep[REP_PERIOD])
@@ -605,7 +605,7 @@ static int atkbd_set_repeat_rate(struct atkbd *atkbd)
 static int atkbd_set_leds(struct atkbd *atkbd)
 {
 	struct input_dev *dev = atkbd->dev;
-	unsigned char param[2];
+	u8 param[2];
 
 	param[0] = (test_bit(LED_SCROLLL, dev->led) ? 1 : 0)
 		 | (test_bit(LED_NUML,    dev->led) ? 2 : 0)
@@ -806,7 +806,7 @@ static inline bool atkbd_skip_getid(struct atkbd *atkbd) { return false; }
 static int atkbd_probe(struct atkbd *atkbd)
 {
 	struct ps2dev *ps2dev = &atkbd->ps2dev;
-	unsigned char param[2];
+	u8 param[2];
 
 /*
  * Some systems, where the bit-twiddling when testing the io-lines of the
@@ -879,7 +879,7 @@ deactivate_kbd:
 static int atkbd_select_set(struct atkbd *atkbd, int target_set, int allow_extra)
 {
 	struct ps2dev *ps2dev = &atkbd->ps2dev;
-	unsigned char param[2];
+	u8 param[2];
 
 	atkbd->extra = false;
 /*
@@ -940,7 +940,7 @@ static int atkbd_select_set(struct atkbd *atkbd, int target_set, int allow_extra
 static int atkbd_reset_state(struct atkbd *atkbd)
 {
         struct ps2dev *ps2dev = &atkbd->ps2dev;
-	unsigned char param[1];
+	u8 param[1];
 
 /*
  * Set the LEDs to a predefined state (all off).
@@ -1235,7 +1235,7 @@ static void atkbd_set_device_attrs(struct atkbd *atkbd)
 	}
 
 	input_dev->keycode = atkbd->keycode;
-	input_dev->keycodesize = sizeof(unsigned short);
+	input_dev->keycodesize = sizeof(atkbd->keycode[0]);
 	input_dev->keycodemax = ARRAY_SIZE(atkbd_set2_keycode);
 
 	for (i = 0; i < ATKBD_KEYMAP_SIZE; i++) {
@@ -1482,7 +1482,7 @@ static ssize_t atkbd_set_extra(struct atkbd *atkbd, const char *buf, size_t coun
 	unsigned int value;
 	int err;
 	bool old_extra;
-	unsigned char old_set;
+	u8 old_set;
 
 	if (!atkbd->write)
 		return -EIO;
@@ -1617,7 +1617,7 @@ static ssize_t atkbd_set_set(struct atkbd *atkbd, const char *buf, size_t count)
 	struct input_dev *old_dev, *new_dev;
 	unsigned int value;
 	int err;
-	unsigned char old_set;
+	u8 old_set;
 	bool old_extra;
 
 	if (!atkbd->write)
