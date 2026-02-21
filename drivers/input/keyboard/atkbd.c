@@ -3,10 +3,7 @@
  * AT and PS/2 keyboard driver
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
- */
-
-
-/*
+ *
  * This driver can handle standard AT keyboards and PS/2 keyboards in
  * Translated and Raw Set 2 and Set 3, as well as AT keyboards on dumb
  * input-only controllers and AT keyboards connected over a one way RS232
@@ -65,8 +62,8 @@ static bool atkbd_terminal;
 module_param_named(terminal, atkbd_terminal, bool, 0);
 MODULE_PARM_DESC(terminal, "Enable break codes on an IBM Terminal keyboard connected via AT/PS2");
 
-#define SCANCODE(keymap)	((keymap >> 16) & 0xFFFF)
-#define KEYCODE(keymap)		(keymap & 0xFFFF)
+#define SCANCODE(keymap)	(((keymap) >> 16) & 0xFFFF)
+#define KEYCODE(keymap)		((keymap) & 0xFFFF)
 
 /*
  * Scancode to keycode tables. These are just the default setting, and
@@ -76,7 +73,6 @@ MODULE_PARM_DESC(terminal, "Enable break codes on an IBM Terminal keyboard conne
 #define ATKBD_KEYMAP_SIZE	512
 
 static const unsigned short atkbd_set2_keycode[ATKBD_KEYMAP_SIZE] = {
-
 #ifdef CONFIG_KEYBOARD_ATKBD_HP_KEYCODES
 
 /* XXX: need a more general approach */
@@ -107,7 +103,6 @@ static const unsigned short atkbd_set2_keycode[ATKBD_KEYMAP_SIZE] = {
 };
 
 static const unsigned short atkbd_set3_keycode[ATKBD_KEYMAP_SIZE] = {
-
 	  0,  0,  0,  0,  0,  0,  0, 59,  1,138,128,129,130, 15, 41, 60,
 	131, 29, 42, 86, 58, 16,  2, 61,133, 56, 44, 31, 30, 17,  3, 62,
 	134, 46, 45, 32, 18,  5,  4, 63,135, 57, 47, 33, 20, 19,  6, 64,
@@ -123,14 +118,14 @@ static const unsigned short atkbd_set3_keycode[ATKBD_KEYMAP_SIZE] = {
 };
 
 static const u8 atkbd_unxlate_table[128] = {
-          0,118, 22, 30, 38, 37, 46, 54, 61, 62, 70, 69, 78, 85,102, 13,
-         21, 29, 36, 45, 44, 53, 60, 67, 68, 77, 84, 91, 90, 20, 28, 27,
-         35, 43, 52, 51, 59, 66, 75, 76, 82, 14, 18, 93, 26, 34, 33, 42,
-         50, 49, 58, 65, 73, 74, 89,124, 17, 41, 88,  5,  6,  4, 12,  3,
-         11,  2, 10,  1,  9,119,126,108,117,125,123,107,115,116,121,105,
-        114,122,112,113,127, 96, 97,120,  7, 15, 23, 31, 39, 47, 55, 63,
-         71, 79, 86, 94,  8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 87,111,
-         19, 25, 57, 81, 83, 92, 95, 98, 99,100,101,103,104,106,109,110
+	  0,118, 22, 30, 38, 37, 46, 54, 61, 62, 70, 69, 78, 85,102, 13,
+	 21, 29, 36, 45, 44, 53, 60, 67, 68, 77, 84, 91, 90, 20, 28, 27,
+	 35, 43, 52, 51, 59, 66, 75, 76, 82, 14, 18, 93, 26, 34, 33, 42,
+	 50, 49, 58, 65, 73, 74, 89,124, 17, 41, 88,  5,  6,  4, 12,  3,
+	 11,  2, 10,  1,  9,119,126,108,117,125,123,107,115,116,121,105,
+	114,122,112,113,127, 96, 97,120,  7, 15, 23, 31, 39, 47, 55, 63,
+	 71, 79, 86, 94,  8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 87,111,
+	 19, 25, 57, 81, 83, 92, 95, 98, 99,100,101,103,104,106,109,110
 };
 
 #define ATKBD_CMD_SETLEDS	0x10ed
@@ -200,7 +195,6 @@ static const struct {
  */
 
 struct atkbd {
-
 	struct ps2dev ps2dev;
 	struct input_dev *dev;
 
@@ -253,9 +247,9 @@ static unsigned int (*atkbd_platform_scancode_fixup)(struct atkbd *, unsigned in
 static bool atkbd_skip_deactivate;
 
 static ssize_t atkbd_attr_show_helper(struct device *dev, char *buf,
-				ssize_t (*handler)(struct atkbd *, char *));
+				      ssize_t (*handler)(struct atkbd *, char *));
 static ssize_t atkbd_attr_set_helper(struct device *dev, const char *buf, size_t count,
-				ssize_t (*handler)(struct atkbd *, const char *, size_t));
+				     ssize_t (*handler)(struct atkbd *, const char *, size_t));
 #define ATKBD_DEFINE_ATTR(_name)						\
 static ssize_t atkbd_show_##_name(struct atkbd *, char *);			\
 static ssize_t atkbd_set_##_name(struct atkbd *, const char *, size_t);		\
@@ -270,7 +264,7 @@ static ssize_t atkbd_do_set_##_name(struct device *d,				\
 	return atkbd_attr_set_helper(d, b, s, atkbd_set_##_name);		\
 }										\
 static struct device_attribute atkbd_attr_##_name =				\
-	__ATTR(_name, S_IWUSR | S_IRUGO, atkbd_do_show_##_name, atkbd_do_set_##_name);
+	__ATTR(_name, S_IWUSR | S_IRUGO, atkbd_do_show_##_name, atkbd_do_set_##_name)
 
 ATKBD_DEFINE_ATTR(extra);
 ATKBD_DEFINE_ATTR(force_release);
@@ -287,7 +281,7 @@ static ssize_t atkbd_do_show_##_name(struct device *d,				\
 	return atkbd_attr_show_helper(d, b, atkbd_show_##_name);		\
 }										\
 static struct device_attribute atkbd_attr_##_name =				\
-	__ATTR(_name, S_IRUGO, atkbd_do_show_##_name, NULL);
+	__ATTR(_name, S_IRUGO, atkbd_do_show_##_name, NULL)
 
 ATKBD_DEFINE_RO_ATTR(err_count);
 ATKBD_DEFINE_RO_ATTR(function_row_physmap);
@@ -317,7 +311,7 @@ static struct atkbd *atkbd_from_serio(struct serio *serio)
 }
 
 static umode_t atkbd_attr_is_visible(struct kobject *kobj,
-				struct attribute *attr, int i)
+				     struct attribute *attr, int i)
 {
 	struct device *dev = kobj_to_dev(kobj);
 	struct serio *serio = to_serio_port(dev);
@@ -389,7 +383,7 @@ static unsigned int atkbd_compat_scancode(struct atkbd *atkbd, unsigned int code
 	if (atkbd->set == 3) {
 		if (atkbd->emul == 1)
 			code |= 0x100;
-        } else {
+	} else {
 		code = (code & 0x7f) | ((code & 0x80) << 1);
 		if (atkbd->emul == 1)
 			code |= 0x80;
@@ -431,7 +425,7 @@ static enum ps2_disposition atkbd_pre_receive_byte(struct ps2dev *ps2dev,
 
 	dev_dbg(&serio->dev, "Received %02x flags %02x\n", data, flags);
 
-#if !defined(__i386__) && !defined (__x86_64__)
+#if !defined(__i386__) && !defined(__x86_64__)
 	if (atkbd_handle_frame_error(ps2dev, data, flags))
 		return PS2_IGNORE;
 #endif
@@ -460,7 +454,6 @@ static void atkbd_receive_byte(struct ps2dev *ps2dev, u8 data)
 		code = atkbd_platform_scancode_fixup(atkbd, code);
 
 	if (atkbd->translated) {
-
 		if (atkbd->emul || atkbd_need_xlate(atkbd->xl_bit, code)) {
 			atkbd->release = code >> 7;
 			code &= 0x7f;
@@ -580,11 +573,11 @@ static void atkbd_receive_byte(struct ps2dev *ps2dev, u8 data)
 
 static int atkbd_set_repeat_rate(struct atkbd *atkbd)
 {
-	const short period[32] =
-		{ 33,  37,  42,  46,  50,  54,  58,  63,  67,  75,  83,  92, 100, 109, 116, 125,
-		 133, 149, 167, 182, 200, 217, 232, 250, 270, 303, 333, 370, 400, 435, 470, 500 };
-	const short delay[4] =
-		{ 250, 500, 750, 1000 };
+	const short period[32] = {
+		  33,  37,  42,  46,  50,  54,  58,  63,  67,  75,  83,  92, 100, 109, 116, 125,
+		 133, 149, 167, 182, 200, 217, 232, 250, 270, 303, 333, 370, 400, 435, 470, 500
+	};
+	const short delay[4] = { 250, 500, 750, 1000 };
 
 	struct input_dev *dev = atkbd->dev;
 	u8 param;
@@ -646,8 +639,7 @@ static void atkbd_event_work(struct work_struct *work)
 		 * it may not be ready yet. In this case we need to keep
 		 * rescheduling till reconnect completes.
 		 */
-		schedule_delayed_work(&atkbd->event_work,
-					msecs_to_jiffies(100));
+		schedule_delayed_work(&atkbd->event_work, msecs_to_jiffies(100));
 	} else {
 		if (test_and_clear_bit(ATKBD_LED_EVENT_BIT, &atkbd->event_mask))
 			atkbd_set_leds(atkbd);
@@ -681,7 +673,7 @@ static void atkbd_schedule_event_work(struct atkbd *atkbd, int event_bit)
  */
 
 static int atkbd_event(struct input_dev *dev,
-			unsigned int type, unsigned int code, int value)
+		       unsigned int type, unsigned int code, int value)
 {
 	struct atkbd *atkbd = input_get_drvdata(dev);
 
@@ -689,7 +681,6 @@ static int atkbd_event(struct input_dev *dev,
 		return -1;
 
 	switch (type) {
-
 	case EV_LED:
 		atkbd_schedule_event_work(atkbd, ATKBD_LED_EVENT_BIT);
 		return 0;
@@ -834,7 +825,6 @@ static int atkbd_probe(struct atkbd *atkbd)
 
 	param[0] = param[1] = 0xa5;	/* initialize with invalid values */
 	if (ps2_command(ps2dev, param, ATKBD_CMD_GETID)) {
-
 /*
  * If the get ID command failed, we check if we can at least set
  * the LEDs on the keyboard. This should work on every keyboard out there.
@@ -854,8 +844,7 @@ static int atkbd_probe(struct atkbd *atkbd)
 
 	if (atkbd->id == 0xaca1 && atkbd->translated) {
 		dev_err(&ps2dev->serio->dev,
-			"NCD terminal keyboards are only supported on non-translating controllers. "
-			"Use i8042.direct=1 to disable translation.\n");
+			"NCD terminal keyboards are only supported on non-translating controllers. Use i8042.direct=1 to disable translation.\n");
 		return -1;
 	}
 
@@ -939,7 +928,7 @@ static int atkbd_select_set(struct atkbd *atkbd, int target_set, int allow_extra
 
 static int atkbd_reset_state(struct atkbd *atkbd)
 {
-        struct ps2dev *ps2dev = &atkbd->ps2dev;
+	struct ps2dev *ps2dev = &atkbd->ps2dev;
 	u8 param[1];
 
 /*
@@ -965,7 +954,6 @@ static int atkbd_reset_state(struct atkbd *atkbd)
  * atkbd_cleanup() restores the keyboard state so that BIOS is happy after a
  * reboot.
  */
-
 static void atkbd_cleanup(struct serio *serio)
 {
 	struct atkbd *atkbd = atkbd_from_serio(serio);
@@ -974,11 +962,9 @@ static void atkbd_cleanup(struct serio *serio)
 	ps2_command(&atkbd->ps2dev, NULL, ATKBD_CMD_RESET_DEF);
 }
 
-
 /*
  * atkbd_disconnect() closes and frees.
  */
-
 static void atkbd_disconnect(struct serio *serio)
 {
 	struct atkbd *atkbd = atkbd_from_serio(serio);
@@ -1003,8 +989,7 @@ static void atkbd_disconnect(struct serio *serio)
 /*
  * generate release events for the keycodes given in data
  */
-static void atkbd_apply_forced_release_keylist(struct atkbd* atkbd,
-						const void *data)
+static void atkbd_apply_forced_release_keylist(struct atkbd *atkbd, const void *data)
 {
 	const unsigned int *keys = data;
 	unsigned int i;
@@ -1289,7 +1274,6 @@ static int atkbd_connect(struct serio *serio, struct serio_driver *drv)
 	mutex_init(&atkbd->mutex);
 
 	switch (serio->id.type) {
-
 	case SERIO_8042_XL:
 		atkbd->translated = true;
 		fallthrough;
@@ -1314,7 +1298,6 @@ static int atkbd_connect(struct serio *serio, struct serio_driver *drv)
 		goto fail2;
 
 	if (atkbd->write) {
-
 		if (atkbd_probe(atkbd)) {
 			err = -ENODEV;
 			goto fail3;
@@ -1354,7 +1337,6 @@ static int atkbd_connect(struct serio *serio, struct serio_driver *drv)
  * atkbd_reconnect() tries to restore keyboard into a sane state and is
  * most likely called on resume.
  */
-
 static int atkbd_reconnect(struct serio *serio)
 {
 	struct atkbd *atkbd = atkbd_from_serio(serio);
@@ -1389,7 +1371,6 @@ static int atkbd_reconnect(struct serio *serio)
 		atkbd_set_leds(atkbd);
 		if (!atkbd->softrepeat)
 			atkbd_set_repeat_rate(atkbd);
-
 	}
 
 	/*
@@ -1445,7 +1426,7 @@ static struct serio_driver atkbd_drv = {
 };
 
 static ssize_t atkbd_attr_show_helper(struct device *dev, char *buf,
-				ssize_t (*handler)(struct atkbd *, char *))
+				      ssize_t (*handler)(struct atkbd *, char *))
 {
 	struct serio *serio = to_serio_port(dev);
 	struct atkbd *atkbd = atkbd_from_serio(serio);
@@ -1454,7 +1435,7 @@ static ssize_t atkbd_attr_show_helper(struct device *dev, char *buf,
 }
 
 static ssize_t atkbd_attr_set_helper(struct device *dev, const char *buf, size_t count,
-				ssize_t (*handler)(struct atkbd *, const char *, size_t))
+				     ssize_t (*handler)(struct atkbd *, const char *, size_t))
 {
 	struct serio *serio = to_serio_port(dev);
 	struct atkbd *atkbd = atkbd_from_serio(serio);
@@ -1527,8 +1508,8 @@ static ssize_t atkbd_set_extra(struct atkbd *atkbd, const char *buf, size_t coun
 			return err;
 		}
 		input_unregister_device(old_dev);
-
 	}
+
 	return count;
 }
 
@@ -1544,7 +1525,7 @@ static ssize_t atkbd_show_force_release(struct atkbd *atkbd, char *buf)
 }
 
 static ssize_t atkbd_set_force_release(struct atkbd *atkbd,
-					const char *buf, size_t count)
+				       const char *buf, size_t count)
 {
 	/* 64 bytes on stack should be acceptable */
 	DECLARE_BITMAP(new_mask, ATKBD_KEYMAP_SIZE);
@@ -1557,7 +1538,6 @@ static ssize_t atkbd_set_force_release(struct atkbd *atkbd,
 	memcpy(atkbd->force_release_mask, new_mask, sizeof(atkbd->force_release_mask));
 	return count;
 }
-
 
 static ssize_t atkbd_show_scroll(struct atkbd *atkbd, char *buf)
 {
@@ -1714,7 +1694,6 @@ static ssize_t atkbd_set_softrepeat(struct atkbd *atkbd, const char *buf, size_t
 	}
 	return count;
 }
-
 
 static ssize_t atkbd_show_softraw(struct atkbd *atkbd, char *buf)
 {
