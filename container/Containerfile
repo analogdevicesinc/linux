@@ -8,7 +8,7 @@ ARG gh_actions_runner_sh=https://raw.githubusercontent.com/analogdevicesinc/doct
 
 RUN zypper update -y
 RUN zypper install -y --no-recommends \
-    tar unzip gzip curl jq yq libicu coreutils
+    tar unzip gzip curl jq libicu coreutils
 
 RUN useradd -m runner
 WORKDIR /home/runner
