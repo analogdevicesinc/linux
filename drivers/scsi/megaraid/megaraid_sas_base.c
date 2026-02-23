@@ -6365,11 +6365,13 @@ static int megasas_init_fw(struct megasas_instance *instance)
 
 	megasas_setup_jbod_map(instance);
 
-	if (megasas_get_device_list(instance) != SUCCESS) {
-		dev_err(&instance->pdev->dev,
-			"%s: megasas_get_device_list failed\n",
-			__func__);
-		goto fail_get_ld_pd_list;
+	scoped_guard(mutex, &instance->reset_mutex) {
+		if (megasas_get_device_list(instance) != SUCCESS) {
+			dev_err(&instance->pdev->dev,
+				"%s: megasas_get_device_list failed\n",
+				__func__);
+			goto fail_get_ld_pd_list;
+		}
 	}
 
 	/* stream detection initialization */
@@ -6468,7 +6470,8 @@ static int megasas_init_fw(struct megasas_instance *instance)
 	}
 
 	if (instance->snapdump_wait_time) {
-		megasas_get_snapdump_properties(instance);
+		scoped_guard(mutex, &instance->reset_mutex)
+			megasas_get_snapdump_properties(instance);
 		dev_info(&instance->pdev->dev, "Snap dump wait time\t: %d\n",
 			 instance->snapdump_wait_time);
 	}
