@@ -1339,7 +1339,7 @@ static const struct iio_info gp2ap020a00f_info = {
 static int gp2ap020a00f_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
-	int i, err = 0;
+	int i, err;
 
 	guard(mutex)(&data->lock);
 
@@ -1365,11 +1365,13 @@ static int gp2ap020a00f_buffer_postenable(struct iio_dev *indio_dev)
 			err = gp2ap020a00f_exec_cmd(data,
 					GP2AP020A00F_CMD_TRIGGER_PROX_EN);
 			break;
+		default:
+			err = -EINVAL;
+			break;
 		}
+		if (err)
+			return err;
 	}
-
-	if (err < 0)
-		return err;
 
 	data->buffer = kmalloc(indio_dev->scan_bytes, GFP_KERNEL);
 	if (!data->buffer)
@@ -1381,7 +1383,7 @@ static int gp2ap020a00f_buffer_postenable(struct iio_dev *indio_dev)
 static int gp2ap020a00f_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
-	int i, err = 0;
+	int i, err;
 
 	guard(mutex)(&data->lock);
 
@@ -1399,11 +1401,13 @@ static int gp2ap020a00f_buffer_predisable(struct iio_dev *indio_dev)
 			err = gp2ap020a00f_exec_cmd(data,
 					GP2AP020A00F_CMD_TRIGGER_PROX_DIS);
 			break;
+		default:
+			err = -EINVAL;
+			break;
 		}
+		if (err)
+			return err;
 	}
-
-	if (err)
-		return err;
 
 	kfree(data->buffer);
 	return 0;
