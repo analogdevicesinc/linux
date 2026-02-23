@@ -462,7 +462,7 @@ static int gp2ap020a00f_write_event_threshold(struct gp2ap020a00f_data *data,
 
 	return regmap_bulk_write(data->regmap,
 				 GP2AP020A00F_THRESH_REG(th_val_id),
-				 (u8 *)&thresh_buf, 2);
+				 &thresh_buf, sizeof(thresh_buf));
 }
 
 static int gp2ap020a00f_alter_opmode(struct gp2ap020a00f_data *data,
@@ -698,18 +698,18 @@ static int wait_conversion_complete_irq(struct gp2ap020a00f_data *data)
 static int gp2ap020a00f_read_output(struct gp2ap020a00f_data *data,
 					unsigned int output_reg, int *val)
 {
-	u8 reg_buf[2];
+	__le16 reg_buf;
 	int err;
 
 	err = wait_conversion_complete_irq(data);
 	if (err < 0)
 		dev_dbg(&data->client->dev, "data ready timeout\n");
 
-	err = regmap_bulk_read(data->regmap, output_reg, reg_buf, 2);
+	err = regmap_bulk_read(data->regmap, output_reg, &reg_buf, sizeof(reg_buf));
 	if (err < 0)
 		return err;
 
-	*val = le16_to_cpup((__le16 *)reg_buf);
+	*val = le16_to_cpu(reg_buf);
 
 	return err;
 }
@@ -867,8 +867,9 @@ static irqreturn_t gp2ap020a00f_thresh_event_handler(int irq, void *data)
 {
 	struct iio_dev *indio_dev = data;
 	struct gp2ap020a00f_data *priv = iio_priv(indio_dev);
-	u8 op_reg_flags, d0_reg_buf[2];
 	unsigned int output_val, op_reg_val;
+	__le16 d0_reg_buf;
+	u8 op_reg_flags;
 	int thresh_val_id, ret;
 
 	/* Read interrupt flags */
@@ -896,11 +897,11 @@ static irqreturn_t gp2ap020a00f_thresh_event_handler(int irq, void *data)
 		 * transition is required.
 		 */
 		ret = regmap_bulk_read(priv->regmap, GP2AP020A00F_D0_L_REG,
-							d0_reg_buf, 2);
+				       &d0_reg_buf, sizeof(d0_reg_buf));
 		if (ret < 0)
 			goto done;
 
-		output_val = le16_to_cpup((__le16 *)d0_reg_buf);
+		output_val = le16_to_cpu(d0_reg_buf);
 
 		if (gp2ap020a00f_adjust_lux_mode(priv, output_val))
 			goto done;
@@ -967,17 +968,15 @@ static irqreturn_t gp2ap020a00f_trigger_handler(int irq, void *data)
 	int i, out_val, ret;
 
 	iio_for_each_active_channel(indio_dev, i) {
-		ret = regmap_bulk_read(priv->regmap,
-				GP2AP020A00F_DATA_REG(i),
-				&priv->buffer[d_size], 2);
+		ret = regmap_bulk_read(priv->regmap, GP2AP020A00F_DATA_REG(i),
+				       &priv->buffer[d_size], 2);
 		if (ret < 0)
 			goto done;
 
 		if (i == GP2AP020A00F_SCAN_MODE_LIGHT_CLEAR ||
 		    i == GP2AP020A00F_SCAN_MODE_LIGHT_IR) {
-			out_val = le16_to_cpup((__le16 *)&priv->buffer[d_size]);
+			out_val = get_unaligned_le16(&priv->buffer[d_size]);
 			gp2ap020a00f_output_to_lux(priv, &out_val);
-
 			put_unaligned_le32(out_val, &priv->buffer[d_size]);
 			d_size += 4;
 		} else {
