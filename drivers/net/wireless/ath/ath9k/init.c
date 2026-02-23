@@ -576,7 +576,7 @@ static int ath9k_nvmem_request_eeprom(struct ath_softc *sc)
 	size_t len;
 	int err;
 
-	cell = devm_nvmem_cell_get(sc->dev, "calibration");
+	cell = nvmem_cell_get(sc->dev, "calibration");
 	if (IS_ERR(cell)) {
 		err = PTR_ERR(cell);
 
@@ -593,6 +593,7 @@ static int ath9k_nvmem_request_eeprom(struct ath_softc *sc)
 	}
 
 	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
 
