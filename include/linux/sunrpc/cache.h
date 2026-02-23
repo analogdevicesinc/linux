@@ -113,6 +113,7 @@ struct cache_detail {
 
 	/* fields for communication over channel */
 	struct list_head	queue;
+	spinlock_t		queue_lock;
 
 	atomic_t		writers;		/* how many time is /channel open */
 	time64_t		last_close;		/* if no writers, when did last close */
