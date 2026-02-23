@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084 RevC
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9084
+ * https://wiki.analog.com/resources/eval/user-guides/ad9084_fmca_ebz/ad9084_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9084_ebz/vcu118>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP12_16p2_6x1.bin"
+
+//#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP12_10p8_4x1.bin"
+
+#include <dt-bindings/jesd204/device-states.h>
+
+#define HMC7044_PLL2_FREQ	(3375000000) // !!! (2150...3200 MHz range)
+//#define HMC7044_PLL2_FREQ	(2700000000) // (2150...3200 MHz range)
+#define AION_VCO_FREQ_HZ	(2531250000) // 2.53125 GHz (2375...2625 MHz range)
+
+/*
+ * OUT_CLK_SELECT options:
+ * XCVR_OUTCLK_PCS
+ * XCVR_OUTCLK_PMA
+ * XCVR_REFCLK
+ * XCVR_REFCLK_DIV2
+ * XCVR_PROGDIV_CLK	(GTHE3, GTHE4, GTYE4 only)
+*/
+
+#define OUT_CLK_SELECT		XCVR_PROGDIV_CLK
+
+/*
+ * SYS_CLK_SELECT options:
+ * XCVR_CPLL  (CPLL: GTHE3, GTHE4, GTYE4, GTXE2)
+ * XCVR_QPLL1 (QPLL1: GTHE3, GTHE4, GTYE4)
+ * XCVR_QPLL  (QPLL0: GTHE3, GTHE4, GTYE4, GTXE2)
+ */
+
+#define SYS_CLK_SELECT		XCVR_QPLL1
+
+#define SYSREF_CLK_MHz		(AION_VCO_FREQ_HZ / 1000)
+
+#define WITH_AION 1
+#define WITH_AXI_AION_TRIG 1
+#define ASYNM_A_B_MODE 0
+
+#include "vcu118_ad9084.dts"
+
+/ {
+	model = "Analog Devices AD9084-FMCA-EBZ @Xilinx/vcu118 204C_M4_L8_NP12_16p2_6x1";
+};
+
+&hmc7044_c1 {
+	adi,divider = <40>; /* 32 for 2700 MHz, 40 for 3375 MHz */
+};
+
+&hmc7044_c10 {
+	adi,divider = <10>;
+};
+
+&hmc7044_c3 {
+	adi,divider = <1280>; /* 1024 for 2700 MHz, 1280 for 3375 MHz */
+	/delete-property/ adi,jesd204-sysref-chan;
+};
+
+&trx0_ad9084 {
+	adi,dformat-ddc-dither-en;
+	jesd204-stop-states = <JESD204_FSM_STATE_CLK_SYNC_STAGE2>;
+};
+
+&hmc7044 {
+	adi,pll1-clkin-frequencies = <125000000 0 0 0>;
+	adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
+	adi,clkin1-buffer-mode  = <0>;
+
+	adi,ignore-vco-limits;
+	adi,sync-through-pll2-force-r2-eq-1;
+	adi,hmc-two-level-tree-sync-en;
+
+	hmc7044_c4: channel@4 {
+		reg = <4>;
+		adi,extended-name = "to_ext_trig";
+		adi,divider = <1280>; /* 1024 for 2700 MHz, 1280 for 3375 MHz */
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		//adi,startup-mode-dynamic-enable;
+	};
+};
+
+&adf4030 {
+	adi,bsync-autoalign-reference-channel = <2>;
+};
+
+&adf4030_bsync1_debug_p18 {
+	auto-align-on-sync-en;
+};
+
+&adf4030_bsync2_debug_p19 {
+	adi,rcm = <1>;
+	adi,ac-coupled-en;
+};
