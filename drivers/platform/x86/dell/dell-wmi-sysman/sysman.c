@@ -220,35 +220,6 @@ static int create_attributes_level_sysfs_files(void)
 	return 0;
 }
 
-static ssize_t wmi_sysman_attr_show(struct kobject *kobj, struct attribute *attr,
-				    char *buf)
-{
-	struct kobj_attribute *kattr;
-	ssize_t ret = -EIO;
-
-	kattr = container_of(attr, struct kobj_attribute, attr);
-	if (kattr->show)
-		ret = kattr->show(kobj, kattr, buf);
-	return ret;
-}
-
-static ssize_t wmi_sysman_attr_store(struct kobject *kobj, struct attribute *attr,
-				     const char *buf, size_t count)
-{
-	struct kobj_attribute *kattr;
-	ssize_t ret = -EIO;
-
-	kattr = container_of(attr, struct kobj_attribute, attr);
-	if (kattr->store)
-		ret = kattr->store(kobj, kattr, buf, count);
-	return ret;
-}
-
-static const struct sysfs_ops wmi_sysman_kobj_sysfs_ops = {
-	.show	= wmi_sysman_attr_show,
-	.store	= wmi_sysman_attr_store,
-};
-
 static void attr_name_release(struct kobject *kobj)
 {
 	kfree(kobj);
@@ -256,7 +227,7 @@ static void attr_name_release(struct kobject *kobj)
 
 static const struct kobj_type attr_name_ktype = {
 	.release	= attr_name_release,
-	.sysfs_ops	= &wmi_sysman_kobj_sysfs_ops,
+	.sysfs_ops	= &kobj_sysfs_ops,
 };
 
 /**
