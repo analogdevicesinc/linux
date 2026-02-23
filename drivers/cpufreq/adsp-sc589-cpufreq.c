@@ -27,8 +27,6 @@
 #define CGU0_CLKSALGN	   BIT(3) 
 #define CGU0_UPDT	   BIT(30)
 
-#define SC589_MAX_FREQ_KHZ 500000
-
 #define TRANSITION_LATENCY 50000 /* nanoseconds, TODO: refine with timing/testing */
 
 static void __iomem *cgu0_ctl;
@@ -49,7 +47,7 @@ static unsigned int sc589_get(unsigned int cpu)
 	cgu_div = readl(cgu0_ctl + CGU0_DIV_OFFSET);
 
 	df_value = cgu_ctl & CGU0_DF;
-	msel_value = (cgu_ctl & CGU0_MSEL_MASK) >> 8;
+	msel_value = (cgu_ctl & CGU0_MSEL_MASK) >> CGU0_MSEL_SHIFT;
 	csel_value = cgu_div & CGU0_CSEL_MASK;
 
 	if (msel_value == 0)
@@ -63,10 +61,6 @@ static unsigned int sc589_get(unsigned int cpu)
 static int sc589_init(struct cpufreq_policy *policy)
 {
 	policy->cpuinfo.transition_latency = TRANSITION_LATENCY;
-	policy->cpuinfo.min_freq =  
-	policy->cpuinfo.max_freq = SC589_MAX_FREQ_KHZ; 
-	//policy->min = 
-       	//policy->max = 
 	policy->freq_table = sc589_freq_table;
 	policy->cur = sc589_get(policy->cpu);
 	return 0;
@@ -129,8 +123,8 @@ static int map_cgu_from_dt(void)
 		pr_err("sc589-cpufreq: failed to read sys_clkin0 frequency.\n");
 		goto out_put_clkin;
 	}
-	sys_clkin_khz /= 1000;
 
+	sys_clkin_khz /= 1000;
 	cgu0_ctl = of_iomap(clk_np, 0);
 	if (!cgu0_ctl) {
 		pr_err("sc589-cpufreq: failed to map CGU0 control register.\n");
