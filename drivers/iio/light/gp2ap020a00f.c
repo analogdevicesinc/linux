@@ -1187,6 +1187,7 @@ static int gp2ap020a00f_read_event_config(struct iio_dev *indio_dev,
 static int gp2ap020a00f_read_channel(struct gp2ap020a00f_data *data,
 				struct iio_chan_spec const *chan, int *val)
 {
+	struct device *dev = &data->client->dev;
 	enum gp2ap020a00f_cmd cmd;
 	int err;
 
@@ -1206,27 +1207,23 @@ static int gp2ap020a00f_read_channel(struct gp2ap020a00f_data *data,
 
 	err = gp2ap020a00f_exec_cmd(data, cmd);
 	if (err < 0) {
-		dev_err(&data->client->dev,
-			"gp2ap020a00f_exec_cmd failed\n");
-		goto error_ret;
+		dev_err(dev, "gp2ap020a00f_exec_cmd failed\n");
+		return err;
 	}
 
 	err = gp2ap020a00f_read_output(data, chan->address, val);
 	if (err < 0)
-		dev_err(&data->client->dev,
-			"gp2ap020a00f_read_output failed\n");
+		dev_err(dev, "gp2ap020a00f_read_output failed\n");
 
 	err = gp2ap020a00f_set_operation_mode(data,
 					GP2AP020A00F_OPMODE_SHUTDOWN);
 	if (err < 0)
-		dev_err(&data->client->dev,
-			"Failed to shut down the device.\n");
+		dev_err(dev, "Failed to shut down the device.\n");
 
 	if (cmd == GP2AP020A00F_CMD_READ_RAW_CLEAR ||
 	    cmd == GP2AP020A00F_CMD_READ_RAW_IR)
 		gp2ap020a00f_output_to_lux(data, val);
 
-error_ret:
 	return err;
 }
 
@@ -1421,18 +1418,19 @@ static const struct iio_buffer_setup_ops gp2ap020a00f_buffer_setup_ops = {
 static int gp2ap020a00f_probe(struct i2c_client *client)
 {
 	const struct i2c_device_id *id = i2c_client_get_device_id(client);
+	struct device *dev = &client->dev;
 	struct gp2ap020a00f_data *data;
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
 	int err;
 
-	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*data));
 	if (!indio_dev)
 		return -ENOMEM;
 
 	data = iio_priv(indio_dev);
 
-	data->vled_reg = devm_regulator_get(&client->dev, "vled");
+	data->vled_reg = devm_regulator_get(dev, "vled");
 	if (IS_ERR(data->vled_reg))
 		return PTR_ERR(data->vled_reg);
 
@@ -1442,7 +1440,7 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 
 	regmap = devm_regmap_init_i2c(client, &gp2ap020a00f_regmap_config);
 	if (IS_ERR(regmap)) {
-		dev_err(&client->dev, "Regmap initialization failed.\n");
+		dev_err(dev, "Regmap initialization failed.\n");
 		err = PTR_ERR(regmap);
 		goto error_regulator_disable;
 	}
@@ -1453,7 +1451,7 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 			ARRAY_SIZE(gp2ap020a00f_reg_init_tab));
 
 	if (err < 0) {
-		dev_err(&client->dev, "Device initialization failed.\n");
+		dev_err(dev, "Device initialization failed.\n");
 		goto error_regulator_disable;
 	}
 
@@ -1478,11 +1476,10 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 		goto error_regulator_disable;
 
 	/* Allocate trigger */
-	data->trig = devm_iio_trigger_alloc(&client->dev, "%s-trigger",
-							indio_dev->name);
+	data->trig = devm_iio_trigger_alloc(dev, "%s-trigger", indio_dev->name);
 	if (data->trig == NULL) {
 		err = -ENOMEM;
-		dev_err(&indio_dev->dev, "Failed to allocate iio trigger.\n");
+		dev_err(dev, "Failed to allocate iio trigger.\n");
 		goto error_uninit_buffer;
 	}
 
@@ -1494,7 +1491,7 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 				   "gp2ap020a00f_als_event",
 				   indio_dev);
 	if (err < 0) {
-		dev_err(&client->dev, "Irq request failed.\n");
+		dev_err(dev, "Irq request failed.\n");
 		goto error_uninit_buffer;
 	}
 
@@ -1502,7 +1499,7 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 
 	err = iio_trigger_register(data->trig);
 	if (err < 0) {
-		dev_err(&client->dev, "Failed to register iio trigger.\n");
+		dev_err(dev, "Failed to register iio trigger.\n");
 		goto error_free_irq;
 	}
 
@@ -1528,12 +1525,13 @@ static void gp2ap020a00f_remove(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
+	struct device *dev = &client->dev;
 	int err;
 
 	err = gp2ap020a00f_set_operation_mode(data,
 					GP2AP020A00F_OPMODE_SHUTDOWN);
 	if (err < 0)
-		dev_err(&indio_dev->dev, "Failed to power off the device.\n");
+		dev_err(dev, "Failed to power off the device.\n");
 
 	iio_device_unregister(indio_dev);
 	iio_trigger_unregister(data->trig);
