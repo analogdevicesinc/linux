@@ -1763,7 +1763,8 @@ static int ad7173_validate_openwire_ain_inputs(struct ad7173_state *st,
 static unsigned int ad7173_calc_openwire_thrsh_raw(struct ad7173_state *st,
 						   struct iio_chan_spec *chan,
 						   struct ad7173_channel *chan_st_priv,
-						   unsigned int thrsh_mv) {
+						   unsigned int thrsh_mv)
+{
 	unsigned int thrsh_raw;
 
 	thrsh_raw =
