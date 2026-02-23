@@ -4,10 +4,9 @@
 
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
-- [Usage](#usage)
 - [JSON Configuration Parameters](#json-configuration-parameters)
 - [Example Configuration](#example-configuration)
-- [Generating the DTS Overlay](#generating-the-dts-overlay)
+- [Usage](#usage)
 - [Applying the Overlay](#applying-the-overlay)
 - [Troubleshooting](#troubleshooting)
 - [References](#references)
@@ -21,26 +20,6 @@ The `gen_gmsl_dts` tool automates the generation of Device Tree Source (DTS) ove
 - Raspberry Pi running a compatible Linux kernel (e.g., `gmsl/rpi-6.13.y` branch from Analog Devices).
 - Python 3.x installed on the system.
 - Access to the `gen_gmsl_dts` directory within the Analog Devices Linux kernel repository.
-
-## Usage
-
-1. **Navigate to the Tool Directory:**
-
-   ```bash
-   cd linux/arch/arm/boot/dts/overlays/gen_gmsl_dts
-   ```
-
-2. **Prepare Your JSON Configuration:**
-
-   In `gen_gmsl_dts` folder there are examples of pre defined configuration JSON files for a variety of serializers, deserializers and camera sensors. If none of these suit your usecase one can create a new JSON file (e.g., `gmsl_config.json`). Plsease refer to the [JSON Configuration Parameters](#json-configuration-parameters) section for details.
-
-3. **Generate the DTS Overlay:**
-
-   ```bash
-   python3 gen_gmsl_dts.py gmsl_config.json --dtbo --o ../gmsl-overlay.dts
-   ```
-
-   This command will generate a DTS overlay file named `gmsl-overlay.dts` based on your configuration.
 
 ## JSON Configuration Parameters
 
@@ -67,10 +46,11 @@ The JSON configuration file defines the GMSL setup. Below are the primary parame
   - `clock_lanes`: `[0]` for normal or `[5]` alternate clocking mode
   - `data_lanes`: `[1, 2]` for 2 lanes | `[1, 2, 3, 4]` for 4 lanes
 - **`links`**: List of GMSL links. One entry for every connected serializer
-  - `name`: Specifies the deserializer model. Can be one of:
+  - `name`: Specifies the serializer model. Can be one of:
     - `"max96717"`, `"max9295a"`, `"max96793"`
   - `cameras`: Camera connected to the serializer:
-    - `name`: camera model can be `"imx219"` or `"ov5640"`
+    - `name`: Specifies the camera model. Can be one of:
+        - `"imx219"`, `"ov5640"`, `"imx415"`, `"imx708"`, `"isx021"`
   - `"pool_addrs"`: is the range of addresses that the ATC and assign to the camera device
 
 ## Example Configuration
@@ -136,29 +116,109 @@ The JSON configuration file defines the GMSL setup. Below are the primary parame
 ]
 ```
 
+### **Note:** The following commands can be run either on the **host machine** or on the **Raspberry Pi**
+
+## Usage
+
+1. **Navigate to the Tool Directory:**
+
+   ```bash
+   cd linux/arch/arm/boot/dts/overlays/gen_gmsl_dts
+   ```
+
+2. **Prepare Your JSON Configuration:**
+
+   In `gen_gmsl_dts` folder there are examples of pre defined configuration JSON files for a variety of serializers, deserializers and camera sensors. If none of these suit your usecase one can create a new JSON file (e.g., `gmsl_config.json`). Plsease refer to the [JSON Configuration Parameters](#json-configuration-parameters) section for details.
+
+3. **Generate the DTS Overlay:**
+
+   ```bash
+   python3 gen_gmsl_dts.py gmsl_config.json --dtbo --o ../gmsl-overlay.dts
+   ```
+
+   This command will generate a DTS overlay file named `gmsl-overlay.dts` based on your configuration.
+
 ## Applying the Overlay
 
 1. **Compile the DTS Overlay:**
 
-   ```bash
-   make dtbs
-   ``` 
+    a) Running on the **host machine**
 
-2. **Copy the Overlay to the Boot Directory:**
+    Run these from the Linux kernel root directory (i.e., `linux/`):
+    - For Raspberry Pi 4:
+        ```bash
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- bcm2711_defconfig
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs
+        ```
+    - For Raspberry Pi 5:
+        ```bash
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- bcm2712_defconfig
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs
+        ```
+
+    Alternatively, if the overlay does not contain any dependencies (e.g., `#include` directives), then it can also be compiled, in the `linux/arch/arm/boot/dts/overlays/gen_gmsl_dts` folder, by running:
+
+    ```bash
+    dtc -@ -I dts -O dtb -o gmsl.dtbo ../gmsl-overlay.dts
+    ```
+
+    b) Running on the **Raspberry Pi**
+
+    Run these from the Linux kernel root directory (i.e., `linux/`):
+    - For Raspberry Pi 4:
+        ```bash
+        make bcm2711_defconfig
+        make dtbs
+        ```
+    - For Raspberry Pi 5:
+        ```bash
+        make bcm2712_defconfig
+        make dtbs
+        ```
+
+    Alternatively, if [`kdtc`](https://github.com/burtyb/raspberrypi-utils/tree/master/kdtc) is installed on the Raspberry Pi and if the overlay does not contain any dependencies (e.g., `#include` directives), then it can also be compiled, in the `linux/arch/arm/boot/dts/overlays/gen_gmsl_dts` folder, by running:
+
+    ```bash
+    kdtc ../gmsl-overlay.dts gmsl.dtbo
+    ```
+
+2. **(Optional) Copy the Overlay from the Host to the Target (Raspberry Pi):**
+
+   Run this command only if the overlay was NOT compiled on the Raspberry Pi (and assuming that the current folder is `linux/arch/arm/boot/dts/overlays/gen_gmsl_dts`):
+
+   ```bash
+   scp gmsl.dtbo <target:path/to/gmsl_dtbo_dir>
+   ```
+
+   Example of `<target:path/to/gmsl_dtbo_dir>`: `analog@analog-gmsl:/home/analog/`
+
+### **Note:** The following commands can only be run on the Raspberry Pi
+
+3. **Navigate to the Directory Where `gmsl.dtbo` is Located:**
+
+   ```bash
+   cd <path/to/gmsl_dtbo_dir>
+   ```
+
+   If step 1.a) was followed, then `<path/to/gmsl_dtbo_dir>` should be `/linux/arch/arm/boot/dts/overlays/gen_gmsl_dts`.
+
+   Otherwise, `<path/to/gmsl_dtbo_dir>` is the same path as the one used at step 2.
+
+4. **Copy the Overlay to the Boot Directory:**
 
    ```bash
    sudo cp gmsl.dtbo /boot/overlays/
    ```
 
-3. **Edit the Boot Configuration:**
+5. **Edit the Boot Configuration:**
 
-   Add the overlay to your `/boot/config.txt` file:
+   Add the overlay to your `/boot/config.txt` file (for example, by using `nano`):
 
    ```ini
    dtoverlay=gmsl
    ```
 
-4. **Reboot the System:**
+6. **Reboot the System:**
 
    ```bash
    sudo reboot
