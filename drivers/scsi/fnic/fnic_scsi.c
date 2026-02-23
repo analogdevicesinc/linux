@@ -471,7 +471,6 @@ enum scsi_qc_status fnic_queuecommand(struct Scsi_Host *shost,
 	int sg_count = 0;
 	unsigned long flags = 0;
 	unsigned long ptr;
-	int io_lock_acquired = 0;
 	uint16_t hwq = 0;
 	struct fnic_tport_s *tport = NULL;
 	struct rport_dd_data_s *rdd_data;
@@ -636,7 +635,6 @@ enum scsi_qc_status fnic_queuecommand(struct Scsi_Host *shost,
 	spin_lock_irqsave(&fnic->wq_copy_lock[hwq], flags);
 
 	/* initialize rest of io_req */
-	io_lock_acquired = 1;
 	io_req->port_id = rport->port_id;
 	io_req->start_time = jiffies;
 	fnic_priv(sc)->state = FNIC_IOREQ_CMD_PENDING;
@@ -689,6 +687,9 @@ enum scsi_qc_status fnic_queuecommand(struct Scsi_Host *shost,
 		/* REVISIT: Use per IO lock in the final code */
 		fnic_priv(sc)->flags |= FNIC_IO_ISSUED;
 	}
+
+	spin_unlock_irqrestore(&fnic->wq_copy_lock[hwq], flags);
+
 out:
 	cmd_trace = ((u64)sc->cmnd[0] << 56 | (u64)sc->cmnd[7] << 40 |
 			(u64)sc->cmnd[8] << 32 | (u64)sc->cmnd[2] << 24 |
@@ -698,10 +699,6 @@ out:
 	FNIC_TRACE(fnic_queuecommand, sc->device->host->host_no,
 		   mqtag, sc, io_req, sg_count, cmd_trace,
 		   fnic_flags_and_state(sc));
-
-	/* if only we issued IO, will we have the io lock */
-	if (io_lock_acquired)
-		spin_unlock_irqrestore(&fnic->wq_copy_lock[hwq], flags);
 
 	atomic_dec(&fnic->in_flight);
 	atomic_dec(&tport->in_flight);
