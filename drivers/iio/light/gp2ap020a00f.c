@@ -38,6 +38,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irq_work.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
@@ -45,6 +46,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/unaligned.h>
+
 #include <linux/iio/buffer.h>
 #include <linux/iio/events.h>
 #include <linux/iio/iio.h>
@@ -454,9 +456,7 @@ static int gp2ap020a00f_write_event_threshold(struct gp2ap020a00f_data *data,
 		 */
 		thresh_reg_val = data->thresh_val[th_val_id] / 16;
 	else
-		thresh_reg_val = data->thresh_val[th_val_id] > 16000 ?
-					16000 :
-					data->thresh_val[th_val_id];
+		thresh_reg_val = min(data->thresh_val[th_val_id], 16000U);
 
 	thresh_buf = cpu_to_le16(thresh_reg_val);
 
