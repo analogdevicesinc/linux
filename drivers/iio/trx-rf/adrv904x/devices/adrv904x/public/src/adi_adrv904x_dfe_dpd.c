@@ -662,6 +662,7 @@ cleanup :
 	ADI_ADRV904X_API_EXIT(&device->common, recoveryAction);
 }
 
+#ifndef ADI_LIBRARY_RM_FLOATS
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_WBBufSegConfigGet( adi_adrv904x_Device_t* const    device,
 	                                                             adi_adrv904x_DfeAppCalDpdWbRegBufSeg_e* wbBufNum)
 {
@@ -671,7 +672,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_WBBufSegConfigGet( adi_adrv904x_De
 	/* Check device pointer is not null */
 	ADI_ADRV904X_NULL_DEVICE_PTR_RETURN(device);
 	ADI_ADRV904X_API_ENTRY(&device->common);
-	
+
 	/* Send command and receive response */
 	recoveryAction = adi_adrv904x_DfeAppConfigGet(device,
 		                                          ADI_ADRV904X_DFE_APP_FRAMEWORK_OBJID_CAL_DPD,
@@ -687,6 +688,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_WBBufSegConfigGet( adi_adrv904x_De
 cleanup :
 	ADI_ADRV904X_API_EXIT(&device->common, recoveryAction);
 }
+#endif /* ADI_LIBRARY_RM_FLOATS */
 
 
 static adi_adrv904x_ErrAction_e adrv904x_DpdTrackingConfigSet(adi_adrv904x_Device_t* const                  device,
