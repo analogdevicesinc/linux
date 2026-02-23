@@ -175,10 +175,8 @@
 #define GP2AP020A00F_CHAN_TIMESTAMP		3
 
 #define GP2AP020A00F_DATA_READY_TIMEOUT		msecs_to_jiffies(1000)
-#define GP2AP020A00F_DATA_REG(chan)		(GP2AP020A00F_D0_L_REG + \
-							(chan) * 2)
-#define GP2AP020A00F_THRESH_REG(th_val_id)	(GP2AP020A00F_TL_L_REG + \
-							(th_val_id) * 2)
+#define GP2AP020A00F_DATA_REG(chan)		(GP2AP020A00F_D0_L_REG + (chan) * 2)
+#define GP2AP020A00F_THRESH_REG(th_val_id)	(GP2AP020A00F_TL_L_REG + (th_val_id) * 2)
 #define GP2AP020A00F_THRESH_VAL_ID(reg_addr)	((reg_addr - 4) / 2)
 
 #define GP2AP020A00F_SUBTRACT_MODE	0
@@ -390,20 +388,17 @@ static int gp2ap020a00f_set_operation_mode(struct gp2ap020a00f_data *data,
 		}
 
 		err = regmap_update_bits(data->regmap, GP2AP020A00F_ALS_REG,
-			GP2AP020A00F_PRST_MASK, opmode_regs_settings[op]
-								.als_reg);
+			GP2AP020A00F_PRST_MASK, opmode_regs_settings[op].als_reg);
 		if (err < 0)
 			return err;
 
 		err = regmap_update_bits(data->regmap, GP2AP020A00F_PS_REG,
-			GP2AP020A00F_INTTYPE_MASK, opmode_regs_settings[op]
-								.ps_reg);
+			GP2AP020A00F_INTTYPE_MASK, opmode_regs_settings[op].ps_reg);
 		if (err < 0)
 			return err;
 
 		err = regmap_update_bits(data->regmap, GP2AP020A00F_LED_REG,
-			GP2AP020A00F_PIN_MASK, opmode_regs_settings[op]
-								.led_reg);
+			GP2AP020A00F_PIN_MASK, opmode_regs_settings[op].led_reg);
 		if (err < 0)
 			return err;
 	}
@@ -861,8 +856,7 @@ static irqreturn_t gp2ap020a00f_thresh_event_handler(int irq, void *data)
 	int thresh_val_id, ret;
 
 	/* Read interrupt flags */
-	ret = regmap_read(priv->regmap, GP2AP020A00F_OP_REG,
-							&op_reg_val);
+	ret = regmap_read(priv->regmap, GP2AP020A00F_OP_REG, &op_reg_val);
 	if (ret < 0)
 		goto done;
 
@@ -874,8 +868,7 @@ static irqreturn_t gp2ap020a00f_thresh_event_handler(int irq, void *data)
 
 	/* Clear interrupt flags (if not in INTTYPE_PULSE mode) */
 	if (priv->cur_opmode != GP2AP020A00F_OPMODE_PROX_DETECT) {
-		ret = regmap_write(priv->regmap, GP2AP020A00F_OP_REG,
-								op_reg_val);
+		ret = regmap_write(priv->regmap, GP2AP020A00F_OP_REG, op_reg_val);
 		if (ret < 0)
 			goto done;
 	}
@@ -972,8 +965,7 @@ static irqreturn_t gp2ap020a00f_trigger_handler(int irq, void *data)
 		}
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, priv->buffer,
-		pf->timestamp);
+	iio_push_to_buffers_with_timestamp(indio_dev, priv->buffer, pf->timestamp);
 done:
 	iio_trigger_notify_done(indio_dev->trig);
 
@@ -1023,26 +1015,22 @@ static int gp2ap020a00f_write_event_val(struct iio_dev *indio_dev,
 
 	switch (thresh_reg_l) {
 	case GP2AP020A00F_TH_L_REG:
-		event_en = test_bit(GP2AP020A00F_FLAG_ALS_RISING_EV,
-							&data->flags);
+		event_en = test_bit(GP2AP020A00F_FLAG_ALS_RISING_EV, &data->flags);
 		break;
 	case GP2AP020A00F_TL_L_REG:
-		event_en = test_bit(GP2AP020A00F_FLAG_ALS_FALLING_EV,
-							&data->flags);
+		event_en = test_bit(GP2AP020A00F_FLAG_ALS_FALLING_EV, &data->flags);
 		break;
 	case GP2AP020A00F_PH_L_REG:
 		if (val == 0)
 			return -EINVAL;
 
-		event_en = test_bit(GP2AP020A00F_FLAG_PROX_RISING_EV,
-							&data->flags);
+		event_en = test_bit(GP2AP020A00F_FLAG_PROX_RISING_EV, &data->flags);
 		break;
 	case GP2AP020A00F_PL_L_REG:
 		if (val == 0)
 			return -EINVAL;
 
-		event_en = test_bit(GP2AP020A00F_FLAG_PROX_FALLING_EV,
-							&data->flags);
+		event_en = test_bit(GP2AP020A00F_FLAG_PROX_FALLING_EV, &data->flags);
 		break;
 	}
 
@@ -1526,8 +1514,7 @@ static void gp2ap020a00f_remove(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	int err;
 
-	err = gp2ap020a00f_set_operation_mode(data,
-					GP2AP020A00F_OPMODE_SHUTDOWN);
+	err = gp2ap020a00f_set_operation_mode(data, GP2AP020A00F_OPMODE_SHUTDOWN);
 	if (err < 0)
 		dev_err(dev, "Failed to power off the device.\n");
 
