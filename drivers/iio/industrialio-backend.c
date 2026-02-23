@@ -872,6 +872,39 @@ int iio_backend_num_lanes_set(struct iio_backend *back, unsigned int num_lanes)
 EXPORT_SYMBOL_NS_GPL(iio_backend_num_lanes_set, "IIO_BACKEND");
 
 /**
+ * iio_backend_crc_enable - Enable the CRC generation.
+ * @back: Backend device
+ *
+ * Enable Cyclic Redundancy Check processing for data integrity
+ * verification. When enabled, the backend will generate, verify, or process
+ * CRC information for data samples transmitted over the interface.
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_crc_enable(struct iio_backend *back)
+{
+	return iio_backend_op_call(back, crc_enable);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_crc_enable, "IIO_BACKEND");
+
+/**
+ * iio_backend_crc_disable - Disable the CRC generation.
+ * @back: Backend device
+ *
+ * Disable Cyclic Redundancy Check processing. When disabled, the backend
+ * will stop generating, verifying, or processing CRC information for data samples.
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_crc_disable(struct iio_backend *back)
+{
+	return iio_backend_op_call(back, crc_disable);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_crc_disable, "IIO_BACKEND");
+
+/**
  * iio_backend_ddr_enable - Enable interface DDR (Double Data Rate) mode
  * @back: Backend device
  *
