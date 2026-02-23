@@ -364,7 +364,7 @@ static int __mbox_bind_client(struct mbox_chan *chan, struct mbox_client *cl)
 }
 
 /**
- * mbox_bind_client - Request a mailbox channel.
+ * mbox_bind_client - Bind client to a mailbox channel.
  * @chan: The mailbox channel to bind the client to.
  * @cl: Identity of the client requesting the channel.
  *
