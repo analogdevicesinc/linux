@@ -13,28 +13,31 @@
 #include <linux/of_address.h>
 #include <linux/iopoll.h>
 
-#define STAT_POLL_SLEEP    10
-#define STAT_POLL_TIMEOUT  10000 
+#define SC589_FREQ_HIGH_KHZ  450000
+#define SC589_FREQ_LOW_KHZ   225000
 
-#define CGU0_MSEL_SHIFT	   8
-#define CGU0_STAT_OFFSET   0x08
-#define CGU0_DIV_OFFSET	   0x0C
+#define TRANSITION_LATENCY   50000 /* nanoseconds, TODO: refine with timing/testing */
 
-#define CGU0_CSEL_MASK	   GENMASK(4, 0)
-#define CGU0_MSEL_MASK	   GENMASK(14, 8)
+#define STAT_POLL_SLEEP	     10
+#define STAT_POLL_TIMEOUT    10000 
 
-#define CGU0_DF		   BIT(0)
-#define CGU0_CLKSALGN	   BIT(3) 
-#define CGU0_UPDT	   BIT(30)
+#define CGU0_MSEL_SHIFT	     8
+#define CGU0_STAT_OFFSET     0x08
+#define CGU0_DIV_OFFSET	     0x0C
 
-#define TRANSITION_LATENCY 50000 /* nanoseconds, TODO: refine with timing/testing */
+#define CGU0_CSEL_MASK	     GENMASK(4, 0)
+#define CGU0_MSEL_MASK	     GENMASK(14, 8)
+
+#define CGU0_DF		     BIT(0)
+#define CGU0_CLKSALGN	     BIT(3) 
+#define CGU0_UPDT	     BIT(30)
 
 static void __iomem *cgu0_ctl;
 static u32 sys_clkin_khz;
 
 static struct cpufreq_frequency_table sc589_freq_table[] = {
-	{ .driver_data = 1, .frequency = 450000 },
-	{ .driver_data = 2, .frequency = 225000 },
+	{ .driver_data = 1, .frequency = SC589_FREQ_HIGH_KHZ },
+	{ .driver_data = 2, .frequency = SC589_FREQ_LOW_KHZ  },
 	{ .frequency = CPUFREQ_TABLE_END },
 };
 
