@@ -1,0 +1,4906 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Driver for AD9088 and similar mixed signal front end (MxFE®)
+ *
+ * Copyright 2022 Analog Devices Inc.
+ */
+
+#include "linux/clk.h"
+#include "linux/device.h"
+#include "linux/fwnode.h"
+#include "linux/property.h"
+#include "linux/slab.h"
+#include <linux/auxiliary_bus.h>
+
+#include "ad9088.h"
+
+#define INDIRECT_REG_TEST_ADDR  (0x60366045)
+#define ARM_REG_TEST_BASE_ADDR  (0x20000000U)
+
+static const u8 lanes_all[] = {
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+	14, 15, 16, 17, 18, 19, 20, 21, 22, 23
+};
+
+static int adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy, u64 freq, s64 nco_shift, u32 div,
+				   u32 bits, u64 *ftw, u64 *frac_a, u64 *frac_b)
+{
+	bool neg = false;
+	int ret;
+	u64 f_clamp = freq;
+
+	if (!freq || !bits || bits > 48 || !ftw || !frac_a || !frac_b || !div)
+		return -EINVAL;
+
+	do_div(f_clamp, div);
+
+	dev_dbg(&phy->spi->dev, "%s: freq=%llu, nco_shift=%lld, bits=%u\n",
+		__func__, f_clamp, nco_shift, bits);
+
+	nco_shift = clamp_t(int64_t, nco_shift, -(f_clamp >> 1), f_clamp >> 1);
+
+	if (nco_shift < 0) {
+		nco_shift = -nco_shift;
+		neg = true;
+	}
+
+	ret = adi_api_utils_ratio_decomposition(nco_shift * div, freq, bits, ftw, frac_a, frac_b);
+	if (ret) {
+		dev_err(&phy->spi->dev, "Error in ratio decomposition: (%d)\n", ret);
+		return ret;
+	}
+
+	if (bits == 32 && !phy->cnco_dual_modulus_mode_en) {
+		*frac_a = 0;
+		*frac_b = 1;
+	} else if ((bits == 48) && !phy->fnco_dual_modulus_mode_en) {
+		*frac_a = 0;
+		*frac_b = 1;
+	} else if ((bits == 48) && phy->fnco_dual_modulus_mode_en) {
+		/* frac_a and fact_b are 24-bit registers */
+		while (*frac_a >= (1 << 24) || *frac_b >= (1 << 24)) {
+			*frac_a >>= 1;
+			*frac_b >>= 1;
+		};
+	};
+
+	if (neg)
+		*ftw = (1ULL << bits) - *ftw;
+
+	dev_dbg(&phy->spi->dev, "%s: ftw=%llx, frac_a=%llu, frac_b=%llu\n",
+		__func__, *ftw, *frac_a, *frac_b);
+
+	return 0;
+}
+
+static int adi_ad9088_calc_nco_freq(struct ad9088_phy *phy, u64 freq, u64 ftw, u32 a, u32 b,
+				    u32 bits, s64 *nco_shift)
+{
+	u64 hi, lo, mod;
+	bool neg = false;
+
+	dev_dbg(&phy->spi->dev, "%s: freq=%llu, ftw=%llu, a=%u, b=%u, bits=%u\n",
+		__func__, freq, ftw, a, b, bits);
+
+	if (!b)
+		b = 1;
+
+	if (!freq || !bits || bits > 48 || a > b)
+		return -EINVAL;
+
+	mod = (1ULL << bits);
+
+	if (ftw > (mod >> 1)) {
+		ftw = mod - ftw;
+		neg = true;
+	}
+
+	adi_api_utils_mult_128(freq, (ftw * 100ULL) + ((100 * a) / b), &hi, &lo);
+	adi_api_utils_add_128(hi, lo, 0, (mod * 100) >> 1, &hi, &lo);
+	adi_api_utils_div_128(hi, lo, 0, (mod * 100), &hi, nco_shift);
+
+	if (neg)
+		*nco_shift *= -1;
+
+	return 0;
+}
+
+const char *const ad9088_fsm_links_to_str[] = {
+	[DEFRAMER_LINK_A0_TX] = "JESD TX (JRX Deframer Link A0)",
+	[DEFRAMER_LINK_A1_TX] = "JESD TX (JRX Deframer Link A1)",
+	[DEFRAMER_LINK_B0_TX] = "JESD TX (JRX Deframer Link B0)",
+	[DEFRAMER_LINK_B1_TX] = "JESD TX (JRX Deframer Link B1)",
+	[FRAMER_LINK_A0_RX] = "JESD RX (JTX Framer Link A0)",
+	[FRAMER_LINK_A1_RX] = "JESD RX (JTX Framer Link A1)",
+	[FRAMER_LINK_B0_RX] = "JESD RX (JTX Framer Link B0)",
+	[FRAMER_LINK_B1_RX] = "JESD RX (JTX Framer Link B1)",
+};
+
+u8 ad9088_to_link(u8 linkid)
+{
+	u8 lut[8] = {
+		ADI_APOLLO_LINK_A0, ADI_APOLLO_LINK_A1, /* DEFRAMER */
+		ADI_APOLLO_LINK_B0, ADI_APOLLO_LINK_B1,
+		ADI_APOLLO_LINK_A0, ADI_APOLLO_LINK_A1, /* FRAMER */
+		ADI_APOLLO_LINK_B0, ADI_APOLLO_LINK_B1
+	};
+
+	return lut[linkid];
+}
+
+static int32_t ad9088_log_write(void *user_data, int32_t log_type, const char *message,
+				va_list argp)
+{
+	struct axiadc_converter *conv = user_data;
+	char logMessage[160];
+
+	if (log_type == ADI_CMS_LOG_SPI)
+		return 0;
+
+	vsnprintf(logMessage, sizeof(logMessage), message, argp);
+
+	switch (log_type) {
+	case ADI_CMS_LOG_NONE:
+		break;
+	case ADI_CMS_LOG_MSG:
+		dev_info(&conv->spi->dev, "%s", logMessage);
+		break;
+	case ADI_CMS_LOG_WARN:
+		dev_warn(&conv->spi->dev, "%s", logMessage);
+		break;
+	case ADI_CMS_LOG_ERR:
+		dev_err(&conv->spi->dev, "%s", logMessage);
+		break;
+	case ADI_CMS_LOG_SPI:
+		dev_dbg(&conv->spi->dev, "%s", logMessage);
+		break;
+	case ADI_CMS_LOG_API:
+		dev_dbg(&conv->spi->dev, "%s", logMessage);
+		break;
+	case ADI_CMS_LOG_ALL:
+		pr_notice("%s", logMessage);
+		break;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Get a human-readable string for a CMS error code
+ * @param error_code The error code to look up
+ * @return Pointer to a constant string describing the error
+ */
+static const char *adi_cms_error_to_string(int error_code)
+{
+	switch (error_code) {
+	case API_CMS_ERROR_OK:
+		return "No Error";
+	case API_CMS_ERROR_ERROR:
+		return "General Error";
+	case API_CMS_ERROR_NULL_PARAM:
+		return "Null parameter";
+	case API_CMS_ERROR_OVERFLOW:
+		return "General overflow";
+	case API_CMS_ERROR_DIV_BY_ZERO:
+		return "Divide by zero";
+	case API_CMS_ERROR_FEAT_LOCKOUT:
+		return "Device feature is locked out";
+	case API_CMS_ERROR_SPI_SDO:
+		return "Wrong value assigned to the SDO in device structure";
+	case API_CMS_ERROR_INVALID_HANDLE_PTR:
+		return "Device handler pointer is invalid";
+	case API_CMS_ERROR_INVALID_XFER_PTR:
+		return "Invalid pointer to the SPI write or read function assigned";
+	case API_CMS_ERROR_INVALID_DELAYUS_PTR:
+		return "Invalid pointer to the delay_us function assigned";
+	case API_CMS_ERROR_INVALID_PARAM:
+		return "Invalid parameter passed";
+	case API_CMS_ERROR_INVALID_RESET_CTRL_PTR:
+		return "Invalid pointer to the reset control function assigned";
+	case API_CMS_ERROR_NOT_SUPPORTED:
+		return "Not supported";
+	case API_CMS_ERROR_INVALID_MASK_SELECT:
+		return "Invalid bitmask select parameter passed";
+	case API_CMS_ERROR_IN_REF_STATUS:
+		return "The Input Reference Signal is not available";
+	case API_CMS_ERROR_VCO_OUT_OF_RANGE:
+		return "The VCO is out of range";
+	case API_CMS_ERROR_PLL_NOT_LOCKED:
+		return "PLL is not locked";
+	case API_CMS_ERROR_DLL_NOT_LOCKED:
+		return "DLL is not locked";
+	case API_CMS_ERROR_MODE_NOT_IN_TABLE:
+		return "JESD Mode not in table";
+	case API_CMS_ERROR_CLK_CKT:
+		return "Clock circuit error";
+	case API_CMS_ERROR_FTW_LOAD_ACK:
+		return "FTW acknowledge not received";
+	case API_CMS_ERROR_NCO_NOT_ENABLED:
+		return "The NCO is not enabled";
+	case API_CMS_ERROR_INIT_SEQ_FAIL:
+		return "Initialization sequence failed";
+	case API_CMS_ERROR_TEST_FAILED:
+		return "Test failed";
+	case API_CMS_ERROR_SPI_XFER:
+		return "SPI transfer error";
+	case API_CMS_ERROR_TX_EN_PIN_CTRL:
+		return "TX enable function error";
+	case API_CMS_ERROR_RESET_PIN_CTRL:
+		return "HW reset function error";
+	case API_CMS_ERROR_EVENT_HNDL:
+		return "Event handling error";
+	case API_CMS_ERROR_HW_OPEN:
+		return "HW open function error";
+	case API_CMS_ERROR_HW_CLOSE:
+		return "HW close function error";
+	case API_CMS_ERROR_LOG_OPEN:
+		return "Log open error";
+	case API_CMS_ERROR_LOG_WRITE:
+		return "Log write error";
+	case API_CMS_ERROR_LOG_CLOSE:
+		return "Log close error";
+	case API_CMS_ERROR_DELAY_US:
+		return "Delay error";
+	case API_CMS_ERROR_HSCI_LINK_UP:
+		return "HSCI Linkup error";
+	case API_CMS_ERROR_SPI_REGIO_XFER:
+		return "Register transaction error spi";
+	case API_CMS_ERROR_HSCI_REGIO_XFER:
+		return "Register transaction error hsci";
+	case API_CMS_ERROR_OPERATION_TIMEOUT:
+		return "Operation timeout";
+	case API_CMS_ERROR_LINK_DOWN:
+		return "JESD links down";
+	case API_CMS_ERROR_FILE_OPEN:
+		return "File open error";
+	case API_CMS_ERROR_SERDES_CAL_ERROR:
+		return "SERDES cal error";
+	case API_CMS_ERROR_SERDES_CAL_TIMEOUT:
+		return "SERDES cal timeout";
+	case API_CMS_ERROR_PLATFORM_READ:
+		return "Platform (e.g. FPGA) read error";
+	case API_CMS_ERROR_PLATFORM_WRITE:
+		return "Platform (e.g. FPGA) write error";
+	case API_CMS_ERROR_FILE_READ:
+		return "File read error";
+	case API_CMS_ERROR_FILE_WRITE:
+		return "File write error";
+	case API_CMS_ERROR_FILE_OPERATION:
+		return "General file error (e.g. seek)";
+	case API_CMS_ERROR_PLATFORM_IMAGE_LOAD:
+		return "Error loading platform FPGA image";
+	case API_CMS_ERROR_NOT_IMPLEMENTED:
+		return "Feature not currently implemented";
+	case API_CMS_ERROR_STRUCT_UNPOPULATED:
+		return "Struct not populated";
+	case API_CMS_ERROR_PROTOCOL_OP_NOT_SUPPORTED:
+		return "Protocol not supported for operation";
+	case API_CMS_ERROR_INVALID_CLK_OR_REF_PARAM:
+		return "Invalid clock or reference parameter";
+	case API_CMS_ERROR_MEM_ALLOC:
+		return "Memory allocation error";
+	case API_CMS_ERROR_MMAP:
+		return "Memory mapping error";
+	case API_CMS_ERROR_DEV_MEM_OPEN:
+		return "Device memory open error";
+	case API_CMS_ERROR_I2C_ERROR:
+		return "I2C General Error";
+	case API_CMS_ERROR_I2C_WRITE:
+		return "I2C Write Operation Failed";
+	case API_CMS_ERROR_I2C_READ:
+		return "I2C Read Operation Failed";
+	case API_CMS_ERROR_I2C_BUSY:
+		return "I2C controller or device is busy";
+	case API_CMS_ERROR_PMOD_NVM_LOCK:
+		return "A fault occurred while accessing the Power Module's NVM";
+	case API_CMS_ERROR_EC_RAM_LOCK_ERROR:
+		return "EC ram-lock error";
+	case API_CMS_ERROR_PROFILE_CRC:
+		return "Profile CRC invalid";
+	case API_CMS_ERROR_MAILBOX_RESP_STATUS:
+		return "Mailbox Command Response Status Error";
+	case API_CMS_ERROR_MCS_CAL_CONFIG_ERROR:
+		return "MCS Cal Configuration related error";
+	case API_CMS_ERROR_MCS_INIT_CAL_ERROR:
+		return "MCS Init Cal related error";
+	case API_CMS_ERROR_MCS_TRACK_CAL_ERROR:
+		return "MCS Tracking Cal related error";
+	case API_CMS_ERROR_MCS_CAL_TIMEOUT:
+		return "MCS Cal run or status check response timed out error";
+	case API_CMS_ERROR_ADC_INIT_CAL_ERROR:
+		return "ADC Init Cal related error";
+	case API_CMS_ERROR_ADC_TRACK_CAL_ERROR:
+		return "ADC Tracking Cal related error";
+	case API_CMS_ERROR_ADC_CAL_TIMEOUT:
+		return "ADC Cal run or status check response timed out error";
+	case API_CMS_ERROR_BAD_STATE:
+		return "Device is not in appropriate state to perform operation";
+	case API_CMS_ERROR_STARTUP_FW_RDY_FOR_PROFILE_ERROR:
+		return "FW did not reach ready for profile config state";
+	case API_CMS_ERROR_STARTUP_FW_MAILBOX_RDY_ERROR:
+		return "FW did not reach mailbox ready state";
+	case API_CMS_ERROR_PLATFORM_CAPTURE_INVALID_CONFIG:
+		return "Invalid platform capture configuration";
+	default:
+		return "Unknown error code";
+	}
+}
+
+/**
+ * @brief Convert CMS API error code to Linux errno value
+ * @param api_error The CMS API error code
+ * @return Corresponding Linux errno value (positive)
+ * @note Returns the absolute value suitable for setting errno or returning -errno
+ */
+static int adi_cms_error_to_errno(int api_error)
+{
+	/* Success case */
+	if (api_error == API_CMS_ERROR_OK)
+		return 0;
+
+	switch (api_error) {
+	/* Invalid parameter errors -> EINVAL */
+	case API_CMS_ERROR_NULL_PARAM:
+	case API_CMS_ERROR_INVALID_PARAM:
+	case API_CMS_ERROR_INVALID_MASK_SELECT:
+	case API_CMS_ERROR_INVALID_CLK_OR_REF_PARAM:
+	case API_CMS_ERROR_PLATFORM_CAPTURE_INVALID_CONFIG:
+		return -EINVAL;
+
+	/* Invalid pointer/handle errors -> EINVAL */
+	case API_CMS_ERROR_INVALID_HANDLE_PTR:
+	case API_CMS_ERROR_INVALID_XFER_PTR:
+	case API_CMS_ERROR_INVALID_DELAYUS_PTR:
+	case API_CMS_ERROR_INVALID_RESET_CTRL_PTR:
+		return -EINVAL;
+
+	/* Memory errors -> ENOMEM or EFAULT */
+	case API_CMS_ERROR_MEM_ALLOC:
+		return -ENOMEM;
+	case API_CMS_ERROR_MMAP:
+	case API_CMS_ERROR_DEV_MEM_OPEN:
+		return -EFAULT;
+
+	/* Overflow errors -> EOVERFLOW */
+	case API_CMS_ERROR_OVERFLOW:
+		return -EOVERFLOW;
+
+	/* Divide by zero -> EDOM (domain error) */
+	case API_CMS_ERROR_DIV_BY_ZERO:
+		return -EDOM;
+
+	/* Not supported -> ENOTSUP or EOPNOTSUPP */
+	case API_CMS_ERROR_NOT_SUPPORTED:
+	case API_CMS_ERROR_NOT_IMPLEMENTED:
+	case API_CMS_ERROR_PROTOCOL_OP_NOT_SUPPORTED:
+		return -EOPNOTSUPP;
+
+	/* Device busy/locked -> EBUSY */
+	case API_CMS_ERROR_FEAT_LOCKOUT:
+	case API_CMS_ERROR_I2C_BUSY:
+	case API_CMS_ERROR_EC_RAM_LOCK_ERROR:
+	case API_CMS_ERROR_PMOD_NVM_LOCK:
+		return -EBUSY;
+
+	/* Timeout errors -> ETIMEDOUT */
+	case API_CMS_ERROR_OPERATION_TIMEOUT:
+	case API_CMS_ERROR_SERDES_CAL_TIMEOUT:
+	case API_CMS_ERROR_MCS_CAL_TIMEOUT:
+	case API_CMS_ERROR_ADC_CAL_TIMEOUT:
+		return -ETIMEDOUT;
+
+	/* File operation errors -> appropriate file errno */
+	case API_CMS_ERROR_FILE_OPEN:
+		return -ENOENT;
+
+	/* Hardware errors -> EIO */
+	case API_CMS_ERROR_TX_EN_PIN_CTRL:
+	case API_CMS_ERROR_RESET_PIN_CTRL:
+	case API_CMS_ERROR_HW_OPEN:
+	case API_CMS_ERROR_HW_CLOSE:
+	case API_CMS_ERROR_PLATFORM_READ:
+	case API_CMS_ERROR_PLATFORM_WRITE:
+	case API_CMS_ERROR_PLATFORM_IMAGE_LOAD:
+		return -EIO;
+
+	/* Communication/link errors -> ECOMM or ENOTCONN */
+	case API_CMS_ERROR_HSCI_LINK_UP:
+	case API_CMS_ERROR_HSCI_REGIO_XFER:
+	case API_CMS_ERROR_LINK_DOWN:
+		return -ENOTCONN;
+
+	/* Hardware not ready errors -> EAGAIN */
+	case API_CMS_ERROR_IN_REF_STATUS:
+	case API_CMS_ERROR_VCO_OUT_OF_RANGE:
+	case API_CMS_ERROR_PLL_NOT_LOCKED:
+	case API_CMS_ERROR_DLL_NOT_LOCKED:
+	case API_CMS_ERROR_FTW_LOAD_ACK:
+	case API_CMS_ERROR_NCO_NOT_ENABLED:
+		return -EAGAIN;
+
+	/* State/sequencing errors -> EILSEQ */
+	case API_CMS_ERROR_INIT_SEQ_FAIL:
+	case API_CMS_ERROR_BAD_STATE:
+	case API_CMS_ERROR_STARTUP_FW_RDY_FOR_PROFILE_ERROR:
+	case API_CMS_ERROR_STARTUP_FW_MAILBOX_RDY_ERROR:
+		return -EILSEQ;
+
+	/* Data integrity errors -> EBADMSG */
+	case API_CMS_ERROR_PROFILE_CRC:
+	case API_CMS_ERROR_MAILBOX_RESP_STATUS:
+		return -EBADMSG;
+
+	/* Lookup/table errors -> ENOENT */
+	case API_CMS_ERROR_MODE_NOT_IN_TABLE:
+		return -ENOENT;
+
+	/* Missing/unpopulated data -> ENODATA */
+	case API_CMS_ERROR_STRUCT_UNPOPULATED:
+		return -ENODATA;
+
+	default:
+		return -EIO;
+	}
+}
+
+/**
+ * ad9088_check_apollo_error - Check and handle Apollo API return value
+ * @dev: Device context for error reporting
+ * @ret: Return value from Apollo API call
+ * @api_name: Name of the API for error reporting
+ *
+ * Returns: 0 on success, negative Linux error code on failure
+ */
+int ad9088_check_apollo_error(struct device *dev, int ret, const char *api_name)
+{
+	if (ret != API_CMS_ERROR_OK) {
+		dev_err(dev, "Apollo API call %s failed with error: %s (%d)\n",
+			api_name, adi_cms_error_to_string(ret), ret);
+		return adi_cms_error_to_errno(ret);
+	}
+
+	return 0;
+}
+
+static int ad9088_udelay(void *user_data, unsigned int us)
+{
+	fsleep(us);
+	return 0;
+}
+
+static int ad9088_spi_xfer(void *dev_obj, uint8_t *wbuf, uint8_t *rbuf,
+			   uint32_t len)
+{
+	struct axiadc_converter *conv = dev_obj;
+	int ret;
+
+	struct spi_transfer t = {
+		.tx_buf = wbuf,
+		.rx_buf = rbuf,
+		.len = len & 0xFFFF,
+	};
+
+	ret = spi_sync_transfer(conv->spi, &t, 1);
+
+	return ret;
+}
+
+static int ad9088_spi_read(void *dev_obj, const uint8_t tx_data[],
+			   u8 rx_data[], uint32_t num_tx_rx_bytes,
+			   adi_apollo_hal_txn_config_t *txn_config)
+{
+	struct axiadc_converter *conv = dev_obj;
+	int ret;
+
+	struct spi_transfer t = {
+		.tx_buf = tx_data,
+		.rx_buf = rx_data,
+		.len = num_tx_rx_bytes,
+	};
+
+	ret = spi_sync_transfer(conv->spi, &t, 1);
+
+	return ret;
+}
+
+static int ad9088_spi_write(void *dev_obj, const uint8_t tx_data[],
+			    u32 num_tx_bytes, adi_apollo_hal_txn_config_t *txn_config)
+{
+	struct axiadc_converter *conv = dev_obj;
+	int ret;
+
+	struct spi_transfer t = {
+		.tx_buf = tx_data,
+		.rx_buf = NULL,
+		.len = num_tx_bytes,
+	};
+
+	ret = spi_sync_transfer(conv->spi, &t, 1);
+
+	return ret;
+}
+
+static int ad9088_reset_pin_ctrl(void *user_data, u8 enable)
+{
+	struct axiadc_converter *conv = user_data;
+
+	return gpiod_direction_output(conv->reset_gpio, enable);
+}
+
+void ad9088_print_link_phase(struct ad9088_phy *phy,
+			     struct jesd204_link *lnk)
+{
+	adi_apollo_device_t *device = &phy->ad9088;
+	u8 id = ad9088_to_link(lnk->link_id);
+	u16 jrx_phase_diff;
+
+	adi_apollo_jrx_phase_diff_get(device, id, &jrx_phase_diff);
+	dev_info(&phy->spi->dev, "%s Phase Difference %d\n",
+		 ad9088_fsm_links_to_str[lnk->link_id], jrx_phase_diff);
+}
+
+void ad9088_print_sysref_phase(struct ad9088_phy *phy)
+{
+	adi_apollo_device_t *device = &phy->ad9088;
+	u32 sysref_phase;
+	int i;
+
+	for (i = 0; i < 5; i++) {
+		adi_apollo_clk_mcs_sysref_phase_get(device, &sysref_phase);
+		dev_info(&phy->spi->dev, "SYSREF_PHASE = %d (TRY%d)\n",
+			 sign_extend32(sysref_phase, 9), i);
+	}
+}
+
+static void ad9088_remove_swnode(void *swnode)
+{
+	fwnode_remove_software_node(swnode);
+}
+
+/*
+ * The child label is derived from the parent one. If there is none, don't set any child
+ * one either.
+ */
+int devm_ad9088_set_child_label(struct ad9088_phy *phy, struct iio_dev *child, const char *suffix)
+{
+	const char *parent_label = NULL, *child_label;
+	struct property_entry properties[2] = { };
+	struct device *dev = &phy->spi->dev;
+	struct fwnode_handle *swnode;
+	int ret;
+
+	device_property_read_string(dev, "label", &parent_label);
+	if (!parent_label)
+		return 0;
+
+	/* Strip common "axi-ad9084-" or "axi-ad9088-" prefix */
+	if (!strncmp(parent_label, "axi-ad9084-", 11) || !strncmp(parent_label, "axi-ad9088-", 11))
+		parent_label += 11;
+
+	child_label = devm_kasprintf(dev, GFP_KERNEL, "%s-%s", parent_label, suffix);
+	if (!child_label)
+		return -ENOMEM;
+
+	properties[0] = PROPERTY_ENTRY_STRING("label", child_label);
+
+	swnode = fwnode_create_software_node(properties, NULL);
+	if (IS_ERR(swnode))
+		return PTR_ERR(swnode);
+
+	ret = devm_add_action_or_reset(dev, ad9088_remove_swnode, swnode);
+	if (ret)
+		return ret;
+
+	device_set_node(&child->dev, swnode);
+
+	return 0;
+}
+
+static int ad9088_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			     unsigned int writeval, unsigned int *readval)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	u8 val;
+	int ret;
+
+	guard(mutex)(&phy->lock);
+
+	if (!readval)
+		return adi_apollo_hal_reg_set(&phy->ad9088, reg, writeval);
+
+	ret = adi_apollo_hal_reg_get(&phy->ad9088, reg, &val);
+	if (ret < 0)
+		return ret;
+
+	*readval = val;
+
+	return 0;
+}
+
+/**
+ * ad9088_iiochan_to_fddc_cddc_from_profile - Map IIO channel to FDDC/CDDC/ADC/DAC using profile
+ * @phy: Pointer to the ad9088_phy structure
+ * @chan: IIO channel specification
+ * @fddc_num: Output - FDDC number (0-7 per side)
+ * @fddc_mask: Output - FDDC bitmask (ADI_APOLLO_FNCO_Ax or ADI_APOLLO_FNCO_Bx)
+ * @cddc_num: Output - CDDC number (0-3 per side for 8T8R, 0-1 for 4T4R)
+ * @cddc_mask: Output - CDDC bitmask (ADI_APOLLO_CNCO_Ax or ADI_APOLLO_CNCO_Bx)
+ * @adcdac_num: Output - ADC/DAC number (0-3 per side)
+ * @adcdac_mask: Output - ADC/DAC bitmask (ADI_APOLLO_ADC_Ax or ADI_APOLLO_DAC_Ax)
+ * @side: Output - Chip side (0=A, 1=B)
+ *
+ * This function derives the FDDC, CDDC, and ADC/DAC mapping from the profile's
+ * mux configuration rather than using hardcoded values.
+ *
+ * For RX path:
+ *   - MUX3 (sample_xbar_sel[]) in JTX config maps each virtual converter (IIO channel)
+ *     to its FDDC source (RX0-RX7). The enum value encodes: RXn_BAND_x_DATA_[I|Q]
+ *   - MUX2 (mux2_fddc_input_sel[]) maps CDDC to FDDC
+ *   - MUX0 (mux0_out_adc_sel[]) maps ADC to crossbar output (CDDC)
+ *
+ * For TX path:
+ *   - MUX3 (sample_xbar_sel[]) in JRX config maps virtual converters to FDUCs
+ *   - fduc_cduc_summer[] maps FDUCs to CDUCs
+ *   - MUX0 (mux0_sel[]) maps CDUC output to DAC
+ *
+ * MUX3 sample_xbar_sel encoding for RX (adi_apollo_jesd_frm_sample_xbar_select_e):
+ *   Value = RXn * 4 + BAND * 2 + (Q ? 1 : 0)
+ *   FDDC = Value / 2 (strips I/Q bit)
+ *
+ * MUX2 (mux2_fddc_input_sel) 8T8R encoding (3-bit value):
+ *   For entry[i] controlling FDDC[i] and FDDC[i+4]:
+ *   - 0: C0->F[i], C2->F[i+4]    - 1: C2->F[i], C0->F[i+4]
+ *   - 2: C0->F[i], C0->F[i+4]    - 3: C2->F[i], C2->F[i+4]
+ *   - 4: C1->F[i], C3->F[i+4]    - 5: C3->F[i], C1->F[i+4]
+ *   - 6: C1->F[i], C1->F[i+4]    - 7: C3->F[i], C3->F[i+4]
+ */
+static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
+						     const struct iio_chan_spec *chan, u8 *fddc_num,
+						     u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
+						     u8 *adcdac_num, u32 *adcdac_mask, u8 *side)
+{
+	/* FDDC masks indexed by FDDC number (0-7) and side */
+	static const u32 fddc_masks[ADI_APOLLO_NUM_SIDES][8] = {
+		{ ADI_APOLLO_FDDC_A0, ADI_APOLLO_FDDC_A1, ADI_APOLLO_FDDC_A2, ADI_APOLLO_FDDC_A3,
+		  ADI_APOLLO_FDDC_A4, ADI_APOLLO_FDDC_A5, ADI_APOLLO_FDDC_A6, ADI_APOLLO_FDDC_A7 },
+		{ ADI_APOLLO_FDDC_B0, ADI_APOLLO_FDDC_B1, ADI_APOLLO_FDDC_B2, ADI_APOLLO_FDDC_B3,
+		  ADI_APOLLO_FDDC_B4, ADI_APOLLO_FDDC_B5, ADI_APOLLO_FDDC_B6, ADI_APOLLO_FDDC_B7 },
+	};
+	/* CDDC masks indexed by CDDC number (0-3) and side */
+	static const u32 cddc_masks_all[ADI_APOLLO_NUM_SIDES][4] = {
+		{ ADI_APOLLO_CNCO_A0, ADI_APOLLO_CNCO_A1,
+		  ADI_APOLLO_CNCO_A2, ADI_APOLLO_CNCO_A3 },
+		{ ADI_APOLLO_CNCO_B0, ADI_APOLLO_CNCO_B1,
+		  ADI_APOLLO_CNCO_B2, ADI_APOLLO_CNCO_B3 },
+	};
+	/* ADC masks indexed by ADC number (0-3) and side */
+	static const u32 adc_masks[ADI_APOLLO_NUM_SIDES][4] = {
+		{ ADI_APOLLO_ADC_A0, ADI_APOLLO_ADC_A1,
+		  ADI_APOLLO_ADC_A2, ADI_APOLLO_ADC_A3 },
+		{ ADI_APOLLO_ADC_B0, ADI_APOLLO_ADC_B1,
+		  ADI_APOLLO_ADC_B2, ADI_APOLLO_ADC_B3 },
+	};
+	/* DAC masks indexed by DAC number (0-3) and side */
+	static const u32 dac_masks[ADI_APOLLO_NUM_SIDES][4] = {
+		{ ADI_APOLLO_DAC_A0, ADI_APOLLO_DAC_A1,
+		  ADI_APOLLO_DAC_A2, ADI_APOLLO_DAC_A3 },
+		{ ADI_APOLLO_DAC_B0, ADI_APOLLO_DAC_B1,
+		  ADI_APOLLO_DAC_B2, ADI_APOLLO_DAC_B3 },
+	};
+	bool is_8t8r = phy->profile.profile_cfg.is_8t8r;
+	u8 local_side;
+	u8 local_fddc_num;
+	u8 local_cddc_num;
+	u8 local_adcdac_num;
+
+	if (chan->output) {
+		/* TX path: Use JRX sample_xbar_sel and fduc_cduc_summer */
+		const adi_apollo_jesd_rx_link_cfg_t *jrx_link;
+		const adi_apollo_txpath_misc_t *tx_mux;
+		adi_apollo_jesd_dfrm_sample_xbar_select_e xbar_sel;
+		u8 fduc_bit;
+		int i, num_cducs;
+		int xbar_idx;
+		int m_side_a;
+
+		/*
+		 * For TX, IIO channel maps to virtual converter index.
+		 * chan->address is the raw virtual converter index (M index).
+		 * The sample_xbar_sel tells us which FDUC this converter uses.
+		 *
+		 * xbar_sel encoding: TXn_BAND_x_DATA_[I|Q]
+		 *   Value = TXn * 4 + BAND * 2 + (Q ? 1 : 0)
+		 *   FDUC_num = Value / 4 (for TX0-TX7)
+		 */
+		m_side_a = phy->profile.jrx[ADI_APOLLO_SIDE_IDX_A].rx_link_cfg[0].m_minus1 + 1;
+		xbar_idx = chan->address; /* Virtual converter index */
+
+		if (xbar_idx < m_side_a) {
+			local_side = ADI_APOLLO_SIDE_IDX_A;
+			jrx_link = &phy->profile.jrx[ADI_APOLLO_SIDE_IDX_A].rx_link_cfg[0];
+		} else {
+			/* Channel is on side B */
+			local_side = ADI_APOLLO_SIDE_IDX_B;
+			jrx_link = &phy->profile.jrx[ADI_APOLLO_SIDE_IDX_B].rx_link_cfg[0];
+			xbar_idx -= m_side_a;
+		}
+
+		if (xbar_idx >= ADI_APOLLO_JESD_MAX_FRM_SAMPLE_XBAR_IDX) {
+			dev_err(&phy->spi->dev,
+				"ERROR: TX xbar_idx %d out of range", xbar_idx);
+			return;
+		}
+
+		xbar_sel = jrx_link->sample_xbar_sel[xbar_idx];
+
+		dev_dbg(&phy->spi->dev,
+			"TX chan %d addr %lu: m_side_a=%d xbar_idx=%d xbar_sel=%d",
+			chan->channel, chan->address, m_side_a, xbar_idx, xbar_sel);
+
+		/*
+		 * Extract FDUC number from xbar_sel.
+		 * xbar_sel encoding: TXn_BAND_x_DATA_[I|Q]
+		 *   Value = TXn * 4 + BAND * 2 + (Q ? 1 : 0)
+		 * FDUC = xbar_sel / 2 (strips I/Q bit, keeps TXn and BAND)
+		 *   BAND_0 -> even FDUC, BAND_1 -> odd FDUC
+		 */
+		if (xbar_sel <= ADI_APOLLO_JESD_DFRM_SPLXBAR_LAST_VALID)
+			local_fddc_num = xbar_sel / 2;
+		else
+			local_fddc_num = 0;
+
+		/* Now find which CDUC this FDUC feeds using fduc_cduc_summer */
+		tx_mux = &phy->profile.tx_path[local_side].tx_mux_summer_xbar;
+		fduc_bit = 1 << local_fddc_num;
+		local_cddc_num = 0;
+		num_cducs = is_8t8r ? 4 : ADI_APOLLO_CDDCS_PER_SIDE;
+
+		for (i = 0; i < num_cducs; i++) {
+			if (tx_mux->fduc_cduc_summer[i] & fduc_bit) {
+				local_cddc_num = i;
+				break;
+			}
+		}
+
+		/*
+		 * Determine DAC from mux0_sel.
+		 * mux0_sel[cddc_num] tells us which DAC this CDUC output goes to.
+		 * For 4T4R: mux0_sel values 0-1 map to DAC0-DAC1
+		 * For 8T8R: mux0_sel values 0-3 map to DAC0-DAC3
+		 */
+		local_adcdac_num = tx_mux->mux0_sel[local_cddc_num] & 0x03;
+	} else {
+		/* RX path: Use JTX sample_xbar_sel and mux2_fddc_input_sel */
+		const adi_apollo_jesd_tx_link_cfg_t *jtx_link;
+		const adi_apollo_rxpath_misc_t *rx_mux;
+		adi_apollo_jesd_frm_sample_xbar_select_e xbar_sel;
+		adi_apollo_rx_mux2_sel_e mux2_sel;
+		u8 fddc_idx;
+		bool is_upper_fddc;
+		int xbar_idx;
+		int m_side_a;
+
+		/*
+		 * For RX, IIO channel maps to virtual converter index.
+		 * chan->address is the raw virtual converter index (M index).
+		 * The sample_xbar_sel tells us which FDDC this converter uses.
+		 */
+		m_side_a = phy->profile.jtx[ADI_APOLLO_SIDE_IDX_A].tx_link_cfg[0].m_minus1 + 1;
+		xbar_idx = chan->address; /* Virtual converter index */
+
+		if (xbar_idx < m_side_a) {
+			local_side = ADI_APOLLO_SIDE_IDX_A;
+			jtx_link = &phy->profile.jtx[ADI_APOLLO_SIDE_IDX_A].tx_link_cfg[0];
+		} else {
+			/* Channel is on side B */
+			local_side = ADI_APOLLO_SIDE_IDX_B;
+			jtx_link = &phy->profile.jtx[ADI_APOLLO_SIDE_IDX_B].tx_link_cfg[0];
+			xbar_idx -= m_side_a;
+		}
+
+		if (xbar_idx >= ADI_APOLLO_JESD_MAX_FRM_SAMPLE_XBAR_IDX) {
+			dev_err(&phy->spi->dev,
+				"ERROR: RX xbar_idx %d out of range", xbar_idx);
+			return;
+		}
+
+		xbar_sel = jtx_link->sample_xbar_sel[xbar_idx];
+
+		dev_dbg(&phy->spi->dev,
+			"RX chan %d addr %lu: m_side_a=%d xbar_idx=%d xbar_sel=%d",
+			chan->channel, chan->address, m_side_a, xbar_idx, xbar_sel);
+
+		/*
+		 * Extract FDDC number from xbar_sel.
+		 * xbar_sel encoding: RXn_BAND_x_DATA_[I|Q]
+		 *   Value = RXn * 4 + BAND * 2 + (Q ? 1 : 0)
+		 * FDDC = xbar_sel / 2 (strips I/Q bit, keeps RXn and BAND)
+		 *   BAND_0 -> even FDDC, BAND_1 -> odd FDDC
+		 * Values 32+ are ORX paths, handle separately if needed.
+		 */
+		if (xbar_sel <= ADI_APOLLO_JESD_FRM_SPLXBAR_LAST_VALID_NO_INT)
+			local_fddc_num = xbar_sel / 2;
+		else
+			local_fddc_num = 0; /* Default for ORX or invalid */
+
+		/* Now determine CDDC from mux2_fddc_input_sel */
+		rx_mux = &phy->profile.rx_path[local_side].rx_mux_splitter_xbar;
+
+		if (is_8t8r) {
+			/* FDDC 0-3 are "lower", FDDC 4-7 are "upper" */
+			is_upper_fddc = (local_fddc_num >= 4);
+			fddc_idx = is_upper_fddc ? (local_fddc_num - 4) : local_fddc_num;
+		} else {
+			is_upper_fddc = false;
+			fddc_idx = local_fddc_num;
+		}
+
+		if (fddc_idx >= ADI_APOLLO_RX_MUX2_NUM) {
+			dev_err(&phy->spi->dev,
+				"ERROR: fddc_idx %d >= ADI_APOLLO_RX_MUX2_NUM", fddc_idx);
+			return;
+		}
+
+		mux2_sel = rx_mux->mux2_fddc_input_sel[fddc_idx];
+
+		/* Decode mux2_sel to determine CDDC */
+		if (is_8t8r) {
+			if (!is_upper_fddc) {
+				/* Lower FDDC (0-3) */
+				switch (mux2_sel & 0x07) {
+				case 0: case 2:
+					local_cddc_num = 0;
+					break;
+				case 1: case 3:
+					local_cddc_num = 2;
+					break;
+				case 4: case 6:
+					local_cddc_num = 1;
+					break;
+				case 5: case 7:
+					local_cddc_num = 3;
+					break;
+				default:
+					local_cddc_num = 0;
+					break;
+				}
+			} else {
+				/* Upper FDDC (4-7) */
+				switch (mux2_sel & 0x07) {
+				case 0: case 3:
+					local_cddc_num = 2;
+					break;
+				case 1: case 2:
+					local_cddc_num = 0;
+					break;
+				case 4: case 7:
+					local_cddc_num = 3;
+					break;
+				case 5: case 6:
+					local_cddc_num = 1;
+					break;
+				default:
+					local_cddc_num = 0;
+					break;
+				}
+			}
+		} else {
+			/* 4T4R: mux2_sel 0-3 = CDDC0, 4-7 = CDDC1 */
+			local_cddc_num = (mux2_sel >= 4) ? 1 : 0;
+		}
+
+		/*
+		 * Determine ADC from mux0_out_adc_sel.
+		 * mux0_out_adc_sel[cddc_num] tells us which ADC feeds this CDDC.
+		 * For 4T4R: Values 0,1 select between ADC0 and ADC1
+		 * For 8T8R: Values 0-3 select ADC0-ADC3
+		 *
+		 * 4T4R encoding (adi_apollo_rx_mux0_sel_e):
+		 *   CB_OUT_0: 0=ADC0, 1=ADC1
+		 *   CB_OUT_1: 0=ADC1, 1=ADC0
+		 * 8T8R encoding:
+		 *   0=ADC0, 1=ADC2, 2=ADC1, 3=ADC3
+		 */
+		if (is_8t8r) {
+			/* 8T8R: mux0_out_adc_sel directly gives ADC with swapped bit encoding */
+			static const u8 mux0_to_adc_8t8r[] = {0, 2, 1, 3};
+			u8 mux0_val = rx_mux->mux0_out_adc_sel[local_cddc_num] & 0x03;
+
+			local_adcdac_num = mux0_to_adc_8t8r[mux0_val];
+		} else {
+			/* 4T4R: CB_OUT_0 and CB_OUT_1 have opposite default mappings */
+			u8 mux0_val = rx_mux->mux0_out_adc_sel[local_cddc_num] & 0x01;
+
+			if (local_cddc_num == 0)
+				local_adcdac_num = mux0_val; /* 0=ADC0, 1=ADC1 */
+			else
+				local_adcdac_num = mux0_val ? 0 : 1; /* 0=ADC1, 1=ADC0 */
+		}
+	}
+
+	*side = local_side;
+	*fddc_num = local_fddc_num;
+	*fddc_mask = fddc_masks[local_side][local_fddc_num];
+	*cddc_num = local_cddc_num;
+	*cddc_mask = cddc_masks_all[local_side][local_cddc_num];
+	*adcdac_num = local_adcdac_num;
+	if (chan->output)
+		*adcdac_mask = dac_masks[local_side][local_adcdac_num];
+	else
+		*adcdac_mask = adc_masks[local_side][local_adcdac_num];
+
+	dev_dbg(&phy->spi->dev,
+		"%s_voltage%d(addr=%lu): Side-%c fddc=%d(0x%04X) cddc=%d(0x%02X) %s=%d(0x%02X) (%s, mux-based)",
+		chan->output ? "out" : "in", chan->channel, chan->address, local_side ? 'B' : 'A',
+		*fddc_num, *fddc_mask, *cddc_num, *cddc_mask,
+		chan->output ? "dac" : "adc", *adcdac_num, *adcdac_mask,
+		is_8t8r ? "8T8R" : "4T4R");
+}
+
+/**
+ * ad9088_get_chan_map - Get pre-computed channel mapping for an IIO channel
+ * @phy: Pointer to the ad9088_phy structure
+ * @chan: IIO channel specification
+ *
+ * Returns pointer to the pre-computed channel mapping structure.
+ * The channel maps are populated during ad9088_label_writer() which is
+ * called from ad9088_setup_chip_info_tbl() at probe time.
+ */
+static const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
+							 const struct iio_chan_spec *chan)
+{
+	if (chan->address >= MAX_NUM_CHANNELIZER)
+		return NULL;
+
+	if (chan->output)
+		return &phy->tx_chan_map[chan->address];
+
+	return &phy->rx_chan_map[chan->address];
+}
+
+static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
+				   const struct iio_chan_spec *chan,
+				   adi_apollo_terminal_e *terminal,
+				   adi_apollo_cfir_sel_e *cfir_sel,
+				   adi_apollo_cfir_dp_sel *dp_sel)
+{
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+
+	if (!map) {
+		dev_err(&phy->spi->dev, "Invalid channel address %lu", chan->address);
+		return;
+	}
+
+	if (chan->output)
+		*terminal = ADI_APOLLO_TX;
+	else
+		*terminal = ADI_APOLLO_RX;
+
+	switch (map->fddc_mask) {
+	case ADI_APOLLO_FDDC_A0:
+		*cfir_sel = ADI_APOLLO_CFIR_A0;
+		*dp_sel = ADI_APOLLO_CFIR_DP_0;
+		break;
+	case ADI_APOLLO_FDDC_A1:
+		*cfir_sel = ADI_APOLLO_CFIR_A0;
+		*dp_sel = ADI_APOLLO_CFIR_DP_1;
+		break;
+	case ADI_APOLLO_FDDC_A2:
+		*cfir_sel = ADI_APOLLO_CFIR_A1;
+		*dp_sel = ADI_APOLLO_CFIR_DP_0;
+		break;
+	case ADI_APOLLO_FDDC_A3:
+		*cfir_sel = ADI_APOLLO_CFIR_A1;
+		*dp_sel = ADI_APOLLO_CFIR_DP_1;
+		break;
+	case ADI_APOLLO_FDDC_B0:
+		*cfir_sel = ADI_APOLLO_CFIR_B0;
+		*dp_sel = ADI_APOLLO_CFIR_DP_0;
+		break;
+	case ADI_APOLLO_FDDC_B1:
+		*cfir_sel = ADI_APOLLO_CFIR_B0;
+		*dp_sel = ADI_APOLLO_CFIR_DP_1;
+		break;
+	case ADI_APOLLO_FDDC_B2:
+		*cfir_sel = ADI_APOLLO_CFIR_B1;
+		*dp_sel = ADI_APOLLO_CFIR_DP_0;
+		break;
+	case ADI_APOLLO_FDDC_B3:
+		*cfir_sel = ADI_APOLLO_CFIR_B1;
+		*dp_sel = ADI_APOLLO_CFIR_DP_1;
+		break;
+	default:
+		dev_err(&phy->spi->dev, "Unhandled FDDC number 0x%X\n", map->fddc_mask);
+	}
+
+	dev_dbg(&phy->spi->dev,
+		"%s_voltage%d: Side-%c fddc_mask=%X terminal=%s, cfir_sel=%u dp_sel=%u\n",
+		chan->output ? "out" : "in", chan->channel, map->side ? 'B' : 'A',
+		map->fddc_mask, *terminal ? "TX" : "RX", *cfir_sel, *dp_sel);
+}
+
+#define AD9088_MAX_CLK_NAME 79
+
+static char *ad9088_clk_set_dev_name(struct ad9088_phy *phy, char *dest,
+				     const char *name)
+{
+	size_t len = 0;
+
+	if (!name)
+		return NULL;
+
+	if (*name == '-')
+		len = strscpy(dest, dev_name(&phy->spi->dev),
+			      AD9088_MAX_CLK_NAME);
+	else
+		*dest = '\0';
+
+	return strncat(dest, name, AD9088_MAX_CLK_NAME - len);
+}
+
+static unsigned long ad9088_bb_recalc_rate(struct clk_hw *hw,
+					   unsigned long parent_rate)
+{
+	struct ad9088_clock *clk_priv = to_clk_priv(hw);
+
+	return clk_priv->rate;
+}
+
+static int ad9088_bb_set_rate(struct clk_hw *hw, unsigned long rate,
+			      unsigned long parent_rate)
+{
+	struct ad9088_clock *clk_priv = to_clk_priv(hw);
+
+	clk_priv->rate = rate;
+
+	return 0;
+}
+
+static long ad9088_bb_round_rate(struct clk_hw *hw, unsigned long rate,
+				 unsigned long *prate)
+{
+	struct ad9088_clock *clk_priv = to_clk_priv(hw);
+
+	dev_dbg(&clk_priv->spi->dev, "%s: Rate %lu Hz", __func__, rate);
+
+	return rate;
+}
+
+static int ad9088_bb_determine_rate(struct clk_hw *hw,
+				    struct clk_rate_request *req)
+{
+	return 0;
+}
+
+static const struct clk_ops bb_clk_ops = {
+	.round_rate = ad9088_bb_round_rate,
+	.determine_rate = ad9088_bb_determine_rate,
+	.set_rate = ad9088_bb_set_rate,
+	.recalc_rate = ad9088_bb_recalc_rate,
+};
+
+static int ad9088_clk_register(struct ad9088_phy *phy, const char *name,
+			       const char *parent_name,
+			       const char *parent_name2, unsigned long flags,
+			       u32 source)
+{
+	char c_name[AD9088_MAX_CLK_NAME + 1], p_name[2][AD9088_MAX_CLK_NAME + 1];
+	struct ad9088_clock *clk_priv = &phy->clk_priv[source];
+	const char *_parent_name[2];
+	struct clk_init_data init;
+	int ret;
+
+	/* struct ad9088_clock assignments */
+	clk_priv->source = source;
+	clk_priv->hw.init = &init;
+	clk_priv->spi = phy->spi;
+	clk_priv->phy = phy;
+
+	_parent_name[0] = ad9088_clk_set_dev_name(phy, p_name[0], parent_name);
+	_parent_name[1] = ad9088_clk_set_dev_name(phy, p_name[1], parent_name2);
+
+	init.name = ad9088_clk_set_dev_name(phy, c_name, name);
+	init.flags = flags;
+	init.parent_names = &_parent_name[0];
+	init.num_parents = _parent_name[1] ? 2 : _parent_name[0] ? 1 : 0;
+
+	switch (source) {
+	case RX_SAMPL_CLK:
+	case RX_SAMPL_CLK_LINK2:
+		init.ops = &bb_clk_ops;
+		break;
+	case TX_SAMPL_CLK:
+		init.ops = &bb_clk_ops;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	of_clk_get_scale(phy->spi->dev.of_node, &name[1], &phy->clkscale[source]);
+
+	ret = devm_clk_hw_register(&phy->spi->dev, &clk_priv->hw);
+	if (ret)
+		return ret;
+
+	phy->clks[source] = clk_priv->hw.clk;
+	phy->clk_data->hws[phy->clk_data->num++] = &clk_priv->hw;
+
+	return 0;
+}
+
+static irqreturn_t ad9088_event_handler(struct axiadc_converter *conv,
+					unsigned int chn)
+{
+	u64 event = IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE, chn,
+					 IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING);
+	s64 timestamp = iio_get_time_ns(conv->indio_dev);
+
+	if (conv->indio_dev)
+		iio_push_event(conv->indio_dev, event, timestamp);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t ad9088_fdA_handler(int irq, void *private)
+{
+	return ad9088_event_handler(private, 0);
+}
+
+static irqreturn_t ad9088_fdB_handler(int irq, void *private)
+{
+	return ad9088_event_handler(private, 1);
+}
+
+static int ad9088_testmode_read(struct iio_dev *indio_dev,
+				const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+
+	return conv->testmode[chan->channel];
+}
+
+static int ad9088_testmode_write(struct iio_dev *indio_dev,
+				 const struct iio_chan_spec *chan,
+				 unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	adi_apollo_rx_tmode_res_e res;
+	int ret = 0;
+
+	if (!map)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	switch (phy->profile.rx_path[map->side].rx_dformat[0].res) {
+	case ADI_APOLLO_RX_DFORMAT_RES_16B:
+		res = ADI_APOLLO_RX_TMODE_RES_16B;
+		break;
+	case ADI_APOLLO_RX_DFORMAT_RES_15B:
+		res = ADI_APOLLO_RX_TMODE_RES_15B;
+		break;
+	case ADI_APOLLO_RX_DFORMAT_RES_14B:
+		res = ADI_APOLLO_RX_TMODE_RES_14B;
+		break;
+	case ADI_APOLLO_RX_DFORMAT_RES_13B:
+		res = ADI_APOLLO_RX_TMODE_RES_13B;
+		break;
+	case ADI_APOLLO_RX_DFORMAT_RES_12B:
+		res = ADI_APOLLO_RX_TMODE_RES_12B;
+		break;
+	default:
+		dev_warn(&phy->spi->dev, "Unsupported tmode resolution %d\n",
+			 phy->profile.rx_path[map->side].rx_dformat[0].res);
+		res = ADI_APOLLO_RX_TMODE_RES_12B;
+	}
+
+	ret = adi_apollo_tmode_config_set(&phy->ad9088,
+					  map->side ? ADI_APOLLO_LINK_B0 : ADI_APOLLO_LINK_A0,
+					  item ? 0xFF : 0, item, res);
+
+	if (!ret)
+		conv->testmode[chan->channel] = item;
+
+	return ret;
+}
+
+static const char *const ad9088_adc_testmodes[] = {
+	[ADI_APOLLO_TMODE_TYPE_SEL_NORM] = "off",
+	[ADI_APOLLO_TMODE_TYPE_SEL_MIDSCALE] = "midscale_short",
+	[ADI_APOLLO_TMODE_TYPE_SEL_POS_FS] = "pos_fullscale",
+	[ADI_APOLLO_TMODE_TYPE_SEL_NEG_FS] = "neg_fullscale",
+	[ADI_APOLLO_TMODE_TYPE_SEL_ACB] = "checkerboard",
+	[ADI_APOLLO_TMODE_TYPE_SEL_PN9] = "pn9",
+	[ADI_APOLLO_TMODE_TYPE_SEL_PN23] = "pn23",
+	[ADI_APOLLO_TMODE_TYPE_SEL_WT] = "one_zero_toggle",
+	[ADI_APOLLO_TMODE_TYPE_SEL_USR] = "user",
+	[ADI_APOLLO_TMODE_TYPE_SEL_PN7] = "pn7",
+	[ADI_APOLLO_TMODE_TYPE_SEL_PN15] = "pn15",
+	[ADI_APOLLO_TMODE_TYPE_SEL_PN31] = "pn31",
+	[ADI_APOLLO_TMODE_TYPE_SEL_RAMP] = "ramp",
+	[12] = "",
+	[13] = "",
+	[14] = "",
+};
+
+static const struct iio_enum ad9088_testmode_enum = {
+	.items = ad9088_adc_testmodes,
+	.num_items = ARRAY_SIZE(ad9088_adc_testmodes),
+	.set = ad9088_testmode_write,
+	.get = ad9088_testmode_read,
+};
+
+static int ad9088_iio_val_to_str(char *buf, u32 max, int val)
+{
+	int vals[2];
+
+	vals[0] = val;
+	vals[1] = max;
+
+	return iio_format_value(buf, IIO_VAL_FRACTIONAL, 2, vals);
+}
+
+static int ad9088_iio_str_to_val(const char *str, int min, int max, int *val)
+{
+	int ret, integer, fract;
+
+	ret = iio_str_to_fixpoint(str, 100000, &integer, &fract);
+
+	*val = DIV_ROUND_CLOSEST(max * (integer * 1000 + DIV_ROUND_CLOSEST(fract, 1000)), 1000);
+	*val = clamp(*val, min, max);
+
+	return ret;
+}
+
+static int ad9088_nyquist_zone_read(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	u32 nz;
+	int ret;
+
+	if (!map)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	ret = adi_apollo_adc_nyquist_zone_get(&phy->ad9088, map->adcdac_mask, &nz);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Error reading nyquist zone: %d\n", ret);
+		return -EFAULT;
+	}
+
+	if (nz != 1 && nz != 2) {
+		dev_err(&phy->spi->dev, "Invalid nyquist zone value: %d\n", nz);
+		return -EINVAL;
+	}
+
+	return nz - 1;
+}
+
+static int ad9088_nyquist_zone_write(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan,
+				     unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+
+	if (!map)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	return adi_apollo_adc_nyquist_zone_set(&phy->ad9088, map->adcdac_mask, item + 1);
+}
+
+static const char *const ad9088_adc_nyquist_zones[] = {
+	[0] = "odd",
+	[1] = "even",
+};
+
+static const struct iio_enum ad9088_nyquist_zone_enum = {
+	.items = ad9088_adc_nyquist_zones,
+	.num_items = ARRAY_SIZE(ad9088_adc_nyquist_zones),
+	.set = ad9088_nyquist_zone_write,
+	.get = ad9088_nyquist_zone_read,
+};
+
+static int ad9088_sampling_mode_read(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	adi_apollo_mailbox_resp_get_adc_slice_modes_t slice_modes;
+	u8 adc_idx;
+	int ret;
+
+	if (!map)
+		return -EINVAL;
+
+	/* Calculate ADC index: A0-A3 = 0-3, B0-B3 = 4-7 */
+	adc_idx = map->side * ADI_APOLLO_ADC_PER_SIDE_NUM + map->adcdac_num;
+
+	guard(mutex)(&phy->lock);
+
+	ret = adi_apollo_mailbox_get_adc_slice_modes(&phy->ad9088, &slice_modes);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Error getting ADC slice modes: %d\n", ret);
+		return -EFAULT;
+	}
+
+	if (slice_modes.adc_slice_mode[adc_idx] == ADI_APOLLO_ADC_MODE_DISABLED) {
+		dev_err(&phy->spi->dev, "ADC%c%d is disabled\n",
+			map->side ? 'B' : 'A', map->adcdac_num);
+		return -ENODEV;
+	}
+
+	return slice_modes.adc_slice_mode[adc_idx];
+}
+
+static int ad9088_sampling_mode_write(struct iio_dev *indio_dev,
+				      const struct iio_chan_spec *chan,
+				      unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	adi_apollo_mailbox_resp_get_adc_slice_modes_t slice_modes;
+	u8 adc_idx;
+	int ret;
+
+	if (!map)
+		return -EINVAL;
+
+	/* Calculate ADC index: A0-A3 = 0-3, B0-B3 = 4-7 */
+	adc_idx = map->side * ADI_APOLLO_ADC_PER_SIDE_NUM + map->adcdac_num;
+
+	guard(mutex)(&phy->lock);
+
+	/* Check if already in the requested mode */
+	ret = adi_apollo_mailbox_get_adc_slice_modes(&phy->ad9088, &slice_modes);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Error getting ADC slice modes: %d\n", ret);
+		return -EFAULT;
+	}
+
+	if (slice_modes.adc_slice_mode[adc_idx] == item)
+		return 0; /* Already in requested mode */
+
+	/* Execute mode switch sequence */
+	ret = adi_apollo_adc_mode_switch_prepare(&phy->ad9088, map->adcdac_mask);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Mode switch prepare failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = adi_apollo_adc_mode_switch_execute(&phy->ad9088, map->adcdac_mask,
+						 ADI_APOLLO_ADC_MODE_SWITCH_BY_COMMAND);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Mode switch execute failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = adi_apollo_adc_mode_switch_restore(&phy->ad9088, map->adcdac_mask, 1);
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "Mode switch restore failed: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static const char *const ad9088_adc_sampling_modes[] = {
+	[ADI_APOLLO_ADC_MODE_RANDOM] = "random",
+	[ADI_APOLLO_ADC_MODE_SEQUENTIAL] = "sequential",
+};
+
+static const struct iio_enum ad9088_sampling_mode_enum = {
+	.items = ad9088_adc_sampling_modes,
+	.num_items = ARRAY_SIZE(ad9088_adc_sampling_modes),
+	.set = ad9088_sampling_mode_write,
+	.get = ad9088_sampling_mode_read,
+};
+
+/**
+ * Get optional channel.
+ * Returns 0 on success and if channel doesn't exist, or error code otherwise.
+ * In special, if the driver hasn't been probed yet, will return -EPROBE_DEFER.
+ */
+static int ad9088_iio_get_optional_channel(struct ad9088_phy *phy, struct iio_channel **chan,
+					   const char *channel_name)
+{
+	long ptr_err;
+
+	*chan = devm_fwnode_iio_channel_get_by_name(&phy->spi->dev, dev_fwnode(&phy->spi->dev),
+						    channel_name);
+	ptr_err = PTR_ERR(*chan);
+	if (IS_ERR(*chan)) {
+		*chan = NULL;
+		if (ptr_err != -ENOENT && ptr_err != -ENODEV)
+			return dev_err_probe(&phy->spi->dev, ptr_err, "%s: error getting channel\n",
+					     channel_name);
+	}
+
+	return 0;
+}
+
+static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan, char *buf)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	long long val;
+	u64 range, f;
+	u8 enable;
+	int ret = -EINVAL;
+	u32 cddc_dcm;
+	adi_apollo_invsinc_inspect_t invsinc_inspect;
+	adi_apollo_terminal_e terminal;
+	adi_apollo_cfir_sel_e cfir_sel;
+	adi_apollo_cfir_dp_sel dp_sel;
+
+	if (!map)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	switch (private) {
+	case CDDC_NCO_FREQ:
+		if (chan->output) {
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc,
+						       phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_a,
+						       phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
+		} else {
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc,
+						       phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_a,
+						       phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
+		}
+		return sysfs_emit(buf, "%lld\n", val);
+	case FDDC_NCO_FREQ:
+		if (chan->output) {
+			u32 cddc_dcm;
+
+			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			do_div(f, cddc_dcm);
+
+			ret = adi_ad9088_calc_nco_freq(phy, f,
+						 phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_phase_inc,
+						 phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_phase_inc_frac_a,
+						 phy->profile.tx_path[map->side].tx_fduc[map->fddc_num].nco[0].nco_phase_inc_frac_b,
+						 48, &val);
+		} else {
+			u32 cddc_dcm;
+
+			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			do_div(f, cddc_dcm);
+			ret = adi_ad9088_calc_nco_freq(phy, f,
+						 phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc,
+						 phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc_frac_a,
+						 phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc_frac_b,
+						 48, &val);
+		}
+		return sysfs_emit(buf, "%lld\n", val);
+	case CDDC_NCO_FREQ_AVAIL:
+		if (chan->output)
+			range = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_config[map->side].dac_sampling_rate_Hz, 2);
+		else
+			range = DIV_ROUND_CLOSEST_ULL(phy->profile.adc_config[map->side].adc_sampling_rate_Hz, 2);
+
+		return sysfs_emit(buf, "[%lld 1 %lld]\n", -1 * range, range);
+	case FDDC_NCO_FREQ_AVAIL:
+		if (chan->output) {
+			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+
+		} else {
+			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].drc_ratio, &cddc_dcm);
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+		}
+
+		range = DIV_ROUND_CLOSEST_ULL(f, cddc_dcm * 2);
+		return sysfs_emit(buf, "[%lld 1 %lld]\n", -1 * range, range);
+	case CDDC_NCO_PHASE:
+		val = phy->cnco_phase[chan->output][map->side][map->cddc_num];
+		return sysfs_emit(buf, "%lld\n", val);
+	case FDDC_NCO_PHASE:
+		val = phy->fnco_phase[chan->output][map->side][map->fddc_num];
+		return sysfs_emit(buf, "%lld\n", val);
+	case CDDC_TB1_6DB_GAIN:
+		ret = adi_apollo_cddc_gain_enable_get(&phy->ad9088, map->cddc_mask,
+						      ADI_APOLLO_CDDC_GAIN_TB1, &enable);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%u\n", !!enable);
+	case CDDC_HB1_6DB_GAIN:
+		ret = adi_apollo_cddc_gain_enable_get(&phy->ad9088, map->cddc_mask,
+						      ADI_APOLLO_CDDC_GAIN_HB1, &enable);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%u\n", !!enable);
+	case FDDC_6DB_GAIN:
+		ret = adi_apollo_fddc_gain_enable_get(&phy->ad9088, map->fddc_mask, &enable);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%u\n", !!enable);
+	case CDDC_TEST_TONE_EN:
+		val = phy->cnco_test_tone_en[chan->output][map->side][map->cddc_num];
+		return sysfs_emit(buf, "%lld\n", val);
+	case FDDC_TEST_TONE_EN:
+		val = phy->fnco_test_tone_en[chan->output][map->side][map->fddc_num];
+		return sysfs_emit(buf, "%lld\n", val);
+	case CDDC_TEST_TONE_OFFSET:
+		val = phy->cnco_test_tone_offset[chan->output][map->side][map->cddc_num];
+		return ad9088_iio_val_to_str(buf, chan->output ? 0x1FFF : 0x7FF, val);
+	case FDDC_TEST_TONE_OFFSET:
+		val = phy->fnco_test_tone_offset[chan->output][map->side][map->fddc_num];
+		return ad9088_iio_val_to_str(buf, chan->output ? 0x7FFF : 0x1FFF, val);
+	case TRX_CONVERTER_RATE:
+		if (chan->output)
+			val = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+		else
+			val = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+		return sysfs_emit(buf, "%lld\n", val);
+	case DAC_INVSINC_EN:
+		ret = adi_apollo_invsinc_inspect(&phy->ad9088,
+						 ADI_APOLLO_CDUC_IDX2B(map->side, map->cddc_num),
+						 &invsinc_inspect);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%u\n", !!invsinc_inspect.invsinc_en);
+	case CFIR_PROFILE_SEL:
+		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		return sysfs_emit(buf, "%u\n", phy->cfir_profile[terminal][cfir_sel][dp_sel]);
+	case CFIR_ENABLE:
+		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		return sysfs_emit(buf, "%u\n", phy->cfir_enable[terminal][cfir_sel][dp_sel]);
+	default:
+		return -EINVAL;
+	}
+}
+
+static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	long long readin, fnco_phase;
+	bool enable;
+	int ret, readin_32;
+	s32 val32, tmp;
+	u32 cddc_dcm;
+	s64 val64;
+	u64 ftw, f, frac_a, frac_b;
+	adi_apollo_terminal_e terminal;
+	adi_apollo_cfir_sel_e cfir_sel;
+	adi_apollo_cfir_dp_sel dp_sel;
+	adi_apollo_fine_nco_main_pgm_t config = {};
+
+	if (!map)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	switch (private) {
+	case CDDC_NCO_FREQ:
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			return ret;
+
+		if (chan->output)
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+		else
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+
+		ret = adi_ad9088_calc_nco_ftw(phy, f, readin, 1, 32, &ftw, &frac_a, &frac_b);
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_cnco_ftw_set(&phy->ad9088,
+					      chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
+					      map->cddc_mask, 0, 1, ftw);
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_cnco_mod_set(&phy->ad9088,
+					      chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
+					      map->cddc_mask, frac_a, frac_b);
+		if (ret)
+			return ret;
+
+		if (chan->output) {
+			struct adi_apollo_txpath *tx = &phy->profile.tx_path[map->side];
+
+			tx->tx_cduc[map->cddc_num].nco[0].nco_phase_inc = ftw;
+			tx->tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+			tx->tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+		} else {
+			struct adi_apollo_rxpath *rx = &phy->profile.rx_path[map->side];
+
+			rx->rx_cddc[map->cddc_num].nco[0].nco_phase_inc = ftw;
+			rx->rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+			rx->rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+		}
+
+		return len;
+	case FDDC_NCO_FREQ:
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			return ret;
+
+		if (chan->output) {
+			struct adi_apollo_txpath *tx = &phy->profile.tx_path[map->side];
+
+			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088,
+							 tx->tx_cduc[map->cddc_num].drc_ratio,
+							 &cddc_dcm);
+			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+		} else {
+			struct adi_apollo_rxpath *rx = &phy->profile.rx_path[map->side];
+
+			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088,
+						      rx->rx_cddc[map->cddc_num].drc_ratio,
+						      &cddc_dcm);
+			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+		}
+
+		ret = adi_ad9088_calc_nco_ftw(phy, f, readin, cddc_dcm, 48, &ftw, &frac_a, &frac_b);
+		if (ret)
+			return ret;
+
+		fnco_phase = phy->fnco_phase[chan->output][map->side][map->fddc_num];
+		config.main_phase_inc = ftw;
+		config.main_phase_offset = div_s64(fnco_phase * 14073748835533, 18000LL);
+		config.drc_phase_inc_frac_a = frac_a;
+		config.drc_phase_inc_frac_b = frac_b;
+
+		ret = adi_apollo_fnco_main_pgm(&phy->ad9088, chan->output ?
+					       ADI_APOLLO_TX : ADI_APOLLO_RX,
+					       map->fddc_mask, &config);
+		if (ret)
+			return ret;
+
+		if (chan->output) {
+			struct adi_apollo_txpath *tx = &phy->profile.tx_path[map->side];
+
+			tx->tx_fduc[map->fddc_num].nco[0].nco_phase_inc = ftw;
+			tx->tx_fduc[map->fddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+			tx->tx_fduc[map->fddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+		} else {
+			struct adi_apollo_rxpath *rx = &phy->profile.rx_path[map->side];
+
+			rx->rx_fddc[map->fddc_num].nco[0].nco_phase_inc = ftw;
+			rx->rx_fddc[map->fddc_num].nco[0].nco_phase_inc_frac_a = frac_a;
+			rx->rx_fddc[map->fddc_num].nco[0].nco_phase_inc_frac_b = frac_b;
+		}
+
+		return len;
+	case CDDC_NCO_PHASE:
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			return ret;
+
+		readin = clamp(readin, -180000, 180000);
+		val32 = div_s64(readin * S32_MAX, 180000LL);
+
+		ret = adi_apollo_cnco_pow_set(&phy->ad9088,
+					      chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
+					      map->cddc_mask, 0, 1, val32);
+		if (ret)
+			return ret;
+
+		phy->cnco_phase[chan->output][map->side][map->cddc_num] = readin;
+		return len;
+	case FDDC_NCO_PHASE:
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			return ret;
+
+		readin = clamp(readin, -180000, 180000);
+		val64 = div_s64(readin * 14073748835533, 18000LL);
+
+		ret = adi_apollo_fnco_main_phase_offset_set(&phy->ad9088,
+							    chan->output ?
+							    ADI_APOLLO_TX : ADI_APOLLO_RX,
+							    map->fddc_mask, val64);
+		if (ret)
+			return ret;
+
+		phy->fnco_phase[chan->output][map->side][map->fddc_num] = readin;
+		return len;
+	case CDDC_TB1_6DB_GAIN:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+		ret = adi_apollo_cddc_gain_enable_set(&phy->ad9088, map->cddc_mask,
+						      ADI_APOLLO_CDDC_GAIN_TB1, enable);
+		if (ret)
+			return ret;
+
+		return len;
+	case CDDC_HB1_6DB_GAIN:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+		ret = adi_apollo_cddc_gain_enable_set(&phy->ad9088, map->cddc_mask,
+						      ADI_APOLLO_CDDC_GAIN_HB1, enable);
+		if (ret)
+			return ret;
+
+		return len;
+	case FDDC_6DB_GAIN:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_fddc_gain_enable_set(&phy->ad9088, map->fddc_mask, enable);
+		if (ret)
+			return ret;
+
+		return len;
+	case CDDC_TEST_TONE_EN:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+
+		if (chan->output) {
+			struct adi_apollo_txpath *tx = &phy->profile.tx_path[map->side];
+
+			tmp = tx->tx_cduc[map->cddc_num].nco[0].nco_if_mode;
+		} else {
+			struct adi_apollo_rxpath *rx = &phy->profile.rx_path[map->side];
+
+			tmp = rx->rx_cddc[map->cddc_num].nco[0].nco_if_mode;
+		}
+
+		ret = adi_apollo_cnco_mode_set(&phy->ad9088, chan->output ?
+					       ADI_APOLLO_TX : ADI_APOLLO_RX,
+					       map->cddc_mask,
+					       enable ? ADI_APOLLO_MXR_TEST_MODE : tmp);
+		if (ret)
+			return ret;
+
+		phy->cnco_test_tone_en[chan->output][map->side][map->cddc_num] = enable;
+		return len;
+	case FDDC_TEST_TONE_EN:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+
+		if (chan->output) {
+			struct adi_apollo_txpath *tx = &phy->profile.tx_path[map->side];
+
+			tmp = tx->tx_fduc[map->fddc_num].nco[0].nco_if_mode;
+		} else {
+			struct adi_apollo_rxpath *rx = &phy->profile.rx_path[map->side];
+
+			tmp = rx->rx_fddc[map->fddc_num].nco[0].nco_if_mode;
+		}
+
+		ret = adi_apollo_fnco_mode_set(&phy->ad9088, chan->output ?
+					       ADI_APOLLO_TX : ADI_APOLLO_RX,
+					       map->fddc_mask,
+					       enable ? ADI_APOLLO_MXR_TEST_MODE : tmp);
+		if (ret)
+			return ret;
+
+		phy->fnco_test_tone_en[chan->output][map->side][map->fddc_num] = enable;
+		return len;
+	case CDDC_TEST_TONE_OFFSET:
+		ret = ad9088_iio_str_to_val(buf, 0, chan->output ? 0x1FFF : 0x7FF, &readin_32);
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_cnco_test_mode_val_set(&phy->ad9088, chan->output ?
+							ADI_APOLLO_TX : ADI_APOLLO_RX,
+							map->cddc_mask, readin_32);
+		if (ret)
+			return ret;
+
+		phy->cnco_test_tone_offset[chan->output][map->side][map->cddc_num] = readin_32;
+
+		return len;
+	case FDDC_TEST_TONE_OFFSET:
+		ret = ad9088_iio_str_to_val(buf, 0, chan->output ? 0x7FFF : 0x1FFF, &readin_32);
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_fnco_test_mode_val_set(&phy->ad9088, chan->output ?
+							ADI_APOLLO_TX : ADI_APOLLO_RX,
+							map->fddc_mask, readin_32);
+		if (ret)
+			return ret;
+
+		phy->fnco_test_tone_offset[chan->output][map->side][map->fddc_num] = readin_32;
+		return len;
+	case DAC_INVSINC_EN:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_tx_inv_sinc_configure(&phy->ad9088, map->side, map->cddc_num,
+						       enable);
+		if (ret)
+			return ret;
+		return len;
+	case CFIR_PROFILE_SEL:
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			return ret;
+
+		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		adi_apollo_cfir_profile_sel(&phy->ad9088, terminal, cfir_sel, dp_sel, readin);
+		phy->cfir_profile[terminal][cfir_sel][dp_sel] = readin;
+		return len;
+	case CFIR_ENABLE:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		ret = adi_apollo_cfir_mode_enable_set(&phy->ad9088, terminal, cfir_sel, enable);
+		if (ret < 0)
+			return ret;
+		phy->cfir_enable[terminal][cfir_sel][dp_sel] = enable;
+		return len;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ad9088_device_loopback0(struct ad9088_phy *phy,
+				   adi_apollo_sides_e side)
+{
+	adi_apollo_side_select_e sides = side ? ADI_APOLLO_SIDE_B : ADI_APOLLO_SIDE_A;
+	adi_apollo_adc_select_e select_adc = side ? ADI_APOLLO_ADC_B_ALL : ADI_APOLLO_ADC_A_ALL;
+	u16 xbar[ADI_APOLLO_ADC_PER_SIDE_NUM / 2] = {ADI_APOLLO_ADC_0, ADI_APOLLO_ADC_1};
+	adi_apollo_device_t *device = &phy->ad9088;
+	int err = API_CMS_ERROR_OK;
+
+	err = adi_apollo_loopback_lb0_read_ptr_rst_set(device, select_adc, 2);
+	if (err != API_CMS_ERROR_OK) {
+		dev_err(&phy->spi->dev, "Error in adi_apollo_loopback_lb0_read_ptr_rst_set %d\n",
+			err);
+		return err;
+	}
+
+	err = adi_apollo_loopback_lb0_write_ptr_rst_set(device, sides, 2);
+	if (err != API_CMS_ERROR_OK) {
+		dev_err(&phy->spi->dev, "Error in adi_apollo_loopback_lb0_write_ptr_rst_set %d\n",
+			err);
+		return err;
+	}
+
+	err = adi_apollo_loopback_lb0_tx_xbar_set(device, sides, xbar, 2);
+	if (err != API_CMS_ERROR_OK) {
+		dev_err(&phy->spi->dev, "Error in adi_apollo_loopback_lb0_tx_xbar_set: %d\n",
+			err);
+		return err;
+	}
+
+	err = adi_apollo_loopback_lb0_rx_enable_set(device, sides, 1);
+	if (err != API_CMS_ERROR_OK) {
+		dev_err(&phy->spi->dev, "Error in adi_apollo_loopback_lb0_rx_enable_set %d\n",
+			err);
+		return err;
+	}
+
+	err = adi_apollo_loopback_lb0_tx_enable_set(device, select_adc, 1);
+	if (err != API_CMS_ERROR_OK) {
+		dev_err(&phy->spi->dev, "Error in adi_apollo_loopback_lb0_tx_enable_set %d\n",
+			err);
+		return err;
+	}
+
+	phy->loopback_mode[side] = ADI_APOLLO_LOOPBACK_0;
+	return 0;
+}
+
+static u16 ad9088_lb1_cduc_mask_get(adi_apollo_device_t *device,
+				    adi_apollo_sides_e side)
+{
+	if (side == ADI_APOLLO_SIDE_IDX_B) {
+		if (device->dev_info.is_8t8r)
+			return ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1 |
+			       ADI_APOLLO_CDUC_B2 | ADI_APOLLO_CDUC_B3;
+
+		return ADI_APOLLO_CDUC_B0 | ADI_APOLLO_CDUC_B1;
+	}
+
+	if (device->dev_info.is_8t8r)
+		return ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1 |
+		       ADI_APOLLO_CDUC_A2 | ADI_APOLLO_CDUC_A3;
+
+	return ADI_APOLLO_CDUC_A0 | ADI_APOLLO_CDUC_A1;
+}
+
+static int ad9088_device_loopback1(struct ad9088_phy *phy,
+				   adi_apollo_sides_e side)
+{
+	adi_apollo_side_select_e sides = side ? ADI_APOLLO_SIDE_B : ADI_APOLLO_SIDE_A;
+	adi_apollo_device_t *device = &phy->ad9088;
+	u16 lb1_cducs = ad9088_lb1_cduc_mask_get(device, side);
+	int err;
+
+	err = adi_apollo_loopback_lb1_enable_set(device, sides, 1);
+	if (err)
+		return err;
+
+	err = adi_apollo_loopback_lb1_cduc_enable_set(device, lb1_cducs, 1);
+	if (err)
+		return err;
+
+	err = adi_apollo_loopback_lb1_blend_set(device, lb1_cducs, phy->lb1_blend[side]);
+	if (err)
+		return err;
+
+	phy->loopback_mode[side] = ADI_APOLLO_LOOPBACK_1;
+
+	return 0;
+}
+
+static u16 ad9088_lb2_fduc_mask_get(adi_apollo_device_t *device,
+				    adi_apollo_sides_e side)
+{
+	if (side == ADI_APOLLO_SIDE_IDX_B) {
+		if (device->dev_info.is_8t8r)
+			return ADI_APOLLO_FDUC_B_ALL;
+		return ADI_APOLLO_FDUC_B_ALL_4T4R;
+	}
+
+	if (device->dev_info.is_8t8r)
+		return ADI_APOLLO_FDUC_A_ALL;
+
+	return ADI_APOLLO_FDUC_A_ALL_4T4R;
+}
+
+static int ad9088_device_loopback2(struct ad9088_phy *phy,
+				   adi_apollo_sides_e side)
+{
+	adi_apollo_side_select_e sides = side ? ADI_APOLLO_SIDE_B : ADI_APOLLO_SIDE_A;
+	adi_apollo_device_t *device = &phy->ad9088;
+	u16 lb2_fducs = ad9088_lb2_fduc_mask_get(device, side);
+	int err;
+
+	err = adi_apollo_loopback_lb2_enable_set(device, sides, 1);
+	if (err != API_CMS_ERROR_OK)
+		return err;
+
+	err = adi_apollo_loopback_lb2_fduc_enable_set(device, lb2_fducs, 1);
+	if (err != API_CMS_ERROR_OK)
+		return err;
+
+	phy->loopback_mode[side] = ADI_APOLLO_LOOPBACK_2;
+
+	return 0;
+}
+
+static int ad9088_device_loopback3(struct ad9088_phy *phy,
+				   adi_apollo_sides_e side)
+{
+	adi_apollo_side_select_e sides = side ? ADI_APOLLO_SIDE_B : ADI_APOLLO_SIDE_A;
+	adi_apollo_device_t *device = &phy->ad9088;
+	int err;
+
+	err = adi_apollo_loopback_jesd_enable_set(device, sides, 1);
+	if (err != API_CMS_ERROR_OK)
+		return err;
+
+	phy->loopback_mode[side] = ADI_APOLLO_LOOPBACK_3;
+
+	return err;
+}
+
+static int ad9088_device_loopback_disable(struct ad9088_phy *phy,
+					  adi_apollo_sides_e side)
+{
+	adi_apollo_adc_select_e select_adc = side ? ADI_APOLLO_ADC_B_ALL : ADI_APOLLO_ADC_A_ALL;
+	adi_apollo_side_select_e sides = side ? ADI_APOLLO_SIDE_B : ADI_APOLLO_SIDE_A;
+	adi_apollo_device_t *device = &phy->ad9088;
+	u16 lb1_cducs = ad9088_lb1_cduc_mask_get(device, side);
+	u16 lb2_fducs = ad9088_lb2_fduc_mask_get(device, side);
+	struct device *dev = &phy->spi->dev;
+	int err;
+
+	switch (phy->loopback_mode[side]) {
+	case ADI_APOLLO_LOOPBACK_0:
+		err = adi_apollo_loopback_lb0_tx_enable_set(device, select_adc, 0);
+		if (err != API_CMS_ERROR_OK) {
+			dev_err(dev, "Error in adi_apollo_loopback_lb0_tx_enable_set %d\n", err);
+			return err;
+		}
+
+		err = adi_apollo_loopback_lb0_rx_enable_set(device, sides, 0);
+		if (err != API_CMS_ERROR_OK) {
+			dev_err(dev, "Error in adi_apollo_loopback_lb0_rx_enable_set %d\n", err);
+			return err;
+		}
+		break;
+	case ADI_APOLLO_LOOPBACK_1:
+		err = adi_apollo_loopback_lb1_cduc_enable_set(device, lb1_cducs, 0);
+		if (err != API_CMS_ERROR_OK) {
+			dev_err(dev, "Error adi_apollo_loopback_lb1_cduc_enable_set %d\n", err);
+			return err;
+		}
+
+		err = adi_apollo_loopback_lb1_enable_set(device, sides, 0);
+		if (err != API_CMS_ERROR_OK) {
+			dev_err(dev, "Error in adi_apollo_loopback_lb1_enable_set %d\n", err);
+			return err;
+		}
+
+		err = adi_apollo_loopback_lb1_blend_set(device, lb1_cducs,
+							ADI_APOLLO_LB1_BLEND_DISABLE);
+		if (err != API_CMS_ERROR_OK) {
+			dev_err(dev, "Error adi_apollo_loopback_lb1_blend_set %d\n", err);
+			return err;
+		}
+		break;
+	case ADI_APOLLO_LOOPBACK_2:
+		err = adi_apollo_loopback_lb2_enable_set(device, sides, 0);
+		if (err != API_CMS_ERROR_OK) {
+			dev_err(dev, "Error in adi_apollo_loopback_lb2_enable_set %d\n", err);
+			return err;
+		}
+
+		err = adi_apollo_loopback_lb2_fduc_enable_set(device, lb2_fducs, 0);
+		if (err != API_CMS_ERROR_OK) {
+			dev_err(dev, "Error in adi_apollo_loopback_lb2_fduc_enable_set %d\n", err);
+			return err;
+		}
+		break;
+	case ADI_APOLLO_LOOPBACK_3:
+		err = adi_apollo_loopback_jesd_enable_set(device, sides, 0);
+		if (err != API_CMS_ERROR_OK) {
+			dev_err(dev, "Error in adi_apollo_loopback_jesd_enable_set %d\n", err);
+			return err;
+		}
+		break;
+	}
+
+	phy->loopback_mode[side] = ADI_APOLLO_LOOPBACK_NONE;
+	return 0;
+}
+
+static int ad9088_assert_fs(struct ad9088_phy *phy, u8 side)
+{
+	u64 dac_fs = phy->profile.dac_config[side].dac_sampling_rate_Hz;
+	u64 adc_fs = phy->profile.adc_config[side].adc_sampling_rate_Hz;
+
+	if (dac_fs != adc_fs)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int ad9088_loopback_mode_read(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+
+	if (!map)
+		return -EINVAL;
+
+	return phy->loopback_mode[map->side];
+}
+
+static int ad9088_loopback_mode_write(struct iio_dev *indio_dev,
+				      const struct iio_chan_spec *chan,
+				      unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	int ret = 0;
+
+	if (!map)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	ad9088_device_loopback_disable(phy, map->side);
+	switch (item) {
+	case ADI_APOLLO_LOOPBACK_NONE:
+		break;
+	case ADI_APOLLO_LOOPBACK_0:
+		ret = ad9088_assert_fs(phy, map->side);
+		if (ret)
+			return ret;
+		ret = ad9088_device_loopback0(phy, map->side);
+		break;
+	case ADI_APOLLO_LOOPBACK_1:
+		ret = ad9088_device_loopback1(phy, map->side);
+		break;
+	case ADI_APOLLO_LOOPBACK_2:
+		ret = ad9088_device_loopback2(phy, map->side);
+		break;
+	case ADI_APOLLO_LOOPBACK_3:
+		ret = ad9088_device_loopback3(phy, map->side);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	if (ret)
+		return ret;
+
+	ret = adi_apollo_clk_mcs_dyn_sync_sequence_run(&phy->ad9088);
+
+	return ret;
+}
+
+static const char *const ad9088_loopback_modes[] = {
+	[ADI_APOLLO_LOOPBACK_NONE] = "off",
+	[ADI_APOLLO_LOOPBACK_0] = "loopback0",
+	[ADI_APOLLO_LOOPBACK_1] = "loopback1",
+	[ADI_APOLLO_LOOPBACK_2] = "loopback2",
+	[ADI_APOLLO_LOOPBACK_3] = "loopback3_jesd",
+};
+
+static const struct iio_enum ad9088_loopback_modes_enum = {
+	.items = ad9088_loopback_modes,
+	.num_items = ARRAY_SIZE(ad9088_loopback_modes),
+	.set = ad9088_loopback_mode_write,
+	.get = ad9088_loopback_mode_read,
+};
+
+static int ad9088_cnco_mixer_mode_read(struct iio_dev *indio_dev,
+				       const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	int ret, inst;
+	u8 mode;
+
+	if (!map)
+		return -EINVAL;
+
+	if (chan->output)
+		inst = calc_tx_cnco_base(map->cddc_num);
+	else
+		inst = calc_rx_cnco_base(map->cddc_num);
+
+	ret = adi_apollo_hal_bf_get(&phy->ad9088, BF_DRC_IF_MODE_TXRX_COARSE_NCO_INFO(inst),
+				    &mode, 1);
+	if (ret)
+		return ret;
+
+	return mode & 0x3;
+}
+
+static int ad9088_cnco_mixer_mode_write(struct iio_dev *indio_dev,
+					const struct iio_chan_spec *chan, unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+
+	if (!map)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	return adi_apollo_cnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
+					map->cddc_mask, item);
+}
+
+static int ad9088_fnco_mixer_mode_read(struct iio_dev *indio_dev, const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	int ret, inst;
+	u8 mode;
+
+	if (!map)
+		return -EINVAL;
+
+	if (chan->output)
+		inst = calc_tx_fnco_base(map->fddc_num);
+	else
+		inst = calc_rx_fnco_base(map->fddc_num);
+
+	ret = adi_apollo_hal_bf_get(&phy->ad9088, BF_DRC_IF_MODE_TXRX_FINE_NCO_INFO(inst),
+				    &mode, 1);
+	if (ret)
+		return ret;
+
+	return mode & 0x3;
+}
+
+static int ad9088_fnco_mixer_mode_write(struct iio_dev *indio_dev,
+					const struct iio_chan_spec *chan, unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+
+	if (!map)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	return adi_apollo_fnco_mode_set(&phy->ad9088, chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX,
+					map->fddc_mask, item);
+}
+
+static const char *const ad9088_mixer_modes[] = {
+	[ADI_APOLLO_MXR_VAR_IF_MODE] = "var_IF",
+	[ADI_APOLLO_MXR_ZERO_IF_MODE] = "zero_IF",
+	[ADI_APOLLO_MXR_FS_BY_4_MODE] = "fs/4_IF",
+	[ADI_APOLLO_MXR_TEST_MODE] = "test_tone",
+};
+
+static const struct iio_enum ad9088_cnco_mixer_modes_enum = {
+	.items = ad9088_mixer_modes,
+	.num_items = ARRAY_SIZE(ad9088_mixer_modes),
+	.set = ad9088_cnco_mixer_mode_write,
+	.get = ad9088_cnco_mixer_mode_read,
+};
+
+static const struct iio_enum ad9088_fnco_mixer_modes_enum = {
+	.items = ad9088_mixer_modes,
+	.num_items = ARRAY_SIZE(ad9088_mixer_modes),
+	.set = ad9088_fnco_mixer_mode_write,
+	.get = ad9088_fnco_mixer_mode_read,
+};
+
+static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
+	IIO_ENUM("main_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("main_nco_mixer_mode", IIO_SHARED_BY_TYPE,
+			   &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM("channel_nco_mixer_mode", IIO_SEPARATE, &ad9088_fnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("channel_nco_mixer_mode", IIO_SHARED_BY_TYPE,
+			   &ad9088_fnco_mixer_modes_enum),
+	IIO_ENUM("test_mode", IIO_SEPARATE, &ad9088_testmode_enum),
+	IIO_ENUM_AVAILABLE("test_mode", IIO_SHARED_BY_TYPE, &ad9088_testmode_enum),
+	IIO_ENUM("loopback", IIO_SEPARATE, &ad9088_loopback_modes_enum),
+	IIO_ENUM_AVAILABLE("loopback", IIO_SHARED_BY_TYPE, &ad9088_loopback_modes_enum),
+	IIO_ENUM("nyquist_zone", IIO_SEPARATE, &ad9088_nyquist_zone_enum),
+	IIO_ENUM_AVAILABLE("nyquist_zone", IIO_SHARED_BY_TYPE, &ad9088_nyquist_zone_enum),
+	IIO_ENUM("sampling_mode", IIO_SEPARATE, &ad9088_sampling_mode_enum),
+	IIO_ENUM_AVAILABLE("sampling_mode", IIO_SHARED_BY_TYPE, &ad9088_sampling_mode_enum),
+	{
+		.name = "main_nco_frequency",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_NCO_FREQ,
+	},
+	{
+		.name = "main_nco_frequency_available",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SHARED_BY_TYPE,
+		.private = CDDC_NCO_FREQ_AVAIL,
+	},
+	{
+		.name = "channel_nco_frequency",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = FDDC_NCO_FREQ,
+	},
+	{
+		.name = "channel_nco_frequency_available",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SHARED_BY_TYPE,
+		.private = FDDC_NCO_FREQ_AVAIL,
+	},
+	{
+		.name = "main_nco_phase",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_NCO_PHASE,
+	},
+	{
+		.name = "channel_nco_phase",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = FDDC_NCO_PHASE,
+	},
+	{
+		.name = "main_nco_test_tone_scale",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_TEST_TONE_OFFSET,
+	},
+	{
+		.name = "channel_nco_test_tone_scale",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = FDDC_TEST_TONE_OFFSET,
+	},
+	{
+		.name = "main_tb1_6db_digital_gain_en",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_TB1_6DB_GAIN,
+	},
+	{
+		.name = "main_hb1_6db_digital_gain_en",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_HB1_6DB_GAIN,
+	},
+	{
+		.name = "channel_6db_digital_gain_en",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = FDDC_6DB_GAIN,
+	},
+	{
+		.name = "adc_frequency",
+		.read = ad9088_ext_info_read,
+		.shared = IIO_SHARED_BY_TYPE,
+		.private = TRX_CONVERTER_RATE,
+	},
+	{
+		.name = "cfir_en",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CFIR_ENABLE,
+	},
+	{
+		.name = "cfir_profile_sel",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CFIR_PROFILE_SEL,
+	},
+	{},
+};
+
+static struct iio_chan_spec_ext_info txdac_ext_info[] = {
+	IIO_ENUM("main_nco_mixer_mode", IIO_SEPARATE, &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("main_nco_mixer_mode", IIO_SHARED_BY_TYPE,
+			   &ad9088_cnco_mixer_modes_enum),
+	IIO_ENUM("channel_nco_mixer_mode", IIO_SEPARATE, &ad9088_fnco_mixer_modes_enum),
+	IIO_ENUM_AVAILABLE("channel_nco_mixer_mode", IIO_SHARED_BY_TYPE,
+			   &ad9088_fnco_mixer_modes_enum),
+	{
+		.name = "main_nco_frequency",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_NCO_FREQ,
+	},
+	{
+		.name = "main_nco_frequency_available",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SHARED_BY_TYPE,
+		.private = CDDC_NCO_FREQ_AVAIL,
+	},
+	{
+		.name = "channel_nco_frequency",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = FDDC_NCO_FREQ,
+	},
+	{
+		.name = "channel_nco_frequency_available",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SHARED_BY_TYPE,
+		.private = FDDC_NCO_FREQ_AVAIL,
+	},
+	{
+		.name = "main_nco_phase",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_NCO_PHASE,
+	},
+	{
+		.name = "channel_nco_phase",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = FDDC_NCO_PHASE,
+	},
+	{
+		.name = "main_nco_test_tone_en",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_TEST_TONE_EN,
+	},
+	{
+		.name = "channel_nco_test_tone_en",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = FDDC_TEST_TONE_EN,
+	},
+	{
+		.name = "main_nco_test_tone_scale",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CDDC_TEST_TONE_OFFSET,
+	},
+	{
+		.name = "channel_nco_test_tone_scale",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = FDDC_TEST_TONE_OFFSET,
+	},
+	{
+		.name = "dac_frequency",
+		.read = ad9088_ext_info_read,
+		.shared = IIO_SHARED_BY_TYPE,
+		.private = TRX_CONVERTER_RATE,
+	},
+	{
+		.name = "invsinc_en",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = DAC_INVSINC_EN,
+	},
+	{
+		.name = "cfir_en",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CFIR_ENABLE,
+	},
+	{
+		.name = "cfir_profile_sel",
+		.read = ad9088_ext_info_read,
+		.write = ad9088_ext_info_write,
+		.shared = IIO_SEPARATE,
+		.private = CFIR_PROFILE_SEL,
+	},
+	{},
+};
+
+static int ad9088_set_sample_rate(struct axiadc_converter *conv,
+				  unsigned int sample_rate)
+{
+	return -ENOTSUPP;
+}
+
+int ad9088_jesd_tx_link_status_print(struct ad9088_phy *phy,
+				     struct jesd204_link *lnk, int retry)
+{
+	int ret;
+	u16 stat;
+
+	do {
+		ret = adi_apollo_jtx_link_status_get(&phy->ad9088,
+						     ad9088_to_link(lnk->link_id), &stat);
+
+		if (ret)
+			return -EFAULT;
+
+		if (lnk->jesd_version == JESD204_VERSION_C) {
+			if ((stat & 0x60) == 0x60)
+				ret = 0;
+			else
+				ret = -EIO;
+
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					 "%s Link%d 204C PLL %s, PHASE %s, MODE %s\n",
+					 ad9088_fsm_links_to_str[lnk->link_id],
+					 lnk->link_id,
+					 stat & BIT(5) ? "locked" : "unlocked",
+					 stat & BIT(6) ? "established" : "lost",
+					 stat & BIT(7) ? "invalid" : "valid");
+			else
+				msleep(20);
+		} else {
+			if ((stat & 0xF0) == 0x70)
+				ret = 0;
+			else
+				ret = -EIO;
+
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					 "%s Link%d 204B SYNC %s, PLL %s, PHASE %s, MODE %s, STAT 0x%X\n",
+					 ad9088_fsm_links_to_str[lnk->link_id],
+					 lnk->link_id,
+					 stat & BIT(4) ? "deasserted" : "asserted",
+					 stat & BIT(5) ? "locked" : "unlocked",
+					 stat & BIT(6) ? "established" : "lost",
+					 stat & BIT(7) ? "invalid" : "valid",
+					 stat);
+			else
+				msleep(20);
+		}
+	} while (ret && retry--);
+
+	return ret;
+}
+
+static const char *const ad9088_jrx_204c_states[] = {
+	"Reset", "Undef", "Sync header alignment done",
+	"Extended multiblock sync complete",
+	"Extended multiblock alignment complete",
+	"Undef", "Link is good", "Undef",
+};
+
+int ad9088_jesd_rx_link_status_print(struct ad9088_phy *phy,
+				     struct jesd204_link *lnk, int retry)
+{
+	int ret, i, err;
+	u16 stat, l_stat, mask;
+	u8 id = ad9088_to_link(lnk->link_id);
+
+	do {
+		ret = adi_apollo_jrx_link_status_get(&phy->ad9088, id, &stat);
+		if (ret)
+			return -EFAULT;
+
+		if (lnk->jesd_version == JESD204_VERSION_C) {
+			if (phy->profile.jrx[(lnk->link_id / 2) & 1].common_link_cfg.subclass)
+				mask = 0x60; /* Subclass 1*/
+			else
+				mask = 0x20; /* Ignore SYSREF Phase */
+
+			if ((stat & mask) == mask)
+				ret = 0;
+			else
+				ret = -EIO;
+
+			if (ret == 0 || retry == 0) {
+				for (i = 0; i < lnk->num_lanes; i++) {
+					u8 phys_lane = phy->profile.jrx[(lnk->link_id / 2) & 1].rx_link_cfg[(lnk->link_id % 2) & 1].lane_xbar[i];
+
+					err = adi_apollo_jrx_j204c_lane_status_get(&phy->ad9088, id,
+										   phys_lane,
+										   &l_stat);
+					if (err)
+						return -EFAULT;
+					if ((l_stat & 0x7) == 0x6)
+						dev_info(&phy->spi->dev, "%s Link%d 204C Lane-%d@%d status: %s\n",
+							 ad9088_fsm_links_to_str[lnk->link_id],
+							 lnk->link_id, i, phys_lane,
+							 ad9088_jrx_204c_states[l_stat & 0x7]);
+					else
+						dev_err(&phy->spi->dev, "%s Link%d 204C Lane-%d@%d status: %s\n",
+							ad9088_fsm_links_to_str[lnk->link_id],
+							lnk->link_id, i, phys_lane,
+							ad9088_jrx_204c_states[l_stat & 0x7]);
+				}
+
+				dev_info(&phy->spi->dev,
+					 "%s Link%d 204C User status: %s, SYSREF Phase: %s\n",
+					 ad9088_fsm_links_to_str[lnk->link_id], lnk->link_id,
+					 (stat & 0x20) ? "Ready" :  "Fail",
+					 (stat & 0x40) ? "Locked" :  "Unlocked");
+			} else {
+				msleep(20);
+			}
+		} else {
+			if (phy->profile.jrx[(lnk->link_id / 2) & 1].common_link_cfg.subclass)
+				mask = 0x60; /* Subclass 1*/
+			else
+				mask = 0x20; /* Ignore SYSREF Phase */
+
+			if ((stat & mask) == mask)
+				ret = 0;
+			else
+				ret = -EIO;
+
+			if (ret == 0 || retry == 0) {
+				for (i = 0; i < lnk->num_lanes; i++) {
+					u8 phys_lane = phy->profile.jrx[(lnk->link_id / 2) & 1].rx_link_cfg[(lnk->link_id % 2) & 1].lane_xbar[i];
+
+					err = adi_apollo_jrx_j204b_lane_status_get(&phy->ad9088,
+										   id, phys_lane,
+										   &l_stat);
+					if (err)
+						return -EFAULT;
+
+					if ((l_stat & 0x3C) == 0x38)
+						dev_info(&phy->spi->dev, "%s Link%d 204B Lane-%d@%d status: Link is good (0x%X)\n",
+							 ad9088_fsm_links_to_str[lnk->link_id],
+							 lnk->link_id, i, phys_lane, l_stat);
+					else
+						dev_err(&phy->spi->dev, "%s Link%d 204B Lane-%d@%d status: 0x%X Frame Sync:%s SYNC:%s DATA:%s Checksum:%s\n",
+							ad9088_fsm_links_to_str[lnk->link_id],
+							lnk->link_id, i, phys_lane, l_stat & 0x3C,
+							l_stat & BIT(2) ? "Lost" : "Found",
+							l_stat & BIT(3) ? "Ok" : "Fail",
+							l_stat & BIT(4) ? "Ready" : "Fail",
+							l_stat & BIT(5) ? "Good" : "Bad");
+				}
+
+				dev_info(&phy->spi->dev,
+					 "%s Link%d 204B User status: %s, SYSREF Phase: %s\n",
+					 ad9088_fsm_links_to_str[lnk->link_id], lnk->link_id,
+					 (stat & 0x20) ? "Ready" :  "Fail",
+					 (stat & 0x40) ? "Locked" :  "Unlocked");
+			} else {
+				msleep(20);
+			}
+		}
+	} while (ret && retry--);
+
+	return ret;
+}
+
+static int ad9088_read_raw(struct iio_dev *indio_dev,
+			   const struct iio_chan_spec *chan, int *val,
+			   int *val2, long info)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	adi_apollo_device_tmu_data_t tmu_data;
+	u8 dir;
+	u64 freq;
+	int ret;
+
+	if (!map)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		dir = chan->output ? TX_SAMPL_CLK : RX_SAMPL_CLK;
+
+		if (!phy->clks[dir])
+			return -ENODEV;
+
+		freq = clk_get_rate_scaled(phy->clks[dir], &phy->clkscale[dir]);
+
+		*val = lower_32_bits(freq);
+		*val2 = upper_32_bits(freq);
+		return IIO_VAL_INT_64;
+	case IIO_CHAN_INFO_ENABLE:
+		if (chan->output)
+			*val = !!(phy->tx_en_mask & map->adcdac_mask);
+		else
+			*val = !!(phy->rx_en_mask & map->adcdac_mask);
+
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_PROCESSED:
+		if (!phy->is_initialized)
+			return -EBUSY;
+
+		ret = adi_apollo_device_tmu_get(&phy->ad9088, &tmu_data);
+		if (ret)
+			return -EFAULT;
+
+		*val = tmu_data.temp_degrees_celsius_avg * 1000;
+		return IIO_VAL_INT;
+	}
+	return -EINVAL;
+}
+
+static int ad9088_write_raw(struct iio_dev *indio_dev,
+			    const struct iio_chan_spec *chan, int val, int val2,
+			    long info)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
+	int ret;
+
+	guard(mutex)(&phy->lock);
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!conv->clk)
+			return -ENODEV;
+
+		if (chan->extend_name)
+			return -ENODEV;
+
+		if (conv->sample_rate_read_only)
+			return -EPERM;
+
+		return ad9088_set_sample_rate(conv, val);
+
+	case IIO_CHAN_INFO_ENABLE:
+
+		if (!map)
+			return -EINVAL;
+
+		if (chan->output) {
+			adi_apollo_txen_pwrup_ctrl_t txen_config = {
+				.sm_clk_rate = ADI_APOLLO_PUC_CLK_RATE_FS_DIV_32,
+				.sm_en = 0,
+				.spi_txen = !!val,
+				.spi_txen_en = !!val
+			};
+
+			/* Enable Tx blocks - enable/disable via spi */
+			ret = adi_apollo_txen_pwrup_ctrl_set(&phy->ad9088, map->adcdac_mask,
+							     &txen_config);
+			if (ret) {
+				dev_err(&phy->spi->dev, "Error activating Tx blocks(%d)\n", ret);
+				return ret;
+			}
+
+			if (val)
+				phy->tx_en_mask |= map->adcdac_mask;
+			else
+				phy->tx_en_mask &= ~map->adcdac_mask;
+
+		} else {
+			adi_apollo_rxen_pwrup_ctrl_t rxen_config = {
+				.sm_clk_rate = ADI_APOLLO_PUC_CLK_RATE_FS_DIV_32,
+				.sm_en = 0,
+				.spi_rxen = !!val,
+				.spi_rxen_en = !!val
+			};
+
+			/* Enable Rx blocks - enable/disable via spi */
+			ret = adi_apollo_rxen_pwrup_ctrl_set(&phy->ad9088, map->adcdac_mask,
+							     &rxen_config);
+			if (ret) {
+				dev_err(&phy->spi->dev, "Error activating Rx blocks (%d)\n", ret);
+				return ret;
+			}
+			if (val)
+				phy->rx_en_mask |= map->adcdac_mask;
+			else
+				phy->rx_en_mask &= ~map->adcdac_mask;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ad9088_read_label(struct iio_dev *indio_dev,
+			     const struct iio_chan_spec *chan, char *label)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+
+	return sysfs_emit(label, "%s\n", chan->output ? phy->tx_labels[chan->channel] :
+			  phy->rx_labels[chan->channel]);
+}
+
+static ssize_t ad9088_phy_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	adi_apollo_device_t *device = &phy->ad9088;
+	adi_apollo_side_select_e side;
+	unsigned long res;
+	adi_apollo_sides_e side_index;
+	bool bres;
+	bool enable;
+	int ret = 0;
+	u16 addr = (u32)this_attr->address & 0xFF;
+
+	guard(mutex)(&phy->lock);
+
+	switch (addr) {
+	case AD9088_LOOPBACK1_BLEND_SIDE_A:
+	case AD9088_LOOPBACK1_BLEND_SIDE_B:
+		side = addr == AD9088_LOOPBACK1_BLEND_SIDE_B ?
+		       ADI_APOLLO_SIDE_B : ADI_APOLLO_SIDE_A;
+		side_index = side == ADI_APOLLO_SIDE_A ? 0 : 1;
+		ret = kstrtoul(buf, 0, &res);
+		if (ret)
+			return ret;
+		if (res == 0x2 || res > 0x3)
+			return -EINVAL;
+
+		phy->lb1_blend[side_index] = res;
+		if (phy->loopback_mode[side_index] == ADI_APOLLO_LOOPBACK_1) {
+			u16 lb1_cducs = ad9088_lb1_cduc_mask_get(device, side_index);
+
+			ret = adi_apollo_loopback_lb1_blend_set(device, lb1_cducs,
+								phy->lb1_blend[side_index]);
+			if (ret)
+				return ret;
+		}
+		return len;
+	case AD9088_JESD204_FSM_RESUME:
+		if (!phy->jdev)
+			return -ENOTSUPP;
+
+		ret = jesd204_fsm_resume(phy->jdev, JESD204_LINKS_ALL);
+		if (ret)
+			return ret;
+
+		return len;
+	case AD9088_JESD204_FSM_CTRL:
+		if (!phy->jdev)
+			return -ENOTSUPP;
+
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+
+		if (enable) {
+			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+			ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+			if (ret)
+				return ret;
+		} else {
+			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+		}
+
+		return len;
+	case AD9088_MCS_BG_TRACK_CAL_FREEZE:
+		ret = kstrtobool(buf, &bres);
+		if (ret < 0)
+			return ret;
+
+		if (!phy->mcs_cal_bg_tracking_run) {
+			dev_err(&phy->spi->dev, "MCS BG Tracking Cal not running.\n");
+			return -EFAULT;
+		}
+
+		if (bres) {
+			ret = adi_apollo_mcs_cal_bg_tracking_freeze(device);
+			ret = ad9088_check_apollo_error(dev, ret,
+							"adi_apollo_mcs_cal_bg_tracking_freeze");
+		} else {
+			ret = adi_apollo_mcs_cal_bg_tracking_unfreeze(device);
+			ret = ad9088_check_apollo_error(dev, ret,
+							"adi_apollo_mcs_cal_bg_tracking_unfreeze");
+		}
+		if (ret)
+			return ret;
+
+		phy->mcs_cal_bg_tracking_freeze = bres;
+		return len;
+	default:
+		return -EINVAL;
+	}
+}
+
+static ssize_t ad9088_phy_show(struct device *dev,
+			       struct device_attribute *attr,
+			       char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	struct jesd204_dev *jdev = phy->jdev;
+	struct jesd204_link *links[4];
+	int i, err, num_links;
+	bool paused;
+	int ret = 0;
+
+	guard(mutex)(&phy->lock);
+
+	switch ((u32)this_attr->address & 0xFF) {
+	case AD9088_LOOPBACK1_BLEND_SIDE_A:
+		return sysfs_emit(buf, "%x\n", phy->lb1_blend[0]);
+	case AD9088_LOOPBACK1_BLEND_SIDE_B:
+		return sysfs_emit(buf, "%x\n", phy->lb1_blend[1]);
+	case AD9088_JESD204_FSM_ERROR:
+		if (!phy->jdev)
+			return -ENOTSUPP;
+
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0)
+			return num_links;
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
+		if (ret)
+			return ret;
+
+		err = 0;
+		for (i = 0; i < num_links; i++) {
+			if (links[i]->error) {
+				err = links[i]->error;
+				break;
+			}
+		}
+
+		return sysfs_emit(buf, "%d\n", err);
+	case AD9088_JESD204_FSM_PAUSED:
+		if (!phy->jdev)
+			return -ENOTSUPP;
+
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0)
+			return num_links;
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
+		if (ret)
+			return ret;
+		/*
+		 * Take the slowest link; if there are N links and one is
+		 * paused, all are paused. Not sure if this can happen yet,
+		 * but best design it like this here.
+		 */
+		paused = false;
+		for (i = 0; i < num_links; i++) {
+			if (jesd204_link_get_paused(links[i])) {
+				paused = true;
+				break;
+			}
+		}
+		return sysfs_emit(buf, "%d\n", paused);
+	case AD9088_JESD204_FSM_STATE:
+		if (!phy->jdev)
+			return -ENOTSUPP;
+
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0)
+			return num_links;
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
+		if (ret)
+			return ret;
+		/*
+		 * just get the first link state; we're assuming that all 3
+		 * are in sync and that AD9088_JESD204_FSM_PAUSED
+		 * was called before
+		 */
+		return sysfs_emit(buf, "%s\n", jesd204_link_get_state_str(links[0]));
+	case AD9088_JESD204_FSM_CTRL:
+		if (!phy->jdev)
+			return -ENOTSUPP;
+
+		return sysfs_emit(buf, "%d\n", phy->is_initialized);
+	case AD9088_MCS_BG_TRACK_CAL_FREEZE:
+		return sysfs_emit(buf, "%d\n", phy->mcs_cal_bg_tracking_freeze);
+	default:
+		return -EINVAL;
+	}
+}
+
+static IIO_DEVICE_ATTR(loopback1_blend_side_a, 0644,
+		       ad9088_phy_show,
+		       ad9088_phy_store,
+		       AD9088_LOOPBACK1_BLEND_SIDE_A);
+
+static IIO_DEVICE_ATTR(loopback1_blend_side_b, 0644,
+		       ad9088_phy_show,
+		       ad9088_phy_store,
+		       AD9088_LOOPBACK1_BLEND_SIDE_B);
+
+static IIO_CONST_ATTR(loopback1_blend_available, "0 1 3");
+
+static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
+		       ad9088_phy_show,
+		       NULL,
+		       AD9088_JESD204_FSM_ERROR);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_paused, 0444,
+		       ad9088_phy_show,
+		       NULL,
+		       AD9088_JESD204_FSM_PAUSED);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_state, 0444,
+		       ad9088_phy_show,
+		       NULL,
+		       AD9088_JESD204_FSM_STATE);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_resume, 0200,
+		       NULL,
+		       ad9088_phy_store,
+		       AD9088_JESD204_FSM_RESUME);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, 0644,
+		       ad9088_phy_show,
+		       ad9088_phy_store,
+		       AD9088_JESD204_FSM_CTRL);
+
+static IIO_DEVICE_ATTR(mcs_bg_tacking_cal_freeze, 0644,
+		       ad9088_phy_show,
+		       ad9088_phy_store,
+		       AD9088_MCS_BG_TRACK_CAL_FREEZE);
+
+/**
+ * ad9088_phy_attributes - Array of sysfs attributes for the AD9088 PHY driver
+ *
+ * This array contains the sysfs attributes that are exposed by the AD9088 PHY
+ * driver. These attributes allow user-space applications to interact with and
+ * configure various aspects of the AD9088 device.
+ *
+ * Attributes:
+ * - loopback1_blend_side_a: Controls the blend setting for loopback1 on side A.
+ * - loopback1_blend_side_b: Controls the blend setting for loopback1 on side B.
+ * - loopback1_blend_available: Indicates the available blend settings for loopback1.
+ * - jesd204_fsm_error: Reports the error status of the JESD204 finite state machine.
+ * - jesd204_fsm_state: Reports the current state of the JESD204 finite state machine.
+ * - jesd204_fsm_paused: Indicates whether the JESD204 finite state machine is paused.
+ * - jesd204_fsm_resume: Controls the resume operation of the JESD204 finite state machine.
+ * - jesd204_fsm_ctrl: Provides control over the JESD204 finite state machine.
+ * - mcs_bg_tacking_cal_freeze: Freezes the background tracking calibration for MCS.
+ */
+
+static struct attribute *ad9088_phy_attributes[] = {
+	&iio_dev_attr_loopback1_blend_side_a.dev_attr.attr,
+	&iio_dev_attr_loopback1_blend_side_b.dev_attr.attr,
+	&iio_const_attr_loopback1_blend_available.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_resume.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_ctrl.dev_attr.attr,
+	&iio_dev_attr_mcs_bg_tacking_cal_freeze.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ad9088_phy_attribute_group = {
+	.attrs = ad9088_phy_attributes,
+};
+
+static int ad9088_request_fd_irqs(struct axiadc_converter *conv)
+{
+	struct device *dev = &conv->spi->dev;
+	struct gpio_desc *gpio;
+
+	gpio = devm_gpiod_get(dev, "fastdetect-a", GPIOD_IN);
+	if (!IS_ERR(gpio)) {
+		int ret, irq = gpiod_to_irq(gpio);
+
+		if (irq < 0)
+			return irq;
+
+		ret = devm_request_threaded_irq(dev,
+						irq, NULL, ad9088_fdA_handler,
+						IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+						"fastdetect-a", conv);
+		if (ret < 0)
+			return ret;
+	}
+
+	gpio = devm_gpiod_get(dev, "fastdetect-b", GPIOD_IN);
+	if (!IS_ERR(gpio)) {
+		int ret, irq = gpiod_to_irq(gpio);
+
+		if (irq < 0)
+			return irq;
+
+		ret = devm_request_threaded_irq(dev,
+						irq, NULL, ad9088_fdB_handler,
+						IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+						"fastdetect-b", conv);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int ad9088_post_setup(struct iio_dev *indio_dev)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	int i;
+
+	for (i = 0; i < conv->chip_info->num_channels; i++) {
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(i),
+			     (i & 1) ? 0x00004000 : 0x40000000);
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(i),
+			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
+			     ADI_IQCOR_ENB | ADI_ENABLE);
+	}
+
+	return 0;
+}
+
+static const char *const pfir_filter_modes[] = {
+	"disabled", "real_n4", "real_n2", "undef",
+	"matrix", "undef", "complex_half", "real_n"
+};
+
+static const char *const pfir_selects[] = {
+	"pfilt_a0", "pfilt_a1", "pfilt_b0", "pfilt_b1", "pfilt_all", "pfilt_mask"
+};
+
+static const char *const pfir_filter_banks[] = {
+	"bank_0", "bank_1", "bank_2", "bank_3", "bank_all", "bank_mask"
+};
+
+static const char *const terminals[] = {
+	"rx", "tx"
+};
+
+static const char *const pfilt_profile_selection_mode[] = {
+	"direct_regmap", "direct_gpio", "direct_gpio1", "trig_regmap", "trig_gpio", "trig_gpio1"
+};
+
+static u32 ad9088_pfir_gain_enc(int val)
+{
+	switch (val) {
+	case 0:
+		return ADI_APOLLO_PFILT_GAIN_ZERO_DB;
+	case 6:
+		return ADI_APOLLO_PFILT_GAIN_POS_6_DB;
+	case 12:
+		return ADI_APOLLO_PFILT_GAIN_POS_12_DB;
+	case 18:
+		return ADI_APOLLO_PFILT_GAIN_POS_18_DB;
+	case 24:
+		return ADI_APOLLO_PFILT_GAIN_POS_24_DB;
+	case -24:
+		return ADI_APOLLO_PFILT_GAIN_NEG_24_DB;
+	case -18:
+		return ADI_APOLLO_PFILT_GAIN_NEG_18_DB;
+	case -12:
+		return ADI_APOLLO_PFILT_GAIN_NEG_12_DB;
+	case -6:
+		return ADI_APOLLO_PFILT_GAIN_NEG_6_DB;
+	default:
+		return ADI_APOLLO_PFILT_GAIN_ZERO_DB;
+	}
+};
+
+/**
+ * ad9088_parse_pfilt - Parse the configuration data for the PFIR filter
+ * @phy: Pointer to the AD9088 PHY structure
+ * @data: Pointer to the configuration data
+ * @size: Size of the configuration data
+ *
+ * This function parses the configuration data for the PFIR (Programmable
+ * Finite Impulse Response) filter of the AD9088 device. The configuration
+ * data is expected to be in a specific format, which is documented below.
+ *
+ * Format of the configuration data:
+ *   - Each line represents a parameter or setting for the PFIR filter.
+ *   - Lines starting with '#' are considered comments and are ignored.
+ *   - The format for each parameter is as follows:
+ *     - mode: <imode> <qmode>
+ *       - Sets the mode for the PFIR filter. The <imode> and <qmode> values
+ *         should be one of the predefined filter modes: "disabled",
+ *         "real_n4", "real_n2", "undef", "matrix", "undef", "complex_half",
+ *         "real_n".
+ *     - gain: <ix> <iy> <qx> <qy>
+ *       - Sets the gain values for the PFIR filter. The <ix>, <iy>, <qx>,
+ *         and <qy> values should be integers representing the gain in dB.
+ *     - scalar_gain: <ix> <iy> <qx> <qy>
+ *       - Sets the scalar gain values for the PFIR filter. The <ix>, <iy>,
+ *         <qx>, and <qy> values should be integers representing the scalar
+ *         gain.
+ *     - dest: <terminal> <pfilt_sel> <bank_sel>
+ *       - Sets the destination for the PFIR filter. The <terminal> value
+ *         should be either "rx" or "tx". The <pfilt_sel> value should be one
+ *         of the predefined filter selects: "pfilt_a0", "pfilt_a1",
+ *         "pfilt_b0", "pfilt_b1", "pfilt_all", "pfilt_mask". The <bank_sel>
+ *         value should be one of the predefined filter banks: "bank_0",
+ *         "bank_1", "bank_2", "bank_3", "bank_all", "bank_mask".
+ *     - hc_delay: <delay>
+ *       - Sets the high cut delay value for the PFIR filter. The <delay>
+ *         value should be an unsigned 8-bit integer.
+ *     - mode_switch_en: <value>
+ *       - Sets the mode switch enable value for the PFIR filter. The <value>
+ *         should be either 0 or 1.
+ *     - mode_switch_add_en: <value>
+ *       - Sets the mode switch add enable value for the PFIR filter. The
+ *         <value> should be either 0 or 1.
+ *     - real_data_mode_en: <value>
+ *       - Sets the real data mode enable value for the PFIR filter. The
+ *         <value> should be either 0 or 1.
+ *     - quad_mode_en: <value>
+ *       - Sets the quad mode enable value for the PFIR filter. The <value>
+ *         should be either 0 or 1.
+ *     - selection_mode: <mode>
+ *       - Sets the profile selection mode for the PFIR filter. The <mode>
+ *         value should be one of the predefined profile selection modes:
+ *         "direct_regmap", "direct_gpio", "direct_gpio1", "trig_regmap",
+ *         "trig_gpio", "trig_gpio1".
+ *     - <sval>
+ *       - Sets the coefficient values for the PFIR filter. The <sval> value
+ *         should be an integer representing the coefficient value.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int ad9088_parse_pfilt(struct ad9088_phy *phy,
+			      char *data, u32 size)
+{
+	struct device *dev = &phy->spi->dev;
+	char *line;
+	int i = 0, ret, j;
+	char *ptr = data;
+	u16 pfilt_coeffs[ADI_APOLLO_PFILT_COEFF_NUM];
+	u32 val;
+	s32 sval;
+
+	adi_apollo_terminal_e terminal;
+	adi_apollo_pfilt_bank_sel_e bank_sel;
+	adi_apollo_pfilt_sel_e pfilt_sel;
+	adi_apollo_pfilt_profile_sel_mode_e selection_mode;
+
+	adi_apollo_pfilt_mode_pgm_t pfilt_mode_pgm = { 0 };
+	adi_apollo_pfilt_gain_dly_pgm_t gain_dly_pgm = {
+		/* Gain can be +/-24dB in 6dB steps. */
+		.pfir_iy_gain = ADI_APOLLO_PFILT_GAIN_ZERO_DB,
+		/*
+		 * code = 64*scalarGain-1. 1/64 <= scalarGain <= 1. (code 6'h0 1/64(-36dB),
+		 * 6'h1 1/32(-30dB), 6'h3f 1(0dB))
+		 */
+		.pfir_iy_scalar_gain = 0x3f,
+		/* Gain can be +/-24dB in 6dB steps */
+		.pfir_qx_gain = ADI_APOLLO_PFILT_GAIN_ZERO_DB,
+		/*
+		 * code = 64*scalarGain-1. 1/64 <= scalarGain <= 1. (code 6'h0 1/64(-36dB),
+		 * 6'h1 1/32(-30dB), 6'h3f 1(0dB))
+		 */
+		.pfir_qx_scalar_gain = 0x3f,
+	};
+	u8 read_mask = 0;
+
+	while ((line = strsep(&ptr, "\n"))) {
+		if (line >= data + size)
+			break;
+
+		if (line[0] == '#')
+			continue;
+
+		if (~read_mask & BIT(0)) {
+			char imode[16], qmode[16];
+
+			ret = sscanf(line, "mode: %15s %15s",
+				     imode, qmode);
+
+			if (ret == 2)
+				pfilt_mode_pgm.pfir_q_mode = sysfs_match_string(pfir_filter_modes,
+										qmode);
+
+			if (ret == 1 || ret == 2) {
+				pfilt_mode_pgm.pfir_i_mode = sysfs_match_string(pfir_filter_modes,
+										imode);
+				read_mask |= BIT(0);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(1)) {
+			int ix = 0, iy = 0, qx = 0, qy = 0;
+
+			ret = sscanf(line, "gain: %d %d %d %d",
+				     &ix, &iy, &qx, &qy);
+
+			if (ret == 4) {
+				gain_dly_pgm.pfir_ix_gain = ad9088_pfir_gain_enc(ix);
+				gain_dly_pgm.pfir_iy_gain = ad9088_pfir_gain_enc(iy);
+				gain_dly_pgm.pfir_qx_gain = ad9088_pfir_gain_enc(qx);
+				gain_dly_pgm.pfir_qy_gain = ad9088_pfir_gain_enc(qy);
+
+				read_mask |= BIT(1);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(4)) {
+			ret = sscanf(line, "scalar_gain: %hhu %hhu %hhu %hhu",
+				     &gain_dly_pgm.pfir_ix_scalar_gain,
+				     &gain_dly_pgm.pfir_iy_scalar_gain,
+				     &gain_dly_pgm.pfir_qx_scalar_gain,
+				     &gain_dly_pgm.pfir_qy_scalar_gain);
+
+			if (ret == 4) {
+				read_mask |= BIT(4);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(2)) {
+			char t[4], p[16], b[16];
+			u32 mask;
+
+			ret = sscanf(line, "dest: %3s %15s %15s", t, p, b);
+
+			if (ret == 3) {
+				ret = sysfs_match_string(terminals, t);
+				if (ret < 0)
+					goto out;
+				terminal = ret ? ADI_APOLLO_TX : ADI_APOLLO_RX;
+
+				ret = sysfs_match_string(pfir_selects, p);
+				if (ret < 0)
+					goto out;
+				pfilt_sel = 1 << ret;
+				if (ret == 4)
+					pfilt_sel = ADI_APOLLO_PFILT_ALL;
+				if (ret == 5) {
+					ret = sscanf(line, "pfilt_mask%u", &mask);
+					if (ret != 1)
+						goto out;
+					pfilt_sel = mask;
+				}
+
+				ret = sysfs_match_string(pfir_filter_banks, b);
+				if (ret < 0)
+					goto out;
+				bank_sel = 1 << ret;
+				if (ret == 4)
+					bank_sel = ADI_APOLLO_PFILT_BANK_ALL;
+				if (ret == 5) {
+					ret = sscanf(line, "bank_mask%u", &mask);
+					if (ret != 1)
+						goto out;
+					bank_sel = mask;
+				}
+
+				read_mask |= BIT(2);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(3)) {
+			ret = sscanf(line, "hc_delay: %hhu", &gain_dly_pgm.hc_delay);
+			if (ret == 1) {
+				read_mask |= BIT(3);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(5)) {
+			ret = sscanf(line, "mode_switch_en: %u", &val);
+			if (ret == 1) {
+				pfilt_mode_pgm.mode_switch = val ? ADI_APOLLO_PFILT_ENABLE_3DB_AVG_MOD_SW : ADI_APOLLO_PFILT_DISABLE_3DB_AVG_MOD_SW;
+				read_mask |= BIT(5);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(6)) {
+			ret = sscanf(line, "mode_switch_add_en: %u", &val);
+			if (ret == 1) {
+				pfilt_mode_pgm.add_sub_sel = val ? ADI_APOLLO_PFILT_ADD_FOR_MOD_SW : ADI_APOLLO_PFILT_SUB_FOR_MOD_SW;
+				read_mask |= BIT(6);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(7)) {
+			ret = sscanf(line, "real_data_mode_en: %u", &val);
+			if (ret == 1) {
+				pfilt_mode_pgm.data = val ? ADI_APOLLO_PFILT_REAL_DATA : ADI_APOLLO_PFILT_COMPLEX_DATA;
+				read_mask |= BIT(7);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(8)) {
+			ret = sscanf(line, "quad_mode_en: %u", &val);
+			if (ret == 1) {
+				pfilt_mode_pgm.dq_mode = val ? ADI_APOLLO_PFILT_QUAD_MODE : ADI_APOLLO_PFILT_DUAL_MODE;
+				read_mask |= BIT(8);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(9)) {
+			char m[16];
+
+			ret = sscanf(line, "selection_mode: %s", m);
+			if (ret == 1) {
+				ret = sysfs_match_string(pfilt_profile_selection_mode, m);
+				if (ret < 0)
+					goto out;
+
+				selection_mode = ret;
+				read_mask |= BIT(9);
+				continue;
+			}
+		}
+
+		ret = sscanf(line, "%i", &sval);
+		if (ret == 1) {
+			if (i >= ADI_APOLLO_PFILT_COEFF_NUM)
+				return -EINVAL;
+
+			pfilt_coeffs[i++] = (u16)sval;
+			continue;
+		}
+	}
+
+	dev_dbg(dev, "terminal: %s\n", terminals[terminal]);
+	dev_dbg(dev, "pfilt_sel: MASK 0x%X\n", pfilt_sel);
+	dev_dbg(dev, "bank_sel: MASK 0x%x\n", bank_sel);
+
+	dev_dbg(dev, "pfilt_mode_pgm.pfir_i_mode: %s\n",
+		pfir_filter_modes[pfilt_mode_pgm.pfir_i_mode]);
+	dev_dbg(dev, "pfilt_mode_pgm.pfir_q_mode: %s\n",
+		pfir_filter_modes[pfilt_mode_pgm.pfir_q_mode]);
+	dev_dbg(dev, "pfilt_mode_pgm.mode_switch: %d\n", pfilt_mode_pgm.mode_switch);
+	dev_dbg(dev, "pfilt_mode_pgm.add_sub_sel: %d\n", pfilt_mode_pgm.add_sub_sel);
+	dev_dbg(dev, "pfilt_mode_pgm.data: %d\n", pfilt_mode_pgm.data);
+	dev_dbg(dev, "pfilt_mode_pgm.dq_mode: %d\n", pfilt_mode_pgm.dq_mode);
+
+	ret = adi_apollo_pfilt_mode_pgm(&phy->ad9088, terminal, pfilt_sel, &pfilt_mode_pgm);
+	if (ret < 0)
+		goto out1;
+
+	dev_dbg(dev, "gain_dly_pgm.pfir_ix_gain: %d\n", gain_dly_pgm.pfir_ix_gain);
+	dev_dbg(dev, "gain_dly_pgm.pfir_iy_gain: %d\n", gain_dly_pgm.pfir_iy_gain);
+	dev_dbg(dev, "gain_dly_pgm.pfir_qx_gain: %d\n", gain_dly_pgm.pfir_qx_gain);
+	dev_dbg(dev, "gain_dly_pgm.pfir_qy_gain: %d\n", gain_dly_pgm.pfir_qy_gain);
+	dev_dbg(dev, "gain_dly_pgm.pfir_ix_scalar_gain: %u\n", gain_dly_pgm.pfir_ix_scalar_gain);
+	dev_dbg(dev, "gain_dly_pgm.pfir_iy_scalar_gain: %u\n", gain_dly_pgm.pfir_iy_scalar_gain);
+	dev_dbg(dev, "gain_dly_pgm.pfir_qx_scalar_gain: %u\n", gain_dly_pgm.pfir_qx_scalar_gain);
+	dev_dbg(dev, "gain_dly_pgm.pfir_qy_scalar_gain: %u\n", gain_dly_pgm.pfir_qy_scalar_gain);
+	dev_dbg(dev, "gain_dly_pgm.hc_delay: %u\n", gain_dly_pgm.hc_delay);
+	dev_dbg(dev, "selection_mode: %u\n", selection_mode);
+
+	ret = adi_apollo_pfilt_gain_dly_pgm(&phy->ad9088, terminal, pfilt_sel, bank_sel,
+					    &gain_dly_pgm);
+	if (ret < 0)
+		goto out1;
+
+	if (read_mask & BIT(9)) {
+		ret = adi_apollo_pfilt_profile_sel_mode_set(&phy->ad9088, terminal, pfilt_sel,
+							    selection_mode);
+		if (ret < 0)
+			goto out1;
+	}
+
+	for (j = 0; j < i; j++)
+		dev_dbg(dev, "0x%X\n", pfilt_coeffs[j]);
+
+	ret = adi_apollo_pfilt_coeff_pgm(&phy->ad9088, terminal, pfilt_sel, bank_sel,
+					 pfilt_coeffs, i);
+	if (ret < 0)
+		goto out1;
+	ret = adi_apollo_pfilt_coeff_transfer(&phy->ad9088, terminal, pfilt_sel, bank_sel);
+	if (ret < 0)
+		goto out1;
+
+out1:
+	if (ret != API_CMS_ERROR_OK)
+		dev_err(&phy->spi->dev, "Programming filter failed (%d)", ret);
+
+	return size;
+
+out:
+	dev_err(dev, "malformed pFir filter file detected\n");
+
+	return -EINVAL;
+}
+
+static ssize_t
+ad9088_pfilt_bin_write(struct file *filp, struct kobject *kobj,
+		       struct bin_attribute *bin_attr,
+		       char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+
+	guard(mutex)(&phy->lock);
+
+	return ad9088_parse_pfilt(phy, buf, count);
+}
+
+/* CFIR */
+
+static const char *const cfir_selects[] = {
+	"cfir_none", "cfir_a0", "cfir_a1", "cfir_b0",
+	"cfir_b1", "cfir_all", "cfir_mask"
+};
+
+static const char *const cfir_profiles[] = {
+	"profile_none", "profile_1", "profile_2", "profile_all"
+};
+
+static const char *const cfir_datapaths[] = {
+	"datapath_none", "datapath_0", "datapath_1", "datapath_2",
+	"datapath_3", "datapath_all", "datapath_mask"
+};
+
+static const char *const cfir_profile_selection_mode[] = {
+	"direct_regmap", "direct_gpio", "trig_regmap", "trig_gpio"
+};
+
+static u32 ad9088_cfir_gain_enc(int val)
+{
+	switch (val) {
+	case 0:
+		return ADI_APOLLO_CFIR_GAIN_ZERO_DB;
+	case 6:
+		return ADI_APOLLO_CFIR_GAIN_PLUS6_DB;
+	case 12:
+		return ADI_APOLLO_CFIR_GAIN_PLUS12_DB;
+	case -18:
+		return ADI_APOLLO_CFIR_GAIN_MINUS18_DB;
+	case -12:
+		return ADI_APOLLO_CFIR_GAIN_MINUS12_DB;
+	case -6:
+		return ADI_APOLLO_CFIR_GAIN_MINUS6_DB;
+	default:
+		return ADI_APOLLO_CFIR_GAIN_ZERO_DB;
+	}
+};
+
+/**
+ * ad9088_parse_cfilt - Parse the CFIR filter configuration from a string
+ * @phy: Pointer to the ad9088_phy structure
+ * @data: Pointer to the string containing the CFIR filter configuration
+ * @size: Size of the string
+ *
+ * This function parses the CFIR filter configuration from a string and updates
+ * the ad9088_phy structure accordingly. The string should have the following
+ * format:
+ *
+ * dest: <terminal> <cfir_select> <cfir_profile> <cfir_datapath>
+ * gain: <gain_value>
+ * complex_scalar: <scalar_i> <scalar_q>
+ * bypass: <bypass_value>
+ * sparse_filt_en: <sparse_filt_en_value>
+ * 32taps_en: <32taps_en_value>
+ * coeff_transfer: <coeff_transfer_value>
+ * enable: <enable_value> <enable_profile_value>
+ * selection_mode: <selection_mode_value>
+ * <cfir_coeff0_i> <cfir_coeff0_q>
+ * <cfir_coeff1_i> <cfir_coeff1_q>
+ * ...
+ * <cfir_coeffN_i> <cfir_coeffN_q>
+ *
+ * Each line in the string represents a specific configuration parameter.
+ * The "dest" line specifies the destination terminal, CFIR select, CFIR profile,
+ * and CFIR datapath. The "gain" line specifies the gain value. The "complex_scalar"
+ * line specifies the complex scalar values. The "bypass" line specifies the bypass
+ * value. The "sparse_filt_en" line specifies the sparse filter enable value.
+ * The "32taps_en" line specifies the 32 taps enable value. The "coeff_transfer"
+ * line specifies the coefficient transfer value. The "enable" line specifies the
+ * enable value and enable profile value. The "selection_mode" line specifies the
+ * selection mode value. The <cfir_coeff_i> and <cfir_coeff_q> lines specify the
+ * CFIR coefficient values.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int ad9088_parse_cfilt(struct ad9088_phy *phy,
+			      char *data, u32 size)
+{
+	struct device *dev = &phy->spi->dev;
+	char *line;
+	int i = 0, ret, j;
+	char *ptr = data;
+	u16 cfir_coeff_i[ADI_APOLLO_CFIR_COEFF_NUM];
+	u16 cfir_coeff_q[ADI_APOLLO_CFIR_COEFF_NUM];
+	u32 val, enable;
+	s32 sval_i, sval_q, enable_profile, selection_mode, gain = 0;
+	adi_apollo_terminal_e terminal;
+	adi_apollo_cfir_sel_e cfir_sel;
+	adi_apollo_cfir_dp_sel dp_sel;
+	adi_apollo_cfir_profile_sel_e profile_sel;
+	adi_apollo_cfir_pgm_t cfir_pgm = { 0 };
+	u16 scalar_i, scalar_q;
+	u8 read_mask = 0;
+
+	while ((line = strsep(&ptr, "\n"))) {
+		if (line >= data + size)
+			break;
+
+		if (line[0] == '#') /* skip comments */
+			continue;
+
+		if (~read_mask & BIT(0)) {
+			char t[4], s[16], p[16], d[21];
+			u32 mask;
+			/* dest: rx cfir_a0 profile_1 datapath_0 */
+			ret = sscanf(line, "dest: %3s %15s %15s %20s", t, s, p, d);
+			if (ret == 4) {
+				ret = sysfs_match_string(terminals, t);
+				if (ret < 0) {
+					dev_err(dev, "dest read:%s %s %s %s", t, s, p, d);
+					goto out;
+				}
+				terminal = ret ? ADI_APOLLO_TX : ADI_APOLLO_RX;
+
+				ret = sysfs_match_string(cfir_selects, s);
+
+				if (ret < 0)
+					goto out;
+
+				switch (ret) {
+				case 0:
+					cfir_sel = ADI_APOLLO_CFIR_NONE;
+					break;
+				case 1:
+					cfir_sel = ADI_APOLLO_CFIR_A0;
+					break;
+				case 2:
+					cfir_sel = ADI_APOLLO_CFIR_A1;
+					break;
+				case 3:
+					cfir_sel = ADI_APOLLO_CFIR_B0;
+					break;
+				case 4:
+					cfir_sel = ADI_APOLLO_CFIR_B1;
+					break;
+				case 5:
+					cfir_sel = ADI_APOLLO_CFIR_ALL;
+					break;
+				case 6:
+					ret = sscanf(s, "cfir_mask%u", &mask);
+					if (ret != 1)
+						goto out;
+					cfir_sel = mask;
+					break;
+				default:
+					goto out;
+				}
+
+				ret = sysfs_match_string(cfir_profiles, p);
+				if (ret < 0) {
+					dev_err(dev, "dest read:%s %s %s %s", t, s, p, d);
+					goto out;
+				}
+				switch (ret) {
+				case 0:
+					profile_sel = ADI_APOLLO_CFIR_PROFILE_NONE;
+					break;
+				case 1:
+					profile_sel = ADI_APOLLO_CFIR_PROFILE_0;
+					break;
+				case 2:
+					profile_sel = ADI_APOLLO_CFIR_PROFILE_1;
+					break;
+				case 3:
+					profile_sel = ADI_APOLLO_CFIR_PROFILE_ALL;
+					break;
+				default:
+					goto out;
+				}
+
+				ret = sysfs_match_string(cfir_datapaths, d);
+				if (ret < 0) {
+					dev_err(dev, "dest read:%s %s %s %s", t, s, p, d);
+					goto out;
+				}
+				switch (ret) {
+				case 0:
+					dp_sel = ADI_APOLLO_CFIR_DP_NONE;
+					break;
+				case 1:
+					dp_sel = ADI_APOLLO_CFIR_DP_0;
+					break;
+				case 2:
+					dp_sel = ADI_APOLLO_CFIR_DP_1;
+					break;
+				case 3:
+					dp_sel = ADI_APOLLO_CFIR_DP_2;
+					break;
+				case 4:
+					dp_sel = ADI_APOLLO_CFIR_DP_3;
+					break;
+				case 5:
+					dp_sel = ADI_APOLLO_CFIR_DP_ALL;
+					break;
+				case 6:
+					ret = sscanf(d, "datapath_mask%u", &mask);
+					if (ret != 1)
+						goto out;
+					dp_sel = mask;
+					break;
+				default:
+					goto out;
+				}
+
+				read_mask |= BIT(0);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(1)) {
+			ret = sscanf(line, "gain: %d", &val);
+			if (ret == 1) {
+				gain = ad9088_cfir_gain_enc(val);
+				read_mask |= BIT(1);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(2)) {
+			ret = sscanf(line, "complex_scalar: %i %i", &sval_i, &sval_q);
+			if (ret == 2) {
+				scalar_i = sval_i;
+				scalar_q = sval_q;
+				read_mask |= BIT(2);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(3)) {
+			ret = sscanf(line, "bypass: %hhu", &cfir_pgm.cfir_bypass);
+			if (ret == 1) {
+				read_mask |= BIT(3);
+				continue;
+			}
+		}
+		if (~read_mask & BIT(4)) {
+			ret = sscanf(line, "sparse_filt_en: %hhu", &cfir_pgm.cfir_sparse_filt_en);
+			if (ret == 1) {
+				read_mask |= BIT(4);
+				continue;
+			}
+		}
+		if (~read_mask & BIT(5)) {
+			ret = sscanf(line, "32taps_en: %hhu", &cfir_pgm.cfir_32taps_en);
+			if (ret == 1) {
+				read_mask |= BIT(5);
+				continue;
+			}
+		}
+		if (~read_mask & BIT(6)) {
+			ret = sscanf(line, "coeff_transfer: %hhu", &cfir_pgm.cfir_coeff_transfer);
+			if (ret == 1) {
+				read_mask |= BIT(6);
+				continue;
+			}
+		}
+		if (~read_mask & BIT(6)) {
+			char p[16];
+
+			ret = sscanf(line, "enable: %u %s", &enable, p);
+			if (ret == 2) {
+				enable_profile = sysfs_match_string(cfir_profiles, p);
+				if (enable_profile < 0)
+					goto out;
+				read_mask |= BIT(6);
+				continue;
+			}
+		}
+		if (~read_mask & BIT(7)) {
+			char m[16];
+
+			ret = sscanf(line, "selection_mode: %s", m);
+			if (ret == 1) {
+				ret = sysfs_match_string(cfir_profile_selection_mode, m);
+				if (ret < 0)
+					goto out;
+
+				selection_mode = ret;
+				read_mask |= BIT(7);
+				continue;
+			}
+		}
+
+		ret = sscanf(line, "%i %i", &sval_i, &sval_q);
+		if (ret == 2) {
+			if (i >= ADI_APOLLO_CFIR_COEFF_NUM)
+				return -EINVAL;
+
+			cfir_coeff_i[i] = (u16)sval_i;
+			cfir_coeff_q[i++] = (u16)sval_q;
+			continue;
+		}
+	}
+
+	if (read_mask & BIT(0)) {
+		dev_dbg(dev, "terminal: %s\n", terminals[terminal]);
+		dev_dbg(dev, "cfir_sel: MASK 0x%X\n", cfir_sel);
+		dev_dbg(dev, "profile_sel: %s\n", cfir_profiles[profile_sel]);
+		dev_dbg(dev, "dp_sel: MASK 0x%x\n", dp_sel);
+	} else {
+		dev_err(dev, "dest: not found\n");
+		goto out;
+	}
+
+	for (j = 0; j < i; j++)
+		dev_dbg(dev, "0x%X\t0x%X\n", cfir_coeff_i[j], cfir_coeff_q[j]);
+
+	ret = adi_apollo_cfir_coeff_pgm(&phy->ad9088, terminal, cfir_sel, profile_sel, dp_sel,
+					cfir_coeff_i, cfir_coeff_q, i);
+	if (ret < 0)
+		goto out1;
+
+	if (read_mask & BIT(2)) {
+		dev_dbg(dev, "scalar_i: %d scalar_q: %d\n", scalar_i, scalar_q);
+		ret = adi_apollo_cfir_scalar_pgm(&phy->ad9088, terminal, cfir_sel, profile_sel,
+						 dp_sel, scalar_i, scalar_q);
+		if (ret < 0)
+			goto out1;
+	}
+
+	if (read_mask & BIT(1)) {
+		dev_dbg(dev, "gain: %d\n", gain);
+		ret = adi_apollo_cfir_gain_pgm(&phy->ad9088, terminal, cfir_sel, profile_sel,
+					       dp_sel, gain);
+		if (ret < 0)
+			goto out1;
+	}
+
+	if (read_mask & BIT(7)) {
+		dev_dbg(dev, "selection_mode: %d\n", selection_mode);
+		ret = adi_apollo_cfir_profile_sel_mode_set(&phy->ad9088, terminal, cfir_sel,
+							   selection_mode);
+		if (ret < 0)
+			goto out1;
+	}
+
+	ret = adi_apollo_cfir_pgm(&phy->ad9088, terminal, cfir_sel, &cfir_pgm);
+	if (ret < 0)
+		goto out1;
+
+	/* This seems to be required */
+	ret = adi_apollo_clk_mcs_dyn_sync_sequence_run(&phy->ad9088);
+	if (ret < 0)
+		goto out1;
+
+	if (read_mask & BIT(6)) {
+		u32 j;
+
+		dev_dbg(dev, "enable: %u enable_profile: %u\n", enable, enable_profile);
+		adi_apollo_cfir_profile_sel(&phy->ad9088, terminal, cfir_sel, dp_sel,
+					    enable_profile);
+		if (ret < 0)
+			goto out1;
+		ret = adi_apollo_cfir_mode_enable_set(&phy->ad9088, terminal, cfir_sel, enable);
+		if (ret < 0)
+			goto out1;
+
+		for (i = 0; i < 4; i++) {
+			if (!(cfir_sel & BIT(i)))
+				continue;
+			for (j = 0; j < 4; j++) {
+				if (!(dp_sel & BIT(j)))
+					continue;
+				phy->cfir_profile[terminal][BIT(i)][BIT(j)] = enable_profile;
+				phy->cfir_enable[terminal][BIT(i)][BIT(j)] = enable;
+			}
+		}
+	}
+
+out1:
+	if (ret != API_CMS_ERROR_OK)
+		dev_err(&phy->spi->dev, "Programming filter failed (%d)", ret);
+
+	return size;
+
+out:
+	dev_err(dev, "malformed CFir filter file detected\n");
+
+	return -EINVAL;
+}
+
+static ssize_t ad9088_cfir_bin_write(struct file *filp, struct kobject *kobj,
+				     struct bin_attribute *bin_attr,
+				     char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+
+	guard(mutex)(&phy->lock);
+
+	return ad9088_parse_cfilt(phy, buf, count);
+}
+
+static int ad9088_post_iio_register(struct iio_dev *indio_dev)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9088_phy *phy = conv->phy;
+	int ret;
+
+	sysfs_bin_attr_init(&phy->pfilt);
+	phy->pfilt.attr.name = "pfilt_config";
+	phy->pfilt.attr.mode = 0200;
+	phy->pfilt.write = ad9088_pfilt_bin_write;
+	phy->pfilt.size = 4096;
+
+	ret = device_create_bin_file(&indio_dev->dev, &phy->pfilt);
+	if (ret)
+		return ret;
+
+	sysfs_bin_attr_init(&phy->cfir);
+	phy->cfir.attr.name = "cfir_config";
+	phy->cfir.attr.mode = 0200;
+	phy->cfir.write = ad9088_cfir_bin_write;
+	phy->cfir.size = 4096;
+
+	return device_create_bin_file(&indio_dev->dev, &phy->cfir);
+}
+
+static char *ad9088_label_writer(struct ad9088_phy *phy, const struct iio_chan_spec *chan)
+{
+	u8 adcdac_num, cddc_num, fddc_num, side;
+	u32 adcdac_mask, cddc_mask, fddc_mask;
+
+	ad9088_iiochan_to_fddc_cddc_from_profile(phy, chan, &fddc_num, &fddc_mask, &cddc_num,
+						 &cddc_mask, &adcdac_num, &adcdac_mask, &side);
+
+	if (chan->output) {
+		phy->tx_chan_map[chan->address].fddc_num = fddc_num;
+		phy->tx_chan_map[chan->address].cddc_num = cddc_num;
+		phy->tx_chan_map[chan->address].adcdac_num = adcdac_num;
+		phy->tx_chan_map[chan->address].cddc_mask = cddc_mask;
+		phy->tx_chan_map[chan->address].fddc_mask = fddc_mask;
+		phy->tx_chan_map[chan->address].adcdac_mask = adcdac_mask;
+		phy->tx_chan_map[chan->address].side = side;
+
+		snprintf(phy->tx_chan_labels[chan->channel], sizeof(phy->tx_chan_labels[0]),
+			 "Side-%c:FDUC%u->CDUC%u->DAC%u", side ? 'B' : 'A', fddc_num, cddc_num,
+			 adcdac_num);
+
+		return phy->tx_chan_labels[chan->channel];
+	}
+
+	phy->rx_chan_map[chan->address].fddc_num = fddc_num;
+	phy->rx_chan_map[chan->address].cddc_num = cddc_num;
+	phy->rx_chan_map[chan->address].adcdac_num = adcdac_num;
+	phy->rx_chan_map[chan->address].cddc_mask = cddc_mask;
+	phy->rx_chan_map[chan->address].fddc_mask = fddc_mask;
+	phy->rx_chan_map[chan->address].adcdac_mask = adcdac_mask;
+	phy->rx_chan_map[chan->address].side = side;
+
+	snprintf(phy->rx_chan_labels[chan->channel], sizeof(phy->rx_chan_labels[0]),
+		 "Side-%c:FDDC%u->CDDC%u->ADC%u", side ? 'B' : 'A', fddc_num, cddc_num, adcdac_num);
+
+	return phy->rx_chan_labels[chan->channel];
+}
+
+static int ad9088_setup_chip_info_tbl(struct ad9088_phy *phy,
+				      bool complex_rx, bool complex_tx, bool buffer_capable)
+{
+	struct device *dev = &phy->spi->dev;
+	int i, c, m, s, l, total_rx_channels;
+
+	for (m = 0, s = 0; s < ADI_APOLLO_NUM_SIDES; s++)
+		for (l = 0; l < ADI_APOLLO_JESD_LINKS; l++)
+			if (phy->profile.jtx[s].tx_link_cfg[l].link_in_use)
+				m += phy->profile.jtx[s].tx_link_cfg[l].m_minus1 + 1;
+
+	total_rx_channels = m * phy->multidevice_instance_count;
+
+	if (total_rx_channels > MAX_NUM_REMAP_CHANNELS)
+		return dev_err_probe(dev, -EINVAL, "Too many RX channels (%d > %d)\n",
+				     total_rx_channels, MAX_NUM_REMAP_CHANNELS);
+
+	phy->rx_labels = devm_kcalloc(dev, total_rx_channels,
+				      sizeof(*phy->rx_labels), GFP_KERNEL);
+	if (!phy->rx_labels)
+		return -ENOMEM;
+
+	for (c = 0, i = 0; i < total_rx_channels; i++, c++) {
+		s8 remap_idx = phy->rx_iio_to_phy_remap[i];
+		int scan_idx;
+
+		phy->chip_info.channel[c].type = IIO_VOLTAGE;
+		phy->chip_info.channel[c].output = 0;
+		phy->chip_info.channel[c].indexed = 1;
+		phy->chip_info.channel[c].modified = complex_rx ? 1 : 0;
+		phy->chip_info.channel[c].channel = complex_rx ? i / 2 : i;
+		phy->chip_info.channel[c].channel2 =
+			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
+
+		/*
+		 * Apply IIO-to-PHY remapping to scan_index for lane swap compensation.
+		 * When remap is configured, the scan_index (DMA buffer position) is
+		 * remapped so that the IIO channel's data buffer matches the physical
+		 * channel that its control attributes operate on.
+		 */
+		if (remap_idx >= 0 && remap_idx < total_rx_channels)
+			scan_idx = remap_idx;
+		else
+			scan_idx = i;
+
+		phy->chip_info.channel[c].scan_index = buffer_capable ? scan_idx : -1;
+
+		if (phy->side_b_use_own_tpl_en &&
+		    (i >= ((phy->profile.jtx[0].tx_link_cfg[0].m_minus1 + 1) *
+			   phy->multidevice_instance_count)))
+			phy->chip_info.channel[c].scan_index = -1;
+
+		phy->chip_info.channel[c].address = i;
+		phy->chip_info.channel[c].info_mask_shared_by_type =
+			BIT(IIO_CHAN_INFO_SAMP_FREQ);
+
+		phy->chip_info.channel[c].scan_type.realbits =
+			phy->profile.jtx[0].tx_link_cfg[0].n_minus1 + 1;
+		phy->chip_info.channel[c].scan_type.storagebits =
+			(phy->profile.jtx[0].tx_link_cfg[0].np_minus1 + 1 > 8) ? 16 : 8;
+		phy->chip_info.channel[c].scan_type.sign = 's';
+
+		if (i < m) {
+			phy->chip_info.channel[c].ext_info = rxadc_ext_info;
+			phy->chip_info.channel[c].info_mask_separate =
+				BIT(IIO_CHAN_INFO_ENABLE);
+			phy->rx_labels[phy->chip_info.channel[c].channel] =
+				ad9088_label_writer(phy, &phy->chip_info.channel[c]);
+		} else {
+			phy->rx_labels[phy->chip_info.channel[c].channel] = "buffer_only";
+		}
+	}
+
+	for (m = 0, s = 0; s < ADI_APOLLO_NUM_SIDES; s++)
+		for (l = 0; l < ADI_APOLLO_JESD_LINKS; l++)
+			if (phy->profile.jrx[s].rx_link_cfg[l].link_in_use)
+				m += phy->profile.jrx[s].rx_link_cfg[l].m_minus1 + 1;
+
+	phy->tx_labels = devm_kcalloc(&phy->spi->dev, m,
+				      sizeof(*phy->tx_labels), GFP_KERNEL);
+	if (!phy->tx_labels)
+		return -ENOMEM;
+
+	for (i = 0; i < m; i++, c++) {
+		phy->chip_info.channel[c].type = IIO_VOLTAGE;
+		phy->chip_info.channel[c].output = 1;
+		phy->chip_info.channel[c].indexed = 1;
+		phy->chip_info.channel[c].modified = complex_tx ? 1 : 0;
+		phy->chip_info.channel[c].channel = complex_tx ? i / 2 : i;
+		phy->chip_info.channel[c].channel2 =
+			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
+		phy->chip_info.channel[c].scan_index = -1;
+		phy->chip_info.channel[c].address = i;
+		phy->chip_info.channel[c].info_mask_shared_by_type =
+			BIT(IIO_CHAN_INFO_SAMP_FREQ);
+
+		phy->chip_info.channel[c].info_mask_separate =
+			BIT(IIO_CHAN_INFO_ENABLE);
+
+		phy->chip_info.channel[c].ext_info = txdac_ext_info;
+		phy->tx_labels[phy->chip_info.channel[c].channel] =
+			ad9088_label_writer(phy, &phy->chip_info.channel[c]);
+	}
+
+	phy->chip_info.channel[c].type = IIO_TEMP;
+	phy->chip_info.channel[c].indexed = 1;
+	phy->chip_info.channel[c].info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED);
+	phy->chip_info.channel[c].scan_index = -1;
+	phy->chip_info.channel[c].ext_info = NULL;
+	c++;
+
+	phy->chip_info.num_channels = c;
+	phy->chip_info.name = "AD9088";
+	phy->chip_info.max_rate = 28000000UL; /* kHZ and not used */
+
+	return 0;
+}
+
+static const struct iio_info ad9088_iio_info = {
+	.read_raw = &ad9088_read_raw,
+	.write_raw = &ad9088_write_raw,
+	.read_label = &ad9088_read_label,
+	.debugfs_reg_access = &ad9088_reg_access,
+	.attrs = &ad9088_phy_attribute_group,
+};
+
+static int ad9088_register_iiodev(struct axiadc_converter *conv)
+{
+	struct iio_dev *indio_dev;
+	struct spi_device *spi = conv->spi;
+	struct ad9088_phy *phy = conv->phy;
+	int ret;
+
+	indio_dev = devm_iio_device_alloc(&spi->dev, 0);
+	if (!indio_dev)
+		return -ENOMEM;
+
+	iio_device_set_drvdata(indio_dev, conv);
+
+	indio_dev->name = spi_get_device_id(spi)->name;
+	indio_dev->info = &ad9088_iio_info;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = phy->chip_info.channel;
+	indio_dev->num_channels = phy->chip_info.num_channels;
+
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
+	if (ret)
+		return ret;
+
+	ad9088_post_iio_register(indio_dev);
+
+	conv->indio_dev = indio_dev;
+
+	return 0;
+}
+
+static int ad9088_version_info(struct ad9088_phy *phy)
+{
+	adi_apollo_mailbox_resp_get_fw_version_t fw_ver;
+	adi_apollo_mailbox_cmd_ping_t ping_cmd;
+	adi_apollo_mailbox_resp_ping_t ping_resp;
+	adi_apollo_device_t *device =  &phy->ad9088;
+	int ret;
+	u16 maj, min, rc;
+
+	ret = adi_apollo_device_api_revision_get(device, &maj, &min, &rc);
+	if (ret) {
+		dev_err(&phy->spi->dev, "API revision get error (%d)\n", ret);
+		return ret;
+	}
+
+	dev_info(&phy->spi->dev, "API ver: %d.%d.%d\n", maj, min, rc);
+
+	ret = adi_apollo_mailbox_ready_check(device);
+	if (ret) {
+		dev_err(&phy->spi->dev, "Mailbox Ready error (%d)\n", ret);
+		if (ret != APOLLO_CPU_SYSTEM_AHB_COMMON_INVALID_ERROR)
+			return ret;
+	}
+
+	ping_cmd.echo_data = 0x00000000; /* Ping core 1 (echo_data < 0x10000000, increment by 1) */
+	ret = adi_apollo_mailbox_ping(device, &ping_cmd, &ping_resp);
+	if (ret) {
+		dev_err(&phy->spi->dev, "Mailbox ping error (%d)\n", ret);
+		return ret;
+	}
+
+	dev_info(&phy->spi->dev, "Ping (core 1) cmd/res: 0x%08x/0x%08x\n",
+		 ping_cmd.echo_data, ping_resp.echo_data);
+
+	ping_cmd.echo_data = 0x12345678; /* Ping core 0 (echo_data >= 0x10000000, increment by 2) */
+	ret = adi_apollo_mailbox_ping(device, &ping_cmd, &ping_resp);
+	if (ret) {
+		dev_err(&phy->spi->dev, "Mailbox ping error (%d)\n", ret);
+		return ret;
+	}
+
+	dev_info(&phy->spi->dev, "Ping (core 0) cmd/res: 0x%08x/0x%08x\n",
+		 ping_cmd.echo_data, ping_resp.echo_data);
+
+	ret = adi_apollo_mailbox_get_fw_version(device, &fw_ver);
+	if (ret) {
+		dev_err(&phy->spi->dev, "Mailbox fw error (%d)\n", ret);
+		return ret;
+	}
+
+	dev_info(&phy->spi->dev, "FW ver: %d.%d.%d\n", fw_ver.major, fw_ver.minor, fw_ver.patch);
+
+	return ret;
+}
+
+int ad9088_inspect_jrx_link_all(struct ad9088_phy *phy)
+{
+	int err;
+	adi_apollo_device_t *device =  &phy->ad9088;
+	adi_apollo_jesd_rx_inspect_t jrx_status;
+	u16 links_to_inspect[] = {
+		ADI_APOLLO_LINK_A0, ADI_APOLLO_LINK_A1,
+		ADI_APOLLO_LINK_B0, ADI_APOLLO_LINK_B1
+	};
+	const char * const links_to_inspect_str[] = { "A0", "A1", "B0", "B1" };
+	int i, l;
+	u8 phys_lane;
+
+	phy->jrx_lanes_used = 0;
+
+	for (l = 0; l < ARRAY_SIZE(links_to_inspect); l++) {
+		err = adi_apollo_jrx_link_inspect(device, links_to_inspect[l], &jrx_status);
+		err = ad9088_check_apollo_error(&phy->spi->dev, err, "adi_apollo_jrx_link_inspect");
+		if (err)
+			return err;
+
+		dev_info(&phy->spi->dev, "JRX ADI_APOLLO_LINK_%s: L=%2d M=%2d F=%2d S=%2d Np=%2d CS=%2d link_en= %-8s\n",
+			 links_to_inspect_str[l],
+			 jrx_status.l_minus1 + 1,
+			 jrx_status.m_minus1 + 1,
+			 jrx_status.f_minus1 + 1,
+			 jrx_status.s_minus1 + 1,
+			 jrx_status.np_minus1 + 1,
+			 jrx_status.cs,
+			 jrx_status.link_en ? "Enabled" : "Disabled");
+
+		if (jrx_status.link_en)
+			for (i = 0; i < jrx_status.l_minus1 + 1; i++) {
+				phys_lane = phy->profile.jrx[(l / 2) & 1].rx_link_cfg[(l % 2) & 1].lane_xbar[i];
+				phy->jrx_lanes[phy->jrx_lanes_used++] = phys_lane + (((l / 2) & 1) * 12);
+			}
+	}
+
+	return API_CMS_ERROR_OK;
+}
+
+int ad9088_inspect_jtx_link_all(struct ad9088_phy *phy)
+{
+	int err;
+	adi_apollo_device_t *device =  &phy->ad9088;
+	adi_apollo_jesd_tx_inspect_t jtx_status;
+	u16 links_to_inspect[] = {
+		ADI_APOLLO_LINK_A0, ADI_APOLLO_LINK_A1,
+		ADI_APOLLO_LINK_B0, ADI_APOLLO_LINK_B1
+	};
+	const char * const links_to_inspect_str[] = { "A0", "A1", "B0", "B1" };
+	int l;
+
+	for (l = 0; l < ARRAY_SIZE(links_to_inspect); l++) {
+		err = adi_apollo_jtx_link_inspect(device, links_to_inspect[l], &jtx_status);
+		err = ad9088_check_apollo_error(&phy->spi->dev, err, "adi_apollo_jtx_link_inspect");
+		if (err)
+			return err;
+
+		dev_info(&phy->spi->dev, "JTX ADI_APOLLO_LINK_%s: L=%2d M=%2d F=%2d S=%2d Np=%2d CS=%2d link_en= %-8s\n",
+			 links_to_inspect_str[l],
+			 jtx_status.l_minus1 + 1,
+			 jtx_status.m_minus1 + 1,
+			 jtx_status.f_minus1 + 1,
+			 jtx_status.s_minus1 + 1,
+			 jtx_status.np_minus1 + 1,
+			 jtx_status.cs,
+			 jtx_status.link_en ? "Enabled" : "Disabled");
+	}
+
+	return API_CMS_ERROR_OK;
+}
+
+static int ad9088_setup(struct ad9088_phy *phy)
+{
+	adi_apollo_top_t *profile = &phy->profile;
+	struct spi_device *spi = phy->spi;
+	adi_apollo_device_t *device = &phy->ad9088;
+	u64 sample_rate;
+	int ret;
+
+	ret = adi_apollo_adc_mode_switch_enable_set(device, 1);
+	ret = ad9088_check_apollo_error(&spi->dev, ret, "adi_apollo_adc_mode_switch_enable_set");
+	if (ret)
+		return ret;
+
+	ret = adi_apollo_startup_execute(device, profile, ADI_APOLLO_STARTUP_SEQ_DEFAULT);
+	ret = ad9088_check_apollo_error(&spi->dev, ret, "adi_apollo_startup_execute");
+	if (ret)
+		return dev_err_probe(&spi->dev, ret,
+				     "Failed to execute startup sequence\n");
+
+	/* Display API and Firmware revision */
+	ret = ad9088_version_info(phy);
+	if (ret)
+		return dev_err_probe(&spi->dev, ret,
+				     "Error displaying version info. This may indicate device clock is incorrect\n");
+
+	if (phy->sniffer_en) {
+		ret = adi_apollo_sniffer_enable_set(device, ADI_APOLLO_SIDE_ALL, ADI_APOLLO_ENABLE);
+		ret = ad9088_check_apollo_error(&spi->dev, ret,
+						"adi_apollo_sniffer_enable_set");
+		if (ret)
+			return dev_err_probe(&spi->dev, ret, "Failed to enable sniffer\n");
+	}
+
+	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_config[0].dac_sampling_rate_Hz,
+					    phy->profile.jrx[0].rx_link_cfg[0].link_total_ratio);
+	clk_set_rate_scaled(phy->clks[TX_SAMPL_CLK], sample_rate,
+			    &phy->clkscale[TX_SAMPL_CLK]);
+
+	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->profile.adc_config[0].adc_sampling_rate_Hz,
+					    phy->profile.jtx[0].tx_link_cfg[0].link_total_ratio);
+	clk_set_rate_scaled(phy->clks[RX_SAMPL_CLK], sample_rate,
+			    &phy->clkscale[RX_SAMPL_CLK]);
+
+	return 0;
+}
+
+int ad9088_iio_write_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
+				      const char *ext_name, long long val)
+{
+	ssize_t size;
+	char str[16];
+
+	snprintf(str, sizeof(str), "%lld\n", val);
+
+	size = iio_write_channel_ext_info(chan, ext_name, str, sizeof(str));
+	if (size != sizeof(str)) {
+		dev_err(&phy->spi->dev, "%s: Failed to write channel ext info\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int ad9088_iio_read_channel_ext_info(struct ad9088_phy *phy, struct iio_channel *chan,
+				     const char *ext_name, long long *val)
+{
+	ssize_t size;
+	int ret;
+
+	char *str __free(kfree) = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!str)
+		return -ENOMEM;
+
+	size = iio_read_channel_ext_info(chan, ext_name, str);
+	if (size < 0) {
+		dev_err(&phy->spi->dev, "%s: Failed to read channel ext info\n", __func__);
+		return size;
+	}
+
+	ret = kstrtoll(str, 10, val);
+	if (ret) {
+		dev_err(&phy->spi->dev, "%s: Failed to parse value\n", __func__);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int ad9088_reg_test(adi_apollo_device_t *device)
+{
+	s32 err;
+	u32 i, data32;
+	u8 data8, stat;
+	adi_apollo_hal_protocol_e protocol;
+	const u32 direct_addr[] = { 0x4700000a, 0x4700000a, 0x47000200, 0x47000200 };
+	const u8  direct_data[] = { 0x55,       0xaa,       0xcc,       0x33 };
+	u32 indirect_addr[] = {
+		INDIRECT_REG_TEST_ADDR + 0, INDIRECT_REG_TEST_ADDR + 1,
+		INDIRECT_REG_TEST_ADDR + 2, INDIRECT_REG_TEST_ADDR + 3
+	}; /* indirect register address */
+	const u8  indirect_data[] = { 0x12, 0x34, 0x56, 0x78 };
+
+	u32 arm_addr[] = {
+		ARM_REG_TEST_BASE_ADDR + 0, ARM_REG_TEST_BASE_ADDR + 4,
+		ARM_REG_TEST_BASE_ADDR + 8, ARM_REG_TEST_BASE_ADDR + 12
+	}; /* ARM core1 register addresses */
+	const u32 arm_data[] = { 0x55aa55aa, 0xdeadbeef, 0xbeefdead, 0xaa55aa55 };
+
+	adi_apollo_hal_active_protocol_get(device, &protocol);
+
+	/* Direct register SPI scratch loop rd/wr test */
+	stat = 0;
+	for (i = 0; i < ARRAY_SIZE(direct_addr); i++) {
+		if ((protocol == ADI_APOLLO_HAL_PROTOCOL_HSCI) && (direct_addr[i] <= 0x4700000Fu))
+			continue;
+
+		err = adi_apollo_hal_reg_set(device, direct_addr[i], direct_data[i]);
+		if (err != API_CMS_ERROR_OK)
+			return err;
+
+		err = adi_apollo_hal_reg_get(device, direct_addr[i], &data8);
+		if (err != API_CMS_ERROR_OK)
+			return err;
+
+		if (data8 != direct_data[i]) {
+			pr_err("data8 0x%X != direct_data[i] 0x%X\n", data8, direct_data[i]);
+			stat = 1;
+		}
+	}
+
+	pr_err("Test direct register %s\n", (stat == 0) ? "Passed" : "*** FAILED ***");
+	if (stat != 0)
+		return API_CMS_ERROR_ERROR;
+
+	/* Indirect register SPI loop rd/wr test */
+	stat = 0;
+	for (i = 0; i < ARRAY_SIZE(indirect_addr); i++) {
+		err = adi_apollo_hal_reg_set(device, indirect_addr[i], indirect_data[i]);
+		if (err != API_CMS_ERROR_OK)
+			return err;
+
+		err = adi_apollo_hal_reg_get(device, indirect_addr[i], &data8);
+		if (err != API_CMS_ERROR_OK)
+			return err;
+
+		if (data8 != indirect_data[i]) {
+			pr_err("Test indirect register 0x%X - 0x%X\n", data8, indirect_data[i]);
+			stat = 1;
+		}
+	}
+
+	pr_err("Test indirect register %s\n", (stat == 0) ? "Passed" : "*** FAILED ***");
+	if (stat != 0)
+		return API_CMS_ERROR_ERROR;
+
+	/* 32-bit ARM mem rd/wr test */
+	stat = 0;
+	for (i = 0; i < ARRAY_SIZE(arm_addr); i++) {
+		err = adi_apollo_hal_reg32_set(device, arm_addr[i], arm_data[i]);
+		if (err != API_CMS_ERROR_OK)
+			return err;
+
+		err = adi_apollo_hal_reg32_get(device, arm_addr[i], &data32);
+		if (err != API_CMS_ERROR_OK)
+			return err;
+
+		if (data32 != arm_data[i]) {
+			pr_err("Test ARM memory 0x%X - 0x%X\n", data32, arm_data[i]);
+			stat = 1;
+		} else {
+			stat = 0;
+		}
+	}
+
+	pr_err("Test ARM memory %s\n", (stat == 0) ? "Passed" : "*** FAILED ***");
+	if (stat != 0)
+		return API_CMS_ERROR_ERROR;
+
+	return API_CMS_ERROR_OK;
+}
+
+static int ad9088_hsci_manual_linkup(void *user_data, uint8_t enable, uint16_t link_up_signal_bits)
+{
+	struct axiadc_converter *conv = user_data;
+	struct ad9088_phy *phy = conv->phy;
+
+	dev_dbg(&phy->spi->dev, "%s:%d\n", __func__, __LINE__);
+
+	return axi_hsci_manual_linkup(phy->hsci, enable, link_up_signal_bits);
+}
+
+static int ad9088_hsci_auto_linkup(void *user_data, uint8_t enable, uint8_t hscim_mosi_clk_inv,
+				   uint8_t hscim_miso_clk_inv)
+{
+	struct axiadc_converter *conv = user_data;
+	struct ad9088_phy *phy = conv->phy;
+
+	dev_dbg(&phy->spi->dev, "%s:%d\n", __func__, __LINE__);
+
+	return axi_hsci_auto_linkup(phy->hsci, enable, hscim_mosi_clk_inv, hscim_miso_clk_inv);
+}
+
+static int ad9088_hsci_alink_tbl_get(void *user_data, uint16_t *hscim_alink_table)
+{
+	struct axiadc_converter *conv = user_data;
+	struct ad9088_phy *phy = conv->phy;
+
+	dev_dbg(&phy->spi->dev, "%s:%d\n", __func__, __LINE__);
+
+	return axi_hsci_alink_tbl_get(phy->hsci, hscim_alink_table);
+}
+
+static int ad9088_hsci_read(void *user_data, const u8 *tx_data, u8 *rx_data, u32 num_tx_rx_bytes,
+			    adi_apollo_hal_txn_config_t *txn_config)
+{
+	struct axiadc_converter *conv = user_data;
+	struct ad9088_phy *phy = conv->phy;
+	int ret;
+
+	dev_dbg(&phy->spi->dev, "%s:%d\n", __func__, __LINE__);
+
+	ret = axi_hsci_readm(phy->hsci, tx_data, rx_data, num_tx_rx_bytes,
+			     txn_config->addr_len, txn_config->data_len, txn_config->stream_len);
+
+	return ret;
+}
+
+static int ad9088_hsci_write(void *user_data, const u8 *tx_data, u32 num_tx_bytes,
+			     adi_apollo_hal_txn_config_t *txn_config)
+{
+	struct axiadc_converter *conv = user_data;
+	struct ad9088_phy *phy = conv->phy;
+	int ret;
+
+	dev_dbg(&phy->spi->dev, "%s:%d\n", __func__, __LINE__);
+
+	ret = axi_hsci_writem(phy->hsci, tx_data, num_tx_bytes,
+			      txn_config->addr_len, txn_config->data_len, txn_config->stream_len);
+
+	return ret;
+}
+
+static void ad9088_hw_close(void *ad9088)
+{
+	adi_apollo_hal_hw_close(ad9088);
+}
+
+static int ad9088_input_gpio(struct gpio_chip *chip, unsigned int offset)
+{
+	struct ad9088_phy *phy = gpiochip_get_data(chip);
+
+	guard(mutex)(&phy->lock);
+
+	return adi_apollo_gpio_cmos_gpio_mode_set(&phy->ad9088, phy->gpios_exported[offset],
+						  ADI_APOLLO_GPIO_DIR_INPUT);
+}
+
+static int ad9088_output_gpio(struct gpio_chip *chip,
+			      unsigned int offset, int value)
+{
+	struct ad9088_phy *phy = gpiochip_get_data(chip);
+	int ret;
+
+	guard(mutex)(&phy->lock);
+
+	ret = adi_apollo_gpio_cmos_output_set(&phy->ad9088, phy->gpios_exported[offset], value);
+	if (ret < 0)
+		return ret;
+
+	return adi_apollo_gpio_cmos_gpio_mode_set(&phy->ad9088, phy->gpios_exported[offset],
+						  ADI_APOLLO_GPIO_DIR_OUTPUT);
+}
+
+static int ad9088_get_gpio(struct gpio_chip *chip, unsigned int offset)
+{
+	struct ad9088_phy *phy = gpiochip_get_data(chip);
+	u8 val;
+	int ret;
+
+	guard(mutex)(&phy->lock);
+
+	ret = adi_apollo_gpio_cmos_input_get(&phy->ad9088, phy->gpios_exported[offset], &val);
+	if (ret < 0)
+		return ret;
+
+	return !!val;
+}
+
+static void ad9088_set_gpio(struct gpio_chip *chip, unsigned int offset, int value)
+{
+	struct ad9088_phy *phy = gpiochip_get_data(chip);
+
+	guard(mutex)(&phy->lock);
+
+	adi_apollo_gpio_cmos_output_set(&phy->ad9088, phy->gpios_exported[offset], value);
+}
+
+static int ad9088_gpio_setup(struct ad9088_phy *phy)
+{
+	int ret, len;
+
+	len = device_property_count_u8(&phy->spi->dev, "adi,gpio-exports");
+	if (len <= 0)
+		return 0;
+	if (len >= ARRAY_SIZE(phy->gpios_exported))
+		return -EINVAL;
+
+	ret = device_property_read_u8_array(&phy->spi->dev, "adi,gpio-exports",
+					    phy->gpios_exported, len);
+	if (ret < 0)
+		return ret;
+
+	phy->gpiochip.label = "ad9088";
+	phy->gpiochip.base = -1;
+	phy->gpiochip.ngpio = len;
+	phy->gpiochip.parent = &phy->spi->dev;
+	phy->gpiochip.can_sleep = true;
+	phy->gpiochip.direction_input = ad9088_input_gpio;
+	phy->gpiochip.direction_output = ad9088_output_gpio;
+	phy->gpiochip.get = ad9088_get_gpio;
+	phy->gpiochip.set = ad9088_set_gpio;
+
+	return devm_gpiochip_add_data(&phy->spi->dev, &phy->gpiochip, phy);
+}
+
+static int ad9088_fw_provider_close(adi_apollo_fw_provider_t *obj, adi_apollo_startup_fw_id_e fw_id)
+{
+	struct ad9088_phy *phy = (struct ad9088_phy *)obj->tag;
+
+	release_firmware(phy->fw);
+
+	return 0;
+}
+
+static int ad9088_fw_provider_get(adi_apollo_fw_provider_t *obj,
+				  adi_apollo_startup_fw_id_e fw_id,
+				  u8 **byte_arr, uint32_t *bytes_read)
+{
+	struct ad9088_phy *phy = (struct ad9088_phy *)obj->tag;
+	struct device *dev = &phy->spi->dev;
+	int ret;
+
+	static const char *fw_file[ADI_APOLLO_FW_ID_MAX] = {
+		"APOLLO_FW_CPU0_B.bin",
+		"APOLLO_FW_CPU1_B.bin",
+
+		"app_signed_encrypted_B/flash_image_0x01030000.bin",
+		"app_signed_encrypted_B/flash_image_0x20000000.bin",
+		"app_signed_encrypted_B/flash_image_0x02000000.bin",
+		"app_signed_encrypted_B/flash_image_0x21000000.bin",
+
+		"app_signed_encrypted_prod_B/flash_image_0x01030000.bin",
+		"app_signed_encrypted_prod_B/flash_image_0x20000000.bin",
+		"app_signed_encrypted_prod_B/flash_image_0x02000000.bin",
+		"app_signed_encrypted_prod_B/flash_image_0x21000000.bin"
+	};
+
+	ret = request_firmware(&phy->fw, fw_file[fw_id], dev);
+	if (ret) {
+		dev_err(dev, "request_firmware() failed with %d\n", ret);
+		return ret;
+	}
+
+	*byte_arr = (u8 *)phy->fw->data;
+	*bytes_read = phy->fw->size;
+
+	return 0;
+}
+
+static int ad9088_probe(struct spi_device *spi)
+{
+	struct clock_scale devclk_clkscale;
+	struct ad9088_jesd204_priv *priv;
+	struct axiadc_converter *conv;
+	struct jesd204_dev *jdev;
+	struct gpio_desc *reset;
+	struct ad9088_phy *phy;
+	struct clk *dev_clk;
+	u16 api_rev[3];
+	int ret;
+
+	jdev = devm_jesd204_dev_register(&spi->dev, &jesd204_ad9088_init);
+	if (IS_ERR(jdev))
+		return PTR_ERR(jdev);
+	if (!jdev)
+		return dev_err_probe(&spi->dev, -ENODEV, "Failed to register jesd204-fsm device");
+
+	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
+	if (!conv)
+		return -ENOMEM;
+
+	phy = devm_kzalloc(&spi->dev, sizeof(*phy), GFP_KERNEL);
+	if (!phy)
+		return -ENOMEM;
+
+	phy->hsci = devm_axi_hsci_get_optional(&spi->dev);
+	if (IS_ERR(phy->hsci))
+		return PTR_ERR(phy->hsci);
+
+	conv->adc_clkscale.mult = 1;
+	conv->adc_clkscale.div = 1;
+
+	spi_set_drvdata(spi, conv);
+	conv->spi = spi;
+	conv->phy = phy;
+	phy->spi = spi;
+	phy->jdev = jdev;
+	priv = jesd204_dev_priv(jdev);
+	priv->phy = phy;
+
+	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(conv->reset_gpio))
+		return PTR_ERR(conv->reset_gpio);
+
+	phy->rx1_en_gpio = devm_gpiod_get_optional(&spi->dev, "rx1-enable", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->rx1_en_gpio))
+		return PTR_ERR(phy->rx1_en_gpio);
+
+	phy->rx2_en_gpio = devm_gpiod_get_optional(&spi->dev, "rx2-enable", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->rx2_en_gpio))
+		return PTR_ERR(phy->rx2_en_gpio);
+
+	phy->tx1_en_gpio = devm_gpiod_get_optional(&spi->dev, "tx1-enable", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->tx1_en_gpio))
+		return PTR_ERR(phy->tx1_en_gpio);
+
+	phy->tx2_en_gpio = devm_gpiod_get_optional(&spi->dev, "tx2-enable", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->tx2_en_gpio))
+		return PTR_ERR(phy->tx2_en_gpio);
+
+	phy->triq_req_gpio = devm_gpiod_get_optional(&spi->dev, "trig-req", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->triq_req_gpio))
+		return PTR_ERR(phy->triq_req_gpio);
+
+	reset = devm_gpiod_get_optional(&spi->dev, "versal-transceiver-reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(reset))
+		return PTR_ERR(reset);
+
+	ret = ad9088_iio_get_optional_channel(phy, &phy->iio_adf4030, "bsync");
+	if (ret)
+		return ret;
+
+	ret = ad9088_iio_get_optional_channel(phy, &phy->iio_adf4382, "clk");
+	if (ret)
+		return ret;
+
+	ret = devm_mutex_init(&spi->dev, &phy->lock);
+	if (ret)
+		return ret;
+
+	ret = ad9088_parse_dt(phy);
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "Parsing devicetree failed\n");
+
+	ret = devm_regulator_get_enable(&spi->dev, "vdd");
+	if (ret)
+		return dev_err_probe(&spi->dev, ret,
+				     "failed to get the vdd supply regulator\n");
+
+	of_clk_get_scale(spi->dev.of_node, "dev_clk", &devclk_clkscale);
+
+	dev_clk = devm_clk_get_enabled(&conv->spi->dev, "dev_clk");
+	if (IS_ERR(dev_clk))
+		return PTR_ERR(dev_clk);
+
+	clk_set_rate_scaled(dev_clk, (u64)phy->profile.clk_cfg.dev_clk_freq_kHz * 1000,
+			    &devclk_clkscale);
+
+	phy->ad9088.hal_info.spi0_desc.spi_config.sdo = (spi->mode & SPI_3WIRE || phy->spi_3wire_en) ?
+							ADI_APOLLO_DEVICE_SPI_SDIO :
+							ADI_APOLLO_DEVICE_SPI_SDO;
+	phy->ad9088.hal_info.spi0_desc.spi_config.msb = (spi->mode & SPI_LSB_FIRST) ?
+							ADI_APOLLO_DEVICE_SPI_MSB_LAST :
+							ADI_APOLLO_DEVICE_SPI_MSB_FIRST;
+	phy->ad9088.hal_info.spi0_desc.spi_config.addr_inc = ADI_APOLLO_DEVICE_SPI_ADDR_INC_AUTO;
+
+	phy->ad9088.hal_info.spi0_desc.is_used = 1;
+	phy->ad9088.hal_info.spi0_desc.dev_obj = conv;
+	phy->ad9088.hal_info.user_data = conv;
+	phy->ad9088.hal_info.delay_us = ad9088_udelay;
+	phy->ad9088.hal_info.spi0_desc.read = ad9088_spi_read;
+	phy->ad9088.hal_info.spi0_desc.write = ad9088_spi_write;
+	phy->ad9088.hal_info.spi0_desc.xfer = ad9088_spi_xfer;
+	phy->ad9088.hal_info.reset_pin_ctrl = ad9088_reset_pin_ctrl;
+	phy->ad9088.hal_info.log_write = ad9088_log_write;
+
+	phy->fw_provider.desc = "Linux Firmware Provider";
+	phy->fw_provider.tag = phy;
+
+	phy->ad9088.startup_info.get = ad9088_fw_provider_get;
+	phy->ad9088.startup_info.close = ad9088_fw_provider_close;
+	phy->ad9088.startup_info.open = NULL;
+	phy->ad9088.startup_info.fw_provider = &phy->fw_provider;
+
+	if (phy->hsci) {
+		phy->ad9088.hal_info.hsci_desc.is_used = 1;
+		phy->ad9088.hal_info.hsci_desc.dev_obj = conv;
+		phy->ad9088.hal_info.hsci_desc.hsci_config.auto_linkup_en = phy->hsci_use_auto_linkup_mode;
+		phy->ad9088.hal_info.hsci_desc.hsci_config.addr_inc = ADI_APOLLO_DEVICE_HSCI_ADDR_INC_AUTO;
+		phy->ad9088.hal_info.hsci_desc.manual_linkup = &ad9088_hsci_manual_linkup;
+		phy->ad9088.hal_info.hsci_desc.auto_linkup = &ad9088_hsci_auto_linkup;
+		phy->ad9088.hal_info.hsci_desc.alink_tbl_get = &ad9088_hsci_alink_tbl_get;
+		phy->ad9088.hal_info.hsci_desc.read = &ad9088_hsci_read;
+		phy->ad9088.hal_info.hsci_desc.write = &ad9088_hsci_write;
+		phy->ad9088.hal_info.hsci_desc.poll_read = NULL;
+		phy->ad9088.hal_info.hsci_desc.buff = phy->hsci_buf;
+		phy->ad9088.hal_info.hsci_desc.buff_len = sizeof(phy->hsci_buf);
+	}
+
+	ret = adi_apollo_device_hw_open(&phy->ad9088,
+					conv->reset_gpio ? ADI_APOLLO_HARD_RESET_AND_INIT :
+					ADI_APOLLO_SOFT_RESET_AND_INIT);
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "reset/init failed\n");
+
+	ret = adi_apollo_hal_active_protocol_set(&phy->ad9088, ADI_APOLLO_HAL_PROTOCOL_SPI0);
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "SPI active protocol set failed\n");
+
+	ret = adi_apollo_hal_rmw_enable_set(&phy->ad9088, ADI_APOLLO_HAL_PROTOCOL_SPI0, 0);
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "SPI rmw enable failed\n");
+
+	if (phy->hsci) {
+		ret = adi_apollo_hal_rmw_enable_set(&phy->ad9088, ADI_APOLLO_HAL_PROTOCOL_HSCI, 0);
+		if (ret < 0)
+			return dev_err_probe(&spi->dev, ret, "HSCI rmw enable  failed\n");
+
+		ret = adi_apollo_hal_active_protocol_set(&phy->ad9088,
+							 ADI_APOLLO_HAL_PROTOCOL_HSCI);
+		if (ret < 0)
+			return dev_err_probe(&spi->dev, ret, "HSCI active protocol set failed\n");
+	}
+
+	phy->clk_data = devm_kzalloc(&spi->dev, struct_size(phy->clk_data, hws, NUM_AD9088_CLKS),
+				     GFP_KERNEL);
+	if (!phy->clk_data)
+		return -ENOMEM;
+
+	ret = ad9088_clk_register(phy, "-rx_sampl_clk", __clk_get_name(dev_clk), NULL,
+				  CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, RX_SAMPL_CLK);
+	if (ret)
+		return ret;
+
+	ret = ad9088_clk_register(phy, "-tx_sampl_clk", __clk_get_name(dev_clk), NULL,
+				  CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, TX_SAMPL_CLK);
+	if (ret)
+		return ret;
+
+	ret = devm_of_clk_add_hw_provider(&spi->dev, of_clk_hw_onecell_get,  phy->clk_data);
+	if (ret)
+		return ret;
+
+	phy->loopback_mode[0] = ADI_APOLLO_LOOPBACK_NONE;
+	phy->loopback_mode[1] = ADI_APOLLO_LOOPBACK_NONE;
+	phy->lb1_blend[0] = 0;
+	phy->lb1_blend[1] = 0;
+
+	ret = ad9088_reg_test(&phy->ad9088);
+	if (ret)
+		return ret;
+
+	ret = ad9088_setup(phy);
+	if (ret) {
+		ad9088_reg_test(&phy->ad9088);
+		return ret;
+	}
+
+	ret = adi_apollo_device_chip_id_get(&phy->ad9088, &phy->chip_id);
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "chip_id failed\n");
+
+	conv->id = phy->chip_id.prod_id;
+	conv->chip_info = &phy->chip_info;
+	ret = ad9088_setup_chip_info_tbl(phy, phy->complex_rx, phy->complex_tx,
+					 jesd204_dev_is_top(jdev));
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&spi->dev, ad9088_hw_close, &phy->ad9088);
+	if (ret)
+		return ret;
+
+	conv->clk = phy->clks[RX_SAMPL_CLK];
+	conv->reg_access = ad9088_reg_access;
+	conv->write_raw = ad9088_write_raw;
+	conv->read_raw = ad9088_read_raw;
+	conv->read_label = ad9088_read_label;
+
+	conv->post_setup = ad9088_post_setup;
+	conv->post_iio_register = ad9088_post_iio_register;
+
+	conv->attrs = &ad9088_phy_attribute_group;
+
+	if (phy->standalone || !jesd204_dev_is_top(jdev)) {
+		ret = ad9088_register_iiodev(conv);
+		if (ret)
+			return ret;
+	}
+
+	ret = ad9088_request_fd_irqs(conv);
+	if (ret < 0)
+		dev_warn(&spi->dev,
+			 "Failed to request FastDetect IRQs (%d)", ret);
+
+	adi_apollo_device_api_revision_get(&phy->ad9088, &api_rev[0],
+					   &api_rev[1], &api_rev[2]);
+
+	dev_info(&spi->dev, "AD%X  Rev. %u Grade %u (API %u.%u.%u) probed\n",
+		 phy->chip_id.prod_id, phy->chip_id.dev_revision,
+		 phy->chip_id.prod_grade, api_rev[0], api_rev[1], api_rev[2]);
+
+	if (reset) {
+		ad9088_udelay(NULL, 100000);
+		gpiod_set_value_cansleep(reset, 0);
+	}
+
+	if (phy->sniffer_en) {
+		ret = ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_A);
+		if (ret)
+			return ret;
+
+		ret = ad9088_fft_sniffer_probe(phy, ADI_APOLLO_SIDE_B);
+		if (ret)
+			return ret;
+	}
+
+	ad9088_gpio_setup(phy);
+
+	return devm_jesd204_fsm_start(&spi->dev, jdev, JESD204_LINKS_ALL);
+}
+
+static const struct spi_device_id ad9088_id[] = {
+	{ "ad9084" },
+	{ "ad9088" },
+	{ }
+};
+MODULE_DEVICE_TABLE(spi, ad9088_id);
+
+static const struct of_device_id ad9088_of_match[] = {
+	{ .compatible = "adi,ad9084" },
+	{ .compatible = "adi,ad9088" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, ad9088_of_match);
+
+static struct spi_driver ad9088_driver = {
+	.driver = {
+		.name = "ad9088",
+		.of_match_table = ad9088_of_match,
+	},
+	.probe = ad9088_probe,
+	.id_table = ad9088_id,
+};
+module_spi_driver(ad9088_driver);
+
+MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
+MODULE_DESCRIPTION("Analog Devices AD9088 MxFE");
+MODULE_LICENSE("GPL");
+
