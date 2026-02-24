@@ -68,7 +68,6 @@ static struct hw_consumer_buffer *iio_hw_consumer_get_buffer(
 
 	buf->buffer.access = &iio_hw_buf_access;
 	buf->indio_dev = indio_dev;
-	buf->buffer.scan_mask = buf->scan_mask;
 
 	iio_buffer_init(&buf->buffer);
 
