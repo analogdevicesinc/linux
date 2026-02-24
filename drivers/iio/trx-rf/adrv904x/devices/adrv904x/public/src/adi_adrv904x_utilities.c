@@ -57,6 +57,10 @@
 
 #define ADI_FILE    ADI_ADRV904X_FILE_PUBLIC_UTILITIES
 
+/* Fixed-size buffers to avoid VLA in RxGainTableLoad/RxGainTableChecksumRead */
+#define LINE_BUFFER_SIZE    128U
+#define HEADER_BUFFER_SIZE  16U
+
 /*****************************************************************************/
 /***** Helper functions' prototypes ******************************************/
 /*****************************************************************************/
@@ -461,8 +465,6 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
                                                               const adi_adrv904x_RxGainTableInfo_t    rxGainTableInfo[],
                                                               const uint32_t                          rxGainTableArrSize)
 {
-        const uint8_t                   LINE_BUFFER_SIZE    = 128U;
-    const uint8_t                   HEADER_BUFFER_SIZE  = 16U;
     const uint8_t                   NUM_COLUMNS         = 5U;
     adi_adrv904x_ErrAction_e        recoveryAction      = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
     uint8_t                         arrayIndex          = 0U;
@@ -6269,8 +6271,6 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableChecksumRead(adi_adrv90
                                                                       uint32_t* const rxGainTableChecksum)
 {
         adi_adrv904x_ErrAction_e    recoveryAction      = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
-    const uint8_t               LINE_BUFFER_SIZE    = 128U;
-    const uint8_t               HEADER_BUFFER_SIZE  = 16U;
     const uint8_t               NUM_COLUMNS         = 5U;
     FILE*                       rxGainTableFilePtr  = NULL;
     char                        rxGainTableLineBuffer[LINE_BUFFER_SIZE];
