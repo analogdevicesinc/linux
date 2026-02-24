@@ -150,6 +150,7 @@ static struct cpufreq_driver sc589_cpufreq_driver = {
 	.verify = cpufreq_generic_frequency_table_verify,
 	.target_index = sc589_target_index,
 	.get = sc589_get,
+	.attr = cpufreq_generic_attr,
 };
 
 static int __init sc589_cpufreq_init(void)
