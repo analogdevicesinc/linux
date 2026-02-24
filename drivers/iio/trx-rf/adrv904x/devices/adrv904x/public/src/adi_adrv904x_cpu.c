@@ -1462,8 +1462,8 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_HealthMonitorCpuStatusGet(adi_adrv
                                                                         adi_adrv904x_HealthMonitorCpuStatus_t* const    healthMonitorStatus)
 {
         static const uint32_t CPU_HEALTH_STATUS_ADDR_MASK = 0xFFFFFFFFU;
-    const uint32_t BYTE_COUNT = sizeof(adi_adrv904x_HealthMonitorCpuStatus_t);
-    const uint32_t WORD_COUNT = ((BYTE_COUNT + 3U) / 4U);
+#define BYTE_COUNT sizeof(adi_adrv904x_HealthMonitorCpuStatus_t)
+#define WORD_COUNT (((BYTE_COUNT) + 3U) / 4U)
     uint32_t readData[WORD_COUNT];
     ADI_LIBRARY_MEMSET(readData, 0, 4U * WORD_COUNT);
 
@@ -1518,6 +1518,8 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_HealthMonitorCpuStatusGet(adi_adrv
 cleanup:
     ADI_ADRV904X_API_EXIT(&device->common, recoveryAction);
 }
+#undef WORD_COUNT
+#undef BYTE_COUNT
 
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_CpuCheckException(adi_adrv904x_Device_t* const    device,
                                                                 uint32_t* const                 isException)
