@@ -161,7 +161,11 @@ static int __init sc589_cpufreq_init(void)
 	if (ret)
 		return ret;
 
-	return cpufreq_register_driver(&sc589_cpufreq_driver);
+	ret = cpufreq_register_driver(&sc589_cpufreq_driver);
+	if (ret)
+		iounmap(cgu0_ctl);
+
+	return ret;
 }
 module_init(sc589_cpufreq_init);
 
