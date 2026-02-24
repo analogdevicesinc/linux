@@ -3021,10 +3021,10 @@ static adi_adrv904x_ErrAction_e adrv904x_CalculateCducDelayMatch(   adi_adrv904x
     uint32_t jesdClkPeriod = (1u << carrierConfigsOut->internalJesdCfg.divide);
     
     
-    uint8_t carr_num_hb[num_carr];
+    uint8_t carr_num_hb[ADI_ADRV904X_MAX_CARRIERS];
     ADI_LIBRARY_MEMSET(&carr_num_hb, 0, sizeof(carr_num_hb));
     
-    uint8_t carr_deinterleaver_slot[num_carr];
+    uint8_t carr_deinterleaver_slot[ADI_ADRV904X_MAX_CARRIERS];
     ADI_LIBRARY_MEMSET(&carr_deinterleaver_slot, 0, sizeof(carr_deinterleaver_slot));
     
     uint32_t band_clk_period[ADI_ADRV904X_NO_OF_BANDS];
@@ -3057,7 +3057,7 @@ static adi_adrv904x_ErrAction_e adrv904x_CalculateCducDelayMatch(   adi_adrv904x
 
     uint32_t deint_pipe = 3 * jesdClkPeriod;
     
-    uint32_t summer_pipe[num_carr];
+    uint32_t summer_pipe[ADI_ADRV904X_MAX_CARRIERS];
     ADI_LIBRARY_MEMSET(&summer_pipe, 0, sizeof(summer_pipe));
     
     uint32_t pre_bypass_pipe[ADI_ADRV904X_NO_OF_BANDS];
@@ -3374,10 +3374,10 @@ static adi_adrv904x_ErrAction_e adrv904x_CalculateCddcDelayMatch(   adi_adrv904x
     /* 4 for jesd_clk=245.76, 2 for jesd_clk=491.52 and so on */
     uint32_t jesdClkPeriod = (1u << carrierConfigsOut->internalJesdCfg.divide);
     
-    uint8_t carr_num_hb[num_carr];
+    uint8_t carr_num_hb[ADI_ADRV904X_MAX_CARRIERS];
     ADI_LIBRARY_MEMSET(&carr_num_hb, 0, sizeof(carr_num_hb));
     
-    uint32_t carr_interleaver_slot[num_carr];
+    uint32_t carr_interleaver_slot[ADI_ADRV904X_MAX_CARRIERS];
     ADI_LIBRARY_MEMSET(&carr_interleaver_slot, 0, sizeof(carr_interleaver_slot));
     
     uint32_t band_clk_period[ADI_ADRV904X_NO_OF_BANDS];
