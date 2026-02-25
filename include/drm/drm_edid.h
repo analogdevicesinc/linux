@@ -463,6 +463,9 @@ struct drm_display_mode *
 drm_display_mode_from_cea_vic(struct drm_device *dev,
 			      u8 video_code);
 
+struct drm_display_mode *drm_ovt_mode(struct drm_device *dev, int rid,
+				      int vrefresh);
+
 /* Interface based on struct drm_edid */
 const struct drm_edid *drm_edid_alloc(const void *edid, size_t size);
 const struct drm_edid *drm_edid_dup(const struct drm_edid *drm_edid);
