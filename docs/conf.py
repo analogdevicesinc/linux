@@ -15,6 +15,7 @@ language = 'en'
 extensions = [
     'adi_doctools',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.todo',
 ]
 
 needs_extensions = {
@@ -28,6 +29,8 @@ source_suffix = '.rst'
 
 interref_repos = [
     'hdl',
+    'scopy',
+    'documentation',
 ]
 
 intersphinx_mapping = {
