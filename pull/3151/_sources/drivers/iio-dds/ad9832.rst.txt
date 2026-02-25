@@ -1,0 +1,335 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dds/ad9832
+
+.. _ad9832:
+
+AD9832
+======
+
+AD9832 IIO Direct Digital Synthesis.
+
+Supported Devices
+-----------------
+
+- :adi:`AD9832`
+- :adi:`AD9835`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD9832SDZ`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting serial interface DDS controllers. The industrial I/O subsystem
+provides a unified framework for drivers for many different types of converters
+and sensors using a number of different physical interfaces (i2c, spi, etc). See
+:external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/frequency/ad9832.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/frequency/ad9832.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/staging/iio/frequency/ad9832.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/frequency/ad9832.c>`__
+   * - include
+     - `drivers/staging/iio/frequency/ad9832.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/frequency/ad9832.h>`__
+
+Example platform device initialization
+--------------------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+The reference voltage may vary between boards and models. The platform_data for
+the device’s ``struct device`` holds this information.
+
+:git-linux:`ad9832_platform_data{} <drivers/staging/iio/dds/ad9832.h>`
+
+.. code:: c
+
+   /**
+    * struct ad9832_platform_data - platform specific information
+    * @mclk:       master clock in Hz
+    * @freq0:      power up freq0 tuning word in Hz
+    * @freq1:      power up freq1 tuning word in Hz
+    * @phase0:     power up phase0 value [0..4095] correlates with 0..2PI
+    * @phase1:     power up phase1 value [0..4095] correlates with 0..2PI
+    * @phase2:     power up phase2 value [0..4095] correlates with 0..2PI
+    * @phase3:     power up phase3 value [0..4095] correlates with 0..2PI
+    */
+
+   struct ad9832_platform_data ad9832_pdata = {
+       .mclk = 25000000,
+       .freq0 = 1000000,
+       .freq1 = 2000000,
+       .phase0 = 512,
+       .phase1 = 1024,
+       .phase0 = 2048,
+       .phase1 = 0,
+
+   };
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the DDS IC used, you may need to set the modalias accordingly,
+matching your part name. It may also required to adjust max_speed_hz. Please
+consult the datasheet, for maximum spi clock supported by the device in
+question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_AD9832) \
+       || defined(CONFIG_AD9832_MODULE)
+       {
+           .modalias = "ad9832",
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = 3, /* CS, change it for your board */
+           .platform_data = &ad9832_pdata, /* No spi_driver specific config */
+           .mode = SPI_MODE_2,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD9832 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [*] Staging drivers  --->
+               <*>     Industrial I/O support --->
+                   --- Industrial I/O support
+                   -*-   Enable ring buffer support within IIO
+                   -*-     Industrial I/O lock free software ring
+                   -*-   Enable triggered sampling support
+
+                         *** Direct Digital Synthesis ***
+                   [--snip--]
+
+                   <*>   Analog Devices ad9832/5 driver
+
+                   [--snip--]
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   device0
+   root:/sys/bus/iio/devices> cd device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> ls -l
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_freq0
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_freq1
+   -r--r--r--    1 root     root          4096 Jan  3 15:11 dds0_freq_scale
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_freqsymbol
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_out_enable
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_phase0
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_phase1
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_phase2
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_phase3
+   -r--r--r--    1 root     root          4096 Jan  3 15:11 dds0_phase_scale
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_phasesymbol
+   --w-------    1 root     root          4096 Jan  3 15:11 dds0_pincontrol_en
+   -r--r--r--    1 root     root          4096 Jan  3 15:11 name
+   drwxr-xr-x    2 root     root             0 Jan  3 15:11 power
+   lrwxrwxrwx    1 root     root             0 Jan  3 15:11 subsystem -> ../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  3 15:11 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat name
+   ad9832
+
+Show frequency scale
+^^^^^^^^^^^^^^^^^^^^
+
+/sys/bus/iio/devices/…/ddsX_freqY_scale
+
+Scale to be applied to ddsX_freqY in order to obtain the desired value in Hz. If
+shared across all frequency registers Y is not present. It is also possible X is
+not present if shared across all channels.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat dds0_freq_scale
+   1
+
+Set frequency symbol 0/1
+''''''''''''''''''''''''
+
+/sys/bus/iio/devices/…/ddsX_freqY
+
+Stores frequency into tuning word Y. There will be more than one ddsX_freqY
+file, which allows for pin controlled FSK Frequency Shift Keying
+(ddsX_pincontrol_freq_en is active) or the user can control the desired active
+tuning word by writing Y to the ddsX_freqsymbol file.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1000000 > dds0_freq0
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 500000 > dds0_freq1
+
+**freq0** = *ddsX_freq0 \* dds0_freq_scale* = 1000000 \* 1 = **1 MHz** **freq1**
+= *ddsX_freq1 \* dds0_freq_scale* = 500000 \* 1 = **500 kHz**
+
+Show phase scale
+''''''''''''''''
+
+/sys/bus/iio/devices/…/ddsX_phaseY_scale
+
+Scale to be applied to ddsX_phaseY in order to obtain the desired value in rad.
+If shared across all phase registers Y is not present. It is also possible X is
+not present if shared across all channels.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat dds0_phase_scale
+   0.0015339808
+
+Set phase symbol 0..3
+'''''''''''''''''''''
+
+/sys/bus/iio/devices/…/ddsX_phaseY
+
+Stores phase into Y. There will be more than one ddsX_phaseY file, which allows
+for pin controlled PSK Phase Shift Keying (ddsX_pincontrol_phase_en is active)
+or the user can control the desired phase Y which is added to the phase
+accumulator output by writing Y to the en_phase file.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 0 > dds0_phase0
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 512 > dds0_phase1
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1024 > dds0_phase2
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 2048 > dds0_phase3
+
+**phase0** = *dds0_phase0 \* ddsX_phaseY_scale* = 0 \* 0.0015339808 = **0 rad**
+**phase1** = *dds0_phase1 \* ddsX_phaseY_scale* = 512 \* 0.0015339808 = PI/4 =
+**0.7853981696 rad** **phase0** = *dds0_phase2 \* ddsX_phaseY_scale* = 1024 \*
+0.0015339808 = PI/2 = **1.5707963 rad** **phase1** = *dds0_phase3 \*
+ddsX_phaseY_scale* = 2048 \* 0.0015339808 = PI = **3.1415926 rad**
+
+Disable FSK/PSK pincontrol
+''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/…/ddsX_pincontrol_en
+
+ddsX_pincontrol_en: Both, the active frequency and phase is controlled by the
+respective phase and frequency control inputs. In case the device in question
+allows to independent controls, then there are dedicated files
+(ddsX_pincontrol_freq_en, ddsX_pincontrol_phase_en).
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 0 > dds0_pincontrol_en
+
+Enable output 0
+'''''''''''''''
+
+/sys/bus/iio/devices/…/ddsX_out_enable /sys/bus/iio/devices/…/ddsX_outY_enable
+
+ddsX_outY_enable controls signal generation on output Y of channel X. Y may be
+suppressed if all channels are controlled together.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1 > dds0_out_enable
+
+Switch between frequency symbol 0/1
+'''''''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/…/ddsX_freqsymbol
+
+Specifies the active output frequency tuning word. The value corresponds to the
+Y in ddsX_freqY. To exit this mode the user can write ddsX_pincontrol_freq_en or
+ddsX_out_enable file.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1 > dds0_freqsymbol
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 0 > dds0_freqsymbol
+
+Switch between phase symbol 0..3
+''''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/…/ddsX_phasesymbol
+
+Specifies the active phase Y which is added to the phase accumulator output. The
+value corresponds to the Y in ddsX_phaseY. To exit this mode the user can write
+ddsX_pincontrol_phase_en or disable file.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 0 > dds0_phasesymbol
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1 > dds0_phasesymbol
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

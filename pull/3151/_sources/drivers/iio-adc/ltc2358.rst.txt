@@ -1,0 +1,448 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ltc2358
+
+.. _ltc2358:
+
+LTC2358
+=======
+
+LTC2358 16-/18-bit, Buffered Octal, IIO SAR ADC Linux Driver.
+
+The LTC2358/LTC2357/LTC2353 are low noise, high speed, 16-/18-bit successive
+approximation register (SAR) ADCs with integrated front end buffers. These ADCs
+accept a wide common mode range. Pico-amp inputs and high CMRR enable these ADCs
+to connect directly to a wide range of sensors without compromising measurement
+accuracy. The demo manual refers to the LTC2358-18 but applies to all parts in
+the family, the only differences being the number of bits, number of channels
+and the maximum sample rate. The LTC2358-18 has a flexible SoftSpan™ interface
+that allows conversion-by-conversion control of the input voltage span on a
+per-channel basis. An internal 2.048V reference and 2X buffer simplify basic
+operation while an external reference can be used to increase the input range
+and the SNR of the ADC.
+
+Supported Devices
+-----------------
+
+This driver supports the
+
+- :adi:`LTC2353-16`
+- :adi:`LTC2353-18`
+- :adi:`LTC2357-16`
+- :adi:`LTC2357-18`
+- :adi:`LTC2358-16`
+- :adi:`LTC2358-18`
+
+Evaluation Boards
+-----------------
+
+- :adi:`DC2677A`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting single channel serial interface ADCs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+   * - :git-linux:`git <drivers/iio/adc/ltc2358.c>`
+     - [No]
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/ltc2358.c`
+     -
+   * - devicetree bindings
+     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ltc2358.yaml`
+     -
+
+Related Device Drivers
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - include
+     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     -
+   * - hdl
+     - :dokuwiki:`DC2677A </resources/eval/user-guides/dc2677a>`
+     -
+
+Example Linux Device-Tree Initialization
+----------------------------------------
+
+The LTC2358 driver is a spi-bus driver and can currently only be instantiated
+via device tree.
+
+**Required properties:**
+
+- **compatible**: Must be one of ``adi,ltc2358-18``.
+- **reg**: SPI chip select number for the device
+- **#address-cells**: Must be set to 1
+- **#size-cells**: Must be set to 0
+- **clocks**: define reference clock See
+  Documentation/devicetree/bindings/clock/clock-bindings.txt
+- **clock-names**: See
+  Documentation/devicetree/bindings/clock/clock-bindings.txt
+- **pwms**: define PWM generator controller See
+  Documentation/devicetree/bindings/clock/clock-bindings.txt
+- **pwm-names**: See Documentation/devicetree/bindings/clock/clock-bindings.txt
+- **spi-max-frequency**: See Documentation/devicetree/bindings/spi/spi-bus.txt
+
+**Optional properties:**
+
+- **adi,softspan-code:**: Number configuration to set ADC input range. The input
+  range is set by the following formula:
+- 1: 0V to 1.25V \* Vref
+- 2: ±1.25V \* Vref / 1.024
+- 3: ±1.25V \* Vref
+- 4: 0V to 2.5V \* Vref / 1.024
+- 5: 0V to 2.5V \* Vref
+- 6: ±2.5V \* Vref / 1.024
+- 7: ±2.5V \* Vref
+
+**Example:**
+
+::
+
+   &spi0 {
+       status = "okay";
+
+       ltc2358: adc@0 {
+           compatible = "adi,ltc2358-18";
+           reg = <0>;
+           spi-max-frequency = <1000000>;
+
+           #address-cells = <1>;
+           #size-cells = <0>;
+
+           clocks = <&sys_clk>;
+           clock-names = "clkin";
+
+           pwms = <&axi_pwm_gen 0 0>;
+           pwm-names = "cnv";
+
+           channel@0 {
+               reg = <0>;
+               adi,softspan-code = <1>;
+           };
+
+           channel@1 {
+               reg = <1>;
+               adi,softspan-code = <1>;
+           };
+
+           channel@2 {
+               reg = <2>;
+               adi,softspan-code = <2>;
+           };
+
+           channel@3 {
+               reg = <3>;
+               adi,softspan-code = <2>;
+           };
+
+           channel@4 {
+               reg = <4>;
+               adi,softspan-code = <3>;
+           };
+
+           channel@5 {
+               reg = <5>;
+               adi,softspan-code = <4>;
+           };
+
+           channel@6 {
+               reg = <6>;
+               adi,softspan-code = <5>;
+           };
+
+           channel@7 {
+               reg = <7>;
+               adi,softspan-code = <7>;
+           };
+       };
+   };
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - DC2677A Device Tree
+     - :git-linux:`socfpga_cyclone5_sockit_dc2677a.dts <arch/arm/boot/dts/socfpga_cyclone5_sockit_dc2677a.dts>`
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The LTC2358 driver depends on **PWM** and **SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable ring buffer support within IIO
+           -*-     Industrial I/O lock free software ring
+           -*-   Enable triggered sampling support
+
+                 *** Analog to digital converters ***
+           [--snip--]
+                   -*- Analog Devices High-Speed AXI ADC driver core
+           <*>   Analog Devices LTC2358 ADC driver
+           [--snip--]
+
+                     *** Pulse-Width Modulation (PWM) Support ***
+               [--snip--]
+                   <*>   Analog Devices AXI PWM generator
+               [--snip--]
+
+Driver testing / API
+--------------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+This device can be found under **/sys/bus/iio/devices/**
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0  iio:device1
+
+   root:/sys/bus/iio/devices> cd iio:device0
+
+   root:/sys/bus/iio/devices/iio:device0# ls -l
+   drwxr-xr-x 2 root root    0 Apr  2 23:44 buffer
+   -r--r--r-- 1 root root 4096 Apr  2 23:44 dev
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage0_raw
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage0_scale
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage1_raw
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage1_scale
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage2_raw
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage2_scale
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage3_raw
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage3_scale
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage4_raw
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage4_scale
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage5_raw
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage5_scale
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage6_raw
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage6_scale
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage7_raw
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 in_voltage7_scale
+   -r--r--r-- 1 root root 4096 Apr  2 23:44 name
+   lrwxrwxrwx 1 root root    0 Apr  2 23:44 of_node -> ../../../../../../../firmware/devicetree/base/soc/bridge@c0000000/bridge@100100000/axi-ltc235x@20000
+   drwxr-xr-x 2 root root    0 Apr  2 23:44 power
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 sampling_frequency
+   drwxr-xr-x 2 root root    0 Apr  2 23:44 scan_elements
+   lrwxrwxrwx 1 root root    0 Apr  2 23:44 subsystem -> ../../../../../../../bus/iio
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 sync_start_enable
+   -r--r--r-- 1 root root 4096 Apr  2 23:44 sync_start_enable_available
+   -rw-r--r-- 1 root root 4096 Apr  2 23:44 uevent
+
+   root:/sys/bus/iio/devices/iio:device0#
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat name
+   axi-ltc235x
+
+Show channel scale
+^^^^^^^^^^^^^^^^^^
+
+Scale to be applied to in_voltagex_raw in order to obtain the measured voltage
+in millivolts.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_scale
+   0.015625000
+
+Show channel measurement
+''''''''''''''''''''''''
+
+Raw unscaled voltage measurement on the channel
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_raw
+   96352
+
+**U** = in_voltage0_raw \* in_voltage0_scale = 96352 \* 0.015625000 = **1505.50
+mV**
+
+Sampling frequency
+''''''''''''''''''
+
+The LTC2358 ADC driver supports a variable sampling rate, that can be configured
+dependent on the number of channels.
+
+See current sampling rate:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat sampling_frequency
+   100000
+
+Change the sampling rate:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 200000 > sampling_frequency
+   root@analog:/sys/bus/iio/devices/iio:device0# cat sampling_frequency
+   2000000
+
+Buffer management
+-----------------
+
+Every buffer implementation features a set of files:
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0/buffer> ls -l
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 data_available
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 enable
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 length
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 length_align_bytes
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 watermark
+   root:/sys/bus/iio/devices/iio:device0/buffer>
+
+**length** Get/set the number of sample sets that may be held by the buffer.
+
+**enable** Enables/disables the buffer. This file should be written last, after
+length and selection of scan elements
+
+**scan_elements** The scan_elements directory contains interfaces for elements
+that will be captured for a single triggered sample set in the buffer.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0/buffer> ls -l
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 in_voltage0_en
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage0_index
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage0_type
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 in_voltage1_en
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage1_index
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage1_type
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 in_voltage2_en
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage2_index
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage2_type
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 in_voltage3_en
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage3_index
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage3_type
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 in_voltage4_en
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage4_index
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage4_type
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 in_voltage5_en
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage5_index
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage5_type
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 in_voltage6_en
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage6_index
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage6_type
+   -rw-r--r-- 1 root root 4096 Apr  2 23:50 in_voltage7_en
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage7_index
+   -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage7_type
+   root:/sys/bus/iio/devices/iio:device0/buffer>
+
+Enable and read 400 samples from both channels:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > scan_elements/in_voltage0_en
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 400 > buffer/length
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > buffer/enable
+   root@analog:/sys/bus/iio/devices/iio:device0# hexdump -n 400 /dev/iio\:device0
+   0000000 e942 000d 0011 0000 afaf 000d 0029 0000
+   0000010 753b 000d fff5 00ff 39fa 000d 0018 0000
+   0000020 013e 000d 0017 0000 c776 000c fff4 00ff
+   0000030 8e84 000c 0017 0000 55d4 000c 0052 0000
+   0000040 1dab 000c 000b 0000 e5b9 000b 0049 0000
+   0000050 ab19 000b 0013 0000 6f56 000b 0035 0000
+   0000060 3470 000b 0020 0000 f9a1 000a 0037 0000
+   0000070 bcc1 000a 0003 0000 7f89 000a 000d 0000
+   0000080 4458 000a 0003 0000 0978 000a 000d 0000
+   0000090 cea9 0009 0041 0000 9551 0009 fff2 00ff
+   00000a0 5b80 0009 fff1 00ff 210c 0009 0015 0000
+   00000b0 e486 0008 ffe8 00ff a8d1 0008 ffec 00ff
+   00000c0 6e13 0008 004e 0000 33a0 0008 001a 0000
+   00000d0 f7df 0007 fffd 00ff bba2 0007 fffd 00ff
+   00000e0 7ead 0007 fffe 00ff 43e0 0007 0041 0000
+   00000f0 08a8 0007 0023 0000 cc9c 0006 ffed 00ff
+   0000100 9031 0006 001c 0000 5370 0006 fff6 00ff
+   0000110 1721 0006 0040 0000 dcec 0005 ffe5 00ff
+   0000120 9ffc 0005 000d 0000 61f3 0005 0016 0000
+   0000130 247d 0005 0023 0000 e55d 0004 0006 0000
+   0000140 a725 0004 000e 0000 6d7b 0004 0045 0000
+   0000150 32e4 0004 ffaa 00ff f77e 0003 ffca 00ff
+   0000160 bc75 0003 0036 0000 809d 0003 0019 0000
+   0000170 4582 0003 ffe1 00ff 0921 0003 ffdf 00ff
+   0000180 c9a5 0002 ffd1 00ff 8a1c 0002 0015 0000
+   0000190
+   root@analog:/sys/bus/iio/devices/iio:device0/# echo 0 > buffer/enable
+
+Debug mode
+~~~~~~~~~~
+
+You can write and read the ADC registers using debugfs. Here we will read the
+configuration number for softspan code set in channel 0.
+
+First go to the device debug folder:
+
+::
+
+   root@analog# cd /sys/kernel/debug/iio/iio:device0
+
+Read the 0x0440 register:
+
+::
+
+   root@analog:/sys/kernel/debug/iio/iio:device0# echo 0x0440 > direct_reg_access
+   root@analog:/sys/kernel/debug/iio/iio:device0# cat direct_reg_access
+   0x1
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

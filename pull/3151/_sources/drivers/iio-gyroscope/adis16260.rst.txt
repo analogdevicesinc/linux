@@ -1,0 +1,261 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-gyroscope/adis16260
+
+.. _adis16260:
+
+ADIS16260
+=========
+
+ADIS16260 IIO Programmable Low Power Gyroscope Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADIS16250`
+- :adi:`ADIS16251`
+- :adi:`ADIS16255`
+- :adi:`ADIS16260`
+- :adi:`ADIS16265`
+- :adi:`ADIS16266` (Linux v4.3+)
+
+Evaluation Boards
+-----------------
+
+- :adi:`ADIS16260/PCBZ <EVAL-ADIS16260>`
+- :adi:`ADIS16265/PCBZ <EVAL-ADIS16265>`
+- :adi:`ADIS16266/PCBZ <EVAL-ADIS16265>`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting serial interface Gyroscopes. The industrial I/O subsystem
+provides a unified framework for drivers for many different types of converters
+and sensors using a number of different physical interfaces (i2c, spi, etc). See
+:external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_core.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_core.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/staging/iio/gyro/adis16260_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_core.c>`__
+   * - driver
+     - `drivers/staging/iio/gyro/adis16260_ring.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_ring.c>`__
+   * - driver
+     - `drivers/staging/iio/gyro/adis16260_trigger.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_trigger.c>`__
+   * - include
+     - `drivers/staging/iio/gyro/adis16260.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260.h>`__
+   * - include
+     - `drivers/staging/iio/gyro/adis16260_platform_data.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_platform_data.h>`__
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name. It may also required to adjust
+max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
+the device in question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_ADIS16260) \
+       || defined(CONFIG_ADIS16260_MODULE)
+       {
+           .modalias = "adis16260",
+           .max_speed_hz = 1500000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = 5, /* CS, change it for your board */
+           .platform_data = NULL, /* No spi_driver specific config */
+           .mode = SPI_MODE_3,
+           .irq = IRQ_PF4,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADIS16260 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [*] Staging drivers  --->
+               <*>     Industrial I/O support --->
+                   --- Industrial I/O support
+                   -*-   Enable ring buffer support within IIO
+                   -*-     Industrial I/O lock free software ring
+                   -*-   Enable triggered sampling support
+
+                         *** Digital gyroscope sensors ***
+                   [--snip--]
+
+                   <*>   Analog Devices ADIS16260 Digital Gyroscope Sensor SPI driver
+
+                   [--snip--]
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0  trigger0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+   root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0> ls -l
+   drwxr-xr-x    2 root     root             0 Jan  4 06:12 buffer
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 dev
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 in_angl_x_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_gyro_x_calibbias
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_gyro_x_calibscale
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 in_gyro_x_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_gyro_x_scale
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_temp0_offset
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 in_temp0_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_temp0_scale
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 in_voltage0_supply_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_voltage0_supply_scale
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 in_voltage1_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_voltage1_scale
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 name
+   drwxr-xr-x    2 root     root             0 Jan  4 06:12 power
+   --w-------    1 root     root          4096 Jan  4 06:12 reset
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 sampling_frequency
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 sampling_frequency_available
+   drwxr-xr-x    2 root     root             0 Jan  4 06:12 scan_elements
+   lrwxrwxrwx    1 root     root             0 Jan  4 06:12 subsystem -> ../../../../../bus/iio
+   drwxr-xr-x    2 root     root             0 Jan  4 06:12 trigger
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0> cat name
+   adis16260
+
+ADIS16260 device attributes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For a detailed description please see:
+`drivers/staging/iio/Documentation/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/Documentation/sysfs-bus-iio>`__
+
+.. list-table::
+   :header-rows: 1
+
+   * - Device files
+   * - in_angl_x_raw
+   * - in_gyro_x_calibbias
+   * - in_gyro_x_calibscale
+   * - in_gyro_x_raw
+   * - in_gyro_x_scale
+   * - in_temp0_offset
+   * - in_temp0_raw
+   * - in_temp0_scale
+   * - in_voltage0_supply_raw
+   * - in_voltage0_supply_scale
+   * - in_voltage1_raw
+   * - in_voltage1_scale
+   * - name
+   * - reset
+   * - sampling_frequency
+   * - sampling_frequency_available
+
+Trigger management
+~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+   This driver only supports it’s own default trigger source **adis16260-dev0**
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0> cat trigger/current_trigger
+   adis16260-dev0
+
+Buffer management
+~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0/buffer> ls
+   bytes_per_datum  enable           length
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-buffer-management
+   :end-before: .. end-buffer-management
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0/scan_elements>ls
+   in_angl_x_en              in_temp0_en               in_voltage0_supply_en
+   in_angl_x_index           in_temp0_index            in_voltage0_supply_index
+   in_angl_x_type            in_temp0_type             in_voltage0_supply_type
+   in_gyro_x_en              in_timestamp_en           in_voltage1_en
+   in_gyro_x_index           in_timestamp_index        in_voltage1_index
+   in_gyro_x_type            in_timestamp_type         in_voltage1_type
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-typical-adc-scan-elements
+   :end-before: .. end-typical-adc-scan-elements
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
