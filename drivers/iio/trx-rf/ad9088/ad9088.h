@@ -180,6 +180,7 @@ struct ad9088_debugfs_entry {
 	const char *propname;
 	void *out_value;
 	u32 val;
+	s64 delta_t;
 	u8 size;
 	u8 cmd;
 };
@@ -253,7 +254,7 @@ struct ad9088_phy {
 	u32 multidevice_instance_count;
 	u16 mcs_track_decimation;
 
-	struct ad9088_debugfs_entry debugfs_entry[20];
+	struct ad9088_debugfs_entry debugfs_entry[32];
 	u32 ad9088_debugfs_entry_index;
 
 	const char **rx_labels;
@@ -342,6 +343,7 @@ int ad9088_parse_dt(struct ad9088_phy *phy);
 int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e side_sel);
 int ad9088_check_apollo_error(struct device *dev, int ret, const char *api_name);
 void ad9088_print_sysref_phase(struct ad9088_phy *phy);
+int ad9088_status_show(struct seq_file *file, void *offset);
 int devm_ad9088_set_child_label(struct ad9088_phy *phy, struct iio_dev *child, const char *suffix);
 /* JESD204 FSM interface (ad9088_jesd204_fsm.c) */
 extern const struct jesd204_dev_data jesd204_ad9088_init;
@@ -367,6 +369,10 @@ int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u16 mcs_track_decimati
 				  u16 initialize_track_cal);
 int ad9088_mcs_init_cal_status_print(struct ad9088_phy *phy, char *buf,
 				     adi_apollo_mcs_cal_init_status_t *status);
+int ad9088_mcs_track_cal_status_print(struct ad9088_phy *phy, char *buf,
+				      adi_apollo_mcs_cal_status_t *cal_status,
+				      u8 print_full_state);
+int ad9088_mcs_tracking_cal_validate(struct ad9088_phy *phy, char *buf, size_t buf_size);
 int ad9088_bmem_probe(struct ad9088_phy *phy);
 int adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy, u64 freq, s64 nco_shift, u32 div, u32 bits,
 			    u64 *ftw, u64 *frac_a, u64 *frac_b);
@@ -414,3 +420,10 @@ ssize_t ad9088_cal_data_read(struct file *filp, struct kobject *kobj,
 			     char *buf, loff_t off, size_t count);
 ssize_t ad9088_cal_data_write(struct file *filp, struct kobject *kobj,
 			      struct bin_attribute *bin_attr, char *buf, loff_t off, size_t count);
+
+/* Debugfs interface (ad9088_debugfs.c) */
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+void ad9088_debugfs_register(struct iio_dev *indio_dev);
+#else
+static inline void ad9088_debugfs_register(struct iio_dev *indio_dev) {}
+#endif
