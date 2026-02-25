@@ -1009,13 +1009,11 @@ hdm_probe(struct usb_interface *interface, const struct usb_device_id *id)
 		goto err_free_conf;
 
 	mdev->iface.channel_vector = mdev->cap;
-	mdev->ep_address =
-		kcalloc(num_endpoints, sizeof(*mdev->ep_address), GFP_KERNEL);
+	mdev->ep_address = kzalloc_objs(*mdev->ep_address, num_endpoints);
 	if (!mdev->ep_address)
 		goto err_free_cap;
 
-	mdev->busy_urbs =
-		kzalloc_objs(*mdev->busy_urbs, num_endpoints);
+	mdev->busy_urbs = kzalloc_objs(*mdev->busy_urbs, num_endpoints);
 	if (!mdev->busy_urbs)
 		goto err_free_ep_address;
 
