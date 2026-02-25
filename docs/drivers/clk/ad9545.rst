@@ -1,0 +1,272 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/clk/adi/clk-ad9545/c
+
+.. _ad9545:
+
+AD9545
+======
+
+AD9545 Quad Input, 10-Output, Dual DPLL/IEEE 1588, 1 pps Synchronizer and Jitter Cleaner.
+
+Supported Devices
+-----------------
+
+- :adi:`AD9545`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD9545`
+
+Description
+-----------
+
+This is a Common Clock Framework subsystem driver. There are two drivers
+(sharing the same core implementation) for the AD9545 since the device supports
+both SPI and I2C interfaces. The underlying bus is abstracted in the core
+implementation by using regmap.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+   * - :git-linux:`drivers/clk/adi/clk-ad9545.c`
+     - No
+     -
+   * - :git-linux:`drivers/clk/adi/clk-ad9545-i2c.c`
+     - No
+     -
+   * - :git-linux:`drivers/clk/adi/clk-ad9545-spi.c`
+     - No
+     -
+   * - :git-linux:`drivers/clk/adi/clk-ad9545.h`
+     - No
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - core driver
+     - :git-linux:`drivers/clk/adi/clk-ad9545.c`
+     -
+   * - driver
+     - :git-linux:`drivers/clk/adi/clk-ad9545-i2c.c`
+     -
+   * - driver
+     - :git-linux:`drivers/clk/adi/clk-ad9545-spi.c`
+     -
+   * - core include
+     - :git-linux:`drivers/clk/adi/clk-ad9545.h`
+     -
+
+Example I2C & SPI device initialization
+---------------------------------------
+
+The AD9545 supports both I2C and SPI interfaces, so one of the drivers can be
+used depending on which kind of device is instantiated. Currently, the devices
+can only be instantiated via device tree.
+
+Required devicetree properties:
+
+- **compatible**: Must be always one of these:
+
+  - adi,ad9545
+
+- **reg**: Must be either the I2C device address or the SPI device chip select
+  number.
+
+Example SPI:
+
+::
+
+   &spi0 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           status = "okay";
+           ad9545_spi: ad9545@0 {
+                   compatible = "adi,ad9545";
+                   reg = <0>;
+                   spi-max-frequency = <100000>;
+           };
+   };
+
+Example I2C:
+
+::
+
+   &i2c0 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           status = "okay";
+           ad9545_i2c: ad9545@4a {
+                   compatible = "adi,ad9545";
+                   reg = <0x4a>;
+           };
+   };
+
+For more supported devicetree properties take a look to
+:git-linux:`dt-bindings <Documentation/devicetree/bindings/clock/clk-ad9545.yaml>`.
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or ``make qconfig``). .. note::
+
+   The AD9545 SPI driver depends **CONFIG_SPI** and the AD9545 I2C driver depends on **CONFIG_I2C**.
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Device Drivers > Search (COMMON_CLK) > Analog Devices Clock Drivers
+
+       -*- Analog Devices AD9545 via I2C
+       -*- Analog Devices AD9545 via SPI
+
+Driver testing
+--------------
+
+CLOCK device files
+~~~~~~~~~~~~~~~~~~
+
+Common Clock Framework provides debugfs files for each clock registered:
+
+::
+
+   root@analog:/sys/kernel/debug/clk# ls
+   108MHz-clock    HMC-REF_CLKIN2  HMC7044_OUT12  HMC7044_OUT6  Ref-A  aux_spi2  clk_orphan_dump     dsi0p   fw-clk-core  h264  pcm     pllc        plld_core  slim   vec
+   AUX_DPLL    HMC-REF_CLKIN3  HMC7044_OUT13  HMC7044_OUT7  Ref-A-Div  aux_uart  clk_orphan_summary  dsi1e   fw-clk-m2mc  hsm   peri_image  pllc_core0  plld_dsi0  smi    vpu
+   AUX_NCO0    HMC7044_OUT0    HMC7044_OUT2   HMC7044_OUT8  Ref-B  aveo      clk_summary         dsi1p   fw-clk-v3d   isp   plla    pllc_core1  plld_dsi1  tec
+   AUX_TDC0    HMC7044_OUT1    HMC7044_OUT3   HMC7044_OUT9  Ref-B-Div  cam0      dft             emmc    gp0          osc   plla_ccp2   pllc_core2  plld_per   timer
+   HMC-REF_CLKIN0  HMC7044_OUT10   HMC7044_OUT4   PLL0      Ref-M1 cam1      dpi             emmc2   gp1          otg   plla_core   pllc_per    pwm    tsens
+   HMC-REF_CLKIN1  HMC7044_OUT11   HMC7044_OUT5   Q0A-div       aux_spi1   clk_dump  dsi0e           fw-clk-arm  gp2          otp   plla_dsi0   plld        sdram  uart
+
+For each clock multiple debugfs files are generated that read the clk parameters
+such as rate, phase, parent etc. :
+
+::
+
+   root@analog:/sys/kernel/debug/clk/PLL0# ls
+   PLL0          clk_duty_cycle    clk_flags     clk_min_rate    clk_parent  clk_possible_parents  clk_protect_count
+   clk_accuracy  clk_enable_count  clk_max_rate  clk_notifier_count  clk_phase   clk_prepare_count     clk_rate
+
+The active clock tree can be viewed with:
+
+::
+
+   root@analog:/sys/kernel/debug/clk# cat /sys/kernel/debug/clk/clk_summary
+                                    enable  prepare  protect                                duty
+      clock                          count    count    count        rate   accuracy phase  cycle  nshot
+   ----------------------------------------------------------------------------------------------------
+    AUX_NCO0                             1        1        0       10000          0     0  50000        0
+       PLL0                              1        1        0  1344000000          0     0  50000        0
+          Q0A-div                        1        1        0    38400000          0     0  50000        0
+             HMC7044_OUT0                0        0        0  1277952000          0     0  50000        0
+             HMC7044_OUT1                0        0        0     4992000          0     0  50000        0
+             HMC7044_OUT2                0        0        0    26624000          0     0  50000        0
+             HMC7044_OUT3                0        0        0    26624000          0     0  50000        0
+             HMC7044_OUT4                0        0        0   319488000          0     0  50000        0
+             HMC7044_OUT5                0        0        0     4992000          0     0  50000        0
+             HMC7044_OUT6                0        0        0     3549866          0     0  50000        0
+             HMC7044_OUT7                0        0        0     4992000          0     0  50000        0
+             HMC7044_OUT8                0        0        0    26624000          0     0  50000        0
+             HMC7044_OUT9                0        0        0    26624000          0     0  50000        0
+             HMC7044_OUT10               0        0        0    26624000          0     0  50000        0
+             HMC7044_OUT11               0        0        0    26624000          0     0  50000        0
+             HMC7044_OUT12               0        0        0  1277952000          0     0  50000        0
+             HMC7044_OUT13               0        0        0      665600          0     0  50000        0
+    fw-clk-m2mc                          0        0        0   120000000          0     0  50000        0
+    fw-clk-v3d                           0        0        0   250000000          0     0  50000        0
+    fw-clk-core                          0        0        0   200000000          0     0  50000        0
+    fw-clk-arm                           0        0        0   600000000          0     0  50000        0
+    108MHz-clock                         0        0        0   108000000          0     0  50000        0
+    otg                                  0        0        0   480000000          0     0  50000        0
+    osc                                  3        3        0    54000000          0     0  50000        0
+       tsens                             0        0        0     3375000          0     0  50000        0
+       otp                               0        0        0    13500000          0     0  50000        0
+       timer                             0        0        0     1000000          0     0  50000        0
+       plld                              5        5        0  3000000091          0     0  50000        0
+          plld_dsi1                      1        1        0    11718751          0     0  50000        0
+          plld_dsi0                      1        1        0    11718751          0     0  50000        0
+          plld_per                       3        3        0   750000023          0     0  50000        0
+             emmc2                       1        1        0   100000003          0     0  50000        0
+             emmc                        0        0        0   250000007          0     0  50000        0
+             uart                        1        1        0    48000001          0     0  50000        0
+          plld_core                      1        1        0   600000019          0     0  50000        0
+       pllc                              3        3        0  2999999988          0     0  50000        0
+          pllc_per                       1        1        0   599999998          0     0  50000        0
+          pllc_core2                     0        0        0    11718750          0     0  50000        0
+          pllc_core1                     0        0        0    11718750          0     0  50000        0
+          pllc_core0                     2        2        0   999999996          0     0  50000        0
+             vpu                         3        3        0   500000000          0     0  50000        0
+                aux_spi2                 0        0        0   500000000          0     0  50000        0
+                aux_spi1                 0        0        0   500000000          0     0  50000        0
+                aux_uart                 0        0        0   500000000          0     0  50000        0
+                peri_image               0        0        0   500000000          0     0  50000        0
+       plla                              2        2        0  2999999988          0     0  50000        0
+          plla_ccp2                      0        0        0    11718750          0     0  50000        0
+          plla_dsi0                      0        0        0    11718750          0     0  50000        0
+          plla_core                      1        1        0   499999998          0     0  50000        0
+             h264                        0        0        0   499999998          0     0  50000        0
+             isp                         0        0        0   499999998          0     0  50000        0
+    Ref-A                                0        0        0           1          0     0  50000        0
+       Ref-A-Div                         0        0        0           1          0     0  50000        0
+    Ref-B                                0        0        0    10000000          0     0  50000        0
+       Ref-B-Div                         0        0        0       50000          0     0  50000        0
+    Ref-M1                               0        0        0    50000000          0     0  50000        0
+       AUX_TDC0                          0        0        0      200000          0     0  50000        0
+          AUX_DPLL                       0        0        0      200000          0     0  50000        0
+    HMC-REF_CLKIN0                       1        1        0    38400000          0     0  50000        0
+    HMC-REF_CLKIN1                       1        1        0    38400000          0     0  50000        0
+    HMC-REF_CLKIN2                       1        1        0    38400000          0     0  50000        0
+    HMC-REF_CLKIN3                       0        0        0    38400000          0     0  50000        0
+    dsi1p                                0        0        0           0          0     0  50000        0
+    dsi0p                                0        0        0           0          0     0  50000        0
+    dsi1e                                0        0        0           0          0     0  50000        0
+    dsi0e                                0        0        0           0          0     0  50000        0
+    cam1                                 0        0        0           0          0     0  50000        0
+    cam0                                 0        0        0           0          0     0  50000        0
+    dpi                                  0        0        0           0          0     0  50000        0
+    tec                                  0        0        0           0          0     0  50000        0
+    smi                                  0        0        0           0          0     0  50000        0
+    slim                                 0        0        0           0          0     0  50000        0
+    gp2                                  0        0        0           0          0     0  50000        0
+    gp1                                  0        0        0           0          0     0  50000        0
+    gp0                                  0        0        0           0          0     0  50000        0
+    dft                                  0        0        0           0          0     0  50000        0
+    aveo                                 0        0        0           0          0     0  50000        0
+    pcm                                  0        0        0           0          0     0  50000        0
+    pwm                                  0        0        0           0          0     0  50000        0
+    sdram                                0        0        0           0          0     0  50000        0
+    hsm                                  0        0        0           0          0     0  50000        0
+    vec                                  0        0        0           0          0     0  50000        0
+
+More Information
+----------------
+
+CLOCK pointers
+--------------
+
+- CLOCK mailing list: linux-clk@vger.kernel.org
+- `CLOCK Linux Kernel Documentation <https://www.kernel.org/doc/Documentation/clk.txt>`__
+
+.. include:: /include/need-help.rst
+   :start-after: .. start-need-help
+   :end-before: .. end-need-help
