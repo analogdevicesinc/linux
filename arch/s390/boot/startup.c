@@ -440,7 +440,8 @@ static unsigned long setup_kernel_memory_layout(unsigned long kernel_size)
 	max_mappable = max(ident_map_size, MAX_DCSS_ADDR);
 	max_mappable = min(max_mappable, vmemmap_start);
 #ifdef CONFIG_RANDOMIZE_IDENTITY_BASE
-	__identity_base = round_down(vmemmap_start - max_mappable, rte_size);
+	if (kaslr_enabled())
+		__identity_base = round_down(vmemmap_start - max_mappable, rte_size);
 #endif
 	boot_debug("identity map:        0x%016lx-0x%016lx\n", __identity_base,
 		   __identity_base + ident_map_size);
