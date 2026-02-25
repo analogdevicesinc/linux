@@ -1,0 +1,888 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025
+
+.. _adrv9025:
+
+ADRV9026
+========
+
+ADRV9026/ADRV9029 Integrated Radio Frequency Transceiver Linux device driver.
+
+As demand for data increases globally, telecom infrastructure manufacturers are
+challenged by shorter time to market, increased antenna count, ever-growing cost
+pressure, and proliferation in variants of form factors, frequency bands, output
+power, and software. The :adi:`ADRV9026 <en/products/adrv9026.html>`, ADI’s 4th
+generation wideband RF transceiver, delivers quad-channel integration with the
+lowest power, smallest size, common platform solution available to simplify
+design and reduce system power, size, weight, and costs for 3G/4G/5G
+applications, including multi-standard base stations, massive MIMO, and small
+cells.
+
+Supported Devices
+-----------------
+
+- :adi:`ADRV9026 <en/products/adrv9026.html>`
+- :adi:`ADRV9029 <en/products/adrv9029.html>`
+
+Note that the baseline device, ADRV9025, is used within this Wiki with
+functions/properties that are common to both devices.
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-ADRV9026/ADRV9029 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-ADRV9026.html>`
+
+Overview
+--------
+
+The :adi:`ADRV9026 <en/products/adrv9026.html>` is a highly integrated, radio
+frequency (RF) agile transceiver offering four independently controlled
+transmitters, dedicated observation receiver inputs for monitoring each
+transmitter channel, four independently controlled receivers, integrated
+synthesizers, and digital signal processing functions providing a complete
+transceiver solution. The device provides the performance demanded by cellular
+infrastructure applications, such as small cell base station radios, macro
+3G/4G/5G systems, and massive multiple in/multiple out (MIMO) base stations.
+
+The :adi:`ADRV9029 <en/products/adrv9029.html>` is a highly integrated, radio
+frequency (RF) agile transceiver offering four independently controlled
+transmitters, dedicated observation receiver inputs for monitoring each
+transmitter channel, four independently controlled receivers, integrated
+synthesizers, and digital signal processing functions providing a complete
+transceiver solution. The device provides the performance demanded by cellular
+infrastructure applications, such as small cell base station radios, macro
+3G/4G/5G systems, and massive multiple in/multiple out (MIMO) base stations.
+
+Applications
+~~~~~~~~~~~~
+
+- Macro base stations
+- Massive MIMO
+- Small cells
+
+Markets and Technologies
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Aerospace and Defense
+- Communications
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting RF Transceivers. The industrial I/O subsystem provides a
+unified framework for drivers for many different types of converters and sensors
+using a number of different physical interfaces (i2c, spi, etc). See
+:external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - :git-linux:`git <drivers/iio/adc/adrv902x/adrv9025.c>`
+     - :git-linux:`No <drivers/iio/adc/adrv9009.c>`
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/adrv902x/adrv9025.c`
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/adrv902x/adrv9025_conv.c`
+     -
+   * - include
+     - :git-linux:`drivers/iio/adc/adrv902x/adrv9025.h`
+     -
+   * - Talise API driver
+     - :git-linux:`drivers/iio/adc/adrv902x`
+     -
+
+Interrelated Device Drivers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- :ref:`jesd204-fsm-framework`
+- :external+hdl:ref:`jesd204`
+
+Receive AXI-ADC driver
+''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     -
+   * - include
+     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     -
+
+Transmit AXI-DAC / DDS driver
+'''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+     -
+   * - include
+     - :git-linux:`drivers/iio/frequency/cf_axi_adc.h <drivers/iio/frequency/cf_axi_dds.h>`
+     -
+
+AXI JESD204B HDL driver
+'''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/jesd204/axi_jesd204_rx.c`
+     -
+   * - driver
+     - :git-linux:`drivers/iio/jesd204/axi_jesd204_tx.c`
+     -
+
+AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/jesd204/axi_adxcvr.c`
+     -
+
+Device Driver Customization
+---------------------------
+
+Please follow the link here for detailed options and examples:
+
+- :ref:`adrv9025-customization`
+
+Processors
+----------
+
+Stream Processor
+~~~~~~~~~~~~~~~~
+
+A stream processor is a processor within the transceiver tasked with performing
+a series of configuration tasks based on some event. After a request from the
+user, the stream processor performs a series of predefined actions that are
+loaded into the stream processor during device initialization. This processor
+takes full advantage of the speed of the internal register buses for efficient
+execution of commands.
+
+The stream processor can access and modify registers independently, avoiding the
+need for ARM interaction.
+
+The stream processor executes streams, or series of tasks, for the following:
+
+- Tx1/Tx2/Tx3/Tx4 enable/disable
+- Rx1/Rx2/Rx3/Rx4 enable/disable
+- ORx1/ORx2/ORx3/ORx4 enable/disable
+
+The transceiver flexibility is maintained by implementing the stream processors
+with similar flexibility. The stream processor image changes with configuration,
+similar to how the initialization structures change with the selected profiles.
+For example, the stream that enables the receivers differs depending on the
+JESD204B and JESD204C interface configuration. For this reason, it is necessary
+to save a stream image for each device configuration. When the user saves the
+configuration files (.c) using the GUI, a stream binary image is generated
+automatically. Use this stream file when initializing the transceiver with the
+profile in question.
+
+The following are examples of how the stream files can differ:
+
+- The framer choices for observation receiver and receiver
+- For link sharing purposes
+- If floating point formatting is being used on receiver and observation
+  receiver paths, the stream image can change
+
+Eleven separate stream processors exist in the transceiver, which are each
+responsible for the execution of some dedicated functionality within the device.
+These stream processors can be divided into two broad categories, slice stream
+processors and the core stream processor.
+
+The stream binary ``stream_image_XYZ.bin`` must be stored in the /lib/firmware
+folder, or compiled into the kernel using the CONFIG_FIRMWARE_IN_KERNEL,
+CONFIG_EXTRA_FIRMWARE config options. Multiple stream binaries can be added.
+However a unique name must be given. The stream binary loaded during driver
+probe can be specified using following device tree property:
+
+stream-firmware-name = ``stream_image_6E3E00EFB74FE7D465FA88A171B81B8F.bin``;
+
+In case no stream is specified or loaded, the driver will continue to use the
+standard ``stream_image_6E3E00EFB74FE7D465FA88A171B81B8F.bin`` file.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - Steam
+     - :git-linux:`firmware/stream_image_6E3E00EFB74FE7D465FA88A171B81B8F.bin`
+     -
+
+ARM Processor
+~~~~~~~~~~~~~
+
+The transceiver is equipped with a built in ARM M4 processor. The firmware for
+this ARM processor is loaded during the initialization process. The firmware
+memory size is 224 kB, and the ARM has access to another 160 kB of data memory
+to utilize. The ARM is tasked with configuring the transceiver for the selected
+use case, performing initial calibrations of the signal paths, and maintaining
+device performance over time through tracking calibrations.
+
+When the arm core is powered up, the ARM moves into its power-up/reset state.
+The ARM firmware image is loaded at this point. When the ARM image has been
+loaded, the ARM is enabled and begins its boot sequence. After the arm has been
+booted, it enters its ready/idle state. In this state, it can receive
+configuration settings or commands (instructions), such as performing the
+initial calibrations or enabling tracking calibrations.
+
+DFE Processor
+~~~~~~~~~~~~~
+
+There is a dual core embedded ARM processor in which the DPD and CLGC algorithms
+reside. One of the dual core ARM processors is a control processor (ARM-C),
+which is the master, and the second core is a dedicated ARM core for DPD
+processing (ARM-D).
+
+The firmware files for these processors must be stored in the /lib/firmware
+folder, or compiled into the kernel using the CONFIG_FIRMWARE_IN_KERNEL,
+CONFIG_EXTRA_FIRMWARE config options. The fimware loaded during driver probe are
+specified using following device tree property:
+
+arm-firmware-name = ``ADRV9025_FW.bin;ADRV9025_DPDCORE_FW.bin``;
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - ARM processor firmware
+     - :git-linux:`firmware/ADRV9025_DPDCORE_FW.bin`
+     -
+   * - DFE processor firmware
+     - :git-linux:`firmware/ADRV9025_FW.bin`
+     -
+
+Gain Tables
+~~~~~~~~~~~
+
+The Gain tables for the RX and TX paths must also be loaded during boot/setup
+phase. They are also loaded using the firmware framework.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - RX Gain Correction table
+     - :git-linux:`firmware/ADRV9025_RxGainTable.csv`
+     -
+   * - TX Attenuation table
+     - :git-linux:`firmware/ADRV9025_TxAttenTable.csv`
+     -
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``).
+
+.. note::
+
+   The ADRV9025 driver depends on **CONFIG_SPI**
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable ring buffer support within IIO
+           -*-     Industrial I/O lock free software ring
+           -*-   Enable triggered sampling support
+
+                 *** Analog to digital converters ***
+           [--snip--]
+
+           -*- Analog Devices High-Speed AXI ADC driver core
+           < > Analog Devices AD9361, AD9364 RF Agile Transceiver driver
+           < > Analog Devices AD9371 RF Transceiver driver
+           < > Analog Devices ADRV9009/ADRV9008 RF Transceiver driver
+           <*> Analog Devices ADRV9025/ADRV9026/ADRV9029 RF Transceiver driver
+           < > Analog Devices AD6676 Wideband IF Receiver driver
+           < > Analog Devices AD9467, AD9680, etc. high speed ADCs
+           < > Analog Devices Motor Control (AD-FMCMOTCON) drivers
+
+           [--snip--]
+
+       Frequency Synthesizers DDS/PLL  --->
+               Direct Digital Synthesis  --->
+               <*> Analog Devices CoreFPGA AXI DDS driver
+           Clock Generator/Distribution  --->
+               < > Analog Devices AD9508 Clock Fanout Buffer
+               < > Analog Devices AD9523 Low Jitter Clock Generator
+               <*> Analog Devices AD9528 Low Jitter Clock Generator
+               < > Analog Devices AD9548 Network Clock Generator/Synchronizer
+               < > Analog Devices AD9517 12-Output Clock Generator
+
+       <*>   JESD204 High-Speed Serial Interface Support  --->
+           --- JESD204 High-Speed Serial Interface Support
+           < >   Altera Arria10 JESD204 PHY Support
+           <*>   Analog Devices AXI ADXCVR PHY Support
+           < >   Generic AXI JESD204B configuration driver
+           <*>   Analog Devices AXI JESD204B TX Support
+           <*>   Analog Devices AXI JESD204B RX Support
+
+Driver testing / API
+--------------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+.. tip::
+
+   An example program which uses the interface can be found here:
+
+   - :external+documentation:ref:`iio-oscilloscope`
+
+*General attribute naming convention:*
+
+.. list-table::
+   :header-rows: 1
+
+   * - IIO sysfs attribute naming prefix
+     - Target
+   * - Transceiver
+     -
+   * - in_voltage0\_[…]
+     - RX1
+   * - in_voltage1\_[…]
+     - RX2
+   * - in_voltage2\_[…]
+     - RX3
+   * - in_voltage3\_[…]
+     - RX4
+   * - in_voltage4\_[…]
+     - Observation RX1
+   * - in_voltage5\_[…]
+     - Observation RX2
+   * - out_altvoltage0\_[…]
+     - TRX LO1
+   * - out_altvoltage1\_[…]
+     - TRX LO2
+   * - out_altvoltage2\_[…]
+     - TRX AUX LO
+   * - out_voltage0\_[…]
+     - TX1
+   * - out_voltage1\_[…]
+     - TX2
+   * - out_voltage2\_[…]
+     - TX3
+   * - out_voltage3\_[…]
+     - TX4
+
+::
+
+   root@analog:~# cd /sys/bus/iio/devices/
+   root@analog:/sys/bus/iio/devices# ls
+   iio:device0  iio:device2  iio:device4
+   iio:device1  iio:device3  iio_sysfs_trigger
+
+   root@analog:/sys/bus/iio/devices# cd iio:device2
+
+   root@analog:/sys/bus/iio/devices/iio:device2# ls -al
+   total 0
+   drwxr-xr-x 3 root root    0 Nov 22 11:04 .
+   drwxr-xr-x 6 root root    0 Nov 22 11:04 ..
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 calibrate
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 calibrate_rx_qec_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 calibrate_tx_lol_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 calibrate_tx_lol_ext_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 calibrate_tx_qec_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_temp0_input
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage0_bb_dc_offset_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage0_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage0_gain_control_mode
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 in_voltage0_gain_control_mode_available
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage0_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage0_hd2_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage0_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage0_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage0_rssi
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage1_bb_dc_offset_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage1_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage1_gain_control_mode
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 in_voltage1_gain_control_mode_available
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage1_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage1_hd2_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage1_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage1_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage1_rssi
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage2_bb_dc_offset_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage2_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage2_gain_control_mode
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 in_voltage2_gain_control_mode_available
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage2_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage2_hd2_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage2_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage2_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage2_rssi
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage3_bb_dc_offset_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage3_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage3_gain_control_mode
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 in_voltage3_gain_control_mode_available
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage3_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage3_hd2_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage3_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage3_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage3_rssi
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage4_bb_dc_offset_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage4_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage4_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage4_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage4_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage5_bb_dc_offset_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage5_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage5_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage5_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage5_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 in_voltage_sampling_frequency
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 jesd204_fsm_ctrl
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 jesd204_fsm_error
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 jesd204_fsm_paused
+   --w------- 1 root root 4096 Nov 22 11:04 jesd204_fsm_resume
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 jesd204_fsm_state
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 name
+   lrwxrwxrwx 1 root root    0 Nov 22 11:04 of_node -> ../../../../../../../../firmware/devicetree/base/axi/spi@ff040000/adrv9025-phy@0
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_altvoltage0_LO1_frequency
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 out_altvoltage0_LO1_label
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_altvoltage1_LO2_frequency
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 out_altvoltage1_LO2_label
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_altvoltage2_AUX_LO_frequency
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 out_altvoltage2_AUX_LO_label
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage0_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage0_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage0_lo_leakage_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage0_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage0_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage1_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage1_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage1_lo_leakage_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage1_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage1_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage2_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage2_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage2_lo_leakage_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage2_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage2_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage3_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage3_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage3_lo_leakage_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage3_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage3_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 out_voltage_sampling_frequency
+   drwxr-xr-x 2 root root    0 Nov 22 11:04 power
+   lrwxrwxrwx 1 root root    0 Nov 22 11:04 subsystem -> ../../../../../../../../bus/iio
+   -rw-r--r-- 1 root root 4096 Nov 22 11:04 uevent
+   -r--r--r-- 1 root root 4096 Nov 22 11:04 waiting_for_supplier
+   root@analog:/sys/bus/iio/devices/iio:device2#
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# cat name
+   adrv9025-phy
+
+Show device temperature
+~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# cat in_temp0_input
+   66000
+
+Channel Enable/Powerdown Controls
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For use cases where pin control mode is not used or required, these attributes
+can be used to enable/disable the Rx/Tx signal paths while in the ENSM radio_on
+state.
+
+- in_voltage0_en
+- in_voltage1_en
+- in_voltage2_en
+- in_voltage3_en
+- out_voltage0_en
+- out_voltage1_en
+- out_voltage2_en
+- out_voltage3_en
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# cat in_voltage0_en
+   1
+   root@analog:/sys/bus/iio/devices/iio:device2# echo 0 > in_voltage0_en
+   root@analog:/sys/bus/iio/devices/iio:device2# cat in_voltage0_en
+   0
+
+Local Oscillator Control (LO)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The device contains two RF PLLs. Each RF PLL uses the PLL block common to all
+synthesizers in the device and employ a 4 core VCO block which provides a 6dB
+phase noise improvement over the single core VCO. The tuneable range of the RF
+LO is 30-6000 MHz.It is possible to set the LO frequency independently for each
+port.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Attribute
+     - Port
+   * - out_altvoltage0_RX1_LO_frequency
+     - RX1
+   * - out_altvoltage1_RX2_LO_frequency
+     - RX2
+   * - out_altvoltage2_TX1_LO_frequency
+     - TX1
+   * - out_altvoltage3_TX2_LO_frequency
+     - TX2
+
+::
+
+   cat out_altvoltage2_AUX_LO_frequency
+   3605000000
+   root@analog:/sys/bus/iio/devices/iio:device2# echo 3600000000 > out_altvoltage2_AUX_LO_frequency
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_altvoltage2_AUX_LO_frequency
+   3600000000
+
+.. important::
+
+   Some care is needed for correctly handle carrier configuration. Note that the
+   driver exposes 4 controls giving the idea that we can, independently, control
+   all 4 ports. That is not true because, as stated above, the device only has 2
+   PLLs. Hence, applications have to be careful. For an example on how this can
+   be handled and for more details, look at this
+   :git-iio-oscilloscope:`commit <commit/6f77f19f055543c780598529ecdf5f3ed078cbfc+>`
+   on the IIO Oscilloscope plugin.
+
+Signal Path Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+TX Signal Path
+^^^^^^^^^^^^^^
+
+The ADRV9026 transmitter section consists of four identical and independently
+controlled channels that provide all the digital processing, mixed-signal, and
+RF blocks necessary to implement a direct conversion system while sharing a
+common frequency synthesizer. The digital data from the SERDES lanes pass
+through a digital processing block that includes a series of programmable
+half-band filters, interpolation stages, and FIR filters, including a
+programmable FIR filter with variable interpolation rates and up to 80 taps. The
+output of this digital chain is connected to the digital-to-analog converter
+(DAC). The DAC sample rate is adjustable up to 2.5 GHz. The in-phase (I) and
+quadrature (Q) channels are identical in each transmitter signal chain.
+
+After conversion to baseband analog signals, the I and Q signals are filtered to
+remove sampling artifacts and fed to the upconversion mixers. Each transmit
+chain provides a wide attenuation adjustment range with fine granularity to help
+designers optimize signal-to-noise ratio (SNR).
+
+Properties
+''''''''''
+
+The following settings are available for each TX channel: ::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# ls -la | grep out_voltage0
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 out_voltage0_en
+   -rw-r--r-- 1 root root 4096 Nov 22 15:25 out_voltage0_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 out_voltage0_lo_leakage_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 out_voltage0_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 out_voltage0_rf_bandwidth
+
+Primary Signal Bandwidth
+''''''''''''''''''''''''
+
+To query TX Primary Signal Bandwidth: ::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage0_rf_bandwidth
+   450000000
+
+Hardware Gain
+'''''''''''''
+
+To query and modify TX Hardware Gain: ::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage0_hardwaregain
+   -10.000000 dB
+   root@analog:/sys/bus/iio/devices/iio:device2# echo -12 > out_voltage0_hardwaregain
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage0_hardwaregain
+   -12.000000 dB
+
+RX Signal Path
+^^^^^^^^^^^^^^
+
+The ADRV9026 provides four independent receiver channels. Each channel contains
+all the blocks necessary to receive RF signals and convert these signals to
+digital data usable by a baseband processor. Each receiver can be configured as
+a direct conversion system that supports up to a bandwidth of 200 MHz. Each
+channel contains a programmable attenuator stage, followed by matched I and Q
+mixers that downconvert received signals to baseband for digitization.
+
+Two gain control options are available, as follows:
+
+- Users can implement their own gain control algorithms using their baseband
+  processor to manage manual gain control mode
+- Users can use the on-chip automatic gain control (AGC) system.
+
+Performance is optimized by mapping each gain control setting to specific
+attenuation levels at each adjustable gain block in the receive signal path.
+Additionally, each channel contains independent receive signal strength
+indication (RSSI) measurement capability, dc offset tracking, and all the
+circuitry necessary for self calibration.
+
+The receivers include analog-to-digital converters (ADCs) and adjustable sample
+rates that produce data streams from the received signals. The signals can be
+conditioned further by a series of decimation filters and a programmable FIR
+filter with additional decimation settings. The sample rate of each digital
+filter block is adjustable by changing decimation factors to produce the desired
+output data rate. All receiver outputs are connected to the SERDES block, where
+the data is formatted and serialized for transmission to the baseband processor.
+
+Properties
+''''''''''
+
+The following settings are available for each RX channel: ::
+
+   ls -la | grep in_voltage1
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_bb_dc_offset_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_en
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_gain_control_mode
+   -r--r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_gain_control_mode_available
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_hardwaregain
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_hd2_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_quadrature_tracking_en
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_rf_bandwidth
+   -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_rssi
+
+Advanced Debug Facilities
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ADRV9025 driver supports advanced debug controls via the kernel
+`debugfs <https://en.wikipedia.org/wiki/debugfs>`__. These controls are mostly
+to debug which settings are currently configured in the device. How these device
+files/controls can be used is described here.
+
+Runtime Device Driver Customization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Through these controls, the user can run and configure BIST tests. In order to
+identify if the IIO device in question (adrv9025-phy) you first need to identify
+the IIO device number. Therefore read the name attribute of each IIO device
+
+::
+
+   root@analog:~# grep "" /sys/bus/iio/devices/iio\:device/name
+   /sys/bus/iio/devices/iio:device0/name:xilinx-ams
+   /sys/bus/iio/devices/iio:device1/name:ad9528-1
+   /sys/bus/iio/devices/iio:device2/name:adrv9025-phy
+   /sys/bus/iio/devices/iio:device3/name:axi-adrv9025-rx-hpc
+   /sys/bus/iio/devices/iio:device4/name:axi-adrv9025-tx-hpc
+
+Change directory to **/sys/kernel/debug**/iio/ iio:deviceX. ::
+
+   root@analog:~# cd /sys/kernel/debug/iio/iio\:device2
+   root@analog:/sys/kernel/debug/iio/iio:device2# ls -la
+   total 0
+   drwxr-xr-x 2 root root 0 Jul 10  2019 .
+   drwxr-xr-x 6 root root 0 Jan  1  1970 ..
+   -rw-r--r-- 1 root root 0 Jul 10  2019 bist_framer_0_prbs
+   -rw-r--r-- 1 root root 0 Jul 10  2019 bist_framer_loopback
+   -rw-r--r-- 1 root root 0 Jul 10  2019 bist_tone
+   -rw-r--r-- 1 root root 0 Jul 10  2019 direct_reg_access
+   root@analog:/sys/kernel/debug/iio/iio:device2#
+
+Build-In Self-Test (BIST)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Controlling these attribute files directly take effect and therefore don’t
+require the ``initialize`` sequence. Test functionality exposed here is only
+meant to route or inject test patterns/data than can be used to validate the
+Digital Interface or functionality of the device.
+
+PRBS
+''''
+
+Pseudorandom Binary Sequence
+(`PRBS <https://en.wikipedia.org/wiki/Pseudorandom_binary_sequence>`__) to
+Framer 0.
+
+SYNTAX:
+
+**bist_framer_0_prbs** *<Data Source>*
+
+.. list-table::
+   :header-rows: 1
+
+   * - Data Source
+     -
+   * - Value
+     - Function
+   * - 0
+     - ADC data source
+   * - 1
+     - Checkerboard data source
+   * - 2
+     - Toggle 0 to 1 data source
+   * - 3
+     - PRBS31 data source
+   * - 4
+     - PRBS23 data source
+   * - 5
+     - PRBS15 data source
+   * - 6
+     - PRBS9 data source
+   * - 7
+     - PRBS7 data source
+   * - 8
+     - Ramp data
+   * - 14
+     - 16-bit programmed pattern repeat source
+   * - 15
+     - 16-bit programmed pattern executed once source
+
+**Example**: Inject ramp PRBS
+
+::
+
+   root@analog:/sys/kernel/debug/iio/iio:device2# echo 8 > bist_framer_0_prbs
+
+BIST Loopback
+'''''''''''''
+
+Allows to digitally loopback framer data into the deframer.
+
+**SYNTAX:**
+
+**bist_framer_loopback** *<Mode>*
+
+.. list-table::
+   :header-rows: 1
+
+   * - Value
+     - Mode
+   * - 0
+     - Disable
+   * - 1
+     - Digital framer -> Digital deframer
+
+**Example**: Digital TX -> Digital RX
+
+::
+
+   root@analog:/sys/kernel/debug/iio/iio:device2# echo 1 > bist_framer_loopback
+
+BIST Tone
+'''''''''
+
+User selectable tone (with frequency and gain selection), that can be injected
+into the TX path. All Tx channels are selected.
+
+SYNTAX:
+
+**bist_tone** *<Enable> <Tone Frequency> <Tone Gain>*
+
+.. list-table::
+   :header-rows: 1
+
+   * - Enable
+     -
+   * - Value
+     - Function
+   * - 0
+     - Disable Tx NCO
+   * - 1
+     - Enable Tx NCO on both transmitters
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tone Frequency
+   * - Signed frequency in Hz of the desired Tx tone
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tone Gain (Optional)
+     -
+   * - Value
+     - Function
+   * - 0
+     - Nco gain -18 dB
+   * - 1
+     - Nco gain -12 dB
+   * - 2
+     - Nco gain -6 dB
+   * - 3
+     - Nco gain 0 dB
+
+**Example**: Inject 0 dB tone at 3 MHz into TX (all channels enabled)
+
+::
+
+   root@analog:/sys/kernel/debug/iio/iio:device2# echo 1 3000 > bist_tone
+
+Low level register access via debugfs (direct_reg_access)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-low-level-register-access-via-debugfs-direct-reg-access
+   :end-before: .. end-low-level-register-access-via-debugfs-direct-reg-access
