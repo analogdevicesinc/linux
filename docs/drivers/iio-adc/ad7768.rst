@@ -1,0 +1,164 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7768
+
+.. _ad7768:
+
+AD7768
+======
+
+AD7768 IIO Precision ADC Linux Driver.
+
+Supported Devices
+-----------------
+
+This driver supports the
+
+- :adi:`AD7768`
+- :adi:`AD7768-4`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD7768`
+- :adi:`EVAL-AD7768-4`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting single channel serial interface ADCs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+   * - :git-linux:`git <drivers/iio/adc/ad7768.c>`
+     - [In progress…]
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/ad7768.c`
+     -
+   * - devicetree bindings
+     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad7768.yaml`
+     -
+   * - hdl project
+     - :git-hdl:`hdl <projects/ad7768evb+>`
+     -
+
+Example Linux Device-Tree Initialization
+----------------------------------------
+
+Required properties:
+
+- compatible: Must be one of ``adi,ad7768``, ``adi,ad7768-4``.
+- reg: SPI chip select number for the device.
+- clocks: phandle to master clock of the device.
+- clock-names: Must be ``mclk``.
+- spi-max-frequency: See Documentation/devicetree/bindings/spi/spi-bus.txt.
+- dmas: DMA specifier, consisting of a phandle to DMA controller node.
+- dma-names: Must be ``rx``.
+- vref-supply: phandle to the regulator for ADC reference voltage.
+
+Optional properties:
+
+- reset-gpios: Reset GPIO.
+- adi,data-lines: Number of DOUTx pins channels data is output on. Default
+  value: 1.
+
+**NOTE:** The *adi,data-lines* value is determined by the configuration of the
+AD7768/AD7768-4 chip’s FORMATx pins. These pins are read on power-up and dictate
+the number of data lines (DOUTx) on which the ADC conversions are output.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - AD7768 Device Tree
+     - :git-linux:`zynq-zed-adv7511-ad7768.dts <arch/arm/boot/dts/zynq-zed-adv7511-ad7768.dts>`
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+.. tip::
+
+   An example program which uses the interface can be found here:
+
+   - :external+documentation:ref:`iio-oscilloscope`
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+
+   root:/sys/bus/iio/devices> cd iio\:device0
+
+   root:/sys/bus/iio/devices/iio:device0> ls -l
+   total 0
+   drwxr-xr-x 2 root root    0 Apr  2 21:43 buffer
+   drwxr-xr-x 2 root root    0 Apr  2 21:43 buffer0
+   -r--r--r-- 1 root root 4096 Apr  2 21:43 dev
+   -rw-r--r-- 1 root root 4096 Apr  2 21:43 filter_type
+   -r--r--r-- 1 root root 4096 Apr  2 21:43 filter_type_available
+   -rw-r--r-- 1 root root 4096 Apr  2 21:43 in_voltage_scale
+   -r--r--r-- 1 root root 4096 Apr  2 21:43 name
+   lrwxrwxrwx 1 root root    0 Apr  2 21:43 of_node -> ../../../../../../../../firmware/devicetree/base/axi/spi@e0006000/adc@0
+   drwxr-xr-x 2 root root    0 Apr  2 21:43 power
+   -rw-r--r-- 1 root root 4096 Apr  2 21:43 power_mode
+   -r--r--r-- 1 root root 4096 Apr  2 21:43 power_mode_available
+   -rw-r--r-- 1 root root 4096 Apr  2 21:43 sampling_frequency
+   -r--r--r-- 1 root root 4096 Apr  2 21:43 sampling_frequency_available
+   drwxr-xr-x 2 root root    0 Apr  2 21:42 scan_elements
+   lrwxrwxrwx 1 root root    0 Apr  2 21:42 subsystem -> ../../../../../../../../bus/iio
+   -rw-r--r-- 1 root root 4096 Apr  2 21:42 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat name
+   ad7768
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to in_voltage0_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage_scale
+   0.000488281
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
