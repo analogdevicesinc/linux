@@ -162,6 +162,7 @@ enum mlx5_ib_mmap_type {
 	MLX5_IB_MMAP_TYPE_UAR_WC = 3,
 	MLX5_IB_MMAP_TYPE_UAR_NC = 4,
 	MLX5_IB_MMAP_TYPE_MEMIC_OP = 5,
+	MLX5_IB_MMAP_TYPE_TLP_VAR = 6,
 };
 
 struct mlx5_bfreg_info {
@@ -1068,6 +1069,7 @@ struct mlx5_var_region {
 
 struct mlx5_var_table {
 	struct mlx5_var_region var_region;
+	struct mlx5_var_region tlp_var_region;
 };
 
 struct mlx5_port_caps {
