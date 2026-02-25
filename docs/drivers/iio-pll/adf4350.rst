@@ -1,0 +1,410 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/adf4350
+
+.. _adf4350:
+
+ADF4350
+=======
+
+ADF4350 IIO Wideband Synthesizer Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADF4350`
+- :adi:`ADF4351`
+
+Reference Circuits
+------------------
+
+- :adi:`CN0134`
+- :adi:`CN0144`
+- :adi:`CN0147`
+- :adi:`CN0232`
+- :adi:`CN0239`
+- :adi:`CN0245`
+- :adi:`CN0285`
+- :adi:`CN0294`
+- :adi:`CN0311`
+- :adi:`CN0360`
+
+Evaluation Boards
+-----------------
+
+- :adi:`ADF4350 Eval Board <EVAL-ADF4350EB1Z>`
+- :adi:`ADF4351 Eval Board <EVAL-ADF4351EB1Z>`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting serial interface PLL Synthesizers. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4350.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4350.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/frequency/adf4350.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4350.c>`__
+   * - include
+     - `include/linux/iio/frequency/adf4350.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/iio/frequency/adf4350.h>`__
+   * - Documentation
+     - `Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4350 <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4350>`__
+   * - Documentation
+     - `Documentation/devicetree/bindings/iio/frequency/adf4350.txt <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/frequency/adf4350.txt>`__
+
+Example platform device initialization
+--------------------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+The reference frequency and GPIO numbers may vary between boards. The
+platform_data for the device’s ``struct device`` holds this information.
+
+.. code:: c
+
+   /**
+    * struct adf4350_platform_data - platform specific information
+    * @clkin:      REFin frequency in Hz.
+    * @channel_spacing:    Channel spacing in Hz (influences MODULUS).
+    * @power_up_frequency: Optional, If set in Hz the PLL tunes to the desired
+    *          frequency on probe.
+    * @ref_div_factor: Optional, if set the driver skips dynamic calculation
+    *          and uses this default value instead.
+    * @ref_doubler_en: Enables reference doubler.
+    * @ref_div2_en:    Enables reference divider.
+    * @r2_user_settings:   User defined settings for ADF4350/1 REGISTER_2.
+    * @r3_user_settings:   User defined settings for ADF4350/1 REGISTER_3.
+    * @r4_user_settings:   User defined settings for ADF4350/1 REGISTER_4.
+    * @gpio_lock_detect:   Optional, if set with a valid GPIO number,
+    *          a PLL_LOCKED device attribute is created.
+    *          If not used - set to -1.
+    */
+
+   struct adf4350_platform_data {
+       unsigned long       clkin;
+       unsigned long       channel_spacing;
+       unsigned long long  power_up_frequency;
+
+       unsigned short      ref_div_factor; /* 10-bit R counter */
+       bool            ref_doubler_en;
+       bool            ref_div2_en;
+
+       unsigned        r2_user_settings;
+       unsigned        r3_user_settings;
+       unsigned        r4_user_settings;
+       int         gpio_lock_detect;
+   };
+
+.. code:: c
+
+   static struct adf4350_platform_data adf4351_pdata = {
+       .clkin = 10000000,
+       .channel_spacing = 10000,
+       .r2_user_settings = ADF4350_REG2_PD_POLARITY_POS,
+                   ADF4350_REG2_CHARGE_PUMP_CURR_uA(2500),
+       .r3_user_settings = ADF4350_REG3_12BIT_CLKDIV_MODE(0),
+       .r4_user_settings = ADF4350_REG4_OUTPUT_PWR(0) |
+                   ADF4350_REG4_MUTE_TILL_LOCK_EN,
+       .gpio_lock_detect = -1,
+   };
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the DDS IC used, you may need to set the modalias accordingly,
+matching your part name. It may also required to adjust max_speed_hz. Please
+consult the datasheet, for maximum spi clock supported by the device in
+question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_ADF4350) || defined(CONFIG_ADF4350_MODULE)
+       {
+           .modalias = "adf4350",
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = GPIO_PF10 + MAX_CTRL_CS, /* GPIO controlled SSEL */
+           .platform_data = NULL, /* No spi_driver specific config */
+           .mode = SPI_MODE_0,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Devicetree bindings
+-------------------
+
+::
+
+   Required properties:
+       - compatible: Should be one of
+           * "adi,adf4350": When using the ADF4350 device
+           * "adi,adf4351": When using the ADF4351 device
+       - reg: SPI chip select numbert for the device
+       - spi-max-frequency: Max SPI frequency to use (< 20000000)
+       - clocks: From common clock binding. Clock is phandle to clock for
+           ADF435x Reference Clock (CLKIN).
+
+   Optional properties:
+       - gpios:     GPIO Lock detect - If set with a valid phandle and GPIO number,
+               pll lock state is tested upon read.
+       - adi,channel-spacing: Channel spacing in Hz (influences MODULUS).
+       - adi,power-up-frequency:   If set in Hz the PLL tunes to
+               the desired frequency on probe.
+       - adi,reference-div-factor: If set the driver skips dynamic calculation
+               and uses this default value instead.
+       - adi,reference-doubler-enable: Enables reference doubler.
+       - adi,reference-div2-enable: Enables reference divider.
+       - adi,phase-detector-polarity-positive-enable: Enables positive phase
+               detector polarity. Default = negative.
+       - adi,lock-detect-precision-6ns-enable: Enables 6ns lock detect precision.
+               Default = 10ns.
+       - adi,lock-detect-function-integer-n-enable: Enables lock detect
+               for integer-N mode. Default = factional-N mode.
+       - adi,charge-pump-current: Charge pump current in mA.
+               Default = 2500mA.
+       - adi,muxout-select: On chip multiplexer output selection.
+               Valid values for the multiplexer output are:
+               0: Three-State Output (default)
+               1: DVDD
+               2: DGND
+               3: R-Counter output
+               4: N-Divider output
+               5: Analog lock detect
+               6: Digital lock detect
+       - adi,low-spur-mode-enable: Enables low spur mode.
+               Default = Low noise mode.
+       - adi,cycle-slip-reduction-enable: Enables cycle slip reduction.
+       - adi,charge-cancellation-enable: Enabled charge pump
+               charge cancellation for integer-N modes.
+       - adi,anti-backlash-3ns-enable: Enables 3ns antibacklash pulse width
+                for integer-N modes.
+       - adi,band-select-clock-mode-high-enable: Enables faster band
+               selection logic.
+       - adi,12bit-clk-divider: Clock divider value used when
+               adi,12bit-clkdiv-mode != 0
+       - adi,clk-divider-mode:
+               Valid values for the clkdiv mode are:
+               0: Clock divider off (default)
+               1: Fast lock enable
+               2: Phase resync enable
+       - adi,aux-output-enable: Enables auxiliary RF output.
+       - adi,aux-output-fundamental-enable: Selects fundamental VCO output on
+               the auxiliary RF output. Default = Output of RF dividers.
+       - adi,mute-till-lock-enable: Enables Mute-Till-Lock-Detect function.
+       - adi,output-power: Output power selection.
+               Valid values for the power mode are:
+               0: -4dBm (default)
+               1: -1dBm
+               2: +2dBm
+               3: +5dBm
+       - adi,aux-output-power: Auxiliary output power selection.
+               Valid values for the power mode are:
+               0: -4dBm (default)
+               1: -1dBm
+               2: +2dBm
+               3: +5dBm
+
+::
+
+   Example:
+           lo_pll0_rx_adf4351: adf4351-rx-lpc@4 {
+               compatible = "adi,adf4351";
+               reg = <4>;
+               spi-max-frequency = <10000000>;
+               clocks = <&clk0_ad9523 9>;
+               clock-names = "clkin";
+               adi,channel-spacing = <10000>;
+               adi,power-up-frequency = <2400000000>;
+               adi,phase-detector-polarity-positive-enable;
+               adi,charge-pump-current = <2500>;
+               adi,output-power = <3>;
+               adi,mute-till-lock-enable;
+           };
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADF4350 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               -*-   Enable ring buffer support within IIO
+               -*-     Industrial I/O lock free software ring
+               -*-   Enable triggered sampling support
+
+                         *** Phase-Locked Loop (PLL) frequency synthesizers ***
+
+               [--snip--]
+                   <*>   Analog Devices ADF4350/ADF4351 Wideband Synthesizers
+               [--snip--]
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+   root:/sys/bus/iio/devices> iio:device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> ls -l
+   -r--r--r--    1 root     root          4096 Jan  1 00:01 dev
+   -r--r--r--    1 root     root          4096 Jan  1 00:01 name
+   -rw-r--r--    1 root     root          4096 Jan  1 00:01 out_altvoltage0_frequency
+   -rw-r--r--    1 root     root          4096 Jan  1 00:01 out_altvoltage0_frequency_resolution
+   -r--r--r--    1 root     root          4096 Jan  1 00:01 out_altvoltage0_locked
+   -rw-r--r--    1 root     root          4096 Jan  1 00:01 out_altvoltage0_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  1 00:01 out_altvoltage0_refin_frequency
+   drwxr-xr-x    2 root     root             0 Jan  1 00:01 power
+   lrwxrwxrwx    1 root     root             0 Jan  1 00:01 subsystem -> ../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  1 00:01 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat name
+   adf4350
+
+Set Output Frequency
+^^^^^^^^^^^^^^^^^^^^
+
+/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_frequency
+
+Stores PLL Y frequency in Hz. Reading returns the actual frequency in Hz. When
+setting a new frequency, the PLL requires some time to lock. If available, the
+user can read out_altvoltageY_locked in order to check whether the PLL has
+locked or not.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 144825000 > out_altvoltage0_frequency
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat out_altvoltage0_frequency
+   144825000
+
+Set frequency resolution/channel spacing
+''''''''''''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_freq_resolution
+
+Stores PLL Y frequency resolution/channel spacing in Hz. The value given
+directly influences the MODULUS used by the fractional-N PLL. It is assumed that
+the algorithm that is used to compute the various dividers, is able to generate
+proper values for multiples of channel spacing.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 10000 > out_altvoltageY_refin_freq
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat out_altvoltageY_refin_frequency
+   10000
+
+Set reference frequency
+'''''''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_refin_frequency
+
+Sets PLL Y REFin frequency in Hz. In some clock chained applications, the
+reference frequency used by the PLL may change during runtime. This attribute
+allows the user to adjust the reference frequency accordingly. The value written
+has no effect until out_altvoltageY_freq is updated.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 10000000 > out_altvoltageY_refin_frequency
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat out_altvoltageY_refin_frequency
+   10000000
+
+Enable Power-Down
+'''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_powerdown
+
+If available, this attribute allows the user to power down the PLL and it’s
+RFOut buffers. This is in particular useful during REFin changes.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 1 > out_altvoltageY_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat out_altvoltageY_powerdown
+   1
+
+Query Lock Detect
+'''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_locked
+
+If available, this attribute allows the user to determine whether the PLL has
+locked by reading ‘1’ or not ‘0’.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat out_altvoltageY_locked
+   1
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
