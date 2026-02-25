@@ -1057,13 +1057,17 @@ struct mlx5_devx_event_table {
 	struct xarray event_xa;
 };
 
-struct mlx5_var_table {
+struct mlx5_var_region {
 	/* serialize updating the bitmap */
 	struct mutex bitmap_lock;
 	unsigned long *bitmap;
 	u64 hw_start_addr;
 	u32 stride_size;
 	u64 num_var_hw_entries;
+};
+
+struct mlx5_var_table {
+	struct mlx5_var_region var_region;
 };
 
 struct mlx5_port_caps {
