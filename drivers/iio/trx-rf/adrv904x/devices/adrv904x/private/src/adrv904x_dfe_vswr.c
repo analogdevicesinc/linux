@@ -16,6 +16,7 @@
 
 
 #include "../../private/bf/adrv904x_bf_tx_dfe_dig_regs.h"
+#include "../../private/include/adrv904x_dfe_vswr.h"
 
 
 #define ADI_FILE    ADI_ADRV904X_FILE_PRIVATE_DFE_VSWR
