@@ -257,7 +257,7 @@ static int nau7802_read_poll(struct iio_dev *indio_dev,
 	/*
 	 * Because there is actually only one ADC for both channels, we have to
 	 * wait for enough conversions to happen before getting a significant
-	 * value when changing channels and the values are far appart.
+	 * value when changing channels and the values are far apart.
 	 */
 	do {
 		ret = i2c_smbus_read_byte_data(st->client, NAU7802_REG_PUCTRL);

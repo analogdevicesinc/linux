@@ -629,7 +629,7 @@ static int ad4030_conversion(struct iio_dev *indio_dev)
 	/* Add one byte if we are using a differential + common byte mode */
 	bytes_to_read += (st->mode == AD4030_OUT_DATA_MD_24_DIFF_8_COM ||
 			st->mode == AD4030_OUT_DATA_MD_16_DIFF_8_COM) ? 1 : 0;
-	/* Mulitiply by the number of hardware channels */
+	/* Multiply by the number of hardware channels */
 	bytes_to_read *= st->chip->num_voltage_inputs;
 
 	for (i = 0; i < cnv_nb; i++) {

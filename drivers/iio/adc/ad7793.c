@@ -805,7 +805,7 @@ static int ad7793_probe(struct spi_device *spi)
 
 		vref_mv = ret / 1000;
 	} else {
-		vref_mv = 1170; /* Build-in ref */
+		vref_mv = 1170; /* Built-in ref */
 	}
 
 	st->chip_info =

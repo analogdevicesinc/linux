@@ -1862,7 +1862,7 @@ static int ad7380_probe_spi_offload(struct iio_dev *indio_dev,
 
 	/*
 	 * Starting with a quite low frequency, to allow oversampling x32,
-	 * user is then reponsible to adjust the frequency for the specific case.
+	 * user is then responsible to adjust the frequency for the specific case.
 	 */
 	ret = ad7380_set_sample_freq(st, sample_rate / 32);
 	if (ret)

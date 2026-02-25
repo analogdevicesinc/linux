@@ -171,7 +171,7 @@ struct at91_adc_trigger {
 };
 
 /**
- * struct at91_adc_reg_desc - Various informations relative to registers
+ * struct at91_adc_reg_desc - Various information relative to registers
  * @channel_base:	Base offset for the channel data registers
  * @drdy_mask:		Mask of the DRDY field in the relevant registers
  *			(Interruptions registers mostly)
@@ -231,7 +231,7 @@ struct at91_adc_state {
 	struct iio_trigger	**trig;
 	bool			use_external;
 	u32			vref_mv;
-	u32			res;		/* resolution used for convertions */
+	u32			res;		/* resolution used for conversions */
 	wait_queue_head_t	wq_data_avail;
 	const struct at91_adc_caps	*caps;
 
