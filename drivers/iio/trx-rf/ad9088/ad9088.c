@@ -2719,6 +2719,114 @@ static const char *const ad9088_jrx_204c_states[] = {
 	"Undef", "Link is good", "Undef",
 };
 
+int ad9088_status_show(struct seq_file *file, void *offset)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(file->private);
+	struct ad9088_phy *phy = conv->phy;
+	adi_apollo_device_t *device = &phy->ad9088;
+	adi_apollo_jesd_rx_inspect_t jrx_status;
+	adi_apollo_jesd_tx_inspect_t jtx_status;
+	u16 links_to_inspect[] = {
+		ADI_APOLLO_LINK_A0, ADI_APOLLO_LINK_A1,
+		ADI_APOLLO_LINK_B0, ADI_APOLLO_LINK_B1
+	};
+	const char * const links_to_inspect_str[] = { "A0", "A1", "B0", "B1" };
+	int l, i, ret;
+	u16 stat, l_stat;
+
+	for (l = 0; l < ARRAY_SIZE(links_to_inspect); l++) {
+		ret = adi_apollo_jrx_link_inspect(device, links_to_inspect[l], &jrx_status);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_jrx_link_inspect");
+		if (ret)
+			return ret;
+
+		if (!jrx_status.np_minus1)
+			continue;
+
+		seq_printf(file, "JRX ADI_APOLLO_LINK_%s: JESD204%c Subclass=%c L=%d M=%d F=%d S=%d Np=%d CS=%d link_en=%-8s\n",
+			   links_to_inspect_str[l],
+			   jrx_status.ver == ADI_APOLLO_JESD_204C ? 'C' : 'B',
+			   jrx_status.subclass ? '1' : '0',
+			   jrx_status.l_minus1 + 1,
+			   jrx_status.m_minus1 + 1,
+			   jrx_status.f_minus1 + 1,
+			   jrx_status.s_minus1 + 1,
+			   jrx_status.np_minus1 + 1,
+			   jrx_status.cs,
+			   jrx_status.link_en ? "Enabled" : "Disabled");
+
+		ret = adi_apollo_jrx_link_status_get(&phy->ad9088, links_to_inspect[l], &stat);
+		if (ret)
+			return -EFAULT;
+
+		if (jrx_status.ver == ADI_APOLLO_JESD_204C) {
+			for (i = 0; i < ADI_APOLLO_JESD_MAX_LANES_PER_SIDE; i++) {
+				adi_apollo_jrx_j204c_lane_status_get(&phy->ad9088,
+								     links_to_inspect[l], i,
+								     &l_stat);
+				seq_printf(file, "    Lane%d status: %s\n", i,
+					   ad9088_jrx_204c_states[l_stat & 0x7]);
+			}
+		} else {
+			for (i = 0; i < ADI_APOLLO_JESD_MAX_LANES_PER_SIDE; i++) {
+				adi_apollo_jrx_j204b_lane_status_get(&phy->ad9088,
+								     links_to_inspect[l], i,
+								     &l_stat);
+				seq_printf(file, "    Lane%d status: %s 0x%X\n", i,
+					   (l_stat & 0x3C) == 0x38 ?
+					   "Link Ready" : "Link NOT Ready",
+					   l_stat);
+			}
+		}
+
+		seq_printf(file, "    User status: %s, SYSREF Phase: %s\n",
+			   (stat & 0x20) ? "Ready" :  "Fail",
+			   (stat & 0x40) ? "Locked" :  "Unlocked");
+	}
+
+	for (l = 0; l < ARRAY_SIZE(links_to_inspect); l++) {
+		ret = adi_apollo_jtx_link_inspect(device, links_to_inspect[l], &jtx_status);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_jtx_link_inspect");
+		if (ret)
+			return ret;
+
+		if (!jtx_status.np_minus1)
+			continue;
+
+		seq_printf(file, "JTX ADI_APOLLO_LINK_%s: JESD204%c Subclass=%c L=%d M=%d F=%d S=%d Np=%d CS=%d link_en=%-8s\n",
+			   links_to_inspect_str[l],
+			   jtx_status.ver == ADI_APOLLO_JESD_204C ? 'C' : 'B',
+			   jtx_status.subclass ? '1' : '0',
+			   jtx_status.l_minus1 + 1,
+			   jtx_status.m_minus1 + 1,
+			   jtx_status.f_minus1 + 1,
+			   jtx_status.s_minus1 + 1,
+			   jtx_status.np_minus1 + 1,
+			   jtx_status.cs,
+			   jtx_status.link_en ? "Enabled" : "Disabled");
+
+		ret = adi_apollo_jtx_link_status_get(&phy->ad9088, links_to_inspect[l], &stat);
+		if (ret)
+			return -EFAULT;
+
+		if (jtx_status.ver == ADI_APOLLO_JESD_204C)
+			seq_printf(file,
+				   "    PLL %s, PHASE %s, MODE %s\n",
+				   stat & BIT(5) ? "locked" : "unlocked",
+				   stat & BIT(6) ? "established" : "lost",
+				   stat & BIT(7) ? "invalid" : "valid");
+		else
+			seq_printf(file,
+				   "    SYNC %s, PLL %s, PHASE %s, MODE %s\n",
+				   stat & BIT(4) ? "deasserted" : "asserted",
+				   stat & BIT(5) ? "locked" : "unlocked",
+				   stat & BIT(6) ? "established" : "lost",
+				   stat & BIT(7) ? "invalid" : "valid");
+	}
+
+	return 0;
+}
+
 int ad9088_jesd_rx_link_status_print(struct ad9088_phy *phy,
 				     struct jesd204_link *lnk, int retry)
 {
@@ -4071,6 +4179,9 @@ static int ad9088_post_iio_register(struct iio_dev *indio_dev)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9088_phy *phy = conv->phy;
 	int ret;
+
+	/* Register debugfs entries */
+	ad9088_debugfs_register(indio_dev);
 
 	sysfs_bin_attr_init(&phy->pfilt);
 	phy->pfilt.attr.name = "pfilt_config";
