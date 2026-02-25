@@ -207,7 +207,7 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 	struct ras_log_batch_overview overview;
 	uint32_t offset = 0, real_data_len = 0;
 	uint64_t batch_id;
-	uint8_t *buffer = NULL;
+	uint8_t *buf_ptr = (uint8_t *)(uintptr_t)req->buf_ptr;
 	int ret = 0, i, count;
 
 	if ((cmd->input_size != sizeof(struct ras_cmd_cper_record_req)) ||
@@ -217,10 +217,6 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 	if (!req->buf_size || !req->buf_ptr || !req->cper_num ||
 	    req->buf_size > RAS_CMD_MAX_CPER_BUF_SZ)
 		return RAS_CMD__ERROR_INVALID_INPUT_DATA;
-
-	buffer = kzalloc(req->buf_size, GFP_KERNEL);
-	if (!buffer)
-		return RAS_CMD__ERROR_GENERIC;
 
 	trace = kcalloc(trace_count, sizeof(*trace), GFP_KERNEL);
 	if (!trace) {
@@ -238,7 +234,7 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 					trace_count);
 		if (count > 0) {
 			ret = ras_cper_generate_cper(ras_core, trace, count,
-					&buffer[offset], req->buf_size - offset, &real_data_len);
+					&buf_ptr[offset], req->buf_size - offset, &real_data_len);
 			if (ret)
 				break;
 
@@ -246,8 +242,7 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 		}
 	}
 
-	if ((ret && (ret != -ENOMEM)) ||
-		copy_to_user(u64_to_user_ptr(req->buf_ptr), buffer, offset)) {
+	if ((ret && (ret != -ENOMEM))) {
 		ret = RAS_CMD__ERROR_GENERIC;
 		goto out;
 	}
@@ -262,7 +257,6 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 
 out:
 	kfree(trace);
-	kfree(buffer);
 	return ret;
 }
 
