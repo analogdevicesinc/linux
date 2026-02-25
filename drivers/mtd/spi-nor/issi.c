@@ -133,7 +133,14 @@ static const struct flash_info issi_nor_parts[] = {
 		.flags = SPI_NOR_QUAD_PP,
 		.fixups = &is25lp256_fixups,
 		.fixup_flags = SPI_NOR_4B_OPCODES,
-	}
+	}, {
+		.id = SNOR_ID(0x9d, 0x5a, 0x19),
+        .name = "is25lx256",
+    	.size = SZ_32M,
+        .flags = SPI_NOR_OCTAL_READ,
+        .fixups = &is25lp256_fixups,
+        .fixup_flags = SPI_NOR_4B_OPCODES,
+        .no_sfdp_flags = SECT_4K,
 };
 
 static void issi_nor_default_init(struct spi_nor *nor)
