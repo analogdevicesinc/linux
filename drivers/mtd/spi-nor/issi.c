@@ -141,6 +141,7 @@ static const struct flash_info issi_nor_parts[] = {
         .fixups = &is25lp256_fixups,
         .fixup_flags = SPI_NOR_4B_OPCODES,
         .no_sfdp_flags = SECT_4K,
+	}
 };
 
 static void issi_nor_default_init(struct spi_nor *nor)
