@@ -1024,7 +1024,7 @@ config S390_KPROBES_SANITY_TEST
 
 config S390_MODULES_SANITY_TEST
 	def_tristate n
-	depends on KUNIT
+	depends on KUNIT && m
 	default KUNIT_ALL_TESTS
 	prompt "Enable s390 specific modules tests"
 	select S390_MODULES_SANITY_TEST_HELPERS
