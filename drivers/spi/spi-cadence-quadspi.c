@@ -2046,6 +2046,10 @@ static const struct cqspi_driver_platdata socfpga_qspi = {
 			| CQSPI_SLOW_SRAM,
 };
 
+static const struct cqspi_driver_platdata adi_sc5xx = {
+	.hwcaps_mask = CQSPI_SUPPORTS_OCTAL,
+};
+
 static const struct cqspi_driver_platdata versal_ospi = {
 	.hwcaps_mask = CQSPI_SUPPORTS_OCTAL,
 	.quirks = CQSPI_DISABLE_DAC_MODE | CQSPI_SUPPORT_EXTERNAL_DMA,
@@ -2104,6 +2108,10 @@ static const struct of_device_id cqspi_dt_ids[] = {
 	{
 		.compatible = "mobileye,eyeq5-ospi",
 		.data = &mobileye_eyeq5_ospi,
+	},
+	{
+		.compatible = "adi,sc5xx-qspi",
+		.data = (void *)&adi_sc5xx,
 	},
 	{ /* end of table */ }
 };
