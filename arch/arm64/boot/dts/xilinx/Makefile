@@ -88,8 +88,6 @@ zynqmp-smk-k24-revA-sck-kv-g-revB-dtbs := zynqmp-smk-k24-revA.dtb zynqmp-sck-kv-
 
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-sck-kv-g-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic.dtb
-dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-demosaic.dtb
-dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-demosaic-mod.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-imu.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-mqnic.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-pwm.dtb
