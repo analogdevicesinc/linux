@@ -186,6 +186,7 @@ static const struct nla_policy nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
 	[RDMA_NLDEV_ATTR_FRMR_POOL_IN_USE]	= { .type = NLA_U64 },
 	[RDMA_NLDEV_ATTR_FRMR_POOLS_AGING_PERIOD] = { .type = NLA_U32 },
 	[RDMA_NLDEV_ATTR_FRMR_POOL_PINNED_HANDLES] = { .type = NLA_U32 },
+	[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_KERNEL_VENDOR_KEY] = { .type = NLA_U64 },
 };
 
 static int put_driver_name_print_type(struct sk_buff *msg, const char *name,
@@ -2671,6 +2672,12 @@ static int fill_frmr_pool_key(struct sk_buff *msg, struct ib_frmr_key *key)
 			      key->num_dma_blocks, RDMA_NLDEV_ATTR_PAD))
 		goto err;
 
+	if (key->kernel_vendor_key &&
+	    nla_put_u64_64bit(msg,
+			      RDMA_NLDEV_ATTR_FRMR_POOL_KEY_KERNEL_VENDOR_KEY,
+			      key->kernel_vendor_key, RDMA_NLDEV_ATTR_PAD))
+		goto err;
+
 	nla_nest_end(msg, key_attr);
 	return 0;
 
@@ -2705,9 +2712,9 @@ err_unlock:
 	return -EMSGSIZE;
 }
 
-static void nldev_frmr_pools_parse_key(struct nlattr *tb[],
-				       struct ib_frmr_key *key,
-				       struct netlink_ext_ack *extack)
+static int nldev_frmr_pools_parse_key(struct nlattr *tb[],
+				      struct ib_frmr_key *key,
+				      struct netlink_ext_ack *extack)
 {
 	if (tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_ATS])
 		key->ats = nla_get_u8(tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_ATS]);
@@ -2723,6 +2730,11 @@ static void nldev_frmr_pools_parse_key(struct nlattr *tb[],
 	if (tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_NUM_DMA_BLOCKS])
 		key->num_dma_blocks = nla_get_u64(
 			tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_NUM_DMA_BLOCKS]);
+
+	if (tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_KERNEL_VENDOR_KEY])
+		return -EINVAL;
+
+	return 0;
 }
 
 static int nldev_frmr_pools_set_pinned(struct ib_device *device,
@@ -2746,7 +2758,9 @@ static int nldev_frmr_pools_set_pinned(struct ib_device *device,
 	if (err)
 		return err;
 
-	nldev_frmr_pools_parse_key(key_tb, &key, extack);
+	err = nldev_frmr_pools_parse_key(key_tb, &key, extack);
+	if (err)
+		return err;
 
 	err = ib_frmr_pools_set_pinned(device, &key, pinned_handles);
 
@@ -2762,6 +2776,7 @@ static int nldev_frmr_pools_get_dumpit(struct sk_buff *skb,
 	struct ib_frmr_pool *pool;
 	struct nlattr *table_attr;
 	struct nlattr *entry_attr;
+	bool show_details = false;
 	struct ib_device *device;
 	int start = cb->args[0];
 	struct rb_node *node;
@@ -2777,6 +2792,9 @@ static int nldev_frmr_pools_get_dumpit(struct sk_buff *skb,
 		sock_net(skb->sk), nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]));
 	if (!device)
 		return -EINVAL;
+
+	if (tb[RDMA_NLDEV_ATTR_DRIVER_DETAILS])
+		show_details = nla_get_u8(tb[RDMA_NLDEV_ATTR_DRIVER_DETAILS]);
 
 	pools = device->frmr_pools;
 	if (!pools) {
@@ -2803,7 +2821,7 @@ static int nldev_frmr_pools_get_dumpit(struct sk_buff *skb,
 	read_lock(&pools->rb_lock);
 	for (node = rb_first(&pools->rb_root); node; node = rb_next(node)) {
 		pool = rb_entry(node, struct ib_frmr_pool, node);
-		if (pool->key.kernel_vendor_key)
+		if (pool->key.kernel_vendor_key && !show_details)
 			continue;
 
 		if (idx < start) {
