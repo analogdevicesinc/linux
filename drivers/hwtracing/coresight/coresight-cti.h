@@ -122,7 +122,6 @@ struct cti_device {
  * @asicctl_impl: true if asicctl is implemented.
  * @enable_req_count: CTI is enabled alongside >=1 associated devices.
  * @hw_enabled: true if hw is currently enabled.
- * @hw_powered: true if associated cpu powered on, or no cpu.
  * @trig_in_use: bitfield of in triggers registered as in use.
  * @trig_out_use: bitfield of out triggers registered as in use.
  * @trig_out_filter: bitfield of out triggers that are blocked if filter
@@ -146,7 +145,6 @@ struct cti_config {
 	/* cti enable control */
 	int enable_req_count;
 	bool hw_enabled;
-	bool hw_powered;
 
 	/* registered triggers and filtering */
 	u32 trig_in_use;
@@ -235,10 +233,10 @@ struct coresight_platform_data *
 coresight_cti_get_platform_data(struct device *dev);
 const char *cti_plat_get_node_name(struct fwnode_handle *fwnode);
 
-/* cti powered and enabled */
+/* Check if a cti device is enabled */
 static inline bool cti_is_active(struct cti_config *cfg)
 {
-	return cfg->hw_powered && cfg->hw_enabled;
+	return cfg->hw_enabled;
 }
 
 #endif  /* _CORESIGHT_CORESIGHT_CTI_H */

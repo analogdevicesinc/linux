@@ -80,8 +80,8 @@ static int cti_enable_hw(struct cti_drvdata *drvdata)
 
 	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
 
-	/* no need to do anything if enabled or unpowered*/
-	if (config->hw_enabled || !config->hw_powered)
+	/* no need to do anything if enabled */
+	if (config->hw_enabled)
 		goto cti_state_unchanged;
 
 	/* claim the device */
@@ -114,8 +114,8 @@ static int cti_disable_hw(struct cti_drvdata *drvdata)
 	if (--drvdata->config.enable_req_count > 0)
 		return 0;
 
-	/* no need to do anything if disabled or cpu unpowered */
-	if (!config->hw_enabled || !config->hw_powered)
+	/* no need to do anything if disabled */
+	if (!config->hw_enabled)
 		return 0;
 
 	CS_UNLOCK(drvdata->base);
@@ -701,9 +701,6 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 		dev_err(dev, "coresight_cti_get_platform_data err\n");
 		return  PTR_ERR(pdata);
 	}
-
-	/* default to powered - could change on PM notifications */
-	drvdata->config.hw_powered = true;
 
 	/*
 	 * Set up device name - will depend if cpu bound or otherwise.

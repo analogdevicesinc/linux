@@ -81,19 +81,12 @@ static ssize_t enable_show(struct device *dev,
 			   char *buf)
 {
 	int enable_req;
-	bool enabled, powered;
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock) {
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
 		enable_req = drvdata->config.enable_req_count;
-		powered = drvdata->config.hw_powered;
-		enabled = drvdata->config.hw_enabled;
-	}
 
-	if (powered)
-		return sprintf(buf, "%d\n", enabled);
-	else
-		return sprintf(buf, "%d\n", !!enable_req);
+	return sprintf(buf, "%d\n", !!enable_req);
 }
 
 static ssize_t enable_store(struct device *dev,
@@ -131,11 +124,7 @@ static ssize_t powered_show(struct device *dev,
 			    struct device_attribute *attr,
 			    char *buf)
 {
-	bool powered;
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-
-	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
-		powered = drvdata->config.hw_powered;
+	bool powered = pm_runtime_active(dev->parent);
 
 	return sprintf(buf, "%d\n", powered);
 }
@@ -181,10 +170,8 @@ static ssize_t coresight_cti_reg_show(struct device *dev,
 
 	pm_runtime_get_sync(dev->parent);
 
-	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock) {
-		if (drvdata->config.hw_powered)
-			val = cti_read_single_reg(drvdata, cti_attr->off);
-	}
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
+		val = cti_read_single_reg(drvdata, cti_attr->off);
 
 	pm_runtime_put_sync(dev->parent);
 	return sysfs_emit(buf, "0x%x\n", val);
@@ -204,10 +191,8 @@ static __maybe_unused ssize_t coresight_cti_reg_store(struct device *dev,
 
 	pm_runtime_get_sync(dev->parent);
 
-	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock) {
-		if (drvdata->config.hw_powered)
-			cti_write_single_reg(drvdata, cti_attr->off, val);
-	}
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
+		cti_write_single_reg(drvdata, cti_attr->off, val);
 
 	pm_runtime_put_sync(dev->parent);
 	return size;
