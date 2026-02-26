@@ -656,6 +656,7 @@ svc_init_buffer(struct svc_rqst *rqstp, const struct svc_serv *serv, int node)
 	}
 
 	rqstp->rq_pages_nfree = rqstp->rq_maxpages;
+	rqstp->rq_next_page = rqstp->rq_respages + rqstp->rq_maxpages;
 	return true;
 }
 

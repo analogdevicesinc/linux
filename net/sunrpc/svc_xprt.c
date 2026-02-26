@@ -686,8 +686,14 @@ static bool svc_alloc_arg(struct svc_rqst *rqstp)
 		rqstp->rq_pages_nfree = 0;
 	}
 
-	if (!svc_fill_pages(rqstp, rqstp->rq_respages, pages))
+	if (WARN_ON_ONCE(rqstp->rq_next_page < rqstp->rq_respages))
 		return false;
+	nfree = rqstp->rq_next_page - rqstp->rq_respages;
+	if (nfree) {
+		if (!svc_fill_pages(rqstp, rqstp->rq_respages, nfree))
+			return false;
+	}
+
 	rqstp->rq_next_page = rqstp->rq_respages;
 	rqstp->rq_page_end = &rqstp->rq_respages[pages];
 	/* svc_rqst_replace_page() dereferences *rq_next_page even
