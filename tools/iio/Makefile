@@ -14,7 +14,7 @@ MAKEFLAGS += -r
 
 override CFLAGS += -O2 -Wall -g -D_GNU_SOURCE -I$(OUTPUT)include
 
-ALL_TARGETS := iio_event_monitor lsiio iio_generic_buffer
+ALL_TARGETS := iio_event_monitor lsiio iio_generic_buffer ad9088_cal_dump
 ALL_PROGRAMS := $(patsubst %,$(OUTPUT)%,$(ALL_TARGETS))
 
 all: $(ALL_PROGRAMS)
@@ -54,6 +54,12 @@ $(IIO_GENERIC_BUFFER_IN): prepare FORCE $(OUTPUT)iio_utils-in.o
 	$(Q)$(MAKE) $(build)=iio_generic_buffer
 $(OUTPUT)iio_generic_buffer: $(IIO_GENERIC_BUFFER_IN)
 	$(QUIET_LINK)$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+
+AD9088_CAL_DUMP_IN := $(OUTPUT)ad9088_cal_dump-in.o
+$(AD9088_CAL_DUMP_IN): prepare FORCE
+	$(Q)$(MAKE) $(build)=ad9088_cal_dump
+$(OUTPUT)ad9088_cal_dump: $(AD9088_CAL_DUMP_IN)
+	$(QUIET_LINK)$(CC) $(CFLAGS) $(LDFLAGS) -lz $< -o $@
 
 clean:
 	rm -f $(ALL_PROGRAMS)
