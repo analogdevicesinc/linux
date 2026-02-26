@@ -4,8 +4,11 @@
 #include <dt-bindings/iio/adc/adi,ad9088.h>
 #include <dt-bindings/jesd204/adxcvr.h>
 
+#define MHZ(x) ((x) * 1000000)
+#define GHZ(x) ((x) * 1000000000)
+
 // Parameters for AD9084 device profile
-#define DEVICE_PROFILE_NAME	"id01_uc47_ffsom_8G.bin"
+#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP16_8p0_2x2.bin"
 
 #define OUT_CLK_SELECT		XCVR_PROGDIV_CLK
 
@@ -15,40 +18,38 @@
 
 #define WITH_AION		0
 
-#define VU11_FIRMWARE_NAME	"vu11p.bin"
-
 #define JESD_SUBCLASS 0
 
 &vu11p_fpga_region {
 	#address-cells = <2>;
 	#size-cells = <2>;
 
-	firmware-name = VU11_FIRMWARE_NAME;
+	firmware-name = "vu11p.bin";
 
 	mig_clkout1: clock@0 {
 		#clock-cells = <0>;
-		clock-frequency = <100000000>;
+		clock-frequency = <MHZ(100)>;
 		clock-output-names = "vu11p_mig_1";
 		compatible = "fixed-clock";
 	};
 
 	clkin_125: clock@1 {
 		#clock-cells = <0>;
-		clock-frequency = <125000000>;
+		clock-frequency = <MHZ(125)>;
 		clock-output-names = "clkin_ref";
 		compatible = "fixed-clock";
 	};
 
 	clkin_8000: clock@2 {
 		#clock-cells = <0>;
-		clock-frequency = <8000000000>;
+		clock-frequency = <GHZ(8)>;
 		clock-output-names = "apollo_sample_clock";
 		compatible = "fixed-clock";
 	};
 
 	clkin_250: clock@3 {
 		#clock-cells = <0>;
-		clock-frequency = <250000000>;
+		clock-frequency = <MHZ(250)>;
 		clock-output-names = "clkin_mul2_ref";
 		compatible = "fixed-clock";
 	};
@@ -94,7 +95,7 @@
 			clock-names = "clkin", "vcoin";
 			vcoin-clock-scales = <1 10>;
 
-			adi,vco-frequency-hz = <2500000000>;
+			adi,vco-frequency-hz = <MHZ(2500)>;
 
 			jesd204-device;
 			#jesd204-cells = <2>;
@@ -130,7 +131,7 @@
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
 			};
-#ifndef WITH_AION
+#if !WITH_AION
 			channel@4 {
 				reg = <4>;
 				adi,extended-name = "VUP JESD SYSREF";
@@ -331,6 +332,20 @@
 		xlnx,tri-default-2 = <0xFFFFFFFF>;
 	};
 
+	axi_uart: serial@88180000 {
+		compatible = "xlnx,axi-uartlite-2.0", "xlnx,xps-uartlite-1.00.a";
+		reg = <0x0 0x88180000 0x0 0x1000>;
+		clock-names = "s_axi_aclk";
+		clocks = <&mig_clkout1>;
+		clock-frequency = <100000000>;
+		current-speed = <115200>;
+		status = "okay";
+		device_type = "serial";
+		interrupt-parent = <&axi_intc_0>;
+		interrupts = <0 2>;
+		interrupt-names = "interrupt";
+	};
+
 	axi_iic_main: i2c@88150000 {
 		clock-frequency = <100000000>;
 		clocks = <&mig_clkout1>;
@@ -495,7 +510,7 @@
 			jesd204-top-device = <0>; /* This is the TOP device */
 			jesd204-ignore-errors;
 
-#ifdef ASYNM_A_B_MODE
+#if ASYNM_A_B_MODE
 			jesd204-link-ids = <DEFRAMER_LINK_A0_TX DEFRAMER_LINK_B0_TX FRAMER_LINK_A0_RX FRAMER_LINK_B0_RX>;
 
 			jesd204-inputs =
@@ -580,7 +595,7 @@
 	};
 #endif
 
-#ifdef ASYNM_A_B_MODE
+#if ASYNM_A_B_MODE
 	rx_dma_b: dma@88060000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x0 0x88060000 0x0 0x10000>;
