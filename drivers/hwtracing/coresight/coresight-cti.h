@@ -119,6 +119,7 @@ struct cti_device {
  * @nr_trig_max: Max number of trigger signals implemented on device.
  *		 (max of trig_in or trig_out) - from ID register.
  * @nr_ctm_channels: number of available CTM channels - from ID register.
+ * @asicctl_impl: true if asicctl is implemented.
  * @enable_req_count: CTI is enabled alongside >=1 associated devices.
  * @hw_enabled: true if hw is currently enabled.
  * @hw_powered: true if associated cpu powered on, or no cpu.
@@ -140,6 +141,7 @@ struct cti_config {
 	/* hardware description */
 	int nr_ctm_channels;
 	int nr_trig_max;
+	bool asicctl_impl;
 
 	/* cti enable control */
 	int enable_req_count;

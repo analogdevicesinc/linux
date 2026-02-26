@@ -537,6 +537,18 @@ static struct attribute *coresight_cti_regs_attrs[] = {
 	NULL,
 };
 
+static umode_t coresight_cti_regs_is_visible(struct kobject *kobj,
+					     struct attribute *attr, int idx)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (attr == &dev_attr_asicctl.attr && !drvdata->config.asicctl_impl)
+		return 0;
+
+	return attr->mode;
+}
+
 /* CTI channel x-trigger programming */
 static int
 cti_trig_op_parse(struct device *dev, enum cti_chan_op op,
@@ -1174,6 +1186,7 @@ static const struct attribute_group coresight_cti_mgmt_group = {
 
 static const struct attribute_group coresight_cti_regs_group = {
 	.attrs = coresight_cti_regs_attrs,
+	.is_visible = coresight_cti_regs_is_visible,
 	.name = "regs",
 };
 
