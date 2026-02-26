@@ -170,6 +170,7 @@ static int aca_parse_bank(struct ras_core_context *ras_core,
 	if (!bank_ops || !bank_ops->bank_parse)
 		return -RAS_CORE_NOT_SUPPORTED;
 
+	ecc->block_id = aca_blk->blk_info->ras_block_id;
 	return bank_ops->bank_parse(ras_core, aca_blk, bank, ecc);
 }
 
@@ -686,4 +687,21 @@ int ras_aca_hw_fini(struct ras_core_context *ras_core)
 	ras_aca->ue_updated_mark = 0;
 
 	return 0;
+}
+
+int ras_aca_parse_bank(struct ras_core_context *ras_core,
+				struct aca_bank_reg *bank,
+				struct aca_bank_ecc *ecc)
+{
+	struct aca_block *aca_blk;
+	int ret = -ENODATA;
+
+	if (!ras_core || !bank || !ecc)
+		return -EINVAL;
+
+	aca_blk = aca_get_bank_aca_block(ras_core, bank);
+	if (aca_blk)
+		ret = aca_parse_bank(ras_core, aca_blk, bank, ecc);
+
+	return ret;
 }

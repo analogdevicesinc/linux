@@ -79,6 +79,7 @@ struct aca_ecc_info {
 };
 
 struct aca_bank_ecc {
+	u32 block_id;
 	struct aca_ecc_info bank_info;
 	u32 ce_count;
 	u32 ue_count;
@@ -161,4 +162,7 @@ int ras_aca_clear_all_blocks_ecc_count(struct ras_core_context *ras_core);
 int ras_aca_update_ecc(struct ras_core_context *ras_core, u32 ecc_type, void *data);
 void ras_aca_mark_fatal_flag(struct ras_core_context *ras_core);
 void ras_aca_clear_fatal_flag(struct ras_core_context *ras_core);
+int ras_aca_parse_bank(struct ras_core_context *ras_core,
+				struct aca_bank_reg *bank,
+				struct aca_bank_ecc *ecc);
 #endif
