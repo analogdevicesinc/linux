@@ -21,6 +21,8 @@
 
 #include <dt-bindings/clock/ad9545.h>
 
+#include "clk-ad9545.h"
+
 #define AD9545_CONFIG_0			0x0000
 #define AD9545_PRODUCT_ID_LOW		0x0004
 #define AD9545_PRODUCT_ID_HIGH		0x0005
@@ -191,6 +193,7 @@
 #define AD9545_PLLX_STATUS(x)			(AD9545_PLL0_STATUS + ((x) * 0x100))
 #define AD9545_PLLX_OPERATION(x)		(AD9545_PLL0_OPERATION + ((x) * 0x100))
 #define AD9545_CTRL_CH(x)			(AD9545_CTRL_CH0 + ((x) * 0x100))
+#define AD9545_DPLLX_MODE(x)			(AD9545_DPLL0_MODE + ((x) * 0x100))
 #define AD9545_DPLLX_FAST_MODE(x)		(AD9545_DPLL0_FAST_MODE + ((x) * 0x100))
 #define AD9545_REFX_STATUS(x)			(AD9545_REFA_STATUS + (x))
 
@@ -324,6 +327,9 @@
 #define AD9545_SYS_PLL_STABLE(x)		(((x) & AD9545_SYS_PLL_STABLE_MSK) == 0x3)
 
 #define AD9545_APLL_LOCKED(x)			((x) & BIT(3))
+
+/* AD9545_DPLL0_MODE bitfields */
+#define AD9545_DPLL_FORCE_FREERUN_MSK		BIT(0)
 
 /*  AD9545 tagging modes */
 #define AD9545_NO_TAGGING			0
@@ -552,6 +558,7 @@ struct ad9545_pll_clk {
 	u8				internal_zero_delay_source;
 	unsigned long			internal_zero_delay_source_rate_hz;
 	u32				slew_rate_limit_ps;
+	bool				force_free_run; /* Used for debug only. */
 };
 
 struct ad9545_ref_in_clk {
@@ -904,6 +911,9 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 
 			st->pll_clks[addr].internal_zero_delay_source_rate_hz = val;
 		}
+
+		st->pll_clks[addr].force_free_run =
+			fwnode_property_read_bool(child, "adi,force-free-run");
 
 		ret = ad9545_parse_dt_pll_profiles(st, child, addr);
 		if (ret)
@@ -2592,9 +2602,19 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 		pll->num_parents = init[i].num_parents;
 		pll->parents = init[i].parent_hws;
 
-		if (!pll->slew_rate_limit_ps) {
+		if (pll->slew_rate_limit_ps) {
 			regval = cpu_to_le32(pll->slew_rate_limit_ps);
 			ret = regmap_bulk_write(st->regmap, AD9545_DPLLX_SLEW_RATE(i), &regval, 4);
+			if (ret < 0)
+				return ret;
+		}
+
+		if (pll->force_free_run) {
+			/* Recommended for debug only */
+			dev_warn(st->dev, "PLL%d in forced free run.\n", i);
+			ret = regmap_update_bits(st->regmap, AD9545_DPLLX_MODE(i),
+						 AD9545_DPLL_FORCE_FREERUN_MSK,
+						 AD9545_DPLL_FORCE_FREERUN_MSK);
 			if (ret < 0)
 				return ret;
 		}

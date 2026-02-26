@@ -56,7 +56,6 @@
  * @base:	Base address of TTC instance
  */
 struct ttc_pwm_priv {
-	struct clk *clk;
 	unsigned long rate;
 	u32 max;
 	void __iomem *base;
@@ -289,6 +288,7 @@ static int ttc_pwm_probe(struct platform_device *pdev)
 	u32 pwm_cells, timer_width;
 	struct ttc_pwm_priv *priv;
 	struct pwm_chip *chip;
+	struct clk *clk;
 	int ret;
 
 	/*
@@ -306,6 +306,7 @@ static int ttc_pwm_probe(struct platform_device *pdev)
 	chip = devm_pwmchip_alloc(dev, TTC_PWM_MAX_CH, sizeof(*priv));
 	if (IS_ERR(chip))
 		return PTR_ERR(chip);
+
 	priv = xilinx_pwm_chip_to_priv(chip);
 
 	priv->base = devm_platform_ioremap_resource(pdev, 0);
@@ -318,34 +319,28 @@ static int ttc_pwm_probe(struct platform_device *pdev)
 
 	priv->max = BIT(timer_width) - 1;
 
-	priv->clk = devm_clk_get_enabled(dev, NULL);
-	if (IS_ERR(priv->clk))
-		return dev_err_probe(dev, PTR_ERR(priv->clk),
+	clk = devm_clk_get_enabled(dev, NULL);
+	if (IS_ERR(clk))
+		return dev_err_probe(dev, PTR_ERR(clk),
 				     "ERROR: timer input clock not found\n");
 
-	priv->rate = clk_get_rate(priv->clk);
+	ret = devm_clk_rate_exclusive_get(dev, clk);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to lock clock rate\n");
 
-	clk_rate_exclusive_get(priv->clk);
+	priv->rate = clk_get_rate(clk);
+	if (!priv->rate)
+		return dev_err_probe(dev, -EINVAL,
+				     "Failed to get clock rate\n");
 
 	chip->ops = &ttc_pwm_ops;
-	ret = pwmchip_add(chip);
-	if (ret) {
-		clk_rate_exclusive_put(priv->clk);
-		return dev_err_probe(dev, ret, "Could not register PWM chip\n");
-	}
 
-	platform_set_drvdata(pdev, chip);
+	ret = devm_pwmchip_add(dev, chip);
+	if (ret)
+		return dev_err_probe(dev, ret, "Could not register PWM chip\n");
 
 	return 0;
-}
-
-static void ttc_pwm_remove(struct platform_device *pdev)
-{
-	struct pwm_chip *chip = platform_get_drvdata(pdev);
-	struct ttc_pwm_priv *priv = xilinx_pwm_chip_to_priv(chip);
-
-	pwmchip_remove(chip);
-	clk_rate_exclusive_put(priv->clk);
 }
 
 static const struct of_device_id __maybe_unused ttc_pwm_of_match[] = {
@@ -356,7 +351,6 @@ MODULE_DEVICE_TABLE(of, ttc_pwm_of_match);
 
 static struct platform_driver ttc_pwm_driver = {
 	.probe = ttc_pwm_probe,
-	.remove_new = ttc_pwm_remove,
 	.driver = {
 		.name = "ttc-pwm",
 		.of_match_table = of_match_ptr(ttc_pwm_of_match),

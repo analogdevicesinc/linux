@@ -41,7 +41,7 @@
 		#size-cells = <0x1>;
 		ranges = <0 0 0 0xffffffff>;
 
-		rx_dma: dma@9c400000 {
+		rx_dma: dma-controller@9c400000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c400000 0x10000>;
 			#dma-cells = <1>;
@@ -51,7 +51,7 @@
 			clocks = <&zynqmp_clk 73>;
 		};
 
-		rx_obs_dma: dma@9c440000 {
+		rx_obs_dma: dma-controller@9c440000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c440000 0x10000>;
 			#dma-cells = <1>;
@@ -61,7 +61,7 @@
 			clocks = <&zynqmp_clk 73>;
 		};
 
-		tx_dma: dma@9c420000  {
+		tx_dma: dma-controller@9c420000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c420000 0x10000>;
 			#dma-cells = <1>;
@@ -155,7 +155,7 @@
 			adi,frames-per-multiframe = <32>;
 		};
 
-		axi_tx_clkgen: axi-clkgen@83c00000  {
+		axi_tx_clkgen: clock-controller@83c00000 {
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x83c00000 0x10000>;
 			#clock-cells = <0>;
@@ -164,7 +164,7 @@
 			clock-output-names = "axi_tx_clkgen";
 		};
 
-		axi_rx_clkgen: axi-clkgen@83c10000  {
+		axi_rx_clkgen: clock-controller@83c10000 {
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x83c10000 0x10000>;
 			#clock-cells = <0>;
@@ -173,7 +173,7 @@
 			clock-output-names = "axi_rx_clkgen";
 		};
 
-		axi_rx_os_clkgen: axi-clkgen@83c20000  {
+		axi_rx_os_clkgen: clock-controller@83c20000 {
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x83c20000 0x10000>;
 			#clock-cells = <0>;

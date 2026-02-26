@@ -754,6 +754,17 @@ typedef struct {
 } adi_ad9081_spo_t;
 
 /*!
+ * @brief JESD RX Foreground Calibration Result Structure
+ */
+typedef struct {
+    uint8_t  status;                                /*!< Calibration status (1 = good, 0 = failed) */
+    uint8_t  failed_mask;                           /*!< Bitmask of failed lanes */
+    uint16_t goodness;                              /*!< Calibration goodness metric */
+    uint8_t  spo_left;                              /*!< Left SPO value */
+    uint8_t  spo_right;                             /*!< Right SPO value */
+} adi_ad9081_jrx_fg_cal_result_t;
+
+/*!
  * @brief Enumerates JESD Serializer Swing Settings
  */
 typedef enum {
@@ -4219,6 +4230,31 @@ int32_t adi_ad9081_jesd_rx_calibrate_204c(adi_ad9081_device_t *device,
 					  uint8_t force_cal_reset,
 					  uint8_t boost_mask,
 					  uint8_t run_bg_cal);
+
+/**
+ * @ingroup rx_setup
+ * @brief  Get 204C calibration status for a single physical lane
+ *
+ * @param  device          Pointer to the device structure
+ * @param  physical_lane   Physical lane index, 0 ~ 7
+ * @param  res             Pointer to calibration result structure
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_rx_calibrate_204c_lane_status_get(adi_ad9081_device_t *device, uint8_t physical_lane, adi_ad9081_jrx_fg_cal_result_t *res);
+
+/**
+ * @ingroup rx_setup
+ * @brief  Get 204C foreground calibration status for all active lanes
+ *
+ * @param  device          Pointer to the device structure
+ * @param  res             Pointer to calibration result structure with worst-case values across all active lanes
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_rx_calibrate_204c_status_get(adi_ad9081_device_t *device, adi_ad9081_jrx_fg_cal_result_t *res);
 
 /**
  * @ingroup link_setup

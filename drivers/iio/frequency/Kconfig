@@ -91,6 +91,7 @@ config LTC6952
 config ADF4030
 	tristate "Analog Devices ADF4030 10-Channel Precision Synchronizer"
 	depends on SPI && COMMON_CLK
+	select REGMAP_SPI
 	help
 	  Say yes here to build support for Analog Devices ADF4030
 	  10-Channel Precision Synchronizer. The driver provides direct access
@@ -130,6 +131,7 @@ config CF_AXI_DDS_AD9144
 config CF_AXI_DDS_AD9162
 	tristate "Analog Devices AD9162 DAC"
 	depends on CF_AXI_DDS
+	select REGMAP_SPI
 	help
 	  Say yes here to build support for Analog Devices AD9162 DAC chip
 	  ad9162, provides direct access via sysfs.
@@ -137,20 +139,15 @@ config CF_AXI_DDS_AD9162
 config CF_AXI_DDS_AD9172
 	tristate "Analog Devices AD917x DAC"
 	depends on CF_AXI_DDS
+	select REGMAP_SPI
 	help
 	  Say yes here to build support for Analog Devices AD917x DAC chip
 	  ad917x, provides direct access via sysfs.
 
-config CF_AXI_DDS_AD9739A
-	tristate "Analog Devices AD9739A DAC"
-	depends on CF_AXI_DDS
-	help
-	  Say yes here to build support for Analog Devices AD9739A DAC chip
-	  ad9739a, provides direct access via sysfs.
-
 config CF_AXI_DDS_AD9783
 	tristate "Analog Devices AD9783 DAC"
 	depends on CF_AXI_DDS
+	select REGMAP_SPI
 	help
 	  Say yes here to build support for Analog Devices AD9783 DAC family,
 	  provides direct access via sysfs.
@@ -222,6 +219,7 @@ config ADF4371
 config ADF4377
 	tristate "Analog Devices ADF4377 Microwave Wideband Synthesizer"
 	depends on SPI && COMMON_CLK
+	select REGMAP_SPI
 	help
 	  Say yes here to build support for Analog Devices ADF4377 Microwave
 	  Wideband Synthesizer.
@@ -271,25 +269,26 @@ config ADMV1014
 	  module will be called admv1014.
 
 config ADMV4420
-       tristate "Analog Devices ADMV4420 K Band Downconverter"
-       depends on SPI
-       help
-         Say yes here to build support for Analog Devices K Band
-         Downconverter with integrated Fractional-N PLL and VCO.
+	tristate "Analog Devices ADMV4420 K Band Downconverter"
+	depends on SPI
+	select REGMAP_SPI
+	help
+	  Say yes here to build support for Analog Devices K Band
+	  Downconverter with integrated Fractional-N PLL and VCO.
 
-         To compile this driver as a module, choose M here: the
-         module will be called admv4420.
+	  To compile this driver as a module, choose M here: the
+	  module will be called admv4420.
 
 config ADRF6780
-        tristate "Analog Devices ADRF6780 Microwave Upconverter"
-        depends on SPI
-        depends on COMMON_CLK
-        help
-          Say yes here to build support for Analog Devices ADRF6780
-          5.9 GHz to 23.6 GHz, Wideband, Microwave Upconverter.
+	tristate "Analog Devices ADRF6780 Microwave Upconverter"
+	depends on SPI
+	depends on COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices ADRF6780
+	  5.9 GHz to 23.6 GHz, Wideband, Microwave Upconverter.
 
-          To compile this driver as a module, choose M here: the
-          module will be called adrf6780.
+	  To compile this driver as a module, choose M here: the
+	  module will be called adrf6780.
 
 endmenu
 

@@ -263,19 +263,18 @@ err_dma_free:
 	return retval;
 }
 
-static int altvipfb_remove(struct platform_device *dev)
+static void altvipfb_remove(struct platform_device *dev)
 {
 	struct altvipfb_dev *fbdev = platform_get_drvdata(dev);
 
-	if (fbdev) {
-		unregister_framebuffer(&fbdev->info);
-		fb_dealloc_cmap(&fbdev->info.cmap);
-		dma_free_coherent(NULL, fbdev->info.fix.smem_len,
-				  fbdev->info.screen_base,
-				  fbdev->info.fix.smem_start);
-		altvipfb_disable_hw(fbdev);
-	}
-	return 0;
+	if (!fbdev)
+		return;
+
+	unregister_framebuffer(&fbdev->info);
+	fb_dealloc_cmap(&fbdev->info.cmap);
+	dma_free_coherent(NULL, fbdev->info.fix.smem_len, fbdev->info.screen_base,
+			  fbdev->info.fix.smem_start);
+	altvipfb_disable_hw(fbdev);
 }
 
 

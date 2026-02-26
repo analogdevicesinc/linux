@@ -197,12 +197,10 @@ static int axi_intr_mon_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int axi_intr_mon_remove(struct platform_device *pdev)
+static void axi_intr_mon_remove(struct platform_device *pdev)
 {
 	misc_deregister(&axi_intr_mon_miscdev);
 	g_axi_intr_mon = NULL;
-
-	return 0;
 }
 
 static struct of_device_id axi_intr_mon_of_match[] = {

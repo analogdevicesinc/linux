@@ -4,7 +4,7 @@
 * \brief Contains ADRV9025 Rx related private function prototypes for
 *        adrv9025_rx.c which helsp adi_adrv9025_rx.c
 *
-* ADRV9025 API Version: 6.4.0.14
+* ADRV9025 API Version: 7.0.0.14
 */
 
 /**

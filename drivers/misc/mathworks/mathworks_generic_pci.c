@@ -20,13 +20,13 @@
 * Bus Specific Functions
 ****************************************/
 
-void mathworks_generic_pci_get_devname(struct mathworks_ip_info *thisIpcore, char *devname){
+static void mathworks_generic_pci_get_devname(struct mathworks_ip_info *thisIpcore, char *devname){
 	struct pci_dev *pdev = ip_to_pdev(thisIpcore);
 	u16 ss_vid, ss_did;
 
 	pci_get_ss_vid(pdev, &ss_vid);
 	pci_get_ss_did(pdev, &ss_did);
-	
+
 	snprintf(devname,MATHWORKS_IP_DEVNAME_LEN, "mathworks_ip_%04X_%04X_dev", ss_vid, ss_did);
 }
 

@@ -25,18 +25,18 @@
 };
 
 &amba_pl {
-	rx_dma: dma@7c400000 {
-		#dma-cells = <1>;
+	rx_dma: dma-controller@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c400000 0x10000>;
+		#dma-cells = <1>;
 		interrupt-parent = <&axi_intc>;
 		interrupts = <12 2>;
 		clocks = <&clk_bus_0>;
 	};
-	tx_dma: dma@7c420000 {
-		#dma-cells = <1>;
+	tx_dma: dma-controller@7c420000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
 		interrupt-parent = <&axi_intc>;
 		interrupts = <13 2>;
 		clocks = <&clk_bus_0>;
@@ -61,9 +61,9 @@
 #include "adi-fmcomms4.dtsi"
 
 &adc0_ad9364 {
-	en_agc-gpios = <&axi_gpio 12 8>;
-	sync-gpios = <&axi_gpio 13 8>;
-	reset-gpios = <&axi_gpio 14 8>;
-	enable-gpios = <&axi_gpio 15 8>;
-	txnrx-gpios = <&axi_gpio 16 8>;
+	en_agc-gpios = <&axi_gpio 44 8>;
+	sync-gpios = <&axi_gpio 45 8>;
+	reset-gpios = <&axi_gpio 46 8>;
+	enable-gpios = <&axi_gpio 47 8>;
+	txnrx-gpios = <&axi_gpio 48 8>;
 };

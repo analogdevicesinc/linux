@@ -1,53 +1,53 @@
 trigger:
-- rpi-4.19.y
-- rpi-5.4.y
-- rpi-5.10.y
-- rpi-5.15.y
 - rpi-6.1.y
 - rpi-6.6.y
+- rpi-6.12.y
 - staging-rpi/*
 
 pr:
-- rpi-4.19.y
-- rpi-5.4.y
-- rpi-5.10.y
-- rpi-5.15.y
 - rpi-6.1.y
 - rpi-6.6.y
+- rpi-6.12.y
+
+resources:
+  repositories:
+    - repository: wiki-scripts
+      type: github
+      name: analogdevicesinc/wiki-scripts
+      endpoint: analogdevicesinc
 
 stages:
 - stage: Builds
   jobs:
-  - job: checkpatch
-    condition: eq(variables['Build.Reason'], 'PullRequest')
-    variables:
-      BUILD_TYPE: checkpatch
-      TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - checkout: self
-      fetchDepth: 50
-      clean: true
-    - script: ./ci/travis/run-build.sh
-      displayName: 'Checkpatch Script'
-
   - job: BuildDockerized
-    timeoutInMinutes: 75
+    timeoutInMinutes: 90
     strategy:
       matrix:
         bcm2709_arm_adi:
           DEFCONFIG: adi_bcm2709_defconfig
           ARCH: arm
-          artifactName: 'adi_bcm2709_defconfig'
+          IMAGE: zImage
+          artifactName: 'adi_bcm2709_arm_defconfig'
         bcm2711_arm_adi:
           DEFCONFIG: adi_bcm2711_defconfig
           ARCH: arm
-          artifactName: 'adi_bcm2711_defconfig'
+          IMAGE: zImage
+          artifactName: 'adi_bcm2711_arm_defconfig'
         bcmrpi_arm_adi:
           DEFCONFIG: adi_bcmrpi_defconfig
           ARCH: arm
-          artifactName: 'adi_bcmrpi_defconfig'
+          IMAGE: zImage
+          artifactName: 'adi_bcmrpi_arm_defconfig'
+        bcm2711_arm64_adi:
+          DEFCONFIG: adi_bcm2711_defconfig
+          ARCH: arm64
+          IMAGE: Image
+          artifactName: 'adi_bcm2711_arm64_defconfig'
+        bcm2712_arm64_adi:
+          DEFCONFIG: adi_bcm2712_defconfig
+          ARCH: arm64
+          IMAGE: Image
+          artifactName: 'adi_bcm2712_arm64_defconfig'
     pool:
       vmImage: 'ubuntu-latest'
     steps:
@@ -62,18 +62,18 @@ stages:
       displayName: 'Copy modules'
     - task: CopyFiles@2
       inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays'
-        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays/?(*.dtbo)'
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts'
+        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/overlays/?(*.dtb|*.dtbo)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: CopyFiles@2
       inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot'
-        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/zImage'
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot'
+        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/$(IMAGE)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: CopyFiles@2
       inputs:
-        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts'
-        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/?(*.dtb)'
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/broadcom'
+        contents: '$(Agent.BuildDirectory)/s/arch/$(ARCH)/boot/dts/broadcom/?(*.dtb)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: PublishPipelineArtifact@1
       inputs:
@@ -89,8 +89,8 @@ stages:
   - job: Push_to_SWDownloads
     condition: and(
        succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.15.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'))
+       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
        )
     pool:
       vmImage: 'ubuntu-latest'
@@ -103,15 +103,15 @@ stages:
         displayName: 'Download rsa key'
         inputs:
           secureFile: 'id_rsa'
-      - bash: ./ci/travis/prepare_artifacts.sh swdownloads
+      - bash: ./ci/travis/prepare_artifacts_rpi.sh swdownloads
         env:
           DEST_SERVER: $(SERVER_ADDRESS)
         displayName: "Push to SWDownloads"
   - job: Push_to_Artifactory
     condition: and(
        succeeded(),
-       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.15.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'))
+       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
        )
     pool:
       name: Default
@@ -121,8 +121,38 @@ stages:
       - task: DownloadPipelineArtifact@2
         inputs:
           path: $(Build.SourcesDirectory)/bin
-      - bash: ./ci/travis/prepare_artifacts.sh artifactory
+      - bash: ./ci/travis/prepare_artifacts_rpi.sh artifactory
         env:
           ARTIFACTORY_PATH: $(PATH)
           ARTIFACTORY_TOKEN: $(TOKEN)
         displayName: "Push to Artifactory"
+
+  - job: Push_to_Cloudsmith
+    condition: succeeded()
+    pool:
+      name: Default
+      demands:
+        - agent.name -equals linux-rpi
+    steps:
+      - checkout: self
+        fetchDepth: 1
+        clean: true
+      - checkout: wiki-scripts
+        fetchDepth: 1
+        clean: true
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          path: $(Build.SourcesDirectory)/bin
+      - bash: $(Build.SourcesDirectory)/linux/ci/travis/prepare_artifacts_rpi.sh cloudsmith
+        env:
+           CLOUDSMITH_API_KEY: $(CLOUDSMITH_API_KEY)
+        displayName: "Push to Cloudsmith"
+      - bash: |
+          cd $(Build.SourcesDirectory)/bin
+          TIMESTAMP=$(PushArtifacts.TIMESTAMP)
+          if [ -d "$TIMESTAMP" ]; then
+            echo "Cleaning up artifact directory: $TIMESTAMP"
+            rm -rf "$TIMESTAMP"
+          fi
+        displayName: "Cleanup artifacts"
+        condition: always()

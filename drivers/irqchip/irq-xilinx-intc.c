@@ -9,6 +9,7 @@
  * for more details.
  */
 
+#include <linux/clk.h>
 #include <linux/irqdomain.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
@@ -18,6 +19,7 @@
 #include <linux/jump_label.h>
 #include <linux/bug.h>
 #include <linux/of_irq.h>
+#include <linux/of_platform.h>
 
 /* No one else should require these constants, so define them locally here. */
 #define ISR 0x00			/* Interrupt Status Register */
@@ -179,11 +181,36 @@ static int xilinx_intc_of_init(struct device_node *intc,
 	struct xintc_irq_chip *irqc;
 	int ret, irq;
 
-	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
-	if (!irqc)
-		return -ENOMEM;
-	irqc->base = of_iomap(intc, 0);
-	BUG_ON(!irqc->base);
+	if (parent) {
+		struct platform_device *pdev;
+		struct clk *clkin;
+
+		pdev = of_find_device_by_node(intc);
+		if (!pdev)
+			return -ENODEV;
+
+		clkin = devm_clk_get_optional_enabled(&pdev->dev, NULL);
+		if (IS_ERR(clkin)) {
+			platform_device_put(pdev);
+			return dev_err_probe(&pdev->dev, PTR_ERR(clkin),
+					     "Failed to get and enable clock from Device Tree\n");
+		}
+
+		irqc = devm_kzalloc(&pdev->dev, sizeof(*irqc), GFP_KERNEL);
+		if (!irqc)
+			return -ENOMEM;
+
+		irqc->base = devm_of_iomap(&pdev->dev, intc, 0, NULL);
+		if (IS_ERR(irqc->base))
+			return PTR_ERR(irqc->base);
+	} else {
+		irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
+		if (!irqc)
+			return -ENOMEM;
+
+		irqc->base = of_iomap(intc, 0);
+		BUG_ON(!irqc->base);
+	}
 
 	ret = of_property_read_u32(intc, "xlnx,num-intr-inputs", &irqc->nr_irq);
 	if (ret < 0) {
@@ -197,7 +224,7 @@ static int xilinx_intc_of_init(struct device_node *intc,
 		irqc->intr_mask = 0;
 	}
 
-	if (irqc->intr_mask >> irqc->nr_irq)
+	if ((u64)irqc->intr_mask >> irqc->nr_irq)
 		pr_warn("irq-xilinx: mismatch in kind-of-intr param\n");
 
 	pr_info("irq-xilinx: %pOF: num_irq=%d, edge=0x%x\n",
@@ -252,21 +279,27 @@ static int xilinx_intc_of_init(struct device_node *intc,
 	return 0;
 
 error:
-	iounmap(irqc->base);
-	kfree(irqc);
-	return ret;
+	if (!parent) {
+		iounmap(irqc->base);
+		kfree(irqc);
+	}
 
+	return ret;
 }
 
 #ifdef CONFIG_IRQCHIP_XILINX_INTC_MODULE_SUPPORT_EXPERIMENTAL
+
+#define INTC_WARN "INTC module will be removed from the Linux platform " \
+		  "framework with modules still using it. This can cause " \
+		  "unpredictable behavior"
+
 static int xilinx_intc_of_remove(struct device_node *intc,
 				 struct device_node *parent)
 {
 	int irq;
 	struct xintc_irq_chip *irqc;
 
-	if (!parent)
-		return 0;
+	BUG_ON(!parent);
 
 	irqc = intc->data;
 	irq = irqc->irq;
@@ -278,9 +311,15 @@ static int xilinx_intc_of_remove(struct device_node *intc,
 		unsigned int i;
 
 		for (i = 0; i < irqc->root_domain->mapcount; i++) {
+			struct irq_desc *desc;
 			tempirq = irq_find_mapping(irqc->root_domain, i);
-			if (tempirq)
-				irq_dispose_mapping(tempirq);
+			if (tempirq) {
+				desc = irq_to_desc(tempirq);
+				if (desc && desc->action) {
+					pr_warn("%s\n", INTC_WARN);
+					return 0;
+				}
+			}
 		}
 		irq_dispose_mapping(irq);
 		irq_domain_remove(irqc->root_domain);
@@ -295,9 +334,6 @@ static int xilinx_intc_of_remove(struct device_node *intc,
 	xintc_write(irqc, IAR, 0xffffffff);
 	/* Turn off the Master Enable. */
 	xintc_write(irqc, MER, 0x0);
-
-	iounmap(irqc->base);
-	kfree(irqc);
 
 	return 0;
 }

@@ -34,7 +34,7 @@
 };
 
 &fpga_axi {
-	rx_dma: rx-dmac@44a30000 {
+	rx_dma: dma-controller@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
@@ -43,7 +43,7 @@
 		clocks = <&clkc 16>;
 	};
 
-	spi_clock: spieng-axi-clkgen@44a70000 {
+	spi_clock: clock-controller@44a70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a70000 0x10000>;
 		#clock-cells = <0>;

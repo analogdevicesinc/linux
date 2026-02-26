@@ -75,8 +75,8 @@
 /* spi max speed in brust mode */
 #define ADIS16475_BURST_MAX_SPEED	1000000
 #define ADIS16575_BURST_MAX_SPEED	8000000
-#define ADIS16475_LSB_DEC_MASK		BIT(0)
-#define ADIS16475_LSB_FIR_MASK		BIT(1)
+#define ADIS16475_LSB_DEC_MASK		0
+#define ADIS16475_LSB_FIR_MASK		1
 #define ADIS16500_BURST_DATA_SEL_0_CHN_MASK	GENMASK(5, 0)
 #define ADIS16500_BURST_DATA_SEL_1_CHN_MASK	GENMASK(12, 7)
 #define ADIS16575_MAX_FIFO_WM		511UL
@@ -164,7 +164,6 @@ module_param(low_rate_allow, bool, 0444);
 MODULE_PARM_DESC(low_rate_allow,
 		 "Allow IMU rates below the minimum advisable when external clk is used in SCALED mode (default: N)");
 
-#ifdef CONFIG_DEBUG_FS
 static ssize_t adis16475_show_firmware_revision(struct file *file,
 						char __user *userbuf,
 						size_t count, loff_t *ppos)
@@ -279,6 +278,9 @@ static void adis16475_debugfs_init(struct iio_dev *indio_dev)
 	struct adis16475 *st = iio_priv(indio_dev);
 	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
 
+	if (!IS_ENABLED(CONFIG_DEBUG_FS))
+		return;
+
 	debugfs_create_file_unsafe("serial_number", 0400,
 				   d, st, &adis16475_serial_number_fops);
 	debugfs_create_file_unsafe("product_id", 0400,
@@ -290,11 +292,6 @@ static void adis16475_debugfs_init(struct iio_dev *indio_dev)
 	debugfs_create_file("firmware_date", 0400, d,
 			    st, &adis16475_firmware_date_fops);
 }
-#else
-static void adis16475_debugfs_init(struct iio_dev *indio_dev)
-{
-}
-#endif
 
 static int adis16475_get_freq(struct adis16475 *st, u32 *freq)
 {
@@ -302,30 +299,25 @@ static int adis16475_get_freq(struct adis16475 *st, u32 *freq)
 	u16 dec;
 	u32 sample_rate = st->clk_freq;
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 
 	if (st->sync_mode == ADIS16475_SYNC_SCALED) {
 		u16 sync_scale;
 
 		ret = __adis_read_reg_16(&st->adis, ADIS16475_REG_UP_SCALE, &sync_scale);
 		if (ret)
-			goto error;
+			return ret;
 
 		sample_rate = st->clk_freq * sync_scale;
 	}
 
 	ret = __adis_read_reg_16(&st->adis, ADIS16475_REG_DEC_RATE, &dec);
 	if (ret)
-		goto error;
-
-	adis_dev_unlock(&st->adis);
+		return ret;
 
 	*freq = DIV_ROUND_CLOSEST(sample_rate, dec + 1);
 
 	return 0;
-error:
-	adis_dev_unlock(&st->adis);
-	return ret;
 }
 
 static int adis16475_set_freq(struct adis16475 *st, const u32 freq)
@@ -340,7 +332,7 @@ static int adis16475_set_freq(struct adis16475 *st, const u32 freq)
 	if (!freq)
 		return -EINVAL;
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 	/*
 	 * When using sync scaled mode, the input clock needs to be scaled so that we have
 	 * an IMU sample rate between (optimally) int_clk - 100 and int_clk + 100.
@@ -385,7 +377,7 @@ static int adis16475_set_freq(struct adis16475 *st, const u32 freq)
 		sync_scale = scaled_rate / st->clk_freq;
 		ret = __adis_write_reg_16(&st->adis, ADIS16475_REG_UP_SCALE, sync_scale);
 		if (ret)
-			goto error;
+			return ret;
 
 		sample_rate = scaled_rate;
 	}
@@ -400,9 +392,8 @@ static int adis16475_set_freq(struct adis16475 *st, const u32 freq)
 
 	ret = __adis_write_reg_16(&st->adis, ADIS16475_REG_DEC_RATE, dec);
 	if (ret)
-		goto error;
+		return ret;
 
-	adis_dev_unlock(&st->adis);
 	/*
 	 * If decimation is used, then gyro and accel data will have meaningful
 	 * bits on the LSB registers. This info is used on the trigger handler.
@@ -410,9 +401,6 @@ static int adis16475_set_freq(struct adis16475 *st, const u32 freq)
 	assign_bit(ADIS16475_LSB_DEC_MASK, &st->lsb_flag, dec);
 
 	return 0;
-error:
-	adis_dev_unlock(&st->adis);
-	return ret;
 }
 
 /* The values are approximated. */
@@ -541,19 +529,15 @@ static int adis16475_buffer_postdisable(struct iio_dev *indio_dev)
 	struct adis *adis = &st->adis;
 	int ret;
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 
 	ret = __adis_update_bits(adis, ADIS16475_REG_FIFO_CTRL,
 				 ADIS16575_FIFO_EN_MASK, (u16)ADIS16575_FIFO_EN(0));
 	if (ret)
-		goto unlock;
+		return ret;
 
-	ret = __adis_write_reg_16(adis, ADIS16475_REG_GLOB_CMD,
-				  ADIS16575_FIFO_FLUSH_CMD);
-
-unlock:
-	adis_dev_unlock(&st->adis);
-	return ret;
+	return __adis_write_reg_16(adis, ADIS16475_REG_GLOB_CMD,
+				   ADIS16575_FIFO_FLUSH_CMD);
 }
 
 static const struct iio_buffer_setup_ops adis16475_buffer_ops = {
@@ -567,20 +551,18 @@ static int adis16475_set_watermark(struct iio_dev *indio_dev, unsigned int val)
 	int ret;
 	u16 wm_lvl;
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 
 	val = min_t(unsigned int, val, ADIS16575_MAX_FIFO_WM);
 
 	wm_lvl = ADIS16575_WM_LVL(val - 1);
 	ret = __adis_update_bits(&st->adis, ADIS16475_REG_FIFO_CTRL, ADIS16575_WM_LVL_MASK, wm_lvl);
 	if (ret)
-		goto unlock;
+		return ret;
 
 	st->fifo_watermark = val;
 
-unlock:
-	adis_dev_unlock(&st->adis);
-	return ret;
+	return 0;
 }
 
 static const u32 adis16475_calib_regs[] = {
@@ -1608,8 +1590,7 @@ static int adis16475_push_single_sample(struct iio_poll_func *pf)
 		return -EINVAL;
 	}
 
-	for_each_set_bit(bit, indio_dev->active_scan_mask,
-			 indio_dev->masklength) {
+	iio_for_each_active_channel(indio_dev, bit) {
 		/*
 		 * When burst mode is used, system flags is the first data
 		 * channel in the sequence, but the scan index is 7.
@@ -1745,7 +1726,7 @@ static irqreturn_t adis16475_trigger_handler_with_fifo(int irq, void *p)
 	int ret;
 	u16 fifo_cnt, i;
 
-	adis_dev_lock(&st->adis);
+	adis_dev_auto_lock(&st->adis);
 
 	ret = __adis_read_reg_16(adis, ADIS16575_REG_FIFO_CNT, &fifo_cnt);
 	if (ret)
@@ -1781,7 +1762,6 @@ unlock:
 	 * reading data from registers will impact the FIFO reading.
 	 */
 	adis16475_burst32_check(st);
-	adis_dev_unlock(&st->adis);
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
@@ -1878,19 +1858,12 @@ static int adis16475_config_sync_mode(struct adis16475 *st)
 static int adis16475_config_irq_pin(struct adis16475 *st)
 {
 	int ret;
-	struct irq_data *desc;
 	u32 irq_type;
 	u16 val = 0;
 	u8 polarity;
 	struct spi_device *spi = st->adis.spi;
 
-	desc = irq_get_irq_data(spi->irq);
-	if (!desc) {
-		dev_err(&spi->dev, "Could not find IRQ %d\n", spi->irq);
-		return -EINVAL;
-	}
-
-	irq_type = irqd_get_trigger_type(desc);
+	irq_type = irq_get_trigger_type(spi->irq);
 
 	if (st->adis.data->has_fifo) {
 		/*
@@ -1957,6 +1930,7 @@ static int adis16475_config_irq_pin(struct adis16475 *st)
 	return 0;
 }
 
+
 static int adis16475_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -1970,7 +1944,7 @@ static int adis16475_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 
-	st->info = device_get_match_data(&spi->dev);
+	st->info = spi_get_device_match_data(spi);
 	if (!st->info)
 		return -EINVAL;
 
@@ -2018,7 +1992,7 @@ static int adis16475_probe(struct spi_device *spi)
 							 adis16475_trigger_handler);
 		if (ret)
 			return ret;
-		}
+	}
 
 	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret)

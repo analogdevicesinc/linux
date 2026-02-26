@@ -759,7 +759,7 @@ out:
 	mutex_unlock(&st->lock);
 }
 
-int ad7768_gpio_setup(struct ad7768_state *st)
+static int ad7768_gpio_setup(struct ad7768_state *st)
 {
 	int ret;
 

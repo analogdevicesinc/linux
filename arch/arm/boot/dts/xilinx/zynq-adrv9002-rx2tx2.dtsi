@@ -5,7 +5,7 @@
 #include <dt-bindings/gpio/gpio.h>
 
 &fpga_axi {
-	rx_dma: dma@44A30000 {
+	rx_dma: dma-controller@44A30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
@@ -14,7 +14,7 @@
 		clocks = <&clkc 15>, <&clkc 16>, <&misc_clk_0>;
 	};
 
-	tx_dma: dma@44A50000 {
+	tx_dma: dma-controller@44A50000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44A50000 0x1000>;
 		#dma-cells = <1>;

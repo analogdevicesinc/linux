@@ -60,7 +60,7 @@
 		reg = <0x00018000 0x8000>;
 	};
 
-	hdmi_tx_dma: dma@80000 {
+	hdmi_tx_dma: dma-controller@80000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x00080000 0x00000800>;
 		interrupt-parent = <&intc>;

@@ -126,7 +126,7 @@
 					<0x00040000 0x00000001 0x00140000 0x00001000>,
 					<0x00009000 0x00000001 0x00109000 0x00000010>;
 
-				rx_dma: dma@0 {
+				rx_dma: dma-controller@0 {
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00000000 0x00004000>;
 					interrupt-parent = <&intc>;
@@ -135,11 +135,12 @@
 					clocks = <&sys_clk>;
 				};
 
-				axi_pwm_gen: axi-pwm-gen@40000 {
+				axi_pwm_gen: pwm@40000 {
 					compatible = "adi,axi-pwmgen-2.00.a";
 					reg = <0x00040000 0x1000>;
 					#pwm-cells = <2>;
 					clocks = <&sys_clk>;
+					clock-names = "axi";
 				};
 
 				gpio: gpio@9000 {
@@ -151,7 +152,7 @@
 				};
 
 				axi_ltc235x_adc_core: axi-ltc235x@20000 {
-					compatible = "adi,axi-adc-10.0.a";
+					compatible = "adi,axi-adc-legacy-10.0.a";
 					reg = <0x00020000 0x00010000>;
 					dmas = <&rx_dma 0>;
 					dma-names = "rx";

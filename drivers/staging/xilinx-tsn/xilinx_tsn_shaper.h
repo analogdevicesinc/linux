@@ -53,7 +53,7 @@
  */
 #define ADMIN_CTRL_LIST(n)		(CTRL_LIST_BASE + ((n) * 8))
 #define ACL_GATE_STATE_SHIFT		8
-#define ACL_GATE_STATE_MASK		0x7
+#define ACL_GATE_STATE_MASK		GENMASK(7, 0)
 #define ADMIN_CTRL_LIST_TIME(n)		(ADMIN_CTRL_LIST(n) + 4)
 
 #define OPER_CTRL_LIST(n)		(CTRL_LIST_BASE + 0x800 + ((n) * 8))
@@ -61,8 +61,7 @@
 #define CTRL_LIST_TIME_INTERVAL_MASK	0xFFFFF
 
 #define CONFIG_CHANGE			0x0
-#define CC_ADMIN_GATE_STATE_SHIFT	0x7
-#define CC_ADMIN_GATE_STATE_MASK	(7)
+#define CC_ADMIN_GATE_STATE_MASK	GENMASK(7, 0)
 #define CC_ADMIN_CTRL_LIST_LENGTH_SHIFT	(8)
 #define CC_ADMIN_CTRL_LIST_LENGTH_MASK	(0x1FF)
 /* This request bit is set when all the related Admin* filelds are populated.
@@ -91,6 +90,7 @@
 #define INT_ENABLE			0x34
 #define INT_CLEAR			0x38
 #define PORT_STATUS			0x3c
+#define CONFIG_PENDING_MASK		BIT(0)
 
 /* Config Change time is valid after Config Pending bit is set. */
 #define CONFIG_CHANGE_TIME_NS		0x40
@@ -121,6 +121,7 @@
 #define GS_BE_OPEN			BIT(0)
 #define GS_RE_OPEN			BIT(1)
 #define GS_ST_OPEN			BIT(2)
+#define GS_ST_2TC_OPEN			BIT(1)
 #define QBV_MAX_ENTRIES			256
 
 struct qbv_info {

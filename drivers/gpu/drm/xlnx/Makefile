@@ -1,4 +1,7 @@
-zynqmp-dpsub-y := zynqmp_disp.o zynqmp_dpsub.o zynqmp_dp.o
+mmi-dc-y := mmi_dc_plane.o mmi_dc.o mmi_dc_kms.o
+obj-$(CONFIG_DRM_AMD_MMI_DC) += mmi-dc.o
+zynqmp-dpsub-y := zynqmp_disp.o zynqmp_dpsub.o zynqmp_dp.o zynqmp_kms.o
+zynqmp-dpsub-$(CONFIG_DRM_ZYNQMP_DPSUB_AUDIO) += zynqmp_dp_audio.o
 obj-$(CONFIG_DRM_ZYNQMP_DPSUB) += zynqmp-dpsub.o
 xlnx_drm-objs += xlnx_crtc.o xlnx_drv.o xlnx_fb.o xlnx_gem.o
 xlnx_drm-$(CONFIG_DRM_XLNX_BRIDGE) += xlnx_bridge.o

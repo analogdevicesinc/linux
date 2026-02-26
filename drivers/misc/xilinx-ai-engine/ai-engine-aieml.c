@@ -120,6 +120,14 @@
 #define AIEML_TILE_COREMOD_WH11_PART2_REGOFF		0x00030af0U
 #define AIEML_TILE_COREMOD_R0_REGOFF			0x00030c00U
 #define AIEML_TILE_COREMOD_R31_REGOFF			0x00030df0U
+#define AIEML_TILE_COREMOD_S3_REGOFF			0x000310B0U
+#define AIEML_TILE_COREMOD_Q0_REGOFF			0x000310C0U
+#define AIEML_TILE_COREMOD_Q3_REGOFF			0x000310F0U
+#define AIEML_TILE_COREMOD_SP_REGOFF			0x00031120U
+#define AIEML_TILE_COREMOD_LR_REGOFF			0x00031130U
+#define AIEML_TILE_COREMOD_LS_REGOFF			0x00031140U
+#define AIEML_TILE_COREMOD_LC_REGOFF			0x00031160U
+#define AIEML_TILE_COREMOD_DP_REGOFF			0x00031190U
 #define AIEML_TILE_COREMOD_CORE_STATUS_REGOFF		0x00032004U
 #define AIEML_TILE_COREMOD_CORE_PC_REGOFF		0x00031100U
 #define AIEML_TILE_COREMOD_CORE_SP_REGOFF		0x00031120U
@@ -826,33 +834,48 @@ static const struct aie_error_attr aieml_shim_error = {
 	.err_category = aieml_shim_err_category,
 };
 
-static const struct aie_tile_regs aieml_core_amxx_regs = {
-	.attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
-	.soff = AIEML_TILE_COREMOD_AMLL0_PART1_REGOFF,
-	.eoff = AIEML_TILE_COREMOD_AMHH8_PART2_REGOFF,
-};
-
-static const struct aie_tile_regs aieml_core_wx_regs = {
-	.attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
-	.soff = AIEML_TILE_COREMOD_WL0_PART1_REGOFF,
-	.eoff = AIEML_TILE_COREMOD_WH11_PART2_REGOFF,
-};
-
-static const struct aie_tile_regs aieml_core_32bit_regs = {
-	.attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
-	.soff = AIEML_TILE_COREMOD_R0_REGOFF,
-	.eoff = AIEML_TILE_COREMOD_R31_REGOFF,
-};
-
-static const struct aie_core_regs_attr aieml_core_regs[] = {
-	{.core_regs = &aieml_core_amxx_regs,
-	 .width = 4,
+static const struct aie_tile_regs aieml_core_regs_clr[] = {
+	{.soff = AIEML_TILE_COREMOD_AMLL0_PART1_REGOFF,
+	 .eoff = AIEML_TILE_COREMOD_AMHH8_PART2_REGOFF,
+	 .width = 16,	/* 128 bits */
+	 .step = 16,	/* 0x10 */
+	 .attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
 	},
-	{.core_regs = &aieml_core_wx_regs,
-	 .width = 4,
+	{.soff = AIEML_TILE_COREMOD_WL0_PART1_REGOFF,
+	 .eoff = AIEML_TILE_COREMOD_WH11_PART2_REGOFF,
+	 .width = 16,	/* 128 bits */
+	 .step = 16,	/* 0x10 */
+	 .attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
 	},
-	{.core_regs = &aieml_core_32bit_regs,
-	 .width = 1,
+	{.soff = AIEML_TILE_COREMOD_R0_REGOFF,
+	 .eoff = AIEML_TILE_COREMOD_S3_REGOFF,
+	 .width = 4,	/* 32 bits */
+	 .step = 16,	/* 0x10 */
+	 .attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	},
+	{.soff = AIEML_TILE_COREMOD_Q0_REGOFF,
+	 .eoff = AIEML_TILE_COREMOD_Q3_REGOFF,
+	 .width = 16,	/* 128 bits */
+	 .step = 16,	/* 0x10 */
+	 .attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	},
+	{.soff = AIEML_TILE_COREMOD_SP_REGOFF,
+	 .eoff = AIEML_TILE_COREMOD_LS_REGOFF,
+	 .width = 4,	/* 32 bits */
+	 .step = 16,	/* 0x10 */
+	 .attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	},
+	{.soff = AIEML_TILE_COREMOD_LC_REGOFF,
+	 .eoff = AIEML_TILE_COREMOD_LC_REGOFF,
+	 .width = 4,	/* 32 bits */
+	 .step = 4,
+	 .attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	},
+	{.soff = AIEML_TILE_COREMOD_DP_REGOFF,
+	 .eoff = AIEML_TILE_COREMOD_DP_REGOFF,
+	 .width = 4,	/* 32 bits */
+	 .step = 4,
+	 .attribute = AIE_TILE_TYPE_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
 	},
 };
 
@@ -1583,6 +1606,10 @@ static const struct aie_l2_intr_ctrl_attr aieml_l2_intr_ctrl = {
 	.status = {
 		.mask = GENMASK(15, 0),
 		.regoff = 0xcU,
+	},
+	.intr = {
+		.mask = GENMASK(1, 0),
+		.regoff = 0x10U,
 	},
 	.regoff = 0x15000U,
 	.num_broadcasts = 0x10U,
@@ -2559,7 +2586,7 @@ static int aieml_scan_part_clocks(struct aie_partition *apart)
 		void __iomem *va;
 		u32 val, nbitpos;
 
-		nbitpos = loc.col * (range->size.row - 1) + loc.row;
+		nbitpos = (loc.col - range->start.col) * (range->size.row - 1) + loc.row;
 
 		va = aperture->base +
 		     aie_cal_regoff(adev, loc,
@@ -2586,16 +2613,16 @@ static int aieml_scan_part_clocks(struct aie_partition *apart)
 static int aieml_set_part_clocks(struct aie_partition *apart)
 {
 	struct aie_range *range = &apart->range;
-	u32 node_id = apart->adev->pm_node_id;
+	u32 node_id = apart->aperture->node_id;
+	int ret, status = -EINVAL;
 	struct aie_location loc;
-	int ret, status;
 
 	for (loc.col = range->start.col;
 	     loc.col < range->start.col + range->size.col;
 	     loc.col++) {
 		u32 startbit, col_inuse = 0;
 
-		startbit = loc.col * (range->size.row - 1);
+		startbit = (loc.col - range->start.col) * (range->size.row - 1);
 
 		for (loc.row = range->start.row + 1;
 		     loc.row < range->start.row + range->size.row;
@@ -2647,7 +2674,7 @@ static int aieml_set_part_clocks(struct aie_partition *apart)
 static int aieml_part_clear_mems(struct aie_partition *apart)
 {
 	struct aie_range *range = &apart->range;
-	u32 node_id = apart->adev->pm_node_id;
+	u32 node_id = apart->aperture->node_id;
 	int ret;
 
 	ret = zynqmp_pm_aie_operation(node_id, range->start.col,
@@ -2712,12 +2739,18 @@ static const struct aie_tile_operations aieml_ops = {
 	.init_part_clk_state = aieml_init_part_clk_state,
 	.scan_part_clocks = aieml_scan_part_clocks,
 	.set_part_clocks = aieml_set_part_clocks,
+	.set_column_clock = aie_part_set_column_clock_from_user,
 	.set_tile_isolation = aieml_set_tile_isolation,
 	.mem_clear = aieml_part_clear_mems,
 	.get_dma_s2mm_status = aieml_get_dma_s2mm_status,
 	.get_dma_mm2s_status = aieml_get_dma_mm2s_status,
 	.get_chan_status = aieml_get_chan_status,
 	.get_lock_status = aieml_get_lock_status,
+	.part_init = aie_part_initialize,
+	.part_teardown = aie_part_teardown,
+	.part_clear_context = aie_part_clear_context,
+	.part_clean = aie_part_clean,
+	.part_reset = aie_part_reset,
 };
 
 /**
@@ -2763,8 +2796,8 @@ int aieml_device_init(struct aie_device *adev)
 	adev->ops = &aieml_ops;
 	adev->num_kernel_regs = ARRAY_SIZE(aieml_kernel_regs);
 	adev->kernel_regs = aieml_kernel_regs;
-	adev->num_core_regs = ARRAY_SIZE(aieml_core_regs);
-	adev->core_regs = aieml_core_regs;
+	adev->core_regs_clr = aieml_core_regs_clr;
+	adev->num_core_regs_clr = ARRAY_SIZE(aieml_core_regs_clr);
 	adev->col_rst = &aieml_col_rst;
 	adev->col_clkbuf = &aieml_col_clkbuf;
 	adev->tile_bd = &aieml_tilebd;

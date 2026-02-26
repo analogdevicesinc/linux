@@ -1,0 +1,44 @@
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  clean-cloudsmith:
+    if: github.repository == 'analogdevicesinc/linux'
+    runs-on: [self-hosted, repo-only]
+    steps:
+    - uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' && env.CLOUDSMITH_SERVICE_SLUG != ' ' }}
+      with:
+        oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
+        oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        oidc-auth-only: 'true'
+
+    - name: Get Cloudsmith API Key
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG == '' || env.CLOUDSMITH_SERVICE_SLUG == ' ' }}
+      run: |
+        CLOUDSMITH_API_KEY=$(echo "${{ secrets.CLOUDSMITH_API_KEY }}" | xargs)
+        echo "CLOUDSMITH_API_KEY=$CLOUDSMITH_API_KEY" >> "$GITHUB_ENV"
+        
+    - name: Delete PR artifacts from Cloudsmith
+      run: |
+        curl -sO -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+        https://raw.githubusercontent.com/analogdevicesinc/wiki-scripts/main/utils/cloudsmith_utils/cloudsmith_helper.py
+        
+        python3 -m venv ~/venv
+        source ~/venv/bin/activate
+        python3 -m ensurepip --upgrade
+        pip3 install requests
+        python3 cloudsmith_helper.py \
+          --repo sdg-linux \
+          --method remove_item_from_location \
+          --package_version "*/pr_${{ github.event.number }}/" \
+          --package_name "*"

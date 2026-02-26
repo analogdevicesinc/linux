@@ -151,3 +151,4 @@ typedef enum adrv9025_BfPllMemMapVcoCalInitDel
 #endif // __ADRV9025_BF_PLL_MEM_MAP_TYPES_H__
 
 /*  EOF: adrv9025_bf_pll_mem_map_types.h */
+

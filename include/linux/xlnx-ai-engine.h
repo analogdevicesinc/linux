@@ -3,6 +3,7 @@
  * xlnx-ai-engine.h - Xilinx AI engine external interface
  *
  * Copyright (c) 2020, Xilinx Inc.
+ * Copyright (C) 2024 - 2025 Advanced Micro Devices, Inc.
  */
 
 #ifndef _XLNX_AI_ENGINE_H_
@@ -153,6 +154,13 @@ int aie_part_rscmgr_set_static_range(struct device *dev,
 
 int aie_get_status_dump(struct device *dev, struct aie_col_status *status);
 int aie_get_tile_info(struct device *dev, struct aie_tile_info *tile_info);
+int aie_partition_read(struct device *dev, struct aie_location loc,
+		       size_t offset, size_t len, void *data);
+int aie_partition_write(struct device *dev, struct aie_location loc,
+			size_t offset, size_t len, void *data, u32 mask);
+int aie_partition_uc_wakeup(struct device *dev, struct aie_location *loc);
+int aie_partition_initialize(struct device *dev, struct aie_partition_init_args *args);
+int aie_partition_teardown(struct device *dev);
 /**
  * aie_get_error_category() - Get the category of an AIE error
  * @err: AI engine hardware error
@@ -162,6 +170,13 @@ static inline u32 aie_get_error_category(struct aie_error *err)
 {
 	return err->category;
 }
+
+int aie_partition_write_privileged_mem(struct device *dev, size_t offset, size_t len, void *data);
+int aie_partition_read_privileged_mem(struct device *dev, size_t offset, size_t len, void *data);
+bool aie_partition_check_noc_aximm(struct device *dev, struct aie_location *loc);
+int aie_partition_check_uc_aximm(struct device *dev, struct aie_location *loc);
+int aie_partition_uc_zeroize_mem(struct device *dev, struct aie_location *loc, u32 regval);
+int aie_load_cert(struct device *dev, unsigned char *elf_addr);
 
 #else
 static inline bool aie_partition_is_available(struct aie_partition_req *req)
@@ -206,7 +221,7 @@ static inline int aie_unregister_error_notification(struct device *dev)
 
 static inline struct aie_errors *aie_get_errors(struct device *dev)
 {
-	return NULL;
+	return ERR_PTR(-EINVAL);
 }
 
 static inline u32 aie_get_error_categories(struct aie_errors *aie_errs)
@@ -259,6 +274,36 @@ static inline int aie_get_tile_info(struct device *dev, struct aie_tile_info *ti
 
 static inline int aie_part_rscmgr_set_static_range(struct device *dev,
 						   u8 start_col, u8 num_col, void *meta)
+{
+	return -EINVAL;
+}
+
+int aie_partition_write_privileged_mem(struct device *dev, size_t offset, size_t len, void *data)
+{
+	return -EINVAL;
+}
+
+int aie_partition_read_privileged_mem(struct device *dev, size_t offset, size_t len, void *data)
+{
+	return -EINVAL;
+}
+
+bool aie_partition_check_noc_aximm(struct device *dev, struct aie_location *loc)
+{
+	return false;
+}
+
+int aie_partition_check_uc_aximm(struct device *dev, struct aie_location *loc)
+{
+	return 0;
+}
+
+int aie_partition_uc_zeroize_mem(struct device *dev, struct aie_location *loc, u32 regval)
+{
+	return -EINVAL;
+}
+
+int aie_load_cert(struct device *dev, unsigned char *elf_addr)
 {
 	return -EINVAL;
 }

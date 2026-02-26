@@ -77,12 +77,6 @@ static const struct debugfs_reg32 axi_hdmi_encoder_debugfs_regs[] = {
 	{ "VTiming3", AXI_HDMI_REG_VTIMING3 },
 };
 
-static const uint16_t adv7511_csc_ycbcr_to_rgb[] = {
-	0x0734, 0x04ad, 0x0000, 0x1c1b,
-	0x1ddc, 0x04ad, 0x1f24, 0x0135,
-	0x0000, 0x04ad, 0x087c, 0x1b77,
-};
-
 struct axi_hdmi_encoder {
 	struct drm_encoder_slave encoder;
 	struct drm_connector connector;

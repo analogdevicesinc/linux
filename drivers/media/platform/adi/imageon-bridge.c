@@ -95,7 +95,7 @@ static irqreturn_t imageon_bridge_hdmiio_int_handler(int irq, void *dev_id)
 
 static int imageon_bridge_async_bound(struct v4l2_async_notifier *notifier,
 				      struct v4l2_subdev *subdev,
-				      struct v4l2_async_subdev *asd)
+				      struct v4l2_async_connection *asd)
 {
 	struct fwnode_handle *subdev_node = of_fwnode_handle(subdev->dev->of_node);
 	struct imageon_bridge *bridge = notifier_to_imageon_bridge(notifier);
@@ -185,23 +185,23 @@ static int imageon_bridge_notifier_init(struct imageon_bridge *bridge)
 	struct imageon_subdev *input = &bridge->imageon_subdev[INPUT_SUBDEV];
 	struct imageon_subdev *output = &bridge->imageon_subdev[OUTPUT_SUBDEV];
 	struct v4l2_async_notifier *notifier = &bridge->notifier;
-	struct v4l2_async_subdev *asd;
+	struct v4l2_async_connection *asd;
 
-	v4l2_async_nf_init(notifier);
+	v4l2_async_nf_init(notifier, &bridge->v4l2_dev);
 
 	asd = v4l2_async_nf_add_fwnode(notifier, input->fwnode,
-				       struct v4l2_async_subdev);
+				       struct v4l2_async_connection);
 	if (IS_ERR(asd))
 		return PTR_ERR(asd);
 
 	asd = v4l2_async_nf_add_fwnode(notifier, output->fwnode,
-				       struct v4l2_async_subdev);
+				       struct v4l2_async_connection);
 	if (IS_ERR(asd))
 		return PTR_ERR(asd);
 
 	notifier->ops = &imageon_async_ops;
 
-	return v4l2_async_nf_register(&bridge->v4l2_dev, notifier);
+	return v4l2_async_nf_register(notifier);
 }
 
 static int imageon_bridge_probe(struct platform_device *pdev)
@@ -272,7 +272,7 @@ err:
 	return ret;
 }
 
-static int imageon_bridge_remove(struct platform_device *pdev)
+static void imageon_bridge_remove(struct platform_device *pdev)
 {
 	struct imageon_bridge *bridge = platform_get_drvdata(pdev);
 
@@ -282,8 +282,6 @@ static int imageon_bridge_remove(struct platform_device *pdev)
 	media_device_unregister(&bridge->media_dev);
 	if (bridge->irq > 0)
 		free_irq(bridge->irq, pdev);
-
-	return 0;
 }
 
 static const struct of_device_id imageon_bridge_of_match[] = {

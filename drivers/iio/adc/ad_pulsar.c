@@ -5,7 +5,7 @@
  * Copyright 2022 Analog Devices Inc.
  */
 
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -458,7 +458,7 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 	if (rem)
 		cnv_state.period += 1;
 
-	ret = pwm_apply_state(adc->cnv, &cnv_state);
+	ret = pwm_apply_might_sleep(adc->cnv, &cnv_state);
 	if (ret)
 		return ret;
 
@@ -622,20 +622,19 @@ static int ad_pulsar_buffer(struct iio_dev *indio_dev,
 				  adc->info->num_channels);
 
 	last = find_last_bit(indio_dev->active_scan_mask,
-			     indio_dev->masklength);
+			     iio_get_masklength(indio_dev));
 
 	first = find_first_bit(indio_dev->active_scan_mask,
-			       indio_dev->masklength);
+			       iio_get_masklength(indio_dev));
 	if (num_en_ch > 1) {
 		second = find_next_bit(indio_dev->active_scan_mask,
-				       indio_dev->masklength,
+				       iio_get_masklength(indio_dev),
 				       first + 1);
 	}
 
 	spi_message_init(msg);
 
-	for_each_set_bit(ch, indio_dev->active_scan_mask,
-			 indio_dev->masklength) {
+	iio_for_each_active_channel(indio_dev, ch) {
 		active_ch[i] = ch;
 		i++;
 	}
@@ -694,7 +693,7 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	spi_bus_lock(adc->spi->master);
+	spi_bus_lock(adc->spi->controller);
 	ret = legacy_spi_engine_offload_load_msg(adc->spi, &msg);
 	if (ret)
 		return ret;
@@ -710,7 +709,7 @@ static int ad_pulsar_buffer_postdisable(struct iio_dev *indio_dev)
 	int ret;
 
 	legacy_spi_engine_offload_enable(adc->spi, false);
-	spi_bus_unlock(adc->spi->master);
+	spi_bus_unlock(adc->spi->controller);
 
 	ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, AD7682_DISABLE_SEQ);
 	if (ret)

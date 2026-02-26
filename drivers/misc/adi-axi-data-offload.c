@@ -7,16 +7,17 @@
  * Wiki: https://wiki.analog.com/resources/fpga/docs/data_offload
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
-#include <linux/fpga/adi-axi-common.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/module.h>
-#include <linux/of_device.h>
+#include <linux/mod_devicetable.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/stringify.h>
@@ -467,6 +468,8 @@ static int axi_data_offload_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(st->of_node, "adi,oneshot"))
 		axi_data_offload_ctrl_oneshot(st, true);
+	else
+		axi_data_offload_ctrl_oneshot(st, false);
 
 	if (of_property_read_bool(st->of_node, "adi,bypass"))
 		axi_data_offload_ctrl_bypass(st, true);

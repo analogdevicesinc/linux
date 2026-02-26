@@ -240,12 +240,16 @@ struct aie_partition_query {
  * @flag: used for application to indicate particular driver requirements
  *	  application wants to have for the partition. e.g. do not clean
  *	  resource when closing the partition.
+ * @user_event1_complete: inference complete call back function.
+ * @user_event1_priv: user_event1_complete's priv data.
  */
 struct aie_partition_req {
 	__u32 partition_id;
 	__u32 uid;
 	__u64 meta_data;
 	__u32 flag;
+	void (*user_event1_complete)(__u32 partition_id, void *user_event1_prov);
+	void *user_event1_priv;
 };
 
 /**
@@ -253,22 +257,72 @@ struct aie_partition_req {
  * @locs: Allocated array of tile locations that will be used
  * @num_tiles: Number of tiles to use
  * @init_opts: Partition initialization options
+ * @ecc_scrub: ecc_scrub period.
+ * @handshake: HSA handshake data.
+ * @handshake_size: handshake data size.
  */
 struct aie_partition_init_args {
 	struct aie_location *locs;
 	__u32 num_tiles;
 	__u32 init_opts;
+	__u32 ecc_scrub;
+	__u32 *handshake;
+	__u32 handshake_size;
 };
 
 /*
  * AI engine partition initialize options
  */
-#define AIE_PART_INIT_OPT_COLUMN_RST		(1U << 0)
-#define AIE_PART_INIT_OPT_SHIM_RST		(1U << 1)
-#define AIE_PART_INIT_OPT_BLOCK_NOCAXIMMERR	(1U << 2)
-#define AIE_PART_INIT_OPT_ISOLATE		(1U << 3)
-#define AIE_PART_INIT_OPT_ZEROIZEMEM		(1U << 4)
-#define AIE_PART_INIT_OPT_DEFAULT		0xFU
+#define AIE_PART_INIT_OPT_START_NUM_COL		0U
+#define AIE_PART_INIT_OPT_COLUMN_RST		BIT(0)
+#define AIE_PART_INIT_OPT_SHIM_RST		BIT(1)
+#define AIE_PART_INIT_OPT_BLOCK_NOCAXIMMERR	BIT(2)
+#define AIE_PART_INIT_OPT_ISOLATE		BIT(3)
+#define AIE_PART_INIT_OPT_ZEROIZEMEM		BIT(4)
+#define AIE_PART_INIT_OPT_UC_ENB_MEM_PRIV	BIT(5)
+#define AIE_PART_INIT_ERROR_HANDLING		BIT(6)
+#define AIE_PART_INIT_OPT_DIS_COLCLK_BUFF	BIT(7)
+#define AIE_PART_INIT_OPT_SET_L2_IRQ		BIT(8)
+#define AIE_PART_INIT_OPT_HW_ERR_INT		BIT(9)
+#define AIE_PART_INIT_OPT_HW_ERR_MASK		BIT(10)
+#define AIE_PART_INIT_OPT_SET_ECC_SCRUB_PERIOD	BIT(11)
+#define AIE_PART_INIT_OPT_NMU_CONFIG		BIT(12)
+#define AIE_PART_INIT_OPT_ENB_COLCLK_BUFF	BIT(13)
+#define AIE_PART_INIT_OPT_UC_ZEROIZATION	BIT(14)
+#define AIE_PART_INIT_OPT_UC_DIS_MEM_PRIV	BIT(15)
+#define AIE_PART_INIT_OPT_ENB_NOC_DMA_PAUSE	BIT(16)
+#define AIE_PART_INIT_OPT_ENB_UC_DMA_PAUSE	BIT(17)
+#define AIE_PART_INIT_OPT_HW_ERR_STS		BIT(18)
+#define AIE_PART_INIT_OPT_DIS_MEM_INTERLEAVE	BIT(19)
+#define AIE_PART_INIT_OPT_HANDSHAKE		BIT(20)
+
+#define AIE_PART_INIT_OPT_DEFAULT	(AIE_PART_INIT_OPT_COLUMN_RST		|	\
+					 AIE_PART_INIT_OPT_SHIM_RST		|	\
+					 AIE_PART_INIT_OPT_BLOCK_NOCAXIMMERR	|	\
+					 AIE_PART_INIT_OPT_ISOLATE		|	\
+					 AIE_PART_INIT_ERROR_HANDLING		|	\
+					 AIE_PART_INIT_OPT_UC_ENB_MEM_PRIV	|	\
+					 AIE_PART_INIT_OPT_SET_L2_IRQ		|	\
+					 AIE_PART_INIT_OPT_HW_ERR_INT		|	\
+					 AIE_PART_INIT_OPT_HW_ERR_MASK		|	\
+					 AIE_PART_INIT_OPT_NMU_CONFIG)
+
+#define AIE_PART_TEARDOWN_OPT_DEFAULT	(AIE_PART_INIT_OPT_COLUMN_RST		|	\
+					 AIE_PART_INIT_OPT_SHIM_RST		|	\
+					 AIE_PART_INIT_OPT_ZEROIZEMEM		|	\
+					 AIE_PART_INIT_OPT_ENB_NOC_DMA_PAUSE	|	\
+					 AIE_PART_INIT_OPT_ENB_UC_DMA_PAUSE	|	\
+					 AIE_PART_INIT_OPT_DIS_COLCLK_BUFF)
+
+/*
+ * AI engine partition uc zeroization options
+ */
+#define AIE_PART_ZEROIZE_UC_PM			BIT(0)
+#define AIE_PART_ZEROIZE_UC_PRIVATE_DM		BIT(1)
+#define AIE_PART_ZEROIZE_UC_SHARED_DM		BIT(2)
+#define AIE_PART_ZEROIZE_UC_MEM_ALL		(AIE_PART_ZEROIZE_UC_PM |		\
+						 AIE_PART_ZEROIZE_UC_PRIVATE_DM |	\
+						 AIE_PART_ZEROIZE_UC_SHARED_DM)		\
 
 /**
  * struct aie_dma_bd_args - AIE DMA buffer descriptor information
@@ -319,6 +373,31 @@ struct aie_column_args {
 	__u32 start_col;
 	__u32 num_cols;
 	__u8 enable;
+};
+
+/**
+ * struct aie_part_fd - AIE partition fd
+ * @args: aie column args
+ * @partition_id: It is used to identify the
+ *		  AI engine partition in the system
+ * @uid: It is uid of aie partition
+ * @fd: It is file descriptor of AI engine partition
+ */
+struct aie_part_fd {
+	struct aie_column_args args;
+	__u32 partition_id;
+	__u32 uid;
+	int fd;
+};
+
+/**
+ * struct aie_part_fd_list - AIE partition fd list
+ * @list: aie parititon list
+ * @num_entries: num of entries in the list
+ */
+struct aie_part_fd_list {
+	struct aie_part_fd *list;
+	int num_entries;
 };
 
 /**
@@ -428,6 +507,8 @@ struct aie_rsc_user_stat_array {
 					      struct aie_partition_query)
 #define AIE_REQUEST_PART_IOCTL		_IOR(AIE_IOCTL_BASE, 0x2, \
 					     struct aie_partition_req)
+#define AIE_GET_PARTITION_FD_LIST_IOCTL	_IOWR(AIE_IOCTL_BASE, 0x3, \
+					     struct aie_part_fd_list)
 
 /* AI engine partition IOCTL operations */
 /**
@@ -669,4 +750,36 @@ struct aie_rsc_user_stat_array {
  */
 #define AIE_SET_COLUMN_CLOCK_IOCTL	_IOW(AIE_IOCTL_BASE, 0x1b, \
 					struct aie_tiles_array)
+
+/**
+ * DOC: AIE_DMA_MEM_ALLOCATE_IOCTL - allocates the DMA memory
+ *
+ * This ioctl is used to allocate physically contiguous memory for DMA
+ * transactions and export it as a dma-buf which is passed to the userspace as
+ * a file descriptor. The file descriptor is memory mapped into the process's
+ * address space.
+ */
+#define AIE_DMA_MEM_ALLOCATE_IOCTL	_IOW(AIE_IOCTL_BASE, 0x1c, \
+					     __kernel_size_t)
+
+/**
+ * DOC: AIE_DMA_MEM_FREE_IOCTL - de-allocates the DMA memory
+ *
+ * This ioctl is used to de-allocate physically contiguous memory for DMA
+ * transactions and unexport it as a dma-buf which is passed to the userspace as
+ * a file descriptor.
+ */
+#define AIE_DMA_MEM_FREE_IOCTL          _IOW(AIE_IOCTL_BASE, 0x1d, int)
+
+/**
+ * DOC: AIE_UPDATE_SHIMDMA_DMABUF_BD_ADDR_IOCTL - updates the SHIM DMA address
+ *						  in the BD registers.
+ *
+ * This ioctl is used to update the SHIM DMA address. The
+ * aie_dmabuf_bd_args contains the dmabuf fd and the offset. The buffer
+ * descriptor only contains the offset to be updated.
+ */
+#define AIE_UPDATE_SHIMDMA_DMABUF_BD_ADDR_IOCTL	_IOW(AIE_IOCTL_BASE, 0x1e, \
+						struct aie_dmabuf_bd_args)
+
 #endif

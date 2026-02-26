@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: BSD-2-Clause-Views
+# Copyright (c) 2019-2023 The Regents of the University of California
+
+menuconfig CORUNDUM_MQNIC
+	tristate "Corundum MQNIC support"
+	select NET_DEVLINK
+	select I2C_ALGOBIT
+	depends on RTC_CLASS
+	help
+	  Corundum is an open-source, FPGA-based Network Interface Card (NIC)
+	  and platform designed for high-performance networking and in-network
+	  compute applications.
+
+	  Say yes here to build support for Corundum network interface card.
+
+if CORUNDUM_MQNIC
+
+config CORUNDUM_MQNIC_PCI
+	bool "Enable PCI support for Corundum MQNIC"
+	depends on CORUNDUM_MQNIC && PCI
+	help
+	  Enable support for Corundum MQNIC devices connected via the PCI bus.
+	  Corundum supports both PCI and AXI interfaces, so enabling this
+	  option allows the driver to work with PCIe-based hardware. If you are
+	  targeting FPGA boards or systems that use PCIe for host communication,
+	  select this option.
+
+endif # CORUNDUM_MQNIC

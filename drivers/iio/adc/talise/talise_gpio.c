@@ -1048,7 +1048,8 @@ uint32_t TALISE_getGpio3v3SetLevel(taliseDevice_t *device, uint16_t *gpio3v3PinS
     return (uint32_t)retVal;
 }
 
-void talSimGpSources(taliseDevice_t *device, uint32_t *gpIntStatus, uint32_t *gpIntDeframerSources, uint16_t *gpIntFramerSources)
+static void talSimGpSources(taliseDevice_t *device, uint32_t *gpIntStatus, uint32_t *gpIntDeframerSources,
+			    uint16_t *gpIntFramerSources)
 {
     /* GP_INT source masks */
     static const uint32_t GPINT_FRMR_ERROR = 0x00000010;

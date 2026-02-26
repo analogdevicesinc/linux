@@ -7,6 +7,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -26,7 +27,6 @@
 #include <media/v4l2-ioctl.h>
 #include <media/i2c/adv7604.h>
 
-#include <linux/fpga/adi-axi-common.h>
 
 #define AXI_HDMI_RX_REG_ENABLE		0x040
 #define AXI_HDMI_RX_REG_CONFIG		0x044
@@ -353,8 +353,8 @@ static int axi_hdmi_rx_log_status(struct file *file, void *priv)
 static int axi_hdmi_rx_querycap(struct file *file, void *priv_fh,
 	struct v4l2_capability *vcap)
 {
-	strlcpy(vcap->driver, "axi_hdmi_rx", sizeof(vcap->driver));
-	strlcpy(vcap->card, "axi_hdmi_rx", sizeof(vcap->card));
+	strscpy(vcap->driver, "axi_hdmi_rx", sizeof(vcap->driver));
+	strscpy(vcap->card, "axi_hdmi_rx", sizeof(vcap->card));
 	snprintf(vcap->bus_info, sizeof(vcap->bus_info), "platform:axi-hdmi-rx");
 	vcap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
 	vcap->capabilities = vcap->device_caps | V4L2_CAP_DEVICE_CAPS;
@@ -401,7 +401,7 @@ static int axi_hdmi_rx_s_dv_timings(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
-	return v4l2_subdev_call(s->subdev, video, s_dv_timings, timings);
+	return v4l2_subdev_call(s->subdev, pad, s_dv_timings, 0, timings);
 }
 
 static int axi_hdmi_rx_g_dv_timings(struct file *file, void *priv_fh,
@@ -410,7 +410,7 @@ static int axi_hdmi_rx_g_dv_timings(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
-	return v4l2_subdev_call(s->subdev, video, g_dv_timings, timings);
+	return v4l2_subdev_call(s->subdev, pad, g_dv_timings, 0, timings);
 }
 
 static int axi_hdmi_rx_enum_dv_timings(struct file *file, void *priv_fh,
@@ -428,8 +428,7 @@ static int axi_hdmi_rx_query_dv_timings(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 	struct axi_hdmi_rx_stream *s = &hdmi_rx->stream;
 
-	return v4l2_subdev_call(s->subdev, video, query_dv_timings,
-		timings);
+	return v4l2_subdev_call(s->subdev, pad, query_dv_timings, 0, timings);
 }
 
 static int axi_hdmi_rx_dv_timings_cap(struct file *file, void *priv_fh,
@@ -446,35 +445,35 @@ static int axi_hdmi_rx_enum_fmt_vid_cap(struct file *file, void *priv_fh,
 {
 	switch (f->index) {
 	case 0:
-		strlcpy(f->description, "BGR32", sizeof(f->description));
+		strscpy(f->description, "BGR32", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_BGR32;
 		break;
 	case 1:
-		strlcpy(f->description, "RGB24", sizeof(f->description));
+		strscpy(f->description, "RGB24", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_RGB24;
 		break;
 	case 2:
-		strlcpy(f->description, "RGB32", sizeof(f->description));
+		strscpy(f->description, "RGB32", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_RGB32;
 		break;
 	case 3:
-		strlcpy(f->description, "BGR24", sizeof(f->description));
+		strscpy(f->description, "BGR24", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_BGR24;
 		break;
 	case 4:
-		strlcpy(f->description, "YCBCr", sizeof(f->description));
+		strscpy(f->description, "YCBCr", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_YVYU;
 		break;
 	case 5:
-		strlcpy(f->description, "YCrCb", sizeof(f->description));
+		strscpy(f->description, "YCrCb", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_YUYV;
 		break;
 	case 6:
-		strlcpy(f->description, "CbCrY", sizeof(f->description));
+		strscpy(f->description, "CbCrY", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_VYUY;
 		break;
 	case 7:
-		strlcpy(f->description, "CrCbY", sizeof(f->description));
+		strscpy(f->description, "CrCbY", sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_UYVY;
 		break;
 	default:
@@ -948,7 +947,7 @@ err_dma_release_channel:
 	return ret;
 }
 
-static int axi_hdmi_rx_remove(struct platform_device *pdev)
+static void axi_hdmi_rx_remove(struct platform_device *pdev)
 {
 	struct axi_hdmi_rx *hdmi_rx = platform_get_drvdata(pdev);
 
@@ -956,8 +955,6 @@ static int axi_hdmi_rx_remove(struct platform_device *pdev)
 	video_unregister_device(&hdmi_rx->stream.vdev);
 	v4l2_device_unregister(&hdmi_rx->v4l2_dev);
 	dma_release_channel(hdmi_rx->stream.chan);
-
-	return 0;
 }
 
 static const struct of_device_id axi_hdmi_rx_of_match[] = {

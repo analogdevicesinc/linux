@@ -16,11 +16,18 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/of_net.h>
+#include <linux/platform_device.h>
 #include "xilinx_tsn_switch.h"
+
+static u8 fp_map[XAE_MAX_TSN_TC];
+static uint fp_map_count = XAE_MAX_TSN_TC;
+module_param_array(fp_map, byte, &fp_map_count, 0644);
+MODULE_PARM_DESC(fp_map, "Array of queues mapped to EMAC/PMAC");
 
 static struct miscdevice switch_dev;
 static struct device_node *ep_node;
@@ -72,8 +79,11 @@ static u8 sw_mac_addr[ETH_ALEN];
 #define MAC1_PORT_STATUS_CHG_BIT               BIT(8)
 #define EP_PORT_STATUS_SHIFT                   (1)
 #define EP_PORT_STATUS_CHG_BIT                 BIT(0)
+#define EP_PORT_STATUS_EP_STATE_SHIFT		1
+#define EP_PORT_STATUS_EP_MAC_ADDR_SHIFT	4
 #define EX_EP_PORT_STATUS_SHIFT			(25)
 #define EX_EP_PORT_STATUS_CHG_BIT		BIT(24)
+#define EP_EX_CTRL_REG_EP_MAC_ADDR_SHIFT	24
 
 #define SDL_CAM_LEARNT_ENT_MAC2_SHIFT		(20)
 #define SDL_CAM_LEARNT_ENT_MAC1_SHIFT		(8)
@@ -105,6 +115,9 @@ static u8 sw_mac_addr[ETH_ALEN];
 
 #define DEFAULT_PVID		1
 #define DEFAULT_FWD_ALL		GENMASK(2, 0)
+#define FWD_TO_EP		0x1
+#define FWD_TO_MAC1		0x2
+#define FWD_TO_MAC2		0x4
 
 /* Match table for of_platform binding */
 static const struct of_device_id tsnswitch_of_match[] = {
@@ -113,6 +126,23 @@ static const struct of_device_id tsnswitch_of_match[] = {
 };
 
 MODULE_DEVICE_TABLE(of, tsnswitch_of_match);
+
+static void tsn_switch_set_fp_map(struct platform_device *pdev, u16 num_tc)
+{
+	u32 fp_value = 0;
+	int i;
+
+	if (num_tc <= XAE_MAX_LEGACY_TSN_TC)
+		return;
+
+	for (i = 0; i < fp_map_count; i++) {
+		if (fp_map[i])
+			fp_value |= BIT(i);
+	}
+
+	axienet_iow(&lp, XAS_PREEMPTION_QUEUE_MAP_OFFSET, fp_value);
+	dev_info(&pdev->dev, "Preemption queue map 0x%x\n", fp_value);
+}
 
 static int switch_open(struct inode *inode, struct file *file)
 {
@@ -148,13 +178,14 @@ static void set_mac2_mngmntq(u32 config)
 	axienet_iow(&lp, XAS_MNG_Q_CTRL_OFFSET, config);
 }
 
-static int set_pmap_config(struct pmap_data pri_info)
+static int set_pmap_config(u8 *pcpmap)
 {
-	u32 pmap = 0;
-	u8 pmap_priority_shift = 0;
-	u8 i = 0;
 	u32 reg, err;
-	u16 num_q = lp.num_tc;
+	u32 pmap = 0;
+	u8 i = 0;
+
+	if (!pcpmap)
+		return -EINVAL;
 
 	/* wait for switch init done */
 	err = readl_poll_timeout(lp.regs + XAS_STATUS_OFFSET, reg,
@@ -165,31 +196,9 @@ static int set_pmap_config(struct pmap_data pri_info)
 		return -ETIMEDOUT;
 	}
 
-	if (num_q == 3) {
-		/* map pcp's to queues in accordance with device tree */
-		i = 0;
-		while (i < 8) {
-			if (pri_info.st_pcp_reg & (1 << i)) {
-				pmap_priority_shift = 4 * i;
-				pmap = pmap |
-				PMAP_EGRESS_QUEUE2_SELECT << pmap_priority_shift;
-			} else if (pri_info.res_pcp_reg & (1 << i)) {
-				pmap_priority_shift = 4 * i;
-				pmap = pmap |
-				PMAP_EGRESS_QUEUE1_SELECT << pmap_priority_shift;
-			}
-			i = i + 1;
-		}
-	} else {
-		i = 0;
-		while (i < 8) {
-			if (pri_info.st_pcp_reg & (1 << i)) {
-				pmap_priority_shift = 4 * i;
-				pmap = pmap |
-				PMAP_EGRESS_QUEUE1_SELECT << pmap_priority_shift;
-			}
-			i = i + 1;
-		}
+	for (i = 0; i < XAE_MAX_TSN_TC; i++) {
+		pmap = pmap | ((pcpmap[i] & PMAP_EGRESS_QUEUE_MASK) <<
+			       (4 * i));
 	}
 
 	axienet_iow(&lp, XAS_PMAP_OFFSET, pmap);
@@ -229,31 +238,31 @@ static void set_switch_regs(struct switch_data *data)
 
 	/* Threshold */
 	tmp = (data->thld_ep_mac[0].t1 << 16) | data->thld_ep_mac[0].t2;
-	axienet_iow(&lp, XAS_EP2MAC_ST_FIFOT_OFFSET, tmp);
+	axienet_iow(&lp, XAS_EP2MAC_PRI7_FIFOT_OFFSET, tmp);
 
 	tmp = (data->thld_ep_mac[1].t1 << 16) | data->thld_ep_mac[1].t2;
-	axienet_iow(&lp, XAS_EP2MAC_RE_FIFOT_OFFSET, tmp);
+	axienet_iow(&lp, XAS_EP2MAC_PRI6_FIFOT_OFFSET, tmp);
 
 	tmp = (data->thld_ep_mac[2].t1 << 16) | data->thld_ep_mac[2].t2;
-	axienet_iow(&lp, XAS_EP2MAC_BE_FIFOT_OFFSET, tmp);
+	axienet_iow(&lp, XAS_EP2MAC_PRI5_FIFOT_OFFSET, tmp);
 
 	tmp = (data->thld_mac_mac[0].t1 << 16) | data->thld_mac_mac[0].t2;
-	axienet_iow(&lp, XAS_MAC2MAC_ST_FIFOT_OFFSET, tmp);
+	axienet_iow(&lp, XAS_MAC2MAC_PRI7_FIFOT_OFFSET, tmp);
 
 	tmp = (data->thld_mac_mac[1].t1 << 16) | data->thld_mac_mac[1].t2;
-	axienet_iow(&lp, XAS_MAC2MAC_RE_FIFOT_OFFSET, tmp);
+	axienet_iow(&lp, XAS_MAC2MAC_PRI6_FIFOT_OFFSET, tmp);
 
 	tmp = (data->thld_mac_mac[2].t1 << 16) | data->thld_mac_mac[2].t2;
-	axienet_iow(&lp, XAS_MAC2MAC_BE_FIFOT_OFFSET, tmp);
+	axienet_iow(&lp, XAS_MAC2MAC_PRI5_FIFOT_OFFSET, tmp);
 
 	/* Port VLAN ID */
 	axienet_iow(&lp, XAS_EP_PORT_VLAN_OFFSET, data->ep_vlan);
 	axienet_iow(&lp, XAS_MAC_PORT_VLAN_OFFSET, data->mac_vlan);
 
 	/* max frame size */
-	axienet_iow(&lp, XAS_ST_MAX_FRAME_SIZE_OFFSET, data->max_frame_sc_que);
-	axienet_iow(&lp, XAS_RE_MAX_FRAME_SIZE_OFFSET, data->max_frame_res_que);
-	axienet_iow(&lp, XAS_BE_MAX_FRAME_SIZE_OFFSET, data->max_frame_be_que);
+	axienet_iow(&lp, XAS_PRI7_MAX_FRAME_SIZE_OFFSET, data->max_frame_sc_que);
+	axienet_iow(&lp, XAS_PRI6_MAX_FRAME_SIZE_OFFSET, data->max_frame_res_que);
+	axienet_iow(&lp, XAS_PRI5_MAX_FRAME_SIZE_OFFSET, data->max_frame_be_que);
 }
 
 /**
@@ -277,27 +286,27 @@ static void get_switch_regs(struct switch_data *data)
 	data->sw_mac_addr[5] = (tmp & 0xFF);
 
 	/* Threshold */
-	tmp = axienet_ior(&lp, XAS_EP2MAC_ST_FIFOT_OFFSET);
+	tmp = axienet_ior(&lp, XAS_EP2MAC_PRI7_FIFOT_OFFSET);
 	data->thld_ep_mac[0].t1 = ((tmp >> 16) & 0xFFFF);
 	data->thld_ep_mac[0].t2 = tmp & (0xFFFF);
 
-	tmp = axienet_ior(&lp, XAS_EP2MAC_RE_FIFOT_OFFSET);
+	tmp = axienet_ior(&lp, XAS_EP2MAC_PRI6_FIFOT_OFFSET);
 	data->thld_ep_mac[1].t1 = ((tmp >> 16) & 0xFFFF);
 	data->thld_ep_mac[1].t2 = tmp & (0xFFFF);
 
-	tmp = axienet_ior(&lp, XAS_EP2MAC_BE_FIFOT_OFFSET);
+	tmp = axienet_ior(&lp, XAS_EP2MAC_PRI5_FIFOT_OFFSET);
 	data->thld_ep_mac[2].t1 = ((tmp >> 16) & 0xFFFF);
 	data->thld_ep_mac[2].t2 = tmp & (0xFFFF);
 
-	tmp = axienet_ior(&lp, XAS_MAC2MAC_ST_FIFOT_OFFSET);
+	tmp = axienet_ior(&lp, XAS_MAC2MAC_PRI7_FIFOT_OFFSET);
 	data->thld_mac_mac[0].t1 = ((tmp >> 16) & 0xFFFF);
 	data->thld_mac_mac[0].t2 = tmp & (0xFFFF);
 
-	tmp = axienet_ior(&lp, XAS_MAC2MAC_RE_FIFOT_OFFSET);
+	tmp = axienet_ior(&lp, XAS_MAC2MAC_PRI6_FIFOT_OFFSET);
 	data->thld_mac_mac[1].t1 = ((tmp >> 16) & 0xFFFF);
 	data->thld_mac_mac[1].t2 = tmp & (0xFFFF);
 
-	tmp = axienet_ior(&lp, XAS_MAC2MAC_BE_FIFOT_OFFSET);
+	tmp = axienet_ior(&lp, XAS_MAC2MAC_PRI5_FIFOT_OFFSET);
 	data->thld_mac_mac[2].t1 = ((tmp >> 16) & 0xFFFF);
 	data->thld_mac_mac[2].t2 = tmp & (0xFFFF);
 
@@ -307,11 +316,11 @@ static void get_switch_regs(struct switch_data *data)
 
 	/* max frame size */
 	data->max_frame_sc_que = (axienet_ior(&lp,
-				XAS_ST_MAX_FRAME_SIZE_OFFSET) & 0xFFFF);
+				XAS_PRI7_MAX_FRAME_SIZE_OFFSET) & 0xFFFF);
 	data->max_frame_res_que = (axienet_ior(&lp,
-				XAS_RE_MAX_FRAME_SIZE_OFFSET) & 0xFFFF);
+				XAS_PRI6_MAX_FRAME_SIZE_OFFSET) & 0xFFFF);
 	data->max_frame_be_que = (axienet_ior(&lp,
-				XAS_BE_MAX_FRAME_SIZE_OFFSET) & 0xFFFF);
+				XAS_PRI5_MAX_FRAME_SIZE_OFFSET) & 0xFFFF);
 
 	/* frame filter type options*/
 	tmp = axienet_ior(&lp, XAS_FRM_FLTR_TYPE_FIELD_OPT_OFFSET);
@@ -1356,7 +1365,13 @@ static long switch_ioctl(struct file *file, unsigned int cmd,
 			retval = -EINVAL;
 			goto end;
 		}
-		retval = set_pmap_config(pri_info);
+
+		if (lp.num_tc <= XAE_MAX_LEGACY_TSN_TC) {
+			axienet_set_pcpmap(ep_lp);
+			retval = set_pmap_config(ep_lp->pcpmap);
+		} else {
+			retval = -EOPNOTSUPP;
+		}
 		break;
 
 	case SET_FRAME_TYPE_FIELD:
@@ -1581,6 +1596,9 @@ static int tsn_switch_fdb_init(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	/* Check if the property 'xlnx,packet-switch' is present in the device tree */
+	lp.packet_switch = device_property_read_bool(&pdev->dev, "xlnx,packet-switch");
+
 	/* enable source mac based filtering */
 	val = axienet_ior(&lp, XAS_MNG_Q_CTRL_OFFSET);
 
@@ -1603,13 +1621,18 @@ static int tsn_switch_fdb_init(struct platform_device *pdev)
 	ep_node = of_parse_phandle(pdev->dev.of_node, "ports", 0);
 	for (port = 1; port < num_ports; port++) {
 		np = of_parse_phandle(pdev->dev.of_node, "ports", port);
-
+		if (!np) {
+			dev_err(&pdev->dev, "Failed to parse phandle for port %d\n", port);
+			return -EINVAL;
+		}
 		ret = of_get_mac_address(np, mac_addr);
 		if (ret) {
 			dev_err(&pdev->dev, "could not find MAC address\n");
+			of_node_put(np);
 			return -EINVAL;
 		}
 		tsn_switch_set_src_mac_filter(mac_addr, port);
+		of_node_put(np);
 	}
 
 	/* rest of the mac addr for all ports would be same
@@ -1625,6 +1648,34 @@ static int tsn_switch_fdb_init(struct platform_device *pdev)
 		    (0xF << XAS_MAC_MSB_FF_MASK_SHIFT) |
 		    (mac_addr[0] << 8) | mac_addr[1]);
 
+	/* If 'xlnx,packet-switch' is enabled */
+	if (lp.packet_switch) {
+		/* Modify the Management Queue Options register of the
+		 * EP packet switch for multicast frames.
+		 */
+		val = axienet_ior(&lp, XAS_MNG_Q_CTRL_OFFSET);
+		axienet_iow(&lp, XAS_MNG_Q_CTRL_OFFSET,
+			    val | (1 << XAS_MNG_Q_EPPKSW_MULI_EN_SHIFT));
+		/* Retrieve the MAC address of EP from the device tree */
+		ret = of_get_mac_address(ep_node, mac_addr);
+		if (ret) {
+			dev_err(&pdev->dev, "could not find MAC address\n");
+			return -EINVAL;
+		}
+		/* Update Switch Port State Control register with lower 4 bits of MAC,
+		 * state change and port state bits.
+		 */
+		val = axienet_ior(&lp, XAS_PORT_STATE_CTRL_OFFSET);
+		val = val | (1 << EP_PORT_STATUS_EP_STATE_SHIFT) |
+			EP_PORT_STATUS_CHG_BIT |
+			(mac_addr[5] << EP_PORT_STATUS_EP_MAC_ADDR_SHIFT);
+		/* Update Endpoint Extension Control Register with lower 4 bits of EP MAC */
+		axienet_iow(&lp, XAS_PORT_STATE_CTRL_OFFSET, val);
+		val = axienet_ior(&lp, XAS_MAC1_MNG_Q_OPTION_OFFSET);
+		axienet_iow(&lp, XAS_MAC1_MNG_Q_OPTION_OFFSET,
+			    (val | ((mac_addr[5] & 0xF) <<
+			     EP_EX_CTRL_REG_EP_MAC_ADDR_SHIFT)));
+	}
 	/* now tell the switch which frames to consider as mgmt frames
 	 */
 	/*  DA list
@@ -1639,8 +1690,21 @@ static int tsn_switch_fdb_init(struct platform_device *pdev)
 	cam.dest_addr[4] = 0x00;
 	cam.dest_addr[5] = 0x00;
 
+	/*
+	 * Layer-2 point-to-point control frames, such as those with the destination
+	 * MAC address 01-80-C2-00-00-00 used by STP (Spanning Tree Protocol) 802.1d
+	 * and LLDP (Link Layer Discovery Protocol), should only be forwarded to the
+	 * Endpoint port. When these control frames are received from a Network Port
+	 * or Endpoint port, they are not to be broadcast or forwarded to other network
+	 * ports but are expected to be directed specifically to the Endpoint port
+	 * for appropriate handling.
+	 */
+	if (lp.packet_switch)
+		cam.fwd_port = FWD_TO_EP;
+	else
 	/* send it all, src mac filter will pick the port */
-	cam.fwd_port = DEFAULT_FWD_ALL;
+		cam.fwd_port = DEFAULT_FWD_ALL;
+
 	cam.flags |= XAS_CAM_EP_MGMTQ_EN;
 	cam.vlanid = DEFAULT_PVID;
 	/* TODO if pvid changes on the port of switch,
@@ -1664,6 +1728,8 @@ static int tsn_switch_fdb_init(struct platform_device *pdev)
 	if (tsn_switch_cam_set(cam, ADD) < 0)
 		dev_err(&pdev->dev, "could not add default fdb\n");
 
+	/* send it all, src mac filter will pick the port */
+	cam.fwd_port = DEFAULT_FWD_ALL;
 	/* PTPv2 UDP Announce Messages */
 	cam.dest_addr[0] = 0x01;
 	cam.dest_addr[1] = 0x00;
@@ -1691,14 +1757,12 @@ static int tsn_switch_fdb_init(struct platform_device *pdev)
 
 static int tsnswitch_probe(struct platform_device *pdev)
 {
-	struct resource *swt;
-	int ret;
-	u16 num_tc;
-	int data;
 	struct net_device *ndev;
-	int value;
+	struct resource *swt;
 	u8 inband_mgmt_tag;
-	struct pmap_data pri_info;
+	int value;
+	u32 data;
+	int ret;
 
 	pr_info("TSN Switch probe\n");
 	/* Map device registers */
@@ -1708,13 +1772,14 @@ static int tsnswitch_probe(struct platform_device *pdev)
 		return PTR_ERR(lp.regs);
 
 	ret = of_property_read_u16(pdev->dev.of_node, "xlnx,num-tc",
-				   &num_tc);
-	if (ret || (num_tc != 2 && num_tc != 3))
-		num_tc = XAE_MAX_TSN_TC;
-	lp.num_tc = num_tc;
+				   &lp.num_tc);
+	if (ret || !axienet_tsn_num_tc_valid(lp.num_tc)) {
+		dev_err(&pdev->dev,
+			"xlnx,num-tc parameter not defined or valid\n");
+		return -EINVAL;
+	}
 
-	axienet_get_pcp_mask(&lp, num_tc);
-
+	tsn_switch_set_fp_map(pdev, lp.num_tc);
 	en_hw_addr_learning = of_property_read_bool(pdev->dev.of_node,
 						    "xlnx,has-hwaddr-learning");
 
@@ -1725,11 +1790,7 @@ static int tsnswitch_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 	pr_info("TSN CAM Initializing ....\n");
-	pri_info.st_pcp_reg = lp.st_pcp;
-	pri_info.res_pcp_reg = lp.res_pcp;
-	ret = set_pmap_config(pri_info);
-	if (ret)
-		return ret;
+
 	inband_mgmt_tag = of_property_read_bool(pdev->dev.of_node,
 						"xlnx,has-inband-mgmt-tag");
 	/* only support switchdev in sideband management */
@@ -1800,6 +1861,12 @@ static int tsnswitch_probe(struct platform_device *pdev)
 	 */
 	data = axienet_ior(&lp, XAE_EP_EXT_CTRL_OFFSET);
 	pr_info("Data in Endpoint Extension Control Register is %x\n", data);
+	if (lp.num_tc > XAE_MAX_LEGACY_TSN_TC) {
+		u32 ctrl1_data = axienet_ior(&lp, XAE_EP_EXT_CTRL1_OFFSET);
+
+		pr_info("Data in EP_EXT Control 1 Register %x\n", ctrl1_data);
+	}
+
 	ndev = of_find_net_device_by_node(ep_node);
 	if (!ndev) {
 		dev_err(&pdev->dev, "Defer Switch probe as EP is not probed\n");
@@ -1807,13 +1874,18 @@ static int tsnswitch_probe(struct platform_device *pdev)
 		goto err;
 	}
 	ep_lp = netdev_priv(ndev);
+
+	ret = set_pmap_config(ep_lp->pcpmap);
+	if (ret)
+		goto err;
+
 	if (ep_lp->ex_ep) {
-		if (num_tc == 3) {
+		if (lp.num_tc == XAE_MAX_LEGACY_TSN_TC) {
 			data = (data & XAE_EX_EP_EXT_CTRL_MASK) |
 					XAE_EX_EP_EXT_CTRL_DATA_TC_3;
 			axienet_iow(&lp, XAE_EP_EXT_CTRL_OFFSET, data);
 		}
-		if (num_tc == 2) {
+		if (lp.num_tc == XAE_MIN_LEGACY_TSN_TC) {
 			data = (data & XAE_EX_EP_EXT_CTRL_MASK) |
 					XAE_EX_EP_EXT_CTRL_DATA_TC_2;
 			axienet_iow(&lp, XAE_EP_EXT_CTRL_OFFSET, data);
@@ -1826,18 +1898,19 @@ static int tsnswitch_probe(struct platform_device *pdev)
 		value |= XAE_EX_EP_MULTICAST_PKT_SWITCH;
 		axienet_iow(&lp, XAE_MGMT_QUEUING_OPTIONS_OFFSET, value);
 	} else {
-		if (num_tc == 3) {
+		if (lp.num_tc == XAE_MAX_LEGACY_TSN_TC) {
 			data = (data & XAE_EP_EXT_CTRL_MASK) |
 					XAE_EP_EXT_CTRL_DATA_TC_3;
 			axienet_iow(&lp, XAE_EP_EXT_CTRL_OFFSET, data);
 		}
-		if (num_tc == 2) {
+		if (lp.num_tc == XAE_MIN_LEGACY_TSN_TC) {
 			data = (data & XAE_EP_EXT_CTRL_MASK) |
 					XAE_EP_EXT_CTRL_DATA_TC_2;
 			axienet_iow(&lp, XAE_EP_EXT_CTRL_OFFSET, data);
 		}
 	}
 
+	of_node_put(ep_node);
 	return ret;
 err:
 	if (!inband_mgmt_tag)
@@ -1847,14 +1920,13 @@ err:
 	return ret;
 }
 
-static int tsnswitch_remove(struct platform_device *pdev)
+static void tsnswitch_remove(struct platform_device *pdev)
 {
 	misc_deregister(&switch_dev);
 	xlnx_switchdev_remove();
-	return 0;
 }
 
-static struct platform_driver tsnswitch_driver = {
+struct platform_driver tsnswitch_driver = {
 	.probe = tsnswitch_probe,
 	.remove = tsnswitch_remove,
 	.driver = {
@@ -1862,8 +1934,6 @@ static struct platform_driver tsnswitch_driver = {
 		 .of_match_table = tsnswitch_of_match,
 	},
 };
-
-module_platform_driver(tsnswitch_driver);
 
 MODULE_DESCRIPTION("Xilinx TSN Switch driver");
 MODULE_AUTHOR("Xilinx");

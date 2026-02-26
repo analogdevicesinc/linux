@@ -2,7 +2,7 @@
 /*
  * Analog Devices AD4696
  *
- * hdl_project: <ad469x_fmc/zed>
+ * hdl_project: <ad469x_evb/zed>
  * https://analogdevicesinc.github.io/hdl/projects/ad469x_evb/
  * https://www.analog.com/en/resources/evaluation-hardware-and-software/evaluation-boards-kits/eval-ad4696.html
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad4695
@@ -58,7 +58,7 @@
 };
 
 &fpga_axi {
-	rx_dma: rx-dmac@44a30000 {
+	rx_dma: dma-controller@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
@@ -70,10 +70,11 @@
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x1000>;
 		#pwm-cells = <3>;
-		clocks = <&spi_clk>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "axi", "ext";
 	};
 
-	spi_clk: axi-clkgen@44a70000 {
+	spi_clk: clock-controller@44a70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a70000 0x10000>;
 		#clock-cells = <0>;

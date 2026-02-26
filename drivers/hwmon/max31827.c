@@ -47,6 +47,11 @@
 #define MAX31827_M_DGR_TO_16_BIT(x)	(((x) << 4) / 1000)
 #define MAX31827_DEVICE_ENABLE(x)	((x) ? 0xA : 0x0)
 
+/*
+ * The enum passed in the .data pointer of struct of_device_id must
+ * start with a value != 0 since that is a requirement for using
+ * device_get_match_data().
+ */
 enum chips { max31827 = 1, max31828, max31829 };
 
 enum max31827_cnv {
@@ -381,6 +386,7 @@ static int max31827_write(struct device *dev, enum hwmon_sensor_types type,
 		default:
 			return -EOPNOTSUPP;
 		}
+
 	case hwmon_chip:
 		switch (attr) {
 		case hwmon_chip_update_interval:
@@ -411,6 +417,7 @@ static int max31827_write(struct device *dev, enum hwmon_sensor_types type,
 				return ret;
 
 			st->update_interval = val;
+
 			return 0;
 		case hwmon_chip_pec:
 			return regmap_update_bits(st->regmap, MAX31827_CONFIGURATION_REG,
@@ -656,7 +663,6 @@ static const struct of_device_id max31827_of_match[] = {
 MODULE_DEVICE_TABLE(of, max31827_of_match);
 
 static struct i2c_driver max31827_driver = {
-	.class = I2C_CLASS_HWMON,
 	.driver = {
 		.name = "max31827",
 		.of_match_table = max31827_of_match,

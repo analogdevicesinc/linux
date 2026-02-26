@@ -378,7 +378,7 @@ static int ad7768_set_dig_fil(struct ad7768_state *st,
 	return 0;
 }
 
-int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
+static int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 	int ret;
@@ -393,8 +393,8 @@ int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
 	return ret;
 }
 
-int ad7768_gpio_direction_output(struct gpio_chip *chip,
-				 unsigned int offset, int value)
+static int ad7768_gpio_direction_output(struct gpio_chip *chip,
+					unsigned int offset, int value)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 	int ret;
@@ -409,7 +409,7 @@ int ad7768_gpio_direction_output(struct gpio_chip *chip,
 	return ret;
 }
 
-int ad7768_gpio_get(struct gpio_chip *chip, unsigned int offset)
+static int ad7768_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 	unsigned int val;
@@ -435,7 +435,7 @@ gpio_get_err:
 	return ret;
 }
 
-void ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
+static void ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 	unsigned int val;
@@ -456,7 +456,7 @@ gpio_set_err:
 	mutex_unlock(&st->lock);
 }
 
-int ad7768_gpio_request(struct gpio_chip *chip, unsigned int offset)
+static int ad7768_gpio_request(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
 
@@ -468,7 +468,7 @@ int ad7768_gpio_request(struct gpio_chip *chip, unsigned int offset)
 	return 0;
 }
 
-int ad7768_gpio_init(struct ad7768_state *st)
+static int ad7768_gpio_init(struct ad7768_state *st)
 {
 	int ret;
 
@@ -763,7 +763,7 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 		return ret;
 
 	if (st->spi_is_dma_mapped) {
-		spi_bus_lock(st->spi->master);
+		spi_bus_lock(st->spi->controller);
 
 		tx_data[0] = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
 		xfer.tx_buf = tx_data;
@@ -785,7 +785,7 @@ static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 
 	if (st->spi_is_dma_mapped) {
 		legacy_spi_engine_offload_enable(st->spi, false);
-		spi_bus_unlock(st->spi->master);
+		spi_bus_unlock(st->spi->controller);
 	}
 
 	/*
@@ -856,13 +856,10 @@ static int ad7768_set_channel_label(struct iio_dev *indio_dev,
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 	struct device *device = indio_dev->dev.parent;
-	struct fwnode_handle *fwnode;
-	struct fwnode_handle *child;
 	const char *label;
 	int crt_ch = 0;
 
-	fwnode = dev_fwnode(device);
-	fwnode_for_each_child_node(fwnode, child) {
+	device_for_each_child_node_scoped(device, child) {
 		if (fwnode_property_read_u32(child, "reg", &crt_ch))
 			continue;
 
@@ -949,7 +946,7 @@ MODULE_DEVICE_TABLE(spi, ad7768_id_table);
 
 static const struct of_device_id ad7768_of_match[] = {
 	{ .compatible = "adi,ad7768-1" },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, ad7768_of_match);
 

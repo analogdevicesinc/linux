@@ -231,7 +231,7 @@ static vm_fault_t mathworks_ip_mmap_fault(struct vm_fault *vmf)
     struct page *thisPage;
     unsigned long offset;
     offset = (vmf->pgoff - vma->vm_pgoff) << PAGE_SHIFT;
-    thisPage = virt_to_page((void *)(thisIpcore->mem->start + offset));
+    thisPage = virt_to_page((void *)(uintptr_t)(thisIpcore->mem->start + offset));
     get_page(thisPage);
     vmf->page = thisPage;
     return 0;

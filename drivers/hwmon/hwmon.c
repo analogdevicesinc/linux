@@ -137,7 +137,7 @@ static void hwmon_dev_release(struct device *dev)
 	kfree(hwdev);
 }
 
-static struct class hwmon_class = {
+static const struct class hwmon_class = {
 	.name = "hwmon",
 	.dev_groups = hwmon_dev_attr_groups,
 	.dev_release = hwmon_dev_release,
@@ -310,7 +310,7 @@ static int hwmon_attr_base(enum hwmon_sensor_types type)
 	return 1;
 }
 
-#if IS_ENABLED(CONFIG_I2C)
+#if IS_REACHABLE(CONFIG_I2C)
 
 /*
  * PEC support
@@ -615,6 +615,7 @@ static const char * const hwmon_in_attr_templates[] = {
 	[hwmon_in_rated_min] = "in%d_rated_min",
 	[hwmon_in_rated_max] = "in%d_rated_max",
 	[hwmon_in_beep] = "in%d_beep",
+	[hwmon_in_fault] = "in%d_fault",
 };
 
 static const char * const hwmon_curr_attr_templates[] = {
@@ -691,6 +692,8 @@ static const char * const hwmon_humidity_attr_templates[] = {
 	[hwmon_humidity_fault] = "humidity%d_fault",
 	[hwmon_humidity_rated_min] = "humidity%d_rated_min",
 	[hwmon_humidity_rated_max] = "humidity%d_rated_max",
+	[hwmon_humidity_min_alarm] = "humidity%d_min_alarm",
+	[hwmon_humidity_max_alarm] = "humidity%d_max_alarm",
 };
 
 static const char * const hwmon_fan_attr_templates[] = {
@@ -950,7 +953,7 @@ __hwmon_device_register(struct device *dev, const char *name, void *drvdata,
 
 	INIT_LIST_HEAD(&hwdev->tzdata);
 
-	if (dev && dev->of_node && chip && chip->ops->read &&
+	if (hdev->of_node && chip && chip->ops->read &&
 	    chip->info[0]->type == hwmon_chip) {
 		u32 config = chip->info[0]->config[0];
 
@@ -1184,24 +1187,6 @@ error:
 	return hwdev;
 }
 EXPORT_SYMBOL_GPL(devm_hwmon_device_register_with_info);
-
-static int devm_hwmon_match(struct device *dev, void *res, void *data)
-{
-	struct device **hwdev = res;
-
-	return *hwdev == data;
-}
-
-/**
- * devm_hwmon_device_unregister - removes a previously registered hwmon device
- *
- * @dev: the parent device of the device to unregister
- */
-void devm_hwmon_device_unregister(struct device *dev)
-{
-	WARN_ON(devres_release(dev, devm_hwmon_release, devm_hwmon_match, dev));
-}
-EXPORT_SYMBOL_GPL(devm_hwmon_device_unregister);
 
 static char *__hwmon_sanitize_name(struct device *dev, const char *old_name)
 {

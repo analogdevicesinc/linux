@@ -7,7 +7,7 @@
  * hdl_project: <adrv9026/vcu118>
  * board_revision: <>
  *
- * Copyright (C) 2024 Analog Devices Inc.
+ * Copyright (C) 2024-2025 Analog Devices Inc.
  */
 /dts-v1/;
 
@@ -34,19 +34,9 @@
 
 &amba_pl {
 
-	rx_dma: dma@7c400000 {
+	rx_dma: dma-controller@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c400000 0x10000>;
-		#dma-cells = <1>;
-		#clock-cells = <0>;
-		interrupt-parent = <&axi_intc>;
-		interrupts = <12 2>;
-		clocks = <&clk_bus_0>;
-	};
-
-	tx_dma: dma@7c420000  {
-		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x7c420000 0x10000>;
 		#dma-cells = <1>;
 		#clock-cells = <0>;
 		interrupt-parent = <&axi_intc>;
@@ -54,8 +44,36 @@
 		clocks = <&clk_bus_0>;
 	};
 
+	tx_dma: dma-controller@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+		clocks = <&clk_bus_0>;
+	};
+
+	axi_rx_clkgen: axi-clkgen@43c10000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x43c10000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clk0_ad9528 3>, <&clk_bus_0>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "axi_rx_clkgen";
+	};
+
+	axi_tx_clkgen: axi-clkgen@43c00000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x43c00000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clk0_ad9528 3>, <&clk_bus_0>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "axi_tx_clkgen";
+	};
+
 	axi_adrv9025_core_rx: axi-adrv9025-rx-hpc@44a00000 {
-		compatible = "adi,axi-adc-10.0.a";
+		compatible = "adi,axi-adc-legacy-10.0.a";
 		reg = <0x44a00000 0x8000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
@@ -71,7 +89,8 @@
 		clock-names = "sampl_clk";
 		spibus-connected = <&trx0_adrv9025>;
 
-		plddrbypass-gpios = <&axi_gpio 63 0>;
+		adi,axi-pl-fifo-enable;
+		adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 
 		jesd204-device;
 		#jesd204-cells = <2>;
@@ -83,10 +102,10 @@
 		reg = <0x44aa0000 0x1000>;
 
 		interrupt-parent = <&axi_intc>;
-		interrupts = <14 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&clk_bus_0>, <&clk0_ad9528 3>, <&axi_adrv9025_adxcvr_rx 0>;
-		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+		clocks = <&clk_bus_0>, <&axi_rx_clkgen>, <&axi_adrv9025_adxcvr_rx 0>, <&axi_adrv9025_adxcvr_rx 1>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_rx_lane_clk";
@@ -101,9 +120,9 @@
 		reg = <0x44a90000 0x1000>;
 
 		interrupt-parent = <&axi_intc>;
-		interrupts = <15 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk_bus_0>, <&clk0_ad9528 3>, <&axi_adrv9025_adxcvr_tx 0>;
-		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk_bus_0>, <&axi_tx_clkgen>, <&axi_adrv9025_adxcvr_tx 0>, <&axi_adrv9025_adxcvr_tx 1>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_tx_lane_clk";
@@ -133,6 +152,7 @@
 		#jesd204-cells = <2>;
 		jesd204-inputs =  <&clk0_ad9528 0 FRAMER0_LINK_RX>;
 	};
+
 	axi_adrv9025_adxcvr_tx: axi-adxcvr-tx@44a80000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -153,6 +173,11 @@
 		jesd204-inputs =  <&clk0_ad9528 0 DEFRAMER0_LINK_TX>;
 	};
 
+	axi_data_offload_tx: axi-data-offload-0@7c430000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x7c430000 0x10000>;
+	};
+
 	axi_sysid_0: axi-sysid-0@45000000 {
 		compatible = "adi,axi-sysid-1.00.a";
 		reg = <0x45000000 0x10000>;
@@ -170,7 +195,6 @@
 		#size-cells = <0>;
 
 		spi-max-frequency = <1000000>;
-		//adi,spi-3wire-enable;
 		reset-gpios = <&axi_gpio 62 0>;
 
 		clock-output-names = "ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2",
@@ -194,17 +218,18 @@
 		adi,pll1-charge-pump-current-nA = <5000>;
 
 		/* PLL2 config */
-		adi,pll2-vco-div-m1 = <3>; /* use 5 for 184320000 output device clock */
-		adi,pll2-n2-div = <10>; /* N / M1 */
+		adi,pll2-vco-div-m1 = <4>; /* use 5 for 184320000 output device clock */
+		adi,pll2-n2-div = <4>; /* N / M1 */
 		adi,pll2-r1-div = <1>;
 		adi,pll2-charge-pump-current-nA = <805000>;
+		adi,pll2-freq-doubler-enable;
 
 		/* SYSREF config */
 		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
 		adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
 		adi,sysref-k-div = <512>;
 		adi,sysref-nshot-mode = <SYSREF_NSHOT_8_PULSES>;
-		adi,jesd204-desired-sysref-frequency-hz = <3840000>;
+		adi,jesd204-desired-sysref-frequency-hz = <1920000>;
 
 		adi,rpole2 = <RPOLE2_900_OHM>;
 		adi,rzero = <RZERO_1850_OHM>;
@@ -218,7 +243,7 @@
 			adi,extended-name = "DEV_SYSREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
@@ -227,7 +252,7 @@
 			adi,extended-name = "DEV_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -236,7 +261,7 @@
 			adi,extended-name = "CORE_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -245,7 +270,7 @@
 			adi,extended-name = "FMC_SYSREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 
@@ -254,7 +279,7 @@
 			adi,extended-name = "FMC_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <5>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 		};
 	};

@@ -39,3 +39,4 @@ typedef uint32_t adi_iter_t;
 }
 #endif
 #endif  /* _ADI_COMMON_TYPES_H_ */
+

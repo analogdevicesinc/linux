@@ -42,6 +42,9 @@ properties:
   '#size-cells':
     const: 0
 
+  '#io-channel-cells':
+    const: 0
+
   xlnx,numchannels:
     $ref: /schemas/types.yaml#/definitions/uint8
     description: |
@@ -67,7 +70,6 @@ patternProperties:
 
     properties:
       reg:
-        $ref: /schemas/types.yaml#/definitions/uint32
         minimum: 0
         maximum: 159
         description:
@@ -86,6 +88,8 @@ patternProperties:
     required:
       - reg
       - xlnx,name
+
+    additionalProperties: false
 
 required:
   - compatible

@@ -88,6 +88,13 @@
 /* REG 0x5A */
 #define ADF4030_PLL_CAL_EN_MSK		BIT(6)
 
+/* REG 0x5C */
+#define ADF4030_TEMP_INT_MSK		BIT(1)
+#define ADF4030_ALIGN_INT_MSK		BIT(2)
+#define ADF4030_LD_INT_MSK		BIT(3)
+#define ADF4030_TDC_ERR_INT_MSK		BIT(4)
+#define ADF4030_CMOS_OV_MSK		BIT(7)
+
 /* REG 0x61 */
 #define ADF4030_EN_ADC_MSK		BIT(0)
 #define ADF4030_EN_ADC_CLK_MSK		BIT(1)
@@ -195,12 +202,14 @@ struct adf4030_state {
 	u32 bsync_autoalign_iter;
 	u32 bsync_autoalign_theshold_fs;
 	u32 bsync_autoalign_ref_chan;
-	u32 bsync_freq_odiv_a;
-	u32 bsync_freq_odiv_b;
+	u64 bsync_freq_odiv_a_uhz;
+	u64 bsync_freq_odiv_b_uhz;
 	u32 avgexp;
 	bool bsync_autoalign_theshold_en;
 	unsigned int num_channels;
 	bool adc_enabled;
+	bool spi_3wire_en;
+	bool cmos_3v3_en;
 
 	u8 vals[3] __aligned(IIO_DMA_MINALIGN);
 };
@@ -216,13 +225,13 @@ static const struct regmap_config adf4030_regmap_config = {
 static const struct reg_sequence adf4030_reg_default[] = {
 	{0x6A, 0x0A}, {0x69, 0x0A}, {0x66, 0x80}, {0x64, 0x1E}, {0x63, 0x1E},
 	{0x62, 0x4C}, {0x61, 0x05}, {0x60, 0x2B}, {0x5F, 0x5D}, {0x5E, 0x32},
-	{0x5D, 0x10}, {0x5C, 0x1E}, {0x5B, 0xC9}, {0x5A, 0x17}, {0x59, 0x49},
-	{0x58, 0x53}, {0x57, 0x45}, {0x56, 0x7D}, {0x55, 0x01}, {0x54, 0x90},
-	{0x53, 0x19}, {0x52, 0xE8}, {0x50, 0xE8}, {0x4E, 0xE8}, {0x4C, 0xE8},
-	{0x4A, 0xE8}, {0x48, 0xE8}, {0x46, 0xE8}, {0x44, 0xE8}, {0x42, 0xE8},
-	{0x40, 0xE8}, {0x3C, 0xFF}, {0x3B, 0xFC}, {0x37, 0x02}, {0x35, 0x05},
-	{0x34, 0x2D}, {0x33, 0x1D}, {0x32, 0x1D}, {0x31, 0x45}, {0x16, 0x06},
-	{0x11, 0x1F}, {0x10, 0x1F}
+	{0x5D, 0x10}, {0x5B, 0xC9}, {0x5A, 0x17}, {0x59, 0x49}, {0x58, 0x53},
+	{0x57, 0x45}, {0x56, 0x7D}, {0x55, 0x01}, {0x54, 0x90}, {0x53, 0x19},
+	{0x52, 0xE9}, {0x50, 0xE9}, {0x4E, 0xE9}, {0x4C, 0xE9}, {0x4A, 0xE9},
+	{0x48, 0xE9}, {0x46, 0xE9}, {0x44, 0xE9}, {0x42, 0xE9}, {0x40, 0xE9},
+	{0x3C, 0xFF}, {0x3B, 0xFC}, {0x37, 0x02}, {0x35, 0x05}, {0x34, 0x24},
+	{0x33, 0x1D}, {0x32, 0x1D}, {0x31, 0x45}, {0x16, 0x06}, {0x11, 0x1F},
+	{0x10, 0x1F}
 };
 
 static int adf4030_compute_r_n(u32 ref_freq, u32 vco_freq, u32 *rdiv, u32 *ndiv)
@@ -252,16 +261,20 @@ static int adf4030_compute_r_n(u32 ref_freq, u32 vco_freq, u32 *rdiv, u32 *ndiv)
 	return -EINVAL;
 }
 
-static int adf4030_compute_odiv(u32 vco_freq, u32 bsync_out_freq, u32 *odiv)
+static int adf4030_compute_odiv(u32 vco_freq, u64 bsync_out_freq_uhz, u32 *odiv)
 {
+	u64 rem;
+	u32 bsync_out_freq;
+
+	bsync_out_freq = div_u64(bsync_out_freq_uhz, MICROHZ_PER_HZ);
+
 	if (bsync_out_freq < ADI_ADF4030_BSYNC_FREQ_MIN ||
 	    bsync_out_freq > ADI_ADF4030_BSYNC_FREQ_MAX)
 		return -EINVAL;
 
-	if (vco_freq % bsync_out_freq)
+	*odiv = div64_u64_rem((u64)vco_freq * MICROHZ_PER_HZ, bsync_out_freq_uhz, &rem);
+	if (rem)
 		return -EINVAL;
-
-	*odiv = vco_freq / bsync_out_freq;
 
 	if (*odiv > ADI_ADF4030_O_DIV_MAX)
 		return -EINVAL;
@@ -269,20 +282,22 @@ static int adf4030_compute_odiv(u32 vco_freq, u32 bsync_out_freq, u32 *odiv)
 	return 0;
 }
 
-static int adf4030_set_odiva_freq(struct adf4030_state *st, u32 bsync_out_freq_hz)
+static int adf4030_set_odiva_freq(struct adf4030_state *st, u64 bsync_out_freq_uhz)
 {
-	u32 odiv;
+	u32 odiv, fract;
 	int ret;
 
-	ret = adf4030_compute_odiv(st->vco_freq, bsync_out_freq_hz, &odiv);
+	ret = adf4030_compute_odiv(st->vco_freq, bsync_out_freq_uhz, &odiv);
 	if (ret) {
+		fract = do_div(bsync_out_freq_uhz, MICROHZ_PER_HZ);
 		dev_err(&st->spi->dev,
-			"Failed to compute ODIVA for Fvco=%u Hz and Fbsync=%u Hz\n",
-			st->vco_freq, bsync_out_freq_hz);
+			"Failed to compute ODIVA for Fvco=%u Hz and Fbsync=%llu.%06u uHz\n",
+			st->vco_freq, bsync_out_freq_uhz, fract);
+
 		return ret;
 	}
 
-	st->bsync_freq_odiv_a = bsync_out_freq_hz;
+	st->bsync_freq_odiv_a_uhz = bsync_out_freq_uhz;
 
 	ret = regmap_write(st->regmap, ADF4030_REG(0x53), odiv);
 	if (ret)
@@ -334,13 +349,13 @@ static int adf4030_chan_dir_set(const struct adf4030_state *st,
 
 	/* EN_DRIVE */
 	if (chan->num > 7)
-		regmap_update_bits(st->regmap, ADF4030_REG(0x13),
-				   BIT(chan->num - 8),
-				   chan->channel_output_en ? BIT(chan->num - 8) : 0);
+		ret = regmap_update_bits(st->regmap, ADF4030_REG(0x13),
+					 BIT(chan->num - 8),
+					 chan->channel_output_en ? BIT(chan->num - 8) : 0);
 	else
-		regmap_update_bits(st->regmap, ADF4030_REG(0x12),
-				   BIT(chan->num),
-				   chan->channel_output_en ? BIT(chan->num) : 0);
+		ret = regmap_update_bits(st->regmap, ADF4030_REG(0x12),
+					 BIT(chan->num),
+					 chan->channel_output_en ? BIT(chan->num) : 0);
 	if (ret)
 		return ret;
 
@@ -354,12 +369,14 @@ static int adf4030_chan_dir_set(const struct adf4030_state *st,
 }
 
 static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
-			       u32 source_channel, u32 source_out_freq_hz,
+			       u32 source_channel, u64 source_out_freq_uhz,
 			       s64 *result)
 {
 	u32 raw_time_diff, m_time, regval;
 	int ret, time_diff;
 	s64 res_in_fs = 0;
+	u64 abs_time_diff;
+	bool is_negative;
 
 	ret = regmap_update_bits(st->regmap, ADF4030_REG(0x11),
 				 ADF4030_TDC_SOURCE_MSK,
@@ -388,7 +405,7 @@ static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
 		return ret;
 
 	m_time = DIV_ROUND_UP_ULL(1000000ULL * (1 << (st->avgexp + 6)),
-				  source_out_freq_hz);
+				  div_u64(source_out_freq_uhz, MICROHZ_PER_HZ));
 
 	fsleep(m_time);
 
@@ -398,7 +415,9 @@ static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
 				       ADF4030_MATH_BUSY_MSK)),
 				       2000, 10000);
 	if (ret) {
-		dev_err(&st->spi->dev, "TDC measurement failed TDC_BUSY\n");
+		dev_err(&st->spi->dev,
+			"TDC measurement channel %d to channel %d failed TDC_BUSY\n",
+			channel, source_channel);
 		return ret;
 	}
 
@@ -413,8 +432,15 @@ static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
 
 	raw_time_diff = (st->vals[2] << 16) | (st->vals[1] << 8) | st->vals[0];
 	time_diff = sign_extend32(raw_time_diff, 23);
-	res_in_fs = div_s64(time_diff * 1000000000LL, 1 << 24);
-	res_in_fs = div_s64(res_in_fs * 1000000LL, source_out_freq_hz);
+	is_negative = (time_diff < 0);
+	abs_time_diff = (u64)abs(time_diff);
+
+	/* Step 1: (abs_time_diff * 10^12) / 2^24 */
+	res_in_fs = mul_u64_u64_div_u64(abs_time_diff, 1000000000000ULL, 1ULL << 24);
+	/* Step 2: (res_in_fs * 10^9) / freq_uhz */
+	res_in_fs = mul_u64_u64_div_u64(res_in_fs, 1000000000ULL, source_out_freq_uhz);
+	if (is_negative)
+		res_in_fs = -res_in_fs;
 
 	*result = res_in_fs;
 
@@ -422,7 +448,7 @@ static int adf4030_tdc_measure(struct adf4030_state *st, u32 channel,
 }
 
 static int adf4030_duty_cycle_measure(struct adf4030_state *st, u32 channel,
-				      u32 source_out_freq_hz, u64 *result)
+				      u64 source_out_freq_uhz, u64 *result)
 {
 	u32 raw_time_diff, m_time, regval;
 	int ret;
@@ -454,7 +480,7 @@ static int adf4030_duty_cycle_measure(struct adf4030_state *st, u32 channel,
 		return ret;
 
 	m_time = DIV_ROUND_UP_ULL(1000000ULL * (1 << (st->avgexp + 6)),
-				  source_out_freq_hz);
+				  div_u64(source_out_freq_uhz, MICROHZ_PER_HZ));
 
 	fsleep(m_time);
 
@@ -464,7 +490,9 @@ static int adf4030_duty_cycle_measure(struct adf4030_state *st, u32 channel,
 				       ADF4030_MATH_BUSY_MSK)),
 				       2000, 10000);
 	if (ret) {
-		dev_err(&st->spi->dev, "TDC measurement failed TDC_BUSY\n");
+		dev_err(&st->spi->dev,
+			"TDC measurement channel %d failed TDC_BUSY\n",
+			channel);
 		return ret;
 	}
 
@@ -569,7 +597,9 @@ static int adf4030_auto_align_single_channel(const struct adf4030_state *st,
 					       regval, !(regval & ADF4030_FSM_BUSY_MSK),
 					       4000, 3000000);
 		if (ret) {
-			dev_err(&st->spi->dev, "Autoalign failed FSM_BUSY\n");
+			dev_err(&st->spi->dev,
+				"Autoalign channel %d to channel %d failed FSM_BUSY\n",
+				channel, source_channel);
 			return ret;
 		}
 		ret = regmap_read(st->regmap, ADF4030_REG(0x90), &regval);
@@ -658,7 +688,7 @@ static ssize_t adf4030_ext_info_read(struct iio_dev *indio_dev,
 	case BSYNC_ALIGN_ITER:
 		return sysfs_emit(buf, "%u\n", st->bsync_autoalign_iter);
 	case BSYNC_DUTY_CYCLE:
-		ret = adf4030_duty_cycle_measure(st, ch->num, st->bsync_freq_odiv_a, &tdc_result);
+		ret = adf4030_duty_cycle_measure(st, ch->num, st->bsync_freq_odiv_a_uhz, &tdc_result);
 		if (ret)
 			return ret;
 
@@ -788,6 +818,7 @@ static int adf4030_read_raw(struct iio_dev *indio_dev,
 	struct adf4030_state *st = iio_priv(indio_dev);
 	struct adf4030_chan_spec *ch;
 	s64 tdc_result;
+	u64 val_u64;
 	int ret;
 
 	ch = &st->channels[chan->address];
@@ -796,11 +827,12 @@ static int adf4030_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
-		*val = ch->odivb_en ? st->bsync_freq_odiv_b : st->bsync_freq_odiv_a;
+		val_u64 = ch->odivb_en ? st->bsync_freq_odiv_b_uhz : st->bsync_freq_odiv_a_uhz;
+		*val = div_u64(val_u64, MICROHZ_PER_HZ);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		ret = adf4030_tdc_measure(st, ch->num, ch->reference_chan,
-					  st->bsync_freq_odiv_a, &tdc_result);
+					  st->bsync_freq_odiv_a_uhz, &tdc_result);
 		if (ret)
 			return ret;
 
@@ -886,10 +918,24 @@ static int adf4030_read_avail(struct iio_dev *indio_dev,
 	}
 }
 
+static int adf4030_fwnode_xlate(struct iio_dev *indio_dev,
+				const struct fwnode_reference_args *iiospec)
+{
+	struct adf4030_state *st = iio_priv(indio_dev);
+
+	for (int i = 0; i < st->num_channels; i++) {
+		if (st->channels[i].num == iiospec->args[0])
+			return i;
+	}
+
+	return -EINVAL;
+}
+
 static const struct iio_info adf4030_iio_info = {
 	.read_raw = &adf4030_read_raw,
 	.write_raw = &adf4030_write_raw,
 	.read_avail = &adf4030_read_avail,
+	.fwnode_xlate = &adf4030_fwnode_xlate,
 	.debugfs_reg_access = &adf4030_reg_access,
 };
 
@@ -901,6 +947,7 @@ static unsigned long adf4030_clk_recalc_rate(struct clk_hw *hw,
 	struct iio_chan_spec *chan;
 	struct adf4030_chan_spec *ch;
 	unsigned int address;
+	u64 val_u64;
 
 	address = clkout->address;
 	if (address >= st->num_channels)
@@ -908,8 +955,9 @@ static unsigned long adf4030_clk_recalc_rate(struct clk_hw *hw,
 
 	chan = &st->iio_channels[address];
 	ch = &st->channels[chan->address];
+	val_u64 = ch->odivb_en ? st->bsync_freq_odiv_b_uhz : st->bsync_freq_odiv_a_uhz;
 
-	return ch->odivb_en ? st->bsync_freq_odiv_b : st->bsync_freq_odiv_a;
+	return div_u64(val_u64, MICROHZ_PER_HZ);
 }
 
 static const struct clk_ops adf4030_clk_ops = {
@@ -927,7 +975,7 @@ static int adf4030_clk_register(struct adf4030_state *st, unsigned int address,
 
 	init.name = st->clk_out_names[num];
 	init.ops = &adf4030_clk_ops;
-	init.flags = 0;
+	init.flags = CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED;
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
 
@@ -1000,6 +1048,7 @@ static int adf4030_jesd204_link_supported(struct jesd204_dev *jdev,
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct adf4030_state *st = iio_priv(indio_dev);
 	unsigned long rate;
+	u64 bsync_freq_uHz;
 	int ret;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
@@ -1009,11 +1058,15 @@ static int adf4030_jesd204_link_supported(struct jesd204_dev *jdev,
 		jesd204_state_op_reason_str(reason));
 
 	ret = jesd204_link_get_lmfc_lemc_rate(lnk, &rate);
-	if (ret)
+	if (ret < 0) {
+		dev_err(dev, "Failed to get LMFC/LEMC rate: %d\n", ret);
 		return ret;
+	}
 
-	if (rate != st->bsync_freq_odiv_a) {
-		ret = adf4030_set_odiva_freq(st, rate);
+	bsync_freq_uHz = (u64)rate * MICROHZ_PER_HZ + ret;
+
+	if (bsync_freq_uHz != st->bsync_freq_odiv_a_uhz) {
+		ret = adf4030_set_odiva_freq(st, bsync_freq_uHz);
 		if (ret)
 			return ret;
 	}
@@ -1073,6 +1126,7 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 	struct device *dev = &st->spi->dev;
 	u32 rdiv, ndiv, odiv, regval, coreclk;
 	int ret;
+	bool en = true;
 
 	ret = regmap_set_bits(st->regmap, ADF4030_REG(0xFF),
 			      ADF4030_SOFTRESET_CHIP_MSK);
@@ -1081,12 +1135,25 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 
 	fsleep(10);
 
+	if (st->spi->mode & SPI_3WIRE || st->spi_3wire_en)
+		en = false;
+
 	/* Enable SDO and ADDRESS_ASCENSION */
 	ret = regmap_write(st->regmap, ADF4030_REG(0x00),
-			   FIELD_PREP(ADF4030_SDO_ACTIVE_MSK, 1) |
+			   FIELD_PREP(ADF4030_SDO_ACTIVE_MSK, en) |
 			   FIELD_PREP(ADF4030_ADDRESS_ASCENSION_MSK, 1) |
-			   FIELD_PREP(ADF4030_SDO_ACTIVE_R_MSK, 1) |
+			   FIELD_PREP(ADF4030_SDO_ACTIVE_R_MSK, en) |
 			   FIELD_PREP(ADF4030_ADDRESS_ASCENSION_R_MSK, 1));
+	if (ret)
+		return ret;
+
+	/* Setup the CMOS Level and IRQ Masks */
+	ret = regmap_write(st->regmap, ADF4030_REG(0x5C),
+			   FIELD_PREP(ADF4030_TEMP_INT_MSK, 1) |
+			   FIELD_PREP(ADF4030_ALIGN_INT_MSK, 1) |
+			   FIELD_PREP(ADF4030_LD_INT_MSK, 1) |
+			   FIELD_PREP(ADF4030_TDC_ERR_INT_MSK, 1) |
+			   FIELD_PREP(ADF4030_CMOS_OV_MSK, st->cmos_3v3_en));
 	if (ret)
 		return ret;
 
@@ -1105,10 +1172,6 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 	if (regval != 0xAD)
 		return dev_err_probe(dev, -EIO,
 				     "Failed SPI write/read verify test REG_0x0A=0x%X\n", regval);
-
-	ret = regmap_read(st->regmap, ADF4030_REG(0xBB), &regval);
-	if (ret)
-		return ret;
 
 	/* Set default registers */
 	ret = regmap_multi_reg_write(st->regmap, adf4030_reg_default,
@@ -1159,7 +1222,7 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 	ret = adf4030_compute_r_n(ref_input_freq_hz, vco_out_freq_hz, &rdiv, &ndiv);
 	if (ret)
 		return dev_err_probe(&st->spi->dev, ret,
-			"Failed to compute R and N dividers for Fref=%u Hz amd VCO=%u Hz\n",
+			"Failed to compute R and N dividers for Fref=%u Hz and VCO=%u Hz\n",
 			ref_input_freq_hz, vco_out_freq_hz);
 
 	ret = regmap_update_bits(st->regmap, ADF4030_REG(0x57),
@@ -1184,16 +1247,16 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 	if (ret)
 		return dev_err_probe(&st->spi->dev, ret, "PLL failed to lock\n");
 
-	ret = adf4030_set_odiva_freq(st, st->bsync_freq_odiv_a);
+	ret = adf4030_set_odiva_freq(st, (u64)st->bsync_freq_odiv_a_uhz);
 	if (ret)
 		return ret;
 
-	if (st->bsync_freq_odiv_b) {
-		ret = adf4030_compute_odiv(vco_out_freq_hz, st->bsync_freq_odiv_b, &odiv);
+	if (st->bsync_freq_odiv_b_uhz) {
+		ret = adf4030_compute_odiv(vco_out_freq_hz, st->bsync_freq_odiv_b_uhz, &odiv);
 		if (ret)
 			return dev_err_probe(&st->spi->dev, ret,
-				"Failed to compute ODIVB for Fvco=%u Hz and Fbsync=%u Hz\n",
-				vco_out_freq_hz, st->bsync_freq_odiv_b);
+				"Failed to compute ODIVB for Fvco=%u Hz and Fbsync=%llu uHz\n",
+				vco_out_freq_hz, st->bsync_freq_odiv_b_uhz);
 
 		ret = regmap_write(st->regmap, ADF4030_REG(0x55), odiv >> 4);
 		if (ret)
@@ -1207,7 +1270,7 @@ static int adf4030_startup(struct adf4030_state *st, u32 ref_input_freq_hz,
 	}
 
 	/* Set some defaults based datasheets limits */
-	if (st->bsync_freq_odiv_a > 2000000U)
+	if (st->bsync_freq_odiv_a_uhz > 2000000000000ULL)
 		st->avgexp = 15;
 	else
 		st->avgexp = 13;
@@ -1226,6 +1289,12 @@ static int adf4030_parse_fw(struct adf4030_state *st)
 	struct device *dev = &st->spi->dev;
 	unsigned int i, cnt = 0;
 	int ret;
+	u32 val;
+
+	st->spi_3wire_en = device_property_read_bool(dev,
+						     "adi,spi-3wire-enable");
+
+	st->cmos_3v3_en = device_property_read_bool(dev, "adi,cmos-3v3-enable");
 
 	ret = device_property_read_u32(dev, "adi,vco-frequency-hz",
 				       &st->vco_freq);
@@ -1233,14 +1302,24 @@ static int adf4030_parse_fw(struct adf4030_state *st)
 		return dev_err_probe(dev, -EINVAL,
 				     "Missing mandatoy adi,vco-frequency-hz property");
 
-	ret = device_property_read_u32(dev, "adi,bsync-frequency-hz",
-				       &st->bsync_freq_odiv_a);
-	if (ret)
-		return dev_err_probe(dev, -EINVAL,
-				     "Missing mandatoy adi,bsync-frequency-hz property");
+	ret = device_property_read_u64(dev, "adi,bsync-frequency-uhz",
+				       &st->bsync_freq_odiv_a_uhz);
+	if (ret) {
+		ret = device_property_read_u32(dev, "adi,bsync-frequency-hz", &val);
+		if (ret)
+			return dev_err_probe(dev, -EINVAL,
+					     "Missing mandatoy adi,bsync-frequency-hz property");
 
-	device_property_read_u32(dev, "adi,bsync-secondary-frequency-hz",
-				 &st->bsync_freq_odiv_b);
+		st->bsync_freq_odiv_a_uhz = (u64) val * MICROHZ_PER_HZ;
+	}
+
+	ret = device_property_read_u64(dev, "adi,bsync-secondary-frequency-uhz",
+				 &st->bsync_freq_odiv_b_uhz);
+	if (ret) {
+		ret = device_property_read_u32(dev, "adi,bsync-secondary-frequency-hz", &val);
+		if (!ret)
+			st->bsync_freq_odiv_b_uhz = (u64) val * MICROHZ_PER_HZ;
+	}
 
 	ret = device_property_read_u32(dev, "adi,bsync-autoalign-reference-channel",
 				       &st->bsync_autoalign_ref_chan);

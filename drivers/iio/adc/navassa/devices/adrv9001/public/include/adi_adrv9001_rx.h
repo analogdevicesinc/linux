@@ -608,6 +608,48 @@ int32_t adi_adrv9001_Rx_Rssi_Manual_Status_Get(adi_adrv9001_Device_t* adrv9001, 
                                                adi_adrv9001_ManualRssiReadMode_e manualRssiReadMode,
                                                adi_adrv9001_ManualRssiReadStatus_t* manualRssiReadStatus);
 
+/**
+ * \brief Sets the next Rx port for the specified channel
+ *
+ * This function configures the next Rx port (e.g., RX_A or RX_B) for a given channel,
+ * effective only after RF is enabled. It allows switching between different Rx ports
+ * based on application requirements
+ *
+ * \note Message type: \ref timing_mailbox "Mailbox command"
+ *
+ * \pre Channel state is STANDBY, CALIBRATED, PRIMED, RF_ENABLED
+ *
+ * \param[in] adrv9001         Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in] channel          The Rx Channel for which the port switch is to be configured
+ * \param[in] nextActivePort   The next Rx port to switch to (e.g., ADI_ADRV9001_RX_A or ADI_ADRV9001_RX_B)
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_Rx_ActivePortSwitch_Set(adi_adrv9001_Device_t *adrv9001,
+	                                         adi_common_ChannelNumber_e channel,
+		                                     adi_adrv9001_RxRfInputSel_e nextActivePort);
+
+/**
+ * \brief Retrieves the Rx port for the specified channel
+ *
+ * This function allows the user to query which Rx port (e.g., RX_A or RX_B) will 
+ * be active for a given channel post RF enablement.
+ *
+ * \note Message type: \ref timing_mailbox "Mailbox command"
+ *
+ * \pre Channel state is STANDBY, CALIBRATED, PRIMED, RF_ENABLED
+ *
+ * \param[in] adrv9001          Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in] channel           The Rx Channel for which the active port is to be inspected
+ * \param[out] nextActivePort   Pointer to a variable where the active Rx port will be stored
+ *                              (e.g., ADI_ADRV9001_RX_A or ADI_ADRV9001_RX_B)
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_Rx_ActivePortSwitch_Get(adi_adrv9001_Device_t *adrv9001,
+		                                     adi_common_ChannelNumber_e channel,
+		                                     adi_adrv9001_RxRfInputSel_e *nextActivePort);
+
 #ifdef __cplusplus
 }
 #endif

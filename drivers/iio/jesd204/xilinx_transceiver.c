@@ -8,7 +8,6 @@
  */
 
 #include <linux/device.h>
-#include <linux/fpga/adi-axi-common.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 
@@ -312,7 +311,7 @@ static unsigned int xilinx_xcvr_qpll_sel(struct xilinx_xcvr *xcvr,
 static void xilinx_xcvr_setup_cpll_vco_range(struct xilinx_xcvr *xcvr,
 					     unsigned int *vco_max)
 {
-	if  ((xcvr->type == XILINX_XCVR_TYPE_US_GTH3) |
+	if  ((xcvr->type == XILINX_XCVR_TYPE_US_GTH3) ||
 	     (xcvr->type == XILINX_XCVR_TYPE_US_GTH4)) {
 		if ((xcvr->voltage < 850))
 			*vco_max = 4250000;
@@ -332,9 +331,9 @@ static void xilinx_xcvr_setup_qpll_vco_range(struct xilinx_xcvr *xcvr,
 					     unsigned int *vco1_max)
 {
 	if (xcvr->type == XILINX_XCVR_TYPE_S7_GTX2) {
-		if ((xcvr->family == ADI_AXI_FPGA_FAMILY_KINTEX))
-			if ((xcvr->dev_package == ADI_AXI_FPGA_DEV_FB) |
-			    (xcvr->dev_package == ADI_AXI_FPGA_DEV_RF) |
+		if (xcvr->family == ADI_AXI_FPGA_FAMILY_KINTEX)
+			if ((xcvr->dev_package == ADI_AXI_FPGA_DEV_FB) ||
+			    (xcvr->dev_package == ADI_AXI_FPGA_DEV_RF) ||
 			    (xcvr->dev_package == ADI_AXI_FPGA_DEV_FF))
 				*vco0_max = 6600000;
 		if ((xcvr->speed_grade / 10) == 2)
@@ -599,8 +598,9 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_calc_qpll_config);
 
-int xilinx_xcvr_gth34_cpll_read_config(struct xilinx_xcvr *xcvr,
-	unsigned int drp_port, struct xilinx_xcvr_cpll_config *conf)
+static int xilinx_xcvr_gth34_cpll_read_config(struct xilinx_xcvr *xcvr,
+					      unsigned int drp_port,
+					      struct xilinx_xcvr_cpll_config *conf)
 {
 	int val;
 

@@ -11,6 +11,7 @@
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_atomic_uapi.h>
 #include <drm/drm_blend.h>
 #include <drm/drm_bridge.h>
 #include <drm/drm_bridge_connector.h>
@@ -27,7 +28,6 @@
 #include <drm/drm_managed.h>
 #include <drm/drm_mode_config.h>
 #include <drm/drm_plane.h>
-#include <drm/drm_plane_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_simple_kms_helper.h>
 #include <drm/drm_vblank.h>
@@ -121,19 +121,104 @@ static void zynqmp_dpsub_plane_atomic_update(struct drm_plane *plane,
 		zynqmp_disp_blend_set_global_alpha(dpsub->disp, true,
 						   plane->state->alpha >> 8);
 
-	/* Enable or re-enable the plane if the format has changed. */
-	if (format_changed)
-		zynqmp_disp_layer_enable(layer, ZYNQMP_DPSUB_LAYER_NONLIVE);
+	/*
+	 * Unconditionally enable the layer, as it may have been disabled
+	 * previously either explicitly to reconfigure layer format, or
+	 * implicitly after DPSUB reset during display mode change. DRM
+	 * framework calls this callback for enabled planes only.
+	 */
+	zynqmp_disp_layer_enable(layer);
+}
+
+static int
+zynqmp_dpsub_plane_atomic_update_plane(struct drm_plane *plane,
+				       struct drm_crtc *crtc,
+				       struct drm_framebuffer *fb,
+				       int crtc_x, int crtc_y,
+				       unsigned int crtc_w, unsigned int crtc_h,
+				       u32 src_x, u32 src_y,
+				       u32 src_w, u32 src_h,
+				       struct drm_modeset_acquire_ctx *ctx)
+{
+	struct drm_atomic_state *state;
+	struct drm_plane_state *plane_state;
+	int ret;
+
+	state = drm_atomic_state_alloc(plane->dev);
+	if (!state)
+		return -ENOMEM;
+
+	state->acquire_ctx = ctx;
+	plane_state = drm_atomic_get_plane_state(state, plane);
+	if (IS_ERR(plane_state)) {
+		ret = PTR_ERR(plane_state);
+		goto fail;
+	}
+
+	ret = drm_atomic_set_crtc_for_plane(plane_state, crtc);
+	if (ret)
+		goto fail;
+
+	drm_atomic_set_fb_for_plane(plane_state, fb);
+	plane_state->crtc_x = crtc_x;
+	plane_state->crtc_y = crtc_y;
+	plane_state->crtc_w = crtc_w;
+	plane_state->crtc_h = crtc_h;
+	plane_state->src_x = src_x;
+	plane_state->src_y = src_y;
+	plane_state->src_w = src_w;
+	plane_state->src_h = src_h;
+
+	if (plane == crtc->cursor)
+		state->legacy_cursor_update = true;
+
+	/* Do async-update if possible */
+	state->async_update = !drm_atomic_helper_async_check(plane->dev, state);
+	ret = drm_atomic_commit(state);
+fail:
+	drm_atomic_state_put(state);
+	return ret;
+}
+
+static int
+zynqmp_dpsub_plane_atomic_async_check(struct drm_plane *plane,
+				      struct drm_atomic_state *state)
+{
+	return 0;
+}
+
+static void
+zynqmp_dpsub_plane_atomic_async_update(struct drm_plane *plane,
+				       struct drm_atomic_state *state)
+{
+	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state, plane);
+
+	/* Update the current state with new configurations */
+	swap(plane->state->fb, new_state->fb);
+	plane->state->crtc = new_state->crtc;
+	plane->state->crtc_x = new_state->crtc_x;
+	plane->state->crtc_y = new_state->crtc_y;
+	plane->state->crtc_w = new_state->crtc_w;
+	plane->state->crtc_h = new_state->crtc_h;
+	plane->state->src_x = new_state->src_x;
+	plane->state->src_y = new_state->src_y;
+	plane->state->src_w = new_state->src_w;
+	plane->state->src_h = new_state->src_h;
+	plane->state->state = new_state->state;
+
+	zynqmp_dpsub_plane_atomic_update(plane, state);
 }
 
 static const struct drm_plane_helper_funcs zynqmp_dpsub_plane_helper_funcs = {
 	.atomic_check		= zynqmp_dpsub_plane_atomic_check,
 	.atomic_update		= zynqmp_dpsub_plane_atomic_update,
 	.atomic_disable		= zynqmp_dpsub_plane_atomic_disable,
+	.atomic_async_check	= zynqmp_dpsub_plane_atomic_async_check,
+	.atomic_async_update	= zynqmp_dpsub_plane_atomic_async_update,
 };
 
 static const struct drm_plane_funcs zynqmp_dpsub_plane_funcs = {
-	.update_plane		= drm_atomic_helper_update_plane,
+	.update_plane		= zynqmp_dpsub_plane_atomic_update_plane,
 	.disable_plane		= drm_atomic_helper_disable_plane,
 	.destroy		= drm_plane_cleanup,
 	.reset			= drm_atomic_helper_plane_reset,
@@ -434,23 +519,28 @@ static int zynqmp_dpsub_kms_init(struct zynqmp_dpsub *dpsub)
 				DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 	if (ret) {
 		dev_err(dpsub->dev, "failed to attach bridge to encoder\n");
-		return ret;
+		goto err_encoder;
 	}
 
 	/* Create the connector for the chain of bridges. */
 	connector = drm_bridge_connector_init(&dpsub->drm->dev, encoder);
 	if (IS_ERR(connector)) {
 		dev_err(dpsub->dev, "failed to created connector\n");
-		return PTR_ERR(connector);
+		ret = PTR_ERR(connector);
+		goto err_encoder;
 	}
 
 	ret = drm_connector_attach_encoder(connector, encoder);
 	if (ret < 0) {
 		dev_err(dpsub->dev, "failed to attach connector to encoder\n");
-		return ret;
+		goto err_encoder;
 	}
 
 	return 0;
+
+err_encoder:
+	drm_encoder_cleanup(encoder);
+	return ret;
 }
 
 static void zynqmp_dpsub_drm_release(struct drm_device *drm, void *res)
@@ -515,7 +605,7 @@ int zynqmp_dpsub_drm_init(struct zynqmp_dpsub *dpsub)
 		goto err_poll_fini;
 
 	/* Initialize fbdev generic emulation. */
-	drm_fbdev_dma_setup(drm, 24);
+	drm_fbdev_dma_setup(drm, 16);
 
 	return 0;
 
@@ -530,5 +620,6 @@ void zynqmp_dpsub_drm_cleanup(struct zynqmp_dpsub *dpsub)
 
 	drm_dev_unregister(drm);
 	drm_atomic_helper_shutdown(drm);
+	drm_encoder_cleanup(&dpsub->drm->encoder);
 	drm_kms_helper_poll_fini(drm);
 }

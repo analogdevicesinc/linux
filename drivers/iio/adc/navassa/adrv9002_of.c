@@ -4,7 +4,9 @@
  *
  * Copyright 2022 Analog Devices Inc.
  */
+#include <linux/cleanup.h>
 #include <linux/device.h>
+#include <linux/errno.h>
 #include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
@@ -91,31 +93,29 @@ static int adrv9002_parse_hop_signal_ports(struct adrv9002_rf_phy *phy,
 static int adrv9002_parse_hop_signal(struct adrv9002_rf_phy *phy,
 				     const struct device_node *node, int hop)
 {
-	struct device_node *child;
 	adi_adrv9001_FhhopTableSelectCfg_t *hop_tbl = &phy->fh.hopTableSelectConfig;
 	int ret;
 	const char *hop_str = hop ? "adi,fh-hop-signal-2" : "adi,fh-hop-signal-1";
 
-	child = of_get_child_by_name(node, hop_str);
+	struct device_node *child __free(device_node) = of_get_child_by_name(node, hop_str);
 	if (!child)
 		return 0;
 
 	/* check that hop2 is actually supported and valid */
 	if (hop && phy->fh.mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
 		dev_err(&phy->spi->dev, "adi,fh-hop-signal-2 given but adi,fh-mode not in dual hop");
-		ret = -EINVAL;
-		goto of_put;
+		return -EINVAL;
 	}
 
 	ret = OF_ADRV9002_DGPIO(phy, child, "adi,fh-hop-pin",
 				phy->fh.hopSignalGpioConfig[hop].pin, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	ret = OF_ADRV9002_DGPIO(phy, child, "adi,fh-hop-table-select-pin",
 				hop_tbl->hopTableSelectGpioConfig[hop].pin, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	/*
 	 * On commom mode, gpio[0] is used to control both hop tables select. Thus,
@@ -125,19 +125,15 @@ static int adrv9002_parse_hop_signal(struct adrv9002_rf_phy *phy,
 		if (hop_tbl->hopTableSelectGpioConfig[hop].pin != ADI_ADRV9001_GPIO_UNASSIGNED) {
 			dev_err(&phy->spi->dev,
 				"Table select mode set to common. Cannot assign gpio for hop signal 2\n");
-			ret = -EINVAL;
-			goto of_put;
+			return -EINVAL;
 		}
 	}
 
 	ret = adrv9002_parse_hop_signal_ports(phy, child, hop, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
-	ret = adrv9002_parse_hop_signal_ports(phy, child, hop, true);
-of_put:
-	of_node_put(child);
-	return ret;
+	return adrv9002_parse_hop_signal_ports(phy, child, hop, true);
 }
 
 static int adrv9002_fh_parse_table_control(struct adrv9002_rf_phy *phy,
@@ -238,62 +234,53 @@ static int adrv9002_fh_parse_chan_gpio_gain_control_chan(struct adrv9002_rf_phy 
 static int adrv9002_fh_parse_gpio_gain_control(struct adrv9002_rf_phy *phy,
 					       const struct device_node *node)
 {
-	struct device_node *gain, *child;
+	const char *prop = "adi,fh-gain-setup-by-pin";
 	int ret = 0, n_chann;
 
-	gain = of_get_child_by_name(node, "adi,fh-gain-setup-by-pin");
+	struct device_node *gain __free(device_node) = of_get_child_by_name(node, prop);
 	if (!gain)
 		return 0;
 
 	n_chann = of_get_available_child_count(gain);
 	if (n_chann != ADRV9002_CHANN_MAX) {
 		dev_err(&phy->spi->dev, "If set, Gain setup by pin must be set for both channels!\n");
-		of_node_put(gain);
 		return -EINVAL;
 	}
 
-	for_each_available_child_of_node(gain, child) {
+	for_each_available_child_of_node_scoped(gain, child) {
 		u32 chann;
 
 		ret = of_property_read_u32(child, "reg", &chann);
 		if (ret) {
 			dev_err(&phy->spi->dev,
 				"No reg property defined for gain pin setup channel\n");
-			goto of_child_put;
+			return ret;
 		}
 
 		if (chann > ADRV9002_CHANN_2) {
 			dev_err(&phy->spi->dev,
 				"Invalid value for gain pin setup channel: %d\n", chann);
-			ret = -EINVAL;
-			goto of_child_put;
+			return -EINVAL;
 		}
 
 		ret = adrv9002_fh_parse_chan_gpio_gain_control_chan(phy, child, chann);
 		if (ret)
-			goto of_child_put;
+			return ret;
 	}
 
 	phy->fh.gainSetupByPin = true;
-
-	of_node_put(gain);
 	return 0;
-
-of_child_put:
-	of_node_put(child);
-	of_node_put(gain);
-	return ret;
 }
 
 static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device_node *node)
 {
 	adi_adrv9001_FhhopTableSelectCfg_t *hop_tbl = &phy->fh.hopTableSelectConfig;
-	struct device_node *fh;
 	int ret;
 	u64 lo;
 	int hop;
 
-	fh = of_get_child_by_name(node, "adi,frequency-hopping");
+	struct device_node *fh __free(device_node) = of_get_child_by_name(node,
+									  "adi,frequency-hopping");
 	if (!fh) {
 		/* set default parameters */
 		phy->fh.minRxGainIndex = ADI_ADRV9001_RX_GAIN_INDEX_MIN;
@@ -309,7 +296,7 @@ static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device
 			     ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP,
 			     phy->fh.mode, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	if (of_property_read_bool(fh, "adi,fh-hop-table-select-common-en"))
 		hop_tbl->hopTableSelectMode = ADI_ADRV9001_FHHOPTABLESELECTMODE_COMMON;
@@ -317,44 +304,42 @@ static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device
 	for (hop = 0; hop < ADRV9002_FH_HOP_SIGNALS_NR; hop++) {
 		ret = adrv9002_parse_hop_signal(phy, fh, hop);
 		if (ret)
-			goto of_put;
+			return ret;
 	}
 
 	ret = OF_ADRV9002_FH(phy, fh, "adi,fh-min-rx-gain-idx", ADI_ADRV9001_RX_GAIN_INDEX_MIN,
 			     ADI_ADRV9001_RX_GAIN_INDEX_MIN, ADI_ADRV9001_RX_GAIN_INDEX_MAX,
 			     phy->fh.minRxGainIndex, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	ret = OF_ADRV9002_FH(phy, fh, "adi,fh-max-rx-gain-idx", ADI_ADRV9001_RX_GAIN_INDEX_MAX,
 			     phy->fh.minRxGainIndex, ADI_ADRV9001_RX_GAIN_INDEX_MAX,
 			     phy->fh.maxRxGainIndex, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	ret = OF_ADRV9002_FH(phy, fh, "adi,fh-min-tx-atten-mdb", 0, 0,
 			     ADRV9001_TX_MAX_ATTENUATION_MDB, phy->fh.minTxAtten_mdB, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	if (phy->fh.minTxAtten_mdB % ADRV9001_TX_ATTENUATION_RESOLUTION_MDB) {
 		dev_err(&phy->spi->dev, "adi,fh-min-tx-atten-mdb must have %d resolution\n",
 			ADRV9001_TX_ATTENUATION_RESOLUTION_MDB);
-		ret = -EINVAL;
-		goto of_put;
+		return -EINVAL;
 	}
 
 	ret = OF_ADRV9002_FH(phy, fh, "adi,fh-max-tx-atten-mdb", ADRV9001_TX_MAX_ATTENUATION_MDB,
 			     phy->fh.minTxAtten_mdB, ADRV9001_TX_MAX_ATTENUATION_MDB,
 			     phy->fh.maxTxAtten_mdB, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	if (phy->fh.maxTxAtten_mdB % ADRV9001_TX_ATTENUATION_RESOLUTION_MDB) {
 		dev_err(&phy->spi->dev, "adi,fh-max-tx-atten-mdb must have %d resolution\n",
 			ADRV9001_TX_ATTENUATION_RESOLUTION_MDB);
-		ret = -EINVAL;
-		goto of_put;
+		return -EINVAL;
 	}
 
 	ret = of_property_read_u64(fh, "adi,fh-min-frequency-hz", &lo);
@@ -363,8 +348,7 @@ static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device
 		    lo > ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ) {
 			dev_err(&phy->spi->dev, "Invalid val(%llu) for adi,fh-min-frequency-hz\n",
 				lo);
-			ret = -EINVAL;
-			goto of_put;
+			return -EINVAL;
 		}
 		phy->fh.minOperatingFrequency_Hz = lo;
 	} else {
@@ -377,8 +361,7 @@ static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device
 		    lo > ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ) {
 			dev_err(&phy->spi->dev, "Invalid val(%llu) for adi,fh-max-frequency-hz\n",
 				lo);
-			ret = -EINVAL;
-			goto of_put;
+			return -EINVAL;
 		}
 		phy->fh.maxOperatingFrequency_Hz = lo;
 	} else {
@@ -389,7 +372,7 @@ static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device
 			     ADI_ADRV9001_FH_MAX_TX_FE_POWERON_FRAME_DELAY,
 			     phy->fh.txAnalogPowerOnFrameDelay, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	phy->fh.rxZeroIfEnable = of_property_read_bool(fh, "adi-fh-rx-zero-if-en");
 	of_property_read_u32(fh, "adi,fh-min-frame-us", &phy->fh.minFrameDuration_us);
@@ -398,16 +381,13 @@ static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device
 			     ADI_ADRV9001_TABLEINDEXCTRL_AUTO_LOOP,
 			     ADI_ADRV9001_TABLEINDEXCTRL_GPIO, phy->fh.tableIndexCtrl, false);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	ret = adrv9002_fh_parse_table_control(phy, fh);
 	if (ret)
-		goto of_put;
+		return ret;
 
-	ret = adrv9002_fh_parse_gpio_gain_control(phy, fh);
-of_put:
-	of_node_put(fh);
-	return ret;
+	return adrv9002_fh_parse_gpio_gain_control(phy, fh);
 }
 
 /*
@@ -424,10 +404,10 @@ static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
 				    struct adrv9002_chan *chan)
 {
 	int ret;
-	struct device_node *en_delay;
 	struct adi_adrv9001_ChannelEnablementDelays *delays = &chan->en_delays_ns;
 
-	en_delay = of_parse_phandle(node, "adi,en-delays", 0);
+	struct device_node *en_delay __free(device_node) = of_parse_phandle(node,
+									    "adi,en-delays", 0);
 	if (!en_delay)
 		return 0;
 
@@ -440,7 +420,7 @@ static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
 	ret = OF_ADRV9002_EN_DELAY("adi,rise-to-analog-on-delay-ns", 0, delays->riseToOnDelay,
 				   delays->riseToAnalogOnDelay);
 	if (ret)
-		goto of_en_delay_put;
+		return ret;
 
 	if (chan->port == ADI_TX) {
 		of_property_read_u32(en_delay, "adi,fall-to-off-delay-ns", &delays->fallToOffDelay);
@@ -448,22 +428,18 @@ static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
 		ret = OF_ADRV9002_EN_DELAY("adi,hold-delay-ns", 0, delays->fallToOffDelay,
 					   delays->holdDelay);
 		if (ret)
-			goto of_en_delay_put;
+			return ret;
 	} else {
 		of_property_read_u32(en_delay, "adi,hold-delay-ns", &delays->holdDelay);
 
 		ret = OF_ADRV9002_EN_DELAY("adi,fall-to-off-delay-ns", 0, delays->holdDelay,
 					   delays->fallToOffDelay);
 		if (ret)
-			goto of_en_delay_put;
+			return ret;
 	}
 
 	of_property_read_u32(en_delay, "adi,guard-delay-ns", &delays->guardDelay);
-
-of_en_delay_put:
-	of_node_put(en_delay);
-
-	return ret;
+	return 0;
 }
 
 static int adrv9002_parse_dpd_pre_calib(const struct adrv9002_rf_phy *phy,
@@ -610,11 +586,24 @@ static int adrv9002_parse_dpd_config(const struct adrv9002_rf_phy *phy,
 static int adrv9002_parse_dpd(const struct adrv9002_rf_phy *phy,
 			      const struct device_node *node, struct adrv9002_tx_chan *tx)
 {
-	struct device_node *dpd;
 	int ret;
 
 	if (!of_property_read_bool(node, "adi,dpd"))
 		return 0;
+
+	/*
+	 * Ignore DPD if the chip does not support it. The only reason this is not returning
+	 * an error is for backward compatibility with older device tree files for adrv9003 which
+	 * might wrongly enable DPD. And some users might have just copy pasted those DTs but
+	 * don't really care or use DPD and so, it would be cumbersome to start failing to probe all
+	 * of the sudden. Therefore, just warn about this and ignore it (and let user remove the
+	 * property).
+	 */
+	if (!phy->chip->has_dpd) {
+		dev_warn(&phy->spi->dev, "DPD not supported on this device (%s)! Ignoring....\n",
+			 phy->chip->name);
+		return 0;
+	}
 
 	tx->dpd_init = devm_kzalloc(&phy->spi->dev, sizeof(*tx->dpd_init), GFP_KERNEL);
 	if (!tx->dpd_init)
@@ -629,7 +618,9 @@ static int adrv9002_parse_dpd(const struct adrv9002_rf_phy *phy,
 	tx->dpd_init->amplifierType = ADI_ADRV9001_DPDAMPLIFIER_DEFAULT;
 	tx->dpd_init->model = ADI_ADRV9001_DPDMODEL_4;
 
-	dpd = of_parse_phandle(node, "adi,dpd-config", 0);
+	tx->ext_path_calib = of_property_read_bool(node, "adi,external-path-delay-calibrate");
+
+	struct device_node *dpd __free(device_node) = of_parse_phandle(node, "adi,dpd-config", 0);
 	if (!dpd) {
 		/* set default parameters */
 		tx->dpd_init->lutSize = ADI_ADRV9001_DPDLUTSIZE_512;
@@ -650,16 +641,11 @@ static int adrv9002_parse_dpd(const struct adrv9002_rf_phy *phy,
 		return 0;
 	}
 
-	tx->ext_path_calib = of_property_read_bool(dpd, "adi,external-path-delay-calibrate");
-
 	ret = adrv9002_parse_dpd_pre_calib(phy, dpd, tx);
 	if (ret)
-		goto of_dpd_put;
+		return ret;
 
-	ret = adrv9002_parse_dpd_config(phy, dpd, tx);
-of_dpd_put:
-	of_node_put(dpd);
-	return ret;
+	return adrv9002_parse_dpd_config(phy, dpd, tx);
 }
 
 /* there's no optional variant for this, so we need to check for -ENOENT */
@@ -681,39 +667,34 @@ static int adrv9002_parse_tx_pin_dt(const struct adrv9002_rf_phy *phy,
 				    struct device_node *node,
 				    struct adrv9002_tx_chan *tx)
 {
-	struct device_node *pinctlr;
 	int ret;
 
-	pinctlr = of_parse_phandle(node, "adi,pinctrl", 0);
+	struct device_node *pinctlr __free(device_node) = of_parse_phandle(node, "adi,pinctrl", 0);
 	if (!pinctlr)
 		return 0;
 
 	tx->pin_cfg = devm_kzalloc(&phy->spi->dev, sizeof(*tx->pin_cfg),
 				   GFP_KERNEL);
-	if (!tx->pin_cfg) {
-		of_node_put(pinctlr);
+	if (!tx->pin_cfg)
 		return -ENOMEM;
-	}
 
 	ret = OF_ADRV9002_DGPIO(phy, pinctlr, "adi,increment-pin", tx->pin_cfg->incrementPin, true);
 	if (ret)
-		goto of_pinctrl_put;
+		return ret;
 
 	ret = OF_ADRV9002_DGPIO(phy, pinctlr, "adi,decrement-pin", tx->pin_cfg->decrementPin, true);
 	if (ret)
-		goto of_pinctrl_put;
+		return ret;
 
 	ret = OF_ADRV9002_PINCTL(phy, pinctlr, "adi,step-size-mdB", 50, 50, 1550,
 				 tx->pin_cfg->stepSize_mdB, false);
 	/* extra validation since the value needs to be multiple of 50 */
 	if (tx->pin_cfg->stepSize_mdB % 50 != 0) {
 		dev_err(&phy->spi->dev, "adi,step-size-mdB must be multiple of 50\n");
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
-of_pinctrl_put:
-	of_node_put(pinctlr);
-	return ret;
+	return 0;
 }
 
 static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
@@ -785,30 +766,27 @@ static int adrv9002_parse_rx_pinctl_dt(const struct adrv9002_rf_phy *phy,
 				       const struct device_node *node,
 				       struct adrv9002_rx_chan *rx)
 {
-	struct device_node *pinctlr;
 	int ret;
 
 	/* get pinctrl properties if any */
-	pinctlr = of_parse_phandle(node, "adi,pinctrl", 0);
+	struct device_node *pinctlr __free(device_node) = of_parse_phandle(node, "adi,pinctrl", 0);
 	if (!pinctlr)
 		return 0;
 
 	rx->pin_cfg = devm_kzalloc(&phy->spi->dev, sizeof(*rx->pin_cfg),
 				   GFP_KERNEL);
-	if (!rx->pin_cfg) {
-		ret = -ENOMEM;
-		goto of_pinctrl_put;
-	}
+	if (!rx->pin_cfg)
+		return -ENOMEM;
 
 	ret = OF_ADRV9002_PINCTL(phy, pinctlr, "adi,increment-step-size", 1, 1, 7,
 				 rx->pin_cfg->incrementStepSize, false);
 	if (ret)
-		goto of_pinctrl_put;
+		return ret;
 
 	ret = OF_ADRV9002_PINCTL(phy, pinctlr, "adi,decrement-step-size", 1, 1, 7,
 				 rx->pin_cfg->decrementStepSize, false);
 	if (ret)
-		goto of_pinctrl_put;
+		return ret;
 
 	/*
 	 * Get gpios. This are mandatory properties. It makes no sense to
@@ -816,15 +794,10 @@ static int adrv9002_parse_rx_pinctl_dt(const struct adrv9002_rf_phy *phy,
 	 */
 	ret = OF_ADRV9002_DGPIO(phy, pinctlr, "adi,increment-pin", rx->pin_cfg->incrementPin, true);
 	if (ret)
-		goto of_pinctrl_put;
+		return ret;
 
-	ret = OF_ADRV9002_DGPIO(phy, pinctlr, "adi,decrement-pin", rx->pin_cfg->decrementPin, true);
-	if (ret)
-		goto of_pinctrl_put;
-
-of_pinctrl_put:
-	of_node_put(pinctlr);
-	return ret;
+	return OF_ADRV9002_DGPIO(phy, pinctlr, "adi,decrement-pin",
+				 rx->pin_cfg->decrementPin, true);
 }
 
 #define AGC_OFFSETOF(member)	\
@@ -941,7 +914,7 @@ static const struct {
 	case 4:							\
 		*(u32 *)((void *)(agc) + __off) = (val);	\
 		break;						\
-	};							\
+	}							\
 }
 
 static void adrv9002_set_agc_defaults(struct adi_adrv9001_GainControlCfg *agc)
@@ -967,7 +940,6 @@ static int adrv9002_parse_rx_agc_dt(const struct adrv9002_rf_phy *phy,
 				    const struct device_node *node,
 				    struct adrv9002_rx_chan *rx)
 {
-	struct device_node *agc;
 	int ret, prop;
 
 #define ADRV9002_OF_AGC_PIN(key, min, max, val)	\
@@ -979,7 +951,7 @@ static int adrv9002_parse_rx_agc_dt(const struct adrv9002_rf_phy *phy,
 	rx->agc.power.powerEnableMeasurement = true;
 	rx->agc.peak.enableHbOverload = true;
 
-	agc = of_parse_phandle(node, "adi,agc", 0);
+	struct device_node *agc __free(device_node) = of_parse_phandle(node, "adi,agc", 0);
 	if (!agc) {
 		adrv9002_set_agc_defaults(&rx->agc);
 		return 0;
@@ -996,7 +968,6 @@ static int adrv9002_parse_rx_agc_dt(const struct adrv9002_rf_phy *phy,
 			dev_err(&phy->spi->dev, "%s not in valid range [%d %d]\n",
 				of_agc_props[prop].key, of_agc_props[prop].min,
 				of_agc_props[prop].max);
-			of_node_put(agc);
 			return -EINVAL;
 		}
 
@@ -1028,7 +999,7 @@ static int adrv9002_parse_rx_agc_dt(const struct adrv9002_rf_phy *phy,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
 				  rx->agc.power.feedback_inner_high_inner_low);
 	if (ret)
-		goto out;
+		return ret;
 
 	/* feedback pins*/
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-power-feedback-low-thres-gain-change",
@@ -1036,22 +1007,19 @@ static int adrv9002_parse_rx_agc_dt(const struct adrv9002_rf_phy *phy,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
 				  rx->agc.power.feedback_apd_high_apd_low);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-peak-feedback-high-thres-counter-exceeded",
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
 				  rx->agc.peak.feedback_apd_low_hb_low);
 	if (ret)
-		goto out;
+		return ret;
 
-	ret = ADRV9002_OF_AGC_PIN("adi,agc-peak-feedback-low-thres-counter-exceeded",
-				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
-				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
-				  rx->agc.peak.feedback_apd_high_hb_high);
-out:
-	of_node_put(agc);
-	return ret;
+	return ADRV9002_OF_AGC_PIN("adi,agc-peak-feedback-low-thres-counter-exceeded",
+				   ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
+				   ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
+				   rx->agc.peak.feedback_apd_high_hb_high);
 }
 
 static int adrv9002_parse_port_switch(struct adrv9002_rf_phy *phy, struct device_node *node)
@@ -1062,6 +1030,18 @@ static int adrv9002_parse_port_switch(struct adrv9002_rf_phy *phy, struct device
 	};
 	const char *mode;
 	int ret;
+
+	/*
+	 * Put some defaults even if disabled as we will have to still call
+	 * adi_adrv9001_Rx_PortSwitch_Configure() during setup() and API validations would
+	 * fail. This needas to be done otherwise selecting port B on RX2 and port A on RX1 would
+	 * not properly work. Likely a bug in the device FW but for now, let`s just
+	 * workaround it here.
+	 */
+	phy->port_switch.minFreqPortA_Hz = 890000000;
+	phy->port_switch.maxFreqPortA_Hz = 910000000;
+	phy->port_switch.minFreqPortB_Hz = 1890000000;
+	phy->port_switch.maxFreqPortB_Hz = 1910000000;
 
 	ret = of_property_read_string(node, "adi,rx-port-switch", &mode);
 	if (ret)
@@ -1136,6 +1116,11 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
 	int ret;
 	u32 min_gain, max_gain;
+
+	if (channel >= phy->chip->n_rx) {
+		dev_err(&phy->spi->dev, "RX%d not supported for this device\n", channel + 1);
+		return -EINVAL;
+	}
 
 	ret = adrv9002_parse_rx_agc_dt(phy, node, rx);
 	if (ret)
@@ -1217,40 +1202,36 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 
 static int adrv9002_parse_gpios_dt(struct adrv9002_rf_phy *phy, const struct device_node *node)
 {
-	struct device_node *of_gpios, *child;
 	struct device *dev = &phy->spi->dev;
-	int ret = 0, idx = 0;
+	int ret, idx = 0;
 
-	of_gpios = of_get_child_by_name(node, "adi,gpios");
+	struct device_node *of_gpios __free(device_node) = of_get_child_by_name(node, "adi,gpios");
 	if (!of_gpios)
 		return 0;
 
 	phy->ngpios = of_get_child_count(of_gpios);
 	if (!phy->ngpios)
-		goto of_gpio_put;
+		return 0;
 
 	phy->adrv9002_gpios = devm_kcalloc(&phy->spi->dev, phy->ngpios,
 					   sizeof(*phy->adrv9002_gpios),
 					   GFP_KERNEL);
-	if (!phy->adrv9002_gpios) {
-		ret = -ENOMEM;
-		goto of_gpio_put;
-	}
+	if (!phy->adrv9002_gpios)
+		return -ENOMEM;
 
-	for_each_available_child_of_node(of_gpios, child) {
+	for_each_available_child_of_node_scoped(of_gpios, child) {
 		u32 gpio, polarity, master, signal;
 
 		ret = of_property_read_u32(child, "reg", &gpio);
 		if (ret) {
 			dev_err(dev, "No reg property defined for gpio\n");
-			goto of_child_put;
+			return ret;
 		}
 
 		if (gpio < ADI_ADRV9001_GPIO_DIGITAL_00 ||
 		    gpio > ADI_ADRV9001_GPIO_ANALOG_11) {
 			dev_err(dev, "Invalid gpio number: %d\n", gpio);
-			ret = -EINVAL;
-			goto of_child_put;
+			return -EINVAL;
 		}
 
 		phy->adrv9002_gpios[idx].gpio.pin = gpio;
@@ -1258,13 +1239,12 @@ static int adrv9002_parse_gpios_dt(struct adrv9002_rf_phy *phy, const struct dev
 		ret = of_property_read_u32(child, "adi,signal", &signal);
 		if (ret) {
 			dev_err(dev, "No adi,signal property defined for gpio%d\n", gpio);
-			goto of_child_put;
+			return ret;
 		}
 
 		if (signal >= ADI_ADRV9001_GPIO_NUM_SIGNALS) {
 			dev_err(dev, "Invalid gpio signal: %d\n", signal);
-			ret = -EINVAL;
-			goto of_child_put;
+			return -EINVAL;
 		}
 
 		phy->adrv9002_gpios[idx].signal = signal;
@@ -1273,8 +1253,7 @@ static int adrv9002_parse_gpios_dt(struct adrv9002_rf_phy *phy, const struct dev
 		if (!ret) {
 			if (polarity > ADI_ADRV9001_GPIO_POLARITY_INVERTED) {
 				dev_err(dev, "Invalid gpio polarity: %d\n", polarity);
-				ret = -EINVAL;
-				goto of_child_put;
+				return -EINVAL;
 			}
 
 			phy->adrv9002_gpios[idx].gpio.polarity = polarity;
@@ -1285,8 +1264,7 @@ static int adrv9002_parse_gpios_dt(struct adrv9002_rf_phy *phy, const struct dev
 			if (master != ADI_ADRV9001_GPIO_MASTER_ADRV9001 &&
 			    master != ADI_ADRV9001_GPIO_MASTER_BBIC) {
 				dev_err(dev, "Invalid gpio master: %d\n", master);
-				ret = -EINVAL;
-				goto of_child_put;
+				return -EINVAL;
 			}
 
 			phy->adrv9002_gpios[idx].gpio.master = master;
@@ -1295,45 +1273,121 @@ static int adrv9002_parse_gpios_dt(struct adrv9002_rf_phy *phy, const struct dev
 		idx++;
 	}
 
-	of_node_put(of_gpios);
 	return 0;
+}
 
-of_child_put:
-	of_node_put(child);
-of_gpio_put:
-	of_node_put(of_gpios);
-	return ret;
+static int adrv9002_parse_plls_dt(struct adrv9002_rf_phy *phy, const struct device_node *node)
+{
+	struct device *dev = &phy->spi->dev;
+	int ret, idx = 0;
+
+	/*
+	 * Configuration needs valid values. Set defaults for all PLLs here in case any DT nodes
+	 * are not provided or out of range
+	 */
+	for (idx = 0; idx < ADRV9002_NUM_PLL_CFGS; idx++) {
+		phy->pll_configs[idx].pll_config.pllCalibration = ADI_ADRV9001_PLL_CALIBRATION_NORMAL;
+		phy->pll_configs[idx].pll_config.pllPower = ADI_ADRV9001_PLL_POWER_LOW;
+		phy->pll_configs[idx].pll_loop_filter.effectiveLoopBandwidth_kHz = 0;
+		phy->pll_configs[idx].pll_loop_filter.loopBandwidth_kHz = 300;
+		phy->pll_configs[idx].pll_loop_filter.phaseMargin_degrees = 60;
+		phy->pll_configs[idx].pll_loop_filter.powerScale = 5;
+	}
+
+	struct device_node *of_plls __free(device_node) = of_get_child_by_name(node, "adi,plls");
+	if (!of_plls)
+		return 0;
+
+	for_each_available_child_of_node_scoped(of_plls, child) {
+		u32 pll;
+		struct adrv9002_pll_config *pll_config;
+
+#define ADRV9002_OF_PLL_OPTIONAL(key, def, min, max, val)	\
+	ADRV9002_OF_U32_GET_VALIDATE(&phy->spi->dev, child, key, def, \
+				     min, max, val, false)
+
+		ret = of_property_read_u32(child, "reg", &pll);
+		if (ret) {
+			dev_err(dev, "No reg property defined for pll\n");
+			return ret;
+		}
+
+		if (pll >= ADRV9002_NUM_PLL_CFGS) {
+			dev_err(dev, "Invalid PLL number: %d\n", pll);
+			return -EINVAL;
+		}
+
+		pll_config = &phy->pll_configs[pll];
+
+		/*
+		 * AUX PLL doesn't use the pll_config struct, just the loop filter.
+		 * Skip un-used checks and sets here.
+		 */
+		if (pll != ADI_ADRV9001_PLL_AUX) {
+			ret = ADRV9002_OF_PLL_OPTIONAL("adi,calibration-mode",
+						       ADI_ADRV9001_PLL_CALIBRATION_NORMAL,
+						       ADI_ADRV9001_PLL_CALIBRATION_NORMAL,
+						       ADI_ADRV9001_PLL_CALIBRATION_FAST,
+						       pll_config->pll_config.pllCalibration);
+			if (ret)
+				return ret;
+
+			ret = ADRV9002_OF_PLL_OPTIONAL("adi,power",
+						       ADI_ADRV9001_PLL_POWER_LOW,
+						       ADI_ADRV9001_PLL_POWER_LOW,
+						       ADI_ADRV9001_PLL_POWER_HIGH,
+						       pll_config->pll_config.pllPower);
+			if (ret)
+				return ret;
+		}
+
+		ret = ADRV9002_OF_PLL_OPTIONAL("adi,loop-bw-khz", 300, 50, 1500,
+					       pll_config->pll_loop_filter.loopBandwidth_kHz);
+		if (ret)
+			return ret;
+
+		ret = ADRV9002_OF_PLL_OPTIONAL("adi,phase-margin-deg", 60, 40, 85,
+					       pll_config->pll_loop_filter.phaseMargin_degrees);
+		if (ret)
+			return ret;
+
+		ret = ADRV9002_OF_PLL_OPTIONAL("adi,power-scale", 5, 0, 10,
+					       pll_config->pll_loop_filter.powerScale);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static int adrv9002_parse_channels_dt(struct adrv9002_rf_phy *phy, const struct device_node *node)
 {
-	struct device_node *of_channels, *child;
 	struct device *dev = &phy->spi->dev;
 	int ret;
 
-	of_channels = of_get_child_by_name(node, "adi,channels");
+	struct device_node *of_channels __free(device_node) = of_get_child_by_name(node,
+										   "adi,channels");
 	if (!of_channels)
 		return 0;
 
-	for_each_available_child_of_node(of_channels, child) {
+	for_each_available_child_of_node_scoped(of_channels, child) {
 		u32 chann, port;
 
 		ret = of_property_read_u32(child, "reg", &chann);
 		if (ret) {
 			dev_err(dev, "No reg property defined for channel\n");
-			goto of_error_put;
+			return ret;
 		}
 
 		if (chann >= ADRV9002_CHANN_MAX) {
 			dev_err(dev, "Invalid value for channel: %d\n", chann);
-			ret = -EINVAL;
-			goto of_error_put;
+			return -EINVAL;
 		}
 
 		ret = of_property_read_u32(child, "adi,port", &port);
 		if (ret) {
 			dev_err(dev, "No port property defined for channel\n");
-			goto of_error_put;
+			return ret;
 		}
 
 		switch (port) {
@@ -1345,21 +1399,14 @@ static int adrv9002_parse_channels_dt(struct adrv9002_rf_phy *phy, const struct 
 			break;
 		default:
 			dev_err(dev, "Unknown port: %d\n", port);
-			ret = -EINVAL;
-			break;
-		};
+			return -EINVAL;
+		}
 
 		if (ret)
-			goto of_error_put;
+			return ret;
 	}
 
-	of_node_put(of_channels);
 	return 0;
-
-of_error_put:
-	of_node_put(child);
-	of_node_put(of_channels);
-	return ret;
 }
 
 int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
@@ -1374,6 +1421,17 @@ int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return ret;
 
+	phy->mcs_pulse_external = of_property_read_bool(parent, "adi,mcs-pulse-external");
+	phy->mcs_trigger_external = of_property_read_bool(parent, "adi,mcs-trigger-external");
+
+	/*
+	 * The below settings don't make sense but everything should still be fully functional...
+	 * Hence, just spit out a Warning and move on...
+	 */
+	if (phy->mcs_trigger_external && phy->mcs_pulse_external)
+		dev_warn(&phy->spi->dev,
+			 "MCS trigger set to external but the MCS pulses are also external. Ignoring...\n");
+
 	ret = adrv9002_parse_port_switch(phy, parent);
 	if (ret)
 		return ret;
@@ -1383,6 +1441,10 @@ int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 		return ret;
 
 	ret = adrv9002_parse_gpios_dt(phy, parent);
+	if (ret)
+		return ret;
+
+	ret = adrv9002_parse_plls_dt(phy, parent);
 	if (ret)
 		return ret;
 

@@ -5,11 +5,11 @@
  * Copyright 2023 Analog Devices Inc.
  *
  */
+#include <linux/adi-axi-common.h>
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/clk.h>
 #include <linux/device.h>
-#include <linux/fpga/adi-axi-common.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
@@ -658,7 +658,7 @@ static int adi_axi_tdd_init_sysfs(struct platform_device *pdev,
 		}
 	}
 
-	attr_group = devm_kzalloc(&pdev->dev, sizeof(attr_group), GFP_KERNEL);
+	attr_group = devm_kzalloc(&pdev->dev, sizeof(*attr_group), GFP_KERNEL);
 	if (!attr_group)
 		return -ENOMEM;
 

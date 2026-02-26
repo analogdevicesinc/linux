@@ -721,7 +721,7 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 	unsigned i, ctrl;
 
-	for (i = 0; i < indio_dev->masklength; i++) {
+	for (i = 0; i < iio_get_masklength(indio_dev); i++) {
 		if (i > (st->have_slave_channels - 1))
 			ctrl = axiadc_slave_read(st,
 				ADI_REG_CHAN_CNTRL(i - st->have_slave_channels));
@@ -939,15 +939,19 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "adi,axi-adrv9009-rx-1.0", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-ad9208-1.0", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-ad9081-rx-1.0", .data = &axi_adc_10_0_a_info },
-	{ .compatible = "adi,axi-adc-10.0.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-adc-legacy-10.0.a", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-adrv9002-rx-1.0", .data = &axi_adc_10_1_b_info},
+	{ .compatible = "adi,axi-adrv9003-rx-1.0", .data = &axi_adc_10_1_b_info},
+	{ .compatible = "adi,axi-adrv9004-rx-1.0", .data = &axi_adc_10_1_b_info},
+	{ .compatible = "adi,axi-adrv9005-rx-1.0", .data = &axi_adc_10_1_b_info},
+	{ .compatible = "adi,axi-adrv9006-rx-1.0", .data = &axi_adc_10_1_b_info},
 	{ .compatible = "adi,axi-ad9083-rx-1.0", .data = &axi_adc_10_0_a_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
 
-int axiadc_append_attrs(struct iio_dev *indio_dev,
-	const struct attribute_group *add_group, unsigned int skip_cnt)
+static int axiadc_append_attrs(struct iio_dev *indio_dev, const struct attribute_group *add_group,
+			       unsigned int skip_cnt)
 {
 	size_t old_cnt = 0, add_cnt = 0, new_cnt;
 	struct attribute **attrs;

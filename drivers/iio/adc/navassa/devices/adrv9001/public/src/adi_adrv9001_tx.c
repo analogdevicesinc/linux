@@ -417,7 +417,7 @@ int32_t adi_adrv9001_Tx_Attenuation_Set(adi_adrv9001_Device_t* device,
 
     /* Save the current attenuation mode and set to the required mode */
     ADI_EXPECT(adi_adrv9001_Tx_AttenuationMode_Get, device, channel, &attenMode);
-    if ((attenMode != ADI_ADRV9001_TX_ATTENUATION_CONTROL_MODE_SPI)&(attenMode != ADI_ADRV9001_TX_ATTENUATION_CONTROL_MODE_CLGC))
+    if ((attenMode != ADI_ADRV9001_TX_ATTENUATION_CONTROL_MODE_SPI) && (attenMode != ADI_ADRV9001_TX_ATTENUATION_CONTROL_MODE_CLGC))
     {
         ADI_EXPECT(adi_adrv9001_Tx_AttenuationMode_Set, device, channel, ADI_ADRV9001_TX_ATTENUATION_CONTROL_MODE_SPI);
     }
@@ -1317,7 +1317,7 @@ int32_t adi_adrv9001_Tx_PaRamp_Configure(adi_adrv9001_Device_t *device,
     //clkDivRatio = device->devStateInfo.clkDivideRatios.anaRefClockRatio;
     refClk_Hz = KILO_TO_BASE_UNIT(device->devStateInfo.deviceClock_kHz) >> clkDivRatio;
 
-    paRampDpClkDiv = DIV_ROUND_CLOSEST(refClk_Hz, KILO_TO_BASE_UNIT(paRampCfg->rampClock_kHz));
+	paRampDpClkDiv = DIV_ROUND_UP(refClk_Hz, KILO_TO_BASE_UNIT(paRampCfg->rampClock_kHz));
     
     ADI_EXPECT(adi_adrv9001_AuxDac_Configure, device, paRampCfg->auxDacChannelSelect, paRampCfg->enable);
     

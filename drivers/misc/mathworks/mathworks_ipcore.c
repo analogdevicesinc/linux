@@ -124,7 +124,7 @@ static int mathworks_ipcore_of_probe(struct platform_device *op)
 		dev_err(dev, "MathWorks IP device registration failed: %d\n", status);
 		return status;
 	}
-   
+
 	switch(info->dev_mode){
 		case MWDEV_MODE_LEGACY:
 			status = mw_stream_channels_probe(mwdev);
@@ -150,14 +150,6 @@ static int mathworks_ipcore_of_probe(struct platform_device *op)
     return status;
 }
 
-/*
- * @brief mathworks_ipcore_of_remove
- */
-static int mathworks_ipcore_of_remove(struct platform_device *pdev)
-{
-    return 0;
-}
-
 static struct platform_driver mathworks_ipcore_driver = {
     .driver = {
         .name = DRIVER_NAME,
@@ -165,7 +157,6 @@ static struct platform_driver mathworks_ipcore_driver = {
         .of_match_table = mathworks_ipcore_of_match,
     },
     .probe = mathworks_ipcore_of_probe,
-    .remove = mathworks_ipcore_of_remove,
 };
 
 module_platform_driver(mathworks_ipcore_driver);

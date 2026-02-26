@@ -61,7 +61,7 @@
 				gpio-controller;
 			};
 
-			rx_dma: dma@40000 {
+			rx_dma: dma-controller@40000 {
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x00040000 0x1000>;
 				#dma-cells = <1>;
@@ -70,7 +70,7 @@
 				clocks = <&dma_clk>;
 			};
 
-			tx_dma: dma@44000 {
+			tx_dma: dma-controller@44000 {
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x00044000 0x00000800>;
 				#dma-cells = <1>;

@@ -10,7 +10,7 @@
 #include <linux/device.h>
 #include <linux/mfd/idt8a340_reg.h>
 #include <linux/mfd/rsmu.h>
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 
 #include "rsmu_cdev.h"
 
@@ -192,6 +192,8 @@ static int rsmu_cm_set_output_tdc_go(struct rsmu_cdev *rsmu, u8 tdc, u8 enable)
 
 	err = regmap_bulk_read(rsmu->regmap, tdc_n + tdc_ctrl4_offset,
 			       &reg, sizeof(reg));
+	if (err)
+		return err;
 
 	if (enable)
 		reg |= 0x01;
@@ -330,7 +332,7 @@ static int rsmu_cm_get_fw_version(struct rsmu_cdev *rsmu)
 static int rsmu_cm_load_firmware(struct rsmu_cdev *rsmu,
 				 char fwname[FW_NAME_LEN_MAX])
 {
-	u16 scratch = IDTCM_FW_REG(rsmu->fw_version, V520, SCRATCH);
+	u32 scratch = IDTCM_FW_REG(rsmu->fw_version, V520, SCRATCH);
 	char fname[FW_NAME_LEN_MAX] = FW_FILENAME;
 	const struct firmware *fw;
 	struct idtcm_fwrc *rec;
@@ -346,10 +348,8 @@ static int rsmu_cm_load_firmware(struct rsmu_cdev *rsmu,
 	dev_info(rsmu->dev, "requesting firmware '%s'", fname);
 
 	err = request_firmware(&fw, fname, rsmu->dev);
-	if (err) {
-		dev_err(rsmu->dev, "Loading firmware %s failed !!!", fname);
+	if (err)
 		return err;
-	}
 
 	dev_dbg(rsmu->dev, "firmware size %zu bytes", fw->size);
 

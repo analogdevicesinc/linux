@@ -23,9 +23,9 @@
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/adc/ad_sigma_delta.h>
 
-#include <linux/spi/legacy-spi-engine.h>
+#include <linux/unaligned.h>
 
-#include <asm/unaligned.h>
+#include <linux/spi/legacy-spi-engine.h>
 
 #define AD_SD_COMM_CHAN_MASK	0x3
 
@@ -310,13 +310,13 @@ int ad_sd_calibrate(struct ad_sigma_delta *sigma_delta,
 	unsigned int mode, unsigned int channel)
 {
 	int ret;
-	unsigned long timeout;
+	unsigned long time_left;
 
 	ret = ad_sigma_delta_set_channel(sigma_delta, channel);
 	if (ret)
 		return ret;
 
-	spi_bus_lock(sigma_delta->spi->master);
+	spi_bus_lock(sigma_delta->spi->controller);
 	sigma_delta->bus_locked = true;
 	sigma_delta->keep_cs_asserted = true;
 	reinit_completion(&sigma_delta->completion);
@@ -330,8 +330,8 @@ int ad_sd_calibrate(struct ad_sigma_delta *sigma_delta,
 		goto out;
 
 	ad_sd_enable_irq(sigma_delta);
-	timeout = wait_for_completion_timeout(&sigma_delta->completion, 2 * HZ);
-	if (timeout == 0) {
+	time_left = wait_for_completion_timeout(&sigma_delta->completion, 2 * HZ);
+	if (time_left == 0) {
 		ad_sd_disable_irq(sigma_delta);
 		ret = -EIO;
 	} else {
@@ -342,7 +342,7 @@ out:
 	ad_sigma_delta_set_mode(sigma_delta, AD_SD_MODE_IDLE);
 	ad_sigma_delta_disable_one(sigma_delta, channel);
 	sigma_delta->bus_locked = false;
-	spi_bus_unlock(sigma_delta->spi->master);
+	spi_bus_unlock(sigma_delta->spi->controller);
 
 	return ret;
 }
@@ -396,7 +396,7 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 	if (ret)
 		goto out_release;
 
-	spi_bus_lock(sigma_delta->spi->master);
+	spi_bus_lock(sigma_delta->spi->controller);
 	sigma_delta->bus_locked = true;
 	sigma_delta->keep_cs_asserted = true;
 	reinit_completion(&sigma_delta->completion);
@@ -434,7 +434,7 @@ out:
 out_unlock:
 	sigma_delta->keep_cs_asserted = false;
 	sigma_delta->bus_locked = false;
-	spi_bus_unlock(sigma_delta->spi->master);
+	spi_bus_unlock(sigma_delta->spi->controller);
 out_release:
 	iio_device_release_direct_mode(indio_dev);
 
@@ -509,7 +509,7 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 
 	if (sigma_delta->num_slots == 1) {
 		channel = find_first_bit(indio_dev->active_scan_mask,
-					 indio_dev->masklength);
+					 iio_get_masklength(indio_dev));
 		ret = ad_sigma_delta_set_channel(sigma_delta,
 						 indio_dev->channels[channel].address);
 		if (ret)
@@ -522,7 +522,7 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 		 * implementation is mandatory.
 		 */
 		slot = 0;
-		for_each_set_bit(i, indio_dev->active_scan_mask, indio_dev->masklength) {
+		iio_for_each_active_channel(indio_dev, i) {
 			sigma_delta->slots[slot] = indio_dev->channels[i].address;
 			slot++;
 		}
@@ -547,7 +547,7 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 
 	sigma_delta->samples_buf = samples_buf;
 
-	spi_bus_lock(sigma_delta->spi->master);
+	spi_bus_lock(sigma_delta->spi->controller);
 	sigma_delta->bus_locked = true;
 	sigma_delta->keep_cs_asserted = true;
 
@@ -572,7 +572,7 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	return 0;
 
 err_unlock:
-	spi_bus_unlock(sigma_delta->spi->master);
+	spi_bus_unlock(sigma_delta->spi->controller);
 
 	return ret;
 }
@@ -598,7 +598,7 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 
 	ad_sigma_delta_disable_all(sigma_delta);
 	sigma_delta->bus_locked = false;
-	return spi_bus_unlock(sigma_delta->spi->master);
+	return spi_bus_unlock(sigma_delta->spi->controller);
 }
 
 static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
@@ -696,7 +696,7 @@ static bool ad_sd_validate_scan_mask(struct iio_dev *indio_dev, const unsigned l
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 
-	return bitmap_weight(mask, indio_dev->masklength) <= sigma_delta->num_slots;
+	return bitmap_weight(mask, iio_get_masklength(indio_dev)) <= sigma_delta->num_slots;
 }
 
 static const struct iio_buffer_setup_ops ad_sd_buffer_setup_ops = {
@@ -758,6 +758,7 @@ EXPORT_SYMBOL_NS_GPL(ad_sd_validate_trigger, IIO_AD_SIGMA_DELTA);
 static int devm_ad_sd_probe_trigger(struct device *dev, struct iio_dev *indio_dev)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
+	unsigned long irq_flags = irq_get_trigger_type(sigma_delta->irq_line);
 	int ret;
 
 	if (dev != &sigma_delta->spi->dev) {
@@ -776,11 +777,15 @@ static int devm_ad_sd_probe_trigger(struct device *dev, struct iio_dev *indio_de
 	sigma_delta->irq_dis = true;
 
 	/* the IRQ core clears IRQ_DISABLE_UNLAZY flag when freeing an IRQ */
-	irq_set_status_flags(sigma_delta->spi->irq, IRQ_DISABLE_UNLAZY);
+	irq_set_status_flags(sigma_delta->irq_line, IRQ_DISABLE_UNLAZY);
+
+	/* Allow overwriting the flags from firmware */
+	if (!irq_flags)
+		irq_flags = sigma_delta->info->irq_flags;
 
 	ret = devm_request_irq(dev, sigma_delta->irq_line,
 			       ad_sd_data_rdy_trig_poll,
-			       sigma_delta->info->irq_flags | IRQF_NO_AUTOEN,
+			       irq_flags | IRQF_NO_AUTOEN,
 			       indio_dev->name,
 			       sigma_delta);
 	if (ret)

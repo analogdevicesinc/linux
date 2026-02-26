@@ -708,8 +708,8 @@ int ad9208_adc_set_ddc_nco_mode(ad9208_handle_t *h,
 	return API_ERROR_OK;
 }
 
-int ad9680_adc_set_ddc_nco_ftw(ad9208_handle_t *h, uint8_t ddc_ch,
-			       uint64_t ftw, uint64_t mod_a, uint64_t mod_b)
+static int ad9680_adc_set_ddc_nco_ftw(ad9208_handle_t *h, uint8_t ddc_ch,
+				      uint64_t ftw, uint64_t mod_a, uint64_t mod_b)
 {
 	int err, offset;
 	uint8_t tmp_reg;

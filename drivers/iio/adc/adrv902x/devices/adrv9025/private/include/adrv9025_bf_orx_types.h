@@ -56,3 +56,4 @@ typedef enum adrv9025_BfOrxFpRoundMode
 #endif /* __ADRV9025_BF_ORX_TYPES_H__ */
 
 /*  EOF: adrv9025_bf_orx_types.h */
+

@@ -60,7 +60,8 @@
 		reg = <0x44b00000 0x1000>;
 		label = "adc_conversion_trigger";
 		#pwm-cells = <3>;
-		clocks = <&spi_clk>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "axi", "ext";
 	};
 
 	spi_clk: clock-controller@44a70000 {
@@ -74,12 +75,12 @@
 		assigned-clock-rates = <160000000>;
 	};
 
-	rx_dma: rx-dmac@44a30000 {
+	rx_dma: dma-controller@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 17>;
+		clocks = <&clkc 15>;
 	};
 
 	axi_spi_engine_0: spi@44a00000 {

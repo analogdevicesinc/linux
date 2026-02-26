@@ -26,7 +26,7 @@
 };
 
 &fpga_axi {
-	rx_dma: dmac@44a30000 {
+	rx_dma: dma-controller@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
@@ -34,7 +34,7 @@
 		clocks = <&clkc 15>;
 	};
 
-	ref_clk: clk@44a70000 {
+	ref_clk: clock-controller@44a70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a70000 0x10000>;
 		#clock-cells = <0>;
@@ -48,7 +48,8 @@
 		reg = <0x44a60000 0x1000>;
 		label = "ltc2387_if";
 		#pwm-cells = <2>;
-		clocks = <&ref_clk 0>;
+		clocks = <&clkc 15>, <&ref_clk>;
+		clock-names = "axi", "ext";
 	};
 
 	ltc2387: adc@0{

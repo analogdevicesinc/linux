@@ -79,28 +79,28 @@ static int	mathworks_generic_of_get_param(struct mathworks_ip_info *thisIpcore, 
 	struct mathworks_ip_param_info pinfo;
 	const void *paramData;
 	int len;
-	
+
 	if( copy_from_user(&pinfo, (struct mathworks_ip_param_info *)arg, sizeof(struct mathworks_ip_param_info)) ) {
 		return -EACCES;
 	}
-	
+
 	paramData = of_get_property(thisIpcore->dev->of_node,pinfo.name, &len);
 	pinfo.size = len;
-	
+
 	/* Copy the struct back to user space */
 	if( copy_to_user((struct mathworks_ip_param_info*)arg, &pinfo, sizeof(struct mathworks_ip_param_info)) ) {
 		return -EACCES;
 	}
-	
+
 	/* Copy any data to the user buf */
 	if (paramData) {
 		if( copy_to_user((void *)pinfo.buf, paramData, pinfo.size) ){
 			return -EACCES;
-		}	
+		}
 	} else {
 		return -ENODEV;
 	}
-	
+
 	return 0;
 }
 
@@ -154,26 +154,13 @@ static int mathworks_generic_of_probe(struct platform_device *pdev)
     return 0;
 }
 
-
-static int mathworks_generic_of_remove(struct platform_device *pdev)
-{
-	struct mathworks_ip_info *thisIpcore = dev_get_drvdata(&pdev->dev);
-
-    dev_info(thisIpcore->dev, "free and release memory\n");
-	
-    return 0;
-}
-
-
-
 static struct platform_driver mathworks_ip_driver = {
     .driver = {
 		.name = DRIVER_NAME,
-		.owner = THIS_MODULE, 
+		.owner = THIS_MODULE,
 		.of_match_table = mathworks_generic_of_match,
 		},
     .probe = mathworks_generic_of_probe,
-    .remove = mathworks_generic_of_remove,
 };
 
 module_platform_driver(mathworks_ip_driver);

@@ -375,7 +375,7 @@ static int jesd204b_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int jesd204b_remove(struct platform_device *pdev)
+static void jesd204b_remove(struct platform_device *pdev)
 {
 	struct jesd204b_state *st = platform_get_drvdata(pdev);
 
@@ -383,8 +383,6 @@ static int jesd204b_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(st->clk);
 	clk_put(st->clk);
-
-	return 0;
 }
 
 static struct platform_driver jesd204b_v51_driver = {

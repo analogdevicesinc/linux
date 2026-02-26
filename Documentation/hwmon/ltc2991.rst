@@ -32,7 +32,7 @@ internal temperatureand internal VCC.
 
 
 sysfs-Interface
--------------
+---------------
 
 The following attributes are supported. Limits are read-only.
 

@@ -50,6 +50,18 @@
 		#clock-cells = <0>;
 		clock-frequency = <150000000>;
 	};
+
+	dpcon {
+		compatible = "dp-connector";
+		label = "P11";
+		type = "full-size";
+
+		port {
+			dpcon_in: endpoint {
+				remote-endpoint = <&dpsub_dp_out>;
+			};
+		};
+	};
 };
 
 &psgtr {
@@ -326,22 +338,14 @@
 	phy-names = "dp-phy0";
 	phys = <&psgtr 3 PHY_TYPE_DP 0 1>,
 		<&psgtr 2 PHY_TYPE_DP 1 1>;
-};
 
-&zynqmp_dp_snd_codec0 {
-	status = "okay";
-};
-
-&zynqmp_dp_snd_pcm0 {
-	status = "okay";
-};
-
-&zynqmp_dp_snd_pcm1 {
-	status = "okay";
-};
-
-&zynqmp_dp_snd_card0 {
-	status = "okay";
+	ports {
+		port@5 {
+			dpsub_dp_out: endpoint {
+				remote-endpoint = <&dpcon_in>;
+			};
+		};
+	};
 };
 
 &zynqmp_dpdma {
@@ -397,13 +401,6 @@
 		output-high;
 		line-name = "usb-reset";
 	};
-
-	fan_ctl {
-		gpio-hog;
-		gpios = <145 GPIO_ACTIVE_HIGH>;
-		output-low;
-		line-name = "fan-ctl";
-	};
 };
 
 &spi0 {
@@ -438,7 +435,7 @@
 		#size-cells = <0x1>;
 		ranges = <0 0 0 0xffffffff>;
 
-		rx1_dma: dma@84A30000 {
+		rx1_dma: dma-controller@84A30000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x84A30000 0x10000>;
 			#dma-cells = <1>;
@@ -447,7 +444,7 @@
 			clocks = <&zynqmp_clk 71>;
 		};
 
-		tx1_dma: dma@84A50000 {
+		tx1_dma: dma-controller@84A50000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x84A50000 0x10000>;
 			#dma-cells = <1>;

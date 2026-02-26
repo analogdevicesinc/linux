@@ -92,6 +92,7 @@ enum {
 	JESD204_LNK_ATTR_fsm_paused,
 	JESD204_LNK_ATTR_fsm_ignore_errors,
 	JESD204_LNK_ATTR_sample_rate,
+	JESD204_LNK_ATTR_sample_rate_div,
 	JESD204_LNK_ATTR_is_transmit,
 	JESD204_LNK_ATTR_num_lanes,
 	JESD204_LNK_ATTR_num_converters,
@@ -122,6 +123,7 @@ static const struct jesd204_attr jesd204_lnk_attrs[] = {
 	JESD204_LNK_ATTR_BOOL_PRIV(fsm_paused),
 	JESD204_LNK_ATTR_BOOL_PRIV(fsm_ignore_errors),
 	JESD204_LNK_ATTR_UINT(sample_rate),
+	JESD204_LNK_ATTR_UINT(sample_rate_div),
 	JESD204_LNK_ATTR_BOOL(is_transmit),
 	JESD204_LNK_ATTR_UINT(num_lanes),
 	JESD204_LNK_ATTR_UINT(num_converters),
@@ -212,7 +214,7 @@ static ssize_t jesd204_con_printf(struct jesd204_dev *jdev,
 
 static char *str_cut_from_chr(char *s, char c)
 {
-	char *ptr = strchr(s, '_');
+	char *ptr = strchr(s, c);
 
 	if (!ptr)
 		return NULL;
@@ -308,6 +310,7 @@ static ssize_t jesd204_con_show(struct device *dev,
 			rc = jesd204_con_printf(e->jdev, ptr1, con, buf);
 			break;
 		}
+		iter_idx++;
 	}
 
 out:
@@ -320,7 +323,8 @@ static ssize_t jesd204_show_store_int(u64 *val, size_t usize,
 				      size_t count, bool store, bool is_signed)
 {
 	u64 val1 = 0;
-	int ret, max;
+	u64 max;
+	int ret;
 
 	if (!store) {
 		memcpy(&val1, val, usize);
@@ -330,7 +334,7 @@ static ssize_t jesd204_show_store_int(u64 *val, size_t usize,
 	}
 
 	if (is_signed)
-		ret = kstrtoll(rbuf, 0, &val1);
+		ret = kstrtoll(rbuf, 0, (s64 *)&val1);
 	else
 		ret = kstrtoull(rbuf, 0, &val1);
 	if (ret)
@@ -338,13 +342,13 @@ static ssize_t jesd204_show_store_int(u64 *val, size_t usize,
 
 	switch (usize) {
 	case 1:
-		max = 0xff;
+		max = U8_MAX;
 		break;
 	case 2:
-		max = 0xffff;
+		max = U16_MAX;
 		break;
 	case 4:
-		max = 0xffffffff;
+		max = U32_MAX;
 		break;
 	case 8:
 		max = 0;
@@ -550,6 +554,9 @@ static int jesd204_dev_create_con_io_attrs(struct device *parent,
 
 	for (i = 0; i < ARRAY_SIZE(jesd204_con_attrs); i++, conattr_idx++) {
 		attr = &(conattrs[conattr_idx].attr);
+
+		sysfs_attr_init(attr);
+
 		if (i2 > -1)
 			attr->name = devm_kasprintf(parent, GFP_KERNEL,
 						    "out%d_%d_%s", i1, i2,
@@ -646,6 +653,7 @@ static struct device_attribute *jesd204_dev_create_lnk_attrs(
 		for (i2 = 0; i2 < num_lnk_attrs; i2++) {
 			jattr = &jesd204_lnk_attrs[i2];
 			attr = &(lnkattrs[lnkattr_idx].attr);
+			sysfs_attr_init(attr);
 			attr->mode = 0644;
 			attr->name = devm_kasprintf(parent, GFP_KERNEL,
 						    "link%d_%s", i1,

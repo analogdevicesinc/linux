@@ -5,12 +5,12 @@
  *
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <media/media-device.h>
-#include <linux/fpga/adi-axi-common.h>
 
 /* DMA defines */
 #define DMAC_REG_CTRL				0x400
@@ -273,7 +273,7 @@ static int frame_buffer_probe(struct platform_device *pdev)
 
 	frm_buff->media_dev.dev = &pdev->dev;
 
-	strlcpy(frm_buff->media_dev.model, "ADI AXI Frame Buffer",
+	strscpy(frm_buff->media_dev.model, "ADI AXI Frame Buffer",
 		sizeof(frm_buff->media_dev.model));
 
 	frm_buff->media_dev.hw_revision = 0;

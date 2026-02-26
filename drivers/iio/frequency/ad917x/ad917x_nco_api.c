@@ -985,3 +985,52 @@ int ad917x_nco_channel_freq_get(ad917x_handle_t *h,
 				   carrier_freq_hz);
 }
 
+int ad917x_nco_phase_align(ad917x_handle_t *h, u8 dacs)
+{
+	u8 regval;
+	int err;
+
+	if (!h)
+		return API_ERROR_INVALID_HANDLE_PTR;
+
+	err = ad917x_set_page_idx(h, dacs, AD917X_CH_NONE);
+	if (err != API_ERROR_OK)
+		return err;
+
+	err = ad917x_register_read(h, AD917X_DDSM_DATAPATH_CFG_REG, &regval);
+	if (err != API_ERROR_OK)
+		return err;
+
+	/*
+	 * Set alignment of both channel and main data paths by assuring
+	 * EN_SYNC_ALL_CHNL_NCO_RESETS bit is set.
+	 * If EN_SYNC_ALL_CHNL_NCO_RESETS = 0, then the NCOs within a DAC path
+	 * will be synced but not across DAC paths.
+	 */
+	regval |= AD917X_DDSM_EN_SYNC_ALL_CHNL_NCO_RESETS;
+
+	err = ad917x_register_write(h, AD917X_DDSM_DATAPATH_CFG_REG, regval);
+	if (err != API_ERROR_OK)
+		return err;
+
+	/* As per defined sequence, ensure register 0x8 is set to page DAC1 */
+	err = ad917x_set_page_idx(h, AD917X_DAC1, AD917X_CH_NONE);
+	if (err != API_ERROR_OK)
+		return err;
+
+	err = ad917x_register_read(h, AD917X_DDSM_ALIGN_REG, &regval);
+	if (err != API_ERROR_OK)
+		return err;
+
+	/*
+	 * Set ALIGN_ARM (0x11e[7]) to zero, followed by one to tell NCOs to use
+	 * the next SYSREF rising edge for reset.
+	 */
+	err = ad917x_register_write(h, AD917X_DDSM_ALIGN_REG,
+				    regval & ~AD917X_ALIGN_ARM);
+	if (err != API_ERROR_OK)
+		return err;
+
+	return ad917x_register_write(h, AD917X_DDSM_ALIGN_REG,
+				    regval | AD917X_ALIGN_ARM);
+}

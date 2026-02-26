@@ -40,6 +40,9 @@
 #define AD9172_ATTR_MAIN_PHASE(x) (7 << 8 | (x))
 #define AD9172_ATTR_MAIN_NCO_EN(x) (8 << 8 | (x))
 
+#define AD9172_DYN_DELAY_MARGIN 2
+#define AD9172_DYN_DELAY_MAX 0xC
+
 enum chip_id {
 	CHIPID_AD9171 = 0x71,
 	CHIPID_AD9172 = 0x72,
@@ -67,9 +70,12 @@ struct ad9172_state {
 	u32 clock_output_config;
 	u32 scrambling;
 	u32 sysref_mode;
+	u32 sysref_err_win;
 	bool pll_bypass;
 	signal_type_t syncoutb_type;
 	signal_coupling_t sysref_coupling;
+	u32 lmfc_delay;
+	u32 lmfc_var;
 	u8 nco_main_enable;
 	u8 nco_channel_enable;
 	u8 logic_lanes[8];
@@ -118,6 +124,7 @@ static int ad9172_link_status_get(struct ad9172_state *st, unsigned long lane_ra
 	struct regmap *map = st->map;
 	struct device *dev = regmap_get_device(map);
 	ad917x_jesd_link_stat_t link_status;
+	u8 lat;
 	int ret, i;
 
 	for (i = JESD_LINK_0; i <= JESD_LINK_1; i++) {
@@ -134,13 +141,32 @@ static int ad9172_link_status_get(struct ad9172_state *st, unsigned long lane_ra
 			i, link_status.good_checksum_stat);
 		dev_info(dev, "Link%d init_lane_sync_stat: %x\n",
 			i, link_status.init_lane_sync_stat);
-		dev_info(dev, "Link%d %d lanes @ %lu kBps\n",
+		dev_info(dev, "Link%d %d lanes @ %lu kbps\n",
 			i, st->appJesdConfig.jesd_L, lane_rate_kHz);
 
 		if (hweight8(link_status.code_grp_sync_stat) != st->appJesdConfig.jesd_L ||
 			link_status.code_grp_sync_stat != link_status.frame_sync_stat ||
 			link_status.code_grp_sync_stat != link_status.init_lane_sync_stat)
 			return -EFAULT;
+
+		ret = ad917x_get_dyn_latency(&st->dac_h, i, &lat);
+		if (ret != 0) {
+			dev_err(dev,
+				"Reading Link%d dynamic latency failed\n", i);
+			return -EIO;
+		}
+		dev_dbg(dev, "Link%d dynamic link latency: 0x%x\n", i, lat);
+		/*
+		 * Use a safe margin of 2 PCLK cycles
+		 * HW can buffer up to 0xC PCLK cycles of data, link is
+		 * operational for values above 0xC, but data will be lost
+		 */
+		if (lat < AD9172_DYN_DELAY_MARGIN ||
+		    lat > (AD9172_DYN_DELAY_MAX - AD9172_DYN_DELAY_MARGIN)) {
+			dev_err(dev, "Link%d invalid dyn. link latency: 0x%x\n",
+				i, lat);
+			return -EINVAL;
+		}
 
 		if (!st->jesd_dual_link_mode)
 			break;
@@ -153,7 +179,7 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 {
 	ad917x_handle_t *ad917x_h = &st->dac_h;
 	int ret;
-	u8 dac_mask, chan_mask;
+	u8 dac_mask = AD917X_DAC_NONE, ch_mask;
 
 	if (st->jesd_dual_link_mode || st->interpolation == 1)
 		dac_mask = AD917X_DAC0 | AD917X_DAC1;
@@ -161,8 +187,8 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 		dac_mask = AD917X_DAC0;
 
 	if (st->interpolation > 1) {
-		chan_mask = GENMASK(st->appJesdConfig.jesd_M / 2, 0);
-		ret = ad917x_set_page_idx(ad917x_h, AD917X_DAC_NONE, chan_mask);
+		ch_mask = GENMASK(st->appJesdConfig.jesd_M / 2, 0);
+		ret = ad917x_set_page_idx(ad917x_h, AD917X_DAC_NONE, ch_mask);
 		if (ret)
 			return ret;
 
@@ -170,9 +196,14 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 		if (ret)
 			return ret;
 
-		st->nco_main_enable = dac_mask;
+		if (st->nco_main_enable)
+			dac_mask = st->nco_main_enable;
+		else
+			st->nco_main_enable = dac_mask;
 
-		ad917x_nco_enable(ad917x_h, st->nco_main_enable, 0);
+		ret = ad917x_nco_enable(ad917x_h, dac_mask, st->nco_channel_enable);
+		if (ret)
+			return ret;
 	}
 
 	ret = ad917x_set_page_idx(ad917x_h, dac_mask, AD917X_CH_NONE);
@@ -180,6 +211,11 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 		return -EIO;
 
 	return regmap_write(st->map, 0x596, 0x1c);
+}
+
+static void ad9172_clk_disable(void *clk)
+{
+	clk_disable_unprepare(clk);
 }
 
 static int ad9172_setup(struct ad9172_state *st)
@@ -330,6 +366,13 @@ static int ad9172_setup(struct ad9172_state *st)
 		 ((pll_lock_status & 0x1) == 0x1) ?
 		 "Locked" : "Unlocked",  pll_lock_status);
 
+	ret = ad917x_jesd_set_lmfc_delay(&st->dac_h, JESD_LINK_ALL,
+					 st->lmfc_delay, st->lmfc_var);
+	if (ret) {
+		dev_err(dev, "failed to set LMFC delay (%d)\n", ret);
+		return ret;
+	}
+
 	/* No need to continue here when jesd204-fsm enabled */
 	if (st->jdev)
 		return 0;
@@ -353,9 +396,9 @@ static int ad9172_setup(struct ad9172_state *st)
 		return ret;
 	}
 
-	devm_add_action_or_reset(dev,
-				 (void(*)(void *))clk_disable_unprepare,
-				 st->conv.clk[CLK_DATA]);
+	ret = devm_add_action_or_reset(dev, ad9172_clk_disable, st->conv.clk[CLK_DATA]);
+	if (ret)
+		return ret;
 
 	ad917x_jesd_set_sysref_enable(ad917x_h, !!st->jesd_subclass);
 
@@ -398,9 +441,9 @@ static int ad9172_get_clks(struct cf_axi_converter *conv)
 			if (ret < 0)
 				return ret;
 
-			devm_add_action_or_reset(&conv->spi->dev,
-					(void(*)(void *))clk_disable_unprepare,
-					clk);
+			ret = devm_add_action_or_reset(&conv->spi->dev, ad9172_clk_disable, clk);
+			if (ret)
+				return ret;
 		}
 
 		of_clk_get_scale(conv->spi->dev.of_node,
@@ -928,12 +971,20 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 	if (of_property_read_u32(np, "adi,sysref-mode", &st->sysref_mode))
 		st->sysref_mode = SYSREF_CONT;
 
+	st->sysref_err_win = 0;
+	of_property_read_u32(np, "adi,sysref-error-window", &st->sysref_err_win);
+
 	/*Logic lane configuration*/
 	ret = of_property_read_u8_array(np,"adi,logic-lanes-mapping",
 				      st->logic_lanes, sizeof(st->logic_lanes));
 	if (ret)
 		for(i = 0; i < sizeof(st->logic_lanes); i++)
 			st->logic_lanes[i] = i;
+
+	of_property_read_u32(np, "adi,lmfc-delay", &st->lmfc_delay);
+
+	st->lmfc_var = 0xC;
+	of_property_read_u32(np, "adi,lmfc-var-delay", &st->lmfc_var);
 
 	return 0;
 }
@@ -994,12 +1045,33 @@ static int ad9172_jesd204_link_enable(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct ad9172_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9172_state *st = priv->st;
+	u8 dac_mask;
 	int ret;
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		 __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
+	if (st->jesd_dual_link_mode || st->interpolation == 1)
+		dac_mask = AD917X_DAC0 | AD917X_DAC1;
+	else
+		dac_mask = AD917X_DAC0;
+
+	ret = ad917x_nco_phase_align(&st->dac_h, dac_mask);
+	if (ret != 0) {
+		dev_err(dev, "Failed to arm NCO phase alignment (%d)\n", ret);
+		return ret;
+	}
+
 	ad917x_jesd_set_sysref_enable(&st->dac_h, !!st->jesd_subclass);
+
+	if (lnk->subclass == JESD204_SUBCLASS_1 &&
+	    st->sysref_mode == SYSREF_ONESHOT) {
+		ret = ad917x_jesd_oneshot_sync(&st->dac_h, st->sysref_err_win);
+		if (ret) {
+			dev_err(dev, "Failed to set oneshot sync (%d)\n", ret);
+			return ret;
+		}
+	}
 
 	/*Enable Link*/
 	ret = ad917x_jesd_enable_link(&st->dac_h, JESD_LINK_ALL,
@@ -1021,6 +1093,7 @@ static int ad9172_jesd204_link_running(struct jesd204_dev *jdev,
 	struct ad9172_state *st = priv->st;
 	unsigned long lane_rate_khz;
 	int ret;
+	bool done;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
@@ -1038,6 +1111,20 @@ static int ad9172_jesd204_link_running(struct jesd204_dev *jdev,
 	if (ret) {
 		dev_err(dev, "Failed JESD204 link status (%d)\n", ret);
 		return ret;
+	}
+
+	if (lnk->subclass == JESD204_SUBCLASS_1 &&
+	    st->sysref_mode == SYSREF_ONESHOT) {
+		ret = ad917x_jesd_get_sync_rotation_done(&st->dac_h, &done);
+		if (ret) {
+			dev_err(dev, "Failed sync rotation read (%d)\n", ret);
+			return ret;
+		}
+
+		if (!done) {
+			dev_err(dev, "JESD204 sync rotation check failed\n");
+			return JESD204_STATE_CHANGE_ERROR;
+		}
 	}
 
 	return JESD204_STATE_CHANGE_DONE;

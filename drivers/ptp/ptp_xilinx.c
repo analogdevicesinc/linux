@@ -59,9 +59,9 @@
 #define XPTPTIMER_CFG_AUTO_REF	BIT(4)
 
 #define XPTPTIMER_MAX_SEC_SIZE		48
-#define XPTPTIMER_MAX_SEC_MASK		GENMASK(XPTPTIMER_MAX_SEC_SIZE - 1, 0)
+#define XPTPTIMER_MAX_SEC_MASK		GENMASK_ULL(XPTPTIMER_MAX_SEC_SIZE - 1, 0)
 
-#define XPTPTIMER_TOD_OFFSET_NEG	BIT(47)
+#define XPTPTIMER_TOD_OFFSET_NEG	BIT_ULL(47)
 
 #define XPTPTIMER_SNAPSHOT_MASK		BIT(0)
 #define XPTPTIMER_LOAD_TOD_MASK		BIT(0)
@@ -498,7 +498,7 @@ static int xlnx_ptp_timer_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int xlnx_ptp_timer_remove(struct platform_device *pdev)
+static void xlnx_ptp_timer_remove(struct platform_device *pdev)
 {
 	struct xlnx_ptp_timer *timer = platform_get_drvdata(pdev);
 
@@ -507,8 +507,6 @@ static int xlnx_ptp_timer_remove(struct platform_device *pdev)
 		xlnx_ptp_iow(timer, XPTPTIMER_IER_OFFSET,
 			     (u32)~(XPTPTIMER_EXTS_1PPS_INTR_MASK));
 	ptp_clock_unregister(timer->ptp_clock);
-
-	return 0;
 }
 
 static const struct of_device_id timer_1588_of_match[] = {

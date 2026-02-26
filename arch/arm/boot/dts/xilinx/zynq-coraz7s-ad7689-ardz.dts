@@ -11,6 +11,7 @@
  */
 /dts-v1/;
 #include "zynq-coraz7s.dtsi"
+#include "zynq-coraz7s-axi-sysid.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
@@ -31,7 +32,8 @@
 		reg = <0x44b00000 0x1000>;
 		label = "adc_conversion_trigger";
 		#pwm-cells = <2>;
-		clocks = <&spi_clk>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "axi", "ext";
 	};
 
 	spi_engine: spi@44a00000 {
@@ -90,7 +92,7 @@
 		};
 	};
 
-	rx_dma: rx-dmac@44a30000 {
+	rx_dma: dma-controller@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
@@ -99,7 +101,7 @@
 		clocks = <&clkc 16>;
 	};
 
-	spi_clk: axi-clkgen@44a70000 {
+	spi_clk: clock-controller@44a70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a70000 0x10000>;
 		#clock-cells = <0>;

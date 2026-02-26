@@ -71,15 +71,29 @@
 
 /* Phy Status/Control Register definitions */
 #define XILINX_PCIE_DMA_REG_PSCR_LNKUP	BIT(11)
+#define QDMA_BRIDGE_BASE_OFF		0xcd8
 
 /* Number of MSI IRQs */
 #define XILINX_NUM_MSI_IRQS	64
+
+enum xilinx_pl_dma_version {
+	XDMA,
+	QDMA,
+};
+
+/**
+ * struct xilinx_pl_dma_variant - PL DMA PCIe variant information
+ * @version: DMA version
+ */
+struct xilinx_pl_dma_variant {
+	enum xilinx_pl_dma_version version;
+};
 
 struct xilinx_msi {
 	struct irq_domain	*msi_domain;
 	unsigned long		*bitmap;
 	struct irq_domain	*dev_domain;
-	struct mutex		lock;		/* protect bitmap variable */
+	struct mutex		lock;		/* Protect bitmap variable */
 	int			irq_msi0;
 	int			irq_msi1;
 };
@@ -88,6 +102,7 @@ struct xilinx_msi {
  * struct pl_dma_pcie - PCIe port information
  * @dev: Device pointer
  * @reg_base: IO Mapped Register Base
+ * @cfg_base: IO Mapped Configuration Base
  * @irq: Interrupt number
  * @cfg: Holds mappings of config space window
  * @phys_reg_base: Physical address of reg base
@@ -97,10 +112,12 @@ struct xilinx_msi {
  * @msi: MSI information
  * @intx_irq: INTx error interrupt number
  * @lock: Lock protecting shared register access
+ * @variant: PL DMA PCIe version check pointer
  */
 struct pl_dma_pcie {
 	struct device			*dev;
 	void __iomem			*reg_base;
+	void __iomem			*cfg_base;
 	int				irq;
 	struct pci_config_window	*cfg;
 	phys_addr_t			phys_reg_base;
@@ -110,16 +127,23 @@ struct pl_dma_pcie {
 	struct xilinx_msi		msi;
 	int				intx_irq;
 	raw_spinlock_t			lock;
+	const struct xilinx_pl_dma_variant   *variant;
 };
 
 static inline u32 pcie_read(struct pl_dma_pcie *port, u32 reg)
 {
+	if (port->variant->version == QDMA)
+		return readl(port->reg_base + reg + QDMA_BRIDGE_BASE_OFF);
+
 	return readl(port->reg_base + reg);
 }
 
 static inline void pcie_write(struct pl_dma_pcie *port, u32 val, u32 reg)
 {
-	writel(val, port->reg_base + reg);
+	if (port->variant->version == QDMA)
+		writel(val, port->reg_base + reg + QDMA_BRIDGE_BASE_OFF);
+	else
+		writel(val, port->reg_base + reg);
 }
 
 static inline bool xilinx_pl_dma_pcie_link_up(struct pl_dma_pcie *port)
@@ -146,7 +170,8 @@ static bool xilinx_pl_dma_pcie_valid_device(struct pci_bus *bus,
 	struct pl_dma_pcie *port = bus->sysdata;
 
 	if (!pci_is_root_bus(bus)) {
-		/* Checking whether the link is up is the last line of
+		/*
+		 * Checking whether the link is up is the last line of
 		 * defense, and this check is inherently racy by definition.
 		 * Sending a PIO request to a downstream device when the link is
 		 * down causes an unrecoverable error, and a reset of the entire
@@ -171,6 +196,9 @@ static void __iomem *xilinx_pl_dma_pcie_map_bus(struct pci_bus *bus,
 
 	if (!xilinx_pl_dma_pcie_valid_device(bus, devfn))
 		return NULL;
+
+	if (port->variant->version == QDMA)
+		return port->cfg_base + PCIE_ECAM_OFFSET(bus->number, devfn, where);
 
 	return port->reg_base + PCIE_ECAM_OFFSET(bus->number, devfn, where);
 }
@@ -257,6 +285,7 @@ static irqreturn_t xilinx_pl_dma_pcie_msi_handler_high(int irq, void *args)
 				generic_handle_irq(virq);
 		}
 	}
+
 	return IRQ_HANDLED;
 }
 
@@ -353,8 +382,8 @@ static struct irq_chip xilinx_msi_irq_chip = {
 };
 
 static struct msi_domain_info xilinx_msi_domain_info = {
-	.flags = (MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
-		MSI_FLAG_MULTI_PCI_MSI),
+	.flags = MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
+		 MSI_FLAG_NO_AFFINITY | MSI_FLAG_MULTI_PCI_MSI,
 	.chip = &xilinx_msi_irq_chip,
 };
 
@@ -368,16 +397,9 @@ static void xilinx_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
 	msg->data = data->hwirq;
 }
 
-static int xilinx_msi_set_affinity(struct irq_data *irq_data,
-				   const struct cpumask *mask, bool force)
-{
-	return -EINVAL;
-}
-
 static struct irq_chip xilinx_irq_chip = {
 	.name = "pl_dma:MSI",
 	.irq_compose_msi_msg = xilinx_compose_msi_msg,
-	.irq_set_affinity = xilinx_msi_set_affinity,
 };
 
 static int xilinx_irq_domain_alloc(struct irq_domain *domain, unsigned int virq,
@@ -401,6 +423,7 @@ static int xilinx_irq_domain_alloc(struct irq_domain *domain, unsigned int virq,
 				    NULL, NULL);
 	}
 	mutex_unlock(&msi->lock);
+
 	return 0;
 }
 
@@ -473,10 +496,12 @@ static int xilinx_pl_dma_pcie_init_msi_irq_domain(struct pl_dma_pcie *port)
 out:
 	xilinx_pl_dma_pcie_free_irq_domains(port);
 	dev_err(dev, "Failed to allocate MSI IRQ domains\n");
+
 	return -ENOMEM;
 }
 
-/* INTx error interrupts are Xilinx controller specific interrupt, used to
+/*
+ * INTx error interrupts are Xilinx controller specific interrupt, used to
  * notify user about errors such as cfg timeout, slave unsupported requests,
  * fatal and non fatal error etc.
  */
@@ -544,7 +569,7 @@ static const struct irq_domain_ops event_domain_ops = {
  * xilinx_pl_dma_pcie_init_irq_domain - Initialize IRQ domain
  * @port: PCIe port information
  *
- * Return: '0' on success and error value on failure
+ * Return: '0' on success and error value on failure.
  */
 static int xilinx_pl_dma_pcie_init_irq_domain(struct pl_dma_pcie *port)
 {
@@ -571,7 +596,7 @@ static int xilinx_pl_dma_pcie_init_irq_domain(struct pl_dma_pcie *port)
 						  &intx_domain_ops, port);
 	if (!port->intx_domain) {
 		dev_err(dev, "Failed to get a INTx IRQ domain\n");
-		return PTR_ERR(port->intx_domain);
+		return -ENOMEM;
 	}
 
 	irq_domain_update_bus_token(port->intx_domain, DOMAIN_BUS_WIRED);
@@ -630,15 +655,17 @@ static int xilinx_pl_dma_pcie_setup_irq(struct pl_dma_pcie *port)
 	err = devm_request_irq(dev, port->intx_irq, xilinx_pl_dma_pcie_intx_flow,
 			       IRQF_SHARED | IRQF_NO_THREAD, NULL, port);
 	if (err) {
-		dev_err(dev, "Failed to request INTx IRQ %d\n", irq);
+		dev_err(dev, "Failed to request INTx IRQ %d\n", port->intx_irq);
 		return err;
 	}
+
 	err = devm_request_irq(dev, port->irq, xilinx_pl_dma_pcie_event_flow,
 			       IRQF_SHARED | IRQF_NO_THREAD, NULL, port);
 	if (err) {
-		dev_err(dev, "Failed to request event IRQ %d\n", irq);
+		dev_err(dev, "Failed to request event IRQ %d\n", port->irq);
 		return err;
 	}
+
 	return 0;
 }
 
@@ -655,7 +682,7 @@ static void xilinx_pl_dma_pcie_init_port(struct pl_dma_pcie *port)
 
 	/* Clear pending interrupts */
 	pcie_write(port, pcie_read(port, XILINX_PCIE_DMA_REG_IDR) &
-			 XILINX_PCIE_DMA_IMR_ALL_MASK,
+		   XILINX_PCIE_DMA_IMR_ALL_MASK,
 		   XILINX_PCIE_DMA_REG_IDR);
 
 	/* Needed for MSI DECODE MODE */
@@ -666,7 +693,7 @@ static void xilinx_pl_dma_pcie_init_port(struct pl_dma_pcie *port)
 
 	/* Set the Bridge enable bit */
 	pcie_write(port, pcie_read(port, XILINX_PCIE_DMA_REG_RPSC) |
-			 XILINX_PCIE_DMA_REG_RPSC_BEN,
+		   XILINX_PCIE_DMA_REG_RPSC_BEN,
 		   XILINX_PCIE_DMA_REG_RPSC);
 }
 
@@ -677,29 +704,29 @@ static int xilinx_request_msi_irq(struct pl_dma_pcie *port)
 	int ret;
 
 	port->msi.irq_msi0 = platform_get_irq_byname(pdev, "msi0");
-	if (port->msi.irq_msi0 <= 0) {
-		dev_err(dev, "Unable to find msi0 IRQ line\n");
+	if (port->msi.irq_msi0 <= 0)
 		return port->msi.irq_msi0;
-	}
+
 	ret = devm_request_irq(dev, port->msi.irq_msi0, xilinx_pl_dma_pcie_msi_handler_low,
 			       IRQF_SHARED | IRQF_NO_THREAD, "xlnx-pcie-dma-pl",
 			       port);
 	if (ret) {
 		dev_err(dev, "Failed to register interrupt\n");
 		return ret;
-		}
-	port->msi.irq_msi1 = platform_get_irq_byname(pdev, "msi1");
-	if (port->msi.irq_msi1 <= 0) {
-		dev_err(dev, "Unable to find msi1 IRQ line\n");
-		return port->msi.irq_msi1;
 	}
+
+	port->msi.irq_msi1 = platform_get_irq_byname(pdev, "msi1");
+	if (port->msi.irq_msi1 <= 0)
+		return port->msi.irq_msi1;
+
 	ret = devm_request_irq(dev, port->msi.irq_msi1, xilinx_pl_dma_pcie_msi_handler_high,
 			       IRQF_SHARED | IRQF_NO_THREAD, "xlnx-pcie-dma-pl",
 			       port);
 	if (ret) {
 		dev_err(dev, "Failed to register interrupt\n");
 		return ret;
-		}
+	}
+
 	return 0;
 }
 
@@ -723,6 +750,15 @@ static int xilinx_pl_dma_pcie_parse_dt(struct pl_dma_pcie *port,
 		return PTR_ERR(port->cfg);
 
 	port->reg_base = port->cfg->win;
+
+	if (port->variant->version == QDMA) {
+		port->cfg_base = port->cfg->win;
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "breg");
+		port->reg_base = devm_ioremap_resource(dev, res);
+		if (IS_ERR(port->reg_base))
+			return PTR_ERR(port->reg_base);
+		port->phys_reg_base = res->start;
+	}
 
 	err = xilinx_request_msi_irq(port);
 	if (err) {
@@ -752,6 +788,8 @@ static int xilinx_pl_dma_pcie_probe(struct platform_device *pdev)
 	bus = resource_list_first_type(&bridge->windows, IORESOURCE_BUS);
 	if (!bus)
 		return -ENODEV;
+
+	port->variant = of_device_get_match_data(dev);
 
 	err = xilinx_pl_dma_pcie_parse_dt(port, bus->res);
 	if (err) {
@@ -784,9 +822,22 @@ err_irq_domain:
 	return err;
 }
 
+static const struct xilinx_pl_dma_variant xdma_host = {
+	.version = XDMA,
+};
+
+static const struct xilinx_pl_dma_variant qdma_host = {
+	.version = QDMA,
+};
+
 static const struct of_device_id xilinx_pl_dma_pcie_of_match[] = {
 	{
 		.compatible = "xlnx,xdma-host-3.00",
+		.data = &xdma_host,
+	},
+	{
+		.compatible = "xlnx,qdma-host-3.00",
+		.data = &qdma_host,
 	},
 	{}
 };

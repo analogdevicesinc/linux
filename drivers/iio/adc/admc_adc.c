@@ -16,6 +16,7 @@
  * AXI ADC and decouple it from this driver.
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
@@ -40,8 +41,6 @@
 #include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
-
-#include <linux/fpga/adi-axi-common.h>
 
 /* ADC Common */
 #define ADI_REG_RSTN			0x0040
@@ -104,7 +103,7 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 	unsigned i, ctrl;
 
-	for (i = 0; i < indio_dev->masklength; i++) {
+	for (i = 0; i < iio_get_masklength(indio_dev); i++) {
 		ctrl = axiadc_read(st, ADI_REG_CHAN_CNTRL(i));
 
 		if (test_bit(i, scan_mask))

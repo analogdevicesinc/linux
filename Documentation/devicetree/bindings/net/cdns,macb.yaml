@@ -27,6 +27,7 @@ properties:
 
       - items:
           - enum:
+              - amd,versal2-10gbe     # AMD Versal2 10gbe
               - xlnx,versal-gem       # Xilinx Versal
               - xlnx,zynq-gem         # Xilinx Zynq-7xxx SoC
               - xlnx,zynqmp-gem       # Xilinx Zynq Ultrascale+ MPSoC
@@ -58,6 +59,11 @@ properties:
           - cdns,emac                 # Generic
           - cdns,gem                  # Generic
           - cdns,macb                 # Generic
+
+      - items:
+          - enum:
+              - microchip,sam9x7-gem     # Microchip SAM9X7 gigabit ethernet interface
+          - const: microchip,sama7g5-gem # Microchip SAMA7G5 gigabit ethernet interface
 
   reg:
     minItems: 1
@@ -106,6 +112,8 @@ properties:
   iommus:
     maxItems: 1
 
+  dma-coherent: true
+
   power-domains:
     maxItems: 1
 
@@ -141,6 +149,7 @@ patternProperties:
 
       magic-packet:
         type: boolean
+        deprecated: true
         description:
           Indicates that the hardware supports waking up via magic packet.
 

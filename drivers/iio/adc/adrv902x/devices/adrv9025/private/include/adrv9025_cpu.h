@@ -7,7 +7,6 @@
 # ifndef _ADRV_9025_CPU_H_
 #define _ADRV_9025_CPU_H_
 
-#include <linux/kernel.h>
 #include "adi_adrv9025_types.h"
 #include "adi_adrv9025_cpu_types.h"
 #include "../../private/include/adrv9025_cpu_macros.h"

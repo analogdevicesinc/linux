@@ -9,8 +9,10 @@
 #ifndef __IIO_ADIS_H__
 #define __IIO_ADIS_H__
 
+#include <linux/cleanup.h>
 #include <linux/spi/spi.h>
 #include <linux/interrupt.h>
+#include <linux/iio/iio.h>
 #include <linux/iio/types.h>
 
 #define ADIS_WRITE_REG(reg) ((0x80 | (reg)))
@@ -153,7 +155,7 @@ struct adis {
 	unsigned long		irq_flag;
 	void			*buffer;
 
-	u8			tx[10] ____cacheline_aligned;
+	u8			tx[10] __aligned(IIO_DMA_MINALIGN);
 	u8			rx[4];
 };
 
@@ -169,13 +171,8 @@ int __adis_reset(struct adis *adis);
  */
 static inline int adis_reset(struct adis *adis)
 {
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_reset(adis);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
+	guard(mutex)(&adis->state_lock);
+	return __adis_reset(adis);
 }
 
 int __adis_write_reg(struct adis *adis, unsigned int reg,
@@ -267,13 +264,8 @@ static inline int __adis_read_reg_32(struct adis *adis, unsigned int reg,
 static inline int adis_write_reg(struct adis *adis, unsigned int reg,
 				 unsigned int val, unsigned int size)
 {
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = adis->ops->write(adis, reg, val, size);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
+	guard(mutex)(&adis->state_lock);
+	return adis->ops->write(adis, reg, val, size);
 }
 
 /**
@@ -286,13 +278,8 @@ static inline int adis_write_reg(struct adis *adis, unsigned int reg,
 static int adis_read_reg(struct adis *adis, unsigned int reg,
 			 unsigned int *val, unsigned int size)
 {
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = adis->ops->read(adis, reg, val, size);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
+	guard(mutex)(&adis->state_lock);
+	return adis->ops->read(adis, reg, val, size);
 }
 
 /**
@@ -384,12 +371,8 @@ int __adis_update_bits_base(struct adis *adis, unsigned int reg, const u32 mask,
 static inline int adis_update_bits_base(struct adis *adis, unsigned int reg,
 					const u32 mask, const u32 val, u8 size)
 {
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_update_bits_base(adis, reg, mask, val, size);
-	mutex_unlock(&adis->state_lock);
-	return ret;
+	guard(mutex)(&adis->state_lock);
+	return __adis_update_bits_base(adis, reg, mask, val, size);
 }
 
 /**
@@ -430,35 +413,19 @@ int __adis_enable_irq(struct adis *adis, bool enable);
 
 static inline int adis_enable_irq(struct adis *adis, bool enable)
 {
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_enable_irq(adis, enable);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
+	guard(mutex)(&adis->state_lock);
+	return __adis_enable_irq(adis, enable);
 }
 
 static inline int adis_check_status(struct adis *adis)
 {
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_check_status(adis);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
+	guard(mutex)(&adis->state_lock);
+	return __adis_check_status(adis);
 }
 
-static inline void adis_dev_lock(struct adis *adis)
-{
-	mutex_lock(&adis->state_lock);
-}
-
-static inline void adis_dev_unlock(struct adis *adis)
-{
-	mutex_unlock(&adis->state_lock);
-}
+#define adis_dev_auto_lock(adis)	guard(mutex)(&(adis)->state_lock)
+#define adis_dev_auto_scoped_lock(adis) \
+	scoped_guard(mutex, &(adis)->state_lock)
 
 int adis_single_conversion(struct iio_dev *indio_dev,
 			   const struct iio_chan_spec *chan,

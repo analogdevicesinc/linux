@@ -14,6 +14,8 @@
 #include <linux/spi/spi.h>
 #include <linux/timer.h>
 
+#include <linux/spi/legacy-spi-engine.h>
+
 #define SPI_ENGINE_VERSION_MAJOR(x)	((x >> 16) & 0xff)
 #define SPI_ENGINE_VERSION_MINOR(x)	((x >> 8) & 0xff)
 #define SPI_ENGINE_VERSION_PATCH(x)	(x & 0xff)
@@ -755,7 +757,7 @@ err_put_host:
 	return ret;
 }
 
-static int spi_engine_remove(struct platform_device *pdev)
+static void spi_engine_remove(struct platform_device *pdev)
 {
 	struct spi_controller *host = spi_controller_get(platform_get_drvdata(pdev));
 	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
@@ -773,8 +775,6 @@ static int spi_engine_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(spi_engine->ref_clk);
 	clk_disable_unprepare(spi_engine->clk);
-
-	return 0;
 }
 
 static const struct of_device_id spi_engine_match_table[] = {

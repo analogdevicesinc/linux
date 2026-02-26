@@ -10,7 +10,7 @@
 #ifndef XILINX_XCVR_H
 #define XILINX_XCVR_H
 
-#include <linux/fpga/adi-axi-common.h>
+#include <linux/adi-axi-common.h>
 
 enum xilinx_xcvr_type {
 	XILINX_XCVR_TYPE_S7_GTX2 = 2,

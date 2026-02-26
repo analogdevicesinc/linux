@@ -337,7 +337,7 @@ static int ad4630_get_avg_frame_len(struct iio_dev *dev, unsigned int *avg_len)
 out:
 	iio_device_release_direct_mode(dev);
 
-	return 0;
+	return ret;
 }
 
 static int ad4630_read_raw(struct iio_dev *indio_dev,
@@ -690,7 +690,7 @@ static int ad4630_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
+static int ad4630_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4630_state *st = iio_priv(indio_dev);
 	int ret, read_ret;
@@ -714,7 +714,7 @@ static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
 	if (ret < 0)
 		goto out_reset_mode;
 
-	spi_bus_lock(st->spi->master);
+	spi_bus_lock(st->spi->controller);
 
 	ret = pwm_set_waveform_might_sleep(st->conv_trigger, &st->conv_wf, false);
 	if (ret)
@@ -728,7 +728,7 @@ static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
 out_pwm_disable:
 	pwm_disable(st->conv_trigger);
 out_unlock:
-	spi_bus_unlock(st->spi->master);
+	spi_bus_unlock(st->spi->controller);
 	spi_unoptimize_message(&st->offload_msg);
 out_reset_mode:
 	/* read this to reenter register configuration mode */
@@ -741,7 +741,7 @@ out_error:
 	return ret;
 }
 
-static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
+static int ad4630_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4630_state *st = iio_priv(indio_dev);
 	u32 dummy;
@@ -750,7 +750,7 @@ static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
 	pwm_disable(st->conv_trigger);
 
 	spi_offload_trigger_disable(st->offload, st->offload_trigger);
-	spi_bus_unlock(st->spi->master);
+	spi_bus_unlock(st->spi->controller);
 
 	spi_unoptimize_message(&st->offload_msg);
 	ret = regmap_read(st->regmap, AD4630_REG_ACCESS, &dummy);
@@ -795,25 +795,25 @@ static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
 static const struct ad4630_out_mode ad4030_24_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 0, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 0, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 16, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 8, AD4630_CHAN_INFO_NONE),
 		},
 		.data_width = 32,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 30, 2,
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 30, 2,
 				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
 		},
 		.data_width = 32,
@@ -1300,8 +1300,8 @@ static int ad4630_config(struct ad4630_state *st)
 }
 
 static const struct iio_buffer_setup_ops ad4630_buffer_setup_ops = {
-	.preenable = &ad4630_buffer_preenable,
-	.postdisable = &ad4630_buffer_postdisable,
+	.postenable = &ad4630_buffer_postenable,
+	.predisable = &ad4630_buffer_predisable,
 };
 
 static const struct iio_info ad4630_info = {
@@ -1483,8 +1483,8 @@ static int ad4630_probe(struct spi_device *spi)
 	st->regmap = devm_regmap_init(&spi->dev, &ad4630_regmap_bus, st,
 				      &ad4630_regmap_config);
 	if (IS_ERR(st->regmap))
-		dev_err_probe(&spi->dev,  PTR_ERR(st->regmap),
-			      "Failed to initialize regmap\n");
+		return dev_err_probe(&spi->dev, PTR_ERR(st->regmap),
+				     "Failed to initialize regmap\n");
 
 	ret = ad4630_regulators_get(st);
 	if (ret)
@@ -1494,8 +1494,8 @@ static int ad4630_probe(struct spi_device *spi)
 						      GPIOD_OUT_LOW);
 
 	if (IS_ERR(st->pga_gpios))
-		dev_err_probe(&spi->dev, PTR_ERR(st->pga_gpios),
-			      "Failed to get PGA GPIOs\n");
+		return dev_err_probe(&spi->dev, PTR_ERR(st->pga_gpios),
+				     "Failed to get PGA GPIOs\n");
 
 	ret = ad4630_reset(st);
 	if (ret)
@@ -1585,9 +1585,8 @@ static int ad4630_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops ad4630_pm_ops = {
-	SET_RUNTIME_PM_OPS(ad4630_runtime_suspend, ad4630_runtime_resume, NULL)
-};
+static DEFINE_SIMPLE_DEV_PM_OPS(ad4630_pm_ops, ad4630_runtime_suspend,
+				ad4630_runtime_resume);
 
 static const struct spi_device_id ad4630_id_table[] = {
 	{ "ad4030-24", (kernel_ulong_t)&ad4630_chip_info[ID_AD4030_24] },

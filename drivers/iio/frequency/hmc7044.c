@@ -11,6 +11,7 @@
 #include <linux/gcd.h>
 #include <linux/rational.h>
 #include <linux/debugfs.h>
+#include <linux/units.h>
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
@@ -128,6 +129,11 @@
 #define HMC7044_REG_OSCOUT_PATH		0x0039
 #define HMC7044_REG_OSCOUT_DRIVER_0	0x003A
 #define HMC7044_REG_OSCOUT_DRIVER_1	0x003B
+
+/* OSCOUTx */
+#define HMC7044_OSCOUT_DIVIDER(x)	(((x) & 0x03) << 1)
+#define HMC7044_OSCOUT_DRIVER_MODE(x)	(((x) & 0x03) << 4)
+#define HMC7044_OSCOUT_IMPEDANCE(x)	(((x) & 0x03) << 1)
 
 /* GPIO/SDATA Control */
 #define HMC7044_REG_GPI_CTRL(x)		(0x0046 + (x))
@@ -301,6 +307,14 @@ struct hmc7044 {
 	bool				clkin1_vcoin_en;
 	bool				high_performance_mode_clock_dist_en;
 	bool				rf_reseeder_en;
+	bool				oscout_path_en;
+	bool				oscout0_driver_en;
+	bool				oscout1_driver_en;
+	u32				oscout_divider_ratio;
+	u32				oscout0_driver_mode;
+	u32				oscout1_driver_mode;
+	u32				oscout0_driver_impedance;
+	u32				oscout1_driver_impedance;
 	unsigned int			sync_pin_mode;
 	unsigned int			pulse_gen_mode;
 	unsigned int			in_buf_mode[5];
@@ -315,15 +329,17 @@ struct hmc7044 {
 	struct clk_onecell_data		clk_data;
 	struct clk			*clk_input[4];
 	struct mutex			lock;
-	struct jesd204_dev 		*jdev;
-	u32				jdev_lmfc_lemc_rate;
-	u32				jdev_lmfc_lemc_gcd;
-	u32				jdev_max_sysref_freq;
-	u32				jdev_desired_sysref_freq;
+	struct jesd204_dev		*jdev;
+	u64				jdev_lmfc_lemc_rate;
+	u64				jdev_lmfc_lemc_gcd;
+	u64				jdev_max_sysref_freq;
+	u64				jdev_desired_sysref_freq;
 	bool				jdev_skip_sysref_freq_calc;
 	bool				is_sysref_provider;
 	bool				hmc_two_level_tree_sync_en;
 	bool				read_write_confirmed;
+	bool				ignore_vco_limits; /* Debug only, is at own risk! */
+	bool				sync_through_pll2_force_r2_eq_1;
 };
 
 static const char * const hmc7044_input_clk_names[] = {
@@ -520,7 +536,7 @@ static ssize_t hmc7044_store(struct device *dev,
 	int ret;
 	u32 val, write_val;
 
-	ret = strtobool(buf, &state);
+	ret = kstrtobool(buf, &state);
 	if (ret < 0)
 		return ret;
 
@@ -921,6 +937,13 @@ static int hmc7044_info(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static void hcm7044_clk_del_provider(void *dev)
+{
+	struct spi_device *spi = dev;
+
+	of_clk_del_provider(spi->dev.of_node);
+}
+
 static int hmc7044_setup(struct iio_dev *indio_dev)
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
@@ -996,8 +1019,20 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc->pll1_pfd = pfd1_freq;
 
 	if (pll2_freq < HMC7044_LOW_VCO_MIN  ||
-	    pll2_freq > HMC7044_HIGH_VCO_MAX)
-		return -EINVAL;
+	    pll2_freq > HMC7044_HIGH_VCO_MAX) {
+		if (hmc->ignore_vco_limits) {
+			/* Debug only, is at own risk! May fail across process, voltage and temperature */
+			dev_warn(&hmc->spi->dev,
+				 "PLL2 frequency %lu kHz is out of range, "
+				 "ignoring limits\n", pll2_freq);
+		} else {
+			dev_err(&hmc->spi->dev,
+				"PLL2 frequency %lu kHz is out of range (%u - %u)\n",
+				pll2_freq, HMC7044_LOW_VCO_MIN / 1000,
+				HMC7044_HIGH_VCO_MAX / 1000);
+			return -EINVAL;
+		}
+	}
 
 	vco_limit = (HMC7044_LOW_VCO_MAX + HMC7044_HIGH_VCO_MIN) / 2;
 	if (pll2_freq >= vco_limit)
@@ -1008,12 +1043,14 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	/* fVCO / N2 = fVCXO * doubler / R2 */
 	pll2_freq_doubler_en = true;
 	rational_best_approximation(pll2_freq, vcxo_freq * 2,
-				    HMC7044_N2_MAX, HMC7044_R2_MAX,
+				    HMC7044_N2_MAX,
+				    hmc->sync_through_pll2_force_r2_eq_1 ? 1 : HMC7044_R2_MAX,
 				    &n2[0], &r2[0]);
 
 	if (pll2_freq != vcxo_freq * n2[0] / r2[0]) {
 		rational_best_approximation(pll2_freq, vcxo_freq,
-					    HMC7044_N2_MAX, HMC7044_R2_MAX,
+					    HMC7044_N2_MAX,
+					    hmc->sync_through_pll2_force_r2_eq_1 ? 1 : HMC7044_R2_MAX,
 					    &n2[1], &r2[1]);
 
 		if (abs((int)pll2_freq - (int)(vcxo_freq * 2 * n2[0] / r2[0])) >
@@ -1344,20 +1381,43 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc->clk_data.clks = hmc->clks;
 	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
 
+	if (hmc->oscout_path_en) {
+		ret = hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_PATH,
+				    HMC7044_OSCOUT_DIVIDER(hmc->oscout_divider_ratio) |
+				    hmc->oscout_path_en);
+		if (ret)
+			return ret;
+	}
+
+	if (hmc->oscout0_driver_en) {
+		hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_DRIVER_0,
+			      HMC7044_OSCOUT_DRIVER_MODE(hmc->oscout1_driver_mode) |
+			      HMC7044_OSCOUT_IMPEDANCE(hmc->oscout1_driver_impedance) |
+			      hmc->oscout1_driver_en);
+		if (ret)
+			return ret;
+	}
+
+	if (hmc->oscout1_driver_en) {
+		hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_DRIVER_1,
+			      HMC7044_OSCOUT_DRIVER_MODE(hmc->oscout1_driver_mode) |
+			      HMC7044_OSCOUT_IMPEDANCE(hmc->oscout1_driver_impedance) |
+			      hmc->oscout1_driver_en);
+		if (ret)
+			return ret;
+	}
+
 	ret = hmc7044_info(indio_dev);
 	if (ret)
 		return ret;
 
-	return of_clk_add_provider(hmc->spi->dev.of_node,
-				   of_clk_src_onecell_get,
-				   &hmc->clk_data);
-}
+	ret = of_clk_add_provider(hmc->spi->dev.of_node,
+				  of_clk_src_onecell_get,
+				  &hmc->clk_data);
+	if (ret)
+		return ret;
 
-static void hcm7044_clk_del_provider(void *dev)
-{
-	struct spi_device *spi = dev;
-
-	of_clk_del_provider(spi->dev.of_node);
+	return devm_add_action_or_reset(&hmc->spi->dev, hcm7044_clk_del_provider, hmc->spi);
 }
 
 static int hmc7043_setup(struct iio_dev *indio_dev)
@@ -1558,9 +1618,10 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 static int hmc7044_parse_dt(struct device *dev,
 			    struct hmc7044 *hmc)
 {
-	struct device_node *np = dev->of_node, *chan_np;
+	struct device_node *np = dev->of_node;
 	unsigned int cnt = 0;
 	int ret;
+	u32 tmp;
 
 	if (hmc->device_id == HMC7044) {
 		ret = of_property_read_u32_array(np,
@@ -1636,6 +1697,10 @@ static int hmc7044_parse_dt(struct device *dev,
 
 		hmc->clkin1_vcoin_en =
 			of_property_read_bool(np, "adi,clkin1-vco-in-enable");
+
+		hmc->ignore_vco_limits = of_property_read_bool(np, "adi,ignore-vco-limits");
+		hmc->sync_through_pll2_force_r2_eq_1 =
+			of_property_read_bool(np, "adi,sync-through-pll2-force-r2-eq-1");
 	} else {
 		ret = of_property_read_u32_array(np, "adi,gpi-controls",
 				hmc->gpi_ctrl, 1);
@@ -1652,18 +1717,50 @@ static int hmc7044_parse_dt(struct device *dev,
 
 	hmc->hmc_two_level_tree_sync_en = of_property_read_bool(np, "adi,hmc-two-level-tree-sync-en");
 
-	hmc->jdev_max_sysref_freq = INT_MAX;
-	of_property_read_u32(np, "adi,jesd204-max-sysref-frequency-hz",
-			     &hmc->jdev_max_sysref_freq);
+	tmp = INT_MAX;
+	of_property_read_u32(np, "adi,jesd204-max-sysref-frequency-hz", &tmp);
+	hmc->jdev_max_sysref_freq = (u64)tmp * MICROHZ_PER_HZ;
 
-	of_property_read_u32(np, "adi,jesd204-desired-sysref-frequency-hz",
-			     &hmc->jdev_desired_sysref_freq);
+	ret = of_property_read_u32(np, "adi,jesd204-desired-sysref-frequency-hz", &tmp);
+	if (!ret) {
+		hmc->jdev_desired_sysref_freq = (u64)tmp * MICROHZ_PER_HZ;
+	}
+
+	of_property_read_u64(np, "adi,jesd204-desired-sysref-frequency-uhz", &hmc->jdev_desired_sysref_freq);
+
 
 	hmc->jdev_skip_sysref_freq_calc =
 		of_property_read_bool(np, "adi,jesd204-skip-sysref-frequency-calc");
 
 	hmc->rf_reseeder_en =
 		!of_property_read_bool(np, "adi,rf-reseeder-disable");
+
+	hmc->oscout_path_en =
+		of_property_read_bool(np, "adi,oscillator-output-path-enable");
+
+	hmc->oscout_divider_ratio = HMC7044_DIVIDER_RATIO_1;
+	of_property_read_u32(np, "adi,oscillator-output-divider-ratio",
+			     &hmc->oscout_divider_ratio);
+
+	hmc->oscout0_driver_en = of_property_read_bool(np, "adi,oscillator-output0-driver-enable");
+
+	hmc->oscout0_driver_mode = HMC7044_DRIVER_MODE_CML;
+	of_property_read_u32(np, "adi,oscillator-output0-driver-mode",
+			     &hmc->oscout0_driver_mode);
+
+	hmc->oscout0_driver_impedance = HMC7044_DRIVER_IMPEDANCE_DISABLE;
+	of_property_read_u32(np, "adi,oscillator-output0-driver-impedance",
+			     &hmc->oscout0_driver_impedance);
+
+	hmc->oscout1_driver_en = of_property_read_bool(np, "adi,oscillator-output1-driver-enable");
+
+	hmc->oscout1_driver_mode = HMC7044_DRIVER_MODE_CML;
+	of_property_read_u32(np, "adi,oscillator-output1-driver-mode",
+			     &hmc->oscout1_driver_mode);
+
+	hmc->oscout1_driver_impedance = HMC7044_DRIVER_IMPEDANCE_DISABLE;
+	of_property_read_u32(np, "adi,oscillator-output1-driver-impedance",
+			     &hmc->oscout1_driver_impedance);
 
 	hmc->sysref_timer_div = 256;
 	of_property_read_u32(np, "adi,sysref-timer-divider",
@@ -1694,7 +1791,7 @@ static int hmc7044_parse_dt(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	for_each_child_of_node(np, chan_np)
+	for_each_child_of_node_scoped(np, chan_np)
 		hmc->num_channels++;
 	if (hmc->num_channels > HMC7044_NUM_CHAN)
 		return -EINVAL;
@@ -1705,7 +1802,7 @@ static int hmc7044_parse_dt(struct device *dev,
 	if (!hmc->channels)
 		return -ENOMEM;
 
-	for_each_child_of_node(np, chan_np) {
+	for_each_child_of_node_scoped(np, chan_np) {
 		hmc->channels[cnt].num = cnt;
 		of_property_read_u32(chan_np, "reg",
 				     &hmc->channels[cnt].num);
@@ -1884,33 +1981,58 @@ static int hmc7044_continuous_chan_sync_enable(struct iio_dev *indio_dev, bool e
 	return 0;
 }
 
-static int hmc7044_lmfc_lemc_validate(struct hmc7044 *hmc, u64 dividend, u32 divisor)
+static u64 hmc7044_gcd_64(u64 u, u64 v)
 {
-	u32 rem, rem_l, rem_u, gcd_val, min;
+	u64 t;
 
-	gcd_val = gcd(dividend, divisor);
+	while (v != 0) {
+		t = u;
+		u = v;
+		div64_u64_rem(t, v, &v);
+	}
+
+	return u;
+}
+
+static u64 hmc7044_get_rem(u64 dividend, u64 divisor)
+{
+	u64 rem;
+
+	if (divisor == 0)
+		return 0;
+
+	div64_u64_rem(dividend, divisor, &rem);
+	return rem;
+}
+
+static int hmc7044_lmfc_lemc_validate(struct hmc7044 *hmc, u64 dividend, u64 divisor)
+{
+	u64 rem, rem_l, rem_u, gcd_val, min;
+
+	gcd_val = hmc7044_gcd_64(dividend, divisor);
 	min = DIV_ROUND_CLOSEST(hmc->pll2_freq, HMC7044_OUT_DIV_MAX);
 
 	if (gcd_val >= min) {
 		dev_dbg(&hmc->spi->dev,
-			"%s: dividend=%llu divisor=%u GCD=%u (hmc->pll2_freq=%u, min=%u)",
+			"%s: dividend=%llu divisor=%llu GCD=%llu (hmc->pll2_freq=%u, min=%llu)",
 			__func__, dividend, divisor, gcd_val, hmc->pll2_freq, min);
 
 		hmc->jdev_lmfc_lemc_gcd = gcd_val;
 		return 0;
 	}
 
-	div_u64_rem(hmc->pll2_freq, divisor, &rem);
+	rem = hmc7044_get_rem(hmc->pll2_freq, divisor);
 
 	dev_dbg(&hmc->spi->dev,
-		"%s: dividend=%llu divisor=%u GCD=%u rem=%u (hmc->pll2_freq=%u)",
+		"%s: dividend=%llu divisor=%llu GCD=%llu rem=%llu (hmc->pll2_freq=%u)",
 		__func__, dividend, divisor, gcd_val, rem, hmc->pll2_freq);
 
-	div_u64_rem(dividend, divisor, &rem);
-	div_u64_rem(dividend, divisor - 1, &rem_l);
-	div_u64_rem(dividend, divisor + 1, &rem_u);
+	rem = hmc7044_get_rem(dividend, divisor);
+	rem_l = hmc7044_get_rem(dividend, divisor - 1);
+	rem_u = hmc7044_get_rem(dividend, divisor + 1);
 
-	if ((rem_l > rem) && (rem_u > rem)) {
+
+	if ((rem_l >= rem) && (rem_u >= rem)) {
 		if (hmc->jdev_lmfc_lemc_gcd)
 			hmc->jdev_lmfc_lemc_gcd = min(hmc->jdev_lmfc_lemc_gcd, divisor);
 		else
@@ -1930,6 +2052,7 @@ static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	int ret;
 	unsigned long rate;
+	u64 rate_uHz;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT) {
 		hmc->jdev_lmfc_lemc_rate = 0;
@@ -1948,24 +2071,27 @@ static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
 			return -EINVAL;
 		}
 
-		rate = hmc->jdev_desired_sysref_freq;
+		rate_uHz = hmc->jdev_desired_sysref_freq;
 	} else {
 		ret = jesd204_link_get_lmfc_lemc_rate(lnk, &rate);
 		if (ret < 0)
 			return ret;
+
+		rate_uHz = (u64)rate * MICROHZ_PER_HZ + ret;
 	}
 
 	if (hmc->jdev_lmfc_lemc_rate) {
-		hmc->jdev_lmfc_lemc_rate = min(hmc->jdev_lmfc_lemc_rate, (u32)rate);
-		ret = hmc7044_lmfc_lemc_validate(hmc, hmc->jdev_lmfc_lemc_gcd, (u32)rate);
+		hmc->jdev_lmfc_lemc_rate = min(hmc->jdev_lmfc_lemc_rate, rate_uHz);
+		ret = hmc7044_lmfc_lemc_validate(hmc, hmc->jdev_lmfc_lemc_gcd, rate_uHz);
 	} else {
-		hmc->jdev_lmfc_lemc_rate = rate;
-		ret = hmc7044_lmfc_lemc_validate(hmc, hmc->pll2_freq, (u32)rate);
+		hmc->jdev_lmfc_lemc_rate = rate_uHz;
+		ret = hmc7044_lmfc_lemc_validate(hmc, (u64)hmc->pll2_freq * MICROHZ_PER_HZ,
+						 rate_uHz);
 	}
 
-	dev_dbg(dev, "%s:%d link_num %u LMFC/LEMC %u/%lu gcd %u\n",
+	dev_dbg(dev, "%s:%d link_num %u LMFC/LEMC %llu/%llu gcd %llu\n",
 		__func__, __LINE__, lnk->link_id, hmc->jdev_lmfc_lemc_rate,
-		rate, hmc->jdev_lmfc_lemc_gcd);
+		rate_uHz, hmc->jdev_lmfc_lemc_gcd);
 	if (ret)
 		return ret;
 
@@ -2105,7 +2231,7 @@ static int hmc7044_jesd204_clks_sync3(struct jesd204_dev *jdev,
 		if (ret < 0)
 			return ret;
 
-		if (!HMC7044_CLK_OUT_PH_STATUS(val))
+		if (hmc->device_id != HMC7043 && !HMC7044_CLK_OUT_PH_STATUS(val))
 			dev_warn(dev,
 				"%s: SYSREF of the HMC7044 is not valid; that is, its phase output is not stable (0x%X)\n",
 				__func__, val & 0xFF);
@@ -2133,39 +2259,41 @@ static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	int i, ret;
 	u32 sysref_timer;
+	u64 rem;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
 	dev_dbg(dev, "%s:%d link_num %u\n", __func__, __LINE__, lnk->link_id);
 
-	if (hmc->jdev_desired_sysref_freq && (hmc->jdev_lmfc_lemc_gcd %
-		hmc->jdev_desired_sysref_freq == 0)) {
+	rem = hmc7044_get_rem(hmc->jdev_lmfc_lemc_gcd, hmc->jdev_desired_sysref_freq);
+
+	if (hmc->jdev_desired_sysref_freq && rem == 0) {
 		hmc->jdev_lmfc_lemc_gcd = hmc->jdev_desired_sysref_freq;
 	} else {
 		while ((hmc->jdev_lmfc_lemc_gcd > hmc->jdev_max_sysref_freq) &&
-			(hmc->jdev_lmfc_lemc_gcd %
-			(hmc->jdev_lmfc_lemc_gcd >> 1) == 0))
+			hmc7044_get_rem(hmc->jdev_lmfc_lemc_gcd, hmc->jdev_lmfc_lemc_gcd >> 1) == 0)
 			hmc->jdev_lmfc_lemc_gcd >>= 1;
 	}
 	/* Program the output channels */
 	for (i = 0; i < hmc->num_channels; i++) {
 		if (hmc->channels[i].start_up_mode_dynamic_enable || hmc->channels[i].is_sysref) {
 			long rate;
+			unsigned long ccf_rate = DIV_ROUND_CLOSEST_ULL(hmc->jdev_lmfc_lemc_gcd, MICROHZ_PER_HZ);
 
-			dev_dbg(dev, "%s:%d Found SYSREF channel%u setting f=%u Hz\n",
-				__func__, __LINE__, hmc->channels[i].num, hmc->jdev_lmfc_lemc_gcd);
+			dev_dbg(dev, "%s:%d Found SYSREF channel%u setting f=%lu Hz\n",
+				__func__, __LINE__, hmc->channels[i].num, ccf_rate);
 
-			rate = clk_round_rate(hmc->clks[hmc->channels[i].num], hmc->jdev_lmfc_lemc_gcd);
+			rate = clk_round_rate(hmc->clks[hmc->channels[i].num], ccf_rate);
 
-			if (rate == (long)hmc->jdev_lmfc_lemc_gcd)
-				ret = clk_set_rate(hmc->clks[hmc->channels[i].num], hmc->jdev_lmfc_lemc_gcd);
+			if (rate == (long) ccf_rate)
+				ret = clk_set_rate(hmc->clks[hmc->channels[i].num], ccf_rate);
 			else
 				ret = -EINVAL;
 
 			if (ret < 0)
-				dev_err(dev, "%s: Link%u setting SYSREF rate %u failed (%d)\n",
-					__func__, lnk->link_id, hmc->jdev_lmfc_lemc_gcd, ret);
+				dev_err(dev, "%s: Link%u setting SYSREF rate %lu failed (%d)\n",
+					__func__, lnk->link_id, ccf_rate, ret);
 
 		 }
 	}
@@ -2175,7 +2303,7 @@ static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 	 * output SYSREF frequency, and program it to be no faster than 4 MHz.
 	 */
 
-	sysref_timer = hmc->jdev_lmfc_lemc_gcd / 2;
+	sysref_timer = DIV_ROUND_CLOSEST_ULL(hmc->jdev_lmfc_lemc_gcd, MICROHZ_PER_HZ) / 2;
 
 	while (sysref_timer >= 4000000U)
 		sysref_timer >>= 1;

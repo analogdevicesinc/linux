@@ -17,6 +17,26 @@
 #include <linux/xlnx/xlnx_hdcp2x_cipher.h>
 #include <linux/xlnx/xlnx_timer.h>
 
+/* Reference:
+ * https://www.digital-cp.com/sites/default/files/specifications/HDCP%20on%20HDMI%20Specification%20Rev2_3.pdf
+ */
+#define XHDCP2X_RX_HDMI_HDCP22VERSION_REG	0x50
+#define XHDCP2X_RX_HDMI_HDCP22VERSION_EN_MASK	BIT(2)
+
+/* Reference : Table 2.7
+ * https://www.digital-cp.com/sites/default/files/specifications/HDCP%20on%20HDMI%20Specification%20Rev2_3.pdf
+ */
+#define XHDCP2X_RX_HDMI_RXSTATUS0		0x70
+#define XHDCP2X_RX_HDMI_RXSTATUS1		0x71
+#define XHDCP2X_RX_HDMI_READ_MESSAGE		0x80
+#define XHDCP2X_RX_HDMI_WRITE_MESSAGE		0x60
+
+#define XHDCP2X_HDMI_RXSTATUS_MSG_HIGH		GENMASK(9, 8)
+#define XHDCP2X_HDMI_RXSTATUS_READY		GENMASK(2, 2)
+#define XHDCP2X_HDMI_RXSTATUS_REAUTH_REQ	GENMASK(3, 3)
+
+#define RX_STATUS_SIZE				0x02
+
 #define XHDCP2X_RX_MAX_LCINIT			1024
 #define XHDCP2X_RX_MAX_MESSAGE_SIZE		534
 #define XHDCP2X_RX_CERT_SIZE			522
@@ -98,16 +118,20 @@
 #define RXCAPS_REPEATER				0x01
 #define XHDCP2X_KEY_SIZE			4
 
+/*
+ * Reference : 4.2 Section
+ * https://www.digital-cp.com/sites/default/files/specifications/HDCP%20Interface%20Independent%20Adaptation%20Specification%20Rev2_3.pdf
+ */
 enum xhdcp2x_rx_message_ids {
-	XHDCP2X_RX_MSG_ID_AKEINIT		= 0,
-	XHDCP2X_RX_MSG_ID_AKESENDCERT		= 1,
-	XHDCP2X_RX_MSG_ID_AKENOSTOREDKM		= 2,
-	XHDCP2X_RX_MSG_ID_AKESTOREDKM		= 3,
-	XHDCP2X_RX_MSG_ID_AKESENDHPRIME		= 4,
-	XHDCP2X_RX_MSG_ID_AKESENDPAIRINGINFO	= 5,
-	XHDCP2X_RX_MSG_ID_LCINIT		= 6,
-	XHDCP2X_RX_MSG_ID_LCSENDLPRIME		= 7,
-	XHDCP2X_RX_MSG_ID_SKESENDEKS		= 8,
+	XHDCP2X_RX_MSG_ID_AKEINIT		= 2,
+	XHDCP2X_RX_MSG_ID_AKESENDCERT		= 3,
+	XHDCP2X_RX_MSG_ID_AKENOSTOREDKM		= 4,
+	XHDCP2X_RX_MSG_ID_AKESTOREDKM		= 5,
+	XHDCP2X_RX_MSG_ID_AKESENDHPRIME		= 7,
+	XHDCP2X_RX_MSG_ID_AKESENDPAIRINGINFO	= 8,
+	XHDCP2X_RX_MSG_ID_LCINIT		= 9,
+	XHDCP2X_RX_MSG_ID_LCSENDLPRIME		= 10,
+	XHDCP2X_RX_MSG_ID_SKESENDEKS		= 11,
 };
 
 enum xhdcp2x_rx_error_flags {
@@ -121,6 +145,12 @@ enum xhdcp2x_rx_error_flags {
 	XHDCP2X_RX_ERROR_FLAG_PROCESSING_SKESENDEKS	= 64,
 	XHDCP2X_RX_ERROR_FLAG_LINK_INTEGRITY		= 512,
 	XHDCP2X_RX_ERROR_FLAG_MAX_LCINIT_ATTEMPTS	= 2048,
+};
+
+enum xhdcp2x_rx_ddc_flag {
+	XHDCP2X_RX_DDC_FLAG_NONE	= 0,
+	XHDCP2X_RX_DDC_FLAG_WRITE_MESSAGE_READY	= 1,
+	XHDCP2X_RX_DDC_FLAG_READ_MESSAGE_READY	= 2,
 };
 
 enum xhdcp2x_rx_dpcd_flag {
@@ -242,6 +272,8 @@ struct xhdcp2x_rx_callbacks {
 	int (*wr_handler)(void *interface_ref, u32 offset, u8 *buf, u32 size);
 	int (*cp_irq_handler)(void *interface_ref);
 	void (*notify_handler)(void *interface_ref, u32 notification);
+	void (*ddc_clear_read_buffer)(void *interface_ref);
+	void (*ddc_clear_write_buffer)(void *interface_ref);
 };
 
 enum xhdcp2x_rx_notification_type {
@@ -254,10 +286,12 @@ enum xhdcp2x_rx_notification_type {
 };
 
 enum xhdcp2x_rx_handler_type {
-	XHDCP2X_RX_HANDLER_DP_AUX_READ = 1,
-	XHDCP2X_RX_HANDLER_DP_AUX_WRITE = 2,
+	XHDCP2X_RX_READ_HANDLER = 1,
+	XHDCP2X_RX_WRITE_HANDLER = 2,
 	XHDCP2X_RX_HANDLER_DP_CP_IRQ_SET = 3,
-	XHDCP2X_RX_NOTIFICATION_HANDLER = 4
+	XHDCP2X_RX_HANDLER_CLEAR_DDC_READ_BUFFER = 4,
+	XHDCP2X_RX_HANDLER_CLEAR_DDC_WRITE_BUFFER = 5,
+	XHDCP2X_RX_NOTIFICATION_HANDLER = 6
 };
 
 /**
@@ -336,10 +370,11 @@ struct xhdcp2x_rx_info {
 	u32 timer_initial_ticks;
 	u32 seq_numv;
 	u32 auth_request_cnt;
-	u32 reauth_request_cnt;
 	u32 link_error_cnt;
 	u32 msg_event;
 	u16 lc_init_attempts;
+	u8 ddc_flag;
+	u8 topology_ready;
 	u8 is_enabled;
 	u8 is_no_storedkm;
 	u8 reauth_req;
@@ -436,6 +471,7 @@ int xhdcp2x_rx_rsaes_oaep_decrypt(struct xlnx_hdcp2x_config *xhdcp2x_rx,
 int xhdcp2x_rx_push_events(void *ref, u32 events);
 int xhdcp2x_rx_set_key(void *ref, void *hdcp2x_lc128, void *hdcp2x_private);
 int xhdcp2x_rx_calc_mont_nprime(void *ref, u8 *nprime, const u8 *n, int ndigits);
+int xhdcp2x_rx_hdcp2x_version_enable(void *ref, bool enable);
 
 void xhdcp2x_rx_generate_random(struct xlnx_hdcp2x_config *xhdcp2x_rx,
 				int num_octets, u8 *random_number_ptr);
@@ -456,5 +492,7 @@ void xhdcp2x_rx_compute_vprime(const u8 *receiveridlist, u32 receiveridlistsize,
 			       const u8 *rtx, u8 *vprime);
 void xhdcp2x_rx_compute_mprime(const u8 *streamidtype, const u8 *seqnumm, const u8 *km,
 			       const u8 *rrx, const u8 *rtx, u8 *mprime);
+void xhdcp2x_rx_set_write_message_available(struct xlnx_hdcp2x_config *xhdcp2x_rx);
+void xhdcp2x_rx_set_read_message_complete(struct xlnx_hdcp2x_config *xhdcp2x_rx);
 
 #endif /* __XILINX_HDCP2X_RX_H__ */

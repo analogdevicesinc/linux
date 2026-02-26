@@ -49,8 +49,6 @@
 		parallel-memories = /bits/ 64 <0x8000000 0x8000000>; /* (128+128)MB */
 		spi-tx-bus-width = <4>;
 		spi-rx-bus-width = <4>;
-		#address-cells = <1>;
-		#size-cells = <1>;
 		spi-max-frequency = <150000000>;
 
 		partitions {
@@ -112,6 +110,9 @@
 	xlnx,mio-bank = <1>;
 	non-removable;
 	disable-wp;
+	no-sd;
+	no-sdio;
+	cap-mmc-hw-reset;
 	bus-width = <8>;
 };
 

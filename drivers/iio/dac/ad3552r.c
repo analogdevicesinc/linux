@@ -5,7 +5,7 @@
  *
  * Copyright 2021 Analog Devices Inc.
  */
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 #include <linux/bitfield.h>
 #include <linux/device.h>
 #include <linux/iio/triggered_buffer.h>
@@ -409,6 +409,12 @@ static int ad3552r_reset(struct ad3552r_desc *dac)
 		dev_err(&dac->spi->dev, "Error while resetting");
 		return ret;
 	}
+
+	/* Clear reset error flag, see ad3552r manual, rev B table 38. */
+	ret = ad3552r_write_reg(dac, AD3552R_REG_ADDR_ERR_STATUS,
+				AD3552R_MASK_RESET_STATUS);
+	if (ret)
+		return ret;
 
 	return ad3552r_update_reg_field(dac,
 					AD3552R_REG_ADDR_INTERFACE_CONFIG_A,

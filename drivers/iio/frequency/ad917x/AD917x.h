@@ -473,6 +473,38 @@ int ad917x_jesd_set_sysref_enable(ad917x_handle_t *h, uint8_t en);
  */
 int ad917x_jesd_get_sysref_enable(ad917x_handle_t *h, uint8_t *en);
 
+/**
+ * \brief Configure SYSREF for oneshot sync
+ *
+ * Configure SYSREF oneshot sequence to align LMFC on next SYSREF
+ * rising edge signal.
+ *
+ * \param h          Pointer to the AD917X device reference handle.
+ * \param err_window Error window in DAC clock cycles for SYSREF
+ *                   jitter.
+ */
+int ad917x_jesd_oneshot_sync(ad917x_handle_t *h, u8 err_window);
+
+/**
+ * \brief Check if sync rotation has happened
+ *
+ * Checks if SYSREF to LMFC synchronization logic has completed.
+ *
+ * \param h     Pointer to the AD917X device reference handle.
+ * \param *done Return value indicating if rotation has completed.
+ */
+int ad917x_jesd_get_sync_rotation_done(ad917x_handle_t *h, bool *done);
+
+/**
+ * \brief Get reported link latencies
+ *
+ * Get the reported dynamic link latency from selected link
+ *
+ * \param h     Pointer to the AD917X device reference handle.
+ * \param link  Target JESD Link on which to get latency
+ * \param latency Pointer to variable to which latency shall be stored
+ */
+int ad917x_get_dyn_latency(ad917x_handle_t *h, jesd_link_t link, u8 *latency);
 
 /**
  * \brief Set the LMFC Delay and Variance for the JESD Links
@@ -1046,6 +1078,20 @@ int ad917x_nco_channel_freq_get(ad917x_handle_t *h,
 int ad917x_nco_main_freq_get(ad917x_handle_t *h,
 				     ad917x_dac_select_t dac,
 				     int64_t *carrier_freq_hz);
+
+/**
+ * \brief  Phase align NCOs to SYSREF edge
+ *
+ * Reset datapath clock dividers on next SYSREF edge in order to phase align the NCOs.
+ * This will ensure phase coherency across main and channel data paths.
+ *
+ * \param h    Pointer to the AD917x device reference handle.
+ * \param dacs Main data path DAC NCO select. Bitmask of:
+ *             AD917X_DAC0 - DAC0 NCO select
+ *             AD917X_DAC1 - DAC1 NCO select
+ *
+ */
+int ad917x_nco_phase_align(ad917x_handle_t *h, u8 dacs);
 
 /** @} */
 

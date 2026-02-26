@@ -15,7 +15,7 @@
 #ifndef _ADI_COMMON_ERROR_TYPES_H_
 #define _ADI_COMMON_ERROR_TYPES_H_
 
-#include <linux/kernel.h>
+#include "adi_common_user.h"
 
 #ifdef __cplusplus
 extern "C" {

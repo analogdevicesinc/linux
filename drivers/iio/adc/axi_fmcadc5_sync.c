@@ -8,10 +8,12 @@
  * https://wiki.analog.com/resources/fpga/docs/axi_fmcadc5_sync
  */
 
+#include <linux/device.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
+#include <linux/platform_device.h>
 
 /* register addresses & data (direct access) */
 
@@ -549,17 +551,6 @@ static int fmcadc5_sync_probe(struct platform_device *pdev) {
 	return(0);
 }
 
-/* remove and release resources */
-
-static int fmcadc5_sync_remove(struct platform_device *pdev) {
-
-	/* anything to do here - free some stuff? */
-
-	return(0);
-}
-
-/* register driver */
-
 static struct platform_driver fmcadc5_sync_of_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
@@ -567,7 +558,6 @@ static struct platform_driver fmcadc5_sync_of_driver = {
 		.of_match_table = fmcadc5_sync_of_match,
 	},
 	.probe		= fmcadc5_sync_probe,
-	.remove		= fmcadc5_sync_remove,
 };
 module_platform_driver(fmcadc5_sync_of_driver);
 

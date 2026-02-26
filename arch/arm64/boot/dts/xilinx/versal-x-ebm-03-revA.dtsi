@@ -12,14 +12,13 @@
 
 /* U97 MT35XU02G */
 status = "okay";
-compatible = "xlnx,versal-ospi-1.0", "cadence,qspi", "cdns,qspi-nor";
 bus-num = <2>;
 num-cs = <1>;
 #address-cells = <1>;
 #size-cells = <0>;
 
 flash@0 {
-	compatible = "mt35xu02g", "micron,m25p80", "jedec,spi-nor";
+	compatible = "jedec,spi-nor";
 	reg = <0>;
 	#address-cells = <1>;
 	#size-cells = <1>;

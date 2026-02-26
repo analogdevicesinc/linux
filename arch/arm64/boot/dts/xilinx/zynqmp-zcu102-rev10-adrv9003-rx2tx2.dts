@@ -10,9 +10,15 @@
 
 #include "zynqmp-zcu102-rev10-adrv9002-rx2tx2.dts"
 
+&axi_adrv9002_core_rx {
+	compatible = "adi,axi-adrv9003-rx-1.0";
+	label = "axi-adrv9003-rx";
+};
+
 &axi_adrv9002_core_tx {
 	/* just have TX1 */
-	compatible = "adi,axi-adrv9002-tx-1.0";
+	compatible = "adi,axi-adrv9003-tx-1.0";
+	label = "axi-adrv9003-tx";
 };
 
 &adc0_adrv9002 {
@@ -23,6 +29,10 @@
 		/delete-node/ tx@1;
 		rx@1 {
 			/delete-property/ orx-gpios;
+		};
+
+		tx@0 {
+			/delete-property/ adi,dpd;
 		};
 	};
 

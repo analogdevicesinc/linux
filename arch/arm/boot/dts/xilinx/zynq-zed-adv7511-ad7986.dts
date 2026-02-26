@@ -56,10 +56,11 @@
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x1000>;
 		#pwm-cells = <2>;
-		clocks = <&spi_clk>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "axi", "ext";
 	};
 
-	rx_dma: rx-dmac@44a30000 {
+	rx_dma: dma-controller@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;

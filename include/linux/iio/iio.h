@@ -456,13 +456,7 @@ struct iio_trigger; /* forward declaration */
  * @update_scan_mode:	function to configure device and scan buffer when
  *			channels have changed
  * @debugfs_reg_access:	function to read or write register value of device
- * @of_xlate:		function pointer to obtain channel specifier index.
- *			When #iio-cells is greater than '0', the driver could
- *			provide a custom of_xlate function that reads the
- *			*args* and returns the appropriate index in registered
- *			IIO channels array.
  * @fwnode_xlate:	fwnode based function pointer to obtain channel specifier index.
- *			Functionally the same as @of_xlate.
  * @hwfifo_set_watermark: function pointer to set the current hardware
  *			fifo watermark level; see hwfifo_* entries in
  *			Documentation/ABI/testing/sysfs-bus-iio for details on
@@ -588,7 +582,9 @@ struct iio_buffer_setup_ops {
  *			and owner
  * @buffer:		[DRIVER] any buffer present
  * @scan_bytes:		[INTERN] num bytes captured to be fed to buffer demux
- * @available_scan_masks: [DRIVER] optional array of allowed bitmasks
+ * @available_scan_masks: [DRIVER] optional array of allowed bitmasks. Sort the
+ *			   array in order of preference, the most preferred
+ *			   masks first.
  * @masklength:		[INTERN] the length of the mask established from
  *			channels
  * @active_scan_mask:	[INTERN] union of all scan masks requested by buffers
@@ -614,7 +610,7 @@ struct iio_dev {
 	int				scan_bytes;
 
 	const unsigned long		*available_scan_masks;
-	unsigned			masklength;
+	unsigned			__private masklength;
 	const unsigned long		*active_scan_mask;
 	bool				scan_timestamp;
 	struct iio_trigger		*trig;
@@ -666,8 +662,6 @@ int __devm_iio_device_register(struct device *dev, struct iio_dev *indio_dev,
 int iio_push_event(struct iio_dev *indio_dev, u64 ev_code, s64 timestamp);
 int iio_device_claim_direct_mode(struct iio_dev *indio_dev);
 void iio_device_release_direct_mode(struct iio_dev *indio_dev);
-int iio_device_claim_buffer_mode(struct iio_dev *indio_dev);
-void iio_device_release_buffer_mode(struct iio_dev *indio_dev);
 
 /*
  * Helper functions that allow claim and release of direct mode
@@ -720,7 +714,10 @@ DEFINE_GUARD_COND(iio_claim_direct, _try, ({
 #define iio_device_claim_direct_scoped(fail, iio_dev) \
 	scoped_cond_guard(iio_claim_direct_try, fail, iio_dev)
 
-extern struct bus_type iio_bus_type;
+int iio_device_claim_buffer_mode(struct iio_dev *indio_dev);
+void iio_device_release_buffer_mode(struct iio_dev *indio_dev);
+
+extern const struct bus_type iio_bus_type;
 
 /**
  * iio_device_put() - reference counted deallocation of struct device
@@ -840,6 +837,36 @@ static inline struct dentry *iio_get_debugfs_dentry(struct iio_dev *indio_dev)
 #endif
 
 /**
+ * iio_device_suspend_triggering() - suspend trigger attached to an iio_dev
+ * @indio_dev: iio_dev associated with the device that will have triggers suspended
+ *
+ * Return 0 if successful, negative otherwise
+ **/
+int iio_device_suspend_triggering(struct iio_dev *indio_dev);
+
+/**
+ * iio_device_resume_triggering() - resume trigger attached to an iio_dev
+ *	that was previously suspended with iio_device_suspend_triggering()
+ * @indio_dev: iio_dev associated with the device that will have triggers resumed
+ *
+ * Return 0 if successful, negative otherwise
+ **/
+int iio_device_resume_triggering(struct iio_dev *indio_dev);
+
+#ifdef CONFIG_ACPI
+bool iio_read_acpi_mount_matrix(struct device *dev,
+				struct iio_mount_matrix *orientation,
+				char *acpi_method);
+#else
+static inline bool iio_read_acpi_mount_matrix(struct device *dev,
+					      struct iio_mount_matrix *orientation,
+					      char *acpi_method)
+{
+	return false;
+}
+#endif
+
+/**
  * iio_get_current_scan_type - Get the current scan type for a channel
  * @indio_dev:	the IIO device to get the scan type for
  * @chan:	the channel to get the scan type for
@@ -877,7 +904,7 @@ static inline const struct iio_scan_type
  */
 static inline unsigned int iio_get_masklength(const struct iio_dev *indio_dev)
 {
-	return indio_dev->masklength;
+	return ACCESS_PRIVATE(indio_dev, masklength);
 }
 
 int iio_active_scan_mask_index(struct iio_dev *indio_dev);
