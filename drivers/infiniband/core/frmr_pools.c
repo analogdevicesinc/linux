@@ -174,7 +174,7 @@ out:
 	if (has_work)
 		queue_delayed_work(
 			pools->aging_wq, &pool->aging_work,
-			secs_to_jiffies(FRMR_POOLS_DEFAULT_AGING_PERIOD_SECS));
+			secs_to_jiffies(READ_ONCE(pools->aging_period_sec)));
 }
 
 static void destroy_frmr_pool(struct ib_device *device,
@@ -213,6 +213,8 @@ int ib_frmr_pools_init(struct ib_device *device,
 		return -ENOMEM;
 	}
 
+	pools->aging_period_sec = FRMR_POOLS_DEFAULT_AGING_PERIOD_SECS;
+
 	device->frmr_pools = pools;
 	return 0;
 }
@@ -244,6 +246,31 @@ void ib_frmr_pools_cleanup(struct ib_device *device)
 	device->frmr_pools = NULL;
 }
 EXPORT_SYMBOL(ib_frmr_pools_cleanup);
+
+int ib_frmr_pools_set_aging_period(struct ib_device *device, u32 period_sec)
+{
+	struct ib_frmr_pools *pools = device->frmr_pools;
+	struct ib_frmr_pool *pool;
+	struct rb_node *node;
+
+	if (!pools)
+		return -EINVAL;
+
+	if (period_sec == 0)
+		return -EINVAL;
+
+	WRITE_ONCE(pools->aging_period_sec, period_sec);
+
+	read_lock(&pools->rb_lock);
+	for (node = rb_first(&pools->rb_root); node; node = rb_next(node)) {
+		pool = rb_entry(node, struct ib_frmr_pool, node);
+		mod_delayed_work(pools->aging_wq, &pool->aging_work,
+				 secs_to_jiffies(period_sec));
+	}
+	read_unlock(&pools->rb_lock);
+
+	return 0;
+}
 
 static inline int compare_keys(struct ib_frmr_key *key1,
 			       struct ib_frmr_key *key2)
@@ -513,7 +540,7 @@ int ib_frmr_pool_push(struct ib_device *device, struct ib_mr *mr)
 
 	if (ret == 0 && schedule_aging)
 		queue_delayed_work(pools->aging_wq, &pool->aging_work,
-			secs_to_jiffies(FRMR_POOLS_DEFAULT_AGING_PERIOD_SECS));
+			secs_to_jiffies(READ_ONCE(pools->aging_period_sec)));
 
 	return ret;
 }

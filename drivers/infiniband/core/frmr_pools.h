@@ -54,8 +54,10 @@ struct ib_frmr_pools {
 	const struct ib_frmr_pool_ops *pool_ops;
 
 	struct workqueue_struct *aging_wq;
+	u32 aging_period_sec;
 };
 
 int ib_frmr_pools_set_pinned(struct ib_device *device, struct ib_frmr_key *key,
 			     u32 pinned_handles);
+int ib_frmr_pools_set_aging_period(struct ib_device *device, u32 period_sec);
 #endif /* RDMA_CORE_FRMR_POOLS_H */
