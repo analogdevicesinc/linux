@@ -2426,8 +2426,6 @@ struct ib_device_ops {
 	int (*modify_device)(struct ib_device *device, int device_modify_mask,
 			     struct ib_device_modify *device_modify);
 	void (*get_dev_fw_str)(struct ib_device *device, char *str);
-	const struct cpumask *(*get_vector_affinity)(struct ib_device *ibdev,
-						     int comp_vector);
 	int (*query_port)(struct ib_device *device, u32 port_num,
 			  struct ib_port_attr *port_attr);
 	int (*query_port_speed)(struct ib_device *device, u32 port_num,
@@ -4832,27 +4830,6 @@ static inline __be16 ib_lid_be16(u32 lid)
 {
 	WARN_ON_ONCE(lid & 0xFFFF0000);
 	return cpu_to_be16((u16)lid);
-}
-
-/**
- * ib_get_vector_affinity - Get the affinity mappings of a given completion
- *   vector
- * @device:         the rdma device
- * @comp_vector:    index of completion vector
- *
- * Returns NULL on failure, otherwise a corresponding cpu map of the
- * completion vector (returns all-cpus map if the device driver doesn't
- * implement get_vector_affinity).
- */
-static inline const struct cpumask *
-ib_get_vector_affinity(struct ib_device *device, int comp_vector)
-{
-	if (comp_vector < 0 || comp_vector >= device->num_comp_vectors ||
-	    !device->ops.get_vector_affinity)
-		return NULL;
-
-	return device->ops.get_vector_affinity(device, comp_vector);
-
 }
 
 /**
