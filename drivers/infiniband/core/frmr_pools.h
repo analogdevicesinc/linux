@@ -45,6 +45,7 @@ struct ib_frmr_pool {
 
 	u32 max_in_use;
 	u32 in_use;
+	u32 pinned_handles;
 };
 
 struct ib_frmr_pools {
@@ -55,4 +56,6 @@ struct ib_frmr_pools {
 	struct workqueue_struct *aging_wq;
 };
 
+int ib_frmr_pools_set_pinned(struct ib_device *device, struct ib_frmr_key *key,
+			     u32 pinned_handles);
 #endif /* RDMA_CORE_FRMR_POOLS_H */

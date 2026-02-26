@@ -97,12 +97,61 @@ static void destroy_all_handles_in_queue(struct ib_device *device,
 	}
 }
 
+static bool age_pinned_pool(struct ib_device *device, struct ib_frmr_pool *pool)
+{
+	struct ib_frmr_pools *pools = device->frmr_pools;
+	u32 total, to_destroy, destroyed = 0;
+	bool has_work = false;
+	u32 *handles;
+	u32 handle;
+
+	spin_lock(&pool->lock);
+	total = pool->queue.ci + pool->inactive_queue.ci + pool->in_use;
+	if (total <= pool->pinned_handles) {
+		spin_unlock(&pool->lock);
+		return false;
+	}
+
+	to_destroy = total - pool->pinned_handles;
+
+	handles = kcalloc(to_destroy, sizeof(*handles), GFP_ATOMIC);
+	if (!handles) {
+		spin_unlock(&pool->lock);
+		return true;
+	}
+
+	/* Destroy all excess handles in the inactive queue */
+	while (pool->inactive_queue.ci && destroyed < to_destroy) {
+		handles[destroyed++] = pop_handle_from_queue_locked(
+			&pool->inactive_queue);
+	}
+
+	/* Move all handles from regular queue to inactive queue */
+	while (pool->queue.ci) {
+		handle = pop_handle_from_queue_locked(&pool->queue);
+		push_handle_to_queue_locked(&pool->inactive_queue, handle);
+		has_work = true;
+	}
+
+	spin_unlock(&pool->lock);
+
+	if (destroyed)
+		pools->pool_ops->destroy_frmrs(device, handles, destroyed);
+	kfree(handles);
+	return has_work;
+}
+
 static void pool_aging_work(struct work_struct *work)
 {
 	struct ib_frmr_pool *pool = container_of(
 		to_delayed_work(work), struct ib_frmr_pool, aging_work);
 	struct ib_frmr_pools *pools = pool->device->frmr_pools;
 	bool has_work = false;
+
+	if (pool->pinned_handles) {
+		has_work = age_pinned_pool(pool->device, pool);
+		goto out;
+	}
 
 	destroy_all_handles_in_queue(pool->device, pool, &pool->inactive_queue);
 
@@ -120,6 +169,7 @@ static void pool_aging_work(struct work_struct *work)
 	}
 	spin_unlock(&pool->lock);
 
+out:
 	/* Reschedule if there are handles to age in next aging period */
 	if (has_work)
 		queue_delayed_work(
@@ -296,6 +346,83 @@ static struct ib_frmr_pool *create_frmr_pool(struct ib_device *device,
 	}
 
 	return pool;
+}
+
+int ib_frmr_pools_set_pinned(struct ib_device *device, struct ib_frmr_key *key,
+			     u32 pinned_handles)
+{
+	struct ib_frmr_pools *pools = device->frmr_pools;
+	struct ib_frmr_key driver_key = {};
+	struct ib_frmr_pool *pool;
+	u32 needed_handles;
+	u32 current_total;
+	int i, ret = 0;
+	u32 *handles;
+
+	if (!pools)
+		return -EINVAL;
+
+	ret = ib_check_mr_access(device, key->access_flags);
+	if (ret)
+		return ret;
+
+	if (pools->pool_ops->build_key) {
+		ret = pools->pool_ops->build_key(device, key, &driver_key);
+		if (ret)
+			return ret;
+	} else {
+		memcpy(&driver_key, key, sizeof(*key));
+	}
+
+	pool = ib_frmr_pool_find(pools, &driver_key);
+	if (!pool) {
+		pool = create_frmr_pool(device, &driver_key);
+		if (IS_ERR(pool))
+			return PTR_ERR(pool);
+	}
+
+	spin_lock(&pool->lock);
+	current_total = pool->in_use + pool->queue.ci + pool->inactive_queue.ci;
+
+	if (current_total < pinned_handles)
+		needed_handles = pinned_handles - current_total;
+	else
+		needed_handles = 0;
+
+	pool->pinned_handles = pinned_handles;
+	spin_unlock(&pool->lock);
+
+	if (!needed_handles)
+		goto schedule_aging;
+
+	handles = kcalloc(needed_handles, sizeof(*handles), GFP_KERNEL);
+	if (!handles)
+		return -ENOMEM;
+
+	ret = pools->pool_ops->create_frmrs(device, key, handles,
+					    needed_handles);
+	if (ret) {
+		kfree(handles);
+		return ret;
+	}
+
+	spin_lock(&pool->lock);
+	for (i = 0; i < needed_handles; i++) {
+		ret = push_handle_to_queue_locked(&pool->queue,
+						  handles[i]);
+		if (ret)
+			goto end;
+	}
+
+end:
+	spin_unlock(&pool->lock);
+	kfree(handles);
+
+schedule_aging:
+	/* Ensure aging is scheduled to adjust to new pinned handles count */
+	mod_delayed_work(pools->aging_wq, &pool->aging_work, 0);
+
+	return ret;
 }
 
 static int get_frmr_from_pool(struct ib_device *device,

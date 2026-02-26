@@ -26,6 +26,8 @@ struct ib_frmr_pool_ops {
 			    u32 *handles, u32 count);
 	void (*destroy_frmrs)(struct ib_device *device, u32 *handles,
 			      u32 count);
+	int (*build_key)(struct ib_device *device, const struct ib_frmr_key *in,
+			 struct ib_frmr_key *out);
 };
 
 int ib_frmr_pools_init(struct ib_device *device,
