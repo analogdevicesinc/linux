@@ -912,6 +912,8 @@ static int get_phy_c22_id(struct mii_bus *bus, int addr, u32 *phy_id)
 	/* Grab the bits from PHYIR1, and put them in the upper half */
 	phy_reg = mdiobus_read(bus, addr, MII_PHYSID1);
 	if (phy_reg < 0) {
+		pr_info("PHY DEBUG: addr %d: PHYSID1 read failed (%d)\n",
+			addr, phy_reg);
 		/* returning -ENODEV doesn't stop bus scanning */
 		return (phy_reg == -EIO || phy_reg == -ENODEV) ? -ENODEV : -EIO;
 	}
@@ -921,16 +923,24 @@ static int get_phy_c22_id(struct mii_bus *bus, int addr, u32 *phy_id)
 	/* Grab the bits from PHYIR2, and put them in the lower half */
 	phy_reg = mdiobus_read(bus, addr, MII_PHYSID2);
 	if (phy_reg < 0) {
+		pr_info("PHY DEBUG: addr %d: PHYSID2 read failed (%d)\n",
+			addr, phy_reg);
 		/* returning -ENODEV doesn't stop bus scanning */
 		return (phy_reg == -EIO || phy_reg == -ENODEV) ? -ENODEV : -EIO;
 	}
 
 	*phy_id |= phy_reg;
 
-	/* If the phy_id is mostly Fs, there is no device there */
-	if ((*phy_id & 0x1fffffff) == 0x1fffffff)
-		return -ENODEV;
+	pr_info("PHY DEBUG: addr %d: PHYSID1=0x%04x PHYSID2=0x%04x -> phy_id=0x%08x\n",
+		addr, (*phy_id >> 16) & 0xffff, *phy_id & 0xffff, *phy_id);
 
+	/* If the phy_id is mostly Fs, there is no device there */
+	if ((*phy_id & 0x1fffffff) == 0x1fffffff) {
+		pr_info("PHY DEBUG: addr %d: no device (all Fs)\n", addr);
+		return -ENODEV;
+	}
+
+	pr_info("PHY DEBUG: addr %d: PHY detected! ID=0x%08x\n", addr, *phy_id);
 	return 0;
 }
 

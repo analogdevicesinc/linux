@@ -1048,8 +1048,13 @@ static int phylink_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 			      const struct phylink_link_state *state,
 			      bool permit_pause_to_mac)
 {
-	if (!pcs)
+	if (!pcs) {
+		pr_info("PCS DEBUG: phylink_pcs_config: pcs is NULL, skipping\n");
 		return 0;
+	}
+
+	pr_info("PCS DEBUG: phylink_pcs_config: pcs=%p, ops=%p, pcs_config=%p, interface=%s\n",
+		pcs, pcs->ops, pcs->ops->pcs_config, phy_modes(state->interface));
 
 	return pcs->ops->pcs_config(pcs, neg_mode, state->interface,
 				    state->advertising, permit_pause_to_mac);
@@ -1203,6 +1208,9 @@ static void phylink_major_config(struct phylink *pl, bool restart,
 
 	phylink_dbg(pl, "major config %s\n", phy_modes(state->interface));
 
+	pr_info("PCS DEBUG: phylink_major_config called, interface=%s, an_mode=%u, using_mac_select_pcs=%d\n",
+		phy_modes(state->interface), pl->cur_link_an_mode, pl->using_mac_select_pcs);
+
 	pl->pcs_neg_mode = phylink_pcs_neg_mode(pl->cur_link_an_mode,
 						state->interface,
 						state->advertising);
@@ -1217,6 +1225,8 @@ static void phylink_major_config(struct phylink *pl, bool restart,
 		}
 
 		pcs_changed = pcs && pl->pcs != pcs;
+		pr_info("PCS DEBUG: mac_select_pcs returned pcs=%p, pcs_changed=%d, pl->pcs=%p\n",
+			pcs, pcs_changed, pl->pcs);
 	}
 
 	phylink_pcs_poll_stop(pl);
@@ -1260,8 +1270,12 @@ static void phylink_major_config(struct phylink *pl, bool restart,
 	if (pl->pcs && pl->pcs->neg_mode)
 		neg_mode = pl->pcs_neg_mode;
 
+	pr_info("PCS DEBUG: about to call phylink_pcs_config, pl->pcs=%p, neg_mode=%u, interface=%s\n",
+		pl->pcs, neg_mode, phy_modes(state->interface));
+
 	err = phylink_pcs_config(pl->pcs, neg_mode, state,
 				 !!(pl->link_config.pause & MLO_PAUSE_AN));
+	pr_info("PCS DEBUG: phylink_pcs_config returned %d\n", err);
 	if (err < 0)
 		phylink_err(pl, "pcs_config failed: %pe\n",
 			    ERR_PTR(err));
@@ -2250,6 +2264,10 @@ void phylink_start(struct phylink *pl)
 	phylink_info(pl, "configuring for %s/%s link mode\n",
 		     phylink_an_mode_str(pl->cur_link_an_mode),
 		     phy_modes(pl->link_config.interface));
+
+	pr_info("PCS DEBUG: phylink_start called, an_mode=%s, interface=%s, pcs=%p\n",
+		phylink_an_mode_str(pl->cur_link_an_mode),
+		phy_modes(pl->link_config.interface), pl->pcs);
 
 	/* Always set the carrier off */
 	if (pl->netdev)

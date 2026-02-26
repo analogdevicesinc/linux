@@ -557,6 +557,9 @@ static struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr, bool c45)
 	if (IS_ERR(phydev))
 		return phydev;
 
+	pr_info("MDIO DEBUG: bus %s: found %s PHY at addr %d, phy_id=0x%08x\n",
+		bus->name, c45 ? "C45" : "C22", addr, phydev->phy_id);
+
 	/* For DT, see if the auto-probed phy has a corresponding child
 	 * in the bus node, and set the of_node pointer in this case.
 	 */
@@ -564,10 +567,14 @@ static struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr, bool c45)
 
 	err = phy_device_register(phydev);
 	if (err) {
+		pr_err("MDIO DEBUG: bus %s: failed to register PHY at addr %d: %d\n",
+		       bus->name, addr, err);
 		phy_device_free(phydev);
 		return ERR_PTR(-ENODEV);
 	}
 
+	pr_info("MDIO DEBUG: bus %s: PHY at addr %d registered successfully\n",
+		bus->name, addr);
 	return phydev;
 }
 
@@ -610,6 +617,9 @@ static int mdiobus_scan_bus_c22(struct mii_bus *bus)
 {
 	int i;
 
+	pr_info("MDIO DEBUG: scanning bus '%s' for C22 PHYs (mask=0x%08x)...\n",
+		bus->name, bus->phy_mask);
+
 	for (i = 0; i < PHY_MAX_ADDR; i++) {
 		if ((bus->phy_mask & BIT(i)) == 0) {
 			struct phy_device *phydev;
@@ -619,6 +629,7 @@ static int mdiobus_scan_bus_c22(struct mii_bus *bus)
 				return PTR_ERR(phydev);
 		}
 	}
+	pr_info("MDIO DEBUG: C22 scan of bus '%s' complete\n", bus->name);
 	return 0;
 }
 

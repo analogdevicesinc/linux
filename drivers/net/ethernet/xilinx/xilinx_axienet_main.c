@@ -4266,10 +4266,15 @@ static int axienet_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 	struct net_device *ndev = lp->ndev;
 	int ret;
 
+	netdev_info(ndev, "PCS DEBUG: pcs_config called, interface=%d (SGMII=%d), switch_x_sgmii=%d\n",
+		   interface, PHY_INTERFACE_MODE_SGMII, lp->switch_x_sgmii);
+
 	if (lp->switch_x_sgmii) {
 		ret = mdiodev_write(pcs_phy, XLNX_MII_STD_SELECT_REG,
 				    interface == PHY_INTERFACE_MODE_SGMII ?
 					XLNX_MII_STD_SELECT_SGMII : 0);
+		netdev_info(ndev, "PCS DEBUG: wrote reg 0x11 = %d, ret=%d\n",
+			   interface == PHY_INTERFACE_MODE_SGMII ? 1 : 0, ret);
 		if (ret < 0) {
 			netdev_warn(ndev,
 				    "Failed to switch PHY interface: %d\n",
@@ -4342,6 +4347,17 @@ static int axienet_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 
 	ret = phylink_mii_c22_pcs_config(pcs_phy, interface, advertising,
 					 neg_mode);
+	{
+		int r0, r1, r4, r5, r17;
+
+		r0 = mdiodev_read(pcs_phy, MII_BMCR);
+		r1 = mdiodev_read(pcs_phy, MII_BMSR);
+		r4 = mdiodev_read(pcs_phy, MII_ADVERTISE);
+		r5 = mdiodev_read(pcs_phy, MII_LPA);
+		r17 = mdiodev_read(pcs_phy, XLNX_MII_STD_SELECT_REG);
+		netdev_info(ndev, "PCS DEBUG: after pcs_config: BMCR=0x%04x BMSR=0x%04x ANAR=0x%04x LPA=0x%04x REG17=0x%04x ret=%d\n",
+			   r0, r1, r4, r5, r17, ret);
+	}
 	if (ret < 0)
 		netdev_warn(ndev, "Failed to configure PCS: %d\n", ret);
 
@@ -4377,6 +4393,8 @@ static struct phylink_pcs *axienet_mac_select_pcs(struct phylink_config *config,
 	struct net_device *ndev = to_net_dev(config->dev);
 	struct axienet_local *lp = netdev_priv(ndev);
 
+	netdev_info(ndev, "PCS DEBUG: mac_select_pcs called, interface=%d, pcs_phy=%p, pcs.ops=%p\n",
+		   interface, lp->pcs_phy, lp->pcs.ops);
 	return &lp->pcs;
 }
 
@@ -4408,6 +4426,45 @@ static void axienet_mac_link_up(struct phylink_config *config,
 	    lp->axienet_config->mactype == XAXIENET_DCMAC) {
 		/* nothing meaningful to do */
 		return;
+	}
+
+	/* Enable SGMII on ADIN1320 and configure PCS */
+	if (lp->switch_x_sgmii && lp->pcs_phy && phy &&
+	    interface == PHY_INTERFACE_MODE_SGMII) {
+		int sd_cfg, r1;
+
+		/* Read current GE_SD_CFG */
+		sd_cfg = phy_read_mmd(phy, MDIO_MMD_VEND1, 0xff53);
+		netdev_info(ndev, "PCS DEBUG: ADIN1320 GE_SD_CFG before=0x%04x\n", sd_cfg);
+
+		/* Enable SGMII: SD_SGMII_EN (bit 0) + SD_AUTONEG_EN_CFG (bit 2) */
+		if (!(sd_cfg & BIT(0))) {
+			sd_cfg |= BIT(0) | BIT(2);  /* SD_SGMII_EN + SD_AUTONEG_EN_CFG */
+			phy_write_mmd(phy, MDIO_MMD_VEND1, 0xff53, sd_cfg);
+			netdev_info(ndev, "PCS DEBUG: ADIN1320 GE_SD_CFG written=0x%04x\n", sd_cfg);
+
+			/* Reset GE subsystem to apply _CFG changes */
+			phy_write_mmd(phy, MDIO_MMD_VEND1, 0xff0c, BIT(0));
+			usleep_range(10000, 20000);
+			netdev_info(ndev, "PCS DEBUG: ADIN1320 GE subsystem reset done\n");
+
+			/* Read back to verify */
+			sd_cfg = phy_read_mmd(phy, MDIO_MMD_VEND1, 0xff53);
+			netdev_info(ndev, "PCS DEBUG: ADIN1320 GE_SD_CFG after reset=0x%04x\n", sd_cfg);
+		}
+
+		/* Also reset PCS to re-establish SGMII link */
+		mdiodev_write(lp->pcs_phy, MII_BMCR, BMCR_RESET);
+		usleep_range(5000, 10000);
+		mdiodev_write(lp->pcs_phy, MII_ADVERTISE, 0x0001);
+		mdiodev_write(lp->pcs_phy, MII_BMCR,
+			      BMCR_ANENABLE | BMCR_ANRESTART | BMCR_FULLDPLX | BMCR_SPEED1000);
+		usleep_range(50000, 100000);
+
+		/* Check PCS link status */
+		r1 = mdiodev_read(lp->pcs_phy, MII_BMSR);
+		netdev_info(ndev, "PCS DEBUG: after SGMII setup PCS BMSR=0x%04x (link=%s)\n",
+			   r1, r1 & BMSR_LSTATUS ? "UP" : "DOWN");
 	}
 
 	emmc_reg = axienet_ior(lp, XAE_EMMC_OFFSET);
@@ -5545,18 +5602,22 @@ static int axienet_probe(struct platform_device *pdev)
 			if (lp->max_speed == SPEED_1000) {
 				lp->phylink_config.mac_capabilities = (MAC_10FD | MAC_100FD |
 								       MAC_1000FD);
-				if (lp->switch_x_sgmii)
-					__set_bit(PHY_INTERFACE_MODE_SGMII |
-						  PHY_INTERFACE_MODE_1000BASEX,
+				if (lp->switch_x_sgmii) {
+					__set_bit(PHY_INTERFACE_MODE_SGMII,
 						  lp->phylink_config.supported_interfaces);
+					__set_bit(PHY_INTERFACE_MODE_1000BASEX,
+						  lp->phylink_config.supported_interfaces);
+				}
 
 			} else {
 				/* 2.5G speed */
 				lp->phylink_config.mac_capabilities |= MAC_2500FD;
-				if (lp->switch_x_sgmii)
-					__set_bit(PHY_INTERFACE_MODE_SGMII |
-						  PHY_INTERFACE_MODE_1000BASEX,
+				if (lp->switch_x_sgmii) {
+					__set_bit(PHY_INTERFACE_MODE_SGMII,
 						  lp->phylink_config.supported_interfaces);
+					__set_bit(PHY_INTERFACE_MODE_1000BASEX,
+						  lp->phylink_config.supported_interfaces);
+				}
 			}
 		}
 	}

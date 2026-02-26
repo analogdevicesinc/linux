@@ -298,12 +298,20 @@ int axienet_mdio_setup(struct axienet_local *lp)
 	lp->mii_bus = bus;
 
 	mdio_node = of_get_child_by_name(lp->dev->of_node, "mdio");
+	dev_info(lp->dev, "MDIO DEBUG: setting up MDIO bus, mdio_node=%s\n",
+		 mdio_node ? mdio_node->full_name : "NULL");
 	ret = axienet_mdio_enable(lp, mdio_node);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(lp->dev, "MDIO DEBUG: axienet_mdio_enable failed: %d\n", ret);
 		goto unregister;
+	}
+	dev_info(lp->dev, "MDIO DEBUG: MDIO enabled, registering bus...\n");
 	ret = of_mdiobus_register(bus, mdio_node);
-	if (ret)
+	if (ret) {
+		dev_err(lp->dev, "MDIO DEBUG: of_mdiobus_register failed: %d\n", ret);
 		goto unregister_mdio_enabled;
+	}
+	dev_info(lp->dev, "MDIO DEBUG: MDIO bus registered successfully\n");
 	of_node_put(mdio_node);
 	axienet_mdio_mdc_disable(lp);
 	return 0;
