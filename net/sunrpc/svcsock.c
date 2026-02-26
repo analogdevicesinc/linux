@@ -351,8 +351,6 @@ static ssize_t svc_tcp_read_msg(struct svc_rqst *rqstp, size_t buflen,
 
 	for (i = 0, t = 0; t < buflen; i++, t += PAGE_SIZE)
 		bvec_set_page(&bvec[i], rqstp->rq_pages[i], PAGE_SIZE, 0);
-	rqstp->rq_respages = &rqstp->rq_pages[i];
-	rqstp->rq_next_page = rqstp->rq_respages + 1;
 
 	iov_iter_bvec(&msg.msg_iter, ITER_DEST, bvec, i, buflen);
 	if (seek) {
@@ -677,13 +675,9 @@ static int svc_udp_recvfrom(struct svc_rqst *rqstp)
 	if (len <= rqstp->rq_arg.head[0].iov_len) {
 		rqstp->rq_arg.head[0].iov_len = len;
 		rqstp->rq_arg.page_len = 0;
-		rqstp->rq_respages = rqstp->rq_pages+1;
 	} else {
 		rqstp->rq_arg.page_len = len - rqstp->rq_arg.head[0].iov_len;
-		rqstp->rq_respages = rqstp->rq_pages + 1 +
-			DIV_ROUND_UP(rqstp->rq_arg.page_len, PAGE_SIZE);
 	}
-	rqstp->rq_next_page = rqstp->rq_respages+1;
 
 	if (serv->sv_stats)
 		serv->sv_stats->netudpcnt++;

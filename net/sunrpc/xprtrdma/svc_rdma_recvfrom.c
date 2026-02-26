@@ -861,17 +861,11 @@ static noinline void svc_rdma_read_complete(struct svc_rqst *rqstp,
 	unsigned int i;
 
 	/* Transfer the Read chunk pages into @rqstp.rq_pages, replacing
-	 * the rq_pages that were already allocated for this rqstp.
+	 * the receive buffer pages already allocated for this rqstp.
 	 */
-	release_pages(rqstp->rq_respages, ctxt->rc_page_count);
+	release_pages(rqstp->rq_pages, ctxt->rc_page_count);
 	for (i = 0; i < ctxt->rc_page_count; i++)
 		rqstp->rq_pages[i] = ctxt->rc_pages[i];
-
-	/* Update @rqstp's result send buffer to start after the
-	 * last page in the RDMA Read payload.
-	 */
-	rqstp->rq_respages = &rqstp->rq_pages[ctxt->rc_page_count];
-	rqstp->rq_next_page = rqstp->rq_respages + 1;
 
 	/* Prevent svc_rdma_recv_ctxt_put() from releasing the
 	 * pages in ctxt::rc_pages a second time.
@@ -931,10 +925,9 @@ int svc_rdma_recvfrom(struct svc_rqst *rqstp)
 	struct svc_rdma_recv_ctxt *ctxt;
 	int ret;
 
-	/* Prevent svc_xprt_release() from releasing pages in rq_pages
-	 * when returning 0 or an error.
+	/* Precaution: a zero page count on error return causes
+	 * svc_rqst_release_pages() to release nothing.
 	 */
-	rqstp->rq_respages = rqstp->rq_pages;
 	rqstp->rq_next_page = rqstp->rq_respages;
 
 	rqstp->rq_xprt_ctxt = NULL;

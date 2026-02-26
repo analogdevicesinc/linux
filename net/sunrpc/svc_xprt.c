@@ -650,14 +650,13 @@ static void svc_check_conn_limits(struct svc_serv *serv)
 	}
 }
 
-static bool svc_alloc_arg(struct svc_rqst *rqstp)
+static bool svc_fill_pages(struct svc_rqst *rqstp, struct page **pages,
+			   unsigned long npages)
 {
-	struct xdr_buf *arg = &rqstp->rq_arg;
-	unsigned long pages, filled, ret;
+	unsigned long filled, ret;
 
-	pages = rqstp->rq_maxpages;
-	for (filled = 0; filled < pages; filled = ret) {
-		ret = alloc_pages_bulk(GFP_KERNEL, pages, rqstp->rq_pages);
+	for (filled = 0; filled < npages; filled = ret) {
+		ret = alloc_pages_bulk(GFP_KERNEL, npages, pages);
 		if (ret > filled)
 			/* Made progress, don't sleep yet */
 			continue;
@@ -667,11 +666,29 @@ static bool svc_alloc_arg(struct svc_rqst *rqstp)
 			set_current_state(TASK_RUNNING);
 			return false;
 		}
-		trace_svc_alloc_arg_err(pages, ret);
+		trace_svc_alloc_arg_err(npages, ret);
 		memalloc_retry_wait(GFP_KERNEL);
 	}
-	rqstp->rq_page_end = &rqstp->rq_pages[pages];
-	rqstp->rq_pages[pages] = NULL; /* this might be seen in nfsd_splice_actor() */
+	return true;
+}
+
+static bool svc_alloc_arg(struct svc_rqst *rqstp)
+{
+	struct xdr_buf *arg = &rqstp->rq_arg;
+	unsigned long pages;
+
+	pages = rqstp->rq_maxpages;
+
+	if (!svc_fill_pages(rqstp, rqstp->rq_pages, pages))
+		return false;
+	if (!svc_fill_pages(rqstp, rqstp->rq_respages, pages))
+		return false;
+	rqstp->rq_next_page = rqstp->rq_respages;
+	rqstp->rq_page_end = &rqstp->rq_respages[pages];
+	/* svc_rqst_replace_page() dereferences *rq_next_page even
+	 * at rq_page_end; NULL prevents releasing a garbage page.
+	 */
+	rqstp->rq_page_end[0] = NULL;
 
 	/* Make arg->head point to first page and arg->pages point to rest */
 	arg->head[0].iov_base = page_address(rqstp->rq_pages[0]);
@@ -1277,7 +1294,6 @@ static noinline int svc_deferred_recv(struct svc_rqst *rqstp)
 	rqstp->rq_addrlen     = dr->addrlen;
 	/* Save off transport header len in case we get deferred again */
 	rqstp->rq_daddr       = dr->daddr;
-	rqstp->rq_respages    = rqstp->rq_pages;
 	rqstp->rq_xprt_ctxt   = dr->xprt_ctxt;
 
 	dr->xprt_ctxt = NULL;

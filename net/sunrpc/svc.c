@@ -638,12 +638,22 @@ svc_init_buffer(struct svc_rqst *rqstp, const struct svc_serv *serv, int node)
 {
 	rqstp->rq_maxpages = svc_serv_maxpages(serv);
 
-	/* rq_pages' last entry is NULL for historical reasons. */
+	/* +1 for a NULL sentinel readable by nfsd_splice_actor() */
 	rqstp->rq_pages = kcalloc_node(rqstp->rq_maxpages + 1,
 				       sizeof(struct page *),
 				       GFP_KERNEL, node);
 	if (!rqstp->rq_pages)
 		return false;
+
+	/* +1 for a NULL sentinel at rq_page_end (see svc_rqst_replace_page) */
+	rqstp->rq_respages = kcalloc_node(rqstp->rq_maxpages + 1,
+					  sizeof(struct page *),
+					  GFP_KERNEL, node);
+	if (!rqstp->rq_respages) {
+		kfree(rqstp->rq_pages);
+		rqstp->rq_pages = NULL;
+		return false;
+	}
 
 	return true;
 }
@@ -656,10 +666,19 @@ svc_release_buffer(struct svc_rqst *rqstp)
 {
 	unsigned long i;
 
-	for (i = 0; i < rqstp->rq_maxpages; i++)
-		if (rqstp->rq_pages[i])
-			put_page(rqstp->rq_pages[i]);
-	kfree(rqstp->rq_pages);
+	if (rqstp->rq_pages) {
+		for (i = 0; i < rqstp->rq_maxpages; i++)
+			if (rqstp->rq_pages[i])
+				put_page(rqstp->rq_pages[i]);
+		kfree(rqstp->rq_pages);
+	}
+
+	if (rqstp->rq_respages) {
+		for (i = 0; i < rqstp->rq_maxpages; i++)
+			if (rqstp->rq_respages[i])
+				put_page(rqstp->rq_respages[i]);
+		kfree(rqstp->rq_respages);
+	}
 }
 
 static void
