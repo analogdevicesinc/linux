@@ -990,18 +990,24 @@ EXPORT_SYMBOL_GPL(svc_rqst_replace_page);
  * svc_rqst_release_pages - Release Reply buffer pages
  * @rqstp: RPC transaction context
  *
- * Release response pages that might still be in flight after
- * svc_send, and any spliced filesystem-owned pages.
+ * Release response pages in the range [rq_respages, rq_next_page).
+ * NULL entries in this range are skipped, allowing transports to
+ * transfer pages to a send context before this function runs.
  */
 void svc_rqst_release_pages(struct svc_rqst *rqstp)
 {
-	int i, count = rqstp->rq_next_page - rqstp->rq_respages;
+	struct page **pp;
 
-	if (count) {
-		release_pages(rqstp->rq_respages, count);
-		for (i = 0; i < count; i++)
-			rqstp->rq_respages[i] = NULL;
+	for (pp = rqstp->rq_respages; pp < rqstp->rq_next_page; pp++) {
+		if (*pp) {
+			if (!folio_batch_add(&rqstp->rq_fbatch,
+					     page_folio(*pp)))
+				__folio_batch_release(&rqstp->rq_fbatch);
+			*pp = NULL;
+		}
 	}
+	if (rqstp->rq_fbatch.nr)
+		__folio_batch_release(&rqstp->rq_fbatch);
 }
 
 /**
