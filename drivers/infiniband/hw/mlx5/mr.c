@@ -978,7 +978,6 @@ int mlx5_mkey_cache_init(struct mlx5_ib_dev *dev)
 		return -ENOMEM;
 	}
 
-	mlx5_cmd_init_async_ctx(dev->mdev, &dev->async_ctx);
 	timer_setup(&dev->delay_timer, delay_time_func, 0);
 	mlx5_mkey_cache_debugfs_init(dev);
 	mutex_lock(&cache->rb_lock);
@@ -1040,7 +1039,6 @@ void mlx5_mkey_cache_cleanup(struct mlx5_ib_dev *dev)
 	flush_workqueue(dev->cache.wq);
 
 	mlx5_mkey_cache_debugfs_cleanup(dev);
-	mlx5_cmd_cleanup_async_ctx(&dev->async_ctx);
 
 	/* At this point all entries are disabled and have no concurrent work. */
 	mlx5r_destroy_cache_entries(dev);

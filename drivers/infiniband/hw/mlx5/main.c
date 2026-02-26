@@ -4416,6 +4416,7 @@ static const struct uapi_definition mlx5_ib_defs[] = {
 
 static void mlx5_ib_stage_init_cleanup(struct mlx5_ib_dev *dev)
 {
+	mlx5_cmd_cleanup_async_ctx(&dev->async_ctx);
 	mlx5_ib_data_direct_cleanup(dev);
 	mlx5_ib_cleanup_multiport_master(dev);
 	WARN_ON(!xa_empty(&dev->odp_mkeys));
@@ -4484,6 +4485,8 @@ static int mlx5_ib_stage_init_init(struct mlx5_ib_dev *dev)
 	err = pcim_p2pdma_init(mdev->pdev);
 	if (err && err != -EOPNOTSUPP)
 		goto err_dd;
+
+	mlx5_cmd_init_async_ctx(mdev, &dev->async_ctx);
 
 	return 0;
 err_dd:
