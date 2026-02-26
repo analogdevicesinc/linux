@@ -558,55 +558,35 @@ static ssize_t ad9523_show(struct device *dev,
 	return ret;
 }
 
-static IIO_DEVICE_ATTR(pll1_locked, S_IRUGO,
-			ad9523_show,
-			NULL,
-			AD9523_STAT_PLL1_LD);
+static IIO_DEVICE_ATTR(pll1_locked, 0444, ad9523_show, NULL,
+		       AD9523_STAT_PLL1_LD);
 
-static IIO_DEVICE_ATTR(pll2_locked, S_IRUGO,
-			ad9523_show,
-			NULL,
-			AD9523_STAT_PLL2_LD);
+static IIO_DEVICE_ATTR(pll2_locked, 0444, ad9523_show, NULL,
+		       AD9523_STAT_PLL2_LD);
 
-static IIO_DEVICE_ATTR(pll1_reference_clk_a_present, S_IRUGO,
-			ad9523_show,
-			NULL,
-			AD9523_STAT_REFA);
+static IIO_DEVICE_ATTR(pll1_reference_clk_a_present, 0444, ad9523_show, NULL,
+		       AD9523_STAT_REFA);
 
-static IIO_DEVICE_ATTR(pll1_reference_clk_b_present, S_IRUGO,
-			ad9523_show,
-			NULL,
-			AD9523_STAT_REFB);
+static IIO_DEVICE_ATTR(pll1_reference_clk_b_present, 0444, ad9523_show, NULL,
+		       AD9523_STAT_REFB);
 
-static IIO_DEVICE_ATTR(pll1_reference_clk_test_present, S_IRUGO,
-			ad9523_show,
-			NULL,
-			AD9523_STAT_REF_TEST);
+static IIO_DEVICE_ATTR(pll1_reference_clk_test_present, 0444, ad9523_show, NULL,
+		       AD9523_STAT_REF_TEST);
 
-static IIO_DEVICE_ATTR(vcxo_clk_present, S_IRUGO,
-			ad9523_show,
-			NULL,
-			AD9523_STAT_VCXO);
+static IIO_DEVICE_ATTR(vcxo_clk_present, 0444, ad9523_show, NULL,
+		       AD9523_STAT_VCXO);
 
-static IIO_DEVICE_ATTR(pll2_feedback_clk_present, S_IRUGO,
-			ad9523_show,
-			NULL,
-			AD9523_STAT_PLL2_FB_CLK);
+static IIO_DEVICE_ATTR(pll2_feedback_clk_present, 0444, ad9523_show, NULL,
+		       AD9523_STAT_PLL2_FB_CLK);
 
-static IIO_DEVICE_ATTR(pll2_reference_clk_present, S_IRUGO,
-			ad9523_show,
-			NULL,
-			AD9523_STAT_PLL2_REF_CLK);
+static IIO_DEVICE_ATTR(pll2_reference_clk_present, 0444, ad9523_show, NULL,
+		       AD9523_STAT_PLL2_REF_CLK);
 
-static IIO_DEVICE_ATTR(sync_dividers, S_IWUSR,
-			NULL,
-			ad9523_store,
-			AD9523_SYNC);
+static IIO_DEVICE_ATTR(sync_dividers, 0200, NULL, ad9523_store,
+		       AD9523_SYNC);
 
-static IIO_DEVICE_ATTR(store_eeprom, S_IWUSR,
-			NULL,
-			ad9523_store,
-			AD9523_EEPROM);
+static IIO_DEVICE_ATTR(store_eeprom, 0200, NULL, ad9523_store,
+		       AD9523_EEPROM);
 
 static struct attribute *ad9523_attributes[] = {
 	&iio_dev_attr_sync_dividers.dev_attr.attr,
