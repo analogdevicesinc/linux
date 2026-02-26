@@ -7,6 +7,8 @@
  * Author: Qasim Ijaz <Qasim.Ijaz@analog.com>
  */
 
+// SC598, SC594, SC589-Mini, SC573
+
 #include <linux/module.h>
 #include <linux/cpufreq.h>
 #include <linux/init.h>
@@ -143,6 +145,12 @@ out_put_clk:
 	of_node_put(clk_np);
 	return ret;
 }
+
+static const struct of_device_id sc5xx_cpufreq_of_match[] = {
+	{ .compatible = "adi,sc58x-clocks" },
+	{ .compatible = "adi,sc598-clocks" },
+	{ },
+};
 
 static struct cpufreq_driver sc589_cpufreq_driver = {
 	.name = "sc589-cpufreq",
