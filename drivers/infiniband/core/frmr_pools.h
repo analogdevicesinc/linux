@@ -11,6 +11,7 @@
 #include <linux/spinlock_types.h>
 #include <linux/types.h>
 #include <asm/page.h>
+#include <linux/workqueue.h>
 
 #define NUM_HANDLES_PER_PAGE \
 	((PAGE_SIZE - sizeof(struct list_head)) / sizeof(u32))
@@ -37,12 +38,18 @@ struct ib_frmr_pool {
 	/* Protect access to the queue */
 	spinlock_t lock;
 	struct frmr_queue queue;
+	struct frmr_queue inactive_queue;
+
+	struct delayed_work aging_work;
+	struct ib_device *device;
 };
 
 struct ib_frmr_pools {
 	struct rb_root rb_root;
 	rwlock_t rb_lock;
 	const struct ib_frmr_pool_ops *pool_ops;
+
+	struct workqueue_struct *aging_wq;
 };
 
 #endif /* RDMA_CORE_FRMR_POOLS_H */
