@@ -1142,6 +1142,7 @@ static int gfx_v12_1_rlc_backdoor_autoload_enable(struct amdgpu_device *adev)
 
 static int gfx_v12_1_sw_init(struct amdgpu_ip_block *ip_block)
 {
+	uint16_t major_ver, minor_ver;
 	int i, j, k, r, ring_id = 0;
 	unsigned num_compute_rings;
 	int xcc_id, num_xcc;
@@ -1152,6 +1153,15 @@ static int gfx_v12_1_sw_init(struct amdgpu_ip_block *ip_block)
 		adev->gfx.mec.num_mec = 1;
 		adev->gfx.mec.num_pipe_per_mec = 4;
 		adev->gfx.mec.num_queue_per_pipe = 8;
+
+		if (!amdgpu_discovery_get_gc_major_minor_version(
+			    adev, &major_ver, &minor_ver)) {
+			if (major_ver == 1 && minor_ver == 3) {
+				adev->gfx.config.max_cu_per_sh /= 2;
+				dev_dbg(adev->dev, "Halving max_cu_per_sh for GC Discovery table v1:3 %d\n",
+					adev->gfx.config.max_cu_per_sh);
+			}
+		}
 		break;
 	default:
 		adev->gfx.mec.num_mec = 2;
