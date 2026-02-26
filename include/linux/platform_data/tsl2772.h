@@ -61,9 +61,9 @@ struct tsl2772_lux {
  *  @prox_pulse_count:      Number if proximity emitter pulses.
  *  @prox_max_samples_cal:  The number of samples that are taken when performing
  *                          a proximity calibration.
- *  @prox_diode             Which diode(s) to use for driving the external
+ *  @prox_diode:            Which diode(s) to use for driving the external
  *                          LED(s) for proximity sensing.
- *  @prox_power             The amount of power to use for the external LED(s).
+ *  @prox_power:            The amount of power to use for the external LED(s).
  */
 struct tsl2772_settings {
 	int als_time;
