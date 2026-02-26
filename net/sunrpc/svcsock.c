@@ -1009,6 +1009,7 @@ static void svc_tcp_save_pages(struct svc_sock *svsk, struct svc_rqst *rqstp)
 		svsk->sk_pages[i] = rqstp->rq_pages[i];
 		rqstp->rq_pages[i] = NULL;
 	}
+	rqstp->rq_pages_nfree = npages;
 }
 
 static void svc_tcp_clear_pages(struct svc_sock *svsk)

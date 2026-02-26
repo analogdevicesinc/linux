@@ -143,6 +143,15 @@ extern u32 svc_max_payload(const struct svc_rqst *rqstp);
  * server thread needs to allocate more to replace those used in
  * sending.
  *
+ * rq_pages request page contract:
+ *
+ * Transport receive paths that move request data pages out of
+ * rq_pages -- TCP multi-fragment reassembly (svc_tcp_save_pages)
+ * and RDMA Read I/O (svc_rdma_clear_rqst_pages) -- NULL those
+ * entries to prevent svc_rqst_release_pages() from freeing pages
+ * still in transport use, and set rq_pages_nfree to the count.
+ * svc_alloc_arg() refills only that many rq_pages entries.
+ *
  * xdr_buf holds responses; the structure fits NFS read responses
  * (header, data pages, optional tail) and enables sharing of
  * client-side routines.
@@ -204,6 +213,7 @@ struct svc_rqst {
 	struct folio		*rq_scratch_folio;
 	struct xdr_buf		rq_res;
 	unsigned long		rq_maxpages;	/* entries per page array */
+	unsigned long		rq_pages_nfree;	/* rq_pages entries NULLed by transport */
 	struct page *		*rq_pages;	/* Call buffer pages */
 	struct page *		*rq_respages;	/* Reply buffer pages */
 	struct page *		*rq_next_page; /* next reply page to use */

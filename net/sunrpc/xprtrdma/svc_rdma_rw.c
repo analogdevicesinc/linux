@@ -1107,6 +1107,7 @@ static void svc_rdma_clear_rqst_pages(struct svc_rqst *rqstp,
 		head->rc_pages[i] = rqstp->rq_pages[i];
 		rqstp->rq_pages[i] = NULL;
 	}
+	rqstp->rq_pages_nfree = head->rc_page_count;
 }
 
 /**

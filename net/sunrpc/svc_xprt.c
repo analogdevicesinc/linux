@@ -675,12 +675,17 @@ static bool svc_fill_pages(struct svc_rqst *rqstp, struct page **pages,
 static bool svc_alloc_arg(struct svc_rqst *rqstp)
 {
 	struct xdr_buf *arg = &rqstp->rq_arg;
-	unsigned long pages;
+	unsigned long pages, nfree;
 
 	pages = rqstp->rq_maxpages;
 
-	if (!svc_fill_pages(rqstp, rqstp->rq_pages, pages))
-		return false;
+	nfree = rqstp->rq_pages_nfree;
+	if (nfree) {
+		if (!svc_fill_pages(rqstp, rqstp->rq_pages, nfree))
+			return false;
+		rqstp->rq_pages_nfree = 0;
+	}
+
 	if (!svc_fill_pages(rqstp, rqstp->rq_respages, pages))
 		return false;
 	rqstp->rq_next_page = rqstp->rq_respages;
