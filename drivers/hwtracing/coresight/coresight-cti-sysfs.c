@@ -84,7 +84,7 @@ static ssize_t enable_show(struct device *dev,
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
 	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
-		enable_req = drvdata->config.enable_req_count;
+		enable_req = cti_is_active(&drvdata->config);
 
 	return sprintf(buf, "%d\n", !!enable_req);
 }

@@ -81,7 +81,7 @@ static int cti_enable_hw(struct cti_drvdata *drvdata)
 	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
 
 	/* no need to do anything if enabled */
-	if (config->hw_enabled)
+	if (cti_is_active(config))
 		goto cti_state_unchanged;
 
 	/* claim the device */
@@ -90,8 +90,6 @@ static int cti_enable_hw(struct cti_drvdata *drvdata)
 		return rc;
 
 	cti_write_all_hw_regs(drvdata);
-
-	config->hw_enabled = true;
 
 cti_state_unchanged:
 	drvdata->config.enable_req_count++;
@@ -107,22 +105,17 @@ static int cti_disable_hw(struct cti_drvdata *drvdata)
 	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
 
 	/* don't allow negative refcounts, return an error */
-	if (!drvdata->config.enable_req_count)
+	if (!cti_is_active(config))
 		return -EINVAL;
 
 	/* check refcount - disable on 0 */
 	if (--drvdata->config.enable_req_count > 0)
 		return 0;
 
-	/* no need to do anything if disabled */
-	if (!config->hw_enabled)
-		return 0;
-
 	CS_UNLOCK(drvdata->base);
 
 	/* disable CTI */
 	writel_relaxed(0, drvdata->base + CTICONTROL);
-	config->hw_enabled = false;
 
 	coresight_disclaim_device_unlocked(csdev);
 	CS_LOCK(drvdata->base);
