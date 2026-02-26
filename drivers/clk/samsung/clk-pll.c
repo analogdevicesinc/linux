@@ -1485,7 +1485,7 @@ static unsigned long samsung_a9fraco_recalc_rate(struct clk_hw *hw,
 	/* fvco = fref * (M + K/2^24) / p * (S+1) */
 	fvco *= mdiv;
 	fvco = (fvco << 24) + kdiv;
-	do_div(fvco, ((pdiv * (sdiv + 1)) << 24));
+	fvco = div64_u64(fvco, ((pdiv * (sdiv + 1)) << 24));
 
 	return (unsigned long)fvco;
 }
