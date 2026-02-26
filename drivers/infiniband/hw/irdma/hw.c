@@ -1033,7 +1033,7 @@ static int irdma_create_cqp(struct irdma_pci_f *rf)
 	if (!cqp->cqp_requests)
 		return -ENOMEM;
 
-	cqp->scratch_array = kcalloc(sqsize, sizeof(*cqp->scratch_array), GFP_KERNEL);
+	cqp->scratch_array = kzalloc_objs(*cqp->scratch_array, sqsize);
 	if (!cqp->scratch_array) {
 		status = -ENOMEM;
 		goto err_scratch;
@@ -1942,7 +1942,7 @@ int irdma_rt_init_hw(struct irdma_device *iwdev,
 	if (status)
 		return status;
 
-	stats_info.pestat = kzalloc(sizeof(*stats_info.pestat), GFP_KERNEL);
+	stats_info.pestat = kzalloc_obj(*stats_info.pestat);
 	if (!stats_info.pestat) {
 		irdma_cleanup_cm_core(&iwdev->cm_core);
 		return -ENOMEM;

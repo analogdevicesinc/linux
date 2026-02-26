@@ -257,7 +257,7 @@ int hfi1_user_exp_rcv_setup(struct hfi1_filedata *fd,
 	if (tinfo->length == 0)
 		return -EINVAL;
 
-	tidbuf = kzalloc(sizeof(*tidbuf), GFP_KERNEL);
+	tidbuf = kzalloc_obj(*tidbuf);
 	if (!tidbuf)
 		return -ENOMEM;
 
@@ -265,8 +265,7 @@ int hfi1_user_exp_rcv_setup(struct hfi1_filedata *fd,
 	tidbuf->vaddr = tinfo->vaddr;
 	tidbuf->length = tinfo->length;
 	tidbuf->npages = num_user_pages(tidbuf->vaddr, tidbuf->length);
-	tidbuf->psets = kcalloc(uctxt->expected_count, sizeof(*tidbuf->psets),
-				GFP_KERNEL);
+	tidbuf->psets = kzalloc_objs(*tidbuf->psets, uctxt->expected_count);
 	if (!tidbuf->psets) {
 		ret = -ENOMEM;
 		goto fail_release_mem;
@@ -306,7 +305,7 @@ int hfi1_user_exp_rcv_setup(struct hfi1_filedata *fd,
 	}
 
 	ngroups = pageset_count / dd->rcv_entries.group_size;
-	tidlist = kcalloc(pageset_count, sizeof(*tidlist), GFP_KERNEL);
+	tidlist = kzalloc_objs(*tidlist, pageset_count);
 	if (!tidlist) {
 		ret = -ENOMEM;
 		goto fail_unreserve;
@@ -527,7 +526,7 @@ int hfi1_user_exp_rcv_invalid(struct hfi1_filedata *fd,
 	 * for a long time.
 	 * Copy the data to a local buffer so we can release the lock.
 	 */
-	array = kcalloc(uctxt->expected_count, sizeof(*array), GFP_KERNEL);
+	array = kzalloc_objs(*array, uctxt->expected_count);
 	if (!array)
 		return -EFAULT;
 

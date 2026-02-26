@@ -790,7 +790,7 @@ static int bnxt_qplib_alloc_dpi_tbl(struct bnxt_qplib_res *res,
 	if (dev_attr->max_dpi)
 		dpit->max = min_t(u32, dpit->max, dev_attr->max_dpi);
 
-	dpit->app_tbl = kcalloc(dpit->max,  sizeof(void *), GFP_KERNEL);
+	dpit->app_tbl = kzalloc_objs(void *, dpit->max);
 	if (!dpit->app_tbl)
 		return -ENOMEM;
 

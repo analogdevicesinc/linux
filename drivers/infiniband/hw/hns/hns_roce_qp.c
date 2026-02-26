@@ -1023,21 +1023,16 @@ static void free_qp_db(struct hns_roce_dev *hr_dev, struct hns_roce_qp *hr_qp,
 static int alloc_kernel_wrid(struct hns_roce_dev *hr_dev,
 			     struct hns_roce_qp *hr_qp)
 {
-	struct ib_device *ibdev = &hr_dev->ib_dev;
-	u64 *sq_wrid = NULL;
-	u64 *rq_wrid = NULL;
+	u64 *sq_wrid, *rq_wrid = NULL;
 	int ret;
 
-	sq_wrid = kcalloc(hr_qp->sq.wqe_cnt, sizeof(u64), GFP_KERNEL);
-	if (!sq_wrid) {
-		ibdev_err(ibdev, "failed to alloc SQ wrid.\n");
+	sq_wrid = kzalloc_objs(*sq_wrid, hr_qp->sq.wqe_cnt);
+	if (!sq_wrid)
 		return -ENOMEM;
-	}
 
 	if (hr_qp->rq.wqe_cnt) {
-		rq_wrid = kcalloc(hr_qp->rq.wqe_cnt, sizeof(u64), GFP_KERNEL);
+		rq_wrid = kzalloc_objs(*rq_wrid, hr_qp->rq.wqe_cnt);
 		if (!rq_wrid) {
-			ibdev_err(ibdev, "failed to alloc RQ wrid.\n");
 			ret = -ENOMEM;
 			goto err_sq;
 		}

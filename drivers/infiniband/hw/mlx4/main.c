@@ -2161,7 +2161,7 @@ static int __mlx4_ib_alloc_diag_counters(struct mlx4_ib_dev *ibdev,
 	if (!*pdescs)
 		return -ENOMEM;
 
-	*offset = kcalloc(num_counters, sizeof(**offset), GFP_KERNEL);
+	*offset = kzalloc_objs(**offset, num_counters);
 	if (!*offset)
 		goto err;
 

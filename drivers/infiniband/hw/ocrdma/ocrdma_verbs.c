@@ -794,7 +794,7 @@ static int ocrdma_build_pbl_tbl(struct ocrdma_dev *dev, struct ocrdma_hw_mr *mr)
 	void *va;
 	dma_addr_t pa;
 
-	mr->pbl_table = kzalloc_objs(struct ocrdma_pbl, mr->num_pbls);
+	mr->pbl_table = kzalloc_objs(*mr->pbl_table, mr->num_pbls);
 
 	if (!mr->pbl_table)
 		return -ENOMEM;
@@ -1253,12 +1253,11 @@ static void ocrdma_set_qp_db(struct ocrdma_dev *dev, struct ocrdma_qp *qp,
 
 static int ocrdma_alloc_wr_id_tbl(struct ocrdma_qp *qp)
 {
-	qp->wqe_wr_id_tbl =
-	    kzalloc_objs(*(qp->wqe_wr_id_tbl), qp->sq.max_cnt);
+	qp->wqe_wr_id_tbl = kzalloc_objs(*qp->wqe_wr_id_tbl, qp->sq.max_cnt);
 	if (qp->wqe_wr_id_tbl == NULL)
 		return -ENOMEM;
-	qp->rqe_wr_id_tbl =
-	    kcalloc(qp->rq.max_cnt, sizeof(u64), GFP_KERNEL);
+
+	qp->rqe_wr_id_tbl = kzalloc_objs(*qp->rqe_wr_id_tbl, qp->rq.max_cnt);
 	if (qp->rqe_wr_id_tbl == NULL)
 		return -ENOMEM;
 
@@ -1788,8 +1787,8 @@ int ocrdma_create_srq(struct ib_srq *ibsrq, struct ib_srq_init_attr *init_attr,
 		return status;
 
 	if (!udata) {
-		srq->rqe_wr_id_tbl = kcalloc(srq->rq.max_cnt, sizeof(u64),
-					     GFP_KERNEL);
+		srq->rqe_wr_id_tbl =
+			kzalloc_objs(*srq->rqe_wr_id_tbl, srq->rq.max_cnt);
 		if (!srq->rqe_wr_id_tbl) {
 			status = -ENOMEM;
 			goto arm_err;
@@ -2913,7 +2912,7 @@ struct ib_mr *ocrdma_alloc_mr(struct ib_pd *ibpd, enum ib_mr_type mr_type,
 	if (!mr)
 		return ERR_PTR(-ENOMEM);
 
-	mr->pages = kcalloc(max_num_sg, sizeof(u64), GFP_KERNEL);
+	mr->pages = kzalloc_objs(*mr->pages, max_num_sg);
 	if (!mr->pages) {
 		status = -ENOMEM;
 		goto pl_err;

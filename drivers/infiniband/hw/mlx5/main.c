@@ -2244,16 +2244,14 @@ static int mlx5_ib_alloc_ucontext(struct ib_ucontext *uctx,
 
 	mutex_init(&bfregi->lock);
 	bfregi->lib_uar_4k = lib_uar_4k;
-	bfregi->count = kcalloc(bfregi->total_num_bfregs, sizeof(*bfregi->count),
-				GFP_KERNEL);
+	bfregi->count = kzalloc_objs(*bfregi->count, bfregi->total_num_bfregs);
 	if (!bfregi->count) {
 		err = -ENOMEM;
 		goto out_ucap;
 	}
 
-	bfregi->sys_pages = kcalloc(bfregi->num_sys_pages,
-				    sizeof(*bfregi->sys_pages),
-				    GFP_KERNEL);
+	bfregi->sys_pages =
+		kzalloc_objs(*bfregi->sys_pages, bfregi->num_sys_pages);
 	if (!bfregi->sys_pages) {
 		err = -ENOMEM;
 		goto out_count;
