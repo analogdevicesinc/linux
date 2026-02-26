@@ -310,18 +310,23 @@ static int get_frmr_from_pool(struct ib_device *device,
 		if (pool->inactive_queue.ci > 0) {
 			handle = pop_handle_from_queue_locked(
 				&pool->inactive_queue);
-			spin_unlock(&pool->lock);
 		} else {
 			spin_unlock(&pool->lock);
 			err = pools->pool_ops->create_frmrs(device, &pool->key,
 							    &handle, 1);
 			if (err)
 				return err;
+			spin_lock(&pool->lock);
 		}
 	} else {
 		handle = pop_handle_from_queue_locked(&pool->queue);
-		spin_unlock(&pool->lock);
 	}
+
+	pool->in_use++;
+	if (pool->in_use > pool->max_in_use)
+		pool->max_in_use = pool->in_use;
+
+	spin_unlock(&pool->lock);
 
 	mr->frmr.pool = pool;
 	mr->frmr.handle = handle;
@@ -374,6 +379,9 @@ int ib_frmr_pool_push(struct ib_device *device, struct ib_mr *mr)
 	if (pool->queue.ci == 0)
 		schedule_aging = true;
 	ret = push_handle_to_queue_locked(&pool->queue, mr->frmr.handle);
+	if (ret == 0)
+		pool->in_use--;
+
 	spin_unlock(&pool->lock);
 
 	if (ret == 0 && schedule_aging)

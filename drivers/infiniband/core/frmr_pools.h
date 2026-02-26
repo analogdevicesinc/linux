@@ -42,6 +42,9 @@ struct ib_frmr_pool {
 
 	struct delayed_work aging_work;
 	struct ib_device *device;
+
+	u32 max_in_use;
+	u32 in_use;
 };
 
 struct ib_frmr_pools {
