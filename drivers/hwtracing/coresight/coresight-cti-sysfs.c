@@ -268,7 +268,7 @@ static ssize_t cti_reg32_show(struct device *dev, char *buf,
 	struct cti_config *config = &drvdata->config;
 
 	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock) {
-		if ((reg_offset >= 0) && cti_active(config)) {
+		if ((reg_offset >= 0) && cti_is_active(config)) {
 			val = cti_read_single_reg(drvdata, reg_offset);
 			if (pcached_val)
 				*pcached_val = val;
@@ -301,7 +301,7 @@ static ssize_t cti_reg32_store(struct device *dev, const char *buf,
 			*pcached_val = (u32)val;
 
 		/* write through if offset and enabled */
-		if ((reg_offset >= 0) && cti_active(config))
+		if ((reg_offset >= 0) && cti_is_active(config))
 			cti_write_single_reg(drvdata, reg_offset, val);
 	}
 
@@ -393,7 +393,7 @@ static ssize_t inen_store(struct device *dev,
 	config->ctiinen[index] = val;
 
 	/* write through if enabled */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_single_reg(drvdata, CTIINEN(index), val);
 
 	return size;
@@ -434,7 +434,7 @@ static ssize_t outen_store(struct device *dev,
 	config->ctiouten[index] = val;
 
 	/* write through if enabled */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_single_reg(drvdata, CTIOUTEN(index), val);
 
 	return size;
@@ -476,7 +476,7 @@ static ssize_t appclear_store(struct device *dev,
 	config->ctiappset &= ~val;
 
 	/* write through if enabled */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_single_reg(drvdata, CTIAPPCLEAR, val);
 
 	return size;
@@ -497,7 +497,7 @@ static ssize_t apppulse_store(struct device *dev,
 	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
 
 	/* write through if enabled */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_single_reg(drvdata, CTIAPPPULSE, val);
 
 	return size;
@@ -763,7 +763,7 @@ static ssize_t chan_xtrigs_reset_store(struct device *dev,
 	config->xtrig_rchan_sel = 0;
 
 	/* if enabled then write through */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_all_hw_regs(drvdata);
 
 	return size;

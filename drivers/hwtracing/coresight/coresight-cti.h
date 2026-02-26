@@ -236,7 +236,7 @@ coresight_cti_get_platform_data(struct device *dev);
 const char *cti_plat_get_node_name(struct fwnode_handle *fwnode);
 
 /* cti powered and enabled */
-static inline bool cti_active(struct cti_config *cfg)
+static inline bool cti_is_active(struct cti_config *cfg)
 {
 	return cfg->hw_powered && cfg->hw_enabled;
 }
