@@ -31,12 +31,18 @@ different physical interfaces (i2c, spi, etc). See
 AD7152
 ~~~~~~
 
-.. todo:: scrape>adi>AD7152#additional-details__paragraph
+The AD7152 is a high resolution capacitance-to-digital converter with on-
+chip calibration for use in proximity sensing, level sensing, and other
+capacitive measurement applications. It features two independent channels
+with 16-bit resolution and programmable conversion rates up to 200 Hz.
 
 AD7153
 ~~~~~~
 
-.. todo:: scrape>adi>AD7153#additional-details__paragraph
+The AD7153 is a single-channel version of the AD7152, providing the same
+16-bit capacitance-to-digital conversion with on-chip calibration. It offers
+a cost-effective solution for single-sensor applications requiring accurate
+capacitive measurements with low power consumption.
 
 Source Code
 -----------

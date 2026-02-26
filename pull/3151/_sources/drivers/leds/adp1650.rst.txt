@@ -20,7 +20,10 @@ Evaluation Boards
 Description
 -----------
 
-.. todo:: scrape>adi>ADP1650#additional-details__paragraph
+The ADP1650 is a programmable LED driver designed for camera flash
+applications in mobile devices. It provides current regulation up to 1.5 A
+for high-current flash mode and adjustable torch mode operation, with I2C
+programmability and hardware strobe input for precise timing control.
 
 - :adi:`Product Page <ADP1650>`
 

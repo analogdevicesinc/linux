@@ -30,7 +30,10 @@ ADXL362: Micropower 3-Axis MEMS Accelerometer: Digital Output, ±2/±4/±8 g Ran
 
 - :adi:`Product Page <ADXL362>`
 
-.. todo:: scrape>adi>ADXL362#additional-details__paragraph
+The ADXL362 is an ultralow power 3-axis MEMS accelerometer that consumes
+less than 2 µA at 100 Hz output data rate. It provides motion-activated
+sleep/wake functionality and embedded FIFO buffering, making it ideal for
+battery-powered wearable and IoT devices requiring long operational life.
 
 Source Code
 -----------

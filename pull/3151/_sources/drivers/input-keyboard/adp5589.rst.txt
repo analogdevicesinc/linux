@@ -26,12 +26,18 @@ Description
 ADP5589
 ~~~~~~~
 
-.. todo:: scrape>adi>adp5589#additional-details__paragraph
+The ADP5589 is a programmable I/O port expander and keypad matrix decoder
+with an I2C interface. It supports up to 11 × 8 keypad matrix with FIFO
+buffering, and unused pins can be configured as general-purpose I/O, making
+it ideal for portable devices requiring flexible input interfaces.
 
 ADP5585
 ~~~~~~~
 
-.. todo:: scrape>adi>adp5585#additional-details__paragraph
+The ADP5585 is a compact I/O port expander and keypad controller supporting
+up to 5 × 5 keypad matrix. It provides similar functionality to the ADP5589
+in a smaller package, with configurable GPIOs, interrupt support, and
+hardware reset generation for space-constrained applications.
 
 Description
 ~~~~~~~~~~~

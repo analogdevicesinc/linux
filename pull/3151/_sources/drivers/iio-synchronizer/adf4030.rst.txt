@@ -20,7 +20,11 @@ Supported Boards
 Description
 -----------
 
-.. todo:: scrape>adi>ADF4030#additional-details__paragraph
+The ADF4030 is a 10-channel precision synchronizer with integrated time-to-
+digital converter (TDC) for high-accuracy clock distribution and alignment.
+It provides sub-picosecond alignment accuracy for JESD204B/C system
+synchronization, making it essential for multi-converter high-speed data
+acquisition systems.
 
 Source Code
 -----------

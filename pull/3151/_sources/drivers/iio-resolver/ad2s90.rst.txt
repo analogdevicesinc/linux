@@ -15,7 +15,10 @@ Supported Devices
 Description
 -----------
 
-.. todo:: scrape>adi>AD2S90#additional-details__paragraph
+The AD2S90 is a complete 12-bit resolution resolver-to-digital converter
+that provides angular position measurement. It requires only a 3-wire serial
+interface and an external reference oscillator, offering a simple and cost-
+effective solution for shaft angle measurement in motor control systems.
 
 - :adi:`Product Page <ad2s90>`
 

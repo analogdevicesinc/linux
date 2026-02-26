@@ -100,7 +100,7 @@
 <li><a class="reference internal" href="#description">Description</a><ul>
 <li><a class="reference internal" href="#id2">ADP5589</a></li>
 <li><a class="reference internal" href="#adp5585">ADP5585</a></li>
-<li><a class="reference internal" href="#id5">Description</a></li>
+<li><a class="reference internal" href="#id3">Description</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
@@ -126,7 +126,7 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#pmod-ioxp">PMOD-IOXP</a><ul>
-<li><a class="reference internal" href="#id6">Hardware configuration</a><ul>
+<li><a class="reference internal" href="#id4">Hardware configuration</a><ul>
 <li><a class="reference internal" href="#software-configuration">Software configuration</a></li>
 </ul>
 </li>
@@ -399,12 +399,20 @@ Content on this topic
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
 <section id="id2">
 <h3>ADP5589<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<p>The ADP5589 is a programmable I/O port expander and keypad matrix decoder
+with an I2C interface. It supports up to 11 × 8 keypad matrix with FIFO
+buffering, and unused pins can be configured as general-purpose I/O, making
+it ideal for portable devices requiring flexible input interfaces.</p>
 </section>
 <section id="adp5585">
 <h3>ADP5585<a class="headerlink" href="#adp5585" title="Link to this heading"></a></h3>
+<p>The ADP5585 is a compact I/O port expander and keypad controller supporting
+up to 5 × 5 keypad matrix. It provides similar functionality to the ADP5589
+in a smaller package, with configurable GPIOs, interrupt support, and
+hardware reset generation for space-constrained applications.</p>
 </section>
-<section id="id5">
-<h3>Description<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
+<section id="id3">
+<h3>Description<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
 <p>The driver supports multiple key press detection and resolution. It
 independently delivers key press and key release events in chronological order
 to the Linux input device system.</p>
@@ -825,8 +833,8 @@ information read
 <p>The PMOD-IOXP is an PMOD board made by Digilent Inc. which features the ADP5589.</p>
 <p>The following example shows how to connect the PMOD-IOXP to a Blackfin
 BF537-STAMP board and a PMOD-KYPD. Also</p>
-<section id="id6">
-<h3>Hardware configuration<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<section id="id4">
+<h3>Hardware configuration<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
 <figure class="align-default">
 <a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-keyboard/pmodioxp.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-keyboard/pmodioxp.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-keyboard/pmodioxp.jpg" style="width: 300px;" />
 </a>
