@@ -21,7 +21,7 @@
 
 	chosen {
 		stdout-path = &uart1;
-		bootargs = "root=/dev/mtdblock4 rw rootfstype=jffs2 earlyprintk=serial,uart0,115200 console=ttySC0,115200 vmalloc=512M mem=512M";
+		bootargs = "rootfstype=ubifs root=ubi0:rootfs ubi.mtd=3 rw earlyprintk=serial,uart0,115200 console=ttySC0,115200 vmalloc=512M mem=512M";
 	};
 
 	aliases {
