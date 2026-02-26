@@ -156,6 +156,17 @@ static int cti_disable_hw(struct cti_drvdata *drvdata)
 	return 0;
 }
 
+u32 cti_read_single_reg(struct cti_drvdata *drvdata, int offset)
+{
+	int val;
+
+	CS_UNLOCK(drvdata->base);
+	val = readl_relaxed(drvdata->base + offset);
+	CS_LOCK(drvdata->base);
+
+	return val;
+}
+
 void cti_write_single_reg(struct cti_drvdata *drvdata, int offset, u32 value)
 {
 	CS_UNLOCK(drvdata->base);
