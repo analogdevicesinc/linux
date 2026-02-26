@@ -1,0 +1,48 @@
+/* SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB
+ *
+ * Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ */
+
+#ifndef RDMA_CORE_FRMR_POOLS_H
+#define RDMA_CORE_FRMR_POOLS_H
+
+#include <rdma/frmr_pools.h>
+#include <linux/rbtree_types.h>
+#include <linux/spinlock_types.h>
+#include <linux/types.h>
+#include <asm/page.h>
+
+#define NUM_HANDLES_PER_PAGE \
+	((PAGE_SIZE - sizeof(struct list_head)) / sizeof(u32))
+
+struct frmr_handles_page {
+	struct list_head list;
+	u32 handles[NUM_HANDLES_PER_PAGE];
+};
+
+/* FRMR queue holds a list of frmr_handles_page.
+ * num_pages: number of pages in the queue.
+ * ci: current index in the handles array across all pages.
+ */
+struct frmr_queue {
+	struct list_head pages_list;
+	u32 num_pages;
+	unsigned long ci;
+};
+
+struct ib_frmr_pool {
+	struct rb_node node;
+	struct ib_frmr_key key; /* Pool key */
+
+	/* Protect access to the queue */
+	spinlock_t lock;
+	struct frmr_queue queue;
+};
+
+struct ib_frmr_pools {
+	struct rb_root rb_root;
+	rwlock_t rb_lock;
+	const struct ib_frmr_pool_ops *pool_ops;
+};
+
+#endif /* RDMA_CORE_FRMR_POOLS_H */
