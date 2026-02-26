@@ -185,6 +185,7 @@ static const struct nla_policy nldev_policy[RDMA_NLDEV_ATTR_MAX] = {
 	[RDMA_NLDEV_ATTR_FRMR_POOL_MAX_IN_USE]	= { .type = NLA_U64 },
 	[RDMA_NLDEV_ATTR_FRMR_POOL_IN_USE]	= { .type = NLA_U64 },
 	[RDMA_NLDEV_ATTR_FRMR_POOLS_AGING_PERIOD] = { .type = NLA_U32 },
+	[RDMA_NLDEV_ATTR_FRMR_POOL_PINNED_HANDLES] = { .type = NLA_U32 },
 };
 
 static int put_driver_name_print_type(struct sk_buff *msg, const char *name,
@@ -2692,6 +2693,9 @@ static int fill_frmr_pool_entry(struct sk_buff *msg, struct ib_frmr_pool *pool)
 	if (nla_put_u64_64bit(msg, RDMA_NLDEV_ATTR_FRMR_POOL_IN_USE,
 			      pool->in_use, RDMA_NLDEV_ATTR_PAD))
 		goto err_unlock;
+	if (nla_put_u32(msg, RDMA_NLDEV_ATTR_FRMR_POOL_PINNED_HANDLES,
+			pool->pinned_handles))
+		goto err_unlock;
 	spin_unlock(&pool->lock);
 
 	return 0;
@@ -2699,6 +2703,54 @@ static int fill_frmr_pool_entry(struct sk_buff *msg, struct ib_frmr_pool *pool)
 err_unlock:
 	spin_unlock(&pool->lock);
 	return -EMSGSIZE;
+}
+
+static void nldev_frmr_pools_parse_key(struct nlattr *tb[],
+				       struct ib_frmr_key *key,
+				       struct netlink_ext_ack *extack)
+{
+	if (tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_ATS])
+		key->ats = nla_get_u8(tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_ATS]);
+
+	if (tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_ACCESS_FLAGS])
+		key->access_flags = nla_get_u32(
+			tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_ACCESS_FLAGS]);
+
+	if (tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_VENDOR_KEY])
+		key->vendor_key = nla_get_u64(
+			tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_VENDOR_KEY]);
+
+	if (tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_NUM_DMA_BLOCKS])
+		key->num_dma_blocks = nla_get_u64(
+			tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY_NUM_DMA_BLOCKS]);
+}
+
+static int nldev_frmr_pools_set_pinned(struct ib_device *device,
+				       struct nlattr *tb[],
+				       struct netlink_ext_ack *extack)
+{
+	struct nlattr *key_tb[RDMA_NLDEV_ATTR_MAX];
+	struct ib_frmr_key key = { 0 };
+	u32 pinned_handles = 0;
+	int err = 0;
+
+	pinned_handles =
+		nla_get_u32(tb[RDMA_NLDEV_ATTR_FRMR_POOL_PINNED_HANDLES]);
+
+	if (!tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY])
+		return -EINVAL;
+
+	err = nla_parse_nested(key_tb, RDMA_NLDEV_ATTR_MAX - 1,
+			       tb[RDMA_NLDEV_ATTR_FRMR_POOL_KEY], nldev_policy,
+			       extack);
+	if (err)
+		return err;
+
+	nldev_frmr_pools_parse_key(key_tb, &key, extack);
+
+	err = ib_frmr_pools_set_pinned(device, &key, pinned_handles);
+
+	return err;
 }
 
 static int nldev_frmr_pools_get_dumpit(struct sk_buff *skb,
@@ -2803,32 +2855,46 @@ err:
 static int nldev_frmr_pools_set_doit(struct sk_buff *skb, struct nlmsghdr *nlh,
 				     struct netlink_ext_ack *extack)
 {
-	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
 	struct ib_device *device;
+	struct nlattr **tb;
 	u32 aging_period;
 	int err;
+
+	tb = kzalloc_objs(*tb, RDMA_NLDEV_ATTR_MAX, GFP_KERNEL);
+	if (!tb)
+		return -ENOMEM;
 
 	err = nlmsg_parse(nlh, 0, tb, RDMA_NLDEV_ATTR_MAX - 1, nldev_policy,
 			  extack);
 	if (err)
-		return err;
+		goto free_tb;
 
-	if (!tb[RDMA_NLDEV_ATTR_DEV_INDEX])
-		return -EINVAL;
-
-	if (!tb[RDMA_NLDEV_ATTR_FRMR_POOLS_AGING_PERIOD])
-		return -EINVAL;
+	if (!tb[RDMA_NLDEV_ATTR_DEV_INDEX]) {
+		err = -EINVAL;
+		goto free_tb;
+	}
 
 	device = ib_device_get_by_index(
 		sock_net(skb->sk), nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]));
-	if (!device)
-		return -EINVAL;
+	if (!device) {
+		err = -EINVAL;
+		goto free_tb;
+	}
 
-	aging_period = nla_get_u32(tb[RDMA_NLDEV_ATTR_FRMR_POOLS_AGING_PERIOD]);
+	if (tb[RDMA_NLDEV_ATTR_FRMR_POOLS_AGING_PERIOD]) {
+		aging_period = nla_get_u32(
+			tb[RDMA_NLDEV_ATTR_FRMR_POOLS_AGING_PERIOD]);
+		err = ib_frmr_pools_set_aging_period(device, aging_period);
+		goto done;
+	}
 
-	err = ib_frmr_pools_set_aging_period(device, aging_period);
+	if (tb[RDMA_NLDEV_ATTR_FRMR_POOL_PINNED_HANDLES])
+		err = nldev_frmr_pools_set_pinned(device, tb, extack);
 
+done:
 	ib_device_put(device);
+free_tb:
+	kfree(tb);
 	return err;
 }
 
