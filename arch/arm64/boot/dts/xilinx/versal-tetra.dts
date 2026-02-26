@@ -27,6 +27,7 @@
 		serial1 = &serial1;
 		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
+		/* ethernet0 = &axi_ethernet; */
 	};
 };
 
@@ -60,7 +61,17 @@
 	status = "disabled";
 };
 
-/* Disable PL Ethernet (AXI Ethernet) */
+/* PL clocks */
+/ {
+	misc_clk_0: misc_clk_0 {
+		#clock-cells = <0>;
+		clock-frequency = <125000000>;
+		compatible = "fixed-clock";
+	};
+
+};
+
+/* PL AXI bus */
 / {
 	amba_pl: amba_pl {
 		#address-cells = <2>;
@@ -68,8 +79,163 @@
 		compatible = "simple-bus";
 		ranges;
 
-		ethernet@a5e00000 {
-			status = "disabled";
+		// axi_ethernet: ethernet@a5e00000 {
+		// 	axistream-connected = <&axi_ethernet_dma>;
+		// 	axistream-control-connected = <&axi_ethernet_dma>;
+		// 	clock-frequency = <100000000>;
+		// 	clock-names = "axis_clk", "clk125m", "s_axi_lite_clk";
+		// 	clocks = <&versal_clk 65>, <&misc_clk_0>, <&versal_clk 65>;
+		// 	compatible = "xlnx,axi-ethernet-7.2", "xlnx,axi-ethernet-1.00.a";
+		// 	device_type = "network";
+		// 	interrupt-names = "interrupt";
+		// 	interrupt-parent = <&gic>;
+		// 	interrupts = <0 85 4>;
+		// 	local-mac-address = [00 0a 35 00 00 00];
+		// 	managed = "in-band-status";
+		// 	max-speed = <0x3e8>;
+		// 	pcs-handle = <&axi_ethernetphy1>;
+		// 	phy-mode = "sgmii";
+		// 	reg = <0x0 0xa5e00000 0x0 0x40000>;
+		// 	xlnx = <0x0>;
+		// 	xlnx,axiliteclkrate = <0x0>;
+		// 	xlnx,axisclkrate = <0x0>;
+		// 	xlnx,channel-ids = "1";
+		// 	xlnx,clockselection = <0x0>;
+		// 	xlnx,enableasyncsgmii = <0x0>;
+		// 	xlnx,gt-type = <0x0>;
+		// 	xlnx,gtinex = <0x0>;
+		// 	xlnx,gtlocation = <0x0>;
+		// 	xlnx,gtrefclksrc = <0x0>;
+		// 	xlnx,include-dre;
+		// 	xlnx,instantiatebitslice0 = <0x0>;
+		// 	xlnx,num-queues = /bits/ 16 <0x1>;
+		// 	xlnx,phyaddr = <0x1>;
+		// 	xlnx,phyrst-board-interface-dummy-port = <0x0>;
+		// 	xlnx,rable = <0x0>;
+		// 	xlnx,rxcsum = <0x2>;
+		// 	xlnx,rxlane0-placement = <0x0>;
+		// 	xlnx,rxlane1-placement = <0x0>;
+		// 	xlnx,rxmem = <0x2000>;
+		// 	xlnx,rxnibblebitslice0used = <0x0>;
+		// 	xlnx,switch-x-sgmii;
+		// 	xlnx,tx-in-upper-nibble = <0x1>;
+		// 	xlnx,txcsum = <0x2>;
+		// 	xlnx,txlane0-placement = <0x0>;
+		// 	xlnx,txlane1-placement = <0x0>;
+		// 	xlnx,versal-gt-board-flow = <0x0>;
+		// 	zclock-names = "NULL";
+		// 	zclocks = "NULL";
+		// 	axi_ethernet_mdio: mdio {
+		// 		#address-cells = <1>;
+		// 		#size-cells = <0>;
+		// 		axi_ethernetphy1: phy@0 {
+		// 			device_type = "ethernet-phy";
+		// 			reg = <0>;
+		// 		};
+		// 	};
+		// };
+
+		// /* Minimal config - just MDIO to verify PHY IDs */
+		// axi_ethernet: ethernet@a5e00000 {
+		// 	compatible = "xlnx,axi-ethernet-7.2", "xlnx,axi-ethernet-1.00.a";
+		// 	reg = <0x0 0xa5e00000 0x0 0x40000>;
+		// 	clock-frequency = <100000000>;
+		// 	xlnx,include-dre;
+		// 	xlnx,rxmem = <0x2000>;
+
+		// 	axi_ethernet_mdio: mdio {
+		// 		#address-cells = <1>;
+		// 		#size-cells = <0>;
+
+		// 		/* PCS at address 1 */
+		// 		pcs_phy: ethernet-phy@1 {
+		// 			reg = <1>;
+		// 		};
+
+		// 		/* ADIN at address 0 */
+		// 		adin_phy: ethernet-phy@0 {
+		// 			reg = <0>;
+		// 			compatible = "ethernet-phy-id0283.bc30";
+		// 		};
+		// 	};
+		// };
+
+		/* Full ethernet config - uncomment when PHY IDs verified */
+		axi_ethernet: ethernet@a5e00000 {
+			axistream-connected = <&axi_ethernet_dma>;
+			axistream-control-connected = <&axi_ethernet_dma>;
+			clock-frequency = <100000000>;
+			clock-names = "axis_clk", "clk125m", "s_axi_lite_clk";
+			clocks = <&versal_clk 65>, <&misc_clk_0>, <&versal_clk 65>;
+			compatible = "xlnx,axi-ethernet-7.2", "xlnx,axi-ethernet-1.00.a";
+			device_type = "network";
+			interrupt-names = "interrupt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 85 4>;
+			local-mac-address = [00 0a 35 00 00 00];
+			max-speed = <1000>;
+			phy-mode = "sgmii";
+			phy-handle = <&adin_phy>;
+			pcs-handle = <&pcs_phy>;
+			reg = <0x0 0xa5e00000 0x0 0x40000>;
+			xlnx,axiliteclkrate = <0x0>;
+			xlnx,axisclkrate = <0x0>;
+			xlnx,channel-ids = "1";
+			xlnx,clockselection = <0x0>;
+			xlnx,enableasyncsgmii = <0x0>;
+			xlnx,gt-type = <0x0>;
+			xlnx,gtinex = <0x0>;
+			xlnx,gtlocation = <0x0>;
+			xlnx,gtrefclksrc = <0x0>;
+			xlnx,include-dre;
+			xlnx,instantiatebitslice0 = <0x0>;
+			xlnx,num-queues = /bits/ 16 <0x1>;
+			xlnx,phyaddr = <0x1>;
+			xlnx,phyrst-board-interface-dummy-port = <0x0>;
+			xlnx,rable = <0x0>;
+			xlnx,rxcsum = <0x2>;
+			xlnx,rxlane0-placement = <0x0>;
+			xlnx,rxlane1-placement = <0x0>;
+			xlnx,rxmem = <0x2000>;
+			xlnx,rxnibblebitslice0used = <0x0>;
+			xlnx,switch-x-sgmii;
+			xlnx,tx-in-upper-nibble = <0x1>;
+			xlnx,txcsum = <0x2>;
+			xlnx,txlane0-placement = <0x0>;
+			xlnx,txlane1-placement = <0x0>;
+			xlnx,versal-gt-board-flow = <0x0>;
+
+			axi_ethernet_mdio: mdio {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				clock-frequency = <1000000>;
+
+				pcs_phy: ethernet-phy@1 {
+					reg = <1>;
+				};
+
+				adin_phy: ethernet-phy@8 {
+					reg = <8>;
+					compatible = "ethernet-phy-id0283.bc30";
+				};
+			};
 		};
+
+		axi_ethernet_dma: dma@a6e10000 {
+			#dma-cells = <1>;
+			axistream-connected = <&axi_ethernet>;
+			axistream-control-connected = <&axi_ethernet>;
+			clock-names = "m_axi_mm2s_aclk", "m_axi_s2mm_aclk", "m_axi_sg_aclk", "s_axi_lite_aclk";
+			clocks = <&versal_clk 65>, <&versal_clk 65>, <&versal_clk 65>, <&versal_clk 65>;
+			compatible = "xlnx,eth-dma";
+			interrupt-names = "mm2s_introut", "s2mm_introut";
+			interrupt-parent = <&gic>;
+			interrupts = <0 86 4 0 87 4>;
+			reg = <0x0 0xa6e10000 0x0 0x1000>;
+			xlnx,addrwidth = /bits/ 8 <0x20>;
+			xlnx,include-dre;
+			xlnx,num-queues = /bits/ 16 <0x1>;
+		};
+		/* */
 	};
 };
