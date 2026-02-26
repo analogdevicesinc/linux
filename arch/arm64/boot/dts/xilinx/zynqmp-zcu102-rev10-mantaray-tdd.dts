@@ -1,0 +1,429 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Mantaray
+ *
+ * hdl_project: <>
+ * board_revision: <>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+ #include "zynqmp-zcu102-rev1.0.dts"
+ #include <dt-bindings/iio/frequency/hmc7044.h>
+ 
+ / {
+         model = "Mantaray ZynqMP ZCU102";
+ 
+         fpga_axi: fpga-axi@0 {
+                #address-cells = <2>;
+                #size-cells = <2>;
+                compatible = "simple-bus";
+                ranges ;
+ 
+                axi_sysid_0: axi_sysid@85000000 {
+                        clock-names = "s_axi_aclk";
+                        clocks = <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-sysid-1.0";
+                        reg = <0x0 0x85000000 0x0 0x10000>;
+                };
+
+                axi_tdd_0: axi_tdd@800a0000 {
+                        clock-names = "intf_clk", "s_axi_aclk";
+                        clocks = <&zynqmp_clk 72>, <&zynqmp_clk 71>;
+                        compatible = "adi,axi-tdd";
+                        reg = <0x0 0x800a0000 0x0 0x1000>;
+                };
+        
+                iio_axi_tdd_0: iio-axi-tdd-0@0 {
+                        compatible = "adi,iio-fake-platform-device";
+                        adi,faked-dev = <&axi_tdd_0>;
+                        adi,attribute-names =
+                                "version", "core_id", "scratch", "magic",
+                                "sync_soft", "sync_external", "sync_internal", "sync_reset",
+                                "enable", "startup_delay_raw", "startup_delay_ms",
+                                "burst_count", "frame_length_raw", "frame_length_ms",
+                                "state", "internal_sync_period_raw", "internal_sync_period_ms",
+                                "out_channel0_enable", "out_channel0_polarity",
+                                "out_channel0_on_raw", "out_channel0_on_ms",
+                                "out_channel0_off_raw", "out_channel0_off_ms",
+                                "out_channel1_enable", "out_channel1_polarity",
+                                "out_channel1_on_raw", "out_channel1_on_ms",
+                                "out_channel1_off_raw", "out_channel1_off_ms",
+                                "out_channel2_enable", "out_channel2_polarity",
+                                "out_channel2_on_raw", "out_channel2_on_ms",
+                                "out_channel2_off_raw", "out_channel2_off_ms",
+                                "out_channel3_enable", "out_channel3_polarity",
+                                "out_channel3_on_raw", "out_channel3_on_ms",
+                                "out_channel3_off_raw", "out_channel3_off_ms",
+                                "out_channel4_enable", "out_channel4_polarity",
+                                "out_channel4_on_raw", "out_channel4_on_ms",
+                                "out_channel4_off_raw", "out_channel4_off_ms",
+                                "out_channel5_enable", "out_channel5_polarity",
+                                "out_channel5_on_raw", "out_channel5_on_ms",
+                                "out_channel5_off_raw", "out_channel5_off_ms",
+                                "out_channel6_enable", "out_channel6_polarity",
+                                "out_channel6_on_raw", "out_channel6_on_ms",
+                                "out_channel6_off_raw", "out_channel6_off_ms",
+                                "out_channel7_enable", "out_channel7_polarity",
+                                "out_channel7_on_raw", "out_channel7_on_ms",
+                                "out_channel7_off_raw", "out_channel7_off_ms",
+                                "out_channel8_enable", "out_channel8_polarity",
+                                "out_channel8_on_raw", "out_channel8_on_ms",
+                                "out_channel8_off_raw", "out_channel8_off_ms",
+                                "out_channel9_enable", "out_channel9_polarity",
+                                "out_channel9_on_raw", "out_channel9_on_ms",
+                                "out_channel9_off_raw", "out_channel9_off_ms",
+                                "out_channel10_enable", "out_channel10_polarity",
+                                "out_channel10_on_raw", "out_channel10_on_ms",
+                                "out_channel10_off_raw", "out_channel10_off_ms",
+                                "out_channel11_enable", "out_channel11_polarity",
+                                "out_channel11_on_raw", "out_channel11_on_ms",
+                                "out_channel11_off_raw", "out_channel11_off_ms",
+                                "out_channel12_enable", "out_channel12_polarity",
+                                "out_channel12_on_raw", "out_channel12_on_ms",
+                                "out_channel12_off_raw", "out_channel12_off_ms",
+                                "out_channel13_enable", "out_channel13_polarity",
+                                "out_channel13_on_raw", "out_channel13_on_ms",
+                                "out_channel13_off_raw", "out_channel13_off_ms",
+                                "out_channel14_enable", "out_channel14_polarity",
+                                "out_channel14_on_raw", "out_channel14_on_ms",
+                                "out_channel14_off_raw", "out_channel14_off_ms",
+                                "out_channel15_enable", "out_channel15_polarity",
+                                "out_channel15_on_raw", "out_channel15_on_ms",
+                                "out_channel15_off_raw", "out_channel15_off_ms",
+                                "out_channel16_enable", "out_channel16_polarity",
+                                "out_channel16_on_raw", "out_channel16_on_ms",
+                                "out_channel16_off_raw", "out_channel16_off_ms";
+                        label = "iio-axi-tdd-0";
+                };
+
+ 
+                bf_spi_01: spi@80000000 {
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+                        bits-per-word = <8>;
+                        clock-names = "ext_spi_clk", "s_axi_aclk";
+                        clocks = <&zynqmp_clk 74>, <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+                        fifo-size = <16>;
+                        interrupt-names = "ip2intc_irpt";
+                        interrupt-parent = <&gic>;
+                        interrupts = <0 89 1>;
+                        num-cs = <0x4>;
+                        reg = <0x0 0x80000000 0x0 0x1000>;
+                        xlnx,num-ss-bits = <0x4>;
+                        xlnx,spi-mode = <0>;
+
+                        //first tile on the first controller
+                        adar1000_0@0 {
+                                compatible = "adi,adar1000";
+                                reg = <0>;
+                                spi-max-frequency = <1000000>;
+        
+                                #address-cells = <1>;
+                                #size-cells = <0>;
+        
+                                adar1000_csb_0_1_1@0 {
+                                        reg = <0>;
+                                        label = "adar1000_csb_0_1_1";
+                                };
+        
+                                adar1000_csb_0_1_2@1 {
+                                        reg = <1>;
+                                        label = "adar1000_csb_0_1_2";
+                                };
+        
+                                adar1000_csb_0_1_3@2 {
+                                        reg = <2>;
+                                        label = "adar1000_csb_0_1_3";
+                                };
+        
+                                adar1000_csb_0_1_4@3 {
+                                        reg = <3>;
+                                        label = "adar1000_csb_0_1_4";
+                                };
+                        };
+ 
+                        //second tile on the first controller
+                        adar1000_1@1 {
+                        	compatible = "adi,adar1000";
+                        	reg = <1>;
+                        	spi-max-frequency = <1000000>;
+        
+                        	#address-cells = <1>;
+                        	#size-cells = <0>;
+        
+                        	adar1000_csb_0_2_1@0 {
+                        		reg = <0>;
+                        		label = "adar1000_csb_0_2_1";
+                        	};
+        
+                        	adar1000_csb_0_2_2@1 {
+                        		reg = <1>;
+                        		label = "adar1000_csb_0_2_2";
+                        	};
+        
+                        	adar1000_csb_0_2_3@2 {
+                        		reg = <2>;
+                        		label = "adar1000_csb_0_2_3";
+                        	};
+        
+                        	adar1000_csb_0_2_4@3 {
+                        		reg = <3>;
+                        		label = "adar1000_csb_0_2_4";
+                        	};
+                        };
+                };
+ 
+                bf_spi_02: spi@80010000 {
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+                        bits-per-word = <8>;
+                        clock-names = "ext_spi_clk", "s_axi_aclk";
+                        clocks = <&zynqmp_clk 74>, <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+                        fifo-size = <16>;
+                        interrupt-names = "ip2intc_irpt";
+                        interrupt-parent = <&gic>;
+                        interrupts = <0 90 1>;
+                        num-cs = <0x4>;
+                        reg = <0x0 0x80010000 0x0 0x1000>;
+                        xlnx,num-ss-bits = <0x4>;
+                        xlnx,spi-mode = <0>;
+                        //first tile second controller
+                        adar1000_1@0 {
+                        	compatible = "adi,adar1000";
+                        	reg = <0>;
+                        	spi-max-frequency = <1000000>;
+        
+                        	#address-cells = <1>;
+                        	#size-cells = <0>;
+        
+                        	adar1000_csb_1_1_1@0 {
+                        		reg = <0>;
+                        		label = "adar1000_csb_1_1_1";
+                        	};
+        
+                        	adar1000_csb_1_1_2@1 {
+                        		reg = <1>;
+                        		label = "adar1000_csb_1_1_2";
+                        	};
+        
+                        	adar1000_csb_1_1_3@2 {
+                        		reg = <2>;
+                        		label = "adar1000_csb_1_1_3";
+                        	};
+        
+                        	adar1000_csb_1_1_4@3 {
+                        		reg = <3>;
+                        		label = "adar1000_csb_1_1_4";
+                        	};
+                        };
+
+                        //second tile second controller
+                        adar1000_2@1 {
+                        	compatible = "adi,adar1000";
+                        	reg = <1>;
+                        	spi-max-frequency = <1000000>;
+        
+                        	#address-cells = <1>;
+                        	#size-cells = <0>;
+        
+                        	adar1000_csb_1_2_1@0 {
+                        		reg = <0>;
+                        		label = "adar1000_csb_1_2_1";
+                        	};
+        
+                        	adar1000_csb_1_2_2@1 {
+                        		reg = <1>;
+                        		label = "adar1000_csb_1_2_2";
+                        	};
+        
+                        	adar1000_csb_1_2_3@2 {
+                        		reg = <2>;
+                        		label = "adar1000_csb_1_2_3";
+                        	};
+        
+                        	adar1000_csb_1_2_4@3 {
+                        		reg = <3>;
+                        		label = "adar1000_csb_1_2_4";
+                        	};
+                        };
+ 
+                };
+                 
+                gpio_0: gpio@80090000 {
+                        #gpio-cells = <2>;
+                        clock-names = "s_axi_aclk";
+                        clocks = <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
+                        gpio-controller;
+                        reg = <0x0 0x80090000 0x0 0x1000>;
+                        xlnx,all-inputs = <0x0>;
+                        xlnx,all-inputs-2 = <0x0>;
+                        xlnx,all-outputs = <0x0>;
+                        xlnx,all-outputs-2 = <0x0>;
+                        xlnx,dout-default = <0x00000000>;
+                        xlnx,dout-default-2 = <0x00000000>;
+                        xlnx,gpio-width = <0x16>;
+                        xlnx,gpio2-width = <0x4>;
+                        xlnx,interrupt-present = <0x0>;
+                        xlnx,is-dual = <0x1>;
+                        xlnx,tri-default = <0xFFFFFFFF>;
+                        xlnx,tri-default-2 = <0xFFFFFFFF>;
+                 };
+
+                xud_spi: spi@80080000 {
+                        bits-per-word = <8>;
+                        clock-names = "ext_spi_clk", "s_axi_aclk";
+                        clocks = <&zynqmp_clk 74>, <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+                        fifo-size = <16>;
+                        interrupt-names = "ip2intc_irpt";
+                        interrupt-parent = <&gic>;
+                        interrupts = <0 97 1>;
+                        num-cs = <0x1>;
+                        reg = <0x0 0x80080000 0x0 0x1000>;
+                        xlnx,num-ss-bits = <0x1>;
+                        xlnx,spi-mode = <0>;
+                 };
+         };
+ 
+        mantaray_control@0 {
+ 
+                compatible = "adi,one-bit-adc-dac";
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                out-gpios = <&gpio_0 0 0>, <&gpio_0 1 0>, <&gpio_0 2 0>,
+                            <&gpio_0 3 0>, <&gpio_0 4 0>, <&gpio_0 5 0>,
+                            <&gpio_0 6 0>, <&gpio_0 7 0>, <&gpio_0 8 0>,
+                            <&gpio_0 9 0>, <&gpio_0 10 0>;
+                label = "mantaray_control";
+ 
+                channel@0 {
+                        reg = <0>;
+                        label = "BF_TR";
+                };
+ 
+                channel@1 {
+                        reg = <1>;
+                        label = "BF_TX_LOAD";
+                };
+ 
+                channel@2 {
+                        reg = <2>;
+                        label = "BF_RX_LOAD";
+                };
+ 
+                channel@3 {
+                        reg = <3>;
+                        label = "BF_PWR_EN_01";
+                };
+ 
+                channel@4 {
+                        reg = <4>;
+                        label = "BF_PA_ON_01";
+                };
+ 
+                channel@5 {
+                        reg = <5>;
+                        label = "BF_PWR_EN_02";
+                };
+ 
+                channel@6 {
+                        reg = <6>;
+                        label = "BF_PA_ON_02";
+                };
+ 
+                channel@7 {
+                        reg = <7>;
+                        label = "BF_PWR_EN_03";
+                };
+
+                channel@8 {
+                        reg = <8>;
+                        label = "BF_PA_ON_03";
+                };
+
+                channel@9 {
+                        reg = <9>;
+                        label = "BF_PWR_EN_04";
+                };
+
+                channel@10 {
+                        reg = <10>;
+                        label = "BF_PA_ON_04";
+                };
+        };
+ 
+        xud_control@1 {
+                compatible = "adi,one-bit-adc-dac";
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                out-gpios = <&gpio_0 11 0>, <&gpio_0 12 0>, <&gpio_0 13 0>,
+                            <&gpio_0 14 0>, <&gpio_0 15 0>, <&gpio_0 16 0>;
+                label = "xud_control";
+
+                channel@0 {
+                        reg = <0>;
+                        label = "XUD_RX_GAIN_MODE";
+                };
+
+                channel@1 {
+                        reg = <1>;
+                        label = "XUD_PLL_OUTPUT_SEL";
+                };
+                channel@2 {
+                        reg = <2>;
+                        label = "XUD_TXRX0";
+                };
+
+                channel@3 {
+                        reg = <3>;
+                        label = "XUD_TXRX1";
+                };
+
+                channel@4 {
+                        reg = <4>;
+                        label = "XUD_TXRX2";
+                };
+
+                channel@5 {
+                        reg = <5>;
+                        label = "XUD_TXRX3";
+                };
+        };
+ 
+        mantaray_pg_status@2 {
+                compatible = "adi,one-bit-adc-dac";
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                in-gpios = <&gpio_0 17 0>, <&gpio_0 18 0>,
+                           <&gpio_0 19 0>, <&gpio_0 20 0>;
+                label = "mantaray_pg_status";
+
+                channel@0 {
+                        reg = <0>;
+                        label = "PG_PA_VGG_01";
+                };
+
+                channel@1 {
+                        reg = <1>;
+                        label = "PG_PA_VGG_02";
+                };
+
+                channel@2 {
+                        reg = <2>;
+                        label = "PG_PA_VGG_03";
+                };
+
+                channel@3 {
+                        reg = <3>;
+                        label = "PG_PA_VGG_04";
+                };
+        };
+};
+ 

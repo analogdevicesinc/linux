@@ -17,7 +17,7 @@
 	model = "Mantaray ZynqMP ZCU102";
 
         fpga_axi: fpga-axi@0 {
-		 #address-cells = <2>;
+		#address-cells = <2>;
                 #size-cells = <2>;
                 compatible = "simple-bus";
                 ranges ;
@@ -54,24 +54,24 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 	
-				adar1000_csb_0_1@0 {
+				adar1000_csb_0_1_1@0 {
 					reg = <0>;
-					label = "adar1000_csb_0_1";
+					label = "adar1000_csb_0_1_1";
 				};
 	
-				adar1000_csb_0_2@1 {
+				adar1000_csb_0_1_2@1 {
 					reg = <1>;
-					label = "adar1000_csb_0_2";
+					label = "adar1000_csb_0_1_2";
 				};
-	
-				adar1000_csb_0_3@2 {
+
+				adar1000_csb_0_1_3@2 {
 					reg = <2>;
-					label = "adar1000_csb_0_3";
+					label = "adar1000_csb_0_1_3";
 				};
-	
-				adar1000_csb_0_4@3 {
+
+				adar1000_csb_0_1_4@3 {
 					reg = <3>;
-					label = "adar1000_csb_0_4";
+					label = "adar1000_csb_0_1_4";
 				};
 			};
 
@@ -84,24 +84,24 @@
 			// 	#address-cells = <1>;
 			// 	#size-cells = <0>;
 	
-			// 	adar1000_csb_1_1@0 {
+			// 	adar1000_csb_0_2_1@0 {
 			// 		reg = <0>;
-			// 		label = "adar1000_csb_1_1";
+			// 		label = "adar1000_csb_0_2_1";
 			// 	};
-	
-			// 	adar1000_csb_1_2@1 {
+
+			// 	adar1000_csb_0_2_2@1 {
 			// 		reg = <1>;
-			// 		label = "adar1000_csb_1_2";
+			// 		label = "adar1000_csb_0_2_2";
 			// 	};
-	
-			// 	adar1000_csb_1_3@2 {
+
+			// 	adar1000_csb_0_2_3@2 {
 			// 		reg = <2>;
-			// 		label = "adar1000_csb_1_3";
+			// 		label = "adar1000_csb_0_2_3";
 			// 	};
-	
-			// 	adar1000_csb_1_4@3 {
+
+			// 	adar1000_csb_0_2_4@3 {
 			// 		reg = <3>;
-			// 		label = "adar1000_csb_1_4";
+			// 		label = "adar1000_csb_0_2_4";
 			// 	};
 			// };
                 };
@@ -130,24 +130,24 @@
 			// 	#address-cells = <1>;
 			// 	#size-cells = <0>;
 	
-			// 	adar1000_csb_1_1@0 {
+			// 	adar1000_csb_1_1_1@0 {
 			// 		reg = <0>;
-			// 		label = "adar1000_csb_1_1";
+			// 		label = "adar1000_csb_1_1_1";
 			// 	};
-	
-			// 	adar1000_csb_1_2@1 {
+
+			// 	adar1000_csb_1_1_2@1 {
 			// 		reg = <1>;
-			// 		label = "adar1000_csb_1_2";
+			// 		label = "adar1000_csb_1_1_2";
 			// 	};
-	
-			// 	adar1000_csb_1_3@2 {
+
+			// 	adar1000_csb_1_1_3@2 {
 			// 		reg = <2>;
-			// 		label = "adar1000_csb_1_3";
+			// 		label = "adar1000_csb_1_1_3";
 			// 	};
-	
-			// 	adar1000_csb_1_4@3 {
+
+			// 	adar1000_csb_1_1_4@3 {
 			// 		reg = <3>;
-			// 		label = "adar1000_csb_1_4";
+			// 		label = "adar1000_csb_1_1_4";
 			// 	};
 			// };
 
@@ -160,24 +160,24 @@
 			// 	#address-cells = <1>;
 			// 	#size-cells = <0>;
 	
-			// 	adar1000_csb_2_1@0 {
+			// 	adar1000_csb_1_2_1@0 {
 			// 		reg = <0>;
-			// 		label = "adar1000_csb_2_1";
+			// 		label = "adar1000_csb_1_2_1";
 			// 	};
-	
-			// 	adar1000_csb_2_2@1 {
+
+			// 	adar1000_csb_1_2_2@1 {
 			// 		reg = <1>;
-			// 		label = "adar1000_csb_2_2";
+			// 		label = "adar1000_csb_1_2_2";
 			// 	};
-	
-			// 	adar1000_csb_2_3@2 {
+
+			// 	adar1000_csb_1_2_3@2 {
 			// 		reg = <2>;
-			// 		label = "adar1000_csb_2_3";
+			// 		label = "adar1000_csb_1_2_3";
 			// 	};
-	
-			// 	adar1000_csb_2_4@3 {
+
+			// 	adar1000_csb_1_2_4@3 {
 			// 		reg = <3>;
-			// 		label = "adar1000_csb_2_4";
+			// 		label = "adar1000_csb_1_2_4";
 			// 	};
 			// };
 
