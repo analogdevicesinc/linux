@@ -283,7 +283,6 @@ enum ade9000_wfb_cfg {
 #define ADE9000_PHASE_C_POS_BIT		BIT(6)
 
 #define ADE9000_MAX_PHASE_NR		3
-#define AD9000_CHANNELS_PER_PHASE	10
 
 /*
  * Calculate register address for multi-phase device.
