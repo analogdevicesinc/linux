@@ -426,18 +426,18 @@ static int adrf6780_init(struct adrf6780_state *st)
 
 static void adrf6780_properties_parse(struct adrf6780_state *st)
 {
-	struct spi_device *spi = st->spi;
+	struct device *dev = &st->spi->dev;
 
-	st->vga_buff_en = device_property_read_bool(&spi->dev, "adi,vga-buff-en");
-	st->lo_buff_en = device_property_read_bool(&spi->dev, "adi,lo-buff-en");
-	st->if_mode_en = device_property_read_bool(&spi->dev, "adi,if-mode-en");
-	st->iq_mode_en = device_property_read_bool(&spi->dev, "adi,iq-mode-en");
-	st->lo_x2_en = device_property_read_bool(&spi->dev, "adi,lo-x2-en");
-	st->lo_ppf_en = device_property_read_bool(&spi->dev, "adi,lo-ppf-en");
-	st->lo_en = device_property_read_bool(&spi->dev, "adi,lo-en");
-	st->uc_bias_en = device_property_read_bool(&spi->dev, "adi,uc-bias-en");
-	st->lo_sideband = device_property_read_bool(&spi->dev, "adi,lo-sideband");
-	st->vdet_out_en = device_property_read_bool(&spi->dev, "adi,vdet-out-en");
+	st->vga_buff_en = device_property_read_bool(dev, "adi,vga-buff-en");
+	st->lo_buff_en = device_property_read_bool(dev, "adi,lo-buff-en");
+	st->if_mode_en = device_property_read_bool(dev, "adi,if-mode-en");
+	st->iq_mode_en = device_property_read_bool(dev, "adi,iq-mode-en");
+	st->lo_x2_en = device_property_read_bool(dev, "adi,lo-x2-en");
+	st->lo_ppf_en = device_property_read_bool(dev, "adi,lo-ppf-en");
+	st->lo_en = device_property_read_bool(dev, "adi,lo-en");
+	st->uc_bias_en = device_property_read_bool(dev, "adi,uc-bias-en");
+	st->lo_sideband = device_property_read_bool(dev, "adi,lo-sideband");
+	st->vdet_out_en = device_property_read_bool(dev, "adi,vdet-out-en");
 }
 
 static void adrf6780_powerdown(void *data)
@@ -450,9 +450,10 @@ static int adrf6780_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct adrf6780_state *st;
+	struct device *dev = &spi->dev;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
@@ -467,9 +468,9 @@ static int adrf6780_probe(struct spi_device *spi)
 
 	adrf6780_properties_parse(st);
 
-	st->clkin = devm_clk_get_enabled(&spi->dev, "lo_in");
+	st->clkin = devm_clk_get_enabled(dev, "lo_in");
 	if (IS_ERR(st->clkin))
-		return dev_err_probe(&spi->dev, PTR_ERR(st->clkin),
+		return dev_err_probe(dev, PTR_ERR(st->clkin),
 				     "failed to get the LO input clock\n");
 
 	mutex_init(&st->lock);
@@ -478,11 +479,11 @@ static int adrf6780_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, adrf6780_powerdown, st);
+	ret = devm_add_action_or_reset(dev, adrf6780_powerdown, st);
 	if (ret)
 		return ret;
 
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	return devm_iio_device_register(dev, indio_dev);
 }
 
 static const struct spi_device_id adrf6780_id[] = {
