@@ -179,6 +179,7 @@ static struct svcxprt_rdma *svc_rdma_create_xprt(struct svc_serv *serv,
 	init_llist_head(&cma_xprt->sc_recv_ctxts);
 	init_llist_head(&cma_xprt->sc_rw_ctxts);
 	init_waitqueue_head(&cma_xprt->sc_send_wait);
+	init_waitqueue_head(&cma_xprt->sc_sq_ticket_wait);
 
 	spin_lock_init(&cma_xprt->sc_lock);
 	spin_lock_init(&cma_xprt->sc_rq_dto_lock);
@@ -477,6 +478,8 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
 	if (newxprt->sc_sq_depth > dev->attrs.max_qp_wr)
 		newxprt->sc_sq_depth = dev->attrs.max_qp_wr;
 	atomic_set(&newxprt->sc_sq_avail, newxprt->sc_sq_depth);
+	atomic_set(&newxprt->sc_sq_ticket_head, 0);
+	atomic_set(&newxprt->sc_sq_ticket_tail, 0);
 
 	newxprt->sc_pd = ib_alloc_pd(dev, 0);
 	if (IS_ERR(newxprt->sc_pd)) {
@@ -649,7 +652,8 @@ static int svc_rdma_has_wspace(struct svc_xprt *xprt)
 	 * If there are already waiters on the SQ,
 	 * return false.
 	 */
-	if (waitqueue_active(&rdma->sc_send_wait))
+	if (waitqueue_active(&rdma->sc_send_wait) ||
+	    waitqueue_active(&rdma->sc_sq_ticket_wait))
 		return 0;
 
 	/* Otherwise return true. */

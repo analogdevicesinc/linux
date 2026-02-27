@@ -405,34 +405,17 @@ static int svc_rdma_post_chunk_ctxt(struct svcxprt_rdma *rdma,
 		cqe = NULL;
 	}
 
-	do {
-		if (atomic_sub_return(cc->cc_sqecount,
-				      &rdma->sc_sq_avail) > 0) {
-			cc->cc_posttime = ktime_get();
-			ret = ib_post_send(rdma->sc_qp, first_wr, &bad_wr);
-			if (ret)
-				break;
-			return 0;
-		}
+	ret = svc_rdma_sq_wait(rdma, &cc->cc_cid, cc->cc_sqecount);
+	if (ret < 0)
+		return ret;
 
-		percpu_counter_inc(&svcrdma_stat_sq_starve);
-		trace_svcrdma_sq_full(rdma, &cc->cc_cid);
-		atomic_add(cc->cc_sqecount, &rdma->sc_sq_avail);
-		wait_event(rdma->sc_send_wait,
-			   atomic_read(&rdma->sc_sq_avail) > cc->cc_sqecount);
-		trace_svcrdma_sq_retry(rdma, &cc->cc_cid);
-	} while (1);
-
-	trace_svcrdma_sq_post_err(rdma, &cc->cc_cid, ret);
-	svc_xprt_deferred_close(&rdma->sc_xprt);
-
-	/* If even one was posted, there will be a completion. */
-	if (bad_wr != first_wr)
-		return 0;
-
-	atomic_add(cc->cc_sqecount, &rdma->sc_sq_avail);
-	wake_up(&rdma->sc_send_wait);
-	return -ENOTCONN;
+	cc->cc_posttime = ktime_get();
+	ret = ib_post_send(rdma->sc_qp, first_wr, &bad_wr);
+	if (ret)
+		return svc_rdma_post_send_err(rdma, &cc->cc_cid, bad_wr,
+					      first_wr, cc->cc_sqecount,
+					      ret);
+	return 0;
 }
 
 /* Build a bvec that covers one kvec in an xdr_buf.

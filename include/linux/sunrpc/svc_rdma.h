@@ -84,6 +84,9 @@ struct svcxprt_rdma {
 
 	atomic_t             sc_sq_avail;	/* SQEs ready to be consumed */
 	unsigned int	     sc_sq_depth;	/* Depth of SQ */
+	atomic_t	     sc_sq_ticket_head;	/* Next ticket to issue */
+	atomic_t	     sc_sq_ticket_tail;	/* Ticket currently serving */
+	wait_queue_head_t    sc_sq_ticket_wait;	/* Ticket ordering waitlist */
 	__be32		     sc_fc_credits;	/* Forward credits */
 	u32		     sc_max_requests;	/* Max requests */
 	u32		     sc_max_bc_requests;/* Backward credits */
@@ -306,6 +309,13 @@ extern void svc_rdma_send_error_msg(struct svcxprt_rdma *rdma,
 				    struct svc_rdma_recv_ctxt *rctxt,
 				    int status);
 extern void svc_rdma_wake_send_waiters(struct svcxprt_rdma *rdma, int avail);
+extern int svc_rdma_sq_wait(struct svcxprt_rdma *rdma,
+			    const struct rpc_rdma_cid *cid, int sqecount);
+extern int svc_rdma_post_send_err(struct svcxprt_rdma *rdma,
+				  const struct rpc_rdma_cid *cid,
+				  const struct ib_send_wr *bad_wr,
+				  const struct ib_send_wr *first_wr,
+				  int sqecount, int ret);
 extern int svc_rdma_sendto(struct svc_rqst *);
 extern int svc_rdma_result_payload(struct svc_rqst *rqstp, unsigned int offset,
 				   unsigned int length);
