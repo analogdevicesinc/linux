@@ -733,3 +733,9 @@ int ras_core_check_address_sanity(struct ras_core_context *ras_core,
 
 	return 0;
 }
+
+int ras_core_get_eeprom_version(struct ras_core_context *ras_core,
+	uint32_t *version)
+{
+	return ras_eeprom_get_version(ras_core, version);
+}

@@ -1368,3 +1368,13 @@ enum ras_gpu_health_status
 
 	return rai->rma_status;
 }
+
+int ras_eeprom_get_version(struct ras_core_context *ras_core, uint32_t *version)
+{
+	if (!ras_core || !version)
+		return -EINVAL;
+
+	*version = ras_core->ras_eeprom.tbl_hdr.version;
+
+	return 0;
+}

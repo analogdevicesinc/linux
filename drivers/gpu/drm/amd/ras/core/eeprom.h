@@ -187,4 +187,7 @@ void ras_eeprom_sync_info(struct ras_core_context *ras_core);
 int ras_eeprom_check_storage_status(struct ras_core_context *ras_core);
 enum ras_gpu_health_status
 	ras_eeprom_check_gpu_status(struct ras_core_context *ras_core);
+
+int ras_eeprom_get_version(struct ras_core_context *ras_core,
+	uint32_t *version);
 #endif

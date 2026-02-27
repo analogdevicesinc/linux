@@ -413,4 +413,6 @@ int ras_core_check_address_sanity(struct ras_core_context *ras_core, uint64_t ad
 
 int ras_core_set_debug_mode(struct ras_core_context *ras_core, bool enable);
 bool ras_core_is_ce_log_disabled(struct ras_core_context *ras_core);
+int ras_core_get_eeprom_version(struct ras_core_context *ras_core,
+	uint32_t *version);
 #endif
