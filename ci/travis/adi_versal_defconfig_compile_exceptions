@@ -23,6 +23,7 @@ drivers/iio/adc/adrv902x/devices/adrv9025/private/src/adrv9025_dynamic_slicer.o
 drivers/iio/adc/adrv902x/devices/adrv9025/public/src/adi_adrv9025_dfe.o
 drivers/iio/adc/adrv902x/devices/adrv9025/public/src/adi_adrv9025_dynamic_slicer.o
 drivers/iio/adc/adrv902x/platforms/adi_platform.o
+drivers/iio/adc/ad4030.o
 drivers/iio/adc/max1027.o
 drivers/iio/adc/mykonos/mykonosMmap.o
 drivers/iio/adc/mykonos/mykonos_debug/mykonos_dbgjesd.o
