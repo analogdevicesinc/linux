@@ -657,41 +657,34 @@ static void admv8818_clk_disable(void *data)
 static int admv8818_init(struct admv8818_state *st)
 {
 	int ret;
-	struct spi_device *spi = st->spi;
+	struct device *dev = &st->spi->dev;
 	unsigned int chip_id;
 
 	ret = regmap_write(st->regmap, ADMV8818_REG_SPI_CONFIG_A,
 			   ADMV8818_SOFTRESET_N_MSK | ADMV8818_SOFTRESET_MSK);
-	if (ret) {
-		dev_err(&spi->dev, "ADMV8818 Soft Reset failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "ADMV8818 Soft Reset failed.\n");
 
 	ret = regmap_write(st->regmap, ADMV8818_REG_SPI_CONFIG_A,
 			   ADMV8818_SDOACTIVE_N_MSK | ADMV8818_SDOACTIVE_MSK);
-	if (ret) {
-		dev_err(&spi->dev, "ADMV8818 SDO Enable failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "ADMV8818 SDO Enable failed.\n");
 
 	ret = regmap_read(st->regmap, ADMV8818_REG_CHIPTYPE, &chip_id);
-	if (ret) {
-		dev_err(&spi->dev, "ADMV8818 Chip ID read failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "ADMV8818 Chip ID read failed.\n");
 
-	if (chip_id != 0x1) {
-		dev_err(&spi->dev, "ADMV8818 Invalid Chip ID.\n");
-		return -EINVAL;
-	}
+	if (chip_id != 0x1)
+		return dev_err_probe(dev, -EINVAL,
+				     "ADMV8818 Invalid Chip ID.\n");
 
 	ret = regmap_update_bits(st->regmap, ADMV8818_REG_SPI_CONFIG_B,
 				 ADMV8818_SINGLE_INSTRUCTION_MSK,
 				 FIELD_PREP(ADMV8818_SINGLE_INSTRUCTION_MSK, 1));
-	if (ret) {
-		dev_err(&spi->dev, "ADMV8818 Single Instruction failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "ADMV8818 Single Instruction failed.\n");
 
 	if (st->clkin)
 		return admv8818_rfin_band_select(st);
