@@ -346,23 +346,21 @@ static const struct iio_chan_spec adrf6780_channels[] = {
 static int adrf6780_reset(struct adrf6780_state *st)
 {
 	int ret;
-	struct spi_device *spi = st->spi;
+	struct device *dev = &st->spi->dev;
 
 	ret = __adrf6780_spi_update_bits(st, ADRF6780_REG_CONTROL,
 					 ADRF6780_SOFT_RESET_MSK,
 					 FIELD_PREP(ADRF6780_SOFT_RESET_MSK, 1));
-	if (ret) {
-		dev_err(&spi->dev, "ADRF6780 SPI software reset failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "ADRF6780 SPI software reset failed.\n");
 
 	ret = __adrf6780_spi_update_bits(st, ADRF6780_REG_CONTROL,
 					 ADRF6780_SOFT_RESET_MSK,
 					 FIELD_PREP(ADRF6780_SOFT_RESET_MSK, 0));
-	if (ret) {
-		dev_err(&spi->dev, "ADRF6780 SPI software reset disable failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "ADRF6780 SPI software reset disable failed.\n");
 
 	return 0;
 }
@@ -371,7 +369,7 @@ static int adrf6780_init(struct adrf6780_state *st)
 {
 	int ret;
 	unsigned int chip_id, enable_reg, enable_reg_msk;
-	struct spi_device *spi = st->spi;
+	struct device *dev = &st->spi->dev;
 
 	/* Perform a software reset */
 	ret = adrf6780_reset(st);
@@ -383,10 +381,9 @@ static int adrf6780_init(struct adrf6780_state *st)
 		return ret;
 
 	chip_id = FIELD_GET(ADRF6780_CHIP_ID_MSK, chip_id);
-	if (chip_id != ADRF6780_CHIP_ID) {
-		dev_err(&spi->dev, "ADRF6780 Invalid Chip ID.\n");
-		return -EINVAL;
-	}
+	if (chip_id != ADRF6780_CHIP_ID)
+		return dev_err_probe(dev, -EINVAL,
+				     "ADRF6780 Invalid Chip ID.\n");
 
 	enable_reg_msk = ADRF6780_VGA_BUFFER_EN_MSK |
 			ADRF6780_DETECTOR_EN_MSK |
