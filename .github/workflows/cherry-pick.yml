@@ -58,6 +58,13 @@ jobs:
         get_file ci/maintenance.sh
         get_file ci/runner_env.sh
 
+    - name: Token to trigger workflows
+      env:
+        WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET }}
+      if: ${{ env.WORKFLOW_SECRET != '' }}
+      run: |
+        git remote set-url origin "https://x-access-token:${{ secrets.WORKFLOW_SECRET }}@github.com/${{ github.repository }}.git"
+
     - name: update-mirror
       run: |
         source ./ci/maintenance.sh
@@ -70,3 +77,8 @@ jobs:
       run: |
         source ./ci/runner_env.sh
         export_job_summary
+
+    - name: Clean-up
+      if: always()
+      run: |
+        git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
