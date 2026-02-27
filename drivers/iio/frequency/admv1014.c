@@ -614,10 +614,8 @@ static int admv1014_init(struct admv1014_state *st)
 	int ret;
 
 	ret = regulator_bulk_enable(ADMV1014_NUM_REGULATORS, st->regulators);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to enable regulators");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to enable regulators");
 
 	ret = devm_add_action_or_reset(dev, admv1014_reg_disable, st->regulators);
 	if (ret)
@@ -644,55 +642,47 @@ static int admv1014_init(struct admv1014_state *st)
 	ret = __admv1014_spi_update_bits(st, ADMV1014_REG_SPI_CONTROL,
 					 ADMV1014_SPI_SOFT_RESET_MSK,
 					 FIELD_PREP(ADMV1014_SPI_SOFT_RESET_MSK, 1));
-	if (ret) {
-		dev_err(&spi->dev, "ADMV1014 SPI software reset failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "ADMV1014 SPI software reset failed.\n");
 
 	ret = __admv1014_spi_update_bits(st, ADMV1014_REG_SPI_CONTROL,
 					 ADMV1014_SPI_SOFT_RESET_MSK,
 					 FIELD_PREP(ADMV1014_SPI_SOFT_RESET_MSK, 0));
-	if (ret) {
-		dev_err(&spi->dev, "ADMV1014 SPI software reset disable failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "ADMV1014 SPI software reset disable failed.\n");
 
 	ret = __admv1014_spi_write(st, ADMV1014_REG_VVA_TEMP_COMP, 0x727C);
-	if (ret) {
-		dev_err(&spi->dev, "Writing default Temperature Compensation value failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Writing default Temperature Compensation value failed.\n");
 
 	ret = __admv1014_spi_read(st, ADMV1014_REG_SPI_CONTROL, &chip_id);
 	if (ret)
 		return ret;
 
 	chip_id = FIELD_GET(ADMV1014_CHIP_ID_MSK, chip_id);
-	if (chip_id != ADMV1014_CHIP_ID) {
-		dev_err(&spi->dev, "Invalid Chip ID.\n");
-		return -EINVAL;
-	}
+	if (chip_id != ADMV1014_CHIP_ID)
+		return dev_err_probe(dev, -EINVAL, "Invalid Chip ID.\n");
 
 	ret = __admv1014_spi_update_bits(st, ADMV1014_REG_QUAD,
 					 ADMV1014_QUAD_SE_MODE_MSK,
 					 FIELD_PREP(ADMV1014_QUAD_SE_MODE_MSK,
 						    st->quad_se_mode));
-	if (ret) {
-		dev_err(&spi->dev, "Writing Quad SE Mode failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Writing Quad SE Mode failed.\n");
 
 	ret = admv1014_update_quad_filters(st);
-	if (ret) {
-		dev_err(&spi->dev, "Update Quad Filters failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Update Quad Filters failed.\n");
 
 	ret = admv1014_update_vcm_settings(st);
-	if (ret) {
-		dev_err(&spi->dev, "Update VCM Settings failed.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Update VCM Settings failed.\n");
 
 	enable_reg_msk = ADMV1014_P1DB_COMPENSATION_MSK |
 			 ADMV1014_IF_AMP_PD_MSK |
@@ -741,10 +731,8 @@ static int admv1014_properties_parse(struct admv1014_state *st)
 
 	ret = devm_regulator_bulk_get(dev, ADMV1014_NUM_REGULATORS,
 				      st->regulators);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to request regulators");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to request regulators");
 
 	st->clkin = devm_clk_get(dev, "lo_in");
 	if (IS_ERR(st->clkin))
