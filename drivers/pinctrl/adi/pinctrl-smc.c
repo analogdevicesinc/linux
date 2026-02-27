@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/arm-smccc.h>
 #include <linux/types.h>
+#include <linux/device.h>
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/pinctrl.h>
@@ -94,8 +95,10 @@ int adi_pinconf_get_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 	 *  The SMC call return status is present in res.a0,
 	 *     the pinctrl TFA Handler is present in res.a1
 	 */
-	if (res.a0 != ADI_PINCTRL_SMC_RETURN_SUCCESS || res.a1 != ADI_TFA_PINCTRL_HANDLER_SUCCESS)
+	if (res.a0 != ADI_PINCTRL_SMC_RETURN_SUCCESS || res.a1 != ADI_TFA_PINCTRL_HANDLER_SUCCESS) {
+		dev_err(ipctl->dev, "smc call ADI_PINCTRL_GET failed: a0 %lu, a1 %lu", res.a0, res.a1);
 		return -EINVAL;
+	}
 
 	/*
 	 *  Here we output the received mux settings {3-bit field} , drivestrength
@@ -183,8 +186,10 @@ int adi_pinconf_set_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 	 *  The SMC call return status is present in res.a0,
 	 *     the pinctrl TFA Handler is present in res.a1
 	 */
-	if (res.a0 != ADI_PINCTRL_SMC_RETURN_SUCCESS || res.a1 != ADI_TFA_PINCTRL_HANDLER_SUCCESS)
+	if (res.a0 != ADI_PINCTRL_SMC_RETURN_SUCCESS || res.a1 != ADI_TFA_PINCTRL_HANDLER_SUCCESS) {
+		dev_err(ipctl->dev, "smc call ADI_PINCTRL_SET failed: a0 %lu, a1 %lu", res.a0, res.a1);
 		return -EINVAL;
+	}
 
 	return 0;
 }
