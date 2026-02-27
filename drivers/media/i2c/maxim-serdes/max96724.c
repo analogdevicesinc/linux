@@ -19,7 +19,7 @@
 
 #define MAX96724_NAME "max96724"
 #define MAX96724_GPIO_NUM 9
-#define MAX96724_DPLL_FREQ 2500
+#define MAX96724_DPLL_FREQ 2000
 #define MAX96724_PHYS_NUM 4
 
 struct max96724_priv {
