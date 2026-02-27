@@ -806,7 +806,7 @@ static int ad7293_init(struct ad7293_state *st)
 {
 	int ret;
 	u16 chip_id;
-	struct spi_device *spi = st->spi;
+	struct device *dev = &st->spi->dev;
 
 	ret = ad7293_properties_parse(st);
 	if (ret)
@@ -821,10 +821,8 @@ static int ad7293_init(struct ad7293_state *st)
 	if (ret)
 		return ret;
 
-	if (chip_id != AD7293_CHIP_ID) {
-		dev_err(&spi->dev, "Invalid Chip ID.\n");
-		return -EINVAL;
-	}
+	if (chip_id != AD7293_CHIP_ID)
+		return dev_err_probe(dev, -EINVAL, "Invalid Chip ID.\n");
 
 	if (!st->vrefin_en)
 		return __ad7293_spi_update_bits(st, AD7293_REG_GENERAL,
