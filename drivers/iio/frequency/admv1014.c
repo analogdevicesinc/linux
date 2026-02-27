@@ -610,6 +610,7 @@ static int admv1014_init(struct admv1014_state *st)
 {
 	unsigned int chip_id, enable_reg, enable_reg_msk;
 	struct spi_device *spi = st->spi;
+	struct device *dev = &spi->dev;
 	int ret;
 
 	ret = regulator_bulk_enable(ADMV1014_NUM_REGULATORS, st->regulators);
@@ -618,7 +619,7 @@ static int admv1014_init(struct admv1014_state *st)
 		return ret;
 	}
 
-	ret = devm_add_action_or_reset(&spi->dev, admv1014_reg_disable, st->regulators);
+	ret = devm_add_action_or_reset(dev, admv1014_reg_disable, st->regulators);
 	if (ret)
 		return ret;
 
@@ -626,16 +627,16 @@ static int admv1014_init(struct admv1014_state *st)
 	if (ret)
 		return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, admv1014_clk_disable, st->clkin);
+	ret = devm_add_action_or_reset(dev, admv1014_clk_disable, st->clkin);
 	if (ret)
 		return ret;
 
 	st->nb.notifier_call = admv1014_freq_change;
-	ret = devm_clk_notifier_register(&spi->dev, st->clkin, &st->nb);
+	ret = devm_clk_notifier_register(dev, st->clkin, &st->nb);
 	if (ret)
 		return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, admv1014_powerdown, st);
+	ret = devm_add_action_or_reset(dev, admv1014_powerdown, st);
 	if (ret)
 		return ret;
 
@@ -712,13 +713,14 @@ static int admv1014_properties_parse(struct admv1014_state *st)
 {
 	unsigned int i;
 	struct spi_device *spi = st->spi;
+	struct device *dev = &spi->dev;
 	int ret;
 
-	st->det_en = device_property_read_bool(&spi->dev, "adi,detector-enable");
+	st->det_en = device_property_read_bool(dev, "adi,detector-enable");
 
-	st->p1db_comp = device_property_read_bool(&spi->dev, "adi,p1db-compensation-enable");
+	st->p1db_comp = device_property_read_bool(dev, "adi,p1db-compensation-enable");
 
-	ret = device_property_match_property_string(&spi->dev, "adi,input-mode",
+	ret = device_property_match_property_string(dev, "adi,input-mode",
 						    input_mode_names,
 						    ARRAY_SIZE(input_mode_names));
 	if (ret >= 0)
@@ -726,7 +728,7 @@ static int admv1014_properties_parse(struct admv1014_state *st)
 	else
 		st->input_mode = ADMV1014_IQ_MODE;
 
-	ret = device_property_match_property_string(&spi->dev, "adi,quad-se-mode",
+	ret = device_property_match_property_string(dev, "adi,quad-se-mode",
 						    quad_se_mode_names,
 						    ARRAY_SIZE(quad_se_mode_names));
 	if (ret >= 0)
@@ -737,16 +739,16 @@ static int admv1014_properties_parse(struct admv1014_state *st)
 	for (i = 0; i < ADMV1014_NUM_REGULATORS; ++i)
 		st->regulators[i].supply = admv1014_reg_name[i];
 
-	ret = devm_regulator_bulk_get(&st->spi->dev, ADMV1014_NUM_REGULATORS,
+	ret = devm_regulator_bulk_get(dev, ADMV1014_NUM_REGULATORS,
 				      st->regulators);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to request regulators");
 		return ret;
 	}
 
-	st->clkin = devm_clk_get(&spi->dev, "lo_in");
+	st->clkin = devm_clk_get(dev, "lo_in");
 	if (IS_ERR(st->clkin))
-		return dev_err_probe(&spi->dev, PTR_ERR(st->clkin),
+		return dev_err_probe(dev, PTR_ERR(st->clkin),
 				     "failed to get the LO input clock\n");
 
 	return 0;
@@ -756,9 +758,10 @@ static int admv1014_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct admv1014_state *st;
+	struct device *dev = &spi->dev;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
@@ -787,7 +790,7 @@ static int admv1014_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	return devm_iio_device_register(dev, indio_dev);
 }
 
 static const struct spi_device_id admv1014_id[] = {
