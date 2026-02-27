@@ -325,7 +325,7 @@ static unsigned int __gang_lookup_nat_set(struct f2fs_nm_info *nm_i,
 							start, nr);
 }
 
-bool f2fs_in_warm_node_list(struct f2fs_sb_info *sbi, struct folio *folio)
+bool f2fs_in_warm_node_list(struct folio *folio)
 {
 	return is_node_folio(folio) && IS_DNODE(folio) && is_cold_node(folio);
 }
@@ -1810,7 +1810,7 @@ static bool __write_node_folio(struct folio *folio, bool atomic, bool *submitted
 	}
 
 	/* should add to global list before clearing PAGECACHE status */
-	if (f2fs_in_warm_node_list(sbi, folio)) {
+	if (f2fs_in_warm_node_list(folio)) {
 		seq = f2fs_add_fsync_node_entry(sbi, folio);
 		if (seq_id)
 			*seq_id = seq;
