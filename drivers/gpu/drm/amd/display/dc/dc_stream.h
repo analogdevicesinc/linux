@@ -494,6 +494,9 @@ struct surface_update_descriptor dc_check_update_surfaces_for_stream(
 		int surface_count,
 		struct dc_stream_update *stream_update);
 
+struct dc_link *dc_stream_get_link(
+	const struct dc_stream_state *dc_stream);
+
 /**
  * Create a new default stream for the requested sink
  */

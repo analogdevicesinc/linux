@@ -259,6 +259,12 @@ const struct dc_stream_status *dc_stream_get_status_const(
 	return dc_state_get_stream_status(dc->current_state, stream);
 }
 
+struct dc_link *dc_stream_get_link(
+	const struct dc_stream_state *stream)
+{
+	return stream->link;
+}
+
 void program_cursor_attributes(
 	struct dc *dc,
 	struct dc_stream_state *stream)

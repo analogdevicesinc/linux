@@ -62,3 +62,14 @@ void dm_trace_smu_exit(bool success, uint32_t response, struct dc_context *ctx)
 }
 
 /**** power component interfaces ****/
+
+bool dm_query_extended_brightness_caps(struct dc_context *ctx,
+	enum dm_acpi_display_type display,
+	struct dm_acpi_atif_backlight_caps *pCaps)
+{
+	/*
+	 * TODO: Implement query for extended backlight caps.
+	 * Some plumbing required, see amdgpu_atif_query_backlight_caps()
+	 */
+	return false;
+}

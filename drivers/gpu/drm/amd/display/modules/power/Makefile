@@ -23,7 +23,7 @@
 # Makefile for the 'power' sub-module of DAL.
 #
 
-MOD_POWER = power_helpers.o
+MOD_POWER = power_helpers.o power.o
 
 AMD_DAL_MOD_POWER = $(addprefix $(AMDDALPATH)/modules/power/,$(MOD_POWER))
 #$(info ************  DAL POWER MODULE MAKEFILE ************)
