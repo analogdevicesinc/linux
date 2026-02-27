@@ -122,8 +122,10 @@ enum {
 
 enum {
 	AD4630_16_DIFF = 0x00,
+	AD4630_20_DIFF = 0x00,
 	AD4630_24_DIFF = 0x00,
 	AD4630_16_DIFF_8_COM = 0x01,
+	AD4630_20_DIFF_8_COM = 0x02,
 	AD4630_24_DIFF_8_COM = 0x02,
 	AD4630_30_AVERAGED_DIFF = 0x03,
 	AD4630_32_PATTERN = 0x04
@@ -140,6 +142,8 @@ enum {
 	ID_AD4032_24,
 	ID_AD4630_16,
 	ID_AD4632_16,
+	ID_AD4630_20,
+	ID_AD4632_20,
 	ID_AD4630_24,
 	ID_AD4632_24,
 	ID_ADAQ4216,
@@ -846,6 +850,39 @@ static const struct ad4630_out_mode ad4630_16_modes[] = {
 	}
 };
 
+static const struct ad4630_out_mode ad4630_20_modes[] = {
+	[AD4630_20_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 20, 0, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 20, 0, AD4630_CHAN_INFO_NONE),
+		},
+		.data_width = 24,
+	},
+	[AD4630_16_DIFF_8_COM] = {
+		.channels = {
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 8, AD4630_CHAN_INFO_NONE),
+		},
+		.data_width = 24,
+	},
+	[AD4630_20_DIFF_8_COM] = {
+		.channels = {
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 20, 12, AD4630_CHAN_INFO_NONE),
+			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 20, 12, AD4630_CHAN_INFO_NONE),
+		},
+		.data_width = 32,
+	},
+	[AD4630_30_AVERAGED_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 30, 2,
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
+			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 30, 2,
+				BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO)),
+		},
+		.data_width = 32,
+	}
+};
+
 static const struct ad4630_out_mode ad4630_24_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
@@ -1006,6 +1043,26 @@ static const struct ad4630_chip_info ad4630_chip_info[] = {
 		.min_offset = (int)BIT(15) * -1,
 		.max_offset = BIT(15) - 1,
 		.base_word_len = 16,
+		.n_channels = 2,
+	},
+	[ID_AD4630_20] = {
+		.available_masks = ad4630_channel_masks,
+		.modes = ad4630_20_modes,
+		.out_modes_mask = GENMASK(3, 0),
+		.name = "ad4630-20",
+		.min_offset = (int)BIT(23) * -1,
+		.max_offset = BIT(23) - 1,
+		.base_word_len = 24,
+		.n_channels = 2,
+	},
+	[ID_AD4632_20] = {
+		.available_masks = ad4630_channel_masks,
+		.modes = ad4630_20_modes,
+		.out_modes_mask = GENMASK(3, 0),
+		.name = "ad4632-20",
+		.min_offset = (int)BIT(23) * -1,
+		.max_offset = BIT(23) - 1,
+		.base_word_len = 24,
 		.n_channels = 2,
 	},
 	[ID_AD4630_24] = {
@@ -1593,6 +1650,8 @@ static const struct spi_device_id ad4630_id_table[] = {
 	{ "ad4032-24", (kernel_ulong_t)&ad4630_chip_info[ID_AD4032_24] },
 	{ "ad4630-16", (kernel_ulong_t)&ad4630_chip_info[ID_AD4630_16] },
 	{ "ad4632-16", (kernel_ulong_t)&ad4630_chip_info[ID_AD4632_16] },
+	{ "ad4630-20", (kernel_ulong_t)&ad4630_chip_info[ID_AD4630_20] },
+	{ "ad4632-20", (kernel_ulong_t)&ad4630_chip_info[ID_AD4632_20] },
 	{ "ad4630-24", (kernel_ulong_t)&ad4630_chip_info[ID_AD4630_24] },
 	{ "ad4632-24", (kernel_ulong_t)&ad4630_chip_info[ID_AD4632_24] },
 	{ "adaq4216", (kernel_ulong_t)&ad4630_chip_info[ID_ADAQ4216] },
@@ -1607,6 +1666,8 @@ static const struct of_device_id ad4630_of_match[] = {
 	{ .compatible = "adi,ad4032-24", .data = &ad4630_chip_info[ID_AD4032_24] },
 	{ .compatible = "adi,ad4630-16", .data = &ad4630_chip_info[ID_AD4630_16] },
 	{ .compatible = "adi,ad4632-16", .data = &ad4630_chip_info[ID_AD4632_16] },
+	{ .compatible = "adi,ad4630-20", .data = &ad4630_chip_info[ID_AD4630_20] },
+	{ .compatible = "adi,ad4632-20", .data = &ad4630_chip_info[ID_AD4632_20] },
 	{ .compatible = "adi,ad4630-24", .data = &ad4630_chip_info[ID_AD4630_24] },
 	{ .compatible = "adi,ad4632-24", .data = &ad4630_chip_info[ID_AD4632_24] },
 	{ .compatible = "adi,adaq4216", .data = &ad4630_chip_info[ID_ADAQ4216] },
