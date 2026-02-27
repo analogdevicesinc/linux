@@ -94,7 +94,7 @@
 		clocks = <&clk0_ad9528 9>;
 		clock-names = "conv";
 
-		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,sys-clk-select = <XCVR_QPLL>;
 		adi,out-clk-select = <XCVR_REFCLK>;
 		adi,use-lpm-enable;
 
