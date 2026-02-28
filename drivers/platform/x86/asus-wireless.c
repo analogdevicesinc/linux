@@ -108,9 +108,10 @@ static void led_state_set(struct led_classdev *led, enum led_brightness value)
 	queue_work(data->wq, &data->led_work);
 }
 
-static void asus_wireless_notify(struct acpi_device *adev, u32 event)
+static void asus_wireless_notify(acpi_handle handle, u32 event, void *context)
 {
-	struct asus_wireless_data *data = acpi_driver_data(adev);
+	struct asus_wireless_data *data = context;
+	struct acpi_device *adev = data->adev;
 
 	dev_dbg(&adev->dev, "event=%#x\n", event);
 	if (event != 0x88) {
@@ -166,8 +167,18 @@ static int asus_wireless_add(struct acpi_device *adev)
 	data->led.default_trigger = "rfkill-none";
 	err = devm_led_classdev_register(&adev->dev, &data->led);
 	if (err)
-		destroy_workqueue(data->wq);
+		goto err;
 
+	err = acpi_dev_install_notify_handler(adev, ACPI_DEVICE_NOTIFY,
+					      asus_wireless_notify, data);
+	if (err) {
+		devm_led_classdev_unregister(&adev->dev, &data->led);
+		goto err;
+	}
+	return 0;
+
+err:
+	destroy_workqueue(data->wq);
 	return err;
 }
 
@@ -175,6 +186,8 @@ static void asus_wireless_remove(struct acpi_device *adev)
 {
 	struct asus_wireless_data *data = acpi_driver_data(adev);
 
+	acpi_dev_remove_notify_handler(adev, ACPI_DEVICE_NOTIFY,
+				       asus_wireless_notify);
 	if (data->wq) {
 		devm_led_classdev_unregister(&adev->dev, &data->led);
 		destroy_workqueue(data->wq);
@@ -188,7 +201,6 @@ static struct acpi_driver asus_wireless_driver = {
 	.ops = {
 		.add = asus_wireless_add,
 		.remove = asus_wireless_remove,
-		.notify = asus_wireless_notify,
 	},
 };
 module_acpi_driver(asus_wireless_driver);
