@@ -1204,9 +1204,10 @@ static void eeepc_input_notify(struct eeepc_laptop *eeepc, int event)
 		pr_info("Unknown key %x pressed\n", event);
 }
 
-static void eeepc_acpi_notify(struct acpi_device *device, u32 event)
+static void eeepc_acpi_notify(acpi_handle handle, u32 event, void *data)
 {
-	struct eeepc_laptop *eeepc = acpi_driver_data(device);
+	struct eeepc_laptop *eeepc = data;
+	struct acpi_device *device = eeepc->device;
 	int old_brightness, new_brightness;
 	u16 count;
 
@@ -1422,9 +1423,16 @@ static int eeepc_acpi_add(struct acpi_device *device)
 	if (result)
 		goto fail_rfkill;
 
+	result = acpi_dev_install_notify_handler(device, ACPI_ALL_NOTIFY,
+						 eeepc_acpi_notify, eeepc);
+	if (result)
+		goto fail_acpi_notifier;
+
 	eeepc_device_present = true;
 	return 0;
 
+fail_acpi_notifier:
+	eeepc_rfkill_exit(eeepc);
 fail_rfkill:
 	eeepc_led_exit(eeepc);
 fail_led:
@@ -1444,6 +1452,7 @@ static void eeepc_acpi_remove(struct acpi_device *device)
 {
 	struct eeepc_laptop *eeepc = acpi_driver_data(device);
 
+	acpi_dev_remove_notify_handler(device, ACPI_ALL_NOTIFY, eeepc_acpi_notify);
 	eeepc_backlight_exit(eeepc);
 	eeepc_rfkill_exit(eeepc);
 	eeepc_input_exit(eeepc);
@@ -1464,11 +1473,9 @@ static struct acpi_driver eeepc_acpi_driver = {
 	.name = EEEPC_LAPTOP_NAME,
 	.class = EEEPC_ACPI_CLASS,
 	.ids = eeepc_device_ids,
-	.flags = ACPI_DRIVER_ALL_NOTIFY_EVENTS,
 	.ops = {
 		.add = eeepc_acpi_add,
 		.remove = eeepc_acpi_remove,
-		.notify = eeepc_acpi_notify,
 	},
 };
 
