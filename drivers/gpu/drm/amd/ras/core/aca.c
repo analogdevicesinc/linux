@@ -284,16 +284,9 @@ static int aca_dump_bank(struct ras_core_context *ras_core, u32 ecc_type,
 			 int idx, void *data)
 {
 	struct aca_bank_reg *bank = (struct aca_bank_reg *)data;
-	int i, ret, reg_cnt;
 
-	reg_cnt = min_t(int, 16, ARRAY_SIZE(bank->regs));
-	for (i = 0; i < reg_cnt; i++) {
-		ret = ras_mp1_dump_bank(ras_core, ecc_type, idx, i, &bank->regs[i]);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
+	return ras_mp1_dump_bank(ras_core, ecc_type, idx,
+				bank->regs, ARRAY_SIZE(bank->regs));
 }
 
 static uint64_t aca_get_bank_seqno(struct ras_core_context *ras_core,

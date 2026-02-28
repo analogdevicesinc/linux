@@ -48,15 +48,22 @@ int ras_mp1_get_bank_count(struct ras_core_context *ras_core,
 {
 	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
 
+	if (!mp1->ip_func || !mp1->ip_func->get_valid_bank_count)
+		return 0;
+
 	return mp1->ip_func->get_valid_bank_count(ras_core, type, count);
 }
 
 int ras_mp1_dump_bank(struct ras_core_context *ras_core,
-		u32 type, u32 idx, u32 reg_idx, u64 *val)
+		u32 type, u32 idx, u64 *regs, u32 regs_sz)
 {
 	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
 
-	return mp1->ip_func->dump_valid_bank(ras_core, type, idx, reg_idx, val);
+	if (!mp1->ip_func || !mp1->ip_func->dump_valid_bank)
+		return 0;
+
+	return mp1->ip_func->dump_valid_bank(ras_core,
+				type, idx, regs, regs_sz);
 }
 
 int ras_mp1_set_debug_mode(struct ras_core_context *ras_core, bool enable)
