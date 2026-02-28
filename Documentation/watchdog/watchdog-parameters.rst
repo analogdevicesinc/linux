@@ -14,13 +14,22 @@ modules.
 -------------------------------------------------
 
 watchdog core:
+    handle_boot_enabled:
+	Watchdog core auto-updates boot-enabled watchdogs before userspace
+	takes over. Default is set by the kconfig option
+	CONFIG_WATCHDOG_HANDLE_BOOT_ENABLED.
+
     open_timeout:
 	Maximum time, in seconds, for which the watchdog framework will take
 	care of pinging a running hardware watchdog until userspace opens the
 	corresponding /dev/watchdogN device. A value of 0 means an infinite
 	timeout. Setting this to a non-zero value can be useful to ensure that
 	either userspace comes up properly, or the board gets reset and allows
-	fallback logic in the bootloader to try something else.
+	fallback logic in the bootloader to try something else. Default is set
+	by the kconfig option CONFIG_WATCHDOG_OPEN_TIMEOUT.
+
+    stop_on_reboot:
+	Stops watchdogs on reboot (0 = keep watching, 1 = stop).
 
 -------------------------------------------------
 
