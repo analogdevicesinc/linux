@@ -291,7 +291,7 @@ void fnic_handle_frame(struct work_struct *work)
 		if (fnic->stop_rx_link_events) {
 			list_del(&cur_frame->links);
 			spin_unlock_irqrestore(&fnic->fnic_lock, fnic->lock_flags);
-			kfree(cur_frame->fp);
+			mempool_free(cur_frame->fp, fnic->frame_recv_pool);
 			mempool_free(cur_frame, fnic->frame_elem_pool);
 			return;
 		}
@@ -317,7 +317,7 @@ void fnic_handle_frame(struct work_struct *work)
 		fnic_fdls_recv_frame(&fnic->iport, cur_frame->fp,
 							 cur_frame->frame_len, fchdr_offset);
 
-		kfree(cur_frame->fp);
+		mempool_free(cur_frame->fp, fnic->frame_recv_pool);
 		mempool_free(cur_frame, fnic->frame_elem_pool);
 	}
 	spin_unlock_irqrestore(&fnic->fnic_lock, fnic->lock_flags);
@@ -337,8 +337,8 @@ void fnic_handle_fip_frame(struct work_struct *work)
 		if (fnic->stop_rx_link_events) {
 			list_del(&cur_frame->links);
 			spin_unlock_irqrestore(&fnic->fnic_lock, fnic->lock_flags);
-			kfree(cur_frame->fp);
-			kfree(cur_frame);
+			mempool_free(cur_frame->fp, fnic->frame_recv_pool);
+			mempool_free(cur_frame, fnic->frame_elem_pool);
 			return;
 		}
 
@@ -355,8 +355,8 @@ void fnic_handle_fip_frame(struct work_struct *work)
 		list_del(&cur_frame->links);
 
 		if (fdls_fip_recv_frame(fnic, cur_frame->fp)) {
-			kfree(cur_frame->fp);
-			kfree(cur_frame);
+			mempool_free(cur_frame->fp, fnic->frame_recv_pool);
+			mempool_free(cur_frame, fnic->frame_elem_pool);
 		}
 	}
 	spin_unlock_irqrestore(&fnic->fnic_lock, fnic->lock_flags);
@@ -375,10 +375,10 @@ static inline int fnic_import_rq_eth_pkt(struct fnic *fnic, void *fp)
 
 	eh = (struct ethhdr *) fp;
 	if ((eh->h_proto == cpu_to_be16(ETH_P_FIP)) && (fnic->iport.usefip)) {
-		fip_fr_elem = (struct fnic_frame_list *)
-			kzalloc_obj(struct fnic_frame_list, GFP_ATOMIC);
+		fip_fr_elem = mempool_alloc(fnic->frame_elem_pool, GFP_ATOMIC);
 		if (!fip_fr_elem)
 			return 0;
+		memset(fip_fr_elem, 0, sizeof(struct fnic_frame_list));
 		fip_fr_elem->fp = fp;
 		spin_lock_irqsave(&fnic->fnic_lock, flags);
 		list_add_tail(&fip_fr_elem->links, &fnic->fip_frame_queue);
@@ -519,13 +519,13 @@ static void fnic_rq_cmpl_frame_recv(struct vnic_rq *rq, struct cq_desc
 
 	spin_unlock_irqrestore(&fnic->fnic_lock, flags);
 
-	frame_elem = mempool_alloc(fnic->frame_elem_pool,
-					GFP_ATOMIC | __GFP_ZERO);
+	frame_elem = mempool_alloc(fnic->frame_elem_pool, GFP_ATOMIC);
 	if (!frame_elem) {
 		FNIC_FCS_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
 				 "Failed to allocate memory for frame elem");
 		goto drop;
 	}
+	memset(frame_elem, 0, sizeof(struct fnic_frame_list));
 	frame_elem->fp = fp;
 	frame_elem->rx_ethhdr_stripped = ethhdr_stripped;
 	frame_elem->frame_len = bytes_written;
@@ -538,7 +538,7 @@ static void fnic_rq_cmpl_frame_recv(struct vnic_rq *rq, struct cq_desc
 	return;
 
 drop:
-	kfree(fp);
+	mempool_free(fp, fnic->frame_recv_pool);
 }
 
 static int fnic_rq_cmpl_handler_cont(struct vnic_dev *vdev,
@@ -591,7 +591,7 @@ int fnic_alloc_rq_frame(struct vnic_rq *rq)
 	int ret;
 
 	len = FNIC_FRAME_HT_ROOM;
-	buf = kmalloc(len, GFP_ATOMIC);
+	buf = mempool_alloc(fnic->frame_recv_pool, GFP_ATOMIC);
 	if (!buf) {
 		FNIC_FCS_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
 					 "Unable to allocate RQ buffer of size: %d\n", len);
@@ -609,7 +609,7 @@ int fnic_alloc_rq_frame(struct vnic_rq *rq)
 	fnic_queue_rq_desc(rq, buf, pa, len);
 	return 0;
 free_buf:
-	kfree(buf);
+	mempool_free(buf, fnic->frame_recv_pool);
 	return ret;
 }
 
@@ -621,7 +621,7 @@ void fnic_free_rq_buf(struct vnic_rq *rq, struct vnic_rq_buf *buf)
 	dma_unmap_single(&fnic->pdev->dev, buf->dma_addr, buf->len,
 			 DMA_FROM_DEVICE);
 
-	kfree(rq_buf);
+	mempool_free(rq_buf, fnic->frame_recv_pool);
 	buf->os_buf = NULL;
 }
 
@@ -704,13 +704,13 @@ fdls_send_fcoe_frame(struct fnic *fnic, void *frame, int frame_size,
 	 */
 	if ((fnic->state != FNIC_IN_FC_MODE)
 		&& (fnic->state != FNIC_IN_ETH_MODE)) {
-		frame_elem = mempool_alloc(fnic->frame_elem_pool,
-						GFP_ATOMIC | __GFP_ZERO);
+		frame_elem = mempool_alloc(fnic->frame_elem_pool, GFP_ATOMIC);
 		if (!frame_elem) {
 			FNIC_FCS_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
 				 "Failed to allocate memory for frame elem");
 			return -ENOMEM;
 		}
+		memset(frame_elem, 0, sizeof(struct fnic_frame_list));
 
 		FNIC_FCS_DBG(KERN_DEBUG, fnic->host, fnic->fnic_num,
 			"Queueing FC frame: sid/did/type/oxid = 0x%x/0x%x/0x%x/0x%x\n",
@@ -836,14 +836,34 @@ fnic_fdls_register_portid(struct fnic_iport_s *iport, u32 port_id,
 	return 0;
 }
 
-void fnic_free_txq(struct list_head *head)
+void fnic_free_txq(struct fnic *fnic)
 {
 	struct fnic_frame_list *cur_frame, *next;
 
-	list_for_each_entry_safe(cur_frame, next, head, links) {
+	list_for_each_entry_safe(cur_frame, next, &fnic->tx_queue, links) {
 		list_del(&cur_frame->links);
-		kfree(cur_frame->fp);
-		kfree(cur_frame);
+		mempool_free(cur_frame->fp, fnic->frame_pool);
+		mempool_free(cur_frame, fnic->frame_elem_pool);
+	}
+}
+
+void fnic_free_rxq(struct fnic *fnic)
+{
+	struct fnic_frame_list *cur_frame, *next;
+
+	list_for_each_entry_safe(cur_frame, next, &fnic->frame_queue, links) {
+		list_del(&cur_frame->links);
+		mempool_free(cur_frame->fp, fnic->frame_recv_pool);
+		mempool_free(cur_frame, fnic->frame_elem_pool);
+	}
+
+	if (fnic->config.flags & VFCF_FIP_CAPABLE) {
+		list_for_each_entry_safe(cur_frame, next,
+				&fnic->fip_frame_queue, links) {
+			list_del(&cur_frame->links);
+			mempool_free(cur_frame->fp, fnic->frame_recv_pool);
+			mempool_free(cur_frame, fnic->frame_elem_pool);
+		}
 	}
 }
 
@@ -898,7 +918,7 @@ void fnic_free_wq_buf(struct vnic_wq *wq, struct vnic_wq_buf *buf)
 	dma_unmap_single(&fnic->pdev->dev, buf->dma_addr, buf->len,
 			 DMA_TO_DEVICE);
 
-	kfree(buf->os_buf);
+	mempool_free(buf->os_buf, fnic->frame_pool);
 	buf->os_buf = NULL;
 }
 
@@ -1107,4 +1127,54 @@ void fnic_reset_work_handler(struct work_struct *work)
 	}
 	spin_unlock_irqrestore(&reset_fnic_list_lock,
 						   reset_fnic_list_lock_flags);
+}
+
+void fnic_fcpio_reset(struct fnic *fnic)
+{
+	unsigned long flags;
+	enum fnic_state old_state;
+	struct fnic_iport_s *iport = &fnic->iport;
+	DECLARE_COMPLETION_ONSTACK(fw_reset_done);
+	int time_remain;
+
+	/* issue fw reset */
+	spin_lock_irqsave(&fnic->fnic_lock, flags);
+	if (unlikely(fnic->state == FNIC_IN_FC_TRANS_ETH_MODE)) {
+		/* fw reset is in progress, poll for its completion */
+		spin_unlock_irqrestore(&fnic->fnic_lock, flags);
+		FNIC_FCS_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
+			  "fnic is in unexpected state: %d for fw_reset\n",
+			  fnic->state);
+		return;
+	}
+
+	old_state = fnic->state;
+	fnic->state = FNIC_IN_FC_TRANS_ETH_MODE;
+
+	fnic_update_mac_locked(fnic, iport->hwmac);
+	fnic->fw_reset_done = &fw_reset_done;
+	spin_unlock_irqrestore(&fnic->fnic_lock, flags);
+
+	FNIC_FCS_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
+				"Issuing fw reset\n");
+	if (fnic_fw_reset_handler(fnic)) {
+		spin_lock_irqsave(&fnic->fnic_lock, flags);
+		if (fnic->state == FNIC_IN_FC_TRANS_ETH_MODE)
+			fnic->state = old_state;
+		spin_unlock_irqrestore(&fnic->fnic_lock, flags);
+	} else {
+		FNIC_FCS_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
+					  "Waiting for fw completion\n");
+		time_remain = wait_for_completion_timeout(&fw_reset_done,
+						  msecs_to_jiffies(FNIC_FW_RESET_TIMEOUT));
+		FNIC_FCS_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
+					  "Woken up after fw completion timeout\n");
+		if (time_remain == 0) {
+			FNIC_FCS_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
+				  "FW reset completion timed out after %d ms\n",
+				  FNIC_FW_RESET_TIMEOUT);
+		}
+		atomic64_inc(&fnic->fnic_stats.reset_stats.fw_reset_timeouts);
+	}
+	fnic->fw_reset_done = NULL;
 }

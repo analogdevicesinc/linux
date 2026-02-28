@@ -30,7 +30,7 @@
 
 #define DRV_NAME		"fnic"
 #define DRV_DESCRIPTION		"Cisco FCoE HBA Driver"
-#define DRV_VERSION		"1.8.0.2"
+#define DRV_VERSION		"1.8.0.3"
 #define PFX			DRV_NAME ": "
 #define DFX                     DRV_NAME "%d: "
 
@@ -438,6 +438,7 @@ struct fnic {
 	struct list_head tx_queue;
 	mempool_t *frame_pool;
 	mempool_t *frame_elem_pool;
+	mempool_t *frame_recv_pool;
 	struct work_struct tport_work;
 	struct list_head tport_event_list;
 
@@ -512,7 +513,6 @@ int fnic_host_reset(struct Scsi_Host *shost);
 void fnic_reset(struct Scsi_Host *shost);
 int fnic_issue_fc_host_lip(struct Scsi_Host *shost);
 void fnic_get_host_port_state(struct Scsi_Host *shost);
-void fnic_scsi_fcpio_reset(struct fnic *fnic);
 int fnic_wq_copy_cmpl_handler(struct fnic *fnic, int copy_work_to_do, unsigned int cq_index);
 int fnic_wq_cmpl_handler(struct fnic *fnic, int);
 int fnic_flogi_reg_handler(struct fnic *fnic, u32);
@@ -541,7 +541,8 @@ fnic_chk_state_flags_locked(struct fnic *fnic, unsigned long st_flags)
 }
 void __fnic_set_state_flags(struct fnic *, unsigned long, unsigned long);
 void fnic_dump_fchost_stats(struct Scsi_Host *, struct fc_host_statistics *);
-void fnic_free_txq(struct list_head *head);
+void fnic_free_txq(struct fnic *fnic);
+void fnic_free_rxq(struct fnic *fnic);
 int fnic_get_desc_by_devid(struct pci_dev *pdev, char **desc,
 						   char **subsys_desc);
 void fnic_fdls_link_status_change(struct fnic *fnic, int linkup);
