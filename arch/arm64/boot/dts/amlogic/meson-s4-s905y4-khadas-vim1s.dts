@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "meson-s4.dtsi"
+#include <dt-bindings/leds/common.h>
 
 / {
 	model = "Khadas VIM1S";
@@ -41,6 +42,18 @@
 	emmc_pwrseq: emmc-pwrseq {
 		compatible = "mmc-pwrseq-emmc";
 		reset-gpios = <&gpio GPIOB_9 GPIO_ACTIVE_LOW>;
+	};
+
+	pwm-leds {
+		compatible = "pwm-leds";
+
+		led-1 {
+			color = <LED_COLOR_ID_WHITE>;
+			function = LED_FUNCTION_STATUS;
+			linux,default-trigger = "heartbeat";
+			max-brightness = <255>;
+			pwms = <&pwm_gh 0 30040 0>;
+		};
 	};
 
 	sdio_32k: sdio-32k {
@@ -193,6 +206,12 @@
 &pwm_ef {
 	status = "okay";
 	pinctrl-0 = <&pwm_e_pins1>;
+	pinctrl-names = "default";
+};
+
+&pwm_gh {
+	status = "okay";
+	pinctrl-0 = <&pwm_g_pins1>;
 	pinctrl-names = "default";
 };
 
