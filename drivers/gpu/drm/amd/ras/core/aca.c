@@ -54,24 +54,24 @@ static void aca_report_ecc_info(struct ras_core_context *ras_core,
 				struct aca_bank_ecc *new_ecc)
 {
 	struct aca_ecc_count ecc_count = {0};
+	struct aca_ecc_count *xcd_ecc;
+	int xcd_id;
 
 	ecc_count.new_ue_count = new_ecc->ue_count;
 	ecc_count.new_de_count = new_ecc->de_count;
 	ecc_count.new_ce_count = new_ecc->ce_count;
-	if (blk == RAS_BLOCK_ID__GFX) {
-		struct aca_ecc_count *xcd_ecc;
-		int xcd_id;
 
+	ecc_count.total_ue_count = aid_ecc->ecc_err.total_ue_count;
+	ecc_count.total_de_count = aid_ecc->ecc_err.total_de_count;
+	ecc_count.total_ce_count = aid_ecc->ecc_err.total_ce_count;
+
+	if (blk == RAS_BLOCK_ID__GFX) {
 		for (xcd_id = 0; xcd_id < aid_ecc->xcd.xcd_num; xcd_id++) {
 			xcd_ecc = &aid_ecc->xcd.xcd[xcd_id].ecc_err;
 			ecc_count.total_ue_count += xcd_ecc->total_ue_count;
 			ecc_count.total_de_count += xcd_ecc->total_de_count;
 			ecc_count.total_ce_count += xcd_ecc->total_ce_count;
 		}
-	} else {
-		ecc_count.total_ue_count = aid_ecc->ecc_err.total_ue_count;
-		ecc_count.total_de_count = aid_ecc->ecc_err.total_de_count;
-		ecc_count.total_ce_count = aid_ecc->ecc_err.total_ce_count;
 	}
 
 	if (ecc_count.new_ue_count) {
@@ -191,7 +191,7 @@ static int aca_check_block_ecc_info(struct ras_core_context *ras_core,
 		return -ENODATA;
 	}
 
-	if ((aca_blk->blk_info->ras_block_id == RAS_BLOCK_ID__GFX) &&
+	if ((aca_blk->blk_info->ras_block_id == RAS_BLOCK_ID__GFX) && info->xcd_valid &&
 	    (info->xcd_id >=
 		 aca_blk->ecc.socket[info->socket_id].aid[info->die_id].xcd.xcd_num)) {
 		RAS_DEV_ERR(ras_core->dev,
@@ -221,10 +221,11 @@ static int aca_log_bad_bank(struct ras_core_context *ras_core,
 
 	mutex_lock(&ras_core->ras_aca.aca_lock);
 	aid_ecc = &aca_blk->ecc.socket[info->socket_id].aid[info->die_id];
-	if (aca_blk->blk_info->ras_block_id == RAS_BLOCK_ID__GFX)
+	ecc_err = &aid_ecc->ecc_err;
+
+	if ((aca_blk->blk_info->ras_block_id == RAS_BLOCK_ID__GFX) &&
+		bank_ecc->bank_info.xcd_valid)
 		ecc_err = &aid_ecc->xcd.xcd[info->xcd_id].ecc_err;
-	else
-		ecc_err = &aid_ecc->ecc_err;
 
 	ecc_err->new_ce_count += bank_ecc->ce_count;
 	ecc_err->total_ce_count += bank_ecc->ce_count;
@@ -477,12 +478,12 @@ int ras_aca_clear_block_new_ecc_count(struct ras_core_context *ras_core, u32 blk
 					ecc_err->new_ue_count = 0;
 					ecc_err->new_de_count = 0;
 				}
-			} else {
-				ecc_err = &aid_ecc->ecc_err;
-				ecc_err->new_ce_count = 0;
-				ecc_err->new_ue_count = 0;
-				ecc_err->new_de_count = 0;
 			}
+
+			ecc_err = &aid_ecc->ecc_err;
+			ecc_err->new_ce_count = 0;
+			ecc_err->new_ue_count = 0;
+			ecc_err->new_de_count = 0;
 		}
 	}
 	mutex_unlock(&ras_core->ras_aca.aca_lock);

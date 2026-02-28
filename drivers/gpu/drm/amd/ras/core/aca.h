@@ -73,6 +73,7 @@ struct aca_ecc_info {
 	int xcd_id;
 	int hwid;
 	int mcatype;
+	bool xcd_valid;
 	uint64_t status;
 	uint64_t ipid;
 	uint64_t addr;
@@ -100,13 +101,11 @@ struct aca_xcd_ecc {
 };
 
 struct aca_aid_ecc {
-	union {
-		struct aca_xcd {
-			struct aca_xcd_ecc xcd[MAX_XCD_NUM_PER_AID];
-			u32 xcd_num;
-		} xcd;
-		struct aca_ecc_count ecc_err;
-	};
+	struct aca_xcd {
+		struct aca_xcd_ecc xcd[MAX_XCD_NUM_PER_AID];
+		u32 xcd_num;
+	} xcd;
+	struct aca_ecc_count ecc_err;
 };
 
 struct aca_socket_ecc {
