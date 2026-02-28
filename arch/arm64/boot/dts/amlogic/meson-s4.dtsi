@@ -163,6 +163,22 @@
 					};
 				};
 
+				uart_a_pins: uart-a-pins {
+					mux {
+						groups = "uart_a_tx",
+						       "uart_a_rx";
+						function = "uart_a";
+					};
+				};
+
+				uart_a_cts_rts_pins: uart-a-cts-rts-pins {
+					mux {
+						groups = "uart_a_cts",
+						       "uart_a_rts";
+						function = "uart_a";
+					};
+				};
+
 				i2c0_pins1: i2c0-pins1 {
 					mux {
 						groups = "i2c0_sda",
@@ -812,6 +828,16 @@
 				#size-cells = <0>;
 				compatible = "snps,dwmac-mdio";
 			};
+		};
+
+		uart_a: serial@fe078000 {
+			compatible = "amlogic,meson-s4-uart",
+				     "amlogic,meson-ao-uart";
+			reg = <0x0 0xfe078000 0x0 0x18>;
+			interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&xtal>, <&clkc_periphs CLKID_UART_A>, <&xtal>;
+			clock-names = "xtal", "pclk", "baud";
+			status = "disabled";
 		};
 
 		sdio: mmc@fe088000 {
