@@ -135,7 +135,7 @@ struct dml2_core_ip_params core_dcn42_ip_caps_base = {
 	.cursor_64bpp_support = true,
 	.dynamic_metadata_vm_enabled = false,
 
-	.max_num_hdmi_frl_outputs = 0,
+	.max_num_hdmi_frl_outputs = 1,
 	.max_num_dp2p0_outputs = 2,
 	.max_num_dp2p0_streams = 4,
 	.imall_supported = 1,
@@ -155,7 +155,7 @@ struct dml2_core_ip_params core_dcn42_ip_caps_base = {
 	.min_meta_chunk_size_bytes = 256,
 
 	.dchub_arb_to_ret_delay = 102,
-	.hostvm_mode = 1,
+	.hostvm_mode = 0,
 };
 
 static void patch_ip_caps_with_explicit_ip_params(struct dml2_ip_capabilities *ip_caps, const struct dml2_core_ip_params *ip_params)
