@@ -5,22 +5,24 @@
 
 #include <linux/acpi.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 
 MODULE_DESCRIPTION("Intel Smart Connect disabling driver");
 MODULE_LICENSE("GPL");
 
-static int smartconnect_acpi_init(struct acpi_device *acpi)
+static int smartconnect_acpi_probe(struct platform_device *pdev)
 {
+	acpi_handle handle = ACPI_HANDLE(&pdev->dev);
 	unsigned long long value;
 	acpi_status status;
 
-	status = acpi_evaluate_integer(acpi->handle, "GAOS", NULL, &value);
+	status = acpi_evaluate_integer(handle, "GAOS", NULL, &value);
 	if (ACPI_FAILURE(status))
 		return -EINVAL;
 
 	if (value & 0x1) {
-		dev_info(&acpi->dev, "Disabling Intel Smart Connect\n");
-		status = acpi_execute_simple_method(acpi->handle, "SAOS", 0);
+		dev_info(&pdev->dev, "Disabling Intel Smart Connect\n");
+		status = acpi_execute_simple_method(handle, "SAOS", 0);
 	}
 
 	return 0;
@@ -32,13 +34,12 @@ static const struct acpi_device_id smartconnect_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, smartconnect_ids);
 
-static struct acpi_driver smartconnect_driver = {
-	.name = "intel_smart_connect",
-	.class = "intel_smart_connect",
-	.ids = smartconnect_ids,
-	.ops = {
-		.add = smartconnect_acpi_init,
+static struct platform_driver smartconnect_driver = {
+	.probe = smartconnect_acpi_probe,
+	.driver = {
+		.name = "intel_smart_connect",
+		.acpi_match_table = smartconnect_ids,
 	},
 };
 
-module_acpi_driver(smartconnect_driver);
+module_platform_driver(smartconnect_driver);
