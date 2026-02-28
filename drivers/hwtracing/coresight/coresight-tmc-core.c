@@ -397,7 +397,6 @@ static ssize_t tmc_crashdata_read(struct file *file, char __user *data,
 
 static int tmc_crashdata_release(struct inode *inode, struct file *file)
 {
-	int ret = 0;
 	unsigned long flags;
 	struct tmc_resrv_buf *rbuf;
 	struct tmc_drvdata *drvdata = container_of(file->private_data,
@@ -410,7 +409,7 @@ static int tmc_crashdata_release(struct inode *inode, struct file *file)
 	raw_spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	dev_dbg(&drvdata->csdev->dev, "%s: released\n", __func__);
-	return ret;
+	return 0;
 }
 
 static const struct file_operations tmc_crashdata_fops = {
