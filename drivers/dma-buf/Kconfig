@@ -54,6 +54,14 @@ config DMABUF_SELFTESTS
 	default n
 	depends on DMA_SHARED_BUFFER
 
+config DMABUF_KUNIT_TEST
+	tristate "KUnit tests for DMA-BUF" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	select DMA_SHARED_BUFFER
+	default KUNIT_ALL_TESTS
+	help
+	   Enable kunit tests for DMA-BUF
+
 menuconfig DMABUF_HEAPS
 	bool "DMA-BUF Userland Memory Heaps"
 	select DMA_SHARED_BUFFER
