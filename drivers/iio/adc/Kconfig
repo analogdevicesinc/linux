@@ -345,8 +345,8 @@ config AD7768
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad7768.
 
-config AD7768_1
-	tristate "Analog Devices AD7768-1 ADC driver"
+config AD7768_1_LEGACY
+	tristate "Analog Devices AD7768-1 legacy ADC driver"
 	depends on SPI
 	select IIO_BUFFER
 	select IIO_TRIGGER
@@ -358,7 +358,7 @@ config AD7768_1
 	  simultaneously sampling sigma-delta analog to digital converter (ADC).
 
 	  To compile this driver as a module, choose M here: the module will be
-	  called ad7768-1.
+	  called ad7768-1-legacy.
 
 config AD7780
 	tristate "Analog Devices AD7780 and similar ADCs driver"
