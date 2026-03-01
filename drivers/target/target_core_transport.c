@@ -902,13 +902,59 @@ static bool target_cmd_interrupted(struct se_cmd *cmd)
 	return false;
 }
 
+static void target_complete(struct se_cmd *cmd, int success)
+{
+	struct se_wwn *wwn = cmd->se_sess->se_tpg->se_tpg_wwn;
+	struct se_dev_attrib *da;
+	u8 compl_type;
+	int cpu;
+
+	if (!wwn) {
+		cpu = cmd->cpuid;
+		goto queue_work;
+	}
+
+	da = &cmd->se_dev->dev_attrib;
+	if (da->complete_type == TARGET_FABRIC_DEFAULT_COMPL)
+		compl_type = wwn->wwn_tf->tf_ops->default_compl_type;
+	else if (da->complete_type == TARGET_DIRECT_SUBMIT &&
+		 wwn->wwn_tf->tf_ops->direct_compl_supp)
+		compl_type = TARGET_DIRECT_COMPL;
+	else
+		compl_type = TARGET_QUEUE_COMPL;
+
+	if (compl_type == TARGET_DIRECT_COMPL) {
+		/*
+		 * Failure handling and processing secondary stages of
+		 * complex commands can be too heavy to handle from the
+		 * fabric driver so always defer.
+		 */
+		if (success && !cmd->transport_complete_callback) {
+			target_complete_ok_work(&cmd->work);
+			return;
+		}
+
+		compl_type = TARGET_QUEUE_COMPL;
+	}
+
+queue_work:
+	INIT_WORK(&cmd->work, success ? target_complete_ok_work :
+		  target_complete_failure_work);
+
+	if (!wwn || wwn->cmd_compl_affinity == SE_COMPL_AFFINITY_CPUID)
+		cpu = cmd->cpuid;
+	else
+		cpu = wwn->cmd_compl_affinity;
+
+	queue_work_on(cpu, target_completion_wq, &cmd->work);
+}
+
 /* May be called from interrupt context so must not sleep. */
 void target_complete_cmd_with_sense(struct se_cmd *cmd, u8 scsi_status,
 				    sense_reason_t sense_reason)
 {
-	struct se_wwn *wwn = cmd->se_sess->se_tpg->se_tpg_wwn;
-	int success, cpu;
 	unsigned long flags;
+	int success;
 
 	if (target_cmd_interrupted(cmd))
 		return;
@@ -933,15 +979,7 @@ void target_complete_cmd_with_sense(struct se_cmd *cmd, u8 scsi_status,
 	cmd->transport_state |= (CMD_T_COMPLETE | CMD_T_ACTIVE);
 	spin_unlock_irqrestore(&cmd->t_state_lock, flags);
 
-	INIT_WORK(&cmd->work, success ? target_complete_ok_work :
-		  target_complete_failure_work);
-
-	if (!wwn || wwn->cmd_compl_affinity == SE_COMPL_AFFINITY_CPUID)
-		cpu = cmd->cpuid;
-	else
-		cpu = wwn->cmd_compl_affinity;
-
-	queue_work_on(cpu, target_completion_wq, &cmd->work);
+	target_complete(cmd, success);
 }
 EXPORT_SYMBOL(target_complete_cmd_with_sense);
 

@@ -3968,6 +3968,7 @@ static const struct target_core_fabric_ops ibmvscsis_ops = {
 
 	.tfc_wwn_attrs			= ibmvscsis_wwn_attrs,
 
+	.default_compl_type		= TARGET_QUEUE_COMPL,
 	.default_submit_type		= TARGET_DIRECT_SUBMIT,
 	.direct_submit_supp		= 1,
 };
