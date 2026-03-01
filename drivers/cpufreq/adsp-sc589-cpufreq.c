@@ -15,6 +15,8 @@
 #include <linux/of_address.h>
 #include <linux/iopoll.h>
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #define SC589_FREQ_HIGH_KHZ  450000
 #define SC589_FREQ_LOW_KHZ   225000
 
@@ -113,27 +115,27 @@ static int map_cgu_from_dt(void)
 
 	clk_np = of_find_compatible_node(NULL, NULL, "adi,sc58x-clocks");
 	if (!clk_np) {
-		pr_err("sc589-cpufreq: failed to find clock node in device tree.\n");
+		pr_err("failed to find clock node in device tree.\n");
 		return -ENODEV;
 	}
 
 	clkin_np = of_parse_phandle(clk_np, "clocks", 0);
 	if (!clkin_np) {
-		pr_err("sc589-cpufreq: failed to find sys_clkin0 phandle.\n");
+		pr_err("failed to find sys_clkin0 phandle.\n");
 		ret = -ENODEV;
 		goto out_put_clk;
 	}
 
 	ret = of_property_read_u32(clkin_np, "clock-frequency", &sys_clkin_khz);
 	if (ret) {
-		pr_err("sc589-cpufreq: failed to read sys_clkin0 frequency.\n");
+		pr_err("failed to read sys_clkin0 frequency.\n");
 		goto out_put_clkin;
 	}
 
 	sys_clkin_khz /= 1000;
 	cgu0_ctl = of_iomap(clk_np, 0);
 	if (!cgu0_ctl) {
-		pr_err("sc589-cpufreq: failed to map CGU0 control register.\n");
+		pr_err("failed to map CGU0 control register.\n");
 		ret = -ENOMEM;
 		goto out_put_clkin;
 	}
@@ -166,7 +168,7 @@ static int __init sc589_cpufreq_init(void)
 {
 	int ret;
 
-	pr_info("sc589-cpufreq: loading...\n");
+	pr_info("loading...\n");
 	ret = map_cgu_from_dt();
 	if (ret)
 		return ret;
@@ -184,7 +186,7 @@ static void __exit sc589_cpufreq_exit(void)
 	cpufreq_unregister_driver(&sc589_cpufreq_driver);
 	if (cgu0_ctl)
 		iounmap(cgu0_ctl);
-	pr_info("sc589-cpufreq: exit...\n");
+	pr_info("exit...\n");
 }
 module_exit(sc589_cpufreq_exit);
 
