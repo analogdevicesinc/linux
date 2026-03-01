@@ -85,16 +85,17 @@ static int sc589_set_divider(u32 div)
 {
 	u32 csel_value;
 
-	if (sc589_wait_clock_align()) {
-		pr_err("sc589-cpufreq: timeout while waiting for clock alignment.\n");
+	if (sc589_wait_clock_align())
 		return -ETIMEDOUT;
-	}
 
 	csel_value = readl(cgu0_ctl + CGU0_DIV_OFFSET);
 	csel_value &= ~CGU0_CSEL_MASK;
 	csel_value |= div;
 	csel_value |= CGU0_UPDT;
 	writel(csel_value, cgu0_ctl + CGU0_DIV_OFFSET);
+
+	if (sc589_wait_clock_align())
+		return -ETIMEDOUT;
 
 	return 0;
 }
