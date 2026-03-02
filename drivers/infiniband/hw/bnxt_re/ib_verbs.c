@@ -3342,7 +3342,6 @@ int bnxt_re_destroy_cq(struct ib_cq *ib_cq, struct ib_udata *udata)
 	bnxt_qplib_destroy_cq(&rdev->qplib_res, &cq->qplib_cq);
 
 	bnxt_re_put_nq(rdev, nq);
-	ib_umem_release(cq->umem);
 
 	atomic_dec(&rdev->stats.res.cq_count);
 	kfree(cq->cql);
@@ -3369,8 +3368,8 @@ static int bnxt_re_setup_sginfo(struct bnxt_re_dev *rdev,
 	return 0;
 }
 
-static int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
-				  struct uverbs_attr_bundle *attrs)
+int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
+			   struct uverbs_attr_bundle *attrs)
 {
 	struct bnxt_re_cq *cq = container_of(ibcq, struct bnxt_re_cq, ib_cq);
 	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibcq->device, ibdev);
@@ -3402,19 +3401,25 @@ static int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_at
 	if (entries > dev_attr->max_cq_wqes + 1)
 		entries = dev_attr->max_cq_wqes + 1;
 
-	rc = ib_copy_validate_udata_in(udata, req, cq_handle);
+	rc = ib_copy_validate_udata_in_cm(udata, req, cq_handle,
+					  BNXT_RE_CQ_FIXED_NUM_CQE_ENABLE);
 	if (rc)
 		return rc;
 
-	cq->umem = ib_umem_get(&rdev->ibdev, req.cq_va,
-			       entries * sizeof(struct cq_base),
-			       IB_ACCESS_LOCAL_WRITE);
-	if (IS_ERR(cq->umem)) {
-		rc = PTR_ERR(cq->umem);
-		return rc;
+	if (req.comp_mask & BNXT_RE_CQ_FIXED_NUM_CQE_ENABLE)
+		entries = cqe;
+
+	if (!ibcq->umem) {
+		ibcq->umem = ib_umem_get(&rdev->ibdev, req.cq_va,
+					 entries * sizeof(struct cq_base),
+					 IB_ACCESS_LOCAL_WRITE);
+		if (IS_ERR(ibcq->umem)) {
+			rc = PTR_ERR(ibcq->umem);
+			goto fail;
+		}
 	}
 
-	rc = bnxt_re_setup_sginfo(rdev, cq->umem, &cq->qplib_cq.sg_info);
+	rc = bnxt_re_setup_sginfo(rdev, ibcq->umem, &cq->qplib_cq.sg_info);
 	if (rc)
 		goto fail;
 
@@ -3462,7 +3467,6 @@ static int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_at
 free_mem:
 	free_page((unsigned long)cq->uctx_cq_page);
 fail:
-	ib_umem_release(cq->umem);
 	return rc;
 }
 
@@ -3475,7 +3479,6 @@ int bnxt_re_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	struct bnxt_re_ucontext *uctx =
 		rdma_udata_to_drv_context(udata, struct bnxt_re_ucontext, ib_uctx);
 	struct bnxt_qplib_dev_attr *dev_attr = rdev->dev_attr;
-	struct bnxt_qplib_chip_ctx *cctx;
 	int cqe = attr->cqe;
 	int rc, entries;
 	u32 active_cqs;
@@ -3493,7 +3496,6 @@ int bnxt_re_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	}
 
 	cq->rdev = rdev;
-	cctx = rdev->chip_ctx;
 	cq->qplib_cq.cq_handle = (u64)(unsigned long)(&cq->qplib_cq);
 
 	entries = bnxt_re_init_depth(cqe + 1, uctx);
@@ -3542,8 +3544,8 @@ static void bnxt_re_resize_cq_complete(struct bnxt_re_cq *cq)
 
 	cq->qplib_cq.max_wqe = cq->resize_cqe;
 	if (cq->resize_umem) {
-		ib_umem_release(cq->umem);
-		cq->umem = cq->resize_umem;
+		ib_umem_release(cq->ib_cq.umem);
+		cq->ib_cq.umem = cq->resize_umem;
 		cq->resize_umem = NULL;
 		cq->resize_cqe = 0;
 	}
@@ -4142,7 +4144,7 @@ int bnxt_re_poll_cq(struct ib_cq *ib_cq, int num_entries, struct ib_wc *wc)
 	/* User CQ; the only processing we do is to
 	 * complete any pending CQ resize operation.
 	 */
-	if (cq->umem) {
+	if (cq->ib_cq.umem) {
 		if (cq->resize_umem)
 			bnxt_re_resize_cq_complete(cq);
 		return 0;
