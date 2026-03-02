@@ -442,7 +442,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc1)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc2)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>You need to set the modalias of your SPI info according to your codec. Valid
 values are <code class="docutils literal notranslate"><span class="pre">ad1835</span></code>, <code class="docutils literal notranslate"><span class="pre">ad1836</span></code>, <code class="docutils literal notranslate"><span class="pre">ad1837</span></code>, <code class="docutils literal notranslate"><span class="pre">ad1838</span></code> and <code class="docutils literal notranslate"><span class="pre">ad1839</span></code>. You’ll
 also have to adjust bus_num and chip_select according to your board setup.</p>

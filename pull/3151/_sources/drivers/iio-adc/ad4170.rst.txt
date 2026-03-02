@@ -46,7 +46,7 @@ Files
    * - Function
      - File
    * - driver
-     - :git-linux:`dev_ad4170:drivers/iio/adc/ad4170.c]]`
+     - :git-linux:`dev_ad4170:drivers/iio/adc/ad4170.c`
 
 Driver testing
 --------------
