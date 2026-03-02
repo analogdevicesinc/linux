@@ -154,8 +154,8 @@ out_put_clk:
 }
 
 static const struct of_device_id sc5xx_cpufreq_of_match[] = {
-	{ .compatible = "adi,sc58x-clocks" },
-	{ .compatible = "adi,sc598-clocks" },
+	{ .compatible = "adi,sc589-cpufreq" },
+	{ .compatible = "" },
 	{ /* sentinel */ }
 };
 
@@ -170,8 +170,15 @@ static struct cpufreq_driver sc589_cpufreq_driver = {
 
 
 static int sc5xx_probe(struct platform_device *pdev)
-{		
-	int ret;
+{	
+	struct device *dev = pdev->dev;
+	struct sc5xx_cpufreq *sc5xx_data;
+
+	sc5xx_data = devm_kzalloc(dev, sizeof(sc5xx_cpufreq), GFP_KERNEL);
+	if (!sc5xx_data)
+		return -ENOMEM;
+
+	int ret;	
 
 	pr_info("loading...\n");
 	ret = map_cgu_from_dt();
