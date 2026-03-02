@@ -1606,6 +1606,8 @@ int dw_i3c_common_probe(struct dw_i3c_master *master,
 	master->free_pos = GENMASK(master->maxdevs - 1, 0);
 
 	INIT_WORK(&master->hj_work, dw_i3c_hj_work);
+
+	device_set_of_node_from_dev(&master->base.i2c.dev, &pdev->dev);
 	ret = i3c_master_register(&master->base, &pdev->dev,
 				  &dw_mipi_i3c_ops, false);
 	if (ret)
