@@ -10,6 +10,7 @@
 // SC598, SC594, SC589-Mini, SC573
 
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/cpufreq.h>
 #include <linux/init.h>
 #include <linux/of_address.h>
@@ -17,9 +18,10 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#define CPUFREQ_NAME  "sc5xx-cpufreq"
+
 #define SC589_FREQ_HIGH_KHZ  450000
 #define SC589_FREQ_LOW_KHZ   225000
-
 #define TRANSITION_LATENCY   50000 /* nanoseconds, TODO: refine with timing/testing */
 
 #define STAT_POLL_SLEEP	     10
@@ -152,7 +154,7 @@ out_put_clk:
 static const struct of_device_id sc5xx_cpufreq_of_match[] = {
 	{ .compatible = "adi,sc58x-clocks" },
 	{ .compatible = "adi,sc598-clocks" },
-	{ },
+	{ /* sentinel */ }
 };
 
 static struct cpufreq_driver sc589_cpufreq_driver = {
@@ -164,8 +166,9 @@ static struct cpufreq_driver sc589_cpufreq_driver = {
 	.attr = cpufreq_generic_attr,
 };
 
-static int __init sc589_cpufreq_init(void)
-{
+
+static int sc5xx_probe(struct platform_device *pdev)
+{		
 	int ret;
 
 	pr_info("loading...\n");
@@ -179,17 +182,25 @@ static int __init sc589_cpufreq_init(void)
 
 	return ret;
 }
-module_init(sc589_cpufreq_init);
 
-static void __exit sc589_cpufreq_exit(void)
+static int sc5xx_remove(struct platform_device *pdev)
 {
 	cpufreq_unregister_driver(&sc589_cpufreq_driver);
 	if (cgu0_ctl)
 		iounmap(cgu0_ctl);
 	pr_info("exit...\n");
+	return 0;
 }
-module_exit(sc589_cpufreq_exit);
 
+static struct platform_driver sc5xx_platform_driver = {
+    .probe  = sc5xx_probe,
+    .remove = sc5xx_remove,
+    .driver = {
+        .name = CPUFREQ_NAME,
+        .of_match_table = sc5xx_cpufreq_of_match,
+    },
+};
+
+MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Qasim Ijaz <Qasim.Ijaz@analog.com>");
 MODULE_DESCRIPTION("CPUFreq driver for Analog Devices ADSP-SC589");
-MODULE_LICENSE("GPL");
