@@ -38,8 +38,10 @@
 #define CGU0_CLKSALGN	     BIT(3) 
 #define CGU0_UPDT	     BIT(30)
 
-static void __iomem *cgu0_ctl;
-static u32 sys_clkin_khz;
+struct sc5xx_cpufreq {
+	void __iomem *cgu_ctl;
+	u32 sys_clkin_khz;
+};
 
 static struct cpufreq_frequency_table sc589_freq_table[] = {
 	{ .driver_data = 1, .frequency = SC589_FREQ_HIGH_KHZ },
