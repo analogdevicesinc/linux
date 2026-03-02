@@ -1,0 +1,433 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-inertial-measurement-units/adis16400
+
+.. _adis16400:
+
+ADIS16400
+=========
+
+ADIS16400 IIO Inertial Measurement Unit.
+
+Supported Devices
+-----------------
+
+- :adi:`ADIS16300`
+- :adi:`ADIS16305` (Linux v4.3+)
+- :adi:`ADIS16334`
+- :adi:`ADIS16350`
+- :adi:`ADIS16354`
+- :adi:`ADIS16355`
+- :adi:`ADIS16360`
+- :adi:`ADIS16362`
+- :adi:`ADIS16364`
+- :adi:`ADIS16365`
+- :adi:`ADIS16367` (Linux v4.3+)
+- :adi:`ADIS16400`
+- :adi:`ADIS16405`
+- :adi:`ADIS16445` (Linux v4.3+)
+- :adi:`ADIS16448`
+
+Evaluation Boards
+-----------------
+
+- :adi:`ADIS16300/PCBZ <EVAL-ADIS16300>`
+- :adi:`ADIS16305/PCBZ <EVAL-ADIS16300>`
+- :adi:`ADIS16334/PCBZ <EVAL-ADIS16334>`
+- :adi:`ADIS16360/PCBZ <EVAL-ADIS16360>`
+- :adi:`ADIS16362/PCBZ <EVAL-ADIS16362>`
+- :adi:`ADIS16364/PCBZ <EVAL-ADIS16364>`
+- :adi:`ADIS16365/PCBZ <EVAL-ADIS16365>`
+- :adi:`ADIS16367/PCBZ <EVAL-ADIS16367>`
+- :adi:`ADIS16400/PCBZ <EVAL-ADIS16400>`
+- :adi:`ADIS16405/PCBZ <EVAL-ADIS16405>`
+- :adi:`ADIS16445/PCBZ <EVAL-ADIS16445>`
+- :adi:`ADIS16448/PCBZ <EVAL-ADIS16448>`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting serial interface Inertial Measurement Units (IMU). The
+industrial I/O subsystem provides a unified framework for drivers for many
+different types of converters and sensors using a number of different physical
+interfaces (i2c, spi, etc). See :external+documentation:ref:`iio` for more
+information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_core.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_core.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/imu/adis16400_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_core.c>`__
+   * - driver
+     - `drivers/iio/imu/adis16400_ring.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_ring.c>`__
+   * - driver
+     - `drivers/iio/imu/adis16400_trigger.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_trigger.c>`__
+   * - include
+     - `drivers/iio/imu/adis16400.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400.h>`__
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name. It may also required to adjust
+max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
+the device in question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_ADIS16400) \
+       || defined(CONFIG_ADIS16400_MODULE)
+       {
+           .modalias = "adis16400",
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = 1, /* CS, change it for your board */
+           .platform_data = NULL, /* No spi_driver specific config */
+           .mode = SPI_MODE_3,
+           .irq = IRQ_PF5,
+       },
+   #endif
+
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADIS16400 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               *** Inertial measurement units ***
+               [--snip--]
+                   <*>   Analog Devices ADIS16400 and similar IMU SPI driver
+               [--snip--]
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0  trigger0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> ls -l
+   drwxr-xr-x    2 root     root             0 Jan  4 00:03 buffer
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 dev
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_filter_low_pass_3db_frequency
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_scale
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_y_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_y_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_z_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_z_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_filter_low_pass_3db_frequency
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_scale
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_y_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_y_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_z_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_z_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_magn_filter_low_pass_3db_frequency
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_magn_scale
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_x_raw
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_y_raw
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_z_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_temp0_offset
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_temp0_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_temp0_scale
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_voltage0_supply_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_voltage0_supply_scale
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_voltage1_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_voltage1_scale
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 name
+   drwxr-xr-x    2 root     root             0 Jan  4 00:03 power
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 sampling_frequency
+   drwxr-xr-x    2 root     root             0 Jan  4 00:03 scan_elements
+   lrwxrwxrwx    1 root     root             0 Jan  4 00:03 subsystem -> ../../../../../bus/iio
+   drwxr-xr-x    2 root     root             0 Jan  4 00:03 trigger
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 uevent
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0>
+
+ADIS16400 device attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a detailed description please see:
+`Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
+
+.. list-table::
+   :header-rows: 1
+
+   * - 3-Axis Accelerometer related device files
+     - Description
+   * - in_accel_filter_low_pass_3db_frequency
+     - Bandwidth for the accelerometer channels.
+   * - in_accel_scale
+     - Scale for the accelerometer channels.
+   * - in_accel_x_calibbias
+     - Calibration offset for the X-axis accelerometer channel.
+   * - in_accel_x_raw
+     - Raw X-axis accelerometer channel value.
+   * - in_accel_y_calibbias
+     - Calibration offset for the Y-axis accelerometer channel.
+   * - in_accel_y_raw
+     - Raw Y-axis accelerometer channel value.
+   * - in_accel_z_calibbias
+     - Calibration offset for the Z-axis accelerometer channel.
+   * - in_accel_z_raw
+     - Raw Z-axis accelerometer channel value.
+   * - 3-Axis Gyro related device files
+     - Description
+   * - in_anglvel_filter_low_pass_3db_frequency
+     - Bandwidth for the gyroscope channels.
+   * - in_anglvel_scale
+     - Scale for the gyroscope channels.
+   * - in_anglvel_x_calibbias
+     - Calibration offset for the X-axis gyroscope channel.
+   * - in_anglvel_x_raw
+     - Raw X-axis gyroscope channel value.
+   * - in_anglvel_y_calibbias
+     - Calibration offset for the Y-axis gyroscope channel.
+   * - in_anglvel_y_raw
+     - Raw Y-axis gyroscope channel value.
+   * - in_anglvel_z_calibbias
+     - Calibration offset for the Z-axis gyroscope channel.
+   * - in_anglvel_z_raw
+     - Raw Z-axis gyroscope channel value.
+   * - 3-Axis Magnetometer related device files
+     - Description
+   * - in_magn_filter_low_pass_3db_frequency
+     - Bandwidth for the magnetometer channels.
+   * - in_magn_scale
+     - Scale for the magnetometer channels.
+   * - in_magn_x_raw
+     - Raw X-axis magnetometer channel value.
+   * - in_magn_y_raw
+     - Raw Y-axis magnetometer channel value.
+   * - in_magn_z_raw
+     - Raw Z-axis magnetometer channel value.
+   * - Barometric pressure sensor related files
+     - Description
+   * - in_pressure_raw
+     - Raw barometric pressure sensor channel value.
+   * - in_pressure_scale
+     - Scale for the barometric pressure sensor channel.
+   * - Temperature sensor related files
+     - Description
+   * - in_temp0_offset
+     - Offset for temperature sensor channel.
+   * - in_temp0_raw
+     - Raw temperature channel value.
+   * - in_temp0_scale
+     - Scale for the temperature sensor channel.
+   * - Power supply monitor related files
+     - Description
+   * - in_voltage0_supply_raw
+     - Raw power supply monitor channel value.
+   * - in_voltage0_supply_scale
+     - Scale for the power supply monitor channel.
+   * - Auxiliary ADC related files
+     - Description
+   * - in_voltage1_raw
+     - Raw auxiliary ADC channel value.
+   * - in_voltage1_scale
+     - Scale for the auxiliary ADC channel.
+   * - Miscellaneous device files
+     - Description
+   * - name
+     - Name of the IIO device.
+   * - sampling_frequency
+     - Currently selected sample rate.
+
+Show device name
+^^^^^^^^^^^^^^^^
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
+   adis16400
+
+Set sampling frequency
+^^^^^^^^^^^^^^^^^^^^^^
+
+The sampling frequency of the device can be set by writing the desired value to
+the ``sampling_frequency`` file. The driver will automatically round up to the
+nearest supported sampling frequency.
+
+**Example:** ::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat sampling_frequency
+   819.202
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> echo 546 > sampling_frequency
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat sampling_frequency
+   546.135
+
+Show channel value
+^^^^^^^^^^^^^^^^^^
+
+A channel value can be read from its ``_raw`` attribute. The value returned by
+the ``_raw`` attribute is the raw value as reported by the device. To get the
+processed value of the channel in a standardized unit add the channels
+``_offset`` attribute to the ``_raw`` value and multiply the result by
+``_scale`` attribute. If no ``_offset`` attribute is present assume 0 for the
+offset.
+
+``processed value = (raw + offset) * scale``
+
+The units by the IIO framework are:
+
+- Acceleration: Meter per Second squared
+- Angular velocity: Rad per second
+- Pressure: kilo Pascal
+- Voltage: milli Volts
+- Temperature: milli-degree Celsius
+
+**Example:** ::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_accel_z_raw
+   1202
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_accel_scale
+   0.008168
+
+``Z-axis acceleration = in_accel_z_raw * in_accel_scale = 1202 * 0.008168 m/s^2
+= 9.81 m/s^2``
+
+Set channel bandwidth
+^^^^^^^^^^^^^^^^^^^^^
+
+The channels bandwidth can be set by writing the desired value to the channels
+``_filter_low_pass_3db_frequency`` attribute. The driver will automatically
+round up to the nearest supported bandwidth.
+
+Note that all channels share the same low pass filter frequency so changing it
+for one channel will change it for all other channels as well. Also note that
+the low pass filter frequency depends on the sampling frequency, so changing the
+sampling frequency will scale the low pass filter frequency accordingly. E.g.
+reducing the sampling frequency by a factor of two will also reduce the
+bandwidth by a factor of two.
+
+**Example:** ::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_anglvel_filter_low_pass_3db_frequency
+   409.600000
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> echo 150 > in_anglvel_filter_low_pass_3db_frequency
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_anglvel_filter_low_pass_3db_frequency
+   163.840400
+
+Trigger management
+~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+   This driver only supports it’s own default trigger source **adis16400-dev0**
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat trigger/current_trigger
+   adis16400-dev0
+
+Buffer management
+~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/buffer> ls
+   enable           length
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-buffer-management
+   :end-before: .. end-buffer-management
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements>ls
+   in_accel_x_en             in_gyro_y_index           in_magn_z_type
+   in_accel_x_index          in_gyro_y_type            in_temp0_en
+   in_accel_x_type           in_gyro_z_en              in_temp0_index
+   in_accel_y_en             in_gyro_z_index           in_temp0_type
+   in_accel_y_index          in_gyro_z_type            in_timestamp_en
+   in_accel_y_type           in_magn_x_en              in_timestamp_index
+   in_accel_z_en             in_magn_x_index           in_timestamp_type
+   in_accel_z_index          in_magn_x_type            in_voltage0_supply_en
+   in_accel_z_type           in_magn_y_en              in_voltage0_supply_index
+   in_gyro_x_en              in_magn_y_index           in_voltage0_supply_type
+   in_gyro_x_index           in_magn_y_type            in_voltage1_en
+   in_gyro_x_type            in_magn_z_en              in_voltage1_index
+   in_gyro_y_en              in_magn_z_index           in_voltage1_type
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements>
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-typical-adc-scan-elements
+   :end-before: .. end-typical-adc-scan-elements
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
+
+IMU Evaluation Board User Guides
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- :dokuwiki:`ADIS1630X Evaluation on the EVAL-ADIS </resources/eval/user-guides/inertial-mems/imu/adis1630x>`
+- :dokuwiki:`ADIS16334 Evaluation on the EVAL-ADIS </resources/eval/user-guides/inertial-mems/imu/adis16334>`
+- :dokuwiki:`ADIS1636X Evaluation on the EVAL-ADIS </resources/eval/user-guides/inertial-mems/imu/adis1636x>`
+- :dokuwiki:`ADIS1644X Evaluation on the EVAL-ADIS </resources/eval/user-guides/inertial-mems/imu/adis16448>`

@@ -6,9 +6,10 @@ Linux documentation.
 
 .. toctree::
    :maxdepth: 1
+   :titlesonly:
 
    getting_started
-   iio/index
+   drivers/index
    contribute
    ci
    mainline
