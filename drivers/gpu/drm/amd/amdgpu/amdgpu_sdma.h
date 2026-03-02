@@ -103,6 +103,7 @@ struct amdgpu_sdma {
 
 	int			num_instances;
 	uint32_t 		sdma_mask;
+	bool    		sdma_debug;
 	union {
 	    int			num_inst_per_aid;
 	    int			num_inst_per_xcc;

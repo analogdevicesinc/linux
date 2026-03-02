@@ -148,6 +148,7 @@ enum AMDGPU_DEBUG_MASK {
 	AMDGPU_DEBUG_ENABLE_CE_CS = BIT(10),
 	AMDGPU_DEBUG_HIBERNATION_THAW_RESUME_GPU = BIT(11),
 	AMDGPU_DEBUG_DISABLE_IP_BLOCK_SOFT_RESET = BIT(12),
+	AMDGPU_DEBUG_SDMA_RB_CMD = BIT(13),
 };
 
 unsigned int amdgpu_vram_limit = UINT_MAX;
@@ -2300,6 +2301,11 @@ static void amdgpu_init_debug_options(struct amdgpu_device *adev)
 	if (amdgpu_debug_mask & AMDGPU_DEBUG_DISABLE_IP_BLOCK_SOFT_RESET) {
 		pr_info("debug: IP block soft reset disabled\n");
 		adev->debug_disable_ip_block_soft_reset = true;
+	}
+
+	if (amdgpu_debug_mask & AMDGPU_DEBUG_SDMA_RB_CMD) {
+		pr_info("debug: enable SDMA RB command switch\n");
+		adev->sdma.sdma_debug = true;
 	}
 }
 

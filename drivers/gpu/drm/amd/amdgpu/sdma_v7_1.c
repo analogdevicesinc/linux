@@ -1365,6 +1365,22 @@ static int sdma_v7_1_sw_fini(struct amdgpu_ip_block *ip_block)
 	return 0;
 }
 
+#define regSDMA0_SDMA_FE_CNTL0			0x10
+#define regSDMA0_SDMA_FE_CNTL0_BASE_IDX		0
+static void sdma_v7_1_rb_cmd_switch(struct amdgpu_device *adev,
+				    uint32_t inst_mask)
+{
+	int i, fe_cntl;
+	
+	if (adev->sdma.sdma_debug) {
+		for_each_inst(i, inst_mask) {
+			fe_cntl = RREG32_SOC15_IP(GC, sdma_v7_1_get_reg_offset(adev, i, regSDMA0_SDMA_FE_CNTL0));
+			fe_cntl &= 0x7fffffff;
+			WREG32_SOC15_IP(GC, sdma_v7_1_get_reg_offset(adev, i, regSDMA0_SDMA_FE_CNTL0), fe_cntl);
+		}
+	}
+}
+
 static int sdma_v7_1_hw_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
@@ -1372,6 +1388,8 @@ static int sdma_v7_1_hw_init(struct amdgpu_ip_block *ip_block)
 	int r;
 
 	inst_mask = GENMASK(adev->sdma.num_instances - 1, 0);
+
+	sdma_v7_1_rb_cmd_switch(adev, inst_mask);
 
 	r = sdma_v7_1_inst_start(adev, inst_mask);
 	if (r)
