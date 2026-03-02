@@ -98,6 +98,7 @@ enum ras_err_type {
 	RAS_ERR_TYPE__UE = 0,
 	RAS_ERR_TYPE__CE,
 	RAS_ERR_TYPE__DE,
+	RAS_ERR_TYPE__MCE,
 	RAS_ERR_TYPE__LAST
 };
 

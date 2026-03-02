@@ -23,6 +23,7 @@
  */
 #include "ras.h"
 #include "aca.h"
+#include "ras_mce.h"
 #include "aca_v1_0.h"
 #include "ras_aca_v5_0.h"
 #include "ras_mp1_v13_0.h"
@@ -152,7 +153,9 @@ static void aca_log_bank_data(struct ras_core_context *ras_core,
 static int aca_get_bank_count(struct ras_core_context *ras_core,
 			      enum ras_err_type type, u32 *count)
 {
-	return ras_mp1_get_bank_count(ras_core, type, count);
+	return (type == RAS_ERR_TYPE__MCE) ?
+		ras_mce_get_bank_count(ras_core, type, count) :
+		ras_mp1_get_bank_count(ras_core, type, count);
 }
 
 static bool aca_match_bank(struct aca_block *aca_blk, struct aca_bank_reg *bank)
@@ -297,7 +300,9 @@ static int aca_dump_bank(struct ras_core_context *ras_core, u32 ecc_type,
 {
 	struct aca_bank_reg *bank = (struct aca_bank_reg *)data;
 
-	return ras_mp1_dump_bank(ras_core, ecc_type, idx,
+	return (ecc_type == RAS_ERR_TYPE__MCE) ?
+			ras_mce_dump_bank(ras_core, ecc_type, idx, bank) :
+			ras_mp1_dump_bank(ras_core, ecc_type, idx,
 				bank->regs, ARRAY_SIZE(bank->regs));
 }
 

@@ -242,7 +242,8 @@ static int aca_parse_bank_default(struct ras_core_context *ras_core,
 	} else {
 		if (bank->ecc_type == RAS_ERR_TYPE__UE)
 			err->ue_count = 1;
-		else if (bank->ecc_type == RAS_ERR_TYPE__CE)
+		else if ((bank->ecc_type == RAS_ERR_TYPE__CE) ||
+			(bank->ecc_type == RAS_ERR_TYPE__MCE))
 			err->ce_count = ACA_V5_REG_MISC0_ERRCNT(misc0);
 	}
 
@@ -275,7 +276,8 @@ static int aca_parse_xgmi_bank(struct ras_core_context *ras_core,
 		if (ext_error_code != 0 && ext_error_code != 1 && ext_error_code != 9)
 			count = 0ULL;
 		err->ue_count = count;
-	} else if (bank->ecc_type == RAS_ERR_TYPE__CE) {
+	} else if ((bank->ecc_type == RAS_ERR_TYPE__CE) ||
+		(bank->ecc_type == RAS_ERR_TYPE__MCE)) {
 		count = ext_error_code == 6 ? count : 0ULL;
 		err->ce_count = count;
 	}

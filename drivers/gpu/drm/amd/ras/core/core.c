@@ -553,6 +553,8 @@ int ras_core_update_ecc_info(struct ras_core_context *ras_core)
 {
 	int ret;
 
+	ras_aca_update_ecc(ras_core, RAS_ERR_TYPE__MCE, NULL);
+
 	ret = ras_aca_update_ecc(ras_core, RAS_ERR_TYPE__CE, NULL);
 	if (!ret)
 		ret = ras_aca_update_ecc(ras_core, RAS_ERR_TYPE__UE, NULL);
