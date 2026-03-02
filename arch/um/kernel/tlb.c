@@ -29,10 +29,9 @@ static int kern_map(struct mm_id *mm_idp,
 		    unsigned long virt, unsigned long len, int prot,
 		    int phys_fd, unsigned long long offset)
 {
-	/* TODO: Why is executable needed to be always set in the kernel? */
 	return os_map_memory((void *)virt, phys_fd, offset, len,
 			     prot & UM_PROT_READ, prot & UM_PROT_WRITE,
-			     1);
+			     prot & UM_PROT_EXEC);
 }
 
 static int kern_unmap(struct mm_id *mm_idp,

@@ -121,13 +121,12 @@ static inline int pte_none(pte_t pte)
  */
 static inline int pte_read(pte_t pte)
 {
-	return((pte_get_bits(pte, _PAGE_USER)) &&
-	       !(pte_get_bits(pte, _PAGE_PROTNONE)));
+	return !pte_get_bits(pte, _PAGE_PROTNONE);
 }
 
-static inline int pte_exec(pte_t pte){
-	return((pte_get_bits(pte, _PAGE_USER)) &&
-	       !(pte_get_bits(pte, _PAGE_PROTNONE)));
+static inline int pte_exec(pte_t pte)
+{
+	return !pte_get_bits(pte, _PAGE_PROTNONE);
 }
 
 static inline int pte_write(pte_t pte)
