@@ -198,6 +198,7 @@ struct bnxt_qplib_hwq {
 	u32				cons;		/* raw */
 	u8				cp_bit;
 	u8				is_user;
+	u8				pg_sz_lvl;
 	u64				*pad_pg;
 	u32				pad_stride;
 	u32				pad_pgofft;
@@ -356,6 +357,11 @@ static inline u8 bnxt_qplib_get_ring_type(struct bnxt_qplib_chip_ctx *cctx)
 	return bnxt_qplib_is_chip_gen_p5_p7(cctx) ?
 	       RING_ALLOC_REQ_RING_TYPE_NQ :
 	       RING_ALLOC_REQ_RING_TYPE_ROCE_CMPL;
+}
+
+static inline u64 bnxt_qplib_get_base_addr(struct bnxt_qplib_hwq *hwq)
+{
+	return hwq->pbl[PBL_LVL_0].pg_map_arr[0];
 }
 
 static inline u8 bnxt_qplib_base_pg_size(struct bnxt_qplib_hwq *hwq)
