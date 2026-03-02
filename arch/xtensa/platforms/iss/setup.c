@@ -32,8 +32,7 @@ static int iss_power_off(struct sys_off_data *unused)
 	return NOTIFY_DONE;
 }
 
-static int iss_restart(struct notifier_block *this,
-		       unsigned long event, void *ptr)
+static int iss_restart(struct sys_off_data *unused)
 {
 	/* Flush and reset the mmu, simulate a processor reset, and
 	 * jump to the reset vector. */
@@ -41,10 +40,6 @@ static int iss_restart(struct notifier_block *this,
 
 	return NOTIFY_DONE;
 }
-
-static struct notifier_block iss_restart_block = {
-	.notifier_call = iss_restart,
-};
 
 static int
 iss_panic_event(struct notifier_block *this, unsigned long event, void *ptr)
@@ -84,7 +79,9 @@ void __init platform_setup(char **p_cmdline)
 	}
 
 	atomic_notifier_chain_register(&panic_notifier_list, &iss_panic_block);
-	register_restart_handler(&iss_restart_block);
+	register_sys_off_handler(SYS_OFF_MODE_RESTART,
+				 SYS_OFF_PRIO_PLATFORM,
+				 iss_restart, NULL);
 	register_sys_off_handler(SYS_OFF_MODE_POWER_OFF,
 				 SYS_OFF_PRIO_PLATFORM,
 				 iss_power_off, NULL);
