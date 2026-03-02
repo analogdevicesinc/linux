@@ -49,7 +49,7 @@ static int __mhi_ep_cache_ring(struct mhi_ep_ring *ring, size_t end)
 		buf_info.dev_addr = &ring->ring_cache[start];
 
 		ret = mhi_cntrl->read_sync(mhi_cntrl, &buf_info);
-		if (ret < 0)
+		if (ret)
 			return ret;
 	} else {
 		buf_info.size = (ring->ring_size - start) * sizeof(struct mhi_ring_element);
@@ -57,7 +57,7 @@ static int __mhi_ep_cache_ring(struct mhi_ep_ring *ring, size_t end)
 		buf_info.dev_addr = &ring->ring_cache[start];
 
 		ret = mhi_cntrl->read_sync(mhi_cntrl, &buf_info);
-		if (ret < 0)
+		if (ret)
 			return ret;
 
 		if (end) {
@@ -66,7 +66,7 @@ static int __mhi_ep_cache_ring(struct mhi_ep_ring *ring, size_t end)
 			buf_info.size = end * sizeof(struct mhi_ring_element);
 
 			ret = mhi_cntrl->read_sync(mhi_cntrl, &buf_info);
-			if (ret < 0)
+			if (ret)
 				return ret;
 		}
 	}

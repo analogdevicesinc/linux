@@ -367,7 +367,7 @@ static void mhi_ep_read_completion(struct mhi_ep_buf_info *buf_info)
 				ret = mhi_ep_send_completion_event(mhi_cntrl, ring, el,
 							     MHI_TRE_DATA_GET_LEN(el),
 							     MHI_EV_CC_EOB);
-				if (ret < 0) {
+				if (ret) {
 					dev_err(&mhi_chan->mhi_dev->dev,
 						"Error sending transfer compl. event\n");
 					goto err_free_tre_buf;
@@ -383,7 +383,7 @@ static void mhi_ep_read_completion(struct mhi_ep_buf_info *buf_info)
 				ret = mhi_ep_send_completion_event(mhi_cntrl, ring, el,
 							     MHI_TRE_DATA_GET_LEN(el),
 							     MHI_EV_CC_EOT);
-				if (ret < 0) {
+				if (ret) {
 					dev_err(&mhi_chan->mhi_dev->dev,
 						"Error sending transfer compl. event\n");
 					goto err_free_tre_buf;
@@ -449,7 +449,7 @@ static int mhi_ep_read_channel(struct mhi_ep_cntrl *mhi_cntrl,
 
 		dev_dbg(dev, "Reading %zd bytes from channel (%u)\n", tr_len, ring->ch_id);
 		ret = mhi_cntrl->read_async(mhi_cntrl, &buf_info);
-		if (ret < 0) {
+		if (ret) {
 			dev_err(&mhi_chan->mhi_dev->dev, "Error reading from channel\n");
 			goto err_free_buf_addr;
 		}
@@ -494,7 +494,7 @@ static int mhi_ep_process_ch_ring(struct mhi_ep_ring *ring)
 	} else {
 		/* UL channel */
 		ret = mhi_ep_read_channel(mhi_cntrl, ring);
-		if (ret < 0) {
+		if (ret) {
 			dev_err(&mhi_chan->mhi_dev->dev, "Failed to read channel\n");
 			return ret;
 		}
@@ -591,7 +591,7 @@ int mhi_ep_queue_skb(struct mhi_ep_device *mhi_dev, struct sk_buff *skb)
 
 		dev_dbg(dev, "Writing %zd bytes to channel (%u)\n", tr_len, ring->ch_id);
 		ret = mhi_cntrl->write_async(mhi_cntrl, &buf_info);
-		if (ret < 0) {
+		if (ret) {
 			dev_err(dev, "Error writing to the channel\n");
 			goto err_exit;
 		}
