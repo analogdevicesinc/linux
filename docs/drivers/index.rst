@@ -8,4 +8,5 @@ Drivers
    :glob:
 
    */*
+   */*/index
 

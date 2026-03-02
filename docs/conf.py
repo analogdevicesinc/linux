@@ -31,6 +31,7 @@ interref_repos = [
     'hdl',
     'scopy',
     'documentation',
+    'pyadi-jif',
 ]
 
 intersphinx_mapping = {
