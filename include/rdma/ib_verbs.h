@@ -2481,6 +2481,12 @@ struct ib_device_ops {
 	enum rdma_driver_id driver_id;
 	u32 uverbs_abi_ver;
 	unsigned int uverbs_no_driver_id_binding:1;
+	/*
+	 * Indicates the driver checks every op accepting a udata for the
+	 * correct size on input and always handles the output using the udata
+	 * helpers.
+	 */
+	unsigned int uverbs_robust_udata:1;
 
 	/*
 	 * NOTE: New drivers should not make use of device_group; instead new
