@@ -187,7 +187,6 @@ int bnxt_re_query_device(struct ib_device *ibdev,
 	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
 	struct bnxt_qplib_dev_attr *dev_attr = rdev->dev_attr;
 	struct bnxt_re_query_device_ex_resp resp = {};
-	size_t outlen = (udata) ? udata->outlen : 0;
 	int rc = 0;
 
 	rc = ib_is_udata_in_empty(udata);
@@ -258,8 +257,7 @@ int bnxt_re_query_device(struct ib_device *ibdev,
 	ib_attr->max_pkeys = 1;
 	ib_attr->local_ca_ack_delay = BNXT_RE_DEFAULT_ACK_DELAY;
 
-	if ((offsetofend(typeof(resp), packet_pacing_caps) <= outlen) &&
-	    _is_modify_qp_rate_limit_supported(dev_attr->dev_cap_flags2)) {
+	if (_is_modify_qp_rate_limit_supported(dev_attr->dev_cap_flags2)) {
 		resp.packet_pacing_caps.qp_rate_limit_min =
 			dev_attr->rate_limit_min;
 		resp.packet_pacing_caps.qp_rate_limit_max =
@@ -267,11 +265,7 @@ int bnxt_re_query_device(struct ib_device *ibdev,
 		resp.packet_pacing_caps.supported_qpts =
 			1 << IB_QPT_RC;
 	}
-	if (outlen)
-		rc = ib_copy_to_udata(udata, &resp,
-				      min(sizeof(resp), outlen));
-
-	return rc;
+	return ib_respond_udata(udata, resp);
 }
 
 int bnxt_re_modify_device(struct ib_device *ibdev,
@@ -769,7 +763,7 @@ int bnxt_re_alloc_pd(struct ib_pd *ibpd, struct ib_udata *udata)
 
 		pd->pd_db_mmap = &entry->rdma_entry;
 
-		rc = ib_copy_to_udata(udata, &resp, min(sizeof(resp), udata->outlen));
+		rc = ib_respond_udata(udata, resp);
 		if (rc) {
 			rdma_user_mmap_entry_remove(pd->pd_db_mmap);
 			rc = -EFAULT;
@@ -1727,11 +1721,9 @@ int bnxt_re_create_qp(struct ib_qp *ib_qp, struct ib_qp_init_attr *qp_init_attr,
 
 			resp.qpid = qp->qplib_qp.id;
 			resp.rsvd = 0;
-			rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
-			if (rc) {
-				ibdev_err(&rdev->ibdev, "Failed to copy QP udata");
+			rc = ib_respond_udata(udata, resp);
+			if (rc)
 				goto qp_destroy;
-			}
 		}
 	}
 
@@ -1990,9 +1982,8 @@ int bnxt_re_create_srq(struct ib_srq *ib_srq,
 			}
 			resp.comp_mask |= BNXT_RE_SRQ_TOGGLE_PAGE_SUPPORT;
 		}
-		rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
+		rc = ib_respond_udata(udata, resp);
 		if (rc) {
-			ibdev_err(&rdev->ibdev, "SRQ copy to udata failed!");
 			bnxt_qplib_destroy_srq(&rdev->qplib_res,
 					       &srq->qplib_srq);
 			goto fail;
@@ -3281,9 +3272,8 @@ int bnxt_re_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		resp.tail = cq->qplib_cq.hwq.cons;
 		resp.phase = cq->qplib_cq.period;
 		resp.rsvd = 0;
-		rc = ib_copy_to_udata(udata, &resp, min(sizeof(resp), udata->outlen));
+		rc = ib_respond_udata(udata, resp);
 		if (rc) {
-			ibdev_err(&rdev->ibdev, "Failed to copy CQ udata");
 			bnxt_qplib_destroy_cq(&rdev->qplib_res, &cq->qplib_cq);
 			goto free_mem;
 		}
@@ -4489,12 +4479,9 @@ int bnxt_re_alloc_ucontext(struct ib_ucontext *ctx, struct ib_udata *udata)
 		}
 	}
 
-	rc = ib_copy_to_udata(udata, &resp, min(udata->outlen, sizeof(resp)));
-	if (rc) {
-		ibdev_err(ibdev, "Failed to copy user context");
-		rc = -EFAULT;
+	rc = ib_respond_udata(udata, resp);
+	if (rc)
 		goto cfail;
-	}
 
 	return 0;
 cfail:
