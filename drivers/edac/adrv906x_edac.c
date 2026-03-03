@@ -408,6 +408,20 @@ static int adrv906x_get_error_info(struct adrv906x_edac_priv *priv)
 
 	p = &priv->stat;
 
+	/* get syndrome mask */
+	args.a0 = PLAT_SIP_SVC_DDR_EDAC;
+	args.a1 = GET_SYNDROME_MASK;
+	adrv906x_smc_call(&args, &res);
+	if (!res.a1 && !res.a2 && !res.a3 && !res.a4 && !res.a5 && !res.a6)
+		goto ce_err;
+	edac_printk(KERN_ERR, EDAC_MC, "Syndrome #0 0x%lx\n", res.a1);
+	edac_printk(KERN_ERR, EDAC_MC, "Syndrome #1 0x%lx\n", res.a3);
+	edac_printk(KERN_ERR, EDAC_MC, "Syndrome #2 0x%lx\n", res.a5);
+	edac_printk(KERN_ERR, EDAC_MC, "Mask #0 0x%lx\n", res.a2);
+	edac_printk(KERN_ERR, EDAC_MC, "Mask #1 0x%lx\n", res.a4);
+	edac_printk(KERN_ERR, EDAC_MC, "Mask #2 0x%lx\n", res.a6);
+
+ce_err:
 	args.a0 = PLAT_SIP_SVC_DDR_EDAC;
 	args.a1 = GET_CORRECTABLE_ERROR_INFO;
 	adrv906x_smc_call(&args, &res);
@@ -442,13 +456,6 @@ ue_err:
 	p->ceinfo.blknr = p->ceinfo.col;
 
 out:
-	/* get syndrome mask */
-	args.a0 = PLAT_SIP_SVC_DDR_EDAC;
-	args.a1 = GET_SYNDROME_MASK;
-	adrv906x_smc_call(&args, &res);
-	edac_printk(KERN_ERR, EDAC_MC, "Syndrome #0 0x%lx\n", res.a1);
-	edac_printk(KERN_ERR, EDAC_MC, "Syndrome #1 0x%lx\n", res.a2);
-	edac_printk(KERN_ERR, EDAC_MC, "Syndrome #2 0x%lx\n", res.a3);
 	return 0;
 }
 
