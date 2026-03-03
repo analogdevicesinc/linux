@@ -1234,6 +1234,20 @@ static bool detect_link_and_local_sink(struct dc_link *link,
 		if (dc_is_hdmi_signal(link->connector_signal))
 			read_scdc_caps(link->ddc, link->local_sink);
 
+		/* When FreeSync is toggled through OSD,
+		 * we see same EDID no matter what. Check MCCS caps
+		 * to see if we should update FreeSync caps now.
+		 */
+		dm_helpers_read_mccs_caps(
+				link->ctx,
+				link,
+				sink);
+
+		if (prev_sink != NULL) {
+			if (memcmp(&sink->mccs_caps, &prev_sink->mccs_caps, sizeof(struct mccs_caps)))
+				same_edid = false;
+		}
+
 		if (link->connector_signal == SIGNAL_TYPE_DISPLAY_PORT &&
 		    sink_caps.transaction_type ==
 		    DDC_TRANSACTION_TYPE_I2C_OVER_AUX) {

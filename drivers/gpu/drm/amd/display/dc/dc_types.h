@@ -1315,6 +1315,10 @@ struct dc_panel_config {
 	} rio;
 };
 
+struct mccs_caps {
+	bool freesync_supported;
+};
+
 #define MAX_SINKS_PER_LINK 4
 
 /*
