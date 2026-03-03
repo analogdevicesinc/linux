@@ -158,7 +158,7 @@
 &spi2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi2_quad>;
-	status = "okay";
+	status = "disabled";
 
 	cs-gpios = <&gpa 5 GPIO_ACTIVE_LOW>;
 
@@ -201,7 +201,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&ospi_default>;
 
-	status = "disabled";
+	status = "okay";
 
 	flash0: is25lx256@0 {
 		#address-cells = <1>;
