@@ -898,3 +898,15 @@ int _ib_copy_validate_udata_in(struct ib_udata *udata, void *req,
 	return 0;
 }
 EXPORT_SYMBOL(_ib_copy_validate_udata_in);
+
+int _ib_copy_validate_udata_cm_fail(struct ib_udata *udata, u64 req_cm,
+				    u64 valid_cm)
+{
+	ibdev_dbg(
+		rdma_udata_to_dev(udata),
+		"System call driver input udata has unsupported comp_mask %llx & ~%llx = %llx for ioctl %ps called by %pSR\n",
+		req_cm, valid_cm, req_cm & ~valid_cm,
+		uverbs_get_handler_fn(udata), __builtin_return_address(0));
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(_ib_copy_validate_udata_cm_fail);
