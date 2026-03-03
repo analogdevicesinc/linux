@@ -13088,6 +13088,7 @@ static bool dm_edid_parser_send_cea(struct amdgpu_display_manager *dm,
 		vsdb->amd_vsdb_version = output->amd_vsdb.amd_vsdb_version;
 		vsdb->min_refresh_rate_hz = output->amd_vsdb.min_frame_rate;
 		vsdb->max_refresh_rate_hz = output->amd_vsdb.max_frame_rate;
+		vsdb->freesync_mccs_vcp_code = output->amd_vsdb.freesync_mccs_vcp_code;
 	} else {
 		drm_warn(adev_to_drm(dm->adev), "Unknown EDID CEA parser results\n");
 		return false;
@@ -13122,6 +13123,8 @@ static bool parse_edid_cea_dmcu(struct amdgpu_display_manager *dm,
 				vsdb_info->amd_vsdb_version = version;
 				vsdb_info->min_refresh_rate_hz = min_rate;
 				vsdb_info->max_refresh_rate_hz = max_rate;
+				/* Not enabled on DMCU*/
+				vsdb_info->freesync_mccs_vcp_code = 0;
 				return true;
 			}
 			/* not amd vsdb */
@@ -13333,14 +13336,19 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 
 	} else if (drm_edid && sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A) {
 		i = parse_hdmi_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
-		if (i >= 0 && vsdb_info.freesync_supported) {
-			amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
-			amdgpu_dm_connector->max_vfreq = vsdb_info.max_refresh_rate_hz;
-			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
-				freesync_capable = true;
+		if (i >= 0) {
+			amdgpu_dm_connector->vsdb_info = vsdb_info;
+			sink->edid_caps.freesync_vcp_code = vsdb_info.freesync_mccs_vcp_code;
 
-			connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
-			connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+			if (vsdb_info.freesync_supported) {
+				amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
+				amdgpu_dm_connector->max_vfreq = vsdb_info.max_refresh_rate_hz;
+				if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
+					freesync_capable = true;
+
+				connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
+				connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+			}
 		}
 	}
 
@@ -13349,19 +13357,22 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 
 	if (as_type == FREESYNC_TYPE_PCON_IN_WHITELIST) {
 		i = parse_hdmi_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
-		if (i >= 0 && vsdb_info.freesync_supported && vsdb_info.amd_vsdb_version > 0) {
-
-			amdgpu_dm_connector->pack_sdp_v1_3 = true;
-			amdgpu_dm_connector->as_type = as_type;
+		if (i >= 0) {
 			amdgpu_dm_connector->vsdb_info = vsdb_info;
+			sink->edid_caps.freesync_vcp_code = vsdb_info.freesync_mccs_vcp_code;
 
-			amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
-			amdgpu_dm_connector->max_vfreq = vsdb_info.max_refresh_rate_hz;
-			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
-				freesync_capable = true;
+			if (vsdb_info.freesync_supported && vsdb_info.amd_vsdb_version > 0) {
+				amdgpu_dm_connector->pack_sdp_v1_3 = true;
+				amdgpu_dm_connector->as_type = as_type;
 
-			connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
-			connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+				amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
+				amdgpu_dm_connector->max_vfreq = vsdb_info.max_refresh_rate_hz;
+				if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
+					freesync_capable = true;
+
+				connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
+				connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+			}
 		}
 	}
 

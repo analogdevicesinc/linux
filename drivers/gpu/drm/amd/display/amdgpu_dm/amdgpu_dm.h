@@ -759,6 +759,11 @@ struct amdgpu_hdmi_vsdb_info {
 	unsigned int max_refresh_rate_hz;
 
 	/**
+	 * @freesync_mccs_vcp_code: MCCS VCP code for freesync state
+	 */
+	unsigned int freesync_mccs_vcp_code;
+
+	/**
 	 * @replay_mode: Replay supported
 	 */
 	bool replay_mode;

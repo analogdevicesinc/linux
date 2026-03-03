@@ -205,6 +205,8 @@ struct dc_edid_caps {
 	uint32_t audio_latency;
 	uint32_t video_latency;
 
+	unsigned int freesync_vcp_code;
+
 	uint8_t qs_bit;
 	uint8_t qy_bit;
 
