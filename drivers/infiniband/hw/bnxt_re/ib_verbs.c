@@ -1671,9 +1671,11 @@ int bnxt_re_create_qp(struct ib_qp *ib_qp, struct ib_qp_init_attr *qp_init_attr,
 	qp = container_of(ib_qp, struct bnxt_re_qp, ib_qp);
 
 	uctx = rdma_udata_to_drv_context(udata, struct bnxt_re_ucontext, ib_uctx);
-	if (udata)
-		if (ib_copy_from_udata(&ureq, udata,  min(udata->inlen, sizeof(ureq))))
-			return -EFAULT;
+	if (udata) {
+		rc = ib_copy_validate_udata_in(udata, ureq, qp_handle);
+		if (rc)
+			return rc;
+	}
 
 	rc = bnxt_re_test_qp_limits(rdev, qp_init_attr, dev_attr);
 	if (!rc) {
@@ -1863,9 +1865,11 @@ static int bnxt_re_init_user_srq(struct bnxt_re_dev *rdev,
 	int bytes = 0;
 	struct bnxt_re_ucontext *cntx = rdma_udata_to_drv_context(
 		udata, struct bnxt_re_ucontext, ib_uctx);
+	int rc;
 
-	if (ib_copy_from_udata(&ureq, udata, sizeof(ureq)))
-		return -EFAULT;
+	rc = ib_copy_validate_udata_in(udata, ureq, srq_handle);
+	if (rc)
+		return rc;
 
 	bytes = (qplib_srq->max_wqe * qplib_srq->wqe_size);
 	bytes = PAGE_ALIGN(bytes);
@@ -3177,10 +3181,10 @@ int bnxt_re_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	cq->qplib_cq.sg_info.pgshft = PAGE_SHIFT;
 	if (udata) {
 		struct bnxt_re_cq_req req;
-		if (ib_copy_from_udata(&req, udata, sizeof(req))) {
-			rc = -EFAULT;
+
+		rc = ib_copy_validate_udata_in(udata, req, cq_handle);
+		if (rc)
 			goto fail;
-		}
 
 		cq->umem = ib_umem_get(&rdev->ibdev, req.cq_va,
 				       entries * sizeof(struct cq_base),
@@ -3309,10 +3313,9 @@ int bnxt_re_resize_cq(struct ib_cq *ibcq, int cqe, struct ib_udata *udata)
 		entries = dev_attr->max_cq_wqes + 1;
 
 	/* uverbs consumer */
-	if (ib_copy_from_udata(&req, udata, sizeof(req))) {
-		rc = -EFAULT;
+	rc = ib_copy_validate_udata_in(udata, req, cq_va);
+	if (rc)
 		goto fail;
-	}
 
 	cq->resize_umem = ib_umem_get(&rdev->ibdev, req.cq_va,
 				      entries * sizeof(struct cq_base),
@@ -4414,8 +4417,8 @@ int bnxt_re_alloc_ucontext(struct ib_ucontext *ctx, struct ib_udata *udata)
 	if (_is_modify_qp_rate_limit_supported(dev_attr->dev_cap_flags2))
 		resp.comp_mask |= BNXT_RE_UCNTX_CMASK_QP_RATE_LIMIT_ENABLED;
 
-	if (udata->inlen >= sizeof(ureq)) {
-		rc = ib_copy_from_udata(&ureq, udata, min(udata->inlen, sizeof(ureq)));
+	if (udata->inlen) {
+		rc = ib_copy_validate_udata_in(udata, ureq, comp_mask);
 		if (rc)
 			goto cfail;
 		if (ureq.comp_mask & BNXT_RE_COMP_MASK_REQ_UCNTX_POW2_SUPPORT) {
