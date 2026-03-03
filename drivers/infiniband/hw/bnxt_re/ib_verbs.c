@@ -190,6 +190,10 @@ int bnxt_re_query_device(struct ib_device *ibdev,
 	size_t outlen = (udata) ? udata->outlen : 0;
 	int rc = 0;
 
+	rc = ib_is_udata_in_empty(udata);
+	if (rc)
+		return rc;
+
 	memset(ib_attr, 0, sizeof(*ib_attr));
 	memcpy(&ib_attr->fw_ver, dev_attr->fw_ver,
 	       min(sizeof(dev_attr->fw_ver),
@@ -692,6 +696,11 @@ int bnxt_re_dealloc_pd(struct ib_pd *ib_pd, struct ib_udata *udata)
 {
 	struct bnxt_re_pd *pd = container_of(ib_pd, struct bnxt_re_pd, ib_pd);
 	struct bnxt_re_dev *rdev = pd->rdev;
+	int ret;
+
+	ret = ib_is_udata_in_empty(udata);
+	if (ret)
+		return ret;
 
 	if (udata) {
 		rdma_user_mmap_entry_remove(pd->pd_db_mmap);
@@ -719,6 +728,10 @@ int bnxt_re_alloc_pd(struct ib_pd *ibpd, struct ib_udata *udata)
 	struct bnxt_re_user_mmap_entry *entry = NULL;
 	u32 active_pds;
 	int rc = 0;
+
+	rc = ib_is_udata_in_empty(udata);
+	if (rc)
+		return rc;
 
 	pd->rdev = rdev;
 	if (bnxt_qplib_alloc_pd(&rdev->qplib_res, &pd->qplib_pd)) {
@@ -833,6 +846,10 @@ int bnxt_re_create_ah(struct ib_ah *ib_ah, struct rdma_ah_init_attr *init_attr,
 	u32 active_ahs;
 	u8 nw_type;
 	int rc;
+
+	rc = ib_is_udata_in_empty(udata);
+	if (rc)
+		return rc;
 
 	if (!(rdma_ah_get_ah_flags(ah_attr) & IB_AH_GRH)) {
 		ibdev_err(&rdev->ibdev, "Failed to alloc AH: GRH not set");
@@ -994,6 +1011,10 @@ int bnxt_re_destroy_qp(struct ib_qp *ib_qp, struct ib_udata *udata)
 	struct bnxt_qplib_nq *rcq_nq = NULL;
 	unsigned int flags;
 	int rc;
+
+	rc = ib_is_udata_in_empty(udata);
+	if (rc)
+		return rc;
 
 	bnxt_re_debug_rem_qpinfo(rdev, qp);
 
@@ -1843,6 +1864,11 @@ int bnxt_re_destroy_srq(struct ib_srq *ib_srq, struct ib_udata *udata)
 					       ib_srq);
 	struct bnxt_re_dev *rdev = srq->rdev;
 	struct bnxt_qplib_srq *qplib_srq = &srq->qplib_srq;
+	int ret;
+
+	ret = ib_is_udata_in_empty(udata);
+	if (ret)
+		return ret;
 
 	if (rdev->chip_ctx->modes.toggle_bits & BNXT_QPLIB_SRQ_TOGGLE_BIT) {
 		free_page((unsigned long)srq->uctx_srq_page);
@@ -1992,6 +2018,11 @@ int bnxt_re_modify_srq(struct ib_srq *ib_srq, struct ib_srq_attr *srq_attr,
 	struct bnxt_re_srq *srq = container_of(ib_srq, struct bnxt_re_srq,
 					       ib_srq);
 	struct bnxt_re_dev *rdev = srq->rdev;
+	int ret;
+
+	ret = ib_is_udata_in_empty(udata);
+	if (ret)
+		return ret;
 
 	switch (srq_attr_mask) {
 	case IB_SRQ_MAX_WR:
@@ -2108,6 +2139,10 @@ int bnxt_re_modify_qp(struct ib_qp *ib_qp, struct ib_qp_attr *qp_attr,
 	int rc, entries;
 	unsigned int flags;
 	u8 nw_type;
+
+	rc = ib_is_udata_in_empty(udata);
+	if (rc)
+		return rc;
 
 	if (qp_attr_mask & ~(IB_QP_ATTR_STANDARD_BITS | IB_QP_RATE_LIMIT))
 		return -EOPNOTSUPP;
@@ -3126,11 +3161,16 @@ int bnxt_re_destroy_cq(struct ib_cq *ib_cq, struct ib_udata *udata)
 	struct bnxt_qplib_nq *nq;
 	struct bnxt_re_dev *rdev;
 	struct bnxt_re_cq *cq;
+	int ret;
 
 	cq = container_of(ib_cq, struct bnxt_re_cq, ib_cq);
 	rdev = cq->rdev;
 	nq = cq->qplib_cq.nq;
 	cctx = rdev->chip_ctx;
+
+	ret = ib_is_udata_in_empty(udata);
+	if (ret)
+		return ret;
 
 	if (cctx->modes.toggle_bits & BNXT_QPLIB_CQ_TOGGLE_BIT) {
 		free_page((unsigned long)cq->uctx_cq_page);
@@ -4078,6 +4118,10 @@ int bnxt_re_dereg_mr(struct ib_mr *ib_mr, struct ib_udata *udata)
 	struct bnxt_re_dev *rdev = mr->rdev;
 	int rc;
 
+	rc = ib_is_udata_in_empty(udata);
+	if (rc)
+		return rc;
+
 	rc = bnxt_qplib_free_mrw(&rdev->qplib_res, &mr->qplib_mr);
 	if (rc) {
 		ibdev_err(&rdev->ibdev, "Dereg MR failed: %#x\n", rc);
@@ -4185,6 +4229,10 @@ struct ib_mw *bnxt_re_alloc_mw(struct ib_pd *ib_pd, enum ib_mw_type type,
 	struct bnxt_re_mw *mw;
 	u32 active_mws;
 	int rc;
+
+	rc = ib_is_udata_in_empty(udata);
+	if (rc)
+		return ERR_PTR(rc);
 
 	mw = kzalloc_obj(*mw);
 	if (!mw)
@@ -4313,6 +4361,11 @@ struct ib_mr *bnxt_re_reg_user_mr(struct ib_pd *ib_pd, u64 start, u64 length,
 	struct bnxt_re_dev *rdev = pd->rdev;
 	struct ib_umem *umem;
 	struct ib_mr *ib_mr;
+	int ret;
+
+	ret = ib_is_udata_in_empty(udata);
+	if (ret)
+		return ERR_PTR(ret);
 
 	if (dmah)
 		return ERR_PTR(-EOPNOTSUPP);
@@ -4496,6 +4549,10 @@ struct ib_flow *bnxt_re_create_flow(struct ib_qp *ib_qp,
 	struct bnxt_re_dev *rdev = qp->rdev;
 	struct bnxt_re_flow *flow;
 	int rc;
+
+	rc = ib_is_udata_in_empty(udata);
+	if (rc)
+		return ERR_PTR(rc);
 
 	if (attr->type != IB_FLOW_ATTR_SNIFFER ||
 	    !rdev->rcfw.roce_mirror)
