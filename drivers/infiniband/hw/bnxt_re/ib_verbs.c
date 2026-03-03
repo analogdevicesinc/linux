@@ -709,7 +709,7 @@ int bnxt_re_dealloc_pd(struct ib_pd *ib_pd, struct ib_udata *udata)
 					   &pd->qplib_pd))
 			atomic_dec(&rdev->stats.res.pd_count);
 	}
-	return 0;
+	return ib_respond_empty_udata(udata);
 }
 
 int bnxt_re_alloc_pd(struct ib_pd *ibpd, struct ib_udata *udata)
@@ -898,7 +898,7 @@ int bnxt_re_create_ah(struct ib_ah *ib_ah, struct rdma_ah_init_attr *init_attr,
 	if (active_ahs > rdev->stats.res.ah_watermark)
 		rdev->stats.res.ah_watermark = active_ahs;
 
-	return 0;
+	return ib_respond_empty_udata(udata);
 }
 
 int bnxt_re_query_ah(struct ib_ah *ib_ah, struct rdma_ah_attr *ah_attr)
@@ -1053,7 +1053,7 @@ int bnxt_re_destroy_qp(struct ib_qp *ib_qp, struct ib_udata *udata)
 	if (scq_nq != rcq_nq)
 		bnxt_re_synchronize_nq(rcq_nq);
 
-	return 0;
+	return ib_respond_empty_udata(udata);
 }
 
 static u8 __from_ib_qp_type(enum ib_qp_type type)
@@ -1869,7 +1869,7 @@ int bnxt_re_destroy_srq(struct ib_srq *ib_srq, struct ib_udata *udata)
 	bnxt_qplib_destroy_srq(&rdev->qplib_res, qplib_srq);
 	ib_umem_release(srq->umem);
 	atomic_dec(&rdev->stats.res.srq_count);
-	return 0;
+	return ib_respond_empty_udata(udata);
 }
 
 static int bnxt_re_init_user_srq(struct bnxt_re_dev *rdev,
@@ -2030,7 +2030,7 @@ int bnxt_re_modify_srq(struct ib_srq *ib_srq, struct ib_srq_attr *srq_attr,
 		/* On success, update the shadow */
 		srq->srq_limit = srq_attr->srq_limit;
 		/* No need to Build and send response back to udata */
-		return 0;
+		return ib_respond_empty_udata(udata);
 	default:
 		ibdev_err(&rdev->ibdev,
 			  "Unsupported srq_attr_mask 0x%x", srq_attr_mask);
@@ -2375,9 +2375,12 @@ int bnxt_re_modify_qp(struct ib_qp *ib_qp, struct ib_qp_attr *qp_attr,
 		ibdev_err(&rdev->ibdev, "Failed to modify HW QP");
 		return rc;
 	}
-	if (ib_qp->qp_type == IB_QPT_GSI && rdev->gsi_ctx.gsi_sqp)
+	if (ib_qp->qp_type == IB_QPT_GSI && rdev->gsi_ctx.gsi_sqp) {
 		rc = bnxt_re_modify_shadow_qp(rdev, qp, qp_attr_mask);
-	return rc;
+		if (rc)
+			return rc;
+	}
+	return ib_respond_empty_udata(udata);
 }
 
 int bnxt_re_query_qp(struct ib_qp *ib_qp, struct ib_qp_attr *qp_attr,
@@ -3174,7 +3177,7 @@ int bnxt_re_destroy_cq(struct ib_cq *ib_cq, struct ib_udata *udata)
 
 	atomic_dec(&rdev->stats.res.cq_count);
 	kfree(cq->cql);
-	return 0;
+	return ib_respond_empty_udata(udata);
 }
 
 int bnxt_re_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
@@ -3376,7 +3379,7 @@ int bnxt_re_resize_cq(struct ib_cq *ibcq, int cqe, struct ib_udata *udata)
 	cq->ib_cq.cqe = cq->resize_cqe;
 	atomic_inc(&rdev->stats.res.resize_count);
 
-	return 0;
+	return ib_respond_empty_udata(udata);
 
 fail:
 	if (cq->resize_umem) {
@@ -4129,7 +4132,9 @@ int bnxt_re_dereg_mr(struct ib_mr *ib_mr, struct ib_udata *udata)
 
 	kfree(mr);
 	atomic_dec(&rdev->stats.res.mr_count);
-	return rc;
+	if (rc)
+		return rc;
+	return ib_respond_empty_udata(udata);
 }
 
 static int bnxt_re_set_page(struct ib_mr *ib_mr, u64 addr)
