@@ -910,3 +910,27 @@ int _ib_copy_validate_udata_cm_fail(struct ib_udata *udata, u64 req_cm,
 	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(_ib_copy_validate_udata_cm_fail);
+
+int _ib_respond_udata(struct ib_udata *udata, const void *src, size_t len)
+{
+	size_t copy_len;
+
+	/* 0 length copy_len is a NOP for copy_to_user() and doesn't fail. */
+	copy_len = min(len, udata->outlen);
+	if (copy_to_user(udata->outbuf, src, copy_len))
+		goto err_fault;
+	if (copy_len < udata->outlen) {
+		if (clear_user(udata->outbuf + copy_len,
+			       udata->outlen - copy_len))
+			goto err_fault;
+	}
+	return 0;
+err_fault:
+	ibdev_dbg(
+		rdma_udata_to_dev(udata),
+		"System call driver out udata has EFAULT (%zu into %zu) for ioctl %ps called by %pSR\n",
+		len, udata->outlen, uverbs_get_handler_fn(udata),
+		__builtin_return_address(0));
+	return -EFAULT;
+}
+EXPORT_SYMBOL(_ib_respond_udata);

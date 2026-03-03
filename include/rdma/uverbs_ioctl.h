@@ -900,6 +900,7 @@ int uverbs_copy_to_struct_or_zero(const struct uverbs_attr_bundle *bundle,
 
 int _ib_copy_validate_udata_in(struct ib_udata *udata, void *req,
 			       size_t kernel_size, size_t minimum_size);
+int _ib_respond_udata(struct ib_udata *udata, const void *src, size_t len);
 #else
 static inline int
 uverbs_get_flags64(u64 *to, const struct uverbs_attr_bundle *attrs_bundle,
@@ -964,6 +965,11 @@ static inline int _ib_copy_validate_udata_in(struct ib_udata *udata, void *req,
 	return -EINVAL;
 }
 
+static inline int _ib_respond_udata(struct ib_udata *udata, const void *src,
+				    size_t len)
+{
+	return -EINVAL;
+}
 #endif
 
 #define uverbs_get_const_signed(_to, _attrs_bundle, _idx)                      \
@@ -1068,5 +1074,32 @@ int _ib_copy_validate_udata_cm_fail(struct ib_udata *udata, u64 req_cm,
 				_udata, (_req).comp_mask, __valid_cm);        \
 		ret;                                                          \
 	})
+
+/**
+ * ib_respond_udata - Copy a driver data response to userspace
+ * @_udata: The system calls ib_udata struct
+ * @_rep: Kernel buffer containing the response driver data on the stack
+ *
+ * Copy driver data response structures back to userspace in a way that
+ * is forwards and backwards compatible. Longer kernel structs are truncated,
+ * userspace has made some kind of error if it needed the truncated information.
+ * Shorter structs are zero padded.
+ */
+#define ib_respond_udata(_udata, _rep) \
+	_ib_respond_udata(_udata, &(_rep), sizeof(_rep))
+
+/**
+ * ib_respond_empty_udata - Zero fill the response buffer to userspace
+ * @_udata: The system calls ib_udata struct
+ *
+ * Used when there is no driver response data to return. Provides forward
+ * compatability by zeroing any buffer the user may have provided.
+ */
+static inline int ib_respond_empty_udata(struct ib_udata *udata)
+{
+	if (udata && udata->outlen && clear_user(udata->outbuf, udata->outlen))
+		return -EFAULT;
+	return 0;
+}
 
 #endif
