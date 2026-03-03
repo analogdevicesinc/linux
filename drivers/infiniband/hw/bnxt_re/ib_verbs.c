@@ -1693,7 +1693,7 @@ int bnxt_re_create_qp(struct ib_qp *ib_qp, struct ib_qp_init_attr *qp_init_attr,
 
 	uctx = rdma_udata_to_drv_context(udata, struct bnxt_re_ucontext, ib_uctx);
 	if (udata) {
-		rc = ib_copy_validate_udata_in(udata, ureq, qp_handle);
+		rc = ib_copy_validate_udata_in_cm(udata, ureq, qp_handle, 0);
 		if (rc)
 			return rc;
 	}
@@ -4471,7 +4471,10 @@ int bnxt_re_alloc_ucontext(struct ib_ucontext *ctx, struct ib_udata *udata)
 		resp.comp_mask |= BNXT_RE_UCNTX_CMASK_QP_RATE_LIMIT_ENABLED;
 
 	if (udata->inlen) {
-		rc = ib_copy_validate_udata_in(udata, ureq, comp_mask);
+		rc = ib_copy_validate_udata_in_cm(
+			udata, ureq, comp_mask,
+			BNXT_RE_COMP_MASK_REQ_UCNTX_POW2_SUPPORT |
+				BNXT_RE_COMP_MASK_REQ_UCNTX_VAR_WQE_SUPPORT);
 		if (rc)
 			goto cfail;
 		if (ureq.comp_mask & BNXT_RE_COMP_MASK_REQ_UCNTX_POW2_SUPPORT) {
