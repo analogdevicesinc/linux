@@ -897,6 +897,9 @@ int _uverbs_get_const_unsigned(u64 *to,
 			       size_t idx, u64 upper_bound, u64 *def_val);
 int uverbs_copy_to_struct_or_zero(const struct uverbs_attr_bundle *bundle,
 				  size_t idx, const void *from, size_t size);
+
+int _ib_copy_validate_udata_in(struct ib_udata *udata, void *req,
+			       size_t kernel_size, size_t minimum_size);
 #else
 static inline int
 uverbs_get_flags64(u64 *to, const struct uverbs_attr_bundle *attrs_bundle,
@@ -953,6 +956,14 @@ _uverbs_get_const_unsigned(u64 *to,
 {
 	return -EINVAL;
 }
+
+static inline int _ib_copy_validate_udata_in(struct ib_udata *udata, void *req,
+					     size_t kernel_size,
+					     size_t minimum_size)
+{
+	return -EINVAL;
+}
+
 #endif
 
 #define uverbs_get_const_signed(_to, _attrs_bundle, _idx)                      \
@@ -1017,5 +1028,20 @@ uverbs_get_raw_fd(int *to, const struct uverbs_attr_bundle *attrs_bundle,
 {
 	return uverbs_get_const_signed(to, attrs_bundle, idx);
 }
+
+/**
+ * ib_copy_validate_udata_in - Copy and validate that the request structure is
+ *                             compatible with this kernel
+ * @_udata: The system calls ib_udata struct
+ * @_req: The name of an on-stack structure that holds the driver data
+ * @_end_member: The member in the struct that is the original end of struct
+ *               from the first kernel to introduce it.
+ *
+ * Check that the udata input request struct is properly formed for this kernel.
+ * Then copy it into req
+ */
+#define ib_copy_validate_udata_in(_udata, _req, _end_member)      \
+	_ib_copy_validate_udata_in(_udata, &(_req), sizeof(_req), \
+				   offsetofend(typeof(_req), _end_member))
 
 #endif

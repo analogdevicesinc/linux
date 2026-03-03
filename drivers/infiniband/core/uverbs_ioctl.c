@@ -70,6 +70,19 @@ struct bundle_priv {
 	u64 internal_buffer[32];
 };
 
+uverbs_api_ioctl_handler_fn uverbs_get_handler_fn(struct ib_udata *udata)
+{
+	struct uverbs_attr_bundle *bundle =
+		rdma_udata_to_uverbs_attr_bundle(udata);
+	struct bundle_priv *pbundle =
+		container_of(&bundle->hdr, struct bundle_priv, bundle);
+
+	lockdep_assert_held(&bundle->ufile->device->disassociate_srcu);
+
+	return srcu_dereference(pbundle->method_elm->handler,
+				&bundle->ufile->device->disassociate_srcu);
+}
+
 /*
  * Each method has an absolute minimum amount of memory it needs to allocate,
  * precompute that amount and determine if the onstack memory can be used or
@@ -847,3 +860,41 @@ void uverbs_finalize_uobj_create(const struct uverbs_attr_bundle *bundle,
 		  pbundle->uobj_hw_obj_valid);
 }
 EXPORT_SYMBOL(uverbs_finalize_uobj_create);
+
+int _ib_copy_validate_udata_in(struct ib_udata *udata, void *req,
+			       size_t kernel_size, size_t minimum_size)
+{
+	int err;
+
+	if (udata->inlen < minimum_size) {
+		ibdev_dbg(
+			rdma_udata_to_dev(udata),
+			"System call driver input udata too small (%zu < %zu) for ioctl %ps called by %pSR\n",
+			udata->inlen, minimum_size,
+			uverbs_get_handler_fn(udata),
+			__builtin_return_address(0));
+		return -EINVAL;
+	}
+
+	err = copy_struct_from_user(req, kernel_size, udata->inbuf,
+				    udata->inlen);
+	if (err) {
+		if (err == -E2BIG) {
+			ibdev_dbg(
+				rdma_udata_to_dev(udata),
+				"System call driver input udata not zero from %zu -> %zu for ioctl %ps called by %pSR\n",
+				minimum_size, udata->inlen,
+				uverbs_get_handler_fn(udata),
+				__builtin_return_address(0));
+			return -EOPNOTSUPP;
+		}
+		ibdev_dbg(
+			rdma_udata_to_dev(udata),
+			"System call driver input udata EFAULT for ioctl %ps called by %pSR\n",
+			uverbs_get_handler_fn(udata),
+			__builtin_return_address(0));
+		return err;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(_ib_copy_validate_udata_in);
