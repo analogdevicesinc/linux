@@ -1577,6 +1577,93 @@ struct ib_uobject {
 	const struct uverbs_api_object *uapi_object;
 };
 
+/**
+ * struct ib_udata - Driver request/response data from userspace
+ * @inbuf: Pointer to request data from userspace
+ * @outbuf: Pointer to response buffer in userspace
+ * @inlen: Length of request data
+ * @outlen: Length of response buffer
+ *
+ * struct ib_udata is used to hold the driver data request and response
+ * structures defined in the uapi. They follow these rules for forwards and
+ * backwards compatibility:
+ *
+ * 1) Userspace can provide a longer request so long as the trailing part the
+ *    kernel doesn't understand is all zeros.
+ *
+ *    This provides a degree of safety if userspace wrongly tries to use a new
+ *    feature the kernel does not understand with some non-zero value.
+ *
+ *    It allows a simpler rdma-core implementation because the library can
+ *    simply always use the latest structs for the request, even if they are
+ *    bigger. It simply has to avoid using the new members if they are not
+ *    supported/required.
+ *
+ * 2) Userspace can provide a shorter request; the kernel will zero-pad it out
+ *    to fill the storage. The newer kernel should understand that older
+ *    userspace will provide 0 to new fields. The kernel has three options to
+ *    enable new request fields:
+ *
+ *    - Input comp_mask that says the field is supported
+ *    - Look for non-zero values
+ *    - Check if the udata->inlen size covers the field
+ *
+ *    This also corrects any bugs related to not filling in request structures
+ *    as the new helper always fully writes to the struct.
+ *
+ * 3) Userspace can provide a shorter or longer response struct. If shorter,
+ *    the kernel reply is truncated. The kernel should be designed to not write
+ *    to new reply fields unless userspace has affirmatively requested them.
+ *
+ *    If the user buffer is longer, the kernel will zero-fill it.
+ *
+ *    Userspace has three options to enable new response fields:
+ *
+ *    - Output comp_mask that says the field is supported
+ *    - Look for non-zero values
+ *    - Infer the output must be valid because the request contents demand it
+ *      and old kernels will fail the request
+ *
+ * The following helper functions implement these semantics:
+ *
+ * ib_copy_validate_udata_in() - Checks the minimum length, and zero trailing::
+ *
+ *     struct driver_create_cq_req req;
+ *     int err;
+ *
+ *     err = ib_copy_validate_udata_in(udata, req, end_member);
+ *     if (err)
+ *         return err;
+ *
+ * The third argument specifies the last member of the struct in the first
+ * kernel version that introduced it, establishing the minimum required size.
+ *
+ * ib_copy_validate_udata_in_cm() - The above but also validate a
+ * comp_mask member only has supported bits set::
+ *
+ *     err = ib_copy_validate_udata_in_cm(udata, req, first_version_last_member,
+ *                                        DRIVER_CREATE_CQ_MASK_FEATURE_A |
+ *                                        DRIVER_CREATE_CQ_MASK_FEATURE_B);
+ *
+ * ib_respond_udata() - Implements the response rules::
+ *
+ *     struct driver_create_cq_resp resp = {};
+ *
+ *     resp.some_field = value;
+ *     return ib_respond_udata(udata, resp);
+ *
+ * ib_is_udata_in_empty() - Used instead of ib_copy_validate_udata_in() if the
+ * driver does not have a request structure::
+ *
+ *     ret = ib_is_udata_in_empty(udata);
+ *     if (ret)
+ *         return ret;
+ *
+ * Similarly ib_respond_empty_udata() is used instead of ib_respond_udata() if
+ * the driver does not have a response structure::
+ *
+ *    return ib_respond_empty_udata(udata);
+ */
 struct ib_udata {
 	const void __user *inbuf;
 	void __user *outbuf;
