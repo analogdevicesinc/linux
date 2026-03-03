@@ -1076,6 +1076,21 @@ int _ib_copy_validate_udata_cm_fail(struct ib_udata *udata, u64 req_cm,
 	})
 
 /**
+ * ib_is_udata_in_empty - Check if the udata input buffer is all zeros
+ * @udata: The system calls ib_udata struct
+ *
+ * This should be used if the driver does not currently define a driver data
+ * struct. Returns 0 if the buffer is empty or all zeros, -EOPNOTSUPP if
+ * non-zero data is present, or a negative error code on failure.
+ */
+static inline int ib_is_udata_in_empty(struct ib_udata *udata)
+{
+	if (!udata || udata->inlen == 0)
+		return 0;
+	return _ib_copy_validate_udata_in(udata, NULL, 0, 0);
+}
+
+/**
  * ib_respond_udata - Copy a driver data response to userspace
  * @_udata: The system calls ib_udata struct
  * @_rep: Kernel buffer containing the response driver data on the stack
