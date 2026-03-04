@@ -174,6 +174,9 @@ int adrv906x_switch_vlan_del(struct adrv906x_eth_switch *es, u16 port, u16 vid)
 
 int adrv906x_switch_vlan_add_cpuport(struct adrv906x_eth_switch *es, u16 vid)
 {
+	if (vid == 0 || vid >= VLAN_N_VID - 1)
+		return -EINVAL;
+
 	/* if host port is already configured for this vid, skip it */
 	if (es->vlan_port_mask[vid] & BIT(SWITCH_CPU_PORT))
 		return 0;
@@ -183,6 +186,9 @@ int adrv906x_switch_vlan_add_cpuport(struct adrv906x_eth_switch *es, u16 vid)
 
 int adrv906x_switch_vlan_del_cpuport(struct adrv906x_eth_switch *es, u16 vid)
 {
+	if (vid == 0 || vid >= VLAN_N_VID - 1)
+		return -EINVAL;
+
 	/* if another port is configured for this vid, don't remove vid from host port */
 	if (es->vlan_port_mask[vid] & ~BIT(SWITCH_CPU_PORT))
 		return 0;
@@ -196,6 +202,9 @@ static int adrv906x_switch_pvid_set(struct adrv906x_eth_switch *es, u16 pvid)
 
 	if (pvid == 0 || pvid >= VLAN_N_VID - 1)
 		return -EINVAL;
+
+	if (es->pvid == pvid)
+		return 0;
 
 	mutex_lock(&es->lock);
 	if (es->vlan_port_mask[pvid]) {
@@ -219,9 +228,19 @@ static int adrv906x_switch_pvid_set(struct adrv906x_eth_switch *es, u16 pvid)
 		val |= pvid;
 		iowrite32(val, es->switch_port[portid].reg + SWITCH_PORT_CFG_VLAN);
 	}
-	mutex_unlock(&es->lock);
 
+	/* Remove old PVID - treat as best-effort to keep state consistent with HW.
+	 * At this point the new PVID is already programmed in hardware, so we must
+	 * update software state regardless of whether old PVID cleanup succeeds.
+	 */
+	ret = adrv906x_switch_vlan_match_action_sync(es, 0, es->pvid);
+	if (ret)
+		dev_warn(&es->pdev->dev, "failed to remove old pvid %u from hardware", es->pvid);
+
+	es->vlan_port_mask[es->pvid] = 0;
 	es->pvid = pvid;
+
+	mutex_unlock(&es->lock);
 
 	return 0;
 }
@@ -472,7 +491,7 @@ static ssize_t port_vlan_ctrl_show(struct device *dev,
 	char_cnt += sprintf(buf + char_cnt, "%-8s%-4s\n", "vid", "port");
 
 	mutex_lock(&es->lock);
-	for (vid = 0; vid < VLAN_N_VID; vid++) {
+	for (vid = 0; vid < VLAN_N_VID - 1; vid++) {
 		if (es->vlan_port_mask[vid] == 0)
 			continue;
 
@@ -725,6 +744,7 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 	struct device_node *eth_switch_np, *switch_port_np;
 	u16 default_vids[] = { 2, 3, 4, 5 };
 	u32 reg, len, portid;
+	u16 pvid;
 	int i = 0;
 	int ret;
 
@@ -795,8 +815,20 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 		for (i = 0; i < NUM_DEFAULT_VIDS; i++)
 			es->default_vids[i] = default_vids[i];
 
-	if (of_property_read_u16(eth_switch_np, "pvid", &es->pvid))
-		es->pvid = SWITCH_PVID;
+	/* Initialize to hardware default PVID after reset */
+	es->pvid = SWITCH_PVID;
+
+	if (of_property_read_u16(eth_switch_np, "pvid", &pvid))
+		pvid = SWITCH_PVID;
+
+	if (pvid == 0 || pvid >= VLAN_N_VID - 1) {
+		dev_warn(dev, "invalid pvid %u from DT, using default %u", pvid, SWITCH_PVID);
+		pvid = SWITCH_PVID;
+	}
+
+	ret = adrv906x_switch_pvid_set(es, pvid);
+	if (ret)
+		return ret;
 
 	if (of_property_read_bool(eth_switch_np, "vlan_enabled")) {
 		es->vlan_enabled = true;
@@ -826,7 +858,7 @@ static int adrv906x_switch_vlan_membership_recovery(struct adrv906x_eth_switch *
 	int ret, vid;
 
 	mutex_lock(&es->lock);
-	for (vid = 0; vid < VLAN_N_VID; vid++) {
+	for (vid = 0; vid < VLAN_N_VID - 1; vid++) {
 		/* Check if new error occurred - abort recovery and start fresh */
 		if (atomic_read(&es->error_pending)) {
 			mutex_unlock(&es->lock);
@@ -917,12 +949,6 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	}
 
 	adrv906x_switch_set_mae_age_time(es, AGE_TIME_5MIN_25G);
-	if (es->pvid != SWITCH_PVID) {
-		ret = adrv906x_switch_pvid_set(es, es->pvid);
-		if (ret)
-			return ret;
-	}
-
 	ret = adrv906x_switch_packet_trapping_set(es);
 	if (ret)
 		return ret;

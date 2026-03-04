@@ -163,7 +163,7 @@ struct adrv906x_eth_switch {
 	unsigned int pcp_ipv_mapping;
 	unsigned int pcp_regen_val;
 	struct switch_port switch_port[SWITCH_MAX_PORT_NUM];
-	u8 vlan_port_mask[VLAN_N_VID];
+	u8 vlan_port_mask[VLAN_N_VID - 1];
 	u8 port_enabled_mask;
 	struct mutex lock;      /* protect data structures and hw access */
 	struct device_attribute port_vlan_ctrl_attr;
