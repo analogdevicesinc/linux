@@ -154,9 +154,11 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 
 		if (eth_if->ethswitch.enabled) {
 			val = phydev->speed == SPEED_10000 ? AGE_TIME_5MIN_10G : AGE_TIME_5MIN_25G;
-			adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
-			adrv906x_switch_port_reset(es);
 			adrv906x_switch_set_mae_age_time(es, val);
+			adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
+			/* Trigger recovery to restore VLAN and FDB configuration after link up */
+			atomic_set(&es->error_pending, 1);
+			wake_up_interruptible(&es->recovery_wq);
 		}
 		netif_wake_queue(ndev);
 	} else {
