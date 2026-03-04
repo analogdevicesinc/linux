@@ -407,6 +407,7 @@ check_assert_defconfigs() {
 }
 
 compile_devicetree() {
+	# Compiles as .dtb, if an overlay, rename to .dtbo before using
 	export step_name="compile_devicetree"
 	local exceptions_file="ci/travis/dtb_build_test_exceptions"
 	local tmp_log_file=/dev/shm/$run_id.ci_compile_devicetree.log
@@ -548,6 +549,10 @@ compile_many_devicetrees() {
 		dts_files_=$(echo $dts_files | tr ' ' '\n' | grep ^arch/$ARCH/boot/dts)
 		# Use -@ to export the symbols
 		# Divide in two groups, overlays/ -> dtbo, !overlays/ -> dtb
+		# Make and dtc should result in identical binaries, with the
+		# only distinction being the file extension, still, the dtc
+		# method shows how to compile using only the kernel headers +
+		# dtc (can be from the package manager)
 		dtb_files=$(echo  "$dts_files_" | grep -v /overlays/ | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/' || true)
 		dtbo_files=$(echo "$dts_files_" | grep    /overlays/ || true)
 		# scripts for ./scripts/dtc/dtc
