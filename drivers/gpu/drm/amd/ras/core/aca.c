@@ -665,6 +665,7 @@ int ras_aca_hw_init(struct ras_core_context *ras_core)
 		aca_blk->blk_info = ip_func->block_info[i];
 	}
 
+	ras_aca->ip_func = ip_func;
 	ras_aca->ue_updated_mark = 0;
 
 	return 0;

@@ -34,6 +34,9 @@ static const struct ras_mp1_ip_func *ras_mp1_get_ip_funcs(
 	case IP_VERSION(13, 0, 14):
 	case IP_VERSION(13, 0, 12):
 		return &mp1_ras_func_v13_0;
+	case IP_VERSION(15, 0, 8):
+		//TBD for dGPU
+		break;
 	default:
 		RAS_DEV_ERR(ras_core->dev,
 			"MP1 ip version(0x%x) is not supported!\n", ip_version);
@@ -82,11 +85,9 @@ int ras_mp1_hw_init(struct ras_core_context *ras_core)
 	int ret = 0;
 
 	mp1->mp1_ip_version = ras_core->config->mp1_ip_version;
-	mp1->sys_func = ras_core->config->mp1_cfg.mp1_sys_fn;
-	if (!mp1->sys_func) {
-		RAS_DEV_ERR(ras_core->dev, "RAS mp1 sys function not configured!\n");
-		return -EINVAL;
-	}
+
+	if (ras_core->config->mp1_cfg.mp1_sys_fn)
+		mp1->sys_func = ras_core->config->mp1_cfg.mp1_sys_fn;
 
 	mp1->ip_func = ras_mp1_get_ip_funcs(ras_core, mp1->mp1_ip_version);
 	if (!mp1->ip_func)

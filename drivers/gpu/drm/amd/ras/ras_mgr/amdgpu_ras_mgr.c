@@ -34,9 +34,13 @@
 #include "amdgpu_ras_nbio_v7_9.h"
 #include "amdgpu_ras_mce.h"
 
-#define MAX_SOCKET_NUM_PER_NODE		8
-#define MAX_AID_NUM_PER_SOCKET		4
-#define MAX_XCD_NUM_PER_AID			2
+#define MAX_SOCKET_NUM_PER_NODE_GFX9    8
+#define MAX_AID_NUM_PER_SOCKET_GFX9     4
+#define MAX_XCD_NUM_PER_AID_GFX9        2
+
+#define MAX_SOCKET_NUM_PER_NODE_GFX12   4
+#define MAX_AID_NUM_PER_SOCKET_GFX12    2
+#define MAX_XCD_NUM_PER_AID_GFX12       4
 
 /* typical ECC bad page rate is 1 bad page per 100MB VRAM */
 #define TYPICAL_ECC_BAD_PAGE_RATE (100ULL * SZ_1M)
@@ -89,9 +93,22 @@ static int amdgpu_ras_mgr_init_aca_config(struct amdgpu_device *adev,
 {
 	struct ras_aca_config *aca_cfg = &config->aca_cfg;
 
-	aca_cfg->socket_num_per_node = MAX_SOCKET_NUM_PER_NODE;
-	aca_cfg->aid_num_per_socket = MAX_AID_NUM_PER_SOCKET;
-	aca_cfg->xcd_num_per_aid = MAX_XCD_NUM_PER_AID;
+	switch (config->gfx_ip_version) {
+	case IP_VERSION(9, 4, 3):
+	case IP_VERSION(9, 4, 4):
+	case IP_VERSION(9, 5, 0):
+		aca_cfg->socket_num_per_node = MAX_SOCKET_NUM_PER_NODE_GFX9;
+		aca_cfg->aid_num_per_socket = MAX_AID_NUM_PER_SOCKET_GFX9;
+		aca_cfg->xcd_num_per_aid = MAX_XCD_NUM_PER_AID_GFX9;
+		break;
+	case IP_VERSION(12, 1, 0):
+		aca_cfg->socket_num_per_node = MAX_SOCKET_NUM_PER_NODE_GFX12;
+		aca_cfg->aid_num_per_socket = MAX_AID_NUM_PER_SOCKET_GFX12;
+		aca_cfg->xcd_num_per_aid = MAX_XCD_NUM_PER_AID_GFX12;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -194,6 +211,9 @@ static int amdgpu_ras_mgr_init_mp1_config(struct amdgpu_device *adev,
 	case IP_VERSION(13, 0, 12):
 		mp1_cfg->mp1_sys_fn = &amdgpu_ras_mp1_sys_func_v13_0;
 		break;
+	case IP_VERSION(15, 0, 8):
+		//TBD for dGPU
+		break;
 	default:
 		RAS_DEV_ERR(adev,
 			"The mp1(0x%x) ras config is not right!\n",
@@ -215,6 +235,9 @@ static int amdgpu_ras_mgr_init_nbio_config(struct amdgpu_device *adev,
 	case IP_VERSION(7, 9, 0):
 	case IP_VERSION(7, 9, 1):
 		nbio_cfg->nbio_sys_fn = &amdgpu_ras_nbio_sys_func_v7_9;
+		break;
+	case IP_VERSION(6, 3, 2):
+		//TBD for dGPU
 		break;
 	default:
 		RAS_DEV_ERR(adev,
@@ -302,9 +325,11 @@ static struct ras_core_context *amdgpu_ras_mgr_create_ras_core(struct amdgpu_dev
 	init_config.mp1_ip_version = amdgpu_ip_version(adev, MP1_HWIP, 0);
 	init_config.gfx_ip_version = amdgpu_ip_version(adev, GC_HWIP, 0);
 	init_config.nbio_ip_version = amdgpu_ip_version(adev, NBIO_HWIP, 0);
-	init_config.psp_ip_version = amdgpu_ip_version(adev, MP1_HWIP, 0);
+	init_config.psp_ip_version = amdgpu_ip_version(adev, MP0_HWIP, 0);
 
-	if (init_config.umc_ip_version == IP_VERSION(12, 0, 0) ||
+	if (init_config.gfx_ip_version == IP_VERSION(12, 1, 0))
+		init_config.aca_ip_version = IP_VERSION(5, 0, 0);
+	else if (init_config.umc_ip_version == IP_VERSION(12, 0, 0) ||
 	    init_config.umc_ip_version == IP_VERSION(12, 5, 0))
 		init_config.aca_ip_version = IP_VERSION(1, 0, 0);
 

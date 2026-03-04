@@ -545,8 +545,7 @@ uint32_t ras_core_get_curr_nps_mode(struct ras_core_context *ras_core)
 	    ras_core->ras_nbio.ip_func->get_memory_partition_mode)
 		return ras_core->ras_nbio.ip_func->get_memory_partition_mode(ras_core);
 
-	RAS_DEV_ERR(ras_core->dev, "Failed to get gpu memory nps mode!\n");
-	return 0;
+	return UMC_MEMORY_PARTITION_MODE_UNKNOWN;
 }
 
 int ras_core_update_ecc_info(struct ras_core_context *ras_core)
