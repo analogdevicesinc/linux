@@ -1,4 +1,20 @@
+soc/arm
+
 soc/dt
 	patch
 		ARM: dts: arm: Use lowercase hex
+
+soc/drivers
+
+soc/defconfig
+
+soc/late
+
+arm/fixes
+	riscv/soc-fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-soc-fixes-for-v7.0-rc1
+	fsl/soc-driver-fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/chleroy/linux tags/soc_fsl-7.0-2
+	reset/fixes
+		https://git.pengutronix.de/git/pza/linux tags/reset-fixes-for-v7.0
 
