@@ -1557,7 +1557,10 @@ static ssize_t charge_control_end_threshold_show(struct device *device,
 						 struct device_attribute *attr,
 						 char *buf)
 {
-	return sysfs_emit(buf, "%d\n", charge_end_threshold);
+	if ((charge_end_threshold >= 0) && (charge_end_threshold <= 100))
+		return sysfs_emit(buf, "%d\n", charge_end_threshold);
+
+	return -ENODATA;
 }
 
 static DEVICE_ATTR_RW(charge_control_end_threshold);
@@ -1580,11 +1583,11 @@ static int asus_wmi_battery_add(struct power_supply *battery, struct acpi_batter
 		return -ENODEV;
 
 	/* The charge threshold is only reset when the system is power cycled,
-	 * and we can't get the current threshold so let set it to 100% when
-	 * a battery is added.
+	 * and we can't read the current threshold, however the majority of
+	 * platforms retains it, therefore signal the threshold as unknown
+	 * until user explicitly sets it to a new value.
 	 */
-	asus_wmi_set_devstate(ASUS_WMI_DEVID_RSOC, 100, NULL);
-	charge_end_threshold = 100;
+	charge_end_threshold = -1;
 
 	return 0;
 }
