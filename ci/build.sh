@@ -523,6 +523,7 @@ compile_many_devicetrees() {
 	export step_name="compile_many_devicetrees"
 	local exceptions_file="ci/travis/dtb_build_test_exceptions"
 	local err=0
+	local err_=0
 	local dtb_file=
 	local dts_files=""
 
@@ -544,9 +545,23 @@ compile_many_devicetrees() {
 		return 0
 	fi
 	for ARCH in $ARCHS; do
-		dts_files_=$(echo $dts_files | tr ' ' '\n' | grep ^arch/$ARCH/ | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/')
-		ARCH=$ARCH make allnoconfig
-		ARCH=$ARCH make -k -j$(nproc) DTC_FLAGS=-@ $dts_files_ || err=$?
+		dts_files_=$(echo $dts_files | tr ' ' '\n' | grep ^arch/$ARCH/boot/dts)
+		# Use -@ to export the symbols
+		# Divide in two groups, overlays/ -> dtbo, !overlays/ -> dtb
+		dtb_files=$(echo  "$dts_files_" | grep -v /overlays/ | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's/\.dts\>/.dtb/' || true)
+		dtbo_files=$(echo "$dts_files_" | grep    /overlays/ || true)
+		# scripts for ./scripts/dtc/dtc
+		ARCH=$ARCH make -j$(nproc) allnoconfig scripts
+		# DTB: use make
+		[[ -n "$dtb_files" ]] && ARCH=$ARCH make -k -j$(nproc) DTC_FLAGS=-@ $dtb_files || err=$?
+		# DTBO: use ./scripts/dtc/dtc
+		for dts in $dtbo_files; do
+			dtsp=$(dirname $dts)/.pre.$(basename $dts)
+			dtbo="${dts%.*}".dtbo
+			cpp -nostdinc -I ./include -I arch -undef -x assembler-with-cpp $dts $dtsp || err_=$?
+			./scripts/dtc/dtc -@ -O dtb -o $dtbo $dtsp || err_=$?
+		done
+		[[ "$err_" -eq 0 ]] || err="$err_"
 	done
 
 	return $err
