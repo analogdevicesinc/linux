@@ -180,7 +180,7 @@ struct aw86927_data {
 	struct i2c_client *client;
 	struct regmap *regmap;
 	struct gpio_desc *reset_gpio;
-	bool running;
+	u16 level;
 };
 
 static const struct regmap_config aw86927_regmap_config = {
@@ -325,11 +325,12 @@ static int aw86927_haptics_play(struct input_dev *dev, void *data, struct ff_eff
 	if (!level)
 		level = effect->u.rumble.weak_magnitude;
 
-	/* If already running, don't restart playback */
-	if (haptics->running && level)
+	/* If level does not change, don't restart playback */
+	if (haptics->level == level)
 		return 0;
 
-	haptics->running = level;
+	haptics->level = level;
+
 	schedule_work(&haptics->play_work);
 
 	return 0;
@@ -376,8 +377,7 @@ static int aw86927_play_sine(struct aw86927_data *haptics)
 	if (err)
 		return err;
 
-	/* set gain to value lower than 0x80 to avoid distorted playback */
-	err = regmap_write(haptics->regmap, AW86927_PLAYCFG2_REG, 0x7c);
+	err = regmap_write(haptics->regmap, AW86927_PLAYCFG2_REG, haptics->level * 0x80 / 0xffff);
 	if (err)
 		return err;
 
@@ -409,7 +409,7 @@ static void aw86927_haptics_play_work(struct work_struct *work)
 	struct device *dev = &haptics->client->dev;
 	int err;
 
-	if (haptics->running)
+	if (haptics->level)
 		err = aw86927_play_sine(haptics);
 	else
 		err = aw86927_stop(haptics);
