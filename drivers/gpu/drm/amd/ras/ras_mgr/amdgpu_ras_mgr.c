@@ -34,7 +34,7 @@
 #include "amdgpu_ras_nbio_v7_9.h"
 #include "amdgpu_ras_mce.h"
 
-#define MAX_SOCKET_NUM_PER_HIVE		8
+#define MAX_SOCKET_NUM_PER_NODE		8
 #define MAX_AID_NUM_PER_SOCKET		4
 #define MAX_XCD_NUM_PER_AID			2
 
@@ -89,7 +89,7 @@ static int amdgpu_ras_mgr_init_aca_config(struct amdgpu_device *adev,
 {
 	struct ras_aca_config *aca_cfg = &config->aca_cfg;
 
-	aca_cfg->socket_num_per_hive = MAX_SOCKET_NUM_PER_HIVE;
+	aca_cfg->socket_num_per_node = MAX_SOCKET_NUM_PER_NODE;
 	aca_cfg->aid_num_per_socket = MAX_AID_NUM_PER_SOCKET;
 	aca_cfg->xcd_num_per_aid = MAX_XCD_NUM_PER_AID;
 

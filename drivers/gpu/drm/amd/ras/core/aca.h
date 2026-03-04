@@ -26,7 +26,7 @@
 #define __ACA_H__
 #include "ras.h"
 
-#define MAX_SOCKET_NUM_PER_HIVE 8
+#define MAX_SOCKET_NUM_PER_NODE 8
 #define MAX_AID_NUM_PER_SOCKET 4
 #define MAX_XCD_NUM_PER_AID 2
 #define MAX_ACA_RAS_BLOCK  20
@@ -115,8 +115,8 @@ struct aca_socket_ecc {
 };
 
 struct aca_block_ecc {
-	struct aca_socket_ecc socket[MAX_SOCKET_NUM_PER_HIVE];
-	u32 socket_num_per_hive;
+	struct aca_socket_ecc socket[MAX_SOCKET_NUM_PER_NODE];
+	u32 socket_num_per_node;
 };
 
 struct aca_bank_hw_ops {

@@ -262,7 +262,7 @@ struct ras_bank_ecc_node {
 };
 
 struct ras_aca_config {
-	u32 socket_num_per_hive;
+	u32 socket_num_per_node;
 	u32 aid_num_per_socket;
 	u32 xcd_num_per_aid;
 };
@@ -323,7 +323,7 @@ struct ras_core_config {
 struct ras_core_context {
 	void *dev;
 	struct ras_core_config *config;
-	u32 socket_num_per_hive;
+	u32 socket_num_per_node;
 	u32 aid_num_per_socket;
 	u32 xcd_num_per_aid;
 	int max_ue_banks_per_query;
