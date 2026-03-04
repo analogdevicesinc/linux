@@ -72,8 +72,9 @@ struct surface_button {
 	bool suspended;
 };
 
-static void surface_button_notify(struct acpi_device *device, u32 event)
+static void surface_button_notify(acpi_handle handle, u32 event, void *data)
 {
+	struct acpi_device *device = data;
 	struct surface_button *button = acpi_driver_data(device);
 	struct input_dev *input;
 	int key_code = KEY_RESERVED;
@@ -227,6 +228,15 @@ static int surface_button_add(struct acpi_device *device)
 		goto err_free_input;
 
 	device_init_wakeup(&device->dev, true);
+
+	error = acpi_dev_install_notify_handler(device, ACPI_DEVICE_NOTIFY,
+						surface_button_notify, device);
+	if (error) {
+		device_init_wakeup(&device->dev, false);
+		input_unregister_device(input);
+		goto err_free_button;
+	}
+
 	dev_info(&device->dev, "%s [%s]\n", acpi_device_name(device),
 		 acpi_device_bid(device));
 	return 0;
@@ -242,6 +252,8 @@ static void surface_button_remove(struct acpi_device *device)
 {
 	struct surface_button *button = acpi_driver_data(device);
 
+	acpi_dev_remove_notify_handler(device, ACPI_DEVICE_NOTIFY,
+				       surface_button_notify);
 	device_init_wakeup(&device->dev, false);
 	input_unregister_device(button->input);
 	kfree(button);
@@ -257,7 +269,6 @@ static struct acpi_driver surface_button_driver = {
 	.ops = {
 		.add = surface_button_add,
 		.remove = surface_button_remove,
-		.notify = surface_button_notify,
 	},
 	.drv.pm = &surface_button_pm,
 };
