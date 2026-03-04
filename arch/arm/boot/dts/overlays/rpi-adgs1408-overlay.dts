@@ -2,7 +2,7 @@
 /dts-v1/;
 /plugin/;
 
-#include "../../../include/dt-bindings/mux/mux.h"
+#include <dt-bindings/mux/mux.h>
 
 / {
 	compatible = "brcm,bcm2708";
