@@ -28,6 +28,8 @@ properties:
       - adi,ad4032-24
       - adi,ad4630-16
       - adi,ad4632-16
+      - adi,ad4630-20
+      - adi,ad4632-20
       - adi,ad4630-24
       - adi,ad4632-24
       - adi,ad463x
