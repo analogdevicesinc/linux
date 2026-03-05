@@ -216,41 +216,38 @@ static int lp8860_init(struct lp8860_led *led)
 
 	ret = lp8860_fault_check(led);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = regmap_read(led->regmap, LP8860_STATUS, &read_buf);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = lp8860_unlock_eeprom(led);
 	if (ret) {
 		dev_err(&led->client->dev, "Failed unlocking EEPROM\n");
-		goto out;
+		return ret;
 	}
 
 	reg_count = ARRAY_SIZE(lp8860_eeprom_disp_regs);
 	ret = regmap_multi_reg_write(led->regmap, lp8860_eeprom_disp_regs, reg_count);
 	if (ret) {
 		dev_err(&led->client->dev, "Failed writing EEPROM\n");
-		goto out;
+		return ret;
 	}
 
 	ret = regmap_write(led->regmap, LP8860_EEPROM_UNLOCK, LP8860_LOCK_EEPROM);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = regmap_write(led->regmap,
 			LP8860_EEPROM_CNTRL,
 			LP8860_PROGRAM_EEPROM);
 	if (ret) {
 		dev_err(&led->client->dev, "Failed programming EEPROM\n");
-		goto out;
+		return ret;
 	}
 
-	return ret;
-
-out:
-	return ret;
+	return 0;
 }
 
 static const struct regmap_range lp8860_reg_ranges[] = {
