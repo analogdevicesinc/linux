@@ -185,18 +185,15 @@ static int lp8860_brightness_set(struct led_classdev *led_cdev,
 
 static int lp8860_program_eeprom(struct lp8860_led *led)
 {
-	unsigned int read_buf;
 	int ret, reg_count;
 
 	guard(mutex)(&led->lock);
 
 	ret = lp8860_fault_check(led);
-	if (ret)
+	if (ret) {
+		dev_err(&led->client->dev, "Cannot read/clear faults\n");
 		return ret;
-
-	ret = regmap_read(led->regmap, LP8860_STATUS, &read_buf);
-	if (ret)
-		return ret;
+	}
 
 	ret = regmap_write(led->regmap, LP8860_EEPROM_UNLOCK, LP8860_EEPROM_CODE_1);
 	if (ret) {
