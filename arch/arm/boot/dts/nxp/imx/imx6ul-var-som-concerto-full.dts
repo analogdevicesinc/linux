@@ -11,6 +11,7 @@
 #include "imx6ul-var-som.dtsi"
 #include "imx6ul-var-som-concerto-common.dtsi"
 #include "imx6ul-var-som-wifi.dtsi"
+#include "imx6ul-var-som-enet2.dtsi"
 
 / {
 	model = "Variscite VAR-SOM-6UL Concerto Board (6UL CPU)";
