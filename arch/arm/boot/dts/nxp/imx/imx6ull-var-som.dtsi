@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Support for Variscite VAR-SOM-6UL module with imx6ull CPU
+ *
+ * Copyright 2019-2024 Variscite Ltd.
+ * Copyright 2026 Dimonoff
+ */
+
+#include "imx6ull.dtsi"
+#include "imx6ul-var-som-common.dtsi"
+
+/ {
+	model = "Variscite VAR-SOM-6UL module";
+	compatible = "variscite,var-som-imx6ull", "fsl,imx6ull";
+};
