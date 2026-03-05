@@ -52,10 +52,6 @@
 	status = "okay";
 };
 
-&fec1 {
-	status = "disabled";
-};
-
 &i2c1 {
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
