@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Support for Variscite MX6 Concerto Carrier board with the VAR-SOM-MX6UL
+ * Support for Variscite Concerto Carrier board with the VAR-SOM-6UL
  * Variscite SoM mounted on it
  *
  * Copyright 2019 Variscite Ltd.
@@ -11,7 +11,7 @@
 #include <dt-bindings/leds/common.h>
 
 / {
-	model = "Variscite VAR-SOM-MX6UL Concerto Board";
+	model = "Variscite VAR-SOM-6UL Concerto Board";
 	compatible = "variscite,mx6ulconcerto", "variscite,var-som-imx6ul", "fsl,imx6ul";
 
 	chosen {
