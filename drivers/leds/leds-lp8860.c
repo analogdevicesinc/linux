@@ -125,32 +125,6 @@ static const struct reg_sequence lp8860_eeprom_disp_regs[] = {
 	{ LP8860_EEPROM_REG_24, 0x3E },
 };
 
-static int lp8860_unlock_eeprom(struct lp8860_led *led)
-{
-	int ret;
-
-	guard(mutex)(&led->lock);
-
-	ret = regmap_write(led->regmap, LP8860_EEPROM_UNLOCK, LP8860_EEPROM_CODE_1);
-	if (ret) {
-		dev_err(&led->client->dev, "EEPROM Unlock failed\n");
-		return ret;
-	}
-
-	ret = regmap_write(led->regmap, LP8860_EEPROM_UNLOCK, LP8860_EEPROM_CODE_2);
-	if (ret) {
-		dev_err(&led->client->dev, "EEPROM Unlock failed\n");
-		return ret;
-	}
-	ret = regmap_write(led->regmap, LP8860_EEPROM_UNLOCK, LP8860_EEPROM_CODE_3);
-	if (ret) {
-		dev_err(&led->client->dev, "EEPROM Unlock failed\n");
-		return ret;
-	}
-
-	return ret;
-}
-
 static int lp8860_fault_check(struct lp8860_led *led)
 {
 	int ret, fault;
@@ -209,10 +183,12 @@ static int lp8860_brightness_set(struct led_classdev *led_cdev,
 	return 0;
 }
 
-static int lp8860_init(struct lp8860_led *led)
+static int lp8860_program_eeprom(struct lp8860_led *led)
 {
 	unsigned int read_buf;
 	int ret, reg_count;
+
+	guard(mutex)(&led->lock);
 
 	ret = lp8860_fault_check(led);
 	if (ret)
@@ -222,9 +198,20 @@ static int lp8860_init(struct lp8860_led *led)
 	if (ret)
 		return ret;
 
-	ret = lp8860_unlock_eeprom(led);
+	ret = regmap_write(led->regmap, LP8860_EEPROM_UNLOCK, LP8860_EEPROM_CODE_1);
 	if (ret) {
-		dev_err(&led->client->dev, "Failed unlocking EEPROM\n");
+		dev_err(&led->client->dev, "EEPROM Unlock failed\n");
+		return ret;
+	}
+
+	ret = regmap_write(led->regmap, LP8860_EEPROM_UNLOCK, LP8860_EEPROM_CODE_2);
+	if (ret) {
+		dev_err(&led->client->dev, "EEPROM Unlock failed\n");
+		return ret;
+	}
+	ret = regmap_write(led->regmap, LP8860_EEPROM_UNLOCK, LP8860_EEPROM_CODE_3);
+	if (ret) {
+		dev_err(&led->client->dev, "EEPROM Unlock failed\n");
 		return ret;
 	}
 
@@ -318,7 +305,7 @@ static int lp8860_probe(struct i2c_client *client)
 		return ret;
 	}
 
-	ret = lp8860_init(led);
+	ret = lp8860_program_eeprom(led);
 	if (ret)
 		return ret;
 
