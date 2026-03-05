@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# RF Transceivers and Advanced Mixed Signal Frontends drivers
+#
+menu "RF Transceivers and Advanced Mixed Signal Frontends"
+
+endmenu
+
