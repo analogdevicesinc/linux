@@ -2191,6 +2191,14 @@ static int smu_v15_0_8_get_ppt_limit(struct smu_context *smu,
 	return -EOPNOTSUPP;
 }
 
+static int smu_v15_0_8_enable_thermal_alert(struct smu_context *smu)
+{
+	if (!smu->irq_source.num_types)
+		return 0;
+
+	return amdgpu_irq_get(smu->adev, &smu->irq_source, 0);
+}
+
 static const struct pptable_funcs smu_v15_0_8_ppt_funcs = {
 	.init_allowed_features = smu_v15_0_8_init_allowed_features,
 	.set_default_dpm_table = smu_v15_0_8_set_default_dpm_table,
@@ -2208,6 +2216,8 @@ static const struct pptable_funcs smu_v15_0_8_ppt_funcs = {
 	.get_enabled_mask = smu_v15_0_8_get_enabled_mask,
 	.feature_is_enabled = smu_cmn_feature_is_enabled,
 	.register_irq_handler = smu_v15_0_8_register_irq_handler,
+	.enable_thermal_alert = smu_v15_0_8_enable_thermal_alert,
+	.disable_thermal_alert = smu_v15_0_disable_thermal_alert,
 	.setup_pptable = smu_v15_0_8_setup_pptable,
 	.get_pp_feature_mask = smu_cmn_get_pp_feature_mask,
 	.wait_for_event = smu_v15_0_wait_for_event,
