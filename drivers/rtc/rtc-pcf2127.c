@@ -1449,10 +1449,10 @@ static const struct regmap_bus pcf2127_i2c_regmap = {
 static struct i2c_driver pcf2127_i2c_driver;
 
 static const struct i2c_device_id pcf2127_i2c_id[] = {
-	{ "pcf2127", PCF2127 },
-	{ "pcf2129", PCF2129 },
-	{ "pca2129", PCF2129 },
-	{ "pcf2131", PCF2131 },
+	{ "pcf2127", (kernel_ulong_t)&pcf21xx_cfg[PCF2127] },
+	{ "pcf2129", (kernel_ulong_t)&pcf21xx_cfg[PCF2129] },
+	{ "pca2129", (kernel_ulong_t)&pcf21xx_cfg[PCF2129] },
+	{ "pcf2131", (kernel_ulong_t)&pcf21xx_cfg[PCF2131] },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
@@ -1469,18 +1469,9 @@ static int pcf2127_i2c_probe(struct i2c_client *client)
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 		return -ENODEV;
 
-	if (client->dev.of_node) {
-		variant = of_device_get_match_data(&client->dev);
-		if (!variant)
-			return -ENODEV;
-	} else {
-		enum pcf21xx_type type =
-			i2c_match_id(pcf2127_i2c_id, client)->driver_data;
-
-		if (type >= PCF21XX_LAST_ID)
-			return -ENODEV;
-		variant = &pcf21xx_cfg[type];
-	}
+	variant = i2c_get_match_data(client);
+	if (!variant)
+		return -ENODEV;
 
 	config.max_register = variant->max_register,
 
