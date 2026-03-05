@@ -51,6 +51,8 @@ provided (``mirror_ci/<remote-name>/<branch>``):
   | https://git.kernel.org/pub/scm/linux/kernel/git/lee/mfd.git/log/?h=for-mfd-next
 * | ``mirror_ci/groeck/linux-staging/hwmon-next``: HWMON Subsystem - Staging
   | https://git.kernel.org/pub/scm/linux/kernel/git/groeck/linux-staging.git/log/?h=hwmon-next
+* | ``mirror_ci/i3c/i3c/next``: I3C Subsystem - Staging
+  | https://git.kernel.org/pub/scm/linux/kernel/git/i3c/linux.git/log/?h=i3c/next
 
 To reduce the load on ``kernel.org``, clone from mirrors such as
 https://kernel.googlesource.com/pub/scm/linux/kernel/git/.
