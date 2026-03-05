@@ -11,6 +11,7 @@
 #include <linux/dmi.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/sysfs.h>
 #include <linux/wmi.h>
 #include "dell-wmi-sysman.h"
 #include "../../firmware_attributes_class.h"
@@ -143,17 +144,17 @@ int map_wmi_error(int error_code)
  */
 static ssize_t reset_bios_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	char *start = buf;
+	ssize_t len = 0;
 	int i;
 
 	for (i = 0; i < MAX_TYPES; i++) {
 		if (i == reset_option)
-			buf += sprintf(buf, "[%s] ", reset_types[i]);
+			len += sysfs_emit_at(buf, len, "[%s] ", reset_types[i]);
 		else
-			buf += sprintf(buf, "%s ", reset_types[i]);
+			len += sysfs_emit_at(buf, len, "%s ", reset_types[i]);
 	}
-	buf += sprintf(buf, "\n");
-	return buf-start;
+	len += sysfs_emit_at(buf, len, "\n");
+	return len;
 }
 
 /**
@@ -194,7 +195,7 @@ static ssize_t reset_bios_store(struct kobject *kobj,
 static ssize_t pending_reboot_show(struct kobject *kobj, struct kobj_attribute *attr,
 				   char *buf)
 {
-	return sprintf(buf, "%d\n", wmi_priv.pending_changes);
+	return sysfs_emit(buf, "%d\n", wmi_priv.pending_changes);
 }
 
 static struct kobj_attribute reset_bios = __ATTR_RW(reset_bios);
