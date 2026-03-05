@@ -803,7 +803,6 @@ exit_remove_files:
 			ad_dpot_remove_files(dev, data->feat, i);
 
 exit_free:
-	kfree(data);
 	dev_set_drvdata(dev, NULL);
 exit:
 	dev_err(dev, "failed to create client for %s ID 0x%lX\n",
@@ -820,8 +819,6 @@ int ad_dpot_remove(struct device *dev)
 	for (i = DPOT_RDAC0; i < MAX_RDACS; i++)
 		if (data->wipers & (1 << i))
 			ad_dpot_remove_files(dev, data->feat, i);
-
-	kfree(data);
 
 	return 0;
 }
