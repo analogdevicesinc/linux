@@ -4,9 +4,6 @@
  * Copyright 2014 - 2018 Analog Devices Inc.
  *
  * Licensed under the GPL-2 or later.
- *
- * todo list:
- * - bushbutton GPIOs are all incorrect and commented out for now
  */
 
 /dts-v1/;
@@ -56,28 +53,6 @@
 	};
 
 	scb {
-		button0: button@0 {
-			compatible = "adi,button-led";
-//			en-pins = <&gpio_expander1 2 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON1_EN */
-//			          <&gpio_expander1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
-//			button_gpio = <40>;
-//			led_gpio = <77>;
-		};
-		button1: button@1 {
-			compatible = "adi,button-led";
-//			en-pins = <&gpio_expander1 1 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON2_EN */
-//			          <&gpio_expander1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
-//			button_gpio = <41>;
-//			led_gpio = <9>;
-		};
-		button2: button@2 {
-			compatible = "adi,button-led";
-//			en-pins = <&gpio_expander1 0 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON3_EN */
-//			          <&gpio_expander1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
-//			button_gpio = <42>;
-//			led_gpio = <65>;
-		};
-
 		core1-rproc@3108C000 {
 			compatible = "adi,remoteproc";
 			reg = <0x28240000 0x2000>,

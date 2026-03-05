@@ -57,24 +57,6 @@
 	};
 
 	scb {
-
-/* The button GPIO conflicts with OSPI0_D4 for this
-		button0: button@0 {
-			compatible = "adi,button-led";
-			button_gpio = <48>; /* PD_00
-			led_gpio = <35>; /* PC_03 / LED9 / LED1_KIT
-		};
-*/
-
-/* This also appears to interfere with the OSPI somehow...
-   possible trace noise/interference?
-		button1: button@1 {
-			compatible = "adi,button-led";
-			button_gpio = <112>; /* PH_00
-			led_gpio = <34>; /* PC_02 / LED8 / LED2_KIT
-		};
-*/
-
 		sharc0: core1-rproc@28240000 {
 			compatible = "adi,remoteproc";
 			reg = <0x28240000 0x160000>,
