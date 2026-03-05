@@ -600,7 +600,6 @@ static void dln2_stop_rx_urbs(struct dln2_dev *dln2)
 static void dln2_free(struct dln2_dev *dln2)
 {
 	dln2_free_rx_urbs(dln2);
-	usb_put_dev(dln2->usb_dev);
 	kfree(dln2);
 }
 
@@ -784,7 +783,7 @@ static int dln2_probe(struct usb_interface *interface,
 
 	dln2->ep_out = epout->bEndpointAddress;
 	dln2->ep_in = epin->bEndpointAddress;
-	dln2->usb_dev = usb_get_dev(interface_to_usbdev(interface));
+	dln2->usb_dev = interface_to_usbdev(interface);
 	dln2->interface = interface;
 	usb_set_intfdata(interface, dln2);
 	init_waitqueue_head(&dln2->disconnect_wq);
