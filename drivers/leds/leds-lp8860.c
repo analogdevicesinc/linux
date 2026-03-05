@@ -97,6 +97,16 @@ struct lp8860_led {
 	struct regmap *regmap;
 };
 
+static bool program_eeprom;
+module_param(program_eeprom, bool, 0644);
+MODULE_PARM_DESC(program_eeprom, "Program the configuration EEPROM on device startup");
+
+/*
+ * EEPROM bits are intended to be set/programmed before normal operation only
+ * once during silicon production, but can be reprogrammed for evaluation purposes
+ * up to 1000 cycles. To program this EEPROM using this driver, update the below
+ * table and set the module param "program_eeprom" to 1
+ */
 static const struct reg_sequence lp8860_eeprom_disp_regs[] = {
 	{ LP8860_EEPROM_REG_0, 0xed },
 	{ LP8860_EEPROM_REG_1, 0xdf },
@@ -302,9 +312,11 @@ static int lp8860_probe(struct i2c_client *client)
 		return ret;
 	}
 
-	ret = lp8860_program_eeprom(led);
-	if (ret)
-		return ret;
+	if (program_eeprom) {
+		ret = lp8860_program_eeprom(led);
+		if (ret)
+			return ret;
+	}
 
 	init_data.fwnode = of_fwnode_handle(child_node);
 	init_data.devicename = LP8860_NAME;
