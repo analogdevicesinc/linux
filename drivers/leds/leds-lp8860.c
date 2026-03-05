@@ -89,14 +89,12 @@
  * @client: Pointer to the I2C client
  * @led_dev: led class device pointer
  * @regmap: Devices register map
- * @eeprom_regmap: EEPROM register map
  */
 struct lp8860_led {
 	struct mutex lock;
 	struct i2c_client *client;
 	struct led_classdev led_dev;
 	struct regmap *regmap;
-	struct regmap *eeprom_regmap;
 };
 
 static const struct reg_sequence lp8860_eeprom_disp_regs[] = {
@@ -231,7 +229,7 @@ static int lp8860_init(struct lp8860_led *led)
 	}
 
 	reg_count = ARRAY_SIZE(lp8860_eeprom_disp_regs);
-	ret = regmap_multi_reg_write(led->eeprom_regmap, lp8860_eeprom_disp_regs, reg_count);
+	ret = regmap_multi_reg_write(led->regmap, lp8860_eeprom_disp_regs, reg_count);
 	if (ret) {
 		dev_err(&led->client->dev, "Failed writing EEPROM\n");
 		goto out;
@@ -255,17 +253,21 @@ out:
 	return ret;
 }
 
+static const struct regmap_range lp8860_reg_ranges[] = {
+	regmap_reg_range(LP8860_DISP_CL1_BRT_MSB, LP8860_EEPROM_UNLOCK),
+	regmap_reg_range(LP8860_EEPROM_REG_0, LP8860_EEPROM_REG_24),
+};
+
+static const struct regmap_access_table lp8860_reg_table = {
+	.yes_ranges = lp8860_reg_ranges,
+	.n_yes_ranges = ARRAY_SIZE(lp8860_reg_ranges),
+};
+
 static const struct regmap_config lp8860_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
-
-	.max_register = LP8860_EEPROM_UNLOCK,
-};
-
-static const struct regmap_config lp8860_eeprom_regmap_config = {
-	.reg_bits = 8,
-	.val_bits = 8,
-
+	.rd_table = &lp8860_reg_table,
+	.wr_table = &lp8860_reg_table,
 	.max_register = LP8860_EEPROM_REG_24,
 };
 
@@ -314,14 +316,6 @@ static int lp8860_probe(struct i2c_client *client)
 	led->regmap = devm_regmap_init_i2c(client, &lp8860_regmap_config);
 	if (IS_ERR(led->regmap)) {
 		ret = PTR_ERR(led->regmap);
-		dev_err(&client->dev, "Failed to allocate register map: %d\n",
-			ret);
-		return ret;
-	}
-
-	led->eeprom_regmap = devm_regmap_init_i2c(client, &lp8860_eeprom_regmap_config);
-	if (IS_ERR(led->eeprom_regmap)) {
-		ret = PTR_ERR(led->eeprom_regmap);
 		dev_err(&client->dev, "Failed to allocate register map: %d\n",
 			ret);
 		return ret;
