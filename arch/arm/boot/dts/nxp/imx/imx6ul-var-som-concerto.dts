@@ -79,7 +79,7 @@
 			reset-gpios = <&gpio5 5 GPIO_ACTIVE_LOW>;
 			reset-assert-us = <100000>;
 			micrel,led-mode = <0>;
-			micrel,rmii-reference-clock-select-25-mhz = <1>;
+			micrel,rmii-reference-clock-select-25-mhz;
 		};
 	};
 };
