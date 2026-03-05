@@ -197,7 +197,8 @@ static int erdma_set_ceq_irq(struct erdma_dev *dev, u16 ceqn)
 	tasklet_init(&dev->ceqs[ceqn].tasklet, erdma_intr_ceq_task,
 		     (unsigned long)&dev->ceqs[ceqn]);
 
-	cpumask_set_cpu(cpumask_local_spread(ceqn + 1, dev->attrs.numa_node),
+	cpumask_set_cpu(cpumask_local_spread(ceqn + 1,
+					     dev_to_node(&dev->pdev->dev)),
 			&eqc->irq.affinity_hint_mask);
 
 	err = request_irq(eqc->irq.msix_vector, erdma_intr_ceq_handler, 0,

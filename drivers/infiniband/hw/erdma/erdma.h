@@ -127,7 +127,6 @@ struct erdma_devattr {
 	unsigned char peer_addr[ETH_ALEN];
 	unsigned long cap_flags;
 
-	int numa_node;
 	enum erdma_cc_alg cc;
 	u32 irq_num;
 
