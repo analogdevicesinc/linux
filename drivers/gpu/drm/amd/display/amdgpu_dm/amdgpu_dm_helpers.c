@@ -1606,3 +1606,77 @@ void dm_helpers_read_mccs_caps(struct dc_context *ctx, struct dc_link *link,
 	}
 }
 
+static int mccs_operation_vcp_set(unsigned int vcp_code, struct dc_link *link, uint16_t value)
+{
+	const unsigned char retry_interval_ms = 40;
+	unsigned char retry = 5;
+	struct amdgpu_dm_connector *aconnector = link->priv;
+	struct i2c_adapter *ddc;
+	struct i2c_msg msg = {0};
+	int ret = 0;
+	int idx;
+
+	unsigned char wr_data[MCCS_OP_BUFF_SIZE_WR_VCP_SET] = {
+		MCCS_SRC_ADDR,				/* Byte0 - Src Addr */
+		MCCS_LENGTH_OFFSET + 4,		/* Byte1 - Length */
+		MCCS_OP_CODE_VCP_SET,		/* Byte2 - MCCS Command */
+		(unsigned char)vcp_code,	/* Byte3 - VCP Code */
+		(unsigned char)(value >> 8),	/* Byte4 - Value High Byte */
+		(unsigned char)(value & 0xFF),	/* Byte5 - Value Low Byte */
+		MCCS_DEST_ADDR << 1		/* Byte6 - CheckSum */
+	};
+
+	/* calculate checksum */
+	for (idx = 0; idx < (MCCS_OP_BUFF_SIZE_WR_VCP_SET - 1); idx++)
+		wr_data[MCCS_OP_BUFF_SIZE_WR_VCP_SET - 1] ^= wr_data[idx];
+
+	if (link->aux_mode)
+		ddc = &aconnector->dm_dp_aux.aux.ddc;
+	else
+		ddc = &aconnector->i2c->base;
+
+	do {
+		msg.addr = MCCS_DEST_ADDR;
+		msg.flags = 0;
+		msg.len = MCCS_OP_BUFF_SIZE_WR_VCP_SET;
+		msg.buf = wr_data;
+
+		ret = i2c_transfer(ddc, &msg, 1);
+		if (ret == 1)
+			break;
+
+		retry--;
+		msleep(retry_interval_ms);
+	} while (retry);
+
+	if (!retry)
+		return -EIO;
+
+	return 0;
+}
+
+void dm_helpers_mccs_vcp_set(struct dc_context *ctx, struct dc_link *link,
+		struct dc_sink *sink)
+{
+	struct drm_device *dev;
+	const uint16_t enable = 0x0101;
+
+	if (!ctx)
+		return;
+	dev = adev_to_drm(ctx->driver_context);
+
+	if (!link || !sink) {
+		drm_dbg_driver(dev, "%s: link or sink is NULL", __func__);
+		return;
+	}
+
+	if (!sink->mccs_caps.freesync_supported) {
+		drm_dbg_driver(dev, "%s: MCCS freesync not supported on this sink", __func__);
+		return;
+	}
+
+	if (mccs_operation_vcp_set(sink->edid_caps.freesync_vcp_code, link, enable))
+		drm_dbg_driver(dev, "%s: Failed to set VCP code %d", __func__,
+				sink->edid_caps.freesync_vcp_code);
+}
+

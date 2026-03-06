@@ -13383,6 +13383,8 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 		(!sink->edid_caps.freesync_vcp_code ||
 		(sink->edid_caps.freesync_vcp_code && !sink->mccs_caps.freesync_supported)))
 		freesync_capable = false;
+	if (sink->mccs_caps.freesync_supported && freesync_capable)
+		dm_helpers_mccs_vcp_set(adev->dm.dc->ctx, amdgpu_dm_connector->dc_link, sink);
 
 update:
 	if (dm_con_state)
