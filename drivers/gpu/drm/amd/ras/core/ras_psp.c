@@ -720,6 +720,11 @@ int ras_psp_hw_init(struct ras_core_context *ras_core)
 		psp->ip_func->get_ras_block_maps(ras_core,
 			&psp->blk_maps, &psp->maps_size))
 		return -EINVAL;
+
+	if (psp->ip_func->get_ras_hw_caps &&
+		psp->ip_func->get_ras_hw_caps(ras_core, &psp->ras_hw_caps))
+		return -EINVAL;
+
 	/* After GPU reset, the system RAS PSP status may change.
 	 * therefore, it is necessary to synchronize the system status again.
 	 */
@@ -782,4 +787,25 @@ int ras_psp_get_block_ta_id(struct ras_core_context *ras_core,
 	RAS_DEV_WARN(ras_core->dev, "Ras block %u is not supported\n", ras_id);
 
 	return -RAS_CORE_NOT_SUPPORTED;
+}
+
+bool ras_psp_poison_supported(struct ras_core_context *ras_core)
+{
+	struct ras_psp *psp = &ras_core->ras_psp;
+
+	return psp->ras_hw_caps.poison_supported;
+}
+
+bool ras_psp_flex_mca_enabled(struct ras_core_context *ras_core)
+{
+	struct ras_psp *psp = &ras_core->ras_psp;
+
+	return psp->ras_hw_caps.flex_mca_enabled;
+}
+
+uint64_t ras_psp_get_hw_ras_caps(struct ras_core_context *ras_core)
+{
+	struct ras_psp *psp = &ras_core->ras_psp;
+
+	return psp->ras_hw_caps.features.block_mask;
 }

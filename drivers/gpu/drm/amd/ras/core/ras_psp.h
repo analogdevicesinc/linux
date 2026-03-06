@@ -26,6 +26,8 @@
 #include "ras.h"
 #include "ta_if.h"
 
+#define MAX_RAS_BLOCK_MASK_BITS 56
+
 struct ras_core_context;
 struct ras_ta_trigger_error_input;
 struct ras_ta_query_address_input;
@@ -68,11 +70,30 @@ struct ras_block_map {
 	uint32_t ras_id;
 	uint32_t ta_id;
 };
+
+union ras_feature {
+	struct {
+		uint64_t block_mask : MAX_RAS_BLOCK_MASK_BITS;
+		uint64_t rsv: 4;
+		uint64_t tag: 3;
+		uint64_t en : 1;
+	};
+	uint64_t value;
+};
+
+struct ras_hw_caps {
+	bool poison_supported;
+	bool flex_mca_enabled;
+	union ras_feature features;
+};
+
 struct ras_psp_ip_func {
 	uint32_t (*psp_ras_ring_wptr_get)(struct ras_core_context *ras_core);
 	int (*psp_ras_ring_wptr_set)(struct ras_core_context *ras_core, uint32_t wptr);
 	int (*get_ras_block_maps)(struct ras_core_context *ras_core,
 			struct ras_block_map **blk_maps, uint32_t *maps_size);
+	int (*get_ras_hw_caps)(struct ras_core_context *ras_core,
+			struct ras_hw_caps *ras_cap);
 };
 
 struct ras_psp_ring {
@@ -116,6 +137,7 @@ struct ras_psp {
 	uint32_t psp_ip_version;
 	struct ras_block_map *blk_maps;
 	uint32_t maps_size;
+	struct ras_hw_caps ras_hw_caps;
 	struct ras_psp_ring psp_ring;
 	struct ras_psp_ctx  psp_ctx;
 	struct ras_ta_ctx   ta_ctx;
@@ -153,4 +175,7 @@ bool ras_psp_check_supported_cmd(struct ras_core_context *ras_core,
 		enum ras_ta_cmd_id cmd_id);
 int ras_psp_get_block_ta_id(struct ras_core_context *ras_core,
 		uint32_t ras_id, uint32_t *ta_id);
+bool ras_psp_poison_supported(struct ras_core_context *ras_core);
+bool ras_psp_flex_mca_enabled(struct ras_core_context *ras_core);
+uint64_t ras_psp_get_hw_ras_caps(struct ras_core_context *ras_core);
 #endif

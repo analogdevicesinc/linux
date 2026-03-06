@@ -780,3 +780,26 @@ int ras_core_get_eeprom_version(struct ras_core_context *ras_core,
 {
 	return ras_eeprom_get_version(ras_core, version);
 }
+
+uint64_t ras_core_get_ras_caps(struct ras_core_context *ras_core)
+{
+	uint64_t ras_hw_caps,  ras_drv_caps;
+
+	if (!ras_core)
+		return 0;
+
+	ras_hw_caps = ras_psp_get_hw_ras_caps(ras_core);
+	ras_drv_caps = ras_aca_get_parser_caps(ras_core);
+
+	return ras_hw_caps & ras_drv_caps;
+}
+
+bool ras_core_poison_supported(struct ras_core_context *ras_core)
+{
+	if (!ras_core)
+		return false;
+
+	/* For some ASICs, poison flag is detected externally by uniras module. */
+	return ras_core->poison_supported ? true :
+			ras_psp_poison_supported(ras_core);
+}

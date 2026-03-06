@@ -372,7 +372,20 @@ static const struct aca_block_info *aca_block_info_v1_0[] = {
 	&aca_v1_0_xgmi,
 };
 
+static u64 aca_parse_ras_caps_v1_0(struct ras_core_context *ras_core)
+{
+	u64 parser_supported_mask = 0;
+	u32 i;
+
+	for (i = 0; i < ARRAY_SIZE(aca_block_info_v1_0); i++)
+		parser_supported_mask |=
+			BIT_ULL(aca_block_info_v1_0[i]->ras_block_id);
+
+	return parser_supported_mask;
+}
+
 const struct ras_aca_ip_func ras_aca_func_v1_0 = {
 	.block_num = ARRAY_SIZE(aca_block_info_v1_0),
 	.block_info = aca_block_info_v1_0,
+	.aca_parse_ras_caps = aca_parse_ras_caps_v1_0,
 };

@@ -269,7 +269,7 @@ static int amdgpu_ras_mgr_get_ras_ta_init_param(struct ras_core_context *ras_cor
 	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
 	uint32_t nps_mode;
 
-	if (amdgpu_ras_is_poison_mode_supported(adev))
+	if (ras_core_poison_supported(ras_core))
 		ras_ta_param->poison_mode_en = 1;
 
 	if (!adev->gmc.xgmi.connected_to_cpu && !adev->gmc.is_app_apu)
@@ -626,7 +626,7 @@ int amdgpu_ras_mgr_handle_controller_interrupt(struct amdgpu_device *adev, void 
 		return -EPERM;
 
 	if (ih_info && (ih_info->block == AMDGPU_RAS_BLOCK__UMC)) {
-		if (ras_mgr->ras_core->poison_supported) {
+		if (ras_core_poison_supported(ras_mgr->ras_core)) {
 			seq_no = amdgpu_ras_mgr_gen_ras_event_seqno(adev, RAS_SEQNO_TYPE_DE);
 			RAS_DEV_INFO(adev,
 				"{%llu} RAS poison is created, no user action is needed.\n",
@@ -634,7 +634,7 @@ int amdgpu_ras_mgr_handle_controller_interrupt(struct amdgpu_device *adev, void 
 		}
 
 		ret = amdgpu_ras_process_handle_umc_interrupt(adev, ih_info);
-	} else if (ras_mgr->ras_core->poison_supported) {
+	} else if (ras_core_poison_supported(ras_mgr->ras_core)) {
 		ret = amdgpu_ras_process_handle_unexpected_interrupt(adev, ih_info);
 	} else {
 		RAS_DEV_WARN(adev,
@@ -657,7 +657,7 @@ int amdgpu_ras_mgr_dispatch_interrupt(struct amdgpu_device *adev, struct ras_ih_
 		return 0;
 
 	if (ih_info->block == RAS_BLOCK_ID__UMC) {
-		if (ras_mgr->ras_core->poison_supported) {
+		if (ras_core_poison_supported(ras_mgr->ras_core)) {
 			seq_no = amdgpu_ras_mgr_gen_ras_event_seqno(adev, RAS_SEQNO_TYPE_DE);
 			RAS_DEV_INFO(adev,
 				"{%llu} RAS poison is created, no user action is needed.\n",
@@ -665,7 +665,7 @@ int amdgpu_ras_mgr_dispatch_interrupt(struct amdgpu_device *adev, struct ras_ih_
 		}
 
 		ret = amdgpu_ras_process_handle_umc_interrupt(adev, ih_info);
-	} else if (ras_mgr->ras_core->poison_supported) {
+	} else if (ras_core_poison_supported(ras_mgr->ras_core)) {
 		ret = amdgpu_ras_process_handle_consumption_interrupt(adev, ih_info);
 	} else {
 		RAS_DEV_WARN(adev,

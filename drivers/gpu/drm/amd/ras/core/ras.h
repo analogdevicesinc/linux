@@ -103,7 +103,8 @@ enum ras_block_id {
 	RAS_BLOCK_ID__SSBDCI,
 	RAS_BLOCK_ID__UCIE_PCS,
 
-	RAS_BLOCK_ID__LAST
+	RAS_BLOCK_ID__LAST,
+	MAX_SUPPORTED_RAS_BLOCK_ID  = MAX_RAS_BLOCK_MASK_BITS
 };
 
 enum ras_ecc_err_type {
@@ -452,4 +453,6 @@ int ras_core_get_eeprom_version(struct ras_core_context *ras_core,
 	uint32_t *version);
 int ras_core_get_ip_version(struct ras_core_context *ras_core,
 	enum ras_unit_id unit_id, uint32_t *version);
+uint64_t ras_core_get_ras_caps(struct ras_core_context *ras_core);
+bool ras_core_poison_supported(struct ras_core_context *ras_core);
 #endif

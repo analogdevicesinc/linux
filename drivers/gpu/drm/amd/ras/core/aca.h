@@ -145,6 +145,7 @@ struct aca_block {
 struct ras_aca_ip_func {
 	uint32_t block_num;
 	const struct aca_block_info **block_info;
+	u64 (*aca_parse_ras_caps)(struct ras_core_context *ras_core);
 };
 
 struct ras_aca {
@@ -169,4 +170,5 @@ void ras_aca_clear_fatal_flag(struct ras_core_context *ras_core);
 int ras_aca_parse_bank(struct ras_core_context *ras_core,
 				struct aca_bank_reg *bank,
 				struct aca_bank_ecc *ecc);
+u64 ras_aca_get_parser_caps(struct ras_core_context *ras_core);
 #endif
