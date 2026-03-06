@@ -373,6 +373,7 @@ static int ad7768_set_dig_fil(struct ad7768_state *st,
 
 	/* A sync-in pulse is required every time the filter dec rate changes */
 	gpiod_set_value(st->gpio_sync_in, 1);
+	msleep(1);
 	gpiod_set_value(st->gpio_sync_in, 0);
 
 	return 0;
