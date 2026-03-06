@@ -205,11 +205,11 @@ static inline bool arch_supports_memmap_on_memory(unsigned long vmemmap_size)
 #endif /* CONFIG_PPC64 */
 
 #ifndef pmd_user_accessible_page
-#define pmd_user_accessible_page(pmd, addr)	false
+#define pmd_user_accessible_page(mm, addr, pmd)	false
 #endif
 
 #ifndef pud_user_accessible_page
-#define pud_user_accessible_page(pud, addr)	false
+#define pud_user_accessible_page(mm, addr, pud)	false
 #endif
 
 #endif /* __ASSEMBLER__ */
