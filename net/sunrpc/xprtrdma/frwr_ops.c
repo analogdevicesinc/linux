@@ -244,9 +244,10 @@ int frwr_query_device(struct rpcrdma_ep *ep, const struct ib_device *device)
 	}
 	ep->re_attr.cap.max_send_wr += RPCRDMA_BACKWARD_WRS;
 	ep->re_attr.cap.max_send_wr += 1; /* for ib_drain_sq */
+	ep->re_recv_batch = ep->re_max_requests >> 2;
 	ep->re_attr.cap.max_recv_wr = ep->re_max_requests;
 	ep->re_attr.cap.max_recv_wr += RPCRDMA_BACKWARD_WRS;
-	ep->re_attr.cap.max_recv_wr += RPCRDMA_MAX_RECV_BATCH;
+	ep->re_attr.cap.max_recv_wr += ep->re_recv_batch;
 	ep->re_attr.cap.max_recv_wr += 1; /* for ib_drain_rq */
 
 	ep->re_max_rdma_segs =

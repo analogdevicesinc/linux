@@ -96,6 +96,7 @@ struct rpcrdma_ep {
 	struct rpcrdma_notification	re_rn;
 	int			re_receive_count;
 	unsigned int		re_max_requests; /* depends on device */
+	unsigned int		re_recv_batch;
 	unsigned int		re_inline_send;	/* negotiated */
 	unsigned int		re_inline_recv;	/* negotiated */
 
