@@ -1331,7 +1331,7 @@
 			#clock-cells = <0>;
 			dma-coherent;
 			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&zynqmp_clk 73>;
+			clocks = <&zynqmp_clk 71>;
 		};
 
 		rx_obs_dma: dma-controller@9c440000 {
@@ -1341,7 +1341,7 @@
 			#clock-cells = <0>;
 			dma-coherent;
 			interrupts = <0 104 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&zynqmp_clk 73>;
+			clocks = <&zynqmp_clk 71>;
 		};
 
 		tx_dma: dma-controller@9c400000 {
@@ -1351,7 +1351,7 @@
 			#clock-cells = <0>;
 			dma-coherent;
 			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&zynqmp_clk 73>;
+			clocks = <&zynqmp_clk 71>;
 		};
 
 		axi_adrv9009_core_rx: axi-adrv9009-rx-hpc@84a00000 {
