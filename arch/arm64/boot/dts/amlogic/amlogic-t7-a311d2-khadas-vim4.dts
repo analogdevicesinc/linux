@@ -8,7 +8,7 @@
 #include "amlogic-t7.dtsi"
 
 / {
-	model = "Khadas vim4";
+	model = "Khadas VIM4";
 	compatible = "khadas,vim4", "amlogic,a311d2", "amlogic,t7";
 
 	aliases {
