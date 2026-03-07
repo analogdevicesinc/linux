@@ -917,7 +917,7 @@ static void target_complete(struct se_cmd *cmd, int success)
 	da = &cmd->se_dev->dev_attrib;
 	if (da->complete_type == TARGET_FABRIC_DEFAULT_COMPL)
 		compl_type = wwn->wwn_tf->tf_ops->default_compl_type;
-	else if (da->complete_type == TARGET_DIRECT_SUBMIT &&
+	else if (da->complete_type == TARGET_DIRECT_COMPL &&
 		 wwn->wwn_tf->tf_ops->direct_compl_supp)
 		compl_type = TARGET_DIRECT_COMPL;
 	else
