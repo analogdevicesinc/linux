@@ -521,16 +521,16 @@ static int palmas_gpadc_get_low_threshold_raw(struct palmas_gpadc *adc,
 
 	val = (val * 1000) / adc->adc_info[adc_chan].gain;
 
-        if (adc->adc_info[adc_chan].is_uncalibrated) {
+	if (adc->adc_info[adc_chan].is_uncalibrated) {
 		/* 2% worse */
 		min_gain_error -= 20;
 		min_offset_error = -36;
-        } else {
+	} else {
 		val = (val * adc->adc_info[adc_chan].gain_error -
 		       adc->adc_info[adc_chan].offset) /
 			1000;
 		min_offset_error = -2;
-        }
+	}
 
 	return palmas_gpadc_threshold_with_tolerance(val,
 						     min_INL,
