@@ -465,6 +465,7 @@ void dml2_initialize_det_scratch(struct dml2_context *in_ctx)
 
 static unsigned int find_planes_per_stream_and_stream_count(struct dml2_context *in_ctx, struct dml_display_cfg_st *dml_dispcfg, int *num_of_planes_per_stream)
 {
+	(void)in_ctx;
 	unsigned int plane_index, stream_index = 0, num_of_streams;
 
 	for (plane_index = 0; plane_index < dml_dispcfg->num_surfaces; plane_index++) {

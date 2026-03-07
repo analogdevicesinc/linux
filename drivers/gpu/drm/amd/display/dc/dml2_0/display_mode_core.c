@@ -1812,6 +1812,8 @@ static dml_float_t CalculateWriteBackDISPCLK(
 		dml_uint_t WritebackLineBufferSize,
 		dml_float_t DISPCLKDPPCLKVCOSpeed)
 {
+	(void)WritebackPixelFormat;
+	(void)WritebackVRatio;
 	dml_float_t DISPCLK_H, DISPCLK_V, DISPCLK_HB;
 
 	DISPCLK_H = PixelClock * dml_ceil(WritebackHTaps / 8.0, 1) / WritebackHRatio;
@@ -1830,6 +1832,8 @@ static dml_float_t CalculateWriteBackDelay(
 		dml_uint_t WritebackSourceHeight,
 		dml_uint_t HTotal)
 {
+	(void)WritebackPixelFormat;
+	(void)WritebackHRatio;
 	dml_float_t CalculateWriteBackDelay;
 	dml_float_t Line_length;
 	dml_float_t Output_lines_last_notclamped;
@@ -1977,6 +1981,7 @@ static void CalculateFlipSchedule(
 		dml_float_t *final_flip_bw,
 		dml_bool_t *ImmediateFlipSupportedForPipe)
 {
+	(void)HostVMMinPageSize;
 	dml_float_t min_row_time = 0.0;
 	dml_uint_t HostVMDynamicLevelsTrips = 0;
 	dml_float_t TimeForFetchingMetaPTEImmediateFlip = 0;
@@ -2118,6 +2123,11 @@ static void CalculateDCCConfiguration(
 		dml_uint_t *IndependentBlockLuma,
 		dml_uint_t *IndependentBlockChroma)
 {
+	(void)SurfaceWidthChroma;
+	(void)SurfaceHeightChroma;
+	(void)TilingFormat;
+	(void)BytePerPixelDETY;
+	(void)BytePerPixelDETC;
 	dml_uint_t DETBufferSizeForDCC = nomDETInKByte * 1024;
 
 	dml_uint_t yuv420;
@@ -2489,6 +2499,7 @@ static dml_uint_t CalculateVMAndRowBytes(
 		dml_uint_t *DPDE0BytesFrame,
 		dml_uint_t *MetaPTEBytesFrame)
 {
+	(void)SourcePixelFormat;
 	dml_uint_t MPDEBytesFrame;
 	dml_uint_t DCCMetaSurfaceBytes;
 	dml_uint_t ExtraDPDEBytesFrame;
@@ -3662,6 +3673,8 @@ static void CalculateVMGroupAndRequestTimes(
 		dml_float_t TimePerVMRequestVBlank[],
 		dml_float_t TimePerVMRequestFlip[])
 {
+	(void)dpte_row_width_luma_ub;
+	(void)dpte_row_width_chroma_ub;
 	dml_uint_t num_group_per_lower_vm_stage;
 	dml_uint_t num_req_per_lower_vm_stage;
 
@@ -3762,6 +3775,7 @@ static void CalculateVMGroupAndRequestTimes(
 static void CalculateStutterEfficiency(struct display_mode_lib_scratch_st *scratch,
 		struct CalculateStutterEfficiency_params_st *p)
 {
+	(void)scratch;
 	dml_float_t DETBufferingTimeY = 0;
 	dml_float_t SwathWidthYCriticalSurface = 0;
 	dml_float_t SwathHeightYCriticalSurface = 0;
@@ -4085,6 +4099,7 @@ static void CalculateStutterEfficiency(struct display_mode_lib_scratch_st *scrat
 static void CalculateSwathAndDETConfiguration(struct display_mode_lib_scratch_st *scratch,
 	struct CalculateSwathAndDETConfiguration_params_st *p)
 {
+	(void)scratch;
 	dml_uint_t MaximumSwathHeightY[__DML_NUM_PLANES__];
 	dml_uint_t MaximumSwathHeightC[__DML_NUM_PLANES__];
 	dml_uint_t RoundedUpMaxSwathSizeBytesY[__DML_NUM_PLANES__];
@@ -4331,6 +4346,7 @@ static void CalculateSwathWidth(
 		dml_uint_t swath_width_luma_ub[], // per-pipe
 		dml_uint_t swath_width_chroma_ub[]) // per-pipe
 {
+	(void)BytePerPixY;
 	enum dml_odm_mode   MainSurfaceODMMode;
 	dml_uint_t surface_width_ub_l;
 	dml_uint_t surface_height_ub_l;
@@ -5029,6 +5045,7 @@ static void CalculateMaxDETAndMinCompressedBufferSize(
 		dml_uint_t *nomDETInKByte,
 		dml_uint_t *MinCompressedBufferSizeInKByte)
 {
+	(void)ROBBufferSizeInKByte;
 	*MaxTotalDETInKByte = ConfigReturnBufferSizeInKByte - ConfigReturnBufferSegmentSizeInKByte;
 	*nomDETInKByte = (dml_uint_t)(dml_floor((dml_float_t) *MaxTotalDETInKByte / (dml_float_t) MaxNumDPP, ConfigReturnBufferSegmentSizeInKByte));
 	*MinCompressedBufferSizeInKByte = ConfigReturnBufferSizeInKByte - *MaxTotalDETInKByte;

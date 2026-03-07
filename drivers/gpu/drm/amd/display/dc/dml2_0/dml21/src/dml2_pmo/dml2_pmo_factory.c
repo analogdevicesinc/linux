@@ -9,16 +9,19 @@
 
 static bool dummy_init_for_stutter(struct dml2_pmo_init_for_stutter_in_out *in_out)
 {
+	(void)in_out;
 	return false;
 }
 
 static bool dummy_test_for_stutter(struct dml2_pmo_test_for_stutter_in_out *in_out)
 {
+	(void)in_out;
 	return true;
 }
 
 static bool dummy_optimize_for_stutter(struct dml2_pmo_optimize_for_stutter_in_out *in_out)
 {
+	(void)in_out;
 	return false;
 }
 

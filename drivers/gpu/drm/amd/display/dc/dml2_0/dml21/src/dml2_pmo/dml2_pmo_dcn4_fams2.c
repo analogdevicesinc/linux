@@ -428,6 +428,7 @@ static void insert_strategy_into_expanded_list(
 	struct dml2_pmo_pstate_strategy *expanded_strategy_list,
 	unsigned int *num_expanded_strategies)
 {
+	(void)stream_count;
 	if (expanded_strategy_list && num_expanded_strategies) {
 		memcpy(&expanded_strategy_list[*num_expanded_strategies], per_stream_pstate_strategy, sizeof(struct dml2_pmo_pstate_strategy));
 
@@ -520,6 +521,7 @@ static bool is_variant_method_valid(const struct dml2_pmo_pstate_strategy *base_
 		const unsigned int num_streams_per_variant_method[PMO_DCN4_MAX_DISPLAYS],
 		const unsigned int stream_count)
 {
+	(void)variant_strategy;
 	bool valid = true;
 	unsigned int i;
 
@@ -1180,6 +1182,7 @@ static bool all_timings_support_svp(const struct dml2_pmo_instance *pmo,
 
 static void insert_into_candidate_list(const struct dml2_pmo_pstate_strategy *pstate_strategy, int stream_count, struct dml2_pmo_scratch *scratch)
 {
+	(void)stream_count;
 	scratch->pmo_dcn4.pstate_strategy_candidates[scratch->pmo_dcn4.num_pstate_candidates] = *pstate_strategy;
 	scratch->pmo_dcn4.num_pstate_candidates++;
 }
@@ -1847,6 +1850,7 @@ static void build_subvp_meta_per_stream(struct dml2_pmo_instance *pmo,
 	struct display_configuation_with_meta *display_config,
 	int stream_index)
 {
+	(void)display_config;
 	struct dml2_implicit_svp_meta *stream_svp_meta = &pmo->scratch.pmo_dcn4.stream_svp_meta[stream_index];
 	struct dml2_pstate_meta *stream_pstate_meta = &pmo->scratch.pmo_dcn4.stream_pstate_meta[stream_index];
 
@@ -1990,6 +1994,7 @@ static void setup_planes_for_drr_by_mask(struct display_configuation_with_meta *
 	struct dml2_pmo_instance *pmo,
 	int plane_mask)
 {
+	(void)pmo;
 	unsigned int plane_index;
 	struct dml2_plane_parameters *plane;
 

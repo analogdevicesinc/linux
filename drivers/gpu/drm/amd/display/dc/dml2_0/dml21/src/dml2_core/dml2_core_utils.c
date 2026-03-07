@@ -648,6 +648,7 @@ static void create_phantom_stream_from_main_stream(struct dml2_stream_parameters
 static void create_phantom_plane_from_main_plane(struct dml2_plane_parameters *phantom, const struct dml2_plane_parameters *main,
 	const struct dml2_stream_parameters *phantom_stream, int phantom_stream_index, const struct dml2_stream_parameters *main_stream)
 {
+	(void)main_stream;
 	memcpy(phantom, main, sizeof(struct dml2_plane_parameters));
 
 	phantom->stream_index = phantom_stream_index;

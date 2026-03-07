@@ -441,6 +441,7 @@ static void populate_dml21_surface_config_from_plane_state(
 		struct dml2_surface_cfg *surface,
 		const struct dc_plane_state *plane_state)
 {
+	(void)in_dc;
 	surface->plane0.pitch = plane_state->plane_size.surface_pitch;
 	surface->plane1.pitch = plane_state->plane_size.chroma_pitch;
 	surface->plane0.height = plane_state->plane_size.surface_size.height;
@@ -873,6 +874,7 @@ static struct dml2_dchub_watermark_regs *wm_set_index_to_dc_wm_set(union dcn_wat
 
 void dml21_extract_watermark_sets(const struct dc *in_dc, union dcn_watermark_set *watermarks, struct dml2_context *in_ctx)
 {
+	(void)in_dc;
 	const struct dml2_display_cfg_programming *programming = in_ctx->v21.mode_programming.programming;
 
 	unsigned int wm_index;
@@ -907,6 +909,7 @@ void dml21_get_pipe_mcache_config(
 	struct dml2_per_plane_programming *pln_prog,
 	struct dml2_pipe_configuration_descriptor *mcache_pipe_config)
 {
+	(void)context;
 	mcache_pipe_config->plane0.viewport_x_start = pipe_ctx->plane_res.scl_data.viewport.x;
 	mcache_pipe_config->plane0.viewport_width = pipe_ctx->plane_res.scl_data.viewport.width;
 

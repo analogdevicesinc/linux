@@ -9,6 +9,7 @@
 
 static bool dummy_build_min_clock_table(struct dml2_mcg_build_min_clock_table_params_in_out *in_out)
 {
+	(void)in_out;
 	return true;
 }
 
