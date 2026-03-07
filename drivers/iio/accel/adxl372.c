@@ -7,6 +7,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
+#include <linux/cleanup.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/module.h>
@@ -336,18 +337,14 @@ static ssize_t adxl372_write_threshold_value(struct iio_dev *indio_dev, unsigned
 	struct adxl372_state *st = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&st->threshold_m);
+	guard(mutex)(&st->threshold_m);
+
 	ret = regmap_write(st->regmap, addr, ADXL372_THRESH_VAL_H_SEL(threshold));
 	if (ret < 0)
-		goto unlock;
+		return ret;
 
-	ret = regmap_update_bits(st->regmap, addr + 1, GENMASK(7, 5),
-				 ADXL372_THRESH_VAL_L_SEL(threshold) << 5);
-
-unlock:
-	mutex_unlock(&st->threshold_m);
-
-	return ret;
+	return regmap_update_bits(st->regmap, addr + 1, GENMASK(7, 5),
+				  ADXL372_THRESH_VAL_L_SEL(threshold) << 5);
 }
 
 static int adxl372_read_axis(struct adxl372_state *st, u8 addr)
