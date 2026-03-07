@@ -1,0 +1,200 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/iio/adi,ad5592r.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2837", "brcm,bcm2711", "brcm,bcm2712";
+
+	__overrides__ {
+		cs_pin = <&ad5592r>,"reg:0";
+		lm75_addr = <&lm75>,"reg:0";
+		ad5593r_addr = <&ad5593r>,"reg:0";
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spi0 {
+	#size-cells = <0>;
+	#address-cells = <1>;
+	status = "okay";
+
+	ad5592r: ad5592r@0 {
+		compatible = "adi,ad5592r";
+		reg = <0>;
+		#size-cells = <0>;
+		#address-cells = <1>;
+		label = "my_lsmspg_ad5592r";
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+		#gpio-cells = <2>;
+		gpio-controller;
+
+		channel@0 {
+			reg = <0>;
+			adi,mode = <CH_MODE_DAC>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,mode = <CH_MODE_ADC>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+		};
+
+		channel@4 {
+			reg = <4>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>; // input
+		};
+
+		channel@5 {
+			reg = <5>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_OUT_LOW>; // output
+		};
+
+		channel@6 {
+			reg = <6>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>; // input
+		};
+
+		channel@7 {
+			reg = <7>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_OUT_LOW>; // output
+		};
+	};
+};
+
+&i2c1 {
+	#size-cells = <0>;
+	#address-cells = <1>;
+	status = "okay";
+	clock-frequency = <400000>;
+
+	ad5593r: ad5593r@10 {
+		compatible = "adi,ad5593r";
+		reg = <0x10>;
+		#size-cells = <0>;
+		#address-cells = <1>;
+		label = "my_lsmspg_ad5593r";
+		#gpio-cells = <2>;
+		gpio-controller;
+
+		channel@0 {
+			reg = <0>;
+			adi,mode = <CH_MODE_DAC>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,mode = <CH_MODE_ADC>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			adi,mode = <CH_MODE_DAC_AND_ADC>;
+		};
+
+		channel@4 {
+			reg = <4>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>; // input
+		};
+
+		channel@5 {
+			reg = <5>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_OUT_LOW>; // output
+		};
+
+		channel@6 {
+			reg = <6>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_PULLDOWN>; // input
+		};
+
+		channel@7 {
+			reg = <7>;
+			adi,mode = <CH_MODE_GPIO>;
+			adi,off-state = <CH_OFFSTATE_OUT_LOW>; // output
+		};
+	};
+
+	lm75: lm75@48 {
+		compatible = "national,lm75";
+		reg = <0x48>;
+		label = "my_lsmspg_lm75";
+	};
+};
+
+&{/} {
+	one-bit-adc-dac {
+		compatible = "adi,one-bit-adc-dac";
+		label = "my_lsmspg_gpios";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		in-gpios = <&ad5592r 4 0>, <&ad5592r 6 0>, <&ad5593r 4 0>, <&ad5593r 6 0>;
+		out-gpios = <&ad5592r 5 0>, <&ad5592r 7 0>, <&ad5593r 5 0>, <&ad5593r 7 0>;
+		status = "okay";
+
+		channel@0 {
+			reg = <0>;
+			label = "AD5592R_GPI_CH_4";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "AD5592R_GPI_CH_6";
+		};
+
+		channel@2 {
+			reg = <2>;
+			label = "AD5593R_GPI_CH_4";
+		};
+
+		channel@3 {
+			reg = <3>;
+			label = "AD5593R_GPI_CH_6";
+		};
+
+		channel@4 {
+			reg = <4>;
+			label = "AD5592R_GPO_CH_5";
+		};
+
+		channel@5 {
+			reg = <5>;
+			label = "AD5592R_GPO_CH_7";
+		};
+
+		channel@6 {
+			reg = <6>;
+			label = "AD5593R_GPO_CH_5";
+		};
+
+		channel@7 {
+			reg = <7>;
+			label = "AD5593R_GPO_CH_7";
+		};
+	};
+};
