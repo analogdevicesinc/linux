@@ -910,7 +910,6 @@ int ocrdma_dereg_mr(struct ib_mr *ib_mr, struct ib_udata *udata)
 
 	(void) ocrdma_mbx_dealloc_lkey(dev, mr->hwmr.fr_mr, mr->hwmr.lkey);
 
-	kfree(mr->pages);
 	ocrdma_free_mr_pbl_tbl(dev, &mr->hwmr);
 
 	/* it could be user registered memory. */
@@ -2908,19 +2907,13 @@ struct ib_mr *ocrdma_alloc_mr(struct ib_pd *ibpd, enum ib_mr_type mr_type,
 	if (max_num_sg > dev->attr.max_pages_per_frmr)
 		return ERR_PTR(-EINVAL);
 
-	mr = kzalloc_obj(*mr);
+	mr = kzalloc_flex(*mr, pages, max_num_sg);
 	if (!mr)
 		return ERR_PTR(-ENOMEM);
 
-	mr->pages = kzalloc_objs(*mr->pages, max_num_sg);
-	if (!mr->pages) {
-		status = -ENOMEM;
-		goto pl_err;
-	}
-
 	status = ocrdma_get_pbl_info(dev, mr, max_num_sg);
 	if (status)
-		goto pbl_err;
+		goto pl_err;
 	mr->hwmr.fr_mr = 1;
 	mr->hwmr.remote_rd = 0;
 	mr->hwmr.remote_wr = 0;
@@ -2929,7 +2922,7 @@ struct ib_mr *ocrdma_alloc_mr(struct ib_pd *ibpd, enum ib_mr_type mr_type,
 	mr->hwmr.mw_bind = 0;
 	status = ocrdma_build_pbl_tbl(dev, &mr->hwmr);
 	if (status)
-		goto pbl_err;
+		goto pl_err;
 	status = ocrdma_reg_mr(dev, &mr->hwmr, pd->id, 0);
 	if (status)
 		goto mbx_err;
@@ -2940,8 +2933,6 @@ struct ib_mr *ocrdma_alloc_mr(struct ib_pd *ibpd, enum ib_mr_type mr_type,
 	return &mr->ibmr;
 mbx_err:
 	ocrdma_free_mr_pbl_tbl(dev, &mr->hwmr);
-pbl_err:
-	kfree(mr->pages);
 pl_err:
 	kfree(mr);
 	return ERR_PTR(-ENOMEM);
