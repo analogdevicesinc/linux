@@ -750,7 +750,7 @@ static int iio_storage_bytes_for_si(struct iio_dev *indio_dev,
 	bytes = scan_type->storagebits / 8;
 
 	if (scan_type->repeat > 1)
-		bytes *= scan_type->repeat;
+		bytes *= roundup_pow_of_two(scan_type->repeat);
 
 	return bytes;
 }
