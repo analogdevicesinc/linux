@@ -764,7 +764,8 @@ static int iio_storage_bytes_for_timestamp(struct iio_dev *indio_dev)
 }
 
 static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
-				  const unsigned long *mask, bool timestamp)
+				  const unsigned long *mask, bool timestamp,
+				  unsigned int *scan_bytes)
 {
 	unsigned int bytes = 0;
 	int length, i, largest = 0;
@@ -790,8 +791,9 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 		largest = max(largest, length);
 	}
 
-	bytes = ALIGN(bytes, largest);
-	return bytes;
+	*scan_bytes = ALIGN(bytes, largest);
+
+	return 0;
 }
 
 static void iio_buffer_activate(struct iio_dev *indio_dev,
@@ -836,18 +838,23 @@ static int iio_buffer_disable(struct iio_buffer *buffer,
 	return buffer->access->disable(buffer, indio_dev);
 }
 
-static void iio_buffer_update_bytes_per_datum(struct iio_dev *indio_dev,
-					      struct iio_buffer *buffer)
+static int iio_buffer_update_bytes_per_datum(struct iio_dev *indio_dev,
+					     struct iio_buffer *buffer)
 {
 	unsigned int bytes;
+	int ret;
 
 	if (!buffer->access->set_bytes_per_datum)
-		return;
+		return 0;
 
-	bytes = iio_compute_scan_bytes(indio_dev, buffer->scan_mask,
-				       buffer->scan_timestamp);
+	ret = iio_compute_scan_bytes(indio_dev, buffer->scan_mask,
+				     buffer->scan_timestamp, &bytes);
+	if (ret)
+		return ret;
 
 	buffer->access->set_bytes_per_datum(buffer, bytes);
+
+	return 0;
 }
 
 static int iio_buffer_request_update(struct iio_dev *indio_dev,
@@ -855,7 +862,10 @@ static int iio_buffer_request_update(struct iio_dev *indio_dev,
 {
 	int ret;
 
-	iio_buffer_update_bytes_per_datum(indio_dev, buffer);
+	ret = iio_buffer_update_bytes_per_datum(indio_dev, buffer);
+	if (ret)
+		return ret;
+
 	if (buffer->access->request_update) {
 		ret = buffer->access->request_update(buffer);
 		if (ret) {
@@ -898,6 +908,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	struct iio_buffer *buffer;
 	bool scan_timestamp;
 	unsigned int modes;
+	int ret;
 
 	if (insert_buffer &&
 	    bitmap_empty(insert_buffer->scan_mask, masklength)) {
@@ -985,8 +996,11 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 		scan_mask = compound_mask;
 	}
 
-	config->scan_bytes = iio_compute_scan_bytes(indio_dev,
-						    scan_mask, scan_timestamp);
+	ret = iio_compute_scan_bytes(indio_dev, scan_mask, scan_timestamp,
+				     &config->scan_bytes);
+	if (ret)
+		return ret;
+
 	config->scan_mask = scan_mask;
 	config->scan_timestamp = scan_timestamp;
 
