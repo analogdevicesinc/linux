@@ -212,10 +212,6 @@ struct hfi1_ctxtdata {
 	u8 rhf_offset;
 	/* dynamic receive available interrupt timeout */
 	u8 rcvavail_timeout;
-	/* Indicates that this is vnic context */
-	bool is_vnic;
-	/* vnic queue index this context is mapped to */
-	u8 vnic_q_idx;
 	/* Is ASPM interrupt supported for this context */
 	bool aspm_intr_supported;
 	/* ASPM state (enabled/disabled) for this context */
@@ -402,7 +398,6 @@ struct hfi1_packet {
 #define OPA_16B_L4_FM		0x08
 #define OPA_16B_L4_IB_LOCAL	0x09
 #define OPA_16B_L4_IB_GLOBAL	0x0A
-#define OPA_16B_L4_ETHR		OPA_VNIC_L4_ETHR
 
 /*
  * OPA 16B Management
@@ -997,14 +992,6 @@ struct hfi1_asic_data {
 #define NUM_MAP_ENTRIES	 256
 #define NUM_MAP_REGS      32
 
-/* Virtual NIC information */
-struct hfi1_vnic_data {
-	struct kmem_cache *txreq_cache;
-	u8 num_vports;
-};
-
-struct hfi1_vnic_vport_info;
-
 /* device data struct now contains only "general per-device" info.
  * fields related to a physical IB port are in a hfi1_pportdata struct.
  */
@@ -1298,9 +1285,6 @@ struct hfi1_devdata {
 	send_routine process_dma_send;
 	void (*pio_inline_send)(struct hfi1_devdata *dd, struct pio_buf *pbuf,
 				u64 pbc, const void *from, size_t count);
-	int (*process_vnic_dma_send)(struct hfi1_devdata *dd, u8 q_idx,
-				     struct hfi1_vnic_vport_info *vinfo,
-				     struct sk_buff *skb, u64 pbc, u8 plen);
 	/* hfi1_pportdata, points to array of (physical) port-specific
 	 * data structs, indexed by pidx (0..n-1)
 	 */
@@ -1314,7 +1298,6 @@ struct hfi1_devdata {
 	u16 flags;
 	/* Number of physical ports available */
 	u8 num_pports;
-	/* Lowest context number which can be used by user processes or VNIC */
 	u8 first_dyn_alloc_ctxt;
 	/* adding a new field here would make it part of this cacheline */
 
@@ -1353,11 +1336,8 @@ struct hfi1_devdata {
 	bool aspm_enabled;	/* ASPM state: enabled/disabled */
 	struct rhashtable *sdma_rht;
 
-	/* vnic data */
-	struct hfi1_vnic_data vnic;
 	/* Lock to protect IRQ SRC register access */
 	spinlock_t irq_src_lock;
-	int vnic_num_vports;
 	struct hfi1_netdev_rx *netdev_rx;
 	struct hfi1_affinity_node *affinity_entry;
 

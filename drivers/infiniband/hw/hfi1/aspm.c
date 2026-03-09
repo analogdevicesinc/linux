@@ -179,7 +179,7 @@ static  void aspm_ctx_timer_function(struct timer_list *t)
 }
 
 /*
- * Disable interrupt processing for verbs contexts when PSM or VNIC contexts
+ * Disable interrupt processing for verbs contexts when PSM contexts
  * are open.
  */
 void aspm_disable_all(struct hfi1_devdata *dd)

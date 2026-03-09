@@ -9,7 +9,6 @@ InfiniBand
 
    core_locking
    ipoib
-   opa_vnic
    sysfs
    tag_matching
    ucaps
