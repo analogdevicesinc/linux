@@ -68,6 +68,17 @@
 #define CDU_MUX_WIDTH 2
 #define CDU_EN_BIT 0
 
+static struct clk_sc5xx_cgu_divider {
+	struct clk_hw hw;
+	void __iomem *div_reg;
+	void __iomem *stat_reg;
+	spinlock_t *lock;
+	u8 shift;
+	u8 width;
+	u32 mask;
+	u32 flags;
+};
+
 struct clk_sc5xx_cgu_pll *to_clk_sc5xx_cgu_pll(struct clk_hw *hw);
 
 struct clk *sc5xx_cgu_pll(const char *name, const char *parent_name,
@@ -128,6 +139,20 @@ static inline int cdu_check_clocks(struct clk *clks[], size_t count)
 	}
 
 	return 0;
+}
+
+static inline struct clk *sc5xx_cgu_divider(const char *name, const char *parent,
+					    void __iomem *reg, u8 shift, 
+					    u8 width, u8 extra flags, 
+					    spinlock_t *cdu_lock) 
+{
+	struct clk_sc5xx_cgu_divider cgu_div;
+	struct clk *clk;
+
+	cgu_div = kzalloc(sizeof(*cgu_div), GFP_KERNEL);
+	if (!cgu_div)
+		return ERR_PTR(-ENOMEM);
+	
 }
 
 #endif
