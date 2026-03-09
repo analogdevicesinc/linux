@@ -36,6 +36,7 @@ enum adi_axi_fgpa_technology {
 	ADI_AXI_FPGA_TECH_SERIES7,
 	ADI_AXI_FPGA_TECH_ULTRASCALE,
 	ADI_AXI_FPGA_TECH_ULTRASCALE_PLUS,
+	ADI_AXI_FPGA_TECH_VERSAL,
 };
 
 enum adi_axi_fpga_family {
@@ -56,6 +57,7 @@ enum adi_axi_fpga_speed_grade {
 	ADI_AXI_FPGA_SPEED_2	= 20,
 	ADI_AXI_FPGA_SPEED_2L	= 21,
 	ADI_AXI_FPGA_SPEED_2LV	= 22,
+	ADI_AXI_FPGA_SPEED_2MP	= 23,
 	ADI_AXI_FPGA_SPEED_3	= 30,
 };
 
