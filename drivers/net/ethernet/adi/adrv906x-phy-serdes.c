@@ -71,6 +71,7 @@ enum adrv906x_serdes_states {
 	SD_ST_LOS,
 	SD_ST_SIGNAL_OK,
 	SD_ST_PWR_DOWN,
+	SD_ST_PWRDN_LNKUP,
 };
 
 enum adrv906x_serdes_events {
@@ -240,7 +241,11 @@ static struct adrv906x_phy_fsm_tran adrv906x_phy_fsm_serdes_trans[] = {
 
 	{ SD_ST_PWR_DOWN,     SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_IDLE	 },
 	{ SD_ST_PWR_DOWN,     SD_EVT_PWR_DOWN_DONE, __sd_lnk_down_notif,      SD_ST_APP_ACTV	 },
-	{ SD_ST_PWR_DOWN,     SD_EVT_LNK_UP,	    __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
+	{ SD_ST_PWR_DOWN,     SD_EVT_LNK_UP,	    __do_nothing,	      SD_ST_PWRDN_LNKUP	 },
+
+	{ SD_ST_PWRDN_LNKUP,  SD_EVT_PWR_DOWN_DONE, __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
+	{ SD_ST_PWRDN_LNKUP,  SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_IDLE	 },
+	{ SD_ST_PWRDN_LNKUP,  SD_EVT_LNK_DOWN,	    __sd_lnk_down_notif,      SD_ST_PWR_DOWN	 },
 
 	{ SD_ST_RATE_CHANGED, SD_EVT_APP_INACT,	    __sd_pwr_down,	      SD_ST_LNK_UP_PEND	 },
 	{ SD_ST_RATE_CHANGED, SD_EVT_PWR_DOWN_DONE, __sd_cfg_pll_req,	      SD_ST_PLL_CFG	 },
@@ -431,6 +436,7 @@ static char *adrv906x_serdes_state_to_str(u32 state)
 	case SD_ST_LOS:          return "LOS";
 	case SD_ST_SIGNAL_OK:    return "SIGNAL_OK";
 	case SD_ST_PWR_DOWN:     return "PWR_DOWN";
+	case SD_ST_PWRDN_LNKUP:  return "PWRDN_LNKUP";
 	default:                 return "UNKNOWN";
 	}
 }
