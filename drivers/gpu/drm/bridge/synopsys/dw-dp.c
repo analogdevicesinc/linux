@@ -1970,10 +1970,6 @@ struct dw_dp *dw_dp_bind(struct device *dev, struct drm_encoder *encoder,
 	void __iomem *res;
 	int ret;
 
-	dp = devm_kzalloc(dev, sizeof(*dp), GFP_KERNEL);
-	if (!dp)
-		return ERR_PTR(-ENOMEM);
-
 	dp = devm_drm_bridge_alloc(dev, struct dw_dp, bridge, &dw_dp_bridge_funcs);
 	if (IS_ERR(dp))
 		return ERR_CAST(dp);
