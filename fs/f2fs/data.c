@@ -173,7 +173,8 @@ static void f2fs_finish_read_bio(struct bio *bio, bool in_task)
 		while (nr_pages--)
 			dec_page_count(F2FS_F_SB(folio), __read_io_type(folio));
 
-		if (F2FS_F_SB(folio)->node_inode && is_node_folio(folio) &&
+		if (bio->bi_status == BLK_STS_OK &&
+			F2FS_F_SB(folio)->node_inode && is_node_folio(folio) &&
 			f2fs_sanity_check_node_footer(F2FS_F_SB(folio),
 				folio, folio->index, NODE_TYPE_REGULAR, true))
 			bio->bi_status = BLK_STS_IOERR;
