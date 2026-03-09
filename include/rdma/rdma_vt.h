@@ -366,6 +366,9 @@ struct rvt_driver_provided {
 
 	/* deallocate a ucontext */
 	void (*dealloc_ucontext)(struct ib_ucontext *context);
+
+	/* driver mmap */
+	int (*mmap)(struct ib_ucontext *context, struct vm_area_struct *vma);
 };
 
 struct rvt_dev_info {
