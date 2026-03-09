@@ -7,8 +7,11 @@
  */
 
 #include <linux/component.h>
+#include <linux/media-bus-format.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/videodev2.h>
+
 #include <drm/bridge/dw_dp.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge.h>
@@ -19,11 +22,7 @@
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_simple_kms_helper.h>
 
-#include <linux/media-bus-format.h>
-#include <linux/videodev2.h>
-
 #include "rockchip_drm_drv.h"
-#include "rockchip_drm_vop.h"
 
 struct rockchip_dw_dp {
 	struct dw_dp *base;
