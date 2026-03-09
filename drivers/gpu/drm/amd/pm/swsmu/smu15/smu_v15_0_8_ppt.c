@@ -173,6 +173,13 @@ static const struct cmn2asic_mapping smu_v15_0_8_table_map[SMU_TABLE_COUNT] = {
 	TAB_MAP(I2C_COMMANDS),
 };
 
+static const uint8_t smu_v15_0_8_throttler_map[] = {
+	[THROTTLER_PROCHOT_BIT] = (SMU_THROTTLER_PROCHOT_GFX_BIT),
+	[THROTTLER_THERMAL_SOCKET_BIT] = (SMU_THROTTLER_TEMP_GPU_BIT),
+	[THROTTLER_THERMAL_VR_BIT] = (SMU_THROTTLER_TEMP_VR_GFX_BIT),
+	[THROTTLER_THERMAL_HBM_BIT] = (SMU_THROTTLER_TEMP_MEM_BIT),
+};
+
 static size_t smu_v15_0_8_get_system_metrics_size(void)
 {
 	return sizeof(SystemMetricsTable_t);
@@ -2274,6 +2281,63 @@ static int smu_v15_0_8_get_ppt_limit(struct smu_context *smu,
 	return -EOPNOTSUPP;
 }
 
+static uint32_t smu_v15_0_8_get_throttler_status(struct smu_context *smu)
+{
+	struct smu_power_context *smu_power = &smu->smu_power;
+	struct smu_15_0_power_context *power_context = smu_power->power_context;
+	uint32_t throttler_status = 0;
+
+	throttler_status = atomic_read(&power_context->throttle_status);
+	dev_dbg(smu->adev->dev, "SMU Throttler status: %u", throttler_status);
+
+	return throttler_status;
+}
+
+static const char *const throttling_logging_label[] = {
+	[THROTTLER_PROCHOT_BIT] = "Prochot",
+	[THROTTLER_THERMAL_SOCKET_BIT] = "SOC",
+	[THROTTLER_THERMAL_VR_BIT] = "VR",
+	[THROTTLER_THERMAL_HBM_BIT] = "HBM"
+};
+
+static void smu_v15_0_8_log_thermal_throttling_event(struct smu_context *smu)
+{
+	int throttler_idx, throttling_events = 0, buf_idx = 0;
+	struct amdgpu_device *adev = smu->adev;
+	uint32_t throttler_status;
+	char log_buf[256];
+
+	throttler_status = smu_v15_0_8_get_throttler_status(smu);
+	if (!throttler_status)
+		return;
+
+	memset(log_buf, 0, sizeof(log_buf));
+	for (throttler_idx = 0;
+	     throttler_idx < ARRAY_SIZE(throttling_logging_label);
+	     throttler_idx++) {
+		if (throttler_status & (1U << throttler_idx)) {
+			throttling_events++;
+			buf_idx += snprintf(
+				log_buf + buf_idx, sizeof(log_buf) - buf_idx,
+				"%s%s", throttling_events > 1 ? " and " : "",
+				throttling_logging_label[throttler_idx]);
+			if (buf_idx >= sizeof(log_buf)) {
+				dev_err(adev->dev, "buffer overflow!\n");
+				log_buf[sizeof(log_buf) - 1] = '\0';
+				break;
+			}
+		}
+	}
+
+	dev_warn(adev->dev,
+		 "WARN: GPU is throttled, expect performance decrease. %s.\n",
+		 log_buf);
+	kgd2kfd_smi_event_throttle(
+		smu->adev->kfd.dev,
+		smu_cmn_get_indep_throttler_status(throttler_status,
+						   smu_v15_0_8_throttler_map));
+}
+
 static int smu_v15_0_8_enable_thermal_alert(struct smu_context *smu)
 {
 	if (!smu->irq_source.num_types)
@@ -2301,6 +2365,7 @@ static const struct pptable_funcs smu_v15_0_8_ppt_funcs = {
 	.register_irq_handler = smu_v15_0_8_register_irq_handler,
 	.enable_thermal_alert = smu_v15_0_8_enable_thermal_alert,
 	.disable_thermal_alert = smu_v15_0_disable_thermal_alert,
+	.log_thermal_throttling_event = smu_v15_0_8_log_thermal_throttling_event,
 	.setup_pptable = smu_v15_0_8_setup_pptable,
 	.get_pp_feature_mask = smu_cmn_get_pp_feature_mask,
 	.wait_for_event = smu_v15_0_wait_for_event,
