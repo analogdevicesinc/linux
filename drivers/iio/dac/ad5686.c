@@ -342,6 +342,12 @@ static const struct ad5686_chip_info ad5686_chip_info_tbl[] = {
 		.num_channels = 1,
 		.regmap_type = AD5693_REGMAP,
 	},
+	[ID_AD5313R] = {
+		.channels = ad5338r_channels,
+		.int_vref_mv = 2500,
+		.num_channels = 2,
+		.regmap_type = AD5686_REGMAP,
+	},
 	[ID_AD5337R] = {
 		.channels = ad5337r_channels,
 		.int_vref_mv = 2500,

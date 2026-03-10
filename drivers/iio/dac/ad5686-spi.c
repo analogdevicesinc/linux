@@ -102,6 +102,7 @@ static void ad5686_spi_remove(struct spi_device *spi)
 
 static const struct spi_device_id ad5686_spi_id[] = {
 	{"ad5310r", ID_AD5310R},
+	{"ad5313r", ID_AD5313R},
 	{"ad5672r", ID_AD5672R},
 	{"ad5674r", ID_AD5674R},
 	{"ad5676", ID_AD5676},
