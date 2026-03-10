@@ -31,7 +31,8 @@
 
 #define UFSHCD_ENABLE_MCQ_INTRS	(UTP_TASK_REQ_COMPL |\
 				 UFSHCD_ERROR_MASK |\
-				 MCQ_CQ_EVENT_STATUS)
+				 MCQ_CQ_EVENT_STATUS |\
+				 MCQ_IAG_EVENT_STATUS)
 
 /* Max mcq register polling time in microseconds */
 #define MCQ_POLL_US 500000
@@ -271,6 +272,16 @@ void ufshcd_mcq_write_cqis(struct ufs_hba *hba, u32 val, int i)
 	writel(val, mcq_opr_base(hba, OPR_CQIS, i) + REG_CQIS);
 }
 EXPORT_SYMBOL_GPL(ufshcd_mcq_write_cqis);
+
+u32 ufshcd_mcq_read_mcqiacr(struct ufs_hba *hba, int i)
+{
+	return readl(mcq_opr_base(hba, OPR_CQIS, i) + REG_MCQIACR);
+}
+
+void ufshcd_mcq_write_mcqiacr(struct ufs_hba *hba, u32 val, int i)
+{
+	writel(val, mcq_opr_base(hba, OPR_CQIS, i) + REG_MCQIACR);
+}
 
 /*
  * UFSHCI 4.0 MCQ specification doesn't provide a Task Tag or its equivalent in

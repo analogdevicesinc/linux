@@ -76,6 +76,8 @@ void ufshcd_mcq_compl_all_cqes_lock(struct ufs_hba *hba,
 bool ufshcd_cmd_inflight(struct scsi_cmnd *cmd);
 int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag);
 int ufshcd_mcq_abort(struct scsi_cmnd *cmd);
+u32 ufshcd_mcq_read_mcqiacr(struct ufs_hba *hba, int i);
+void ufshcd_mcq_write_mcqiacr(struct ufs_hba *hba, u32 val, int i);
 int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag);
 void ufshcd_release_scsi_cmd(struct ufs_hba *hba, struct scsi_cmnd *cmd);
 

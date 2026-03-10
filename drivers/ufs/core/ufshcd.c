@@ -7096,16 +7096,17 @@ static irqreturn_t ufshcd_tmc_handler(struct ufs_hba *hba)
 /**
  * ufshcd_handle_mcq_cq_events - handle MCQ completion queue events
  * @hba: per adapter instance
+ * @reset_iag: true, to reset MCQ IAG counter and timer of the CQ
  *
  * Return: IRQ_HANDLED if interrupt is handled.
  */
-static irqreturn_t ufshcd_handle_mcq_cq_events(struct ufs_hba *hba)
+static irqreturn_t ufshcd_handle_mcq_cq_events(struct ufs_hba *hba, bool reset_iag)
 {
 	struct ufs_hw_queue *hwq;
 	unsigned long outstanding_cqs;
 	unsigned int nr_queues;
 	int i, ret;
-	u32 events;
+	u32 events, reg;
 
 	ret = ufshcd_vops_get_outstanding_cqs(hba, &outstanding_cqs);
 	if (ret)
@@ -7119,6 +7120,12 @@ static irqreturn_t ufshcd_handle_mcq_cq_events(struct ufs_hba *hba)
 		events = ufshcd_mcq_read_cqis(hba, i);
 		if (events)
 			ufshcd_mcq_write_cqis(hba, events, i);
+
+		if (reset_iag) {
+			reg = ufshcd_mcq_read_mcqiacr(hba, i);
+			reg |= INT_AGGR_COUNTER_AND_TIMER_RESET;
+			ufshcd_mcq_write_mcqiacr(hba, reg, i);
+		}
 
 		if (events & UFSHCD_MCQ_CQIS_TAIL_ENT_PUSH_STS)
 			ufshcd_mcq_poll_cqe_lock(hba, hwq);
@@ -7153,7 +7160,10 @@ static irqreturn_t ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 		retval |= ufshcd_transfer_req_compl(hba);
 
 	if (intr_status & MCQ_CQ_EVENT_STATUS)
-		retval |= ufshcd_handle_mcq_cq_events(hba);
+		retval |= ufshcd_handle_mcq_cq_events(hba, false);
+
+	if (intr_status & MCQ_IAG_EVENT_STATUS)
+		retval |= ufshcd_handle_mcq_cq_events(hba, true);
 
 	return retval;
 }
