@@ -6,6 +6,7 @@
   See the file COPYING.
 */
 
+#include "dev.h"
 #include "fuse_i.h"
 #include "fuse_dev_i.h"
 #include "dev_uring_i.h"
@@ -41,8 +42,6 @@ static int set_global_limit(const char *val, const struct kernel_param *kp);
 
 unsigned int fuse_max_pages_limit = 256;
 /* default is no timeout */
-unsigned int fuse_default_req_timeout;
-unsigned int fuse_max_req_timeout;
 
 unsigned int max_user_bgreq;
 module_param_call(max_user_bgreq, set_global_limit, param_get_uint,
@@ -1311,34 +1310,6 @@ static void process_init_limits(struct fuse_conn *fc, struct fuse_init_out *arg)
 	spin_unlock(&fc->bg_lock);
 }
 
-static void set_request_timeout(struct fuse_conn *fc, unsigned int timeout)
-{
-	fc->timeout.req_timeout = secs_to_jiffies(timeout);
-	INIT_DELAYED_WORK(&fc->timeout.work, fuse_check_timeout);
-	queue_delayed_work(system_percpu_wq, &fc->timeout.work,
-			   fuse_timeout_timer_freq);
-}
-
-static void init_server_timeout(struct fuse_conn *fc, unsigned int timeout)
-{
-	if (!timeout && !fuse_max_req_timeout && !fuse_default_req_timeout)
-		return;
-
-	if (!timeout)
-		timeout = fuse_default_req_timeout;
-
-	if (fuse_max_req_timeout) {
-		if (timeout)
-			timeout = min(fuse_max_req_timeout, timeout);
-		else
-			timeout = fuse_max_req_timeout;
-	}
-
-	timeout = max(FUSE_TIMEOUT_TIMER_FREQ, timeout);
-
-	set_request_timeout(fc, timeout);
-}
-
 struct fuse_init_args {
 	struct fuse_args args;
 	struct fuse_init_in in;
@@ -1491,7 +1462,7 @@ static void process_init_reply(struct fuse_mount *fm, struct fuse_args *args,
 			fc->no_flock = 1;
 		}
 
-		init_server_timeout(fc, timeout);
+		fuse_init_server_timeout(fc, timeout);
 
 		fm->sb->s_bdi->ra_pages =
 				min(fm->sb->s_bdi->ra_pages, ra_pages);

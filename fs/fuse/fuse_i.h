@@ -48,12 +48,6 @@
 /** Number of dentries for each connection in the control filesystem */
 #define FUSE_CTL_NUM_DENTRIES 5
 
-/* Frequency (in seconds) of request timeout checks, if opted into */
-#define FUSE_TIMEOUT_TIMER_FREQ 15
-
-/** Frequency (in jiffies) of request timeout checks, if opted into */
-extern const unsigned long fuse_timeout_timer_freq;
-
 /*
  * Dentries invalidation workqueue period, in seconds.  The value of this
  * parameter shall be >= FUSE_DENTRY_INVAL_FREQ_MIN seconds, or 0 (zero), in
@@ -63,16 +57,6 @@ extern unsigned inval_wq __read_mostly;
 
 /** Maximum of max_pages received in init_out */
 extern unsigned int fuse_max_pages_limit;
-/*
- * Default timeout (in seconds) for the server to reply to a request
- * before the connection is aborted, if no timeout was specified on mount.
- */
-extern unsigned int fuse_default_req_timeout;
-/*
- * Max timeout (in seconds) for the server to reply to a request before
- * the connection is aborted.
- */
-extern unsigned int fuse_max_req_timeout;
 
 /** List of active connections */
 extern struct list_head fuse_conn_list;
@@ -1285,9 +1269,6 @@ void fuse_request_end(struct fuse_req *req);
 /* Abort all requests */
 void fuse_abort_conn(struct fuse_conn *fc);
 void fuse_wait_aborted(struct fuse_conn *fc);
-
-/* Check if any requests timed out */
-void fuse_check_timeout(struct work_struct *work);
 
 void fuse_dentry_tree_init(void);
 void fuse_dentry_tree_cleanup(void);
