@@ -9952,11 +9952,13 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 #ifdef CONFIG_PM
 static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 {
+	bool vcc_on = false;
 	int ret = 0;
 
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
 	    !hba->dev_info.is_lu_power_on_wp) {
 		ret = ufshcd_setup_vreg(hba, true);
+		vcc_on = true;
 	} else if (!ufshcd_is_ufs_dev_active(hba)) {
 		if (!ufshcd_is_link_active(hba)) {
 			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq);
@@ -9967,6 +9969,7 @@ static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 				goto vccq_lpm;
 		}
 		ret = ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, true);
+		vcc_on = true;
 	}
 	goto out;
 
@@ -9975,6 +9978,15 @@ vccq_lpm:
 vcc_disable:
 	ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
 out:
+	/*
+	 * On platforms with a slow VCC ramp-up, a delay is needed after
+	 * turning on VCC to ensure the voltage is stable before the
+	 * reference clock is enabled.
+	 */
+	if (hba->quirks & UFSHCD_QUIRK_VCC_ON_DELAY && !ret && vcc_on &&
+	    hba->vreg_info.vcc && !hba->vreg_info.vcc->always_on)
+		usleep_range(1000, 1100);
+
 	return ret;
 }
 #endif /* CONFIG_PM */

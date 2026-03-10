@@ -690,6 +690,12 @@ enum ufshcd_quirks {
 	 * because it causes link startup to become unreliable.
 	 */
 	UFSHCD_QUIRK_PERFORM_LINK_STARTUP_ONCE		= 1 << 26,
+
+	/*
+	 * On some platforms, the VCC regulator has a slow ramp-up time. Add a
+	 * delay after enabling VCC to ensure it's stable.
+	 */
+	UFSHCD_QUIRK_VCC_ON_DELAY			= 1 << 27,
 };
 
 enum ufshcd_caps {
