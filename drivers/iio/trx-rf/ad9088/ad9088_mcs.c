@@ -169,7 +169,7 @@ int ad9088_mcs_init_cal_validate(struct ad9088_phy *phy,
 	int ret = 0;
 
 	adi_apollo_device_t *device = &phy->ad9088;
-	u64 dev_clk_hz = (u64)phy->profile.clk_cfg.dev_clk_freq_kHz * 1000;
+	u64 dev_clk_hz = phy->profile.clk_cfg.dev_clk_freq_Hz;
 	u32 post_cal_init_sysref_diff_cycles;
 	u64 int_sysref_align_diff;
 	bool is_locked;

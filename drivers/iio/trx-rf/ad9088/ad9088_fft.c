@@ -531,7 +531,7 @@ static void ad9088_rx_sniffer_debugfs_init(struct iio_dev *indio_dev,
 			  &config->read.run_fft_engine_background);
 	debugfs_create_u32("delay_capture_ms", 0644, d, &st->delay_ms);
 	debugfs_create_u64("adc_sampling_rate_Hz", 0444, d,
-			   &st->phy->profile.adc_config[st->side_sel - 1].adc_sampling_rate_Hz);
+			   &st->phy->profile.adc_cfg[st->side_sel - 1].adc_sampling_rate_Hz);
 }
 
 static void ad9088_fft_sniffer_data_push(struct ad9088_fft_sniffer_state *st,

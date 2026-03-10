@@ -46,7 +46,7 @@
 #define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_B1_B0            179
 #define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_B3_B2            180
 
-#define APOLLO_WARMBOOT_CFG_SYSCLK_CONDITIONING             182
+#define ADI_APOLLO_WARMBOOT_CFG_SYSCLK_CONDITIONING         182
 
 #define ADI_APOLLO_SERDES_RX_NUM_BRIDGING_CALS              196
 
@@ -87,6 +87,8 @@
 #define APOLLO_CPU_1_FW_CLK_COND_1_CALDATA_PTR          (0x21000668U)          /*!< ADC clock conditioning side B cal ref pointer */
 #define APOLLO_CPU_1_FW_CLK_COND_BGCAL_CLIP_PTR         (0x21000688U)          /*!< Clock conditioning Bg calibration clip status pointer */
 
+/* The cal data size is in bytes, included 32-bit checksum. Same length for all Clock Conditioning instances This value is fixed. 116 + 4 */
+#define ADI_APOLLO_CLK_COND_CAL_DATA_LEN_BYTES          (120U)
 /*!
  * \brief Enumeration of initial calibration configurations
  */
@@ -105,10 +107,10 @@ typedef enum
  */
 typedef enum
 {
-    SYSCLKCONDITIONING_ENABLED                     = 0,       /* Run clock conditioning calibration */
-    SYSCLKCONDITIONING_DISABLED                    = 1,       /* No clock conditioning calibration */
-    SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER  = 2,       /* Run clock conditioning calibration - start with cal data from user */
-    SYSCLKCONDITIONING_DISABLED_WARMBOOT_FROM_USER = 3,       /* No clock conditioning calibration - start with cal data from user */
+    ADI_APOLLO_SYSCLKCONDITIONING_ENABLED                     = 0,       /*!< Run clock conditioning calibration */
+    ADI_APOLLO_SYSCLKCONDITIONING_DISABLED                    = 1,       /*!< No clock conditioning calibration */
+    ADI_APOLLO_SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER  = 2,       /*!< Run clock conditioning calibration - start with cal data from user */
+    ADI_APOLLO_SYSCLKCONDITIONING_DISABLED_WARMBOOT_FROM_USER = 3,       /*!< No clock conditioning calibration - start with cal data from user */
 } adi_apollo_sysclock_cond_cfg_e;
 
 #endif /* __ADI_APOLLO_CFG_TYPES_H__ */

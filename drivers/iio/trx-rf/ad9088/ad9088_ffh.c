@@ -249,10 +249,10 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EFAULT;
 		if (chan->output) {
 			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			f = phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz;
 		} else {
 			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			f = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
 		}
 		adi_ad9088_calc_nco_ftw(phy, f, val, cddc_dcm, 32, &ftw_u64, &tmp, &tmp);
 		ftw_u32 = ftw_u64;
@@ -330,7 +330,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EINVAL;
 
 		ret = kstrtou64(buf, 10, &val);
-		if (ret || val >= ADI_APOLLO_NCO_CHAN_SEL_LEN || val < 0)
+		if (ret || val > ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP)
 			return -EINVAL;
 
 		ret = adi_apollo_fnco_profile_sel_mode_set(&phy->ad9088, dir, fnco_en, val);
@@ -362,10 +362,10 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EINVAL;
 
 		if (chan->output)
-			adi_ad9088_calc_nco_ftw(phy, phy->profile.dac_config[map->side].dac_sampling_rate_Hz,
+			adi_ad9088_calc_nco_ftw(phy, phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz,
 						val, 1, 32, &ftw_u64, &tmp, &tmp);
 		else
-			adi_ad9088_calc_nco_ftw(phy, phy->profile.adc_config[map->side].adc_sampling_rate_Hz,
+			adi_ad9088_calc_nco_ftw(phy, phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz,
 						val, 1, 32, &ftw_u64, &tmp, &tmp);
 		ftw_u32 = ftw_u64;
 		ret = adi_apollo_cnco_profile_load(&phy->ad9088, dir, cnco_en,
@@ -426,7 +426,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EINVAL;
 
 		ret = kstrtou64(buf, 10, &val);
-		if (ret || val >= ADI_APOLLO_NCO_CHAN_SEL_LEN || val < 0)
+		if (ret || val > ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP)
 			return -EINVAL;
 
 		ret = adi_apollo_cnco_profile_sel_mode_set(&phy->ad9088, dir, cnco_en, val);

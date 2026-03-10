@@ -351,20 +351,6 @@ int32_t adi_apollo_jrx_phase_diff_get(adi_apollo_device_t* device,
     uint16_t *phase_diff);
 
 /**
- * \brief  Configure the JESD Rx (JRx) subclass mode
- *
- * \param[in]  device          Context variable - Pointer to the APOLLO device data structure
- * \param[in]  links           Target link
- * \param[in]  subclass        Link subclass operation mode. 0 = subclass 0, 1 = subclass 1
- *
- * \return API_CMS_ERROR_OK                     API Completed Successfully
- * \return <0                                   Failed. \ref adi_cms_error_e for details.
- */
-int32_t adi_apollo_jrx_subclass_set(adi_apollo_device_t *device,
-    const uint16_t links,
-    const uint16_t subclass);
-
-/**
  * \brief  Enable JRx 204C IRQs
  *
  * \param[in]  device          Context variable - Pointer to the APOLLO device data structure
