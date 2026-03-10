@@ -252,7 +252,7 @@ struct ad9088_phy {
 	bool cddc_sample_delay_en;
 	bool fddc_sample_delay_en;
 	u32 multidevice_instance_count;
-	u16 mcs_track_decimation;
+	u32 mcs_track_decimation;
 
 	struct ad9088_debugfs_entry debugfs_entry[32];
 	u32 ad9088_debugfs_entry_index;
@@ -365,7 +365,7 @@ int ad9088_delta_t_measurement_set(struct ad9088_phy *phy, u32 mode);
 int ad9088_delta_t_measurement_get(struct ad9088_phy *phy, u32 mode, s64 *apollo_delta_t);
 int ad9088_mcs_init_cal_validate(struct ad9088_phy *phy,
 				 adi_apollo_mcs_cal_init_status_t *init_cal_status);
-int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u16 mcs_track_decimation,
+int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u32 mcs_track_decimation,
 				  u16 initialize_track_cal);
 int ad9088_mcs_init_cal_status_print(struct ad9088_phy *phy, char *buf,
 				     adi_apollo_mcs_cal_init_status_t *status);
