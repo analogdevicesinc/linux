@@ -698,7 +698,7 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 		/* TX path: Use JRX sample_xbar_sel and fduc_cduc_summer */
 		const adi_apollo_jesd_rx_link_cfg_t *jrx_link;
 		const adi_apollo_txpath_misc_t *tx_mux;
-		adi_apollo_jesd_dfrm_sample_xbar_select_e xbar_sel;
+		u8 xbar_sel;
 		u8 fduc_bit;
 		int i, num_cducs;
 		int xbar_idx;
@@ -726,7 +726,7 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 			xbar_idx -= m_side_a;
 		}
 
-		if (xbar_idx >= ADI_APOLLO_JESD_MAX_FRM_SAMPLE_XBAR_IDX) {
+		if (xbar_idx >= ADI_APOLLO_JESD_MAX_SAMPLE_XBAR_IDXS) {
 			dev_err(&phy->spi->dev,
 				"ERROR: TX xbar_idx %d out of range", xbar_idx);
 			return;
@@ -745,7 +745,7 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 		 * FDUC = xbar_sel / 2 (strips I/Q bit, keeps TXn and BAND)
 		 *   BAND_0 -> even FDUC, BAND_1 -> odd FDUC
 		 */
-		if (xbar_sel <= ADI_APOLLO_JESD_DFRM_SPLXBAR_LAST_VALID)
+		if (xbar_sel <= 31)
 			local_fddc_num = xbar_sel / 2;
 		else
 			local_fddc_num = 0;
@@ -774,7 +774,7 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 		/* RX path: Use JTX sample_xbar_sel and mux2_fddc_input_sel */
 		const adi_apollo_jesd_tx_link_cfg_t *jtx_link;
 		const adi_apollo_rxpath_misc_t *rx_mux;
-		adi_apollo_jesd_frm_sample_xbar_select_e xbar_sel;
+		adi_apollo_jesd_frm_conv_xbar_select_e xbar_sel;
 		adi_apollo_rx_mux2_sel_e mux2_sel;
 		u8 fddc_idx;
 		bool is_upper_fddc;
@@ -799,13 +799,13 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 			xbar_idx -= m_side_a;
 		}
 
-		if (xbar_idx >= ADI_APOLLO_JESD_MAX_FRM_SAMPLE_XBAR_IDX) {
+		if (xbar_idx >= ADI_APOLLO_JESD_MAX_CONV_XBAR_IDXS) {
 			dev_err(&phy->spi->dev,
 				"ERROR: RX xbar_idx %d out of range", xbar_idx);
 			return;
 		}
 
-		xbar_sel = jtx_link->sample_xbar_sel[xbar_idx];
+		xbar_sel = jtx_link->conv_xbar_sel[xbar_idx];
 
 		dev_dbg(&phy->spi->dev,
 			"RX chan %d addr %lu: m_side_a=%d xbar_idx=%d xbar_sel=%d",
@@ -819,7 +819,7 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 		 *   BAND_0 -> even FDDC, BAND_1 -> odd FDDC
 		 * Values 32+ are ORX paths, handle separately if needed.
 		 */
-		if (xbar_sel <= ADI_APOLLO_JESD_FRM_SPLXBAR_LAST_VALID_NO_INT)
+		if (xbar_sel <= ADI_APOLLO_JESD_FRM_CONVXBAR_VCONV_15)
 			local_fddc_num = xbar_sel / 2;
 		else
 			local_fddc_num = 0; /* Default for ORX or invalid */
@@ -1456,12 +1456,12 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 	switch (private) {
 	case CDDC_NCO_FREQ:
 		if (chan->output) {
-			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			f = phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz;
 			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc,
 						       phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_a,
 						       phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
 		} else {
-			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			f = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
 			ret = adi_ad9088_calc_nco_freq(phy, f, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc,
 						       phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_a,
 						       phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].nco[0].nco_phase_inc_frac_b, 32, &val);
@@ -1472,7 +1472,7 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 			u32 cddc_dcm;
 
 			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			f = phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz;
 			do_div(f, cddc_dcm);
 
 			ret = adi_ad9088_calc_nco_freq(phy, f,
@@ -1484,7 +1484,7 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 			u32 cddc_dcm;
 
 			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			f = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
 			do_div(f, cddc_dcm);
 			ret = adi_ad9088_calc_nco_freq(phy, f,
 						 phy->profile.rx_path[map->side].rx_fddc[map->fddc_num].nco[0].nco_phase_inc,
@@ -1495,19 +1495,19 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 		return sysfs_emit(buf, "%lld\n", val);
 	case CDDC_NCO_FREQ_AVAIL:
 		if (chan->output)
-			range = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_config[map->side].dac_sampling_rate_Hz, 2);
+			range = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz, 2);
 		else
-			range = DIV_ROUND_CLOSEST_ULL(phy->profile.adc_config[map->side].adc_sampling_rate_Hz, 2);
+			range = DIV_ROUND_CLOSEST_ULL(phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz, 2);
 
 		return sysfs_emit(buf, "[%lld 1 %lld]\n", -1 * range, range);
 	case FDDC_NCO_FREQ_AVAIL:
 		if (chan->output) {
 			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, phy->profile.tx_path[map->side].tx_cduc[map->cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			f = phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz;
 
 		} else {
 			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, phy->profile.rx_path[map->side].rx_cddc[map->cddc_num].drc_ratio, &cddc_dcm);
-			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			f = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
 		}
 
 		range = DIV_ROUND_CLOSEST_ULL(f, cddc_dcm * 2);
@@ -1549,9 +1549,9 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 		return ad9088_iio_val_to_str(buf, chan->output ? 0x7FFF : 0x1FFF, val);
 	case TRX_CONVERTER_RATE:
 		if (chan->output)
-			val = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			val = phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz;
 		else
-			val = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			val = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
 		return sysfs_emit(buf, "%lld\n", val);
 	case DAC_INVSINC_EN:
 		ret = adi_apollo_invsinc_inspect(&phy->ad9088,
@@ -1607,9 +1607,9 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			return ret;
 
 		if (chan->output)
-			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			f = phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz;
 		else
-			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			f = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
 
 		ret = adi_ad9088_calc_nco_ftw(phy, f, readin, 1, 32, &ftw, &frac_a, &frac_b);
 		if (ret)
@@ -1653,14 +1653,14 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			adi_apollo_cduc_interp_bf_to_val(&phy->ad9088,
 							 tx->tx_cduc[map->cddc_num].drc_ratio,
 							 &cddc_dcm);
-			f = phy->profile.dac_config[map->side].dac_sampling_rate_Hz;
+			f = phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz;
 		} else {
 			struct adi_apollo_rxpath *rx = &phy->profile.rx_path[map->side];
 
 			adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088,
 						      rx->rx_cddc[map->cddc_num].drc_ratio,
 						      &cddc_dcm);
-			f = phy->profile.adc_config[map->side].adc_sampling_rate_Hz;
+			f = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
 		}
 
 		ret = adi_ad9088_calc_nco_ftw(phy, f, readin, cddc_dcm, 48, &ftw, &frac_a, &frac_b);
@@ -2121,8 +2121,8 @@ static int ad9088_device_loopback_disable(struct ad9088_phy *phy,
 
 static int ad9088_assert_fs(struct ad9088_phy *phy, u8 side)
 {
-	u64 dac_fs = phy->profile.dac_config[side].dac_sampling_rate_Hz;
-	u64 adc_fs = phy->profile.adc_config[side].adc_sampling_rate_Hz;
+	u64 dac_fs = phy->profile.dac_cfg[side].dac_sampling_rate_Hz;
+	u64 adc_fs = phy->profile.adc_cfg[side].adc_sampling_rate_Hz;
 
 	if (dac_fs != adc_fs)
 		return -EINVAL;
@@ -3427,14 +3427,6 @@ static u32 ad9088_pfir_gain_enc(int val)
 		return ADI_APOLLO_PFILT_GAIN_POS_18_DB;
 	case 24:
 		return ADI_APOLLO_PFILT_GAIN_POS_24_DB;
-	case -24:
-		return ADI_APOLLO_PFILT_GAIN_NEG_24_DB;
-	case -18:
-		return ADI_APOLLO_PFILT_GAIN_NEG_18_DB;
-	case -12:
-		return ADI_APOLLO_PFILT_GAIN_NEG_12_DB;
-	case -6:
-		return ADI_APOLLO_PFILT_GAIN_NEG_6_DB;
 	default:
 		return ADI_APOLLO_PFILT_GAIN_ZERO_DB;
 	}
@@ -3548,12 +3540,12 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 				     imode, qmode);
 
 			if (ret == 2)
-				pfilt_mode_pgm.pfir_q_mode = sysfs_match_string(pfir_filter_modes,
-										qmode);
+				pfilt_mode_pgm.pfir_q_mode[0] = sysfs_match_string(pfir_filter_modes,
+										   qmode);
 
 			if (ret == 1 || ret == 2) {
-				pfilt_mode_pgm.pfir_i_mode = sysfs_match_string(pfir_filter_modes,
-										imode);
+				pfilt_mode_pgm.pfir_i_mode[0] = sysfs_match_string(pfir_filter_modes,
+										   imode);
 				read_mask |= BIT(0);
 				continue;
 			}
@@ -3706,9 +3698,9 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 	dev_dbg(dev, "bank_sel: MASK 0x%x\n", bank_sel);
 
 	dev_dbg(dev, "pfilt_mode_pgm.pfir_i_mode: %s\n",
-		pfir_filter_modes[pfilt_mode_pgm.pfir_i_mode]);
+		pfir_filter_modes[pfilt_mode_pgm.pfir_i_mode[0]]);
 	dev_dbg(dev, "pfilt_mode_pgm.pfir_q_mode: %s\n",
-		pfir_filter_modes[pfilt_mode_pgm.pfir_q_mode]);
+		pfir_filter_modes[pfilt_mode_pgm.pfir_q_mode[0]]);
 	dev_dbg(dev, "pfilt_mode_pgm.mode_switch: %d\n", pfilt_mode_pgm.mode_switch);
 	dev_dbg(dev, "pfilt_mode_pgm.add_sub_sel: %d\n", pfilt_mode_pgm.add_sub_sel);
 	dev_dbg(dev, "pfilt_mode_pgm.data: %d\n", pfilt_mode_pgm.data);
@@ -4602,12 +4594,12 @@ static int ad9088_setup(struct ad9088_phy *phy)
 			return dev_err_probe(&spi->dev, ret, "Failed to enable sniffer\n");
 	}
 
-	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_config[0].dac_sampling_rate_Hz,
+	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_cfg[0].dac_sampling_rate_Hz,
 					    phy->profile.jrx[0].rx_link_cfg[0].link_total_ratio);
 	clk_set_rate_scaled(phy->clks[TX_SAMPL_CLK], sample_rate,
 			    &phy->clkscale[TX_SAMPL_CLK]);
 
-	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->profile.adc_config[0].adc_sampling_rate_Hz,
+	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->profile.adc_cfg[0].adc_sampling_rate_Hz,
 					    phy->profile.jtx[0].tx_link_cfg[0].link_total_ratio);
 	clk_set_rate_scaled(phy->clks[RX_SAMPL_CLK], sample_rate,
 			    &phy->clkscale[RX_SAMPL_CLK]);
@@ -4979,6 +4971,10 @@ static int ad9088_probe(struct spi_device *spi)
 	priv = jesd204_dev_priv(jdev);
 	priv->phy = phy;
 
+	phy->dev_clk = devm_clk_get(&conv->spi->dev, "dev_clk");
+	if (IS_ERR(phy->dev_clk))
+		return PTR_ERR(phy->dev_clk);
+
 	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->reset_gpio))
 		return PTR_ERR(conv->reset_gpio);
@@ -5030,12 +5026,13 @@ static int ad9088_probe(struct spi_device *spi)
 
 	of_clk_get_scale(spi->dev.of_node, "dev_clk", &devclk_clkscale);
 
-	dev_clk = devm_clk_get_enabled(&conv->spi->dev, "dev_clk");
-	if (IS_ERR(dev_clk))
-		return PTR_ERR(dev_clk);
-
-	clk_set_rate_scaled(dev_clk, (u64)phy->profile.clk_cfg.dev_clk_freq_kHz * 1000,
+	clk_set_rate_scaled(phy->dev_clk,
+			    phy->profile.clk_cfg.dev_clk_freq_Hz,
 			    &devclk_clkscale);
+
+	ret = clk_prepare_enable(phy->dev_clk);
+	if (ret)
+		return ret;
 
 	phy->ad9088.hal_info.spi0_desc.spi_config.sdo = (spi->mode & SPI_3WIRE || phy->spi_3wire_en) ?
 							ADI_APOLLO_DEVICE_SPI_SDIO :
