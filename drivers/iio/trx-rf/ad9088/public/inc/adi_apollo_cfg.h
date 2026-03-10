@@ -268,7 +268,7 @@ int32_t adi_apollo_cfg_serdes_rx_bridging_cal_cfg_set(adi_apollo_device_t *devic
  *
  * \param[in]   device        Context variable - Pointer to the APOLLO device data structure
  * \param[in]   sides         Apollo side selection mask. \ref adi_apollo_side_select_e
- * \param[out]  cal_data      Array to load calibration data. Memory is allocated by the caller.
+ * \param[in]  cal_data      Array to load calibration data. Memory is allocated by the caller.
  * \param[in]   len           Number of bytes in cal_data (includes room for ending checksum.)
  *                            The cal_data array length can be retrieved from \ref adi_apollo_cfg_clk_cond_cal_data_len_get
  *
@@ -307,7 +307,7 @@ int32_t adi_apollo_cfg_clk_cond_cal_data_len_get(adi_apollo_device_t* device, ui
  * \brief Sets clock conditioning cal cfg. Must be done after firmware loading but before profile loading.
  *
  * \param[in]   device        Context variable - Pointer to the APOLLO device data structure
- * \param[out]  cc_cal_cfg    cal config. \ref adi_apollo_sysclock_cond_cfg_e
+ * \param[in]  cc_cal_cfg    cal config. \ref adi_apollo_sysclock_cond_cfg_e
  *
  * \return API_CMS_ERROR_OK     API Completed Successfully
  * \return <0                   Failed. \ref adi_cms_error_e for details.

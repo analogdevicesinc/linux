@@ -297,8 +297,6 @@ ADI_APOLLO_PACKED(
 typedef struct {
     adi_apollo_mcs_fsmstate_e fsmState;     /*!< FSM State */
     adi_apollo_mcs_fsmstate_e prevFsmState; /*!< Previous FSM State */
-    adi_apollo_mcs_fsm_cmd_e fsmCmd;        /*!< FSM Command */
-    adi_apollo_mcs_fsm_cmd_e prevFsmCmd;    /*!< Previous FSM Command */
     uint8_t event_waiting;                  /*!< Event being waited for*/
     uint8_t alignDone;                      /*!< Is Alignment Done */
     uint8_t is_Side_A_Done;                 /*!< Is Side A Done Flag */

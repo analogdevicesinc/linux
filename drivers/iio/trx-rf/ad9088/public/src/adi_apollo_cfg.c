@@ -116,7 +116,7 @@ int32_t adi_apollo_cfg_clk_cond_cal_cfg_set(adi_apollo_device_t *device, adi_apo
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_INVALID_PARAM_RETURN(!is_clk_cond_cal_cfg_valid(cc_cal_cfg));
-    err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + APOLLO_WARMBOOT_CFG_SYSCLK_CONDITIONING, 0x00000400, cc_cal_cfg);
+    err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + ADI_APOLLO_WARMBOOT_CFG_SYSCLK_CONDITIONING, 0x00000400, cc_cal_cfg);
     ADI_APOLLO_ERROR_RETURN(err);
     return API_CMS_ERROR_OK;
 }
@@ -357,8 +357,9 @@ int32_t adi_apollo_cfg_clk_cond_cal_data_set(adi_apollo_device_t *device, const 
                 return API_CMS_ERROR_INVALID_PARAM;
             }
 
-            address_ptr = (side==ADI_APOLLO_SIDE_A) ? APOLLO_CPU_1_FW_CLK_COND_0_CALDATA_PTR : APOLLO_CPU_1_FW_CLK_COND_1_CALDATA_PTR;
-            adi_apollo_hal_reg32_get(device, address_ptr, &address);
+            address_ptr = (side == ADI_APOLLO_SIDE_A) ? APOLLO_CPU_1_FW_CLK_COND_0_CALDATA_PTR : APOLLO_CPU_1_FW_CLK_COND_1_CALDATA_PTR;
+            err = adi_apollo_hal_reg32_get(device, address_ptr, &address);
+            ADI_APOLLO_ERROR_RETURN(err);
 
             /* Stream cal data to core */
             err = adi_apollo_hal_stream_reg_set(device, address, cal_data, len, 0);
@@ -393,8 +394,9 @@ int32_t adi_apollo_cfg_clk_cond_cal_data_get(adi_apollo_device_t* device, const 
             if (size_bytes != len) {
                 return API_CMS_ERROR_INVALID_PARAM;
             }
-            address_ptr = (side==ADI_APOLLO_SIDE_A) ? APOLLO_CPU_1_FW_CLK_COND_0_CALDATA_PTR : APOLLO_CPU_1_FW_CLK_COND_1_CALDATA_PTR;
-            adi_apollo_hal_reg32_get(device, address_ptr, &address);
+            address_ptr = (side == ADI_APOLLO_SIDE_A) ? APOLLO_CPU_1_FW_CLK_COND_0_CALDATA_PTR : APOLLO_CPU_1_FW_CLK_COND_1_CALDATA_PTR;
+            err = adi_apollo_hal_reg32_get(device, address_ptr, &address);
+            ADI_APOLLO_ERROR_RETURN(err);
 
             /* Stream cal data from core */
             err = adi_apollo_hal_stream_reg_get(device, address, cal_data, len, 0);
@@ -683,7 +685,7 @@ int32_t adi_apollo_cfg_clk_cond_cal_data_len_get(adi_apollo_device_t* device, ui
     /* The cal data size is in bytes, included 32-bit checksum. Same length for all Clock Conditioning instances
     This value is fixed.
     */
-    *len = 116+4;
+    *len = ADI_APOLLO_CLK_COND_CAL_DATA_LEN_BYTES;
 
     return err;
 }
@@ -744,10 +746,10 @@ static uint8_t is_init_cal_cfg_valid(adi_apollo_init_cal_cfg_e init_cal_cfg) {
 
 static uint8_t is_clk_cond_cal_cfg_valid(adi_apollo_sysclock_cond_cfg_e cc_cal_cfg) {
     switch (cc_cal_cfg) {
-        case SYSCLKCONDITIONING_ENABLED:
-        case SYSCLKCONDITIONING_DISABLED:
-        case SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER:
-        case SYSCLKCONDITIONING_DISABLED_WARMBOOT_FROM_USER:
+        case ADI_APOLLO_SYSCLKCONDITIONING_ENABLED:
+        case ADI_APOLLO_SYSCLKCONDITIONING_DISABLED:
+        case ADI_APOLLO_SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER:
+        case ADI_APOLLO_SYSCLKCONDITIONING_DISABLED_WARMBOOT_FROM_USER:
         return 1;
     }
 

@@ -213,8 +213,10 @@ int32_t adi_apollo_arm_profile_write(adi_apollo_device_t *device, adi_apollo_top
     err = adi_apollo_arm_memload(device, &binary_info, chunk_sz_bytes);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    device->dev_info.is_dual_clk = profile->clk_cfg.single_dual_clk_sel;
-    device->dev_info.dev_freq_hz = (uint64_t)profile->clk_cfg.dev_clk_freq_kHz * 1000;
+    /* V10 Profile update: Clock config field 'single_dual_clk_sel' renamed to 'is_dual_clk' (type unchanged) - COMPLETED */
+    device->dev_info.is_dual_clk = profile->clk_cfg.is_dual_clk;
+    /* V10 Profile update: Field 'dev_clk_freq_kHz' renamed to 'dev_clk_freq_Hz' (uint32_t->uint64_t, kHz->Hz, remove *1000 multiplication) */
+    device->dev_info.dev_freq_hz = (uint64_t)profile->clk_cfg.dev_clk_freq_Hz;
 
     return API_CMS_ERROR_OK;
 }
