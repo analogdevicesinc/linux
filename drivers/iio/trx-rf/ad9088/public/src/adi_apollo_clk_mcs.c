@@ -31,7 +31,6 @@ static void get_adc_fifo_offsets(adi_apollo_data_fifo_conv_clk_ratio_e clk_ratio
 static void get_dac_fifo_offsets(adi_apollo_data_fifo_conv_clk_ratio_e clk_ratio, uint8_t *wr_offset, uint8_t *rd_offset);
 static int32_t mask_sync(adi_apollo_device_t *device, uint32_t reg, uint32_t info, int32_t filter, uint64_t value);
 static int32_t rxtxlink_sync(adi_apollo_device_t *device, adi_apollo_sync_mask_rxtx_link_e rxtx_link_mask);
-static int32_t sync_logic_reset(adi_apollo_device_t *device, int32_t mcs_sync_top);
 static int32_t clk_pd_status_get(adi_apollo_device_t *device, int32_t top_base, adi_apollo_clk_input_power_status_e *status);
 
 
@@ -432,26 +431,6 @@ int32_t adi_apollo_clk_mcs_trig_reset_dsp_enable(adi_apollo_device_t *device)
     return API_CMS_ERROR_OK;
 }
 
-int32_t adi_apollo_clk_mcs_trig_reset_serdes_enable(adi_apollo_device_t *device)
-{
-    int32_t err;
-
-    ADI_APOLLO_NULL_POINTER_RETURN(device);
-    ADI_APOLLO_LOG_FUNC();
-
-    if (IS_DUAL_CLK(device)) {
-        err = adi_apollo_hal_bf_set(device, BF_SYNCTRL_MAN_INFO(MCS_SYNC_MCSTOP1), 0x0300);
-        ADI_APOLLO_ERROR_RETURN(err);
-        err = adi_apollo_hal_bf_set(device, BF_SYNCTRL_MAN_INFO(MCS_SYNC_MCSTOP2), 0x0300);
-        ADI_APOLLO_ERROR_RETURN(err);
-    } else {
-        err = adi_apollo_hal_bf_set(device, BF_SYNCTRL_MAN_INFO(MCS_SYNC_MCSTOP0), 0x0300);
-        ADI_APOLLO_ERROR_RETURN(err);
-    }
-
-    return API_CMS_ERROR_OK;
-}
-
 int32_t adi_apollo_clk_mcs_trig_reset_disable(adi_apollo_device_t *device)
 {
     int32_t err;
@@ -817,33 +796,6 @@ int32_t adi_apollo_clk_mcs_subclass_get(adi_apollo_device_t *device, uint32_t *s
     return API_CMS_ERROR_OK;
 }
 
-int32_t adi_apollo_clk_mcs_internal_sysref_per_set(adi_apollo_device_t *device, uint16_t sysref_per)
-{
-    int32_t err;
-
-    ADI_APOLLO_NULL_POINTER_RETURN(device);
-    ADI_APOLLO_LOG_FUNC();
-
-    if (IS_DUAL_CLK(device)) {
-        err = adi_apollo_hal_bf_set(device, BF_INT_SYSREF_PERIOD_INFO(MCS_SYNC_MCSTOP1), sysref_per);
-        ADI_APOLLO_ERROR_RETURN(err);
-        err = sync_logic_reset(device, MCS_SYNC_MCSTOP1);
-        ADI_APOLLO_ERROR_RETURN(err);
-
-        err = adi_apollo_hal_bf_set(device, BF_INT_SYSREF_PERIOD_INFO(MCS_SYNC_MCSTOP2), sysref_per);
-        ADI_APOLLO_ERROR_RETURN(err);
-        err = sync_logic_reset(device, MCS_SYNC_MCSTOP2);
-        ADI_APOLLO_ERROR_RETURN(err);
-    } else {
-        err = adi_apollo_hal_bf_set(device, BF_INT_SYSREF_PERIOD_INFO(MCS_SYNC_MCSTOP0), sysref_per);
-        ADI_APOLLO_ERROR_RETURN(err);
-        err = sync_logic_reset(device, MCS_SYNC_MCSTOP0);
-        ADI_APOLLO_ERROR_RETURN(err);
-    }
-
-    return API_CMS_ERROR_OK;
-}
-
 int32_t adi_apollo_clk_mcs_internal_sysref_per_get(adi_apollo_device_t *device, uint16_t *sysref_per)
 {
     int32_t err;
@@ -941,6 +893,12 @@ int32_t adi_apollo_clk_mcs_sysref_en_set(adi_apollo_device_t* device, uint8_t en
 
     err = adi_apollo_hal_bf_set(device, BF_SYSREF_EN_INFO(MCS_TDC_MCSTOP0), enable != 0 ? 1 : 0);
     ADI_APOLLO_ERROR_RETURN(err);
+
+    /* Add 50us delay when enabling SYSREF to ensure receiver stability before oneshot sync */
+    if (enable != 0) {
+        err = adi_apollo_hal_delay_us(device, 50);
+        ADI_APOLLO_ERROR_RETURN(err);
+    }
 
     return API_CMS_ERROR_OK;
 }
@@ -1060,6 +1018,31 @@ int32_t adi_apollo_clk_mcs_input_power_status_get(adi_apollo_device_t *device, a
     }
 
     return API_CMS_ERROR_OK;
+}
+
+int32_t adi_apollo_clk_mcs_dig_clk_mask_set(adi_apollo_device_t *device, uint8_t enable)
+{
+    int32_t err;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+
+    // mask off digital clocks from ext trigger reset
+    err = adi_apollo_hal_reg_set(device, REG_SYNC_MASK_ADCFIFO_ADDR, enable ? 0xF : 0);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_reg_set(device, REG_SYNC_MASK_DACFIFO_ADDR, enable ? 0xF : 0);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_reg_set(device, REG_SYNC_MASK_LPBKFIFO_ADDR, enable ? 0x3 : 0);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_reg_set(device, REG_SYNC_MASK_RTCLK_ADDR, enable ? 0xFF : 0);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_reg_set(device, REG_SYNC_MASK_RXTX_ADDR, enable ? 0xF : 0);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_reg_set(device, REG_SYNC_MASK_RXTXLINK_ADDR, enable ? 0xF : 0);
+    ADI_APOLLO_ERROR_RETURN(err);
+
+    return API_CMS_ERROR_OK;
+
 }
 
 /*==================== S T A T I C  F U N C T I O N S ====================*/
@@ -1195,17 +1178,4 @@ uint32_t calc_tx_hsdout_base(int32_t index)
     return tx_hsdout_regmap[index];
 }
 
-static int32_t sync_logic_reset(adi_apollo_device_t *device, int32_t mcs_sync_top)
-{
-    int32_t err;
-
-    err = adi_apollo_hal_bf_set(device, BF_SYNCLOGIC_RESET_INFO(mcs_sync_top), 0);
-    ADI_APOLLO_ERROR_RETURN(err);
-    err = adi_apollo_hal_bf_set(device, BF_SYNCLOGIC_RESET_INFO(mcs_sync_top), 1);
-    ADI_APOLLO_ERROR_RETURN(err);
-    err = adi_apollo_hal_bf_set(device, BF_SYNCLOGIC_RESET_INFO(mcs_sync_top), 0);
-    ADI_APOLLO_ERROR_RETURN(err);
-
-    return API_CMS_ERROR_OK;
-}
 /*! @} */

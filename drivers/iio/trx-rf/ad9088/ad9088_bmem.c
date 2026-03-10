@@ -361,7 +361,7 @@ static int ad9088_bmem_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		freq = st->phy->profile.adc_config[side].adc_sampling_rate_Hz;
+		freq = st->phy->profile.adc_cfg[side].adc_sampling_rate_Hz;
 		*val = lower_32_bits(freq);
 		*val2 = upper_32_bits(freq);
 		return IIO_VAL_INT_64;
