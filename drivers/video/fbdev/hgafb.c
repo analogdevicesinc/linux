@@ -276,13 +276,18 @@ static void hga_blank(int blank_mode)
 	spin_unlock_irqrestore(&hga_reg_lock, flags);
 }
 
-static int hga_card_detect(void)
+static int hga_card_detect(struct platform_device *pdev)
 {
 	int count = 0;
 	void __iomem *p, *q;
 	unsigned short p_save, q_save;
 
 	hga_vram_len  = 0x08000;
+
+	if (!devm_request_mem_region(&pdev->dev, 0xb0000, hga_vram_len, "hgafb")) {
+		dev_err(&pdev->dev, "cannot reserve video memory at 0xb0000\n");
+		return -EBUSY;
+	}
 
 	hga_vram = ioremap(0xb0000, hga_vram_len);
 	if (!hga_vram)
@@ -568,7 +573,7 @@ static int hgafb_probe(struct platform_device *pdev)
 	struct fb_info *info;
 	int ret;
 
-	ret = hga_card_detect();
+	ret = hga_card_detect(pdev);
 	if (ret)
 		return ret;
 
