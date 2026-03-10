@@ -255,7 +255,7 @@
         reset-gpios = <&gpio_exp 9 GPIO_ACTIVE_LOW>;
 		pd-gpios = <&gpio_exp 10 GPIO_ACTIVE_HIGH>;
         adi,num-channels = <1>;
-		adi,resolution= <12>;
+		adi,resolution= <8>;
         adi,pol-mask =<239>;
     };
 
@@ -267,7 +267,7 @@
         reset-gpios = <&gpio_exp 8 GPIO_ACTIVE_LOW>;
         pd-gpios = <&gpio_exp 11 GPIO_ACTIVE_HIGH>;
         adi,num-channels = <1>;
-		adi,resolution= <12>;
+		adi,resolution= <8>;
         adi,pol-mask =<32>;
     };
 
