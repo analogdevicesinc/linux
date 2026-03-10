@@ -264,7 +264,7 @@ end:
 	return ret;
 }
 
-int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u16 mcs_track_decimation,
+int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u32 mcs_track_decimation,
 				  u16 initialize_track_cal)
 {
 	adi_apollo_device_t *device = &phy->ad9088;

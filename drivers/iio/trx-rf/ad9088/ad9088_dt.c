@@ -180,7 +180,7 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 	 * periodic SYSREF, keep below 32768. Default: 1023.
 	 */
 	phy->mcs_track_decimation = 1023;
-	of_property_read_u16(node, "adi,mcs-track-decimation", &phy->mcs_track_decimation);
+	of_property_read_u32(node, "adi,mcs-track-decimation", &phy->mcs_track_decimation);
 
 	phy->trig_sync_en = of_property_read_bool(node, "adi,trigger-sync-en");
 
