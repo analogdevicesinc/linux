@@ -37,6 +37,7 @@ enum ad9088_debugfs_cmd {
 	DBGFS_MCS_TRACK_STATUS,
 	DBGFS_MCS_INIT_CAL_STATUS,
 	DBGFS_MCS_TRACK_CAL_VALIDATE,
+	DBGFS_MCS_TRACK_DECIMATION,
 };
 
 static const u8 lanes_all[] = {
@@ -351,6 +352,9 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			if (!ret)
 				len = snprintf(phy->dbuf, sizeof(phy->dbuf), "%lld\n",
 					       entry->delta_t);
+			break;
+		case DBGFS_MCS_TRACK_DECIMATION:
+			val = phy->mcs_track_decimation;
 			break;
 		case DBGFS_MCS_BG_TRACK_CAL_RUN:
 			val = phy->mcs_cal_bg_tracking_run;
@@ -689,6 +693,11 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 		if (val)
 			ret = ad9088_mcs_tracking_cal_setup(phy, phy->mcs_track_decimation, 1);
 		break;
+	case DBGFS_MCS_TRACK_DECIMATION:
+		phy->mcs_track_decimation = val;
+		ret = adi_apollo_mcs_cal_tracking_decimation_set(&phy->ad9088, phy->mcs_track_decimation);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_mcs_cal_tracking_decimation_set");
+		break;
 	case DBGFS_MCS_FG_TRACK_CAL_RUN:
 		if (val) {
 			ret = adi_apollo_mcs_cal_fg_tracking_run(&phy->ad9088);
@@ -833,6 +842,8 @@ void ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "mcs_init_cal_status", DBGFS_MCS_INIT_CAL_STATUS);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "mcs_track_cal_validate", DBGFS_MCS_TRACK_CAL_VALIDATE);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "mcs_track_decimation", DBGFS_MCS_TRACK_DECIMATION);
 
 	for (i = 0; i < phy->ad9088_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
