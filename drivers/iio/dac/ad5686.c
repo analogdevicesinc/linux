@@ -605,7 +605,14 @@ int ad5686_probe(struct device *dev,
 
 	/* PWM configuration */
 	st->pwm = devm_pwm_get(dev, "pwm-trigger");
-	if (!IS_ERR(st->pwm)) {
+	if (IS_ERR(st->pwm)) {
+		ret = PTR_ERR(st->pwm);
+		if (ret != -ENOENT && ret != -ENODEV)
+			return dev_err_probe(dev, ret, "failed to get pwm-trigger\n");
+		st->pwm = NULL;
+	}
+
+	if (st->pwm) {
 		/* Set a default pwm frequency of 1kHz and 50% duty cycle */
 		pwm_init_state(st->pwm, &state);
 		state.enabled = false;
@@ -614,8 +621,6 @@ int ad5686_probe(struct device *dev,
 		ret = pwm_apply_might_sleep(st->pwm, &state);
 		if (ret < 0)
 			return ret;
-	} else {
-		st->pwm = NULL;
 	}
 
 	/* Configure IRQ */
