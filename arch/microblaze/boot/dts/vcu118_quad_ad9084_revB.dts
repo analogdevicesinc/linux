@@ -92,7 +92,7 @@
 
 #undef APOLLO_LOWFREQ_PATH_ENABLED
 
-#define LTC6953_AION_BSYNC_6_DIVIDER	64
+#define LTC6953_AION_BSYNC_6_DIVIDER	(FREQ_J1_MHz / SYSREF_CLK_MHz)
 #define LTC6953_AION_BSYNC_6_DIG_DELAY	14
 #define LTC6953_AION_BSYNC_6_ANA_DELAY	0
 
@@ -1091,6 +1091,8 @@
 		adi,hsci-tx-clk-adj = <7>;
 #endif
 		adi,nyquist-zone = <2>;
+		adi,subclass = <1>;
+
 		adi,hsci-auto-linkup-mode-en;
 		//adi,hsci-disable-after-boot-en;
 
@@ -1166,6 +1168,8 @@
 		adi,hsci-tx-clk-adj = <6>;
 #endif
 		adi,nyquist-zone = <2>;
+		adi,subclass = <1>;
+
 		adi,hsci-auto-linkup-mode-en;
 		//adi,hsci-disable-after-boot-en;
 
@@ -1228,6 +1232,7 @@
 		adi,hsci-tx-clk-adj = <6>;
 #endif
 		adi,nyquist-zone = <2>;
+		adi,subclass = <1>;
 
 		adi,hsci-auto-linkup-mode-en;
 		//adi,hsci-disable-after-boot-en;
@@ -1291,6 +1296,7 @@
 		adi,hsci-tx-clk-adj = <6>;
 #endif
 		adi,nyquist-zone = <2>;
+		adi,subclass = <1>;
 
 		adi,hsci-auto-linkup-mode-en;
 		//adi,hsci-disable-after-boot-en;
