@@ -70,8 +70,8 @@ int32_t adi_apollo_rx_configure(adi_apollo_device_t *device, adi_apollo_sides_e 
 
    /* FSRC config */
    if (!adi_apollo_private_device_lockout_get(device, ADI_APOLLO_RX, ADI_APOLLO_EC_FSRC_LOCK)) {
-        for(i = 0; i < ADI_APOLLO_FSRCS_PER_SIDE; i ++) {
-            err = adi_apollo_rx_fsrc_configure(device, side, (adi_apollo_fsrc_idx_e)i, &(config->rx_fsrc[i]));
+       for (i = 0; i < ADI_APOLLO_FSRC_PER_SIDE_NUM; i++) {
+            err = adi_apollo_rx_fsrc_configure(device, side, (uint8_t)i, &(config->rx_fsrc));
             ADI_APOLLO_ERROR_RETURN(err);
         }
    }
@@ -277,6 +277,7 @@ int32_t adi_apollo_rx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_si
 {
     int32_t err;
     uint8_t coeff_set_idx;
+    uint8_t ctrl_sets_idx;
     adi_apollo_pfilt_mode_pgm_t blk_mode_config;
     adi_apollo_pfilt_gain_dly_pgm_t blk_gain_dly_config;
 
@@ -284,46 +285,96 @@ int32_t adi_apollo_rx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_si
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_INVALID_PARAM_RETURN((idx_pfilt > ADI_APOLLO_PFILTS_PER_SIDE-1))
+        
+    /* In a 4T4R part, there is one pfilt on each side (side A and Side B), "pfilt 0" => pfilt A0 on side A and pfilt B0 on side B
+     * In an 8T8R part, there are two pfilts on each side => pfilt A0 and A1 on side A, and pfilt B0 and B1 on side B
+     * Each pfilt has 4 banks that can be switched between
+     * This mean there are 8 pfilt banks in an 8T8R on each side => 16 banks in total
+     * This function's job is to program the 8 banks on the side passed into the function
+     * This function should not try to program the upper 4 banks into A1/B1 if this is not an 8T8R part
+     */
+    adi_apollo_blk_sel_t pfiltsMsk = (device->dev_info.is_8t8r) ? ADI_APOLLO_PFILT_ALL : ADI_APOLLO_PFILT_ALL_4T4R;
+    
+    for (coeff_set_idx = 0; coeff_set_idx<ADI_APOLLO_PFILT_COEFF_SETS; coeff_set_idx++) {        
+        
+        /* From the coefficient index, find what filter (on a side) is programmed: A0/B0 (0) or A1/B1 (1) */
+        adi_apollo_blk_sel_t pfiltForThisCoeffSet = (coeff_set_idx / (ADI_APOLLO_PFILT_COEFF_SETS / 2));
+        
+        /* Create the adi_apollo_blk_sel_t mask from the side and filter number, excluding A1/B1 if 4T4R
+         * Coefficient set 0 (i.e. Bank 0), pfiltForThisCoeffSet will equal 0, pfilts will be 0001 (if sideA), 0100 (if sideB)
+         * Coefficient set 1 (i.e. Bank 1), pfiltForThisCoeffSet will equal 0, pfilts will be 0001 (if sideA), 0100 (if sideB)
+         * Coefficient set 2 (i.e. Bank 2), pfiltForThisCoeffSet will equal 0, pfilts will be 0001 (if sideA), 0100 (if sideB)
+         * Coefficient set 3 (i.e. Bank 3), pfiltForThisCoeffSet will equal 0, pfilts will be 0001 (if sideA), 0100 (if sideB)
+         * Coefficient set 4 (i.e. Bank 4), pfiltForThisCoeffSet will equal 1, pfilts will be 0010 (if sideA), 0100 (if sideB)
+         * Coefficient set 5 (i.e. Bank 5), pfiltForThisCoeffSet will equal 1, pfilts will be 0010 (if sideA), 1000 (if sideB)
+         * Coefficient set 6 (i.e. Bank 6), pfiltForThisCoeffSet will equal 1, pfilts will be 0010 (if sideA), 1000 (if sideB)
+         * Coefficient set 7 (i.e. Bank 7), pfiltForThisCoeffSet will equal 1, pfilts will be 0010 (if sideA), 1000 (if sideB)
+         * 
+         * These values will be masked by 0101 for 4T4R and by 1111 for 8T8R
+         */
+        adi_apollo_blk_sel_t pfilts = pfiltsMsk & (ADI_APOLLO_PFILT_IDX2B(side, pfiltForThisCoeffSet));
+        
+        /* Only program the coefficients if the filter exists */
+        if (pfilts > 0) {
+        
+            /* Program pfilt coefficient sets */
+            err = adi_apollo_pfilt_coeff_pgm(device,
+                ADI_APOLLO_RX,
+                pfilts,
+                ADI_APOLLO_PFILT_COEFF_IDX2B(coeff_set_idx),
+                config->coeffs[coeff_set_idx],
+                ADI_APOLLO_PFILT_COEFFS);
+            ADI_APOLLO_ERROR_RETURN(err);
 
-    for (coeff_set_idx = 0; coeff_set_idx<ADI_APOLLO_PFILT_COEFF_SETS; coeff_set_idx++) {
+            /* Configure pfilt gain and delay sets */
+            blk_gain_dly_config.pfir_ix_gain = config->pfir_ix_gain_db[coeff_set_idx];
+            blk_gain_dly_config.pfir_iy_gain = config->pfir_iy_gain_db[coeff_set_idx];
+            blk_gain_dly_config.pfir_qx_gain = config->pfir_qx_gain_db[coeff_set_idx];
+            blk_gain_dly_config.pfir_qy_gain = config->pfir_qy_gain_db[coeff_set_idx];
+            blk_gain_dly_config.pfir_ix_scalar_gain = config->pfir_ix_scalar_gain_db[coeff_set_idx];
+            blk_gain_dly_config.pfir_iy_scalar_gain = config->pfir_iy_scalar_gain_db[coeff_set_idx];
+            blk_gain_dly_config.pfir_qx_scalar_gain = config->pfir_qx_scalar_gain_db[coeff_set_idx];
+            blk_gain_dly_config.pfir_qy_scalar_gain = config->pfir_qy_scalar_gain_db[coeff_set_idx];
+            blk_gain_dly_config.hc_delay = config->hc_prog_delay[coeff_set_idx];
 
-        /* Program pfilt coefficient sets */
-        err = adi_apollo_pfilt_coeff_pgm(device, ADI_APOLLO_RX,
-                            ADI_APOLLO_PFILT_IDX2B(side, idx_pfilt),
-                            ADI_APOLLO_PFILT_COEFF_IDX2B(coeff_set_idx),
-                            config->coeffs[coeff_set_idx], ADI_APOLLO_PFILT_COEFFS);
-        ADI_APOLLO_ERROR_RETURN(err);
-
-        /* Configure pfilt gain and delay sets */
-        blk_gain_dly_config.pfir_ix_gain = config->pfir_ix_gain_db[coeff_set_idx];
-        blk_gain_dly_config.pfir_iy_gain = config->pfir_iy_gain_db[coeff_set_idx];
-        blk_gain_dly_config.pfir_qx_gain = config->pfir_qx_gain_db[coeff_set_idx];
-        blk_gain_dly_config.pfir_qy_gain = config->pfir_qy_gain_db[coeff_set_idx];
-        blk_gain_dly_config.pfir_ix_scalar_gain = config->pfir_ix_scalar_gain_db[coeff_set_idx];
-        blk_gain_dly_config.pfir_iy_scalar_gain = config->pfir_iy_scalar_gain_db[coeff_set_idx];
-        blk_gain_dly_config.pfir_qx_scalar_gain = config->pfir_qx_scalar_gain_db[coeff_set_idx];
-        blk_gain_dly_config.pfir_qy_scalar_gain = config->pfir_qy_scalar_gain_db[coeff_set_idx];
-        blk_gain_dly_config.hc_delay = config->hc_prog_delay[coeff_set_idx];
-
-        err = adi_apollo_pfilt_gain_dly_pgm(device, ADI_APOLLO_RX,
-                        ADI_APOLLO_PFILT_IDX2B(side, idx_pfilt),
-                        ADI_APOLLO_PFILT_COEFF_IDX2B(coeff_set_idx),
-                        &blk_gain_dly_config);
-        ADI_APOLLO_ERROR_RETURN(err);
+            err = adi_apollo_pfilt_gain_dly_pgm(device,
+                ADI_APOLLO_RX,
+                pfilts,
+                ADI_APOLLO_PFILT_COEFF_IDX2B(coeff_set_idx),
+                &blk_gain_dly_config);
+            ADI_APOLLO_ERROR_RETURN(err);
+        }
     }
 
-    /* Program pfilt mode */
+    /* Program pfilt mode 
+     * The mode of a filter is split into the i mode and the q mode (a mode pair)
+     * There are two mode pairs on each side, a mode pair for pfilt 0 and a mode pair for pfilt 1
+     * i_mode[0] and q_mode[0] for pfilt 0
+     * i_mode[1] and q_mode[1] for pfilt 1
+     */
     blk_mode_config.data = config->real_data;
     blk_mode_config.add_sub_sel = config->add_sub_sel;
     blk_mode_config.dq_mode = device->dev_info.is_8t8r ? ADI_APOLLO_PFILT_QUAD_MODE : ADI_APOLLO_PFILT_DUAL_MODE;
-    blk_mode_config.mode_switch = config->mode_switch;
-    blk_mode_config.pfir_i_mode = config->enable ? config->i_mode : ADI_APOLLO_PFILT_MODE_DISABLED;
-    blk_mode_config.pfir_q_mode = config->enable ? config->q_mode : ADI_APOLLO_PFILT_MODE_DISABLED;
+    blk_mode_config.mode_switch = config->mode_switch;    
+    
+    /* Program the PFIR sets for 4T4R or 8T8R */
+    for (ctrl_sets_idx = 0; ctrl_sets_idx < ADI_APOLLO_PFILT_CTRL_SETS; ctrl_sets_idx++)
+    {
+        blk_mode_config.pfir_i_mode[ctrl_sets_idx] = config->enable ? config->i_mode[ctrl_sets_idx] : ADI_APOLLO_PFILT_MODE_DISABLED;
+        blk_mode_config.pfir_q_mode[ctrl_sets_idx] = config->enable ? config->q_mode[ctrl_sets_idx] : ADI_APOLLO_PFILT_MODE_DISABLED;        
+        
+        adi_apollo_blk_sel_t pfilts = pfiltsMsk & (ADI_APOLLO_PFILT_IDX2B(side, ctrl_sets_idx));
 
-    err = adi_apollo_pfilt_mode_pgm(device, ADI_APOLLO_RX,
-                    ADI_APOLLO_PFILT_IDX2B(side, idx_pfilt),
-                    &blk_mode_config);
-    ADI_APOLLO_ERROR_RETURN(err);
+        /* Only program the mode if the filter exists */
+        if (pfilts > 0) {
+        
+            err = adi_apollo_pfilt_mode_pgm(device,
+                ADI_APOLLO_RX,
+                pfilts,
+                &blk_mode_config);
+            ADI_APOLLO_ERROR_RETURN(err);
+        }
+    }
 
     return API_CMS_ERROR_OK;
 }
@@ -420,7 +471,7 @@ int32_t adi_apollo_rx_cfir_configure(adi_apollo_device_t *device, adi_apollo_sid
     return API_CMS_ERROR_OK;
 }
 
-int32_t adi_apollo_rx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_fsrc_idx_e idx_fsrc, adi_apollo_fsrc_cfg_t *config)
+int32_t adi_apollo_rx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, uint8_t idx_fsrc, adi_apollo_fsrc_cfg_t *config)
 {
     int32_t err;
     adi_apollo_fsrc_pgm_t blk_mode_config;
@@ -428,21 +479,22 @@ int32_t adi_apollo_rx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sid
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN((idx_fsrc > ADI_APOLLO_FSRCS_PER_SIDE-1))
+    ADI_APOLLO_INVALID_PARAM_RETURN((idx_fsrc > ADI_APOLLO_FSRC_PER_SIDE_NUM-1))
 
     /* Program fsrc */
     blk_mode_config.fsrc_rate_int = config->fsrc_rate_int;
     blk_mode_config.fsrc_rate_frac_a = config->fsrc_rate_frac_a;
     blk_mode_config.fsrc_rate_frac_b = config->fsrc_rate_frac_b;
     blk_mode_config.sample_frac_delay = config->fsrc_delay;
-    blk_mode_config.fsrc_en = config->enable;
+    blk_mode_config.fsrc_en0 = config->enable0;
+    blk_mode_config.fsrc_en1 = config->enable1;
     blk_mode_config.gain_reduction = config->gain_reduction;
     blk_mode_config.ptr_overwrite = config->ptr_overwrite;
     blk_mode_config.ptr_syncrstval = config->ptr_syncrstval;
     blk_mode_config.fsrc_data_mult_dither_en = config->data_mult_dither_en;
     blk_mode_config.fsrc_dither_en = config->dither_en;
     blk_mode_config.fsrc_4t4r_split = config->split_4t4r;
-    blk_mode_config.fsrc_bypass = config->enable ? 0 : 1;
+    blk_mode_config.fsrc_bypass = (config->enable0 || config->enable1) ? 0 : 1;
     blk_mode_config.fsrc_1x_mode = config->mode_1x;
 
     err = adi_apollo_fsrc_pgm(device, ADI_APOLLO_RX,

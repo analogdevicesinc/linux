@@ -216,6 +216,7 @@ struct ad9088_phy {
 	adi_apollo_top_t profile;
 	adi_cms_chip_id_t chip_id;
 	struct axiadc_chip_info chip_info;
+	struct clk *dev_clk;
 	struct bin_attribute pfilt;
 	struct bin_attribute cfir;
 	struct bin_attribute cal_data;

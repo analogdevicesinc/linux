@@ -68,7 +68,7 @@ static int ad9088_jesd204_link_init(struct jesd204_dev *jdev,
 		lnk->ctrl_bits_per_sample = jrx->rx_link_cfg[linkIdx].cs;
 		lnk->samples_per_conv_frame = jrx->rx_link_cfg[linkIdx].s_minus1 + 1;
 
-		lnk->sample_rate = phy->profile.dac_config[sideIdx].dac_sampling_rate_Hz;
+		lnk->sample_rate = phy->profile.dac_cfg[sideIdx].dac_sampling_rate_Hz;
 		lnk->sample_rate_div = jrx->rx_link_cfg[linkIdx].link_total_ratio;
 		priv->serdes_jrx_cal_run = false;
 		break;
@@ -101,7 +101,7 @@ static int ad9088_jesd204_link_init(struct jesd204_dev *jdev,
 		lnk->ctrl_bits_per_sample = jtx->tx_link_cfg[linkIdx].cs;
 		lnk->samples_per_conv_frame = jtx->tx_link_cfg[linkIdx].s_minus1 + 1;
 
-		lnk->sample_rate = phy->profile.adc_config[sideIdx].adc_sampling_rate_Hz;
+		lnk->sample_rate = phy->profile.adc_cfg[sideIdx].adc_sampling_rate_Hz;
 		lnk->sample_rate_div = jtx->tx_link_cfg[linkIdx].link_total_ratio;
 		break;
 	default:
@@ -141,7 +141,6 @@ static int ad9088_jesd204_link_setup(struct jesd204_dev *jdev,
 		.spi_txen_en = 1
 	};
 	u32 subclass = 0;
-	u16 int_sysref;
 	int ret;
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
@@ -206,27 +205,6 @@ static int ad9088_jesd204_link_setup(struct jesd204_dev *jdev,
 		dev_err(dev, "Error setting subclass %d\n", ret);
 		return ret;
 	}
-	ret = adi_apollo_jrx_subclass_set(&phy->ad9088, ADI_APOLLO_LINK_ALL,
-					  phy->profile.jrx->common_link_cfg.subclass);
-	if (ret) {
-		dev_err(dev, "Error setting subclass %d\n", ret);
-		return ret;
-	}
-
-	ret = adi_apollo_jtx_subclass_set(&phy->ad9088,
-					  ADI_APOLLO_LINK_ALL,
-					  phy->profile.jtx->common_link_cfg.subclass);
-	if (ret) {
-		dev_err(dev, "Error setting subclass %d\n", ret);
-		return ret;
-	}
-
-	int_sysref = phy->profile.mcs_cfg.internal_sysref_prd_digclk_cycles_center;
-	ret = adi_apollo_clk_mcs_internal_sysref_per_set(&phy->ad9088, int_sysref);
-	if (ret) {
-		dev_err(dev, "Error setting internal sysref period %d\n", ret);
-		return ret;
-	}
 
 	/* Enable the MCS SYSREF receiver if subclass 1 */
 	ret = adi_apollo_clk_mcs_sysref_en_set(&phy->ad9088, (subclass == 1) ?
@@ -286,10 +264,10 @@ static int ad9088_jesd204_setup_stage1(struct jesd204_dev *jdev,
 	}
 
 	if (phy->cal_data_loaded_from_fw) {
-		cc_cal_cfg = SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER;
+		cc_cal_cfg = ADI_APOLLO_SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER;
 		dev_info(dev, "Run clock conditioning cal WARMBOOT from USER ...\n");
 	} else {
-		cc_cal_cfg = SYSCLKCONDITIONING_ENABLED;
+		cc_cal_cfg = ADI_APOLLO_SYSCLKCONDITIONING_ENABLED;
 		dev_info(dev, "Run clock conditioning cal (can take up to %d secs)...\n",
 			 ADI_APOLLO_SYSCLK_COND_CENTER_MAX_TO);
 	}
@@ -938,7 +916,7 @@ static int ad9088_jesd204_post_setup_stage4(struct jesd204_dev *jdev,
 			temp = 4;
 
 		period_fs = div64_u64(1000000000000000ULL * temp,
-				      phy->profile.clk_cfg.dev_clk_freq_kHz * 1000ULL);
+				      phy->profile.clk_cfg.dev_clk_freq_Hz);
 
 		dev_info(dev, "Trigger Phase %d (ideal %u) period %u fs\n", phase,
 			 phy->profile.mcs_cfg.internal_sysref_prd_digclk_cycles_center / 2,

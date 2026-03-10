@@ -104,13 +104,13 @@ int32_t adi_apollo_rx_cfir_configure(adi_apollo_device_t *device, adi_apollo_sid
  *
  * \param[in] device        Context variable - Pointer to the APOLLO device data structure
  * \param[in] side          Device side, A or B \ref adi_apollo_sides_e
- * \param[in] idx           Index of block to configure. \ref adi_apollo_fsrc_idx_e
+ * \param[in] idx           Index of block to configure (0 or 1)
  * \param[in] config        Configuration parameters. \ref adi_apollo_fsrc_cfg_t
  *
  * \return API_CMS_ERROR_OK                     Completed successfully
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
-int32_t adi_apollo_rx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_fsrc_idx_e idx, adi_apollo_fsrc_cfg_t *config);
+int32_t adi_apollo_rx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, uint8_t idx, adi_apollo_fsrc_cfg_t *config);
 
 /**
  * \brief  Configure DFORMAT parameters
