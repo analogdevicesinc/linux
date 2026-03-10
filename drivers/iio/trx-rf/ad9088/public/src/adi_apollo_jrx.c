@@ -618,27 +618,6 @@ int32_t adi_apollo_jrx_lanes_xbar_set(adi_apollo_device_t *device,
     return API_CMS_ERROR_OK;
 }
 
-int32_t adi_apollo_jrx_subclass_set(adi_apollo_device_t *device,
-    const uint16_t links,
-    const uint16_t subclass)
-{
-    int32_t err, i;
-    uint32_t regmap_base_addr = 0;
-
-    ADI_APOLLO_NULL_POINTER_RETURN(device);
-    ADI_APOLLO_LOG_FUNC();
-
-    for (i = 0; i < ADI_APOLLO_NUM_JRX_LINKS; i++) {
-        if ((1 << i) & links) {
-            regmap_base_addr = calc_jrx_jesd_l0_base(i);
-            err = adi_apollo_hal_bf_set(device, BF_JRX_CORE_SUBCLASSV_CFG_INFO(regmap_base_addr, (i % ADI_APOLLO_NUM_JRX_LINKS_PER_SIDE)), subclass);
-            ADI_APOLLO_ERROR_RETURN(err);
-        }
-    }
-
-    return API_CMS_ERROR_OK;
-}
-
 int32_t adi_apollo_jrx_j204c_irq_enable_set(adi_apollo_device_t *device,
     const uint16_t links,
     const uint32_t irqs, uint8_t enable)
