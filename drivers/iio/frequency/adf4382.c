@@ -434,7 +434,7 @@
 #define ADF4382_SCRATCHPAD_VAL			0xA5
 
 #define ADF4382_PHASE_BLEED_CNST_MUL		511
-#define ADF4382_PHASE_BLEED_CNST_DIV		285
+#define ADF4382_PHASE_BLEED_CNST_DIV		250
 #define ADF4382_VCO_CAL_CNT			202
 #define ADF4382_VCO_CAL_VTUNE			124
 #define ADF4382_VCO_CAL_ALC			250
@@ -1266,8 +1266,21 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	phase_value = div_u64(phase_value, PERIOD_IN_DEG);
 	phase_value = DIV_ROUND_CLOSEST_ULL(phase_value, MILLI);
 
-	// Mask the value to 8 bits
-	phase_reg_value = phase_value & 0xff;
+	if (phase_value == 0 && phase_fs != 0) {
+		dev_warn(&st->spi->dev,
+			 "Phase %u fs too small to represent at Icp %u uA.\n",
+			 phase_fs, adf4382_ci_ua[st->cp_i]);
+		phase_value = 1u;
+	}
+
+	if (phase_value > U8_MAX) {
+		dev_warn(&st->spi->dev,
+			 "Phase adjust register clamped to 255 (computed %llu).\n",
+			 phase_value);
+		phase_value = U8_MAX;
+	}
+
+	phase_reg_value = (u8)phase_value;
 
 	ret = regmap_write(st->regmap, 0x33, phase_reg_value);
 	if (ret)
