@@ -498,6 +498,21 @@ int		   svc_generic_rpcbind_set(struct net *net,
 
 #define	RPC_MAX_ADDRBUFLEN	(63U)
 
+/**
+ * svc_rqst_page_release - release a page associated with an RPC transaction
+ * @rqstp: RPC transaction context
+ * @page: page to release
+ *
+ * Released pages are batched and freed together, reducing
+ * allocator pressure under heavy RPC workloads.
+ */
+static inline void svc_rqst_page_release(struct svc_rqst *rqstp,
+					 struct page *page)
+{
+	if (!folio_batch_add(&rqstp->rq_fbatch, page_folio(page)))
+		__folio_batch_release(&rqstp->rq_fbatch);
+}
+
 /*
  * When we want to reduce the size of the reserved space in the response
  * buffer, we need to take into account the size of any checksum data that

@@ -988,7 +988,7 @@ static size_t svc_tcp_restore_pages(struct svc_sock *svsk,
 	npages = (len + PAGE_SIZE - 1) >> PAGE_SHIFT;
 	for (i = 0; i < npages; i++) {
 		if (rqstp->rq_pages[i] != NULL)
-			put_page(rqstp->rq_pages[i]);
+			svc_rqst_page_release(rqstp, rqstp->rq_pages[i]);
 		BUG_ON(svsk->sk_pages[i] == NULL);
 		rqstp->rq_pages[i] = svsk->sk_pages[i];
 		svsk->sk_pages[i] = NULL;

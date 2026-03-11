@@ -976,11 +976,8 @@ bool svc_rqst_replace_page(struct svc_rqst *rqstp, struct page *page)
 		return false;
 	}
 
-	if (*rqstp->rq_next_page) {
-		if (!folio_batch_add(&rqstp->rq_fbatch,
-				page_folio(*rqstp->rq_next_page)))
-			__folio_batch_release(&rqstp->rq_fbatch);
-	}
+	if (*rqstp->rq_next_page)
+		svc_rqst_page_release(rqstp, *rqstp->rq_next_page);
 
 	get_page(page);
 	*(rqstp->rq_next_page++) = page;
