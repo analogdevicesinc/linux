@@ -26,7 +26,6 @@
 #include "synaptics.h"
 #include "logips2pp.h"
 #include "alps.h"
-#include "hgpk.h"
 #include "lifebook.h"
 #include "trackpoint.h"
 #include "touchkit_ps2.h"
@@ -393,9 +392,7 @@ static void psmouse_receive_byte(struct ps2dev *ps2dev, u8 data)
 			return;
 		}
 
-		if (psmouse->packet[1] == PSMOUSE_RET_ID ||
-		    (psmouse->protocol->type == PSMOUSE_HGPK &&
-		     psmouse->packet[1] == PSMOUSE_RET_BAT)) {
+		if (psmouse->packet[1] == PSMOUSE_RET_ID) {
 			__psmouse_set_state(psmouse, PSMOUSE_IGNORE);
 			serio_reconnect(ps2dev->serio);
 			return;
@@ -837,14 +834,6 @@ static const struct psmouse_protocol psmouse_protocols[] = {
 		.detect		= touchkit_ps2_detect,
 	},
 #endif
-#ifdef CONFIG_MOUSE_PS2_OLPC
-	{
-		.type		= PSMOUSE_HGPK,
-		.name		= "OLPC HGPK",
-		.alias		= "hgpk",
-		.detect		= hgpk_detect,
-	},
-#endif
 #ifdef CONFIG_MOUSE_PS2_ELANTECH
 	{
 		.type		= PSMOUSE_ELANTECH,
@@ -1151,13 +1140,6 @@ static int psmouse_extensions(struct psmouse *psmouse,
 		if (psmouse_try_protocol(psmouse, PSMOUSE_ALPS,
 					 &max_proto, set_properties, true))
 			return PSMOUSE_ALPS;
-	}
-
-	/* Try OLPC HGPK touchpad */
-	if (max_proto > PSMOUSE_IMEX &&
-	    psmouse_try_protocol(psmouse, PSMOUSE_HGPK, &max_proto,
-				 set_properties, true)) {
-		return PSMOUSE_HGPK;
 	}
 
 	/* Try Elantech touchpad */
@@ -2035,7 +2017,6 @@ static int __init psmouse_init(void)
 
 	lifebook_module_init();
 	synaptics_module_init();
-	hgpk_module_init();
 
 	err = psmouse_smbus_module_init();
 	if (err)
