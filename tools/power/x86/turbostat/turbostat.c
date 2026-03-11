@@ -2866,31 +2866,38 @@ void bic_lookup(cpu_set_t *ret_set, char *name_list, enum show_hide_mode mode)
 static inline int print_name(int width, int *printed, char *delim, char *name, enum counter_type type, enum counter_format format)
 {
 	UNUSED(type);
+	char *sep = (*printed)++ ? delim : "";
 
 	if (format == FORMAT_RAW && width >= 64)
-		return (sprintf(outp, "%s%-8s", ((*printed)++ ? delim : ""), name));
+		return sprintf(outp, "%s%-8s", sep, name);
 	else
-		return (sprintf(outp, "%s%s", ((*printed)++ ? delim : ""), name));
+		return sprintf(outp, "%s%s", sep, name);
 }
 
 static inline int print_hex_value(int width, int *printed, char *delim, unsigned long long value)
 {
+	char *sep = (*printed)++ ? delim : "";
+
 	if (width <= 32)
-		return (sprintf(outp, "%s%08x", ((*printed)++ ? delim : ""), (unsigned int)value));
+		return sprintf(outp, "%s%08llx", sep, value);
 	else
-		return (sprintf(outp, "%s%016llx", ((*printed)++ ? delim : ""), value));
+		return sprintf(outp, "%s%016llx", sep, value);
 }
 
 static inline int print_decimal_value(int width, int *printed, char *delim, unsigned long long value)
 {
+	char *sep = (*printed)++ ? delim : "";
+
 	UNUSED(width);
 
-	return (sprintf(outp, "%s%lld", ((*printed)++ ? delim : ""), value));
+	return sprintf(outp, "%s%lld", sep, value);
 }
 
 static inline int print_float_value(int *printed, char *delim, double value)
 {
-	return (sprintf(outp, "%s%0.2f", ((*printed)++ ? delim : ""), value));
+	char *sep = (*printed)++ ? delim : "";
+
+	return sprintf(outp, "%s%0.2f", sep, value);
 }
 
 void print_header(char *delim)
