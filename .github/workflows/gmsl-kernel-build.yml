@@ -132,12 +132,10 @@ jobs:
         curl --fail-with-body -s -X POST \
           -H "Accept: application/vnd.github+json" \
           -H "Authorization: Bearer ${{ secrets.CROSS_REPO_PAT }}" \
-          https://api.github.com/repos/analogdevicesinc/adi-kuiper-gen/dispatches \
+           https://api.github.com/repos/analogdevicesinc/adi-kuiper-gen/actions/workflows/gmsl-kernel-build.yml/dispatches \
           -d '{
-            "event_type": "kernel-build-complete",
-            "client_payload": {
-              "run_id": "${{ github.run_id }}",
-              "sha": "${{ github.sha }}",
-              "branch": "${{ github.ref_name }}"
+            "ref": "gmsl-rpi-6.13.y",
+            "inputs": {
+              "linux_run_id": "${{ github.run_id }}"
             }
           }'
