@@ -529,6 +529,7 @@ MODULE_DEVICE_TABLE(spi, ada4355_id);
 
 static const struct of_device_id ada4355_of_match[] = {
 	{ .compatible = "adi,ada4355" },
+	{ .compatible = "adi,ada4356" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ada4355_of_match);
