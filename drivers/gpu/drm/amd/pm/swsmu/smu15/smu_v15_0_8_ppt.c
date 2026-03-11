@@ -1696,17 +1696,23 @@ static ssize_t smu_v15_0_8_get_gpu_metrics(struct smu_context *smu, void **table
 	if (adev->umc.active_mask) {
 		u64 mask = adev->umc.active_mask;
 		int out_idx = 0;
+		u16 max_hbm_temp = 0;
 		int stack_idx;
 
-		if (unlikely(hweight64(mask)/4 > SMU_15_0_8_MAX_HBM_STACKS))
+		if (unlikely(hweight64(mask) / 4 > SMU_15_0_8_MAX_HBM_STACKS)) {
 			dev_warn(adev->dev, "Invalid umc mask %lld\n", mask);
-		else  {
+		} else  {
 			for_each_hbm_stack(stack_idx, mask) {
+				u16 temp;
+
 				if (!hbm_stack_mask_valid(mask))
 					continue;
-				gpu_metrics->temperature_hbm[out_idx++] =
-					SMUQ10_ROUND(metrics->HbmTemperature[stack_idx]);
+				temp = SMUQ10_ROUND(metrics->HbmTemperature[stack_idx]);
+				gpu_metrics->temperature_hbm[out_idx++] = temp;
+				if (temp > max_hbm_temp)
+					max_hbm_temp = temp;
 			}
+			gpu_metrics->temperature_mem = max_hbm_temp;
 		}
 	}
 
