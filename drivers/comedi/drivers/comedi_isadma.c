@@ -161,14 +161,10 @@ struct comedi_isadma *comedi_isadma_alloc(struct comedi_device *dev,
 	if (n_desc < 1 || n_desc > 2)
 		goto no_dma;
 
-	dma = kzalloc_obj(*dma);
+	dma = kzalloc_flex(*dma, desc, n_desc);
 	if (!dma)
 		goto no_dma;
 
-	desc = kzalloc_objs(*desc, n_desc);
-	if (!desc)
-		goto no_dma;
-	dma->desc = desc;
 	dma->n_desc = n_desc;
 	if (dev->hw_dev) {
 		dma->dev = dev->hw_dev;
@@ -231,15 +227,12 @@ void comedi_isadma_free(struct comedi_isadma *dma)
 	if (!dma)
 		return;
 
-	if (dma->desc) {
-		for (i = 0; i < dma->n_desc; i++) {
-			desc = &dma->desc[i];
-			if (desc->virt_addr)
-				dma_free_coherent(dma->dev, desc->maxsize,
-						  desc->virt_addr,
-						  desc->hw_addr);
-		}
-		kfree(dma->desc);
+	for (i = 0; i < dma->n_desc; i++) {
+		desc = &dma->desc[i];
+		if (desc->virt_addr)
+			dma_free_coherent(dma->dev, desc->maxsize,
+					  desc->virt_addr,
+					  desc->hw_addr);
 	}
 	if (dma->chan2 && dma->chan2 != dma->chan)
 		free_dma(dma->chan2);
