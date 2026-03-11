@@ -244,6 +244,10 @@ static int rvt_query_gid(struct ib_device *ibdev, u32 port_num,
  */
 static int rvt_alloc_ucontext(struct ib_ucontext *uctx, struct ib_udata *udata)
 {
+	struct rvt_dev_info *rdi = ib_to_rvt(uctx->device);
+
+	if (rdi->driver_f.alloc_ucontext)
+		return rdi->driver_f.alloc_ucontext(uctx, udata);
 	return 0;
 }
 
@@ -253,6 +257,10 @@ static int rvt_alloc_ucontext(struct ib_ucontext *uctx, struct ib_udata *udata)
  */
 static void rvt_dealloc_ucontext(struct ib_ucontext *context)
 {
+	struct rvt_dev_info *rdi = ib_to_rvt(context->device);
+
+	if (rdi->driver_f.dealloc_ucontext)
+		rdi->driver_f.dealloc_ucontext(context);
 	return;
 }
 
