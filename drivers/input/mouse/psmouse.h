@@ -90,7 +90,7 @@ struct psmouse {
 	void *private;
 	struct input_dev *dev;
 	struct ps2dev ps2dev;
-	struct delayed_work resync_work;
+	struct work_struct resync_work;
 	const char *vendor;
 	const char *name;
 	const struct psmouse_protocol *protocol;
@@ -132,8 +132,6 @@ struct psmouse {
 
 struct psmouse *psmouse_from_serio(struct serio *serio);
 
-void psmouse_queue_work(struct psmouse *psmouse, struct delayed_work *work,
-		unsigned long delay);
 int psmouse_reset(struct psmouse *psmouse);
 void psmouse_set_state(struct psmouse *psmouse, enum psmouse_state new_state);
 void psmouse_set_resolution(struct psmouse *psmouse, unsigned int resolution);
