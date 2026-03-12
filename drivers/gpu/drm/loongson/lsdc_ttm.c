@@ -8,6 +8,7 @@
 #include <drm/drm_gem.h>
 #include <drm/drm_managed.h>
 #include <drm/drm_prime.h>
+#include <drm/drm_print.h>
 
 #include "lsdc_drv.h"
 #include "lsdc_ttm.h"
@@ -95,7 +96,7 @@ lsdc_ttm_tt_create(struct ttm_buffer_object *tbo, uint32_t page_flags)
 	struct ttm_tt *tt;
 	int ret;
 
-	tt = kzalloc(sizeof(*tt), GFP_KERNEL);
+	tt = kzalloc_obj(*tt);
 	if (!tt)
 		return NULL;
 
@@ -440,7 +441,7 @@ struct lsdc_bo *lsdc_bo_create(struct drm_device *ddev,
 	enum ttm_bo_type bo_type;
 	int ret;
 
-	lbo = kzalloc(sizeof(*lbo), GFP_KERNEL);
+	lbo = kzalloc_obj(*lbo);
 	if (!lbo)
 		return ERR_PTR(-ENOMEM);
 
@@ -544,7 +545,8 @@ int lsdc_ttm_init(struct lsdc_device *ldev)
 
 	ret = ttm_device_init(&ldev->bdev, &lsdc_bo_driver, ddev->dev,
 			      ddev->anon_inode->i_mapping,
-			      ddev->vma_offset_manager, false, true);
+			      ddev->vma_offset_manager,
+			      TTM_ALLOCATION_POOL_USE_DMA32);
 	if (ret)
 		return ret;
 

@@ -427,7 +427,7 @@ static int icm_fr_get_route(struct tb *tb, u8 link, u8 depth, u64 *route)
 	int ret, index;
 	u8 i;
 
-	switches = kcalloc(npackets, sizeof(*switches), GFP_KERNEL);
+	switches = kzalloc_objs(*switches, npackets);
 	if (!switches)
 		return -ENOMEM;
 
@@ -787,7 +787,7 @@ icm_fr_device_connected(struct tb *tb, const struct icm_pkg_header *hdr)
 		 * information might have changed for example by the
 		 * fact that a switch on a dual-link connection might
 		 * have been enumerated using the other link now. Make
-		 * sure our book keeping matches that.
+		 * sure our bookkeeping matches that.
 		 */
 		if (sw->depth == depth && sw_phy_port == phy_port &&
 		    !!sw->authorized == authorized) {
@@ -969,7 +969,7 @@ icm_fr_xdomain_connected(struct tb *tb, const struct icm_pkg_header *hdr)
 
 	/*
 	 * Look if there already exists an XDomain in the same place
-	 * than the new one and in that case remove it because it is
+	 * as the new one and in that case remove it because it is
 	 * most likely another host that got disconnected.
 	 */
 	xd = tb_xdomain_find_by_link_depth(tb, link, depth);
@@ -1769,7 +1769,7 @@ static void icm_handle_event(struct tb *tb, enum tb_cfg_pkg_type type,
 {
 	struct icm_notification *n;
 
-	n = kmalloc(sizeof(*n), GFP_KERNEL);
+	n = kmalloc_obj(*n);
 	if (!n)
 		return;
 
@@ -2000,7 +2000,7 @@ static int icm_driver_ready(struct tb *tb)
 	if (icm->safe_mode) {
 		tb_info(tb, "Thunderbolt host controller is in safe mode.\n");
 		tb_info(tb, "You need to update NVM firmware of the controller before it can be used.\n");
-		tb_info(tb, "For latest updates check https://thunderbolttechnology.net/updates.\n");
+		tb_info(tb, "Use fwupd tool to apply update. Check Documentation/admin-guide/thunderbolt.rst for details.\n");
 		return 0;
 	}
 
@@ -2171,7 +2171,7 @@ static int icm_runtime_resume_switch(struct tb_switch *sw)
 static int icm_runtime_resume(struct tb *tb)
 {
 	/*
-	 * We can reuse the same resume functionality than with system
+	 * We can reuse the same resume functionality as with system
 	 * suspend.
 	 */
 	icm_complete(tb);
@@ -2246,7 +2246,7 @@ static int icm_usb4_switch_nvm_authenticate(struct tb *tb, u64 route)
 	struct tb_cfg_request *req;
 	int ret;
 
-	auth = kzalloc(sizeof(*auth), GFP_KERNEL);
+	auth = kzalloc_obj(*auth);
 	if (!auth)
 		return -ENOMEM;
 

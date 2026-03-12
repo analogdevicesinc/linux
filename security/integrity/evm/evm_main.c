@@ -1045,7 +1045,7 @@ int evm_inode_init_security(struct inode *inode, struct inode *dir,
 		  "%s: xattrs terminator is not the first non-filled slot\n",
 		  __func__);
 
-	xattr_data = kzalloc(sizeof(*xattr_data), GFP_NOFS);
+	xattr_data = kzalloc_obj(*xattr_data, GFP_NOFS);
 	if (!xattr_data)
 		return -ENOMEM;
 
@@ -1175,10 +1175,9 @@ struct lsm_blob_sizes evm_blob_sizes __ro_after_init = {
 };
 
 DEFINE_LSM(evm) = {
-	.name = "evm",
+	.id = &evm_lsmid,
 	.init = init_evm_lsm,
 	.order = LSM_ORDER_LAST,
 	.blobs = &evm_blob_sizes,
+	.initcall_late = init_evm,
 };
-
-late_initcall(init_evm);

@@ -91,7 +91,7 @@ static void erdma_disassoc_listen_cep(struct erdma_cep *cep)
 
 static struct erdma_cep *erdma_cep_alloc(struct erdma_dev *dev)
 {
-	struct erdma_cep *cep = kzalloc(sizeof(*cep), GFP_KERNEL);
+	struct erdma_cep *cep = kzalloc_obj(*cep);
 	unsigned long flags;
 
 	if (!cep)
@@ -217,7 +217,7 @@ static int erdma_cm_alloc_work(struct erdma_cep *cep, int num)
 	struct erdma_cm_work *work;
 
 	while (num--) {
-		work = kmalloc(sizeof(*work), GFP_KERNEL);
+		work = kmalloc_obj(*work);
 		if (!work) {
 			if (!(list_empty(&cep->work_freelist)))
 				erdma_cm_free_work(cep);
@@ -993,10 +993,10 @@ static int kernel_bindconnect(struct socket *s, struct sockaddr *laddr,
 	int ret;
 
 	sock_set_reuseaddr(s->sk);
-	ret = s->ops->bind(s, laddr, laddrlen);
+	ret = s->ops->bind(s, (struct sockaddr_unsized *)laddr, laddrlen);
 	if (ret)
 		return ret;
-	ret = s->ops->connect(s, raddr, raddrlen, flags);
+	ret = s->ops->connect(s, (struct sockaddr_unsized *)raddr, raddrlen, flags);
 	return ret < 0 ? ret : 0;
 }
 
@@ -1315,7 +1315,7 @@ int erdma_create_listen(struct iw_cm_id *id, int backlog)
 	if (ipv4_is_zeronet(laddr->sin_addr.s_addr))
 		s->sk->sk_bound_dev_if = dev->netdev->ifindex;
 
-	ret = s->ops->bind(s, (struct sockaddr *)laddr,
+	ret = s->ops->bind(s, (struct sockaddr_unsized *)laddr,
 			   sizeof(struct sockaddr_in));
 	if (ret)
 		goto error;
@@ -1340,7 +1340,7 @@ int erdma_create_listen(struct iw_cm_id *id, int backlog)
 
 	if (!id->provider_data) {
 		id->provider_data =
-			kmalloc(sizeof(struct list_head), GFP_KERNEL);
+			kmalloc_obj(struct list_head);
 		if (!id->provider_data) {
 			ret = -ENOMEM;
 			goto error;

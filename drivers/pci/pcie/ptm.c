@@ -81,6 +81,11 @@ void pci_ptm_init(struct pci_dev *dev)
 		dev->ptm_granularity = 0;
 	}
 
+	if (cap & PCI_PTM_CAP_RES)
+		dev->ptm_responder = 1;
+	if (cap & PCI_PTM_CAP_REQ)
+		dev->ptm_requester = 1;
+
 	if (pci_pcie_type(dev) == PCI_EXP_TYPE_ROOT_PORT ||
 	    pci_pcie_type(dev) == PCI_EXP_TYPE_UPSTREAM)
 		pci_enable_ptm(dev, NULL);
@@ -142,6 +147,24 @@ static int __pci_enable_ptm(struct pci_dev *dev)
 		ups = pci_upstream_ptm(dev);
 		if (!ups || !ups->ptm_enabled)
 			return -EINVAL;
+	}
+
+	switch (pci_pcie_type(dev)) {
+	case PCI_EXP_TYPE_ROOT_PORT:
+		if (!dev->ptm_root)
+			return -EINVAL;
+		break;
+	case PCI_EXP_TYPE_UPSTREAM:
+		if (!dev->ptm_responder)
+			return -EINVAL;
+		break;
+	case PCI_EXP_TYPE_ENDPOINT:
+	case PCI_EXP_TYPE_LEG_END:
+		if (!dev->ptm_requester)
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	pci_read_config_dword(dev, ptm + PCI_PTM_CTRL, &ctrl);
@@ -514,13 +537,15 @@ struct pci_ptm_debugfs *pcie_ptm_create_debugfs(struct device *dev, void *pdata,
 		return NULL;
 	}
 
-	ptm_debugfs = kzalloc(sizeof(*ptm_debugfs), GFP_KERNEL);
+	ptm_debugfs = kzalloc_obj(*ptm_debugfs);
 	if (!ptm_debugfs)
 		return NULL;
 
 	dirname = devm_kasprintf(dev, GFP_KERNEL, "pcie_ptm_%s", dev_name(dev));
-	if (!dirname)
+	if (!dirname) {
+		kfree(ptm_debugfs);
 		return NULL;
+	}
 
 	ptm_debugfs->debugfs = debugfs_create_dir(dirname, NULL);
 	ptm_debugfs->pdata = pdata;
@@ -551,6 +576,7 @@ void pcie_ptm_destroy_debugfs(struct pci_ptm_debugfs *ptm_debugfs)
 
 	mutex_destroy(&ptm_debugfs->lock);
 	debugfs_remove_recursive(ptm_debugfs->debugfs);
+	kfree(ptm_debugfs);
 }
 EXPORT_SYMBOL_GPL(pcie_ptm_destroy_debugfs);
 #endif

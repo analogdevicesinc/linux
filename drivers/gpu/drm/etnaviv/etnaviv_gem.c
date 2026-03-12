@@ -4,6 +4,7 @@
  */
 
 #include <drm/drm_prime.h>
+#include <drm/drm_print.h>
 #include <linux/dma-mapping.h>
 #include <linux/shmem_fs.h>
 #include <linux/spinlock.h>
@@ -287,7 +288,7 @@ struct etnaviv_vram_mapping *etnaviv_gem_mapping_get(
 	 */
 	mapping = etnaviv_gem_get_vram_mapping(etnaviv_obj, NULL);
 	if (!mapping) {
-		mapping = kzalloc(sizeof(*mapping), GFP_KERNEL);
+		mapping = kzalloc_obj(*mapping);
 		if (!mapping) {
 			ret = -ENOMEM;
 			goto out;
@@ -674,7 +675,7 @@ static int etnaviv_gem_userptr_get_pages(struct etnaviv_gem_object *etnaviv_obj)
 	if (userptr->mm != current->mm)
 		return -EPERM;
 
-	pvec = kvmalloc_array(npages, sizeof(struct page *), GFP_KERNEL);
+	pvec = kvmalloc_objs(struct page *, npages);
 	if (!pvec)
 		return -ENOMEM;
 

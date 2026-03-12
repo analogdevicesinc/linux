@@ -240,6 +240,14 @@
 &i2c1 {
 	status = "okay";
 
+	mctp-controller;
+	multi-master;
+
+	mctp@10 {
+		compatible = "mctp-i2c-controller";
+		reg = <(0x10 | I2C_OWN_SLAVE_ADDRESS)>;
+	};
+
 	temperature-sensor@4b {
 		compatible = "ti,tmp75";
 		reg = <0x4b>;
@@ -814,9 +822,13 @@
 	"irq-pvddcore1-ocp-alert","",
 	"","",
 	/*O4-O7 line 232-239*/
-	"","","","","","","","",
+	"","","","",
+	"presence-lower-fanboard1","",
+	"presence-lower-fanboard2","",
 	/*P0-P3 line 240-247*/
-	"","","","","","","","",
+	"presence-upper-fanboard1","",
+	"presence-upper-fanboard2","",
+	"","","","",
 	/*P4-P7 line 248-255*/
 	"","","","","","","","";
 };

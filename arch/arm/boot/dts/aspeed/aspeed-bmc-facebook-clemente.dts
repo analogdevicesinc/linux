@@ -95,6 +95,16 @@
 			label = "bmc_ready_cpld_noled";
 			gpios = <&gpio0 ASPEED_GPIO(P, 5) (GPIO_ACTIVE_HIGH|GPIO_TRANSITORY)>;
 		};
+
+	};
+
+	hdd-leds {
+		compatible = "gpio-leds";
+
+		led-0 {
+			label = "hdd_led";
+			gpios = <&io_expander13 1 GPIO_ACTIVE_LOW>;
+		};
 	};
 
 	memory@80000000 {
@@ -306,6 +316,12 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 					reg = <0>;
+
+					// HDD NVMe SSD FRU 0
+					eeprom@53 {
+						compatible = "atmel,24c02";
+						reg = <0x53>;
+					};
 				};
 
 				i2c0mux0ch1mux0ch1: i2c@1 {
@@ -318,6 +334,12 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 					reg = <2>;
+
+					// HDD NVMe SSD FRU 1
+					eeprom@53 {
+						compatible = "atmel,24c02";
+						reg = <0x53>;
+					};
 				};
 
 				i2c0mux0ch1mux0ch3: i2c@3 {
@@ -488,6 +510,12 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 					reg = <0>;
+
+					// HDD NVMe SSD FRU 2
+					eeprom@53 {
+						compatible = "atmel,24c02";
+						reg = <0x53>;
+					};
 				};
 
 				i2c0mux3ch1mux0ch1: i2c@1 {
@@ -500,6 +528,12 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 					reg = <2>;
+
+					// HDD NVMe SSD FRU 3
+					eeprom@53 {
+						compatible = "atmel,24c02";
+						reg = <0x53>;
+					};
 				};
 
 				i2c0mux3ch1mux0ch3: i2c@3 {
@@ -614,6 +648,12 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <1>;
+
+			// BOOT DRIVE FRU
+			eeprom@53 {
+				compatible = "atmel,24c02";
+				reg = <0x53>;
+			};
 		};
 
 		i2c0mux5ch2: i2c@2 {
@@ -642,12 +682,14 @@
 	power-monitor@12 {
 		compatible = "ti,lm5066i";
 		reg = <0x12>;
+		shunt-resistor-micro-ohms = <183>;
 	};
 
 	// PDB
 	power-monitor@14 {
 		compatible = "ti,lm5066i";
 		reg = <0x14>;
+		shunt-resistor-micro-ohms = <183>;
 	};
 
 	// Module 0
@@ -976,7 +1018,7 @@
 			"",
 			"",
 			"",
-			"",
+			"shdn_force_l_cpld",
 			"",
 			"",
 			"",
@@ -1197,7 +1239,7 @@
 		#gpio-cells = <2>;
 		gpio-line-names =
 			"rmc_en_dc_pwr_on",
-			"",
+			"HDD_LED_N",
 			"",
 			"",
 			"",
@@ -1249,10 +1291,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ncsi4_default>;
 	use-ncsi;
-};
-
-&udma {
-	status = "okay";
 };
 
 &uart1 {

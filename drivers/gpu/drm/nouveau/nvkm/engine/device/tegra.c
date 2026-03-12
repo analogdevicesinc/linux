@@ -253,11 +253,15 @@ nvkm_device_tegra_new(const struct nvkm_device_tegra_func *func,
 	unsigned long rate;
 	int ret;
 
-	if (!(tdev = kzalloc(sizeof(*tdev), GFP_KERNEL)))
+	if (!(tdev = kzalloc_obj(*tdev)))
 		return -ENOMEM;
 
 	tdev->func = func;
 	tdev->pdev = pdev;
+
+	tdev->regs = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(tdev->regs))
+		return PTR_ERR(tdev->regs);
 
 	if (func->require_vdd) {
 		tdev->vdd = devm_regulator_get(&pdev->dev, "vdd");

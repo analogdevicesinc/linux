@@ -150,7 +150,7 @@ struct nfs_client *nfs_alloc_client(const struct nfs_client_initdata *cl_init)
 	struct nfs_client *clp;
 	int err = -ENOMEM;
 
-	if ((clp = kzalloc(sizeof(*clp), GFP_KERNEL)) == NULL)
+	if ((clp = kzalloc_obj(*clp)) == NULL)
 		goto error_0;
 
 	clp->cl_minorversion = cl_init->minorversion;
@@ -784,10 +784,18 @@ static int nfs_init_server(struct nfs_server *server,
 		server->fattr_valid = NFS_ATTR_FATTR_V4;
 	}
 
-	if (ctx->rsize)
+	if (ctx->bsize) {
+		server->bsize = ctx->bsize;
+		server->automount_inherit |= NFS_AUTOMOUNT_INHERIT_BSIZE;
+	}
+	if (ctx->rsize) {
 		server->rsize = nfs_io_size(ctx->rsize, clp->cl_proto);
-	if (ctx->wsize)
+		server->automount_inherit |= NFS_AUTOMOUNT_INHERIT_RSIZE;
+	}
+	if (ctx->wsize) {
 		server->wsize = nfs_io_size(ctx->wsize, clp->cl_proto);
+		server->automount_inherit |= NFS_AUTOMOUNT_INHERIT_WSIZE;
+	}
 
 	server->acregmin = ctx->acregmin * HZ;
 	server->acregmax = ctx->acregmax * HZ;
@@ -977,8 +985,13 @@ EXPORT_SYMBOL_GPL(nfs_probe_server);
 void nfs_server_copy_userdata(struct nfs_server *target, struct nfs_server *source)
 {
 	target->flags = source->flags;
-	target->rsize = source->rsize;
-	target->wsize = source->wsize;
+	target->automount_inherit = source->automount_inherit;
+	if (source->automount_inherit & NFS_AUTOMOUNT_INHERIT_BSIZE)
+		target->bsize = source->bsize;
+	if (source->automount_inherit & NFS_AUTOMOUNT_INHERIT_RSIZE)
+		target->rsize = source->rsize;
+	if (source->automount_inherit & NFS_AUTOMOUNT_INHERIT_WSIZE)
+		target->wsize = source->wsize;
 	target->acregmin = source->acregmin;
 	target->acregmax = source->acregmax;
 	target->acdirmin = source->acdirmin;
@@ -1031,7 +1044,7 @@ struct nfs_server *nfs_alloc_server(void)
 {
 	struct nfs_server *server;
 
-	server = kzalloc(sizeof(struct nfs_server), GFP_KERNEL);
+	server = kzalloc_obj(struct nfs_server);
 	if (!server)
 		return NULL;
 
@@ -1047,6 +1060,10 @@ struct nfs_server *nfs_alloc_server(void)
 	INIT_LIST_HEAD(&server->client_link);
 	INIT_LIST_HEAD(&server->master_link);
 	INIT_LIST_HEAD(&server->delegations);
+	spin_lock_init(&server->delegations_lock);
+	INIT_LIST_HEAD(&server->delegations_return);
+	INIT_LIST_HEAD(&server->delegations_lru);
+	INIT_LIST_HEAD(&server->delegations_delayed);
 	INIT_LIST_HEAD(&server->layouts);
 	INIT_LIST_HEAD(&server->state_owners_lru);
 	INIT_LIST_HEAD(&server->ss_copies);
@@ -1250,11 +1267,9 @@ void nfs_clients_init(struct net *net)
 	INIT_LIST_HEAD(&nn->nfs_volume_list);
 #if IS_ENABLED(CONFIG_NFS_V4)
 	idr_init(&nn->cb_ident_idr);
-#endif
-#if IS_ENABLED(CONFIG_NFS_V4_1)
 	INIT_LIST_HEAD(&nn->nfs4_data_server_cache);
 	spin_lock_init(&nn->nfs4_data_server_lock);
-#endif
+#endif /* CONFIG_NFS_V4 */
 	spin_lock_init(&nn->nfs_client_lock);
 	nn->boot_time = ktime_get_real();
 	memset(&nn->rpcstats, 0, sizeof(nn->rpcstats));
@@ -1271,9 +1286,9 @@ void nfs_clients_exit(struct net *net)
 	nfs_cleanup_cb_ident_idr(net);
 	WARN_ON_ONCE(!list_empty(&nn->nfs_client_list));
 	WARN_ON_ONCE(!list_empty(&nn->nfs_volume_list));
-#if IS_ENABLED(CONFIG_NFS_V4_1)
+#if IS_ENABLED(CONFIG_NFS_V4)
 	WARN_ON_ONCE(!list_empty(&nn->nfs4_data_server_cache));
-#endif
+#endif /* CONFIG_NFS_V4 */
 }
 
 #ifdef CONFIG_PROC_FS

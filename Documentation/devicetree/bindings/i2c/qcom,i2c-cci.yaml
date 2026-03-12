@@ -15,6 +15,7 @@ properties:
     oneOf:
       - enum:
           - qcom,msm8226-cci
+          - qcom,msm8953-cci
           - qcom,msm8974-cci
           - qcom,msm8996-cci
 
@@ -25,7 +26,9 @@ properties:
 
       - items:
           - enum:
+              - qcom,kaanapali-cci
               - qcom,qcm2290-cci
+              - qcom,qcs8300-cci
               - qcom,sa8775p-cci
               - qcom,sc7280-cci
               - qcom,sc8280xp-cci
@@ -36,6 +39,7 @@ properties:
               - qcom,sm8450-cci
               - qcom,sm8550-cci
               - qcom,sm8650-cci
+              - qcom,sm8750-cci
               - qcom,x1e80100-cci
           - const: qcom,msm8996-cci # CCI v2
 
@@ -128,7 +132,10 @@ allOf:
         compatible:
           contains:
             enum:
+              - qcom,kaanapali-cci
               - qcom,qcm2290-cci
+              - qcom,qcs8300-cci
+              - qcom,sm8750-cci
     then:
       properties:
         clocks:
@@ -146,6 +153,7 @@ allOf:
             - contains:
                 enum:
                   - qcom,msm8916-cci
+                  - qcom,msm8953-cci
 
             - const: qcom,msm8996-cci
     then:

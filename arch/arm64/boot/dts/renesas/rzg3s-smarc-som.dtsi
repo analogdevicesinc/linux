@@ -84,10 +84,6 @@
 	};
 };
 
-&adc {
-	status = "okay";
-};
-
 #if SW_CONFIG3 == SW_ON
 &eth0 {
 	pinctrl-0 = <&eth0_pins>;
@@ -170,6 +166,11 @@
 		  a0 80 30 30 9c
 		];
 	};
+};
+
+&pcie_port0 {
+	clocks = <&versa3 5>;
+	clock-names = "ref";
 };
 
 #if SW_CONFIG2 == SW_ON

@@ -5,6 +5,7 @@
  */
 
 #include <drm/drm_vblank.h>
+#include <drm/drm_print.h>
 
 #include "omap_drv.h"
 
@@ -42,7 +43,7 @@ struct omap_irq_wait * omap_irq_wait_init(struct drm_device *dev,
 		u32 irqmask, int count)
 {
 	struct omap_drm_private *priv = dev->dev_private;
-	struct omap_irq_wait *wait = kzalloc(sizeof(*wait), GFP_KERNEL);
+	struct omap_irq_wait *wait = kzalloc_obj(*wait);
 	unsigned long flags;
 
 	init_waitqueue_head(&wait->wq);

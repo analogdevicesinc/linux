@@ -139,7 +139,7 @@ void nitrox_pf2vf_mbox_handler(struct nitrox_device *ndev)
 		vfdev->ring = i;
 		/* fill the vf mailbox data */
 		vfdev->msg.value = pf2vf_read_mbox(ndev, vfdev->ring);
-		pfwork = kzalloc(sizeof(*pfwork), GFP_ATOMIC);
+		pfwork = kzalloc_obj(*pfwork, GFP_ATOMIC);
 		if (!pfwork)
 			continue;
 
@@ -163,7 +163,7 @@ void nitrox_pf2vf_mbox_handler(struct nitrox_device *ndev)
 		/* fill the vf mailbox data */
 		vfdev->msg.value = pf2vf_read_mbox(ndev, vfdev->ring);
 
-		pfwork = kzalloc(sizeof(*pfwork), GFP_ATOMIC);
+		pfwork = kzalloc_obj(*pfwork, GFP_ATOMIC);
 		if (!pfwork)
 			continue;
 
@@ -181,8 +181,7 @@ int nitrox_mbox_init(struct nitrox_device *ndev)
 	struct nitrox_vfdev *vfdev;
 	int i;
 
-	ndev->iov.vfdev = kcalloc(ndev->iov.num_vfs,
-				  sizeof(struct nitrox_vfdev), GFP_KERNEL);
+	ndev->iov.vfdev = kzalloc_objs(struct nitrox_vfdev, ndev->iov.num_vfs);
 	if (!ndev->iov.vfdev)
 		return -ENOMEM;
 
@@ -192,7 +191,7 @@ int nitrox_mbox_init(struct nitrox_device *ndev)
 	}
 
 	/* allocate pf2vf response workqueue */
-	ndev->iov.pf2vf_wq = alloc_workqueue("nitrox_pf2vf", 0, 0);
+	ndev->iov.pf2vf_wq = alloc_workqueue("nitrox_pf2vf", WQ_PERCPU, 0);
 	if (!ndev->iov.pf2vf_wq) {
 		kfree(ndev->iov.vfdev);
 		ndev->iov.vfdev = NULL;

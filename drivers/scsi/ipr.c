@@ -61,8 +61,8 @@
 #include <linux/hdreg.h>
 #include <linux/reboot.h>
 #include <linux/stringify.h>
+#include <linux/irq.h>
 #include <asm/io.h>
-#include <asm/irq.h>
 #include <asm/processor.h>
 #include <scsi/scsi.h>
 #include <scsi/scsi_host.h>
@@ -3776,7 +3776,7 @@ static struct ipr_sglist *ipr_alloc_ucode_buffer(int buf_len)
 	order = get_order(sg_size);
 
 	/* Allocate a scatter/gather list for the DMA */
-	sglist = kzalloc(sizeof(struct ipr_sglist), GFP_KERNEL);
+	sglist = kzalloc_obj(struct ipr_sglist);
 	if (sglist == NULL) {
 		ipr_trace;
 		return NULL;
@@ -4273,7 +4273,7 @@ static int ipr_alloc_dump(struct ipr_ioa_cfg *ioa_cfg)
 	__be32 **ioa_data;
 	unsigned long lock_flags = 0;
 
-	dump = kzalloc(sizeof(struct ipr_dump), GFP_KERNEL);
+	dump = kzalloc_obj(struct ipr_dump);
 
 	if (!dump) {
 		ipr_err("Dump memory allocation failed\n");
@@ -6242,8 +6242,8 @@ static void ipr_scsi_done(struct ipr_cmnd *ipr_cmd)
  *	SCSI_MLQUEUE_DEVICE_BUSY if device is busy
  *	SCSI_MLQUEUE_HOST_BUSY if host is busy
  **/
-static int ipr_queuecommand(struct Scsi_Host *shost,
-			    struct scsi_cmnd *scsi_cmd)
+static enum scsi_qc_status ipr_queuecommand(struct Scsi_Host *shost,
+					    struct scsi_cmnd *scsi_cmd)
 {
 	struct ipr_ioa_cfg *ioa_cfg;
 	struct ipr_resource_entry *res;
@@ -7844,6 +7844,30 @@ static int ipr_dump_mailbox_wait(struct ipr_cmnd *ipr_cmd)
 }
 
 /**
+ * ipr_set_affinity_nobalance
+ * @ioa_cfg:	ipr_ioa_cfg struct for an ipr device
+ * @flag:	bool
+ *	true: ensable "IRQ_NO_BALANCING" bit for msix interrupt
+ *	false: disable "IRQ_NO_BALANCING" bit for msix interrupt
+ * Description: This function will be called to disable/enable
+ *	"IRQ_NO_BALANCING" to avoid irqbalance daemon
+ *	kicking in during adapter reset.
+ **/
+static void ipr_set_affinity_nobalance(struct ipr_ioa_cfg *ioa_cfg, bool flag)
+{
+	int irq, i;
+
+	for (i = 0; i < ioa_cfg->nvectors; i++) {
+		irq = pci_irq_vector(ioa_cfg->pdev, i);
+
+		if (flag)
+			irq_set_status_flags(irq, IRQ_NO_BALANCING);
+		else
+			irq_clear_status_flags(irq, IRQ_NO_BALANCING);
+	}
+}
+
+/**
  * ipr_reset_restore_cfg_space - Restore PCI config space.
  * @ipr_cmd:	ipr command struct
  *
@@ -7859,7 +7883,6 @@ static int ipr_reset_restore_cfg_space(struct ipr_cmnd *ipr_cmd)
 	struct ipr_ioa_cfg *ioa_cfg = ipr_cmd->ioa_cfg;
 
 	ENTER;
-	ioa_cfg->pdev->state_saved = true;
 	pci_restore_state(ioa_cfg->pdev);
 
 	if (ipr_set_pcix_cmd_reg(ioa_cfg)) {
@@ -7867,6 +7890,7 @@ static int ipr_reset_restore_cfg_space(struct ipr_cmnd *ipr_cmd)
 		return IPR_RC_JOB_CONTINUE;
 	}
 
+	ipr_set_affinity_nobalance(ioa_cfg, false);
 	ipr_fail_all_ops(ioa_cfg);
 
 	if (ioa_cfg->sis64) {
@@ -7946,6 +7970,7 @@ static int ipr_reset_start_bist(struct ipr_cmnd *ipr_cmd)
 		rc = pci_write_config_byte(ioa_cfg->pdev, PCI_BIST, PCI_BIST_START);
 
 	if (rc == PCIBIOS_SUCCESSFUL) {
+		ipr_set_affinity_nobalance(ioa_cfg, true);
 		ipr_cmd->job_step = ipr_reset_bist_done;
 		ipr_reset_start_timer(ipr_cmd, IPR_WAIT_FOR_BIST_TIMEOUT);
 		rc = IPR_RC_JOB_RETURN;
@@ -8834,8 +8859,9 @@ static int ipr_alloc_cmd_blks(struct ipr_ioa_cfg *ioa_cfg)
 	if (!ioa_cfg->ipr_cmd_pool)
 		return -ENOMEM;
 
-	ioa_cfg->ipr_cmnd_list = kcalloc(IPR_NUM_CMD_BLKS, sizeof(struct ipr_cmnd *), GFP_KERNEL);
-	ioa_cfg->ipr_cmnd_list_dma = kcalloc(IPR_NUM_CMD_BLKS, sizeof(dma_addr_t), GFP_KERNEL);
+	ioa_cfg->ipr_cmnd_list = kzalloc_objs(struct ipr_cmnd *,
+					      IPR_NUM_CMD_BLKS);
+	ioa_cfg->ipr_cmnd_list_dma = kzalloc_objs(dma_addr_t, IPR_NUM_CMD_BLKS);
 
 	if (!ioa_cfg->ipr_cmnd_list || !ioa_cfg->ipr_cmnd_list_dma) {
 		ipr_free_cmd_blks(ioa_cfg);
@@ -8938,9 +8964,8 @@ static int ipr_alloc_mem(struct ipr_ioa_cfg *ioa_cfg)
 	int i, rc = -ENOMEM;
 
 	ENTER;
-	ioa_cfg->res_entries = kcalloc(ioa_cfg->max_devs_supported,
-				       sizeof(struct ipr_resource_entry),
-				       GFP_KERNEL);
+	ioa_cfg->res_entries = kzalloc_objs(struct ipr_resource_entry,
+					    ioa_cfg->max_devs_supported);
 
 	if (!ioa_cfg->res_entries)
 		goto out;
@@ -9001,9 +9026,8 @@ static int ipr_alloc_mem(struct ipr_ioa_cfg *ioa_cfg)
 		list_add_tail(&ioa_cfg->hostrcb[i]->queue, &ioa_cfg->hostrcb_free_q);
 	}
 
-	ioa_cfg->trace = kcalloc(IPR_NUM_TRACE_ENTRIES,
-				 sizeof(struct ipr_trace_entry),
-				 GFP_KERNEL);
+	ioa_cfg->trace = kzalloc_objs(struct ipr_trace_entry,
+				      IPR_NUM_TRACE_ENTRIES);
 
 	if (!ioa_cfg->trace)
 		goto out_free_hostrcb_dma;

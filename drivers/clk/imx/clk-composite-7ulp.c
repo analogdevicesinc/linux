@@ -7,6 +7,7 @@
 
 #include <linux/bits.h>
 #include <linux/clk-provider.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/slab.h>
@@ -36,6 +37,9 @@ static int pcc_gate_enable(struct clk_hw *hw)
 	if (ret)
 		return ret;
 
+	/* Make sure the IP's clock is ready before release reset */
+	udelay(1);
+
 	spin_lock_irqsave(gate->lock, flags);
 	/*
 	 * release the sw reset for peripherals associated with
@@ -46,6 +50,15 @@ static int pcc_gate_enable(struct clk_hw *hw)
 	writel(val, gate->reg);
 
 	spin_unlock_irqrestore(gate->lock, flags);
+
+	/*
+	 * Read back the register to make sure the previous write has been
+	 * done in the target HW register. For IP like GPU, after deassert
+	 * the reset, need to wait for a while to make sure the sync reset
+	 * is done
+	 */
+	readl(gate->reg);
+	udelay(1);
 
 	return 0;
 }
@@ -86,7 +99,7 @@ static struct clk_hw *imx_ulp_clk_hw_composite(const char *name,
 	}
 
 	if (mux_present) {
-		mux = kzalloc(sizeof(*mux), GFP_KERNEL);
+		mux = kzalloc_obj(*mux);
 		if (!mux)
 			return ERR_PTR(-ENOMEM);
 		mux_hw = &mux->hw;
@@ -98,7 +111,7 @@ static struct clk_hw *imx_ulp_clk_hw_composite(const char *name,
 	}
 
 	if (rate_present) {
-		fd = kzalloc(sizeof(*fd), GFP_KERNEL);
+		fd = kzalloc_obj(*fd);
 		if (!fd) {
 			kfree(mux);
 			return ERR_PTR(-ENOMEM);
@@ -115,7 +128,7 @@ static struct clk_hw *imx_ulp_clk_hw_composite(const char *name,
 	}
 
 	if (gate_present) {
-		gate = kzalloc(sizeof(*gate), GFP_KERNEL);
+		gate = kzalloc_obj(*gate);
 		if (!gate) {
 			kfree(mux);
 			kfree(fd);

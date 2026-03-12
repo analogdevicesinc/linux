@@ -172,7 +172,7 @@ static int mlxsw_sp_mr_route_evif_link(struct mlxsw_sp_mr_route *mr_route,
 {
 	struct mlxsw_sp_mr_route_vif_entry *rve;
 
-	rve = kzalloc(sizeof(*rve), GFP_KERNEL);
+	rve = kzalloc_obj(*rve);
 	if (!rve)
 		return -ENOMEM;
 	rve->mr_route = mr_route;
@@ -305,7 +305,7 @@ mlxsw_sp_mr_route_create(struct mlxsw_sp_mr_table *mr_table,
 	int i;
 
 	/* Allocate and init a new route and fill it with parameters */
-	mr_route = kzalloc(sizeof(*mr_route), GFP_KERNEL);
+	mr_route = kzalloc_obj(*mr_route);
 	if (!mr_route)
 		return ERR_PTR(-ENOMEM);
 	INIT_LIST_HEAD(&mr_route->evif_list);
@@ -440,7 +440,9 @@ int mlxsw_sp_mr_route_add(struct mlxsw_sp_mr_table *mr_table,
 		rhashtable_remove_fast(&mr_table->route_ht,
 				       &mr_orig_route->ht_node,
 				       mlxsw_sp_mr_route_ht_params);
+		mutex_lock(&mr_table->route_list_lock);
 		list_del(&mr_orig_route->node);
+		mutex_unlock(&mr_table->route_list_lock);
 		mlxsw_sp_mr_route_destroy(mr_table, mr_orig_route);
 	}
 

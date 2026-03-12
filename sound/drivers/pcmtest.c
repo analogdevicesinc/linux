@@ -377,7 +377,7 @@ static int snd_pcmtst_pcm_open(struct snd_pcm_substream *substream)
 	if (inject_open_err)
 		return -EBUSY;
 
-	v_iter = kzalloc(sizeof(*v_iter), GFP_KERNEL);
+	v_iter = kzalloc_obj(*v_iter);
 	if (!v_iter)
 		return -ENOMEM;
 
@@ -575,7 +575,7 @@ static int snd_pcmtst_create(struct snd_card *card, struct platform_device *pdev
 		.dev_free = snd_pcmtst_dev_free,
 	};
 
-	pcmtst = kzalloc(sizeof(*pcmtst), GFP_KERNEL);
+	pcmtst = kzalloc_obj(*pcmtst);
 	if (!pcmtst)
 		return -ENOMEM;
 	pcmtst->card = card;
@@ -696,10 +696,10 @@ static int setup_patt_bufs(void)
 	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(patt_bufs); i++) {
-		patt_bufs[i].buf = kzalloc(MAX_PATTERN_LEN, GFP_KERNEL);
+		patt_bufs[i].buf = kmalloc(MAX_PATTERN_LEN, GFP_KERNEL);
 		if (!patt_bufs[i].buf)
 			break;
-		strcpy(patt_bufs[i].buf, DEFAULT_PATTERN);
+		strscpy_pad(patt_bufs[i].buf, DEFAULT_PATTERN, MAX_PATTERN_LEN);
 		patt_bufs[i].len = DEFAULT_PATTERN_LEN;
 	}
 

@@ -695,7 +695,7 @@ static int ice_create_vf_entries(struct ice_pf *pf, u16 num_vfs)
 	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_DID, &vf_pdev_id);
 
 	for (u16 vf_id = 0; vf_id < num_vfs; vf_id++) {
-		vf = kzalloc(sizeof(*vf), GFP_KERNEL);
+		vf = kzalloc_obj(*vf);
 		if (!vf) {
 			err = -ENOMEM;
 			goto err_free_entries;
@@ -1190,8 +1190,7 @@ ice_vf_lan_overflow_event(struct ice_pf *pf, struct ice_rq_event_info *event)
  */
 int ice_set_vf_spoofchk(struct net_device *netdev, int vf_id, bool ena)
 {
-	struct ice_netdev_priv *np = netdev_priv(netdev);
-	struct ice_pf *pf = np->vsi->back;
+	struct ice_pf *pf = ice_netdev_to_pf(netdev);
 	struct ice_vsi *vf_vsi;
 	struct device *dev;
 	struct ice_vf *vf;

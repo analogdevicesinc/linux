@@ -8,7 +8,7 @@ from jinja2 import Environment
 from generators import SourceGenerator
 from generators import create_jinja2_environment, get_jinja2_template
 
-from xdr_ast import _XdrBasic, _XdrUnion, _XdrVoid, get_header_name
+from xdr_ast import _XdrBasic, _XdrUnion, _XdrVoid, _XdrString, get_header_name
 from xdr_ast import _XdrDeclaration, _XdrCaseSpec, public_apis, big_endian
 
 
@@ -40,13 +40,20 @@ def emit_union_case_spec_definition(
     """Emit a definition for an XDR union's case arm"""
     if isinstance(node.arm, _XdrVoid):
         return
-    assert isinstance(node.arm, _XdrBasic)
+    if isinstance(node.arm, _XdrString):
+        type_name = "char *"
+        classifier = ""
+    else:
+        type_name = node.arm.spec.type_name
+        classifier = node.arm.spec.c_classifier
+
+    assert isinstance(node.arm, (_XdrBasic, _XdrString))
     template = get_jinja2_template(environment, "definition", "case_spec")
     print(
         template.render(
             name=node.arm.name,
-            type=node.arm.spec.type_name,
-            classifier=node.arm.spec.c_classifier,
+            type=type_name,
+            classifier=classifier,
         )
     )
 
@@ -77,6 +84,31 @@ def emit_union_switch_spec_decoder(
     print(template.render(name=node.name, type=node.spec.type_name))
 
 
+def emit_union_arm_decoder(
+    environment: Environment, node: _XdrCaseSpec
+) -> None:
+    """Emit decoder for an XDR union's arm (data only, no case/break)"""
+
+    if isinstance(node.arm, _XdrVoid):
+        return
+    if isinstance(node.arm, _XdrString):
+        type_name = "char *"
+        classifier = ""
+    else:
+        type_name = node.arm.spec.type_name
+        classifier = node.arm.spec.c_classifier
+
+    assert isinstance(node.arm, (_XdrBasic, _XdrString))
+    template = get_jinja2_template(environment, "decoder", node.arm.template)
+    print(
+        template.render(
+            name=node.arm.name,
+            type=type_name,
+            classifier=classifier,
+        )
+    )
+
+
 def emit_union_case_spec_decoder(
     environment: Environment, node: _XdrCaseSpec, big_endian_discriminant: bool
 ) -> None:
@@ -84,6 +116,12 @@ def emit_union_case_spec_decoder(
 
     if isinstance(node.arm, _XdrVoid):
         return
+    if isinstance(node.arm, _XdrString):
+        type_name = "char *"
+        classifier = ""
+    else:
+        type_name = node.arm.spec.type_name
+        classifier = node.arm.spec.c_classifier
 
     if big_endian_discriminant:
         template = get_jinja2_template(environment, "decoder", "case_spec_be")
@@ -92,13 +130,13 @@ def emit_union_case_spec_decoder(
     for case in node.values:
         print(template.render(case=case))
 
-    assert isinstance(node.arm, _XdrBasic)
+    assert isinstance(node.arm, (_XdrBasic, _XdrString))
     template = get_jinja2_template(environment, "decoder", node.arm.template)
     print(
         template.render(
             name=node.arm.name,
-            type=node.arm.spec.type_name,
-            classifier=node.arm.spec.c_classifier,
+            type=type_name,
+            classifier=classifier,
         )
     )
 
@@ -138,19 +176,33 @@ def emit_union_decoder(environment: Environment, node: _XdrUnion) -> None:
     template = get_jinja2_template(environment, "decoder", "open")
     print(template.render(name=node.name))
 
-    emit_union_switch_spec_decoder(environment, node.discriminant)
+    # For boolean discriminants, use if statement instead of switch
+    if node.discriminant.spec.type_name == "bool":
+        template = get_jinja2_template(environment, "decoder", "bool_spec")
+        print(template.render(name=node.discriminant.name, type=node.discriminant.spec.type_name))
 
-    for case in node.cases:
-        emit_union_case_spec_decoder(
-            environment,
-            case,
-            node.discriminant.spec.type_name in big_endian,
-        )
+        # Find and emit the TRUE case
+        for case in node.cases:
+            if case.values and case.values[0] == "TRUE":
+                emit_union_arm_decoder(environment, case)
+                break
 
-    emit_union_default_spec_decoder(environment, node)
+        template = get_jinja2_template(environment, "decoder", "close")
+        print(template.render())
+    else:
+        emit_union_switch_spec_decoder(environment, node.discriminant)
 
-    template = get_jinja2_template(environment, "decoder", "close")
-    print(template.render())
+        for case in node.cases:
+            emit_union_case_spec_decoder(
+                environment,
+                case,
+                node.discriminant.spec.type_name in big_endian,
+            )
+
+        emit_union_default_spec_decoder(environment, node)
+
+        template = get_jinja2_template(environment, "decoder", "close")
+        print(template.render())
 
 
 def emit_union_switch_spec_encoder(
@@ -162,6 +214,28 @@ def emit_union_switch_spec_encoder(
     print(template.render(name=node.name, type=node.spec.type_name))
 
 
+def emit_union_arm_encoder(
+    environment: Environment, node: _XdrCaseSpec
+) -> None:
+    """Emit encoder for an XDR union's arm (data only, no case/break)"""
+
+    if isinstance(node.arm, _XdrVoid):
+        return
+    if isinstance(node.arm, _XdrString):
+        type_name = "char *"
+    else:
+        type_name = node.arm.spec.type_name
+
+    assert isinstance(node.arm, (_XdrBasic, _XdrString))
+    template = get_jinja2_template(environment, "encoder", node.arm.template)
+    print(
+        template.render(
+            name=node.arm.name,
+            type=type_name,
+        )
+    )
+
+
 def emit_union_case_spec_encoder(
     environment: Environment, node: _XdrCaseSpec, big_endian_discriminant: bool
 ) -> None:
@@ -169,7 +243,10 @@ def emit_union_case_spec_encoder(
 
     if isinstance(node.arm, _XdrVoid):
         return
-
+    if isinstance(node.arm, _XdrString):
+        type_name = "char *"
+    else:
+        type_name = node.arm.spec.type_name
     if big_endian_discriminant:
         template = get_jinja2_template(environment, "encoder", "case_spec_be")
     else:
@@ -181,7 +258,7 @@ def emit_union_case_spec_encoder(
     print(
         template.render(
             name=node.arm.name,
-            type=node.arm.spec.type_name,
+            type=type_name,
         )
     )
 
@@ -219,19 +296,33 @@ def emit_union_encoder(environment, node: _XdrUnion) -> None:
     template = get_jinja2_template(environment, "encoder", "open")
     print(template.render(name=node.name))
 
-    emit_union_switch_spec_encoder(environment, node.discriminant)
+    # For boolean discriminants, use if statement instead of switch
+    if node.discriminant.spec.type_name == "bool":
+        template = get_jinja2_template(environment, "encoder", "bool_spec")
+        print(template.render(name=node.discriminant.name, type=node.discriminant.spec.type_name))
 
-    for case in node.cases:
-        emit_union_case_spec_encoder(
-            environment,
-            case,
-            node.discriminant.spec.type_name in big_endian,
-        )
+        # Find and emit the TRUE case
+        for case in node.cases:
+            if case.values and case.values[0] == "TRUE":
+                emit_union_arm_encoder(environment, case)
+                break
 
-    emit_union_default_spec_encoder(environment, node)
+        template = get_jinja2_template(environment, "encoder", "close")
+        print(template.render())
+    else:
+        emit_union_switch_spec_encoder(environment, node.discriminant)
 
-    template = get_jinja2_template(environment, "encoder", "close")
-    print(template.render())
+        for case in node.cases:
+            emit_union_case_spec_encoder(
+                environment,
+                case,
+                node.discriminant.spec.type_name in big_endian,
+            )
+
+        emit_union_default_spec_encoder(environment, node)
+
+        template = get_jinja2_template(environment, "encoder", "close")
+        print(template.render())
 
 
 def emit_union_maxsize(environment: Environment, node: _XdrUnion) -> None:

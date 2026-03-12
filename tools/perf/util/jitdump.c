@@ -90,7 +90,8 @@ jit_emit_elf(struct jit_buf_desc *jd,
 	saved_errno = errno;
 	nsinfo__mountns_exit(&nsc);
 	if (fd == -1) {
-		pr_warning("cannot create jit ELF %s: %s\n", filename, strerror(saved_errno));
+		errno = saved_errno;
+		pr_warning("cannot create jit ELF %s: %m\n", filename);
 		return -1;
 	}
 
@@ -233,7 +234,8 @@ jit_open(struct jit_buf_desc *jd, const char *name)
 	/*
 	 * keep dirname for generating files and mmap records
 	 */
-	strcpy(jd->dir, name);
+	strncpy(jd->dir, name, PATH_MAX);
+	jd->dir[PATH_MAX - 1] = '\0';
 	dirname(jd->dir);
 	free(buf);
 
@@ -546,6 +548,8 @@ static int jit_repipe_code_load(struct jit_buf_desc *jd, union jr_entry *jr)
 
 		if (dso)
 			dso__set_hit(dso);
+
+		dso__put(dso);
 	}
 out:
 	perf_sample__exit(&sample);
@@ -754,7 +758,7 @@ jit_inject(struct jit_buf_desc *jd, const char *path)
 static int
 jit_detect(const char *mmap_name, pid_t pid, struct nsinfo *nsi, bool *in_pidns)
  {
-	char *p;
+	const char *p;
 	char *end = NULL;
 	pid_t pid2;
 

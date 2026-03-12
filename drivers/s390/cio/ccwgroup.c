@@ -41,7 +41,7 @@ static void __ccwgroup_remove_symlinks(struct ccwgroup_device *gdev)
 	char str[16];
 
 	for (i = 0; i < gdev->count; i++) {
-		sprintf(str, "cdev%d", i);
+		scnprintf(str, sizeof(str), "cdev%d", i);
 		sysfs_remove_link(&gdev->dev.kobj, str);
 		sysfs_remove_link(&gdev->cdev[i]->dev.kobj, "group_device");
 	}
@@ -249,12 +249,12 @@ static int __ccwgroup_create_symlinks(struct ccwgroup_device *gdev)
 		}
 	}
 	for (i = 0; i < gdev->count; i++) {
-		sprintf(str, "cdev%d", i);
+		scnprintf(str, sizeof(str), "cdev%d", i);
 		rc = sysfs_create_link(&gdev->dev.kobj,
 				       &gdev->cdev[i]->dev.kobj, str);
 		if (rc) {
 			while (i--) {
-				sprintf(str, "cdev%d", i);
+				scnprintf(str, sizeof(str), "cdev%d", i);
 				sysfs_remove_link(&gdev->dev.kobj, str);
 			}
 			for (i = 0; i < gdev->count; i++)
@@ -322,7 +322,7 @@ int ccwgroup_create_dev(struct device *parent, struct ccwgroup_driver *gdrv,
 	if (num_devices < 1)
 		return -EINVAL;
 
-	gdev = kzalloc(struct_size(gdev, cdev, num_devices), GFP_KERNEL);
+	gdev = kzalloc_flex(*gdev, cdev, num_devices);
 	if (!gdev)
 		return -ENOMEM;
 

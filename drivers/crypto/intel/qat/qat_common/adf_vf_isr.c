@@ -85,7 +85,7 @@ int adf_pf2vf_handle_pf_restarting(struct adf_accel_dev *accel_dev)
 	struct adf_vf_stop_data *stop_data;
 
 	clear_bit(ADF_STATUS_PF_RUNNING, &accel_dev->status);
-	stop_data = kzalloc(sizeof(*stop_data), GFP_ATOMIC);
+	stop_data = kzalloc_obj(*stop_data, GFP_ATOMIC);
 	if (!stop_data) {
 		dev_err(&GET_DEV(accel_dev),
 			"Couldn't schedule stop for vf_%d\n",
@@ -299,7 +299,8 @@ EXPORT_SYMBOL_GPL(adf_flush_vf_wq);
  */
 int __init adf_init_vf_wq(void)
 {
-	adf_vf_stop_wq = alloc_workqueue("adf_vf_stop_wq", WQ_MEM_RECLAIM, 0);
+	adf_vf_stop_wq = alloc_workqueue("adf_vf_stop_wq",
+					 WQ_MEM_RECLAIM | WQ_PERCPU, 0);
 
 	return !adf_vf_stop_wq ? -EFAULT : 0;
 }

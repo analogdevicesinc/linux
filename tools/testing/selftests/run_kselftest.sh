@@ -30,9 +30,11 @@ Usage: $0 [OPTIONS]
   -s | --summary		Print summary with detailed log in output.log (conflict with -p)
   -p | --per-test-log		Print test log in /tmp with each test name (conflict with -s)
   -t | --test COLLECTION:TEST	Run TEST from COLLECTION
+  -S | --skip COLLECTION:TEST	Skip TEST from COLLECTION
   -c | --collection COLLECTION	Run all tests from COLLECTION
   -l | --list			List the available collection:test entries
   -d | --dry-run		Don't actually run any tests
+  -f | --no-error-on-fail	Don't exit with an error just because tests failed
   -n | --netns			Run each test in namespace
   -h | --help			Show this usage info
   -o | --override-timeout	Number of seconds after which we timeout
@@ -42,8 +44,10 @@ EOF
 
 COLLECTIONS=""
 TESTS=""
+SKIP=""
 dryrun=""
 kselftest_override_timeout=""
+ERROR_ON_FAIL=true
 while true; do
 	case "$1" in
 		-s | --summary)
@@ -56,6 +60,9 @@ while true; do
 		-t | --test)
 			TESTS="$TESTS $2"
 			shift 2 ;;
+		-S | --skip)
+			SKIP="$SKIP $2"
+			shift 2 ;;
 		-c | --collection)
 			COLLECTIONS="$COLLECTIONS $2"
 			shift 2 ;;
@@ -64,6 +71,9 @@ while true; do
 			exit 0 ;;
 		-d | --dry-run)
 			dryrun="echo"
+			shift ;;
+		-f | --no-error-on-fail)
+			ERROR_ON_FAIL=false
 			shift ;;
 		-n | --netns)
 			RUN_IN_NETNS=1
@@ -104,6 +114,15 @@ if [ -n "$TESTS" ]; then
 	done
 	available="$(echo "$valid" | sed -e 's/ /\n/g')"
 fi
+# Remove tests to be skipped from available list
+if [ -n "$SKIP" ]; then
+	for skipped in $SKIP ; do
+		available="$(echo "$available" | grep -v "^${skipped}$")"
+	done
+fi
+
+kselftest_failures_file="$(mktemp --tmpdir kselftest-failures-XXXXXX)"
+export kselftest_failures_file
 
 collections=$(echo "$available" | cut -d: -f1 | sort | uniq)
 for collection in $collections ; do
@@ -111,3 +130,9 @@ for collection in $collections ; do
 	tests=$(echo "$available" | grep "^$collection:" | cut -d: -f2)
 	($dryrun cd "$collection" && $dryrun run_many $tests)
 done
+
+failures="$(cat "$kselftest_failures_file")"
+rm "$kselftest_failures_file"
+if "$ERROR_ON_FAIL" && [ "$failures" ]; then
+	exit 1
+fi

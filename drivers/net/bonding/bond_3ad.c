@@ -72,10 +72,12 @@ enum ad_link_speed_type {
 	AD_LINK_SPEED_40000MBPS,
 	AD_LINK_SPEED_50000MBPS,
 	AD_LINK_SPEED_56000MBPS,
+	AD_LINK_SPEED_80000MBPS,
 	AD_LINK_SPEED_100000MBPS,
 	AD_LINK_SPEED_200000MBPS,
 	AD_LINK_SPEED_400000MBPS,
 	AD_LINK_SPEED_800000MBPS,
+	AD_LINK_SPEED_1600000MBPS,
 };
 
 /* compare MAC addresses */
@@ -296,10 +298,12 @@ static inline int __check_agg_selection_timer(struct port *port)
  *     %AD_LINK_SPEED_40000MBPS
  *     %AD_LINK_SPEED_50000MBPS
  *     %AD_LINK_SPEED_56000MBPS
+ *     %AD_LINK_SPEED_80000MBPS
  *     %AD_LINK_SPEED_100000MBPS
  *     %AD_LINK_SPEED_200000MBPS
  *     %AD_LINK_SPEED_400000MBPS
  *     %AD_LINK_SPEED_800000MBPS
+ *     %AD_LINK_SPEED_1600000MBPS
  */
 static u16 __get_link_speed(struct port *port)
 {
@@ -363,6 +367,10 @@ static u16 __get_link_speed(struct port *port)
 			speed = AD_LINK_SPEED_56000MBPS;
 			break;
 
+		case SPEED_80000:
+			speed = AD_LINK_SPEED_80000MBPS;
+			break;
+
 		case SPEED_100000:
 			speed = AD_LINK_SPEED_100000MBPS;
 			break;
@@ -377,6 +385,10 @@ static u16 __get_link_speed(struct port *port)
 
 		case SPEED_800000:
 			speed = AD_LINK_SPEED_800000MBPS;
+			break;
+
+		case SPEED_1600000:
+			speed = AD_LINK_SPEED_1600000MBPS;
 			break;
 
 		default:
@@ -810,6 +822,9 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
 		case AD_LINK_SPEED_56000MBPS:
 			bandwidth = nports * 56000;
 			break;
+		case AD_LINK_SPEED_80000MBPS:
+			bandwidth = nports * 80000;
+			break;
 		case AD_LINK_SPEED_100000MBPS:
 			bandwidth = nports * 100000;
 			break;
@@ -821,6 +836,9 @@ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
 			break;
 		case AD_LINK_SPEED_800000MBPS:
 			bandwidth = nports * 800000;
+			break;
+		case AD_LINK_SPEED_1600000MBPS:
+			bandwidth = nports * 1600000;
 			break;
 		default:
 			bandwidth = 0; /* to silence the compiler */
@@ -999,11 +1017,8 @@ static void ad_cond_set_peer_notif(struct port *port)
 {
 	struct bonding *bond = port->slave->bond;
 
-	if (bond->params.broadcast_neighbor && rtnl_trylock()) {
-		bond->send_peer_notif = bond->params.num_peer_notif *
-			max(1, bond->params.peer_notif_delay);
-		rtnl_unlock();
-	}
+	if (bond->params.broadcast_neighbor)
+		bond_peer_notify_work_rearm(bond, 0);
 }
 
 /**

@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use kernel::{
-    auxiliary, c_str, device::Core, drm, drm::gem, drm::ioctl, prelude::*, sync::aref::ARef,
+    auxiliary,
+    device::Core,
+    drm::{
+        self,
+        gem,
+        ioctl, //
+    },
+    prelude::*,
+    sync::aref::ARef, //
 };
 
 use crate::file::File;
@@ -24,12 +32,12 @@ const INFO: drm::DriverInfo = drm::DriverInfo {
     major: 0,
     minor: 0,
     patchlevel: 0,
-    name: c_str!("nova"),
-    desc: c_str!("Nvidia Graphics"),
+    name: c"nova",
+    desc: c"Nvidia Graphics",
 };
 
-const NOVA_CORE_MODULE_NAME: &CStr = c_str!("NovaCore");
-const AUXILIARY_NAME: &CStr = c_str!("nova-drm");
+const NOVA_CORE_MODULE_NAME: &CStr = c"NovaCore";
+const AUXILIARY_NAME: &CStr = c"nova-drm";
 
 kernel::auxiliary_device_table!(
     AUX_TABLE,
@@ -45,13 +53,13 @@ impl auxiliary::Driver for NovaDriver {
     type IdInfo = ();
     const ID_TABLE: auxiliary::IdTable<Self::IdInfo> = &AUX_TABLE;
 
-    fn probe(adev: &auxiliary::Device<Core>, _info: &Self::IdInfo) -> Result<Pin<KBox<Self>>> {
+    fn probe(adev: &auxiliary::Device<Core>, _info: &Self::IdInfo) -> impl PinInit<Self, Error> {
         let data = try_pin_init!(NovaData { adev: adev.into() });
 
         let drm = drm::Device::<Self>::new(adev.as_ref(), data)?;
         drm::Registration::new_foreign_owned(&drm, adev.as_ref(), 0)?;
 
-        Ok(KBox::new(Self { drm }, GFP_KERNEL)?.into())
+        Ok(Self { drm })
     }
 }
 

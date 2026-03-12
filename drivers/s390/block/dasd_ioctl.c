@@ -11,7 +11,6 @@
  */
 
 #include <linux/interrupt.h>
-#include <linux/compat.h>
 #include <linux/export.h>
 #include <linux/major.h>
 #include <linux/fs.h>
@@ -443,7 +442,7 @@ static int dasd_ioctl_read_profile(struct dasd_block *block, void __user *argp)
 	struct dasd_profile_info_t *data;
 	int rc = 0;
 
-	data = kmalloc(sizeof(*data), GFP_KERNEL);
+	data = kmalloc_obj(*data);
 	if (!data)
 		return -ENOMEM;
 
@@ -561,7 +560,7 @@ static int dasd_ioctl_information(struct dasd_block *block, void __user *argp,
 	struct dasd_information2_t *dasd_info;
 	int error;
 
-	dasd_info = kzalloc(sizeof(*dasd_info), GFP_KERNEL);
+	dasd_info = kzalloc_obj(*dasd_info);
 	if (!dasd_info)
 		return -ENOMEM;
 
@@ -616,10 +615,7 @@ int dasd_ioctl(struct block_device *bdev, blk_mode_t mode,
 	void __user *argp;
 	int rc;
 
-	if (is_compat_task())
-		argp = compat_ptr(arg);
-	else
-		argp = (void __user *)arg;
+	argp = (void __user *)arg;
 
 	if ((_IOC_DIR(cmd) != _IOC_NONE) && !arg)
 		return -EINVAL;

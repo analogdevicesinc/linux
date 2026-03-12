@@ -22,6 +22,7 @@
 #include <drm/drm_file.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_mode.h>
+#include <drm/drm_print.h>
 #include <drm/exynos_drm.h>
 
 #include "exynos_drm_drv.h"
@@ -259,7 +260,7 @@ static inline struct exynos_drm_ipp_task *
 {
 	struct exynos_drm_ipp_task *task;
 
-	task = kzalloc(sizeof(*task), GFP_KERNEL);
+	task = kzalloc_obj(*task);
 	if (!task)
 		return NULL;
 
@@ -698,7 +699,7 @@ static int exynos_drm_ipp_event_create(struct exynos_drm_ipp_task *task,
 	struct drm_pending_exynos_ipp_event *e = NULL;
 	int ret;
 
-	e = kzalloc(sizeof(*e), GFP_KERNEL);
+	e = kzalloc_obj(*e);
 	if (!e)
 		return -ENOMEM;
 

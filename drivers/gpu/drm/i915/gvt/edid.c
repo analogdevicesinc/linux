@@ -33,10 +33,12 @@
  */
 
 #include <drm/display/drm_dp.h>
+#include <drm/drm_print.h>
 
 #include "display/intel_dp_aux_regs.h"
 #include "display/intel_gmbus.h"
 #include "display/intel_gmbus_regs.h"
+
 #include "gvt.h"
 #include "i915_drv.h"
 #include "i915_reg.h"

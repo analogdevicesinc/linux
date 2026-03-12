@@ -193,10 +193,10 @@ static int hclge_get_ring_chain_from_mbx(
 		return -EINVAL;
 
 	for (i = 0; i < ring_num; i++) {
-		if (req->msg.param[i].tqp_index >= vport->nic.kinfo.rss_size) {
+		if (req->msg.param[i].tqp_index >= vport->nic.kinfo.num_tqps) {
 			dev_err(&hdev->pdev->dev, "tqp index(%u) is out of range(0-%u)\n",
 				req->msg.param[i].tqp_index,
-				vport->nic.kinfo.rss_size - 1U);
+				vport->nic.kinfo.num_tqps - 1U);
 			return -EINVAL;
 		}
 	}
@@ -212,7 +212,7 @@ static int hclge_get_ring_chain_from_mbx(
 	cur_chain = ring_chain;
 
 	for (i = 1; i < ring_num; i++) {
-		new_chain = kzalloc(sizeof(*new_chain), GFP_KERNEL);
+		new_chain = kzalloc_obj(*new_chain);
 		if (!new_chain)
 			goto err;
 

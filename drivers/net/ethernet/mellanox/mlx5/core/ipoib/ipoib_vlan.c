@@ -51,7 +51,7 @@ int mlx5i_pkey_qpn_ht_init(struct net_device *netdev)
 	struct mlx5i_priv *ipriv = netdev_priv(netdev);
 	struct mlx5i_pkey_qpn_ht *qpn_htbl;
 
-	qpn_htbl = kzalloc(sizeof(*qpn_htbl), GFP_KERNEL);
+	qpn_htbl = kzalloc_obj(*qpn_htbl);
 	if (!qpn_htbl)
 		return -ENOMEM;
 
@@ -89,7 +89,7 @@ int mlx5i_pkey_add_qpn(struct net_device *netdev, u32 qpn)
 	u8 key = hash_32(qpn, MLX5I_MAX_LOG_PKEY_SUP);
 	struct qpn_to_netdev *new_node;
 
-	new_node = kzalloc(sizeof(*new_node), GFP_KERNEL);
+	new_node = kzalloc_obj(*new_node);
 	if (!new_node)
 		return -ENOMEM;
 
@@ -140,7 +140,6 @@ static int mlx5i_pkey_close(struct net_device *netdev);
 static int mlx5i_pkey_dev_init(struct net_device *dev);
 static void mlx5i_pkey_dev_cleanup(struct net_device *netdev);
 static int mlx5i_pkey_change_mtu(struct net_device *netdev, int new_mtu);
-static int mlx5i_pkey_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
 
 static const struct net_device_ops mlx5i_pkey_netdev_ops = {
 	.ndo_open                = mlx5i_pkey_open,
@@ -149,7 +148,8 @@ static const struct net_device_ops mlx5i_pkey_netdev_ops = {
 	.ndo_get_stats64         = mlx5i_get_stats,
 	.ndo_uninit              = mlx5i_pkey_dev_cleanup,
 	.ndo_change_mtu          = mlx5i_pkey_change_mtu,
-	.ndo_eth_ioctl            = mlx5i_pkey_ioctl,
+	.ndo_hwtstamp_get        = mlx5i_hwtstamp_get,
+	.ndo_hwtstamp_set        = mlx5i_hwtstamp_set,
 };
 
 /* Child NDOs */
@@ -182,11 +182,6 @@ static int mlx5i_pkey_dev_init(struct net_device *dev)
 	ipriv->qpn_htbl = parent_ipriv->qpn_htbl;
 
 	return mlx5i_dev_init(dev);
-}
-
-static int mlx5i_pkey_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-{
-	return mlx5i_ioctl(dev, ifr, cmd);
 }
 
 static void mlx5i_pkey_dev_cleanup(struct net_device *netdev)

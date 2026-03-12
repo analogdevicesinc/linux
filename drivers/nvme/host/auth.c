@@ -1083,8 +1083,7 @@ int nvme_auth_init_ctrl(struct nvme_ctrl *ctrl)
 	if (!ctrl->opts->dhchap_secret && !ctrl->opts->dhchap_ctrl_secret)
 		return 0;
 
-	ctrl->dhchap_ctxs = kvcalloc(ctrl_max_dhchaps(ctrl),
-				sizeof(*chap), GFP_KERNEL);
+	ctrl->dhchap_ctxs = kvzalloc_objs(*chap, ctrl_max_dhchaps(ctrl));
 	if (!ctrl->dhchap_ctxs) {
 		ret = -ENOMEM;
 		goto err_free_dhchap_ctrl_secret;
@@ -1122,7 +1121,7 @@ void nvme_auth_free(struct nvme_ctrl *ctrl)
 	if (ctrl->dhchap_ctxs) {
 		for (i = 0; i < ctrl_max_dhchaps(ctrl); i++)
 			nvme_auth_free_dhchap(&ctrl->dhchap_ctxs[i]);
-		kfree(ctrl->dhchap_ctxs);
+		kvfree(ctrl->dhchap_ctxs);
 	}
 	if (ctrl->host_key) {
 		nvme_auth_free_key(ctrl->host_key);

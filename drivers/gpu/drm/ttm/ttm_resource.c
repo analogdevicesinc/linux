@@ -34,6 +34,7 @@
 #include <drm/ttm/ttm_resource.h>
 #include <drm/ttm/ttm_tt.h>
 
+#include <drm/drm_print.h>
 #include <drm/drm_util.h>
 
 /* Detach the cursor from the bulk move list*/
@@ -445,9 +446,6 @@ bool ttm_resource_intersects(struct ttm_device *bdev,
 {
 	struct ttm_resource_manager *man;
 
-	if (!res)
-		return false;
-
 	man = ttm_manager_type(bdev, res->mem_type);
 	if (!place || !man->func->intersects)
 		return true;
@@ -523,14 +521,15 @@ void ttm_resource_manager_init(struct ttm_resource_manager *man,
 {
 	unsigned i;
 
-	spin_lock_init(&man->move_lock);
 	man->bdev = bdev;
 	man->size = size;
 	man->usage = 0;
 
 	for (i = 0; i < TTM_MAX_BO_PRIORITY; ++i)
 		INIT_LIST_HEAD(&man->lru[i]);
-	man->move = NULL;
+	spin_lock_init(&man->eviction_lock);
+	for (i = 0; i < TTM_NUM_MOVE_FENCES; i++)
+		man->eviction_fences[i] = NULL;
 }
 EXPORT_SYMBOL(ttm_resource_manager_init);
 
@@ -546,12 +545,9 @@ EXPORT_SYMBOL(ttm_resource_manager_init);
 int ttm_resource_manager_evict_all(struct ttm_device *bdev,
 				   struct ttm_resource_manager *man)
 {
-	struct ttm_operation_ctx ctx = {
-		.interruptible = false,
-		.no_wait_gpu = false,
-	};
+	struct ttm_operation_ctx ctx = { };
 	struct dma_fence *fence;
-	int ret;
+	int ret, i;
 
 	do {
 		ret = ttm_bo_evict_first(bdev, man, &ctx);
@@ -561,18 +557,24 @@ int ttm_resource_manager_evict_all(struct ttm_device *bdev,
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	spin_lock(&man->move_lock);
-	fence = dma_fence_get(man->move);
-	spin_unlock(&man->move_lock);
+	ret = 0;
 
-	if (fence) {
-		ret = dma_fence_wait(fence, false);
-		dma_fence_put(fence);
-		if (ret)
-			return ret;
+	spin_lock(&man->eviction_lock);
+	for (i = 0; i < TTM_NUM_MOVE_FENCES; i++) {
+		fence = man->eviction_fences[i];
+		if (fence && !dma_fence_is_signaled(fence)) {
+			dma_fence_get(fence);
+			spin_unlock(&man->eviction_lock);
+			ret = dma_fence_wait(fence, false);
+			dma_fence_put(fence);
+			if (ret)
+				return ret;
+			spin_lock(&man->eviction_lock);
+		}
 	}
+	spin_unlock(&man->eviction_lock);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(ttm_resource_manager_evict_all);
 
@@ -586,6 +588,9 @@ EXPORT_SYMBOL(ttm_resource_manager_evict_all);
 uint64_t ttm_resource_manager_usage(struct ttm_resource_manager *man)
 {
 	uint64_t usage;
+
+	if (WARN_ON_ONCE(!man->bdev))
+		return 0;
 
 	spin_lock(&man->bdev->lru_lock);
 	usage = man->usage;
@@ -617,11 +622,11 @@ ttm_resource_cursor_check_bulk(struct ttm_resource_cursor *cursor,
 			       struct ttm_lru_item *next_lru)
 {
 	struct ttm_resource *next = ttm_lru_item_to_res(next_lru);
-	struct ttm_lru_bulk_move *bulk = NULL;
-	struct ttm_buffer_object *bo = next->bo;
+	struct ttm_lru_bulk_move *bulk;
 
 	lockdep_assert_held(&cursor->man->bdev->lru_lock);
-	bulk = bo->bulk_move;
+
+	bulk = next->bo->bulk_move;
 
 	if (cursor->bulk != bulk) {
 		if (bulk) {

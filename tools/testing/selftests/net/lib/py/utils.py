@@ -32,7 +32,7 @@ class cmd:
     Use bkg() instead to run a command in the background.
     """
     def __init__(self, comm, shell=None, fail=True, ns=None, background=False,
-                 host=None, timeout=5, ksft_wait=None):
+                 host=None, timeout=5, ksft_ready=None, ksft_wait=None):
         if ns:
             comm = f'ip netns exec {ns} ' + comm
 
@@ -41,7 +41,9 @@ class cmd:
         self.ret = None
         self.ksft_term_fd = None
 
+        self.host = host
         self.comm = comm
+
         if host:
             self.proc = host.cmd(comm)
         else:
@@ -52,21 +54,25 @@ class cmd:
             # ksft_wait lets us wait for the background process to fully start,
             # we pass an FD to the child process, and wait for it to write back.
             # Similarly term_fd tells child it's time to exit.
-            pass_fds = ()
+            pass_fds = []
             env = os.environ.copy()
             if ksft_wait is not None:
-                rfd, ready_fd = os.pipe()
                 wait_fd, self.ksft_term_fd = os.pipe()
-                pass_fds = (ready_fd, wait_fd, )
-                env["KSFT_READY_FD"] = str(ready_fd)
+                pass_fds.append(wait_fd)
                 env["KSFT_WAIT_FD"]  = str(wait_fd)
+                ksft_ready = True  # ksft_wait implies ready
+            if ksft_ready is not None:
+                rfd, ready_fd = os.pipe()
+                pass_fds.append(ready_fd)
+                env["KSFT_READY_FD"] = str(ready_fd)
 
             self.proc = subprocess.Popen(comm, shell=shell, stdout=subprocess.PIPE,
                                          stderr=subprocess.PIPE, pass_fds=pass_fds,
                                          env=env)
             if ksft_wait is not None:
-                os.close(ready_fd)
                 os.close(wait_fd)
+            if ksft_ready is not None:
+                os.close(ready_fd)
                 msg = fd_read_timeout(rfd, ksft_wait)
                 os.close(rfd)
                 if not msg:
@@ -95,6 +101,27 @@ class cmd:
             raise CmdExitFailure("Command failed: %s\nSTDOUT: %s\nSTDERR: %s" %
                                  (self.proc.args, stdout, stderr), self)
 
+    def __repr__(self):
+        def str_fmt(name, s):
+            name += ': '
+            return (name + s.strip().replace('\n', '\n' + ' ' * len(name)))
+
+        ret = "CMD"
+        if self.host:
+            ret += "[remote]"
+        if self.ret is None:
+            ret += f" (unterminated): {self.comm}\n"
+        elif self.ret == 0:
+            ret += f" (success): {self.comm}\n"
+        else:
+            ret += f": {self.comm}\n"
+            ret += f"  EXIT: {self.ret}\n"
+        if self.stdout:
+            ret += str_fmt("  STDOUT", self.stdout) + "\n"
+        if self.stderr:
+            ret += str_fmt("  STDERR", self.stderr) + "\n"
+        return ret.strip()
+
 
 class bkg(cmd):
     """
@@ -116,10 +143,10 @@ class bkg(cmd):
         with bkg("my_binary", ksft_wait=5):
     """
     def __init__(self, comm, shell=None, fail=None, ns=None, host=None,
-                 exit_wait=False, ksft_wait=None):
+                 exit_wait=False, ksft_ready=None, ksft_wait=None):
         super().__init__(comm, background=True,
                          shell=shell, fail=fail, ns=ns, host=host,
-                         ksft_wait=ksft_wait)
+                         ksft_ready=ksft_ready, ksft_wait=ksft_wait)
         self.terminate = not exit_wait and not ksft_wait
         self._exit_wait = exit_wait
         self.check_fail = fail
@@ -133,11 +160,12 @@ class bkg(cmd):
 
     def __exit__(self, ex_type, ex_value, ex_tb):
         # Force termination on exception
-        terminate = self.terminate or (self._exit_wait and ex_type)
+        terminate = self.terminate or (self._exit_wait and ex_type is not None)
         return self.process(terminate=terminate, fail=self.check_fail)
 
 
-global_defer_queue = []
+GLOBAL_DEFER_QUEUE = []
+GLOBAL_DEFER_ARMED = False
 
 
 class defer:
@@ -149,7 +177,9 @@ class defer:
         self.args = args
         self.kwargs = kwargs
 
-        self._queue =  global_defer_queue
+        if not GLOBAL_DEFER_ARMED:
+            raise Exception("defer queue not armed, did you use defer() outside of a test case?")
+        self._queue = GLOBAL_DEFER_QUEUE
         self._queue.append(self)
 
     def __enter__(self):

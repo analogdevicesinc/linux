@@ -84,7 +84,15 @@ struct scsi_host_template {
 	 *
 	 * STATUS: REQUIRED
 	 */
-	int (* queuecommand)(struct Scsi_Host *, struct scsi_cmnd *);
+	enum scsi_qc_status (*queuecommand)(struct Scsi_Host *,
+					    struct scsi_cmnd *);
+
+	/*
+	 * Queue a reserved command (BLK_MQ_REQ_RESERVED). The .queuecommand()
+	 * documentation also applies to the .queue_reserved_command() callback.
+	 */
+	enum scsi_qc_status (*queue_reserved_command)(struct Scsi_Host *,
+						      struct scsi_cmnd *);
 
 	/*
 	 * The commit_rqs function is used to trigger a hardware
@@ -375,9 +383,18 @@ struct scsi_host_template {
 	/*
 	 * This determines if we will use a non-interrupt driven
 	 * or an interrupt driven scheme.  It is set to the maximum number
-	 * of simultaneous commands a single hw queue in HBA will accept.
+	 * of simultaneous commands a single hw queue in HBA will accept
+	 * excluding internal commands.
 	 */
 	int can_queue;
+
+	/*
+	 * This determines how many commands the HBA will set aside
+	 * for internal commands. This number will be added to
+	 * @can_queue to calculate the maximum number of simultaneous
+	 * commands sent to the host.
+	 */
+	int nr_reserved_cmds;
 
 	/*
 	 * In many instances, especially where disconnect / reconnect are
@@ -510,10 +527,12 @@ struct scsi_host_template {
  *
  */
 #define DEF_SCSI_QCMD(func_name) \
-	int func_name(struct Scsi_Host *shost, struct scsi_cmnd *cmd)	\
+	enum scsi_qc_status func_name(struct Scsi_Host *shost,		\
+				      struct scsi_cmnd *cmd)		\
 	{								\
 		unsigned long irq_flags;				\
-		int rc;							\
+		enum scsi_qc_status rc;					\
+									\
 		spin_lock_irqsave(shost->host_lock, irq_flags);		\
 		rc = func_name##_lck(cmd);				\
 		spin_unlock_irqrestore(shost->host_lock, irq_flags);	\
@@ -611,7 +630,17 @@ struct Scsi_Host {
 	unsigned short max_cmd_len;
 
 	int this_id;
+
+	/*
+	 * Number of commands this host can handle at the same time.
+	 * This excludes reserved commands as specified by nr_reserved_cmds.
+	 */
 	int can_queue;
+	/*
+	 * Number of reserved commands to allocate, if any.
+	 */
+	unsigned int nr_reserved_cmds;
+
 	short cmd_per_lun;
 	short unsigned int sg_tablesize;
 	short unsigned int sg_prot_tablesize;
@@ -701,6 +730,12 @@ struct Scsi_Host {
 
 	/* ldm bits */
 	struct device		shost_gendev, shost_dev;
+
+	/*
+	 * A SCSI device structure used for sending internal commands to the
+	 * HBA. There is no corresponding logical unit inside the SCSI device.
+	 */
+	struct scsi_device *pseudo_sdev;
 
 	/*
 	 * Points to the transport data (if any) which is allocated

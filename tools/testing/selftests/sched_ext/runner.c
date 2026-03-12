@@ -46,6 +46,14 @@ static void print_test_preamble(const struct scx_test *test, bool quiet)
 	if (!quiet)
 		printf("DESCRIPTION: %s\n", test->description);
 	printf("OUTPUT:\n");
+
+	/*
+	 * The tests may fork with the preamble buffered
+	 * in the children's stdout. Flush before the test
+	 * to avoid printing the message multiple times.
+	 */
+	fflush(stdout);
+	fflush(stderr);
 }
 
 static const char *status_to_result(enum scx_test_status status)
@@ -157,6 +165,9 @@ int main(int argc, char **argv)
 	for (i = 0; i < __scx_num_tests; i++) {
 		enum scx_test_status status;
 		struct scx_test *test = &__scx_tests[i];
+
+		if (exit_req)
+			break;
 
 		if (list) {
 			printf("%s\n", test->name);

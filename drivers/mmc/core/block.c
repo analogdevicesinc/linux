@@ -349,10 +349,10 @@ static umode_t mmc_disk_attrs_is_visible(struct kobject *kobj,
 	if (a == &dev_attr_ro_lock_until_next_power_on.attr &&
 	    (md->area_type & MMC_BLK_DATA_AREA_BOOT) &&
 	    md->queue.card->ext_csd.boot_ro_lockable) {
-		mode = S_IRUGO;
+		mode = 0444;
 		if (!(md->queue.card->ext_csd.boot_ro_lock &
 				EXT_CSD_BOOT_WP_B_PWR_WP_DIS))
-			mode |= S_IWUSR;
+			mode |= 0200;
 	}
 
 	mmc_blk_put(md);
@@ -422,7 +422,7 @@ static struct mmc_blk_ioc_data *mmc_blk_ioctl_copy_from_user(
 	struct mmc_blk_ioc_data *idata;
 	int err;
 
-	idata = kzalloc(sizeof(*idata), GFP_KERNEL);
+	idata = kzalloc_obj(*idata);
 	if (!idata) {
 		err = -ENOMEM;
 		goto out;
@@ -737,7 +737,7 @@ static int mmc_blk_ioctl_multi_cmd(struct mmc_blk_data *md,
 		return -EINVAL;
 
 	n = num_of_cmds;
-	idata = kcalloc(n, sizeof(*idata), GFP_KERNEL);
+	idata = kzalloc_objs(*idata, n);
 	if (!idata)
 		return -ENOMEM;
 
@@ -957,7 +957,6 @@ static int mmc_sd_num_wr_blocks(struct mmc_card *card, u32 *written_blocks)
 	u32 result;
 	__be32 *blocks;
 	u8 resp_sz = mmc_card_ult_capacity(card) ? 8 : 4;
-	unsigned int noio_flag;
 
 	struct mmc_request mrq = {};
 	struct mmc_command cmd = {};
@@ -982,9 +981,7 @@ static int mmc_sd_num_wr_blocks(struct mmc_card *card, u32 *written_blocks)
 	mrq.cmd = &cmd;
 	mrq.data = &data;
 
-	noio_flag = memalloc_noio_save();
-	blocks = kmalloc(resp_sz, GFP_KERNEL);
-	memalloc_noio_restore(noio_flag);
+	blocks = kmalloc(resp_sz, GFP_NOIO);
 	if (!blocks)
 		return -ENOMEM;
 
@@ -2565,7 +2562,7 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
 		return ERR_PTR(devidx);
 	}
 
-	md = kzalloc(sizeof(*md), GFP_KERNEL);
+	md = kzalloc_obj(*md);
 	if (!md) {
 		ret = -ENOMEM;
 		goto out;
@@ -2797,12 +2794,12 @@ static struct mmc_blk_ioc_data **alloc_idata(struct mmc_rpmb_data *rpmb,
 	struct mmc_blk_ioc_data **idata;
 	unsigned int n;
 
-	idata = kcalloc(cmd_count, sizeof(*idata), GFP_KERNEL);
+	idata = kzalloc_objs(*idata, cmd_count);
 	if (!idata)
 		return NULL;
 
 	for (n = 0; n < cmd_count; n++) {
-		idata[n] = kcalloc(1, sizeof(**idata), GFP_KERNEL);
+		idata[n] = kzalloc_objs(**idata, 1);
 		if (!idata[n]) {
 			free_idata(idata, n);
 			return NULL;
@@ -2945,7 +2942,7 @@ static int mmc_blk_alloc_rpmb_part(struct mmc_card *card,
 	if (devidx < 0)
 		return devidx;
 
-	rpmb = kzalloc(sizeof(*rpmb), GFP_KERNEL);
+	rpmb = kzalloc_obj(*rpmb);
 	if (!rpmb) {
 		ida_free(&mmc_rpmb_ida, devidx);
 		return -ENOMEM;
@@ -3194,7 +3191,7 @@ static void mmc_blk_add_debugfs(struct mmc_card *card, struct mmc_blk_data *md)
 
 	if (mmc_card_mmc(card)) {
 		md->ext_csd_dentry =
-			debugfs_create_file("ext_csd", S_IRUSR, root, card,
+			debugfs_create_file("ext_csd", 0400, root, card,
 					    &mmc_dbg_ext_csd_fops);
 	}
 }
@@ -3275,7 +3272,8 @@ static int mmc_blk_probe(struct mmc_card *card)
 	mmc_fixup_device(card, mmc_blk_fixups);
 
 	card->complete_wq = alloc_workqueue("mmc_complete",
-					WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
+					WQ_MEM_RECLAIM | WQ_HIGHPRI | WQ_PERCPU,
+					0);
 	if (!card->complete_wq) {
 		pr_err("Failed to create mmc completion workqueue");
 		return -ENOMEM;

@@ -70,7 +70,7 @@ static void rotate_device_run(void *priv)
 	src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	dst = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
 
-	v4l2_m2m_buf_copy_metadata(src, dst, true);
+	v4l2_m2m_buf_copy_metadata(src, dst);
 
 	val = ROTATE_GLB_CTL_MODE(ROTATE_MODE_COPY_ROTATE);
 	if (ctx->hflip)
@@ -642,7 +642,7 @@ static int rotate_open(struct file *file)
 	if (mutex_lock_interruptible(&dev->dev_mutex))
 		return -ERESTARTSYS;
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	ctx = kzalloc_obj(*ctx);
 	if (!ctx) {
 		mutex_unlock(&dev->dev_mutex);
 		return -ENOMEM;

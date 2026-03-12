@@ -10,7 +10,7 @@
 #include "fw/api/txq.h"
 
 /* Highest firmware core release supported */
-#define IWL_BZ_UCODE_CORE_MAX	99
+#define IWL_BZ_UCODE_CORE_MAX	101
 
 /* Lowest firmware API version supported */
 #define IWL_BZ_UCODE_API_MIN	100
@@ -18,12 +18,6 @@
 /* Memory offsets and lengths */
 #define IWL_BZ_SMEM_OFFSET		0x400000
 #define IWL_BZ_SMEM_LEN			0xD0000
-
-#define IWL_BZ_A_FM_B_FW_PRE		"iwlwifi-bz-a0-fm-b0"
-#define IWL_BZ_A_FM_C_FW_PRE		"iwlwifi-bz-a0-fm-c0"
-#define IWL_BZ_A_FM4_B_FW_PRE		"iwlwifi-bz-a0-fm4-b0"
-#define IWL_GL_B_FM_B_FW_PRE		"iwlwifi-gl-b0-fm-b0"
-#define IWL_GL_C_FM_C_FW_PRE		"iwlwifi-gl-c0-fm-c0"
 
 static const struct iwl_family_base_params iwl_bz_base = {
 	.num_of_queues = 512,
@@ -38,7 +32,6 @@ static const struct iwl_family_base_params iwl_bz_base = {
 	.smem_len = IWL_BZ_SMEM_LEN,
 	.apmg_not_supported = true,
 	.mac_addr_from_csr = 0x30,
-	.min_umac_error_event_table = 0xD0000,
 	.d3_debug_data_base_addr = 0x401000,
 	.d3_debug_data_length = 60 * 1024,
 	.mon_smem_regs = {
@@ -90,6 +83,7 @@ const struct iwl_mac_cfg iwl_bz_mac_cfg = {
 	.low_latency_xtal = true,
 	.ltr_delay = IWL_CFG_TRANS_LTR_DELAY_2500US,
 };
+EXPORT_SYMBOL_IF_IWLWIFI_KUNIT(iwl_bz_mac_cfg);
 
 const struct iwl_mac_cfg iwl_gl_mac_cfg = {
 	.device_family = IWL_DEVICE_FAMILY_BZ,
@@ -100,9 +94,3 @@ const struct iwl_mac_cfg iwl_gl_mac_cfg = {
 	.xtal_latency = 12000,
 	.low_latency_xtal = true,
 };
-
-IWL_CORE_FW(IWL_BZ_A_FM_B_FW_PRE, IWL_BZ_UCODE_CORE_MAX);
-IWL_CORE_FW(IWL_BZ_A_FM_C_FW_PRE, IWL_BZ_UCODE_CORE_MAX);
-IWL_CORE_FW(IWL_BZ_A_FM4_B_FW_PRE, IWL_BZ_UCODE_CORE_MAX);
-IWL_CORE_FW(IWL_GL_B_FM_B_FW_PRE, IWL_BZ_UCODE_CORE_MAX);
-IWL_CORE_FW(IWL_GL_C_FM_C_FW_PRE, IWL_BZ_UCODE_CORE_MAX);

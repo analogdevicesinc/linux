@@ -22,6 +22,7 @@
 #include <drm/drm_gem_atomic_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_plane_helper.h>
+#include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 
 #include "hgsmi_channels.h"
@@ -262,8 +263,8 @@ static int vbox_primary_atomic_check(struct drm_plane *plane,
 	struct drm_crtc_state *crtc_state = NULL;
 
 	if (new_state->crtc) {
-		crtc_state = drm_atomic_get_existing_crtc_state(state,
-								new_state->crtc);
+		crtc_state = drm_atomic_get_new_crtc_state(state,
+							   new_state->crtc);
 		if (WARN_ON(!crtc_state))
 			return -EINVAL;
 	}
@@ -344,8 +345,8 @@ static int vbox_cursor_atomic_check(struct drm_plane *plane,
 	int ret;
 
 	if (new_state->crtc) {
-		crtc_state = drm_atomic_get_existing_crtc_state(state,
-								new_state->crtc);
+		crtc_state = drm_atomic_get_new_crtc_state(state,
+							   new_state->crtc);
 		if (WARN_ON(!crtc_state))
 			return -EINVAL;
 	}
@@ -527,7 +528,7 @@ static struct drm_plane *vbox_create_plane(struct vbox_private *vbox,
 		return ERR_PTR(-EINVAL);
 	}
 
-	plane = kzalloc(sizeof(*plane), GFP_KERNEL);
+	plane = kzalloc_obj(*plane);
 	if (!plane)
 		return ERR_PTR(-ENOMEM);
 
@@ -561,7 +562,7 @@ static struct vbox_crtc *vbox_crtc_init(struct drm_device *dev, unsigned int i)
 	if (ret)
 		return ERR_PTR(ret);
 
-	vbox_crtc = kzalloc(sizeof(*vbox_crtc), GFP_KERNEL);
+	vbox_crtc = kzalloc_obj(*vbox_crtc);
 	if (!vbox_crtc)
 		return ERR_PTR(-ENOMEM);
 
@@ -621,7 +622,7 @@ static struct drm_encoder *vbox_encoder_init(struct drm_device *dev,
 {
 	struct vbox_encoder *vbox_encoder;
 
-	vbox_encoder = kzalloc(sizeof(*vbox_encoder), GFP_KERNEL);
+	vbox_encoder = kzalloc_obj(*vbox_encoder);
 	if (!vbox_encoder)
 		return NULL;
 
@@ -807,7 +808,7 @@ static int vbox_connector_init(struct drm_device *dev,
 	struct vbox_connector *vbox_connector;
 	struct drm_connector *connector;
 
-	vbox_connector = kzalloc(sizeof(*vbox_connector), GFP_KERNEL);
+	vbox_connector = kzalloc_obj(*vbox_connector);
 	if (!vbox_connector)
 		return -ENOMEM;
 

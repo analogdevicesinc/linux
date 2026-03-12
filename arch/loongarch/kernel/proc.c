@@ -20,11 +20,14 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	unsigned int prid = cpu_data[n].processor_id;
 	unsigned int version = cpu_data[n].processor_id & 0xff;
 	unsigned int fp_version = cpu_data[n].fpu_vers;
+	u64 freq = cpu_clock_freq, bogomips = lpj_fine * cpu_clock_freq;
 
 #ifdef CONFIG_SMP
 	if (!cpu_online(n))
 		return 0;
 #endif
+	do_div(freq, 10000);
+	do_div(bogomips, const_clock_freq * (5000/HZ));
 
 	/*
 	 * For the first processor also print the system type
@@ -41,41 +44,55 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	seq_printf(m, "PRID\t\t\t: %s (%08x)\n", id_to_core_name(prid), prid);
 	seq_printf(m, "CPU Revision\t\t: 0x%02x\n", version);
 	seq_printf(m, "FPU Revision\t\t: 0x%02x\n", fp_version);
-	seq_printf(m, "CPU MHz\t\t\t: %llu.%02llu\n",
-		      cpu_clock_freq / 1000000, (cpu_clock_freq / 10000) % 100);
-	seq_printf(m, "BogoMIPS\t\t: %llu.%02llu\n",
-		      (lpj_fine * cpu_clock_freq / const_clock_freq) / (500000/HZ),
-		      ((lpj_fine * cpu_clock_freq / const_clock_freq) / (5000/HZ)) % 100);
+	seq_printf(m, "CPU MHz\t\t\t: %u.%02u\n", (u32)freq / 100, (u32)freq % 100);
+	seq_printf(m, "BogoMIPS\t\t: %u.%02u\n", (u32)bogomips / 100, (u32)bogomips % 100);
 	seq_printf(m, "TLB Entries\t\t: %d\n", cpu_data[n].tlbsize);
 	seq_printf(m, "Address Sizes\t\t: %d bits physical, %d bits virtual\n",
 		      cpu_pabits + 1, cpu_vabits + 1);
 
-	seq_printf(m, "ISA\t\t\t:");
+	seq_puts(m, "ISA\t\t\t:");
 	if (isa & LOONGARCH_CPU_ISA_LA32R)
-		seq_printf(m, " loongarch32r");
+		seq_puts(m, " loongarch32r");
 	if (isa & LOONGARCH_CPU_ISA_LA32S)
-		seq_printf(m, " loongarch32s");
+		seq_puts(m, " loongarch32s");
 	if (isa & LOONGARCH_CPU_ISA_LA64)
-		seq_printf(m, " loongarch64");
-	seq_printf(m, "\n");
+		seq_puts(m, " loongarch64");
+	seq_puts(m, "\n");
 
-	seq_printf(m, "Features\t\t:");
-	if (cpu_has_cpucfg)	seq_printf(m, " cpucfg");
-	if (cpu_has_lam)	seq_printf(m, " lam");
-	if (cpu_has_ual)	seq_printf(m, " ual");
-	if (cpu_has_fpu)	seq_printf(m, " fpu");
-	if (cpu_has_lsx)	seq_printf(m, " lsx");
-	if (cpu_has_lasx)	seq_printf(m, " lasx");
-	if (cpu_has_crc32)	seq_printf(m, " crc32");
-	if (cpu_has_complex)	seq_printf(m, " complex");
-	if (cpu_has_crypto)	seq_printf(m, " crypto");
-	if (cpu_has_ptw)	seq_printf(m, " ptw");
-	if (cpu_has_lspw)	seq_printf(m, " lspw");
-	if (cpu_has_lvz)	seq_printf(m, " lvz");
-	if (cpu_has_lbt_x86)	seq_printf(m, " lbt_x86");
-	if (cpu_has_lbt_arm)	seq_printf(m, " lbt_arm");
-	if (cpu_has_lbt_mips)	seq_printf(m, " lbt_mips");
-	seq_printf(m, "\n");
+	seq_puts(m, "Features\t\t:");
+	if (cpu_has_cpucfg)
+		seq_puts(m, " cpucfg");
+	if (cpu_has_lam)
+		seq_puts(m, " lam");
+	if (cpu_has_scq)
+		seq_puts(m, " scq");
+	if (cpu_has_ual)
+		seq_puts(m, " ual");
+	if (cpu_has_fpu)
+		seq_puts(m, " fpu");
+	if (cpu_has_lsx)
+		seq_puts(m, " lsx");
+	if (cpu_has_lasx)
+		seq_puts(m, " lasx");
+	if (cpu_has_crc32)
+		seq_puts(m, " crc32");
+	if (cpu_has_complex)
+		seq_puts(m, " complex");
+	if (cpu_has_crypto)
+		seq_puts(m, " crypto");
+	if (cpu_has_ptw)
+		seq_puts(m, " ptw");
+	if (cpu_has_lspw)
+		seq_puts(m, " lspw");
+	if (cpu_has_lvz)
+		seq_puts(m, " lvz");
+	if (cpu_has_lbt_x86)
+		seq_puts(m, " lbt_x86");
+	if (cpu_has_lbt_arm)
+		seq_puts(m, " lbt_arm");
+	if (cpu_has_lbt_mips)
+		seq_puts(m, " lbt_mips");
+	seq_puts(m, "\n");
 
 	seq_printf(m, "Hardware Watchpoint\t: %s", str_yes_no(cpu_has_watch));
 	if (cpu_has_watch) {
@@ -83,7 +100,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		      cpu_data[n].watch_ireg_count, cpu_data[n].watch_dreg_count);
 	}
 
-	seq_printf(m, "\n\n");
+	seq_puts(m, "\n\n");
 
 	return 0;
 }

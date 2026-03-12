@@ -78,7 +78,7 @@ static int check_extent_in_eb(struct btrfs_backref_walk_ctx *ctx,
 	}
 
 add_inode_elem:
-	e = kmalloc(sizeof(*e), GFP_NOFS);
+	e = kmalloc_obj(*e, GFP_NOFS);
 	if (!e)
 		return -ENOMEM;
 
@@ -666,10 +666,9 @@ static int resolve_indirect_ref(struct btrfs_backref_walk_ctx *ctx,
 		ret = btrfs_search_old_slot(root, &search_key, path, ctx->time_seq);
 
 	btrfs_debug(ctx->fs_info,
-		"search slot in root %llu (level %d, ref count %d) returned %d for key (%llu %u %llu)",
-		 ref->root_id, level, ref->count, ret,
-		 ref->key_for_search.objectid, ref->key_for_search.type,
-		 ref->key_for_search.offset);
+"search slot in root %llu (level %d, ref count %d) returned %d for key " BTRFS_KEY_FMT,
+		    ref->root_id, level, ref->count, ret,
+		    BTRFS_KEY_FMT_VALUE(&ref->key_for_search));
 	if (ret < 0)
 		goto out;
 
@@ -1409,12 +1408,12 @@ static int find_parent_nodes(struct btrfs_backref_walk_ctx *ctx,
 	if (!path)
 		return -ENOMEM;
 	if (!ctx->trans) {
-		path->search_commit_root = 1;
-		path->skip_locking = 1;
+		path->search_commit_root = true;
+		path->skip_locking = true;
 	}
 
 	if (ctx->time_seq == BTRFS_SEQ_LAST)
-		path->skip_locking = 1;
+		path->skip_locking = true;
 
 again:
 	head = NULL;
@@ -1561,7 +1560,7 @@ again:
 
 	btrfs_release_path(path);
 
-	ret = add_missing_keys(ctx->fs_info, &preftrees, path->skip_locking == 0);
+	ret = add_missing_keys(ctx->fs_info, &preftrees, !path->skip_locking);
 	if (ret)
 		goto out;
 
@@ -1806,7 +1805,7 @@ struct btrfs_backref_share_check_ctx *btrfs_alloc_backref_share_check_ctx(void)
 {
 	struct btrfs_backref_share_check_ctx *ctx;
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	ctx = kzalloc_obj(*ctx);
 	if (!ctx)
 		return NULL;
 
@@ -2786,7 +2785,7 @@ struct btrfs_data_container *init_data_container(u32 total_bytes)
  * allocates space to return multiple file system paths for an inode.
  * total_bytes to allocate are passed, note that space usable for actual path
  * information will be total_bytes - sizeof(struct inode_fs_paths).
- * the returned pointer must be freed with free_ipath() in the end.
+ * the returned pointer must be freed with __free_inode_fs_paths() in the end.
  */
 struct inode_fs_paths *init_ipath(s32 total_bytes, struct btrfs_root *fs_root,
 					struct btrfs_path *path)
@@ -2798,7 +2797,7 @@ struct inode_fs_paths *init_ipath(s32 total_bytes, struct btrfs_root *fs_root,
 	if (IS_ERR(fspath))
 		return ERR_CAST(fspath);
 
-	ifp = kmalloc(sizeof(*ifp), GFP_KERNEL);
+	ifp = kmalloc_obj(*ifp);
 	if (!ifp) {
 		kvfree(fspath);
 		return ERR_PTR(-ENOMEM);
@@ -2811,19 +2810,11 @@ struct inode_fs_paths *init_ipath(s32 total_bytes, struct btrfs_root *fs_root,
 	return ifp;
 }
 
-void free_ipath(struct inode_fs_paths *ipath)
-{
-	if (!ipath)
-		return;
-	kvfree(ipath->fspath);
-	kfree(ipath);
-}
-
 struct btrfs_backref_iter *btrfs_backref_iter_alloc(struct btrfs_fs_info *fs_info)
 {
 	struct btrfs_backref_iter *ret;
 
-	ret = kzalloc(sizeof(*ret), GFP_NOFS);
+	ret = kzalloc_obj(*ret, GFP_NOFS);
 	if (!ret)
 		return NULL;
 
@@ -2834,8 +2825,8 @@ struct btrfs_backref_iter *btrfs_backref_iter_alloc(struct btrfs_fs_info *fs_inf
 	}
 
 	/* Current backref iterator only supports iteration in commit root */
-	ret->path->search_commit_root = 1;
-	ret->path->skip_locking = 1;
+	ret->path->search_commit_root = true;
+	ret->path->skip_locking = true;
 	ret->fs_info = fs_info;
 
 	return ret;
@@ -3033,7 +3024,7 @@ struct btrfs_backref_node *btrfs_backref_alloc_node(
 	struct btrfs_backref_node *node;
 
 	ASSERT(level >= 0 && level < BTRFS_MAX_LEVEL);
-	node = kzalloc(sizeof(*node), GFP_NOFS);
+	node = kzalloc_obj(*node, GFP_NOFS);
 	if (!node)
 		return node;
 
@@ -3066,7 +3057,7 @@ struct btrfs_backref_edge *btrfs_backref_alloc_edge(
 {
 	struct btrfs_backref_edge *edge;
 
-	edge = kzalloc(sizeof(*edge), GFP_NOFS);
+	edge = kzalloc_obj(*edge, GFP_NOFS);
 	if (edge)
 		cache->nr_edges++;
 	return edge;
@@ -3308,8 +3299,8 @@ static int handle_indirect_tree_backref(struct btrfs_trans_handle *trans,
 	level = cur->level + 1;
 
 	/* Search the tree to find parent blocks referring to the block */
-	path->search_commit_root = 1;
-	path->skip_locking = 1;
+	path->search_commit_root = true;
+	path->skip_locking = true;
 	path->lowest_level = level;
 	ret = btrfs_search_slot(NULL, root, tree_key, path, 0, 0);
 	path->lowest_level = 0;
@@ -3323,9 +3314,9 @@ static int handle_indirect_tree_backref(struct btrfs_trans_handle *trans,
 	eb = path->nodes[level];
 	if (btrfs_node_blockptr(eb, path->slots[level]) != cur->bytenr) {
 		btrfs_err(fs_info,
-"couldn't find block (%llu) (level %d) in tree (%llu) with key (%llu %u %llu)",
+"couldn't find block (%llu) (level %d) in tree (%llu) with key " BTRFS_KEY_FMT,
 			  cur->bytenr, level - 1, btrfs_root_id(root),
-			  tree_key->objectid, tree_key->type, tree_key->offset);
+			  BTRFS_KEY_FMT_VALUE(tree_key));
 		btrfs_put_root(root);
 		ret = -ENOENT;
 		goto out;
@@ -3618,10 +3609,8 @@ int btrfs_backref_finish_upper_links(struct btrfs_backref_cache *cache,
 		}
 
 		rb_node = rb_simple_insert(&cache->rb_root, &upper->simple_node);
-		if (unlikely(rb_node)) {
+		if (unlikely(rb_node))
 			btrfs_backref_panic(cache->fs_info, upper->bytenr, -EEXIST);
-			return -EUCLEAN;
-		}
 
 		list_add_tail(&edge->list[UPPER], &upper->lower);
 

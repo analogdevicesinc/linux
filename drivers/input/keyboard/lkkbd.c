@@ -608,7 +608,7 @@ static int lkkbd_connect(struct serio *serio, struct serio_driver *drv)
 	int i;
 	int err;
 
-	lk = kzalloc(sizeof(*lk), GFP_KERNEL);
+	lk = kzalloc_obj(*lk);
 	input_dev = input_allocate_device();
 	if (!lk || !input_dev) {
 		err = -ENOMEM;
@@ -670,7 +670,8 @@ static int lkkbd_connect(struct serio *serio, struct serio_driver *drv)
 
 	return 0;
 
- fail3:	serio_close(serio);
+ fail3:	disable_work_sync(&lk->tq);
+	serio_close(serio);
  fail2:	serio_set_drvdata(serio, NULL);
  fail1:	input_free_device(input_dev);
 	kfree(lk);
@@ -683,6 +684,8 @@ static int lkkbd_connect(struct serio *serio, struct serio_driver *drv)
 static void lkkbd_disconnect(struct serio *serio)
 {
 	struct lkkbd *lk = serio_get_drvdata(serio);
+
+	disable_work_sync(&lk->tq);
 
 	input_get_device(lk->dev);
 	input_unregister_device(lk->dev);

@@ -30,6 +30,9 @@
 
 #include <uapi/linux/magic.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/ceph.h>
+
 static DEFINE_SPINLOCK(ceph_fsc_lock);
 static LIST_HEAD(ceph_fsc_list);
 
@@ -806,7 +809,7 @@ static struct ceph_fs_client *create_fs_client(struct ceph_mount_options *fsopt,
 	struct ceph_fs_client *fsc;
 	int err;
 
-	fsc = kzalloc(sizeof(*fsc), GFP_KERNEL);
+	fsc = kzalloc_obj(*fsc);
 	if (!fsc) {
 		err = -ENOMEM;
 		goto fail;
@@ -1426,7 +1429,7 @@ static int ceph_init_fs_context(struct fs_context *fc)
 	struct ceph_parse_opts_ctx *pctx;
 	struct ceph_mount_options *fsopt;
 
-	pctx = kzalloc(sizeof(*pctx), GFP_KERNEL);
+	pctx = kzalloc_obj(*pctx);
 	if (!pctx)
 		return -ENOMEM;
 
@@ -1434,7 +1437,7 @@ static int ceph_init_fs_context(struct fs_context *fc)
 	if (!pctx->copts)
 		goto nomem;
 
-	pctx->opts = kzalloc(sizeof(*pctx->opts), GFP_KERNEL);
+	pctx->opts = kzalloc_obj(*pctx->opts);
 	if (!pctx->opts)
 		goto nomem;
 

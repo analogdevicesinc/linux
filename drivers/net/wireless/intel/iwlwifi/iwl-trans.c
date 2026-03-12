@@ -46,7 +46,7 @@ iwl_trans_get_restart_data(struct device *dev)
 	if (data)
 		return data;
 
-	data = kzalloc(struct_size(data, name, strlen(name) + 1), GFP_ATOMIC);
+	data = kzalloc_flex(*data, name, strlen(name) + 1, GFP_ATOMIC);
 	if (!data)
 		return NULL;
 
@@ -113,7 +113,7 @@ static void iwl_trans_schedule_reprobe(struct iwl_trans *trans,
 		return;
 	}
 
-	reprobe = kzalloc(sizeof(*reprobe), GFP_KERNEL);
+	reprobe = kzalloc_obj(*reprobe);
 	if (!reprobe) {
 		module_put(THIS_MODULE);
 		return;
@@ -129,7 +129,7 @@ static enum iwl_reset_mode
 iwl_trans_determine_restart_mode(struct iwl_trans *trans)
 {
 	struct iwl_trans_dev_restart_data *data;
-	enum iwl_reset_mode at_least = 0;
+	enum iwl_reset_mode min_mode = 0;
 	unsigned int index;
 	static const enum iwl_reset_mode escalation_list_old[] = {
 		IWL_RESET_MODE_SW_RESET,
@@ -173,11 +173,11 @@ iwl_trans_determine_restart_mode(struct iwl_trans *trans)
 	}
 
 	if (trans->restart.during_reset)
-		at_least = IWL_RESET_MODE_REPROBE;
+		min_mode = IWL_RESET_MODE_REPROBE;
 
 	data = iwl_trans_get_restart_data(trans->dev);
 	if (!data)
-		return at_least;
+		return min_mode;
 
 	if (!data->backoff &&
 	    ktime_get_boottime_seconds() - data->last_error >=
@@ -194,7 +194,7 @@ iwl_trans_determine_restart_mode(struct iwl_trans *trans)
 		data->backoff = false;
 	}
 
-	return max(at_least, escalation_list[index]);
+	return max(min_mode, escalation_list[index]);
 }
 
 #define IWL_TRANS_TOP_FOLLOWER_WAIT	180 /* ms */
@@ -548,11 +548,11 @@ int iwl_trans_read_config32(struct iwl_trans *trans, u32 ofs,
 	return iwl_trans_pcie_read_config32(trans, ofs, val);
 }
 
-bool _iwl_trans_grab_nic_access(struct iwl_trans *trans)
+bool iwl_trans_grab_nic_access(struct iwl_trans *trans)
 {
 	return iwl_trans_pcie_grab_nic_access(trans);
 }
-IWL_EXPORT_SYMBOL(_iwl_trans_grab_nic_access);
+IWL_EXPORT_SYMBOL(iwl_trans_grab_nic_access);
 
 void __releases(nic_access)
 iwl_trans_release_nic_access(struct iwl_trans *trans)

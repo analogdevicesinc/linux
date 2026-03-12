@@ -28,6 +28,7 @@
 #include <drm/drm_device.h>
 #include <drm/drm_file.h>
 #include <drm/drm_mode_object.h>
+#include <drm/drm_plane.h>
 #include <drm/drm_print.h>
 
 #include "drm_crtc_internal.h"
@@ -384,8 +385,34 @@ int drm_object_property_get_default_value(struct drm_mode_object *obj,
 }
 EXPORT_SYMBOL(drm_object_property_get_default_value);
 
+/**
+ * drm_object_immutable_property_get_value - retrieve the value of a property
+ * @obj: drm mode object to get property value from
+ * @property: property to retrieve
+ * @val: storage for the property value
+ *
+ * This function retrieves the software state of the given immutable property
+ * for the given mode object.
+ *
+ * This function can be called by both atomic and non-atomic drivers.
+ *
+ * Returns:
+ * Zero on success, error code on failure.
+ */
+int drm_object_immutable_property_get_value(struct drm_mode_object *obj,
+					    struct drm_property *property,
+					    uint64_t *val)
+{
+	if (drm_WARN_ON(property->dev, !(property->flags & DRM_MODE_PROP_IMMUTABLE)))
+		return -EINVAL;
+
+	return __drm_object_property_get_prop_value(obj, property, val);
+}
+EXPORT_SYMBOL(drm_object_immutable_property_get_value);
+
 /* helper for getconnector and getproperties ioctls */
 int drm_mode_object_get_properties(struct drm_mode_object *obj, bool atomic,
+				   bool plane_color_pipeline,
 				   uint32_t __user *prop_ptr,
 				   uint64_t __user *prop_values,
 				   uint32_t *arg_count_props)
@@ -398,6 +425,21 @@ int drm_mode_object_get_properties(struct drm_mode_object *obj, bool atomic,
 
 		if ((prop->flags & DRM_MODE_PROP_ATOMIC) && !atomic)
 			continue;
+
+		if (plane_color_pipeline && obj->type == DRM_MODE_OBJECT_PLANE) {
+			struct drm_plane *plane = obj_to_plane(obj);
+
+			if (prop == plane->color_encoding_property ||
+			    prop == plane->color_range_property)
+				continue;
+		}
+
+		if (!plane_color_pipeline && obj->type == DRM_MODE_OBJECT_PLANE) {
+			struct drm_plane *plane = obj_to_plane(obj);
+
+			if (prop == plane->color_pipeline_property)
+				continue;
+		}
 
 		if (*arg_count_props > count) {
 			ret = __drm_object_property_get_value(obj, prop, &val);
@@ -457,6 +499,7 @@ int drm_mode_obj_get_properties_ioctl(struct drm_device *dev, void *data,
 	}
 
 	ret = drm_mode_object_get_properties(obj, file_priv->atomic,
+			file_priv->plane_color_pipeline,
 			(uint32_t __user *)(unsigned long)(arg->props_ptr),
 			(uint64_t __user *)(unsigned long)(arg->prop_values_ptr),
 			&arg->count_props);

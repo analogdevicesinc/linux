@@ -7,7 +7,7 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: Common Properties for Serial AT attachment (SATA) controllers
 
 maintainers:
-  - Linus Walleij <linus.walleij@linaro.org>
+  - Linus Walleij <linusw@kernel.org>
 
 description: |
   This document defines device tree properties common to most Serial
@@ -53,5 +53,8 @@ $defs:
           The ID number of the SATA port. Aside with being directly used,
           each port can have a Port Multiplier attached thus allowing to
           access more than one drive by means of a single SATA port.
+
+      port:
+        $ref: /schemas/graph.yaml#/properties/port
 
 ...

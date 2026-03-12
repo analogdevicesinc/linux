@@ -6,6 +6,7 @@
 #include <drm/drm_edid.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_writeback.h>
+#include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
@@ -80,7 +81,7 @@ static int vkms_wb_prepare_job(struct drm_writeback_connector *wb_connector,
 	if (!job->fb)
 		return 0;
 
-	vkmsjob = kzalloc(sizeof(*vkmsjob), GFP_KERNEL);
+	vkmsjob = kzalloc_obj(*vkmsjob);
 	if (!vkmsjob)
 		return -ENOMEM;
 

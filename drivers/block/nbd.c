@@ -52,7 +52,6 @@
 static DEFINE_IDR(nbd_index_idr);
 static DEFINE_MUTEX(nbd_index_mutex);
 static struct workqueue_struct *nbd_del_wq;
-static struct cred *nbd_cred;
 static int nbd_total_devices = 0;
 
 struct nbd_sock {
@@ -308,7 +307,7 @@ static void nbd_mark_nsock_dead(struct nbd_device *nbd, struct nbd_sock *nsock,
 {
 	if (!nsock->dead && notify && !nbd_disconnected(nbd->config)) {
 		struct link_dead_args *args;
-		args = kmalloc(sizeof(struct link_dead_args), GFP_NOIO);
+		args = kmalloc_obj(struct link_dead_args, GFP_NOIO);
 		if (args) {
 			INIT_WORK(&args->work, nbd_dead_link_work);
 			args->index = nbd->index;
@@ -555,7 +554,6 @@ static int __sock_xmit(struct nbd_device *nbd, struct socket *sock, int send,
 	int result;
 	struct msghdr msg = {} ;
 	unsigned int noreclaim_flag;
-	const struct cred *old_cred;
 
 	if (unlikely(!sock)) {
 		dev_err_ratelimited(disk_to_dev(nbd->disk),
@@ -564,33 +562,32 @@ static int __sock_xmit(struct nbd_device *nbd, struct socket *sock, int send,
 		return -EINVAL;
 	}
 
-	old_cred = override_creds(nbd_cred);
-
 	msg.msg_iter = *iter;
 
 	noreclaim_flag = memalloc_noreclaim_save();
-	do {
-		sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
-		sock->sk->sk_use_task_frag = false;
-		msg.msg_flags = msg_flags | MSG_NOSIGNAL;
 
-		if (send)
-			result = sock_sendmsg(sock, &msg);
-		else
-			result = sock_recvmsg(sock, &msg, msg.msg_flags);
+	scoped_with_kernel_creds() {
+		do {
+			sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
+			sock->sk->sk_use_task_frag = false;
+			msg.msg_flags = msg_flags | MSG_NOSIGNAL;
 
-		if (result <= 0) {
-			if (result == 0)
-				result = -EPIPE; /* short read */
-			break;
-		}
-		if (sent)
-			*sent += result;
-	} while (msg_data_left(&msg));
+			if (send)
+				result = sock_sendmsg(sock, &msg);
+			else
+				result = sock_recvmsg(sock, &msg, msg.msg_flags);
+
+			if (result <= 0) {
+				if (result == 0)
+					result = -EPIPE; /* short read */
+				break;
+			}
+			if (sent)
+				*sent += result;
+		} while (msg_data_left(&msg));
+	}
 
 	memalloc_noreclaim_restore(noreclaim_flag);
-
-	revert_creds(old_cred);
 
 	return result;
 }
@@ -1024,9 +1021,9 @@ static void recv_work(struct work_struct *work)
 	nbd_mark_nsock_dead(nbd, nsock, 1);
 	mutex_unlock(&nsock->tx_lock);
 
-	nbd_config_put(nbd);
 	atomic_dec(&config->recv_threads);
 	wake_up(&config->recv_wq);
+	nbd_config_put(nbd);
 	kfree(args);
 }
 
@@ -1277,7 +1274,7 @@ static int nbd_add_socket(struct nbd_device *nbd, unsigned long arg,
 		goto put_socket;
 	}
 
-	nsock = kzalloc(sizeof(*nsock), GFP_KERNEL);
+	nsock = kzalloc_obj(*nsock);
 	if (!nsock) {
 		err = -ENOMEM;
 		goto put_socket;
@@ -1325,7 +1322,7 @@ static int nbd_reconnect_socket(struct nbd_device *nbd, unsigned long arg)
 	if (!sock)
 		return err;
 
-	args = kzalloc(sizeof(*args), GFP_KERNEL);
+	args = kzalloc_obj(*args);
 	if (!args) {
 		sockfd_put(sock);
 		return -ENOMEM;
@@ -1513,7 +1510,7 @@ retry:
 	for (i = 0; i < num_connections; i++) {
 		struct recv_thread_args *args;
 
-		args = kzalloc(sizeof(*args), GFP_KERNEL);
+		args = kzalloc_obj(*args);
 		if (!args) {
 			sock_shutdown(nbd);
 			/*
@@ -1680,7 +1677,7 @@ static int nbd_alloc_and_init_config(struct nbd_device *nbd)
 	if (!try_module_get(THIS_MODULE))
 		return -ENODEV;
 
-	config = kzalloc(sizeof(struct nbd_config), GFP_NOFS);
+	config = kzalloc_obj(struct nbd_config, GFP_NOFS);
 	if (!config) {
 		module_put(THIS_MODULE);
 		return -ENOMEM;
@@ -1919,7 +1916,7 @@ static struct nbd_device *nbd_dev_add(int index, unsigned int refs)
 	struct gendisk *disk;
 	int err = -ENOMEM;
 
-	nbd = kzalloc(sizeof(struct nbd_device), GFP_KERNEL);
+	nbd = kzalloc_obj(struct nbd_device);
 	if (!nbd)
 		goto out;
 
@@ -2241,12 +2238,13 @@ again:
 
 	ret = nbd_start_device(nbd);
 out:
-	mutex_unlock(&nbd->config_lock);
 	if (!ret) {
 		set_bit(NBD_RT_HAS_CONFIG_REF, &config->runtime_flags);
 		refcount_inc(&nbd->config_refs);
 		nbd_connect_reply(info, nbd->index);
 	}
+	mutex_unlock(&nbd->config_lock);
+
 	nbd_config_put(nbd);
 	if (put_dev)
 		nbd_put(nbd);
@@ -2683,15 +2681,7 @@ static int __init nbd_init(void)
 		return -ENOMEM;
 	}
 
-	nbd_cred = prepare_kernel_cred(&init_task);
-	if (!nbd_cred) {
-		destroy_workqueue(nbd_del_wq);
-		unregister_blkdev(NBD_MAJOR, "nbd");
-		return -ENOMEM;
-	}
-
 	if (genl_register_family(&nbd_genl_family)) {
-		put_cred(nbd_cred);
 		destroy_workqueue(nbd_del_wq);
 		unregister_blkdev(NBD_MAJOR, "nbd");
 		return -EINVAL;
@@ -2746,7 +2736,6 @@ static void __exit nbd_cleanup(void)
 	/* Also wait for nbd_dev_remove_work() completes */
 	destroy_workqueue(nbd_del_wq);
 
-	put_cred(nbd_cred);
 	idr_destroy(&nbd_index_idr);
 	unregister_blkdev(NBD_MAJOR, "nbd");
 }

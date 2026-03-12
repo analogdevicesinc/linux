@@ -910,6 +910,10 @@ static int ytphy_rgmii_clk_delay_config(struct phy_device *phydev)
 		val |= FIELD_PREP(YT8521_RC1R_RX_DELAY_MASK, rx_reg) |
 		       FIELD_PREP(YT8521_RC1R_GE_TX_DELAY_MASK, tx_reg);
 		break;
+	case PHY_INTERFACE_MODE_GMII:
+		if (phydev->drv->phy_id != PHY_ID_YT8531S)
+			return -EOPNOTSUPP;
+		return 0;
 	default: /* do not support other modes */
 		return -EOPNOTSUPP;
 	}
@@ -1741,10 +1745,10 @@ static int yt8521_led_hw_control_set(struct phy_device *phydev, u8 index,
 		val |= YT8521_LED_1000_ON_EN;
 
 	if (test_bit(TRIGGER_NETDEV_FULL_DUPLEX, &rules))
-		val |= YT8521_LED_HDX_ON_EN;
+		val |= YT8521_LED_FDX_ON_EN;
 
 	if (test_bit(TRIGGER_NETDEV_HALF_DUPLEX, &rules))
-		val |= YT8521_LED_FDX_ON_EN;
+		val |= YT8521_LED_HDX_ON_EN;
 
 	if (test_bit(TRIGGER_NETDEV_TX, &rules) ||
 	    test_bit(TRIGGER_NETDEV_RX, &rules))
@@ -3048,6 +3052,9 @@ static struct phy_driver motorcomm_phy_drvs[] = {
 		.get_wol	= ytphy_get_wol,
 		.set_wol	= yt8531_set_wol,
 		.link_change_notify = yt8531_link_change_notify,
+		.led_hw_is_supported = yt8521_led_hw_is_supported,
+		.led_hw_control_set = yt8521_led_hw_control_set,
+		.led_hw_control_get = yt8521_led_hw_control_get,
 	},
 	{
 		PHY_ID_MATCH_EXACT(PHY_ID_YT8531S),

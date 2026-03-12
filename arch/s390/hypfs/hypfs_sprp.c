@@ -7,7 +7,6 @@
  *    Author(s): Martin Schwidefsky <schwidefsky@de.ibm.com>
  */
 
-#include <linux/compat.h>
 #include <linux/errno.h>
 #include <linux/gfp.h>
 #include <linux/string.h>
@@ -75,7 +74,7 @@ static int __hypfs_sprp_ioctl(void __user *user_area)
 
 	rc = -ENOMEM;
 	data = (void *)get_zeroed_page(GFP_KERNEL);
-	diag304 = kzalloc(sizeof(*diag304), GFP_KERNEL);
+	diag304 = kzalloc_obj(*diag304);
 	if (!data || !diag304)
 		goto out;
 
@@ -116,10 +115,7 @@ static long hypfs_sprp_ioctl(struct file *file, unsigned int cmd,
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
-	if (is_compat_task())
-		argp = compat_ptr(arg);
-	else
-		argp = (void __user *) arg;
+	argp = (void __user *)arg;
 	switch (cmd) {
 	case HYPFS_DIAG304:
 		return __hypfs_sprp_ioctl(argp);

@@ -11,13 +11,13 @@
 #include <linux/dma-mapping.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
-#include <linux/map_benchmark.h>
 #include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/timekeeping.h>
+#include <uapi/linux/map_benchmark.h>
 
 struct map_benchmark_data {
 	struct map_benchmark bparam;
@@ -121,7 +121,7 @@ static int do_map_benchmark(struct map_benchmark_data *map)
 	int ret = 0;
 	int i;
 
-	tsk = kmalloc_array(threads, sizeof(*tsk), GFP_KERNEL);
+	tsk = kmalloc_objs(*tsk, threads);
 	if (!tsk)
 		return -ENOMEM;
 

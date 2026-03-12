@@ -97,7 +97,7 @@ __failure
 /* check that the first argument of bpf_wq_set_callback()
  * is a correct bpf_wq pointer.
  */
-__msg(": (85) call bpf_wq_set_callback_impl#") /* anchor message */
+__msg(": (85) call bpf_wq_set_callback#") /* anchor message */
 __msg("arg#0 doesn't point to a map value")
 long test_wrong_wq_pointer(void *ctx)
 {
@@ -123,7 +123,7 @@ __failure
 /* check that the first argument of bpf_wq_set_callback()
  * is a correct bpf_wq pointer.
  */
-__msg(": (85) call bpf_wq_set_callback_impl#") /* anchor message */
+__msg(": (85) call bpf_wq_set_callback#") /* anchor message */
 __msg("off 1 doesn't point to 'struct bpf_wq' that is at 0")
 long test_wrong_wq_pointer_offset(void *ctx)
 {
@@ -141,4 +141,27 @@ long test_wrong_wq_pointer_offset(void *ctx)
 		return 3;
 
 	return -22;
+}
+
+SEC("tc")
+__log_level(2)
+__failure
+__msg(": (85) call bpf_wq_init#")
+__msg("R1 doesn't have constant offset. bpf_wq has to be at the constant offset")
+long test_bad_wq_off(void *ctx)
+{
+	struct elem *val;
+	struct bpf_wq *wq;
+	int key = 42;
+	u64 unknown;
+
+	val = bpf_map_lookup_elem(&array, &key);
+	if (!val)
+		return -2;
+
+	unknown = bpf_get_prandom_u32();
+	wq = &val->w + unknown;
+	if (bpf_wq_init(wq, &array, 0) != 0)
+		return -3;
+	return 0;
 }

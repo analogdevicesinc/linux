@@ -8,7 +8,8 @@
 
 #define MIN_VALID_LIFETIME		(2*3600)	/* 2 hours */
 
-#define TEMP_VALID_LIFETIME		(7*86400)       /* 1 week */
+/* TEMP_VALID_LIFETIME default value as specified in RFC 8981 3.8 */
+#define TEMP_VALID_LIFETIME		(2*86400)       /* 2 days */
 #define TEMP_PREFERRED_LIFETIME		(86400)         /* 24 hours */
 #define REGEN_MIN_ADVANCE		(2)             /* 2 seconds */
 #define REGEN_MAX_RETRY			(3)
@@ -345,6 +346,11 @@ void inet6_netconf_notify_devconf(struct net *net, int event, int type,
 static inline struct inet6_dev *__in6_dev_get(const struct net_device *dev)
 {
 	return rcu_dereference_rtnl(dev->ip6_ptr);
+}
+
+static inline struct inet6_dev *in6_dev_rcu(const struct net_device *dev)
+{
+	return rcu_dereference(dev->ip6_ptr);
 }
 
 static inline struct inet6_dev *__in6_dev_get_rtnl_net(const struct net_device *dev)

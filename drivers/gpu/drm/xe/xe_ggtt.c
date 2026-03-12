@@ -20,9 +20,8 @@
 #include "regs/xe_regs.h"
 #include "xe_assert.h"
 #include "xe_bo.h"
-#include "xe_device.h"
-#include "xe_gt.h"
 #include "xe_gt_printk.h"
+#include "xe_gt_types.h"
 #include "xe_map.h"
 #include "xe_mmio.h"
 #include "xe_pm.h"
@@ -67,6 +66,24 @@
  * give us the correct placement for free.
  */
 
+/**
+ * struct xe_ggtt_node - A node in GGTT.
+ *
+ * This struct needs to be initialized (only-once) with xe_ggtt_node_init() before any node
+ * insertion, reservation, or 'ballooning'.
+ * It will, then, be finalized by either xe_ggtt_node_remove() or xe_ggtt_node_deballoon().
+ */
+struct xe_ggtt_node {
+	/** @ggtt: Back pointer to xe_ggtt where this region will be inserted at */
+	struct xe_ggtt *ggtt;
+	/** @base: A drm_mm_node */
+	struct drm_mm_node base;
+	/** @delayed_removal_work: The work struct for the delayed removal */
+	struct work_struct delayed_removal_work;
+	/** @invalidate_on_remove: If it needs invalidation upon removal */
+	bool invalidate_on_remove;
+};
+
 static u64 xelp_ggtt_pte_flags(struct xe_bo *bo, u16 pat_index)
 {
 	u64 pte = XE_PAGE_PRESENT;
@@ -107,10 +124,23 @@ static unsigned int probe_gsm_size(struct pci_dev *pdev)
 static void ggtt_update_access_counter(struct xe_ggtt *ggtt)
 {
 	struct xe_tile *tile = ggtt->tile;
-	struct xe_gt *affected_gt = XE_GT_WA(tile->primary_gt, 22019338487) ?
-		tile->primary_gt : tile->media_gt;
-	struct xe_mmio *mmio = &affected_gt->mmio;
-	u32 max_gtt_writes = XE_GT_WA(ggtt->tile->primary_gt, 22019338487) ? 1100 : 63;
+	struct xe_gt *affected_gt;
+	u32 max_gtt_writes;
+
+	if (tile->primary_gt && XE_GT_WA(tile->primary_gt, 22019338487)) {
+		affected_gt = tile->primary_gt;
+		max_gtt_writes = 1100;
+
+		/* Only expected to apply to primary GT on dgpu platforms */
+		xe_tile_assert(tile, IS_DGFX(tile_to_xe(tile)));
+	} else {
+		affected_gt = tile->media_gt;
+		max_gtt_writes = 63;
+
+		/* Only expected to apply to media GT on igpu platforms */
+		xe_tile_assert(tile, !IS_DGFX(tile_to_xe(tile)));
+	}
+
 	/*
 	 * Wa_22019338487: GMD_ID is a RO register, a dummy write forces gunit
 	 * to wait for completion of prior GTT writes before letting this through.
@@ -119,15 +149,37 @@ static void ggtt_update_access_counter(struct xe_ggtt *ggtt)
 	lockdep_assert_held(&ggtt->lock);
 
 	if ((++ggtt->access_count % max_gtt_writes) == 0) {
-		xe_mmio_write32(mmio, GMD_ID, 0x0);
+		xe_mmio_write32(&affected_gt->mmio, GMD_ID, 0x0);
 		ggtt->access_count = 0;
 	}
+}
+
+/**
+ * xe_ggtt_start - Get starting offset of GGTT.
+ * @ggtt: &xe_ggtt
+ *
+ * Returns: Starting offset for this &xe_ggtt.
+ */
+u64 xe_ggtt_start(struct xe_ggtt *ggtt)
+{
+	return ggtt->start;
+}
+
+/**
+ * xe_ggtt_size - Get size of GGTT.
+ * @ggtt: &xe_ggtt
+ *
+ * Returns: Total usable size of this &xe_ggtt.
+ */
+u64 xe_ggtt_size(struct xe_ggtt *ggtt)
+{
+	return ggtt->size;
 }
 
 static void xe_ggtt_set_pte(struct xe_ggtt *ggtt, u64 addr, u64 pte)
 {
 	xe_tile_assert(ggtt->tile, !(addr & XE_PTE_MASK));
-	xe_tile_assert(ggtt->tile, addr < ggtt->size);
+	xe_tile_assert(ggtt->tile, addr < ggtt->start + ggtt->size);
 
 	writeq(pte, &ggtt->gsm[addr >> XE_PTE_SHIFT]);
 }
@@ -136,6 +188,14 @@ static void xe_ggtt_set_pte_and_flush(struct xe_ggtt *ggtt, u64 addr, u64 pte)
 {
 	xe_ggtt_set_pte(ggtt, addr, pte);
 	ggtt_update_access_counter(ggtt);
+}
+
+static u64 xe_ggtt_get_pte(struct xe_ggtt *ggtt, u64 addr)
+{
+	xe_tile_assert(ggtt->tile, !(addr & XE_PTE_MASK));
+	xe_tile_assert(ggtt->tile, addr < ggtt->size);
+
+	return readq(&ggtt->gsm[addr >> XE_PTE_SHIFT]);
 }
 
 static void xe_ggtt_clear(struct xe_ggtt *ggtt, u64 start, u64 size)
@@ -159,6 +219,16 @@ static void xe_ggtt_clear(struct xe_ggtt *ggtt, u64 start, u64 size)
 	}
 }
 
+static void primelockdep(struct xe_ggtt *ggtt)
+{
+	if (!IS_ENABLED(CONFIG_LOCKDEP))
+		return;
+
+	fs_reclaim_acquire(GFP_KERNEL);
+	might_lock(&ggtt->lock);
+	fs_reclaim_release(GFP_KERNEL);
+}
+
 /**
  * xe_ggtt_alloc - Allocate a GGTT for a given &xe_tile
  * @tile: &xe_tile
@@ -169,9 +239,19 @@ static void xe_ggtt_clear(struct xe_ggtt *ggtt, u64 start, u64 size)
  */
 struct xe_ggtt *xe_ggtt_alloc(struct xe_tile *tile)
 {
-	struct xe_ggtt *ggtt = drmm_kzalloc(&tile_to_xe(tile)->drm, sizeof(*ggtt), GFP_KERNEL);
-	if (ggtt)
-		ggtt->tile = tile;
+	struct xe_device *xe = tile_to_xe(tile);
+	struct xe_ggtt *ggtt;
+
+	ggtt = drmm_kzalloc(&xe->drm, sizeof(*ggtt), GFP_KERNEL);
+	if (!ggtt)
+		return NULL;
+
+	if (drmm_mutex_init(&xe->drm, &ggtt->lock))
+		return NULL;
+
+	primelockdep(ggtt);
+	ggtt->tile = tile;
+
 	return ggtt;
 }
 
@@ -180,7 +260,6 @@ static void ggtt_fini_early(struct drm_device *drm, void *arg)
 	struct xe_ggtt *ggtt = arg;
 
 	destroy_workqueue(ggtt->wq);
-	mutex_destroy(&ggtt->lock);
 	drm_mm_takedown(&ggtt->mm);
 }
 
@@ -198,43 +277,34 @@ void xe_ggtt_might_lock(struct xe_ggtt *ggtt)
 }
 #endif
 
-static void primelockdep(struct xe_ggtt *ggtt)
-{
-	if (!IS_ENABLED(CONFIG_LOCKDEP))
-		return;
-
-	fs_reclaim_acquire(GFP_KERNEL);
-	might_lock(&ggtt->lock);
-	fs_reclaim_release(GFP_KERNEL);
-}
-
 static const struct xe_ggtt_pt_ops xelp_pt_ops = {
 	.pte_encode_flags = xelp_ggtt_pte_flags,
 	.ggtt_set_pte = xe_ggtt_set_pte,
+	.ggtt_get_pte = xe_ggtt_get_pte,
 };
 
 static const struct xe_ggtt_pt_ops xelpg_pt_ops = {
 	.pte_encode_flags = xelpg_ggtt_pte_flags,
 	.ggtt_set_pte = xe_ggtt_set_pte,
+	.ggtt_get_pte = xe_ggtt_get_pte,
 };
 
 static const struct xe_ggtt_pt_ops xelpg_pt_wa_ops = {
 	.pte_encode_flags = xelpg_ggtt_pte_flags,
 	.ggtt_set_pte = xe_ggtt_set_pte_and_flush,
+	.ggtt_get_pte = xe_ggtt_get_pte,
 };
 
-static void __xe_ggtt_init_early(struct xe_ggtt *ggtt, u32 reserved)
+static void __xe_ggtt_init_early(struct xe_ggtt *ggtt, u64 start, u64 size)
 {
-	drm_mm_init(&ggtt->mm, reserved,
-		    ggtt->size - reserved);
-	mutex_init(&ggtt->lock);
-	primelockdep(ggtt);
+	ggtt->start = start;
+	ggtt->size = size;
+	drm_mm_init(&ggtt->mm, start, size);
 }
 
-int xe_ggtt_init_kunit(struct xe_ggtt *ggtt, u32 reserved, u32 size)
+int xe_ggtt_init_kunit(struct xe_ggtt *ggtt, u32 start, u32 size)
 {
-	ggtt->size = size;
-	__xe_ggtt_init_early(ggtt, reserved);
+	__xe_ggtt_init_early(ggtt, start, size);
 	return 0;
 }
 EXPORT_SYMBOL_IF_KUNIT(xe_ggtt_init_kunit);
@@ -262,40 +332,46 @@ int xe_ggtt_init_early(struct xe_ggtt *ggtt)
 	struct xe_device *xe = tile_to_xe(ggtt->tile);
 	struct pci_dev *pdev = to_pci_dev(xe->drm.dev);
 	unsigned int gsm_size;
+	u64 ggtt_start, wopcm = xe_wopcm_size(xe), ggtt_size;
 	int err;
 
-	if (IS_SRIOV_VF(xe) || GRAPHICS_VERx100(xe) >= 1250)
-		gsm_size = SZ_8M; /* GGTT is expected to be 4GiB */
-	else
-		gsm_size = probe_gsm_size(pdev);
-
-	if (gsm_size == 0) {
-		xe_tile_err(ggtt->tile, "Hardware reported no preallocated GSM\n");
-		return -ENOMEM;
+	if (!IS_SRIOV_VF(xe)) {
+		if (GRAPHICS_VERx100(xe) >= 1250)
+			gsm_size = SZ_8M; /* GGTT is expected to be 4GiB */
+		else
+			gsm_size = probe_gsm_size(pdev);
+		if (gsm_size == 0) {
+			xe_tile_err(ggtt->tile, "Hardware reported no preallocated GSM\n");
+			return -ENOMEM;
+		}
+		ggtt_start = wopcm;
+		ggtt_size = (gsm_size / 8) * (u64)XE_PAGE_SIZE - ggtt_start;
+	} else {
+		/* GGTT is expected to be 4GiB */
+		ggtt_start = wopcm;
+		ggtt_size = SZ_4G - ggtt_start;
 	}
 
 	ggtt->gsm = ggtt->tile->mmio.regs + SZ_8M;
-	ggtt->size = (gsm_size / 8) * (u64) XE_PAGE_SIZE;
-
 	if (IS_DGFX(xe) && xe->info.vram_flags & XE_VRAM_FLAGS_NEED64K)
 		ggtt->flags |= XE_GGTT_FLAGS_64K;
 
-	if (ggtt->size > GUC_GGTT_TOP)
-		ggtt->size = GUC_GGTT_TOP;
+	if (ggtt_size + ggtt_start > GUC_GGTT_TOP)
+		ggtt_size = GUC_GGTT_TOP - ggtt_start;
 
 	if (GRAPHICS_VERx100(xe) >= 1270)
-		ggtt->pt_ops = (ggtt->tile->media_gt &&
-			       XE_GT_WA(ggtt->tile->media_gt, 22019338487)) ||
-			       XE_GT_WA(ggtt->tile->primary_gt, 22019338487) ?
-			       &xelpg_pt_wa_ops : &xelpg_pt_ops;
+		ggtt->pt_ops =
+			(ggtt->tile->media_gt && XE_GT_WA(ggtt->tile->media_gt, 22019338487)) ||
+			(ggtt->tile->primary_gt && XE_GT_WA(ggtt->tile->primary_gt, 22019338487)) ?
+			&xelpg_pt_wa_ops : &xelpg_pt_ops;
 	else
 		ggtt->pt_ops = &xelp_pt_ops;
 
-	ggtt->wq = alloc_workqueue("xe-ggtt-wq", 0, WQ_MEM_RECLAIM);
+	ggtt->wq = alloc_workqueue("xe-ggtt-wq", WQ_MEM_RECLAIM, 0);
 	if (!ggtt->wq)
 		return -ENOMEM;
 
-	__xe_ggtt_init_early(ggtt, xe_wopcm_size(xe));
+	__xe_ggtt_init_early(ggtt, ggtt_start, ggtt_size);
 
 	err = drmm_add_action_or_reset(&xe->drm, ggtt_fini_early, ggtt);
 	if (err)
@@ -365,9 +441,8 @@ static void ggtt_node_remove_work_func(struct work_struct *work)
 						 delayed_removal_work);
 	struct xe_device *xe = tile_to_xe(node->ggtt->tile);
 
-	xe_pm_runtime_get(xe);
+	guard(xe_pm_runtime)(xe);
 	ggtt_node_remove(node);
-	xe_pm_runtime_put(xe);
 }
 
 /**
@@ -533,11 +608,9 @@ void xe_ggtt_node_remove_balloon_locked(struct xe_ggtt_node *node)
 static void xe_ggtt_assert_fit(struct xe_ggtt *ggtt, u64 start, u64 size)
 {
 	struct xe_tile *tile = ggtt->tile;
-	struct xe_device *xe = tile_to_xe(tile);
-	u64 __maybe_unused wopcm = xe_wopcm_size(xe);
 
-	xe_tile_assert(tile, start >= wopcm);
-	xe_tile_assert(tile, start + size < ggtt->size - wopcm);
+	xe_tile_assert(tile, start >= ggtt->start);
+	xe_tile_assert(tile, start + size <= ggtt->start + ggtt->size);
 }
 
 /**
@@ -580,20 +653,8 @@ void xe_ggtt_shift_nodes_locked(struct xe_ggtt *ggtt, s64 shift)
 	}
 }
 
-/**
- * xe_ggtt_node_insert_locked - Locked version to insert a &xe_ggtt_node into the GGTT
- * @node: the &xe_ggtt_node to be inserted
- * @size: size of the node
- * @align: alignment constrain of the node
- * @mm_flags: flags to control the node behavior
- *
- * It cannot be called without first having called xe_ggtt_init() once.
- * To be used in cases where ggtt->lock is already taken.
- *
- * Return: 0 on success or a negative error code on failure.
- */
-int xe_ggtt_node_insert_locked(struct xe_ggtt_node *node,
-			       u32 size, u32 align, u32 mm_flags)
+static int xe_ggtt_node_insert_locked(struct xe_ggtt_node *node,
+				      u32 size, u32 align, u32 mm_flags)
 {
 	return drm_mm_insert_node_generic(&node->ggtt->mm, &node->base, size, align, 0,
 					  mm_flags);
@@ -631,15 +692,17 @@ int xe_ggtt_node_insert(struct xe_ggtt_node *node, u32 size, u32 align)
  * This function will allocate the struct %xe_ggtt_node and return its pointer.
  * This struct will then be freed after the node removal upon xe_ggtt_node_remove()
  * or xe_ggtt_node_remove_balloon_locked().
- * Having %xe_ggtt_node struct allocated doesn't mean that the node is already allocated
- * in GGTT. Only the xe_ggtt_node_insert(), xe_ggtt_node_insert_locked(),
- * xe_ggtt_node_insert_balloon_locked() will ensure the node is inserted or reserved in GGTT.
+ *
+ * Having %xe_ggtt_node struct allocated doesn't mean that the node is already
+ * allocated in GGTT. Only xe_ggtt_node_insert(), allocation through
+ * xe_ggtt_node_insert_transform(), or xe_ggtt_node_insert_balloon_locked() will ensure the node is inserted or reserved
+ * in GGTT.
  *
  * Return: A pointer to %xe_ggtt_node struct on success. An ERR_PTR otherwise.
  **/
 struct xe_ggtt_node *xe_ggtt_node_init(struct xe_ggtt *ggtt)
 {
-	struct xe_ggtt_node *node = kzalloc(sizeof(*node), GFP_NOFS);
+	struct xe_ggtt_node *node = kzalloc_obj(*node, GFP_NOFS);
 
 	if (!node)
 		return ERR_PTR(-ENOMEM);
@@ -678,17 +741,30 @@ bool xe_ggtt_node_allocated(const struct xe_ggtt_node *node)
 }
 
 /**
+ * xe_ggtt_node_pt_size() - Get the size of page table entries needed to map a GGTT node.
+ * @node: the &xe_ggtt_node
+ *
+ * Return: GGTT node page table entries size in bytes.
+ */
+size_t xe_ggtt_node_pt_size(const struct xe_ggtt_node *node)
+{
+	if (!node)
+		return 0;
+
+	return node->base.size / XE_PAGE_SIZE * sizeof(u64);
+}
+
+/**
  * xe_ggtt_map_bo - Map the BO into GGTT
  * @ggtt: the &xe_ggtt where node will be mapped
  * @node: the &xe_ggtt_node where this BO is mapped
  * @bo: the &xe_bo to be mapped
- * @pat_index: Which pat_index to use.
+ * @pte: The pte flags to append.
  */
-void xe_ggtt_map_bo(struct xe_ggtt *ggtt, struct xe_ggtt_node *node,
-		    struct xe_bo *bo, u16 pat_index)
+static void xe_ggtt_map_bo(struct xe_ggtt *ggtt, struct xe_ggtt_node *node,
+			   struct xe_bo *bo, u64 pte)
 {
-
-	u64 start, pte, end;
+	u64 start, end;
 	struct xe_res_cursor cur;
 
 	if (XE_WARN_ON(!node))
@@ -697,7 +773,6 @@ void xe_ggtt_map_bo(struct xe_ggtt *ggtt, struct xe_ggtt_node *node,
 	start = node->base.start;
 	end = start + xe_bo_size(bo);
 
-	pte = ggtt->pt_ops->pte_encode_flags(bo, pat_index);
 	if (!xe_bo_is_vram(bo) && !xe_bo_is_stolen(bo)) {
 		xe_assert(xe_bo_device(bo), bo->ttm.ttm);
 
@@ -727,10 +802,63 @@ void xe_ggtt_map_bo_unlocked(struct xe_ggtt *ggtt, struct xe_bo *bo)
 {
 	u16 cache_mode = bo->flags & XE_BO_FLAG_NEEDS_UC ? XE_CACHE_NONE : XE_CACHE_WB;
 	u16 pat_index = tile_to_xe(ggtt->tile)->pat.idx[cache_mode];
+	u64 pte;
 
 	mutex_lock(&ggtt->lock);
-	xe_ggtt_map_bo(ggtt, bo->ggtt_node[ggtt->tile->id], bo, pat_index);
+	pte = ggtt->pt_ops->pte_encode_flags(bo, pat_index);
+	xe_ggtt_map_bo(ggtt, bo->ggtt_node[ggtt->tile->id], bo, pte);
 	mutex_unlock(&ggtt->lock);
+}
+
+/**
+ * xe_ggtt_node_insert_transform - Insert a newly allocated &xe_ggtt_node into the GGTT
+ * @ggtt: the &xe_ggtt where the node will inserted/reserved.
+ * @bo: The bo to be transformed
+ * @pte_flags: The extra GGTT flags to add to mapping.
+ * @size: size of the node
+ * @align: required alignment for node
+ * @transform: transformation function that will populate the GGTT node, or NULL for linear mapping.
+ * @arg: Extra argument to pass to the transformation function.
+ *
+ * This function allows inserting a GGTT node with a custom transformation function.
+ * This is useful for display to allow inserting rotated framebuffers to GGTT.
+ *
+ * Return: A pointer to %xe_ggtt_node struct on success. An ERR_PTR otherwise.
+ */
+struct xe_ggtt_node *xe_ggtt_node_insert_transform(struct xe_ggtt *ggtt,
+						   struct xe_bo *bo, u64 pte_flags,
+						   u64 size, u32 align,
+						   xe_ggtt_transform_cb transform, void *arg)
+{
+	struct xe_ggtt_node *node;
+	int ret;
+
+	node = xe_ggtt_node_init(ggtt);
+	if (IS_ERR(node))
+		return ERR_CAST(node);
+
+	if (mutex_lock_interruptible(&ggtt->lock) < 0) {
+		ret = -ERESTARTSYS;
+		goto err;
+	}
+
+	ret = xe_ggtt_node_insert_locked(node, size, align, 0);
+	if (ret)
+		goto err_unlock;
+
+	if (transform)
+		transform(ggtt, node, pte_flags, ggtt->pt_ops->ggtt_set_pte, arg);
+	else
+		xe_ggtt_map_bo(ggtt, node, bo, pte_flags);
+
+	mutex_unlock(&ggtt->lock);
+	return node;
+
+err_unlock:
+	mutex_unlock(&ggtt->lock);
+err:
+	xe_ggtt_node_fini(node);
+	return ERR_PTR(ret);
 }
 
 static int __xe_ggtt_insert_bo_at(struct xe_ggtt *ggtt, struct xe_bo *bo,
@@ -771,8 +899,9 @@ static int __xe_ggtt_insert_bo_at(struct xe_ggtt *ggtt, struct xe_bo *bo,
 	} else {
 		u16 cache_mode = bo->flags & XE_BO_FLAG_NEEDS_UC ? XE_CACHE_NONE : XE_CACHE_WB;
 		u16 pat_index = tile_to_xe(ggtt->tile)->pat.idx[cache_mode];
+		u64 pte = ggtt->pt_ops->pte_encode_flags(bo, pat_index);
 
-		xe_ggtt_map_bo(ggtt, bo->ggtt_node[tile_id], bo, pat_index);
+		xe_ggtt_map_bo(ggtt, bo->ggtt_node[tile_id], bo, pte);
 	}
 	mutex_unlock(&ggtt->lock);
 
@@ -846,14 +975,12 @@ u64 xe_ggtt_largest_hole(struct xe_ggtt *ggtt, u64 alignment, u64 *spare)
 {
 	const struct drm_mm *mm = &ggtt->mm;
 	const struct drm_mm_node *entry;
-	u64 hole_min_start = xe_wopcm_size(tile_to_xe(ggtt->tile));
 	u64 hole_start, hole_end, hole_size;
 	u64 max_hole = 0;
 
 	mutex_lock(&ggtt->lock);
-
 	drm_mm_for_each_hole(entry, mm, hole_start, hole_end) {
-		hole_start = max(hole_start, hole_min_start);
+		hole_start = max(hole_start, ggtt->start);
 		hole_start = ALIGN(hole_start, alignment);
 		hole_end = ALIGN_DOWN(hole_end, alignment);
 		if (hole_start >= hole_end)
@@ -910,6 +1037,85 @@ void xe_ggtt_assign(const struct xe_ggtt_node *node, u16 vfid)
 	xe_ggtt_assign_locked(node->ggtt, &node->base, vfid);
 	mutex_unlock(&node->ggtt->lock);
 }
+
+/**
+ * xe_ggtt_node_save() - Save a &xe_ggtt_node to a buffer.
+ * @node: the &xe_ggtt_node to be saved
+ * @dst: destination buffer
+ * @size: destination buffer size in bytes
+ * @vfid: VF identifier
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_ggtt_node_save(struct xe_ggtt_node *node, void *dst, size_t size, u16 vfid)
+{
+	struct xe_ggtt *ggtt;
+	u64 start, end;
+	u64 *buf = dst;
+	u64 pte;
+
+	if (!node)
+		return -ENOENT;
+
+	guard(mutex)(&node->ggtt->lock);
+
+	if (xe_ggtt_node_pt_size(node) != size)
+		return -EINVAL;
+
+	ggtt = node->ggtt;
+	start = node->base.start;
+	end = start + node->base.size - 1;
+
+	while (start < end) {
+		pte = ggtt->pt_ops->ggtt_get_pte(ggtt, start);
+		if (vfid != u64_get_bits(pte, GGTT_PTE_VFID))
+			return -EPERM;
+
+		*buf++ = u64_replace_bits(pte, 0, GGTT_PTE_VFID);
+		start += XE_PAGE_SIZE;
+	}
+
+	return 0;
+}
+
+/**
+ * xe_ggtt_node_load() - Load a &xe_ggtt_node from a buffer.
+ * @node: the &xe_ggtt_node to be loaded
+ * @src: source buffer
+ * @size: source buffer size in bytes
+ * @vfid: VF identifier
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_ggtt_node_load(struct xe_ggtt_node *node, const void *src, size_t size, u16 vfid)
+{
+	u64 vfid_pte = xe_encode_vfid_pte(vfid);
+	const u64 *buf = src;
+	struct xe_ggtt *ggtt;
+	u64 start, end;
+
+	if (!node)
+		return -ENOENT;
+
+	guard(mutex)(&node->ggtt->lock);
+
+	if (xe_ggtt_node_pt_size(node) != size)
+		return -EINVAL;
+
+	ggtt = node->ggtt;
+	start = node->base.start;
+	end = start + node->base.size - 1;
+
+	while (start < end) {
+		vfid_pte = u64_replace_bits(*buf++, vfid, GGTT_PTE_VFID);
+		ggtt->pt_ops->ggtt_set_pte(ggtt, start, vfid_pte);
+		start += XE_PAGE_SIZE;
+	}
+	xe_ggtt_invalidate(ggtt);
+
+	return 0;
+}
+
 #endif
 
 /**
@@ -946,15 +1152,13 @@ u64 xe_ggtt_print_holes(struct xe_ggtt *ggtt, u64 alignment, struct drm_printer 
 {
 	const struct drm_mm *mm = &ggtt->mm;
 	const struct drm_mm_node *entry;
-	u64 hole_min_start = xe_wopcm_size(tile_to_xe(ggtt->tile));
 	u64 hole_start, hole_end, hole_size;
 	u64 total = 0;
 	char buf[10];
 
 	mutex_lock(&ggtt->lock);
-
 	drm_mm_for_each_hole(entry, mm, hole_start, hole_end) {
-		hole_start = max(hole_start, hole_min_start);
+		hole_start = max(hole_start, ggtt->start);
 		hole_start = ALIGN(hole_start, alignment);
 		hole_end = ALIGN_DOWN(hole_end, alignment);
 		if (hole_start >= hole_end)
@@ -997,4 +1201,26 @@ u64 xe_ggtt_encode_pte_flags(struct xe_ggtt *ggtt,
 u64 xe_ggtt_read_pte(struct xe_ggtt *ggtt, u64 offset)
 {
 	return ioread64(ggtt->gsm + (offset / XE_PAGE_SIZE));
+}
+
+/**
+ * xe_ggtt_node_addr - Get @node offset in GGTT.
+ * @node: &xe_ggtt_node
+ *
+ * Get the GGTT offset for allocated node.
+ */
+u64 xe_ggtt_node_addr(const struct xe_ggtt_node *node)
+{
+	return node->base.start;
+}
+
+/**
+ * xe_ggtt_node_size - Get @node allocation size.
+ * @node: &xe_ggtt_node
+ *
+ * Get the allocated node's size.
+ */
+u64 xe_ggtt_node_size(const struct xe_ggtt_node *node)
+{
+	return node->base.size;
 }

@@ -4,24 +4,31 @@
  */
 
 #include <asm/vdso.h>
-#include <linux/getcpu.h>
 
 static __always_inline int read_cpu_id(void)
 {
 	int cpu_id;
 
+#ifdef CONFIG_64BIT
 	__asm__ __volatile__(
 	"	rdtime.d $zero, %0\n"
 	: "=r" (cpu_id)
 	:
 	: "memory");
+#else
+	__asm__ __volatile__(
+	"	rdtimel.w $zero, %0\n"
+	: "=r" (cpu_id)
+	:
+	: "memory");
+#endif
 
 	return cpu_id;
 }
 
 extern
-int __vdso_getcpu(unsigned int *cpu, unsigned int *node, struct getcpu_cache *unused);
-int __vdso_getcpu(unsigned int *cpu, unsigned int *node, struct getcpu_cache *unused)
+int __vdso_getcpu(unsigned int *cpu, unsigned int *node, void *unused);
+int __vdso_getcpu(unsigned int *cpu, unsigned int *node, void *unused)
 {
 	int cpu_id;
 

@@ -94,7 +94,7 @@ static inline int set_normalized_cda(struct ccw1 *ccw, void *vaddr)
 		return -EINVAL;
 	nridaws = idal_nr_words(vaddr, ccw->count);
 	if (nridaws > 0) {
-		idal = kcalloc(nridaws, sizeof(*idal), GFP_ATOMIC | GFP_DMA);
+		idal = kzalloc_objs(*idal, nridaws, GFP_ATOMIC | GFP_DMA);
 		if (!idal)
 			return -ENOMEM;
 		idal_create_words(idal, vaddr, ccw->count);
@@ -137,7 +137,7 @@ static inline struct idal_buffer *idal_buffer_alloc(size_t size, int page_order)
 
 	nr_ptrs = (size + IDA_BLOCK_SIZE - 1) >> IDA_SIZE_SHIFT;
 	nr_chunks = (PAGE_SIZE << page_order) >> IDA_SIZE_SHIFT;
-	ib = kmalloc(struct_size(ib, data, nr_ptrs), GFP_DMA | GFP_KERNEL);
+	ib = kmalloc_flex(*ib, data, nr_ptrs, GFP_DMA | GFP_KERNEL);
 	if (!ib)
 		return ERR_PTR(-ENOMEM);
 	ib->size = size;
@@ -178,6 +178,82 @@ static inline void idal_buffer_free(struct idal_buffer *ib)
 		free_pages((unsigned long)vaddr, ib->page_order);
 	}
 	kfree(ib);
+}
+
+/*
+ * Allocate an array of IDAL buffers to cover a total data size of @size. The
+ * resulting array is null-terminated.
+ *
+ * The amount of individual IDAL buffers is determined based on @size.
+ * Each IDAL buffer can have a maximum size of @CCW_MAX_BYTE_COUNT.
+ */
+static inline struct idal_buffer **idal_buffer_array_alloc(size_t size, int page_order)
+{
+	struct idal_buffer **ibs;
+	size_t ib_size; /* Size of a single idal buffer */
+	int count; /* Amount of individual idal buffers */
+	int i;
+
+	count = (size + CCW_MAX_BYTE_COUNT - 1) / CCW_MAX_BYTE_COUNT;
+	ibs = kmalloc_objs(*ibs, count + 1);
+	for (i = 0; i < count; i++) {
+		/* Determine size for the current idal buffer */
+		ib_size = min(size, CCW_MAX_BYTE_COUNT);
+		size -= ib_size;
+		ibs[i] = idal_buffer_alloc(ib_size, page_order);
+		if (IS_ERR(ibs[i])) {
+			while (i--)
+				idal_buffer_free(ibs[i]);
+			kfree(ibs);
+			ibs = NULL;
+			return ERR_PTR(-ENOMEM);
+		}
+	}
+	ibs[i] = NULL;
+	return ibs;
+}
+
+/*
+ * Free array of IDAL buffers
+ */
+static inline void idal_buffer_array_free(struct idal_buffer ***ibs)
+{
+	struct idal_buffer **p;
+
+	if (!ibs || !*ibs)
+		return;
+	for (p = *ibs; *p; p++)
+		idal_buffer_free(*p);
+	kfree(*ibs);
+	*ibs = NULL;
+}
+
+/*
+ * Determine size of IDAL buffer array
+ */
+static inline int idal_buffer_array_size(struct idal_buffer **ibs)
+{
+	int size = 0;
+
+	while (ibs && *ibs) {
+		size++;
+		ibs++;
+	}
+	return size;
+}
+
+/*
+ * Determine total data size covered by IDAL buffer array
+ */
+static inline size_t idal_buffer_array_datasize(struct idal_buffer **ibs)
+{
+	size_t size = 0;
+
+	while (ibs && *ibs) {
+		size += (*ibs)->size;
+		ibs++;
+	}
+	return size;
 }
 
 /*

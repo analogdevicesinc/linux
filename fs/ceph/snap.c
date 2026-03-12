@@ -118,7 +118,7 @@ static struct ceph_snap_realm *ceph_create_snap_realm(
 
 	lockdep_assert_held_write(&mdsc->snap_rwsem);
 
-	realm = kzalloc(sizeof(*realm), GFP_NOFS);
+	realm = kzalloc_obj(*realm, GFP_NOFS);
 	if (!realm)
 		return ERR_PTR(-ENOMEM);
 
@@ -374,7 +374,7 @@ static int build_snap_context(struct ceph_mds_client *mdsc,
 
 	/* alloc new snap context */
 	err = -ENOMEM;
-	if (num > (SIZE_MAX - sizeof(*snapc)) / sizeof(u64))
+	if ((size_t)num > (SIZE_MAX - sizeof(*snapc)) / sizeof(u64))
 		goto fail;
 	snapc = ceph_create_snap_context(num, GFP_NOFS);
 	if (!snapc)
@@ -1216,7 +1216,7 @@ struct ceph_snapid_map* ceph_get_snapid_map(struct ceph_mds_client *mdsc,
 		return exist;
 	}
 
-	sm = kmalloc(sizeof(*sm), GFP_NOFS);
+	sm = kmalloc_obj(*sm, GFP_NOFS);
 	if (!sm)
 		return NULL;
 

@@ -168,7 +168,7 @@ static int virtblk_setup_discard_write_zeroes_erase(struct request *req, bool un
 	if (unmap)
 		flags |= VIRTIO_BLK_WRITE_ZEROES_FLAG_UNMAP;
 
-	range = kmalloc_array(segments, sizeof(*range), GFP_ATOMIC);
+	range = kmalloc_objs(*range, segments, GFP_ATOMIC);
 	if (!range)
 		return -ENOMEM;
 
@@ -584,7 +584,8 @@ out:
 
 static int virtblk_parse_zone(struct virtio_blk *vblk,
 			       struct virtio_blk_zone_descriptor *entry,
-			       unsigned int idx, report_zones_cb cb, void *data)
+			       unsigned int idx,
+			       struct blk_report_zones_args *args)
 {
 	struct blk_zone zone = { };
 
@@ -650,12 +651,12 @@ static int virtblk_parse_zone(struct virtio_blk *vblk,
 	 * The callback below checks the validity of the reported
 	 * entry data, no need to further validate it here.
 	 */
-	return cb(&zone, idx, data);
+	return disk_report_zone(vblk->disk, &zone, idx, args);
 }
 
 static int virtblk_report_zones(struct gendisk *disk, sector_t sector,
-				 unsigned int nr_zones, report_zones_cb cb,
-				 void *data)
+				 unsigned int nr_zones,
+				 struct blk_report_zones_args *args)
 {
 	struct virtio_blk *vblk = disk->private_data;
 	struct virtio_blk_zone_report *report;
@@ -693,7 +694,7 @@ static int virtblk_report_zones(struct gendisk *disk, sector_t sector,
 
 		for (i = 0; i < nz && zone_idx < nr_zones; i++) {
 			ret = virtblk_parse_zone(vblk, &report->zones[i],
-						 zone_idx, cb, data);
+						 zone_idx, args);
 			if (ret)
 				goto fail_report;
 
@@ -990,12 +991,12 @@ static int init_vq(struct virtio_blk *vblk)
 				vblk->io_queues[HCTX_TYPE_READ],
 				vblk->io_queues[HCTX_TYPE_POLL]);
 
-	vblk->vqs = kmalloc_array(num_vqs, sizeof(*vblk->vqs), GFP_KERNEL);
+	vblk->vqs = kmalloc_objs(*vblk->vqs, num_vqs);
 	if (!vblk->vqs)
 		return -ENOMEM;
 
-	vqs_info = kcalloc(num_vqs, sizeof(*vqs_info), GFP_KERNEL);
-	vqs = kmalloc_array(num_vqs, sizeof(*vqs), GFP_KERNEL);
+	vqs_info = kzalloc_objs(*vqs_info, num_vqs);
+	vqs = kmalloc_objs(*vqs, num_vqs);
 	if (!vqs_info || !vqs) {
 		err = -ENOMEM;
 		goto out;
@@ -1026,8 +1027,13 @@ static int init_vq(struct virtio_blk *vblk)
 out:
 	kfree(vqs);
 	kfree(vqs_info);
-	if (err)
+	if (err) {
 		kfree(vblk->vqs);
+		/*
+		 * Set to NULL to prevent freeing vqs again during freezing.
+		 */
+		vblk->vqs = NULL;
+	}
 	return err;
 }
 
@@ -1449,7 +1455,7 @@ static int virtblk_probe(struct virtio_device *vdev)
 		goto out;
 	index = err;
 
-	vdev->priv = vblk = kmalloc(sizeof(*vblk), GFP_KERNEL);
+	vdev->priv = vblk = kmalloc_obj(*vblk);
 	if (!vblk) {
 		err = -ENOMEM;
 		goto out_free_index;
@@ -1598,6 +1604,12 @@ static int virtblk_freeze_priv(struct virtio_device *vdev)
 
 	vdev->config->del_vqs(vdev);
 	kfree(vblk->vqs);
+	/*
+	 * Set to NULL to prevent freeing vqs again after a failed vqs
+	 * allocation during resume. Note that kfree() already handles NULL
+	 * pointers safely.
+	 */
+	vblk->vqs = NULL;
 
 	return 0;
 }

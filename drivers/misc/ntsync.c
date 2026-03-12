@@ -705,7 +705,7 @@ static struct ntsync_obj *ntsync_alloc_obj(struct ntsync_device *dev,
 {
 	struct ntsync_obj *obj;
 
-	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	obj = kzalloc_obj(*obj);
 	if (!obj)
 		return NULL;
 	obj->type = type;
@@ -721,21 +721,12 @@ static struct ntsync_obj *ntsync_alloc_obj(struct ntsync_device *dev,
 
 static int ntsync_obj_get_fd(struct ntsync_obj *obj)
 {
-	struct file *file;
-	int fd;
-
-	fd = get_unused_fd_flags(O_CLOEXEC);
-	if (fd < 0)
-		return fd;
-	file = anon_inode_getfile("ntsync", &ntsync_obj_fops, obj, O_RDWR);
-	if (IS_ERR(file)) {
-		put_unused_fd(fd);
-		return PTR_ERR(file);
-	}
-	obj->file = file;
-	fd_install(fd, file);
-
-	return fd;
+	FD_PREPARE(fdf, O_CLOEXEC,
+		   anon_inode_getfile("ntsync", &ntsync_obj_fops, obj, O_RDWR));
+	if (fdf.err)
+		return fdf.err;
+	obj->file = fd_prepare_file(fdf);
+	return fd_publish(fdf);
 }
 
 static int ntsync_create_sem(struct ntsync_device *dev, void __user *argp)
@@ -893,7 +884,7 @@ static int setup_wait(struct ntsync_device *dev,
 	if (args->alert)
 		fds[count] = args->alert;
 
-	q = kmalloc(struct_size(q, entries, total_count), GFP_KERNEL);
+	q = kmalloc_flex(*q, entries, total_count);
 	if (!q)
 		return -ENOMEM;
 	q->task = current;
@@ -1154,7 +1145,7 @@ static int ntsync_char_open(struct inode *inode, struct file *file)
 {
 	struct ntsync_device *dev;
 
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	dev = kzalloc_obj(*dev);
 	if (!dev)
 		return -ENOMEM;
 

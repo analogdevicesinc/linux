@@ -7,8 +7,7 @@
  * Copyright IBM Corp. 2002, 2004
  */
 
-#define KMSG_COMPONENT "extmem"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "extmem: " fmt
 
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -172,8 +171,8 @@ query_segment_type (struct dcss_segment *seg)
 	struct qout64 *qout;
 	struct qin64 *qin;
 
-	qin = kmalloc(sizeof(*qin), GFP_KERNEL | GFP_DMA);
-	qout = kmalloc(sizeof(*qout), GFP_KERNEL | GFP_DMA);
+	qin = kmalloc_obj(*qin, GFP_KERNEL | GFP_DMA);
+	qout = kmalloc_obj(*qout, GFP_KERNEL | GFP_DMA);
 	if ((qin == NULL) || (qout == NULL)) {
 		rc = -ENOMEM;
 		goto out_free;
@@ -303,7 +302,7 @@ __segment_load (char *name, int do_nonshared, unsigned long *addr, unsigned long
 
 	start_addr = end_addr = 0;
 	segtype = -1;
-	seg = kmalloc(sizeof(*seg), GFP_KERNEL | GFP_DMA);
+	seg = kmalloc_obj(*seg, GFP_KERNEL | GFP_DMA);
 	if (seg == NULL) {
 		rc = -ENOMEM;
 		goto out;
@@ -318,7 +317,7 @@ __segment_load (char *name, int do_nonshared, unsigned long *addr, unsigned long
 		goto out_free;
 	}
 
-	seg->res = kzalloc(sizeof(struct resource), GFP_KERNEL);
+	seg->res = kzalloc_obj(struct resource);
 	if (seg->res == NULL) {
 		rc = -ENOMEM;
 		goto out_free;
@@ -598,14 +597,16 @@ segment_save(char *name)
 		goto out;
 	}
 
-	sprintf(cmd1, "DEFSEG %s", name);
+	snprintf(cmd1, sizeof(cmd1), "DEFSEG %s", name);
 	for (i=0; i<seg->segcnt; i++) {
-		sprintf(cmd1+strlen(cmd1), " %lX-%lX %s",
-			seg->range[i].start >> PAGE_SHIFT,
-			seg->range[i].end >> PAGE_SHIFT,
-			segtype_string[seg->range[i].start & 0xff]);
+		size_t len = strlen(cmd1);
+
+		snprintf(cmd1 + len, sizeof(cmd1) - len, " %lX-%lX %s",
+			 seg->range[i].start >> PAGE_SHIFT,
+			 seg->range[i].end >> PAGE_SHIFT,
+			 segtype_string[seg->range[i].start & 0xff]);
 	}
-	sprintf(cmd2, "SAVESEG %s", name);
+	snprintf(cmd2, sizeof(cmd2), "SAVESEG %s", name);
 	response = 0;
 	cpcmd(cmd1, NULL, 0, &response);
 	if (response) {

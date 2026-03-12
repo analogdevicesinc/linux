@@ -742,7 +742,7 @@ static void ice_lag_build_netdev_list(struct ice_lag *lag,
 	INIT_LIST_HEAD(&ndlist->node);
 	rcu_read_lock();
 	for_each_netdev_in_bond_rcu(lag->upper_netdev, tmp_nd) {
-		nl = kzalloc(sizeof(*nl), GFP_ATOMIC);
+		nl = kzalloc_obj(*nl, GFP_ATOMIC);
 		if (!nl)
 			break;
 
@@ -2177,8 +2177,7 @@ static void ice_lag_chk_disabled_bond(struct ice_lag *lag, void *ptr)
  */
 static void ice_lag_disable_sriov_bond(struct ice_lag *lag)
 {
-	struct ice_netdev_priv *np = netdev_priv(lag->netdev);
-	struct ice_pf *pf = np->vsi->back;
+	struct ice_pf *pf = ice_netdev_to_pf(lag->netdev);
 
 	ice_clear_feature_support(pf, ICE_F_SRIOV_LAG);
 	ice_clear_feature_support(pf, ICE_F_SRIOV_AA_LAG);
@@ -2311,7 +2310,7 @@ ice_lag_event_handler(struct notifier_block *notif_blk, unsigned long event,
 		return NOTIFY_DONE;
 
 	/* This memory will be freed at the end of ice_lag_process_event */
-	lag_work = kzalloc(sizeof(*lag_work), GFP_KERNEL);
+	lag_work = kzalloc_obj(*lag_work);
 	if (!lag_work)
 		return -ENOMEM;
 
@@ -2333,7 +2332,7 @@ ice_lag_event_handler(struct notifier_block *notif_blk, unsigned long event,
 
 		rcu_read_lock();
 		for_each_netdev_in_bond_rcu(upper_netdev, tmp_nd) {
-			nd_list = kzalloc(sizeof(*nd_list), GFP_ATOMIC);
+			nd_list = kzalloc_obj(*nd_list, GFP_ATOMIC);
 			if (!nd_list)
 				break;
 
@@ -2578,7 +2577,7 @@ int ice_init_lag(struct ice_pf *pf)
 	if (!ice_is_feature_supported(pf, ICE_F_SRIOV_LAG))
 		return 0;
 
-	pf->lag = kzalloc(sizeof(*lag), GFP_KERNEL);
+	pf->lag = kzalloc_obj(*lag);
 	if (!pf->lag)
 		return -ENOMEM;
 	lag = pf->lag;

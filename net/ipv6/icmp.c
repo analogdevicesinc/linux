@@ -217,16 +217,15 @@ static bool icmpv6_xrlim_allow(struct sock *sk, u8 type,
 	} else if (dev && (dev->flags & IFF_LOOPBACK)) {
 		res = true;
 	} else {
-		struct rt6_info *rt = dst_rt6_info(dst);
-		int tmo = net->ipv6.sysctl.icmpv6_time;
+		int tmo = READ_ONCE(net->ipv6.sysctl.icmpv6_time);
 		struct inet_peer *peer;
 
-		/* Give more bandwidth to wider prefixes. */
-		if (rt->rt6i_dst.plen < 128)
-			tmo >>= ((128 - rt->rt6i_dst.plen)>>5);
-
-		peer = inet_getpeer_v6(net->ipv6.peers, &fl6->daddr);
-		res = inet_peer_xrlim_allow(peer, tmo);
+		if (!tmo) {
+			res = true;
+		} else {
+			peer = inet_getpeer_v6(net->ipv6.peers, &fl6->daddr);
+			res = inet_peer_xrlim_allow(peer, tmo);
+		}
 	}
 	rcu_read_unlock();
 	if (!res)
@@ -444,6 +443,193 @@ static int icmp6_iif(const struct sk_buff *skb)
 	return icmp6_dev(skb)->ifindex;
 }
 
+struct icmp6_ext_iio_addr6_subobj {
+	__be16 afi;
+	__be16 reserved;
+	struct in6_addr addr6;
+};
+
+static unsigned int icmp6_ext_iio_len(void)
+{
+	return sizeof(struct icmp_extobj_hdr) +
+		/* ifIndex */
+		sizeof(__be32) +
+		/* Interface Address Sub-Object */
+		sizeof(struct icmp6_ext_iio_addr6_subobj) +
+		/* Interface Name Sub-Object. Length must be a multiple of 4
+		 * bytes.
+		 */
+		ALIGN(sizeof(struct icmp_ext_iio_name_subobj), 4) +
+		/* MTU */
+		sizeof(__be32);
+}
+
+static unsigned int icmp6_ext_max_len(u8 ext_objs)
+{
+	unsigned int ext_max_len;
+
+	ext_max_len = sizeof(struct icmp_ext_hdr);
+
+	if (ext_objs & BIT(ICMP_ERR_EXT_IIO_IIF))
+		ext_max_len += icmp6_ext_iio_len();
+
+	return ext_max_len;
+}
+
+static struct in6_addr *icmp6_ext_iio_addr6_find(const struct net_device *dev)
+{
+	struct inet6_dev *in6_dev;
+	struct inet6_ifaddr *ifa;
+
+	in6_dev = __in6_dev_get(dev);
+	if (!in6_dev)
+		return NULL;
+
+	/* It is unclear from RFC 5837 which IP address should be chosen, but
+	 * it makes sense to choose a global unicast address.
+	 */
+	list_for_each_entry_rcu(ifa, &in6_dev->addr_list, if_list) {
+		if (ifa->flags & (IFA_F_TENTATIVE | IFA_F_DADFAILED))
+			continue;
+		if (ipv6_addr_type(&ifa->addr) != IPV6_ADDR_UNICAST ||
+		    ipv6_addr_src_scope(&ifa->addr) != IPV6_ADDR_SCOPE_GLOBAL)
+			continue;
+		return &ifa->addr;
+	}
+
+	return NULL;
+}
+
+static void icmp6_ext_iio_iif_append(struct net *net, struct sk_buff *skb,
+				     int iif)
+{
+	struct icmp_ext_iio_name_subobj *name_subobj;
+	struct icmp_extobj_hdr *objh;
+	struct net_device *dev;
+	struct in6_addr *addr6;
+	__be32 data;
+
+	if (!iif)
+		return;
+
+	/* Add the fields in the order specified by RFC 5837. */
+	objh = skb_put(skb, sizeof(*objh));
+	objh->class_num = ICMP_EXT_OBJ_CLASS_IIO;
+	objh->class_type = ICMP_EXT_CTYPE_IIO_ROLE(ICMP_EXT_CTYPE_IIO_ROLE_IIF);
+
+	data = htonl(iif);
+	skb_put_data(skb, &data, sizeof(__be32));
+	objh->class_type |= ICMP_EXT_CTYPE_IIO_IFINDEX;
+
+	rcu_read_lock();
+
+	dev = dev_get_by_index_rcu(net, iif);
+	if (!dev)
+		goto out;
+
+	addr6 = icmp6_ext_iio_addr6_find(dev);
+	if (addr6) {
+		struct icmp6_ext_iio_addr6_subobj *addr6_subobj;
+
+		addr6_subobj = skb_put_zero(skb, sizeof(*addr6_subobj));
+		addr6_subobj->afi = htons(ICMP_AFI_IP6);
+		addr6_subobj->addr6 = *addr6;
+		objh->class_type |= ICMP_EXT_CTYPE_IIO_IPADDR;
+	}
+
+	name_subobj = skb_put_zero(skb, ALIGN(sizeof(*name_subobj), 4));
+	name_subobj->len = ALIGN(sizeof(*name_subobj), 4);
+	netdev_copy_name(dev, name_subobj->name);
+	objh->class_type |= ICMP_EXT_CTYPE_IIO_NAME;
+
+	data = htonl(READ_ONCE(dev->mtu));
+	skb_put_data(skb, &data, sizeof(__be32));
+	objh->class_type |= ICMP_EXT_CTYPE_IIO_MTU;
+
+out:
+	rcu_read_unlock();
+	objh->length = htons(skb_tail_pointer(skb) - (unsigned char *)objh);
+}
+
+static void icmp6_ext_objs_append(struct net *net, struct sk_buff *skb,
+				  u8 ext_objs, int iif)
+{
+	if (ext_objs & BIT(ICMP_ERR_EXT_IIO_IIF))
+		icmp6_ext_iio_iif_append(net, skb, iif);
+}
+
+static struct sk_buff *
+icmp6_ext_append(struct net *net, struct sk_buff *skb_in,
+		 struct icmp6hdr *icmp6h, unsigned int room, int iif)
+{
+	unsigned int payload_len, ext_max_len, ext_len;
+	struct icmp_ext_hdr *ext_hdr;
+	struct sk_buff *skb;
+	u8 ext_objs;
+	int nhoff;
+
+	switch (icmp6h->icmp6_type) {
+	case ICMPV6_DEST_UNREACH:
+	case ICMPV6_TIME_EXCEED:
+		break;
+	default:
+		return NULL;
+	}
+
+	/* Do not overwrite existing extensions. This can happen when we
+	 * receive an ICMPv4 message with extensions from a tunnel and
+	 * translate it to an ICMPv6 message towards an IPv6 host in the
+	 * overlay network.
+	 */
+	if (icmp6h->icmp6_datagram_len)
+		return NULL;
+
+	ext_objs = READ_ONCE(net->ipv6.sysctl.icmpv6_errors_extension_mask);
+	if (!ext_objs)
+		return NULL;
+
+	ext_max_len = icmp6_ext_max_len(ext_objs);
+	if (ICMP_EXT_ORIG_DGRAM_MIN_LEN + ext_max_len > room)
+		return NULL;
+
+	skb = skb_clone(skb_in, GFP_ATOMIC);
+	if (!skb)
+		return NULL;
+
+	nhoff = skb_network_offset(skb);
+	payload_len = min(skb->len - nhoff, ICMP_EXT_ORIG_DGRAM_MIN_LEN);
+
+	if (!pskb_network_may_pull(skb, payload_len))
+		goto free_skb;
+
+	if (pskb_trim(skb, nhoff + ICMP_EXT_ORIG_DGRAM_MIN_LEN) ||
+	    __skb_put_padto(skb, nhoff + ICMP_EXT_ORIG_DGRAM_MIN_LEN, false))
+		goto free_skb;
+
+	if (pskb_expand_head(skb, 0, ext_max_len, GFP_ATOMIC))
+		goto free_skb;
+
+	ext_hdr = skb_put_zero(skb, sizeof(*ext_hdr));
+	ext_hdr->version = ICMP_EXT_VERSION_2;
+
+	icmp6_ext_objs_append(net, skb, ext_objs, iif);
+
+	/* Do not send an empty extension structure. */
+	ext_len = skb_tail_pointer(skb) - (unsigned char *)ext_hdr;
+	if (ext_len == sizeof(*ext_hdr))
+		goto free_skb;
+
+	ext_hdr->checksum = ip_compute_csum(ext_hdr, ext_len);
+	/* The length of the original datagram in 64-bit words (RFC 4884). */
+	icmp6h->icmp6_datagram_len = ICMP_EXT_ORIG_DGRAM_MIN_LEN / sizeof(u64);
+
+	return skb;
+
+free_skb:
+	consume_skb(skb);
+	return NULL;
+}
+
 /*
  *	Send an ICMP message in response to a packet in error
  */
@@ -458,7 +644,9 @@ void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
 	struct ipv6_pinfo *np;
 	const struct in6_addr *saddr = NULL;
 	bool apply_ratelimit = false;
+	struct sk_buff *ext_skb;
 	struct dst_entry *dst;
+	unsigned int room;
 	struct icmp6hdr tmp_hdr;
 	struct flowi6 fl6;
 	struct icmpv6_msg msg;
@@ -612,8 +800,13 @@ void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
 	msg.offset = skb_network_offset(skb);
 	msg.type = type;
 
-	len = skb->len - msg.offset;
-	len = min_t(unsigned int, len, IPV6_MIN_MTU - sizeof(struct ipv6hdr) - sizeof(struct icmp6hdr));
+	room = IPV6_MIN_MTU - sizeof(struct ipv6hdr) - sizeof(struct icmp6hdr);
+	ext_skb = icmp6_ext_append(net, skb, &tmp_hdr, room, parm->iif);
+	if (ext_skb)
+		msg.skb = ext_skb;
+
+	len = msg.skb->len - msg.offset;
+	len = min_t(unsigned int, len, room);
 	if (len < 0) {
 		net_dbg_ratelimited("icmp: len problem [%pI6c > %pI6c]\n",
 				    &hdr->saddr, &hdr->daddr);
@@ -635,6 +828,8 @@ void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
 	}
 
 out_dst_release:
+	if (ext_skb)
+		consume_skb(ext_skb);
 	dst_release(dst);
 out_unlock:
 	icmpv6_xmit_unlock(sk);
@@ -762,14 +957,17 @@ static enum skb_drop_reason icmpv6_echo_reply(struct sk_buff *skb)
 	tmp_hdr.icmp6_type = type;
 
 	memset(&fl6, 0, sizeof(fl6));
-	if (net->ipv6.sysctl.flowlabel_reflect & FLOWLABEL_REFLECT_ICMPV6_ECHO_REPLIES)
+	if (READ_ONCE(net->ipv6.sysctl.flowlabel_reflect) &
+	    FLOWLABEL_REFLECT_ICMPV6_ECHO_REPLIES)
 		fl6.flowlabel = ip6_flowlabel(ipv6_hdr(skb));
 
 	fl6.flowi6_proto = IPPROTO_ICMPV6;
 	fl6.daddr = ipv6_hdr(skb)->saddr;
 	if (saddr)
 		fl6.saddr = *saddr;
-	fl6.flowi6_oif = icmp6_iif(skb);
+	fl6.flowi6_oif = ipv6_addr_loopback(&fl6.daddr) ?
+			 skb->dev->ifindex :
+			 icmp6_iif(skb);
 	fl6.fl6_icmp_type = type;
 	fl6.flowi6_mark = mark;
 	fl6.flowi6_uid = sock_net_uid(net, NULL);
@@ -867,6 +1065,12 @@ enum skb_drop_reason icmpv6_notify(struct sk_buff *skb, u8 type,
 	reason = pskb_may_pull_reason(skb, inner_offset + 8);
 	if (reason != SKB_NOT_DROPPED_YET)
 		goto out;
+
+	if (nexthdr == IPPROTO_RAW) {
+		/* Add a more specific reason later ? */
+		reason = SKB_DROP_REASON_NOT_SPECIFIED;
+		goto out;
+	}
 
 	/* BUGGG_FUTURE: we should try to parse exthdrs in this packet.
 	   Without this we will not able f.e. to make source routed
@@ -1171,6 +1375,10 @@ int icmpv6_err_convert(u8 type, u8 code, int *err)
 EXPORT_SYMBOL(icmpv6_err_convert);
 
 #ifdef CONFIG_SYSCTL
+
+static u32 icmpv6_errors_extension_mask_all =
+	GENMASK_U8(ICMP_ERR_EXT_COUNT - 1, 0);
+
 static struct ctl_table ipv6_icmp_table_template[] = {
 	{
 		.procname	= "ratelimit",
@@ -1216,6 +1424,15 @@ static struct ctl_table ipv6_icmp_table_template[] = {
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= SYSCTL_ONE,
 	},
+	{
+		.procname	= "errors_extension_mask",
+		.data		= &init_net.ipv6.sysctl.icmpv6_errors_extension_mask,
+		.maxlen		= sizeof(u8),
+		.mode		= 0644,
+		.proc_handler	= proc_dou8vec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &icmpv6_errors_extension_mask_all,
+	},
 };
 
 struct ctl_table * __net_init ipv6_icmp_sysctl_init(struct net *net)
@@ -1233,6 +1450,7 @@ struct ctl_table * __net_init ipv6_icmp_sysctl_init(struct net *net)
 		table[3].data = &net->ipv6.sysctl.icmpv6_echo_ignore_anycast;
 		table[4].data = &net->ipv6.sysctl.icmpv6_ratemask_ptr;
 		table[5].data = &net->ipv6.sysctl.icmpv6_error_anycast_as_unicast;
+		table[6].data = &net->ipv6.sysctl.icmpv6_errors_extension_mask;
 	}
 	return table;
 }

@@ -642,9 +642,9 @@ static int asd_register_sas_ha(struct asd_ha_struct *asd_ha)
 {
 	int i;
 	struct asd_sas_phy   **sas_phys =
-		kcalloc(ASD_MAX_PHYS, sizeof(*sas_phys), GFP_KERNEL);
+		kzalloc_objs(*sas_phys, ASD_MAX_PHYS);
 	struct asd_sas_port  **sas_ports =
-		kcalloc(ASD_MAX_PHYS, sizeof(*sas_ports), GFP_KERNEL);
+		kzalloc_objs(*sas_ports, ASD_MAX_PHYS);
 
 	if (!sas_phys || !sas_ports) {
 		kfree(sas_phys);
@@ -710,7 +710,7 @@ static int asd_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 
 	asd_dev = &asd_pcidev_data[asd_id];
 
-	asd_ha = kzalloc(sizeof(*asd_ha), GFP_KERNEL);
+	asd_ha = kzalloc_obj(*asd_ha);
 	if (!asd_ha) {
 		asd_printk("out of memory\n");
 		goto Err_put;
@@ -881,6 +881,9 @@ static void asd_pci_remove(struct pci_dev *dev)
 	asd_unregister_sas_ha(asd_ha);
 
 	asd_disable_ints(asd_ha);
+
+	/* Ensure all scheduled tasklets complete before freeing resources */
+	tasklet_kill(&asd_ha->seq.dl_tasklet);
 
 	asd_remove_dev_attrs(asd_ha);
 

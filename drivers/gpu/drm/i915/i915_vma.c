@@ -24,7 +24,9 @@
 
 #include <linux/sched/mm.h>
 #include <linux/dma-fence-array.h>
+
 #include <drm/drm_gem.h>
+#include <drm/drm_print.h>
 
 #include "display/intel_fb.h"
 #include "display/intel_frontbuffer.h"
@@ -392,7 +394,7 @@ struct i915_vma_work *i915_vma_work(void)
 {
 	struct i915_vma_work *vw;
 
-	vw = kzalloc(sizeof(*vw), GFP_KERNEL);
+	vw = kzalloc_obj(*vw);
 	if (!vw)
 		return NULL;
 
@@ -1025,7 +1027,7 @@ intel_rotate_pages(struct intel_rotation_info *rot_info,
 	int i;
 
 	/* Allocate target SG list. */
-	st = kmalloc(sizeof(*st), GFP_KERNEL);
+	st = kmalloc_obj(*st);
 	if (!st)
 		goto err_st_alloc;
 
@@ -1235,7 +1237,7 @@ intel_remap_pages(struct intel_remapped_info *rem_info,
 	int i;
 
 	/* Allocate target SG list. */
-	st = kmalloc(sizeof(*st), GFP_KERNEL);
+	st = kmalloc_obj(*st);
 	if (!st)
 		goto err_st_alloc;
 
@@ -1273,7 +1275,7 @@ intel_partial_pages(const struct i915_gtt_view *view,
 	unsigned int count = view->partial.size;
 	int ret = -ENOMEM;
 
-	st = kmalloc(sizeof(*st), GFP_KERNEL);
+	st = kmalloc_obj(*st);
 	if (!st)
 		goto err_st_alloc;
 
@@ -2002,13 +2004,13 @@ int _i915_vma_move_to_active(struct i915_vma *vma,
 	}
 
 	if (flags & EXEC_OBJECT_WRITE) {
-		struct intel_frontbuffer *front;
+		struct i915_frontbuffer *front;
 
-		front = i915_gem_object_get_frontbuffer(obj);
+		front = i915_gem_object_frontbuffer_lookup(obj);
 		if (unlikely(front)) {
-			if (intel_frontbuffer_invalidate(front, ORIGIN_CS))
+			if (intel_frontbuffer_invalidate(&front->base, ORIGIN_CS))
 				i915_active_add_request(&front->write, rq);
-			intel_frontbuffer_put(front);
+			i915_gem_object_frontbuffer_put(front);
 		}
 	}
 

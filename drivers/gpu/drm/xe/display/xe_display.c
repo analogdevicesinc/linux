@@ -13,9 +13,10 @@
 #include <drm/drm_drv.h>
 #include <drm/drm_managed.h>
 #include <drm/drm_probe_helper.h>
+#include <drm/intel/display_member.h>
+#include <drm/intel/display_parent_interface.h>
 #include <uapi/drm/xe_drm.h>
 
-#include "soc/intel_dram.h"
 #include "intel_acpi.h"
 #include "intel_audio.h"
 #include "intel_bw.h"
@@ -27,13 +28,22 @@
 #include "intel_dmc.h"
 #include "intel_dmc_wl.h"
 #include "intel_dp.h"
+#include "intel_dram.h"
 #include "intel_encoder.h"
 #include "intel_fbdev.h"
 #include "intel_hdcp.h"
 #include "intel_hotplug.h"
 #include "intel_opregion.h"
 #include "skl_watermark.h"
+#include "xe_display_rpm.h"
+#include "xe_hdcp_gsc.h"
+#include "xe_initial_plane.h"
 #include "xe_module.h"
+#include "xe_panic.h"
+#include "xe_stolen.h"
+
+/* Ensure drm and display members are placed properly. */
+INTEL_DISPLAY_MEMBER_STATIC_ASSERT(struct xe_device, drm, display);
 
 /* Xe device functions */
 
@@ -116,7 +126,7 @@ int xe_display_init_early(struct xe_device *xe)
 	 * Fill the dram structure to get the system dram info. This will be
 	 * used for memory latency calculation.
 	 */
-	err = intel_dram_detect(xe);
+	err = intel_dram_detect(display);
 	if (err)
 		goto err_opregion;
 
@@ -223,15 +233,14 @@ void xe_display_irq_reset(struct xe_device *xe)
 	gen11_display_irq_reset(display);
 }
 
-void xe_display_irq_postinstall(struct xe_device *xe, struct xe_gt *gt)
+void xe_display_irq_postinstall(struct xe_device *xe)
 {
 	struct intel_display *display = xe->display;
 
 	if (!xe->info.probe_display)
 		return;
 
-	if (gt->info.id == XE_GT0)
-		gen11_de_irq_postinstall(display);
+	gen11_de_irq_postinstall(display);
 }
 
 static bool suspend_to_idle(void)
@@ -324,7 +333,7 @@ void xe_display_pm_suspend(struct xe_device *xe)
 	 * properly.
 	 */
 	intel_power_domains_disable(display);
-	drm_client_dev_suspend(&xe->drm, false);
+	drm_client_dev_suspend(&xe->drm);
 
 	if (intel_display_device_present(display)) {
 		drm_kms_helper_poll_disable(&xe->drm);
@@ -356,7 +365,7 @@ void xe_display_pm_shutdown(struct xe_device *xe)
 		return;
 
 	intel_power_domains_disable(display);
-	drm_client_dev_suspend(&xe->drm, false);
+	drm_client_dev_suspend(&xe->drm);
 
 	if (intel_display_device_present(display)) {
 		drm_kms_helper_poll_disable(&xe->drm);
@@ -481,7 +490,7 @@ void xe_display_pm_resume(struct xe_device *xe)
 
 	intel_opregion_resume(display);
 
-	drm_client_dev_resume(&xe->drm, false);
+	drm_client_dev_resume(&xe->drm);
 
 	intel_power_domains_enable(display);
 }
@@ -511,6 +520,32 @@ static void display_device_remove(struct drm_device *dev, void *arg)
 	intel_display_device_remove(display);
 }
 
+static bool irq_enabled(struct drm_device *drm)
+{
+	struct xe_device *xe = to_xe_device(drm);
+
+	return atomic_read(&xe->irq.enabled);
+}
+
+static void irq_synchronize(struct drm_device *drm)
+{
+	synchronize_irq(to_pci_dev(drm->dev)->irq);
+}
+
+static const struct intel_display_irq_interface xe_display_irq_interface = {
+	.enabled = irq_enabled,
+	.synchronize = irq_synchronize,
+};
+
+static const struct intel_display_parent_interface parent = {
+	.hdcp = &xe_display_hdcp_interface,
+	.initial_plane = &xe_display_initial_plane_interface,
+	.irq = &xe_display_irq_interface,
+	.panic = &xe_display_panic_interface,
+	.rpm = &xe_display_rpm_interface,
+	.stolen = &xe_display_stolen_interface,
+};
+
 /**
  * xe_display_probe - probe display and create display struct
  * @xe: XE device instance
@@ -531,7 +566,7 @@ int xe_display_probe(struct xe_device *xe)
 	if (!xe->info.probe_display)
 		goto no_display;
 
-	display = intel_display_device_probe(pdev);
+	display = intel_display_device_probe(pdev, &parent);
 	if (IS_ERR(display))
 		return PTR_ERR(display);
 

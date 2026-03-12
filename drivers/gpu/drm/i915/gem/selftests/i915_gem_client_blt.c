@@ -3,6 +3,8 @@
  * Copyright © 2019 Intel Corporation
  */
 
+#include <drm/drm_print.h>
+
 #include "i915_selftest.h"
 
 #include "display/intel_display_device.h"
@@ -538,7 +540,7 @@ tiled_blits_create(struct intel_engine_cs *engine, struct rnd_state *prng)
 	u64 hole_size;
 	int err;
 
-	t = kzalloc(sizeof(*t), GFP_KERNEL);
+	t = kzalloc_obj(*t);
 	if (!t)
 		return ERR_PTR(-ENOMEM);
 

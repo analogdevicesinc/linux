@@ -99,3 +99,220 @@ void __init register_refined_jiffies(long cycles_per_second)
 
 	__clocksource_register(&refined_jiffies);
 }
+
+#ifdef CONFIG_PROC_SYSCTL
+static ulong mult_hz(const ulong val)
+{
+	return val * HZ;
+}
+
+static ulong div_hz(const ulong val)
+{
+	return val / HZ;
+}
+
+static int sysctl_u2k_int_conv_hz(const bool *negp, const ulong *u_ptr, int *k_ptr)
+{
+	return proc_int_u2k_conv_uop(u_ptr, k_ptr, negp, mult_hz);
+}
+
+static int sysctl_k2u_int_conv_hz(bool *negp, ulong *u_ptr, const int *k_ptr)
+{
+	return proc_int_k2u_conv_kop(u_ptr, k_ptr, negp, div_hz);
+}
+
+static int sysctl_u2k_int_conv_userhz(const bool *negp, const ulong *u_ptr, int *k_ptr)
+{
+	return proc_int_u2k_conv_uop(u_ptr, k_ptr, negp, clock_t_to_jiffies);
+}
+
+static ulong sysctl_jiffies_to_clock_t(const ulong val)
+{
+	return jiffies_to_clock_t(val);
+}
+
+static int sysctl_k2u_int_conv_userhz(bool *negp, ulong *u_ptr, const int *k_ptr)
+{
+	return proc_int_k2u_conv_kop(u_ptr, k_ptr, negp, sysctl_jiffies_to_clock_t);
+}
+
+static ulong sysctl_msecs_to_jiffies(const ulong val)
+{
+	return msecs_to_jiffies(val);
+}
+
+static int sysctl_u2k_int_conv_ms(const bool *negp, const ulong *u_ptr, int *k_ptr)
+{
+	return proc_int_u2k_conv_uop(u_ptr, k_ptr, negp, sysctl_msecs_to_jiffies);
+}
+
+static ulong sysctl_jiffies_to_msecs(const ulong val)
+{
+	return jiffies_to_msecs(val);
+}
+
+static int sysctl_k2u_int_conv_ms(bool *negp, ulong *u_ptr, const int *k_ptr)
+{
+	return proc_int_k2u_conv_kop(u_ptr, k_ptr, negp, sysctl_jiffies_to_msecs);
+}
+
+static int do_proc_int_conv_jiffies(bool *negp, ulong *u_ptr, int *k_ptr,
+				    int dir, const struct ctl_table *tbl)
+{
+	return proc_int_conv(negp, u_ptr, k_ptr, dir, tbl, false,
+			     sysctl_u2k_int_conv_hz, sysctl_k2u_int_conv_hz);
+}
+
+static int do_proc_int_conv_userhz_jiffies(bool *negp, ulong *u_ptr,
+					   int *k_ptr, int dir,
+					   const struct ctl_table *tbl)
+{
+	return proc_int_conv(negp, u_ptr, k_ptr, dir, tbl, false,
+			     sysctl_u2k_int_conv_userhz,
+			     sysctl_k2u_int_conv_userhz);
+}
+
+static int do_proc_int_conv_ms_jiffies(bool *negp, ulong *u_ptr, int *k_ptr,
+				       int dir, const struct ctl_table *tbl)
+{
+	return proc_int_conv(negp, u_ptr, k_ptr, dir, tbl, false,
+			     sysctl_u2k_int_conv_ms, sysctl_k2u_int_conv_ms);
+}
+
+static int do_proc_int_conv_ms_jiffies_minmax(bool *negp, ulong *u_ptr,
+					      int *k_ptr, int dir,
+					      const struct ctl_table *tbl)
+{
+	return proc_int_conv(negp, u_ptr, k_ptr, dir, tbl, false,
+			     sysctl_u2k_int_conv_ms, sysctl_k2u_int_conv_ms);
+}
+
+#else // CONFIG_PROC_SYSCTL
+static int do_proc_int_conv_jiffies(bool *negp, ulong *u_ptr, int *k_ptr,
+				    int dir, const struct ctl_table *tbl)
+{
+	return -ENOSYS;
+}
+
+static int do_proc_int_conv_userhz_jiffies(bool *negp, ulong *u_ptr,
+					   int *k_ptr, int dir,
+					   const struct ctl_table *tbl)
+{
+	return -ENOSYS;
+}
+
+static int do_proc_int_conv_ms_jiffies(bool *negp, ulong *u_ptr, int *k_ptr,
+				       int dir, const struct ctl_table *tbl)
+{
+	return -ENOSYS;
+}
+
+static int do_proc_int_conv_ms_jiffies_minmax(bool *negp, ulong *u_ptr,
+					      int *k_ptr, int dir,
+					      const struct ctl_table *tbl)
+{
+	return -ENOSYS;
+}
+#endif
+
+/**
+ * proc_dointvec_jiffies - read a vector of integers as seconds
+ * @table: the sysctl table
+ * @dir: %TRUE if this is a write to the sysctl file
+ * @buffer: the user buffer
+ * @lenp: the size of the user buffer
+ * @ppos: file position
+ *
+ * Reads/writes up to table->maxlen/sizeof(unsigned int) integer
+ * values from/to the user buffer, treated as an ASCII string.
+ * The values read are assumed to be in seconds, and are converted into
+ * jiffies.
+ *
+ * Returns 0 on success.
+ */
+int proc_dointvec_jiffies(const struct ctl_table *table, int dir,
+			  void *buffer, size_t *lenp, loff_t *ppos)
+{
+	return proc_dointvec_conv(table, dir, buffer, lenp, ppos,
+				  do_proc_int_conv_jiffies);
+}
+EXPORT_SYMBOL(proc_dointvec_jiffies);
+
+/**
+ * proc_dointvec_userhz_jiffies - read a vector of integers as 1/USER_HZ seconds
+ * @table: the sysctl table
+ * @dir: %TRUE if this is a write to the sysctl file
+ * @buffer: the user buffer
+ * @lenp: the size of the user buffer
+ * @ppos: pointer to the file position
+ *
+ * Reads/writes up to table->maxlen/sizeof(unsigned int) integer
+ * values from/to the user buffer, treated as an ASCII string.
+ * The values read are assumed to be in 1/USER_HZ seconds, and
+ * are converted into jiffies.
+ *
+ * Returns 0 on success.
+ */
+int proc_dointvec_userhz_jiffies(const struct ctl_table *table, int dir,
+				 void *buffer, size_t *lenp, loff_t *ppos)
+{
+	return proc_dointvec_conv(table, dir, buffer, lenp, ppos,
+				  do_proc_int_conv_userhz_jiffies);
+}
+EXPORT_SYMBOL(proc_dointvec_userhz_jiffies);
+
+/**
+ * proc_dointvec_ms_jiffies - read a vector of integers as 1 milliseconds
+ * @table: the sysctl table
+ * @dir: %TRUE if this is a write to the sysctl file
+ * @buffer: the user buffer
+ * @lenp: the size of the user buffer
+ * @ppos: the current position in the file
+ *
+ * Reads/writes up to table->maxlen/sizeof(unsigned int) integer
+ * values from/to the user buffer, treated as an ASCII string.
+ * The values read are assumed to be in 1/1000 seconds, and
+ * are converted into jiffies.
+ *
+ * Returns 0 on success.
+ */
+int proc_dointvec_ms_jiffies(const struct ctl_table *table, int dir, void *buffer,
+		size_t *lenp, loff_t *ppos)
+{
+	return proc_dointvec_conv(table, dir, buffer, lenp, ppos,
+				  do_proc_int_conv_ms_jiffies);
+}
+EXPORT_SYMBOL(proc_dointvec_ms_jiffies);
+
+int proc_dointvec_ms_jiffies_minmax(const struct ctl_table *table, int dir,
+			  void *buffer, size_t *lenp, loff_t *ppos)
+{
+	return proc_dointvec_conv(table, dir, buffer, lenp, ppos,
+				  do_proc_int_conv_ms_jiffies_minmax);
+}
+
+/**
+ * proc_doulongvec_ms_jiffies_minmax - read a vector of millisecond values with min/max values
+ * @table: the sysctl table
+ * @dir: %TRUE if this is a write to the sysctl file
+ * @buffer: the user buffer
+ * @lenp: the size of the user buffer
+ * @ppos: file position
+ *
+ * Reads/writes up to table->maxlen/sizeof(unsigned long) unsigned long
+ * values from/to the user buffer, treated as an ASCII string. The values
+ * are treated as milliseconds, and converted to jiffies when they are stored.
+ *
+ * This routine will ensure the values are within the range specified by
+ * table->extra1 (min) and table->extra2 (max).
+ *
+ * Returns 0 on success.
+ */
+int proc_doulongvec_ms_jiffies_minmax(const struct ctl_table *table, int dir,
+				      void *buffer, size_t *lenp, loff_t *ppos)
+{
+	return proc_doulongvec_minmax_conv(table, dir, buffer, lenp, ppos,
+					   HZ, 1000l);
+}
+EXPORT_SYMBOL(proc_doulongvec_ms_jiffies_minmax);
+

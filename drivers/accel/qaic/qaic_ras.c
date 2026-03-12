@@ -514,21 +514,21 @@ static ssize_t ce_count_show(struct device *dev, struct device_attribute *attr, 
 {
 	struct qaic_device *qdev = pci_get_drvdata(to_pci_dev(dev));
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", qdev->ce_count);
+	return sysfs_emit(buf, "%d\n", qdev->ce_count);
 }
 
 static ssize_t ue_count_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct qaic_device *qdev = pci_get_drvdata(to_pci_dev(dev));
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", qdev->ue_count);
+	return sysfs_emit(buf, "%d\n", qdev->ue_count);
 }
 
 static ssize_t ue_nonfatal_count_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct qaic_device *qdev = pci_get_drvdata(to_pci_dev(dev));
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", qdev->ue_nf_count);
+	return sysfs_emit(buf, "%d\n", qdev->ue_nf_count);
 }
 
 static DEVICE_ATTR_RO(ce_count);
@@ -556,7 +556,7 @@ static int qaic_ras_mhi_probe(struct mhi_device *mhi_dev, const struct mhi_devic
 	if (ret)
 		return ret;
 
-	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	resp = kzalloc_obj(*resp);
 	if (!resp) {
 		mhi_unprepare_from_transfer(mhi_dev);
 		return -ENOMEM;

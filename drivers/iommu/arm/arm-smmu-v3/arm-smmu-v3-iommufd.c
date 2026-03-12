@@ -23,7 +23,7 @@ void *arm_smmu_hw_info(struct device *dev, u32 *length,
 		return impl_ops->hw_info(master->smmu, length, type);
 	}
 
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	info = kzalloc_obj(*info);
 	if (!info)
 		return ERR_PTR(-ENOMEM);
 
@@ -99,6 +99,8 @@ static void arm_smmu_make_nested_domain_ste(
 int arm_smmu_attach_prepare_vmaster(struct arm_smmu_attach_state *state,
 				    struct arm_smmu_nested_domain *nested_domain)
 {
+	unsigned int cfg =
+		FIELD_GET(STRTAB_STE_0_CFG, le64_to_cpu(nested_domain->ste[0]));
 	struct arm_smmu_vmaster *vmaster;
 	unsigned long vsid;
 	int ret;
@@ -107,10 +109,19 @@ int arm_smmu_attach_prepare_vmaster(struct arm_smmu_attach_state *state,
 
 	ret = iommufd_viommu_get_vdev_id(&nested_domain->vsmmu->core,
 					 state->master->dev, &vsid);
-	if (ret)
+	/*
+	 * Attaching to a translate nested domain must allocate a vDEVICE prior,
+	 * as CD/ATS invalidations and vevents require a vSID to work properly.
+	 * A abort/bypass domain is allowed to attach w/o vmaster for GBPA case.
+	 */
+	if (ret) {
+		if (cfg == STRTAB_STE_0_CFG_ABORT ||
+		    cfg == STRTAB_STE_0_CFG_BYPASS)
+			return 0;
 		return ret;
+	}
 
-	vmaster = kzalloc(sizeof(*vmaster), GFP_KERNEL);
+	vmaster = kzalloc_obj(*vmaster);
 	if (!vmaster)
 		return -ENOMEM;
 	vmaster->vsmmu = nested_domain->vsmmu;
@@ -138,14 +149,15 @@ void arm_smmu_master_clear_vmaster(struct arm_smmu_master *master)
 }
 
 static int arm_smmu_attach_dev_nested(struct iommu_domain *domain,
-				      struct device *dev)
+				      struct device *dev,
+				      struct iommu_domain *old_domain)
 {
 	struct arm_smmu_nested_domain *nested_domain =
 		to_smmu_nested_domain(domain);
 	struct arm_smmu_master *master = dev_iommu_priv_get(dev);
 	struct arm_smmu_attach_state state = {
 		.master = master,
-		.old_domain = iommu_get_domain_for_dev(dev),
+		.old_domain = old_domain,
 		.ssid = IOMMU_NO_PASID,
 	};
 	struct arm_smmu_ste ste;
@@ -165,7 +177,9 @@ static int arm_smmu_attach_dev_nested(struct iommu_domain *domain,
 	 * config bit here base this off the EATS value in the STE. If the EATS
 	 * is set then the VM must generate ATC flushes.
 	 */
-	state.disable_ats = !nested_domain->enable_ats;
+	if (FIELD_GET(STRTAB_STE_0_CFG, le64_to_cpu(nested_domain->ste[0])) ==
+	    STRTAB_STE_0_CFG_S1_TRANS)
+		state.disable_ats = !nested_domain->enable_ats;
 	ret = arm_smmu_attach_prepare(&state, domain);
 	if (ret) {
 		mutex_unlock(&arm_smmu_asid_lock);
@@ -247,7 +261,7 @@ arm_vsmmu_alloc_domain_nested(struct iommufd_viommu *viommu, u32 flags,
 	if (ret)
 		return ERR_PTR(ret);
 
-	nested_domain = kzalloc(sizeof(*nested_domain), GFP_KERNEL_ACCOUNT);
+	nested_domain = kzalloc_obj(*nested_domain, GFP_KERNEL_ACCOUNT);
 	if (!nested_domain)
 		return ERR_PTR(-ENOMEM);
 
@@ -347,7 +361,7 @@ int arm_vsmmu_cache_invalidate(struct iommufd_viommu *viommu,
 	struct arm_vsmmu_invalidation_cmd *end;
 	int ret;
 
-	cmds = kcalloc(array->entry_num, sizeof(*cmds), GFP_KERNEL);
+	cmds = kzalloc_objs(*cmds, array->entry_num);
 	if (!cmds)
 		return -ENOMEM;
 	cur = cmds;

@@ -29,7 +29,6 @@
 #include <linux/pagemap.h>
 #include <linux/sync_file.h>
 #include <linux/dma-buf.h>
-#include <linux/hmm.h>
 
 #include <drm/amdgpu_drm.h>
 #include <drm/drm_syncobj.h>
@@ -41,6 +40,7 @@
 #include "amdgpu_gmc.h"
 #include "amdgpu_gem.h"
 #include "amdgpu_ras.h"
+#include "amdgpu_hmm.h"
 
 static int amdgpu_cs_parser_init(struct amdgpu_cs_parser *p,
 				 struct amdgpu_device *adev,
@@ -192,8 +192,7 @@ static int amdgpu_cs_pass1(struct amdgpu_cs_parser *p,
 		return PTR_ERR(chunk_array);
 
 	p->nchunks = cs->in.num_chunks;
-	p->chunks = kvmalloc_array(p->nchunks, sizeof(struct amdgpu_cs_chunk),
-			    GFP_KERNEL);
+	p->chunks = kvmalloc_objs(struct amdgpu_cs_chunk, p->nchunks);
 	if (!p->chunks) {
 		ret = -ENOMEM;
 		goto free_chunk;
@@ -523,8 +522,7 @@ static int amdgpu_cs_p2_syncobj_out(struct amdgpu_cs_parser *p,
 	if (p->post_deps)
 		return -EINVAL;
 
-	p->post_deps = kmalloc_array(num_deps, sizeof(*p->post_deps),
-				     GFP_KERNEL);
+	p->post_deps = kmalloc_objs(*p->post_deps, num_deps);
 	p->num_post_deps = 0;
 
 	if (!p->post_deps)
@@ -557,8 +555,7 @@ static int amdgpu_cs_p2_syncobj_timeline_signal(struct amdgpu_cs_parser *p,
 	if (p->post_deps)
 		return -EINVAL;
 
-	p->post_deps = kmalloc_array(num_deps, sizeof(*p->post_deps),
-				     GFP_KERNEL);
+	p->post_deps = kmalloc_objs(*p->post_deps, num_deps);
 	p->num_post_deps = 0;
 
 	if (!p->post_deps)
@@ -891,12 +888,19 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
 		bool userpage_invalidated = false;
 		struct amdgpu_bo *bo = e->bo;
 
-		r = amdgpu_ttm_tt_get_user_pages(bo, &e->range);
+		e->range = amdgpu_hmm_range_alloc(NULL);
+		if (unlikely(!e->range)) {
+			r = -ENOMEM;
+			goto out_free_user_pages;
+		}
+
+		r = amdgpu_ttm_tt_get_user_pages(bo, e->range);
 		if (r)
 			goto out_free_user_pages;
 
 		for (i = 0; i < bo->tbo.ttm->num_pages; i++) {
-			if (bo->tbo.ttm->pages[i] != hmm_pfn_to_page(e->range->hmm_pfns[i])) {
+			if (bo->tbo.ttm->pages[i] !=
+				hmm_pfn_to_page(e->range->hmm_range.hmm_pfns[i])) {
 				userpage_invalidated = true;
 				break;
 			}
@@ -990,9 +994,7 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
 
 out_free_user_pages:
 	amdgpu_bo_list_for_each_userptr_entry(e, p->bo_list) {
-		struct amdgpu_bo *bo = e->bo;
-
-		amdgpu_ttm_tt_get_user_pages_done(bo->tbo.ttm, e->range);
+		amdgpu_hmm_range_free(e->range);
 		e->range = NULL;
 	}
 	mutex_unlock(&p->bo_list->bo_list_mutex);
@@ -1018,6 +1020,7 @@ static int amdgpu_cs_patch_ibs(struct amdgpu_cs_parser *p,
 			       struct amdgpu_job *job)
 {
 	struct amdgpu_ring *ring = amdgpu_job_ring(job);
+	struct amdgpu_device *adev = ring->adev;
 	unsigned int i;
 	int r;
 
@@ -1323,8 +1326,8 @@ static int amdgpu_cs_submit(struct amdgpu_cs_parser *p,
 	 */
 	r = 0;
 	amdgpu_bo_list_for_each_userptr_entry(e, p->bo_list) {
-		r |= !amdgpu_ttm_tt_get_user_pages_done(e->bo->tbo.ttm,
-							e->range);
+		r |= !amdgpu_hmm_range_valid(e->range);
+		amdgpu_hmm_range_free(e->range);
 		e->range = NULL;
 	}
 	if (r) {
@@ -1685,7 +1688,7 @@ static int amdgpu_cs_wait_any_fence(struct amdgpu_device *adev,
 	long r;
 
 	/* Prepare the fence array */
-	array = kcalloc(fence_count, sizeof(struct dma_fence *), GFP_KERNEL);
+	array = kzalloc_objs(struct dma_fence *, fence_count);
 
 	if (array == NULL)
 		return -ENOMEM;

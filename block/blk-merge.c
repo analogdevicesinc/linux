@@ -95,13 +95,13 @@ static inline bool req_gap_front_merge(struct request *req, struct bio *bio)
 }
 
 /*
- * The max size one bio can handle is UINT_MAX becasue bvec_iter.bi_size
- * is defined as 'unsigned int', meantime it has to be aligned to with the
+ * The maximum size that a bio can fit has to be aligned down to the
  * logical block size, which is the minimum accepted unit by hardware.
  */
 static unsigned int bio_allowed_max_sectors(const struct queue_limits *lim)
 {
-	return round_down(UINT_MAX, lim->logical_block_size) >> SECTOR_SHIFT;
+	return round_down(BIO_MAX_SIZE, lim->logical_block_size) >>
+			SECTOR_SHIFT;
 }
 
 /*
@@ -158,8 +158,9 @@ static struct bio *bio_submit_split(struct bio *bio, int split_sectors)
 	return bio;
 }
 
-struct bio *bio_split_discard(struct bio *bio, const struct queue_limits *lim,
-		unsigned *nsegs)
+static struct bio *__bio_split_discard(struct bio *bio,
+		const struct queue_limits *lim, unsigned *nsegs,
+		unsigned int max_sectors)
 {
 	unsigned int max_discard_sectors, granularity;
 	sector_t tmp;
@@ -169,8 +170,7 @@ struct bio *bio_split_discard(struct bio *bio, const struct queue_limits *lim,
 
 	granularity = max(lim->discard_granularity >> 9, 1U);
 
-	max_discard_sectors =
-		min(lim->max_discard_sectors, bio_allowed_max_sectors(lim));
+	max_discard_sectors = min(max_sectors, bio_allowed_max_sectors(lim));
 	max_discard_sectors -= max_discard_sectors % granularity;
 	if (unlikely(!max_discard_sectors))
 		return bio;
@@ -192,6 +192,19 @@ struct bio *bio_split_discard(struct bio *bio, const struct queue_limits *lim,
 		split_sectors -= tmp;
 
 	return bio_submit_split(bio, split_sectors);
+}
+
+struct bio *bio_split_discard(struct bio *bio, const struct queue_limits *lim,
+		unsigned *nsegs)
+{
+	unsigned int max_sectors;
+
+	if (bio_op(bio) == REQ_OP_SECURE_ERASE)
+		max_sectors = lim->max_secure_erase_sectors;
+	else
+		max_sectors = lim->max_discard_sectors;
+
+	return __bio_split_discard(bio, lim, nsegs, max_sectors);
 }
 
 static inline unsigned int blk_boundary_sectors(const struct queue_limits *lim,
@@ -302,6 +315,12 @@ static unsigned int bio_split_alignment(struct bio *bio,
 	return lim->logical_block_size;
 }
 
+static inline unsigned int bvec_seg_gap(struct bio_vec *bvprv,
+					struct bio_vec *bv)
+{
+	return bv->bv_offset | (bvprv->bv_offset + bvprv->bv_len);
+}
+
 /**
  * bio_split_io_at - check if and where to split a bio
  * @bio:  [in] bio to be split
@@ -318,12 +337,19 @@ static unsigned int bio_split_alignment(struct bio *bio,
 int bio_split_io_at(struct bio *bio, const struct queue_limits *lim,
 		unsigned *segs, unsigned max_bytes, unsigned len_align_mask)
 {
+	struct bio_crypt_ctx *bc = bio_crypt_ctx(bio);
 	struct bio_vec bv, bvprv, *bvprvp = NULL;
+	unsigned nsegs = 0, bytes = 0, gaps = 0;
 	struct bvec_iter iter;
-	unsigned nsegs = 0, bytes = 0;
+	unsigned start_align_mask = lim->dma_alignment;
+
+	if (bc) {
+		start_align_mask |= (bc->bc_key->crypto_cfg.data_unit_size - 1);
+		len_align_mask |= (bc->bc_key->crypto_cfg.data_unit_size - 1);
+	}
 
 	bio_for_each_bvec(bv, bio, iter) {
-		if (bv.bv_offset & lim->dma_alignment ||
+		if (bv.bv_offset & start_align_mask ||
 		    bv.bv_len & len_align_mask)
 			return -EINVAL;
 
@@ -331,12 +357,15 @@ int bio_split_io_at(struct bio *bio, const struct queue_limits *lim,
 		 * If the queue doesn't support SG gaps and adding this
 		 * offset would create a gap, disallow it.
 		 */
-		if (bvprvp && bvec_gap_to_prev(lim, bvprvp, bv.bv_offset))
-			goto split;
+		if (bvprvp) {
+			if (bvec_gap_to_prev(lim, bvprvp, bv.bv_offset))
+				goto split;
+			gaps |= bvec_seg_gap(bvprvp, &bv);
+		}
 
 		if (nsegs < lim->max_segments &&
 		    bytes + bv.bv_len <= max_bytes &&
-		    bv.bv_offset + bv.bv_len <= lim->min_segment_size) {
+		    bv.bv_offset + bv.bv_len <= lim->max_fast_segment_size) {
 			nsegs++;
 			bytes += bv.bv_len;
 		} else {
@@ -350,6 +379,7 @@ int bio_split_io_at(struct bio *bio, const struct queue_limits *lim,
 	}
 
 	*segs = nsegs;
+	bio->bi_bvec_gap_bit = ffs(gaps);
 	return 0;
 split:
 	if (bio->bi_opf & REQ_ATOMIC)
@@ -385,6 +415,7 @@ split:
 	 * big IO can be trival, disable iopoll when split needed.
 	 */
 	bio_clear_polled(bio);
+	bio->bi_bvec_gap_bit = ffs(gaps);
 	return bytes >> SECTOR_SHIFT;
 }
 EXPORT_SYMBOL_GPL(bio_split_io_at);
@@ -484,7 +515,7 @@ unsigned int blk_recalc_rq_segments(struct request *rq)
 
 	rq_for_each_bvec(bv, rq, iter)
 		bvec_split_segs(&rq->q->limits, &bv, &nr_phys_segs, &bytes,
-				UINT_MAX, UINT_MAX);
+				UINT_MAX, BIO_MAX_SIZE);
 	return nr_phys_segs;
 }
 
@@ -721,6 +752,24 @@ static bool blk_atomic_write_mergeable_rqs(struct request *rq,
 	return (rq->cmd_flags & REQ_ATOMIC) == (next->cmd_flags & REQ_ATOMIC);
 }
 
+u8 bio_seg_gap(struct request_queue *q, struct bio *prev, struct bio *next,
+	       u8 gaps_bit)
+{
+	struct bio_vec pb, nb;
+
+	if (!bio_has_data(prev))
+		return 0;
+
+	gaps_bit = min_not_zero(gaps_bit, prev->bi_bvec_gap_bit);
+	gaps_bit = min_not_zero(gaps_bit, next->bi_bvec_gap_bit);
+
+	bio_get_last_bvec(prev, &pb);
+	bio_get_first_bvec(next, &nb);
+	if (!biovec_phys_mergeable(q, &pb, &nb))
+		gaps_bit = min_not_zero(gaps_bit, ffs(bvec_seg_gap(&pb, &nb)));
+	return gaps_bit;
+}
+
 /*
  * For non-mq, this has to be called with the request spinlock acquired.
  * For mq with scheduling, the appropriate queue wide lock should be held.
@@ -785,6 +834,9 @@ static struct request *attempt_merge(struct request_queue *q,
 	if (next->start_time_ns < req->start_time_ns)
 		req->start_time_ns = next->start_time_ns;
 
+	req->phys_gap_bit = bio_seg_gap(req->q, req->biotail, next->bio,
+					min_not_zero(next->phys_gap_bit,
+						     req->phys_gap_bit));
 	req->biotail->bi_next = next->bio;
 	req->biotail = next->biotail;
 
@@ -908,6 +960,8 @@ enum bio_merge_status bio_attempt_back_merge(struct request *req,
 	if (req->rq_flags & RQF_ZONE_WRITE_PLUGGING)
 		blk_zone_write_plug_bio_merged(bio);
 
+	req->phys_gap_bit = bio_seg_gap(req->q, req->biotail, bio,
+					req->phys_gap_bit);
 	req->biotail->bi_next = bio;
 	req->biotail = bio;
 	req->__data_len += bio->bi_iter.bi_size;
@@ -942,6 +996,8 @@ static enum bio_merge_status bio_attempt_front_merge(struct request *req,
 
 	blk_update_mixed_merge(req, bio, true);
 
+	req->phys_gap_bit = bio_seg_gap(req->q, bio, req->bio,
+					req->phys_gap_bit);
 	bio->bi_next = req->bio;
 	req->bio = bio;
 

@@ -28,14 +28,14 @@
  * This could also be configured at run time using CPU freq framework. */
 
 /* MDC Clock Selection define*/
-#define	STMMAC_CSR_60_100M	0x0	/* MDC = clk_scr_i/42 */
-#define	STMMAC_CSR_100_150M	0x1	/* MDC = clk_scr_i/62 */
-#define	STMMAC_CSR_20_35M	0x2	/* MDC = clk_scr_i/16 */
-#define	STMMAC_CSR_35_60M	0x3	/* MDC = clk_scr_i/26 */
-#define	STMMAC_CSR_150_250M	0x4	/* MDC = clk_scr_i/102 */
-#define	STMMAC_CSR_250_300M	0x5	/* MDC = clk_scr_i/124 */
-#define	STMMAC_CSR_300_500M	0x6	/* MDC = clk_scr_i/204 */
-#define	STMMAC_CSR_500_800M	0x7	/* MDC = clk_scr_i/324 */
+#define	STMMAC_CSR_60_100M	0x0	/* MDC = clk_csr_i/42 */
+#define	STMMAC_CSR_100_150M	0x1	/* MDC = clk_csr_i/62 */
+#define	STMMAC_CSR_20_35M	0x2	/* MDC = clk_csr_i/16 */
+#define	STMMAC_CSR_35_60M	0x3	/* MDC = clk_csr_i/26 */
+#define	STMMAC_CSR_150_250M	0x4	/* MDC = clk_csr_i/102 */
+#define	STMMAC_CSR_250_300M	0x5	/* MDC = clk_csr_i/124 */
+#define	STMMAC_CSR_300_500M	0x6	/* MDC = clk_csr_i/204 */
+#define	STMMAC_CSR_500_800M	0x7	/* MDC = clk_csr_i/324 */
 
 /* MTL algorithms identifiers */
 #define MTL_TX_ALGORITHM_WRR	0x0
@@ -113,7 +113,7 @@ struct stmmac_axi {
 	u32 axi_wr_osr_lmt;
 	u32 axi_rd_osr_lmt;
 	bool axi_kbbe;
-	u32 axi_blen[AXI_BLEN];
+	u32 axi_blen_regval;
 	bool axi_fb;
 	bool axi_mb;
 	bool axi_rb;
@@ -171,7 +171,13 @@ struct dwmac4_addrs {
 	u32 mtl_low_cred_offset;
 };
 
-#define STMMAC_FLAG_HAS_INTEGRATED_PCS		BIT(0)
+enum dwmac_core_type {
+	DWMAC_CORE_MAC100,
+	DWMAC_CORE_GMAC,
+	DWMAC_CORE_GMAC4,
+	DWMAC_CORE_XGMAC,
+};
+
 #define STMMAC_FLAG_SPH_DISABLE			BIT(1)
 #define STMMAC_FLAG_USE_PHY_WOL			BIT(2)
 #define STMMAC_FLAG_HAS_SUN8I			BIT(3)
@@ -185,8 +191,12 @@ struct dwmac4_addrs {
 #define STMMAC_FLAG_EN_TX_LPI_CLOCKGATING	BIT(11)
 #define STMMAC_FLAG_EN_TX_LPI_CLK_PHY_CAP	BIT(12)
 #define STMMAC_FLAG_HWTSTAMP_CORRECT_LATENCY	BIT(13)
+#define STMMAC_FLAG_KEEP_PREAMBLE_BEFORE_SFD	BIT(14)
+
+struct mac_device_info;
 
 struct plat_stmmacenet_data {
+	enum dwmac_core_type core_type;
 	int bus_id;
 	int phy_addr;
 	/* MAC ----- optional PCS ----- SerDes ----- optional PHY ----- Media
@@ -220,7 +230,6 @@ struct plat_stmmacenet_data {
 	struct stmmac_dma_cfg *dma_cfg;
 	struct stmmac_safety_feature_cfg *safety_feat_cfg;
 	int clk_csr;
-	int has_gmac;
 	int enh_desc;
 	int tx_coe;
 	int rx_coe;
@@ -244,10 +253,11 @@ struct plat_stmmacenet_data {
 	struct stmmac_txq_cfg tx_queues_cfg[MTL_MAX_TX_QUEUES];
 	void (*get_interfaces)(struct stmmac_priv *priv, void *bsp_priv,
 			       unsigned long *interfaces);
+	int (*set_phy_intf_sel)(void *priv, u8 phy_intf_sel);
 	int (*set_clk_tx_rate)(void *priv, struct clk *clk_tx_i,
 			       phy_interface_t interface, int speed);
 	void (*fix_mac_speed)(void *priv, int speed, unsigned int mode);
-	int (*fix_soc_reset)(struct stmmac_priv *priv, void __iomem *ioaddr);
+	int (*fix_soc_reset)(struct stmmac_priv *priv);
 	int (*serdes_powerup)(struct net_device *ndev, void *priv);
 	void (*serdes_powerdown)(struct net_device *ndev, void *priv);
 	int (*mac_finish)(struct net_device *ndev,
@@ -255,11 +265,11 @@ struct plat_stmmacenet_data {
 			  unsigned int mode,
 			  phy_interface_t interface);
 	void (*ptp_clk_freq_config)(struct stmmac_priv *priv);
-	int (*init)(struct platform_device *pdev, void *priv);
-	void (*exit)(struct platform_device *pdev, void *priv);
+	int (*init)(struct device *dev, void *priv);
+	void (*exit)(struct device *dev, void *priv);
 	int (*suspend)(struct device *dev, void *priv);
 	int (*resume)(struct device *dev, void *priv);
-	struct mac_device_info *(*setup)(void *priv);
+	int (*mac_setup)(void *priv, struct mac_device_info *mac);
 	int (*clks_config)(void *priv, bool enabled);
 	int (*crosststamp)(ktime_t *device, struct system_counterval_t *system,
 			   void *ctx);
@@ -283,16 +293,13 @@ struct plat_stmmacenet_data {
 	struct reset_control *stmmac_rst;
 	struct reset_control *stmmac_ahb_rst;
 	struct stmmac_axi *axi;
-	int has_gmac4;
 	int rss_en;
 	int mac_port_sel_speed;
-	int has_xgmac;
 	u8 vlan_fail_q;
 	struct pci_dev *pdev;
 	int int_snapshot_num;
 	int msi_mac_vec;
 	int msi_wol_vec;
-	int msi_lpi_vec;
 	int msi_sfty_ce_vec;
 	int msi_sfty_ue_vec;
 	int msi_rx_base_vec;

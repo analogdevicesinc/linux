@@ -5,6 +5,10 @@
 
 #ifndef _NOLIBC_ARCH_S390_H
 #define _NOLIBC_ARCH_S390_H
+
+#include "types.h"
+
+#include <linux/sched.h>
 #include <linux/signal.h>
 #include <linux/unistd.h>
 
@@ -139,22 +143,19 @@
 	_arg1;								\
 })
 
+#ifndef NOLIBC_NO_RUNTIME
 /* startup code */
 void __attribute__((weak, noreturn)) __nolibc_entrypoint __no_stack_protector _start(void)
 {
 	__asm__ volatile (
-#ifdef __s390x__
 		"lgr	%r2, %r15\n"          /* save stack pointer to %r2, as arg1 of _start_c */
 		"aghi	%r15, -160\n"         /* allocate new stackframe                        */
-#else
-		"lr	%r2, %r15\n"
-		"ahi	%r15, -96\n"
-#endif
 		"xc	0(8,%r15), 0(%r15)\n" /* clear backchain                                */
 		"brasl	%r14, _start_c\n"     /* transfer to c runtime                          */
 	);
 	__nolibc_entrypoint_epilogue();
 }
+#endif /* NOLIBC_NO_RUNTIME */
 
 struct s390_mmap_arg_struct {
 	unsigned long addr;
@@ -188,5 +189,12 @@ pid_t sys_fork(void)
 	return my_syscall5(__NR_clone, 0, SIGCHLD, 0, 0, 0);
 }
 #define sys_fork sys_fork
+
+static __attribute__((unused))
+pid_t sys_vfork(void)
+{
+	return my_syscall5(__NR_clone, 0, CLONE_VM | CLONE_VFORK | SIGCHLD, 0, 0, 0);
+}
+#define sys_vfork sys_vfork
 
 #endif /* _NOLIBC_ARCH_S390_H */

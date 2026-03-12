@@ -18,7 +18,6 @@
 static void dwmac4_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 {
 	u32 value = readl(ioaddr + DMA_SYS_BUS_MODE);
-	int i;
 
 	pr_info("dwmac4: Master AXI performs %s burst length\n",
 		(value & DMA_SYS_BUS_FB) ? "fixed" : "any");
@@ -28,43 +27,17 @@ static void dwmac4_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 	if (axi->axi_xit_frm)
 		value |= DMA_AXI_LPI_XIT_FRM;
 
-	value &= ~DMA_AXI_WR_OSR_LMT;
-	value |= (axi->axi_wr_osr_lmt & DMA_AXI_OSR_MAX) <<
-		 DMA_AXI_WR_OSR_LMT_SHIFT;
-
-	value &= ~DMA_AXI_RD_OSR_LMT;
-	value |= (axi->axi_rd_osr_lmt & DMA_AXI_OSR_MAX) <<
-		 DMA_AXI_RD_OSR_LMT_SHIFT;
+	value = u32_replace_bits(value, axi->axi_wr_osr_lmt,
+				 DMA_AXI_WR_OSR_LMT);
+	value = u32_replace_bits(value, axi->axi_rd_osr_lmt,
+				 DMA_AXI_RD_OSR_LMT);
 
 	/* Depending on the UNDEF bit the Master AXI will perform any burst
 	 * length according to the BLEN programmed (by default all BLEN are
-	 * set).
+	 * set). Note that the UNDEF bit is readonly, and is the inverse of
+	 * Bus Mode bit 16.
 	 */
-	for (i = 0; i < AXI_BLEN; i++) {
-		switch (axi->axi_blen[i]) {
-		case 256:
-			value |= DMA_AXI_BLEN256;
-			break;
-		case 128:
-			value |= DMA_AXI_BLEN128;
-			break;
-		case 64:
-			value |= DMA_AXI_BLEN64;
-			break;
-		case 32:
-			value |= DMA_AXI_BLEN32;
-			break;
-		case 16:
-			value |= DMA_AXI_BLEN16;
-			break;
-		case 8:
-			value |= DMA_AXI_BLEN8;
-			break;
-		case 4:
-			value |= DMA_AXI_BLEN4;
-			break;
-		}
-	}
+	value = (value & ~DMA_AXI_BLEN_MASK) | axi->axi_blen_regval;
 
 	writel(value, ioaddr + DMA_SYS_BUS_MODE);
 }
@@ -79,7 +52,7 @@ static void dwmac4_dma_init_rx_chan(struct stmmac_priv *priv,
 	u32 rxpbl = dma_cfg->rxpbl ?: dma_cfg->pbl;
 
 	value = readl(ioaddr + DMA_CHAN_RX_CONTROL(dwmac4_addrs, chan));
-	value = value | (rxpbl << DMA_BUS_MODE_RPBL_SHIFT);
+	value = value | FIELD_PREP(DMA_CHAN_RX_CTRL_RXPBL_MASK, rxpbl);
 	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(dwmac4_addrs, chan));
 
 	if (IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT) && likely(dma_cfg->eame))
@@ -100,7 +73,7 @@ static void dwmac4_dma_init_tx_chan(struct stmmac_priv *priv,
 	u32 txpbl = dma_cfg->txpbl ?: dma_cfg->pbl;
 
 	value = readl(ioaddr + DMA_CHAN_TX_CONTROL(dwmac4_addrs, chan));
-	value = value | (txpbl << DMA_BUS_MODE_PBL_SHIFT);
+	value = value | FIELD_PREP(DMA_CHAN_TX_CTRL_TXPBL_MASK, txpbl);
 
 	/* Enable OSP to get best performance */
 	value |= DMA_CONTROL_OSP;
@@ -125,7 +98,7 @@ static void dwmac4_dma_init_channel(struct stmmac_priv *priv,
 	/* common channel control register config */
 	value = readl(ioaddr + DMA_CHAN_CONTROL(dwmac4_addrs, chan));
 	if (dma_cfg->pblx8)
-		value = value | DMA_BUS_MODE_PBL;
+		value = value | DMA_CHAN_CTRL_PBLX8;
 	writel(value, ioaddr + DMA_CHAN_CONTROL(dwmac4_addrs, chan));
 
 	/* Mask interrupts by writing to CSR7 */
@@ -143,7 +116,7 @@ static void dwmac410_dma_init_channel(struct stmmac_priv *priv,
 	/* common channel control register config */
 	value = readl(ioaddr + DMA_CHAN_CONTROL(dwmac4_addrs, chan));
 	if (dma_cfg->pblx8)
-		value = value | DMA_BUS_MODE_PBL;
+		value = value | DMA_CHAN_CTRL_PBLX8;
 
 	writel(value, ioaddr + DMA_CHAN_CONTROL(dwmac4_addrs, chan));
 
@@ -175,10 +148,9 @@ static void dwmac4_dma_init(void __iomem *ioaddr,
 
 	value = readl(ioaddr + DMA_BUS_MODE);
 
-	if (dma_cfg->multi_msi_en) {
-		value &= ~DMA_BUS_MODE_INTM_MASK;
-		value |= (DMA_BUS_MODE_INTM_MODE1 << DMA_BUS_MODE_INTM_SHIFT);
-	}
+	if (dma_cfg->multi_msi_en)
+		value = u32_replace_bits(value, DMA_BUS_MODE_INTM_MODE1,
+					 DMA_BUS_MODE_INTM_MASK);
 
 	if (dma_cfg->dche)
 		value |= DMA_BUS_MODE_DCHE;
@@ -288,7 +260,7 @@ static void dwmac4_dma_rx_chan_op_mode(struct stmmac_priv *priv,
 	}
 
 	mtl_rx_op &= ~MTL_OP_MODE_RQS_MASK;
-	mtl_rx_op |= rqs << MTL_OP_MODE_RQS_SHIFT;
+	mtl_rx_op |= FIELD_PREP(MTL_OP_MODE_RQS_MASK, rqs);
 
 	/* Enable flow control only if each channel gets 4 KiB or more FIFO and
 	 * only if channel is not an AVB channel.
@@ -319,11 +291,10 @@ static void dwmac4_dma_rx_chan_op_mode(struct stmmac_priv *priv,
 			break;
 		}
 
-		mtl_rx_op &= ~MTL_OP_MODE_RFD_MASK;
-		mtl_rx_op |= rfd << MTL_OP_MODE_RFD_SHIFT;
-
-		mtl_rx_op &= ~MTL_OP_MODE_RFA_MASK;
-		mtl_rx_op |= rfa << MTL_OP_MODE_RFA_SHIFT;
+		mtl_rx_op = u32_replace_bits(mtl_rx_op, rfd,
+					     MTL_OP_MODE_RFD_MASK);
+		mtl_rx_op = u32_replace_bits(mtl_rx_op, rfa,
+					     MTL_OP_MODE_RFA_MASK);
 	}
 
 	writel(mtl_rx_op, ioaddr + MTL_CHAN_RX_OP_MODE(dwmac4_addrs, channel));
@@ -378,8 +349,8 @@ static void dwmac4_dma_tx_chan_op_mode(struct stmmac_priv *priv,
 		mtl_tx_op |= MTL_OP_MODE_TXQEN;
 	else
 		mtl_tx_op |= MTL_OP_MODE_TXQEN_AV;
-	mtl_tx_op &= ~MTL_OP_MODE_TQS_MASK;
-	mtl_tx_op |= tqs << MTL_OP_MODE_TQS_SHIFT;
+
+	mtl_tx_op = u32_replace_bits(mtl_tx_op, tqs, MTL_OP_MODE_TQS_MASK);
 
 	writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(dwmac4_addrs, channel));
 }
@@ -410,6 +381,8 @@ static int dwmac4_get_hw_feature(void __iomem *ioaddr,
 	dma_cap->rx_coe =  (hw_cap & GMAC_HW_FEAT_RXCOESEL) >> 16;
 	dma_cap->vlins = (hw_cap & GMAC_HW_FEAT_SAVLANINS) >> 27;
 	dma_cap->arpoffsel = (hw_cap & GMAC_HW_FEAT_ARPOFFSEL) >> 9;
+
+	dma_cap->actphyif = FIELD_GET(DMA_HW_FEAT_ACTPHYIF, hw_cap);
 
 	/* MAC HW feature1 */
 	hw_cap = readl(ioaddr + GMAC_HW_FEATURE1);
@@ -520,8 +493,7 @@ static void dwmac4_set_bfsize(struct stmmac_priv *priv, void __iomem *ioaddr,
 	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs;
 	u32 value = readl(ioaddr + DMA_CHAN_RX_CONTROL(dwmac4_addrs, chan));
 
-	value &= ~DMA_RBSZ_MASK;
-	value |= (bfsize << DMA_RBSZ_SHIFT) & DMA_RBSZ_MASK;
+	value = u32_replace_bits(value, bfsize, DMA_RBSZ_MASK);
 
 	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(dwmac4_addrs, chan));
 }

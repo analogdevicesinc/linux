@@ -11,7 +11,6 @@
 #include <drm/drm_print.h>
 
 #include "i915_reg.h"
-#include "i915_utils.h"
 #include "i9xx_plane.h"
 #include "i9xx_plane_regs.h"
 #include "intel_atomic.h"
@@ -19,10 +18,10 @@
 #include "intel_display_irq.h"
 #include "intel_display_regs.h"
 #include "intel_display_types.h"
+#include "intel_display_utils.h"
 #include "intel_fb.h"
 #include "intel_fbc.h"
 #include "intel_frontbuffer.h"
-#include "intel_panic.h"
 #include "intel_plane.h"
 #include "intel_sprite.h"
 
@@ -134,7 +133,7 @@ static struct intel_fbc *i9xx_plane_fbc(struct intel_display *display,
 					enum i9xx_plane_id i9xx_plane)
 {
 	if (i9xx_plane_has_fbc(display, i9xx_plane))
-		return display->fbc[INTEL_FBC_A];
+		return display->fbc.instances[INTEL_FBC_A];
 	else
 		return NULL;
 }
@@ -724,7 +723,7 @@ static bool i9xx_plane_get_hw_state(struct intel_plane *plane,
 	struct intel_display *display = to_intel_display(plane);
 	enum intel_display_power_domain power_domain;
 	enum i9xx_plane_id i9xx_plane = plane->i9xx_plane;
-	intel_wakeref_t wakeref;
+	struct ref_tracker *wakeref;
 	bool ret;
 	u32 val;
 
@@ -754,10 +753,9 @@ static bool i9xx_plane_get_hw_state(struct intel_plane *plane,
 
 static unsigned int
 hsw_primary_max_stride(struct intel_plane *plane,
-		       u32 pixel_format, u64 modifier,
-		       unsigned int rotation)
+		       const struct drm_format_info *info,
+		       u64 modifier, unsigned int rotation)
 {
-	const struct drm_format_info *info = drm_format_info(pixel_format);
 	int cpp = info->cpp[0];
 
 	/* Limit to 8k pixels to guarantee OFFSET.x doesn't get too big. */
@@ -766,10 +764,9 @@ hsw_primary_max_stride(struct intel_plane *plane,
 
 static unsigned int
 ilk_primary_max_stride(struct intel_plane *plane,
-		       u32 pixel_format, u64 modifier,
-		       unsigned int rotation)
+		       const struct drm_format_info *info,
+		       u64 modifier, unsigned int rotation)
 {
-	const struct drm_format_info *info = drm_format_info(pixel_format);
 	int cpp = info->cpp[0];
 
 	/* Limit to 4k pixels to guarantee TILEOFF.x doesn't get too big. */
@@ -781,10 +778,9 @@ ilk_primary_max_stride(struct intel_plane *plane,
 
 unsigned int
 i965_plane_max_stride(struct intel_plane *plane,
-		      u32 pixel_format, u64 modifier,
-		      unsigned int rotation)
+		      const struct drm_format_info *info,
+		      u64 modifier, unsigned int rotation)
 {
-	const struct drm_format_info *info = drm_format_info(pixel_format);
 	int cpp = info->cpp[0];
 
 	/* Limit to 4k pixels to guarantee TILEOFF.x doesn't get too big. */
@@ -796,8 +792,8 @@ i965_plane_max_stride(struct intel_plane *plane,
 
 static unsigned int
 i915_plane_max_stride(struct intel_plane *plane,
-		      u32 pixel_format, u64 modifier,
-		      unsigned int rotation)
+		      const struct drm_format_info *info,
+		      u64 modifier, unsigned int rotation)
 {
 	if (modifier == I915_FORMAT_MOD_X_TILED)
 		return 8 * 1024;
@@ -807,8 +803,8 @@ i915_plane_max_stride(struct intel_plane *plane,
 
 static unsigned int
 i8xx_plane_max_stride(struct intel_plane *plane,
-		      u32 pixel_format, u64 modifier,
-		      unsigned int rotation)
+		      const struct drm_format_info *info,
+		      u64 modifier, unsigned int rotation)
 {
 	if (plane->i9xx_plane == PLANE_C)
 		return 4 * 1024;
@@ -822,7 +818,7 @@ unsigned int vlv_plane_min_alignment(struct intel_plane *plane,
 {
 	struct intel_display *display = to_intel_display(plane);
 
-	if (intel_plane_can_async_flip(plane, fb->format->format, fb->modifier))
+	if (intel_plane_can_async_flip(plane, fb->format, fb->modifier))
 		return 256 * 1024;
 
 	/* FIXME undocumented so not sure what's actually needed */
@@ -846,7 +842,7 @@ static unsigned int g4x_primary_min_alignment(struct intel_plane *plane,
 {
 	struct intel_display *display = to_intel_display(plane);
 
-	if (intel_plane_can_async_flip(plane, fb->format->format, fb->modifier))
+	if (intel_plane_can_async_flip(plane, fb->format, fb->modifier))
 		return 256 * 1024;
 
 	if (intel_scanout_needs_vtd_wa(display))
@@ -1191,10 +1187,8 @@ i9xx_get_initial_plane_config(struct intel_crtc *crtc,
 	val = intel_de_read(display, DSPCNTR(display, i9xx_plane));
 
 	if (DISPLAY_VER(display) >= 4) {
-		if (val & DISP_TILED) {
-			plane_config->tiling = I915_TILING_X;
+		if (val & DISP_TILED)
 			fb->modifier = I915_FORMAT_MOD_X_TILED;
-		}
 
 		if (val & DISP_ROTATE_180)
 			plane_config->rotation = DRM_MODE_ROTATE_180;
@@ -1206,14 +1200,15 @@ i9xx_get_initial_plane_config(struct intel_crtc *crtc,
 
 	pixel_format = val & DISP_FORMAT_MASK;
 	fourcc = i9xx_format_to_fourcc(pixel_format);
-	fb->format = drm_format_info(fourcc);
+
+	fb->format = drm_get_format_info(display->drm, fourcc, fb->modifier);
 
 	if (display->platform.haswell || display->platform.broadwell) {
 		offset = intel_de_read(display,
 				       DSPOFFSET(display, i9xx_plane));
 		base = intel_de_read(display, DSPSURF(display, i9xx_plane)) & DISP_ADDR_MASK;
 	} else if (DISPLAY_VER(display) >= 4) {
-		if (plane_config->tiling)
+		if (fb->modifier == I915_FORMAT_MOD_X_TILED)
 			offset = intel_de_read(display,
 					       DSPTILEOFF(display, i9xx_plane));
 		else

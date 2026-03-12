@@ -49,17 +49,12 @@ struct owl_divider {
 		},							\
 	}
 
-static inline struct owl_divider *hw_to_owl_divider(const struct clk_hw *hw)
+static inline struct owl_divider *hw_to_owl_divider(struct clk_hw *hw)
 {
 	struct owl_clk_common *common = hw_to_owl_clk_common(hw);
 
 	return container_of(common, struct owl_divider, common);
 }
-
-long owl_divider_helper_round_rate(struct owl_clk_common *common,
-				const struct owl_divider_hw *div_hw,
-				unsigned long rate,
-				unsigned long *parent_rate);
 
 unsigned long owl_divider_helper_recalc_rate(struct owl_clk_common *common,
 					 const struct owl_divider_hw *div_hw,

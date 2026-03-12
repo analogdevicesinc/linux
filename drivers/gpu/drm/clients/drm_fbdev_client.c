@@ -13,22 +13,36 @@
  * struct drm_client_funcs
  */
 
+static void drm_fbdev_client_free(struct drm_client_dev *client)
+{
+	struct drm_fb_helper *fb_helper = drm_fb_helper_from_client(client);
+
+	drm_fb_helper_unprepare(fb_helper);
+	kfree(fb_helper);
+}
+
 static void drm_fbdev_client_unregister(struct drm_client_dev *client)
 {
 	struct drm_fb_helper *fb_helper = drm_fb_helper_from_client(client);
 
 	if (fb_helper->info) {
+		/*
+		 * Fully probed framebuffer device
+		 */
 		drm_fb_helper_unregister_info(fb_helper);
 	} else {
+		/*
+		 * Partially initialized client, no framebuffer device yet
+		 */
 		drm_client_release(&fb_helper->client);
-		drm_fb_helper_unprepare(fb_helper);
-		kfree(fb_helper);
 	}
 }
 
-static int drm_fbdev_client_restore(struct drm_client_dev *client)
+static int drm_fbdev_client_restore(struct drm_client_dev *client, bool force)
 {
-	drm_fb_helper_lastclose(client->dev);
+	struct drm_fb_helper *fb_helper = drm_fb_helper_from_client(client);
+
+	drm_fb_helper_restore_fbdev_mode_unlocked(fb_helper, force);
 
 	return 0;
 }
@@ -62,32 +76,27 @@ err_drm_err:
 	return ret;
 }
 
-static int drm_fbdev_client_suspend(struct drm_client_dev *client, bool holds_console_lock)
+static int drm_fbdev_client_suspend(struct drm_client_dev *client)
 {
 	struct drm_fb_helper *fb_helper = drm_fb_helper_from_client(client);
 
-	if (holds_console_lock)
-		drm_fb_helper_set_suspend(fb_helper, true);
-	else
-		drm_fb_helper_set_suspend_unlocked(fb_helper, true);
+	drm_fb_helper_set_suspend_unlocked(fb_helper, true);
 
 	return 0;
 }
 
-static int drm_fbdev_client_resume(struct drm_client_dev *client, bool holds_console_lock)
+static int drm_fbdev_client_resume(struct drm_client_dev *client)
 {
 	struct drm_fb_helper *fb_helper = drm_fb_helper_from_client(client);
 
-	if (holds_console_lock)
-		drm_fb_helper_set_suspend(fb_helper, false);
-	else
-		drm_fb_helper_set_suspend_unlocked(fb_helper, false);
+	drm_fb_helper_set_suspend_unlocked(fb_helper, false);
 
 	return 0;
 }
 
 static const struct drm_client_funcs drm_fbdev_client_funcs = {
 	.owner		= THIS_MODULE,
+	.free		= drm_fbdev_client_free,
 	.unregister	= drm_fbdev_client_unregister,
 	.restore	= drm_fbdev_client_restore,
 	.hotplug	= drm_fbdev_client_hotplug,
@@ -145,7 +154,7 @@ int drm_fbdev_client_setup(struct drm_device *dev, const struct drm_format_info 
 	drm_WARN(dev, !dev->registered, "Device has not been registered.\n");
 	drm_WARN(dev, dev->fb_helper, "fb_helper is already set!\n");
 
-	fb_helper = kzalloc(sizeof(*fb_helper), GFP_KERNEL);
+	fb_helper = kzalloc_obj(*fb_helper);
 	if (!fb_helper)
 		return -ENOMEM;
 	drm_fb_helper_prepare(dev, fb_helper, color_mode, NULL);

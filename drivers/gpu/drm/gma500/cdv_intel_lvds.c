@@ -14,6 +14,7 @@
 
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_modeset_helper_vtables.h>
+#include <drm/drm_print.h>
 #include <drm/drm_simple_kms_helper.h>
 
 #include "cdv_device.h"
@@ -500,17 +501,15 @@ void cdv_intel_lvds_init(struct drm_device *dev,
 		return;
 	}
 
-	gma_encoder = kzalloc(sizeof(struct gma_encoder),
-				    GFP_KERNEL);
+	gma_encoder = kzalloc_obj(struct gma_encoder);
 	if (!gma_encoder)
 		return;
 
-	gma_connector = kzalloc(sizeof(struct gma_connector),
-				      GFP_KERNEL);
+	gma_connector = kzalloc_obj(struct gma_connector);
 	if (!gma_connector)
 		goto err_free_encoder;
 
-	lvds_priv = kzalloc(sizeof(struct cdv_intel_lvds_priv), GFP_KERNEL);
+	lvds_priv = kzalloc_obj(struct cdv_intel_lvds_priv);
 	if (!lvds_priv)
 		goto err_free_connector;
 

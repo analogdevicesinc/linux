@@ -1262,7 +1262,7 @@ static int atkbd_connect(struct serio *serio, struct serio_driver *drv)
 	struct input_dev *dev;
 	int err = -ENOMEM;
 
-	atkbd = kzalloc(sizeof(*atkbd), GFP_KERNEL);
+	atkbd = kzalloc_obj(*atkbd);
 	dev = input_allocate_device();
 	if (!atkbd || !dev)
 		goto fail1;
@@ -1913,6 +1913,13 @@ static const struct dmi_system_id atkbd_dmi_quirk_table[] __initconst = {
 	{
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "LG Electronics"),
+		},
+		.callback = atkbd_deactivate_fixup,
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HONOR"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "FMB-P"),
 		},
 		.callback = atkbd_deactivate_fixup,
 	},

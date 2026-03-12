@@ -822,6 +822,8 @@ static int parse_thread_groups(struct device_node *dn,
 
 	count = of_property_count_u32_elems(dn, "ibm,thread-groups");
 	thread_group_array = kcalloc(count, sizeof(u32), GFP_KERNEL);
+	if (!thread_group_array)
+		return -ENOMEM;
 	ret = of_property_read_u32_array(dn, "ibm,thread-groups",
 					 thread_group_array, count);
 	if (ret)
@@ -1085,6 +1087,29 @@ static int __init init_big_cores(void)
 	return 0;
 }
 
+/*
+ * die_mask and die_id are only available on systems which support
+ * multiple coregroups within a same package. On all other systems, die_mask
+ * would be same as package mask and die_id would be set to -1.
+ */
+const struct cpumask *cpu_die_mask(int cpu)
+{
+	if (has_coregroup_support())
+		return per_cpu(cpu_coregroup_map, cpu);
+	else
+		return cpu_node_mask(cpu);
+}
+EXPORT_SYMBOL_GPL(cpu_die_mask);
+
+int cpu_die_id(int cpu)
+{
+	if (has_coregroup_support())
+		return cpu_to_coregroup_id(cpu);
+	else
+		return -1;
+}
+EXPORT_SYMBOL_GPL(cpu_die_id);
+
 void __init smp_prepare_cpus(unsigned int max_cpus)
 {
 	unsigned int cpu, num_threads;
@@ -1147,7 +1172,7 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 		 * Assumption: if boot_cpuid doesn't have a chip-id, then no
 		 * other CPUs, will also not have chip-id.
 		 */
-		chip_id_lookup_table = kcalloc(idx, sizeof(int), GFP_KERNEL);
+		chip_id_lookup_table = kzalloc_objs(int, idx);
 		if (chip_id_lookup_table)
 			memset(chip_id_lookup_table, -1, sizeof(int) * idx);
 	}

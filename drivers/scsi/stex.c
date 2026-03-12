@@ -593,7 +593,7 @@ stex_sdev_configure(struct scsi_device *sdev, struct queue_limits *lim)
 	return 0;
 }
 
-static int stex_queuecommand_lck(struct scsi_cmnd *cmd)
+static enum scsi_qc_status stex_queuecommand_lck(struct scsi_cmnd *cmd)
 {
 	void (*done)(struct scsi_cmnd *) = scsi_done;
 	struct st_hba *hba;
@@ -1757,7 +1757,7 @@ static int stex_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		}
 	}
 
-	hba->ccb = kcalloc(ci->rq_count, sizeof(struct st_ccb), GFP_KERNEL);
+	hba->ccb = kzalloc_objs(struct st_ccb, ci->rq_count);
 	if (!hba->ccb) {
 		err = -ENOMEM;
 		printk(KERN_ERR DRV_NAME "(%s): ccb alloc failed\n",
@@ -1844,6 +1844,7 @@ out_release_regions:
 out_scsi_host_put:
 	scsi_host_put(host);
 out_disable:
+	unregister_reboot_notifier(&stex_notifier);
 	pci_disable_device(pdev);
 
 	return err;
@@ -1965,6 +1966,7 @@ static int stex_choice_sleep_mic(struct st_hba *hba, pm_message_t state)
 	case PM_EVENT_SUSPEND:
 		return ST_S3;
 	case PM_EVENT_HIBERNATE:
+	case PM_EVENT_POWEROFF:
 		hba->msi_lock = 0;
 		return ST_S4;
 	default:

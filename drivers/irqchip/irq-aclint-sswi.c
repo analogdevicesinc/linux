@@ -109,9 +109,11 @@ static int __init aclint_sswi_probe(struct fwnode_handle *fwnode)
 	if (!is_of_node(fwnode))
 		return -EINVAL;
 
-	reg = of_iomap(to_of_node(fwnode), 0);
-	if (!reg)
-		return -ENOMEM;
+	reg = of_io_request_and_map(to_of_node(fwnode), 0, NULL);
+	if (IS_ERR(reg)) {
+		pr_err("%pfwP: Failed to map MMIO region\n", fwnode);
+		return PTR_ERR(reg);
+	}
 
 	/* Parse SSWI setting */
 	rc = aclint_sswi_parse_irq(fwnode, reg);
@@ -175,7 +177,8 @@ static int __init generic_aclint_sswi_early_probe(struct device_node *node,
 {
 	return generic_aclint_sswi_probe(&node->fwnode);
 }
-IRQCHIP_DECLARE(generic_aclint_sswi, "mips,p8700-aclint-sswi", generic_aclint_sswi_early_probe);
+IRQCHIP_DECLARE(mips_p8700_sswi, "mips,p8700-aclint-sswi", generic_aclint_sswi_early_probe);
+IRQCHIP_DECLARE(nuclei_ux900_sswi, "nuclei,ux900-aclint-sswi", generic_aclint_sswi_early_probe);
 
 /* THEAD variant */
 #define THEAD_C9XX_CSR_SXSTATUS			0x5c0

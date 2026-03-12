@@ -290,7 +290,7 @@ static void mtu3_csr_init(struct mtu3 *mtu)
 
 	/* delay about 0.1us from detecting reset to send chirp-K */
 	mtu3_clrbits(mbase, U3D_LINK_RESET_INFO, WTCHRP_MSK);
-	/* enable automatical HWRW from L1 */
+	/* enable automatic HWRW from L1 */
 	mtu3_setbits(mbase, U3D_POWER_MANAGEMENT, LPM_HRWE);
 }
 
@@ -613,7 +613,7 @@ static int mtu3_mem_alloc(struct mtu3 *mtu)
 
 	/* one for ep0, another is reserved */
 	mtu->num_eps = min(in_ep_num, out_ep_num) + 1;
-	ep_array = kcalloc(mtu->num_eps * 2, sizeof(*ep_array), GFP_KERNEL);
+	ep_array = kzalloc_objs(*ep_array, mtu->num_eps * 2);
 	if (ep_array == NULL)
 		return -ENOMEM;
 

@@ -15,6 +15,18 @@
 #include <asm/kvm_nacl.h>
 #include <asm/sbi.h>
 
+DEFINE_STATIC_KEY_FALSE(kvm_riscv_vsstage_tlb_no_gpa);
+
+static void kvm_riscv_setup_vendor_features(void)
+{
+	/* Andes AX66: split two-stage TLBs */
+	if (riscv_cached_mvendorid(0) == ANDES_VENDOR_ID &&
+	    (riscv_cached_marchid(0) & 0xFFFF) == 0x8A66) {
+		static_branch_enable(&kvm_riscv_vsstage_tlb_no_gpa);
+		kvm_info("VS-stage TLB does not cache guest physical address and VMID\n");
+	}
+}
+
 long kvm_arch_dev_ioctl(struct file *filp,
 			unsigned int ioctl, unsigned long arg)
 {
@@ -160,7 +172,9 @@ static int __init riscv_kvm_init(void)
 		kvm_info("AIA available with %d guest external interrupts\n",
 			 kvm_riscv_aia_nr_hgei);
 
-	kvm_register_perf_callbacks(NULL);
+	kvm_riscv_setup_vendor_features();
+
+	kvm_register_perf_callbacks();
 
 	rc = kvm_init(sizeof(struct kvm_vcpu), 0, THIS_MODULE);
 	if (rc) {

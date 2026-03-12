@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <sched.h>
@@ -48,24 +47,16 @@ timerlat_apply_config(struct osnoise_tool *tool, struct timerlat_params *params)
 		}
 	}
 
-	if (params->mode != TRACING_MODE_BPF) {
-		/*
-		 * In tracefs and mixed mode, timerlat tracer handles stopping
-		 * on threshold
-		 */
-		retval = osnoise_set_stop_us(tool->context, params->common.stop_us);
-		if (retval) {
-			err_msg("Failed to set stop us\n");
+	/* Check if BPF action program is requested but BPF is not available */
+	if (params->bpf_action_program) {
+		if (params->mode == TRACING_MODE_TRACEFS) {
+			err_msg("BPF actions are not supported in tracefs-only mode\n");
 			goto out_err;
 		}
 
-		retval = osnoise_set_stop_total_us(tool->context, params->common.stop_total_us);
-		if (retval) {
-			err_msg("Failed to set stop total us\n");
+		if (timerlat_load_bpf_action_program(params->bpf_action_program))
 			goto out_err;
-		}
 	}
-
 
 	retval = osnoise_set_timerlat_period_us(tool->context,
 						params->timerlat_period_us ?
@@ -126,9 +117,7 @@ int timerlat_enable(struct osnoise_tool *tool)
 
 		nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
 
-		for (i = 0; i < nr_cpus; i++) {
-			if (params->common.cpus && !CPU_ISSET(i, &params->common.monitored_cpus))
-				continue;
+		for_each_monitored_cpu(i, nr_cpus, &params->common) {
 			if (save_cpu_idle_disable_state(i) < 0) {
 				err_msg("Could not save cpu idle state.\n");
 				return -1;
@@ -186,6 +175,16 @@ int timerlat_enable(struct osnoise_tool *tool)
 		}
 	}
 
+	/*
+	 * In tracefs and mixed mode, timerlat tracer handles stopping
+	 * on threshold
+	 */
+	if (params->mode != TRACING_MODE_BPF) {
+		retval = osn_set_stop(tool);
+		if (retval)
+			return retval;
+	}
+
 	return 0;
 }
 
@@ -215,16 +214,14 @@ void timerlat_analyze(struct osnoise_tool *tool, bool stopped)
 void timerlat_free(struct osnoise_tool *tool)
 {
 	struct timerlat_params *params = to_timerlat_params(tool->params);
-	int nr_cpus, i;
+	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
+	int i;
 
 	timerlat_aa_destroy();
 	if (dma_latency_fd >= 0)
 		close(dma_latency_fd);
 	if (params->deepest_idle_state >= -1) {
-		for (i = 0; i < nr_cpus; i++) {
-			if (params->common.cpus &&
-			    !CPU_ISSET(i, &params->common.monitored_cpus))
-				continue;
+		for_each_monitored_cpu(i, nr_cpus, &params->common) {
 			restore_cpu_idle_disable_state(i);
 		}
 	}

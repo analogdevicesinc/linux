@@ -7,6 +7,8 @@
 #include <linux/bitmap.h>
 #include <linux/string_helpers.h>
 
+#include <drm/drm_print.h>
+
 #include "i915_drv.h"
 #include "intel_gt_debugfs.h"
 #include "intel_gt_regs.h"
@@ -291,8 +293,8 @@ DEFINE_INTEL_GT_DEBUGFS_ATTRIBUTE(sseu_topology);
 void intel_sseu_debugfs_register(struct intel_gt *gt, struct dentry *root)
 {
 	static const struct intel_gt_debugfs_file files[] = {
-		{ "sseu_status", &sseu_status_fops, NULL },
-		{ "sseu_topology", &sseu_topology_fops, NULL },
+		{ .name = "sseu_status", .fops = &sseu_status_fops },
+		{ .name = "sseu_topology", .fops = &sseu_topology_fops },
 	};
 
 	intel_gt_debugfs_register_files(root, files, ARRAY_SIZE(files), gt);

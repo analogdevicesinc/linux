@@ -50,6 +50,9 @@ config HAVE_DYNAMIC_FTRACE_WITH_REGS
 config HAVE_DYNAMIC_FTRACE_WITH_DIRECT_CALLS
 	bool
 
+config HAVE_SINGLE_FTRACE_DIRECT_OPS
+	bool
+
 config HAVE_DYNAMIC_FTRACE_WITH_CALL_OPS
 	bool
 
@@ -79,6 +82,12 @@ config HAVE_DYNAMIC_FTRACE_NO_PATCHABLE
 	help
 	  If the architecture generates __patchable_function_entries sections
 	  but does not want them included in the ftrace locations.
+
+config HAVE_DYNAMIC_FTRACE_WITH_JMP
+	bool
+	help
+	  If the architecture supports to replace the __fentry__ with a
+	  "jmp" instruction.
 
 config HAVE_SYSCALL_TRACEPOINTS
 	bool
@@ -127,6 +136,7 @@ config BUILDTIME_MCOUNT_SORT
 
 config TRACER_MAX_TRACE
 	bool
+	select TRACER_SNAPSHOT
 
 config TRACE_CLOCK
 	bool
@@ -330,6 +340,26 @@ config DYNAMIC_FTRACE_WITH_ARGS
 	depends on DYNAMIC_FTRACE
 	depends on HAVE_DYNAMIC_FTRACE_WITH_ARGS
 
+config DYNAMIC_FTRACE_WITH_JMP
+	def_bool y
+	depends on DYNAMIC_FTRACE
+	depends on DYNAMIC_FTRACE_WITH_DIRECT_CALLS
+	depends on HAVE_DYNAMIC_FTRACE_WITH_JMP
+
+config FUNCTION_SELF_TRACING
+	bool "Function trace tracing code"
+	depends on FUNCTION_TRACER
+	help
+	  Normally all the tracing code is set to notrace, where the function
+	  tracer will ignore all the tracing functions. Sometimes it is useful
+	  for debugging to trace some of the tracing infratructure itself.
+	  Enable this to allow some of the tracing infrastructure to be traced
+	  by the function tracer. Note, this will likely add noise to function
+	  tracing if events and other tracing features are enabled along with
+	  function tracing.
+
+	  If unsure, say N.
+
 config FPROBE
 	bool "Kernel Function Probe (fprobe)"
 	depends on HAVE_FUNCTION_GRAPH_FREGS && HAVE_FTRACE_GRAPH_FUNC
@@ -396,7 +426,6 @@ config IRQSOFF_TRACER
 	select GENERIC_TRACER
 	select TRACER_MAX_TRACE
 	select RING_BUFFER_ALLOW_SWAP
-	select TRACER_SNAPSHOT
 	select TRACER_SNAPSHOT_PER_CPU_SWAP
 	help
 	  This option measures the time spent in irqs-off critical
@@ -419,7 +448,6 @@ config PREEMPT_TRACER
 	select GENERIC_TRACER
 	select TRACER_MAX_TRACE
 	select RING_BUFFER_ALLOW_SWAP
-	select TRACER_SNAPSHOT
 	select TRACER_SNAPSHOT_PER_CPU_SWAP
 	select TRACE_PREEMPT_TOGGLE
 	help
@@ -441,7 +469,6 @@ config SCHED_TRACER
 	select GENERIC_TRACER
 	select CONTEXT_SWITCH_TRACER
 	select TRACER_MAX_TRACE
-	select TRACER_SNAPSHOT
 	help
 	  This tracer tracks the latency of the highest priority task
 	  to be scheduled in, starting from the point it has woken up.
@@ -575,15 +602,31 @@ config FTRACE_SYSCALLS
 	help
 	  Basic tracer to catch the syscall entry and exit events.
 
+config TRACE_SYSCALL_BUF_SIZE_DEFAULT
+	int "System call user read max size"
+	range 0 165
+	default 63
+	depends on FTRACE_SYSCALLS
+	help
+	 Some system call trace events will record the data from a user
+	 space address that one of the parameters point to. The amount of
+	 data per event is limited. That limit is set by this config and
+	 this config also affects how much user space data perf can read.
+
+	 For a tracing instance, this size may be changed by writing into
+	 its syscall_user_buf_size file.
+
 config TRACER_SNAPSHOT
 	bool "Create a snapshot trace buffer"
-	select TRACER_MAX_TRACE
 	help
 	  Allow tracing users to take snapshot of the current buffer using the
 	  ftrace interface, e.g.:
 
 	      echo 1 > /sys/kernel/tracing/snapshot
 	      cat snapshot
+
+	  Note, the latency tracers select this option. To disable it,
+	  all the latency tracers need to be disabled.
 
 config TRACER_SNAPSHOT_PER_CPU_SWAP
 	bool "Allow snapshot to swap per CPU"

@@ -7,6 +7,16 @@
 #include "bpf_tracing_net.h"
 #include "bpf_misc.h"
 
+/* clang considers 'sum += 1' as usage but 'sum++' as non-usage.  GCC
+ * is more consistent and considers both 'sum += 1' and 'sum++' as
+ * non-usage.  This triggers warnings in the functions below.
+ *
+ * Starting with GCC 16 -Wunused-but-set-variable=2 can be used to
+ * mimic clang's behavior.  */
+#if !defined(__clang__) && __GNUC__ > 15
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
+
 char _license[] SEC("license") = "GPL";
 
 struct {
@@ -266,6 +276,46 @@ int nested_rcu_region(void *ctx)
 
 	/* nested rcu read lock regions */
 	task = bpf_get_current_task_btf();
+	bpf_rcu_read_lock();
+	bpf_rcu_read_lock();
+	real_parent = task->real_parent;
+	if (!real_parent)
+		goto out;
+	(void)bpf_task_storage_get(&map_a, real_parent, 0, 0);
+out:
+	bpf_rcu_read_unlock();
+	bpf_rcu_read_unlock();
+	return 0;
+}
+
+SEC("?fentry.s/" SYS_PREFIX "sys_nanosleep")
+int nested_rcu_region_unbalanced_1(void *ctx)
+{
+	struct task_struct *task, *real_parent;
+
+	/* nested rcu read lock regions */
+	task = bpf_get_current_task_btf();
+	bpf_rcu_read_lock();
+	bpf_rcu_read_lock();
+	real_parent = task->real_parent;
+	if (!real_parent)
+		goto out;
+	(void)bpf_task_storage_get(&map_a, real_parent, 0, 0);
+out:
+	bpf_rcu_read_unlock();
+	bpf_rcu_read_unlock();
+	bpf_rcu_read_unlock();
+	return 0;
+}
+
+SEC("?fentry.s/" SYS_PREFIX "sys_nanosleep")
+int nested_rcu_region_unbalanced_2(void *ctx)
+{
+	struct task_struct *task, *real_parent;
+
+	/* nested rcu read lock regions */
+	task = bpf_get_current_task_btf();
+	bpf_rcu_read_lock();
 	bpf_rcu_read_lock();
 	bpf_rcu_read_lock();
 	real_parent = task->real_parent;

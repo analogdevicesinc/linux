@@ -97,17 +97,32 @@ config AD5421
 	  ad5421.
 
 config AD5446
-	tristate "Analog Devices AD5446 and similar single channel DACs driver"
-	depends on (SPI_MASTER && I2C!=m) || I2C
+	tristate
+
+config AD5446_SPI
+	tristate "Analog Devices AD5446 and similar single channel DACs driver (SPI)"
+	depends on SPI
+	select AD5446
 	help
-	  Say yes here to build support for Analog Devices AD5300, AD5301, AD5310,
-	  AD5311, AD5320, AD5321, AD5444, AD5446, AD5450, AD5451, AD5452, AD5453,
-	  AD5512A, AD5541A, AD5542A, AD5543, AD5553, AD5600, AD5601, AD5602, AD5611,
-	  AD5612, AD5620, AD5621, AD5622, AD5640, AD5641, AD5660, AD5662 DACs
-	  as well as Texas Instruments DAC081S101, DAC101S101, DAC121S101.
+	  Say yes here to build support for Analog Devices AD5300, AD5310,
+	  AD5320, AD5444, AD5446, AD5450, AD5451, AD5452, AD5453, AD5512A,
+	  AD5541A, AD5542A, AD5543, AD5553, AD5600, AD5601, AD5611, AD5620,
+	  AD5621, AD5640, AD5641, AD5660, AD5662 DACs as well as
+	  Texas Instruments DAC081S101, DAC101S101, DAC121S101.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called ad5446.
+	  module will be called ad5446-spi.
+
+config AD5446_I2C
+	tristate "Analog Devices AD5446 and similar single channel DACs driver (I2C)"
+	depends on I2C
+	select AD5446
+	help
+	  Say yes here to build support for Analog Devices AD5301, AD5311, AD5321,
+	  AD5602, AD5612, AD5622 DACs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad5446-i2c.
 
 config AD5449
 	tristate "Analog Devices AD5449 and similar DACs driver"
@@ -467,6 +482,19 @@ config MAX517
 	  This driver can also be built as a module.  If so, the module
 	  will be called max517.
 
+config MAX22007
+	tristate "Analog Devices MAX22007 DAC Driver"
+	depends on SPI
+	select REGMAP_SPI
+	select CRC8
+	help
+	  Say Y here if you want to build a driver for Analog Devices MAX22007.
+
+	  MAX22007 is a quad-channel, 12-bit, voltage-output digital to
+	  analog converter (DAC) with SPI interface.
+
+	  If compiled as a module, it will be called max22007.
+
 config MAX5522
 	tristate "Maxim MAX5522 DAC driver"
 	depends on SPI_MASTER
@@ -508,6 +536,26 @@ config MCP4728
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called mcp4728.
+
+config MCP47FEB02
+	tristate "MCP47F(E/V)B01/02/04/08/11/12/14/18/21/22/24/28 DAC driver"
+	depends on I2C
+	help
+	  Say yes here if you want to build the driver for the Microchip:
+	  - 8-bit DAC:
+	    MCP47FEB01, MCP47FEB02, MCP47FEB04, MCP47FEB08,
+	    MCP47FVB01, MCP47FVB02, MCP47FVB04, MCP47FVB08
+	  - 10-bit DAC:
+	    MCP47FEB11, MCP47FEB12, MCP47FEB14, MCP47FEB18,
+	    MCP47FVB11, MCP47FVB12, MCP47FVB14, MCP47FVB18
+	  - 12-bit DAC:
+	    MCP47FEB21, MCP47FEB22, MCP47FEB24, MCP47FEB28,
+	    MCP47FVB21, MCP47FVB22, MCP47FVB24, MCP47FVB28
+	  having 1 to 8 channels, 8/10/12-bit digital-to-analog converter
+	  (DAC) with I2C interface.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called mcp47feb02.
 
 config MCP4821
 	tristate "MCP4801/02/11/12/21/22 DAC driver"

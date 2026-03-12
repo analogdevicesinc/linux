@@ -511,6 +511,7 @@ static const struct nvme_ctrl_ops nvme_loop_ctrl_ops = {
 	.submit_async_event	= nvme_loop_submit_async_event,
 	.delete_ctrl		= nvme_loop_delete_ctrl_host,
 	.get_address		= nvmf_get_address,
+	.get_virt_boundary	= nvme_get_virt_boundary,
 };
 
 static int nvme_loop_create_io_queues(struct nvme_loop_ctrl *ctrl)
@@ -564,7 +565,7 @@ static struct nvme_ctrl *nvme_loop_create_ctrl(struct device *dev,
 	struct nvme_loop_ctrl *ctrl;
 	int ret;
 
-	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
+	ctrl = kzalloc_obj(*ctrl);
 	if (!ctrl)
 		return ERR_PTR(-ENOMEM);
 	ctrl->ctrl.opts = opts;
@@ -591,8 +592,7 @@ static struct nvme_ctrl *nvme_loop_create_ctrl(struct device *dev,
 	ctrl->ctrl.kato = opts->kato;
 	ctrl->port = nvme_loop_find_port(&ctrl->ctrl);
 
-	ctrl->queues = kcalloc(opts->nr_io_queues + 1, sizeof(*ctrl->queues),
-			GFP_KERNEL);
+	ctrl->queues = kzalloc_objs(*ctrl->queues, opts->nr_io_queues + 1);
 	if (!ctrl->queues)
 		goto out_uninit_ctrl;
 

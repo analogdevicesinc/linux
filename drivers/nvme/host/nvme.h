@@ -180,6 +180,60 @@ enum nvme_quirks {
 	NVME_QUIRK_DMAPOOL_ALIGN_512		= (1 << 22),
 };
 
+static inline char *nvme_quirk_name(enum nvme_quirks q)
+{
+	switch (q) {
+	case NVME_QUIRK_STRIPE_SIZE:
+		return "stripe_size";
+	case NVME_QUIRK_IDENTIFY_CNS:
+		return "identify_cns";
+	case NVME_QUIRK_DEALLOCATE_ZEROES:
+		return "deallocate_zeroes";
+	case NVME_QUIRK_DELAY_BEFORE_CHK_RDY:
+		return "delay_before_chk_rdy";
+	case NVME_QUIRK_NO_APST:
+		return "no_apst";
+	case NVME_QUIRK_NO_DEEPEST_PS:
+		return "no_deepest_ps";
+	case NVME_QUIRK_QDEPTH_ONE:
+		return "qdepth_one";
+	case NVME_QUIRK_MEDIUM_PRIO_SQ:
+		return "medium_prio_sq";
+	case NVME_QUIRK_IGNORE_DEV_SUBNQN:
+		return "ignore_dev_subnqn";
+	case NVME_QUIRK_DISABLE_WRITE_ZEROES:
+		return "disable_write_zeroes";
+	case NVME_QUIRK_SIMPLE_SUSPEND:
+		return "simple_suspend";
+	case NVME_QUIRK_SINGLE_VECTOR:
+		return "single_vector";
+	case NVME_QUIRK_128_BYTES_SQES:
+		return "128_bytes_sqes";
+	case NVME_QUIRK_SHARED_TAGS:
+		return "shared_tags";
+	case NVME_QUIRK_NO_TEMP_THRESH_CHANGE:
+		return "no_temp_thresh_change";
+	case NVME_QUIRK_NO_NS_DESC_LIST:
+		return "no_ns_desc_list";
+	case NVME_QUIRK_DMA_ADDRESS_BITS_48:
+		return "dma_address_bits_48";
+	case NVME_QUIRK_SKIP_CID_GEN:
+		return "skip_cid_gen";
+	case NVME_QUIRK_BOGUS_NID:
+		return "bogus_nid";
+	case NVME_QUIRK_NO_SECONDARY_TEMP_THRESH:
+		return "no_secondary_temp_thresh";
+	case NVME_QUIRK_FORCE_NO_SIMPLE_SUSPEND:
+		return "force_no_simple_suspend";
+	case NVME_QUIRK_BROKEN_MSI:
+		return "broken_msi";
+	case NVME_QUIRK_DMAPOOL_ALIGN_512:
+		return "dmapool_align_512";
+	}
+
+	return "unknown";
+}
+
 /*
  * Common request structure for NVMe passthrough.  All drivers must have
  * this structure as the first member of their request-private data.
@@ -410,6 +464,8 @@ struct nvme_ctrl {
 
 	enum nvme_ctrl_type cntrltype;
 	enum nvme_dctype dctype;
+
+	u16			awupf; /* 0's based value. */
 };
 
 static inline enum nvme_ctrl_state nvme_ctrl_state(struct nvme_ctrl *ctrl)
@@ -442,7 +498,6 @@ struct nvme_subsystem {
 	u8			cmic;
 	enum nvme_subsys_type	subtype;
 	u16			vendor_id;
-	u16			awupf; /* 0's based value. */
 	struct ida		ns_ida;
 #ifdef CONFIG_NVME_MULTIPATH
 	enum nvme_iopolicy	iopolicy;
@@ -558,6 +613,12 @@ static inline bool nvme_ns_has_pi(struct nvme_ns_head *head)
 	return head->pi_type && head->ms == head->pi_size;
 }
 
+static inline unsigned long nvme_get_virt_boundary(struct nvme_ctrl *ctrl,
+						   bool is_admin)
+{
+	return NVME_CTRL_PAGE_SIZE - 1;
+}
+
 struct nvme_ctrl_ops {
 	const char *name;
 	struct module *module;
@@ -578,6 +639,7 @@ struct nvme_ctrl_ops {
 	int (*get_address)(struct nvme_ctrl *ctrl, char *buf, int size);
 	void (*print_device_info)(struct nvme_ctrl *ctrl);
 	bool (*supports_pci_p2pdma)(struct nvme_ctrl *ctrl);
+	unsigned long (*get_virt_boundary)(struct nvme_ctrl *ctrl, bool is_admin);
 };
 
 /*
@@ -1108,7 +1170,7 @@ struct nvme_zone_info {
 };
 
 int nvme_ns_report_zones(struct nvme_ns *ns, sector_t sector,
-		unsigned int nr_zones, report_zones_cb cb, void *data);
+		unsigned int nr_zones, struct blk_report_zones_args *args);
 int nvme_query_zone_info(struct nvme_ns *ns, unsigned lbaf,
 		struct nvme_zone_info *zi);
 void nvme_update_zone_info(struct nvme_ns *ns, struct queue_limits *lim,

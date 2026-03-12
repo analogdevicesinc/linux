@@ -779,13 +779,13 @@ static struct inode *afs_do_lookup(struct inode *dir, struct dentry *dentry)
 	struct afs_vnode *dvnode = AFS_FS_I(dir), *vnode;
 	struct inode *inode = NULL, *ti;
 	afs_dataversion_t data_version = READ_ONCE(dvnode->status.data_version);
-	bool supports_ibulk;
+	bool supports_ibulk, isnew;
 	long ret;
 	int i;
 
 	_enter("{%lu},%p{%pd},", dir->i_ino, dentry, dentry);
 
-	cookie = kzalloc(sizeof(struct afs_lookup_cookie), GFP_KERNEL);
+	cookie = kzalloc_obj(struct afs_lookup_cookie);
 	if (!cookie)
 		return ERR_PTR(-ENOMEM);
 
@@ -834,9 +834,8 @@ static struct inode *afs_do_lookup(struct inode *dir, struct dentry *dentry)
 
 	/* Need space for examining all the selected files */
 	if (op->nr_files > 2) {
-		op->more_files = kvcalloc(op->nr_files - 2,
-					  sizeof(struct afs_vnode_param),
-					  GFP_KERNEL);
+		op->more_files = kvzalloc_objs(struct afs_vnode_param,
+					       op->nr_files - 2);
 		if (!op->more_files) {
 			afs_op_nomem(op);
 			goto out_op;
@@ -850,7 +849,7 @@ static struct inode *afs_do_lookup(struct inode *dir, struct dentry *dentry)
 			 * callback counters.
 			 */
 			ti = ilookup5_nowait(dir->i_sb, vp->fid.vnode,
-					     afs_ilookup5_test_by_fid, &vp->fid);
+					     afs_ilookup5_test_by_fid, &vp->fid, &isnew);
 			if (!IS_ERR_OR_NULL(ti)) {
 				vnode = AFS_FS_I(ti);
 				vp->dv_before = vnode->status.data_version;
@@ -2095,7 +2094,7 @@ static int afs_rename(struct mnt_idmap *idmap, struct inode *old_dir,
 		goto error;
 
 	ret = -ENOMEM;
-	op->more_files = kvcalloc(2, sizeof(struct afs_vnode_param), GFP_KERNEL);
+	op->more_files = kvzalloc_objs(struct afs_vnode_param, 2);
 	if (!op->more_files)
 		goto error;
 

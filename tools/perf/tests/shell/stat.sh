@@ -5,6 +5,21 @@
 set -e
 
 err=0
+stat_output=$(mktemp /tmp/perf-stat-test-output.XXXXX)
+
+cleanup() {
+  rm -f "${stat_output}"
+  trap - EXIT TERM INT
+}
+
+trap_cleanup() {
+  echo "Unexpected signal in ${FUNCNAME[1]}"
+  cleanup
+  exit 1
+}
+
+trap trap_cleanup EXIT TERM INT
+
 test_default_stat() {
   echo "Basic stat command test"
   if ! perf stat true 2>&1 | grep -E -q "Performance counter stats for 'true':"
@@ -16,9 +31,46 @@ test_default_stat() {
   echo "Basic stat command test [Success]"
 }
 
+test_null_stat() {
+  echo "Null stat command test"
+  if ! perf stat --null true 2>&1 | grep -E -q "Performance counter stats for 'true':"
+  then
+    echo "Null stat command test [Failed]"
+    err=1
+    return
+  fi
+  echo "Null stat command test [Success]"
+}
+
+find_offline_cpu() {
+  for i in $(seq 1 4096)
+  do
+    if [[ ! -f /sys/devices/system/cpu/cpu$i/online || \
+          $(cat /sys/devices/system/cpu/cpu$i/online) == "0" ]]
+    then
+      echo $i
+      return
+    fi
+  done
+  echo "Failed to find offline CPU"
+  exit 1
+}
+
+test_offline_cpu_stat() {
+  cpu=$(find_offline_cpu)
+  echo "Offline CPU stat command test (cpu $cpu)"
+  if ! perf stat "-C$cpu" -e cycles true 2>&1 | grep -E -q "No supported events found."
+  then
+    echo "Offline CPU stat command test [Failed]"
+    err=1
+    return
+  fi
+  echo "Offline CPU stat command test [Success]"
+}
+
 test_stat_record_report() {
   echo "stat record and report test"
-  if ! perf stat record -o - true | perf stat report -i - 2>&1 | \
+  if ! perf stat record -e task-clock -o - true | perf stat report -i - 2>&1 | \
     grep -E -q "Performance counter stats for 'pipe':"
   then
     echo "stat record and report test [Failed]"
@@ -30,7 +82,7 @@ test_stat_record_report() {
 
 test_stat_record_script() {
   echo "stat record and script test"
-  if ! perf stat record -o - true | perf script -i - 2>&1 | \
+  if ! perf stat record -e task-clock -o - true | perf script -i - 2>&1 | \
     grep -E -q "CPU[[:space:]]+THREAD[[:space:]]+VAL[[:space:]]+ENA[[:space:]]+RUN[[:space:]]+TIME[[:space:]]+EVENT"
   then
     echo "stat record and script test [Failed]"
@@ -196,7 +248,7 @@ test_hybrid() {
   fi
 
   # Run default Perf stat
-  cycles_events=$(perf stat -- true 2>&1 | grep -E "/cycles/[uH]*|  cycles[:uH]*  " -c)
+  cycles_events=$(perf stat -a -- sleep 0.1 2>&1 | grep -E "/cpu-cycles/[uH]*|  cpu-cycles[:uH]*  "  | wc -l)
 
   # The expectation is that default output will have a cycles events on each
   # hybrid PMU. In situations with no cycles PMU events, like virtualized, this
@@ -211,7 +263,229 @@ test_hybrid() {
   echo "hybrid test [Success]"
 }
 
+test_stat_cpu() {
+  echo "stat -C <cpu> test"
+  # Test the full online CPU list (ranges and lists)
+  online_cpus=$(cat /sys/devices/system/cpu/online)
+  if ! perf stat -C "$online_cpus" -a true > "${stat_output}" 2>&1
+  then
+    echo "stat -C <cpu> test [Failed - command failed for cpus $online_cpus]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  if ! grep -E -q "Performance counter stats for" "${stat_output}"
+  then
+    echo "stat -C <cpu> test [Failed - missing output for cpus $online_cpus]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  # Test each individual online CPU
+  for cpu_dir in /sys/devices/system/cpu/cpu[0-9]*; do
+    cpu=${cpu_dir##*/cpu}
+    # Check if online
+    if [ -f "$cpu_dir/online" ] && [ "$(cat "$cpu_dir/online")" -eq 0 ]
+    then
+      continue
+    fi
+
+    if ! perf stat -C "$cpu" -a true > "${stat_output}" 2>&1
+    then
+      echo "stat -C <cpu> test [Failed - command failed for cpu $cpu]"
+      cat "${stat_output}"
+      err=1
+      return
+    fi
+    if ! grep -E -q "Performance counter stats for" "${stat_output}"
+    then
+      echo "stat -C <cpu> test [Failed - missing output for cpu $cpu]"
+      cat "${stat_output}"
+      err=1
+      return
+    fi
+  done
+
+  # Test synthetic list and range if cpu0 and cpu1 are online
+  c0_online=0
+  c1_online=0
+  if [ -d "/sys/devices/system/cpu/cpu0" ]
+  then
+    if [ ! -f "/sys/devices/system/cpu/cpu0/online" ] || [ "$(cat /sys/devices/system/cpu/cpu0/online)" -eq 1 ]
+    then
+      c0_online=1
+    fi
+  fi
+  if [ -d "/sys/devices/system/cpu/cpu1" ]
+  then
+    if [ ! -f "/sys/devices/system/cpu/cpu1/online" ] || [ "$(cat /sys/devices/system/cpu/cpu1/online)" -eq 1 ]
+    then
+      c1_online=1
+    fi
+  fi
+
+  if [ $c0_online -eq 1 ] && [ $c1_online -eq 1 ]
+  then
+    # Test list "0,1"
+    if ! perf stat -C "0,1" -a true > "${stat_output}" 2>&1
+    then
+      echo "stat -C <cpu> test [Failed - command failed for cpus 0,1]"
+      cat "${stat_output}"
+      err=1
+      return
+    fi
+    if ! grep -E -q "Performance counter stats for" "${stat_output}"
+    then
+      echo "stat -C <cpu> test [Failed - missing output for cpus 0,1]"
+      cat "${stat_output}"
+      err=1
+      return
+    fi
+
+    # Test range "0-1"
+    if ! perf stat -C "0-1" -a true > "${stat_output}" 2>&1
+    then
+      echo "stat -C <cpu> test [Failed - command failed for cpus 0-1]"
+      cat "${stat_output}"
+      err=1
+      return
+    fi
+    if ! grep -E -q "Performance counter stats for" "${stat_output}"
+    then
+      echo "stat -C <cpu> test [Failed - missing output for cpus 0-1]"
+      cat "${stat_output}"
+      err=1
+      return
+    fi
+  fi
+
+  echo "stat -C <cpu> test [Success]"
+}
+
+test_stat_no_aggr() {
+  echo "stat -A test"
+  if ! perf stat -A -a true > "${stat_output}" 2>&1
+  then
+    echo "stat -A test [Failed - command failed]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  if ! grep -E -q "CPU" "${stat_output}"
+  then
+    echo "stat -A test [Failed - missing CPU column]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+  echo "stat -A test [Success]"
+}
+
+test_stat_detailed() {
+  echo "stat -d test"
+  if ! perf stat -d true > "${stat_output}" 2>&1
+  then
+    echo "stat -d test [Failed - command failed]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  if ! grep -E -q "Performance counter stats" "${stat_output}"
+  then
+    echo "stat -d test [Failed - missing output]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  if ! perf stat -dd true > "${stat_output}" 2>&1
+  then
+    echo "stat -dd test [Failed - command failed]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  if ! grep -E -q "Performance counter stats" "${stat_output}"
+  then
+    echo "stat -dd test [Failed - missing output]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  if ! perf stat -ddd true > "${stat_output}" 2>&1
+  then
+    echo "stat -ddd test [Failed - command failed]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  if ! grep -E -q "Performance counter stats" "${stat_output}"
+  then
+    echo "stat -ddd test [Failed - missing output]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  echo "stat -d test [Success]"
+}
+
+test_stat_repeat() {
+  echo "stat -r test"
+  if ! perf stat -r 2 true > "${stat_output}" 2>&1
+  then
+    echo "stat -r test [Failed - command failed]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+
+  if ! grep -E -q "\([[:space:]]*\+-.*%[[:space:]]*\)" "${stat_output}"
+  then
+    echo "stat -r test [Failed - missing variance]"
+    cat "${stat_output}"
+    err=1
+    return
+  fi
+  echo "stat -r test [Success]"
+}
+
+test_stat_pid() {
+  echo "stat -p test"
+  sleep 1 &
+  pid=$!
+  if ! perf stat -p $pid > "${stat_output}" 2>&1
+  then
+    echo "stat -p test [Failed - command failed]"
+    cat "${stat_output}"
+    err=1
+    kill $pid 2>/dev/null || true
+    wait $pid 2>/dev/null || true
+    return
+  fi
+
+  if ! grep -E -q "Performance counter stats" "${stat_output}"
+  then
+    echo "stat -p test [Failed - missing output]"
+    cat "${stat_output}"
+    err=1
+  else
+    echo "stat -p test [Success]"
+  fi
+  kill $pid 2>/dev/null || true
+  wait $pid 2>/dev/null || true
+}
+
 test_default_stat
+test_null_stat
+test_offline_cpu_stat
 test_stat_record_report
 test_stat_record_script
 test_stat_repeat_weak_groups
@@ -219,4 +493,11 @@ test_topdown_groups
 test_topdown_weak_groups
 test_cputype
 test_hybrid
+test_stat_cpu
+test_stat_no_aggr
+test_stat_detailed
+test_stat_repeat
+test_stat_pid
+
+cleanup
 exit $err

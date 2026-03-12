@@ -197,7 +197,7 @@ static int qnx4_fill_super(struct super_block *s, struct fs_context *fc)
 	struct qnx4_sb_info *qs;
 	int silent = fc->sb_flags & SB_SILENT;
 
-	qs = kzalloc(sizeof(struct qnx4_sb_info), GFP_KERNEL);
+	qs = kzalloc_obj(struct qnx4_sb_info);
 	if (!qs)
 		return -ENOMEM;
 	s->s_fs_info = qs;
@@ -290,7 +290,7 @@ struct inode *qnx4_iget(struct super_block *sb, unsigned long ino)
 	inode = iget_locked(sb, ino);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
-	if (!(inode->i_state & I_NEW))
+	if (!(inode_state_read_once(inode) & I_NEW))
 		return inode;
 
 	qnx4_inode = qnx4_raw_inode(inode);

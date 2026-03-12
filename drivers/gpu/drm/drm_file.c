@@ -136,7 +136,7 @@ struct drm_file *drm_file_alloc(struct drm_minor *minor)
 	struct drm_file *file;
 	int ret;
 
-	file = kzalloc(sizeof(*file), GFP_KERNEL);
+	file = kzalloc_obj(*file);
 	if (!file)
 		return ERR_PTR(-ENOMEM);
 
@@ -405,7 +405,7 @@ EXPORT_SYMBOL(drm_open);
 
 static void drm_lastclose(struct drm_device *dev)
 {
-	drm_client_dev_restore(dev);
+	drm_client_dev_restore(dev, false);
 
 	if (dev_is_pci(dev->dev))
 		vga_switcheroo_process_delayed_switch();

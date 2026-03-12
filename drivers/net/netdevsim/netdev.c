@@ -133,15 +133,21 @@ static netdev_tx_t nsim_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (!nsim_ipsec_tx(ns, skb))
 		goto out_drop_any;
 
-	peer_ns = rcu_dereference(ns->peer);
-	if (!peer_ns)
-		goto out_drop_any;
+	/* Check if loopback mode is enabled */
+	if (dev->features & NETIF_F_LOOPBACK) {
+		peer_ns = ns;
+		peer_dev = dev;
+	} else {
+		peer_ns = rcu_dereference(ns->peer);
+		if (!peer_ns)
+			goto out_drop_any;
+		peer_dev = peer_ns->netdev;
+	}
 
 	dr = nsim_do_psp(skb, ns, peer_ns, &psp_ext);
 	if (dr)
 		goto out_drop_free;
 
-	peer_dev = peer_ns->netdev;
 	rxq = skb_get_queue_mapping(skb);
 	if (rxq >= peer_dev->num_rx_queues)
 		rxq = rxq % peer_dev->num_rx_queues;
@@ -433,13 +439,8 @@ static int nsim_rcv(struct nsim_rq *rq, int budget)
 		}
 
 		/* skb might be discard at netif_receive_skb, save the len */
-		skblen = skb->len;
-		skb_mark_napi_id(skb, &rq->napi);
-		ret = netif_receive_skb(skb);
-		if (ret == NET_RX_SUCCESS)
-			dev_dstats_rx_add(dev, skblen);
-		else
-			dev_dstats_rx_dropped(dev);
+		dev_dstats_rx_add(dev, skb->len);
+		napi_gro_receive(&rq->napi, skb);
 	}
 
 	nsim_start_peer_tx_queue(dev, rq);
@@ -722,7 +723,7 @@ static struct nsim_rq *nsim_queue_alloc(void)
 {
 	struct nsim_rq *rq;
 
-	rq = kzalloc(sizeof(*rq), GFP_KERNEL_ACCOUNT);
+	rq = kzalloc_obj(*rq, GFP_KERNEL_ACCOUNT);
 	if (!rq)
 		return NULL;
 
@@ -757,7 +758,9 @@ struct nsim_queue_mem {
 };
 
 static int
-nsim_queue_mem_alloc(struct net_device *dev, void *per_queue_mem, int idx)
+nsim_queue_mem_alloc(struct net_device *dev,
+		     struct netdev_queue_config *qcfg,
+		     void *per_queue_mem, int idx)
 {
 	struct nsim_queue_mem *qmem = per_queue_mem;
 	struct netdevsim *ns = netdev_priv(dev);
@@ -806,7 +809,8 @@ static void nsim_queue_mem_free(struct net_device *dev, void *per_queue_mem)
 }
 
 static int
-nsim_queue_start(struct net_device *dev, void *per_queue_mem, int idx)
+nsim_queue_start(struct net_device *dev, struct netdev_queue_config *qcfg,
+		 void *per_queue_mem, int idx)
 {
 	struct nsim_queue_mem *qmem = per_queue_mem;
 	struct netdevsim *ns = netdev_priv(dev);
@@ -981,7 +985,8 @@ static void nsim_setup(struct net_device *dev)
 			    NETIF_F_FRAGLIST |
 			    NETIF_F_HW_CSUM |
 			    NETIF_F_LRO |
-			    NETIF_F_TSO;
+			    NETIF_F_TSO |
+			    NETIF_F_LOOPBACK;
 	dev->pcpu_stat_type = NETDEV_PCPU_STAT_DSTATS;
 	dev->max_mtu = ETH_MAX_MTU;
 	dev->xdp_features = NETDEV_XDP_ACT_BASIC | NETDEV_XDP_ACT_HW_OFFLOAD;
@@ -992,8 +997,7 @@ static int nsim_queue_init(struct netdevsim *ns)
 	struct net_device *dev = ns->netdev;
 	int i;
 
-	ns->rq = kcalloc(dev->num_rx_queues, sizeof(*ns->rq),
-			 GFP_KERNEL_ACCOUNT);
+	ns->rq = kzalloc_objs(*ns->rq, dev->num_rx_queues, GFP_KERNEL_ACCOUNT);
 	if (!ns->rq)
 		return -ENOMEM;
 

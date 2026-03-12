@@ -4,6 +4,7 @@
  */
 
 #include <linux/kthread.h>
+#include <linux/minmax.h>
 #include <linux/socket.h>
 #include <linux/scatterlist.h>
 
@@ -16,7 +17,7 @@ void stub_enqueue_ret_unlink(struct stub_device *sdev, __u32 seqnum,
 {
 	struct stub_unlink *unlink;
 
-	unlink = kzalloc(sizeof(struct stub_unlink), GFP_ATOMIC);
+	unlink = kzalloc_obj(struct stub_unlink, GFP_ATOMIC);
 	if (!unlink) {
 		usbip_event_add(&sdev->ud, VDEV_EVENT_ERROR_MALLOC);
 		return;
@@ -54,8 +55,8 @@ void stub_complete(struct urb *urb)
 			 "stopped by a call to usb_kill_urb() because of cleaning up a virtual connection\n");
 		return;
 	case -ECONNRESET:
-		dev_info(&urb->dev->dev,
-			 "unlinked by a call to usb_unlink_urb()\n");
+		dev_dbg(&urb->dev->dev,
+			"unlinked by a call to usb_unlink_urb()\n");
 		break;
 	case -EPIPE:
 		dev_info(&urb->dev->dev, "endpoint %d is stalled\n",
@@ -190,7 +191,7 @@ static int stub_send_ret_submit(struct stub_device *sdev)
 		else
 			iovnum = 2;
 
-		iov = kcalloc(iovnum, sizeof(struct kvec), GFP_KERNEL);
+		iov = kzalloc_objs(struct kvec, iovnum);
 
 		if (!iov) {
 			usbip_event_add(&sdev->ud, SDEV_EVENT_ERROR_MALLOC);
@@ -239,17 +240,13 @@ static int stub_send_ret_submit(struct stub_device *sdev)
 		    urb->actual_length > 0) {
 			if (urb->num_sgs) {
 				unsigned int copy = urb->actual_length;
-				int size;
+				unsigned int size;
 
 				for_each_sg(urb->sg, sg, urb->num_sgs, i) {
 					if (copy == 0)
 						break;
 
-					if (copy < sg->length)
-						size = copy;
-					else
-						size = sg->length;
-
+					size = min(copy, sg->length);
 					iov[iovnum].iov_base = sg_virt(sg);
 					iov[iovnum].iov_len = size;
 

@@ -7,8 +7,7 @@
  * Copyright IBM Corp. 2002, 2023
  */
 
-#define KMSG_COMPONENT "zfcp"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "zfcp: " fmt
 
 #include <linux/blktrace_api.h>
 #include <linux/jiffies.h>
@@ -807,7 +806,7 @@ static struct zfcp_fsf_req *zfcp_fsf_alloc(mempool_t *pool)
 	if (likely(pool))
 		req = mempool_alloc(pool, GFP_ATOMIC);
 	else
-		req = kmalloc(sizeof(*req), GFP_ATOMIC);
+		req = kmalloc_obj(*req, GFP_ATOMIC);
 
 	if (unlikely(!req))
 		return NULL;

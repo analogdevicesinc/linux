@@ -7,8 +7,7 @@
  * Copyright IBM Corp. 2002, 2023
  */
 
-#define KMSG_COMPONENT "zfcp"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "zfcp: " fmt
 
 #include <linux/module.h>
 #include <linux/ctype.h>
@@ -817,7 +816,7 @@ int zfcp_dbf_adapter_register(struct zfcp_adapter *adapter)
 	char name[DEBUG_MAX_NAME_LEN];
 	struct zfcp_dbf *dbf;
 
-	dbf = kzalloc(sizeof(struct zfcp_dbf), GFP_KERNEL);
+	dbf = kzalloc_obj(struct zfcp_dbf);
 	if (!dbf)
 		return -ENOMEM;
 

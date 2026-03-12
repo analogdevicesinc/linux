@@ -691,22 +691,13 @@ static bool __maybe_unused mlx5_ib_shared_ft_allowed(struct ib_device *device)
 	return MLX5_CAP_GEN(dev->mdev, shared_object_to_user_object_allowed);
 }
 
-static struct mlx5_ib_flow_prio *_get_prio(struct mlx5_ib_dev *dev,
-					   struct mlx5_flow_namespace *ns,
+static struct mlx5_ib_flow_prio *_get_prio(struct mlx5_flow_namespace *ns,
 					   struct mlx5_ib_flow_prio *prio,
-					   int priority,
-					   int num_entries, int num_groups,
-					   u32 flags, u16 vport)
+					   struct mlx5_flow_table_attr *ft_attr)
 {
-	struct mlx5_flow_table_attr ft_attr = {};
 	struct mlx5_flow_table *ft;
 
-	ft_attr.prio = priority;
-	ft_attr.max_fte = num_entries;
-	ft_attr.flags = flags;
-	ft_attr.vport = vport;
-	ft_attr.autogroup.max_num_groups = num_groups;
-	ft = mlx5_create_auto_grouped_flow_table(ns, &ft_attr);
+	ft = mlx5_create_auto_grouped_flow_table(ns, ft_attr);
 	if (IS_ERR(ft))
 		return ERR_CAST(ft);
 
@@ -720,6 +711,7 @@ static struct mlx5_ib_flow_prio *get_flow_table(struct mlx5_ib_dev *dev,
 						enum flow_table_type ft_type)
 {
 	bool dont_trap = flow_attr->flags & IB_FLOW_ATTR_FLAGS_DONT_TRAP;
+	struct mlx5_flow_table_attr ft_attr = {};
 	struct mlx5_flow_namespace *ns = NULL;
 	enum mlx5_flow_namespace_type fn_type;
 	struct mlx5_ib_flow_prio *prio;
@@ -797,11 +789,14 @@ static struct mlx5_ib_flow_prio *get_flow_table(struct mlx5_ib_dev *dev,
 	max_table_size = min_t(int, num_entries, max_table_size);
 
 	ft = prio->flow_table;
-	if (!ft)
-		return _get_prio(dev, ns, prio, priority, max_table_size,
-				 num_groups, flags, 0);
+	if (ft)
+		return prio;
 
-	return prio;
+	ft_attr.prio = priority;
+	ft_attr.max_fte = max_table_size;
+	ft_attr.flags = flags;
+	ft_attr.autogroup.max_num_groups = num_groups;
+	return _get_prio(ns, prio, &ft_attr);
 }
 
 enum {
@@ -950,6 +945,7 @@ static int get_per_qp_prio(struct mlx5_ib_dev *dev,
 			   enum mlx5_ib_optional_counter_type type)
 {
 	enum mlx5_ib_optional_counter_type per_qp_type;
+	struct mlx5_flow_table_attr ft_attr = {};
 	enum mlx5_flow_namespace_type fn_type;
 	struct mlx5_flow_namespace *ns;
 	struct mlx5_ib_flow_prio *prio;
@@ -1003,7 +999,10 @@ static int get_per_qp_prio(struct mlx5_ib_dev *dev,
 	if (prio->flow_table)
 		return 0;
 
-	prio = _get_prio(dev, ns, prio, priority, MLX5_FS_MAX_POOL_SIZE, 1, 0, 0);
+	ft_attr.prio = priority;
+	ft_attr.max_fte = MLX5_FS_MAX_POOL_SIZE;
+	ft_attr.autogroup.max_num_groups = 1;
+	prio = _get_prio(ns, prio, &ft_attr);
 	if (IS_ERR(prio))
 		return PTR_ERR(prio);
 
@@ -1022,7 +1021,7 @@ static struct mlx5_per_qp_opfc *get_per_qp_opfc(struct xarray *qpn_opfc_xa,
 	per_qp_opfc = xa_load(qpn_opfc_xa, qp_num);
 	if (per_qp_opfc)
 		return per_qp_opfc;
-	per_qp_opfc = kzalloc(sizeof(*per_qp_opfc), GFP_KERNEL);
+	per_qp_opfc = kzalloc_obj(*per_qp_opfc);
 
 	if (!per_qp_opfc)
 		return NULL;
@@ -1058,7 +1057,7 @@ static int add_op_fc_rules(struct mlx5_ib_dev *dev,
 
 	opfc->fc = fc_arr[type];
 
-	spec = kcalloc(MAX_OPFC_RULES, sizeof(*spec), GFP_KERNEL);
+	spec = kzalloc_objs(*spec, MAX_OPFC_RULES);
 	if (!spec) {
 		err = -ENOMEM;
 		goto null_fc;
@@ -1223,6 +1222,7 @@ int mlx5_ib_fs_add_op_fc(struct mlx5_ib_dev *dev, u32 port_num,
 			 struct mlx5_ib_op_fc *opfc,
 			 enum mlx5_ib_optional_counter_type type)
 {
+	struct mlx5_flow_table_attr ft_attr = {};
 	enum mlx5_flow_namespace_type fn_type;
 	int priority, i, err, spec_num;
 	struct mlx5_flow_act flow_act = {};
@@ -1231,7 +1231,7 @@ int mlx5_ib_fs_add_op_fc(struct mlx5_ib_dev *dev, u32 port_num,
 	struct mlx5_ib_flow_prio *prio;
 	struct mlx5_flow_spec *spec;
 
-	spec = kcalloc(MAX_OPFC_RULES, sizeof(*spec), GFP_KERNEL);
+	spec = kzalloc_objs(*spec, MAX_OPFC_RULES);
 	if (!spec)
 		return -ENOMEM;
 
@@ -1304,8 +1304,10 @@ int mlx5_ib_fs_add_op_fc(struct mlx5_ib_dev *dev, u32 port_num,
 		if (err)
 			goto free;
 
-		prio = _get_prio(dev, ns, prio, priority,
-				 dev->num_ports * MAX_OPFC_RULES, 1, 0, 0);
+		ft_attr.prio = priority;
+		ft_attr.max_fte = dev->num_ports * MAX_OPFC_RULES;
+		ft_attr.autogroup.max_num_groups = 1;
+		prio = _get_prio(ns, prio, &ft_attr);
 		if (IS_ERR(prio)) {
 			err = PTR_ERR(prio);
 			goto put_prio;
@@ -1530,8 +1532,8 @@ static struct mlx5_ib_flow_handler *_create_flow_rule(struct mlx5_ib_dev *dev,
 	if (dev->is_rep && is_egress)
 		return ERR_PTR(-EINVAL);
 
-	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
-	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
+	spec = kvzalloc_obj(*spec);
+	handler = kzalloc_obj(*handler);
 	if (!handler || !spec) {
 		err = -ENOMEM;
 		goto free;
@@ -1790,7 +1792,7 @@ static struct ib_flow *mlx5_ib_create_flow(struct ib_qp *qp,
 		goto free_ucmd;
 	}
 
-	dst = kzalloc(sizeof(*dst), GFP_KERNEL);
+	dst = kzalloc_obj(*dst);
 	if (!dst) {
 		err = -ENOMEM;
 		goto free_ucmd;
@@ -1872,7 +1874,7 @@ static int mlx5_ib_fill_transport_ns_info(struct mlx5_ib_dev *dev,
 					  u32 *flags, u16 *vport_idx,
 					  u16 *vport,
 					  struct mlx5_core_dev **ft_mdev,
-					  u32 ib_port)
+					  u32 ib_port, u16 *esw_owner_vhca_id)
 {
 	struct mlx5_core_dev *esw_mdev;
 
@@ -1886,8 +1888,13 @@ static int mlx5_ib_fill_transport_ns_info(struct mlx5_ib_dev *dev,
 		return -EINVAL;
 
 	esw_mdev = mlx5_eswitch_get_core_dev(dev->port[ib_port - 1].rep->esw);
-	if (esw_mdev != dev->mdev)
-		return -EOPNOTSUPP;
+	if (esw_mdev != dev->mdev) {
+		if (!MLX5_CAP_ADV_RDMA(dev->mdev,
+				       rdma_transport_manager_other_eswitch))
+			return -EOPNOTSUPP;
+		*flags |= MLX5_FLOW_TABLE_OTHER_ESWITCH;
+		*esw_owner_vhca_id = MLX5_CAP_GEN(esw_mdev, vhca_id);
+	}
 
 	*flags |= MLX5_FLOW_TABLE_OTHER_VPORT;
 	*ft_mdev = esw_mdev;
@@ -1903,8 +1910,10 @@ _get_flow_table(struct mlx5_ib_dev *dev, u16 user_priority,
 		bool mcast, u32 ib_port)
 {
 	struct mlx5_core_dev *ft_mdev = dev->mdev;
+	struct mlx5_flow_table_attr ft_attr = {};
 	struct mlx5_flow_namespace *ns = NULL;
 	struct mlx5_ib_flow_prio *prio = NULL;
+	u16 esw_owner_vhca_id = 0;
 	int max_table_size = 0;
 	u16 vport_idx = 0;
 	bool esw_encap;
@@ -1966,7 +1975,8 @@ _get_flow_table(struct mlx5_ib_dev *dev, u16 user_priority,
 			return ERR_PTR(-EINVAL);
 		ret = mlx5_ib_fill_transport_ns_info(dev, ns_type, &flags,
 						     &vport_idx, &vport,
-						     &ft_mdev, ib_port);
+						     &ft_mdev, ib_port,
+						     &esw_owner_vhca_id);
 		if (ret)
 			return ERR_PTR(ret);
 
@@ -2026,8 +2036,13 @@ _get_flow_table(struct mlx5_ib_dev *dev, u16 user_priority,
 	if (prio->flow_table)
 		return prio;
 
-	return _get_prio(dev, ns, prio, priority, max_table_size,
-			 MLX5_FS_MAX_TYPES, flags, vport);
+	ft_attr.prio = priority;
+	ft_attr.max_fte = max_table_size;
+	ft_attr.flags = flags;
+	ft_attr.vport = vport;
+	ft_attr.esw_owner_vhca_id = esw_owner_vhca_id;
+	ft_attr.autogroup.max_num_groups = MLX5_FS_MAX_TYPES;
+	return _get_prio(ns, prio, &ft_attr);
 }
 
 static struct mlx5_ib_flow_handler *
@@ -2045,8 +2060,8 @@ _create_raw_flow_rule(struct mlx5_ib_dev *dev,
 	struct mlx5_flow_table *ft = ft_prio->flow_table;
 	int err = 0;
 
-	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
-	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
+	spec = kvzalloc_obj(*spec);
+	handler = kzalloc_obj(*handler);
 	if (!handler || !spec) {
 		err = -ENOMEM;
 		goto free;
@@ -2138,7 +2153,7 @@ static struct mlx5_ib_flow_handler *raw_fs_rule_add(
 	if (fs_matcher->priority > MLX5_IB_FLOW_LAST_PRIO)
 		return ERR_PTR(-ENOMEM);
 
-	dst = kcalloc(2, sizeof(*dst), GFP_KERNEL);
+	dst = kzalloc_objs(*dst, 2);
 	if (!dst)
 		return ERR_PTR(-ENOMEM);
 
@@ -3065,7 +3080,7 @@ mlx5_ib_create_modify_header(struct mlx5_ib_dev *dev,
 	if (ret)
 		return ERR_PTR(-EINVAL);
 
-	maction = kzalloc(sizeof(*maction), GFP_KERNEL);
+	maction = kzalloc_obj(*maction);
 	if (!maction)
 		return ERR_PTR(-ENOMEM);
 
@@ -3464,23 +3479,21 @@ int mlx5_ib_fs_init(struct mlx5_ib_dev *dev)
 {
 	int i, j;
 
-	dev->flow_db = kzalloc(sizeof(*dev->flow_db), GFP_KERNEL);
+	dev->flow_db = kzalloc_obj(*dev->flow_db);
 
 	if (!dev->flow_db)
 		return -ENOMEM;
 
 	for (i = 0; i < MLX5_RDMA_TRANSPORT_BYPASS_PRIO; i++) {
 		dev->flow_db->rdma_transport_rx[i] =
-			kcalloc(dev->num_ports,
-				sizeof(struct mlx5_ib_flow_prio), GFP_KERNEL);
+			kzalloc_objs(struct mlx5_ib_flow_prio, dev->num_ports);
 		if (!dev->flow_db->rdma_transport_rx[i])
 			goto free_rdma_transport_rx;
 	}
 
 	for (j = 0; j < MLX5_RDMA_TRANSPORT_BYPASS_PRIO; j++) {
 		dev->flow_db->rdma_transport_tx[j] =
-			kcalloc(dev->num_ports,
-				sizeof(struct mlx5_ib_flow_prio), GFP_KERNEL);
+			kzalloc_objs(struct mlx5_ib_flow_prio, dev->num_ports);
 		if (!dev->flow_db->rdma_transport_tx[j])
 			goto free_rdma_transport_tx;
 	}

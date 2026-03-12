@@ -55,17 +55,18 @@ static int create_native_symlink(const unsigned int xid, struct inode *inode,
 				 const char *full_path, const char *symname)
 {
 	struct reparse_symlink_data_buffer *buf = NULL;
-	struct cifs_open_info_data data = {};
-	struct cifs_sb_info *cifs_sb = CIFS_SB(inode->i_sb);
+	struct cifs_sb_info *cifs_sb = CIFS_SB(inode);
 	const char *symroot = cifs_sb->ctx->symlinkroot;
-	struct inode *new;
-	struct kvec iov;
-	__le16 *path = NULL;
-	bool directory;
-	char *symlink_target = NULL;
-	char *sym = NULL;
+	struct cifs_open_info_data data = {};
 	char sep = CIFS_DIR_SEP(cifs_sb);
+	char *symlink_target = NULL;
 	u16 len, plen, poff, slen;
+	unsigned int sbflags;
+	__le16 *path = NULL;
+	struct inode *new;
+	char *sym = NULL;
+	struct kvec iov;
+	bool directory;
 	int rc = 0;
 
 	if (strlen(symname) > REPARSE_SYM_PATH_MAX)
@@ -83,8 +84,8 @@ static int create_native_symlink(const unsigned int xid, struct inode *inode,
 		.symlink_target = symlink_target,
 	};
 
-	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_POSIX_PATHS) &&
-	    symroot && symname[0] == '/') {
+	sbflags = cifs_sb_flags(cifs_sb);
+	if (!(sbflags & CIFS_MOUNT_POSIX_PATHS) && symroot && symname[0] == '/') {
 		/*
 		 * This is a request to create an absolute symlink on the server
 		 * which does not support POSIX paths, and expects symlink in
@@ -164,7 +165,7 @@ static int create_native_symlink(const unsigned int xid, struct inode *inode,
 	 * mask these characters in NT object prefix by '_' and then change
 	 * them back.
 	 */
-	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_POSIX_PATHS) && symname[0] == '/')
+	if (!(sbflags & CIFS_MOUNT_POSIX_PATHS) && symname[0] == '/')
 		sym[0] = sym[1] = sym[2] = sym[5] = '_';
 
 	path = cifs_convert_path_to_utf16(sym, cifs_sb);
@@ -173,7 +174,7 @@ static int create_native_symlink(const unsigned int xid, struct inode *inode,
 		goto out;
 	}
 
-	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_POSIX_PATHS) && symname[0] == '/') {
+	if (!(sbflags & CIFS_MOUNT_POSIX_PATHS) && symname[0] == '/') {
 		sym[0] = '\\';
 		sym[1] = sym[2] = '?';
 		sym[5] = ':';
@@ -197,7 +198,7 @@ static int create_native_symlink(const unsigned int xid, struct inode *inode,
 	slen = 2 * UniStrnlen((wchar_t *)path, REPARSE_SYM_PATH_MAX);
 	poff = 0;
 	plen = slen;
-	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_POSIX_PATHS) && symname[0] == '/') {
+	if (!(sbflags & CIFS_MOUNT_POSIX_PATHS) && symname[0] == '/') {
 		/*
 		 * For absolute NT symlinks skip leading "\\??\\" in PrintName as
 		 * PrintName is user visible location in DOS/Win32 format (not in NT format).
@@ -732,7 +733,8 @@ static int parse_reparse_nfs(struct reparse_nfs_data_buffer *buf,
 	len = le16_to_cpu(buf->ReparseDataLength);
 	if (len < sizeof(buf->InodeType)) {
 		cifs_dbg(VFS, "srv returned malformed nfs buffer\n");
-		return -EIO;
+		return smb_EIO2(smb_eio_trace_reparse_nfs_too_short,
+				len, sizeof(buf->InodeType));
 	}
 
 	len -= sizeof(buf->InodeType);
@@ -741,7 +743,7 @@ static int parse_reparse_nfs(struct reparse_nfs_data_buffer *buf,
 	case NFS_SPECFILE_LNK:
 		if (len == 0 || (len % 2)) {
 			cifs_dbg(VFS, "srv returned malformed nfs symlink buffer\n");
-			return -EIO;
+			return smb_EIO1(smb_eio_trace_reparse_nfs_symbuf, len);
 		}
 		/*
 		 * Check that buffer does not contain UTF-16 null codepoint
@@ -749,7 +751,7 @@ static int parse_reparse_nfs(struct reparse_nfs_data_buffer *buf,
 		 */
 		if (UniStrnlen((wchar_t *)buf->DataBuffer, len/2) != len/2) {
 			cifs_dbg(VFS, "srv returned null byte in nfs symlink target location\n");
-			return -EIO;
+			return smb_EIO1(smb_eio_trace_reparse_nfs_nul, len);
 		}
 		data->symlink_target = cifs_strndup_from_utf16(buf->DataBuffer,
 							       len, true,
@@ -764,7 +766,7 @@ static int parse_reparse_nfs(struct reparse_nfs_data_buffer *buf,
 		/* DataBuffer for block and char devices contains two 32-bit numbers */
 		if (len != 8) {
 			cifs_dbg(VFS, "srv returned malformed nfs buffer for type: 0x%llx\n", type);
-			return -EIO;
+			return smb_EIO1(smb_eio_trace_reparse_nfs_dev, len);
 		}
 		break;
 	case NFS_SPECFILE_FIFO:
@@ -772,7 +774,7 @@ static int parse_reparse_nfs(struct reparse_nfs_data_buffer *buf,
 		/* DataBuffer for fifos and sockets is empty */
 		if (len != 0) {
 			cifs_dbg(VFS, "srv returned malformed nfs buffer for type: 0x%llx\n", type);
-			return -EIO;
+			return smb_EIO1(smb_eio_trace_reparse_nfs_sockfifo, len);
 		}
 		break;
 	default:
@@ -796,13 +798,13 @@ int smb2_parse_native_symlink(char **target, const char *buf, unsigned int len,
 	int abs_path_len;
 	char *abs_path;
 	int levels;
-	int rc;
+	int rc, ulen;
 	int i;
 
 	/* Check that length it valid */
 	if (!len || (len % 2)) {
 		cifs_dbg(VFS, "srv returned malformed symlink buffer\n");
-		rc = -EIO;
+		rc = smb_EIO1(smb_eio_trace_reparse_native_nul, len);
 		goto out;
 	}
 
@@ -810,9 +812,10 @@ int smb2_parse_native_symlink(char **target, const char *buf, unsigned int len,
 	 * Check that buffer does not contain UTF-16 null codepoint
 	 * because Linux cannot process symlink with null byte.
 	 */
-	if (UniStrnlen((wchar_t *)buf, len/2) != len/2) {
+	ulen = UniStrnlen((wchar_t *)buf, len/2);
+	if (ulen != len/2) {
 		cifs_dbg(VFS, "srv returned null byte in native symlink target location\n");
-		rc = -EIO;
+		rc = smb_EIO2(smb_eio_trace_reparse_native_nul, ulen, len);
 		goto out;
 	}
 
@@ -822,7 +825,7 @@ int smb2_parse_native_symlink(char **target, const char *buf, unsigned int len,
 		goto out;
 	}
 
-	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_POSIX_PATHS) &&
+	if (!(cifs_sb_flags(cifs_sb) & CIFS_MOUNT_POSIX_PATHS) &&
 	    symroot && !relative) {
 		/*
 		 * This is an absolute symlink from the server which does not
@@ -996,7 +999,8 @@ static int parse_reparse_native_symlink(struct reparse_symlink_data_buffer *sym,
 	len = le16_to_cpu(sym->SubstituteNameLength);
 	if (offs + 20 > plen || offs + len + 20 > plen) {
 		cifs_dbg(VFS, "srv returned malformed symlink buffer\n");
-		return -EIO;
+		return smb_EIO2(smb_eio_trace_reparse_native_sym_len,
+				offs << 16 | len, plen);
 	}
 
 	return smb2_parse_native_symlink(&data->symlink_target,
@@ -1019,13 +1023,16 @@ static int parse_reparse_wsl_symlink(struct reparse_wsl_symlink_data_buffer *buf
 
 	if (len <= data_offset) {
 		cifs_dbg(VFS, "srv returned malformed wsl symlink buffer\n");
-		return -EIO;
+		return smb_EIO2(smb_eio_trace_reparse_wsl_symbuf,
+				len, data_offset);
 	}
 
 	/* MS-FSCC 2.1.2.7 defines layout of the Target field only for Version 2. */
-	if (le32_to_cpu(buf->Version) != 2) {
-		cifs_dbg(VFS, "srv returned unsupported wsl symlink version %u\n", le32_to_cpu(buf->Version));
-		return -EIO;
+	u32 version = le32_to_cpu(buf->Version);
+
+	if (version != 2) {
+		cifs_dbg(VFS, "srv returned unsupported wsl symlink version %u\n", version);
+		return smb_EIO1(smb_eio_trace_reparse_wsl_ver, version);
 	}
 
 	/* Target for Version 2 is in UTF-8 but without trailing null-term byte */
@@ -1034,9 +1041,12 @@ static int parse_reparse_wsl_symlink(struct reparse_wsl_symlink_data_buffer *buf
 	 * Check that buffer does not contain null byte
 	 * because Linux cannot process symlink with null byte.
 	 */
-	if (strnlen(buf->Target, symname_utf8_len) != symname_utf8_len) {
+	size_t ulen = strnlen(buf->Target, symname_utf8_len);
+
+	if (ulen != symname_utf8_len) {
 		cifs_dbg(VFS, "srv returned null byte in wsl symlink target location\n");
-		return -EIO;
+		return smb_EIO2(smb_eio_trace_reparse_wsl_ver,
+				ulen, symname_utf8_len);
 	}
 	symname_utf16 = kzalloc(symname_utf8_len * 2, GFP_KERNEL);
 	if (!symname_utf16)
@@ -1083,13 +1093,17 @@ int parse_reparse_point(struct reparse_data_buffer *buf,
 	case IO_REPARSE_TAG_AF_UNIX:
 	case IO_REPARSE_TAG_LX_FIFO:
 	case IO_REPARSE_TAG_LX_CHR:
-	case IO_REPARSE_TAG_LX_BLK:
-		if (le16_to_cpu(buf->ReparseDataLength) != 0) {
+	case IO_REPARSE_TAG_LX_BLK: {
+		u16 dlen = le16_to_cpu(buf->ReparseDataLength);
+
+		if (dlen != 0) {
+			u32 rtag = le32_to_cpu(buf->ReparseTag);
 			cifs_dbg(VFS, "srv returned malformed buffer for reparse point: 0x%08x\n",
-				 le32_to_cpu(buf->ReparseTag));
-			return -EIO;
+				 rtag);
+			return smb_EIO2(smb_eio_trace_reparse_data_len, dlen, rtag);
 		}
 		return 0;
+	}
 	default:
 		return -EOPNOTSUPP;
 	}

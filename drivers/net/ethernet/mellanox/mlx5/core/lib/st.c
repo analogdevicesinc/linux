@@ -19,13 +19,16 @@ struct mlx5_st {
 	struct mutex lock;
 	struct xa_limit index_limit;
 	struct xarray idx_xa; /* key == index, value == struct mlx5_st_idx_data */
+	u8 direct_mode : 1;
 };
 
 struct mlx5_st *mlx5_st_create(struct mlx5_core_dev *dev)
 {
 	struct pci_dev *pdev = dev->pdev;
 	struct mlx5_st *st;
+	u8 direct_mode = 0;
 	u16 num_entries;
+	u32 tbl_loc;
 	int ret;
 
 	if (!MLX5_CAP_GEN(dev, mkey_pcie_tph))
@@ -40,22 +43,32 @@ struct mlx5_st *mlx5_st_create(struct mlx5_core_dev *dev)
 	if (!pdev->tph_cap)
 		return NULL;
 
-	num_entries = pcie_tph_get_st_table_size(pdev);
-	/* We need a reserved entry for non TPH cases */
-	if (num_entries < 2)
-		return NULL;
+	tbl_loc = pcie_tph_get_st_table_loc(pdev);
+	if (tbl_loc == PCI_TPH_LOC_NONE)
+		direct_mode = 1;
+
+	if (!direct_mode) {
+		num_entries = pcie_tph_get_st_table_size(pdev);
+		/* We need a reserved entry for non TPH cases */
+		if (num_entries < 2)
+			return NULL;
+	}
 
 	/* The OS doesn't support ST */
 	ret = pcie_enable_tph(pdev, PCI_TPH_ST_DS_MODE);
 	if (ret)
 		return NULL;
 
-	st = kzalloc(sizeof(*st), GFP_KERNEL);
+	st = kzalloc_obj(*st);
 	if (!st)
 		goto end;
 
 	mutex_init(&st->lock);
 	xa_init_flags(&st->idx_xa, XA_FLAGS_ALLOC);
+	st->direct_mode = direct_mode;
+	if (st->direct_mode)
+		return st;
+
 	/* entry 0 is reserved for non TPH cases */
 	st->index_limit.min = MLX5_MKC_PCIE_TPH_NO_STEERING_TAG_INDEX + 1;
 	st->index_limit.max = num_entries - 1;
@@ -96,6 +109,11 @@ int mlx5_st_alloc_index(struct mlx5_core_dev *dev, enum tph_mem_type mem_type,
 	if (ret)
 		return ret;
 
+	if (st->direct_mode) {
+		*st_index = tag;
+		return 0;
+	}
+
 	mutex_lock(&st->lock);
 
 	xa_for_each(&st->idx_xa, index, idx_data) {
@@ -106,7 +124,7 @@ int mlx5_st_alloc_index(struct mlx5_core_dev *dev, enum tph_mem_type mem_type,
 		}
 	}
 
-	idx_data = kzalloc(sizeof(*idx_data), GFP_KERNEL);
+	idx_data = kzalloc_obj(*idx_data);
 	if (!idx_data) {
 		ret = -ENOMEM;
 		goto end;
@@ -144,6 +162,9 @@ int mlx5_st_dealloc_index(struct mlx5_core_dev *dev, u16 st_index)
 
 	if (!st)
 		return -EOPNOTSUPP;
+
+	if (st->direct_mode)
+		return 0;
 
 	mutex_lock(&st->lock);
 	idx_data = xa_load(&st->idx_xa, st_index);

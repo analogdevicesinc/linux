@@ -15,6 +15,11 @@ properties:
   compatible:
     oneOf:
 
+      - description: 100ASK DshanPi A1 board
+        items:
+          - const: 100ask,dshanpi-a1
+          - const: rockchip,rk3576
+
       - description: 96boards RK3399 Ficus (ROCK960 Enterprise Edition)
         items:
           - const: vamrs,ficus
@@ -24,6 +29,12 @@ properties:
         items:
           - const: vamrs,rock960
           - const: rockchip,rk3399
+
+      - description: 9Tripod X3568 series board
+        items:
+          - enum:
+              - 9tripod,x3568-v4
+          - const: rockchip,rk3568
 
       - description: Amarula Vyasa RK3288
         items:
@@ -48,6 +59,12 @@ properties:
               - anbernic,rg-arc-d
               - anbernic,rg-arc-s
           - const: rockchip,rk3566
+
+      - description: Anbernic RK3568 Handheld Gaming Console
+        items:
+          - enum:
+              - anbernic,rg-ds
+          - const: rockchip,rk3568
 
       - description: Ariaboard Photonicat
         items:
@@ -78,13 +95,17 @@ properties:
 
       - description: Asus Tinker board
         items:
-          - const: asus,rk3288-tinker
+          - enum:
+              - asus,rk3288-tinker
+              - asus,rk3288-tinker-s
           - const: rockchip,rk3288
 
-      - description: Asus Tinker board S
+      - description: Asus Tinker Board 3/3S
         items:
-          - const: asus,rk3288-tinker-s
-          - const: rockchip,rk3288
+          - enum:
+              - asus,rk3566-tinker-board-3
+              - asus,rk3566-tinker-board-3s
+          - const: rockchip,rk3566
 
       - description: Beelink A1
         items:
@@ -329,6 +350,11 @@ properties:
               - friendlyarm,nanopi-r6c
               - friendlyarm,nanopi-r6s
           - const: rockchip,rk3588s
+
+      - description: FriendlyElec NanoPi R76S
+        items:
+          - const: friendlyarm,nanopi-r76s
+          - const: rockchip,rk3576
 
       - description: FriendlyElec NanoPi Zero2
         items:
@@ -748,6 +774,11 @@ properties:
           - const: lckfb,tspi-rk3566
           - const: rockchip,rk3566
 
+      - description: LinkEase EasePi R1
+        items:
+          - const: linkease,easepi-r1
+          - const: rockchip,rk3568
+
       - description: Luckfox Core3576 Module based boards
         items:
           - enum:
@@ -868,10 +899,16 @@ properties:
           - const: prt,mecsbc
           - const: rockchip,rk3568
 
-      - description: QNAP TS-433-4G 4-Bay NAS
-        items:
-          - const: qnap,ts433
-          - const: rockchip,rk3568
+      - description: QNAP TS-x33 NAS devices
+        oneOf:
+          - items:
+              - const: qnap,ts133
+              - const: rockchip,rk3566
+          - items:
+              - enum:
+                  - qnap,ts233
+                  - qnap,ts433
+              - const: rockchip,rk3568
 
       - description: Radxa Compute Module 3 (CM3)
         items:
@@ -880,12 +917,26 @@ properties:
           - const: radxa,cm3
           - const: rockchip,rk3566
 
-      - description: Radxa CM3 Industrial
+      - description: Radxa CM3I
         items:
           - enum:
               - radxa,e25
           - const: radxa,cm3i
           - const: rockchip,rk3568
+
+      - description: Radxa CM3J
+        items:
+          - enum:
+              - radxa,cm3j-rpi-cm4
+          - const: radxa,cm3j
+          - const: rockchip,rk3568
+
+      - description: Radxa CM5
+        items:
+          - enum:
+              - radxa,cm5-io
+          - const: radxa,cm5
+          - const: rockchip,rk3588s
 
       - description: Radxa E20C
         items:
@@ -1270,6 +1321,12 @@ properties:
           - enum:
               - xunlong,orangepi-5
               - xunlong,orangepi-5b
+          - const: rockchip,rk3588s
+
+      - description: Xunlong Orange Pi CM5
+        items:
+          - const: xunlong,orangepi-cm5-base
+          - const: xunlong,orangepi-cm5
           - const: rockchip,rk3588s
 
       - description: Zkmagic A95X Z2

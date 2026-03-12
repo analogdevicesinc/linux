@@ -23,14 +23,6 @@ menuconfig EDAC
 
 if EDAC
 
-config EDAC_LEGACY_SYSFS
-	bool "EDAC legacy sysfs"
-	default y
-	help
-	  Enable the compatibility sysfs nodes.
-	  Use 'Y' if your edac utilities aren't ported to work with the newer
-	  structures.
-
 config EDAC_DEBUG
 	bool "Debugging"
 	select DEBUG_FS
@@ -158,14 +150,6 @@ config EDAC_E752X
 	  Support for error detection and correction on the Intel
 	  E7520, E7525, E7320 server chipsets.
 
-config EDAC_I82443BXGX
-	tristate "Intel 82443BX/GX (440BX/GX)"
-	depends on PCI && X86_32
-	depends on BROKEN
-	help
-	  Support for error detection and correction on the Intel
-	  82443BX/GX memory controllers (440BX/GX chipsets).
-
 config EDAC_I82875P
 	tristate "Intel 82875p (D82875P, E7210)"
 	depends on PCI && X86_32
@@ -231,13 +215,6 @@ config EDAC_I82860
 	  Support for error detection and correction on the Intel
 	  82860 chipset.
 
-config EDAC_R82600
-	tristate "Radisys 82600 embedded chipset"
-	depends on PCI && X86_32
-	help
-	  Support for error detection and correction on the Radisys
-	  82600 embedded chipset.
-
 config EDAC_I5000
 	tristate "Intel Greencreek/Blackford chipset"
 	depends on X86 && PCI
@@ -290,6 +267,18 @@ config EDAC_I10NM
 	  10nm server Integrated Memory Controllers. If your
 	  system has non-volatile DIMMs you should also manually
 	  select CONFIG_ACPI_NFIT.
+
+config EDAC_IMH
+	tristate "Intel Integrated Memory/IO Hub MC"
+	depends on X86_64 && X86_MCE_INTEL && ACPI
+	depends on ACPI_NFIT || !ACPI_NFIT # if ACPI_NFIT=m, EDAC_IMH can't be y
+	select DMI
+	select ACPI_ADXL
+	help
+	  Support for error detection and correction the Intel
+	  Integrated Memory/IO Hub Memory Controller. This MC IP is
+	  first used on the Diamond Rapids servers but may appear on
+	  others in the future.
 
 config EDAC_PND2
 	tristate "Intel Pondicherry2"

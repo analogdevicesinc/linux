@@ -40,8 +40,8 @@ Table : Subdirectories in /proc/sys/net
  bridge    Bridging              rose       X.25 PLP layer
  core      General parameter     tipc       TIPC
  ethernet  Ethernet protocol     unix       Unix domain sockets
- ipv4      IP version 4          x25        X.25 protocol
- ipv6      IP version 6
+ ipv4      IP version 4          vsock      VSOCK sockets
+ ipv6      IP version 6          x25        X.25 protocol
  ========= =================== = ========== ===================
 
 1. /proc/sys/net/core - Network core options
@@ -212,6 +212,14 @@ mem_pcpu_rsv
 
 Per-cpu reserved forward alloc cache size in page units. Default 1MB per CPU.
 
+bypass_prot_mem
+---------------
+
+Skip charging socket buffers to the global per-protocol memory
+accounting controlled by net.ipv4.tcp_mem, net.ipv4.udp_mem, etc.
+
+Default: 0 (off)
+
 rmem_default
 ------------
 
@@ -295,24 +303,33 @@ netdev_max_backlog
 Maximum number of packets, queued on the INPUT side, when the interface
 receives packets faster than kernel can process them.
 
+qdisc_max_burst
+------------------
+
+Maximum number of packets that can be temporarily stored before
+reaching qdisc.
+
+Default: 1000
+
 netdev_rss_key
 --------------
 
-RSS (Receive Side Scaling) enabled drivers use a 40 bytes host key that is
-randomly generated.
+RSS (Receive Side Scaling) enabled drivers use a host key that
+is randomly generated.
 Some user space might need to gather its content even if drivers do not
 provide ethtool -x support yet.
 
 ::
 
   myhost:~# cat /proc/sys/net/core/netdev_rss_key
-  84:50:f4:00:a8:15:d1:a7:e9:7f:1d:60:35:c7:47:25:42:97:74:ca:56:bb:b6:a1:d8: ... (52 bytes total)
+  84:50:f4:00:a8:15:d1:a7:e9:7f:1d:60:35:c7:47:25:42:97:74:ca:56:bb:b6:a1:d8: ... (256 bytes total)
 
-File contains nul bytes if no driver ever called netdev_rss_key_fill() function.
+File contains all nul bytes if no driver ever called netdev_rss_key_fill()
+function.
 
 Note:
-  /proc/sys/net/core/netdev_rss_key contains 52 bytes of key,
-  but most drivers only use 40 bytes of it.
+  /proc/sys/net/core/netdev_rss_key contains 256 bytes of key,
+  but many drivers only use 40 or 52 bytes of it.
 
 ::
 
@@ -347,9 +364,9 @@ skb_defer_max
 -------------
 
 Max size (in skbs) of the per-cpu list of skbs being freed
-by the cpu which allocated them. Used by TCP stack so far.
+by the cpu which allocated them.
 
-Default: 64
+Default: 128
 
 optmem_max
 ----------
@@ -405,6 +422,23 @@ to SOCK_TXREHASH_DEFAULT (i. e. not overridden by setsockopt).
 
 If set to 1 (default), hash rethink is performed on listening socket.
 If set to 0, hash rethink is not performed.
+
+txq_reselection_ms
+------------------
+
+Controls how often (in ms) a busy connected flow can select another tx queue.
+
+A resection is desirable when/if user thread has migrated and XPS
+would select a different queue. Same can occur without XPS
+if the flow hash has changed.
+
+But switching txq can introduce reorders, especially if the
+old queue is under high pressure. Modern TCP stacks deal
+well with reorders if they happen not too often.
+
+To disable this feature, set the value to 0.
+
+Default : 1000
 
 gro_normal_batch
 ----------------
@@ -517,3 +551,54 @@ originally may have been issued in the correct sequential order.
 If named_timeout is nonzero, failed topology updates will be placed on a defer
 queue until another event arrives that clears the error, or until the timeout
 expires. Value is in milliseconds.
+
+6. /proc/sys/net/vsock - VSOCK sockets
+--------------------------------------
+
+VSOCK sockets (AF_VSOCK) provide communication between virtual machines and
+their hosts. The behavior of VSOCK sockets in a network namespace is determined
+by the namespace's mode (``global`` or ``local``), which controls how CIDs
+(Context IDs) are allocated and how sockets interact across namespaces.
+
+ns_mode
+-------
+
+Read-only. Reports the current namespace's mode, set at namespace creation
+and immutable thereafter.
+
+Values:
+
+	- ``global`` - the namespace shares system-wide CID allocation and
+	  its sockets can reach any VM or socket in any global namespace.
+	  Sockets in this namespace cannot reach sockets in local
+	  namespaces.
+	- ``local`` - the namespace has private CID allocation and its
+	  sockets can only connect to VMs or sockets within the same
+	  namespace.
+
+The init_net mode is always ``global``.
+
+child_ns_mode
+-------------
+
+Controls what mode newly created child namespaces will inherit. At namespace
+creation, ``ns_mode`` is inherited from the parent's ``child_ns_mode``. The
+initial value matches the namespace's own ``ns_mode``.
+
+Values:
+
+	- ``global`` - child namespaces will share system-wide CID allocation
+	  and their sockets will be able to reach any VM or socket in any
+	  global namespace.
+	- ``local`` - child namespaces will have private CID allocation and
+	  their sockets will only be able to connect within their own
+	  namespace.
+
+The first write to ``child_ns_mode`` locks its value. Subsequent writes of the
+same value succeed, but writing a different value returns ``-EBUSY``.
+
+Changing ``child_ns_mode`` only affects namespaces created after the change;
+it does not modify the current namespace or any existing children.
+
+A namespace with ``ns_mode`` set to ``local`` cannot change
+``child_ns_mode`` to ``global`` (returns ``-EPERM``).

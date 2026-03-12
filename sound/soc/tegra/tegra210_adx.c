@@ -186,7 +186,7 @@ static int tegra210_adx_in_hw_params(struct snd_pcm_substream *substream,
 static int tegra210_adx_get_byte_map(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
 	struct tegra210_adx *adx = snd_soc_component_get_drvdata(cmpnt);
 	struct soc_mixer_control *mc;
 	unsigned char *bytes_map = (unsigned char *)adx->map;
@@ -216,7 +216,7 @@ static int tegra210_adx_get_byte_map(struct snd_kcontrol *kcontrol,
 static int tegra210_adx_put_byte_map(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct snd_soc_component *cmpnt = snd_kcontrol_chip(kcontrol);
 	struct tegra210_adx *adx = snd_soc_component_get_drvdata(cmpnt);
 	unsigned char *bytes_map = (unsigned char *)adx->map;
 	int value = ucontrol->value.integer.value[0];
@@ -625,6 +625,7 @@ static const struct regmap_config tegra210_adx_regmap_config = {
 	.volatile_reg		= tegra210_adx_volatile_reg,
 	.reg_defaults		= tegra210_adx_reg_defaults,
 	.num_reg_defaults	= ARRAY_SIZE(tegra210_adx_reg_defaults),
+	.reg_default_cb		= regmap_default_zero_cb,
 	.cache_type		= REGCACHE_FLAT,
 };
 
@@ -638,6 +639,7 @@ static const struct regmap_config tegra264_adx_regmap_config = {
 	.volatile_reg		= tegra264_adx_volatile_reg,
 	.reg_defaults		= tegra264_adx_reg_defaults,
 	.num_reg_defaults	= ARRAY_SIZE(tegra264_adx_reg_defaults),
+	.reg_default_cb		= regmap_default_zero_cb,
 	.cache_type		= REGCACHE_FLAT,
 };
 

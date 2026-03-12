@@ -75,7 +75,7 @@ static long hwdep_read(struct snd_hwdep *hwdep, char __user *buf, long count,
 		while (consumed < count &&
 		       snd_motu_register_dsp_message_parser_copy_event(motu, &ev)) {
 			ptr = (u32 __user *)(buf + consumed);
-			if (put_user(ev, ptr))
+			if (consumed + sizeof(ev) > count || put_user(ev, ptr))
 				return -EFAULT;
 			consumed += sizeof(ev);
 		}
@@ -83,10 +83,11 @@ static long hwdep_read(struct snd_hwdep *hwdep, char __user *buf, long count,
 		event.motu_register_dsp_change.type = SNDRV_FIREWIRE_EVENT_MOTU_REGISTER_DSP_CHANGE;
 		event.motu_register_dsp_change.count =
 			(consumed - sizeof(event.motu_register_dsp_change)) / 4;
-		if (copy_to_user(buf, &event, sizeof(event.motu_register_dsp_change)))
+		if (copy_to_user(buf, &event,
+				 min_t(long, count, sizeof(event.motu_register_dsp_change))))
 			return -EFAULT;
 
-		count = consumed;
+		count = min_t(long, count, consumed);
 	} else {
 		spin_unlock_irq(&motu->lock);
 
@@ -184,7 +185,7 @@ static int hwdep_ioctl(struct snd_hwdep *hwdep, struct file *file,
 		if (!(motu->spec->flags & SND_MOTU_SPEC_REGISTER_DSP))
 			return -ENXIO;
 
-		meter = kzalloc(sizeof(*meter), GFP_KERNEL);
+		meter = kzalloc_obj(*meter);
 		if (!meter)
 			return -ENOMEM;
 
@@ -206,7 +207,7 @@ static int hwdep_ioctl(struct snd_hwdep *hwdep, struct file *file,
 		if (!(motu->spec->flags & SND_MOTU_SPEC_COMMAND_DSP))
 			return -ENXIO;
 
-		meter = kzalloc(sizeof(*meter), GFP_KERNEL);
+		meter = kzalloc_obj(*meter);
 		if (!meter)
 			return -ENOMEM;
 
@@ -228,7 +229,7 @@ static int hwdep_ioctl(struct snd_hwdep *hwdep, struct file *file,
 		if (!(motu->spec->flags & SND_MOTU_SPEC_REGISTER_DSP))
 			return -ENXIO;
 
-		param = kzalloc(sizeof(*param), GFP_KERNEL);
+		param = kzalloc_obj(*param);
 		if (!param)
 			return -ENOMEM;
 

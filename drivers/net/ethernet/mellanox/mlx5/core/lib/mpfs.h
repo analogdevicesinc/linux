@@ -45,6 +45,10 @@ struct l2addr_node {
 	u8                addr[ETH_ALEN];
 };
 
+#define mlx5_mpfs_foreach(hs, tmp, mpfs, i) \
+	for (i = 0; i < MLX5_L2_ADDR_HASH_SIZE; i++) \
+		hlist_for_each_entry_safe(hs, tmp, &(mpfs)->hash[i], node.hlist)
+
 #define for_each_l2hash_node(hn, tmp, hash, i) \
 	for (i = 0; i < MLX5_L2_ADDR_HASH_SIZE; i++) \
 		hlist_for_each_entry_safe(hn, tmp, &(hash)[i], hlist)
@@ -68,7 +72,7 @@ struct l2addr_node {
 	int ix = MLX5_L2_ADDR_HASH(mac);                    \
 	type *ptr = NULL;                                   \
 							    \
-	ptr = kzalloc(sizeof(type), gfp);                   \
+	ptr = kzalloc_obj(type, gfp);                       \
 	if (ptr) {                                          \
 		ether_addr_copy(ptr->node.addr, mac);       \
 		hlist_add_head(&ptr->node.hlist, &(hash)[ix]);\
@@ -82,11 +86,16 @@ struct l2addr_node {
 })
 
 #ifdef CONFIG_MLX5_MPFS
+struct mlx5_core_dev;
 int  mlx5_mpfs_init(struct mlx5_core_dev *dev);
 void mlx5_mpfs_cleanup(struct mlx5_core_dev *dev);
+int mlx5_mpfs_enable(struct mlx5_core_dev *dev);
+void mlx5_mpfs_disable(struct mlx5_core_dev *dev);
 #else /* #ifndef CONFIG_MLX5_MPFS */
 static inline int  mlx5_mpfs_init(struct mlx5_core_dev *dev) { return 0; }
 static inline void mlx5_mpfs_cleanup(struct mlx5_core_dev *dev) {}
+static inline int mlx5_mpfs_enable(struct mlx5_core_dev *dev) { return 0; }
+static inline void mlx5_mpfs_disable(struct mlx5_core_dev *dev) {}
 #endif
 
 #endif

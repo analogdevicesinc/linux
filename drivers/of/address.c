@@ -328,10 +328,6 @@ static int of_bus_default_flags_match(struct device_node *np)
 
 static int of_bus_default_match(struct device_node *np)
 {
-	/*
-	 * Check for presence first since of_bus_n_addr_cells() will warn when
-	 * walking parent nodes.
-	 */
 	return of_property_present(np, "#address-cells");
 }
 
@@ -933,7 +929,7 @@ int of_dma_get_range(struct device_node *np, const struct bus_dma_region **map)
 	if (!num_ranges)
 		return -EINVAL;
 
-	r = kcalloc(num_ranges + 1, sizeof(*r), GFP_KERNEL);
+	r = kzalloc_objs(*r, num_ranges + 1);
 	if (!r)
 		return -ENOMEM;
 

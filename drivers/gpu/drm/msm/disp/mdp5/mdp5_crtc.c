@@ -1130,8 +1130,7 @@ static void mdp5_crtc_destroy_state(struct drm_crtc *crtc, struct drm_crtc_state
 
 static void mdp5_crtc_reset(struct drm_crtc *crtc)
 {
-	struct mdp5_crtc_state *mdp5_cstate =
-		kzalloc(sizeof(*mdp5_cstate), GFP_KERNEL);
+	struct mdp5_crtc_state *mdp5_cstate = kzalloc_obj(*mdp5_cstate);
 
 	if (crtc->state)
 		mdp5_crtc_destroy_state(crtc, crtc->state);
@@ -1234,6 +1233,7 @@ static void mdp5_crtc_wait_for_flush_done(struct drm_crtc *crtc)
 	struct mdp5_crtc *mdp5_crtc = to_mdp5_crtc(crtc);
 	struct mdp5_crtc_state *mdp5_cstate = to_mdp5_crtc_state(crtc->state);
 	struct mdp5_ctl *ctl = mdp5_cstate->ctl;
+	wait_queue_head_t *queue = drm_crtc_vblank_waitqueue(crtc);
 	int ret;
 
 	/* Should not call this function if crtc is disabled. */
@@ -1244,7 +1244,7 @@ static void mdp5_crtc_wait_for_flush_done(struct drm_crtc *crtc)
 	if (ret)
 		return;
 
-	ret = wait_event_timeout(dev->vblank[drm_crtc_index(crtc)].queue,
+	ret = wait_event_timeout(*queue,
 		((mdp5_ctl_get_commit_status(ctl) &
 		mdp5_crtc->flushed_mask) == 0),
 		msecs_to_jiffies(50));

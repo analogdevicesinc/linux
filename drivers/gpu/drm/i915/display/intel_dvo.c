@@ -34,12 +34,12 @@
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 
-#include "i915_utils.h"
 #include "intel_connector.h"
 #include "intel_de.h"
 #include "intel_display_driver.h"
 #include "intel_display_regs.h"
 #include "intel_display_types.h"
+#include "intel_display_utils.h"
 #include "intel_dvo.h"
 #include "intel_dvo_dev.h"
 #include "intel_dvo_regs.h"
@@ -494,7 +494,7 @@ void intel_dvo_init(struct intel_display *display)
 	struct intel_encoder *encoder;
 	struct intel_dvo *intel_dvo;
 
-	intel_dvo = kzalloc(sizeof(*intel_dvo), GFP_KERNEL);
+	intel_dvo = kzalloc_obj(*intel_dvo);
 	if (!intel_dvo)
 		return;
 

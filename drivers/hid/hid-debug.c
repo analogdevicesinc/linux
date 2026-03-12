@@ -3513,6 +3513,7 @@ static const char *absolutes[ABS_CNT] = {
 	[ABS_DISTANCE] = "Distance",	[ABS_TILT_X] = "XTilt",
 	[ABS_TILT_Y] = "YTilt",		[ABS_TOOL_WIDTH] = "ToolWidth",
 	[ABS_VOLUME] = "Volume",	[ABS_PROFILE] = "Profile",
+	[ABS_SND_PROFILE] = "SoundProfile",
 	[ABS_MISC] = "Misc",
 	[ABS_MT_SLOT] = "MTSlot",
 	[ABS_MT_TOUCH_MAJOR] = "MTMajor",
@@ -3680,7 +3681,7 @@ static int hid_debug_events_open(struct inode *inode, struct file *file)
 	struct hid_debug_list *list;
 	unsigned long flags;
 
-	if (!(list = kzalloc(sizeof(struct hid_debug_list), GFP_KERNEL))) {
+	if (!(list = kzalloc_obj(struct hid_debug_list))) {
 		err = -ENOMEM;
 		goto out;
 	}

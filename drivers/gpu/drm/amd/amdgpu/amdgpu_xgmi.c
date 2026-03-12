@@ -42,8 +42,6 @@
 
 #define XGMI_STATE_DISABLE                      0xD1
 #define XGMI_STATE_LS0                          0x81
-#define XGMI_LINK_ACTIVE			1
-#define XGMI_LINK_INACTIVE			0
 
 static DEFINE_MUTEX(xgmi_mutex);
 
@@ -298,6 +296,9 @@ int amdgpu_xgmi_get_ext_link(struct amdgpu_device *adev, int link_num)
 {
 	int link_map_6_4_x[8] = { 0, 3, 1, 2, 7, 6, 4, 5 };
 
+	if (adev->gmc.xgmi.num_physical_nodes <= 1)
+		return -EINVAL;
+
 	switch (amdgpu_ip_version(adev, XGMI_HWIP, 0)) {
 	case IP_VERSION(6, 4, 0):
 	case IP_VERSION(6, 4, 1):
@@ -333,6 +334,10 @@ static u32 xgmi_v6_4_get_link_status(struct amdgpu_device *adev, int global_link
 	}
 
 	i = global_link_num / n;
+
+	if (!(adev->aid_mask & BIT(i)))
+		return U32_MAX;
+
 	addr += adev->asic_funcs->encode_ext_smn_addressing(i);
 
 	return RREG32_PCIE_EXT(addr);
@@ -341,6 +346,9 @@ static u32 xgmi_v6_4_get_link_status(struct amdgpu_device *adev, int global_link
 int amdgpu_get_xgmi_link_status(struct amdgpu_device *adev, int global_link_num)
 {
 	u32 xgmi_state_reg_val;
+
+	if (adev->gmc.xgmi.num_physical_nodes <= 1)
+		return -EINVAL;
 
 	switch (amdgpu_ip_version(adev, XGMI_HWIP, 0)) {
 	case IP_VERSION(6, 4, 0):
@@ -355,9 +363,9 @@ int amdgpu_get_xgmi_link_status(struct amdgpu_device *adev, int global_link_num)
 		return -ENOLINK;
 
 	if ((xgmi_state_reg_val & 0xFF) == XGMI_STATE_LS0)
-		return XGMI_LINK_ACTIVE;
+		return AMDGPU_XGMI_LINK_ACTIVE;
 
-	return XGMI_LINK_INACTIVE;
+	return AMDGPU_XGMI_LINK_INACTIVE;
 }
 
 /**
@@ -682,7 +690,7 @@ struct amdgpu_hive_info *amdgpu_get_xgmi_hive(struct amdgpu_device *adev)
 			goto pro_end;
 	}
 
-	hive = kzalloc(sizeof(*hive), GFP_KERNEL);
+	hive = kzalloc_obj(*hive);
 	if (!hive) {
 		dev_err(adev->dev, "XGMI: allocation failed\n");
 		ret = -ENOMEM;
@@ -958,28 +966,6 @@ static int amdgpu_xgmi_initialize_hive_get_data_partition(struct amdgpu_hive_inf
 	return 0;
 }
 
-static void amdgpu_xgmi_fill_topology_info(struct amdgpu_device *adev,
-	struct amdgpu_device *peer_adev)
-{
-	struct psp_xgmi_topology_info *top_info = &adev->psp.xgmi_context.top_info;
-	struct psp_xgmi_topology_info *peer_info = &peer_adev->psp.xgmi_context.top_info;
-
-	for (int i = 0; i < peer_info->num_nodes; i++) {
-		if (peer_info->nodes[i].node_id == adev->gmc.xgmi.node_id) {
-			for (int j = 0; j < top_info->num_nodes; j++) {
-				if (top_info->nodes[j].node_id == peer_adev->gmc.xgmi.node_id) {
-					peer_info->nodes[i].num_hops = top_info->nodes[j].num_hops;
-					peer_info->nodes[i].is_sharing_enabled =
-							top_info->nodes[j].is_sharing_enabled;
-					peer_info->nodes[i].num_links =
-							top_info->nodes[j].num_links;
-					return;
-				}
-			}
-		}
-	}
-}
-
 int amdgpu_xgmi_add_device(struct amdgpu_device *adev)
 {
 	struct psp_xgmi_topology_info *top_info;
@@ -1064,11 +1050,6 @@ int amdgpu_xgmi_add_device(struct amdgpu_device *adev)
 					adev->gmc.xgmi.hive_id, ret);
 				/* To do: continue with some node failed or disable the whole hive*/
 				goto exit_unlock;
-			}
-
-			/* fill the topology info for peers instead of getting from PSP */
-			list_for_each_entry(tmp_adev, &hive->device_list, gmc.xgmi.head) {
-				amdgpu_xgmi_fill_topology_info(adev, tmp_adev);
 			}
 		} else {
 			/* get latest topology info for each device from psp */
@@ -1193,7 +1174,7 @@ static int xgmi_v6_4_0_aca_bank_parser(struct aca_handle *handle, struct aca_ban
 
 	switch (type) {
 	case ACA_SMU_TYPE_UE:
-		if (ext_error_code != 0 && ext_error_code != 9)
+		if (ext_error_code != 0 && ext_error_code != 1 && ext_error_code != 9)
 			count = 0ULL;
 
 		bank->aca_err_type = ACA_ERROR_TYPE_UE;

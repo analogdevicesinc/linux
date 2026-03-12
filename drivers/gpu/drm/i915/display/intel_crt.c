@@ -109,7 +109,7 @@ static bool intel_crt_get_hw_state(struct intel_encoder *encoder,
 {
 	struct intel_display *display = to_intel_display(encoder);
 	struct intel_crt *crt = intel_encoder_to_crt(encoder);
-	intel_wakeref_t wakeref;
+	struct ref_tracker *wakeref;
 	bool ret;
 
 	wakeref = intel_display_power_get_if_enabled(display,
@@ -498,10 +498,10 @@ static bool ilk_crt_detect_hotplug(struct drm_connector *connector)
 
 		intel_de_write(display, crt->adpa_reg, adpa);
 
-		if (intel_de_wait_for_clear(display,
-					    crt->adpa_reg,
-					    ADPA_CRT_HOTPLUG_FORCE_TRIGGER,
-					    1000))
+		if (intel_de_wait_for_clear_ms(display,
+					       crt->adpa_reg,
+					       ADPA_CRT_HOTPLUG_FORCE_TRIGGER,
+					       1000))
 			drm_dbg_kms(display->drm,
 				    "timed out waiting for FORCE_TRIGGER");
 
@@ -553,8 +553,8 @@ static bool valleyview_crt_detect_hotplug(struct drm_connector *connector)
 
 	intel_de_write(display, crt->adpa_reg, adpa);
 
-	if (intel_de_wait_for_clear(display, crt->adpa_reg,
-				    ADPA_CRT_HOTPLUG_FORCE_TRIGGER, 1000)) {
+	if (intel_de_wait_for_clear_ms(display, crt->adpa_reg,
+				       ADPA_CRT_HOTPLUG_FORCE_TRIGGER, 1000)) {
 		drm_dbg_kms(display->drm,
 			    "timed out waiting for FORCE_TRIGGER");
 		intel_de_write(display, crt->adpa_reg, save_adpa);
@@ -604,8 +604,8 @@ static bool intel_crt_detect_hotplug(struct drm_connector *connector)
 					      CRT_HOTPLUG_FORCE_DETECT,
 					      CRT_HOTPLUG_FORCE_DETECT);
 		/* wait for FORCE_DETECT to go off */
-		if (intel_de_wait_for_clear(display, PORT_HOTPLUG_EN(display),
-					    CRT_HOTPLUG_FORCE_DETECT, 1000))
+		if (intel_de_wait_for_clear_ms(display, PORT_HOTPLUG_EN(display),
+					       CRT_HOTPLUG_FORCE_DETECT, 1000))
 			drm_dbg_kms(display->drm,
 				    "timed out waiting for FORCE_DETECT to go off");
 	}
@@ -847,7 +847,7 @@ intel_crt_detect(struct drm_connector *connector,
 	struct intel_crt *crt = intel_attached_crt(to_intel_connector(connector));
 	struct intel_encoder *encoder = &crt->base;
 	struct drm_atomic_state *state;
-	intel_wakeref_t wakeref;
+	struct ref_tracker *wakeref;
 	int status;
 
 	drm_dbg_kms(display->drm, "[CONNECTOR:%d:%s] force=%d\n",
@@ -936,7 +936,7 @@ static int intel_crt_get_modes(struct drm_connector *connector)
 	struct intel_display *display = to_intel_display(connector->dev);
 	struct intel_crt *crt = intel_attached_crt(to_intel_connector(connector));
 	struct intel_encoder *encoder = &crt->base;
-	intel_wakeref_t wakeref;
+	struct ref_tracker *wakeref;
 	struct i2c_adapter *ddc;
 	int ret;
 
@@ -1037,7 +1037,7 @@ void intel_crt_init(struct intel_display *display)
 		intel_de_write(display, adpa_reg, adpa);
 	}
 
-	crt = kzalloc(sizeof(struct intel_crt), GFP_KERNEL);
+	crt = kzalloc_obj(struct intel_crt);
 	if (!crt)
 		return;
 

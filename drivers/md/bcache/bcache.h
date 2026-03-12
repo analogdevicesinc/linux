@@ -273,6 +273,8 @@ struct bcache_device {
 
 	struct bio_set		bio_split;
 
+	struct bio_set		bio_detached;
+
 	unsigned int		data_csum:1;
 
 	int (*cache_miss)(struct btree *b, struct search *s,
@@ -447,8 +449,7 @@ struct cache {
 	 * free_inc: Incoming buckets - these are buckets that currently have
 	 * cached data in them, and we can't reuse them until after we write
 	 * their new gen to disk. After prio_write() finishes writing the new
-	 * gens/prios, they'll be moved to the free list (and possibly discarded
-	 * in the process)
+	 * gens/prios, they'll be moved to the free list.
 	 */
 	DECLARE_FIFO(long, free)[RESERVE_NR];
 	DECLARE_FIFO(long, free_inc);
@@ -466,8 +467,6 @@ struct cache {
 	 * cpu
 	 */
 	unsigned int		invalidate_needs_gc;
-
-	bool			discard; /* Get rid of? */
 
 	struct journal_device	journal;
 
@@ -607,6 +606,7 @@ struct cache_set {
 	 */
 	atomic_t		prio_blocked;
 	wait_queue_head_t	bucket_wait;
+	atomic_t		bucket_wait_cnt;
 
 	/*
 	 * For any bio we don't skip we subtract the number of sectors from
@@ -753,6 +753,13 @@ struct bbio {
 		 */
 	};
 	struct bio		bio;
+};
+
+struct detached_dev_io_private {
+	struct bcache_device	*d;
+	unsigned long		start_time;
+	struct bio		*orig_bio;
+	struct bio              bio;
 };
 
 #define BTREE_PRIO		USHRT_MAX

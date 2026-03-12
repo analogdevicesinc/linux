@@ -352,10 +352,15 @@ static int hidpp_send_message_sync(struct hidpp_device *hidpp,
 
 	do {
 		ret = __do_hidpp_send_message_sync(hidpp, message, response);
-		if (ret != HIDPP20_ERROR_BUSY)
+		if (response->report_id == REPORT_ID_HIDPP_SHORT &&
+		    ret != HIDPP_ERROR_BUSY)
+			break;
+		if ((response->report_id == REPORT_ID_HIDPP_LONG ||
+		     response->report_id == REPORT_ID_HIDPP_VERY_LONG) &&
+		    ret != HIDPP20_ERROR_BUSY)
 			break;
 
-		dbg_hid("%s:got busy hidpp 2.0 error %02X, retrying\n", __func__, ret);
+		dbg_hid("%s:got busy hidpp error %02X, retrying\n", __func__, ret);
 	} while (--max_retries);
 
 	mutex_unlock(&hidpp->send_mutex);
@@ -385,7 +390,7 @@ static int hidpp_send_fap_command_sync(struct hidpp_device *hidpp,
 		return -EINVAL;
 	}
 
-	message = kzalloc(sizeof(struct hidpp_report), GFP_KERNEL);
+	message = kzalloc_obj(struct hidpp_report);
 	if (!message)
 		return -ENOMEM;
 
@@ -438,7 +443,7 @@ static int hidpp_send_rap_command_sync(struct hidpp_device *hidpp_dev,
 	if (param_count > max_count)
 		return -EINVAL;
 
-	message = kzalloc(sizeof(struct hidpp_report), GFP_KERNEL);
+	message = kzalloc_obj(struct hidpp_report);
 	if (!message)
 		return -ENOMEM;
 	message->report_id = report_id;
@@ -971,7 +976,8 @@ static int hidpp_root_get_protocol_version(struct hidpp_device *hidpp)
 	}
 
 	/* the device might not be connected */
-	if (ret == HIDPP_ERROR_RESOURCE_ERROR)
+	if (ret == HIDPP_ERROR_RESOURCE_ERROR ||
+	    ret == HIDPP_ERROR_UNKNOWN_DEVICE)
 		return -EIO;
 
 	if (ret > 0) {
@@ -2521,7 +2527,7 @@ out:
 
 static int hidpp_ff_queue_work(struct hidpp_ff_private_data *data, int effect_id, u8 command, u8 *params, u8 size)
 {
-	struct hidpp_ff_work_data *wd = kzalloc(sizeof(*wd), GFP_KERNEL);
+	struct hidpp_ff_work_data *wd = kzalloc_obj(*wd);
 	int s;
 
 	if (!wd)
@@ -2847,7 +2853,7 @@ static int hidpp_ff_init(struct hidpp_device *hidpp,
 	data = kmemdup(data, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
-	data->effect_ids = kcalloc(num_slots, sizeof(int), GFP_KERNEL);
+	data->effect_ids = kzalloc_objs(int, num_slots);
 	if (!data->effect_ids) {
 		kfree(data);
 		return -ENOMEM;
@@ -4308,7 +4314,7 @@ static int hidpp_get_report_length(struct hid_device *hdev, int id)
 
 	re = &(hdev->report_enum[HID_OUTPUT_REPORT]);
 	report = re->report_id_hash[id];
-	if (!report)
+	if (!report || !report->maxfield)
 		return 0;
 
 	return report->field[0]->report_count + 1;
@@ -4656,8 +4662,12 @@ static const struct hid_device_id hidpp_devices[] = {
 	  HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_LOGITECH, 0xb025) },
 	{ /* MX Master 3S mouse over Bluetooth */
 	  HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_LOGITECH, 0xb034) },
+	{ /* MX Anywhere 3S mouse over Bluetooth */
+	  HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_LOGITECH, 0xb037) },
 	{ /* MX Anywhere 3SB mouse over Bluetooth */
 	  HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_LOGITECH, 0xb038) },
+	{ /* Slim Solar+ K980 Keyboard over Bluetooth */
+	  HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_LOGITECH, 0xb391) },
 	{}
 };
 

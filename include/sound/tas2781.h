@@ -2,7 +2,7 @@
 //
 // ALSA SoC Texas Instruments TAS2563/TAS2781 Audio Smart Amplifier
 //
-// Copyright (C) 2022 - 2025 Texas Instruments Incorporated
+// Copyright (C) 2022 - 2026 Texas Instruments Incorporated
 // https://www.ti.com
 //
 // The TAS2563/TAS2781 driver implements a flexible and configurable
@@ -117,14 +117,20 @@ enum audio_device {
 	TAS2120,
 	TAS2320,
 	TAS2563,
+	TAS2568,
 	TAS2570,
 	TAS2572,
+	TAS2574,
 	TAS2781,
 	TAS5802,
+	TAS5806M,
+	TAS5806MD,
 	TAS5815,
+	TAS5822,
 	TAS5825,
 	TAS5827,
 	TAS5828,
+	TAS5830,
 	TAS_OTHERS,
 };
 
@@ -145,6 +151,7 @@ struct tasdevice {
 	struct bulk_reg_val *cali_data_backup;
 	struct bulk_reg_val alp_cali_bckp;
 	struct tasdevice_fw *cali_data_fmw;
+	void *cali_specific;
 	unsigned int dev_addr;
 	unsigned int err_code;
 	unsigned char cur_book;
@@ -197,7 +204,6 @@ struct tasdevice_priv {
 	struct acoustic_data acou_data;
 #endif
 	struct tasdevice_fw *fmw;
-	struct gpio_desc *speaker_id;
 	struct gpio_desc *reset;
 	struct mutex codec_lock;
 	struct regmap *regmap;
@@ -215,6 +221,7 @@ struct tasdevice_priv {
 	unsigned int magic_num;
 	unsigned int chip_id;
 	unsigned int sysclk;
+	int speaker_id;
 
 	int irq;
 	int cur_prog;
@@ -227,7 +234,6 @@ struct tasdevice_priv {
 	bool playback_started;
 	bool isacpi;
 	bool isspi;
-	bool is_user_space_calidata;
 	unsigned int global_addr;
 
 	int (*fw_parse_variable_header)(struct tasdevice_priv *tas_priv,

@@ -14,7 +14,7 @@
 #include <drm/drm_syncobj.h>
 #include <uapi/drm/xe_drm.h>
 
-#include "xe_device_types.h"
+#include "xe_device.h"
 #include "xe_exec_queue.h"
 #include "xe_macros.h"
 #include "xe_sched_job_types.h"
@@ -59,7 +59,7 @@ static struct xe_user_fence *user_fence_create(struct xe_device *xe, u64 addr,
 	if (get_user(prefetch_val, ptr))
 		return ERR_PTR(-EFAULT);
 
-	ufence = kzalloc(sizeof(*ufence), GFP_KERNEL);
+	ufence = kzalloc_obj(*ufence);
 	if (!ufence)
 		return ERR_PTR(-ENOMEM);
 
@@ -146,8 +146,10 @@ int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
 
 		if (!signal) {
 			sync->fence = drm_syncobj_fence_get(sync->syncobj);
-			if (XE_IOCTL_DBG(xe, !sync->fence))
-				return -EINVAL;
+			if (XE_IOCTL_DBG(xe, !sync->fence)) {
+				err = -EINVAL;
+				goto free_sync;
+			}
 		}
 		break;
 
@@ -167,17 +169,21 @@ int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
 
 		if (signal) {
 			sync->chain_fence = dma_fence_chain_alloc();
-			if (!sync->chain_fence)
-				return -ENOMEM;
+			if (!sync->chain_fence) {
+				err = -ENOMEM;
+				goto free_sync;
+			}
 		} else {
 			sync->fence = drm_syncobj_fence_get(sync->syncobj);
-			if (XE_IOCTL_DBG(xe, !sync->fence))
-				return -EINVAL;
+			if (XE_IOCTL_DBG(xe, !sync->fence)) {
+				err = -EINVAL;
+				goto free_sync;
+			}
 
 			err = dma_fence_chain_find_seqno(&sync->fence,
 							 sync_in.timeline_value);
 			if (err)
-				return err;
+				goto free_sync;
 		}
 		break;
 
@@ -200,8 +206,10 @@ int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
 			if (XE_IOCTL_DBG(xe, IS_ERR(sync->ufence)))
 				return PTR_ERR(sync->ufence);
 			sync->ufence_chain_fence = dma_fence_chain_alloc();
-			if (!sync->ufence_chain_fence)
-				return -ENOMEM;
+			if (!sync->ufence_chain_fence) {
+				err = -ENOMEM;
+				goto free_sync;
+			}
 			sync->ufence_syncobj = ufence_syncobj;
 		}
 
@@ -216,6 +224,10 @@ int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
 	sync->timeline_value = sync_in.timeline_value;
 
 	return 0;
+
+free_sync:
+	xe_sync_entry_cleanup(sync);
+	return err;
 }
 ALLOW_ERROR_INJECTION(xe_sync_entry_parse, ERRNO);
 
@@ -226,6 +238,32 @@ int xe_sync_entry_add_deps(struct xe_sync_entry *sync, struct xe_sched_job *job)
 						     dma_fence_get(sync->fence));
 
 	return 0;
+}
+
+/**
+ * xe_sync_entry_wait() - Wait on in-sync
+ * @sync: Sync object
+ *
+ * If the sync is in an in-sync, wait on the sync to signal.
+ *
+ * Return: 0 on success, -ERESTARTSYS on failure (interruption)
+ */
+int xe_sync_entry_wait(struct xe_sync_entry *sync)
+{
+	return xe_sync_needs_wait(sync) ?
+		dma_fence_wait(sync->fence, true) : 0;
+}
+
+/**
+ * xe_sync_needs_wait() - Sync needs a wait (input dma-fence not signaled)
+ * @sync: Sync object
+ *
+ * Return: True if sync needs a wait, False otherwise
+ */
+bool xe_sync_needs_wait(struct xe_sync_entry *sync)
+{
+	return sync->fence &&
+	       !test_bit(DMA_FENCE_FLAG_SIGNALED_BIT, &sync->fence->flags);
 }
 
 void xe_sync_entry_signal(struct xe_sync_entry *sync, struct dma_fence *fence)
@@ -297,51 +335,61 @@ xe_sync_in_fence_get(struct xe_sync_entry *sync, int num_sync,
 	struct dma_fence **fences = NULL;
 	struct dma_fence_array *cf = NULL;
 	struct dma_fence *fence;
-	int i, num_in_fence = 0, current_fence = 0;
+	int i, num_fence = 0, current_fence = 0;
 
 	lockdep_assert_held(&vm->lock);
 
-	/* Count in-fences */
-	for (i = 0; i < num_sync; ++i) {
-		if (sync[i].fence) {
-			++num_in_fence;
-			fence = sync[i].fence;
+	/* Reject in fences */
+	for (i = 0; i < num_sync; ++i)
+		if (sync[i].fence)
+			return ERR_PTR(-EOPNOTSUPP);
+
+	if (q->flags & EXEC_QUEUE_FLAG_VM) {
+		struct xe_exec_queue *__q;
+		struct xe_tile *tile;
+		u8 id;
+
+		for_each_tile(tile, vm->xe, id) {
+			num_fence++;
+			for_each_tlb_inval(i)
+				num_fence++;
 		}
-	}
 
-	/* Easy case... */
-	if (!num_in_fence) {
-		fence = xe_exec_queue_last_fence_get(q, vm);
-		return fence;
-	}
+		fences = kmalloc_objs(*fences, num_fence);
+		if (!fences)
+			return ERR_PTR(-ENOMEM);
 
-	/* Create composite fence */
-	fences = kmalloc_array(num_in_fence + 1, sizeof(*fences), GFP_KERNEL);
-	if (!fences)
-		return ERR_PTR(-ENOMEM);
-	for (i = 0; i < num_sync; ++i) {
-		if (sync[i].fence) {
-			dma_fence_get(sync[i].fence);
-			fences[current_fence++] = sync[i].fence;
+		fences[current_fence++] =
+			xe_exec_queue_last_fence_get(q, vm);
+		for_each_tlb_inval(i)
+			fences[current_fence++] =
+				xe_exec_queue_tlb_inval_last_fence_get(q, vm, i);
+		list_for_each_entry(__q, &q->multi_gt_list,
+				    multi_gt_link) {
+			fences[current_fence++] =
+				xe_exec_queue_last_fence_get(__q, vm);
+			for_each_tlb_inval(i)
+				fences[current_fence++] =
+					xe_exec_queue_tlb_inval_last_fence_get(__q, vm, i);
 		}
-	}
-	fences[current_fence++] = xe_exec_queue_last_fence_get(q, vm);
-	cf = dma_fence_array_create(num_in_fence, fences,
-				    vm->composite_fence_ctx,
-				    vm->composite_fence_seqno++,
-				    false);
-	if (!cf) {
-		--vm->composite_fence_seqno;
-		goto err_out;
+
+		xe_assert(vm->xe, current_fence == num_fence);
+		cf = dma_fence_array_create(num_fence, fences,
+					    dma_fence_context_alloc(1),
+					    1, false);
+		if (!cf)
+			goto err_out;
+
+		return &cf->base;
 	}
 
-	return &cf->base;
+	fence = xe_exec_queue_last_fence_get(q, vm);
+	return fence;
 
 err_out:
 	while (current_fence)
 		dma_fence_put(fences[--current_fence]);
 	kfree(fences);
-	kfree(cf);
 
 	return ERR_PTR(-ENOMEM);
 }

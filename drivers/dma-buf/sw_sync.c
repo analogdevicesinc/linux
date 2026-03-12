@@ -8,6 +8,7 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
+#include <linux/panic.h>
 #include <linux/slab.h>
 #include <linux/sync_file.h>
 
@@ -100,7 +101,7 @@ static struct sync_timeline *sync_timeline_create(const char *name)
 {
 	struct sync_timeline *obj;
 
-	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	obj = kzalloc_obj(*obj);
 	if (!obj)
 		return NULL;
 
@@ -251,7 +252,7 @@ static struct sync_pt *sync_pt_create(struct sync_timeline *obj,
 {
 	struct sync_pt *pt;
 
-	pt = kzalloc(sizeof(*pt), GFP_KERNEL);
+	pt = kzalloc_obj(*pt);
 	if (!pt)
 		return NULL;
 
@@ -348,6 +349,9 @@ static long sw_sync_ioctl_create_fence(struct sync_timeline *obj,
 	struct sync_pt *pt;
 	struct sync_file *sync_file;
 	struct sw_sync_create_fence_data data;
+
+	/* SW sync fence are inherently unsafe and can deadlock the kernel */
+	add_taint(TAINT_SOFTLOCKUP, LOCKDEP_STILL_OK);
 
 	if (fd < 0)
 		return fd;

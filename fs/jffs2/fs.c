@@ -265,7 +265,7 @@ struct inode *jffs2_iget(struct super_block *sb, unsigned long ino)
 	inode = iget_locked(sb, ino);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
-	if (!(inode->i_state & I_NEW))
+	if (!(inode_state_read_once(inode) & I_NEW))
 		return inode;
 
 	f = JFFS2_INODE_INFO(inode);
@@ -373,7 +373,7 @@ void jffs2_dirty_inode(struct inode *inode, int flags)
 {
 	struct iattr iattr;
 
-	if (!(inode->i_state & I_DIRTY_DATASYNC)) {
+	if (!(inode_state_read_once(inode) & I_DIRTY_DATASYNC)) {
 		jffs2_dbg(2, "%s(): not calling setattr() for ino #%lu\n",
 			  __func__, inode->i_ino);
 		return;
@@ -562,7 +562,8 @@ int jffs2_do_fill_super(struct super_block *sb, struct fs_context *fc)
 		return ret;
 
 	c->inocache_hashsize = calculate_inocache_hashsize(c->flash_size);
-	c->inocache_list = kcalloc(c->inocache_hashsize, sizeof(struct jffs2_inode_cache *), GFP_KERNEL);
+	c->inocache_list = kzalloc_objs(struct jffs2_inode_cache *,
+					c->inocache_hashsize);
 	if (!c->inocache_list) {
 		ret = -ENOMEM;
 		goto out_wbuf;

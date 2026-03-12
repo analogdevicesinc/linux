@@ -46,6 +46,24 @@
 		#size-cells = <1>;
 		ranges = <0x00 0x00 0x00100000 0x20000>;
 
+		audio_refclk0: clock-controller@82e0 {
+			compatible = "ti,am62-audio-refclk";
+			reg = <0x82e0 0x4>;
+			clocks = <&k3_clks 157 0>;
+			assigned-clocks = <&k3_clks 157 0>;
+			assigned-clock-parents = <&k3_clks 157 16>;
+			#clock-cells = <0>;
+		};
+
+		audio_refclk1: clock-controller@82e4 {
+			compatible = "ti,am62-audio-refclk";
+			reg = <0x82e4 0x4>;
+			clocks = <&k3_clks 157 18>;
+			assigned-clocks = <&k3_clks 157 18>;
+			assigned-clock-parents = <&k3_clks 157 34>;
+			#clock-cells = <0>;
+		};
+
 		phy_gmii_sel: phy@4044 {
 			compatible = "ti,am654-phy-gmii-sel";
 			reg = <0x4044 0x8>;
@@ -1098,5 +1116,22 @@
 		interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&k3_clks 204 2>;
 		power-domains = <&k3_pds 204 TI_SCI_PD_EXCLUSIVE>;
+	};
+
+	hsm: remoteproc@43c00000 {
+		compatible = "ti,hsm-m4fss";
+		/* contiguous regions but instantiated separately in HW */
+		reg = <0x00 0x43c00000 0x00 0x20000>,
+		      <0x00 0x43c20000 0x00 0x10000>,
+		      <0x00 0x43c30000 0x00 0x10000>;
+		reg-names = "sram0_0", "sram0_1", "sram1";
+		resets = <&k3_reset 225 1>;
+		firmware-name = "am62p-hsm-m4f-fw";
+		bootph-pre-ram;
+		ti,sci = <&dmsc>;
+		ti,sci-dev-id = <225>;
+		ti,sci-proc-ids = <0x80 0xff>;
+		/* reserved for early-stage bootloader */
+		status = "reserved";
 	};
 };

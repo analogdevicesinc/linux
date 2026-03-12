@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: ISC
+// SPDX-License-Identifier: BSD-3-Clause-Clear
 /* Copyright (C) 2019 MediaTek Inc.
  *
  * Author: Ryder Lee <ryder.lee@mediatek.com>
@@ -1055,7 +1055,7 @@ mt7615_mac_queue_rate_update(struct mt7615_phy *phy, struct mt7615_sta *sta,
 	if (work_pending(&dev->rate_work))
 		return -EBUSY;
 
-	wrd = kzalloc(sizeof(*wrd), GFP_ATOMIC);
+	wrd = kzalloc_obj(*wrd, GFP_ATOMIC);
 	if (!wrd)
 		return -ENOMEM;
 

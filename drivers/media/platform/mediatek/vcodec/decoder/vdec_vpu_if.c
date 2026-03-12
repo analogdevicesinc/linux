@@ -75,16 +75,17 @@ static void handle_get_param_msg_ack(const struct vdec_vpu_ipi_get_param_ack *ms
 static bool vpu_dec_check_ap_inst(struct mtk_vcodec_dec_dev *dec_dev, struct vdec_vpu_inst *vpu)
 {
 	struct mtk_vcodec_dec_ctx *ctx;
+	unsigned long flags;
 	int ret = false;
 
-	mutex_lock(&dec_dev->dev_ctx_lock);
+	spin_lock_irqsave(&dec_dev->dev_ctx_lock, flags);
 	list_for_each_entry(ctx, &dec_dev->ctx_list, list) {
 		if (!IS_ERR_OR_NULL(ctx) && ctx->vpu_inst == vpu) {
 			ret = true;
 			break;
 		}
 	}
-	mutex_unlock(&dec_dev->dev_ctx_lock);
+	spin_unlock_irqrestore(&dec_dev->dev_ctx_lock, flags);
 
 	return ret;
 }
@@ -181,12 +182,11 @@ static int vcodec_vpu_send_msg(struct vdec_vpu_inst *vpu, void *msg, int len)
 
 static int vcodec_send_ap_ipi(struct vdec_vpu_inst *vpu, unsigned int msg_id)
 {
-	struct vdec_ap_ipi_cmd msg;
+	struct vdec_ap_ipi_cmd msg = { };
 	int err = 0;
 
 	mtk_vdec_debug(vpu->ctx, "+ id=%X", msg_id);
 
-	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = msg_id;
 	if (vpu->fw_abi_version < 2)
 		msg.vpu_inst_addr = vpu->inst_addr;
@@ -201,7 +201,7 @@ static int vcodec_send_ap_ipi(struct vdec_vpu_inst *vpu, unsigned int msg_id)
 
 int vpu_dec_init(struct vdec_vpu_inst *vpu)
 {
-	struct vdec_ap_ipi_init msg;
+	struct vdec_ap_ipi_init msg = { };
 	int err;
 
 	init_waitqueue_head(&vpu->wq);
@@ -225,7 +225,6 @@ int vpu_dec_init(struct vdec_vpu_inst *vpu)
 		}
 	}
 
-	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_INIT;
 	msg.ap_inst_addr = (unsigned long)vpu;
 	msg.codec_type = vpu->codec_type;
@@ -245,7 +244,7 @@ int vpu_dec_init(struct vdec_vpu_inst *vpu)
 
 int vpu_dec_start(struct vdec_vpu_inst *vpu, uint32_t *data, unsigned int len)
 {
-	struct vdec_ap_ipi_dec_start msg;
+	struct vdec_ap_ipi_dec_start msg = { };
 	int i;
 	int err = 0;
 
@@ -254,7 +253,6 @@ int vpu_dec_start(struct vdec_vpu_inst *vpu, uint32_t *data, unsigned int len)
 		return -EINVAL;
 	}
 
-	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_START;
 	if (vpu->fw_abi_version < 2)
 		msg.vpu_inst_addr = vpu->inst_addr;
@@ -273,7 +271,7 @@ int vpu_dec_start(struct vdec_vpu_inst *vpu, uint32_t *data, unsigned int len)
 int vpu_dec_get_param(struct vdec_vpu_inst *vpu, uint32_t *data,
 		      unsigned int len, unsigned int param_type)
 {
-	struct vdec_ap_ipi_get_param msg;
+	struct vdec_ap_ipi_get_param msg = { };
 	int err;
 
 	if (len > ARRAY_SIZE(msg.data)) {
@@ -281,7 +279,6 @@ int vpu_dec_get_param(struct vdec_vpu_inst *vpu, uint32_t *data,
 		return -EINVAL;
 	}
 
-	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_GET_PARAM;
 	msg.inst_id = vpu->inst_id;
 	memcpy(msg.data, data, sizeof(unsigned int) * len);

@@ -133,7 +133,7 @@ static int mei_cl_irq_read_msg(struct mei_cl *cl,
 				break;
 			case MEI_EXT_HDR_GSC:
 				gsc_f2h = (struct mei_ext_hdr_gsc_f2h *)ext;
-				cb->ext_hdr = (struct mei_ext_hdr *)kzalloc(sizeof(*gsc_f2h), GFP_KERNEL);
+				cb->ext_hdr = (struct mei_ext_hdr *) kzalloc_obj(*gsc_f2h);
 				if (!cb->ext_hdr) {
 					cb->status = -ENOMEM;
 					goto discard;
@@ -229,7 +229,6 @@ static int mei_cl_irq_read_msg(struct mei_cl *cl,
 		cl_dbg(dev, cl, "completed read length = %zu\n", cb->buf_idx);
 		list_move_tail(&cb->list, cmpl_list);
 	} else {
-		pm_runtime_mark_last_busy(dev->parent);
 		pm_request_autosuspend(dev->parent);
 	}
 
@@ -310,7 +309,6 @@ static int mei_cl_irq_read(struct mei_cl *cl, struct mei_cl_cb *cb,
 		return ret;
 	}
 
-	pm_runtime_mark_last_busy(dev->parent);
 	pm_request_autosuspend(dev->parent);
 
 	list_move_tail(&cb->list, &cl->rd_pending);

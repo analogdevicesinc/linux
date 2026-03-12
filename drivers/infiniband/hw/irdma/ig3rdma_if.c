@@ -55,6 +55,7 @@ static int ig3rdma_vchnl_init(struct irdma_pci_f *rf,
 	ret = irdma_sc_vchnl_init(&rf->sc_dev, &virt_info);
 	if (ret) {
 		destroy_workqueue(rf->vchnl_wq);
+		mutex_destroy(&rf->sc_dev.vchnl_mutex);
 		return ret;
 	}
 
@@ -100,8 +101,7 @@ static int ig3rdma_cfg_regions(struct irdma_hw *hw,
 		return -ENOMEM;
 
 	hw->num_io_regions = le16_to_cpu(idc_priv->num_memory_regions);
-	hw->io_regs = kcalloc(hw->num_io_regions,
-			      sizeof(struct irdma_mmio_region), GFP_KERNEL);
+	hw->io_regs = kzalloc_objs(struct irdma_mmio_region, hw->num_io_regions);
 
 	if (!hw->io_regs) {
 		iounmap(hw->rdma_reg.addr);
@@ -124,7 +124,9 @@ static void ig3rdma_decfg_rf(struct irdma_pci_f *rf)
 {
 	struct irdma_hw *hw = &rf->hw;
 
+	mutex_destroy(&rf->ah_tbl_lock);
 	destroy_workqueue(rf->vchnl_wq);
+	mutex_destroy(&rf->sc_dev.vchnl_mutex);
 	kfree(hw->io_regs);
 	iounmap(hw->rdma_reg.addr);
 }
@@ -149,6 +151,7 @@ static int ig3rdma_cfg_rf(struct irdma_pci_f *rf,
 	err = ig3rdma_cfg_regions(&rf->hw, cdev_info);
 	if (err) {
 		destroy_workqueue(rf->vchnl_wq);
+		mutex_destroy(&rf->sc_dev.vchnl_mutex);
 		return err;
 	}
 
@@ -171,7 +174,7 @@ static int ig3rdma_core_probe(struct auxiliary_device *aux_dev,
 	struct irdma_pci_f *rf;
 	int err;
 
-	rf = kzalloc(sizeof(*rf), GFP_KERNEL);
+	rf = kzalloc_obj(*rf);
 	if (!rf)
 		return -ENOMEM;
 

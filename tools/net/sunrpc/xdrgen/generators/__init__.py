@@ -2,11 +2,11 @@
 
 """Define a base code generator class"""
 
-import sys
+from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, Template
 
 from xdr_ast import _XdrAst, Specification, _RpcProgram, _XdrTypeSpecifier
-from xdr_ast import public_apis, pass_by_reference, get_header_name
+from xdr_ast import public_apis, pass_by_reference, structs, get_header_name
 from xdr_parse import get_xdr_annotate
 
 
@@ -14,14 +14,18 @@ def create_jinja2_environment(language: str, xdr_type: str) -> Environment:
     """Open a set of templates based on output language"""
     match language:
         case "C":
+            templates_dir = (
+                Path(__file__).parent.parent / "templates" / language / xdr_type
+            )
             environment = Environment(
-                loader=FileSystemLoader(sys.path[0] + "/templates/C/" + xdr_type + "/"),
+                loader=FileSystemLoader(templates_dir),
                 trim_blocks=True,
                 lstrip_blocks=True,
             )
             environment.globals["annotate"] = get_xdr_annotate()
             environment.globals["public_apis"] = public_apis
             environment.globals["pass_by_reference"] = pass_by_reference
+            environment.globals["structs"] = structs
             return environment
         case _:
             raise NotImplementedError("Language not supported")
@@ -48,15 +52,15 @@ def find_xdr_program_name(root: Specification) -> str:
 
 def header_guard_infix(filename: str) -> str:
     """Extract the header guard infix from the specification filename"""
-    basename = filename.split("/")[-1]
-    program = basename.replace(".x", "")
-    return program.upper()
+    return Path(filename).stem.upper()
 
 
 def kernel_c_type(spec: _XdrTypeSpecifier) -> str:
     """Return name of C type"""
     builtin_native_c_type = {
         "bool": "bool",
+        "short": "s16",
+        "unsigned_short": "u16",
         "int": "s32",
         "unsigned_int": "u32",
         "long": "s32",

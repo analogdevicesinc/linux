@@ -221,7 +221,7 @@ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u16 vport, bool rx_rule,
 	if (rx_rule)
 		match_header |= MLX5_MATCH_MISC_PARAMETERS;
 
-	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
+	spec = kvzalloc_obj(*spec);
 	if (!spec)
 		return NULL;
 
@@ -875,13 +875,10 @@ static int esw_vport_setup(struct mlx5_eswitch *esw, struct mlx5_vport *vport)
 				      vport_num, 1,
 				      vport->info.link_state);
 
-	/* Host PF has its own mac/guid. */
-	if (vport_num) {
-		mlx5_modify_nic_vport_mac_address(esw->dev, vport_num,
-						  vport->info.mac);
-		mlx5_modify_nic_vport_node_guid(esw->dev, vport_num,
-						vport->info.node_guid);
-	}
+	mlx5_query_nic_vport_mac_address(esw->dev, vport_num, true,
+					 vport->info.mac);
+	mlx5_query_nic_vport_node_guid(esw->dev, vport_num, true,
+				       &vport->info.node_guid);
 
 	flags = (vport->info.vlan || vport->info.qos) ?
 		SET_VLAN_STRIP | SET_VLAN_INSERT : 0;
@@ -946,12 +943,6 @@ int mlx5_esw_vport_enable(struct mlx5_eswitch *esw, struct mlx5_vport *vport,
 		if (ret)
 			goto err_vhca_mapping;
 	}
-
-	/* External controller host PF has factory programmed MAC.
-	 * Read it from the device.
-	 */
-	if (mlx5_core_is_ecpf(esw->dev) && vport_num == MLX5_VPORT_PF)
-		mlx5_query_nic_vport_mac_address(esw->dev, vport_num, true, vport->info.mac);
 
 	esw_vport_change_handle_locked(vport);
 
@@ -1313,24 +1304,52 @@ vf_err:
 	return err;
 }
 
-static int host_pf_enable_hca(struct mlx5_core_dev *dev)
+int mlx5_esw_host_pf_enable_hca(struct mlx5_core_dev *dev)
 {
-	if (!mlx5_core_is_ecpf(dev))
+	struct mlx5_eswitch *esw = dev->priv.eswitch;
+	struct mlx5_vport *vport;
+	int err;
+
+	if (!mlx5_core_is_ecpf(dev) || !mlx5_esw_allowed(esw))
 		return 0;
+
+	vport = mlx5_eswitch_get_vport(esw, MLX5_VPORT_PF);
+	if (IS_ERR(vport))
+		return PTR_ERR(vport);
 
 	/* Once vport and representor are ready, take out the external host PF
 	 * out of initializing state. Enabling HCA clears the iser->initializing
 	 * bit and host PF driver loading can progress.
 	 */
-	return mlx5_cmd_host_pf_enable_hca(dev);
+	err = mlx5_cmd_host_pf_enable_hca(dev);
+	if (err)
+		return err;
+
+	vport->pf_activated = true;
+
+	return 0;
 }
 
-static void host_pf_disable_hca(struct mlx5_core_dev *dev)
+int mlx5_esw_host_pf_disable_hca(struct mlx5_core_dev *dev)
 {
-	if (!mlx5_core_is_ecpf(dev))
-		return;
+	struct mlx5_eswitch *esw = dev->priv.eswitch;
+	struct mlx5_vport *vport;
+	int err;
 
-	mlx5_cmd_host_pf_disable_hca(dev);
+	if (!mlx5_core_is_ecpf(dev) || !mlx5_esw_allowed(esw))
+		return 0;
+
+	vport = mlx5_eswitch_get_vport(esw, MLX5_VPORT_PF);
+	if (IS_ERR(vport))
+		return PTR_ERR(vport);
+
+	err = mlx5_cmd_host_pf_disable_hca(dev);
+	if (err)
+		return err;
+
+	vport->pf_activated = false;
+
+	return 0;
 }
 
 /* mlx5_eswitch_enable_pf_vf_vports() enables vports of PF, ECPF and VFs
@@ -1356,7 +1375,7 @@ mlx5_eswitch_enable_pf_vf_vports(struct mlx5_eswitch *esw,
 
 	if (mlx5_esw_host_functions_enabled(esw->dev)) {
 		/* Enable external host PF HCA */
-		ret = host_pf_enable_hca(esw->dev);
+		ret = mlx5_esw_host_pf_enable_hca(esw->dev);
 		if (ret)
 			goto pf_hca_err;
 	}
@@ -1400,7 +1419,7 @@ ec_vf_err:
 		mlx5_eswitch_unload_pf_vf_vport(esw, MLX5_VPORT_ECPF);
 ecpf_err:
 	if (mlx5_esw_host_functions_enabled(esw->dev))
-		host_pf_disable_hca(esw->dev);
+		mlx5_esw_host_pf_disable_hca(esw->dev);
 pf_hca_err:
 	if (pf_needed && mlx5_esw_host_functions_enabled(esw->dev))
 		mlx5_eswitch_unload_pf_vf_vport(esw, MLX5_VPORT_PF);
@@ -1425,7 +1444,7 @@ void mlx5_eswitch_disable_pf_vf_vports(struct mlx5_eswitch *esw)
 	}
 
 	if (mlx5_esw_host_functions_enabled(esw->dev))
-		host_pf_disable_hca(esw->dev);
+		mlx5_esw_host_pf_disable_hca(esw->dev);
 
 	if ((mlx5_core_is_ecpf_esw_manager(esw->dev) ||
 	     esw->mode == MLX5_ESWITCH_LEGACY) &&
@@ -1483,7 +1502,7 @@ static void mlx5_esw_mode_change_notify(struct mlx5_eswitch *esw, u16 mode)
 
 	info.new_mode = mode;
 
-	blocking_notifier_call_chain(&esw->n_head, 0, &info);
+	blocking_notifier_call_chain(&esw->dev->priv.esw_n_head, 0, &info);
 }
 
 static int mlx5_esw_egress_acls_init(struct mlx5_core_dev *dev)
@@ -1843,7 +1862,7 @@ int mlx5_esw_vport_alloc(struct mlx5_eswitch *esw, int index, u16 vport_num)
 	struct mlx5_vport *vport;
 	int err;
 
-	vport = kzalloc(sizeof(*vport), GFP_KERNEL);
+	vport = kzalloc_obj(*vport);
 	if (!vport)
 		return -ENOMEM;
 
@@ -1978,7 +1997,8 @@ static int mlx5_devlink_esw_multiport_set(struct devlink *devlink, u32 id,
 }
 
 static int mlx5_devlink_esw_multiport_get(struct devlink *devlink, u32 id,
-					  struct devlink_param_gset_ctx *ctx)
+					  struct devlink_param_gset_ctx *ctx,
+					  struct netlink_ext_ack *extack)
 {
 	struct mlx5_core_dev *dev = devlink_priv(devlink);
 
@@ -2002,7 +2022,7 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
 	if (!MLX5_VPORT_MANAGER(dev) && !MLX5_ESWITCH_MANAGER(dev))
 		return 0;
 
-	esw = kzalloc(sizeof(*esw), GFP_KERNEL);
+	esw = kzalloc_obj(*esw);
 	if (!esw)
 		return -ENOMEM;
 
@@ -2059,7 +2079,6 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
 		esw->offloads.encap = DEVLINK_ESWITCH_ENCAP_MODE_BASIC;
 	else
 		esw->offloads.encap = DEVLINK_ESWITCH_ENCAP_MODE_NONE;
-	BLOCKING_INIT_NOTIFIER_HEAD(&esw->n_head);
 
 	esw_info(dev,
 		 "Total vports %d, per vport: max uc(%d) max mc(%d)\n",
@@ -2235,6 +2254,9 @@ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
 	ivi->vf = vport - 1;
 
 	mutex_lock(&esw->state_lock);
+
+	mlx5_query_nic_vport_mac_address(esw->dev, vport, true,
+					 evport->info.mac);
 	ether_addr_copy(ivi->mac, evport->info.mac);
 	ivi->linkstate = evport->info.link_state;
 	ivi->vlan = evport->info.vlan;
@@ -2385,14 +2407,16 @@ bool mlx5_esw_multipath_prereq(struct mlx5_core_dev *dev0,
 		dev1->priv.eswitch->mode == MLX5_ESWITCH_OFFLOADS);
 }
 
-int mlx5_esw_event_notifier_register(struct mlx5_eswitch *esw, struct notifier_block *nb)
+int mlx5_esw_event_notifier_register(struct mlx5_core_dev *dev,
+				     struct notifier_block *nb)
 {
-	return blocking_notifier_chain_register(&esw->n_head, nb);
+	return blocking_notifier_chain_register(&dev->priv.esw_n_head, nb);
 }
 
-void mlx5_esw_event_notifier_unregister(struct mlx5_eswitch *esw, struct notifier_block *nb)
+void mlx5_esw_event_notifier_unregister(struct mlx5_core_dev *dev,
+					struct notifier_block *nb)
 {
-	blocking_notifier_chain_unregister(&esw->n_head, nb);
+	blocking_notifier_chain_unregister(&dev->priv.esw_n_head, nb);
 }
 
 /**

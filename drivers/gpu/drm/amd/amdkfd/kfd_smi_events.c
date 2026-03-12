@@ -312,7 +312,7 @@ void kfd_smi_event_queue_restore(struct kfd_node *node, pid_t pid)
 {
 	kfd_smi_event_add(pid, node, KFD_SMI_EVENT_QUEUE_RESTORE,
 			  KFD_EVENT_FMT_QUEUE_RESTORE(ktime_get_boottime_ns(), pid,
-			  node->id, 0));
+			  node->id, '0'));
 }
 
 void kfd_smi_event_queue_restore_rescheduled(struct mm_struct *mm)
@@ -370,7 +370,7 @@ int kfd_smi_event_open(struct kfd_node *dev, uint32_t *fd)
 	struct kfd_smi_client *client;
 	int ret;
 
-	client = kzalloc(sizeof(struct kfd_smi_client), GFP_KERNEL);
+	client = kzalloc_obj(struct kfd_smi_client);
 	if (!client)
 		return -ENOMEM;
 	INIT_LIST_HEAD(&client->list);

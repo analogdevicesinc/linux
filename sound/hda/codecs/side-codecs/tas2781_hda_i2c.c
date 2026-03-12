@@ -2,7 +2,7 @@
 //
 // TAS2781 HDA I2C driver
 //
-// Copyright 2023 - 2025 Texas Instruments, Inc.
+// Copyright 2023 - 2026 Texas Instruments, Inc.
 //
 // Author: Shenghao Ding <shenghao-ding@ti.com>
 // Current maintainer: Baojun Xu <baojun.xu@ti.com>
@@ -87,6 +87,7 @@ static const struct acpi_gpio_mapping tas2781_speaker_id_gpios[] = {
 
 static int tas2781_read_acpi(struct tasdevice_priv *p, const char *hid)
 {
+	struct gpio_desc *speaker_id;
 	struct acpi_device *adev;
 	struct device *physdev;
 	LIST_HEAD(resources);
@@ -110,8 +111,10 @@ static int tas2781_read_acpi(struct tasdevice_priv *p, const char *hid)
 	sub = acpi_get_subsystem_id(ACPI_HANDLE(physdev));
 	if (IS_ERR(sub)) {
 		/* No subsys id in older tas2563 projects. */
-		if (!strncmp(hid, "INT8866", sizeof("INT8866")))
+		if (!strncmp(hid, "INT8866", sizeof("INT8866"))) {
+			p->speaker_id = -1;
 			goto end_2563;
+		}
 		dev_err(p->dev, "Failed to get SUBSYS ID.\n");
 		ret = PTR_ERR(sub);
 		goto err;
@@ -119,19 +122,31 @@ static int tas2781_read_acpi(struct tasdevice_priv *p, const char *hid)
 	/* Speaker id was needed for ASUS projects. */
 	ret = kstrtou32(sub, 16, &subid);
 	if (!ret && upper_16_bits(subid) == PCI_VENDOR_ID_ASUSTEK) {
-		ret = devm_acpi_dev_add_driver_gpios(p->dev,
-			tas2781_speaker_id_gpios);
-		if (ret < 0)
+		ret = acpi_dev_add_driver_gpios(adev, tas2781_speaker_id_gpios);
+		if (ret < 0) {
 			dev_err(p->dev, "Failed to add driver gpio %d.\n",
 				ret);
-		p->speaker_id = devm_gpiod_get(p->dev, "speakerid", GPIOD_IN);
-		if (IS_ERR(p->speaker_id)) {
-			dev_err(p->dev, "Failed to get Speaker id.\n");
-			ret = PTR_ERR(p->speaker_id);
-			goto err;
+			p->speaker_id = -1;
+			goto end_2563;
 		}
+
+		speaker_id = fwnode_gpiod_get_index(acpi_fwnode_handle(adev),
+			"speakerid", 0, GPIOD_IN, NULL);
+		if (!IS_ERR(speaker_id)) {
+			p->speaker_id = gpiod_get_value_cansleep(speaker_id);
+			dev_dbg(p->dev, "Got speaker id gpio from ACPI: %d.\n",
+				p->speaker_id);
+			gpiod_put(speaker_id);
+		} else {
+			p->speaker_id = -1;
+			ret = PTR_ERR(speaker_id);
+			dev_err(p->dev, "Get speaker id gpio failed %d.\n",
+				ret);
+		}
+
+		acpi_dev_remove_driver_gpios(adev);
 	} else {
-		p->speaker_id = NULL;
+		p->speaker_id = -1;
 	}
 
 end_2563:
@@ -377,19 +392,6 @@ static int tas2563_save_calibration(struct tas2781_hda *h)
 	r->pow_reg = TAS2563_CAL_POWER;
 	r->tlimit_reg = TAS2563_CAL_TLIM;
 
-	/*
-	 * TAS2781_FMWLIB supports two solutions of calibrated data. One is
-	 * from the driver itself: driver reads the calibrated files directly
-	 * during probe; The other from user space: during init of audio hal,
-	 * the audio hal will pass the calibrated data via kcontrol interface.
-	 * Driver will store this data in "struct calidata" for use. For hda
-	 * device, calibrated data are usunally saved into UEFI. So Hda side
-	 * codec driver use the mixture of these two solutions, driver reads
-	 * the data from UEFI, then store this data in "struct calidata" for
-	 * use.
-	 */
-	p->is_user_space_calidata = true;
-
 	return 0;
 }
 
@@ -432,23 +434,16 @@ static void tasdevice_dspfw_init(void *context)
 	struct tas2781_hda *tas_hda = dev_get_drvdata(tas_priv->dev);
 	struct tas2781_hda_i2c_priv *hda_priv = tas_hda->hda_priv;
 	struct hda_codec *codec = tas_priv->codec;
-	int ret, spk_id;
+	int ret;
 
 	tasdevice_dsp_remove(tas_priv);
 	tas_priv->fw_state = TASDEVICE_DSP_FW_PENDING;
-	if (tas_priv->speaker_id != NULL) {
-		// Speaker id need to be checked for ASUS only.
-		spk_id = gpiod_get_value(tas_priv->speaker_id);
-		if (spk_id < 0) {
-			// Speaker id is not valid, use default.
-			dev_dbg(tas_priv->dev, "Wrong spk_id = %d\n", spk_id);
-			spk_id = 0;
-		}
+	if (tas_priv->speaker_id >= 0) {
 		snprintf(tas_priv->coef_binaryname,
 			  sizeof(tas_priv->coef_binaryname),
 			  "TAS2XXX%04X%d.bin",
 			  lower_16_bits(codec->core.subsystem_id),
-			  spk_id);
+			  tas_priv->speaker_id);
 	} else {
 		snprintf(tas_priv->coef_binaryname,
 			  sizeof(tas_priv->coef_binaryname),
@@ -494,8 +489,8 @@ static void tasdev_fw_ready(const struct firmware *fmw, void *context)
 	struct hda_codec *codec = tas_priv->codec;
 	int ret;
 
-	pm_runtime_get_sync(tas_priv->dev);
-	mutex_lock(&tas_priv->codec_lock);
+	guard(pm_runtime_active_auto)(tas_priv->dev);
+	guard(mutex)(&tas_priv->codec_lock);
 
 	ret = tasdevice_rca_parser(tas_priv, fmw);
 	if (ret)
@@ -531,9 +526,7 @@ static void tasdev_fw_ready(const struct firmware *fmw, void *context)
 	}
 
 out:
-	mutex_unlock(&tas_hda->priv->codec_lock);
 	release_firmware(fmw);
-	pm_runtime_put_autosuspend(tas_hda->dev);
 }
 
 static int tas2781_hda_bind(struct device *dev, struct device *master,
@@ -560,12 +553,15 @@ static int tas2781_hda_bind(struct device *dev, struct device *master,
 	case 0x1028:
 		tas_hda->catlog_id = DELL;
 		break;
+	case 0x103C:
+		tas_hda->catlog_id = HP;
+		break;
 	default:
 		tas_hda->catlog_id = LENOVO;
 		break;
 	}
 
-	pm_runtime_get_sync(dev);
+	guard(pm_runtime_active_auto)(dev);
 
 	comp->dev = dev;
 
@@ -574,8 +570,6 @@ static int tas2781_hda_bind(struct device *dev, struct device *master,
 	ret = tascodec_init(tas_hda->priv, codec, THIS_MODULE, tasdev_fw_ready);
 	if (!ret)
 		comp->playback_hook = tas2781_hda_playback_hook;
-
-	pm_runtime_put_autosuspend(dev);
 
 	return ret;
 }
@@ -638,6 +632,7 @@ static int tas2781_hda_i2c_probe(struct i2c_client *clt)
 		 */
 		device_name = "TIAS2781";
 		hda_priv->hda_chip_id = HDA_TAS2781;
+		tas_hda->priv->chip_id = TAS2781;
 		hda_priv->save_calibration = tas2781_save_calibration;
 		tas_hda->priv->global_addr = TAS2781_GLOBAL_ADDR;
 	} else if (strstarts(dev_name(&clt->dev), "i2c-TXNW2770")) {
@@ -651,6 +646,7 @@ static int tas2781_hda_i2c_probe(struct i2c_client *clt)
 			     "i2c-TXNW2781:00-tas2781-hda.0")) {
 		device_name = "TXNW2781";
 		hda_priv->hda_chip_id = HDA_TAS2781;
+		tas_hda->priv->chip_id = TAS2781;
 		hda_priv->save_calibration = tas2781_save_calibration;
 		tas_hda->priv->global_addr = TAS2781_GLOBAL_ADDR;
 	} else if (strstr(dev_name(&clt->dev), "INT8866")) {

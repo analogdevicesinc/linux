@@ -391,10 +391,8 @@ static int max31335_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(max31335->regmap, max31335->chip->int_status_reg,
-				 MAX31335_STATUS1_A1F, 0);
-
-	return 0;
+	return regmap_update_bits(max31335->regmap, max31335->chip->int_status_reg,
+				  MAX31335_STATUS1_A1F, 0);
 }
 
 static int max31335_alarm_irq_enable(struct device *dev, unsigned int enabled)
@@ -593,7 +591,7 @@ static struct nvmem_config max31335_nvmem_cfg = {
 	.size = MAX31335_RAM_SIZE,
 };
 
-#if IS_REACHABLE(HWMON)
+#if IS_REACHABLE(CONFIG_HWMON)
 static int max31335_read_temp(struct device *dev, enum hwmon_sensor_types type,
 			      u32 attr, int channel, long *val)
 {
@@ -674,7 +672,7 @@ static int max31335_clkout_register(struct device *dev)
 static int max31335_probe(struct i2c_client *client)
 {
 	struct max31335_data *max31335;
-#if IS_REACHABLE(HWMON)
+#if IS_REACHABLE(CONFIG_HWMON)
 	struct device *hwmon;
 #endif
 	const struct chip_desc *match;
@@ -729,7 +727,7 @@ static int max31335_probe(struct i2c_client *client)
 		return dev_err_probe(&client->dev, ret,
 				     "cannot register rtc nvmem\n");
 
-#if IS_REACHABLE(HWMON)
+#if IS_REACHABLE(CONFIG_HWMON)
 	if (max31335->chip->temp_reg) {
 		hwmon = devm_hwmon_device_register_with_info(&client->dev, client->name, max31335,
 							     &max31335_chip_info, NULL);

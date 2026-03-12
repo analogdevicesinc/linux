@@ -4,8 +4,7 @@
  *
  * Copyright IBM Corp. 2018
  */
-#define KMSG_COMPONENT "ism"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "ism: " fmt
 
 #include <linux/export.h>
 #include <linux/module.h>
@@ -599,7 +598,7 @@ static int ism_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	struct ism_dev *ism;
 	int ret;
 
-	ism = kzalloc(sizeof(*ism), GFP_KERNEL);
+	ism = kzalloc_obj(*ism);
 	if (!ism)
 		return -ENOMEM;
 

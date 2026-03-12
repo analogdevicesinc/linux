@@ -7,6 +7,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/hex.h>
 #include <linux/idr.h>
 #include <linux/module.h>
 #include <linux/nvmem-provider.h>
@@ -68,7 +69,7 @@ static void nvm_set_auth_status(const struct tb_switch *sw, u32 status)
 	st = __nvm_get_auth_status(sw);
 
 	if (!st) {
-		st = kzalloc(sizeof(*st), GFP_KERNEL);
+		st = kzalloc_obj(*st);
 		if (!st)
 			goto unlock;
 
@@ -736,9 +737,9 @@ static int tb_init_port(struct tb_port *port)
 			port->cap_usb4 = cap;
 
 		/*
-		 * USB4 ports the buffers allocated for the control path
+		 * USB4 port buffers allocated for the control path
 		 * can be read from the path config space. Legacy
-		 * devices we use hard-coded value.
+		 * devices use hard-coded value.
 		 */
 		if (port->cap_usb4) {
 			struct tb_regs_hop hop;
@@ -2474,7 +2475,7 @@ struct tb_switch *tb_switch_alloc(struct tb *tb, struct device *parent,
 	if (upstream_port < 0)
 		return ERR_PTR(upstream_port);
 
-	sw = kzalloc(sizeof(*sw), GFP_KERNEL);
+	sw = kzalloc_obj(*sw);
 	if (!sw)
 		return ERR_PTR(-ENOMEM);
 
@@ -2502,8 +2503,7 @@ struct tb_switch *tb_switch_alloc(struct tb *tb, struct device *parent,
 	}
 
 	/* initialize ports */
-	sw->ports = kcalloc(sw->config.max_port_number + 1, sizeof(*sw->ports),
-				GFP_KERNEL);
+	sw->ports = kzalloc_objs(*sw->ports, sw->config.max_port_number + 1);
 	if (!sw->ports) {
 		ret = -ENOMEM;
 		goto err_free_sw_ports;
@@ -2576,7 +2576,7 @@ tb_switch_alloc_safe_mode(struct tb *tb, struct device *parent, u64 route)
 {
 	struct tb_switch *sw;
 
-	sw = kzalloc(sizeof(*sw), GFP_KERNEL);
+	sw = kzalloc_obj(*sw);
 	if (!sw)
 		return ERR_PTR(-ENOMEM);
 
@@ -3221,7 +3221,7 @@ int tb_switch_configure_link(struct tb_switch *sw)
  * @sw: Switch whose link is unconfigured
  *
  * Sets the link unconfigured so the @sw will be disconnected if the
- * domain exists sleep.
+ * domain exits sleep.
  */
 void tb_switch_unconfigure_link(struct tb_switch *sw)
 {

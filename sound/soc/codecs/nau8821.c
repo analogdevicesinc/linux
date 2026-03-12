@@ -11,10 +11,10 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/dmi.h>
-#include <linux/init.h>
 #include <linux/i2c.h>
-#include <linux/module.h>
+#include <linux/init.h>
 #include <linux/math64.h>
+#include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <sound/core.h>
@@ -24,6 +24,7 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/tlv.h>
+
 #include "nau8821.h"
 
 #define NAU8821_QUIRK_JD_ACTIVE_HIGH			BIT(0)
@@ -806,16 +807,20 @@ nau8821_get_osr(struct nau8821 *nau8821, int stream)
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		regmap_read(nau8821->regmap, NAU8821_R2C_DAC_CTRL1, &osr);
 		osr &= NAU8821_DAC_OVERSAMPLE_MASK;
+
 		if (osr >= ARRAY_SIZE(osr_dac_sel))
 			return NULL;
+
 		return &osr_dac_sel[osr];
-	} else {
-		regmap_read(nau8821->regmap, NAU8821_R2B_ADC_RATE, &osr);
-		osr &= NAU8821_ADC_SYNC_DOWN_MASK;
-		if (osr >= ARRAY_SIZE(osr_adc_sel))
-			return NULL;
-		return &osr_adc_sel[osr];
 	}
+
+	regmap_read(nau8821->regmap, NAU8821_R2B_ADC_RATE, &osr);
+	osr &= NAU8821_ADC_SYNC_DOWN_MASK;
+
+	if (osr >= ARRAY_SIZE(osr_adc_sel))
+		return NULL;
+
+	return &osr_adc_sel[osr];
 }
 
 static int nau8821_dai_startup(struct snd_pcm_substream *substream,
@@ -868,15 +873,16 @@ static int nau8821_hw_params(struct snd_pcm_substream *substream,
 	if (ctrl_val & NAU8821_I2S_MS_MASTER) {
 		/* get the bclk and fs ratio */
 		bclk_fs = snd_soc_params_to_bclk(params) / nau8821->fs;
+
 		if (bclk_fs <= 32)
 			clk_div = 3;
 		else if (bclk_fs <= 64)
 			clk_div = 2;
 		else if (bclk_fs <= 128)
 			clk_div = 1;
-		else {
+		else
 			return -EINVAL;
-		}
+
 		regmap_update_bits(nau8821->regmap, NAU8821_R1D_I2S_PCM_CTRL2,
 			NAU8821_I2S_LRC_DIV_MASK | NAU8821_I2S_BLK_DIV_MASK,
 			(clk_div << NAU8821_I2S_LRC_DIV_SFT) | clk_div);
@@ -1047,7 +1053,6 @@ static void nau8821_eject_jack(struct nau8821 *nau8821)
 {
 	struct snd_soc_dapm_context *dapm = nau8821->dapm;
 	struct regmap *regmap = nau8821->regmap;
-	struct snd_soc_component *component = snd_soc_dapm_to_component(dapm);
 
 	/* Detach 2kOhm Resistors from MICBIAS to MICGND */
 	regmap_update_bits(regmap, NAU8821_R74_MIC_BIAS,
@@ -1055,7 +1060,7 @@ static void nau8821_eject_jack(struct nau8821 *nau8821)
 	/* HPL/HPR short to ground */
 	regmap_update_bits(regmap, NAU8821_R0D_JACK_DET_CTRL,
 		NAU8821_SPKR_DWN1R | NAU8821_SPKR_DWN1L, 0);
-	snd_soc_component_disable_pin(component, "MICBIAS");
+	snd_soc_dapm_disable_pin(dapm, "MICBIAS");
 	snd_soc_dapm_sync(dapm);
 
 	/* Disable & mask both insertion & ejection IRQs */
@@ -1080,7 +1085,7 @@ static void nau8821_eject_jack(struct nau8821 *nau8821)
 		NAU8821_JACK_DET_DB_BYPASS, NAU8821_JACK_DET_DB_BYPASS);
 
 	/* Close clock for jack type detection at manual mode */
-	if (dapm->bias_level < SND_SOC_BIAS_PREPARE)
+	if (snd_soc_dapm_get_bias_level(dapm) < SND_SOC_BIAS_PREPARE)
 		nau8821_configure_sysclk(nau8821, NAU8821_CLK_DIS, 0);
 
 	/* Recover to normal channel input */
@@ -1106,7 +1111,6 @@ static void nau8821_jdet_work(struct work_struct *work)
 	struct nau8821 *nau8821 =
 		container_of(work, struct nau8821, jdet_work.work);
 	struct snd_soc_dapm_context *dapm = nau8821->dapm;
-	struct snd_soc_component *component = snd_soc_dapm_to_component(dapm);
 	struct regmap *regmap = nau8821->regmap;
 	int jack_status_reg, mic_detected, event = 0, event_mask = 0;
 
@@ -1133,13 +1137,13 @@ static void nau8821_jdet_work(struct work_struct *work)
 				NAU8821_IRQ_KEY_RELEASE_DIS |
 				NAU8821_IRQ_KEY_PRESS_DIS, 0);
 		} else {
-			snd_soc_component_disable_pin(component, "MICBIAS");
-			snd_soc_dapm_sync(nau8821->dapm);
+			snd_soc_dapm_disable_pin(dapm, "MICBIAS");
+			snd_soc_dapm_sync(dapm);
 		}
 	} else {
 		dev_dbg(nau8821->dev, "Headphone connected\n");
 		event |= SND_JACK_HEADPHONE;
-		snd_soc_component_disable_pin(component, "MICBIAS");
+		snd_soc_dapm_disable_pin(dapm, "MICBIAS");
 		snd_soc_dapm_sync(dapm);
 	}
 
@@ -1162,7 +1166,7 @@ static void nau8821_setup_inserted_irq(struct nau8821 *nau8821)
 	nau8821_irq_status_clear(regmap, NAU8821_JACK_INSERT_DETECTED);
 
 	/* Enable internal VCO needed for interruptions */
-	if (nau8821->dapm->bias_level < SND_SOC_BIAS_PREPARE)
+	if (snd_soc_dapm_get_bias_level(nau8821->dapm) < SND_SOC_BIAS_PREPARE)
 		nau8821_configure_sysclk(nau8821, NAU8821_CLK_INTERNAL, 0);
 
 	/* Chip needs one FSCLK cycle in order to generate interruptions,
@@ -1191,7 +1195,6 @@ static irqreturn_t nau8821_interrupt(int irq, void *data)
 {
 	struct nau8821 *nau8821 = (struct nau8821 *)data;
 	struct regmap *regmap = nau8821->regmap;
-	struct snd_soc_component *component;
 	int active_irq, event = 0, event_mask = 0;
 
 	if (regmap_read(regmap, NAU8821_R10_IRQ_STATUS, &active_irq)) {
@@ -1222,8 +1225,7 @@ static irqreturn_t nau8821_interrupt(int irq, void *data)
 			NAU8821_MICDET_MASK, NAU8821_MICDET_EN);
 		if (nau8821_is_jack_inserted(regmap)) {
 			/* Detect microphone and jack type */
-			component = snd_soc_dapm_to_component(nau8821->dapm);
-			snd_soc_component_force_enable_pin(component, "MICBIAS");
+			snd_soc_dapm_force_enable_pin(nau8821->dapm, "MICBIAS");
 			snd_soc_dapm_sync(nau8821->dapm);
 			schedule_delayed_work(&nau8821->jdet_work, msecs_to_jiffies(20));
 			/* Turn off insertion interruption at manual mode */
@@ -1261,13 +1263,20 @@ static const struct regmap_config nau8821_regmap_config = {
 static int nau8821_component_probe(struct snd_soc_component *component)
 {
 	struct nau8821 *nau8821 = snd_soc_component_get_drvdata(component);
-	struct snd_soc_dapm_context *dapm =
-		snd_soc_component_get_dapm(component);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 
 	nau8821->dapm = dapm;
 
 	return 0;
 }
+
+static void nau8821_component_remove(struct snd_soc_component *component)
+{
+	struct nau8821 *nau8821 = snd_soc_component_get_drvdata(component);
+
+	if (nau8821->jdet_active)
+		cancel_delayed_work_sync(&nau8821->jdet_work);
+};
 
 /**
  * nau8821_calc_fll_param - Calculate FLL parameters.
@@ -1564,8 +1573,7 @@ static int nau8821_set_bias_level(struct snd_soc_component *component,
 
 	case SND_SOC_BIAS_STANDBY:
 		/* Setup codec configuration after resume */
-		if (snd_soc_component_get_bias_level(component) ==
-			SND_SOC_BIAS_OFF)
+		if (snd_soc_dapm_get_bias_level(nau8821->dapm) == SND_SOC_BIAS_OFF)
 			nau8821_resume_setup(nau8821);
 		break;
 
@@ -1603,9 +1611,13 @@ static int __maybe_unused nau8821_suspend(struct snd_soc_component *component)
 
 	if (nau8821->irq)
 		disable_irq(nau8821->irq);
-	snd_soc_component_force_bias_level(component, SND_SOC_BIAS_OFF);
+
+	if (nau8821->jdet_active)
+		cancel_delayed_work_sync(&nau8821->jdet_work);
+
+	snd_soc_dapm_force_bias_level(nau8821->dapm, SND_SOC_BIAS_OFF);
 	/* Power down codec power; don't support button wakeup */
-	snd_soc_component_disable_pin(component, "MICBIAS");
+	snd_soc_dapm_disable_pin(nau8821->dapm, "MICBIAS");
 	snd_soc_dapm_sync(nau8821->dapm);
 	regcache_cache_only(nau8821->regmap, true);
 	regcache_mark_dirty(nau8821->regmap);
@@ -1627,6 +1639,7 @@ static int __maybe_unused nau8821_resume(struct snd_soc_component *component)
 
 static const struct snd_soc_component_driver nau8821_component_driver = {
 	.probe			= nau8821_component_probe,
+	.remove			= nau8821_component_remove,
 	.set_sysclk		= nau8821_set_sysclk,
 	.set_pll		= nau8821_set_fll,
 	.set_bias_level		= nau8821_set_bias_level,
@@ -1661,17 +1674,20 @@ int nau8821_enable_jack_detect(struct snd_soc_component *component,
 	int ret;
 
 	nau8821->jack = jack;
+
+	if (nau8821->jdet_active)
+		return 0;
+
 	/* Initiate jack detection work queue */
 	INIT_DELAYED_WORK(&nau8821->jdet_work, nau8821_jdet_work);
+	nau8821->jdet_active = true;
 
 	ret = devm_request_threaded_irq(nau8821->dev, nau8821->irq, NULL,
 		nau8821_interrupt, IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 		"nau8821", nau8821);
-	if (ret) {
+	if (ret)
 		dev_err(nau8821->dev, "Cannot request irq %d (%d)\n",
 			nau8821->irq, ret);
-		return ret;
-	}
 
 	return ret;
 }

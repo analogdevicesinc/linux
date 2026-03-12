@@ -1270,7 +1270,7 @@ static const u16 nicam_presc_table_val[43] = {
    TODO: check ignoring single/multimaster is ok for AUD access ?
 */
 
-#define DRXJ_ISAUDWRITE(addr) (((((addr)>>16)&1) == 1) ? true : false)
+#define DRXJ_ISAUDWRITE(addr) ((((addr) >> 16) & 1) == 1)
 #define DRXJ_DAP_AUDTRIF_TIMEOUT 80	/* millisec */
 /*============================================================================*/
 
@@ -12276,7 +12276,7 @@ struct dvb_frontend *drx39xxj_attach(struct i2c_adapter *i2c)
 	int result;
 
 	/* allocate memory for the internal state */
-	state = kzalloc(sizeof(struct drx39xxj_state), GFP_KERNEL);
+	state = kzalloc_obj(struct drx39xxj_state);
 	if (state == NULL)
 		goto error;
 

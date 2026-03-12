@@ -50,8 +50,8 @@ struct psp_assoc *psp_assoc_create(struct psp_dev *psd)
 
 	lockdep_assert_held(&psd->lock);
 
-	pas = kzalloc(struct_size(pas, drv_data, psd->caps->assoc_drv_spc),
-		      GFP_KERNEL_ACCOUNT);
+	pas = kzalloc_flex(*pas, drv_data, psd->caps->assoc_drv_spc,
+			   GFP_KERNEL_ACCOUNT);
 	if (!pas)
 		return NULL;
 
@@ -253,8 +253,10 @@ void psp_assocs_key_rotated(struct psp_dev *psd)
 	/* Mark the stale associations as invalid, they will no longer
 	 * be able to Rx any traffic.
 	 */
-	list_for_each_entry_safe(pas, next, &psd->prev_assocs, assocs_list)
+	list_for_each_entry_safe(pas, next, &psd->prev_assocs, assocs_list) {
 		pas->generation |= ~PSP_GEN_VALID_MASK;
+		psd->stats.stales++;
+	}
 	list_splice_init(&psd->prev_assocs, &psd->stale_assocs);
 	list_splice_init(&psd->active_assocs, &psd->prev_assocs);
 

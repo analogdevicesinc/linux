@@ -589,7 +589,7 @@ static int isofs_fill_super(struct super_block *s, struct fs_context *fc)
 	unsigned int vol_desc_start;
 	int silent = fc->sb_flags & SB_SILENT;
 
-	sbi = kzalloc(sizeof(*sbi), GFP_KERNEL);
+	sbi = kzalloc_obj(*sbi);
 	if (!sbi)
 		return -ENOMEM;
 	s->s_fs_info = sbi;
@@ -1520,7 +1520,7 @@ struct inode *__isofs_iget(struct super_block *sb,
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
 
-	if (inode->i_state & I_NEW) {
+	if (inode_state_read_once(inode) & I_NEW) {
 		ret = isofs_read_inode(inode, relocated);
 		if (ret < 0) {
 			iget_failed(inode);
@@ -1557,7 +1557,7 @@ static int isofs_init_fs_context(struct fs_context *fc)
 {
 	struct isofs_options *opt;
 
-	opt = kzalloc(sizeof(*opt), GFP_KERNEL);
+	opt = kzalloc_obj(*opt);
 	if (!opt)
 		return -ENOMEM;
 

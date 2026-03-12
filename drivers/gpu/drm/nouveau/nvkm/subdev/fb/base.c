@@ -279,7 +279,7 @@ nvkm_fb_ctor(const struct nvkm_fb_func *func, struct nvkm_device *device,
 	mutex_init(&fb->tags.mutex);
 
 	if (func->sysmem.flush_page_init) {
-		fb->sysmem.flush_page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+		fb->sysmem.flush_page = alloc_page(GFP_KERNEL | GFP_DMA32 | __GFP_ZERO);
 		if (!fb->sysmem.flush_page)
 			return -ENOMEM;
 
@@ -296,7 +296,7 @@ int
 nvkm_fb_new_(const struct nvkm_fb_func *func, struct nvkm_device *device,
 	     enum nvkm_subdev_type type, int inst, struct nvkm_fb **pfb)
 {
-	if (!(*pfb = kzalloc(sizeof(**pfb), GFP_KERNEL)))
+	if (!(*pfb = kzalloc_obj(**pfb)))
 		return -ENOMEM;
 	return nvkm_fb_ctor(func, device, type, inst, *pfb);
 }

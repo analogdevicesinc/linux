@@ -12,8 +12,7 @@
  *              get_stats()) do the per cpu summing.
  */
 
-#define KMSG_COMPONENT "IPVS"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "IPVS: " fmt
 
 #include <linux/kernel.h>
 #include <linux/jiffies.h>
@@ -326,7 +325,7 @@ static int ip_vs_est_add_kthread(struct netns_ipvs *ipvs)
 		id = i;
 	}
 
-	kd = kzalloc(sizeof(*kd), GFP_KERNEL);
+	kd = kzalloc_obj(*kd);
 	if (!kd)
 		goto out;
 	kd->ipvs = ipvs;
@@ -444,7 +443,7 @@ add_est:
 
 	td = rcu_dereference_protected(kd->ticks[row], 1);
 	if (!td) {
-		td = kzalloc(sizeof(*td), GFP_KERNEL);
+		td = kzalloc_obj(*td);
 		if (!td) {
 			ret = -ENOMEM;
 			goto out;

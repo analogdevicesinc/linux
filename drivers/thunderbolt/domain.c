@@ -126,7 +126,7 @@ static ssize_t boot_acl_show(struct device *dev, struct device_attribute *attr,
 	ssize_t ret;
 	int i;
 
-	uuids = kcalloc(tb->nboot_acl, sizeof(uuid_t), GFP_KERNEL);
+	uuids = kzalloc_objs(uuid_t, tb->nboot_acl);
 	if (!uuids)
 		return -ENOMEM;
 
@@ -181,7 +181,7 @@ static ssize_t boot_acl_store(struct device *dev, struct device_attribute *attr,
 	if (!str)
 		return -ENOMEM;
 
-	acl = kcalloc(tb->nboot_acl, sizeof(uuid_t), GFP_KERNEL);
+	acl = kzalloc_objs(uuid_t, tb->nboot_acl);
 	if (!acl) {
 		ret = -ENOMEM;
 		goto err_free_str;
@@ -376,7 +376,7 @@ struct tb *tb_domain_alloc(struct tb_nhi *nhi, int timeout_msec, size_t privsize
 	struct tb *tb;
 
 	/*
-	 * Make sure the structure sizes map with that the hardware
+	 * Make sure the structure sizes map with what the hardware
 	 * expects because bit-fields are being used.
 	 */
 	BUILD_BUG_ON(sizeof(struct tb_regs_switch_header) != 5 * 4);

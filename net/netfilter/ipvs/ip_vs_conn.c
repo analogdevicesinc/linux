@@ -17,8 +17,7 @@
  * Changes:
  */
 
-#define KMSG_COMPONENT "IPVS"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "IPVS: " fmt
 
 #include <linux/interrupt.h>
 #include <linux/in.h>
@@ -1511,8 +1510,7 @@ int __init ip_vs_conn_init(void)
 	 */
 	tab_array_size = array_size(ip_vs_conn_tab_size,
 				    sizeof(*ip_vs_conn_tab));
-	ip_vs_conn_tab = kvmalloc_array(ip_vs_conn_tab_size,
-					sizeof(*ip_vs_conn_tab), GFP_KERNEL);
+	ip_vs_conn_tab = kvmalloc_objs(*ip_vs_conn_tab, ip_vs_conn_tab_size);
 	if (!ip_vs_conn_tab)
 		return -ENOMEM;
 

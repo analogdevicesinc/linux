@@ -34,13 +34,6 @@ static int root_wait;
 
 dev_t ROOT_DEV;
 
-static int __init load_ramdisk(char *str)
-{
-	pr_warn("ignoring the deprecated load_ramdisk= option\n");
-	return 1;
-}
-__setup("load_ramdisk=", load_ramdisk);
-
 static int __init readonly(char *str)
 {
 	if (*str)
@@ -120,7 +113,8 @@ static int __init fs_names_setup(char *str)
 static unsigned int __initdata root_delay;
 static int __init root_delay_setup(char *str)
 {
-	root_delay = simple_strtoul(str, NULL, 0);
+	if (kstrtouint(str, 0, &root_delay))
+		return 0;
 	return 1;
 }
 
@@ -483,16 +477,22 @@ void __init prepare_namespace(void)
 	if (saved_root_name[0])
 		ROOT_DEV = parse_root_device(saved_root_name);
 
-	if (initrd_load(saved_root_name))
-		goto out;
+	initrd_load();
 
 	if (root_wait)
 		wait_for_root(saved_root_name);
 	mount_root(saved_root_name);
-out:
 	devtmpfs_mount();
-	init_mount(".", "/", NULL, MS_MOVE, NULL);
-	init_chroot(".");
+
+	if (init_pivot_root(".", ".")) {
+		pr_err("VFS: Failed to pivot into new rootfs\n");
+		return;
+	}
+	if (init_umount(".", MNT_DETACH)) {
+		pr_err("VFS: Failed to unmount old rootfs\n");
+		return;
+	}
+	pr_info("VFS: Pivoted into new rootfs\n");
 }
 
 static bool is_tmpfs;
@@ -507,7 +507,7 @@ static int rootfs_init_fs_context(struct fs_context *fc)
 struct file_system_type rootfs_fs_type = {
 	.name		= "rootfs",
 	.init_fs_context = rootfs_init_fs_context,
-	.kill_sb	= kill_litter_super,
+	.kill_sb	= kill_anon_super,
 };
 
 void __init init_rootfs(void)

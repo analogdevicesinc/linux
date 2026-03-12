@@ -37,6 +37,7 @@ static const char * const profile_names[] = {
 	[PLATFORM_PROFILE_BALANCED] = "balanced",
 	[PLATFORM_PROFILE_BALANCED_PERFORMANCE] = "balanced-performance",
 	[PLATFORM_PROFILE_PERFORMANCE] = "performance",
+	[PLATFORM_PROFILE_MAX_POWER] = "max-power",
 	[PLATFORM_PROFILE_CUSTOM] = "custom",
 };
 static_assert(ARRAY_SIZE(profile_names) == PLATFORM_PROFILE_LAST);
@@ -506,7 +507,8 @@ int platform_profile_cycle(void)
 		if (err)
 			return err;
 
-		if (profile == PLATFORM_PROFILE_CUSTOM ||
+		if (profile == PLATFORM_PROFILE_MAX_POWER ||
+		    profile == PLATFORM_PROFILE_CUSTOM ||
 		    profile == PLATFORM_PROFILE_LAST)
 			return -EINVAL;
 
@@ -515,7 +517,8 @@ int platform_profile_cycle(void)
 		if (err)
 			return err;
 
-		/* never iterate into a custom if all drivers supported it */
+		/* never iterate into a custom or max power if all drivers supported it */
+		clear_bit(PLATFORM_PROFILE_MAX_POWER, data.aggregate);
 		clear_bit(PLATFORM_PROFILE_CUSTOM, data.aggregate);
 
 		next = find_next_bit_wrap(data.aggregate,
@@ -557,8 +560,7 @@ struct device *platform_profile_register(struct device *dev, const char *name,
 	    !ops->profile_set || !ops->probe))
 		return ERR_PTR(-EINVAL);
 
-	struct platform_profile_handler *pprof __free(kfree) = kzalloc(
-		sizeof(*pprof), GFP_KERNEL);
+	struct platform_profile_handler *pprof __free(kfree) = kzalloc_obj(*pprof);
 	if (!pprof)
 		return ERR_PTR(-ENOMEM);
 

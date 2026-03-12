@@ -108,8 +108,9 @@
 };
 
 &adsp_pas {
+	firmware-name = "qcom/sdm845/SHIFT/axolotl/adsp.mbn";
+
 	status = "okay";
-	firmware-name = "qcom/sdm845/axolotl/adsp.mbn";
 };
 
 &apps_rsc {
@@ -409,8 +410,9 @@
 };
 
 &cdsp_pas {
+	firmware-name = "qcom/sdm845/SHIFT/axolotl/cdsp.mbn";
+
 	status = "okay";
-	firmware-name = "qcom/sdm845/axolotl/cdsp.mbn";
 };
 
 &gcc {
@@ -423,31 +425,29 @@
 
 &gpu {
 	status = "okay";
+};
 
-	zap-shader {
-		memory-region = <&gpu_mem>;
-		firmware-name = "qcom/sdm845/axolotl/a630_zap.mbn";
-	};
+&gpu_zap_shader {
+	firmware-name = "qcom/sdm845/SHIFT/axolotl/a630_zap.mbn";
 };
 
 &i2c5 {
 	status = "okay";
 
 	touchscreen@38 {
-		compatible = "focaltech,fts8719";
+		compatible = "focaltech,ft5452";
 		reg = <0x38>;
-		wakeup-source;
-		interrupt-parent = <&tlmm>;
-		interrupts = <125 IRQ_TYPE_EDGE_FALLING>;
-		vdd-supply = <&vreg_l28a_3p0>;
-		vcc-i2c-supply = <&vreg_l14a_1p88>;
 
-		pinctrl-names = "default", "suspend";
+		interrupts-extended = <&tlmm 125 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&tlmm 99 GPIO_ACTIVE_LOW>;
+
+		vcc-supply = <&vreg_l28a_3p0>;
+		iovcc-supply = <&vreg_l14a_1p88>;
+
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-names = "default", "suspend";
 
-		reset-gpio = <&tlmm 99 GPIO_ACTIVE_HIGH>;
-		irq-gpio = <&tlmm 125 GPIO_TRANSITORY>;
 		touchscreen-size-x = <1080>;
 		touchscreen-size-y = <2160>;
 	};
@@ -460,7 +460,8 @@
 &ipa {
 	qcom,gsi-loader = "self";
 	memory-region = <&ipa_fw_mem>;
-	firmware-name = "qcom/sdm845/axolotl/ipa_fws.mbn";
+	firmware-name = "qcom/sdm845/SHIFT/axolotl/ipa_fws.mbn";
+
 	status = "okay";
 };
 
@@ -478,9 +479,6 @@
 		reg = <0>;
 		vdda-supply = <&vreg_l14a_1p88>;
 		vdd3p3-supply = <&vreg_l28a_3p0>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
 
 		reset-gpios = <&tlmm 6 GPIO_ACTIVE_HIGH>;
 
@@ -507,8 +505,9 @@
 };
 
 &mss_pil {
+	firmware-name = "qcom/sdm845/SHIFT/axolotl/mba.mbn", "qcom/sdm845/SHIFT/axolotl/modem.mbn";
+
 	status = "okay";
-	firmware-name = "qcom/sdm845/axolotl/mba.mbn", "qcom/sdm845/axolotl/modem.mbn";
 };
 
 &pm8998_gpios {
@@ -602,7 +601,8 @@
 };
 
 &slpi_pas {
-	firmware-name = "qcom/sdm845/axolotl/slpi.mbn";
+	firmware-name = "qcom/sdm845/SHIFT/axolotl/slpi.mbn";
+
 	status = "okay";
 };
 
@@ -678,7 +678,7 @@
 		 * This path is relative to the qca/
 		 * subdir under lib/firmware.
 		 */
-		firmware-name = "axolotl/crnv21.bin";
+		firmware-name = "SHIFT/axolotl/crnv21.bin";
 
 		vddio-supply = <&vreg_s4a_1p8>;
 		vddxo-supply = <&vreg_l7a_1p8>;
@@ -732,8 +732,9 @@
 };
 
 &venus {
+	firmware-name = "qcom/sdm845/SHIFT/axolotl/venus.mbn";
+
 	status = "okay";
-	firmware-name = "qcom/sdm845/axolotl/venus.mbn";
 };
 
 &wifi {
@@ -745,5 +746,6 @@
 	vdd-3.3-ch0-supply = <&vreg_l25a_3p3>;
 	vdd-3.3-ch1-supply = <&vreg_l23a_3p3>;
 
+	qcom,calibration-variant = "shift_axolotl";
 	qcom,snoc-host-cap-8bit-quirk;
 };

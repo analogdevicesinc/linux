@@ -410,7 +410,7 @@ static int tb_retimer_add(struct tb_port *port, u8 index, u32 auth_status,
 	}
 
 
-	rt = kzalloc(sizeof(*rt), GFP_KERNEL);
+	rt = kzalloc_obj(*rt);
 	if (!rt)
 		return -ENOMEM;
 
@@ -501,7 +501,7 @@ static struct tb_retimer *tb_port_find_retimer(struct tb_port *port, u8 index)
  * @add: If true also registers found retimers
  *
  * Brings the sideband into a state where retimers can be accessed.
- * Then Tries to enumerate on-board retimers connected to @port. Found
+ * Then tries to enumerate on-board retimers connected to @port. Found
  * retimers are registered as children of @port if @add is set.  Does
  * not scan for cable retimers for now.
  *

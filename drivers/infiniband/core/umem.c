@@ -45,6 +45,8 @@
 
 #include "uverbs.h"
 
+#define RESCHED_LOOP_CNT_THRESHOLD 0x1000
+
 static void __ib_umem_release(struct ib_device *dev, struct ib_umem *umem, int dirty)
 {
 	bool make_dirty = umem->writable && dirty;
@@ -55,9 +57,13 @@ static void __ib_umem_release(struct ib_device *dev, struct ib_umem *umem, int d
 		ib_dma_unmap_sgtable_attrs(dev, &umem->sgt_append.sgt,
 					   DMA_BIDIRECTIONAL, 0);
 
-	for_each_sgtable_sg(&umem->sgt_append.sgt, sg, i)
+	for_each_sgtable_sg(&umem->sgt_append.sgt, sg, i) {
 		unpin_user_page_range_dirty_lock(sg_page(sg),
 			DIV_ROUND_UP(sg->length, PAGE_SIZE), make_dirty);
+
+		if (i && !(i % RESCHED_LOOP_CNT_THRESHOLD))
+			cond_resched();
+	}
 
 	sg_free_append_table(&umem->sgt_append);
 }
@@ -183,7 +189,7 @@ struct ib_umem *ib_umem_get(struct ib_device *device, unsigned long addr,
 	if (access & IB_ACCESS_ON_DEMAND)
 		return ERR_PTR(-EOPNOTSUPP);
 
-	umem = kzalloc(sizeof(*umem), GFP_KERNEL);
+	umem = kzalloc_obj(*umem);
 	if (!umem)
 		return ERR_PTR(-ENOMEM);
 	umem->ibdev      = device;

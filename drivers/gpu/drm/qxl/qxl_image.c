@@ -26,6 +26,8 @@
 #include <linux/gfp.h>
 #include <linux/slab.h>
 
+#include <drm/drm_print.h>
+
 #include "qxl_drv.h"
 #include "qxl_object.h"
 
@@ -38,7 +40,7 @@ qxl_allocate_chunk(struct qxl_device *qdev,
 	struct qxl_drm_chunk *chunk;
 	int ret;
 
-	chunk = kmalloc(sizeof(struct qxl_drm_chunk), GFP_KERNEL);
+	chunk = kmalloc_obj(struct qxl_drm_chunk);
 	if (!chunk)
 		return -ENOMEM;
 
@@ -61,7 +63,7 @@ qxl_image_alloc_objects(struct qxl_device *qdev,
 	struct qxl_drm_image *image;
 	int ret;
 
-	image = kmalloc(sizeof(struct qxl_drm_image), GFP_KERNEL);
+	image = kmalloc_obj(struct qxl_drm_image);
 	if (!image)
 		return -ENOMEM;
 

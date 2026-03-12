@@ -128,18 +128,29 @@ dpll_msg_add_mode_supported(struct sk_buff *msg, struct dpll_device *dpll,
 			    struct netlink_ext_ack *extack)
 {
 	const struct dpll_device_ops *ops = dpll_device_ops(dpll);
+	DECLARE_BITMAP(modes, DPLL_MODE_MAX + 1) = { 0 };
 	enum dpll_mode mode;
 	int ret;
 
-	/* No mode change is supported now, so the only supported mode is the
-	 * one obtained by mode_get().
-	 */
+	if (ops->supported_modes_get) {
+		ret = ops->supported_modes_get(dpll, dpll_priv(dpll), modes,
+					       extack);
+		if (ret)
+			return ret;
+	} else {
+		/* If the supported modes are not reported by the driver, the
+		 * only supported mode is the one obtained by mode_get().
+		 */
+		ret = ops->mode_get(dpll, dpll_priv(dpll), &mode, extack);
+		if (ret)
+			return ret;
 
-	ret = ops->mode_get(dpll, dpll_priv(dpll), &mode, extack);
-	if (ret)
-		return ret;
-	if (nla_put_u32(msg, DPLL_A_MODE_SUPPORTED, mode))
-		return -EMSGSIZE;
+		__set_bit(mode, modes);
+	}
+
+	for_each_set_bit(mode, modes, DPLL_MODE_MAX + 1)
+		if (nla_put_u32(msg, DPLL_A_MODE_SUPPORTED, mode))
+			return -EMSGSIZE;
 
 	return 0;
 }
@@ -378,7 +389,15 @@ static int dpll_msg_add_ffo(struct sk_buff *msg, struct dpll_pin *pin,
 			return 0;
 		return ret;
 	}
-	return nla_put_sint(msg, DPLL_A_PIN_FRACTIONAL_FREQUENCY_OFFSET, ffo);
+	/* Put the FFO value in PPM to preserve compatibility with older
+	 * programs.
+	 */
+	ret = nla_put_sint(msg, DPLL_A_PIN_FRACTIONAL_FREQUENCY_OFFSET,
+			   div_s64(ffo, 1000000));
+	if (ret)
+		return -EMSGSIZE;
+	return nla_put_sint(msg, DPLL_A_PIN_FRACTIONAL_FREQUENCY_OFFSET_PPT,
+			    ffo);
 }
 
 static int
@@ -637,6 +656,10 @@ dpll_cmd_pin_get_one(struct sk_buff *msg, struct dpll_pin *pin,
 	ret = dpll_msg_add_pin_freq(msg, pin, ref, extack);
 	if (ret)
 		return ret;
+	if (prop->phase_gran &&
+	    nla_put_u32(msg, DPLL_A_PIN_PHASE_ADJUST_GRAN,
+			prop->phase_gran))
+		return -EMSGSIZE;
 	if (nla_put_s32(msg, DPLL_A_PIN_PHASE_ADJUST_MIN,
 			prop->phase_range.min))
 		return -EMSGSIZE;
@@ -738,17 +761,20 @@ err_free_msg:
 
 int dpll_device_create_ntf(struct dpll_device *dpll)
 {
+	dpll_device_notify(dpll, DPLL_DEVICE_CREATED);
 	return dpll_device_event_send(DPLL_CMD_DEVICE_CREATE_NTF, dpll);
 }
 
 int dpll_device_delete_ntf(struct dpll_device *dpll)
 {
+	dpll_device_notify(dpll, DPLL_DEVICE_DELETED);
 	return dpll_device_event_send(DPLL_CMD_DEVICE_DELETE_NTF, dpll);
 }
 
 static int
 __dpll_device_change_ntf(struct dpll_device *dpll)
 {
+	dpll_device_notify(dpll, DPLL_DEVICE_CHANGED);
 	return dpll_device_event_send(DPLL_CMD_DEVICE_CHANGE_NTF, dpll);
 }
 
@@ -806,16 +832,19 @@ err_free_msg:
 
 int dpll_pin_create_ntf(struct dpll_pin *pin)
 {
+	dpll_pin_notify(pin, DPLL_PIN_CREATED);
 	return dpll_pin_event_send(DPLL_CMD_PIN_CREATE_NTF, pin);
 }
 
 int dpll_pin_delete_ntf(struct dpll_pin *pin)
 {
+	dpll_pin_notify(pin, DPLL_PIN_DELETED);
 	return dpll_pin_event_send(DPLL_CMD_PIN_DELETE_NTF, pin);
 }
 
 int __dpll_pin_change_ntf(struct dpll_pin *pin)
 {
+	dpll_pin_notify(pin, DPLL_PIN_CHANGED);
 	return dpll_pin_event_send(DPLL_CMD_PIN_CHANGE_NTF, pin);
 }
 
@@ -837,6 +866,45 @@ int dpll_pin_change_ntf(struct dpll_pin *pin)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(dpll_pin_change_ntf);
+
+static int
+dpll_mode_set(struct dpll_device *dpll, struct nlattr *a,
+	      struct netlink_ext_ack *extack)
+{
+	const struct dpll_device_ops *ops = dpll_device_ops(dpll);
+	DECLARE_BITMAP(modes, DPLL_MODE_MAX + 1) = { 0 };
+	enum dpll_mode mode = nla_get_u32(a), old_mode;
+	int ret;
+
+	if (!(ops->mode_set && ops->supported_modes_get)) {
+		NL_SET_ERR_MSG_ATTR(extack, a,
+				    "dpll device does not support mode switch");
+		return -EOPNOTSUPP;
+	}
+
+	ret = ops->mode_get(dpll, dpll_priv(dpll), &old_mode, extack);
+	if (ret) {
+		NL_SET_ERR_MSG(extack, "unable to get current mode");
+		return ret;
+	}
+
+	if (mode == old_mode)
+		return 0;
+
+	ret = ops->supported_modes_get(dpll, dpll_priv(dpll), modes, extack);
+	if (ret) {
+		NL_SET_ERR_MSG(extack, "unable to get supported modes");
+		return ret;
+	}
+
+	if (!test_bit(mode, modes)) {
+		NL_SET_ERR_MSG(extack,
+			       "dpll device does not support requested mode");
+		return -EINVAL;
+	}
+
+	return ops->mode_set(dpll, dpll_priv(dpll), mode, extack);
+}
 
 static int
 dpll_phase_offset_monitor_set(struct dpll_device *dpll, struct nlattr *a,
@@ -1261,7 +1329,13 @@ dpll_pin_phase_adj_set(struct dpll_pin *pin, struct nlattr *phase_adj_attr,
 	if (phase_adj > pin->prop.phase_range.max ||
 	    phase_adj < pin->prop.phase_range.min) {
 		NL_SET_ERR_MSG_ATTR(extack, phase_adj_attr,
-				    "phase adjust value not supported");
+				    "phase adjust value of out range");
+		return -EINVAL;
+	}
+	if (pin->prop.phase_gran && phase_adj % (s32)pin->prop.phase_gran) {
+		NL_SET_ERR_MSG_ATTR_FMT(extack, phase_adj_attr,
+					"phase adjust value not multiple of %u",
+					pin->prop.phase_gran);
 		return -EINVAL;
 	}
 
@@ -1787,6 +1861,11 @@ dpll_set_from_nlattr(struct dpll_device *dpll, struct genl_info *info)
 	nla_for_each_attr(a, genlmsg_data(info->genlhdr),
 			  genlmsg_len(info->genlhdr), rem) {
 		switch (nla_type(a)) {
+		case DPLL_A_MODE:
+			ret = dpll_mode_set(dpll, a, info->extack);
+			if (ret)
+				return ret;
+			break;
 		case DPLL_A_PHASE_OFFSET_MONITOR:
 			ret = dpll_phase_offset_monitor_set(dpll, a,
 							    info->extack);

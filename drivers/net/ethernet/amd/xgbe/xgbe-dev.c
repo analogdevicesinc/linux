@@ -211,6 +211,7 @@ static void xgbe_config_sph_mode(struct xgbe_prv_data *pdata)
 	}
 
 	XGMAC_IOWRITE_BITS(pdata, MAC_RCR, HDSMS, XGBE_SPH_HDSMS_SIZE);
+	pdata->sph = true;
 }
 
 static void xgbe_disable_sph_mode(struct xgbe_prv_data *pdata)
@@ -223,6 +224,7 @@ static void xgbe_disable_sph_mode(struct xgbe_prv_data *pdata)
 
 		XGMAC_DMA_IOWRITE_BITS(pdata->channel[i], DMA_CH_CR, SPH, 0);
 	}
+	pdata->sph = false;
 }
 
 static int xgbe_write_rss_reg(struct xgbe_prv_data *pdata, unsigned int type,
@@ -2792,6 +2794,7 @@ static u64 xgbe_mmc_read(struct xgbe_prv_data *pdata, unsigned int reg_lo)
 		case MMC_RXUNDERSIZE_G:
 		case MMC_RXOVERSIZE_G:
 		case MMC_RXWATCHDOGERROR:
+		case MMC_RXALIGNMENTERROR:
 			read_hi = false;
 			break;
 
@@ -2995,6 +2998,10 @@ static void xgbe_rx_mmc_int(struct xgbe_prv_data *pdata)
 	if (XGMAC_GET_BITS(mmc_isr, MMC_RISR, RXWATCHDOGERROR))
 		stats->rxwatchdogerror +=
 			xgbe_mmc_read(pdata, MMC_RXWATCHDOGERROR);
+
+	if (XGMAC_GET_BITS(mmc_isr, MMC_RISR, RXALIGNMENTERROR))
+		stats->rxalignmenterror +=
+			xgbe_mmc_read(pdata, MMC_RXALIGNMENTERROR);
 }
 
 static void xgbe_read_mmc_stats(struct xgbe_prv_data *pdata)
@@ -3126,6 +3133,9 @@ static void xgbe_read_mmc_stats(struct xgbe_prv_data *pdata)
 
 	stats->rxwatchdogerror +=
 		xgbe_mmc_read(pdata, MMC_RXWATCHDOGERROR);
+
+	stats->rxalignmenterror +=
+		xgbe_mmc_read(pdata, MMC_RXALIGNMENTERROR);
 
 	/* Un-freeze counters */
 	XGMAC_IOWRITE_BITS(pdata, MMC_CR, MCF, 0);
@@ -3577,4 +3587,21 @@ void xgbe_init_function_ptrs_dev(struct xgbe_hw_if *hw_if)
 	hw_if->disable_sph = xgbe_disable_sph_mode;
 
 	DBGPR("<--xgbe_init_function_ptrs\n");
+}
+
+int xgbe_enable_mac_loopback(struct xgbe_prv_data *pdata)
+{
+	/* Enable MAC loopback mode */
+	XGMAC_IOWRITE_BITS(pdata, MAC_RCR, LM, 1);
+
+	/* Wait for loopback to stabilize */
+	usleep_range(10, 15);
+
+	return 0;
+}
+
+void xgbe_disable_mac_loopback(struct xgbe_prv_data *pdata)
+{
+	/* Disable MAC loopback mode */
+	XGMAC_IOWRITE_BITS(pdata, MAC_RCR, LM, 0);
 }

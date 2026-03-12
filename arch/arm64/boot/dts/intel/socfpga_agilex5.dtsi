@@ -37,6 +37,7 @@
 			reg = <0x0>;
 			device_type = "cpu";
 			enable-method = "psci";
+			next-level-cache = <&L2>;
 		};
 
 		cpu1: cpu@1 {
@@ -44,6 +45,7 @@
 			reg = <0x100>;
 			device_type = "cpu";
 			enable-method = "psci";
+			next-level-cache = <&L2>;
 		};
 
 		cpu2: cpu@2 {
@@ -51,6 +53,7 @@
 			reg = <0x200>;
 			device_type = "cpu";
 			enable-method = "psci";
+			next-level-cache = <&L2>;
 		};
 
 		cpu3: cpu@3 {
@@ -58,6 +61,30 @@
 			reg = <0x300>;
 			device_type = "cpu";
 			enable-method = "psci";
+			next-level-cache = <&L2>;
+		};
+
+		L2: l2-cache {
+			compatible = "cache";
+			cache-level = <2>;
+			next-level-cache = <&L3>;
+			cache-unified;
+		};
+
+		L3: l3-cache {
+			compatible = "cache";
+			cache-level = <3>;
+			cache-unified;
+		};
+
+	};
+
+	firmware {
+		svc {
+			compatible = "intel,agilex5-svc";
+			method = "smc";
+			memory-region = <&service_reserved>;
+			iommus = <&smmu 10>;
 		};
 	};
 
@@ -75,8 +102,11 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		interrupt-controller;
+		interrupt-parent = <&intc>;
 		#redistributor-regions = <1>;
 		redistributor-stride = <0x0 0x20000>;
+		/* VGIC maintenance interrupt */
+		interrupts = <GIC_PPI 25 IRQ_TYPE_LEVEL_HIGH>;
 
 		its: msi-controller@1d040000 {
 			compatible = "arm,gic-v3-its";
@@ -131,6 +161,12 @@
 	usbphy0: usbphy {
 		#phy-cells = <0>;
 		compatible = "usb-nop-xceiv";
+	};
+
+	pmu0: pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	soc: soc@0 {
@@ -203,7 +239,8 @@
 		};
 
 		i3c0: i3c@10da0000 {
-			compatible = "snps,dw-i3c-master-1.00a";
+			compatible = "altr,agilex5-dw-i3c-master",
+				     "snps,dw-i3c-master-1.00a";
 			reg = <0x10da0000 0x1000>;
 			#address-cells = <3>;
 			#size-cells = <0>;
@@ -213,7 +250,8 @@
 		};
 
 		i3c1: i3c@10da1000 {
-			compatible = "snps,dw-i3c-master-1.00a";
+			compatible = "altr,agilex5-dw-i3c-master",
+				     "snps,dw-i3c-master-1.00a";
 			reg = <0x10da1000 0x1000>;
 			#address-cells = <3>;
 			#size-cells = <0>;
@@ -271,7 +309,10 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkmgr AGILEX5_NAND_NF_CLK>;
+			clock-names = "nf_clk";
 			cdns,board-delay-ps = <4830>;
+			iommus = <&smmu 4>;
+			dma-coherent;
 			status = "disabled";
 		};
 
@@ -283,44 +324,68 @@
 			#size-cells = <1>;
 		};
 
-		dmac0: dma-controller@10db0000 {
-			compatible = "snps,axi-dma-1.01a";
-			reg = <0x10db0000 0x500>;
-			clocks = <&clkmgr AGILEX5_L4_MAIN_CLK>,
-				 <&clkmgr AGILEX5_L4_MP_CLK>;
-			clock-names = "core-clk", "cfgr-clk";
-			interrupt-parent = <&intc>;
-			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
-			#dma-cells = <1>;
-			dma-channels = <4>;
-			snps,dma-masters = <1>;
-			snps,data-width = <2>;
-			snps,block-size = <32767 32767 32767 32767>;
-			snps,priority = <0 1 2 3>;
-			snps,axi-max-burst-len = <8>;
-		};
+		dma: dma-bus@10db0000 {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <2>;
+			ranges = <0x00 0x10db0000 0x00 0x20000>;
+			dma-ranges = <0x00 0x00 0x100 0x00>;
 
-		dmac1: dma-controller@10dc0000 {
-			compatible = "snps,axi-dma-1.01a";
-			reg = <0x10dc0000 0x500>;
-			clocks = <&clkmgr AGILEX5_L4_MAIN_CLK>,
-				 <&clkmgr AGILEX5_L4_MP_CLK>;
-			clock-names = "core-clk", "cfgr-clk";
-			interrupt-parent = <&intc>;
-			interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
-			#dma-cells = <1>;
-			dma-channels = <4>;
-			snps,dma-masters = <1>;
-			snps,data-width = <2>;
-			snps,block-size = <32767 32767 32767 32767>;
-			snps,priority = <0 1 2 3>;
-			snps,axi-max-burst-len = <8>;
+			dmac0: dma-controller@0 {
+				compatible = "altr,agilex5-axi-dma",
+					     "snps,axi-dma-1.01a";
+				reg = <0x0 0x0 0x500>;
+				clocks = <&clkmgr AGILEX5_L4_MAIN_CLK>,
+					 <&clkmgr AGILEX5_L4_MP_CLK>;
+				clock-names = "core-clk", "cfgr-clk";
+				interrupt-parent = <&intc>;
+				interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+				#dma-cells = <1>;
+				dma-channels = <4>;
+				snps,dma-masters = <1>;
+				snps,data-width = <2>;
+				snps,block-size = <32767 32767 32767 32767>;
+				snps,priority = <0 1 2 3>;
+				snps,axi-max-burst-len = <8>;
+				iommus = <&smmu 8>;
+			};
+
+			dmac1: dma-controller@10000 {
+				compatible = "altr,agilex5-axi-dma",
+					     "snps,axi-dma-1.01a";
+				reg = <0x10000 0x0 0x500>;
+				clocks = <&clkmgr AGILEX5_L4_MAIN_CLK>,
+					 <&clkmgr AGILEX5_L4_MP_CLK>;
+				clock-names = "core-clk", "cfgr-clk";
+				interrupt-parent = <&intc>;
+				interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
+				#dma-cells = <1>;
+				dma-channels = <4>;
+				snps,dma-masters = <1>;
+				snps,data-width = <2>;
+				snps,block-size = <32767 32767 32767 32767>;
+				snps,priority = <0 1 2 3>;
+				snps,axi-max-burst-len = <8>;
+				iommus = <&smmu 9>;
+			};
 		};
 
 		rst: rstmgr@10d11000 {
 			compatible = "altr,stratix10-rst-mgr", "altr,rst-mgr";
 			reg = <0x10d11000 0x1000>;
 			#reset-cells = <1>;
+		};
+
+		smmu: iommu@16000000 {
+			compatible = "arm,smmu-v3";
+			reg = <0x16000000 0x30000>;
+			interrupts = <GIC_SPI 134 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 129 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 132 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eventq", "gerror", "priq";
+			dma-coherent;
+			#iommu-cells = <1>;
+			status = "disabled";
 		};
 
 		spi0: spi@10da4000 {
@@ -423,6 +488,7 @@
 			phy-names = "usb2-phy";
 			resets = <&rst USB0_RESET>, <&rst USB0_OCP_RESET>;
 			reset-names = "dwc2", "dwc2-ecc";
+			iommus = <&smmu 6>;
 			clocks = <&clkmgr AGILEX5_USB2OTG_HCLK>;
 			clock-names = "otg";
 			status = "disabled";
@@ -510,6 +576,7 @@
 			snps,tso;
 			altr,sysmgr-syscon = <&sysmgr 0x44 0>;
 			snps,clk-csr = <0>;
+			iommus = <&smmu 1>;
 			status = "disabled";
 
 			stmmac_axi_emac0_setup: stmmac-axi-config {
@@ -563,31 +630,31 @@
 					snps,dcb-algorithm;
 				};
 				queue1 {
-					snps,weight = <0x0A>;
+					snps,weight = <0x0a>;
 					snps,dcb-algorithm;
 				};
 				queue2 {
-					snps,weight = <0x0B>;
+					snps,weight = <0x0b>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue3 {
-					snps,weight = <0x0C>;
+					snps,weight = <0x0c>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue4 {
-					snps,weight = <0x0D>;
+					snps,weight = <0x0d>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue5 {
-					snps,weight = <0x0E>;
+					snps,weight = <0x0e>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue6 {
-					snps,weight = <0x0F>;
+					snps,weight = <0x0f>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
@@ -622,6 +689,7 @@
 			snps,tso;
 			altr,sysmgr-syscon = <&sysmgr 0x48 0>;
 			snps,clk-csr = <0>;
+			iommus = <&smmu 2>;
 			status = "disabled";
 
 			stmmac_axi_emac1_setup: stmmac-axi-config {
@@ -675,31 +743,31 @@
 					snps,dcb-algorithm;
 				};
 				queue1 {
-					snps,weight = <0x0A>;
+					snps,weight = <0x0a>;
 					snps,dcb-algorithm;
 				};
 				queue2 {
-					snps,weight = <0x0B>;
+					snps,weight = <0x0b>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue3 {
-					snps,weight = <0x0C>;
+					snps,weight = <0x0c>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue4 {
-					snps,weight = <0x0D>;
+					snps,weight = <0x0d>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue5 {
-					snps,weight = <0x0E>;
+					snps,weight = <0x0e>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue6 {
-					snps,weight = <0x0F>;
+					snps,weight = <0x0f>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
@@ -734,6 +802,7 @@
 			snps,tso;
 			altr,sysmgr-syscon = <&sysmgr 0x4c 0>;
 			snps,clk-csr = <0>;
+			iommus = <&smmu 3>;
 			status = "disabled";
 
 			stmmac_axi_emac2_setup: stmmac-axi-config {
@@ -787,31 +856,31 @@
 					snps,dcb-algorithm;
 				};
 				queue1 {
-					snps,weight = <0x0A>;
+					snps,weight = <0x0a>;
 					snps,dcb-algorithm;
 				};
 				queue2 {
-					snps,weight = <0x0B>;
+					snps,weight = <0x0b>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue3 {
-					snps,weight = <0x0C>;
+					snps,weight = <0x0c>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue4 {
-					snps,weight = <0x0D>;
+					snps,weight = <0x0d>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue5 {
-					snps,weight = <0x0E>;
+					snps,weight = <0x0e>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue6 {
-					snps,weight = <0x0F>;
+					snps,weight = <0x0f>;
 					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
@@ -821,6 +890,62 @@
 					snps,dcb-algorithm;
 				};
 			};
+		};
+
+		pmu0_tcu: pmu@16002000 {
+			compatible = "arm,smmu-v3-pmcg";
+			reg = <0x16002000 0x1000>,
+				<0x16022000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_SPI 136 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		pmu0_tbu0: pmu@16042000 {
+			compatible = "arm,smmu-v3-pmcg";
+			reg = <0x16042000 0x1000>,
+				<0x16052000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_SPI 138 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		pmu0_tbu1: pmu@16062000 {
+			compatible = "arm,smmu-v3-pmcg";
+			reg = <0x16062000 0x1000>,
+				<0x16072000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_SPI 140 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		pmu0_tbu2: pmu@16082000 {
+			compatible = "arm,smmu-v3-pmcg";
+			reg = <0x16082000 0x1000>,
+				<0x16092000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_SPI 142 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		pmu0_tbu3: pmu@160a2000 {
+			compatible = "arm,smmu-v3-pmcg";
+			reg = <0x160a2000 0x1000>,
+				<0x160b2000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_SPI 144 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		pmu0_tbu4: pmu@160c2000 {
+			compatible = "arm,smmu-v3-pmcg";
+			reg = <0x160c2000 0x1000>,
+				<0x160d2000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_SPI 146 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		pmu0_tbu5: pmu@160e2000 {
+			compatible = "arm,smmu-v3-pmcg";
+			reg = <0x160e2000 0x1000>,
+				<0x160f2000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_SPI 150 IRQ_TYPE_EDGE_RISING>;
 		};
 	};
 };

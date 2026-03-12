@@ -11,25 +11,36 @@
 #include "cxlpci.h"
 #include "cxl.h"
 
-struct cxl_cxims_data {
-	int nr_maps;
-	u64 xormaps[] __counted_by(nr_maps);
-};
-
 static const guid_t acpi_cxl_qtg_id_guid =
 	GUID_INIT(0xF365F9A6, 0xA7DE, 0x4071,
 		  0xA6, 0x6A, 0xB4, 0x0C, 0x0B, 0x4F, 0x8E, 0x52);
 
-static u64 cxl_apply_xor_maps(struct cxl_root_decoder *cxlrd, u64 addr)
+#define HBIW_TO_NR_MAPS_SIZE (CXL_DECODER_MAX_INTERLEAVE + 1)
+static const int hbiw_to_nr_maps[HBIW_TO_NR_MAPS_SIZE] = {
+	[1] = 0, [2] = 1, [3] = 0, [4] = 2, [6] = 1, [8] = 3, [12] = 2, [16] = 4
+};
+
+static const int valid_hbiw[] = { 1, 2, 3, 4, 6, 8, 12, 16 };
+
+u64 cxl_do_xormap_calc(struct cxl_cxims_data *cximsd, u64 addr, int hbiw)
 {
-	struct cxl_cxims_data *cximsd = cxlrd->platform_data;
-	int hbiw = cxlrd->cxlsd.nr_targets;
+	int nr_maps_to_apply = -1;
 	u64 val;
 	int pos;
 
-	/* No xormaps for host bridge interleave ways of 1 or 3 */
-	if (hbiw == 1 || hbiw == 3)
-		return addr;
+	/*
+	 * Strictly validate hbiw since this function is used for testing and
+	 * that nullifies any expectation of trusted parameters from the CXL
+	 * Region Driver.
+	 */
+	for (int i = 0; i < ARRAY_SIZE(valid_hbiw); i++) {
+		if (valid_hbiw[i] == hbiw) {
+			nr_maps_to_apply = hbiw_to_nr_maps[hbiw];
+			break;
+		}
+	}
+	if (nr_maps_to_apply == -1 || nr_maps_to_apply > cximsd->nr_maps)
+		return ULLONG_MAX;
 
 	/*
 	 * In regions using XOR interleave arithmetic the CXL HPA may not
@@ -59,6 +70,21 @@ static u64 cxl_apply_xor_maps(struct cxl_root_decoder *cxlrd, u64 addr)
 	}
 
 	return addr;
+}
+EXPORT_SYMBOL_FOR_MODULES(cxl_do_xormap_calc, "cxl_translate");
+
+static u64 cxl_apply_xor_maps(struct cxl_root_decoder *cxlrd, u64 addr)
+{
+	int hbiw = cxlrd->cxlsd.nr_targets;
+	struct cxl_cxims_data *cximsd;
+
+	/* No xormaps for host bridge interleave ways of 1 or 3 */
+	if (hbiw == 1 || hbiw == 3)
+		return addr;
+
+	cximsd = cxlrd->platform_data;
+
+	return cxl_do_xormap_calc(cximsd, addr, hbiw);
 }
 
 struct cxl_cxims_context {
@@ -299,10 +325,6 @@ static int cxl_acpi_qos_class(struct cxl_root *cxl_root,
 	return cxl_acpi_evaluate_qtg_dsm(handle, coord, entries, qos_class);
 }
 
-static const struct cxl_root_ops acpi_root_ops = {
-	.qos_class = cxl_acpi_qos_class,
-};
-
 static void del_cxl_resource(struct resource *res)
 {
 	if (!res)
@@ -314,7 +336,7 @@ static void del_cxl_resource(struct resource *res)
 static struct resource *alloc_cxl_resource(resource_size_t base,
 					   resource_size_t n, int id)
 {
-	struct resource *res __free(kfree) = kzalloc(sizeof(*res), GFP_KERNEL);
+	struct resource *res __free(kfree) = kzalloc_obj(*res);
 
 	if (!res)
 		return NULL;
@@ -338,7 +360,7 @@ static int add_or_reset_cxl_resource(struct resource *parent, struct resource *r
 	return rc;
 }
 
-static int cxl_acpi_set_cache_size(struct cxl_root_decoder *cxlrd)
+static void cxl_setup_extended_linear_cache(struct cxl_root_decoder *cxlrd)
 {
 	struct cxl_decoder *cxld = &cxlrd->cxlsd.cxld;
 	struct range *hpa = &cxld->hpa_range;
@@ -348,12 +370,14 @@ static int cxl_acpi_set_cache_size(struct cxl_root_decoder *cxlrd)
 	struct resource res;
 	int nid, rc;
 
+	/* Explicitly initialize cache size to 0 at the beginning */
+	cxlrd->cache_size = 0;
 	res = DEFINE_RES_MEM(start, size);
 	nid = phys_to_target_node(start);
 
 	rc = hmat_get_extended_linear_cache_size(&res, nid, &cache_size);
 	if (rc)
-		return rc;
+		return;
 
 	/*
 	 * The cache range is expected to be within the CFMWS.
@@ -365,34 +389,10 @@ static int cxl_acpi_set_cache_size(struct cxl_root_decoder *cxlrd)
 		dev_warn(&cxld->dev,
 			 "Extended Linear Cache size %pa != CXL size %pa. No Support!",
 			 &cache_size, &size);
-		return -ENXIO;
+		return;
 	}
 
 	cxlrd->cache_size = cache_size;
-
-	return 0;
-}
-
-static void cxl_setup_extended_linear_cache(struct cxl_root_decoder *cxlrd)
-{
-	int rc;
-
-	rc = cxl_acpi_set_cache_size(cxlrd);
-	if (!rc)
-		return;
-
-	if (rc != -EOPNOTSUPP) {
-		/*
-		 * Failing to support extended linear cache region resize does not
-		 * prevent the region from functioning. Only causes cxl list showing
-		 * incorrect region size.
-		 */
-		dev_warn(cxlrd->cxlsd.cxld.dev.parent,
-			 "Extended linear cache calculation failed rc:%d\n", rc);
-	}
-
-	/* Ignoring return code */
-	cxlrd->cache_size = 0;
 }
 
 DEFINE_FREE(put_cxlrd, struct cxl_root_decoder *,
@@ -453,8 +453,6 @@ static int __cxl_parse_cfmws(struct acpi_cedt_cfmws *cfmws,
 		ig = CXL_DECODER_MIN_GRANULARITY;
 	cxld->interleave_granularity = ig;
 
-	cxl_setup_extended_linear_cache(cxlrd);
-
 	if (cfmws->interleave_arithmetic == ACPI_CEDT_CFMWS_ARITHMETIC_XOR) {
 		if (ways != 1 && ways != 3) {
 			cxims_ctx = (struct cxl_cxims_context) {
@@ -470,18 +468,13 @@ static int __cxl_parse_cfmws(struct acpi_cedt_cfmws *cfmws,
 				return -EINVAL;
 			}
 		}
+		cxlrd->ops.hpa_to_spa = cxl_apply_xor_maps;
+		cxlrd->ops.spa_to_hpa = cxl_apply_xor_maps;
 	}
+
+	cxl_setup_extended_linear_cache(cxlrd);
 
 	cxlrd->qos_class = cfmws->qtg_id;
-
-	if (cfmws->interleave_arithmetic == ACPI_CEDT_CFMWS_ARITHMETIC_XOR) {
-		cxlrd->ops = kzalloc(sizeof(*cxlrd->ops), GFP_KERNEL);
-		if (!cxlrd->ops)
-			return -ENOMEM;
-
-		cxlrd->ops->hpa_to_spa = cxl_apply_xor_maps;
-		cxlrd->ops->spa_to_hpa = cxl_apply_xor_maps;
-	}
 
 	rc = cxl_decoder_add(cxld);
 	if (rc)
@@ -832,7 +825,7 @@ static int add_cxl_resources(struct resource *cxl_res)
 	struct resource *res, *new, *next;
 
 	for (res = cxl_res->child; res; res = next) {
-		new = kzalloc(sizeof(*new), GFP_KERNEL);
+		new = kzalloc_obj(*new);
 		if (!new)
 			return -ENOMEM;
 		new->name = res->name;
@@ -914,10 +907,13 @@ static int cxl_acpi_probe(struct platform_device *pdev)
 	cxl_res->end = -1;
 	cxl_res->flags = IORESOURCE_MEM;
 
-	cxl_root = devm_cxl_add_root(host, &acpi_root_ops);
+	cxl_root = devm_cxl_add_root(host);
 	if (IS_ERR(cxl_root))
 		return PTR_ERR(cxl_root);
+	cxl_root->ops.qos_class = cxl_acpi_qos_class;
 	root_port = &cxl_root->port;
+
+	cxl_setup_prm_address_translation(cxl_root);
 
 	rc = bus_for_each_dev(adev->dev.bus, NULL, root_port,
 			      add_host_bridge_dport);
@@ -999,8 +995,12 @@ static void __exit cxl_acpi_exit(void)
 	cxl_bus_drain();
 }
 
-/* load before dax_hmem sees 'Soft Reserved' CXL ranges */
-subsys_initcall(cxl_acpi_init);
+/*
+ * Load before dax_hmem sees 'Soft Reserved' CXL ranges. Use
+ * subsys_initcall_sync() since there is an order dependency with
+ * subsys_initcall(efisubsys_init), which must run first.
+ */
+subsys_initcall_sync(cxl_acpi_init);
 
 /*
  * Arrange for host-bridge ports to be active synchronous with

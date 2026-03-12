@@ -92,7 +92,7 @@ enum coredump_type_t {
 };
 
 struct core_name {
-	char *corename;
+	char *corename __counted_by_ptr(size);
 	int used, size;
 	unsigned int core_pipe_limit;
 	bool core_dumped;
@@ -106,15 +106,15 @@ static int expand_corename(struct core_name *cn, int size)
 
 	size = kmalloc_size_roundup(size);
 	corename = krealloc(cn->corename, size, GFP_KERNEL);
-
 	if (!corename)
 		return -ENOMEM;
+
+	cn->corename = corename;
+	cn->size = size;
 
 	if (size > core_name_size) /* racy but harmless */
 		core_name_size = size;
 
-	cn->size = size;
-	cn->corename = corename;
 	return 0;
 }
 
@@ -262,7 +262,7 @@ static bool coredump_parse(struct core_name *cn, struct coredump_params *cprm,
 	switch (cn->core_type) {
 	case COREDUMP_PIPE: {
 		int argvs = sizeof(core_pattern) / 2;
-		(*argv) = kmalloc_array(argvs, sizeof(**argv), GFP_KERNEL);
+		(*argv) = kmalloc_objs(**argv, argvs);
 		if (!(*argv))
 			return false;
 		(*argv)[(*argc)++] = 0;
@@ -708,7 +708,7 @@ static bool coredump_sock_connect(struct core_name *cn, struct coredump_params *
 	 */
 	pidfs_coredump(cprm);
 
-	retval = kernel_connect(socket, (struct sockaddr *)(&addr), addr_len,
+	retval = kernel_connect(socket, (struct sockaddr_unsized *)(&addr), addr_len,
 				O_NONBLOCK | SOCK_COREDUMP);
 
 	if (retval) {
@@ -895,11 +895,12 @@ static bool coredump_file(struct core_name *cn, struct coredump_params *cprm,
 	 * privs and don't want to unlink another user's coredump.
 	 */
 	if (!coredump_force_suid_safe(cprm)) {
+		CLASS(filename_kernel, name)(cn->corename);
 		/*
 		 * If it doesn't exist, that's fine. If there's some
 		 * other problem, we'll catch it at the filp_open().
 		 */
-		do_unlinkat(AT_FDCWD, getname_kernel(cn->corename));
+		filename_unlinkat(AT_FDCWD, name);
 	}
 
 	/*
@@ -1036,7 +1037,7 @@ static bool coredump_pipe(struct core_name *cn, struct coredump_params *cprm,
 
 static bool coredump_write(struct core_name *cn,
 			  struct coredump_params *cprm,
-			  struct linux_binfmt *binfmt)
+			  const struct linux_binfmt *binfmt)
 {
 
 	if (dump_interrupted())
@@ -1086,15 +1087,80 @@ static inline bool coredump_skip(const struct coredump_params *cprm,
 	return false;
 }
 
+static void do_coredump(struct core_name *cn, struct coredump_params *cprm,
+			size_t **argv, int *argc, const struct linux_binfmt *binfmt)
+{
+	if (!coredump_parse(cn, cprm, argv, argc)) {
+		coredump_report_failure("format_corename failed, aborting core");
+		return;
+	}
+
+	switch (cn->core_type) {
+	case COREDUMP_FILE:
+		if (!coredump_file(cn, cprm, binfmt))
+			return;
+		break;
+	case COREDUMP_PIPE:
+		if (!coredump_pipe(cn, cprm, *argv, *argc))
+			return;
+		break;
+	case COREDUMP_SOCK_REQ:
+		fallthrough;
+	case COREDUMP_SOCK:
+		if (!coredump_socket(cn, cprm))
+			return;
+		break;
+	default:
+		WARN_ON_ONCE(true);
+		return;
+	}
+
+	/* Don't even generate the coredump. */
+	if (cn->mask & COREDUMP_REJECT)
+		return;
+
+	/* get us an unshared descriptor table; almost always a no-op */
+	/* The cell spufs coredump code reads the file descriptor tables */
+	if (unshare_files())
+		return;
+
+	if ((cn->mask & COREDUMP_KERNEL) && !coredump_write(cn, cprm, binfmt))
+		return;
+
+	coredump_sock_shutdown(cprm->file);
+
+	/* Let the parent know that a coredump was generated. */
+	if (cn->mask & COREDUMP_USERSPACE)
+		cn->core_dumped = true;
+
+	/*
+	 * When core_pipe_limit is set we wait for the coredump server
+	 * or usermodehelper to finish before exiting so it can e.g.,
+	 * inspect /proc/<pid>.
+	 */
+	if (cn->mask & COREDUMP_WAIT) {
+		switch (cn->core_type) {
+		case COREDUMP_PIPE:
+			wait_for_dump_helpers(cprm->file);
+			break;
+		case COREDUMP_SOCK_REQ:
+			fallthrough;
+		case COREDUMP_SOCK:
+			coredump_sock_wait(cprm->file);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
 void vfs_coredump(const kernel_siginfo_t *siginfo)
 {
-	struct cred *cred __free(put_cred) = NULL;
 	size_t *argv __free(kfree) = NULL;
 	struct core_state core_state;
 	struct core_name cn;
-	struct mm_struct *mm = current->mm;
-	struct linux_binfmt *binfmt = mm->binfmt;
-	const struct cred *old_cred;
+	const struct mm_struct *mm = current->mm;
+	const struct linux_binfmt *binfmt = mm->binfmt;
 	int argc = 0;
 	struct coredump_params cprm = {
 		.siginfo = siginfo,
@@ -1116,7 +1182,7 @@ void vfs_coredump(const kernel_siginfo_t *siginfo)
 	if (coredump_skip(&cprm, binfmt))
 		return;
 
-	cred = prepare_creds();
+	CLASS(prepare_creds, cred)();
 	if (!cred)
 		return;
 	/*
@@ -1131,74 +1197,9 @@ void vfs_coredump(const kernel_siginfo_t *siginfo)
 	if (coredump_wait(siginfo->si_signo, &core_state) < 0)
 		return;
 
-	old_cred = override_creds(cred);
-
-	if (!coredump_parse(&cn, &cprm, &argv, &argc)) {
-		coredump_report_failure("format_corename failed, aborting core");
-		goto close_fail;
-	}
-
-	switch (cn.core_type) {
-	case COREDUMP_FILE:
-		if (!coredump_file(&cn, &cprm, binfmt))
-			goto close_fail;
-		break;
-	case COREDUMP_PIPE:
-		if (!coredump_pipe(&cn, &cprm, argv, argc))
-			goto close_fail;
-		break;
-	case COREDUMP_SOCK_REQ:
-		fallthrough;
-	case COREDUMP_SOCK:
-		if (!coredump_socket(&cn, &cprm))
-			goto close_fail;
-		break;
-	default:
-		WARN_ON_ONCE(true);
-		goto close_fail;
-	}
-
-	/* Don't even generate the coredump. */
-	if (cn.mask & COREDUMP_REJECT)
-		goto close_fail;
-
-	/* get us an unshared descriptor table; almost always a no-op */
-	/* The cell spufs coredump code reads the file descriptor tables */
-	if (unshare_files())
-		goto close_fail;
-
-	if ((cn.mask & COREDUMP_KERNEL) && !coredump_write(&cn, &cprm, binfmt))
-		goto close_fail;
-
-	coredump_sock_shutdown(cprm.file);
-
-	/* Let the parent know that a coredump was generated. */
-	if (cn.mask & COREDUMP_USERSPACE)
-		cn.core_dumped = true;
-
-	/*
-	 * When core_pipe_limit is set we wait for the coredump server
-	 * or usermodehelper to finish before exiting so it can e.g.,
-	 * inspect /proc/<pid>.
-	 */
-	if (cn.mask & COREDUMP_WAIT) {
-		switch (cn.core_type) {
-		case COREDUMP_PIPE:
-			wait_for_dump_helpers(cprm.file);
-			break;
-		case COREDUMP_SOCK_REQ:
-			fallthrough;
-		case COREDUMP_SOCK:
-			coredump_sock_wait(cprm.file);
-			break;
-		default:
-			break;
-		}
-	}
-
-close_fail:
+	scoped_with_creds(cred)
+		do_coredump(&cn, &cprm, &argv, &argc, binfmt);
 	coredump_cleanup(&cn, &cprm);
-	revert_creds(old_cred);
 	return;
 }
 
@@ -1735,7 +1736,7 @@ static bool dump_vma_snapshot(struct coredump_params *cprm)
 	gate_vma = get_gate_vma(mm);
 	cprm->vma_count = mm->map_count + (gate_vma ? 1 : 0);
 
-	cprm->vma_meta = kvmalloc_array(cprm->vma_count, sizeof(*cprm->vma_meta), GFP_KERNEL);
+	cprm->vma_meta = kvmalloc_objs(*cprm->vma_meta, cprm->vma_count);
 	if (!cprm->vma_meta) {
 		mmap_write_unlock(mm);
 		return false;

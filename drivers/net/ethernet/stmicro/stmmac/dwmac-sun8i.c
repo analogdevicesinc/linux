@@ -571,16 +571,16 @@ static const struct stmmac_dma_ops sun8i_dwmac_dma_ops = {
 
 static int sun8i_dwmac_power_internal_phy(struct stmmac_priv *priv);
 
-static int sun8i_dwmac_init(struct platform_device *pdev, void *priv)
+static int sun8i_dwmac_init(struct device *dev, void *priv)
 {
-	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct net_device *ndev = dev_get_drvdata(dev);
 	struct sunxi_priv_data *gmac = priv;
 	int ret;
 
 	if (gmac->regulator) {
 		ret = regulator_enable(gmac->regulator);
 		if (ret) {
-			dev_err(&pdev->dev, "Fail to enable regulator\n");
+			dev_err(dev, "Fail to enable regulator\n");
 			return ret;
 		}
 	}
@@ -746,7 +746,7 @@ static int sun8i_dwmac_reset(struct stmmac_priv *priv)
 	v = readl(priv->ioaddr + EMAC_BASIC_CTL1);
 	writel(v | 0x01, priv->ioaddr + EMAC_BASIC_CTL1);
 
-	/* The timeout was previoulsy set to 10ms, but some board (OrangePI0)
+	/* The timeout was previously set to 10ms, but some board (OrangePI0)
 	 * need more if no cable plugged. 100ms seems OK
 	 */
 	err = readl_poll_timeout(priv->ioaddr + EMAC_BASIC_CTL1, v,
@@ -821,7 +821,7 @@ static int sun8i_dwmac_power_internal_phy(struct stmmac_priv *priv)
 		return ret;
 	}
 
-	/* Make sure the EPHY is properly reseted, as U-Boot may leave
+	/* Make sure the EPHY is properly reset, as U-Boot may leave
 	 * it at deasserted state, and thus it may fail to reset EMAC.
 	 *
 	 * This assumes the driver has exclusive access to the EPHY reset.
@@ -1005,7 +1005,7 @@ static void sun8i_dwmac_unset_syscon(struct sunxi_priv_data *gmac)
 				   (H3_EPHY_SHUTDOWN | H3_EPHY_SELECT));
 }
 
-static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
+static void sun8i_dwmac_exit(struct device *dev, void *priv)
 {
 	struct sunxi_priv_data *gmac = priv;
 
@@ -1040,14 +1040,9 @@ static const struct stmmac_ops sun8i_dwmac_ops = {
 	.set_mac_loopback = sun8i_dwmac_set_mac_loopback,
 };
 
-static struct mac_device_info *sun8i_dwmac_setup(void *ppriv)
+static int sun8i_dwmac_setup(void *ppriv, struct mac_device_info *mac)
 {
-	struct mac_device_info *mac;
 	struct stmmac_priv *priv = ppriv;
-
-	mac = devm_kzalloc(priv->device, sizeof(*mac), GFP_KERNEL);
-	if (!mac)
-		return NULL;
 
 	mac->pcsr = priv->ioaddr;
 	mac->mac = &sun8i_dwmac_ops;
@@ -1079,7 +1074,7 @@ static struct mac_device_info *sun8i_dwmac_setup(void *ppriv)
 	/* Synopsys Id is not available */
 	priv->synopsys_id = 0;
 
-	return mac;
+	return 0;
 }
 
 static struct regmap *sun8i_dwmac_get_syscon_from_dev(struct device_node *node)
@@ -1192,7 +1187,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
 	plat_dat->bsp_priv = gmac;
 	plat_dat->init = sun8i_dwmac_init;
 	plat_dat->exit = sun8i_dwmac_exit;
-	plat_dat->setup = sun8i_dwmac_setup;
+	plat_dat->mac_setup = sun8i_dwmac_setup;
 	plat_dat->tx_fifo_size = 4096;
 	plat_dat->rx_fifo_size = 16384;
 
@@ -1270,7 +1265,7 @@ static void sun8i_dwmac_shutdown(struct platform_device *pdev)
 	struct stmmac_priv *priv = netdev_priv(ndev);
 	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
 
-	sun8i_dwmac_exit(pdev, gmac);
+	sun8i_dwmac_exit(&pdev->dev, gmac);
 }
 
 static const struct of_device_id sun8i_dwmac_match[] = {

@@ -47,7 +47,10 @@ static ssize_t timeout_show(const struct class *class, const struct class_attrib
 static ssize_t timeout_store(const struct class *class, const struct class_attribute *attr,
 			     const char *buf, size_t count)
 {
-	int tmp_loading_timeout = simple_strtol(buf, NULL, 10);
+	int tmp_loading_timeout;
+
+	if (kstrtoint(buf, 10, &tmp_loading_timeout))
+		return -EINVAL;
 
 	if (tmp_loading_timeout < 0)
 		tmp_loading_timeout = 0;
@@ -157,7 +160,10 @@ static ssize_t firmware_loading_store(struct device *dev,
 	struct fw_sysfs *fw_sysfs = to_fw_sysfs(dev);
 	struct fw_priv *fw_priv;
 	ssize_t written = count;
-	int loading = simple_strtol(buf, NULL, 10);
+	int loading;
+
+	if (kstrtoint(buf, 10, &loading))
+		return -EINVAL;
 
 	mutex_lock(&fw_lock);
 	fw_priv = fw_sysfs->fw_priv;
@@ -399,7 +405,7 @@ fw_create_instance(struct firmware *firmware, const char *fw_name,
 	struct fw_sysfs *fw_sysfs;
 	struct device *f_dev;
 
-	fw_sysfs = kzalloc(sizeof(*fw_sysfs), GFP_KERNEL);
+	fw_sysfs = kzalloc_obj(*fw_sysfs);
 	if (!fw_sysfs) {
 		fw_sysfs = ERR_PTR(-ENOMEM);
 		goto exit;

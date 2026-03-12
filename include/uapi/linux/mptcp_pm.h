@@ -2,6 +2,7 @@
 /* Do not edit directly, auto-generated from: */
 /*	Documentation/netlink/specs/mptcp_pm.yaml */
 /* YNL-GEN uapi header */
+/* To regenerate run: tools/net/ynl/ynl-regen.sh */
 
 #ifndef _UAPI_LINUX_MPTCP_PM_H
 #define _UAPI_LINUX_MPTCP_PM_H
@@ -10,7 +11,7 @@
 #define MPTCP_PM_VER	1
 
 /**
- * enum mptcp_event_type
+ * enum mptcp_event_type - Netlink MPTCP event types
  * @MPTCP_EVENT_UNSPEC: unused event
  * @MPTCP_EVENT_CREATED: A new MPTCP connection has been created. It is the
  *   good time to allocate memory and send ADD_ADDR if needed. Depending on the

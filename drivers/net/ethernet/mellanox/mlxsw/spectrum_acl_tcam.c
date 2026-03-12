@@ -778,7 +778,7 @@ mlxsw_sp_acl_tcam_vregion_create(struct mlxsw_sp *mlxsw_sp,
 	struct mlxsw_sp_acl_tcam_vregion *vregion;
 	int err;
 
-	vregion = kzalloc(sizeof(*vregion), GFP_KERNEL);
+	vregion = kzalloc_obj(*vregion);
 	if (!vregion)
 		return ERR_PTR(-ENOMEM);
 	INIT_LIST_HEAD(&vregion->vchunk_list);
@@ -939,7 +939,7 @@ mlxsw_sp_acl_tcam_vchunk_create(struct mlxsw_sp *mlxsw_sp,
 	if (priority == MLXSW_SP_ACL_TCAM_CATCHALL_PRIO)
 		return ERR_PTR(-EINVAL);
 
-	vchunk = kzalloc(sizeof(*vchunk), GFP_KERNEL);
+	vchunk = kzalloc_obj(*vchunk);
 	if (!vchunk)
 		return ERR_PTR(-ENOMEM);
 	INIT_LIST_HEAD(&vchunk->ventry_list);
@@ -1489,7 +1489,8 @@ mlxsw_sp_acl_tcam_vregion_rehash(struct mlxsw_sp *mlxsw_sp,
 
 static int
 mlxsw_sp_acl_tcam_region_rehash_intrvl_get(struct devlink *devlink, u32 id,
-					   struct devlink_param_gset_ctx *ctx)
+					   struct devlink_param_gset_ctx *ctx,
+					   struct netlink_ext_ack *extack)
 {
 	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
 	struct mlxsw_sp_acl_tcam *tcam;

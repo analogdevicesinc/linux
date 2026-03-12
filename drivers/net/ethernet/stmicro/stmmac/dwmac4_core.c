@@ -22,49 +22,49 @@
 #include "dwmac4.h"
 #include "dwmac5.h"
 
+static int dwmac4_pcs_init(struct stmmac_priv *priv)
+{
+	if (!priv->dma_cap.pcs)
+		return 0;
+
+	return stmmac_integrated_pcs_init(priv, GMAC_PCS_BASE,
+					  GMAC_INT_PCS_LINK | GMAC_INT_PCS_ANE);
+}
+
 static void dwmac4_core_init(struct mac_device_info *hw,
 			     struct net_device *dev)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 	void __iomem *ioaddr = hw->pcsr;
-	u32 value = readl(ioaddr + GMAC_CONFIG);
 	unsigned long clk_rate;
+	u32 value;
 
-	value |= GMAC_CORE_INIT;
-
-	if (hw->ps) {
-		value |= GMAC_CONFIG_TE;
-
-		value &= hw->link.speed_mask;
-		switch (hw->ps) {
-		case SPEED_1000:
-			value |= hw->link.speed1000;
-			break;
-		case SPEED_100:
-			value |= hw->link.speed100;
-			break;
-		case SPEED_10:
-			value |= hw->link.speed10;
-			break;
-		}
-	}
-
-	writel(value, ioaddr + GMAC_CONFIG);
+	value = readl(ioaddr + GMAC_CONFIG);
+	writel(value | GMAC_CORE_INIT, ioaddr + GMAC_CONFIG);
 
 	/* Configure LPI 1us counter to number of CSR clock ticks in 1us - 1 */
 	clk_rate = clk_get_rate(priv->plat->stmmac_clk);
 	writel((clk_rate / 1000000) - 1, ioaddr + GMAC4_MAC_ONEUS_TIC_COUNTER);
 
 	/* Enable GMAC interrupts */
-	value = GMAC_INT_DEFAULT_ENABLE;
-
-	if (hw->pcs)
-		value |= GMAC_PCS_IRQ_DEFAULT;
-
-	writel(value, ioaddr + GMAC_INT_EN);
+	writel(GMAC_INT_DEFAULT_ENABLE, ioaddr + GMAC_INT_EN);
 
 	if (GMAC_INT_DEFAULT_ENABLE & GMAC_INT_TSIE)
 		init_waitqueue_head(&priv->tstamp_busy_wait);
+}
+
+static void dwmac4_irq_modify(struct mac_device_info *hw, u32 disable,
+			      u32 enable)
+{
+	void __iomem *int_mask = hw->pcsr + GMAC_INT_EN;
+	unsigned long flags;
+	u32 value;
+
+	spin_lock_irqsave(&hw->irq_ctrl_lock, flags);
+	value = readl(int_mask) & ~disable;
+	value |= enable;
+	writel(value, int_mask);
+	spin_unlock_irqrestore(&hw->irq_ctrl_lock, flags);
 }
 
 static void dwmac4_update_caps(struct stmmac_priv *priv)
@@ -572,8 +572,8 @@ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
 			flow = GMAC_TX_FLOW_CTRL_TFE;
 
 			if (duplex)
-				flow |=
-				(pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
+				flow |= FIELD_PREP(GMAC_TX_FLOW_CTRL_PT_MASK,
+						   pause_time);
 
 			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(queue));
 		}
@@ -583,43 +583,9 @@ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
 	}
 }
 
-static void dwmac4_ctrl_ane(struct stmmac_priv *priv, bool ane, bool srgmi_ral,
-			    bool loopback)
+static void dwmac4_ctrl_ane(struct stmmac_priv *priv, bool ane, bool srgmi_ral)
 {
-	dwmac_ctrl_ane(priv->ioaddr, GMAC_PCS_BASE, ane, srgmi_ral, loopback);
-}
-
-/* RGMII or SMII interface */
-static void dwmac4_phystatus(void __iomem *ioaddr, struct stmmac_extra_stats *x)
-{
-	u32 status;
-
-	status = readl(ioaddr + GMAC_PHYIF_CONTROL_STATUS);
-	x->irq_rgmii_n++;
-
-	/* Check the link status */
-	if (status & GMAC_PHYIF_CTRLSTATUS_LNKSTS) {
-		int speed_value;
-
-		x->pcs_link = 1;
-
-		speed_value = ((status & GMAC_PHYIF_CTRLSTATUS_SPEED) >>
-			       GMAC_PHYIF_CTRLSTATUS_SPEED_SHIFT);
-		if (speed_value == GMAC_PHYIF_CTRLSTATUS_SPEED_125)
-			x->pcs_speed = SPEED_1000;
-		else if (speed_value == GMAC_PHYIF_CTRLSTATUS_SPEED_25)
-			x->pcs_speed = SPEED_100;
-		else
-			x->pcs_speed = SPEED_10;
-
-		x->pcs_duplex = (status & GMAC_PHYIF_CTRLSTATUS_LNKMOD);
-
-		pr_info("Link is Up - %d/%s\n", (int)x->pcs_speed,
-			x->pcs_duplex ? "Full" : "Half");
-	} else {
-		x->pcs_link = 0;
-		pr_info("Link is Down\n");
-	}
+	dwmac_ctrl_ane(priv->ioaddr, GMAC_PCS_BASE, ane, srgmi_ral);
 }
 
 static int dwmac4_irq_mtl_status(struct stmmac_priv *priv,
@@ -649,10 +615,10 @@ static int dwmac4_irq_mtl_status(struct stmmac_priv *priv,
 	return ret;
 }
 
-static int dwmac4_irq_status(struct mac_device_info *hw,
+static int dwmac4_irq_status(struct stmmac_priv *priv,
 			     struct stmmac_extra_stats *x)
 {
-	void __iomem *ioaddr = hw->pcsr;
+	void __iomem *ioaddr = priv->hw->pcsr;
 	u32 intr_status = readl(ioaddr + GMAC_INT_STATUS);
 	u32 intr_enable = readl(ioaddr + GMAC_INT_EN);
 	int ret = 0;
@@ -692,9 +658,8 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
 			x->irq_rx_path_exit_lpi_mode_n++;
 	}
 
-	dwmac_pcs_isr(ioaddr, GMAC_PCS_BASE, intr_status, x);
-	if (intr_status & PCS_RGSMIIIS_IRQ)
-		dwmac4_phystatus(ioaddr, x);
+	if (intr_status & (PCS_ANE_IRQ | PCS_LINK_IRQ))
+		stmmac_integrated_pcs_irq(priv, intr_status, x);
 
 	return ret;
 }
@@ -717,8 +682,8 @@ static void dwmac4_debug(struct stmmac_priv *priv, void __iomem *ioaddr,
 		if (value & MTL_DEBUG_TWCSTS)
 			x->mmtl_fifo_ctrl++;
 		if (value & MTL_DEBUG_TRCSTS_MASK) {
-			u32 trcsts = (value & MTL_DEBUG_TRCSTS_MASK)
-				     >> MTL_DEBUG_TRCSTS_SHIFT;
+			u32 trcsts = FIELD_GET(MTL_DEBUG_TRCSTS_MASK, value);
+
 			if (trcsts == MTL_DEBUG_TRCSTS_WRITE)
 				x->mtl_tx_fifo_read_ctrl_write++;
 			else if (trcsts == MTL_DEBUG_TRCSTS_TXW)
@@ -736,8 +701,7 @@ static void dwmac4_debug(struct stmmac_priv *priv, void __iomem *ioaddr,
 		value = readl(ioaddr + MTL_CHAN_RX_DEBUG(dwmac4_addrs, queue));
 
 		if (value & MTL_DEBUG_RXFSTS_MASK) {
-			u32 rxfsts = (value & MTL_DEBUG_RXFSTS_MASK)
-				     >> MTL_DEBUG_RRCSTS_SHIFT;
+			u32 rxfsts = FIELD_GET(MTL_DEBUG_RXFSTS_MASK, value);
 
 			if (rxfsts == MTL_DEBUG_RXFSTS_FULL)
 				x->mtl_rx_fifo_fill_level_full++;
@@ -749,8 +713,7 @@ static void dwmac4_debug(struct stmmac_priv *priv, void __iomem *ioaddr,
 				x->mtl_rx_fifo_fill_level_empty++;
 		}
 		if (value & MTL_DEBUG_RRCSTS_MASK) {
-			u32 rrcsts = (value & MTL_DEBUG_RRCSTS_MASK) >>
-				     MTL_DEBUG_RRCSTS_SHIFT;
+			u32 rrcsts = FIELD_GET(MTL_DEBUG_RRCSTS_MASK, value);
 
 			if (rrcsts == MTL_DEBUG_RRCSTS_FLUSH)
 				x->mtl_rx_fifo_read_ctrl_flush++;
@@ -769,8 +732,7 @@ static void dwmac4_debug(struct stmmac_priv *priv, void __iomem *ioaddr,
 	value = readl(ioaddr + GMAC_DEBUG);
 
 	if (value & GMAC_DEBUG_TFCSTS_MASK) {
-		u32 tfcsts = (value & GMAC_DEBUG_TFCSTS_MASK)
-			      >> GMAC_DEBUG_TFCSTS_SHIFT;
+		u32 tfcsts = FIELD_GET(GMAC_DEBUG_TFCSTS_MASK, value);
 
 		if (tfcsts == GMAC_DEBUG_TFCSTS_XFER)
 			x->mac_tx_frame_ctrl_xfer++;
@@ -784,8 +746,8 @@ static void dwmac4_debug(struct stmmac_priv *priv, void __iomem *ioaddr,
 	if (value & GMAC_DEBUG_TPESTS)
 		x->mac_gmii_tx_proto_engine++;
 	if (value & GMAC_DEBUG_RFCFCSTS_MASK)
-		x->mac_rx_frame_ctrl_fifo = (value & GMAC_DEBUG_RFCFCSTS_MASK)
-					    >> GMAC_DEBUG_RFCFCSTS_SHIFT;
+		x->mac_rx_frame_ctrl_fifo = FIELD_GET(GMAC_DEBUG_RFCFCSTS_MASK,
+						      value);
 	if (value & GMAC_DEBUG_RPESTS)
 		x->mac_gmii_rx_proto_engine++;
 }
@@ -806,8 +768,7 @@ static void dwmac4_sarc_configure(void __iomem *ioaddr, int val)
 {
 	u32 value = readl(ioaddr + GMAC_CONFIG);
 
-	value &= ~GMAC_CONFIG_SARC;
-	value |= val << GMAC_CONFIG_SARC_SHIFT;
+	value = u32_replace_bits(value, val, GMAC_CONFIG_SARC);
 
 	writel(value, ioaddr + GMAC_CONFIG);
 }
@@ -915,9 +876,9 @@ static int dwmac4_config_l4_filter(struct mac_device_info *hw, u32 filter_no,
 	writel(value, ioaddr + GMAC_L3L4_CTRL(filter_no));
 
 	if (sa) {
-		value = match & GMAC_L4SP0;
+		value = FIELD_PREP(GMAC_L4SP0, match);
 	} else {
-		value = (match << GMAC_L4DP0_SHIFT) & GMAC_L4DP0;
+		value = FIELD_PREP(GMAC_L4DP0, match);
 	}
 
 	writel(value, ioaddr + GMAC_L4_ADDR(filter_no));
@@ -929,7 +890,9 @@ static int dwmac4_config_l4_filter(struct mac_device_info *hw, u32 filter_no,
 }
 
 const struct stmmac_ops dwmac4_ops = {
+	.pcs_init = dwmac4_pcs_init,
 	.core_init = dwmac4_core_init,
+	.irq_modify = dwmac4_irq_modify,
 	.update_caps = dwmac4_update_caps,
 	.set_mac = stmmac_set_mac,
 	.rx_ipc = dwmac4_rx_ipc_enable,
@@ -963,7 +926,9 @@ const struct stmmac_ops dwmac4_ops = {
 };
 
 const struct stmmac_ops dwmac410_ops = {
+	.pcs_init = dwmac4_pcs_init,
 	.core_init = dwmac4_core_init,
+	.irq_modify = dwmac4_irq_modify,
 	.update_caps = dwmac4_update_caps,
 	.set_mac = stmmac_dwmac4_set_mac,
 	.rx_ipc = dwmac4_rx_ipc_enable,
@@ -999,7 +964,9 @@ const struct stmmac_ops dwmac410_ops = {
 };
 
 const struct stmmac_ops dwmac510_ops = {
+	.pcs_init = dwmac4_pcs_init,
 	.core_init = dwmac4_core_init,
+	.irq_modify = dwmac4_irq_modify,
 	.update_caps = dwmac4_update_caps,
 	.set_mac = stmmac_dwmac4_set_mac,
 	.rx_ipc = dwmac4_rx_ipc_enable,

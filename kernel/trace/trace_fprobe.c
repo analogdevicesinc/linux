@@ -99,7 +99,7 @@ static struct tracepoint_user *__tracepoint_user_init(const char *name, struct t
 	struct tracepoint_user *tuser __free(tuser_free) = NULL;
 	int ret;
 
-	tuser = kzalloc(sizeof(*tuser), GFP_KERNEL);
+	tuser = kzalloc_obj(*tuser);
 	if (!tuser)
 		return NULL;
 	tuser->name = kstrdup(name, GFP_KERNEL);
@@ -579,7 +579,7 @@ static struct trace_fprobe *alloc_trace_fprobe(const char *group,
 	struct trace_fprobe *tf __free(free_trace_fprobe) = NULL;
 	int ret = -ENOMEM;
 
-	tf = kzalloc(struct_size(tf, tp.args, nargs), GFP_KERNEL);
+	tf = kzalloc_flex(*tf, tp.args, nargs);
 	if (!tf)
 		return ERR_PTR(ret);
 
@@ -632,7 +632,7 @@ print_fentry_event(struct trace_iterator *iter, int flags,
 
 	trace_seq_printf(s, "%s: (", trace_probe_name(tp));
 
-	if (!seq_print_ip_sym(s, field->ip, flags | TRACE_ITER_SYM_OFFSET))
+	if (!seq_print_ip_sym_offset(s, field->ip, flags))
 		goto out;
 
 	trace_seq_putc(s, ')');
@@ -662,12 +662,12 @@ print_fexit_event(struct trace_iterator *iter, int flags,
 
 	trace_seq_printf(s, "%s: (", trace_probe_name(tp));
 
-	if (!seq_print_ip_sym(s, field->ret_ip, flags | TRACE_ITER_SYM_OFFSET))
+	if (!seq_print_ip_sym_offset(s, field->ret_ip, flags))
 		goto out;
 
 	trace_seq_puts(s, " <- ");
 
-	if (!seq_print_ip_sym(s, field->func, flags & ~TRACE_ITER_SYM_OFFSET))
+	if (!seq_print_ip_sym_no_offset(s, field->func, flags))
 		goto out;
 
 	trace_seq_putc(s, ')');
@@ -1403,7 +1403,7 @@ static int trace_fprobe_create_cb(int argc, const char *argv[])
 	struct traceprobe_parse_context *ctx __free(traceprobe_parse_context) = NULL;
 	int ret;
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	ctx = kzalloc_obj(*ctx);
 	if (!ctx)
 		return -ENOMEM;
 

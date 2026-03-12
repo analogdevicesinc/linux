@@ -78,7 +78,7 @@ static struct qrtr_node *node_get(unsigned int node_id)
 		return node;
 
 	/* If node didn't exist, allocate and insert it to the tree */
-	node = kzalloc(sizeof(*node), GFP_KERNEL);
+	node = kzalloc_obj(*node);
 	if (!node)
 		return NULL;
 
@@ -229,7 +229,7 @@ static struct qrtr_server *server_add(unsigned int service,
 	if (!service || !port)
 		return NULL;
 
-	srv = kzalloc(sizeof(*srv), GFP_KERNEL);
+	srv = kzalloc_obj(*srv);
 	if (!srv)
 		return NULL;
 
@@ -534,7 +534,7 @@ static int ctrl_cmd_new_lookup(struct sockaddr_qrtr *from,
 	if (from->sq_node != qrtr_ns.local_node)
 		return -EINVAL;
 
-	lookup = kzalloc(sizeof(*lookup), GFP_KERNEL);
+	lookup = kzalloc_obj(*lookup);
 	if (!lookup)
 		return -ENOMEM;
 
@@ -714,7 +714,7 @@ int qrtr_ns_init(void)
 	sq.sq_port = QRTR_PORT_CTRL;
 	qrtr_ns.local_node = sq.sq_node;
 
-	ret = kernel_bind(qrtr_ns.sock, (struct sockaddr *)&sq, sizeof(sq));
+	ret = kernel_bind(qrtr_ns.sock, (struct sockaddr_unsized *)&sq, sizeof(sq));
 	if (ret < 0) {
 		pr_err("failed to bind to socket\n");
 		goto err_wq;

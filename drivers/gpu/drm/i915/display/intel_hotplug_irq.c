@@ -6,11 +6,11 @@
 #include <drm/drm_print.h>
 
 #include "i915_reg.h"
-#include "i915_utils.h"
 #include "intel_de.h"
 #include "intel_display_irq.h"
 #include "intel_display_regs.h"
 #include "intel_display_types.h"
+#include "intel_display_utils.h"
 #include "intel_dp_aux.h"
 #include "intel_gmbus.h"
 #include "intel_hotplug.h"
@@ -420,6 +420,9 @@ u32 i9xx_hpd_irq_ack(struct intel_display *display)
 	u32 hotplug_status = 0, hotplug_status_mask;
 	int i;
 
+	if (!HAS_HOTPLUG(display))
+		return 0;
+
 	if (display->platform.g4x ||
 	    display->platform.valleyview || display->platform.cherryview)
 		hotplug_status_mask = HOTPLUG_INT_STATUS_G4X |
@@ -516,11 +519,8 @@ void xelpdp_pica_irq_handler(struct intel_display *display, u32 iir)
 {
 	enum hpd_pin pin;
 	u32 hotplug_trigger = iir & (XELPDP_DP_ALT_HOTPLUG_MASK | XELPDP_TBT_HOTPLUG_MASK);
-	u32 trigger_aux = iir & XELPDP_AUX_TC_MASK;
+	u32 trigger_aux = iir & xelpdp_pica_aux_mask(display);
 	u32 pin_mask = 0, long_mask = 0;
-
-	if (DISPLAY_VER(display) >= 20)
-		trigger_aux |= iir & XE2LPD_AUX_DDI_MASK;
 
 	for (pin = HPD_PORT_TC1; pin <= HPD_PORT_TC4; pin++) {
 		u32 val;

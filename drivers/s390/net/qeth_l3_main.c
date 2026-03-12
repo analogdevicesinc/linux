@@ -7,8 +7,7 @@
  *		 Frank Blaschka <frank.blaschka@de.ibm.com>
  */
 
-#define KMSG_COMPONENT "qeth"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "qeth: " fmt
 
 #include <linux/export.h>
 #include <linux/module.h>
@@ -2164,7 +2163,7 @@ static int qeth_l3_ip6_event(struct notifier_block *this,
 	if (!qeth_is_supported(card, IPA_IPV6))
 		return NOTIFY_DONE;
 
-	ip_work = kmalloc(sizeof(*ip_work), GFP_ATOMIC);
+	ip_work = kmalloc_obj(*ip_work, GFP_ATOMIC);
 	if (!ip_work)
 		return NOTIFY_DONE;
 

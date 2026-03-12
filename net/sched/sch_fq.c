@@ -245,8 +245,6 @@ static void fq_flow_set_throttled(struct fq_sched_data *q, struct fq_flow *f)
 static struct kmem_cache *fq_flow_cachep __read_mostly;
 
 
-/* limit number of collected flows per round */
-#define FQ_GC_MAX 8
 #define FQ_GC_AGE (3*HZ)
 
 static bool fq_gc_candidate(const struct fq_flow *f)
@@ -259,10 +257,9 @@ static void fq_gc(struct fq_sched_data *q,
 		  struct rb_root *root,
 		  struct sock *sk)
 {
+	struct fq_flow *f, *tofree = NULL;
 	struct rb_node **p, *parent;
-	void *tofree[FQ_GC_MAX];
-	struct fq_flow *f;
-	int i, fcnt = 0;
+	int fcnt;
 
 	p = &root->rb_node;
 	parent = NULL;
@@ -274,9 +271,8 @@ static void fq_gc(struct fq_sched_data *q,
 			break;
 
 		if (fq_gc_candidate(f)) {
-			tofree[fcnt++] = f;
-			if (fcnt == FQ_GC_MAX)
-				break;
+			f->next = tofree;
+			tofree = f;
 		}
 
 		if (f->sk > sk)
@@ -285,18 +281,20 @@ static void fq_gc(struct fq_sched_data *q,
 			p = &parent->rb_left;
 	}
 
-	if (!fcnt)
+	if (!tofree)
 		return;
 
-	for (i = fcnt; i > 0; ) {
-		f = tofree[--i];
+	fcnt = 0;
+	while (tofree) {
+		f = tofree;
+		tofree = f->next;
 		rb_erase(&f->fq_node, root);
+		kmem_cache_free(fq_flow_cachep, f);
+		fcnt++;
 	}
 	q->flows -= fcnt;
 	q->inactive_flows -= fcnt;
 	q->stat_gc_flows += fcnt;
-
-	kmem_cache_free_bulk(fq_flow_cachep, fcnt, tofree);
 }
 
 /* Fast path can be used if :
@@ -480,7 +478,10 @@ static void fq_erase_head(struct Qdisc *sch, struct fq_flow *flow,
 			  struct sk_buff *skb)
 {
 	if (skb == flow->head) {
-		flow->head = skb->next;
+		struct sk_buff *next = skb->next;
+
+		prefetch(next);
+		flow->head = next;
 	} else {
 		rb_erase(&skb->rbnode, &flow->t_root);
 		skb->dev = qdisc_dev(sch);
@@ -497,6 +498,7 @@ static void fq_dequeue_skb(struct Qdisc *sch, struct fq_flow *flow,
 	skb_mark_not_on_list(skb);
 	qdisc_qstats_backlog_dec(sch, skb);
 	sch->q.qlen--;
+	qdisc_bstats_update(sch, skb);
 }
 
 static void flow_queue_add(struct fq_flow *flow, struct sk_buff *skb)
@@ -661,7 +663,7 @@ static struct sk_buff *fq_dequeue(struct Qdisc *sch)
 		return NULL;
 
 	skb = fq_peek(&q->internal);
-	if (unlikely(skb)) {
+	if (skb) {
 		q->internal.qlen--;
 		fq_dequeue_skb(sch, &q->internal, skb);
 		goto out;
@@ -711,14 +713,14 @@ begin:
 			goto begin;
 		}
 		prefetch(&skb->end);
-		if ((s64)(now - time_next_packet - q->ce_threshold) > 0) {
+		fq_dequeue_skb(sch, f, skb);
+		if (unlikely((s64)(now - time_next_packet - q->ce_threshold) > 0)) {
 			INET_ECN_set_ce(skb);
 			q->stat_ce_mark++;
 		}
 		if (--f->qlen == 0)
 			q->inactive_flows++;
 		q->band_pkt_count[fq_skb_cb(skb)->band]--;
-		fq_dequeue_skb(sch, f, skb);
 	} else {
 		head->first = f->next;
 		/* force a pass through old_flows to prevent starvation */
@@ -776,7 +778,6 @@ begin:
 		f->time_next_packet = now + len;
 	}
 out:
-	qdisc_bstats_update(sch, skb);
 	return skb;
 }
 
@@ -826,6 +827,7 @@ static void fq_reset(struct Qdisc *sch)
 	for (idx = 0; idx < FQ_BANDS; idx++) {
 		q->band_flows[idx].new_flows.first = NULL;
 		q->band_flows[idx].old_flows.first = NULL;
+		q->band_pkt_count[idx] = 0;
 	}
 	q->delayed		= RB_ROOT;
 	q->flows		= 0;

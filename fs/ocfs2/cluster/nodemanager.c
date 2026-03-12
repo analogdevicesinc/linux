@@ -4,6 +4,7 @@
  */
 
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/configfs.h>
@@ -395,7 +396,7 @@ static struct configfs_attribute *o2nm_node_attrs[] = {
 	NULL,
 };
 
-static struct configfs_item_operations o2nm_node_item_ops = {
+static const struct configfs_item_operations o2nm_node_item_ops = {
 	.release		= o2nm_node_release,
 };
 
@@ -586,11 +587,11 @@ static struct config_item *o2nm_node_group_make_item(struct config_group *group,
 	if (strlen(name) > O2NM_MAX_NAME_LEN)
 		return ERR_PTR(-ENAMETOOLONG);
 
-	node = kzalloc(sizeof(struct o2nm_node), GFP_KERNEL);
+	node = kzalloc_obj(struct o2nm_node);
 	if (node == NULL)
 		return ERR_PTR(-ENOMEM);
 
-	strcpy(node->nd_name, name); /* use item.ci_namebuf instead? */
+	strscpy(node->nd_name, name); /* use item.ci_namebuf instead? */
 	config_item_init_type_name(&node->nd_item, name, &o2nm_node_type);
 	spin_lock_init(&node->nd_lock);
 
@@ -637,7 +638,7 @@ static void o2nm_node_group_drop_item(struct config_group *group,
 	config_item_put(item);
 }
 
-static struct configfs_group_operations o2nm_node_group_group_ops = {
+static const struct configfs_group_operations o2nm_node_group_group_ops = {
 	.make_item	= o2nm_node_group_make_item,
 	.drop_item	= o2nm_node_group_drop_item,
 };
@@ -656,7 +657,7 @@ static void o2nm_cluster_release(struct config_item *item)
 	kfree(cluster);
 }
 
-static struct configfs_item_operations o2nm_cluster_item_ops = {
+static const struct configfs_item_operations o2nm_cluster_item_ops = {
 	.release	= o2nm_cluster_release,
 };
 
@@ -694,8 +695,8 @@ static struct config_group *o2nm_cluster_group_make_group(struct config_group *g
 	if (o2nm_single_cluster)
 		return ERR_PTR(-ENOSPC);
 
-	cluster = kzalloc(sizeof(struct o2nm_cluster), GFP_KERNEL);
-	ns = kzalloc(sizeof(struct o2nm_node_group), GFP_KERNEL);
+	cluster = kzalloc_obj(struct o2nm_cluster);
+	ns = kzalloc_obj(struct o2nm_node_group);
 	o2hb_group = o2hb_alloc_hb_set();
 	if (cluster == NULL || ns == NULL || o2hb_group == NULL)
 		goto out;
@@ -740,7 +741,7 @@ static void o2nm_cluster_group_drop_item(struct config_group *group, struct conf
 	config_item_put(item);
 }
 
-static struct configfs_group_operations o2nm_cluster_group_group_ops = {
+static const struct configfs_group_operations o2nm_cluster_group_group_ops = {
 	.make_group	= o2nm_cluster_group_make_group,
 	.drop_item	= o2nm_cluster_group_drop_item,
 };

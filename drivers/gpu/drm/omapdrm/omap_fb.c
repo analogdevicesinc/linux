@@ -12,6 +12,7 @@
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_print.h>
 
 #include "omap_dmm_tiler.h"
 #include "omap_drv.h"
@@ -389,7 +390,7 @@ struct drm_framebuffer *omap_framebuffer_init(struct drm_device *dev,
 		goto fail;
 	}
 
-	omap_fb = kzalloc(sizeof(*omap_fb), GFP_KERNEL);
+	omap_fb = kzalloc_obj(*omap_fb);
 	if (!omap_fb) {
 		ret = -ENOMEM;
 		goto fail;

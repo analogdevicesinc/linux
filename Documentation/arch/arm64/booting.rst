@@ -391,13 +391,13 @@ Before jumping into the kernel, the following conditions must be met:
     - SMCR_EL2.LEN must be initialised to the same value for all CPUs the
       kernel will execute on.
 
-    - HWFGRTR_EL2.nTPIDR2_EL0 (bit 55) must be initialised to 0b01.
+    - HFGRTR_EL2.nTPIDR2_EL0 (bit 55) must be initialised to 0b01.
 
-    - HWFGWTR_EL2.nTPIDR2_EL0 (bit 55) must be initialised to 0b01.
+    - HFGWTR_EL2.nTPIDR2_EL0 (bit 55) must be initialised to 0b01.
 
-    - HWFGRTR_EL2.nSMPRI_EL1 (bit 54) must be initialised to 0b01.
+    - HFGRTR_EL2.nSMPRI_EL1 (bit 54) must be initialised to 0b01.
 
-    - HWFGWTR_EL2.nSMPRI_EL1 (bit 54) must be initialised to 0b01.
+    - HFGWTR_EL2.nSMPRI_EL1 (bit 54) must be initialised to 0b01.
 
   For CPUs with the Scalable Matrix Extension FA64 feature (FEAT_SME_FA64):
 
@@ -555,6 +555,18 @@ Before jumping into the kernel, the following conditions must be met:
  - If EL3 is present:
 
    - MDCR_EL3.TPM (bit 6) must be initialized to 0b0
+
+  For CPUs with support for 64-byte loads and stores without status (FEAT_LS64):
+
+  - If the kernel is entered at EL1 and EL2 is present:
+
+    - HCRX_EL2.EnALS (bit 1) must be initialised to 0b1.
+
+  For CPUs with support for 64-byte stores with status (FEAT_LS64_V):
+
+  - If the kernel is entered at EL1 and EL2 is present:
+
+    - HCRX_EL2.EnASR (bit 2) must be initialised to 0b1.
 
 The requirements described above for CPU mode, caches, MMUs, architected
 timers, coherency and system registers apply to all CPUs.  All CPUs must

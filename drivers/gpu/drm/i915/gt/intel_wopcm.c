@@ -3,6 +3,8 @@
  * Copyright © 2017-2019 Intel Corporation
  */
 
+#include <drm/drm_print.h>
+
 #include "intel_wopcm.h"
 #include "i915_drv.h"
 
@@ -250,9 +252,6 @@ void intel_wopcm_init(struct intel_wopcm *wopcm)
 	GEM_BUG_ON(guc_fw_size >= wopcm_size);
 	GEM_BUG_ON(huc_fw_size >= wopcm_size);
 	GEM_BUG_ON(ctx_rsvd + WOPCM_RESERVED_SIZE >= wopcm_size);
-
-	if (i915_inject_probe_failure(i915))
-		return;
 
 	if (__wopcm_regs_locked(gt->uncore, &guc_wopcm_base, &guc_wopcm_size)) {
 		drm_dbg(&i915->drm, "GuC WOPCM is already locked [%uK, %uK)\n",

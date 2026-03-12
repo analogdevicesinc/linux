@@ -9,6 +9,7 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_debugfs.h>
+#include <drm/drm_print.h>
 #include <drm/drm_vblank.h>
 
 #include "lsdc_drv.h"
@@ -396,7 +397,7 @@ static void lsdc_crtc_reset(struct drm_crtc *crtc)
 	if (crtc->state)
 		crtc->funcs->atomic_destroy_state(crtc, crtc->state);
 
-	priv_crtc_state = kzalloc(sizeof(*priv_crtc_state), GFP_KERNEL);
+	priv_crtc_state = kzalloc_obj(*priv_crtc_state);
 
 	if (!priv_crtc_state)
 		__drm_atomic_helper_crtc_reset(crtc, NULL);
@@ -423,7 +424,7 @@ lsdc_crtc_atomic_duplicate_state(struct drm_crtc *crtc)
 	struct lsdc_crtc_state *new_priv_state;
 	struct lsdc_crtc_state *old_priv_state;
 
-	new_priv_state = kzalloc(sizeof(*new_priv_state), GFP_KERNEL);
+	new_priv_state = kzalloc_obj(*new_priv_state);
 	if (!new_priv_state)
 		return NULL;
 

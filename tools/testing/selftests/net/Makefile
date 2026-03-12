@@ -15,6 +15,7 @@ TEST_PROGS := \
 	big_tcp.sh \
 	bind_bhash.sh \
 	bpf_offload.py \
+	bridge_vlan_dump.sh \
 	broadcast_ether_dst.sh \
 	broadcast_pmtu.sh \
 	busy_poll_test.sh \
@@ -22,6 +23,7 @@ TEST_PROGS := \
 	cmsg_so_mark.sh \
 	cmsg_so_priority.sh \
 	cmsg_time.sh \
+	double_udp_encap.sh \
 	drop_monitor_tests.sh \
 	fcnal-ipv4.sh \
 	fcnal-ipv6.sh \
@@ -38,7 +40,6 @@ TEST_PROGS := \
 	fq_band_pktlimit.sh \
 	gre_gso.sh \
 	gre_ipv6_lladdr.sh \
-	gro.sh \
 	icmp.sh \
 	icmp_redirect.sh \
 	io_uring_zerocopy_tx.sh \
@@ -49,6 +50,7 @@ TEST_PROGS := \
 	ipv6_flowlabel.sh \
 	ipv6_force_forwarding.sh \
 	ipv6_route_update_soft_lockup.sh \
+	ipvtap_test.sh \
 	l2_tos_ttl_inherit.sh \
 	l2tp.sh \
 	link_netns.py \
@@ -121,8 +123,6 @@ TEST_PROGS := \
 # end of TEST_PROGS
 
 TEST_PROGS_EXTENDED := \
-	toeplitz.sh \
-	toeplitz_client.sh \
 	xfrm_policy_add_speed.sh \
 # end of TEST_PROGS_EXTENDED
 
@@ -130,7 +130,6 @@ TEST_GEN_FILES := \
 	bind_bhash \
 	cmsg_sender \
 	fin_ack_lat \
-	gro \
 	hwtstamp_config \
 	io_uring_zerocopy_tx \
 	ioam6_parser \
@@ -159,7 +158,6 @@ TEST_GEN_FILES := \
 	tcp_mmap \
 	tfo \
 	timestamping \
-	toeplitz \
 	txring_overwrite \
 	txtimestamp \
 	udpgso \
@@ -171,6 +169,7 @@ TEST_GEN_PROGS := \
 	bind_timewait \
 	bind_wildcard \
 	epoll_busy_poll \
+	icmp_rfc4884 \
 	ipv6_fragmentation \
 	proc_net_pktgen \
 	reuseaddr_conflict \
@@ -185,7 +184,6 @@ TEST_GEN_PROGS := \
 	tap \
 	tcp_port_share \
 	tls \
-	tun \
 # end of TEST_GEN_PROGS
 
 TEST_FILES := \
@@ -193,13 +191,15 @@ TEST_FILES := \
 	in_netns.sh \
 	lib.sh \
 	settings \
-	setup_loopback.sh \
-	setup_veth.sh \
 # end of TEST_FILES
 
 # YNL files, must be before "include ..lib.mk"
 YNL_GEN_FILES := busy_poller
-YNL_GEN_PROGS := netlink-dumps
+YNL_GEN_PROGS := \
+	netlink-dumps \
+	tun \
+# end of YNL_GEN_PROGS
+
 TEST_GEN_FILES += $(YNL_GEN_FILES)
 TEST_GEN_PROGS += $(YNL_GEN_PROGS)
 
@@ -210,7 +210,14 @@ TEST_INCLUDES := forwarding/lib.sh
 include ../lib.mk
 
 # YNL build
-YNL_GENS := netdev
+YNL_GENS := \
+	netdev \
+	rt-addr \
+	rt-link \
+	rt-neigh \
+	rt-route \
+# end of YNL_GENS
+
 include ynl.mk
 
 $(OUTPUT)/epoll_busy_poll: LDLIBS += -lcap

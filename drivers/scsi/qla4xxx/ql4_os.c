@@ -155,7 +155,8 @@ static int qla4xxx_get_host_stats(struct Scsi_Host *shost, char *buf, int len);
 /*
  * SCSI host template entry points
  */
-static int qla4xxx_queuecommand(struct Scsi_Host *h, struct scsi_cmnd *cmd);
+static enum scsi_qc_status qla4xxx_queuecommand(struct Scsi_Host *h,
+						struct scsi_cmnd *cmd);
 static int qla4xxx_eh_abort(struct scsi_cmnd *cmd);
 static int qla4xxx_eh_device_reset(struct scsi_cmnd *cmd);
 static int qla4xxx_eh_target_reset(struct scsi_cmnd *cmd);
@@ -4107,7 +4108,8 @@ void qla4xxx_srb_compl(struct kref *ref)
  * completion handling). Unfortunately, it sometimes calls the scheduler
  * in interrupt context which is a big NO! NO!.
  **/
-static int qla4xxx_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
+static enum scsi_qc_status qla4xxx_queuecommand(struct Scsi_Host *host,
+						struct scsi_cmnd *cmd)
 {
 	struct scsi_qla_host *ha = to_qla_host(host);
 	struct ddb_entry *ddb_entry = cmd->device->hostdata;
@@ -8819,7 +8821,7 @@ skip_retry_init:
 	}
 	INIT_WORK(&ha->dpc_work, qla4xxx_do_dpc);
 
-	ha->task_wq = alloc_workqueue("qla4xxx_%lu_task", WQ_MEM_RECLAIM, 1,
+	ha->task_wq = alloc_workqueue("qla4xxx_%lu_task", WQ_MEM_RECLAIM | WQ_PERCPU, 1,
 				      ha->host_no);
 	if (!ha->task_wq) {
 		ql4_printk(KERN_WARNING, ha, "Unable to start task thread!\n");
@@ -9795,11 +9797,6 @@ qla4xxx_pci_slot_reset(struct pci_dev *pdev)
 	 * IOV states
 	 */
 	pci_restore_state(pdev);
-
-	/* pci_restore_state() clears the saved_state flag of the device
-	 * save restored state which resets saved_state flag
-	 */
-	pci_save_state(pdev);
 
 	/* Initialize device or resume if in suspended state */
 	rc = pci_enable_device(pdev);

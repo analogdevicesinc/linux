@@ -308,8 +308,11 @@ static int bnx2x_set_storm_rx_mode(struct bnx2x *bp);
 /****************************************************************************
 * General service functions
 ****************************************************************************/
-
-static int bnx2x_hwtstamp_ioctl(struct bnx2x *bp, struct ifreq *ifr);
+static int bnx2x_hwtstamp_set(struct net_device *dev,
+			      struct kernel_hwtstamp_config *config,
+			      struct netlink_ext_ack *extack);
+static int bnx2x_hwtstamp_get(struct net_device *dev,
+			      struct kernel_hwtstamp_config *config);
 
 static void __storm_memset_dma_mapping(struct bnx2x *bp,
 				       u32 addr, dma_addr_t mapping)
@@ -6574,7 +6577,7 @@ static int bnx2x_gunzip_init(struct bnx2x *bp)
 	if (bp->gunzip_buf  == NULL)
 		goto gunzip_nomem1;
 
-	bp->strm = kmalloc(sizeof(*bp->strm), GFP_KERNEL);
+	bp->strm = kmalloc_obj(*bp->strm);
 	if (bp->strm  == NULL)
 		goto gunzip_nomem2;
 
@@ -8393,8 +8396,7 @@ int bnx2x_alloc_mem(struct bnx2x *bp)
 			goto alloc_mem_err;
 		allocated += bp->context[i].size;
 	}
-	bp->ilt->lines = kcalloc(ILT_MAX_LINES, sizeof(struct ilt_line),
-				 GFP_KERNEL);
+	bp->ilt->lines = kzalloc_objs(struct ilt_line, ILT_MAX_LINES);
 	if (!bp->ilt->lines)
 		goto alloc_mem_err;
 
@@ -10657,7 +10659,7 @@ static int bnx2x_prev_mark_path(struct bnx2x *bp, bool after_undi)
 	up(&bnx2x_prev_sem);
 
 	/* Create an entry for this path and add it */
-	tmp_list = kmalloc(sizeof(struct bnx2x_prev_path_list), GFP_KERNEL);
+	tmp_list = kmalloc_obj(struct bnx2x_prev_path_list);
 	if (!tmp_list) {
 		BNX2X_ERR("Failed to allocate 'bnx2x_prev_path_list'\n");
 		return -ENOMEM;
@@ -12813,14 +12815,9 @@ static int bnx2x_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	if (!netif_running(dev))
 		return -EAGAIN;
 
-	switch (cmd) {
-	case SIOCSHWTSTAMP:
-		return bnx2x_hwtstamp_ioctl(bp, ifr);
-	default:
-		DP(NETIF_MSG_LINK, "ioctl: phy id 0x%x, reg 0x%x, val_in 0x%x\n",
-		   mdio->phy_id, mdio->reg_num, mdio->val_in);
-		return mdio_mii_ioctl(&bp->mdio, mdio, cmd);
-	}
+	DP(NETIF_MSG_LINK, "ioctl: phy id 0x%x, reg 0x%x, val_in 0x%x\n",
+	   mdio->phy_id, mdio->reg_num, mdio->val_in);
+	return mdio_mii_ioctl(&bp->mdio, mdio, cmd);
 }
 
 static int bnx2x_validate_addr(struct net_device *dev)
@@ -12956,7 +12953,7 @@ static int bnx2x_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
 
 	DP(NETIF_MSG_IFUP, "Adding VLAN %d\n", vid);
 
-	vlan = kmalloc(sizeof(*vlan), GFP_KERNEL);
+	vlan = kmalloc_obj(*vlan);
 	if (!vlan)
 		return -ENOMEM;
 
@@ -13036,6 +13033,8 @@ static const struct net_device_ops bnx2x_netdev_ops = {
 	.ndo_get_phys_port_id	= bnx2x_get_phys_port_id,
 	.ndo_set_vf_link_state	= bnx2x_set_vf_link_state,
 	.ndo_features_check	= bnx2x_features_check,
+	.ndo_hwtstamp_get	= bnx2x_hwtstamp_get,
+	.ndo_hwtstamp_set	= bnx2x_hwtstamp_set,
 };
 
 static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
@@ -14216,7 +14215,6 @@ static pci_ers_result_t bnx2x_io_slot_reset(struct pci_dev *pdev)
 
 	pci_set_master(pdev);
 	pci_restore_state(pdev);
-	pci_save_state(pdev);
 
 	if (netif_running(dev))
 		bnx2x_set_power_state(bp, PCI_D0);
@@ -14842,7 +14840,7 @@ static int bnx2x_get_fc_npiv(struct net_device *dev,
 
 	DP(BNX2X_MSG_MCP, "About to read the FC-NPIV table\n");
 
-	tbl = kmalloc(sizeof(*tbl), GFP_KERNEL);
+	tbl = kmalloc_obj(*tbl);
 	if (!tbl) {
 		BNX2X_ERR("Failed to allocate fc_npiv table\n");
 		goto out;
@@ -15350,31 +15348,57 @@ int bnx2x_configure_ptp_filters(struct bnx2x *bp)
 	return 0;
 }
 
-static int bnx2x_hwtstamp_ioctl(struct bnx2x *bp, struct ifreq *ifr)
+static int bnx2x_hwtstamp_set(struct net_device *dev,
+			      struct kernel_hwtstamp_config *config,
+			      struct netlink_ext_ack *extack)
 {
-	struct hwtstamp_config config;
+	struct bnx2x *bp = netdev_priv(dev);
 	int rc;
 
-	DP(BNX2X_MSG_PTP, "HWTSTAMP IOCTL called\n");
+	DP(BNX2X_MSG_PTP, "HWTSTAMP SET called\n");
 
-	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
-		return -EFAULT;
+	if (!netif_running(dev)) {
+		NL_SET_ERR_MSG_MOD(extack, "Device is down");
+		return -EAGAIN;
+	}
 
 	DP(BNX2X_MSG_PTP, "Requested tx_type: %d, requested rx_filters = %d\n",
-	   config.tx_type, config.rx_filter);
+	   config->tx_type, config->rx_filter);
+
+	switch (config->tx_type) {
+	case HWTSTAMP_TX_ON:
+	case HWTSTAMP_TX_OFF:
+		break;
+	default:
+		NL_SET_ERR_MSG_MOD(extack,
+				   "One-step timestamping is not supported");
+		return -ERANGE;
+	}
 
 	bp->hwtstamp_ioctl_called = true;
-	bp->tx_type = config.tx_type;
-	bp->rx_filter = config.rx_filter;
+	bp->tx_type = config->tx_type;
+	bp->rx_filter = config->rx_filter;
 
 	rc = bnx2x_configure_ptp_filters(bp);
-	if (rc)
+	if (rc) {
+		NL_SET_ERR_MSG_MOD(extack, "HW configuration failure");
 		return rc;
+	}
 
-	config.rx_filter = bp->rx_filter;
+	config->rx_filter = bp->rx_filter;
 
-	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
-		-EFAULT : 0;
+	return 0;
+}
+
+static int bnx2x_hwtstamp_get(struct net_device *dev,
+			      struct kernel_hwtstamp_config *config)
+{
+	struct bnx2x *bp = netdev_priv(dev);
+
+	config->rx_filter = bp->rx_filter;
+	config->tx_type = bp->tx_type;
+
+	return 0;
 }
 
 /* Configures HW for PTP */

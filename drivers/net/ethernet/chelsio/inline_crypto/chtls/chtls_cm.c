@@ -57,7 +57,7 @@ static unsigned char new_state[16] = {
 
 static struct chtls_sock *chtls_sock_create(struct chtls_dev *cdev)
 {
-	struct chtls_sock *csk = kzalloc(sizeof(*csk), GFP_ATOMIC);
+	struct chtls_sock *csk = kzalloc_obj(*csk, GFP_ATOMIC);
 
 	if (!csk)
 		return NULL;
@@ -548,7 +548,7 @@ static struct listen_info *listen_hash_add(struct chtls_dev *cdev,
 					   struct sock *sk,
 					   unsigned int stid)
 {
-	struct listen_info *p = kmalloc(sizeof(*p), GFP_KERNEL);
+	struct listen_info *p = kmalloc_obj(*p);
 
 	if (p) {
 		int key = listen_hashfn(sk);
@@ -666,7 +666,7 @@ int chtls_listen_start(struct chtls_dev *cdev, struct sock *sk)
 	if (listen_hash_find(cdev, sk) >= 0)   /* already have it */
 		return -EADDRINUSE;
 
-	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+	ctx = kmalloc_obj(*ctx);
 	if (!ctx)
 		return -ENOMEM;
 
@@ -1199,12 +1199,12 @@ static struct sock *chtls_recv_sock(struct sock *lsk,
 		struct ipv6_pinfo *newnp = inet6_sk(newsk);
 		struct ipv6_pinfo *np = inet6_sk(lsk);
 
-		inet_sk(newsk)->pinet6 = &newtcp6sk->inet6;
+		newinet->pinet6 = &newtcp6sk->inet6;
+		newinet->ipv6_fl_list = NULL;
 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
 		newsk->sk_v6_daddr = treq->ir_v6_rmt_addr;
 		newsk->sk_v6_rcv_saddr = treq->ir_v6_loc_addr;
 		inet6_sk(newsk)->saddr = treq->ir_v6_loc_addr;
-		newnp->ipv6_fl_list = NULL;
 		newnp->pktoptions = NULL;
 		newsk->sk_bound_dev_if = treq->ir_iif;
 		newinet->inet_opt = NULL;

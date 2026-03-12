@@ -10,10 +10,10 @@ Laptop Drivers
    alienware-wmi
    asus-laptop
    disk-shock-protection
-   laptop-mode
    lg-laptop
    samsung-galaxybook
    sony-laptop
    sonypi
    thinkpad-acpi
    toshiba_haps
+   uniwill-laptop

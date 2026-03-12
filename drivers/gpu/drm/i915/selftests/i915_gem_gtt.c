@@ -63,7 +63,7 @@ static int fake_get_pages(struct drm_i915_gem_object *obj)
 	struct scatterlist *sg;
 	typeof(obj->base.size) rem;
 
-	pages = kmalloc(sizeof(*pages), GFP);
+	pages = kmalloc_obj(*pages, GFP);
 	if (!pages)
 		return -ENOMEM;
 
@@ -1117,6 +1117,10 @@ static int misaligned_case(struct i915_address_space *vm, struct intel_memory_re
 		err = -EINVAL;
 		goto err_put;
 	}
+
+	/* make sure page_sizes_gtt has been populated before use */
+	if (i915_is_ggtt(vm) && intel_vm_no_concurrent_access_wa(vm->i915))
+		i915_vma_wait_for_bind(vma);
 
 	expected_vma_size = round_up(size, 1 << (ffs(vma->resource->page_sizes_gtt) - 1));
 	expected_node_size = expected_vma_size;

@@ -2,6 +2,7 @@
 #include <linux/fs.h>
 #include <linux/security.h>
 #include <linux/fscrypt.h>
+#include <linux/fsnotify.h>
 #include <linux/fileattr.h>
 #include <linux/export.h>
 #include <linux/syscalls.h>
@@ -36,6 +37,8 @@ void fileattr_fill_xflags(struct file_kattr *fa, u32 xflags)
 		fa->flags |= FS_DAX_FL;
 	if (fa->fsx_xflags & FS_XFLAG_PROJINHERIT)
 		fa->flags |= FS_PROJINHERIT_FL;
+	if (fa->fsx_xflags & FS_XFLAG_VERITY)
+		fa->flags |= FS_VERITY_FL;
 }
 EXPORT_SYMBOL(fileattr_fill_xflags);
 
@@ -66,6 +69,8 @@ void fileattr_fill_flags(struct file_kattr *fa, u32 flags)
 		fa->fsx_xflags |= FS_XFLAG_DAX;
 	if (fa->flags & FS_PROJINHERIT_FL)
 		fa->fsx_xflags |= FS_XFLAG_PROJINHERIT;
+	if (fa->flags & FS_VERITY_FL)
+		fa->fsx_xflags |= FS_XFLAG_VERITY;
 }
 EXPORT_SYMBOL(fileattr_fill_flags);
 
@@ -141,8 +146,7 @@ static int file_attr_to_fileattr(const struct file_attr *fattr,
 	if (fattr->fa_xflags & ~mask)
 		return -EINVAL;
 
-	fileattr_fill_xflags(fa, fattr->fa_xflags);
-	fa->fsx_xflags &= ~FS_XFLAG_RDONLY_MASK;
+	fileattr_fill_xflags(fa, fattr->fa_xflags & ~FS_XFLAG_RDONLY_MASK);
 	fa->fsx_extsize = fattr->fa_extsize;
 	fa->fsx_projid = fattr->fa_projid;
 	fa->fsx_cowextsize = fattr->fa_cowextsize;
@@ -162,8 +166,7 @@ static int copy_fsxattr_from_user(struct file_kattr *fa,
 	if (xfa.fsx_xflags & ~mask)
 		return -EOPNOTSUPP;
 
-	fileattr_fill_xflags(fa, xfa.fsx_xflags);
-	fa->fsx_xflags &= ~FS_XFLAG_RDONLY_MASK;
+	fileattr_fill_xflags(fa, xfa.fsx_xflags & ~FS_XFLAG_RDONLY_MASK);
 	fa->fsx_extsize = xfa.fsx_extsize;
 	fa->fsx_nextents = xfa.fsx_nextents;
 	fa->fsx_projid = xfa.fsx_projid;
@@ -298,6 +301,7 @@ int vfs_fileattr_set(struct mnt_idmap *idmap, struct dentry *dentry,
 		err = inode->i_op->fileattr_set(idmap, dentry, fa);
 		if (err)
 			goto out;
+		fsnotify_xattr(dentry);
 	}
 
 out:
@@ -316,7 +320,6 @@ int ioctl_getflags(struct file *file, unsigned int __user *argp)
 		err = put_user(fa.flags, argp);
 	return err;
 }
-EXPORT_SYMBOL(ioctl_getflags);
 
 int ioctl_setflags(struct file *file, unsigned int __user *argp)
 {
@@ -337,7 +340,6 @@ int ioctl_setflags(struct file *file, unsigned int __user *argp)
 	}
 	return err;
 }
-EXPORT_SYMBOL(ioctl_setflags);
 
 int ioctl_fsgetxattr(struct file *file, void __user *argp)
 {
@@ -350,7 +352,6 @@ int ioctl_fsgetxattr(struct file *file, void __user *argp)
 
 	return err;
 }
-EXPORT_SYMBOL(ioctl_fsgetxattr);
 
 int ioctl_fssetxattr(struct file *file, void __user *argp)
 {
@@ -369,17 +370,15 @@ int ioctl_fssetxattr(struct file *file, void __user *argp)
 	}
 	return err;
 }
-EXPORT_SYMBOL(ioctl_fssetxattr);
 
 SYSCALL_DEFINE5(file_getattr, int, dfd, const char __user *, filename,
 		struct file_attr __user *, ufattr, size_t, usize,
 		unsigned int, at_flags)
 {
 	struct path filepath __free(path_put) = {};
-	struct filename *name __free(putname) = NULL;
 	unsigned int lookup_flags = 0;
 	struct file_attr fattr;
-	struct file_kattr fa;
+	struct file_kattr fa = { .flags_valid = true }; /* hint only */
 	int error;
 
 	BUILD_BUG_ON(sizeof(struct file_attr) < FILE_ATTR_SIZE_VER0);
@@ -397,10 +396,7 @@ SYSCALL_DEFINE5(file_getattr, int, dfd, const char __user *, filename,
 	if (usize < FILE_ATTR_SIZE_VER0)
 		return -EINVAL;
 
-	name = getname_maybe_null(filename, at_flags);
-	if (IS_ERR(name))
-		return PTR_ERR(name);
-
+	CLASS(filename_maybe_null, name)(filename, at_flags);
 	if (!name && dfd >= 0) {
 		CLASS(fd, f)(dfd);
 		if (fd_empty(f))
@@ -433,7 +429,6 @@ SYSCALL_DEFINE5(file_setattr, int, dfd, const char __user *, filename,
 		unsigned int, at_flags)
 {
 	struct path filepath __free(path_put) = {};
-	struct filename *name __free(putname) = NULL;
 	unsigned int lookup_flags = 0;
 	struct file_attr fattr;
 	struct file_kattr fa;
@@ -463,10 +458,7 @@ SYSCALL_DEFINE5(file_setattr, int, dfd, const char __user *, filename,
 	if (error)
 		return error;
 
-	name = getname_maybe_null(filename, at_flags);
-	if (IS_ERR(name))
-		return PTR_ERR(name);
-
+	CLASS(filename_maybe_null, name)(filename, at_flags);
 	if (!name && dfd >= 0) {
 		CLASS(fd, f)(dfd);
 		if (fd_empty(f))

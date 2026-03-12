@@ -16,6 +16,7 @@
 #include "intel_display_core.h"
 #include "intel_display_types.h"
 #include "intel_fdi.h"
+#include "intel_lt_phy.h"
 #include "intel_modeset_verify.h"
 #include "intel_snps_phy.h"
 #include "skl_watermark.h"
@@ -245,7 +246,7 @@ void intel_modeset_verify_crtc(struct intel_atomic_state *state,
 	verify_crtc_state(state, crtc);
 	intel_dpll_state_verify(state, crtc);
 	intel_mpllb_state_verify(state, crtc);
-	intel_cx0pll_state_verify(state, crtc);
+	intel_lt_phy_pll_state_verify(state, crtc);
 }
 
 void intel_modeset_verify_disabled(struct intel_atomic_state *state)

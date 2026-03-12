@@ -287,17 +287,17 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
 		r->idiag_timer = 1;
 		r->idiag_retrans = READ_ONCE(icsk->icsk_retransmits);
 		r->idiag_expires =
-			jiffies_delta_to_msecs(icsk_timeout(icsk) - jiffies);
+			jiffies_delta_to_msecs(tcp_timeout_expires(sk) - jiffies);
 	} else if (icsk_pending == ICSK_TIME_PROBE0) {
 		r->idiag_timer = 4;
 		r->idiag_retrans = READ_ONCE(icsk->icsk_probes_out);
 		r->idiag_expires =
-			jiffies_delta_to_msecs(icsk_timeout(icsk) - jiffies);
-	} else if (timer_pending(&sk->sk_timer)) {
+			jiffies_delta_to_msecs(tcp_timeout_expires(sk) - jiffies);
+	} else if (timer_pending(&icsk->icsk_keepalive_timer)) {
 		r->idiag_timer = 2;
 		r->idiag_retrans = READ_ONCE(icsk->icsk_probes_out);
 		r->idiag_expires =
-			jiffies_delta_to_msecs(sk->sk_timer.expires - jiffies);
+			jiffies_delta_to_msecs(icsk->icsk_keepalive_timer.expires - jiffies);
 	}
 
 	if ((ext & (1 << (INET_DIAG_INFO - 1))) && handler->idiag_info_size) {
@@ -845,7 +845,7 @@ static int __inet_diag_dump_start(struct netlink_callback *cb, int hdrlen)
 	struct nlattr *nla;
 	int err;
 
-	cb_data = kzalloc(sizeof(*cb_data), GFP_KERNEL);
+	cb_data = kzalloc_obj(*cb_data);
 	if (!cb_data)
 		return -ENOMEM;
 

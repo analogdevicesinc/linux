@@ -271,7 +271,7 @@ static int qrtr_tx_wait(struct qrtr_node *node, int dest_node, int dest_port,
 	mutex_lock(&node->qrtr_tx_lock);
 	flow = radix_tree_lookup(&node->qrtr_tx_flow, key);
 	if (!flow) {
-		flow = kzalloc(sizeof(*flow), GFP_KERNEL);
+		flow = kzalloc_obj(*flow);
 		if (flow) {
 			init_waitqueue_head(&flow->resume_tx);
 			if (radix_tree_insert(&node->qrtr_tx_flow, key, flow)) {
@@ -589,7 +589,7 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int nid)
 	if (!ep || !ep->xmit)
 		return -EINVAL;
 
-	node = kzalloc(sizeof(*node), GFP_KERNEL);
+	node = kzalloc_obj(*node);
 	if (!node)
 		return -ENOMEM;
 
@@ -824,7 +824,7 @@ static int qrtr_autobind(struct socket *sock)
 }
 
 /* Bind socket to specified sockaddr. */
-static int qrtr_bind(struct socket *sock, struct sockaddr *saddr, int len)
+static int qrtr_bind(struct socket *sock, struct sockaddr_unsized *saddr, int len)
 {
 	DECLARE_SOCKADDR(struct sockaddr_qrtr *, addr, saddr);
 	struct qrtr_sock *ipc = qrtr_sk(sock->sk);
@@ -1084,7 +1084,7 @@ out:
 	return rc;
 }
 
-static int qrtr_connect(struct socket *sock, struct sockaddr *saddr,
+static int qrtr_connect(struct socket *sock, struct sockaddr_unsized *saddr,
 			int len, int flags)
 {
 	DECLARE_SOCKADDR(struct sockaddr_qrtr *, addr, saddr);

@@ -87,7 +87,7 @@ typedef enum {
 /*37*/  FEATURE_DVO                         = 37,
 /*38*/  FEATURE_XVMINORPSM_CLKSTOP_DS       = 38,
 /*39*/  FEATURE_GLOBAL_DPM                  = 39,
-/*40*/  FEATURE_NODE_POWER_MANAGER          = 40,
+/*40*/  FEATURE_HROM_EN                     = 40,
 
 /*41*/  NUM_FEATURES                        = 41
 } FEATURE_LIST_e;
@@ -189,7 +189,14 @@ typedef enum {
   SVI_MAX_TEMP_ENTRIES,   // 13
 } SVI_TEMP_e;
 
-#define SMU_METRICS_TABLE_VERSION 0x14
+typedef enum{
+  SYSTEM_POWER_UBB_POWER,
+  SYSTEM_POWER_UBB_POWER_THRESHOLD,
+  SYSTEM_POWER_MAX_ENTRIES_WO_RESERVED,
+  SYSTEM_POWER_MAX_ENTRIES  = 4
+} SYSTEM_POWER_e;
+
+#define SMU_METRICS_TABLE_VERSION 0x15
 
 #define SMU_SYSTEM_METRICS_TABLE_VERSION 0x1
 
@@ -310,6 +317,7 @@ typedef struct {
   uint32_t NodePowerLimit;
   uint32_t NodePower;
   uint32_t GlobalPPTResidencyAcc;
+  uint16_t SystemPower[SYSTEM_POWER_MAX_ENTRIES];           // UBB Current Power and Power Threshold
 } SystemMetricsTable_t;
 #pragma pack(pop)
 
@@ -367,6 +375,11 @@ typedef struct {
 
   //Node Power Limit
   uint32_t MaxNodePowerLimit;
+
+  // PPT1 Configuration
+  uint32_t PPT1Max;
+  uint32_t PPT1Min;
+  uint32_t PPT1Default;
 } StaticMetricsTable_t;
 #pragma pack(pop)
 

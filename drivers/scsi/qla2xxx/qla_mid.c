@@ -707,7 +707,7 @@ qla25xx_create_req_que(struct qla_hw_data *ha, uint16_t options,
 	device_reg_t *reg;
 	uint32_t cnt;
 
-	req = kzalloc(sizeof(struct req_que), GFP_KERNEL);
+	req = kzalloc_obj(struct req_que);
 	if (req == NULL) {
 		ql_log(ql_log_fatal, base_vha, 0x00d9,
 		    "Failed to allocate memory for request queue.\n");
@@ -834,7 +834,7 @@ qla25xx_create_rsp_que(struct qla_hw_data *ha, uint16_t options,
 	uint16_t que_id = 0;
 	device_reg_t *reg;
 
-	rsp = kzalloc(sizeof(struct rsp_que), GFP_KERNEL);
+	rsp = kzalloc_obj(struct rsp_que);
 	if (rsp == NULL) {
 		ql_log(ql_log_warn, base_vha, 0x0066,
 		    "Failed to allocate memory for response queue.\n");
@@ -899,9 +899,7 @@ qla25xx_create_rsp_que(struct qla_hw_data *ha, uint16_t options,
 	    rsp->options, rsp->id, rsp->rsp_q_in,
 	    rsp->rsp_q_out);
 
-	ret = qla25xx_request_irq(ha, qpair, qpair->msix,
-		ha->flags.disable_msix_handshake ?
-		QLA_MSIX_QPAIR_MULTIQ_RSP_Q : QLA_MSIX_QPAIR_MULTIQ_RSP_Q_HS);
+	ret = qla25xx_request_irq(ha, qpair, qpair->msix);
 	if (ret)
 		goto que_failed;
 
@@ -1104,7 +1102,7 @@ int qla_create_buf_pool(struct scsi_qla_host *vha, struct qla_qpair *qp)
 		return -ENOMEM;
 	}
 	sz = qp->req->length * sizeof(dma_addr_t);
-	qp->buf_pool.dma_array = kcalloc(qp->req->length, sizeof(dma_addr_t), GFP_KERNEL);
+	qp->buf_pool.dma_array = kzalloc_objs(dma_addr_t, qp->req->length);
 	if (!qp->buf_pool.dma_array) {
 		ql_log(ql_log_warn, vha, 0x0186,
 		    "Failed to allocate dma_array(%d).\n", sz);

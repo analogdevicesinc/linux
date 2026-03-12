@@ -105,7 +105,7 @@ static bool intel_lvds_get_hw_state(struct intel_encoder *encoder,
 {
 	struct intel_display *display = to_intel_display(encoder);
 	struct intel_lvds_encoder *lvds_encoder = to_lvds_encoder(encoder);
-	intel_wakeref_t wakeref;
+	struct ref_tracker *wakeref;
 	bool ret;
 
 	wakeref = intel_display_power_get_if_enabled(display, encoder->power_domain);
@@ -329,7 +329,7 @@ static void intel_enable_lvds(struct intel_atomic_state *state,
 	intel_de_rmw(display, PP_CONTROL(display, 0), 0, PANEL_POWER_ON);
 	intel_de_posting_read(display, lvds_encoder->reg);
 
-	if (intel_de_wait_for_set(display, PP_STATUS(display, 0), PP_ON, 5000))
+	if (intel_de_wait_for_set_ms(display, PP_STATUS(display, 0), PP_ON, 5000))
 		drm_err(display->drm,
 			"timed out waiting for panel to power on\n");
 
@@ -345,7 +345,7 @@ static void intel_disable_lvds(struct intel_atomic_state *state,
 	struct intel_lvds_encoder *lvds_encoder = to_lvds_encoder(encoder);
 
 	intel_de_rmw(display, PP_CONTROL(display, 0), PANEL_POWER_ON, 0);
-	if (intel_de_wait_for_clear(display, PP_STATUS(display, 0), PP_ON, 1000))
+	if (intel_de_wait_for_clear_ms(display, PP_STATUS(display, 0), PP_ON, 1000))
 		drm_err(display->drm,
 			"timed out waiting for panel to power off\n");
 
@@ -384,7 +384,7 @@ static void intel_lvds_shutdown(struct intel_encoder *encoder)
 {
 	struct intel_display *display = to_intel_display(encoder);
 
-	if (intel_de_wait_for_clear(display, PP_STATUS(display, 0), PP_CYCLE_DELAY_ACTIVE, 5000))
+	if (intel_de_wait_for_clear_ms(display, PP_STATUS(display, 0), PP_CYCLE_DELAY_ACTIVE, 5000))
 		drm_err(display->drm,
 			"timed out waiting for panel power cycle delay\n");
 }
@@ -886,7 +886,7 @@ void intel_lvds_init(struct intel_display *display)
 			    "LVDS is not present in VBT, but enabled anyway\n");
 	}
 
-	lvds_encoder = kzalloc(sizeof(*lvds_encoder), GFP_KERNEL);
+	lvds_encoder = kzalloc_obj(*lvds_encoder);
 	if (!lvds_encoder)
 		return;
 

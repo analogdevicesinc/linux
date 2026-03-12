@@ -12,26 +12,22 @@
 
 void xp_add_xsk(struct xsk_buff_pool *pool, struct xdp_sock *xs)
 {
-	unsigned long flags;
-
 	if (!xs->tx)
 		return;
 
-	spin_lock_irqsave(&pool->xsk_tx_list_lock, flags);
+	spin_lock(&pool->xsk_tx_list_lock);
 	list_add_rcu(&xs->tx_list, &pool->xsk_tx_list);
-	spin_unlock_irqrestore(&pool->xsk_tx_list_lock, flags);
+	spin_unlock(&pool->xsk_tx_list_lock);
 }
 
 void xp_del_xsk(struct xsk_buff_pool *pool, struct xdp_sock *xs)
 {
-	unsigned long flags;
-
 	if (!xs->tx)
 		return;
 
-	spin_lock_irqsave(&pool->xsk_tx_list_lock, flags);
+	spin_lock(&pool->xsk_tx_list_lock);
 	list_del_rcu(&xs->tx_list);
-	spin_unlock_irqrestore(&pool->xsk_tx_list_lock, flags);
+	spin_unlock(&pool->xsk_tx_list_lock);
 }
 
 void xp_destroy(struct xsk_buff_pool *pool)
@@ -46,8 +42,7 @@ void xp_destroy(struct xsk_buff_pool *pool)
 
 int xp_alloc_tx_descs(struct xsk_buff_pool *pool, struct xdp_sock *xs)
 {
-	pool->tx_descs = kvcalloc(xs->tx->nentries, sizeof(*pool->tx_descs),
-				  GFP_KERNEL);
+	pool->tx_descs = kvzalloc_objs(*pool->tx_descs, xs->tx->nentries);
 	if (!pool->tx_descs)
 		return -ENOMEM;
 
@@ -63,11 +58,11 @@ struct xsk_buff_pool *xp_create_and_assign_umem(struct xdp_sock *xs,
 	u32 i, entries;
 
 	entries = unaligned ? umem->chunks : 0;
-	pool = kvzalloc(struct_size(pool, free_heads, entries),	GFP_KERNEL);
+	pool = kvzalloc_flex(*pool, free_heads, entries);
 	if (!pool)
 		goto out;
 
-	pool->heads = kvcalloc(umem->chunks, sizeof(*pool->heads), GFP_KERNEL);
+	pool->heads = kvzalloc_objs(*pool->heads, umem->chunks);
 	if (!pool->heads)
 		goto out;
 
@@ -94,7 +89,8 @@ struct xsk_buff_pool *xp_create_and_assign_umem(struct xdp_sock *xs,
 	INIT_LIST_HEAD(&pool->xskb_list);
 	INIT_LIST_HEAD(&pool->xsk_tx_list);
 	spin_lock_init(&pool->xsk_tx_list_lock);
-	spin_lock_init(&pool->cq_lock);
+	spin_lock_init(&pool->cq_prod_lock);
+	spin_lock_init(&xs->cq_tmp->cq_cached_prod_lock);
 	refcount_set(&pool->users, 1);
 
 	pool->fq = xs->fq_tmp;
@@ -158,10 +154,6 @@ static void xp_disable_drv_zc(struct xsk_buff_pool *pool)
 	}
 }
 
-#define NETDEV_XDP_ACT_ZC	(NETDEV_XDP_ACT_BASIC |		\
-				 NETDEV_XDP_ACT_REDIRECT |	\
-				 NETDEV_XDP_ACT_XSK_ZEROCOPY)
-
 int xp_assign_dev(struct xsk_buff_pool *pool,
 		  struct net_device *netdev, u16 queue_id, u16 flags)
 {
@@ -203,7 +195,7 @@ int xp_assign_dev(struct xsk_buff_pool *pool,
 		/* For copy-mode, we are done. */
 		return 0;
 
-	if ((netdev->xdp_features & NETDEV_XDP_ACT_ZC) != NETDEV_XDP_ACT_ZC) {
+	if ((netdev->xdp_features & NETDEV_XDP_ACT_XSK) != NETDEV_XDP_ACT_XSK) {
 		err = -EOPNOTSUPP;
 		goto err_unreg_pool;
 	}
@@ -253,10 +245,6 @@ int xp_assign_dev_shared(struct xsk_buff_pool *pool, struct xdp_sock *umem_xs,
 {
 	u16 flags;
 	struct xdp_umem *umem = umem_xs->umem;
-
-	/* One fill and completion ring required for each queue id. */
-	if (!pool->fq || !pool->cq)
-		return -EINVAL;
 
 	flags = umem->zc ? XDP_ZEROCOPY : XDP_COPY;
 	if (umem_xs->pool->uses_need_wakeup)
@@ -339,11 +327,11 @@ static struct xsk_dma_map *xp_create_dma_map(struct device *dev, struct net_devi
 {
 	struct xsk_dma_map *dma_map;
 
-	dma_map = kzalloc(sizeof(*dma_map), GFP_KERNEL);
+	dma_map = kzalloc_obj(*dma_map);
 	if (!dma_map)
 		return NULL;
 
-	dma_map->dma_pages = kvcalloc(nr_pages, sizeof(*dma_map->dma_pages), GFP_KERNEL);
+	dma_map->dma_pages = kvzalloc_objs(*dma_map->dma_pages, nr_pages);
 	if (!dma_map->dma_pages) {
 		kfree(dma_map);
 		return NULL;
@@ -431,7 +419,8 @@ static int xp_init_dma_info(struct xsk_buff_pool *pool, struct xsk_dma_map *dma_
 		}
 	}
 
-	pool->dma_pages = kvcalloc(dma_map->dma_pages_cnt, sizeof(*pool->dma_pages), GFP_KERNEL);
+	pool->dma_pages = kvzalloc_objs(*pool->dma_pages,
+					dma_map->dma_pages_cnt);
 	if (!pool->dma_pages)
 		return -ENOMEM;
 

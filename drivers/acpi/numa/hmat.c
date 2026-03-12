@@ -202,7 +202,7 @@ static __init void alloc_memory_initiator(unsigned int cpu_pxm)
 	if (initiator)
 		return;
 
-	initiator = kzalloc(sizeof(*initiator), GFP_KERNEL);
+	initiator = kzalloc_obj(*initiator);
 	if (!initiator)
 		return;
 
@@ -217,7 +217,7 @@ static __init struct memory_target *alloc_target(unsigned int mem_pxm)
 
 	target = find_mem_target(mem_pxm);
 	if (!target) {
-		target = kzalloc(sizeof(*target), GFP_KERNEL);
+		target = kzalloc_obj(*target);
 		if (!target)
 			return NULL;
 		target->memory_pxm = mem_pxm;
@@ -371,7 +371,7 @@ static __init void hmat_add_locality(struct acpi_hmat_locality *hmat_loc)
 {
 	struct memory_locality *loc;
 
-	loc = kzalloc(sizeof(*loc), GFP_KERNEL);
+	loc = kzalloc_obj(*loc);
 	if (!loc) {
 		pr_notice_once("Failed to allocate HMAT locality\n");
 		return;
@@ -502,7 +502,7 @@ static __init int hmat_parse_cache(union acpi_subtable_headers *header,
 	if (!target)
 		return 0;
 
-	tcache = kzalloc(sizeof(*tcache), GFP_KERNEL);
+	tcache = kzalloc_obj(*tcache);
 	if (!tcache) {
 		pr_notice_once("Failed to allocate HMAT cache info\n");
 		return 0;
@@ -910,12 +910,13 @@ static void hmat_register_target(struct memory_target *target)
 	 * Register generic port perf numbers. The nid may not be
 	 * initialized and is still NUMA_NO_NODE.
 	 */
-	mutex_lock(&target_lock);
-	if (*(u16 *)target->gen_port_device_handle) {
-		hmat_update_generic_target(target);
-		target->registered = true;
+	scoped_guard(mutex, &target_lock) {
+		if (*(u16 *)target->gen_port_device_handle) {
+			hmat_update_generic_target(target);
+			target->registered = true;
+			return;
+		}
 	}
-	mutex_unlock(&target_lock);
 
 	hmat_hotplug_target(target);
 }

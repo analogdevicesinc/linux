@@ -87,6 +87,7 @@ struct xe_oa_regs {
 	struct xe_reg oa_ctrl;
 	struct xe_reg oa_debug;
 	struct xe_reg oa_status;
+	struct xe_reg oa_mmio_trg;
 	u32 oa_ctrl_counter_select_mask;
 };
 
@@ -264,5 +265,8 @@ struct xe_oa_stream {
 
 	/** @syncs: syncs to wait on and to signal */
 	struct xe_sync_entry *syncs;
+
+	/** @fw_ref: Forcewake reference */
+	unsigned int fw_ref;
 };
 #endif

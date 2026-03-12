@@ -81,7 +81,7 @@ static void malidp_plane_reset(struct drm_plane *plane)
 		__drm_atomic_helper_plane_destroy_state(&state->base);
 	kfree(state);
 	plane->state = NULL;
-	state = kzalloc(sizeof(*state), GFP_KERNEL);
+	state = kzalloc_obj(*state);
 	if (state)
 		__drm_atomic_helper_plane_reset(plane, &state->base);
 }
@@ -94,7 +94,7 @@ drm_plane_state *malidp_duplicate_plane_state(struct drm_plane *plane)
 	if (!plane->state)
 		return NULL;
 
-	state = kmalloc(sizeof(*state), GFP_KERNEL);
+	state = kmalloc_obj(*state);
 	if (!state)
 		return NULL;
 
@@ -263,7 +263,7 @@ static int malidp_se_check_scaling(struct malidp_plane *mp,
 				   struct drm_plane_state *state)
 {
 	struct drm_crtc_state *crtc_state =
-		drm_atomic_get_existing_crtc_state(state->state, state->crtc);
+		drm_atomic_get_new_crtc_state(state->state, state->crtc);
 	struct malidp_crtc_state *mc;
 	u32 src_w, src_h;
 	int ret;

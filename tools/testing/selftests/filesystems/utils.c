@@ -20,7 +20,7 @@
 #include <sys/xattr.h>
 #include <sys/mount.h>
 
-#include "../kselftest.h"
+#include "kselftest.h"
 #include "wrappers.h"
 #include "utils.h"
 
@@ -487,7 +487,7 @@ int setup_userns(void)
 	uid_t uid = getuid();
 	gid_t gid = getgid();
 
-	ret = unshare(CLONE_NEWNS|CLONE_NEWUSER|CLONE_NEWPID);
+	ret = unshare(CLONE_NEWNS|CLONE_NEWUSER);
 	if (ret) {
 		ksft_exit_fail_msg("unsharing mountns and userns: %s\n",
 				   strerror(errno));
@@ -511,6 +511,32 @@ int setup_userns(void)
 		ksft_print_msg("making mount tree private: %s\n", strerror(errno));
 		return ret;
 	}
+
+	return 0;
+}
+
+int enter_userns(void)
+{
+	int ret;
+	char buf[32];
+	uid_t uid = getuid();
+	gid_t gid = getgid();
+
+	ret = unshare(CLONE_NEWUSER);
+	if (ret)
+		return ret;
+
+	sprintf(buf, "0 %d 1", uid);
+	ret = write_file("/proc/self/uid_map", buf);
+	if (ret)
+		return ret;
+	ret = write_file("/proc/self/setgroups", "deny");
+	if (ret)
+		return ret;
+	sprintf(buf, "0 %d 1", gid);
+	ret = write_file("/proc/self/gid_map", buf);
+	if (ret)
+		return ret;
 
 	return 0;
 }

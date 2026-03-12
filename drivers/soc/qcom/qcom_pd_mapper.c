@@ -77,7 +77,7 @@ static int qcom_pdm_add_service_domain(struct qcom_pdm_data *data,
 				return -EBUSY;
 		}
 	} else {
-		service = kzalloc(sizeof(*service), GFP_KERNEL);
+		service = kzalloc_obj(*service);
 		if (!service)
 			return -ENOMEM;
 
@@ -87,7 +87,7 @@ static int qcom_pdm_add_service_domain(struct qcom_pdm_data *data,
 		list_add_tail(&service->list, &data->services);
 	}
 
-	domain = kzalloc(sizeof(*domain), GFP_KERNEL);
+	domain = kzalloc_obj(*domain);
 	if (!domain) {
 		if (list_empty(&service->domains)) {
 			list_del(&service->list);
@@ -158,7 +158,7 @@ static void qcom_pdm_get_domain_list(struct qmi_handle *qmi,
 	u32 offset;
 	int ret;
 
-	rsp = kzalloc(sizeof(*rsp), GFP_KERNEL);
+	rsp = kzalloc_obj(*rsp);
 	if (!rsp)
 		return;
 
@@ -360,6 +360,15 @@ static const struct qcom_pdm_domain_data mpss_wlan_pd = {
 	},
 };
 
+static const struct qcom_pdm_domain_data *kaanapali_domains[] = {
+	&adsp_audio_pd,
+	&adsp_root_pd,
+	&adsp_sensor_pd,
+	&cdsp_root_pd,
+	&mpss_root_pd_gps,
+	NULL,
+};
+
 static const struct qcom_pdm_domain_data *msm8996_domains[] = {
 	&msm8996_adsp_audio_pd,
 	&msm8996_adsp_root_pd,
@@ -552,6 +561,7 @@ static const struct of_device_id qcom_pdm_domains[] __maybe_unused = {
 	{ .compatible = "qcom,apq8074", .data = NULL, },
 	{ .compatible = "qcom,apq8084", .data = NULL, },
 	{ .compatible = "qcom,apq8096", .data = msm8996_domains, },
+	{ .compatible = "qcom,kaanapali", .data = kaanapali_domains, },
 	{ .compatible = "qcom,msm8226", .data = NULL, },
 	{ .compatible = "qcom,msm8909", .data = NULL, },
 	{ .compatible = "qcom,msm8916", .data = NULL, },
@@ -625,7 +635,7 @@ static struct qcom_pdm_data *qcom_pdm_start(void)
 		return ERR_PTR(-ENODEV);
 	}
 
-	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	data = kzalloc_obj(*data);
 	if (!data)
 		return ERR_PTR(-ENOMEM);
 

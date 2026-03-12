@@ -547,7 +547,7 @@ static void __init mpic_scan_ht_pics(struct mpic *mpic)
 	printk(KERN_INFO "mpic: Setting up HT PICs workarounds for U3/U4\n");
 
 	/* Allocate fixups array */
-	mpic->fixups = kcalloc(128, sizeof(*mpic->fixups), GFP_KERNEL);
+	mpic->fixups = kzalloc_objs(*mpic->fixups, 128);
 	BUG_ON(mpic->fixups == NULL);
 
 	/* Init spinlock */
@@ -1273,7 +1273,7 @@ struct mpic * __init mpic_alloc(struct device_node *node,
 		mpic_tm_chip.flags |= IRQCHIP_SKIP_SET_WAKE;
 	}
 
-	mpic = kzalloc(sizeof(struct mpic), GFP_KERNEL);
+	mpic = kzalloc_obj(struct mpic);
 	if (mpic == NULL)
 		goto err_of_node_put;
 
@@ -1639,9 +1639,7 @@ void __init mpic_init(struct mpic *mpic)
 
 #ifdef CONFIG_PM
 	/* allocate memory to save mpic state */
-	mpic->save_data = kmalloc_array(mpic->num_sources,
-				        sizeof(*mpic->save_data),
-				        GFP_KERNEL);
+	mpic->save_data = kmalloc_objs(*mpic->save_data, mpic->num_sources);
 	BUG_ON(mpic->save_data == NULL);
 #endif
 
@@ -1944,7 +1942,7 @@ static void mpic_suspend_one(struct mpic *mpic)
 	}
 }
 
-static int mpic_suspend(void)
+static int mpic_suspend(void *data)
 {
 	struct mpic *mpic = mpics;
 
@@ -1986,7 +1984,7 @@ static void mpic_resume_one(struct mpic *mpic)
 	} /* end for loop */
 }
 
-static void mpic_resume(void)
+static void mpic_resume(void *data)
 {
 	struct mpic *mpic = mpics;
 
@@ -1996,19 +1994,23 @@ static void mpic_resume(void)
 	}
 }
 
-static struct syscore_ops mpic_syscore_ops = {
+static const struct syscore_ops mpic_syscore_ops = {
 	.resume = mpic_resume,
 	.suspend = mpic_suspend,
+};
+
+static struct syscore mpic_syscore = {
+	.ops = &mpic_syscore_ops,
 };
 
 static int mpic_init_sys(void)
 {
 	int rc;
 
-	register_syscore_ops(&mpic_syscore_ops);
+	register_syscore(&mpic_syscore);
 	rc = subsys_system_register(&mpic_subsys, NULL);
 	if (rc) {
-		unregister_syscore_ops(&mpic_syscore_ops);
+		unregister_syscore(&mpic_syscore);
 		pr_err("mpic: Failed to register subsystem!\n");
 		return rc;
 	}

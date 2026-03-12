@@ -388,7 +388,7 @@ static int cxgb4_mac_sync(struct net_device *netdev, const u8 *mac_addr)
 	 * list and program it
 	 */
 	if (uhash || mhash) {
-		new_entry = kzalloc(sizeof(*new_entry), GFP_ATOMIC);
+		new_entry = kzalloc_obj(*new_entry, GFP_ATOMIC);
 		if (!new_entry)
 			return -ENOMEM;
 		ether_addr_copy(new_entry->addr, mac_addr);
@@ -478,7 +478,7 @@ int cxgb4_change_mac(struct port_info *pi, unsigned int viid,
 				goto set_hash;
 			}
 		}
-		new_entry = kzalloc(sizeof(*new_entry), GFP_KERNEL);
+		new_entry = kzalloc_obj(*new_entry);
 		if (!new_entry)
 			return -ENOMEM;
 		ether_addr_copy(new_entry->addr, addr);
@@ -1330,7 +1330,7 @@ static int cxgb4_port_mirror_alloc_queues(struct net_device *dev)
 	if (s->mirror_rxq[pi->port_id])
 		return 0;
 
-	mirror_rxq = kcalloc(pi->nmirrorqsets, sizeof(*mirror_rxq), GFP_KERNEL);
+	mirror_rxq = kzalloc_objs(*mirror_rxq, pi->nmirrorqsets);
 	if (!mirror_rxq)
 		return -ENOMEM;
 
@@ -3042,12 +3042,87 @@ static void cxgb_get_stats(struct net_device *dev,
 		ns->rx_length_errors + stats.rx_len_err + ns->rx_fifo_errors;
 }
 
+static int cxgb_hwtstamp_get(struct net_device *dev,
+			     struct kernel_hwtstamp_config *config)
+{
+	struct port_info *pi = netdev_priv(dev);
+
+	*config = pi->tstamp_config;
+	return 0;
+}
+
+static int cxgb_hwtstamp_set(struct net_device *dev,
+			     struct kernel_hwtstamp_config *config,
+			     struct netlink_ext_ack *extack)
+{
+	struct port_info *pi = netdev_priv(dev);
+	struct adapter *adapter = pi->adapter;
+
+	if (is_t4(adapter->params.chip)) {
+		/* For T4 Adapters */
+		switch (config->rx_filter) {
+		case HWTSTAMP_FILTER_NONE:
+			pi->rxtstamp = false;
+			break;
+		case HWTSTAMP_FILTER_ALL:
+			pi->rxtstamp = true;
+			break;
+		default:
+			return -ERANGE;
+		}
+		pi->tstamp_config = *config;
+		return 0;
+	}
+
+	switch (config->tx_type) {
+	case HWTSTAMP_TX_OFF:
+	case HWTSTAMP_TX_ON:
+		break;
+	default:
+		return -ERANGE;
+	}
+
+	switch (config->rx_filter) {
+	case HWTSTAMP_FILTER_NONE:
+		pi->rxtstamp = false;
+		break;
+	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
+		cxgb4_ptprx_timestamping(pi, pi->port_id, PTP_TS_L4);
+		break;
+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+		cxgb4_ptprx_timestamping(pi, pi->port_id, PTP_TS_L2_L4);
+		break;
+	case HWTSTAMP_FILTER_ALL:
+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
+	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
+		pi->rxtstamp = true;
+		break;
+	default:
+		return -ERANGE;
+	}
+
+	if (config->tx_type == HWTSTAMP_TX_OFF &&
+	    config->rx_filter == HWTSTAMP_FILTER_NONE) {
+		if (cxgb4_ptp_txtype(adapter, pi->port_id) >= 0)
+			pi->ptp_enable = false;
+	}
+
+	if (config->rx_filter != HWTSTAMP_FILTER_NONE) {
+		if (cxgb4_ptp_redirect_rx_packet(adapter, pi) >= 0)
+			pi->ptp_enable = true;
+	}
+	pi->tstamp_config = *config;
+	return 0;
+}
+
 static int cxgb_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
 	unsigned int mbox;
 	int ret = 0, prtad, devad;
 	struct port_info *pi = netdev_priv(dev);
-	struct adapter *adapter = pi->adapter;
 	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&req->ifr_data;
 
 	switch (cmd) {
@@ -3076,81 +3151,6 @@ static int cxgb_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 			ret = t4_mdio_wr(pi->adapter, mbox, prtad, devad,
 					 data->reg_num, data->val_in);
 		break;
-	case SIOCGHWTSTAMP:
-		return copy_to_user(req->ifr_data, &pi->tstamp_config,
-				    sizeof(pi->tstamp_config)) ?
-			-EFAULT : 0;
-	case SIOCSHWTSTAMP:
-		if (copy_from_user(&pi->tstamp_config, req->ifr_data,
-				   sizeof(pi->tstamp_config)))
-			return -EFAULT;
-
-		if (!is_t4(adapter->params.chip)) {
-			switch (pi->tstamp_config.tx_type) {
-			case HWTSTAMP_TX_OFF:
-			case HWTSTAMP_TX_ON:
-				break;
-			default:
-				return -ERANGE;
-			}
-
-			switch (pi->tstamp_config.rx_filter) {
-			case HWTSTAMP_FILTER_NONE:
-				pi->rxtstamp = false;
-				break;
-			case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-			case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
-				cxgb4_ptprx_timestamping(pi, pi->port_id,
-							 PTP_TS_L4);
-				break;
-			case HWTSTAMP_FILTER_PTP_V2_EVENT:
-				cxgb4_ptprx_timestamping(pi, pi->port_id,
-							 PTP_TS_L2_L4);
-				break;
-			case HWTSTAMP_FILTER_ALL:
-			case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-			case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-			case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
-			case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
-				pi->rxtstamp = true;
-				break;
-			default:
-				pi->tstamp_config.rx_filter =
-					HWTSTAMP_FILTER_NONE;
-				return -ERANGE;
-			}
-
-			if ((pi->tstamp_config.tx_type == HWTSTAMP_TX_OFF) &&
-			    (pi->tstamp_config.rx_filter ==
-				HWTSTAMP_FILTER_NONE)) {
-				if (cxgb4_ptp_txtype(adapter, pi->port_id) >= 0)
-					pi->ptp_enable = false;
-			}
-
-			if (pi->tstamp_config.rx_filter !=
-				HWTSTAMP_FILTER_NONE) {
-				if (cxgb4_ptp_redirect_rx_packet(adapter,
-								 pi) >= 0)
-					pi->ptp_enable = true;
-			}
-		} else {
-			/* For T4 Adapters */
-			switch (pi->tstamp_config.rx_filter) {
-			case HWTSTAMP_FILTER_NONE:
-			pi->rxtstamp = false;
-			break;
-			case HWTSTAMP_FILTER_ALL:
-			pi->rxtstamp = true;
-			break;
-			default:
-			pi->tstamp_config.rx_filter =
-			HWTSTAMP_FILTER_NONE;
-			return -ERANGE;
-			}
-		}
-		return copy_to_user(req->ifr_data, &pi->tstamp_config,
-				    sizeof(pi->tstamp_config)) ?
-			-EFAULT : 0;
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -3485,7 +3485,7 @@ static int cxgb_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
 	struct adapter *adap = pi->adapter;
 	struct ch_sched_queue qe = { 0 };
 	struct ch_sched_params p = { 0 };
-	struct sched_class *e;
+	struct ch_sched_class *e;
 	u32 req_rate;
 	int err = 0;
 
@@ -3875,6 +3875,8 @@ static const struct net_device_ops cxgb4_netdev_ops = {
 	.ndo_setup_tc         = cxgb_setup_tc,
 	.ndo_features_check   = cxgb_features_check,
 	.ndo_fix_features     = cxgb_fix_features,
+	.ndo_hwtstamp_get     = cxgb_hwtstamp_get,
+	.ndo_hwtstamp_set     = cxgb_hwtstamp_set,
 };
 
 #ifdef CONFIG_PCI_IOV
@@ -4055,7 +4057,7 @@ static int adap_config_hma(struct adapter *adapter)
 
 	page_size = HMA_PAGE_SIZE;
 	page_order = HMA_PAGE_ORDER;
-	adapter->hma.sgt = kzalloc(sizeof(*adapter->hma.sgt), GFP_KERNEL);
+	adapter->hma.sgt = kzalloc_obj(*adapter->hma.sgt);
 	if (unlikely(!adapter->hma.sgt)) {
 		dev_err(adapter->pdev_dev, "HMA SG table allocation failed\n");
 		return -ENOMEM;
@@ -4095,8 +4097,7 @@ static int adap_config_hma(struct adapter *adapter)
 	}
 	adapter->hma.flags |= HMA_DMA_MAPPED_FLAG;
 
-	adapter->hma.phy_addr = kcalloc(sgt->nents, sizeof(dma_addr_t),
-					GFP_KERNEL);
+	adapter->hma.phy_addr = kzalloc_objs(dma_addr_t, sgt->nents);
 	if (unlikely(!adapter->hma.phy_addr))
 		goto free_hma;
 
@@ -4810,7 +4811,7 @@ static int adap_init0(struct adapter *adap, int vpd_skip)
 		/* allocate memory to read the header of the firmware on the
 		 * card
 		 */
-		card_fw = kvzalloc(sizeof(*card_fw), GFP_KERNEL);
+		card_fw = kvzalloc_obj(*card_fw);
 		if (!card_fw) {
 			ret = -ENOMEM;
 			goto bye;
@@ -5020,15 +5021,14 @@ static int adap_init0(struct adapter *adap, int vpd_skip)
 	adap->sge.egr_sz = val[0] - adap->sge.egr_start + 1;
 	adap->sge.ingr_sz = val[1] - adap->sge.ingr_start + 1;
 
-	adap->sge.egr_map = kcalloc(adap->sge.egr_sz,
-				    sizeof(*adap->sge.egr_map), GFP_KERNEL);
+	adap->sge.egr_map = kzalloc_objs(*adap->sge.egr_map, adap->sge.egr_sz);
 	if (!adap->sge.egr_map) {
 		ret = -ENOMEM;
 		goto bye;
 	}
 
-	adap->sge.ingr_map = kcalloc(adap->sge.ingr_sz,
-				     sizeof(*adap->sge.ingr_map), GFP_KERNEL);
+	adap->sge.ingr_map = kzalloc_objs(*adap->sge.ingr_map,
+					  adap->sge.ingr_sz);
 	if (!adap->sge.ingr_map) {
 		ret = -ENOMEM;
 		goto bye;
@@ -5456,7 +5456,6 @@ static pci_ers_result_t eeh_slot_reset(struct pci_dev *pdev)
 
 	if (!adap) {
 		pci_restore_state(pdev);
-		pci_save_state(pdev);
 		return PCI_ERS_RESULT_RECOVERED;
 	}
 
@@ -5471,7 +5470,6 @@ static pci_ers_result_t eeh_slot_reset(struct pci_dev *pdev)
 
 	pci_set_master(pdev);
 	pci_restore_state(pdev);
-	pci_save_state(pdev);
 
 	if (t4_wait_dev_ready(adap->regs) < 0)
 		return PCI_ERS_RESULT_DISCONNECT;
@@ -5836,7 +5834,7 @@ static int alloc_msix_info(struct adapter *adap, u32 num_vec)
 {
 	struct msix_info *msix_info;
 
-	msix_info = kcalloc(num_vec, sizeof(*msix_info), GFP_KERNEL);
+	msix_info = kzalloc_objs(*msix_info, num_vec);
 	if (!msix_info)
 		return -ENOMEM;
 
@@ -5935,7 +5933,7 @@ static int enable_msix(struct adapter *adap)
 	want += EXTRA_VECS;
 	need += EXTRA_VECS;
 
-	entries = kmalloc_array(want, sizeof(*entries), GFP_KERNEL);
+	entries = kmalloc_objs(*entries, want);
 	if (!entries)
 		return -ENOMEM;
 
@@ -6350,8 +6348,8 @@ static int cxgb4_iov_configure(struct pci_dev *pdev, int num_vfs)
 			return err;
 		}
 		/* Allocate and set up VF Information. */
-		adap->vfinfo = kcalloc(pci_sriov_get_totalvfs(pdev),
-				       sizeof(struct vf_info), GFP_KERNEL);
+		adap->vfinfo = kzalloc_objs(struct vf_info,
+					    pci_sriov_get_totalvfs(pdev));
 		if (!adap->vfinfo) {
 			unregister_netdev(adap->port[0]);
 			free_netdev(adap->port[0]);
@@ -6604,7 +6602,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto out_disable_device;
 	}
 
-	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
+	adapter = kzalloc_obj(*adapter);
 	if (!adapter) {
 		err = -ENOMEM;
 		goto out_unmap_bar0;

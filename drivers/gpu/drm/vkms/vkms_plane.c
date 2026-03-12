@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 
+#include "vkms_config.h"
 #include <linux/iosys-map.h>
 
 #include <drm/drm_atomic.h>
@@ -8,6 +9,7 @@
 #include <drm/drm_fourcc.h>
 #include <drm/drm_gem_atomic_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_print.h>
 
 #include "vkms_drv.h"
 #include "vkms_formats.h"
@@ -54,11 +56,11 @@ vkms_plane_duplicate_state(struct drm_plane *plane)
 	struct vkms_plane_state *vkms_state;
 	struct vkms_frame_info *frame_info;
 
-	vkms_state = kzalloc(sizeof(*vkms_state), GFP_KERNEL);
+	vkms_state = kzalloc_obj(*vkms_state);
 	if (!vkms_state)
 		return NULL;
 
-	frame_info = kzalloc(sizeof(*frame_info), GFP_KERNEL);
+	frame_info = kzalloc_obj(*frame_info);
 	if (!frame_info) {
 		DRM_DEBUG_KMS("Couldn't allocate frame_info\n");
 		kfree(vkms_state);
@@ -102,7 +104,7 @@ static void vkms_plane_reset(struct drm_plane *plane)
 		plane->state = NULL; /* must be set to NULL here */
 	}
 
-	vkms_state = kzalloc(sizeof(*vkms_state), GFP_KERNEL);
+	vkms_state = kzalloc_obj(*vkms_state);
 	if (!vkms_state) {
 		DRM_ERROR("Cannot allocate vkms_plane_state\n");
 		return;
@@ -217,7 +219,7 @@ static const struct drm_plane_helper_funcs vkms_plane_helper_funcs = {
 };
 
 struct vkms_plane *vkms_plane_init(struct vkms_device *vkmsdev,
-				   enum drm_plane_type type)
+				   struct vkms_config_plane *plane_cfg)
 {
 	struct drm_device *dev = &vkmsdev->drm;
 	struct vkms_plane *plane;
@@ -225,7 +227,8 @@ struct vkms_plane *vkms_plane_init(struct vkms_device *vkmsdev,
 	plane = drmm_universal_plane_alloc(dev, struct vkms_plane, base, 0,
 					   &vkms_plane_funcs,
 					   vkms_formats, ARRAY_SIZE(vkms_formats),
-					   NULL, type, NULL);
+					   NULL, vkms_config_plane_get_type(plane_cfg),
+					   NULL);
 	if (IS_ERR(plane))
 		return plane;
 
@@ -242,6 +245,9 @@ struct vkms_plane *vkms_plane_init(struct vkms_device *vkmsdev,
 					  BIT(DRM_COLOR_YCBCR_FULL_RANGE),
 					  DRM_COLOR_YCBCR_BT601,
 					  DRM_COLOR_YCBCR_FULL_RANGE);
+
+	if (vkms_config_plane_get_default_pipeline(plane_cfg))
+		vkms_initialize_colorops(&plane->base);
 
 	return plane;
 }

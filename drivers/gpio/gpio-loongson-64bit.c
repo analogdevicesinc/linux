@@ -263,7 +263,7 @@ static int loongson_gpio_init_irqchip(struct platform_device *pdev,
 	chip->irq.num_parents = data->intr_num;
 	chip->irq.parents = devm_kcalloc(&pdev->dev, data->intr_num,
 					 sizeof(*chip->irq.parents), GFP_KERNEL);
-	if (!chip->parent)
+	if (!chip->irq.parents)
 		return -ENOMEM;
 
 	for (i = 0; i < data->intr_num; i++) {
@@ -312,6 +312,7 @@ static int loongson_gpio_init(struct platform_device *pdev, struct loongson_gpio
 		lgpio->chip.gc.direction_output = loongson_gpio_direction_output;
 		lgpio->chip.gc.set = loongson_gpio_set;
 		lgpio->chip.gc.parent = &pdev->dev;
+		lgpio->chip.gc.base = -1;
 		spin_lock_init(&lgpio->lock);
 	}
 
@@ -407,11 +408,11 @@ static const struct loongson_gpio_chip_data loongson_gpio_ls2k2000_data0 = {
 
 static const struct loongson_gpio_chip_data loongson_gpio_ls2k2000_data1 = {
 	.label = "ls2k2000_gpio",
-	.mode = BIT_CTRL_MODE,
-	.conf_offset = 0x0,
-	.in_offset = 0x20,
-	.out_offset = 0x10,
-	.inten_offset = 0x30,
+	.mode = BYTE_CTRL_MODE,
+	.conf_offset = 0x800,
+	.in_offset = 0xa00,
+	.out_offset = 0x900,
+	.inten_offset = 0xb00,
 };
 
 static const struct loongson_gpio_chip_data loongson_gpio_ls2k2000_data2 = {

@@ -180,7 +180,7 @@ static int test_mb_aead_jiffies(struct test_mb_aead_data *data, int enc,
 	int ret = 0;
 	int *rc;
 
-	rc = kcalloc(num_mb, sizeof(*rc), GFP_KERNEL);
+	rc = kzalloc_objs(*rc, num_mb);
 	if (!rc)
 		return -ENOMEM;
 
@@ -207,7 +207,7 @@ static int test_mb_aead_cycles(struct test_mb_aead_data *data, int enc,
 	int i;
 	int *rc;
 
-	rc = kcalloc(num_mb, sizeof(*rc), GFP_KERNEL);
+	rc = kzalloc_objs(*rc, num_mb);
 	if (!rc)
 		return -ENOMEM;
 
@@ -270,7 +270,7 @@ static void test_mb_aead_speed(const char *algo, int enc, int secs,
 	else
 		e = "decryption";
 
-	data = kcalloc(num_mb, sizeof(*data), GFP_KERNEL);
+	data = kzalloc_objs(*data, num_mb);
 	if (!data)
 		goto out_free_iv;
 
@@ -997,7 +997,7 @@ static int test_mb_acipher_jiffies(struct test_mb_skcipher_data *data, int enc,
 	int ret = 0;
 	int *rc;
 
-	rc = kcalloc(num_mb, sizeof(*rc), GFP_KERNEL);
+	rc = kzalloc_objs(*rc, num_mb);
 	if (!rc)
 		return -ENOMEM;
 
@@ -1024,7 +1024,7 @@ static int test_mb_acipher_cycles(struct test_mb_skcipher_data *data, int enc,
 	int i;
 	int *rc;
 
-	rc = kcalloc(num_mb, sizeof(*rc), GFP_KERNEL);
+	rc = kzalloc_objs(*rc, num_mb);
 	if (!rc)
 		return -ENOMEM;
 
@@ -1075,7 +1075,7 @@ static void test_mb_skcipher_speed(const char *algo, int enc, int secs,
 	else
 		e = "decryption";
 
-	data = kcalloc(num_mb, sizeof(*data), GFP_KERNEL);
+	data = kzalloc_objs(*data, num_mb);
 	if (!data)
 		return;
 
@@ -1690,10 +1690,6 @@ static int do_test(const char *alg, u32 type, u32 mask, int m, u32 num_mb)
 		ret = min(ret, tcrypt_test("ccm(sm4)"));
 		break;
 
-	case 57:
-		ret = min(ret, tcrypt_test("polyval"));
-		break;
-
 	case 58:
 		ret = min(ret, tcrypt_test("gcm(aria)"));
 		break;
@@ -1756,10 +1752,6 @@ static int do_test(const char *alg, u32 type, u32 mask, int m, u32 num_mb)
 
 	case 116:
 		ret = min(ret, tcrypt_test("hmac(streebog512)"));
-		break;
-
-	case 150:
-		ret = min(ret, tcrypt_test("ansi_cprng"));
 		break;
 
 	case 151:
@@ -2266,10 +2258,6 @@ static int do_test(const char *alg, u32 type, u32 mask, int m, u32 num_mb)
 		fallthrough;
 	case 319:
 		test_hash_speed("crc32c", sec, generic_hash_speed_template);
-		if (mode > 300 && mode < 400) break;
-		fallthrough;
-	case 321:
-		test_hash_speed("poly1305", sec, poly1305_speed_template);
 		if (mode > 300 && mode < 400) break;
 		fallthrough;
 	case 322:

@@ -21,7 +21,9 @@
 #include <linux/utsname.h>
 #include <net/net_namespace.h>
 #include <linux/coredump.h>
+#include <linux/rhashtable.h>
 #include <linux/xattr.h>
+#include <linux/cookie.h>
 
 #include "internal.h"
 #include "mount.h"
@@ -39,25 +41,64 @@ void pidfs_get_root(struct path *path)
 	path_get(path);
 }
 
-/*
- * Stashes information that userspace needs to access even after the
- * process has been reaped.
- */
-struct pidfs_exit_info {
-	__u64 cgroupid;
-	__s32 exit_code;
-	__u32 coredump_mask;
+enum pidfs_attr_mask_bits {
+	PIDFS_ATTR_BIT_EXIT	= 0,
+	PIDFS_ATTR_BIT_COREDUMP	= 1,
 };
 
 struct pidfs_attr {
+	unsigned long attr_mask;
 	struct simple_xattrs *xattrs;
-	struct pidfs_exit_info __pei;
-	struct pidfs_exit_info *exit_info;
+	struct /* exit info */ {
+		__u64 cgroupid;
+		__s32 exit_code;
+	};
+	__u32 coredump_mask;
+	__u32 coredump_signal;
 };
 
-static struct rb_root pidfs_ino_tree = RB_ROOT;
+static struct rhashtable pidfs_ino_ht;
+
+static const struct rhashtable_params pidfs_ino_ht_params = {
+	.key_offset		= offsetof(struct pid, ino),
+	.key_len		= sizeof(u64),
+	.head_offset		= offsetof(struct pid, pidfs_hash),
+	.automatic_shrinking	= true,
+};
+
+/*
+ * inode number handling
+ *
+ * On 64 bit nothing special happens. The 64bit number assigned
+ * to struct pid is the inode number.
+ *
+ * On 32 bit the 64 bit number assigned to struct pid is split
+ * into two 32 bit numbers. The lower 32 bits are used as the
+ * inode number and the upper 32 bits are used as the inode
+ * generation number.
+ *
+ * On 32 bit pidfs_ino() will return the lower 32 bit. When
+ * pidfs_ino() returns zero a wrap around happened. When a
+ * wraparound happens the 64 bit number will be incremented by 1
+ * so inode numbering starts at 1 again.
+ *
+ * On 64 bit comparing two pidfds is as simple as comparing
+ * inode numbers.
+ *
+ * When a wraparound happens on 32 bit multiple pidfds with the
+ * same inode number are likely to exist (This isn't a problem
+ * since before pidfs pidfds used the anonymous inode meaning
+ * all pidfds had the same inode number.). Userspace can
+ * reconstruct the 64 bit identifier by retrieving both the
+ * inode number and the inode generation number to compare or
+ * use file handles.
+ */
 
 #if BITS_PER_LONG == 32
+
+DEFINE_SPINLOCK(pidfs_ino_lock);
+static u64 pidfs_ino_nr = 1;
+
 static inline unsigned long pidfs_ino(u64 ino)
 {
 	return lower_32_bits(ino);
@@ -67,6 +108,18 @@ static inline unsigned long pidfs_ino(u64 ino)
 static inline u32 pidfs_gen(u64 ino)
 {
 	return upper_32_bits(ino);
+}
+
+static inline u64 pidfs_alloc_ino(void)
+{
+	u64 ino;
+
+	spin_lock(&pidfs_ino_lock);
+	if (pidfs_ino(pidfs_ino_nr) == 0)
+		pidfs_ino_nr++;
+	ino = pidfs_ino_nr++;
+	spin_unlock(&pidfs_ino_lock);
+	return ino;
 }
 
 #else
@@ -82,69 +135,47 @@ static inline u32 pidfs_gen(u64 ino)
 {
 	return 0;
 }
-#endif
 
-static int pidfs_ino_cmp(struct rb_node *a, const struct rb_node *b)
+DEFINE_COOKIE(pidfs_ino_cookie);
+
+static u64 pidfs_alloc_ino(void)
 {
-	struct pid *pid_a = rb_entry(a, struct pid, pidfs_node);
-	struct pid *pid_b = rb_entry(b, struct pid, pidfs_node);
-	u64 pid_ino_a = pid_a->ino;
-	u64 pid_ino_b = pid_b->ino;
+	u64 ino;
 
-	if (pid_ino_a < pid_ino_b)
-		return -1;
-	if (pid_ino_a > pid_ino_b)
-		return 1;
-	return 0;
+	preempt_disable();
+	ino = gen_cookie_next(&pidfs_ino_cookie);
+	preempt_enable();
+
+	VFS_WARN_ON_ONCE(ino < 1);
+	return ino;
 }
 
-void pidfs_add_pid(struct pid *pid)
+#endif
+
+void pidfs_prepare_pid(struct pid *pid)
 {
-	static u64 pidfs_ino_nr = 2;
-
-	/*
-	 * On 64 bit nothing special happens. The 64bit number assigned
-	 * to struct pid is the inode number.
-	 *
-	 * On 32 bit the 64 bit number assigned to struct pid is split
-	 * into two 32 bit numbers. The lower 32 bits are used as the
-	 * inode number and the upper 32 bits are used as the inode
-	 * generation number.
-	 *
-	 * On 32 bit pidfs_ino() will return the lower 32 bit. When
-	 * pidfs_ino() returns zero a wrap around happened. When a
-	 * wraparound happens the 64 bit number will be incremented by 2
-	 * so inode numbering starts at 2 again.
-	 *
-	 * On 64 bit comparing two pidfds is as simple as comparing
-	 * inode numbers.
-	 *
-	 * When a wraparound happens on 32 bit multiple pidfds with the
-	 * same inode number are likely to exist (This isn't a problem
-	 * since before pidfs pidfds used the anonymous inode meaning
-	 * all pidfds had the same inode number.). Userspace can
-	 * reconstruct the 64 bit identifier by retrieving both the
-	 * inode number and the inode generation number to compare or
-	 * use file handles.
-	 */
-	if (pidfs_ino(pidfs_ino_nr) == 0)
-		pidfs_ino_nr += 2;
-
-	pid->ino = pidfs_ino_nr;
 	pid->stashed = NULL;
 	pid->attr = NULL;
-	pidfs_ino_nr++;
+	pid->ino = 0;
+}
 
-	write_seqcount_begin(&pidmap_lock_seq);
-	rb_find_add_rcu(&pid->pidfs_node, &pidfs_ino_tree, pidfs_ino_cmp);
-	write_seqcount_end(&pidmap_lock_seq);
+int pidfs_add_pid(struct pid *pid)
+{
+	int ret;
+
+	pid->ino = pidfs_alloc_ino();
+	ret = rhashtable_insert_fast(&pidfs_ino_ht, &pid->pidfs_hash,
+				     pidfs_ino_ht_params);
+	if (unlikely(ret))
+		pid->ino = 0;
+	return ret;
 }
 
 void pidfs_remove_pid(struct pid *pid)
 {
-	write_seqcount_begin(&pidmap_lock_seq);
-	rb_erase(&pid->pidfs_node, &pidfs_ino_tree);
-	write_seqcount_end(&pidmap_lock_seq);
+	if (likely(pid->ino))
+		rhashtable_remove_fast(&pidfs_ino_ht, &pid->pidfs_hash,
+				       pidfs_ino_ht_params);
 }
 
 void pidfs_free_pid(struct pid *pid)
@@ -293,6 +324,15 @@ static __u32 pidfs_coredump_mask(unsigned long mm_flags)
 	return 0;
 }
 
+/* This must be updated whenever a new flag is added */
+#define PIDFD_INFO_SUPPORTED (PIDFD_INFO_PID | \
+			      PIDFD_INFO_CREDS | \
+			      PIDFD_INFO_CGROUPID | \
+			      PIDFD_INFO_EXIT | \
+			      PIDFD_INFO_COREDUMP | \
+			      PIDFD_INFO_SUPPORTED_MASK | \
+			      PIDFD_INFO_COREDUMP_SIGNAL)
+
 static long pidfd_info(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct pidfd_info __user *uinfo = (struct pidfd_info __user *)arg;
@@ -300,11 +340,12 @@ static long pidfd_info(struct file *file, unsigned int cmd, unsigned long arg)
 	struct pid *pid = pidfd_pid(file);
 	size_t usize = _IOC_SIZE(cmd);
 	struct pidfd_info kinfo = {};
-	struct pidfs_exit_info *exit_info;
 	struct user_namespace *user_ns;
 	struct pidfs_attr *attr;
 	const struct cred *c;
 	__u64 mask;
+
+	BUILD_BUG_ON(sizeof(struct pidfd_info) != PIDFD_INFO_SIZE_VER2);
 
 	if (!uinfo)
 		return -EINVAL;
@@ -319,24 +360,28 @@ static long pidfd_info(struct file *file, unsigned int cmd, unsigned long arg)
 	 * namespace hierarchy.
 	 */
 	if (!pid_in_current_pidns(pid))
-		return -ESRCH;
+		return -EREMOTE;
 
 	attr = READ_ONCE(pid->attr);
 	if (mask & PIDFD_INFO_EXIT) {
-		exit_info = READ_ONCE(attr->exit_info);
-		if (exit_info) {
+		if (test_bit(PIDFS_ATTR_BIT_EXIT, &attr->attr_mask)) {
+			smp_rmb();
 			kinfo.mask |= PIDFD_INFO_EXIT;
 #ifdef CONFIG_CGROUPS
-			kinfo.cgroupid = exit_info->cgroupid;
+			kinfo.cgroupid = attr->cgroupid;
 			kinfo.mask |= PIDFD_INFO_CGROUPID;
 #endif
-			kinfo.exit_code = exit_info->exit_code;
+			kinfo.exit_code = attr->exit_code;
 		}
 	}
 
 	if (mask & PIDFD_INFO_COREDUMP) {
-		kinfo.mask |= PIDFD_INFO_COREDUMP;
-		kinfo.coredump_mask = READ_ONCE(attr->__pei.coredump_mask);
+		if (test_bit(PIDFS_ATTR_BIT_COREDUMP, &attr->attr_mask)) {
+			smp_rmb();
+			kinfo.mask |= PIDFD_INFO_COREDUMP | PIDFD_INFO_COREDUMP_SIGNAL;
+			kinfo.coredump_mask = attr->coredump_mask;
+			kinfo.coredump_signal = attr->coredump_signal;
+		}
 	}
 
 	task = get_pid_task(pid, PIDTYPE_PID);
@@ -355,14 +400,15 @@ static long pidfd_info(struct file *file, unsigned int cmd, unsigned long arg)
 	if (!c)
 		return -ESRCH;
 
-	if ((kinfo.mask & PIDFD_INFO_COREDUMP) && !(kinfo.coredump_mask)) {
-		task_lock(task);
+	if ((mask & PIDFD_INFO_COREDUMP) && !kinfo.coredump_mask) {
+		guard(task_lock)(task);
 		if (task->mm) {
 			unsigned long flags = __mm_flags_get_dumpable(task->mm);
 
 			kinfo.coredump_mask = pidfs_coredump_mask(flags);
+			kinfo.mask |= PIDFD_INFO_COREDUMP;
+			/* No coredump actually took place, so no coredump signal. */
 		}
-		task_unlock(task);
 	}
 
 	/* Unconditionally return identifiers and credentials, the rest only on request */
@@ -400,7 +446,7 @@ static long pidfd_info(struct file *file, unsigned int cmd, unsigned long arg)
 	 * the fields are set correctly, or return ESRCH to avoid providing
 	 * incomplete information. */
 
-	kinfo.ppid = task_ppid_nr_ns(task, NULL);
+	kinfo.ppid = task_ppid_vnr(task);
 	kinfo.tgid = task_tgid_vnr(task);
 	kinfo.pid = task_pid_vnr(task);
 	kinfo.mask |= PIDFD_INFO_PID;
@@ -409,6 +455,13 @@ static long pidfd_info(struct file *file, unsigned int cmd, unsigned long arg)
 		return -ESRCH;
 
 copy_out:
+	if (mask & PIDFD_INFO_SUPPORTED_MASK) {
+		kinfo.mask |= PIDFD_INFO_SUPPORTED_MASK;
+		kinfo.supported_mask = PIDFD_INFO_SUPPORTED;
+	}
+
+	/* Are there bits in the return mask not present in PIDFD_INFO_SUPPORTED? */
+	WARN_ON_ONCE(~PIDFD_INFO_SUPPORTED & kinfo.mask);
 	/*
 	 * If userspace and the kernel have the same struct size it can just
 	 * be copied. If userspace provides an older struct, only the bits that
@@ -454,7 +507,6 @@ static long pidfd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct task_struct *task __free(put_task) = NULL;
 	struct nsproxy *nsp __free(put_nsproxy) = NULL;
 	struct ns_common *ns_common = NULL;
-	struct pid_namespace *pid_ns;
 
 	if (!pidfs_ioctl_valid(cmd))
 		return -ENOIOCTLCMD;
@@ -496,67 +548,81 @@ static long pidfd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	/* Namespaces that hang of nsproxy. */
 	case PIDFD_GET_CGROUP_NAMESPACE:
-		if (IS_ENABLED(CONFIG_CGROUPS)) {
-			get_cgroup_ns(nsp->cgroup_ns);
-			ns_common = to_ns_common(nsp->cgroup_ns);
-		}
+#ifdef CONFIG_CGROUPS
+		if (!ns_ref_get(nsp->cgroup_ns))
+			break;
+		ns_common = to_ns_common(nsp->cgroup_ns);
+#endif
 		break;
 	case PIDFD_GET_IPC_NAMESPACE:
-		if (IS_ENABLED(CONFIG_IPC_NS)) {
-			get_ipc_ns(nsp->ipc_ns);
-			ns_common = to_ns_common(nsp->ipc_ns);
-		}
+#ifdef CONFIG_IPC_NS
+		if (!ns_ref_get(nsp->ipc_ns))
+			break;
+		ns_common = to_ns_common(nsp->ipc_ns);
+#endif
 		break;
 	case PIDFD_GET_MNT_NAMESPACE:
-		get_mnt_ns(nsp->mnt_ns);
+		if (!ns_ref_get(nsp->mnt_ns))
+			break;
 		ns_common = to_ns_common(nsp->mnt_ns);
 		break;
 	case PIDFD_GET_NET_NAMESPACE:
-		if (IS_ENABLED(CONFIG_NET_NS)) {
-			ns_common = to_ns_common(nsp->net_ns);
-			get_net_ns(ns_common);
-		}
+#ifdef CONFIG_NET_NS
+		if (!ns_ref_get(nsp->net_ns))
+			break;
+		ns_common = to_ns_common(nsp->net_ns);
+#endif
 		break;
 	case PIDFD_GET_PID_FOR_CHILDREN_NAMESPACE:
-		if (IS_ENABLED(CONFIG_PID_NS)) {
-			get_pid_ns(nsp->pid_ns_for_children);
-			ns_common = to_ns_common(nsp->pid_ns_for_children);
-		}
+#ifdef CONFIG_PID_NS
+		if (!ns_ref_get(nsp->pid_ns_for_children))
+			break;
+		ns_common = to_ns_common(nsp->pid_ns_for_children);
+#endif
 		break;
 	case PIDFD_GET_TIME_NAMESPACE:
-		if (IS_ENABLED(CONFIG_TIME_NS)) {
-			get_time_ns(nsp->time_ns);
-			ns_common = to_ns_common(nsp->time_ns);
-		}
+#ifdef CONFIG_TIME_NS
+		if (!ns_ref_get(nsp->time_ns))
+			break;
+		ns_common = to_ns_common(nsp->time_ns);
+#endif
 		break;
 	case PIDFD_GET_TIME_FOR_CHILDREN_NAMESPACE:
-		if (IS_ENABLED(CONFIG_TIME_NS)) {
-			get_time_ns(nsp->time_ns_for_children);
-			ns_common = to_ns_common(nsp->time_ns_for_children);
-		}
+#ifdef CONFIG_TIME_NS
+		if (!ns_ref_get(nsp->time_ns_for_children))
+			break;
+		ns_common = to_ns_common(nsp->time_ns_for_children);
+#endif
 		break;
 	case PIDFD_GET_UTS_NAMESPACE:
-		if (IS_ENABLED(CONFIG_UTS_NS)) {
-			get_uts_ns(nsp->uts_ns);
-			ns_common = to_ns_common(nsp->uts_ns);
-		}
+#ifdef CONFIG_UTS_NS
+		if (!ns_ref_get(nsp->uts_ns))
+			break;
+		ns_common = to_ns_common(nsp->uts_ns);
+#endif
 		break;
 	/* Namespaces that don't hang of nsproxy. */
 	case PIDFD_GET_USER_NAMESPACE:
-		if (IS_ENABLED(CONFIG_USER_NS)) {
-			rcu_read_lock();
-			ns_common = to_ns_common(get_user_ns(task_cred_xxx(task, user_ns)));
-			rcu_read_unlock();
+#ifdef CONFIG_USER_NS
+		scoped_guard(rcu) {
+			struct user_namespace *user_ns;
+
+			user_ns = task_cred_xxx(task, user_ns);
+			if (ns_ref_get(user_ns))
+				ns_common = to_ns_common(user_ns);
 		}
+#endif
 		break;
 	case PIDFD_GET_PID_NAMESPACE:
-		if (IS_ENABLED(CONFIG_PID_NS)) {
-			rcu_read_lock();
+#ifdef CONFIG_PID_NS
+		scoped_guard(rcu) {
+			struct pid_namespace *pid_ns;
+
 			pid_ns = task_active_pid_ns(task);
-			if (pid_ns)
-				ns_common = to_ns_common(get_pid_ns(pid_ns));
-			rcu_read_unlock();
+			if (ns_ref_get(pid_ns))
+				ns_common = to_ns_common(pid_ns);
 		}
+#endif
 		break;
 	default:
 		return -ENOIOCTLCMD;
@@ -606,24 +672,25 @@ void pidfs_exit(struct task_struct *tsk)
 {
 	struct pid *pid = task_pid(tsk);
 	struct pidfs_attr *attr;
-	struct pidfs_exit_info *exit_info;
 #ifdef CONFIG_CGROUPS
 	struct cgroup *cgrp;
 #endif
 
 	might_sleep();
 
-	guard(spinlock_irq)(&pid->wait_pidfd.lock);
-	attr = pid->attr;
-	if (!attr) {
-		/*
-		 * No one ever held a pidfd for this struct pid.
-		 * Mark it as dead so no one can add a pidfs
-		 * entry anymore. We're about to be reaped and
-		 * so no exit information would be available.
-		 */
-		pid->attr = PIDFS_PID_DEAD;
-		return;
+	/* Synchronize with pidfs_register_pid(). */
+	scoped_guard(spinlock_irq, &pid->wait_pidfd.lock) {
+		attr = pid->attr;
+		if (!attr) {
+			/*
+			 * No one ever held a pidfd for this struct pid.
+			 * Mark it as dead so no one can add a pidfs
+			 * entry anymore. We're about to be reaped and
+			 * so no exit information would be available.
+			 */
+			pid->attr = PIDFS_PID_DEAD;
+			return;
+		}
 	}
 
 	/*
@@ -634,41 +701,39 @@ void pidfs_exit(struct task_struct *tsk)
 	 * is put
 	 */
 
-	exit_info = &attr->__pei;
-
 #ifdef CONFIG_CGROUPS
 	rcu_read_lock();
 	cgrp = task_dfl_cgroup(tsk);
-	exit_info->cgroupid = cgroup_id(cgrp);
+	attr->cgroupid = cgroup_id(cgrp);
 	rcu_read_unlock();
 #endif
-	exit_info->exit_code = tsk->exit_code;
+	attr->exit_code = tsk->exit_code;
 
 	/* Ensure that PIDFD_GET_INFO sees either all or nothing. */
-	smp_store_release(&attr->exit_info, &attr->__pei);
+	smp_wmb();
+	set_bit(PIDFS_ATTR_BIT_EXIT, &attr->attr_mask);
 }
 
 #ifdef CONFIG_COREDUMP
 void pidfs_coredump(const struct coredump_params *cprm)
 {
 	struct pid *pid = cprm->pid;
-	struct pidfs_exit_info *exit_info;
 	struct pidfs_attr *attr;
-	__u32 coredump_mask = 0;
 
 	attr = READ_ONCE(pid->attr);
 
 	VFS_WARN_ON_ONCE(!attr);
 	VFS_WARN_ON_ONCE(attr == PIDFS_PID_DEAD);
 
-	exit_info = &attr->__pei;
-	/* Note how we were coredumped. */
-	coredump_mask = pidfs_coredump_mask(cprm->mm_flags);
-	/* Note that we actually did coredump. */
-	coredump_mask |= PIDFD_COREDUMPED;
+	/* Note how we were coredumped and that we coredumped. */
+	attr->coredump_mask = pidfs_coredump_mask(cprm->mm_flags) |
+			      PIDFD_COREDUMPED;
 	/* If coredumping is set to skip we should never end up here. */
-	VFS_WARN_ON_ONCE(coredump_mask & PIDFD_COREDUMP_SKIP);
-	smp_store_release(&exit_info->coredump_mask, coredump_mask);
+	VFS_WARN_ON_ONCE(attr->coredump_mask & PIDFD_COREDUMP_SKIP);
+	/* Expose the signal number that caused the coredump. */
+	attr->coredump_signal = cprm->siginfo->si_signo;
+	smp_wmb();
+	set_bit(PIDFS_ATTR_BIT_COREDUMP, &attr->attr_mask);
 }
 #endif
 
@@ -755,42 +820,24 @@ static int pidfs_encode_fh(struct inode *inode, u32 *fh, int *max_len,
 	return FILEID_KERNFS;
 }
 
-static int pidfs_ino_find(const void *key, const struct rb_node *node)
-{
-	const u64 pid_ino = *(u64 *)key;
-	const struct pid *pid = rb_entry(node, struct pid, pidfs_node);
-
-	if (pid_ino < pid->ino)
-		return -1;
-	if (pid_ino > pid->ino)
-		return 1;
-	return 0;
-}
-
 /* Find a struct pid based on the inode number. */
 static struct pid *pidfs_ino_get_pid(u64 ino)
 {
 	struct pid *pid;
-	struct rb_node *node;
-	unsigned int seq;
+	struct pidfs_attr *attr;
 
 	guard(rcu)();
-	do {
-		seq = read_seqcount_begin(&pidmap_lock_seq);
-		node = rb_find_rcu(&ino, &pidfs_ino_tree, pidfs_ino_find);
-		if (node)
-			break;
-	} while (read_seqcount_retry(&pidmap_lock_seq, seq));
-
-	if (!node)
+	pid = rhashtable_lookup(&pidfs_ino_ht, &ino, pidfs_ino_ht_params);
+	if (!pid)
 		return NULL;
-
-	pid = rb_entry(node, struct pid, pidfs_node);
-
+	attr = READ_ONCE(pid->attr);
+	if (IS_ERR_OR_NULL(attr))
+		return NULL;
+	if (test_bit(PIDFS_ATTR_BIT_EXIT, &attr->attr_mask))
+		return NULL;
 	/* Within our pid namespace hierarchy? */
 	if (pid_vnr(pid) == 0)
 		return NULL;
-
 	return get_pid(pid);
 }
 
@@ -1022,6 +1069,7 @@ static int pidfs_init_fs_context(struct fs_context *fc)
 
 	fc->s_iflags |= SB_I_NOEXEC;
 	fc->s_iflags |= SB_I_NODEV;
+	ctx->s_d_flags |= DCACHE_DONTCACHE;
 	ctx->ops = &pidfs_sops;
 	ctx->eops = &pidfs_export_operations;
 	ctx->dops = &pidfs_dentry_operations;
@@ -1067,6 +1115,9 @@ struct file *pidfs_alloc_file(struct pid *pid, unsigned int flags)
 
 void __init pidfs_init(void)
 {
+	if (rhashtable_init(&pidfs_ino_ht, &pidfs_ino_ht_params))
+		panic("Failed to initialize pidfs hashtable");
+
 	pidfs_attr_cachep = kmem_cache_create("pidfs_attr_cache", sizeof(struct pidfs_attr), 0,
 					 (SLAB_HWCACHE_ALIGN | SLAB_RECLAIM_ACCOUNT |
 					  SLAB_ACCOUNT | SLAB_PANIC), NULL);

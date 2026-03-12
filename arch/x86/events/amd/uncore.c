@@ -656,14 +656,11 @@ static int amd_uncore_df_event_init(struct perf_event *event)
 	struct hw_perf_event *hwc = &event->hw;
 	int ret = amd_uncore_event_init(event);
 
-	if (ret || pmu_version < 2)
-		return ret;
-
 	hwc->config = event->attr.config &
 		      (pmu_version >= 2 ? AMD64_PERFMON_V2_RAW_EVENT_MASK_NB :
 					  AMD64_RAW_EVENT_MASK_NB);
 
-	return 0;
+	return ret;
 }
 
 static int amd_uncore_df_add(struct perf_event *event, int flags)
@@ -729,7 +726,7 @@ int amd_uncore_df_ctx_init(struct amd_uncore *uncore, unsigned int cpu)
 		goto done;
 
 	/* No grouping, single instance for a system */
-	uncore->pmus = kzalloc(sizeof(*uncore->pmus), GFP_KERNEL);
+	uncore->pmus = kzalloc_obj(*uncore->pmus);
 	if (!uncore->pmus)
 		goto done;
 
@@ -863,7 +860,7 @@ int amd_uncore_l3_ctx_init(struct amd_uncore *uncore, unsigned int cpu)
 		goto done;
 
 	/* No grouping, single instance for a system */
-	uncore->pmus = kzalloc(sizeof(*uncore->pmus), GFP_KERNEL);
+	uncore->pmus = kzalloc_obj(*uncore->pmus);
 	if (!uncore->pmus)
 		goto done;
 

@@ -72,6 +72,7 @@ config SCSI_UFS_QCOM
 config SCSI_UFS_MEDIATEK
 	tristate "Mediatek specific hooks to UFS controller platform driver"
 	depends on SCSI_UFSHCD_PLATFORM && ARCH_MEDIATEK
+	depends on PM
 	depends on RESET_CONTROLLER
 	select PHY_MTK_UFS
 	select RESET_TI_SYSCON
@@ -153,4 +154,17 @@ config SCSI_UFS_ROCKCHIP
 	  specific registers.
 
 	  Select this if you have UFS controller on Rockchip chipset.
+	  If unsure, say N.
+
+config SCSI_UFS_AMD_VERSAL2
+	tristate "AMD Versal Gen 2 UFS controller platform driver"
+	depends on SCSI_UFSHCD_PLATFORM && (ARCH_ZYNQMP || COMPILE_TEST)
+	help
+	  This selects the AMD Versal Gen 2 specific additions on top of
+	  the UFSHCD DWC and UFSHCD platform driver. UFS host on AMD
+	  Versal Gen 2 needs some vendor specific configurations like PHY
+	  and vendor specific register accesses before accessing the
+	  hardware.
+
+	  Select this if you have UFS controller on AMD Versal Gen 2 SoC.
 	  If unsure, say N.

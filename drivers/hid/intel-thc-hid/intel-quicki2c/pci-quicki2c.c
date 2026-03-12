@@ -344,7 +344,6 @@ exit:
 		if (try_recover(qcdev))
 			qcdev->state = QUICKI2C_DISABLED;
 
-	pm_runtime_mark_last_busy(qcdev->dev);
 	pm_runtime_put_autosuspend(qcdev->dev);
 
 	return IRQ_HANDLED;
@@ -735,7 +734,6 @@ static int quicki2c_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	/* Enable runtime power management */
 	pm_runtime_use_autosuspend(qcdev->dev);
 	pm_runtime_set_autosuspend_delay(qcdev->dev, DEFAULT_AUTO_SUSPEND_DELAY_MS);
-	pm_runtime_mark_last_busy(qcdev->dev);
 	pm_runtime_put_noidle(qcdev->dev);
 	pm_runtime_put_autosuspend(qcdev->dev);
 
@@ -809,6 +807,12 @@ static int quicki2c_suspend(struct device *device)
 	if (!qcdev)
 		return -ENODEV;
 
+	if (!device_may_wakeup(qcdev->dev)) {
+		ret = quicki2c_set_power(qcdev, HIDI2C_SLEEP);
+		if (ret)
+			return ret;
+	}
+
 	/*
 	 * As I2C is THC subsystem, no register auto save/restore support,
 	 * need driver to do that explicitly for every D3 case.
@@ -857,6 +861,9 @@ static int quicki2c_resume(struct device *device)
 	ret = thc_interrupt_quiesce(qcdev->thc_hw, false);
 	if (ret)
 		return ret;
+
+	if (!device_may_wakeup(qcdev->dev))
+		return quicki2c_set_power(qcdev, HIDI2C_ON);
 
 	return 0;
 }
@@ -915,6 +922,9 @@ static int quicki2c_poweroff(struct device *device)
 	if (!qcdev)
 		return -ENODEV;
 
+	/* Ignore the return value as platform will be poweroff soon */
+	quicki2c_set_power(qcdev, HIDI2C_SLEEP);
+
 	ret = thc_interrupt_quiesce(qcdev->thc_hw, true);
 	if (ret)
 		return ret;
@@ -968,7 +978,7 @@ static int quicki2c_restore(struct device *device)
 
 	thc_change_ltr_mode(qcdev->thc_hw, THC_LTR_MODE_ACTIVE);
 
-	return 0;
+	return quicki2c_set_power(qcdev, HIDI2C_ON);
 }
 
 static int quicki2c_runtime_suspend(struct device *device)

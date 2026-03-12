@@ -9,6 +9,7 @@
 #include <drm/ttm/ttm_tt.h>
 
 #include "xe_bo_types.h"
+#include "xe_ggtt.h"
 #include "xe_macros.h"
 #include "xe_validation.h"
 #include "xe_vm_types.h"
@@ -49,6 +50,8 @@
 #define XE_BO_FLAG_GGTT2		BIT(22)
 #define XE_BO_FLAG_GGTT3		BIT(23)
 #define XE_BO_FLAG_CPU_ADDR_MIRROR	BIT(24)
+#define XE_BO_FLAG_FORCE_USER_VRAM	BIT(25)
+#define XE_BO_FLAG_NO_COMPRESSION	BIT(26)
 
 /* this one is trigger internally only */
 #define XE_BO_FLAG_INTERNAL_TEST	BIT(30)
@@ -122,7 +125,7 @@ struct xe_bo *xe_managed_bo_create_from_data(struct xe_device *xe, struct xe_til
 int xe_managed_bo_reinit_in_vram(struct xe_device *xe, struct xe_tile *tile, struct xe_bo **src);
 
 int xe_bo_placement_for_flags(struct xe_device *xe, struct xe_bo *bo,
-			      u32 bo_flags);
+			      u32 bo_flags, enum ttm_bo_type type);
 
 static inline struct xe_bo *ttm_to_xe_bo(const struct ttm_buffer_object *bo)
 {
@@ -250,13 +253,14 @@ static inline u32
 __xe_bo_ggtt_addr(struct xe_bo *bo, u8 tile_id)
 {
 	struct xe_ggtt_node *ggtt_node = bo->ggtt_node[tile_id];
+	u64 offset;
 
 	if (XE_WARN_ON(!ggtt_node))
 		return 0;
 
-	XE_WARN_ON(ggtt_node->base.size > xe_bo_size(bo));
-	XE_WARN_ON(ggtt_node->base.start + ggtt_node->base.size > (1ull << 32));
-	return ggtt_node->base.start;
+	offset = xe_ggtt_node_addr(ggtt_node);
+	XE_WARN_ON(offset + xe_bo_size(bo) > (1ull << 32));
+	return offset;
 }
 
 static inline u32
@@ -273,6 +277,7 @@ int xe_bo_read(struct xe_bo *bo, u64 offset, void *dst, int size);
 
 bool mem_type_is_vram(u32 mem_type);
 bool xe_bo_is_vram(struct xe_bo *bo);
+bool xe_bo_is_visible_vram(struct xe_bo *bo);
 bool xe_bo_is_stolen(struct xe_bo *bo);
 bool xe_bo_is_stolen_devmem(struct xe_bo *bo);
 bool xe_bo_is_vm_bound(struct xe_bo *bo);

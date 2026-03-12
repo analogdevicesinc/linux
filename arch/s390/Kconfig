@@ -32,9 +32,6 @@ config GENERIC_BUG_RELATIVE_POINTERS
 config GENERIC_LOCKBREAK
 	def_bool y if PREEMPTION
 
-config PGSTE
-	def_bool y if KVM
-
 config AUDIT_ARCH
 	def_bool y
 
@@ -69,6 +66,15 @@ config CC_HAS_ASM_AOR_FORMAT_FLAGS
 	  Clang versions before 19.1.0 do not support A,
 	  O, and R inline assembly format flags.
 
+config CC_HAS_ASM_IMMEDIATE_STRINGS
+	def_bool !(CC_IS_GCC && GCC_VERSION < 90000)
+	help
+	  GCC versions before 9.0.0 cannot handle strings as immediate
+	  input operands in inline assemblies.
+
+config CC_HAS_STACKPROTECTOR_GLOBAL
+	def_bool $(cc-option, -mstack-protector-guard=global -mstack-protector-guard-record)
+
 config S390
 	def_bool y
 	#
@@ -82,6 +88,7 @@ config S390
 	select ARCH_ENABLE_MEMORY_HOTREMOVE
 	select ARCH_ENABLE_SPLIT_PMD_PTLOCK if PGTABLE_LEVELS > 2
 	select ARCH_ENABLE_THP_MIGRATION if TRANSPARENT_HUGEPAGE
+	select ARCH_HAS_CC_CAN_LINK
 	select ARCH_HAS_CPU_FINALIZE_INIT
 	select ARCH_HAS_CURRENT_STACK_POINTER
 	select ARCH_HAS_DEBUG_VIRTUAL
@@ -140,7 +147,6 @@ config S390
 	select ARCH_INLINE_WRITE_UNLOCK_IRQ
 	select ARCH_INLINE_WRITE_UNLOCK_IRQRESTORE
 	select ARCH_MHP_MEMMAP_ON_MEMORY_ENABLE
-	select ARCH_MODULE_NEEDS_WEAK_PER_CPU
 	select ARCH_STACKWALK
 	select ARCH_SUPPORTS_ATOMIC_RMW
 	select ARCH_SUPPORTS_DEBUG_PAGEALLOC
@@ -236,6 +242,7 @@ config S390
 	select HAVE_PERF_EVENTS
 	select HAVE_PERF_REGS
 	select HAVE_PERF_USER_STACK_DUMP
+	select HAVE_POSIX_CPU_TIMERS_TASK_WORK
 	select HAVE_PREEMPT_DYNAMIC_KEY
 	select HAVE_REGS_AND_STACK_ACCESS_API
 	select HAVE_RELIABLE_STACKTRACE
@@ -245,12 +252,14 @@ config S390
 	select HAVE_SAMPLE_FTRACE_DIRECT_MULTI
 	select HAVE_SETUP_PER_CPU_AREA
 	select HAVE_SOFTIRQ_ON_OWN_STACK
+	select HAVE_STACKPROTECTOR if CC_HAS_STACKPROTECTOR_GLOBAL
 	select HAVE_SYSCALL_TRACEPOINTS
 	select HAVE_VIRT_CPU_ACCOUNTING
 	select HAVE_VIRT_CPU_ACCOUNTING_IDLE
 	select HOTPLUG_SMT
 	select IOMMU_HELPER		if PCI
 	select IOMMU_SUPPORT		if PCI
+	select IRQ_MSI_LIB		if PCI
 	select KASAN_VMALLOC if KASAN
 	select LOCK_MM_AND_FIND_VMA
 	select MMU_GATHER_MERGE_VMAS
@@ -270,6 +279,7 @@ config S390
 	select SPARSE_IRQ
 	select SWIOTLB
 	select SYSCTL_EXCEPTION_TRACE
+	select SYSTEM_DATA_VERIFICATION if KEXEC_SIG
 	select THREAD_INFO_IN_TASK
 	select TRACE_IRQFLAGS_SUPPORT
 	select TTY
@@ -289,6 +299,14 @@ config PGTABLE_LEVELS
 
 source "kernel/livepatch/Kconfig"
 
+config ARCH_CC_CAN_LINK
+	bool
+	default $(cc_can_link_user,-m64)
+
+config ARCH_USERFLAGS
+	string
+	default "-m64"
+
 config ARCH_SUPPORTS_KEXEC
 	def_bool y
 
@@ -296,7 +314,7 @@ config ARCH_SUPPORTS_KEXEC_FILE
 	def_bool y
 
 config ARCH_SUPPORTS_KEXEC_SIG
-	def_bool MODULE_SIG_FORMAT
+	def_bool y
 
 config ARCH_SUPPORTS_KEXEC_PURGATORY
 	def_bool y
@@ -504,22 +522,6 @@ config COMMAND_LINE_SIZE
 	  This allows you to specify the maximum length of the kernel command
 	  line.
 
-config COMPAT
-	def_bool n
-	prompt "Kernel support for 31 bit emulation"
-	select ARCH_WANT_OLD_COMPAT_IPC
-	select COMPAT_OLD_SIGACTION
-	select HAVE_UID16
-	depends on MULTIUSER
-	depends on !CC_IS_CLANG && !LD_IS_LLD
-	help
-	  Select this option if you want to enable your system kernel to
-	  handle system-calls from ELF binaries for 31 bit ESA.  This option
-	  (and some other stuff like libraries and such) is needed for
-	  executing 31 bit applications.
-
-	  If unsure say N.
-
 config SMP
 	def_bool y
 
@@ -714,6 +716,10 @@ config ARCH_SPARSEMEM_ENABLE
 
 config ARCH_SPARSEMEM_DEFAULT
 	def_bool y
+
+config ILLEGAL_POINTER_VALUE
+	hex
+	default 0xdead000000000000
 
 config MAX_PHYSMEM_BITS
 	int "Maximum size of supported physical memory in bits (42-53)"

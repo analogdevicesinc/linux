@@ -215,8 +215,7 @@ check_hybrid:
 		sz = le32_to_cpu(mbr->partition_record[part].size_in_lba);
 		if (sz != (uint32_t) total_sectors - 1 && sz != 0xFFFFFFFF)
 			pr_debug("GPT: mbr size in lba (%u) different than whole disk (%u).\n",
-				 sz, min_t(uint32_t,
-					   total_sectors - 1, 0xFFFFFFFF));
+				 sz, (uint32_t)min(total_sectors - 1, 0xFFFFFFFF));
 	}
 done:
 	return ret;
@@ -596,7 +595,7 @@ static int find_valid_gpt(struct parsed_partitions *state, gpt_header **gpt,
 	lastlba = last_lba(state->disk);
         if (!force_gpt) {
 		/* This will be added to the EFI Spec. per Intel after v1.02. */
-		legacymbr = kzalloc(sizeof(*legacymbr), GFP_KERNEL);
+		legacymbr = kzalloc_obj(*legacymbr);
 		if (!legacymbr)
 			goto fail;
 

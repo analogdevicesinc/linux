@@ -13,18 +13,18 @@
  */
 
 #include <linux/aperture.h>
+#include <linux/clk.h>
 #include <linux/errno.h>
 #include <linux/fb.h>
 #include <linux/io.h>
 #include <linux/module.h>
-#include <linux/platform_data/simplefb.h>
-#include <linux/platform_device.h>
-#include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/of_clk.h>
 #include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/parser.h>
+#include <linux/platform_data/simplefb.h>
+#include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/regulator/consumer.h>
 
@@ -249,7 +249,7 @@ static int simplefb_clocks_get(struct simplefb_par *par,
 	if (!par->clk_count)
 		return 0;
 
-	par->clks = kcalloc(par->clk_count, sizeof(struct clk *), GFP_KERNEL);
+	par->clks = kzalloc_objs(struct clk *, par->clk_count);
 	if (!par->clks)
 		return -ENOMEM;
 

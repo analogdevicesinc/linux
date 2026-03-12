@@ -97,7 +97,7 @@ int settimeo(int fd, int timeout_ms)
 int start_server_addr(int type, const struct sockaddr_storage *addr, socklen_t addrlen,
 		      const struct network_helper_opts *opts)
 {
-	int fd;
+	int on = 1, fd;
 
 	if (!opts)
 		opts = &default_opts;
@@ -110,6 +110,12 @@ int start_server_addr(int type, const struct sockaddr_storage *addr, socklen_t a
 
 	if (settimeo(fd, opts->timeout_ms))
 		goto error_close;
+
+	if (type == SOCK_STREAM &&
+	    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) {
+		log_err("Failed to enable SO_REUSEADDR");
+		goto error_close;
+	}
 
 	if (opts->post_socket_cb &&
 	    opts->post_socket_cb(fd, opts->cb_opts)) {
@@ -426,7 +432,7 @@ int make_sockaddr(int family, const char *addr_str, __u16 port,
 		memset(addr, 0, sizeof(*sun));
 		sun->sun_family = family;
 		sun->sun_path[0] = 0;
-		strcpy(sun->sun_path + 1, addr_str);
+		strscpy(sun->sun_path + 1, addr_str, sizeof(sun->sun_path) - 1);
 		if (len)
 			*len = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(addr_str);
 		return 0;
@@ -575,8 +581,7 @@ int open_tuntap(const char *dev_name, bool need_mac)
 		return -1;
 
 	ifr.ifr_flags = IFF_NO_PI | (need_mac ? IFF_TAP : IFF_TUN);
-	strncpy(ifr.ifr_name, dev_name, IFNAMSIZ - 1);
-	ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+	strscpy(ifr.ifr_name, dev_name);
 
 	err = ioctl(fd, TUNSETIFF, &ifr);
 	if (!ASSERT_OK(err, "ioctl(TUNSETIFF)")) {
@@ -764,6 +769,50 @@ int send_recv_data(int lfd, int fd, uint32_t total_bytes)
 	}
 
 	return err;
+}
+
+int tc_prog_attach(const char *dev, int ingress_fd, int egress_fd)
+{
+	int ifindex, ret;
+
+	if (!ASSERT_TRUE(ingress_fd >= 0 || egress_fd >= 0,
+			 "at least one program fd is valid"))
+		return -1;
+
+	ifindex = if_nametoindex(dev);
+	if (!ASSERT_NEQ(ifindex, 0, "get ifindex"))
+		return -1;
+
+	DECLARE_LIBBPF_OPTS(bpf_tc_hook, hook, .ifindex = ifindex,
+			    .attach_point = BPF_TC_INGRESS | BPF_TC_EGRESS);
+	DECLARE_LIBBPF_OPTS(bpf_tc_opts, opts1, .handle = 1,
+			    .priority = 1, .prog_fd = ingress_fd);
+	DECLARE_LIBBPF_OPTS(bpf_tc_opts, opts2, .handle = 1,
+			    .priority = 1, .prog_fd = egress_fd);
+
+	ret = bpf_tc_hook_create(&hook);
+	if (!ASSERT_OK(ret, "create tc hook"))
+		return ret;
+
+	if (ingress_fd >= 0) {
+		hook.attach_point = BPF_TC_INGRESS;
+		ret = bpf_tc_attach(&hook, &opts1);
+		if (!ASSERT_OK(ret, "bpf_tc_attach")) {
+			bpf_tc_hook_destroy(&hook);
+			return ret;
+		}
+	}
+
+	if (egress_fd >= 0) {
+		hook.attach_point = BPF_TC_EGRESS;
+		ret = bpf_tc_attach(&hook, &opts2);
+		if (!ASSERT_OK(ret, "bpf_tc_attach")) {
+			bpf_tc_hook_destroy(&hook);
+			return ret;
+		}
+	}
+
+	return 0;
 }
 
 #ifdef TRAFFIC_MONITOR

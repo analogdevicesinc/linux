@@ -345,8 +345,7 @@ int gve_tx_alloc_rings_gqi(struct gve_priv *priv,
 		return -EINVAL;
 	}
 
-	tx = kvcalloc(cfg->qcfg->max_queues, sizeof(struct gve_tx_ring),
-		      GFP_KERNEL);
+	tx = kvzalloc_objs(struct gve_tx_ring, cfg->qcfg->max_queues);
 	if (!tx)
 		return -ENOMEM;
 
@@ -730,7 +729,9 @@ unmap_drop:
 		gve_tx_unmap_buf(tx->dev, &tx->info[idx & tx->mask]);
 	}
 drop:
+	u64_stats_update_begin(&tx->statss);
 	tx->dropped_pkt++;
+	u64_stats_update_end(&tx->statss);
 	return 0;
 }
 

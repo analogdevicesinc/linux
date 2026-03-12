@@ -12,6 +12,7 @@
 
 #include <linux/dcache.h>
 #include <linux/file.h>
+#include <linux/fips.h>
 #include <linux/module.h>
 #include <linux/namei.h>
 #include <linux/skbuff.h>
@@ -22,6 +23,7 @@
 #include <linux/fs_stack.h>
 #include <linux/sysfs.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/magic.h>
 #include "ecryptfs_kernel.h"
 
@@ -353,13 +355,13 @@ static int ecryptfs_validate_options(struct fs_context *fc)
 		int cipher_name_len = strlen(ECRYPTFS_DEFAULT_CIPHER);
 
 		BUG_ON(cipher_name_len > ECRYPTFS_MAX_CIPHER_NAME_SIZE);
-		strcpy(mount_crypt_stat->global_default_cipher_name,
-		       ECRYPTFS_DEFAULT_CIPHER);
+		strscpy(mount_crypt_stat->global_default_cipher_name,
+			ECRYPTFS_DEFAULT_CIPHER);
 	}
 	if ((mount_crypt_stat->flags & ECRYPTFS_GLOBAL_ENCRYPT_FILENAMES)
 	    && !ctx->fn_cipher_name_set)
-		strcpy(mount_crypt_stat->global_default_fn_cipher_name,
-		       mount_crypt_stat->global_default_cipher_name);
+		strscpy(mount_crypt_stat->global_default_fn_cipher_name,
+			mount_crypt_stat->global_default_cipher_name);
 	if (!ctx->cipher_key_bytes_set)
 		mount_crypt_stat->global_default_cipher_key_size = 0;
 	if ((mount_crypt_stat->flags & ECRYPTFS_GLOBAL_ENCRYPT_FILENAMES)
@@ -451,6 +453,12 @@ static int ecryptfs_get_tree(struct fs_context *fc)
 	rc = ecryptfs_validate_options(fc);
 	if (rc) {
 		err = "Error validating options";
+		goto out;
+	}
+
+	if (fips_enabled) {
+		rc = -EINVAL;
+		err = "eCryptfs support is disabled due to FIPS";
 		goto out;
 	}
 
@@ -602,7 +610,7 @@ static int ecryptfs_init_fs_context(struct fs_context *fc)
 	struct ecryptfs_fs_context *ctx;
 	struct ecryptfs_sb_info *sbi = NULL;
 
-	ctx = kzalloc(sizeof(struct ecryptfs_fs_context), GFP_KERNEL);
+	ctx = kzalloc_obj(struct ecryptfs_fs_context);
 	if (!ctx)
 		return -ENOMEM;
 	sbi = kmem_cache_zalloc(ecryptfs_sb_info_cache, GFP_KERNEL);

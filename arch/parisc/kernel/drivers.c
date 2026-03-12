@@ -418,7 +418,7 @@ static void setup_bus_id(struct parisc_device *padev)
 static struct parisc_device * __init create_tree_node(char id,
 						      struct device *parent)
 {
-	struct parisc_device *dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	struct parisc_device *dev = kzalloc_obj(*dev);
 	if (!dev)
 		return NULL;
 
@@ -435,7 +435,7 @@ static struct parisc_device * __init create_tree_node(char id,
 	dev->dev.dma_mask = &dev->dma_mask;
 	dev->dev.coherent_dma_mask = dev->dma_mask;
 	if (device_register(&dev->dev)) {
-		kfree(dev);
+		put_device(&dev->dev);
 		return NULL;
 	}
 
@@ -916,14 +916,18 @@ static __init void qemu_header(void)
 {
 	int num;
 	unsigned long *p;
+	char name_mpe[80];
 
 	pr_info("--- cut here ---\n");
 	pr_info("/* AUTO-GENERATED HEADER FILE FOR SEABIOS FIRMWARE */\n");
 	pr_cont("/* generated with Linux kernel */\n");
 	pr_cont("/* search for PARISC_QEMU_MACHINE_HEADER in Linux */\n\n");
 
-	pr_info("#define PARISC_MODEL \"%s\"\n\n",
+	pr_info("#define PARISC_MODEL     \"%s\"\n",
 			boot_cpu_data.pdc.sys_model_name);
+	strcpy(name_mpe, boot_cpu_data.pdc.sys_model_name);
+	pdc_model_sysmodel(OS_ID_MPEXL, name_mpe);
+	pr_info("#define PARISC_MODEL_MPE \"%s\"\n\n", name_mpe);
 
 	#define p ((unsigned long *)&boot_cpu_data.pdc.model)
 	pr_info("#define PARISC_PDC_MODEL 0x%lx, 0x%lx, 0x%lx, "
@@ -1036,18 +1040,14 @@ static __init int qemu_print_iodc_data(struct device *lin_dev, void *data)
 		"mod_path_hpa_%08lx = {\n", hpa);
 	pr_cont("\t.path = { ");
 	pr_cont(".flags = 0x%x, ", mod_path.path.flags);
-	pr_cont(".bc = { 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x }, ",
+	pr_cont(".bc = { 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x }, ",
 		(unsigned char)mod_path.path.bc[0],
 		(unsigned char)mod_path.path.bc[1],
 		(unsigned char)mod_path.path.bc[2],
 		(unsigned char)mod_path.path.bc[3],
 		(unsigned char)mod_path.path.bc[4],
 		(unsigned char)mod_path.path.bc[5]);
-	pr_cont(".mod = 0x%x ", mod_path.path.mod);
-	pr_cont(" },\n");
-	pr_cont("\t.layers = { 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x }\n",
-		mod_path.layers[0], mod_path.layers[1], mod_path.layers[2],
-		mod_path.layers[3], mod_path.layers[4], mod_path.layers[5]);
+	pr_cont(".mod = 0x%02x }\n", (unsigned char)mod_path.path.mod);
 	pr_cont("};\n");
 
 	pr_info("static struct pdc_iodc iodc_data_hpa_%08lx = {\n", hpa);
@@ -1067,8 +1067,6 @@ static __init int qemu_print_iodc_data(struct device *lin_dev, void *data)
 	DO(checksum);
 	DO(length);
 	#undef DO
-	pr_cont("\t/* pad: 0x%04x, 0x%04x */\n",
-		iodc_data.pad[0], iodc_data.pad[1]);
 	pr_cont("};\n");
 
 	pr_info("#define HPA_%08lx_num_addr %d\n", hpa, dev->num_addrs);

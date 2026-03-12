@@ -32,7 +32,6 @@ test_cpp
 /cpuv4
 /host-tools
 /tools
-/runqslower
 /bench
 /veristat
 /sign-file
@@ -45,3 +44,6 @@ xdp_synproxy
 xdp_hw_metadata
 xdp_features
 verification_cert.h
+*.BTF
+*.BTF_ids
+*.BTF.base

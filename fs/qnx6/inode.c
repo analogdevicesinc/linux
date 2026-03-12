@@ -302,7 +302,7 @@ static int qnx6_fill_super(struct super_block *s, struct fs_context *fc)
 	int bootblock_offset = QNX6_BOOTBLOCK_SIZE;
 	int silent = fc->sb_flags & SB_SILENT;
 
-	qs = kzalloc(sizeof(struct qnx6_sb_info), GFP_KERNEL);
+	qs = kzalloc_obj(struct qnx6_sb_info);
 	if (!qs)
 		return -ENOMEM;
 	s->s_fs_info = qs;
@@ -521,7 +521,7 @@ struct inode *qnx6_iget(struct super_block *sb, unsigned ino)
 	inode = iget_locked(sb, ino);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
-	if (!(inode->i_state & I_NEW))
+	if (!(inode_state_read_once(inode) & I_NEW))
 		return inode;
 
 	ei = QNX6_I(inode);
@@ -645,7 +645,7 @@ static int qnx6_init_fs_context(struct fs_context *fc)
 {
 	struct qnx6_context *ctx;
 
-	ctx = kzalloc(sizeof(struct qnx6_context), GFP_KERNEL);
+	ctx = kzalloc_obj(struct qnx6_context);
 	if (!ctx)
 		return -ENOMEM;
 	fc->ops = &qnx6_context_ops;

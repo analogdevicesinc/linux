@@ -139,7 +139,6 @@ struct mapped_device {
 	struct srcu_struct io_barrier;
 
 #ifdef CONFIG_BLK_DEV_ZONED
-	unsigned int nr_zones;
 	void *zone_revalidate_map;
 	struct task_struct *revalidate_map_task;
 #endif
@@ -216,7 +215,6 @@ struct dm_table {
 
 	/* a list of devices used by this table */
 	struct list_head devices;
-	struct rw_semaphore devices_lock;
 
 	/* events get handed up using this callback */
 	void (*event_fn)(void *data);

@@ -78,6 +78,7 @@
 
 
 #ifndef mmBIOS_SCRATCH_2
+	#define mmBIOS_SCRATCH_0 0x05C9
 	#define mmBIOS_SCRATCH_2 0x05CB
 	#define mmBIOS_SCRATCH_3 0x05CC
 	#define mmBIOS_SCRATCH_6 0x05CF
@@ -241,6 +242,7 @@ static const struct dce110_link_enc_registers link_enc_regs[] = {
 	link_regs(4),
 	link_regs(5),
 	link_regs(6),
+	{0}
 };
 
 #define stream_enc_regs(id)\
@@ -256,7 +258,8 @@ static const struct dce110_stream_enc_registers stream_enc_regs[] = {
 	stream_enc_regs(3),
 	stream_enc_regs(4),
 	stream_enc_regs(5),
-	stream_enc_regs(6)
+	stream_enc_regs(6),
+	{SR(DAC_SOURCE_SELECT),} /* DACA */
 };
 
 static const struct dce_stream_encoder_shift se_shift = {
@@ -368,6 +371,7 @@ static const struct dce110_clk_src_mask cs_mask = {
 };
 
 static const struct bios_registers bios_regs = {
+	.BIOS_SCRATCH_0 = mmBIOS_SCRATCH_0,
 	.BIOS_SCRATCH_3 = mmBIOS_SCRATCH_3,
 	.BIOS_SCRATCH_6 = mmBIOS_SCRATCH_6
 };
@@ -375,6 +379,7 @@ static const struct bios_registers bios_regs = {
 static const struct resource_caps res_cap = {
 		.num_timing_generator = 6,
 		.num_audio = 6,
+		.num_analog_stream_encoder = 1,
 		.num_stream_encoder = 6,
 		.num_pll = 3,
 		.num_ddc = 6,
@@ -383,6 +388,7 @@ static const struct resource_caps res_cap = {
 static const struct resource_caps res_cap_81 = {
 		.num_timing_generator = 4,
 		.num_audio = 7,
+		.num_analog_stream_encoder = 1,
 		.num_stream_encoder = 7,
 		.num_pll = 3,
 		.num_ddc = 6,
@@ -391,6 +397,7 @@ static const struct resource_caps res_cap_81 = {
 static const struct resource_caps res_cap_83 = {
 		.num_timing_generator = 2,
 		.num_audio = 6,
+		.num_analog_stream_encoder = 1,
 		.num_stream_encoder = 6,
 		.num_pll = 2,
 		.num_ddc = 2,
@@ -418,8 +425,10 @@ static const struct dc_plane_cap plane_cap = {
 	}
 };
 
-static const struct dc_debug_options debug_defaults = {
-		.enable_legacy_fast_update = true,
+static const struct dc_debug_options debug_defaults = { 0 };
+
+static const struct dc_check_config config_defaults = {
+	.enable_legacy_fast_update = true,
 };
 
 static const struct dce_dmcu_registers dmcu_regs = {
@@ -504,7 +513,7 @@ static struct timing_generator *dce80_timing_generator_create(
 		const struct dce110_timing_generator_offsets *offsets)
 {
 	struct dce110_timing_generator *tg110 =
-		kzalloc(sizeof(struct dce110_timing_generator), GFP_KERNEL);
+		kzalloc_obj(struct dce110_timing_generator);
 
 	if (!tg110)
 		return NULL;
@@ -518,7 +527,7 @@ static struct output_pixel_processor *dce80_opp_create(
 	uint32_t inst)
 {
 	struct dce110_opp *opp =
-		kzalloc(sizeof(struct dce110_opp), GFP_KERNEL);
+		kzalloc_obj(struct dce110_opp);
 
 	if (!opp)
 		return NULL;
@@ -533,7 +542,7 @@ static struct dce_aux *dce80_aux_engine_create(
 	uint32_t inst)
 {
 	struct aux_engine_dce110 *aux_engine =
-		kzalloc(sizeof(struct aux_engine_dce110), GFP_KERNEL);
+		kzalloc_obj(struct aux_engine_dce110);
 
 	if (!aux_engine)
 		return NULL;
@@ -571,7 +580,7 @@ static struct dce_i2c_hw *dce80_i2c_hw_create(
 	uint32_t inst)
 {
 	struct dce_i2c_hw *dce_i2c_hw =
-		kzalloc(sizeof(struct dce_i2c_hw), GFP_KERNEL);
+		kzalloc_obj(struct dce_i2c_hw);
 
 	if (!dce_i2c_hw)
 		return NULL;
@@ -586,7 +595,7 @@ static struct dce_i2c_sw *dce80_i2c_sw_create(
 	struct dc_context *ctx)
 {
 	struct dce_i2c_sw *dce_i2c_sw =
-		kzalloc(sizeof(struct dce_i2c_sw), GFP_KERNEL);
+		kzalloc_obj(struct dce_i2c_sw);
 
 	if (!dce_i2c_sw)
 		return NULL;
@@ -600,10 +609,16 @@ static struct stream_encoder *dce80_stream_encoder_create(
 	struct dc_context *ctx)
 {
 	struct dce110_stream_encoder *enc110 =
-		kzalloc(sizeof(struct dce110_stream_encoder), GFP_KERNEL);
+		kzalloc_obj(struct dce110_stream_encoder);
 
 	if (!enc110)
 		return NULL;
+
+	if (eng_id == ENGINE_ID_DACA || eng_id == ENGINE_ID_DACB) {
+		dce110_analog_stream_encoder_construct(enc110, ctx, ctx->dc_bios, eng_id,
+			&stream_enc_regs[eng_id], &se_shift, &se_mask);
+		return &enc110->base;
+	}
 
 	dce110_stream_encoder_construct(enc110, ctx, ctx->dc_bios, eng_id,
 					&stream_enc_regs[eng_id],
@@ -629,7 +644,7 @@ static const struct dce_hwseq_mask hwseq_mask = {
 static struct dce_hwseq *dce80_hwseq_create(
 	struct dc_context *ctx)
 {
-	struct dce_hwseq *hws = kzalloc(sizeof(struct dce_hwseq), GFP_KERNEL);
+	struct dce_hwseq *hws = kzalloc_obj(struct dce_hwseq);
 
 	if (hws) {
 		hws->ctx = ctx;
@@ -674,8 +689,7 @@ static struct mem_input *dce80_mem_input_create(
 	struct dc_context *ctx,
 	uint32_t inst)
 {
-	struct dce_mem_input *dce_mi = kzalloc(sizeof(struct dce_mem_input),
-					       GFP_KERNEL);
+	struct dce_mem_input *dce_mi = kzalloc_obj(struct dce_mem_input);
 
 	if (!dce_mi) {
 		BREAK_TO_DEBUGGER();
@@ -698,7 +712,7 @@ static struct transform *dce80_transform_create(
 	uint32_t inst)
 {
 	struct dce_transform *transform =
-		kzalloc(sizeof(struct dce_transform), GFP_KERNEL);
+		kzalloc_obj(struct dce_transform);
 
 	if (!transform)
 		return NULL;
@@ -721,10 +735,24 @@ static struct link_encoder *dce80_link_encoder_create(
 	const struct encoder_init_data *enc_init_data)
 {
 	struct dce110_link_encoder *enc110 =
-		kzalloc(sizeof(struct dce110_link_encoder), GFP_KERNEL);
+		kzalloc_obj(struct dce110_link_encoder);
 	int link_regs_id;
 
-	if (!enc110 || enc_init_data->hpd_source >= ARRAY_SIZE(link_enc_hpd_regs))
+	if (!enc110)
+		return NULL;
+
+	if (enc_init_data->connector.id == CONNECTOR_ID_VGA &&
+	    enc_init_data->analog_engine != ENGINE_ID_UNKNOWN) {
+		dce110_link_encoder_construct(enc110,
+			enc_init_data,
+			&link_enc_feature,
+			&link_enc_regs[ENGINE_ID_DACA],
+			NULL,
+			NULL);
+		return &enc110->base;
+	}
+
+	if (enc_init_data->hpd_source >= ARRAY_SIZE(link_enc_hpd_regs))
 		return NULL;
 
 	link_regs_id =
@@ -742,7 +770,7 @@ static struct link_encoder *dce80_link_encoder_create(
 static struct panel_cntl *dce80_panel_cntl_create(const struct panel_cntl_init_data *init_data)
 {
 	struct dce_panel_cntl *panel_cntl =
-		kzalloc(sizeof(struct dce_panel_cntl), GFP_KERNEL);
+		kzalloc_obj(struct dce_panel_cntl);
 
 	if (!panel_cntl)
 		return NULL;
@@ -764,7 +792,7 @@ static struct clock_source *dce80_clock_source_create(
 	bool dp_clk_src)
 {
 	struct dce110_clk_src *clk_src =
-		kzalloc(sizeof(struct dce110_clk_src), GFP_KERNEL);
+		kzalloc_obj(struct dce110_clk_src);
 
 	if (!clk_src)
 		return NULL;
@@ -789,7 +817,7 @@ static void dce80_clock_source_destroy(struct clock_source **clk_src)
 static struct input_pixel_processor *dce80_ipp_create(
 	struct dc_context *ctx, uint32_t inst)
 {
-	struct dce_ipp *ipp = kzalloc(sizeof(struct dce_ipp), GFP_KERNEL);
+	struct dce_ipp *ipp = kzalloc_obj(struct dce_ipp);
 
 	if (!ipp) {
 		BREAK_TO_DEBUGGER();
@@ -919,6 +947,7 @@ static bool dce80_construct(
 	dc->caps.dual_link_dvi = true;
 	dc->caps.extended_aux_timeout_support = false;
 	dc->debug = debug_defaults;
+	dc->check_config = config_defaults;
 
 	/*************************************************
 	 *  Create resources                             *
@@ -1079,7 +1108,7 @@ struct resource_pool *dce80_create_resource_pool(
 	struct dc *dc)
 {
 	struct dce110_resource_pool *pool =
-		kzalloc(sizeof(struct dce110_resource_pool), GFP_KERNEL);
+		kzalloc_obj(struct dce110_resource_pool);
 
 	if (!pool)
 		return NULL;
@@ -1279,7 +1308,7 @@ struct resource_pool *dce81_create_resource_pool(
 	struct dc *dc)
 {
 	struct dce110_resource_pool *pool =
-		kzalloc(sizeof(struct dce110_resource_pool), GFP_KERNEL);
+		kzalloc_obj(struct dce110_resource_pool);
 
 	if (!pool)
 		return NULL;
@@ -1320,6 +1349,7 @@ static bool dce83_construct(
 	dc->caps.min_horizontal_blanking_period = 80;
 	dc->caps.is_apu = true;
 	dc->debug = debug_defaults;
+	dc->check_config = config_defaults;
 
 	/*************************************************
 	 *  Create resources                             *
@@ -1476,7 +1506,7 @@ struct resource_pool *dce83_create_resource_pool(
 	struct dc *dc)
 {
 	struct dce110_resource_pool *pool =
-		kzalloc(sizeof(struct dce110_resource_pool), GFP_KERNEL);
+		kzalloc_obj(struct dce110_resource_pool);
 
 	if (!pool)
 		return NULL;

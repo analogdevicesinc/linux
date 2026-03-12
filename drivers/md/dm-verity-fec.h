@@ -17,14 +17,7 @@
 #define DM_VERITY_FEC_MIN_RSN		231	/* ~10% space overhead */
 
 /* buffers for deinterleaving and decoding */
-#define DM_VERITY_FEC_BUF_PREALLOC	1	/* buffers to preallocate */
 #define DM_VERITY_FEC_BUF_RS_BITS	4	/* 1 << RS blocks per buffer */
-/* we need buffers for at most 1 << block size RS blocks */
-#define DM_VERITY_FEC_BUF_MAX \
-	(1 << (PAGE_SHIFT - DM_VERITY_FEC_BUF_RS_BITS))
-
-/* maximum recursion level for verity_fec_decode */
-#define DM_VERITY_FEC_MAX_RECURSION	4
 
 #define DM_VERITY_OPT_FEC_DEV		"use_fec_from_device"
 #define DM_VERITY_OPT_FEC_BLOCKS	"fec_blocks"
@@ -43,21 +36,29 @@ struct dm_verity_fec {
 	sector_t hash_blocks;	/* blocks covered after v->hash_start */
 	unsigned char roots;	/* number of parity bytes, M-N of RS(M, N) */
 	unsigned char rsn;	/* N of RS(M, N) */
+	mempool_t fio_pool;	/* mempool for dm_verity_fec_io */
 	mempool_t rs_pool;	/* mempool for fio->rs */
 	mempool_t prealloc_pool;	/* mempool for preallocated buffers */
-	mempool_t extra_pool;	/* mempool for extra buffers */
 	mempool_t output_pool;	/* mempool for output */
 	struct kmem_cache *cache;	/* cache for buffers */
+	atomic64_t corrected; /* corrected errors */
 };
 
 /* per-bio data */
 struct dm_verity_fec_io {
 	struct rs_control *rs;	/* Reed-Solomon state */
 	int erasures[DM_VERITY_FEC_MAX_RSN];	/* erasures for decode_rs8 */
-	u8 *bufs[DM_VERITY_FEC_BUF_MAX];	/* bufs for deinterleaving */
-	unsigned int nbufs;		/* number of buffers allocated */
 	u8 *output;		/* buffer for corrected output */
 	unsigned int level;		/* recursion level */
+	unsigned int nbufs;		/* number of buffers allocated */
+	/*
+	 * Buffers for deinterleaving RS blocks.  Each buffer has space for
+	 * the data bytes of (1 << DM_VERITY_FEC_BUF_RS_BITS) RS blocks.  The
+	 * array length is fec_max_nbufs(v), and we try to allocate that many
+	 * buffers.  However, in low-memory situations we may be unable to
+	 * allocate all buffers.  'nbufs' holds the number actually allocated.
+	 */
+	u8 *bufs[];
 };
 
 #ifdef CONFIG_DM_VERITY_FEC
@@ -65,17 +66,30 @@ struct dm_verity_fec_io {
 /* each feature parameter requires a value */
 #define DM_VERITY_OPTS_FEC	8
 
-extern bool verity_fec_is_enabled(struct dm_verity *v);
+/* Returns true if forward error correction is enabled. */
+static inline bool verity_fec_is_enabled(struct dm_verity *v)
+{
+	return v->fec && v->fec->dev;
+}
 
 extern int verity_fec_decode(struct dm_verity *v, struct dm_verity_io *io,
-			     enum verity_block_type type, sector_t block,
-			     u8 *dest);
+			     enum verity_block_type type, const u8 *want_digest,
+			     sector_t block, u8 *dest);
 
 extern unsigned int verity_fec_status_table(struct dm_verity *v, unsigned int sz,
 					char *result, unsigned int maxlen);
 
-extern void verity_fec_finish_io(struct dm_verity_io *io);
-extern void verity_fec_init_io(struct dm_verity_io *io);
+extern void __verity_fec_finish_io(struct dm_verity_io *io);
+static inline void verity_fec_finish_io(struct dm_verity_io *io)
+{
+	if (unlikely(io->fec_io))
+		__verity_fec_finish_io(io);
+}
+
+static inline void verity_fec_init_io(struct dm_verity_io *io)
+{
+	io->fec_io = NULL;
+}
 
 extern bool verity_is_fec_opt_arg(const char *arg_name);
 extern int verity_fec_parse_opt_args(struct dm_arg_set *as,
@@ -99,6 +113,7 @@ static inline bool verity_fec_is_enabled(struct dm_verity *v)
 static inline int verity_fec_decode(struct dm_verity *v,
 				    struct dm_verity_io *io,
 				    enum verity_block_type type,
+				    const u8 *want_digest,
 				    sector_t block, u8 *dest)
 {
 	return -EOPNOTSUPP;

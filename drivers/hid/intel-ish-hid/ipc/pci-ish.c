@@ -28,11 +28,15 @@ enum ishtp_driver_data_index {
 	ISHTP_DRIVER_DATA_LNL_M,
 	ISHTP_DRIVER_DATA_PTL,
 	ISHTP_DRIVER_DATA_WCL,
+	ISHTP_DRIVER_DATA_NVL_H,
+	ISHTP_DRIVER_DATA_NVL_S,
 };
 
 #define ISH_FW_GEN_LNL_M "lnlm"
 #define ISH_FW_GEN_PTL "ptl"
 #define ISH_FW_GEN_WCL "wcl"
+#define ISH_FW_GEN_NVL_H "nvlh"
+#define ISH_FW_GEN_NVL_S "nvls"
 
 #define ISH_FIRMWARE_PATH(gen) "intel/ish/ish_" gen ".bin"
 #define ISH_FIRMWARE_PATH_ALL "intel/ish/ish_*.bin"
@@ -46,6 +50,12 @@ static struct ishtp_driver_data ishtp_driver_data[] = {
 	},
 	[ISHTP_DRIVER_DATA_WCL] = {
 		.fw_generation = ISH_FW_GEN_WCL,
+	},
+	[ISHTP_DRIVER_DATA_NVL_H] = {
+		.fw_generation = ISH_FW_GEN_NVL_H,
+	},
+	[ISHTP_DRIVER_DATA_NVL_S] = {
+		.fw_generation = ISH_FW_GEN_NVL_S,
 	},
 };
 
@@ -76,6 +86,8 @@ static const struct pci_device_id ish_pci_tbl[] = {
 	{PCI_DEVICE_DATA(INTEL, ISH_PTL_H, ISHTP_DRIVER_DATA_PTL)},
 	{PCI_DEVICE_DATA(INTEL, ISH_PTL_P, ISHTP_DRIVER_DATA_PTL)},
 	{PCI_DEVICE_DATA(INTEL, ISH_WCL, ISHTP_DRIVER_DATA_WCL)},
+	{PCI_DEVICE_DATA(INTEL, ISH_NVL_H, ISHTP_DRIVER_DATA_NVL_H)},
+	{PCI_DEVICE_DATA(INTEL, ISH_NVL_S, ISHTP_DRIVER_DATA_NVL_S)},
 	{}
 };
 MODULE_DEVICE_TABLE(pci, ish_pci_tbl);
@@ -147,6 +159,12 @@ static inline bool ish_should_enter_d0i3(struct pci_dev *pdev)
 
 static inline bool ish_should_leave_d0i3(struct pci_dev *pdev)
 {
+	struct ishtp_device *dev = pci_get_drvdata(pdev);
+	u32 fwsts = dev->ops->get_fw_status(dev);
+
+	if (dev->suspend_flag || !IPC_IS_ISH_ILUP(fwsts))
+		return false;
+
 	return !pm_resume_via_firmware() || pdev->device == PCI_DEVICE_ID_INTEL_ISH_CHV;
 }
 
@@ -277,10 +295,8 @@ static void __maybe_unused ish_resume_handler(struct work_struct *work)
 {
 	struct pci_dev *pdev = to_pci_dev(ish_resume_device);
 	struct ishtp_device *dev = pci_get_drvdata(pdev);
-	uint32_t fwsts = dev->ops->get_fw_status(dev);
 
-	if (ish_should_leave_d0i3(pdev) && !dev->suspend_flag
-			&& IPC_IS_ISH_ILUP(fwsts)) {
+	if (ish_should_leave_d0i3(pdev)) {
 		if (device_may_wakeup(&pdev->dev))
 			disable_irq_wake(pdev->irq);
 
@@ -384,12 +400,29 @@ static int __maybe_unused ish_resume(struct device *device)
 	ish_resume_device = device;
 	dev->resume_flag = 1;
 
-	schedule_work(&resume_work);
+	/* If ISH resume from D3, reset ishtp clients before return */
+	if (!ish_should_leave_d0i3(pdev))
+		ishtp_reset_handler(dev);
+
+	queue_work(dev->unbound_wq, &resume_work);
 
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(ish_pm_ops, ish_suspend, ish_resume);
+static int __maybe_unused ish_freeze(struct device *device)
+{
+	struct pci_dev *pdev = to_pci_dev(device);
+
+	return pci_save_state(pdev);
+}
+
+static const struct dev_pm_ops __maybe_unused ish_pm_ops = {
+	.suspend = pm_sleep_ptr(ish_suspend),
+	.resume = pm_sleep_ptr(ish_resume),
+	.freeze = pm_sleep_ptr(ish_freeze),
+	.restore = pm_sleep_ptr(ish_resume),
+	.poweroff = pm_sleep_ptr(ish_suspend),
+};
 
 static ssize_t base_version_show(struct device *cdev,
 				 struct device_attribute *attr, char *buf)

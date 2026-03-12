@@ -463,7 +463,7 @@ static int tegra_cpufreq_init_cpufreq_table(struct cpufreq_policy *policy,
 		return ret;
 	}
 
-	freq_table = kcalloc((max_opps + 1), sizeof(*freq_table), GFP_KERNEL);
+	freq_table = kzalloc_objs(*freq_table, (max_opps + 1));
 	if (!freq_table)
 		return -ENOMEM;
 
@@ -750,7 +750,8 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 	if (IS_ERR(bpmp))
 		return PTR_ERR(bpmp);
 
-	read_counters_wq = alloc_workqueue("read_counters_wq", __WQ_LEGACY, 1);
+	read_counters_wq = alloc_workqueue("read_counters_wq",
+					   __WQ_LEGACY | WQ_PERCPU, 1);
 	if (!read_counters_wq) {
 		dev_err(&pdev->dev, "fail to create_workqueue\n");
 		err = -EINVAL;

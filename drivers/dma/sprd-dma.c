@@ -901,7 +901,7 @@ sprd_dma_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dest, dma_addr_t src,
 	enum sprd_dma_datawidth datawidth;
 	u32 step, temp;
 
-	sdesc = kzalloc(sizeof(*sdesc), GFP_NOWAIT);
+	sdesc = kzalloc_obj(*sdesc, GFP_NOWAIT);
 	if (!sdesc)
 		return NULL;
 
@@ -986,7 +986,7 @@ sprd_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		(flags >> SPRD_DMA_TRG_MODE_SHIFT) & SPRD_DMA_TRG_MODE_MASK;
 	schan->int_type = flags & SPRD_DMA_INT_TYPE_MASK;
 
-	sdesc = kzalloc(sizeof(*sdesc), GFP_NOWAIT);
+	sdesc = kzalloc_obj(*sdesc, GFP_NOWAIT);
 	if (!sdesc)
 		return NULL;
 
@@ -1311,4 +1311,3 @@ MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("DMA driver for Spreadtrum");
 MODULE_AUTHOR("Baolin Wang <baolin.wang@spreadtrum.com>");
 MODULE_AUTHOR("Eric Long <eric.long@spreadtrum.com>");
-MODULE_ALIAS("platform:sprd-dma");

@@ -110,6 +110,8 @@
 #include <linux/interrupt.h>
 #include <linux/string_helpers.h>
 
+#include <drm/drm_print.h>
+
 #include "gen8_engine_cs.h"
 #include "i915_drv.h"
 #include "i915_list_util.h"
@@ -2252,7 +2254,7 @@ static struct execlists_capture *capture_regs(struct intel_engine_cs *engine)
 	const gfp_t gfp = GFP_ATOMIC | __GFP_NOWARN;
 	struct execlists_capture *cap;
 
-	cap = kmalloc(sizeof(*cap), gfp);
+	cap = kmalloc_obj(*cap, gfp);
 	if (!cap)
 		return NULL;
 
@@ -3932,7 +3934,7 @@ execlists_create_virtual(struct intel_engine_cs **siblings, unsigned int count,
 	unsigned int n;
 	int err;
 
-	ve = kzalloc(struct_size(ve, siblings, count), GFP_KERNEL);
+	ve = kzalloc_flex(*ve, siblings, count);
 	if (!ve)
 		return ERR_PTR(-ENOMEM);
 

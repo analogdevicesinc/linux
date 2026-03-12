@@ -30,19 +30,23 @@ struct netns_sysctl_ipv6 {
 	int ip6_rt_min_advmss;
 	u32 multipath_hash_fields;
 	u8 multipath_hash_policy;
-	u8 bindv6only;
+
+	__cacheline_group_begin(sysctl_ipv6_flowlabel);
 	u8 flowlabel_consistency;
 	u8 auto_flowlabels;
-	int icmpv6_time;
+	u8 flowlabel_state_ranges;
+	__cacheline_group_end(sysctl_ipv6_flowlabel);
+
 	u8 icmpv6_echo_ignore_all;
 	u8 icmpv6_echo_ignore_multicast;
 	u8 icmpv6_echo_ignore_anycast;
+	int icmpv6_time;
 	DECLARE_BITMAP(icmpv6_ratemask, ICMPV6_MSG_MAX + 1);
 	unsigned long *icmpv6_ratemask_ptr;
 	u8 anycast_src_echo_reply;
+	u8 bindv6only;
 	u8 ip_nonlocal_bind;
 	u8 fwmark_reflect;
-	u8 flowlabel_state_ranges;
 	int idgen_retries;
 	int idgen_delay;
 	int flowlabel_reflect;
@@ -56,6 +60,7 @@ struct netns_sysctl_ipv6 {
 	u8 skip_notify_on_dev_down;
 	u8 fib_notify_on_flag_change;
 	u8 icmpv6_error_anycast_as_unicast;
+	u8 icmpv6_errors_extension_mask;
 };
 
 struct netns_ipv6 {

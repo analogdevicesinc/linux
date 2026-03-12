@@ -4,6 +4,7 @@
  */
 
 #include <drm/drm_fourcc.h>
+#include <drm/drm_print.h>
 
 #include "display/intel_display.h"
 #include "gem/i915_gem_ioctls.h"
@@ -53,9 +54,7 @@ static int object_set_placements(struct drm_i915_gem_object *obj,
 		obj->mm.placements = &i915->mm.regions[mr->id];
 		obj->mm.n_placements = 1;
 	} else {
-		arr = kmalloc_array(n_placements,
-				    sizeof(struct intel_memory_region *),
-				    GFP_KERNEL);
+		arr = kmalloc_objs(struct intel_memory_region *, n_placements);
 		if (!arr)
 			return -ENOMEM;
 
@@ -193,8 +192,8 @@ i915_gem_dumb_create(struct drm_file *file,
 	args->pitch = ALIGN(args->width * cpp, 64);
 
 	/* align stride to page size so that we can remap */
-	if (args->pitch > intel_plane_fb_max_stride(dev, format,
-						    DRM_FORMAT_MOD_LINEAR))
+	if (args->pitch > intel_dumb_fb_max_stride(dev, format,
+						   DRM_FORMAT_MOD_LINEAR))
 		args->pitch = ALIGN(args->pitch, 4096);
 
 	if (args->pitch < args->width)

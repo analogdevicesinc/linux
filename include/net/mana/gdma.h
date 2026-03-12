@@ -35,6 +35,8 @@ enum gdma_request_type {
 	GDMA_CREATE_MR			= 31,
 	GDMA_DESTROY_MR			= 32,
 	GDMA_QUERY_HWC_TIMEOUT		= 84, /* 0x54 */
+	GDMA_ALLOC_DM			= 96, /* 0x60 */
+	GDMA_DESTROY_DM			= 97, /* 0x61 */
 };
 
 #define GDMA_RESOURCE_DOORBELL_PAGE	27
@@ -382,6 +384,10 @@ struct gdma_irq_context {
 	char name[MANA_IRQ_NAME_SZ];
 };
 
+enum gdma_context_flags {
+	GC_PROBE_SUCCEEDED	= 0,
+};
+
 struct gdma_context {
 	struct device		*dev;
 	struct dentry		*mana_pci_debugfs;
@@ -430,6 +436,8 @@ struct gdma_context {
 	u64 pf_cap_flags1;
 
 	struct workqueue_struct *service_wq;
+
+	unsigned long		flags;
 };
 
 static inline bool mana_gd_is_mana(struct gdma_dev *gd)
@@ -485,6 +493,8 @@ struct gdma_wqe {
 
 #define INLINE_OOB_SMALL_SIZE 8
 #define INLINE_OOB_LARGE_SIZE 24
+
+#define MANA_MAX_TX_WQE_SGL_ENTRIES 30
 
 #define MAX_TX_WQE_SIZE 512
 #define MAX_RX_WQE_SIZE 256
@@ -591,6 +601,20 @@ enum {
 /* Driver can self reset on FPGA Reconfig EQE notification */
 #define GDMA_DRV_CAP_FLAG_1_HANDLE_RECONFIG_EQE BIT(17)
 
+/* Driver detects stalled send queues and recovers them */
+#define GDMA_DRV_CAP_FLAG_1_HANDLE_STALL_SQ_RECOVERY BIT(18)
+
+#define GDMA_DRV_CAP_FLAG_1_HW_VPORT_LINK_AWARE BIT(6)
+
+/* Driver supports linearizing the skb when num_sge exceeds hardware limit */
+#define GDMA_DRV_CAP_FLAG_1_SKB_LINEARIZE BIT(20)
+
+/* Driver can send HWC periodically to query stats */
+#define GDMA_DRV_CAP_FLAG_1_PERIODIC_STATS_QUERY BIT(21)
+
+/* Driver can handle hardware recovery events during probe */
+#define GDMA_DRV_CAP_FLAG_1_PROBE_RECOVERY BIT(22)
+
 #define GDMA_DRV_CAP_FLAGS1 \
 	(GDMA_DRV_CAP_FLAG_1_EQ_SHARING_MULTI_VPORT | \
 	 GDMA_DRV_CAP_FLAG_1_NAPI_WKDONE_FIX | \
@@ -599,7 +623,12 @@ enum {
 	 GDMA_DRV_CAP_FLAG_1_DEV_LIST_HOLES_SUP | \
 	 GDMA_DRV_CAP_FLAG_1_DYNAMIC_IRQ_ALLOC_SUPPORT | \
 	 GDMA_DRV_CAP_FLAG_1_SELF_RESET_ON_EQE | \
-	 GDMA_DRV_CAP_FLAG_1_HANDLE_RECONFIG_EQE)
+	 GDMA_DRV_CAP_FLAG_1_HANDLE_RECONFIG_EQE | \
+	 GDMA_DRV_CAP_FLAG_1_HW_VPORT_LINK_AWARE | \
+	 GDMA_DRV_CAP_FLAG_1_PERIODIC_STATS_QUERY | \
+	 GDMA_DRV_CAP_FLAG_1_SKB_LINEARIZE | \
+	 GDMA_DRV_CAP_FLAG_1_PROBE_RECOVERY | \
+	 GDMA_DRV_CAP_FLAG_1_HANDLE_STALL_SQ_RECOVERY)
 
 #define GDMA_DRV_CAP_FLAGS2 0
 
@@ -839,6 +868,8 @@ enum gdma_mr_type {
 	GDMA_MR_TYPE_GVA = 2,
 	/* Guest zero-based address MRs */
 	GDMA_MR_TYPE_ZBVA = 4,
+	/* Device address MRs */
+	GDMA_MR_TYPE_DM = 5,
 };
 
 struct gdma_create_mr_params {
@@ -854,6 +885,12 @@ struct gdma_create_mr_params {
 			u64 dma_region_handle;
 			enum gdma_mr_access_flags access_flags;
 		} zbva;
+		struct {
+			u64 dm_handle;
+			u64 offset;
+			u64 length;
+			enum gdma_mr_access_flags access_flags;
+		} da;
 	};
 };
 
@@ -868,13 +905,23 @@ struct gdma_create_mr_request {
 			u64 dma_region_handle;
 			u64 virtual_address;
 			enum gdma_mr_access_flags access_flags;
-		} gva;
+		} __packed gva;
 		struct {
 			u64 dma_region_handle;
 			enum gdma_mr_access_flags access_flags;
-		} zbva;
-	};
+		} __packed zbva;
+		struct {
+			u64 dm_handle;
+			u64 offset;
+			enum gdma_mr_access_flags access_flags;
+		} __packed da;
+	} __packed;
 	u32 reserved_2;
+	union {
+		struct {
+			u64 length;
+		} da_ext;
+	};
 };/* HW DATA */
 
 struct gdma_create_mr_response {
@@ -892,6 +939,27 @@ struct gdma_destroy_mr_request {
 struct gdma_destroy_mr_response {
 	struct gdma_resp_hdr hdr;
 };/* HW DATA */
+
+struct gdma_alloc_dm_req {
+	struct gdma_req_hdr hdr;
+	u64 length;
+	u32 alignment;
+	u32 flags;
+}; /* HW Data */
+
+struct gdma_alloc_dm_resp {
+	struct gdma_resp_hdr hdr;
+	u64 dm_handle;
+}; /* HW Data */
+
+struct gdma_destroy_dm_req {
+	struct gdma_req_hdr hdr;
+	u64 dm_handle;
+}; /* HW Data */
+
+struct gdma_destroy_dm_resp {
+	struct gdma_resp_hdr hdr;
+}; /* HW Data */
 
 int mana_gd_verify_vf_version(struct pci_dev *pdev);
 

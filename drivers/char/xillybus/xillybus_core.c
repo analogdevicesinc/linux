@@ -319,7 +319,7 @@ static int xilly_map_single(struct xilly_endpoint *ep,
 	dma_addr_t addr;
 	struct xilly_mapping *this;
 
-	this = kzalloc(sizeof(*this), GFP_KERNEL);
+	this = kzalloc_obj(*this);
 	if (!this)
 		return -ENOMEM;
 
@@ -1973,7 +1973,7 @@ EXPORT_SYMBOL(xillybus_endpoint_remove);
 
 static int __init xillybus_init(void)
 {
-	xillybus_wq = alloc_workqueue(xillyname, 0, 0);
+	xillybus_wq = alloc_workqueue(xillyname, WQ_UNBOUND, 0);
 	if (!xillybus_wq)
 		return -ENOMEM;
 

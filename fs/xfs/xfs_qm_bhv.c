@@ -3,7 +3,7 @@
  * Copyright (c) 2000-2006 Silicon Graphics, Inc.
  * All Rights Reserved.
  */
-#include "xfs.h"
+#include "xfs_platform.h"
 #include "xfs_fs.h"
 #include "xfs_shared.h"
 #include "xfs_format.h"
@@ -73,8 +73,10 @@ xfs_qm_statvfs(
 	struct xfs_dquot	*dqp;
 
 	if (!xfs_qm_dqget(mp, ip->i_projid, XFS_DQTYPE_PROJ, false, &dqp)) {
+		mutex_lock(&dqp->q_qlock);
 		xfs_fill_statvfs_from_dquot(statp, ip, dqp);
-		xfs_qm_dqput(dqp);
+		mutex_unlock(&dqp->q_qlock);
+		xfs_qm_dqrele(dqp);
 	}
 }
 

@@ -52,11 +52,6 @@ struct drm_scanout_buffer;
 struct drm_writeback_connector;
 struct drm_writeback_job;
 
-enum mode_set_atomic {
-	LEAVE_ATOMIC_MODE_SET,
-	ENTER_ATOMIC_MODE_SET,
-};
-
 /**
  * struct drm_crtc_helper_funcs - helper operations for CRTCs
  *
@@ -252,24 +247,6 @@ struct drm_crtc_helper_funcs {
 	 */
 	int (*mode_set_base)(struct drm_crtc *crtc, int x, int y,
 			     struct drm_framebuffer *old_fb);
-
-	/**
-	 * @mode_set_base_atomic:
-	 *
-	 * This callback is used by the fbdev helpers to set a new framebuffer
-	 * and scanout without sleeping, i.e. from an atomic calling context. It
-	 * is only used to implement kgdb support.
-	 *
-	 * This callback is optional and only needed for kgdb support in the fbdev
-	 * helpers.
-	 *
-	 * RETURNS:
-	 *
-	 * 0 on success or a negative error code on failure.
-	 */
-	int (*mode_set_base_atomic)(struct drm_crtc *crtc,
-				    struct drm_framebuffer *fb, int x, int y,
-				    enum mode_set_atomic);
 
 	/**
 	 * @disable:
@@ -490,6 +467,18 @@ struct drm_crtc_helper_funcs {
 				     bool in_vblank_irq, int *vpos, int *hpos,
 				     ktime_t *stime, ktime_t *etime,
 				     const struct drm_display_mode *mode);
+
+	/**
+	 * @handle_vblank_timeout: Handles timeouts of the vblank timer.
+	 *
+	 * Called by CRTC's the vblank timer on each timeout. Semantics is
+	 * equivalient to drm_crtc_handle_vblank(). Implementations should
+	 * invoke drm_crtc_handle_vblank() as part of processing the timeout.
+	 *
+	 * This callback is optional. If unset, the vblank timer invokes
+	 * drm_crtc_handle_vblank() directly.
+	 */
+	bool (*handle_vblank_timeout)(struct drm_crtc *crtc);
 };
 
 /**

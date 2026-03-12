@@ -71,13 +71,17 @@ static void htpic_reg_init(void)
 	writel(0xffff, htpic->base + HTINT_EN_OFF);
 }
 
-static void htpic_resume(void)
+static void htpic_resume(void *data)
 {
 	htpic_reg_init();
 }
 
-struct syscore_ops htpic_syscore_ops = {
+static const struct syscore_ops htpic_syscore_ops = {
 	.resume		= htpic_resume,
+};
+
+static struct syscore htpic_syscore = {
+	.ops = &htpic_syscore_ops,
 };
 
 static int __init htpic_of_init(struct device_node *node, struct device_node *parent)
@@ -91,7 +95,7 @@ static int __init htpic_of_init(struct device_node *node, struct device_node *pa
 		return -ENODEV;
 	}
 
-	htpic = kzalloc(sizeof(*htpic), GFP_KERNEL);
+	htpic = kzalloc_obj(*htpic);
 	if (!htpic)
 		return -ENOMEM;
 
@@ -130,7 +134,7 @@ static int __init htpic_of_init(struct device_node *node, struct device_node *pa
 						htpic_irq_dispatch, htpic);
 	}
 
-	register_syscore_ops(&htpic_syscore_ops);
+	register_syscore(&htpic_syscore);
 
 	return 0;
 
