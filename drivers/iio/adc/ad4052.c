@@ -10,6 +10,7 @@
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/gpio/driver.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/events.h>
@@ -89,8 +90,11 @@
 #define AD4052_FS(g)		(&ad4052_conversion_freqs[AD4052_FS_OFFSET(g)])
 #define AD4052_FS_LEN(g)	(ARRAY_SIZE(ad4052_conversion_freqs) - (AD4052_FS_OFFSET(g)))
 
+#define AD4052_GP_DISABLED	0x0
 #define AD4052_GP_INTR		0x1
 #define AD4052_GP_DRDY		0x2
+#define AD4052_GP_STATIC_LOW	0x5
+#define AD4052_GP_STATIC_HIGH	0x6
 
 #define AD4052_LIMIT_BITS	11
 
@@ -178,6 +182,7 @@ struct ad4052_state {
 	int vio_uV;
 	int vref_uV;
 	unsigned int samp_freqs[ARRAY_SIZE(ad4052_conversion_freqs)];
+	bool gpo_irq[2];
 	u16 sampling_frequency;
 	u16 events_frequency;
 	u8 oversamp_ratio;
@@ -725,7 +730,10 @@ static int ad4052_request_irq(struct iio_dev *indio_dev)
 	if (ret == -EPROBE_DEFER)
 		return ret;
 
-	if (ret >= 0) {
+	if (ret < 0) {
+		st->gpo_irq[0] = false;
+	} else {
+		st->gpo_irq[0] = true;
 		ret = devm_request_threaded_irq(dev, ret, NULL,
 						ad4052_irq_handler_thresh,
 						IRQF_ONESHOT, indio_dev->name,
@@ -738,8 +746,11 @@ static int ad4052_request_irq(struct iio_dev *indio_dev)
 	if (ret == -EPROBE_DEFER)
 		return ret;
 
-	if (ret < 0)
+	if (ret < 0) {
+		st->gpo_irq[1] = false;
 		return 0;
+	}
+	st->gpo_irq[1] = true;
 	st->drdy_irq = ret;
 	return devm_request_threaded_irq(dev, st->drdy_irq,
 					ad4052_irq_handler_drdy,
@@ -1549,6 +1560,121 @@ out_error:
 	return ret;
 }
 
+static int ad4052_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
+{
+	return GPIO_LINE_DIRECTION_OUT;
+}
+
+static void ad4052_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
+{
+	struct ad4052_state *st = gpiochip_get_data(gc);
+	unsigned int reg_val = value ? AD4052_GP_STATIC_HIGH : AD4052_GP_STATIC_LOW;
+
+	if (offset)
+		regmap_update_bits(st->regmap, AD4052_REG_GP_CONF,
+				   AD4052_REG_GP_CONF_MODE_MSK_1,
+				   FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_1, reg_val));
+	else
+		regmap_update_bits(st->regmap, AD4052_REG_GP_CONF,
+				   AD4052_REG_GP_CONF_MODE_MSK_0,
+				   FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_0, reg_val));
+}
+
+static int ad4052_gpio_get(struct gpio_chip *gc, unsigned int offset)
+{
+	struct ad4052_state *st = gpiochip_get_data(gc);
+	unsigned int reg_val;
+	int ret;
+
+	ret = regmap_read(st->regmap, AD4052_REG_GP_CONF, &reg_val);
+	if (ret)
+		return ret;
+
+	if (offset)
+		reg_val = FIELD_GET(AD4052_REG_GP_CONF_MODE_MSK_1, reg_val);
+	else
+		reg_val = FIELD_GET(AD4052_REG_GP_CONF_MODE_MSK_0, reg_val);
+
+	return reg_val == AD4052_GP_STATIC_HIGH;
+}
+
+static void ad4052_gpio_disable(void *data)
+{
+	struct ad4052_state *st = data;
+	u8 val = FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_0, AD4052_GP_DISABLED) |
+		 FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_1, AD4052_GP_DISABLED);
+
+	regmap_update_bits(st->regmap, AD4052_REG_GP_CONF,
+			   AD4052_REG_GP_CONF_MODE_MSK_1 | AD4052_REG_GP_CONF_MODE_MSK_0,
+			   val);
+}
+
+static int ad4052_gpio_init_valid_mask(struct gpio_chip *gc,
+				       unsigned long *valid_mask,
+				       unsigned int ngpios)
+{
+	struct ad4052_state *st = gpiochip_get_data(gc);
+
+	bitmap_zero(valid_mask, ngpios);
+
+	for (unsigned int i = 0; i < ARRAY_SIZE(st->gpo_irq); i++)
+		__assign_bit(i, valid_mask, !st->gpo_irq[i]);
+
+	return 0;
+}
+
+static int ad4052_gpio_init(struct ad4052_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	struct gpio_chip *gc;
+	u8 val, mask;
+	int ret;
+
+	if (!device_property_read_bool(dev, "gpio-controller"))
+		return 0;
+
+	gc = devm_kzalloc(dev, sizeof(*gc), GFP_KERNEL);
+	if (!gc)
+		return -ENOMEM;
+
+	val = 0;
+	mask = 0;
+	if (!st->gpo_irq[0]) {
+		mask |= AD4052_REG_GP_CONF_MODE_MSK_0;
+		val |= FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_0, AD4052_GP_STATIC_LOW);
+	}
+	if (!st->gpo_irq[1]) {
+		mask |= AD4052_REG_GP_CONF_MODE_MSK_1;
+		val |= FIELD_PREP(AD4052_REG_GP_CONF_MODE_MSK_1, AD4052_GP_STATIC_LOW);
+	}
+
+	ret = regmap_update_bits(st->regmap, AD4052_REG_GP_CONF,
+				 mask, val);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(dev, ad4052_gpio_disable, st);
+	if (ret)
+		return ret;
+
+	gc->parent = dev;
+	gc->label = st->chip->name;
+	gc->owner = THIS_MODULE;
+	gc->base = -1;
+	gc->ngpio = 2;
+	gc->init_valid_mask = ad4052_gpio_init_valid_mask;
+	gc->get_direction = ad4052_gpio_get_direction;
+	gc->set = ad4052_gpio_set;
+	gc->get = ad4052_gpio_get;
+	gc->can_sleep = true;
+
+	ret = devm_gpiochip_add_data(dev, gc, st);
+	if (ret)
+		return dev_err_probe(dev, ret, "Unable to register GPIO chip\n");
+
+	return 0;
+}
+
 static int ad4052_probe(struct spi_device *spi)
 {
 	int drdy_gp = AD4052_TRIGGER_PIN_GP0;
@@ -1647,6 +1773,9 @@ static int ad4052_probe(struct spi_device *spi)
 
 	pm_runtime_set_autosuspend_delay(dev, 1000);
 	pm_runtime_use_autosuspend(dev);
+	ret = ad4052_gpio_init(st);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(dev, indio_dev);
 }
