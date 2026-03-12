@@ -14,12 +14,12 @@ trigger:
 - main
 - next_stable
 - staging/*
-- 20*
+- xlnx/release/*
 
 pr:
 - main
 - next_stable
-- 20*
+- xlnx/release/*
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -149,8 +149,8 @@ stages:
       SOURCE_DIRECTORY: $(Build.SourcesDirectory)/bin
     jobs:
     # Condition for publishing artifacts (same for Push_to_Artifactory and Publish_to_Cloudsmith):
-    # - PRs (non-fork) targeting: main, next_stable, or 202* release branches
-    # - Direct pushes to: main, next_stable, or 202* release branches
+    # - PRs (non-fork) targeting: main, next_stable, or xlnx/release/ release branches
+    # - Direct pushes to: main, next_stable, or xlnx/release/ release branches
     - job: Push_to_Artifactory
       timeoutInMinutes: 120
       pool:
@@ -164,13 +164,13 @@ stages:
             or(
               eq(variables['System.PullRequest.TargetBranch'], 'main'),
               eq(variables['System.PullRequest.TargetBranch'], 'next_stable'),
-              startsWith(variables['System.PullRequest.TargetBranch'], '202')
+              startsWith(variables['System.PullRequest.TargetBranch'], 'xlnx/release/')
             )
           ),
           or(
             eq(variables['Build.SourceBranch'], 'refs/heads/main'),
             eq(variables['Build.SourceBranch'], 'refs/heads/next_stable'),
-            startsWith(variables['Build.SourceBranch'], 'refs/heads/202')
+            startsWith(variables['Build.SourceBranch'], 'refs/heads/xlnx/release/')
           )
         )
       steps:
@@ -204,13 +204,13 @@ stages:
             or(
               eq(variables['System.PullRequest.TargetBranch'], 'main'),
               eq(variables['System.PullRequest.TargetBranch'], 'next_stable'),
-              startsWith(variables['System.PullRequest.TargetBranch'], '202')
+              startsWith(variables['System.PullRequest.TargetBranch'], 'xlnx/release/')
             )
           ),
           or(
             eq(variables['Build.SourceBranch'], 'refs/heads/main'),
             eq(variables['Build.SourceBranch'], 'refs/heads/next_stable'),
-            startsWith(variables['Build.SourceBranch'], 'refs/heads/202')
+            startsWith(variables['Build.SourceBranch'], 'refs/heads/xlnx/release/')
           )
         )
       steps:

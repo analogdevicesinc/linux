@@ -33,7 +33,7 @@ GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${MERGE_C
 CLOUDSMITH_REPO="sdg-linux"
 VERSION_PATH="linux/"
 if [ "$SYSTEM_PULLREQUEST_TARGETBRANCH" != "" ]; then
-    BRANCH_NAME="$SYSTEM_PULLREQUEST_TARGETBRANCH"
+    BRANCH_NAME="$(echo $SYSTEM_PULLREQUEST_TARGETBRANCH | awk -F'/' '{print $NF}')"
     VERSION_PATH+="PRs/"
 else
     BRANCH_NAME="$(echo $BUILD_SOURCEBRANCH | awk -F'/' '{print $NF}')"
