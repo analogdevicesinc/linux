@@ -4663,6 +4663,7 @@ static const struct qcom_cc_desc gcc_sc8180x_desc = {
 	.num_resets = ARRAY_SIZE(gcc_sc8180x_resets),
 	.gdscs = gcc_sc8180x_gdscs,
 	.num_gdscs = ARRAY_SIZE(gcc_sc8180x_gdscs),
+	.use_rpm = true,
 };
 
 static const struct of_device_id gcc_sc8180x_match_table[] = {
