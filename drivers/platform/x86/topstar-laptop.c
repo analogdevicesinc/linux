@@ -285,8 +285,9 @@ static const struct dmi_system_id topstar_dmi_ids[] = {
 	{}
 };
 
-static int topstar_acpi_add(struct acpi_device *device)
+static int topstar_acpi_probe(struct platform_device *pdev)
 {
+	struct acpi_device *device = ACPI_COMPANION(&pdev->dev);
 	struct topstar_laptop *topstar;
 	int err;
 
@@ -296,9 +297,10 @@ static int topstar_acpi_add(struct acpi_device *device)
 	if (!topstar)
 		return -ENOMEM;
 
+	platform_set_drvdata(pdev, topstar);
+
 	strscpy(acpi_device_name(device), "Topstar TPSACPI");
 	strscpy(acpi_device_class(device), TOPSTAR_LAPTOP_CLASS);
-	device->driver_data = topstar;
 	topstar->device = device;
 
 	err = topstar_acpi_init(topstar);
@@ -339,14 +341,15 @@ err_free:
 	return err;
 }
 
-static void topstar_acpi_remove(struct acpi_device *device)
+static void topstar_acpi_remove(struct platform_device *pdev)
 {
-	struct topstar_laptop *topstar = acpi_driver_data(device);
+	struct topstar_laptop *topstar = platform_get_drvdata(pdev);
 
 	if (led_workaround)
 		topstar_led_exit(topstar);
 
-	acpi_dev_remove_notify_handler(device, ACPI_DEVICE_NOTIFY, topstar_acpi_notify);
+	acpi_dev_remove_notify_handler(ACPI_COMPANION(&pdev->dev),
+				       ACPI_DEVICE_NOTIFY, topstar_acpi_notify);
 	topstar_input_exit(topstar);
 	topstar_platform_exit(topstar);
 	topstar_acpi_exit(topstar);
@@ -361,13 +364,12 @@ static const struct acpi_device_id topstar_device_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, topstar_device_ids);
 
-static struct acpi_driver topstar_acpi_driver = {
-	.name = "Topstar laptop ACPI driver",
-	.class = TOPSTAR_LAPTOP_CLASS,
-	.ids = topstar_device_ids,
-	.ops = {
-		.add = topstar_acpi_add,
-		.remove = topstar_acpi_remove,
+static struct platform_driver topstar_acpi_driver = {
+	.probe = topstar_acpi_probe,
+	.remove = topstar_acpi_remove,
+	.driver = {
+		.name = "Topstar laptop ACPI driver",
+		.acpi_match_table = topstar_device_ids,
 	},
 };
 
@@ -379,7 +381,7 @@ static int __init topstar_laptop_init(void)
 	if (ret < 0)
 		return ret;
 
-	ret = acpi_bus_register_driver(&topstar_acpi_driver);
+	ret = platform_driver_register(&topstar_acpi_driver);
 	if (ret < 0)
 		goto err_driver_unreg;
 
@@ -393,7 +395,7 @@ err_driver_unreg:
 
 static void __exit topstar_laptop_exit(void)
 {
-	acpi_bus_unregister_driver(&topstar_acpi_driver);
+	platform_driver_unregister(&topstar_acpi_driver);
 	platform_driver_unregister(&topstar_platform_driver);
 }
 
