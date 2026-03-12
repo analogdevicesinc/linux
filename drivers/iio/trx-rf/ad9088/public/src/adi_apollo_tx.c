@@ -158,7 +158,7 @@ int32_t adi_apollo_tx_cduc_configure(adi_apollo_device_t *device, adi_apollo_sid
 
         /* Auto hop flip, incr or decr */
         nco_hop_profile_config.profile_sel_mode = config->nco[cnco_idx].nco_profile_sel_mode;
-        nco_hop_profile_config.auto_mode = config->nco[cnco_idx].nco_auto_inc_dec;
+        nco_hop_profile_config.auto_mode = (adi_apollo_nco_auto_flip_incdir_e)config->nco[cnco_idx].nco_auto_inc_dec;
         nco_hop_profile_config.low_limit = 0;
         nco_hop_profile_config.high_limit = 15;
         nco_hop_profile_config.next_hop_number_wr_en = 0;
@@ -398,7 +398,7 @@ int32_t adi_apollo_tx_cfir_configure(adi_apollo_device_t* device, adi_apollo_sid
     return API_CMS_ERROR_OK;
 }
 
-int32_t adi_apollo_tx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_fsrc_idx_e idx_fsrc, 
+int32_t adi_apollo_tx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_fsrc_idx_e idx_fsrc,
     adi_apollo_fsrc_cfg_t *config, adi_apollo_jesd_rx_link_cfg_t *jrx_link_config)
 {
     int32_t err;
