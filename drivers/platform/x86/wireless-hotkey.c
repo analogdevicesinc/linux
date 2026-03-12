@@ -35,16 +35,17 @@ static const struct acpi_device_id wl_ids[] = {
 	{"", 0},
 };
 
-static int wireless_input_setup(struct acpi_device *device)
+static int wireless_input_setup(struct device *dev)
 {
-	struct wl_button *button = acpi_driver_data(device);
+	struct wl_button *button = dev_get_drvdata(dev);
 	int err;
 
 	button->input_dev = input_allocate_device();
 	if (!button->input_dev)
 		return -ENOMEM;
 
-	snprintf(button->phys, sizeof(button->phys), "%s/input0", acpi_device_hid(device));
+	snprintf(button->phys, sizeof(button->phys), "%s/input0",
+		 acpi_device_hid(ACPI_COMPANION(dev)));
 
 	button->input_dev->name = "Wireless hotkeys";
 	button->input_dev->phys = button->phys;
@@ -63,9 +64,9 @@ err_free_dev:
 	return err;
 }
 
-static void wireless_input_destroy(struct acpi_device *device)
+static void wireless_input_destroy(struct device *dev)
 {
-	struct wl_button *button = acpi_driver_data(device);
+	struct wl_button *button = dev_get_drvdata(dev);
 
 	input_unregister_device(button->input_dev);
 	kfree(button);
@@ -86,7 +87,7 @@ static void wl_notify(acpi_handle handle, u32 event, void *data)
 	input_sync(button->input_dev);
 }
 
-static int wl_add(struct acpi_device *device)
+static int wl_probe(struct platform_device *pdev)
 {
 	struct wl_button *button;
 	int err;
@@ -95,37 +96,38 @@ static int wl_add(struct acpi_device *device)
 	if (!button)
 		return -ENOMEM;
 
-	device->driver_data = button;
+	platform_set_drvdata(pdev, button);
 
-	err = wireless_input_setup(device);
+	err = wireless_input_setup(&pdev->dev);
 	if (err) {
 		pr_err("Failed to setup wireless hotkeys\n");
 		kfree(button);
 		return err;
 	}
-	err = acpi_dev_install_notify_handler(device, ACPI_DEVICE_NOTIFY,
-					      wl_notify, button);
+	err = acpi_dev_install_notify_handler(ACPI_COMPANION(&pdev->dev),
+					      ACPI_DEVICE_NOTIFY, wl_notify, button);
 	if (err) {
 		pr_err("Failed to install ACPI notify handler\n");
-		wireless_input_destroy(device);
+		wireless_input_destroy(&pdev->dev);
 	}
 
 	return err;
 }
 
-static void wl_remove(struct acpi_device *device)
+static void wl_remove(struct platform_device *pdev)
 {
-	acpi_dev_remove_notify_handler(device, ACPI_DEVICE_NOTIFY, wl_notify);
-	wireless_input_destroy(device);
+	acpi_dev_remove_notify_handler(ACPI_COMPANION(&pdev->dev),
+				       ACPI_DEVICE_NOTIFY, wl_notify);
+	wireless_input_destroy(&pdev->dev);
 }
 
-static struct acpi_driver wl_driver = {
-	.name	= "wireless-hotkey",
-	.ids	= wl_ids,
-	.ops	= {
-		.add	= wl_add,
-		.remove	= wl_remove,
+static struct platform_driver wl_driver = {
+	.probe = wl_probe,
+	.remove = wl_remove,
+	.driver = {
+		.name = "wireless-hotkey",
+		.acpi_match_table = wl_ids,
 	},
 };
 
-module_acpi_driver(wl_driver);
+module_platform_driver(wl_driver);
