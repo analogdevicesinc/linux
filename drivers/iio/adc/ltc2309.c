@@ -108,6 +108,13 @@ static const struct iio_chan_spec ltc2309_channels[] = {
 	LTC2309_DIFF_CHAN(7, 6, LTC2309_CH7_CH6),
 };
 
+static const struct iio_chan_spec ltc2305_channels[] = {
+	LTC2309_CHAN(0, LTC2309_CH0),
+	LTC2309_CHAN(1, LTC2309_CH1),
+	LTC2309_DIFF_CHAN(0, 1, LTC2309_CH0_CH1),
+	LTC2309_DIFF_CHAN(1, 0, LTC2309_CH1_CH0),
+};
+
 static int ltc2309_read_raw_channel(struct ltc2309 *ltc2309,
 				    unsigned long address, int *val)
 {
@@ -175,6 +182,12 @@ static const struct ltc2309_chip_info ltc2309_chip_info = {
 	.read_delay_us = 0,
 };
 
+static const struct ltc2309_chip_info ltc2305_chip_info = {
+	.channels = ltc2305_channels,
+	.num_channels = ARRAY_SIZE(ltc2305_channels),
+	.read_delay_us = 2,
+};
+
 static int ltc2309_probe(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev;
@@ -188,7 +201,7 @@ static int ltc2309_probe(struct i2c_client *client)
 	ltc2309 = iio_priv(indio_dev);
 	ltc2309->dev = &indio_dev->dev;
 	ltc2309->client = client;
-	ltc2309->chip_info = &ltc2309_chip_info;
+	ltc2309->chip_info = i2c_get_match_data(client);
 
 	indio_dev->name = "ltc2309";
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -209,13 +222,15 @@ static int ltc2309_probe(struct i2c_client *client)
 }
 
 static const struct of_device_id ltc2309_of_match[] = {
-	{ .compatible = "lltc,ltc2309" },
+	{ .compatible = "lltc,ltc2309", .data = &ltc2309_chip_info },
+	{ .compatible = "lltc,ltc2305", .data = &ltc2305_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ltc2309_of_match);
 
 static const struct i2c_device_id ltc2309_id[] = {
-	{ "ltc2309" },
+	{ "ltc2309", (kernel_ulong_t)&ltc2309_chip_info },
+	{ "ltc2305", (kernel_ulong_t)&ltc2305_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, ltc2309_id);
@@ -231,5 +246,5 @@ static struct i2c_driver ltc2309_driver = {
 module_i2c_driver(ltc2309_driver);
 
 MODULE_AUTHOR("Liam Beguin <liambeguin@gmail.com>");
-MODULE_DESCRIPTION("Linear Technology LTC2309 ADC");
+MODULE_DESCRIPTION("Linear Technology LTC2309 and similar ADC driver");
 MODULE_LICENSE("GPL v2");
