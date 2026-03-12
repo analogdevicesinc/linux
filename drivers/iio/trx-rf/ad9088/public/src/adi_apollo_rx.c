@@ -87,7 +87,7 @@ int32_t adi_apollo_rx_configure(adi_apollo_device_t *device, adi_apollo_sides_e 
        err = adi_apollo_rx_smon_configure(device, side, (adi_apollo_smon_idx_e)i, &(config->rx_smon[i]));
        ADI_APOLLO_ERROR_RETURN(err);
    }
-   
+
    return API_CMS_ERROR_OK;
 }
 
@@ -156,7 +156,7 @@ int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sid
         nco_hop_profile_config.profile_sel_mode = config->nco[cnco_idx].nco_profile_sel_mode;
 
         /* Auto hop flip, incr or decr */
-        nco_hop_profile_config.auto_mode = config->nco[cnco_idx].nco_auto_inc_dec;
+        nco_hop_profile_config.auto_mode = (adi_apollo_nco_auto_flip_incdir_e)config->nco[cnco_idx].nco_auto_inc_dec;
         nco_hop_profile_config.low_limit = 0;
         nco_hop_profile_config.high_limit = 15;
         nco_hop_profile_config.next_hop_number_wr_en = 0;
@@ -178,11 +178,11 @@ int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sid
         err = adi_apollo_cnco_pow_set(device, ADI_APOLLO_RX, cnco_sel, 0, 1, config->nco[cnco_idx].nco_phase_offset);
         ADI_APOLLO_ERROR_RETURN(err);
     }
-    
+
     // Trigger selection mux here
     err = adi_apollo_trigts_cdrc_trig_sel_mux_set(device, ADI_APOLLO_RX, cddc_sel, ADI_APOLLO_TRIG_SPI);
     ADI_APOLLO_ERROR_RETURN(err);
-    
+
     return API_CMS_ERROR_OK;
 }
 
@@ -453,7 +453,7 @@ int32_t adi_apollo_rx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sid
     return API_CMS_ERROR_OK;
 }
 
-int32_t adi_apollo_rx_dformat_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, 
+int32_t adi_apollo_rx_dformat_configure(adi_apollo_device_t *device, adi_apollo_sides_e side,
         adi_apollo_jesd_links_e link_idx, adi_apollo_dformat_cfg_t *config, adi_apollo_jesd_tx_link_cfg_t *jtx_link_config)
 {
     int32_t err;
@@ -471,8 +471,8 @@ int32_t adi_apollo_rx_dformat_configure(adi_apollo_device_t *device, adi_apollo_
         .link_en = jtx_link_config->link_in_use,
         .dfor_ddc_dither_en = config->ddc_dither_en,
         .dfor_inv = config->inv,
-        .dfor_res = config->res,
-        .dfor_sel = config->sel,
+        .dfor_res = (adi_apollo_chip_output_res_e)config->res,
+        .dfor_sel = (adi_apollo_dformat_sel_e)config->sel,
         .invalid_en = config->rm_fifo.invalid_en,
         .sample_repeat_en = config->rm_fifo.sample_repeat_en
     };
