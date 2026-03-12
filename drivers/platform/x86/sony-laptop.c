@@ -1176,7 +1176,7 @@ enum event_types {
 	KILLSWITCH,
 	GFX_SWITCH
 };
-static void sony_nc_notify(struct acpi_device *device, u32 event)
+static void sony_nc_notify(acpi_handle ah, u32 event, void *data)
 {
 	u32 real_ev = event;
 	u8 ev_type = 0;
@@ -3244,6 +3244,11 @@ static int sony_nc_add(struct acpi_device *device)
 		}
 	}
 
+	result = acpi_dev_install_notify_handler(device, ACPI_DEVICE_NOTIFY,
+						 sony_nc_notify, NULL);
+	if (result)
+		goto out_sysfs;
+
 	pr_info("SNC setup done.\n");
 	return 0;
 
@@ -3269,6 +3274,8 @@ outwalk:
 static void sony_nc_remove(struct acpi_device *device)
 {
 	struct sony_nc_value *item;
+
+	acpi_dev_remove_notify_handler(device, ACPI_DEVICE_NOTIFY, sony_nc_notify);
 
 	sony_nc_backlight_cleanup();
 
@@ -3304,7 +3311,6 @@ static struct acpi_driver sony_nc_driver = {
 	.ops = {
 		.add = sony_nc_add,
 		.remove = sony_nc_remove,
-		.notify = sony_nc_notify,
 		},
 	.drv.pm = &sony_nc_pm,
 };
