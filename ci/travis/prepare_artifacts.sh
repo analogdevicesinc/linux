@@ -16,7 +16,7 @@ MERGE_COMMIT_SHA=$(git rev-parse --short HEAD)
 GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${MERGE_COMMIT_SHA} | sed -e "s/ \|\:/-/g")
 SERVER_PATH="linux/"
 if [ "$SYSTEM_PULLREQUEST_TARGETBRANCH" != "" ]; then
-    BRANCH_NAME="$SYSTEM_PULLREQUEST_TARGETBRANCH"
+    BRANCH_NAME="$(echo $SYSTEM_PULLREQUEST_TARGETBRANCH | awk -F'/' '{print $NF}')"
     SERVER_PATH+="PRs/"
 else
     BRANCH_NAME="$(echo $BUILD_SOURCEBRANCH | awk -F'/' '{print $NF}')"
