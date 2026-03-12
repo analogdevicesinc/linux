@@ -85,7 +85,7 @@ static void led_timer_function(struct timer_list *t)
 	if (!brightness) {
 		/* Time to switch the LED on. */
 		if (test_and_clear_bit(LED_BLINK_BRIGHTNESS_CHANGE,
-					&led_cdev->work_flags))
+				       &led_cdev->work_flags))
 			brightness = led_cdev->new_blink_brightness;
 		else
 			brightness = led_cdev->blink_brightness;
@@ -217,10 +217,9 @@ static void led_set_software_blink(struct led_classdev *led_cdev,
 	mod_timer(&led_cdev->blink_timer, jiffies + 1);
 }
 
-
 static void led_blink_setup(struct led_classdev *led_cdev,
-		     unsigned long *delay_on,
-		     unsigned long *delay_off)
+			    unsigned long *delay_on,
+			    unsigned long *delay_off)
 {
 	if (!test_bit(LED_BLINK_ONESHOT, &led_cdev->work_flags) &&
 	    led_cdev->blink_set &&
@@ -262,7 +261,7 @@ void led_blink_set_oneshot(struct led_classdev *led_cdev,
 			   int invert)
 {
 	if (test_bit(LED_BLINK_ONESHOT, &led_cdev->work_flags) &&
-	     timer_pending(&led_cdev->blink_timer))
+	    timer_pending(&led_cdev->blink_timer))
 		return;
 
 	set_bit(LED_BLINK_ONESHOT, &led_cdev->work_flags);
@@ -347,9 +346,9 @@ void led_set_brightness_nopm(struct led_classdev *led_cdev, unsigned int value)
 	/* Ensure delayed_set_value is seen before work_flags modification */
 	smp_mb__before_atomic();
 
-	if (value)
+	if (value) {
 		set_bit(LED_SET_BRIGHTNESS, &led_cdev->work_flags);
-	else {
+	} else {
 		clear_bit(LED_SET_BRIGHTNESS, &led_cdev->work_flags);
 		clear_bit(LED_SET_BLINK, &led_cdev->work_flags);
 		set_bit(LED_SET_BRIGHTNESS_OFF, &led_cdev->work_flags);
@@ -499,7 +498,6 @@ static void led_parse_fwnode_props(struct device *dev,
 			props->color_present = true;
 	}
 
-
 	if (!fwnode_property_present(fwnode, "function"))
 		return;
 
@@ -584,8 +582,9 @@ int led_compose_name(struct device *dev, struct led_init_data *init_data,
 	} else if (is_software_node(fwnode)) {
 		n = snprintf(led_classdev_name, LED_MAX_NAME_SIZE, "%s",
 			     fwnode_get_name(fwnode));
-	} else
+	} else {
 		return -EINVAL;
+	}
 
 	if (n >= LED_MAX_NAME_SIZE)
 		return -E2BIG;
