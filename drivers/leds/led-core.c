@@ -581,6 +581,9 @@ int led_compose_name(struct device *dev, struct led_init_data *init_data,
 	} else if (is_of_node(fwnode)) {
 		n = snprintf(led_classdev_name, LED_MAX_NAME_SIZE, "%s",
 			     to_of_node(fwnode)->name);
+	} else if (is_software_node(fwnode)) {
+		n = snprintf(led_classdev_name, LED_MAX_NAME_SIZE, "%s",
+			     fwnode_get_name(fwnode));
 	} else
 		return -EINVAL;
 
