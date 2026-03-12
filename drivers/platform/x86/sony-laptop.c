@@ -4279,9 +4279,9 @@ end:
 /*
  *  Disable the spic device by calling its _DIS method
  */
-static int sony_pic_disable(struct acpi_device *device)
+static int sony_pic_disable(struct device *dev)
 {
-	acpi_status ret = acpi_evaluate_object(device->handle, "_DIS", NULL,
+	acpi_status ret = acpi_evaluate_object(ACPI_HANDLE(dev), "_DIS", NULL,
 					       NULL);
 
 	if (ACPI_FAILURE(ret) && ret != AE_NOT_FOUND)
@@ -4297,7 +4297,7 @@ static int sony_pic_disable(struct acpi_device *device)
  *
  *  Call _SRS to set current resources
  */
-static int sony_pic_enable(struct acpi_device *device,
+static int sony_pic_enable(struct device *dev,
 		struct sony_pic_ioport *ioport, struct sony_pic_irq *irq)
 {
 	acpi_status status;
@@ -4379,7 +4379,7 @@ static int sony_pic_enable(struct acpi_device *device,
 
 	/* Attempt to set the resource */
 	dprintk("Evaluating _SRS\n");
-	status = acpi_set_current_resources(device->handle, &buffer);
+	status = acpi_set_current_resources(ACPI_HANDLE(dev), &buffer);
 
 	/* check for total failure */
 	if (ACPI_FAILURE(status)) {
@@ -4468,12 +4468,12 @@ found:
  *  ACPI driver
  *
  *****************/
-static void sony_pic_remove(struct acpi_device *device)
+static void sony_pic_remove(struct platform_device *pdev)
 {
 	struct sony_pic_ioport *io, *tmp_io;
 	struct sony_pic_irq *irq, *tmp_irq;
 
-	if (sony_pic_disable(device)) {
+	if (sony_pic_disable(&pdev->dev)) {
 		pr_err("Couldn't disable device\n");
 		return;
 	}
@@ -4507,11 +4507,12 @@ static void sony_pic_remove(struct acpi_device *device)
 	dprintk(SONY_PIC_DRIVER_NAME " removed.\n");
 }
 
-static int sony_pic_add(struct acpi_device *device)
+static int sony_pic_probe(struct platform_device *pdev)
 {
-	int result;
+	struct acpi_device *device = ACPI_COMPANION(&pdev->dev);
 	struct sony_pic_ioport *io, *tmp_io;
 	struct sony_pic_irq *irq, *tmp_irq;
+	int result;
 
 	spic_dev.acpi_dev = device;
 	strscpy(acpi_device_class(device), "sony/hotkey");
@@ -4526,7 +4527,7 @@ static int sony_pic_add(struct acpi_device *device)
 	}
 
 	/* setup input devices and helper fifo */
-	result = sony_laptop_setup_input(&device->dev);
+	result = sony_laptop_setup_input(&pdev->dev);
 	if (result) {
 		pr_err("Unable to create input devices\n");
 		goto err_free_resources;
@@ -4596,7 +4597,7 @@ static int sony_pic_add(struct acpi_device *device)
 	}
 
 	/* set resource status _SRS */
-	result = sony_pic_enable(device, spic_dev.cur_ioport, spic_dev.cur_irq);
+	result = sony_pic_enable(&pdev->dev, spic_dev.cur_ioport, spic_dev.cur_irq);
 	if (result) {
 		pr_err("Couldn't enable device\n");
 		goto err_free_irq;
@@ -4619,7 +4620,7 @@ err_remove_pf:
 	sony_pf_remove();
 
 err_disable_device:
-	sony_pic_disable(device);
+	sony_pic_disable(&pdev->dev);
 
 err_free_irq:
 	free_irq(spic_dev.cur_irq->irq.interrupts[0], &spic_dev);
@@ -4655,15 +4656,14 @@ err_free_resources:
 #ifdef CONFIG_PM_SLEEP
 static int sony_pic_suspend(struct device *dev)
 {
-	if (sony_pic_disable(to_acpi_device(dev)))
+	if (sony_pic_disable(dev))
 		return -ENXIO;
 	return 0;
 }
 
 static int sony_pic_resume(struct device *dev)
 {
-	sony_pic_enable(to_acpi_device(dev),
-			spic_dev.cur_ioport, spic_dev.cur_irq);
+	sony_pic_enable(dev, spic_dev.cur_ioport, spic_dev.cur_irq);
 	return 0;
 }
 #endif
@@ -4675,15 +4675,14 @@ static const struct acpi_device_id sony_pic_device_ids[] = {
 	{"", 0},
 };
 
-static struct acpi_driver sony_pic_driver = {
-	.name = SONY_PIC_DRIVER_NAME,
-	.class = SONY_PIC_CLASS,
-	.ids = sony_pic_device_ids,
-	.ops = {
-		.add = sony_pic_add,
-		.remove = sony_pic_remove,
-		},
-	.drv.pm = &sony_pic_pm,
+static struct platform_driver sony_pic_driver = {
+	.probe = sony_pic_probe,
+	.remove = sony_pic_remove,
+	.driver = {
+		.name = SONY_PIC_DRIVER_NAME,
+		.acpi_match_table = sony_pic_device_ids,
+		.pm = &sony_pic_pm,
+	},
 };
 
 static const struct dmi_system_id sonypi_dmi_table[] __initconst = {
@@ -4709,7 +4708,7 @@ static int __init sony_laptop_init(void)
 	int result;
 
 	if (!no_spic && dmi_check_system(sonypi_dmi_table)) {
-		result = acpi_bus_register_driver(&sony_pic_driver);
+		result = platform_driver_register(&sony_pic_driver);
 		if (result) {
 			pr_err("Unable to register SPIC driver\n");
 			goto out;
@@ -4727,7 +4726,7 @@ static int __init sony_laptop_init(void)
 
 out_unregister_pic:
 	if (spic_drv_registered)
-		acpi_bus_unregister_driver(&sony_pic_driver);
+		platform_driver_unregister(&sony_pic_driver);
 out:
 	return result;
 }
@@ -4736,7 +4735,7 @@ static void __exit sony_laptop_exit(void)
 {
 	platform_driver_unregister(&sony_nc_driver);
 	if (spic_drv_registered)
-		acpi_bus_unregister_driver(&sony_pic_driver);
+		platform_driver_unregister(&sony_pic_driver);
 }
 
 module_init(sony_laptop_init);
