@@ -71,9 +71,9 @@ static void wireless_input_destroy(struct acpi_device *device)
 	kfree(button);
 }
 
-static void wl_notify(struct acpi_device *acpi_dev, u32 event)
+static void wl_notify(acpi_handle handle, u32 event, void *data)
 {
-	struct wl_button *button = acpi_driver_data(acpi_dev);
+	struct wl_button *button = data;
 
 	if (event != 0x80) {
 		pr_info("Received unknown event (0x%x)\n", event);
@@ -101,6 +101,13 @@ static int wl_add(struct acpi_device *device)
 	if (err) {
 		pr_err("Failed to setup wireless hotkeys\n");
 		kfree(button);
+		return err;
+	}
+	err = acpi_dev_install_notify_handler(device, ACPI_DEVICE_NOTIFY,
+					      wl_notify, button);
+	if (err) {
+		pr_err("Failed to install ACPI notify handler\n");
+		wireless_input_destroy(device);
 	}
 
 	return err;
@@ -108,6 +115,7 @@ static int wl_add(struct acpi_device *device)
 
 static void wl_remove(struct acpi_device *device)
 {
+	acpi_dev_remove_notify_handler(device, ACPI_DEVICE_NOTIFY, wl_notify);
 	wireless_input_destroy(device);
 }
 
@@ -117,7 +125,6 @@ static struct acpi_driver wl_driver = {
 	.ops	= {
 		.add	= wl_add,
 		.remove	= wl_remove,
-		.notify	= wl_notify,
 	},
 };
 
