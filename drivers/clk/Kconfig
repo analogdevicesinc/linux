@@ -218,13 +218,13 @@ config COMMON_CLK_CS2000_CP
 	  If you say yes here you get support for the CS2000 clock multiplier.
 
 config COMMON_CLK_EN7523
-	bool "Clock driver for Airoha EN7523 SoC system clocks"
+	bool "Clock driver for Airoha/EcoNet SoC system clocks"
 	depends on OF
-	depends on ARCH_AIROHA || COMPILE_TEST
+	depends on ARCH_AIROHA || ECONET || COMPILE_TEST
 	default ARCH_AIROHA
 	help
 	  This driver provides the fixed clocks and gates present on Airoha
-	  ARM silicon.
+	  and EcoNet silicon.
 
 config COMMON_CLK_EP93XX
 	tristate "Clock driver for Cirrus Logic ep93xx SoC"
