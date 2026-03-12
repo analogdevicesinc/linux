@@ -8,6 +8,7 @@
  * Copyright (c) 2023, Liam Beguin <liambeguin@gmail.com>
  */
 #include <linux/bitfield.h>
+#include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 #include <linux/kernel.h>
@@ -26,18 +27,26 @@
 #define LTC2309_DIN_UNI		BIT(3)
 #define LTC2309_DIN_SLEEP	BIT(2)
 
+struct ltc2309_chip_info {
+	const struct iio_chan_spec *channels;
+	unsigned int num_channels;
+	unsigned int read_delay_us;
+};
+
 /**
  * struct ltc2309 - internal device data structure
  * @dev:	Device reference
  * @client:	I2C reference
  * @lock:	Lock to serialize data access
  * @vref_mv:	Internal voltage reference
+ * @chip_info:	Chip-specific configuration data
  */
 struct ltc2309 {
 	struct device		*dev;
 	struct i2c_client	*client;
 	struct mutex		lock; /* serialize data access */
 	int			vref_mv;
+	const struct ltc2309_chip_info *chip_info;
 };
 
 /* Order matches expected channel address, See datasheet Table 1. */
@@ -117,6 +126,10 @@ static int ltc2309_read_raw_channel(struct ltc2309 *ltc2309,
 		return ret;
 	}
 
+	if (ltc2309->chip_info->read_delay_us)
+		usleep_range(ltc2309->chip_info->read_delay_us,
+			     ltc2309->chip_info->read_delay_us * 2);
+
 	ret = i2c_master_recv(ltc2309->client, (char *)&buf, 2);
 	if (ret < 0) {
 		dev_err(ltc2309->dev, "i2c read failed: %pe\n", ERR_PTR(ret));
@@ -156,6 +169,12 @@ static const struct iio_info ltc2309_info = {
 	.read_raw = ltc2309_read_raw,
 };
 
+static const struct ltc2309_chip_info ltc2309_chip_info = {
+	.channels = ltc2309_channels,
+	.num_channels = ARRAY_SIZE(ltc2309_channels),
+	.read_delay_us = 0,
+};
+
 static int ltc2309_probe(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev;
@@ -169,11 +188,12 @@ static int ltc2309_probe(struct i2c_client *client)
 	ltc2309 = iio_priv(indio_dev);
 	ltc2309->dev = &indio_dev->dev;
 	ltc2309->client = client;
+	ltc2309->chip_info = &ltc2309_chip_info;
 
 	indio_dev->name = "ltc2309";
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = ltc2309_channels;
-	indio_dev->num_channels = ARRAY_SIZE(ltc2309_channels);
+	indio_dev->channels = ltc2309->chip_info->channels;
+	indio_dev->num_channels = ltc2309->chip_info->num_channels;
 	indio_dev->info = &ltc2309_info;
 
 	ret = devm_regulator_get_enable_read_voltage(&client->dev, "vref");
