@@ -160,12 +160,12 @@ struct st_sensor_int_drdy {
 
 /**
  * struct st_sensor_data_ready_irq - ST sensor device data-ready interrupt
- * struct int1 - data-ready configuration register for INT1 pin.
- * struct int2 - data-ready configuration register for INT2 pin.
+ * @int1: data-ready configuration register for INT1 pin.
+ * @int2: data-ready configuration register for INT2 pin.
  * @addr_ihl: address to enable/disable active low on the INT lines.
  * @mask_ihl: mask to enable/disable active low on the INT lines.
- * struct stat_drdy - status register of DRDY (data ready) interrupt.
- * struct ig1 - represents the Interrupt Generator 1 of sensors.
+ * @stat_drdy: status register of DRDY (data ready) interrupt.
+ * @ig1: represents the Interrupt Generator 1 of sensors.
  * @en_addr: address of the enable ig1 register.
  * @en_mask: mask to write the on/off value for enable.
  */
@@ -190,6 +190,7 @@ struct st_sensor_data_ready_irq {
  * @wai_addr: The address of WhoAmI register.
  * @sensors_supported: List of supported sensors by struct itself.
  * @ch: IIO channels for the sensor.
+ * @num_ch: Number of IIO channels in @ch
  * @odr: Output data rate register and ODR list available.
  * @pw: Power register of the sensor.
  * @enable_axis: Enable one or more axis of the sensor.
@@ -228,7 +229,7 @@ struct st_sensor_settings {
  * @regmap: Pointer to specific sensor regmap configuration.
  * @enabled: Status of the sensor (false->off, true->on).
  * @odr: Output data rate of the sensor [Hz].
- * num_data_channels: Number of data channels used in buffer.
+ * @num_data_channels: Number of data channels used in buffer.
  * @drdy_int_pin: Redirect DRDY on pin 1 (1) or pin 2 (2).
  * @int_pin_open_drain: Set the interrupt/DRDY to open drain.
  * @irq: the IRQ number.
