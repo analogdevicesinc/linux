@@ -71,6 +71,19 @@ config ADI_AXI_TDD
 	  the previous TDD engine, this core can only be used standalone mode,
 	  and is not embedded into other devices.
 
+config ADI_SPI_TEMPLATE
+	tristate "Analog Devices SPI Template Driver"
+	depends on SPI
+	select REGMAP_SPI
+	select IIO
+	help
+	  Say yes here to build support for the Analog Devices SPI template
+	  driver. This is a minimal IIO driver for SPI devices with debugfs
+	  register access.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi_spi_template.
+
 config DUMMY_IRQ
 	tristate "Dummy IRQ handler"
 	help

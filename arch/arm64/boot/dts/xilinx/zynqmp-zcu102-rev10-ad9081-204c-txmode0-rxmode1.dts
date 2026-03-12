@@ -38,3 +38,11 @@
 	single-shot-output-gpios = <&gpio 139 0>;
 };
 
+&spi0 {
+	adi_dev@0 {
+		compatible = "adi,adi-spi-template";
+		reg = <0>;  /* chip select 0 */
+		spi-max-frequency = <10000000>;
+	};
+};
+
