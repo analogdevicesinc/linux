@@ -50,10 +50,10 @@ struct adi_dev_state {
  */
 static const struct regmap_config adi_dev_regmap_config = {
 	.reg_bits = 16,
-	.val_bits = 32,
+	.val_bits = 8,
 	.read_flag_mask = ADI_DEV_SPI_READ,
 	.write_flag_mask = ADI_DEV_SPI_WRITE,
-	.max_register = 0xFFFF,
+	.max_register = 0x7FFF,
 };
 
 static int adi_dev_reset(struct adi_dev_state *st)
