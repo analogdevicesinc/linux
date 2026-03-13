@@ -24,7 +24,9 @@
 #include <linux/intel_vsec.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/overflow.h>
 #include <linux/pci.h>
+#include <linux/string.h>
 #include <linux/types.h>
 
 #define PMT_XA_START			0
@@ -109,6 +111,7 @@ static void intel_vsec_dev_release(struct device *dev)
 
 	ida_free(intel_vsec_dev->ida, intel_vsec_dev->auxdev.id);
 
+	kfree(intel_vsec_dev->acpi_disc);
 	kfree(intel_vsec_dev->resource);
 	kfree(intel_vsec_dev);
 }
@@ -320,6 +323,13 @@ static int intel_vsec_add_dev(struct device *dev, struct intel_vsec_header *head
 	 * auxiliary device driver.
 	 */
 	for (i = 0, tmp = res; i < header->num_entries; i++, tmp++) {
+		/*
+		 * Skip resource mapping check for ACPI-based discovery
+		 * since those tables are read from _DSD, not MMIO.
+		 */
+		if (info->src == INTEL_VSEC_DISC_ACPI)
+			break;
+
 		tmp->start = base_addr + header->offset + i * (header->entry_size * sizeof(u32));
 		tmp->end = tmp->start + (header->entry_size * sizeof(u32)) - 1;
 		tmp->flags = IORESOURCE_MEM;
@@ -338,6 +348,19 @@ static int intel_vsec_add_dev(struct device *dev, struct intel_vsec_header *head
 	intel_vsec_dev->base_addr = info->base_addr;
 	intel_vsec_dev->priv_data = info->priv_data;
 	intel_vsec_dev->cap_id = cap_id;
+	intel_vsec_dev->src = info->src;
+
+	if (info->src == INTEL_VSEC_DISC_ACPI) {
+		size_t bytes;
+
+		if (check_mul_overflow(intel_vsec_dev->num_resources,
+				       sizeof(*info->acpi_disc), &bytes))
+			return -EOVERFLOW;
+
+		intel_vsec_dev->acpi_disc = kmemdup(info->acpi_disc, bytes, GFP_KERNEL);
+		if (!intel_vsec_dev->acpi_disc)
+			return -ENOMEM;
+	}
 
 	if (header->id == VSEC_ID_SDSI)
 		intel_vsec_dev->ida = &intel_vsec_sdsi_ida;
