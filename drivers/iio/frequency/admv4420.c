@@ -344,18 +344,19 @@ static int admv4420_setup(struct iio_dev *indio_dev)
 
 static int admv4420_probe(struct spi_device *spi)
 {
+	struct device *dev = &spi->dev;
 	struct iio_dev *indio_dev;
 	struct admv4420_state *st;
 	struct regmap *regmap;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
 	regmap = devm_regmap_init_spi(spi, &admv4420_regmap_config);
 	if (IS_ERR(regmap))
-		return dev_err_probe(&spi->dev, PTR_ERR(regmap),
+		return dev_err_probe(dev, PTR_ERR(regmap),
 				     "Failed to initializing spi regmap\n");
 
 	st = iio_priv(indio_dev);
@@ -373,7 +374,7 @@ static int admv4420_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	return devm_iio_device_register(dev, indio_dev);
 }
 
 static const struct of_device_id admv4420_of_match[] = {
