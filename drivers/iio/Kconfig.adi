@@ -38,6 +38,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADXL380_SPI if SPI
 
 	imply AD4000
+	imply AD4062 if I3C
 	imply AD4630
 	imply AD4695
 	imply AD4130
@@ -157,6 +158,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADIS16550
 	imply M2K_LOGIC_ANALYZER
 	imply AD5272
+	imply IIO_REGMAP_I3C
 	imply IIO_REGMAP_I2C
 	imply IIO_REGMAP_SPI
 	imply AD2S1200
