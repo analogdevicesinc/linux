@@ -39,6 +39,8 @@
 #include "abm.h"
 #include "dcn10/dcn10_hubbub.h"
 #include "dce/dmub_hw_lock_mgr.h"
+#include "custom_float.h"
+#include "link_service.h"
 
 #define MAX_NUM_MCACHE 8
 
@@ -789,8 +791,242 @@ void hwss_build_fast_sequence(struct dc *dc,
 		(*num_steps)++;
 	}
 
+	if (dc->hwss.setup_periodic_interrupt && stream->update_flags.bits.periodic_interrupt) {
+		block_sequence[*num_steps].params.setup_periodic_interrupt_params.dc = dc;
+		block_sequence[*num_steps].params.setup_periodic_interrupt_params.pipe_ctx = pipe_ctx;
+		block_sequence[*num_steps].func = HWSS_SETUP_PERIODIC_INTERRUPT;
+		(*num_steps)++;
+	}
+
+	if (stream->update_flags.bits.info_frame) {
+		resource_build_info_frame(pipe_ctx);
+		block_sequence[*num_steps].params.update_info_frame_params.dc = dc;
+		block_sequence[*num_steps].params.update_info_frame_params.pipe_ctx = pipe_ctx;
+		block_sequence[*num_steps].func = HWSS_UPDATE_INFO_FRAME;
+		(*num_steps)++;
+
+		if (dc_is_dp_signal(pipe_ctx->stream->signal)) {
+			block_sequence[*num_steps].params.dp_trace_source_sequence_params.dc = dc;
+			block_sequence[*num_steps].params.dp_trace_source_sequence_params.link = pipe_ctx->stream->link;
+			block_sequence[*num_steps].params.dp_trace_source_sequence_params.dp_test_mode = DPCD_SOURCE_SEQ_AFTER_UPDATE_INFO_FRAME;
+			block_sequence[*num_steps].func = DP_TRACE_SOURCE_SEQUENCE;
+			(*num_steps)++;
+		}
+	}
+
+	if (dc->hwss.set_dmdata_attributes && stream->update_flags.bits.dmdata &&
+			stream->use_dynamic_meta && pipe_ctx->stream->dmdata_address.quad_part != 0) {
+		struct dc_dmdata_attributes attr = { 0 };
+
+		attr.dmdata_mode = DMDATA_HW_MODE;
+		attr.dmdata_size = dc_is_hdmi_signal(pipe_ctx->stream->signal) ? 32 : 36;
+		attr.address.quad_part = pipe_ctx->stream->dmdata_address.quad_part;
+		attr.dmdata_dl_delta = 0;
+		attr.dmdata_qos_mode = 0;
+		attr.dmdata_qos_level = 0;
+		attr.dmdata_repeat = 1; /* always repeat */
+		attr.dmdata_updated = 1;
+		attr.dmdata_sw_data = NULL;
+
+		block_sequence[*num_steps].params.set_dmdata_attributes_params.hubp = pipe_ctx->plane_res.hubp;
+		block_sequence[*num_steps].params.set_dmdata_attributes_params.attr = attr;
+		block_sequence[*num_steps].func = HUBP_SET_DMDATA_ATTRIBUTES;
+		(*num_steps)++;
+	}
+
+	/* Track cursor lock state - separate locks for attribute and position updates */
+	bool enable_cursor_offload = false;
+
+	if ((dc->hwss.set_cursor_attribute && stream->update_flags.bits.cursor_attr) ||
+		(dc->hwss.set_cursor_position && stream->update_flags.bits.cursor_pos))
+		enable_cursor_offload = dc_dmub_srv_is_cursor_offload_enabled(dc);
+
+	/* Cursor attribute updates - separate lock/iterate/unlock */
+	if (dc->hwss.set_cursor_attribute && stream->update_flags.bits.cursor_attr) {
+		struct pipe_ctx *cursor_pipe_to_program = NULL;
+
+		for (i = 0; i < MAX_PIPES; i++) {
+			current_pipe = &context->res_ctx.pipe_ctx[i];
+
+			if (current_pipe->stream != stream)
+				continue;
+
+			if (!cursor_pipe_to_program) {
+				cursor_pipe_to_program = current_pipe;
+
+				if (enable_cursor_offload && dc->hwss.begin_cursor_offload_update) {
+					block_sequence[*num_steps].params.begin_cursor_offload_update_params.dc = dc;
+					block_sequence[*num_steps].params.begin_cursor_offload_update_params.pipe_ctx =
+						current_pipe;
+					block_sequence[*num_steps].func = HWSS_BEGIN_CURSOR_OFFLOAD_UPDATE;
+					(*num_steps)++;
+				} else {
+					block_sequence[*num_steps].params.cursor_lock_params.dc = dc;
+					block_sequence[*num_steps].params.cursor_lock_params.pipe_ctx = current_pipe;
+					block_sequence[*num_steps].params.cursor_lock_params.lock = true;
+					block_sequence[*num_steps].func = HWSS_CURSOR_LOCK;
+					(*num_steps)++;
+
+					if (current_pipe->next_odm_pipe) {
+						block_sequence[*num_steps].params.cursor_lock_params.dc = dc;
+						block_sequence[*num_steps].params.cursor_lock_params.pipe_ctx =
+							current_pipe->next_odm_pipe;
+						block_sequence[*num_steps].params.cursor_lock_params.lock = true;
+						block_sequence[*num_steps].func = HWSS_CURSOR_LOCK;
+						(*num_steps)++;
+					}
+				}
+			}
+
+			block_sequence[*num_steps].params.hubp_set_cursor_attributes_params.hubp =
+				current_pipe->plane_res.hubp;
+			block_sequence[*num_steps].params.hubp_set_cursor_attributes_params.attributes =
+				&current_pipe->stream->cursor_attributes;
+			block_sequence[*num_steps].func = HUBP_SET_CURSOR_ATTRIBUTES;
+			(*num_steps)++;
+
+			block_sequence[*num_steps].params.dpp_set_cursor_attributes_params.dpp =
+				current_pipe->plane_res.dpp;
+			block_sequence[*num_steps].params.dpp_set_cursor_attributes_params.attributes =
+				&current_pipe->stream->cursor_attributes;
+			block_sequence[*num_steps].func = DPP_SET_CURSOR_ATTRIBUTES;
+			(*num_steps)++;
+
+			if (dc->ctx->dmub_srv) {
+				block_sequence[*num_steps].params.send_cursor_info_to_dmu_params.pipe_ctx =
+					current_pipe;
+				block_sequence[*num_steps].params.send_cursor_info_to_dmu_params.pipe_idx =
+					current_pipe->pipe_idx;
+				block_sequence[*num_steps].func = DC_SEND_CURSOR_INFO_TO_DMU;
+				(*num_steps)++;
+			}
+
+			block_sequence[*num_steps].params.set_cursor_sdr_white_level_params.dc = dc;
+			block_sequence[*num_steps].params.set_cursor_sdr_white_level_params.pipe_ctx =
+				current_pipe;
+			block_sequence[*num_steps].func = SET_CURSOR_SDR_WHITE_LEVEL;
+			(*num_steps)++;
+
+			if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe) {
+				block_sequence[*num_steps].params.update_cursor_offload_pipe_params.dc = dc;
+				block_sequence[*num_steps].params.update_cursor_offload_pipe_params.pipe_ctx =
+					current_pipe;
+				block_sequence[*num_steps].func = HWSS_UPDATE_CURSOR_OFFLOAD_PIPE;
+				(*num_steps)++;
+			}
+		}
+
+		/* Unlock cursor attributes after all pipes have been programmed */
+		if (cursor_pipe_to_program) {
+			if (enable_cursor_offload && dc->hwss.commit_cursor_offload_update) {
+				block_sequence[*num_steps].params.commit_cursor_offload_update_params.dc = dc;
+				block_sequence[*num_steps].params.commit_cursor_offload_update_params.pipe_ctx =
+					cursor_pipe_to_program;
+				block_sequence[*num_steps].func = HWSS_COMMIT_CURSOR_OFFLOAD_UPDATE;
+				(*num_steps)++;
+			} else {
+				block_sequence[*num_steps].params.cursor_lock_params.dc = dc;
+				block_sequence[*num_steps].params.cursor_lock_params.pipe_ctx = cursor_pipe_to_program;
+				block_sequence[*num_steps].params.cursor_lock_params.lock = false;
+				block_sequence[*num_steps].func = HWSS_CURSOR_LOCK;
+				(*num_steps)++;
+
+				if (cursor_pipe_to_program->next_odm_pipe) {
+					block_sequence[*num_steps].params.cursor_lock_params.dc = dc;
+					block_sequence[*num_steps].params.cursor_lock_params.pipe_ctx =
+						cursor_pipe_to_program->next_odm_pipe;
+					block_sequence[*num_steps].params.cursor_lock_params.lock = false;
+					block_sequence[*num_steps].func = HWSS_CURSOR_LOCK;
+					(*num_steps)++;
+				}
+			}
+		}
+	}
+
+	/* Cursor position updates */
+	if (dc->hwss.set_cursor_position && stream->update_flags.bits.cursor_pos) {
+		struct pipe_ctx *cursor_pipe_to_program = NULL;
+
+		for (i = 0; i < MAX_PIPES; i++) {
+			current_pipe = &context->res_ctx.pipe_ctx[i];
+
+			if (current_pipe->stream != stream ||
+					(!current_pipe->plane_res.mi && !current_pipe->plane_res.hubp) ||
+					!current_pipe->plane_state ||
+					(!current_pipe->plane_res.xfm && !current_pipe->plane_res.dpp) ||
+					(!current_pipe->plane_res.ipp && !current_pipe->plane_res.dpp))
+				continue;
+
+			if (!cursor_pipe_to_program) {
+				cursor_pipe_to_program = current_pipe;
+
+				if (enable_cursor_offload && dc->hwss.begin_cursor_offload_update) {
+					block_sequence[*num_steps].params.begin_cursor_offload_update_params.dc = dc;
+					block_sequence[*num_steps].params.begin_cursor_offload_update_params.pipe_ctx =
+						current_pipe;
+					block_sequence[*num_steps].func = HWSS_BEGIN_CURSOR_OFFLOAD_UPDATE;
+					(*num_steps)++;
+				} else {
+					block_sequence[*num_steps].params.cursor_lock_params.dc = dc;
+					block_sequence[*num_steps].params.cursor_lock_params.pipe_ctx = current_pipe;
+					block_sequence[*num_steps].params.cursor_lock_params.lock = true;
+					block_sequence[*num_steps].func = HWSS_CURSOR_LOCK;
+					(*num_steps)++;
+				}
+			}
+
+			block_sequence[*num_steps].params.set_cursor_position_params.dc = dc;
+			block_sequence[*num_steps].params.set_cursor_position_params.pipe_ctx = current_pipe;
+			block_sequence[*num_steps].func = SET_CURSOR_POSITION;
+			(*num_steps)++;
+
+			if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe) {
+				block_sequence[*num_steps].params.update_cursor_offload_pipe_params.dc = dc;
+				block_sequence[*num_steps].params.update_cursor_offload_pipe_params.pipe_ctx =
+					current_pipe;
+				block_sequence[*num_steps].func = HWSS_UPDATE_CURSOR_OFFLOAD_PIPE;
+				(*num_steps)++;
+			}
+
+			if (dc->ctx->dmub_srv) {
+				block_sequence[*num_steps].params.send_cursor_info_to_dmu_params.pipe_ctx =
+					current_pipe;
+				block_sequence[*num_steps].params.send_cursor_info_to_dmu_params.pipe_idx =
+					current_pipe->pipe_idx;
+				block_sequence[*num_steps].func = DC_SEND_CURSOR_INFO_TO_DMU;
+				(*num_steps)++;
+			}
+		}
+
+		/* Unlock cursor position after all pipes have been programmed */
+		if (cursor_pipe_to_program) {
+			if (enable_cursor_offload && dc->hwss.commit_cursor_offload_update) {
+				block_sequence[*num_steps].params.commit_cursor_offload_update_params.dc = dc;
+				block_sequence[*num_steps].params.commit_cursor_offload_update_params.pipe_ctx =
+					cursor_pipe_to_program;
+				block_sequence[*num_steps].func = HWSS_COMMIT_CURSOR_OFFLOAD_UPDATE;
+				(*num_steps)++;
+			} else {
+				block_sequence[*num_steps].params.cursor_lock_params.dc = dc;
+				block_sequence[*num_steps].params.cursor_lock_params.pipe_ctx = cursor_pipe_to_program;
+				block_sequence[*num_steps].params.cursor_lock_params.lock = false;
+				block_sequence[*num_steps].func = HWSS_CURSOR_LOCK;
+				(*num_steps)++;
+			}
+		}
+	}
+
 	current_pipe = pipe_ctx;
 	while (current_pipe) {
+		if (current_pipe->stream->update_flags.bits.dither) {
+			resource_build_bit_depth_reduction_params(current_pipe->stream, &current_pipe->stream->bit_depth_params);
+			block_sequence[*num_steps].params.opp_program_fmt_params.opp = current_pipe->stream_res.opp;
+			block_sequence[*num_steps].params.opp_program_fmt_params.fmt_bit_depth = &current_pipe->stream->bit_depth_params;
+			block_sequence[*num_steps].params.opp_program_fmt_params.clamping = &current_pipe->stream->clamping;
+			block_sequence[*num_steps].func = OPP_PROGRAM_FMT;
+			(*num_steps)++;
+		}
+
 		current_mpc_pipe = current_pipe;
 		while (current_mpc_pipe) {
 			if (current_mpc_pipe->plane_state) {
@@ -831,7 +1067,9 @@ void hwss_build_fast_sequence(struct dc *dc,
 					(*num_steps)++;
 				}
 
-				if (dc->hwss.program_gamut_remap && current_mpc_pipe->plane_state->update_flags.bits.gamut_remap_change) {
+				if (dc->hwss.program_gamut_remap &&
+						(current_mpc_pipe->plane_state->update_flags.bits.gamut_remap_change ||
+						 current_mpc_pipe->stream->update_flags.bits.gamut_remap)) {
 					block_sequence[*num_steps].params.program_gamut_remap_params.pipe_ctx = current_mpc_pipe;
 					block_sequence[*num_steps].func = DPP_PROGRAM_GAMUT_REMAP;
 					(*num_steps)++;
@@ -854,6 +1092,16 @@ void hwss_build_fast_sequence(struct dc *dc,
 					block_sequence[*num_steps].params.control_cm_hist_params.color_space
 						= current_mpc_pipe->plane_state->color_space;
 					block_sequence[*num_steps].func = DPP_PROGRAM_CM_HIST;
+					(*num_steps)++;
+				}
+
+				if (current_mpc_pipe->plane_res.dpp &&
+						current_mpc_pipe->plane_res.dpp->funcs->set_cursor_matrix &&
+						current_mpc_pipe->plane_state->update_flags.bits.cursor_csc_color_matrix_change) {
+					block_sequence[*num_steps].params.dpp_set_cursor_matrix_params.dpp = current_mpc_pipe->plane_res.dpp;
+					block_sequence[*num_steps].params.dpp_set_cursor_matrix_params.color_space = current_mpc_pipe->plane_state->color_space;
+					block_sequence[*num_steps].params.dpp_set_cursor_matrix_params.cursor_csc_color_matrix = &current_mpc_pipe->plane_state->cursor_csc_color_matrix;
+					block_sequence[*num_steps].func = DPP_SET_CURSOR_MATRIX;
 					(*num_steps)++;
 				}
 			}
@@ -989,7 +1237,25 @@ void hwss_execute_sequence(struct dc *dc,
 					params->set_input_transfer_func_params.plane_state);
 			break;
 		case DPP_PROGRAM_GAMUT_REMAP:
-			dc->hwss.program_gamut_remap(params->program_gamut_remap_params.pipe_ctx);
+			hwss_program_gamut_remap(params);
+			break;
+		case HUBP_ENABLE_3DLUT_FL:
+			hwss_hubp_enable_3dlut_fl(params);
+			break;
+		case OTG_SETUP_VERTICAL_INTERRUPT:
+			hwss_tg_setup_vertical_interrupt0(params);
+			break;
+		case HWSS_SETUP_PERIODIC_INTERRUPT:
+			hwss_setup_periodic_interrupt(dc, params);
+			break;
+		case HWSS_UPDATE_INFO_FRAME:
+			hwss_update_info_frame(dc, params);
+			break;
+		case DP_TRACE_SOURCE_SEQUENCE:
+			hwss_dp_trace_source_sequence(params);
+			break;
+		case HUBP_SET_DMDATA_ATTRIBUTES:
+			hwss_set_dmdata_attributes(params);
 			break;
 		case DPP_SETUP_DPP:
 			hwss_setup_dpp(params);
@@ -1311,8 +1577,29 @@ void hwss_execute_sequence(struct dc *dc,
 		case ABORT_CURSOR_OFFLOAD_UPDATE:
 			hwss_abort_cursor_offload_update(params);
 			break;
+		case HWSS_CURSOR_LOCK:
+			hwss_cursor_lock(params);
+			break;
+		case HWSS_BEGIN_CURSOR_OFFLOAD_UPDATE:
+			hwss_begin_cursor_offload_update(params);
+			break;
+		case HWSS_COMMIT_CURSOR_OFFLOAD_UPDATE:
+			hwss_commit_cursor_offload_update(params);
+			break;
+		case HWSS_UPDATE_CURSOR_OFFLOAD_PIPE:
+			hwss_update_cursor_offload_pipe(params);
+			break;
+		case DC_SEND_CURSOR_INFO_TO_DMU:
+			hwss_send_cursor_info_to_dmu(params);
+			break;
 		case SET_CURSOR_ATTRIBUTE:
 			hwss_set_cursor_attribute(params);
+			break;
+		case HUBP_SET_CURSOR_ATTRIBUTES:
+			hwss_hubp_set_cursor_attributes(params);
+			break;
+		case DPP_SET_CURSOR_ATTRIBUTES:
+			hwss_dpp_set_cursor_attributes(params);
 			break;
 		case SET_CURSOR_POSITION:
 			hwss_set_cursor_position(params);
@@ -1733,6 +2020,21 @@ void hwss_add_tg_set_vtg_params(struct block_sequence_state *seq_state,
 }
 
 /*
+ * Helper function to add OTG setup vertical interrupt0 to block sequence
+ */
+void hwss_add_vertical_interrupt_setup(struct block_sequence_state *seq_state,
+		struct timing_generator *tg, uint32_t start_line, uint32_t end_line)
+{
+	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		seq_state->steps[*seq_state->num_steps].params.tg_setup_vertical_interrupt0_params.tg = tg;
+		seq_state->steps[*seq_state->num_steps].params.tg_setup_vertical_interrupt0_params.start_line = start_line;
+		seq_state->steps[*seq_state->num_steps].params.tg_setup_vertical_interrupt0_params.end_line = end_line;
+		seq_state->steps[*seq_state->num_steps].func = OTG_SETUP_VERTICAL_INTERRUPT;
+		(*seq_state->num_steps)++;
+	}
+}
+
+/*
  * Helper function to add TG setup vertical interrupt2 to block sequence
  */
 void hwss_add_tg_setup_vertical_interrupt2(struct block_sequence_state *seq_state,
@@ -1943,6 +2245,27 @@ void hwss_add_tg_wait_double_buffer_pending(struct block_sequence_state *seq_sta
 		seq_state->steps[*seq_state->num_steps].params.tg_wait_double_buffer_pending_params.timeout_us = timeout_us;
 		seq_state->steps[*seq_state->num_steps].params.tg_wait_double_buffer_pending_params.polling_interval_us = polling_interval_us;
 		seq_state->steps[*seq_state->num_steps].func = TG_WAIT_DOUBLE_BUFFER_PENDING;
+		(*seq_state->num_steps)++;
+	}
+}
+
+void hwss_add_hubp_enable_3dlut_fl(struct block_sequence_state *seq_state,
+		struct hubp *hubp)
+{
+	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		seq_state->steps[*seq_state->num_steps].params.hubp_enable_3dlut_fl_params.hubp = hubp;
+		seq_state->steps[*seq_state->num_steps].func = HUBP_ENABLE_3DLUT_FL;
+		(*seq_state->num_steps)++;
+	}
+}
+
+void hwss_add_set_dmdata_attributes(struct block_sequence_state *seq_state,
+		struct hubp *hubp, struct dc_dmdata_attributes *attr)
+{
+	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		seq_state->steps[*seq_state->num_steps].params.set_dmdata_attributes_params.hubp = hubp;
+		seq_state->steps[*seq_state->num_steps].params.set_dmdata_attributes_params.attr = *attr;
+		seq_state->steps[*seq_state->num_steps].func = HUBP_SET_DMDATA_ATTRIBUTES;
 		(*seq_state->num_steps)++;
 	}
 }
@@ -2414,6 +2737,59 @@ void hwss_tg_set_vtg_params(union block_sequence_params *params)
 
 	if (tg->funcs->set_vtg_params)
 		tg->funcs->set_vtg_params(tg, timing, program_fp2);
+}
+
+void hwss_hubp_enable_3dlut_fl(union block_sequence_params *params)
+{
+	struct hubp *hubp = params->hubp_enable_3dlut_fl_params.hubp;
+
+	if (hubp->funcs->hubp_enable_3dlut_fl)
+		hubp->funcs->hubp_enable_3dlut_fl(hubp, true);
+}
+
+void hwss_update_info_frame(struct dc *dc, union block_sequence_params *params)
+{
+	struct pipe_ctx *pipe_ctx = params->update_info_frame_params.pipe_ctx;
+
+	if (dc->hwss.update_info_frame)
+		dc->hwss.update_info_frame(pipe_ctx);
+}
+
+void hwss_setup_periodic_interrupt(struct dc *dc, union block_sequence_params *params)
+{
+	struct pipe_ctx *pipe_ctx = params->setup_periodic_interrupt_params.pipe_ctx;
+
+	if (dc->hwss.setup_periodic_interrupt)
+		dc->hwss.setup_periodic_interrupt(dc, pipe_ctx);
+}
+
+void hwss_dp_trace_source_sequence(union block_sequence_params *params)
+{
+	struct dc *dc = params->dp_trace_source_sequence_params.dc;
+	struct dc_link *link = params->dp_trace_source_sequence_params.link;
+	uint8_t dp_test_mode = params->dp_trace_source_sequence_params.dp_test_mode;
+
+	if (dc->link_srv->dp_trace_source_sequence)
+		dc->link_srv->dp_trace_source_sequence(link, dp_test_mode);
+}
+
+void hwss_set_dmdata_attributes(union block_sequence_params *params)
+{
+	struct hubp *hubp = params->set_dmdata_attributes_params.hubp;
+	struct dc_dmdata_attributes *attr = &params->set_dmdata_attributes_params.attr;
+
+	if (hubp->funcs->dmdata_set_attributes)
+		hubp->funcs->dmdata_set_attributes(hubp, attr);
+}
+
+void hwss_tg_setup_vertical_interrupt0(union block_sequence_params *params)
+{
+	struct timing_generator *tg = params->tg_setup_vertical_interrupt0_params.tg;
+	uint32_t start_line = params->tg_setup_vertical_interrupt0_params.start_line;
+	uint32_t end_line = params->tg_setup_vertical_interrupt0_params.end_line;
+
+	if (tg->funcs->setup_vertical_interrupt0)
+		tg->funcs->setup_vertical_interrupt0(tg, start_line, end_line);
 }
 
 void hwss_tg_setup_vertical_interrupt2(union block_sequence_params *params)
@@ -3113,6 +3489,51 @@ void hwss_abort_cursor_offload_update(union block_sequence_params *params)
 		dc->hwss.abort_cursor_offload_update(dc, pipe_ctx);
 }
 
+void hwss_cursor_lock(union block_sequence_params *params)
+{
+	struct dc *dc = params->cursor_lock_params.dc;
+	struct pipe_ctx *pipe_ctx = params->cursor_lock_params.pipe_ctx;
+	bool lock = params->cursor_lock_params.lock;
+
+	if (dc && dc->hwss.cursor_lock)
+		dc->hwss.cursor_lock(dc, pipe_ctx, lock);
+}
+
+void hwss_begin_cursor_offload_update(union block_sequence_params *params)
+{
+	struct dc *dc = params->begin_cursor_offload_update_params.dc;
+	struct pipe_ctx *pipe_ctx = params->begin_cursor_offload_update_params.pipe_ctx;
+
+	if (dc && dc->hwss.begin_cursor_offload_update)
+		dc->hwss.begin_cursor_offload_update(dc, pipe_ctx);
+}
+
+void hwss_commit_cursor_offload_update(union block_sequence_params *params)
+{
+	struct dc *dc = params->commit_cursor_offload_update_params.dc;
+	struct pipe_ctx *pipe_ctx = params->commit_cursor_offload_update_params.pipe_ctx;
+
+	if (dc && dc->hwss.commit_cursor_offload_update)
+		dc->hwss.commit_cursor_offload_update(dc, pipe_ctx);
+}
+
+void hwss_update_cursor_offload_pipe(union block_sequence_params *params)
+{
+	struct dc *dc = params->update_cursor_offload_pipe_params.dc;
+	struct pipe_ctx *pipe_ctx = params->update_cursor_offload_pipe_params.pipe_ctx;
+
+	if (dc && dc->hwss.update_cursor_offload_pipe)
+		dc->hwss.update_cursor_offload_pipe(dc, pipe_ctx);
+}
+
+void hwss_send_cursor_info_to_dmu(union block_sequence_params *params)
+{
+	struct pipe_ctx *pipe_ctx = params->send_cursor_info_to_dmu_params.pipe_ctx;
+	int pipe_idx = params->send_cursor_info_to_dmu_params.pipe_idx;
+
+	dc_send_update_cursor_info_to_dmu(pipe_ctx, pipe_idx);
+}
+
 void hwss_set_cursor_attribute(union block_sequence_params *params)
 {
 	struct dc *dc = params->set_cursor_attribute_params.dc;
@@ -3120,6 +3541,24 @@ void hwss_set_cursor_attribute(union block_sequence_params *params)
 
 	if (dc && dc->hwss.set_cursor_attribute)
 		dc->hwss.set_cursor_attribute(pipe_ctx);
+}
+
+void hwss_hubp_set_cursor_attributes(union block_sequence_params *params)
+{
+	struct hubp *hubp = params->hubp_set_cursor_attributes_params.hubp;
+	const struct dc_cursor_attributes *attributes = params->hubp_set_cursor_attributes_params.attributes;
+
+	if (hubp && hubp->funcs->set_cursor_attributes)
+		hubp->funcs->set_cursor_attributes(hubp, attributes);
+}
+
+void hwss_dpp_set_cursor_attributes(union block_sequence_params *params)
+{
+	struct dpp *dpp = params->dpp_set_cursor_attributes_params.dpp;
+	struct dc_cursor_attributes *attributes = params->dpp_set_cursor_attributes_params.attributes;
+
+	if (dpp && dpp->funcs->set_cursor_attributes)
+		dpp->funcs->set_cursor_attributes(dpp, attributes);
 }
 
 void hwss_set_cursor_position(union block_sequence_params *params)
@@ -3138,6 +3577,14 @@ void hwss_set_cursor_sdr_white_level(union block_sequence_params *params)
 
 	if (dc && dc->hwss.set_cursor_sdr_white_level)
 		dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
+}
+
+void hwss_program_gamut_remap(union block_sequence_params *params)
+{
+	struct dc *dc = params->program_gamut_remap_params.pipe_ctx->stream->ctx->dc;
+
+	if (dc && dc->hwss.program_gamut_remap)
+		dc->hwss.program_gamut_remap(params->program_gamut_remap_params.pipe_ctx);
 }
 
 void hwss_program_output_csc(union block_sequence_params *params)
@@ -4005,6 +4452,30 @@ void hwss_add_set_cursor_attribute(struct block_sequence_state *seq_state,
 		seq_state->steps[*seq_state->num_steps].func = SET_CURSOR_ATTRIBUTE;
 		seq_state->steps[*seq_state->num_steps].params.set_cursor_attribute_params.dc = dc;
 		seq_state->steps[*seq_state->num_steps].params.set_cursor_attribute_params.pipe_ctx = pipe_ctx;
+		(*seq_state->num_steps)++;
+	}
+}
+
+void hwss_add_hubp_set_cursor_attributes(struct block_sequence_state *seq_state,
+		struct hubp *hubp,
+		const struct dc_cursor_attributes *attributes)
+{
+	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		seq_state->steps[*seq_state->num_steps].func = HUBP_SET_CURSOR_ATTRIBUTES;
+		seq_state->steps[*seq_state->num_steps].params.hubp_set_cursor_attributes_params.hubp = hubp;
+		seq_state->steps[*seq_state->num_steps].params.hubp_set_cursor_attributes_params.attributes = attributes;
+		(*seq_state->num_steps)++;
+	}
+}
+
+void hwss_add_dpp_set_cursor_attributes(struct block_sequence_state *seq_state,
+		struct dpp *dpp,
+		struct dc_cursor_attributes *attributes)
+{
+	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		seq_state->steps[*seq_state->num_steps].func = DPP_SET_CURSOR_ATTRIBUTES;
+		seq_state->steps[*seq_state->num_steps].params.dpp_set_cursor_attributes_params.dpp = dpp;
+		seq_state->steps[*seq_state->num_steps].params.dpp_set_cursor_attributes_params.attributes = attributes;
 		(*seq_state->num_steps)++;
 	}
 }

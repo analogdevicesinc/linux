@@ -2946,6 +2946,11 @@ static struct surface_update_descriptor det_surface_update(
 		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
 	}
 
+	if (u->cursor_csc_color_matrix) {
+		update_flags->bits.cursor_csc_color_matrix_change = 1;
+		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+	}
+
 	if (u->coeff_reduction_factor) {
 		update_flags->bits.coeff_reduction_change = 1;
 		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
@@ -3073,7 +3078,7 @@ static struct surface_update_descriptor check_update_surfaces_for_stream(
 			elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL | LOCK_DESCRIPTOR_LINK);
 		}
 
-		if (stream_update->gamut_remap)
+		if (check_config->enable_legacy_fast_update && stream_update->gamut_remap)
 			su_flags->bits.gamut_remap = 1;
 
 		if (stream_update->wb_update)
@@ -3104,6 +3109,29 @@ static struct surface_update_descriptor check_update_surfaces_for_stream(
 			elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
 
 		// Non-global cases
+
+		if (stream_update->gamut_remap) {
+			su_flags->bits.gamut_remap = 1;
+			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		if ((stream_update->hdr_static_metadata && !stream_update->stream->use_dynamic_meta) ||
+				stream_update->vrr_infopacket ||
+				stream_update->vsc_infopacket ||
+				stream_update->vsp_infopacket ||
+				stream_update->hfvsif_infopacket ||
+				stream_update->adaptive_sync_infopacket ||
+				stream_update->vtem_infopacket ||
+				stream_update->avi_infopacket) {
+			su_flags->bits.info_frame = 1;
+			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		if (stream_update->hdr_static_metadata && stream_update->stream->use_dynamic_meta) {
+			su_flags->bits.dmdata = 1;
+			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		}
+
 		if (stream_update->output_csc_transform) {
 			su_flags->bits.out_csc = 1;
 			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
@@ -3111,6 +3139,26 @@ static struct surface_update_descriptor check_update_surfaces_for_stream(
 
 		if (!check_config->enable_legacy_fast_update && stream_update->out_transfer_func) {
 			su_flags->bits.out_tf = 1;
+			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		if (stream_update->periodic_interrupt) {
+			su_flags->bits.periodic_interrupt = 1;
+			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		if (stream_update->dither_option) {
+			su_flags->bits.dither = 1;
+			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		if (stream_update->cursor_attributes) {
+			su_flags->bits.cursor_attr = 1;
+			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		if (stream_update->cursor_position) {
+			su_flags->bits.cursor_pos = 1;
 			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
 		}
 	}
@@ -5109,9 +5157,35 @@ void populate_fast_updates(struct dc_fast_update *fast_update,
 	if (stream_update) {
 		fast_update[0].out_transfer_func = stream_update->out_transfer_func;
 		fast_update[0].output_csc_transform = stream_update->output_csc_transform;
+		fast_update[0].cursor_attributes = stream_update->cursor_attributes;
+		fast_update[0].cursor_position = stream_update->cursor_position;
+		fast_update[0].periodic_interrupt = stream_update->periodic_interrupt;
+		fast_update[0].dither_option = stream_update->dither_option;
+		fast_update[0].gamut_remap = stream_update->gamut_remap;
+		fast_update[0].vrr_infopacket = stream_update->vrr_infopacket;
+		fast_update[0].vsc_infopacket = stream_update->vsc_infopacket;
+		fast_update[0].vsp_infopacket = stream_update->vsp_infopacket;
+		fast_update[0].hfvsif_infopacket = stream_update->hfvsif_infopacket;
+		fast_update[0].vtem_infopacket = stream_update->vtem_infopacket;
+		fast_update[0].adaptive_sync_infopacket = stream_update->adaptive_sync_infopacket;
+		fast_update[0].avi_infopacket = stream_update->avi_infopacket;
+		fast_update[0].hdr_static_metadata = stream_update->hdr_static_metadata;
 	} else {
 		fast_update[0].out_transfer_func = NULL;
 		fast_update[0].output_csc_transform = NULL;
+		fast_update[0].cursor_attributes = NULL;
+		fast_update[0].cursor_position = NULL;
+		fast_update[0].periodic_interrupt = NULL;
+		fast_update[0].dither_option = NULL;
+		fast_update[0].gamut_remap = NULL;
+		fast_update[0].vrr_infopacket = NULL;
+		fast_update[0].vsc_infopacket = NULL;
+		fast_update[0].vsp_infopacket = NULL;
+		fast_update[0].hfvsif_infopacket = NULL;
+		fast_update[0].vtem_infopacket = NULL;
+		fast_update[0].adaptive_sync_infopacket = NULL;
+		fast_update[0].avi_infopacket = NULL;
+		fast_update[0].hdr_static_metadata = NULL;
 	}
 
 	for (i = 0; i < surface_count; i++) {
@@ -5132,7 +5206,20 @@ static bool fast_updates_exist(const struct dc_fast_update *fast_update, int sur
 	int i;
 
 	if (fast_update[0].out_transfer_func ||
-		fast_update[0].output_csc_transform)
+		fast_update[0].output_csc_transform ||
+		fast_update[0].gamut_remap ||
+		fast_update[0].cursor_attributes ||
+		fast_update[0].cursor_position ||
+		fast_update[0].periodic_interrupt ||
+		fast_update[0].dither_option ||
+		fast_update[0].vrr_infopacket ||
+		fast_update[0].vsc_infopacket ||
+		fast_update[0].vsp_infopacket ||
+		fast_update[0].hfvsif_infopacket ||
+		fast_update[0].vtem_infopacket ||
+		fast_update[0].adaptive_sync_infopacket ||
+		fast_update[0].avi_infopacket ||
+		fast_update[0].hdr_static_metadata)
 		return true;
 
 	for (i = 0; i < surface_count; i++) {
@@ -5156,7 +5243,20 @@ bool fast_nonaddr_updates_exist(struct dc_fast_update *fast_update, int surface_
 	int i;
 
 	if (fast_update[0].out_transfer_func ||
-		fast_update[0].output_csc_transform)
+		fast_update[0].output_csc_transform ||
+		fast_update[0].cursor_attributes ||
+		fast_update[0].cursor_position ||
+		fast_update[0].periodic_interrupt ||
+		fast_update[0].dither_option ||
+		fast_update[0].gamut_remap ||
+		fast_update[0].vrr_infopacket ||
+		fast_update[0].vsc_infopacket ||
+		fast_update[0].vsp_infopacket ||
+		fast_update[0].hfvsif_infopacket ||
+		fast_update[0].vtem_infopacket ||
+		fast_update[0].adaptive_sync_infopacket ||
+		fast_update[0].avi_infopacket ||
+		fast_update[0].hdr_static_metadata)
 		return true;
 
 	for (i = 0; i < surface_count; i++) {
@@ -5240,23 +5340,12 @@ static bool full_update_required(
 			(((stream_update->src.height != 0 && stream_update->src.width != 0) ||
 			(stream_update->dst.height != 0 && stream_update->dst.width != 0) ||
 			stream_update->integer_scaling_update) ||
-			stream_update->hdr_static_metadata ||
 			stream_update->abm_level ||
-			stream_update->periodic_interrupt ||
-			stream_update->vrr_infopacket ||
-			stream_update->vsc_infopacket ||
-			stream_update->vsp_infopacket ||
-			stream_update->hfvsif_infopacket ||
-			stream_update->vtem_infopacket ||
-			stream_update->adaptive_sync_infopacket ||
-			stream_update->avi_infopacket ||
 			stream_update->dpms_off ||
 			stream_update->allow_freesync ||
 			stream_update->vrr_active_variable ||
 			stream_update->vrr_active_fixed ||
-			stream_update->gamut_remap ||
 			stream_update->output_color_space ||
-			stream_update->dither_option ||
 			stream_update->wb_update ||
 			stream_update->dsc_config ||
 			stream_update->mst_bw_update ||

@@ -91,6 +91,37 @@ struct program_gamut_remap_params {
 	struct pipe_ctx *pipe_ctx;
 };
 
+struct hubp_enable_3dlut_fl_params {
+	struct hubp *hubp;
+};
+
+struct tg_setup_vertical_interrupt0_params {
+	struct timing_generator *tg;
+	uint32_t start_line;
+	uint32_t end_line;
+};
+
+struct update_info_frame_params {
+	struct dc *dc;
+	struct pipe_ctx *pipe_ctx;
+};
+
+struct setup_periodic_interrupt_params {
+	struct dc *dc;
+	struct pipe_ctx *pipe_ctx;
+};
+
+struct dp_trace_source_sequence_params {
+	struct dc *dc;
+	struct dc_link *link;
+	uint8_t dp_test_mode;
+};
+
+struct set_dmdata_attributes_params {
+	struct hubp *hubp;
+	struct dc_dmdata_attributes attr;
+};
+
 struct program_manual_trigger_params {
 	struct pipe_ctx *pipe_ctx;
 };
@@ -707,9 +738,45 @@ struct abort_cursor_offload_update_params {
 	struct pipe_ctx *pipe_ctx;
 };
 
+struct cursor_lock_params {
+	struct dc *dc;
+	struct pipe_ctx *pipe_ctx;
+	bool lock;
+};
+
+struct begin_cursor_offload_update_params {
+	struct dc *dc;
+	struct pipe_ctx *pipe_ctx;
+};
+
+struct commit_cursor_offload_update_params {
+	struct dc *dc;
+	struct pipe_ctx *pipe_ctx;
+};
+
+struct update_cursor_offload_pipe_params {
+	struct dc *dc;
+	struct pipe_ctx *pipe_ctx;
+};
+
+struct send_cursor_info_to_dmu_params {
+	struct pipe_ctx *pipe_ctx;
+	int pipe_idx;
+};
+
 struct set_cursor_attribute_params {
 	struct dc *dc;
 	struct pipe_ctx *pipe_ctx;
+};
+
+struct hubp_set_cursor_attributes_params {
+	struct hubp *hubp;
+	const struct dc_cursor_attributes *attributes;
+};
+
+struct dpp_set_cursor_attributes_params {
+	struct dpp *dpp;
+	struct dc_cursor_attributes *attributes;
 };
 
 struct set_cursor_position_params {
@@ -747,6 +814,12 @@ union block_sequence_params {
 	struct program_triplebuffer_params program_triplebuffer_params;
 	struct set_input_transfer_func_params set_input_transfer_func_params;
 	struct program_gamut_remap_params program_gamut_remap_params;
+	struct hubp_enable_3dlut_fl_params hubp_enable_3dlut_fl_params;
+	struct tg_setup_vertical_interrupt0_params tg_setup_vertical_interrupt0_params;
+	struct update_info_frame_params update_info_frame_params;
+	struct setup_periodic_interrupt_params setup_periodic_interrupt_params;
+	struct dp_trace_source_sequence_params dp_trace_source_sequence_params;
+	struct set_dmdata_attributes_params set_dmdata_attributes_params;
 	struct program_manual_trigger_params program_manual_trigger_params;
 	struct send_dmcub_cmd_params send_dmcub_cmd_params;
 	struct setup_dpp_params setup_dpp_params;
@@ -855,7 +928,14 @@ union block_sequence_params {
 	struct dpp_set_scaler_params dpp_set_scaler_params;
 	struct hubp_mem_program_viewport_params hubp_mem_program_viewport_params;
 	struct abort_cursor_offload_update_params abort_cursor_offload_update_params;
+	struct cursor_lock_params cursor_lock_params;
+	struct begin_cursor_offload_update_params begin_cursor_offload_update_params;
+	struct commit_cursor_offload_update_params commit_cursor_offload_update_params;
+	struct update_cursor_offload_pipe_params update_cursor_offload_pipe_params;
+	struct send_cursor_info_to_dmu_params send_cursor_info_to_dmu_params;
 	struct set_cursor_attribute_params set_cursor_attribute_params;
+	struct hubp_set_cursor_attributes_params hubp_set_cursor_attributes_params;
+	struct dpp_set_cursor_attributes_params dpp_set_cursor_attributes_params;
 	struct set_cursor_position_params set_cursor_position_params;
 	struct set_cursor_sdr_white_level_params set_cursor_sdr_white_level_params;
 	struct program_output_csc_params program_output_csc_params;
@@ -871,6 +951,12 @@ enum block_sequence_func {
 	HUBP_UPDATE_PLANE_ADDR,
 	DPP_SET_INPUT_TRANSFER_FUNC,
 	DPP_PROGRAM_GAMUT_REMAP,
+	HUBP_ENABLE_3DLUT_FL,
+	OTG_SETUP_VERTICAL_INTERRUPT,
+	HWSS_SETUP_PERIODIC_INTERRUPT,
+	HWSS_UPDATE_INFO_FRAME,
+	DP_TRACE_SOURCE_SEQUENCE,
+	HUBP_SET_DMDATA_ATTRIBUTES,
 	OPTC_PROGRAM_MANUAL_TRIGGER,
 	DMUB_SEND_DMCUB_CMD,
 	DPP_SETUP_DPP,
@@ -975,7 +1061,14 @@ enum block_sequence_func {
 	DPP_SET_SCALER,
 	HUBP_MEM_PROGRAM_VIEWPORT,
 	ABORT_CURSOR_OFFLOAD_UPDATE,
+	HWSS_CURSOR_LOCK,
+	HWSS_BEGIN_CURSOR_OFFLOAD_UPDATE,
+	HWSS_COMMIT_CURSOR_OFFLOAD_UPDATE,
+	HWSS_UPDATE_CURSOR_OFFLOAD_PIPE,
+	DC_SEND_CURSOR_INFO_TO_DMU,
 	SET_CURSOR_ATTRIBUTE,
+	HUBP_SET_CURSOR_ATTRIBUTES,
+	DPP_SET_CURSOR_ATTRIBUTES,
 	SET_CURSOR_POSITION,
 	SET_CURSOR_SDR_WHITE_LEVEL,
 	PROGRAM_OUTPUT_CSC,
@@ -1463,6 +1556,18 @@ void hwss_tg_wait_for_state(union block_sequence_params *params);
 
 void hwss_tg_set_vtg_params(union block_sequence_params *params);
 
+void hwss_hubp_enable_3dlut_fl(union block_sequence_params *params);
+
+void hwss_update_info_frame(struct dc *dc, union block_sequence_params *params);
+
+void hwss_setup_periodic_interrupt(struct dc *dc, union block_sequence_params *params);
+
+void hwss_dp_trace_source_sequence(union block_sequence_params *params);
+
+void hwss_set_dmdata_attributes(union block_sequence_params *params);
+
+void hwss_tg_setup_vertical_interrupt0(union block_sequence_params *params);
+
 void hwss_tg_setup_vertical_interrupt2(union block_sequence_params *params);
 
 void hwss_dpp_set_hdr_multiplier(union block_sequence_params *params);
@@ -1603,11 +1708,27 @@ void hwss_hubp_mem_program_viewport(union block_sequence_params *params);
 
 void hwss_abort_cursor_offload_update(union block_sequence_params *params);
 
+void hwss_cursor_lock(union block_sequence_params *params);
+
+void hwss_begin_cursor_offload_update(union block_sequence_params *params);
+
+void hwss_commit_cursor_offload_update(union block_sequence_params *params);
+
+void hwss_update_cursor_offload_pipe(union block_sequence_params *params);
+
+void hwss_send_cursor_info_to_dmu(union block_sequence_params *params);
+
 void hwss_set_cursor_attribute(union block_sequence_params *params);
+
+void hwss_hubp_set_cursor_attributes(union block_sequence_params *params);
+
+void hwss_dpp_set_cursor_attributes(union block_sequence_params *params);
 
 void hwss_set_cursor_position(union block_sequence_params *params);
 
 void hwss_set_cursor_sdr_white_level(union block_sequence_params *params);
+
+void hwss_program_gamut_remap(union block_sequence_params *params);
 
 void hwss_program_output_csc(union block_sequence_params *params);
 
@@ -1694,6 +1815,9 @@ void hwss_add_tg_wait_for_state(struct block_sequence_state *seq_state,
 
 void hwss_add_tg_set_vtg_params(struct block_sequence_state *seq_state,
 		struct timing_generator *tg, struct dc_crtc_timing *dc_crtc_timing, bool program_fp2);
+
+void hwss_add_vertical_interrupt_setup(struct block_sequence_state *seq_state,
+		struct timing_generator *tg, uint32_t start_line, uint32_t end_line);
 
 void hwss_add_tg_setup_vertical_interrupt2(struct block_sequence_state *seq_state,
 		struct timing_generator *tg, int start_line);
@@ -2012,6 +2136,14 @@ void hwss_add_set_cursor_attribute(struct block_sequence_state *seq_state,
 		struct dc *dc,
 		struct pipe_ctx *pipe_ctx);
 
+void hwss_add_hubp_set_cursor_attributes(struct block_sequence_state *seq_state,
+		struct hubp *hubp,
+		const struct dc_cursor_attributes *attributes);
+
+void hwss_add_dpp_set_cursor_attributes(struct block_sequence_state *seq_state,
+		struct dpp *dpp,
+		struct dc_cursor_attributes *attributes);
+
 void hwss_add_set_cursor_position(struct block_sequence_state *seq_state,
 		struct dc *dc,
 		struct pipe_ctx *pipe_ctx);
@@ -2055,5 +2187,11 @@ void hwss_add_opp_program_left_edge_extra_pixel(struct block_sequence_state *seq
 		struct output_pixel_processor *opp,
 		enum dc_pixel_encoding pixel_encoding,
 		bool is_otg_master);
+
+void hwss_add_hubp_enable_3dlut_fl(struct block_sequence_state *seq_state,
+		struct hubp *hubp);
+
+void hwss_add_set_dmdata_attributes(struct block_sequence_state *seq_state,
+		struct hubp *hubp, struct dc_dmdata_attributes *attr);
 
 #endif /* __DC_HW_SEQUENCER_H__ */

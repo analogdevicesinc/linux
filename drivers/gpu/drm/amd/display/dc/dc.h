@@ -1485,6 +1485,7 @@ union surface_update_flags {
 		uint32_t pixel_format_change:1;
 		uint32_t plane_size_change:1;
 		uint32_t gamut_remap_change:1;
+		uint32_t cursor_csc_color_matrix_change:1;
 
 		/* Full updates */
 		uint32_t new_plane:1;
@@ -1894,6 +1895,20 @@ struct dc_fast_update {
 #if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 	struct cm_hist_control *cm_hist_control;
 #endif
+	/* stream-level fast updates */
+	const struct colorspace_transform *gamut_remap;
+	const struct dc_cursor_attributes *cursor_attributes;
+	const struct dc_cursor_position *cursor_position;
+	const struct periodic_interrupt_config *periodic_interrupt;
+	const enum dc_dither_option *dither_option;
+	struct dc_info_packet *vrr_infopacket;
+	struct dc_info_packet *vsc_infopacket;
+	struct dc_info_packet *vsp_infopacket;
+	struct dc_info_packet *hfvsif_infopacket;
+	struct dc_info_packet *vtem_infopacket;
+	struct dc_info_packet *adaptive_sync_infopacket;
+	struct dc_info_packet *avi_infopacket;
+	struct dc_info_packet *hdr_static_metadata;
 };
 
 struct dc_surface_update {
