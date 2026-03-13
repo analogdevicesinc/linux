@@ -515,6 +515,7 @@ static int send_load_ta_fw_cmd(struct ras_core_context *ras_core,
 	ta_init_flags->nps_mode = ta_ctx->init_param.nps_mode;
 	ta_init_flags->active_umc_mask = ta_ctx->init_param.active_umc_mask;
 	ta_init_flags->vram_type = ta_ctx->init_param.vram_type;
+	ta_init_flags->ext_umc_mask = ta_ctx->init_param.ext_umc_mask;
 
 	/* Setup load ras ta command */
 	memset(&psp_load_ta_cmd, 0, sizeof(psp_load_ta_cmd));

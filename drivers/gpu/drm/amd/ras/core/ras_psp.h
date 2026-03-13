@@ -54,6 +54,7 @@ struct ras_ta_init_param {
 	uint8_t nps_mode;
 	uint32_t active_umc_mask;
 	uint8_t vram_type;
+	uint32_t ext_umc_mask;
 };
 
 struct gpu_mem_block {

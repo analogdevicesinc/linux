@@ -278,8 +278,9 @@ static int amdgpu_ras_mgr_get_ras_ta_init_param(struct ras_core_context *ras_cor
 	ras_ta_param->xcc_mask = adev->gfx.xcc_mask;
 	ras_ta_param->channel_dis_num = hweight32(adev->gmc.m_half_use) * 2;
 
-	ras_ta_param->active_umc_mask = adev->umc.active_mask;
+	ras_ta_param->active_umc_mask = lower_32_bits(adev->umc.active_mask);
 	ras_ta_param->vram_type = (uint8_t)adev->gmc.vram_type;
+	ras_ta_param->ext_umc_mask = upper_32_bits(adev->umc.active_mask);
 
 	if (!amdgpu_ras_mgr_get_curr_nps_mode(adev, &nps_mode))
 		ras_ta_param->nps_mode = nps_mode;
