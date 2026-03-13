@@ -25,6 +25,7 @@
 #define SESSION_HASH_SIZE	512
 
 struct cld_net;
+struct nfsd_net_cb;
 struct nfsd4_client_tracking_ops;
 
 enum {
@@ -228,6 +229,8 @@ struct nfsd_net {
 	struct list_head	local_clients;
 #endif
 	siphash_key_t		*fh_key;
+
+	struct nfsd_net_cb	*nfsd_cb;
 };
 
 /* Simple check to find out if a given net was properly initialized */

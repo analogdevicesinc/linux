@@ -1032,39 +1032,14 @@ static const struct rpc_procinfo nfs4_cb_procedures[] = {
 	PROC(CB_GETATTR,	COMPOUND,	cb_getattr,	cb_getattr),
 };
 
-static unsigned int nfs4_cb_counts[ARRAY_SIZE(nfs4_cb_procedures)];
-static const struct rpc_version nfs_cb_version4 = {
-/*
- * Note on the callback rpc program version number: despite language in rfc
- * 5661 section 18.36.3 requiring servers to use 4 in this field, the
- * official xdr descriptions for both 4.0 and 4.1 specify version 1, and
- * in practice that appears to be what implementations use.  The section
- * 18.36.3 language is expected to be fixed in an erratum.
- */
-	.number			= 1,
-	.nrprocs		= ARRAY_SIZE(nfs4_cb_procedures),
-	.procs			= nfs4_cb_procedures,
-	.counts			= nfs4_cb_counts,
-};
+#define NFS4_CB_PROGRAM	0x40000000
+#define NFS4_CB_VERSION	1
 
-static const struct rpc_version *nfs_cb_version[2] = {
-	[1] = &nfs_cb_version4,
-};
-
-static const struct rpc_program cb_program;
-
-static struct rpc_stat cb_stats = {
-	.program		= &cb_program
-};
-
-#define NFS4_CALLBACK 0x40000000
-static const struct rpc_program cb_program = {
-	.name			= "nfs4_cb",
-	.number			= NFS4_CALLBACK,
-	.nrvers			= ARRAY_SIZE(nfs_cb_version),
-	.version		= nfs_cb_version,
-	.stats			= &cb_stats,
-	.pipe_dir_name		= "nfsd4_cb",
+struct nfsd_net_cb {
+	struct rpc_version	version4;
+	const struct rpc_version *versions[NFS4_CB_VERSION + 1];
+	struct rpc_program	program;
+	struct rpc_stat		stat;
 };
 
 static int max_cb_time(struct net *net)
@@ -1140,6 +1115,7 @@ static const struct cred *get_backchannel_cred(struct nfs4_client *clp, struct r
 
 static int setup_callback_client(struct nfs4_client *clp, struct nfs4_cb_conn *conn, struct nfsd4_session *ses)
 {
+	struct nfsd_net *nn = net_generic(clp->net, nfsd_net_id);
 	int maxtime = max_cb_time(clp->net);
 	struct rpc_timeout	timeparms = {
 		.to_initval	= maxtime,
@@ -1152,14 +1128,14 @@ static int setup_callback_client(struct nfs4_client *clp, struct nfs4_cb_conn *c
 		.addrsize	= conn->cb_addrlen,
 		.saddress	= (struct sockaddr *) &conn->cb_saddr,
 		.timeout	= &timeparms,
-		.program	= &cb_program,
-		.version	= 1,
+		.version	= NFS4_CB_VERSION,
 		.flags		= (RPC_CLNT_CREATE_NOPING | RPC_CLNT_CREATE_QUIET),
 		.cred		= current_cred(),
 	};
 	struct rpc_clnt *client;
 	const struct cred *cred;
 
+	args.program = &nn->nfsd_cb->program;
 	if (clp->cl_minorversion == 0) {
 		if (!clp->cl_cred.cr_principal &&
 		    (clp->cl_cred.cr_flavor >= RPC_AUTH_GSS_KRB5)) {
@@ -1785,4 +1761,71 @@ bool nfsd4_run_cb(struct nfsd4_callback *cb)
 	if (!queued)
 		nfsd41_cb_inflight_end(clp);
 	return queued;
+}
+
+/**
+ * nfsd_net_cb_shutdown - release per-netns callback RPC program resources
+ * @nn: NFS server network namespace
+ *
+ * Frees resources allocated by nfsd_net_cb_init().
+ */
+void nfsd_net_cb_shutdown(struct nfsd_net *nn)
+{
+	struct nfsd_net_cb *cb = nn->nfsd_cb;
+
+	if (cb) {
+		kfree(cb->version4.counts);
+		kfree(cb);
+		nn->nfsd_cb = NULL;
+	}
+}
+
+/**
+ * nfsd_net_cb_init - initialize per-netns callback RPC program
+ * @nn: NFS server network namespace
+ *
+ * Sets up the callback RPC program, version table, procedure
+ * counts, and statistics structure for @nn. Caller must release
+ * these resources using nfsd_net_cb_shutdown().
+ *
+ * Return: 0 on success, or -ENOMEM if allocation fails.
+ */
+int nfsd_net_cb_init(struct nfsd_net *nn)
+{
+	struct nfsd_net_cb *cb;
+
+	cb = kzalloc(sizeof(*cb), GFP_KERNEL);
+	if (!cb)
+		return -ENOMEM;
+
+	cb->version4.counts = kzalloc_objs(unsigned int,
+			ARRAY_SIZE(nfs4_cb_procedures), GFP_KERNEL);
+	if (!cb->version4.counts) {
+		kfree(cb);
+		return -ENOMEM;
+	}
+	/*
+	 * Note on the callback rpc program version number: despite language
+	 * in rfc 5661 section 18.36.3 requiring servers to use 4 in this
+	 * field, the official xdr descriptions for both 4.0 and 4.1 specify
+	 * version 1, and in practice that appears to be what implementations
+	 * use. The section 18.36.3 language is expected to be fixed in an
+	 * erratum.
+	 */
+	cb->version4.number = NFS4_CB_VERSION;
+	cb->version4.nrprocs = ARRAY_SIZE(nfs4_cb_procedures);
+	cb->version4.procs = nfs4_cb_procedures;
+	cb->versions[NFS4_CB_VERSION] = &cb->version4;
+
+	cb->program.name = "nfs4_cb";
+	cb->program.number = NFS4_CB_PROGRAM;
+	cb->program.nrvers = ARRAY_SIZE(cb->versions);
+	cb->program.version = &cb->versions[0];
+	cb->program.pipe_dir_name = "nfsd4_cb";
+	cb->program.stats = &cb->stat;
+	cb->stat.program = &cb->program;
+
+	nn->nfsd_cb = cb;
+
+	return 0;
 }
