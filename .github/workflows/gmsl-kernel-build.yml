@@ -132,7 +132,7 @@ jobs:
         curl --fail-with-body -s -X POST \
           -H "Accept: application/vnd.github+json" \
           -H "Authorization: Bearer ${{ secrets.CROSS_REPO_PAT }}" \
-           https://api.github.com/repos/analogdevicesinc/adi-kuiper-gen/actions/workflows/gmsl-kernel-build.yml/dispatches \
+          https://api.github.com/repos/iristeiu06/adi-kuiper-gen/actions/workflows/gmsl-image-build.yml/dispatches \
           -d '{
             "ref": "gmsl-rpi-6.13.y",
             "inputs": {
