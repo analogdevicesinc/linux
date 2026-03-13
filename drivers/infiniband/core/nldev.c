@@ -1839,6 +1839,18 @@ static int nldev_dellink(struct sk_buff *skb, struct nlmsghdr *nlh,
 		return -EINVAL;
 	}
 
+	/*
+	 * This path is triggered by the 'rdma link delete' administrative command.
+	 * For Soft-RoCE (RXE), we ensure that transport sockets are closed here.
+	 * Note: iWARP driver does not implement .dellink, so this logic is
+	 * implicitly scoped to the driver supporting dynamic link deletion like RXE.
+	 */
+	if (device->link_ops && device->link_ops->dellink) {
+		err = device->link_ops->dellink(device);
+		if (err)
+			return err;
+	}
+
 	ib_unregister_device_and_put(device);
 	return 0;
 }
