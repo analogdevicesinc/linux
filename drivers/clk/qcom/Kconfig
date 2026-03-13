@@ -1622,10 +1622,10 @@ config SM_VIDEOCC_8250
 config SM_VIDEOCC_8350
 	tristate "SM8350 Video Clock Controller"
 	depends on ARM64 || COMPILE_TEST
-	select SM_GCC_8350
+	depends on SM_GCC_8350 || SC_GCC_8280XP
 	select QCOM_GDSC
 	help
-	  Support for the video clock controller on SM8350 devices.
+	  Support for the video clock controller on SM8350 or SC8280XP devices.
 	  Say Y if you want to support video devices and functionality such as
 	  video encode and decode.
 
