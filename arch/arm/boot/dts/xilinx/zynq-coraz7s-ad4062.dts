@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4062
+ *
+ * hdl_project: <ad4062_ardz/coraz7s>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/ad4062_ardz
+ * board_revision: <A>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-coraz7s.dtsi"
+#include "zynq-coraz7s-axi-sysid.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	vdd: regulator-vdd {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd-fixed-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	vio: regulator-vio {
+		compatible = "regulator-fixed";
+		regulator-name = "vio-fixed-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	ref: regulator-ref {
+		compatible = "regulator-fixed";
+		regulator-name = "ref-fixed-supply";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
+};
+
+&fpga_axi {
+	i3c_master: i3c-master@44a00000 {
+		compatible = "adi,i3c-master-v1";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		clock-names = "axi";
+
+		#address-cells = <3>;
+		#size-cells = <0>;
+
+		eeprom1: eeprom@52 {
+			compatible = "atmel,24c32";
+			reg = <0x52 0x0 0x10>;
+		};
+
+		ad4062: adc@0,2ee007c0000 {
+			/* Ensure to update the PID (e.g. <0x0 0x2ee 0x707000> */
+			reg = <0x0 0x2ee 0x7c0000>;
+			/* Just for ACE, Linux uses the PID */
+			compatible = "adi,ad4062";
+			gp1-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+			gp0-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
+			vdd-supply = <&vdd>;
+			vio-supply = <&vio>;
+			ref-supply = <&ref>;
+
+			interrupt-parent = <&gpio0>;
+			interrupts = <86 IRQ_TYPE_EDGE_RISING>,
+				     <87 IRQ_TYPE_EDGE_FALLING>;
+			interrupt-names = "gp0", "gp1";
+		};
+	};
+};
