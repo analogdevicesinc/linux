@@ -38,6 +38,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADXL380_SPI if SPI
 
 	imply AD4000
+	imply AD4052
 	imply AD4630
 	imply AD4695
 	imply AD4130
