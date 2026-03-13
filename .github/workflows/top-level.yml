@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'rpi-*.y'
+      - 'rpi-test'
     paths-ignore:
       - 'docs/**'
   pull_request:
@@ -204,18 +205,32 @@ jobs:
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
-  deploy_cloudsmith_build:
+  # deploy_cloudsmith_build:
+  #   needs: [assert_build]
+  #   if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+  #   uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+  #   secrets:
+  #       CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+  #       CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+  #   permissions:
+  #     id-token: write
+  #     contents: write
+  #     actions: read
+  #   with:
+  #     artifacts: >
+  #       adi_bcm*_defconfig-*
+  #       dtb-*
+
+  deploy_rpi_artifacts:
     needs: [assert_build]
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
-    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
-    secrets:
-        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
-        CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
     permissions:
       id-token: write
       contents: write
       actions: read
+    uses: analogdevicesinc/linux/.github/workflows/deploy_rpi_artifacts.yml@ci1
+    secrets: inherit
     with:
       artifacts: >
         adi_bcm*_defconfig-*
         dtb-*
+      BUILD_SOURCEBRANCH: ${{ github.ref_name }}
