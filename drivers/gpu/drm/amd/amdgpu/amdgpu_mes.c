@@ -466,22 +466,34 @@ int amdgpu_mes_detect_and_reset_hung_queues(struct amdgpu_device *adev,
 
 	r = adev->mes.funcs->detect_and_reset_hung_queues(&adev->mes,
 							  &input);
-	if (r) {
-		dev_err(adev->dev, "failed to detect and reset\n");
-	} else {
-		*hung_db_num = 0;
-		for (i = 0; i < adev->mes.hung_queue_hqd_info_offset; i++) {
-			if (db_array[i] != AMDGPU_MES_INVALID_DB_OFFSET) {
-				hung_db_array[i] = db_array[i];
-				*hung_db_num += 1;
-			}
-		}
 
-		/*
-		 * TODO: return HQD info for MES scheduled user compute queue reset cases
-		 * stored in hung_db_array hqd info offset to full array size
-		 */
+	if (r && detect_only) {
+		dev_err(adev->dev, "Failed to detect hung queues\n");
+		return r;
 	}
+
+	*hung_db_num = 0;
+	/* MES passes hung queues' doorbell to driver */
+	for (i = 0; i < adev->mes.hung_queue_hqd_info_offset; i++) {
+		/* Finding hung queues where db_array[i] is a valid doorbell */
+		if (db_array[i] != AMDGPU_MES_INVALID_DB_OFFSET) {
+			hung_db_array[i] = db_array[i];
+			*hung_db_num += 1;
+		}
+	}
+
+	if (r && !hung_db_num) {
+		dev_err(adev->dev, "Failed to detect and reset hung queues\n");
+		return r;
+	}
+
+	/*
+	 * TODO: return HQD info for MES scheduled user compute queue reset cases
+	 * stored in hung_db_array hqd info offset to full array size
+	 */
+
+	if (r)
+		dev_err(adev->dev, "failed to reset\n");
 
 	return r;
 }
