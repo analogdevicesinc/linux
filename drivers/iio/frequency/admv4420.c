@@ -279,10 +279,9 @@ static int admv4420_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	if (val != ADMV4420_SCRATCH_PAD_VAL_1) {
-		dev_err(dev, "Failed ADMV4420 to read/write scratchpad %x ", val);
-		return -EIO;
-	}
+	if (val != ADMV4420_SCRATCH_PAD_VAL_1)
+		return dev_err_probe(dev, -EIO,
+				     "Failed ADMV4420 to read/write scratchpad %x\n", val);
 
 	ret = regmap_write(st->regmap,
 			   ADMV4420_SCRATCHPAD,
@@ -294,10 +293,9 @@ static int admv4420_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	if (val != ADMV4420_SCRATCH_PAD_VAL_2) {
-		dev_err(dev, "Failed to read/write scratchpad %x ", val);
-		return -EIO;
-	}
+	if (val != ADMV4420_SCRATCH_PAD_VAL_2)
+		return dev_err_probe(dev, -EIO,
+				     "Failed to read/write scratchpad %x\n", val);
 
 	st->mux_sel = ADMV4420_LOCK_DTCT;
 	st->lo_freq_hz = ADMV4420_DEFAULT_LO_FREQ_HZ;
@@ -305,10 +303,10 @@ static int admv4420_setup(struct iio_dev *indio_dev)
 	admv4420_fw_parse(st);
 
 	ret = admv4420_calc_parameters(st);
-	if (ret) {
-		dev_err(dev, "Failed calc parameters for %lld ", st->vco_freq_hz);
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed calc parameters for %llu\n",
+				     st->vco_freq_hz);
 
 	ret = regmap_write(st->regmap, ADMV4420_R_DIV_L,
 			   FIELD_GET(0xFF, st->ref_block.divider));
@@ -369,10 +367,8 @@ static int admv4420_probe(struct spi_device *spi)
 	indio_dev->num_channels = ARRAY_SIZE(admv4420_channels);
 
 	ret = admv4420_setup(indio_dev);
-	if (ret) {
-		dev_err(&spi->dev, "Setup ADMV4420 failed (%d)\n", ret);
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "Setup ADMV4420 failed\n");
 
 	return devm_iio_device_register(dev, indio_dev);
 }
