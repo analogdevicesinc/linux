@@ -170,6 +170,19 @@ struct amdgpu_mes {
 	uint64_t            shared_cmd_buf_gpu_addr[AMDGPU_MAX_MES_INST_PIPES];
 };
 
+struct amdgpu_mes_hung_queue_hqd_info {
+	union {
+		struct {
+			u32 queue_type: 3; // queue type
+			u32 pipe_index: 4; // pipe index
+			u32 queue_index: 8; // queue index
+			u32 reserved: 17;
+		};
+
+		u32 bit0_31;
+	};
+};
+
 struct amdgpu_mes_gang {
 	int 				gang_id;
 	int 				priority;
