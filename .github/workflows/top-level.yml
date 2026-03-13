@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - 'rpi-*.y'
+      - 'staging/rpi/*'
+      - 'rpi/release/*'
   pull_request:
 
 concurrency:
@@ -100,7 +102,7 @@ jobs:
         CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
     permissions:
       id-token: write
-      contents: write
+      contents: read
       actions: read
     with:
       artifacts: >
@@ -215,9 +217,25 @@ jobs:
         CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
     permissions:
       id-token: write
-      contents: write
+      contents: read
       actions: read
     with:
       artifacts: >
         adi_bcm*_defconfig-*
         dtb-*
+
+  deploy_rpi_artifacts:
+    needs: [assert_build]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    uses: analogdevicesinc/linux/.github/workflows/deploy_linux_artifacts.yml@ci
+    secrets: inherit
+    with:
+      artifacts: >
+        adi_bcm*_defconfig-*
+        dtb-*
+      pr-number: ${{ github.event.pull_request.number }}
+      pr-target-branch: ${{ github.event.pull_request.base.ref }}
