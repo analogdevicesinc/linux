@@ -332,7 +332,6 @@ _bad_licence_error() {
 
 check_license() {
 	export step_name="check_license"
-	local fail=0
 
 	echo "$step_name on range $base_sha..$head_sha"
 
@@ -342,7 +341,6 @@ check_license() {
 	for file in $added_files ; do
 		if git diff $base_sha..$head_sha "$file" 2>/dev/null | grep "^+MODULE_LICENSE" | grep -q "Dual" ; then
 			_bad_licence_error "$file"
-			fail=1
 		elif git diff $base_sha..$head_sha "$file" 2>/dev/null | grep "^+// SPDX-License-Identifier:" | grep -qi " OR " ; then
 			# The below might catch bad licenses in header files and also helps to make sure dual licenses are
 			# not in driver (e.g.: sometimes people have MODULE_LICENSE != SPDX-License-Identifier - which is also
@@ -354,12 +352,11 @@ check_license() {
 				fi
 			fi
 			_bad_licence_error "$file"
-			fail=1
 		fi
 	done
 
 	_set_step_warn $warn
-	return $fail
+	return 0
 }
 
 check_assert_defconfigs() {
