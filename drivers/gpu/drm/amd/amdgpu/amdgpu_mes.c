@@ -103,7 +103,7 @@ static inline u32 amdgpu_mes_get_hqd_mask(u32 num_pipe,
 
 int amdgpu_mes_init(struct amdgpu_device *adev)
 {
-	int i, r, num_pipes;
+	int i, r, num_pipes, num_queues = 0;
 	u32 total_vmid_mask, reserved_vmid_mask;
 	int num_xcc = adev->gfx.xcc_mask ? NUM_XCC(adev->gfx.xcc_mask) : 1;
 	u32 gfx_hqd_mask = amdgpu_mes_get_hqd_mask(adev->gfx.me.num_pipe_per_me,
@@ -159,7 +159,8 @@ int amdgpu_mes_init(struct amdgpu_device *adev)
 		adev->mes.compute_hqd_mask[i] = compute_hqd_mask;
 	}
 
-	num_pipes = adev->sdma.num_instances;
+	num_pipes = adev->sdma.num_inst_per_xcc ?
+		adev->sdma.num_inst_per_xcc : adev->sdma.num_instances;
 	if (num_pipes > AMDGPU_MES_MAX_SDMA_PIPES)
 		dev_warn(adev->dev, "more SDMA pipes than supported by MES! (%d vs %d)\n",
 			 num_pipes, AMDGPU_MES_MAX_SDMA_PIPES);
@@ -216,8 +217,27 @@ int amdgpu_mes_init(struct amdgpu_device *adev)
 	if (r)
 		goto error_doorbell;
 
+	if (amdgpu_ip_version(adev, GC_HWIP, 0) >= IP_VERSION(12, 1, 0)) {
+		/* When queue/pipe reset is done in MES instead of in the
+		 * driver, MES passes hung queues information to the driver in
+		 * hung_queue_hqd_info. Calculate required space to store this
+		 * information.
+		 */
+		for (i = 0; i < AMDGPU_MES_MAX_GFX_PIPES; i++)
+			num_queues += hweight32(adev->mes.gfx_hqd_mask[i]);
+
+		for (i = 0; i < AMDGPU_MES_MAX_COMPUTE_PIPES; i++)
+			num_queues += hweight32(adev->mes.compute_hqd_mask[i]);
+
+		for (i = 0; i < AMDGPU_MES_MAX_SDMA_PIPES; i++)
+			num_queues += hweight32(adev->mes.sdma_hqd_mask[i]) * num_xcc;
+
+		adev->mes.hung_queue_hqd_info_offset = num_queues;
+		adev->mes.hung_queue_db_array_size = num_queues * 2;
+	}
+
 	if (adev->mes.hung_queue_db_array_size) {
-		for (i = 0; i < AMDGPU_MAX_MES_PIPES * num_xcc; i++) {
+		for (i = 0; i < AMDGPU_MAX_MES_PIPES; i++) {
 			r = amdgpu_bo_create_kernel(adev,
 						    adev->mes.hung_queue_db_array_size * sizeof(u32),
 						    PAGE_SIZE,
@@ -264,10 +284,10 @@ void amdgpu_mes_fini(struct amdgpu_device *adev)
 			      &adev->mes.event_log_cpu_addr);
 
 	for (i = 0; i < AMDGPU_MAX_MES_PIPES * num_xcc; i++) {
-		amdgpu_bo_free_kernel(&adev->mes.hung_queue_db_array_gpu_obj[i],
-				      &adev->mes.hung_queue_db_array_gpu_addr[i],
-				      &adev->mes.hung_queue_db_array_cpu_addr[i]);
-
+		if (adev->mes.hung_queue_db_array_gpu_obj[i])
+			 amdgpu_bo_free_kernel(&adev->mes.hung_queue_db_array_gpu_obj[i],
+					 &adev->mes.hung_queue_db_array_gpu_addr[i],
+					 &adev->mes.hung_queue_db_array_cpu_addr[i]);
 		if (adev->mes.sch_ctx_ptr[i])
 			amdgpu_device_wb_free(adev, adev->mes.sch_ctx_offs[i]);
 		if (adev->mes.query_status_fence_ptr[i])
