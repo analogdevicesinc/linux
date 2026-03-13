@@ -955,10 +955,8 @@ static int ad9523_probe(struct spi_device *spi)
 	int ret;
 
 	pdata = dev_get_platdata(dev);
-	if (!pdata) {
-		dev_err(&spi->dev, "no platform data?\n");
-		return -EINVAL;
-	}
+	if (!pdata)
+		return dev_err_probe(dev, -EINVAL, "no platform data?\n");
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (indio_dev == NULL)
