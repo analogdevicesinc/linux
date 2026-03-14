@@ -5,8 +5,14 @@ soc/dt
 		ARM: dts: arm: Use lowercase hex
 
 soc/drivers
+	renesas/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.1-tag1
+	renesas/drivers-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dt-bindings-for-v7.1-tag1
 
 soc/defconfig
+	renesas/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v7.1-tag1
 
 soc/late
 
