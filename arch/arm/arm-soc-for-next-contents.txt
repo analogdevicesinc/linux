@@ -23,4 +23,8 @@ arm/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/chleroy/linux tags/soc_fsl-7.0-2
 	reset/fixes
 		https://git.pengutronix.de/git/pza/linux tags/reset-fixes-for-v7.0
+	renesas/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-fixes-for-v7.0-tag1
+	patch
+		ARM: multi_v7_defconfig: Drop duplicate CONFIG_TI_PRUSS=m
 
