@@ -757,6 +757,8 @@ Description:
 
 What:		/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown_mode
 What:		/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode
+What:		/sys/bus/iio/devices/iio:deviceX/out_currentY_powerdown_mode
+What:		/sys/bus/iio/devices/iio:deviceX/out_current_powerdown_mode
 What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_powerdown_mode
 What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage_powerdown_mode
 KernelVersion:	2.6.38
@@ -768,6 +770,7 @@ Description:
 		2.5kohm_to_gnd: connected to ground via a 2.5kOhm resistor,
 		6kohm_to_gnd: connected to ground via a 6kOhm resistor,
 		7.7kohm_to_gnd: connected to ground via a 7.7kOhm resistor,
+		15kohm_to_gnd: connected to ground via a 15kOhm resistor,
 		20kohm_to_gnd: connected to ground via a 20kOhm resistor,
 		32kohm_to_gnd: connected to ground via a 32kOhm resistor,
 		42kohm_to_gnd: connected to ground via a 42kOhm resistor,
@@ -776,13 +779,16 @@ Description:
 		125kohm_to_gnd: connected to ground via an 125kOhm resistor,
 		500kohm_to_gnd: connected to ground via a 500kOhm resistor,
 		640kohm_to_gnd: connected to ground via a 640kOhm resistor,
-		three_state: left floating.
+		three_state: left floating,
+		high_z: left floating.
 		For a list of available output power down options read
 		outX_powerdown_mode_available. If Y is not present the
 		mode is shared across all outputs.
 
 What:		/sys/.../iio:deviceX/out_voltageY_powerdown_mode_available
 What:		/sys/.../iio:deviceX/out_voltage_powerdown_mode_available
+What:		/sys/.../iio:deviceX/out_currentY_powerdown_mode_available
+What:		/sys/.../iio:deviceX/out_current_powerdown_mode_available
 What:		/sys/.../iio:deviceX/out_altvoltageY_powerdown_mode_available
 What:		/sys/.../iio:deviceX/out_altvoltage_powerdown_mode_available
 KernelVersion:	2.6.38
@@ -793,6 +799,8 @@ Description:
 
 What:		/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
 What:		/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown
+What:		/sys/bus/iio/devices/iio:deviceX/out_currentY_powerdown
+What:		/sys/bus/iio/devices/iio:deviceX/out_current_powerdown
 What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_powerdown
 What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage_powerdown
 KernelVersion:	2.6.38
