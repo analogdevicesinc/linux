@@ -606,7 +606,7 @@ static int ad7746_read_channel(struct iio_dev *indio_dev,
 		return ret;
 
 	/*
-	 * Offset applied internally becaue the _offset userspace interface is
+	 * Offset applied internally because the _offset userspace interface is
 	 * needed for the CAP DACs which apply a controllable offset.
 	 */
 	*val = get_unaligned_be24(data) - 0x800000;
