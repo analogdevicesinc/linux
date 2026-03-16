@@ -310,6 +310,19 @@ int ad9088_mcs_tracking_cal_setup(struct ad9088_phy *phy, u32 mcs_track_decimati
 			return ret;
 	}
 
+	/* Enable ADF4382 auto clock alignment and set phase adjustment */
+	if (phy->iio_adf4382) {
+		ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_adf4382,
+							"en_auto_align", 1);
+		if (ret < 0)
+			return ret;
+
+		ret = iio_write_channel_attribute(phy->iio_adf4382, 125, 0,
+						  IIO_CHAN_INFO_PHASE);
+		if (ret < 0)
+			return ret;
+	}
+
 	return 0;
 }
 
