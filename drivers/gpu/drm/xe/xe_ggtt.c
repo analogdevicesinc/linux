@@ -115,7 +115,6 @@ struct xe_ggtt {
 	/** @size: Total usable size of this GGTT */
 	u64 size;
 
-#define XE_GGTT_FLAGS_64K BIT(0)
 	/**
 	 * @flags: Flags for this GGTT
 	 * Acceptable flags:
