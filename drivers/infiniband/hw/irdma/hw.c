@@ -1082,6 +1082,7 @@ static int irdma_create_cqp(struct irdma_pci_f *rf)
 		cqp_init_info.hw_maj_ver = IRDMA_CQPHC_HW_MAJVER_GEN_2;
 		break;
 	case IRDMA_GEN_3:
+	case IRDMA_GEN_4:
 		cqp_init_info.hw_maj_ver = IRDMA_CQPHC_HW_MAJVER_GEN_3;
 		cqp_init_info.ts_override = 1;
 		break;
@@ -1508,7 +1509,7 @@ static int irdma_create_aeq(struct irdma_pci_f *rf)
 		   hmc_info->hmc_obj[IRDMA_HMC_IW_CQ].cnt;
 	aeq_size = min(aeq_size, dev->hw_attrs.max_hw_aeq_size);
 	/* GEN_3 does not support virtual AEQ. Cap at max Kernel alloc size */
-	if (rf->rdma_ver == IRDMA_GEN_3)
+	if (rf->rdma_ver >= IRDMA_GEN_3)
 		aeq_size = min(aeq_size, (u32)((PAGE_SIZE << MAX_PAGE_ORDER) /
 			       sizeof(struct irdma_sc_aeqe)));
 	aeq->mem.size = ALIGN(sizeof(struct irdma_sc_aeqe) * aeq_size,
@@ -1518,7 +1519,7 @@ static int irdma_create_aeq(struct irdma_pci_f *rf)
 					 GFP_KERNEL | __GFP_NOWARN);
 	if (aeq->mem.va)
 		goto skip_virt_aeq;
-	else if (rf->rdma_ver == IRDMA_GEN_3)
+	else if (rf->rdma_ver >= IRDMA_GEN_3)
 		return -ENOMEM;
 
 	/* physically mapped aeq failed. setup virtual aeq */
@@ -2192,8 +2193,13 @@ u32 irdma_initialize_hw_rsrc(struct irdma_pci_f *rf)
 	set_bit(2, rf->allocated_pds);
 
 	INIT_LIST_HEAD(&rf->mc_qht_list.list);
-	/* stag index mask has a minimum of 14 bits */
-	mrdrvbits = 24 - max(get_count_order(rf->max_mr), 14);
+
+	if (rf->rdma_ver >= IRDMA_GEN_4)
+		mrdrvbits = 24 - max(get_count_order(rf->max_mr), 16);
+	else
+		/* stag index mask has a minimum of 14 bits */
+		mrdrvbits = 24 - max(get_count_order(rf->max_mr), 14);
+
 	rf->mr_stagmask = ~(((1 << mrdrvbits) - 1) << (32 - mrdrvbits));
 
 	return 0;

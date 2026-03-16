@@ -6465,6 +6465,7 @@ static inline void irdma_sc_init_hw(struct irdma_sc_dev *dev)
 		icrdma_init_hw(dev);
 		break;
 	case IRDMA_GEN_3:
+	case IRDMA_GEN_4:
 		ig3rdma_init_hw(dev);
 		break;
 	}
