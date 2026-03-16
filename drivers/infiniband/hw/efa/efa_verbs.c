@@ -1917,22 +1917,23 @@ static int efa_dealloc_uar(struct efa_dev *dev, u16 uarn)
 	return efa_com_dealloc_uar(&dev->edev, &params);
 }
 
-#define EFA_CHECK_USER_COMP(_dev, _comp_mask, _attr, _mask, _attr_str) \
-	(_attr_str = (!(_dev)->dev_attr._attr || ((_comp_mask) & (_mask))) ? \
+#define EFA_CHECK_USER_SUPP(_dev, _supported_caps, _attr, _mask, _attr_str) \
+	(_attr_str = (!(_dev)->dev_attr._attr || ((_supported_caps) & (_mask))) ? \
 		     NULL : #_attr)
 
-static int efa_user_comp_handshake(const struct ib_ucontext *ibucontext,
+static int efa_user_supp_handshake(const struct ib_ucontext *ibucontext,
 				   const struct efa_ibv_alloc_ucontext_cmd *cmd)
 {
 	struct efa_dev *dev = to_edev(ibucontext->device);
 	char *attr_str;
 
-	if (EFA_CHECK_USER_COMP(dev, cmd->comp_mask, max_tx_batch,
-				EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH, attr_str))
+	if (EFA_CHECK_USER_SUPP(dev, cmd->supported_caps, max_tx_batch,
+				EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_TX_BATCH,
+				attr_str))
 		goto err;
 
-	if (EFA_CHECK_USER_COMP(dev, cmd->comp_mask, min_sq_depth,
-				EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR,
+	if (EFA_CHECK_USER_SUPP(dev, cmd->supported_caps, min_sq_depth,
+				EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_MIN_SQ_WR,
 				attr_str))
 		goto err;
 
@@ -1966,7 +1967,7 @@ int efa_alloc_ucontext(struct ib_ucontext *ibucontext, struct ib_udata *udata)
 		goto err_out;
 	}
 
-	err = efa_user_comp_handshake(ibucontext, &cmd);
+	err = efa_user_supp_handshake(ibucontext, &cmd);
 	if (err)
 		goto err_out;
 
