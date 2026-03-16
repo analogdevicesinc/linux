@@ -243,9 +243,9 @@ static void gfx_v12_1_wait_reg_mem(struct amdgpu_ring *ring, int eng_sel,
 	amdgpu_ring_write(ring, PACKET3(PACKET3_WAIT_REG_MEM, 5));
 	amdgpu_ring_write(ring,
 			  /* memory (1) or register (0) */
-			  (WAIT_REG_MEM_MEM_SPACE(mem_space) |
-			   WAIT_REG_MEM_OPERATION(opt) | /* wait */
-			   WAIT_REG_MEM_FUNCTION(3)));  /* equal */
+			  (PACKET3_WAIT_REG_MEM__MEM_SPACE(mem_space) |
+			   PACKET3_WAIT_REG_MEM__OPERATION(opt) | /* wait */
+			   PACKET3_WAIT_REG_MEM__FUNCTION(3)));  /* equal */
 
 	if (mem_space)
 		BUG_ON(addr0 & 0x3); /* Dword align */
@@ -335,7 +335,7 @@ static int gfx_v12_1_ring_test_ib(struct amdgpu_ring *ring, long timeout)
 	}
 
 	ib.ptr[0] = PACKET3(PACKET3_WRITE_DATA, 3);
-	ib.ptr[1] = WRITE_DATA_DST_SEL(5) | WR_CONFIRM;
+	ib.ptr[1] = PACKET3_WRITE_DATA__DST_SEL(5) | PACKET3_WRITE_DATA__WR_CONFIRM(1);
 	ib.ptr[2] = lower_32_bits(gpu_addr);
 	ib.ptr[3] = upper_32_bits(gpu_addr);
 	ib.ptr[4] = 0xDEADBEEF;
@@ -3366,7 +3366,7 @@ static void gfx_v12_1_ring_emit_ib_compute(struct amdgpu_ring *ring,
 					   uint32_t flags)
 {
 	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
-	u32 control = INDIRECT_BUFFER_VALID | ib->length_dw | (vmid << 24);
+	u32 control = PACKET3_INDIRECT_BUFFER__VALID(1) | ib->length_dw | (vmid << 24);
 
 	/* Currently, there is a high possibility to get wave ID mismatch
 	 * between ME and GDS, leading to a hw deadlock, because ME generates
@@ -3402,15 +3402,15 @@ static void gfx_v12_1_ring_emit_fence(struct amdgpu_ring *ring, u64 addr,
 
 	/* RELEASE_MEM - flush caches, send int */
 	amdgpu_ring_write(ring, PACKET3(PACKET3_RELEASE_MEM, 6));
-	amdgpu_ring_write(ring, (PACKET3_RELEASE_MEM_GCR_SEQ(1) |
-				 PACKET3_RELEASE_MEM_GCR_GLV_WB |
-				 PACKET3_RELEASE_MEM_GCR_GL2_WB |
-				 PACKET3_RELEASE_MEM_GCR_GL2_SCOPE(2) |
-				 PACKET3_RELEASE_MEM_TEMPORAL(3) |
-				 PACKET3_RELEASE_MEM_EVENT_TYPE(CACHE_FLUSH_AND_INV_TS_EVENT) |
-				 PACKET3_RELEASE_MEM_EVENT_INDEX(5)));
-	amdgpu_ring_write(ring, (PACKET3_RELEASE_MEM_DATA_SEL(write64bit ? 2 : 1) |
-				 PACKET3_RELEASE_MEM_INT_SEL(int_sel ? 2 : 0)));
+	amdgpu_ring_write(ring, (PACKET3_RELEASE_MEM__GCR_SEQ(1) |
+				 PACKET3_RELEASE_MEM__GCR_GLV_WB |
+				 PACKET3_RELEASE_MEM__GCR_GL2_WB |
+				 PACKET3_RELEASE_MEM__GCR_GL2_SCOPE(2) |
+				 PACKET3_RELEASE_MEM__TEMPORAL(3) |
+				 PACKET3_RELEASE_MEM__EVENT_TYPE(CACHE_FLUSH_AND_INV_TS_EVENT) |
+				 PACKET3_RELEASE_MEM__EVENT_INDEX(5)));
+	amdgpu_ring_write(ring, (PACKET3_RELEASE_MEM__DATA_SEL(write64bit ? 2 : 1) |
+				 PACKET3_RELEASE_MEM__INT_SEL(int_sel ? 2 : 0)));
 
 	/*
 	 * the address should be Qword aligned if 64bit write, Dword
@@ -3471,7 +3471,7 @@ static void gfx_v12_1_ring_emit_fence_kiq(struct amdgpu_ring *ring, u64 addr,
 
 	/* write fence seq to the "addr" */
 	amdgpu_ring_write(ring, PACKET3(PACKET3_WRITE_DATA, 3));
-	amdgpu_ring_write(ring, (WRITE_DATA_DST_SEL(5) | WR_CONFIRM));
+	amdgpu_ring_write(ring, (PACKET3_WRITE_DATA__DST_SEL(5) | PACKET3_WRITE_DATA__WR_CONFIRM(1)));
 	amdgpu_ring_write(ring, lower_32_bits(addr));
 	amdgpu_ring_write(ring, upper_32_bits(addr));
 	amdgpu_ring_write(ring, lower_32_bits(seq));
@@ -3479,7 +3479,7 @@ static void gfx_v12_1_ring_emit_fence_kiq(struct amdgpu_ring *ring, u64 addr,
 	if (flags & AMDGPU_FENCE_FLAG_INT) {
 		/* set register to trigger INT */
 		amdgpu_ring_write(ring, PACKET3(PACKET3_WRITE_DATA, 3));
-		amdgpu_ring_write(ring, (WRITE_DATA_DST_SEL(0) | WR_CONFIRM));
+		amdgpu_ring_write(ring, (PACKET3_WRITE_DATA__DST_SEL(0) | PACKET3_WRITE_DATA__WR_CONFIRM(1)));
 		amdgpu_ring_write(ring, SOC15_REG_OFFSET(GC, GET_INST(GC, 0), regCPC_INT_STATUS));
 		amdgpu_ring_write(ring, 0);
 		amdgpu_ring_write(ring, 0x20000000); /* src_id is 178 */
@@ -3518,7 +3518,7 @@ static void gfx_v12_1_ring_emit_wreg(struct amdgpu_ring *ring,
 		cmd = (1 << 16); /* no inc addr */
 		break;
 	default:
-		cmd = WR_CONFIRM;
+		cmd = PACKET3_WRITE_DATA__WR_CONFIRM(1);
 		break;
 	}
 	amdgpu_ring_write(ring, PACKET3(PACKET3_WRITE_DATA, 3));
