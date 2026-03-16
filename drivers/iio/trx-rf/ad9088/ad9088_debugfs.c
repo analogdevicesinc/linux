@@ -747,6 +747,11 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 			ret = adi_apollo_mcs_cal_bg_tracking_abort(&phy->ad9088);
 			ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
 							"adi_apollo_mcs_cal_bg_tracking_abort");
+			if (!ret) {
+				ret = adi_apollo_mcs_cal_tracking_enable(&phy->ad9088, 0);
+				ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+								"adi_apollo_mcs_cal_tracking_enable");
+			}
 		}
 		if (!ret)
 			phy->mcs_cal_bg_tracking_run = !!val;
