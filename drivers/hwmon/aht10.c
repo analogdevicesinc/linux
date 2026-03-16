@@ -37,8 +37,6 @@
 #define AHT10_CMD_MEAS	0b10101100
 #define AHT10_CMD_RST	0b10111010
 
-#define AHT20_CMD_INIT	0b10111110
-
 /*
  * Flags in the answer byte/command
  */
@@ -61,7 +59,6 @@ MODULE_DEVICE_TABLE(i2c, aht10_id);
 
 static const struct of_device_id aht10_of_id[] = {
 	{ .compatible = "aosong,aht10", },
-	{ .compatible = "aosong,aht20", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, aht10_of_id);
@@ -110,13 +107,8 @@ struct aht10_data {
  */
 static int aht10_init(struct aht10_data *data)
 {
-	u8 cmd_init[] = {AHT10_CMD_INIT, AHT10_CAL_ENABLED | AHT10_MODE_CYC, 0x00};
-
-	if (data->crc8) { /* AHT20 */
-		cmd_init[0] = AHT20_CMD_INIT;
-		cmd_init[1] = AHT10_CAL_ENABLED;
-	}
-
+	const u8 cmd_init[] = {AHT10_CMD_INIT, AHT10_CAL_ENABLED | AHT10_MODE_CYC,
+			       0x00};
 	int res;
 	u8 status;
 	struct i2c_client *client = data->client;
