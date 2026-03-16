@@ -552,8 +552,6 @@ struct lpfc_cgn_info {
 	);
 
 	__le32   cgn_info_crc;
-#define LPFC_CGN_CRC32_MAGIC_NUMBER	0x1EDC6F41
-#define LPFC_CGN_CRC32_SEED		0xFFFFFFFF
 };
 
 #define LPFC_CGN_INFO_SZ	(sizeof(struct lpfc_cgn_info) -  \
