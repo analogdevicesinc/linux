@@ -620,7 +620,7 @@ static int apds9160_set_ps_gain(struct apds9160_chip *data, int val)
 
 /*
  * The PS intelligent cancellation level register allows
- * for an on-chip substraction of the ADC count caused by
+ * for an on-chip subtraction of the ADC count caused by
  * unwanted reflected light from PS ADC output.
  */
 static int apds9160_set_ps_cancellation_level(struct apds9160_chip *data,

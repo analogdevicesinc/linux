@@ -91,7 +91,7 @@ struct opt3001_chip_info {
 	 */
 	int factor_integer;
 	/*
-	 * Factor used to align decimal part of proccessed value to six decimal
+	 * Factor used to align decimal part of processed value to six decimal
 	 * places.
 	 */
 	int factor_decimal;
