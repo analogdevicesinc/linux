@@ -94,7 +94,7 @@ static void fuse_check_timeout(struct work_struct *work)
 		spin_unlock(&fc->lock);
 		return;
 	}
-	list_for_each_entry(fud, &fc->devices, entry) {
+	list_for_each_entry(fud, &fc->chan->devices, entry) {
 		fpq = &fud->pq;
 		spin_lock(&fpq->lock);
 		if (fuse_request_expired(fc, &fpq->io) ||

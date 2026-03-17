@@ -835,9 +835,6 @@ struct fuse_conn {
 	 */
 	struct rw_semaphore killsb;
 
-	/** List of device instances belonging to this connection */
-	struct list_head devices;
-
 #ifdef CONFIG_FUSE_DAX
 	/* Dax mode */
 	enum fuse_dax_mode dax_mode;

@@ -90,6 +90,9 @@ struct fuse_iqueue {
 struct fuse_chan {
 	/** Input queue */
 	struct fuse_iqueue iq;
+
+	/** List of device instances belonging to this connection */
+	struct list_head devices;
 };
 
 #define FUSE_PQ_HASH_BITS 8
@@ -125,7 +128,7 @@ struct fuse_dev {
 	/** Processing queue */
 	struct fuse_pqueue pq;
 
-	/** list entry on fc->devices */
+	/** list entry on fch->devices */
 	struct list_head entry;
 };
 

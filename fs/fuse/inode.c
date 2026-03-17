@@ -982,7 +982,6 @@ void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 	init_waitqueue_head(&fc->blocked_waitq);
 	INIT_LIST_HEAD(&fc->bg_queue);
 	INIT_LIST_HEAD(&fc->entry);
-	INIT_LIST_HEAD(&fc->devices);
 	atomic_set(&fc->num_waiting, 0);
 	fc->max_background = FUSE_DEFAULT_MAX_BACKGROUND;
 	fc->congestion_threshold = FUSE_DEFAULT_CONGESTION_THRESHOLD;
@@ -1543,7 +1542,6 @@ EXPORT_SYMBOL_GPL(fuse_send_init);
 
 void fuse_free_conn(struct fuse_conn *fc)
 {
-	WARN_ON(!list_empty(&fc->devices));
 	kfree(fc);
 }
 EXPORT_SYMBOL_GPL(fuse_free_conn);

@@ -342,13 +342,20 @@ void fuse_chan_release(struct fuse_chan *fch)
 
 void fuse_chan_free(struct fuse_chan *fch)
 {
+	WARN_ON(!list_empty(&fch->devices));
 	kfree(fch);
 }
 EXPORT_SYMBOL_GPL(fuse_chan_free);
 
 struct fuse_chan *fuse_chan_new(void)
 {
-	return kzalloc_obj(struct fuse_chan);
+	struct fuse_chan *fch = kzalloc_obj(struct fuse_chan);
+	if (!fch)
+		return NULL;
+
+	INIT_LIST_HEAD(&fch->devices);
+
+	return fch;
 }
 EXPORT_SYMBOL_GPL(fuse_chan_new);
 
@@ -417,7 +424,7 @@ void fuse_dev_install(struct fuse_dev *fud, struct fuse_conn *fc)
 		 */
 		fc->connected = 0;
 	} else {
-		list_add_tail(&fud->entry, &fc->devices);
+		list_add_tail(&fud->entry, &fc->chan->devices);
 		fuse_conn_get(fc);
 	}
 	spin_unlock(&fc->lock);
@@ -2052,7 +2059,7 @@ static void fuse_resend(struct fuse_conn *fc)
 		return;
 	}
 
-	list_for_each_entry(fud, &fc->devices, entry) {
+	list_for_each_entry(fud, &fc->chan->devices, entry) {
 		struct fuse_pqueue *fpq = &fud->pq;
 
 		spin_lock(&fpq->lock);
@@ -2525,7 +2532,7 @@ void fuse_abort_conn(struct fuse_conn *fc)
 		spin_unlock(&fc->bg_lock);
 
 		fuse_set_initialized(fc);
-		list_for_each_entry(fud, &fc->devices, entry) {
+		list_for_each_entry(fud, &fc->chan->devices, entry) {
 			struct fuse_pqueue *fpq = &fud->pq;
 
 			spin_lock(&fpq->lock);
@@ -2611,7 +2618,7 @@ int fuse_dev_release(struct inode *inode, struct file *file)
 		spin_lock(&fc->lock);
 		list_del(&fud->entry);
 		/* Are we the last open device? */
-		last = list_empty(&fc->devices);
+		last = list_empty(&fc->chan->devices);
 		spin_unlock(&fc->lock);
 
 		if (last) {
