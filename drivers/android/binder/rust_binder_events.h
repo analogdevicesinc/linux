@@ -15,7 +15,7 @@
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(rust_binder_ioctl,
+TRACE_EVENT(binder_ioctl,
 	TP_PROTO(unsigned int cmd, unsigned long arg),
 	TP_ARGS(cmd, arg),
 
@@ -30,7 +30,7 @@ TRACE_EVENT(rust_binder_ioctl,
 	TP_printk("cmd=0x%x arg=0x%lx", __entry->cmd, __entry->arg)
 );
 
-TRACE_EVENT(rust_binder_transaction,
+TRACE_EVENT(binder_transaction,
 	TP_PROTO(bool reply, rust_binder_transaction t, struct task_struct *thread),
 	TP_ARGS(reply, t, thread),
 	TP_STRUCT__entry(
