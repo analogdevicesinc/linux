@@ -1324,6 +1324,9 @@ static int ad9088_sampling_mode_read(struct iio_dev *indio_dev,
 	if (!map)
 		return -EINVAL;
 
+	if (phy->profile.profile_cfg.is_8t8r)
+		return -EOPNOTSUPP; /* ADC slice modes not supported in 8T8R profile */
+
 	/* Calculate ADC index: A0-A3 = 0-3, B0-B3 = 4-7 */
 	adc_idx = map->side * ADI_APOLLO_ADC_PER_SIDE_NUM + map->adcdac_num;
 
@@ -1357,6 +1360,9 @@ static int ad9088_sampling_mode_write(struct iio_dev *indio_dev,
 
 	if (!map)
 		return -EINVAL;
+
+	if (phy->profile.profile_cfg.is_8t8r)
+		return -EOPNOTSUPP; /* ADC slice modes not supported in 8T8R profile */
 
 	/* Calculate ADC index: A0-A3 = 0-3, B0-B3 = 4-7 */
 	adc_idx = map->side * ADI_APOLLO_ADC_PER_SIDE_NUM + map->adcdac_num;
@@ -4549,10 +4555,12 @@ static int ad9088_setup(struct ad9088_phy *phy)
 	u64 sample_rate;
 	int ret;
 
-	ret = adi_apollo_adc_mode_switch_enable_set(device, 1);
-	ret = ad9088_check_apollo_error(&spi->dev, ret, "adi_apollo_adc_mode_switch_enable_set");
-	if (ret)
-		return ret;
+	if (!phy->profile.profile_cfg.is_8t8r) {
+		ret = adi_apollo_adc_mode_switch_enable_set(device, 1);
+		ret = ad9088_check_apollo_error(&spi->dev, ret, "adi_apollo_adc_mode_switch_enable_set");
+		if (ret)
+			return ret;
+	}
 
 	ret = adi_apollo_startup_execute(device, profile, ADI_APOLLO_STARTUP_SEQ_DEFAULT);
 	ret = ad9088_check_apollo_error(&spi->dev, ret, "adi_apollo_startup_execute");
