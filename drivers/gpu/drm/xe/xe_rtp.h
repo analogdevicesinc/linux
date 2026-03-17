@@ -3,8 +3,8 @@
  * Copyright © 2022 Intel Corporation
  */
 
-#ifndef _XE_RTP_
-#define _XE_RTP_
+#ifndef _XE_RTP_H_
+#define _XE_RTP_H_
 
 #include <linux/types.h>
 #include <linux/xarray.h>

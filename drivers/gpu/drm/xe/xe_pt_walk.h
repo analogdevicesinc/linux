@@ -2,8 +2,8 @@
 /*
  * Copyright © 2022 Intel Corporation
  */
-#ifndef __XE_PT_WALK__
-#define __XE_PT_WALK__
+#ifndef _XE_PT_WALK_H_
+#define _XE_PT_WALK_H_
 
 #include <linux/pagewalk.h>
 #include <linux/types.h>

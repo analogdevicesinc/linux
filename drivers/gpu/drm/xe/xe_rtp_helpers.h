@@ -3,8 +3,8 @@
  * Copyright © 2023 Intel Corporation
  */
 
-#ifndef _XE_RTP_HELPERS_
-#define _XE_RTP_HELPERS_
+#ifndef _XE_RTP_HELPERS_H_
+#define _XE_RTP_HELPERS_H_
 
 #ifndef _XE_RTP_INCLUDE_PRIVATE_HELPERS
 #error "This header is supposed to be included by xe_rtp.h only"
