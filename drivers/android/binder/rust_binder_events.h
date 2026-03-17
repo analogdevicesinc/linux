@@ -30,6 +30,27 @@ TRACE_EVENT(binder_ioctl,
 	TP_printk("cmd=0x%x arg=0x%lx", __entry->cmd, __entry->arg)
 );
 
+DECLARE_EVENT_CLASS(binder_function_return_class,
+	TP_PROTO(int ret),
+	TP_ARGS(ret),
+	TP_STRUCT__entry(
+		__field(int, ret)
+	),
+	TP_fast_assign(
+		__entry->ret = ret;
+	),
+	TP_printk("ret=%d", __entry->ret)
+);
+
+#define DEFINE_RBINDER_FUNCTION_RETURN_EVENT(name)	\
+DEFINE_EVENT(binder_function_return_class, name,	\
+	TP_PROTO(int ret), \
+	TP_ARGS(ret))
+
+DEFINE_RBINDER_FUNCTION_RETURN_EVENT(binder_ioctl_done);
+DEFINE_RBINDER_FUNCTION_RETURN_EVENT(binder_read_done);
+DEFINE_RBINDER_FUNCTION_RETURN_EVENT(binder_write_done);
+
 TRACE_EVENT(binder_transaction,
 	TP_PROTO(bool reply, rust_binder_transaction t, struct task_struct *thread),
 	TP_ARGS(reply, t, thread),

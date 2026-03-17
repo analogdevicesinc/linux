@@ -5,12 +5,16 @@
 use crate::transaction::Transaction;
 
 use kernel::bindings::{rust_binder_transaction, task_struct};
-use kernel::ffi::{c_uint, c_ulong};
+use kernel::error::Result;
+use kernel::ffi::{c_int, c_uint, c_ulong};
 use kernel::task::Task;
 use kernel::tracepoint::declare_trace;
 
 declare_trace! {
     unsafe fn binder_ioctl(cmd: c_uint, arg: c_ulong);
+    unsafe fn binder_ioctl_done(ret: c_int);
+    unsafe fn binder_read_done(ret: c_int);
+    unsafe fn binder_write_done(ret: c_int);
     unsafe fn binder_transaction(reply: bool, t: rust_binder_transaction, thread: *mut task_struct);
 }
 
@@ -20,9 +24,33 @@ fn raw_transaction(t: &Transaction) -> rust_binder_transaction {
 }
 
 #[inline]
+fn to_errno(ret: Result) -> i32 {
+    match ret {
+        Ok(()) => 0,
+        Err(err) => err.to_errno(),
+    }
+}
+
+#[inline]
 pub(crate) fn trace_ioctl(cmd: u32, arg: usize) {
     // SAFETY: Always safe to call.
     unsafe { binder_ioctl(cmd, arg as c_ulong) }
+}
+
+#[inline]
+pub(crate) fn trace_ioctl_done(ret: Result) {
+    // SAFETY: Always safe to call.
+    unsafe { binder_ioctl_done(to_errno(ret)) }
+}
+#[inline]
+pub(crate) fn trace_read_done(ret: Result) {
+    // SAFETY: Always safe to call.
+    unsafe { binder_read_done(to_errno(ret)) }
+}
+#[inline]
+pub(crate) fn trace_write_done(ret: Result) {
+    // SAFETY: Always safe to call.
+    unsafe { binder_write_done(to_errno(ret)) }
 }
 
 #[inline]
