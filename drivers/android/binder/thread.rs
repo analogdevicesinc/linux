@@ -1370,6 +1370,7 @@ impl Thread {
         while reader.len() >= size_of::<u32>() && self.inner.lock().return_work.is_unused() {
             let before = reader.len();
             let cmd = reader.read::<u32>()?;
+            crate::trace::trace_command(cmd);
             GLOBAL_STATS.inc_bc(cmd);
             self.process.stats.inc_bc(cmd);
             match cmd {

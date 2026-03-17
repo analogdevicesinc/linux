@@ -20,6 +20,8 @@ declare_trace! {
     unsafe fn binder_transaction_received(t: rust_binder_transaction);
     unsafe fn binder_transaction_fd_send(t_debug_id: c_int, fd: c_int, offset: usize);
     unsafe fn binder_transaction_fd_recv(t_debug_id: c_int, fd: c_int, offset: usize);
+    unsafe fn binder_command(cmd: u32);
+    unsafe fn binder_return(ret: u32);
 }
 
 #[inline]
@@ -89,4 +91,15 @@ pub(crate) fn trace_transaction_fd_send(t_debug_id: usize, fd: u32, offset: usiz
 pub(crate) fn trace_transaction_fd_recv(t_debug_id: usize, fd: u32, offset: usize) {
     // SAFETY: This function is always safe to call.
     unsafe { binder_transaction_fd_recv(t_debug_id as c_int, fd as c_int, offset) }
+}
+
+#[inline]
+pub(crate) fn trace_command(cmd: u32) {
+    // SAFETY: This function is always safe to call.
+    unsafe { binder_command(cmd) }
+}
+#[inline]
+pub(crate) fn trace_return(ret: u32) {
+    // SAFETY: This function is always safe to call.
+    unsafe { binder_return(ret) }
 }
