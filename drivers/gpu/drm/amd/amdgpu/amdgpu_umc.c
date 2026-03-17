@@ -230,6 +230,13 @@ int amdgpu_umc_pasid_poison_handler(struct amdgpu_device *adev,
 			pasid_notify pasid_fn, void *data, uint32_t reset)
 {
 	int ret = AMDGPU_RAS_SUCCESS;
+	struct ras_ih_info ih_info = {
+		.block = block,
+		.pasid = pasid,
+		.reset = reset,
+		.pasid_fn = pasid_fn,
+		.data = data,
+	};
 
 	if (adev->gmc.xgmi.connected_to_cpu ||
 		adev->gmc.is_app_apu) {
@@ -264,17 +271,13 @@ int amdgpu_umc_pasid_poison_handler(struct amdgpu_device *adev,
 
 			amdgpu_ras_error_data_fini(&err_data);
 		} else {
-			struct ras_ih_info ih_info = {0};
-
-			ih_info.block = block;
-			ih_info.pasid = pasid;
-			ih_info.reset = reset;
-			ih_info.pasid_fn = pasid_fn;
-			ih_info.data = data;
-			amdgpu_ras_mgr_handle_consumer_interrupt(adev, &ih_info);
+			amdgpu_ras_mgr_dispatch_interrupt(adev, &ih_info);
 		}
 	} else {
-		if (adev->virt.ops && adev->virt.ops->ras_poison_handler)
+		if (amdgpu_uniras_enabled(adev) &&
+		    (amdgpu_ip_version(adev, GC_HWIP, 0) >= IP_VERSION(12, 1, 0)))
+			amdgpu_ras_mgr_dispatch_interrupt(adev, &ih_info);
+		else if (adev->virt.ops && adev->virt.ops->ras_poison_handler)
 			adev->virt.ops->ras_poison_handler(adev, block);
 		else
 			dev_warn(adev->dev,

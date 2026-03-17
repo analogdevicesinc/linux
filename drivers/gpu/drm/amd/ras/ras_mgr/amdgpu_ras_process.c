@@ -99,11 +99,17 @@ int amdgpu_ras_process_handle_consumption_interrupt(struct amdgpu_device *adev, 
 	struct ras_ih_info *ih_info = (struct ras_ih_info *)data;
 	struct ras_event_req req;
 	uint64_t seqno;
+	uint32_t gfx_ip_version;
 
 	if (!ih_info)
 		return -EINVAL;
 
-	if (amdgpu_sriov_vf(adev)) {
+	if (ras_core_get_ip_version(ras_mgr->ras_core,
+				RAS_UNIT_ID_GFX, &gfx_ip_version))
+		return -EPERM;
+
+	if (amdgpu_sriov_vf(adev) &&
+		gfx_ip_version < IP_VERSION(12, 1, 0)) {
 		if (adev->virt.ops && adev->virt.ops->ras_poison_handler)
 			adev->virt.ops->ras_poison_handler(adev, ih_info->block);
 		else
