@@ -15,6 +15,7 @@ declare_trace! {
     unsafe fn binder_ioctl_done(ret: c_int);
     unsafe fn binder_read_done(ret: c_int);
     unsafe fn binder_write_done(ret: c_int);
+    unsafe fn binder_wait_for_work(proc_work: bool, transaction_stack: bool, thread_todo: bool);
     unsafe fn binder_transaction(reply: bool, t: rust_binder_transaction, thread: *mut task_struct);
 }
 
@@ -51,6 +52,12 @@ pub(crate) fn trace_read_done(ret: Result) {
 pub(crate) fn trace_write_done(ret: Result) {
     // SAFETY: Always safe to call.
     unsafe { binder_write_done(to_errno(ret)) }
+}
+
+#[inline]
+pub(crate) fn trace_wait_for_work(proc_work: bool, transaction_stack: bool, thread_todo: bool) {
+    // SAFETY: Always safe to call.
+    unsafe { binder_wait_for_work(proc_work, transaction_stack, thread_todo) }
 }
 
 #[inline]

@@ -51,6 +51,24 @@ DEFINE_RBINDER_FUNCTION_RETURN_EVENT(binder_ioctl_done);
 DEFINE_RBINDER_FUNCTION_RETURN_EVENT(binder_read_done);
 DEFINE_RBINDER_FUNCTION_RETURN_EVENT(binder_write_done);
 
+TRACE_EVENT(binder_wait_for_work,
+	TP_PROTO(bool proc_work, bool transaction_stack, bool thread_todo),
+	TP_ARGS(proc_work, transaction_stack, thread_todo),
+	TP_STRUCT__entry(
+		__field(bool, proc_work)
+		__field(bool, transaction_stack)
+		__field(bool, thread_todo)
+	),
+	TP_fast_assign(
+		__entry->proc_work = proc_work;
+		__entry->transaction_stack = transaction_stack;
+		__entry->thread_todo = thread_todo;
+	),
+	TP_printk("proc_work=%d transaction_stack=%d thread_todo=%d",
+		  __entry->proc_work, __entry->transaction_stack,
+		  __entry->thread_todo)
+);
+
 TRACE_EVENT(binder_transaction,
 	TP_PROTO(bool reply, rust_binder_transaction t, struct task_struct *thread),
 	TP_ARGS(reply, t, thread),
