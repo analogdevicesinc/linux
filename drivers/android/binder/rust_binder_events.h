@@ -99,6 +99,18 @@ TRACE_EVENT(binder_transaction,
 		  __entry->reply, __entry->flags, __entry->code)
 );
 
+TRACE_EVENT(binder_transaction_received,
+	TP_PROTO(rust_binder_transaction t),
+	TP_ARGS(t),
+	TP_STRUCT__entry(
+		__field(int, debug_id)
+	),
+	TP_fast_assign(
+		__entry->debug_id = rust_binder_transaction_debug_id(t);
+	),
+	TP_printk("transaction=%d", __entry->debug_id)
+);
+
 #endif /* _RUST_BINDER_TRACE_H */
 
 /* This part must be outside protection */
