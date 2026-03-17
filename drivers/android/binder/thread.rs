@@ -712,6 +712,7 @@ impl Thread {
                     core::mem::offset_of!(uapi::binder_fd_object, __bindgen_anon_1.fd);
 
                 let field_offset = offset + FD_FIELD_OFFSET;
+                crate::trace::trace_transaction_fd_send(view.alloc.debug_id, fd, field_offset);
 
                 view.alloc.info_add_fd(file, field_offset, false)?;
             }

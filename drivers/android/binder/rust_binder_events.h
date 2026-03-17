@@ -111,6 +111,40 @@ TRACE_EVENT(binder_transaction_received,
 	TP_printk("transaction=%d", __entry->debug_id)
 );
 
+TRACE_EVENT(binder_transaction_fd_send,
+	TP_PROTO(int t_debug_id, int fd, size_t offset),
+	TP_ARGS(t_debug_id, fd, offset),
+	TP_STRUCT__entry(
+		__field(int, debug_id)
+		__field(int, fd)
+		__field(size_t, offset)
+	),
+	TP_fast_assign(
+		__entry->debug_id = t_debug_id;
+		__entry->fd = fd;
+		__entry->offset = offset;
+	),
+	TP_printk("transaction=%d src_fd=%d offset=%zu",
+		  __entry->debug_id, __entry->fd, __entry->offset)
+);
+
+TRACE_EVENT(binder_transaction_fd_recv,
+	TP_PROTO(int t_debug_id, int fd, size_t offset),
+	TP_ARGS(t_debug_id, fd, offset),
+	TP_STRUCT__entry(
+		__field(int, debug_id)
+		__field(int, fd)
+		__field(size_t, offset)
+	),
+	TP_fast_assign(
+		__entry->debug_id = t_debug_id;
+		__entry->fd = fd;
+		__entry->offset = offset;
+	),
+	TP_printk("transaction=%d dest_fd=%d offset=%zu",
+		  __entry->debug_id, __entry->fd, __entry->offset)
+);
+
 #endif /* _RUST_BINDER_TRACE_H */
 
 /* This part must be outside protection */

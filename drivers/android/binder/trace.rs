@@ -18,6 +18,8 @@ declare_trace! {
     unsafe fn binder_wait_for_work(proc_work: bool, transaction_stack: bool, thread_todo: bool);
     unsafe fn binder_transaction(reply: bool, t: rust_binder_transaction, thread: *mut task_struct);
     unsafe fn binder_transaction_received(t: rust_binder_transaction);
+    unsafe fn binder_transaction_fd_send(t_debug_id: c_int, fd: c_int, offset: usize);
+    unsafe fn binder_transaction_fd_recv(t_debug_id: c_int, fd: c_int, offset: usize);
 }
 
 #[inline]
@@ -76,4 +78,15 @@ pub(crate) fn trace_transaction(reply: bool, t: &Transaction, thread: Option<&Ta
 pub(crate) fn trace_transaction_received(t: &Transaction) {
     // SAFETY: The raw transaction is valid for the duration of this call.
     unsafe { binder_transaction_received(raw_transaction(t)) }
+}
+
+#[inline]
+pub(crate) fn trace_transaction_fd_send(t_debug_id: usize, fd: u32, offset: usize) {
+    // SAFETY: This function is always safe to call.
+    unsafe { binder_transaction_fd_send(t_debug_id as c_int, fd as c_int, offset) }
+}
+#[inline]
+pub(crate) fn trace_transaction_fd_recv(t_debug_id: usize, fd: u32, offset: usize) {
+    // SAFETY: This function is always safe to call.
+    unsafe { binder_transaction_fd_recv(t_debug_id as c_int, fd as c_int, offset) }
 }
