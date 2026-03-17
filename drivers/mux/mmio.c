@@ -100,12 +100,14 @@ static int mux_mmio_probe(struct platform_device *pdev)
 
 	mux_mmio = mux_chip_priv(mux_chip);
 
-	mux_mmio->fields = devm_kmalloc(dev, num_fields * sizeof(*mux_mmio->fields), GFP_KERNEL);
+	mux_mmio->fields = devm_kcalloc(dev, num_fields, sizeof(*mux_mmio->fields),
+					GFP_KERNEL);
 	if (!mux_mmio->fields)
 		return -ENOMEM;
 
-	mux_mmio->hardware_states = devm_kmalloc(dev, num_fields *
-						 sizeof(*mux_mmio->hardware_states), GFP_KERNEL);
+	mux_mmio->hardware_states = devm_kcalloc(dev, num_fields,
+						 sizeof(*mux_mmio->hardware_states),
+						 GFP_KERNEL);
 	if (!mux_mmio->hardware_states)
 		return -ENOMEM;
 
