@@ -421,7 +421,7 @@ enum fuse_req_flag {
  *
  * .waitq.lock protects the following fields:
  *   - FR_ABORTED
- *   - FR_LOCKED (may also be modified under fc->lock, tested under both)
+ *   - FR_LOCKED (may also be modified under fpq->lock, tested under both)
  */
 struct fuse_req {
 	/** This can be on either pending processing or io lists in
@@ -520,7 +520,11 @@ struct fuse_sync_bucket {
  * fuse_mount is destroyed.
  */
 struct fuse_conn {
-	/** Lock protecting accessess to  members of this structure */
+	/** Lock protecting:
+	    - polled_files
+	    - backing_files_map
+	    - curr_bucket
+	 */
 	spinlock_t lock;
 
 	/** Refcount */

@@ -353,6 +353,7 @@ struct fuse_chan *fuse_chan_new(void)
 	if (!fch)
 		return NULL;
 
+	spin_lock_init(&fch->lock);
 	INIT_LIST_HEAD(&fch->devices);
 	spin_lock_init(&fch->bg_lock);
 	INIT_LIST_HEAD(&fch->bg_queue);
@@ -417,7 +418,7 @@ void fuse_dev_install(struct fuse_dev *fud, struct fuse_conn *fc)
 {
 	struct fuse_conn *old_fc;
 
-	spin_lock(&fc->lock);
+	spin_lock(&fc->chan->lock);
 	/*
 	 * Pairs with:
 	 *  - xchg() in fuse_dev_release()
@@ -435,7 +436,7 @@ void fuse_dev_install(struct fuse_dev *fud, struct fuse_conn *fc)
 		list_add_tail(&fud->entry, &fc->chan->devices);
 		fuse_conn_get(fc);
 	}
-	spin_unlock(&fc->lock);
+	spin_unlock(&fc->chan->lock);
 }
 EXPORT_SYMBOL_GPL(fuse_dev_install);
 
@@ -462,9 +463,9 @@ void fuse_dev_put(struct fuse_dev *fud)
 	fc = fuse_dev_fc_get(fud);
 	if (fc && fc != FUSE_DEV_FC_DISCONNECTED) {
 		/* This is the virtiofs case (fuse_dev_release() not called) */
-		spin_lock(&fc->lock);
+		spin_lock(&fc->chan->lock);
 		list_del(&fud->entry);
-		spin_unlock(&fc->lock);
+		spin_unlock(&fc->chan->lock);
 
 		fuse_conn_put(fc);
 	}
@@ -2061,9 +2062,9 @@ static void fuse_resend(struct fuse_conn *fc)
 	LIST_HEAD(to_queue);
 	unsigned int i;
 
-	spin_lock(&fc->lock);
+	spin_lock(&fc->chan->lock);
 	if (!fc->chan->connected) {
-		spin_unlock(&fc->lock);
+		spin_unlock(&fc->chan->lock);
 		return;
 	}
 
@@ -2075,7 +2076,7 @@ static void fuse_resend(struct fuse_conn *fc)
 			list_splice_tail_init(&fpq->processing[i], &to_queue);
 		spin_unlock(&fpq->lock);
 	}
-	spin_unlock(&fc->lock);
+	spin_unlock(&fc->chan->lock);
 
 	list_for_each_entry_safe(req, next, &to_queue, list) {
 		set_bit(FR_PENDING, &req->flags);
@@ -2491,6 +2492,7 @@ static void end_polls(struct fuse_conn *fc)
 {
 	struct rb_node *p;
 
+	spin_lock(&fc->lock);
 	p = rb_first(&fc->polled_files);
 
 	while (p) {
@@ -2500,6 +2502,7 @@ static void end_polls(struct fuse_conn *fc)
 
 		p = rb_next(p);
 	}
+	spin_unlock(&fc->lock);
 }
 
 /*
@@ -2524,7 +2527,7 @@ void fuse_abort_conn(struct fuse_conn *fc)
 {
 	struct fuse_iqueue *fiq = &fc->chan->iq;
 
-	spin_lock(&fc->lock);
+	spin_lock(&fc->chan->lock);
 	if (fc->chan->connected) {
 		struct fuse_dev *fud;
 		struct fuse_req *req, *next;
@@ -2579,17 +2582,17 @@ void fuse_abort_conn(struct fuse_conn *fc)
 		kill_fasync(&fiq->fasync, SIGIO, POLL_IN);
 		end_polls(fc);
 		wake_up_all(&fc->chan->blocked_waitq);
-		spin_unlock(&fc->lock);
+		spin_unlock(&fc->chan->lock);
 
 		fuse_dev_end_requests(&to_end);
 
 		/*
-		 * fc->lock must not be taken to avoid conflicts with io-uring
+		 * fc->chan->lock must not be taken to avoid conflicts with io-uring
 		 * locks
 		 */
 		fuse_uring_abort(fc);
 	} else {
-		spin_unlock(&fc->lock);
+		spin_unlock(&fc->chan->lock);
 	}
 }
 EXPORT_SYMBOL_GPL(fuse_abort_conn);
@@ -2623,11 +2626,11 @@ int fuse_dev_release(struct inode *inode, struct file *file)
 
 		fuse_dev_end_requests(&to_end);
 
-		spin_lock(&fc->lock);
+		spin_lock(&fc->chan->lock);
 		list_del(&fud->entry);
 		/* Are we the last open device? */
 		last = list_empty(&fc->chan->devices);
-		spin_unlock(&fc->lock);
+		spin_unlock(&fc->chan->lock);
 
 		if (last) {
 			WARN_ON(fc->chan->iq.fasync != NULL);

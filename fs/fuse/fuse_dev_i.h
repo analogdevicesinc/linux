@@ -88,6 +88,14 @@ struct fuse_iqueue {
 };
 
 struct fuse_chan {
+	/** Lock protecting:
+	    - devices
+	    - connected
+	    - ring
+	    - ring->queues[qid]
+	 */
+	spinlock_t lock;
+
 	/** Input queue */
 	struct fuse_iqueue iq;
 

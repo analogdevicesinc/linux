@@ -243,10 +243,10 @@ static struct fuse_ring *fuse_uring_create(struct fuse_conn *fc)
 	max_payload_size = max(FUSE_MIN_READ_BUFFER, fc->max_write);
 	max_payload_size = max(max_payload_size, fc->max_pages * PAGE_SIZE);
 
-	spin_lock(&fc->lock);
+	spin_lock(&fc->chan->lock);
 	if (fc->chan->ring) {
 		/* race, another thread created the ring in the meantime */
-		spin_unlock(&fc->lock);
+		spin_unlock(&fc->chan->lock);
 		res = fc->chan->ring;
 		goto out_err;
 	}
@@ -258,7 +258,7 @@ static struct fuse_ring *fuse_uring_create(struct fuse_conn *fc)
 	ring->max_payload_sz = max_payload_size;
 	smp_store_release(&fc->chan->ring, ring);
 
-	spin_unlock(&fc->lock);
+	spin_unlock(&fc->chan->lock);
 	return ring;
 
 out_err:
@@ -298,9 +298,9 @@ static struct fuse_ring_queue *fuse_uring_create_queue(struct fuse_ring *ring,
 	queue->fpq.processing = pq;
 	fuse_pqueue_init(&queue->fpq);
 
-	spin_lock(&fc->lock);
+	spin_lock(&fc->chan->lock);
 	if (ring->queues[qid]) {
-		spin_unlock(&fc->lock);
+		spin_unlock(&fc->chan->lock);
 		kfree(queue->fpq.processing);
 		kfree(queue);
 		return ring->queues[qid];
@@ -310,7 +310,7 @@ static struct fuse_ring_queue *fuse_uring_create_queue(struct fuse_ring *ring,
 	 * write_once and lock as the caller mostly doesn't take the lock at all
 	 */
 	WRITE_ONCE(ring->queues[qid], queue);
-	spin_unlock(&fc->lock);
+	spin_unlock(&fc->chan->lock);
 
 	return queue;
 }

@@ -89,9 +89,9 @@ static void fuse_check_timeout(struct work_struct *work)
 	if (expired)
 		goto abort_conn;
 
-	spin_lock(&fc->lock);
+	spin_lock(&fc->chan->lock);
 	if (!fc->chan->connected) {
-		spin_unlock(&fc->lock);
+		spin_unlock(&fc->chan->lock);
 		return;
 	}
 	list_for_each_entry(fud, &fc->chan->devices, entry) {
@@ -100,13 +100,13 @@ static void fuse_check_timeout(struct work_struct *work)
 		if (fuse_request_expired(fc, &fpq->io) ||
 		    fuse_fpq_processing_expired(fc, fpq->processing)) {
 			spin_unlock(&fpq->lock);
-			spin_unlock(&fc->lock);
+			spin_unlock(&fc->chan->lock);
 			goto abort_conn;
 		}
 
 		spin_unlock(&fpq->lock);
 	}
-	spin_unlock(&fc->lock);
+	spin_unlock(&fc->chan->lock);
 
 	if (fuse_uring_request_expired(fc))
 		goto abort_conn;
