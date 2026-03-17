@@ -2393,9 +2393,7 @@ int amdgpu_ras_interrupt_dispatch(struct amdgpu_device *adev,
 
 		memset(&ih_info, 0, sizeof(ih_info));
 		ih_info.block = info->head.block;
-		memcpy(&ih_info.iv_entry, info->entry, sizeof(struct amdgpu_iv_entry));
-
-		return amdgpu_ras_mgr_handle_controller_interrupt(adev, &ih_info);
+		return amdgpu_ras_mgr_dispatch_interrupt(adev, &ih_info);
 	}
 
 	obj = amdgpu_ras_find_obj(adev, &info->head);
