@@ -3,6 +3,9 @@
  * Copyright © 2022 Intel Corporation
  */
 
+#ifndef _XE_PCODE_API_H_
+#define _XE_PCODE_API_H_
+
 /* Internal to xe_pcode */
 
 #include "regs/xe_reg_defs.h"
@@ -101,3 +104,5 @@
 #define BMG_PCIE_CAP			XE_REG(0x138340)
 #define   LINK_DOWNGRADE		REG_GENMASK(1, 0)
 #define     DOWNGRADE_CAPABLE		2
+
+#endif
