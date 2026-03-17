@@ -469,43 +469,6 @@ struct fuse_req {
 	unsigned long create_time;
 };
 
-#define FUSE_PQ_HASH_BITS 8
-#define FUSE_PQ_HASH_SIZE (1 << FUSE_PQ_HASH_BITS)
-
-struct fuse_pqueue {
-	/** Connection established */
-	unsigned connected;
-
-	/** Lock protecting accessess to  members of this structure */
-	spinlock_t lock;
-
-	/** Hash table of requests being processed */
-	struct list_head *processing;
-
-	/** The list of requests under I/O */
-	struct list_head io;
-};
-
-/**
- * Fuse device instance
- */
-struct fuse_dev {
-	/** Reference count of this object */
-	refcount_t ref;
-
-	/** Issue FUSE_INIT synchronously */
-	bool sync_init;
-
-	/** Fuse connection for this device */
-	struct fuse_conn *fc;
-
-	/** Processing queue */
-	struct fuse_pqueue pq;
-
-	/** list entry on fc->devices */
-	struct list_head entry;
-};
-
 enum fuse_dax_mode {
 	FUSE_DAX_INODE_DEFAULT,	/* default */
 	FUSE_DAX_ALWAYS,	/* "-o dax=always" */
@@ -1228,11 +1191,6 @@ void fuse_change_entry_timeout(struct dentry *entry, struct fuse_entry_out *o);
 struct fuse_conn *fuse_conn_get(struct fuse_conn *fc);
 
 /**
- * Initialize the fuse processing queue
- */
-void fuse_pqueue_init(struct fuse_pqueue *fpq);
-
-/**
  * Initialize fuse_conn
  */
 void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
@@ -1243,10 +1201,6 @@ void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
  */
 void fuse_conn_put(struct fuse_conn *fc);
 
-struct fuse_dev *fuse_dev_alloc_install(struct fuse_conn *fc);
-struct fuse_dev *fuse_dev_alloc(void);
-void fuse_dev_install(struct fuse_dev *fud, struct fuse_conn *fc);
-void fuse_dev_put(struct fuse_dev *fud);
 int fuse_send_init(struct fuse_mount *fm);
 
 /**

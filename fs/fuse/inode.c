@@ -969,17 +969,6 @@ static int fuse_show_options(struct seq_file *m, struct dentry *root)
 	return 0;
 }
 
-void fuse_pqueue_init(struct fuse_pqueue *fpq)
-{
-	unsigned int i;
-
-	spin_lock_init(&fpq->lock);
-	for (i = 0; i < FUSE_PQ_HASH_SIZE; i++)
-		INIT_LIST_HEAD(&fpq->processing[i]);
-	INIT_LIST_HEAD(&fpq->io);
-	fpq->connected = 1;
-}
-
 void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 		    struct user_namespace *user_ns, struct fuse_chan *fch)
 {
@@ -1596,89 +1585,6 @@ static int fuse_bdi_init(struct fuse_conn *fc, struct super_block *sb)
 
 	return 0;
 }
-
-struct fuse_dev *fuse_dev_alloc(void)
-{
-	struct fuse_dev *fud;
-	struct list_head *pq;
-
-	fud = kzalloc_obj(struct fuse_dev);
-	if (!fud)
-		return NULL;
-
-	refcount_set(&fud->ref, 1);
-	pq = kzalloc_objs(struct list_head, FUSE_PQ_HASH_SIZE);
-	if (!pq) {
-		kfree(fud);
-		return NULL;
-	}
-
-	fud->pq.processing = pq;
-	fuse_pqueue_init(&fud->pq);
-
-	return fud;
-}
-EXPORT_SYMBOL_GPL(fuse_dev_alloc);
-
-void fuse_dev_install(struct fuse_dev *fud, struct fuse_conn *fc)
-{
-	struct fuse_conn *old_fc;
-
-	spin_lock(&fc->lock);
-	/*
-	 * Pairs with:
-	 *  - xchg() in fuse_dev_release()
-	 *  - smp_load_acquire() in fuse_dev_fc_get()
-	 */
-	old_fc = cmpxchg(&fud->fc, NULL, fc);
-	if (old_fc) {
-		/*
-		 * failed to set fud->fc because
-		 *  - it was already set to a different fc
-		 *  - it was set to disconneted
-		 */
-		fc->connected = 0;
-	} else {
-		list_add_tail(&fud->entry, &fc->devices);
-		fuse_conn_get(fc);
-	}
-	spin_unlock(&fc->lock);
-}
-EXPORT_SYMBOL_GPL(fuse_dev_install);
-
-struct fuse_dev *fuse_dev_alloc_install(struct fuse_conn *fc)
-{
-	struct fuse_dev *fud;
-
-	fud = fuse_dev_alloc();
-	if (!fud)
-		return NULL;
-
-	fuse_dev_install(fud, fc);
-	return fud;
-}
-EXPORT_SYMBOL_GPL(fuse_dev_alloc_install);
-
-void fuse_dev_put(struct fuse_dev *fud)
-{
-	struct fuse_conn *fc;
-
-	if (!refcount_dec_and_test(&fud->ref))
-		return;
-
-	fc = fuse_dev_fc_get(fud);
-	if (fc && fc != FUSE_DEV_FC_DISCONNECTED) {
-		/* This is the virtiofs case (fuse_dev_release() not called) */
-		spin_lock(&fc->lock);
-		list_del(&fud->entry);
-		spin_unlock(&fc->lock);
-
-		fuse_conn_put(fc);
-	}
-	kfree(fud->pq.processing);
-	kfree(fud);
-}
-EXPORT_SYMBOL_GPL(fuse_dev_put);
 
 static void fuse_fill_attr_from_inode(struct fuse_attr *attr,
 				      const struct fuse_inode *fi)
