@@ -3,8 +3,8 @@
  * Copyright © 2021-2024 Intel Corporation
  */
 
-#ifndef _XE_GUC_CAPTURE_TYPES_H
-#define _XE_GUC_CAPTURE_TYPES_H
+#ifndef _XE_GUC_CAPTURE_TYPES_H_
+#define _XE_GUC_CAPTURE_TYPES_H_
 
 #include <linux/types.h>
 #include "regs/xe_reg_defs.h"
