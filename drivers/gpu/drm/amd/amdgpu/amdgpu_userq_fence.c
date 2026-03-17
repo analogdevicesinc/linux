@@ -81,7 +81,6 @@ int amdgpu_userq_fence_driver_alloc(struct amdgpu_device *adev,
 				    struct amdgpu_usermode_queue *userq)
 {
 	struct amdgpu_userq_fence_driver *fence_drv;
-	unsigned long flags;
 	int r;
 
 	fence_drv = kzalloc_obj(*fence_drv);
@@ -104,19 +103,10 @@ int amdgpu_userq_fence_driver_alloc(struct amdgpu_device *adev,
 	fence_drv->context = dma_fence_context_alloc(1);
 	get_task_comm(fence_drv->timeline_name, current);
 
-	xa_lock_irqsave(&adev->userq_xa, flags);
-	r = xa_err(__xa_store(&adev->userq_xa, userq->doorbell_index,
-			      fence_drv, GFP_KERNEL));
-	xa_unlock_irqrestore(&adev->userq_xa, flags);
-	if (r)
-		goto free_seq64;
-
 	userq->fence_drv = fence_drv;
 
 	return 0;
 
-free_seq64:
-	amdgpu_seq64_free(adev, fence_drv->va);
 free_fence_drv:
 	kfree(fence_drv);
 
@@ -187,11 +177,9 @@ void amdgpu_userq_fence_driver_destroy(struct kref *ref)
 	struct amdgpu_userq_fence_driver *fence_drv = container_of(ref,
 					 struct amdgpu_userq_fence_driver,
 					 refcount);
-	struct amdgpu_userq_fence_driver *xa_fence_drv;
 	struct amdgpu_device *adev = fence_drv->adev;
 	struct amdgpu_userq_fence *fence, *tmp;
-	struct xarray *xa = &adev->userq_xa;
-	unsigned long index, flags;
+	unsigned long flags;
 	struct dma_fence *f;
 
 	spin_lock_irqsave(&fence_drv->fence_list_lock, flags);
@@ -207,12 +195,6 @@ void amdgpu_userq_fence_driver_destroy(struct kref *ref)
 		dma_fence_put(f);
 	}
 	spin_unlock_irqrestore(&fence_drv->fence_list_lock, flags);
-
-	xa_lock_irqsave(xa, flags);
-	xa_for_each(xa, index, xa_fence_drv)
-		if (xa_fence_drv == fence_drv)
-			__xa_erase(xa, index);
-	xa_unlock_irqrestore(xa, flags);
 
 	/* Free seq64 memory */
 	amdgpu_seq64_free(adev, fence_drv->va);
