@@ -3,6 +3,9 @@ soc/arm
 soc/dt
 	patch
 		ARM: dts: arm: Use lowercase hex
+	renesas/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.1-tag1
+		contains renesas/fixes
 
 soc/drivers
 	renesas/drivers
@@ -27,4 +30,5 @@ arm/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-fixes-for-v7.0-tag1
 	patch
 		ARM: multi_v7_defconfig: Drop duplicate CONFIG_TI_PRUSS=m
-
+	rockchip/fixes
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.0-rockchip-drvfixes1
