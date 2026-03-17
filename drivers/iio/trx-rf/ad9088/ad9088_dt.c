@@ -253,19 +253,6 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 		return -EINVAL;
 	}
 
-	/* FIXME ! */
-	if (phy->profile.profile_cfg.profile_version.patch < 3) {
-		dev_warn(dev, "Old profile version patch %u, updating to %u\n",
-			 phy->profile.profile_cfg.profile_version.patch, 3);
-
-		phy->profile.profile_cfg.profile_version.patch = 3;
-		phy->profile.reserved_cfg[4] = phy->profile.reserved_cfg[0];
-		phy->profile.reserved_cfg[5] = phy->profile.reserved_cfg[1];
-		phy->profile.reserved_cfg[0] = 0;
-		phy->profile.reserved_cfg[1] = 0;
-		phy->profile.mcs_cfg.center_sysref.sysref_present = true;
-	}
-
 	/* ADF4382 clock align GPIO configuration - set defaults */
 	p->mcs_cfg.adf4382_cfg.clock_align_delay_adjust_gpio[0] = 16;
 	p->mcs_cfg.adf4382_cfg.clock_align_delay_adjust_gpio[1] = 0;
