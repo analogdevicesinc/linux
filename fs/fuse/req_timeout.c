@@ -69,7 +69,7 @@ static void fuse_check_timeout(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct fuse_conn *fc = container_of(dwork, struct fuse_conn,
 					    timeout.work);
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 	struct fuse_dev *fud;
 	struct fuse_pqueue *fpq;
 	bool expired = false;

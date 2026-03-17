@@ -982,7 +982,7 @@ static void fuse_uring_do_register(struct fuse_ring_ent *ent,
 	struct fuse_ring_queue *queue = ent->queue;
 	struct fuse_ring *ring = queue->ring;
 	struct fuse_conn *fc = ring->fc;
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 
 	fuse_uring_prepare_cancel(cmd, issue_flags, ent);
 

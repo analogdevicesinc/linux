@@ -21,8 +21,75 @@ struct fuse_req;
 struct fuse_iqueue;
 struct fuse_forget_link;
 
+/**
+ * Input queue callbacks
+ *
+ * Input queue signalling is device-specific.  For example, the /dev/fuse file
+ * uses fiq->waitq and fasync to wake processes that are waiting on queue
+ * readiness.  These callbacks allow other device types to respond to input
+ * queue activity.
+ */
+struct fuse_iqueue_ops {
+	/**
+	 * Send one forget
+	 */
+	void (*send_forget)(struct fuse_iqueue *fiq, struct fuse_forget_link *link);
+
+	/**
+	 * Send interrupt for request
+	 */
+	void (*send_interrupt)(struct fuse_iqueue *fiq, struct fuse_req *req);
+
+	/**
+	 * Send one request
+	 */
+	void (*send_req)(struct fuse_iqueue *fiq, struct fuse_req *req);
+
+	/**
+	 * Clean up when fuse_iqueue is destroyed
+	 */
+	void (*release)(struct fuse_iqueue *fiq);
+};
+
+struct fuse_iqueue {
+	/** Connection established */
+	unsigned connected;
+
+	/** Lock protecting accesses to members of this structure */
+	spinlock_t lock;
+
+	/** Readers of the connection are waiting on this */
+	wait_queue_head_t waitq;
+
+	/** The next unique request id */
+	u64 reqctr;
+
+	/** The list of pending requests */
+	struct list_head pending;
+
+	/** Pending interrupts */
+	struct list_head interrupts;
+
+	/** Queue of pending forgets */
+	struct fuse_forget_link forget_list_head;
+	struct fuse_forget_link *forget_list_tail;
+
+	/** Batching of FORGET requests (positive indicates FORGET batch) */
+	int forget_batch;
+
+	/** O_ASYNC requests */
+	struct fasync_struct *fasync;
+
+	/** Device-specific callbacks */
+	const struct fuse_iqueue_ops *ops;
+
+	/** Device-specific state */
+	void *priv;
+};
+
 struct fuse_chan {
-	/* will move stuff from struct fuse_conn */
+	/** Input queue */
+	struct fuse_iqueue iq;
 };
 
 struct fuse_copy_state {
@@ -75,6 +142,8 @@ static inline struct fuse_dev *__fuse_get_dev(struct file *file)
 	return fud;
 }
 
+void fuse_iqueue_init(struct fuse_iqueue *fiq, const struct fuse_iqueue_ops *ops, void *priv);
+
 struct fuse_dev *fuse_get_dev(struct file *file);
 
 unsigned int fuse_req_hash(u64 unique);
@@ -96,6 +165,16 @@ void fuse_dev_queue_interrupt(struct fuse_iqueue *fiq, struct fuse_req *req);
 bool fuse_remove_pending_req(struct fuse_req *req, spinlock_t *lock);
 
 bool fuse_request_expired(struct fuse_conn *fc, struct list_head *list);
+
+/**
+ * Assign a unique id to a fuse request
+ */
+void fuse_request_assign_unique(struct fuse_iqueue *fiq, struct fuse_req *req);
+
+/**
+ * Get the next unique ID for a request
+ */
+u64 fuse_get_unique(struct fuse_iqueue *fiq);
 
 #endif
 

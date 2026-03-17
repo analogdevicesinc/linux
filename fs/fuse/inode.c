@@ -969,21 +969,6 @@ static int fuse_show_options(struct seq_file *m, struct dentry *root)
 	return 0;
 }
 
-static void fuse_iqueue_init(struct fuse_iqueue *fiq,
-			     const struct fuse_iqueue_ops *ops,
-			     void *priv)
-{
-	memset(fiq, 0, sizeof(struct fuse_iqueue));
-	spin_lock_init(&fiq->lock);
-	init_waitqueue_head(&fiq->waitq);
-	INIT_LIST_HEAD(&fiq->pending);
-	INIT_LIST_HEAD(&fiq->interrupts);
-	fiq->forget_list_tail = &fiq->forget_list_head;
-	fiq->connected = 1;
-	fiq->ops = ops;
-	fiq->priv = priv;
-}
-
 void fuse_pqueue_init(struct fuse_pqueue *fpq)
 {
 	unsigned int i;
@@ -996,8 +981,7 @@ void fuse_pqueue_init(struct fuse_pqueue *fpq)
 }
 
 void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
-		    struct user_namespace *user_ns,
-		    const struct fuse_iqueue_ops *fiq_ops, void *fiq_priv, struct fuse_chan *fch)
+		    struct user_namespace *user_ns, struct fuse_chan *fch)
 {
 	memset(fc, 0, sizeof(*fc));
 	spin_lock_init(&fc->lock);
@@ -1007,7 +991,6 @@ void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 	atomic_set(&fc->epoch, 1);
 	INIT_WORK(&fc->epoch_work, fuse_epoch_work);
 	init_waitqueue_head(&fc->blocked_waitq);
-	fuse_iqueue_init(&fc->iq, fiq_ops, fiq_priv);
 	INIT_LIST_HEAD(&fc->bg_queue);
 	INIT_LIST_HEAD(&fc->entry);
 	INIT_LIST_HEAD(&fc->devices);
@@ -1052,7 +1035,6 @@ static void delayed_release(struct rcu_head *p)
 
 void fuse_conn_put(struct fuse_conn *fc)
 {
-	struct fuse_iqueue *fiq = &fc->iq;
 	struct fuse_sync_bucket *bucket;
 
 	if (!refcount_dec_and_test(&fc->count))
@@ -1063,8 +1045,7 @@ void fuse_conn_put(struct fuse_conn *fc)
 	if (fc->timeout.req_timeout)
 		cancel_delayed_work_sync(&fc->timeout.work);
 	cancel_work_sync(&fc->epoch_work);
-	if (fiq->ops->release)
-		fiq->ops->release(fiq);
+	fuse_chan_release(fc->chan);
 	put_pid_ns(fc->pid_ns);
 	bucket = rcu_dereference_protected(fc->curr_bucket, 1);
 	if (bucket) {
@@ -1985,7 +1966,7 @@ static int fuse_get_tree(struct fs_context *fsc)
 	struct fuse_conn *fc;
 	struct fuse_mount *fm;
 	struct super_block *sb;
-	struct fuse_chan *fch __free(fuse_chan_free) = fuse_chan_new();
+	struct fuse_chan *fch __free(fuse_chan_free) = fuse_dev_chan_new();
 	int err;
 
 	if (!fch)
@@ -2001,7 +1982,7 @@ static int fuse_get_tree(struct fs_context *fsc)
 		return -ENOMEM;
 	}
 
-	fuse_conn_init(fc, fm, fsc->user_ns, &fuse_dev_fiq_ops, NULL, no_free_ptr(fch));
+	fuse_conn_init(fc, fm, fsc->user_ns, no_free_ptr(fch));
 	fc->release = fuse_free_conn;
 
 	fsc->s_fs_info = fm;

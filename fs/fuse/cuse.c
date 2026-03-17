@@ -503,7 +503,7 @@ static int cuse_channel_open(struct inode *inode, struct file *file)
 {
 	struct fuse_dev *fud;
 	struct cuse_conn *cc;
-	struct fuse_chan *fch __free(fuse_chan_free) = fuse_chan_new();
+	struct fuse_chan *fch __free(fuse_chan_free) = fuse_dev_chan_new();
 	int rc;
 
 	if (!fch)
@@ -518,9 +518,7 @@ static int cuse_channel_open(struct inode *inode, struct file *file)
 	 * Limit the cuse channel to requests that can
 	 * be represented in file->f_cred->user_ns.
 	 */
-	fuse_conn_init(&cc->fc, &cc->fm, file->f_cred->user_ns,
-		       &fuse_dev_fiq_ops, NULL, no_free_ptr(fch));
-
+	fuse_conn_init(&cc->fc, &cc->fm, file->f_cred->user_ns, no_free_ptr(fch));
 	cc->fc.release = cuse_fc_release;
 	fud = fuse_dev_alloc_install(&cc->fc);
 	fuse_conn_put(&cc->fc);

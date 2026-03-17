@@ -313,12 +313,32 @@ static void fuse_dev_queue_req(struct fuse_iqueue *fiq, struct fuse_req *req)
 	}
 }
 
-const struct fuse_iqueue_ops fuse_dev_fiq_ops = {
+static const struct fuse_iqueue_ops fuse_dev_fiq_ops = {
 	.send_forget	= fuse_dev_queue_forget,
 	.send_interrupt	= fuse_dev_queue_interrupt,
 	.send_req	= fuse_dev_queue_req,
 };
-EXPORT_SYMBOL_GPL(fuse_dev_fiq_ops);
+
+void fuse_iqueue_init(struct fuse_iqueue *fiq, const struct fuse_iqueue_ops *ops, void *priv)
+{
+	spin_lock_init(&fiq->lock);
+	init_waitqueue_head(&fiq->waitq);
+	INIT_LIST_HEAD(&fiq->pending);
+	INIT_LIST_HEAD(&fiq->interrupts);
+	fiq->forget_list_tail = &fiq->forget_list_head;
+	fiq->connected = 1;
+	fiq->ops = ops;
+	fiq->priv = priv;
+}
+EXPORT_SYMBOL_GPL(fuse_iqueue_init);
+
+void fuse_chan_release(struct fuse_chan *fch)
+{
+	struct fuse_iqueue *fiq = &fch->iq;
+
+	if (fiq->ops->release)
+		fiq->ops->release(fiq);
+}
 
 void fuse_chan_free(struct fuse_chan *fch)
 {
@@ -332,6 +352,18 @@ struct fuse_chan *fuse_chan_new(void)
 }
 EXPORT_SYMBOL_GPL(fuse_chan_new);
 
+struct fuse_chan *fuse_dev_chan_new(void)
+{
+	struct fuse_chan *fch = fuse_chan_new();
+	if (!fch)
+		return NULL;
+
+	fuse_iqueue_init(&fch->iq, &fuse_dev_fiq_ops, NULL);
+
+	return fch;
+}
+EXPORT_SYMBOL_GPL(fuse_dev_chan_new);
+
 static void fuse_send_one(struct fuse_iqueue *fiq, struct fuse_req *req)
 {
 	req->in.h.len = sizeof(struct fuse_in_header) +
@@ -343,7 +375,7 @@ static void fuse_send_one(struct fuse_iqueue *fiq, struct fuse_req *req)
 void fuse_queue_forget(struct fuse_conn *fc, struct fuse_forget_link *forget,
 		       u64 nodeid, u64 nlookup)
 {
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 
 	forget->forget_one.nodeid = nodeid;
 	forget->forget_one.nlookup = nlookup;
@@ -353,7 +385,7 @@ void fuse_queue_forget(struct fuse_conn *fc, struct fuse_forget_link *forget,
 
 static void flush_bg_queue(struct fuse_conn *fc)
 {
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 
 	while (fc->active_background < fc->max_background &&
 	       !list_empty(&fc->bg_queue)) {
@@ -378,7 +410,7 @@ void fuse_request_end(struct fuse_req *req)
 {
 	struct fuse_mount *fm = req->fm;
 	struct fuse_conn *fc = fm->fc;
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 
 	if (test_and_set_bit(FR_FINISHED, &req->flags))
 		goto put_request;
@@ -431,7 +463,7 @@ EXPORT_SYMBOL_GPL(fuse_request_end);
 
 static int queue_interrupt(struct fuse_req *req)
 {
-	struct fuse_iqueue *fiq = &req->fm->fc->iq;
+	struct fuse_iqueue *fiq = &req->fm->fc->chan->iq;
 
 	/* Check for we've sent request to interrupt this req */
 	if (unlikely(!test_bit(FR_INTERRUPTED, &req->flags)))
@@ -463,7 +495,7 @@ bool fuse_remove_pending_req(struct fuse_req *req, spinlock_t *lock)
 static void request_wait_answer(struct fuse_req *req)
 {
 	struct fuse_conn *fc = req->fm->fc;
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 	int err;
 
 	if (!fc->no_interrupt) {
@@ -511,7 +543,7 @@ static void request_wait_answer(struct fuse_req *req)
 
 static void __fuse_request_send(struct fuse_req *req)
 {
-	struct fuse_iqueue *fiq = &req->fm->fc->iq;
+	struct fuse_iqueue *fiq = &req->fm->fc->chan->iq;
 
 	BUG_ON(test_bit(FR_BACKGROUND, &req->flags));
 
@@ -630,7 +662,7 @@ ssize_t __fuse_simple_request(struct mnt_idmap *idmap,
 static bool fuse_request_queue_background_uring(struct fuse_conn *fc,
 					       struct fuse_req *req)
 {
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 
 	req->in.h.len = sizeof(struct fuse_in_header) +
 		fuse_len_args(req->args->in_numargs,
@@ -709,7 +741,7 @@ static int fuse_simple_notify_reply(struct fuse_mount *fm,
 				    struct fuse_args *args, u64 unique)
 {
 	struct fuse_req *req;
-	struct fuse_iqueue *fiq = &fm->fc->iq;
+	struct fuse_iqueue *fiq = &fm->fc->chan->iq;
 
 	req = fuse_get_req(&invalid_mnt_idmap, fm, false);
 	if (IS_ERR(req))
@@ -1332,7 +1364,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 {
 	ssize_t err;
 	struct fuse_conn *fc = fud->fc;
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 	struct fuse_pqueue *fpq = &fud->pq;
 	struct fuse_req *req;
 	struct fuse_args *args;
@@ -1916,7 +1948,7 @@ static void fuse_resend(struct fuse_conn *fc)
 {
 	struct fuse_dev *fud;
 	struct fuse_req *req, *next;
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 	LIST_HEAD(to_queue);
 	unsigned int i;
 
@@ -2320,7 +2352,7 @@ static __poll_t fuse_dev_poll(struct file *file, poll_table *wait)
 	if (IS_ERR(fud))
 		return EPOLLERR;
 
-	fiq = &fud->fc->iq;
+	fiq = &fud->fc->chan->iq;
 	poll_wait(file, &fiq->waitq, wait);
 
 	spin_lock(&fiq->lock);
@@ -2381,7 +2413,7 @@ static void end_polls(struct fuse_conn *fc)
  */
 void fuse_abort_conn(struct fuse_conn *fc)
 {
-	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_iqueue *fiq = &fc->chan->iq;
 
 	spin_lock(&fc->lock);
 	if (fc->connected) {
@@ -2489,7 +2521,7 @@ int fuse_dev_release(struct inode *inode, struct file *file)
 		spin_unlock(&fc->lock);
 
 		if (last) {
-			WARN_ON(fc->iq.fasync != NULL);
+			WARN_ON(fc->chan->iq.fasync != NULL);
 			fuse_abort_conn(fc);
 		}
 		fuse_conn_put(fc);
@@ -2507,7 +2539,7 @@ static int fuse_dev_fasync(int fd, struct file *file, int on)
 		return PTR_ERR(fud);
 
 	/* No locking - fasync_helper does its own locking */
-	return fasync_helper(fd, file, on, &fud->fc->iq.fasync);
+	return fasync_helper(fd, file, on, &fud->fc->chan->iq.fasync);
 }
 
 static long fuse_dev_ioctl_clone(struct file *file, __u32 __user *argp)

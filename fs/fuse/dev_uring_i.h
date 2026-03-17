@@ -8,6 +8,7 @@
 #define _FS_FUSE_DEV_URING_I_H
 
 #include "fuse_i.h"
+#include "fuse_dev_i.h"
 
 #ifdef CONFIG_FUSE_IO_URING
 

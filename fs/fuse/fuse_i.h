@@ -469,77 +469,6 @@ struct fuse_req {
 	unsigned long create_time;
 };
 
-struct fuse_iqueue;
-
-/**
- * Input queue callbacks
- *
- * Input queue signalling is device-specific.  For example, the /dev/fuse file
- * uses fiq->waitq and fasync to wake processes that are waiting on queue
- * readiness.  These callbacks allow other device types to respond to input
- * queue activity.
- */
-struct fuse_iqueue_ops {
-	/**
-	 * Send one forget
-	 */
-	void (*send_forget)(struct fuse_iqueue *fiq, struct fuse_forget_link *link);
-
-	/**
-	 * Send interrupt for request
-	 */
-	void (*send_interrupt)(struct fuse_iqueue *fiq, struct fuse_req *req);
-
-	/**
-	 * Send one request
-	 */
-	void (*send_req)(struct fuse_iqueue *fiq, struct fuse_req *req);
-
-	/**
-	 * Clean up when fuse_iqueue is destroyed
-	 */
-	void (*release)(struct fuse_iqueue *fiq);
-};
-
-/** /dev/fuse input queue operations */
-extern const struct fuse_iqueue_ops fuse_dev_fiq_ops;
-
-struct fuse_iqueue {
-	/** Connection established */
-	unsigned connected;
-
-	/** Lock protecting accesses to members of this structure */
-	spinlock_t lock;
-
-	/** Readers of the connection are waiting on this */
-	wait_queue_head_t waitq;
-
-	/** The next unique request id */
-	u64 reqctr;
-
-	/** The list of pending requests */
-	struct list_head pending;
-
-	/** Pending interrupts */
-	struct list_head interrupts;
-
-	/** Queue of pending forgets */
-	struct fuse_forget_link forget_list_head;
-	struct fuse_forget_link *forget_list_tail;
-
-	/** Batching of FORGET requests (positive indicates FORGET batch) */
-	int forget_batch;
-
-	/** O_ASYNC requests */
-	struct fasync_struct *fasync;
-
-	/** Device-specific callbacks */
-	const struct fuse_iqueue_ops *ops;
-
-	/** Device-specific state */
-	void *priv;
-};
-
 #define FUSE_PQ_HASH_BITS 8
 #define FUSE_PQ_HASH_SIZE (1 << FUSE_PQ_HASH_BITS)
 
@@ -664,9 +593,6 @@ struct fuse_conn {
 
 	/** Constrain ->max_pages to this value during feature negotiation */
 	unsigned int max_pages_limit;
-
-	/** Input queue */
-	struct fuse_iqueue iq;
 
 	/* transport layer object */
 	struct fuse_chan *chan;
@@ -1260,11 +1186,6 @@ int fuse_simple_background(struct fuse_mount *fm, struct fuse_args *args,
 			   gfp_t gfp_flags);
 
 /**
- * Assign a unique id to a fuse request
- */
-void fuse_request_assign_unique(struct fuse_iqueue *fiq, struct fuse_req *req);
-
-/**
  * End a finished request
  */
 void fuse_request_end(struct fuse_req *req);
@@ -1315,9 +1236,7 @@ void fuse_pqueue_init(struct fuse_pqueue *fpq);
  * Initialize fuse_conn
  */
 void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
-		    struct user_namespace *user_ns,
-		    const struct fuse_iqueue_ops *fiq_ops, void *fiq_priv,
-		    struct fuse_chan *fch);
+		    struct user_namespace *user_ns, struct fuse_chan *fch);
 
 /**
  * Release reference to fuse_conn
@@ -1484,10 +1403,6 @@ int fuse_readdir(struct file *file, struct dir_context *ctx);
  */
 unsigned int fuse_len_args(unsigned int numargs, struct fuse_arg *args);
 
-/**
- * Get the next unique ID for a request
- */
-u64 fuse_get_unique(struct fuse_iqueue *fiq);
 void fuse_free_conn(struct fuse_conn *fc);
 
 /* dax.c */
