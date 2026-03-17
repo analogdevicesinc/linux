@@ -21,6 +21,10 @@ struct fuse_req;
 struct fuse_iqueue;
 struct fuse_forget_link;
 
+struct fuse_chan {
+	/* will move stuff from struct fuse_conn */
+};
+
 struct fuse_copy_state {
 	struct fuse_req *req;
 	struct iov_iter *iter;

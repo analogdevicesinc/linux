@@ -6,6 +6,7 @@
   See the file COPYING.
 */
 
+#include "dev.h"
 #include "dev_uring_i.h"
 #include "fuse_i.h"
 #include "fuse_dev_i.h"
@@ -318,6 +319,18 @@ const struct fuse_iqueue_ops fuse_dev_fiq_ops = {
 	.send_req	= fuse_dev_queue_req,
 };
 EXPORT_SYMBOL_GPL(fuse_dev_fiq_ops);
+
+void fuse_chan_free(struct fuse_chan *fch)
+{
+	kfree(fch);
+}
+EXPORT_SYMBOL_GPL(fuse_chan_free);
+
+struct fuse_chan *fuse_chan_new(void)
+{
+	return kzalloc_obj(struct fuse_chan);
+}
+EXPORT_SYMBOL_GPL(fuse_chan_new);
 
 static void fuse_send_one(struct fuse_iqueue *fiq, struct fuse_req *req)
 {

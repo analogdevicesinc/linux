@@ -668,6 +668,9 @@ struct fuse_conn {
 	/** Input queue */
 	struct fuse_iqueue iq;
 
+	/* transport layer object */
+	struct fuse_chan *chan;
+
 	/** The next unique kernel file handle */
 	atomic64_t khctr;
 
@@ -1313,7 +1316,8 @@ void fuse_pqueue_init(struct fuse_pqueue *fpq);
  */
 void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 		    struct user_namespace *user_ns,
-		    const struct fuse_iqueue_ops *fiq_ops, void *fiq_priv);
+		    const struct fuse_iqueue_ops *fiq_ops, void *fiq_priv,
+		    struct fuse_chan *fch);
 
 /**
  * Release reference to fuse_conn

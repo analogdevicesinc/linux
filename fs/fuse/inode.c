@@ -997,7 +997,7 @@ void fuse_pqueue_init(struct fuse_pqueue *fpq)
 
 void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 		    struct user_namespace *user_ns,
-		    const struct fuse_iqueue_ops *fiq_ops, void *fiq_priv)
+		    const struct fuse_iqueue_ops *fiq_ops, void *fiq_priv, struct fuse_chan *fch)
 {
 	memset(fc, 0, sizeof(*fc));
 	spin_lock_init(&fc->lock);
@@ -1035,6 +1035,7 @@ void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 	INIT_LIST_HEAD(&fc->mounts);
 	list_add(&fm->fc_entry, &fc->mounts);
 	fm->fc = fc;
+	fc->chan = fch;
 }
 EXPORT_SYMBOL_GPL(fuse_conn_init);
 
@@ -1043,6 +1044,7 @@ static void delayed_release(struct rcu_head *p)
 	struct fuse_conn *fc = container_of(p, struct fuse_conn, rcu);
 
 	fuse_uring_destruct(fc);
+	fuse_chan_free(fc->chan);
 
 	put_user_ns(fc->user_ns);
 	fc->release(fc);
@@ -1983,7 +1985,11 @@ static int fuse_get_tree(struct fs_context *fsc)
 	struct fuse_conn *fc;
 	struct fuse_mount *fm;
 	struct super_block *sb;
+	struct fuse_chan *fch __free(fuse_chan_free) = fuse_chan_new();
 	int err;
+
+	if (!fch)
+		return -ENOMEM;
 
 	fc = kmalloc_obj(*fc);
 	if (!fc)
@@ -1995,7 +2001,7 @@ static int fuse_get_tree(struct fs_context *fsc)
 		return -ENOMEM;
 	}
 
-	fuse_conn_init(fc, fm, fsc->user_ns, &fuse_dev_fiq_ops, NULL);
+	fuse_conn_init(fc, fm, fsc->user_ns, &fuse_dev_fiq_ops, NULL, no_free_ptr(fch));
 	fc->release = fuse_free_conn;
 
 	fsc->s_fs_info = fm;

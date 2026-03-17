@@ -51,6 +51,7 @@
 #include <linux/uio.h>
 #include <linux/user_namespace.h>
 
+#include "dev.h"
 #include "fuse_i.h"
 #include "fuse_dev_i.h"
 
@@ -502,7 +503,11 @@ static int cuse_channel_open(struct inode *inode, struct file *file)
 {
 	struct fuse_dev *fud;
 	struct cuse_conn *cc;
+	struct fuse_chan *fch __free(fuse_chan_free) = fuse_chan_new();
 	int rc;
+
+	if (!fch)
+		return -ENOMEM;
 
 	/* set up cuse_conn */
 	cc = kzalloc_obj(*cc);
@@ -514,7 +519,7 @@ static int cuse_channel_open(struct inode *inode, struct file *file)
 	 * be represented in file->f_cred->user_ns.
 	 */
 	fuse_conn_init(&cc->fc, &cc->fm, file->f_cred->user_ns,
-		       &fuse_dev_fiq_ops, NULL);
+		       &fuse_dev_fiq_ops, NULL, no_free_ptr(fch));
 
 	cc->fc.release = cuse_fc_release;
 	fud = fuse_dev_alloc_install(&cc->fc);

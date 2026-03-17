@@ -19,6 +19,7 @@
 #include <linux/highmem.h>
 #include <linux/cleanup.h>
 #include <linux/uio.h>
+#include "dev.h"
 #include "fuse_i.h"
 #include "fuse_dev_i.h"
 
@@ -1683,7 +1684,11 @@ static int virtio_fs_get_tree(struct fs_context *fsc)
 	struct fuse_conn *fc = NULL;
 	struct fuse_mount *fm;
 	unsigned int virtqueue_size;
+	struct fuse_chan *fch __free(fuse_chan_free) = fuse_chan_new();
 	int err = -EIO;
+
+	if (!fch)
+		return -ENOMEM;
 
 	if (!fsc->source)
 		return invalf(fsc, "No source specified");
@@ -1711,7 +1716,8 @@ static int virtio_fs_get_tree(struct fs_context *fsc)
 	if (!fm)
 		goto out_err;
 
-	fuse_conn_init(fc, fm, fsc->user_ns, &virtio_fs_fiq_ops, fs);
+	fuse_conn_init(fc, fm, fsc->user_ns, &virtio_fs_fiq_ops, fs, no_free_ptr(fch));
+
 	fc->release = fuse_free_conn;
 	fc->delete_stale = true;
 	fc->auto_submounts = true;
