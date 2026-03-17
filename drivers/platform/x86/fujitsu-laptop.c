@@ -500,6 +500,36 @@ static int fujitsu_backlight_register(struct acpi_device *device)
 	return 0;
 }
 
+/* Brightness notify */
+
+static void acpi_fujitsu_bl_notify(struct acpi_device *device, u32 event)
+{
+	struct fujitsu_bl *priv = acpi_driver_data(device);
+	int oldb, newb;
+
+	if (event != ACPI_FUJITSU_NOTIFY_CODE) {
+		acpi_handle_info(device->handle, "unsupported event [0x%x]\n",
+				 event);
+		sparse_keymap_report_event(priv->input, -1, 1, true);
+		return;
+	}
+
+	oldb = priv->brightness_level;
+	get_lcd_level(device);
+	newb = priv->brightness_level;
+
+	acpi_handle_debug(device->handle,
+			  "brightness button event [%i -> %i]\n", oldb, newb);
+
+	if (oldb == newb)
+		return;
+
+	if (!disable_brightness_adjust)
+		set_lcd_level(device, newb);
+
+	sparse_keymap_report_event(priv->input, oldb < newb, 1, true);
+}
+
 static int acpi_fujitsu_bl_add(struct acpi_device *device)
 {
 	struct fujitsu_bl *priv;
@@ -529,36 +559,6 @@ static int acpi_fujitsu_bl_add(struct acpi_device *device)
 		return ret;
 
 	return fujitsu_backlight_register(device);
-}
-
-/* Brightness notify */
-
-static void acpi_fujitsu_bl_notify(struct acpi_device *device, u32 event)
-{
-	struct fujitsu_bl *priv = acpi_driver_data(device);
-	int oldb, newb;
-
-	if (event != ACPI_FUJITSU_NOTIFY_CODE) {
-		acpi_handle_info(device->handle, "unsupported event [0x%x]\n",
-				 event);
-		sparse_keymap_report_event(priv->input, -1, 1, true);
-		return;
-	}
-
-	oldb = priv->brightness_level;
-	get_lcd_level(device);
-	newb = priv->brightness_level;
-
-	acpi_handle_debug(device->handle,
-			  "brightness button event [%i -> %i]\n", oldb, newb);
-
-	if (oldb == newb)
-		return;
-
-	if (!disable_brightness_adjust)
-		set_lcd_level(device, newb);
-
-	sparse_keymap_report_event(priv->input, oldb < newb, 1, true);
 }
 
 /* ACPI device for hotkey handling */
@@ -908,6 +908,84 @@ static int acpi_fujitsu_laptop_leds_register(struct acpi_device *device)
 	return 0;
 }
 
+static void acpi_fujitsu_laptop_press(struct acpi_device *device, int scancode)
+{
+	struct fujitsu_laptop *priv = acpi_driver_data(device);
+	int ret;
+
+	ret = kfifo_in_locked(&priv->fifo, (unsigned char *)&scancode,
+			      sizeof(scancode), &priv->fifo_lock);
+	if (ret != sizeof(scancode)) {
+		dev_info(&priv->input->dev, "Could not push scancode [0x%x]\n",
+			 scancode);
+		return;
+	}
+	sparse_keymap_report_event(priv->input, scancode, 1, false);
+	dev_dbg(&priv->input->dev, "Push scancode into ringbuffer [0x%x]\n",
+		scancode);
+}
+
+static void acpi_fujitsu_laptop_release(struct acpi_device *device)
+{
+	struct fujitsu_laptop *priv = acpi_driver_data(device);
+	int scancode, ret;
+
+	while (true) {
+		ret = kfifo_out_locked(&priv->fifo, (unsigned char *)&scancode,
+				       sizeof(scancode), &priv->fifo_lock);
+		if (ret != sizeof(scancode))
+			return;
+		sparse_keymap_report_event(priv->input, scancode, 0, false);
+		dev_dbg(&priv->input->dev,
+			"Pop scancode from ringbuffer [0x%x]\n", scancode);
+	}
+}
+
+static void acpi_fujitsu_laptop_notify(struct acpi_device *device, u32 event)
+{
+	struct fujitsu_laptop *priv = acpi_driver_data(device);
+	unsigned long flags;
+	int scancode, i = 0;
+	unsigned int irb;
+
+	if (event != ACPI_FUJITSU_NOTIFY_CODE) {
+		acpi_handle_info(device->handle, "Unsupported event [0x%x]\n",
+				 event);
+		sparse_keymap_report_event(priv->input, -1, 1, true);
+		return;
+	}
+
+	if (priv->flags_supported)
+		priv->flags_state = call_fext_func(device, FUNC_FLAGS, 0x4, 0x0,
+						   0x0);
+
+	while ((irb = call_fext_func(device,
+				     FUNC_BUTTONS, 0x1, 0x0, 0x0)) != 0 &&
+	       i++ < MAX_HOTKEY_RINGBUFFER_SIZE) {
+		scancode = irb & 0x4ff;
+		if (sparse_keymap_entry_from_scancode(priv->input, scancode))
+			acpi_fujitsu_laptop_press(device, scancode);
+		else if (scancode == 0)
+			acpi_fujitsu_laptop_release(device);
+		else
+			acpi_handle_info(device->handle,
+					 "Unknown GIRB result [%x]\n", irb);
+	}
+
+	/*
+	 * First seen on the Skylake-based Lifebook E736/E746/E756), the
+	 * touchpad toggle hotkey (Fn+F4) is handled in software. Other models
+	 * have since added additional "soft keys". These are reported in the
+	 * status flags queried using FUNC_FLAGS.
+	 */
+	if (priv->flags_supported & (FLAG_SOFTKEYS)) {
+		flags = call_fext_func(device, FUNC_FLAGS, 0x1, 0x0, 0x0);
+		flags &= (FLAG_SOFTKEYS);
+		for_each_set_bit(i, &flags, BITS_PER_LONG)
+			sparse_keymap_report_event(priv->input, BIT(i), 1, true);
+	}
+}
+
 static int acpi_fujitsu_laptop_add(struct acpi_device *device)
 {
 	struct fujitsu_laptop *priv;
@@ -999,84 +1077,6 @@ static void acpi_fujitsu_laptop_remove(struct acpi_device *device)
 	fujitsu_laptop_platform_remove(device);
 
 	kfifo_free(&priv->fifo);
-}
-
-static void acpi_fujitsu_laptop_press(struct acpi_device *device, int scancode)
-{
-	struct fujitsu_laptop *priv = acpi_driver_data(device);
-	int ret;
-
-	ret = kfifo_in_locked(&priv->fifo, (unsigned char *)&scancode,
-			      sizeof(scancode), &priv->fifo_lock);
-	if (ret != sizeof(scancode)) {
-		dev_info(&priv->input->dev, "Could not push scancode [0x%x]\n",
-			 scancode);
-		return;
-	}
-	sparse_keymap_report_event(priv->input, scancode, 1, false);
-	dev_dbg(&priv->input->dev, "Push scancode into ringbuffer [0x%x]\n",
-		scancode);
-}
-
-static void acpi_fujitsu_laptop_release(struct acpi_device *device)
-{
-	struct fujitsu_laptop *priv = acpi_driver_data(device);
-	int scancode, ret;
-
-	while (true) {
-		ret = kfifo_out_locked(&priv->fifo, (unsigned char *)&scancode,
-				       sizeof(scancode), &priv->fifo_lock);
-		if (ret != sizeof(scancode))
-			return;
-		sparse_keymap_report_event(priv->input, scancode, 0, false);
-		dev_dbg(&priv->input->dev,
-			"Pop scancode from ringbuffer [0x%x]\n", scancode);
-	}
-}
-
-static void acpi_fujitsu_laptop_notify(struct acpi_device *device, u32 event)
-{
-	struct fujitsu_laptop *priv = acpi_driver_data(device);
-	unsigned long flags;
-	int scancode, i = 0;
-	unsigned int irb;
-
-	if (event != ACPI_FUJITSU_NOTIFY_CODE) {
-		acpi_handle_info(device->handle, "Unsupported event [0x%x]\n",
-				 event);
-		sparse_keymap_report_event(priv->input, -1, 1, true);
-		return;
-	}
-
-	if (priv->flags_supported)
-		priv->flags_state = call_fext_func(device, FUNC_FLAGS, 0x4, 0x0,
-						   0x0);
-
-	while ((irb = call_fext_func(device,
-				     FUNC_BUTTONS, 0x1, 0x0, 0x0)) != 0 &&
-	       i++ < MAX_HOTKEY_RINGBUFFER_SIZE) {
-		scancode = irb & 0x4ff;
-		if (sparse_keymap_entry_from_scancode(priv->input, scancode))
-			acpi_fujitsu_laptop_press(device, scancode);
-		else if (scancode == 0)
-			acpi_fujitsu_laptop_release(device);
-		else
-			acpi_handle_info(device->handle,
-					 "Unknown GIRB result [%x]\n", irb);
-	}
-
-	/*
-	 * First seen on the Skylake-based Lifebook E736/E746/E756), the
-	 * touchpad toggle hotkey (Fn+F4) is handled in software. Other models
-	 * have since added additional "soft keys". These are reported in the
-	 * status flags queried using FUNC_FLAGS.
-	 */
-	if (priv->flags_supported & (FLAG_SOFTKEYS)) {
-		flags = call_fext_func(device, FUNC_FLAGS, 0x1, 0x0, 0x0);
-		flags &= (FLAG_SOFTKEYS);
-		for_each_set_bit(i, &flags, BITS_PER_LONG)
-			sparse_keymap_report_event(priv->input, BIT(i), 1, true);
-	}
 }
 
 /* Initialization */
