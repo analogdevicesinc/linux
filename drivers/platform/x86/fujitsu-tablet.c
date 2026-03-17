@@ -18,6 +18,7 @@
 #include <linux/input.h>
 #include <linux/delay.h>
 #include <linux/dmi.h>
+#include <linux/platform_device.h>
 
 #define MODULENAME "fujitsu-tablet"
 
@@ -442,13 +443,11 @@ static acpi_status fujitsu_walk_resources(struct acpi_resource *res, void *data)
 	}
 }
 
-static int acpi_fujitsu_add(struct acpi_device *adev)
+static int acpi_fujitsu_probe(struct platform_device *pdev)
 {
+	struct acpi_device *adev = ACPI_COMPANION(&pdev->dev);
 	acpi_status status;
 	int error;
-
-	if (!adev)
-		return -EINVAL;
 
 	status = acpi_walk_resources(adev->handle, METHOD_NAME__CRS,
 			fujitsu_walk_resources, NULL);
@@ -461,7 +460,7 @@ static int acpi_fujitsu_add(struct acpi_device *adev)
 	snprintf(fujitsu.phys, sizeof(fujitsu.phys),
 			"%s/input0", acpi_device_hid(adev));
 
-	error = input_fujitsu_setup(&adev->dev,
+	error = input_fujitsu_setup(&pdev->dev,
 		acpi_device_name(adev), fujitsu.phys);
 	if (error)
 		return error;
@@ -484,7 +483,7 @@ static int acpi_fujitsu_add(struct acpi_device *adev)
 	return 0;
 }
 
-static void acpi_fujitsu_remove(struct acpi_device *adev)
+static void acpi_fujitsu_remove(struct platform_device *pdev)
 {
 	free_irq(fujitsu.irq, fujitsu_interrupt);
 	release_region(fujitsu.io_base, fujitsu.io_length);
@@ -501,15 +500,14 @@ static int acpi_fujitsu_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(acpi_fujitsu_pm, NULL, acpi_fujitsu_resume);
 
-static struct acpi_driver acpi_fujitsu_driver = {
-	.name  = MODULENAME,
-	.class = "hotkey",
-	.ids   = fujitsu_ids,
-	.ops   = {
-		.add    = acpi_fujitsu_add,
-		.remove	= acpi_fujitsu_remove,
+static struct platform_driver acpi_fujitsu_driver = {
+	.probe = acpi_fujitsu_probe,
+	.remove = acpi_fujitsu_remove,
+	.driver = {
+		.name = MODULENAME,
+		.acpi_match_table = fujitsu_ids,
+		.pm = &acpi_fujitsu_pm,
 	},
-	.drv.pm = &acpi_fujitsu_pm,
 };
 
 static int __init fujitsu_module_init(void)
@@ -518,7 +516,7 @@ static int __init fujitsu_module_init(void)
 
 	dmi_check_system(dmi_ids);
 
-	error = acpi_bus_register_driver(&acpi_fujitsu_driver);
+	error = platform_driver_register(&acpi_fujitsu_driver);
 	if (error)
 		return error;
 
@@ -527,7 +525,7 @@ static int __init fujitsu_module_init(void)
 
 static void __exit fujitsu_module_exit(void)
 {
-	acpi_bus_unregister_driver(&acpi_fujitsu_driver);
+	platform_driver_unregister(&acpi_fujitsu_driver);
 }
 
 module_init(fujitsu_module_init);
