@@ -569,22 +569,6 @@ struct fuse_conn {
 	/** Number of background requests at which congestion starts */
 	unsigned congestion_threshold;
 
-	/** Flag indicating that INIT reply has been received. Allocating
-	 * any fuse request will be suspended until the flag is set */
-	int initialized;
-
-	/** Flag indicating if connection is blocked.  This will be
-	    the case before the INIT reply is received, and if there
-	    are too many outstading backgrounds requests */
-	int blocked;
-
-	/** waitq for blocked connection */
-	wait_queue_head_t blocked_waitq;
-
-	/** Connection established, cleared on umount, connection
-	    abort and device release */
-	unsigned connected;
-
 	/** Connection aborted via sysfs */
 	bool aborted;
 
@@ -785,9 +769,6 @@ struct fuse_conn {
 
 	/** Maximum stack depth for passthrough backing files */
 	int max_stack_depth;
-
-	/** The number of requests waiting for completion */
-	atomic_t num_waiting;
 
 	/** Negotiated minor version */
 	unsigned minor;

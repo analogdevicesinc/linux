@@ -898,7 +898,7 @@ static int fuse_uring_commit_fetch(struct io_uring_cmd *cmd, int issue_flags,
 		return err;
 	fpq = &queue->fpq;
 
-	if (!READ_ONCE(fc->connected) || READ_ONCE(queue->stopped))
+	if (!READ_ONCE(fc->chan->connected) || READ_ONCE(queue->stopped))
 		return err;
 
 	spin_lock(&queue->lock);
@@ -997,7 +997,7 @@ static void fuse_uring_do_register(struct fuse_ring_ent *ent,
 		if (ready) {
 			WRITE_ONCE(fiq->ops, &fuse_io_uring_ops);
 			WRITE_ONCE(ring->ready, true);
-			wake_up_all(&fc->blocked_waitq);
+			wake_up_all(&fc->chan->blocked_waitq);
 		}
 	}
 }
@@ -1156,14 +1156,14 @@ int fuse_uring_cmd(struct io_uring_cmd *cmd, unsigned int issue_flags)
 
 	if (fc->aborted)
 		return -ECONNABORTED;
-	if (!fc->connected)
+	if (!fc->chan->connected)
 		return -ENOTCONN;
 
 	/*
 	 * fuse_uring_register() needs the ring to be initialized,
 	 * we need to know the max payload size
 	 */
-	if (!fc->initialized)
+	if (!fc->chan->initialized)
 		return -EAGAIN;
 
 	switch (cmd_op) {
@@ -1173,7 +1173,7 @@ int fuse_uring_cmd(struct io_uring_cmd *cmd, unsigned int issue_flags)
 			pr_info_once("FUSE_IO_URING_CMD_REGISTER failed err=%d\n",
 				     err);
 			fc->io_uring = 0;
-			wake_up_all(&fc->blocked_waitq);
+			wake_up_all(&fc->chan->blocked_waitq);
 			return err;
 		}
 		break;
@@ -1328,7 +1328,7 @@ bool fuse_uring_queue_bq_req(struct fuse_req *req)
 	spin_lock(&fc->chan->bg_lock);
 	fc->chan->num_background++;
 	if (fc->chan->num_background == fc->chan->max_background)
-		fc->blocked = 1;
+		fc->chan->blocked = 1;
 	fuse_uring_flush_bg(queue);
 	spin_unlock(&fc->chan->bg_lock);
 

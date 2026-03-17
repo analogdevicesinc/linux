@@ -527,7 +527,7 @@ static int cuse_channel_open(struct inode *inode, struct file *file)
 
 	INIT_LIST_HEAD(&cc->list);
 
-	cc->fc.initialized = 1;
+	cc->fc.chan->initialized = 1;
 	rc = cuse_send_init(cc);
 	if (rc) {
 		fuse_dev_put(fud);
@@ -584,7 +584,7 @@ static ssize_t cuse_class_waiting_show(struct device *dev,
 {
 	struct cuse_conn *cc = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%d\n", atomic_read(&cc->fc.num_waiting));
+	return sprintf(buf, "%d\n", atomic_read(&cc->fc.chan->num_waiting));
 }
 static DEVICE_ATTR(waiting, 0400, cuse_class_waiting_show, NULL);
 

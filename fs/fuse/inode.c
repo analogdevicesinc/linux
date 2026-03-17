@@ -975,15 +975,10 @@ void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 	refcount_set(&fc->count, 1);
 	atomic_set(&fc->epoch, 1);
 	INIT_WORK(&fc->epoch_work, fuse_epoch_work);
-	init_waitqueue_head(&fc->blocked_waitq);
 	INIT_LIST_HEAD(&fc->entry);
-	atomic_set(&fc->num_waiting, 0);
 	fc->congestion_threshold = FUSE_DEFAULT_CONGESTION_THRESHOLD;
 	atomic64_set(&fc->khctr, 0);
 	fc->polled_files = RB_ROOT;
-	fc->blocked = 0;
-	fc->initialized = 0;
-	fc->connected = 1;
 	atomic64_set(&fc->attr_version, 1);
 	atomic64_set(&fc->evict_ctr, 1);
 	get_random_bytes(&fc->scramble_key, sizeof(fc->scramble_key));
@@ -1444,7 +1439,7 @@ static void process_init_reply(struct fuse_mount *fm, struct fuse_args *args,
 	}
 
 	fuse_set_initialized(fc);
-	wake_up_all(&fc->blocked_waitq);
+	wake_up_all(&fc->chan->blocked_waitq);
 }
 
 static struct fuse_init_args *fuse_new_init(struct fuse_mount *fm)

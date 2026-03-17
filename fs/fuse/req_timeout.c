@@ -74,7 +74,7 @@ static void fuse_check_timeout(struct work_struct *work)
 	struct fuse_pqueue *fpq;
 	bool expired = false;
 
-	if (!atomic_read(&fc->num_waiting))
+	if (!atomic_read(&fc->chan->num_waiting))
 		goto out;
 
 	spin_lock(&fiq->lock);
@@ -90,7 +90,7 @@ static void fuse_check_timeout(struct work_struct *work)
 		goto abort_conn;
 
 	spin_lock(&fc->lock);
-	if (!fc->connected) {
+	if (!fc->chan->connected) {
 		spin_unlock(&fc->lock);
 		return;
 	}
