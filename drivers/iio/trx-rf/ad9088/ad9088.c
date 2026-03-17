@@ -4871,9 +4871,9 @@ static int ad9088_gpio_setup(struct ad9088_phy *phy)
 	int ret, len;
 
 	len = device_property_count_u8(&phy->spi->dev, "adi,gpio-exports");
-	if (len <= 0)
+	if (len < 0)
 		return 0;
-	if (len >= ARRAY_SIZE(phy->gpios_exported))
+	if (len > ARRAY_SIZE(phy->gpios_exported))
 		return -EINVAL;
 
 	ret = device_property_read_u8_array(&phy->spi->dev, "adi,gpio-exports",
