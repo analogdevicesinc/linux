@@ -93,6 +93,21 @@ struct fuse_chan {
 
 	/** List of device instances belonging to this connection */
 	struct list_head devices;
+
+	/** Maximum number of outstanding background requests */
+	unsigned max_background;
+
+	/** Number of requests currently in the background */
+	unsigned num_background;
+
+	/** Number of background requests currently queued for userspace */
+	unsigned active_background;
+
+	/** The list of background requests set aside for later queuing */
+	struct list_head bg_queue;
+
+	/** Protects: max_background, num_background, active_background, bg_queue, blocked */
+	spinlock_t bg_lock;
 };
 
 #define FUSE_PQ_HASH_BITS 8

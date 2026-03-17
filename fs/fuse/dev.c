@@ -180,10 +180,10 @@ static void fuse_put_request(struct fuse_req *req)
 			 * We get here in the unlikely case that a background
 			 * request was allocated but not sent
 			 */
-			spin_lock(&fc->bg_lock);
+			spin_lock(&fc->chan->bg_lock);
 			if (!fc->blocked)
 				wake_up(&fc->blocked_waitq);
-			spin_unlock(&fc->bg_lock);
+			spin_unlock(&fc->chan->bg_lock);
 		}
 
 		if (test_bit(FR_WAITING, &req->flags)) {
@@ -354,6 +354,9 @@ struct fuse_chan *fuse_chan_new(void)
 		return NULL;
 
 	INIT_LIST_HEAD(&fch->devices);
+	spin_lock_init(&fch->bg_lock);
+	INIT_LIST_HEAD(&fch->bg_queue);
+	fch->max_background = FUSE_DEFAULT_MAX_BACKGROUND;
 
 	return fch;
 }
@@ -488,13 +491,13 @@ static void flush_bg_queue(struct fuse_conn *fc)
 {
 	struct fuse_iqueue *fiq = &fc->chan->iq;
 
-	while (fc->active_background < fc->max_background &&
-	       !list_empty(&fc->bg_queue)) {
+	while (fc->chan->active_background < fc->chan->max_background &&
+	       !list_empty(&fc->chan->bg_queue)) {
 		struct fuse_req *req;
 
-		req = list_first_entry(&fc->bg_queue, struct fuse_req, list);
+		req = list_first_entry(&fc->chan->bg_queue, struct fuse_req, list);
 		list_del(&req->list);
-		fc->active_background++;
+		fc->chan->active_background++;
 		fuse_send_one(fiq, req);
 	}
 }
@@ -530,9 +533,9 @@ void fuse_request_end(struct fuse_req *req)
 	WARN_ON(test_bit(FR_PENDING, &req->flags));
 	WARN_ON(test_bit(FR_SENT, &req->flags));
 	if (test_bit(FR_BACKGROUND, &req->flags)) {
-		spin_lock(&fc->bg_lock);
+		spin_lock(&fc->chan->bg_lock);
 		clear_bit(FR_BACKGROUND, &req->flags);
-		if (fc->num_background == fc->max_background) {
+		if (fc->chan->num_background == fc->chan->max_background) {
 			fc->blocked = 0;
 			wake_up(&fc->blocked_waitq);
 		} else if (!fc->blocked) {
@@ -546,10 +549,10 @@ void fuse_request_end(struct fuse_req *req)
 				wake_up(&fc->blocked_waitq);
 		}
 
-		fc->num_background--;
-		fc->active_background--;
+		fc->chan->num_background--;
+		fc->chan->active_background--;
 		flush_bg_queue(fc);
-		spin_unlock(&fc->bg_lock);
+		spin_unlock(&fc->chan->bg_lock);
 	} else {
 		/* Wake up waiter sleeping in request_wait_answer() */
 		wake_up(&req->waitq);
@@ -795,16 +798,16 @@ static int fuse_request_queue_background(struct fuse_req *req)
 		return fuse_request_queue_background_uring(fc, req);
 #endif
 
-	spin_lock(&fc->bg_lock);
+	spin_lock(&fc->chan->bg_lock);
 	if (likely(fc->connected)) {
-		fc->num_background++;
-		if (fc->num_background == fc->max_background)
+		fc->chan->num_background++;
+		if (fc->chan->num_background == fc->chan->max_background)
 			fc->blocked = 1;
-		list_add_tail(&req->list, &fc->bg_queue);
+		list_add_tail(&req->list, &fc->chan->bg_queue);
 		flush_bg_queue(fc);
 		queued = true;
 	}
-	spin_unlock(&fc->bg_lock);
+	spin_unlock(&fc->chan->bg_lock);
 
 	return queued;
 }
@@ -2527,9 +2530,9 @@ void fuse_abort_conn(struct fuse_conn *fc)
 			cancel_delayed_work(&fc->timeout.work);
 
 		/* Background queuing checks fc->connected under bg_lock */
-		spin_lock(&fc->bg_lock);
+		spin_lock(&fc->chan->bg_lock);
 		fc->connected = 0;
-		spin_unlock(&fc->bg_lock);
+		spin_unlock(&fc->chan->bg_lock);
 
 		fuse_set_initialized(fc);
 		list_for_each_entry(fud, &fc->chan->devices, entry) {
@@ -2553,11 +2556,11 @@ void fuse_abort_conn(struct fuse_conn *fc)
 						      &to_end);
 			spin_unlock(&fpq->lock);
 		}
-		spin_lock(&fc->bg_lock);
+		spin_lock(&fc->chan->bg_lock);
 		fc->blocked = 0;
-		fc->max_background = UINT_MAX;
+		fc->chan->max_background = UINT_MAX;
 		flush_bg_queue(fc);
-		spin_unlock(&fc->bg_lock);
+		spin_unlock(&fc->chan->bg_lock);
 
 		spin_lock(&fiq->lock);
 		fiq->connected = 0;

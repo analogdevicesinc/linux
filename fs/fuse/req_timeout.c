@@ -83,9 +83,9 @@ static void fuse_check_timeout(struct work_struct *work)
 	if (expired)
 		goto abort_conn;
 
-	spin_lock(&fc->bg_lock);
-	expired = fuse_request_expired(fc, &fc->bg_queue);
-	spin_unlock(&fc->bg_lock);
+	spin_lock(&fc->chan->bg_lock);
+	expired = fuse_request_expired(fc, &fc->chan->bg_queue);
+	spin_unlock(&fc->chan->bg_lock);
 	if (expired)
 		goto abort_conn;
 

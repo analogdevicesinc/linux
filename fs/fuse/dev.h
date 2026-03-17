@@ -5,6 +5,9 @@
 
 #include <linux/cleanup.h>
 
+/** Maximum number of outstanding background requests */
+#define FUSE_DEFAULT_MAX_BACKGROUND 12
+
 struct fuse_conn;
 struct fuse_chan;
 struct fuse_dev;

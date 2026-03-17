@@ -54,7 +54,7 @@ static void fuse_uring_flush_bg(struct fuse_ring_queue *queue)
 	struct fuse_conn *fc = ring->fc;
 
 	lockdep_assert_held(&queue->lock);
-	lockdep_assert_held(&fc->bg_lock);
+	lockdep_assert_held(&fc->chan->bg_lock);
 
 	/*
 	 * Allow one bg request per queue, ignoring global fc limits.
@@ -62,14 +62,14 @@ static void fuse_uring_flush_bg(struct fuse_ring_queue *queue)
 	 * eliminates the need for remote queue wake-ups when global
 	 * limits are met but this queue has no more waiting requests.
 	 */
-	while ((fc->active_background < fc->max_background ||
+	while ((fc->chan->active_background < fc->chan->max_background ||
 		!queue->active_background) &&
 	       (!list_empty(&queue->fuse_req_bg_queue))) {
 		struct fuse_req *req;
 
 		req = list_first_entry(&queue->fuse_req_bg_queue,
 				       struct fuse_req, list);
-		fc->active_background++;
+		fc->chan->active_background++;
 		queue->active_background++;
 
 		list_move_tail(&req->list, &queue->fuse_req_queue);
@@ -89,9 +89,9 @@ static void fuse_uring_req_end(struct fuse_ring_ent *ent, struct fuse_req *req,
 	list_del_init(&req->list);
 	if (test_bit(FR_BACKGROUND, &req->flags)) {
 		queue->active_background--;
-		spin_lock(&fc->bg_lock);
+		spin_lock(&fc->chan->bg_lock);
 		fuse_uring_flush_bg(queue);
-		spin_unlock(&fc->bg_lock);
+		spin_unlock(&fc->chan->bg_lock);
 	}
 
 	spin_unlock(&queue->lock);
@@ -132,11 +132,11 @@ void fuse_uring_abort_end_requests(struct fuse_ring *ring)
 
 		queue->stopped = true;
 
-		WARN_ON_ONCE(ring->fc->max_background != UINT_MAX);
+		WARN_ON_ONCE(ring->fc->chan->max_background != UINT_MAX);
 		spin_lock(&queue->lock);
-		spin_lock(&fc->bg_lock);
+		spin_lock(&fc->chan->bg_lock);
 		fuse_uring_flush_bg(queue);
-		spin_unlock(&fc->bg_lock);
+		spin_unlock(&fc->chan->bg_lock);
 		spin_unlock(&queue->lock);
 		fuse_uring_abort_end_queue_requests(queue);
 	}
@@ -1325,12 +1325,12 @@ bool fuse_uring_queue_bq_req(struct fuse_req *req)
 
 	ent = list_first_entry_or_null(&queue->ent_avail_queue,
 				       struct fuse_ring_ent, list);
-	spin_lock(&fc->bg_lock);
-	fc->num_background++;
-	if (fc->num_background == fc->max_background)
+	spin_lock(&fc->chan->bg_lock);
+	fc->chan->num_background++;
+	if (fc->chan->num_background == fc->chan->max_background)
 		fc->blocked = 1;
 	fuse_uring_flush_bg(queue);
-	spin_unlock(&fc->bg_lock);
+	spin_unlock(&fc->chan->bg_lock);
 
 	/*
 	 * Due to bg_queue flush limits there might be other bg requests
