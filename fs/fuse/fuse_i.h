@@ -764,9 +764,6 @@ struct fuse_conn {
 	/* Is synchronous FUSE_INIT allowed? */
 	unsigned int sync_init:1;
 
-	/* Use io_uring for communication */
-	unsigned int io_uring;
-
 	/** Maximum stack depth for passthrough backing files */
 	int max_stack_depth;
 
@@ -817,11 +814,6 @@ struct fuse_conn {
 #ifdef CONFIG_FUSE_PASSTHROUGH
 	/** IDR for backing files ids */
 	struct idr backing_files_map;
-#endif
-
-#ifdef CONFIG_FUSE_IO_URING
-	/**  uring connection information*/
-	struct fuse_ring *ring;
 #endif
 
 	/** Only used if the connection opts into request timeouts */

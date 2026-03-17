@@ -148,7 +148,7 @@ bool fuse_uring_request_expired(struct fuse_conn *fc);
 
 static inline void fuse_uring_abort(struct fuse_conn *fc)
 {
-	struct fuse_ring *ring = fc->ring;
+	struct fuse_ring *ring = fc->chan->ring;
 
 	if (ring == NULL)
 		return;
@@ -161,7 +161,7 @@ static inline void fuse_uring_abort(struct fuse_conn *fc)
 
 static inline void fuse_uring_wait_stopped_queues(struct fuse_conn *fc)
 {
-	struct fuse_ring *ring = fc->ring;
+	struct fuse_ring *ring = fc->chan->ring;
 
 	if (ring)
 		wait_event(ring->stop_waitq,
@@ -170,7 +170,7 @@ static inline void fuse_uring_wait_stopped_queues(struct fuse_conn *fc)
 
 static inline bool fuse_uring_ready(struct fuse_conn *fc)
 {
-	return fc->ring && fc->ring->ready;
+	return fc->chan->ring && fc->chan->ring->ready;
 }
 
 #else /* CONFIG_FUSE_IO_URING */

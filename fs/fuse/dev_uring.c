@@ -159,7 +159,7 @@ static bool ent_list_request_expired(struct fuse_conn *fc, struct list_head *lis
 
 bool fuse_uring_request_expired(struct fuse_conn *fc)
 {
-	struct fuse_ring *ring = fc->ring;
+	struct fuse_ring *ring = fc->chan->ring;
 	struct fuse_ring_queue *queue;
 	int qid;
 
@@ -187,7 +187,7 @@ bool fuse_uring_request_expired(struct fuse_conn *fc)
 
 void fuse_uring_destruct(struct fuse_conn *fc)
 {
-	struct fuse_ring *ring = fc->ring;
+	struct fuse_ring *ring = fc->chan->ring;
 	int qid;
 
 	if (!ring)
@@ -218,7 +218,7 @@ void fuse_uring_destruct(struct fuse_conn *fc)
 
 	kfree(ring->queues);
 	kfree(ring);
-	fc->ring = NULL;
+	fc->chan->ring = NULL;
 }
 
 /*
@@ -231,7 +231,7 @@ static struct fuse_ring *fuse_uring_create(struct fuse_conn *fc)
 	struct fuse_ring *res = NULL;
 	size_t max_payload_size;
 
-	ring = kzalloc_obj(*fc->ring, GFP_KERNEL_ACCOUNT);
+	ring = kzalloc_obj(*fc->chan->ring, GFP_KERNEL_ACCOUNT);
 	if (!ring)
 		return NULL;
 
@@ -244,10 +244,10 @@ static struct fuse_ring *fuse_uring_create(struct fuse_conn *fc)
 	max_payload_size = max(max_payload_size, fc->max_pages * PAGE_SIZE);
 
 	spin_lock(&fc->lock);
-	if (fc->ring) {
+	if (fc->chan->ring) {
 		/* race, another thread created the ring in the meantime */
 		spin_unlock(&fc->lock);
-		res = fc->ring;
+		res = fc->chan->ring;
 		goto out_err;
 	}
 
@@ -256,7 +256,7 @@ static struct fuse_ring *fuse_uring_create(struct fuse_conn *fc)
 	ring->nr_queues = nr_queues;
 	ring->fc = fc;
 	ring->max_payload_sz = max_payload_size;
-	smp_store_release(&fc->ring, ring);
+	smp_store_release(&fc->chan->ring, ring);
 
 	spin_unlock(&fc->lock);
 	return ring;
@@ -879,7 +879,7 @@ static int fuse_uring_commit_fetch(struct io_uring_cmd *cmd, int issue_flags,
 								       struct fuse_uring_cmd_req);
 	struct fuse_ring_ent *ent;
 	int err;
-	struct fuse_ring *ring = fc->ring;
+	struct fuse_ring *ring = fc->chan->ring;
 	struct fuse_ring_queue *queue;
 	uint64_t commit_id = READ_ONCE(cmd_req->commit_id);
 	unsigned int qid = READ_ONCE(cmd_req->qid);
@@ -1082,7 +1082,7 @@ static int fuse_uring_register(struct io_uring_cmd *cmd,
 {
 	const struct fuse_uring_cmd_req *cmd_req = io_uring_sqe128_cmd(cmd->sqe,
 								       struct fuse_uring_cmd_req);
-	struct fuse_ring *ring = smp_load_acquire(&fc->ring);
+	struct fuse_ring *ring = smp_load_acquire(&fc->chan->ring);
 	struct fuse_ring_queue *queue;
 	struct fuse_ring_ent *ent;
 	int err;
@@ -1149,7 +1149,7 @@ int fuse_uring_cmd(struct io_uring_cmd *cmd, unsigned int issue_flags)
 	fc = fud->fc;
 
 	/* Once a connection has io-uring enabled on it, it can't be disabled */
-	if (!enable_uring && !fc->io_uring) {
+	if (!enable_uring && !fc->chan->io_uring) {
 		pr_info_ratelimited("fuse-io-uring is disabled\n");
 		return -EOPNOTSUPP;
 	}
@@ -1172,7 +1172,7 @@ int fuse_uring_cmd(struct io_uring_cmd *cmd, unsigned int issue_flags)
 		if (err) {
 			pr_info_once("FUSE_IO_URING_CMD_REGISTER failed err=%d\n",
 				     err);
-			fc->io_uring = 0;
+			fc->chan->io_uring = 0;
 			wake_up_all(&fc->chan->blocked_waitq);
 			return err;
 		}
@@ -1262,7 +1262,7 @@ static void fuse_uring_dispatch_ent(struct fuse_ring_ent *ent)
 void fuse_uring_queue_fuse_req(struct fuse_iqueue *fiq, struct fuse_req *req)
 {
 	struct fuse_conn *fc = req->fm->fc;
-	struct fuse_ring *ring = fc->ring;
+	struct fuse_ring *ring = fc->chan->ring;
 	struct fuse_ring_queue *queue;
 	struct fuse_ring_ent *ent = NULL;
 	int err;
@@ -1305,7 +1305,7 @@ err:
 bool fuse_uring_queue_bq_req(struct fuse_req *req)
 {
 	struct fuse_conn *fc = req->fm->fc;
-	struct fuse_ring *ring = fc->ring;
+	struct fuse_ring *ring = fc->chan->ring;
 	struct fuse_ring_queue *queue;
 	struct fuse_ring_ent *ent = NULL;
 

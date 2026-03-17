@@ -1412,7 +1412,7 @@ static void process_init_reply(struct fuse_mount *fm, struct fuse_args *args,
 					ok = false;
 			}
 			if (flags & FUSE_OVER_IO_URING && fuse_uring_enabled())
-				fc->io_uring = 1;
+				fc->chan->io_uring = 1;
 
 			if (flags & FUSE_REQUEST_TIMEOUT)
 				timeout = arg->request_timeout;

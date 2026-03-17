@@ -127,6 +127,14 @@ struct fuse_chan {
 
 	/** The number of requests waiting for completion */
 	atomic_t num_waiting;
+
+	/* Use io_uring for communication */
+	unsigned int io_uring;
+
+#ifdef CONFIG_FUSE_IO_URING
+	/**  uring connection information*/
+	struct fuse_ring *ring;
+#endif
 };
 
 #define FUSE_PQ_HASH_BITS 8
