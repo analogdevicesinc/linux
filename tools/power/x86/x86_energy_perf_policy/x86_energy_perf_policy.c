@@ -92,8 +92,18 @@ unsigned int has_hwp_request_pkg;	/* IA32_HWP_REQUEST_PKG */
 
 unsigned int bdx_highest_ratio;
 
+unsigned char update_soc_slider_balance;
+unsigned char update_soc_slider_offset;
+unsigned char update_platform_profile;
+int soc_slider_balance;
+int soc_slider_offset;
+char platform_profile[64];
+
 #define PATH_TO_CPU "/sys/devices/system/cpu/"
 #define SYSFS_PATH_MAX 255
+#define PATH_SOC_SLIDER_BALANCE "/sys/module/processor_thermal_soc_slider/parameters/slider_balance"
+#define PATH_SOC_SLIDER_OFFSET "/sys/module/processor_thermal_soc_slider/parameters/slider_offset"
+#define PATH_PLATFORM_PROFILE "/sys/class/platform-profile/platform-profile-0/profile"
 
 static int use_android_msr_path;
 
@@ -106,6 +116,7 @@ void usage(void)
 	fprintf(stderr, "scope: --cpu cpu-list [--hwp-use-pkg #] | --pkg pkg-list\n");
 	fprintf(stderr, "field: --all | --epb | --hwp-epp | --hwp-min | --hwp-max | --hwp-desired\n");
 	fprintf(stderr, "other: --hwp-enable | --turbo-enable (0 | 1) | --help | --force\n");
+	fprintf(stderr, "soc-slider: --soc-slider-balance # | --soc-slider-offset # | --platform-profile <name>\n");
 	fprintf(stderr,
 		"value: ( # | \"normal\" | \"performance\" | \"balance-performance\" | \"balance-power\"| \"power\")\n");
 	fprintf(stderr, "--hwp-window usec\n");
@@ -518,6 +529,23 @@ void for_packages(unsigned long long pkg_set, int (func)(int))
 	}
 }
 
+static int parse_cmdline_int(const char *s, int *out)
+{
+	char *endp;
+	long val;
+
+	val = strtol(s, &endp, 0);
+	if (endp == s || errno == ERANGE)
+		return -1;
+	if (*endp != '\0')
+		return -1;
+	if (val < INT_MIN || val > INT_MAX)
+		return -1;
+
+	*out = (int)val;
+	return 0;
+}
+
 void print_version(void)
 {
 	printf("x86_energy_perf_policy 2025.11.22 Len Brown <lenb@kernel.org>\n");
@@ -546,12 +574,15 @@ void cmdline(int argc, char **argv)
 		{"hwp-use-pkg",	required_argument,	0, 'u'},
 		{"version",	no_argument,		0, 'v'},
 		{"hwp-window",	required_argument,	0, 'w'},
+		{"soc-slider-balance", required_argument, 0, 'S'},
+		{"soc-slider-offset",  required_argument, 0, 'O'},
+		{"platform-profile",   required_argument, 0, 'F'},
 		{0,		0,			0, 0 }
 	};
 
 	progname = argv[0];
 
-	while ((opt = getopt_long_only(argc, argv, "+a:c:dD:E:e:f:m:M:rt:u:vw:",
+	while ((opt = getopt_long_only(argc, argv, "+a:c:dD:E:e:f:m:M:rt:u:vw::S:O:F:",
 				long_options, &option_index)) != -1) {
 		switch (opt) {
 		case 'a':
@@ -579,11 +610,22 @@ void cmdline(int argc, char **argv)
 		case 'D':
 			req_update.hwp_desired = parse_cmdline_hwp_desired(parse_optarg_string(optarg));
 			break;
+		case 'F':
+			if (strlen(optarg) >= sizeof(platform_profile))
+				errx(1, "--platform-profile: value too long");
+			strcpy(platform_profile, optarg);
+			update_platform_profile = 1;
+			break;
 		case 'm':
 			req_update.hwp_min = parse_cmdline_hwp_min(parse_optarg_string(optarg));
 			break;
 		case 'M':
 			req_update.hwp_max = parse_cmdline_hwp_max(parse_optarg_string(optarg));
+			break;
+		case 'O':
+			if (parse_cmdline_int(optarg, &soc_slider_offset))
+				errx(1, "--soc-slider-offset: invalid value");
+			update_soc_slider_offset = 1;
 			break;
 		case 'p':
 			parse_cmdline_pkg(optarg);
@@ -593,6 +635,11 @@ void cmdline(int argc, char **argv)
 			break;
 		case 'r':
 			/* v1 used -r to specify read-only mode, now the default */
+			break;
+		case 'S':
+			if (parse_cmdline_int(optarg, &soc_slider_balance))
+				errx(1, "--soc-slider-balance: invalid value");
+			update_soc_slider_balance = 1;
 			break;
 		case 't':
 			turbo_update_value = parse_cmdline_turbo(parse_optarg_string(optarg));
@@ -777,6 +824,31 @@ static unsigned int write_sysfs(const char *path, char *buf, size_t buflen)
 	return (unsigned int) numwritten;
 }
 
+static int sysfs_read_string(const char *path, char *buf, size_t buflen)
+{
+	unsigned int len;
+	size_t n;
+
+	len = read_sysfs(path, buf, buflen);
+	if (!len)
+		return -1;
+
+	n = strcspn(buf, "\n");
+	buf[n] = '\0';
+	return 0;
+}
+
+static int sysfs_write_string(const char *path, const char *buf)
+{
+	char tmp[128];
+	int len;
+
+	len = snprintf(tmp, sizeof(tmp), "%s\n", buf);
+	if (len < 0 || len >= (int)sizeof(tmp))
+		return -1;
+	return write_sysfs(path, tmp, (size_t)len + 1) ? 0 : -1;
+}
+
 void print_hwp_cap(int cpu, struct msr_hwp_cap *cap, char *str)
 {
 	if (cpu != -1)
@@ -898,6 +970,55 @@ static int set_epb_sysfs(int cpu, int val)
 		return -1;
 
 	return (int)val;
+}
+
+static int soc_slider_available(void)
+{
+	if (access(PATH_SOC_SLIDER_BALANCE, R_OK) &&
+			access(PATH_SOC_SLIDER_OFFSET, R_OK) &&
+			access(PATH_PLATFORM_PROFILE, R_OK))
+		return 0;
+
+	return 1;
+}
+
+static void print_soc_slider(void)
+{
+	char buf[64];
+
+	if (!soc_slider_available())
+		return;
+
+	if (sysfs_read_string(PATH_SOC_SLIDER_BALANCE, buf, sizeof(buf)) == 0)
+		printf("soc-slider-balance: %s\n", buf);
+	if (sysfs_read_string(PATH_SOC_SLIDER_OFFSET, buf, sizeof(buf)) == 0)
+		printf("soc-slider-offset: %s\n", buf);
+	if (sysfs_read_string(PATH_PLATFORM_PROFILE, buf, sizeof(buf)) == 0)
+		printf("platform-profile: %s\n", buf);
+}
+
+static int update_soc_slider(void)
+{
+	char tmp[32];
+
+	if (update_soc_slider_balance) {
+		snprintf(tmp, sizeof(tmp), "%d", soc_slider_balance);
+		if (sysfs_write_string(PATH_SOC_SLIDER_BALANCE, tmp))
+			err(1, "soc-slider-balance write failed");
+	}
+
+	if (update_soc_slider_offset) {
+		snprintf(tmp, sizeof(tmp), "%d", soc_slider_offset);
+		if (sysfs_write_string(PATH_SOC_SLIDER_OFFSET, tmp))
+			err(1, "soc-slider-offset write failed");
+	}
+
+	if (update_platform_profile) {
+		if (sysfs_write_string(PATH_PLATFORM_PROFILE, platform_profile))
+			err(1, "platform-profile write failed");
+	}
+
+	return 0;
 }
 
 int print_cpu_msrs(int cpu)
@@ -1604,9 +1725,13 @@ int main(int argc, char **argv)
 		return -EINVAL;
 
 	/* display information only, no updates to settings */
-	if (!update_epb && !update_turbo && !hwp_update_enabled()) {
+	if (!update_epb && !update_turbo && !hwp_update_enabled() &&
+	    !update_soc_slider_balance && !update_soc_slider_offset &&
+	    !update_platform_profile) {
 		if (cpu_selected_set)
 			for_all_cpus_in_set(cpu_setsize, cpu_selected_set, print_cpu_msrs);
+
+		print_soc_slider();
 
 		if (has_hwp_request_pkg) {
 			if (pkg_selected_set == 0)
@@ -1627,6 +1752,9 @@ int main(int argc, char **argv)
 
 	} else if (pkg_selected_set)
 		for_packages(pkg_selected_set, update_hwp_request_pkg_msr);
+
+	if (update_soc_slider_balance || update_soc_slider_offset || update_platform_profile)
+		update_soc_slider();
 
 	return 0;
 }
