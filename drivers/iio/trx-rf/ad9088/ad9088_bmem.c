@@ -299,6 +299,45 @@ static int ad9088_bmem_read_samples(struct ad9088_bmem_state *st)
 		return -EIO;
 	}
 
+	/*
+	 * Step 1b: Deinterleave shared SRAM for 8T8R.
+	 * BMEM pairs (0/2, 1/3, 4/6, 5/7) share the same SRAM.  When both
+	 * channels in a pair are active, the captured data is interleaved:
+	 * even words belong to the primary channel, odd to the secondary.
+	 * Both channel_buffers hold identical raw data after Step 1, so
+	 * deinterleave in-place (safe because dst index < src index).
+	 */
+	if (st->phy->ad9088.dev_info.is_8t8r) {
+		static const u8 shared_pairs[][2] = {
+			{0, 2}, {1, 3}, {4, 6}, {5, 7}
+		};
+		int p;
+
+		for (p = 0; p < ARRAY_SIZE(shared_pairs); p++) {
+			int pri = shared_pairs[p][0];
+			int sec = shared_pairs[p][1];
+			bool pri_active = test_bit(pri, st->indio_dev->active_scan_mask);
+			bool sec_active = test_bit(sec, st->indio_dev->active_scan_mask);
+			__le32 *src;
+
+			if (!pri_active && !sec_active)
+				continue;
+
+			src = pri_active ? st->channel_buffers[pri] :
+					   st->channel_buffers[sec];
+
+			for (i = 0; i < word_count / 2; i++) {
+				if (pri_active)
+					st->channel_buffers[pri][i] = src[i * 2];
+				if (sec_active)
+					st->channel_buffers[sec][i] = src[i * 2 + 1];
+			}
+		}
+
+		/* Each channel now has half the words */
+		word_count /= 2;
+	}
+
 	/* Step 2: Demultiplex - build scan records and push to IIO buffer */
 	scan_u16 = (u16 *)st->scan_data;
 
@@ -698,8 +737,15 @@ static int ad9088_bmem_buffer_postenable(struct iio_dev *indio_dev)
 
 	dev_dbg(st->dev, "%s: buffer length: %d\n", __func__, indio_dev->buffer->length);
 
+	/*
+	 * Calculate SRAM end address.  Each 32-bit word holds two 16-bit
+	 * samples.  For 8T8R, BMEM pairs share SRAM with interleaved words
+	 * (even words = primary channel, odd = secondary), so double the
+	 * SRAM range to capture the same number of per-channel samples.
+	 */
 	st->end_addr = st->start_addr + DIV_ROUND_UP(indio_dev->buffer->length,
-						     2 * indio_dev->num_channels) - 1;
+						     2 * indio_dev->num_channels) *
+						     (is_8t8r ? 2 : 1) - 1;
 
 	st->sample_count = indio_dev->buffer->length / indio_dev->num_channels;
 
