@@ -61,6 +61,15 @@ jobs:
              INSTALL_MOD_PATH=${{ github.workspace }}/install/modules \
              modules_install
 
+    - name: Download rpi boot files
+      run: |
+        cd ${{ github.workspace }}/install/boot/
+        wget --progress=bar:force:noscroll "https://swdownloads.analog.com/cse/linux_rpi/gmsl/boot-files/rpi-boot-files.tar.gz"
+        tar -zxvf rpi-boot-files.tar.gz
+        mv boot-files/* .
+        rm -rf boot-files
+        rm rpi-boot-files.tar.gz
+
     - name: Upload boot files
       uses: actions/upload-artifact@v4
       with:
