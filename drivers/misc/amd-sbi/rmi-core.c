@@ -48,7 +48,7 @@
 /* CPUID MCAMSR mask & index */
 #define CPUID_MCA_THRD_INDEX	32
 #define CPUID_MCA_FUNC_MASK	GENMASK(31, 0)
-#define CPUID_EXT_FUNC_INDEX	56
+#define CPUID_EXT_FUNC_INDEX	48
 
 /* input for bulk write to CPUID protocol */
 struct cpu_msr_indata {
