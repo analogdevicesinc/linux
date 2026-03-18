@@ -1060,6 +1060,22 @@ static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
 		*cfir_sel = ADI_APOLLO_CFIR_A1;
 		*dp_sel = ADI_APOLLO_CFIR_DP_1;
 		break;
+	case ADI_APOLLO_FDDC_A4:
+		*cfir_sel = ADI_APOLLO_CFIR_A0;
+		*dp_sel = ADI_APOLLO_CFIR_DP_2;
+		break;
+	case ADI_APOLLO_FDDC_A5:
+		*cfir_sel = ADI_APOLLO_CFIR_A0;
+		*dp_sel = ADI_APOLLO_CFIR_DP_3;
+		break;
+	case ADI_APOLLO_FDDC_A6:
+		*cfir_sel = ADI_APOLLO_CFIR_A1;
+		*dp_sel = ADI_APOLLO_CFIR_DP_2;
+		break;
+	case ADI_APOLLO_FDDC_A7:
+		*cfir_sel = ADI_APOLLO_CFIR_A1;
+		*dp_sel = ADI_APOLLO_CFIR_DP_3;
+		break;
 	case ADI_APOLLO_FDDC_B0:
 		*cfir_sel = ADI_APOLLO_CFIR_B0;
 		*dp_sel = ADI_APOLLO_CFIR_DP_0;
@@ -1075,6 +1091,22 @@ static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
 	case ADI_APOLLO_FDDC_B3:
 		*cfir_sel = ADI_APOLLO_CFIR_B1;
 		*dp_sel = ADI_APOLLO_CFIR_DP_1;
+		break;
+	case ADI_APOLLO_FDDC_B4:
+		*cfir_sel = ADI_APOLLO_CFIR_B0;
+		*dp_sel = ADI_APOLLO_CFIR_DP_2;
+		break;
+	case ADI_APOLLO_FDDC_B5:
+		*cfir_sel = ADI_APOLLO_CFIR_B0;
+		*dp_sel = ADI_APOLLO_CFIR_DP_3;
+		break;
+	case ADI_APOLLO_FDDC_B6:
+		*cfir_sel = ADI_APOLLO_CFIR_B1;
+		*dp_sel = ADI_APOLLO_CFIR_DP_2;
+		break;
+	case ADI_APOLLO_FDDC_B7:
+		*cfir_sel = ADI_APOLLO_CFIR_B1;
+		*dp_sel = ADI_APOLLO_CFIR_DP_3;
 		break;
 	default:
 		dev_err(&phy->spi->dev, "Unhandled FDDC number 0x%X\n", map->fddc_mask);
