@@ -298,6 +298,11 @@ static inline bool is_local_sym(struct symbol *sym)
 	return sym->bind == STB_LOCAL;
 }
 
+static inline bool is_alias_sym(struct symbol *sym)
+{
+	return sym->alias != sym;
+}
+
 static inline bool is_prefix_func(struct symbol *sym)
 {
 	return sym->prefix;
