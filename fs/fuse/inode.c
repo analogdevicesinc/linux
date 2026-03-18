@@ -995,6 +995,7 @@ void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 	INIT_LIST_HEAD(&fc->mounts);
 	list_add(&fm->fc_entry, &fc->mounts);
 	fm->fc = fc;
+	fch->conn = fc;
 	fc->chan = fch;
 }
 EXPORT_SYMBOL_GPL(fuse_conn_init);

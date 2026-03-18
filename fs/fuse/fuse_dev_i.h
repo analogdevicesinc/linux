@@ -96,6 +96,9 @@ struct fuse_chan {
 	 */
 	spinlock_t lock;
 
+	/* back pointer: fc->chan->conn == fc */
+	struct fuse_conn *conn;
+
 	/** Input queue */
 	struct fuse_iqueue iq;
 
