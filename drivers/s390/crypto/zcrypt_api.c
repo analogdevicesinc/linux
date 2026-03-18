@@ -854,7 +854,7 @@ static long _zcrypt_send_cprb(u32 xflags, struct ap_perms *perms,
 			      struct ica_xcRB *xcrb)
 {
 	bool userspace = xflags & ZCRYPT_XFLAG_USERSPACE;
-	unsigned int domain, func_code = 0;
+	unsigned int card, domain, func_code = 0;
 	unsigned int wgt = 0, pref_wgt = 0;
 	struct zcrypt_queue *zq, *pref_zq;
 	struct zcrypt_card *zc, *pref_zc;
@@ -899,6 +899,7 @@ static long _zcrypt_send_cprb(u32 xflags, struct ap_perms *perms,
 
 	pref_zc = NULL;
 	pref_zq = NULL;
+	card = xcrb->user_defined;
 	spin_lock(&zcrypt_list_lock);
 	for_each_zcrypt_card(zc) {
 		/* Check for usable CCA card */
@@ -906,8 +907,7 @@ static long _zcrypt_send_cprb(u32 xflags, struct ap_perms *perms,
 		    !zc->card->hwinfo.cca)
 			continue;
 		/* Check for user selected CCA card */
-		if (xcrb->user_defined != AUTOSELECT &&
-		    xcrb->user_defined != zc->card->id)
+		if (card != AUTOSELECT && card != zc->card->id)
 			continue;
 		/* check if request size exceeds card max msg size */
 		if (ap_msg.len > zc->card->maxmsgsize)
@@ -951,7 +951,7 @@ static long _zcrypt_send_cprb(u32 xflags, struct ap_perms *perms,
 
 	if (!pref_zq) {
 		pr_debug("no match for address %02x.%04x => ENODEV\n",
-			 xcrb->user_defined, domain);
+			 card, domain);
 		rc = -ENODEV;
 		goto out;
 	}
