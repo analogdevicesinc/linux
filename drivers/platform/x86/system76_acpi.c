@@ -18,6 +18,7 @@
 #include <linux/leds.h>
 #include <linux/module.h>
 #include <linux/pci_ids.h>
+#include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/sysfs.h>
 #include <linux/types.h>
@@ -670,16 +671,19 @@ static void system76_notify(acpi_handle handle, u32 event, void *context)
 	}
 }
 
-// Add a System76 ACPI device
-static int system76_add(struct acpi_device *acpi_dev)
+// Probe a System76 platform device
+static int system76_probe(struct platform_device *pdev)
 {
+	struct acpi_device *acpi_dev = ACPI_COMPANION(&pdev->dev);
 	struct system76_data *data;
 	int err;
 
-	data = devm_kzalloc(&acpi_dev->dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
-	acpi_dev->driver_data = data;
+
+	platform_set_drvdata(pdev, data);
+
 	data->acpi_dev = acpi_dev;
 
 	// Some models do not run open EC firmware. Check for an ACPI method
@@ -695,7 +699,7 @@ static int system76_add(struct acpi_device *acpi_dev)
 	data->ap_led.brightness_set_blocking = ap_led_set;
 	data->ap_led.max_brightness = 1;
 	data->ap_led.default_trigger = "rfkill-none";
-	err = devm_led_classdev_register(&acpi_dev->dev, &data->ap_led);
+	err = devm_led_classdev_register(&pdev->dev, &data->ap_led);
 	if (err)
 		return err;
 
@@ -739,19 +743,19 @@ static int system76_add(struct acpi_device *acpi_dev)
 	}
 
 	if (data->kbled_type != KBLED_NONE) {
-		err = devm_led_classdev_register(&acpi_dev->dev, &data->kb_led);
+		err = devm_led_classdev_register(&pdev->dev, &data->kb_led);
 		if (err)
 			return err;
 	}
 
-	data->input = devm_input_allocate_device(&acpi_dev->dev);
+	data->input = devm_input_allocate_device(&pdev->dev);
 	if (!data->input)
 		return -ENOMEM;
 
 	data->input->name = "System76 ACPI Hotkeys";
 	data->input->phys = "system76_acpi/input0";
 	data->input->id.bustype = BUS_HOST;
-	data->input->dev.parent = &acpi_dev->dev;
+	data->input->dev.parent = &pdev->dev;
 	input_set_capability(data->input, EV_KEY, KEY_SCREENLOCK);
 
 	err = input_register_device(data->input);
@@ -772,7 +776,7 @@ static int system76_add(struct acpi_device *acpi_dev)
 		if (err)
 			goto error;
 
-		data->therm = devm_hwmon_device_register_with_info(&acpi_dev->dev,
+		data->therm = devm_hwmon_device_register_with_info(&pdev->dev,
 			"system76_acpi", data, &thermal_chip_info, NULL);
 		err = PTR_ERR_OR_ZERO(data->therm);
 		if (err)
@@ -792,12 +796,10 @@ error:
 	return err;
 }
 
-// Remove a System76 ACPI device
-static void system76_remove(struct acpi_device *acpi_dev)
+// Remove a System76 platform device
+static void system76_remove(struct platform_device *pdev)
 {
-	struct system76_data *data;
-
-	data = acpi_driver_data(acpi_dev);
+	struct system76_data *data = platform_get_drvdata(pdev);
 
 	if (data->has_open_ec) {
 		system76_battery_exit();
@@ -805,21 +807,21 @@ static void system76_remove(struct acpi_device *acpi_dev)
 		kfree(data->ntmp);
 	}
 
-	acpi_dev_remove_notify_handler(acpi_dev, ACPI_DEVICE_NOTIFY, system76_notify);
+	acpi_dev_remove_notify_handler(ACPI_COMPANION(&pdev->dev),
+				       ACPI_DEVICE_NOTIFY, system76_notify);
 
 	system76_get(data, "FINI");
 }
 
-static struct acpi_driver system76_driver = {
-	.name = "System76 ACPI Driver",
-	.class = "hotkey",
-	.ids = device_ids,
-	.ops = {
-		.add = system76_add,
-		.remove = system76_remove,
+static struct platform_driver system76_driver = {
+	.probe = system76_probe,
+	.remove = system76_remove,
+	.driver = {
+		.name = "System76 ACPI Driver",
+		.acpi_match_table = device_ids,
 	},
 };
-module_acpi_driver(system76_driver);
+module_platform_driver(system76_driver);
 
 MODULE_DESCRIPTION("System76 ACPI Driver");
 MODULE_AUTHOR("Jeremy Soller <jeremy@system76.com>");
