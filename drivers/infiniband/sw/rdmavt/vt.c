@@ -375,7 +375,7 @@ static const struct ib_device_ops rvt_dev_ops = {
 	.query_srq = rvt_query_srq,
 	.reg_user_mr = rvt_reg_user_mr,
 	.req_notify_cq = rvt_req_notify_cq,
-	.resize_cq = rvt_resize_cq,
+	.resize_user_cq = rvt_resize_cq,
 
 	INIT_RDMA_OBJ_SIZE(ib_ah, rvt_ah, ibah),
 	INIT_RDMA_OBJ_SIZE(ib_cq, rvt_cq, ibcq),

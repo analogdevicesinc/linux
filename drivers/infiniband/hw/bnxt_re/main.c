@@ -1374,7 +1374,7 @@ static const struct ib_device_ops bnxt_re_dev_ops = {
 	.reg_user_mr = bnxt_re_reg_user_mr,
 	.reg_user_mr_dmabuf = bnxt_re_reg_user_mr_dmabuf,
 	.req_notify_cq = bnxt_re_req_notify_cq,
-	.resize_cq = bnxt_re_resize_cq,
+	.resize_user_cq = bnxt_re_resize_cq,
 	.create_flow = bnxt_re_create_flow,
 	.destroy_flow = bnxt_re_destroy_flow,
 	INIT_RDMA_OBJ_SIZE(ib_ah, bnxt_re_ah, ib_ah),

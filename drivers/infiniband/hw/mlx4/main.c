@@ -2568,7 +2568,7 @@ static const struct ib_device_ops mlx4_ib_dev_ops = {
 	.reg_user_mr = mlx4_ib_reg_user_mr,
 	.req_notify_cq = mlx4_ib_arm_cq,
 	.rereg_user_mr = mlx4_ib_rereg_user_mr,
-	.resize_cq = mlx4_ib_resize_cq,
+	.resize_user_cq = mlx4_ib_resize_cq,
 	.report_port_event = mlx4_ib_port_event,
 
 	INIT_RDMA_OBJ_SIZE(ib_ah, mlx4_ib_ah, ibah),

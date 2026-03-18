@@ -1096,7 +1096,7 @@ static const struct ib_device_ops mthca_dev_ops = {
 	.query_port = mthca_query_port,
 	.query_qp = mthca_query_qp,
 	.reg_user_mr = mthca_reg_user_mr,
-	.resize_cq = mthca_resize_cq,
+	.resize_user_cq = mthca_resize_cq,
 
 	INIT_RDMA_OBJ_SIZE(ib_ah, mthca_ah, ibah),
 	INIT_RDMA_OBJ_SIZE(ib_cq, mthca_cq, ibcq),

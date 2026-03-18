@@ -2634,7 +2634,8 @@ struct ib_device_ops {
 			      struct uverbs_attr_bundle *attrs);
 	int (*modify_cq)(struct ib_cq *cq, u16 cq_count, u16 cq_period);
 	int (*destroy_cq)(struct ib_cq *cq, struct ib_udata *udata);
-	int (*resize_cq)(struct ib_cq *cq, int cqe, struct ib_udata *udata);
+	int (*resize_user_cq)(struct ib_cq *cq, int cqe,
+			      struct ib_udata *udata);
 	/*
 	 * pre_destroy_cq - Prevent a cq from generating any new work
 	 * completions, but not free any kernel resources
