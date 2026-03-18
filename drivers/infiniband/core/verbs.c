@@ -2264,16 +2264,6 @@ int ib_destroy_cq_user(struct ib_cq *cq, struct ib_udata *udata)
 }
 EXPORT_SYMBOL(ib_destroy_cq_user);
 
-int ib_resize_cq(struct ib_cq *cq, int cqe)
-{
-	if (cq->shared)
-		return -EOPNOTSUPP;
-
-	return cq->device->ops.resize_cq ?
-		cq->device->ops.resize_cq(cq, cqe, NULL) : -EOPNOTSUPP;
-}
-EXPORT_SYMBOL(ib_resize_cq);
-
 /* Memory regions */
 
 struct ib_mr *ib_reg_user_mr(struct ib_pd *pd, u64 start, u64 length,

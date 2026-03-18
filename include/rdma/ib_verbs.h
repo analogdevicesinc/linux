@@ -4104,15 +4104,6 @@ struct ib_cq *__ib_create_cq(struct ib_device *device,
 	__ib_create_cq((device), (cmp_hndlr), (evt_hndlr), (cq_ctxt), (cq_attr), KBUILD_MODNAME)
 
 /**
- * ib_resize_cq - Modifies the capacity of the CQ.
- * @cq: The CQ to resize.
- * @cqe: The minimum size of the CQ.
- *
- * Users can examine the cq structure to determine the actual CQ size.
- */
-int ib_resize_cq(struct ib_cq *cq, int cqe);
-
-/**
  * rdma_set_cq_moderation - Modifies moderation params of the CQ
  * @cq: The CQ to modify.
  * @cq_count: number of CQEs that will trigger an event
