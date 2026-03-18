@@ -29,12 +29,12 @@ system log with the following format:
 
     FENCE failed client[IP_address] clid[#n] device[dev_name]
 
-    Where:
+    where:
 
-    IP_address: refers to the IP address of the affected client.
-    #n: indicates the unique client identifier.
-    dev_name: specifies the name of the block device related
-              to the fencing attempt.
+    - IP_address: refers to the IP address of the affected client.
+    - #n: indicates the unique client identifier.
+    - dev_name: specifies the name of the block device related
+      to the fencing attempt.
 
 The server will repeatedly retry the operation indefinitely. During
 this time, access to the affected file is restricted for all other
@@ -44,12 +44,12 @@ clients access the same file simultaneously.
 To restore access to the affected file for other clients, the admin
 needs to take the following actions:
 
-    . shutdown or power off the client being fenced.
-    . manually expire the client to release all its state on the server:
+    - shutdown or power off the client being fenced.
+    - manually expire the client to release all its state on the server::
 
-      echo 'expire' > /proc/fs/nfsd/clients/clid/ctl'.
+        echo 'expire' > /proc/fs/nfsd/clients/clid/ctl
 
-      Where:
+    where:
 
-      clid: is the unique client identifier displayed in the system log.
+      - clid: is the unique client identifier displayed in the system log.
 
