@@ -800,9 +800,6 @@ static void system76_remove(struct acpi_device *acpi_dev)
 		kfree(data->ntmp);
 	}
 
-	devm_led_classdev_unregister(&acpi_dev->dev, &data->ap_led);
-	devm_led_classdev_unregister(&acpi_dev->dev, &data->kb_led);
-
 	system76_get(data, "FINI");
 }
 
