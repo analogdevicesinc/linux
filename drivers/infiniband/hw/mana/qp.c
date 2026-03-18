@@ -68,22 +68,6 @@ static int mana_ib_cfg_vport_steering(struct mana_ib_dev *dev,
 		  req->vport, default_rxobj);
 
 	err = mana_gd_send_request(gc, req_buf_size, req, sizeof(resp), &resp);
-	if (err) {
-		netdev_err(ndev, "Failed to configure vPort RX: %d\n", err);
-		goto out;
-	}
-
-	if (resp.hdr.status) {
-		netdev_err(ndev, "vPort RX configuration failed: 0x%x\n",
-			   resp.hdr.status);
-		err = -EPROTO;
-		goto out;
-	}
-
-	netdev_info(ndev, "Configured steering vPort %llu log_entries %u\n",
-		    mpc->port_handle, log_ind_tbl_size);
-
-out:
 	kfree(req);
 	return err;
 }
@@ -731,7 +715,6 @@ static int mana_ib_gd_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	struct gdma_context *gc = mdev_to_gc(mdev);
 	struct mana_port_context *mpc;
 	struct net_device *ndev;
-	int err;
 
 	mana_gd_init_req_hdr(&req.hdr, MANA_IB_SET_QP_STATE, sizeof(req), sizeof(resp));
 
@@ -784,13 +767,7 @@ static int mana_ib_gd_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 		req.ah_attr.flow_label = attr->ah_attr.grh.flow_label;
 	}
 
-	err = mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
-	if (err) {
-		ibdev_err(&mdev->ib_dev, "Failed modify qp err %d", err);
-		return err;
-	}
-
-	return 0;
+	return mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
 }
 
 int mana_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
