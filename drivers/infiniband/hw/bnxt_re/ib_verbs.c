@@ -3377,7 +3377,6 @@ int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *att
 	struct bnxt_qplib_chip_ctx *cctx;
 	struct bnxt_re_cq_resp resp = {};
 	struct bnxt_re_cq_req req;
-	int cqe = attr->cqe;
 	int rc;
 	u32 active_cqs, entries;
 
@@ -3385,10 +3384,8 @@ int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *att
 		return -EOPNOTSUPP;
 
 	/* Validate CQ fields */
-	if (cqe < 1 || cqe > dev_attr->max_cq_wqes) {
-		ibdev_err(&rdev->ibdev, "Failed to create CQ -max exceeded");
+	if (attr->cqe > dev_attr->max_cq_wqes)
 		return -EINVAL;
-	}
 
 	cq->rdev = rdev;
 	cctx = rdev->chip_ctx;
@@ -3409,15 +3406,13 @@ int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *att
 		ibcq->umem = ib_umem_get(&rdev->ibdev, req.cq_va,
 					 entries * sizeof(struct cq_base),
 					 IB_ACCESS_LOCAL_WRITE);
-		if (IS_ERR(ibcq->umem)) {
-			rc = PTR_ERR(ibcq->umem);
-			goto fail;
-		}
+		if (IS_ERR(ibcq->umem))
+			return PTR_ERR(ibcq->umem);
 	}
 
 	rc = bnxt_re_setup_sginfo(rdev, ibcq->umem, &cq->qplib_cq.sg_info);
 	if (rc)
-		goto fail;
+		return rc;
 
 	cq->qplib_cq.dpi = &uctx->dpi;
 	cq->qplib_cq.max_wqe = entries;
@@ -3426,10 +3421,8 @@ int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *att
 	cq->qplib_cq.cnq_hw_ring_id = cq->qplib_cq.nq->ring_id;
 
 	rc = bnxt_qplib_create_cq(&rdev->qplib_res, &cq->qplib_cq);
-	if (rc) {
-		ibdev_err(&rdev->ibdev, "Failed to create HW CQ");
-		goto fail;
-	}
+	if (rc)
+		return rc;
 
 	cq->ib_cq.cqe = entries;
 	cq->cq_period = cq->qplib_cq.period;
@@ -3442,16 +3435,14 @@ int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *att
 		hash_add(rdev->cq_hash, &cq->hash_entry, cq->qplib_cq.id);
 		/* Allocate a page */
 		cq->uctx_cq_page = (void *)get_zeroed_page(GFP_KERNEL);
-		if (!cq->uctx_cq_page) {
-			rc = -ENOMEM;
-			goto fail;
-		}
+		if (!cq->uctx_cq_page)
+			return -ENOMEM;
+
 		resp.comp_mask |= BNXT_RE_CQ_TOGGLE_PAGE_SUPPORT;
 	}
 	resp.cqid = cq->qplib_cq.id;
 	resp.tail = cq->qplib_cq.hwq.cons;
 	resp.phase = cq->qplib_cq.period;
-	resp.rsvd = 0;
 	rc = ib_respond_udata(udata, resp);
 	if (rc) {
 		bnxt_qplib_destroy_cq(&rdev->qplib_res, &cq->qplib_cq);
@@ -3462,7 +3453,6 @@ int bnxt_re_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *att
 
 free_mem:
 	free_page((unsigned long)cq->uctx_cq_page);
-fail:
 	return rc;
 }
 
