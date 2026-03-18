@@ -194,6 +194,8 @@ struct ad9088_debugfs_entry {
  * @adcdac_num: ADC/DAC number (0-3 per side)
  * @adcdac_mask: ADC/DAC bitmask (ADI_APOLLO_ADC_Ax or ADI_APOLLO_DAC_Ax)
  * @side: Chip side (0=A, 1=B)
+ * @fddc_pi: Profile index for tx_fduc[]/rx_fddc[] (fddc_num % FDUCS_PER_SIDE)
+ * @cddc_pi: Profile index for tx_cduc[]/rx_cddc[] (cddc_num % CDUCS_PER_SIDE)
  *
  * Pre-computed mapping from IIO channel to hardware blocks.
  * Derived from profile mux configuration at init time.
@@ -206,6 +208,8 @@ struct ad9088_chan_map {
 	u8 adcdac_num;
 	u32 adcdac_mask;
 	u8 side;
+	u8 fddc_pi;
+	u8 cddc_pi;
 };
 
 struct ad9088_phy {
