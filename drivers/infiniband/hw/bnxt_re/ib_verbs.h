@@ -190,10 +190,13 @@ enum {
 	BNXT_RE_UCNTX_CAP_VAR_WQE_ENABLED = 0x2ULL,
 };
 
-static inline u32 bnxt_re_init_depth(u32 ent, struct bnxt_re_ucontext *uctx)
+static inline u32 bnxt_re_init_depth(u32 ent, u32 max,
+				     struct bnxt_re_ucontext *uctx)
 {
-	return uctx ? (uctx->cmask & BNXT_RE_UCNTX_CAP_POW2_DISABLED) ?
-		ent : roundup_pow_of_two(ent) : ent;
+	if (uctx && !(uctx->cmask & BNXT_RE_UCNTX_CAP_POW2_DISABLED))
+		return min(roundup_pow_of_two(ent), max);
+
+	return ent;
 }
 
 static inline bool bnxt_re_is_var_size_supported(struct bnxt_re_dev *rdev,
