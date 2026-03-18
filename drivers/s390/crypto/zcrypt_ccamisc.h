@@ -47,7 +47,7 @@ struct secaeskeytoken {
 	u8  res1[1];
 	u8  flag;     /* key flags */
 	u8  res2[1];
-	u64 mkvp;     /* master key verification pattern */
+	u8  mkvp[8];  /* master key verification pattern */
 	u8  key[32];  /* key value (encrypted) */
 	u8  cv[8];    /* control vector */
 	u16 bitsize;  /* key bit size */
@@ -64,8 +64,8 @@ struct cipherkeytoken {
 	u8  res1[3];
 	u8  kms;      /* key material state, 0x03 means wrapped with MK */
 	u8  kvpt;     /* key verification pattern type, should be 0x01 */
-	u64 mkvp0;    /* master key verification pattern, lo part */
-	u64 mkvp1;    /* master key verification pattern, hi part (unused) */
+	u8  mkvp0[8]; /* master key verification pattern, lo part */
+	u8  mkvp1[8]; /* master key verification pattern, hi part (unused) */
 	u8  eskwm;    /* encrypted section key wrapping method */
 	u8  hashalg;  /* hash algorithmus used for wrapping key */
 	u8  plfver;   /* pay load format version */
@@ -113,7 +113,7 @@ struct eccprivkeytoken {
 	u8  ksrc;     /* key source */
 	u16 pbitlen;  /* length of prime p in bits */
 	u16 ibmadlen; /* IBM associated data length in bytes */
-	u64 mkvp;     /* master key verification pattern */
+	u8  mkvp[8];  /* master key verification pattern */
 	u8  opk[48];  /* encrypted object protection key data */
 	u16 adatalen; /* associated data length in bytes */
 	u16 fseclen;  /* formatted section length in bytes */
@@ -227,8 +227,8 @@ int cca_query_crypto_facility(u16 cardnr, u16 domain,
  * If no apqn meeting the criteria is found, -ENODEV is returned.
  */
 int cca_findcard2(u32 *apqns, u32 *nr_apqns, u16 cardnr, u16 domain,
-		  int minhwtype, int mktype, u64 cur_mkvp, u64 old_mkvp,
-		  u32 xflags);
+		  int minhwtype, int mktype,
+		  const u8 *cur_mkvp, const u8 *old_mkvp, u32 xflags);
 
 #define AES_MK_SET  0
 #define APKA_MK_SET 1
@@ -245,12 +245,12 @@ struct cca_info {
 	char new_asym_mk_state;	/* '1' empty, '2' partially full, '3' full */
 	char cur_asym_mk_state;	/* '1' invalid, '2' valid */
 	char old_asym_mk_state;	/* '1' invalid, '2' valid */
-	u64  new_aes_mkvp;	/* truncated sha256 of new aes master key */
-	u64  cur_aes_mkvp;	/* truncated sha256 of current aes master key */
-	u64  old_aes_mkvp;	/* truncated sha256 of old aes master key */
-	u64  new_apka_mkvp;	/* truncated sha256 of new apka master key */
-	u64  cur_apka_mkvp;	/* truncated sha256 of current apka mk */
-	u64  old_apka_mkvp;	/* truncated sha256 of old apka mk */
+	u8   new_aes_mkvp[8];	/* truncated sha256 of new aes master key */
+	u8   cur_aes_mkvp[8];	/* truncated sha256 of current aes master key */
+	u8   old_aes_mkvp[8];	/* truncated sha256 of old aes master key */
+	u8   new_apka_mkvp[8];	/* truncated sha256 of new apka master key */
+	u8   cur_apka_mkvp[8];	/* truncated sha256 of current apka mk */
+	u8   old_apka_mkvp[8];	/* truncated sha256 of old apka mk */
 	u8   new_asym_mkvp[16];	/* verify pattern of new asym master key */
 	u8   cur_asym_mkvp[16];	/* verify pattern of current asym master key */
 	u8   old_asym_mkvp[16];	/* verify pattern of old asym master key */
