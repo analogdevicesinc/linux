@@ -753,7 +753,7 @@ static int convert_response_xcrb(bool userspace, struct zcrypt_queue *zq,
 		return convert_error(zq, reply);
 	case TYPE86_RSP_CODE:
 		if (msg->hdr.reply_code) {
-			memcpy(&xcrb->status, msg->fmt2.apfs, sizeof(u32));
+			xcrb->status = msg->fmt2.apfs;
 			return convert_error(zq, reply);
 		}
 		if (msg->cprbx.cprb_ver_id == 0x02)

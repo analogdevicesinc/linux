@@ -34,7 +34,7 @@ struct type6_hdr {
 	unsigned char right[4];		/* 0x00000000			*/
 	unsigned char reserved3[2];	/* 0x0000			*/
 	unsigned char reserved4[2];	/* 0x0000			*/
-	unsigned char apfs[4];		/* 0x00000000			*/
+	unsigned int  apfs;		/* 0x00000000			*/
 	unsigned int  offset1;		/* 0x00000058 (offset to CPRB)	*/
 	unsigned int  offset2;		/* 0x00000000			*/
 	unsigned int  offset3;		/* 0x00000000			*/
@@ -83,7 +83,7 @@ struct type86_hdr {
 
 struct type86_fmt2_ext {
 	unsigned char	  reserved[4];	/* 0x00000000			*/
-	unsigned char	  apfs[4];	/* final status			*/
+	unsigned int	  apfs;		/* final status			*/
 	unsigned int	  count1;	/* length of CPRB + parameters	*/
 	unsigned int	  offset1;	/* offset to CPRB		*/
 	unsigned int	  count2;	/* 0x00000000			*/
