@@ -987,7 +987,6 @@ void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 	fc->max_pages = FUSE_DEFAULT_MAX_PAGES_PER_REQ;
 	fc->max_pages_limit = fuse_max_pages_limit;
 	fc->name_max = FUSE_NAME_LOW_MAX;
-	fc->timeout.req_timeout = 0;
 
 	if (IS_ENABLED(CONFIG_FUSE_PASSTHROUGH))
 		fuse_backing_files_init(fc);
@@ -1020,8 +1019,8 @@ void fuse_conn_put(struct fuse_conn *fc)
 
 	if (IS_ENABLED(CONFIG_FUSE_DAX))
 		fuse_dax_conn_free(fc);
-	if (fc->timeout.req_timeout)
-		cancel_delayed_work_sync(&fc->timeout.work);
+	if (fc->chan->timeout.req_timeout)
+		cancel_delayed_work_sync(&fc->chan->timeout.work);
 	cancel_work_sync(&fc->epoch_work);
 	fuse_chan_release(fc->chan);
 	put_pid_ns(fc->pid_ns);
@@ -1423,7 +1422,7 @@ static void process_init_reply(struct fuse_mount *fm, struct fuse_args *args,
 			fc->no_flock = 1;
 		}
 
-		fuse_init_server_timeout(fc, timeout);
+		fuse_init_server_timeout(fc->chan, timeout);
 
 		fm->sb->s_bdi->ra_pages =
 				min(fm->sb->s_bdi->ra_pages, ra_pages);

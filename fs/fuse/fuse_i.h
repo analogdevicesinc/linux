@@ -816,15 +816,6 @@ struct fuse_conn {
 	/** IDR for backing files ids */
 	struct idr backing_files_map;
 #endif
-
-	/** Only used if the connection opts into request timeouts */
-	struct {
-		/* Worker for checking if any requests have timed out */
-		struct delayed_work work;
-
-		/* Request timeout (in jiffies). 0 = no timeout */
-		unsigned int req_timeout;
-	} timeout;
 };
 
 /*

@@ -363,6 +363,7 @@ struct fuse_chan *fuse_chan_new(void)
 	fch->initialized = 0;
 	fch->blocked = 0;
 	fch->connected = 1;
+	fch->timeout.req_timeout = 0;
 
 	return fch;
 }
@@ -2534,8 +2535,8 @@ void fuse_abort_conn(struct fuse_conn *fc)
 		LIST_HEAD(to_end);
 		unsigned int i;
 
-		if (fc->timeout.req_timeout)
-			cancel_delayed_work(&fc->timeout.work);
+		if (fc->chan->timeout.req_timeout)
+			cancel_delayed_work(&fc->chan->timeout.work);
 
 		/* Background queuing checks fc->chan->connected under bg_lock */
 		spin_lock(&fc->chan->bg_lock);

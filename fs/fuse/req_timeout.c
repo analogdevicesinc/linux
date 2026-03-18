@@ -29,22 +29,22 @@ unsigned int fuse_default_req_timeout;
  */
 unsigned int fuse_max_req_timeout;
 
-bool fuse_request_expired(struct fuse_conn *fc, struct list_head *list)
+bool fuse_request_expired(struct fuse_chan *fch, struct list_head *list)
 {
 	struct fuse_req *req;
 
 	req = list_first_entry_or_null(list, struct fuse_req, list);
 	if (!req)
 		return false;
-	return time_is_before_jiffies(req->create_time + fc->timeout.req_timeout);
+	return time_is_before_jiffies(req->create_time + fch->timeout.req_timeout);
 }
 
-static bool fuse_fpq_processing_expired(struct fuse_conn *fc, struct list_head *processing)
+static bool fuse_fpq_processing_expired(struct fuse_chan *fch, struct list_head *processing)
 {
 	int i;
 
 	for (i = 0; i < FUSE_PQ_HASH_SIZE; i++)
-		if (fuse_request_expired(fc, &processing[i]))
+		if (fuse_request_expired(fch, &processing[i]))
 			return true;
 
 	return false;
@@ -67,68 +67,67 @@ static bool fuse_fpq_processing_expired(struct fuse_conn *fc, struct list_head *
 static void fuse_check_timeout(struct work_struct *work)
 {
 	struct delayed_work *dwork = to_delayed_work(work);
-	struct fuse_conn *fc = container_of(dwork, struct fuse_conn,
-					    timeout.work);
-	struct fuse_iqueue *fiq = &fc->chan->iq;
+	struct fuse_chan *fch = container_of(dwork, struct fuse_chan, timeout.work);
+	struct fuse_iqueue *fiq = &fch->iq;
 	struct fuse_dev *fud;
 	struct fuse_pqueue *fpq;
 	bool expired = false;
 
-	if (!atomic_read(&fc->chan->num_waiting))
+	if (!atomic_read(&fch->num_waiting))
 		goto out;
 
 	spin_lock(&fiq->lock);
-	expired = fuse_request_expired(fc, &fiq->pending);
+	expired = fuse_request_expired(fch, &fiq->pending);
 	spin_unlock(&fiq->lock);
 	if (expired)
 		goto abort_conn;
 
-	spin_lock(&fc->chan->bg_lock);
-	expired = fuse_request_expired(fc, &fc->chan->bg_queue);
-	spin_unlock(&fc->chan->bg_lock);
+	spin_lock(&fch->bg_lock);
+	expired = fuse_request_expired(fch, &fch->bg_queue);
+	spin_unlock(&fch->bg_lock);
 	if (expired)
 		goto abort_conn;
 
-	spin_lock(&fc->chan->lock);
-	if (!fc->chan->connected) {
-		spin_unlock(&fc->chan->lock);
+	spin_lock(&fch->lock);
+	if (!fch->connected) {
+		spin_unlock(&fch->lock);
 		return;
 	}
-	list_for_each_entry(fud, &fc->chan->devices, entry) {
+	list_for_each_entry(fud, &fch->devices, entry) {
 		fpq = &fud->pq;
 		spin_lock(&fpq->lock);
-		if (fuse_request_expired(fc, &fpq->io) ||
-		    fuse_fpq_processing_expired(fc, fpq->processing)) {
+		if (fuse_request_expired(fch, &fpq->io) ||
+		    fuse_fpq_processing_expired(fch, fpq->processing)) {
 			spin_unlock(&fpq->lock);
-			spin_unlock(&fc->chan->lock);
+			spin_unlock(&fch->lock);
 			goto abort_conn;
 		}
 
 		spin_unlock(&fpq->lock);
 	}
-	spin_unlock(&fc->chan->lock);
+	spin_unlock(&fch->lock);
 
-	if (fuse_uring_request_expired(fc))
+	if (fuse_uring_request_expired(fch))
 		goto abort_conn;
 
 out:
-	queue_delayed_work(system_percpu_wq, &fc->timeout.work,
+	queue_delayed_work(system_percpu_wq, &fch->timeout.work,
 			   fuse_timeout_timer_freq);
 	return;
 
 abort_conn:
-	fuse_abort_conn(fc);
+	fuse_abort_conn(fch->conn);
 }
 
-static void set_request_timeout(struct fuse_conn *fc, unsigned int timeout)
+static void set_request_timeout(struct fuse_chan *fch, unsigned int timeout)
 {
-	fc->timeout.req_timeout = secs_to_jiffies(timeout);
-	INIT_DELAYED_WORK(&fc->timeout.work, fuse_check_timeout);
-	queue_delayed_work(system_percpu_wq, &fc->timeout.work,
+	fch->timeout.req_timeout = secs_to_jiffies(timeout);
+	INIT_DELAYED_WORK(&fch->timeout.work, fuse_check_timeout);
+	queue_delayed_work(system_percpu_wq, &fch->timeout.work,
 			   fuse_timeout_timer_freq);
 }
 
-void fuse_init_server_timeout(struct fuse_conn *fc, unsigned int timeout)
+void fuse_init_server_timeout(struct fuse_chan *fch, unsigned int timeout)
 {
 	if (!timeout && !fuse_max_req_timeout && !fuse_default_req_timeout)
 		return;
@@ -145,6 +144,6 @@ void fuse_init_server_timeout(struct fuse_conn *fc, unsigned int timeout)
 
 	timeout = max(FUSE_TIMEOUT_TIMER_FREQ, timeout);
 
-	set_request_timeout(fc, timeout);
+	set_request_timeout(fch, timeout);
 }
 

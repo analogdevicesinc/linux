@@ -142,7 +142,7 @@ void fuse_uring_abort_end_requests(struct fuse_ring *ring)
 	}
 }
 
-static bool ent_list_request_expired(struct fuse_conn *fc, struct list_head *list)
+static bool ent_list_request_expired(struct fuse_chan *fch, struct list_head *list)
 {
 	struct fuse_ring_ent *ent;
 	struct fuse_req *req;
@@ -154,12 +154,12 @@ static bool ent_list_request_expired(struct fuse_conn *fc, struct list_head *lis
 	req = ent->fuse_req;
 
 	return time_is_before_jiffies(req->create_time +
-				      fc->timeout.req_timeout);
+				      fch->timeout.req_timeout);
 }
 
-bool fuse_uring_request_expired(struct fuse_conn *fc)
+bool fuse_uring_request_expired(struct fuse_chan *fch)
 {
-	struct fuse_ring *ring = fc->chan->ring;
+	struct fuse_ring *ring = fch->ring;
 	struct fuse_ring_queue *queue;
 	int qid;
 
@@ -172,10 +172,10 @@ bool fuse_uring_request_expired(struct fuse_conn *fc)
 			continue;
 
 		spin_lock(&queue->lock);
-		if (fuse_request_expired(fc, &queue->fuse_req_queue) ||
-		    fuse_request_expired(fc, &queue->fuse_req_bg_queue) ||
-		    ent_list_request_expired(fc, &queue->ent_w_req_queue) ||
-		    ent_list_request_expired(fc, &queue->ent_in_userspace)) {
+		if (fuse_request_expired(fch, &queue->fuse_req_queue) ||
+		    fuse_request_expired(fch, &queue->fuse_req_bg_queue) ||
+		    ent_list_request_expired(fch, &queue->ent_w_req_queue) ||
+		    ent_list_request_expired(fch, &queue->ent_in_userspace)) {
 			spin_unlock(&queue->lock);
 			return true;
 		}

@@ -149,6 +149,15 @@ struct fuse_chan {
 	/**  uring connection information*/
 	struct fuse_ring *ring;
 #endif
+
+	/** Only used if the connection opts into request timeouts */
+	struct {
+		/* Worker for checking if any requests have timed out */
+		struct delayed_work work;
+
+		/* Request timeout (in jiffies). 0 = no timeout */
+		unsigned int req_timeout;
+	} timeout;
 };
 
 #define FUSE_PQ_HASH_BITS 8
@@ -260,7 +269,7 @@ void fuse_dev_queue_forget(struct fuse_iqueue *fiq,
 void fuse_dev_queue_interrupt(struct fuse_iqueue *fiq, struct fuse_req *req);
 bool fuse_remove_pending_req(struct fuse_req *req, spinlock_t *lock);
 
-bool fuse_request_expired(struct fuse_conn *fc, struct list_head *list);
+bool fuse_request_expired(struct fuse_chan *fch, struct list_head *list);
 
 /**
  * Assign a unique id to a fuse request
