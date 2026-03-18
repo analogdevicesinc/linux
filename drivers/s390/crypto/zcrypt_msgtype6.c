@@ -65,7 +65,7 @@ struct function_and_rules_block {
 static const struct CPRBX static_cprbx = {
 	.cprb_len	=  0x00DC,
 	.cprb_ver_id	=  0x02,
-	.func_id	= {0x54, 0x32},
+	.func_id	= {'T', '2'},
 };
 
 int speed_idx_cca(int req_type)
@@ -455,8 +455,7 @@ static int xcrb_msg_to_type6_ep11cprb_msgx(bool userspace, struct ap_message *ap
 		.type		=  0x06,
 		.rqid		= {0x00, 0x01},
 		.function_code	= {0x00, 0x00},
-		.agent_id[0]	=  0x58,	/* {'X'} */
-		.agent_id[1]	=  0x43,	/* {'C'} */
+		.agent_id	= {'X', 'C'},
 		.offset1	=  0x00000058,
 	};
 
@@ -1285,7 +1284,7 @@ static inline void rng_type6cprb_msgx(struct ap_message *ap_msg,
 	static struct CPRBX local_cprbx = {
 		.cprb_len	= 0x00dc,
 		.cprb_ver_id	= 0x02,
-		.func_id	= {0x54, 0x32},
+		.func_id	= {'T', '2'},
 		.req_parml	= sizeof(*msg) - sizeof(msg->hdr) -
 				  sizeof(msg->cprbx),
 		.rpl_msgbl	= sizeof(*msg) - sizeof(msg->hdr),

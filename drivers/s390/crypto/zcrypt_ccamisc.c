@@ -305,7 +305,7 @@ static inline void prep_xcrb(struct ica_xcRB *pxcrb,
 			     struct CPRBX *prepcblk)
 {
 	memset(pxcrb, 0, sizeof(*pxcrb));
-	pxcrb->agent_ID = 0x4341; /* 'CA' */
+	memcpy(&pxcrb->agent_ID, "CA", 2);
 	pxcrb->user_defined = (cardnr == 0xFFFF ? AUTOSELECT : cardnr);
 	pxcrb->request_control_blk_length =
 		preqcblk->cprb_len + preqcblk->req_parml;
