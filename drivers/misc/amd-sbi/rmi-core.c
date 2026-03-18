@@ -214,6 +214,7 @@ static int rmi_cpuid_read(struct sbrmi_data *data,
 			goto exit_unlock;
 		break;
 	case 0x21:
+	case 0x31:
 		ret = rmi_cpuid_input_ext(data, msg, thread);
 		if (ret)
 			goto exit_unlock;
@@ -327,6 +328,7 @@ static int rmi_mca_msr_read(struct sbrmi_data *data,
 			goto exit_unlock;
 		break;
 	case 0x21:
+	case 0x31:
 		ret = rmi_mcamsr_input_ext(data, msg, thread);
 		if (ret)
 			goto exit_unlock;
