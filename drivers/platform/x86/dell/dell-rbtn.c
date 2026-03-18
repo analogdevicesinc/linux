@@ -207,7 +207,7 @@ static void rbtn_input_event(struct rbtn_data *rbtn_data)
 
 static int rbtn_add(struct acpi_device *device);
 static void rbtn_remove(struct acpi_device *device);
-static void rbtn_notify(struct acpi_device *device, u32 event);
+static void rbtn_notify(acpi_handle handle, u32 event, void *data);
 
 static const struct acpi_device_id rbtn_ids[] = {
 	{ "DELRBTN", 0 },
@@ -293,7 +293,6 @@ static struct acpi_driver rbtn_driver = {
 	.ops = {
 		.add = rbtn_add,
 		.remove = rbtn_remove,
-		.notify = rbtn_notify,
 	},
 };
 
@@ -382,6 +381,22 @@ EXPORT_SYMBOL_GPL(dell_rbtn_notifier_unregister);
  * acpi driver functions
  */
 
+static void rbtn_cleanup(struct acpi_device *device)
+{
+	struct rbtn_data *rbtn_data = device->driver_data;
+
+	switch (rbtn_data->type) {
+	case RBTN_TOGGLE:
+		rbtn_input_exit(rbtn_data);
+		break;
+	case RBTN_SLIDER:
+		rbtn_rfkill_exit(device);
+		break;
+	default:
+		break;
+	}
+}
+
 static int rbtn_add(struct acpi_device *device)
 {
 	struct rbtn_data *rbtn_data;
@@ -422,31 +437,32 @@ static int rbtn_add(struct acpi_device *device)
 		break;
 	}
 	if (ret)
-		rbtn_acquire(device, false);
+		goto err;
 
+	ret = acpi_dev_install_notify_handler(device, ACPI_DEVICE_NOTIFY,
+					      rbtn_notify, device);
+	if (ret)
+		goto err_cleanup;
+
+	return 0;
+
+err_cleanup:
+	rbtn_cleanup(device);
+err:
+	rbtn_acquire(device, false);
 	return ret;
 }
 
 static void rbtn_remove(struct acpi_device *device)
 {
-	struct rbtn_data *rbtn_data = device->driver_data;
-
-	switch (rbtn_data->type) {
-	case RBTN_TOGGLE:
-		rbtn_input_exit(rbtn_data);
-		break;
-	case RBTN_SLIDER:
-		rbtn_rfkill_exit(device);
-		break;
-	default:
-		break;
-	}
-
+	acpi_dev_remove_notify_handler(device, ACPI_DEVICE_NOTIFY, rbtn_notify);
+	rbtn_cleanup(device);
 	rbtn_acquire(device, false);
 }
 
-static void rbtn_notify(struct acpi_device *device, u32 event)
+static void rbtn_notify(acpi_handle handle, u32 event, void *data)
 {
+	struct acpi_device *device = data;
 	struct rbtn_data *rbtn_data = device->driver_data;
 
 	/*
