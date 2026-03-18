@@ -32,3 +32,9 @@ arm/fixes
 		ARM: multi_v7_defconfig: Drop duplicate CONFIG_TI_PRUSS=m
 	rockchip/fixes
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.0-rockchip-drvfixes1
+	<no branch> (08d9a4580f71120be3c5b221af32dca00a48ceb0)
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-fix-for-v7.0
+	<no branch> (a4e8473b775160f3ce978f621cf8dea2c7250433)
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/ffa-fix-7.0
+	<no branch> (4e701b47c3ba8f4eaf51d676732b11204bc75b35)
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-fixes-7.0
