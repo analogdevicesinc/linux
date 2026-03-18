@@ -400,27 +400,26 @@ static inline int is_node(const struct folio *folio, int type)
 #define is_fsync_dnode(folio)	is_node(folio, FSYNC_BIT_SHIFT)
 #define is_dent_dnode(folio)	is_node(folio, DENT_BIT_SHIFT)
 
-static inline void set_cold_node(const struct folio *folio, bool is_dir)
+static inline void __set_mark(const struct folio *folio, bool mark, int type)
 {
 	struct f2fs_node *rn = F2FS_NODE(folio);
 	unsigned int flag = le32_to_cpu(rn->footer.flag);
 
-	if (is_dir)
-		flag &= ~BIT(COLD_BIT_SHIFT);
-	else
-		flag |= BIT(COLD_BIT_SHIFT);
-	rn->footer.flag = cpu_to_le32(flag);
-}
-
-static inline void set_mark(struct folio *folio, int mark, int type)
-{
-	struct f2fs_node *rn = F2FS_NODE(folio);
-	unsigned int flag = le32_to_cpu(rn->footer.flag);
 	if (mark)
 		flag |= BIT(type);
 	else
 		flag &= ~BIT(type);
 	rn->footer.flag = cpu_to_le32(flag);
+}
+
+static inline void set_cold_node(const struct folio *folio, bool is_dir)
+{
+	__set_mark(folio, !is_dir, COLD_BIT_SHIFT);
+}
+
+static inline void set_mark(struct folio *folio, bool mark, int type)
+{
+	__set_mark(folio, mark, type);
 
 #ifdef CONFIG_F2FS_CHECK_FS
 	f2fs_inode_chksum_set(F2FS_F_SB(folio), folio);
