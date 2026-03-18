@@ -3471,31 +3471,21 @@ int bnxt_re_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 {
 	struct bnxt_re_cq *cq = container_of(ibcq, struct bnxt_re_cq, ib_cq);
 	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibcq->device, ibdev);
-	struct ib_udata *udata = &attrs->driver_udata;
-	struct bnxt_re_ucontext *uctx =
-		rdma_udata_to_drv_context(udata, struct bnxt_re_ucontext, ib_uctx);
 	struct bnxt_qplib_dev_attr *dev_attr = rdev->dev_attr;
-	int cqe = attr->cqe;
 	int rc;
 	u32 active_cqs;
-
-	if (udata)
-		return bnxt_re_create_user_cq(ibcq, attr, attrs);
 
 	if (attr->flags)
 		return -EOPNOTSUPP;
 
 	/* Validate CQ fields */
-	if (cqe < 1 || cqe > dev_attr->max_cq_wqes) {
-		ibdev_err(&rdev->ibdev, "Failed to create CQ -max exceeded");
+	if (attr->cqe > dev_attr->max_cq_wqes)
 		return -EINVAL;
-	}
 
 	cq->rdev = rdev;
 	cq->qplib_cq.cq_handle = (u64)(unsigned long)(&cq->qplib_cq);
 
-	cq->max_cql = bnxt_re_init_depth(attr->cqe + 1,
-					 dev_attr->max_cq_wqes + 1, uctx);
+	cq->max_cql = attr->cqe + 1;
 	cq->cql = kcalloc(cq->max_cql, sizeof(struct bnxt_qplib_cqe),
 			  GFP_KERNEL);
 	if (!cq->cql)
