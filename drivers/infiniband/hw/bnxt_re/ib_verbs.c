@@ -3486,8 +3486,7 @@ int bnxt_re_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	cq->qplib_cq.cq_handle = (u64)(unsigned long)(&cq->qplib_cq);
 
 	cq->max_cql = attr->cqe + 1;
-	cq->cql = kcalloc(cq->max_cql, sizeof(struct bnxt_qplib_cqe),
-			  GFP_KERNEL);
+	cq->cql = kzalloc_objs(struct bnxt_qplib_cqe, cq->max_cql);
 	if (!cq->cql)
 		return -ENOMEM;
 
@@ -4412,7 +4411,7 @@ struct ib_mr *bnxt_re_alloc_mr(struct ib_pd *ib_pd, enum ib_mr_type type,
 	mr->ib_mr.lkey = mr->qplib_mr.lkey;
 	mr->ib_mr.rkey = mr->ib_mr.lkey;
 
-	mr->pages = kcalloc(max_num_sg, sizeof(u64), GFP_KERNEL);
+	mr->pages = kzalloc_objs(u64, max_num_sg);
 	if (!mr->pages) {
 		rc = -ENOMEM;
 		goto fail;
