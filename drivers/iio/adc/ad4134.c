@@ -508,7 +508,7 @@ out:
 	mutex_unlock(&st->lock);
 }
 
-int ad4134_gpio_setup(struct ad4134_state *st)
+static int ad4134_gpio_setup(struct ad4134_state *st)
 {
 	st->gpiochip.label = "ad4134";
 	st->gpiochip.base = -1;
