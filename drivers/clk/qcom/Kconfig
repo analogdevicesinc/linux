@@ -19,6 +19,15 @@ menuconfig COMMON_CLK_QCOM
 
 if COMMON_CLK_QCOM
 
+config CLK_ELIZA_DISPCC
+	tristate "Eliza Display Clock Controller"
+	depends on ARM64 || COMPILE_TEST
+	select CLK_ELIZA_GCC
+	help
+	  Support for the display clock controllers on Eliza SoCs.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 config CLK_ELIZA_GCC
 	tristate "Eliza Global Clock Controller"
 	depends on ARM64 || COMPILE_TEST
