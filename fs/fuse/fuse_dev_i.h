@@ -13,8 +13,6 @@
 #define FUSE_INT_REQ_BIT (1ULL << 0)
 #define FUSE_REQ_ID_STEP (1ULL << 1)
 
-extern struct wait_queue_head fuse_dev_waitq;
-
 struct fuse_arg;
 struct fuse_args;
 struct fuse_pqueue;

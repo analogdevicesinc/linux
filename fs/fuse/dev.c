@@ -31,6 +31,8 @@
 MODULE_ALIAS_MISCDEV(FUSE_MINOR);
 MODULE_ALIAS("devname:fuse");
 
+static DECLARE_WAIT_QUEUE_HEAD(fuse_dev_waitq);
+
 static struct kmem_cache *fuse_req_cachep;
 
 static void fuse_request_init(struct fuse_mount *fm, struct fuse_req *req)
@@ -480,6 +482,7 @@ void fuse_dev_install(struct fuse_dev *fud, struct fuse_conn *fc)
 	} else {
 		list_add_tail(&fud->entry, &fc->chan->devices);
 		fuse_conn_get(fc);
+		wake_up_all(&fuse_dev_waitq);
 	}
 	spin_unlock(&fc->chan->lock);
 }

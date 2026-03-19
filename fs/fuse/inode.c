@@ -34,7 +34,6 @@ MODULE_LICENSE("GPL");
 static struct kmem_cache *fuse_inode_cachep;
 struct list_head fuse_conn_list;
 DEFINE_MUTEX(fuse_mutex);
-DECLARE_WAIT_QUEUE_HEAD(fuse_dev_waitq);
 
 static int set_global_limit(const char *val, const struct kernel_param *kp);
 
@@ -1789,10 +1788,9 @@ int fuse_fill_super_common(struct super_block *sb, struct fuse_fs_context *ctx)
 
 	list_add_tail(&fc->entry, &fuse_conn_list);
 	sb->s_root = root_dentry;
-	if (fud) {
+	if (fud)
 		fuse_dev_install(fud, fc);
-		wake_up_all(&fuse_dev_waitq);
-	}
+
 	mutex_unlock(&fuse_mutex);
 	return 0;
 
