@@ -1113,7 +1113,7 @@ out_err:
 }
 
 static int truncate_partial_nodes(struct dnode_of_data *dn,
-			struct f2fs_inode *ri, int *offset, int depth)
+			int *offset, int depth)
 {
 	struct folio *folios[2];
 	nid_t nid[3];
@@ -1184,7 +1184,6 @@ int f2fs_truncate_inode_blocks(struct inode *inode, pgoff_t from)
 	int err = 0, cont = 1;
 	int level, offset[4], noffset[4];
 	unsigned int nofs = 0;
-	struct f2fs_inode *ri;
 	struct dnode_of_data dn;
 	struct folio *folio;
 
@@ -1212,7 +1211,6 @@ int f2fs_truncate_inode_blocks(struct inode *inode, pgoff_t from)
 	set_new_dnode(&dn, inode, folio, NULL, 0);
 	folio_unlock(folio);
 
-	ri = F2FS_INODE(folio);
 	switch (level) {
 	case 0:
 	case 1:
@@ -1222,7 +1220,7 @@ int f2fs_truncate_inode_blocks(struct inode *inode, pgoff_t from)
 		nofs = noffset[1];
 		if (!offset[level - 1])
 			goto skip_partial;
-		err = truncate_partial_nodes(&dn, ri, offset, level);
+		err = truncate_partial_nodes(&dn, offset, level);
 		if (err < 0 && err != -ENOENT)
 			goto fail;
 		nofs += 1 + NIDS_PER_BLOCK;
@@ -1231,7 +1229,7 @@ int f2fs_truncate_inode_blocks(struct inode *inode, pgoff_t from)
 		nofs = 5 + 2 * NIDS_PER_BLOCK;
 		if (!offset[level - 1])
 			goto skip_partial;
-		err = truncate_partial_nodes(&dn, ri, offset, level);
+		err = truncate_partial_nodes(&dn, offset, level);
 		if (err < 0 && err != -ENOENT)
 			goto fail;
 		break;
