@@ -63,6 +63,8 @@
 #define	PACKET3_REG_RMW					0x21
 #define	PACKET3_COND_EXEC				0x22
 #define	PACKET3_PRED_EXEC				0x23
+#define 	PACKET3_PRED_EXEC__EXEC_COUNT(x) ((((unsigned)(x)) & 0x3FFF) << 0)
+#define 	PACKET3_PRED_EXEC__VIRTUALXCCID_SELECT(x) ((((unsigned)(x)) & 0xFF) << 24)
 #define	PACKET3_DRAW_INDIRECT				0x24
 #define	PACKET3_DRAW_INDEX_INDIRECT			0x25
 #define	PACKET3_INDEX_BASE				0x26
@@ -279,58 +281,78 @@
 #              define PACKET3_DMA_DATA_CMD_DIS_WC   (1 << 30)
 #define	PACKET3_CONTEXT_REG_RMW				0x51
 #define	PACKET3_ACQUIRE_MEM				0x58
-/* 1.  HEADER
- * 2.  COHER_CNTL [30:0]
- * 2.1 ENGINE_SEL [31:31]
- * 2.  COHER_SIZE [31:0]
- * 3.  COHER_SIZE_HI [7:0]
- * 4.  COHER_BASE_LO [31:0]
- * 5.  COHER_BASE_HI [23:0]
- * 7.  POLL_INTERVAL [15:0]
- * 8.  GCR_CNTL [18:0]
- */
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GLI_INV(x) ((x) << 0)
+/* 1.  HEADER */
+#define		PACKET3_ACQUIRE_MEM__COHER_SIZE(x) ((unsigned)(x))
+/* 3.  COHER_SIZE [31:0] */
+#define		PACKET3_ACQUIRE_MEM__COHER_SIZE_HI(x) ((((unsigned)(x)) & 0xFF) << 0)
+/* 4.  COHER_SIZE_HI [7:0] */
+#define		PACKET3_ACQUIRE_MEM__COHER_BASE_LO(x) ((unsigned)(x))
+/* 5.  COHER_BASE_LO [31:0] */
+#define		PACKET3_ACQUIRE_MEM__COHER_BASE_HI(x) ((((unsigned)(x)) & 0xFFFFFF) << 0)
+/* 6.  COHER_BASE_HI [23:0] */
+#define		PACKET3_ACQUIRE_MEM__POLL_INTERVAL(x) ((((unsigned)(x)) & 0xFFFF) << 0)
+/* 7.  POLL_INTERVAL [15:0] */
+#define		PACKET3_ACQUIRE_MEM__GCR_CNTL(x) ((((unsigned)(x)) & 0x7FFFF) << 0)
+/* 8.  GCR_CNTL [18:0] */
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GLI_INV(x) ((x) << 0)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GLI_INV__NOP 0
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GLI_INV__ALL 1
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GLI_INV__RANGE 2
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GLI_INV__FIRST_LAST 3
 		/*
 		 * 0:NOP
 		 * 1:ALL
 		 * 2:RANGE
 		 * 3:FIRST_LAST
 		 */
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GL1_RANGE(x) ((x) << 2)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL1_RANGE(x) ((x) << 2)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL1_RANGE__ALL   0
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL1_RANGE__RANGE   2
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL1_RANGE__FIRST_LAST   3
 		/*
 		 * 0:ALL
 		 * 1:reserved
 		 * 2:RANGE
 		 * 3:FIRST_LAST
 		 */
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GL2_SCOPE(x) ((x) << 4)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_SCOPE(x) ((x) << 4)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_SCOPE__DEVICE    0
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_SCOPE__SYSTEM    1
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_SCOPE__FORCE_ALL    2
         /*
          * 0:Device scope
          * 1:System scope
          * 2:Force INV/WB all
          * 3:Reserved
          */
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GLV_WB(x) ((x) << 6)
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GLK_INV(x) ((x) << 7)
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GLV_INV(x) ((x) << 8)
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GL2_US(x) ((x) << 10)
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GL2_RANGE(x) ((x) << 11)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GLV_WB(x) ((x) << 6)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GLK_INV(x) ((x) << 7)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GLV_INV(x) ((x) << 8)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_US(x) ((x) << 10)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_RANGE(x) ((x) << 11)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_RANGE__ALL   0
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_RANGE__VOL   1
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_RANGE__RANGE   2
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_RANGE__FIRST_LAST   3
 		/*
 		 * 0:ALL
 		 * 1:VOL
 		 * 2:RANGE
 		 * 3:FIRST_LAST
 		 */
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GL2_DISCARD(x)  ((x) << 13)
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GL2_INV(x) ((x) << 14)
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_GL2_WB(x) ((x) << 15)
-#define 	PACKET3_ACQUIRE_MEM_GCR_CNTL_SEQ(x) ((x) << 16)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_DISCARD(x)  ((x) << 13)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_INV(x) ((x) << 14)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_WB(x) ((x) << 15)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__SEQ(x) ((x) << 16)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__SEQ__PARALLET    0
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__SEQ__FORWARD    1
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__SEQ__REVERSE    2
 		/*
 		 * 0: PARALLEL
 		 * 1: FORWARD
 		 * 2: REVERSE
 		 */
-#define 	PACKET3_ACQUIRE_MEM_GCR_RANGE_IS_PA  (1 << 18)
+#define 	PACKET3_ACQUIRE_MEM__GCR_CNTL__GCR_RANGE_IS_PA  (1 << 18)
 #define	PACKET3_GEN_PDEPTE				0x5B
 #define	PACKET3_PRIME_UTCL2				0x5D
 #define	PACKET3_LOAD_UCONFIG_REG			0x5E

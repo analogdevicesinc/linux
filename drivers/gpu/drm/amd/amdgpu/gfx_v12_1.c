@@ -3819,12 +3819,12 @@ static int gfx_v12_1_rlc_poison_irq(struct amdgpu_device *adev,
 static void gfx_v12_1_emit_mem_sync(struct amdgpu_ring *ring)
 {
 	const unsigned int gcr_cntl =
-			PACKET3_ACQUIRE_MEM_GCR_CNTL_GL2_INV(1) |
-			PACKET3_ACQUIRE_MEM_GCR_CNTL_GL2_WB(1) |
-			PACKET3_ACQUIRE_MEM_GCR_CNTL_GLV_INV(1) |
-			PACKET3_ACQUIRE_MEM_GCR_CNTL_GLK_INV(1) |
-			PACKET3_ACQUIRE_MEM_GCR_CNTL_GLI_INV(1) |
-			PACKET3_ACQUIRE_MEM_GCR_CNTL_GL2_SCOPE(2);
+			PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_INV(1) |
+			PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_WB(1) |
+			PACKET3_ACQUIRE_MEM__GCR_CNTL__GLV_INV(1) |
+			PACKET3_ACQUIRE_MEM__GCR_CNTL__GLK_INV(1) |
+			PACKET3_ACQUIRE_MEM__GCR_CNTL__GLI_INV(1) |
+			PACKET3_ACQUIRE_MEM__GCR_CNTL__GL2_SCOPE(2);
 
 	/* ACQUIRE_MEM - make one or more surfaces valid for use by the subsequent operations */
 	amdgpu_ring_write(ring, PACKET3(PACKET3_ACQUIRE_MEM, 6));
