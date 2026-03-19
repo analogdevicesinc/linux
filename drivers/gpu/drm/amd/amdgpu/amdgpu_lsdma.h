@@ -25,6 +25,7 @@
 #define __AMDGPU_LSDMA_H__
 
 struct amdgpu_lsdma {
+	struct mutex lock;
 	const struct amdgpu_lsdma_funcs      *funcs;
 };
 
