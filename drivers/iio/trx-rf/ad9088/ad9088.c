@@ -3050,7 +3050,7 @@ static int ad9088_write_raw(struct iio_dev *indio_dev,
 				.sm_clk_rate = ADI_APOLLO_PUC_CLK_RATE_FS_DIV_32,
 				.sm_en = 0,
 				.spi_txen = !!val,
-				.spi_txen_en = !!val
+				.spi_txen_en = 1
 			};
 
 			/* Enable Tx blocks - enable/disable via spi */
@@ -3071,7 +3071,7 @@ static int ad9088_write_raw(struct iio_dev *indio_dev,
 				.sm_clk_rate = ADI_APOLLO_PUC_CLK_RATE_FS_DIV_32,
 				.sm_en = 0,
 				.spi_rxen = !!val,
-				.spi_rxen_en = !!val
+				.spi_rxen_en = 1
 			};
 
 			/* Enable Rx blocks - enable/disable via spi */
