@@ -17,9 +17,94 @@ extern struct wait_queue_head fuse_dev_waitq;
 struct fuse_arg;
 struct fuse_args;
 struct fuse_pqueue;
-struct fuse_req;
 struct fuse_iqueue;
 struct fuse_forget_link;
+
+/**
+ * Request flags
+ *
+ * FR_ISREPLY:		set if the request has reply
+ * FR_FORCE:		force sending of the request even if interrupted
+ * FR_BACKGROUND:	request is sent in the background
+ * FR_WAITING:		request is counted as "waiting"
+ * FR_ABORTED:		the request was aborted
+ * FR_INTERRUPTED:	the request has been interrupted
+ * FR_LOCKED:		data is being copied to/from the request
+ * FR_PENDING:		request is not yet in userspace
+ * FR_SENT:		request is in userspace, waiting for an answer
+ * FR_FINISHED:		request is finished
+ * FR_PRIVATE:		request is on private list
+ * FR_ASYNC:		request is asynchronous
+ * FR_URING:		request is handled through fuse-io-uring
+ */
+enum fuse_req_flag {
+	FR_ISREPLY,
+	FR_FORCE,
+	FR_BACKGROUND,
+	FR_WAITING,
+	FR_ABORTED,
+	FR_INTERRUPTED,
+	FR_LOCKED,
+	FR_PENDING,
+	FR_SENT,
+	FR_FINISHED,
+	FR_PRIVATE,
+	FR_ASYNC,
+	FR_URING,
+};
+
+/**
+ * A request to the client
+ *
+ * .waitq.lock protects the following fields:
+ *   - FR_ABORTED
+ *   - FR_LOCKED (may also be modified under fpq->lock, tested under both)
+ */
+struct fuse_req {
+	/** This can be on either pending processing or io lists in
+	    fuse_conn */
+	struct list_head list;
+
+	/** Entry on the interrupts list  */
+	struct list_head intr_entry;
+
+	/* Input/output arguments */
+	struct fuse_args *args;
+
+	/** refcount */
+	refcount_t count;
+
+	/* Request flags, updated with test/set/clear_bit() */
+	unsigned long flags;
+
+	/* The request input header */
+	struct {
+		struct fuse_in_header h;
+	} in;
+
+	/* The request output header */
+	struct {
+		struct fuse_out_header h;
+	} out;
+
+	/** Used to wake up the task waiting for completion of request*/
+	wait_queue_head_t waitq;
+
+#if IS_ENABLED(CONFIG_VIRTIO_FS)
+	/** virtio-fs's physically contiguous buffer for in and out args */
+	void *argbuf;
+#endif
+
+	/** fuse_mount this request belongs to */
+	struct fuse_mount *fm;
+
+#ifdef CONFIG_FUSE_IO_URING
+	void *ring_entry;
+	void *ring_queue;
+#endif
+	/** When (in jiffies) the request was created */
+	unsigned long create_time;
+};
 
 /**
  * Input queue callbacks
@@ -289,6 +374,10 @@ struct fuse_dev *fuse_dev_alloc(void);
  */
 void fuse_pqueue_init(struct fuse_pqueue *fpq);
 
+/**
+ * End a finished request
+ */
+void fuse_request_end(struct fuse_req *req);
 
 #endif
 
