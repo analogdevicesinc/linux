@@ -325,8 +325,9 @@ struct mes_reset_queue_input {
 };
 
 struct mes_detect_and_reset_queue_input {
-	uint32_t                           queue_type;
-	bool                               detect_only;
+	u32	queue_type;
+	bool		detect_only;
+	u32	xcc_id;
 };
 
 struct mes_inv_tlbs_pasid_input {
@@ -442,8 +443,8 @@ int amdgpu_mes_init_microcode(struct amdgpu_device *adev, int pipe);
 int amdgpu_mes_init(struct amdgpu_device *adev);
 void amdgpu_mes_fini(struct amdgpu_device *adev);
 
-int amdgpu_mes_suspend(struct amdgpu_device *adev);
-int amdgpu_mes_resume(struct amdgpu_device *adev);
+int amdgpu_mes_suspend(struct amdgpu_device *adev, u32 xcc_id);
+int amdgpu_mes_resume(struct amdgpu_device *adev, u32 xcc_id);
 
 int amdgpu_mes_map_legacy_queue(struct amdgpu_device *adev,
 				struct amdgpu_ring *ring, uint32_t xcc_id);

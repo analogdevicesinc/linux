@@ -367,7 +367,7 @@ static int suspend_all_queues_mes(struct device_queue_manager *dqm)
 	if (!down_read_trylock(&adev->reset_domain->sem))
 		return -EIO;
 
-	r = amdgpu_mes_suspend(adev);
+	r = amdgpu_mes_suspend(adev, ffs(dqm->dev->xcc_mask) - 1);
 	up_read(&adev->reset_domain->sem);
 
 	if (r) {
@@ -387,7 +387,7 @@ static int resume_all_queues_mes(struct device_queue_manager *dqm)
 	if (!down_read_trylock(&adev->reset_domain->sem))
 		return -EIO;
 
-	r = amdgpu_mes_resume(adev);
+	r = amdgpu_mes_resume(adev, ffs(dqm->dev->xcc_mask) - 1);
 	up_read(&adev->reset_domain->sem);
 
 	if (r) {

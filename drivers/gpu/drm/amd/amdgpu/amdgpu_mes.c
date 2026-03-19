@@ -301,7 +301,7 @@ void amdgpu_mes_fini(struct amdgpu_device *adev)
 	mutex_destroy(&adev->mes.mutex_hidden);
 }
 
-int amdgpu_mes_suspend(struct amdgpu_device *adev)
+int amdgpu_mes_suspend(struct amdgpu_device *adev, u32 xcc_id)
 {
 	struct mes_suspend_gang_input input;
 	int r;
@@ -311,6 +311,7 @@ int amdgpu_mes_suspend(struct amdgpu_device *adev)
 
 	memset(&input, 0x0, sizeof(struct mes_suspend_gang_input));
 	input.suspend_all_gangs = 1;
+	input.xcc_id = xcc_id;
 
 	/*
 	 * Avoid taking any other locks under MES lock to avoid circular
@@ -325,7 +326,7 @@ int amdgpu_mes_suspend(struct amdgpu_device *adev)
 	return r;
 }
 
-int amdgpu_mes_resume(struct amdgpu_device *adev)
+int amdgpu_mes_resume(struct amdgpu_device *adev, u32 xcc_id)
 {
 	struct mes_resume_gang_input input;
 	int r;
@@ -335,6 +336,7 @@ int amdgpu_mes_resume(struct amdgpu_device *adev)
 
 	memset(&input, 0x0, sizeof(struct mes_resume_gang_input));
 	input.resume_all_gangs = 1;
+	input.xcc_id = xcc_id;
 
 	/*
 	 * Avoid taking any other locks under MES lock to avoid circular
@@ -463,6 +465,7 @@ int amdgpu_mes_detect_and_reset_hung_queues(struct amdgpu_device *adev,
 		adev->mes.hung_queue_db_array_size * sizeof(u32));
 	input.queue_type = queue_type;
 	input.detect_only = detect_only;
+	input.xcc_id = xcc_id;
 
 	r = adev->mes.funcs->detect_and_reset_hung_queues(&adev->mes,
 							  &input);
