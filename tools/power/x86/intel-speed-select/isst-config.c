@@ -1139,7 +1139,7 @@ static int isst_fill_platform_info(void)
 
 	if (isst_platform_info.api_version > supported_api_ver) {
 		printf("Incompatible API versions; Upgrade of tool is required\n");
-		return -1;
+		exit(1);
 	}
 
 set_platform_ops:
@@ -3195,7 +3195,7 @@ static void usage(void)
 		printf("\tTo get full turbo-freq information dump:\n");
 		printf("\t\tintel-speed-select turbo-freq info -l 0\n");
 	}
-	exit(1);
+	exit(0);
 }
 
 static void print_version(void)
