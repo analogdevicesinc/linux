@@ -39,7 +39,6 @@
 #include "abm.h"
 #include "dcn10/dcn10_hubbub.h"
 #include "dce/dmub_hw_lock_mgr.h"
-#include "custom_float.h"
 #include "link_service.h"
 
 #define MAX_NUM_MCACHE 8
