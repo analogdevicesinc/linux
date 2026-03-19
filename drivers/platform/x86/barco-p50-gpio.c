@@ -272,33 +272,27 @@ static int p50_gpio_get(struct gpio_chip *gc, unsigned int offset)
 	struct p50_gpio *p50 = gpiochip_get_data(gc);
 	int ret;
 
-	mutex_lock(&p50->lock);
+	guard(mutex)(&p50->lock);
 
 	ret = p50_send_mbox_cmd(p50, P50_MBOX_CMD_READ_GPIO, gpio_params[offset], 0);
-	if (ret == 0) {
-		ret = p50_read_mbox_reg(p50, P50_MBOX_REG_DATA);
-		if (ret >= 0)
-			ret = !!ret;
-	}
+	if (ret < 0)
+		return ret;
 
-	mutex_unlock(&p50->lock);
+	ret = p50_read_mbox_reg(p50, P50_MBOX_REG_DATA);
+	if (ret < 0)
+		return ret;
 
-	return ret;
+	return !!ret;
 }
 
 static int p50_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
 {
 	struct p50_gpio *p50 = gpiochip_get_data(gc);
-	int ret;
 
-	mutex_lock(&p50->lock);
+	guard(mutex)(&p50->lock);
 
-	ret = p50_send_mbox_cmd(p50, P50_MBOX_CMD_WRITE_GPIO,
-				gpio_params[offset], value);
-
-	mutex_unlock(&p50->lock);
-
-	return ret;
+	return p50_send_mbox_cmd(p50, P50_MBOX_CMD_WRITE_GPIO,
+				 gpio_params[offset], value);
 }
 
 static int p50_gpio_probe(struct platform_device *pdev)
