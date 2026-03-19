@@ -3250,8 +3250,10 @@ static void cmdline(int argc, char **argv)
 	}
 
 	ret = update_cpu_model();
-	if (ret)
-		err(-1, "Invalid CPU model (%d)\n", cpu_model);
+	if (ret) {
+		fprintf(stderr, "Invalid CPU model (%d)\n", cpu_model);
+		exit(1);
+	}
 	printf("Intel(R) Speed Select Technology\n");
 	printf("Executing on CPU model:%d[0x%x]\n", cpu_model, cpu_model);
 
