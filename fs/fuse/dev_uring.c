@@ -4,6 +4,7 @@
  * Copyright (c) 2023-2024 DataDirect Networks.
  */
 
+#include "dev.h"
 #include "fuse_i.h"
 #include "dev_uring_i.h"
 #include "fuse_dev_i.h"
@@ -185,9 +186,9 @@ bool fuse_uring_request_expired(struct fuse_chan *fch)
 	return false;
 }
 
-void fuse_uring_destruct(struct fuse_conn *fc)
+void fuse_uring_destruct(struct fuse_chan *fch)
 {
-	struct fuse_ring *ring = fc->chan->ring;
+	struct fuse_ring *ring = fch->ring;
 	int qid;
 
 	if (!ring)
@@ -218,7 +219,7 @@ void fuse_uring_destruct(struct fuse_conn *fc)
 
 	kfree(ring->queues);
 	kfree(ring);
-	fc->chan->ring = NULL;
+	fch->ring = NULL;
 }
 
 /*

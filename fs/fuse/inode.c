@@ -8,8 +8,6 @@
 
 #include "dev.h"
 #include "fuse_i.h"
-#include "fuse_dev_i.h"
-#include "dev_uring_i.h"
 
 #include <linux/dax.h>
 #include <linux/pagemap.h>
@@ -812,8 +810,7 @@ static int fuse_opt_fd(struct fs_context *fsc, struct file *file)
 	if (file->f_cred->user_ns != fsc->user_ns)
 		return invalfc(fsc, "wrong user namespace for fuse device");
 
-	ctx->fud = file->private_data;
-	refcount_inc(&ctx->fud->ref);
+	ctx->fud = fuse_dev_grab(file);
 
 	return 0;
 }
@@ -994,7 +991,7 @@ void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 	INIT_LIST_HEAD(&fc->mounts);
 	list_add(&fm->fc_entry, &fc->mounts);
 	fm->fc = fc;
-	fch->conn = fc;
+	fuse_chan_set_fc(fch, fc);
 	fc->chan = fch;
 }
 EXPORT_SYMBOL_GPL(fuse_conn_init);
@@ -1003,7 +1000,7 @@ static void delayed_release(struct rcu_head *p)
 {
 	struct fuse_conn *fc = container_of(p, struct fuse_conn, rcu);
 
-	fuse_uring_destruct(fc);
+	fuse_uring_destruct(fc->chan);
 	fuse_chan_free(fc->chan);
 
 	put_user_ns(fc->user_ns);
@@ -1019,8 +1016,6 @@ void fuse_conn_put(struct fuse_conn *fc)
 
 	if (IS_ENABLED(CONFIG_FUSE_DAX))
 		fuse_dax_conn_free(fc);
-	if (fc->chan->timeout.req_timeout)
-		cancel_delayed_work_sync(&fc->chan->timeout.work);
 	cancel_work_sync(&fc->epoch_work);
 	fuse_chan_release(fc->chan);
 	put_pid_ns(fc->pid_ns);
@@ -1253,12 +1248,13 @@ static void process_init_limits(struct fuse_conn *fc, struct fuse_init_out *arg)
 	sanitize_global_limit(&max_user_bgreq);
 	sanitize_global_limit(&max_user_congthresh);
 
-	spin_lock(&fc->chan->bg_lock);
 	if (arg->max_background) {
-		fc->chan->max_background = arg->max_background;
+		unsigned int max_background = max_background = arg->max_background;
 
-		if (!cap_sys_admin && fc->chan->max_background > max_user_bgreq)
-			fc->chan->max_background = max_user_bgreq;
+		if (!cap_sys_admin && max_background > max_user_bgreq)
+			max_background = max_user_bgreq;
+
+		fuse_chan_max_background_set(fc->chan, max_background);
 	}
 	if (arg->congestion_threshold) {
 		fc->congestion_threshold = arg->congestion_threshold;
@@ -1267,7 +1263,6 @@ static void process_init_limits(struct fuse_conn *fc, struct fuse_init_out *arg)
 		    fc->congestion_threshold > max_user_congthresh)
 			fc->congestion_threshold = max_user_congthresh;
 	}
-	spin_unlock(&fc->chan->bg_lock);
 }
 
 struct fuse_init_args {
@@ -1412,7 +1407,7 @@ static void process_init_reply(struct fuse_mount *fm, struct fuse_args *args,
 					ok = false;
 			}
 			if (flags & FUSE_OVER_IO_URING && fuse_uring_enabled())
-				fc->chan->io_uring = 1;
+				fuse_chan_io_uring_enable(fc->chan);
 
 			if (flags & FUSE_REQUEST_TIMEOUT)
 				timeout = arg->request_timeout;
@@ -1438,8 +1433,7 @@ static void process_init_reply(struct fuse_mount *fm, struct fuse_args *args,
 		fc->conn_error = 1;
 	}
 
-	fuse_set_initialized(fc);
-	wake_up_all(&fc->chan->blocked_waitq);
+	fuse_chan_set_initialized(fc->chan);
 }
 
 static struct fuse_init_args *fuse_new_init(struct fuse_mount *fm)
@@ -1788,9 +1782,9 @@ int fuse_fill_super_common(struct super_block *sb, struct fuse_fs_context *ctx)
 	mutex_lock(&fuse_mutex);
 	err = -EINVAL;
 	if (fud) {
-		if (fuse_dev_fc_get(fud))
+		if (fuse_dev_is_installed(fud))
 			goto err_unlock;
-		if (fud->sync_init)
+		if (fuse_dev_is_sync_init(fud))
 			fc->sync_init = 1;
 	}
 
@@ -1848,9 +1842,7 @@ static int fuse_set_no_super(struct super_block *sb, struct fs_context *fsc)
 
 static int fuse_test_super(struct super_block *sb, struct fs_context *fsc)
 {
-	struct fuse_dev *fud = fsc->sget_key;
-
-	return fuse_dev_fc_get(fud) == get_fuse_conn_super(sb);
+	return fuse_dev_verify(fsc->sget_key, get_fuse_conn_super(sb));
 }
 
 static int fuse_get_tree(struct fs_context *fsc)
@@ -1896,7 +1888,7 @@ static int fuse_get_tree(struct fs_context *fsc)
 	 * Allow creating a fuse mount with an already initialized fuse
 	 * connection
 	 */
-	if (fuse_dev_fc_get(ctx->fud)) {
+	if (fuse_dev_is_installed(ctx->fud)) {
 		fsc->sget_key = ctx->fud;
 		sb = sget_fc(fsc, fuse_test_super, fuse_set_no_super);
 		err = PTR_ERR_OR_ZERO(sb);

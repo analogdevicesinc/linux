@@ -1184,8 +1184,6 @@ int fuse_write_inode(struct inode *inode, struct writeback_control *wbc);
 int fuse_do_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 		    struct iattr *attr, struct file *file);
 
-void fuse_set_initialized(struct fuse_conn *fc);
-
 void fuse_unlock_inode(struct inode *inode, bool locked);
 bool fuse_lock_inode(struct inode *inode);
 

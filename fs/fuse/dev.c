@@ -69,11 +69,12 @@ static void __fuse_put_request(struct fuse_req *req)
 	refcount_dec(&req->count);
 }
 
-void fuse_set_initialized(struct fuse_conn *fc)
+void fuse_chan_set_initialized(struct fuse_chan *fch)
 {
 	/* Make sure stores before this are seen on another CPU */
 	smp_wmb();
-	fc->chan->initialized = 1;
+	fch->initialized = 1;
+	wake_up_all(&fch->blocked_waitq);
 }
 
 static bool fuse_block_alloc(struct fuse_conn *fc, bool for_background)
@@ -118,7 +119,7 @@ static struct fuse_req *fuse_get_req(struct mnt_idmap *idmap,
 				(TASK_KILLABLE | TASK_FREEZABLE)))
 			goto out;
 	}
-	/* Matches smp_wmb() in fuse_set_initialized() */
+	/* Matches smp_wmb() in fuse_chan_set_initialized() */
 	smp_rmb();
 
 	err = -ENOTCONN;
@@ -338,6 +339,9 @@ void fuse_chan_release(struct fuse_chan *fch)
 
 	if (fiq->ops->release)
 		fiq->ops->release(fiq);
+
+	if (fch->timeout.req_timeout)
+		cancel_delayed_work_sync(&fch->timeout.work);
 }
 
 void fuse_chan_free(struct fuse_chan *fch)
@@ -380,6 +384,41 @@ struct fuse_chan *fuse_dev_chan_new(void)
 	return fch;
 }
 EXPORT_SYMBOL_GPL(fuse_dev_chan_new);
+
+unsigned int fuse_chan_num_background(struct fuse_chan *fch)
+{
+	return fch->num_background;
+}
+
+unsigned int fuse_chan_max_background(struct fuse_chan *fch)
+{
+	return READ_ONCE(fch->max_background);
+}
+
+void fuse_chan_max_background_set(struct fuse_chan *fch, unsigned int val)
+{
+	spin_lock(&fch->bg_lock);
+	fch->max_background = val;
+	fch->blocked = fch->num_background >= fch->max_background;
+	if (!fch->blocked)
+		wake_up(&fch->blocked_waitq);
+	spin_unlock(&fch->bg_lock);
+}
+
+unsigned int fuse_chan_num_waiting(struct fuse_chan *fch)
+{
+	return atomic_read(&fch->num_waiting);
+}
+
+void fuse_chan_set_fc(struct fuse_chan *fch, struct fuse_conn *fc)
+{
+	fch->conn = fc;
+}
+
+void fuse_chan_io_uring_enable(struct fuse_chan *fch)
+{
+	fch->io_uring = 1;
+}
 
 void fuse_pqueue_init(struct fuse_pqueue *fpq)
 {
@@ -474,6 +513,34 @@ void fuse_dev_put(struct fuse_dev *fud)
 	kfree(fud);
 }
 EXPORT_SYMBOL_GPL(fuse_dev_put);
+
+bool fuse_dev_is_installed(struct fuse_dev *fud)
+{
+	struct fuse_conn *fc = fuse_dev_fc_get(fud);
+
+	return fc != NULL && fc != FUSE_DEV_FC_DISCONNECTED;
+}
+
+/*
+ * Checks if @fc matches the one installed in @fud
+ */
+bool fuse_dev_verify(struct fuse_dev *fud, struct fuse_conn *fc)
+{
+	return fuse_dev_fc_get(fud) == fc;
+}
+
+bool fuse_dev_is_sync_init(struct fuse_dev *fud)
+{
+	return fud->sync_init;
+}
+
+struct fuse_dev *fuse_dev_grab(struct file *file)
+{
+	struct fuse_dev *fud = fuse_file_to_fud(file);
+
+	refcount_inc(&fud->ref);
+	return fud;
+}
 
 static void fuse_send_one(struct fuse_iqueue *fiq, struct fuse_req *req)
 {
@@ -2543,7 +2610,7 @@ void fuse_abort_conn(struct fuse_conn *fc)
 		fc->chan->connected = 0;
 		spin_unlock(&fc->chan->bg_lock);
 
-		fuse_set_initialized(fc);
+		fuse_chan_set_initialized(fc->chan);
 		list_for_each_entry(fud, &fc->chan->devices, entry) {
 			struct fuse_pqueue *fpq = &fud->pq;
 
@@ -2602,7 +2669,7 @@ void fuse_wait_aborted(struct fuse_conn *fc)
 {
 	/* matches implicit memory barrier in fuse_drop_waiting() */
 	smp_mb();
-	wait_event(fc->chan->blocked_waitq, atomic_read(&fc->chan->num_waiting) == 0);
+	wait_event(fc->chan->blocked_waitq, fuse_chan_num_waiting(fc->chan) == 0);
 
 	fuse_uring_wait_stopped_queues(fc);
 }
