@@ -695,7 +695,8 @@ unlock:
 	return 0;
 }
 
-static int mthca_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
+static int mthca_resize_cq(struct ib_cq *ibcq, unsigned int entries,
+			   struct ib_udata *udata)
 {
 	struct mthca_dev *dev = to_mdev(ibcq->device);
 	struct mthca_cq *cq = to_mcq(ibcq);
@@ -703,7 +704,7 @@ static int mthca_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *uda
 	u32 lkey;
 	int ret;
 
-	if (entries < 1 || entries > dev->limits.max_cqes)
+	if (entries > dev->limits.max_cqes)
 		return -EINVAL;
 
 	mutex_lock(&cq->mutex);

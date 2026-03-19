@@ -1335,7 +1335,8 @@ static int copy_resize_cqes(struct mlx5_ib_cq *cq)
 	return 0;
 }
 
-int mlx5_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
+int mlx5_ib_resize_cq(struct ib_cq *ibcq, unsigned int entries,
+		      struct ib_udata *udata)
 {
 	struct mlx5_ib_dev *dev = to_mdev(ibcq->device);
 	struct mlx5_ib_cq *cq = to_mcq(ibcq);
@@ -1355,13 +1356,8 @@ int mlx5_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
 		return -ENOSYS;
 	}
 
-	if (entries < 1 ||
-	    entries > (1 << MLX5_CAP_GEN(dev->mdev, log_max_cq_sz))) {
-		mlx5_ib_warn(dev, "wrong entries number %d, max %d\n",
-			     entries,
-			     1 << MLX5_CAP_GEN(dev->mdev, log_max_cq_sz));
+	if (entries > (1 << MLX5_CAP_GEN(dev->mdev, log_max_cq_sz)))
 		return -EINVAL;
-	}
 
 	entries = roundup_pow_of_two(entries + 1);
 	if (entries > (1 << MLX5_CAP_GEN(dev->mdev, log_max_cq_sz)) + 1)

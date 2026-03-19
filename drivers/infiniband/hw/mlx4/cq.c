@@ -414,7 +414,8 @@ static void mlx4_ib_cq_resize_copy_cqes(struct mlx4_ib_cq *cq)
 	++cq->mcq.cons_index;
 }
 
-int mlx4_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
+int mlx4_ib_resize_cq(struct ib_cq *ibcq, unsigned int entries,
+		      struct ib_udata *udata)
 {
 	struct mlx4_ib_dev *dev = to_mdev(ibcq->device);
 	struct mlx4_ib_cq *cq = to_mcq(ibcq);
@@ -423,7 +424,7 @@ int mlx4_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
 	int err;
 
 	mutex_lock(&cq->resize_mutex);
-	if (entries < 1 || entries > dev->dev->caps.max_cqes) {
+	if (entries > dev->dev->caps.max_cqes) {
 		err = -EINVAL;
 		goto out;
 	}

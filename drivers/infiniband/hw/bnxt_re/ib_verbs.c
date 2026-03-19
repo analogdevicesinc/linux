@@ -3551,7 +3551,8 @@ static void bnxt_re_resize_cq_complete(struct bnxt_re_cq *cq)
 	}
 }
 
-int bnxt_re_resize_cq(struct ib_cq *ibcq, int cqe, struct ib_udata *udata)
+int bnxt_re_resize_cq(struct ib_cq *ibcq, unsigned int cqe,
+		      struct ib_udata *udata)
 {
 	struct bnxt_qplib_sg_info sg_info = {};
 	struct bnxt_qplib_dpi *orig_dpi = NULL;
@@ -3577,11 +3578,8 @@ int bnxt_re_resize_cq(struct ib_cq *ibcq, int cqe, struct ib_udata *udata)
 	}
 
 	/* Check the requested cq depth out of supported depth */
-	if (cqe < 1 || cqe > dev_attr->max_cq_wqes) {
-		ibdev_err(&rdev->ibdev, "Resize CQ %#x failed - out of range cqe %d",
-			  cq->qplib_cq.id, cqe);
+	if (cqe > dev_attr->max_cq_wqes)
 		return -EINVAL;
-	}
 
 	uctx = rdma_udata_to_drv_context(udata, struct bnxt_re_ucontext, ib_uctx);
 	entries = bnxt_re_init_depth(cqe + 1, uctx);

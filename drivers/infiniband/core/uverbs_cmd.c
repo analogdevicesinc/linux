@@ -1138,6 +1138,9 @@ static int ib_uverbs_resize_cq(struct uverbs_attr_bundle *attrs)
 	if (ret)
 		return ret;
 
+	if (!cmd.cqe)
+		return -EINVAL;
+
 	cq = uobj_get_obj_read(cq, UVERBS_OBJECT_CQ, cmd.cq_handle, attrs);
 	if (IS_ERR(cq))
 		return PTR_ERR(cq);

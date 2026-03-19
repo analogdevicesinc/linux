@@ -18,9 +18,6 @@ void rxe_av_fill_ip_info(struct rxe_av *av, struct rdma_ah_attr *attr);
 struct rxe_av *rxe_get_av(struct rxe_pkt_info *pkt, struct rxe_ah **ahp);
 
 /* rxe_cq.c */
-int rxe_cq_chk_attr(struct rxe_dev *rxe, struct rxe_cq *cq,
-		    int cqe, int comp_vector);
-
 int rxe_cq_from_init(struct rxe_dev *rxe, struct rxe_cq *cq, int cqe,
 		     int comp_vector, struct ib_udata *udata,
 		     struct rxe_create_cq_resp __user *uresp);
