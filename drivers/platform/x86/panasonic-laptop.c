@@ -965,14 +965,7 @@ static int acpi_pcc_init_input(struct pcc_acpi *pcc)
 #ifdef CONFIG_PM_SLEEP
 static int acpi_pcc_hotkey_resume(struct device *dev)
 {
-	struct pcc_acpi *pcc;
-
-	if (!dev)
-		return -EINVAL;
-
-	pcc = acpi_driver_data(to_acpi_device(dev));
-	if (!pcc)
-		return -EINVAL;
+	struct pcc_acpi *pcc = acpi_driver_data(to_acpi_device(dev));
 
 	if (pcc->num_sifr > SINF_MUTE)
 		acpi_pcc_write_sset(pcc, SINF_MUTE, pcc->mute);
@@ -993,9 +986,6 @@ static int acpi_pcc_hotkey_add(struct acpi_device *device)
 	struct backlight_properties props;
 	struct pcc_acpi *pcc;
 	int num_sifr, result;
-
-	if (!device)
-		return -EINVAL;
 
 	num_sifr = acpi_pcc_get_sqty(device);
 
@@ -1120,9 +1110,6 @@ out_hotkey:
 static void acpi_pcc_hotkey_remove(struct acpi_device *device)
 {
 	struct pcc_acpi *pcc = acpi_driver_data(device);
-
-	if (!device || !pcc)
-		return;
 
 	i8042_remove_filter(panasonic_i8042_filter);
 
