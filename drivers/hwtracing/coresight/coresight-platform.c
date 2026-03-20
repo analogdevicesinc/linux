@@ -220,6 +220,8 @@ static int of_coresight_parse_endpoint(struct device *dev,
 		rparent = of_coresight_get_port_parent(rep);
 		if (!rparent)
 			break;
+		if (!of_device_is_available(rparent))
+			break;
 		if (of_graph_parse_endpoint(rep, &rendpoint))
 			break;
 
