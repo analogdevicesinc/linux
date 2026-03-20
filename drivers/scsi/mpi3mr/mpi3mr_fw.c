@@ -996,6 +996,7 @@ static const struct {
 	{ MPI3MR_RESET_FROM_FIRMWARE, "firmware asynchronous reset" },
 	{ MPI3MR_RESET_FROM_CFG_REQ_TIMEOUT, "configuration request timeout"},
 	{ MPI3MR_RESET_FROM_SAS_TRANSPORT_TIMEOUT, "timeout of a SAS transport layer request" },
+	{ MPI3MR_RESET_FROM_INVALID_COMPLETION, "invalid cmd completion" },
 };
 
 /**
@@ -2876,6 +2877,11 @@ static void mpi3mr_watchdog_work(struct work_struct *work)
 		ioc_err(mrioc,
 		    "flush pending commands for unrecoverable controller\n");
 		mpi3mr_flush_cmds_for_unrecovered_controller(mrioc);
+		return;
+	}
+
+	if (mrioc->invalid_io_comp) {
+		mpi3mr_soft_reset_handler(mrioc, MPI3MR_RESET_FROM_INVALID_COMPLETION, 1);
 		return;
 	}
 
@@ -5644,6 +5650,7 @@ int mpi3mr_soft_reset_handler(struct mpi3mr_ioc *mrioc,
 	ssleep(MPI3MR_RESET_TOPOLOGY_SETTLE_TIME);
 
 out:
+	mrioc->invalid_io_comp = 0;
 	if (!retval) {
 		mrioc->diagsave_timeout = 0;
 		mrioc->reset_in_progress = 0;

@@ -323,6 +323,7 @@ enum mpi3mr_reset_reason {
 	MPI3MR_RESET_FROM_CFG_REQ_TIMEOUT = 29,
 	MPI3MR_RESET_FROM_SAS_TRANSPORT_TIMEOUT = 30,
 	MPI3MR_RESET_FROM_TRIGGER = 31,
+	MPI3MR_RESET_FROM_INVALID_COMPLETION = 32,
 };
 
 #define MPI3MR_RESET_REASON_OSTYPE_LINUX	1
@@ -1183,6 +1184,7 @@ struct scmd_priv {
  * @num_tb_segs: Number of Segments in Trace buffer
  * @trace_buf_pool: DMA pool for Segmented trace buffer segments
  * @trace_buf: Trace buffer segments memory descriptor
+ * @invalid_io_comp: Invalid IO completion
  */
 struct mpi3mr_ioc {
 	struct list_head list;
@@ -1394,6 +1396,7 @@ struct mpi3mr_ioc {
 	u32 num_tb_segs;
 	struct dma_pool *trace_buf_pool;
 	struct segments *trace_buf;
+	u8 invalid_io_comp;
 
 };
 
