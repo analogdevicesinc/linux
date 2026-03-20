@@ -891,7 +891,7 @@ static void pcc_optd_notify(acpi_handle handle, u32 event, void *data)
 	set_optd_power_state(0);
 }
 
-static int pcc_register_optd_notifier(struct pcc_acpi *pcc, char *node)
+static void pcc_register_optd_notifier(struct pcc_acpi *pcc, char *node)
 {
 	acpi_status status;
 	acpi_handle handle;
@@ -904,10 +904,7 @@ static int pcc_register_optd_notifier(struct pcc_acpi *pcc, char *node)
 				pcc_optd_notify, pcc);
 		if (ACPI_FAILURE(status))
 			pr_err("Failed to register notify on %s\n", node);
-	} else
-		return -ENODEV;
-
-	return 0;
+	}
 }
 
 static void pcc_unregister_optd_notifier(struct pcc_acpi *pcc, char *node)
