@@ -280,7 +280,7 @@ static int vcnl4000_init(struct vcnl4000_data *data)
 	data->rev = ret & 0xf;
 	data->al_scale = 250000;
 
-	return data->chip_spec->set_power_state(data, true);
+	return 0;
 };
 
 static ssize_t vcnl4000_write_als_enable(struct vcnl4000_data *data, bool en)
@@ -422,10 +422,6 @@ static int vcnl4200_init(struct vcnl4000_data *data)
 	regval = ret | VCNL4040_CONF3_PS_SAMPLE_16BITS;
 	ret = i2c_smbus_write_word_data(data->client, VCNL4200_PS_CONF3,
 					regval);
-	if (ret < 0)
-		return ret;
-
-	ret = data->chip_spec->set_power_state(data, true);
 	if (ret < 0)
 		return ret;
 
@@ -2001,6 +1997,10 @@ static int vcnl4000_probe(struct i2c_client *client)
 
 	ret = data->chip_spec->init(data);
 	if (ret < 0)
+		return ret;
+
+	ret = data->chip_spec->set_power_state(data, true);
+	if (ret)
 		return ret;
 
 	dev_dbg(&client->dev, "%s Ambient light/proximity sensor, Rev: %02x\n",
