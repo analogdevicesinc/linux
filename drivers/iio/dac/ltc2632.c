@@ -58,8 +58,9 @@ static int ltc2632_spi_write(struct spi_device *spi,
 	 * The input shift register is 24 bits wide.
 	 * The next four are the command bits, C3 to C0,
 	 * followed by the 4-bit DAC address, A3 to A0, and then the
-	 * 12-, 10-, 8-bit data-word. The data-word comprises the 12-,
-	 * 10-, 8-bit input code followed by 4, 6, or 8 don't care bits.
+	 * 16-, 12-, 10-, 8-bit data-word. The data-word comprises the
+	 * 16-, 12-, 10-, 8-bit input code followed by 0, 4, 6, or 8
+	 * don't care bits.
 	 */
 	data = (cmd << 20) | (addr << 16) | (val << shift);
 	put_unaligned_be24(data, &msg[0]);
@@ -185,6 +186,7 @@ static const struct iio_chan_spec_ext_info ltc2632_ext_info[] = {
 		LTC2632_CHANNEL(7, _bits), \
 	}
 
+static DECLARE_LTC2632_CHANNELS(ltc2632x16, 16);
 static DECLARE_LTC2632_CHANNELS(ltc2632x12, 12);
 static DECLARE_LTC2632_CHANNELS(ltc2632x10, 10);
 static DECLARE_LTC2632_CHANNELS(ltc2632x8, 8);
@@ -297,6 +299,18 @@ static const struct ltc2632_chip_info ltc2636h8_chip_info = {
 	.vref_mv	= 4096,
 };
 
+static const struct ltc2632_chip_info ltc2654l16_chip_info = {
+	.channels	= ltc2632x16_channels,
+	.num_channels	= 4,
+	.vref_mv	= 2500,
+};
+
+static const struct ltc2632_chip_info ltc2654h16_chip_info = {
+	.channels	= ltc2632x16_channels,
+	.num_channels	= 4,
+	.vref_mv	= 4096,
+};
+
 static int ltc2632_probe(struct spi_device *spi)
 {
 	struct ltc2632_state *st;
@@ -366,6 +380,10 @@ static const struct spi_device_id ltc2632_id[] = {
 	{ "ltc2636-h12", (kernel_ulong_t)&ltc2636h12_chip_info },
 	{ "ltc2636-h10", (kernel_ulong_t)&ltc2636h10_chip_info },
 	{ "ltc2636-h8",  (kernel_ulong_t)&ltc2636h8_chip_info  },
+	{ "ltc2654-l16", (kernel_ulong_t)&ltc2654l16_chip_info },
+	{ "ltc2654-l12", (kernel_ulong_t)&ltc2634l12_chip_info },
+	{ "ltc2654-h16", (kernel_ulong_t)&ltc2654h16_chip_info },
+	{ "ltc2654-h12", (kernel_ulong_t)&ltc2634h12_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ltc2632_id);
@@ -389,6 +407,8 @@ static const struct of_device_id ltc2632_of_match[] = {
 	{ .compatible = "lltc,ltc2636-h12", .data = &ltc2636h12_chip_info },
 	{ .compatible = "lltc,ltc2636-h10", .data = &ltc2636h10_chip_info },
 	{ .compatible = "lltc,ltc2636-h8",  .data = &ltc2636h8_chip_info  },
+	{ .compatible = "lltc,ltc2654-l16", .data = &ltc2654l16_chip_info },
+	{ .compatible = "lltc,ltc2654-h16", .data = &ltc2654h16_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ltc2632_of_match);
@@ -404,5 +424,5 @@ static struct spi_driver ltc2632_driver = {
 module_spi_driver(ltc2632_driver);
 
 MODULE_AUTHOR("Maxime Roussin-Belanger <maxime.roussinbelanger@gmail.com>");
-MODULE_DESCRIPTION("LTC2632 DAC SPI driver");
+MODULE_DESCRIPTION("LTC2632 and similar DAC SPI driver");
 MODULE_LICENSE("GPL v2");
