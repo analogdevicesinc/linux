@@ -5058,9 +5058,9 @@ void mpi3mr_free_mem(struct mpi3mr_ioc *mrioc)
  */
 static void mpi3mr_issue_ioc_shutdown(struct mpi3mr_ioc *mrioc)
 {
-	u32 ioc_config, ioc_status;
-	u8 retval = 1;
-	u32 timeout = MPI3MR_DEFAULT_SHUTDOWN_TIME * 10;
+	u32 ioc_config, ioc_status, shutdown_action;
+	u8 retval = 1, retry = 0;
+	u32 timeout = MPI3MR_DEFAULT_SHUTDOWN_TIME * 10, timeout_remaining = 0;
 
 	ioc_info(mrioc, "Issuing shutdown Notification\n");
 	if (mrioc->unrecoverable) {
@@ -5075,14 +5075,16 @@ static void mpi3mr_issue_ioc_shutdown(struct mpi3mr_ioc *mrioc)
 		return;
 	}
 
+	shutdown_action = MPI3_SYSIF_IOC_CONFIG_SHUTDOWN_NORMAL |
+	    MPI3_SYSIF_IOC_CONFIG_DEVICE_SHUTDOWN_SEND_REQ;
 	ioc_config = readl(&mrioc->sysif_regs->ioc_configuration);
-	ioc_config |= MPI3_SYSIF_IOC_CONFIG_SHUTDOWN_NORMAL;
-	ioc_config |= MPI3_SYSIF_IOC_CONFIG_DEVICE_SHUTDOWN_SEND_REQ;
+	ioc_config |= shutdown_action;
 
 	writel(ioc_config, &mrioc->sysif_regs->ioc_configuration);
 
 	if (mrioc->facts.shutdown_timeout)
 		timeout = mrioc->facts.shutdown_timeout * 10;
+	timeout_remaining = timeout;
 
 	do {
 		ioc_status = readl(&mrioc->sysif_regs->ioc_status);
@@ -5091,8 +5093,26 @@ static void mpi3mr_issue_ioc_shutdown(struct mpi3mr_ioc *mrioc)
 			retval = 0;
 			break;
 		}
+		if (mrioc->unrecoverable)
+			break;
+		if (ioc_status & MPI3_SYSIF_IOC_STATUS_FAULT) {
+			mpi3mr_print_fault_info(mrioc);
+			if (retry >= MPI3MR_MAX_SHUTDOWN_RETRY_COUNT)
+				break;
+			if (mpi3mr_issue_reset(mrioc,
+			    MPI3_SYSIF_HOST_DIAG_RESET_ACTION_SOFT_RESET,
+			    MPI3MR_RESET_FROM_CTLR_CLEANUP))
+				break;
+			ioc_config =
+			    readl(&mrioc->sysif_regs->ioc_configuration);
+			ioc_config |= shutdown_action;
+			writel(ioc_config,
+			    &mrioc->sysif_regs->ioc_configuration);
+			timeout_remaining = timeout;
+			retry++;
+		}
 		msleep(100);
-	} while (--timeout);
+	} while (--timeout_remaining);
 
 	ioc_status = readl(&mrioc->sysif_regs->ioc_status);
 	ioc_config = readl(&mrioc->sysif_regs->ioc_configuration);
