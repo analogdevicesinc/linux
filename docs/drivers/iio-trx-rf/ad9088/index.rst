@@ -35,7 +35,7 @@ Evaluation Boards
 -----------------
 
 * | :adi:`EVAL-AD9084`
-  | :adi:`User Guide (UG-2326) <media/en/technical-documentation/user-guides/eval-ad9084-ug-2326.pdf>`
+  | :adi:`User Guide (UG-2326) <media/en/technical-documentation/user-guides/eval-ad9084-ad9088-ug-2326.pdf>`
 
 Source Code
 -----------
