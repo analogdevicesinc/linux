@@ -314,17 +314,6 @@ static int DvbDmxFilterCallback(u8 *buffer1, size_t buffer1_len,
 	}
 }
 
-//#define DEBUG_TIMING
-static inline void print_time(char *s)
-{
-#ifdef DEBUG_TIMING
-	struct timespec64 ts;
-
-	ktime_get_real_ts64(&ts);
-	pr_info("%s(): %ptSp\n", s, &ts);
-#endif
-}
-
 #define DEBI_READ 0
 #define DEBI_WRITE 1
 static inline void start_debi_dma(struct av7110 *av7110, int dir,
@@ -353,7 +342,6 @@ static void debiirq(struct tasklet_struct *t)
 	int handle = (type >> 8) & 0x1f;
 	unsigned int xfer = 0;
 
-	print_time("debi");
 	dprintk(4, "type 0x%04x\n", type);
 
 	if (type == -1) {
@@ -473,7 +461,6 @@ static void gpioirq(struct tasklet_struct *t)
 	txbuf = irdebi(av7110, DEBINOSWAP, TX_BUFF, 0, 2);
 	len = (av7110->debilen + 3) & ~3;
 
-	print_time("gpio");
 	dprintk(8, "GPIO0 irq 0x%04x %d\n", av7110->debitype, av7110->debilen);
 
 	switch (av7110->debitype & 0xff) {
@@ -2783,8 +2770,6 @@ static int av7110_detach(struct saa7146_dev *saa)
 static void av7110_irq(struct saa7146_dev *dev, u32 *isr)
 {
 	struct av7110 *av7110 = dev->ext_priv;
-
-	//print_time("av7110_irq");
 
 	/* Note: Don't try to handle the DEBI error irq (MASK_18), in
 	 * intel mode the timeout is asserted all the time...
