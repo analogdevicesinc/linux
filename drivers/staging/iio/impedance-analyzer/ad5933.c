@@ -285,7 +285,7 @@ static ssize_t ad5933_show_frequency(struct device *dev,
 	freqreg = (u64)freqreg * (u64)(st->mclk_hz / 4);
 	do_div(freqreg, BIT(27));
 
-	return sprintf(buf, "%d\n", (int)freqreg);
+	return sysfs_emit(buf, "%llu\n", freqreg);
 }
 
 static ssize_t ad5933_store_frequency(struct device *dev,
@@ -338,27 +338,27 @@ static ssize_t ad5933_show(struct device *dev,
 	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
 	case AD5933_OUT_RANGE:
-		len = sprintf(buf, "%u\n",
-			      st->range_avail[(st->ctrl_hb >> 1) & 0x3]);
+		len = sysfs_emit(buf, "%u\n",
+				 st->range_avail[(st->ctrl_hb >> 1) & 0x3]);
 		break;
 	case AD5933_OUT_RANGE_AVAIL:
-		len = sprintf(buf, "%u %u %u %u\n", st->range_avail[0],
-			      st->range_avail[3], st->range_avail[2],
-			      st->range_avail[1]);
+		len = sysfs_emit(buf, "%u %u %u %u\n", st->range_avail[0],
+				 st->range_avail[3], st->range_avail[2],
+				 st->range_avail[1]);
 		break;
 	case AD5933_OUT_SETTLING_CYCLES:
-		len = sprintf(buf, "%d\n", st->settling_cycles);
+		len = sysfs_emit(buf, "%d\n", st->settling_cycles);
 		break;
 	case AD5933_IN_PGA_GAIN:
-		len = sprintf(buf, "%s\n",
-			      (st->ctrl_hb & AD5933_CTRL_PGA_GAIN_1) ?
-			      "1" : "0.2");
+		len = sysfs_emit(buf, "%s\n",
+				 (st->ctrl_hb & AD5933_CTRL_PGA_GAIN_1) ?
+				 "1" : "0.2");
 		break;
 	case AD5933_IN_PGA_GAIN_AVAIL:
-		len = sprintf(buf, "1 0.2\n");
+		len = sysfs_emit(buf, "1 0.2\n");
 		break;
 	case AD5933_FREQ_POINTS:
-		len = sprintf(buf, "%d\n", st->freq_points);
+		len = sysfs_emit(buf, "%d\n", st->freq_points);
 		break;
 	default:
 		ret = -EINVAL;
