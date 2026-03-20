@@ -429,6 +429,14 @@ struct segments {
  * @q_segments: Segment descriptor pointer
  * @q_segment_list: Segment list base virtual address
  * @q_segment_list_dma: Segment list base DMA address
+ * @last_full_host_tag: Hosttag of last IO returned to SML
+ *			due to queue full
+ * @qfull_io_count: Number of IOs returned back to SML
+ *			due to queue full
+ * @qfull_instances: Total queue full occurrences.One occurrence
+ *			starts with queue full detection and ends
+ *			with queue full breaks.
+ *
  */
 struct op_req_qinfo {
 	u16 ci;
@@ -442,6 +450,10 @@ struct op_req_qinfo {
 	struct segments *q_segments;
 	void *q_segment_list;
 	dma_addr_t q_segment_list_dma;
+	u16 last_full_host_tag;
+	u64 qfull_io_count;
+	u32 qfull_instances;
+
 };
 
 /**

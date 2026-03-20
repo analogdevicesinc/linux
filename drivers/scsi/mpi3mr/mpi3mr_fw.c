@@ -2362,6 +2362,9 @@ static int mpi3mr_create_op_req_q(struct mpi3mr_ioc *mrioc, u16 idx,
 	op_req_q->ci = 0;
 	op_req_q->pi = 0;
 	op_req_q->reply_qid = reply_qid;
+	op_req_q->last_full_host_tag =  MPI3MR_HOSTTAG_INVALID;
+	op_req_q->qfull_io_count =  0;
+	op_req_q->qfull_instances =  0;
 	spin_lock_init(&op_req_q->q_lock);
 
 	if (!op_req_q->q_segments) {
@@ -2548,6 +2551,8 @@ int mpi3mr_op_request_post(struct mpi3mr_ioc *mrioc,
 	u16 req_sz = mrioc->facts.op_req_sz;
 	struct segments *segments = op_req_q->q_segments;
 	struct op_reply_qinfo *op_reply_q = NULL;
+	struct mpi3_scsi_io_request *scsiio_req =
+		(struct mpi3_scsi_io_request *)req;
 
 	reply_qidx = op_req_q->reply_qid - 1;
 	op_reply_q = mrioc->op_reply_qinfo + reply_qidx;
@@ -2565,10 +2570,20 @@ int mpi3mr_op_request_post(struct mpi3mr_ioc *mrioc,
 		mpi3mr_process_op_reply_q(mrioc, mrioc->intr_info[midx].op_reply_q);
 
 		if (mpi3mr_check_req_qfull(op_req_q)) {
+
+			if (op_req_q->last_full_host_tag ==
+			    MPI3MR_HOSTTAG_INVALID)
+				op_req_q->qfull_instances++;
+
+			op_req_q->last_full_host_tag = scsiio_req->host_tag;
+			op_req_q->qfull_io_count++;
 			retval = -EAGAIN;
 			goto out;
 		}
 	}
+
+	if (op_req_q->last_full_host_tag != MPI3MR_HOSTTAG_INVALID)
+		op_req_q->last_full_host_tag = MPI3MR_HOSTTAG_INVALID;
 
 	if (mrioc->reset_in_progress) {
 		ioc_err(mrioc, "OpReqQ submit reset in progress\n");
@@ -4827,6 +4842,7 @@ void mpi3mr_memset_buffers(struct mpi3mr_ioc *mrioc)
 		mrioc->req_qinfo[i].qid = 0;
 		mrioc->req_qinfo[i].reply_qid = 0;
 		spin_lock_init(&mrioc->req_qinfo[i].q_lock);
+		mrioc->req_qinfo[i].last_full_host_tag = 0;
 		mpi3mr_memset_op_req_q_buffers(mrioc, i);
 	}
 
