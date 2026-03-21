@@ -6,6 +6,8 @@ soc/dt
 	renesas/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.1-tag1
 		contains renesas/fixes
+	rockchip/dt64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.1-rockchip-dts64-1
 
 soc/drivers
 	renesas/drivers
