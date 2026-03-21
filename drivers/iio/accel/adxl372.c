@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * ADXL372 3-Axis Digital Accelerometer core driver
+ * ADXL371/ADXL372 3-Axis Digital Accelerometer core driver
  *
  * Copyright 2018 Analog Devices Inc.
  */
@@ -184,6 +184,15 @@ enum adxl372_odr {
 	ADXL372_ODR_NUM
 };
 
+enum adxl371_odr {
+	ADXL371_ODR_320HZ,
+	ADXL371_ODR_640HZ,
+	ADXL371_ODR_1280HZ,
+	ADXL371_ODR_2560HZ,
+	ADXL371_ODR_5120HZ,
+	ADXL371_ODR_NUM
+};
+
 enum adxl372_bandwidth {
 	ADXL372_BW_200HZ,
 	ADXL372_BW_400HZ,
@@ -232,6 +241,37 @@ static const int adxl372_bw_freq_tbl[ADXL372_ODR_NUM] = {
 	[ADXL372_BW_3200HZ] = 3200,
 };
 
+static const int adxl371_samp_freq_tbl[ADXL371_ODR_NUM] = {
+	[ADXL371_ODR_320HZ] = 320,
+	[ADXL371_ODR_640HZ] = 640,
+	[ADXL371_ODR_1280HZ] = 1280,
+	[ADXL371_ODR_2560HZ] = 2560,
+	[ADXL371_ODR_5120HZ] = 5120,
+};
+
+static const int adxl371_bw_freq_tbl[ADXL371_ODR_NUM] = {
+	[ADXL371_ODR_320HZ] = 160,
+	[ADXL371_ODR_640HZ] = 320,
+	[ADXL371_ODR_1280HZ] = 640,
+	[ADXL371_ODR_2560HZ] = 1280,
+	[ADXL371_ODR_5120HZ] = 2560,
+};
+
+const struct adxl372_chip_info adxl371_chip_info = {
+	.name = "adxl371",
+	.samp_freq_tbl = adxl371_samp_freq_tbl,
+	.bw_freq_tbl = adxl371_bw_freq_tbl,
+	.num_freqs = ARRAY_SIZE(adxl371_samp_freq_tbl),
+	.act_time_scale_us = 4125,
+	.act_time_scale_low_us = 8250,
+	.inact_time_scale_ms = 16,
+	.inact_time_scale_low_ms = 32,
+	.max_odr = ADXL371_ODR_5120HZ,
+	/* Silicon erratum (er001) causes FIFO data misalignment on ADXL371 */
+	.fifo_supported = false,
+};
+EXPORT_SYMBOL_NS_GPL(adxl371_chip_info, "IIO_ADXL372");
+
 const struct adxl372_chip_info adxl372_chip_info = {
 	.name = "adxl372",
 	.samp_freq_tbl = adxl372_samp_freq_tbl,
@@ -242,6 +282,7 @@ const struct adxl372_chip_info adxl372_chip_info = {
 	.inact_time_scale_ms = 13,
 	.inact_time_scale_low_ms = 26,
 	.max_odr = ADXL372_ODR_6400HZ,
+	.fifo_supported = true,
 };
 EXPORT_SYMBOL_NS_GPL(adxl372_chip_info, "IIO_ADXL372");
 
@@ -1262,10 +1303,15 @@ int adxl372_probe(struct device *dev, struct regmap *regmap,
 
 	indio_dev->channels = adxl372_channels;
 	indio_dev->num_channels = ARRAY_SIZE(adxl372_channels);
-	indio_dev->available_scan_masks = adxl372_channel_masks;
 	indio_dev->name = chip_info->name;
 	indio_dev->info = &adxl372_info;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
+
+	if (chip_info->fifo_supported) {
+		indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
+		indio_dev->available_scan_masks = adxl372_channel_masks;
+	} else {
+		indio_dev->modes = INDIO_DIRECT_MODE;
+	}
 
 	ret = adxl372_setup(st);
 	if (ret < 0) {
@@ -1273,14 +1319,17 @@ int adxl372_probe(struct device *dev, struct regmap *regmap,
 		return ret;
 	}
 
-	ret = adxl372_buffer_setup(indio_dev);
-	if (ret < 0)
-		return ret;
+	if (chip_info->fifo_supported) {
+		ret = adxl372_buffer_setup(indio_dev);
+		if (ret < 0)
+			return ret;
+	}
 
 	return devm_iio_device_register(dev, indio_dev);
 }
 EXPORT_SYMBOL_NS_GPL(adxl372_probe, "IIO_ADXL372");
 
 MODULE_AUTHOR("Stefan Popa <stefan.popa@analog.com>");
-MODULE_DESCRIPTION("Analog Devices ADXL372 3-axis accelerometer driver");
+MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com>");
+MODULE_DESCRIPTION("Analog Devices ADXL371/ADXL372 3-axis accelerometer driver");
 MODULE_LICENSE("GPL");
