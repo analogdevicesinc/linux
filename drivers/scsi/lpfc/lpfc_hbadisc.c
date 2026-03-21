@@ -5237,12 +5237,11 @@ lpfc_set_unreg_login_mbx_cmpl(struct lpfc_hba *phba, struct lpfc_vport *vport,
 
 /*
  * Free rpi associated with LPFC_NODELIST entry.
- * This routine is called from lpfc_freenode(), when we are removing
- * a LPFC_NODELIST entry. It is also called if the driver initiates a
- * LOGO that completes successfully, and we are waiting to PLOGI back
- * to the remote NPort. In addition, it is called after we receive
- * and unsolicated ELS cmd, send back a rsp, the rsp completes and
- * we are waiting to PLOGI back to the remote NPort.
+ * This routine is called if the driver initiates a LOGO that completes
+ * successfully, and we are waiting to PLOGI back to the remote NPort.
+ * In addition, it is called after we receive and unsolicated ELS cmd,
+ * send back a rsp, the rsp completes and we are waiting to PLOGI back
+ * to the remote NPort.
  */
 int
 lpfc_unreg_rpi(struct lpfc_vport *vport, struct lpfc_nodelist *ndlp)
