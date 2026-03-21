@@ -1190,6 +1190,55 @@ bool adxl372_readable_noinc_reg(struct device *dev, unsigned int reg)
 }
 EXPORT_SYMBOL_NS_GPL(adxl372_readable_noinc_reg, "IIO_ADXL372");
 
+static int adxl372_buffer_setup(struct iio_dev *indio_dev)
+{
+	struct adxl372_state *st = iio_priv(indio_dev);
+	struct device *dev = st->dev;
+	int ret;
+
+	ret = devm_iio_triggered_buffer_setup_ext(dev, indio_dev, NULL,
+						  adxl372_trigger_handler,
+						  IIO_BUFFER_DIRECTION_IN,
+						  &adxl372_buffer_ops,
+						  adxl372_fifo_attributes);
+	if (ret)
+		return ret;
+
+	if (!st->irq)
+		return 0;
+
+	st->dready_trig = devm_iio_trigger_alloc(dev, "%s-dev%d",
+						 indio_dev->name,
+						 iio_device_id(indio_dev));
+	if (!st->dready_trig)
+		return -ENOMEM;
+
+	st->peak_datardy_trig = devm_iio_trigger_alloc(dev, "%s-dev%d-peak",
+						       indio_dev->name,
+						       iio_device_id(indio_dev));
+	if (!st->peak_datardy_trig)
+		return -ENOMEM;
+
+	st->dready_trig->ops = &adxl372_trigger_ops;
+	st->peak_datardy_trig->ops = &adxl372_peak_data_trigger_ops;
+	iio_trigger_set_drvdata(st->dready_trig, indio_dev);
+	iio_trigger_set_drvdata(st->peak_datardy_trig, indio_dev);
+	ret = devm_iio_trigger_register(dev, st->dready_trig);
+	if (ret)
+		return ret;
+
+	ret = devm_iio_trigger_register(dev, st->peak_datardy_trig);
+	if (ret)
+		return ret;
+
+	indio_dev->trig = iio_trigger_get(st->dready_trig);
+
+	return devm_request_irq(dev, st->irq,
+				iio_trigger_generic_data_rdy_poll,
+				IRQF_TRIGGER_RISING | IRQF_NO_THREAD,
+				indio_dev->name, st->dready_trig);
+}
+
 int adxl372_probe(struct device *dev, struct regmap *regmap,
 		  int irq, const struct adxl372_chip_info *chip_info)
 {
@@ -1224,51 +1273,9 @@ int adxl372_probe(struct device *dev, struct regmap *regmap,
 		return ret;
 	}
 
-	ret = devm_iio_triggered_buffer_setup_ext(dev,
-						  indio_dev, NULL,
-						  adxl372_trigger_handler,
-						  IIO_BUFFER_DIRECTION_IN,
-						  &adxl372_buffer_ops,
-						  adxl372_fifo_attributes);
+	ret = adxl372_buffer_setup(indio_dev);
 	if (ret < 0)
 		return ret;
-
-	if (st->irq) {
-		st->dready_trig = devm_iio_trigger_alloc(dev,
-							 "%s-dev%d",
-							 indio_dev->name,
-							 iio_device_id(indio_dev));
-		if (st->dready_trig == NULL)
-			return -ENOMEM;
-
-		st->peak_datardy_trig = devm_iio_trigger_alloc(dev,
-							       "%s-dev%d-peak",
-							       indio_dev->name,
-							       iio_device_id(indio_dev));
-		if (!st->peak_datardy_trig)
-			return -ENOMEM;
-
-		st->dready_trig->ops = &adxl372_trigger_ops;
-		st->peak_datardy_trig->ops = &adxl372_peak_data_trigger_ops;
-		iio_trigger_set_drvdata(st->dready_trig, indio_dev);
-		iio_trigger_set_drvdata(st->peak_datardy_trig, indio_dev);
-		ret = devm_iio_trigger_register(dev, st->dready_trig);
-		if (ret < 0)
-			return ret;
-
-		ret = devm_iio_trigger_register(dev, st->peak_datardy_trig);
-		if (ret < 0)
-			return ret;
-
-		indio_dev->trig = iio_trigger_get(st->dready_trig);
-
-		ret = devm_request_irq(dev, st->irq,
-				       iio_trigger_generic_data_rdy_poll,
-				       IRQF_TRIGGER_RISING | IRQF_NO_THREAD,
-				       indio_dev->name, st->dready_trig);
-		if (ret < 0)
-			return ret;
-	}
 
 	return devm_iio_device_register(dev, indio_dev);
 }
