@@ -140,23 +140,35 @@ add_peer() {
 }
 
 compare_ntfs() {
+	local diff_rc=0
+	local diff_file
+
 	if [ ${#tmp_jsons[@]} -gt 0 ]; then
 		suffix=""
 		[ "${SYMMETRIC_ID}" -eq 1 ] && suffix="${suffix}-symm"
 		[ "$FLOAT" == 1 ] && suffix="${suffix}-float"
 		expected="json/peer${1}${suffix}.json"
 		received="${tmp_jsons[$1]}"
+		diff_file=$(mktemp)
 
 		kill -TERM ${listener_pids[$1]} || true
 		wait ${listener_pids[$1]} || true
 		printf "Checking notifications for peer ${1}... "
 		if diff <(jq -s "${JQ_FILTER}" ${expected}) \
-			<(jq -s "${JQ_FILTER}" ${received}); then
+			<(jq -s "${JQ_FILTER}" ${received}) \
+			>"${diff_file}" 2>&1; then
 			echo "OK"
+		else
+			diff_rc=$?
+			echo "failed"
+			cat "${diff_file}"
 		fi
 
+		rm -f "${diff_file}" || true
 		rm -f ${received} || true
 	fi
+
+	return "${diff_rc}"
 }
 
 cleanup() {
