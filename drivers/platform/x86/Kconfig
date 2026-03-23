@@ -113,6 +113,24 @@ config GIGABYTE_WMI
 	  To compile this driver as a module, choose M here: the module will
 	  be called gigabyte-wmi.
 
+config BITLAND_MIFS_WMI
+	tristate "Bitland MIFS (MiInterface) WMI driver"
+	depends on ACPI_WMI
+	depends on HWMON
+	depends on INPUT
+	depends on POWER_SUPPLY
+	select ACPI_PLATFORM_PROFILE
+	select INPUT_SPARSEKMAP
+	help
+	  This is a driver for Bitland MiInterface based laptops.
+
+	  It provides the access to the temperature, fan speed, gpu
+	  control, keyboard backlight brightness and platform profile
+	  via hwmon and sysfs.
+
+	  To compile this driver as a module, choose M here: the module will
+          be called bitland-mifs-wmi.
+
 config ACERHDF
 	tristate "Acer Aspire One temperature and fan driver"
 	depends on ACPI_EC && THERMAL
