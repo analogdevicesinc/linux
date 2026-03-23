@@ -49,7 +49,6 @@ static void rvt_mcast_qp_free(struct rvt_mcast_qp *mqp)
 {
 	struct rvt_qp *qp = mqp->qp;
 
-	/* Notify hfi1_destroy_qp() if it is waiting. */
 	rvt_put_qp(qp);
 
 	kfree(mqp);
