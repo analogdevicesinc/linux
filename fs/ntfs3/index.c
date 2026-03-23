@@ -1482,6 +1482,7 @@ out1:
 	run_deallocate(sbi, &run, false);
 
 out:
+	run_close(&run);
 	return err;
 }
 
