@@ -27,7 +27,8 @@ _file () {
 
 check_checkpatch() {
 	export step_name="checkpatch"
-	local strategy=${1:-commit} # or per file
+	local strict=${1:-true} # true: no-mercy
+	local strategy=${2:-commit} # or per file
 	local mail=
 	local fail=0
 	local warn=0
@@ -60,7 +61,7 @@ check_checkpatch() {
 		local flags
 		# Skip:
 		# * empty commits, assume cover letter
-		# * matching api|API in title, assume api update
+		# * matching api|API in title, assume api update (only !strict)
 		#
 		# and those only touching non-upstream directories .github ci and docs
 		# A treeless (--filter=tree:0) fetch could be done to fetch
@@ -69,7 +70,9 @@ check_checkpatch() {
 		# SHA references in the commit message, with may not even apply
 		# if the commit is from upstream. Instead, just delegate to the
 		# user to double check the referenced SHA.
-		if git --no-pager show -s --format=%s $commit | grep -qE "(API|api)" ; then
+		if [[ "$strict" == "true" ]]; then
+			:
+		elif git --no-pager show -s --format=%s $commit | grep -qE "(API|api)" ; then
 			echo "::warning ::$step_name: API|api in commit $commit title skipped, ensure only API files are in this commit."
 			continue
 		fi
@@ -81,12 +84,11 @@ check_checkpatch() {
 			echo $files
 		fi
 
-		[[ "$strategy" == "file" ]] && flags=" \
-			--ignore COMMIT_MESSAGE \
-			--ignore DT_SPLIT_BINDING_PATCH \
-		" || flags=""
-		mail=$(scripts/checkpatch.pl \
+		flags=" \
 			--strict \
+			--ignore UNKNOWN_COMMIT_ID \
+		"
+		[[ "$strict" != "true" ]] && flags="$flags \
 			--ignore FILE_PATH_CHANGES \
 			--ignore LONG_LINE \
 			--ignore LONG_LINE_STRING \
@@ -94,7 +96,12 @@ check_checkpatch() {
 			--ignore PARENTHESIS_ALIGNMENT \
 			--ignore CAMELCASE \
 			--ignore UNDOCUMENTED_DT_STRING \
-			--ignore UNKNOWN_COMMIT_ID \
+		"
+		[[ "$strategy" == "file" ]] && flags="$flags \
+			--ignore COMMIT_MESSAGE \
+			--ignore DT_SPLIT_BINDING_PATCH \
+		"
+		mail=$(scripts/checkpatch.pl \
 			--git $commit \
 			$flags )
 

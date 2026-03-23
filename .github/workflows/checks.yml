@@ -63,6 +63,18 @@ jobs:
         get_file ci/build.sh
         get_file ci/runner_env.sh
 
+    - name: Set strict level
+      run: |
+        branch="${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}"
+        [[ "$branch" == mirror_ci/* ]] && strict="true" || strict="false"
+        echo "strict=$strict" >> "$GITHUB_ENV"
+
+        if [[ "$strict" == "true" ]]; then
+          echo "::notice ::Targets upstream mirror '$branch', strict mode enabled."
+        else
+          echo "::notice ::Targets non-upstream branch '$branch', strict mode disabled."
+        fi
+
     - name: Apply cocci
       run: |
         source ./ci/build.sh
@@ -84,7 +96,7 @@ jobs:
     - name: Check patch
       if: ${{ !cancelled() && env.fatal != 'true' }}
       run: |
-        status=0; timeout 1d bash -c "source ./ci/build.sh ; check_checkpatch ${{ inputs.strategy }}" || status=$?
+        status=0; timeout 1d bash -c "source ./ci/build.sh ; check_checkpatch $strict ${{ inputs.strategy }}" || status=$?
         [ $status -eq 124 ] && echo "step_fail_checkpatch_timeout=true" >> "$GITHUB_ENV"
         exit $status
 
