@@ -4,6 +4,7 @@
 config KERNEL_ALL_ADI_DRIVERS
 	tristate "Build all Analog Devices Kernel Drivers"
 	imply SPI
+	imply I3C
 	imply I2C
 	imply IIO
 	imply PWM
@@ -40,6 +41,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply USB_ALL_ADI_DRIVERS
 	imply POWER_RESET_LTC2952
 	imply CHARGER_ADP5061
+	imply ADI_I3C_MASTER
 	imply I2C_MUX_LTC4306
 	imply CHARGER_LT3651
 	imply BATTERY_GAUGE_LTC2941
