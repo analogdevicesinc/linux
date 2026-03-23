@@ -3902,7 +3902,6 @@ int f2fs_do_quota_sync(struct super_block *sb, int type);
 loff_t max_file_blocks(struct inode *inode);
 void f2fs_quota_off_umount(struct super_block *sb);
 void f2fs_save_errors(struct f2fs_sb_info *sbi, unsigned char flag);
-void f2fs_handle_critical_error(struct f2fs_sb_info *sbi, unsigned char reason);
 void f2fs_handle_error(struct f2fs_sb_info *sbi, unsigned char error);
 int f2fs_commit_super(struct f2fs_sb_info *sbi, bool recover);
 int f2fs_sync_fs(struct super_block *sb, int sync);
@@ -5087,7 +5086,7 @@ static inline void f2fs_handle_page_eio(struct f2fs_sb_info *sbi,
 				f2fs_bug_on(sbi, 1);
 				return;
 			}
-			f2fs_handle_critical_error(sbi, stop_reason);
+			f2fs_stop_checkpoint(sbi, false, stop_reason);
 		}
 	} else {
 		sbi->page_eio_ofs[type] = ofs;
