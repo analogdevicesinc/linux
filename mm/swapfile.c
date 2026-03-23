@@ -133,7 +133,7 @@ static DEFINE_PER_CPU(struct percpu_swap_cluster, percpu_swap_cluster) = {
 /* May return NULL on invalid type, caller must check for NULL return */
 static struct swap_info_struct *swap_type_to_info(int type)
 {
-	if (type >= MAX_SWAPFILES)
+	if (type < 0 || type >= MAX_SWAPFILES)
 		return NULL;
 	return READ_ONCE(swap_info[type]); /* rcu_dereference() */
 }
@@ -2138,22 +2138,15 @@ void swap_free_hibernation_slot(swp_entry_t entry)
 	put_swap_device(si);
 }
 
-/*
- * Find the swap type that corresponds to given device (if any).
- *
- * @offset - number of the PAGE_SIZE-sized block of the device, starting
- * from 0, in which the swap header is expected to be located.
- *
- * This is needed for the suspend to disk (aka swsusp).
- */
-int swap_type_of(dev_t device, sector_t offset)
+static int __find_hibernation_swap_type(dev_t device, sector_t offset)
 {
 	int type;
 
-	if (!device)
-		return -1;
+	lockdep_assert_held(&swap_lock);
 
-	spin_lock(&swap_lock);
+	if (!device)
+		return -EINVAL;
+
 	for (type = 0; type < nr_swapfiles; type++) {
 		struct swap_info_struct *sis = swap_info[type];
 
@@ -2163,14 +2156,116 @@ int swap_type_of(dev_t device, sector_t offset)
 		if (device == sis->bdev->bd_dev) {
 			struct swap_extent *se = first_se(sis);
 
-			if (se->start_block == offset) {
-				spin_unlock(&swap_lock);
+			if (se->start_block == offset)
 				return type;
-			}
 		}
 	}
-	spin_unlock(&swap_lock);
 	return -ENODEV;
+}
+
+/**
+ * pin_hibernation_swap_type - Pin the swap device for hibernation
+ * @device: Block device containing the resume image
+ * @offset: Offset identifying the swap area
+ *
+ * Locate the swap device for @device/@offset and mark it as pinned
+ * for hibernation. While pinned, swapoff() is prevented.
+ *
+ * Only one uswsusp context may pin a swap device at a time.
+ * If already pinned, this function returns -EBUSY.
+ *
+ * Return:
+ * >= 0 on success (swap type).
+ * -EINVAL if @device is invalid.
+ * -ENODEV if the swap device is not found.
+ * -EBUSY if the device is already pinned for hibernation.
+ */
+int pin_hibernation_swap_type(dev_t device, sector_t offset)
+{
+	int type;
+	struct swap_info_struct *si;
+
+	spin_lock(&swap_lock);
+
+	type = __find_hibernation_swap_type(device, offset);
+	if (type < 0) {
+		spin_unlock(&swap_lock);
+		return type;
+	}
+
+	si = swap_type_to_info(type);
+	if (WARN_ON_ONCE(!si)) {
+		spin_unlock(&swap_lock);
+		return -ENODEV;
+	}
+
+	/*
+	 * hibernate_acquire() prevents concurrent hibernation sessions.
+	 * This check additionally guards against double-pinning within
+	 * the same session.
+	 */
+	if (WARN_ON_ONCE(si->flags & SWP_HIBERNATION)) {
+		spin_unlock(&swap_lock);
+		return -EBUSY;
+	}
+
+	si->flags |= SWP_HIBERNATION;
+
+	spin_unlock(&swap_lock);
+	return type;
+}
+
+/**
+ * unpin_hibernation_swap_type - Unpin the swap device for hibernation
+ * @type: Swap type previously returned by pin_hibernation_swap_type()
+ *
+ * Clear the hibernation pin on the given swap device, allowing
+ * swapoff() to proceed normally.
+ *
+ * If @type does not refer to a valid swap device, this function
+ * does nothing.
+ */
+void unpin_hibernation_swap_type(int type)
+{
+	struct swap_info_struct *si;
+
+	spin_lock(&swap_lock);
+	si = swap_type_to_info(type);
+	if (!si) {
+		spin_unlock(&swap_lock);
+		return;
+	}
+	si->flags &= ~SWP_HIBERNATION;
+	spin_unlock(&swap_lock);
+}
+
+/**
+ * find_hibernation_swap_type - Find swap type for hibernation
+ * @device: Block device containing the resume image
+ * @offset: Offset within the device identifying the swap area
+ *
+ * Locate the swap device corresponding to @device and @offset.
+ *
+ * Unlike pin_hibernation_swap_type(), this function only performs a
+ * lookup and does not mark the swap device as pinned for hibernation.
+ *
+ * This is safe in the sysfs-based hibernation path where user space
+ * is already frozen and swapoff() cannot run concurrently.
+ *
+ * Return:
+ * A non-negative swap type on success.
+ * -EINVAL if @device is invalid.
+ * -ENODEV if no matching swap device is found.
+ */
+int find_hibernation_swap_type(dev_t device, sector_t offset)
+{
+	int type;
+
+	spin_lock(&swap_lock);
+	type = __find_hibernation_swap_type(device, offset);
+	spin_unlock(&swap_lock);
+
+	return type;
 }
 
 int find_first_swap(dev_t *device)
@@ -2936,6 +3031,14 @@ SYSCALL_DEFINE1(swapoff, const char __user *, specialfile)
 		spin_unlock(&swap_lock);
 		goto out_dput;
 	}
+
+	/* Refuse swapoff while the device is pinned for hibernation */
+	if (p->flags & SWP_HIBERNATION) {
+		err = -EBUSY;
+		spin_unlock(&swap_lock);
+		goto out_dput;
+	}
+
 	if (!security_vm_enough_memory_mm(current->mm, p->pages))
 		vm_unacct_memory(p->pages);
 	else {
