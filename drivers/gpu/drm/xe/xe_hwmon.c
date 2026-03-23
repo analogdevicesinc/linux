@@ -180,6 +180,18 @@ struct xe_hwmon {
 	struct xe_hwmon_thermal_info temp;
 };
 
+static inline int prepare_power_limit_param2(const struct xe_hwmon *hwmon)
+{
+	if (hwmon->boot_power_limit_read) {
+		if (hwmon->xe->info.platform >= XE_CRESCENTISLAND)
+			return READ_PL_ACCEPTED;
+		else
+			return READ_PL_FROM_PCODE;
+	} else {
+		return READ_PL_FROM_FW;
+	}
+}
+
 static int xe_hwmon_pcode_read_power_limit(const struct xe_hwmon *hwmon, u32 attr, int channel,
 					   u32 *uval)
 {
@@ -191,9 +203,7 @@ static int xe_hwmon_pcode_read_power_limit(const struct xe_hwmon *hwmon, u32 att
 						  (channel == CHANNEL_CARD) ?
 						  READ_PSYSGPU_POWER_LIMIT :
 						  READ_PACKAGE_POWER_LIMIT,
-						  hwmon->boot_power_limit_read ?
-						  READ_PL_FROM_PCODE : READ_PL_FROM_FW),
-						  &val0, &val1);
+						  prepare_power_limit_param2(hwmon)), &val0, &val1);
 
 	if (ret) {
 		drm_dbg(&hwmon->xe->drm, "read failed ch %d val0 0x%08x, val1 0x%08x, ret %d\n",
@@ -226,10 +236,7 @@ static int xe_hwmon_pcode_rmw_power_limit(const struct xe_hwmon *hwmon, u32 attr
 						  (channel == CHANNEL_CARD) ?
 						  READ_PSYSGPU_POWER_LIMIT :
 						  READ_PACKAGE_POWER_LIMIT,
-						  hwmon->boot_power_limit_read ?
-						  READ_PL_FROM_PCODE : READ_PL_FROM_FW),
-						  &val0, &val1);
-
+						  prepare_power_limit_param2(hwmon)), &val0, &val1);
 	if (ret)
 		drm_dbg(&hwmon->xe->drm, "read failed ch %d val0 0x%08x, val1 0x%08x, ret %d\n",
 			channel, val0, val1, ret);
