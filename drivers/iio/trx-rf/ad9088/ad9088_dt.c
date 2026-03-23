@@ -240,6 +240,12 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 		phy->profile.jtx[1].common_link_cfg.subclass = val;
 		phy->profile.jrx[0].common_link_cfg.subclass = val;
 		phy->profile.jrx[1].common_link_cfg.subclass = val;
+
+		if (val) {
+			if (!phy->profile.mcs_cfg.side_a_sysref.sysref_present ||
+			    !phy->profile.mcs_cfg.side_b_sysref.sysref_present)
+				phy->profile.mcs_cfg.center_sysref.sysref_present = true;
+		}
 	}
 
 	if (phy->profile.profile_cfg.profile_version.major != ADI_APOLLO_PROFILE_VERSION_MAJOR ||
