@@ -308,9 +308,6 @@ static bool skl_crtc_can_enable_sagv(const struct intel_crtc_state *crtc_state)
 	enum plane_id plane_id;
 	int max_level = INT_MAX;
 
-	if (!intel_has_sagv(display))
-		return false;
-
 	if (!crtc_state->hw.active)
 		return true;
 
@@ -376,6 +373,9 @@ static bool tgl_crtc_can_enable_sagv(const struct intel_crtc_state *crtc_state)
 bool intel_crtc_can_enable_sagv(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
+
+	if (!display->sagv.block_time_us)
+		return false;
 
 	if (!display->params.enable_sagv)
 		return false;
