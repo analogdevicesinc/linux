@@ -223,6 +223,7 @@ struct toshiba_acpi_dev {
 	unsigned int cooling_method_supported:1;
 	unsigned int battery_charge_mode_supported:1;
 	unsigned int sysfs_created:1;
+	unsigned int notify_handler_installed:1;
 	unsigned int special_functions;
 
 	bool kbd_event_generated;
@@ -3193,9 +3194,10 @@ static void print_supported_features(struct toshiba_acpi_dev *dev)
 	pr_cont("\n");
 }
 
-static void toshiba_acpi_notify(struct acpi_device *acpi_dev, u32 event)
+static void toshiba_acpi_notify(acpi_handle handle, u32 event, void *data)
 {
-	struct toshiba_acpi_dev *dev = acpi_driver_data(acpi_dev);
+	struct toshiba_acpi_dev *dev = data;
+	struct acpi_device *acpi_dev = dev->acpi_dev;
 
 	switch (event) {
 	case 0x80: /* Hotkeys and some system events */
@@ -3260,6 +3262,10 @@ static void toshiba_acpi_remove(struct acpi_device *acpi_dev)
 	misc_deregister(&dev->miscdev);
 
 	remove_toshiba_proc_entries(dev);
+
+	if (dev->notify_handler_installed)
+		acpi_dev_remove_notify_handler(acpi_dev, ACPI_DEVICE_NOTIFY,
+					       toshiba_acpi_notify);
 
 #if IS_ENABLED(CONFIG_HWMON)
 	if (dev->hwmon_device)
@@ -3537,6 +3543,13 @@ iio_error:
 	}
 	dev->sysfs_created = !ret;
 
+	ret = acpi_dev_install_notify_handler(acpi_dev, ACPI_DEVICE_NOTIFY,
+					      toshiba_acpi_notify, dev);
+	if (ret)
+		goto error;
+
+	dev->notify_handler_installed = 1;
+
 	create_toshiba_proc_entries(dev);
 
 	toshiba_acpi = dev;
@@ -3602,7 +3615,6 @@ static struct acpi_driver toshiba_acpi_driver = {
 	.ops	= {
 		.add		= toshiba_acpi_add,
 		.remove		= toshiba_acpi_remove,
-		.notify		= toshiba_acpi_notify,
 	},
 	.drv.pm	= &toshiba_acpi_pm,
 };
