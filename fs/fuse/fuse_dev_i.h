@@ -8,6 +8,10 @@
 
 #include <linux/fuse.h>
 #include <linux/types.h>
+#include <linux/refcount.h>
+#include <linux/wait.h>
+#include <linux/workqueue.h>
+#include <linux/fs.h>
 
 /* Ordinary requests have even IDs, while interrupts IDs are odd */
 #define FUSE_INT_REQ_BIT (1ULL << 0)

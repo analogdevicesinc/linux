@@ -82,7 +82,7 @@ void fuse_chan_set_initialized(struct fuse_chan *fch)
 static bool fuse_block_alloc(struct fuse_conn *fc, bool for_background)
 {
 	return !fc->chan->initialized || (for_background && fc->chan->blocked) ||
-	       (fc->chan->io_uring && fc->chan->connected && !fuse_uring_ready(fc));
+	       (fc->chan->io_uring && fc->chan->connected && !fuse_uring_ready(fc->chan));
 }
 
 static void fuse_drop_waiting(struct fuse_conn *fc)
@@ -876,7 +876,7 @@ static int fuse_request_queue_background(struct fuse_req *req)
 	__set_bit(FR_ISREPLY, &req->flags);
 
 #ifdef CONFIG_FUSE_IO_URING
-	if (fuse_uring_ready(fc))
+	if (fuse_uring_ready(fc->chan))
 		return fuse_request_queue_background_uring(fc, req);
 #endif
 
@@ -2666,7 +2666,7 @@ void fuse_abort_conn(struct fuse_conn *fc)
 		 * fc->chan->lock must not be taken to avoid conflicts with io-uring
 		 * locks
 		 */
-		fuse_uring_abort(fc);
+		fuse_uring_abort(fc->chan);
 	} else {
 		spin_unlock(&fc->chan->lock);
 	}
@@ -2679,7 +2679,7 @@ void fuse_wait_aborted(struct fuse_conn *fc)
 	smp_mb();
 	wait_event(fc->chan->blocked_waitq, fuse_chan_num_waiting(fc->chan) == 0);
 
-	fuse_uring_wait_stopped_queues(fc);
+	fuse_uring_wait_stopped_queues(fc->chan);
 }
 
 int fuse_dev_release(struct inode *inode, struct file *file)

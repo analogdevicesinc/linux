@@ -7,7 +7,6 @@
 #ifndef _FS_FUSE_DEV_URING_I_H
 #define _FS_FUSE_DEV_URING_I_H
 
-#include "fuse_i.h"
 #include "fuse_dev_i.h"
 
 #ifdef CONFIG_FUSE_IO_URING
@@ -144,9 +143,9 @@ bool fuse_uring_queue_bq_req(struct fuse_req *req);
 bool fuse_uring_remove_pending_req(struct fuse_req *req);
 bool fuse_uring_request_expired(struct fuse_chan *fch);
 
-static inline void fuse_uring_abort(struct fuse_conn *fc)
+static inline void fuse_uring_abort(struct fuse_chan *fch)
 {
-	struct fuse_ring *ring = fc->chan->ring;
+	struct fuse_ring *ring = fch->ring;
 
 	if (ring == NULL)
 		return;
@@ -157,31 +156,31 @@ static inline void fuse_uring_abort(struct fuse_conn *fc)
 	}
 }
 
-static inline void fuse_uring_wait_stopped_queues(struct fuse_conn *fc)
+static inline void fuse_uring_wait_stopped_queues(struct fuse_chan *fch)
 {
-	struct fuse_ring *ring = fc->chan->ring;
+	struct fuse_ring *ring = fch->ring;
 
 	if (ring)
 		wait_event(ring->stop_waitq,
 			   atomic_read(&ring->queue_refs) == 0);
 }
 
-static inline bool fuse_uring_ready(struct fuse_conn *fc)
+static inline bool fuse_uring_ready(struct fuse_chan *fch)
 {
-	return fc->chan->ring && fc->chan->ring->ready;
+	return fch->ring && fch->ring->ready;
 }
 
 #else /* CONFIG_FUSE_IO_URING */
 
-static inline void fuse_uring_abort(struct fuse_conn *fc)
+static inline void fuse_uring_abort(struct fuse_chan *fch)
 {
 }
 
-static inline void fuse_uring_wait_stopped_queues(struct fuse_conn *fc)
+static inline void fuse_uring_wait_stopped_queues(struct fuse_chan *fch)
 {
 }
 
-static inline bool fuse_uring_ready(struct fuse_conn *fc)
+static inline bool fuse_uring_ready(struct fuse_chan *fch)
 {
 	return false;
 }
