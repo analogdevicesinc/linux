@@ -440,16 +440,23 @@ static bool svc_xprt_reserve_slot(struct svc_rqst *rqstp, struct svc_xprt *xprt)
 /*
  * After a caller releases write-space or a request slot,
  * re-enqueue the transport only when there is pending
- * work that a thread could act on. The smp_mb() pairs
+ * work that a thread could act on.  The smp_mb() pairs
  * with the smp_rmb() in svc_xprt_ready() and orders the
  * preceding counter update before the flags read so a
  * concurrent set_bit(XPT_DATA) is visible here.
+ *
+ * When the transport is BUSY, the thread holding it will
+ * call svc_xprt_received() upon completion, which checks
+ * for pending work and re-enqueues as needed.
  */
 static void svc_xprt_resource_released(struct svc_xprt *xprt)
 {
+	unsigned long xpt_flags;
+
 	smp_mb();
-	if (READ_ONCE(xprt->xpt_flags) &
-	    (BIT(XPT_DATA) | BIT(XPT_DEFERRED)))
+	xpt_flags = READ_ONCE(xprt->xpt_flags);
+	if (xpt_flags & (BIT(XPT_DATA) | BIT(XPT_DEFERRED)) &&
+	    !(xpt_flags & BIT(XPT_BUSY)))
 		svc_xprt_enqueue(xprt);
 }
 
