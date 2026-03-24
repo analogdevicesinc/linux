@@ -145,6 +145,7 @@ static const char * const iio_modifier_names[] = {
 	[IIO_MOD_ACTIVE] = "active",
 	[IIO_MOD_REACTIVE] = "reactive",
 	[IIO_MOD_APPARENT] = "apparent",
+	[IIO_MOD_QUATERNION_AXIS] = "quaternionaxis",
 };
 
 static bool event_is_known(struct iio_event_data *event)

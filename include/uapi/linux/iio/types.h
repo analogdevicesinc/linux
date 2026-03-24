@@ -113,6 +113,7 @@ enum iio_modifier {
 	IIO_MOD_ACTIVE,
 	IIO_MOD_REACTIVE,
 	IIO_MOD_APPARENT,
+	IIO_MOD_QUATERNION_AXIS,
 };
 
 enum iio_event_type {

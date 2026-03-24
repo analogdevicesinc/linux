@@ -1755,6 +1755,21 @@ Description:
 		measurement from channel Y. Units after application of scale and
 		offset are milliamps.
 
+What:		/sys/bus/iio/devices/iio:deviceX/in_rot_quaternionaxis_raw
+KernelVersion:	7.1
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Raw value of {x, y, z} components of the quaternion vector. These
+		components represent the axis about which a rotation occurs, and are
+		subject to the following constraints:
+
+		- the quaternion vector is normalized, i.e. w^2 + x^2 + y^2 + z^2 = 1
+		- the rotation angle is within the [-pi, pi] range, i.e. the w
+		  component (which represents the amount of rotation) is non-negative
+
+		These constraints allow the w value to be calculated from the other
+		components: w = sqrt(1 - (x^2 + y^2 + z^2)).
+
 What:		/sys/.../iio:deviceX/in_energy_en
 What:		/sys/.../iio:deviceX/in_distance_en
 What:		/sys/.../iio:deviceX/in_velocity_sqrt(x^2+y^2+z^2)_en
