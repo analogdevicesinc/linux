@@ -7402,7 +7402,7 @@ static noinline_for_stack void dml_core_ms_prefetch_check(struct dml2_core_inter
 		s->tdlut_bytes_per_group,
 		s->HostVMInefficiencyFactor,
 		s->HostVMInefficiencyFactorPrefetch,
-		mode_lib->soc.hostvm_min_page_size_kbytes,
+		mode_lib->soc.hostvm_min_page_size_kbytes * 1024,
 		mode_lib->soc.qos_parameters.qos_type,
 		!(display_cfg->overrides.max_outstanding_when_urgent_expected_disable),
 		mode_lib->soc.max_outstanding_reqs,
@@ -7498,7 +7498,7 @@ static noinline_for_stack void dml_core_ms_prefetch_check(struct dml2_core_inter
 			CalculatePrefetchSchedule_params->OutputFormat = display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].output.output_format;
 			CalculatePrefetchSchedule_params->MaxInterDCNTileRepeaters = mode_lib->ip.max_inter_dcn_tile_repeaters;
 			CalculatePrefetchSchedule_params->VStartup = s->MaximumVStartup[k];
-			CalculatePrefetchSchedule_params->HostVMMinPageSize = mode_lib->soc.hostvm_min_page_size_kbytes;
+			CalculatePrefetchSchedule_params->HostVMMinPageSize = mode_lib->soc.hostvm_min_page_size_kbytes * 1024;
 			CalculatePrefetchSchedule_params->DynamicMetadataEnable = display_cfg->plane_descriptors[k].dynamic_meta_data.enable;
 			CalculatePrefetchSchedule_params->DynamicMetadataVMEnabled = mode_lib->ip.dynamic_metadata_vm_enabled;
 			CalculatePrefetchSchedule_params->DynamicMetadataLinesBeforeActiveRequired = display_cfg->plane_descriptors[k].dynamic_meta_data.lines_before_active_required;
@@ -8986,7 +8986,7 @@ static bool dml_core_mode_support(struct dml2_core_calcs_mode_support_ex *in_out
 	CalculateVMRowAndSwath_params->MALLAllocatedForDCN = mode_lib->soc.mall_allocated_for_dcn_mbytes;
 	CalculateVMRowAndSwath_params->SwathWidthY = mode_lib->ms.SwathWidthY;
 	CalculateVMRowAndSwath_params->SwathWidthC = mode_lib->ms.SwathWidthC;
-	CalculateVMRowAndSwath_params->HostVMMinPageSize = mode_lib->soc.hostvm_min_page_size_kbytes;
+	CalculateVMRowAndSwath_params->HostVMMinPageSize = mode_lib->soc.hostvm_min_page_size_kbytes * 1024;
 	CalculateVMRowAndSwath_params->DCCMetaBufferSizeBytes = mode_lib->ip.dcc_meta_buffer_size_bytes;
 	CalculateVMRowAndSwath_params->mrq_present = mode_lib->ip.dcn_mrq_present;
 
@@ -10778,7 +10778,7 @@ static bool dml_core_mode_programming(struct dml2_core_calcs_mode_programming_ex
 	CalculateVMRowAndSwath_params->MALLAllocatedForDCN = mode_lib->soc.mall_allocated_for_dcn_mbytes;
 	CalculateVMRowAndSwath_params->SwathWidthY = mode_lib->mp.SwathWidthY;
 	CalculateVMRowAndSwath_params->SwathWidthC = mode_lib->mp.SwathWidthC;
-	CalculateVMRowAndSwath_params->HostVMMinPageSize = mode_lib->soc.hostvm_min_page_size_kbytes;
+	CalculateVMRowAndSwath_params->HostVMMinPageSize = mode_lib->soc.hostvm_min_page_size_kbytes * 1024;
 	CalculateVMRowAndSwath_params->DCCMetaBufferSizeBytes = mode_lib->ip.dcc_meta_buffer_size_bytes;
 	CalculateVMRowAndSwath_params->mrq_present = mode_lib->ip.dcn_mrq_present;
 
@@ -10994,7 +10994,7 @@ static bool dml_core_mode_programming(struct dml2_core_calcs_mode_programming_ex
 		s->tdlut_bytes_per_group,
 		s->HostVMInefficiencyFactor,
 		s->HostVMInefficiencyFactorPrefetch,
-		mode_lib->soc.hostvm_min_page_size_kbytes,
+		mode_lib->soc.hostvm_min_page_size_kbytes * 1024,
 		mode_lib->soc.qos_parameters.qos_type,
 		!(display_cfg->overrides.max_outstanding_when_urgent_expected_disable),
 		mode_lib->soc.max_outstanding_reqs,
@@ -11287,7 +11287,7 @@ static bool dml_core_mode_programming(struct dml2_core_calcs_mode_programming_ex
 			CalculatePrefetchSchedule_params->OutputFormat = display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].output.output_format;
 			CalculatePrefetchSchedule_params->MaxInterDCNTileRepeaters = mode_lib->ip.max_inter_dcn_tile_repeaters;
 			CalculatePrefetchSchedule_params->VStartup = s->MaxVStartupLines[k];
-			CalculatePrefetchSchedule_params->HostVMMinPageSize = mode_lib->soc.hostvm_min_page_size_kbytes;
+			CalculatePrefetchSchedule_params->HostVMMinPageSize = mode_lib->soc.hostvm_min_page_size_kbytes * 1024;
 			CalculatePrefetchSchedule_params->DynamicMetadataEnable = display_cfg->plane_descriptors[k].dynamic_meta_data.enable;
 			CalculatePrefetchSchedule_params->DynamicMetadataVMEnabled = mode_lib->ip.dynamic_metadata_vm_enabled;
 			CalculatePrefetchSchedule_params->DynamicMetadataLinesBeforeActiveRequired = display_cfg->plane_descriptors[k].dynamic_meta_data.lines_before_active_required;
