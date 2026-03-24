@@ -29,11 +29,11 @@ struct sunxi_sram_func {
 };
 
 struct sunxi_sram_data {
-	char			*name;
-	u8			reg;
-	u8			offset;
-	u8			width;
-	struct sunxi_sram_func	*func;
+	char				*name;
+	u8				reg;
+	u8				offset;
+	u8				width;
+	const struct sunxi_sram_func	*func;
 };
 
 struct sunxi_sram_desc {
@@ -54,7 +54,7 @@ struct sunxi_sram_desc {
 		.reg = _reg,					\
 		.offset = _off,					\
 		.width = _width,				\
-		.func = (struct sunxi_sram_func[]){		\
+		.func = (const struct sunxi_sram_func[]){	\
 			__VA_ARGS__, { } },			\
 	}
 
@@ -111,7 +111,7 @@ static int sunxi_sram_show(struct seq_file *s, void *data)
 	struct device_node *sram_node, *section_node;
 	const struct sunxi_sram_data *sram_data;
 	const struct of_device_id *match;
-	struct sunxi_sram_func *func;
+	const struct sunxi_sram_func *func;
 	const __be32 *sram_addr_p, *section_addr_p;
 	u32 val;
 
@@ -169,7 +169,7 @@ static const struct sunxi_sram_data *sunxi_sram_of_parse(struct device_node *nod
 {
 	const struct of_device_id *match;
 	const struct sunxi_sram_data *data;
-	struct sunxi_sram_func *func;
+	const struct sunxi_sram_func *func;
 	struct of_phandle_args args;
 	u8 val;
 	int ret;
