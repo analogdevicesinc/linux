@@ -3934,6 +3934,23 @@ static void skl_wm_level_verify(struct intel_plane *plane,
 		hw_wm_level->enable, hw_wm_level->blocks, hw_wm_level->lines);
 }
 
+static void skl_ddb_entry_verify(struct intel_plane *plane,
+				 const char *ddb_name,
+				 const struct skl_ddb_entry *hw_ddb_entry,
+				 const struct skl_ddb_entry *sw_ddb_entry)
+{
+	struct intel_display *display = to_intel_display(plane);
+
+	if (skl_ddb_entry_equal(hw_ddb_entry, sw_ddb_entry))
+		return;
+
+	drm_err(display->drm,
+		"[PLANE:%d:%s] mismatch in %s (expected (%u,%u), found (%u,%u))\n",
+		plane->base.base.id, plane->base.name, ddb_name,
+		sw_ddb_entry->start, sw_ddb_entry->end,
+		hw_ddb_entry->start, hw_ddb_entry->end);
+}
+
 void intel_wm_state_verify(struct intel_atomic_state *state,
 			   struct intel_crtc *crtc)
 {
@@ -3977,7 +3994,6 @@ void intel_wm_state_verify(struct intel_atomic_state *state,
 			&hw->wm.planes[plane->id];
 		const struct skl_plane_wm *sw_plane_wm =
 			&sw_wm->planes[plane->id];
-		const struct skl_ddb_entry *hw_ddb_entry, *sw_ddb_entry;
 
 		for (level = 0; level < display->wm.num_levels; level++) {
 			char wm_name[16];
@@ -4003,17 +4019,9 @@ void intel_wm_state_verify(struct intel_atomic_state *state,
 					    &sw_plane_wm->sagv.trans_wm);
 		}
 
-		/* DDB */
-		hw_ddb_entry = &hw->ddb[plane->id];
-		sw_ddb_entry = &new_crtc_state->wm.skl.plane_ddb[plane->id];
-
-		if (!skl_ddb_entry_equal(hw_ddb_entry, sw_ddb_entry)) {
-			drm_err(display->drm,
-				"[PLANE:%d:%s] mismatch in DDB (expected (%u,%u), found (%u,%u))\n",
-				plane->base.base.id, plane->base.name,
-				sw_ddb_entry->start, sw_ddb_entry->end,
-				hw_ddb_entry->start, hw_ddb_entry->end);
-		}
+		skl_ddb_entry_verify(plane, "DDB",
+				     &hw->ddb[plane->id],
+				     &new_crtc_state->wm.skl.plane_ddb[plane->id]);
 	}
 
 	kfree(hw);
