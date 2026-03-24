@@ -89,7 +89,7 @@ jobs:
         echo "DIST=$dist" >> $GITHUB_ENV
 
         mkdir -p "$dist/dtb"
-        find . -type f \( -name "*.dtb" -o -name "*.dtbo" \) | \
+        find "$KBUILD_OUTPUT" -type f \( -name "*.dtb" -o -name "*.dtbo" \) | \
           xargs -I % cp --parents % "$dist/dtb"
 
         echo "kernel_release=$kversion" > "$dist/context.txt"
