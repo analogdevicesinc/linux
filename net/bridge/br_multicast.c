@@ -244,14 +244,11 @@ br_multicast_port_vid_to_port_ctx(struct net_bridge_port *port, u16 vid)
 
 	lockdep_assert_held_once(&port->br->multicast_lock);
 
-	if (!br_opt_get(port->br, BROPT_MCAST_VLAN_SNOOPING_ENABLED))
-		return NULL;
-
 	/* Take RCU to access the vlan. */
 	rcu_read_lock();
 
 	vlan = br_vlan_find(nbp_vlan_group_rcu(port), vid);
-	if (vlan && !br_multicast_port_ctx_vlan_disabled(&vlan->port_mcast_ctx))
+	if (vlan)
 		pmctx = &vlan->port_mcast_ctx;
 
 	rcu_read_unlock();
@@ -701,7 +698,10 @@ br_multicast_port_ngroups_inc_one(struct net_bridge_mcast_port *pmctx,
 	u32 max = READ_ONCE(pmctx->mdb_max_entries);
 	u32 n = READ_ONCE(pmctx->mdb_n_entries);
 
-	if (max && n >= max) {
+	/* enforce the max limit when it's a port pmctx or a port-vlan pmctx
+	 * with snooping enabled
+	 */
+	if (!br_multicast_port_ctx_vlan_disabled(pmctx) && max && n >= max) {
 		NL_SET_ERR_MSG_FMT_MOD(extack, "%s is already in %u groups, and mcast_max_groups=%u",
 				       what, n, max);
 		return -E2BIG;
@@ -736,9 +736,7 @@ static int br_multicast_port_ngroups_inc(struct net_bridge_port *port,
 		return err;
 	}
 
-	/* Only count on the VLAN context if VID is given, and if snooping on
-	 * that VLAN is enabled.
-	 */
+	/* Only count on the VLAN context if VID is given */
 	if (!group->vid)
 		return 0;
 
@@ -2010,14 +2008,35 @@ void br_multicast_port_ctx_init(struct net_bridge_port *port,
 	timer_setup(&pmctx->ip6_own_query.timer,
 		    br_ip6_multicast_port_query_expired, 0);
 #endif
+	/* initialize mdb_n_entries if a new port vlan is being created */
+	if (vlan) {
+		struct net_bridge_port_group *pg;
+		u32 n = 0;
+
+		spin_lock_bh(&port->br->multicast_lock);
+		hlist_for_each_entry(pg, &port->mglist, mglist)
+			if (pg->key.addr.vid == vlan->vid)
+				n++;
+		WRITE_ONCE(pmctx->mdb_n_entries, n);
+		spin_unlock_bh(&port->br->multicast_lock);
+	}
 }
 
 void br_multicast_port_ctx_deinit(struct net_bridge_mcast_port *pmctx)
 {
+	struct net_bridge *br = pmctx->port->br;
+	bool del = false;
+
 #if IS_ENABLED(CONFIG_IPV6)
 	del_timer_sync(&pmctx->ip6_mc_router_timer);
 #endif
 	del_timer_sync(&pmctx->ip4_mc_router_timer);
+
+	spin_lock_bh(&br->multicast_lock);
+	del |= br_ip6_multicast_rport_del(pmctx);
+	del |= br_ip4_multicast_rport_del(pmctx);
+	br_multicast_rport_del_notify(pmctx, del);
+	spin_unlock_bh(&br->multicast_lock);
 }
 
 int br_multicast_add_port(struct net_bridge_port *port)
@@ -2083,25 +2102,6 @@ static void __br_multicast_enable_port_ctx(struct net_bridge_mcast_port *pmctx)
 	if (pmctx->multicast_router == MDB_RTR_TYPE_PERM) {
 		br_ip4_multicast_add_router(brmctx, pmctx);
 		br_ip6_multicast_add_router(brmctx, pmctx);
-	}
-
-	if (br_multicast_port_ctx_is_vlan(pmctx)) {
-		struct net_bridge_port_group *pg;
-		u32 n = 0;
-
-		/* The mcast_n_groups counter might be wrong. First,
-		 * BR_VLFLAG_MCAST_ENABLED is toggled before temporary entries
-		 * are flushed, thus mcast_n_groups after the toggle does not
-		 * reflect the true values. And second, permanent entries added
-		 * while BR_VLFLAG_MCAST_ENABLED was disabled, are not reflected
-		 * either. Thus we have to refresh the counter.
-		 */
-
-		hlist_for_each_entry(pg, &pmctx->port->mglist, mglist) {
-			if (pg->key.addr.vid == pmctx->vlan->vid)
-				n++;
-		}
-		WRITE_ONCE(pmctx->mdb_n_entries, n);
 	}
 }
 
@@ -4808,6 +4808,14 @@ void br_multicast_set_query_intvl(struct net_bridge_mcast *brmctx,
 		intvl_jiffies = BR_MULTICAST_QUERY_INTVL_MIN;
 	}
 
+	if (intvl_jiffies > BR_MULTICAST_QUERY_INTVL_MAX) {
+		br_info(brmctx->br,
+			"trying to set multicast query interval above maximum, setting to %lu (%ums)\n",
+			jiffies_to_clock_t(BR_MULTICAST_QUERY_INTVL_MAX),
+			jiffies_to_msecs(BR_MULTICAST_QUERY_INTVL_MAX));
+		intvl_jiffies = BR_MULTICAST_QUERY_INTVL_MAX;
+	}
+
 	brmctx->multicast_query_interval = intvl_jiffies;
 }
 
@@ -4822,6 +4830,14 @@ void br_multicast_set_startup_query_intvl(struct net_bridge_mcast *brmctx,
 			jiffies_to_clock_t(BR_MULTICAST_STARTUP_QUERY_INTVL_MIN),
 			jiffies_to_msecs(BR_MULTICAST_STARTUP_QUERY_INTVL_MIN));
 		intvl_jiffies = BR_MULTICAST_STARTUP_QUERY_INTVL_MIN;
+	}
+
+	if (intvl_jiffies > BR_MULTICAST_STARTUP_QUERY_INTVL_MAX) {
+		br_info(brmctx->br,
+			"trying to set multicast startup query interval above maximum, setting to %lu (%ums)\n",
+			jiffies_to_clock_t(BR_MULTICAST_STARTUP_QUERY_INTVL_MAX),
+			jiffies_to_msecs(BR_MULTICAST_STARTUP_QUERY_INTVL_MAX));
+		intvl_jiffies = BR_MULTICAST_STARTUP_QUERY_INTVL_MAX;
 	}
 
 	brmctx->multicast_startup_query_interval = intvl_jiffies;

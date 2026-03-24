@@ -234,7 +234,11 @@ Params:
 
         eee                     Enable Energy Efficient Ethernet support for
                                 compatible devices (default "on"). See also
-                                "tx_lpi_timer". Pi3B+ only.
+                                "tx_lpi_timer". Pi3B+, Pi4 and CM4 only.
+
+        enable_eeprom           Set to "on" to enable the onboard bootloader
+                                EEPROM by driving GPIO 57 low
+                                (default "off"). CM4S only.
 
         eth_downshift_after     Set the number of auto-negotiation failures
                                 after which the 1000Mbps modes are disabled.
@@ -266,7 +270,8 @@ Params:
 
         eth_max_speed           Set the maximum speed a link is allowed
                                 to negotiate. Legal values are 10, 100 and
-                                1000 (default 1000). Pi3B+ only.
+                                1000 (default set by the platform). Pi3B+,
+                                Pi4, Pi400, CM4, Pi5, Pi500, and CM5 only.
 
         fan_temp0               Temperature threshold (in millicelcius) for
                                 1st cooling level (default 50000). Pi5 only.
@@ -874,6 +879,8 @@ Params: swap_lr                 Reverse the channel allocation, which will also
                                 for other purposes)
         pins_40_45              Select GPIOs 40 & 45 (don't use on BCM2711 - the
                                 pins are on different controllers)
+        pins_none               Effectively disable audio, useful if the pins
+                                are needed for something else.
 
 
 Name:   audremap-pi5
@@ -2061,6 +2068,18 @@ Load:   dtoverlay=hifiberry-digi-pro
 Params: <None>
 
 
+Name:   hifiberry-studio-dac8x
+Info:   Configures the HifiBerry Studio DAC8x audio card
+Load:   dtoverlay=hifiberry-studio-dac8x
+Params: <None>
+
+
+Name:   hifiberry-studio-dac8x-pro
+Info:   Configures the HifiBerry Studio DAC8x PRO audio card
+Load:   dtoverlay=hifiberry-studio-dac8x-pro
+Params: <None>
+
+
 Name:   highperi
 Info:   Enables "High Peripheral" mode
 Load:   dtoverlay=highperi
@@ -2420,15 +2439,39 @@ Name:   i2c-sensor
 Info:   Adds support for a number of I2C barometric pressure, temperature,
         light level and chemical sensors on i2c_arm
 Load:   dtoverlay=i2c-sensor,<param>=<val>
-Params: addr                    Set the address for the ADS7828, ADS7830,
-                                ADT7410, AS73211, AS7331, BH1750, BME280,
-                                BME680, BMP280, BMP380, CCS811, DS1621,
-                                HDC100X, HDC3020, JC42, LM75, MCP980x,
+Params: addr                    Set the address for the AD799X, ADS7828,
+                                ADS7830, ADT7410, AS73211, AS7331, BH1750,
+                                BME280, BME680, BMP280, BMP380, BMP58x, CCS811,
+                                DS1621, HDC100X, HDC3020, JC42, LM75, MCP980x,
                                 MPU6050, MPU9250, MS5637, MS5803, MS5805,
-                                MS5837, MS8607, SHT3x or TMP102
+                                MS5837, MS8607, SHT3x, TMP102 or VEML6030.
 
         i2c-bus                 Supports all the standard I2C bus selection
                                 parameters - see "dtoverlay -h i2c-bus"
+
+        ad7991                  Select the Analog Devices AD7991 ADC
+                                Valid addresses 0x28-0x29, default 0x28
+
+        ad7992                  Select the Analog Devices AD7992 ADC
+                                Valid addresses 0x20-0x24, default 0x20
+
+        ad7993                  Select the Analog Devices AD7993 ADC
+                                Valid addresses 0x20-0x24, default 0x20
+
+        ad7994                  Select the Analog Devices AD7994 ADC
+                                Valid addresses 0x20-0x24, default 0x20
+
+        ad7995                  Select the Analog Devices AD7995 ADC
+                                Valid addresses 0x28-0x29, default 0x28
+
+        ad7997                  Select the Analog Devices AD7997 ADC
+                                Valid addresses 0x20-0x24, default 0x20
+
+        ad7998                  Select the Analog Devices AD7998 ADC
+                                Valid addresses 0x20-0x24, default 0x20
+
+        ad7999                  Select the Analog Devices AD7999 ADC
+                                Valid address 0x29 (the default)
 
         ads7828                 Select the TI ADS7828 50kHz 8-channel 12bit ADC
                                 Valid addresses 0x48-0x4b, default 0x48
@@ -2441,6 +2484,9 @@ Params: addr                    Set the address for the ADS7828, ADS7830,
                                 Valid address 0x48-0x4b, default 0x48
 
         adxl345                 Select the Analog Devices ADXL345 3-axis
+                                accelerometer
+
+        adxl355                 Select the Analog Devices ADXL355 3-axis
                                 accelerometer
 
         aht10                   Select the Aosong AHT10 temperature and humidity
@@ -2473,6 +2519,10 @@ Params: addr                    Set the address for the ADS7828, ADS7830,
 
         bmp380                  Select the Bosch Sensortronic BMP380
                                 Valid addresses 0x76-0x77, default 0x76
+
+        bmp58x                  Select the Bosch Sensortronic BMP580, BMP581,
+                                or BMP585
+                                Valid addresses 0x46-0x47, default 0x46
 
         bno055                  Select the Bosch Sensortronic BNO055 IMU
                                 Valid address 0x28-0x29, default 0x29
@@ -2568,6 +2618,8 @@ Params: addr                    Set the address for the ADS7828, ADS7830,
                                 measurement in uOhms.  (ina238 only, disabled
                                 by default)
 
+        scd4x                   Select the Sensirion SCD40/41 CO2 sensors.
+
         sht3x                   Select the Sensirion SHT3x temperature and
                                 humidity sensors. Valid addresses 0x44-0x45,
                                 default 0x44
@@ -2595,8 +2647,13 @@ Params: addr                    Set the address for the ADS7828, ADS7830,
         tmp102                  Select the Texas Instruments TMP102 temp sensor
                                 Valid addresses 0x48-0x4b, default 0x48
 
+        tmp117                  Select the Texas Instruments TMP117 temp sensor
+                                Valid addresses 0x48-0x4b, default 0x48
+
         tsl4531                 Select the AMS TSL4531 digital ambient light
                                 sensor
+
+        veml6030                Select the Vishay VEML6030 ambient light sensor
 
         veml6040                Select the Vishay VEML6040 RGBW light sensor
 
@@ -2737,6 +2794,17 @@ Name:   i2s-master-dac
 Info:   Configures a generic I2S DAC soundcard that acts as a clock master.
 Load:   dtoverlay=i2s-master-dac
 Params: <None>
+
+
+Name:   ilitek-ts-i2c
+Info:   Enables I2C connected Ilitek 23XX, 25XX, and 213X touch controllers
+        using GPIO 4 (pin 7 on GPIO header) for interrupt.
+Load:   dtoverlay=ilitek-ts-i2c,<param>=<val>
+Params: interrupt               GPIO used for interrupt (default 4)
+        invx                    Touchscreen inverted x axis
+        invy                    Touchscreen inverted y axis
+        swapxy                  Touchscreen swapped x y axis
+        i2c-path                Override I2C path to allow for i2c-gpio buses
 
 
 Name:   ilitek251x
@@ -3325,9 +3393,9 @@ Params: s08-spi<n>-<m>-present  4-bit integer, bitmap indicating MCP23S08
 
 
 Name:   mcp2515
-Info:   Configures the MCP2515 CAN controller on spi0/1/2
-        For devices on spi1 or spi2, the interfaces should be enabled
-        with one of the spi1-1/2/3cs and/or spi2-1/2/3cs overlays.
+Info:   Configures the MCP2515 CAN controller on spi0/1/2/3/5
+        For devices on spi1, spi2, spi3 or spi5, the interfaces should be
+        enabled with one of the spi<n>-1/2/3cs overlays.
 Load:   dtoverlay=mcp2515,<param>=<val>
 Params: spi<n>-<m>              Configure device at spi<n>, cs<m>
                                 (boolean, required)
@@ -3635,6 +3703,12 @@ Params: speed                   Display SPI bus speed
         xohms                   Touchpanel sensitivity (X-plate resistance)
 
 
+Name:   nospi10
+Info:   Disable the spi10 device on Pi5.
+Load:   dtoverlay=nospi10
+Params: <None>
+
+
 Name:   ov2311
 Info:   Omnivision OV2311 camera module.
         Uses Unicam 1, which is the standard camera connector on most Pi
@@ -3718,6 +3792,10 @@ Params: rotation                Mounting rotation of the camera sensor (0 or
         clk-continuous          Switch to continuous mode on the CSI clock lane,
                                 which increases the maximum frame rate slightly.
                                 Appears not to work on Pi3.
+        trigger-mode            Enable external trigger mode (0 = normal,
+                                1 = triggered). In this mode, the sensor outputs
+                                a frame only when triggered by a rising edge
+                                on the FSIN input pin.
 
 
 Name:   papirus
@@ -4078,6 +4156,52 @@ Params: gpiopin                 Input GPIO (default "18")
                                 (default off)
         pull                    Desired pull-up/down state (off, down, up)
                                 Default is "off".
+
+
+Name:   pps-rp1
+
+Info:   Configures the pps-gpio kernel module for use with the RP1 found on the
+        RPi 5 (pulse-per-second time signal via GPIO).
+
+Load:   dtoverlay=pps-rp1,<param>=<val>
+
+Params: pin                     (integer) Specifies the PPS input pin.
+                                Takes the pin number correlating to the RPi
+                                40-pin GPIO header.
+                                Defaults to GPIO 18.
+
+        pull-none               (boolean) Disable pull-up/down resistors on the
+                                PPS input pin.
+
+        pull-up                 (boolean) Enable pull-up resistor on the PPS
+                                input pin.
+
+        pull-down               (boolean) Enable pull-down resistor on the PPS
+                                input pin.
+
+        schmitt-trigger         (boolean) Enable the Schmitt-trigger on the PPS
+                                input pin.
+                                Defaults to off.
+
+        echo-pin                (integer) Specifies the PPS echo output pin.
+                                Takes the pin number correlating to the RPi
+                                40-pin GPIO header.
+                                Defaults to GPIO 17.
+
+        echo-ms                 (integer) Specifies the pulse-width in ms of the
+                                echo signal on the PPS echo output pin.
+                                Must be less than 999.
+                                Defaults to 10ms.
+
+        echo                    (boolean) Enables the PPS echo output signal.
+                                Defaults to off.
+
+        capture-clear           (boolean) Captures the clear event time.
+                                Defaults to off.
+
+        assert-falling-edge     (boolean) Trigger on the falling signal edge
+                                instead of the rising signal edge.
+                                Defaults to off.
 
 
 Name:   proto-codec
@@ -4457,6 +4581,18 @@ Params: poe_fan_temp0           Temperature (in millicelcius) at which the fan
                                 the firmware.
 
 
+Name:   rpi-power-hat-b
+Info:   Raspberry Pi Power HAT Bottom
+Load:   dtoverlay=rpi-power-hat-b
+Params: <None>
+
+
+Name:   rpi-power-hat-t
+Info:   Raspberry Pi Power HAT Top
+Load:   dtoverlay=rpi-power-hat-t
+Params: <None>
+
+
 Name:   rpi-proto
 Info:   This overlay has been renamed to proto-codec.
 Load:   <Deprecated>
@@ -4543,7 +4679,7 @@ Load:   <Deprecated>
 
 Name:   sc16is752-spi1
 Info:   This overlay is now deprecated. Use
-        "dtoverlay=sc16is75x-spi,sc16is752,spi1-0,..." instead.
+        "dtoverlay=sc16is75x-spi,sc16is752,spi1-1cs,spi1-0,..." instead.
 Load:   <Deprecated>
 
 
@@ -4558,6 +4694,8 @@ Params: sc16is750               Device is a SC16IS750 UART (default on)
                                 (boolean, required)
         int_pin                 GPIO used for IRQ (default 24)
         xtal                    On-board crystal frequency (default 14745600)
+        spi1-1cs                A special case to support sc16is752-spi1. Not
+                                intended for general use.
 
 
 Name:   sdhost
@@ -5233,6 +5371,20 @@ Name:   uart0-pi5
 Info:   Enable uart 0 on GPIOs 14-15. Pi 5 only.
 Load:   dtoverlay=uart0-pi5,<param>
 Params: ctsrts                  Enable CTS/RTS on GPIOs 16-17 (default off)
+        rs485                   Enable RS485 mode for using the RTS line to
+                                drive the OE pin of an RS485 transceiver (i.e.
+                                MAX3078E); also enables the UARTx ctsrts
+                                parameter, as RTS is required (default off).
+        rs485_full_duplex       When RS485 mode is enabled, enables receiving of
+                                data while sending data (default off)
+        rs485_invert_rts        When RS485 mode is enabled, inverts the RTS
+                                line from active-high (default) to active-low.
+        rs485_rts_on_delay      When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission starting
+                                and the RTS line being asserted (default 0).
+        rs485_rts_off_delay     When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission ending
+                                and the RTS line being deasserted (default 0).
 
 
 Name:   uart1
@@ -5247,6 +5399,20 @@ Name:   uart1-pi5
 Info:   Enable uart 1 on GPIOs 0-1. Pi 5 only.
 Load:   dtoverlay=uart1-pi5,<param>
 Params: ctsrts                  Enable CTS/RTS on GPIOs 2-3 (default off)
+        rs485                   Enable RS485 mode for using the RTS line to
+                                drive the OE pin of an RS485 transceiver (i.e.
+                                MAX3078E); also enables the UARTx ctsrts
+                                parameter, as RTS is required (default off).
+        rs485_full_duplex       When RS485 mode is enabled, enables receiving of
+                                data while sending data (default off)
+        rs485_invert_rts        When RS485 mode is enabled, inverts the RTS
+                                line from active-high (default) to active-low.
+        rs485_rts_on_delay      When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission starting
+                                and the RTS line being asserted (default 0).
+        rs485_rts_off_delay     When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission ending
+                                and the RTS line being deasserted (default 0).
 
 
 Name:   uart2
@@ -5257,6 +5423,8 @@ Params: ctsrts                  Enable CTS/RTS on GPIOs 2-3 (default off)
                                 drive the OE pin of an RS485 transceiver (i.e.
                                 MAX3078E); also enables the UARTx ctsrts
                                 parameter, as RTS is required (default off).
+        rs485_full_duplex       When RS485 mode is enabled, enables receiving of
+                                data while sending data (default off)
         rs485_invert_rts        When RS485 mode is enabled, inverts the RTS
                                 line from active-high (default) to active-low.
         rs485_rts_on_delay      When RS485 mode is enabled, sets the delay (in
@@ -5271,6 +5439,20 @@ Name:   uart2-pi5
 Info:   Enable uart 2 on GPIOs 4-5. Pi 5 only.
 Load:   dtoverlay=uart2-pi5,<param>
 Params: ctsrts                  Enable CTS/RTS on GPIOs 6-7 (default off)
+        rs485                   Enable RS485 mode for using the RTS line to
+                                drive the OE pin of an RS485 transceiver (i.e.
+                                MAX3078E); also enables the UARTx ctsrts
+                                parameter, as RTS is required (default off).
+        rs485_full_duplex       When RS485 mode is enabled, enables receiving of
+                                data while sending data (default off)
+        rs485_invert_rts        When RS485 mode is enabled, inverts the RTS
+                                line from active-high (default) to active-low.
+        rs485_rts_on_delay      When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission starting
+                                and the RTS line being asserted (default 0).
+        rs485_rts_off_delay     When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission ending
+                                and the RTS line being deasserted (default 0).
 
 
 Name:   uart3
@@ -5281,6 +5463,8 @@ Params: ctsrts                  Enable CTS/RTS on GPIOs 6-7 (default off)
                                 drive the OE pin of an RS485 transceiver (i.e.
                                 MAX3078E); also enables the UARTx ctsrts
                                 parameter, as RTS is required (default off).
+        rs485_full_duplex       When RS485 mode is enabled, enables receiving of
+                                data while sending data (default off)
         rs485_invert_rts        When RS485 mode is enabled, inverts the RTS
                                 line from active-high (default) to active-low.
         rs485_rts_on_delay      When RS485 mode is enabled, sets the delay (in
@@ -5295,6 +5479,20 @@ Name:   uart3-pi5
 Info:   Enable uart 3 on GPIOs 8-9. Pi 5 only.
 Load:   dtoverlay=uart3-pi5,<param>
 Params: ctsrts                  Enable CTS/RTS on GPIOs 10-11 (default off)
+        rs485                   Enable RS485 mode for using the RTS line to
+                                drive the OE pin of an RS485 transceiver (i.e.
+                                MAX3078E); also enables the UARTx ctsrts
+                                parameter, as RTS is required (default off).
+        rs485_full_duplex       When RS485 mode is enabled, enables receiving of
+                                data while sending data (default off)
+        rs485_invert_rts        When RS485 mode is enabled, inverts the RTS
+                                line from active-high (default) to active-low.
+        rs485_rts_on_delay      When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission starting
+                                and the RTS line being asserted (default 0).
+        rs485_rts_off_delay     When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission ending
+                                and the RTS line being deasserted (default 0).
 
 
 Name:   uart4
@@ -5305,6 +5503,8 @@ Params: ctsrts                  Enable CTS/RTS on GPIOs 10-11 (default off)
                                 drive the OE pin of an RS485 transceiver (i.e.
                                 MAX3078E); also enables the UARTx ctsrts
                                 parameter, as RTS is required (default off).
+        rs485_full_duplex       When RS485 mode is enabled, enables receiving of
+                                data while sending data (default off)
         rs485_invert_rts        When RS485 mode is enabled, inverts the RTS
                                 line from active-high (default) to active-low.
         rs485_rts_on_delay      When RS485 mode is enabled, sets the delay (in
@@ -5319,6 +5519,20 @@ Name:   uart4-pi5
 Info:   Enable uart 4 on GPIOs 12-13. Pi 5 only.
 Load:   dtoverlay=uart4-pi5,<param>
 Params: ctsrts                  Enable CTS/RTS on GPIOs 14-15 (default off)
+        rs485                   Enable RS485 mode for using the RTS line to
+                                drive the OE pin of an RS485 transceiver (i.e.
+                                MAX3078E); also enables the UARTx ctsrts
+                                parameter, as RTS is required (default off).
+        rs485_full_duplex       When RS485 mode is enabled, enables receiving of
+                                data while sending data (default off)
+        rs485_invert_rts        When RS485 mode is enabled, inverts the RTS
+                                line from active-high (default) to active-low.
+        rs485_rts_on_delay      When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission starting
+                                and the RTS line being asserted (default 0).
+        rs485_rts_off_delay     When RS485 mode is enabled, sets the delay (in
+                                milliseconds) between data transmission ending
+                                and the RTS line being deasserted (default 0).
 
 
 Name:   uart5
@@ -5329,6 +5543,8 @@ Params: ctsrts                  Enable CTS/RTS on GPIOs 14-15 (default off)
                                 drive the OE pin of an RS485 transceiver (i.e.
                                 MAX3078E); also enables the UARTx ctsrts
                                 parameter, as RTS is required (default off).
+        rs485_full_duplex       When RS485 mode is enabled, enables receiving of
+                                data while sending data (default off)
         rs485_invert_rts        When RS485 mode is enabled, inverts the RTS
                                 line from active-high (default) to active-low.
         rs485_rts_on_delay      When RS485 mode is enabled, sets the delay (in
@@ -5583,6 +5799,21 @@ Params: clock-frequency         Display clock frequency (Hz)
                                 Only supported on Pi5 and CM
 
 
+Name:   vc4-kms-dsi-ili79600-10-1inch
+Info:   Enable the Raspberry Pi 10" ILI79600 based touchscreen panel.
+        Requires vc4-kms-v3d to be loaded.
+Load:   dtoverlay=vc4-kms-dsi-ili79600-10-1inch,<param>
+Params: sizex                   Touchscreen size x (default 1200)
+        sizey                   Touchscreen size y (default 1920)
+        invx                    Touchscreen inverted x axis
+        invy                    Touchscreen inverted y axis
+        swapxy                  Touchscreen swapped x y axis
+        disable_touch           Disables the touch screen overlay driver
+        rotation                Display rotation {0,90,180,270} (default 0)
+        dsi0                    Use DSI0 and i2c_csi_dsi0 (rather than
+                                the default DSI1 and i2c_csi_dsi).
+
+
 Name:   vc4-kms-dsi-ili9881-5inch
 Info:   Enable the Raspberry Pi 5" ILI9881 based touchscreen panel.
         Requires vc4-kms-v3d to be loaded.
@@ -5593,6 +5824,7 @@ Params: sizex                   Touchscreen size x (default 720)
         invy                    Touchscreen inverted y axis
         swapxy                  Touchscreen swapped x y axis
         disable_touch           Disables the touch screen overlay driver
+        rotation                Display rotation {0,90,180,270} (default 0)
         dsi0                    Use DSI0 and i2c_csi_dsi0 (rather than
                                 the default DSI1 and i2c_csi_dsi).
 
@@ -5697,6 +5929,7 @@ Params: 3_4_inch_c              3.4" 800x800 2lane
         5_5_inch_a              5.5" 720x1280 2lane
         7_0_inch_a              7.0" A 720x1280 2lane
         7_0_inch_b              7.0" B 720x1280 2lane
+        7_0_inch_c              7.0" C 1024x600 2lane
         8_0_inch_a              8.0" 800x1280 2lane
         8_0_inch_a_4lane        8.0" 800x1280 4lane
         8_8_inch_a              8.8" 480x1920 2lane
@@ -5762,8 +5995,8 @@ Params: cma-512                 CMA is 512MB
         audio1                  Enable or disable audio over HDMI1 (default
                                 "on")
         noaudio                 Disable all HDMI audio (default "off")
-        composite               Enable the composite output (disables all other
-                                outputs)
+        composite               Enable the composite output (default "off")
+                                N.B. Disables all other outputs on a Pi 4.
         nohdmi                  Disable both HDMI 0 & 1 outputs
         nohdmi0                 Disable HDMI 0 output
         nohdmi1                 Disable HDMI 1 output
@@ -5774,12 +6007,21 @@ Info:   See vc4-kms-v3d-pi4 (this is the Pi 5 version)
 
 
 Name:   vc4-kms-vga666
-Info:   Enable the VGA666 (resistor ladder ADC) for the vc4-kms-v3d driver.
+Info:   Enable the VGA666 (resistor ladder DAC) for the vc4-kms-v3d driver.
         Requires vc4-kms-v3d to be loaded.
 Load:   dtoverlay=vc4-kms-vga666,<param>
 Params: ddc                     Enables GPIOs 0&1 as the I2C to read the EDID
                                 from the display. NB These are NOT 5V tolerant
                                 GPIOs, therefore level shifters are required.
+
+
+Name:   vec-gpio-pi5
+Info:   Overlay to output composite video as an 8-bit digital code over GPIO
+        pins 4-11, for Raspberry Pi 5 series only. Requires composite video
+        to be enabled; incompatible with any use of DPI or VGA666.
+Load:   dtoverlay=vec-gpio-pi5,<param>
+Params: clk                     Enable GPIO 0 (clock, 108 MHz)
+        gpio27                  Enable GPIO 27 (duplicate MSB)
 
 
 Name:   vga666
@@ -5922,8 +6164,10 @@ Params: brightness              Set the initial brightness for the LEDs. The
                                 a single byte to offset 0 of the device. Note
                                 that brightness is a multiplier for the pixel
                                 values, and only white pixels can reach the
-                                maximum visible brightness. (range 0-255,
-                                default 255)
+                                maximum visible brightness. N.B. Setting
+                                brightness to 0 acctivates pass-through mode,
+                                disabling all brightness and gamma processing.
+                                (range 0-255, default 255)
         dev_name                The name for the /dev/ device entry. Note that
                                 if the name includes '%d' it will be replaced
                                 by the instance number. (default 'leds%d')
@@ -5937,16 +6181,17 @@ Params: brightness              Set the initial brightness for the LEDs. The
 Troubleshooting
 ===============
 
-If you are experiencing problems that you think are DT-related, enable DT
-diagnostic output by adding this to /boot/config.txt:
+If you are experiencing problems that you think are DT-related, first check for
+error messages from the firmware by running:
+
+    sudo vclog -m
+
+To see more details about the changes to the Device Tree, add the following to
+/boot/firmware/config.txt:
 
     dtdebug=on
 
-and rebooting. Then run:
-
-    sudo vcdbg log msg
-
-and look for relevant messages.
+and reboot, then use vclog as above.
 
 Further reading
 ===============
@@ -5954,4 +6199,4 @@ Further reading
 This is only meant to be a quick introduction to the subject of Device Tree on
 Raspberry Pi. There is a more complete explanation here:
 
-http://www.raspberrypi.org/documentation/configuration/device-tree.md
+https://www.raspberrypi.com/documentation/computers/configuration.html#device-trees-overlays-and-parameters

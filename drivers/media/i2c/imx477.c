@@ -15,6 +15,7 @@
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <media/v4l2-cci.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-event.h>
@@ -29,19 +30,38 @@ static int trigger_mode;
 module_param(trigger_mode, int, 0644);
 MODULE_PARM_DESC(trigger_mode, "Set vsync trigger mode: 1=source, 2=sink");
 
+static int fstrobe_enable;
+module_param(fstrobe_enable, int, 0644);
+MODULE_PARM_DESC(fstrobe_enable, "Enable fstrobe signal");
+
+static int fstrobe_cont_trig;
+module_param(fstrobe_cont_trig, int, 0644);
+MODULE_PARM_DESC(fstrobe_cont_trig, "Configure fstrobe to be one-shot (0) or continuous (1)");
+
+static int fstrobe_width = 1;
+module_param(fstrobe_width, int, 0644);
+MODULE_PARM_DESC(fstrobe_width, "Set fstrobe pulse width in units of INCK");
+
+static int fstrobe_delay;
+module_param(fstrobe_delay, int, 0644);
+MODULE_PARM_DESC(fstrobe_delay, "Set fstrobe delay from end all lines starting to expose and the start of the strobe pulse");
+
 #define IMX477_REG_VALUE_08BIT		1
 #define IMX477_REG_VALUE_16BIT		2
 
 /* Chip ID */
-#define IMX477_REG_CHIP_ID		0x0016
+#define IMX477_REG_CHIP_ID		CCI_REG16(0x0016)
 #define IMX477_CHIP_ID			0x0477
 #define IMX378_CHIP_ID			0x0378
 
-#define IMX477_REG_MODE_SELECT		0x0100
+#define IMX477_REG_MODE_SELECT		CCI_REG8(0x0100)
 #define IMX477_MODE_STANDBY		0x00
 #define IMX477_MODE_STREAMING		0x01
 
-#define IMX477_REG_ORIENTATION		0x101
+#define IMX477_REG_ORIENTATION		CCI_REG8(0x101)
+
+#define IMX477_REG_CSI_DT_FMT_H		CCI_REG8(0x0112)
+#define IMX477_REG_CSI_DT_FMT_L		CCI_REG8(0x0113)
 
 #define IMX477_XCLK_FREQ		24000000
 
@@ -51,19 +71,20 @@ MODULE_PARM_DESC(trigger_mode, "Set vsync trigger mode: 1=source, 2=sink");
 #define IMX477_PIXEL_RATE		840000000
 
 /* V_TIMING internal */
-#define IMX477_REG_FRAME_LENGTH		0x0340
+#define IMX477_REG_FRAME_LENGTH		CCI_REG16(0x0340)
+#define IMX477_VBLANK_MIN		48
 #define IMX477_FRAME_LENGTH_MAX		0xffdc
 
 /* H_TIMING internal */
-#define IMX477_REG_LINE_LENGTH		0x0342
+#define IMX477_REG_LINE_LENGTH		CCI_REG16(0x0342)
 #define IMX477_LINE_LENGTH_MAX		0xfff0
 
 /* Long exposure multiplier */
 #define IMX477_LONG_EXP_SHIFT_MAX	7
-#define IMX477_LONG_EXP_SHIFT_REG	0x3100
+#define IMX477_LONG_EXP_SHIFT_REG	CCI_REG8(0x3100)
 
 /* Exposure control */
-#define IMX477_REG_EXPOSURE		0x0202
+#define IMX477_REG_EXPOSURE		CCI_REG16(0x0202)
 #define IMX477_EXPOSURE_OFFSET		22
 #define IMX477_EXPOSURE_MIN		4
 #define IMX477_EXPOSURE_STEP		1
@@ -72,21 +93,28 @@ MODULE_PARM_DESC(trigger_mode, "Set vsync trigger mode: 1=source, 2=sink");
 					 IMX477_EXPOSURE_OFFSET)
 
 /* Analog gain control */
-#define IMX477_REG_ANALOG_GAIN		0x0204
+#define IMX477_REG_ANALOG_GAIN		CCI_REG16(0x0204)
 #define IMX477_ANA_GAIN_MIN		0
 #define IMX477_ANA_GAIN_MAX		978
 #define IMX477_ANA_GAIN_STEP		1
 #define IMX477_ANA_GAIN_DEFAULT		0x0
 
 /* Digital gain control */
-#define IMX477_REG_DIGITAL_GAIN		0x020e
+#define IMX477_REG_DIGITAL_GAIN		CCI_REG16(0x020e)
 #define IMX477_DGTL_GAIN_MIN		0x0100
 #define IMX477_DGTL_GAIN_MAX		0xffff
 #define IMX477_DGTL_GAIN_DEFAULT	0x0100
 #define IMX477_DGTL_GAIN_STEP		1
 
+#define IMX477_REG_IOP_PXCK_DIV		CCI_REG8(0x0309)
+#define IMX477_REG_IOP_SYSCK_DIV	CCI_REG8(0x030b)
+  #define IMX477_IOP_SYSCK_DIV		0x02
+#define IMX477_REG_IOP_PREDIV		CCI_REG8(0x030d)
+  #define IMX477_IOP_PREDIV		0x02
+#define IMX477_REG_IOP_MPY		CCI_REG16(0x030e)
+
 /* Test Pattern Control */
-#define IMX477_REG_TEST_PATTERN		0x0600
+#define IMX477_REG_TEST_PATTERN		CCI_REG16(0x0600)
 #define IMX477_TEST_PATTERN_DISABLE	0
 #define IMX477_TEST_PATTERN_SOLID_COLOR	1
 #define IMX477_TEST_PATTERN_COLOR_BARS	2
@@ -94,10 +122,10 @@ MODULE_PARM_DESC(trigger_mode, "Set vsync trigger mode: 1=source, 2=sink");
 #define IMX477_TEST_PATTERN_PN9		4
 
 /* Test pattern colour components */
-#define IMX477_REG_TEST_PATTERN_R	0x0602
-#define IMX477_REG_TEST_PATTERN_GR	0x0604
-#define IMX477_REG_TEST_PATTERN_B	0x0606
-#define IMX477_REG_TEST_PATTERN_GB	0x0608
+#define IMX477_REG_TEST_PATTERN_R	CCI_REG16(0x0602)
+#define IMX477_REG_TEST_PATTERN_GR	CCI_REG16(0x0604)
+#define IMX477_REG_TEST_PATTERN_B	CCI_REG16(0x0606)
+#define IMX477_REG_TEST_PATTERN_GB	CCI_REG16(0x0608)
 #define IMX477_TEST_PATTERN_COLOUR_MIN	0
 #define IMX477_TEST_PATTERN_COLOUR_MAX	0x0fff
 #define IMX477_TEST_PATTERN_COLOUR_STEP	1
@@ -106,14 +134,21 @@ MODULE_PARM_DESC(trigger_mode, "Set vsync trigger mode: 1=source, 2=sink");
 #define IMX477_TEST_PATTERN_B_DEFAULT	0
 #define IMX477_TEST_PATTERN_GB_DEFAULT	0
 
-/* Trigger mode */
-#define IMX477_REG_MC_MODE		0x3f0b
-#define IMX477_REG_MS_SEL		0x3041
-#define IMX477_REG_XVS_IO_CTRL		0x3040
-#define IMX477_REG_EXTOUT_EN		0x4b81
+#define IMX477_REG_DPHY_CTRL		CCI_REG8(0x0808)
+  #define IMX477_DPHY_CTRL_AUTO		0
+  #define IMX477_DPHY_CTRL_UI		1
+  #define IMX477_DPHY_CTRL_REGISTER	2
+#define IMX477_REG_REQ_LINK_BIT_RATE	CCI_REG32(0x0820)
 
+/* Trigger mode */
+#define IMX477_REG_MC_MODE		CCI_REG8(0x3f0b)
+#define IMX477_REG_MS_SEL		CCI_REG8(0x3041)
+#define IMX477_REG_XVS_IO_CTRL		CCI_REG8(0x3040)
+#define IMX477_REG_EXTOUT_EN		CCI_REG8(0x4b81)
+
+#define IMX477_REG_ADBIT_MODE		CCI_REG8(0x3f0d)
 /* Temperature sensor */
-#define IMX477_REG_TEMP_SEN_CTL		0x0138
+#define IMX477_REG_TEMP_SEN_CTL		CCI_REG8(0x0138)
 
 /* Embedded metadata stream structure */
 #define IMX477_EMBEDDED_LINE_WIDTH 16384
@@ -133,14 +168,9 @@ enum pad_types {
 #define IMX477_PIXEL_ARRAY_WIDTH	4056U
 #define IMX477_PIXEL_ARRAY_HEIGHT	3040U
 
-struct imx477_reg {
-	u16 address;
-	u8 val;
-};
-
 struct imx477_reg_list {
 	unsigned int num_of_regs;
-	const struct imx477_reg *regs;
+	const struct cci_reg_sequence *regs;
 };
 
 /* Mode : resolution and related config&values */
@@ -151,892 +181,728 @@ struct imx477_mode {
 	/* Frame height */
 	unsigned int height;
 
-	/* H-timing in pixels */
-	unsigned int line_length_pix;
-
 	/* Analog crop rectangle. */
 	struct v4l2_rect crop;
 
-	/* Highest possible framerate. */
-	struct v4l2_fract timeperframe_min;
-
-	/* Default framerate. */
-	struct v4l2_fract timeperframe_default;
+	/* Default frame_length value to use in this mode */
+	unsigned int frm_length_default;
 
 	/* Default register values */
 	struct imx477_reg_list reg_list;
 };
 
-/* Link frequency setup */
-enum {
-	IMX477_LINK_FREQ_450MHZ,
-	IMX477_LINK_FREQ_453MHZ,
-	IMX477_LINK_FREQ_456MHZ,
-	IMX477_LINK_FREQ_459MHZ,
-	IMX477_LINK_FREQ_462MHZ,
-	IMX477_LINK_FREQ_498MHZ,
-};
-
-static const s64 link_freqs[] = {
-	[IMX477_LINK_FREQ_450MHZ] = 450000000,
-	[IMX477_LINK_FREQ_453MHZ] = 453000000,
-	[IMX477_LINK_FREQ_456MHZ] = 456000000,
-	[IMX477_LINK_FREQ_459MHZ] = 459000000,
-	[IMX477_LINK_FREQ_462MHZ] = 462000000,
-	[IMX477_LINK_FREQ_498MHZ] = 498000000,
-};
-
-/* 450MHz is the nominal "default" link frequency */
-static const struct imx477_reg link_450Mhz_regs[] = {
-	{0x030E, 0x00},
-	{0x030F, 0x96},
-};
-
-static const struct imx477_reg link_453Mhz_regs[] = {
-	{0x030E, 0x00},
-	{0x030F, 0x97},
-};
-
-static const struct imx477_reg link_456Mhz_regs[] = {
-	{0x030E, 0x00},
-	{0x030F, 0x98},
-};
-
-static const struct imx477_reg link_459Mhz_regs[] = {
-	{0x030E, 0x00},
-	{0x030F, 0x99},
-};
-
-static const struct imx477_reg link_462Mhz_regs[] = {
-	{0x030E, 0x00},
-	{0x030F, 0x9a},
-};
-
-static const struct imx477_reg link_498Mhz_regs[] = {
-	{0x030E, 0x00},
-	{0x030F, 0xa6},
-};
-
-static const struct imx477_reg_list link_freq_regs[] = {
-	[IMX477_LINK_FREQ_450MHZ] = {
-		.regs = link_450Mhz_regs,
-		.num_of_regs = ARRAY_SIZE(link_450Mhz_regs)
-	},
-	[IMX477_LINK_FREQ_453MHZ] = {
-		.regs = link_453Mhz_regs,
-		.num_of_regs = ARRAY_SIZE(link_453Mhz_regs)
-	},
-	[IMX477_LINK_FREQ_456MHZ] = {
-		.regs = link_456Mhz_regs,
-		.num_of_regs = ARRAY_SIZE(link_456Mhz_regs)
-	},
-	[IMX477_LINK_FREQ_459MHZ] = {
-		.regs = link_459Mhz_regs,
-		.num_of_regs = ARRAY_SIZE(link_459Mhz_regs)
-	},
-	[IMX477_LINK_FREQ_462MHZ] = {
-		.regs = link_462Mhz_regs,
-		.num_of_regs = ARRAY_SIZE(link_462Mhz_regs)
-	},
-	[IMX477_LINK_FREQ_498MHZ] = {
-		.regs = link_498Mhz_regs,
-		.num_of_regs = ARRAY_SIZE(link_498Mhz_regs)
-	},
-};
-
-static const struct imx477_reg mode_common_regs[] = {
-	{0x0136, 0x18},
-	{0x0137, 0x00},
-	{0x0138, 0x01},
-	{0xe000, 0x00},
-	{0xe07a, 0x01},
-	{0x0808, 0x02},
-	{0x4ae9, 0x18},
-	{0x4aea, 0x08},
-	{0xf61c, 0x04},
-	{0xf61e, 0x04},
-	{0x4ae9, 0x21},
-	{0x4aea, 0x80},
-	{0x38a8, 0x1f},
-	{0x38a9, 0xff},
-	{0x38aa, 0x1f},
-	{0x38ab, 0xff},
-	{0x55d4, 0x00},
-	{0x55d5, 0x00},
-	{0x55d6, 0x07},
-	{0x55d7, 0xff},
-	{0x55e8, 0x07},
-	{0x55e9, 0xff},
-	{0x55ea, 0x00},
-	{0x55eb, 0x00},
-	{0x574c, 0x07},
-	{0x574d, 0xff},
-	{0x574e, 0x00},
-	{0x574f, 0x00},
-	{0x5754, 0x00},
-	{0x5755, 0x00},
-	{0x5756, 0x07},
-	{0x5757, 0xff},
-	{0x5973, 0x04},
-	{0x5974, 0x01},
-	{0x5d13, 0xc3},
-	{0x5d14, 0x58},
-	{0x5d15, 0xa3},
-	{0x5d16, 0x1d},
-	{0x5d17, 0x65},
-	{0x5d18, 0x8c},
-	{0x5d1a, 0x06},
-	{0x5d1b, 0xa9},
-	{0x5d1c, 0x45},
-	{0x5d1d, 0x3a},
-	{0x5d1e, 0xab},
-	{0x5d1f, 0x15},
-	{0x5d21, 0x0e},
-	{0x5d22, 0x52},
-	{0x5d23, 0xaa},
-	{0x5d24, 0x7d},
-	{0x5d25, 0x57},
-	{0x5d26, 0xa8},
-	{0x5d37, 0x5a},
-	{0x5d38, 0x5a},
-	{0x5d77, 0x7f},
-	{0x7b75, 0x0e},
-	{0x7b76, 0x0b},
-	{0x7b77, 0x08},
-	{0x7b78, 0x0a},
-	{0x7b79, 0x47},
-	{0x7b7c, 0x00},
-	{0x7b7d, 0x00},
-	{0x8d1f, 0x00},
-	{0x8d27, 0x00},
-	{0x9004, 0x03},
-	{0x9200, 0x50},
-	{0x9201, 0x6c},
-	{0x9202, 0x71},
-	{0x9203, 0x00},
-	{0x9204, 0x71},
-	{0x9205, 0x01},
-	{0x9371, 0x6a},
-	{0x9373, 0x6a},
-	{0x9375, 0x64},
-	{0x991a, 0x00},
-	{0x996b, 0x8c},
-	{0x996c, 0x64},
-	{0x996d, 0x50},
-	{0x9a4c, 0x0d},
-	{0x9a4d, 0x0d},
-	{0xa001, 0x0a},
-	{0xa003, 0x0a},
-	{0xa005, 0x0a},
-	{0xa006, 0x01},
-	{0xa007, 0xc0},
-	{0xa009, 0xc0},
-	{0x3d8a, 0x01},
-	{0x4421, 0x04},
-	{0x7b3b, 0x01},
-	{0x7b4c, 0x00},
-	{0x9905, 0x00},
-	{0x9907, 0x00},
-	{0x9909, 0x00},
-	{0x990b, 0x00},
-	{0x9944, 0x3c},
-	{0x9947, 0x3c},
-	{0x994a, 0x8c},
-	{0x994b, 0x50},
-	{0x994c, 0x1b},
-	{0x994d, 0x8c},
-	{0x994e, 0x50},
-	{0x994f, 0x1b},
-	{0x9950, 0x8c},
-	{0x9951, 0x1b},
-	{0x9952, 0x0a},
-	{0x9953, 0x8c},
-	{0x9954, 0x1b},
-	{0x9955, 0x0a},
-	{0x9a13, 0x04},
-	{0x9a14, 0x04},
-	{0x9a19, 0x00},
-	{0x9a1c, 0x04},
-	{0x9a1d, 0x04},
-	{0x9a26, 0x05},
-	{0x9a27, 0x05},
-	{0x9a2c, 0x01},
-	{0x9a2d, 0x03},
-	{0x9a2f, 0x05},
-	{0x9a30, 0x05},
-	{0x9a41, 0x00},
-	{0x9a46, 0x00},
-	{0x9a47, 0x00},
-	{0x9c17, 0x35},
-	{0x9c1d, 0x31},
-	{0x9c29, 0x50},
-	{0x9c3b, 0x2f},
-	{0x9c41, 0x6b},
-	{0x9c47, 0x2d},
-	{0x9c4d, 0x40},
-	{0x9c6b, 0x00},
-	{0x9c71, 0xc8},
-	{0x9c73, 0x32},
-	{0x9c75, 0x04},
-	{0x9c7d, 0x2d},
-	{0x9c83, 0x40},
-	{0x9c94, 0x3f},
-	{0x9c95, 0x3f},
-	{0x9c96, 0x3f},
-	{0x9c97, 0x00},
-	{0x9c98, 0x00},
-	{0x9c99, 0x00},
-	{0x9c9a, 0x3f},
-	{0x9c9b, 0x3f},
-	{0x9c9c, 0x3f},
-	{0x9ca0, 0x0f},
-	{0x9ca1, 0x0f},
-	{0x9ca2, 0x0f},
-	{0x9ca3, 0x00},
-	{0x9ca4, 0x00},
-	{0x9ca5, 0x00},
-	{0x9ca6, 0x1e},
-	{0x9ca7, 0x1e},
-	{0x9ca8, 0x1e},
-	{0x9ca9, 0x00},
-	{0x9caa, 0x00},
-	{0x9cab, 0x00},
-	{0x9cac, 0x09},
-	{0x9cad, 0x09},
-	{0x9cae, 0x09},
-	{0x9cbd, 0x50},
-	{0x9cbf, 0x50},
-	{0x9cc1, 0x50},
-	{0x9cc3, 0x40},
-	{0x9cc5, 0x40},
-	{0x9cc7, 0x40},
-	{0x9cc9, 0x0a},
-	{0x9ccb, 0x0a},
-	{0x9ccd, 0x0a},
-	{0x9d17, 0x35},
-	{0x9d1d, 0x31},
-	{0x9d29, 0x50},
-	{0x9d3b, 0x2f},
-	{0x9d41, 0x6b},
-	{0x9d47, 0x42},
-	{0x9d4d, 0x5a},
-	{0x9d6b, 0x00},
-	{0x9d71, 0xc8},
-	{0x9d73, 0x32},
-	{0x9d75, 0x04},
-	{0x9d7d, 0x42},
-	{0x9d83, 0x5a},
-	{0x9d94, 0x3f},
-	{0x9d95, 0x3f},
-	{0x9d96, 0x3f},
-	{0x9d97, 0x00},
-	{0x9d98, 0x00},
-	{0x9d99, 0x00},
-	{0x9d9a, 0x3f},
-	{0x9d9b, 0x3f},
-	{0x9d9c, 0x3f},
-	{0x9d9d, 0x1f},
-	{0x9d9e, 0x1f},
-	{0x9d9f, 0x1f},
-	{0x9da0, 0x0f},
-	{0x9da1, 0x0f},
-	{0x9da2, 0x0f},
-	{0x9da3, 0x00},
-	{0x9da4, 0x00},
-	{0x9da5, 0x00},
-	{0x9da6, 0x1e},
-	{0x9da7, 0x1e},
-	{0x9da8, 0x1e},
-	{0x9da9, 0x00},
-	{0x9daa, 0x00},
-	{0x9dab, 0x00},
-	{0x9dac, 0x09},
-	{0x9dad, 0x09},
-	{0x9dae, 0x09},
-	{0x9dc9, 0x0a},
-	{0x9dcb, 0x0a},
-	{0x9dcd, 0x0a},
-	{0x9e17, 0x35},
-	{0x9e1d, 0x31},
-	{0x9e29, 0x50},
-	{0x9e3b, 0x2f},
-	{0x9e41, 0x6b},
-	{0x9e47, 0x2d},
-	{0x9e4d, 0x40},
-	{0x9e6b, 0x00},
-	{0x9e71, 0xc8},
-	{0x9e73, 0x32},
-	{0x9e75, 0x04},
-	{0x9e94, 0x0f},
-	{0x9e95, 0x0f},
-	{0x9e96, 0x0f},
-	{0x9e97, 0x00},
-	{0x9e98, 0x00},
-	{0x9e99, 0x00},
-	{0x9ea0, 0x0f},
-	{0x9ea1, 0x0f},
-	{0x9ea2, 0x0f},
-	{0x9ea3, 0x00},
-	{0x9ea4, 0x00},
-	{0x9ea5, 0x00},
-	{0x9ea6, 0x3f},
-	{0x9ea7, 0x3f},
-	{0x9ea8, 0x3f},
-	{0x9ea9, 0x00},
-	{0x9eaa, 0x00},
-	{0x9eab, 0x00},
-	{0x9eac, 0x09},
-	{0x9ead, 0x09},
-	{0x9eae, 0x09},
-	{0x9ec9, 0x0a},
-	{0x9ecb, 0x0a},
-	{0x9ecd, 0x0a},
-	{0x9f17, 0x35},
-	{0x9f1d, 0x31},
-	{0x9f29, 0x50},
-	{0x9f3b, 0x2f},
-	{0x9f41, 0x6b},
-	{0x9f47, 0x42},
-	{0x9f4d, 0x5a},
-	{0x9f6b, 0x00},
-	{0x9f71, 0xc8},
-	{0x9f73, 0x32},
-	{0x9f75, 0x04},
-	{0x9f94, 0x0f},
-	{0x9f95, 0x0f},
-	{0x9f96, 0x0f},
-	{0x9f97, 0x00},
-	{0x9f98, 0x00},
-	{0x9f99, 0x00},
-	{0x9f9a, 0x2f},
-	{0x9f9b, 0x2f},
-	{0x9f9c, 0x2f},
-	{0x9f9d, 0x00},
-	{0x9f9e, 0x00},
-	{0x9f9f, 0x00},
-	{0x9fa0, 0x0f},
-	{0x9fa1, 0x0f},
-	{0x9fa2, 0x0f},
-	{0x9fa3, 0x00},
-	{0x9fa4, 0x00},
-	{0x9fa5, 0x00},
-	{0x9fa6, 0x1e},
-	{0x9fa7, 0x1e},
-	{0x9fa8, 0x1e},
-	{0x9fa9, 0x00},
-	{0x9faa, 0x00},
-	{0x9fab, 0x00},
-	{0x9fac, 0x09},
-	{0x9fad, 0x09},
-	{0x9fae, 0x09},
-	{0x9fc9, 0x0a},
-	{0x9fcb, 0x0a},
-	{0x9fcd, 0x0a},
-	{0xa14b, 0xff},
-	{0xa151, 0x0c},
-	{0xa153, 0x50},
-	{0xa155, 0x02},
-	{0xa157, 0x00},
-	{0xa1ad, 0xff},
-	{0xa1b3, 0x0c},
-	{0xa1b5, 0x50},
-	{0xa1b9, 0x00},
-	{0xa24b, 0xff},
-	{0xa257, 0x00},
-	{0xa2ad, 0xff},
-	{0xa2b9, 0x00},
-	{0xb21f, 0x04},
-	{0xb35c, 0x00},
-	{0xb35e, 0x08},
-	{0x0112, 0x0c},
-	{0x0113, 0x0c},
-	{0x0114, 0x01},
-	{0x0350, 0x00},
-	{0xbcf1, 0x02},
-	{0x3ff9, 0x01},
+static const struct cci_reg_sequence mode_common_regs[] = {
+	{CCI_REG8(0x0136), 0x18},
+	{CCI_REG8(0x0137), 0x00},
+	{CCI_REG8(0x0138), 0x01},
+	{CCI_REG8(0xe000), 0x00},
+	{CCI_REG8(0xe07a), 0x01},
+	{IMX477_REG_DPHY_CTRL, IMX477_DPHY_CTRL_REGISTER},
+	{CCI_REG8(0x4ae9), 0x18},
+	{CCI_REG8(0x4aea), 0x08},
+	{CCI_REG8(0xf61c), 0x04},
+	{CCI_REG8(0xf61e), 0x04},
+	{CCI_REG8(0x4ae9), 0x21},
+	{CCI_REG8(0x4aea), 0x80},
+	{CCI_REG8(0x38a8), 0x1f},
+	{CCI_REG8(0x38a9), 0xff},
+	{CCI_REG8(0x38aa), 0x1f},
+	{CCI_REG8(0x38ab), 0xff},
+	{CCI_REG8(0x55d4), 0x00},
+	{CCI_REG8(0x55d5), 0x00},
+	{CCI_REG8(0x55d6), 0x07},
+	{CCI_REG8(0x55d7), 0xff},
+	{CCI_REG8(0x55e8), 0x07},
+	{CCI_REG8(0x55e9), 0xff},
+	{CCI_REG8(0x55ea), 0x00},
+	{CCI_REG8(0x55eb), 0x00},
+	{CCI_REG8(0x574c), 0x07},
+	{CCI_REG8(0x574d), 0xff},
+	{CCI_REG8(0x574e), 0x00},
+	{CCI_REG8(0x574f), 0x00},
+	{CCI_REG8(0x5754), 0x00},
+	{CCI_REG8(0x5755), 0x00},
+	{CCI_REG8(0x5756), 0x07},
+	{CCI_REG8(0x5757), 0xff},
+	{CCI_REG8(0x5973), 0x04},
+	{CCI_REG8(0x5974), 0x01},
+	{CCI_REG8(0x5d13), 0xc3},
+	{CCI_REG8(0x5d14), 0x58},
+	{CCI_REG8(0x5d15), 0xa3},
+	{CCI_REG8(0x5d16), 0x1d},
+	{CCI_REG8(0x5d17), 0x65},
+	{CCI_REG8(0x5d18), 0x8c},
+	{CCI_REG8(0x5d1a), 0x06},
+	{CCI_REG8(0x5d1b), 0xa9},
+	{CCI_REG8(0x5d1c), 0x45},
+	{CCI_REG8(0x5d1d), 0x3a},
+	{CCI_REG8(0x5d1e), 0xab},
+	{CCI_REG8(0x5d1f), 0x15},
+	{CCI_REG8(0x5d21), 0x0e},
+	{CCI_REG8(0x5d22), 0x52},
+	{CCI_REG8(0x5d23), 0xaa},
+	{CCI_REG8(0x5d24), 0x7d},
+	{CCI_REG8(0x5d25), 0x57},
+	{CCI_REG8(0x5d26), 0xa8},
+	{CCI_REG8(0x5d37), 0x5a},
+	{CCI_REG8(0x5d38), 0x5a},
+	{CCI_REG8(0x5d77), 0x7f},
+	{CCI_REG8(0x7b75), 0x0e},
+	{CCI_REG8(0x7b76), 0x0b},
+	{CCI_REG8(0x7b77), 0x08},
+	{CCI_REG8(0x7b78), 0x0a},
+	{CCI_REG8(0x7b79), 0x47},
+	{CCI_REG8(0x7b7c), 0x00},
+	{CCI_REG8(0x7b7d), 0x00},
+	{CCI_REG8(0x8d1f), 0x00},
+	{CCI_REG8(0x8d27), 0x00},
+	{CCI_REG8(0x9004), 0x03},
+	{CCI_REG8(0x9200), 0x50},
+	{CCI_REG8(0x9201), 0x6c},
+	{CCI_REG8(0x9202), 0x71},
+	{CCI_REG8(0x9203), 0x00},
+	{CCI_REG8(0x9204), 0x71},
+	{CCI_REG8(0x9205), 0x01},
+	{CCI_REG8(0x9371), 0x6a},
+	{CCI_REG8(0x9373), 0x6a},
+	{CCI_REG8(0x9375), 0x64},
+	{CCI_REG8(0x991a), 0x00},
+	{CCI_REG8(0x996b), 0x8c},
+	{CCI_REG8(0x996c), 0x64},
+	{CCI_REG8(0x996d), 0x50},
+	{CCI_REG8(0x9a4c), 0x0d},
+	{CCI_REG8(0x9a4d), 0x0d},
+	{CCI_REG8(0xa001), 0x0a},
+	{CCI_REG8(0xa003), 0x0a},
+	{CCI_REG8(0xa005), 0x0a},
+	{CCI_REG8(0xa006), 0x01},
+	{CCI_REG8(0xa007), 0xc0},
+	{CCI_REG8(0xa009), 0xc0},
+	{CCI_REG8(0x3d8a), 0x01},
+	{CCI_REG8(0x4421), 0x04},
+	{CCI_REG8(0x7b3b), 0x01},
+	{CCI_REG8(0x7b4c), 0x00},
+	{CCI_REG8(0x9905), 0x00},
+	{CCI_REG8(0x9907), 0x00},
+	{CCI_REG8(0x9909), 0x00},
+	{CCI_REG8(0x990b), 0x00},
+	{CCI_REG8(0x9944), 0x3c},
+	{CCI_REG8(0x9947), 0x3c},
+	{CCI_REG8(0x994a), 0x8c},
+	{CCI_REG8(0x994b), 0x50},
+	{CCI_REG8(0x994c), 0x1b},
+	{CCI_REG8(0x994d), 0x8c},
+	{CCI_REG8(0x994e), 0x50},
+	{CCI_REG8(0x994f), 0x1b},
+	{CCI_REG8(0x9950), 0x8c},
+	{CCI_REG8(0x9951), 0x1b},
+	{CCI_REG8(0x9952), 0x0a},
+	{CCI_REG8(0x9953), 0x8c},
+	{CCI_REG8(0x9954), 0x1b},
+	{CCI_REG8(0x9955), 0x0a},
+	{CCI_REG8(0x9a13), 0x04},
+	{CCI_REG8(0x9a14), 0x04},
+	{CCI_REG8(0x9a19), 0x00},
+	{CCI_REG8(0x9a1c), 0x04},
+	{CCI_REG8(0x9a1d), 0x04},
+	{CCI_REG8(0x9a26), 0x05},
+	{CCI_REG8(0x9a27), 0x05},
+	{CCI_REG8(0x9a2c), 0x01},
+	{CCI_REG8(0x9a2d), 0x03},
+	{CCI_REG8(0x9a2f), 0x05},
+	{CCI_REG8(0x9a30), 0x05},
+	{CCI_REG8(0x9a41), 0x00},
+	{CCI_REG8(0x9a46), 0x00},
+	{CCI_REG8(0x9a47), 0x00},
+	{CCI_REG8(0x9c17), 0x35},
+	{CCI_REG8(0x9c1d), 0x31},
+	{CCI_REG8(0x9c29), 0x50},
+	{CCI_REG8(0x9c3b), 0x2f},
+	{CCI_REG8(0x9c41), 0x6b},
+	{CCI_REG8(0x9c47), 0x2d},
+	{CCI_REG8(0x9c4d), 0x40},
+	{CCI_REG8(0x9c6b), 0x00},
+	{CCI_REG8(0x9c71), 0xc8},
+	{CCI_REG8(0x9c73), 0x32},
+	{CCI_REG8(0x9c75), 0x04},
+	{CCI_REG8(0x9c7d), 0x2d},
+	{CCI_REG8(0x9c83), 0x40},
+	{CCI_REG8(0x9c94), 0x3f},
+	{CCI_REG8(0x9c95), 0x3f},
+	{CCI_REG8(0x9c96), 0x3f},
+	{CCI_REG8(0x9c97), 0x00},
+	{CCI_REG8(0x9c98), 0x00},
+	{CCI_REG8(0x9c99), 0x00},
+	{CCI_REG8(0x9c9a), 0x3f},
+	{CCI_REG8(0x9c9b), 0x3f},
+	{CCI_REG8(0x9c9c), 0x3f},
+	{CCI_REG8(0x9ca0), 0x0f},
+	{CCI_REG8(0x9ca1), 0x0f},
+	{CCI_REG8(0x9ca2), 0x0f},
+	{CCI_REG8(0x9ca3), 0x00},
+	{CCI_REG8(0x9ca4), 0x00},
+	{CCI_REG8(0x9ca5), 0x00},
+	{CCI_REG8(0x9ca6), 0x1e},
+	{CCI_REG8(0x9ca7), 0x1e},
+	{CCI_REG8(0x9ca8), 0x1e},
+	{CCI_REG8(0x9ca9), 0x00},
+	{CCI_REG8(0x9caa), 0x00},
+	{CCI_REG8(0x9cab), 0x00},
+	{CCI_REG8(0x9cac), 0x09},
+	{CCI_REG8(0x9cad), 0x09},
+	{CCI_REG8(0x9cae), 0x09},
+	{CCI_REG8(0x9cbd), 0x50},
+	{CCI_REG8(0x9cbf), 0x50},
+	{CCI_REG8(0x9cc1), 0x50},
+	{CCI_REG8(0x9cc3), 0x40},
+	{CCI_REG8(0x9cc5), 0x40},
+	{CCI_REG8(0x9cc7), 0x40},
+	{CCI_REG8(0x9cc9), 0x0a},
+	{CCI_REG8(0x9ccb), 0x0a},
+	{CCI_REG8(0x9ccd), 0x0a},
+	{CCI_REG8(0x9d17), 0x35},
+	{CCI_REG8(0x9d1d), 0x31},
+	{CCI_REG8(0x9d29), 0x50},
+	{CCI_REG8(0x9d3b), 0x2f},
+	{CCI_REG8(0x9d41), 0x6b},
+	{CCI_REG8(0x9d47), 0x42},
+	{CCI_REG8(0x9d4d), 0x5a},
+	{CCI_REG8(0x9d6b), 0x00},
+	{CCI_REG8(0x9d71), 0xc8},
+	{CCI_REG8(0x9d73), 0x32},
+	{CCI_REG8(0x9d75), 0x04},
+	{CCI_REG8(0x9d7d), 0x42},
+	{CCI_REG8(0x9d83), 0x5a},
+	{CCI_REG8(0x9d94), 0x3f},
+	{CCI_REG8(0x9d95), 0x3f},
+	{CCI_REG8(0x9d96), 0x3f},
+	{CCI_REG8(0x9d97), 0x00},
+	{CCI_REG8(0x9d98), 0x00},
+	{CCI_REG8(0x9d99), 0x00},
+	{CCI_REG8(0x9d9a), 0x3f},
+	{CCI_REG8(0x9d9b), 0x3f},
+	{CCI_REG8(0x9d9c), 0x3f},
+	{CCI_REG8(0x9d9d), 0x1f},
+	{CCI_REG8(0x9d9e), 0x1f},
+	{CCI_REG8(0x9d9f), 0x1f},
+	{CCI_REG8(0x9da0), 0x0f},
+	{CCI_REG8(0x9da1), 0x0f},
+	{CCI_REG8(0x9da2), 0x0f},
+	{CCI_REG8(0x9da3), 0x00},
+	{CCI_REG8(0x9da4), 0x00},
+	{CCI_REG8(0x9da5), 0x00},
+	{CCI_REG8(0x9da6), 0x1e},
+	{CCI_REG8(0x9da7), 0x1e},
+	{CCI_REG8(0x9da8), 0x1e},
+	{CCI_REG8(0x9da9), 0x00},
+	{CCI_REG8(0x9daa), 0x00},
+	{CCI_REG8(0x9dab), 0x00},
+	{CCI_REG8(0x9dac), 0x09},
+	{CCI_REG8(0x9dad), 0x09},
+	{CCI_REG8(0x9dae), 0x09},
+	{CCI_REG8(0x9dc9), 0x0a},
+	{CCI_REG8(0x9dcb), 0x0a},
+	{CCI_REG8(0x9dcd), 0x0a},
+	{CCI_REG8(0x9e17), 0x35},
+	{CCI_REG8(0x9e1d), 0x31},
+	{CCI_REG8(0x9e29), 0x50},
+	{CCI_REG8(0x9e3b), 0x2f},
+	{CCI_REG8(0x9e41), 0x6b},
+	{CCI_REG8(0x9e47), 0x2d},
+	{CCI_REG8(0x9e4d), 0x40},
+	{CCI_REG8(0x9e6b), 0x00},
+	{CCI_REG8(0x9e71), 0xc8},
+	{CCI_REG8(0x9e73), 0x32},
+	{CCI_REG8(0x9e75), 0x04},
+	{CCI_REG8(0x9e94), 0x0f},
+	{CCI_REG8(0x9e95), 0x0f},
+	{CCI_REG8(0x9e96), 0x0f},
+	{CCI_REG8(0x9e97), 0x00},
+	{CCI_REG8(0x9e98), 0x00},
+	{CCI_REG8(0x9e99), 0x00},
+	{CCI_REG8(0x9ea0), 0x0f},
+	{CCI_REG8(0x9ea1), 0x0f},
+	{CCI_REG8(0x9ea2), 0x0f},
+	{CCI_REG8(0x9ea3), 0x00},
+	{CCI_REG8(0x9ea4), 0x00},
+	{CCI_REG8(0x9ea5), 0x00},
+	{CCI_REG8(0x9ea6), 0x3f},
+	{CCI_REG8(0x9ea7), 0x3f},
+	{CCI_REG8(0x9ea8), 0x3f},
+	{CCI_REG8(0x9ea9), 0x00},
+	{CCI_REG8(0x9eaa), 0x00},
+	{CCI_REG8(0x9eab), 0x00},
+	{CCI_REG8(0x9eac), 0x09},
+	{CCI_REG8(0x9ead), 0x09},
+	{CCI_REG8(0x9eae), 0x09},
+	{CCI_REG8(0x9ec9), 0x0a},
+	{CCI_REG8(0x9ecb), 0x0a},
+	{CCI_REG8(0x9ecd), 0x0a},
+	{CCI_REG8(0x9f17), 0x35},
+	{CCI_REG8(0x9f1d), 0x31},
+	{CCI_REG8(0x9f29), 0x50},
+	{CCI_REG8(0x9f3b), 0x2f},
+	{CCI_REG8(0x9f41), 0x6b},
+	{CCI_REG8(0x9f47), 0x42},
+	{CCI_REG8(0x9f4d), 0x5a},
+	{CCI_REG8(0x9f6b), 0x00},
+	{CCI_REG8(0x9f71), 0xc8},
+	{CCI_REG8(0x9f73), 0x32},
+	{CCI_REG8(0x9f75), 0x04},
+	{CCI_REG8(0x9f94), 0x0f},
+	{CCI_REG8(0x9f95), 0x0f},
+	{CCI_REG8(0x9f96), 0x0f},
+	{CCI_REG8(0x9f97), 0x00},
+	{CCI_REG8(0x9f98), 0x00},
+	{CCI_REG8(0x9f99), 0x00},
+	{CCI_REG8(0x9f9a), 0x2f},
+	{CCI_REG8(0x9f9b), 0x2f},
+	{CCI_REG8(0x9f9c), 0x2f},
+	{CCI_REG8(0x9f9d), 0x00},
+	{CCI_REG8(0x9f9e), 0x00},
+	{CCI_REG8(0x9f9f), 0x00},
+	{CCI_REG8(0x9fa0), 0x0f},
+	{CCI_REG8(0x9fa1), 0x0f},
+	{CCI_REG8(0x9fa2), 0x0f},
+	{CCI_REG8(0x9fa3), 0x00},
+	{CCI_REG8(0x9fa4), 0x00},
+	{CCI_REG8(0x9fa5), 0x00},
+	{CCI_REG8(0x9fa6), 0x1e},
+	{CCI_REG8(0x9fa7), 0x1e},
+	{CCI_REG8(0x9fa8), 0x1e},
+	{CCI_REG8(0x9fa9), 0x00},
+	{CCI_REG8(0x9faa), 0x00},
+	{CCI_REG8(0x9fab), 0x00},
+	{CCI_REG8(0x9fac), 0x09},
+	{CCI_REG8(0x9fad), 0x09},
+	{CCI_REG8(0x9fae), 0x09},
+	{CCI_REG8(0x9fc9), 0x0a},
+	{CCI_REG8(0x9fcb), 0x0a},
+	{CCI_REG8(0x9fcd), 0x0a},
+	{CCI_REG8(0xa14b), 0xff},
+	{CCI_REG8(0xa151), 0x0c},
+	{CCI_REG8(0xa153), 0x50},
+	{CCI_REG8(0xa155), 0x02},
+	{CCI_REG8(0xa157), 0x00},
+	{CCI_REG8(0xa1ad), 0xff},
+	{CCI_REG8(0xa1b3), 0x0c},
+	{CCI_REG8(0xa1b5), 0x50},
+	{CCI_REG8(0xa1b9), 0x00},
+	{CCI_REG8(0xa24b), 0xff},
+	{CCI_REG8(0xa257), 0x00},
+	{CCI_REG8(0xa2ad), 0xff},
+	{CCI_REG8(0xa2b9), 0x00},
+	{CCI_REG8(0xb21f), 0x04},
+	{CCI_REG8(0xb35c), 0x00},
+	{CCI_REG8(0xb35e), 0x08},
+	{CCI_REG8(0x0114), 0x01},
+	{CCI_REG8(0x0350), 0x00},
+	{CCI_REG8(0xbcf1), 0x02},
+	{CCI_REG8(0x3ff9), 0x01},
+	{CCI_REG8(0x0220), 0x00},
+	{CCI_REG8(0x0221), 0x11},
+	{CCI_REG8(0x0381), 0x01},
+	{CCI_REG8(0x0383), 0x01},
+	{CCI_REG8(0x0385), 0x01},
+	{CCI_REG8(0x0387), 0x01},
+	{CCI_REG8(0x0902), 0x02},
+	{CCI_REG8(0x3140), 0x02},
+	{CCI_REG8(0x3c00), 0x00},
+	{CCI_REG8(0x9e9a), 0x2f},
+	{CCI_REG8(0x9e9b), 0x2f},
+	{CCI_REG8(0x9e9c), 0x2f},
+	{CCI_REG8(0x9e9d), 0x00},
+	{CCI_REG8(0x9e9e), 0x00},
+	{CCI_REG8(0x9e9f), 0x00},
+	{CCI_REG8(0x0301), 0x05},
+	{CCI_REG8(0x0303), 0x02},
+	{IMX477_REG_IOP_SYSCK_DIV, IMX477_IOP_SYSCK_DIV},
+	{IMX477_REG_IOP_PREDIV, IMX477_IOP_PREDIV},
+	{CCI_REG8(0x0310), 0x01},
+	{CCI_REG8(0x080a), 0x00},
+	{CCI_REG8(0x080b), 0x7f},
+	{CCI_REG8(0x080c), 0x00},
+	{CCI_REG8(0x080d), 0x4f},
+	{CCI_REG8(0x080e), 0x00},
+	{CCI_REG8(0x080f), 0x77},
+	{CCI_REG8(0x0810), 0x00},
+	{CCI_REG8(0x0811), 0x5f},
+	{CCI_REG8(0x0812), 0x00},
+	{CCI_REG8(0x0813), 0x57},
+	{CCI_REG8(0x0814), 0x00},
+	{CCI_REG8(0x0815), 0x4f},
+	{CCI_REG8(0x0816), 0x01},
+	{CCI_REG8(0x0817), 0x27},
+	{CCI_REG8(0x0818), 0x00},
+	{CCI_REG8(0x0819), 0x3f},
+	{CCI_REG8(0x3e20), 0x01},
+	{CCI_REG8(0x3e37), 0x00},
+	{CCI_REG8(0x3f50), 0x00},
 };
 
 /* 12 mpix 10fps */
-static const struct imx477_reg mode_4056x3040_regs[] = {
-	{0x0342, 0x5d},
-	{0x0343, 0xc0},
-	{0x0344, 0x00},
-	{0x0345, 0x00},
-	{0x0346, 0x00},
-	{0x0347, 0x00},
-	{0x0348, 0x0f},
-	{0x0349, 0xd7},
-	{0x034a, 0x0b},
-	{0x034b, 0xdf},
-	{0x00e3, 0x00},
-	{0x00e4, 0x00},
-	{0x00fc, 0x0a},
-	{0x00fd, 0x0a},
-	{0x00fe, 0x0a},
-	{0x00ff, 0x0a},
-	{0x0220, 0x00},
-	{0x0221, 0x11},
-	{0x0381, 0x01},
-	{0x0383, 0x01},
-	{0x0385, 0x01},
-	{0x0387, 0x01},
-	{0x0900, 0x00},
-	{0x0901, 0x11},
-	{0x0902, 0x02},
-	{0x3140, 0x02},
-	{0x3c00, 0x00},
-	{0x3c01, 0x03},
-	{0x3c02, 0xa2},
-	{0x3f0d, 0x01},
-	{0x5748, 0x07},
-	{0x5749, 0xff},
-	{0x574a, 0x00},
-	{0x574b, 0x00},
-	{0x7b75, 0x0a},
-	{0x7b76, 0x0c},
-	{0x7b77, 0x07},
-	{0x7b78, 0x06},
-	{0x7b79, 0x3c},
-	{0x7b53, 0x01},
-	{0x9369, 0x5a},
-	{0x936b, 0x55},
-	{0x936d, 0x28},
-	{0x9304, 0x00},
-	{0x9305, 0x00},
-	{0x9e9a, 0x2f},
-	{0x9e9b, 0x2f},
-	{0x9e9c, 0x2f},
-	{0x9e9d, 0x00},
-	{0x9e9e, 0x00},
-	{0x9e9f, 0x00},
-	{0xa2a9, 0x60},
-	{0xa2b7, 0x00},
-	{0x0401, 0x00},
-	{0x0404, 0x00},
-	{0x0405, 0x10},
-	{0x0408, 0x00},
-	{0x0409, 0x00},
-	{0x040a, 0x00},
-	{0x040b, 0x00},
-	{0x040c, 0x0f},
-	{0x040d, 0xd8},
-	{0x040e, 0x0b},
-	{0x040f, 0xe0},
-	{0x034c, 0x0f},
-	{0x034d, 0xd8},
-	{0x034e, 0x0b},
-	{0x034f, 0xe0},
-	{0x0301, 0x05},
-	{0x0303, 0x02},
-	{0x0305, 0x04},
-	{0x0306, 0x01},
-	{0x0307, 0x5e},
-	{0x0309, 0x0c},
-	{0x030b, 0x02},
-	{0x030d, 0x02},
-	{0x0310, 0x01},
-	{0x0820, 0x07},
-	{0x0821, 0x08},
-	{0x0822, 0x00},
-	{0x0823, 0x00},
-	{0x080a, 0x00},
-	{0x080b, 0x7f},
-	{0x080c, 0x00},
-	{0x080d, 0x4f},
-	{0x080e, 0x00},
-	{0x080f, 0x77},
-	{0x0810, 0x00},
-	{0x0811, 0x5f},
-	{0x0812, 0x00},
-	{0x0813, 0x57},
-	{0x0814, 0x00},
-	{0x0815, 0x4f},
-	{0x0816, 0x01},
-	{0x0817, 0x27},
-	{0x0818, 0x00},
-	{0x0819, 0x3f},
-	{0xe04c, 0x00},
-	{0xe04d, 0x7f},
-	{0xe04e, 0x00},
-	{0xe04f, 0x1f},
-	{0x3e20, 0x01},
-	{0x3e37, 0x00},
-	{0x3f50, 0x00},
-	{0x3f56, 0x02},
-	{0x3f57, 0xae},
+static const struct cci_reg_sequence mode_4056x3040_regs[] = {
+	{CCI_REG8(0x0344), 0x00},
+	{CCI_REG8(0x0345), 0x00},
+	{CCI_REG8(0x0346), 0x00},
+	{CCI_REG8(0x0347), 0x00},
+	{CCI_REG8(0x0348), 0x0f},
+	{CCI_REG8(0x0349), 0xd7},
+	{CCI_REG8(0x034a), 0x0b},
+	{CCI_REG8(0x034b), 0xdf},
+	{CCI_REG8(0x00e3), 0x00},
+	{CCI_REG8(0x00e4), 0x00},
+	{CCI_REG8(0x00fc), 0x0a},
+	{CCI_REG8(0x00fd), 0x0a},
+	{CCI_REG8(0x00fe), 0x0a},
+	{CCI_REG8(0x00ff), 0x0a},
+	{CCI_REG8(0x0900), 0x00},
+	{CCI_REG8(0x0901), 0x11},
+	{CCI_REG8(0x3c01), 0x03},
+	{CCI_REG8(0x3c02), 0xa2},
+	{CCI_REG8(0x5748), 0x07},
+	{CCI_REG8(0x5749), 0xff},
+	{CCI_REG8(0x574a), 0x00},
+	{CCI_REG8(0x574b), 0x00},
+	{CCI_REG8(0x7b75), 0x0a},
+	{CCI_REG8(0x7b76), 0x0c},
+	{CCI_REG8(0x7b77), 0x07},
+	{CCI_REG8(0x7b78), 0x06},
+	{CCI_REG8(0x7b79), 0x3c},
+	{CCI_REG8(0x7b53), 0x01},
+	{CCI_REG8(0x9369), 0x5a},
+	{CCI_REG8(0x936b), 0x55},
+	{CCI_REG8(0x936d), 0x28},
+	{CCI_REG8(0x9304), 0x00},
+	{CCI_REG8(0x9305), 0x00},
+	{CCI_REG8(0xa2a9), 0x60},
+	{CCI_REG8(0xa2b7), 0x00},
+	{CCI_REG8(0x0401), 0x00},
+	{CCI_REG8(0x0404), 0x00},
+	{CCI_REG8(0x0405), 0x10},
+	{CCI_REG8(0x0408), 0x00},
+	{CCI_REG8(0x0409), 0x00},
+	{CCI_REG8(0x040a), 0x00},
+	{CCI_REG8(0x040b), 0x00},
+	{CCI_REG8(0x040c), 0x0f},
+	{CCI_REG8(0x040d), 0xd8},
+	{CCI_REG8(0x040e), 0x0b},
+	{CCI_REG8(0x040f), 0xe0},
+	{CCI_REG8(0x034c), 0x0f},
+	{CCI_REG8(0x034d), 0xd8},
+	{CCI_REG8(0x034e), 0x0b},
+	{CCI_REG8(0x034f), 0xe0},
+	{CCI_REG8(0x0305), 0x04},
+	{CCI_REG8(0x0306), 0x01},
+	{CCI_REG8(0x0307), 0x5e},
+	{CCI_REG8(0xe04c), 0x00},
+	{CCI_REG8(0xe04d), 0x7f},
+	{CCI_REG8(0xe04e), 0x00},
+	{CCI_REG8(0xe04f), 0x1f},
+	{CCI_REG8(0x3f56), 0x02},
+	{CCI_REG8(0x3f57), 0xae},
+};
+
+/* 12 mpix cropped to 16:9 10fps */
+static const struct cci_reg_sequence mode_4056x2160_regs[] = {
+	{CCI_REG8(0x0344), 0x00},
+	{CCI_REG8(0x0345), 0x00},
+	{CCI_REG8(0x0346), 0x01},
+	{CCI_REG8(0x0347), 0xb8},
+	{CCI_REG8(0x0348), 0x0f},
+	{CCI_REG8(0x0349), 0xd7},
+	{CCI_REG8(0x034a), 0x0a},
+	{CCI_REG8(0x034b), 0x27},
+	{CCI_REG8(0x00e3), 0x00},
+	{CCI_REG8(0x00e4), 0x00},
+	{CCI_REG8(0x00fc), 0x0a},
+	{CCI_REG8(0x00fd), 0x0a},
+	{CCI_REG8(0x00fe), 0x0a},
+	{CCI_REG8(0x00ff), 0x0a},
+	{CCI_REG8(0x0900), 0x00},
+	{CCI_REG8(0x0901), 0x11},
+	{CCI_REG8(0x3c01), 0x03},
+	{CCI_REG8(0x3c02), 0xa2},
+	{CCI_REG8(0x5748), 0x07},
+	{CCI_REG8(0x5749), 0xff},
+	{CCI_REG8(0x574a), 0x00},
+	{CCI_REG8(0x574b), 0x00},
+	{CCI_REG8(0x7b75), 0x0a},
+	{CCI_REG8(0x7b76), 0x0c},
+	{CCI_REG8(0x7b77), 0x07},
+	{CCI_REG8(0x7b78), 0x06},
+	{CCI_REG8(0x7b79), 0x3c},
+	{CCI_REG8(0x7b53), 0x01},
+	{CCI_REG8(0x9369), 0x5a},
+	{CCI_REG8(0x936b), 0x55},
+	{CCI_REG8(0x936d), 0x28},
+	{CCI_REG8(0x9304), 0x00},
+	{CCI_REG8(0x9305), 0x00},
+	{CCI_REG8(0xa2a9), 0x60},
+	{CCI_REG8(0xa2b7), 0x00},
+	{CCI_REG8(0x0401), 0x00},
+	{CCI_REG8(0x0404), 0x00},
+	{CCI_REG8(0x0405), 0x10},
+	{CCI_REG8(0x0408), 0x00},
+	{CCI_REG8(0x0409), 0x00},
+	{CCI_REG8(0x040a), 0x00},
+	{CCI_REG8(0x040b), 0x00},
+	{CCI_REG8(0x040c), 0x0f},
+	{CCI_REG8(0x040d), 0xd8},
+	{CCI_REG8(0x040e), 0x08},
+	{CCI_REG8(0x040f), 0x70},
+	{CCI_REG8(0x034c), 0x0f},
+	{CCI_REG8(0x034d), 0xd8},
+	{CCI_REG8(0x034e), 0x08},
+	{CCI_REG8(0x034f), 0x70},
+	{CCI_REG8(0x0305), 0x04},
+	{CCI_REG8(0x0306), 0x01},
+	{CCI_REG8(0x0307), 0x5e},
+	{CCI_REG8(0xe04c), 0x00},
+	{CCI_REG8(0xe04d), 0x7f},
+	{CCI_REG8(0xe04e), 0x00},
+	{CCI_REG8(0xe04f), 0x1f},
+	{CCI_REG8(0x3f56), 0x02},
+	{CCI_REG8(0x3f57), 0xae},
 };
 
 /* 2x2 binned. 40fps */
-static const struct imx477_reg mode_2028x1520_regs[] = {
-	{0x0342, 0x31},
-	{0x0343, 0xc4},
-	{0x0344, 0x00},
-	{0x0345, 0x00},
-	{0x0346, 0x00},
-	{0x0347, 0x00},
-	{0x0348, 0x0f},
-	{0x0349, 0xd7},
-	{0x034a, 0x0b},
-	{0x034b, 0xdf},
-	{0x0220, 0x00},
-	{0x0221, 0x11},
-	{0x0381, 0x01},
-	{0x0383, 0x01},
-	{0x0385, 0x01},
-	{0x0387, 0x01},
-	{0x0900, 0x01},
-	{0x0901, 0x22},
-	{0x0902, 0x02},
-	{0x3140, 0x02},
-	{0x3c00, 0x00},
-	{0x3c01, 0x03},
-	{0x3c02, 0xa2},
-	{0x3f0d, 0x01},
-	{0x5748, 0x07},
-	{0x5749, 0xff},
-	{0x574a, 0x00},
-	{0x574b, 0x00},
-	{0x7b53, 0x01},
-	{0x9369, 0x73},
-	{0x936b, 0x64},
-	{0x936d, 0x5f},
-	{0x9304, 0x00},
-	{0x9305, 0x00},
-	{0x9e9a, 0x2f},
-	{0x9e9b, 0x2f},
-	{0x9e9c, 0x2f},
-	{0x9e9d, 0x00},
-	{0x9e9e, 0x00},
-	{0x9e9f, 0x00},
-	{0xa2a9, 0x60},
-	{0xa2b7, 0x00},
-	{0x0401, 0x00},
-	{0x0404, 0x00},
-	{0x0405, 0x20},
-	{0x0408, 0x00},
-	{0x0409, 0x00},
-	{0x040a, 0x00},
-	{0x040b, 0x00},
-	{0x040c, 0x0f},
-	{0x040d, 0xd8},
-	{0x040e, 0x0b},
-	{0x040f, 0xe0},
-	{0x034c, 0x07},
-	{0x034d, 0xec},
-	{0x034e, 0x05},
-	{0x034f, 0xf0},
-	{0x0301, 0x05},
-	{0x0303, 0x02},
-	{0x0305, 0x04},
-	{0x0306, 0x01},
-	{0x0307, 0x5e},
-	{0x0309, 0x0c},
-	{0x030b, 0x02},
-	{0x030d, 0x02},
-	{0x0310, 0x01},
-	{0x0820, 0x07},
-	{0x0821, 0x08},
-	{0x0822, 0x00},
-	{0x0823, 0x00},
-	{0x080a, 0x00},
-	{0x080b, 0x7f},
-	{0x080c, 0x00},
-	{0x080d, 0x4f},
-	{0x080e, 0x00},
-	{0x080f, 0x77},
-	{0x0810, 0x00},
-	{0x0811, 0x5f},
-	{0x0812, 0x00},
-	{0x0813, 0x57},
-	{0x0814, 0x00},
-	{0x0815, 0x4f},
-	{0x0816, 0x01},
-	{0x0817, 0x27},
-	{0x0818, 0x00},
-	{0x0819, 0x3f},
-	{0xe04c, 0x00},
-	{0xe04d, 0x7f},
-	{0xe04e, 0x00},
-	{0xe04f, 0x1f},
-	{0x3e20, 0x01},
-	{0x3e37, 0x00},
-	{0x3f50, 0x00},
-	{0x3f56, 0x01},
-	{0x3f57, 0x6c},
+static const struct cci_reg_sequence mode_2028x1520_regs[] = {
+	{CCI_REG8(0x0344), 0x00},
+	{CCI_REG8(0x0345), 0x00},
+	{CCI_REG8(0x0346), 0x00},
+	{CCI_REG8(0x0347), 0x00},
+	{CCI_REG8(0x0348), 0x0f},
+	{CCI_REG8(0x0349), 0xd7},
+	{CCI_REG8(0x034a), 0x0b},
+	{CCI_REG8(0x034b), 0xdf},
+	{CCI_REG8(0x0900), 0x01},
+	{CCI_REG8(0x0901), 0x22},
+	{CCI_REG8(0x3c01), 0x03},
+	{CCI_REG8(0x3c02), 0xa2},
+	{CCI_REG8(0x5748), 0x07},
+	{CCI_REG8(0x5749), 0xff},
+	{CCI_REG8(0x574a), 0x00},
+	{CCI_REG8(0x574b), 0x00},
+	{CCI_REG8(0x7b53), 0x01},
+	{CCI_REG8(0x9369), 0x73},
+	{CCI_REG8(0x936b), 0x64},
+	{CCI_REG8(0x936d), 0x5f},
+	{CCI_REG8(0x9304), 0x00},
+	{CCI_REG8(0x9305), 0x00},
+	{CCI_REG8(0xa2a9), 0x60},
+	{CCI_REG8(0xa2b7), 0x00},
+	{CCI_REG8(0x0401), 0x00},
+	{CCI_REG8(0x0404), 0x00},
+	{CCI_REG8(0x0405), 0x20},
+	{CCI_REG8(0x0408), 0x00},
+	{CCI_REG8(0x0409), 0x00},
+	{CCI_REG8(0x040a), 0x00},
+	{CCI_REG8(0x040b), 0x00},
+	{CCI_REG8(0x040c), 0x0f},
+	{CCI_REG8(0x040d), 0xd8},
+	{CCI_REG8(0x040e), 0x0b},
+	{CCI_REG8(0x040f), 0xe0},
+	{CCI_REG8(0x034c), 0x07},
+	{CCI_REG8(0x034d), 0xec},
+	{CCI_REG8(0x034e), 0x05},
+	{CCI_REG8(0x034f), 0xf0},
+	{CCI_REG8(0x0305), 0x04},
+	{CCI_REG8(0x0306), 0x01},
+	{CCI_REG8(0x0307), 0x5e},
+	{CCI_REG8(0xe04c), 0x00},
+	{CCI_REG8(0xe04d), 0x7f},
+	{CCI_REG8(0xe04e), 0x00},
+	{CCI_REG8(0xe04f), 0x1f},
+	{CCI_REG8(0x3f56), 0x01},
+	{CCI_REG8(0x3f57), 0x6c},
 };
 
 /* 1080p cropped mode */
-static const struct imx477_reg mode_2028x1080_regs[] = {
-	{0x0342, 0x31},
-	{0x0343, 0xc4},
-	{0x0344, 0x00},
-	{0x0345, 0x00},
-	{0x0346, 0x01},
-	{0x0347, 0xb8},
-	{0x0348, 0x0f},
-	{0x0349, 0xd7},
-	{0x034a, 0x0a},
-	{0x034b, 0x27},
-	{0x0220, 0x00},
-	{0x0221, 0x11},
-	{0x0381, 0x01},
-	{0x0383, 0x01},
-	{0x0385, 0x01},
-	{0x0387, 0x01},
-	{0x0900, 0x01},
-	{0x0901, 0x22},
-	{0x0902, 0x02},
-	{0x3140, 0x02},
-	{0x3c00, 0x00},
-	{0x3c01, 0x03},
-	{0x3c02, 0xa2},
-	{0x3f0d, 0x01},
-	{0x5748, 0x07},
-	{0x5749, 0xff},
-	{0x574a, 0x00},
-	{0x574b, 0x00},
-	{0x7b53, 0x01},
-	{0x9369, 0x73},
-	{0x936b, 0x64},
-	{0x936d, 0x5f},
-	{0x9304, 0x00},
-	{0x9305, 0x00},
-	{0x9e9a, 0x2f},
-	{0x9e9b, 0x2f},
-	{0x9e9c, 0x2f},
-	{0x9e9d, 0x00},
-	{0x9e9e, 0x00},
-	{0x9e9f, 0x00},
-	{0xa2a9, 0x60},
-	{0xa2b7, 0x00},
-	{0x0401, 0x00},
-	{0x0404, 0x00},
-	{0x0405, 0x20},
-	{0x0408, 0x00},
-	{0x0409, 0x00},
-	{0x040a, 0x00},
-	{0x040b, 0x00},
-	{0x040c, 0x0f},
-	{0x040d, 0xd8},
-	{0x040e, 0x04},
-	{0x040f, 0x38},
-	{0x034c, 0x07},
-	{0x034d, 0xec},
-	{0x034e, 0x04},
-	{0x034f, 0x38},
-	{0x0301, 0x05},
-	{0x0303, 0x02},
-	{0x0305, 0x04},
-	{0x0306, 0x01},
-	{0x0307, 0x5e},
-	{0x0309, 0x0c},
-	{0x030b, 0x02},
-	{0x030d, 0x02},
-	{0x0310, 0x01},
-	{0x0820, 0x07},
-	{0x0821, 0x08},
-	{0x0822, 0x00},
-	{0x0823, 0x00},
-	{0x080a, 0x00},
-	{0x080b, 0x7f},
-	{0x080c, 0x00},
-	{0x080d, 0x4f},
-	{0x080e, 0x00},
-	{0x080f, 0x77},
-	{0x0810, 0x00},
-	{0x0811, 0x5f},
-	{0x0812, 0x00},
-	{0x0813, 0x57},
-	{0x0814, 0x00},
-	{0x0815, 0x4f},
-	{0x0816, 0x01},
-	{0x0817, 0x27},
-	{0x0818, 0x00},
-	{0x0819, 0x3f},
-	{0xe04c, 0x00},
-	{0xe04d, 0x7f},
-	{0xe04e, 0x00},
-	{0xe04f, 0x1f},
-	{0x3e20, 0x01},
-	{0x3e37, 0x00},
-	{0x3f50, 0x00},
-	{0x3f56, 0x01},
-	{0x3f57, 0x6c},
+static const struct cci_reg_sequence mode_2028x1080_regs[] = {
+	{CCI_REG8(0x0344), 0x00},
+	{CCI_REG8(0x0345), 0x00},
+	{CCI_REG8(0x0346), 0x01},
+	{CCI_REG8(0x0347), 0xb8},
+	{CCI_REG8(0x0348), 0x0f},
+	{CCI_REG8(0x0349), 0xd7},
+	{CCI_REG8(0x034a), 0x0a},
+	{CCI_REG8(0x034b), 0x27},
+	{CCI_REG8(0x0900), 0x01},
+	{CCI_REG8(0x0901), 0x22},
+	{CCI_REG8(0x3c01), 0x03},
+	{CCI_REG8(0x3c02), 0xa2},
+	{CCI_REG8(0x5748), 0x07},
+	{CCI_REG8(0x5749), 0xff},
+	{CCI_REG8(0x574a), 0x00},
+	{CCI_REG8(0x574b), 0x00},
+	{CCI_REG8(0x7b53), 0x01},
+	{CCI_REG8(0x9369), 0x73},
+	{CCI_REG8(0x936b), 0x64},
+	{CCI_REG8(0x936d), 0x5f},
+	{CCI_REG8(0x9304), 0x00},
+	{CCI_REG8(0x9305), 0x00},
+	{CCI_REG8(0xa2a9), 0x60},
+	{CCI_REG8(0xa2b7), 0x00},
+	{CCI_REG8(0x0401), 0x00},
+	{CCI_REG8(0x0404), 0x00},
+	{CCI_REG8(0x0405), 0x20},
+	{CCI_REG8(0x0408), 0x00},
+	{CCI_REG8(0x0409), 0x00},
+	{CCI_REG8(0x040a), 0x00},
+	{CCI_REG8(0x040b), 0x00},
+	{CCI_REG8(0x040c), 0x0f},
+	{CCI_REG8(0x040d), 0xd8},
+	{CCI_REG8(0x040e), 0x04},
+	{CCI_REG8(0x040f), 0x38},
+	{CCI_REG8(0x034c), 0x07},
+	{CCI_REG8(0x034d), 0xec},
+	{CCI_REG8(0x034e), 0x04},
+	{CCI_REG8(0x034f), 0x38},
+	{CCI_REG8(0x0305), 0x04},
+	{CCI_REG8(0x0306), 0x01},
+	{CCI_REG8(0x0307), 0x5e},
+	{CCI_REG8(0xe04c), 0x00},
+	{CCI_REG8(0xe04d), 0x7f},
+	{CCI_REG8(0xe04e), 0x00},
+	{CCI_REG8(0xe04f), 0x1f},
+	{CCI_REG8(0x3f56), 0x01},
+	{CCI_REG8(0x3f57), 0x6c},
 };
 
 /* 4x4 binned. 120fps */
-static const struct imx477_reg mode_1332x990_regs[] = {
-	{0x420b, 0x01},
-	{0x990c, 0x00},
-	{0x990d, 0x08},
-	{0x9956, 0x8c},
-	{0x9957, 0x64},
-	{0x9958, 0x50},
-	{0x9a48, 0x06},
-	{0x9a49, 0x06},
-	{0x9a4a, 0x06},
-	{0x9a4b, 0x06},
-	{0x9a4c, 0x06},
-	{0x9a4d, 0x06},
-	{0x0112, 0x0a},
-	{0x0113, 0x0a},
-	{0x0114, 0x01},
-	{0x0342, 0x1a},
-	{0x0343, 0x08},
-	{0x0340, 0x04},
-	{0x0341, 0x1a},
-	{0x0344, 0x00},
-	{0x0345, 0x00},
-	{0x0346, 0x02},
-	{0x0347, 0x10},
-	{0x0348, 0x0f},
-	{0x0349, 0xd7},
-	{0x034a, 0x09},
-	{0x034b, 0xcf},
-	{0x00e3, 0x00},
-	{0x00e4, 0x00},
-	{0x00fc, 0x0a},
-	{0x00fd, 0x0a},
-	{0x00fe, 0x0a},
-	{0x00ff, 0x0a},
-	{0xe013, 0x00},
-	{0x0220, 0x00},
-	{0x0221, 0x11},
-	{0x0381, 0x01},
-	{0x0383, 0x01},
-	{0x0385, 0x01},
-	{0x0387, 0x01},
-	{0x0900, 0x01},
-	{0x0901, 0x22},
-	{0x0902, 0x02},
-	{0x3140, 0x02},
-	{0x3c00, 0x00},
-	{0x3c01, 0x01},
-	{0x3c02, 0x9c},
-	{0x3f0d, 0x00},
-	{0x5748, 0x00},
-	{0x5749, 0x00},
-	{0x574a, 0x00},
-	{0x574b, 0xa4},
-	{0x7b75, 0x0e},
-	{0x7b76, 0x09},
-	{0x7b77, 0x08},
-	{0x7b78, 0x06},
-	{0x7b79, 0x34},
-	{0x7b53, 0x00},
-	{0x9369, 0x73},
-	{0x936b, 0x64},
-	{0x936d, 0x5f},
-	{0x9304, 0x03},
-	{0x9305, 0x80},
-	{0x9e9a, 0x2f},
-	{0x9e9b, 0x2f},
-	{0x9e9c, 0x2f},
-	{0x9e9d, 0x00},
-	{0x9e9e, 0x00},
-	{0x9e9f, 0x00},
-	{0xa2a9, 0x27},
-	{0xa2b7, 0x03},
-	{0x0401, 0x00},
-	{0x0404, 0x00},
-	{0x0405, 0x10},
-	{0x0408, 0x01},
-	{0x0409, 0x5c},
-	{0x040a, 0x00},
-	{0x040b, 0x00},
-	{0x040c, 0x05},
-	{0x040d, 0x34},
-	{0x040e, 0x03},
-	{0x040f, 0xde},
-	{0x034c, 0x05},
-	{0x034d, 0x34},
-	{0x034e, 0x03},
-	{0x034f, 0xde},
-	{0x0301, 0x05},
-	{0x0303, 0x02},
-	{0x0305, 0x02},
-	{0x0306, 0x00},
-	{0x0307, 0xaf},
-	{0x0309, 0x0a},
-	{0x030b, 0x02},
-	{0x030d, 0x02},
-	{0x0310, 0x01},
-	{0x0820, 0x07},
-	{0x0821, 0x08},
-	{0x0822, 0x00},
-	{0x0823, 0x00},
-	{0x080a, 0x00},
-	{0x080b, 0x7f},
-	{0x080c, 0x00},
-	{0x080d, 0x4f},
-	{0x080e, 0x00},
-	{0x080f, 0x77},
-	{0x0810, 0x00},
-	{0x0811, 0x5f},
-	{0x0812, 0x00},
-	{0x0813, 0x57},
-	{0x0814, 0x00},
-	{0x0815, 0x4f},
-	{0x0816, 0x01},
-	{0x0817, 0x27},
-	{0x0818, 0x00},
-	{0x0819, 0x3f},
-	{0xe04c, 0x00},
-	{0xe04d, 0x5f},
-	{0xe04e, 0x00},
-	{0xe04f, 0x1f},
-	{0x3e20, 0x01},
-	{0x3e37, 0x00},
-	{0x3f50, 0x00},
-	{0x3f56, 0x00},
-	{0x3f57, 0xbf},
+static const struct cci_reg_sequence mode_1332x990_regs[] = {
+	{CCI_REG8(0x420b), 0x01},
+	{CCI_REG8(0x990c), 0x00},
+	{CCI_REG8(0x990d), 0x08},
+	{CCI_REG8(0x9956), 0x8c},
+	{CCI_REG8(0x9957), 0x64},
+	{CCI_REG8(0x9958), 0x50},
+	{CCI_REG8(0x9a48), 0x06},
+	{CCI_REG8(0x9a49), 0x06},
+	{CCI_REG8(0x9a4a), 0x06},
+	{CCI_REG8(0x9a4b), 0x06},
+	{CCI_REG8(0x9a4c), 0x06},
+	{CCI_REG8(0x9a4d), 0x06},
+	{CCI_REG8(0x0114), 0x01},
+	{CCI_REG8(0x0340), 0x04},
+	{CCI_REG8(0x0341), 0x1a},
+	{CCI_REG8(0x0344), 0x00},
+	{CCI_REG8(0x0345), 0x00},
+	{CCI_REG8(0x0346), 0x02},
+	{CCI_REG8(0x0347), 0x10},
+	{CCI_REG8(0x0348), 0x0f},
+	{CCI_REG8(0x0349), 0xd7},
+	{CCI_REG8(0x034a), 0x09},
+	{CCI_REG8(0x034b), 0xcf},
+	{CCI_REG8(0x00e3), 0x00},
+	{CCI_REG8(0x00e4), 0x00},
+	{CCI_REG8(0x00fc), 0x0a},
+	{CCI_REG8(0x00fd), 0x0a},
+	{CCI_REG8(0x00fe), 0x0a},
+	{CCI_REG8(0x00ff), 0x0a},
+	{CCI_REG8(0xe013), 0x00},
+	{CCI_REG8(0x0220), 0x00},
+	{CCI_REG8(0x0221), 0x11},
+	{CCI_REG8(0x0381), 0x01},
+	{CCI_REG8(0x0383), 0x01},
+	{CCI_REG8(0x0385), 0x01},
+	{CCI_REG8(0x0387), 0x01},
+	{CCI_REG8(0x0900), 0x01},
+	{CCI_REG8(0x0901), 0x22},
+	{CCI_REG8(0x0902), 0x02},
+	{CCI_REG8(0x3140), 0x02},
+	{CCI_REG8(0x3c00), 0x00},
+	{CCI_REG8(0x3c01), 0x01},
+	{CCI_REG8(0x3c02), 0x9c},
+	{CCI_REG8(0x5748), 0x00},
+	{CCI_REG8(0x5749), 0x00},
+	{CCI_REG8(0x574a), 0x00},
+	{CCI_REG8(0x574b), 0xa4},
+	{CCI_REG8(0x7b75), 0x0e},
+	{CCI_REG8(0x7b76), 0x09},
+	{CCI_REG8(0x7b77), 0x08},
+	{CCI_REG8(0x7b78), 0x06},
+	{CCI_REG8(0x7b79), 0x34},
+	{CCI_REG8(0x7b53), 0x00},
+	{CCI_REG8(0x9369), 0x73},
+	{CCI_REG8(0x936b), 0x64},
+	{CCI_REG8(0x936d), 0x5f},
+	{CCI_REG8(0x9304), 0x03},
+	{CCI_REG8(0x9305), 0x80},
+	{CCI_REG8(0xa2a9), 0x27},
+	{CCI_REG8(0xa2b7), 0x03},
+	{CCI_REG8(0x0401), 0x00},
+	{CCI_REG8(0x0404), 0x00},
+	{CCI_REG8(0x0405), 0x10},
+	{CCI_REG8(0x0408), 0x01},
+	{CCI_REG8(0x0409), 0x5c},
+	{CCI_REG8(0x040a), 0x00},
+	{CCI_REG8(0x040b), 0x00},
+	{CCI_REG8(0x040c), 0x05},
+	{CCI_REG8(0x040d), 0x34},
+	{CCI_REG8(0x040e), 0x03},
+	{CCI_REG8(0x040f), 0xde},
+	{CCI_REG8(0x034c), 0x05},
+	{CCI_REG8(0x034d), 0x34},
+	{CCI_REG8(0x034e), 0x03},
+	{CCI_REG8(0x034f), 0xde},
+	{CCI_REG8(0x0305), 0x02},
+	{CCI_REG8(0x0306), 0x00},
+	{CCI_REG8(0x0307), 0xaf},
+	{CCI_REG8(0xe04c), 0x00},
+	{CCI_REG8(0xe04d), 0x5f},
+	{CCI_REG8(0xe04e), 0x00},
+	{CCI_REG8(0xe04f), 0x1f},
+	{CCI_REG8(0x3f56), 0x00},
+	{CCI_REG8(0x3f57), 0xbf},
 };
 
 /* Mode configs */
-static const struct imx477_mode supported_modes_12bit[] = {
+static const struct imx477_mode supported_modes[] = {
 	{
 		/* 12MPix 10fps mode */
 		.width = 4056,
 		.height = 3040,
-		.line_length_pix = 0x5dc0,
 		.crop = {
 			.left = IMX477_PIXEL_ARRAY_LEFT,
 			.top = IMX477_PIXEL_ARRAY_TOP,
 			.width = 4056,
 			.height = 3040,
 		},
-		.timeperframe_min = {
-			.numerator = 100,
-			.denominator = 1000
-		},
-		.timeperframe_default = {
-			.numerator = 100,
-			.denominator = 1000
-		},
+		.frm_length_default = 3500,
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(mode_4056x3040_regs),
 			.regs = mode_4056x3040_regs,
 		},
 	},
 	{
+		/* 12MPix cropped 16:9  mode */
+		.width = 4056,
+		.height = 2160,
+		.crop = {
+			.left = IMX477_PIXEL_ARRAY_LEFT,
+			.top = IMX477_PIXEL_ARRAY_TOP + 440,
+			.width = 4056,
+			.height = 3040,
+		},
+		.frm_length_default = 10,
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(mode_4056x2160_regs),
+			.regs = mode_4056x2160_regs,
+		},
+	},
+	{
 		/* 2x2 binned 40fps mode */
 		.width = 2028,
 		.height = 1520,
-		.line_length_pix = 0x31c4,
 		.crop = {
 			.left = IMX477_PIXEL_ARRAY_LEFT,
 			.top = IMX477_PIXEL_ARRAY_TOP,
 			.width = 4056,
 			.height = 3040,
 		},
-		.timeperframe_min = {
-			.numerator = 100,
-			.denominator = 4000
-		},
-		.timeperframe_default = {
-			.numerator = 100,
-			.denominator = 3000
-		},
+		.frm_length_default = 2197,
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(mode_2028x1520_regs),
 			.regs = mode_2028x1520_regs,
@@ -1046,34 +912,22 @@ static const struct imx477_mode supported_modes_12bit[] = {
 		/* 1080p 50fps cropped mode */
 		.width = 2028,
 		.height = 1080,
-		.line_length_pix = 0x31c4,
 		.crop = {
 			.left = IMX477_PIXEL_ARRAY_LEFT,
 			.top = IMX477_PIXEL_ARRAY_TOP + 440,
 			.width = 4056,
 			.height = 2160,
 		},
-		.timeperframe_min = {
-			.numerator = 100,
-			.denominator = 5000
-		},
-		.timeperframe_default = {
-			.numerator = 100,
-			.denominator = 3000
-		},
+		.frm_length_default = 2197,
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(mode_2028x1080_regs),
 			.regs = mode_2028x1080_regs,
 		},
-	}
-};
-
-static const struct imx477_mode supported_modes_10bit[] = {
+	},
 	{
 		/* 120fps. 2x2 binned and cropped */
 		.width = 1332,
 		.height = 990,
-		.line_length_pix = 6664,
 		.crop = {
 			/*
 			 * FIXME: the analog crop rectangle is actually
@@ -1088,14 +942,7 @@ static const struct imx477_mode supported_modes_10bit[] = {
 			.width = 2664,
 			.height = 1980,
 		},
-		.timeperframe_min = {
-			.numerator = 100,
-			.denominator = 12000
-		},
-		.timeperframe_default = {
-			.numerator = 100,
-			.denominator = 12000
-		},
+		.frm_length_default = 1050,
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(mode_1332x990_regs),
 			.regs = mode_1332x990_regs,
@@ -1123,6 +970,11 @@ static const u32 codes[] = {
 	MEDIA_BUS_FMT_SGRBG10_1X10,
 	MEDIA_BUS_FMT_SGBRG10_1X10,
 	MEDIA_BUS_FMT_SBGGR10_1X10,
+	/* 8-bit modes. */
+	MEDIA_BUS_FMT_SRGGB8_1X8,
+	MEDIA_BUS_FMT_SGRBG8_1X8,
+	MEDIA_BUS_FMT_SGBRG8_1X8,
+	MEDIA_BUS_FMT_SBGGR8_1X8,
 };
 
 static const char * const imx477_test_pattern_menu[] = {
@@ -1170,6 +1022,7 @@ struct imx477_compatible_data {
 struct imx477 {
 	struct v4l2_subdev sd;
 	struct media_pad pad[NUM_PADS];
+	struct regmap *regmap;
 
 	unsigned int fmt_code;
 
@@ -1189,7 +1042,8 @@ struct imx477 {
 	struct v4l2_ctrl *vblank;
 	struct v4l2_ctrl *hblank;
 
-	unsigned int link_freq_idx;
+	u64 link_freq_value;
+	u16 iop_pll_mpy;
 
 	/* Current mode */
 	const struct imx477_mode *mode;
@@ -1221,105 +1075,6 @@ static inline struct imx477 *to_imx477(struct v4l2_subdev *_sd)
 	return container_of(_sd, struct imx477, sd);
 }
 
-static inline void get_mode_table(unsigned int code,
-				  const struct imx477_mode **mode_list,
-				  unsigned int *num_modes)
-{
-	switch (code) {
-	/* 12-bit */
-	case MEDIA_BUS_FMT_SRGGB12_1X12:
-	case MEDIA_BUS_FMT_SGRBG12_1X12:
-	case MEDIA_BUS_FMT_SGBRG12_1X12:
-	case MEDIA_BUS_FMT_SBGGR12_1X12:
-		*mode_list = supported_modes_12bit;
-		*num_modes = ARRAY_SIZE(supported_modes_12bit);
-		break;
-	/* 10-bit */
-	case MEDIA_BUS_FMT_SRGGB10_1X10:
-	case MEDIA_BUS_FMT_SGRBG10_1X10:
-	case MEDIA_BUS_FMT_SGBRG10_1X10:
-	case MEDIA_BUS_FMT_SBGGR10_1X10:
-		*mode_list = supported_modes_10bit;
-		*num_modes = ARRAY_SIZE(supported_modes_10bit);
-		break;
-	default:
-		*mode_list = NULL;
-		*num_modes = 0;
-	}
-}
-
-/* Read registers up to 2 at a time */
-static int imx477_read_reg(struct imx477 *imx477, u16 reg, u32 len, u32 *val)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&imx477->sd);
-	struct i2c_msg msgs[2];
-	u8 addr_buf[2] = { reg >> 8, reg & 0xff };
-	u8 data_buf[4] = { 0, };
-	int ret;
-
-	if (len > 4)
-		return -EINVAL;
-
-	/* Write register address */
-	msgs[0].addr = client->addr;
-	msgs[0].flags = 0;
-	msgs[0].len = ARRAY_SIZE(addr_buf);
-	msgs[0].buf = addr_buf;
-
-	/* Read data from register */
-	msgs[1].addr = client->addr;
-	msgs[1].flags = I2C_M_RD;
-	msgs[1].len = len;
-	msgs[1].buf = &data_buf[4 - len];
-
-	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
-	if (ret != ARRAY_SIZE(msgs))
-		return -EIO;
-
-	*val = get_unaligned_be32(data_buf);
-
-	return 0;
-}
-
-/* Write registers up to 2 at a time */
-static int imx477_write_reg(struct imx477 *imx477, u16 reg, u32 len, u32 val)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&imx477->sd);
-	u8 buf[6];
-
-	if (len > 4)
-		return -EINVAL;
-
-	put_unaligned_be16(reg, buf);
-	put_unaligned_be32(val << (8 * (4 - len)), buf + 2);
-	if (i2c_master_send(client, buf, len + 2) != len + 2)
-		return -EIO;
-
-	return 0;
-}
-
-/* Write a list of registers */
-static int imx477_write_regs(struct imx477 *imx477,
-			     const struct imx477_reg *regs, u32 len)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&imx477->sd);
-	unsigned int i;
-	int ret;
-
-	for (i = 0; i < len; i++) {
-		ret = imx477_write_reg(imx477, regs[i].address, 1, regs[i].val);
-		if (ret) {
-			dev_err_ratelimited(&client->dev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    regs[i].address, ret);
-
-			return ret;
-		}
-	}
-
-	return 0;
-}
-
 /* Get bayer order based on flip setting. */
 static u32 imx477_get_format_code(struct imx477 *imx477, u32 code)
 {
@@ -1343,8 +1098,32 @@ static u32 imx477_get_format_code(struct imx477 *imx477, u32 code)
 static void imx477_set_default_format(struct imx477 *imx477)
 {
 	/* Set default mode to max resolution */
-	imx477->mode = &supported_modes_12bit[0];
+	imx477->mode = &supported_modes[0];
 	imx477->fmt_code = MEDIA_BUS_FMT_SRGGB12_1X12;
+}
+
+static int imx477_get_bpp(unsigned int code)
+{
+	switch (code) {
+	default:
+	case MEDIA_BUS_FMT_SRGGB12_1X12:
+	case MEDIA_BUS_FMT_SGRBG12_1X12:
+	case MEDIA_BUS_FMT_SGBRG12_1X12:
+	case MEDIA_BUS_FMT_SBGGR12_1X12:
+		return 12;
+
+	case MEDIA_BUS_FMT_SRGGB10_1X10:
+	case MEDIA_BUS_FMT_SGRBG10_1X10:
+	case MEDIA_BUS_FMT_SGBRG10_1X10:
+	case MEDIA_BUS_FMT_SBGGR10_1X10:
+		return 10;
+
+	case MEDIA_BUS_FMT_SRGGB8_1X8:
+	case MEDIA_BUS_FMT_SGRBG8_1X8:
+	case MEDIA_BUS_FMT_SGBRG8_1X8:
+	case MEDIA_BUS_FMT_SBGGR8_1X8:
+		return 8;
+	}
 }
 
 static int imx477_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
@@ -1359,8 +1138,8 @@ static int imx477_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	mutex_lock(&imx477->mutex);
 
 	/* Initialize try_fmt for the image pad */
-	try_fmt_img->width = supported_modes_12bit[0].width;
-	try_fmt_img->height = supported_modes_12bit[0].height;
+	try_fmt_img->width = supported_modes[0].width;
+	try_fmt_img->height = supported_modes[0].height;
 	try_fmt_img->code = imx477_get_format_code(imx477,
 						   MEDIA_BUS_FMT_SRGGB12_1X12);
 	try_fmt_img->field = V4L2_FIELD_NONE;
@@ -1407,13 +1186,10 @@ static int imx477_set_frame_length(struct imx477 *imx477, unsigned int val)
 		val >>= 1;
 	}
 
-	ret = imx477_write_reg(imx477, IMX477_REG_FRAME_LENGTH,
-			       IMX477_REG_VALUE_16BIT, val);
-	if (ret)
-		return ret;
+	ret = cci_write(imx477->regmap, IMX477_REG_FRAME_LENGTH, val, NULL);
 
-	return imx477_write_reg(imx477, IMX477_LONG_EXP_SHIFT_REG,
-				IMX477_REG_VALUE_08BIT, imx477->long_exp_shift);
+	return cci_write(imx477->regmap, IMX477_LONG_EXP_SHIFT_REG,
+			 imx477->long_exp_shift, &ret);
 }
 
 static int imx477_set_ctrl(struct v4l2_ctrl *ctrl)
@@ -1439,52 +1215,50 @@ static int imx477_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_ANALOGUE_GAIN:
-		ret = imx477_write_reg(imx477, IMX477_REG_ANALOG_GAIN,
-				       IMX477_REG_VALUE_16BIT, ctrl->val);
+		ret = cci_write(imx477->regmap, IMX477_REG_ANALOG_GAIN,
+				ctrl->val, NULL);
 		break;
 	case V4L2_CID_EXPOSURE:
-		ret = imx477_write_reg(imx477, IMX477_REG_EXPOSURE,
-				       IMX477_REG_VALUE_16BIT, ctrl->val >>
-							imx477->long_exp_shift);
+		ret = cci_write(imx477->regmap, IMX477_REG_EXPOSURE,
+				ctrl->val >> imx477->long_exp_shift, NULL);
 		break;
 	case V4L2_CID_DIGITAL_GAIN:
-		ret = imx477_write_reg(imx477, IMX477_REG_DIGITAL_GAIN,
-				       IMX477_REG_VALUE_16BIT, ctrl->val);
+		ret = cci_write(imx477->regmap, IMX477_REG_DIGITAL_GAIN,
+				ctrl->val, NULL);
 		break;
 	case V4L2_CID_TEST_PATTERN:
-		ret = imx477_write_reg(imx477, IMX477_REG_TEST_PATTERN,
-				       IMX477_REG_VALUE_16BIT,
-				       imx477_test_pattern_val[ctrl->val]);
+		ret = cci_write(imx477->regmap, IMX477_REG_TEST_PATTERN,
+				imx477_test_pattern_val[ctrl->val], NULL);
 		break;
 	case V4L2_CID_TEST_PATTERN_RED:
-		ret = imx477_write_reg(imx477, IMX477_REG_TEST_PATTERN_R,
-				       IMX477_REG_VALUE_16BIT, ctrl->val);
+		ret = cci_write(imx477->regmap, IMX477_REG_TEST_PATTERN_R,
+				ctrl->val, NULL);
 		break;
 	case V4L2_CID_TEST_PATTERN_GREENR:
-		ret = imx477_write_reg(imx477, IMX477_REG_TEST_PATTERN_GR,
-				       IMX477_REG_VALUE_16BIT, ctrl->val);
+		ret = cci_write(imx477->regmap, IMX477_REG_TEST_PATTERN_GR,
+				ctrl->val, NULL);
 		break;
 	case V4L2_CID_TEST_PATTERN_BLUE:
-		ret = imx477_write_reg(imx477, IMX477_REG_TEST_PATTERN_B,
-				       IMX477_REG_VALUE_16BIT, ctrl->val);
+		ret = cci_write(imx477->regmap, IMX477_REG_TEST_PATTERN_B,
+				ctrl->val, NULL);
 		break;
 	case V4L2_CID_TEST_PATTERN_GREENB:
-		ret = imx477_write_reg(imx477, IMX477_REG_TEST_PATTERN_GB,
-				       IMX477_REG_VALUE_16BIT, ctrl->val);
+		ret = cci_write(imx477->regmap, IMX477_REG_TEST_PATTERN_GB,
+				ctrl->val, NULL);
 		break;
 	case V4L2_CID_HFLIP:
 	case V4L2_CID_VFLIP:
-		ret = imx477_write_reg(imx477, IMX477_REG_ORIENTATION, 1,
-				       imx477->hflip->val |
-				       imx477->vflip->val << 1);
+		ret = cci_write(imx477->regmap, IMX477_REG_ORIENTATION,
+				imx477->hflip->val | imx477->vflip->val << 1,
+				NULL);
 		break;
 	case V4L2_CID_VBLANK:
 		ret = imx477_set_frame_length(imx477,
 					      imx477->mode->height + ctrl->val);
 		break;
 	case V4L2_CID_HBLANK:
-		ret = imx477_write_reg(imx477, IMX477_REG_LINE_LENGTH, 2,
-				       imx477->mode->width + ctrl->val);
+		ret = cci_write(imx477->regmap, IMX477_REG_LINE_LENGTH,
+				imx477->mode->width + ctrl->val, NULL);
 		break;
 	default:
 		dev_info(&client->dev,
@@ -1494,7 +1268,8 @@ static int imx477_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	}
 
-	pm_runtime_put(&client->dev);
+	pm_runtime_mark_last_busy(&client->dev);
+	pm_runtime_put_autosuspend(&client->dev);
 
 	return ret;
 }
@@ -1541,12 +1316,7 @@ static int imx477_enum_frame_size(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	if (fse->pad == IMAGE_PAD) {
-		const struct imx477_mode *mode_list;
-		unsigned int num_modes;
-
-		get_mode_table(fse->code, &mode_list, &num_modes);
-
-		if (fse->index >= num_modes)
+		if (fse->index >= ARRAY_SIZE(supported_modes))
 			return -EINVAL;
 
 		mutex_lock(&imx477->mutex);
@@ -1556,9 +1326,9 @@ static int imx477_enum_frame_size(struct v4l2_subdev *sd,
 		if (fse->code != code)
 			return -EINVAL;
 
-		fse->min_width = mode_list[fse->index].width;
+		fse->min_width = supported_modes[fse->index].width;
 		fse->max_width = fse->min_width;
-		fse->min_height = mode_list[fse->index].height;
+		fse->min_height = supported_modes[fse->index].height;
 		fse->max_height = fse->min_height;
 	} else {
 		if (fse->code != MEDIA_BUS_FMT_SENSOR_DATA || fse->index > 0)
@@ -1636,44 +1406,45 @@ static int imx477_get_pad_format(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static
-unsigned int imx477_get_frame_length(const struct imx477_mode *mode,
-				     const struct v4l2_fract *timeperframe)
-{
-	u64 frame_length;
-
-	frame_length = (u64)timeperframe->numerator * IMX477_PIXEL_RATE;
-	do_div(frame_length,
-	       (u64)timeperframe->denominator * mode->line_length_pix);
-
-	if (WARN_ON(frame_length > IMX477_FRAME_LENGTH_MAX))
-		frame_length = IMX477_FRAME_LENGTH_MAX;
-
-	return max_t(unsigned int, frame_length, mode->height);
-}
-
 static void imx477_set_framing_limits(struct imx477 *imx477)
 {
-	unsigned int frm_length_min, frm_length_default, hblank_min;
+	unsigned int hblank_min;
+	u64 line_length_min;
+	int bpp;
 	const struct imx477_mode *mode = imx477->mode;
-
-	frm_length_min = imx477_get_frame_length(mode, &mode->timeperframe_min);
-	frm_length_default =
-		     imx477_get_frame_length(mode, &mode->timeperframe_default);
 
 	/* Default to no long exposure multiplier. */
 	imx477->long_exp_shift = 0;
 
 	/* Update limits and set FPS to default */
-	__v4l2_ctrl_modify_range(imx477->vblank, frm_length_min - mode->height,
+	__v4l2_ctrl_modify_range(imx477->vblank,
+				 IMX477_VBLANK_MIN,
 				 ((1 << IMX477_LONG_EXP_SHIFT_MAX) *
 					IMX477_FRAME_LENGTH_MAX) - mode->height,
-				 1, frm_length_default - mode->height);
+				 1, mode->frm_length_default - mode->height);
 
 	/* Setting this will adjust the exposure limits as well. */
-	__v4l2_ctrl_s_ctrl(imx477->vblank, frm_length_default - mode->height);
+	__v4l2_ctrl_s_ctrl(imx477->vblank,
+			   mode->frm_length_default - mode->height);
 
-	hblank_min = mode->line_length_pix - mode->width;
+	bpp = imx477_get_bpp(imx477->fmt_code);
+
+	line_length_min = mode->width * bpp * (u64)IMX477_PIXEL_RATE;
+	do_div(line_length_min, imx477->link_freq_value * 2 * 2 /*LANES*/);
+	/* Allow 500pixel clocks for HS<>LP transitions (approx 0.6usecs) */
+	line_length_min += 500;
+
+	/*
+	 * 1332x990 12bit mode appears to need additional horizontal blanking
+	 * compared to all other modes. Empirically determined setting with
+	 * link freq of 750MHz where it still gives valid images. The limit
+	 * leaves all other modes unchanged as their line times are inherently
+	 * greater.
+	 */
+	if (bpp == 12)
+		line_length_min = max(line_length_min, 1332 + 4600);
+
+	hblank_min = line_length_min - mode->width;
 	__v4l2_ctrl_modify_range(imx477->hblank, hblank_min,
 				 IMX477_LINE_LENGTH_MAX, 1, hblank_min);
 	__v4l2_ctrl_s_ctrl(imx477->hblank, hblank_min);
@@ -1693,17 +1464,12 @@ static int imx477_set_pad_format(struct v4l2_subdev *sd,
 	mutex_lock(&imx477->mutex);
 
 	if (fmt->pad == IMAGE_PAD) {
-		const struct imx477_mode *mode_list;
-		unsigned int num_modes;
-
 		/* Bayer order varies with flips */
 		fmt->format.code = imx477_get_format_code(imx477,
 							  fmt->format.code);
 
-		get_mode_table(fmt->format.code, &mode_list, &num_modes);
-
-		mode = v4l2_find_nearest_size(mode_list,
-					      num_modes,
+		mode = v4l2_find_nearest_size(supported_modes,
+					      ARRAY_SIZE(supported_modes),
 					      width, height,
 					      fmt->format.width,
 					      fmt->format.height);
@@ -1712,7 +1478,8 @@ static int imx477_set_pad_format(struct v4l2_subdev *sd,
 			framefmt = v4l2_subdev_state_get_format(sd_state,
 							      fmt->pad);
 			*framefmt = fmt->format;
-		} else if (imx477->mode != mode) {
+		} else if (imx477->mode != mode ||
+			   imx477->fmt_code != fmt->format.code) {
 			imx477->mode = mode;
 			imx477->fmt_code = fmt->format.code;
 			imx477_set_framing_limits(imx477);
@@ -1789,25 +1556,38 @@ static int imx477_get_selection(struct v4l2_subdev *sd,
 static int imx477_start_streaming(struct imx477 *imx477)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx477->sd);
-	const struct imx477_reg_list *reg_list, *freq_regs;
+	const struct imx477_reg_list *reg_list;
 	const struct imx477_reg_list *extra_regs;
-	int ret, tm;
+	unsigned int fst_width;
+	unsigned int fst_mult;
+	int ret, tm, bpp;
 
 	if (!imx477->common_regs_written) {
-		ret = imx477_write_regs(imx477, mode_common_regs,
-					ARRAY_SIZE(mode_common_regs));
-		if (!ret) {
-			extra_regs = &imx477->compatible_data->extra_regs;
-			ret = imx477_write_regs(imx477,	extra_regs->regs,
-						extra_regs->num_of_regs);
-		}
+		ret = cci_multi_reg_write(imx477->regmap, mode_common_regs,
+					  ARRAY_SIZE(mode_common_regs), NULL);
 
-		if (!ret) {
-			/* Update the link frequency registers */
-			freq_regs = &link_freq_regs[imx477->link_freq_idx];
-			ret = imx477_write_regs(imx477, freq_regs->regs,
-						freq_regs->num_of_regs);
-		}
+		extra_regs = &imx477->compatible_data->extra_regs;
+		cci_multi_reg_write(imx477->regmap, extra_regs->regs,
+				    extra_regs->num_of_regs, &ret);
+
+		/* Update the link frequency PLL multiplier register */
+		cci_write(imx477->regmap, IMX477_REG_IOP_MPY,
+			  imx477->iop_pll_mpy, &ret);
+
+		/*
+		 * Bit rate = link freq * 2 for DDR * 2 for num lanes.
+		 * 16p16 fixed point in the register. Ignore fractional part.
+		 */
+		cci_write(imx477->regmap, IMX477_REG_REQ_LINK_BIT_RATE,
+			  (((unsigned long)imx477->link_freq_value / 1000000) * 2 * 2) << 16,
+			  &ret);
+		/*
+		 * DPHY timings are those specified for 450MHz. Switch to auto
+		 * if using some other link frequency
+		 */
+		if (imx477->link_freq_value != 450000000UL)
+			cci_write(imx477->regmap, IMX477_REG_DPHY_CTRL,
+				  IMX477_DPHY_CTRL_AUTO, &ret);
 
 		if (ret) {
 			dev_err(&client->dev, "%s failed to set common settings\n",
@@ -1819,15 +1599,45 @@ static int imx477_start_streaming(struct imx477 *imx477)
 
 	/* Apply default values of current mode */
 	reg_list = &imx477->mode->reg_list;
-	ret = imx477_write_regs(imx477, reg_list->regs, reg_list->num_of_regs);
+	ret = cci_multi_reg_write(imx477->regmap, reg_list->regs,
+				  reg_list->num_of_regs, NULL);
 	if (ret) {
 		dev_err(&client->dev, "%s failed to set mode\n", __func__);
 		return ret;
 	}
 
+	fst_width = max((unsigned int)fstrobe_width, 1U);
+	fst_mult = 1;
+
+	while (fst_width / fst_mult > 0xffff && fst_mult < 255)
+		fst_mult++;
+
+	fst_width /= fst_mult;
+
+	// FLASH_MD_RS
+	cci_write(imx477->regmap, CCI_REG8(0x0c1A),
+		  ((!!fstrobe_cont_trig) | (1 << 1)), &ret);
+	// FLASH_STRB_WIDTH
+	cci_write(imx477->regmap, CCI_REG16(0x0c18), fst_width, &ret);
+	// FLASH_STRB_WIDTH adjust
+	cci_write(imx477->regmap, CCI_REG8(0x0c12), fst_mult, &ret);
+	// FLASH_STRB_START_POINT
+	cci_write(imx477->regmap, CCI_REG16(0x0c14), fstrobe_delay, &ret);
+	// FLASH_STRB_DLY_RS
+	cci_write(imx477->regmap, CCI_REG8(0x0c16), 0, &ret);
+	// FLASH_TRIG_RS
+	cci_write(imx477->regmap, CCI_REG8(0x0c1B), !!fstrobe_enable, &ret);
+
+	bpp = imx477_get_bpp(imx477->fmt_code);
+	cci_write(imx477->regmap, IMX477_REG_CSI_DT_FMT_H, bpp, &ret);
+	cci_write(imx477->regmap, IMX477_REG_CSI_DT_FMT_L, bpp, &ret);
+	cci_write(imx477->regmap, IMX477_REG_IOP_PXCK_DIV, bpp, &ret);
+	cci_write(imx477->regmap, IMX477_REG_ADBIT_MODE, bpp == 12 ? 1 : 0,
+		  &ret);
+
 	/* Set on-sensor DPC. */
-	imx477_write_reg(imx477, 0x0b05, IMX477_REG_VALUE_08BIT, !!dpc_enable);
-	imx477_write_reg(imx477, 0x0b06, IMX477_REG_VALUE_08BIT, !!dpc_enable);
+	cci_write(imx477->regmap, CCI_REG8(0x0b05), !!dpc_enable, &ret);
+	cci_write(imx477->regmap, CCI_REG8(0x0b06), !!dpc_enable, &ret);
 
 	/* Apply customized values from user */
 	ret =  __v4l2_ctrl_handler_setup(imx477->sd.ctrl_handler);
@@ -1837,25 +1647,21 @@ static int imx477_start_streaming(struct imx477 *imx477)
 	/* Set vsync trigger mode: 0=standalone, 1=source, 2=sink */
 	tm = (imx477->trigger_mode_of >= 0) ? imx477->trigger_mode_of : trigger_mode;
 	if (tm == 1)
-		imx477_write_reg(imx477, IMX477_REG_TEMP_SEN_CTL,
-				 IMX477_REG_VALUE_08BIT, 0);
-	imx477_write_reg(imx477, IMX477_REG_EXTOUT_EN,
-			IMX477_REG_VALUE_08BIT, (tm == 1) ? 1 : 0);
-	imx477_write_reg(imx477, IMX477_REG_MS_SEL,
-			 IMX477_REG_VALUE_08BIT, (tm <= 1) ? 1 : 0);
-	imx477_write_reg(imx477, IMX477_REG_XVS_IO_CTRL,
-			 IMX477_REG_VALUE_08BIT, (tm == 1) ? 1 : 0);
-	imx477_write_reg(imx477, IMX477_REG_MC_MODE,
-			 IMX477_REG_VALUE_08BIT, (tm > 0) ? 1 : 0);
+		cci_write(imx477->regmap, IMX477_REG_TEMP_SEN_CTL, 0, &ret);
+	cci_write(imx477->regmap, IMX477_REG_EXTOUT_EN, (tm == 1) ? 1 : 0,
+		  &ret);
+	cci_write(imx477->regmap, IMX477_REG_MS_SEL, (tm <= 1) ? 1 : 0, &ret);
+	cci_write(imx477->regmap, IMX477_REG_XVS_IO_CTRL, (tm == 1) ? 1 : 0,
+		  &ret);
+	cci_write(imx477->regmap, IMX477_REG_MC_MODE, (tm > 0) ? 1 : 0, &ret);
 
 	/* set stream on register */
-	ret = imx477_write_reg(imx477, IMX477_REG_MODE_SELECT,
-			       IMX477_REG_VALUE_08BIT, IMX477_MODE_STREAMING);
+	cci_write(imx477->regmap, IMX477_REG_MODE_SELECT,
+		  IMX477_MODE_STREAMING, &ret);
 
 	/* now it's safe to re-enable temp sensor without glitching XVS */
 	if (tm == 1)
-		imx477_write_reg(imx477, IMX477_REG_TEMP_SEN_CTL,
-				 IMX477_REG_VALUE_08BIT, 1);
+		cci_write(imx477->regmap, IMX477_REG_TEMP_SEN_CTL, 1, &ret);
 
 	return ret;
 }
@@ -1867,14 +1673,13 @@ static void imx477_stop_streaming(struct imx477 *imx477)
 	int ret;
 
 	/* set stream off register */
-	ret = imx477_write_reg(imx477, IMX477_REG_MODE_SELECT,
-			       IMX477_REG_VALUE_08BIT, IMX477_MODE_STANDBY);
+	ret = cci_write(imx477->regmap, IMX477_REG_MODE_SELECT,
+			IMX477_MODE_STANDBY, NULL);
 	if (ret)
 		dev_err(&client->dev, "%s failed to set stream\n", __func__);
 
 	/* Stop driving XVS out (there is still a weak pull-up) */
-	imx477_write_reg(imx477, IMX477_REG_EXTOUT_EN,
-			 IMX477_REG_VALUE_08BIT, 0);
+	cci_write(imx477->regmap, IMX477_REG_EXTOUT_EN, 0, NULL);
 }
 
 static int imx477_set_stream(struct v4l2_subdev *sd, int enable)
@@ -1890,22 +1695,23 @@ static int imx477_set_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	if (enable) {
-		ret = pm_runtime_get_sync(&client->dev);
-		if (ret < 0) {
-			pm_runtime_put_noidle(&client->dev);
+		ret = pm_runtime_resume_and_get(&client->dev);
+		if (ret < 0)
 			goto err_unlock;
-		}
 
 		/*
 		 * Apply default & customized values
 		 * and then start streaming.
 		 */
 		ret = imx477_start_streaming(imx477);
-		if (ret)
-			goto err_rpm_put;
+		if (ret) {
+			pm_runtime_put_sync(&client->dev);
+			goto err_unlock;
+		}
 	} else {
 		imx477_stop_streaming(imx477);
-		pm_runtime_put(&client->dev);
+		pm_runtime_mark_last_busy(&client->dev);
+		pm_runtime_put_autosuspend(&client->dev);
 	}
 
 	imx477->streaming = enable;
@@ -1918,8 +1724,6 @@ static int imx477_set_stream(struct v4l2_subdev *sd, int enable)
 
 	return ret;
 
-err_rpm_put:
-	pm_runtime_put(&client->dev);
 err_unlock:
 	mutex_unlock(&imx477->mutex);
 
@@ -2027,10 +1831,9 @@ static int imx477_identify_module(struct imx477 *imx477, u32 expected_id)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx477->sd);
 	int ret;
-	u32 val;
+	u64 val;
 
-	ret = imx477_read_reg(imx477, IMX477_REG_CHIP_ID,
-			      IMX477_REG_VALUE_16BIT, &val);
+	ret = cci_read(imx477->regmap, IMX477_REG_CHIP_ID, &val, NULL);
 	if (ret) {
 		dev_err(&client->dev, "failed to read chip id %x, with error %d\n",
 			expected_id, ret);
@@ -2038,12 +1841,12 @@ static int imx477_identify_module(struct imx477 *imx477, u32 expected_id)
 	}
 
 	if (val != expected_id) {
-		dev_err(&client->dev, "chip id mismatch: %x!=%x\n",
+		dev_err(&client->dev, "chip id mismatch: %x!=%llx\n",
 			expected_id, val);
 		return -EIO;
 	}
 
-	dev_info(&client->dev, "Device found is imx%x\n", val);
+	dev_info(&client->dev, "Device found is imx%llx\n", val);
 
 	return 0;
 }
@@ -2105,7 +1908,7 @@ static int imx477_init_controls(struct imx477 *imx477)
 	imx477->link_freq =
 		v4l2_ctrl_new_int_menu(ctrl_hdlr, &imx477_ctrl_ops,
 				       V4L2_CID_LINK_FREQ, 0, 0,
-				       &link_freqs[imx477->link_freq_idx]);
+				       &imx477->link_freq_value);
 	if (imx477->link_freq)
 		imx477->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
@@ -2114,7 +1917,8 @@ static int imx477_init_controls(struct imx477 *imx477)
 	 * in the imx477_set_framing_limits() call below.
 	 */
 	imx477->vblank = v4l2_ctrl_new_std(ctrl_hdlr, &imx477_ctrl_ops,
-					   V4L2_CID_VBLANK, 0, 0xffff, 1, 0);
+					   V4L2_CID_VBLANK, IMX477_VBLANK_MIN,
+					   0xffff, 1, IMX477_VBLANK_MIN);
 	imx477->hblank = v4l2_ctrl_new_std(ctrl_hdlr, &imx477_ctrl_ops,
 					   V4L2_CID_HBLANK, 0, 0xffff, 1, 0);
 
@@ -2203,6 +2007,25 @@ static void imx477_free_controls(struct imx477 *imx477)
 	mutex_destroy(&imx477->mutex);
 }
 
+static int imx477_check_link_freq(u64 link_frequency, u16 *mpy_out)
+{
+	u64 mpy = link_frequency * 2 * IMX477_IOP_SYSCK_DIV * IMX477_IOP_PREDIV;
+	u64 tmp;
+
+	do_div(mpy, IMX477_XCLK_FREQ);
+
+	tmp = mpy * (IMX477_XCLK_FREQ / IMX477_IOP_PREDIV);
+	do_div(tmp, IMX477_IOP_SYSCK_DIV * 2);
+
+	if (tmp != link_frequency)
+		return -EINVAL;
+
+	if (mpy_out)
+		*mpy_out = mpy;
+
+	return 0;
+}
+
 static int imx477_check_hwcfg(struct device *dev, struct imx477 *imx477)
 {
 	struct fwnode_handle *endpoint;
@@ -2235,16 +2058,16 @@ static int imx477_check_hwcfg(struct device *dev, struct imx477 *imx477)
 		goto error_out;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(link_freqs); i++) {
-		if (link_freqs[i] == ep_cfg.link_frequencies[0]) {
-			imx477->link_freq_idx = i;
+	for (i = 0; i < ep_cfg.nr_of_link_frequencies; i++) {
+		if (!imx477_check_link_freq(ep_cfg.link_frequencies[i],
+					    &imx477->iop_pll_mpy)) {
+			imx477->link_freq_value = ep_cfg.link_frequencies[i];
 			break;
 		}
 	}
 
-	if (i == ARRAY_SIZE(link_freqs)) {
-		dev_err(dev, "Link frequency not supported: %lld\n",
-			ep_cfg.link_frequencies[0]);
+	if (i == ep_cfg.nr_of_link_frequencies) {
+		dev_err(dev, "No supported link frequency configured\n");
 			ret = -EINVAL;
 			goto error_out;
 	}
@@ -2266,10 +2089,10 @@ static const struct imx477_compatible_data imx477_compatible = {
 	}
 };
 
-static const struct imx477_reg imx378_regs[] = {
-	{0x3e35, 0x01},
-	{0x4421, 0x08},
-	{0x3ff9, 0x00},
+static const struct cci_reg_sequence imx378_regs[] = {
+	{CCI_REG8(0x3e35), 0x01},
+	{CCI_REG8(0x4421), 0x08},
+	{CCI_REG8(0x3ff9), 0x00},
 };
 
 static const struct imx477_compatible_data imx378_compatible = {
@@ -2299,6 +2122,13 @@ static int imx477_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	v4l2_i2c_subdev_init(&imx477->sd, client, &imx477_subdev_ops);
+
+	imx477->regmap = devm_cci_regmap_init_i2c(client, 16);
+	if (IS_ERR(imx477->regmap)) {
+		ret = PTR_ERR(imx477->regmap);
+		dev_err(&client->dev, "failed to initialize CCI: %d\n", ret);
+		return ret;
+	}
 
 	match = of_match_device(imx477_dt_ids, dev);
 	if (!match)
@@ -2353,10 +2183,16 @@ static int imx477_probe(struct i2c_client *client)
 	/* Initialize default format */
 	imx477_set_default_format(imx477);
 
-	/* Enable runtime PM and turn off the device */
+	/*
+	 * Enable runtime PM with 5s autosuspend. As the device has been powered
+	 * manually, mark it as active, and increase the usage count without
+	 * resuming the device.
+	 */
 	pm_runtime_set_active(dev);
+	pm_runtime_get_noresume(dev);
 	pm_runtime_enable(dev);
-	pm_runtime_idle(dev);
+	pm_runtime_set_autosuspend_delay(dev, 5000);
+	pm_runtime_use_autosuspend(dev);
 
 	/* This needs the pm runtime to be registered. */
 	ret = imx477_init_controls(imx477);
@@ -2385,6 +2221,9 @@ static int imx477_probe(struct i2c_client *client)
 		goto error_media_entity;
 	}
 
+	pm_runtime_mark_last_busy(&client->dev);
+	pm_runtime_put_autosuspend(&client->dev);
+
 	return 0;
 
 error_media_entity:
@@ -2395,7 +2234,7 @@ error_handler_free:
 
 error_power_off:
 	pm_runtime_disable(&client->dev);
-	pm_runtime_set_suspended(&client->dev);
+	pm_runtime_put_noidle(&client->dev);
 	imx477_power_off(&client->dev);
 
 	return ret;

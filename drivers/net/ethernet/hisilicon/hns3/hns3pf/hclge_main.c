@@ -5689,18 +5689,20 @@ static int hclge_fd_ad_config(struct hclge_dev *hdev, u8 stage, int loc,
 		hnae3_set_field(ad_data, HCLGE_FD_AD_TC_SIZE_M,
 				HCLGE_FD_AD_TC_SIZE_S, (u32)action->tc_size);
 	}
+	hnae3_set_bit(ad_data, HCLGE_FD_AD_QID_H_B,
+		      action->queue_id >= HCLGE_TQP_MAX_SIZE_DEV_V2 ? 1 : 0);
 	ad_data <<= 32;
 	hnae3_set_bit(ad_data, HCLGE_FD_AD_DROP_B, action->drop_packet);
 	hnae3_set_bit(ad_data, HCLGE_FD_AD_DIRECT_QID_B,
 		      action->forward_to_direct_queue);
-	hnae3_set_field(ad_data, HCLGE_FD_AD_QID_M, HCLGE_FD_AD_QID_S,
+	hnae3_set_field(ad_data, HCLGE_FD_AD_QID_L_M, HCLGE_FD_AD_QID_L_S,
 			action->queue_id);
 	hnae3_set_bit(ad_data, HCLGE_FD_AD_USE_COUNTER_B, action->use_counter);
 	hnae3_set_field(ad_data, HCLGE_FD_AD_COUNTER_NUM_M,
 			HCLGE_FD_AD_COUNTER_NUM_S, action->counter_id);
 	hnae3_set_bit(ad_data, HCLGE_FD_AD_NXT_STEP_B, action->use_next_stage);
 	hnae3_set_field(ad_data, HCLGE_FD_AD_NXT_KEY_M, HCLGE_FD_AD_NXT_KEY_S,
-			action->counter_id);
+			action->next_input_key);
 
 	req->ad_data = cpu_to_le64(ad_data);
 	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
@@ -9439,8 +9441,7 @@ static int hclge_mii_ioctl(struct hclge_dev *hdev, struct ifreq *ifr, int cmd)
 		/* this command reads phy id and register at the same time */
 		fallthrough;
 	case SIOCGMIIREG:
-		data->val_out = hclge_read_phy_reg(hdev, data->reg_num);
-		return 0;
+		return hclge_read_phy_reg(hdev, data->reg_num, &data->val_out);
 
 	case SIOCSMIIREG:
 		return hclge_write_phy_reg(hdev, data->reg_num, data->val_in);
@@ -10572,6 +10573,9 @@ int hclge_set_vlan_filter(struct hnae3_handle *handle, __be16 proto,
 	struct hclge_dev *hdev = vport->back;
 	bool writen_to_tbl = false;
 	int ret = 0;
+
+	if (vlan_id >= VLAN_N_VID)
+		return -EINVAL;
 
 	/* When device is resetting or reset failed, firmware is unable to
 	 * handle mailbox. Just record the vlan id, and remove it after

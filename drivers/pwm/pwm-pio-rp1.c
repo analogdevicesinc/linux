@@ -83,7 +83,7 @@ static inline void pwm_program_init(PIO pio, uint sm, uint offset, uint pin)
 /* Write `period` to the input shift register - must be disabled */
 static void pio_pwm_set_period(PIO pio, uint sm, uint32_t period)
 {
-	pio_sm_put_blocking(pio, sm, period);
+	pio_sm_put_blocking(pio, sm, period - 1);
 	pio_sm_exec(pio, sm, pio_encode_pull(false, false));
 	pio_sm_exec(pio, sm, pio_encode_out(pio_isr, 32));
 }
@@ -101,15 +101,12 @@ static int pwm_pio_rp1_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	uint32_t new_duty_cycle;
 	uint32_t new_period;
 
-	if (state->duty_cycle && state->duty_cycle < pwm_pio_resolution)
-		return -EINVAL;
-
-	if (state->duty_cycle != state->period &&
-	    (state->period - state->duty_cycle < pwm_pio_resolution))
-		return -EINVAL;
-
-	new_period = state->period / pwm_pio_resolution;
-	new_duty_cycle = state->duty_cycle / pwm_pio_resolution;
+	new_period = DIV_ROUND_CLOSEST(state->period, pwm_pio_resolution);
+	if (new_period < 2)
+		new_period = 2;
+	new_duty_cycle = DIV_ROUND_CLOSEST(state->duty_cycle, pwm_pio_resolution);
+	if (new_duty_cycle > new_period - 1)
+		new_duty_cycle = new_period - 1;
 
 	mutex_lock(&ppwm->mutex);
 
@@ -145,8 +142,22 @@ static int pwm_pio_rp1_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	return 0;
 }
 
+static int pwm_pio_rp1_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
+				 struct pwm_state *state)
+{
+	struct pwm_pio_rp1 *ppwm = pwmchip_get_drvdata(chip);
+
+	state->enabled = ppwm->enabled;
+	state->polarity = ppwm->polarity;
+	state->period = ppwm->period * pwm_pio_resolution;
+	state->duty_cycle = ppwm->duty_cycle * pwm_pio_resolution;
+
+	return 0;
+}
+
 static const struct pwm_ops pwm_pio_rp1_ops = {
 	.apply = pwm_pio_rp1_apply,
+	.get_state = pwm_pio_rp1_get_state,
 };
 
 static int pwm_pio_rp1_probe(struct platform_device *pdev)

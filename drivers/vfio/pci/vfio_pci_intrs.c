@@ -304,9 +304,14 @@ static int vfio_intx_enable(struct vfio_pci_core_device *vdev,
 
 	vdev->irq_type = VFIO_PCI_INTX_IRQ_INDEX;
 
+	if (!vdev->pci_2_3)
+		irq_set_status_flags(pdev->irq, IRQ_DISABLE_UNLAZY);
+
 	ret = request_irq(pdev->irq, vfio_intx_handler,
 			  irqflags, ctx->name, ctx);
 	if (ret) {
+		if (!vdev->pci_2_3)
+			irq_clear_status_flags(pdev->irq, IRQ_DISABLE_UNLAZY);
 		vdev->irq_type = VFIO_PCI_NUM_IRQS;
 		kfree(name);
 		vfio_irq_ctx_free(vdev, ctx, 0);
@@ -352,6 +357,8 @@ static void vfio_intx_disable(struct vfio_pci_core_device *vdev)
 		vfio_virqfd_disable(&ctx->unmask);
 		vfio_virqfd_disable(&ctx->mask);
 		free_irq(pdev->irq, ctx);
+		if (!vdev->pci_2_3)
+			irq_clear_status_flags(pdev->irq, IRQ_DISABLE_UNLAZY);
 		if (ctx->trigger)
 			eventfd_ctx_put(ctx->trigger);
 		kfree(ctx->name);
@@ -728,21 +735,27 @@ static int vfio_pci_set_msi_trigger(struct vfio_pci_core_device *vdev,
 	return 0;
 }
 
-static int vfio_pci_set_ctx_trigger_single(struct eventfd_ctx **ctx,
+static int vfio_pci_set_ctx_trigger_single(struct vfio_pci_core_device *vdev,
+					   struct vfio_pci_eventfd __rcu **peventfd,
 					   unsigned int count, uint32_t flags,
 					   void *data)
 {
 	/* DATA_NONE/DATA_BOOL enables loopback testing */
 	if (flags & VFIO_IRQ_SET_DATA_NONE) {
-		if (*ctx) {
-			if (count) {
-				eventfd_signal(*ctx);
-			} else {
-				eventfd_ctx_put(*ctx);
-				*ctx = NULL;
-			}
+		struct vfio_pci_eventfd *eventfd;
+
+		eventfd = rcu_dereference_protected(*peventfd,
+						lockdep_is_held(&vdev->igate));
+
+		if (!eventfd)
+			return -EINVAL;
+
+		if (count) {
+			eventfd_signal(eventfd->ctx);
 			return 0;
 		}
+
+		return vfio_pci_eventfd_replace_locked(vdev, peventfd, NULL);
 	} else if (flags & VFIO_IRQ_SET_DATA_BOOL) {
 		uint8_t trigger;
 
@@ -750,8 +763,15 @@ static int vfio_pci_set_ctx_trigger_single(struct eventfd_ctx **ctx,
 			return -EINVAL;
 
 		trigger = *(uint8_t *)data;
-		if (trigger && *ctx)
-			eventfd_signal(*ctx);
+
+		if (trigger) {
+			struct vfio_pci_eventfd *eventfd =
+					rcu_dereference_protected(*peventfd,
+					lockdep_is_held(&vdev->igate));
+
+			if (eventfd)
+				eventfd_signal(eventfd->ctx);
+		}
 
 		return 0;
 	} else if (flags & VFIO_IRQ_SET_DATA_EVENTFD) {
@@ -762,22 +782,23 @@ static int vfio_pci_set_ctx_trigger_single(struct eventfd_ctx **ctx,
 
 		fd = *(int32_t *)data;
 		if (fd == -1) {
-			if (*ctx)
-				eventfd_ctx_put(*ctx);
-			*ctx = NULL;
+			return vfio_pci_eventfd_replace_locked(vdev,
+							       peventfd, NULL);
 		} else if (fd >= 0) {
 			struct eventfd_ctx *efdctx;
+			int ret;
 
 			efdctx = eventfd_ctx_fdget(fd);
 			if (IS_ERR(efdctx))
 				return PTR_ERR(efdctx);
 
-			if (*ctx)
-				eventfd_ctx_put(*ctx);
+			ret = vfio_pci_eventfd_replace_locked(vdev,
+							      peventfd, efdctx);
+			if (ret)
+				eventfd_ctx_put(efdctx);
 
-			*ctx = efdctx;
+			return ret;
 		}
-		return 0;
 	}
 
 	return -EINVAL;
@@ -790,7 +811,7 @@ static int vfio_pci_set_err_trigger(struct vfio_pci_core_device *vdev,
 	if (index != VFIO_PCI_ERR_IRQ_INDEX || start != 0 || count > 1)
 		return -EINVAL;
 
-	return vfio_pci_set_ctx_trigger_single(&vdev->err_trigger,
+	return vfio_pci_set_ctx_trigger_single(vdev, &vdev->err_trigger,
 					       count, flags, data);
 }
 
@@ -801,7 +822,7 @@ static int vfio_pci_set_req_trigger(struct vfio_pci_core_device *vdev,
 	if (index != VFIO_PCI_REQ_IRQ_INDEX || start != 0 || count > 1)
 		return -EINVAL;
 
-	return vfio_pci_set_ctx_trigger_single(&vdev->req_trigger,
+	return vfio_pci_set_ctx_trigger_single(vdev, &vdev->req_trigger,
 					       count, flags, data);
 }
 

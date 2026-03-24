@@ -75,6 +75,9 @@
 #define DELL_SMM_NO_TEMP	10
 #define DELL_SMM_NO_FANS	4
 
+/* limit fan multiplier to avoid overflow */
+#define DELL_SMM_MAX_FAN_MULT (INT_MAX / U16_MAX)
+
 struct smm_regs {
 	unsigned int eax;
 	unsigned int ebx;
@@ -1203,6 +1206,12 @@ static int dell_smm_init_data(struct device *dev, const struct dell_smm_ops *ops
 	data->ops = ops;
 	/* All options must not be 0 */
 	data->i8k_fan_mult = fan_mult ? : I8K_FAN_MULT;
+	if (data->i8k_fan_mult > DELL_SMM_MAX_FAN_MULT) {
+		dev_err(dev,
+			"fan multiplier %u is too large (max %u)\n",
+			data->i8k_fan_mult, DELL_SMM_MAX_FAN_MULT);
+		return -EINVAL;
+	}
 	data->i8k_fan_max = fan_max ? : I8K_FAN_HIGH;
 	data->i8k_pwm_mult = DIV_ROUND_UP(255, data->i8k_fan_max);
 
@@ -1267,6 +1276,13 @@ static const struct dmi_system_id i8k_dmi_table[] __initconst = {
 		},
 	},
 	{
+		.ident = "Dell OptiPlex 7080",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "OptiPlex 7080"),
+		},
+	},
+	{
 		.ident = "Dell OptiPlex 7060",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
@@ -1324,17 +1340,12 @@ struct i8k_config_data {
 
 enum i8k_configs {
 	DELL_LATITUDE_D520,
-	DELL_PRECISION_490,
 	DELL_STUDIO,
 	DELL_XPS,
 };
 
 static const struct i8k_config_data i8k_config_data[] __initconst = {
 	[DELL_LATITUDE_D520] = {
-		.fan_mult = 1,
-		.fan_max = I8K_FAN_TURBO,
-	},
-	[DELL_PRECISION_490] = {
 		.fan_mult = 1,
 		.fan_max = I8K_FAN_TURBO,
 	},
@@ -1356,15 +1367,6 @@ static const struct dmi_system_id i8k_config_dmi_table[] __initconst = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "Latitude D520"),
 		},
 		.driver_data = (void *)&i8k_config_data[DELL_LATITUDE_D520],
-	},
-	{
-		.ident = "Dell Precision 490",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME,
-				  "Precision WorkStation 490"),
-		},
-		.driver_data = (void *)&i8k_config_data[DELL_PRECISION_490],
 	},
 	{
 		.ident = "Dell Studio",

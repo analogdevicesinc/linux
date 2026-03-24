@@ -37,6 +37,7 @@ static const struct hvs_format {
 	u32 pixel_order_hvs5;
 	bool hvs5_only;
 	bool hvs6_only;
+	bool hvs6_swap_chroma_pointers;
 } hvs_formats[] = {
 	{
 		.drm = DRM_FORMAT_XRGB8888,
@@ -61,6 +62,30 @@ static const struct hvs_format {
 		.hvs = HVS_PIXEL_FORMAT_RGBA8888,
 		.pixel_order = HVS_PIXEL_ORDER_ARGB,
 		.pixel_order_hvs5 = HVS_PIXEL_ORDER_ABGR,
+	},
+	{
+		.drm = DRM_FORMAT_RGBX8888,
+		.hvs = HVS_PIXEL_FORMAT_RGBA8888,
+		.pixel_order = HVS_PIXEL_ORDER_RGBA,
+		.pixel_order_hvs5 = HVS_PIXEL_ORDER_RGBA,
+	},
+	{
+		.drm = DRM_FORMAT_RGBA8888,
+		.hvs = HVS_PIXEL_FORMAT_RGBA8888,
+		.pixel_order = HVS_PIXEL_ORDER_RGBA,
+		.pixel_order_hvs5 = HVS_PIXEL_ORDER_RGBA,
+	},
+	{
+		.drm = DRM_FORMAT_BGRX8888,
+		.hvs = HVS_PIXEL_FORMAT_RGBA8888,
+		.pixel_order = HVS_PIXEL_ORDER_BGRA,
+		.pixel_order_hvs5 = HVS_PIXEL_ORDER_BGRA,
+	},
+	{
+		.drm = DRM_FORMAT_BGRA8888,
+		.hvs = HVS_PIXEL_FORMAT_RGBA8888,
+		.pixel_order = HVS_PIXEL_ORDER_BGRA,
+		.pixel_order_hvs5 = HVS_PIXEL_ORDER_BGRA,
 	},
 	{
 		.drm = DRM_FORMAT_RGB565,
@@ -109,6 +134,7 @@ static const struct hvs_format {
 		.hvs = HVS_PIXEL_FORMAT_YCBCR_YUV422_3PLANE,
 		.pixel_order = HVS_PIXEL_ORDER_XYCRCB,
 		.pixel_order_hvs5 = HVS_PIXEL_ORDER_XYCRCB,
+		.hvs6_swap_chroma_pointers = true,
 	},
 	{
 		.drm = DRM_FORMAT_YUV444,
@@ -121,6 +147,7 @@ static const struct hvs_format {
 		.hvs = HVS_PIXEL_FORMAT_YCBCR_YUV422_3PLANE,
 		.pixel_order = HVS_PIXEL_ORDER_XYCRCB,
 		.pixel_order_hvs5 = HVS_PIXEL_ORDER_XYCRCB,
+		.hvs6_swap_chroma_pointers = true,
 	},
 	{
 		.drm = DRM_FORMAT_YUV420,
@@ -133,6 +160,7 @@ static const struct hvs_format {
 		.hvs = HVS_PIXEL_FORMAT_YCBCR_YUV420_3PLANE,
 		.pixel_order = HVS_PIXEL_ORDER_XYCRCB,
 		.pixel_order_hvs5 = HVS_PIXEL_ORDER_XYCRCB,
+		.hvs6_swap_chroma_pointers = true,
 	},
 	{
 		.drm = DRM_FORMAT_NV12,
@@ -798,7 +826,10 @@ static unsigned int vc4_lbm_components(const struct drm_plane_state *state,
 	if (info->is_yuv)
 		return channel ? 2 : 1;
 
-	if (info->has_alpha)
+	if (vc4_state->y_scaling[channel] == VC4_SCALING_TPZ)
+		return 4;
+
+	if (info->has_alpha && state->alpha == DRM_BLEND_ALPHA_OPAQUE)
 		return 4;
 
 	return 3;
@@ -808,11 +839,8 @@ static unsigned int vc4_lbm_channel_size(const struct drm_plane_state *state,
 					 unsigned int channel)
 {
 	const struct drm_format_info *info = state->fb->format;
-	const struct vc4_plane_state *vc4_state = to_vc4_plane_state(state);
-	unsigned int channels_scaled = 0;
 	unsigned int components, words, wpc;
 	unsigned int width, lines;
-	unsigned int i;
 
 	/* LBM is meant to use the smaller of source or dest width, but there
 	 * is a issue with UV scaling that the size required for the second
@@ -832,19 +860,9 @@ static unsigned int vc4_lbm_channel_size(const struct drm_plane_state *state,
 	if (!components)
 		return 0;
 
-	if (state->alpha != DRM_BLEND_ALPHA_OPAQUE && info->has_alpha)
-		components -= 1;
-
 	words = width * wpc * components;
 
 	lines = DIV_ROUND_UP(words, 128 / info->hsub);
-
-	for (i = 0; i < 2; i++)
-		if (vc4_state->y_scaling[channel] != VC4_SCALING_NONE)
-			channels_scaled++;
-
-	if (channels_scaled == 1)
-		lines = lines / 2;
 
 	return lines;
 }
@@ -1870,6 +1888,14 @@ static u32 vc6_plane_get_csc_mode(struct vc4_plane_state *vc4_state)
 	return ret;
 }
 
+static int vc6_get_plane_idx(const struct hvs_format *format, int plane)
+{
+	if (!plane || !format->hvs6_swap_chroma_pointers)
+		return plane;
+
+	return (plane == 1) ? 2 : 1;
+}
+
 static int vc6_plane_mode_set(struct drm_plane *plane,
 			      struct drm_plane_state *state)
 {
@@ -2162,8 +2188,10 @@ static int vc6_plane_mode_set(struct drm_plane *plane,
 	 * TODO: This only covers Raster Scan Order planes
 	 */
 	for (i = 0; i < num_planes; i++) {
-		struct drm_gem_dma_object *bo = drm_fb_dma_get_gem_obj(fb, i);
-		dma_addr_t paddr = bo->dma_addr + fb->offsets[i] + offsets[i];
+		int idx = vc6_get_plane_idx(format, i);
+		struct drm_gem_dma_object *bo =
+			drm_fb_dma_get_gem_obj(fb, idx);
+		dma_addr_t paddr = bo->dma_addr + fb->offsets[idx] + offsets[idx];
 
 		/* Pointer Word 0 */
 		vc4_state->ptr0_offset[i] = vc4_state->dlist_count;
@@ -2396,14 +2424,25 @@ u32 vc4_plane_dlist_size(const struct drm_plane_state *state)
  */
 void vc4_plane_async_set_fb(struct drm_plane *plane, struct drm_framebuffer *fb)
 {
-	struct vc4_plane_state *vc4_state = to_vc4_plane_state(plane->state);
+	struct drm_plane_state *state = plane->state;
+	struct vc4_plane_state *vc4_state = to_vc4_plane_state(state);
 	struct drm_gem_dma_object *bo = drm_fb_dma_get_gem_obj(fb, 0);
 	struct vc4_dev *vc4 = to_vc4_dev(plane->dev);
 	dma_addr_t dma_addr = bo->dma_addr + fb->offsets[0];
+	unsigned int rotation;
 	int idx;
 
 	if (!drm_dev_enter(plane->dev, &idx))
 		return;
+
+	rotation = drm_rotation_simplify(state->rotation,
+					 DRM_MODE_ROTATE_0 |
+					 DRM_MODE_REFLECT_X |
+					 DRM_MODE_REFLECT_Y);
+
+	/* We must point to the last line when Y reflection is enabled. */
+	if (rotation & DRM_MODE_REFLECT_Y)
+		dma_addr += fb->pitches[0] * ((vc4_state->src_h[0] >> 16) - 1);
 
 	/* We're skipping the address adjustment for negative origin,
 	 * because this is only called on the primary plane.

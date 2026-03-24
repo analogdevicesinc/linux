@@ -89,6 +89,19 @@ static int iget_set(struct inode *inode, void *opaque)
 	return 0;
 }
 
+void gfs2_setup_inode(struct inode *inode)
+{
+	gfp_t gfp_mask;
+
+	/*
+	 * Ensure all page cache allocations are done from GFP_NOFS context to
+	 * prevent direct reclaim recursion back into the filesystem and blowing
+	 * stacks or deadlocking.
+	 */
+	gfp_mask = mapping_gfp_mask(inode->i_mapping);
+	mapping_set_gfp_mask(inode->i_mapping, gfp_mask & ~__GFP_FS);
+}
+
 /**
  * gfs2_inode_lookup - Lookup an inode
  * @sb: The super block
@@ -132,6 +145,7 @@ struct inode *gfs2_inode_lookup(struct super_block *sb, unsigned int type,
 		struct gfs2_glock *io_gl;
 		int extra_flags = 0;
 
+		gfs2_setup_inode(inode);
 		error = gfs2_glock_get(sdp, no_addr, &gfs2_inode_glops, CREATE,
 				       &ip->i_gl);
 		if (unlikely(error))
@@ -754,6 +768,7 @@ static int gfs2_create_inode(struct inode *dir, struct dentry *dentry,
 	error = -ENOMEM;
 	if (!inode)
 		goto fail_gunlock;
+	gfs2_setup_inode(inode);
 	ip = GFS2_I(inode);
 
 	error = posix_acl_create(dir, &mode, &default_acl, &acl);
@@ -1489,7 +1504,7 @@ static int gfs2_rename(struct inode *odir, struct dentry *odentry,
 	unsigned int num_gh;
 	int dir_rename = 0;
 	struct gfs2_diradd da = { .nr_blocks = 0, .save_loc = 0, };
-	unsigned int x;
+	unsigned int retries = 0, x;
 	int error;
 
 	gfs2_holder_mark_uninitialized(&r_gh);
@@ -1539,12 +1554,17 @@ static int gfs2_rename(struct inode *odir, struct dentry *odentry,
 		num_gh++;
 	}
 
+again:
 	for (x = 0; x < num_gh; x++) {
 		error = gfs2_glock_nq(ghs + x);
 		if (error)
 			goto out_gunlock;
 	}
-	error = gfs2_glock_async_wait(num_gh, ghs);
+	error = gfs2_glock_async_wait(num_gh, ghs, retries);
+	if (error == -ESTALE) {
+		retries++;
+		goto again;
+	}
 	if (error)
 		goto out_gunlock;
 
@@ -1733,7 +1753,7 @@ static int gfs2_exchange(struct inode *odir, struct dentry *odentry,
 	struct gfs2_sbd *sdp = GFS2_SB(odir);
 	struct gfs2_holder ghs[4], r_gh;
 	unsigned int num_gh;
-	unsigned int x;
+	unsigned int retries = 0, x;
 	umode_t old_mode = oip->i_inode.i_mode;
 	umode_t new_mode = nip->i_inode.i_mode;
 	int error;
@@ -1777,13 +1797,18 @@ static int gfs2_exchange(struct inode *odir, struct dentry *odentry,
 	gfs2_holder_init(nip->i_gl, LM_ST_EXCLUSIVE, GL_ASYNC, ghs + num_gh);
 	num_gh++;
 
+again:
 	for (x = 0; x < num_gh; x++) {
 		error = gfs2_glock_nq(ghs + x);
 		if (error)
 			goto out_gunlock;
 	}
 
-	error = gfs2_glock_async_wait(num_gh, ghs);
+	error = gfs2_glock_async_wait(num_gh, ghs, retries);
+	if (error == -ESTALE) {
+		retries++;
+		goto again;
+	}
 	if (error)
 		goto out_gunlock;
 
@@ -2176,6 +2201,14 @@ static int gfs2_getattr(struct mnt_idmap *idmap,
 	return 0;
 }
 
+static bool fault_in_fiemap(struct fiemap_extent_info *fi)
+{
+	struct fiemap_extent __user *dest = fi->fi_extents_start;
+	size_t size = sizeof(*dest) * fi->fi_extents_max;
+
+	return fault_in_safe_writeable((char __user *)dest, size) == 0;
+}
+
 static int gfs2_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 		       u64 start, u64 len)
 {
@@ -2185,13 +2218,21 @@ static int gfs2_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 
 	inode_lock_shared(inode);
 
+retry:
 	ret = gfs2_glock_nq_init(ip->i_gl, LM_ST_SHARED, 0, &gh);
 	if (ret)
 		goto out;
 
+	pagefault_disable();
 	ret = iomap_fiemap(inode, fieinfo, start, len, &gfs2_iomap_ops);
+	pagefault_enable();
 
 	gfs2_glock_dq_uninit(&gh);
+
+	if (ret == -EFAULT && fault_in_fiemap(fieinfo)) {
+		fieinfo->fi_extents_mapped = 0;
+		goto retry;
+	}
 
 out:
 	inode_unlock_shared(inode);

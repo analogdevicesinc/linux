@@ -444,13 +444,9 @@ static int bcm54xx_config_init(struct phy_device *phydev)
 	if (reg < 0)
 		return reg;
 
-	/* Mask interrupts globally.  */
-	reg |= MII_BCM54XX_ECR_IM;
-	err = phy_write(phydev, MII_BCM54XX_ECR, reg);
-	if (err < 0)
-		return err;
-
-	/* Unmask events we are interested in.  */
+	/* Initially all interrupts are masked in IMR, so unmask events
+	 * we are interested in.
+	 */
 	reg = ~(MII_BCM54XX_INT_DUPLEX |
 		MII_BCM54XX_INT_SPEED |
 		MII_BCM54XX_INT_LINK);
@@ -512,18 +508,23 @@ static int bcm54xx_config_init(struct phy_device *phydev)
 	 * these settings will cause LOS to malfunction.
 	 */
 	if (!phy_on_sfp(phydev)) {
+		int led_swap = of_property_read_bool(np, "led-swap") ? 1 : 0;
 		val = BCM54XX_SHD_LEDS1_LED1(BCM_LED_SRC_MULTICOLOR1) |
 			BCM54XX_SHD_LEDS1_LED3(BCM_LED_SRC_MULTICOLOR1);
 		bcm_phy_write_shadow(phydev, BCM54XX_SHD_LEDS1, val);
 		/* BCM54210PE controls two extra LEDs with the next register.
-		 * Make them shadow the first pair of LEDs - useful on CM4 which
-		 * uses LED3 for ETH_LEDY instead of LED1.
+		 * Make LED3 shadow LED1, but preserve LED4 as is - useful on
+		 * CM4/CM5 which use LED3 for ETH_LEDY instead of LED1. LED4
+		 * is either unused or configured as INT pin on CM5.
 		 */
-		bcm_phy_write_shadow(phydev, BCM54XX_SHD_LEDS1 + 1, val);
+		reg = bcm_phy_read_shadow(phydev, BCM54XX_SHD_LEDS2);
+		reg &= ~(0xf << 0);
+		reg |= BCM54XX_SHD_LEDS1_LED1(BCM_LED_SRC_MULTICOLOR1);
+		bcm_phy_write_shadow(phydev, BCM54XX_SHD_LEDS2, reg);
 
 		val = BCM_LED_MULTICOLOR_IN_PHASE |
-			BCM54XX_SHD_LEDS1_LED1(led_modes[0]) |
-			BCM54XX_SHD_LEDS1_LED3(led_modes[1]);
+			BCM54XX_SHD_LEDS1_LED1(led_modes[0 ^ led_swap]) |
+			BCM54XX_SHD_LEDS1_LED3(led_modes[1 ^ led_swap]);
 		bcm_phy_write_exp(phydev, BCM_EXP_MULTICOLOR, val);
 	}
 
@@ -675,7 +676,7 @@ static int bcm5481x_read_abilities(struct phy_device *phydev)
 {
 	struct device_node *np = phydev->mdio.dev.of_node;
 	struct bcm54xx_phy_priv *priv = phydev->priv;
-	int i, val, err;
+	int i, val, err, aneg;
 
 	for (i = 0; i < ARRAY_SIZE(bcm54811_linkmodes); i++)
 		linkmode_clear_bit(bcm54811_linkmodes[i], phydev->supported);
@@ -696,9 +697,19 @@ static int bcm5481x_read_abilities(struct phy_device *phydev)
 		if (val < 0)
 			return val;
 
+		/* BCM54811 is not capable of LDS but the corresponding bit
+		 * in LRESR is set to 1 and marked "Ignore" in the datasheet.
+		 * So we must read the bcm54811 as unable to auto-negotiate
+		 * in BroadR-Reach mode.
+		 */
+		if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54811)
+			aneg = 0;
+		else
+			aneg = val & LRESR_LDSABILITY;
+
 		linkmode_mod_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
 				 phydev->supported,
-				 val & LRESR_LDSABILITY);
+				 aneg);
 		linkmode_mod_bit(ETHTOOL_LINK_MODE_100baseT1_Full_BIT,
 				 phydev->supported,
 				 val & LRESR_100_1PAIR);
@@ -755,8 +766,15 @@ static int bcm54811_config_aneg(struct phy_device *phydev)
 
 	/* Aneg firstly. */
 	if (priv->brr_mode) {
-		/* BCM54811 is only capable of autonegotiation in IEEE mode */
-		phydev->autoneg = 0;
+		/* BCM54811 is only capable of autonegotiation in IEEE mode.
+		 * In BroadR-Reach mode, disable the Long Distance Signaling,
+		 * the BRR mode autoneg as supported in other Broadcom PHYs.
+		 * This bit is marked as "Reserved" and "Default 1, must be
+		 *  written to 0 after every device reset" in the datasheet.
+		 */
+		ret = phy_modify(phydev, MII_BCM54XX_LRECR, LRECR_LDSEN, 0);
+		if (ret < 0)
+			return ret;
 		ret = bcm_config_lre_aneg(phydev, false);
 	} else {
 		ret = genphy_config_aneg(phydev);
@@ -1484,6 +1502,8 @@ static struct phy_driver broadcom_drivers[] = {
 	.probe		= bcm54xx_phy_probe,
 	.config_init	= bcm54xx_config_init,
 	.config_intr	= bcm_phy_config_intr,
+	.handle_interrupt = bcm_phy_handle_interrupt,
+	.link_change_notify	= bcm54xx_link_change_notify,
 	.suspend	= bcm54xx_suspend,
 	.resume		= bcm54xx_resume,
 }, {

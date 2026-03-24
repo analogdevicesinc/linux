@@ -372,32 +372,27 @@ static inline struct adv7180_state *to_state(struct v4l2_subdev *sd)
 static int adv7180_querystd(struct v4l2_subdev *sd, v4l2_std_id *std)
 {
 	struct adv7180_state *state = to_state(sd);
-	int err = mutex_lock_interruptible(&state->mutex);
-	if (err)
-		return err;
+	int ret;
 
-	if (state->streaming) {
-		err = -EBUSY;
-		goto unlock;
-	}
+	guard(mutex)(&state->mutex);
 
-	err = adv7180_set_video_standard(state,
-			ADV7180_STD_AD_PAL_BG_NTSC_J_SECAM);
-	if (err)
-		goto unlock;
+	/*
+	 * We can't sample the standard if the device is streaming as that would
+	 * interfere with the capture session as the VID_SEL reg is touched.
+	 */
+	if (state->streaming)
+		return -EBUSY;
 
+	/* Set the standard to autodetect PAL B/G/H/I/D, NTSC J or SECAM */
+	ret = adv7180_set_video_standard(state,
+					 ADV7180_STD_AD_PAL_BG_NTSC_J_SECAM);
+	if (ret)
+		return ret;
+
+	/* Allow some time for the autodetection to run. */
 	msleep(100);
-	__adv7180_status(state, NULL, std);
 
-	err = v4l2_std_to_adv7180(state->curr_norm);
-	if (err < 0)
-		goto unlock;
-
-	err = adv7180_set_video_standard(state, err);
-
-unlock:
-	mutex_unlock(&state->mutex);
-	return err;
+	return __adv7180_status(state, NULL, std);
 }
 
 static int adv7180_s_routing(struct v4l2_subdev *sd, u32 input,
@@ -519,6 +514,13 @@ static int adv7180_get_frame_interval(struct v4l2_subdev *sd,
 		fi->interval.numerator = 1;
 		fi->interval.denominator = 25;
 	}
+
+	/*
+	 * If the de-interlacer is active, the chip produces full video frames
+	 * at the field rate.
+	 */
+	if (state->field == V4L2_FIELD_NONE)
+		fi->interval.denominator *= 2;
 
 	return 0;
 }
@@ -1642,6 +1644,8 @@ static int adv7180_suspend(struct device *dev)
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct adv7180_state *state = to_state(sd);
 
+	guard(mutex)(&state->mutex);
+
 	return adv7180_set_power(state, false);
 }
 
@@ -1654,6 +1658,8 @@ static int adv7180_resume(struct device *dev)
 	ret = init_device(state);
 	if (ret < 0)
 		return ret;
+
+	guard(mutex)(&state->mutex);
 
 	ret = adv7180_set_power(state, state->powered);
 	if (ret)

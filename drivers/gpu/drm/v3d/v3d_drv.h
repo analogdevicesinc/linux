@@ -62,6 +62,8 @@ struct v3d_queue_state {
 	/* Currently active job for this queue */
 	struct v3d_job *active_job;
 	spinlock_t queue_lock;
+	/* Protect dma fence for signalling job completion */
+	spinlock_t fence_lock;
 };
 
 /* Performance monitor object. The perform lifetime is controlled by userspace
@@ -587,6 +589,7 @@ int v3d_submit_cpu_ioctl(struct drm_device *dev, void *data,
 			 struct drm_file *file_priv);
 
 /* v3d_irq.c */
+extern bool debug_mmu;
 int v3d_irq_init(struct v3d_dev *v3d);
 void v3d_irq_enable(struct v3d_dev *v3d);
 void v3d_irq_disable(struct v3d_dev *v3d);

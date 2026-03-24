@@ -107,7 +107,7 @@ static int mlx5_devlink_reload_fw_activate(struct devlink *devlink, struct netli
 	if (err)
 		return err;
 
-	mlx5_unload_one_devl_locked(dev, true);
+	mlx5_sync_reset_unload_flow(dev, true);
 	err = mlx5_health_wait_pci_up(dev);
 	if (err)
 		NL_SET_ERR_MSG_MOD(extack, "FW activate aborted, PCI reads fail after reset");
@@ -142,6 +142,11 @@ static int mlx5_devlink_reload_down(struct devlink *devlink, bool netns_change,
 	struct mlx5_core_dev *dev = devlink_priv(devlink);
 	struct pci_dev *pdev = dev->pdev;
 	int ret = 0;
+
+	if (mlx5_fw_reset_in_progress(dev)) {
+		NL_SET_ERR_MSG_MOD(extack, "Can't reload during firmware reset");
+		return -EBUSY;
+	}
 
 	if (mlx5_dev_is_lightweight(dev)) {
 		if (action != DEVLINK_RELOAD_ACTION_DRIVER_REINIT)

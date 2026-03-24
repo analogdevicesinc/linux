@@ -534,10 +534,15 @@ out:
 asmlinkage void noinstr do_ade(struct pt_regs *regs)
 {
 	irqentry_state_t state = irqentry_enter(regs);
+	unsigned int esubcode = FIELD_GET(CSR_ESTAT_ESUBCODE, regs->csr_estat);
+
+	if ((esubcode == EXSUBCODE_ADEM) && fixup_exception(regs))
+		goto out;
 
 	die_if_kernel("Kernel ade access", regs);
 	force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *)regs->csr_badvaddr);
 
+out:
 	irqentry_exit(regs, state);
 }
 
@@ -1123,8 +1128,8 @@ static void configure_exception_vector(void)
 	tlbrentry = (unsigned long)exception_handlers + 80*VECSIZE;
 
 	csr_write64(eentry, LOONGARCH_CSR_EENTRY);
-	csr_write64(eentry, LOONGARCH_CSR_MERRENTRY);
-	csr_write64(tlbrentry, LOONGARCH_CSR_TLBRENTRY);
+	csr_write64(__pa(eentry), LOONGARCH_CSR_MERRENTRY);
+	csr_write64(__pa(tlbrentry), LOONGARCH_CSR_TLBRENTRY);
 }
 
 void per_cpu_trap_init(int cpu)

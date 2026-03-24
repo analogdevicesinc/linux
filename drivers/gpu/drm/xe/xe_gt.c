@@ -721,9 +721,6 @@ static int do_gt_restart(struct xe_gt *gt)
 		xe_gt_sriov_pf_init_hw(gt);
 
 	xe_mocs_init(gt);
-	err = xe_uc_start(&gt->uc);
-	if (err)
-		return err;
 
 	for_each_hw_engine(hwe, gt, id) {
 		xe_reg_sr_apply_mmio(&hwe->reg_sr, gt);
@@ -732,6 +729,10 @@ static int do_gt_restart(struct xe_gt *gt)
 
 	/* Get CCS mode in sync between sw/hw */
 	xe_gt_apply_ccs_mode(gt);
+
+	err = xe_uc_start(&gt->uc);
+	if (err)
+		return err;
 
 	/* Restore GT freq to expected values */
 	xe_gt_sanitize_freq(gt);
@@ -746,16 +747,18 @@ static int gt_reset(struct xe_gt *gt)
 {
 	int err;
 
-	if (xe_device_wedged(gt_to_xe(gt)))
-		return -ECANCELED;
+	if (xe_device_wedged(gt_to_xe(gt))) {
+		err = -ECANCELED;
+		goto err_pm_put;
+	}
 
 	/* We only support GT resets with GuC submission */
-	if (!xe_device_uc_enabled(gt_to_xe(gt)))
-		return -ENODEV;
+	if (!xe_device_uc_enabled(gt_to_xe(gt))) {
+		err = -ENODEV;
+		goto err_pm_put;
+	}
 
 	xe_gt_info(gt, "reset started\n");
-
-	xe_pm_runtime_get(gt_to_xe(gt));
 
 	if (xe_fault_inject_gt_reset()) {
 		err = -ECANCELED;
@@ -803,6 +806,7 @@ err_fail:
 	xe_gt_err(gt, "reset failed (%pe)\n", ERR_PTR(err));
 
 	xe_device_declare_wedged(gt_to_xe(gt));
+err_pm_put:
 	xe_pm_runtime_put(gt_to_xe(gt));
 
 	return err;
@@ -824,7 +828,9 @@ void xe_gt_reset_async(struct xe_gt *gt)
 		return;
 
 	xe_gt_info(gt, "reset queued\n");
-	queue_work(gt->ordered_wq, &gt->reset.worker);
+	xe_pm_runtime_get_noresume(gt_to_xe(gt));
+	if (!queue_work(gt->ordered_wq, &gt->reset.worker))
+		xe_pm_runtime_put(gt_to_xe(gt));
 }
 
 void xe_gt_suspend_prepare(struct xe_gt *gt)

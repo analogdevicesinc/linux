@@ -110,6 +110,8 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	hifiberry-dacplushd.dtbo \
 	hifiberry-digi.dtbo \
 	hifiberry-digi-pro.dtbo \
+	hifiberry-studio-dac8x.dtbo \
+	hifiberry-studio-dac8x-pro.dtbo \
 	highperi.dtbo \
 	hy28a.dtbo \
 	hy28b.dtbo \
@@ -136,6 +138,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	i2s-dac.dtbo \
 	i2s-gpio28-31.dtbo \
 	i2s-master-dac.dtbo \
+	ilitek-ts-i2c.dtbo \
 	ilitek251x.dtbo \
 	imx219.dtbo \
 	imx258.dtbo \
@@ -198,6 +201,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	mlx90640.dtbo \
 	mmc.dtbo \
 	mz61581.dtbo \
+	nospi10.dtbo \
 	ov2311.dtbo \
 	ov5647.dtbo \
 	ov64a40.dtbo \
@@ -230,6 +234,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	pitft35-resistive.dtbo \
 	pivision.dtbo \
 	pps-gpio.dtbo \
+	pps-rp1.dtbo \
 	proto-codec.dtbo \
 	pwm.dtbo \
 	pwm-2chan.dtbo \
@@ -325,6 +330,8 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-max31335.dtbo \
 	rpi-poe.dtbo \
 	rpi-poe-plus.dtbo \
+	rpi-power-hat-b.dtbo \
+	rpi-power-hat-t.dtbo \
 	rpi-sense.dtbo \
 	rpi-sense-v2.dtbo \
 	rpi-tv.dtbo \
@@ -409,6 +416,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	vc4-kms-dpi-panel.dtbo \
 	vc4-kms-dsi-7inch.dtbo \
 	vc4-kms-dsi-generic.dtbo \
+	vc4-kms-dsi-ili79600-10-1inch.dtbo \
 	vc4-kms-dsi-ili9881-5inch.dtbo \
 	vc4-kms-dsi-ili9881-7inch.dtbo \
 	vc4-kms-dsi-lt070me05000.dtbo \
@@ -421,6 +429,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	vc4-kms-v3d-pi4.dtbo \
 	vc4-kms-v3d-pi5.dtbo \
 	vc4-kms-vga666.dtbo \
+	vec-gpio-pi5.dtbo \
 	vga666.dtbo \
 	vl805.dtbo \
 	w1-gpio.dtbo \

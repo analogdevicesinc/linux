@@ -198,7 +198,12 @@ static int damon_lru_sort_apply_parameters(void)
 	if (err)
 		return err;
 
-	err = damon_set_attrs(ctx, &damon_lru_sort_mon_attrs);
+	if (!damon_lru_sort_mon_attrs.sample_interval) {
+		err = -EINVAL;
+		goto out;
+	}
+
+	err = damon_set_attrs(param_ctx, &damon_lru_sort_mon_attrs);
 	if (err)
 		goto out;
 

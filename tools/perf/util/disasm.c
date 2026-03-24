@@ -79,7 +79,7 @@ grow_from_non_allocated_table:
 	if (new_instructions == NULL)
 		return -1;
 
-	memcpy(new_instructions, arch->instructions, arch->nr_instructions);
+	memcpy(new_instructions, arch->instructions, arch->nr_instructions * sizeof(struct ins));
 	goto out_update_instructions;
 }
 
@@ -389,13 +389,16 @@ static int jump__parse(struct arch *arch, struct ins_operands *ops, struct map_s
 	 * skip over possible up to 2 operands to get to address, e.g.:
 	 * tbnz	 w0, #26, ffff0000083cd190 <security_file_permission+0xd0>
 	 */
-	if (c++ != NULL) {
+	if (c != NULL) {
+		c++;
 		ops->target.addr = strtoull(c, NULL, 16);
 		if (!ops->target.addr) {
 			c = strchr(c, ',');
 			c = validate_comma(c, ops);
-			if (c++ != NULL)
+			if (c != NULL) {
+				c++;
 				ops->target.addr = strtoull(c, NULL, 16);
+			}
 		}
 	} else {
 		ops->target.addr = strtoull(ops->raw, NULL, 16);

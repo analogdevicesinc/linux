@@ -63,8 +63,14 @@ static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
 	skb_push(skb, ETH_HLEN);
 	skb_reset_mac_header(skb);
 	if ((!hsr->prot_version && protocol == htons(ETH_P_PRP)) ||
-	    protocol == htons(ETH_P_HSR))
+	    protocol == htons(ETH_P_HSR)) {
+		if (!pskb_may_pull(skb, ETH_HLEN + HSR_HLEN)) {
+			kfree_skb(skb);
+			goto finish_consume;
+		}
+
 		skb_set_network_header(skb, ETH_HLEN + HSR_HLEN);
+	}
 	skb_reset_mac_len(skb);
 
 	/* Only the frames received over the interlink port will assign a
@@ -197,14 +203,13 @@ int hsr_add_port(struct hsr_priv *hsr, struct net_device *dev,
 	port->dev = dev;
 	port->type = type;
 
+	list_add_tail_rcu(&port->port_list, &hsr->ports);
+
 	if (type != HSR_PT_MASTER) {
 		res = hsr_portdev_setup(hsr, dev, port, extack);
 		if (res)
 			goto fail_dev_setup;
 	}
-
-	list_add_tail_rcu(&port->port_list, &hsr->ports);
-	synchronize_rcu();
 
 	master = hsr_port_get_hsr(hsr, HSR_PT_MASTER);
 	netdev_update_features(master->dev);
@@ -213,7 +218,8 @@ int hsr_add_port(struct hsr_priv *hsr, struct net_device *dev,
 	return 0;
 
 fail_dev_setup:
-	kfree(port);
+	list_del_rcu(&port->port_list);
+	kfree_rcu(port, rcu);
 	return res;
 }
 
@@ -235,7 +241,5 @@ void hsr_del_port(struct hsr_port *port)
 		netdev_upper_dev_unlink(port->dev, master->dev);
 	}
 
-	synchronize_rcu();
-
-	kfree(port);
+	kfree_rcu(port, rcu);
 }

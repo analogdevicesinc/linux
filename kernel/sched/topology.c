@@ -1632,6 +1632,12 @@ sd_init(struct sched_domain_topology_level *tl,
 
 		.last_balance		= jiffies,
 		.balance_interval	= sd_weight,
+
+		/* 50% success rate */
+		.newidle_call		= 512,
+		.newidle_success	= 256,
+		.newidle_ratio		= 512,
+
 		.max_newidle_lb_cost	= 0,
 		.last_decay_max_lb_cost	= jiffies,
 		.child			= child,
@@ -2174,6 +2180,8 @@ int sched_numa_find_nth_cpu(const struct cpumask *cpus, int cpu, int node)
 		goto unlock;
 
 	hop_masks = bsearch(&k, k.masks, sched_domains_numa_levels, sizeof(k.masks[0]), hop_cmp);
+	if (!hop_masks)
+		goto unlock;
 	hop = hop_masks	- k.masks;
 
 	ret = hop ?

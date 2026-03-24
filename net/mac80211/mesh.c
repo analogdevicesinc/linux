@@ -623,6 +623,9 @@ int mesh_add_he_6ghz_cap_ie(struct ieee80211_sub_if_data *sdata,
 	if (!sband)
 		return -EINVAL;
 
+	if (sband->band != NL80211_BAND_6GHZ)
+		return 0;
+
 	iftd = ieee80211_get_sband_iftype_data(sband,
 					       NL80211_IFTYPE_MESH_POINT);
 	/* The device doesn't support HE in mesh mode or at all */
@@ -1626,6 +1629,9 @@ static void mesh_rx_csa_frame(struct ieee80211_sub_if_data *sdata,
 		return;
 
 	if (!mesh_matches_local(sdata, elems))
+		goto free;
+
+	if (!elems->mesh_chansw_params_ie)
 		goto free;
 
 	ifmsh->chsw_ttl = elems->mesh_chansw_params_ie->mesh_ttl;

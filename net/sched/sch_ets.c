@@ -115,12 +115,12 @@ static void ets_offload_change(struct Qdisc *sch)
 	struct ets_sched *q = qdisc_priv(sch);
 	struct tc_ets_qopt_offload qopt;
 	unsigned int w_psum_prev = 0;
-	unsigned int q_psum = 0;
-	unsigned int q_sum = 0;
 	unsigned int quantum;
 	unsigned int w_psum;
 	unsigned int weight;
 	unsigned int i;
+	u64 q_psum = 0;
+	u64 q_sum = 0;
 
 	if (!tc_can_offload(dev) || !dev->netdev_ops->ndo_setup_tc)
 		return;
@@ -138,8 +138,12 @@ static void ets_offload_change(struct Qdisc *sch)
 
 	for (i = 0; i < q->nbands; i++) {
 		quantum = q->classes[i].quantum;
-		q_psum += quantum;
-		w_psum = quantum ? q_psum * 100 / q_sum : 0;
+		if (quantum) {
+			q_psum += quantum;
+			w_psum = div64_u64(q_psum * 100, q_sum);
+		} else {
+			w_psum = 0;
+		}
 		weight = w_psum - w_psum_prev;
 		w_psum_prev = w_psum;
 
@@ -651,6 +655,12 @@ static int ets_qdisc_change(struct Qdisc *sch, struct nlattr *opt,
 
 	sch_tree_lock(sch);
 
+	for (i = nbands; i < oldbands; i++) {
+		if (cl_is_active(&q->classes[i]))
+			list_del_init(&q->classes[i].alist);
+		qdisc_purge_queue(q->classes[i].qdisc);
+	}
+
 	WRITE_ONCE(q->nbands, nbands);
 	for (i = nstrict; i < q->nstrict; i++) {
 		if (q->classes[i].qdisc->q.qlen) {
@@ -658,10 +668,9 @@ static int ets_qdisc_change(struct Qdisc *sch, struct nlattr *opt,
 			q->classes[i].deficit = quanta[i];
 		}
 	}
-	for (i = q->nbands; i < oldbands; i++) {
-		if (i >= q->nstrict && q->classes[i].qdisc->q.qlen)
+	for (i = q->nstrict; i < nstrict; i++) {
+		if (cl_is_active(&q->classes[i]))
 			list_del_init(&q->classes[i].alist);
-		qdisc_purge_queue(q->classes[i].qdisc);
 	}
 	WRITE_ONCE(q->nstrict, nstrict);
 	memcpy(q->prio2band, priomap, sizeof(priomap));
