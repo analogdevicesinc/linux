@@ -202,9 +202,10 @@ extern void kgdb_call_nmi_hook(void *ignored);
  *
  *	On SMP systems, we need to get the attention of the other CPUs
  *	and get them into a known state.  This should do what is needed
- *	to get the other CPUs to call kgdb_wait(). Note that on some arches,
- *	the NMI approach is not used for rounding up all the CPUs.  Normally
- *	those architectures can just not implement this and get the default.
+ *	to get the other CPUs to call kgdb_handle_exception().  Note that
+ *	on some arches, the NMI approach is not used for rounding up all
+ *	the CPUs.  Normally those architectures can just not implement
+ *	this and get the default.
  *
  *	On non-SMP systems, this is not called.
  */
