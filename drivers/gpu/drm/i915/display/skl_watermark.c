@@ -4022,6 +4022,10 @@ void intel_wm_state_verify(struct intel_atomic_state *state,
 		skl_ddb_entry_verify(plane, "DDB",
 				     &hw->ddb[plane->id],
 				     &new_crtc_state->wm.skl.plane_ddb[plane->id]);
+
+		skl_ddb_entry_verify(plane, "DDB Y",
+				     &hw->ddb_y[plane->id],
+				     &new_crtc_state->wm.skl.plane_ddb_y[plane->id]);
 	}
 
 	kfree(hw);
