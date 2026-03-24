@@ -388,7 +388,7 @@ bool intel_crtc_can_enable_sagv(const struct intel_crtc_state *crtc_state)
 	if (crtc_state->inherited)
 		return false;
 
-	if (DISPLAY_VER(display) >= 12)
+	if (HAS_SAGV_WM(display))
 		return tgl_crtc_can_enable_sagv(crtc_state);
 	else
 		return skl_crtc_can_enable_sagv(crtc_state);
@@ -1939,7 +1939,7 @@ static void skl_compute_plane_wm(const struct intel_crtc_state *crtc_state,
 	result->enable = true;
 	result->auto_min_alloc_wm_enable = xe3_auto_min_alloc_capable(plane, level);
 
-	if (DISPLAY_VER(display) < 12 && display->sagv.block_time_us)
+	if (!HAS_SAGV_WM(display) && display->sagv.block_time_us)
 		result->can_sagv = latency >= display->sagv.block_time_us;
 }
 
@@ -2065,7 +2065,7 @@ static int skl_build_plane_wm_single(struct intel_crtc_state *crtc_state,
 	skl_compute_transition_wm(display, &wm->trans_wm,
 				  &wm->wm[0], &wm_params);
 
-	if (DISPLAY_VER(display) >= 12) {
+	if (HAS_SAGV_WM(display)) {
 		tgl_compute_sagv_wm(crtc_state, plane, &wm_params, wm);
 
 		skl_compute_transition_wm(display, &wm->sagv.trans_wm,
@@ -2324,7 +2324,7 @@ static int skl_wm_check_vblank(struct intel_crtc_state *crtc_state)
 		}
 	}
 
-	if (DISPLAY_VER(display) >= 12 &&
+	if (HAS_SAGV_WM(display) &&
 	    display->sagv.block_time_us &&
 	    skl_prefill_vblank_too_short(&ctx, crtc_state,
 					 display->sagv.block_time_us)) {
@@ -2997,8 +2997,9 @@ skl_compute_wm(struct intel_atomic_state *state)
 		 * other crtcs can't be allowed to use the more optimal
 		 * normal (ie. non-SAGV) watermarks.
 		 */
-		pipe_wm->use_sagv_wm = !HAS_HW_SAGV_WM(display) &&
-			DISPLAY_VER(display) >= 12 &&
+		pipe_wm->use_sagv_wm =
+			HAS_SAGV_WM(display) &&
+			!HAS_HW_SAGV_WM(display) &&
 			intel_crtc_can_enable_sagv(new_crtc_state);
 
 		ret = skl_wm_add_affected_planes(state, crtc);
@@ -3064,7 +3065,7 @@ static void skl_pipe_wm_get_hw_state(struct intel_crtc *crtc,
 				val = intel_de_read(display, CUR_WM_SAGV_TRANS(pipe));
 
 			skl_wm_level_from_reg_val(display, val, &wm->sagv.trans_wm);
-		} else if (DISPLAY_VER(display) >= 12) {
+		} else if (HAS_SAGV_WM(display)) {
 			wm->sagv.wm0 = wm->wm[0];
 			wm->sagv.trans_wm = wm->trans_wm;
 		}
