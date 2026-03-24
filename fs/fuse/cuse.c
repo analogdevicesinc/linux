@@ -424,7 +424,7 @@ err_unlock:
 err_region:
 	unregister_chrdev_region(devt, 1);
 err:
-	fuse_abort_conn(fc);
+	fuse_chan_abort(fc->chan, false);
 	goto out;
 }
 
@@ -594,7 +594,7 @@ static ssize_t cuse_class_abort_store(struct device *dev,
 {
 	struct cuse_conn *cc = dev_get_drvdata(dev);
 
-	fuse_abort_conn(&cc->fc);
+	fuse_chan_abort(cc->fc.chan, false);
 	return count;
 }
 static DEVICE_ATTR(abort, 0200, NULL, cuse_class_abort_store);

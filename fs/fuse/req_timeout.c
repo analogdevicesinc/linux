@@ -79,13 +79,13 @@ static void fuse_check_timeout(struct work_struct *work)
 	expired = fuse_request_expired(fch, &fiq->pending);
 	spin_unlock(&fiq->lock);
 	if (expired)
-		goto abort_conn;
+		goto chan_abort;
 
 	spin_lock(&fch->bg_lock);
 	expired = fuse_request_expired(fch, &fch->bg_queue);
 	spin_unlock(&fch->bg_lock);
 	if (expired)
-		goto abort_conn;
+		goto chan_abort;
 
 	spin_lock(&fch->lock);
 	if (!fch->connected) {
@@ -99,7 +99,7 @@ static void fuse_check_timeout(struct work_struct *work)
 		    fuse_fpq_processing_expired(fch, fpq->processing)) {
 			spin_unlock(&fpq->lock);
 			spin_unlock(&fch->lock);
-			goto abort_conn;
+			goto chan_abort;
 		}
 
 		spin_unlock(&fpq->lock);
@@ -107,15 +107,15 @@ static void fuse_check_timeout(struct work_struct *work)
 	spin_unlock(&fch->lock);
 
 	if (fuse_uring_request_expired(fch))
-		goto abort_conn;
+		goto chan_abort;
 
 out:
 	queue_delayed_work(system_percpu_wq, &fch->timeout.work,
 			   fuse_timeout_timer_freq);
 	return;
 
-abort_conn:
-	fuse_abort_conn(fch->conn);
+chan_abort:
+	fuse_chan_abort(fch, false);
 }
 
 static void set_request_timeout(struct fuse_chan *fch, unsigned int timeout)

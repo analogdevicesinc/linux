@@ -42,7 +42,8 @@ struct fuse_dev *fuse_dev_grab(struct file *file);
 void fuse_init_server_timeout(struct fuse_chan *fch, unsigned int timeout);
 
 /* Abort all requests */
-void fuse_abort_conn(struct fuse_conn *fc);
+void fuse_chan_abort(struct fuse_chan *fch, bool abort_with_err);
+void fuse_chan_wait_aborted(struct fuse_chan *fch);
 
 #ifdef CONFIG_FUSE_IO_URING
 bool fuse_uring_enabled(void);

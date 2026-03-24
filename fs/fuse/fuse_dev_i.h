@@ -238,6 +238,9 @@ struct fuse_chan {
 	/* Use io_uring for communication */
 	unsigned int io_uring;
 
+	/** Connection aborted via sysfs, respond with ECONNABORTED on device I/O */
+	bool abort_with_err;
+
 #ifdef CONFIG_FUSE_IO_URING
 	/**  uring connection information*/
 	struct fuse_ring *ring;

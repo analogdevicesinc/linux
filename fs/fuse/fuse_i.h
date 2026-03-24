@@ -483,9 +483,6 @@ struct fuse_conn {
 	/** Number of background requests at which congestion starts */
 	unsigned congestion_threshold;
 
-	/** Connection aborted via sysfs */
-	bool aborted;
-
 	/** Connection failed (version mismatch).  Cannot race with
 	    setting other bitfields since it is only set once in INIT
 	    reply, before any other request, and never cleared */
@@ -995,8 +992,6 @@ static inline ssize_t fuse_simple_idmap_request(struct mnt_idmap *idmap,
 
 int fuse_simple_background(struct fuse_mount *fm, struct fuse_args *args,
 			   gfp_t gfp_flags);
-
-void fuse_wait_aborted(struct fuse_conn *fc);
 
 void fuse_dentry_tree_init(void);
 void fuse_dentry_tree_cleanup(void);

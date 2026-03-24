@@ -612,7 +612,7 @@ static void fuse_umount_begin(struct super_block *sb)
 	if (fc->no_force_umount)
 		return;
 
-	fuse_abort_conn(fc);
+	fuse_chan_abort(fc->chan, false);
 
 	// Only retire block-device-based superblocks.
 	if (sb->s_bdev != NULL)
@@ -1952,8 +1952,8 @@ void fuse_conn_destroy(struct fuse_mount *fm)
 	if (fc->destroy)
 		fuse_send_destroy(fm);
 
-	fuse_abort_conn(fc);
-	fuse_wait_aborted(fc);
+	fuse_chan_abort(fc->chan, false);
+	fuse_chan_wait_aborted(fc->chan);
 
 	if (!list_empty(&fc->entry)) {
 		mutex_lock(&fuse_mutex);

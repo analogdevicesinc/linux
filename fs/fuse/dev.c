@@ -89,7 +89,7 @@ static void fuse_drop_waiting(struct fuse_conn *fc)
 {
 	/*
 	 * lockess check of fc->chan->connected is okay, because atomic_dec_and_test()
-	 * provides a memory barrier matched with the one in fuse_wait_aborted()
+	 * provides a memory barrier matched with the one in fuse_chan_wait_aborted()
 	 * to ensure no wake-up is missed.
 	 */
 	if (atomic_dec_and_test(&fc->chan->num_waiting) &&
@@ -569,17 +569,17 @@ void fuse_chan_queue_forget(struct fuse_chan *fch, struct fuse_forget_link *forg
 	fiq->ops->send_forget(fiq, forget);
 }
 
-static void flush_bg_queue(struct fuse_conn *fc)
+static void flush_bg_queue(struct fuse_chan *fch)
 {
-	struct fuse_iqueue *fiq = &fc->chan->iq;
+	struct fuse_iqueue *fiq = &fch->iq;
 
-	while (fc->chan->active_background < fc->chan->max_background &&
-	       !list_empty(&fc->chan->bg_queue)) {
+	while (fch->active_background < fch->max_background &&
+	       !list_empty(&fch->bg_queue)) {
 		struct fuse_req *req;
 
-		req = list_first_entry(&fc->chan->bg_queue, struct fuse_req, list);
+		req = list_first_entry(&fch->bg_queue, struct fuse_req, list);
 		list_del(&req->list);
-		fc->chan->active_background++;
+		fch->active_background++;
 		fuse_send_one(fiq, req);
 	}
 }
@@ -633,7 +633,7 @@ void fuse_request_end(struct fuse_req *req)
 
 		fc->chan->num_background--;
 		fc->chan->active_background--;
-		flush_bg_queue(fc);
+		flush_bg_queue(fc->chan);
 		spin_unlock(&fc->chan->bg_lock);
 	} else {
 		/* Wake up waiter sleeping in request_wait_answer() */
@@ -708,7 +708,7 @@ static void request_wait_answer(struct fuse_req *req)
 			return;
 
 		if (req->args->abort_on_kill) {
-			fuse_abort_conn(fc);
+			fuse_chan_abort(fc->chan, false);
 			return;
 		}
 
@@ -886,7 +886,7 @@ static int fuse_request_queue_background(struct fuse_req *req)
 		if (fc->chan->num_background == fc->chan->max_background)
 			fc->chan->blocked = 1;
 		list_add_tail(&req->list, &fc->chan->bg_queue);
-		flush_bg_queue(fc);
+		flush_bg_queue(fc->chan);
 		queued = true;
 	}
 	spin_unlock(&fc->chan->bg_lock);
@@ -1591,7 +1591,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	}
 
 	if (!fiq->connected) {
-		err = fc->aborted ? -ECONNABORTED : -ENODEV;
+		err = fc->chan->abort_with_err ? -ECONNABORTED : -ENODEV;
 		goto err_unlock;
 	}
 
@@ -1629,7 +1629,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	spin_lock(&fpq->lock);
 	/*
 	 *  Must not put request on fpq->io queue after having been shut down by
-	 *  fuse_abort_conn()
+	 *  fuse_chan_abort()
 	 */
 	if (!fpq->connected) {
 		req->out.h.error = err = -ECONNABORTED;
@@ -1647,7 +1647,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	spin_lock(&fpq->lock);
 	clear_bit(FR_LOCKED, &req->flags);
 	if (!fpq->connected) {
-		err = fc->aborted ? -ECONNABORTED : -ENODEV;
+		err = fc->chan->abort_with_err ? -ECONNABORTED : -ENODEV;
 		goto out_end;
 	}
 	if (err) {
@@ -2599,27 +2599,29 @@ static void end_polls(struct fuse_conn *fc)
  * is OK, the request will in that case be removed from the list before we touch
  * it.
  */
-void fuse_abort_conn(struct fuse_conn *fc)
+void fuse_chan_abort(struct fuse_chan *fch, bool abort_with_err)
 {
-	struct fuse_iqueue *fiq = &fc->chan->iq;
+	struct fuse_iqueue *fiq = &fch->iq;
 
-	spin_lock(&fc->chan->lock);
-	if (fc->chan->connected) {
+	fch->abort_with_err = abort_with_err;
+
+	spin_lock(&fch->lock);
+	if (fch->connected) {
 		struct fuse_dev *fud;
 		struct fuse_req *req, *next;
 		LIST_HEAD(to_end);
 		unsigned int i;
 
-		if (fc->chan->timeout.req_timeout)
-			cancel_delayed_work(&fc->chan->timeout.work);
+		if (fch->timeout.req_timeout)
+			cancel_delayed_work(&fch->timeout.work);
 
-		/* Background queuing checks fc->chan->connected under bg_lock */
-		spin_lock(&fc->chan->bg_lock);
-		fc->chan->connected = 0;
-		spin_unlock(&fc->chan->bg_lock);
+		/* Background queuing checks fch->connected under bg_lock */
+		spin_lock(&fch->bg_lock);
+		fch->connected = 0;
+		spin_unlock(&fch->bg_lock);
 
-		fuse_chan_set_initialized(fc->chan);
-		list_for_each_entry(fud, &fc->chan->devices, entry) {
+		fuse_chan_set_initialized(fch);
+		list_for_each_entry(fud, &fch->devices, entry) {
 			struct fuse_pqueue *fpq = &fud->pq;
 
 			spin_lock(&fpq->lock);
@@ -2640,11 +2642,11 @@ void fuse_abort_conn(struct fuse_conn *fc)
 						      &to_end);
 			spin_unlock(&fpq->lock);
 		}
-		spin_lock(&fc->chan->bg_lock);
-		fc->chan->blocked = 0;
-		fc->chan->max_background = UINT_MAX;
-		flush_bg_queue(fc);
-		spin_unlock(&fc->chan->bg_lock);
+		spin_lock(&fch->bg_lock);
+		fch->blocked = 0;
+		fch->max_background = UINT_MAX;
+		flush_bg_queue(fch);
+		spin_unlock(&fch->bg_lock);
 
 		spin_lock(&fiq->lock);
 		fiq->connected = 0;
@@ -2656,30 +2658,30 @@ void fuse_abort_conn(struct fuse_conn *fc)
 		wake_up_all(&fiq->waitq);
 		spin_unlock(&fiq->lock);
 		kill_fasync(&fiq->fasync, SIGIO, POLL_IN);
-		end_polls(fc);
-		wake_up_all(&fc->chan->blocked_waitq);
-		spin_unlock(&fc->chan->lock);
+		end_polls(fch->conn);
+		wake_up_all(&fch->blocked_waitq);
+		spin_unlock(&fch->lock);
 
 		fuse_dev_end_requests(&to_end);
 
 		/*
-		 * fc->chan->lock must not be taken to avoid conflicts with io-uring
+		 * fch->lock must not be taken to avoid conflicts with io-uring
 		 * locks
 		 */
-		fuse_uring_abort(fc->chan);
+		fuse_uring_abort(fch);
 	} else {
-		spin_unlock(&fc->chan->lock);
+		spin_unlock(&fch->lock);
 	}
 }
-EXPORT_SYMBOL_GPL(fuse_abort_conn);
+EXPORT_SYMBOL_GPL(fuse_chan_abort);
 
-void fuse_wait_aborted(struct fuse_conn *fc)
+void fuse_chan_wait_aborted(struct fuse_chan *fch)
 {
 	/* matches implicit memory barrier in fuse_drop_waiting() */
 	smp_mb();
-	wait_event(fc->chan->blocked_waitq, fuse_chan_num_waiting(fc->chan) == 0);
+	wait_event(fch->blocked_waitq, fuse_chan_num_waiting(fch) == 0);
 
-	fuse_uring_wait_stopped_queues(fc->chan);
+	fuse_uring_wait_stopped_queues(fch);
 }
 
 int fuse_dev_release(struct inode *inode, struct file *file)
@@ -2710,7 +2712,7 @@ int fuse_dev_release(struct inode *inode, struct file *file)
 
 		if (last) {
 			WARN_ON(fc->chan->iq.fasync != NULL);
-			fuse_abort_conn(fc);
+			fuse_chan_abort(fc->chan, false);
 		}
 		fuse_conn_put(fc);
 	}
