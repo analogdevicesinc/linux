@@ -589,11 +589,12 @@ static const struct iio_buffer_setup_ops ad4134_offload_buffer_setup_ops = {
 static int ad4134_spi_offload_setup(struct iio_dev *indio_dev,
 				    struct ad4134_state *st)
 {
+	struct device *offload_dev = &st->spi_engine->dev;
 	struct device *dev = &st->spi->dev;
 	struct dma_chan *rx_dma;
 
 
-	st->offload_trigger = devm_spi_offload_trigger_get(dev, st->offload,
+	st->offload_trigger = devm_spi_offload_trigger_get(offload_dev, st->offload,
 							   SPI_OFFLOAD_TRIGGER_PERIODIC);
 	if (IS_ERR(st->offload_trigger))
 		return dev_err_probe(dev, PTR_ERR(st->offload_trigger),
@@ -601,12 +602,13 @@ static int ad4134_spi_offload_setup(struct iio_dev *indio_dev,
 
 	st->offload_trigger_config.type = SPI_OFFLOAD_TRIGGER_PERIODIC;
 
-	rx_dma = devm_spi_offload_rx_stream_request_dma_chan(dev, st->offload);
+	rx_dma = devm_spi_offload_rx_stream_request_dma_chan(offload_dev, st->offload);
 	if (IS_ERR(rx_dma))
-		return dev_err_probe(dev, PTR_ERR(rx_dma),
+		return dev_err_probe(offload_dev, PTR_ERR(rx_dma),
 				     "failed to get offload RX DMA\n");
 
-	return devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev, rx_dma,
+	return devm_iio_dmaengine_buffer_setup_with_handle(offload_dev,
+							   indio_dev, rx_dma,
 							   IIO_BUFFER_DIRECTION_IN);
 }
 
@@ -627,10 +629,11 @@ static int ad4134_pwm_get(struct ad4134_state *st)
 static int ad4134_offload_buffer_setup(struct iio_dev *indio_dev, struct spi_device *spi)
 {
 	struct ad4134_state *st = iio_priv(indio_dev);
+	struct device *offload_dev = &st->spi_engine->dev;
 	struct device *dev = &spi->dev;
 	int ret;
 
-	st->offload = devm_spi_offload_get(dev, spi, &ad4134_offload_config);
+	st->offload = devm_spi_offload_get(offload_dev, st->spi_engine, &ad4134_offload_config);
 	ret = PTR_ERR_OR_ZERO(st->offload);
 	if (ret && ret != -ENODEV)
 		return dev_err_probe(dev, ret, "failed to get offload\n");
