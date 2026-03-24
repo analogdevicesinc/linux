@@ -2613,6 +2613,26 @@ skl_print_plane_ddb_changes(struct intel_plane *plane,
 		    skl_ddb_entry_size(old), skl_ddb_entry_size(new));
 }
 
+#define PLANE_WM_EN_FMT "%cwm0,%cwm1,%cwm2,%cwm3,%cwm4,%cwm5,%cwm6,%cwm7,%ctwm,%cswm,%cstwm"
+#define PLANE_WM_EN_ARGS(__wm) \
+	enast((__wm)->wm[0].enable), enast((__wm)->wm[1].enable), \
+	enast((__wm)->wm[2].enable), enast((__wm)->wm[3].enable), \
+	enast((__wm)->wm[4].enable), enast((__wm)->wm[5].enable), \
+	enast((__wm)->wm[6].enable), enast((__wm)->wm[7].enable), \
+	enast((__wm)->trans_wm.enable), \
+	enast((__wm)->sagv.wm0.enable), \
+	enast((__wm)->sagv.trans_wm.enable)
+
+#define PLANE_WM_FMT "%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%5d"
+#define PLANE_WM_ARGS(__wm, __field) \
+	(__wm)->wm[0].__field, (__wm)->wm[1].__field, \
+	(__wm)->wm[2].__field, (__wm)->wm[3].__field, \
+	(__wm)->wm[4].__field, (__wm)->wm[5].__field, \
+	(__wm)->wm[6].__field, (__wm)->wm[7].__field, \
+	(__wm)->trans_wm.__field, \
+	(__wm)->sagv.wm0.__field, \
+	(__wm)->sagv.trans_wm.__field
+
 static noinline_for_stack void
 skl_print_plane_wm_changes(struct intel_plane *plane,
 			   const struct skl_plane_wm *old_wm,
@@ -2621,111 +2641,43 @@ skl_print_plane_wm_changes(struct intel_plane *plane,
 	struct intel_display *display = to_intel_display(plane);
 
 	drm_dbg_kms(display->drm,
-		    "[PLANE:%d:%s]      level %cwm0,%cwm1,%cwm2,%cwm3,%cwm4,%cwm5,%cwm6,%cwm7,%ctwm,%cswm,%cstwm"
-		    " -> %cwm0,%cwm1,%cwm2,%cwm3,%cwm4,%cwm5,%cwm6,%cwm7,%ctwm,%cswm,%cstwm\n",
+		    "[PLANE:%d:%s]      level " PLANE_WM_EN_FMT " -> " PLANE_WM_EN_FMT "\n",
 		    plane->base.base.id, plane->base.name,
-		    enast(old_wm->wm[0].enable), enast(old_wm->wm[1].enable),
-		    enast(old_wm->wm[2].enable), enast(old_wm->wm[3].enable),
-		    enast(old_wm->wm[4].enable), enast(old_wm->wm[5].enable),
-		    enast(old_wm->wm[6].enable), enast(old_wm->wm[7].enable),
-		    enast(old_wm->trans_wm.enable),
-		    enast(old_wm->sagv.wm0.enable),
-		    enast(old_wm->sagv.trans_wm.enable),
-		    enast(new_wm->wm[0].enable), enast(new_wm->wm[1].enable),
-		    enast(new_wm->wm[2].enable), enast(new_wm->wm[3].enable),
-		    enast(new_wm->wm[4].enable), enast(new_wm->wm[5].enable),
-		    enast(new_wm->wm[6].enable), enast(new_wm->wm[7].enable),
-		    enast(new_wm->trans_wm.enable),
-		    enast(new_wm->sagv.wm0.enable),
-		    enast(new_wm->sagv.trans_wm.enable));
+		    PLANE_WM_EN_ARGS(old_wm),
+		    PLANE_WM_EN_ARGS(new_wm));
 
 	drm_dbg_kms(display->drm,
-		    "[PLANE:%d:%s]      lines %c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%4d"
-		      " -> %c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%3d,%c%4d\n",
+		    "[PLANE:%d:%s]      lines " PLANE_WM_FMT " -> " PLANE_WM_FMT "\n",
 		    plane->base.base.id, plane->base.name,
-		    enast(old_wm->wm[0].ignore_lines), old_wm->wm[0].lines,
-		    enast(old_wm->wm[1].ignore_lines), old_wm->wm[1].lines,
-		    enast(old_wm->wm[2].ignore_lines), old_wm->wm[2].lines,
-		    enast(old_wm->wm[3].ignore_lines), old_wm->wm[3].lines,
-		    enast(old_wm->wm[4].ignore_lines), old_wm->wm[4].lines,
-		    enast(old_wm->wm[5].ignore_lines), old_wm->wm[5].lines,
-		    enast(old_wm->wm[6].ignore_lines), old_wm->wm[6].lines,
-		    enast(old_wm->wm[7].ignore_lines), old_wm->wm[7].lines,
-		    enast(old_wm->trans_wm.ignore_lines), old_wm->trans_wm.lines,
-		    enast(old_wm->sagv.wm0.ignore_lines), old_wm->sagv.wm0.lines,
-		    enast(old_wm->sagv.trans_wm.ignore_lines), old_wm->sagv.trans_wm.lines,
-		    enast(new_wm->wm[0].ignore_lines), new_wm->wm[0].lines,
-		    enast(new_wm->wm[1].ignore_lines), new_wm->wm[1].lines,
-		    enast(new_wm->wm[2].ignore_lines), new_wm->wm[2].lines,
-		    enast(new_wm->wm[3].ignore_lines), new_wm->wm[3].lines,
-		    enast(new_wm->wm[4].ignore_lines), new_wm->wm[4].lines,
-		    enast(new_wm->wm[5].ignore_lines), new_wm->wm[5].lines,
-		    enast(new_wm->wm[6].ignore_lines), new_wm->wm[6].lines,
-		    enast(new_wm->wm[7].ignore_lines), new_wm->wm[7].lines,
-		    enast(new_wm->trans_wm.ignore_lines), new_wm->trans_wm.lines,
-		    enast(new_wm->sagv.wm0.ignore_lines), new_wm->sagv.wm0.lines,
-		    enast(new_wm->sagv.trans_wm.ignore_lines), new_wm->sagv.trans_wm.lines);
+		    PLANE_WM_ARGS(old_wm, lines),
+		    PLANE_WM_ARGS(new_wm, lines));
 
 	drm_dbg_kms(display->drm,
-		    "[PLANE:%d:%s]     blocks %4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%5d"
-		    " -> %4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%5d\n",
+		    "[PLANE:%d:%s]     blocks " PLANE_WM_FMT " -> " PLANE_WM_FMT "\n",
 		    plane->base.base.id, plane->base.name,
-		    old_wm->wm[0].blocks, old_wm->wm[1].blocks,
-		    old_wm->wm[2].blocks, old_wm->wm[3].blocks,
-		    old_wm->wm[4].blocks, old_wm->wm[5].blocks,
-		    old_wm->wm[6].blocks, old_wm->wm[7].blocks,
-		    old_wm->trans_wm.blocks,
-		    old_wm->sagv.wm0.blocks,
-		    old_wm->sagv.trans_wm.blocks,
-		    new_wm->wm[0].blocks, new_wm->wm[1].blocks,
-		    new_wm->wm[2].blocks, new_wm->wm[3].blocks,
-		    new_wm->wm[4].blocks, new_wm->wm[5].blocks,
-		    new_wm->wm[6].blocks, new_wm->wm[7].blocks,
-		    new_wm->trans_wm.blocks,
-		    new_wm->sagv.wm0.blocks,
-		    new_wm->sagv.trans_wm.blocks);
+		    PLANE_WM_ARGS(old_wm, blocks),
+		    PLANE_WM_ARGS(new_wm, blocks));
 
 	drm_dbg_kms(display->drm,
-		    "[PLANE:%d:%s]    min_ddb %4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%5d"
-		    " -> %4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%5d\n",
+		    "[PLANE:%d:%s]    min_ddb " PLANE_WM_FMT " -> " PLANE_WM_FMT "\n",
 		    plane->base.base.id, plane->base.name,
-		    old_wm->wm[0].min_ddb_alloc, old_wm->wm[1].min_ddb_alloc,
-		    old_wm->wm[2].min_ddb_alloc, old_wm->wm[3].min_ddb_alloc,
-		    old_wm->wm[4].min_ddb_alloc, old_wm->wm[5].min_ddb_alloc,
-		    old_wm->wm[6].min_ddb_alloc, old_wm->wm[7].min_ddb_alloc,
-		    old_wm->trans_wm.min_ddb_alloc,
-		    old_wm->sagv.wm0.min_ddb_alloc,
-		    old_wm->sagv.trans_wm.min_ddb_alloc,
-		    new_wm->wm[0].min_ddb_alloc, new_wm->wm[1].min_ddb_alloc,
-		    new_wm->wm[2].min_ddb_alloc, new_wm->wm[3].min_ddb_alloc,
-		    new_wm->wm[4].min_ddb_alloc, new_wm->wm[5].min_ddb_alloc,
-		    new_wm->wm[6].min_ddb_alloc, new_wm->wm[7].min_ddb_alloc,
-		    new_wm->trans_wm.min_ddb_alloc,
-		    new_wm->sagv.wm0.min_ddb_alloc,
-		    new_wm->sagv.trans_wm.min_ddb_alloc);
+		    PLANE_WM_ARGS(old_wm, min_ddb_alloc),
+		    PLANE_WM_ARGS(new_wm, min_ddb_alloc));
 
 	if (DISPLAY_VER(display) >= 11)
 		return;
 
 	drm_dbg_kms(display->drm,
-		    "[PLANE:%d:%s] min_ddb_uv %4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%5d"
-		    " -> %4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%4d,%5d\n",
+		    "[PLANE:%d:%s] min_ddb_uv " PLANE_WM_FMT " -> " PLANE_WM_FMT "\n",
 		    plane->base.base.id, plane->base.name,
-		    old_wm->wm[0].min_ddb_alloc_uv, old_wm->wm[1].min_ddb_alloc_uv,
-		    old_wm->wm[2].min_ddb_alloc_uv, old_wm->wm[3].min_ddb_alloc_uv,
-		    old_wm->wm[4].min_ddb_alloc_uv, old_wm->wm[5].min_ddb_alloc_uv,
-		    old_wm->wm[6].min_ddb_alloc_uv, old_wm->wm[7].min_ddb_alloc_uv,
-		    old_wm->trans_wm.min_ddb_alloc_uv,
-		    old_wm->sagv.wm0.min_ddb_alloc_uv,
-		    old_wm->sagv.trans_wm.min_ddb_alloc_uv,
-		    new_wm->wm[0].min_ddb_alloc_uv, new_wm->wm[1].min_ddb_alloc_uv,
-		    new_wm->wm[2].min_ddb_alloc_uv, new_wm->wm[3].min_ddb_alloc_uv,
-		    new_wm->wm[4].min_ddb_alloc_uv, new_wm->wm[5].min_ddb_alloc_uv,
-		    new_wm->wm[6].min_ddb_alloc_uv, new_wm->wm[7].min_ddb_alloc_uv,
-		    new_wm->trans_wm.min_ddb_alloc_uv,
-		    new_wm->sagv.wm0.min_ddb_alloc_uv,
-		    new_wm->sagv.trans_wm.min_ddb_alloc_uv);
+		    PLANE_WM_ARGS(old_wm, min_ddb_alloc_uv),
+		    PLANE_WM_ARGS(new_wm, min_ddb_alloc_uv));
 }
+
+#undef PLANE_WM_EN_FMT
+#undef PLANE_WM_EN_ARGS
+#undef PLANE_WM_FMT
+#undef PLANE_WM_ARGS
 
 static void
 skl_print_wm_changes(struct intel_atomic_state *state)
