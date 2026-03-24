@@ -1439,7 +1439,8 @@ static int rzg2l_mod_clock_mstop_show(struct seq_file *s, void *what)
 }
 DEFINE_SHOW_ATTRIBUTE(rzg2l_mod_clock_mstop);
 
-static int rzg2l_mod_clock_endisable(struct clk_hw *hw, bool enable)
+static int rzg2l_mod_clock_endisable_helper(struct clk_hw *hw, bool enable,
+					    bool set_mstop_state)
 {
 	struct mod_clock *clock = to_mod_clock(hw);
 	struct rzg2l_cpg_priv *priv = clock->priv;
@@ -1464,9 +1465,11 @@ static int rzg2l_mod_clock_endisable(struct clk_hw *hw, bool enable)
 	scoped_guard(spinlock_irqsave, &priv->rmw_lock) {
 		if (enable) {
 			writel(value, priv->base + CLK_ON_R(reg));
-			rzg2l_mod_clock_module_set_state(clock, false);
+			if (set_mstop_state)
+				rzg2l_mod_clock_module_set_state(clock, false);
 		} else {
-			rzg2l_mod_clock_module_set_state(clock, true);
+			if (set_mstop_state)
+				rzg2l_mod_clock_module_set_state(clock, true);
 			writel(value, priv->base + CLK_ON_R(reg));
 		}
 	}
@@ -1484,6 +1487,11 @@ static int rzg2l_mod_clock_endisable(struct clk_hw *hw, bool enable)
 			CLK_ON_R(reg), hw->clk);
 
 	return error;
+}
+
+static int rzg2l_mod_clock_endisable(struct clk_hw *hw, bool enable)
+{
+	return rzg2l_mod_clock_endisable_helper(hw, enable, true);
 }
 
 static int rzg2l_mod_clock_enable(struct clk_hw *hw)
