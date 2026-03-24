@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/types.h>
 #include <linux/acpi.h>
+#include <linux/platform_device.h>
 
 MODULE_AUTHOR("Azael Avalos <coproscefalo@gmail.com>");
 MODULE_DESCRIPTION("Toshiba HDD Active Protection Sensor");
@@ -140,8 +141,10 @@ static void toshiba_haps_notify(acpi_handle handle, u32 event, void *data)
 					event, 0);
 }
 
-static void toshiba_haps_remove(struct acpi_device *device)
+static void toshiba_haps_remove(struct platform_device *pdev)
 {
+	struct acpi_device *device = ACPI_COMPANION(&pdev->dev);
+
 	acpi_dev_remove_notify_handler(device, ACPI_DEVICE_NOTIFY,
 				       toshiba_haps_notify);
 
@@ -149,6 +152,8 @@ static void toshiba_haps_remove(struct acpi_device *device)
 
 	if (toshiba_haps)
 		toshiba_haps = NULL;
+
+	dev_set_drvdata(&device->dev, NULL);
 }
 
 /* Helper function */
@@ -175,8 +180,9 @@ static int toshiba_haps_available(acpi_handle handle)
 	return 1;
 }
 
-static int toshiba_haps_add(struct acpi_device *acpi_dev)
+static int toshiba_haps_probe(struct platform_device *pdev)
 {
+	struct acpi_device *acpi_dev = ACPI_COMPANION(&pdev->dev);
 	struct toshiba_haps_dev *haps;
 	int ret;
 
@@ -188,14 +194,15 @@ static int toshiba_haps_add(struct acpi_device *acpi_dev)
 
 	pr_info("Toshiba HDD Active Protection Sensor device\n");
 
-	haps = devm_kzalloc(&acpi_dev->dev, sizeof(*haps), GFP_KERNEL);
+	haps = devm_kzalloc(&pdev->dev, sizeof(*haps), GFP_KERNEL);
 	if (!haps)
 		return -ENOMEM;
 
 	haps->acpi_dev = acpi_dev;
 	haps->protection_level = 2;
-	acpi_dev->driver_data = haps;
+
 	dev_set_drvdata(&acpi_dev->dev, haps);
+	platform_set_drvdata(pdev, haps);
 
 	/* Set the protection level, currently at level 2 (Medium) */
 	ret = toshiba_haps_protection_level(acpi_dev->handle, 2);
@@ -223,10 +230,8 @@ err:
 #ifdef CONFIG_PM_SLEEP
 static int toshiba_haps_suspend(struct device *device)
 {
-	struct toshiba_haps_dev *haps;
+	struct toshiba_haps_dev *haps = dev_get_drvdata(device);
 	int ret;
-
-	haps = acpi_driver_data(to_acpi_device(device));
 
 	/* Deactivate the protection on suspend */
 	ret = toshiba_haps_protection_level(haps->acpi_dev->handle, 0);
@@ -236,10 +241,8 @@ static int toshiba_haps_suspend(struct device *device)
 
 static int toshiba_haps_resume(struct device *device)
 {
-	struct toshiba_haps_dev *haps;
+	struct toshiba_haps_dev *haps = dev_get_drvdata(device);
 	int ret;
-
-	haps = acpi_driver_data(to_acpi_device(device));
 
 	/* Set the stored protection level */
 	ret = toshiba_haps_protection_level(haps->acpi_dev->handle,
@@ -263,15 +266,14 @@ static const struct acpi_device_id haps_device_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, haps_device_ids);
 
-static struct acpi_driver toshiba_haps_driver = {
-	.name = "Toshiba HAPS",
-	.ids = haps_device_ids,
-	.flags = ACPI_DRIVER_ALL_NOTIFY_EVENTS,
-	.ops = {
-		.add =		toshiba_haps_add,
-		.remove =	toshiba_haps_remove,
+static struct platform_driver toshiba_haps_driver = {
+	.probe = toshiba_haps_probe,
+	.remove = toshiba_haps_remove,
+	.driver = {
+		.name = "Toshiba HAPS",
+		.acpi_match_table = haps_device_ids,
+		.pm = &toshiba_haps_pm,
 	},
-	.drv.pm = &toshiba_haps_pm,
 };
 
-module_acpi_driver(toshiba_haps_driver);
+module_platform_driver(toshiba_haps_driver);
