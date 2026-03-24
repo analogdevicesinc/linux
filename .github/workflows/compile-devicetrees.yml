@@ -83,7 +83,7 @@ jobs:
 
     - name: Prepare dist
       run: |
-        kversion=$(cat ./include/config/kernel.release)
+        kversion=$(cat "$KBUILD_OUTPUT/include/config/kernel.release")
 
         dist=$(mktemp -d -t linux.$kversion.dist.XXX)
         echo "DIST=$dist" >> $GITHUB_ENV
