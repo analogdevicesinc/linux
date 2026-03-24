@@ -23,6 +23,10 @@ cherry_pick () {
 	git fetch origin $branch:$branch --depth=1 -f || return # on missing ref
 	git switch $branch -f
 
+        while ! git rev-list --count $base_sha~..$head_sha ; do
+          git fetch origin --deepen=$_fetch_depth $head_sha
+        done
+
 	range=$(($(git rev-list --count $base_sha..$head_sha) - 1 ))
 	for (( iter=$range; iter >= 0; iter-- )); do
 		fail_=0
@@ -30,7 +34,7 @@ cherry_pick () {
 		# check if merge commit, and choose parent if so
 		git rev-parse $commit^2  &>/dev/null &&
 			merge="-m 1" || merge=""
-		files=$(git diff --diff-filter=ACM --no-renames --name-only $commit~..$commit)
+		files=$(git show --diff-filter=ACM --no-renames --name-only --format="" $commit)
 		skip_=0
 		for filter in $2 ; do
 			for file in $files ; do
