@@ -1599,12 +1599,27 @@ static void rzg2l_mod_clock_init_mstop_helper(struct rzg2l_cpg_priv *priv,
 {
 	/*
 	 * Out of reset all modules are enabled. Set module state in case
-	 * associated clocks are disabled at probe. Otherwise module is in
-	 * invalid HW state.
+	 * associated clocks are disabled at probe/resume. Otherwise module
+	 * is in invalid HW state.
 	 */
 	scoped_guard(spinlock_irqsave, &priv->rmw_lock) {
 		if (!rzg2l_mod_clock_is_enabled(&clk->hw))
 			rzg2l_mod_clock_module_set_state(clk, true);
+	}
+}
+
+static void rzg2l_mod_enable_crit_clock_init_mstop(struct rzg2l_cpg_priv *priv)
+{
+	struct mod_clock *clk;
+	struct clk_hw *hw;
+
+	for_each_mod_clock(clk, hw, priv) {
+		if ((clk_hw_get_flags(&clk->hw) & CLK_IS_CRITICAL) &&
+		    (!rzg2l_mod_clock_is_enabled(&clk->hw)))
+			rzg2l_mod_clock_endisable_helper(&clk->hw, true, false);
+
+		if (clk->mstop)
+			rzg2l_mod_clock_init_mstop_helper(priv, clk);
 	}
 }
 
@@ -2103,7 +2118,7 @@ static int rzg2l_cpg_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	rzg2l_mod_clock_init_mstop(priv);
+	rzg2l_mod_enable_crit_clock_init_mstop(priv);
 
 	return 0;
 }
