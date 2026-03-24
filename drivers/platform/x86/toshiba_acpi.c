@@ -3193,6 +3193,66 @@ static void print_supported_features(struct toshiba_acpi_dev *dev)
 	pr_cont("\n");
 }
 
+static void toshiba_acpi_notify(struct acpi_device *acpi_dev, u32 event)
+{
+	struct toshiba_acpi_dev *dev = acpi_driver_data(acpi_dev);
+
+	switch (event) {
+	case 0x80: /* Hotkeys and some system events */
+		/*
+		 * Machines with this WMI GUID aren't supported due to bugs in
+		 * their AML.
+		 *
+		 * Return silently to avoid triggering a netlink event.
+		 */
+		if (wmi_has_guid(TOSHIBA_WMI_EVENT_GUID))
+			return;
+		toshiba_acpi_process_hotkeys(dev);
+		break;
+	case 0x81: /* Dock events */
+	case 0x82:
+	case 0x83:
+		pr_info("Dock event received %x\n", event);
+		break;
+	case 0x88: /* Thermal events */
+		pr_info("Thermal event received\n");
+		break;
+	case 0x8f: /* LID closed */
+	case 0x90: /* LID is closed and Dock has been ejected */
+		break;
+	case 0x8c: /* SATA power events */
+	case 0x8b:
+		pr_info("SATA power event received %x\n", event);
+		break;
+	case 0x92: /* Keyboard backlight mode changed */
+		dev->kbd_event_generated = true;
+		/* Update sysfs entries */
+		if (sysfs_update_group(&acpi_dev->dev.kobj,
+				       &toshiba_attr_group))
+			pr_err("Unable to update sysfs entries\n");
+		/* Notify LED subsystem about keyboard backlight change */
+		if (dev->kbd_type == 2 && dev->kbd_mode != SCI_KBD_MODE_AUTO)
+			led_classdev_notify_brightness_hw_changed(&dev->kbd_led,
+					(dev->kbd_mode == SCI_KBD_MODE_ON) ?
+					LED_FULL : LED_OFF);
+		break;
+	case 0x8e: /* Power button pressed */
+		break;
+	case 0x85: /* Unknown */
+	case 0x8d: /* Unknown */
+	case 0x94: /* Unknown */
+	case 0x95: /* Unknown */
+	default:
+		pr_info("Unknown event received %x\n", event);
+		break;
+	}
+
+	acpi_bus_generate_netlink_event(acpi_dev->pnp.device_class,
+					dev_name(&acpi_dev->dev),
+					event, (event == 0x80) ?
+					dev->last_key_event : 0);
+}
+
 static void toshiba_acpi_remove(struct acpi_device *acpi_dev)
 {
 	struct toshiba_acpi_dev *dev = acpi_driver_data(acpi_dev);
@@ -3493,66 +3553,6 @@ iio_error:
 error:
 	toshiba_acpi_remove(acpi_dev);
 	return ret;
-}
-
-static void toshiba_acpi_notify(struct acpi_device *acpi_dev, u32 event)
-{
-	struct toshiba_acpi_dev *dev = acpi_driver_data(acpi_dev);
-
-	switch (event) {
-	case 0x80: /* Hotkeys and some system events */
-		/*
-		 * Machines with this WMI GUID aren't supported due to bugs in
-		 * their AML.
-		 *
-		 * Return silently to avoid triggering a netlink event.
-		 */
-		if (wmi_has_guid(TOSHIBA_WMI_EVENT_GUID))
-			return;
-		toshiba_acpi_process_hotkeys(dev);
-		break;
-	case 0x81: /* Dock events */
-	case 0x82:
-	case 0x83:
-		pr_info("Dock event received %x\n", event);
-		break;
-	case 0x88: /* Thermal events */
-		pr_info("Thermal event received\n");
-		break;
-	case 0x8f: /* LID closed */
-	case 0x90: /* LID is closed and Dock has been ejected */
-		break;
-	case 0x8c: /* SATA power events */
-	case 0x8b:
-		pr_info("SATA power event received %x\n", event);
-		break;
-	case 0x92: /* Keyboard backlight mode changed */
-		dev->kbd_event_generated = true;
-		/* Update sysfs entries */
-		if (sysfs_update_group(&acpi_dev->dev.kobj,
-				       &toshiba_attr_group))
-			pr_err("Unable to update sysfs entries\n");
-		/* Notify LED subsystem about keyboard backlight change */
-		if (dev->kbd_type == 2 && dev->kbd_mode != SCI_KBD_MODE_AUTO)
-			led_classdev_notify_brightness_hw_changed(&dev->kbd_led,
-					(dev->kbd_mode == SCI_KBD_MODE_ON) ?
-					LED_FULL : LED_OFF);
-		break;
-	case 0x8e: /* Power button pressed */
-		break;
-	case 0x85: /* Unknown */
-	case 0x8d: /* Unknown */
-	case 0x94: /* Unknown */
-	case 0x95: /* Unknown */
-	default:
-		pr_info("Unknown event received %x\n", event);
-		break;
-	}
-
-	acpi_bus_generate_netlink_event(acpi_dev->pnp.device_class,
-					dev_name(&acpi_dev->dev),
-					event, (event == 0x80) ?
-					dev->last_key_event : 0);
 }
 
 #ifdef CONFIG_PM_SLEEP
