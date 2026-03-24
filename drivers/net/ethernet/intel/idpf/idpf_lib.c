@@ -999,7 +999,7 @@ static void idpf_vport_rel(struct idpf_vport *vport)
 	u16 idx = vport->idx;
 
 	vport_config = adapter->vport_config[vport->idx];
-	idpf_deinit_rss(vport);
+	idpf_deinit_rss_lut(vport);
 	rss_data = &vport_config->user_config.rss_data;
 	kfree(rss_data->rss_key);
 	rss_data->rss_key = NULL;
@@ -1148,6 +1148,7 @@ static struct idpf_vport *idpf_vport_alloc(struct idpf_adapter *adapter,
 	u16 idx = adapter->next_vport;
 	struct idpf_vport *vport;
 	u16 num_max_q;
+	int err;
 
 	if (idx == IDPF_NO_FREE_SLOT)
 		return NULL;
@@ -1198,10 +1199,11 @@ static struct idpf_vport *idpf_vport_alloc(struct idpf_adapter *adapter,
 
 	idpf_vport_init(vport, max_q);
 
-	/* This alloc is done separate from the LUT because it's not strictly
-	 * dependent on how many queues we have. If we change number of queues
-	 * and soft reset we'll need a new LUT but the key can remain the same
-	 * for as long as the vport exists.
+	/* LUT and key are both initialized here. Key is not strictly dependent
+	 * on how many queues we have. If we change number of queues and soft
+	 * reset is initiated, LUT will be freed and a new LUT will be allocated
+	 * as per the updated number of queues during vport bringup. However,
+	 * the key remains the same for as long as the vport exists.
 	 */
 	rss_data = &adapter->vport_config[idx]->user_config.rss_data;
 	rss_data->rss_key = kzalloc(rss_data->rss_key_size, GFP_KERNEL);
@@ -1210,6 +1212,11 @@ static struct idpf_vport *idpf_vport_alloc(struct idpf_adapter *adapter,
 
 	/* Initialize default rss key */
 	netdev_rss_key_fill((void *)rss_data->rss_key, rss_data->rss_key_size);
+
+	/* Initialize default rss LUT */
+	err = idpf_init_rss_lut(vport);
+	if (err)
+		goto free_rss_key;
 
 	/* fill vport slot in the adapter struct */
 	adapter->vports[idx] = vport;
@@ -1221,6 +1228,8 @@ static struct idpf_vport *idpf_vport_alloc(struct idpf_adapter *adapter,
 
 	return vport;
 
+free_rss_key:
+	kfree(rss_data->rss_key);
 free_vector_idxs:
 	kfree(vport->q_vector_idxs);
 free_vport:
@@ -1397,6 +1406,7 @@ static int idpf_vport_open(struct idpf_vport *vport)
 	struct idpf_netdev_priv *np = netdev_priv(vport->netdev);
 	struct idpf_adapter *adapter = vport->adapter;
 	struct idpf_vport_config *vport_config;
+	struct idpf_rss_data *rss_data;
 	int err;
 
 	if (np->state != __IDPF_VPORT_DOWN)
@@ -1479,12 +1489,21 @@ static int idpf_vport_open(struct idpf_vport *vport)
 	idpf_restore_features(vport);
 
 	vport_config = adapter->vport_config[vport->idx];
-	if (vport_config->user_config.rss_data.rss_lut)
-		err = idpf_config_rss(vport);
-	else
-		err = idpf_init_rss(vport);
+	rss_data = &vport_config->user_config.rss_data;
+
+	if (!rss_data->rss_lut) {
+		err = idpf_init_rss_lut(vport);
+		if (err) {
+			dev_err(&adapter->pdev->dev,
+				"Failed to initialize RSS LUT for vport %u: %d\n",
+				vport->vport_id, err);
+			goto disable_vport;
+		}
+	}
+
+	err = idpf_config_rss(vport);
 	if (err) {
-		dev_err(&adapter->pdev->dev, "Failed to initialize RSS for vport %u: %d\n",
+		dev_err(&adapter->pdev->dev, "Failed to configure RSS for vport %u: %d\n",
 			vport->vport_id, err);
 		goto disable_vport;
 	}
@@ -1493,13 +1512,11 @@ static int idpf_vport_open(struct idpf_vport *vport)
 	if (err) {
 		dev_err(&adapter->pdev->dev, "Failed to complete interface up for vport %u: %d\n",
 			vport->vport_id, err);
-		goto deinit_rss;
+		goto disable_vport;
 	}
 
 	return 0;
 
-deinit_rss:
-	idpf_deinit_rss(vport);
 disable_vport:
 	idpf_send_disable_vport_msg(vport);
 disable_queues:
@@ -1936,7 +1953,7 @@ int idpf_initiate_soft_reset(struct idpf_vport *vport,
 		idpf_vport_stop(vport);
 	}
 
-	idpf_deinit_rss(vport);
+	idpf_deinit_rss_lut(vport);
 	/* We're passing in vport here because we need its wait_queue
 	 * to send a message and it should be getting all the vport
 	 * config data out of the adapter but we need to be careful not
@@ -2103,40 +2120,6 @@ static void idpf_set_rx_mode(struct net_device *netdev)
 }
 
 /**
- * idpf_vport_manage_rss_lut - disable/enable RSS
- * @vport: the vport being changed
- *
- * In the event of disable request for RSS, this function will zero out RSS
- * LUT, while in the event of enable request for RSS, it will reconfigure RSS
- * LUT with the default LUT configuration.
- */
-static int idpf_vport_manage_rss_lut(struct idpf_vport *vport)
-{
-	bool ena = idpf_is_feature_ena(vport, NETIF_F_RXHASH);
-	struct idpf_rss_data *rss_data;
-	u16 idx = vport->idx;
-	int lut_size;
-
-	rss_data = &vport->adapter->vport_config[idx]->user_config.rss_data;
-	lut_size = rss_data->rss_lut_size * sizeof(u32);
-
-	if (ena) {
-		/* This will contain the default or user configured LUT */
-		memcpy(rss_data->rss_lut, rss_data->cached_lut, lut_size);
-	} else {
-		/* Save a copy of the current LUT to be restored later if
-		 * requested.
-		 */
-		memcpy(rss_data->cached_lut, rss_data->rss_lut, lut_size);
-
-		/* Zero out the current LUT to disable */
-		memset(rss_data->rss_lut, 0, lut_size);
-	}
-
-	return idpf_config_rss(vport);
-}
-
-/**
  * idpf_set_features - set the netdev feature flags
  * @netdev: ptr to the netdev being adjusted
  * @features: the feature set that the stack is suggesting
@@ -2161,10 +2144,19 @@ static int idpf_set_features(struct net_device *netdev,
 	}
 
 	if (changed & NETIF_F_RXHASH) {
+		struct idpf_netdev_priv *np = netdev_priv(netdev);
+
 		netdev->features ^= NETIF_F_RXHASH;
-		err = idpf_vport_manage_rss_lut(vport);
-		if (err)
-			goto unlock_mutex;
+
+		/* If the interface is not up when changing the rxhash, update
+		 * to the HW is skipped. The updated LUT will be committed to
+		 * the HW when the interface is brought up.
+		 */
+		if (np->state == __IDPF_VPORT_UP) {
+			err = idpf_config_rss(vport);
+			if (err)
+				goto unlock_mutex;
+		}
 	}
 
 	if (changed & NETIF_F_GRO_HW) {
