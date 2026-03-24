@@ -362,6 +362,15 @@ unsafe impl crate::sync::aref::AlwaysRefCounted for Task {
     }
 }
 
+impl PartialEq for Task {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        ptr::eq(self.as_ptr(), other.as_ptr())
+    }
+}
+
+impl Eq for Task {}
+
 impl Kuid {
     /// Get the current euid.
     #[inline]
