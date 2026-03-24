@@ -757,14 +757,7 @@ nfs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 	} else if (nfs_have_delegated_atime(inode) &&
 		   attr->ia_valid & ATTR_ATIME &&
 		   !(attr->ia_valid & ATTR_MTIME)) {
-		if (attr->ia_valid & ATTR_ATIME_SET) {
-			if (uid_eq(task_uid, owner_uid)) {
-				spin_lock(&inode->i_lock);
-				nfs_set_timestamps_to_ts(inode, attr);
-				spin_unlock(&inode->i_lock);
-				attr->ia_valid &= ~(ATTR_ATIME|ATTR_ATIME_SET);
-			}
-		} else {
+		if (!(attr->ia_valid & ATTR_ATIME_SET)) {
 			nfs_update_delegated_atime(inode);
 			attr->ia_valid &= ~ATTR_ATIME;
 		}
