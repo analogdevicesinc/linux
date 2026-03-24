@@ -15,7 +15,8 @@ SYMMETRIC_ID=${SYMMETRIC_ID:-0}
 
 export ID_OFFSET=$(( 9 * (SYMMETRIC_ID == 0) ))
 
-JQ_FILTER='map(select(.msg.peer | has("remote-ipv6") | not)) |
+JQ_FILTER='map(if type == "array" then .[] else . end) |
+	map(select(.msg.peer | has("remote-ipv6") | not)) |
 	map(del(.msg.ifindex)) | sort_by(.msg.peer.id)[]'
 LAN_IP="11.11.11.11"
 
