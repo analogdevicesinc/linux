@@ -28,9 +28,6 @@ struct intel_bw_state {
 	 */
 	u8 pipe_sagv_reject;
 
-	/* bitmask of active pipes */
-	u8 active_pipes;
-
 	/*
 	 * From MTL onwards, to lock a QGV point, punit expects the peak BW of
 	 * the selected QGV point as the parameter in multiples of 100MB/s
@@ -1263,31 +1260,6 @@ static int intel_bw_check_data_rate(struct intel_atomic_state *state, bool *chan
 	return 0;
 }
 
-static int intel_bw_modeset_checks(struct intel_atomic_state *state)
-{
-	const struct intel_bw_state *old_bw_state;
-	struct intel_bw_state *new_bw_state;
-	int ret;
-
-	if (!intel_any_crtc_active_changed(state))
-		return 0;
-
-	new_bw_state = intel_atomic_get_bw_state(state);
-	if (IS_ERR(new_bw_state))
-		return PTR_ERR(new_bw_state);
-
-	old_bw_state = intel_atomic_get_old_bw_state(state);
-
-	new_bw_state->active_pipes =
-		intel_calc_active_pipes(state, old_bw_state->active_pipes);
-
-	ret = intel_atomic_lock_global_state(&new_bw_state->base);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
 static int intel_bw_check_sagv_mask(struct intel_atomic_state *state)
 {
 	struct intel_display *display = to_intel_display(state);
@@ -1343,10 +1315,6 @@ int intel_bw_atomic_check(struct intel_atomic_state *state)
 
 	if (DISPLAY_VER(display) < 9)
 		return 0;
-
-	ret = intel_bw_modeset_checks(state);
-	if (ret)
-		return ret;
 
 	ret = intel_bw_check_sagv_mask(state);
 	if (ret)
@@ -1408,16 +1376,12 @@ void intel_bw_update_hw_state(struct intel_display *display)
 	if (DISPLAY_VER(display) < 9)
 		return;
 
-	bw_state->active_pipes = 0;
 	bw_state->pipe_sagv_reject = 0;
 
 	for_each_intel_crtc(display->drm, crtc) {
 		const struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
 		enum pipe pipe = crtc->pipe;
-
-		if (crtc_state->hw.active)
-			bw_state->active_pipes |= BIT(pipe);
 
 		if (DISPLAY_VER(display) >= 11)
 			intel_bw_crtc_update(bw_state, crtc_state);
@@ -1502,10 +1466,6 @@ bool intel_bw_pmdemand_needs_update(struct intel_atomic_state *state)
 bool intel_bw_can_enable_sagv(struct intel_display *display,
 			      const struct intel_bw_state *bw_state)
 {
-	if (DISPLAY_VER(display) < 11 &&
-	    bw_state->active_pipes && !is_power_of_2(bw_state->active_pipes))
-		return false;
-
 	return bw_state->pipe_sagv_reject == 0;
 }
 
