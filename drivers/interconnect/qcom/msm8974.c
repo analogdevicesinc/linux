@@ -181,28 +181,75 @@ static int msm8974_get_bw(struct icc_node *node, u32 *avg, u32 *peak)
 	return 0;
 };
 
-#define DEFINE_QNODE(_name, _id, _buswidth, _mas_rpm_id, _slv_rpm_id,	\
-		     ...)						\
-		static const u16 _name ## _links[] = {			\
-			__VA_ARGS__					\
-		};							\
-		static struct qcom_icc_node _name = {			\
-		.name = #_name,						\
-		.id = _id,						\
-		.buswidth = _buswidth,					\
-		.mas_rpm_id = _mas_rpm_id,				\
-		.slv_rpm_id = _slv_rpm_id,				\
-		.num_links = ARRAY_SIZE(_name ## _links),		\
-		.links = _name ## _links,				\
-	}
+static struct qcom_icc_node mas_ampss_m0 = {
+	.name = "mas_ampss_m0",
+	.id = MSM8974_BIMC_MAS_AMPSS_M0,
+	.buswidth = 8,
+	.mas_rpm_id = 0,
+	.slv_rpm_id = -1,
+};
 
-DEFINE_QNODE(mas_ampss_m0, MSM8974_BIMC_MAS_AMPSS_M0, 8, 0, -1);
-DEFINE_QNODE(mas_ampss_m1, MSM8974_BIMC_MAS_AMPSS_M1, 8, 0, -1);
-DEFINE_QNODE(mas_mss_proc, MSM8974_BIMC_MAS_MSS_PROC, 8, 1, -1);
-DEFINE_QNODE(bimc_to_mnoc, MSM8974_BIMC_TO_MNOC, 8, 2, -1, MSM8974_BIMC_SLV_EBI_CH0);
-DEFINE_QNODE(bimc_to_snoc, MSM8974_BIMC_TO_SNOC, 8, 3, 2, MSM8974_SNOC_TO_BIMC, MSM8974_BIMC_SLV_EBI_CH0, MSM8974_BIMC_MAS_AMPSS_M0);
-DEFINE_QNODE(slv_ebi_ch0, MSM8974_BIMC_SLV_EBI_CH0, 8, -1, 0);
-DEFINE_QNODE(slv_ampss_l2, MSM8974_BIMC_SLV_AMPSS_L2, 8, -1, 1);
+static struct qcom_icc_node mas_ampss_m1 = {
+	.name = "mas_ampss_m1",
+	.id = MSM8974_BIMC_MAS_AMPSS_M1,
+	.buswidth = 8,
+	.mas_rpm_id = 0,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_mss_proc = {
+	.name = "mas_mss_proc",
+	.id = MSM8974_BIMC_MAS_MSS_PROC,
+	.buswidth = 8,
+	.mas_rpm_id = 1,
+	.slv_rpm_id = -1,
+};
+
+static const u16 bimc_to_mnoc_links[] = {
+	MSM8974_BIMC_SLV_EBI_CH0
+};
+
+static struct qcom_icc_node bimc_to_mnoc = {
+	.name = "bimc_to_mnoc",
+	.id = MSM8974_BIMC_TO_MNOC,
+	.buswidth = 8,
+	.mas_rpm_id = 2,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(bimc_to_mnoc_links),
+	.links = bimc_to_mnoc_links,
+};
+
+static const u16 bimc_to_snoc_links[] = {
+	MSM8974_SNOC_TO_BIMC,
+	MSM8974_BIMC_SLV_EBI_CH0,
+	MSM8974_BIMC_MAS_AMPSS_M0
+};
+
+static struct qcom_icc_node bimc_to_snoc = {
+	.name = "bimc_to_snoc",
+	.id = MSM8974_BIMC_TO_SNOC,
+	.buswidth = 8,
+	.mas_rpm_id = 3,
+	.slv_rpm_id = 2,
+	.num_links = ARRAY_SIZE(bimc_to_snoc_links),
+	.links = bimc_to_snoc_links,
+};
+
+static struct qcom_icc_node slv_ebi_ch0 = {
+	.name = "slv_ebi_ch0",
+	.id = MSM8974_BIMC_SLV_EBI_CH0,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 0,
+};
+
+static struct qcom_icc_node slv_ampss_l2 = {
+	.name = "slv_ampss_l2",
+	.id = MSM8974_BIMC_SLV_AMPSS_L2,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 1,
+};
 
 static struct qcom_icc_node * const msm8974_bimc_nodes[] = {
 	[BIMC_MAS_AMPSS_M0] = &mas_ampss_m0,
@@ -222,43 +269,301 @@ static const struct qcom_icc_desc msm8974_bimc = {
 	.ignore_enxio = true,
 };
 
-DEFINE_QNODE(mas_rpm_inst, MSM8974_CNOC_MAS_RPM_INST, 8, 45, -1);
-DEFINE_QNODE(mas_rpm_data, MSM8974_CNOC_MAS_RPM_DATA, 8, 46, -1);
-DEFINE_QNODE(mas_rpm_sys, MSM8974_CNOC_MAS_RPM_SYS, 8, 47, -1);
-DEFINE_QNODE(mas_dehr, MSM8974_CNOC_MAS_DEHR, 8, 48, -1);
-DEFINE_QNODE(mas_qdss_dap, MSM8974_CNOC_MAS_QDSS_DAP, 8, 49, -1);
-DEFINE_QNODE(mas_spdm, MSM8974_CNOC_MAS_SPDM, 8, 50, -1);
-DEFINE_QNODE(mas_tic, MSM8974_CNOC_MAS_TIC, 8, 51, -1);
-DEFINE_QNODE(slv_clk_ctl, MSM8974_CNOC_SLV_CLK_CTL, 8, -1, 47);
-DEFINE_QNODE(slv_cnoc_mss, MSM8974_CNOC_SLV_CNOC_MSS, 8, -1, 48);
-DEFINE_QNODE(slv_security, MSM8974_CNOC_SLV_SECURITY, 8, -1, 49);
-DEFINE_QNODE(slv_tcsr, MSM8974_CNOC_SLV_TCSR, 8, -1, 50);
-DEFINE_QNODE(slv_tlmm, MSM8974_CNOC_SLV_TLMM, 8, -1, 51);
-DEFINE_QNODE(slv_crypto_0_cfg, MSM8974_CNOC_SLV_CRYPTO_0_CFG, 8, -1, 52);
-DEFINE_QNODE(slv_crypto_1_cfg, MSM8974_CNOC_SLV_CRYPTO_1_CFG, 8, -1, 53);
-DEFINE_QNODE(slv_imem_cfg, MSM8974_CNOC_SLV_IMEM_CFG, 8, -1, 54);
-DEFINE_QNODE(slv_message_ram, MSM8974_CNOC_SLV_MESSAGE_RAM, 8, -1, 55);
-DEFINE_QNODE(slv_bimc_cfg, MSM8974_CNOC_SLV_BIMC_CFG, 8, -1, 56);
-DEFINE_QNODE(slv_boot_rom, MSM8974_CNOC_SLV_BOOT_ROM, 8, -1, 57);
-DEFINE_QNODE(slv_pmic_arb, MSM8974_CNOC_SLV_PMIC_ARB, 8, -1, 59);
-DEFINE_QNODE(slv_spdm_wrapper, MSM8974_CNOC_SLV_SPDM_WRAPPER, 8, -1, 60);
-DEFINE_QNODE(slv_dehr_cfg, MSM8974_CNOC_SLV_DEHR_CFG, 8, -1, 61);
-DEFINE_QNODE(slv_mpm, MSM8974_CNOC_SLV_MPM, 8, -1, 62);
-DEFINE_QNODE(slv_qdss_cfg, MSM8974_CNOC_SLV_QDSS_CFG, 8, -1, 63);
-DEFINE_QNODE(slv_rbcpr_cfg, MSM8974_CNOC_SLV_RBCPR_CFG, 8, -1, 64);
-DEFINE_QNODE(slv_rbcpr_qdss_apu_cfg, MSM8974_CNOC_SLV_RBCPR_QDSS_APU_CFG, 8, -1, 65);
-DEFINE_QNODE(cnoc_to_snoc, MSM8974_CNOC_TO_SNOC, 8, 52, 75);
-DEFINE_QNODE(slv_cnoc_onoc_cfg, MSM8974_CNOC_SLV_CNOC_ONOC_CFG, 8, -1, 68);
-DEFINE_QNODE(slv_cnoc_mnoc_mmss_cfg, MSM8974_CNOC_SLV_CNOC_MNOC_MMSS_CFG, 8, -1, 58);
-DEFINE_QNODE(slv_cnoc_mnoc_cfg, MSM8974_CNOC_SLV_CNOC_MNOC_CFG, 8, -1, 66);
-DEFINE_QNODE(slv_pnoc_cfg, MSM8974_CNOC_SLV_PNOC_CFG, 8, -1, 69);
-DEFINE_QNODE(slv_snoc_mpu_cfg, MSM8974_CNOC_SLV_SNOC_MPU_CFG, 8, -1, 67);
-DEFINE_QNODE(slv_snoc_cfg, MSM8974_CNOC_SLV_SNOC_CFG, 8, -1, 70);
-DEFINE_QNODE(slv_ebi1_dll_cfg, MSM8974_CNOC_SLV_EBI1_DLL_CFG, 8, -1, 71);
-DEFINE_QNODE(slv_phy_apu_cfg, MSM8974_CNOC_SLV_PHY_APU_CFG, 8, -1, 72);
-DEFINE_QNODE(slv_ebi1_phy_cfg, MSM8974_CNOC_SLV_EBI1_PHY_CFG, 8, -1, 73);
-DEFINE_QNODE(slv_rpm, MSM8974_CNOC_SLV_RPM, 8, -1, 74);
-DEFINE_QNODE(slv_service_cnoc, MSM8974_CNOC_SLV_SERVICE_CNOC, 8, -1, 76);
+static struct qcom_icc_node mas_rpm_inst = {
+	.name = "mas_rpm_inst",
+	.id = MSM8974_CNOC_MAS_RPM_INST,
+	.buswidth = 8,
+	.mas_rpm_id = 45,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_rpm_data = {
+	.name = "mas_rpm_data",
+	.id = MSM8974_CNOC_MAS_RPM_DATA,
+	.buswidth = 8,
+	.mas_rpm_id = 46,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_rpm_sys = {
+	.name = "mas_rpm_sys",
+	.id = MSM8974_CNOC_MAS_RPM_SYS,
+	.buswidth = 8,
+	.mas_rpm_id = 47,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_dehr = {
+	.name = "mas_dehr",
+	.id = MSM8974_CNOC_MAS_DEHR,
+	.buswidth = 8,
+	.mas_rpm_id = 48,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_qdss_dap = {
+	.name = "mas_qdss_dap",
+	.id = MSM8974_CNOC_MAS_QDSS_DAP,
+	.buswidth = 8,
+	.mas_rpm_id = 49,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_spdm = {
+	.name = "mas_spdm",
+	.id = MSM8974_CNOC_MAS_SPDM,
+	.buswidth = 8,
+	.mas_rpm_id = 50,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_tic = {
+	.name = "mas_tic",
+	.id = MSM8974_CNOC_MAS_TIC,
+	.buswidth = 8,
+	.mas_rpm_id = 51,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node slv_clk_ctl = {
+	.name = "slv_clk_ctl",
+	.id = MSM8974_CNOC_SLV_CLK_CTL,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 47,
+};
+
+static struct qcom_icc_node slv_cnoc_mss = {
+	.name = "slv_cnoc_mss",
+	.id = MSM8974_CNOC_SLV_CNOC_MSS,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 48,
+};
+
+static struct qcom_icc_node slv_security = {
+	.name = "slv_security",
+	.id = MSM8974_CNOC_SLV_SECURITY,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 49,
+};
+
+static struct qcom_icc_node slv_tcsr = {
+	.name = "slv_tcsr",
+	.id = MSM8974_CNOC_SLV_TCSR,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 50,
+};
+
+static struct qcom_icc_node slv_tlmm = {
+	.name = "slv_tlmm",
+	.id = MSM8974_CNOC_SLV_TLMM,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 51,
+};
+
+static struct qcom_icc_node slv_crypto_0_cfg = {
+	.name = "slv_crypto_0_cfg",
+	.id = MSM8974_CNOC_SLV_CRYPTO_0_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 52,
+};
+
+static struct qcom_icc_node slv_crypto_1_cfg = {
+	.name = "slv_crypto_1_cfg",
+	.id = MSM8974_CNOC_SLV_CRYPTO_1_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 53,
+};
+
+static struct qcom_icc_node slv_imem_cfg = {
+	.name = "slv_imem_cfg",
+	.id = MSM8974_CNOC_SLV_IMEM_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 54,
+};
+
+static struct qcom_icc_node slv_message_ram = {
+	.name = "slv_message_ram",
+	.id = MSM8974_CNOC_SLV_MESSAGE_RAM,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 55,
+};
+
+static struct qcom_icc_node slv_bimc_cfg = {
+	.name = "slv_bimc_cfg",
+	.id = MSM8974_CNOC_SLV_BIMC_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 56,
+};
+
+static struct qcom_icc_node slv_boot_rom = {
+	.name = "slv_boot_rom",
+	.id = MSM8974_CNOC_SLV_BOOT_ROM,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 57,
+};
+
+static struct qcom_icc_node slv_pmic_arb = {
+	.name = "slv_pmic_arb",
+	.id = MSM8974_CNOC_SLV_PMIC_ARB,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 59,
+};
+
+static struct qcom_icc_node slv_spdm_wrapper = {
+	.name = "slv_spdm_wrapper",
+	.id = MSM8974_CNOC_SLV_SPDM_WRAPPER,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 60,
+};
+
+static struct qcom_icc_node slv_dehr_cfg = {
+	.name = "slv_dehr_cfg",
+	.id = MSM8974_CNOC_SLV_DEHR_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 61,
+};
+
+static struct qcom_icc_node slv_mpm = {
+	.name = "slv_mpm",
+	.id = MSM8974_CNOC_SLV_MPM,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 62,
+};
+
+static struct qcom_icc_node slv_qdss_cfg = {
+	.name = "slv_qdss_cfg",
+	.id = MSM8974_CNOC_SLV_QDSS_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 63,
+};
+
+static struct qcom_icc_node slv_rbcpr_cfg = {
+	.name = "slv_rbcpr_cfg",
+	.id = MSM8974_CNOC_SLV_RBCPR_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 64,
+};
+
+static struct qcom_icc_node slv_rbcpr_qdss_apu_cfg = {
+	.name = "slv_rbcpr_qdss_apu_cfg",
+	.id = MSM8974_CNOC_SLV_RBCPR_QDSS_APU_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 65,
+};
+
+static struct qcom_icc_node cnoc_to_snoc = {
+	.name = "cnoc_to_snoc",
+	.id = MSM8974_CNOC_TO_SNOC,
+	.buswidth = 8,
+	.mas_rpm_id = 52,
+	.slv_rpm_id = 75,
+};
+
+static struct qcom_icc_node slv_cnoc_onoc_cfg = {
+	.name = "slv_cnoc_onoc_cfg",
+	.id = MSM8974_CNOC_SLV_CNOC_ONOC_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 68,
+};
+
+static struct qcom_icc_node slv_cnoc_mnoc_mmss_cfg = {
+	.name = "slv_cnoc_mnoc_mmss_cfg",
+	.id = MSM8974_CNOC_SLV_CNOC_MNOC_MMSS_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 58,
+};
+
+static struct qcom_icc_node slv_cnoc_mnoc_cfg = {
+	.name = "slv_cnoc_mnoc_cfg",
+	.id = MSM8974_CNOC_SLV_CNOC_MNOC_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 66,
+};
+
+static struct qcom_icc_node slv_pnoc_cfg = {
+	.name = "slv_pnoc_cfg",
+	.id = MSM8974_CNOC_SLV_PNOC_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 69,
+};
+
+static struct qcom_icc_node slv_snoc_mpu_cfg = {
+	.name = "slv_snoc_mpu_cfg",
+	.id = MSM8974_CNOC_SLV_SNOC_MPU_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 67,
+};
+
+static struct qcom_icc_node slv_snoc_cfg = {
+	.name = "slv_snoc_cfg",
+	.id = MSM8974_CNOC_SLV_SNOC_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 70,
+};
+
+static struct qcom_icc_node slv_ebi1_dll_cfg = {
+	.name = "slv_ebi1_dll_cfg",
+	.id = MSM8974_CNOC_SLV_EBI1_DLL_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 71,
+};
+
+static struct qcom_icc_node slv_phy_apu_cfg = {
+	.name = "slv_phy_apu_cfg",
+	.id = MSM8974_CNOC_SLV_PHY_APU_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 72,
+};
+
+static struct qcom_icc_node slv_ebi1_phy_cfg = {
+	.name = "slv_ebi1_phy_cfg",
+	.id = MSM8974_CNOC_SLV_EBI1_PHY_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 73,
+};
+
+static struct qcom_icc_node slv_rpm = {
+	.name = "slv_rpm",
+	.id = MSM8974_CNOC_SLV_RPM,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 74,
+};
+
+static struct qcom_icc_node slv_service_cnoc = {
+	.name = "slv_service_cnoc",
+	.id = MSM8974_CNOC_SLV_SERVICE_CNOC,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 76,
+};
 
 static struct qcom_icc_node * const msm8974_cnoc_nodes[] = {
 	[CNOC_MAS_RPM_INST] = &mas_rpm_inst,
@@ -308,28 +613,211 @@ static const struct qcom_icc_desc msm8974_cnoc = {
 	.ignore_enxio = true,
 };
 
-DEFINE_QNODE(mas_graphics_3d, MSM8974_MNOC_MAS_GRAPHICS_3D, 16, 6, -1, MSM8974_MNOC_TO_BIMC);
-DEFINE_QNODE(mas_jpeg, MSM8974_MNOC_MAS_JPEG, 16, 7, -1, MSM8974_MNOC_TO_BIMC);
-DEFINE_QNODE(mas_mdp_port0, MSM8974_MNOC_MAS_MDP_PORT0, 16, 8, -1, MSM8974_MNOC_TO_BIMC);
-DEFINE_QNODE(mas_video_p0, MSM8974_MNOC_MAS_VIDEO_P0, 16, 9, -1);
-DEFINE_QNODE(mas_video_p1, MSM8974_MNOC_MAS_VIDEO_P1, 16, 10, -1);
-DEFINE_QNODE(mas_vfe, MSM8974_MNOC_MAS_VFE, 16, 11, -1, MSM8974_MNOC_TO_BIMC);
-DEFINE_QNODE(mnoc_to_cnoc, MSM8974_MNOC_TO_CNOC, 16, 4, -1);
-DEFINE_QNODE(mnoc_to_bimc, MSM8974_MNOC_TO_BIMC, 16, -1, 16, MSM8974_BIMC_TO_MNOC);
-DEFINE_QNODE(slv_camera_cfg, MSM8974_MNOC_SLV_CAMERA_CFG, 16, -1, 3);
-DEFINE_QNODE(slv_display_cfg, MSM8974_MNOC_SLV_DISPLAY_CFG, 16, -1, 4);
-DEFINE_QNODE(slv_ocmem_cfg, MSM8974_MNOC_SLV_OCMEM_CFG, 16, -1, 5);
-DEFINE_QNODE(slv_cpr_cfg, MSM8974_MNOC_SLV_CPR_CFG, 16, -1, 6);
-DEFINE_QNODE(slv_cpr_xpu_cfg, MSM8974_MNOC_SLV_CPR_XPU_CFG, 16, -1, 7);
-DEFINE_QNODE(slv_misc_cfg, MSM8974_MNOC_SLV_MISC_CFG, 16, -1, 8);
-DEFINE_QNODE(slv_misc_xpu_cfg, MSM8974_MNOC_SLV_MISC_XPU_CFG, 16, -1, 9);
-DEFINE_QNODE(slv_venus_cfg, MSM8974_MNOC_SLV_VENUS_CFG, 16, -1, 10);
-DEFINE_QNODE(slv_graphics_3d_cfg, MSM8974_MNOC_SLV_GRAPHICS_3D_CFG, 16, -1, 11);
-DEFINE_QNODE(slv_mmss_clk_cfg, MSM8974_MNOC_SLV_MMSS_CLK_CFG, 16, -1, 12);
-DEFINE_QNODE(slv_mmss_clk_xpu_cfg, MSM8974_MNOC_SLV_MMSS_CLK_XPU_CFG, 16, -1, 13);
-DEFINE_QNODE(slv_mnoc_mpu_cfg, MSM8974_MNOC_SLV_MNOC_MPU_CFG, 16, -1, 14);
-DEFINE_QNODE(slv_onoc_mpu_cfg, MSM8974_MNOC_SLV_ONOC_MPU_CFG, 16, -1, 15);
-DEFINE_QNODE(slv_service_mnoc, MSM8974_MNOC_SLV_SERVICE_MNOC, 16, -1, 17);
+static const u16 mas_graphics_3d_links[] = {
+	MSM8974_MNOC_TO_BIMC
+};
+
+static struct qcom_icc_node mas_graphics_3d = {
+	.name = "mas_graphics_3d",
+	.id = MSM8974_MNOC_MAS_GRAPHICS_3D,
+	.buswidth = 16,
+	.mas_rpm_id = 6,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_graphics_3d_links),
+	.links = mas_graphics_3d_links,
+};
+
+static const u16 mas_jpeg_links[] = {
+	MSM8974_MNOC_TO_BIMC
+};
+
+static struct qcom_icc_node mas_jpeg = {
+	.name = "mas_jpeg",
+	.id = MSM8974_MNOC_MAS_JPEG,
+	.buswidth = 16,
+	.mas_rpm_id = 7,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_jpeg_links),
+	.links = mas_jpeg_links,
+};
+
+static const u16 mas_mdp_port0_links[] = {
+	MSM8974_MNOC_TO_BIMC
+};
+
+static struct qcom_icc_node mas_mdp_port0 = {
+	.name = "mas_mdp_port0",
+	.id = MSM8974_MNOC_MAS_MDP_PORT0,
+	.buswidth = 16,
+	.mas_rpm_id = 8,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_mdp_port0_links),
+	.links = mas_mdp_port0_links,
+};
+
+static struct qcom_icc_node mas_video_p0 = {
+	.name = "mas_video_p0",
+	.id = MSM8974_MNOC_MAS_VIDEO_P0,
+	.buswidth = 16,
+	.mas_rpm_id = 9,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_video_p1 = {
+	.name = "mas_video_p1",
+	.id = MSM8974_MNOC_MAS_VIDEO_P1,
+	.buswidth = 16,
+	.mas_rpm_id = 10,
+	.slv_rpm_id = -1,
+};
+
+static const u16 mas_vfe_links[] = {
+	MSM8974_MNOC_TO_BIMC
+};
+
+static struct qcom_icc_node mas_vfe = {
+	.name = "mas_vfe",
+	.id = MSM8974_MNOC_MAS_VFE,
+	.buswidth = 16,
+	.mas_rpm_id = 11,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_vfe_links),
+	.links = mas_vfe_links,
+};
+
+static struct qcom_icc_node mnoc_to_cnoc = {
+	.name = "mnoc_to_cnoc",
+	.id = MSM8974_MNOC_TO_CNOC,
+	.buswidth = 16,
+	.mas_rpm_id = 4,
+	.slv_rpm_id = -1,
+};
+
+static const u16 mnoc_to_bimc_links[] = {
+	MSM8974_BIMC_TO_MNOC
+};
+
+static struct qcom_icc_node mnoc_to_bimc = {
+	.name = "mnoc_to_bimc",
+	.id = MSM8974_MNOC_TO_BIMC,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 16,
+	.num_links = ARRAY_SIZE(mnoc_to_bimc_links),
+	.links = mnoc_to_bimc_links,
+};
+
+static struct qcom_icc_node slv_camera_cfg = {
+	.name = "slv_camera_cfg",
+	.id = MSM8974_MNOC_SLV_CAMERA_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 3,
+};
+
+static struct qcom_icc_node slv_display_cfg = {
+	.name = "slv_display_cfg",
+	.id = MSM8974_MNOC_SLV_DISPLAY_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 4,
+};
+
+static struct qcom_icc_node slv_ocmem_cfg = {
+	.name = "slv_ocmem_cfg",
+	.id = MSM8974_MNOC_SLV_OCMEM_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 5,
+};
+
+static struct qcom_icc_node slv_cpr_cfg = {
+	.name = "slv_cpr_cfg",
+	.id = MSM8974_MNOC_SLV_CPR_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 6,
+};
+
+static struct qcom_icc_node slv_cpr_xpu_cfg = {
+	.name = "slv_cpr_xpu_cfg",
+	.id = MSM8974_MNOC_SLV_CPR_XPU_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 7,
+};
+
+static struct qcom_icc_node slv_misc_cfg = {
+	.name = "slv_misc_cfg",
+	.id = MSM8974_MNOC_SLV_MISC_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 8,
+};
+
+static struct qcom_icc_node slv_misc_xpu_cfg = {
+	.name = "slv_misc_xpu_cfg",
+	.id = MSM8974_MNOC_SLV_MISC_XPU_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 9,
+};
+
+static struct qcom_icc_node slv_venus_cfg = {
+	.name = "slv_venus_cfg",
+	.id = MSM8974_MNOC_SLV_VENUS_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 10,
+};
+
+static struct qcom_icc_node slv_graphics_3d_cfg = {
+	.name = "slv_graphics_3d_cfg",
+	.id = MSM8974_MNOC_SLV_GRAPHICS_3D_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 11,
+};
+
+static struct qcom_icc_node slv_mmss_clk_cfg = {
+	.name = "slv_mmss_clk_cfg",
+	.id = MSM8974_MNOC_SLV_MMSS_CLK_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 12,
+};
+
+static struct qcom_icc_node slv_mmss_clk_xpu_cfg = {
+	.name = "slv_mmss_clk_xpu_cfg",
+	.id = MSM8974_MNOC_SLV_MMSS_CLK_XPU_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 13,
+};
+
+static struct qcom_icc_node slv_mnoc_mpu_cfg = {
+	.name = "slv_mnoc_mpu_cfg",
+	.id = MSM8974_MNOC_SLV_MNOC_MPU_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 14,
+};
+
+static struct qcom_icc_node slv_onoc_mpu_cfg = {
+	.name = "slv_onoc_mpu_cfg",
+	.id = MSM8974_MNOC_SLV_ONOC_MPU_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 15,
+};
+
+static struct qcom_icc_node slv_service_mnoc = {
+	.name = "slv_service_mnoc",
+	.id = MSM8974_MNOC_SLV_SERVICE_MNOC,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 17,
+};
 
 static struct qcom_icc_node * const msm8974_mnoc_nodes[] = {
 	[MNOC_MAS_GRAPHICS_3D] = &mas_graphics_3d,
@@ -363,20 +851,121 @@ static const struct qcom_icc_desc msm8974_mnoc = {
 	.ignore_enxio = true,
 };
 
-DEFINE_QNODE(ocmem_noc_to_ocmem_vnoc, MSM8974_OCMEM_NOC_TO_OCMEM_VNOC, 16, 54, 78, MSM8974_OCMEM_SLV_OCMEM);
-DEFINE_QNODE(mas_jpeg_ocmem, MSM8974_OCMEM_MAS_JPEG_OCMEM, 16, 13, -1);
-DEFINE_QNODE(mas_mdp_ocmem, MSM8974_OCMEM_MAS_MDP_OCMEM, 16, 14, -1);
-DEFINE_QNODE(mas_video_p0_ocmem, MSM8974_OCMEM_MAS_VIDEO_P0_OCMEM, 16, 15, -1);
-DEFINE_QNODE(mas_video_p1_ocmem, MSM8974_OCMEM_MAS_VIDEO_P1_OCMEM, 16, 16, -1);
-DEFINE_QNODE(mas_vfe_ocmem, MSM8974_OCMEM_MAS_VFE_OCMEM, 16, 17, -1);
-DEFINE_QNODE(mas_cnoc_onoc_cfg, MSM8974_OCMEM_MAS_CNOC_ONOC_CFG, 16, 12, -1);
-DEFINE_QNODE(slv_service_onoc, MSM8974_OCMEM_SLV_SERVICE_ONOC, 16, -1, 19);
-DEFINE_QNODE(slv_ocmem, MSM8974_OCMEM_SLV_OCMEM, 16, -1, 18);
+static const u16 ocmem_noc_to_ocmem_vnoc_links[] = {
+	MSM8974_OCMEM_SLV_OCMEM
+};
+
+static struct qcom_icc_node ocmem_noc_to_ocmem_vnoc = {
+	.name = "ocmem_noc_to_ocmem_vnoc",
+	.id = MSM8974_OCMEM_NOC_TO_OCMEM_VNOC,
+	.buswidth = 16,
+	.mas_rpm_id = 54,
+	.slv_rpm_id = 78,
+	.num_links = ARRAY_SIZE(ocmem_noc_to_ocmem_vnoc_links),
+	.links = ocmem_noc_to_ocmem_vnoc_links,
+};
+
+static struct qcom_icc_node mas_jpeg_ocmem = {
+	.name = "mas_jpeg_ocmem",
+	.id = MSM8974_OCMEM_MAS_JPEG_OCMEM,
+	.buswidth = 16,
+	.mas_rpm_id = 13,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_mdp_ocmem = {
+	.name = "mas_mdp_ocmem",
+	.id = MSM8974_OCMEM_MAS_MDP_OCMEM,
+	.buswidth = 16,
+	.mas_rpm_id = 14,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_video_p0_ocmem = {
+	.name = "mas_video_p0_ocmem",
+	.id = MSM8974_OCMEM_MAS_VIDEO_P0_OCMEM,
+	.buswidth = 16,
+	.mas_rpm_id = 15,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_video_p1_ocmem = {
+	.name = "mas_video_p1_ocmem",
+	.id = MSM8974_OCMEM_MAS_VIDEO_P1_OCMEM,
+	.buswidth = 16,
+	.mas_rpm_id = 16,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_vfe_ocmem = {
+	.name = "mas_vfe_ocmem",
+	.id = MSM8974_OCMEM_MAS_VFE_OCMEM,
+	.buswidth = 16,
+	.mas_rpm_id = 17,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_cnoc_onoc_cfg = {
+	.name = "mas_cnoc_onoc_cfg",
+	.id = MSM8974_OCMEM_MAS_CNOC_ONOC_CFG,
+	.buswidth = 16,
+	.mas_rpm_id = 12,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node slv_service_onoc = {
+	.name = "slv_service_onoc",
+	.id = MSM8974_OCMEM_SLV_SERVICE_ONOC,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 19,
+};
+
+static struct qcom_icc_node slv_ocmem = {
+	.name = "slv_ocmem",
+	.id = MSM8974_OCMEM_SLV_OCMEM,
+	.buswidth = 16,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 18,
+};
 
 /* Virtual NoC is needed for connection to OCMEM */
-DEFINE_QNODE(ocmem_vnoc_to_onoc, MSM8974_OCMEM_VNOC_TO_OCMEM_NOC, 16, 56, 79, MSM8974_OCMEM_NOC_TO_OCMEM_VNOC);
-DEFINE_QNODE(ocmem_vnoc_to_snoc, MSM8974_OCMEM_VNOC_TO_SNOC, 8, 57, 80);
-DEFINE_QNODE(mas_v_ocmem_gfx3d, MSM8974_OCMEM_VNOC_MAS_GFX3D, 8, 55, -1, MSM8974_OCMEM_VNOC_TO_OCMEM_NOC);
+static const u16 ocmem_vnoc_to_onoc_links[] = {
+	MSM8974_OCMEM_NOC_TO_OCMEM_VNOC
+};
+
+static struct qcom_icc_node ocmem_vnoc_to_onoc = {
+	.name = "ocmem_vnoc_to_onoc",
+	.id = MSM8974_OCMEM_VNOC_TO_OCMEM_NOC,
+	.buswidth = 16,
+	.mas_rpm_id = 56,
+	.slv_rpm_id = 79,
+	.num_links = ARRAY_SIZE(ocmem_vnoc_to_onoc_links),
+	.links = ocmem_vnoc_to_onoc_links,
+};
+
+static struct qcom_icc_node ocmem_vnoc_to_snoc = {
+	.name = "ocmem_vnoc_to_snoc",
+	.id = MSM8974_OCMEM_VNOC_TO_SNOC,
+	.buswidth = 8,
+	.mas_rpm_id = 57,
+	.slv_rpm_id = 80,
+};
+
+static const u16 mas_v_ocmem_gfx3d_links[] = {
+	MSM8974_OCMEM_VNOC_TO_OCMEM_NOC
+};
+
+static struct qcom_icc_node mas_v_ocmem_gfx3d = {
+	.name = "mas_v_ocmem_gfx3d",
+	.id = MSM8974_OCMEM_VNOC_MAS_GFX3D,
+	.buswidth = 8,
+	.mas_rpm_id = 55,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_v_ocmem_gfx3d_links),
+	.links = mas_v_ocmem_gfx3d_links,
+};
+
 
 static struct qcom_icc_node * const msm8974_onoc_nodes[] = {
 	[OCMEM_NOC_TO_OCMEM_VNOC] = &ocmem_noc_to_ocmem_vnoc,
@@ -401,33 +990,288 @@ static const struct qcom_icc_desc msm8974_onoc = {
 	.ignore_enxio = true,
 };
 
-DEFINE_QNODE(mas_pnoc_cfg, MSM8974_PNOC_MAS_PNOC_CFG, 8, 43, -1);
-DEFINE_QNODE(mas_sdcc_1, MSM8974_PNOC_MAS_SDCC_1, 8, 33, -1, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(mas_sdcc_3, MSM8974_PNOC_MAS_SDCC_3, 8, 34, -1, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(mas_sdcc_4, MSM8974_PNOC_MAS_SDCC_4, 8, 36, -1, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(mas_sdcc_2, MSM8974_PNOC_MAS_SDCC_2, 8, 35, -1, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(mas_tsif, MSM8974_PNOC_MAS_TSIF, 8, 37, -1, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(mas_bam_dma, MSM8974_PNOC_MAS_BAM_DMA, 8, 38, -1);
-DEFINE_QNODE(mas_blsp_2, MSM8974_PNOC_MAS_BLSP_2, 8, 39, -1, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(mas_usb_hsic, MSM8974_PNOC_MAS_USB_HSIC, 8, 40, -1, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(mas_blsp_1, MSM8974_PNOC_MAS_BLSP_1, 8, 41, -1, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(mas_usb_hs, MSM8974_PNOC_MAS_USB_HS, 8, 42, -1, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(pnoc_to_snoc, MSM8974_PNOC_TO_SNOC, 8, 44, 45, MSM8974_SNOC_TO_PNOC, MSM8974_PNOC_SLV_PRNG);
-DEFINE_QNODE(slv_sdcc_1, MSM8974_PNOC_SLV_SDCC_1, 8, -1, 31);
-DEFINE_QNODE(slv_sdcc_3, MSM8974_PNOC_SLV_SDCC_3, 8, -1, 32);
-DEFINE_QNODE(slv_sdcc_2, MSM8974_PNOC_SLV_SDCC_2, 8, -1, 33);
-DEFINE_QNODE(slv_sdcc_4, MSM8974_PNOC_SLV_SDCC_4, 8, -1, 34);
-DEFINE_QNODE(slv_tsif, MSM8974_PNOC_SLV_TSIF, 8, -1, 35);
-DEFINE_QNODE(slv_bam_dma, MSM8974_PNOC_SLV_BAM_DMA, 8, -1, 36);
-DEFINE_QNODE(slv_blsp_2, MSM8974_PNOC_SLV_BLSP_2, 8, -1, 37);
-DEFINE_QNODE(slv_usb_hsic, MSM8974_PNOC_SLV_USB_HSIC, 8, -1, 38);
-DEFINE_QNODE(slv_blsp_1, MSM8974_PNOC_SLV_BLSP_1, 8, -1, 39);
-DEFINE_QNODE(slv_usb_hs, MSM8974_PNOC_SLV_USB_HS, 8, -1, 40);
-DEFINE_QNODE(slv_pdm, MSM8974_PNOC_SLV_PDM, 8, -1, 41);
-DEFINE_QNODE(slv_periph_apu_cfg, MSM8974_PNOC_SLV_PERIPH_APU_CFG, 8, -1, 42);
-DEFINE_QNODE(slv_pnoc_mpu_cfg, MSM8974_PNOC_SLV_PNOC_MPU_CFG, 8, -1, 43);
-DEFINE_QNODE(slv_prng, MSM8974_PNOC_SLV_PRNG, 8, -1, 44, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(slv_service_pnoc, MSM8974_PNOC_SLV_SERVICE_PNOC, 8, -1, 46);
+static struct qcom_icc_node mas_pnoc_cfg = {
+	.name = "mas_pnoc_cfg",
+	.id = MSM8974_PNOC_MAS_PNOC_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = 43,
+	.slv_rpm_id = -1,
+};
+
+static const u16 mas_sdcc_1_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node mas_sdcc_1 = {
+	.name = "mas_sdcc_1",
+	.id = MSM8974_PNOC_MAS_SDCC_1,
+	.buswidth = 8,
+	.mas_rpm_id = 33,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_sdcc_1_links),
+	.links = mas_sdcc_1_links,
+};
+
+static const u16 mas_sdcc_3_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node mas_sdcc_3 = {
+	.name = "mas_sdcc_3",
+	.id = MSM8974_PNOC_MAS_SDCC_3,
+	.buswidth = 8,
+	.mas_rpm_id = 34,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_sdcc_3_links),
+	.links = mas_sdcc_3_links,
+};
+
+static const u16 mas_sdcc_4_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node mas_sdcc_4 = {
+	.name = "mas_sdcc_4",
+	.id = MSM8974_PNOC_MAS_SDCC_4,
+	.buswidth = 8,
+	.mas_rpm_id = 36,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_sdcc_4_links),
+	.links = mas_sdcc_4_links,
+};
+
+static const u16 mas_sdcc_2_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node mas_sdcc_2 = {
+	.name = "mas_sdcc_2",
+	.id = MSM8974_PNOC_MAS_SDCC_2,
+	.buswidth = 8,
+	.mas_rpm_id = 35,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_sdcc_2_links),
+	.links = mas_sdcc_2_links,
+};
+
+static const u16 mas_tsif_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node mas_tsif = {
+	.name = "mas_tsif",
+	.id = MSM8974_PNOC_MAS_TSIF,
+	.buswidth = 8,
+	.mas_rpm_id = 37,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_tsif_links),
+	.links = mas_tsif_links,
+};
+
+static struct qcom_icc_node mas_bam_dma = {
+	.name = "mas_bam_dma",
+	.id = MSM8974_PNOC_MAS_BAM_DMA,
+	.buswidth = 8,
+	.mas_rpm_id = 38,
+	.slv_rpm_id = -1,
+};
+
+static const u16 mas_blsp_2_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node mas_blsp_2 = {
+	.name = "mas_blsp_2",
+	.id = MSM8974_PNOC_MAS_BLSP_2,
+	.buswidth = 8,
+	.mas_rpm_id = 39,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_blsp_2_links),
+	.links = mas_blsp_2_links,
+};
+
+static const u16 mas_usb_hsic_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node mas_usb_hsic = {
+	.name = "mas_usb_hsic",
+	.id = MSM8974_PNOC_MAS_USB_HSIC,
+	.buswidth = 8,
+	.mas_rpm_id = 40,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_usb_hsic_links),
+	.links = mas_usb_hsic_links,
+};
+
+static const u16 mas_blsp_1_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node mas_blsp_1 = {
+	.name = "mas_blsp_1",
+	.id = MSM8974_PNOC_MAS_BLSP_1,
+	.buswidth = 8,
+	.mas_rpm_id = 41,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_blsp_1_links),
+	.links = mas_blsp_1_links,
+};
+
+static const u16 mas_usb_hs_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node mas_usb_hs = {
+	.name = "mas_usb_hs",
+	.id = MSM8974_PNOC_MAS_USB_HS,
+	.buswidth = 8,
+	.mas_rpm_id = 42,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_usb_hs_links),
+	.links = mas_usb_hs_links,
+};
+
+static const u16 pnoc_to_snoc_links[] = {
+	MSM8974_SNOC_TO_PNOC,
+	MSM8974_PNOC_SLV_PRNG
+};
+
+static struct qcom_icc_node pnoc_to_snoc = {
+	.name = "pnoc_to_snoc",
+	.id = MSM8974_PNOC_TO_SNOC,
+	.buswidth = 8,
+	.mas_rpm_id = 44,
+	.slv_rpm_id = 45,
+	.num_links = ARRAY_SIZE(pnoc_to_snoc_links),
+	.links = pnoc_to_snoc_links,
+};
+
+static struct qcom_icc_node slv_sdcc_1 = {
+	.name = "slv_sdcc_1",
+	.id = MSM8974_PNOC_SLV_SDCC_1,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 31,
+};
+
+static struct qcom_icc_node slv_sdcc_3 = {
+	.name = "slv_sdcc_3",
+	.id = MSM8974_PNOC_SLV_SDCC_3,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 32,
+};
+
+static struct qcom_icc_node slv_sdcc_2 = {
+	.name = "slv_sdcc_2",
+	.id = MSM8974_PNOC_SLV_SDCC_2,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 33,
+};
+
+static struct qcom_icc_node slv_sdcc_4 = {
+	.name = "slv_sdcc_4",
+	.id = MSM8974_PNOC_SLV_SDCC_4,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 34,
+};
+
+static struct qcom_icc_node slv_tsif = {
+	.name = "slv_tsif",
+	.id = MSM8974_PNOC_SLV_TSIF,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 35,
+};
+
+static struct qcom_icc_node slv_bam_dma = {
+	.name = "slv_bam_dma",
+	.id = MSM8974_PNOC_SLV_BAM_DMA,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 36,
+};
+
+static struct qcom_icc_node slv_blsp_2 = {
+	.name = "slv_blsp_2",
+	.id = MSM8974_PNOC_SLV_BLSP_2,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 37,
+};
+
+static struct qcom_icc_node slv_usb_hsic = {
+	.name = "slv_usb_hsic",
+	.id = MSM8974_PNOC_SLV_USB_HSIC,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 38,
+};
+
+static struct qcom_icc_node slv_blsp_1 = {
+	.name = "slv_blsp_1",
+	.id = MSM8974_PNOC_SLV_BLSP_1,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 39,
+};
+
+static struct qcom_icc_node slv_usb_hs = {
+	.name = "slv_usb_hs",
+	.id = MSM8974_PNOC_SLV_USB_HS,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 40,
+};
+
+static struct qcom_icc_node slv_pdm = {
+	.name = "slv_pdm",
+	.id = MSM8974_PNOC_SLV_PDM,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 41,
+};
+
+static struct qcom_icc_node slv_periph_apu_cfg = {
+	.name = "slv_periph_apu_cfg",
+	.id = MSM8974_PNOC_SLV_PERIPH_APU_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 42,
+};
+
+static struct qcom_icc_node slv_pnoc_mpu_cfg = {
+	.name = "slv_pnoc_mpu_cfg",
+	.id = MSM8974_PNOC_SLV_PNOC_MPU_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 43,
+};
+
+static const u16 slv_prng_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node slv_prng = {
+	.name = "slv_prng",
+	.id = MSM8974_PNOC_SLV_PRNG,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 44,
+	.num_links = ARRAY_SIZE(slv_prng_links),
+	.links = slv_prng_links,
+};
+
+static struct qcom_icc_node slv_service_pnoc = {
+	.name = "slv_service_pnoc",
+	.id = MSM8974_PNOC_SLV_SERVICE_PNOC,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 46,
+};
 
 static struct qcom_icc_node * const msm8974_pnoc_nodes[] = {
 	[PNOC_MAS_PNOC_CFG] = &mas_pnoc_cfg,
@@ -468,30 +1312,233 @@ static const struct qcom_icc_desc msm8974_pnoc = {
 	.ignore_enxio = true,
 };
 
-DEFINE_QNODE(mas_lpass_ahb, MSM8974_SNOC_MAS_LPASS_AHB, 8, 18, -1);
-DEFINE_QNODE(mas_qdss_bam, MSM8974_SNOC_MAS_QDSS_BAM, 8, 19, -1);
-DEFINE_QNODE(mas_snoc_cfg, MSM8974_SNOC_MAS_SNOC_CFG, 8, 20, -1);
-DEFINE_QNODE(snoc_to_bimc, MSM8974_SNOC_TO_BIMC, 8, 21, 24, MSM8974_BIMC_TO_SNOC);
-DEFINE_QNODE(snoc_to_cnoc, MSM8974_SNOC_TO_CNOC, 8, 22, 25);
-DEFINE_QNODE(snoc_to_pnoc, MSM8974_SNOC_TO_PNOC, 8, 29, 28, MSM8974_PNOC_TO_SNOC);
-DEFINE_QNODE(snoc_to_ocmem_vnoc, MSM8974_SNOC_TO_OCMEM_VNOC, 8, 53, 77, MSM8974_OCMEM_VNOC_TO_OCMEM_NOC);
-DEFINE_QNODE(mas_crypto_core0, MSM8974_SNOC_MAS_CRYPTO_CORE0, 8, 23, -1, MSM8974_SNOC_TO_BIMC);
-DEFINE_QNODE(mas_crypto_core1, MSM8974_SNOC_MAS_CRYPTO_CORE1, 8, 24, -1);
-DEFINE_QNODE(mas_lpass_proc, MSM8974_SNOC_MAS_LPASS_PROC, 8, 25, -1, MSM8974_SNOC_TO_OCMEM_VNOC);
-DEFINE_QNODE(mas_mss, MSM8974_SNOC_MAS_MSS, 8, 26, -1);
-DEFINE_QNODE(mas_mss_nav, MSM8974_SNOC_MAS_MSS_NAV, 8, 27, -1);
-DEFINE_QNODE(mas_ocmem_dma, MSM8974_SNOC_MAS_OCMEM_DMA, 8, 28, -1);
-DEFINE_QNODE(mas_wcss, MSM8974_SNOC_MAS_WCSS, 8, 30, -1);
-DEFINE_QNODE(mas_qdss_etr, MSM8974_SNOC_MAS_QDSS_ETR, 8, 31, -1);
-DEFINE_QNODE(mas_usb3, MSM8974_SNOC_MAS_USB3, 8, 32, -1, MSM8974_SNOC_TO_BIMC);
-DEFINE_QNODE(slv_ampss, MSM8974_SNOC_SLV_AMPSS, 8, -1, 20);
-DEFINE_QNODE(slv_lpass, MSM8974_SNOC_SLV_LPASS, 8, -1, 21);
-DEFINE_QNODE(slv_usb3, MSM8974_SNOC_SLV_USB3, 8, -1, 22);
-DEFINE_QNODE(slv_wcss, MSM8974_SNOC_SLV_WCSS, 8, -1, 23);
-DEFINE_QNODE(slv_ocimem, MSM8974_SNOC_SLV_OCIMEM, 8, -1, 26);
-DEFINE_QNODE(slv_snoc_ocmem, MSM8974_SNOC_SLV_SNOC_OCMEM, 8, -1, 27);
-DEFINE_QNODE(slv_service_snoc, MSM8974_SNOC_SLV_SERVICE_SNOC, 8, -1, 29);
-DEFINE_QNODE(slv_qdss_stm, MSM8974_SNOC_SLV_QDSS_STM, 8, -1, 30);
+static struct qcom_icc_node mas_lpass_ahb = {
+	.name = "mas_lpass_ahb",
+	.id = MSM8974_SNOC_MAS_LPASS_AHB,
+	.buswidth = 8,
+	.mas_rpm_id = 18,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_qdss_bam = {
+	.name = "mas_qdss_bam",
+	.id = MSM8974_SNOC_MAS_QDSS_BAM,
+	.buswidth = 8,
+	.mas_rpm_id = 19,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_snoc_cfg = {
+	.name = "mas_snoc_cfg",
+	.id = MSM8974_SNOC_MAS_SNOC_CFG,
+	.buswidth = 8,
+	.mas_rpm_id = 20,
+	.slv_rpm_id = -1,
+};
+
+static const u16 snoc_to_bimc_links[] = {
+	MSM8974_BIMC_TO_SNOC
+};
+
+static struct qcom_icc_node snoc_to_bimc = {
+	.name = "snoc_to_bimc",
+	.id = MSM8974_SNOC_TO_BIMC,
+	.buswidth = 8,
+	.mas_rpm_id = 21,
+	.slv_rpm_id = 24,
+	.num_links = ARRAY_SIZE(snoc_to_bimc_links),
+	.links = snoc_to_bimc_links,
+};
+
+static struct qcom_icc_node snoc_to_cnoc = {
+	.name = "snoc_to_cnoc",
+	.id = MSM8974_SNOC_TO_CNOC,
+	.buswidth = 8,
+	.mas_rpm_id = 22,
+	.slv_rpm_id = 25,
+};
+
+static const u16 snoc_to_pnoc_links[] = {
+	MSM8974_PNOC_TO_SNOC
+};
+
+static struct qcom_icc_node snoc_to_pnoc = {
+	.name = "snoc_to_pnoc",
+	.id = MSM8974_SNOC_TO_PNOC,
+	.buswidth = 8,
+	.mas_rpm_id = 29,
+	.slv_rpm_id = 28,
+	.num_links = ARRAY_SIZE(snoc_to_pnoc_links),
+	.links = snoc_to_pnoc_links,
+};
+
+static const u16 snoc_to_ocmem_vnoc_links[] = {
+	MSM8974_OCMEM_VNOC_TO_OCMEM_NOC
+};
+
+static struct qcom_icc_node snoc_to_ocmem_vnoc = {
+	.name = "snoc_to_ocmem_vnoc",
+	.id = MSM8974_SNOC_TO_OCMEM_VNOC,
+	.buswidth = 8,
+	.mas_rpm_id = 53,
+	.slv_rpm_id = 77,
+	.num_links = ARRAY_SIZE(snoc_to_ocmem_vnoc_links),
+	.links = snoc_to_ocmem_vnoc_links,
+};
+
+static const u16 mas_crypto_core0_links[] = {
+	MSM8974_SNOC_TO_BIMC
+};
+
+static struct qcom_icc_node mas_crypto_core0 = {
+	.name = "mas_crypto_core0",
+	.id = MSM8974_SNOC_MAS_CRYPTO_CORE0,
+	.buswidth = 8,
+	.mas_rpm_id = 23,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_crypto_core0_links),
+	.links = mas_crypto_core0_links,
+};
+
+static struct qcom_icc_node mas_crypto_core1 = {
+	.name = "mas_crypto_core1",
+	.id = MSM8974_SNOC_MAS_CRYPTO_CORE1,
+	.buswidth = 8,
+	.mas_rpm_id = 24,
+	.slv_rpm_id = -1,
+};
+
+static const u16 mas_lpass_proc_links[] = {
+	MSM8974_SNOC_TO_OCMEM_VNOC
+};
+
+static struct qcom_icc_node mas_lpass_proc = {
+	.name = "mas_lpass_proc",
+	.id = MSM8974_SNOC_MAS_LPASS_PROC,
+	.buswidth = 8,
+	.mas_rpm_id = 25,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_lpass_proc_links),
+	.links = mas_lpass_proc_links,
+};
+
+static struct qcom_icc_node mas_mss = {
+	.name = "mas_mss",
+	.id = MSM8974_SNOC_MAS_MSS,
+	.buswidth = 8,
+	.mas_rpm_id = 26,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_mss_nav = {
+	.name = "mas_mss_nav",
+	.id = MSM8974_SNOC_MAS_MSS_NAV,
+	.buswidth = 8,
+	.mas_rpm_id = 27,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_ocmem_dma = {
+	.name = "mas_ocmem_dma",
+	.id = MSM8974_SNOC_MAS_OCMEM_DMA,
+	.buswidth = 8,
+	.mas_rpm_id = 28,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_wcss = {
+	.name = "mas_wcss",
+	.id = MSM8974_SNOC_MAS_WCSS,
+	.buswidth = 8,
+	.mas_rpm_id = 30,
+	.slv_rpm_id = -1,
+};
+
+static struct qcom_icc_node mas_qdss_etr = {
+	.name = "mas_qdss_etr",
+	.id = MSM8974_SNOC_MAS_QDSS_ETR,
+	.buswidth = 8,
+	.mas_rpm_id = 31,
+	.slv_rpm_id = -1,
+};
+
+static const u16 mas_usb3_links[] = {
+	MSM8974_SNOC_TO_BIMC
+};
+
+static struct qcom_icc_node mas_usb3 = {
+	.name = "mas_usb3",
+	.id = MSM8974_SNOC_MAS_USB3,
+	.buswidth = 8,
+	.mas_rpm_id = 32,
+	.slv_rpm_id = -1,
+	.num_links = ARRAY_SIZE(mas_usb3_links),
+	.links = mas_usb3_links,
+};
+
+static struct qcom_icc_node slv_ampss = {
+	.name = "slv_ampss",
+	.id = MSM8974_SNOC_SLV_AMPSS,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 20,
+};
+
+static struct qcom_icc_node slv_lpass = {
+	.name = "slv_lpass",
+	.id = MSM8974_SNOC_SLV_LPASS,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 21,
+};
+
+static struct qcom_icc_node slv_usb3 = {
+	.name = "slv_usb3",
+	.id = MSM8974_SNOC_SLV_USB3,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 22,
+};
+
+static struct qcom_icc_node slv_wcss = {
+	.name = "slv_wcss",
+	.id = MSM8974_SNOC_SLV_WCSS,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 23,
+};
+
+static struct qcom_icc_node slv_ocimem = {
+	.name = "slv_ocimem",
+	.id = MSM8974_SNOC_SLV_OCIMEM,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 26,
+};
+
+static struct qcom_icc_node slv_snoc_ocmem = {
+	.name = "slv_snoc_ocmem",
+	.id = MSM8974_SNOC_SLV_SNOC_OCMEM,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 27,
+};
+
+static struct qcom_icc_node slv_service_snoc = {
+	.name = "slv_service_snoc",
+	.id = MSM8974_SNOC_SLV_SERVICE_SNOC,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 29,
+};
+
+static struct qcom_icc_node slv_qdss_stm = {
+	.name = "slv_qdss_stm",
+	.id = MSM8974_SNOC_SLV_QDSS_STM,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = 30,
+};
 
 static struct qcom_icc_node * const msm8974_snoc_nodes[] = {
 	[SNOC_MAS_LPASS_AHB] = &mas_lpass_ahb,
