@@ -674,7 +674,7 @@ static bool mshv_handle_gpa_intercept(struct mshv_vp *vp)
 
 	region = mshv_partition_region_by_gfn_get(p, gfn);
 	if (!region)
-		return false;
+		goto out;
 
 	if (access_type == HV_INTERCEPT_ACCESS_WRITE &&
 	    !(region->hv_map_flags & HV_MAP_GPA_WRITABLE))
@@ -690,7 +690,9 @@ static bool mshv_handle_gpa_intercept(struct mshv_vp *vp)
 
 put_region:
 	mshv_region_put(region);
-
+out:
+	trace_mshv_handle_gpa_intercept(p->pt_id, vp->vp_index, gfn,
+					access_type, ret);
 	return ret;
 }
 

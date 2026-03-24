@@ -12,6 +12,7 @@
 #define _MSHV_TRACE_H_
 
 #include <linux/tracepoint.h>
+#include <hyperv/hvhdk.h>
 
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH ../../drivers/hv
@@ -506,6 +507,34 @@ TRACE_EVENT(mshv_vp_wait_for_hv_kick,
 		    __entry->kicked_by_hv,
 		    __entry->blocked,
 		    __entry->irq_pending
+	    )
+);
+
+TRACE_EVENT(mshv_handle_gpa_intercept,
+	    TP_PROTO(u64 partition_id, u32 vp_index, u64 gfn, u8 access_type, bool handled),
+	    TP_ARGS(partition_id, vp_index, gfn, access_type, handled),
+	    TP_STRUCT__entry(
+		    __field(u64, partition_id)
+		    __field(u32, vp_index)
+		    __field(u64, gfn)
+		    __field(u8, access_type)
+		    __field(bool, handled)
+	    ),
+	    TP_fast_assign(
+		    __entry->partition_id = partition_id;
+		    __entry->vp_index = vp_index;
+		    __entry->gfn = gfn;
+		    __entry->access_type = access_type == HV_INTERCEPT_ACCESS_READ ? 'R' :
+					   (access_type == HV_INTERCEPT_ACCESS_WRITE ? 'W' :
+					    (access_type == HV_INTERCEPT_ACCESS_EXECUTE ? 'X' : '?'));
+		    __entry->handled = handled;
+	    ),
+	    TP_printk("partition_id=%llu vp_index=%u gfn=0x%llx access_type=%c handled=%d",
+		    __entry->partition_id,
+		    __entry->vp_index,
+		    __entry->gfn,
+		    __entry->access_type,
+		    __entry->handled
 	    )
 );
 
