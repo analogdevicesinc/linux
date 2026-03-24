@@ -4,6 +4,7 @@
 timestamp=$(date +%Y_%m_%d-%H_%M)
 GIT_SHA=$(git rev-parse --short HEAD)
 GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${GIT_SHA} | sed -e "s/ \|\:/-/g")
+ARTIFACTS_BRANCH_UPLOAD=${BUILD_SOURCEBRANCHNAME##*/}
 
 #create version file found in the boot partition
 create_version_file() {
@@ -72,7 +73,7 @@ artifacts_artifactory() {
 	cd ${SOURCE_DIRECTORY}
 	python ../ci/travis/upload_to_artifactory_parallel.py \
 		--base_path="${ARTIFACTORY_PATH}" \
-		--server_path="linux_rpi/${BUILD_SOURCEBRANCHNAME}/${timestamp}" \
+		--server_path="linux_rpi/${ARTIFACTS_BRANCH_UPLOAD}/${timestamp}" \
 		--local_path="${timestamp}" \
 		--token="${ARTIFACTORY_TOKEN}" \
 		--log_file="upload_to_artifactory.log" \
@@ -89,38 +90,38 @@ artifacts_swdownloads() {
 
 	cd ${SOURCE_DIRECTORY}/${timestamp}/32bit || exit 1
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
+		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/${ARTIFACTS_BRANCH_UPLOAD}
 	md5_modules_32bit=($(md5sum rpi_modules_32bit.tar.gz| cut -d ' ' -f 1))
 	rm rpi_modules_32bit.tar.gz
 	tar -C ${PWD} -czvf rpi_latest_boot_32bit.tar.gz *
 	md5_boot_32bit=($(md5sum rpi_latest_boot_32bit.tar.gz| cut -d ' ' -f 1))
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-	    -i ${KEY_FILE} -r rpi_latest_boot_32bit.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
+	    -i ${KEY_FILE} -r rpi_latest_boot_32bit.tar.gz ${DEST_SERVER}/${ARTIFACTS_BRANCH_UPLOAD}
 
 	cd ${SOURCE_DIRECTORY}/${timestamp}/64bit || exit 1
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
+		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/${ARTIFACTS_BRANCH_UPLOAD}
 	md5_modules_64bit=($(md5sum rpi_modules_64bit.tar.gz| cut -d ' ' -f 1))
 	rm rpi_modules_64bit.tar.gz
 	tar -C ${PWD} -czvf rpi_latest_boot_64bit.tar.gz *
 	md5_boot_64bit=($(md5sum rpi_latest_boot_64bit.tar.gz| cut -d ' ' -f 1))
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-	    -i ${KEY_FILE} -r rpi_latest_boot_64bit.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
+	    -i ${KEY_FILE} -r rpi_latest_boot_64bit.tar.gz ${DEST_SERVER}/${ARTIFACTS_BRANCH_UPLOAD}
 
 	echo "git_branch=${BUILD_SOURCEBRANCHNAME}" >> rpi_archives_properties.txt
-	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_modules_32bit.tar.gz" >> rpi_archives_properties.txt
-	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_latest_boot_32bit.tar.gz" >> rpi_archives_properties.txt
+	echo "https://swdownloads.analog.com/cse/linux_rpi/${ARTIFACTS_BRANCH_UPLOAD}/rpi_modules_32bit.tar.gz" >> rpi_archives_properties.txt
+	echo "https://swdownloads.analog.com/cse/linux_rpi/${ARTIFACTS_BRANCH_UPLOAD}/rpi_latest_boot_32bit.tar.gz" >> rpi_archives_properties.txt
 	echo "checksum_modules_32bit=${md5_modules_32bit}" >> rpi_archives_properties.txt
 	echo "checksum_boot_files_32bit=${md5_boot_32bit}" >> rpi_archives_properties.txt
-	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_modules_64bit.tar.gz" >> rpi_archives_properties.txt
-	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_latest_boot_64bit.tar.gz" >> rpi_archives_properties.txt
+	echo "https://swdownloads.analog.com/cse/linux_rpi/${ARTIFACTS_BRANCH_UPLOAD}/rpi_modules_64bit.tar.gz" >> rpi_archives_properties.txt
+	echo "https://swdownloads.analog.com/cse/linux_rpi/${ARTIFACTS_BRANCH_UPLOAD}/rpi_latest_boot_64bit.tar.gz" >> rpi_archives_properties.txt
 	echo "checksum_modules_64bit=${md5_modules_64bit}" >> rpi_archives_properties.txt
 	echo "checksum_boot_files_64bit=${md5_boot_64bit}" >> rpi_archives_properties.txt
 	echo "git_sha=${GIT_SHA}" >> rpi_archives_properties.txt
 	echo "git_sha_date=${GIT_SHA_DATE}" >> rpi_archives_properties.txt
 
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-                -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
+                -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}/${ARTIFACTS_BRANCH_UPLOAD}
 }
 
 #upload artifacts to Cloudsmith
@@ -136,7 +137,7 @@ artifacts_cloudsmith() {
 
 	python3 ${BUILD_SOURCESDIRECTORY}/wiki-scripts/utils/cloudsmith_utils/upload_to_cloudsmith.py \
 					--repo="sdg-linux-rpi" \
-					--version="linux_rpi/${BUILD_SOURCEBRANCHNAME}/${timestamp}/" \
+					--version="linux_rpi/${ARTIFACTS_BRANCH_UPLOAD}/${timestamp}/" \
 					--local_path="${SOURCE_DIRECTORY}/${timestamp}" \
 					--tags="git_sha-${GIT_SHA};timestamp_${timestamp}" \
 					--token="${CLOUDSMITH_API_KEY}" \

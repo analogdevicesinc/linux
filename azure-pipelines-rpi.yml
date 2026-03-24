@@ -2,12 +2,14 @@ trigger:
 - rpi-6.1.y
 - rpi-6.6.y
 - rpi-6.12.y
-- staging-rpi/*
+- staging/rpi/*
+- rpi/release/*
 
 pr:
 - rpi-6.1.y
 - rpi-6.6.y
 - rpi-6.12.y
+- rpi/release/*
 
 resources:
   repositories:
@@ -90,7 +92,8 @@ stages:
     condition: and(
        succeeded(),
        or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
+          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'),
+          startsWith(variables['Build.SourceBranch'], 'refs/heads/rpi/release/'))
        )
     pool:
       vmImage: 'ubuntu-latest'
@@ -111,7 +114,8 @@ stages:
     condition: and(
        succeeded(),
        or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'))
+          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'),
+          startsWith(variables['Build.SourceBranch'], 'refs/heads/rpi/release/'))
        )
     pool:
       name: Default
@@ -128,7 +132,12 @@ stages:
         displayName: "Push to Artifactory"
 
   - job: Push_to_Cloudsmith
-    condition: succeeded()
+    condition: and(
+       succeeded(),
+       or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.12.y'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.6.y'),
+          startsWith(variables['Build.SourceBranch'], 'refs/heads/rpi/release/'))
+       )
     pool:
       name: Default
       demands:
