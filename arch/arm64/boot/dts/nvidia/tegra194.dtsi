@@ -2382,6 +2382,7 @@
 			nvidia,aspm-cmrt-us = <60>;
 			nvidia,aspm-pwr-on-t-us = <20>;
 			nvidia,aspm-l0s-entrance-latency-us = <3>;
+			aspm-l1-entry-delay-ns = <4000>;
 
 			bus-range = <0x0 0xff>;
 
@@ -2434,6 +2435,7 @@
 			nvidia,aspm-cmrt-us = <60>;
 			nvidia,aspm-pwr-on-t-us = <20>;
 			nvidia,aspm-l0s-entrance-latency-us = <3>;
+			aspm-l1-entry-delay-ns = <4000>;
 
 			bus-range = <0x0 0xff>;
 
@@ -2486,6 +2488,7 @@
 			nvidia,aspm-cmrt-us = <60>;
 			nvidia,aspm-pwr-on-t-us = <20>;
 			nvidia,aspm-l0s-entrance-latency-us = <3>;
+			aspm-l1-entry-delay-ns = <4000>;
 
 			bus-range = <0x0 0xff>;
 
@@ -2538,6 +2541,7 @@
 			nvidia,aspm-cmrt-us = <60>;
 			nvidia,aspm-pwr-on-t-us = <20>;
 			nvidia,aspm-l0s-entrance-latency-us = <3>;
+			aspm-l1-entry-delay-ns = <4000>;
 
 			bus-range = <0x0 0xff>;
 
@@ -2583,6 +2587,7 @@
 			nvidia,aspm-cmrt-us = <60>;
 			nvidia,aspm-pwr-on-t-us = <20>;
 			nvidia,aspm-l0s-entrance-latency-us = <3>;
+			aspm-l1-entry-delay-ns = <4000>;
 
 			interconnects = <&mc TEGRA194_MEMORY_CLIENT_PCIE4R &emc>,
 					<&mc TEGRA194_MEMORY_CLIENT_PCIE4W &emc>;
@@ -2629,6 +2634,7 @@
 			nvidia,aspm-cmrt-us = <60>;
 			nvidia,aspm-pwr-on-t-us = <20>;
 			nvidia,aspm-l0s-entrance-latency-us = <3>;
+			aspm-l1-entry-delay-ns = <4000>;
 
 			bus-range = <0x0 0xff>;
 
@@ -2674,6 +2680,7 @@
 			nvidia,aspm-cmrt-us = <60>;
 			nvidia,aspm-pwr-on-t-us = <20>;
 			nvidia,aspm-l0s-entrance-latency-us = <3>;
+			aspm-l1-entry-delay-ns = <4000>;
 
 			interconnects = <&mc TEGRA194_MEMORY_CLIENT_PCIE0R &emc>,
 					<&mc TEGRA194_MEMORY_CLIENT_PCIE0W &emc>;
@@ -2723,6 +2730,7 @@
 			nvidia,aspm-cmrt-us = <60>;
 			nvidia,aspm-pwr-on-t-us = <20>;
 			nvidia,aspm-l0s-entrance-latency-us = <3>;
+			aspm-l1-entry-delay-ns = <4000>;
 
 			bus-range = <0x0 0xff>;
 
@@ -2771,6 +2779,7 @@
 			nvidia,aspm-cmrt-us = <60>;
 			nvidia,aspm-pwr-on-t-us = <20>;
 			nvidia,aspm-l0s-entrance-latency-us = <3>;
+			aspm-l1-entry-delay-ns = <4000>;
 
 			interconnects = <&mc TEGRA194_MEMORY_CLIENT_PCIE5R &emc>,
 					<&mc TEGRA194_MEMORY_CLIENT_PCIE5W &emc>;
