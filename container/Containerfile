@@ -13,6 +13,7 @@ RUN zypper install -y --no-recommends \
 RUN useradd -m runner
 WORKDIR /home/runner
 
+ENV FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true
 ADD ${gh_actions_runner_sh} .
 RUN bash ./gh-actions-runner.sh ; rm ./gh-actions-runner.sh
 
