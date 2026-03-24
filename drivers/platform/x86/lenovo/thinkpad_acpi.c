@@ -299,7 +299,6 @@ struct ibm_struct;
 
 struct tp_acpi_drv_struct {
 	const struct acpi_device_id *hid;
-	struct acpi_driver *driver;
 
 	void (*notify) (struct ibm_struct *, u32);
 	acpi_handle *handle;
@@ -322,7 +321,6 @@ struct ibm_struct {
 	struct tp_acpi_drv_struct *acpi;
 
 	struct {
-		u8 acpi_driver_registered:1;
 		u8 acpi_notify_installed:1;
 		u8 proc_created:1;
 		u8 init_called:1;
@@ -832,9 +830,9 @@ static int __init setup_acpi_notify(struct ibm_struct *ibm)
 	vdbg_printk(TPACPI_DBG_INIT,
 		"setting up ACPI notify for %s\n", ibm->name);
 
-	ibm->acpi->device = acpi_fetch_acpi_dev(*ibm->acpi->handle);
+	ibm->acpi->device = acpi_get_acpi_dev(*ibm->acpi->handle);
 	if (!ibm->acpi->device) {
-		pr_err("acpi_fetch_acpi_dev(%s) failed\n", ibm->name);
+		pr_err("acpi_get_acpi_dev(%s) failed\n", ibm->name);
 		return -ENODEV;
 	}
 
@@ -858,44 +856,6 @@ static int __init setup_acpi_notify(struct ibm_struct *ibm)
 	ibm->flags.acpi_notify_installed = 1;
 	return 0;
 }
-
-static int __init tpacpi_device_add(struct acpi_device *device)
-{
-	return 0;
-}
-
-static int __init register_tpacpi_subdriver(struct ibm_struct *ibm)
-{
-	int rc;
-
-	dbg_printk(TPACPI_DBG_INIT,
-		"registering %s as an ACPI driver\n", ibm->name);
-
-	BUG_ON(!ibm->acpi);
-
-	ibm->acpi->driver = kzalloc_obj(struct acpi_driver);
-	if (!ibm->acpi->driver) {
-		pr_err("failed to allocate memory for ibm->acpi->driver\n");
-		return -ENOMEM;
-	}
-
-	sprintf(ibm->acpi->driver->name, "%s_%s", TPACPI_NAME, ibm->name);
-	ibm->acpi->driver->ids = ibm->acpi->hid;
-
-	ibm->acpi->driver->ops.add = &tpacpi_device_add;
-
-	rc = acpi_bus_register_driver(ibm->acpi->driver);
-	if (rc < 0) {
-		pr_err("acpi_bus_register_driver(%s) failed: %d\n",
-		       ibm->name, rc);
-		kfree(ibm->acpi->driver);
-		ibm->acpi->driver = NULL;
-	} else if (!rc)
-		ibm->flags.acpi_driver_registered = 1;
-
-	return rc;
-}
-
 
 /****************************************************************************
  ****************************************************************************
@@ -11560,6 +11520,8 @@ static void ibm_exit(struct ibm_struct *ibm)
 		acpi_remove_notify_handler(*ibm->acpi->handle,
 					   ibm->acpi->type,
 					   dispatch_acpi_notify);
+		ibm->acpi->device->driver_data = NULL;
+		acpi_dev_put(ibm->acpi->device);
 		ibm->flags.acpi_notify_installed = 0;
 	}
 
@@ -11568,16 +11530,6 @@ static void ibm_exit(struct ibm_struct *ibm)
 			"%s: remove_proc_entry\n", ibm->name);
 		remove_proc_entry(ibm->name, proc_dir);
 		ibm->flags.proc_created = 0;
-	}
-
-	if (ibm->flags.acpi_driver_registered) {
-		dbg_printk(TPACPI_DBG_EXIT,
-			"%s: acpi_bus_unregister_driver\n", ibm->name);
-		BUG_ON(!ibm->acpi);
-		acpi_bus_unregister_driver(ibm->acpi->driver);
-		kfree(ibm->acpi->driver);
-		ibm->acpi->driver = NULL;
-		ibm->flags.acpi_driver_registered = 0;
 	}
 
 	if (ibm->flags.init_called && ibm->exit) {
@@ -11615,12 +11567,6 @@ static int __init ibm_init(struct ibm_init_struct *iibm)
 	}
 
 	if (ibm->acpi) {
-		if (ibm->acpi->hid) {
-			ret = register_tpacpi_subdriver(ibm);
-			if (ret)
-				goto err_out;
-		}
-
 		if (ibm->acpi->notify) {
 			ret = setup_acpi_notify(ibm);
 			if (ret == -ENODEV) {
