@@ -100,7 +100,7 @@ jobs:
         echo "git_sha_ct=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%ct)" >> "$dist/context.txt"
 
     - name: Store the distribution packages
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: dtb-${{ inputs.compiler }}
         path: ${{ env.DIST }}

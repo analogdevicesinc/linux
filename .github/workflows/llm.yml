@@ -249,7 +249,7 @@ jobs:
     - name: Store suggested patches
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
       id: upload_patches
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: llm-patches
         path: ${{ env.patches_path }}
@@ -260,7 +260,7 @@ jobs:
       run: |
         [[ -z "$(ls -A "$patches_path")" ]] && exit 0
 
-        # Requires upload-artifact@v4
+        # Requires upload-artifact@v6
         url="${{ steps.upload_patches.outputs.artifact-url }}"
         echo "## Suggested patches" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
