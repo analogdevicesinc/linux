@@ -2,7 +2,6 @@
 
 #include "dev.h"
 #include "sysctl.h"
-#include "fuse_i.h"
 #include "fuse_dev_i.h"
 #include "dev_uring_i.h"
 
