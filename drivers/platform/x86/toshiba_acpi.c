@@ -44,6 +44,7 @@
 #include <linux/rfkill.h>
 #include <linux/hwmon.h>
 #include <linux/iio/iio.h>
+#include <linux/platform_device.h>
 #include <linux/toshiba.h>
 #include <acpi/battery.h>
 #include <acpi/video.h>
@@ -3255,16 +3256,17 @@ static void toshiba_acpi_notify(acpi_handle handle, u32 event, void *data)
 					dev->last_key_event : 0);
 }
 
-static void toshiba_acpi_remove(struct acpi_device *acpi_dev)
+static void toshiba_acpi_remove(struct platform_device *pdev)
 {
-	struct toshiba_acpi_dev *dev = acpi_driver_data(acpi_dev);
+	struct toshiba_acpi_dev *dev = platform_get_drvdata(pdev);
 
 	misc_deregister(&dev->miscdev);
 
 	remove_toshiba_proc_entries(dev);
 
 	if (dev->notify_handler_installed)
-		acpi_dev_remove_notify_handler(acpi_dev, ACPI_DEVICE_NOTIFY,
+		acpi_dev_remove_notify_handler(ACPI_COMPANION(&pdev->dev),
+					       ACPI_DEVICE_NOTIFY,
 					       toshiba_acpi_notify);
 
 #if IS_ENABLED(CONFIG_HWMON)
@@ -3305,6 +3307,8 @@ static void toshiba_acpi_remove(struct acpi_device *acpi_dev)
 
 	if (toshiba_acpi)
 		toshiba_acpi = NULL;
+
+	dev_set_drvdata(&dev->acpi_dev->dev, NULL);
 
 	kfree(dev);
 }
@@ -3368,8 +3372,9 @@ static const struct dmi_system_id toshiba_dmi_quirks[] __initconst = {
 	{ }
 };
 
-static int toshiba_acpi_add(struct acpi_device *acpi_dev)
+static int toshiba_acpi_probe(struct platform_device *pdev)
 {
+	struct acpi_device *acpi_dev = ACPI_COMPANION(&pdev->dev);
 	struct toshiba_acpi_dev *dev;
 	const char *hci_method;
 	u32 dummy;
@@ -3403,7 +3408,7 @@ static int toshiba_acpi_add(struct acpi_device *acpi_dev)
 		return ret;
 	}
 
-	acpi_dev->driver_data = dev;
+	platform_set_drvdata(pdev, dev);
 	dev_set_drvdata(&acpi_dev->dev, dev);
 
 	/* Query the BIOS for supported features */
@@ -3434,7 +3439,7 @@ static int toshiba_acpi_add(struct acpi_device *acpi_dev)
 		dev->led_dev.max_brightness = 1;
 		dev->led_dev.brightness_set = toshiba_illumination_set;
 		dev->led_dev.brightness_get = toshiba_illumination_get;
-		led_classdev_register(&acpi_dev->dev, &dev->led_dev);
+		led_classdev_register(&pdev->dev, &dev->led_dev);
 	}
 
 	toshiba_eco_mode_available(dev);
@@ -3443,7 +3448,7 @@ static int toshiba_acpi_add(struct acpi_device *acpi_dev)
 		dev->eco_led.max_brightness = 1;
 		dev->eco_led.brightness_set = toshiba_eco_mode_set_status;
 		dev->eco_led.brightness_get = toshiba_eco_mode_get_status;
-		led_classdev_register(&dev->acpi_dev->dev, &dev->eco_led);
+		led_classdev_register(&pdev->dev, &dev->eco_led);
 	}
 
 	toshiba_kbd_illum_available(dev);
@@ -3459,7 +3464,7 @@ static int toshiba_acpi_add(struct acpi_device *acpi_dev)
 		dev->kbd_led.max_brightness = 1;
 		dev->kbd_led.brightness_set = toshiba_kbd_backlight_set;
 		dev->kbd_led.brightness_get = toshiba_kbd_backlight_get;
-		led_classdev_register(&dev->acpi_dev->dev, &dev->kbd_led);
+		led_classdev_register(&pdev->dev, &dev->kbd_led);
 	}
 
 	ret = toshiba_touchpad_get(dev, &dummy);
@@ -3467,7 +3472,7 @@ static int toshiba_acpi_add(struct acpi_device *acpi_dev)
 
 	toshiba_accelerometer_available(dev);
 	if (dev->accelerometer_supported) {
-		dev->indio_dev = iio_device_alloc(&acpi_dev->dev, sizeof(*dev));
+		dev->indio_dev = iio_device_alloc(&pdev->dev, sizeof(*dev));
 		if (!dev->indio_dev) {
 			pr_err("Unable to allocate iio device\n");
 			goto iio_error;
@@ -3516,7 +3521,7 @@ iio_error:
 #if IS_ENABLED(CONFIG_HWMON)
 	if (dev->fan_rpm_supported) {
 		dev->hwmon_device = hwmon_device_register_with_info(
-			&dev->acpi_dev->dev, "toshiba_acpi_sensors", NULL,
+			&pdev->dev, "toshiba_acpi_sensors", NULL,
 			&toshiba_acpi_hwmon_chip_info, NULL);
 		if (IS_ERR(dev->hwmon_device)) {
 			dev->hwmon_device = NULL;
@@ -3564,14 +3569,14 @@ iio_error:
 	return 0;
 
 error:
-	toshiba_acpi_remove(acpi_dev);
+	toshiba_acpi_remove(pdev);
 	return ret;
 }
 
 #ifdef CONFIG_PM_SLEEP
 static int toshiba_acpi_suspend(struct device *device)
 {
-	struct toshiba_acpi_dev *dev = acpi_driver_data(to_acpi_device(device));
+	struct toshiba_acpi_dev *dev = dev_get_drvdata(device);
 
 	if (dev->hotkey_dev) {
 		u32 result;
@@ -3586,7 +3591,7 @@ static int toshiba_acpi_suspend(struct device *device)
 
 static int toshiba_acpi_resume(struct device *device)
 {
-	struct toshiba_acpi_dev *dev = acpi_driver_data(to_acpi_device(device));
+	struct toshiba_acpi_dev *dev = dev_get_drvdata(device);
 
 	if (dev->hotkey_dev) {
 		if (toshiba_acpi_enable_hotkeys(dev))
@@ -3608,15 +3613,14 @@ static int toshiba_acpi_resume(struct device *device)
 static SIMPLE_DEV_PM_OPS(toshiba_acpi_pm,
 			 toshiba_acpi_suspend, toshiba_acpi_resume);
 
-static struct acpi_driver toshiba_acpi_driver = {
-	.name	= "Toshiba ACPI driver",
-	.ids	= toshiba_device_ids,
-	.flags	= ACPI_DRIVER_ALL_NOTIFY_EVENTS,
-	.ops	= {
-		.add		= toshiba_acpi_add,
-		.remove		= toshiba_acpi_remove,
+static struct platform_driver toshiba_acpi_driver = {
+	.probe = toshiba_acpi_probe,
+	.remove = toshiba_acpi_remove,
+	.driver = {
+		.name = "Toshiba ACPI driver",
+		.acpi_match_table = toshiba_device_ids,
+		.pm = &toshiba_acpi_pm,
 	},
-	.drv.pm	= &toshiba_acpi_pm,
 };
 
 static void __init toshiba_dmi_init(void)
@@ -3646,7 +3650,7 @@ static int __init toshiba_acpi_init(void)
 		return -ENODEV;
 	}
 
-	ret = acpi_bus_register_driver(&toshiba_acpi_driver);
+	ret = platform_driver_register(&toshiba_acpi_driver);
 	if (ret) {
 		pr_err("Failed to register ACPI driver: %d\n", ret);
 		remove_proc_entry(PROC_TOSHIBA, acpi_root_dir);
@@ -3657,7 +3661,7 @@ static int __init toshiba_acpi_init(void)
 
 static void __exit toshiba_acpi_exit(void)
 {
-	acpi_bus_unregister_driver(&toshiba_acpi_driver);
+	platform_driver_unregister(&toshiba_acpi_driver);
 	if (toshiba_proc_dir)
 		remove_proc_entry(PROC_TOSHIBA, acpi_root_dir);
 }
