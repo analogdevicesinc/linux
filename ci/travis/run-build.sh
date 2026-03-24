@@ -181,7 +181,7 @@ build_default() {
 
 	make ${DEFCONFIG}
 	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi-.* \
-		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging-rpi ]]; then
+		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging/rpi/* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi/release/* ]]; then
 		echo "Rpi build"
 		make -j$NUM_JOBS DTC_FLAGS=-@ $IMAGE modules dtbs
 		make INSTALL_MOD_PATH="${PWD}/modules" modules_install
