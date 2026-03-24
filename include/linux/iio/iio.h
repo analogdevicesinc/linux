@@ -177,8 +177,24 @@ struct iio_event_spec {
 };
 
 /**
+ * define IIO_SCAN_FORMAT_SIGNED_INT - signed integer data format
+ *
+ * &iio_scan_type.format value for signed integers (two's complement).
+ */
+#define IIO_SCAN_FORMAT_SIGNED_INT	's'
+
+/**
+ * define IIO_SCAN_FORMAT_UNSIGNED_INT - unsigned integer data format
+ *
+ * &iio_scan_type.format value for unsigned integers.
+ */
+#define IIO_SCAN_FORMAT_UNSIGNED_INT	'u'
+
+/**
  * struct iio_scan_type - specification for channel data format in buffer
- * @sign:		's' or 'u' to specify signed or unsigned
+ * @sign:		Deprecated, use @format instead.
+ * @format:		Data format, can have any of the IIO_SCAN_FORMAT_*
+ *			values.
  * @realbits:		Number of valid bits of data
  * @storagebits:	Realbits + padding
  * @shift:		Shift right by this before masking out realbits.
@@ -189,7 +205,10 @@ struct iio_event_spec {
  * @endianness:		little or big endian
  */
 struct iio_scan_type {
-	char	sign;
+	union {
+		char sign;
+		char format;
+	};
 	u8	realbits;
 	u8	storagebits;
 	u8	shift;
