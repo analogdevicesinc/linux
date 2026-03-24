@@ -11,6 +11,7 @@ else
 	export _color='--color'
 fi
 
+[[ ! -v KBUILD_OUTPUT ]] && export KBUILD_OUTPUT='build'
 [[ ! -v CI_WORKTREE ]] && export CI_WORKTREE='.'
 
 _fmt() {
@@ -395,7 +396,7 @@ check_assert_defconfigs() {
 			echo $file
 			set_arch gcc_$arch_ 1>/dev/null
 			make $defconfig savedefconfig 1>/dev/null
-			rm .config
+			rm "$KBUILD_OUTPUT/.config"
 
 			mv defconfig $file
 			out=$(git diff $_color --exit-code $file) || {
@@ -714,7 +715,7 @@ compile_kernel() {
 	fi
 	rm $tmp_log_file
 
-	python3 scripts/clang-tools/gen_compile_commands.py
+	python3 scripts/clang-tools/gen_compile_commands.py -d "$KBUILD_OUTPUT"
 
 	_export_kernel_name
 	_set_step_warn $warn
@@ -1057,7 +1058,7 @@ assert_compiled () {
 	[[ -z "$files" ]] && return 0
 	while read file; do
 		echo -e "\e[1m$file\e[0m"
-		abs_file=$(realpath .)/$file
+		abs_file=$(realpath "$KBUILD_OUTPUT")/$file
 		compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
 			      .command" compile_commands.json)
 
@@ -1122,7 +1123,7 @@ auto_set_kconfig() {
 	local k_symbols=$(echo "$k_blocks" | awk -f $CI_WORKTREE/ci/touched_kconfig.awk)
 	symbols=$(python3 $CI_WORKTREE/ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
 	for sym in $symbols; do
-		scripts/config -e $sym
+		scripts/config --file "$KBUILD_OUTPUT/.config" -e $sym
 	done
 	make yes2modconfig
 
@@ -1133,11 +1134,11 @@ auto_set_kconfig() {
 		"CONFIG_FPGA_MGR_ZYNQ_FPGA"
 	)
 	for i in "${no_module_config[@]}"; do
-		sed -i "s/^$i=m/$i=y/" .config
+		sed -i "s/^$i=m/$i=y/" "$KBUILD_OUTPUT/.config"
 	done
 
 	# We collect warnings and assert as the last ci step.
-	scripts/config -d WERROR
+	scripts/config --file "$KBUILD_OUTPUT/.config" -d WERROR
 
 	return 0
 }
