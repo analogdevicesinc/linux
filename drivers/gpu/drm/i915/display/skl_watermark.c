@@ -3917,6 +3917,23 @@ void skl_wm_plane_disable_noatomic(struct intel_crtc *crtc,
 	       sizeof(crtc_state->wm.skl.optimal.planes[plane->id]));
 }
 
+static void skl_wm_level_verify(struct intel_plane *plane,
+				const char *wm_name,
+				const struct skl_wm_level *hw_wm_level,
+				const struct skl_wm_level *sw_wm_level)
+{
+	struct intel_display *display = to_intel_display(plane);
+
+	if (skl_wm_level_equals(hw_wm_level, sw_wm_level))
+		return;
+
+	drm_err(display->drm,
+		"[PLANE:%d:%s] mismatch in %s (expected e=%d b=%u l=%u, got e=%d b=%u l=%u)\n",
+		plane->base.base.id, plane->base.name, wm_name,
+		sw_wm_level->enable, sw_wm_level->blocks, sw_wm_level->lines,
+		hw_wm_level->enable, hw_wm_level->blocks, hw_wm_level->lines);
+}
+
 void intel_wm_state_verify(struct intel_atomic_state *state,
 			   struct intel_crtc *crtc)
 {
@@ -3956,73 +3973,34 @@ void intel_wm_state_verify(struct intel_atomic_state *state,
 			hw_enabled_slices);
 
 	for_each_intel_plane_on_crtc(display->drm, crtc, plane) {
+		const struct skl_plane_wm *hw_plane_wm =
+			&hw->wm.planes[plane->id];
+		const struct skl_plane_wm *sw_plane_wm =
+			&sw_wm->planes[plane->id];
 		const struct skl_ddb_entry *hw_ddb_entry, *sw_ddb_entry;
-		const struct skl_wm_level *hw_wm_level, *sw_wm_level;
 
-		/* Watermarks */
 		for (level = 0; level < display->wm.num_levels; level++) {
-			hw_wm_level = &hw->wm.planes[plane->id].wm[level];
-			sw_wm_level = skl_plane_wm_level(sw_wm, plane->id, level);
+			char wm_name[16];
 
-			if (skl_wm_level_equals(hw_wm_level, sw_wm_level))
-				continue;
+			snprintf(wm_name, sizeof(wm_name), "WM%d", level);
 
-			drm_err(display->drm,
-				"[PLANE:%d:%s] mismatch in WM%d (expected e=%d b=%u l=%u, got e=%d b=%u l=%u)\n",
-				plane->base.base.id, plane->base.name, level,
-				sw_wm_level->enable,
-				sw_wm_level->blocks,
-				sw_wm_level->lines,
-				hw_wm_level->enable,
-				hw_wm_level->blocks,
-				hw_wm_level->lines);
+			skl_wm_level_verify(plane, wm_name,
+					    &hw_plane_wm->wm[level],
+					    skl_plane_wm_level(sw_wm, plane->id, level));
 		}
 
-		hw_wm_level = &hw->wm.planes[plane->id].trans_wm;
-		sw_wm_level = skl_plane_trans_wm(sw_wm, plane->id);
+		skl_wm_level_verify(plane, "trans WM",
+				    &hw_plane_wm->trans_wm,
+				    skl_plane_trans_wm(sw_wm, plane->id));
 
-		if (!skl_wm_level_equals(hw_wm_level, sw_wm_level)) {
-			drm_err(display->drm,
-				"[PLANE:%d:%s] mismatch in trans WM (expected e=%d b=%u l=%u, got e=%d b=%u l=%u)\n",
-				plane->base.base.id, plane->base.name,
-				sw_wm_level->enable,
-				sw_wm_level->blocks,
-				sw_wm_level->lines,
-				hw_wm_level->enable,
-				hw_wm_level->blocks,
-				hw_wm_level->lines);
-		}
+		if (HAS_HW_SAGV_WM(display)) {
+			skl_wm_level_verify(plane, "SAGV WM",
+					    &hw_plane_wm->sagv.wm0,
+					    &sw_plane_wm->sagv.wm0);
 
-		hw_wm_level = &hw->wm.planes[plane->id].sagv.wm0;
-		sw_wm_level = &sw_wm->planes[plane->id].sagv.wm0;
-
-		if (HAS_HW_SAGV_WM(display) &&
-		    !skl_wm_level_equals(hw_wm_level, sw_wm_level)) {
-			drm_err(display->drm,
-				"[PLANE:%d:%s] mismatch in SAGV WM (expected e=%d b=%u l=%u, got e=%d b=%u l=%u)\n",
-				plane->base.base.id, plane->base.name,
-				sw_wm_level->enable,
-				sw_wm_level->blocks,
-				sw_wm_level->lines,
-				hw_wm_level->enable,
-				hw_wm_level->blocks,
-				hw_wm_level->lines);
-		}
-
-		hw_wm_level = &hw->wm.planes[plane->id].sagv.trans_wm;
-		sw_wm_level = &sw_wm->planes[plane->id].sagv.trans_wm;
-
-		if (HAS_HW_SAGV_WM(display) &&
-		    !skl_wm_level_equals(hw_wm_level, sw_wm_level)) {
-			drm_err(display->drm,
-				"[PLANE:%d:%s] mismatch in SAGV trans WM (expected e=%d b=%u l=%u, got e=%d b=%u l=%u)\n",
-				plane->base.base.id, plane->base.name,
-				sw_wm_level->enable,
-				sw_wm_level->blocks,
-				sw_wm_level->lines,
-				hw_wm_level->enable,
-				hw_wm_level->blocks,
-				hw_wm_level->lines);
+			skl_wm_level_verify(plane, "SAGV trans WM",
+					    &hw_plane_wm->sagv.trans_wm,
+					    &sw_plane_wm->sagv.trans_wm);
 		}
 
 		/* DDB */
