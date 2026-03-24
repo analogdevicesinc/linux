@@ -191,6 +191,13 @@ struct iio_event_spec {
 #define IIO_SCAN_FORMAT_UNSIGNED_INT	'u'
 
 /**
+ * define IIO_SCAN_FORMAT_FLOAT - floating-point data format
+ *
+ * &iio_scan_type.format value for IEEE 754 floating-point numbers.
+ */
+#define IIO_SCAN_FORMAT_FLOAT		'f'
+
+/**
  * struct iio_scan_type - specification for channel data format in buffer
  * @sign:		Deprecated, use @format instead.
  * @format:		Data format, can have any of the IIO_SCAN_FORMAT_*
