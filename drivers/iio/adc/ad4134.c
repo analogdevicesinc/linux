@@ -1007,11 +1007,11 @@ static int ad4134_bind(struct device *dev)
 	struct ad4134_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = ad4134_offload_buffer_setup(indio_dev, st->spi);
+	ret = component_bind_all(dev, st);
 	if (ret)
 		return ret;
 
-	ret = component_bind_all(dev, st);
+	ret = ad4134_offload_buffer_setup(indio_dev, st->spi);
 	if (ret)
 		return ret;
 
