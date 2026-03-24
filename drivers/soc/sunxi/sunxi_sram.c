@@ -12,6 +12,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/io.h>
+#include <linux/limits.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -38,7 +39,7 @@ struct sunxi_sram_data {
 
 struct sunxi_sram_desc {
 	struct sunxi_sram_data	data;
-	bool			claimed;
+	u8			claim_cnt;
 };
 
 #define SUNXI_SRAM_MAP(_reg_val, _val, _func)			\
@@ -244,9 +245,11 @@ int sunxi_sram_claim(struct device *dev)
 
 	spin_lock(&sram_lock);
 
-	if (sram_desc->claimed) {
+	if (sram_desc->claim_cnt) {
+		if (!WARN_ON(sram_desc->claim_cnt == U8_MAX))
+			sram_desc->claim_cnt++;
 		spin_unlock(&sram_lock);
-		return -EBUSY;
+		return 0;
 	}
 
 	mask = GENMASK(sram_data->offset + sram_data->width - 1,
@@ -256,7 +259,7 @@ int sunxi_sram_claim(struct device *dev)
 	writel(val | ((device << sram_data->offset) & mask),
 	       base + sram_data->reg);
 
-	sram_desc->claimed = true;
+	sram_desc->claim_cnt++;
 	spin_unlock(&sram_lock);
 
 	return 0;
@@ -278,7 +281,8 @@ void sunxi_sram_release(struct device *dev)
 	sram_desc = to_sram_desc(sram_data);
 
 	spin_lock(&sram_lock);
-	sram_desc->claimed = false;
+	if (!WARN_ON(sram_desc->claim_cnt == 0))
+		sram_desc->claim_cnt--;
 	spin_unlock(&sram_lock);
 }
 EXPORT_SYMBOL(sunxi_sram_release);
