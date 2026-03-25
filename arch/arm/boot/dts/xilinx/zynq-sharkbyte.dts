@@ -1,0 +1,294 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Sharkbyte - 8-bit Single Channel Mode
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7768
+ *
+ * hdl_project: <projects/sharkbyte>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "Analog Devices Sharkbyte 8-bit 1-channel";
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x20000000>;
+	};
+
+	chosen {
+		stdout-path = "/amba@0/uart@E0001000";
+	};
+};
+
+/ {
+	clocks {
+		adf4355_clkin: clock@0 {
+			compatible = "fixed-clock";
+			clock-frequency = <10000000>;
+			clock-output-names = "clkin";
+			#clock-cells = <0>;
+		};
+    };
+
+    vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	    };
+
+    one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios =  <&gpio_exp 13 GPIO_ACTIVE_LOW>, <&gpio_exp 14 GPIO_ACTIVE_LOW>, <&gpio_exp 15 GPIO_ACTIVE_LOW>;
+
+		channel@0 {
+			reg = <0>;
+			label = "ldac";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "rstn_dac";
+    	};
+		channel@2 {
+			reg = <2>;
+			label = "clk_sel";
+        };
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio_exp 12 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+	};
+};
+
+/ {
+    fpga_axi: fpga-axi@0 {
+        compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+        axi_i2c0: i2c@41600000 {
+            compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+            reg = <0x41600000 0x10000>;
+            interrupt-parent = <&intc>;
+            interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+            clocks = <&clkc 15>;
+            clock-names = "pclk";
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            status = "okay";
+
+
+            gpio_exp: gpio@34 {
+				compatible = "adi,adp5589";
+				reg = <0x34>;
+
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+            ad5696: dac@c {
+	        	compatible = "adi,ad5696";
+	        	reg = <0x0c>;
+	        	vcc-supply = <&vref>;
+	        };
+
+            max31827: max31827@5f {
+                compatible = "adi,max31827";
+                label = "sharkbyte-temp";
+                reg = <0x5f>;
+                vref-supply = <&vref>;
+                adi,comp-int;
+                adi,alarm-pol = <0>;
+                adi,fault-q = <1>;
+                adi,timeout-enable;
+            };
+
+        };
+
+        // first ADC
+
+        axi_adc1_hmcad15xx: axi_adc1_hmcad15xx@44A00000 {
+            compatible = "adi,axi-adc-legacy-10.0.a";
+            reg = <0x44A00000 0x10000>;
+            dmas = <&rx1_dma 0>;
+            dma-names = "rx";
+            spibus-connected = <&hmcad15xx_1>;
+        };
+
+        rx1_dma: rx1_dma@44a30000 {
+            compatible = "adi,axi-dmac-1.00.a";
+            reg = <0x44A30000 0x10000>;
+            #dma-cells = <1>;
+            interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+            clocks = <&clkc 17>;
+
+            adi,channels {
+                #size-cells = <0>;
+                #address-cells = <1>;
+
+                dma-channel@0 {
+                    reg = <0>;
+                    adi,source-bus-width = <128>;
+                    adi,source-bus-type = <2>;
+                    adi,destination-bus-width = <64>;
+                    adi,destination-bus-type = <0>;
+                };
+            };
+        };
+
+        // second ADC
+
+        axi_adc2_hmcad15xx: axi_adc2_hmcad15xx@44A60000{
+            compatible = "adi,axi-adc-legacy-10.0.a";
+            reg = <0x44A60000 0x10000>;
+            dmas = <&rx2_dma 0>;
+            dma-names = "rx";
+            spibus-connected = <&hmcad15xx_2>;
+        };
+
+        rx2_dma: rx2_dma@44a90000 {
+            compatible = "adi,axi-dmac-1.00.a";
+            reg = <0x44A90000 0x10000>;
+            #dma-cells = <1>;
+            interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+            clocks = <&clkc 17>;
+
+            adi,channels {
+                #size-cells = <0>;
+                #address-cells = <1>;
+
+                dma-channel@0 {
+                    reg = <0>;
+                    adi,source-bus-width = <128>;
+                    adi,source-bus-type = <2>;
+                    adi,destination-bus-width = <64>;
+                    adi,destination-bus-type = <0>;
+                };
+            };
+        };
+    };
+};
+
+&sdhci0 {
+	status = "disabled";
+};
+
+&watchdog0 {
+	status = "okay";
+	reset-on-timeout;
+};
+
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 52 0>;
+	dr_mode = "otg";
+	status = "okay";
+};
+
+&qspi {
+	status = "okay";
+	is-dual = <0>;
+	num-cs = <1>;
+	spi-nor-locking-disable;
+
+	primary_flash: ps7-qspi@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <50000000>;
+		partition@qspi-fsbl-uboot {
+			label = "qspi-fsbl-uboot";
+			reg = <0x0 0x100000>; /* 1M */
+		};
+		partition@qspi-uboot-env {
+			label = "qspi-uboot-env";
+			reg = <0x100000 0x20000>; /* 128k */
+		};
+		partition@qspi-nvmfs {
+			label = "qspi-nvmfs";
+			reg = <0x120000 0xE0000>; /* 1M */
+		};
+		partition@qspi-linux {
+			label = "qspi-linux";
+			reg = <0x200000 0x1E00000>; /* 30M */
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+    hmcad15xx_1: hmcad15xx_1@0 {
+        compatible = "adi,hmcad15xx";
+        reg = <0>;
+        clocks = <&adf4355_clk>;
+        clock-names = "clk";
+        reset-gpios = <&gpio_exp 9 GPIO_ACTIVE_LOW>;
+		pd-gpios = <&gpio_exp 10 GPIO_ACTIVE_HIGH>;
+        adi,num-channels = <1>;
+        adi,resolution = <8>;
+        adi,pol-mask = <239>;
+    };
+
+    hmcad15xx_2: hmcad15xx_2@1 {
+        compatible = "adi,hmcad15xx";
+        reg = <1>;
+        clocks = <&adf4355_clk>;
+        clock-names = "clk";
+        reset-gpios = <&gpio_exp 8 GPIO_ACTIVE_LOW>;
+        pd-gpios = <&gpio_exp 11 GPIO_ACTIVE_HIGH>;
+        adi,num-channels = <1>;
+        adi,resolution = <8>;
+        adi,pol-mask = <32>;
+    };
+
+    adf4355_clk: adf4355@2 {
+		compatible = "adi,adf4355-2";
+		reg = <2>;
+		spi-max-frequency = <10000000>;
+		clocks = <&adf4355_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "adf4355_pll";
+		#clock-cells = <0>;
+		adi,charge-pump-current = <900>;
+		adi,muxout-select = <6>;
+		adi,output-a-power = <3>;
+		adi,output-b-power = <3>;
+        adi,mute-till-lock-enable;
+		adi,charge-pump-negative-bleed-enable;
+		adi,reference-differential-input-enable;
+		adi,power-up-frequency = /bits/ 64 <1000000000>;
+		adi,output-a-enable;
+		adi,output-b-enable;
+		adi,clock-shift = <0>;
+	};
+};
+

@@ -995,7 +995,7 @@ static int adf5355_probe(struct spi_device *spi)
 
 		init.name = clk_name;
 		init.ops = &clkout_ops;
-		init.flags = 0;
+		init.flags = CLK_GET_RATE_NOCACHE;
 
 		parent_name = __clk_get_name(clk);
 		init.parent_names = &parent_name;

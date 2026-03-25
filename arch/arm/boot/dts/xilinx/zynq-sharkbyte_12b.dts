@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Sharkbyte
+ *
+ * hdl_project: <projects/sharkbyte>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-sharkbyte.dts"
+
+&hmcad15xx_1{
+	adi,num-channels = <1>;
+  	adi,resolution = <12>;
+};
+
+&hmcad15xx_2{
+	adi,num-channels = <1>;
+  	adi,resolution = <12>;
+};
+
+&adf4355_clk{
+	adi,power-up-frequency = /bits/ 64 <640000000>;
+};
