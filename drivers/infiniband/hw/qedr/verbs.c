@@ -273,12 +273,9 @@ int qedr_alloc_ucontext(struct ib_ucontext *uctx, struct ib_udata *udata)
 		return -EFAULT;
 
 	if (udata->inlen) {
-		rc = ib_copy_from_udata(&ureq, udata,
-					min(sizeof(ureq), udata->inlen));
-		if (rc) {
-			DP_ERR(dev, "Problem copying data from user space\n");
-			return -EFAULT;
-		}
+		rc = ib_copy_validate_udata_in(udata, ureq, reserved);
+		if (rc)
+			return rc;
 		ctx->edpm_mode = !!(ureq.context_flags &
 				    QEDR_ALLOC_UCTX_EDPM_MODE);
 		ctx->db_rec = !!(ureq.context_flags & QEDR_ALLOC_UCTX_DB_REC);
@@ -949,12 +946,9 @@ int qedr_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	db_offset = DB_ADDR_SHIFT(DQ_PWM_OFFSET_UCM_RDMA_CQ_CONS_32BIT);
 
 	if (udata) {
-		if (ib_copy_from_udata(&ureq, udata, min(sizeof(ureq),
-							 udata->inlen))) {
-			DP_ERR(dev,
-			       "create cq: problem copying data from user space\n");
-			goto err0;
-		}
+		rc = ib_copy_validate_udata_in(udata, ureq, len);
+		if (rc)
+			return rc;
 
 		if (!ureq.len) {
 			DP_ERR(dev,
@@ -1575,12 +1569,9 @@ int qedr_create_srq(struct ib_srq *ibsrq, struct ib_srq_init_attr *init_attr,
 	hw_srq->max_sges = init_attr->attr.max_sge;
 
 	if (udata) {
-		if (ib_copy_from_udata(&ureq, udata, min(sizeof(ureq),
-							 udata->inlen))) {
-			DP_ERR(dev,
-			       "create srq: problem copying data from user space\n");
-			goto err0;
-		}
+		rc = ib_copy_validate_udata_in(udata, ureq, srq_len);
+		if (rc)
+			return rc;
 
 		rc = qedr_init_srq_user_params(udata, srq, &ureq, 0);
 		if (rc)
@@ -1860,12 +1851,9 @@ static int qedr_create_user_qp(struct qedr_dev *dev,
 	}
 
 	if (udata) {
-		rc = ib_copy_from_udata(&ureq, udata, min(sizeof(ureq),
-					udata->inlen));
-		if (rc) {
-			DP_ERR(dev, "Problem copying data from user space\n");
+		rc = ib_copy_validate_udata_in(udata, ureq, rq_len);
+		if (rc)
 			return rc;
-		}
 	}
 
 	if (qedr_qp_has_sq(qp)) {

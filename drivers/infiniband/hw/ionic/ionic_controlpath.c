@@ -373,7 +373,7 @@ int ionic_alloc_ucontext(struct ib_ucontext *ibctx, struct ib_udata *udata)
 	phys_addr_t db_phys = 0;
 	int rc;
 
-	rc = ib_copy_from_udata(&req, udata, sizeof(req));
+	rc = ib_copy_validate_udata_in(udata, req, rsvd);
 	if (rc)
 		return rc;
 
@@ -1225,7 +1225,7 @@ int ionic_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	int udma_idx = 0, rc;
 
 	if (udata) {
-		rc = ib_copy_from_udata(&req, udata, sizeof(req));
+		rc = ib_copy_validate_udata_in(udata, req, rsvd);
 		if (rc)
 			return rc;
 	}
@@ -2154,7 +2154,7 @@ int ionic_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *attr,
 	int rc;
 
 	if (udata) {
-		rc = ib_copy_from_udata(&req, udata, sizeof(req));
+		rc = ib_copy_validate_udata_in(udata, req, rsvd);
 		if (rc)
 			return rc;
 	} else {

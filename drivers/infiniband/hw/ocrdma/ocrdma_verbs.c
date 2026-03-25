@@ -982,8 +982,9 @@ int ocrdma_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		return -EOPNOTSUPP;
 
 	if (udata) {
-		if (ib_copy_from_udata(&ureq, udata, sizeof(ureq)))
-			return -EFAULT;
+		status = ib_copy_validate_udata_in(udata, ureq, rsvd);
+		if (status)
+			return status;
 	} else
 		ureq.dpp_cq = 0;
 
@@ -1309,8 +1310,9 @@ int ocrdma_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *attrs,
 
 	memset(&ureq, 0, sizeof(ureq));
 	if (udata) {
-		if (ib_copy_from_udata(&ureq, udata, sizeof(ureq)))
-			return -EFAULT;
+		status = ib_copy_validate_udata_in(udata, ureq, rsvd1);
+		if (status)
+			return status;
 	}
 	ocrdma_set_qp_init_params(qp, pd, attrs);
 	if (udata == NULL)
