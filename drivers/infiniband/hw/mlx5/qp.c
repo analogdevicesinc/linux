@@ -4707,17 +4707,9 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 		return -ENOSYS;
 
 	if (udata && udata->inlen) {
-		if (udata->inlen < offsetofend(typeof(ucmd), ece_options))
-			return -EINVAL;
-
-		if (udata->inlen > sizeof(ucmd) &&
-		    !ib_is_udata_cleared(udata, sizeof(ucmd),
-					 udata->inlen - sizeof(ucmd)))
-			return -EOPNOTSUPP;
-
-		if (ib_copy_from_udata(&ucmd, udata,
-				       min(udata->inlen, sizeof(ucmd))))
-			return -EFAULT;
+		err = ib_copy_validate_udata_in(udata, ucmd, ece_options);
+		if (err)
+			return err;
 
 		if (ucmd.comp_mask & ~MLX5_IB_MODIFY_QP_OOO_DP ||
 		    memchr_inv(&ucmd.burst_info.reserved, 0,
@@ -5389,25 +5381,11 @@ static int prepare_user_rq(struct ib_pd *pd,
 	struct mlx5_ib_dev *dev = to_mdev(pd->device);
 	struct mlx5_ib_create_wq ucmd = {};
 	int err;
-	size_t required_cmd_sz;
-
-	required_cmd_sz = offsetofend(struct mlx5_ib_create_wq,
-				      single_stride_log_num_of_bytes);
-	if (udata->inlen < required_cmd_sz) {
-		mlx5_ib_dbg(dev, "invalid inlen\n");
-		return -EINVAL;
-	}
-
-	if (udata->inlen > sizeof(ucmd) &&
-	    !ib_is_udata_cleared(udata, sizeof(ucmd),
-				 udata->inlen - sizeof(ucmd))) {
-		mlx5_ib_dbg(dev, "inlen is not supported\n");
-		return -EOPNOTSUPP;
-	}
-
-	if (ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen))) {
+	err = ib_copy_validate_udata_in(udata, ucmd,
+					single_stride_log_num_of_bytes);
+	if (err) {
 		mlx5_ib_dbg(dev, "copy failed\n");
-		return -EFAULT;
+		return err;
 	}
 
 	if (ucmd.comp_mask & (~MLX5_IB_CREATE_WQ_STRIDING_RQ)) {
@@ -5626,7 +5604,6 @@ int mlx5_ib_modify_wq(struct ib_wq *wq, struct ib_wq_attr *wq_attr,
 	struct mlx5_ib_dev *dev = to_mdev(wq->device);
 	struct mlx5_ib_rwq *rwq = to_mrwq(wq);
 	struct mlx5_ib_modify_wq ucmd = {};
-	size_t required_cmd_sz;
 	int curr_wq_state;
 	int wq_state;
 	int inlen;
@@ -5634,17 +5611,9 @@ int mlx5_ib_modify_wq(struct ib_wq *wq, struct ib_wq_attr *wq_attr,
 	void *rqc;
 	void *in;
 
-	required_cmd_sz = offsetofend(struct mlx5_ib_modify_wq, reserved);
-	if (udata->inlen < required_cmd_sz)
-		return -EINVAL;
-
-	if (udata->inlen > sizeof(ucmd) &&
-	    !ib_is_udata_cleared(udata, sizeof(ucmd),
-				 udata->inlen - sizeof(ucmd)))
-		return -EOPNOTSUPP;
-
-	if (ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen)))
-		return -EFAULT;
+	err = ib_copy_validate_udata_in(udata, ucmd, reserved);
+	if (err)
+		return err;
 
 	if (ucmd.comp_mask || ucmd.reserved)
 		return -EOPNOTSUPP;

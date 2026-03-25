@@ -710,7 +710,6 @@ static int _mlx4_ib_create_qp_rss(struct ib_pd *pd, struct mlx4_ib_qp *qp,
 				  struct ib_udata *udata)
 {
 	struct mlx4_ib_create_qp_rss ucmd = {};
-	size_t required_cmd_sz;
 	int err;
 
 	if (!udata) {
@@ -721,16 +720,10 @@ static int _mlx4_ib_create_qp_rss(struct ib_pd *pd, struct mlx4_ib_qp *qp,
 	if (udata->outlen)
 		return -EOPNOTSUPP;
 
-	required_cmd_sz = offsetof(typeof(ucmd), reserved1) +
-					sizeof(ucmd.reserved1);
-	if (udata->inlen < required_cmd_sz) {
-		pr_debug("invalid inlen\n");
-		return -EINVAL;
-	}
-
-	if (ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen))) {
+	err = ib_copy_validate_udata_in(udata, ucmd, reserved1);
+	if (err) {
 		pr_debug("copy failed\n");
-		return -EFAULT;
+		return err;
 	}
 
 	if (memchr_inv(ucmd.reserved, 0, sizeof(ucmd.reserved)))
@@ -738,13 +731,6 @@ static int _mlx4_ib_create_qp_rss(struct ib_pd *pd, struct mlx4_ib_qp *qp,
 
 	if (ucmd.comp_mask || ucmd.reserved1)
 		return -EOPNOTSUPP;
-
-	if (udata->inlen > sizeof(ucmd) &&
-	    !ib_is_udata_cleared(udata, sizeof(ucmd),
-				 udata->inlen - sizeof(ucmd))) {
-		pr_debug("inlen is not supported\n");
-		return -EOPNOTSUPP;
-	}
 
 	if (init_attr->qp_type != IB_QPT_RAW_PACKET) {
 		pr_debug("RSS QP with unsupported QP type %d\n",
@@ -4269,22 +4255,12 @@ int mlx4_ib_modify_wq(struct ib_wq *ibwq, struct ib_wq_attr *wq_attr,
 {
 	struct mlx4_ib_qp *qp = to_mqp((struct ib_qp *)ibwq);
 	struct mlx4_ib_modify_wq ucmd = {};
-	size_t required_cmd_sz;
 	enum ib_wq_state cur_state, new_state;
-	int err = 0;
+	int err;
 
-	required_cmd_sz = offsetof(typeof(ucmd), reserved) +
-				   sizeof(ucmd.reserved);
-	if (udata->inlen < required_cmd_sz)
-		return -EINVAL;
-
-	if (udata->inlen > sizeof(ucmd) &&
-	    !ib_is_udata_cleared(udata, sizeof(ucmd),
-				 udata->inlen - sizeof(ucmd)))
-		return -EOPNOTSUPP;
-
-	if (ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen)))
-		return -EFAULT;
+	err = ib_copy_validate_udata_in(udata, ucmd, reserved);
+	if (err)
+		return err;
 
 	if (ucmd.comp_mask || ucmd.reserved)
 		return -EOPNOTSUPP;

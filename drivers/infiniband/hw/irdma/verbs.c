@@ -284,7 +284,6 @@ static void irdma_alloc_push_page(struct irdma_qp *iwqp)
 static int irdma_alloc_ucontext(struct ib_ucontext *uctx,
 				struct ib_udata *udata)
 {
-#define IRDMA_ALLOC_UCTX_MIN_REQ_LEN offsetofend(struct irdma_alloc_ucontext_req, rsvd8)
 #define IRDMA_ALLOC_UCTX_MIN_RESP_LEN offsetofend(struct irdma_alloc_ucontext_resp, rsvd)
 	struct ib_device *ibdev = uctx->device;
 	struct irdma_device *iwdev = to_iwdev(ibdev);
@@ -292,13 +291,14 @@ static int irdma_alloc_ucontext(struct ib_ucontext *uctx,
 	struct irdma_alloc_ucontext_resp uresp = {};
 	struct irdma_ucontext *ucontext = to_ucontext(uctx);
 	struct irdma_uk_attrs *uk_attrs = &iwdev->rf->sc_dev.hw_attrs.uk_attrs;
+	int ret;
 
-	if (udata->inlen < IRDMA_ALLOC_UCTX_MIN_REQ_LEN ||
-	    udata->outlen < IRDMA_ALLOC_UCTX_MIN_RESP_LEN)
+	if (udata->outlen < IRDMA_ALLOC_UCTX_MIN_RESP_LEN)
 		return -EINVAL;
 
-	if (ib_copy_from_udata(&req, udata, min(sizeof(req), udata->inlen)))
-		return -EINVAL;
+	ret = ib_copy_validate_udata_in(udata, req, rsvd8);
+	if (ret)
+		return ret;
 
 	if (req.userspace_ver < 4 || req.userspace_ver > IRDMA_ABI_VER)
 		goto ver_error;
