@@ -2214,11 +2214,7 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 		if (r)
 			return r;
 
-		r = amdgpu_bo_create_kernel_at(adev,
-					       adev->mman.stolen_reserved_offset,
-					       adev->mman.stolen_reserved_size,
-					       &adev->mman.stolen_reserved_memory,
-					       NULL);
+		r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_RESERVED);
 		if (r)
 			return r;
 	} else {
@@ -2342,9 +2338,7 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
 				      NULL);
 		amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory_extend, NULL,
 				      NULL);
-		if (adev->mman.stolen_reserved_size)
-			amdgpu_bo_free_kernel(&adev->mman.stolen_reserved_memory,
-					      NULL, NULL);
+		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_STOLEN_RESERVED);
 	}
 	amdgpu_bo_free_kernel(&adev->mman.sdma_access_bo, NULL,
 					&adev->mman.sdma_access_ptr);

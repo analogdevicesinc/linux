@@ -105,10 +105,6 @@ struct amdgpu_mman {
 
 	bool			keep_stolen_vga_memory;
 
-	struct amdgpu_bo	*stolen_reserved_memory;
-	uint64_t		stolen_reserved_offset;
-	uint64_t		stolen_reserved_size;
-
 	/* fw reserved memory */
 	struct amdgpu_bo		*fw_reserved_memory;
 	struct amdgpu_bo		*fw_reserved_memory_extend;
