@@ -2007,3 +2007,56 @@ out:
 	return r;
 }
 
+/**
+ * amdgpu_ualink_sdma_entities_init - Initialize SDMA job scheduler entities
+ * @adev: amdgpu device pointer
+ *
+ * Sets up SDMA job scheduler entities for remote interrupt and shootdown.
+ * Each entity uses one SDMA scheduler/ring.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int amdgpu_ualink_sdma_entities_init(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	struct drm_gpu_scheduler *sched;
+	u32 accel_id;
+	int i = 0, r;
+
+	dev_dbg(adev->dev, "enter\n");
+
+	for_each_set_bit(accel_id, remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX) {
+		sched = &adev->sdma.instance[accel_id % adev->sdma.num_instances].ring.sched;
+
+		r = drm_sched_entity_init(&remote->peer[accel_id].entity, DRM_SCHED_PRIORITY_HIGH,
+					  &sched, 1, NULL);
+		if (r)
+			goto out_free;
+		i++;
+	}
+
+	dev_dbg(adev->dev, "exit\n");
+	return 0;
+
+out_free:
+	for_each_set_bit(accel_id, remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX) {
+		if (i--)
+			drm_sched_entity_destroy(&remote->peer[accel_id].entity);
+		else
+			break;
+	}
+
+	return r;
+}
+
+static void amdgpu_ualink_sdma_entities_fini(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	u32 accel_id;
+
+	dev_dbg(adev->dev, "enter\n");
+	for_each_set_bit(accel_id, remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX)
+		drm_sched_entity_destroy(&remote->peer[accel_id].entity);
+	dev_dbg(adev->dev, "exit\n");
+}
+
