@@ -281,6 +281,19 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 					   p->mcs_cfg.adf4382_cfg.clock_align_delay_strobe_gpio,
 					   1, ADI_APOLLO_NUM_ADF4382_GPIOS);
 
+	/*
+	 * MCS tracking window: the amount of deviation (in femtoseconds) the
+	 * ADF4382 output clock can drift relative to AD9084's External SysRef
+	 * before MCS Tracking attempts to correct it. Overrides the profile
+	 * value for both ADF4382 instances when specified.
+	 */
+	if (!of_property_read_u32(node, "adi,mcs-track-win", &phy->mcs_track_win)) {
+		p->mcs_cfg.adf4382_cfg.track_win[0] = phy->mcs_track_win;
+		p->mcs_cfg.adf4382_cfg.track_win[1] = phy->mcs_track_win;
+	} else {
+		phy->mcs_track_win = p->mcs_cfg.adf4382_cfg.track_win[0];
+	}
+
 	dev_dbg(dev, "Profile CRC32 %u\n", phy->profile.profile_checksum);
 	phy->profile.profile_checksum = crc32_be(0, (unsigned char const *)p,
 						 sizeof(*p) - sizeof(u32));
