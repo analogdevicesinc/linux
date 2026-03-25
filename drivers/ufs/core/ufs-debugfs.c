@@ -401,9 +401,70 @@ static const struct file_operations ufs_tx_eqtr_record_fops = {
 	.release	= single_release,
 };
 
+static ssize_t ufs_tx_eq_ctrl_write(struct file *file, const char __user *buf,
+				    size_t count, loff_t *ppos)
+{
+	u32 gear = (u32)(uintptr_t)file->f_inode->i_private;
+	struct ufs_hba *hba = hba_from_file(file);
+	char kbuf[32];
+	int ret;
+
+	if (count >= sizeof(kbuf))
+		return -EINVAL;
+
+	if (copy_from_user(kbuf, buf, count))
+		return -EFAULT;
+
+	if (!ufshcd_is_tx_eq_supported(hba))
+		return -EOPNOTSUPP;
+
+	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL ||
+	    !hba->max_pwr_info.is_valid)
+		return -EBUSY;
+
+	if (!hba->ufs_device_wlun)
+		return -ENODEV;
+
+	kbuf[count] = '\0';
+
+	if (sysfs_streq(kbuf, "retrain")) {
+		ret = ufs_debugfs_get_user_access(hba);
+		if (ret)
+			return ret;
+		ret = ufshcd_retrain_tx_eq(hba, gear);
+		ufs_debugfs_put_user_access(hba);
+	} else {
+		/* Unknown operation */
+		return -EINVAL;
+	}
+
+	return ret ? ret : count;
+}
+
+static int ufs_tx_eq_ctrl_show(struct seq_file *s, void *data)
+{
+	seq_puts(s, "write 'retrain' to retrain TX Equalization settings\n");
+	return 0;
+}
+
+static int ufs_tx_eq_ctrl_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufs_tx_eq_ctrl_show, inode->i_private);
+}
+
+static const struct file_operations ufs_tx_eq_ctrl_fops = {
+	.owner		= THIS_MODULE,
+	.open		= ufs_tx_eq_ctrl_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.write		= ufs_tx_eq_ctrl_write,
+	.release	= single_release,
+};
+
 static const struct ufs_debugfs_attr ufs_tx_eqtr_attrs[] = {
 	{ "host_tx_eqtr_record", 0400, &ufs_tx_eqtr_record_fops },
 	{ "device_tx_eqtr_record", 0400, &ufs_tx_eqtr_record_fops },
+	{ "tx_eq_ctrl", 0600, &ufs_tx_eq_ctrl_fops },
 	{ }
 };
 

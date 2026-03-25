@@ -341,12 +341,14 @@ struct ufshcd_tx_eqtr_data {
  * @device_fom: Device TX EQTR FOM record
  * @last_record_ts: Timestamp of the most recent TX EQTR record
  * @last_record_index: Index of the most recent TX EQTR record
+ * @saved_adapt_eqtr: Saved Adaptation length setting for TX EQTR
  */
 struct ufshcd_tx_eqtr_record {
 	u8 host_fom[UFS_MAX_LANES][TX_HS_NUM_PRESHOOT][TX_HS_NUM_DEEMPHASIS];
 	u8 device_fom[UFS_MAX_LANES][TX_HS_NUM_PRESHOOT][TX_HS_NUM_DEEMPHASIS];
 	ktime_t last_record_ts;
 	u16 last_record_index;
+	u16 saved_adapt_eqtr;
 };
 
 /**

@@ -628,8 +628,14 @@ static int ufshcd_setup_tx_eqtr_adapt_length(struct ufs_hba *hba,
 					     struct ufshcd_tx_eq_params *params,
 					     u32 gear)
 {
+	struct ufshcd_tx_eqtr_record *rec = params->eqtr_record;
 	u32 adapt_eqtr;
 	int ret;
+
+	if (rec && rec->saved_adapt_eqtr) {
+		adapt_eqtr = rec->saved_adapt_eqtr;
+		goto set_adapt_eqtr;
+	}
 
 	if (gear == UFS_HS_G4 || gear == UFS_HS_G5) {
 		u64 t_adapt, t_adapt_local, t_adapt_peer;
@@ -782,6 +788,10 @@ static int ufshcd_setup_tx_eqtr_adapt_length(struct ufs_hba *hba,
 		return -EINVAL;
 	}
 
+	if (rec)
+		rec->saved_adapt_eqtr = (u16)adapt_eqtr;
+
+set_adapt_eqtr:
 	ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXADAPTLENGTH_EQTR), adapt_eqtr);
 	if (ret)
 		dev_err(hba->dev, "Failed to set adapt length for TX EQTR: %d\n", ret);
@@ -847,15 +857,32 @@ static int ufshcd_apply_tx_eqtr_settings(struct ufs_hba *hba,
 /**
  * ufshcd_update_tx_eq_params - Update TX Equalization params
  * @params: TX EQ parameters data structure
+ * @pwr_mode: target power mode containing gear and rate
  * @eqtr_data: TX EQTR data structure
  *
- * Update TX Equalization params using results from TX EQTR data.
+ * Update TX Equalization params using results from TX EQTR data. Check also
+ * the TX EQTR FOM value for each TX lane in the TX EQTR data. If a TX lane got
+ * a FOM value of 0, restore the TX Equalization settings from the last known
+ * valid TX Equalization params for that specific TX lane.
  */
 static inline void
 ufshcd_update_tx_eq_params(struct ufshcd_tx_eq_params *params,
+			   struct ufs_pa_layer_attr *pwr_mode,
 			   struct ufshcd_tx_eqtr_data *eqtr_data)
 {
 	struct ufshcd_tx_eqtr_record *rec = params->eqtr_record;
+
+	if (params->is_valid) {
+		int lane;
+
+		for (lane = 0; lane < pwr_mode->lane_tx; lane++)
+			if (eqtr_data->host[lane].fom_val == 0)
+				eqtr_data->host[lane] = params->host[lane];
+
+		for (lane = 0; lane < pwr_mode->lane_rx; lane++)
+			if (eqtr_data->device[lane].fom_val == 0)
+				eqtr_data->device[lane] = params->device[lane];
+	}
 
 	memcpy(params->host, eqtr_data->host, sizeof(params->host));
 	memcpy(params->device, eqtr_data->device, sizeof(params->device));
@@ -955,7 +982,7 @@ static int __ufshcd_tx_eqtr(struct ufs_hba *hba,
 	dev_info(hba->dev, "TX EQTR procedure completed! Time elapsed: %llu ms\n",
 		 ktime_to_ms(ktime_sub(ktime_get(), start)));
 
-	ufshcd_update_tx_eq_params(params, eqtr_data);
+	ufshcd_update_tx_eq_params(params, pwr_mode, eqtr_data);
 
 	return ret;
 }
@@ -1079,6 +1106,7 @@ out:
  * ufshcd_config_tx_eq_settings - Configure TX Equalization settings
  * @hba: per adapter instance
  * @pwr_mode: target power mode containing gear and rate information
+ * @force_tx_eqtr: execute the TX EQTR procedure
  *
  * This function finds and sets the TX Equalization settings for the given
  * target power mode.
@@ -1086,7 +1114,8 @@ out:
  * Returns 0 on success, error code otherwise
  */
 int ufshcd_config_tx_eq_settings(struct ufs_hba *hba,
-				 struct ufs_pa_layer_attr *pwr_mode)
+				 struct ufs_pa_layer_attr *pwr_mode,
+				 bool force_tx_eqtr)
 {
 	struct ufshcd_tx_eq_params *params;
 	u32 gear, rate;
@@ -1123,7 +1152,7 @@ int ufshcd_config_tx_eq_settings(struct ufs_hba *hba,
 	}
 
 	params = &hba->tx_eq_params[gear - 1];
-	if (!params->is_valid) {
+	if (!params->is_valid || force_tx_eqtr) {
 		int ret;
 
 		ret = ufshcd_tx_eqtr(hba, params, pwr_mode);
@@ -1188,4 +1217,77 @@ void ufshcd_apply_valid_tx_eq_settings(struct ufs_hba *hba)
 			}
 		}
 	}
+}
+
+/**
+ * ufshcd_retrain_tx_eq - Retrain TX Equalization and apply new settings
+ * @hba: per-adapter instance
+ * @gear: target High-Speed (HS) gear for retraining
+ *
+ * This function initiates a refresh of the TX Equalization settings for a
+ * specific HS gear. It scales the clocks to maximum frequency, negotiates the
+ * power mode with the device, retrains TX EQ and applies new TX EQ settings
+ * by conducting a Power Mode change.
+ *
+ * Returns 0 on success, non-zero error code otherwise
+ */
+int ufshcd_retrain_tx_eq(struct ufs_hba *hba, u32 gear)
+{
+	struct ufs_pa_layer_attr new_pwr_info, final_params = {};
+	int ret;
+
+	if (!ufshcd_is_tx_eq_supported(hba) || !use_adaptive_txeq)
+		return -EOPNOTSUPP;
+
+	if (gear < adaptive_txeq_gear)
+		return -ERANGE;
+
+	ufshcd_hold(hba);
+
+	ret = ufshcd_pause_command_processing(hba, 1 * USEC_PER_SEC);
+	if (ret) {
+		ufshcd_release(hba);
+		return ret;
+	}
+
+	/* scale up clocks to max frequency before TX EQTR */
+	if (ufshcd_is_clkscaling_supported(hba))
+		ufshcd_scale_clks(hba, ULONG_MAX, true);
+
+	new_pwr_info = hba->pwr_info;
+	new_pwr_info.gear_tx = gear;
+	new_pwr_info.gear_rx = gear;
+
+	ret = ufshcd_vops_negotiate_pwr_mode(hba, &new_pwr_info, &final_params);
+	if (ret)
+		memcpy(&final_params, &new_pwr_info, sizeof(final_params));
+
+	if (final_params.gear_tx != gear) {
+		dev_err(hba->dev, "Negotiated Gear (%u) does not match target Gear (%u)\n",
+			final_params.gear_tx, gear);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = ufshcd_config_tx_eq_settings(hba, &final_params, true);
+	if (ret) {
+		dev_err(hba->dev, "Failed to config TX Equalization for HS-G%u, Rate-%s: %d\n",
+			final_params.gear_tx,
+			ufs_hs_rate_to_str(final_params.hs_rate), ret);
+		goto out;
+	}
+
+	/* Change Power Mode to apply the new TX EQ settings */
+	ret = ufshcd_change_power_mode(hba, &final_params,
+				       UFSHCD_PMC_POLICY_FORCE);
+	if (ret)
+		dev_err(hba->dev, "%s: Failed to change Power Mode to HS-G%u, Rate-%s: %d\n",
+			__func__, final_params.gear_tx,
+			ufs_hs_rate_to_str(final_params.hs_rate), ret);
+
+out:
+	ufshcd_resume_command_processing(hba);
+	ufshcd_release(hba);
+
+	return ret;
 }
