@@ -574,7 +574,7 @@
 
 		crc0: crc@310a5000 {
 			compatible = "adi,hmac-crc";
-			reg = <0x310a5000 0xFF>;
+			reg = <0x310a5000 0x100>;
 			interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&crc_cluster 8>;
 			dma-names = "mdma_chan";
@@ -584,9 +584,29 @@
 
 		crc1: crc@310a6000 {
 			compatible = "adi,hmac-crc";
-			reg = <0x310a6000 0xFF>;
+			reg = <0x310a6000 0x100>;
 			interrupts = <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&crc_cluster 18>;
+			dma-names = "mdma_chan";
+			crypto_crc_poly = <0x04C11DB7>;
+			status = "disabled";
+		};
+
+		crc2: crc@310aa000 {
+			compatible = "adi,hmac-crc";
+			reg = <0x310aa000 0x100>;
+			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&crc_cluster 45>;
+			dma-names = "mdma_chan";
+			crypto_crc_poly = <0x04C11DB7>;
+			status = "disabled";
+		};
+
+		crc3: crc@310ab000 {
+			compatible = "adi,hmac-crc";
+			reg = <0x310ab000 0x100>;
+			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&crc_cluster 47>;
 			dma-names = "mdma_chan";
 			crypto_crc_poly = <0x04C11DB7>;
 			status = "disabled";
@@ -1197,6 +1217,22 @@
 					<GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-names = "complete", "error";
 				adi,src-offset = <0x100>;
+			};
+
+			crc2_dma: channel@45 { /* MDMA4_SRC */
+				adi,id = <45>;
+				interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x200>;
+			};
+
+			crc3_dma: channel@47 { /* MDMA5_SRC */
+				adi,id = <47>;
+				interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+				adi,src-offset = <0x300>;
 			};
 		};
 
