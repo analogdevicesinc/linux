@@ -1730,48 +1730,6 @@ void amdgpu_ttm_unmark_vram_reserved(struct amdgpu_device *adev,
 }
 
 /*
- * Driver Reservation functions
- */
-/**
- * amdgpu_ttm_drv_reserve_vram_fini - free drv reserved vram
- *
- * @adev: amdgpu_device pointer
- *
- * free drv reserved vram if it has been reserved.
- */
-static void amdgpu_ttm_drv_reserve_vram_fini(struct amdgpu_device *adev)
-{
-	amdgpu_bo_free_kernel(&adev->mman.drv_vram_usage_reserved_bo,
-						  NULL,
-						  &adev->mman.drv_vram_usage_va);
-}
-
-/**
- * amdgpu_ttm_drv_reserve_vram_init - create bo vram reservation from driver
- *
- * @adev: amdgpu_device pointer
- *
- * create bo vram reservation from drv.
- */
-static int amdgpu_ttm_drv_reserve_vram_init(struct amdgpu_device *adev)
-{
-	u64 vram_size = adev->gmc.visible_vram_size;
-
-	adev->mman.drv_vram_usage_va = NULL;
-	adev->mman.drv_vram_usage_reserved_bo = NULL;
-
-	if (adev->mman.drv_vram_usage_size == 0 ||
-	    adev->mman.drv_vram_usage_size > vram_size)
-		return 0;
-
-	return amdgpu_bo_create_kernel_at(adev,
-					  adev->mman.drv_vram_usage_start_offset,
-					  adev->mman.drv_vram_usage_size,
-					  &adev->mman.drv_vram_usage_reserved_bo,
-					  &adev->mman.drv_vram_usage_va);
-}
-
-/*
  * Memoy training reservation functions
  */
 
@@ -2148,9 +2106,14 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 	 * The reserved VRAM for the driver must be pinned to a specific
 	 * location in VRAM, so reserve it early.
 	 */
-	r = amdgpu_ttm_drv_reserve_vram_init(adev);
-	if (r)
-		return r;
+	if (adev->mman.resv_region[AMDGPU_RESV_DRV_VRAM_USAGE].size >
+	    adev->gmc.visible_vram_size) {
+		adev->mman.resv_region[AMDGPU_RESV_DRV_VRAM_USAGE].size = 0;
+	} else {
+		r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_DRV_VRAM_USAGE);
+		if (r)
+			return r;
+	}
 
 	/*
 	 * only NAVI10 and later ASICs support IP discovery.
@@ -2306,7 +2269,7 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
 
 	amdgpu_ttm_free_mmio_remap_bo(adev);
 	amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_FW_VRAM_USAGE);
-	amdgpu_ttm_drv_reserve_vram_fini(adev);
+	amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_DRV_VRAM_USAGE);
 
 	if (drm_dev_enter(adev_to_drm(adev), &idx)) {
 

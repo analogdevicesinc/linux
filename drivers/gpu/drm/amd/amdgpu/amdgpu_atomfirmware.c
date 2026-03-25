@@ -161,9 +161,9 @@ static int amdgpu_atomfirmware_allocate_fb_v2_2(struct amdgpu_device *adev,
 	    ((drv_start_addr & (ATOM_VRAM_BLOCK_NEEDS_NO_RESERVATION <<
 		ATOM_VRAM_OPERATION_FLAGS_SHIFT)) == 0)) {
 		/* driver request VRAM reservation for SR-IOV */
-		adev->mman.drv_vram_usage_start_offset = (drv_start_addr &
-			(~ATOM_VRAM_OPERATION_FLAGS_MASK)) << 10;
-		adev->mman.drv_vram_usage_size = drv_size << 10;
+		amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_DRV_VRAM_USAGE,
+				  (drv_start_addr & (~ATOM_VRAM_OPERATION_FLAGS_MASK)) << 10,
+				  drv_size << 10, true);
 	}
 
 	*usage_bytes = 0;

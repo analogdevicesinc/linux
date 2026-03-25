@@ -105,12 +105,6 @@ struct amdgpu_mman {
 
 	bool			keep_stolen_vga_memory;
 
-	/* driver VRAM reservation */
-	u64		drv_vram_usage_start_offset;
-	u64		drv_vram_usage_size;
-	struct amdgpu_bo	*drv_vram_usage_reserved_bo;
-	void		*drv_vram_usage_va;
-
 	struct amdgpu_vram_resv		resv_region[AMDGPU_RESV_MAX];
 
 	/* PAGE_SIZE'd BO for process memory r/w over SDMA. */
