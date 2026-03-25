@@ -62,6 +62,13 @@ int amdgpu_ualink_init(struct amdgpu_device *adev)
 		return r;
 	}
 
+	r = amdgpu_ualink_init_interrupt(adev);
+	if (r) {
+		dev_err(adev->dev,
+			"Failed to enable UALink irq: %d\n", r);
+		return r;
+	}
+
 	return 0;
 }
 
@@ -3108,5 +3115,80 @@ void amdgpu_ualink_sw_fini(struct amdgpu_device *adev)
 	amdgpu_ualink_metadata_fini(adev);
 	kfree(adev->ualink.remote);
 	adev->ualink.remote = NULL;
+}
+
+static int amdgpu_ualink_process_irq(struct amdgpu_device *adev,
+				     struct amdgpu_irq_src *source,
+				     struct amdgpu_iv_entry *entry)
+{
+	int handled = 1;
+
+	dev_dbg(adev->dev, "%s client_id 0x%x src_id 0x%x ih\n",
+		entry->ih == &adev->irq.ih ? "ring" : "ualink soft ring",
+		entry->client_id, entry->src_id);
+
+	/* Copy IH entry into ualink soft ring. */
+	if (entry->ih == &adev->irq.ih) {
+		dev_dbg(adev->dev, "delegate to ualink irq soft ring\n");
+		amdgpu_irq_ualink_delegate(adev, entry, 8);
+		return handled;
+	}
+
+	/*
+	 * Call amdgpu_ualink_interrupt handler
+	 * amdgpu_ualink_interrupt(adev, entry);
+	 */
+
+	return handled;
+}
+
+static int amdgpu_ualink_set_irq_state(struct amdgpu_device *adev,
+					struct amdgpu_irq_src *source,
+					u32 type,
+					enum amdgpu_interrupt_state state)
+{
+	/*
+	 * Don't set register to enable/disable nHT controller interrupt.
+	 *
+	 * F/W running on MP2, which can always send cookie to IH block to
+	 * interrupt driver.
+	 */
+	dev_dbg(adev->dev, "ualink interrupt %s\n",
+		state == AMDGPU_IRQ_STATE_ENABLE ? "enable" : "disable");
+	return 0;
+}
+
+static const struct amdgpu_irq_src_funcs ualink_irq_funcs = {
+	.set = amdgpu_ualink_set_irq_state,
+	.process = amdgpu_ualink_process_irq,
+};
+
+/* TODO: if move to header file soc21_enum.h */
+#define UALINK_IH_CLIENT_ID 0x1C
+#define UALINK_IH_SOURCE_ID 0x0
+
+/**
+ * amdgpu_ualink_init_interrupt - initialization of UALink IRQ
+ * @adev: amdgpu device pointer
+ *
+ * Registers the UALink interrupt source with the IH (Interrupt Handler)
+ * subsystem during early device initialization. This sets up the IRQ
+ * callback functions for handling remote interrupts from peer GPUs.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev)
+{
+	int r;
+
+	dev_dbg(adev->dev, "init ualink irq client_id 0x%x src_id 0x%x\n",
+		UALINK_IH_CLIENT_ID, UALINK_IH_SOURCE_ID);
+
+	adev->ualink.irq.num_types = 1;
+	adev->ualink.irq.funcs = &ualink_irq_funcs;
+
+	r = amdgpu_irq_add_id(adev, UALINK_IH_CLIENT_ID,
+			      UALINK_IH_SOURCE_ID, &adev->ualink.irq);
+	return r;
 }
 

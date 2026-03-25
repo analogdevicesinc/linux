@@ -424,6 +424,9 @@ static int ih_v7_0_irq_init(struct amdgpu_device *adev)
 	if (adev->irq.ih_psp.ring_size)
 		adev->irq.ih_psp.enabled = true;
 
+	if (adev->irq.ih_ualink.ring_size)
+		adev->irq.ih_ualink.enabled = true;
+
 	return 0;
 }
 
@@ -636,6 +639,11 @@ static int ih_v7_0_sw_init(struct amdgpu_ip_block *ip_block)
 		return r;
 
 	r = amdgpu_ih_ring_init(adev, &adev->irq.ih_psp, IH_PSP_RING_SIZE, true);
+	if (r)
+		return r;
+
+	dev_dbg(adev->dev, "ualink init ih_ualink\n");
+	r = amdgpu_ih_ring_init(adev, &adev->irq.ih_ualink, sw_ring_size, true);
 	if (r)
 		return r;
 

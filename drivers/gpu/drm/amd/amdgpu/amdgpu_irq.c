@@ -264,6 +264,14 @@ static void amdgpu_irq_handle_ih_psp(struct work_struct *work)
 
 	amdgpu_ih_process(adev, &adev->irq.ih_psp);
 }
+	
+static void amdgpu_irq_handle_ih_ualink(struct work_struct *work)
+{
+	struct amdgpu_device *adev = container_of(work, struct amdgpu_device,
+						  irq.ih_ualink_work);
+
+	amdgpu_ih_process(adev, &adev->irq.ih_ualink);
+}
 
 /**
  * amdgpu_msi_ok - check whether MSI functionality is enabled
@@ -341,6 +349,7 @@ int amdgpu_irq_init(struct amdgpu_device *adev)
 	INIT_WORK(&adev->irq.ih2_work, amdgpu_irq_handle_ih2);
 	INIT_WORK(&adev->irq.ih_soft_work, amdgpu_irq_handle_ih_soft);
 	INIT_WORK(&adev->irq.ih_psp_work, amdgpu_irq_handle_ih_psp);
+	INIT_WORK(&adev->irq.ih_ualink_work, amdgpu_irq_handle_ih_ualink);
 
 	/* Use vector 0 for MSI-X. */
 	r = pci_irq_vector(adev->pdev, 0);
@@ -564,6 +573,14 @@ void amdgpu_irq_psp_delegate(struct amdgpu_device *adev,
 {
 	amdgpu_ih_ring_write(adev, &adev->irq.ih_psp, entry->iv_entry, num_dw);
 	schedule_work(&adev->irq.ih_psp_work);
+}
+
+void amdgpu_irq_ualink_delegate(struct amdgpu_device *adev,
+				struct amdgpu_iv_entry *entry,
+				unsigned int num_dw)
+{
+	amdgpu_ih_ring_write(adev, &adev->irq.ih_ualink, entry->iv_entry, num_dw);
+	schedule_work(&adev->irq.ih_ualink_work);
 }
 
 /**
