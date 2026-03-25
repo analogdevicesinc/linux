@@ -1195,12 +1195,12 @@ static bool cache_listeners_exist(struct cache_detail *detail)
 }
 
 /*
- * register an upcall request to user-space and queue it up for read() by the
- * upcall daemon.
+ * register an upcall request to user-space and queue it up to be fetched by
+ * the upcall daemon.
  *
  * Each request is at most one page long.
  */
-static int cache_pipe_upcall(struct cache_detail *detail, struct cache_head *h)
+static int cache_do_upcall(struct cache_detail *detail, struct cache_head *h)
 {
 	char *buf;
 	struct cache_request *crq;
@@ -1245,7 +1245,7 @@ int sunrpc_cache_upcall(struct cache_detail *detail, struct cache_head *h)
 {
 	if (test_and_set_bit(CACHE_PENDING, &h->flags))
 		return 0;
-	return cache_pipe_upcall(detail, h);
+	return cache_do_upcall(detail, h);
 }
 EXPORT_SYMBOL_GPL(sunrpc_cache_upcall);
 
