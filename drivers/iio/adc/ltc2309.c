@@ -42,22 +42,22 @@ struct ltc2309 {
 
 /* Order matches expected channel address, See datasheet Table 1. */
 enum ltc2309_channels {
-	LTC2309_CH0_CH1 = 0,
-	LTC2309_CH2_CH3,
-	LTC2309_CH4_CH5,
-	LTC2309_CH6_CH7,
-	LTC2309_CH1_CH0,
-	LTC2309_CH3_CH2,
-	LTC2309_CH5_CH4,
-	LTC2309_CH7_CH6,
-	LTC2309_CH0,
-	LTC2309_CH2,
-	LTC2309_CH4,
-	LTC2309_CH6,
-	LTC2309_CH1,
-	LTC2309_CH3,
-	LTC2309_CH5,
-	LTC2309_CH7,
+	LTC2309_CH0_CH1 = 0x0,
+	LTC2309_CH2_CH3 = 0x1,
+	LTC2309_CH4_CH5 = 0x2,
+	LTC2309_CH6_CH7 = 0x3,
+	LTC2309_CH1_CH0 = 0x4,
+	LTC2309_CH3_CH2 = 0x5,
+	LTC2309_CH5_CH4 = 0x6,
+	LTC2309_CH7_CH6 = 0x7,
+	LTC2309_CH0     = 0x8,
+	LTC2309_CH2     = 0x9,
+	LTC2309_CH4     = 0xa,
+	LTC2309_CH6     = 0xb,
+	LTC2309_CH1     = 0xc,
+	LTC2309_CH3     = 0xd,
+	LTC2309_CH5     = 0xe,
+	LTC2309_CH7     = 0xf,
 };
 
 #define LTC2309_CHAN(_chan, _addr) {				\
