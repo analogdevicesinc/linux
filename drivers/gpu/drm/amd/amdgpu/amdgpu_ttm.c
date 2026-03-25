@@ -1730,22 +1730,6 @@ void amdgpu_ttm_unmark_vram_reserved(struct amdgpu_device *adev,
 }
 
 /*
- * Firmware Reservation functions
- */
-/**
- * amdgpu_ttm_fw_reserve_vram_fini - free fw reserved vram
- *
- * @adev: amdgpu_device pointer
- *
- * free fw reserved vram if it has been reserved.
- */
-static void amdgpu_ttm_fw_reserve_vram_fini(struct amdgpu_device *adev)
-{
-	amdgpu_bo_free_kernel(&adev->mman.fw_vram_usage_reserved_bo,
-		NULL, &adev->mman.fw_vram_usage_va);
-}
-
-/*
  * Driver Reservation functions
  */
 /**
@@ -1760,31 +1744,6 @@ static void amdgpu_ttm_drv_reserve_vram_fini(struct amdgpu_device *adev)
 	amdgpu_bo_free_kernel(&adev->mman.drv_vram_usage_reserved_bo,
 						  NULL,
 						  &adev->mman.drv_vram_usage_va);
-}
-
-/**
- * amdgpu_ttm_fw_reserve_vram_init - create bo vram reservation from fw
- *
- * @adev: amdgpu_device pointer
- *
- * create bo vram reservation from fw.
- */
-static int amdgpu_ttm_fw_reserve_vram_init(struct amdgpu_device *adev)
-{
-	uint64_t vram_size = adev->gmc.visible_vram_size;
-
-	adev->mman.fw_vram_usage_va = NULL;
-	adev->mman.fw_vram_usage_reserved_bo = NULL;
-
-	if (adev->mman.fw_vram_usage_size == 0 ||
-	    adev->mman.fw_vram_usage_size > vram_size)
-		return 0;
-
-	return amdgpu_bo_create_kernel_at(adev,
-					  adev->mman.fw_vram_usage_start_offset,
-					  adev->mman.fw_vram_usage_size,
-					  &adev->mman.fw_vram_usage_reserved_bo,
-					  &adev->mman.fw_vram_usage_va);
 }
 
 /**
@@ -2176,9 +2135,14 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 	 *The reserved vram for firmware must be pinned to the specified
 	 *place on the VRAM, so reserve it early.
 	 */
-	r = amdgpu_ttm_fw_reserve_vram_init(adev);
-	if (r)
-		return r;
+	if (adev->mman.resv_region[AMDGPU_RESV_FW_VRAM_USAGE].size >
+	    adev->gmc.visible_vram_size) {
+		adev->mman.resv_region[AMDGPU_RESV_FW_VRAM_USAGE].size = 0;
+	} else {
+		r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW_VRAM_USAGE);
+		if (r)
+			return r;
+	}
 
 	/*
 	 * The reserved VRAM for the driver must be pinned to a specific
@@ -2341,7 +2305,7 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
 					&adev->mman.sdma_access_ptr);
 
 	amdgpu_ttm_free_mmio_remap_bo(adev);
-	amdgpu_ttm_fw_reserve_vram_fini(adev);
+	amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_FW_VRAM_USAGE);
 	amdgpu_ttm_drv_reserve_vram_fini(adev);
 
 	if (drm_dev_enter(adev_to_drm(adev), &idx)) {

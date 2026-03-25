@@ -105,12 +105,6 @@ struct amdgpu_mman {
 
 	bool			keep_stolen_vga_memory;
 
-	/* firmware VRAM reservation */
-	u64		fw_vram_usage_start_offset;
-	u64		fw_vram_usage_size;
-	struct amdgpu_bo	*fw_vram_usage_reserved_bo;
-	void		*fw_vram_usage_va;
-
 	/* driver VRAM reservation */
 	u64		drv_vram_usage_start_offset;
 	u64		drv_vram_usage_size;

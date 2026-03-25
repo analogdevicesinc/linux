@@ -120,9 +120,9 @@ static int amdgpu_atomfirmware_allocate_fb_v2_1(struct amdgpu_device *adev,
 		(u32)(ATOM_VRAM_BLOCK_SRIOV_MSG_SHARE_RESERVATION <<
 		ATOM_VRAM_OPERATION_FLAGS_SHIFT)) {
 		/* Firmware request VRAM reservation for SR-IOV */
-		adev->mman.fw_vram_usage_start_offset = (start_addr &
-			(~ATOM_VRAM_OPERATION_FLAGS_MASK)) << 10;
-		adev->mman.fw_vram_usage_size = fw_size << 10;
+		amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW_VRAM_USAGE,
+				  (start_addr & (~ATOM_VRAM_OPERATION_FLAGS_MASK)) << 10,
+				  fw_size << 10, true);
 		/* Use the default scratch size */
 		*usage_bytes = 0;
 	} else {
@@ -152,9 +152,9 @@ static int amdgpu_atomfirmware_allocate_fb_v2_2(struct amdgpu_device *adev,
 	    ((fw_start_addr & (ATOM_VRAM_BLOCK_NEEDS_NO_RESERVATION <<
 		ATOM_VRAM_OPERATION_FLAGS_SHIFT)) == 0)) {
 		/* Firmware request VRAM reservation for SR-IOV */
-		adev->mman.fw_vram_usage_start_offset = (fw_start_addr &
-			(~ATOM_VRAM_OPERATION_FLAGS_MASK)) << 10;
-		adev->mman.fw_vram_usage_size = fw_size << 10;
+		amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW_VRAM_USAGE,
+				  (fw_start_addr & (~ATOM_VRAM_OPERATION_FLAGS_MASK)) << 10,
+				  fw_size << 10, true);
 	}
 
 	if (amdgpu_sriov_vf(adev) &&
