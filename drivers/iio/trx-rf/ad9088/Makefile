@@ -56,6 +56,17 @@ ad9088_drv-y += public/src/adi_apollo_utils.o
 ad9088_drv-y += private/src/adi_apollo_private_blk_sel.o
 ad9088_drv-y += public/src/adi_apollo_startup.o
 
+# Ideally this hack would go away but we would need to make sure the fixes land into
+# the BU APIs.
+ifdef CONFIG_CC_IS_GCC
+CFLAGS_public/src/adi_apollo_adc.o = -Wno-error=frame-larger-than=
+CFLAGS_public/src/adi_apollo_mcs_cal.o = -Wno-error=frame-larger-than=
+CFLAGS_public/src/adi_apollo_dac.o = -Wno-error=frame-larger-than=
+CFLAGS_public/src/adi_apollo_serdes.o = -Wno-error=frame-larger-than=
+CFLAGS_public/src/adi_apollo_jtx.o = -Wno-error=frame-larger-than=
+CFLAGS_public/src/adi_apollo_tmode.o = -Wno-error=enum-conversion
+endif
+
 obj-$(CONFIG_AD9088) += ad9088_drv.o
 
 ccflags-y += -I$(src)/public/inc/ \
