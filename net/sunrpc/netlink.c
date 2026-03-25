@@ -49,6 +49,11 @@ static const struct nla_policy sunrpc_unix_gid_set_reqs_nl_policy[SUNRPC_A_UNIX_
 	[SUNRPC_A_UNIX_GID_REQS_REQUESTS] = NLA_POLICY_NESTED(sunrpc_unix_gid_nl_policy),
 };
 
+/* SUNRPC_CMD_CACHE_FLUSH - do */
+static const struct nla_policy sunrpc_cache_flush_nl_policy[SUNRPC_A_CACHE_FLUSH_MASK + 1] = {
+	[SUNRPC_A_CACHE_FLUSH_MASK] = NLA_POLICY_MASK(NLA_U32, 0x3),
+};
+
 /* Ops table for sunrpc */
 static const struct genl_split_ops sunrpc_nl_ops[] = {
 	{
@@ -77,6 +82,13 @@ static const struct genl_split_ops sunrpc_nl_ops[] = {
 		.doit		= sunrpc_nl_unix_gid_set_reqs_doit,
 		.policy		= sunrpc_unix_gid_set_reqs_nl_policy,
 		.maxattr	= SUNRPC_A_UNIX_GID_REQS_REQUESTS,
+		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
+	},
+	{
+		.cmd		= SUNRPC_CMD_CACHE_FLUSH,
+		.doit		= sunrpc_nl_cache_flush_doit,
+		.policy		= sunrpc_cache_flush_nl_policy,
+		.maxattr	= SUNRPC_A_CACHE_FLUSH_MASK,
 		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
 	},
 };

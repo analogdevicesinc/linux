@@ -23,6 +23,7 @@ int sunrpc_nl_unix_gid_get_reqs_dumpit(struct sk_buff *skb,
 				       struct netlink_callback *cb);
 int sunrpc_nl_unix_gid_set_reqs_doit(struct sk_buff *skb,
 				     struct genl_info *info);
+int sunrpc_nl_cache_flush_doit(struct sk_buff *skb, struct genl_info *info);
 
 enum {
 	SUNRPC_NLGRP_NONE,

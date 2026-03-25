@@ -818,6 +818,38 @@ int sunrpc_nl_unix_gid_set_reqs_doit(struct sk_buff *skb,
 	return ret;
 }
 
+/**
+ * sunrpc_nl_cache_flush_doit - flush sunrpc caches via netlink
+ * @skb: reply buffer
+ * @info: netlink metadata and command arguments
+ *
+ * Flush the ip_map and/or unix_gid caches. If SUNRPC_A_CACHE_FLUSH_MASK
+ * is provided, only flush the caches indicated by the bitmask (bit 1 =
+ * ip_map, bit 2 = unix_gid). If omitted, flush both.
+ *
+ * Return 0 on success or a negative errno.
+ */
+int sunrpc_nl_cache_flush_doit(struct sk_buff *skb, struct genl_info *info)
+{
+	struct sunrpc_net *sn;
+	u32 mask = ~0U;
+
+	sn = net_generic(genl_info_net(info), sunrpc_net_id);
+
+	if (info->attrs[SUNRPC_A_CACHE_FLUSH_MASK])
+		mask = nla_get_u32(info->attrs[SUNRPC_A_CACHE_FLUSH_MASK]);
+
+	if ((mask & SUNRPC_CACHE_TYPE_IP_MAP) &&
+	    sn->ip_map_cache)
+		cache_purge(sn->ip_map_cache);
+
+	if ((mask & SUNRPC_CACHE_TYPE_UNIX_GID) &&
+	    sn->unix_gid_cache)
+		cache_purge(sn->unix_gid_cache);
+
+	return 0;
+}
+
 static const struct cache_detail unix_gid_cache_template = {
 	.owner		= THIS_MODULE,
 	.hash_size	= GID_HASHMAX,
