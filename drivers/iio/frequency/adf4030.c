@@ -1184,7 +1184,7 @@ static int adf4030_jesd204_link_supported(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
-static int adf4030_jesd204_clks_sync3(struct jesd204_dev *jdev,
+static int adf4030_jesd204_clks_sync4(struct jesd204_dev *jdev,
 				      enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
@@ -1223,8 +1223,8 @@ static const struct jesd204_dev_data adf4030_jesd204_data = {
 			.per_link = adf4030_jesd204_link_supported,
 		},
 
-		[JESD204_OP_CLK_SYNC_STAGE3] = {
-			.per_device = adf4030_jesd204_clks_sync3,
+		[JESD204_OP_CLK_SYNC_STAGE4] = {
+			.per_device = adf4030_jesd204_clks_sync4,
 			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
 		},
 	},
