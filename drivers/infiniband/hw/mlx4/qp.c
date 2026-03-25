@@ -720,7 +720,7 @@ static int _mlx4_ib_create_qp_rss(struct ib_pd *pd, struct mlx4_ib_qp *qp,
 	if (udata->outlen)
 		return -EOPNOTSUPP;
 
-	err = ib_copy_validate_udata_in(udata, ucmd, reserved1);
+	err = ib_copy_validate_udata_in_cm(udata, ucmd, reserved1, 0);
 	if (err) {
 		pr_debug("copy failed\n");
 		return err;
@@ -729,7 +729,7 @@ static int _mlx4_ib_create_qp_rss(struct ib_pd *pd, struct mlx4_ib_qp *qp,
 	if (memchr_inv(ucmd.reserved, 0, sizeof(ucmd.reserved)))
 		return -EOPNOTSUPP;
 
-	if (ucmd.comp_mask || ucmd.reserved1)
+	if (ucmd.reserved1)
 		return -EOPNOTSUPP;
 
 	if (init_attr->qp_type != IB_QPT_RAW_PACKET) {
@@ -866,12 +866,11 @@ static int create_rq(struct ib_pd *pd, struct ib_qp_init_attr *init_attr,
 
 	qp->state = IB_QPS_RESET;
 
-	err = ib_copy_validate_udata_in(udata, wq, comp_mask);
+	err = ib_copy_validate_udata_in_cm(udata, wq, comp_mask, 0);
 	if (err)
 		goto err;
 
-	if (wq.comp_mask || wq.reserved[0] || wq.reserved[1] ||
-	    wq.reserved[2]) {
+	if (wq.reserved[0] || wq.reserved[1] || wq.reserved[2]) {
 		pr_debug("user command isn't supported\n");
 		err = -EOPNOTSUPP;
 		goto err;
@@ -4235,11 +4234,11 @@ int mlx4_ib_modify_wq(struct ib_wq *ibwq, struct ib_wq_attr *wq_attr,
 	enum ib_wq_state cur_state, new_state;
 	int err;
 
-	err = ib_copy_validate_udata_in(udata, ucmd, reserved);
+	err = ib_copy_validate_udata_in_cm(udata, ucmd, reserved, 0);
 	if (err)
 		return err;
 
-	if (ucmd.comp_mask || ucmd.reserved)
+	if (ucmd.reserved)
 		return -EOPNOTSUPP;
 
 	if (wq_attr_mask & IB_WQ_FLAGS)

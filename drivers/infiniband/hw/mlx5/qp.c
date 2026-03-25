@@ -5611,11 +5611,11 @@ int mlx5_ib_modify_wq(struct ib_wq *wq, struct ib_wq_attr *wq_attr,
 	void *rqc;
 	void *in;
 
-	err = ib_copy_validate_udata_in(udata, ucmd, reserved);
+	err = ib_copy_validate_udata_in_cm(udata, ucmd, reserved, 0);
 	if (err)
 		return err;
 
-	if (ucmd.comp_mask || ucmd.reserved)
+	if (ucmd.reserved)
 		return -EOPNOTSUPP;
 
 	inlen = MLX5_ST_SZ_BYTES(modify_rq_in);

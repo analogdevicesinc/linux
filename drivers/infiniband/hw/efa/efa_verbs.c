@@ -699,11 +699,11 @@ int efa_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *init_attr,
 	if (err)
 		goto err_out;
 
-	err = ib_copy_validate_udata_in(udata, cmd, driver_qp_type);
+	err = ib_copy_validate_udata_in_cm(udata, cmd, driver_qp_type, 0);
 	if (err)
 		goto err_out;
 
-	if (cmd.comp_mask || !is_reserved_cleared(cmd.reserved_98)) {
+	if (!is_reserved_cleared(cmd.reserved_98)) {
 		ibdev_dbg(&dev->ibdev,
 			  "Incompatible ABI params, unknown fields in udata\n");
 		err = -EINVAL;
@@ -1140,11 +1140,11 @@ int efa_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		goto err_out;
 	}
 
-	err = ib_copy_validate_udata_in(udata, cmd, num_sub_cqs);
+	err = ib_copy_validate_udata_in_cm(udata, cmd, num_sub_cqs, 0);
 	if (err)
 		goto err_out;
 
-	if (cmd.comp_mask || !is_reserved_cleared(cmd.reserved_58)) {
+	if (!is_reserved_cleared(cmd.reserved_58)) {
 		ibdev_dbg(ibdev,
 			  "Incompatible ABI params, unknown fields in udata\n");
 		err = -EINVAL;

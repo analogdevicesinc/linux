@@ -446,12 +446,9 @@ static int mlx4_ib_query_device(struct ib_device *ibdev,
 	struct mlx4_clock_params clock_params;
 
 	if (uhw->inlen) {
-		err = ib_copy_validate_udata_in(uhw, cmd, reserved);
+		err = ib_copy_validate_udata_in_cm(uhw, cmd, reserved, 0);
 		if (err)
 			return err;
-
-		if (cmd.comp_mask)
-			return -EINVAL;
 
 		if (cmd.reserved)
 			return -EINVAL;
