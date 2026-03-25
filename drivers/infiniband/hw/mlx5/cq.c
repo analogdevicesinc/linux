@@ -723,7 +723,6 @@ static int create_cq_user(struct mlx5_ib_dev *dev, struct ib_udata *udata,
 	struct mlx5_ib_create_cq ucmd = {};
 	unsigned long page_size;
 	unsigned int page_offset_quantized;
-	size_t ucmdlen;
 	__be64 *pas;
 	int ncont;
 	void *cqc;
@@ -731,12 +730,9 @@ static int create_cq_user(struct mlx5_ib_dev *dev, struct ib_udata *udata,
 	struct mlx5_ib_ucontext *context = rdma_udata_to_drv_context(
 		udata, struct mlx5_ib_ucontext, ibucontext);
 
-	ucmdlen = min(udata->inlen, sizeof(ucmd));
-	if (ucmdlen < offsetof(struct mlx5_ib_create_cq, flags))
-		return -EINVAL;
-
-	if (ib_copy_from_udata(&ucmd, udata, ucmdlen))
-		return -EFAULT;
+	err = ib_copy_validate_udata_in(udata, ucmd, cqe_comp_res_format);
+	if (err)
+		return err;
 
 	if ((ucmd.flags & ~(MLX5_IB_CREATE_CQ_FLAGS_CQE_128B_PAD |
 			    MLX5_IB_CREATE_CQ_FLAGS_UAR_PAGE_INDEX |
