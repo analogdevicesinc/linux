@@ -204,14 +204,6 @@
 	cs-gpios = <&gpa 5 GPIO_ACTIVE_LOW>;
 };
 
-&i2c0 {
-	status = "okay";
-};
-
-&i2c1 {
-	status = "disabled";
-};
-
 &i2c2 {
 	status = "okay";
 	pinctrl-names = "default";
