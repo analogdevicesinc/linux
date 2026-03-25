@@ -68,6 +68,7 @@ static const struct dml2_soc_qos_parameters dml_dcn42_variant_a_soc_qos_params =
 	.qos_type = dml2_qos_param_type_dcn3,
 };
 
+/* Default SOC bounding box for DCN42 based on LPDDR5/LPCAMM2 latencies*/
 static const struct dml2_soc_bb dml2_socbb_dcn42 = {
 	.clk_table = {
 		.wck_ratio = {
@@ -185,12 +186,13 @@ static const struct dml2_soc_bb dml2_socbb_dcn42 = {
 		.qos_type = dml2_qos_param_type_dcn3,
 	},
 
+	/* DCN42 params for LPDDR5/LPCAMM2 */
 	.power_management_parameters = {
-		.dram_clk_change_blackout_us = 29,
+		.dram_clk_change_blackout_us = 36,
 		.fclk_change_blackout_us = 0,
 		.g7_ppt_blackout_us = 0,
-		.stutter_enter_plus_exit_latency_us = 11,
-		.stutter_exit_latency_us = 9,
+		.stutter_enter_plus_exit_latency_us = 14,
+		.stutter_exit_latency_us = 12,
 		.z8_stutter_enter_plus_exit_latency_us = 300,
 		.z8_stutter_exit_latency_us = 200,
 	},
@@ -220,6 +222,17 @@ static const struct dml2_soc_bb dml2_socbb_dcn42 = {
 	.mcache_size_bytes = 2048,
 	.mcache_line_size_bytes = 32,
 	.max_fclk_for_uclk_dpm_khz = 2200 * 1000,
+};
+
+/* DCN42 params for DDR5 */
+struct dml2_soc_power_management_parameters dcn42_ddr5_power_management_parameters = {
+	.dram_clk_change_blackout_us = 36,
+	.fclk_change_blackout_us = 0,
+	.g7_ppt_blackout_us = 0,
+	.stutter_enter_plus_exit_latency_us = 23.5,
+	.stutter_exit_latency_us = 21.5,
+	.z8_stutter_enter_plus_exit_latency_us = 300,
+	.z8_stutter_exit_latency_us = 200,
 };
 
 static const struct dml2_ip_capabilities dml2_dcn42_max_ip_caps = {
