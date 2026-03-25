@@ -191,7 +191,7 @@ sunrpc_cache_update(struct cache_detail *detail,
 extern int
 sunrpc_cache_upcall(struct cache_detail *detail, struct cache_head *h);
 extern int
-sunrpc_cache_pipe_upcall_timeout(struct cache_detail *detail,
+sunrpc_cache_upcall_warn(struct cache_detail *detail,
 				 struct cache_head *h);
 
 

@@ -1249,8 +1249,8 @@ int sunrpc_cache_upcall(struct cache_detail *detail, struct cache_head *h)
 }
 EXPORT_SYMBOL_GPL(sunrpc_cache_upcall);
 
-int sunrpc_cache_pipe_upcall_timeout(struct cache_detail *detail,
-				     struct cache_head *h)
+int sunrpc_cache_upcall_warn(struct cache_detail *detail,
+			     struct cache_head *h)
 {
 	if (!cache_listeners_exist(detail)) {
 		warn_no_listener(detail);
@@ -1259,7 +1259,7 @@ int sunrpc_cache_pipe_upcall_timeout(struct cache_detail *detail,
 	}
 	return sunrpc_cache_upcall(detail, h);
 }
-EXPORT_SYMBOL_GPL(sunrpc_cache_pipe_upcall_timeout);
+EXPORT_SYMBOL_GPL(sunrpc_cache_upcall_warn);
 
 /*
  * parse a message from user-space and pass it

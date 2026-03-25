@@ -467,7 +467,7 @@ static struct cache_head *unix_gid_alloc(void)
 
 static int unix_gid_upcall(struct cache_detail *cd, struct cache_head *h)
 {
-	return sunrpc_cache_pipe_upcall_timeout(cd, h);
+	return sunrpc_cache_upcall_warn(cd, h);
 }
 
 static void unix_gid_request(struct cache_detail *cd,
