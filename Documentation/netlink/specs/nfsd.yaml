@@ -10,7 +10,7 @@ definitions:
   -
     type: flags
     name: cache-type
-    entries: [svc_export]
+    entries: [svc_export, expkey]
   -
     type: flags
     name: export-flags
@@ -261,6 +261,38 @@ attribute-sets:
         type: nest
         nested-attributes: svc-export
         multi-attr: true
+  -
+    name: expkey
+    attributes:
+      -
+        name: seqno
+        type: u64
+      -
+        name: client
+        type: string
+      -
+        name: fsidtype
+        type: u8
+      -
+        name: fsid
+        type: binary
+      -
+        name: negative
+        type: flag
+      -
+        name: expiry
+        type: u64
+      -
+        name: path
+        type: string
+  -
+    name: expkey-reqs
+    attributes:
+      -
+        name: requests
+        type: nest
+        nested-attributes: expkey
+        multi-attr: true
 
 operations:
   list:
@@ -383,6 +415,24 @@ operations:
       name: svc-export-set-reqs
       doc: Respond to one or more svc_export requests
       attribute-set: svc-export-reqs
+      flags: [admin-perm]
+      do:
+          request:
+            attributes:
+              - requests
+    -
+      name: expkey-get-reqs
+      doc: Dump all pending expkey requests
+      attribute-set: expkey-reqs
+      flags: [admin-perm]
+      dump:
+          request:
+            attributes:
+              - requests
+    -
+      name: expkey-set-reqs
+      doc: Respond to one or more expkey requests
+      attribute-set: expkey-reqs
       flags: [admin-perm]
       do:
           request:

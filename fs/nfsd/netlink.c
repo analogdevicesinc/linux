@@ -17,6 +17,16 @@ const struct nla_policy nfsd_auth_flavor_nl_policy[NFSD_A_AUTH_FLAVOR_FLAGS + 1]
 	[NFSD_A_AUTH_FLAVOR_FLAGS] = NLA_POLICY_MASK(NLA_U32, 0x3ffff),
 };
 
+const struct nla_policy nfsd_expkey_nl_policy[NFSD_A_EXPKEY_PATH + 1] = {
+	[NFSD_A_EXPKEY_SEQNO] = { .type = NLA_U64, },
+	[NFSD_A_EXPKEY_CLIENT] = { .type = NLA_NUL_STRING, },
+	[NFSD_A_EXPKEY_FSIDTYPE] = { .type = NLA_U8, },
+	[NFSD_A_EXPKEY_FSID] = { .type = NLA_BINARY, },
+	[NFSD_A_EXPKEY_NEGATIVE] = { .type = NLA_FLAG, },
+	[NFSD_A_EXPKEY_EXPIRY] = { .type = NLA_U64, },
+	[NFSD_A_EXPKEY_PATH] = { .type = NLA_NUL_STRING, },
+};
+
 const struct nla_policy nfsd_fslocation_nl_policy[NFSD_A_FSLOCATION_PATH + 1] = {
 	[NFSD_A_FSLOCATION_HOST] = { .type = NLA_NUL_STRING, },
 	[NFSD_A_FSLOCATION_PATH] = { .type = NLA_NUL_STRING, },
@@ -88,6 +98,16 @@ static const struct nla_policy nfsd_svc_export_set_reqs_nl_policy[NFSD_A_SVC_EXP
 	[NFSD_A_SVC_EXPORT_REQS_REQUESTS] = NLA_POLICY_NESTED(nfsd_svc_export_nl_policy),
 };
 
+/* NFSD_CMD_EXPKEY_GET_REQS - dump */
+static const struct nla_policy nfsd_expkey_get_reqs_nl_policy[NFSD_A_EXPKEY_REQS_REQUESTS + 1] = {
+	[NFSD_A_EXPKEY_REQS_REQUESTS] = NLA_POLICY_NESTED(nfsd_expkey_nl_policy),
+};
+
+/* NFSD_CMD_EXPKEY_SET_REQS - do */
+static const struct nla_policy nfsd_expkey_set_reqs_nl_policy[NFSD_A_EXPKEY_REQS_REQUESTS + 1] = {
+	[NFSD_A_EXPKEY_REQS_REQUESTS] = NLA_POLICY_NESTED(nfsd_expkey_nl_policy),
+};
+
 /* Ops table for nfsd */
 static const struct genl_split_ops nfsd_nl_ops[] = {
 	{
@@ -155,6 +175,20 @@ static const struct genl_split_ops nfsd_nl_ops[] = {
 		.doit		= nfsd_nl_svc_export_set_reqs_doit,
 		.policy		= nfsd_svc_export_set_reqs_nl_policy,
 		.maxattr	= NFSD_A_SVC_EXPORT_REQS_REQUESTS,
+		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
+	},
+	{
+		.cmd		= NFSD_CMD_EXPKEY_GET_REQS,
+		.dumpit		= nfsd_nl_expkey_get_reqs_dumpit,
+		.policy		= nfsd_expkey_get_reqs_nl_policy,
+		.maxattr	= NFSD_A_EXPKEY_REQS_REQUESTS,
+		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
+	},
+	{
+		.cmd		= NFSD_CMD_EXPKEY_SET_REQS,
+		.doit		= nfsd_nl_expkey_set_reqs_doit,
+		.policy		= nfsd_expkey_set_reqs_nl_policy,
+		.maxattr	= NFSD_A_EXPKEY_REQS_REQUESTS,
 		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
 	},
 };
