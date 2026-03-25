@@ -982,11 +982,10 @@ static int virtscsi_probe(struct virtio_device *vdev)
 
 	virtio_device_ready(vdev);
 
-	if (virtio_has_feature(vdev, VIRTIO_SCSI_F_HOTPLUG)) {
-		for (int i = 0; i < VIRTIO_SCSI_EVENT_LEN; i++)
-			INIT_WORK(&vscsi->event_list[i].work, virtscsi_handle_event);
-		virtscsi_kick_event_all(vscsi);
-	}
+	for (int i = 0; i < VIRTIO_SCSI_EVENT_LEN; i++)
+		INIT_WORK(&vscsi->event_list[i].work, virtscsi_handle_event);
+
+	virtscsi_kick_event_all(vscsi);
 
 	scsi_scan_host(shost);
 	return 0;
@@ -1003,8 +1002,7 @@ static void virtscsi_remove(struct virtio_device *vdev)
 	struct Scsi_Host *shost = virtio_scsi_host(vdev);
 	struct virtio_scsi *vscsi = shost_priv(shost);
 
-	if (virtio_has_feature(vdev, VIRTIO_SCSI_F_HOTPLUG))
-		virtscsi_cancel_event_work(vscsi);
+	virtscsi_cancel_event_work(vscsi);
 
 	scsi_remove_host(shost);
 	virtscsi_remove_vqs(vdev);
@@ -1030,8 +1028,7 @@ static int virtscsi_restore(struct virtio_device *vdev)
 
 	virtio_device_ready(vdev);
 
-	if (virtio_has_feature(vdev, VIRTIO_SCSI_F_HOTPLUG))
-		virtscsi_kick_event_all(vscsi);
+	virtscsi_kick_event_all(vscsi);
 
 	return err;
 }
