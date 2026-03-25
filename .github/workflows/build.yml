@@ -251,6 +251,6 @@ jobs:
     - name: Clean-up
       if: ${{ always() }}
       run: |
-        [ -d "$KBUILD_OUTPUT" ] && rm -rf "$KBUILD_OUTPUT"
-        [ -d "$DIST" ] && rm -rf "$DIST"
-        [ -d "$DIST_HEADERS" ] && rm -rf "$DIST_HEADERS"
+        [ -d "$KBUILD_OUTPUT" ] && rm -rf "$KBUILD_OUTPUT" || true
+        [ -d "$DIST" ] && rm -rf "$DIST" || true
+        [ -d "$DIST_HEADERS" ] && rm -rf "$DIST_HEADERS" || true
