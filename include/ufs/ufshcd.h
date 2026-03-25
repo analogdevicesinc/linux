@@ -1515,6 +1515,9 @@ extern int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 				  struct ufs_pa_layer_attr *desired_pwr_mode,
 				  enum ufshcd_pmc_policy pmc_policy);
 extern int ufshcd_uic_change_pwr_mode(struct ufs_hba *hba, u8 mode);
+extern int ufshcd_apply_tx_eq_settings(struct ufs_hba *hba,
+				       struct ufshcd_tx_eq_params *params,
+				       u32 gear);
 
 /* UIC command interfaces for DME primitives */
 #define DME_LOCAL	0

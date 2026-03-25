@@ -232,9 +232,8 @@ ufshcd_compose_tx_eq_setting(struct ufshcd_tx_eq_settings *settings,
  *
  * Returns 0 on success, negative error code otherwise
  */
-static int ufshcd_apply_tx_eq_settings(struct ufs_hba *hba,
-				       struct ufshcd_tx_eq_params *params,
-				       u32 gear)
+int ufshcd_apply_tx_eq_settings(struct ufs_hba *hba,
+				struct ufshcd_tx_eq_params *params, u32 gear)
 {
 	struct ufs_pa_layer_attr *pwr_info = &hba->max_pwr_info.info;
 	u32 setting;
@@ -263,6 +262,7 @@ static int ufshcd_apply_tx_eq_settings(struct ufs_hba *hba,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(ufshcd_apply_tx_eq_settings);
 
 /**
  * ufshcd_evaluate_tx_eqtr_fom - Evaluate TX EQTR FOM results

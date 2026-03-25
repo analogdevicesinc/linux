@@ -2505,6 +2505,317 @@ static u32 ufs_qcom_freq_to_gear_speed(struct ufs_hba *hba, unsigned long freq)
 	return min_t(u32, gear, hba->max_pwr_info.info.gear_rx);
 }
 
+static int ufs_qcom_host_eom_config(struct ufs_hba *hba, int lane,
+				    const struct ufs_eom_coord *eom_coord,
+				    u32 target_test_count)
+{
+	enum ufs_eom_eye_mask eye_mask = eom_coord->eye_mask;
+	int v_step = eom_coord->v_step;
+	int t_step = eom_coord->t_step;
+	u32 volt_step, timing_step;
+	int ret;
+
+	if (abs(v_step) > UFS_QCOM_EOM_VOLTAGE_STEPS_MAX) {
+		dev_err(hba->dev, "Invalid EOM Voltage Step: %d\n", v_step);
+		return -ERANGE;
+	}
+
+	if (abs(t_step) > UFS_QCOM_EOM_TIMING_STEPS_MAX) {
+		dev_err(hba->dev, "Invalid EOM Timing Step: %d\n", t_step);
+		return -ERANGE;
+	}
+
+	if (v_step < 0)
+		volt_step = RX_EYEMON_NEGATIVE_STEP_BIT | (u32)(-v_step);
+	else
+		volt_step = (u32)v_step;
+
+	if (t_step < 0)
+		timing_step = RX_EYEMON_NEGATIVE_STEP_BIT | (u32)(-t_step);
+	else
+		timing_step = (u32)t_step;
+
+	ret = ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_EYEMON_ENABLE,
+				UIC_ARG_MPHY_RX_GEN_SEL_INDEX(lane)),
+			     BIT(eye_mask) | RX_EYEMON_EXTENDED_VRANGE_BIT);
+	if (ret) {
+		dev_err(hba->dev, "Failed to enable Host EOM on Lane %d: %d\n",
+			lane, ret);
+		return ret;
+	}
+
+	ret = ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_EYEMON_TIMING_STEPS,
+				UIC_ARG_MPHY_RX_GEN_SEL_INDEX(lane)),
+			     timing_step);
+	if (ret) {
+		dev_err(hba->dev, "Failed to set Host EOM timing step on Lane %d: %d\n",
+			lane, ret);
+		return ret;
+	}
+
+	ret = ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_EYEMON_VOLTAGE_STEPS,
+				UIC_ARG_MPHY_RX_GEN_SEL_INDEX(lane)),
+			     volt_step);
+	if (ret) {
+		dev_err(hba->dev, "Failed to set Host EOM voltage step on Lane %d: %d\n",
+			lane, ret);
+		return ret;
+	}
+
+	ret = ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_EYEMON_TARGET_TEST_COUNT,
+				UIC_ARG_MPHY_RX_GEN_SEL_INDEX(lane)),
+			     target_test_count);
+	if (ret)
+		dev_err(hba->dev, "Failed to set Host EOM target test count on Lane %d: %d\n",
+			lane, ret);
+
+	return ret;
+}
+
+static int ufs_qcom_host_eom_may_stop(struct ufs_hba *hba, int lane,
+				      u32 target_test_count, u32 *err_count)
+{
+	u32 start, tested_count, error_count;
+	int ret;
+
+	ret = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(RX_EYEMON_START,
+				UIC_ARG_MPHY_RX_GEN_SEL_INDEX(lane)),
+			     &start);
+	if (ret) {
+		dev_err(hba->dev, "Failed to get Host EOM start status on Lane %d: %d\n",
+			lane, ret);
+		return ret;
+	}
+
+	if (start & 0x1)
+		return -EAGAIN;
+
+	ret = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(RX_EYEMON_TESTED_COUNT,
+				UIC_ARG_MPHY_RX_GEN_SEL_INDEX(lane)),
+			     &tested_count);
+	if (ret) {
+		dev_err(hba->dev, "Failed to get Host EOM tested count on Lane %d: %d\n",
+			lane, ret);
+		return ret;
+	}
+
+	ret = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(RX_EYEMON_ERROR_COUNT,
+				UIC_ARG_MPHY_RX_GEN_SEL_INDEX(lane)),
+			     &error_count);
+	if (ret) {
+		dev_err(hba->dev, "Failed to get Host EOM error count on Lane %d: %d\n",
+			lane, ret);
+		return ret;
+	}
+
+	/* EOM can stop */
+	if ((tested_count >= target_test_count - 3) || error_count > 0) {
+		*err_count = error_count;
+
+		/* Disable EOM */
+		ret = ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_EYEMON_ENABLE,
+					UIC_ARG_MPHY_RX_GEN_SEL_INDEX(lane)),
+				     0x0);
+		if (ret) {
+			dev_err(hba->dev, "Failed to disable Host EOM on Lane %d: %d\n",
+				lane, ret);
+			return ret;
+		}
+	} else {
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
+static int ufs_qcom_host_eom_scan(struct ufs_hba *hba, int num_lanes,
+				  const struct ufs_eom_coord *eom_coord,
+				  u32 target_test_count, u32 *err_count)
+{
+	bool eom_stopped[PA_MAXDATALANES] = { 0 };
+	int lane, ret;
+	u32 setting;
+
+	if (!err_count || !eom_coord)
+		return -EINVAL;
+
+	if (target_test_count < UFS_QCOM_EOM_TARGET_TEST_COUNT_MIN) {
+		dev_err(hba->dev, "Target test count (%u) too small for Host EOM\n",
+			target_test_count);
+		return -ERANGE;
+	}
+
+	for (lane = 0; lane < num_lanes; lane++) {
+		ret = ufs_qcom_host_eom_config(hba, lane, eom_coord,
+					       target_test_count);
+		if (ret) {
+			dev_err(hba->dev, "Failed to config Host RX EOM: %d\n", ret);
+			return ret;
+		}
+	}
+
+	/*
+	 * Trigger a PACP_PWR_req to kick start EOM, but not to really change
+	 * the Power Mode.
+	 */
+	ret = ufshcd_uic_change_pwr_mode(hba, FAST_MODE << 4 | FAST_MODE);
+	if (ret) {
+		dev_err(hba->dev, "Failed to change power mode to kick start Host EOM: %d\n",
+			ret);
+		return ret;
+	}
+
+more_burst:
+	/* Create burst on Host RX Lane. */
+	ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_LOCALVERINFO), &setting);
+
+	for (lane = 0; lane < num_lanes; lane++) {
+		if (eom_stopped[lane])
+			continue;
+
+		ret = ufs_qcom_host_eom_may_stop(hba, lane, target_test_count,
+						 &err_count[lane]);
+		if (!ret) {
+			eom_stopped[lane] = true;
+		} else if (ret == -EAGAIN) {
+			/* Need more burst to excercise EOM */
+			goto more_burst;
+		} else {
+			dev_err(hba->dev, "Failed to stop Host EOM: %d\n", ret);
+			return ret;
+		}
+
+		dev_dbg(hba->dev, "Host RX Lane %d EOM, v_step %d, t_step %d, error count %u\n",
+			lane, eom_coord->v_step, eom_coord->t_step,
+			err_count[lane]);
+	}
+
+	return 0;
+}
+
+static int ufs_qcom_host_sw_rx_fom(struct ufs_hba *hba, int num_lanes, u32 *fom)
+{
+	const struct ufs_eom_coord *eom_coord = sw_rx_fom_eom_coords_g6;
+	u32 eom_err_count[PA_MAXDATALANES] = { 0 };
+	u32 curr_ahit;
+	int lane, i, ret;
+
+	if (!fom)
+		return -EINVAL;
+
+	/* Stop the auto hibernate idle timer */
+	curr_ahit = ufshcd_readl(hba, REG_AUTO_HIBERNATE_IDLE_TIMER);
+	if (curr_ahit)
+		ufshcd_writel(hba, 0, REG_AUTO_HIBERNATE_IDLE_TIMER);
+
+	ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXHSADAPTTYPE), PA_NO_ADAPT);
+	if (ret) {
+		dev_err(hba->dev, "Failed to select NO_ADAPT before starting Host EOM: %d\n", ret);
+		goto out;
+	}
+
+	for (i = 0; i < SW_RX_FOM_EOM_COORDS; i++, eom_coord++) {
+		ret = ufs_qcom_host_eom_scan(hba, num_lanes, eom_coord,
+					     UFS_QCOM_EOM_TARGET_TEST_COUNT_G6,
+					     eom_err_count);
+		if (ret) {
+			dev_err(hba->dev, "Failed to run Host EOM scan: %d\n", ret);
+			break;
+		}
+
+		for (lane = 0; lane < num_lanes; lane++) {
+			/* Bad coordinates have no weights */
+			if (eom_err_count[lane])
+				continue;
+			fom[lane] += SW_RX_FOM_EOM_COORDS_WEIGHT;
+		}
+	}
+
+out:
+	/* Restore the auto hibernate idle timer */
+	if (curr_ahit)
+		ufshcd_writel(hba, curr_ahit, REG_AUTO_HIBERNATE_IDLE_TIMER);
+
+	return ret;
+}
+
+static int ufs_qcom_get_rx_fom(struct ufs_hba *hba,
+			       struct ufs_pa_layer_attr *pwr_mode,
+			       struct tx_eqtr_iter *h_iter,
+			       struct tx_eqtr_iter *d_iter)
+{
+	struct ufshcd_tx_eq_params *params __free(kfree) =
+		kzalloc(sizeof(*params), GFP_KERNEL);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct ufs_pa_layer_attr old_pwr_info;
+	u32 fom[PA_MAXDATALANES] = { 0 };
+	u32 gear = pwr_mode->gear_tx;
+	u32 rate = pwr_mode->hs_rate;
+	int lane, ret;
+
+	if (host->hw_ver.major != 0x7 || host->hw_ver.minor > 0x1 ||
+	    gear <= UFS_HS_G5 || !d_iter || !d_iter->is_updated)
+		return 0;
+
+	if (gear < UFS_HS_G1 || gear > UFS_HS_GEAR_MAX)
+		return -ERANGE;
+
+	if (!params)
+		return -ENOMEM;
+
+	memcpy(&old_pwr_info, &hba->pwr_info, sizeof(struct ufs_pa_layer_attr));
+
+	memcpy(params, &hba->tx_eq_params[gear - 1], sizeof(struct ufshcd_tx_eq_params));
+	for (lane = 0; lane < pwr_mode->lane_rx; lane++) {
+		params->device[lane].preshoot = d_iter->preshoot;
+		params->device[lane].deemphasis = d_iter->deemphasis;
+	}
+
+	/* Use TX EQTR settings as Device's TX Equalization settings. */
+	ret = ufshcd_apply_tx_eq_settings(hba, params, gear);
+	if (ret) {
+		dev_err(hba->dev, "%s: Failed to apply TX EQ settings for HS-G%u: %d\n",
+			__func__, gear, ret);
+		return ret;
+	}
+
+	/* Force PMC to target HS Gear to use new TX Equalization settings. */
+	ret = ufshcd_change_power_mode(hba, pwr_mode, UFSHCD_PMC_POLICY_FORCE);
+	if (ret) {
+		dev_err(hba->dev, "%s: Failed to change power mode to HS-G%u, Rate-%s: %d\n",
+			__func__, gear, ufs_hs_rate_to_str(rate), ret);
+		return ret;
+	}
+
+	ret = ufs_qcom_host_sw_rx_fom(hba, pwr_mode->lane_rx, fom);
+	if (ret) {
+		dev_err(hba->dev, "Failed to get SW FOM of TX (PreShoot: %u, DeEmphasis: %u): %d\n",
+			d_iter->preshoot, d_iter->deemphasis, ret);
+		return ret;
+	}
+
+	/* Restore Device's TX Equalization settings. */
+	ret = ufshcd_apply_tx_eq_settings(hba, &hba->tx_eq_params[gear - 1], gear);
+	if (ret) {
+		dev_err(hba->dev, "%s: Failed to apply TX EQ settings for HS-G%u: %d\n",
+			__func__, gear, ret);
+		return ret;
+	}
+
+	/* Restore Power Mode. */
+	ret = ufshcd_change_power_mode(hba, &old_pwr_info, UFSHCD_PMC_POLICY_FORCE);
+	if (ret) {
+		dev_err(hba->dev, "%s: Failed to retore power mode to HS-G%u: %d\n",
+			__func__, old_pwr_info.gear_tx, ret);
+		return ret;
+	}
+
+	for (lane = 0; lane < pwr_mode->lane_rx; lane++)
+		d_iter->fom[lane] = fom[lane];
+
+	return 0;
+}
+
 static int ufs_qcom_tx_eqtr_notify(struct ufs_hba *hba,
 				   enum ufs_notify_change_status status,
 				   struct ufs_pa_layer_attr *pwr_mode)
@@ -2575,6 +2886,7 @@ static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.get_outstanding_cqs	= ufs_qcom_get_outstanding_cqs,
 	.config_esi		= ufs_qcom_config_esi,
 	.freq_to_gear_speed	= ufs_qcom_freq_to_gear_speed,
+	.get_rx_fom		= ufs_qcom_get_rx_fom,
 	.tx_eqtr_notify		= ufs_qcom_tx_eqtr_notify,
 };
 
