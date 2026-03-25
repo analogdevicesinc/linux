@@ -1130,7 +1130,9 @@ static int set_qp_param(struct hns_roce_dev *hr_dev, struct hns_roce_qp *hr_qp,
 	}
 
 	if (udata) {
-		ret = ib_copy_validate_udata_in(udata, *ucmd, reserved);
+		ret = ib_copy_validate_udata_in_cm(
+			udata, *ucmd, reserved,
+			HNS_ROCE_CREATE_QP_MASK_CONGEST_TYPE);
 		if (ret)
 			return ret;
 
