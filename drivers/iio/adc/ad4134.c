@@ -598,7 +598,7 @@ static int ad4134_offload_buffer_setup(struct iio_dev *indio_dev, struct spi_dev
 
 	st->offload = devm_spi_offload_get(offload_dev, st->spi_engine, &ad4134_offload_config);
 	ret = PTR_ERR_OR_ZERO(st->offload);
-	if (ret && ret != -ENODEV)
+	if (ret)
 		return dev_err_probe(dev, ret, "failed to get offload\n");
 
 
