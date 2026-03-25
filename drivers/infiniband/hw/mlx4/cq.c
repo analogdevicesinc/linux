@@ -168,10 +168,9 @@ int mlx4_ib_create_user_cq(struct ib_cq *ibcq,
 	INIT_LIST_HEAD(&cq->send_qp_list);
 	INIT_LIST_HEAD(&cq->recv_qp_list);
 
-	if (ib_copy_from_udata(&ucmd, udata, sizeof(ucmd))) {
-		err = -EFAULT;
+	err = ib_copy_validate_udata_in(udata, ucmd, db_addr);
+	if (err)
 		goto err_cq;
-	}
 
 	if (ibcq->umem &&
 	    (dev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_SW_CQ_INIT))
@@ -336,8 +335,9 @@ static int mlx4_alloc_resize_umem(struct mlx4_ib_dev *dev, struct mlx4_ib_cq *cq
 	if (cq->resize_umem)
 		return -EBUSY;
 
-	if (ib_copy_from_udata(&ucmd, udata, sizeof ucmd))
-		return -EFAULT;
+	err = ib_copy_validate_udata_in(udata, ucmd, buf_addr);
+	if (err)
+		return err;
 
 	cq->resize_buf = kmalloc_obj(*cq->resize_buf);
 	if (!cq->resize_buf)

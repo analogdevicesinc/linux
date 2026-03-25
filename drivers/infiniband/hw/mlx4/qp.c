@@ -1053,16 +1053,12 @@ static int create_qp_common(struct ib_pd *pd, struct ib_qp_init_attr *init_attr,
 
 	if (udata) {
 		struct mlx4_ib_create_qp ucmd;
-		size_t copy_len;
 		int shift;
 		int n;
 
-		copy_len = sizeof(struct mlx4_ib_create_qp);
-
-		if (ib_copy_from_udata(&ucmd, udata, copy_len)) {
-			err = -EFAULT;
+		err = ib_copy_validate_udata_in(udata, ucmd, sq_no_prefetch);
+		if (err)
 			goto err;
-		}
 
 		qp->inl_recv_sz = ucmd.inl_recv_sz;
 
