@@ -1774,16 +1774,13 @@ int mlx5_ib_alloc_mw(struct ib_mw *ibmw, struct ib_udata *udata)
 		__u32	response_length;
 	} resp = {};
 
-	err = ib_copy_from_udata(&req, udata, min(udata->inlen, sizeof(req)));
-	if (err)
-		return err;
+	if (udata->inlen) {
+		err = ib_copy_validate_udata_in_cm(udata, req, reserved2, 0);
+		if (err)
+			return err;
+	}
 
-	if (req.comp_mask || req.reserved1 || req.reserved2)
-		return -EOPNOTSUPP;
-
-	if (udata->inlen > sizeof(req) &&
-	    !ib_is_udata_cleared(udata, sizeof(req),
-				 udata->inlen - sizeof(req)))
+	if (req.reserved1 || req.reserved2)
 		return -EOPNOTSUPP;
 
 	ndescs = req.num_klms ? roundup(req.num_klms, 4) : roundup(1, 4);
