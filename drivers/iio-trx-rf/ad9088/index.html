@@ -8,8 +8,8 @@
 
     <title>AD9084/AD9088 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=a525f648" />
-    <script async="async" src="../../../_static/app.umd.js?v=fcf3088a"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=5c8d5ce8" />
+    <script async="async" src="../../../_static/app.umd.js?v=f78f54ff"></script>
     <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
     <link rel="icon" href="../../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -69,7 +69,7 @@
         <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
         <div class="vertical-divider"></div>
         
-        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs" tabindex="0">Docs</label>
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
         
         <a id="logo" href="../../../index.html">
           <div>Linux</div>
@@ -486,7 +486,7 @@ targeted at phased array radar systems and electronic warfare applications.</p>
 <ul>
 <li><div class="line-block">
 <div class="line"><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD9084" target="_blank">EVAL-AD9084</a></div>
-<div class="line"><a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/user-guides/eval-ad9084-ug-2326.pdf" target="_blank">User Guide (UG-2326)</a></div>
+<div class="line"><a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/user-guides/eval-ad9084-ad9088-ug-2326.pdf" target="_blank">User Guide (UG-2326)</a></div>
 </div>
 </li>
 </ul>
@@ -505,24 +505,24 @@ page.</p>
 </div>
 <p>Linux Driver</p>
 <ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088.c" target="_blank">ad9088.c</a> - Main driver</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088.h" target="_blank">ad9088.h</a> - Driver header</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_dt.c" target="_blank">ad9088_dt.c</a> - Device tree parsing</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_bmem.c" target="_blank">ad9088_bmem.c</a> - Buffer memory interface</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_cal.c" target="_blank">ad9088_cal.c</a> - Calibration save/restore</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_debugfs.c" target="_blank">ad9088_debugfs.c</a> - Debugfs interface</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_fft.c" target="_blank">ad9088_fft.c</a> - FFT sniffer support</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_ffh.c" target="_blank">ad9088_ffh.c</a> - Fast frequency hopping</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_jesd204_fsm.c" target="_blank">ad9088_jesd204_fsm.c</a> - JESD204 FSM callbacks</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_mcs.c" target="_blank">ad9088_mcs.c</a> - MCS calibration</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/tools/ad9088_cal_dump.c" target="_blank">ad9088_cal_dump.c</a> - Calibration dump tool</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088.c" target="_blank">ad9088.c</a> - Main driver</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088.h" target="_blank">ad9088.h</a> - Driver header</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088_dt.c" target="_blank">ad9088_dt.c</a> - Device tree parsing</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088_bmem.c" target="_blank">ad9088_bmem.c</a> - Buffer memory interface</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088_cal.c" target="_blank">ad9088_cal.c</a> - Calibration save/restore</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088_debugfs.c" target="_blank">ad9088_debugfs.c</a> - Debugfs interface</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088_fft.c" target="_blank">ad9088_fft.c</a> - FFT sniffer support</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088_ffh.c" target="_blank">ad9088_ffh.c</a> - Fast frequency hopping</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088_jesd204_fsm.c" target="_blank">ad9088_jesd204_fsm.c</a> - JESD204 FSM callbacks</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088_mcs.c" target="_blank">ad9088_mcs.c</a> - MCS calibration</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/tools/ad9088_cal_dump.c" target="_blank">ad9088_cal_dump.c</a> - Calibration dump tool</p></li>
 </ul>
 <p>API:</p>
 <ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/adi_inc" target="_blank">adi_inc</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/adi_utils" target="_blank">adi_utils</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/private" target="_blank">private</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/public" target="_blank">public</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/adi_inc" target="_blank">adi_inc</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/adi_utils" target="_blank">adi_utils</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/private" target="_blank">private</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/public" target="_blank">public</a></p></li>
 </ul>
 <section id="interrelated-device-drivers">
 <h3>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h3>
@@ -534,9 +534,9 @@ page.</p>
 <ul>
 <li><p>Sources:</p>
 <ul>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></li>
 </ul>
 </li>
 <li><p>Documentation:</p>
@@ -550,8 +550,8 @@ page.</p>
 <ul>
 <li><p>Sources:</p>
 <ul>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_adc.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/frequency/cf_axi_adc.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></li>
 </ul>
 </li>
 <li><p>Documentation:</p>
@@ -565,8 +565,8 @@ page.</p>
 <ul>
 <li><p>Sources:</p>
 <ul>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></li>
 </ul>
 </li>
 <li><p>Documentation:</p>
@@ -581,7 +581,7 @@ page.</p>
 <ul>
 <li><p>Sources:</p>
 <ul>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></li>
 </ul>
 </li>
 <li><p>Documentation:</p>
@@ -598,15 +598,15 @@ page.</p>
 <h2>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h2>
 <p>The following example devicetrees are provided:</p>
 <ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts" target="_blank">AD9084-VCU118 RevB</a>: vcu118_quad_ad9084_revB.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts" target="_blank">AD9084-VCU118 26p4 RevB Ext</a>: vcu118_quad_ad9084_26p4_revB_ext.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts" target="_blank">AD9084-VCU118 26p4 RevB</a>: vcu118_quad_ad9084_26p4_revB.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1</a>: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084.dts" target="_blank">AD9084-VCU118 ad9084</a>: vcu118_ad9084.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts" target="_blank">AD9084-VCU118 RevB Ext</a>: vcu118_quad_ad9084_revB_ext.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4</a>: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts" target="_blank">AD9084-VCK190</a>: versal-vck190-reva-ad9084.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts" target="_blank">AD9084-VCK190 204C_M4_L4_NP16_20p0_4x4</a>: versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts" target="_blank">AD9084-VCU118 RevB</a>: vcu118_quad_ad9084_revB.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts" target="_blank">AD9084-VCU118 26p4 RevB Ext</a>: vcu118_quad_ad9084_26p4_revB_ext.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts" target="_blank">AD9084-VCU118 26p4 RevB</a>: vcu118_quad_ad9084_26p4_revB.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1</a>: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/microblaze/boot/dts/vcu118_ad9084.dts" target="_blank">AD9084-VCU118 ad9084</a>: vcu118_ad9084.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts" target="_blank">AD9084-VCU118 RevB Ext</a>: vcu118_quad_ad9084_revB_ext.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4</a>: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts" target="_blank">AD9084-VCK190</a>: versal-vck190-reva-ad9084.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts" target="_blank">AD9084-VCK190 204C_M4_L4_NP16_20p0_4x4</a>: versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts</p></li>
 </ul>
 <section id="profile">
 <h3>Profile<a class="headerlink" href="#profile" title="Link to this heading"></a></h3>
@@ -2601,7 +2601,7 @@ channels are enabled, samples are interleaved in channel order.</p>
 <section id="gpios-gpio-chip">
 <span id="apollo-gpio"></span><h4>GPIOs &amp; GPIO chip<a class="headerlink" href="#gpios-gpio-chip" title="Link to this heading"></a></h4>
 <p>The device contains 30 general purpose GPIOs that can be used to trigger various
-changes and can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.0.0-rc2)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
+changes and can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.0.0-rc5)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
 using the <code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code> devicetree property:</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">     </span><span class="n">adi</span><span class="p">,</span><span class="n">gpio-exports</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">8 &lt;15 16 17 18&gt;</span><span class="p">;</span>
@@ -3729,9 +3729,9 @@ relying on it in production</p></li>
 <h3>Source Code<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
 <p>Calibration-related source files:</p>
 <ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_cal.c" target="_blank">ad9088_cal.c</a> - Calibration save/restore implementation</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088.h" target="_blank">ad9088_cal.h</a> - Calibration data structures</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/tools/ad9088_cal_dump.c" target="_blank">ad9088_cal_dump.c</a> - Calibration dump tool</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088_cal.c" target="_blank">ad9088_cal.c</a> - Calibration save/restore implementation</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/ad9088.h" target="_blank">ad9088_cal.h</a> - Calibration data structures</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/apollo/tools/ad9088_cal_dump.c" target="_blank">ad9088_cal_dump.c</a> - Calibration dump tool</p></li>
 </ul>
 </section>
 </section>

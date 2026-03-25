@@ -8,8 +8,8 @@
 
     <title>AD7877 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=a525f648" />
-    <script async="async" src="../../_static/app.umd.js?v=fcf3088a"></script>
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=5c8d5ce8" />
+    <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -68,7 +68,7 @@
         <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
         <div class="vertical-divider"></div>
         
-        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs" tabindex="0">Docs</label>
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
         
         <a id="logo" href="../../index.html">
           <div>Linux</div>
@@ -471,8 +471,8 @@ for the device’s <code class="docutils literal notranslate"><span class="pre">
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/ad7877.h&gt;</span>
 </pre></div>
 </div>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">spi_ad7877_chip_info{}</a>
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">bfin_ad7877_ts_info{}</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">spi_ad7877_chip_info{}</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">bfin_ad7877_ts_info{}</a></p>
 <p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each SPI bus
 segment, and what slave selects these devices are using. For this reason, the
@@ -483,8 +483,8 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc2)"><span>Overview of Linux kernel SPI support</span></a></p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">bfin_spi_board_info[]</a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc5)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">bfin_spi_board_info[]</a></p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>

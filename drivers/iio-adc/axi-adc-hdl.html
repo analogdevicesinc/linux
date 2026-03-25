@@ -8,8 +8,8 @@
 
     <title>AXI ADC HDL &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=a525f648" />
-    <script async="async" src="../../_static/app.umd.js?v=fcf3088a"></script>
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=5c8d5ce8" />
+    <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -68,7 +68,7 @@
         <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
         <div class="vertical-divider"></div>
         
-        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs" tabindex="0">Docs</label>
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
         
         <a id="logo" href="../../index.html">
           <div>Linux</div>
@@ -431,8 +431,8 @@ It’s register map can be found here:
 <p>This driver is split into two parts. A control driver let’s call it SPI-ADC
 which configures the converter internal control registers, this part is
 typically instantiated via the SPI bus. (see:
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9467.c" target="_blank">ad9467.c</a>,
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9361_conv.c" target="_blank">ad9361_conv.c</a> or
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad9467.c" target="_blank">ad9467.c</a>,
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad9361_conv.c" target="_blank">ad9361_conv.c</a> or
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/mykonos/drivers/iio/adc/ad9361_conv.c" target="_blank">ad9371_conv.c</a>) Device
 probing for the data capture driver (AXI-ADC) which controls the AXI HDL core
 registers and the DMA, is delayed until the SPI control driver is fully probed.
@@ -449,8 +449,8 @@ the digital data interface etc.</p>
 <p>For the <strong>AD9361</strong> and <strong>AD9371</strong> family of transceivers, things are a bit more
 differentiated. In fact these devices have a separate IIO device for the radio
 control portion. We call them the PHY devices.
-(<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9361.c" target="_blank">ad9361.c</a> and
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9371.c" target="_blank">ad9371.c</a> ) The <strong>PHY</strong> drivers
+(<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad9361.c" target="_blank">ad9361.c</a> and
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad9371.c" target="_blank">ad9371.c</a> ) The <strong>PHY</strong> drivers
 are intended to be independent from our AXI-ADC capture drivers and underlying
 HDL designs. Therefore things related to the AXI-ADC driver are located in the
 ad93X1_conv.c files.</p>
@@ -469,7 +469,7 @@ ad93X1_conv.c files.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">WIP</a></p></td>
 <td></td>
 <td></td>
@@ -490,43 +490,43 @@ ad93X1_conv.c files.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad6676.c" target="_blank">drivers/iio/adc/ad6676.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad6676.c" target="_blank">drivers/iio/adc/ad6676.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9208.c" target="_blank">drivers/iio/adc/ad9208.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad9208.c" target="_blank">drivers/iio/adc/ad9208.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9467.c" target="_blank">drivers/iio/adc/ad9467.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad9467.c" target="_blank">drivers/iio/adc/ad9467.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9680.c" target="_blank">drivers/iio/adc/ad9680.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad9680.c" target="_blank">drivers/iio/adc/ad9680.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9361_conv.c" target="_blank">drivers/iio/adc/ad9361_conv.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad9361_conv.c" target="_blank">drivers/iio/adc/ad9361_conv.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9361_conv.c" target="_blank">drivers/iio/adc/ad9371_conv.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad9361_conv.c" target="_blank">drivers/iio/adc/ad9371_conv.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/adrv9009_conv.c" target="_blank">drivers/iio/adc/adrv9009_conv.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/adrv9009_conv.c" target="_blank">drivers/iio/adc/adrv9009_conv.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>core driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>core driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>core include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
 <td></td>
 </tr>
 </tbody>

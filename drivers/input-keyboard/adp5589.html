@@ -8,8 +8,8 @@
 
     <title>ADP5589 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=a525f648" />
-    <script async="async" src="../../_static/app.umd.js?v=fcf3088a"></script>
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=5c8d5ce8" />
+    <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -68,7 +68,7 @@
         <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
         <div class="vertical-divider"></div>
         
-        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs" tabindex="0">Docs</label>
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
         
         <a id="logo" href="../../index.html">
           <div>Linux</div>
@@ -496,7 +496,7 @@ describing devices and how they are connected to the SoC. This can include
 available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/include/linux/input/adp5589.h" target="_blank">/i2c_board_info/-EOF</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/include/linux/input/adp5589.h" target="_blank">/i2c_board_info/-EOF</a></p>
 <p><strong>Example key-map for an 4x4 matrix as found on the ADP5589 evaluation board.</strong></p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/input/adp5589.h&gt;</span>
 <span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">short</span><span class="w"> </span><span class="n">adp5589_keymap</span><span class="p">[</span><span class="n">ADP5589_KEYMAPSIZE</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -580,7 +580,7 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc2)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc5)"><span>How to instantiate I2C devices</span></a></p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>

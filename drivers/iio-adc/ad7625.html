@@ -8,8 +8,8 @@
 
     <title>AD7625 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=a525f648" />
-    <script async="async" src="../../_static/app.umd.js?v=fcf3088a"></script>
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=5c8d5ce8" />
+    <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -68,7 +68,7 @@
         <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
         <div class="vertical-divider"></div>
         
-        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs" tabindex="0">Docs</label>
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
         
         <a id="logo" href="../../index.html">
           <div>Linux</div>
@@ -422,7 +422,7 @@ serial interface, reducing external hardware connections.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad7625.c" target="_blank">ADI tree</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad7625.c" target="_blank">ADI tree</a></p></td>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7625.c" target="_blank">Yes</a></p></td>
 <td></td>
 <td></td>
@@ -443,19 +443,19 @@ serial interface, reducing external hardware connections.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad7625.c" target="_blank">drivers/iio/adc/ad7625.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad7625.c" target="_blank">drivers/iio/adc/ad7625.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>devicetree bindings</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings/iio/adc/adi,ad7625.yaml" target="_blank">Documentation/devicetree/bindings/iio/adc/adi,ad7625.yaml</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/Documentation/devicetree/bindings/iio/adc/adi,ad7625.yaml" target="_blank">Documentation/devicetree/bindings/iio/adc/adi,ad7625.yaml</a></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>ZedBoard example devicetree</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts" target="_blank">arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts" target="_blank">arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>ZedBoard example devicetree (ad7960)</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts" target="_blank">arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts" target="_blank">arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts</a></p></td>
 <td></td>
 </tr>
 </tbody>
@@ -673,7 +673,7 @@ connected to the CLK pins for transferring data to the host.</p>
 <section id="examples">
 <h3>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h3>
 <p>The AD7625 devicetree
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts" target="_blank">example</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts" target="_blank">example</a>
 shows a case where EN1 is hard-wired high (and EN0 is implicitly hard-wired
 low):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ad7625</span> <span class="p">{</span>
@@ -691,7 +691,7 @@ low):</p>
 </pre></div>
 </div>
 <p>The AD7960
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts" target="_blank">example</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts" target="_blank">example</a>
 shows how to specify all GPIOs as configurable and allow the driver to select
 the default configuration:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ad7960</span> <span class="p">{</span>
@@ -847,22 +847,22 @@ frequency (fclk) of the system.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7625" target="_blank">EVAL-AD7625FMCZ</a></p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts</a></p></td>
 <td></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7626" target="_blank">EVAL-AD7626FMCZ</a></p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts</a></p></td>
 <td></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7960" target="_blank">EVAL-AD7960FMCZ</a></p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts</a></p></td>
 <td></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7961" target="_blank">EVAL-AD7961FMCZ</a></p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts</a></p></td>
 <td></td>
 <td></td>
 </tr>
