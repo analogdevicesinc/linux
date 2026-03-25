@@ -57,6 +57,7 @@
  *      http://aiptektablet.sourceforge.net.
  */
 
+#include <linux/hid.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -164,8 +165,6 @@
 
 #define USB_VENDOR_ID_AIPTEK				0x08ca
 #define USB_VENDOR_ID_KYE				0x0458
-#define USB_REQ_GET_REPORT				0x01
-#define USB_REQ_SET_REPORT				0x09
 
 	/* PointerMode codes
 	 */
@@ -856,7 +855,7 @@ aiptek_set_report(struct aiptek *aiptek,
 
 	return usb_control_msg(udev,
 			       usb_sndctrlpipe(udev, 0),
-			       USB_REQ_SET_REPORT,
+			       HID_REQ_SET_REPORT,
 			       USB_TYPE_CLASS | USB_RECIP_INTERFACE |
 			       USB_DIR_OUT, (report_type << 8) + report_id,
 			       aiptek->ifnum, buffer, size, 5000);
@@ -871,7 +870,7 @@ aiptek_get_report(struct aiptek *aiptek,
 
 	return usb_control_msg(udev,
 			       usb_rcvctrlpipe(udev, 0),
-			       USB_REQ_GET_REPORT,
+			       HID_REQ_GET_REPORT,
 			       USB_TYPE_CLASS | USB_RECIP_INTERFACE |
 			       USB_DIR_IN, (report_type << 8) + report_id,
 			       aiptek->ifnum, buffer, size, 5000);
