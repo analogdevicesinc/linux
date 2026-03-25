@@ -1273,6 +1273,9 @@ void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
 /* f/w status */
 #define mmMPNHT_SMN_C2PMSG_26_ALT_2	0xAE10968
 
+/* 2MB NPA start address for 2MB page mapping */
+#define AMDGPU_UALINK_SOURCE_ALIAS_NPA_OFFSET SZ_2M
+
 struct amdgpu_ualink_metadata {
 	u32 header;
 
@@ -1479,5 +1482,99 @@ static inline u32 ualink_wb_offset(struct amdgpu_device *adev, u32 accel_id)
 static inline u32 ualink_tlb_wb_offset(struct amdgpu_device *adev, u32 accel_id)
 {
 	return ualink_wb_offset(adev, accel_id) + sizeof(struct amdgpu_ualink_wb);
+}
+
+/*
+ * Reserved NPA space for remote shootdown and interrupt ring buffer,
+ * write pointers, read pointers and writeback buffers
+ *
+ * NPA ring type: 0 = shootdown, 1 = interrupt, 2 = tailptr (wptr)
+ */
+enum ring_buffer_type {
+	RB_TYPE_TLB_INV			= 0,
+	RB_TYPE_REMOTE_INTERRUPT	= 1,
+	RB_TYPE_TAILPTR			= 2
+};
+
+/**
+ * amdgpu_ualink_npa_addr - Get reserved NPA address for ring buffer
+ * @adev: amdgpu device pointer
+ * @type: Ring buffer type (TLB_INV, REMOTE_INTERRUPT, or TAILPTR)
+ * @src_accel_id: Source accelerator ID
+ * @dst_accel_id: Destination accelerator ID
+ *
+ * Return: NPA address for the specified ring buffer type and GPUs
+ */
+static u64 amdgpu_ualink_npa_addr(struct amdgpu_device *adev, u32 type,
+				  u32 src_accel_id, u32 dst_accel_id)
+{
+	u32 addr_mode = ualink_addr_mode(adev);
+	u64 npa;
+
+	WARN_ON_ONCE(src_accel_id >= AMDGPU_UALINK_ACCEL_MAX ||
+		     dst_accel_id >= AMDGPU_UALINK_ACCEL_MAX ||
+		     type > RB_TYPE_TAILPTR ||
+		     (addr_mode != AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT &&
+		     addr_mode != AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS));
+
+	switch (addr_mode) {
+	case AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT:
+		npa = (u64)src_accel_id << 41 | type << 12;
+		break;
+
+	case AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS:
+	default:
+		if (type == RB_TYPE_TAILPTR)
+			npa = (u64)dst_accel_id << 13;
+		else
+			npa = (u64)src_accel_id << 13 | type << 12;
+
+		/*
+		 * In order to avoid address conflicts between source-identification
+		 * and source-aliasing mode, add 2MB to the buffer addresses in
+		 * source-aliasing mode. This way in a misconfigured cluster, a GPU
+		 * configured in the wrong address mode will access unmapped NPA addresses
+		 * rather than the wrong buffer mappings.
+		 */
+		npa += AMDGPU_UALINK_SOURCE_ALIAS_NPA_OFFSET;
+		break;
+	}
+
+	dev_dbg(adev->dev, "addr mode %d from accel %d to accel %d type %d NPA 0x%llx\n",
+		addr_mode, src_accel_id, dst_accel_id, type, npa);
+
+	return npa;
+}
+
+/**
+ * amdgpu_ualink_gart_npa_addr - Get GART-mapped NPA address for ring buffer
+ * @adev: amdgpu device pointer
+ * @type: Ring buffer type (TLB_INV, REMOTE_INTERRUPT, or TAILPTR)
+ * @src_accel_id: Source accelerator ID
+ * @dst_accel_id: Destination accelerator ID
+ *
+ * Computes the NPA address suitable for GART mapping by adding dst_accid_id to
+ * NPA address to access remote by SDMA.
+
+ * clears the source GPU ID bits from the NPA address which is set for
+ * address-identification mode.
+ *
+ * Return: NPA address adjusted for GART mapping
+ */
+
+#define AMDGPU_UALINK_GART_NPA_ADDR_GPUID_SHIFT		41
+#define AMDGPU_UALINK_GART_NPA_ADDR_GPUID_MASK		GENMASK_ULL(50, 41)
+
+static u64 amdgpu_ualink_gart_npa_addr(struct amdgpu_device *adev, u32 type,
+					u32 src_accel_id, u32 dst_accel_id)
+{
+	u64 npa;
+
+	npa = amdgpu_ualink_npa_addr(adev, type, src_accel_id, dst_accel_id);
+
+	/* wiping out source accelerator id */
+	npa &= ~AMDGPU_UALINK_GART_NPA_ADDR_GPUID_MASK;
+
+	return npa | ((u64)dst_accel_id << AMDGPU_UALINK_GART_NPA_ADDR_GPUID_SHIFT);
 }
 
