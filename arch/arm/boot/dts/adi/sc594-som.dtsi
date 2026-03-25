@@ -155,12 +155,12 @@
 		/*adi,enable-dma;*/
 
 		qspi_0: partition@0 {
-			label = "u-boot spl";
+			label = "u-boot-spl";
 			reg = <0x0 0x40000>;
 		};
 
 		qspi_1: partition@1 {
-			label = "u-boot proper";
+			label = "u-boot";
 			reg = <0x40000 0xc0000>;
 		};
 
@@ -206,12 +206,12 @@
 			#size-cells = <1>;
 
 			ospi_0: partition@0 {
-				label = "u-boot spl";
+				label = "u-boot-spl";
 				reg = <0x0 0x40000>;
 			};
 
 			ospi_1: partition@1 {
-				label = "u-boot proper";
+				label = "u-boot";
 				reg = <0x40000 0xc0000>;
 			};
 

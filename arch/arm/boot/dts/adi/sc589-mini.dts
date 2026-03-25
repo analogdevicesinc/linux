@@ -136,12 +136,12 @@
 		reg = <0>;
 
 		partition@0 {
-			label = "u-boot spl";
+			label = "u-boot-spl";
 			reg = <0x0 0x20000>;
 		};
 
 		partition@1 {
-			label = "u-boot proper";
+			label = "u-boot";
 			reg = <0x20000 0xb0000>;
 		};
 
