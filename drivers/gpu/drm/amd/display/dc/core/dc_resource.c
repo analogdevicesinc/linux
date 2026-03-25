@@ -164,7 +164,13 @@ enum dce_version resource_parse_asic_id(struct hw_asic_id asic_id)
 
 	case FAMILY_NV:
 		dc_version = DCN_VERSION_2_0;
-		if (asic_id.chip_id == DEVICE_ID_NV_13FE || asic_id.chip_id == DEVICE_ID_NV_143F) {
+		if (asic_id.chip_id == DEVICE_ID_NV_13FE ||
+		    asic_id.chip_id == DEVICE_ID_NV_143F ||
+		    asic_id.chip_id == DEVICE_ID_NV_13F9 ||
+		    asic_id.chip_id == DEVICE_ID_NV_13FA ||
+		    asic_id.chip_id == DEVICE_ID_NV_13FB ||
+		    asic_id.chip_id == DEVICE_ID_NV_13FC ||
+		    asic_id.chip_id == DEVICE_ID_NV_13DB) {
 			dc_version = DCN_VERSION_2_01;
 			break;
 		}
@@ -763,25 +769,6 @@ static inline void get_vp_scan_direction(
 
 	if (horizontal_mirror)
 		*flip_horz_scan_dir = !*flip_horz_scan_dir;
-}
-
-/*
- * This is a preliminary vp size calculation to allow us to check taps support.
- * The result is completely overridden afterwards.
- */
-static void calculate_viewport_size(struct pipe_ctx *pipe_ctx)
-{
-	struct scaler_data *data = &pipe_ctx->plane_res.scl_data;
-
-	data->viewport.width = dc_fixpt_ceil(dc_fixpt_mul_int(data->ratios.horz, data->recout.width));
-	data->viewport.height = dc_fixpt_ceil(dc_fixpt_mul_int(data->ratios.vert, data->recout.height));
-	data->viewport_c.width = dc_fixpt_ceil(dc_fixpt_mul_int(data->ratios.horz_c, data->recout.width));
-	data->viewport_c.height = dc_fixpt_ceil(dc_fixpt_mul_int(data->ratios.vert_c, data->recout.height));
-	if (pipe_ctx->plane_state->rotation == ROTATION_ANGLE_90 ||
-			pipe_ctx->plane_state->rotation == ROTATION_ANGLE_270) {
-		swap(data->viewport.width, data->viewport.height);
-		swap(data->viewport_c.width, data->viewport_c.height);
-	}
 }
 
 static struct rect intersect_rec(const struct rect *r0, const struct rect *r1)
@@ -1468,12 +1455,14 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 	const struct dc_plane_state *plane_state = pipe_ctx->plane_state;
 	struct dc_crtc_timing *timing = &pipe_ctx->stream->timing;
 	const struct rect odm_slice_src = resource_get_odm_slice_src_rect(pipe_ctx);
+	struct scaling_taps temp = {0};
 	bool res = false;
 
 	DC_LOGGER_INIT(pipe_ctx->stream->ctx->logger);
 
 	/* Invalid input */
-	if (!plane_state->dst_rect.width ||
+	if (!plane_state ||
+			!plane_state->dst_rect.width ||
 			!plane_state->dst_rect.height ||
 			!plane_state->src_rect.width ||
 			!plane_state->src_rect.height) {
@@ -1519,14 +1508,16 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 		res = spl_calculate_scaler_params(spl_in, spl_out);
 		// Convert respective out params from SPL to scaler data
 		translate_SPL_out_params_to_pipe_ctx(pipe_ctx, spl_out);
+
+		/* Ignore scaler failure if pipe context plane is phantom plane */
+		if (!res && plane_state->is_phantom)
+			res = true;
 	} else {
 #endif
 	/* depends on h_active */
 	calculate_recout(pipe_ctx);
 	/* depends on pixel format */
 	calculate_scaling_ratios(pipe_ctx);
-	/* depends on scaling ratios and recout, does not calculate offset yet */
-	calculate_viewport_size(pipe_ctx);
 
 	/*
 	 * LB calculations depend on vp size, h/v_active and scaling ratios
@@ -1546,6 +1537,24 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 		pipe_ctx->plane_res.scl_data.lb_params.depth = LB_PIXEL_DEPTH_30BPP;
 
 	pipe_ctx->plane_res.scl_data.lb_params.alpha_en = plane_state->per_pixel_alpha;
+
+	// get TAP value with 100x100 dummy data for max scaling qualify, override
+	// if a new scaling quality required
+	pipe_ctx->plane_res.scl_data.viewport.width = 100;
+	pipe_ctx->plane_res.scl_data.viewport.height = 100;
+	pipe_ctx->plane_res.scl_data.viewport_c.width = 100;
+	pipe_ctx->plane_res.scl_data.viewport_c.height = 100;
+	if (pipe_ctx->plane_res.xfm != NULL)
+		res = pipe_ctx->plane_res.xfm->funcs->transform_get_optimal_number_of_taps(
+				pipe_ctx->plane_res.xfm, &pipe_ctx->plane_res.scl_data, &plane_state->scaling_quality);
+
+	if (pipe_ctx->plane_res.dpp != NULL)
+		res = pipe_ctx->plane_res.dpp->funcs->dpp_get_optimal_number_of_taps(
+				pipe_ctx->plane_res.dpp, &pipe_ctx->plane_res.scl_data, &plane_state->scaling_quality);
+
+	temp = pipe_ctx->plane_res.scl_data.taps;
+
+	calculate_inits_and_viewports(pipe_ctx);
 
 	if (pipe_ctx->plane_res.xfm != NULL)
 		res = pipe_ctx->plane_res.xfm->funcs->transform_get_optimal_number_of_taps(
@@ -1573,11 +1582,14 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 					&plane_state->scaling_quality);
 	}
 
-	/*
-	 * Depends on recout, scaling ratios, h_active and taps
-	 * May need to re-check lb size after this in some obscure scenario
-	 */
-	if (res)
+	/* Ignore scaler failure if pipe context plane is phantom plane */
+	if (!res && plane_state->is_phantom)
+		res = true;
+
+	if (res && (pipe_ctx->plane_res.scl_data.taps.v_taps != temp.v_taps ||
+		pipe_ctx->plane_res.scl_data.taps.h_taps != temp.h_taps ||
+		pipe_ctx->plane_res.scl_data.taps.v_taps_c != temp.v_taps_c ||
+		pipe_ctx->plane_res.scl_data.taps.h_taps_c != temp.h_taps_c))
 		calculate_inits_and_viewports(pipe_ctx);
 
 	/*
@@ -3382,10 +3394,13 @@ static int get_norm_pix_clk(const struct dc_crtc_timing *timing)
 			break;
 		case COLOR_DEPTH_121212:
 			normalized_pix_clk = (pix_clk * 36) / 24;
-		break;
+			break;
+		case COLOR_DEPTH_141414:
+			normalized_pix_clk = (pix_clk * 42) / 24;
+			break;
 		case COLOR_DEPTH_161616:
 			normalized_pix_clk = (pix_clk * 48) / 24;
-		break;
+			break;
 		default:
 			ASSERT(0);
 		break;
@@ -4141,7 +4156,13 @@ static void set_avi_info_frame(
 	unsigned int fr_ind = pipe_ctx->stream->timing.fr_index;
 	enum dc_timing_3d_format format;
 
+	if (stream->avi_infopacket.valid) {
+		*info_packet = stream->avi_infopacket;
+		return;
+	}
+
 	memset(&hdmi_info, 0, sizeof(union hdmi_info_packet));
+
 
 	color_space = pipe_ctx->stream->output_color_space;
 	if (color_space == COLOR_SPACE_UNKNOWN)
@@ -4206,7 +4227,7 @@ static void set_avi_info_frame(
 		break;
 	case COLOR_SPACE_2020_RGB_FULLRANGE:
 	case COLOR_SPACE_2020_RGB_LIMITEDRANGE:
-	case COLOR_SPACE_2020_YCBCR:
+	case COLOR_SPACE_2020_YCBCR_LIMITED:
 		hdmi_info.bits.EC0_EC2 = COLORIMETRYEX_BT2020RGBYCBCR;
 		hdmi_info.bits.C0_C1   = COLORIMETRY_EXTENDED;
 		break;
@@ -4220,7 +4241,7 @@ static void set_avi_info_frame(
 		break;
 	}
 
-	if (pixel_encoding && color_space == COLOR_SPACE_2020_YCBCR &&
+	if (pixel_encoding && color_space == COLOR_SPACE_2020_YCBCR_LIMITED &&
 			stream->out_transfer_func.tf == TRANSFER_FUNCTION_GAMMA22) {
 		hdmi_info.bits.EC0_EC2 = 0;
 		hdmi_info.bits.C0_C1 = COLORIMETRY_ITU709;

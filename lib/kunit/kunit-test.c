@@ -735,7 +735,7 @@ static struct kunit_case kunit_current_test_cases[] = {
 
 static void test_dev_action(void *priv)
 {
-	*(void **)priv = (void *)1;
+	*(long *)priv = 1;
 }
 
 static void kunit_device_test(struct kunit *test)
@@ -804,6 +804,8 @@ static void kunit_device_driver_test(struct kunit *test)
 	struct device_driver *test_driver;
 	struct device *test_device;
 	struct driver_test_state *test_state = kunit_kzalloc(test, sizeof(*test_state), GFP_KERNEL);
+
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, test_state);
 
 	test->priv = test_state;
 	test_driver = kunit_driver_create(test, "my_driver");

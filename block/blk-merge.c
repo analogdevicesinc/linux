@@ -166,17 +166,6 @@ struct bio *bio_split_discard(struct bio *bio, const struct queue_limits *lim,
 	return bio_submit_split(bio, split_sectors);
 }
 
-struct bio *bio_split_write_zeroes(struct bio *bio,
-		const struct queue_limits *lim, unsigned *nsegs)
-{
-	*nsegs = 0;
-	if (!lim->max_write_zeroes_sectors)
-		return bio;
-	if (bio_sectors(bio) <= lim->max_write_zeroes_sectors)
-		return bio;
-	return bio_submit_split(bio, lim->max_write_zeroes_sectors);
-}
-
 static inline unsigned int blk_boundary_sectors(const struct queue_limits *lim,
 						bool is_atomic)
 {
@@ -211,7 +200,9 @@ static inline unsigned get_max_io_size(struct bio *bio,
 	 * We ignore lim->max_sectors for atomic writes because it may less
 	 * than the actual bio size, which we cannot tolerate.
 	 */
-	if (is_atomic)
+	if (bio_op(bio) == REQ_OP_WRITE_ZEROES)
+		max_sectors = lim->max_write_zeroes_sectors;
+	else if (is_atomic)
 		max_sectors = lim->atomic_write_max_sectors;
 	else
 		max_sectors = lim->max_sectors;
@@ -296,6 +287,14 @@ static bool bvec_split_segs(const struct queue_limits *lim,
 	return len > 0 || bv->bv_len > max_len;
 }
 
+static unsigned int bio_split_alignment(struct bio *bio,
+		const struct queue_limits *lim)
+{
+	if (op_is_write(bio_op(bio)) && lim->zone_write_granularity)
+		return lim->zone_write_granularity;
+	return lim->logical_block_size;
+}
+
 /**
  * bio_split_rw_at - check if and where to split a read/write bio
  * @bio:  [in] bio to be split
@@ -358,7 +357,7 @@ split:
 	 * split size so that each bio is properly block size aligned, even if
 	 * we do not use the full hardware limits.
 	 */
-	bytes = ALIGN_DOWN(bytes, lim->logical_block_size);
+	bytes = ALIGN_DOWN(bytes, bio_split_alignment(bio, lim));
 
 	/*
 	 * Bio splitting may cause subtle trouble such as hang when doing sync
@@ -396,6 +395,26 @@ struct bio *bio_split_zone_append(struct bio *bio,
 	if (WARN_ON_ONCE(split_sectors > 0))
 		split_sectors = -EINVAL;
 	return bio_submit_split(bio, split_sectors);
+}
+
+struct bio *bio_split_write_zeroes(struct bio *bio,
+		const struct queue_limits *lim, unsigned *nsegs)
+{
+	unsigned int max_sectors = get_max_io_size(bio, lim);
+
+	*nsegs = 0;
+
+	/*
+	 * An unset limit should normally not happen, as bio submission is keyed
+	 * off having a non-zero limit.  But SCSI can clear the limit in the
+	 * I/O completion handler, and we can race and see this.  Splitting to a
+	 * zero limit obviously doesn't make sense, so band-aid it here.
+	 */
+	if (!max_sectors)
+		return bio;
+	if (bio_sectors(bio) <= max_sectors)
+		return bio;
+	return bio_submit_split(bio, max_sectors);
 }
 
 /**
@@ -845,12 +864,13 @@ static struct request *attempt_merge(struct request_queue *q,
 	if (rq_data_dir(req) != rq_data_dir(next))
 		return NULL;
 
-	/* Don't merge requests with different write hints. */
-	if (req->write_hint != next->write_hint)
-		return NULL;
-
-	if (req->ioprio != next->ioprio)
-		return NULL;
+	if (req->bio && next->bio) {
+		/* Don't merge requests with different write hints. */
+		if (req->bio->bi_write_hint != next->bio->bi_write_hint)
+			return NULL;
+		if (req->bio->bi_ioprio != next->bio->bi_ioprio)
+			return NULL;
+	}
 
 	if (!blk_atomic_write_mergeable_rqs(req, next))
 		return NULL;
@@ -979,12 +999,13 @@ bool blk_rq_merge_ok(struct request *rq, struct bio *bio)
 	if (!bio_crypt_rq_ctx_compatible(rq, bio))
 		return false;
 
-	/* Don't merge requests with different write hints. */
-	if (rq->write_hint != bio->bi_write_hint)
-		return false;
-
-	if (rq->ioprio != bio_prio(bio))
-		return false;
+	if (rq->bio) {
+		/* Don't merge requests with different write hints. */
+		if (rq->bio->bi_write_hint != bio->bi_write_hint)
+			return false;
+		if (rq->bio->bi_ioprio != bio->bi_ioprio)
+			return false;
+	}
 
 	if (blk_atomic_write_mergeable_rq_bio(rq, bio) == false)
 		return false;
@@ -1156,23 +1177,23 @@ bool blk_attempt_plug_merge(struct request_queue *q, struct bio *bio,
 	struct blk_plug *plug = current->plug;
 	struct request *rq;
 
-	if (!plug || rq_list_empty(plug->mq_list))
+	if (!plug || rq_list_empty(&plug->mq_list))
+		return false;
+
+	rq = plug->mq_list.tail;
+	if (rq->q == q)
+		return blk_attempt_bio_merge(q, rq, bio, nr_segs, false) ==
+			BIO_MERGE_OK;
+	else if (!plug->multiple_queues)
 		return false;
 
 	rq_list_for_each(&plug->mq_list, rq) {
-		if (rq->q == q) {
-			if (blk_attempt_bio_merge(q, rq, bio, nr_segs, false) ==
-			    BIO_MERGE_OK)
-				return true;
-			break;
-		}
-
-		/*
-		 * Only keep iterating plug list for merges if we have multiple
-		 * queues
-		 */
-		if (!plug->multiple_queues)
-			break;
+		if (rq->q != q)
+			continue;
+		if (blk_attempt_bio_merge(q, rq, bio, nr_segs, false) ==
+		    BIO_MERGE_OK)
+			return true;
+		break;
 	}
 	return false;
 }

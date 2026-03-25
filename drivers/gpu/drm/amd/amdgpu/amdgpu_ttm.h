@@ -118,6 +118,8 @@ struct amdgpu_copy_mem {
 #define AMDGPU_COPY_FLAGS_NUMBER_TYPE_MASK		0x07
 #define AMDGPU_COPY_FLAGS_DATA_FORMAT_SHIFT		8
 #define AMDGPU_COPY_FLAGS_DATA_FORMAT_MASK		0x3f
+#define AMDGPU_COPY_FLAGS_WRITE_COMPRESS_DISABLE_SHIFT	14
+#define AMDGPU_COPY_FLAGS_WRITE_COMPRESS_DISABLE_MASK	0x1
 
 #define AMDGPU_COPY_FLAGS_SET(field, value) \
 	(((__u32)(value) & AMDGPU_COPY_FLAGS_##field##_MASK) << AMDGPU_COPY_FLAGS_##field##_SHIFT)
@@ -151,6 +153,7 @@ int amdgpu_vram_mgr_reserve_range(struct amdgpu_vram_mgr *mgr,
 				  uint64_t start, uint64_t size);
 int amdgpu_vram_mgr_query_page_status(struct amdgpu_vram_mgr *mgr,
 				      uint64_t start);
+void amdgpu_vram_mgr_clear_reset_blocks(struct amdgpu_device *adev);
 
 bool amdgpu_res_cpu_visible(struct amdgpu_device *adev,
 			    struct ttm_resource *res);

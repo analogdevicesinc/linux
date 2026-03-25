@@ -144,6 +144,21 @@ static void nfs_io_completion_put(struct nfs_io_completion *ioc)
 		kref_put(&ioc->refcount, nfs_io_completion_release);
 }
 
+static void
+nfs_page_set_inode_ref(struct nfs_page *req, struct inode *inode)
+{
+	if (!test_and_set_bit(PG_INODE_REF, &req->wb_flags)) {
+		kref_get(&req->wb_kref);
+		atomic_long_inc(&NFS_I(inode)->nrequests);
+	}
+}
+
+static void nfs_cancel_remove_inode(struct nfs_page *req, struct inode *inode)
+{
+	if (test_and_clear_bit(PG_REMOVE, &req->wb_flags))
+		nfs_page_set_inode_ref(req, inode);
+}
+
 /**
  * nfs_folio_find_head_request - find head request associated with a folio
  * @folio: pointer to folio
@@ -540,7 +555,6 @@ static struct nfs_page *nfs_lock_and_join_requests(struct folio *folio)
 	struct inode *inode = folio->mapping->host;
 	struct nfs_page *head, *subreq;
 	struct nfs_commit_info cinfo;
-	bool removed;
 	int ret;
 
 	/*
@@ -555,49 +569,35 @@ retry:
 
 	while (!nfs_lock_request(head)) {
 		ret = nfs_wait_on_request(head);
-		if (ret < 0)
+		if (ret < 0) {
+			nfs_release_request(head);
 			return ERR_PTR(ret);
-	}
-
-	/* Ensure that nobody removed the request before we locked it */
-	if (head != folio->private) {
-		nfs_unlock_and_release_request(head);
-		goto retry;
+		}
 	}
 
 	ret = nfs_page_group_lock(head);
 	if (ret < 0)
 		goto out_unlock;
 
-	removed = test_bit(PG_REMOVE, &head->wb_flags);
+	/* Ensure that nobody removed the request before we locked it */
+	if (head != folio->private) {
+		nfs_page_group_unlock(head);
+		nfs_unlock_and_release_request(head);
+		goto retry;
+	}
+
+	nfs_cancel_remove_inode(head, inode);
 
 	/* lock each request in the page group */
 	for (subreq = head->wb_this_page;
 	     subreq != head;
 	     subreq = subreq->wb_this_page) {
-		if (test_bit(PG_REMOVE, &subreq->wb_flags))
-			removed = true;
 		ret = nfs_page_group_lock_subreq(head, subreq);
 		if (ret < 0)
 			goto out_unlock;
 	}
 
 	nfs_page_group_unlock(head);
-
-	/*
-	 * If PG_REMOVE is set on any request, I/O on that request has
-	 * completed, but some requests were still under I/O at the time
-	 * we locked the head request.
-	 *
-	 * In that case the above wait for all requests means that all I/O
-	 * has now finished, and we can restart from a clean slate.  Let the
-	 * old requests go away and start from scratch instead.
-	 */
-	if (removed) {
-		nfs_unroll_locks(head, head);
-		nfs_unlock_and_release_request(head);
-		goto retry;
-	}
 
 	nfs_init_cinfo_from_inode(&cinfo, inode);
 	nfs_join_page_group(head, &cinfo, inode);
@@ -790,7 +790,8 @@ static void nfs_inode_remove_request(struct nfs_page *req)
 {
 	struct nfs_inode *nfsi = NFS_I(nfs_page_to_inode(req));
 
-	if (nfs_page_group_sync_on_bit(req, PG_REMOVE)) {
+	nfs_page_group_lock(req);
+	if (nfs_page_group_sync_on_bit_locked(req, PG_REMOVE)) {
 		struct folio *folio = nfs_page_to_folio(req->wb_head);
 		struct address_space *mapping = folio->mapping;
 
@@ -801,6 +802,7 @@ static void nfs_inode_remove_request(struct nfs_page *req)
 		}
 		spin_unlock(&mapping->i_private_lock);
 	}
+	nfs_page_group_unlock(req);
 
 	if (test_and_clear_bit(PG_INODE_REF, &req->wb_flags)) {
 		atomic_long_dec(&nfsi->nrequests);
@@ -1575,7 +1577,8 @@ static int nfs_writeback_done(struct rpc_task *task,
 	/* Deal with the suid/sgid bit corner case */
 	if (nfs_should_remove_suid(inode)) {
 		spin_lock(&inode->i_lock);
-		nfs_set_cache_invalid(inode, NFS_INO_INVALID_MODE);
+		nfs_set_cache_invalid(inode, NFS_INO_INVALID_MODE
+				| NFS_INO_REVAL_FORCED);
 		spin_unlock(&inode->i_lock);
 	}
 	return 0;
@@ -2056,6 +2059,7 @@ int nfs_wb_folio_cancel(struct inode *inode, struct folio *folio)
 		 * release it */
 		nfs_inode_remove_request(req);
 		nfs_unlock_and_release_request(req);
+		folio_cancel_dirty(folio);
 	}
 
 	return ret;

@@ -105,10 +105,15 @@ config DRM_KMS_HELPER
 	help
 	  CRTC helpers for KMS drivers.
 
+config DRM_DRAW
+	bool
+	depends on DRM
+
 config DRM_PANIC
 	bool "Display a user-friendly message when a kernel panic occurs"
 	depends on DRM
 	select FONT_SUPPORT
+	select DRM_DRAW
 	help
 	  Enable a drm panic handler, which will display a user-friendly message
 	  when a kernel panic occurs. It's useful when using a user-space
@@ -152,6 +157,7 @@ config DRM_PANIC_SCREEN
 config DRM_PANIC_SCREEN_QR_CODE
 	bool "Add a panic screen with a QR code"
 	depends on DRM_PANIC && RUST
+	select ZLIB_DEFLATE
 	help
 	  This option adds a QR code generator, and a panic screen with a QR
 	  code. The QR code will contain the last lines of kmsg and other debug
@@ -184,7 +190,7 @@ config DRM_DEBUG_DP_MST_TOPOLOGY_REFS
         bool "Enable refcount backtrace history in the DP MST helpers"
 	depends on STACKTRACE_SUPPORT
         select STACKDEPOT
-        depends on DRM_KMS_HELPER
+        select DRM_KMS_HELPER
         depends on DEBUG_KERNEL
         depends on EXPERT
         help
@@ -209,6 +215,18 @@ config DRM_DEBUG_MODESET_LOCK
 	  printed when attempting to lock a contended lock.
 
 	  If in doubt, say "N".
+
+config DRM_CLIENT_SELECTION
+	bool
+	depends on DRM
+	select DRM_CLIENT_SETUP if DRM_FBDEV_EMULATION
+	help
+	  Drivers that support in-kernel DRM clients have to select this
+	  option.
+
+config DRM_CLIENT_SETUP
+	bool
+	depends on DRM_CLIENT_SELECTION
 
 config DRM_FBDEV_EMULATION
 	bool "Enable legacy fbdev support for your modesetting driver"
@@ -326,7 +344,7 @@ config DRM_TTM_HELPER
 config DRM_GEM_DMA_HELPER
 	tristate
 	depends on DRM
-	select FB_DMAMEM_HELPERS if DRM_FBDEV_EMULATION
+	select FB_DMAMEM_HELPERS_DEFERRED if DRM_FBDEV_EMULATION
 	help
 	  Choose this if you need the GEM DMA helper functions
 
@@ -486,6 +504,10 @@ config DRM_HYPERV
 
 config DRM_EXPORT_FOR_TESTS
 	bool
+
+# Separate option as not all DRM drivers use it
+config DRM_PANEL_BACKLIGHT_QUIRKS
+	tristate
 
 config DRM_LIB_RANDOM
 	bool

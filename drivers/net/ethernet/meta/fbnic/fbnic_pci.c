@@ -116,14 +116,12 @@ static void fbnic_service_task_start(struct fbnic_net *fbn)
 	struct fbnic_dev *fbd = fbn->fbd;
 
 	schedule_delayed_work(&fbd->service_task, HZ);
-	phylink_resume(fbn->phylink);
 }
 
 static void fbnic_service_task_stop(struct fbnic_net *fbn)
 {
 	struct fbnic_dev *fbd = fbn->fbd;
 
-	phylink_suspend(fbn->phylink, fbnic_bmc_present(fbd));
 	cancel_delayed_work(&fbd->service_task);
 }
 
@@ -319,7 +317,6 @@ init_failure_mode:
 free_irqs:
 	fbnic_free_irqs(fbd);
 free_fbd:
-	pci_disable_device(pdev);
 	fbnic_devlink_free(fbd);
 
 	return err;
@@ -349,7 +346,6 @@ static void fbnic_remove(struct pci_dev *pdev)
 	fbnic_fw_disable_mbx(fbd);
 	fbnic_free_irqs(fbd);
 
-	pci_disable_device(pdev);
 	fbnic_devlink_free(fbd);
 }
 

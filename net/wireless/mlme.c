@@ -340,12 +340,6 @@ cfg80211_mlme_check_mlo_compat(const struct ieee80211_multi_link_elem *mle_a,
 		return -EINVAL;
 	}
 
-	if (ieee80211_mle_get_eml_med_sync_delay((const u8 *)mle_a) !=
-	    ieee80211_mle_get_eml_med_sync_delay((const u8 *)mle_b)) {
-		NL_SET_ERR_MSG(extack, "link EML medium sync delay mismatch");
-		return -EINVAL;
-	}
-
 	if (ieee80211_mle_get_eml_cap((const u8 *)mle_a) !=
 	    ieee80211_mle_get_eml_cap((const u8 *)mle_b)) {
 		NL_SET_ERR_MSG(extack, "link EML capabilities mismatch");
@@ -849,7 +843,8 @@ int cfg80211_mlme_mgmt_tx(struct cfg80211_registered_device *rdev,
 
 	mgmt = (const struct ieee80211_mgmt *)params->buf;
 
-	if (!ieee80211_is_mgmt(mgmt->frame_control))
+	if (!ieee80211_is_mgmt(mgmt->frame_control) ||
+	    ieee80211_has_order(mgmt->frame_control))
 		return -EINVAL;
 
 	stype = le16_to_cpu(mgmt->frame_control) & IEEE80211_FCTL_STYPE;

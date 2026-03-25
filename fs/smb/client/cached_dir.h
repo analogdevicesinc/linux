@@ -21,10 +21,10 @@ struct cached_dirent {
 struct cached_dirents {
 	bool is_valid:1;
 	bool is_failed:1;
-	struct dir_context *ctx; /*
-				  * Only used to make sure we only take entries
-				  * from a single context. Never dereferenced.
-				  */
+	struct file *file; /*
+			    * Used to associate the cache with a single
+			    * open file instance.
+			    */
 	struct mutex de_mutex;
 	int pos;		 /* Expected ctx->pos */
 	struct list_head entries;
@@ -44,7 +44,8 @@ struct cached_fid {
 	spinlock_t fid_lock;
 	struct cifs_tcon *tcon;
 	struct dentry *dentry;
-	struct work_struct lease_break;
+	struct work_struct put_work;
+	struct work_struct close_work;
 	struct smb2_file_all_info file_all_info;
 	struct cached_dirents dirents;
 };
@@ -53,10 +54,13 @@ struct cached_fid {
 struct cached_fids {
 	/* Must be held when:
 	 * - accessing the cfids->entries list
+	 * - accessing the cfids->dying list
 	 */
 	spinlock_t cfid_list_lock;
 	int num_entries;
 	struct list_head entries;
+	struct list_head dying;
+	struct work_struct invalidation_work;
 	struct delayed_work laundromat_work;
 };
 

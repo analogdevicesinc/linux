@@ -391,19 +391,19 @@ nfsd_file_put(struct nfsd_file *nf)
 }
 
 /**
- * nfsd_file_put_local - put the reference to nfsd_file and local nfsd_serv
- * @nf: nfsd_file of which to put the references
+ * nfsd_file_put_local - put nfsd_file reference and arm nfsd_serv_put in caller
+ * @nf: nfsd_file of which to put the reference
  *
- * First put the reference of the nfsd_file and then put the
- * reference to the associated nn->nfsd_serv.
+ * First save the associated net to return to caller, then put
+ * the reference of the nfsd_file.
  */
-void
-nfsd_file_put_local(struct nfsd_file *nf) __must_hold(rcu)
+struct net *
+nfsd_file_put_local(struct nfsd_file *nf)
 {
 	struct net *net = nf->nf_net;
 
 	nfsd_file_put(nf);
-	nfsd_serv_put(net);
+	return net;
 }
 
 /**
@@ -445,11 +445,20 @@ nfsd_file_dispose_list_delayed(struct list_head *dispose)
 						struct nfsd_file, nf_gc);
 		struct nfsd_net *nn = net_generic(nf->nf_net, nfsd_net_id);
 		struct nfsd_fcache_disposal *l = nn->fcache_disposal;
+		struct svc_serv *serv;
 
 		spin_lock(&l->lock);
 		list_move_tail(&nf->nf_gc, &l->freeme);
 		spin_unlock(&l->lock);
-		svc_wake_up(nn->nfsd_serv);
+
+		/*
+		 * The filecache laundrette is shut down after the
+		 * nn->nfsd_serv pointer is cleared, but before the
+		 * svc_serv is freed.
+		 */
+		serv = nn->nfsd_serv;
+		if (serv)
+			svc_wake_up(serv);
 	}
 }
 

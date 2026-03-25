@@ -61,6 +61,7 @@ struct buf_sel_arg {
 	size_t max_len;
 	unsigned short nr_iovs;
 	unsigned short mode;
+	unsigned short partial_map;
 };
 
 void __user *io_buffer_select(struct io_kiocb *req, size_t *len,
@@ -142,7 +143,7 @@ static inline bool io_kbuf_commit(struct io_kiocb *req,
 		struct io_uring_buf *buf;
 
 		buf = io_ring_head_to_buf(bl->buf_ring, bl->head, bl->mask);
-		if (WARN_ON_ONCE(len > buf->len))
+		if (len > buf->len)
 			len = buf->len;
 		buf->len -= len;
 		if (buf->len) {

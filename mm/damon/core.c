@@ -837,6 +837,7 @@ static int damos_commit(struct damos *dst, struct damos *src)
 		return err;
 
 	dst->wmarks = src->wmarks;
+	dst->target_nid = src->target_nid;
 
 	err = damos_commit_filters(dst, src);
 	return err;
@@ -868,6 +869,11 @@ static int damon_commit_schemes(struct damon_ctx *dst, struct damon_ctx *src)
 				NUMA_NO_NODE);
 		if (!new_scheme)
 			return -ENOMEM;
+		err = damos_commit(new_scheme, src_scheme);
+		if (err) {
+			damon_destroy_scheme(new_scheme);
+			return err;
+		}
 		damon_add_scheme(dst, new_scheme);
 	}
 	return 0;
@@ -961,8 +967,11 @@ static int damon_commit_targets(
 			return -ENOMEM;
 		err = damon_commit_target(new_target, false,
 				src_target, damon_target_has_pid(src));
-		if (err)
+		if (err) {
+			damon_destroy_target(new_target);
 			return err;
+		}
+		damon_add_target(dst, new_target);
 	}
 	return 0;
 }
@@ -1586,6 +1595,10 @@ static void damos_adjust_quota(struct damon_ctx *c, struct damos *s)
 
 	if (!quota->ms && !quota->sz && list_empty(&quota->goals))
 		return;
+
+	/* First charge window */
+	if (!quota->total_charged_sz && !quota->charged_from)
+		quota->charged_from = jiffies;
 
 	/* New charge window starts */
 	if (time_after_eq(jiffies, quota->charged_from +

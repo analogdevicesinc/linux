@@ -260,6 +260,7 @@ struct mlx5e_ipsec_limits {
 struct mlx5e_ipsec_sa_entry {
 	struct mlx5e_ipsec_esn_state esn_state;
 	struct xfrm_state *x;
+	struct net_device *dev;
 	struct mlx5e_ipsec *ipsec;
 	struct mlx5_accel_esp_xfrm_attrs attrs;
 	void (*set_iv_op)(struct sk_buff *skb, struct xfrm_state *x,
@@ -336,6 +337,7 @@ void mlx5e_ipsec_build_accel_xfrm_attrs(struct mlx5e_ipsec_sa_entry *sa_entry,
 void mlx5e_ipsec_handle_mpv_event(int event, struct mlx5e_priv *slave_priv,
 				  struct mlx5e_priv *master_priv);
 void mlx5e_ipsec_send_event(struct mlx5e_priv *priv, int event);
+void mlx5e_ipsec_disable_events(struct mlx5e_priv *priv);
 
 static inline struct mlx5_core_dev *
 mlx5e_ipsec_sa2dev(struct mlx5e_ipsec_sa_entry *sa_entry)
@@ -379,6 +381,10 @@ static inline void mlx5e_ipsec_handle_mpv_event(int event, struct mlx5e_priv *sl
 }
 
 static inline void mlx5e_ipsec_send_event(struct mlx5e_priv *priv, int event)
+{
+}
+
+static inline void mlx5e_ipsec_disable_events(struct mlx5e_priv *priv)
 {
 }
 #endif

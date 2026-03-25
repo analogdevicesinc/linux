@@ -516,6 +516,7 @@ void mlx5_modify_lag(struct mlx5_lag *ldev,
 		blocking_notifier_call_chain(&dev0->priv.lag_nh,
 					     MLX5_DRIVER_EVENT_ACTIVE_BACKUP_LAG_CHANGE_LOWERSTATE,
 					     ndev);
+		dev_put(ndev);
 	}
 }
 
@@ -858,7 +859,7 @@ void mlx5_disable_lag(struct mlx5_lag *ldev)
 				mlx5_eswitch_reload_ib_reps(ldev->pf[i].dev->priv.eswitch);
 }
 
-static bool mlx5_shared_fdb_supported(struct mlx5_lag *ldev)
+bool mlx5_lag_shared_fdb_supported(struct mlx5_lag *ldev)
 {
 	struct mlx5_core_dev *dev;
 	int i;
@@ -918,6 +919,7 @@ static void mlx5_do_bond(struct mlx5_lag *ldev)
 {
 	struct mlx5_core_dev *dev0 = ldev->pf[MLX5_LAG_P1].dev;
 	struct lag_tracker tracker = { };
+	struct net_device *ndev;
 	bool do_bond, roce_lag;
 	int err;
 	int i;
@@ -935,7 +937,7 @@ static void mlx5_do_bond(struct mlx5_lag *ldev)
 	}
 
 	if (do_bond && !__mlx5_lag_is_active(ldev)) {
-		bool shared_fdb = mlx5_shared_fdb_supported(ldev);
+		bool shared_fdb = mlx5_lag_shared_fdb_supported(ldev);
 
 		roce_lag = mlx5_lag_is_roce_lag(ldev);
 
@@ -980,6 +982,16 @@ static void mlx5_do_bond(struct mlx5_lag *ldev)
 				mlx5_core_err(dev0, "Failed to enable lag\n");
 				return;
 			}
+		}
+		if (tracker.tx_type == NETDEV_LAG_TX_TYPE_ACTIVEBACKUP) {
+			ndev = mlx5_lag_active_backup_get_netdev(dev0);
+			/** Only sriov and roce lag should have tracker->TX_type
+			 *  set so no need to check the mode
+			 */
+			blocking_notifier_call_chain(&dev0->priv.lag_nh,
+						     MLX5_DRIVER_EVENT_ACTIVE_BACKUP_LAG_CHANGE_LOWERSTATE,
+						     ndev);
+			dev_put(ndev);
 		}
 	} else if (mlx5_lag_should_modify_lag(ldev, do_bond)) {
 		mlx5_modify_lag(ldev, &tracker);

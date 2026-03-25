@@ -241,6 +241,20 @@ static void rockchip_spi_set_cs(struct spi_device *spi, bool enable)
 	struct spi_controller *ctlr = spi->controller;
 	struct rockchip_spi *rs = spi_controller_get_devdata(ctlr);
 	bool cs_asserted = spi->mode & SPI_CS_HIGH ? enable : !enable;
+	bool cs_actual;
+
+	/*
+	 * SPI subsystem tries to avoid no-op calls that would break the PM
+	 * refcount below. It can't however for the first time it is used.
+	 * To detect this case we read it here and bail out early for no-ops.
+	 */
+	if (spi_get_csgpiod(spi, 0))
+		cs_actual = !!(readl_relaxed(rs->regs + ROCKCHIP_SPI_SER) & 1);
+	else
+		cs_actual = !!(readl_relaxed(rs->regs + ROCKCHIP_SPI_SER) &
+			       BIT(spi_get_chipselect(spi, 0)));
+	if (unlikely(cs_actual == cs_asserted))
+		return;
 
 	if (cs_asserted) {
 		/* Keep things powered as long as CS is asserted */
@@ -533,7 +547,7 @@ static int rockchip_spi_config(struct rockchip_spi *rs,
 	cr0 |= (spi->mode & 0x3U) << CR0_SCPH_OFFSET;
 	if (spi->mode & SPI_LSB_FIRST)
 		cr0 |= CR0_FBM_LSB << CR0_FBM_OFFSET;
-	if (spi->mode & SPI_CS_HIGH)
+	if ((spi->mode & SPI_CS_HIGH) && !(spi_get_csgpiod(spi, 0)))
 		cr0 |= BIT(spi_get_chipselect(spi, 0)) << CR0_SOI_OFFSET;
 
 	if (xfer->rx_buf && xfer->tx_buf)

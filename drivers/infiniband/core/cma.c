@@ -72,6 +72,8 @@ static const char * const cma_events[] = {
 static void cma_iboe_set_mgid(struct sockaddr *addr, union ib_gid *mgid,
 			      enum ib_gid_type gid_type);
 
+static void cma_netevent_work_handler(struct work_struct *_work);
+
 const char *__attribute_const__ rdma_event_msg(enum rdma_cm_event_type event)
 {
 	size_t index = event;
@@ -690,6 +692,7 @@ cma_validate_port(struct ib_device *device, u32 port,
 	int bound_if_index = dev_addr->bound_dev_if;
 	int dev_type = dev_addr->dev_type;
 	struct net_device *ndev = NULL;
+	struct net_device *pdev = NULL;
 
 	if (!rdma_dev_access_netns(device, id_priv->id.route.addr.dev_addr.net))
 		goto out;
@@ -714,6 +717,21 @@ cma_validate_port(struct ib_device *device, u32 port,
 
 		rcu_read_lock();
 		ndev = rcu_dereference(sgid_attr->ndev);
+		if (ndev->ifindex != bound_if_index) {
+			pdev = dev_get_by_index_rcu(dev_addr->net, bound_if_index);
+			if (pdev) {
+				if (is_vlan_dev(pdev)) {
+					pdev = vlan_dev_real_dev(pdev);
+					if (ndev->ifindex == pdev->ifindex)
+						bound_if_index = pdev->ifindex;
+				}
+				if (is_vlan_dev(ndev)) {
+					pdev = vlan_dev_real_dev(ndev);
+					if (bound_if_index == pdev->ifindex)
+						bound_if_index = ndev->ifindex;
+				}
+			}
+		}
 		if (!net_eq(dev_net(ndev), dev_addr->net) ||
 		    ndev->ifindex != bound_if_index) {
 			rdma_put_gid_attr(sgid_attr);
@@ -1017,6 +1035,7 @@ __rdma_create_id(struct net *net, rdma_cm_event_handler event_handler,
 	get_random_bytes(&id_priv->seq_num, sizeof id_priv->seq_num);
 	id_priv->id.route.addr.dev_addr.net = get_net(net);
 	id_priv->seq_num &= 0x00ffffff;
+	INIT_WORK(&id_priv->id.net_work, cma_netevent_work_handler);
 
 	rdma_restrack_new(&id_priv->res, RDMA_RESTRACK_CM_ID);
 	if (parent)
@@ -5211,9 +5230,9 @@ static int cma_netevent_callback(struct notifier_block *self,
 		if (!memcmp(current_id->id.route.addr.dev_addr.dst_dev_addr,
 			   neigh->ha, ETH_ALEN))
 			continue;
-		INIT_WORK(&current_id->id.net_work, cma_netevent_work_handler);
 		cma_id_get(current_id);
-		queue_work(cma_wq, &current_id->id.net_work);
+		if (!queue_work(cma_wq, &current_id->id.net_work))
+			cma_id_put(current_id);
 	}
 out:
 	spin_unlock_irqrestore(&id_table_lock, flags);

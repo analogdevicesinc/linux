@@ -284,7 +284,7 @@ static int i2c_hid_get_report(struct i2c_hid *ihid,
 			     ihid->rawbuf, recv_len + sizeof(__le16));
 	if (error) {
 		dev_err(&ihid->client->dev,
-			"failed to set a report to device: %d\n", error);
+			"failed to get a report from device: %d\n", error);
 		return error;
 	}
 
@@ -414,7 +414,19 @@ static int i2c_hid_set_power(struct i2c_hid *ihid, int power_state)
 
 	i2c_hid_dbg(ihid, "%s\n", __func__);
 
+	/*
+	 * Some STM-based devices need 400µs after a rising clock edge to wake
+	 * from deep sleep, in which case the first request will fail due to
+	 * the address not being acknowledged. Try after a short sleep to see
+	 * if the device came alive on the bus. Certain Weida Tech devices also
+	 * need this.
+	 */
 	ret = i2c_hid_set_power_command(ihid, power_state);
+	if (ret && power_state == I2C_HID_PWR_ON) {
+		usleep_range(400, 500);
+		ret = i2c_hid_set_power_command(ihid, I2C_HID_PWR_ON);
+	}
+
 	if (ret)
 		dev_err(&ihid->client->dev,
 			"failed to change power setting.\n");
@@ -943,6 +955,14 @@ static void i2c_hid_core_shutdown_tail(struct i2c_hid *ihid)
 	ihid->ops->shutdown_tail(ihid->ops);
 }
 
+static void i2c_hid_core_restore_sequence(struct i2c_hid *ihid)
+{
+	if (!ihid->ops->restore_sequence)
+		return;
+
+	ihid->ops->restore_sequence(ihid->ops);
+}
+
 static int i2c_hid_core_suspend(struct i2c_hid *ihid, bool force_poweroff)
 {
 	struct i2c_client *client = ihid->client;
@@ -975,14 +995,6 @@ static int i2c_hid_core_resume(struct i2c_hid *ihid)
 		i2c_hid_core_power_up(ihid);
 
 	enable_irq(client->irq);
-
-	/* Make sure the device is awake on the bus */
-	ret = i2c_hid_probe_address(ihid);
-	if (ret < 0) {
-		dev_err(&client->dev, "nothing at address after resume: %d\n",
-			ret);
-		return -ENXIO;
-	}
 
 	/* On Goodix 27c6:0d42 wait extra time before device wakeup.
 	 * It's not clear why but if we send wakeup too early, the device will
@@ -1346,8 +1358,26 @@ static int i2c_hid_core_pm_resume(struct device *dev)
 	return i2c_hid_core_resume(ihid);
 }
 
+static int i2c_hid_core_pm_restore(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct i2c_hid *ihid = i2c_get_clientdata(client);
+
+	if (ihid->is_panel_follower)
+		return 0;
+
+	i2c_hid_core_restore_sequence(ihid);
+
+	return i2c_hid_core_resume(ihid);
+}
+
 const struct dev_pm_ops i2c_hid_core_pm = {
-	SYSTEM_SLEEP_PM_OPS(i2c_hid_core_pm_suspend, i2c_hid_core_pm_resume)
+	.suspend = pm_sleep_ptr(i2c_hid_core_pm_suspend),
+	.resume = pm_sleep_ptr(i2c_hid_core_pm_resume),
+	.freeze = pm_sleep_ptr(i2c_hid_core_pm_suspend),
+	.thaw = pm_sleep_ptr(i2c_hid_core_pm_resume),
+	.poweroff = pm_sleep_ptr(i2c_hid_core_pm_suspend),
+	.restore = pm_sleep_ptr(i2c_hid_core_pm_restore),
 };
 EXPORT_SYMBOL_GPL(i2c_hid_core_pm);
 
