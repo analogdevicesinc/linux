@@ -44,6 +44,9 @@
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &i2c5;
 		i2s4 = &i2s4;
 		mmc0 = &mmc0;
 		sru0 = &sru_ctrl_dai0;
@@ -351,7 +354,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
-			reg = <0x31001400 0xFF>;
+			reg = <0x31001400 0x100>;
 			interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
 			clocks = <&clk ADSP_SC594_CLK_CGU0_SCLK0>;
@@ -363,7 +366,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
-			reg = <0x31001500 0xFF>;
+			reg = <0x31001500 0x100>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
 			clocks = <&clk ADSP_SC594_CLK_CGU0_SCLK0>;
@@ -375,8 +378,44 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
-			reg = <0x31001600 0xFF>;
+			reg = <0x31001600 0x100>;
 			interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>;
+			clock-khz = <100>;
+			clocks = <&clk ADSP_SC594_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			status = "disabled";
+		};
+
+		i2c3: twi@31001000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,twi";
+			reg = <0x31001000 0x100>;
+			interrupts = <GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH>;
+			clock-khz = <100>;
+			clocks = <&clk ADSP_SC594_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			status = "disabled";
+		};
+
+		i2c4: twi@31001100 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,twi";
+			reg = <0x31001100 0x100>;
+			interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>;
+			clock-khz = <100>;
+			clocks = <&clk ADSP_SC594_CLK_CGU0_SCLK0>;
+			clock-names = "sclk0";
+			status = "disabled";
+		};
+
+		i2c5: twi@31001200 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,twi";
+			reg = <0x31001200 0x100>;
+			interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
 			clocks = <&clk ADSP_SC594_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";

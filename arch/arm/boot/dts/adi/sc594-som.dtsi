@@ -228,14 +228,6 @@
 	};
 };
 
-&i2c0 {
-	status = "disabled";
-};
-
-&i2c1 {
-	status = "disabled";
-};
-
 &i2c2 {
 	status = "okay";
 
