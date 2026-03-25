@@ -12,6 +12,14 @@
 
 #include <uapi/linux/sunrpc_netlink.h>
 
+/* Common nested types */
+extern const struct nla_policy sunrpc_ip_map_nl_policy[SUNRPC_A_IP_MAP_EXPIRY + 1];
+
+int sunrpc_nl_ip_map_get_reqs_dumpit(struct sk_buff *skb,
+				     struct netlink_callback *cb);
+int sunrpc_nl_ip_map_set_reqs_doit(struct sk_buff *skb,
+				   struct genl_info *info);
+
 enum {
 	SUNRPC_NLGRP_NONE,
 	SUNRPC_NLGRP_EXPORTD,

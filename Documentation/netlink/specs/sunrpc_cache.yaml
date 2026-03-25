@@ -20,6 +20,35 @@ attribute-sets:
         name: cache-type
         type: u32
         enum: cache-type
+  -
+    name: ip-map
+    attributes:
+      -
+        name: seqno
+        type: u64
+      -
+        name: class
+        type: string
+      -
+        name: addr
+        type: string
+      -
+        name: domain
+        type: string
+      -
+        name: negative
+        type: flag
+      -
+        name: expiry
+        type: u64
+  -
+    name: ip-map-reqs
+    attributes:
+      -
+        name: requests
+        type: nest
+        nested-attributes: ip-map
+        multi-attr: true
 
 operations:
   list:
@@ -31,6 +60,24 @@ operations:
       event:
         attributes:
           - cache-type
+    -
+      name: ip-map-get-reqs
+      doc: Dump all pending ip_map requests
+      attribute-set: ip-map-reqs
+      flags: [admin-perm]
+      dump:
+          request:
+            attributes:
+              - requests
+    -
+      name: ip-map-set-reqs
+      doc: Respond to one or more ip_map requests
+      attribute-set: ip-map-reqs
+      flags: [admin-perm]
+      do:
+          request:
+            attributes:
+              - requests
 
 mcast-groups:
   list:
