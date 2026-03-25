@@ -50,6 +50,7 @@
 #include <rdma/ib_user_verbs.h>
 #include <rdma/ib_addr.h>
 #include <rdma/ib_cache.h>
+#include <rdma/uverbs_ioctl.h>
 
 #include <net/bonding.h>
 
@@ -445,10 +446,7 @@ static int mlx4_ib_query_device(struct ib_device *ibdev,
 	struct mlx4_clock_params clock_params;
 
 	if (uhw->inlen) {
-		if (uhw->inlen < sizeof(cmd))
-			return -EINVAL;
-
-		err = ib_copy_from_udata(&cmd, uhw, sizeof(cmd));
+		err = ib_copy_validate_udata_in(uhw, cmd, reserved);
 		if (err)
 			return err;
 

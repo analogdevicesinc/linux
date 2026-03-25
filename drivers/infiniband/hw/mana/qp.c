@@ -95,16 +95,12 @@ static int mana_ib_create_qp_rss(struct ib_qp *ibqp, struct ib_pd *pd,
 	u32 port;
 	int ret;
 
-	if (!udata || udata->inlen < sizeof(ucmd))
+	if (!udata)
 		return -EINVAL;
 
-	ret = ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen));
-	if (ret) {
-		ibdev_dbg(&mdev->ib_dev,
-			  "Failed copy from udata for create rss-qp, err %d\n",
-			  ret);
+	ret = ib_copy_validate_udata_in(udata, ucmd, port);
+	if (ret)
 		return ret;
-	}
 
 	if (attr->cap.max_recv_wr > mdev->adapter_caps.max_qp_wr) {
 		ibdev_dbg(&mdev->ib_dev,
@@ -266,15 +262,12 @@ static int mana_ib_create_qp_raw(struct ib_qp *ibqp, struct ib_pd *ibpd,
 	u32 port;
 	int err;
 
-	if (!mana_ucontext || udata->inlen < sizeof(ucmd))
+	if (!mana_ucontext)
 		return -EINVAL;
 
-	err = ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen));
-	if (err) {
-		ibdev_dbg(&mdev->ib_dev,
-			  "Failed to copy from udata create qp-raw, %d\n", err);
+	err = ib_copy_validate_udata_in(udata, ucmd, port);
+	if (err)
 		return err;
-	}
 
 	if (attr->cap.max_send_wr > mdev->adapter_caps.max_qp_wr) {
 		ibdev_dbg(&mdev->ib_dev,
@@ -519,17 +512,15 @@ static int mana_ib_create_rc_qp(struct ib_qp *ibqp, struct ib_pd *ibpd,
 	u64 flags = 0;
 	u32 doorbell;
 
-	if (!udata || udata->inlen < sizeof(ucmd))
+	if (!udata)
 		return -EINVAL;
 
 	mana_ucontext = rdma_udata_to_drv_context(udata, struct mana_ib_ucontext, ibucontext);
 	doorbell = mana_ucontext->doorbell;
 	flags = MANA_RC_FLAG_NO_FMR;
-	err = ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen));
-	if (err) {
-		ibdev_dbg(&mdev->ib_dev, "Failed to copy from udata, %d\n", err);
+	err = ib_copy_validate_udata_in(udata, ucmd, queue_size);
+	if (err)
 		return err;
-	}
 
 	for (i = 0, j = 0; i < MANA_RC_QUEUE_TYPE_MAX; ++i) {
 		/* skip FMR for user-level RC QPs */

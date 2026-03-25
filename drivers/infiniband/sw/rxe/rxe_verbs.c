@@ -452,18 +452,9 @@ static int rxe_modify_srq(struct ib_srq *ibsrq, struct ib_srq_attr *attr,
 	int err;
 
 	if (udata) {
-		if (udata->inlen < sizeof(cmd)) {
-			err = -EINVAL;
-			rxe_dbg_srq(srq, "malformed udata\n");
+		err = ib_copy_validate_udata_in(udata, cmd, mmap_info_addr);
+		if (err)
 			goto err_out;
-		}
-
-		err = ib_copy_from_udata(&cmd, udata, sizeof(cmd));
-		if (err) {
-			err = -EFAULT;
-			rxe_dbg_srq(srq, "unable to read udata\n");
-			goto err_out;
-		}
 	}
 
 	err = rxe_srq_chk_attr(rxe, srq, attr, mask);

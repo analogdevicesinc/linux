@@ -1229,7 +1229,7 @@ static int resize_user(struct mlx5_ib_dev *dev, struct mlx5_ib_cq *cq,
 	struct ib_umem *umem;
 	int err;
 
-	err = ib_copy_from_udata(&ucmd, udata, sizeof(ucmd));
+	err = ib_copy_validate_udata_in(udata, ucmd, reserved1);
 	if (err)
 		return err;
 
