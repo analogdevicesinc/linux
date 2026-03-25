@@ -1380,3 +1380,104 @@ struct amdgpu_ualink_remote {
 	struct amdgpu_ualink_peer	peer[AMDGPU_UALINK_ACCEL_MAX];
 };
 
+static inline struct amdgpu_ualink_remote *to_remote(struct amdgpu_device *adev)
+{
+	return adev->ualink.remote;
+}
+
+static inline u32 ualink_accel_id(struct amdgpu_device *adev)
+{
+	return adev->ualink.info->ppod.accel_id;
+}
+
+static inline enum amdgpu_ualink_addr_mode ualink_addr_mode(struct amdgpu_device *adev)
+{
+	return adev->ualink.info->vpod.addr_mode;
+}
+
+/*
+ * address mode and NPA address for ring wptr, rptr, wb status, wb data
+ *
+ * source identification address mode
+ *
+ * we need to export different tail pointers for different remote GPU accel_id,
+ * hence we need to allocate a whole page for each remote GPU separately.
+ *
+ * rptr, wb data, status share the whole page with wptr.
+ *
+ *     1 page reserved NPA address for 1 active remote GPU, max 255 pages
+ *     starting address: wptr NPA address + accel_id * 4K
+ *     offset:
+ *         remote interrupt ring wptr 0
+ *         remote shootdown ring wptr 8
+ *         remote interrupt wb status 16
+ *         remote interrupt wb data   20
+ *         remote interrupt ring rptr 24
+ *         remote shootdown wb status 32
+ *         remote shootdown wb data   36
+ *         remote shootdown ring rptr 40
+ *
+ * source aliasing address mode
+ *
+ * wptr for different remote GPU can share same reserved 1 page NPA address page.
+ *
+ * to save reserved NPA address space, rptr, wb data, status for different
+ * remote GPU share same allocated 2 pages NPA address.
+ *
+ *     1 page reserved NPA address for wptr of all active remote GPUs
+ *     offset:
+ *         remote interrupt ring wptr accel_id * 16
+ *         remote shootdown ring wptr accel_id * 16 + 8
+ *
+ *     2 page allocated NPA address for rptr, writeback of all active remote GPUs
+ *     starting address: at accel_id * 32 for each remote GPU
+ *     offset:
+ *         remote interrupt wb status 0
+ *         remote interrupt wb data   4
+ *         remote interrupt ring rptr 8
+ *         remote shootdown wb status 16
+ *         remote shootdown wb data   20
+ *         remote shootdown ring rptr 24
+ */
+static inline u32 ualink_wptr_size(struct amdgpu_device *adev)
+{
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT)
+		return AMDGPU_GPU_PAGE_SIZE;
+	else
+		return 0;	/* wptr uses the ring buffer for itself */
+}
+
+static inline u32 ualink_wb_size(struct amdgpu_device *adev)
+{
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT)
+		return 0;	/* share same page with wptr */
+	else
+		return 2 * sizeof(struct amdgpu_ualink_wb);
+}
+
+static inline u32 ualink_wptr_offset(struct amdgpu_device *adev, u32 accel_id)
+{
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT)
+		return 0;	/* one separate page per GPU */
+	else
+		return accel_id * 2 * sizeof(u64);	/* two pointers per GPU */
+}
+
+static inline u32 ualink_tlb_wptr_offset(struct amdgpu_device *adev, u32 accel_id)
+{
+	return ualink_wptr_offset(adev, accel_id) + sizeof(u64);
+}
+
+static inline u32 ualink_wb_offset(struct amdgpu_device *adev, u32 accel_id)
+{
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT)
+		return 2 * sizeof(u64);	/* after two wptr pointers */
+	else
+		return accel_id * ualink_wb_size(adev);
+}
+
+static inline u32 ualink_tlb_wb_offset(struct amdgpu_device *adev, u32 accel_id)
+{
+	return ualink_wb_offset(adev, accel_id) + sizeof(struct amdgpu_ualink_wb);
+}
+
