@@ -1338,6 +1338,9 @@ struct amdgpu_ualink_ring {
 	struct drm_mm_node mm_node_wptr;
 	struct drm_mm_node mm_node_doorbell;
 
+	/* seq, complete status write back cpu address */
+	struct amdgpu_ualink_wb *wb_cpu;
+
 	/* true if fw write back address updated successfully */
 	bool ready;
 };
@@ -2696,6 +2699,74 @@ unlock_free:
 	mutex_unlock(&peer->lock);
 	amdgpu_job_free(job);
 	dev_dbg(adev->dev, "ret r = %d\n", r);
+	return r;
+}
+
+static void amdgpu_ualink_get_wb_addr(struct amdgpu_device *adev,
+				      u32 remote_accel_id,
+				      struct amdgpu_ualink_wb **wb_cpu,
+				      u64 *wb_npa, u32 type)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	u32 accel_id = ualink_accel_id(adev);
+	u32 rb_size = AMDGPU_GPU_PAGE_ALIGN(2 * AMDGPU_UALINK_RB_SIZE);
+	uintptr_t wb;
+	u64 npa;
+	u32 offset = 0;
+
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT) {
+		wb = (uintptr_t)remote->rb_cpu_addr + rb_size * remote->num_accel;
+		npa = amdgpu_ualink_npa_addr(adev, RB_TYPE_TAILPTR,
+					     remote_accel_id, accel_id);
+	} else {
+		wb = (uintptr_t)remote->rptr_cpu_addr;
+		npa = remote->rptr_npa;
+		npa |= (u64)accel_id << AMDGPU_UALINK_GART_NPA_ADDR_GPUID_SHIFT;
+	}
+
+	if (type == RB_TYPE_TLB_INV)
+		offset = ualink_tlb_wb_offset(adev, remote_accel_id);
+	else if (type == RB_TYPE_REMOTE_INTERRUPT)
+		offset = ualink_wb_offset(adev, remote_accel_id);
+
+	*wb_cpu = (struct amdgpu_ualink_wb *)(wb + offset);
+	if (wb_npa)
+		*wb_npa = npa + offset;
+
+	dev_dbg(adev->dev, "source %d remote %d wb npa 0x%llx\n", accel_id,
+		remote_accel_id, npa + offset);
+}
+
+static int amdgpu_ualink_update_wb_address(struct amdgpu_device *adev,
+					   u32 remote_accel_id, u32 ring_type)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	struct amdgpu_ualink_peer *peer;
+	struct amdgpu_ualink_ring *ring;
+	struct amdgpu_ualink_wb *wb_cpu;
+	u64 wb_npa;
+	int r;
+
+	peer = &remote->peer[remote_accel_id];
+	if (ring_type == RB_TYPE_REMOTE_INTERRUPT)
+		ring = &peer->interrupt;
+	else if (ring_type == RB_TYPE_TLB_INV)
+		ring = &peer->shootdown;
+	else
+		return -EINVAL;
+
+	amdgpu_ualink_get_wb_addr(adev, remote_accel_id, &wb_cpu, &wb_npa,
+				  ring_type);
+
+	r = amdgpu_ualink_send_command(adev, remote_accel_id, ring, wb_cpu,
+				       amdgpu_ualink_emit_update_wb_addr,
+				       upper_32_bits(wb_npa),
+				       lower_32_bits(wb_npa),
+				       0, 0);
+	if (!r) {
+		ring->wb_cpu = wb_cpu;
+		ring->ready = true;
+	}
 	return r;
 }
 
