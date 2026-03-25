@@ -1745,8 +1745,7 @@ static int amdgpu_ttm_training_reserve_vram_fini(struct amdgpu_device *adev)
 	struct psp_memory_training_context *ctx = &adev->psp.mem_train_ctx;
 
 	ctx->init = PSP_MEM_TRAIN_NOT_SUPPORT;
-	amdgpu_bo_free_kernel(&ctx->c2p_bo, NULL, NULL);
-	ctx->c2p_bo = NULL;
+	amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_MEM_TRAIN);
 
 	return 0;
 }
@@ -1817,14 +1816,12 @@ static int amdgpu_ttm_reserve_tmr(struct amdgpu_device *adev)
 	if (mem_train_support) {
 		/* reserve vram for mem train according to TMR location */
 		amdgpu_ttm_training_data_block_init(adev, reserve_size);
-		ret = amdgpu_bo_create_kernel_at(adev,
-						 ctx->c2p_train_data_offset,
-						 ctx->train_data_size,
-						 &ctx->c2p_bo,
-						 NULL);
+		amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_MEM_TRAIN,
+					  ctx->c2p_train_data_offset,
+					  ctx->train_data_size, false);
+		ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_MEM_TRAIN);
 		if (ret) {
-			dev_err(adev->dev, "alloc c2p_bo failed(%d)!\n", ret);
-			amdgpu_ttm_training_reserve_vram_fini(adev);
+			dev_err(adev->dev, "memory training region reservation failed(%d)!\n", ret);
 			return ret;
 		}
 		ctx->init = PSP_MEM_TRAIN_RESERVE_SUCCESS;
