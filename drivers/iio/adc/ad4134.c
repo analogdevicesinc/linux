@@ -545,7 +545,7 @@ static int ad4134_offload_buffer_postenable(struct iio_dev *indio_dev)
 
 	ad4134_prepare_offload_msg(indio_dev);
 	st->msg.offload = st->offload;
-	ret = spi_optimize_message(st->spi, &st->msg);
+	ret = spi_optimize_message(st->spi_engine, &st->msg);
 	if (ret)
 		return ret;
 
