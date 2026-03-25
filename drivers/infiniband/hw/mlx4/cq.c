@@ -173,6 +173,10 @@ int mlx4_ib_create_user_cq(struct ib_cq *ibcq,
 		goto err_cq;
 	}
 
+	if (ibcq->umem &&
+	    (dev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_SW_CQ_INIT))
+		return -EOPNOTSUPP;
+
 	buf_addr = (void *)(unsigned long)ucmd.buf_addr;
 
 	if (!ibcq->umem)
