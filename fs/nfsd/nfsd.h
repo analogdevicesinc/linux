@@ -108,7 +108,7 @@ struct dentry *nfsd_client_mkdir(struct nfsd_net *nn,
 				 const struct tree_descr *,
 				 struct dentry **fdentries);
 void nfsd_client_rmdir(struct dentry *dentry);
-
+int nfsd_cache_notify(struct cache_detail *cd, struct cache_head *h, u32 cache_type);
 
 #if defined(CONFIG_NFSD_V2_ACL) || defined(CONFIG_NFSD_V3_ACL)
 #ifdef CONFIG_NFSD_V2_ACL

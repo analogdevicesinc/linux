@@ -6,7 +6,6 @@
 
 #include <net/netlink.h>
 #include <net/genetlink.h>
-#include <linux/sunrpc/cache.h>
 
 #include "netlink.h"
 
@@ -22,6 +21,14 @@ const struct nla_policy sunrpc_ip_map_nl_policy[SUNRPC_A_IP_MAP_EXPIRY + 1] = {
 	[SUNRPC_A_IP_MAP_EXPIRY] = { .type = NLA_U64, },
 };
 
+const struct nla_policy sunrpc_unix_gid_nl_policy[SUNRPC_A_UNIX_GID_EXPIRY + 1] = {
+	[SUNRPC_A_UNIX_GID_SEQNO] = { .type = NLA_U64, },
+	[SUNRPC_A_UNIX_GID_UID] = { .type = NLA_U32, },
+	[SUNRPC_A_UNIX_GID_GIDS] = { .type = NLA_U32, },
+	[SUNRPC_A_UNIX_GID_NEGATIVE] = { .type = NLA_FLAG, },
+	[SUNRPC_A_UNIX_GID_EXPIRY] = { .type = NLA_U64, },
+};
+
 /* SUNRPC_CMD_IP_MAP_GET_REQS - dump */
 static const struct nla_policy sunrpc_ip_map_get_reqs_nl_policy[SUNRPC_A_IP_MAP_REQS_REQUESTS + 1] = {
 	[SUNRPC_A_IP_MAP_REQS_REQUESTS] = NLA_POLICY_NESTED(sunrpc_ip_map_nl_policy),
@@ -30,14 +37,6 @@ static const struct nla_policy sunrpc_ip_map_get_reqs_nl_policy[SUNRPC_A_IP_MAP_
 /* SUNRPC_CMD_IP_MAP_SET_REQS - do */
 static const struct nla_policy sunrpc_ip_map_set_reqs_nl_policy[SUNRPC_A_IP_MAP_REQS_REQUESTS + 1] = {
 	[SUNRPC_A_IP_MAP_REQS_REQUESTS] = NLA_POLICY_NESTED(sunrpc_ip_map_nl_policy),
-};
-
-const struct nla_policy sunrpc_unix_gid_nl_policy[SUNRPC_A_UNIX_GID_EXPIRY + 1] = {
-	[SUNRPC_A_UNIX_GID_SEQNO] = { .type = NLA_U64, },
-	[SUNRPC_A_UNIX_GID_UID] = { .type = NLA_U32, },
-	[SUNRPC_A_UNIX_GID_GIDS] = { .type = NLA_U32, },
-	[SUNRPC_A_UNIX_GID_NEGATIVE] = { .type = NLA_FLAG, },
-	[SUNRPC_A_UNIX_GID_EXPIRY] = { .type = NLA_U64, },
 };
 
 /* SUNRPC_CMD_UNIX_GID_GET_REQS - dump */

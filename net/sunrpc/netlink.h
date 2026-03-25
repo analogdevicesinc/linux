@@ -18,8 +18,7 @@ extern const struct nla_policy sunrpc_unix_gid_nl_policy[SUNRPC_A_UNIX_GID_EXPIR
 
 int sunrpc_nl_ip_map_get_reqs_dumpit(struct sk_buff *skb,
 				     struct netlink_callback *cb);
-int sunrpc_nl_ip_map_set_reqs_doit(struct sk_buff *skb,
-				   struct genl_info *info);
+int sunrpc_nl_ip_map_set_reqs_doit(struct sk_buff *skb, struct genl_info *info);
 int sunrpc_nl_unix_gid_get_reqs_dumpit(struct sk_buff *skb,
 				       struct netlink_callback *cb);
 int sunrpc_nl_unix_gid_set_reqs_doit(struct sk_buff *skb,
