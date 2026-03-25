@@ -287,6 +287,84 @@ struct ufs_pwr_mode_info {
 	struct ufs_pa_layer_attr info;
 };
 
+#define UFS_MAX_LANES	2
+
+/**
+ * struct tx_eqtr_iter - TX Equalization Training iterator
+ * @preshoot_bitmap: PreShoot bitmap
+ * @deemphasis_bitmap: DeEmphasis bitmap
+ * @preshoot: PreShoot value
+ * @deemphasis: DeEmphasis value
+ * @fom: Figure-of-Merit read out from RX_FOM
+ * @is_updated: Flag to indicate if updated since previous iteration
+ */
+struct tx_eqtr_iter {
+	unsigned long preshoot_bitmap;
+	unsigned long deemphasis_bitmap;
+	u8 preshoot;
+	u8 deemphasis;
+	u8 fom[UFS_MAX_LANES];
+	bool is_updated;
+};
+
+/**
+ * struct ufshcd_tx_eq_settings - TX Equalization settings
+ * @preshoot: PreShoot value
+ * @deemphasis: DeEmphasis value
+ * @fom_val: Figure-of-Merit value read out from RX_FOM (Bit[6:0])
+ * @precode_en: Flag to indicate whether need to enable pre-coding
+ */
+struct ufshcd_tx_eq_settings {
+	u8 preshoot;
+	u8 deemphasis;
+	u8 fom_val;
+	bool precode_en;
+};
+
+/**
+ * struct ufshcd_tx_eqtr_data - Data used during TX Equalization Training procedure
+ * @host: Optimal TX EQ settings identified for host TX Lanes during TX EQTR
+ * @device: Optimal TX EQ settings identified for device TX Lanes during TX EQTR
+ * @host_fom: Host TX EQTR FOM record
+ * @device_fom: Device TX EQTR FOM record
+ */
+struct ufshcd_tx_eqtr_data {
+	struct ufshcd_tx_eq_settings host[UFS_MAX_LANES];
+	struct ufshcd_tx_eq_settings device[UFS_MAX_LANES];
+	u8 host_fom[UFS_MAX_LANES][TX_HS_NUM_PRESHOOT][TX_HS_NUM_DEEMPHASIS];
+	u8 device_fom[UFS_MAX_LANES][TX_HS_NUM_PRESHOOT][TX_HS_NUM_DEEMPHASIS];
+};
+
+/**
+ * struct ufshcd_tx_eqtr_record - TX Equalization Training record
+ * @host_fom: Host TX EQTR FOM record
+ * @device_fom: Device TX EQTR FOM record
+ * @last_record_ts: Timestamp of the most recent TX EQTR record
+ * @last_record_index: Index of the most recent TX EQTR record
+ */
+struct ufshcd_tx_eqtr_record {
+	u8 host_fom[UFS_MAX_LANES][TX_HS_NUM_PRESHOOT][TX_HS_NUM_DEEMPHASIS];
+	u8 device_fom[UFS_MAX_LANES][TX_HS_NUM_PRESHOOT][TX_HS_NUM_DEEMPHASIS];
+	ktime_t last_record_ts;
+	u16 last_record_index;
+};
+
+/**
+ * struct ufshcd_tx_eq_params - TX Equalization parameters structure
+ * @host: TX EQ settings for host TX Lanes
+ * @device: TX EQ settings for device TX Lanes
+ * @eqtr_record: Pointer to TX EQTR record
+ * @is_valid: True if parameter contains valid TX Equalization settings
+ * @is_applied: True if settings have been applied to UniPro of both sides
+ */
+struct ufshcd_tx_eq_params {
+	struct ufshcd_tx_eq_settings host[UFS_MAX_LANES];
+	struct ufshcd_tx_eq_settings device[UFS_MAX_LANES];
+	struct ufshcd_tx_eqtr_record *eqtr_record;
+	bool is_valid;
+	bool is_applied;
+};
+
 /**
  * struct ufs_hba_variant_ops - variant specific callbacks
  * @name: variant name
@@ -330,6 +408,11 @@ struct ufs_pwr_mode_info {
  * @config_esi: called to config Event Specific Interrupt
  * @config_scsi_dev: called to configure SCSI device parameters
  * @freq_to_gear_speed: called to map clock frequency to the max supported gear speed
+ * @apply_tx_eqtr_settings: called to apply settings for TX Equalization
+ *	Training settings.
+ * @get_rx_fom: called to get Figure of Merit (FOM) value.
+ * @tx_eqtr_notify: called before and after TX Equalization Training procedure
+ *	to allow platform vendor specific configs to take place.
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -381,6 +464,17 @@ struct ufs_hba_variant_ops {
 	int	(*config_esi)(struct ufs_hba *hba);
 	void	(*config_scsi_dev)(struct scsi_device *sdev);
 	u32	(*freq_to_gear_speed)(struct ufs_hba *hba, unsigned long freq);
+	int	(*get_rx_fom)(struct ufs_hba *hba,
+			      struct ufs_pa_layer_attr *pwr_mode,
+			      struct tx_eqtr_iter *h_iter,
+			      struct tx_eqtr_iter *d_iter);
+	int	(*apply_tx_eqtr_settings)(struct ufs_hba *hba,
+					  struct ufs_pa_layer_attr *pwr_mode,
+					  struct tx_eqtr_iter *h_iter,
+					  struct tx_eqtr_iter *d_iter);
+	int	(*tx_eqtr_notify)(struct ufs_hba *hba,
+				  enum ufs_notify_change_status status,
+				  struct ufs_pa_layer_attr *pwr_mode);
 };
 
 /* clock gating state  */
@@ -779,6 +873,13 @@ enum ufshcd_caps {
 	 * WriteBooster when scaling the clock down.
 	 */
 	UFSHCD_CAP_WB_WITH_CLK_SCALING			= 1 << 12,
+
+	/*
+	 * This capability allows the host controller driver to apply TX
+	 * Equalization settings discovered from UFS attributes, variant
+	 * specific operations and TX Equaliztion Training procedure.
+	 */
+	UFSHCD_CAP_TX_EQUALIZATION			= 1 << 13,
 };
 
 struct ufs_hba_variant_params {
@@ -955,6 +1056,15 @@ enum ufshcd_mcq_opr {
  * @dev_lvl_exception_count: count of device level exceptions since last reset
  * @dev_lvl_exception_id: vendor specific information about the device level exception event.
  * @rpmbs: list of OP-TEE RPMB devices (one per RPMB region)
+ * @host_preshoot_cap: a bitfield to indicate supported PreShoot dBs of host's TX lanes, cache of
+ *	host M-PHY TX_HS_PreShoot_Setting_Capability Attribute (ID 0x15)
+ * @host_deemphasis_cap: a bitfield to indicate supported DeEmphasis dBs of host's TX lanes, cache
+ *	of host M-PHY TX_HS_DeEmphasis_Setting_Capability Attribute (ID 0x12)
+ * @device_preshoot_cap: a bitfield to indicate supported PreShoot dBs of device's TX lanes, cache
+ *	of device M-PHY TX_HS_PreShoot_Setting_Capability Attribute (ID 0x15)
+ * @device_deemphasis_cap: a bitfield to indicate supported DeEmphasis dBs of device's TX lanes,
+ *	cache of device M-PHY TX_HS_DeEmphasis_Setting_Capability Attribute (ID 0x12)
+ * @tx_eq_params: TX Equalization settings
  */
 struct ufs_hba {
 	void __iomem *mmio_base;
@@ -1128,6 +1238,12 @@ struct ufs_hba {
 	u64 dev_lvl_exception_id;
 	u32 vcc_off_delay_us;
 	struct list_head rpmbs;
+
+	u8 host_preshoot_cap;
+	u8 host_deemphasis_cap;
+	u8 device_preshoot_cap;
+	u8 device_deemphasis_cap;
+	struct ufshcd_tx_eq_params tx_eq_params[UFS_HS_GEAR_MAX];
 };
 
 /**
@@ -1272,6 +1388,13 @@ static inline bool ufshcd_enable_wb_if_scaling_up(struct ufs_hba *hba)
 	return hba->caps & UFSHCD_CAP_WB_WITH_CLK_SCALING;
 }
 
+static inline bool ufshcd_is_tx_eq_supported(struct ufs_hba *hba)
+{
+	return hba->caps & UFSHCD_CAP_TX_EQUALIZATION &&
+	       hba->ufs_version >= ufshci_version(5, 0) &&
+	       hba->dev_info.wspecversion >= 0x500;
+}
+
 #define ufsmcq_writel(hba, val, reg)	\
 	writel((val), (hba)->mcq_base + (reg))
 #define ufsmcq_readl(hba, reg)	\
@@ -1286,6 +1409,18 @@ static inline bool ufshcd_enable_wb_if_scaling_up(struct ufs_hba *hba)
 	writel((val), (hba)->mmio_base + (reg))
 #define ufshcd_readl(hba, reg)	\
 	readl((hba)->mmio_base + (reg))
+
+static inline const char *ufs_hs_rate_to_str(enum ufs_hs_gear_rate rate)
+{
+	switch (rate) {
+	case PA_HS_MODE_A:
+		return "A";
+	case PA_HS_MODE_B:
+		return "B";
+	default:
+		return "Unknown";
+	}
+}
 
 /**
  * ufshcd_rmwl - perform read/modify/write for a controller register
