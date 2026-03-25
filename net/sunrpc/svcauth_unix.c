@@ -585,12 +585,246 @@ static int unix_gid_show(struct seq_file *m,
 	return 0;
 }
 
+static int unix_gid_notify(struct cache_detail *cd, struct cache_head *h)
+{
+	return sunrpc_cache_notify(cd, h, SUNRPC_CACHE_TYPE_UNIX_GID);
+}
+
+/**
+ * sunrpc_nl_unix_gid_get_reqs_dumpit - dump pending unix_gid requests
+ * @skb: reply buffer
+ * @cb: netlink metadata and command arguments
+ *
+ * Walk the unix_gid cache's pending request list and create a netlink
+ * message with a nested entry for each cache_request, containing the
+ * seqno and uid.
+ *
+ * Uses cb->args[0] as a seqno cursor for dump continuation across
+ * multiple netlink messages.
+ *
+ * Returns the size of the reply or a negative errno.
+ */
+int sunrpc_nl_unix_gid_get_reqs_dumpit(struct sk_buff *skb,
+					struct netlink_callback *cb)
+{
+	struct sunrpc_net *sn;
+	struct cache_detail *cd;
+	struct cache_head **items;
+	u64 *seqnos;
+	int cnt, i, emitted;
+	void *hdr;
+	int ret;
+
+	sn = net_generic(sock_net(skb->sk), sunrpc_net_id);
+
+	cd = sn->unix_gid_cache;
+	if (!cd)
+		return -ENODEV;
+
+	cnt = sunrpc_cache_requests_count(cd);
+	if (!cnt)
+		return 0;
+
+	items = kcalloc(cnt, sizeof(*items), GFP_KERNEL);
+	seqnos = kcalloc(cnt, sizeof(*seqnos), GFP_KERNEL);
+	if (!items || !seqnos) {
+		ret = -ENOMEM;
+		goto out_alloc;
+	}
+
+	cnt = sunrpc_cache_requests_snapshot(cd, items, seqnos, cnt,
+					     cb->args[0]);
+	if (!cnt) {
+		ret = 0;
+		goto out_alloc;
+	}
+
+	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid,
+			  cb->nlh->nlmsg_seq, &sunrpc_nl_family,
+			  NLM_F_MULTI, SUNRPC_CMD_UNIX_GID_GET_REQS);
+	if (!hdr) {
+		ret = -ENOBUFS;
+		goto out_put;
+	}
+
+	emitted = 0;
+	for (i = 0; i < cnt; i++) {
+		struct unix_gid *ug;
+		struct nlattr *nest;
+
+		ug = container_of(items[i], struct unix_gid, h);
+
+		nest = nla_nest_start(skb,
+				      SUNRPC_A_UNIX_GID_REQS_REQUESTS);
+		if (!nest)
+			break;
+
+		if (nla_put_u64_64bit(skb, SUNRPC_A_UNIX_GID_SEQNO,
+				      seqnos[i], 0) ||
+		    nla_put_u32(skb, SUNRPC_A_UNIX_GID_UID,
+				from_kuid(&init_user_ns, ug->uid))) {
+			nla_nest_cancel(skb, nest);
+			break;
+		}
+
+		nla_nest_end(skb, nest);
+		cb->args[0] = seqnos[i];
+		emitted++;
+	}
+
+	if (!emitted) {
+		genlmsg_cancel(skb, hdr);
+		ret = -EMSGSIZE;
+		goto out_put;
+	}
+
+	genlmsg_end(skb, hdr);
+	ret = skb->len;
+out_put:
+	for (i = 0; i < cnt; i++)
+		cache_put(items[i], cd);
+out_alloc:
+	kfree(seqnos);
+	kfree(items);
+	return ret;
+}
+
+/**
+ * sunrpc_nl_parse_one_unix_gid - parse one unix_gid entry from netlink
+ * @cd: cache_detail for the unix_gid cache
+ * @attr: nested attribute containing unix_gid fields
+ *
+ * Parses one unix_gid entry from a netlink message and updates the
+ * cache. Mirrors the logic in unix_gid_parse().
+ *
+ * Returns 0 on success or a negative errno.
+ */
+static int sunrpc_nl_parse_one_unix_gid(struct cache_detail *cd,
+					 struct nlattr *attr)
+{
+	struct nlattr *tb[SUNRPC_A_UNIX_GID_EXPIRY + 1];
+	struct unix_gid ug, *ugp;
+	struct timespec64 boot;
+	struct nlattr *gid_attr;
+	int err, rem, gids = 0;
+	kuid_t uid;
+
+	err = nla_parse_nested(tb, SUNRPC_A_UNIX_GID_EXPIRY, attr,
+			       sunrpc_unix_gid_nl_policy, NULL);
+	if (err)
+		return err;
+
+	/* uid (required) */
+	if (!tb[SUNRPC_A_UNIX_GID_UID])
+		return -EINVAL;
+	uid = make_kuid(current_user_ns(),
+			nla_get_u32(tb[SUNRPC_A_UNIX_GID_UID]));
+	ug.uid = uid;
+
+	/* expiry (required, wallclock seconds) */
+	if (!tb[SUNRPC_A_UNIX_GID_EXPIRY])
+		return -EINVAL;
+	getboottime64(&boot);
+	ug.h.flags = 0;
+	ug.h.expiry_time = nla_get_u64(tb[SUNRPC_A_UNIX_GID_EXPIRY]) -
+			   boot.tv_sec;
+
+	if (tb[SUNRPC_A_UNIX_GID_NEGATIVE]) {
+		ug.gi = groups_alloc(0);
+		if (!ug.gi)
+			return -ENOMEM;
+	} else {
+		/* Count gids */
+		nla_for_each_nested_type(gid_attr, SUNRPC_A_UNIX_GID_GIDS,
+					 attr, rem)
+			gids++;
+
+		if (gids > 8192)
+			return -EINVAL;
+
+		ug.gi = groups_alloc(gids);
+		if (!ug.gi)
+			return -ENOMEM;
+
+		gids = 0;
+		nla_for_each_nested_type(gid_attr, SUNRPC_A_UNIX_GID_GIDS,
+					 attr, rem) {
+			kgid_t kgid;
+
+			kgid = make_kgid(current_user_ns(),
+					 nla_get_u32(gid_attr));
+			if (!gid_valid(kgid)) {
+				err = -EINVAL;
+				goto out;
+			}
+			ug.gi->gid[gids++] = kgid;
+		}
+		groups_sort(ug.gi);
+	}
+
+	ugp = unix_gid_lookup(cd, uid);
+	if (ugp) {
+		struct cache_head *ch;
+
+		ch = sunrpc_cache_update(cd, &ug.h, &ugp->h,
+					 unix_gid_hash(uid));
+		if (!ch) {
+			err = -ENOMEM;
+		} else {
+			err = 0;
+			cache_put(ch, cd);
+		}
+	} else {
+		err = -ENOMEM;
+	}
+out:
+	if (ug.gi)
+		put_group_info(ug.gi);
+	return err;
+}
+
+/**
+ * sunrpc_nl_unix_gid_set_reqs_doit - respond to unix_gid requests
+ * @skb: reply buffer
+ * @info: netlink metadata and command arguments
+ *
+ * Parse one or more unix_gid cache responses from userspace and
+ * update the unix_gid cache accordingly.
+ *
+ * Returns 0 on success or a negative errno.
+ */
+int sunrpc_nl_unix_gid_set_reqs_doit(struct sk_buff *skb,
+				     struct genl_info *info)
+{
+	struct sunrpc_net *sn;
+	struct cache_detail *cd;
+	const struct nlattr *attr;
+	int rem, ret = 0;
+
+	sn = net_generic(genl_info_net(info), sunrpc_net_id);
+
+	cd = sn->unix_gid_cache;
+	if (!cd)
+		return -ENODEV;
+
+	nlmsg_for_each_attr_type(attr, SUNRPC_A_UNIX_GID_REQS_REQUESTS,
+				 info->nlhdr, GENL_HDRLEN, rem) {
+		ret = sunrpc_nl_parse_one_unix_gid(cd,
+						   (struct nlattr *)attr);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
 static const struct cache_detail unix_gid_cache_template = {
 	.owner		= THIS_MODULE,
 	.hash_size	= GID_HASHMAX,
 	.name		= "auth.unix.gid",
 	.cache_put	= unix_gid_put,
 	.cache_upcall	= unix_gid_upcall,
+	.cache_notify	= unix_gid_notify,
 	.cache_request	= unix_gid_request,
 	.cache_parse	= unix_gid_parse,
 	.cache_show	= unix_gid_show,

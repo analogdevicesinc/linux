@@ -49,6 +49,33 @@ attribute-sets:
         type: nest
         nested-attributes: ip-map
         multi-attr: true
+  -
+    name: unix-gid
+    attributes:
+      -
+        name: seqno
+        type: u64
+      -
+        name: uid
+        type: u32
+      -
+        name: gids
+        type: u32
+        multi-attr: true
+      -
+        name: negative
+        type: flag
+      -
+        name: expiry
+        type: u64
+  -
+    name: unix-gid-reqs
+    attributes:
+      -
+        name: requests
+        type: nest
+        nested-attributes: unix-gid
+        multi-attr: true
 
 operations:
   list:
@@ -73,6 +100,24 @@ operations:
       name: ip-map-set-reqs
       doc: Respond to one or more ip_map requests
       attribute-set: ip-map-reqs
+      flags: [admin-perm]
+      do:
+          request:
+            attributes:
+              - requests
+    -
+      name: unix-gid-get-reqs
+      doc: Dump all pending unix_gid requests
+      attribute-set: unix-gid-reqs
+      flags: [admin-perm]
+      dump:
+          request:
+            attributes:
+              - requests
+    -
+      name: unix-gid-set-reqs
+      doc: Respond to one or more unix_gid requests
+      attribute-set: unix-gid-reqs
       flags: [admin-perm]
       do:
           request:

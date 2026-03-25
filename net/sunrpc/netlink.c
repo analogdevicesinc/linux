@@ -32,6 +32,24 @@ static const struct nla_policy sunrpc_ip_map_set_reqs_nl_policy[SUNRPC_A_IP_MAP_
 	[SUNRPC_A_IP_MAP_REQS_REQUESTS] = NLA_POLICY_NESTED(sunrpc_ip_map_nl_policy),
 };
 
+const struct nla_policy sunrpc_unix_gid_nl_policy[SUNRPC_A_UNIX_GID_EXPIRY + 1] = {
+	[SUNRPC_A_UNIX_GID_SEQNO] = { .type = NLA_U64, },
+	[SUNRPC_A_UNIX_GID_UID] = { .type = NLA_U32, },
+	[SUNRPC_A_UNIX_GID_GIDS] = { .type = NLA_U32, },
+	[SUNRPC_A_UNIX_GID_NEGATIVE] = { .type = NLA_FLAG, },
+	[SUNRPC_A_UNIX_GID_EXPIRY] = { .type = NLA_U64, },
+};
+
+/* SUNRPC_CMD_UNIX_GID_GET_REQS - dump */
+static const struct nla_policy sunrpc_unix_gid_get_reqs_nl_policy[SUNRPC_A_UNIX_GID_REQS_REQUESTS + 1] = {
+	[SUNRPC_A_UNIX_GID_REQS_REQUESTS] = NLA_POLICY_NESTED(sunrpc_unix_gid_nl_policy),
+};
+
+/* SUNRPC_CMD_UNIX_GID_SET_REQS - do */
+static const struct nla_policy sunrpc_unix_gid_set_reqs_nl_policy[SUNRPC_A_UNIX_GID_REQS_REQUESTS + 1] = {
+	[SUNRPC_A_UNIX_GID_REQS_REQUESTS] = NLA_POLICY_NESTED(sunrpc_unix_gid_nl_policy),
+};
+
 /* Ops table for sunrpc */
 static const struct genl_split_ops sunrpc_nl_ops[] = {
 	{
@@ -46,6 +64,20 @@ static const struct genl_split_ops sunrpc_nl_ops[] = {
 		.doit		= sunrpc_nl_ip_map_set_reqs_doit,
 		.policy		= sunrpc_ip_map_set_reqs_nl_policy,
 		.maxattr	= SUNRPC_A_IP_MAP_REQS_REQUESTS,
+		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
+	},
+	{
+		.cmd		= SUNRPC_CMD_UNIX_GID_GET_REQS,
+		.dumpit		= sunrpc_nl_unix_gid_get_reqs_dumpit,
+		.policy		= sunrpc_unix_gid_get_reqs_nl_policy,
+		.maxattr	= SUNRPC_A_UNIX_GID_REQS_REQUESTS,
+		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
+	},
+	{
+		.cmd		= SUNRPC_CMD_UNIX_GID_SET_REQS,
+		.doit		= sunrpc_nl_unix_gid_set_reqs_doit,
+		.policy		= sunrpc_unix_gid_set_reqs_nl_policy,
+		.maxattr	= SUNRPC_A_UNIX_GID_REQS_REQUESTS,
 		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
 	},
 };
