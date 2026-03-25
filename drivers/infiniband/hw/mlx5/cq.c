@@ -720,7 +720,7 @@ static int create_cq_user(struct mlx5_ib_dev *dev, struct ib_udata *udata,
 			  int *cqe_size, int *index, int *inlen,
 			  struct uverbs_attr_bundle *attrs)
 {
-	struct mlx5_ib_create_cq ucmd = {};
+	struct mlx5_ib_create_cq ucmd;
 	unsigned long page_size;
 	unsigned int page_offset_quantized;
 	__be64 *pas;

@@ -4692,7 +4692,7 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	struct mlx5_ib_dev *dev = to_mdev(ibqp->device);
 	struct mlx5_ib_modify_qp_resp resp = {};
 	struct mlx5_ib_qp *qp = to_mqp(ibqp);
-	struct mlx5_ib_modify_qp ucmd = {};
+	struct mlx5_ib_modify_qp ucmd;
 	enum ib_qp_type qp_type;
 	enum ib_qp_state cur_state, new_state;
 	int err = -EINVAL;
@@ -5379,7 +5379,7 @@ static int prepare_user_rq(struct ib_pd *pd,
 			   struct mlx5_ib_rwq *rwq)
 {
 	struct mlx5_ib_dev *dev = to_mdev(pd->device);
-	struct mlx5_ib_create_wq ucmd = {};
+	struct mlx5_ib_create_wq ucmd;
 	int err;
 
 	err = ib_copy_validate_udata_in_cm(udata, ucmd,

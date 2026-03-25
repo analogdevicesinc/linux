@@ -13,7 +13,7 @@ int mana_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	struct mana_ib_create_cq_resp resp = {};
 	struct mana_ib_ucontext *mana_ucontext;
 	struct ib_device *ibdev = ibcq->device;
-	struct mana_ib_create_cq ucmd = {};
+	struct mana_ib_create_cq ucmd;
 	struct mana_ib_dev *mdev;
 	bool is_rnic_cq;
 	u32 doorbell;

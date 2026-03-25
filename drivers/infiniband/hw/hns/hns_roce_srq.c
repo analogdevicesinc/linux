@@ -406,7 +406,7 @@ static int alloc_srq_db(struct hns_roce_dev *hr_dev, struct hns_roce_srq *srq,
 			struct ib_udata *udata,
 			struct hns_roce_ib_create_srq_resp *resp)
 {
-	struct hns_roce_ib_create_srq ucmd = {};
+	struct hns_roce_ib_create_srq ucmd;
 	struct hns_roce_ucontext *uctx;
 	int ret;
 

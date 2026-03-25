@@ -11,7 +11,7 @@ struct ib_wq *mana_ib_create_wq(struct ib_pd *pd,
 {
 	struct mana_ib_dev *mdev =
 		container_of(pd->device, struct mana_ib_dev, ib_dev);
-	struct mana_ib_create_wq ucmd = {};
+	struct mana_ib_create_wq ucmd;
 	struct mana_ib_wq *wq;
 	int err;
 

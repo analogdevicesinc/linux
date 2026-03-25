@@ -682,7 +682,7 @@ int efa_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *init_attr,
 	struct efa_com_create_qp_result create_qp_resp;
 	struct efa_dev *dev = to_edev(ibqp->device);
 	struct efa_ibv_create_qp_resp resp = {};
-	struct efa_ibv_create_qp cmd = {};
+	struct efa_ibv_create_qp cmd;
 	struct efa_qp *qp = to_eqp(ibqp);
 	struct efa_ucontext *ucontext;
 	u16 supported_efa_flags = 0;
@@ -1121,7 +1121,7 @@ int efa_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	struct efa_com_create_cq_result result;
 	struct ib_device *ibdev = ibcq->device;
 	struct efa_dev *dev = to_edev(ibdev);
-	struct efa_ibv_create_cq cmd = {};
+	struct efa_ibv_create_cq cmd;
 	struct efa_cq *cq = to_ecq(ibcq);
 	int entries = attr->cqe;
 	bool set_src_addr;

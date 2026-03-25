@@ -1308,12 +1308,14 @@ int ocrdma_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *attrs,
 	if (status)
 		goto gen_err;
 
-	memset(&ureq, 0, sizeof(ureq));
 	if (udata) {
 		status = ib_copy_validate_udata_in(udata, ureq, rsvd1);
 		if (status)
 			return status;
+	} else {
+		memset(&ureq, 0, sizeof(ureq));
 	}
+
 	ocrdma_set_qp_init_params(qp, pd, attrs);
 	if (udata == NULL)
 		qp->cap_flags |= (OCRDMA_QP_MW_BIND | OCRDMA_QP_LKEY0 |
