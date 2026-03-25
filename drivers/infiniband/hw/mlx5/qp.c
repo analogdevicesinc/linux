@@ -4707,12 +4707,12 @@ int mlx5_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 		return -ENOSYS;
 
 	if (udata && udata->inlen) {
-		err = ib_copy_validate_udata_in(udata, ucmd, ece_options);
+		err = ib_copy_validate_udata_in_cm(udata, ucmd, ece_options,
+						   MLX5_IB_MODIFY_QP_OOO_DP);
 		if (err)
 			return err;
 
-		if (ucmd.comp_mask & ~MLX5_IB_MODIFY_QP_OOO_DP ||
-		    memchr_inv(&ucmd.burst_info.reserved, 0,
+		if (memchr_inv(&ucmd.burst_info.reserved, 0,
 			       sizeof(ucmd.burst_info.reserved)))
 			return -EOPNOTSUPP;
 
@@ -5381,17 +5381,16 @@ static int prepare_user_rq(struct ib_pd *pd,
 	struct mlx5_ib_dev *dev = to_mdev(pd->device);
 	struct mlx5_ib_create_wq ucmd = {};
 	int err;
-	err = ib_copy_validate_udata_in(udata, ucmd,
-					single_stride_log_num_of_bytes);
+
+	err = ib_copy_validate_udata_in_cm(udata, ucmd,
+					   single_stride_log_num_of_bytes,
+					   MLX5_IB_CREATE_WQ_STRIDING_RQ);
 	if (err) {
 		mlx5_ib_dbg(dev, "copy failed\n");
 		return err;
 	}
 
-	if (ucmd.comp_mask & (~MLX5_IB_CREATE_WQ_STRIDING_RQ)) {
-		mlx5_ib_dbg(dev, "invalid comp mask\n");
-		return -EOPNOTSUPP;
-	} else if (ucmd.comp_mask & MLX5_IB_CREATE_WQ_STRIDING_RQ) {
+	if (ucmd.comp_mask & MLX5_IB_CREATE_WQ_STRIDING_RQ) {
 		if (!MLX5_CAP_GEN(dev->mdev, striding_rq)) {
 			mlx5_ib_dbg(dev, "Striding RQ is not supported\n");
 			return -EOPNOTSUPP;
