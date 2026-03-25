@@ -1913,13 +1913,12 @@ static int amdgpu_ttm_reserve_tmr(struct amdgpu_device *adev)
 		ctx->init = PSP_MEM_TRAIN_RESERVE_SUCCESS;
 	}
 
-	ret = amdgpu_bo_create_kernel_at(
-		adev, adev->gmc.real_vram_size - reserve_size, reserve_size,
-		&adev->mman.fw_reserved_memory, NULL);
+	amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW,
+				  adev->gmc.real_vram_size - reserve_size,
+				  reserve_size, false);
+	ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW);
 	if (ret) {
 		dev_err(adev->dev, "alloc tmr failed(%d)!\n", ret);
-		amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory, NULL,
-				      NULL);
 		return ret;
 	}
 
@@ -2334,8 +2333,7 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
 		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_STOLEN_VGA);
 		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_STOLEN_EXTENDED);
 		/* return the FW reserved memory back to VRAM */
-		amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory, NULL,
-				      NULL);
+		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_FW);
 		amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory_extend, NULL,
 				      NULL);
 		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_STOLEN_RESERVED);

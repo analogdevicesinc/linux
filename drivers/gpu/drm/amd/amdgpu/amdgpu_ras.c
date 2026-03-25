@@ -5726,7 +5726,7 @@ out:
 
 static void amdgpu_ras_critical_region_init(struct amdgpu_device *adev)
 {
-	amdgpu_ras_add_critical_region(adev, adev->mman.fw_reserved_memory);
+	amdgpu_ras_add_critical_region(adev, adev->mman.resv_region[AMDGPU_RESV_FW].bo);
 }
 
 static void amdgpu_ras_critical_region_fini(struct amdgpu_device *adev)
