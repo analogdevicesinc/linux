@@ -185,6 +185,9 @@ struct amdgpu_ualink_mgr {
 
 	/* NPA-VM used on the exporter.*/
 	struct amdgpu_vm npa_vm;
+
+	/* Sequence number to track the need for TLB flushes */
+	atomic64_t last_flushed_tlb_seq;
 };
 
 int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev);

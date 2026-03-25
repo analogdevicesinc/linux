@@ -1484,6 +1484,92 @@ static inline u32 ualink_tlb_wb_offset(struct amdgpu_device *adev, u32 accel_id)
 	return ualink_wb_offset(adev, accel_id) + sizeof(struct amdgpu_ualink_wb);
 }
 
+static void amdgpu_ualink_flush_tlb(struct amdgpu_device *adev, u32 flush_type)
+{
+	uint64_t tlb_seq = amdgpu_vm_tlb_seq(&adev->ualink.npa_vm);
+	u32 bit;
+
+	if (atomic64_xchg(&adev->ualink.last_flushed_tlb_seq, tlb_seq) == tlb_seq)
+		return;
+
+	bit = AMDGPU_MMHUB0_START;
+
+	for_each_set_bit_from(bit, adev->vmhubs_mask, AMDGPU_MAX_VMHUBS)
+		amdgpu_gmc_flush_gpu_tlb(adev, adev->vm_manager.npa_vmid,
+					bit, flush_type);
+}
+
+/**
+ * amdgpu_ualink_npa_vm_map_range - Map a range in the NPA VM
+ * @adev: amdgpu device pointer
+ * @bo: buffer object backing the mapping
+ * @pte_flags: page table entry flags
+ * @offset: offset into the buffer object in bytes
+ * @size_in_pages: size of the range to map in pages
+ * @npa_in_pages: NPA target address in pages
+ *
+ * Maps a buffer object range into the NPA VM page table at the specified
+ * NPA address.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int amdgpu_ualink_npa_vm_map_range(struct amdgpu_device *adev, struct amdgpu_bo *bo,
+				   u64 pte_flags, u64 offset, u64 size_in_pages,
+				   u64 npa_in_pages)
+{
+	struct amdgpu_vm *npa_vm = &adev->ualink.npa_vm;
+	int r;
+
+	dev_dbg(adev->dev, "offset 0x%llx size 0x%llx flags 0x%llx npa 0x%llx\n",
+		offset, size_in_pages << AMDGPU_GPU_PAGE_SHIFT, pte_flags,
+		npa_in_pages << AMDGPU_GPU_PAGE_SHIFT);
+
+	r = amdgpu_vm_update_range(adev, npa_vm, false, false, true,
+				   false, NULL, npa_in_pages,
+				   npa_in_pages + size_in_pages - 1,
+				   pte_flags, offset, adev->vm_manager.vram_base_offset,
+				   bo->tbo.resource, NULL, &npa_vm->last_update);
+	if (r)
+		dev_dbg(adev->dev, "failed %d to map npa 0x%llx to NPA VM\n", r,
+			npa_in_pages << AMDGPU_GPU_PAGE_SHIFT);
+	return r;
+}
+
+/**
+ * amdgpu_npa_vm_unmap_range - Unmap a range from the NPA VM
+ * @adev: amdgpu device pointer
+ * @bo: buffer object backing the mapping
+ * @pte_flags: page table entry flags
+ * @offset: offset into the buffer object in bytes
+ * @size_in_pages: size of the range to unmap in pages
+ * @npa_in_pages: NPA target address in pages
+ *
+ * Removes a previously established mapping from the NPA VM page table.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int amdgpu_ualink_npa_vm_unmap_range(struct amdgpu_device *adev, struct amdgpu_bo *bo,
+				     u64 pte_flags, u64 offset, u64 size_in_pages,
+				     u64 npa_in_pages)
+{
+	struct amdgpu_vm *npa_vm = &adev->ualink.npa_vm;
+	int r;
+
+	dev_dbg(adev->dev, "offset 0x%llx size 0x%llx flags 0x%llx npa 0x%llx\n",
+		offset, size_in_pages << AMDGPU_GPU_PAGE_SHIFT, pte_flags,
+		npa_in_pages << AMDGPU_GPU_PAGE_SHIFT);
+
+	r = amdgpu_vm_update_range(adev, npa_vm, false, false, true,
+				   false, NULL, npa_in_pages,
+				   npa_in_pages + size_in_pages - 1,
+				   pte_flags, offset, 0, bo->tbo.resource, NULL,
+				   &npa_vm->last_update);
+	if (r)
+		dev_dbg(adev->dev, "failed %d to unmap npa 0x%llx from NPA VM\n", r,
+			npa_in_pages << AMDGPU_GPU_PAGE_SHIFT);
+	return r;
+}
+
 /*
  * Reserved NPA space for remote shootdown and interrupt ring buffer,
  * write pointers, read pointers and writeback buffers
@@ -1576,5 +1662,348 @@ static u64 amdgpu_ualink_gart_npa_addr(struct amdgpu_device *adev, u32 type,
 	npa &= ~AMDGPU_UALINK_GART_NPA_ADDR_GPUID_MASK;
 
 	return npa | ((u64)dst_accel_id << AMDGPU_UALINK_GART_NPA_ADDR_GPUID_SHIFT);
+}
+
+/**
+ * amdgpu_ualink_reserve_npa_vm_and_bos - Reserve the NPA VM page directory and BOs
+ * @adev: amdgpu device pointer
+ * @bos: array of buffer objects to reserve
+ * @n_bos: number of entries in @bos
+ * @exec: drm_exec context to initialize and use for locking
+ * @interruptible: true to use the interruptible dma_resv_lock
+ *
+ * Initializes @exec and uses it to lock all BOs in @bos together with the
+ * NPA VM page directory, retrying on contention. On failure, @exec is
+ * finalized and the error code is returned.
+ *
+ * Returns: 0 on success, negative error code on failure.
+ */
+static int amdgpu_ualink_reserve_npa_vm_and_bos(struct amdgpu_device *adev,
+						struct amdgpu_bo *bos[], u32 n_bos,
+						struct drm_exec *exec,
+						bool interruptible)
+{
+	u32 flags = DRM_EXEC_IGNORE_DUPLICATES;
+	int i, r = 0;
+
+	if (interruptible)
+		flags |= DRM_EXEC_INTERRUPTIBLE_WAIT;
+
+	dev_dbg(adev->dev, "reserve NPA vm and %d bos\n", n_bos);
+
+	drm_exec_init(exec, flags, 0);
+
+	drm_exec_until_all_locked(exec) {
+		for (i = 0; i < n_bos; i++) {
+			r = drm_exec_lock_obj(exec, &bos[i]->tbo.base);
+			drm_exec_retry_on_contention(exec);
+			if (unlikely(r))
+				goto out;
+		}
+
+		r = amdgpu_vm_lock_pd(&adev->ualink.npa_vm, exec, 0);
+		drm_exec_retry_on_contention(exec);
+		if (unlikely(r))
+			goto out;
+	}
+
+out:
+	if (r)
+		drm_exec_fini(exec);
+	return r;
+
+}
+
+/**
+ * amdgpu_ualink_unreserve_npa_vm_and_bos - Release the NPA VM page directory and BOs
+ * @adev: amdgpu device pointer
+ * @exec: drm_exec context previously initialized by
+ *        amdgpu_ualink_reserve_npa_vm_and_bos()
+ *
+ * Finalizes @exec, releasing all locks on the NPA VM page directory and
+ * the associated BOs acquired during reservation.
+ */
+static void amdgpu_ualink_unreserve_npa_vm_and_bos(struct amdgpu_device *adev,
+						   struct drm_exec *exec)
+{
+	dev_dbg(adev->dev, "unreserve NPA vm and bos\n");
+	drm_exec_fini(exec);
+}
+
+/**
+ * amdgpu_ualink_metadata_npa_unmapping - Tear down NPA address mappings
+ * @adev: amdgpu device pointer
+ *
+ * Unmaps all NPA address mappings from the NPA VM for ring buffers,
+ * write pointers, and read pointers. Waits for outstanding DMA fences
+ * and flushes the TLB.
+ */
+static void amdgpu_ualink_metadata_npa_unmapping(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	u64 timeout = msecs_to_jiffies(2000);
+	u32 dst_accel_id = ualink_accel_id(adev);
+	struct amdgpu_bo *bos[2];
+	u32 n_bos;
+	struct dma_fence *fence;
+	struct drm_exec exec;
+	u32 rptr_size, rptr_size_in_pages;
+	u32 rb_size, rb_size_in_pages;
+	u64 pte_flags = adev->gmc.noretry_flags;
+	u64 npa;
+	int r;
+
+	if (!remote->ring_bo)
+		return;
+	if (!remote->active_accel_bits)
+		return;
+
+	rb_size = AMDGPU_UALINK_RB_SIZE;
+	rb_size_in_pages = rb_size >> AMDGPU_GPU_PAGE_SHIFT;
+
+	bos[0] = remote->ring_bo;
+	n_bos = 1;
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS) {
+		bos[1] = remote->rptr_bo;
+		n_bos = 2;
+	}
+
+	r = amdgpu_ualink_reserve_npa_vm_and_bos(adev, bos, n_bos, &exec, false);
+	if (unlikely(r))
+		return;
+
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS) {
+		/* rptr npa mapping, up to allocated 2 pages npa address */
+		rptr_size = ualink_wb_size(adev);
+		rptr_size = AMDGPU_GPU_PAGE_ALIGN(rptr_size * remote->num_accel);
+		rptr_size_in_pages = rptr_size >> AMDGPU_GPU_PAGE_SHIFT;
+
+		npa = remote->rptr_npa;
+
+		amdgpu_ualink_npa_vm_unmap_range(adev, remote->rptr_bo,
+						 pte_flags, 0, rptr_size_in_pages,
+						 npa >> AMDGPU_GPU_PAGE_SHIFT);
+		amdgpu_ualink_npa_free_va(adev, &remote->rptr_mm_node);
+
+		/*
+		 * unmap wptr, remote interrupt, shootdown ring.
+		 * wptr page is part of the single 2MB mapping for remote GPUs
+		 * interrupt and shootdown ring buffer
+		 */
+		npa = amdgpu_ualink_npa_addr(adev, RB_TYPE_TLB_INV,
+					     0, dst_accel_id);
+		amdgpu_ualink_npa_vm_unmap_range(adev, remote->ring_bo, pte_flags,
+						 0,
+						 2 * rb_size_in_pages * AMDGPU_UALINK_ACCEL_MAX,
+						 npa >> AMDGPU_GPU_PAGE_SHIFT);
+	} else {
+		u32 wptr_offset = 2 * rb_size * remote->num_accel;
+		u32 idx = 0;
+		u32 accel_id;
+
+		/* source identification mode */
+		for_each_set_bit(accel_id, remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX) {
+			if (accel_id == dst_accel_id)
+				continue;
+
+			/* remote interrupt ring npa mapping */
+			npa = amdgpu_ualink_npa_addr(adev, RB_TYPE_REMOTE_INTERRUPT,
+						     accel_id, dst_accel_id);
+			amdgpu_ualink_npa_vm_unmap_range(adev, remote->ring_bo,
+							 pte_flags, idx * 2 * rb_size,
+							 rb_size_in_pages,
+							 npa >> AMDGPU_GPU_PAGE_SHIFT);
+
+			/* remote shootdown ring npa mapping */
+			npa = amdgpu_ualink_npa_addr(adev, RB_TYPE_TLB_INV, accel_id,
+						     dst_accel_id);
+			amdgpu_ualink_npa_vm_unmap_range(adev, remote->ring_bo,
+							 pte_flags, (idx * 2 + 1) * rb_size,
+							 rb_size_in_pages,
+							 npa >> AMDGPU_GPU_PAGE_SHIFT);
+
+			/* wptr, rptr npa mapping */
+			npa = amdgpu_ualink_npa_addr(adev, RB_TYPE_TAILPTR, accel_id,
+						      dst_accel_id);
+			amdgpu_ualink_npa_vm_unmap_range(adev, remote->ring_bo,
+						  pte_flags, wptr_offset + idx * PAGE_SIZE,
+						  1, npa >> AMDGPU_GPU_PAGE_SHIFT);
+			idx++;
+		}
+	}
+
+	r = amdgpu_vm_update_pdes(adev, &adev->ualink.npa_vm, false);
+	if (r) {
+		dev_dbg(adev->dev, "failed %d to update directories\n", r);
+		goto out_unreserve;
+	}
+
+	fence = dma_fence_get(adev->ualink.npa_vm.last_update);
+	if (fence) {
+		r = dma_fence_wait_timeout(fence, true, timeout);
+		dma_fence_put(fence);
+		if (r <= 0)
+			dev_dbg(adev->dev, "failed %d to dma fence wait\n", r);
+	}
+
+	amdgpu_ualink_flush_tlb(adev, TLB_FLUSH_HEAVYWEIGHT);
+out_unreserve:
+	amdgpu_ualink_unreserve_npa_vm_and_bos(adev, &exec);
+}
+
+/**
+ * amdgpu_ualink_metadata_npa_mapping - Setup NPA address mapping in VM
+ * @adev: amdgpu device pointer
+ *
+ * Maps NPA addresses to GPA for metadata ring buffers, write pointers,
+ * on NPA VMID 15.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int amdgpu_ualink_metadata_npa_mapping(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	u32 dst_accel_id = ualink_accel_id(adev);
+	u64 timeout = msecs_to_jiffies(2000);
+	struct amdgpu_bo *bos[2];
+	u32 n_bos;
+	struct dma_fence *fence;
+	struct drm_exec exec;
+	u32 rb_size, rb_size_in_pages;
+	u64 npa, npa_in_pages, pte_flags;
+	int r;
+
+	rb_size = AMDGPU_UALINK_RB_SIZE;
+	rb_size_in_pages = rb_size >> AMDGPU_GPU_PAGE_SHIFT;
+
+	bos[0] = remote->ring_bo;
+	n_bos = 1;
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS) {
+		bos[1] = remote->rptr_bo;
+		n_bos = 2;
+	}
+
+	r = amdgpu_ualink_reserve_npa_vm_and_bos(adev, bos, n_bos, &exec, false);
+	if (unlikely(r))
+		return r;
+
+	pte_flags = amdgpu_ttm_tt_pte_flags(adev, remote->ring_bo->tbo.ttm,
+					    remote->ring_bo->tbo.resource);
+	dev_dbg(adev->dev, "init pte_flags 0x%llx\n", pte_flags);
+
+	amdgpu_gmc_get_vm_pte(adev, &adev->ualink.npa_vm, remote->ring_bo,
+			      AMDGPU_VM_MTYPE_DEFAULT, &pte_flags);
+	dev_dbg(adev->dev, "after get coherent pte_flags 0x%llx\n", pte_flags);
+
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS) {
+		u32 rptr_size, rptr_size_in_pages;
+
+		/* rptr npa mapping, up to allocated 2 pages npa address */
+		rptr_size = ualink_wb_size(adev);
+		rptr_size = AMDGPU_GPU_PAGE_ALIGN(rptr_size * remote->num_accel);
+		rptr_size_in_pages = rptr_size >> AMDGPU_GPU_PAGE_SHIFT;
+
+		r = amdgpu_ualink_npa_alloc_va(adev, &remote->rptr_mm_node,
+					       0, 0, 0,
+					       rptr_size_in_pages);
+		if (r)
+			goto out;
+
+		npa_in_pages = remote->rptr_mm_node.start;
+
+		dev_dbg(adev->dev, "source aliasing rptr alloc 0x%llx and map to npa vm\n",
+			npa_in_pages << AMDGPU_GPU_PAGE_SHIFT);
+
+		r = amdgpu_ualink_npa_vm_map_range(adev, remote->rptr_bo, pte_flags, 0,
+						   rptr_size_in_pages,
+						   npa_in_pages);
+		if (r)
+			goto error_npa_mapping;
+
+		remote->rptr_npa = npa_in_pages << AMDGPU_GPU_PAGE_SHIFT;
+
+		/* wptr, remote interrupt, shootdown ring, single big 2MB mapping */
+		npa = amdgpu_ualink_npa_addr(adev, RB_TYPE_TLB_INV,
+					     0, dst_accel_id);
+		r = amdgpu_ualink_npa_vm_map_range(adev, remote->ring_bo, pte_flags,
+						   0,
+						   2 * rb_size_in_pages * AMDGPU_UALINK_ACCEL_MAX,
+						   npa >> AMDGPU_GPU_PAGE_SHIFT);
+		if (r)
+			goto error_npa_mapping;
+
+	} else {
+		u32 wptr_offset = 2 * rb_size * remote->num_accel;
+		u32 accel_id, idx = 0;
+
+		/* Source identification mode */
+		for_each_set_bit(accel_id, remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX) {
+			if (accel_id == dst_accel_id)
+				continue;
+
+			/* remote interrupt ring npa mapping */
+			npa = amdgpu_ualink_npa_addr(adev, RB_TYPE_REMOTE_INTERRUPT,
+						      accel_id, dst_accel_id);
+			r = amdgpu_ualink_npa_vm_map_range(adev, remote->ring_bo, pte_flags,
+							   idx * 2 * rb_size,
+							   rb_size_in_pages,
+							   npa >> AMDGPU_GPU_PAGE_SHIFT);
+			if (r)
+				goto error_npa_mapping;
+
+			/* remote shootdown ring npa mapping */
+			npa = amdgpu_ualink_npa_addr(adev, RB_TYPE_TLB_INV, accel_id,
+						     dst_accel_id);
+			r = amdgpu_ualink_npa_vm_map_range(adev, remote->ring_bo, pte_flags,
+							   (idx * 2 + 1) * rb_size,
+							   rb_size_in_pages,
+							   npa >> AMDGPU_GPU_PAGE_SHIFT);
+			if (r)
+				goto error_npa_mapping;
+
+			/* wptr, rptr npa mapping */
+			npa = amdgpu_ualink_npa_addr(adev, RB_TYPE_TAILPTR, accel_id,
+						     dst_accel_id);
+			r = amdgpu_ualink_npa_vm_map_range(adev, remote->ring_bo,
+							   pte_flags,
+							   wptr_offset + idx * PAGE_SIZE,
+							   1, npa >> AMDGPU_GPU_PAGE_SHIFT);
+			if (r)
+				goto error_npa_mapping;
+
+			idx++;
+		}
+	}
+
+	r = amdgpu_vm_update_pdes(adev, &adev->ualink.npa_vm, false);
+	if (r) {
+		dev_dbg(adev->dev, "failed %d to update directories\n", r);
+		goto error_npa_mapping;
+	}
+
+	/* TODO: only wait the last fence, then flush TLB */
+	fence = dma_fence_get(adev->ualink.npa_vm.last_update);
+	if (fence) {
+		r = dma_fence_wait_timeout(fence, true, timeout);
+		dma_fence_put(fence);
+		if (r <= 0)
+			dev_dbg(adev->dev, "failed %d to dma fence wait\n", r);
+	}
+
+	amdgpu_ualink_flush_tlb(adev, TLB_FLUSH_HEAVYWEIGHT);
+
+	amdgpu_ualink_unreserve_npa_vm_and_bos(adev, &exec);
+	return 0;
+
+error_npa_mapping:
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS)
+		amdgpu_ualink_npa_free_va(adev, &remote->rptr_mm_node);
+	if (r)
+		dev_dbg(adev->dev, "failed %d to map NPA vm\n", r);
+
+out:
+	amdgpu_ualink_unreserve_npa_vm_and_bos(adev, &exec);
+
+	return r;
 }
 
