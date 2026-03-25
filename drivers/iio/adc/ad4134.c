@@ -143,13 +143,6 @@ static int ad7134_set_dig_fil(struct iio_dev *dev,
 			      unsigned int filter);
 static int ad7134_get_dig_fil(struct iio_dev *dev,
 			      const struct iio_chan_spec *chan);
-static ssize_t ad7134_ext_info_write(struct iio_dev *indio_dev,
-				     uintptr_t private,
-				     const struct iio_chan_spec *chan,
-				     const char *buf, size_t len);
-static ssize_t ad7134_ext_info_read(struct iio_dev *indio_dev,
-				    uintptr_t private,
-				    const struct iio_chan_spec *chan, char *buf);
 
 static const struct iio_enum ad7134_flt_type_iio_enum = {
 	.items = ad7134_filter_enum,
@@ -161,13 +154,6 @@ static const struct iio_enum ad7134_flt_type_iio_enum = {
 static struct iio_chan_spec_ext_info ad7134_ext_info[] = {
 	IIO_ENUM("filter_type", IIO_SHARED_BY_ALL, &ad7134_flt_type_iio_enum),
 	IIO_ENUM_AVAILABLE("filter_type", IIO_SHARED_BY_ALL, &ad7134_flt_type_iio_enum),
-	{
-	 .name = "odr_set_freq",
-	 .read = ad7134_ext_info_read,
-	 .write = ad7134_ext_info_write,
-	 .shared =  IIO_SHARED_BY_ALL,
-	 .private = ODR_SET_FREQ,
-	},
 	{
 	 .name = "ad4134_sync",
 	 .write = ad7134_set_sync,
@@ -314,29 +300,6 @@ static int ad7134_get_dig_fil(struct iio_dev *dev,
 		return ret;
 
 	return FIELD_GET(AD4134_CHAN_DIG_FILTER_SEL_FRAME_MASK_CH0, readval);
-}
-
-static ssize_t ad7134_ext_info_read(struct iio_dev *indio_dev,
-				    uintptr_t private,
-				    const struct iio_chan_spec *chan, char *buf)
-{
-	int ret = -EINVAL;
-	long long val;
-	struct ad4134_state *st = iio_priv(indio_dev);
-
-	mutex_lock(&st->lock);
-
-	switch (private) {
-	case ODR_SET_FREQ:
-		val = st->odr;
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
-	mutex_unlock(&st->lock);
-
-	return sprintf(buf, "%lld\n", val);
 }
 
 static int ad4134_samp_freq_avail[] = { AD4134_ODR_MIN, 1, AD4134_ODR_MAX };
@@ -661,61 +624,6 @@ static int ad4134_offload_buffer_setup(struct iio_dev *indio_dev, struct spi_dev
 	return 0;
 }
 
-static int ad4134_set_odr(struct iio_dev *indio_dev, unsigned int odr)
-{
-	struct ad4134_state *st = iio_priv(indio_dev);
-	int ret;
-
-	if (IS_ERR(st->odr_trigger))
-		return 0;
-
-	if (IS_ERR(st->offload_trigger))
-		return 0;
-
-	ret = iio_device_claim_direct_mode(indio_dev);
-	if (ret)
-		return ret;
-
-	mutex_lock(&st->lock);
-
-	ret = ad4134_update_conversion_rate(st, odr);
-
-	mutex_unlock(&st->lock);
-
-	iio_device_release_direct_mode(indio_dev);
-
-	return ret;
-}
-
-static ssize_t ad7134_ext_info_write(struct iio_dev *indio_dev,
-				     uintptr_t private,
-				     const struct iio_chan_spec *chan,
-				     const char *buf, size_t len)
-{
-	int ret = -EINVAL;
-	long long readin;
-	struct ad4134_state *st = iio_priv(indio_dev);
-
-	mutex_lock(&st->lock);
-
-	switch (private) {
-	case ODR_SET_FREQ:
-		ret = kstrtoll(buf, 10, &readin);
-		if (ret)
-			goto out;
-		readin = clamp_t(long long, readin, 0, 1500000);
-		ret = ad4134_update_conversion_rate(st, readin);
-	break;
-
-	default:
-		ret = -EINVAL;
-	}
-out:
-	mutex_unlock(&st->lock);
-
-	return ret ? ret : len;
-}
-
 static int ad4134_input_gpio(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad4134_state *st = gpiochip_get_data(chip);
@@ -851,9 +759,22 @@ static int ad4134_write_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int val, int val2, long info)
 {
+	struct ad4134_state *st = iio_priv(indio_dev);
+	int ret;
+
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		return ad4134_set_odr(indio_dev, val);
+		ret = iio_device_claim_direct_mode(indio_dev);
+		if (ret)
+			return ret;
+
+		mutex_lock(&st->lock);
+		ret = ad4134_update_conversion_rate(st, val);
+		mutex_unlock(&st->lock);
+
+		iio_device_release_direct_mode(indio_dev);
+
+		return ret;
 	default:
 		return -EINVAL;
 	}
