@@ -80,6 +80,13 @@ jobs:
         source ./ci/build.sh
         apply_prerun
 
+    - name: Skip checks
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        if [[ "$checkout_fallback" == "true" ]]; then
+          echo "skip=true" >> "$GITHUB_ENV"
+        fi
+
     - name: Assert state
       if: ${{ failure() }}
       run: |
@@ -88,33 +95,33 @@ jobs:
         echo "fatal=true" >> "$GITHUB_ENV"
 
     - name: License
-      if: ${{ !cancelled() && env.fatal != 'true' }}
+      if: ${{ !cancelled() && env.fatal != 'true' && env.skip != 'true' }}
       run: |
         source ./ci/build.sh
         check_license
 
     - name: Check patch
-      if: ${{ !cancelled() && env.fatal != 'true' }}
+      if: ${{ !cancelled() && env.fatal != 'true' && env.skip != 'true' }}
       run: |
         status=0; timeout 1d bash -c "source ./ci/build.sh ; check_checkpatch $strict ${{ inputs.strategy }}" || status=$?
         [ $status -eq 124 ] && echo "step_fail_checkpatch_timeout=true" >> "$GITHUB_ENV"
         exit $status
 
     - name: Coccicheck
-      if: ${{ !cancelled() && env.fatal != 'true' }}
+      if: ${{ !cancelled() && env.fatal != 'true' && env.skip != 'true' }}
       run: |
         status=0; timeout 1d bash -c "source ./ci/build.sh ; check_coccicheck" || status=$?
         [ $status -eq 124 ] && echo "step_fail_coccicheck_timeout=true" >> "$GITHUB_ENV"
         exit $status
 
     - name: Check dt-bindings
-      if: ${{ !cancelled() && env.fatal != 'true' }}
+      if: ${{ !cancelled() && env.fatal != 'true' && env.skip != 'true' }}
       run: |
         source ./ci/build.sh
         check_dt_binding_check
 
     - name: Check defconfigs
-      if: ${{ !cancelled() && env.fatal != 'true' }}
+      if: ${{ !cancelled() && env.fatal != 'true' && env.skip != 'true' }}
       run: |
         command -v yq || exit 0
         # Collect all defconfigs mentioned in the top-level and look for changes
