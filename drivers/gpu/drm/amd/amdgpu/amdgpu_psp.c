@@ -1090,11 +1090,11 @@ int psp_update_fw_reservation(struct psp_context *psp)
 
 	reserv_size_ext = roundup(reserv_size_ext, SZ_1M);
 
-	ret = amdgpu_bo_create_kernel_at(adev, reserv_addr_ext, reserv_size_ext,
-					 &adev->mman.fw_reserved_memory_extend, NULL);
+	amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW_EXTEND,
+				  reserv_addr_ext, reserv_size_ext, false);
+	ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW_EXTEND);
 	if (ret) {
 		dev_err(adev->dev, "reserve extend fw region failed(%d)!\n", ret);
-		amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory_extend, NULL, NULL);
 		return ret;
 	}
 

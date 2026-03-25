@@ -2334,8 +2334,7 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
 		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_STOLEN_EXTENDED);
 		/* return the FW reserved memory back to VRAM */
 		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_FW);
-		amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory_extend, NULL,
-				      NULL);
+		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_FW_EXTEND);
 		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_STOLEN_RESERVED);
 	}
 	amdgpu_bo_free_kernel(&adev->mman.sdma_access_bo, NULL,
