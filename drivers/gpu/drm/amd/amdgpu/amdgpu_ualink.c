@@ -1240,3 +1240,143 @@ void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
 	destroy_workqueue(adev->ualink.npa_wq);
 	amdgpu_vm_fini(adev, &adev->ualink.npa_vm);
 }
+
+/*
+ * UALink remote interrupt and shootdown
+ */
+
+/* UALINK ring buffer size, same for both remote shootdown and interrupt ring */
+#define AMDGPU_UALINK_RB_SIZE	4096
+
+#define AMDGPU_UALINK_METADATA_HEADER	0x4E485446
+
+/* UALINK F/W commands */
+#define AMDGPU_UALINK_FW_CMD_LOAD_METADATA	0x1
+#define AMDGPU_UALINK_FW_CMD_HALT_OPERATION	0x2
+
+/* UALINK F/W status */
+#define AMDGPU_UALINK_FW_STATUS_PREINIT	0xA0
+#define AMDGPU_UALINK_FW_STATUS_READY	0xA1
+#define AMDGPU_UALINK_FW_STATUS_HALT	0xA2
+#define AMDGPU_UALINK_FW_STATUS_ERROR	0xA3
+#define AMDGPU_UALINK_FW_STATUS_FATAL	0xF0
+
+/* UALINK mailbox registers via SMN, copy of MP1 */
+/* send command to nht f/w */
+#define mmMPNHT_SMN_C2PMSG_22_ALT_2	0xAE10958
+/* additional data */
+#define mmMPNHT_SMN_C2PMSG_23_ALT_2	0xAE1095C
+/* metadata address low */
+#define mmMPNHT_SMN_C2PMSG_24_ALT_2	0xAE10960
+/* metadata address high */
+#define mmMPNHT_SMN_C2PMSG_25_ALT_2	0xAE10964
+/* f/w status */
+#define mmMPNHT_SMN_C2PMSG_26_ALT_2	0xAE10968
+
+struct amdgpu_ualink_metadata {
+	u32 header;
+
+	/*
+	 * "ring entries" as unit. So the ring-size-in-bytes could be calculated
+	 * as entry-size * 2^RBsize. This would make the minimum size a single
+	 * entry and the maximum size 32786 entries.
+	 *
+	 * u32 rb_size:4;
+	 * u32 reserved0:4;
+	 * u32 vmid:4;
+	 * u32 reserved1:20;
+	 */
+	u32 rb_size;
+
+	/* ring buffer base address for remote interrupt */
+	u64 ri_rb;
+
+	/* tlb invalidate ring buffer base address for remote shootdown */
+	u64 tlb_inv_rb;
+
+	/* remote interrupt Tail pointer, write pointer address */
+	u64 tailptr_ri;
+
+	/* TLB invalidate ring buffer's Tail pointer, write pointer address */
+	u64 tailptr_tlb_inv;
+};
+
+struct amdgpu_ualink_wb {
+	/* last finished command seq number */
+	u32 data;
+
+	/* command complete error code */
+	u32 status;
+
+	/* ring rptr updated by FW */
+	u64 rptr;
+};
+
+/*
+ * For remote interrupt and shootdown
+ */
+struct amdgpu_ualink_ring {
+	u32 rb_size;
+
+	/* writeback data */
+	u32 seq;
+
+	/* local copy */
+	u64 wptr, rptr;
+
+	/* NPA gart mapping for SDMA */
+	u64 rb_npa_gart;
+	u64 wptr_npa_gart;
+	u64 doorbell_npa_gart;
+
+	/* gart mapping node */
+	struct drm_mm_node mm_node_rb;
+	struct drm_mm_node mm_node_wptr;
+	struct drm_mm_node mm_node_doorbell;
+
+	/* true if fw write back address updated successfully */
+	bool ready;
+};
+
+struct amdgpu_ualink_peer {
+	/* remote interrupt and shootdown uses same SDMA entity */
+	struct mutex lock;
+
+	/* SDMA engine to send remote command via NPA */
+	struct drm_sched_entity entity;
+
+	/* to select different DXS ports, cycles through different values */
+	u32 dxs_port;
+
+	struct amdgpu_ualink_ring interrupt;
+	struct amdgpu_ualink_ring shootdown;
+};
+
+struct amdgpu_ualink_remote {
+	/* ualink metadata passed to MPNHT FW */
+	struct amdgpu_bo		*metadata_bo;
+	u64				metadata_gpu_addr;
+	void				*metadata_cpu_addr;
+
+	/* ualink ring, tlb ring buffer, wptr */
+	struct amdgpu_bo		*ring_bo;
+	u64				rb_gpu_addr;
+	void				*rb_cpu_addr;
+
+	/* ualink rptr, wb data, statuss for address alias mode */
+	struct amdgpu_bo		*rptr_bo;
+	u64				rptr_gpu_addr;
+	void				*rptr_cpu_addr;
+	u64				rptr_npa;
+
+	/* address alias mode alloc npa address for shared wb */
+	struct drm_mm_node		rptr_mm_node;
+
+	/* active accelator id bitmap of the pod */
+	unsigned long			*active_accel_bits;
+	u32				num_accel;
+
+	/* remote GPUs ring buffer, read, write pointer local copy and gart mapping */
+	struct amdgpu_ualink_peer	peer[AMDGPU_UALINK_ACCEL_MAX];
+};
+

@@ -139,6 +139,8 @@ struct amdgpu_ualink_connection {
 	enum amdgpu_ualink_conn_state state;
 };
 
+struct amdgpu_ualink_remote;
+
 struct amdgpu_ualink_mgr {
 	u64 npa_size;
 	u32 psp_if_ver;
@@ -146,6 +148,12 @@ struct amdgpu_ualink_mgr {
 	struct amdgpu_ualink_ppod_setup *setup;
 	struct amdgpu_ualink_vpod_config *config;
 	struct amdgpu_ualink_station_config *stations;
+
+	/* For remote interrupt and shootdown */
+	struct amdgpu_ualink_remote *remote;
+
+	/* handle irq from ualink client of remote GPUs */
+	struct amdgpu_irq_src irq;
 
 	/* Xarray to store info about exported BOs */
 	struct xarray	exp_xa;
@@ -178,6 +186,10 @@ struct amdgpu_ualink_mgr {
 	/* NPA-VM used on the exporter.*/
 	struct amdgpu_vm npa_vm;
 };
+
+int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev);
+int amdgpu_ualink_sw_init(struct amdgpu_device *adev);
+void amdgpu_ualink_sw_fini(struct amdgpu_device *adev);
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
 void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev);
