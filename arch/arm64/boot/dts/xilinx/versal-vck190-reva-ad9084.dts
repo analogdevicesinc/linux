@@ -29,13 +29,27 @@
 
 #define HSCI_SPEED 800
 
+#ifndef HMC7044_CORE_CLK_DIV
+#define HMC7044_CORE_CLK_DIV	8
+#endif
+
 /* RX path */
+#ifndef AD9084_RX_LANERATE_KHZ
 #define AD9084_RX_LANERATE_KHZ	20625000
+#endif
+
+#ifndef AD9084_RX_LINK_CLK
 #define AD9084_RX_LINK_CLK	312500000
+#endif
 
 /* TX path */
+#ifndef AD9084_TX_LANERATE_KHZ
 #define AD9084_TX_LANERATE_KHZ	20625000
+#endif
+
+#ifndef AD9084_TX_LINK_CLK
 #define AD9084_TX_LINK_CLK	312500000
+#endif
 
 #if WITH_AION
 #ifndef SYSREF_CLK_MHz
@@ -530,35 +544,35 @@
 		hmc7044_c8: channel@8 {
 			reg = <8>;
 			adi,extended-name = "CORE_CLK_TX";
-			adi,divider = <8>;
+			adi,divider = <HMC7044_CORE_CLK_DIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 
 		hmc7044_c9: channel@9 {
 			reg = <9>;
 			adi,extended-name = "CORE_CLK_RX";
-			adi,divider = <8>;
+			adi,divider = <HMC7044_CORE_CLK_DIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 
 		hmc7044_c10: channel@10 {
 			reg = <10>;
 			adi,extended-name = "FPGA_REFCLK";
-			adi,divider = <8>;
+			adi,divider = <HMC7044_CORE_CLK_DIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 
 		hmc7044_c11: channel@11 {
 			reg = <11>;
 			adi,extended-name = "CORE_CLK_RX_B";
-			adi,divider = <8>;
+			adi,divider = <HMC7044_CORE_CLK_DIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 
 		hmc7044_c12: channel@12 {
 			reg = <12>;
 			adi,extended-name = "CORE_CLK_TX_B";
-			adi,divider = <8>;
+			adi,divider = <HMC7044_CORE_CLK_DIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 	};
