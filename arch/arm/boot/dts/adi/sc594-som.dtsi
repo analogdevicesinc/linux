@@ -303,14 +303,6 @@
 	};
 };
 
-&crc0 {
-	status = "disabled";
-};
-
-&crc1 {
-	status = "disabled";
-};
-
 &usb0_phy {
 	reset-gpios = <&gpg 11 GPIO_ACTIVE_LOW>;
 	status = "okay";

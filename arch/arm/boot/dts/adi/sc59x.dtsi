@@ -500,20 +500,38 @@
 			status = "disabled";
 		};
 
-		crc0: crc@31001200 {
+		crc0: crc@3100a500 {
 			compatible = "adi,hmac-crc";
-			reg = <0x31001200 0xFF>;
-			interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x3100a500 0x100>;
+			interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>;
 			dma_channel = <8>;
 			crypto_crc_poly = <0x5c5c5c5c>;
 			status = "disabled";
 		};
 
-		crc1: crc@31001300 {
+		crc1: crc@3100a600 {
 			compatible = "adi,hmac-crc";
-			reg = <0x31001300 0xFF>;
-			interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x3100a600 0x100>;
+			interrupts = <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>;
 			dma_channel = <18>;
+			crypto_crc_poly = <0x5c5c5c5c>;
+			status = "disabled";
+		};
+
+		crc2: crc@3100aa00 {
+			compatible = "adi,hmac-crc";
+			reg = <0x3100aa00 0x100>;
+			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
+			dma_channel = <45>;
+			crypto_crc_poly = <0x5c5c5c5c>;
+			status = "disabled";
+		};
+
+		crc3: crc@3100ab00 {
+			compatible = "adi,hmac-crc";
+			reg = <0x3100ab00 0x100>;
+			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
+			dma_channel = <47>;
 			crypto_crc_poly = <0x5c5c5c5c>;
 			status = "disabled";
 		};
