@@ -568,8 +568,9 @@ compile_many_devicetrees() {
 		for dts in $dtbo_files; do
 			dtsp=$(dirname $dts)/.pre.$(basename $dts)
 			dtbo="${dts%.*}".dtbo
-			cpp -nostdinc -I ./include -I arch -undef -x assembler-with-cpp $dts $dtsp || err_=$?
-			./scripts/dtc/dtc -@ -O dtb -o $dtbo $dtsp || err_=$?
+			mkdir -p "$KBUILD_OUTPUT/$(dirname $dts)"
+			cpp -nostdinc -I ./include -I arch -undef -x assembler-with-cpp $dts "$KBUILD_OUTPUT/$dtsp" || err_=$?
+			$KBUILD_OUTPUT/scripts/dtc/dtc -@ -O dtb -o "$KBUILD_OUTPUT/$dtbo" "$KBUILD_OUTPUT/$dtsp" || err_=$?
 		done
 		[[ "$err_" -eq 0 ]] || err="$err_"
 	done
