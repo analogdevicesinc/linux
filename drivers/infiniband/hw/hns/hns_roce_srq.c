@@ -346,14 +346,9 @@ static int alloc_srq_buf(struct hns_roce_dev *hr_dev, struct hns_roce_srq *srq,
 	int ret;
 
 	if (udata) {
-		ret = ib_copy_from_udata(&ucmd, udata,
-					 min(udata->inlen, sizeof(ucmd)));
-		if (ret) {
-			ibdev_err(&hr_dev->ib_dev,
-				  "failed to copy SRQ udata, ret = %d.\n",
-				  ret);
+		ret = ib_copy_validate_udata_in(udata, ucmd, que_addr);
+		if (ret)
 			return ret;
-		}
 	}
 
 	ret = alloc_srq_idx(hr_dev, srq, udata, ucmd.que_addr);
@@ -387,20 +382,6 @@ static void free_srq_buf(struct hns_roce_dev *hr_dev, struct hns_roce_srq *srq)
 	free_srq_idx(hr_dev, srq);
 }
 
-static int get_srq_ucmd(struct hns_roce_srq *srq, struct ib_udata *udata,
-			struct hns_roce_ib_create_srq *ucmd)
-{
-	struct ib_device *ibdev = srq->ibsrq.device;
-	int ret;
-
-	ret = ib_copy_from_udata(ucmd, udata, min(udata->inlen, sizeof(*ucmd)));
-	if (ret) {
-		ibdev_err(ibdev, "failed to copy SRQ udata, ret = %d.\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
 
 static void free_srq_db(struct hns_roce_dev *hr_dev, struct hns_roce_srq *srq,
 			struct ib_udata *udata)
@@ -430,7 +411,7 @@ static int alloc_srq_db(struct hns_roce_dev *hr_dev, struct hns_roce_srq *srq,
 	int ret;
 
 	if (udata) {
-		ret = get_srq_ucmd(srq, udata, &ucmd);
+		ret = ib_copy_validate_udata_in(udata, ucmd, que_addr);
 		if (ret)
 			return ret;
 

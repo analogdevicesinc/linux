@@ -1130,13 +1130,9 @@ static int set_qp_param(struct hns_roce_dev *hr_dev, struct hns_roce_qp *hr_qp,
 	}
 
 	if (udata) {
-		ret = ib_copy_from_udata(ucmd, udata,
-					 min(udata->inlen, sizeof(*ucmd)));
-		if (ret) {
-			ibdev_err(ibdev,
-				  "failed to copy QP ucmd, ret = %d\n", ret);
+		ret = ib_copy_validate_udata_in(udata, *ucmd, reserved);
+		if (ret)
 			return ret;
-		}
 
 		uctx = rdma_udata_to_drv_context(udata, struct hns_roce_ucontext,
 						 ibucontext);
