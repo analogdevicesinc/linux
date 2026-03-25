@@ -730,7 +730,7 @@ static int ad4134_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		mutex_lock(&st->lock);
-		*val = st->odr;
+		*val = st->odr_hz * st->num_dout_lines;
 		mutex_unlock(&st->lock);
 
 		return IIO_VAL_INT;
