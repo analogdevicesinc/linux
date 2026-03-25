@@ -729,8 +729,10 @@ static int gmc_v12_0_mc_init(struct amdgpu_device *adev)
 	int r;
 
 	if (adev->gmc.xgmi.connected_to_cpu)
-		adev->gmc.mc_vram_size =
-			adev->gmc.xgmi.node_segment_size * adev->gmc.xgmi.num_physical_nodes;
+		/* On A+A, manage driver allocation range to the local
+		 * node segment and prevent allocations on remote HBM.
+		 */
+		adev->gmc.mc_vram_size = adev->gmc.xgmi.node_segment_size;
 	else
 		adev->gmc.mc_vram_size =
 			adev->nbio.funcs->get_memsize(adev) * 1024ULL * 1024ULL;
