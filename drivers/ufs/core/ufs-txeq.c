@@ -375,7 +375,12 @@ static int ufshcd_get_rx_fom(struct ufs_hba *hba,
 	return ret;
 }
 
-static bool ufshcd_is_txeq_preset_selected(u8 preshoot, u8 deemphasis)
+bool ufshcd_is_txeq_presets_used(struct ufs_hba *hba)
+{
+	return use_txeq_presets;
+}
+
+bool ufshcd_is_txeq_preset_selected(u8 preshoot, u8 deemphasis)
 {
 	int i;
 

@@ -108,6 +108,8 @@ void ufshcd_apply_valid_tx_eq_settings(struct ufs_hba *hba);
 int ufshcd_config_tx_eq_settings(struct ufs_hba *hba,
 				 struct ufs_pa_layer_attr *pwr_mode);
 void ufshcd_print_tx_eq_params(struct ufs_hba *hba);
+bool ufshcd_is_txeq_presets_used(struct ufs_hba *hba);
+bool ufshcd_is_txeq_preset_selected(u8 preshoot, u8 deemphasis);
 
 /* Wrapper functions for safely calling variant operations */
 static inline const char *ufshcd_get_var_name(struct ufs_hba *hba)
