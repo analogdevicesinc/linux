@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084 RevC
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9084
+ * https://wiki.analog.com/resources/eval/user-guides/ad9084_fmca_ebz/ad9084_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9084_fmca_ebz/vck190>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#define DEVICE_PROFILE_NAME     "204C_8T8R_M8_L2_NP16_8p0_4x8.bin"
+
+#define HMC7044_PLL2_FREQ       (2500000000) // 2.5 GHz (2150...3200 MHz range)
+#define AION_VCO_FREQ_HZ        (2500000000) // 2.5 GHz (2375...2625 MHz range)
+
+#define SYSREF_CLK_MHz          (7812500)
+
+#define AD9084_RX_LANERATE_KHZ	16500000
+#define AD9084_RX_LINK_CLK	250000000
+#define AD9084_TX_LANERATE_KHZ	16500000
+#define AD9084_TX_LINK_CLK	250000000
+#define AD9084_TRX_DEVICE_CLK	250000000
+
+#define HMC7044_CORE_CLK_DIV	(HMC7044_PLL2_FREQ / AD9084_TRX_DEVICE_CLK)
+
+#define WITH_AION 1
+
+#include "versal-vck190-reva-ad9084.dts"
+
+&trx0_ad9084 {
+	compatible = "adi,ad9088";
+};
