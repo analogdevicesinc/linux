@@ -2060,3 +2060,78 @@ static void amdgpu_ualink_sdma_entities_fini(struct amdgpu_device *adev)
 	dev_dbg(adev->dev, "exit\n");
 }
 
+/**
+ * amdgpu_ualink_gart_map - Allocate GART entry and map NPA address
+ * @adev: amdgpu device pointer
+ * @npages: Number of pages to map
+ * @npa: NPA address to map
+ * @mm_node: DRM memory manager node for GART allocation
+ * @pte_flags: the GART mapping flags
+ *
+ * Allocates GART entries and sets up NPA address mapping without TTM BO.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int amdgpu_ualink_gart_map(struct amdgpu_device *adev, u64 npages,
+				   u64 npa, struct drm_mm_node *mm_node,
+				   u64 pte_flags)
+{
+	struct ttm_resource_manager *man =
+				ttm_manager_type(&adev->mman.bdev, TTM_PL_TT);
+	struct amdgpu_gtt_mgr *mgr =
+				container_of(man, struct amdgpu_gtt_mgr, manager);
+	dma_addr_t *dma_addr;
+	int i, r;
+
+	dev_dbg(adev->dev, "npa 0x%llx npages 0x%llx\n", npa, npages);
+
+	if (npages > 1) {
+		dma_addr = kmalloc_array(npages, sizeof(*dma_addr), GFP_KERNEL);
+		if (!dma_addr)
+			return -ENOMEM;
+
+		for (i = 0; i < npages; i++)
+			dma_addr[i] = npa + i * AMDGPU_GPU_PAGE_SIZE;
+	} else {
+		dma_addr = (dma_addr_t *)&npa;
+	}
+
+	r = amdgpu_gtt_mgr_alloc_entries(mgr, mm_node, npages, DRM_MM_INSERT_BEST);
+	if (r)
+		goto out;
+	amdgpu_gart_bind(adev, mm_node->start << AMDGPU_GPU_PAGE_SHIFT, npages, dma_addr,
+			 pte_flags);
+
+out:
+	dev_dbg(adev->dev, "npa 0x%llx mapped to 0x%llx npages 0x%llx r=%d\n",
+		npa, mm_node->start << AMDGPU_GPU_PAGE_SHIFT, npages, r);
+
+	if (npages > 1)
+		kfree(dma_addr);
+	return r;
+}
+
+/**
+ * amdgpu_ualink_gart_unmap - Unmap and free GART entry
+ * @adev: amdgpu device pointer
+ * @npages: Number of pages to unmap
+ * @mm_node: DRM memory manager node for GART allocation
+ *
+ * Unbinds GART mapping and frees allocated entries.
+ */
+static void amdgpu_ualink_gart_unmap(struct amdgpu_device *adev, u64 npages,
+				      struct drm_mm_node *mm_node)
+{
+	struct ttm_resource_manager *man = ttm_manager_type(&adev->mman.bdev, TTM_PL_TT);
+	struct amdgpu_gtt_mgr *mgr =
+				container_of(man, struct amdgpu_gtt_mgr, manager);
+
+	dev_dbg(adev->dev, "0x%llx npages 0x%llx\n", mm_node->start << AMDGPU_GPU_PAGE_SHIFT,
+		npages);
+
+	if (!drm_mm_node_allocated(mm_node))
+		return;
+	amdgpu_gart_unbind(adev, mm_node->start << AMDGPU_GPU_PAGE_SHIFT, npages);
+	amdgpu_gtt_mgr_free_entries(mgr, mm_node);
+}
+
