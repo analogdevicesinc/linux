@@ -1499,6 +1499,25 @@ static void amdgpu_ualink_flush_tlb(struct amdgpu_device *adev, u32 flush_type)
 					bit, flush_type);
 }
 
+static inline u32 amdgpu_ualink_mailbox_read(struct amdgpu_device *adev,
+					     u32 mailbox_reg)
+{
+	u32 value;
+
+	value = RREG32_PCIE(mailbox_reg);
+	dev_dbg_ratelimited(adev->dev, "ualink read mailbox 0x%x return value 0x%x\n",
+			    mailbox_reg, value);
+	return value;
+}
+
+static inline void amdgpu_ualink_mailbox_write(struct amdgpu_device *adev,
+					       u32 mailbox_reg, u32 value)
+{
+	dev_dbg(adev->dev, "ualink write mailbox 0x%x value 0x%x\n",
+		mailbox_reg, value);
+	WREG32_PCIE(mailbox_reg, value);
+}
+
 /**
  * amdgpu_ualink_npa_vm_map_range - Map a range in the NPA VM
  * @adev: amdgpu device pointer
@@ -2133,5 +2152,200 @@ static void amdgpu_ualink_gart_unmap(struct amdgpu_device *adev, u64 npages,
 		return;
 	amdgpu_gart_unbind(adev, mm_node->start << AMDGPU_GPU_PAGE_SHIFT, npages);
 	amdgpu_gtt_mgr_free_entries(mgr, mm_node);
+}
+
+/**
+ * amdgpu_ualink_metadata_fini - Clean up ualink metadata structures
+ * @adev: amdgpu device pointer
+ *
+ * Unmaps NPA addresses and frees all allocated buffers for metadata,
+ * ring buffers, and pointers.
+ */
+static void amdgpu_ualink_metadata_fini(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+
+	dev_dbg(adev->dev, "accel_id %u\n", ualink_accel_id(adev));
+	amdgpu_bo_free_kernel(&remote->rptr_bo, &remote->rptr_gpu_addr,
+				      &remote->rptr_cpu_addr);
+	amdgpu_bo_free_kernel(&remote->ring_bo, &remote->rb_gpu_addr,
+			      &remote->rb_cpu_addr);
+	amdgpu_bo_free_kernel(&remote->metadata_bo, &remote->metadata_gpu_addr,
+			      &remote->metadata_cpu_addr);
+}
+
+/**
+ * amdgpu_ualink_metadata_init - Initialize ualink metadata structures
+ * @adev: amdgpu device pointer
+ *
+ * Allocates and initializes metadata structures, ring buffers, and write/read
+ * pointers for multi-GPU ualink. Communicates with firmware to load metadata.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int amdgpu_ualink_metadata_init(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	struct amdgpu_ualink_metadata *metadata;
+	u32 size, rb_size, wptr_size, rptr_size, metadata_size;
+	u64 rb_gpu_addr, wptr_gpu_addr;
+	u32 status, accel_id;
+	int i, r;
+
+	remote->active_accel_bits = adev->ualink.info->vpod.active_accel_bits;
+	dev_dbg(adev->dev, "%d active accelerators config in vpod\n",
+		bitmap_weight(remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX));
+
+	/*
+	 * allocate metadata entries and ring buffer for all remote GPUs,
+	 * to get 2MB page ring buffer NPA mapping for remote access.
+	 */
+	remote->num_accel = AMDGPU_UALINK_ACCEL_MAX;
+
+	status = amdgpu_ualink_mailbox_read(adev, mmMPNHT_SMN_C2PMSG_26_ALT_2);
+	if (status != AMDGPU_UALINK_FW_STATUS_PREINIT &&
+	    status != AMDGPU_UALINK_FW_STATUS_HALT) {
+		dev_dbg(adev->dev, "fw status 0x%x not preinit or halt\n", status);
+		return -ENODEV;
+	}
+
+	dev_dbg(adev->dev, "accel_id %u addr_mode %d fw status 0x%x\n",
+		ualink_accel_id(adev), ualink_addr_mode(adev), status);
+
+	/* Alloc metadata structure for all GPUs */
+	metadata_size = sizeof(struct amdgpu_ualink_metadata) * AMDGPU_UALINK_ACCEL_MAX;
+	metadata_size = AMDGPU_GPU_PAGE_ALIGN(metadata_size);
+
+	dev_dbg(adev->dev, "metadata size 0x%x\n", metadata_size);
+
+	/* pinned system memory */
+	r = amdgpu_bo_create_kernel(adev, metadata_size, PAGE_SIZE,
+				    AMDGPU_GEM_DOMAIN_GTT,
+				    &remote->metadata_bo, &remote->metadata_gpu_addr,
+				    &remote->metadata_cpu_addr);
+	if (r)
+		goto out;
+
+	memset(remote->metadata_cpu_addr, 0, metadata_size);
+	metadata = remote->metadata_cpu_addr;
+
+	dev_dbg(adev->dev, "metadata gpu address 0x%llx\n", remote->metadata_gpu_addr);
+
+	/* Allocate ring buffers, wptr for remote interrupt and shootdown */
+	rb_size = AMDGPU_GPU_PAGE_ALIGN(2 * AMDGPU_UALINK_RB_SIZE);
+	wptr_size = ualink_wptr_size(adev);
+	size = (rb_size + wptr_size) * remote->num_accel;
+	size = AMDGPU_GPU_PAGE_ALIGN(size);
+
+	dev_dbg(adev->dev, "rb_size 0x%x wptr_size 0x%x total alloc size 0x%x\n",
+		rb_size, wptr_size, size);
+
+	/* pinned VRAM */
+	r = amdgpu_bo_create_kernel(adev, size, PAGE_SIZE,
+				    AMDGPU_GEM_DOMAIN_VRAM,
+				    &remote->ring_bo,
+				    &remote->rb_gpu_addr,
+				    &remote->rb_cpu_addr);
+	if (r)
+		goto out;
+
+	memset(remote->rb_cpu_addr, 0, size);
+
+	dev_dbg(adev->dev, "rb gpu addr 0x%llx cpu addr 0x%p vram_start 0x%llx vram_base 0x%llx\n",
+		remote->rb_gpu_addr, remote->rb_cpu_addr, adev->gmc.vram_start,
+		adev->vm_manager.vram_base_offset);
+
+	/*
+	 * address aliasing mode, shared wptr pagee left is not enough for wb data,
+	 * wb status and rptr, alloc another BO, and then alloc npa address and map
+	 * to npa vm, for remote to access.
+	 *
+	 * No gart mapping required for wb data, status and rptr because this is
+	 * updated by firmware.
+	 */
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS) {
+		rptr_size = AMDGPU_GPU_PAGE_ALIGN(ualink_wb_size(adev) * remote->num_accel);
+		dev_dbg(adev->dev, "source aliasing mode rptr_size 0x%x\n", rptr_size);
+
+		/* pinned VRAM */
+		r = amdgpu_bo_create_kernel(adev, rptr_size, PAGE_SIZE,
+					    AMDGPU_GEM_DOMAIN_VRAM,
+					    &remote->rptr_bo,
+					    &remote->rptr_gpu_addr,
+					    &remote->rptr_cpu_addr);
+		if (r)
+			goto out;
+
+		memset(remote->rptr_cpu_addr, 0, rptr_size);
+
+		dev_dbg(adev->dev, "source aliasing rptr gpu addr 0x%llx cpu addr 0x%p\n",
+			remote->rptr_gpu_addr, remote->rptr_cpu_addr);
+	}
+
+	if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS)
+		wptr_gpu_addr = remote->rb_gpu_addr + rb_size * ualink_accel_id(adev);
+
+	for_each_set_bit(accel_id, remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX) {
+		dev_dbg(adev->dev, "init for accel_id %u\n", accel_id);
+
+		if (accel_id == ualink_accel_id(adev))
+			continue;
+
+		rb_gpu_addr = remote->rb_gpu_addr + rb_size * accel_id;
+
+		if (ualink_addr_mode(adev) == AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT) {
+			wptr_gpu_addr = remote->rb_gpu_addr + rb_size * remote->num_accel;
+			wptr_gpu_addr += wptr_size * accel_id;
+		}
+
+		metadata[accel_id].header = AMDGPU_UALINK_METADATA_HEADER;
+		metadata[accel_id].rb_size = fls(AMDGPU_UALINK_RB_SIZE / 64) - 1;
+
+		/*
+		 * remote shootdown type is 0, remote command type is 1
+		 * with 2MB ring buffer mapping, remote shootdown ring NPA is before interrupt
+		 */
+		metadata[accel_id].ri_rb = rb_gpu_addr + AMDGPU_UALINK_RB_SIZE;
+		metadata[accel_id].tlb_inv_rb = rb_gpu_addr;
+
+		metadata[accel_id].tailptr_ri = wptr_gpu_addr +
+						ualink_wptr_offset(adev, accel_id);
+		metadata[accel_id].tailptr_tlb_inv = wptr_gpu_addr +
+						     ualink_tlb_wptr_offset(adev, accel_id);
+
+		dev_dbg(adev->dev, "init from accel_id %u to accel_id %u, rb_size 0x%x\n",
+			accel_id, ualink_accel_id(adev), metadata[accel_id].rb_size);
+		dev_dbg(adev->dev, "rb 0x%llx tlb rb 0x%llx\n",
+			metadata[accel_id].ri_rb, metadata[accel_id].tlb_inv_rb);
+		dev_dbg(adev->dev, "rb wptr at 0x%llx tlb wptr at 0x%llx\n",
+			metadata[accel_id].tailptr_ri, metadata[accel_id].tailptr_tlb_inv);
+	}
+
+	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_25_ALT_2,
+				    upper_32_bits(remote->metadata_gpu_addr));
+	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_24_ALT_2,
+				    lower_32_bits(remote->metadata_gpu_addr));
+	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_23_ALT_2,
+				    AMDGPU_UALINK_ACCEL_MAX << 8);
+	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_22_ALT_2,
+				    AMDGPU_UALINK_FW_CMD_LOAD_METADATA);
+
+	for (i = 0; i < 2000; i++) {
+		status = amdgpu_ualink_mailbox_read(adev, mmMPNHT_SMN_C2PMSG_26_ALT_2);
+		if (status == AMDGPU_UALINK_FW_STATUS_READY)
+			break;
+		mdelay(1);
+	}
+	if (status != AMDGPU_UALINK_FW_STATUS_READY) {
+		dev_dbg(adev->dev, "f/w load metadata failed 0x%x\n", status);
+		r = -ETIME;
+	}
+
+out:
+	if (r)
+		amdgpu_ualink_metadata_fini(adev);
+
+	dev_dbg(adev->dev, "ret 0x%x\n", r);
+	return r;
 }
 
