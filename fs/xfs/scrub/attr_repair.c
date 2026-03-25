@@ -333,7 +333,6 @@ xrep_xattr_salvage_remote_attr(
 		.attr_filter		= ent->flags & XFS_ATTR_NSP_ONDISK_MASK,
 		.namelen		= rentry->namelen,
 		.name			= rentry->name,
-		.value			= ab->value,
 		.valuelen		= be32_to_cpu(rentry->valuelen),
 	};
 	unsigned int			namesize;
@@ -363,6 +362,7 @@ xrep_xattr_salvage_remote_attr(
 		error = -EDEADLOCK;
 	if (error)
 		return error;
+	args.value = ab->value;
 
 	/* Look up the remote value and stash it for reconstruction. */
 	error = xfs_attr3_leaf_getvalue(leaf_bp, &args);
@@ -1516,8 +1516,10 @@ xrep_xattr_teardown(
 		xfblob_destroy(rx->pptr_names);
 	if (rx->pptr_recs)
 		xfarray_destroy(rx->pptr_recs);
-	xfblob_destroy(rx->xattr_blobs);
-	xfarray_destroy(rx->xattr_records);
+	if (rx->xattr_blobs)
+		xfblob_destroy(rx->xattr_blobs);
+	if (rx->xattr_records)
+		xfarray_destroy(rx->xattr_records);
 	mutex_destroy(&rx->lock);
 	kfree(rx);
 }
