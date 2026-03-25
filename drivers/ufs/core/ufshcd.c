@@ -1364,6 +1364,48 @@ out:
 }
 
 /**
+ * ufshcd_pause_command_processing - Pause command processing
+ * @hba: per-adapter instance
+ * @timeout_us: timeout in microseconds to wait for pending commands to finish
+ *
+ * This function stops new command submissions and waits for existing commands
+ * to complete.
+ *
+ * Return: 0 on success, %-EBUSY if commands did not finish within @timeout_us.
+ * On failure, all acquired locks are released and the tagset is unquiesced.
+ */
+int ufshcd_pause_command_processing(struct ufs_hba *hba, u64 timeout_us)
+{
+	int ret = 0;
+
+	mutex_lock(&hba->host->scan_mutex);
+	blk_mq_quiesce_tagset(&hba->host->tag_set);
+	down_write(&hba->clk_scaling_lock);
+
+	if (ufshcd_wait_for_pending_cmds(hba, timeout_us)) {
+		ret = -EBUSY;
+		up_write(&hba->clk_scaling_lock);
+		blk_mq_unquiesce_tagset(&hba->host->tag_set);
+		mutex_unlock(&hba->host->scan_mutex);
+	}
+
+	return ret;
+}
+
+/**
+ * ufshcd_resume_command_processing - Resume command processing
+ * @hba: per-adapter instance
+ *
+ * This function resumes command submissions.
+ */
+void ufshcd_resume_command_processing(struct ufs_hba *hba)
+{
+	up_write(&hba->clk_scaling_lock);
+	blk_mq_unquiesce_tagset(&hba->host->tag_set);
+	mutex_unlock(&hba->host->scan_mutex);
+}
+
+/**
  * ufshcd_scale_gear - scale up/down UFS gear
  * @hba: per adapter instance
  * @target_gear: target gear to scale to
