@@ -33,9 +33,11 @@
 #include <linux/sunrpc/cache.h>
 #include <linux/sunrpc/stats.h>
 #include <linux/sunrpc/rpc_pipe_fs.h>
+#include <net/genetlink.h>
 #include <trace/events/sunrpc.h>
 
 #include "netns.h"
+#include "netlink.h"
 #include "fail.h"
 
 #define	 RPCDBG_FACILITY RPCDBG_CACHE
@@ -1960,3 +1962,45 @@ int sunrpc_cache_requests_snapshot(struct cache_detail *cd,
 	return i;
 }
 EXPORT_SYMBOL_GPL(sunrpc_cache_requests_snapshot);
+
+/**
+ * sunrpc_cache_notify - send a netlink notification for a cache event
+ * @cd: cache_detail for the cache
+ * @h: cache_head entry (unused, reserved for future use)
+ * @cache_type: cache type identifier (e.g. SUNRPC_CACHE_TYPE_UNIX_GID)
+ *
+ * Sends a SUNRPC_CMD_CACHE_NOTIFY multicast message on the "exportd"
+ * group if any listeners are present. Returns 0 on success or a
+ * negative errno.
+ */
+int sunrpc_cache_notify(struct cache_detail *cd, struct cache_head *h,
+			u32 cache_type)
+{
+	struct genlmsghdr *hdr;
+	struct sk_buff *msg;
+
+	if (!genl_has_listeners(&sunrpc_nl_family, cd->net,
+				SUNRPC_NLGRP_EXPORTD))
+		return -ENOLINK;
+
+	msg = genlmsg_new(nla_total_size(sizeof(u32)), GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
+
+	hdr = genlmsg_put(msg, 0, 0, &sunrpc_nl_family, 0,
+			  SUNRPC_CMD_CACHE_NOTIFY);
+	if (!hdr) {
+		nlmsg_free(msg);
+		return -ENOMEM;
+	}
+
+	if (nla_put_u32(msg, SUNRPC_A_CACHE_NOTIFY_CACHE_TYPE, cache_type)) {
+		nlmsg_free(msg);
+		return -ENOMEM;
+	}
+
+	genlmsg_end(msg, hdr);
+	return genlmsg_multicast_netns(&sunrpc_nl_family, cd->net, msg, 0,
+				       SUNRPC_NLGRP_EXPORTD, GFP_KERNEL);
+}
+EXPORT_SYMBOL_GPL(sunrpc_cache_notify);

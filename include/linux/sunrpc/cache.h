@@ -256,6 +256,8 @@ int sunrpc_cache_requests_snapshot(struct cache_detail *cd,
 				   struct cache_head **items,
 				   u64 *seqnos, int max,
 				   u64 min_seqno);
+int sunrpc_cache_notify(struct cache_detail *cd, struct cache_head *h,
+			u32 cache_type);
 
 /* Must store cache_detail in seq_file->private if using next three functions */
 extern void *cache_seq_start_rcu(struct seq_file *file, loff_t *pos);

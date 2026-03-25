@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: ((GPL-2.0 WITH Linux-syscall-note) OR BSD-3-Clause)
+---
+name: sunrpc
+protocol: genetlink
+uapi-header: linux/sunrpc_netlink.h
+
+doc: SUNRPC cache upcall support over generic netlink.
+
+definitions:
+  -
+    type: flags
+    name: cache-type
+    entries: [ip_map, unix_gid]
+
+attribute-sets:
+  -
+    name: cache-notify
+    attributes:
+      -
+        name: cache-type
+        type: u32
+        enum: cache-type
+
+operations:
+  list:
+    -
+      name: cache-notify
+      doc: Notification that there are cache requests that need servicing
+      attribute-set: cache-notify
+      mcgrp: exportd
+      event:
+        attributes:
+          - cache-type
+
+mcast-groups:
+  list:
+    -
+      name: none
+    -
+      name: exportd
