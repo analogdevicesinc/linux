@@ -148,6 +148,7 @@ static const struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
 	JESD204_STATE_OP(CLK_SYNC_STAGE1),
 	JESD204_STATE_OP(CLK_SYNC_STAGE2),
 	JESD204_STATE_OP(CLK_SYNC_STAGE3),
+	JESD204_STATE_OP(CLK_SYNC_STAGE4),
 	JESD204_STATE_OP(LINK_SETUP),
 	JESD204_STATE_OP(OPT_SETUP_STAGE1),
 	JESD204_STATE_OP(OPT_SETUP_STAGE2),
@@ -188,6 +189,8 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "clk_sync_stage2";
 	case JESD204_STATE_CLK_SYNC_STAGE3:
 		return "clk_sync_stage3";
+	case JESD204_STATE_CLK_SYNC_STAGE4:
+		return "clk_sync_stage4";
 	case JESD204_STATE_LINK_SETUP:
 		return "link_setup";
 	case JESD204_STATE_CLOCKS_ENABLE:
