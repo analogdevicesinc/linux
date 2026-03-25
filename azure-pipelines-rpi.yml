@@ -1,3 +1,6 @@
+variables:
+- group: Linux_CI
+
 trigger:
 - rpi-6.1.y
 - rpi-6.6.y
@@ -143,7 +146,9 @@ stages:
       - task: DownloadPipelineArtifact@2
         inputs:
           path: $(Build.SourcesDirectory)/bin
-      - bash: $(Build.SourcesDirectory)/linux/ci/travis/prepare_artifacts_rpi.sh cloudsmith
+      - bash: |
+          cd $(Build.SourcesDirectory)/linux
+          ./ci/travis/prepare_artifacts_rpi.sh cloudsmith
         env:
            CLOUDSMITH_API_KEY: $(CLOUDSMITH_API_KEY)
         displayName: "Push to Cloudsmith"
