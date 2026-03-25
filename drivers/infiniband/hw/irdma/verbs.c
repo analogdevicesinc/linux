@@ -296,7 +296,9 @@ static int irdma_alloc_ucontext(struct ib_ucontext *uctx,
 	if (udata->outlen < IRDMA_ALLOC_UCTX_MIN_RESP_LEN)
 		return -EINVAL;
 
-	ret = ib_copy_validate_udata_in(udata, req, rsvd8);
+	ret = ib_copy_validate_udata_in_cm(udata, req, rsvd8,
+					   IRDMA_ALLOC_UCTX_USE_RAW_ATTR |
+						   IRDMA_SUPPORT_WQE_FORMAT_V2);
 	if (ret)
 		return ret;
 
