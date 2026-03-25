@@ -1241,13 +1241,13 @@ static int cache_pipe_upcall(struct cache_detail *detail, struct cache_head *h)
 	return ret;
 }
 
-int sunrpc_cache_pipe_upcall(struct cache_detail *detail, struct cache_head *h)
+int sunrpc_cache_upcall(struct cache_detail *detail, struct cache_head *h)
 {
 	if (test_and_set_bit(CACHE_PENDING, &h->flags))
 		return 0;
 	return cache_pipe_upcall(detail, h);
 }
-EXPORT_SYMBOL_GPL(sunrpc_cache_pipe_upcall);
+EXPORT_SYMBOL_GPL(sunrpc_cache_upcall);
 
 int sunrpc_cache_pipe_upcall_timeout(struct cache_detail *detail,
 				     struct cache_head *h)
@@ -1257,7 +1257,7 @@ int sunrpc_cache_pipe_upcall_timeout(struct cache_detail *detail,
 		trace_cache_entry_no_listener(detail, h);
 		return -EINVAL;
 	}
-	return sunrpc_cache_pipe_upcall(detail, h);
+	return sunrpc_cache_upcall(detail, h);
 }
 EXPORT_SYMBOL_GPL(sunrpc_cache_pipe_upcall_timeout);
 

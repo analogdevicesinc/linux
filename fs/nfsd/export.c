@@ -64,7 +64,7 @@ static void expkey_put(struct kref *ref)
 
 static int expkey_upcall(struct cache_detail *cd, struct cache_head *h)
 {
-	return sunrpc_cache_pipe_upcall(cd, h);
+	return sunrpc_cache_upcall(cd, h);
 }
 
 static void expkey_request(struct cache_detail *cd,
@@ -388,7 +388,7 @@ static void svc_export_put(struct kref *ref)
 
 static int svc_export_upcall(struct cache_detail *cd, struct cache_head *h)
 {
-	return sunrpc_cache_pipe_upcall(cd, h);
+	return sunrpc_cache_upcall(cd, h);
 }
 
 static void svc_export_request(struct cache_detail *cd,

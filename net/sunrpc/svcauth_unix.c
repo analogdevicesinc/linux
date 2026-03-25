@@ -152,7 +152,7 @@ static struct cache_head *ip_map_alloc(void)
 
 static int ip_map_upcall(struct cache_detail *cd, struct cache_head *h)
 {
-	return sunrpc_cache_pipe_upcall(cd, h);
+	return sunrpc_cache_upcall(cd, h);
 }
 
 static void ip_map_request(struct cache_detail *cd,
