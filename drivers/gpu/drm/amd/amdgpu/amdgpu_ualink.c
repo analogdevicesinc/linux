@@ -705,6 +705,13 @@ static void activate_accelerator(struct amdgpu_device *adev)
 		return;
 	}
 
+	r = amdgpu_ualink_sw_init(adev);
+	if (r) {
+		dev_err(adev->dev, "Failed to init UALink sw r=%d\n", r);
+		amdgpu_ualink_manager_stop(adev);
+		return;
+	}
+
 	adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_READY;
 }
 
@@ -719,6 +726,7 @@ static void deactivate_accelerator(struct amdgpu_device *adev)
 	/* ignore return value */
 	adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_CONFIGURED;
 
+	amdgpu_ualink_sw_fini(adev);
 	amdgpu_ualink_manager_stop(adev);
 }
 
@@ -3012,5 +3020,93 @@ static void amdgpu_ualink_peer_remote_fini(struct amdgpu_device *adev)
 		ring = &peer->shootdown;
 		amdgpu_ualink_gart_unmap(adev, rb_pages, &ring->mm_node_rb);
 	}
+}
+
+/**
+ * amdgpu_ualink_sw_init - Initialize UALink software resources
+ * @adev: amdgpu device pointer
+ *
+ * Performs full UALink software initialization including metadata allocation,
+ * NPA address mapping, SDMA scheduler entity setup, and remote peer GPU
+ * connection initialization. On failure, all previously initialized resources
+ * are cleaned up.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+int amdgpu_ualink_sw_init(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_remote *remote;
+	int r;
+
+	remote = kzalloc(sizeof(*remote), GFP_KERNEL);
+	if (!remote)
+		return -ENOMEM;
+	adev->ualink.remote = remote;
+
+	r = amdgpu_ualink_metadata_init(adev);
+	if (r)
+		goto out;
+
+	r = amdgpu_ualink_metadata_npa_mapping(adev);
+	if (r)
+		goto out_metadata_fini;
+
+	r = amdgpu_ualink_sdma_entities_init(adev);
+	if (r)
+		goto out_npa_unmap;
+
+	r = amdgpu_ualink_peer_remote_init(adev);
+	if (r)
+		goto out_sdma_entities_fini;
+
+	dev_dbg(adev->dev, "ualink sw init succeed\n");
+	return 0;
+
+out_sdma_entities_fini:
+	amdgpu_ualink_sdma_entities_fini(adev);
+out_npa_unmap:
+	amdgpu_ualink_metadata_npa_unmapping(adev);
+out_metadata_fini:
+	amdgpu_ualink_metadata_fini(adev);
+out:
+	kfree(adev->ualink.remote);
+	adev->ualink.remote = NULL;
+	dev_dbg(adev->dev, "ualink sw init failed %d\n", r);
+	return r;
+}
+
+/**
+ * amdgpu_ualink_sw_fini - Tear down UALink software resources
+ * @adev: amdgpu device pointer
+ *
+ * Cleans up all UALink software resources in reverse order of initialization:
+ * remote peer connections, SDMA entities, NPA mappings, and metadata.
+ */
+void amdgpu_ualink_sw_fini(struct amdgpu_device *adev)
+{
+	u32 status;
+	int i;
+
+	dev_dbg(adev->dev, "halt accel_id %u addr_mode %d\n", ualink_accel_id(adev),
+		ualink_addr_mode(adev));
+
+	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_22_ALT_2,
+				    AMDGPU_UALINK_FW_CMD_HALT_OPERATION);
+
+	for (i = 0; i < 2000; i++) {
+		status = amdgpu_ualink_mailbox_read(adev, mmMPNHT_SMN_C2PMSG_26_ALT_2);
+		if (status == AMDGPU_UALINK_FW_STATUS_HALT)
+			break;
+		mdelay(1);
+	}
+	if (status != AMDGPU_UALINK_FW_STATUS_HALT)
+		dev_warn(adev->dev, "f/w halt failed status 0x%x\n", status);
+
+	amdgpu_ualink_peer_remote_fini(adev);
+	amdgpu_ualink_sdma_entities_fini(adev);
+	amdgpu_ualink_metadata_npa_unmapping(adev);
+	amdgpu_ualink_metadata_fini(adev);
+	kfree(adev->ualink.remote);
+	adev->ualink.remote = NULL;
 }
 
