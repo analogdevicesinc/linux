@@ -293,6 +293,14 @@ attribute-sets:
         type: nest
         nested-attributes: expkey
         multi-attr: true
+  -
+    name: cache-flush
+    attributes:
+      -
+        name: mask
+        type: u32
+        enum: cache-type
+        enum-as-flags: true
 
 operations:
   list:
@@ -438,6 +446,15 @@ operations:
           request:
             attributes:
               - requests
+    -
+      name: cache-flush
+      doc: Flush nfsd caches (svc_export and/or expkey)
+      attribute-set: cache-flush
+      flags: [admin-perm]
+      do:
+        request:
+          attributes:
+            - mask
 
 mcast-groups:
   list:

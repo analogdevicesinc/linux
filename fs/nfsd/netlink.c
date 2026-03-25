@@ -108,6 +108,11 @@ static const struct nla_policy nfsd_expkey_set_reqs_nl_policy[NFSD_A_EXPKEY_REQS
 	[NFSD_A_EXPKEY_REQS_REQUESTS] = NLA_POLICY_NESTED(nfsd_expkey_nl_policy),
 };
 
+/* NFSD_CMD_CACHE_FLUSH - do */
+static const struct nla_policy nfsd_cache_flush_nl_policy[NFSD_A_CACHE_FLUSH_MASK + 1] = {
+	[NFSD_A_CACHE_FLUSH_MASK] = NLA_POLICY_MASK(NLA_U32, 0x3),
+};
+
 /* Ops table for nfsd */
 static const struct genl_split_ops nfsd_nl_ops[] = {
 	{
@@ -189,6 +194,13 @@ static const struct genl_split_ops nfsd_nl_ops[] = {
 		.doit		= nfsd_nl_expkey_set_reqs_doit,
 		.policy		= nfsd_expkey_set_reqs_nl_policy,
 		.maxattr	= NFSD_A_EXPKEY_REQS_REQUESTS,
+		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
+	},
+	{
+		.cmd		= NFSD_CMD_CACHE_FLUSH,
+		.doit		= nfsd_nl_cache_flush_doit,
+		.policy		= nfsd_cache_flush_nl_policy,
+		.maxattr	= NFSD_A_CACHE_FLUSH_MASK,
 		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
 	},
 };

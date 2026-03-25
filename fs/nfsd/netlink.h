@@ -38,6 +38,7 @@ int nfsd_nl_svc_export_set_reqs_doit(struct sk_buff *skb,
 int nfsd_nl_expkey_get_reqs_dumpit(struct sk_buff *skb,
 				   struct netlink_callback *cb);
 int nfsd_nl_expkey_set_reqs_doit(struct sk_buff *skb, struct genl_info *info);
+int nfsd_nl_cache_flush_doit(struct sk_buff *skb, struct genl_info *info);
 
 enum {
 	NFSD_NLGRP_NONE,

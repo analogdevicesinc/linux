@@ -10,6 +10,7 @@
 #include <linux/ctype.h>
 #include <linux/fs_context.h>
 
+#include <linux/sunrpc/cache.h>
 #include <linux/sunrpc/svcsock.h>
 #include <linux/lockd/bind.h>
 #include <linux/sunrpc/addr.h>
@@ -2200,6 +2201,41 @@ int nfsd_nl_pool_mode_get_doit(struct sk_buff *skb, struct genl_info *info)
 err_free_msg:
 	nlmsg_free(skb);
 	return err;
+}
+
+/**
+ * nfsd_nl_cache_flush_doit - flush nfsd caches via netlink
+ * @skb: reply buffer
+ * @info: netlink metadata and command arguments
+ *
+ * Flush the svc_export and/or expkey caches. If NFSD_A_CACHE_FLUSH_MASK
+ * is provided, only flush the caches indicated by the bitmask (bit 0 =
+ * svc_export, bit 1 = expkey). If omitted, flush both.
+ *
+ * Return 0 on success or a negative errno.
+ */
+int nfsd_nl_cache_flush_doit(struct sk_buff *skb, struct genl_info *info)
+{
+	struct net *net = genl_info_net(info);
+	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
+	u32 mask = ~0U;
+
+	if (info->attrs[NFSD_A_CACHE_FLUSH_MASK])
+		mask = nla_get_u32(info->attrs[NFSD_A_CACHE_FLUSH_MASK]);
+
+	mutex_lock(&nfsd_mutex);
+
+	if ((mask & NFSD_CACHE_TYPE_SVC_EXPORT) &&
+	    nn->svc_export_cache)
+		cache_purge(nn->svc_export_cache);
+
+	if ((mask & NFSD_CACHE_TYPE_EXPKEY) &&
+	    nn->svc_expkey_cache)
+		cache_purge(nn->svc_expkey_cache);
+
+	mutex_unlock(&nfsd_mutex);
+
+	return 0;
 }
 
 int nfsd_cache_notify(struct cache_detail *cd, struct cache_head *h, u32 cache_type)
