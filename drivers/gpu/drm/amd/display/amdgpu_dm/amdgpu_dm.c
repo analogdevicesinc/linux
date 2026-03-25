@@ -11199,7 +11199,7 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
 	if (!adev->in_suspend) {
 		/* return the stolen vga memory back to VRAM */
 		if (!adev->mman.keep_stolen_vga_memory)
-			amdgpu_bo_free_kernel(&adev->mman.stolen_vga_memory, NULL, NULL);
+			amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_STOLEN_VGA);
 		amdgpu_bo_free_kernel(&adev->mman.stolen_extended_memory, NULL, NULL);
 	}
 

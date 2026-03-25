@@ -2206,14 +2206,12 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 	 * and driver.
 	 */
 	if (!adev->gmc.is_app_apu) {
-		r = amdgpu_bo_create_kernel_at(adev, 0,
-					       adev->mman.stolen_vga_size,
-					       &adev->mman.stolen_vga_memory,
-					       NULL);
+		r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_VGA);
 		if (r)
 			return r;
 
-		r = amdgpu_bo_create_kernel_at(adev, adev->mman.stolen_vga_size,
+		r = amdgpu_bo_create_kernel_at(adev,
+					       adev->mman.resv_region[AMDGPU_RESV_STOLEN_VGA].size,
 					       adev->mman.stolen_extended_size,
 					       &adev->mman.stolen_extended_memory,
 					       NULL);
@@ -2342,7 +2340,7 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
 	amdgpu_ttm_training_reserve_vram_fini(adev);
 	/* return the stolen vga memory back to VRAM */
 	if (!adev->gmc.is_app_apu) {
-		amdgpu_bo_free_kernel(&adev->mman.stolen_vga_memory, NULL, NULL);
+		amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_STOLEN_VGA);
 		amdgpu_bo_free_kernel(&adev->mman.stolen_extended_memory, NULL, NULL);
 		/* return the FW reserved memory back to VRAM */
 		amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory, NULL,

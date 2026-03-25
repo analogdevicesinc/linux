@@ -1099,10 +1099,12 @@ void amdgpu_gmc_get_vbios_allocations(struct amdgpu_device *adev)
 		size = 0;
 
 	if (size > AMDGPU_VBIOS_VGA_ALLOCATION) {
-		adev->mman.stolen_vga_size = AMDGPU_VBIOS_VGA_ALLOCATION;
-		adev->mman.stolen_extended_size = size - adev->mman.stolen_vga_size;
+		amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_STOLEN_VGA,
+					  0, AMDGPU_VBIOS_VGA_ALLOCATION, false);
+		adev->mman.stolen_extended_size = size - AMDGPU_VBIOS_VGA_ALLOCATION;
 	} else {
-		adev->mman.stolen_vga_size = size;
+		amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_STOLEN_VGA,
+					  0, size, false);
 		adev->mman.stolen_extended_size = 0;
 	}
 }
