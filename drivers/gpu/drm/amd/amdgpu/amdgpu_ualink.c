@@ -2770,3 +2770,247 @@ static int amdgpu_ualink_update_wb_address(struct amdgpu_device *adev,
 	return r;
 }
 
+/**
+ * amdgpu_ualink_remote_shootdown - Send a remote TLB invalidation request
+ * @adev: amdgpu device pointer
+ * @remote_accel_id: accelerator ID of the remote GPU to shootdown
+ * @addr: page-aligned address to invalidate
+ * @size_in_pages: number of pages to invalidate, 0 to invalidate entire TLB
+ * @flush_type: type of TLB flush to perform
+ *
+ * Sends a remote TLB shootdown command to the specified peer GPU via the
+ * UALink ring buffer. The address and size are translated using the S-field
+ * encoding before being written to the ring.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int amdgpu_ualink_remote_shootdown(struct amdgpu_device *adev,
+				   u32 remote_accel_id, u64 addr,
+				   u32 size_in_pages, u32 flush_type)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	struct amdgpu_ualink_peer *peer;
+	struct amdgpu_ualink_ring *ring;
+	int r;
+
+	peer = &remote->peer[remote_accel_id];
+	ring = &peer->shootdown;
+	if (!ring->ready) {
+		dev_dbg(adev->dev, "accel_id %u ring not ready\n", remote_accel_id);
+		r = amdgpu_ualink_update_wb_address(adev, remote_accel_id,
+						    RB_TYPE_TLB_INV);
+		if (r)
+			return r;
+	}
+
+	r = amdgpu_ualink_send_command(adev, remote_accel_id, ring, ring->wb_cpu,
+				       amdgpu_ualink_emit_shootdown,
+				       flush_type, upper_32_bits(addr),
+				       lower_32_bits(addr), size_in_pages);
+	return r;
+}
+
+/**
+ * amdgpu_ualink_remote_interrupt - Send a remote interrupt to a peer GPU
+ * @adev: amdgpu device pointer
+ * @remote_accel_id: accelerator ID of the remote GPU to interrupt
+ * @dw0: IH context ID dword 0
+ * @dw1: IH context ID dword 1
+ * @dw2: IH context ID dword 2
+ * @dw3: IH context ID dword 3
+ *
+ * Sends a remote interrupt command to the specified peer GPU via the
+ * UALink ring buffer. The four context ID dwords are delivered to the
+ * remote GPU's interrupt handler.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int amdgpu_ualink_remote_interrupt(struct amdgpu_device *adev,
+				   u32 remote_accel_id, u32 dw0, u32 dw1,
+				   u32 dw2, u32 dw3)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	struct amdgpu_ualink_peer *peer;
+	struct amdgpu_ualink_ring *ring;
+	int r;
+
+	peer = &remote->peer[remote_accel_id];
+	ring = &peer->interrupt;
+	if (!ring->ready) {
+		dev_dbg(adev->dev, "accel_id %u ring not ready\n", remote_accel_id);
+		r = amdgpu_ualink_update_wb_address(adev, remote_accel_id,
+						    RB_TYPE_REMOTE_INTERRUPT);
+		if (r)
+			return r;
+	}
+
+	r = amdgpu_ualink_send_command(adev, remote_accel_id, ring, ring->wb_cpu,
+				       amdgpu_ualink_emit_interrupt,
+				       dw0, dw1, dw2, dw3);
+	return r;
+}
+
+/**
+ * amdgpu_ualink_peer_remote_init - Initialize remote peer GPU connections
+ * @adev: amdgpu device pointer
+ *
+ * Sets up ring buffers, GART mappings, and control structures for
+ * communicating with remote GPUs in the fabric.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int amdgpu_ualink_peer_remote_init(struct amdgpu_device *adev)
+{
+	u32 rb_pages = AMDGPU_UALINK_RB_SIZE >> AMDGPU_GPU_PAGE_SHIFT;
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	struct amdgpu_bo *bo = remote->ring_bo;
+	struct amdgpu_ualink_peer *peer;
+	struct amdgpu_ualink_ring *interrupt;
+	struct amdgpu_ualink_ring *shootdown;
+	u32 src_accel_id = ualink_accel_id(adev);
+	u32 dst_accel_id;
+	u64 npa, flags;
+	int r = 0;
+
+	/* NPA mapping PTE flags VSCT = 0011 */
+	flags = amdgpu_ttm_tt_pte_flags(adev, bo->tbo.ttm, bo->tbo.resource);
+	flags |= AMDGPU_PTE_SNOOPED | AMDGPU_PTE_PRT_GFX12 | AMDGPU_PTE_BUS_ATOMICS;
+	flags &= ~AMDGPU_PTE_VALID;
+	/* PTE.X=0 turn off RPC checks for RBs, wptr and doorbell NPA address */
+	flags &= ~AMDGPU_PTE_EXECUTABLE;
+
+	dev_dbg(adev->dev, "src_accel_id %u gart mapping flags 0x%llx\n",
+		src_accel_id, flags);
+
+	for_each_set_bit(dst_accel_id, remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX) {
+		if (dst_accel_id == src_accel_id)
+			continue;
+
+		dev_dbg(adev->dev, "peer_remote to dst_accel_id %u\n", dst_accel_id);
+
+		peer = &remote->peer[dst_accel_id];
+		mutex_init(&peer->lock);
+
+		interrupt = &peer->interrupt;
+		shootdown = &peer->shootdown;
+
+		/* ring buffer npa gart mapping */
+		npa = amdgpu_ualink_gart_npa_addr(adev, RB_TYPE_REMOTE_INTERRUPT,
+						   src_accel_id, dst_accel_id);
+		r = amdgpu_ualink_gart_map(adev, rb_pages, npa, &interrupt->mm_node_rb, flags);
+		if (r)
+			break;
+		interrupt->rb_npa_gart = adev->gmc.gart_start +
+					 (interrupt->mm_node_rb.start << AMDGPU_GPU_PAGE_SHIFT);
+
+		dev_dbg(adev->dev, "rb npa 0x%llx mapped on gart 0x%llx\n",
+			npa, interrupt->rb_npa_gart);
+
+		/* tlb invalidate ring buffer npa gart mapping */
+		npa = amdgpu_ualink_gart_npa_addr(adev, RB_TYPE_TLB_INV, src_accel_id,
+						  dst_accel_id);
+		r = amdgpu_ualink_gart_map(adev, rb_pages, npa, &shootdown->mm_node_rb, flags);
+		if (r)
+			break;
+		shootdown->rb_npa_gart = adev->gmc.gart_start +
+					 (shootdown->mm_node_rb.start << AMDGPU_GPU_PAGE_SHIFT);
+
+		dev_dbg(adev->dev, "tlb rb npa 0x%llx mapped on gart 0x%llx\n",
+			npa, shootdown->rb_npa_gart);
+
+		/* wptr npa gart mapping */
+		npa = amdgpu_ualink_gart_npa_addr(adev, RB_TYPE_TAILPTR, src_accel_id,
+						  dst_accel_id);
+		r = amdgpu_ualink_gart_map(adev, 1, npa, &interrupt->mm_node_wptr, flags);
+		if (r)
+			break;
+
+		interrupt->wptr_npa_gart = adev->gmc.gart_start +
+					   (interrupt->mm_node_wptr.start << AMDGPU_GPU_PAGE_SHIFT)
+					    + ualink_wptr_offset(adev, src_accel_id);
+		shootdown->wptr_npa_gart = adev->gmc.gart_start +
+					   (interrupt->mm_node_wptr.start << AMDGPU_GPU_PAGE_SHIFT)
+					    + ualink_tlb_wptr_offset(adev, src_accel_id);
+
+		dev_dbg(adev->dev, "rb wptr npa 0x%llx on gart 0x%llx, tlb wptr on gart 0x%llx\n",
+			npa, interrupt->wptr_npa_gart, shootdown->wptr_npa_gart);
+
+		/*
+		 * doorbell npa gart mapping, doorbell NPA address coding
+		 *
+		 * ReqAddr[51:40] = 0xFFF
+		 * ReqAddr[39:30] = GPU accel_id
+		 * ReqAddr[29:12] = 18'h00000
+		 * ReqAddr[11:8]  = Random value
+		 * ReqAddr[7:6]   = PMI Index
+		 *     0 - PMI0 Remote Interrupt
+		 *     1 - PMI1 Remote TLB Shootdown
+		 * ReqAddr[5:0]   = 6'h0
+		 */
+		npa = 0xFFFULL << 40 | (u64)dst_accel_id << 30;
+		r = amdgpu_ualink_gart_map(adev, 1, npa, &interrupt->mm_node_doorbell, flags);
+		if (r)
+			break;
+
+		interrupt->doorbell_npa_gart = adev->gmc.gart_start +
+			(interrupt->mm_node_doorbell.start << AMDGPU_GPU_PAGE_SHIFT);
+
+		dev_dbg(adev->dev, "rb doorbell npa 0x%llx mapped on gart 0x%llx\n",
+			npa, interrupt->doorbell_npa_gart);
+
+		shootdown->doorbell_npa_gart = adev->gmc.gart_start+
+			(interrupt->mm_node_doorbell.start << AMDGPU_GPU_PAGE_SHIFT) + (1 << 6);
+
+		dev_dbg(adev->dev, "tlb doorbell npa 0x%llx mapped on gart 0x%llx\n",
+			npa, shootdown->doorbell_npa_gart);
+
+		interrupt->rb_size = AMDGPU_UALINK_RB_SIZE / 64;
+		interrupt->wptr = 0;
+		interrupt->rptr = 0;
+		interrupt->seq = 0;
+
+		shootdown->rb_size = AMDGPU_UALINK_RB_SIZE / 64;
+		shootdown->wptr = 0;
+		shootdown->rptr = 0;
+		shootdown->seq = 0;
+	}
+
+	dev_dbg(adev->dev, "peer remote init done r=%d\n", r);
+	return r;
+}
+
+/**
+ * amdgpu_ualink_peer_remote_fini - Clean up remote peer GPU connections
+ * @adev: amdgpu device pointer
+ *
+ * Unmaps GART entries and frees resources for remote GPU communication.
+ */
+static void amdgpu_ualink_peer_remote_fini(struct amdgpu_device *adev)
+{
+	u32 rb_pages = AMDGPU_UALINK_RB_SIZE >> AMDGPU_GPU_PAGE_SHIFT;
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	u32 src_accel_id = ualink_accel_id(adev);
+	u32 dst_accel_id;
+	struct amdgpu_ualink_peer *peer;
+	struct amdgpu_ualink_ring *ring;
+
+	dev_dbg(adev->dev, "src_accel_id %u\n", src_accel_id);
+
+	for_each_set_bit(dst_accel_id, remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX) {
+		dev_dbg(adev->dev, "dst_accel_id %u\n", dst_accel_id);
+		if (dst_accel_id == src_accel_id)
+			continue;
+
+		peer = &remote->peer[dst_accel_id];
+		mutex_destroy(&peer->lock);
+
+		ring = &peer->interrupt;
+		amdgpu_ualink_gart_unmap(adev, rb_pages, &ring->mm_node_rb);
+		amdgpu_ualink_gart_unmap(adev, 1, &ring->mm_node_wptr);
+		amdgpu_ualink_gart_unmap(adev, 1, &ring->mm_node_doorbell);
+
+		ring = &peer->shootdown;
+		amdgpu_ualink_gart_unmap(adev, rb_pages, &ring->mm_node_rb);
+	}
+}
+
