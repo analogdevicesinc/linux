@@ -1233,6 +1233,8 @@ static int cache_do_upcall(struct cache_detail *detail, struct cache_head *h)
 		/* Lost a race, no longer PENDING, so don't enqueue */
 		ret = -EAGAIN;
 	spin_unlock(&detail->queue_lock);
+	if (ret != -EAGAIN && detail->cache_notify)
+		detail->cache_notify(detail, h);
 	wake_up(&detail->queue_wait);
 	if (ret == -EAGAIN) {
 		kfree(buf);
