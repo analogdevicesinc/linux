@@ -385,7 +385,10 @@ struct spi_controller_mem_ops {
  * @swap16: Supports swapping bytes on a 16 bit boundary when configured in
  *	    Octal DTR
  * @per_op_freq: Supports per operation frequency switching
- * @secondary_op_tmpl: Supports leveraging a secondary memory operation template
+ * @no_cs_assertion: The controller may automatically deassert the CS if there
+ *                   is a pause in the transfer (eg. internal bus contention or
+ *                   DMA arbitration on an interconnect). Features such as NAND
+ *                   continuous reads shall not be leveraged.
  */
 struct spi_controller_mem_caps {
 	bool dtr;
@@ -393,6 +396,7 @@ struct spi_controller_mem_caps {
 	bool swap16;
 	bool per_op_freq;
 	bool secondary_op_tmpl;
+	bool no_cs_assertion;
 };
 
 #define spi_mem_controller_is_capable(ctlr, cap)	\
