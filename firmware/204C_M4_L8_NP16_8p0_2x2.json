@@ -1,0 +1,4382 @@
+{
+  "profile_cfg": {
+    "profile_version": {
+      "major": 10,
+      "minor": 1,
+      "patch": 2
+    },
+    "cfg_version": 0,
+    "is_8t8r": false,
+    "sw_trim": 5
+  },
+  "clk_cfg": {
+    "is_dual_clk": false,
+    "clk_path_sel": true,
+    "ref_clk_freq_kHz": 0,
+    "clocking_mode": 0,
+    "adc_divby2": [false,false],
+    "dac_divby2": [true,true],
+    "adc_inclk_invert0": [false,false],
+    "adc_inclk_invert1": [false,false],
+    "dev_clk_freq_Hz": 8000000000,
+    "arm_clock_sel": 1,
+    "arm_clk_div": 2,
+    "serdes_clk_div": 8
+  },
+  "clk_pll": {
+    "loop_bandwidth": 0,
+    "phase_margin": 0,
+    "div_range": 0,
+    "div2": 0,
+    "power": 0,
+    "ref_clk_div": 1,
+    "i_bleed_en": 0,
+    "feedback_int": 0,
+    "feedback_frac": 0
+  },
+  "mcs_cfg": {
+    "center_sysref": {
+      "ref_to_int_period_ratio": 1,
+      "sysref_present": false,
+      "rx_term_en": false,
+      "cm_above_900mv": false
+    },
+    "side_a_sysref": {
+      "ref_to_int_period_ratio": 1,
+      "sysref_present": false,
+      "rx_term_en": false,
+      "cm_above_900mv": false
+    },
+    "side_b_sysref": {
+      "ref_to_int_period_ratio": 1,
+      "sysref_present": false,
+      "rx_term_en": false,
+      "cm_above_900mv": false
+    },
+    "use_gapped_sysref": false,
+    "leave_sysref_rx_on": false,
+    "num_sysref_avg_mcs_fw": 31,
+    "sysref_lock_window_mcs_fw": 0,
+    "internal_sysref_prd_digclk_cycles_center": 128,
+    "internal_sysref_prd_digclk_cycles_side_a": 128,
+    "internal_sysref_prd_digclk_cycles_side_b": 128,
+    "adf4382_cfg": {
+      "side_a_adf4382_instance_cfg": 0,
+      "side_b_adf4382_instance_cfg": 0,
+      "del_mode": 0,
+      "clock_align_delay_adjust_gpio": [16,0],
+      "clock_align_delay_strobe_gpio": [15,0],
+      "track_polarity_select": [false,false],
+      "phase_adj": [1,0],
+      "track_win": [500,500]
+    },
+    "mcs_trigger_cfg": {
+      "trigger_pin_to_rx_datapath_a_mapping": 0,
+      "trigger_pin_to_rx_datapath_b_mapping": 0,
+      "trigger_pin_to_tx_datapath_a_mapping": 0,
+      "trigger_pin_to_tx_datapath_b_mapping": 0
+    }
+  },
+  "gpio_cfg": {
+    "gpio_quick_config": 0,
+    "gpio_mode_en": 0,
+    "gpio_mode_dir": 0,
+    "gpio_from_master": 0,
+    "gpio_from_set": 0,
+    "gpio_from_clear": 0,
+    "gpio_source_control": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    "gpio_stage_sel_lsb": 0,
+    "gpio_stage_sel_msb": 0
+  },
+  "tx_path": [
+    {
+      "tx_cduc": [
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 536870912,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2
+        },
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 536870912,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2
+        }
+      ],
+      "tx_fduc": [
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 7036874417766,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2,
+          "sub_dp_gain_en": false,
+          "subdp_gain": 0
+        },
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 7036874417766,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2,
+          "sub_dp_gain_en": false,
+          "subdp_gain": 0
+        },
+        {
+          "nco": [
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2,
+          "sub_dp_gain_en": false,
+          "subdp_gain": 0
+        },
+        {
+          "nco": [
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2,
+          "sub_dp_gain_en": false,
+          "subdp_gain": 0
+        }
+      ],
+      "tx_pfilt": [
+        {
+          "enable": false,
+          "coeffs": [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+          ],
+          "i_mode": [0,0],
+          "q_mode": [0,0],
+          "output_dither_en": [false,false],
+          "real_data": 0,
+          "dq_mode": 0,
+          "add_sub_sel": 0,
+          "mode_switch": 0,
+          "pfilt_trigger_en": false,
+          "pfir_ix_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_iy_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qx_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qy_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_ix_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_iy_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qx_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qy_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "hc_prog_delay": [0,0,0,0,0,0,0,0]
+        }
+      ],
+      "tx_cfir": [
+        {
+          "coeffs_i": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "coeffs_q": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "cfir_gain_dB": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_i": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_q": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "enable": false,
+          "sparse_mode": false,
+          "cfir_mode": 0
+        },
+        {
+          "coeffs_i": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "coeffs_q": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "cfir_gain_dB": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_i": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_q": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "enable": false,
+          "sparse_mode": false,
+          "cfir_mode": 0
+        }
+      ],
+      "tx_fsrc": {
+        "fsrc_rate_int": 0,
+        "fsrc_rate_frac_a": 0,
+        "fsrc_rate_frac_b": 0,
+        "fsrc_delay": 0,
+        "gain_reduction": 0,
+        "ptr_syncrstval": 0,
+        "ptr_overwrite": false,
+        "data_mult_dither_en": false,
+        "dither_en": false,
+        "split_4t4r": false,
+        "mode_1x": false,
+        "enable0": false,
+        "enable1": false,
+        "bypass": false
+      },
+      "tx_mux_summer_xbar": {
+        "cduc_dac_enables": [0,2,1,3],
+        "fduc_cduc_summer": [1,2,0,0],
+        "mux1_sel": [0,0],
+        "mux0_sel": [0,1,0,1],
+        "low_samp_en": false
+      },
+      "tx_dyn_recfg": {
+        "prefsrc_lcm": 0,
+        "postfsrc_lcm": 0,
+        "trig_recfg_mode": false,
+        "cnco_rst_en": false,
+        "fnco_rst_en": false,
+        "resync_en": false,
+        "ts_rst_en": false,
+        "tzero_coher_en": false
+      },
+      "tx_pa_prot": [
+        {
+          "pa_clkdiv_en": false,
+          "paprot_pwr_cfg": {
+            "pa_clk_en": false,
+            "short_pac_en": false,
+            "long_pac_en": false,
+            "pwr_threshold_long": 0,
+            "pwr_threshold_short": 0,
+            "avg_long_win": 0,
+            "avg_short_win": 0
+          },
+          "paprot_sm_cfg": {
+            "enable_paprotsm": false,
+            "rampdwn_to_papin_en": false,
+            "srl_err_en": false,
+            "avg_pwr_err_en": false,
+            "auto_dyn_recfg_en": false,
+            "jesd_err_en": false,
+            "jesd_err_auto_cfg_en": false,
+            "data_ready_auto_cfg_en": false,
+            "zero_flush_clock_stable_rise_en": false,
+            "zero_flush_dyn_recfg_ramp_up_en": false,
+            "zero_flush_txen_fall_en": false,
+            "zero_flush_txen_rise_en": false,
+            "zero_flush_start_en": false,
+            "drive_sm_by_dig_en": false,
+            "hold_sample_en": false,
+            "skip_ramp_up": false,
+            "skip_ramp_down": false,
+            "ramp_up_timer_en": false,
+            "ramp_dwn_timer_en": false,
+            "zero_flush_timer": 0,
+            "ramp_down_timer_val": 0,
+            "ramp_up_timer_val": 0,
+            "dp_zero_flush_sel_0": 0,
+            "dp_zero_flush_sel_1": 0,
+            "data_ready_sel_ramp": 0,
+            "jesd_err_sel_ramp": 0
+          },
+          "paprot_ramp_cfg": {
+            "gain_clk_en": false,
+            "zero_detect_en": false,
+            "force_ramps_dyn_recfg_en": false,
+            "force_ramp_up_en": false,
+            "force_ramp_dwn_en": false,
+            "enable_gain": false,
+            "enable_ramp": false,
+            "trig_ramp_together": false,
+            "gain_inc_step": 0,
+            "gain_dec_step": 0,
+            "gain_max_val": 0
+          },
+          "paprot_sr_cfg": {
+            "sr_clk_en": false,
+            "sr_err_self_clr_en": false,
+            "sr_calculation_en": false,
+            "slew_rate_err_irq_en": false,
+            "sr_path_sel": 0,
+            "sr_threshold": 0
+          }
+        },
+        {
+          "pa_clkdiv_en": false,
+          "paprot_pwr_cfg": {
+            "pa_clk_en": false,
+            "short_pac_en": false,
+            "long_pac_en": false,
+            "pwr_threshold_long": 0,
+            "pwr_threshold_short": 0,
+            "avg_long_win": 0,
+            "avg_short_win": 0
+          },
+          "paprot_sm_cfg": {
+            "enable_paprotsm": false,
+            "rampdwn_to_papin_en": false,
+            "srl_err_en": false,
+            "avg_pwr_err_en": false,
+            "auto_dyn_recfg_en": false,
+            "jesd_err_en": false,
+            "jesd_err_auto_cfg_en": false,
+            "data_ready_auto_cfg_en": false,
+            "zero_flush_clock_stable_rise_en": false,
+            "zero_flush_dyn_recfg_ramp_up_en": false,
+            "zero_flush_txen_fall_en": false,
+            "zero_flush_txen_rise_en": false,
+            "zero_flush_start_en": false,
+            "drive_sm_by_dig_en": false,
+            "hold_sample_en": false,
+            "skip_ramp_up": false,
+            "skip_ramp_down": false,
+            "ramp_up_timer_en": false,
+            "ramp_dwn_timer_en": false,
+            "zero_flush_timer": 0,
+            "ramp_down_timer_val": 0,
+            "ramp_up_timer_val": 0,
+            "dp_zero_flush_sel_0": 0,
+            "dp_zero_flush_sel_1": 0,
+            "data_ready_sel_ramp": 0,
+            "jesd_err_sel_ramp": 0
+          },
+          "paprot_ramp_cfg": {
+            "gain_clk_en": false,
+            "zero_detect_en": false,
+            "force_ramps_dyn_recfg_en": false,
+            "force_ramp_up_en": false,
+            "force_ramp_dwn_en": false,
+            "enable_gain": false,
+            "enable_ramp": false,
+            "trig_ramp_together": false,
+            "gain_inc_step": 0,
+            "gain_dec_step": 0,
+            "gain_max_val": 0
+          },
+          "paprot_sr_cfg": {
+            "sr_clk_en": false,
+            "sr_err_self_clr_en": false,
+            "sr_calculation_en": false,
+            "slew_rate_err_irq_en": false,
+            "sr_path_sel": 0,
+            "sr_threshold": 0
+          }
+        },
+        {
+          "pa_clkdiv_en": false,
+          "paprot_pwr_cfg": {
+            "pa_clk_en": false,
+            "short_pac_en": false,
+            "long_pac_en": false,
+            "pwr_threshold_long": 0,
+            "pwr_threshold_short": 0,
+            "avg_long_win": 0,
+            "avg_short_win": 0
+          },
+          "paprot_sm_cfg": {
+            "enable_paprotsm": false,
+            "rampdwn_to_papin_en": false,
+            "srl_err_en": false,
+            "avg_pwr_err_en": false,
+            "auto_dyn_recfg_en": false,
+            "jesd_err_en": false,
+            "jesd_err_auto_cfg_en": false,
+            "data_ready_auto_cfg_en": false,
+            "zero_flush_clock_stable_rise_en": false,
+            "zero_flush_dyn_recfg_ramp_up_en": false,
+            "zero_flush_txen_fall_en": false,
+            "zero_flush_txen_rise_en": false,
+            "zero_flush_start_en": false,
+            "drive_sm_by_dig_en": false,
+            "hold_sample_en": false,
+            "skip_ramp_up": false,
+            "skip_ramp_down": false,
+            "ramp_up_timer_en": false,
+            "ramp_dwn_timer_en": false,
+            "zero_flush_timer": 0,
+            "ramp_down_timer_val": 0,
+            "ramp_up_timer_val": 0,
+            "dp_zero_flush_sel_0": 0,
+            "dp_zero_flush_sel_1": 0,
+            "data_ready_sel_ramp": 0,
+            "jesd_err_sel_ramp": 0
+          },
+          "paprot_ramp_cfg": {
+            "gain_clk_en": false,
+            "zero_detect_en": false,
+            "force_ramps_dyn_recfg_en": false,
+            "force_ramp_up_en": false,
+            "force_ramp_dwn_en": false,
+            "enable_gain": false,
+            "enable_ramp": false,
+            "trig_ramp_together": false,
+            "gain_inc_step": 0,
+            "gain_dec_step": 0,
+            "gain_max_val": 0
+          },
+          "paprot_sr_cfg": {
+            "sr_clk_en": false,
+            "sr_err_self_clr_en": false,
+            "sr_calculation_en": false,
+            "slew_rate_err_irq_en": false,
+            "sr_path_sel": 0,
+            "sr_threshold": 0
+          }
+        },
+        {
+          "pa_clkdiv_en": false,
+          "paprot_pwr_cfg": {
+            "pa_clk_en": false,
+            "short_pac_en": false,
+            "long_pac_en": false,
+            "pwr_threshold_long": 0,
+            "pwr_threshold_short": 0,
+            "avg_long_win": 0,
+            "avg_short_win": 0
+          },
+          "paprot_sm_cfg": {
+            "enable_paprotsm": false,
+            "rampdwn_to_papin_en": false,
+            "srl_err_en": false,
+            "avg_pwr_err_en": false,
+            "auto_dyn_recfg_en": false,
+            "jesd_err_en": false,
+            "jesd_err_auto_cfg_en": false,
+            "data_ready_auto_cfg_en": false,
+            "zero_flush_clock_stable_rise_en": false,
+            "zero_flush_dyn_recfg_ramp_up_en": false,
+            "zero_flush_txen_fall_en": false,
+            "zero_flush_txen_rise_en": false,
+            "zero_flush_start_en": false,
+            "drive_sm_by_dig_en": false,
+            "hold_sample_en": false,
+            "skip_ramp_up": false,
+            "skip_ramp_down": false,
+            "ramp_up_timer_en": false,
+            "ramp_dwn_timer_en": false,
+            "zero_flush_timer": 0,
+            "ramp_down_timer_val": 0,
+            "ramp_up_timer_val": 0,
+            "dp_zero_flush_sel_0": 0,
+            "dp_zero_flush_sel_1": 0,
+            "data_ready_sel_ramp": 0,
+            "jesd_err_sel_ramp": 0
+          },
+          "paprot_ramp_cfg": {
+            "gain_clk_en": false,
+            "zero_detect_en": false,
+            "force_ramps_dyn_recfg_en": false,
+            "force_ramp_up_en": false,
+            "force_ramp_dwn_en": false,
+            "enable_gain": false,
+            "enable_ramp": false,
+            "trig_ramp_together": false,
+            "gain_inc_step": 0,
+            "gain_dec_step": 0,
+            "gain_max_val": 0
+          },
+          "paprot_sr_cfg": {
+            "sr_clk_en": false,
+            "sr_err_self_clr_en": false,
+            "sr_calculation_en": false,
+            "slew_rate_err_irq_en": false,
+            "sr_path_sel": 0,
+            "sr_threshold": 0
+          }
+        }
+      ],
+      "inv_sinc_en": [true,true,false,false],
+      "tx_enable": [
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        }
+      ],
+      "tx_power": [
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        }
+      ]
+    },
+    {
+      "tx_cduc": [
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 536870912,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2
+        },
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 536870912,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2
+        }
+      ],
+      "tx_fduc": [
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 7036874417766,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2,
+          "sub_dp_gain_en": false,
+          "subdp_gain": 0
+        },
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 7036874417766,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2,
+          "sub_dp_gain_en": false,
+          "subdp_gain": 0
+        },
+        {
+          "nco": [
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2,
+          "sub_dp_gain_en": false,
+          "subdp_gain": 0
+        },
+        {
+          "nco": [
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 2,
+          "sub_dp_gain_en": false,
+          "subdp_gain": 0
+        }
+      ],
+      "tx_pfilt": [
+        {
+          "enable": false,
+          "coeffs": [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+          ],
+          "i_mode": [0,0],
+          "q_mode": [0,0],
+          "output_dither_en": [false,false],
+          "real_data": 0,
+          "dq_mode": 0,
+          "add_sub_sel": 0,
+          "mode_switch": 0,
+          "pfilt_trigger_en": false,
+          "pfir_ix_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_iy_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qx_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qy_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_ix_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_iy_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qx_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qy_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "hc_prog_delay": [0,0,0,0,0,0,0,0]
+        }
+      ],
+      "tx_cfir": [
+        {
+          "coeffs_i": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "coeffs_q": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "cfir_gain_dB": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_i": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_q": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "enable": false,
+          "sparse_mode": false,
+          "cfir_mode": 0
+        },
+        {
+          "coeffs_i": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "coeffs_q": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "cfir_gain_dB": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_i": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_q": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "enable": false,
+          "sparse_mode": false,
+          "cfir_mode": 0
+        }
+      ],
+      "tx_fsrc": {
+        "fsrc_rate_int": 0,
+        "fsrc_rate_frac_a": 0,
+        "fsrc_rate_frac_b": 0,
+        "fsrc_delay": 0,
+        "gain_reduction": 0,
+        "ptr_syncrstval": 0,
+        "ptr_overwrite": false,
+        "data_mult_dither_en": false,
+        "dither_en": false,
+        "split_4t4r": false,
+        "mode_1x": false,
+        "enable0": false,
+        "enable1": false,
+        "bypass": false
+      },
+      "tx_mux_summer_xbar": {
+        "cduc_dac_enables": [0,2,1,3],
+        "fduc_cduc_summer": [1,2,0,0],
+        "mux1_sel": [0,0],
+        "mux0_sel": [0,1,0,1],
+        "low_samp_en": false
+      },
+      "tx_dyn_recfg": {
+        "prefsrc_lcm": 0,
+        "postfsrc_lcm": 0,
+        "trig_recfg_mode": false,
+        "cnco_rst_en": false,
+        "fnco_rst_en": false,
+        "resync_en": false,
+        "ts_rst_en": false,
+        "tzero_coher_en": false
+      },
+      "tx_pa_prot": [
+        {
+          "pa_clkdiv_en": false,
+          "paprot_pwr_cfg": {
+            "pa_clk_en": false,
+            "short_pac_en": false,
+            "long_pac_en": false,
+            "pwr_threshold_long": 0,
+            "pwr_threshold_short": 0,
+            "avg_long_win": 0,
+            "avg_short_win": 0
+          },
+          "paprot_sm_cfg": {
+            "enable_paprotsm": false,
+            "rampdwn_to_papin_en": false,
+            "srl_err_en": false,
+            "avg_pwr_err_en": false,
+            "auto_dyn_recfg_en": false,
+            "jesd_err_en": false,
+            "jesd_err_auto_cfg_en": false,
+            "data_ready_auto_cfg_en": false,
+            "zero_flush_clock_stable_rise_en": false,
+            "zero_flush_dyn_recfg_ramp_up_en": false,
+            "zero_flush_txen_fall_en": false,
+            "zero_flush_txen_rise_en": false,
+            "zero_flush_start_en": false,
+            "drive_sm_by_dig_en": false,
+            "hold_sample_en": false,
+            "skip_ramp_up": false,
+            "skip_ramp_down": false,
+            "ramp_up_timer_en": false,
+            "ramp_dwn_timer_en": false,
+            "zero_flush_timer": 0,
+            "ramp_down_timer_val": 0,
+            "ramp_up_timer_val": 0,
+            "dp_zero_flush_sel_0": 0,
+            "dp_zero_flush_sel_1": 0,
+            "data_ready_sel_ramp": 0,
+            "jesd_err_sel_ramp": 0
+          },
+          "paprot_ramp_cfg": {
+            "gain_clk_en": false,
+            "zero_detect_en": false,
+            "force_ramps_dyn_recfg_en": false,
+            "force_ramp_up_en": false,
+            "force_ramp_dwn_en": false,
+            "enable_gain": false,
+            "enable_ramp": false,
+            "trig_ramp_together": false,
+            "gain_inc_step": 0,
+            "gain_dec_step": 0,
+            "gain_max_val": 0
+          },
+          "paprot_sr_cfg": {
+            "sr_clk_en": false,
+            "sr_err_self_clr_en": false,
+            "sr_calculation_en": false,
+            "slew_rate_err_irq_en": false,
+            "sr_path_sel": 0,
+            "sr_threshold": 0
+          }
+        },
+        {
+          "pa_clkdiv_en": false,
+          "paprot_pwr_cfg": {
+            "pa_clk_en": false,
+            "short_pac_en": false,
+            "long_pac_en": false,
+            "pwr_threshold_long": 0,
+            "pwr_threshold_short": 0,
+            "avg_long_win": 0,
+            "avg_short_win": 0
+          },
+          "paprot_sm_cfg": {
+            "enable_paprotsm": false,
+            "rampdwn_to_papin_en": false,
+            "srl_err_en": false,
+            "avg_pwr_err_en": false,
+            "auto_dyn_recfg_en": false,
+            "jesd_err_en": false,
+            "jesd_err_auto_cfg_en": false,
+            "data_ready_auto_cfg_en": false,
+            "zero_flush_clock_stable_rise_en": false,
+            "zero_flush_dyn_recfg_ramp_up_en": false,
+            "zero_flush_txen_fall_en": false,
+            "zero_flush_txen_rise_en": false,
+            "zero_flush_start_en": false,
+            "drive_sm_by_dig_en": false,
+            "hold_sample_en": false,
+            "skip_ramp_up": false,
+            "skip_ramp_down": false,
+            "ramp_up_timer_en": false,
+            "ramp_dwn_timer_en": false,
+            "zero_flush_timer": 0,
+            "ramp_down_timer_val": 0,
+            "ramp_up_timer_val": 0,
+            "dp_zero_flush_sel_0": 0,
+            "dp_zero_flush_sel_1": 0,
+            "data_ready_sel_ramp": 0,
+            "jesd_err_sel_ramp": 0
+          },
+          "paprot_ramp_cfg": {
+            "gain_clk_en": false,
+            "zero_detect_en": false,
+            "force_ramps_dyn_recfg_en": false,
+            "force_ramp_up_en": false,
+            "force_ramp_dwn_en": false,
+            "enable_gain": false,
+            "enable_ramp": false,
+            "trig_ramp_together": false,
+            "gain_inc_step": 0,
+            "gain_dec_step": 0,
+            "gain_max_val": 0
+          },
+          "paprot_sr_cfg": {
+            "sr_clk_en": false,
+            "sr_err_self_clr_en": false,
+            "sr_calculation_en": false,
+            "slew_rate_err_irq_en": false,
+            "sr_path_sel": 0,
+            "sr_threshold": 0
+          }
+        },
+        {
+          "pa_clkdiv_en": false,
+          "paprot_pwr_cfg": {
+            "pa_clk_en": false,
+            "short_pac_en": false,
+            "long_pac_en": false,
+            "pwr_threshold_long": 0,
+            "pwr_threshold_short": 0,
+            "avg_long_win": 0,
+            "avg_short_win": 0
+          },
+          "paprot_sm_cfg": {
+            "enable_paprotsm": false,
+            "rampdwn_to_papin_en": false,
+            "srl_err_en": false,
+            "avg_pwr_err_en": false,
+            "auto_dyn_recfg_en": false,
+            "jesd_err_en": false,
+            "jesd_err_auto_cfg_en": false,
+            "data_ready_auto_cfg_en": false,
+            "zero_flush_clock_stable_rise_en": false,
+            "zero_flush_dyn_recfg_ramp_up_en": false,
+            "zero_flush_txen_fall_en": false,
+            "zero_flush_txen_rise_en": false,
+            "zero_flush_start_en": false,
+            "drive_sm_by_dig_en": false,
+            "hold_sample_en": false,
+            "skip_ramp_up": false,
+            "skip_ramp_down": false,
+            "ramp_up_timer_en": false,
+            "ramp_dwn_timer_en": false,
+            "zero_flush_timer": 0,
+            "ramp_down_timer_val": 0,
+            "ramp_up_timer_val": 0,
+            "dp_zero_flush_sel_0": 0,
+            "dp_zero_flush_sel_1": 0,
+            "data_ready_sel_ramp": 0,
+            "jesd_err_sel_ramp": 0
+          },
+          "paprot_ramp_cfg": {
+            "gain_clk_en": false,
+            "zero_detect_en": false,
+            "force_ramps_dyn_recfg_en": false,
+            "force_ramp_up_en": false,
+            "force_ramp_dwn_en": false,
+            "enable_gain": false,
+            "enable_ramp": false,
+            "trig_ramp_together": false,
+            "gain_inc_step": 0,
+            "gain_dec_step": 0,
+            "gain_max_val": 0
+          },
+          "paprot_sr_cfg": {
+            "sr_clk_en": false,
+            "sr_err_self_clr_en": false,
+            "sr_calculation_en": false,
+            "slew_rate_err_irq_en": false,
+            "sr_path_sel": 0,
+            "sr_threshold": 0
+          }
+        },
+        {
+          "pa_clkdiv_en": false,
+          "paprot_pwr_cfg": {
+            "pa_clk_en": false,
+            "short_pac_en": false,
+            "long_pac_en": false,
+            "pwr_threshold_long": 0,
+            "pwr_threshold_short": 0,
+            "avg_long_win": 0,
+            "avg_short_win": 0
+          },
+          "paprot_sm_cfg": {
+            "enable_paprotsm": false,
+            "rampdwn_to_papin_en": false,
+            "srl_err_en": false,
+            "avg_pwr_err_en": false,
+            "auto_dyn_recfg_en": false,
+            "jesd_err_en": false,
+            "jesd_err_auto_cfg_en": false,
+            "data_ready_auto_cfg_en": false,
+            "zero_flush_clock_stable_rise_en": false,
+            "zero_flush_dyn_recfg_ramp_up_en": false,
+            "zero_flush_txen_fall_en": false,
+            "zero_flush_txen_rise_en": false,
+            "zero_flush_start_en": false,
+            "drive_sm_by_dig_en": false,
+            "hold_sample_en": false,
+            "skip_ramp_up": false,
+            "skip_ramp_down": false,
+            "ramp_up_timer_en": false,
+            "ramp_dwn_timer_en": false,
+            "zero_flush_timer": 0,
+            "ramp_down_timer_val": 0,
+            "ramp_up_timer_val": 0,
+            "dp_zero_flush_sel_0": 0,
+            "dp_zero_flush_sel_1": 0,
+            "data_ready_sel_ramp": 0,
+            "jesd_err_sel_ramp": 0
+          },
+          "paprot_ramp_cfg": {
+            "gain_clk_en": false,
+            "zero_detect_en": false,
+            "force_ramps_dyn_recfg_en": false,
+            "force_ramp_up_en": false,
+            "force_ramp_dwn_en": false,
+            "enable_gain": false,
+            "enable_ramp": false,
+            "trig_ramp_together": false,
+            "gain_inc_step": 0,
+            "gain_dec_step": 0,
+            "gain_max_val": 0
+          },
+          "paprot_sr_cfg": {
+            "sr_clk_en": false,
+            "sr_err_self_clr_en": false,
+            "sr_calculation_en": false,
+            "slew_rate_err_irq_en": false,
+            "sr_path_sel": 0,
+            "sr_threshold": 0
+          }
+        }
+      ],
+      "inv_sinc_en": [true,true,false,false],
+      "tx_enable": [
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        }
+      ],
+      "tx_power": [
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        }
+      ]
+    }
+  ],
+  "rx_path": [
+    {
+      "rx_cddc": [
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 1342177280,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "fine_bypass": false,
+          "link_num": 0,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "tb1_filt_dly_cycles": 0,
+          "hb1_gain_6db_en": false,
+          "tb1_gain_6db_en": false,
+          "trig_mst_en": false,
+          "trig_mst_period": 0,
+          "trig_mst_offset": 0,
+          "debug_cddc_clkoff_n": 255
+        },
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 1342177280,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "fine_bypass": false,
+          "link_num": 0,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "tb1_filt_dly_cycles": 0,
+          "hb1_gain_6db_en": false,
+          "tb1_gain_6db_en": false,
+          "trig_mst_en": false,
+          "trig_mst_period": 0,
+          "trig_mst_offset": 0,
+          "debug_cddc_clkoff_n": 255
+        }
+      ],
+      "rx_fddc": [
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 351843720888,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "link_num": 0,
+          "debug_fddc_clkoff_n": 255,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "hb3_filt_dly_en": false,
+          "hb4_filt_dly_en": false,
+          "hb5_filt_dly_en": false,
+          "hb6_filt_dly_en": false,
+          "hb1_gain_6db_en": true
+        },
+        {
+          "nco": [
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "link_num": 0,
+          "debug_fddc_clkoff_n": 255,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "hb3_filt_dly_en": false,
+          "hb4_filt_dly_en": false,
+          "hb5_filt_dly_en": false,
+          "hb6_filt_dly_en": false,
+          "hb1_gain_6db_en": true
+        },
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 351843720888,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "link_num": 0,
+          "debug_fddc_clkoff_n": 255,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "hb3_filt_dly_en": false,
+          "hb4_filt_dly_en": false,
+          "hb5_filt_dly_en": false,
+          "hb6_filt_dly_en": false,
+          "hb1_gain_6db_en": true
+        },
+        {
+          "nco": [
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "link_num": 0,
+          "debug_fddc_clkoff_n": 255,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "hb3_filt_dly_en": false,
+          "hb4_filt_dly_en": false,
+          "hb5_filt_dly_en": false,
+          "hb6_filt_dly_en": false,
+          "hb1_gain_6db_en": true
+        }
+      ],
+      "rx_pfilt": [
+        {
+          "enable": false,
+          "coeffs": [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+          ],
+          "i_mode": [0,0],
+          "q_mode": [0,0],
+          "output_dither_en": [false,false],
+          "real_data": 1,
+          "dq_mode": 0,
+          "add_sub_sel": 0,
+          "mode_switch": 0,
+          "pfilt_trigger_en": false,
+          "pfir_ix_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_iy_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qx_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qy_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_ix_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_iy_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qx_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qy_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "hc_prog_delay": [0,0,0,0,0,0,0,0]
+        }
+      ],
+      "rx_cfir": [
+        {
+          "coeffs_i": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "coeffs_q": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "cfir_gain_dB": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_i": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_q": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "enable": false,
+          "sparse_mode": false,
+          "cfir_mode": 0
+        },
+        {
+          "coeffs_i": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "coeffs_q": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "cfir_gain_dB": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_i": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_q": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "enable": false,
+          "sparse_mode": false,
+          "cfir_mode": 0
+        }
+      ],
+      "rx_fsrc": {
+        "fsrc_rate_int": 0,
+        "fsrc_rate_frac_a": 0,
+        "fsrc_rate_frac_b": 0,
+        "fsrc_delay": 0,
+        "gain_reduction": 0,
+        "ptr_syncrstval": 0,
+        "ptr_overwrite": false,
+        "data_mult_dither_en": false,
+        "dither_en": false,
+        "split_4t4r": false,
+        "mode_1x": false,
+        "enable0": false,
+        "enable1": false,
+        "bypass": false
+      },
+      "rx_mux_splitter_xbar": {
+        "mux0_out_adc_sel": [0,0,0,0],
+        "mux2_fddc_input_sel": [0,0,4,4],
+        "low_samp_en": false
+      },
+      "rx_dyn_recfg": {
+        "prefsrc_lcm": 0,
+        "postfsrc_lcm": 0,
+        "trig_recfg_mode": false,
+        "cnco_rst_en": false,
+        "fnco_rst_en": false,
+        "resync_en": false,
+        "ts_rst_en": false,
+        "tzero_coher_en": false
+      },
+      "rx_dformat": [
+        {
+          "inv": false,
+          "sel": 0,
+          "ddc_dither_en": false,
+          "res": 0,
+          "tmode": {
+            "sel": 0,
+            "type_sel": 0,
+            "pn_force_rst": false,
+            "flush": false,
+            "usr_pat_sel": false,
+            "res": 0
+          },
+          "rm_fifo": {
+            "invalid_en": false,
+            "sample_repeat_en": true
+          }
+        },
+        {
+          "inv": false,
+          "sel": 0,
+          "ddc_dither_en": false,
+          "res": 0,
+          "tmode": {
+            "sel": 0,
+            "type_sel": 0,
+            "pn_force_rst": false,
+            "flush": false,
+            "usr_pat_sel": false,
+            "res": 0
+          },
+          "rm_fifo": {
+            "invalid_en": false,
+            "sample_repeat_en": true
+          }
+        }
+      ],
+      "rx_smon": [
+        {
+          "period": 0,
+          "gpio_en": false,
+          "peak_en": false,
+          "jlink_sel": 0,
+          "sframer_en": false,
+          "sframer_mode": 0,
+          "sync_en": false,
+          "sync_next": 0,
+          "thresh_high": 0,
+          "thresh_low": 0
+        },
+        {
+          "period": 0,
+          "gpio_en": false,
+          "peak_en": false,
+          "jlink_sel": 0,
+          "sframer_en": false,
+          "sframer_mode": 0,
+          "sync_en": false,
+          "sync_next": 0,
+          "thresh_high": 0,
+          "thresh_low": 0
+        },
+        {
+          "period": 0,
+          "gpio_en": false,
+          "peak_en": false,
+          "jlink_sel": 0,
+          "sframer_en": false,
+          "sframer_mode": 0,
+          "sync_en": false,
+          "sync_next": 0,
+          "thresh_high": 0,
+          "thresh_low": 0
+        },
+        {
+          "period": 0,
+          "gpio_en": false,
+          "peak_en": false,
+          "jlink_sel": 0,
+          "sframer_en": false,
+          "sframer_mode": 0,
+          "sync_en": false,
+          "sync_next": 0,
+          "thresh_high": 0,
+          "thresh_low": 0
+        }
+      ],
+      "rx_enable": [
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        }
+      ],
+      "rx_power": [
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        }
+      ],
+      "rx_bmem": [
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        }
+      ]
+    },
+    {
+      "rx_cddc": [
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 1342177280,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "fine_bypass": false,
+          "link_num": 0,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "tb1_filt_dly_cycles": 0,
+          "hb1_gain_6db_en": false,
+          "tb1_gain_6db_en": false,
+          "trig_mst_en": false,
+          "trig_mst_period": 0,
+          "trig_mst_offset": 0,
+          "debug_cddc_clkoff_n": 255
+        },
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 1342177280,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec": 0,
+              "debug_cdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "fine_bypass": false,
+          "link_num": 0,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "tb1_filt_dly_cycles": 0,
+          "hb1_gain_6db_en": false,
+          "tb1_gain_6db_en": false,
+          "trig_mst_en": false,
+          "trig_mst_period": 0,
+          "trig_mst_offset": 0,
+          "debug_cddc_clkoff_n": 255
+        }
+      ],
+      "rx_fddc": [
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 351843720888,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "link_num": 0,
+          "debug_fddc_clkoff_n": 255,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "hb3_filt_dly_en": false,
+          "hb4_filt_dly_en": false,
+          "hb5_filt_dly_en": false,
+          "hb6_filt_dly_en": false,
+          "hb1_gain_6db_en": true
+        },
+        {
+          "nco": [
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "link_num": 0,
+          "debug_fddc_clkoff_n": 255,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "hb3_filt_dly_en": false,
+          "hb4_filt_dly_en": false,
+          "hb5_filt_dly_en": false,
+          "hb6_filt_dly_en": false,
+          "hb1_gain_6db_en": true
+        },
+        {
+          "nco": [
+            {
+              "drc_en": true,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 351843720888,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "link_num": 0,
+          "debug_fddc_clkoff_n": 255,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "hb3_filt_dly_en": false,
+          "hb4_filt_dly_en": false,
+          "hb5_filt_dly_en": false,
+          "hb6_filt_dly_en": false,
+          "hb1_gain_6db_en": true
+        },
+        {
+          "nco": [
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 1,
+              "cmplx_mxr_mult_scale_en": 1,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 1,
+              "debug_fdrc_clkoff_n": true
+            },
+            {
+              "drc_en": false,
+              "nco_mode": 0,
+              "nco_if_mode": 0,
+              "drc_mxr_sel": 0,
+              "cmplx_mxr_mult_scale_en": 0,
+              "dc_testmode_value": 0,
+              "nco_phase_inc": 0,
+              "nco_phase_offset": 0,
+              "nco_phase_inc_frac_a": 0,
+              "nco_phase_inc_frac_b": 0,
+              "amp_dither_en": false,
+              "phase_dither_en": false,
+              "hop_mode_en": false,
+              "hop_mode": 0,
+              "nco_phase_inc_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_phase_offset_words": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+              "nco_profile_sel_mode": 4,
+              "nco_auto_inc_dec_freq": 0,
+              "nco_auto_inc_dec_phase": 0,
+              "nco_trig_hop_sel": 0,
+              "debug_fdrc_clkoff_n": false
+            }
+          ],
+          "drc_ratio": 1,
+          "link_num": 0,
+          "debug_fddc_clkoff_n": 255,
+          "hb1_filt_dly_en": false,
+          "hb2_filt_dly_en": false,
+          "hb3_filt_dly_en": false,
+          "hb4_filt_dly_en": false,
+          "hb5_filt_dly_en": false,
+          "hb6_filt_dly_en": false,
+          "hb1_gain_6db_en": true
+        }
+      ],
+      "rx_pfilt": [
+        {
+          "enable": false,
+          "coeffs": [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+          ],
+          "i_mode": [0,0],
+          "q_mode": [0,0],
+          "output_dither_en": [false,false],
+          "real_data": 1,
+          "dq_mode": 0,
+          "add_sub_sel": 0,
+          "mode_switch": 0,
+          "pfilt_trigger_en": false,
+          "pfir_ix_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_iy_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qx_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qy_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_ix_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_iy_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qx_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "pfir_qy_scalar_gain_db": [0,0,0,0,0,0,0,0],
+          "hc_prog_delay": [0,0,0,0,0,0,0,0]
+        }
+      ],
+      "rx_cfir": [
+        {
+          "coeffs_i": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "coeffs_q": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "cfir_gain_dB": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_i": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_q": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "enable": false,
+          "sparse_mode": false,
+          "cfir_mode": 0
+        },
+        {
+          "coeffs_i": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "coeffs_q": [
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            [
+              [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ]
+          ],
+          "cfir_gain_dB": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_i": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "scalar_q": [
+            [0,0,0,0],[0,0,0,0]
+          ],
+          "enable": false,
+          "sparse_mode": false,
+          "cfir_mode": 0
+        }
+      ],
+      "rx_fsrc": {
+        "fsrc_rate_int": 0,
+        "fsrc_rate_frac_a": 0,
+        "fsrc_rate_frac_b": 0,
+        "fsrc_delay": 0,
+        "gain_reduction": 0,
+        "ptr_syncrstval": 0,
+        "ptr_overwrite": false,
+        "data_mult_dither_en": false,
+        "dither_en": false,
+        "split_4t4r": false,
+        "mode_1x": false,
+        "enable0": false,
+        "enable1": false,
+        "bypass": false
+      },
+      "rx_mux_splitter_xbar": {
+        "mux0_out_adc_sel": [0,0,0,0],
+        "mux2_fddc_input_sel": [0,0,4,4],
+        "low_samp_en": false
+      },
+      "rx_dyn_recfg": {
+        "prefsrc_lcm": 0,
+        "postfsrc_lcm": 0,
+        "trig_recfg_mode": false,
+        "cnco_rst_en": false,
+        "fnco_rst_en": false,
+        "resync_en": false,
+        "ts_rst_en": false,
+        "tzero_coher_en": false
+      },
+      "rx_dformat": [
+        {
+          "inv": false,
+          "sel": 0,
+          "ddc_dither_en": false,
+          "res": 0,
+          "tmode": {
+            "sel": 0,
+            "type_sel": 0,
+            "pn_force_rst": false,
+            "flush": false,
+            "usr_pat_sel": false,
+            "res": 0
+          },
+          "rm_fifo": {
+            "invalid_en": false,
+            "sample_repeat_en": true
+          }
+        },
+        {
+          "inv": false,
+          "sel": 0,
+          "ddc_dither_en": false,
+          "res": 0,
+          "tmode": {
+            "sel": 0,
+            "type_sel": 0,
+            "pn_force_rst": false,
+            "flush": false,
+            "usr_pat_sel": false,
+            "res": 0
+          },
+          "rm_fifo": {
+            "invalid_en": false,
+            "sample_repeat_en": true
+          }
+        }
+      ],
+      "rx_smon": [
+        {
+          "period": 0,
+          "gpio_en": false,
+          "peak_en": false,
+          "jlink_sel": 0,
+          "sframer_en": false,
+          "sframer_mode": 0,
+          "sync_en": false,
+          "sync_next": 0,
+          "thresh_high": 0,
+          "thresh_low": 0
+        },
+        {
+          "period": 0,
+          "gpio_en": false,
+          "peak_en": false,
+          "jlink_sel": 0,
+          "sframer_en": false,
+          "sframer_mode": 0,
+          "sync_en": false,
+          "sync_next": 0,
+          "thresh_high": 0,
+          "thresh_low": 0
+        },
+        {
+          "period": 0,
+          "gpio_en": false,
+          "peak_en": false,
+          "jlink_sel": 0,
+          "sframer_en": false,
+          "sframer_mode": 0,
+          "sync_en": false,
+          "sync_next": 0,
+          "thresh_high": 0,
+          "thresh_low": 0
+        },
+        {
+          "period": 0,
+          "gpio_en": false,
+          "peak_en": false,
+          "jlink_sel": 0,
+          "sframer_en": false,
+          "sframer_mode": 0,
+          "sync_en": false,
+          "sync_next": 0,
+          "thresh_high": 0,
+          "thresh_low": 0
+        }
+      ],
+      "rx_enable": [
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        },
+        {
+          "enable_spien": false,
+          "enable_spi": false,
+          "enable_pol": false,
+          "slice_sel": 0,
+          "pfilt_sel": 0,
+          "cdrc_sel": 0,
+          "fdrc_sel": 0,
+          "cfir_sel": 0,
+          "fsrc_sel": 0,
+          "jesd_link_sel": 0,
+          "jesd_phy_sel": 0,
+          "modsw_sel": false,
+          "invsinc_sel": 0,
+          "gain_sel": 0,
+          "srd_sel": 0
+        }
+      ],
+      "rx_power": [
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        },
+        {
+          "rxtxen_sel": 0,
+          "spi_rxtxen": false,
+          "spi_rxtxen_ena": false,
+          "sm_en": false,
+          "sel_cnt_rate": false,
+          "conv_fall": 0,
+          "conv_rise": 0,
+          "dig_fall": 0,
+          "dig_rise": 0,
+          "pa_fall": 0,
+          "pa_rise": 0,
+          "count_maxa": 0,
+          "count_maxb": 0,
+          "count_maxc": 0,
+          "count_maxd": 0,
+          "count_maxe": 0,
+          "count_maxf": 0
+        }
+      ],
+      "rx_bmem": [
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        },
+        {
+          "fast_nslow_mode": 0,
+          "bmem_shut_down": false,
+          "bmem_sleep": false,
+          "bmem_mode": 0,
+          "bmem_en": false,
+          "hop_dly_sel_mode": 0,
+          "bmem_8t8r_cap_mask": 0,
+          "ramclk_ph_dis": false,
+          "parity_check_en": false,
+          "trig_mode_en": false,
+          "trig_mode_sclr_en": false,
+          "sample_dly": 0,
+          "hop_delay0": 0,
+          "hop_delay1": 0,
+          "hop_delay2": 0,
+          "hop_delay3": 0
+        }
+      ]
+    }
+  ],
+  "jtx": [
+    {
+      "common_link_cfg": {
+        "ver": 1,
+        "subclass": 0,
+        "dual_link": false,
+        "lane_enables": 255,
+        "lane_rate_kHz": 16500000
+      },
+      "tx_link_cfg": [
+        {
+          "link_in_use": true,
+          "e_minus1": 0,
+          "bank_id": 0,
+          "dev_id": 0,
+          "base_lane_id": 0,
+          "l_minus1": 7,
+          "f_minus1": 0,
+          "m_minus1": 3,
+          "s_minus1": 0,
+          "high_dens": true,
+          "k_minus1": 255,
+          "n_minus1": 15,
+          "np_minus1": 15,
+          "ns_minus1": 7,
+          "cs": 0,
+          "scr": true,
+          "quick_cfg_en": true,
+          "quick_mode_id": 47,
+          "syncb_in_sel": 0,
+          "syncb_lvds_mode": 0,
+          "fec_enable": false,
+          "async_mode": false,
+          "metword_rev": false,
+          "link_dp_ratio": 4,
+          "link_total_ratio": 4,
+          "phase_adjust": 0,
+          "conv_xbar_sel": [0,1,4,5,0,0,0,0,0,0,0,0,0,0,0,0],
+          "lane_xbar": [0,1,2,3,4,5,6,7,15,15,15,15]
+        },
+        {
+          "link_in_use": false,
+          "e_minus1": 0,
+          "bank_id": 0,
+          "dev_id": 0,
+          "base_lane_id": 8,
+          "l_minus1": 0,
+          "f_minus1": 0,
+          "m_minus1": 0,
+          "s_minus1": 0,
+          "high_dens": false,
+          "k_minus1": 0,
+          "n_minus1": 0,
+          "np_minus1": 0,
+          "ns_minus1": 0,
+          "cs": 0,
+          "scr": false,
+          "quick_cfg_en": false,
+          "quick_mode_id": 0,
+          "syncb_in_sel": 0,
+          "syncb_lvds_mode": 0,
+          "fec_enable": false,
+          "async_mode": false,
+          "metword_rev": false,
+          "link_dp_ratio": 0,
+          "link_total_ratio": 0,
+          "phase_adjust": 0,
+          "conv_xbar_sel": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+          "lane_xbar": [0,0,0,0,0,0,0,0,0,0,0,0]
+        }
+      ],
+      "serializer_lane": [
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        }
+      ]
+    },
+    {
+      "common_link_cfg": {
+        "ver": 1,
+        "subclass": 0,
+        "dual_link": false,
+        "lane_enables": 255,
+        "lane_rate_kHz": 16500000
+      },
+      "tx_link_cfg": [
+        {
+          "link_in_use": true,
+          "e_minus1": 0,
+          "bank_id": 0,
+          "dev_id": 0,
+          "base_lane_id": 0,
+          "l_minus1": 7,
+          "f_minus1": 0,
+          "m_minus1": 3,
+          "s_minus1": 0,
+          "high_dens": true,
+          "k_minus1": 255,
+          "n_minus1": 15,
+          "np_minus1": 15,
+          "ns_minus1": 7,
+          "cs": 0,
+          "scr": true,
+          "quick_cfg_en": true,
+          "quick_mode_id": 47,
+          "syncb_in_sel": 0,
+          "syncb_lvds_mode": 0,
+          "fec_enable": false,
+          "async_mode": false,
+          "metword_rev": false,
+          "link_dp_ratio": 4,
+          "link_total_ratio": 4,
+          "phase_adjust": 0,
+          "conv_xbar_sel": [0,1,4,5,0,0,0,0,0,0,0,0,0,0,0,0],
+          "lane_xbar": [0,1,2,3,4,5,6,7,15,15,15,15]
+        },
+        {
+          "link_in_use": false,
+          "e_minus1": 0,
+          "bank_id": 0,
+          "dev_id": 0,
+          "base_lane_id": 8,
+          "l_minus1": 0,
+          "f_minus1": 0,
+          "m_minus1": 0,
+          "s_minus1": 0,
+          "high_dens": false,
+          "k_minus1": 0,
+          "n_minus1": 0,
+          "np_minus1": 0,
+          "ns_minus1": 0,
+          "cs": 0,
+          "scr": false,
+          "quick_cfg_en": false,
+          "quick_mode_id": 0,
+          "syncb_in_sel": 0,
+          "syncb_lvds_mode": 0,
+          "fec_enable": false,
+          "async_mode": false,
+          "metword_rev": false,
+          "link_dp_ratio": 0,
+          "link_total_ratio": 0,
+          "phase_adjust": 0,
+          "conv_xbar_sel": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+          "lane_xbar": [0,0,0,0,0,0,0,0,0,0,0,0]
+        }
+      ],
+      "serializer_lane": [
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        },
+        {
+          "ser_amplitude": 0,
+          "ser_pre_emphasis": 0,
+          "ser_post_emphasis": 0,
+          "ser_invert_lane_polarity": false,
+          "lanerate_adapt": 0
+        }
+      ]
+    }
+  ],
+  "jrx": [
+    {
+      "common_link_cfg": {
+        "ver": 1,
+        "subclass": 0,
+        "dual_link": false,
+        "lane_enables": 255,
+        "lane_rate_kHz": 16500000
+      },
+      "rx_link_cfg": [
+        {
+          "link_in_use": true,
+          "e_minus1": 0,
+          "bank_id": 0,
+          "dev_id": 0,
+          "base_lane_id": 0,
+          "l_minus1": 7,
+          "f_minus1": 0,
+          "m_minus1": 3,
+          "s_minus1": 0,
+          "high_dens": true,
+          "k_minus1": 255,
+          "n_minus1": 15,
+          "np_minus1": 15,
+          "ns_minus1": 7,
+          "cs": 0,
+          "scr": true,
+          "quick_cfg_en": true,
+          "quick_mode_id": 47,
+          "syncb_out_sel": 0,
+          "syncb_lvds_mode": 0,
+          "link_dp_ratio": 4,
+          "link_total_ratio": 4,
+          "invalid_data_en": false,
+          "invalid_sample_num": 0,
+          "sample_repeat_en": true,
+          "phase_adjust": 0,
+          "sample_xbar_sel": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+          "lane_xbar": [0,1,2,3,4,5,6,7,15,15,15,15]
+        },
+        {
+          "link_in_use": false,
+          "e_minus1": 0,
+          "bank_id": 0,
+          "dev_id": 0,
+          "base_lane_id": 8,
+          "l_minus1": 0,
+          "f_minus1": 0,
+          "m_minus1": 0,
+          "s_minus1": 0,
+          "high_dens": false,
+          "k_minus1": 0,
+          "n_minus1": 0,
+          "np_minus1": 0,
+          "ns_minus1": 0,
+          "cs": 0,
+          "scr": false,
+          "quick_cfg_en": false,
+          "quick_mode_id": 0,
+          "syncb_out_sel": 0,
+          "syncb_lvds_mode": 0,
+          "link_dp_ratio": 0,
+          "link_total_ratio": 0,
+          "invalid_data_en": false,
+          "invalid_sample_num": 0,
+          "sample_repeat_en": false,
+          "phase_adjust": 0,
+          "sample_xbar_sel": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+          "lane_xbar": [0,0,0,0,0,0,0,0,0,0,0,0]
+        }
+      ],
+      "deserializer_common": {
+        "rx_des_mode": 2,
+        "num_bridging_cals": 0,
+        "sample_xbar_override": false
+      },
+      "deserializer_lane": [
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        }
+      ]
+    },
+    {
+      "common_link_cfg": {
+        "ver": 1,
+        "subclass": 0,
+        "dual_link": false,
+        "lane_enables": 255,
+        "lane_rate_kHz": 16500000
+      },
+      "rx_link_cfg": [
+        {
+          "link_in_use": true,
+          "e_minus1": 0,
+          "bank_id": 0,
+          "dev_id": 0,
+          "base_lane_id": 0,
+          "l_minus1": 7,
+          "f_minus1": 0,
+          "m_minus1": 3,
+          "s_minus1": 0,
+          "high_dens": true,
+          "k_minus1": 255,
+          "n_minus1": 15,
+          "np_minus1": 15,
+          "ns_minus1": 7,
+          "cs": 0,
+          "scr": true,
+          "quick_cfg_en": true,
+          "quick_mode_id": 47,
+          "syncb_out_sel": 0,
+          "syncb_lvds_mode": 0,
+          "link_dp_ratio": 4,
+          "link_total_ratio": 4,
+          "invalid_data_en": false,
+          "invalid_sample_num": 0,
+          "sample_repeat_en": true,
+          "phase_adjust": 0,
+          "sample_xbar_sel": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+          "lane_xbar": [0,1,2,3,4,5,6,7,15,15,15,15]
+        },
+        {
+          "link_in_use": false,
+          "e_minus1": 0,
+          "bank_id": 0,
+          "dev_id": 0,
+          "base_lane_id": 8,
+          "l_minus1": 0,
+          "f_minus1": 0,
+          "m_minus1": 0,
+          "s_minus1": 0,
+          "high_dens": false,
+          "k_minus1": 0,
+          "n_minus1": 0,
+          "np_minus1": 0,
+          "ns_minus1": 0,
+          "cs": 0,
+          "scr": false,
+          "quick_cfg_en": false,
+          "quick_mode_id": 0,
+          "syncb_out_sel": 0,
+          "syncb_lvds_mode": 0,
+          "link_dp_ratio": 0,
+          "link_total_ratio": 0,
+          "invalid_data_en": false,
+          "invalid_sample_num": 0,
+          "sample_repeat_en": false,
+          "phase_adjust": 0,
+          "sample_xbar_sel": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+          "lane_xbar": [0,0,0,0,0,0,0,0,0,0,0,0]
+        }
+      ],
+      "deserializer_common": {
+        "rx_des_mode": 2,
+        "num_bridging_cals": 0,
+        "sample_xbar_override": false
+      },
+      "deserializer_lane": [
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        },
+        {
+          "high_boost_options": 8,
+          "des_inv_lane_pol": false,
+          "lanerate_adapt": 0,
+          "cfg_options": [848,0,0,0,0,0,0,0,0,0],
+          "ctle_filter_mask": 0
+        }
+      ]
+    }
+  ],
+  "dac_cfg": [
+    {
+      "dac_sampling_rate_Hz": 8000000000,
+      "shuffle_en": [true,true,true,true],
+      "scrambler_en": [true,true,true,true],
+      "data_invert_en": [false,false,false,false]
+    },
+    {
+      "dac_sampling_rate_Hz": 8000000000,
+      "shuffle_en": [true,true,true,true],
+      "scrambler_en": [true,true,true,true],
+      "data_invert_en": [false,false,false,false]
+    }
+  ],
+  "adc_cfg": [
+    {
+      "adc_sampling_rate_Hz": 8000000000,
+      "adc_init_cal_type": 0,
+      "adc_init_cal_index": 7,
+      "adc_slice_mode": [6,6,6,6],
+      "adc_track_mode": [1,1,1,1],
+      "full_scale_adj": [0,0,0,0],
+      "inp_coupling_type": [0,0,0,0],
+      "inp_signal_type": [0,0,0,0],
+      "inp_polarity": [0,0,0,0],
+      "slice_mode_switch_cfg": {
+        "switch_type": 0,
+        "trig_gpio_num": 0
+      },
+      "adc_options": [0,0,0,0,0,0,0,0]
+    },
+    {
+      "adc_sampling_rate_Hz": 8000000000,
+      "adc_init_cal_type": 0,
+      "adc_init_cal_index": 7,
+      "adc_slice_mode": [6,6,6,6],
+      "adc_track_mode": [1,1,1,1],
+      "full_scale_adj": [0,0,0,0],
+      "inp_coupling_type": [0,0,0,0],
+      "inp_signal_type": [0,0,0,0],
+      "inp_polarity": [0,0,0,0],
+      "slice_mode_switch_cfg": {
+        "switch_type": 0,
+        "trig_gpio_num": 0
+      },
+      "adc_options": [0,0,0,0,0,0,0,0]
+    }
+  ],
+  "lb0_en": [
+    [false,false],[false,false]
+  ],
+  "serdes_pll": {
+    "loop_bandwidth": 1000000,
+    "phase_margin": 50,
+    "div_range": 0,
+    "div2": 0,
+    "power": 1,
+    "ref_clk_div": 1,
+    "i_bleed_en": 0,
+    "serdes_pll_odiv": 1,
+    "feedback_int": 66,
+    "feedback_frac": 0
+  },
+  "adc_enable": 51,
+  "dac_enable": 255,
+  "reserved_cfg": [0,0,5,0,244,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  "profile_checksum": 3423662247
+}
