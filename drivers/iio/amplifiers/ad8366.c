@@ -5,6 +5,8 @@
  *   AD8366 Dual-Digital Variable Gain Amplifier (VGA)
  *   ADA4961 BiCMOS RF Digital Gain Amplifier (DGA)
  *   ADL5240 Digitally controlled variable gain amplifier (VGA)
+ *   ADRF5702: 0.125 dB LSB, 8-Bit, Silicon Digital Attenuator, 50 MHz to 20 GHz
+ *   ADRF5703: 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator, 9 kHz to 20 GHz
  *   ADRF5720: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator, 9 kHz to 40 GHz
  *   ADRF5730: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
  *   ADRF5731: 2 dB LSB, 4-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
@@ -103,6 +105,22 @@ static const struct ad8366_info adl5240_chip_info = {
 	.gain_min = -11500,
 	.gain_max = 20000,
 	.gain_step = 500,
+	.num_channels = 1,
+};
+
+static const struct ad8366_info adrf5702_chip_info = {
+	.name = "adrf5702",
+	.gain_min = -31875,
+	.gain_max = 0,
+	.gain_step = -125,
+	.num_channels = 1,
+};
+
+static const struct ad8366_info adrf5703_chip_info = {
+	.name = "adrf5703",
+	.gain_min = -31750,
+	.gain_max = 0,
+	.gain_step = -250,
 	.num_channels = 1,
 };
 
@@ -341,6 +359,8 @@ static const struct spi_device_id ad8366_id[] = {
 	{ "ad8366", (kernel_ulong_t)&ad8366_chip_info },
 	{ "ada4961", (kernel_ulong_t)&ada4961_chip_info },
 	{ "adl5240", (kernel_ulong_t)&adl5240_chip_info },
+	{ "adrf5702", (kernel_ulong_t)&adrf5702_chip_info },
+	{ "adrf5703", (kernel_ulong_t)&adrf5703_chip_info },
 	{ "adrf5720", (kernel_ulong_t)&adrf5720_chip_info },
 	{ "adrf5730", (kernel_ulong_t)&adrf5730_chip_info },
 	{ "adrf5731", (kernel_ulong_t)&adrf5731_chip_info },
@@ -357,6 +377,8 @@ static const struct of_device_id ad8366_of_match[] = {
 	{ .compatible = "adi,ad8366", .data = &ad8366_chip_info },
 	{ .compatible = "adi,ada4961", .data = &ada4961_chip_info },
 	{ .compatible = "adi,adl5240", .data = &adl5240_chip_info },
+	{ .compatible = "adi,adrf5702", .data = &adrf5702_chip_info },
+	{ .compatible = "adi,adrf5703", .data = &adrf5703_chip_info },
 	{ .compatible = "adi,adrf5720", .data = &adrf5720_chip_info },
 	{ .compatible = "adi,adrf5730", .data = &adrf5730_chip_info },
 	{ .compatible = "adi,adrf5731", .data = &adrf5731_chip_info },
