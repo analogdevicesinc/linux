@@ -427,23 +427,14 @@ static int amdgpu_userq_map_helper(struct amdgpu_usermode_queue *queue)
 	return r;
 }
 
-static int amdgpu_userq_wait_for_last_fence(struct amdgpu_usermode_queue *queue)
+static void amdgpu_userq_wait_for_last_fence(struct amdgpu_usermode_queue *queue)
 {
-	struct amdgpu_userq_mgr *uq_mgr = queue->userq_mgr;
 	struct dma_fence *f = queue->last_fence;
-	int ret = 0;
 
-	if (f && !dma_fence_is_signaled(f)) {
-		ret = dma_fence_wait_timeout(f, true, MAX_SCHEDULE_TIMEOUT);
-		if (ret <= 0) {
-			drm_file_err(uq_mgr->file, "Timed out waiting for fence=%llu:%llu\n",
-				     f->context, f->seqno);
-			queue->state = AMDGPU_USERQ_STATE_HUNG;
-			return -ETIME;
-		}
-	}
+	if (!f)
+		return;
 
-	return ret;
+	dma_fence_wait(f, false);
 }
 
 static void amdgpu_userq_cleanup(struct amdgpu_usermode_queue *queue)
