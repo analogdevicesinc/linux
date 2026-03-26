@@ -1724,6 +1724,28 @@ static void amdgpu_ttm_init_fw_resv_region(struct amdgpu_device *adev)
 				  reserve_size, false);
 }
 
+static void amdgpu_ttm_init_mem_train_resv_region(struct amdgpu_device *adev)
+{
+	uint64_t reserve_size;
+	uint64_t offset;
+
+	if (!adev->discovery.reserve_tmr)
+		return;
+
+	if (!adev->bios || amdgpu_sriov_vf(adev))
+		return;
+
+	if (!amdgpu_atomfirmware_mem_training_supported(adev))
+		return;
+
+	reserve_size = adev->mman.resv_region[AMDGPU_RESV_FW].size;
+	offset = ALIGN((adev->gmc.mc_vram_size - reserve_size - SZ_1M), SZ_1M);
+	amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_MEM_TRAIN,
+				  offset,
+				  GDDR6_MEM_TRAINING_DATA_SIZE_IN_BYTES,
+				  false);
+}
+
 static void amdgpu_ttm_init_vram_resv_regions(struct amdgpu_device *adev)
 {
 	/* Initialize memory reservations as required for VGA.
@@ -1733,6 +1755,7 @@ static void amdgpu_ttm_init_vram_resv_regions(struct amdgpu_device *adev)
 	 */
 	amdgpu_gmc_init_vga_resv_regions(adev);
 	amdgpu_ttm_init_fw_resv_region(adev);
+	amdgpu_ttm_init_mem_train_resv_region(adev);
 }
 
 int amdgpu_ttm_mark_vram_reserved(struct amdgpu_device *adev,
@@ -1798,19 +1821,18 @@ static int amdgpu_ttm_training_reserve_vram_fini(struct amdgpu_device *adev)
 	return 0;
 }
 
-static void amdgpu_ttm_training_data_block_init(struct amdgpu_device *adev,
-						uint32_t reserve_size)
+static void amdgpu_ttm_training_data_block_init(struct amdgpu_device *adev)
 {
 	struct psp_memory_training_context *ctx = &adev->psp.mem_train_ctx;
+	struct amdgpu_vram_resv *resv =
+			&adev->mman.resv_region[AMDGPU_RESV_MEM_TRAIN];
 
 	memset(ctx, 0, sizeof(*ctx));
 
-	ctx->c2p_train_data_offset =
-		ALIGN((adev->gmc.mc_vram_size - reserve_size - SZ_1M), SZ_1M);
+	ctx->c2p_train_data_offset = resv->offset;
 	ctx->p2c_train_data_offset =
 		(adev->gmc.mc_vram_size - GDDR6_MEM_TRAINING_OFFSET);
-	ctx->train_data_size =
-		GDDR6_MEM_TRAINING_DATA_SIZE_IN_BYTES;
+	ctx->train_data_size = resv->size;
 
 	DRM_DEBUG("train_data_size:%llx,p2c_train_data_offset:%llx,c2p_train_data_offset:%llx.\n",
 			ctx->train_data_size,
@@ -1825,30 +1847,16 @@ static void amdgpu_ttm_training_data_block_init(struct amdgpu_device *adev,
 static int amdgpu_ttm_reserve_tmr(struct amdgpu_device *adev)
 {
 	struct psp_memory_training_context *ctx = &adev->psp.mem_train_ctx;
-	bool mem_train_support = false;
-	uint32_t reserve_size;
 	int ret;
 
-	reserve_size = adev->mman.resv_region[AMDGPU_RESV_FW].size;
-
-	if (adev->bios && !amdgpu_sriov_vf(adev)) {
-		if (amdgpu_atomfirmware_mem_training_supported(adev))
-			mem_train_support = true;
-		else
-			DRM_DEBUG("memory training does not support!\n");
+	ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_MEM_TRAIN);
+	if (ret) {
+		dev_err(adev->dev, "memory training region reservation failed(%d)!\n", ret);
+		return ret;
 	}
 
-	if (mem_train_support) {
-		/* reserve vram for mem train according to TMR location */
-		amdgpu_ttm_training_data_block_init(adev, reserve_size);
-		amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_MEM_TRAIN,
-					  ctx->c2p_train_data_offset,
-					  ctx->train_data_size, false);
-		ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_MEM_TRAIN);
-		if (ret) {
-			dev_err(adev->dev, "memory training region reservation failed(%d)!\n", ret);
-			return ret;
-		}
+	if (adev->mman.resv_region[AMDGPU_RESV_MEM_TRAIN].size) {
+		amdgpu_ttm_training_data_block_init(adev);
 		ctx->init = PSP_MEM_TRAIN_RESERVE_SUCCESS;
 	}
 
