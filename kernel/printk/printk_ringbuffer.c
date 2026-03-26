@@ -1308,8 +1308,11 @@ static const char *get_data(struct prb_data_ring *data_ring,
 		return NULL;
 	}
 
-	/* A valid data block will always have at least an ID. */
-	if (WARN_ON_ONCE(*data_size < sizeof(db->id)))
+	/*
+	 * A regular data block will always have an ID and at least
+	 * 1 byte of data. Data-less blocks were handled earlier.
+	 */
+	if (WARN_ON_ONCE(*data_size <= sizeof(db->id)))
 		return NULL;
 
 	/* Subtract block ID space from size to reflect data size. */
