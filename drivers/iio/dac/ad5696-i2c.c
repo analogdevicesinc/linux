@@ -75,10 +75,12 @@ static int ad5686_i2c_probe(struct i2c_client *i2c)
 
 static const struct i2c_device_id ad5686_i2c_id[] = {
 	{ "ad5311r",  (kernel_ulong_t)&ad5311r_chip_info },
+	{ "ad5316r",  (kernel_ulong_t)&ad5317r_chip_info },
 	{ "ad5337r",  (kernel_ulong_t)&ad5337r_chip_info },
 	{ "ad5338r",  (kernel_ulong_t)&ad5338r_chip_info },
 	{ "ad5671r",  (kernel_ulong_t)&ad5672r_chip_info },
 	{ "ad5673r",  (kernel_ulong_t)&ad5674r_chip_info },
+	{ "ad5675",   (kernel_ulong_t)&ad5676_chip_info },
 	{ "ad5675r",  (kernel_ulong_t)&ad5676r_chip_info },
 	{ "ad5677r",  (kernel_ulong_t)&ad5679r_chip_info },
 	{ "ad5691r",  (kernel_ulong_t)&ad5681r_chip_info },
@@ -90,16 +92,19 @@ static const struct i2c_device_id ad5686_i2c_id[] = {
 	{ "ad5695r",  (kernel_ulong_t)&ad5685r_chip_info },
 	{ "ad5696",   (kernel_ulong_t)&ad5686_chip_info },
 	{ "ad5696r",  (kernel_ulong_t)&ad5686r_chip_info },
+	{ "ad5697r",  (kernel_ulong_t)&ad5687r_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, ad5686_i2c_id);
 
 static const struct of_device_id ad5686_of_match[] = {
 	{ .compatible = "adi,ad5311r", .data = &ad5311r_chip_info },
+	{ .compatible = "adi,ad5316r", .data = &ad5317r_chip_info },
 	{ .compatible = "adi,ad5337r", .data = &ad5337r_chip_info },
 	{ .compatible = "adi,ad5338r", .data = &ad5338r_chip_info },
 	{ .compatible = "adi,ad5671r", .data = &ad5672r_chip_info },
 	{ .compatible = "adi,ad5673r", .data = &ad5674r_chip_info },
+	{ .compatible = "adi,ad5675",  .data = &ad5676_chip_info },
 	{ .compatible = "adi,ad5675r", .data = &ad5676r_chip_info },
 	{ .compatible = "adi,ad5677r", .data = &ad5679r_chip_info },
 	{ .compatible = "adi,ad5691r", .data = &ad5681r_chip_info },
@@ -111,6 +116,7 @@ static const struct of_device_id ad5686_of_match[] = {
 	{ .compatible = "adi,ad5695r", .data = &ad5685r_chip_info },
 	{ .compatible = "adi,ad5696",  .data = &ad5686_chip_info },
 	{ .compatible = "adi,ad5696r", .data = &ad5686r_chip_info },
+	{ .compatible = "adi,ad5697r", .data = &ad5687r_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad5686_of_match);
