@@ -1748,6 +1748,8 @@ static void amdgpu_ttm_init_mem_train_resv_region(struct amdgpu_device *adev)
 
 static void amdgpu_ttm_init_vram_resv_regions(struct amdgpu_device *adev)
 {
+	uint64_t vram_size = adev->gmc.visible_vram_size;
+
 	/* Initialize memory reservations as required for VGA.
 	 * This is used for VGA emulation and pre-OS scanout buffers to
 	 * avoid display artifacts while transitioning between pre-OS
@@ -1756,6 +1758,12 @@ static void amdgpu_ttm_init_vram_resv_regions(struct amdgpu_device *adev)
 	amdgpu_gmc_init_vga_resv_regions(adev);
 	amdgpu_ttm_init_fw_resv_region(adev);
 	amdgpu_ttm_init_mem_train_resv_region(adev);
+
+	if (adev->mman.resv_region[AMDGPU_RESV_FW_VRAM_USAGE].size > vram_size)
+		adev->mman.resv_region[AMDGPU_RESV_FW_VRAM_USAGE].size = 0;
+
+	if (adev->mman.resv_region[AMDGPU_RESV_DRV_VRAM_USAGE].size > vram_size)
+		adev->mman.resv_region[AMDGPU_RESV_DRV_VRAM_USAGE].size = 0;
 }
 
 int amdgpu_ttm_mark_vram_reserved(struct amdgpu_device *adev,
@@ -2122,27 +2130,17 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 	 *The reserved vram for firmware must be pinned to the specified
 	 *place on the VRAM, so reserve it early.
 	 */
-	if (adev->mman.resv_region[AMDGPU_RESV_FW_VRAM_USAGE].size >
-	    adev->gmc.visible_vram_size) {
-		adev->mman.resv_region[AMDGPU_RESV_FW_VRAM_USAGE].size = 0;
-	} else {
-		r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW_VRAM_USAGE);
-		if (r)
-			return r;
-	}
+	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW_VRAM_USAGE);
+	if (r)
+		return r;
 
 	/*
 	 * The reserved VRAM for the driver must be pinned to a specific
 	 * location in VRAM, so reserve it early.
 	 */
-	if (adev->mman.resv_region[AMDGPU_RESV_DRV_VRAM_USAGE].size >
-	    adev->gmc.visible_vram_size) {
-		adev->mman.resv_region[AMDGPU_RESV_DRV_VRAM_USAGE].size = 0;
-	} else {
-		r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_DRV_VRAM_USAGE);
-		if (r)
-			return r;
-	}
+	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_DRV_VRAM_USAGE);
+	if (r)
+		return r;
 
 	/*
 	 * only NAVI10 and later ASICs support IP discovery.
