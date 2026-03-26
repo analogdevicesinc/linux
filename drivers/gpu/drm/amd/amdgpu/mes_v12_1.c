@@ -626,7 +626,7 @@ static int mes_v12_1_set_hw_resources_1(struct amdgpu_mes *mes,
 	   to distribute some tasks on individual XCCs*/
 	if (mes->enable_coop_mode &&
 	    ((pipe == AMDGPU_MES_SCHED_PIPE) ||
-	    ((mes->sched_version & AMDGPU_MES_VERSION_MASK) >= 0x74))) {
+	    ((mes->kiq_version & AMDGPU_MES_VERSION_MASK) >= 0x74))) {
 		master_xcc_id = mes->master_xcc_ids[inst];
 		mes_set_hw_res_1_pkt.mes_coop_mode = 1;
 		mes_set_hw_res_1_pkt.coop_sch_shared_mc_addr =
@@ -641,7 +641,7 @@ static int mes_v12_1_set_hw_resources_1(struct amdgpu_mes *mes,
 static int mes_v12_1_set_hw_resources(struct amdgpu_mes *mes,
 					int pipe, int xcc_id)
 {
-	int i;
+	int i, status;
 	struct amdgpu_device *adev = mes->adev;
 	union MESAPI_SET_HW_RESOURCES mes_set_hw_res_pkt;
 
@@ -711,9 +711,23 @@ static int mes_v12_1_set_hw_resources(struct amdgpu_mes *mes,
 	if (adev->enforce_isolation[0] == AMDGPU_ENFORCE_ISOLATION_ENABLE)
 		mes_set_hw_res_pkt.limit_single_process = 1;
 
-	return mes_v12_1_submit_pkt_and_poll_completion(mes, xcc_id, pipe,
+	status = mes_v12_1_submit_pkt_and_poll_completion(mes, xcc_id, pipe,
 			&mes_set_hw_res_pkt, sizeof(mes_set_hw_res_pkt),
 			offsetof(union MESAPI_SET_HW_RESOURCES, api_status));
+
+	/* get MES scheduler versions */
+	mutex_lock(&adev->srbm_mutex);
+	soc_v1_0_grbm_select(adev, 3, pipe, 0, 0, GET_INST(GC, xcc_id));
+
+	if (pipe == AMDGPU_MES_SCHED_PIPE)
+		adev->mes.sched_version = RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_MES_GP3_LO);
+	else if (pipe == AMDGPU_MES_KIQ_PIPE && adev->enable_mes_kiq)
+		adev->mes.kiq_version = RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_MES_GP3_LO);
+
+	soc_v1_0_grbm_select(adev, 0, 0, 0, 0, GET_INST(GC, xcc_id));
+	mutex_unlock(&adev->srbm_mutex);
+
+	return status;
 }
 
 static void mes_v12_1_init_aggregated_doorbell(struct amdgpu_mes *mes,
@@ -1397,18 +1411,6 @@ static int mes_v12_1_queue_init(struct amdgpu_device *adev,
 	} else {
 		mes_v12_1_queue_init_register(ring, xcc_id);
 	}
-
-	/* get MES scheduler/KIQ versions */
-	mutex_lock(&adev->srbm_mutex);
-	soc_v1_0_grbm_select(adev, 3, pipe, 0, 0, GET_INST(GC, xcc_id));
-
-	if (pipe == AMDGPU_MES_SCHED_PIPE)
-		adev->mes.sched_version = RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_MES_GP3_LO);
-	else if (pipe == AMDGPU_MES_KIQ_PIPE && adev->enable_mes_kiq)
-		adev->mes.kiq_version = RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_MES_GP3_LO);
-
-	soc_v1_0_grbm_select(adev, 0, 0, 0, 0, GET_INST(GC, xcc_id));
-	mutex_unlock(&adev->srbm_mutex);
 
 	return 0;
 }
