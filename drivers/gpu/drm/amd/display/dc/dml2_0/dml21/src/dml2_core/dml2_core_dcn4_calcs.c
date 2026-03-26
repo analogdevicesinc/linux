@@ -7503,7 +7503,6 @@ static noinline_for_stack void dml_core_ms_prefetch_check(struct dml2_core_inter
 			CalculatePrefetchSchedule_params->DynamicMetadataVMEnabled = mode_lib->ip.dynamic_metadata_vm_enabled;
 			CalculatePrefetchSchedule_params->DynamicMetadataLinesBeforeActiveRequired = display_cfg->plane_descriptors[k].dynamic_meta_data.lines_before_active_required;
 			CalculatePrefetchSchedule_params->DynamicMetadataTransmittedBytes = display_cfg->plane_descriptors[k].dynamic_meta_data.transmitted_bytes;
-			CalculatePrefetchSchedule_params->UrgentLatency = mode_lib->ms.UrgLatency;
 			CalculatePrefetchSchedule_params->ExtraLatencyPrefetch = mode_lib->ms.ExtraLatencyPrefetch;
 			CalculatePrefetchSchedule_params->TCalc = mode_lib->ms.TimeCalc;
 			CalculatePrefetchSchedule_params->vm_bytes = mode_lib->ms.vm_bytes[k];
@@ -11292,7 +11291,6 @@ static bool dml_core_mode_programming(struct dml2_core_calcs_mode_programming_ex
 			CalculatePrefetchSchedule_params->DynamicMetadataVMEnabled = mode_lib->ip.dynamic_metadata_vm_enabled;
 			CalculatePrefetchSchedule_params->DynamicMetadataLinesBeforeActiveRequired = display_cfg->plane_descriptors[k].dynamic_meta_data.lines_before_active_required;
 			CalculatePrefetchSchedule_params->DynamicMetadataTransmittedBytes = display_cfg->plane_descriptors[k].dynamic_meta_data.transmitted_bytes;
-			CalculatePrefetchSchedule_params->UrgentLatency = mode_lib->mp.UrgentLatency;
 			CalculatePrefetchSchedule_params->ExtraLatencyPrefetch = mode_lib->mp.ExtraLatencyPrefetch;
 			CalculatePrefetchSchedule_params->TCalc = mode_lib->mp.TCalc;
 			CalculatePrefetchSchedule_params->vm_bytes = mode_lib->mp.vm_bytes[k];

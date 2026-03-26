@@ -1931,7 +1931,6 @@ struct dml2_core_calcs_CalculatePrefetchSchedule_params {
 	bool DynamicMetadataVMEnabled;
 	unsigned int DynamicMetadataLinesBeforeActiveRequired;
 	unsigned int DynamicMetadataTransmittedBytes;
-	double UrgentLatency;
 	double ExtraLatencyPrefetch;
 	double TCalc;
 	unsigned int vm_bytes;
