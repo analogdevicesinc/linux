@@ -786,3 +786,11 @@ bool dml2_core_utils_is_odm_split(enum dml2_odm_mode odm_mode)
 		return false;
 	}
 }
+
+double dml2_core_utils_get_frame_time_us(const struct dml2_stream_parameters *stream)
+{
+	double otg_vline_time_us = (double)stream->timing.h_total / (double)stream->timing.pixel_clock_khz * 1000.0;
+	double non_vtotal = stream->timing.vblank_nom + stream->timing.v_active;
+	double frame_time_us = non_vtotal * otg_vline_time_us;
+	return frame_time_us;
+}

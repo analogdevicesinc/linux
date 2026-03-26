@@ -269,6 +269,9 @@ struct dml2_core_internal_mode_support_info {
 	bool global_dram_clock_change_supported;
 	bool global_fclk_change_supported;
 	bool global_temp_read_or_ppt_supported;
+	bool fclk_pstate_schedule_admissible;
+	bool temp_read_pstate_schedule_admissible;
+	bool ppt_pstate_schedule_admissible;
 	bool USRRetrainingSupport;
 	bool AvgBandwidthSupport;
 	bool UrgVactiveBandwidthSupport;
@@ -1063,6 +1066,8 @@ struct dml2_core_calcs_mode_support_locals {
 	bool dummy_boolean_array[2][DML2_MAX_PLANES];
 	double dummy_single[3];
 	double dummy_single_array[DML2_MAX_PLANES];
+	double dummy_double_array[3][DML2_MAX_PLANES];
+	enum dml2_pstate_method dummy_pstate_method_array[DML2_MAX_PLANES];
 	struct dml2_core_internal_watermarks dummy_watermark;
 	double dummy_bw[dml2_core_internal_soc_state_max][dml2_core_internal_bw_max];
 	double surface_dummy_bw[dml2_core_internal_soc_state_max][dml2_core_internal_bw_max][DML2_MAX_PLANES];
