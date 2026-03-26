@@ -18,6 +18,8 @@ config AD8366
 	    AD8366 Dual-Digital Variable Gain Amplifier (VGA)
 	    ADA4961 BiCMOS RF Digital Gain Amplifier (DGA)
 	    ADL5240 Digitally controlled variable gain amplifier (VGA)
+	    ADRF5702: 0.125 dB LSB, 8-Bit, Silicon Digital Attenuator
+	    ADRF5703: 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator
 	    ADRF5720: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator
 	    ADRF5730: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator
 	    ADRF5731: 2 dB LSB, 4-Bit, Silicon Digital Attenuator
