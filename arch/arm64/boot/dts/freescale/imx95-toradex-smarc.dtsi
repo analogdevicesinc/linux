@@ -451,6 +451,13 @@
 			"",
 			"",
 			"SMARC_SDIO_WP";
+
+		wifi-uart-en-hog {
+			gpio-hog;
+			gpios = <12 GPIO_ACTIVE_HIGH>;
+			line-name = "WIFI_UART_EN";
+			output-high;
+		};
 	};
 
 	embedded-controller@28 {
