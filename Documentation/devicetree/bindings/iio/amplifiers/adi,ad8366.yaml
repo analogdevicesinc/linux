@@ -20,6 +20,8 @@ properties:
       - adi,ad8366
       - adi,ada4961
       - adi,adl5240
+      - adi,adrf5702
+      - adi,adrf5703
       - adi,adrf5720
       - adi,adrf5730
       - adi,adrf5731
@@ -66,6 +68,8 @@ allOf:
               anyOf:
                 - const: adi,ad8366
                 - const: adi,ada4961
+                - const: adi,adrf5702
+                - const: adi,adrf5703
                 - const: adi,adrf5720
                 - const: adi,adrf5730
                 - const: adi,adrf5731
