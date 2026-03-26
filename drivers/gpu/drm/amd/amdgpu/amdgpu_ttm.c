@@ -1783,7 +1783,8 @@ int amdgpu_ttm_mark_vram_reserved(struct amdgpu_device *adev,
 					 &resv->bo,
 					 resv->needs_cpu_map ? &resv->cpu_ptr : NULL);
 	if (ret) {
-		dev_dbg(adev->dev, "reserve vram failed: id=%d offset=0x%llx size=0x%llx ret=%d\n",
+		dev_err(adev->dev,
+			"reserve vram failed: id=%d offset=0x%llx size=0x%llx ret=%d\n",
 			id, resv->offset, resv->size, ret);
 		memset(resv, 0, sizeof(*resv));
 	}
@@ -1806,6 +1807,24 @@ void amdgpu_ttm_unmark_vram_reserved(struct amdgpu_device *adev,
 	amdgpu_bo_free_kernel(&resv->bo, NULL,
 			      resv->needs_cpu_map ? &resv->cpu_ptr : NULL);
 	memset(resv, 0, sizeof(*resv));
+}
+
+/*
+ * Reserve all regions with non-zero size. Regions whose info is not
+ * yet available (e.g., fw extended region) may still be reserved
+ * during runtime.
+ */
+static int amdgpu_ttm_alloc_vram_resv_regions(struct amdgpu_device *adev)
+{
+	int i, r;
+
+	for (i = 0; i < AMDGPU_RESV_MAX; i++) {
+		r = amdgpu_ttm_mark_vram_reserved(adev, i);
+		if (r)
+			return r;
+	}
+
+	return 0;
 }
 
 /*
@@ -1846,35 +1865,6 @@ static void amdgpu_ttm_training_data_block_init(struct amdgpu_device *adev)
 			ctx->train_data_size,
 			ctx->p2c_train_data_offset,
 			ctx->c2p_train_data_offset);
-}
-
-/*
- * reserve TMR memory at the top of VRAM which holds
- * IP Discovery data and is protected by PSP.
- */
-static int amdgpu_ttm_reserve_tmr(struct amdgpu_device *adev)
-{
-	struct psp_memory_training_context *ctx = &adev->psp.mem_train_ctx;
-	int ret;
-
-	ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_MEM_TRAIN);
-	if (ret) {
-		dev_err(adev->dev, "memory training region reservation failed(%d)!\n", ret);
-		return ret;
-	}
-
-	if (adev->mman.resv_region[AMDGPU_RESV_MEM_TRAIN].size) {
-		amdgpu_ttm_training_data_block_init(adev);
-		ctx->init = PSP_MEM_TRAIN_RESERVE_SUCCESS;
-	}
-
-	ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW);
-	if (ret) {
-		dev_err(adev->dev, "alloc tmr failed(%d)!\n", ret);
-		return ret;
-	}
-
-	return 0;
 }
 
 static int amdgpu_ttm_pools_init(struct amdgpu_device *adev)
@@ -2126,44 +2116,17 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 
 	amdgpu_ttm_init_vram_resv_regions(adev);
 
-	/*
-	 *The reserved vram for firmware must be pinned to the specified
-	 *place on the VRAM, so reserve it early.
-	 */
-	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW_VRAM_USAGE);
+	r = amdgpu_ttm_alloc_vram_resv_regions(adev);
 	if (r)
 		return r;
 
-	/*
-	 * The reserved VRAM for the driver must be pinned to a specific
-	 * location in VRAM, so reserve it early.
-	 */
-	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_DRV_VRAM_USAGE);
-	if (r)
-		return r;
+	if (adev->mman.resv_region[AMDGPU_RESV_MEM_TRAIN].size) {
+		struct psp_memory_training_context *ctx =
+					&adev->psp.mem_train_ctx;
 
-	/*
-	 * only NAVI10 and later ASICs support IP discovery.
-	 * If IP discovery is enabled, a block of memory should be
-	 * reserved for it.
-	 */
-	if (adev->discovery.reserve_tmr) {
-		r = amdgpu_ttm_reserve_tmr(adev);
-		if (r)
-			return r;
+		amdgpu_ttm_training_data_block_init(adev);
+		ctx->init = PSP_MEM_TRAIN_RESERVE_SUCCESS;
 	}
-
-	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_VGA);
-	if (r)
-		return r;
-
-	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_EXTENDED);
-	if (r)
-		return r;
-
-	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_RESERVED);
-	if (r)
-		return r;
 
 	dev_info(adev->dev, " %uM of VRAM memory ready\n",
 		 (unsigned int)(adev->gmc.real_vram_size / (1024 * 1024)));
