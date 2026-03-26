@@ -1687,6 +1687,43 @@ void amdgpu_ttm_init_vram_resv(struct amdgpu_device *adev,
 	resv->needs_cpu_map = needs_cpu_map;
 }
 
+static void amdgpu_ttm_init_fw_resv_region(struct amdgpu_device *adev)
+{
+	uint32_t reserve_size = 0;
+
+	if (!adev->discovery.reserve_tmr)
+		return;
+
+	/*
+	 * Query reserved tmr size through atom firmwareinfo for Sienna_Cichlid and onwards for all
+	 * the use cases (IP discovery/G6 memory training/profiling/diagnostic data.etc)
+	 *
+	 * Otherwise, fallback to legacy approach to check and reserve tmr block for ip
+	 * discovery data and G6 memory training data respectively
+	 */
+	if (adev->bios)
+		reserve_size =
+			amdgpu_atomfirmware_get_fw_reserved_fb_size(adev);
+
+	if (!adev->bios &&
+	    (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 3) ||
+	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 4) ||
+	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 5, 0)))
+		reserve_size = max(reserve_size, (uint32_t)280 << 20);
+	else if (!adev->bios &&
+		 amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0)) {
+		if (hweight32(adev->aid_mask) == 1)
+			reserve_size = max(reserve_size, (uint32_t)128 << 20);
+		else
+			reserve_size = max(reserve_size, (uint32_t)144 << 20);
+	} else if (!reserve_size)
+		reserve_size = DISCOVERY_TMR_OFFSET;
+
+	amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW,
+				  adev->gmc.real_vram_size - reserve_size,
+				  reserve_size, false);
+}
+
 static void amdgpu_ttm_init_vram_resv_regions(struct amdgpu_device *adev)
 {
 	/* Initialize memory reservations as required for VGA.
@@ -1695,6 +1732,7 @@ static void amdgpu_ttm_init_vram_resv_regions(struct amdgpu_device *adev)
 	 * and driver.
 	 */
 	amdgpu_gmc_init_vga_resv_regions(adev);
+	amdgpu_ttm_init_fw_resv_region(adev);
 }
 
 int amdgpu_ttm_mark_vram_reserved(struct amdgpu_device *adev,
@@ -1788,8 +1826,10 @@ static int amdgpu_ttm_reserve_tmr(struct amdgpu_device *adev)
 {
 	struct psp_memory_training_context *ctx = &adev->psp.mem_train_ctx;
 	bool mem_train_support = false;
-	uint32_t reserve_size = 0;
+	uint32_t reserve_size;
 	int ret;
+
+	reserve_size = adev->mman.resv_region[AMDGPU_RESV_FW].size;
 
 	if (adev->bios && !amdgpu_sriov_vf(adev)) {
 		if (amdgpu_atomfirmware_mem_training_supported(adev))
@@ -1797,31 +1837,6 @@ static int amdgpu_ttm_reserve_tmr(struct amdgpu_device *adev)
 		else
 			DRM_DEBUG("memory training does not support!\n");
 	}
-
-	/*
-	 * Query reserved tmr size through atom firmwareinfo for Sienna_Cichlid and onwards for all
-	 * the use cases (IP discovery/G6 memory training/profiling/diagnostic data.etc)
-	 *
-	 * Otherwise, fallback to legacy approach to check and reserve tmr block for ip
-	 * discovery data and G6 memory training data respectively
-	 */
-	if (adev->bios)
-		reserve_size =
-			amdgpu_atomfirmware_get_fw_reserved_fb_size(adev);
-
-	if (!adev->bios &&
-	    (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 3) ||
-	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 4) ||
-	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 5, 0)))
-		reserve_size = max(reserve_size, (uint32_t)280 << 20);
-	else if (!adev->bios && 
-		 amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0)) {
-		if (hweight32(adev->aid_mask) == 1)
-			reserve_size = max(reserve_size, (uint32_t)128 << 20);
-		else
-			reserve_size = max(reserve_size, (uint32_t)144 << 20);
-	} else if (!reserve_size)
-		reserve_size = DISCOVERY_TMR_OFFSET;
 
 	if (mem_train_support) {
 		/* reserve vram for mem train according to TMR location */
@@ -1837,9 +1852,6 @@ static int amdgpu_ttm_reserve_tmr(struct amdgpu_device *adev)
 		ctx->init = PSP_MEM_TRAIN_RESERVE_SUCCESS;
 	}
 
-	amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW,
-				  adev->gmc.real_vram_size - reserve_size,
-				  reserve_size, false);
 	ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW);
 	if (ret) {
 		dev_err(adev->dev, "alloc tmr failed(%d)!\n", ret);
