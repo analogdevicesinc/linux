@@ -10,6 +10,6 @@
  * Copyright (C) 2026 Analog Devices Inc.
  */
 
-#define DEVICE_PROFILE_NAME     "204C_M4_L1_NP16_20p0_16x4.bin"
+#define DEVICE_PROFILE_NAME     "204C_M4_L1_NP16_20p0_4x16.bin"
 
 #include "versal-vpk180-reva-ad9084.dts"
