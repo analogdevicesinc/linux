@@ -46,6 +46,7 @@
  * provided by the Intel VSEC driver.
  */
 
+#include <linux/align.h>
 #include <linux/auxiliary_bus.h>
 #include <linux/bitfield.h>
 #include <linux/debugfs.h>
@@ -478,6 +479,9 @@ static ssize_t mem_write(struct file *file, const char __user *userbuf, size_t l
 	punit = array[1];
 	addr = array[2];
 	value = array[3];
+
+	if (!IS_ALIGNED(addr, sizeof(u32)))
+		return -EINVAL;
 
 	if (punit >= pfs->pfs_header.num_entries) {
 		ret = -EINVAL;
