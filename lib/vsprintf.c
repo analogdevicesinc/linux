@@ -2856,6 +2856,7 @@ static unsigned long long convert_num_spec(unsigned int val, int size, struct pr
 int vsnprintf(char *buf, size_t size, const char *fmt_str, va_list args)
 {
 	char *str, *end;
+	size_t ret_size;
 	struct printf_spec spec = {0};
 	struct fmt fmt = {
 		.str = fmt_str,
@@ -2975,8 +2976,12 @@ out:
 	}
 
 	/* the trailing null byte doesn't count towards the total */
-	return str-buf;
+	ret_size = str - buf;
 
+	/* Make sure the return value is within the positive integer range */
+	if (WARN_ON_ONCE(ret_size > INT_MAX))
+		ret_size = INT_MAX;
+	return ret_size;
 }
 EXPORT_SYMBOL(vsnprintf);
 
@@ -3280,6 +3285,7 @@ int bstr_printf(char *buf, size_t size, const char *fmt_str, const u32 *bin_buf)
 	struct printf_spec spec = {0};
 	char *str, *end;
 	const char *args = (const char *)bin_buf;
+	size_t ret_size;
 
 	if (WARN_ON_ONCE(size > INT_MAX))
 		return 0;
@@ -3428,7 +3434,12 @@ out:
 #undef get_arg
 
 	/* the trailing null byte doesn't count towards the total */
-	return str - buf;
+	ret_size =  str - buf;
+
+	/* Make sure the return value is within the positive integer range */
+	if (WARN_ON_ONCE(ret_size > INT_MAX))
+		ret_size = INT_MAX;
+	return ret_size;
 }
 EXPORT_SYMBOL_GPL(bstr_printf);
 
