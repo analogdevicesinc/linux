@@ -4340,6 +4340,53 @@ static int axienet_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 		return 0;
 	}
 
+	/*
+	 * For SGMII fixed-link: disable Clause 37 AN on both the Xilinx PCS
+	 * and the ADIN1320 external PHY SerDes.  The ADIN1320 always enables
+	 * SGMII AN via hardware strapping, so it must be disabled in software.
+	 *
+	 * ADIN1320 extended registers are accessed via the proprietary pointer
+	 * mechanism: write address to CL22 reg 16, then read/write CL22 reg 17.
+	 *
+	 * No GE reset (0xFF0C) — it re-latches strapping pins and re-enables AN.
+	 */
+#if 1
+	if (interface == PHY_INTERFACE_MODE_SGMII) {
+		struct mii_bus *bus = pcs_phy->bus;
+		int adin_addr = 8;
+		int val;
+
+		/* Disable AN on Xilinx PCS, force 1000M FD */
+		mdiodev_write(pcs_phy, MII_BMCR, BMCR_SPEED1000 | BMCR_FULLDPLX);
+		netdev_info(ndev, "PCS: disabled SGMII AN, forced 1000M FD\n");
+
+		/* ADIN1320: GE_SD_CFG (0xFF53) = 0x0001: SGMII on, AN off */
+		mdiobus_write(bus, adin_addr, 0x10, 0xFF53);
+		mdiobus_write(bus, adin_addr, 0x11, 0x0001);
+
+		/* Verify GE_SD_CFG was written */
+		mdiobus_write(bus, adin_addr, 0x10, 0xFF53);
+		val = mdiobus_read(bus, adin_addr, 0x11);
+		if (val != 0x0001)
+			netdev_warn(ndev, "ADIN1320: GE_SD_CFG readback 0x%04x (expected 0x0001)\n", val);
+
+		/* ADIN1320: SD_CONTROL (0xFC00) = 0x2040: AN off, 1000M FD */
+		mdiobus_write(bus, adin_addr, 0x10, 0xFC00);
+		mdiobus_write(bus, adin_addr, 0x11, 0x2040);
+
+		/* ADIN1320: SerDes reset to re-lock CDR */
+		mdiobus_write(bus, adin_addr, 0x10, 0xFC00);
+		mdiobus_write(bus, adin_addr, 0x11, 0xA040);
+
+		/* Verify SD_STATUS (0xFC01) link bit after reset */
+		usleep_range(2000, 5000);
+		mdiobus_write(bus, adin_addr, 0x10, 0xFC01);
+		val = mdiobus_read(bus, adin_addr, 0x11);
+		netdev_info(ndev, "ADIN1320: SGMII AN disabled, SD_STATUS=0x%04x%s\n",
+			    val, (val & BIT(2)) ? " (link up)" : " (link down)");
+	}
+#endif
+
 	ret = phylink_mii_c22_pcs_config(pcs_phy, interface, advertising,
 					 neg_mode);
 	if (ret < 0)
