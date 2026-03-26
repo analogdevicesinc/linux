@@ -1704,7 +1704,7 @@ load_root:
 	sb->s_root = d_make_root(inode);
 	if (!sb->s_root) {
 		err = -ENOMEM;
-		goto put_inode_out;
+		goto out;
 	}
 
 	if (boot2) {
