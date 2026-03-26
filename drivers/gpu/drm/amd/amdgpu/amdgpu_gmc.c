@@ -1033,9 +1033,12 @@ void amdgpu_gmc_set_vm_fault_masks(struct amdgpu_device *adev, int hub_type,
 	}
 }
 
-void amdgpu_gmc_get_vbios_allocations(struct amdgpu_device *adev)
+void amdgpu_gmc_init_vga_resv_regions(struct amdgpu_device *adev)
 {
 	unsigned size;
+
+	if (adev->gmc.is_app_apu)
+		return;
 
 	/*
 	 * Some ASICs need to reserve a region of video memory to avoid access

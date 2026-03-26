@@ -1687,6 +1687,16 @@ void amdgpu_ttm_init_vram_resv(struct amdgpu_device *adev,
 	resv->needs_cpu_map = needs_cpu_map;
 }
 
+static void amdgpu_ttm_init_vram_resv_regions(struct amdgpu_device *adev)
+{
+	/* Initialize memory reservations as required for VGA.
+	 * This is used for VGA emulation and pre-OS scanout buffers to
+	 * avoid display artifacts while transitioning between pre-OS
+	 * and driver.
+	 */
+	amdgpu_gmc_init_vga_resv_regions(adev);
+}
+
 int amdgpu_ttm_mark_vram_reserved(struct amdgpu_device *adev,
 				  enum amdgpu_resv_region_id id)
 {
@@ -2086,6 +2096,8 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 				adev->gmc.visible_vram_size);
 #endif
 
+	amdgpu_ttm_init_vram_resv_regions(adev);
+
 	/*
 	 *The reserved vram for firmware must be pinned to the specified
 	 *place on the VRAM, so reserve it early.
@@ -2123,26 +2135,17 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 			return r;
 	}
 
-	/* allocate memory as required for VGA
-	 * This is used for VGA emulation and pre-OS scanout buffers to
-	 * avoid display artifacts while transitioning between pre-OS
-	 * and driver.
-	 */
-	if (!adev->gmc.is_app_apu) {
-		r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_VGA);
-		if (r)
-			return r;
+	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_VGA);
+	if (r)
+		return r;
 
-		r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_EXTENDED);
-		if (r)
-			return r;
+	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_EXTENDED);
+	if (r)
+		return r;
 
-		r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_RESERVED);
-		if (r)
-			return r;
-	} else {
-		DRM_DEBUG_DRIVER("Skipped stolen memory reservation\n");
-	}
+	r = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_STOLEN_RESERVED);
+	if (r)
+		return r;
 
 	dev_info(adev->dev, " %uM of VRAM memory ready\n",
 		 (unsigned int)(adev->gmc.real_vram_size / (1024 * 1024)));
