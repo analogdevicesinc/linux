@@ -967,11 +967,7 @@ static void spinand_cont_read_init(struct spinand_device *spinand)
 	enum nand_ecc_engine_type engine_type = nand->ecc.ctx.conf.engine_type;
 
 	/* OOBs cannot be retrieved so external/on-host ECC engine won't work */
-	if (spinand->set_cont_read &&
-	    (engine_type == NAND_ECC_ENGINE_TYPE_ON_DIE ||
-	     engine_type == NAND_ECC_ENGINE_TYPE_NONE)) {
-		spinand->cont_read_possible = true;
-
+	if (spinand->set_cont_read) {
 		/*
 		 * Ensure continuous read is disabled on probe.
 		 * Some devices retain this state across soft reset,
@@ -979,6 +975,10 @@ static void spinand_cont_read_init(struct spinand_device *spinand)
 		 * in false positive returns from spinand_isbad().
 		 */
 		spinand_cont_read_enable(spinand, false);
+
+		if (engine_type == NAND_ECC_ENGINE_TYPE_ON_DIE ||
+		    engine_type == NAND_ECC_ENGINE_TYPE_NONE)
+			spinand->cont_read_possible = true;
 	}
 }
 
