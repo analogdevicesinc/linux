@@ -1462,17 +1462,16 @@ int amdgpu_userq_start_sched_for_enforce_isolation(struct amdgpu_device *adev,
 	return ret;
 }
 
-int amdgpu_userq_gem_va_unmap_validate(struct amdgpu_device *adev,
-				       struct amdgpu_bo_va_mapping *mapping,
-				       uint64_t saddr)
+void amdgpu_userq_gem_va_unmap_validate(struct amdgpu_device *adev,
+					struct amdgpu_bo_va_mapping *mapping,
+					uint64_t saddr)
 {
 	u32 ip_mask = amdgpu_userq_get_supported_ip_mask(adev);
 	struct amdgpu_bo_va *bo_va = mapping->bo_va;
 	struct dma_resv *resv = bo_va->base.bo->tbo.base.resv;
-	int ret = 0;
 
 	if (!ip_mask)
-		return 0;
+		return;
 
 	dev_warn_once(adev->dev, "now unmapping a vital queue va:%llx\n", saddr);
 	/**
@@ -1483,14 +1482,8 @@ int amdgpu_userq_gem_va_unmap_validate(struct amdgpu_device *adev,
 	 * unmap is only for one kind of userq VAs, so at this point suppose
 	 * the eviction fence is always unsignaled.
 	 */
-	if (!dma_resv_test_signaled(resv, DMA_RESV_USAGE_BOOKKEEP)) {
-		ret = dma_resv_wait_timeout(resv, DMA_RESV_USAGE_BOOKKEEP, true,
-					    MAX_SCHEDULE_TIMEOUT);
-		if (ret <= 0)
-			return -EBUSY;
-	}
-
-	return 0;
+	dma_resv_wait_timeout(resv, DMA_RESV_USAGE_BOOKKEEP,
+			      false, MAX_SCHEDULE_TIMEOUT);
 }
 
 void amdgpu_userq_pre_reset(struct amdgpu_device *adev)

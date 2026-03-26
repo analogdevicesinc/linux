@@ -160,7 +160,7 @@ void amdgpu_userq_start_hang_detect_work(struct amdgpu_usermode_queue *queue);
 int amdgpu_userq_input_va_validate(struct amdgpu_device *adev,
 				   struct amdgpu_usermode_queue *queue,
 				   u64 addr, u64 expected_size);
-int amdgpu_userq_gem_va_unmap_validate(struct amdgpu_device *adev,
-				       struct amdgpu_bo_va_mapping *mapping,
-				       uint64_t saddr);
+void amdgpu_userq_gem_va_unmap_validate(struct amdgpu_device *adev,
+					struct amdgpu_bo_va_mapping *mapping,
+					uint64_t saddr);
 #endif
