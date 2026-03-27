@@ -30,7 +30,6 @@ MODULE_DESCRIPTION("Hazard-pointer module-based torture test facility");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Paul E. McKenney <paulmckrcu@meta.com>");
 
-torture_param(int, irqreader, 1, "Allow hazard-pointer readers from irq handlers");
 torture_param(int, nreaders, -1, "Number of hazard-pointer reader threads");
 torture_param(int, onoff_holdoff, 0, "Time after boot before CPU hotplugs (s)");
 torture_param(int, onoff_interval, 0, "Time between CPU hotplugs (jiffies), 0=disable");
@@ -188,7 +187,8 @@ struct hazptr_torture_ops {
 static struct hazptr_torture_ops *cur_ops;
 
 /*
- * Definitions for hazard-pointer torture testing.
+ * Definitions for hazard-pointer torture testing using per-CPU hazptr_ctx
+ * structures.
  */
 
 static struct hazptr_torture *hazptr_torture_read_lock(struct hazptr_ctx **hcpp)
@@ -242,8 +242,31 @@ static struct hazptr_torture_ops hazptr_ops = {
 	.readunlock		= hazptr_torture_read_unlock,
 	.sync			= hazptr_synchronize,
 	.irq_capable		= 1,
-	.onstack_ctx		= 1,
 	.name			= "hazptr"
+};
+
+/*
+ * Definitions for hazard-pointer torture testing using on-stack
+ * hazptr_ctx structures.
+ */
+
+static struct hazptr_torture *hazptr_torture_read_lock_stack(struct hazptr_ctx **hcpp)
+{
+	struct hazptr_torture *htp;
+
+	htp = (struct hazptr_torture *)hazptr_acquire(*hcpp, (void *)&hazptr_torture_current);
+	return htp;
+}
+
+static struct hazptr_torture_ops hazptr_stack_ops = {
+	.init			= hazptr_sync_torture_init,
+	.readlock		= hazptr_torture_read_lock_stack,
+	.read_delay		= hazptr_read_delay,
+	.readunlock		= hazptr_torture_read_unlock,
+	.sync			= hazptr_synchronize,
+	.irq_capable		= 1,
+	.onstack_ctx		= 1,
+	.name			= "hazptr-stack"
 };
 
 /*
@@ -331,7 +354,8 @@ hazptr_torture_writer(void *arg)
  */
 static int hazptr_torture_reader(void *arg)
 {
-	struct hazptr_ctx *hcp;
+	struct hazptr_ctx hc;
+	struct hazptr_ctx *hcp = &hc;
 	struct hazptr_torture *htp;
 	unsigned long lastsleep = jiffies;
 	long myid = (long)arg;
@@ -481,13 +505,15 @@ hazptr_torture_print_module_parms(struct hazptr_torture_ops *cur_ops, const char
 {
 	pr_alert("%s" TORTURE_FLAG
 		 "--- %s: nreaders=%d "
-		 "stat_interval=%d verbose=%d "
-		 "shuffle_interval=%d stutter=%d irqreader=%d "
-		 "onoff_interval=%d onoff_holdoff=%d\n",
+		 "onoff_interval=%d onoff_holdoff=%d "
+		 "preempt_duration=%d preempt_interval=%d "
+		 "shuffle_interval=%d shutdown_secs=%d stat_interval=%d stutter=%d "
+		 "verbose=%d\n",
 		 torture_type, tag, nrealreaders,
-		 stat_interval, verbose,
-		 shuffle_interval, stutter, irqreader,
-		 onoff_interval, onoff_holdoff);
+		 onoff_interval, onoff_holdoff,
+		 preempt_duration, preempt_interval,
+		 shuffle_interval, shutdown_secs, stat_interval, stutter,
+		 verbose);
 }
 
 // Randomly preempt online CPUs.
@@ -563,7 +589,7 @@ static int __init hazptr_torture_init(void)
 	long i;
 	int cpu;
 	int firsterr = 0;
-	static struct hazptr_torture_ops *torture_ops[] = { &hazptr_ops, };
+	static struct hazptr_torture_ops *torture_ops[] = { &hazptr_ops, &hazptr_stack_ops, };
 
 	if (!torture_init_begin(torture_type, verbose))
 		return -EBUSY;
