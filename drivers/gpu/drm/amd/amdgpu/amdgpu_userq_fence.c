@@ -78,10 +78,14 @@ amdgpu_userq_fence_write(struct amdgpu_userq_fence_driver *fence_drv,
 }
 
 int amdgpu_userq_fence_driver_alloc(struct amdgpu_device *adev,
-				    struct amdgpu_usermode_queue *userq)
+				    struct amdgpu_userq_fence_driver **fence_drv_req)
 {
 	struct amdgpu_userq_fence_driver *fence_drv;
 	int r;
+
+	if (!fence_drv_req)
+		return -EINVAL;
+	*fence_drv_req = NULL;
 
 	fence_drv = kzalloc_obj(*fence_drv);
 	if (!fence_drv)
@@ -103,7 +107,7 @@ int amdgpu_userq_fence_driver_alloc(struct amdgpu_device *adev,
 	fence_drv->context = dma_fence_context_alloc(1);
 	get_task_comm(fence_drv->timeline_name, current);
 
-	userq->fence_drv = fence_drv;
+	*fence_drv_req = fence_drv;
 
 	return 0;
 
@@ -134,10 +138,10 @@ void
 amdgpu_userq_fence_driver_free(struct amdgpu_usermode_queue *userq)
 {
 	dma_fence_put(userq->last_fence);
-
+	userq->last_fence = NULL;
 	amdgpu_userq_walk_and_drop_fence_drv(&userq->fence_drv_xa);
 	xa_destroy(&userq->fence_drv_xa);
-	/* Drop the fence_drv reference held by user queue */
+	/* Drop the queue's ownership reference to fence_drv explicitly */
 	amdgpu_userq_fence_driver_put(userq->fence_drv);
 }
 
