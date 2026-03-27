@@ -225,6 +225,9 @@ static void ddr_phy_init_2500(struct ast_device *ast)
 }
 
 /*
+ * TODO: Review and fix the comments. The function below only detects
+ *       up to 1 GiB of SDRAM.
+ *
  * Check DRAM Size
  * 1Gb : 0x80000000 ~ 0x87FFFFFF
  * 2Gb : 0x80000000 ~ 0x8FFFFFFF
@@ -238,21 +241,21 @@ static void check_dram_size_2500(struct ast_device *ast, u32 tRFC)
 	reg_04 = ast_mindwm(ast, AST_REG_MCR04) & 0xfffffffc;
 	reg_14 = ast_mindwm(ast, AST_REG_MCR14) & 0xffffff00;
 
-	ast_moutdwm(ast, 0xA0100000, 0x41424344);
-	ast_moutdwm(ast, 0x90100000, 0x35363738);
-	ast_moutdwm(ast, 0x88100000, 0x292A2B2C);
-	ast_moutdwm(ast, 0x80100000, 0x1D1E1F10);
+	ast_moutdwm(ast, AST_SDRAM(0x20100000), 0x41424344);
+	ast_moutdwm(ast, AST_SDRAM(0x10100000), 0x35363738);
+	ast_moutdwm(ast, AST_SDRAM(0x08100000), 0x292A2B2C);
+	ast_moutdwm(ast, AST_SDRAM(0x00100000), 0x1D1E1F10);
 
 	/* Check 8Gbit */
-	if (ast_mindwm(ast, 0xA0100000) == 0x41424344) {
+	if (ast_mindwm(ast, AST_SDRAM(0x20100000)) == 0x41424344) {
 		reg_04 |= 0x03;
 		reg_14 |= (tRFC >> 24) & 0xFF;
 		/* Check 4Gbit */
-	} else if (ast_mindwm(ast, 0x90100000) == 0x35363738) {
+	} else if (ast_mindwm(ast, AST_SDRAM(0x10100000)) == 0x35363738) {
 		reg_04 |= 0x02;
 		reg_14 |= (tRFC >> 16) & 0xFF;
 		/* Check 2Gbit */
-	} else if (ast_mindwm(ast, 0x88100000) == 0x292A2B2C) {
+	} else if (ast_mindwm(ast, AST_SDRAM(0x08100000)) == 0x292A2B2C) {
 		reg_04 |= 0x01;
 		reg_14 |= (tRFC >> 8) & 0xFF;
 	} else {

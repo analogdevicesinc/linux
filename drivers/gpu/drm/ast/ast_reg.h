@@ -209,4 +209,11 @@
 #define AST_REG_WDT1C(__n)			AST_REG_WDT((__n), 0x1c)
 #define AST_REG_WDT2C(__n)			AST_REG_WDT((__n), 0x2c)
 
+/*
+ * SDRAM (0x80000000 - 0xffffffff)
+ */
+
+#define AST_SDRAM_BASE				(0x80000000)
+#define AST_SDRAM(__offset)			(AST_SDRAM_BASE + (__offset))
+
 #endif
