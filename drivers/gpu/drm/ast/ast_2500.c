@@ -109,9 +109,9 @@ void ast_2500_patch_ahb(void __iomem *regs)
 	u32 data;
 
 	/* Clear bus lock condition */
-	__ast_moutdwm(regs, 0x1e600000, 0xAEED1A03);
-	__ast_moutdwm(regs, 0x1e600084, 0x00010000);
-	__ast_moutdwm(regs, 0x1e600088, 0x00000000);
+	__ast_moutdwm(regs, AST_REG_AHBC00, AST_REG_AHBC00_PROTECT_KEY);
+	__ast_moutdwm(regs, AST_REG_AHBC84, 0x00010000);
+	__ast_moutdwm(regs, AST_REG_AHBC88, 0x00000000);
 	__ast_moutdwm(regs, 0x1e6e2000, 0x1688A8A8);
 
 	data = __ast_mindwm(regs, 0x1e6e2070);

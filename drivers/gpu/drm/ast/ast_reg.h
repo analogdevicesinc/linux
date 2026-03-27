@@ -87,4 +87,15 @@
 #define AST_REG_P2A04				AST_REG_P2A(0xf004)
 #define AST_REG_P2A04_BASE_MASK			GENMASK(31, 16)
 
+/*
+ * AHB Controller (0x1e600000 - 0x1e61ffff)
+ */
+
+#define AST_REG_AHBC_BASE			(0x1e600000)
+#define AST_REG_AHBC(__offset)			(AST_REG_AHBC_BASE + (__offset))
+#define AST_REG_AHBC00				AST_REG_AHBC(0x00)
+#define AST_REG_AHBC00_PROTECT_KEY		(0xaeed1a03)
+#define AST_REG_AHBC84				AST_REG_AHBC(0x84)
+#define AST_REG_AHBC88				AST_REG_AHBC(0x88)
+
 #endif
