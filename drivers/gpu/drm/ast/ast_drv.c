@@ -242,7 +242,7 @@ static int ast_detect_chip(struct pci_dev *pdev,
 	enum ast_config_mode config_mode = ast_use_defaults;
 	uint32_t scu_rev = 0xffffffff;
 	enum ast_chip chip;
-	u32 data;
+	u32 data, p2a04, scu07c;
 	u8 vgacrd0, vgacrd1;
 
 	/*
@@ -275,14 +275,13 @@ static int ast_detect_chip(struct pci_dev *pdev,
 			}
 
 			/* Double check that it's actually working */
-			data = __ast_read32(regs, 0xf004);
-			if ((data != 0xffffffff) && (data != 0x00)) {
+			p2a04 = __ast_read32(regs, AST_REG_P2A04);
+			if (p2a04 != 0xffffffff && p2a04 != 0x00000000) {
 				config_mode = ast_use_p2a;
 
-				/* Read SCU7c (silicon revision register) */
-				__ast_write32(regs, 0xf004, AST_REG_MCR00);
-				__ast_write32(regs, 0xf000, 0x1);
-				scu_rev = __ast_read32(regs, 0x1207c);
+				/* Read SCU7C (silicon revision register) */
+				scu07c = __ast_mindwm(regs, AST_REG_SCU07C);
+				scu_rev = scu07c & AST_REG_SCU07C_CHIP_BONDING_MASK;
 			}
 		}
 	}
