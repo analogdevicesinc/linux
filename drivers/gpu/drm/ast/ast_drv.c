@@ -268,7 +268,7 @@ static int ast_detect_chip(struct pci_dev *pdev,
 				config_mode = ast_use_p2a;
 
 				/* Read SCU7c (silicon revision register) */
-				__ast_write32(regs, 0xf004, 0x1e6e0000);
+				__ast_write32(regs, 0xf004, AST_REG_MCR00);
 				__ast_write32(regs, 0xf000, 0x1);
 				scu_rev = __ast_read32(regs, 0x1207c);
 			}

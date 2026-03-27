@@ -230,7 +230,7 @@ static bool ast_launch_m68k(struct ast_device *ast)
 		}
 		/* Get BootAddress */
 		ast_moutdwm(ast, 0x1e6e2000, 0x1688a8a8);
-		data = ast_mindwm(ast, 0x1e6e0004);
+		data = ast_mindwm(ast, AST_REG_MCR04);
 		switch (data & 0x03) {
 		case 0:
 			boot_address = 0x44000000;
@@ -348,7 +348,7 @@ static bool ast_init_dvo(struct ast_device *ast)
 {
 	u8 jreg;
 	u32 data;
-	ast_write32(ast, 0xf004, 0x1e6e0000);
+	ast_write32(ast, 0xf004, AST_REG_MCR00);
 	ast_write32(ast, 0xf000, 0x1);
 	ast_write32(ast, 0x12000, 0x1688a8a8);
 
@@ -425,7 +425,7 @@ static void ast_init_analog(struct ast_device *ast)
 	 * bridge. First configure the P2U to target the SCU
 	 * in case it isn't at this stage.
 	 */
-	ast_write32(ast, 0xf004, 0x1e6e0000);
+	ast_write32(ast, 0xf004, AST_REG_MCR00);
 	ast_write32(ast, 0xf000, 0x1);
 
 	/* Then unlock the SCU with the magic password */

@@ -43,7 +43,7 @@ static enum ast_dram_layout ast_2100_get_dram_layout_p2a(struct ast_device *ast)
 	u32 mcr_cfg;
 	enum ast_dram_layout dram_layout;
 
-	ast_write32(ast, 0xf004, 0x1e6e0000);
+	ast_write32(ast, 0xf004, AST_REG_MCR00);
 	ast_write32(ast, 0xf000, 0x1);
 	mcr_cfg = ast_read32(ast, 0x10004);
 
@@ -209,28 +209,28 @@ static u32 mmctestburst2_ast2150(struct ast_device *ast, u32 datagen)
 {
 	u32 data, timeout;
 
-	ast_moutdwm(ast, 0x1e6e0070, 0x00000000);
-	ast_moutdwm(ast, 0x1e6e0070, 0x00000001 | (datagen << 3));
+	ast_moutdwm(ast, AST_REG_MCR70, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR70, 0x00000001 | (datagen << 3));
 	timeout = 0;
 	do {
-		data = ast_mindwm(ast, 0x1e6e0070) & 0x40;
+		data = ast_mindwm(ast, AST_REG_MCR70) & 0x40;
 		if (++timeout > TIMEOUT_AST2150) {
-			ast_moutdwm(ast, 0x1e6e0070, 0x00000000);
+			ast_moutdwm(ast, AST_REG_MCR70, 0x00000000);
 			return 0xffffffff;
 		}
 	} while (!data);
-	ast_moutdwm(ast, 0x1e6e0070, 0x00000000);
-	ast_moutdwm(ast, 0x1e6e0070, 0x00000003 | (datagen << 3));
+	ast_moutdwm(ast, AST_REG_MCR70, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR70, 0x00000003 | (datagen << 3));
 	timeout = 0;
 	do {
-		data = ast_mindwm(ast, 0x1e6e0070) & 0x40;
+		data = ast_mindwm(ast, AST_REG_MCR70) & 0x40;
 		if (++timeout > TIMEOUT_AST2150) {
-			ast_moutdwm(ast, 0x1e6e0070, 0x00000000);
+			ast_moutdwm(ast, AST_REG_MCR70, 0x00000000);
 			return 0xffffffff;
 		}
 	} while (!data);
-	data = (ast_mindwm(ast, 0x1e6e0070) & 0x80) >> 7;
-	ast_moutdwm(ast, 0x1e6e0070, 0x00000000);
+	data = (ast_mindwm(ast, AST_REG_MCR70) & 0x80) >> 7;
+	ast_moutdwm(ast, AST_REG_MCR70, 0x00000000);
 	return data;
 }
 
@@ -249,7 +249,7 @@ static int cbrscan_ast2150(struct ast_device *ast, int busw)
 	u32 patcnt, loop;
 
 	for (patcnt = 0; patcnt < CBR_PATNUM_AST2150; patcnt++) {
-		ast_moutdwm(ast, 0x1e6e007c, pattern_AST2150[patcnt]);
+		ast_moutdwm(ast, AST_REG_MCR7C, pattern_AST2150[patcnt]);
 		for (loop = 0; loop < CBR_PASSNUM_AST2150; loop++) {
 			if (cbrtest_ast2150(ast))
 				break;
@@ -276,7 +276,7 @@ cbr_start:
 	passcnt = 0;
 
 	for (dlli = 0; dlli < 100; dlli++) {
-		ast_moutdwm(ast, 0x1e6e0068, dlli | (dlli << 8) | (dlli << 16) | (dlli << 24));
+		ast_moutdwm(ast, AST_REG_MCR68, dlli | (dlli << 8) | (dlli << 16) | (dlli << 24));
 		data = cbrscan_ast2150(ast, busw);
 		if (data != 0) {
 			if (data & 0x1) {
@@ -294,7 +294,7 @@ cbr_start:
 		goto cbr_start;
 
 	dlli = dll_min[0] + (((dll_max[0] - dll_min[0]) * 7) >> 4);
-	ast_moutdwm(ast, 0x1e6e0068, dlli | (dlli << 8) | (dlli << 16) | (dlli << 24));
+	ast_moutdwm(ast, AST_REG_MCR68, dlli | (dlli << 8) | (dlli << 16) | (dlli << 24));
 }
 
 static void ast_post_chip_2100(struct ast_device *ast)
@@ -312,7 +312,7 @@ static void ast_post_chip_2100(struct ast_device *ast)
 		else
 			dram_reg_info = ast1100_dram_table_data;
 
-		ast_write32(ast, 0xf004, 0x1e6e0000);
+		ast_write32(ast, 0xf004, AST_REG_MCR00);
 		ast_write32(ast, 0xf000, 0x1);
 		ast_write32(ast, 0x12000, 0x1688A8A8);
 		do {

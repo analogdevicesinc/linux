@@ -69,19 +69,19 @@ bool mmc_test(struct ast_device *ast, u32 datagen, u8 test_ctl)
 {
 	u32 data, timeout;
 
-	ast_moutdwm(ast, 0x1e6e0070, 0x00000000);
-	ast_moutdwm(ast, 0x1e6e0070, (datagen << 3) | test_ctl);
+	ast_moutdwm(ast, AST_REG_MCR70, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR70, (datagen << 3) | test_ctl);
 	timeout = 0;
 	do {
-		data = ast_mindwm(ast, 0x1e6e0070) & 0x3000;
+		data = ast_mindwm(ast, AST_REG_MCR70) & 0x3000;
 		if (data & 0x2000)
 			return false;
 		if (++timeout > TIMEOUT) {
-			ast_moutdwm(ast, 0x1e6e0070, 0x00000000);
+			ast_moutdwm(ast, AST_REG_MCR70, 0x00000000);
 			return false;
 		}
 	} while (!data);
-	ast_moutdwm(ast, 0x1e6e0070, 0x0);
+	ast_moutdwm(ast, AST_REG_MCR70, 0x0);
 	return true;
 }
 

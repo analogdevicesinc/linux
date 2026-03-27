@@ -148,8 +148,8 @@ static bool mmc_test_single_2500(struct ast_device *ast, u32 datagen)
 
 static bool cbr_test_2500(struct ast_device *ast)
 {
-	ast_moutdwm(ast, 0x1E6E0074, 0x0000FFFF);
-	ast_moutdwm(ast, 0x1E6E007C, 0xFF00FF00);
+	ast_moutdwm(ast, AST_REG_MCR74, 0x0000FFFF);
+	ast_moutdwm(ast, AST_REG_MCR7C, 0xFF00FF00);
 	if (!mmc_test_burst(ast, 0))
 		return false;
 	if (!mmc_test_single_2500(ast, 0))
@@ -159,8 +159,8 @@ static bool cbr_test_2500(struct ast_device *ast)
 
 static bool ddr_test_2500(struct ast_device *ast)
 {
-	ast_moutdwm(ast, 0x1E6E0074, 0x0000FFFF);
-	ast_moutdwm(ast, 0x1E6E007C, 0xFF00FF00);
+	ast_moutdwm(ast, AST_REG_MCR74, 0x0000FFFF);
+	ast_moutdwm(ast, AST_REG_MCR7C, 0xFF00FF00);
 	if (!mmc_test_burst(ast, 0))
 		return false;
 	if (!mmc_test_burst(ast, 1))
@@ -176,25 +176,25 @@ static bool ddr_test_2500(struct ast_device *ast)
 
 static void ddr_init_common_2500(struct ast_device *ast)
 {
-	ast_moutdwm(ast, 0x1E6E0034, 0x00020080);
-	ast_moutdwm(ast, 0x1E6E0008, 0x2003000F);
-	ast_moutdwm(ast, 0x1E6E0038, 0x00000FFF);
-	ast_moutdwm(ast, 0x1E6E0040, 0x88448844);
-	ast_moutdwm(ast, 0x1E6E0044, 0x24422288);
-	ast_moutdwm(ast, 0x1E6E0048, 0x22222222);
-	ast_moutdwm(ast, 0x1E6E004C, 0x22222222);
-	ast_moutdwm(ast, 0x1E6E0050, 0x80000000);
-	ast_moutdwm(ast, 0x1E6E0208, 0x00000000);
-	ast_moutdwm(ast, 0x1E6E0218, 0x00000000);
-	ast_moutdwm(ast, 0x1E6E0220, 0x00000000);
-	ast_moutdwm(ast, 0x1E6E0228, 0x00000000);
-	ast_moutdwm(ast, 0x1E6E0230, 0x00000000);
-	ast_moutdwm(ast, 0x1E6E02A8, 0x00000000);
-	ast_moutdwm(ast, 0x1E6E02B0, 0x00000000);
-	ast_moutdwm(ast, 0x1E6E0240, 0x86000000);
-	ast_moutdwm(ast, 0x1E6E0244, 0x00008600);
-	ast_moutdwm(ast, 0x1E6E0248, 0x80000000);
-	ast_moutdwm(ast, 0x1E6E024C, 0x80808080);
+	ast_moutdwm(ast, AST_REG_MCR34, 0x00020080);
+	ast_moutdwm(ast, AST_REG_MCR08, 0x2003000F);
+	ast_moutdwm(ast, AST_REG_MCR38, 0x00000FFF);
+	ast_moutdwm(ast, AST_REG_MCR40, 0x88448844);
+	ast_moutdwm(ast, AST_REG_MCR44, 0x24422288);
+	ast_moutdwm(ast, AST_REG_MCR48, 0x22222222);
+	ast_moutdwm(ast, AST_REG_MCR4C, 0x22222222);
+	ast_moutdwm(ast, AST_REG_MCR50, 0x80000000);
+	ast_moutdwm(ast, AST_REG_MCR208, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR218, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR220, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR228, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR230, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR2A8, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR2B0, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR240, 0x86000000);
+	ast_moutdwm(ast, AST_REG_MCR244, 0x00008600);
+	ast_moutdwm(ast, AST_REG_MCR248, 0x80000000);
+	ast_moutdwm(ast, AST_REG_MCR24C, 0x80808080);
 }
 
 static void ddr_phy_init_2500(struct ast_device *ast)
@@ -202,26 +202,26 @@ static void ddr_phy_init_2500(struct ast_device *ast)
 	u32 data, pass, timecnt;
 
 	pass = 0;
-	ast_moutdwm(ast, 0x1E6E0060, 0x00000005);
+	ast_moutdwm(ast, AST_REG_MCR60, 0x00000005);
 	while (!pass) {
 		for (timecnt = 0; timecnt < TIMEOUT; timecnt++) {
-			data = ast_mindwm(ast, 0x1E6E0060) & 0x1;
+			data = ast_mindwm(ast, AST_REG_MCR60) & 0x1;
 			if (!data)
 				break;
 		}
 		if (timecnt != TIMEOUT) {
-			data = ast_mindwm(ast, 0x1E6E0300) & 0x000A0000;
+			data = ast_mindwm(ast, AST_REG_MCR300) & 0x000A0000;
 			if (!data)
 				pass = 1;
 		}
 		if (!pass) {
-			ast_moutdwm(ast, 0x1E6E0060, 0x00000000);
+			ast_moutdwm(ast, AST_REG_MCR60, 0x00000000);
 			udelay(10); /* delay 10 us */
-			ast_moutdwm(ast, 0x1E6E0060, 0x00000005);
+			ast_moutdwm(ast, AST_REG_MCR60, 0x00000005);
 		}
 	}
 
-	ast_moutdwm(ast, 0x1E6E0060, 0x00000006);
+	ast_moutdwm(ast, AST_REG_MCR60, 0x00000006);
 }
 
 /*
@@ -235,8 +235,8 @@ static void check_dram_size_2500(struct ast_device *ast, u32 tRFC)
 {
 	u32 reg_04, reg_14;
 
-	reg_04 = ast_mindwm(ast, 0x1E6E0004) & 0xfffffffc;
-	reg_14 = ast_mindwm(ast, 0x1E6E0014) & 0xffffff00;
+	reg_04 = ast_mindwm(ast, AST_REG_MCR04) & 0xfffffffc;
+	reg_14 = ast_mindwm(ast, AST_REG_MCR14) & 0xffffff00;
 
 	ast_moutdwm(ast, 0xA0100000, 0x41424344);
 	ast_moutdwm(ast, 0x90100000, 0x35363738);
@@ -258,21 +258,21 @@ static void check_dram_size_2500(struct ast_device *ast, u32 tRFC)
 	} else {
 		reg_14 |= tRFC & 0xFF;
 	}
-	ast_moutdwm(ast, 0x1E6E0004, reg_04);
-	ast_moutdwm(ast, 0x1E6E0014, reg_14);
+	ast_moutdwm(ast, AST_REG_MCR04, reg_04);
+	ast_moutdwm(ast, AST_REG_MCR14, reg_14);
 }
 
 static void enable_cache_2500(struct ast_device *ast)
 {
 	u32 reg_04, data;
 
-	reg_04 = ast_mindwm(ast, 0x1E6E0004);
-	ast_moutdwm(ast, 0x1E6E0004, reg_04 | 0x1000);
+	reg_04 = ast_mindwm(ast, AST_REG_MCR04);
+	ast_moutdwm(ast, AST_REG_MCR04, reg_04 | 0x1000);
 
 	do
-		data = ast_mindwm(ast, 0x1E6E0004);
+		data = ast_mindwm(ast, AST_REG_MCR04);
 	while (!(data & 0x80000));
-	ast_moutdwm(ast, 0x1E6E0004, reg_04 | 0x400);
+	ast_moutdwm(ast, AST_REG_MCR04, reg_04 | 0x400);
 }
 
 static void set_mpll_2500(struct ast_device *ast)
@@ -280,13 +280,13 @@ static void set_mpll_2500(struct ast_device *ast)
 	u32 addr, data, param;
 
 	/* Reset MMC */
-	ast_moutdwm(ast, 0x1E6E0000, 0xFC600309);
-	ast_moutdwm(ast, 0x1E6E0034, 0x00020080);
+	ast_moutdwm(ast, AST_REG_MCR00, AST_REG_MCR00_PROTECTION_KEY);
+	ast_moutdwm(ast, AST_REG_MCR34, 0x00020080);
 	for (addr = 0x1e6e0004; addr < 0x1e6e0090;) {
 		ast_moutdwm(ast, addr, 0x0);
 		addr += 4;
 	}
-	ast_moutdwm(ast, 0x1E6E0034, 0x00020000);
+	ast_moutdwm(ast, AST_REG_MCR34, 0x00020000);
 
 	ast_moutdwm(ast, 0x1E6E2000, 0x1688A8A8);
 	data = ast_mindwm(ast, 0x1E6E2070) & 0x00800000;
@@ -310,50 +310,50 @@ static void reset_mmc_2500(struct ast_device *ast)
 	ast_moutdwm(ast, 0x1E78504C, 0x00000013);
 	mdelay(100);
 	ast_moutdwm(ast, 0x1E785054, 0x00000077);
-	ast_moutdwm(ast, 0x1E6E0000, 0xFC600309);
+	ast_moutdwm(ast, AST_REG_MCR00, AST_REG_MCR00_PROTECTION_KEY);
 }
 
 static void ddr3_init_2500(struct ast_device *ast, const u32 *ddr_table)
 {
-	ast_moutdwm(ast, 0x1E6E0004, 0x00000303);
-	ast_moutdwm(ast, 0x1E6E0010, ddr_table[REGIDX_010]);
-	ast_moutdwm(ast, 0x1E6E0014, ddr_table[REGIDX_014]);
-	ast_moutdwm(ast, 0x1E6E0018, ddr_table[REGIDX_018]);
-	ast_moutdwm(ast, 0x1E6E0020, ddr_table[REGIDX_020]);	     /* MODEREG4/6 */
-	ast_moutdwm(ast, 0x1E6E0024, ddr_table[REGIDX_024]);	     /* MODEREG5 */
-	ast_moutdwm(ast, 0x1E6E002C, ddr_table[REGIDX_02C] | 0x100); /* MODEREG0/2 */
-	ast_moutdwm(ast, 0x1E6E0030, ddr_table[REGIDX_030]);	     /* MODEREG1/3 */
+	ast_moutdwm(ast, AST_REG_MCR04, 0x00000303);
+	ast_moutdwm(ast, AST_REG_MCR10, ddr_table[REGIDX_010]);
+	ast_moutdwm(ast, AST_REG_MCR14, ddr_table[REGIDX_014]);
+	ast_moutdwm(ast, AST_REG_MCR18, ddr_table[REGIDX_018]);
+	ast_moutdwm(ast, AST_REG_MCR20, ddr_table[REGIDX_020]);	     /* MODEREG4/6 */
+	ast_moutdwm(ast, AST_REG_MCR24, ddr_table[REGIDX_024]);	     /* MODEREG5 */
+	ast_moutdwm(ast, AST_REG_MCR2C, ddr_table[REGIDX_02C] | 0x100); /* MODEREG0/2 */
+	ast_moutdwm(ast, AST_REG_MCR30, ddr_table[REGIDX_030]);	     /* MODEREG1/3 */
 
 	/* DDR PHY Setting */
-	ast_moutdwm(ast, 0x1E6E0200, 0x02492AAE);
-	ast_moutdwm(ast, 0x1E6E0204, 0x00001001);
-	ast_moutdwm(ast, 0x1E6E020C, 0x55E00B0B);
-	ast_moutdwm(ast, 0x1E6E0210, 0x20000000);
-	ast_moutdwm(ast, 0x1E6E0214, ddr_table[REGIDX_214]);
-	ast_moutdwm(ast, 0x1E6E02E0, ddr_table[REGIDX_2E0]);
-	ast_moutdwm(ast, 0x1E6E02E4, ddr_table[REGIDX_2E4]);
-	ast_moutdwm(ast, 0x1E6E02E8, ddr_table[REGIDX_2E8]);
-	ast_moutdwm(ast, 0x1E6E02EC, ddr_table[REGIDX_2EC]);
-	ast_moutdwm(ast, 0x1E6E02F0, ddr_table[REGIDX_2F0]);
-	ast_moutdwm(ast, 0x1E6E02F4, ddr_table[REGIDX_2F4]);
-	ast_moutdwm(ast, 0x1E6E02F8, ddr_table[REGIDX_2F8]);
-	ast_moutdwm(ast, 0x1E6E0290, 0x00100008);
-	ast_moutdwm(ast, 0x1E6E02C0, 0x00000006);
+	ast_moutdwm(ast, AST_REG_MCR200, 0x02492AAE);
+	ast_moutdwm(ast, AST_REG_MCR204, 0x00001001);
+	ast_moutdwm(ast, AST_REG_MCR20C, 0x55E00B0B);
+	ast_moutdwm(ast, AST_REG_MCR210, 0x20000000);
+	ast_moutdwm(ast, AST_REG_MCR214, ddr_table[REGIDX_214]);
+	ast_moutdwm(ast, AST_REG_MCR2E0, ddr_table[REGIDX_2E0]);
+	ast_moutdwm(ast, AST_REG_MCR2E4, ddr_table[REGIDX_2E4]);
+	ast_moutdwm(ast, AST_REG_MCR2E8, ddr_table[REGIDX_2E8]);
+	ast_moutdwm(ast, AST_REG_MCR2EC, ddr_table[REGIDX_2EC]);
+	ast_moutdwm(ast, AST_REG_MCR2F0, ddr_table[REGIDX_2F0]);
+	ast_moutdwm(ast, AST_REG_MCR2F4, ddr_table[REGIDX_2F4]);
+	ast_moutdwm(ast, AST_REG_MCR2F8, ddr_table[REGIDX_2F8]);
+	ast_moutdwm(ast, AST_REG_MCR290, 0x00100008);
+	ast_moutdwm(ast, AST_REG_MCR2C0, 0x00000006);
 
 	/* Controller Setting */
-	ast_moutdwm(ast, 0x1E6E0034, 0x00020091);
+	ast_moutdwm(ast, AST_REG_MCR34, 0x00020091);
 
 	/* Wait DDR PHY init done */
 	ddr_phy_init_2500(ast);
 
-	ast_moutdwm(ast, 0x1E6E0120, ddr_table[REGIDX_PLL]);
-	ast_moutdwm(ast, 0x1E6E000C, 0x42AA5C81);
-	ast_moutdwm(ast, 0x1E6E0034, 0x0001AF93);
+	ast_moutdwm(ast, AST_REG_MCR120, ddr_table[REGIDX_PLL]);
+	ast_moutdwm(ast, AST_REG_MCR0C, 0x42AA5C81);
+	ast_moutdwm(ast, AST_REG_MCR34, 0x0001AF93);
 
 	check_dram_size_2500(ast, ddr_table[REGIDX_RFC]);
 	enable_cache_2500(ast);
-	ast_moutdwm(ast, 0x1E6E001C, 0x00000008);
-	ast_moutdwm(ast, 0x1E6E0038, 0xFFFFFF00);
+	ast_moutdwm(ast, AST_REG_MCR1C, 0x00000008);
+	ast_moutdwm(ast, AST_REG_MCR38, 0xFFFFFF00);
 }
 
 static void ddr4_init_2500(struct ast_device *ast, const u32 *ddr_table)
@@ -363,34 +363,34 @@ static void ddr4_init_2500(struct ast_device *ast, const u32 *ddr_table)
 	u32 min_ddr_vref = 0, min_phy_vref = 0;
 	u32 max_ddr_vref = 0, max_phy_vref = 0;
 
-	ast_moutdwm(ast, 0x1E6E0004, 0x00000313);
-	ast_moutdwm(ast, 0x1E6E0010, ddr_table[REGIDX_010]);
-	ast_moutdwm(ast, 0x1E6E0014, ddr_table[REGIDX_014]);
-	ast_moutdwm(ast, 0x1E6E0018, ddr_table[REGIDX_018]);
-	ast_moutdwm(ast, 0x1E6E0020, ddr_table[REGIDX_020]);	     /* MODEREG4/6 */
-	ast_moutdwm(ast, 0x1E6E0024, ddr_table[REGIDX_024]);	     /* MODEREG5 */
-	ast_moutdwm(ast, 0x1E6E002C, ddr_table[REGIDX_02C] | 0x100); /* MODEREG0/2 */
-	ast_moutdwm(ast, 0x1E6E0030, ddr_table[REGIDX_030]);	     /* MODEREG1/3 */
+	ast_moutdwm(ast, AST_REG_MCR04, 0x00000313);
+	ast_moutdwm(ast, AST_REG_MCR10, ddr_table[REGIDX_010]);
+	ast_moutdwm(ast, AST_REG_MCR14, ddr_table[REGIDX_014]);
+	ast_moutdwm(ast, AST_REG_MCR18, ddr_table[REGIDX_018]);
+	ast_moutdwm(ast, AST_REG_MCR20, ddr_table[REGIDX_020]);	     /* MODEREG4/6 */
+	ast_moutdwm(ast, AST_REG_MCR24, ddr_table[REGIDX_024]);	     /* MODEREG5 */
+	ast_moutdwm(ast, AST_REG_MCR2C, ddr_table[REGIDX_02C] | 0x100); /* MODEREG0/2 */
+	ast_moutdwm(ast, AST_REG_MCR30, ddr_table[REGIDX_030]);	     /* MODEREG1/3 */
 
 	/* DDR PHY Setting */
-	ast_moutdwm(ast, 0x1E6E0200, 0x42492AAE);
-	ast_moutdwm(ast, 0x1E6E0204, 0x09002000);
-	ast_moutdwm(ast, 0x1E6E020C, 0x55E00B0B);
-	ast_moutdwm(ast, 0x1E6E0210, 0x20000000);
-	ast_moutdwm(ast, 0x1E6E0214, ddr_table[REGIDX_214]);
-	ast_moutdwm(ast, 0x1E6E02E0, ddr_table[REGIDX_2E0]);
-	ast_moutdwm(ast, 0x1E6E02E4, ddr_table[REGIDX_2E4]);
-	ast_moutdwm(ast, 0x1E6E02E8, ddr_table[REGIDX_2E8]);
-	ast_moutdwm(ast, 0x1E6E02EC, ddr_table[REGIDX_2EC]);
-	ast_moutdwm(ast, 0x1E6E02F0, ddr_table[REGIDX_2F0]);
-	ast_moutdwm(ast, 0x1E6E02F4, ddr_table[REGIDX_2F4]);
-	ast_moutdwm(ast, 0x1E6E02F8, ddr_table[REGIDX_2F8]);
-	ast_moutdwm(ast, 0x1E6E0290, 0x00100008);
-	ast_moutdwm(ast, 0x1E6E02C4, 0x3C183C3C);
-	ast_moutdwm(ast, 0x1E6E02C8, 0x00631E0E);
+	ast_moutdwm(ast, AST_REG_MCR200, 0x42492AAE);
+	ast_moutdwm(ast, AST_REG_MCR204, 0x09002000);
+	ast_moutdwm(ast, AST_REG_MCR20C, 0x55E00B0B);
+	ast_moutdwm(ast, AST_REG_MCR210, 0x20000000);
+	ast_moutdwm(ast, AST_REG_MCR214, ddr_table[REGIDX_214]);
+	ast_moutdwm(ast, AST_REG_MCR2E0, ddr_table[REGIDX_2E0]);
+	ast_moutdwm(ast, AST_REG_MCR2E4, ddr_table[REGIDX_2E4]);
+	ast_moutdwm(ast, AST_REG_MCR2E8, ddr_table[REGIDX_2E8]);
+	ast_moutdwm(ast, AST_REG_MCR2EC, ddr_table[REGIDX_2EC]);
+	ast_moutdwm(ast, AST_REG_MCR2F0, ddr_table[REGIDX_2F0]);
+	ast_moutdwm(ast, AST_REG_MCR2F4, ddr_table[REGIDX_2F4]);
+	ast_moutdwm(ast, AST_REG_MCR2F8, ddr_table[REGIDX_2F8]);
+	ast_moutdwm(ast, AST_REG_MCR290, 0x00100008);
+	ast_moutdwm(ast, AST_REG_MCR2C4, 0x3C183C3C);
+	ast_moutdwm(ast, AST_REG_MCR2C8, 0x00631E0E);
 
 	/* Controller Setting */
-	ast_moutdwm(ast, 0x1E6E0034, 0x0001A991);
+	ast_moutdwm(ast, AST_REG_MCR34, 0x0001A991);
 
 	/* Train PHY Vref first */
 	pass = 0;
@@ -398,17 +398,17 @@ static void ddr4_init_2500(struct ast_device *ast, const u32 *ddr_table)
 	for (retrycnt = 0; retrycnt < 4 && pass == 0; retrycnt++) {
 		max_phy_vref = 0x0;
 		pass = 0;
-		ast_moutdwm(ast, 0x1E6E02C0, 0x00001C06);
+		ast_moutdwm(ast, AST_REG_MCR2C0, 0x00001C06);
 		for (phy_vref = 0x40; phy_vref < 0x80; phy_vref++) {
-			ast_moutdwm(ast, 0x1E6E000C, 0x00000000);
-			ast_moutdwm(ast, 0x1E6E0060, 0x00000000);
-			ast_moutdwm(ast, 0x1E6E02CC, phy_vref | (phy_vref << 8));
+			ast_moutdwm(ast, AST_REG_MCR0C, 0x00000000);
+			ast_moutdwm(ast, AST_REG_MCR60, 0x00000000);
+			ast_moutdwm(ast, AST_REG_MCR2CC, phy_vref | (phy_vref << 8));
 			/* Fire DFI Init */
 			ddr_phy_init_2500(ast);
-			ast_moutdwm(ast, 0x1E6E000C, 0x00005C01);
+			ast_moutdwm(ast, AST_REG_MCR0C, 0x00005C01);
 			if (cbr_test_2500(ast)) {
 				pass++;
-				data = ast_mindwm(ast, 0x1E6E03D0);
+				data = ast_mindwm(ast, AST_REG_MCR3D0);
 				data2 = data >> 8;
 				data  = data & 0xff;
 				if (data > data2)
@@ -422,7 +422,7 @@ static void ddr4_init_2500(struct ast_device *ast, const u32 *ddr_table)
 			}
 		}
 	}
-	ast_moutdwm(ast, 0x1E6E02CC, min_phy_vref | (min_phy_vref << 8));
+	ast_moutdwm(ast, AST_REG_MCR2CC, min_phy_vref | (min_phy_vref << 8));
 
 	/* Train DDR Vref next */
 	pass = 0;
@@ -432,12 +432,12 @@ static void ddr4_init_2500(struct ast_device *ast, const u32 *ddr_table)
 		max_ddr_vref = 0x0;
 		pass = 0;
 		for (ddr_vref = 0x00; ddr_vref < 0x40; ddr_vref++) {
-			ast_moutdwm(ast, 0x1E6E000C, 0x00000000);
-			ast_moutdwm(ast, 0x1E6E0060, 0x00000000);
-			ast_moutdwm(ast, 0x1E6E02C0, 0x00000006 | (ddr_vref << 8));
+			ast_moutdwm(ast, AST_REG_MCR0C, 0x00000000);
+			ast_moutdwm(ast, AST_REG_MCR60, 0x00000000);
+			ast_moutdwm(ast, AST_REG_MCR2C0, 0x00000006 | (ddr_vref << 8));
 			/* Fire DFI Init */
 			ddr_phy_init_2500(ast);
-			ast_moutdwm(ast, 0x1E6E000C, 0x00005C01);
+			ast_moutdwm(ast, AST_REG_MCR0C, 0x00005C01);
 			if (cbr_test_2500(ast)) {
 				pass++;
 				if (min_ddr_vref > ddr_vref)
@@ -450,22 +450,22 @@ static void ddr4_init_2500(struct ast_device *ast, const u32 *ddr_table)
 		}
 	}
 
-	ast_moutdwm(ast, 0x1E6E000C, 0x00000000);
-	ast_moutdwm(ast, 0x1E6E0060, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR0C, 0x00000000);
+	ast_moutdwm(ast, AST_REG_MCR60, 0x00000000);
 	ddr_vref = (min_ddr_vref + max_ddr_vref + 1) >> 1;
-	ast_moutdwm(ast, 0x1E6E02C0, 0x00000006 | (ddr_vref << 8));
+	ast_moutdwm(ast, AST_REG_MCR2C0, 0x00000006 | (ddr_vref << 8));
 
 	/* Wait DDR PHY init done */
 	ddr_phy_init_2500(ast);
 
-	ast_moutdwm(ast, 0x1E6E0120, ddr_table[REGIDX_PLL]);
-	ast_moutdwm(ast, 0x1E6E000C, 0x42AA5C81);
-	ast_moutdwm(ast, 0x1E6E0034, 0x0001AF93);
+	ast_moutdwm(ast, AST_REG_MCR120, ddr_table[REGIDX_PLL]);
+	ast_moutdwm(ast, AST_REG_MCR0C, 0x42AA5C81);
+	ast_moutdwm(ast, AST_REG_MCR34, 0x0001AF93);
 
 	check_dram_size_2500(ast, ddr_table[REGIDX_RFC]);
 	enable_cache_2500(ast);
-	ast_moutdwm(ast, 0x1E6E001C, 0x00000008);
-	ast_moutdwm(ast, 0x1E6E0038, 0xFFFFFF00);
+	ast_moutdwm(ast, AST_REG_MCR1C, 0x00000008);
+	ast_moutdwm(ast, AST_REG_MCR38, 0xFFFFFF00);
 }
 
 static bool ast_dram_init_2500(struct ast_device *ast)

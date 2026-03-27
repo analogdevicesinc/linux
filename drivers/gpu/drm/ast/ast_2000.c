@@ -106,7 +106,7 @@ static void ast_post_chip_2000(struct ast_device *ast)
 
 	if ((j & 0x80) == 0) { /* VGA only */
 		dram_reg_info = ast2000_dram_table_data;
-		ast_write32(ast, 0xf004, 0x1e6e0000);
+		ast_write32(ast, 0xf004, AST_REG_MCR00);
 		ast_write32(ast, 0xf000, 0x1);
 		ast_write32(ast, 0x10100, 0xa8);
 
