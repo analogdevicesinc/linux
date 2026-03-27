@@ -188,4 +188,12 @@
 #define AST_REG_SCU104				AST_REG_SCU(0x104)
 #define AST_REG_SCU160				AST_REG_SCU(0x160)
 
+/*
+ * AHB-to-P Bus Bridge (0x1e720000 - 0x1e73ffff)
+ */
+
+#define AST_REG_A2P_BASE			(0x1e720000)
+#define AST_REG_A2P(__offset)			(AST_REG_A2P_BASE + (__offset))
+#define AST_REG_A2P58				AST_REG_A2P(0x58)
+
 #endif

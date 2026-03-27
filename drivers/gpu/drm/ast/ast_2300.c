@@ -508,7 +508,7 @@ CBR_DONE2:
 	dlli  = (dllmin[1] + dllmax[1]) >> 1;
 	dlli <<= 8;
 	dlli += (dllmin[0] + dllmax[0]) >> 1;
-	ast_moutdwm(ast, AST_REG_MCR68, ast_mindwm(ast, 0x1E720058) | (dlli << 16));
+	ast_moutdwm(ast, AST_REG_MCR68, ast_mindwm(ast, AST_REG_A2P58) | (dlli << 16));
 	return status;
 } /* CBRDLL2 */
 
@@ -826,7 +826,7 @@ ddr3_init_start:
 		data = ast_mindwm(ast, AST_REG_MCR1C);
 		data = (data >> 8) & 0xff;
 	}
-	ast_moutdwm(ast, 0x1E720058, ast_mindwm(ast, AST_REG_MCR68) & 0xffff);
+	ast_moutdwm(ast, AST_REG_A2P58, ast_mindwm(ast, AST_REG_MCR68) & 0xffff);
 	data = ast_mindwm(ast, AST_REG_MCR18) | 0xC00;
 	ast_moutdwm(ast, AST_REG_MCR18, data);
 
@@ -1188,7 +1188,7 @@ ddr2_init_start:
 		data = ast_mindwm(ast, AST_REG_MCR1C);
 		data = (data >> 8) & 0xff;
 	}
-	ast_moutdwm(ast, 0x1E720058, ast_mindwm(ast, AST_REG_MCR08) & 0xffff);
+	ast_moutdwm(ast, AST_REG_A2P58, ast_mindwm(ast, AST_REG_MCR08) & 0xffff);
 	data = ast_mindwm(ast, AST_REG_MCR18) | 0xC00;
 	ast_moutdwm(ast, AST_REG_MCR18, data);
 
