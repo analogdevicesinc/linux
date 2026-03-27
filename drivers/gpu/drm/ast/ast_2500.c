@@ -112,9 +112,9 @@ void ast_2500_patch_ahb(void __iomem *regs)
 	__ast_moutdwm(regs, AST_REG_AHBC00, AST_REG_AHBC00_PROTECT_KEY);
 	__ast_moutdwm(regs, AST_REG_AHBC84, 0x00010000);
 	__ast_moutdwm(regs, AST_REG_AHBC88, 0x00000000);
-	__ast_moutdwm(regs, 0x1e6e2000, 0x1688A8A8);
+	__ast_moutdwm(regs, AST_REG_SCU000, AST_REG_SCU000_PROTECTION_KEY);
 
-	data = __ast_mindwm(regs, 0x1e6e2070);
+	data = __ast_mindwm(regs, AST_REG_SCU070);
 	if (data & 0x08000000) { /* check fast reset */
 		/*
 		 * If "Fast restet" is enabled for ARM-ICE debugger,
@@ -134,11 +134,11 @@ void ast_2500_patch_ahb(void __iomem *regs)
 	}
 
 	do {
-		__ast_moutdwm(regs, 0x1e6e2000, 0x1688A8A8);
-		data = __ast_mindwm(regs, 0x1e6e2000);
+		__ast_moutdwm(regs, AST_REG_SCU000, AST_REG_SCU000_PROTECTION_KEY);
+		data = __ast_mindwm(regs, AST_REG_SCU000);
 	} while (data != 1);
 
-	__ast_moutdwm(regs, 0x1e6e207c, 0x08000000); /* clear fast reset */
+	__ast_moutdwm(regs, AST_REG_SCU07C, 0x08000000); /* clear fast reset */
 }
 
 static bool mmc_test_single_2500(struct ast_device *ast, u32 datagen)
@@ -288,17 +288,17 @@ static void set_mpll_2500(struct ast_device *ast)
 	}
 	ast_moutdwm(ast, AST_REG_MCR34, 0x00020000);
 
-	ast_moutdwm(ast, 0x1E6E2000, 0x1688A8A8);
-	data = ast_mindwm(ast, 0x1E6E2070) & 0x00800000;
+	ast_moutdwm(ast, AST_REG_SCU000, AST_REG_SCU000_PROTECTION_KEY);
+	data = ast_mindwm(ast, AST_REG_SCU070) & 0x00800000;
 	if (data) {
 		/* CLKIN = 25MHz */
 		param = 0x930023E0;
-		ast_moutdwm(ast, 0x1E6E2160, 0x00011320);
+		ast_moutdwm(ast, AST_REG_SCU160, 0x00011320);
 	} else {
 		/* CLKIN = 24MHz */
 		param = 0x93002400;
 	}
-	ast_moutdwm(ast, 0x1E6E2020, param);
+	ast_moutdwm(ast, AST_REG_SCU020, param);
 	udelay(100);
 }
 
@@ -480,18 +480,18 @@ static bool ast_dram_init_2500(struct ast_device *ast)
 		reset_mmc_2500(ast);
 		ddr_init_common_2500(ast);
 
-		data = ast_mindwm(ast, 0x1E6E2070);
+		data = ast_mindwm(ast, AST_REG_SCU070);
 		if (data & 0x01000000)
 			ddr4_init_2500(ast, ast2500_ddr4_1600_timing_table);
 		else
 			ddr3_init_2500(ast, ast2500_ddr3_1600_timing_table);
 	} while (!ddr_test_2500(ast));
 
-	ast_moutdwm(ast, 0x1E6E2040, ast_mindwm(ast, 0x1E6E2040) | 0x41);
+	ast_moutdwm(ast, AST_REG_SCU040, ast_mindwm(ast, AST_REG_SCU040) | 0x41);
 
 	/* Patch code */
-	data = ast_mindwm(ast, 0x1E6E200C) & 0xF9FFFFFF;
-	ast_moutdwm(ast, 0x1E6E200C, data | 0x10000000);
+	data = ast_mindwm(ast, AST_REG_SCU00C) & 0xF9FFFFFF;
+	ast_moutdwm(ast, AST_REG_SCU00C, data | 0x10000000);
 
 	return true;
 }
@@ -524,17 +524,17 @@ static void ast_post_chip_2500(struct ast_device *ast)
 		 * SCU7C is Write clear reg to SCU70
 		 *	[23]:= write 1 and then SCU70[23] will be clear as 0b.
 		 */
-		ast_moutdwm(ast, 0x1E6E2090, 0x20000000);
-		ast_moutdwm(ast, 0x1E6E2094, 0x00004000);
-		if (ast_mindwm(ast, 0x1E6E2070) & 0x00800000) {
-			ast_moutdwm(ast, 0x1E6E207C, 0x00800000);
+		ast_moutdwm(ast, AST_REG_SCU090, 0x20000000);
+		ast_moutdwm(ast, AST_REG_SCU094, 0x00004000);
+		if (ast_mindwm(ast, AST_REG_SCU070) & 0x00800000) {
+			ast_moutdwm(ast, AST_REG_SCU07C, 0x00800000);
 			mdelay(100);
-			ast_moutdwm(ast, 0x1E6E2070, 0x00800000);
+			ast_moutdwm(ast, AST_REG_SCU070, 0x00800000);
 		}
 		/* Modify eSPI reset pin */
-		temp = ast_mindwm(ast, 0x1E6E2070);
+		temp = ast_mindwm(ast, AST_REG_SCU070);
 		if (temp & 0x02000000)
-			ast_moutdwm(ast, 0x1E6E207C, 0x00004000);
+			ast_moutdwm(ast, AST_REG_SCU07C, 0x00004000);
 
 		/* Slow down CPU/AHB CLK in VGA only mode */
 		temp = ast_read32(ast, 0x12008);
@@ -544,8 +544,8 @@ static void ast_post_chip_2500(struct ast_device *ast)
 		if (!ast_dram_init_2500(ast))
 			drm_err(dev, "DRAM init failed !\n");
 
-		temp = ast_mindwm(ast, 0x1e6e2040);
-		ast_moutdwm(ast, 0x1e6e2040, temp | 0x40);
+		temp = ast_mindwm(ast, AST_REG_SCU040);
+		ast_moutdwm(ast, AST_REG_SCU040, temp | 0x40);
 	}
 
 	/* wait ready */

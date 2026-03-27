@@ -183,7 +183,7 @@ static void ast_set_dp501_video_output(struct ast_device *ast, u8 mode)
 
 static u32 get_fw_base(struct ast_device *ast)
 {
-	return ast_mindwm(ast, 0x1e6e2104) & 0x7fffffff;
+	return ast_mindwm(ast, AST_REG_SCU104) & 0x7fffffff;
 }
 
 bool ast_backup_fw(struct ast_device *ast, u8 *addr, u32 size)
@@ -194,7 +194,7 @@ bool ast_backup_fw(struct ast_device *ast, u8 *addr, u32 size)
 	if (ast->config_mode != ast_use_p2a)
 		return false;
 
-	data = ast_mindwm(ast, 0x1e6e2100) & 0x01;
+	data = ast_mindwm(ast, AST_REG_SCU100) & 0x01;
 	if (data) {
 		boot_address = get_fw_base(ast);
 		for (i = 0; i < size; i += 4)
@@ -214,7 +214,7 @@ static bool ast_launch_m68k(struct ast_device *ast)
 	if (ast->config_mode != ast_use_p2a)
 		return false;
 
-	data = ast_mindwm(ast, 0x1e6e2100) & 0x01;
+	data = ast_mindwm(ast, AST_REG_SCU100) & 0x01;
 	if (!data) {
 
 		if (ast->dp501_fw_addr) {
@@ -229,7 +229,7 @@ static bool ast_launch_m68k(struct ast_device *ast)
 			len = ast->dp501_fw->size;
 		}
 		/* Get BootAddress */
-		ast_moutdwm(ast, 0x1e6e2000, 0x1688a8a8);
+		ast_moutdwm(ast, AST_REG_SCU000, AST_REG_SCU000_PROTECTION_KEY);
 		data = ast_mindwm(ast, AST_REG_MCR04);
 		switch (data & 0x03) {
 		case 0:
@@ -255,16 +255,16 @@ static bool ast_launch_m68k(struct ast_device *ast)
 		}
 
 		/* Init SCU */
-		ast_moutdwm(ast, 0x1e6e2000, 0x1688a8a8);
+		ast_moutdwm(ast, AST_REG_SCU000, AST_REG_SCU000_PROTECTION_KEY);
 
 		/* Launch FW */
-		ast_moutdwm(ast, 0x1e6e2104, 0x80000000 + boot_address);
-		ast_moutdwm(ast, 0x1e6e2100, 1);
+		ast_moutdwm(ast, AST_REG_SCU104, 0x80000000 + boot_address);
+		ast_moutdwm(ast, AST_REG_SCU100, 1);
 
 		/* Update Scratch */
-		data = ast_mindwm(ast, 0x1e6e2040) & 0xfffff1ff;		/* D[11:9] = 100b: UEFI handling */
-		data |= 0x800;
-		ast_moutdwm(ast, 0x1e6e2040, data);
+		data = ast_mindwm(ast, AST_REG_SCU040) & 0xfffff1ff;
+		data |= 0x800; /* D[11:9] = 100b: UEFI handling */
+		ast_moutdwm(ast, AST_REG_SCU040, data);
 
 		jreg = ast_get_index_reg_mask(ast, AST_IO_VGACRI, 0x99, 0xfc); /* D[1:0]: Reserved Video Buffer */
 		jreg |= 0x02;

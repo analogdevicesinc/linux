@@ -169,4 +169,23 @@
 #define AST_REG_MCR300				AST_REG_MCR(0x300)
 #define AST_REG_MCR3D0				AST_REG_MCR(0x3d0)
 
+/*
+ * System Control Unit (0x1e6e2000 - 0x1e6e2fff)
+ */
+
+#define AST_REG_SCU_BASE			(0x1e6e2000)
+#define AST_REG_SCU(__offset)			(AST_REG_SCU_BASE + (__offset))
+#define AST_REG_SCU000				AST_REG_SCU(0x000)
+#define AST_REG_SCU000_PROTECTION_KEY		(0x1688a8a8)
+#define AST_REG_SCU00C				AST_REG_SCU(0x00c)
+#define AST_REG_SCU020				AST_REG_SCU(0x020)
+#define AST_REG_SCU040				AST_REG_SCU(0x040)
+#define AST_REG_SCU070				AST_REG_SCU(0x070)
+#define AST_REG_SCU07C				AST_REG_SCU(0x07c)
+#define AST_REG_SCU090				AST_REG_SCU(0x090)
+#define AST_REG_SCU094				AST_REG_SCU(0x094)
+#define AST_REG_SCU100				AST_REG_SCU(0x100)
+#define AST_REG_SCU104				AST_REG_SCU(0x104)
+#define AST_REG_SCU160				AST_REG_SCU(0x160)
+
 #endif

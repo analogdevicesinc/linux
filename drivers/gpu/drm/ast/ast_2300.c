@@ -516,10 +516,10 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 {
 	u32 trap, trap_AC2, trap_MRS;
 
-	ast_moutdwm(ast, 0x1E6E2000, 0x1688A8A8);
+	ast_moutdwm(ast, AST_REG_SCU000, AST_REG_SCU000_PROTECTION_KEY);
 
 	/* Ger trap info */
-	trap = (ast_mindwm(ast, 0x1E6E2070) >> 25) & 0x3;
+	trap = (ast_mindwm(ast, AST_REG_SCU070) >> 25) & 0x3;
 	trap_AC2  = 0x00020000 + (trap << 16);
 	trap_AC2 |= 0x00300000 + ((trap & 0x2) << 19);
 	trap_MRS  = 0x00000010 + (trap << 4);
@@ -533,7 +533,7 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 
 	switch (param->dram_freq) {
 	case 336:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0190);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0190);
 		param->wodt          = 0;
 		param->reg_AC1       = 0x22202725;
 		param->reg_AC2       = 0xAA007613 | trap_AC2;
@@ -561,7 +561,7 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 		break;
 	default:
 	case 396:
-		ast_moutdwm(ast, 0x1E6E2020, 0x03F1);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x03F1);
 		param->wodt          = 1;
 		param->reg_AC1       = 0x33302825;
 		param->reg_AC2       = 0xCC009617 | trap_AC2;
@@ -591,7 +591,7 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 		break;
 
 	case 408:
-		ast_moutdwm(ast, 0x1E6E2020, 0x01F0);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x01F0);
 		param->wodt          = 1;
 		param->reg_AC1       = 0x33302825;
 		param->reg_AC2       = 0xCC009617 | trap_AC2;
@@ -621,7 +621,7 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 
 		break;
 	case 456:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0230);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0230);
 		param->wodt          = 0;
 		param->reg_AC1       = 0x33302926;
 		param->reg_AC2       = 0xCD44961A;
@@ -635,7 +635,7 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 4;
 		break;
 	case 504:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0270);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0270);
 		param->wodt          = 1;
 		param->reg_AC1       = 0x33302926;
 		param->reg_AC2       = 0xDE44A61D;
@@ -649,7 +649,7 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 4;
 		break;
 	case 528:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0290);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0290);
 		param->wodt          = 1;
 		param->rodt          = 1;
 		param->reg_AC1       = 0x33302926;
@@ -665,7 +665,7 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 3;
 		break;
 	case 576:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0140);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0140);
 		param->reg_MADJ      = 0x00136868;
 		param->reg_SADJ      = 0x00004534;
 		param->wodt          = 1;
@@ -683,7 +683,7 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 3;
 		break;
 	case 600:
-		ast_moutdwm(ast, 0x1E6E2020, 0x02E1);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x02E1);
 		param->reg_MADJ      = 0x00136868;
 		param->reg_SADJ      = 0x00004534;
 		param->wodt          = 1;
@@ -701,7 +701,7 @@ static void get_ddr3_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 3;
 		break;
 	case 624:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0160);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0160);
 		param->reg_MADJ      = 0x00136868;
 		param->reg_SADJ      = 0x00004534;
 		param->wodt          = 1;
@@ -874,10 +874,10 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 {
 	u32 trap, trap_AC2, trap_MRS;
 
-	ast_moutdwm(ast, 0x1E6E2000, 0x1688A8A8);
+	ast_moutdwm(ast, AST_REG_SCU000, AST_REG_SCU000_PROTECTION_KEY);
 
 	/* Ger trap info */
-	trap = (ast_mindwm(ast, 0x1E6E2070) >> 25) & 0x3;
+	trap = (ast_mindwm(ast, AST_REG_SCU070) >> 25) & 0x3;
 	trap_AC2  = (trap << 20) | (trap << 16);
 	trap_AC2 += 0x00110000;
 	trap_MRS  = 0x00000040 | (trap << 4);
@@ -890,7 +890,7 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 
 	switch (param->dram_freq) {
 	case 264:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0130);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0130);
 		param->wodt          = 0;
 		param->reg_AC1       = 0x11101513;
 		param->reg_AC2       = 0x78117011;
@@ -905,7 +905,7 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 3;
 		break;
 	case 336:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0190);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0190);
 		param->wodt          = 1;
 		param->reg_AC1       = 0x22202613;
 		param->reg_AC2       = 0xAA009016 | trap_AC2;
@@ -936,7 +936,7 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 		break;
 	default:
 	case 396:
-		ast_moutdwm(ast, 0x1E6E2020, 0x03F1);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x03F1);
 		param->wodt          = 1;
 		param->rodt          = 0;
 		param->reg_AC1       = 0x33302714;
@@ -970,7 +970,7 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 		break;
 
 	case 408:
-		ast_moutdwm(ast, 0x1E6E2020, 0x01F0);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x01F0);
 		param->wodt          = 1;
 		param->rodt          = 0;
 		param->reg_AC1       = 0x33302714;
@@ -1003,7 +1003,7 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 
 		break;
 	case 456:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0230);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0230);
 		param->wodt          = 0;
 		param->reg_AC1       = 0x33302815;
 		param->reg_AC2       = 0xCD44B01E;
@@ -1018,7 +1018,7 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 3;
 		break;
 	case 504:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0261);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0261);
 		param->wodt          = 1;
 		param->rodt          = 1;
 		param->reg_AC1       = 0x33302815;
@@ -1034,7 +1034,7 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 3;
 		break;
 	case 528:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0120);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0120);
 		param->wodt          = 1;
 		param->rodt          = 1;
 		param->reg_AC1       = 0x33302815;
@@ -1050,7 +1050,7 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 3;
 		break;
 	case 552:
-		ast_moutdwm(ast, 0x1E6E2020, 0x02A1);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x02A1);
 		param->wodt          = 1;
 		param->rodt          = 1;
 		param->reg_AC1       = 0x43402915;
@@ -1066,7 +1066,7 @@ static void get_ddr2_info(struct ast_device *ast, struct ast2300_dram_param *par
 		param->dll2_finetune_step = 3;
 		break;
 	case 576:
-		ast_moutdwm(ast, 0x1E6E2020, 0x0140);
+		ast_moutdwm(ast, AST_REG_SCU020, 0x0140);
 		param->wodt          = 1;
 		param->rodt          = 1;
 		param->reg_AC1       = 0x43402915;
@@ -1264,7 +1264,7 @@ static void ast_post_chip_2300(struct ast_device *ast)
 
 		param.dram_freq = 396;
 		param.dram_type = AST_DDR3;
-		temp = ast_mindwm(ast, 0x1e6e2070);
+		temp = ast_mindwm(ast, AST_REG_SCU070);
 		if (temp & 0x01000000)
 			param.dram_type = AST_DDR2;
 		switch (temp & 0x18000000) {
@@ -1306,8 +1306,8 @@ static void ast_post_chip_2300(struct ast_device *ast)
 			ddr2_init(ast, &param);
 		}
 
-		temp = ast_mindwm(ast, 0x1e6e2040);
-		ast_moutdwm(ast, 0x1e6e2040, temp | 0x40);
+		temp = ast_mindwm(ast, AST_REG_SCU040);
+		ast_moutdwm(ast, AST_REG_SCU040, temp | 0x40);
 	}
 
 	/* wait ready */
