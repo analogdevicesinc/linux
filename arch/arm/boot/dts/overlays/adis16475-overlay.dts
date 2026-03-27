@@ -83,6 +83,8 @@
 		 */
 		drdy_gpio25 = <&adis16475_pins>,"brcm,pins:0=25",
 				<&adis16475>,"interrupts:0=25";
+		reset_pin = <&adis16475_pins>,"brcm,pins:4",
+				<&adis16475>,"reset-gpios:4";
 		device = <&adis16475>,"compatible";
 		sync_mode = <&adis16475>,"adi,sync-mode:0";
 		ext_sync_freq = <&adis16475_ref_clk>, "clock-frequency:0",
