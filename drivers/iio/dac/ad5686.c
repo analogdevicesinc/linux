@@ -511,22 +511,18 @@ static irqreturn_t ad5686_trigger_handler(int irq, void *p)
 	const struct iio_chan_spec *chan;
 	struct iio_buffer *buffer = indio_dev->buffer;
 	struct ad5686_state *st = iio_priv(indio_dev);
-	u8 sample[2];
-	unsigned int i;
-	u16 val;
-	int ret;
+	u16 val[AD5686_MAX_CHANNELS];
+	int ret, ch, i = 0;
 
-	ret = iio_pop_from_buffer(buffer, sample);
+	ret = iio_pop_from_buffer(buffer, val);
 	if (ret < 0)
 		goto out;
 
 	mutex_lock(&st->lock);
-	iio_for_each_active_channel(indio_dev, i) {
-		val = (sample[1] << 8) + sample[0];
-
-		chan = &indio_dev->channels[i];
+	iio_for_each_active_channel(indio_dev, ch) {
+		chan = &indio_dev->channels[ch];
 		ret = st->write(st, AD5686_CMD_WRITE_INPUT_N_UPDATE_N,
-				chan->address, val << chan->scan_type.shift);
+				chan->address, val[i++] << chan->scan_type.shift);
 	}
 	mutex_unlock(&st->lock);
 
