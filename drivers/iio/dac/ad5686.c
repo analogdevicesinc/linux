@@ -197,8 +197,7 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 static int ad5686_trig_set_state(struct iio_trigger *trig,
 				 bool state)
 {
-	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
-	struct ad5686_state *st = iio_priv(indio_dev);
+	struct ad5686_state *st = iio_trigger_get_drvdata(trig);
 	struct pwm_state pwm_st;
 
 	if (!st->pwm)
@@ -215,7 +214,7 @@ static int ad5686_validate_trigger(struct iio_dev *indio_dev,
 {
 	struct ad5686_state *st = iio_priv(indio_dev);
 
-	if (st->trig != trig)
+	if (st->trig && st->trig != trig)
 		return -EINVAL;
 
 	return 0;
@@ -576,22 +575,6 @@ int ad5686_probe(struct device *dev,
 	if (ret)
 		return ret;
 
-	st->trig = devm_iio_trigger_alloc(dev, "%s-dev%d", name,
-					  iio_device_id(indio_dev));
-	if (st->trig == NULL)
-		ret = -ENOMEM;
-
-	st->trig->ops = &ad5686_trigger_ops;
-	st->trig->dev.parent = dev;
-	iio_trigger_set_drvdata(st->trig, indio_dev);
-
-	ret = devm_iio_trigger_register(dev, st->trig);
-	if (ret)
-		return ret;
-
-	/* select default trigger */
-	indio_dev->trig = iio_trigger_get(st->trig);
-
 	ret = devm_regulator_get_enable_read_voltage(dev, "vcc");
 	if (ret < 0 && ret != -ENODEV)
 		return ret;
@@ -616,6 +599,22 @@ int ad5686_probe(struct device *dev,
 
 	/* Configure IRQ */
 	if (irq) {
+		st->trig = devm_iio_trigger_alloc(dev, "%s-dev%d", name,
+						  iio_device_id(indio_dev));
+		if (!st->trig)
+			return -ENOMEM;
+
+		st->trig->ops = &ad5686_trigger_ops;
+		st->trig->dev.parent = dev;
+		iio_trigger_set_drvdata(st->trig, st);
+
+		ret = devm_iio_trigger_register(dev, st->trig);
+		if (ret)
+			return ret;
+
+		/* select default trigger */
+		indio_dev->trig = iio_trigger_get(st->trig);
+
 		ret = devm_request_threaded_irq(dev, irq, NULL, ad5686_irq_handler,
 						IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 						"ad5686 irq", indio_dev);
