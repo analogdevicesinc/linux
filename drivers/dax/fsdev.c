@@ -117,6 +117,13 @@ static void fsdev_kill(void *dev_dax)
 	kill_dev_dax(dev_dax);
 }
 
+static void fsdev_clear_ops(void *data)
+{
+	struct dev_dax *dev_dax = data;
+
+	dax_set_ops(dev_dax->dax_dev, NULL);
+}
+
 /*
  * Page map operations for FS-DAX mode
  * Similar to fsdax_pagemap_ops in drivers/nvdimm/pmem.c
@@ -300,6 +307,15 @@ static int fsdev_dax_probe(struct dev_dax *dev_dax)
 		return rc;
 
 	rc = devm_add_action_or_reset(dev, fsdev_cdev_del, cdev);
+	if (rc)
+		return rc;
+
+	/* Set the dax operations for fs-dax access path */
+	rc = dax_set_ops(dax_dev, &dev_dax_ops);
+	if (rc)
+		return rc;
+
+	rc = devm_add_action_or_reset(dev, fsdev_clear_ops, dev_dax);
 	if (rc)
 		return rc;
 
