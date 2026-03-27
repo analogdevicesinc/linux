@@ -3825,6 +3825,66 @@ static struct drm_mode_config_helper_funcs amdgpu_dm_mode_config_helperfuncs = {
 	.atomic_commit_setup = amdgpu_dm_atomic_setup_commit,
 };
 
+#define DDC_MANUFACTURERNAME_SAMSUNG 0x2D4C
+
+static void dm_set_panel_type(struct amdgpu_dm_connector *aconnector)
+{
+	struct drm_connector *connector = &aconnector->base;
+	struct drm_display_info *display_info = &connector->display_info;
+	struct dc_link *link = aconnector->dc_link;
+	struct amdgpu_device *adev;
+
+	adev = drm_to_adev(connector->dev);
+
+	link->panel_type = PANEL_TYPE_NONE;
+
+	switch (display_info->amd_vsdb.panel_type) {
+	case AMD_VSDB_PANEL_TYPE_OLED:
+		link->panel_type = PANEL_TYPE_OLED;
+		break;
+	case AMD_VSDB_PANEL_TYPE_MINILED:
+		link->panel_type = PANEL_TYPE_MINILED;
+		break;
+	}
+
+	/* If VSDB didn't determine panel type, check DPCD ext caps */
+	if (link->panel_type == PANEL_TYPE_NONE) {
+		if (link->dpcd_sink_ext_caps.bits.miniled == 1)
+			link->panel_type = PANEL_TYPE_MINILED;
+		if (link->dpcd_sink_ext_caps.bits.oled == 1)
+			link->panel_type = PANEL_TYPE_OLED;
+	}
+
+	/*
+	 * TODO: get panel type from DID2 that has device technology field
+	 * to specify if it's OLED or not. But we need to wait for DID2
+	 * support in DC and EDID parser to be able to use it here.
+	 */
+
+	if (link->panel_type == PANEL_TYPE_NONE) {
+		struct drm_amd_vsdb_info *vsdb = &display_info->amd_vsdb;
+		u32 lum1_max = vsdb->luminance_range1.max_luminance;
+		u32 lum2_max = vsdb->luminance_range2.max_luminance;
+
+		if (vsdb->version && link->local_sink &&
+		    link->local_sink->edid_caps.manufacturer_id ==
+		    DDC_MANUFACTURERNAME_SAMSUNG &&
+		    lum1_max >= ((lum2_max * 3) / 2))
+			link->panel_type = PANEL_TYPE_MINILED;
+	}
+
+	if (link->panel_type == PANEL_TYPE_OLED)
+		drm_object_property_set_value(&connector->base,
+			adev_to_drm(adev)->mode_config.panel_type_property,
+			DRM_MODE_PANEL_TYPE_OLED);
+	else
+		drm_object_property_set_value(&connector->base,
+			adev_to_drm(adev)->mode_config.panel_type_property,
+			DRM_MODE_PANEL_TYPE_UNKNOWN);
+
+	drm_dbg_kms(aconnector->base.dev, "Panel type: %d\n", link->panel_type);
+}
+
 static void update_connector_ext_caps(struct amdgpu_dm_connector *aconnector)
 {
 	const struct drm_panel_backlight_quirk *panel_backlight_quirk;
@@ -3845,10 +3905,6 @@ static void update_connector_ext_caps(struct amdgpu_dm_connector *aconnector)
 	caps = &adev->dm.backlight_caps[aconnector->bl_idx];
 	caps->ext_caps = &aconnector->dc_link->dpcd_sink_ext_caps;
 	caps->aux_support = false;
-
-	drm_object_property_set_value(&conn_base->base,
-				      adev_to_drm(adev)->mode_config.panel_type_property,
-				      caps->ext_caps->bits.oled ? DRM_MODE_PANEL_TYPE_OLED : DRM_MODE_PANEL_TYPE_UNKNOWN);
 
 	if (caps->ext_caps->bits.oled == 1
 	    /*
@@ -4023,6 +4079,7 @@ void amdgpu_dm_update_connector_after_detect(
 
 		amdgpu_dm_update_freesync_caps(connector, aconnector->drm_edid);
 		update_connector_ext_caps(aconnector);
+		dm_set_panel_type(aconnector);
 	} else {
 		hdmi_cec_unset_edid(aconnector);
 		drm_dp_cec_unset_edid(&aconnector->dm_dp_aux.aux);
@@ -13170,56 +13227,15 @@ static void parse_edid_displayid_vrr(struct drm_connector *connector,
 	}
 }
 
-static int parse_amd_vsdb(struct amdgpu_dm_connector *aconnector,
-			  const struct edid *edid, struct amdgpu_hdmi_vsdb_info *vsdb_info)
+static int get_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+			struct amdgpu_hdmi_vsdb_info *vsdb_info)
 {
-	u8 *edid_ext = NULL;
-	int i;
-	int j = 0;
-	int total_ext_block_len;
+	struct drm_connector *connector = &aconnector->base;
 
-	if (edid == NULL || edid->extensions == 0)
-		return -ENODEV;
+	vsdb_info->replay_mode = connector->display_info.amd_vsdb.replay_mode;
+	vsdb_info->amd_vsdb_version = connector->display_info.amd_vsdb.version;
 
-	/* Find DisplayID extension */
-	for (i = 0; i < edid->extensions; i++) {
-		edid_ext = (void *)(edid + (i + 1));
-		if (edid_ext[0] == DISPLAYID_EXT)
-			break;
-	}
-
-	total_ext_block_len = EDID_LENGTH * edid->extensions;
-	while (j < total_ext_block_len - sizeof(struct amd_vsdb_block)) {
-		struct amd_vsdb_block *amd_vsdb = (struct amd_vsdb_block *)&edid_ext[j];
-		unsigned int ieeeId = (amd_vsdb->ieee_id[2] << 16) | (amd_vsdb->ieee_id[1] << 8) | (amd_vsdb->ieee_id[0]);
-
-		if (ieeeId == HDMI_AMD_VENDOR_SPECIFIC_DATA_BLOCK_IEEE_REGISTRATION_ID &&
-				amd_vsdb->version == HDMI_AMD_VENDOR_SPECIFIC_DATA_BLOCK_VERSION_3) {
-			u8 panel_type;
-			vsdb_info->replay_mode = (amd_vsdb->feature_caps & AMD_VSDB_VERSION_3_FEATURECAP_REPLAYMODE) ? true : false;
-			vsdb_info->amd_vsdb_version = HDMI_AMD_VENDOR_SPECIFIC_DATA_BLOCK_VERSION_3;
-			drm_dbg_kms(aconnector->base.dev, "Panel supports Replay Mode: %d\n", vsdb_info->replay_mode);
-			panel_type = (amd_vsdb->color_space_eotf_support & AMD_VDSB_VERSION_3_PANEL_TYPE_MASK) >> AMD_VDSB_VERSION_3_PANEL_TYPE_SHIFT;
-			switch (panel_type) {
-			case AMD_VSDB_PANEL_TYPE_OLED:
-				aconnector->dc_link->panel_type = PANEL_TYPE_OLED;
-				break;
-			case AMD_VSDB_PANEL_TYPE_MINILED:
-				aconnector->dc_link->panel_type = PANEL_TYPE_MINILED;
-				break;
-			default:
-				aconnector->dc_link->panel_type = PANEL_TYPE_NONE;
-				break;
-			}
-			drm_dbg_kms(aconnector->base.dev, "Panel type: %d\n",
-				    aconnector->dc_link->panel_type);
-
-			return true;
-		}
-		j++;
-	}
-
-	return false;
+	return connector->display_info.amd_vsdb.version != 0;
 }
 
 static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
@@ -13322,7 +13338,7 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 				freesync_capable = true;
 		}
 
-		parse_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
+		get_amd_vsdb(amdgpu_dm_connector, &vsdb_info);
 
 		if (vsdb_info.replay_mode) {
 			amdgpu_dm_connector->vsdb_info.replay_mode = vsdb_info.replay_mode;
