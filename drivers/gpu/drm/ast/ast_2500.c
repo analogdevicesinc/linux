@@ -280,15 +280,13 @@ static void enable_cache_2500(struct ast_device *ast)
 
 static void set_mpll_2500(struct ast_device *ast)
 {
-	u32 addr, data, param;
+	u32 mcr, data, param;
 
 	/* Reset MMC */
 	ast_moutdwm(ast, AST_REG_MCR00, AST_REG_MCR00_PROTECTION_KEY);
 	ast_moutdwm(ast, AST_REG_MCR34, 0x00020080);
-	for (addr = 0x1e6e0004; addr < 0x1e6e0090;) {
-		ast_moutdwm(ast, addr, 0x0);
-		addr += 4;
-	}
+	for (mcr = AST_REG_MCR04; mcr <= AST_REG_MCR8C; mcr += 4)
+		ast_moutdwm(ast, mcr, 0x00000000);
 	ast_moutdwm(ast, AST_REG_MCR34, 0x00020000);
 
 	ast_moutdwm(ast, AST_REG_SCU000, AST_REG_SCU000_PROTECTION_KEY);
@@ -507,6 +505,8 @@ static void ast_post_chip_2500(struct ast_device *ast)
 
 	reg = ast_get_index_reg_mask(ast, AST_IO_VGACRI, 0xd0, 0xff);
 	if ((reg & AST_IO_VGACRD0_VRAM_INIT_STATUS_MASK) == 0) {/* vga only */
+		u32 scu008;
+
 		/* Clear bus lock condition */
 		ast_2500_patch_ahb(ast->regs);
 
@@ -540,9 +540,9 @@ static void ast_post_chip_2500(struct ast_device *ast)
 			ast_moutdwm(ast, AST_REG_SCU07C, 0x00004000);
 
 		/* Slow down CPU/AHB CLK in VGA only mode */
-		temp = ast_read32(ast, 0x12008);
-		temp |= 0x73;
-		ast_write32(ast, 0x12008, temp);
+		scu008 = ast_mindwm(ast, AST_REG_SCU008);
+		scu008 |= 0x00000073;
+		ast_moutdwm(ast, AST_REG_SCU008, scu008);
 
 		if (!ast_dram_init_2500(ast))
 			drm_err(dev, "DRAM init failed !\n");
