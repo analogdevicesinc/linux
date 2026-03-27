@@ -20,6 +20,8 @@
 		mmc0 = &emmc; /* eMMC */
 		mmc1 = &sd; /* SD card */
 		mmc2 = &sdio; /* SDIO */
+		rtc0 = &rtc;
+		rtc1 = &vrtc;
 		serial0 = &uart_b;
 	};
 
@@ -221,6 +223,19 @@
 	status = "okay";
 	phy-handle = <&internal_ephy>;
 	phy-mode = "rmii";
+};
+
+&i2c1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins2>;
+	clock-frequency = <100000>;
+
+	rtc: rtc@51 {
+		compatible = "haoyu,hym8563";
+		reg = <0x51>;
+		#clock-cells = <0>;
+	};
 };
 
 &ir {
