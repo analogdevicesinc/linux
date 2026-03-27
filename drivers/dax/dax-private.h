@@ -70,6 +70,7 @@ struct dev_dax_range {
  * @region: parent region
  * @dax_dev: core dax functionality
  * @virt_addr: kva from memremap; used by fsdev_dax
+ * @cached_size: size of daxdev cached by fsdev_dax
  * @align: alignment of this instance
  * @target_node: effective numa node if dev_dax memory range is onlined
  * @dyn_id: is this a dynamic or statically created instance
@@ -85,6 +86,7 @@ struct dev_dax {
 	struct dax_region *region;
 	struct dax_device *dax_dev;
 	void *virt_addr;
+	u64 cached_size;
 	unsigned int align;
 	int target_node;
 	bool dyn_id;
