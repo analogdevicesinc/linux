@@ -59,6 +59,11 @@
 		method = "smc";
 	};
 
+	vrtc: rtc@fe010288 {
+		compatible = "amlogic,meson-vrtc";
+		reg = <0x0 0xfe010288 0x0 0x4>;
+	};
+
 	xtal: xtal-clk {
 		compatible = "fixed-clock";
 		clock-frequency = <24000000>;
