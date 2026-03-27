@@ -73,5 +73,7 @@ int xe_sysctrl_init(struct xe_device *xe)
 	if (ret)
 		return ret;
 
+	xe_sysctrl_mailbox_init(sc);
+
 	return 0;
 }
