@@ -337,10 +337,11 @@ static ssize_t inout_sel_store(struct device *dev,
 {
 	unsigned long val;
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	struct cti_config *config = &drvdata->config;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
-	if (val > (CTIINOUTEN_MAX - 1))
+	if (val >= config->nr_trig_max)
 		return -EINVAL;
 
 	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
