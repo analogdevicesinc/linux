@@ -429,6 +429,7 @@ int dax_folio_reset_order(struct folio *folio)
 
 	return order;
 }
+EXPORT_SYMBOL_GPL(dax_folio_reset_order);
 
 static inline unsigned long dax_folio_put(struct folio *folio)
 {
