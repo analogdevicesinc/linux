@@ -361,6 +361,7 @@ u32 __ast_mindwm(void __iomem *regs, u32 r);
 void __ast_moutdwm(void __iomem *regs, u32 r, u32 v);
 u32 ast_mindwm(struct ast_device *ast, u32 r);
 void ast_moutdwm(struct ast_device *ast, u32 r, u32 v);
+void ast_moutdwm_poll(struct ast_device *ast, u32 r, u32 v, u32 res);
 
 /*
  * VBIOS

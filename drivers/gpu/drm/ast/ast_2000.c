@@ -99,20 +99,15 @@ static const struct ast_dramstruct ast2000_dram_table_data[] = {
 static void ast_post_chip_2000(struct ast_device *ast)
 {
 	u8 j;
-	u32 temp, i;
-	const struct ast_dramstruct *dram_reg_info;
+	u32 i;
 
 	j = ast_get_index_reg_mask(ast, AST_IO_VGACRI, 0xd0, 0xff);
 
 	if ((j & 0x80) == 0) { /* VGA only */
-		dram_reg_info = ast2000_dram_table_data;
-		ast_write32(ast, 0xf004, AST_REG_MCR00);
-		ast_write32(ast, 0xf000, 0x1);
-		ast_write32(ast, 0x10100, 0xa8);
+		const struct ast_dramstruct *dram_reg_info = ast2000_dram_table_data;
+		u32 mcr140;
 
-		do {
-			;
-		} while (ast_read32(ast, 0x10100) != 0xa8);
+		ast_moutdwm_poll(ast, AST_REG_MCR100, 0xa8, 0xa8);
 
 		while (!AST_DRAMSTRUCT_IS(dram_reg_info, INVALID)) {
 			if (AST_DRAMSTRUCT_IS(dram_reg_info, UDELAY)) {
@@ -124,8 +119,9 @@ static void ast_post_chip_2000(struct ast_device *ast)
 			dram_reg_info++;
 		}
 
-		temp = ast_read32(ast, 0x10140);
-		ast_write32(ast, 0x10140, temp | 0x40);
+		mcr140 = ast_mindwm(ast, AST_REG_MCR140);
+		mcr140 |= 0x00000040;
+		ast_moutdwm(ast, AST_REG_MCR140, mcr140);
 	}
 
 	/* wait ready */

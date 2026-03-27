@@ -102,6 +102,18 @@ void ast_moutdwm(struct ast_device *ast, u32 r, u32 v)
 	__ast_moutdwm(ast->regs, r, v);
 }
 
+void ast_moutdwm_poll(struct ast_device *ast, u32 r, u32 v, u32 res)
+{
+	void __iomem *regs = ast->regs;
+
+	__ast_selseg(regs, r);
+	__ast_wrseg32(regs, r, v);
+
+	do {
+		cpu_relax();
+	} while (__ast_rdseg32(regs, r) != res);
+}
+
 /*
  * AST device
  */
