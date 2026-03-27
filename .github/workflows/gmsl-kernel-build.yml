@@ -61,6 +61,9 @@ jobs:
              INSTALL_MOD_PATH=${{ github.workspace }}/install/modules \
              modules_install
 
+        find ${{ github.workspace }}/install/modules/lib/modules/ \
+             -maxdepth 2 \( -name build -o -name source \) -delete
+
     - name: Download rpi boot files
       run: |
         cd ${{ github.workspace }}/install/boot/
