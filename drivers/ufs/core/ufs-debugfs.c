@@ -209,6 +209,265 @@ static const struct ufs_debugfs_attr ufs_attrs[] = {
 	{ }
 };
 
+static int ufs_tx_eq_params_show(struct seq_file *s, void *data)
+{
+	const char *file_name = s->file->f_path.dentry->d_name.name;
+	u32 gear = (u32)(uintptr_t)s->file->f_inode->i_private;
+	struct ufs_hba *hba = hba_from_file(s->file);
+	struct ufshcd_tx_eq_settings *settings;
+	struct ufs_pa_layer_attr *pwr_info;
+	struct ufshcd_tx_eq_params *params;
+	u32 rate = hba->pwr_info.hs_rate;
+	u32 num_lanes;
+	int lane;
+
+	if (!ufshcd_is_tx_eq_supported(hba))
+		return -EOPNOTSUPP;
+
+	if (gear < UFS_HS_G1 || gear > UFS_HS_GEAR_MAX) {
+		seq_printf(s, "Invalid gear selected: %u\n", gear);
+		return 0;
+	}
+
+	if (!hba->max_pwr_info.is_valid) {
+		seq_puts(s, "Max power info is invalid\n");
+		return 0;
+	}
+
+	pwr_info = &hba->max_pwr_info.info;
+	params = &hba->tx_eq_params[gear - 1];
+	if (!params->is_valid) {
+		seq_printf(s, "TX EQ params are invalid for HS-G%u, Rate-%s\n",
+			   gear, ufs_hs_rate_to_str(rate));
+		return 0;
+	}
+
+	if (strcmp(file_name, "host_tx_eq_params") == 0) {
+		settings = params->host;
+		num_lanes = pwr_info->lane_tx;
+		seq_printf(s, "Host TX EQ PreShoot Cap: 0x%02x, DeEmphasis Cap: 0x%02x\n",
+			   hba->host_preshoot_cap, hba->host_deemphasis_cap);
+	} else if (strcmp(file_name, "device_tx_eq_params") == 0) {
+		settings = params->device;
+		num_lanes = pwr_info->lane_rx;
+		seq_printf(s, "Device TX EQ PreShoot Cap: 0x%02x, DeEmphasis Cap: 0x%02x\n",
+			   hba->device_preshoot_cap, hba->device_deemphasis_cap);
+	} else {
+		return -ENOENT;
+	}
+
+	seq_printf(s, "TX EQ setting for HS-G%u, Rate-%s:\n", gear,
+		   ufs_hs_rate_to_str(rate));
+	for (lane = 0; lane < num_lanes; lane++)
+		seq_printf(s, "TX Lane %d - PreShoot: %d, DeEmphasis: %d, Pre-Coding %senabled\n",
+			   lane, settings[lane].preshoot,
+			   settings[lane].deemphasis,
+			   settings[lane].precode_en ? "" : "not ");
+
+	return 0;
+}
+
+static int ufs_tx_eq_params_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufs_tx_eq_params_show, inode->i_private);
+}
+
+static const struct file_operations ufs_tx_eq_params_fops = {
+	.owner		= THIS_MODULE,
+	.open		= ufs_tx_eq_params_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static const struct ufs_debugfs_attr ufs_tx_eq_attrs[] = {
+	{ "host_tx_eq_params", 0400, &ufs_tx_eq_params_fops },
+	{ "device_tx_eq_params", 0400, &ufs_tx_eq_params_fops },
+	{ }
+};
+
+static int ufs_tx_eqtr_record_show(struct seq_file *s, void *data)
+{
+	const char *file_name = s->file->f_path.dentry->d_name.name;
+	u8 (*fom_array)[TX_HS_NUM_PRESHOOT][TX_HS_NUM_DEEMPHASIS];
+	u32 gear = (u32)(uintptr_t)s->file->f_inode->i_private;
+	unsigned long preshoot_bitmap, deemphasis_bitmap;
+	struct ufs_hba *hba = hba_from_file(s->file);
+	struct ufs_pa_layer_attr *pwr_info;
+	struct ufshcd_tx_eq_params *params;
+	struct ufshcd_tx_eqtr_record *rec;
+	u32 rate = hba->pwr_info.hs_rate;
+	u8 preshoot, deemphasis;
+	u32 num_lanes;
+	char name[32];
+	int lane;
+
+	if (!ufshcd_is_tx_eq_supported(hba))
+		return -EOPNOTSUPP;
+
+	if (gear < UFS_HS_G1 || gear > UFS_HS_GEAR_MAX) {
+		seq_printf(s, "Invalid gear selected: %u\n", gear);
+		return 0;
+	}
+
+	if (!hba->max_pwr_info.is_valid) {
+		seq_puts(s, "Max power info is invalid\n");
+		return 0;
+	}
+
+	pwr_info = &hba->max_pwr_info.info;
+	params = &hba->tx_eq_params[gear - 1];
+	if (!params->is_valid) {
+		seq_printf(s, "TX EQ params are invalid for HS-G%u, Rate-%s\n",
+			   gear, ufs_hs_rate_to_str(rate));
+		return 0;
+	}
+
+	rec = params->eqtr_record;
+	if (!rec || !rec->last_record_index) {
+		seq_printf(s, "No TX EQTR records found for HS-G%u, Rate-%s.\n",
+			   gear, ufs_hs_rate_to_str(rate));
+		return 0;
+	}
+
+	if (strcmp(file_name, "host_tx_eqtr_record") == 0) {
+		preshoot_bitmap = (hba->host_preshoot_cap << 0x1) | 0x1;
+		deemphasis_bitmap = (hba->host_deemphasis_cap << 0x1) | 0x1;
+		num_lanes = pwr_info->lane_tx;
+		fom_array = rec->host_fom;
+		snprintf(name, sizeof(name), "%s", "Host");
+	} else if (strcmp(file_name, "device_tx_eqtr_record") == 0) {
+		preshoot_bitmap = (hba->device_preshoot_cap << 0x1) | 0x1;
+		deemphasis_bitmap = (hba->device_deemphasis_cap << 0x1) | 0x1;
+		num_lanes = pwr_info->lane_rx;
+		fom_array = rec->device_fom;
+		snprintf(name, sizeof(name), "%s", "Device");
+	} else {
+		return -ENOENT;
+	}
+
+	seq_printf(s, "%s TX EQTR record summary -\n", name);
+	seq_printf(s, "Target Power Mode: HS-G%u, Rate-%s\n", gear,
+		   ufs_hs_rate_to_str(rate));
+	seq_printf(s, "Most recent record index: %d\n",
+		   rec->last_record_index);
+	seq_printf(s, "Most recent record timestamp: %llu us\n",
+		   ktime_to_us(rec->last_record_ts));
+
+	for (lane = 0; lane < num_lanes; lane++) {
+		seq_printf(s, "\nTX Lane %d FOM - %s\n", lane, "PreShoot\\DeEmphasis");
+		seq_puts(s, "\\");
+		/* Print DeEmphasis header as X-axis. */
+		for (deemphasis = 0; deemphasis < TX_HS_NUM_DEEMPHASIS; deemphasis++)
+			seq_printf(s, "%8d%s", deemphasis, " ");
+		seq_puts(s, "\n");
+		/* Print matrix rows with PreShoot as Y-axis. */
+		for (preshoot = 0; preshoot < TX_HS_NUM_PRESHOOT; preshoot++) {
+			seq_printf(s, "%d", preshoot);
+			for (deemphasis = 0; deemphasis < TX_HS_NUM_DEEMPHASIS; deemphasis++) {
+				if (test_bit(preshoot, &preshoot_bitmap) &&
+				    test_bit(deemphasis, &deemphasis_bitmap)) {
+					u8 fom = fom_array[lane][preshoot][deemphasis];
+					u8 fom_val = fom & RX_FOM_VALUE_MASK;
+					bool precode_en = fom & RX_FOM_PRECODING_EN_BIT;
+
+					if (ufshcd_is_txeq_presets_used(hba) &&
+					    !ufshcd_is_txeq_preset_selected(preshoot, deemphasis))
+						seq_printf(s, "%8s%s", "-", " ");
+					else
+						seq_printf(s, "%8u%s", fom_val,
+							   precode_en ? "*" : " ");
+				} else {
+					seq_printf(s, "%8s%s", "x", " ");
+				}
+			}
+			seq_puts(s, "\n");
+		}
+	}
+
+	return 0;
+}
+
+static int ufs_tx_eqtr_record_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufs_tx_eqtr_record_show, inode->i_private);
+}
+
+static const struct file_operations ufs_tx_eqtr_record_fops = {
+	.owner		= THIS_MODULE,
+	.open		= ufs_tx_eqtr_record_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static ssize_t ufs_tx_eq_ctrl_write(struct file *file, const char __user *buf,
+				    size_t count, loff_t *ppos)
+{
+	u32 gear = (u32)(uintptr_t)file->f_inode->i_private;
+	struct ufs_hba *hba = hba_from_file(file);
+	char kbuf[32];
+	int ret;
+
+	if (count >= sizeof(kbuf))
+		return -EINVAL;
+
+	if (copy_from_user(kbuf, buf, count))
+		return -EFAULT;
+
+	if (!ufshcd_is_tx_eq_supported(hba))
+		return -EOPNOTSUPP;
+
+	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL ||
+	    !hba->max_pwr_info.is_valid)
+		return -EBUSY;
+
+	if (!hba->ufs_device_wlun)
+		return -ENODEV;
+
+	kbuf[count] = '\0';
+
+	if (sysfs_streq(kbuf, "retrain")) {
+		ret = ufs_debugfs_get_user_access(hba);
+		if (ret)
+			return ret;
+		ret = ufshcd_retrain_tx_eq(hba, gear);
+		ufs_debugfs_put_user_access(hba);
+	} else {
+		/* Unknown operation */
+		return -EINVAL;
+	}
+
+	return ret ? ret : count;
+}
+
+static int ufs_tx_eq_ctrl_show(struct seq_file *s, void *data)
+{
+	seq_puts(s, "write 'retrain' to retrain TX Equalization settings\n");
+	return 0;
+}
+
+static int ufs_tx_eq_ctrl_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufs_tx_eq_ctrl_show, inode->i_private);
+}
+
+static const struct file_operations ufs_tx_eq_ctrl_fops = {
+	.owner		= THIS_MODULE,
+	.open		= ufs_tx_eq_ctrl_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.write		= ufs_tx_eq_ctrl_write,
+	.release	= single_release,
+};
+
+static const struct ufs_debugfs_attr ufs_tx_eqtr_attrs[] = {
+	{ "host_tx_eqtr_record", 0400, &ufs_tx_eqtr_record_fops },
+	{ "device_tx_eqtr_record", 0400, &ufs_tx_eqtr_record_fops },
+	{ "tx_eq_ctrl", 0600, &ufs_tx_eq_ctrl_fops },
+	{ }
+};
+
 void ufs_debugfs_hba_init(struct ufs_hba *hba)
 {
 	const struct ufs_debugfs_attr *attr;
@@ -230,6 +489,37 @@ void ufs_debugfs_hba_init(struct ufs_hba *hba)
 			    hba, &ee_usr_mask_fops);
 	debugfs_create_u32("exception_event_rate_limit_ms", 0600, hba->debugfs_root,
 			   &hba->debugfs_ee_rate_limit_ms);
+
+	if (!(hba->caps & UFSHCD_CAP_TX_EQUALIZATION))
+		return;
+
+	for (u32 gear = UFS_HS_G1; gear <= UFS_HS_GEAR_MAX; gear++) {
+		struct dentry *txeq_dir;
+		char name[32];
+
+		snprintf(name, sizeof(name), "tx_eq_hs_gear%d", gear);
+		txeq_dir = debugfs_create_dir(name, hba->debugfs_root);
+		if (IS_ERR_OR_NULL(txeq_dir))
+			return;
+
+		d_inode(txeq_dir)->i_private = hba;
+
+		/* Create files for TX Equalization parameters */
+		for (attr = ufs_tx_eq_attrs; attr->name; attr++)
+			debugfs_create_file(attr->name, attr->mode, txeq_dir,
+					    (void *)(uintptr_t)gear,
+					    attr->fops);
+
+		/* TX EQTR is supported for HS-G4 and higher Gears */
+		if (gear < UFS_HS_G4)
+			continue;
+
+		/* Create files for TX EQTR related attributes */
+		for (attr = ufs_tx_eqtr_attrs; attr->name; attr++)
+			debugfs_create_file(attr->name, attr->mode, txeq_dir,
+					    (void *)(uintptr_t)gear,
+					    attr->fops);
+	}
 }
 
 void ufs_debugfs_hba_exit(struct ufs_hba *hba)
