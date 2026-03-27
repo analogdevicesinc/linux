@@ -40,21 +40,19 @@
 
 static enum ast_dram_layout ast_2100_get_dram_layout_p2a(struct ast_device *ast)
 {
-	u32 mcr_cfg;
+	u32 mcr04;
 	enum ast_dram_layout dram_layout;
 
-	ast_write32(ast, 0xf004, AST_REG_MCR00);
-	ast_write32(ast, 0xf000, 0x1);
-	mcr_cfg = ast_read32(ast, 0x10004);
+	mcr04 = ast_mindwm(ast, AST_REG_MCR04);
 
-	switch (mcr_cfg & 0x0c) {
+	switch (mcr04 & GENMASK(3, 2)) {
 	case 0:
 	case 4:
 	default:
 		dram_layout = AST_DRAM_512Mx16;
 		break;
 	case 8:
-		if (mcr_cfg & 0x40)
+		if (mcr04 & 0x40)
 			dram_layout = AST_DRAM_1Gx16;
 		else
 			dram_layout = AST_DRAM_512Mx32;
@@ -300,51 +298,52 @@ cbr_start:
 static void ast_post_chip_2100(struct ast_device *ast)
 {
 	u8 j;
-	u32 data, temp, i;
-	const struct ast_dramstruct *dram_reg_info;
-	enum ast_dram_layout dram_layout  = ast_2100_get_dram_layout_p2a(ast);
+	u32 i;
+	enum ast_dram_layout dram_layout = ast_2100_get_dram_layout_p2a(ast);
+	u32 mcr120;
+	u32 scu00c, scu040;
 
 	j = ast_get_index_reg_mask(ast, AST_IO_VGACRI, 0xd0, 0xff);
 
 	if ((j & 0x80) == 0) { /* VGA only */
+		const struct ast_dramstruct *dram_reg_info;
+
 		if (ast->chip == AST2100 || ast->chip == AST2200)
 			dram_reg_info = ast2100_dram_table_data;
 		else
 			dram_reg_info = ast1100_dram_table_data;
 
-		ast_write32(ast, 0xf004, AST_REG_MCR00);
-		ast_write32(ast, 0xf000, 0x1);
-		ast_write32(ast, 0x12000, 0x1688A8A8);
-		do {
-			;
-		} while (ast_read32(ast, 0x12000) != 0x01);
-
-		ast_write32(ast, 0x10000, 0xfc600309);
-		do {
-			;
-		} while (ast_read32(ast, 0x10000) != 0x01);
+		ast_moutdwm_poll(ast, AST_REG_SCU000, AST_REG_SCU000_PROTECTION_KEY, 0x01);
+		ast_moutdwm_poll(ast, AST_REG_MCR00, AST_REG_MCR00_PROTECTION_KEY, 0x01);
 
 		while (!AST_DRAMSTRUCT_IS(dram_reg_info, INVALID)) {
 			if (AST_DRAMSTRUCT_IS(dram_reg_info, UDELAY)) {
 				for (i = 0; i < 15; i++)
 					udelay(dram_reg_info->data);
 			} else if (AST_DRAMSTRUCT_IS_REG(dram_reg_info, AST_REG_MCR04)) {
+				u32 mcr04;
+				u32 scu070;
+
 				switch (dram_layout) {
 				case AST_DRAM_1Gx16:
-					data = 0x00000d89;
+					mcr04 = 0x00000d89;
 					break;
 				case AST_DRAM_1Gx32:
-					data = 0x00000c8d;
+					mcr04 = 0x00000c8d;
 					break;
 				default:
-					data = dram_reg_info->data;
+					mcr04 = dram_reg_info->data;
 					break;
 				}
 
-				temp = ast_read32(ast, 0x12070);
-				temp &= 0xc;
-				temp <<= 2;
-				ast_moutdwm(ast, dram_reg_info->index, data | temp);
+				/*
+				 * FIXME: There might be bits already in MCR04[5:4]. Should
+				 *        we only do this in the default case?
+				 */
+				scu070 = ast_mindwm(ast, AST_REG_SCU070);
+				mcr04 |= (scu070 & GENMASK(3, 2)) << 2;
+
+				ast_moutdwm(ast, dram_reg_info->index, mcr04);
 			} else {
 				ast_moutdwm(ast, dram_reg_info->index, dram_reg_info->data);
 			}
@@ -352,19 +351,23 @@ static void ast_post_chip_2100(struct ast_device *ast)
 		}
 
 		/* AST 2100/2150 DRAM calibration */
-		data = ast_read32(ast, 0x10120);
-		if (data == 0x5061) { /* 266Mhz */
-			data = ast_read32(ast, 0x10004);
-			if (data & 0x40)
+		mcr120 = ast_mindwm(ast, AST_REG_MCR120);
+		if (mcr120 == 0x5061) { /* 266Mhz */
+			u32 mcr04 = ast_mindwm(ast, AST_REG_MCR04);
+
+			if (mcr04 & 0x40)
 				cbrdlli_ast2150(ast, 16); /* 16 bits */
 			else
 				cbrdlli_ast2150(ast, 32); /* 32 bits */
 		}
 
-		temp = ast_read32(ast, 0x1200c);
-		ast_write32(ast, 0x1200c, temp & 0xfffffffd);
-		temp = ast_read32(ast, 0x12040);
-		ast_write32(ast, 0x12040, temp | 0x40);
+		scu00c = ast_mindwm(ast, AST_REG_SCU00C);
+		scu00c &= 0xfffffffd;
+		ast_moutdwm(ast, AST_REG_SCU00C, scu00c);
+
+		scu040 = ast_mindwm(ast, AST_REG_SCU040);
+		scu040 |= 0x00000040;
+		ast_moutdwm(ast, AST_REG_SCU040, scu040);
 	}
 
 	/* wait ready */
