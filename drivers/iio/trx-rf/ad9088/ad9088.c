@@ -1222,7 +1222,7 @@ static int ad9088_clk_register(struct ad9088_phy *phy, const char *name,
 		return ret;
 
 	phy->clks[source] = clk_priv->hw.clk;
-	phy->clk_data->hws[phy->clk_data->num++] = &clk_priv->hw;
+	phy->clk_data->hws[source] = &clk_priv->hw;
 
 	return 0;
 }
@@ -5215,6 +5215,11 @@ static int ad9088_probe(struct spi_device *spi)
 	if (!phy->clk_data)
 		return -ENOMEM;
 
+	/*
+	 * Even though we already allocate NUM_AD9088_CLKS, RX_SAMPL_CLK_LINK2 is still
+	 * not being registered, hence the -1.
+	 */
+	phy->clk_data->num = NUM_AD9088_CLKS - 1;
 	ret = ad9088_clk_register(phy, "-rx_sampl_clk", __clk_get_name(dev_clk), NULL,
 				  CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, RX_SAMPL_CLK);
 	if (ret)
