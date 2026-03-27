@@ -196,4 +196,17 @@
 #define AST_REG_A2P(__offset)			(AST_REG_A2P_BASE + (__offset))
 #define AST_REG_A2P58				AST_REG_A2P(0x58)
 
+/*
+ * Watchdog timer (0x1e785000 - 0x1e785fff)
+ */
+
+#define AST_REG_WDT_BASE(__n)			(0x1e785000 + (__n) * 0x40)
+#define AST_REG_WDT(__n, __offset)		(AST_REG_WDT_BASE((__n)) + (__offset))
+#define AST_REG_WDT04(__n)			AST_REG_WDT((__n), 0x04)
+#define AST_REG_WDT08(__n)			AST_REG_WDT((__n), 0x08)
+#define AST_REG_WDT0C(__n)			AST_REG_WDT((__n), 0x0c)
+#define AST_REG_WDT14(__n)			AST_REG_WDT((__n), 0x14)
+#define AST_REG_WDT1C(__n)			AST_REG_WDT((__n), 0x1c)
+#define AST_REG_WDT2C(__n)			AST_REG_WDT((__n), 0x2c)
+
 #endif

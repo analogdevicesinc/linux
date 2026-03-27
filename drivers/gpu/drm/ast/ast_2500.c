@@ -127,9 +127,9 @@ void ast_2500_patch_ahb(void __iomem *regs)
 		 *	[1]:= 1:WDT will be cleeared and disabled after timeout occurs
 		 *	[0]:= 1:WDT enable
 		 */
-		__ast_moutdwm(regs, 0x1E785004, 0x00000010);
-		__ast_moutdwm(regs, 0x1E785008, 0x00004755);
-		__ast_moutdwm(regs, 0x1E78500c, 0x00000033);
+		__ast_moutdwm(regs, AST_REG_WDT04(0), 0x00000010);
+		__ast_moutdwm(regs, AST_REG_WDT08(0), 0x00004755);
+		__ast_moutdwm(regs, AST_REG_WDT0C(0), 0x00000033);
 		udelay(1000);
 	}
 
@@ -304,12 +304,12 @@ static void set_mpll_2500(struct ast_device *ast)
 
 static void reset_mmc_2500(struct ast_device *ast)
 {
-	ast_moutdwm(ast, 0x1E78505C, 0x00000004);
-	ast_moutdwm(ast, 0x1E785044, 0x00000001);
-	ast_moutdwm(ast, 0x1E785048, 0x00004755);
-	ast_moutdwm(ast, 0x1E78504C, 0x00000013);
+	ast_moutdwm(ast, AST_REG_WDT1C(1), 0x00000004);
+	ast_moutdwm(ast, AST_REG_WDT04(1), 0x00000001);
+	ast_moutdwm(ast, AST_REG_WDT08(1), 0x00004755);
+	ast_moutdwm(ast, AST_REG_WDT0C(1), 0x00000013);
 	mdelay(100);
-	ast_moutdwm(ast, 0x1E785054, 0x00000077);
+	ast_moutdwm(ast, AST_REG_WDT14(1), 0x00000077);
 	ast_moutdwm(ast, AST_REG_MCR00, AST_REG_MCR00_PROTECTION_KEY);
 }
 
@@ -508,8 +508,8 @@ static void ast_post_chip_2500(struct ast_device *ast)
 		ast_2500_patch_ahb(ast->regs);
 
 		/* Disable watchdog */
-		ast_moutdwm(ast, 0x1E78502C, 0x00000000);
-		ast_moutdwm(ast, 0x1E78504C, 0x00000000);
+		ast_moutdwm(ast, AST_REG_WDT2C(0), 0x00000000);
+		ast_moutdwm(ast, AST_REG_WDT0C(1), 0x00000000);
 
 		/*
 		 * Reset USB port to patch USB unknown device issue
