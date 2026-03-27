@@ -242,6 +242,7 @@
 	status = "okay";
 	pinctrl-0 = <&remote_pins>;
 	pinctrl-names = "default";
+	linux,rc-map-name = "rc-khadas";
 };
 
 &pwm_ef {
