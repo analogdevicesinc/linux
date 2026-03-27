@@ -8,6 +8,14 @@ soc/dt
 		contains renesas/fixes
 	rockchip/dt64
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.1-rockchip-dts64-1
+	thead/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v7.1
+	mediatek/dt64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts64-for-v7.1
+	mediatek/dt32
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts32-for-v7.1
+	juno/dt-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/juno-updates-7.1
 
 soc/drivers
 	renesas/drivers
@@ -40,3 +48,7 @@ arm/fixes
 		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/ffa-fix-7.0
 	<no branch> (4e701b47c3ba8f4eaf51d676732b11204bc75b35)
 		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-fixes-7.0
+	nxp/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-fixes-7.0
+	rockchip/fixes-2
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.0-rockchip-dtsfixes1-v2
