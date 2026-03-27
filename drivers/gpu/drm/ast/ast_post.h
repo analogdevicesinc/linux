@@ -35,9 +35,6 @@ struct ast_dramstruct {
 #define AST_DRAMSTRUCT_IS(_entry, _name) \
 	((_entry)->index == __AST_DRAMSTRUCT_INDEX(_name))
 
-u32 __ast_mindwm(void __iomem *regs, u32 r);
-void __ast_moutdwm(void __iomem *regs, u32 r, u32 v);
-
 bool mmc_test(struct ast_device *ast, u32 datagen, u8 test_ctl);
 bool mmc_test_burst(struct ast_device *ast, u32 datagen);
 

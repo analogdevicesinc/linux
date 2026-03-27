@@ -34,44 +34,6 @@
 #include "ast_drv.h"
 #include "ast_post.h"
 
-u32 __ast_mindwm(void __iomem *regs, u32 r)
-{
-	u32 data;
-
-	__ast_write32(regs, 0xf004, r & 0xffff0000);
-	__ast_write32(regs, 0xf000, 0x1);
-
-	do {
-		data = __ast_read32(regs, 0xf004) & 0xffff0000;
-	} while (data != (r & 0xffff0000));
-
-	return __ast_read32(regs, 0x10000 + (r & 0x0000ffff));
-}
-
-void __ast_moutdwm(void __iomem *regs, u32 r, u32 v)
-{
-	u32 data;
-
-	__ast_write32(regs, 0xf004, r & 0xffff0000);
-	__ast_write32(regs, 0xf000, 0x1);
-
-	do {
-		data = __ast_read32(regs, 0xf004) & 0xffff0000;
-	} while (data != (r & 0xffff0000));
-
-	__ast_write32(regs, 0x10000 + (r & 0x0000ffff), v);
-}
-
-u32 ast_mindwm(struct ast_device *ast, u32 r)
-{
-	return __ast_mindwm(ast->regs, r);
-}
-
-void ast_moutdwm(struct ast_device *ast, u32 r, u32 v)
-{
-	__ast_moutdwm(ast->regs, r, v);
-}
-
 int ast_post_gpu(struct ast_device *ast)
 {
 	int ret;

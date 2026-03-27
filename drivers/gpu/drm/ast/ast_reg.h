@@ -75,4 +75,16 @@
 #define AST_IO_VGAIR1_R			(0x5A)
 #define AST_IO_VGAIR1_VREFRESH		BIT(3)
 
+/*
+ * P-Bus to AHB Bridge (0x00000000 - 0x0001ffff)
+ */
+
+#define AST_REG_P2A_BASE			(0x00000000)
+#define AST_REG_P2A(__offset)			(AST_REG_P2A_BASE + (__offset))
+#define AST_REG_P2A_ADDR(__addr)		AST_REG_P2A(0x10000 + ((__addr) & GENMASK(15, 0)))
+#define AST_REG_P2A00				AST_REG_P2A(0xf000)
+#define AST_REG_P2A00_PROTECTION_KEY		(0x01)
+#define AST_REG_P2A04				AST_REG_P2A(0xf004)
+#define AST_REG_P2A04_BASE_MASK			GENMASK(31, 16)
+
 #endif

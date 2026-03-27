@@ -47,6 +47,65 @@ static int ast_modeset = -1;
 MODULE_PARM_DESC(modeset, "Disable/Enable modesetting");
 module_param_named(modeset, ast_modeset, int, 0400);
 
+/*
+ * Register access
+ */
+
+/* Select R/W segment */
+static void __ast_selseg(void __iomem *regs, u32 r)
+{
+	u32 p2a04, p2a04_base;
+
+	p2a04 = r & AST_REG_P2A04_BASE_MASK;
+	__ast_write32(regs, AST_REG_P2A04, p2a04);
+	__ast_write32(regs, AST_REG_P2A00, AST_REG_P2A00_PROTECTION_KEY);
+
+	do {
+		cpu_relax();
+		p2a04_base = __ast_read32(regs, AST_REG_P2A04);
+		p2a04_base &= AST_REG_P2A04_BASE_MASK;
+	} while (p2a04_base != p2a04);
+}
+
+/* Read within segment */
+static u32 __ast_rdseg32(void __iomem *regs, u32 r)
+{
+	return __ast_read32(regs, AST_REG_P2A_ADDR(r));
+}
+
+/* Write within segment */
+static void __ast_wrseg32(void __iomem *regs, u32 r, u32 v)
+{
+	__ast_write32(regs, AST_REG_P2A_ADDR(r), v);
+}
+
+u32 __ast_mindwm(void __iomem *regs, u32 r)
+{
+	__ast_selseg(regs, r);
+
+	return __ast_rdseg32(regs, r);
+}
+
+void __ast_moutdwm(void __iomem *regs, u32 r, u32 v)
+{
+	__ast_selseg(regs, r);
+	__ast_wrseg32(regs, r, v);
+}
+
+u32 ast_mindwm(struct ast_device *ast, u32 r)
+{
+	return __ast_mindwm(ast->regs, r);
+}
+
+void ast_moutdwm(struct ast_device *ast, u32 r, u32 v)
+{
+	__ast_moutdwm(ast->regs, r, v);
+}
+
+/*
+ * AST device
+ */
+
 void ast_device_init(struct ast_device *ast,
 		     enum ast_chip chip,
 		     enum ast_config_mode config_mode,
