@@ -634,9 +634,9 @@ void xe_vm_add_fault_entry_pf(struct xe_vm *vm, struct xe_pagefault *pf)
 	e->address_precision = SZ_4K;
 	e->access_type = pf->consumer.access_type;
 	e->fault_type = FIELD_GET(XE_PAGEFAULT_TYPE_MASK,
-				  pf->consumer.fault_type_level),
+				  pf->consumer.fault_type_level);
 	e->fault_level = FIELD_GET(XE_PAGEFAULT_LEVEL_MASK,
-				   pf->consumer.fault_type_level),
+				   pf->consumer.fault_type_level);
 
 	list_add_tail(&e->list, &vm->faults.list);
 	vm->faults.len++;
