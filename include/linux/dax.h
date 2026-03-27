@@ -153,6 +153,7 @@ static inline void fs_put_dax(struct dax_device *dax_dev, void *holder)
 #if IS_ENABLED(CONFIG_FS_DAX)
 int dax_writeback_mapping_range(struct address_space *mapping,
 		struct dax_device *dax_dev, struct writeback_control *wbc);
+int dax_folio_reset_order(struct folio *folio);
 
 struct page *dax_layout_busy_page(struct address_space *mapping);
 struct page *dax_layout_busy_page_range(struct address_space *mapping, loff_t start, loff_t end);
