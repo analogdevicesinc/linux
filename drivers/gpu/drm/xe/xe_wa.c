@@ -601,6 +601,14 @@ static const struct xe_rtp_entry_sr engine_was[] = {
 		       FUNC(xe_rtp_match_first_render_or_compute)),
 	  XE_RTP_ACTIONS(SET(ROW_CHICKEN5, CPSS_AWARE_DIS))
 	},
+
+	/* Xe3p_XPC */
+
+	{ XE_RTP_NAME("14026999295"),
+	  XE_RTP_RULES(GRAPHICS_VERSION(3511),
+		       FUNC(xe_rtp_match_first_render_or_compute)),
+	  XE_RTP_ACTIONS(SET(ROW_CHICKEN3, DIS_EU_GRF_POISON_TO_LSC))
+	},
 };
 
 static const struct xe_rtp_entry_sr lrc_was[] = {
