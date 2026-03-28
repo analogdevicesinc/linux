@@ -383,7 +383,7 @@ for ((s) = from; prb_read_valid(rb, s, r); (s) = (r)->info->seq + 1)
  *
  * This is a macro for conveniently iterating over a ringbuffer.
  * Note that @s may not be the sequence number of the record on each
- * iteration. For the sequence number, @r->info->seq should be checked.
+ * iteration. For the sequence number, @i->seq should be checked.
  *
  * Context: Any context.
  */

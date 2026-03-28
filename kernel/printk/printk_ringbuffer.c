@@ -14,7 +14,7 @@
  *
  * Data Structure
  * --------------
- * The printk_ringbuffer is made up of 3 internal ringbuffers:
+ * The printk_ringbuffer is made up of 2 internal ringbuffers:
  *
  *   desc_ring
  *     A ring of descriptors and their meta data (such as sequence number,
@@ -224,7 +224,7 @@
  *
  *	prb_rec_init_rd(&r, &info, &text_buf[0], sizeof(text_buf));
  *
- *	prb_for_each_record(0, &test_rb, &seq, &r) {
+ *	prb_for_each_record(0, &test_rb, seq, &r) {
  *		if (info.seq != seq)
  *			pr_warn("lost %llu records\n", info.seq - seq);
  *
@@ -1368,7 +1368,7 @@ static struct prb_desc *desc_reopen_last(struct prb_desc_ring *desc_ring,
 	 *
 	 * WMB from _prb_commit:A to _prb_commit:B
 	 *    matching
-	 * MB If desc_reopen_last:A to prb_reserve_in_last:A
+	 * MB from desc_reopen_last:A to prb_reserve_in_last:A
 	 */
 	if (!atomic_long_try_cmpxchg(&d->state_var, &prev_state_val,
 			DESC_SV(id, desc_reserved))) { /* LMM(desc_reopen_last:A) */
@@ -1773,9 +1773,9 @@ static void _prb_commit(struct prb_reserved_entry *e, unsigned long state_val)
 	 *
 	 *    Relies on:
 	 *
-	 *    MB _prb_commit:B to prb_commit:A
+	 *    MB from _prb_commit:B to prb_commit:A
 	 *       matching
-	 *    MB desc_reserve:D to desc_make_final:A
+	 *    MB from desc_reserve:D to desc_make_final:A
 	 */
 	if (!atomic_long_try_cmpxchg(&d->state_var, &prev_state_val,
 			DESC_SV(e->id, state_val))) { /* LMM(_prb_commit:B) */
@@ -2038,7 +2038,7 @@ u64 prb_first_seq(struct printk_ringbuffer *rb)
 		 *
 		 * MB from desc_push_tail:B to desc_reserve:F
 		 *    matching
-		 * RMB prb_first_seq:B to prb_first_seq:A
+		 * RMB from prb_first_seq:B to prb_first_seq:A
 		 */
 		smp_rmb(); /* LMM(prb_first_seq:C) */
 	}
