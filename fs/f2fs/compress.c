@@ -14,6 +14,7 @@
 #include <linux/lz4.h>
 #include <linux/zstd.h>
 #include <linux/folio_batch.h>
+#include <linux/fserror.h>
 
 #include "f2fs.h"
 #include "node.h"
@@ -760,6 +761,7 @@ void f2fs_decompress_cluster(struct decompress_io_ctx *dic, bool in_task)
 
 		/* Avoid f2fs_commit_super in irq context */
 		f2fs_handle_error(sbi, ERROR_FAIL_DECOMPRESSION);
+		fserror_report_file_metadata(dic->inode, ret, GFP_NOFS);
 		goto out_release;
 	}
 

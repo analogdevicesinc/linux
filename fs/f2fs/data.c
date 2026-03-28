@@ -20,6 +20,7 @@
 #include <linux/sched/signal.h>
 #include <linux/fiemap.h>
 #include <linux/iomap.h>
+#include <linux/fserror.h>
 
 #include "f2fs.h"
 #include "node.h"
@@ -377,9 +378,10 @@ static void f2fs_write_end_io(struct bio *bio)
 
 		if (unlikely(bio->bi_status != BLK_STS_OK)) {
 			mapping_set_error(folio->mapping, -EIO);
-			if (type == F2FS_WB_CP_DATA)
+			if (type == F2FS_WB_CP_DATA) {
 				f2fs_stop_checkpoint(sbi, true,
 						STOP_CP_REASON_WRITE_FAIL);
+			}
 		}
 
 		if (is_node_folio(folio)) {
@@ -1750,6 +1752,7 @@ next_block:
 			err = -EFSCORRUPTED;
 			f2fs_handle_error(sbi,
 					ERROR_CORRUPTED_CLUSTER);
+			fserror_report_file_metadata(inode, err, GFP_NOFS);
 			goto sync_out;
 		}
 
