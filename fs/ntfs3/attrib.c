@@ -1591,6 +1591,12 @@ int attr_wof_frame_info(struct ntfs_inode *ni, struct ATTRIB *attr,
 			u64 from = vbo[i] & ~(u64)(PAGE_SIZE - 1);
 			u64 to = min(from + PAGE_SIZE, wof_size);
 
+			if (from >= wof_size) {
+				_ntfs_bad_inode(&ni->vfs_inode);
+				err = -EINVAL;
+				goto out1;
+			}
+
 			err = attr_load_runs_range(ni, ATTR_DATA, WOF_NAME,
 						   ARRAY_SIZE(WOF_NAME), run,
 						   from, to);
