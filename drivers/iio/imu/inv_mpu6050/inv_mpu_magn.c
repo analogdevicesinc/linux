@@ -125,7 +125,7 @@ static int inv_magn_init(struct inv_mpu6050_state *st)
 	}
 
 	/*
-	 * Sensitivity adjustement and scale to Gauss
+	 * Sensitivity adjustment and scale to Gauss
 	 *
 	 * Hadj = H * (((ASA - 128) * 0.5 / 128) + 1)
 	 * Factor simplification:

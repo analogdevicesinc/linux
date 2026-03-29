@@ -171,7 +171,7 @@ struct at91_adc_trigger {
 };
 
 /**
- * struct at91_adc_reg_desc - Various informations relative to registers
+ * struct at91_adc_reg_desc - Various information relative to registers
  * @channel_base:	Base offset for the channel data registers
  * @drdy_mask:		Mask of the DRDY field in the relevant registers
  *			(Interruptions registers mostly)
@@ -231,7 +231,7 @@ struct at91_adc_state {
 	struct iio_trigger	**trig;
 	bool			use_external;
 	u32			vref_mv;
-	u32			res;		/* resolution used for convertions */
+	u32			res;		/* resolution used for conversions */
 	wait_queue_head_t	wq_data_avail;
 	const struct at91_adc_caps	*caps;
 
@@ -304,7 +304,7 @@ static void handle_adc_eoc_trigger(int irq, struct iio_dev *idev)
 	}
 }
 
-static int at91_ts_sample(struct iio_dev *idev)
+static void at91_ts_sample(struct iio_dev *idev)
 {
 	struct at91_adc_state *st = iio_priv(idev);
 	unsigned int xscale, yscale, reg, z1, z2;
@@ -323,7 +323,7 @@ static int at91_ts_sample(struct iio_dev *idev)
 	xscale = (reg >> 16) & xyz_mask;
 	if (xscale == 0) {
 		dev_err(&idev->dev, "Error: xscale == 0!\n");
-		return -1;
+		return;
 	}
 	x /= xscale;
 
@@ -334,7 +334,7 @@ static int at91_ts_sample(struct iio_dev *idev)
 	yscale = (reg >> 16) & xyz_mask;
 	if (yscale == 0) {
 		dev_err(&idev->dev, "Error: yscale == 0!\n");
-		return -1;
+		return;
 	}
 	y /= yscale;
 
@@ -363,8 +363,6 @@ static int at91_ts_sample(struct iio_dev *idev)
 	} else {
 		dev_dbg(&idev->dev, "pressure too low: not reporting\n");
 	}
-
-	return 0;
 }
 
 static irqreturn_t at91_adc_rl_interrupt(int irq, void *private)

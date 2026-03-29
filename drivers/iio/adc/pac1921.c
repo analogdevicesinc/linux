@@ -856,7 +856,7 @@ static ssize_t pac1921_format_scale_avail(const int (*const scales_tbl)[2],
 /*
  * Read available scales for a specific channel
  *
- * NOTE: using extended info insted of iio.read_avail() because access to
+ * NOTE: using extended info instead of iio.read_avail() because access to
  * current scales must be locked as they depend on shunt resistor which may
  * change runtime. Caller of iio.read_avail() would access the table unlocked
  * instead.

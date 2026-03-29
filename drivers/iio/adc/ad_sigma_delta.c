@@ -51,8 +51,10 @@
  */
 void ad_sd_set_comm(struct ad_sigma_delta *sigma_delta, u8 comm)
 {
-	/* Some variants use the lower two bits of the communications register
-	 * to select the channel */
+	/*
+	 * Some variants use the lower two bits of the communications register
+	 * to select the channel.
+	 */
 	sigma_delta->comm = comm & AD_SD_COMM_CHAN_MASK;
 }
 EXPORT_SYMBOL_NS_GPL(ad_sd_set_comm, "IIO_AD_SIGMA_DELTA");

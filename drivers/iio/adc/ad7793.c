@@ -152,7 +152,6 @@ struct ad7793_chip_info {
 
 struct ad7793_state {
 	const struct ad7793_chip_info	*chip_info;
-	u16				int_vref_mv;
 	u16				mode;
 	u16				conf;
 	u32				scale_avail[8][2];
@@ -805,7 +804,7 @@ static int ad7793_probe(struct spi_device *spi)
 
 		vref_mv = ret / 1000;
 	} else {
-		vref_mv = 1170; /* Build-in ref */
+		vref_mv = 1170; /* Built-in ref */
 	}
 
 	st->chip_info =

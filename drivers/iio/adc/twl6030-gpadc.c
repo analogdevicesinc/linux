@@ -416,7 +416,7 @@ static u8 twl6032_channel_to_reg(int channel)
 {
 	/*
 	 * for any prior chosen channel, when the conversion is ready
-	 * the result is avalable in GPCH0_LSB, GPCH0_MSB.
+	 * the result is available in GPCH0_LSB, GPCH0_MSB.
 	 */
 
 	return TWL6032_GPADC_GPCH0_LSB;

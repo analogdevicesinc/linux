@@ -2259,7 +2259,7 @@ static int at91_adc_temp_sensor_init(struct at91_adc_state *st,
 		return 0;
 
 	/* Get the calibration data from NVMEM. */
-	temp_calib = devm_nvmem_cell_get(dev, "temperature_calib");
+	temp_calib = nvmem_cell_get(dev, "temperature_calib");
 	if (IS_ERR(temp_calib)) {
 		ret = PTR_ERR(temp_calib);
 		if (ret != -ENOENT)
@@ -2268,6 +2268,7 @@ static int at91_adc_temp_sensor_init(struct at91_adc_state *st,
 	}
 
 	buf = nvmem_cell_read(temp_calib, &len);
+	nvmem_cell_put(temp_calib);
 	if (IS_ERR(buf)) {
 		dev_err(dev, "Failed to read calibration data!\n");
 		return PTR_ERR(buf);
@@ -2507,7 +2508,7 @@ static int at91_adc_suspend(struct device *dev)
 		at91_adc_buffer_postdisable(indio_dev);
 
 	/*
-	 * Do a sofware reset of the ADC before we go to suspend.
+	 * Do a software reset of the ADC before we go to suspend.
 	 * this will ensure that all pins are free from being muxed by the ADC
 	 * and can be used by for other devices.
 	 * Otherwise, ADC will hog them and we can't go to suspend mode.

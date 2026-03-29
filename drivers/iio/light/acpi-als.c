@@ -18,6 +18,7 @@
 #include <linux/err.h>
 #include <linux/irq.h>
 #include <linux/mutex.h>
+#include <linux/platform_device.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
@@ -90,9 +91,9 @@ static int acpi_als_read_value(struct acpi_als *als, char *prop, s32 *val)
 	return 0;
 }
 
-static void acpi_als_notify(struct acpi_device *device, u32 event)
+static void acpi_als_notify(acpi_handle handle, u32 event, void *data)
 {
-	struct iio_dev *indio_dev = acpi_driver_data(device);
+	struct iio_dev *indio_dev = data;
 	struct acpi_als *als = iio_priv(indio_dev);
 
 	if (iio_buffer_enabled(indio_dev) && iio_trigger_using_own(indio_dev)) {
@@ -102,7 +103,7 @@ static void acpi_als_notify(struct acpi_device *device, u32 event)
 			break;
 		default:
 			/* Unhandled event */
-			dev_dbg(&device->dev,
+			dev_dbg(&als->device->dev,
 				"Unhandled ACPI ALS event (%08x)!\n",
 				event);
 		}
@@ -175,9 +176,10 @@ out:
 	return IRQ_HANDLED;
 }
 
-static int acpi_als_add(struct acpi_device *device)
+static int acpi_als_probe(struct platform_device *pdev)
 {
-	struct device *dev = &device->dev;
+	struct device *dev = &pdev->dev;
+	struct acpi_device *device = ACPI_COMPANION(dev);
 	struct iio_dev *indio_dev;
 	struct acpi_als *als;
 	int ret;
@@ -188,7 +190,6 @@ static int acpi_als_add(struct acpi_device *device)
 
 	als = iio_priv(indio_dev);
 
-	device->driver_data = indio_dev;
 	als->device = device;
 	mutex_init(&als->lock);
 
@@ -218,7 +219,18 @@ static int acpi_als_add(struct acpi_device *device)
 	if (ret)
 		return ret;
 
-	return devm_iio_device_register(dev, indio_dev);
+	ret = devm_iio_device_register(dev, indio_dev);
+	if (ret)
+		return ret;
+
+	return acpi_dev_install_notify_handler(device, ACPI_DEVICE_NOTIFY,
+					       acpi_als_notify, indio_dev);
+}
+
+static void acpi_als_remove(struct platform_device *pdev)
+{
+	acpi_dev_remove_notify_handler(ACPI_COMPANION(&pdev->dev),
+				       ACPI_DEVICE_NOTIFY, acpi_als_notify);
 }
 
 static const struct acpi_device_id acpi_als_device_ids[] = {
@@ -228,17 +240,15 @@ static const struct acpi_device_id acpi_als_device_ids[] = {
 
 MODULE_DEVICE_TABLE(acpi, acpi_als_device_ids);
 
-static struct acpi_driver acpi_als_driver = {
-	.name	= "acpi_als",
-	.class	= ACPI_ALS_CLASS,
-	.ids	= acpi_als_device_ids,
-	.ops = {
-		.add	= acpi_als_add,
-		.notify	= acpi_als_notify,
+static struct platform_driver acpi_als_driver = {
+	.probe = acpi_als_probe,
+	.remove = acpi_als_remove,
+	.driver = {
+		.name = "acpi_als",
+		.acpi_match_table = acpi_als_device_ids,
 	},
 };
-
-module_acpi_driver(acpi_als_driver);
+module_platform_driver(acpi_als_driver);
 
 MODULE_AUTHOR("Zhang Rui <rui.zhang@intel.com>");
 MODULE_AUTHOR("Martin Liska <marxin.liska@gmail.com>");

@@ -14,6 +14,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
+#include <linux/units.h>
 
 #include <linux/iio/iio.h>
 
@@ -34,7 +35,7 @@ struct max5522_state {
 	struct regmap *regmap;
 	const struct max5522_chip_info *chip_info;
 	unsigned short dac_cache[2];
-	struct regulator *vrefin_reg;
+	int vref_mV;
 };
 
 #define MAX5522_CHANNEL(chan) {	\
@@ -79,17 +80,13 @@ static int max5522_read_raw(struct iio_dev *indio_dev,
 			    int *val, int *val2, long info)
 {
 	struct max5522_state *state = iio_priv(indio_dev);
-	int ret;
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		*val = state->dac_cache[chan->channel];
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		ret = regulator_get_voltage(state->vrefin_reg);
-		if (ret < 0)
-			return -EINVAL;
-		*val = ret / 1000;
+		*val = state->vref_mV;
 		*val2 = 10;
 		return IIO_VAL_FRACTIONAL_LOG2;
 	default:
@@ -147,16 +144,11 @@ static int max5522_spi_probe(struct spi_device *spi)
 	if (!state->chip_info)
 		return -EINVAL;
 
-	state->vrefin_reg = devm_regulator_get(&spi->dev, "vrefin");
-	if (IS_ERR(state->vrefin_reg))
-		return dev_err_probe(&spi->dev, PTR_ERR(state->vrefin_reg),
-				     "Vrefin regulator not specified\n");
-
-	ret = regulator_enable(state->vrefin_reg);
-	if (ret) {
+	ret = devm_regulator_get_enable_read_voltage(&spi->dev, "vrefin");
+	if (ret < 0)
 		return dev_err_probe(&spi->dev, ret,
-				     "Failed to enable vref regulators\n");
-	}
+				     "Failed to get vrefin regulator\n");
+	state->vref_mV = ret / (MICRO / MILLI);
 
 	state->regmap = devm_regmap_init_spi(spi, &max5522_regmap_config);
 

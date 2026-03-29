@@ -912,8 +912,8 @@ static int max11410_self_calibrate(struct max11410_state *st)
 
 static int max11410_probe(struct spi_device *spi)
 {
-	const char *vrefp_regs[] = { "vref0p", "vref1p", "vref2p" };
-	const char *vrefn_regs[] = { "vref0n", "vref1n", "vref2n" };
+	static const char * const vrefp_regs[] = { "vref0p", "vref1p", "vref2p" };
+	static const char * const vrefn_regs[] = { "vref0n", "vref1n", "vref2n" };
 	struct device *dev = &spi->dev;
 	struct max11410_state *st;
 	struct iio_dev *indio_dev;
