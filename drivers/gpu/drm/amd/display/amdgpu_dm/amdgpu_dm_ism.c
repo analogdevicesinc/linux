@@ -35,6 +35,9 @@
 
 /**
  * dm_ism_next_state - Get next state based on current state and event
+ * @current_state: current ISM state
+ * @event: event being processed
+ * @next_state: place to store the next state
  *
  * This function defines the idle state management FSM. Invalid transitions
  * are ignored and will not progress the FSM.
@@ -148,6 +151,11 @@ static uint64_t dm_ism_get_sso_delay(const struct amdgpu_dm_ism *ism,
 
 /**
  * dm_ism_get_idle_allow_delay - Calculate hysteresis-based idle allow delay
+ * @ism: ISM instance containing configuration, history, and current state
+ * @stream: display stream used to derive frame timing values for delay
+ *
+ * Calculates the delay before allowing idle optimizations based on recent
+ * idle history and the current stream timing.
  */
 static uint64_t dm_ism_get_idle_allow_delay(const struct amdgpu_dm_ism *ism,
 					    const struct dc_stream_state *stream)
@@ -212,6 +220,7 @@ static uint64_t dm_ism_get_idle_allow_delay(const struct amdgpu_dm_ism *ism,
 
 /**
  * dm_ism_insert_record - Insert a record into the circular history buffer
+ * @ism: ISM instance
  */
 static void dm_ism_insert_record(struct amdgpu_dm_ism *ism)
 {
