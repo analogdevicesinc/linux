@@ -3,24 +3,26 @@ name: LLM Agent
 on:
   workflow_dispatch:
     inputs:
-      base-sha:
-        required: false
-        type: string
-      head-sha:
+      ref:
+        description: The branch, tag, PR number, or SHA to checkout
         required: false
         type: string
       run-id:
+        description: Explicit workflow run to analyse, optional.
         required: false
         type: string
       prompt:
+        description: Prompt to use, overwrites the default.
         required: false
         type: string
         default: ""
       prompt-extra:
+        description: Extra prompt to concatenate.
         required: false
         type: string
         default: ""
       prompt-repository:
+        description: Repository with LLM skills, overwrites the default.
         required: false
         type: string
         default: ""
@@ -38,10 +40,13 @@ on:
         default: "@vertexai-global/anthropic.claude-opus-4-5@20251101"
   workflow_call:
     inputs:
-      base-sha:
+      base-sha: # DEPRECATED
         required: false
         type: string
-      head-sha:
+      head-sha: # DEPRECATED
+        required: false
+        type: string
+      ref:
         required: false
         type: string
       run-id:
@@ -98,11 +103,17 @@ jobs:
       run: |
         echo "LLM_AGENT_RUN=true" >> "$GITHUB_ENV"
 
+    - uses: analogdevicesinc/doctools/gh-get-ref-range@action
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
+      with:
+        repository: ${{ github.repository }}
+        ref: ${{ inputs.ref }}
+
     - uses: analogdevicesinc/doctools/checkout@action
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
       with:
-        base-sha: ${{ inputs.base-sha }}
-        head-sha: ${{ inputs.head-sha }}
+        base-sha: ${{ env.base_sha }}
+        head-sha: ${{ env.head_sha }}
 
     - name: Get sources
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
@@ -124,7 +135,7 @@ jobs:
     - uses: analogdevicesinc/doctools/gh-collect-annotations@action
       if: ${{ env.LLM_AGENT_RUN == 'true' }}
       with:
-        head-sha: ${{ github.event_name == 'workflow_dispatch' && inputs.head-sha || env.head_sha }}
+        head-sha: ${{ env.head_sha }}
         run-id: ${{ inputs.run-id }}
         repository: ${{ github.repository }}
 
