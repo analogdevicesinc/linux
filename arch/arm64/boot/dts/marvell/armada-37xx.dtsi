@@ -371,8 +371,8 @@
 				reg = <0x58000 0x4000>;
 				interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&sb_periph_clk 12>;
-				phys = <&comphy0 0>, <&usb2_utmi_otg_phy>;
-				phy-names = "usb3-phy", "usb2-phy";
+				phys = <&usb2_utmi_otg_phy>, <&comphy0 0>;
+				phy-names = "usb2-phy", "usb3-phy";
 				status = "disabled";
 			};
 
