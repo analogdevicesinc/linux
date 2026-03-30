@@ -152,7 +152,11 @@ jobs:
         prompt_repo="${{ inputs.prompt-repository }}"
         [[ -n "$prompt_repo" ]] || prompt_repo="https://github.com/masoncl/review-prompts"
         git clone "$prompt_repo" --depth 1 prompts-repository
-        script="$(find ./prompts-repository -name "claude-setup.sh" -type f | grep -v systemd | head -n 1)"
+        if [[ "$prompt_repo" == "https://github.com/masoncl/review-prompts" ]]; then
+          script="./prompts-repository/kernel/scripts/claude-setup.sh"
+        else
+          script="$(find ./prompts-repository -name "claude-setup.sh" -type f | grep -v systemd | head -n 1)"
+        fi
         [[ -x "$script" ]] && "$script"
 
     - name: Prepare tools
