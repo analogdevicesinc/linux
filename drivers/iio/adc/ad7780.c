@@ -264,16 +264,12 @@ static const struct iio_info ad7780_info = {
 
 static int ad7780_init_gpios(struct device *dev, struct ad7780_state *st)
 {
-	int ret;
-
 	st->powerdown_gpio = devm_gpiod_get_optional(dev,
 						     "powerdown",
 						     GPIOD_OUT_LOW);
-	if (IS_ERR(st->powerdown_gpio)) {
-		ret = PTR_ERR(st->powerdown_gpio);
-		dev_err(dev, "Failed to request powerdown GPIO: %d\n", ret);
-		return ret;
-	}
+	if (IS_ERR(st->powerdown_gpio))
+		return dev_err_probe(dev, PTR_ERR(st->powerdown_gpio),
+				     "Failed to request powerdown GPIO\n");
 
 	if (!st->chip_info->is_ad778x)
 		return 0;
@@ -282,20 +278,16 @@ static int ad7780_init_gpios(struct device *dev, struct ad7780_state *st)
 	st->gain_gpio = devm_gpiod_get_optional(dev,
 						"adi,gain",
 						GPIOD_OUT_HIGH);
-	if (IS_ERR(st->gain_gpio)) {
-		ret = PTR_ERR(st->gain_gpio);
-		dev_err(dev, "Failed to request gain GPIO: %d\n", ret);
-		return ret;
-	}
+	if (IS_ERR(st->gain_gpio))
+		return dev_err_probe(dev, PTR_ERR(st->gain_gpio),
+				     "Failed to request gain GPIO\n");
 
 	st->filter_gpio = devm_gpiod_get_optional(dev,
 						  "adi,filter",
 						  GPIOD_OUT_HIGH);
-	if (IS_ERR(st->filter_gpio)) {
-		ret = PTR_ERR(st->filter_gpio);
-		dev_err(dev, "Failed to request filter GPIO: %d\n", ret);
-		return ret;
-	}
+	if (IS_ERR(st->filter_gpio))
+		return dev_err_probe(dev, PTR_ERR(st->filter_gpio),
+				     "Failed to request filter GPIO\n");
 
 	return 0;
 }
@@ -339,10 +331,9 @@ static int ad7780_probe(struct spi_device *spi)
 		return PTR_ERR(st->reg);
 
 	ret = regulator_enable(st->reg);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to enable specified AVdd supply\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to enable specified AVdd supply\n");
 
 	ret = devm_add_action_or_reset(dev, ad7780_reg_disable, st->reg);
 	if (ret)
