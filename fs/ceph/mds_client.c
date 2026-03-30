@@ -4956,7 +4956,7 @@ static void send_mds_reconnect(struct ceph_mds_client *mdsc,
 	/* placeholder for nr_caps */
 	err = ceph_pagelist_encode_32(recon_state.pagelist, 0);
 	if (err)
-		goto fail;
+		goto fail_clear_cap_reconnect;
 
 	if (test_bit(CEPHFS_FEATURE_MULTI_RECONNECT, &session->s_features)) {
 		recon_state.msg_version = 3;
@@ -5046,6 +5046,10 @@ static void send_mds_reconnect(struct ceph_mds_client *mdsc,
 	ceph_pagelist_release(recon_state.pagelist);
 	return;
 
+fail_clear_cap_reconnect:
+	spin_lock(&session->s_cap_lock);
+	session->s_cap_reconnect = 0;
+	spin_unlock(&session->s_cap_lock);
 fail:
 	ceph_msg_put(reply);
 	up_read(&mdsc->snap_rwsem);
