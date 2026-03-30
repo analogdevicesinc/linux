@@ -200,6 +200,13 @@ pvr_queue_fence_is_ufo_backed(struct dma_fence *f)
  * already backed by a UFO.
  * @f: The dma_fence to turn into a pvr_queue_fence.
  *
+ * This could be called on:
+ * - a job fence directly, in which case it simply returns the containing pvr_queue_fence;
+ * - a drm_sched_fence's scheduled or finished fence, in which case it will first try to follow
+ *   the parent pointer to find the job fence (note that the parent pointer is initialized
+ *   only after the run_job() callback is called on the drm_sched_fence's owning job);
+ * - any other dma_fence, in which case it will return NULL.
+ *
  * Return:
  *  * A non-NULL pvr_queue_fence object if the dma_fence is backed by a UFO, or
  *  * NULL otherwise.
@@ -367,11 +374,14 @@ static u32 ufo_cmds_size(u32 elem_count)
 
 static u32 job_cmds_size(struct pvr_job *job, u32 ufo_wait_count)
 {
-	/* One UFO cmd for the fence signaling, one UFO cmd per native fence native,
-	 * and a command for the job itself.
+	/*
+	 * One UFO command per native fence this job will be waiting on (unless any are
+	 * signaled by the time the job is submitted), plus a command for the job itself,
+	 * plus one UFO command for the fence signaling.
 	 */
-	return ufo_cmds_size(1) + ufo_cmds_size(ufo_wait_count) +
-	       pvr_cccb_get_size_of_cmd_with_hdr(job->cmd_len);
+	return ufo_cmds_size(ufo_wait_count) +
+	       pvr_cccb_get_size_of_cmd_with_hdr(job->cmd_len) +
+	       ufo_cmds_size(1);
 }
 
 static bool
@@ -517,12 +527,16 @@ pvr_queue_get_paired_frag_job_dep(struct pvr_job *job)
 	if (!frag_job)
 		return NULL;
 
+	/* Have the geometry job wait on the paired fragment job's dependencies as well. */
 	xa_for_each(&frag_job->base.dependencies, index, f) {
 		/* Skip already signaled fences. */
 		if (dma_fence_is_signaled(f))
 			continue;
 
-		/* Skip our own fence. */
+		/*
+		 * The paired job fence won't be signaled until both jobs have
+		 * been submitted, so we can't wait on it to schedule them.
+		 */
 		if (f == &job->base.s_fence->scheduled)
 			continue;
 
@@ -665,6 +679,7 @@ static void pvr_queue_submit_job_to_cccb(struct pvr_job *job)
 		if (!jfence)
 			continue;
 
+		/* Some dependencies might have been signaled since prepare_job() */
 		if (dma_fence_is_signaled(&jfence->base))
 			continue;
 
@@ -714,7 +729,7 @@ static void pvr_queue_submit_job_to_cccb(struct pvr_job *job)
 	pvr_cccb_write_command_with_header(cccb, job->fw_ccb_cmd_type, job->cmd_len, job->cmd,
 					   job->id, job->id);
 
-	/* Signal the job fence. */
+	/* Update command to signal the job fence. */
 	pvr_fw_object_get_fw_addr(queue->timeline_ufo.fw_obj, &ufos[0].addr);
 	ufos[0].value = job->done_fence->seqno;
 	pvr_cccb_write_command_with_header(cccb, ROGUE_FWIF_CCB_CMD_TYPE_UPDATE,
@@ -744,10 +759,8 @@ static struct dma_fence *pvr_queue_run_job(struct drm_sched_job *sched_job)
 	}
 
 	/* The only kind of jobs that can be paired are geometry and fragment, and
-	 * we bail out early if we see a fragment job that's paired with a geomtry
-	 * job.
-	 * Paired jobs must also target the same context and point to the same
-	 * HWRT.
+	 * we bail out early if we see a fragment job that's paired with a geometry job.
+	 * Paired jobs must also target the same context and point to the same HWRT.
 	 */
 	if (WARN_ON(job->paired_job &&
 		    (job->type != DRM_PVR_JOB_TYPE_GEOMETRY ||
@@ -966,9 +979,8 @@ pvr_queue_signal_done_fences(struct pvr_queue *queue)
 }
 
 /**
- * pvr_queue_check_job_waiting_for_cccb_space() - Check if the job waiting for CCCB space
- * can be unblocked
- * pushed to the CCCB
+ * pvr_queue_check_job_waiting_for_cccb_space() - Check if a job waiting for CCCB space
+ * can be unblocked and pushed to the CCCB.
  * @queue: Queue to check
  *
  * If we have a job waiting for CCCB, and this job now fits in the CCCB, we signal
