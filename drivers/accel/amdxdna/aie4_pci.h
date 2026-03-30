@@ -21,6 +21,7 @@ struct amdxdna_dev_priv {
 	u64			mbox_info_off;
 
 	struct aie_bar_off_pair	psp_regs_off[PSP_MAX_REGS];
+	struct aie_bar_off_pair	smu_regs_off[SMU_MAX_REGS];
 };
 
 struct amdxdna_dev_hdl {

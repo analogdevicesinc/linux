@@ -211,11 +211,26 @@ static int aie4_mailbox_init(struct amdxdna_dev *xdna)
 static void aie4_fw_unload(struct amdxdna_dev_hdl *ndev)
 {
 	aie_psp_stop(ndev->aie.psp_hdl);
+	aie_smu_fini(ndev->aie.smu_hdl);
 }
 
 static int aie4_fw_load(struct amdxdna_dev_hdl *ndev)
 {
-	return aie_psp_start(ndev->aie.psp_hdl);
+	int ret;
+
+	ret = aie_smu_init(ndev->aie.smu_hdl);
+	if (ret) {
+		XDNA_ERR(ndev->aie.xdna, "failed to init smu, ret %d", ret);
+		return ret;
+	}
+
+	ret = aie_psp_start(ndev->aie.psp_hdl);
+	if (ret) {
+		XDNA_ERR(ndev->aie.xdna, "failed to start psp, ret %d", ret);
+		aie_smu_fini(ndev->aie.smu_hdl);
+	}
+
+	return ret;
 }
 
 static int aie4_hw_start(struct amdxdna_dev *xdna)
@@ -322,6 +337,7 @@ static int aie4_prepare_firmware(struct amdxdna_dev_hdl *ndev,
 {
 	struct amdxdna_dev *xdna = ndev->aie.xdna;
 	struct psp_config psp_conf;
+	struct smu_config smu_conf;
 	int i;
 
 	psp_conf.fw_size = npufw->size;
@@ -335,6 +351,14 @@ static int aie4_prepare_firmware(struct amdxdna_dev_hdl *ndev,
 	ndev->aie.psp_hdl = aiem_psp_create(&xdna->ddev, &psp_conf);
 	if (!ndev->aie.psp_hdl) {
 		XDNA_ERR(xdna, "failed to create psp");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < SMU_MAX_REGS; i++)
+		smu_conf.smu_regs[i] = tbl[SMU_REG_BAR(ndev, i)] + SMU_REG_OFF(ndev, i);
+	ndev->aie.smu_hdl = aiem_smu_create(&xdna->ddev, &smu_conf);
+	if (!ndev->aie.smu_hdl) {
+		XDNA_ERR(xdna, "failed to create smu");
 		return -ENOMEM;
 	}
 
@@ -365,6 +389,8 @@ static int aie4_pcidev_init(struct amdxdna_dev_hdl *ndev)
 
 	for (i = 0; i < PSP_MAX_REGS; i++)
 		set_bit(PSP_REG_BAR(ndev, i), &bars);
+	for (i = 0; i < SMU_MAX_REGS; i++)
+		set_bit(SMU_REG_BAR(ndev, i), &bars);
 	set_bit(xdna->dev_info->mbox_bar, &bars);
 	set_bit(xdna->dev_info->sram_bar, &bars);
 
