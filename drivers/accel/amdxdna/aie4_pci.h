@@ -14,9 +14,13 @@
 #include "amdxdna_mailbox.h"
 
 struct amdxdna_dev_priv {
+	const char              *npufw_path;
+	const char              *certfw_path;
 	u32			mbox_bar;
 	u32			mbox_rbuf_bar;
 	u64			mbox_info_off;
+
+	struct aie_bar_off_pair	psp_regs_off[PSP_MAX_REGS];
 };
 
 struct amdxdna_dev_hdl {

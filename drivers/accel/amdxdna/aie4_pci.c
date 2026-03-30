@@ -6,11 +6,14 @@
 #include <drm/amdxdna_accel.h>
 #include <drm/drm_managed.h>
 #include <drm/drm_print.h>
+#include <linux/firmware.h>
+#include <linux/sizes.h>
 
 #include "aie4_pci.h"
 #include "amdxdna_pci_drv.h"
 
-#define NO_IOHUB	0
+#define NO_IOHUB		0
+#define PSP_NOTIFY_INTR		0xD007BE11
 
 /*
  * The management mailbox channel is allocated by firmware.
@@ -207,13 +210,12 @@ static int aie4_mailbox_init(struct amdxdna_dev *xdna)
 
 static void aie4_fw_unload(struct amdxdna_dev_hdl *ndev)
 {
-	/* TODO */
+	aie_psp_stop(ndev->aie.psp_hdl);
 }
 
 static int aie4_fw_load(struct amdxdna_dev_hdl *ndev)
 {
-	/* TODO */
-	return 0;
+	return aie_psp_start(ndev->aie.psp_hdl);
 }
 
 static int aie4_hw_start(struct amdxdna_dev *xdna)
@@ -261,11 +263,90 @@ static void aie4_hw_stop(struct amdxdna_dev *xdna)
 	aie4_fw_unload(ndev);
 }
 
+static int aie4_request_firmware(struct amdxdna_dev_hdl *ndev,
+				 const struct firmware **npufw,
+				 const struct firmware **certfw)
+{
+	struct amdxdna_dev *xdna = ndev->aie.xdna;
+	struct pci_dev *pdev = to_pci_dev(xdna->ddev.dev);
+	char fw_name[128];
+	int ret;
+
+	ret = snprintf(fw_name, sizeof(fw_name), "amdnpu/%04x_%02x/%s",
+		       pdev->device, pdev->revision, ndev->priv->npufw_path);
+	if (ret >= sizeof(fw_name)) {
+		XDNA_ERR(xdna, "npu firmware path is truncated");
+		return -EINVAL;
+	}
+
+	ret = request_firmware(npufw, fw_name, &pdev->dev);
+	if (ret) {
+		XDNA_ERR(xdna, "failed to request_firmware %s, ret %d", fw_name, ret);
+		return ret;
+	}
+
+	ret = snprintf(fw_name, sizeof(fw_name), "amdnpu/%04x_%02x/%s",
+		       pdev->device, pdev->revision, ndev->priv->certfw_path);
+	if (ret >= sizeof(fw_name)) {
+		XDNA_ERR(xdna, "cert firmware path is truncated");
+		ret = -EINVAL;
+		goto release_npufw;
+	}
+
+	ret = request_firmware(certfw, fw_name, &pdev->dev);
+	if (ret) {
+		XDNA_ERR(xdna, "failed to request_firmware %s, ret %d", fw_name, ret);
+		goto release_npufw;
+	}
+
+	return 0;
+
+release_npufw:
+	release_firmware(*npufw);
+
+	return ret;
+}
+
+static void aie4_release_firmware(struct amdxdna_dev_hdl *ndev,
+				  const struct firmware *npufw,
+				  const struct firmware *certfw)
+{
+	release_firmware(certfw);
+	release_firmware(npufw);
+}
+
+static int aie4_prepare_firmware(struct amdxdna_dev_hdl *ndev,
+				 const struct firmware *npufw,
+				 const struct firmware *certfw,
+				 void __iomem *tbl[PCI_NUM_RESOURCES])
+{
+	struct amdxdna_dev *xdna = ndev->aie.xdna;
+	struct psp_config psp_conf;
+	int i;
+
+	psp_conf.fw_size = npufw->size;
+	psp_conf.fw_buf = npufw->data;
+	psp_conf.certfw_size = certfw->size;
+	psp_conf.certfw_buf = certfw->data;
+	psp_conf.arg2_mask = ~0;
+	psp_conf.notify_val = PSP_NOTIFY_INTR;
+	for (i = 0; i < PSP_MAX_REGS; i++)
+		psp_conf.psp_regs[i] = tbl[PSP_REG_BAR(ndev, i)] + PSP_REG_OFF(ndev, i);
+	ndev->aie.psp_hdl = aiem_psp_create(&xdna->ddev, &psp_conf);
+	if (!ndev->aie.psp_hdl) {
+		XDNA_ERR(xdna, "failed to create psp");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
 static int aie4_pcidev_init(struct amdxdna_dev_hdl *ndev)
 {
 	struct amdxdna_dev *xdna = ndev->aie.xdna;
 	struct pci_dev *pdev = to_pci_dev(xdna->ddev.dev);
 	void __iomem *tbl[PCI_NUM_RESOURCES] = {0};
+	const struct firmware *npufw, *certfw;
 	unsigned long bars = 0;
 	int ret, i;
 
@@ -282,6 +363,8 @@ static int aie4_pcidev_init(struct amdxdna_dev_hdl *ndev)
 		return ret;
 	}
 
+	for (i = 0; i < PSP_MAX_REGS; i++)
+		set_bit(PSP_REG_BAR(ndev, i), &bars);
 	set_bit(xdna->dev_info->mbox_bar, &bars);
 	set_bit(xdna->dev_info->sram_bar, &bars);
 
@@ -299,6 +382,15 @@ static int aie4_pcidev_init(struct amdxdna_dev_hdl *ndev)
 	ndev->rbuf_base = tbl[xdna->dev_info->sram_bar];
 
 	pci_set_master(pdev);
+
+	ret = aie4_request_firmware(ndev, &npufw, &certfw);
+	if (ret)
+		goto clear_master;
+
+	ret = aie4_prepare_firmware(ndev, npufw, certfw, tbl);
+	aie4_release_firmware(ndev, npufw, certfw);
+	if (ret)
+		goto clear_master;
 
 	ret = aie4_irq_init(xdna);
 	if (ret)

@@ -57,7 +57,11 @@ struct aie_bar_off_pair {
 struct psp_config {
 	const void		*fw_buf;
 	u32			fw_size;
+	const void              *certfw_buf;
+	u32                     certfw_size;
 	void __iomem		*psp_regs[PSP_MAX_REGS];
+	u32			arg2_mask;
+	u32			notify_val;
 };
 
 /* aie.c */

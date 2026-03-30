@@ -549,6 +549,8 @@ static int aie2_init(struct amdxdna_dev *xdna)
 
 	psp_conf.fw_size = fw->size;
 	psp_conf.fw_buf = fw->data;
+	psp_conf.arg2_mask = GENMASK(23, 0);
+	psp_conf.notify_val = 1;
 	for (i = 0; i < PSP_MAX_REGS; i++)
 		psp_conf.psp_regs[i] = tbl[PSP_REG_BAR(ndev, i)] + PSP_REG_OFF(ndev, i);
 	ndev->aie.psp_hdl = aiem_psp_create(&xdna->ddev, &psp_conf);

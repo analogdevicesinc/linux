@@ -16,6 +16,15 @@
 
 /* PCIe BAR Index for NPU3 */
 #define NPU3_REG_BAR_INDEX	0
+#define NPU3_PSP_BAR_INDEX      4
+
+#define MMNPU_APERTURE3_BASE    0x3810000
+#define NPU3_PSP_BAR_BASE       MMNPU_APERTURE3_BASE
+
+#define MPASP_C2PMSG_123_ALT_1  0x3810AEC
+#define MPASP_C2PMSG_156_ALT_1  0x3810B70
+#define MPASP_C2PMSG_157_ALT_1  0x3810B74
+#define MPASP_C2PMSG_73_ALT_1   0x3810A24
 
 static const struct amdxdna_fw_feature_tbl npu3_fw_feature_table[] = {
 	{ .major = 5, .min_minor = 10 },
@@ -23,14 +32,27 @@ static const struct amdxdna_fw_feature_tbl npu3_fw_feature_table[] = {
 };
 
 static const struct amdxdna_dev_priv npu3_dev_priv = {
+	.npufw_path             = "npu.dev.sbin",
+	.certfw_path            = "cert.dev.sbin",
 	.mbox_bar		= NPU3_MBOX_BAR,
 	.mbox_rbuf_bar		= NPU3_MBOX_BUFFER_BAR,
 	.mbox_info_off		= NPU3_MBOX_INFO_OFF,
+	.psp_regs_off   = {
+		DEFINE_BAR_OFFSET(PSP_CMD_REG,    NPU3_PSP, MPASP_C2PMSG_123_ALT_1),
+		DEFINE_BAR_OFFSET(PSP_ARG0_REG,   NPU3_PSP, MPASP_C2PMSG_156_ALT_1),
+		DEFINE_BAR_OFFSET(PSP_ARG1_REG,   NPU3_PSP, MPASP_C2PMSG_157_ALT_1),
+		DEFINE_BAR_OFFSET(PSP_ARG2_REG,   NPU3_PSP, MPASP_C2PMSG_123_ALT_1),
+		DEFINE_BAR_OFFSET(PSP_INTR_REG,   NPU3_PSP, MPASP_C2PMSG_73_ALT_1),
+		DEFINE_BAR_OFFSET(PSP_STATUS_REG, NPU3_PSP, MPASP_C2PMSG_123_ALT_1),
+		DEFINE_BAR_OFFSET(PSP_RESP_REG,   NPU3_PSP, MPASP_C2PMSG_156_ALT_1),
+		/* npu3 doesn't use 8th pwaitmode register */
+	},
 };
 
 const struct amdxdna_dev_info dev_npu3_pf_info = {
 	.mbox_bar		= NPU3_MBOX_BAR,
 	.sram_bar		= NPU3_MBOX_BUFFER_BAR,
+	.psp_bar                = NPU3_PSP_BAR_INDEX,
 	.vbnv			= "RyzenAI-npu3-pf",
 	.device_type		= AMDXDNA_DEV_TYPE_PF,
 	.dev_priv		= &npu3_dev_priv,
