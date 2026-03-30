@@ -646,10 +646,6 @@ static void pvr_queue_submit_job_to_cccb(struct pvr_job *job)
 		if (!jfence)
 			continue;
 
-		/* This fence will be placed last, as partial render fence. */
-		if (is_paired_job_fence(fence, job))
-			continue;
-
 		if (dma_fence_is_signaled(&jfence->base))
 			continue;
 
@@ -664,8 +660,13 @@ static void pvr_queue_submit_job_to_cccb(struct pvr_job *job)
 		}
 	}
 
-	/* Partial render fence goes last. */
 	if (job->type == DRM_PVR_JOB_TYPE_FRAGMENT && job->paired_job) {
+		/*
+		 * The loop above will only process dependencies backed by a UFO i.e. with
+		 * a valid parent fence assigned, but the paired job dependency won't have
+		 * one until both jobs have been submitted. Access the parent fence directly
+		 * here instead, submitting it last as partial render fence.
+		 */
 		jfence = to_pvr_queue_job_fence(job->paired_job->done_fence);
 		if (!WARN_ON(!jfence)) {
 			pvr_fw_object_get_fw_addr(jfence->queue->timeline_ufo.fw_obj,
