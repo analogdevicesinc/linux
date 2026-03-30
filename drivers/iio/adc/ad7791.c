@@ -413,10 +413,8 @@ static int ad7791_probe(struct spi_device *spi)
 	struct ad7791_state *st;
 	int ret;
 
-	if (!spi->irq) {
-		dev_err(&spi->dev, "Missing IRQ.\n");
-		return -ENXIO;
-	}
+	if (!spi->irq)
+		return dev_err_probe(dev, -ENXIO, "Missing IRQ.\n");
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
