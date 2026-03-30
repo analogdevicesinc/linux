@@ -48,12 +48,15 @@ cifs-$(CONFIG_CIFS_COMPRESSION) += compress.o compress/lz77.o
 # Build the SMB2 error mapping table from smb2status.h
 #
 $(obj)/smb2_mapping_table.c: $(src)/../common/smb2status.h \
-			    $(src)/gen_smb2_mapping
-	$(call cmd,gen_smb2_mapping)
+			     $(src)/gen_smb2_mapping FORCE
+	$(call if_changed,gen_smb2_mapping)
 
 $(obj)/smb2maperror.o: $(obj)/smb2_mapping_table.c
 
 quiet_cmd_gen_smb2_mapping = GEN     $@
       cmd_gen_smb2_mapping = perl $(src)/gen_smb2_mapping $< $@
 
-clean-files	+= smb2_mapping_table.c
+obj-$(CONFIG_SMB_KUNIT_TESTS) += smb2maperror_test.o
+
+# Let Kbuild handle tracking and cleaning
+targets += smb2_mapping_table.c

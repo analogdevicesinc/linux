@@ -228,7 +228,8 @@ reassess_streams:
 		if (!smp_load_acquire(&stream->active))
 			continue;
 
-		front = stream->front;
+		front = list_first_entry_or_null(&stream->subrequests,
+						 struct netfs_io_subrequest, rreq_link);
 		while (front) {
 			trace_netfs_collect_sreq(wreq, front);
 			//_debug("sreq [%x] %llx %zx/%zx",
@@ -279,7 +280,6 @@ reassess_streams:
 			list_del_init(&front->rreq_link);
 			front = list_first_entry_or_null(&stream->subrequests,
 							 struct netfs_io_subrequest, rreq_link);
-			stream->front = front;
 			spin_unlock(&wreq->lock);
 			netfs_put_subrequest(remove,
 					     notes & SAW_FAILURE ?
@@ -398,27 +398,6 @@ bool netfs_write_collection(struct netfs_io_request *wreq)
 		 */
 		ictx->ops->invalidate_cache(wreq);
 	}
-
-	if ((wreq->origin == NETFS_UNBUFFERED_WRITE ||
-	     wreq->origin == NETFS_DIO_WRITE) &&
-	    !wreq->error)
-		netfs_update_i_size(ictx, &ictx->inode, wreq->start, wreq->transferred);
-
-	if (wreq->origin == NETFS_DIO_WRITE &&
-	    wreq->mapping->nrpages) {
-		/* mmap may have got underfoot and we may now have folios
-		 * locally covering the region we just wrote.  Attempt to
-		 * discard the folios, but leave in place any modified locally.
-		 * ->write_iter() is prevented from interfering by the DIO
-		 * counter.
-		 */
-		pgoff_t first = wreq->start >> PAGE_SHIFT;
-		pgoff_t last = (wreq->start + wreq->transferred - 1) >> PAGE_SHIFT;
-		invalidate_inode_pages2_range(wreq->mapping, first, last);
-	}
-
-	if (wreq->origin == NETFS_DIO_WRITE)
-		inode_dio_end(wreq->inode);
 
 	_debug("finished");
 	netfs_wake_rreq_flag(wreq, NETFS_RREQ_IN_PROGRESS, netfs_rreq_trace_wake_ip);
