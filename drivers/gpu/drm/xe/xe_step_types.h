@@ -10,8 +10,6 @@
 
 #include <drm/intel/step.h>
 
-#define xe_step intel_step
-
 struct xe_step_info {
 	u8 platform;
 	u8 graphics;
