@@ -26,8 +26,6 @@
 #include <drm/drm_gem_atomic_helper.h>
 #include <drm/drm_print.h>
 
-#include "uapi/drm/vc4_drm.h"
-
 #include "vc4_drv.h"
 #include "vc4_regs.h"
 
