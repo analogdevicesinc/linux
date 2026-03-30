@@ -553,12 +553,13 @@ pvr_queue_prepare_job(struct drm_sched_job *sched_job,
 
 	if (job->type == DRM_PVR_JOB_TYPE_FRAGMENT && job->paired_job) {
 		/*
-		 * This will be called on a paired fragment job after being
-		 * submitted to firmware. We can tell if this is the case and
-		 * bail early from whether run_job() has been called on the
-		 * geometry job, which would issue a pm ref.
+		 * This will be called on a paired fragment job after being submitted
+		 * to the firmware as part of the paired geometry job's submission.
+		 * We can tell if this is the case and bail early from whether run_job()
+		 * has been called on the geometry job, which would issue a pm ref on
+		 * this job as well.
 		 */
-		if (job->paired_job->has_pm_ref)
+		if (job->has_pm_ref)
 			return NULL;
 	}
 
