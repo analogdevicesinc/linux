@@ -990,8 +990,8 @@ static int ad7280_probe(struct spi_device *spi)
 			st->acquisition_time = AD7280A_CTRL_LB_ACQ_TIME_1600ns;
 			break;
 		default:
-			dev_err(dev, "Firmware provided acquisition time is invalid\n");
-			return -EINVAL;
+			return dev_err_probe(dev, -EINVAL,
+					     "Firmware provided acquisition time is invalid\n");
 		}
 	} else {
 		st->acquisition_time = AD7280A_CTRL_LB_ACQ_TIME_400ns;
