@@ -477,31 +477,16 @@ static int ni6501_find_endpoints(struct comedi_device *dev)
 	struct usb_interface *intf = comedi_to_usb_interface(dev);
 	struct ni6501_private *devpriv = dev->private;
 	struct usb_host_interface *iface_desc = intf->cur_altsetting;
-	struct usb_endpoint_descriptor *ep_desc;
-	int i;
+	int ret;
 
 	if (iface_desc->desc.bNumEndpoints != 2) {
 		dev_err(dev->class_dev, "Wrong number of endpoints\n");
 		return -ENODEV;
 	}
 
-	for (i = 0; i < iface_desc->desc.bNumEndpoints; i++) {
-		ep_desc = &iface_desc->endpoint[i].desc;
-
-		if (usb_endpoint_is_bulk_in(ep_desc)) {
-			if (!devpriv->ep_rx)
-				devpriv->ep_rx = ep_desc;
-			continue;
-		}
-
-		if (usb_endpoint_is_bulk_out(ep_desc)) {
-			if (!devpriv->ep_tx)
-				devpriv->ep_tx = ep_desc;
-			continue;
-		}
-	}
-
-	if (!devpriv->ep_rx || !devpriv->ep_tx)
+	ret = usb_find_common_endpoints(iface_desc, &devpriv->ep_rx,
+					&devpriv->ep_tx, NULL, NULL);
+	if (ret)
 		return -ENODEV;
 
 	if (usb_endpoint_maxp(devpriv->ep_rx) < RX_MAX_SIZE)
